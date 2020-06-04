@@ -1,2 +1,4 @@
 ---
-# defaults file for velero
+velero_namespace: "{{ lookup( 'env', 'WATCH_NAMESPACE') | default('oadp-operator') }}"
+velero_state: "present"
+
