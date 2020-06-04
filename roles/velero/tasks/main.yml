@@ -1,2 +1,5 @@
 ---
-# tasks file for velero
+- name: "Set up velero supporting resources (CRDS, SA, SCC)"
+  k8s:
+    state: "{{ velero_state }}"
+    definition: "{{ lookup('template', 'velero_supporting.yml.j2') }}"
