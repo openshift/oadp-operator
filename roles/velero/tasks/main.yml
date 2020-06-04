@@ -3,3 +3,4 @@
   k8s:
     state: "{{ velero_state }}"
     definition: "{{ lookup('template', 'velero_supporting.yml.j2') }}"
+
