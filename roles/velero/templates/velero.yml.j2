@@ -105,15 +105,6 @@ spec:
         - name: certs
           emptyDir: {}
       initContainers:
-        - image: {{ velero_plugin_image }}:{{ velero_plugin_version }}
-          imagePullPolicy: "{{ image_pull_policy }}"
-          name: velero-plugin
-          resources: {}
-          terminationMessagePath: /dev/termination-log
-          terminationMessagePolicy: File
-          volumeMounts:
-          - mountPath: /target
-            name: plugins
         - image: {{ velero_aws_plugin_image }}:{{ velero_aws_plugin_version }}
           imagePullPolicy: "{{ image_pull_policy }}"
           name: velero-plugin-for-aws
