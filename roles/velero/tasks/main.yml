@@ -60,7 +60,7 @@
         namespace: "{{ velero_namespace }}"
       data:
         cloud: ""
-  when: (azure_secret_status.resources|length) == 0  
+  when: (azure_secret_status.resources|length) == 0
 
 - name: "Set up velero supporting resources (CRDS, SA, SCC)"
   k8s:
@@ -72,4 +72,3 @@
     state: "{{ velero_state }}"
     definition: "{{ lookup('template', 'velero.yml.j2') }}"
   
-

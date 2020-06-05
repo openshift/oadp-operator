@@ -52,7 +52,7 @@ spec:
             - name: VELERO_AZURE_PLUGIN_REPO
               value: velero-plugin-for-microsoft-azure
             - name: VELERO_TAG
-              value: latest 
+              value: latest
             - name: VELERO_RESTIC_RESTORE_HELPER_TAG
               value: latest
             - name: VELERO_PLUGIN_TAG
@@ -62,7 +62,7 @@ spec:
             - name: VELERO_GCP_PLUGIN_TAG
               value: latest
             - name: VELERO_AZURE_PLUGIN_TAG
-              value: latest   
+              value: latest
       volumes:
         - name: runner
           emptyDir: {}
