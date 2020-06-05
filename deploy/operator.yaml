@@ -42,7 +42,7 @@ spec:
             - name: VELERO_REPO
               value: velero
             - name: VELERO_PLUGIN_REPO
-              value: migration-plugin   #TODO: Ask if this needs to be changed or not
+              value: openshift-velero-plugin   #TODO: Ask if this needs to be changed or not
             - name: VELERO_RESTIC_RESTORE_HELPER_REPO
               value: velero-restic-restore-helper
             - name: VELERO_AWS_PLUGIN_REPO
