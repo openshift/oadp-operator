@@ -1,6 +1,75 @@
 ---
+- name: "Check if cloud-credentials secret exists already so we don't update it"
+  k8s_facts:
+    api_version: v1
+    kind: Secret
+    name: "{{ velero_aws_secret_name }}"
+    namespace: "{{ velero_namespace }}"
+  register: secret_status
+
+- name: "Check if gcp-cloud-credentials secret exists already so we don't update it"
+  k8s_facts:
+    api_version: v1
+    kind: Secret
+    name: "{{ velero_gcp_secret_name }}"
+    namespace: "{{ velero_namespace }}"
+  register: gcp_secret_status
+
+- name: "Check if azure-cloud-credentials secret exists already so we don't update it"
+  k8s_facts:
+    api_version: v1
+    kind: Secret
+    name: "{{ velero_azure_secret_name }}"
+    namespace: "{{ velero_namespace }}"
+  register: azure_secret_status
+
+- name: "Create empty velero S3 secret"
+  k8s:
+    state: "{{ velero_state }}"
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: "{{ velero_aws_secret_name }}"
+        namespace: "{{ velero_namespace }}"
+      data:
+        cloud: ""
+  when: (secret_status.resources|length) == 0
+
+- name: "Create empty velero gcp secret"
+  k8s:
+    state: "{{ velero_state }}"
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: "{{ velero_gcp_secret_name }}"
+        namespace: "{{ velero_namespace }}"
+      data:
+        cloud: ""
+  when: (gcp_secret_status.resources|length) == 0
+
+- name: "Create empty velero azure secret"
+  k8s:
+    state: "{{ velero_state }}"
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: "{{ velero_azure_secret_name }}"
+        namespace: "{{ velero_namespace }}"
+      data:
+        cloud: ""
+  when: (azure_secret_status.resources|length) == 0  
+
 - name: "Set up velero supporting resources (CRDS, SA, SCC)"
   k8s:
     state: "{{ velero_state }}"
     definition: "{{ lookup('template', 'velero_supporting.yml.j2') }}"
+
+- name: "Set up velero controller"
+  k8s:
+    state: "{{ velero_state }}"
+    definition: "{{ lookup('template', 'velero.yml.j2') }}"
+  
 

@@ -1,0 +1,278 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: restic-restore-action-config
+  namespace: {{ velero_namespace }}
+  labels:
+    velero.io/plugin-config: ""
+    velero.io/restic: RestoreItemAction
+data:
+  image: {{ velero_restic_restore_helper_image }}:{{ velero_restic_restore_helper_version }}
+---
+{% if lookup('k8s', cluster_info='version').kubernetes.minor|replace('+', '')|int < 9 %}
+apiVersion: apps/v1beta1
+{% else %}
+apiVersion: apps/v1
+{% endif %}
+kind: Deployment
+metadata:
+  namespace: {{ velero_namespace }}
+  name: velero
+spec:
+  selector:
+    matchLabels:
+      component: velero
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        component: velero
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8085"
+        prometheus.io/path: "/metrics"
+    spec:
+      restartPolicy: Always
+      serviceAccountName: velero
+      containers:
+        - name: velero
+          image: {{ velero_image_fqin }}
+          imagePullPolicy: "{{ image_pull_policy }}"
+          ports:
+            - name: metrics
+              containerPort: 8085
+          command:
+            - /velero
+          args:
+            - server
+            - --restic-timeout
+            - {{ restic_timeout }}
+{% if velero_debug %}
+            - --log-level
+            - debug
+{% endif %}
+          volumeMounts:
+            - name: {{ velero_aws_secret_name }}
+              mountPath: /credentials
+            - name: {{ velero_gcp_secret_name }}
+              mountPath: /credentials-gcp
+            - name: {{ velero_azure_secret_name }}
+              mountPath: /credentials-azure
+            - name: plugins
+              mountPath: /plugins
+            - name: scratch
+              mountPath: /scratch
+            - name: certs
+              mountPath: /etc/ssl/certs
+          env:
+            - name: AWS_SHARED_CREDENTIALS_FILE
+              value: /credentials/cloud
+            - name: GOOGLE_APPLICATION_CREDENTIALS
+              value: /credentials-gcp/cloud
+            - name: AZURE_CREDENTIALS_FILE
+              value: /credentials-azure/cloud
+            - name: VELERO_NAMESPACE
+              value: {{ velero_namespace }}
+            - name: VELERO_SCRATCH_DIR
+              value: /scratch
+{% if http_proxy|length >0 %}
+            - name: HTTP_PROXY
+              value: {{ http_proxy }}
+{% endif %}
+{% if https_proxy|length >0 %}
+            - name: HTTPS_PROXY
+              value: {{ https_proxy }}
+{% endif %}
+{% if no_proxy|length >0 %}
+            - name: NO_PROXY
+              value: {{ no_proxy }}
+{% endif %}
+      volumes:
+        - name: {{ velero_aws_secret_name }}
+          secret:
+            secretName: {{ velero_aws_secret_name }}
+        - name: {{ velero_gcp_secret_name }}
+          secret:
+            secretName: {{ velero_gcp_secret_name }}
+        - name: {{ velero_azure_secret_name }}
+          secret:
+            secretName: {{ velero_azure_secret_name }}
+        - name: plugins
+          emptyDir: {}
+        - name: scratch
+          emptyDir: {}
+        - name: certs
+          emptyDir: {}
+      initContainers:
+        - image: {{ velero_plugin_image }}:{{ velero_plugin_version }}
+          imagePullPolicy: "{{ image_pull_policy }}"
+          name: velero-plugin
+          resources: {}
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+          - mountPath: /target
+            name: plugins
+        - image: {{ velero_aws_plugin_image }}:{{ velero_aws_plugin_version }}
+          imagePullPolicy: "{{ image_pull_policy }}"
+          name: velero-plugin-for-aws
+          resources: {}
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+          - mountPath: /target
+            name: plugins
+        - image: {{ velero_gcp_plugin_image }}:{{ velero_gcp_plugin_version }}
+          imagePullPolicy: "{{ image_pull_policy }}"
+          name: velero-plugin-for-gcp
+          resources: {}
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+          - mountPath: /target
+            name: plugins
+        - image: {{ velero_azure_plugin_image }}:{{ velero_azure_plugin_version }}
+          imagePullPolicy: "{{ image_pull_policy }}"
+          name: velero-plugin-for-microsoft-azure
+          resources: {}
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+          - mountPath: /target
+            name: plugins
+        - image: {{ velero_image_fqin }}
+          imagePullPolicy: "{{ image_pull_policy }}"
+          name: setup-certificate-secret
+          command:
+          - sh
+          - '-ec'
+          - >-
+            cp /etc/ssl/certs/* /certs/; ln -sf /credentials/ca_bundle.pem
+            /certs/ca_bundle.pem;
+          resources: {}
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+          - mountPath: /certs
+            name: certs
+          - mountPath: /credentials
+            name: cloud-credentials
+---
+{% if lookup('k8s', cluster_info='version').kubernetes.minor|replace('+', '')|int < 9 %}
+apiVersion: extensions/v1beta1
+{% else %}
+apiVersion: apps/v1
+{% endif %}
+kind: DaemonSet
+metadata:
+  name: restic
+  namespace: {{ velero_namespace }}
+spec:
+  selector:
+    matchLabels:
+      name: restic
+  updateStrategy:
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        name: restic
+    spec:
+      serviceAccountName: velero
+      securityContext:
+        runAsUser: 0
+      volumes:
+        - name: {{ velero_aws_secret_name }}
+          secret:
+            secretName: {{ velero_aws_secret_name }}
+        - name: {{ velero_gcp_secret_name }}
+          secret:
+            secretName: {{ velero_gcp_secret_name }}
+        - name: {{ velero_azure_secret_name }}
+          secret:
+            secretName: {{ velero_azure_secret_name }}
+        - name: host-pods
+          hostPath:
+            path: {{ restic_pv_host_path }}
+        - name: scratch
+          emptyDir: {}
+        - name: certs
+          emptyDir: {}
+      containers:
+        - name: velero
+          securityContext:
+            privileged: true
+          image: {{ velero_image_fqin }}
+          imagePullPolicy: "{{ image_pull_policy }}"
+          command:
+            - /velero
+          args:
+            - restic
+            - server
+          volumeMounts:
+            - name: {{ velero_aws_secret_name }}
+              mountPath: /credentials
+            - name: {{ velero_gcp_secret_name }}
+              mountPath: /credentials-gcp
+            - name: {{ velero_azure_secret_name }}
+              mountPath: /credentials-azure
+            - name: host-pods
+              mountPath: /host_pods
+              mountPropagation: HostToContainer
+            - name: scratch
+              mountPath: /scratch
+            - name: certs
+              mountPath: /etc/ssl/certs
+          env:
+{% if http_proxy|length >0 %}
+            - name: HTTP_PROXY
+              value: {{ http_proxy }}
+{% endif %}
+{% if https_proxy|length >0 %}
+            - name: HTTPS_PROXY
+              value: {{ https_proxy }}
+{% endif %}
+{% if no_proxy|length >0 %}
+            - name: NO_PROXY
+              value: {{ no_proxy }}
+{% endif %}
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: VELERO_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: AWS_SHARED_CREDENTIALS_FILE
+              value: /credentials/cloud
+            - name: GOOGLE_APPLICATION_CREDENTIALS
+              value: /credentials-gcp/cloud
+            - name: AZURE_CREDENTIALS_FILE
+              value: /credentials-azure/cloud
+            - name: VELERO_SCRATCH_DIR
+              value: /scratch
+      initContainers:
+        - image: {{ velero_image_fqin }}
+          imagePullPolicy: "{{ image_pull_policy }}"
+          name: setup-certificate-secret
+          command:
+            - sh
+            - '-ec'
+            - >-
+              cp /etc/ssl/certs/* /certs/; ln -sf /credentials/ca_bundle.pem
+              /certs/ca_bundle.pem;
+          resources: {}
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+            - name: certs
+              mountPath: /certs
+            - name: cloud-credentials
+              mountPath: /credentials
+
