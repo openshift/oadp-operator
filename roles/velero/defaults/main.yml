@@ -32,5 +32,4 @@ velero_azure_plugin_repo: "{{ lookup( 'env', 'VELERO_AZURE_PLUGIN_REPO') }}"
 velero_azure_plugin_version: "{{ snapshot_tag | default(lookup( 'env', 'VELERO_AZURE_PLUGIN_TAG')) }}"
 restic_pv_host_path: /var/lib/kubelet/pods
 restic_timeout: 1h
-
-
+size: 1
