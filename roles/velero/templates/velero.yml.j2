@@ -23,7 +23,7 @@ spec:
   selector:
     matchLabels:
       component: velero
-  replicas: 1
+  replicas: {{ size | int }}
   template:
     metadata:
       labels:

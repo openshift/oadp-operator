@@ -4,4 +4,3 @@ metadata:
   name: example-velero
 spec:
   # Add fields here
-  size: 3
