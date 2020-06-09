@@ -4,3 +4,7 @@ metadata:
   name: example-velero
 spec:
   # Add fields here
+  default_velero_plugins:
+  - azure
+  - gcp
+  - aws

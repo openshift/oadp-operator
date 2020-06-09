@@ -1,4 +1,5 @@
 ---
+custom_velero_plugins: []
 http_proxy: "{{ lookup( 'env', 'HTTP_PROXY') }}"
 https_proxy: "{{ lookup( 'env', 'HTTPS_PROXY') }}"
 no_proxy: "{{ lookup( 'env', 'NO_PROXY') }}"
@@ -15,9 +16,9 @@ velero_image: "{{ registry }}/{{ project }}/{{ velero_repo }}"
 velero_repo: "{{ lookup( 'env', 'VELERO_REPO') }}"
 velero_version: "{{ snapshot_tag | default(lookup( 'env', 'VELERO_TAG')) }}"
 velero_image_fqin: "{{ velero_image }}:{{ velero_version }}"
-velero_plugin_image: "{{ registry }}/{{ project }}/{{ velero_plugin_repo }}"
-velero_plugin_repo: "{{ lookup( 'env', 'VELERO_PLUGIN_REPO') }}"
-velero_plugin_version: "{{ snapshot_tag | default(lookup( 'env', 'VELERO_PLUGIN_TAG')) }}"
+velero_openshift_plugin_image: "{{ registry }}/{{ project }}/{{ velero_openshift_plugin_repo }}"
+velero_openshift_plugin_repo: "{{ lookup( 'env', 'VELERO_OPENSHIFT_PLUGIN_REPO') }}"
+velero_openshift_plugin_version: "{{ snapshot_tag | default(lookup( 'env', 'VELERO_OPENSHIFT_PLUGIN_TAG')) }}"
 velero_restic_restore_helper_image: "{{ registry }}/{{ project }}/{{ velero_restic_restore_helper_repo }}"
 velero_restic_restore_helper_repo: "{{ lookup( 'env', 'VELERO_RESTIC_RESTORE_HELPER_REPO') }}"
 velero_restic_restore_helper_version: "{{ snapshot_tag | default(lookup( 'env', 'VELERO_RESTIC_RESTORE_HELPER_TAG')) }}"

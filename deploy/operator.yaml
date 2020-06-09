@@ -41,7 +41,7 @@ spec:
               value: konveyor
             - name: VELERO_REPO
               value: velero
-            - name: VELERO_PLUGIN_REPO
+            - name: VELERO_OPENSHIFT_PLUGIN_REPO
               value: openshift-velero-plugin   #TODO: Ask if this needs to be changed or not
             - name: VELERO_RESTIC_RESTORE_HELPER_REPO
               value: velero-restic-restore-helper

@@ -43,6 +43,10 @@ In order to use the built image, please update the `operator.yaml` file. Replace
 ```
 sed -i 's|REPLACE_IMAGE|<REGISTRY_URL>|g' deploy/operator.yaml
 ```
+For OSX, use the following command:
+```
+sed -i "" 's|REPLACE_IMAGE|<REGISTRY_URL>|g' deploy/operator.yaml
+```
 
 Before proceeding further make sure the `REPLACE_IMAGE` place holder is updated in the `operator.yaml` file as discussed above.
 
@@ -62,11 +66,11 @@ To install OADP operator and the essential Velero components follow the steps gi
   ```
   oc create -f deploy/
   ```
-- Create the Velero custom resource definition:
+- Deploy the Velero custom resource definition:
   ```
   oc create -f deploy/crds/konveyor.openshift.io_veleros_crd.yaml   
   ```
-- Finally, create the Velero CR:
+- Finally, deploy the Velero CR:
   ```
   oc create -f deploy/crds/konveyor.openshift.io_v1alpha1_velero_cr.yaml
   ```
@@ -95,9 +99,52 @@ replicaset.apps/oadp-operator-7749f885f6   1         1         1         6m7s
 replicaset.apps/velero-76546b65c8          1         1         1         2m17s
 
 ``` 
+<b>Note:</b> For using the `velero` CLI directly configured for the `oadp-operator` namespace, you may want to use the following command:
+```
+velero client config set namespace=oadp-operator
+```
+
+### Configure Velero Plugins
+
+There are mainly two categories of velero plugins that can be specified while installing Velero:
+
+1. `default-velero-plugins`:<br>
+   4 types of default velero plugins can be installed - AWS, GCP, Azure and OpenShift. For installation, you need to specify them in the `konveyor.openshift.io_v1alpha1_velero_cr.yaml` file during deployment.
+   ```
+    apiVersion: konveyor.openshift.io/v1alpha1
+    kind: Velero
+    metadata:
+      name: example-velero
+    spec:
+      default_velero_plugins:
+      - azure
+      - gcp
+      - aws
+      - openshift    
+   ```
+   The above specification will install Velero with all the 4 default plugins.
+   
+2. `custom-velero-plugin`:<br>
+   For installation of custom velero plugins, you need to specify the plugin `image` and plugin `name` in the `konveyor.openshift.io_v1alpha1_velero_cr.yaml` file during deployment.
+
+   For instance, 
+   ```
+    apiVersion: konveyor.openshift.io/v1alpha1
+    kind: Velero
+    metadata:
+      name: example-velero
+    spec:
+      default_velero_plugins:
+      - azure
+      - gcp
+      custom_velero_plugins:
+      - name: custom-plugin-example
+        image: quay.io/example-repo/custom-velero-plugin   
+   ```
+   The above specification will install Velero with 3 plugins (azure, gcp and custom-plugin-example).
 
 ### Cleanup
-To uninstall all that was performed and clean up, use the following commands:
+For cleaning up the deployed resources, use the following commands:
 ```
 oc delete -f deploy/crds/konveyor.openshift.io_v1alpha1_velero_cr.yaml
 oc delete -f deploy/crds/konveyor.openshift.io_veleros_crd.yaml   
