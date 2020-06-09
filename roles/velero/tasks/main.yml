@@ -6,6 +6,7 @@
     name: "{{ velero_aws_secret_name }}"
     namespace: "{{ velero_namespace }}"
   register: secret_status
+  when: '"aws" in default_velero_plugins'
 
 - name: "Check if gcp-cloud-credentials secret exists already so we don't update it"
   k8s_facts:
@@ -14,6 +15,7 @@
     name: "{{ velero_gcp_secret_name }}"
     namespace: "{{ velero_namespace }}"
   register: gcp_secret_status
+  when: '"gcp" in default_velero_plugins'
 
 - name: "Check if azure-cloud-credentials secret exists already so we don't update it"
   k8s_facts:
@@ -22,6 +24,7 @@
     name: "{{ velero_azure_secret_name }}"
     namespace: "{{ velero_namespace }}"
   register: azure_secret_status
+  when: '"azure" in default_velero_plugins'
 
 - name: "Create empty velero S3 secret"
   k8s:
@@ -34,7 +37,7 @@
         namespace: "{{ velero_namespace }}"
       data:
         cloud: ""
-  when: (secret_status.resources|length) == 0
+  when: '"aws" in default_velero_plugins and (secret_status.resources|length) == 0'
 
 - name: "Create empty velero gcp secret"
   k8s:
@@ -47,7 +50,7 @@
         namespace: "{{ velero_namespace }}"
       data:
         cloud: ""
-  when: (gcp_secret_status.resources|length) == 0
+  when: '"gcp" in default_velero_plugins and (gcp_secret_status.resources|length) == 0'
 
 - name: "Create empty velero azure secret"
   k8s:
@@ -60,7 +63,7 @@
         namespace: "{{ velero_namespace }}"
       data:
         cloud: ""
-  when: (azure_secret_status.resources|length) == 0
+  when: '"azure" in default_velero_plugins and (azure_secret_status.resources|length) == 0'
 
 - name: "Set up velero supporting resources (CRDS, SA, SCC)"
   k8s:

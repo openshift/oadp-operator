@@ -4,3 +4,10 @@ metadata:
   name: example-velero
 spec:
   # Add fields here
+  default_velero_plugins:
+  - azure
+  - gcp
+  - aws
+  custom_velero_plugins:
+  - name: custom-shubham-plugin
+    image: quay.io/spampatt/custom-velero-plugin
