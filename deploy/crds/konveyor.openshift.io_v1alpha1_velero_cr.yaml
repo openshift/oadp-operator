@@ -8,6 +8,3 @@ spec:
   - azure
   - gcp
   - aws
-  custom_velero_plugins:
-  - name: custom-shubham-plugin
-    image: quay.io/spampatt/custom-velero-plugin

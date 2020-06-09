@@ -171,8 +171,10 @@ spec:
           volumeMounts:
           - mountPath: /certs
             name: certs
+{% if 'aws' in default_velero_plugins %}
           - mountPath: /credentials
-            name: cloud-credentials
+            name: {{ velero_aws_secret_name }}
+{% endif %}
 {% for plugin in custom_velero_plugins %}
         - image: {{ plugin.image }}
           imagePullPolicy: "{{ image_pull_policy }}"
@@ -317,6 +319,7 @@ spec:
           volumeMounts:
             - name: certs
               mountPath: /certs
-            - name: cloud-credentials
+{% if 'aws' in default_velero_plugins %}
+            - name: {{ velero_aws_secret_name }}
               mountPath: /credentials
-
+{% endif %}
