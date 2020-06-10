@@ -8,3 +8,24 @@ spec:
   - azure
   - gcp
   - aws
+  backup_storage_locations:
+  - name: 
+    provider: aws
+    objectStorage:
+      bucket: myBucket
+    config:
+      region: us-east-2
+      profile: "default"
+    credentialsSecretRef:
+      name: cloud-credentials
+      namespace: oadp-operator
+  - provider: aws
+    object...
+    credentialsSecretRef:
+      name: azure-cloud-credentials
+      namespace: oadp-operator
+  volume_snapshot_locations:
+  - provider: aws
+    config:
+      region: us-east-2
+      profile: "default"

@@ -1,0 +1,13 @@
+apiVersion: velero.io/v1
+kind: BackupStorageLocation
+metadata:
+  name: {{ name }}
+  namespace: {{ velero_namespace }}
+spec:
+  backupSyncPeriod: {{ backupSyncPeriod}}
+  provider: {{ provider }}
+  objectStorage:
+    bucket: {{ objectStorage.bucket }}
+  config:
+    region: {{ config.region }}
+    profile: {{ config.profile }}

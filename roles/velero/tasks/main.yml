@@ -1,4 +1,12 @@
 ---
+- name:
+  include_tasks: preflight.yml
+
+- name: "create BSLs"
+  loop:
+    k8s:
+      definition: "{{ lookup('template', 'velero_bsl.yml ')}}"
+
 - name: "Check if cloud-credentials secret exists already so we don't update it"
   k8s_facts:
     api_version: v1

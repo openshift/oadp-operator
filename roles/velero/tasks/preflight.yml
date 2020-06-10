@@ -1,0 +1,8 @@
+- name: "associate aws secret name"
+  set_fact:
+    # Loop through all BSLs
+    # Find a BSL with provider=aws
+    # set `aws_secret_name` to `credentialsSecret.Name`
+
+- name: "Validate BSLs"
+    # Loops through all BSLs and ensure that only one per provider BSL is set
