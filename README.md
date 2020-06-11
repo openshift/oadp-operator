@@ -62,6 +62,10 @@ To install OADP operator and the essential Velero components follow the steps gi
   ```
   oc project oadp-operator
   ```
+- Create secret for the cloud provider credentials to be used
+  ```
+  oc create secret generic <SECRET_NAME> --namespace oadp-operator --from-file cloud=<CREDENTIALS_FILE_PATH>
+  ```
 - Now to create the deployment, role, role binding, service account and the cluster role binding, use the following command:
   ```
   oc create -f deploy/
@@ -142,6 +146,44 @@ There are mainly two categories of velero plugins that can be specified while in
         image: quay.io/example-repo/custom-velero-plugin   
    ```
    The above specification will install Velero with 3 plugins (azure, gcp and custom-plugin-example).
+
+### Configure Backup Storage Locations and Volume Snapshot Locations
+
+For configuring the `backupStorageLocations` and the `volumeSnapshotLocations` we will be using the `backup_storage_locations` and the `volume_snapshot_locations` specs respectively in the `konveyor.openshift.io_v1alpha1_velero_cr.yaml` file during the deployement. 
+
+For instance, If we want to configure `aws` for `backupStorageLocations` as well as `volumeSnapshotLocations` pertaining to velero, our `konveyor.openshift.io_v1alpha1_velero_cr.yaml` file should look something like this:
+
+```
+apiVersion: konveyor.openshift.io/v1alpha1
+kind: Velero
+metadata:
+  name: example-velero
+spec:
+  default_velero_plugins:
+  - aws
+  backup_storage_locations:
+  - name: default
+    provider: aws
+    object_storage:
+      bucket: myBucket
+      prefix: "velero"
+    config:
+      region: us-east-1
+      profile: "default"
+    credentials_secret_ref:
+      name: cloud-credentials
+      namespace: oadp-operator
+  volume_snapshot_locations:
+  - name: default
+    provider: aws
+    config:
+      region: us-west-2
+      profile: "default"
+```
+<b>Note:</b> 
+- Be sure to use the same `secret` name you used while creating the cloud credentials secret in step 3 of Operator   installation section.
+- Do not configure more than one `backupStorageLocations` per cloud provider, the velero installation will fail.  
+- Parameter reference for [backupStorageLocations](https://velero.io/docs/master/api-types/backupstoragelocation/) and [volumeSnapshotLocations](https://velero.io/docs/master/api-types/volumesnapshotlocation/)
 
 ### Cleanup
 For cleaning up the deployed resources, use the following commands:
