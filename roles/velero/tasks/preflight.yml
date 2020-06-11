@@ -1,0 +1,13 @@
+---
+- name: "Discover aws as provider in Backup Storage Locations and associate aws secret name"
+  set_fact:
+    velero_aws_secret_name: "{{ item.credentials_secret_ref.name }}"
+    velero_aws_bsl_configs: "{{ velero_aws_bsl_configs | int + 1 }}"
+  loop: "{{ backup_storage_locations }}"
+  when: item.provider == 'aws'
+  register: aws_bsl_config
+
+- name: "Validate that there is only one aws BSL config"
+  fail:
+    msg: "More than one BackupStorageLocations are configured for aws"
+  when: velero_aws_bsl_configs | int > 1

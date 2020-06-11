@@ -1,4 +1,5 @@
 ---
+backup_storage_locations: []
 custom_velero_plugins: []
 http_proxy: "{{ lookup( 'env', 'HTTP_PROXY') }}"
 https_proxy: "{{ lookup( 'env', 'HTTPS_PROXY') }}"
@@ -8,6 +9,7 @@ registry: "{{ lookup( 'env', 'REGISTRY') }}"
 project: "{{ lookup( 'env', 'PROJECT') }}"
 velero_namespace: "{{ lookup( 'env', 'WATCH_NAMESPACE') | default('oadp-operator') }}"
 velero_state: "present"
+velero_aws_bsl_configs: 0
 velero_aws_secret_name: cloud-credentials
 velero_gcp_secret_name: gcp-cloud-credentials
 velero_azure_secret_name: azure-cloud-credentials
@@ -34,3 +36,4 @@ velero_azure_plugin_version: "{{ snapshot_tag | default(lookup( 'env', 'VELERO_A
 restic_pv_host_path: /var/lib/kubelet/pods
 restic_timeout: 1h
 size: 1
+volume_snapshot_locations: []

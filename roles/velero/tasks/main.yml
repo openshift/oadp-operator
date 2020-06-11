@@ -1,4 +1,7 @@
 ---
+- name: "Include preflight tasks"
+  include_tasks: preflight.yml
+
 - name: "Check if cloud-credentials secret exists already so we don't update it"
   k8s_facts:
     api_version: v1
@@ -74,3 +77,13 @@
   k8s:
     state: "{{ velero_state }}"
     definition: "{{ lookup('template', 'velero.yml.j2') }}"
+
+- name: "Create BackupStorageLocations"
+  k8s:
+    state: "{{ velero_state }}"
+    definition: "{{ lookup('template', 'velero_bsl.yml.j2') }}"
+
+- name: "Create VolumeStorageLocations"
+  k8s:
+    state: "{{ velero_state }}"
+    definition: "{{ lookup('template', 'velero_vsl.yml.j2') }}"
