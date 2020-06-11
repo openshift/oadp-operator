@@ -3,8 +3,24 @@ kind: Velero
 metadata:
   name: example-velero
 spec:
-  # Add fields here
   default_velero_plugins:
-  - azure
-  - gcp
   - aws
+  enable_restic: true
+  backup_storage_locations:
+  - name: default
+    provider: aws
+    object_storage:
+      bucket: myBucket
+      prefix: "velero"
+    config:
+      region: us-east-1
+      profile: "default"
+    credentials_secret_ref:
+      name: cloud-credentials
+      namespace: oadp-operator
+  volume_snapshot_locations:
+  - name: default
+    provider: aws
+    config:
+      region: us-west-2
+      profile: "default"
