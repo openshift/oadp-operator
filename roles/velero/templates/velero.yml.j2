@@ -300,8 +300,8 @@ spec:
 {% endif %}
 {% if 'azure' in default_velero_plugins %}
             - name: AZURE_CREDENTIALS_FILE
-{% endif %}
               value: /credentials-azure/cloud
+{% endif %}
             - name: VELERO_SCRATCH_DIR
               value: /scratch
       initContainers:
