@@ -78,19 +78,19 @@
     state: "{{ velero_state }}"
     definition: "{{ lookup('template', 'velero.yml.j2') }}"
 
-- name: "Create BackupStorageLocations if aws is configured for velero"
+- name: "Create AWS BackupStorageLocation"
   k8s:
     state: "{{ velero_state }}"
     definition: "{{ lookup('template', 'velero_bsl_aws.yml.j2') }}"
   when: velero_aws_bsl_configs | int != 0
 
-- name: "Create BackupStorageLocations if gcp is configured for velero"
+- name: "Create GCP BackupStorageLocation"
   k8s:
     state: "{{ velero_state }}"
     definition: "{{ lookup('template', 'velero_bsl_gcp.yml.j2') }}"
   when: velero_gcp_bsl_configs | int != 0
 
-- name: "Create BackupStorageLocations if azure is configured for velero"
+- name: "Create Azure BackupStorageLocation"
   k8s:
     state: "{{ velero_state }}"
     definition: "{{ lookup('template', 'velero_bsl_azure.yml.j2') }}"
