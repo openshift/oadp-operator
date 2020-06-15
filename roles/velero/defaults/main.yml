@@ -10,6 +10,8 @@ project: "{{ lookup( 'env', 'PROJECT') }}"
 velero_namespace: "{{ lookup( 'env', 'WATCH_NAMESPACE') | default('oadp-operator') }}"
 velero_state: "present"
 velero_aws_bsl_configs: 0
+velero_gcp_bsl_configs: 0
+velero_azure_bsl_configs: 0
 velero_aws_secret_name: cloud-credentials
 velero_gcp_secret_name: gcp-cloud-credentials
 velero_azure_secret_name: azure-cloud-credentials

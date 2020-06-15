@@ -8,8 +8,6 @@ metadata:
 spec:
   provider: {{ vsl.provider }}
 {% if vsl.config is defined %}
-  config:
-    region: {{ vsl.config.region }}
-    profile: {{ vsl.config.profile }}
+  config: {{ vsl.config }}
 {% endif %}
 {% endfor %}

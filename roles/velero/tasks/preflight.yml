@@ -5,9 +5,33 @@
     velero_aws_bsl_configs: "{{ velero_aws_bsl_configs | int + 1 }}"
   loop: "{{ backup_storage_locations }}"
   when: item.provider == 'aws'
-  register: aws_bsl_config
 
 - name: "Validate that there is only one aws BSL config"
   fail:
     msg: "More than one BackupStorageLocations are configured for aws"
   when: velero_aws_bsl_configs | int > 1
+
+- name: "Discover gcp as provider in Backup Storage Locations and associate gcp secret name"
+  set_fact:
+    velero_gcp_secret_name: "{{ item.credentials_secret_ref.name }}"
+    velero_gcp_bsl_configs: "{{ velero_gcp_bsl_configs | int + 1 }}"
+  loop: "{{ backup_storage_locations }}"
+  when: item.provider == 'gcp'
+
+- name: "Validate that there is only one gcp BSL config"
+  fail:
+    msg: "More than one BackupStorageLocations are configured for gcp"
+  when: velero_gcp_bsl_configs | int > 1
+
+- name: "Discover azure as provider in Backup Storage Locations and associate azure secret name"
+  set_fact:
+    velero_azure_secret_name: "{{ item.credentials_secret_ref.name }}"
+    velero_azure_bsl_configs: "{{ velero_azure_bsl_configs | int + 1 }}"
+  loop: "{{ backup_storage_locations }}"
+  when: item.provider == 'azure'
+
+- name: "Validate that there is only one azure BSL config"
+  fail:
+    msg: "More than one BackupStorageLocations are configured for azure"
+  when: velero_azure_bsl_configs | int > 1
+ 
