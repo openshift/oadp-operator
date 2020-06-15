@@ -37,3 +37,4 @@ restic_pv_host_path: /var/lib/kubelet/pods
 restic_timeout: 1h
 size: 1
 volume_snapshot_locations: []
+enable_restic: true
