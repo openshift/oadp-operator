@@ -1,5 +1,6 @@
 ---
 {% for bsl in backup_storage_locations %}
+{% if bsl.provider == 'aws' %}
 apiVersion: velero.io/v1
 kind: BackupStorageLocation
 metadata:
@@ -16,12 +17,11 @@ spec:
     caCert: {{ bsl.object_storage.caCert }}
 {% endif %}
 {% if bsl.config is defined %}
-  config:
-    region: {{ bsl.config.region }}
-    profile: {{ bsl.config.profile }}
+  config: {{ bsl.config }}
 {% endif %}
   accessMode: {{ bsl.access_mode | default('ReadWrite')}}
 {% if bsl.backup_sync_period is defined %}
   backupSyncPeriod: {{ bsl.backup_sync_period }}
+{% endif %}
 {% endif %}
 {% endfor %}

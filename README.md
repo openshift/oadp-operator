@@ -39,16 +39,16 @@ After successfully building the operator image, push it to a public registry.
 
 ### Using the Image
 
-In order to use the built image, please update the `operator.yaml` file. Replace the `REPLACE_IMAGE` place holder with with the image registry URL. You can edit the file manually or use the following command (Be sure to replace the `REGISTRY_URL` with your own registry URL):
+In order to use a locally built image of the operator, please update the `operator.yaml` file. Update the `image` of the `oadp-operator` container with the image registry URL. You can edit the file manually or use the following command( `<REGISTRY_URL>` is the placeholder for your own registry url in the command):
 ```
-sed -i 's|REPLACE_IMAGE|<REGISTRY_URL>|g' deploy/operator.yaml
+sed -i 's|quay.io/konveyor/oadp-operator:latest|<REGISTRY_URL>|g' deploy/operator.yaml
 ```
 For OSX, use the following command:
 ```
-sed -i "" 's|REPLACE_IMAGE|<REGISTRY_URL>|g' deploy/operator.yaml
+sed -i "" 's|quay.io/konveyor/oadp-operator:latest|<REGISTRY_URL>|g' deploy/operator.yaml
 ```
 
-Before proceeding further make sure the `REPLACE_IMAGE` place holder is updated in the `operator.yaml` file as discussed above.
+Before proceeding further make sure the `image` is updated in the `operator.yaml` file as discussed above.
 
 ### Operator installation
 
@@ -182,6 +182,7 @@ spec:
 ```
 <b>Note:</b> 
 - Be sure to use the same `secret` name you used while creating the cloud credentials secret in step 3 of Operator   installation section.
+- Another thing to consider are the CR file specs, they should be tailored in accordance to your own cloud provider accouts, for instance `bucket` spec value should be accoring to your own bucket name and so on.
 - Do not configure more than one `backupStorageLocations` per cloud provider, the velero installation will fail.  
 - Parameter reference for [backupStorageLocations](https://velero.io/docs/master/api-types/backupstoragelocation/) and [volumeSnapshotLocations](https://velero.io/docs/master/api-types/volumesnapshotlocation/)
 
