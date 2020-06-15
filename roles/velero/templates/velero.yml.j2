@@ -187,6 +187,7 @@ spec:
             name: plugins
 {% endfor %}
 ---
+{% if enable_restic %}
 {% if lookup('k8s', cluster_info='version').kubernetes.minor|replace('+', '')|int < 9 %}
 apiVersion: extensions/v1beta1
 {% else %}
@@ -322,4 +323,5 @@ spec:
 {% if 'aws' in default_velero_plugins %}
             - name: {{ velero_aws_secret_name }}
               mountPath: /credentials
+{% endif %}
 {% endif %}
