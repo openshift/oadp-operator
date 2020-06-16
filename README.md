@@ -186,6 +186,45 @@ spec:
 - Do not configure more than one `backupStorageLocations` per cloud provider, the velero installation will fail.  
 - Parameter reference for [backupStorageLocations](https://velero.io/docs/master/api-types/backupstoragelocation/) and [volumeSnapshotLocations](https://velero.io/docs/master/api-types/volumesnapshotlocation/)
 
+### Using upstream images
+
+In order use the upstream images for Velero deployment as well as its plugins, you need to specify a flag `use_upstream_images` in the `konveyor.openshift.io_v1alpha1_velero_cr.yaml` during installation of the operator.
+
+For instance the `konveyor.openshift.io_v1alpha1_velero_cr.yaml` file look like:
+
+```
+apiVersion: konveyor.openshift.io/v1alpha1
+kind: Velero
+metadata:
+  name: example-velero
+spec:
+  use_upstream_images: true
+  default_velero_plugins:
+  - aws
+  backup_storage_locations:
+  - name: default
+    provider: aws
+    object_storage:
+      bucket: shubbam-6109f5e9711c8c58131acdd2f490f451
+      prefix: "velero"
+    config:
+      region: us-east-1
+      profile: "default"
+    credentials_secret_ref:
+      name: cloud-credentials
+      namespace: oadp-operator
+  volume_snapshot_locations:
+  - name: default
+    provider: aws
+    config:
+      region: us-west-2
+      profile: "default"
+  enable_restic: true
+```
+Such a CR specification will use the upstream images for deployment.
+
+<b>Note:</b> If the flag `use_upstream_images` is set, the registry will be switched from `quay.io` to `docker.io` and v1.4.0 (current upstream version) image tag will be used for `Velero` and `latest` iamge tag will be used for the `plugins`.  
+
 ### Cleanup
 For cleaning up the deployed resources, use the following commands:
 ```
