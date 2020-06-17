@@ -53,6 +53,8 @@ spec:
               value: velero-plugin-for-gcp
             - name: VELERO_AZURE_PLUGIN_REPO
               value: velero-plugin-for-microsoft-azure
+            - name: VELERO_CSI_PLUGIN_REPO
+              value: velero-plugin-for-csi
             - name: VELERO_TAG
               value: latest
             - name: VELERO_RESTIC_RESTORE_HELPER_TAG
@@ -65,6 +67,8 @@ spec:
               value: latest
             - name: VELERO_AZURE_PLUGIN_TAG
               value: latest
+            - name: VELERO_CSI_PLUGIN_TAG
+              value: v0.1.0
       volumes:
         - name: runner
           emptyDir: {}

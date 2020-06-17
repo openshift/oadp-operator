@@ -167,6 +167,17 @@ spec:
           - mountPath: /target
             name: plugins
 {% endif %}
+{% if enable_csi_plugin is defined and enable_csi_plugin|bool == true %}
+        - image: {{ velero_csi_plugin_image }}:{{ velero_csi_plugin_version }}
+          imagePullPolicy: "{{ image_pull_policy }}"
+          name: velero-plugin-for-csi
+          resources: {}
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+          - mountPath: /target
+            name: plugins
+{% endif %}
         - image: {{ velero_image_fqin }}
           imagePullPolicy: "{{ image_pull_policy }}"
           name: setup-certificate-secret

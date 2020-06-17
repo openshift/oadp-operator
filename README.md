@@ -147,6 +147,10 @@ There are mainly two categories of velero plugins that can be specified while in
    ```
    The above specification will install Velero with 3 plugins (azure, gcp and custom-plugin-example).
 
+### Enable CSI plugin for Velero
+
+By default the CSI plugin is not enabled, in order to enable the [CSI plugin](https://github.com/vmware-tanzu/velero-plugin-for-csi/) for velero, you need to specify a flag `enable_csi_plugin` and set it to `true` in the `konveyor.openshift.io_v1alpha1_velero_cr.yaml` file during the installation.
+
 ### Configure Backup Storage Locations and Volume Snapshot Locations
 
 For configuring the `backupStorageLocations` and the `volumeSnapshotLocations` we will be using the `backup_storage_locations` and the `volume_snapshot_locations` specs respectively in the `konveyor.openshift.io_v1alpha1_velero_cr.yaml` file during the deployement. 
