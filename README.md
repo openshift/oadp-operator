@@ -190,7 +190,7 @@ spec:
 
 In order use the upstream images for Velero deployment as well as its plugins, you need to specify a flag `use_upstream_images` in the `konveyor.openshift.io_v1alpha1_velero_cr.yaml` during installation of the operator.
 
-For instance the `konveyor.openshift.io_v1alpha1_velero_cr.yaml` file look like:
+For instance the `konveyor.openshift.io_v1alpha1_velero_cr.yaml` file might look something like this:
 
 ```
 apiVersion: konveyor.openshift.io/v1alpha1
