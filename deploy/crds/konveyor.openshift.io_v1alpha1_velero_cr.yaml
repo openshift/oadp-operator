@@ -5,6 +5,7 @@ metadata:
 spec:
   default_velero_plugins:
   - aws
+  - openshift
   backup_storage_locations:
   - name: default
     provider: aws
