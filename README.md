@@ -225,6 +225,34 @@ Such a CR specification will use the upstream images for deployment.
 
 <b>Note:</b> If the flag `use_upstream_images` is set, the registry will be switched from `quay.io` to `docker.io` and v1.4.0 (current upstream version) image tag will be used for `Velero` and `latest` iamge tag will be used for the `plugins`.  
 
+### Setting resource limits and requests for Velero Deployment
+
+In order to set specific resource `limits` and `requests` for the Velero deployment, you need use the `velero_resource_allocation` specification field in the `konveyor.openshift.io_v1alpha1_velero_cr.yaml` file during the deployment.
+
+For instance, the `velero_resource_allocation` can look somewhat similar to:
+```
+velero_resource_allocation:
+  limits:
+    cpu: "2"
+    memory: 512Mi
+  requests:
+    cpu: 500m
+    memory: 256Mi
+```
+
+<b>Note:</b> 
+- The values for the resource requests and limits flags follow the same format as [Kubernetes resource requirements](https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/)
+- Also, if the `velero_resource_allocation` is not defined by the user then the default resources specification for Velero pod is 
+  ```
+  resources:
+    limits:
+      cpu: "1"
+      memory: 256Mi
+    requests:
+      cpu: 500m
+      memory: 128Mi
+  ```
+
 ### Cleanup
 For cleaning up the deployed resources, use the following commands:
 ```

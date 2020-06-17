@@ -42,6 +42,23 @@ spec:
           ports:
             - name: metrics
               containerPort: 8085
+{% if velero_resource_allocation is defined %}
+          resources:
+            limits:
+              cpu: {{ velero_resource_allocation.limits.cpu }}
+              memory: {{ velero_resource_allocation.limits.memory }}
+            requests:
+              cpu: {{ velero_resource_allocation.requests.cpu }}
+              memory: {{ velero_resource_allocation.requests.memory }}
+{% else %}
+          resources:
+            limits:
+              cpu: "1"
+              memory: 256Mi
+            requests:
+              cpu: 500m
+              memory: 128Mi
+{% endif %}
           command:
             - /velero
           args:
