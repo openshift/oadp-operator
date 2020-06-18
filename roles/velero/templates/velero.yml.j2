@@ -268,6 +268,23 @@ spec:
             privileged: true
           image: {{ velero_image_fqin }}
           imagePullPolicy: "{{ image_pull_policy }}"
+{% if restic_resource_allocation is defined %}
+          resources:
+            limits:
+              cpu: {{ restic_resource_allocation.limits.cpu }}
+              memory: {{ restic_resource_allocation.limits.memory }}
+            requests:
+              cpu: {{ restic_resource_allocation.requests.cpu }}
+              memory: {{ restic_resource_allocation.requests.memory }}
+{% else %}
+          resources:
+            limits:
+              cpu: "1"
+              memory: 256Mi
+            requests:
+              cpu: 500m
+              memory: 128Mi
+{% endif %}
           command:
             - /velero
           args:
