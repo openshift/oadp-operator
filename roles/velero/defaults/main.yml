@@ -22,7 +22,7 @@ velero_image: "{{ registry }}/{{ project }}/{{ velero_repo }}"
 velero_repo: "{{ lookup( 'env', 'VELERO_REPO') }}"
 velero_version: "{{ velero_upstream_tag if use_upstream_images is defined and use_upstream_images|bool == true else lookup( 'env', 'VELERO_TAG') }}"
 velero_image_fqin: "{{ velero_image }}:{{ velero_version }}"
-velero_openshift_plugin_image: "{{ registry }}/{{ project }}/{{ velero_openshift_plugin_repo }}"
+velero_openshift_plugin_image: "{{ quay_registry }}/{{ konveyor_project }}/{{ velero_openshift_plugin_repo }}"
 velero_openshift_plugin_repo: "{{ lookup( 'env', 'VELERO_OPENSHIFT_PLUGIN_REPO') }}"
 velero_openshift_plugin_version: "{{ lookup( 'env', 'VELERO_OPENSHIFT_PLUGIN_TAG') }}"
 velero_csi_plugin_image: "{{ upstream_registry }}/{{ velero_upstream_project }}/{{ velero_csi_plugin_repo }}"
@@ -46,3 +46,5 @@ size: 1
 volume_snapshot_locations: []
 enable_restic: true
 upstream_registry: docker.io
+quay_registry: quay.io
+konveyor_project: konveyor

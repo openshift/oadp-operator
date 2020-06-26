@@ -13,8 +13,8 @@ spec:
 {% if bsl.object_storage.prefix is defined %}
     prefix: {{ bsl.object_storage.prefix }}
 {% endif %}
-{% if bsl.object_storage.caCert is defined %}
-    caCert: {{ bsl.object_storage.caCert }}
+{% if bsl.object_storage.ca_cert is defined %}
+    caCert: {{ bsl.object_storage.ca_cert }}
 {% endif %}
 {% if bsl.config is defined %}
   config:

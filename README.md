@@ -269,6 +269,11 @@ restic_resource_allocation:
       memory: 128Mi
   ```
 
+### Use Velero with a storage provider secured by a self-signed certificate
+
+If you are using an S3-Compatible storage provider that is secured with a self-signed certificate, connections to the object store may fail with a `certificate signed by unknown authority` message. In order to proceed, you will have to specify the a base64 encoded certificate string as a value of the `caCert` spec under the `object_storage` configuration in the velero CR.
+
+
 ### Cleanup
 For cleaning up the deployed resources, use the following commands:
 ```
