@@ -16,7 +16,7 @@
   block:
     - set_fact:
         decoded_ca_cert: "{{ aws_bsl_res.object_storage.ca_cert | b64decode }}"
-      when: velero_aws_bsl_configs | int == 1 and aws_bsl_res.object_storage.ca_cert | length > 0 
+      when: velero_aws_bsl_configs | int == 1 and aws_bsl_res.object_storage.ca_cert | length > 0
   rescue:
     - fail:
         msg: "The provided caCert for aws is not in valid base64 format"
@@ -38,7 +38,7 @@
   block:
     - set_fact:
         decoded_ca_cert: "{{ gcp_bsl_res.object_storage.ca_cert | b64decode }}"
-      when: velero_gcp_bsl_configs | int == 1 and gcp_bsl_res.object_storage.ca_cert | length > 0 
+      when: velero_gcp_bsl_configs | int == 1 and gcp_bsl_res.object_storage.ca_cert | length > 0
   rescue:
     - fail:
         msg: "The provided caCert for gcp is not in valid base64 format"
@@ -55,12 +55,12 @@
   fail:
     msg: "More than one BackupStorageLocations are configured for azure"
   when: velero_azure_bsl_configs | int > 1
- 
+
 - name: "Decode and validate caCert if defined for azure"
   block:
     - set_fact:
         decoded_ca_cert: "{{ azure_bsl_res.object_storage.ca_cert | b64decode }}"
-      when: velero_azure_bsl_configs | int == 1 and azure_bsl_res.object_storage.ca_cert | length > 0 
+      when: velero_azure_bsl_configs | int == 1 and azure_bsl_res.object_storage.ca_cert | length > 0
   rescue:
     - fail:
         msg: "The provided caCert for azure is not in valid base64 format"
