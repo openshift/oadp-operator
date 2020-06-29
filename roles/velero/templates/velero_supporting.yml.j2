@@ -1697,6 +1697,9 @@ spec:
                   description: Prefix is the path inside a bucket to use for Velero
                     storage. Optional.
                   type: string
+                caCert:
+                  description: base64 encoded string to be used when verifying TLS connections. Optional.
+                  type: string
               required:
               - bucket
               type: object
