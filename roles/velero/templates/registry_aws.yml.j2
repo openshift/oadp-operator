@@ -1,0 +1,84 @@
+---
+{% for bsl in backup_storage_locations %}
+{% if bsl.provider == 'aws' %}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: {{ velero_namespace }}
+  name: aws-registry
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      component: registry
+  template:
+    metadata:
+      labels:
+        component: registry
+    spec:
+      restartPolicy: Always
+      containers:
+      - image: quay.io/konveyor/registry:latest
+        name: aws-registry-container
+        ports:
+        - containerPort: 5000
+          protocol: TCP
+        env:
+          - name: REGISTRY_STORAGE
+            value: s3
+          - name: REGISTRY_STORAGE_S3_ACCESSKEY
+            value: "{{ aws_access_key_id }}"
+          - name: REGISTRY_STORAGE_S3_BUCKET
+            value: "{{ bsl.object_storage.bucket }}"
+          - name: REGISTRY_STORAGE_S3_REGION
+            value: "{{ bsl.config.region }}"
+          - name: REGISTRY_STORAGE_S3_SECRETKEY
+            value: "{{ aws_secret_access_key }}"
+{% if bsl.config.s_3__url is defined %}
+          - name: REGISTRY_STORAGE_S3_REGIONENDPOINT
+            value: {{ bsl.config.s_3__url }}
+{% endif %}
+{% if bsl.config.root_directory is defined %}
+          - name: REGISTRY_STORAGE_S3_ROOTDIRECTORY
+            value: {{ bsl.config.root_directory }}
+{% endif %}
+{% if bsl.config.insecure_skip_tls_verify is defined %}
+          - name: REGISTRY_STORAGE_S3_SKIPVERIFY
+            value: "{{ bsl.config.insecure_skip_tls_verify | string }}"
+{% endif %}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    component: registry
+  name: aws-registry-svc
+  namespace: {{ velero_namespace }}
+spec:
+  ports:
+  - name: 5000-tcp
+    port: 5000
+    targetPort: 5000
+    protocol: TCP
+  selector:
+    component: registry
+  type: ClusterIP
+
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: aws-registry-route
+  namespace: {{ velero_namespace }}
+  labels:
+    component: registry
+    service: aws-registry-svc
+spec:
+  to:
+    kind: Service
+    name: aws-registry-svc
+  port:
+    targetPort: 5000-tcp
+{% endif %}
+{% endfor %}

@@ -1,4 +1,7 @@
 ---
+aws_secret_split: []
+aws_access_key_id: ''
+aws_secret_access_key: ''
 backup_storage_locations: []
 custom_velero_plugins: []
 http_proxy: "{{ lookup( 'env', 'HTTP_PROXY') }}"
