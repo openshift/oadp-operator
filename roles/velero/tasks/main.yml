@@ -119,6 +119,12 @@
     definition: "{{ lookup('template', 'velero_bsl_azure.yml.j2') }}"
   when: velero_azure_bsl_configs | int != 0
 
+- name: "Create internal image registry config map"
+  k8s:
+    state: "{{ velero_state }}"
+    definition: "{{ lookup('template', 'registry_config_map.yml.j2') }}"
+  when: velero_aws_bsl_configs | int != 0 or velero_gcp_bsl_configs | int != 0 or velero_azure_bsl_configs | int != 0
+
 - name: "Create VolumeStorageLocations"
   k8s:
     state: "{{ velero_state }}"
