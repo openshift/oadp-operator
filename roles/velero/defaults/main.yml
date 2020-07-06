@@ -2,6 +2,8 @@
 aws_secret_split: []
 aws_access_key_id: ''
 aws_secret_access_key: ''
+azure_account_key: ''
+gcp_secret_key_file: ''
 backup_storage_locations: []
 custom_velero_plugins: []
 http_proxy: "{{ lookup( 'env', 'HTTP_PROXY') }}"

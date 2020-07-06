@@ -1,0 +1,72 @@
+---
+{% for bsl in backup_storage_locations %}
+{% if bsl.provider == 'gcp' %}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: {{ velero_namespace }}
+  name: gcp-registry
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      component: gcp-registry
+  template:
+    metadata:
+      labels:
+        component: gcp-registry
+    spec:
+      restartPolicy: Always
+      containers:
+      - image: quay.io/konveyor/registry:latest
+        name: gcp-registry-container
+        ports:
+        - containerPort: 5000
+          protocol: TCP
+        env:
+          - name: REGISTRY_STORAGE
+            value: gcs
+          - name: REGISTRY_STORAGE_GCS_BUCKET
+            value: "{{ bsl.object_storage.bucket }}"
+          - name: REGISTRY_STORAGE_GCS_KEYFILE
+            value: "{{ gcp_secret_key_file }}"
+{% if bsl.config.root_directory is defined %}
+          - name: REGISTRY_STORAGE_GCS_ROOTDIRECTORY
+            value: {{ bsl.config.root_directory }}
+{% endif %}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    component: gcp-registry
+  name: gcp-registry-svc
+  namespace: {{ velero_namespace }}
+spec:
+  ports:
+  - name: 5000-tcp
+    port: 5000
+    targetPort: 5000
+    protocol: TCP
+  selector:
+    component: gcp-registry
+  type: ClusterIP
+
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: gcp-registry-route
+  namespace: {{ velero_namespace }}
+  labels:
+    component: gcp-registry
+    service: gcp-registry-svc
+spec:
+  to:
+    kind: Service
+    name: gcp-registry-svc
+  port:
+    targetPort: 5000-tcp
+{% endif %}
+{% endfor %}

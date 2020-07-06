@@ -1,0 +1,70 @@
+---
+{% for bsl in backup_storage_locations %}
+{% if bsl.provider == 'azure' %}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: {{ velero_namespace }}
+  name: azure-registry
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      component: azure-registry
+  template:
+    metadata:
+      labels:
+        component: azure-registry
+    spec:
+      restartPolicy: Always
+      containers:
+      - image: quay.io/konveyor/registry:latest
+        name: azure-registry-container
+        ports:
+        - containerPort: 5000
+          protocol: TCP
+        env:
+          - name: REGISTRY_STORAGE
+            value: azure
+          - name: REGISTRY_STORAGE_AZURE_CONTAINER
+            value: "{{ bsl.object_storage.container }}"
+          - name: REGISTRY_STORAGE_AZURE_ACCOUNTNAME
+            value: "{{ bsl.config.storage_account }}"
+          - name: REGISTRY_STORAGE_AZURE_ACCOUNTKEY
+            value: {{ azure_account_key }}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    component: azure-registry
+  name: azure-registry-svc
+  namespace: {{ velero_namespace }}
+spec:
+  ports:
+  - name: 5000-tcp
+    port: 5000
+    targetPort: 5000
+    protocol: TCP
+  selector:
+    component: azure-registry
+  type: ClusterIP
+
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: azure-registry-route
+  namespace: {{ velero_namespace }}
+  labels:
+    component: azure-registry
+    service: azure-registry-svc
+spec:
+  to:
+    kind: Service
+    name: azure-registry-svc
+  port:
+    targetPort: 5000-tcp
+{% endif %}
+{% endfor %}
