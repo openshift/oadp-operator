@@ -3,7 +3,7 @@
   include_tasks: preflight.yml
 
 - name: "Check if cloud-credentials secret exists already so we don't update it"
-  k8s_facts:
+  k8s_info:
     api_version: v1
     kind: Secret
     name: "{{ velero_aws_secret_name }}"
@@ -12,7 +12,7 @@
   when: '"aws" in default_velero_plugins'
 
 - name: "Check if gcp-cloud-credentials secret exists already so we don't update it"
-  k8s_facts:
+  k8s_info:
     api_version: v1
     kind: Secret
     name: "{{ velero_gcp_secret_name }}"
@@ -21,7 +21,7 @@
   when: '"gcp" in default_velero_plugins'
 
 - name: "Check if azure-cloud-credentials secret exists already so we don't update it"
-  k8s_facts:
+  k8s_info:
     api_version: v1
     kind: Secret
     name: "{{ velero_azure_secret_name }}"
@@ -69,7 +69,7 @@
   when: '"azure" in default_velero_plugins and (azure_secret_status.resources|length) == 0'
 
 - name: Discover AWS credentials
-  k8s_facts:
+  k8s_info:
     api_version: v1
     kind: Secret
     name: "{{ velero_aws_secret_name }}"
