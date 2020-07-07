@@ -1,16 +1,18 @@
 ---
+{% for bsl in backup_storage_locations %}
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: registry-config
   namespace: {{ velero_namespace }}
 data:
-{% if velero_aws_bsl_configs | int != 0 %}
-  aws-registry: aws-registry-route
+{% if bsl.provider == 'aws' and velero_aws_bsl_configs | int != 0 %}
+  {{ bsl.name }}: aws-registry-route
 {% endif %}
-{% if velero_gcp_bsl_configs | int != 0 %}
-  gcp-registry: gcp-registry-route
+{% if bsl.provider == 'gcp' and velero_gcp_bsl_configs | int != 0 %}
+  {{ bsl.name }}: gcp-registry-route
 {% endif %}
-{% if velero_azure_bsl_configs | int != 0 %}
-  azure-registry: azure-registry-route
+{% if bsl.provider == 'azure' and velero_azure_bsl_configs | int != 0 %}
+  {{ bsl.name }}: azure-registry-route
 {% endif %}
+{% endfor %}
