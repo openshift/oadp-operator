@@ -135,3 +135,7 @@
   k8s:
     state: "{{ velero_state }}"
     definition: "{{ lookup('template', 'velero_vsl.yml.j2') }}"
+
+- name: "Include noobaa tasks"
+  include_tasks: mcg.yml
+
