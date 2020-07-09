@@ -4,7 +4,7 @@ metadata:
   name: {{ noobaa_system_pv_pool_bucket_name }}
   namespace: {{ noobaa_system_namespace }}
 spec:
-  bucketName: migstorage
+  bucketName: {{ noobaa_mig_bucket_name }}
   storageClassName: {{ noobaa_system_namespace }}.noobaa.io
   additionalConfig:
     bucketclass: {{ noobaa_system_pv_pool_bc_name }}
