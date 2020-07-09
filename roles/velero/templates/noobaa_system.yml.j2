@@ -11,8 +11,14 @@ spec:
    requests:
      cpu: {{ noobaa_system_db_cpu }}
      memory: {{ noobaa_system_db_mem }}
+   limits:
+     cpu: {{ noobaa_system_db_cpu }}
+     memory: {{ noobaa_system_db_mem }}
  coreResources:
    requests:
+     cpu: {{ noobaa_system_core_cpu }}
+     memory: {{ noobaa_system_core_mem }}
+   limits:
      cpu: {{ noobaa_system_core_cpu }}
      memory: {{ noobaa_system_core_mem }}
  endpoints:
@@ -20,5 +26,8 @@ spec:
    minCount: {{ noobaa_system_endpoints_pod_count }}
    resources:
      requests:
+       cpu: {{ noobaa_system_endpoints_cpu }}
+       memory: {{ noobaa_system_endpoints_mem }}
+     limits:
        cpu: {{ noobaa_system_endpoints_cpu }}
        memory: {{ noobaa_system_endpoints_mem }}
