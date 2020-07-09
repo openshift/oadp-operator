@@ -5,21 +5,21 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   namespace: {{ velero_namespace }}
-  name: gcp-registry
+  name: oadp-{{ bsl.name }}-{{ bsl.provider }}-registry
 spec:
   replicas: 1
   selector:
     matchLabels:
-      component: gcp-registry
+      component: oadp-{{ bsl.name }}-{{ bsl.provider }}-registry
   template:
     metadata:
       labels:
-        component: gcp-registry
+        component: oadp-{{ bsl.name }}-{{ bsl.provider }}-registry
     spec:
       restartPolicy: Always
       containers:
       - image: quay.io/konveyor/registry:latest
-        name: gcp-registry-container
+        name: oadp-{{ bsl.name }}-{{ bsl.provider }}-registry-container
         ports:
         - containerPort: 5000
           protocol: TCP
@@ -34,39 +34,5 @@ spec:
           - name: REGISTRY_STORAGE_GCS_ROOTDIRECTORY
             value: {{ bsl.config.root_directory }}
 {% endif %}
-
----
-apiVersion: v1
-kind: Service
-metadata:
-  labels:
-    component: gcp-registry
-  name: gcp-registry-svc
-  namespace: {{ velero_namespace }}
-spec:
-  ports:
-  - name: 5000-tcp
-    port: 5000
-    targetPort: 5000
-    protocol: TCP
-  selector:
-    component: gcp-registry
-  type: ClusterIP
-
----
-apiVersion: route.openshift.io/v1
-kind: Route
-metadata:
-  name: gcp-registry-route
-  namespace: {{ velero_namespace }}
-  labels:
-    component: gcp-registry
-    service: gcp-registry-svc
-spec:
-  to:
-    kind: Service
-    name: gcp-registry-svc
-  port:
-    targetPort: 5000-tcp
 {% endif %}
 {% endfor %}

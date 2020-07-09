@@ -5,21 +5,21 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   namespace: {{ velero_namespace }}
-  name: aws-registry
+  name: oadp-{{ bsl.name }}-{{ bsl.provider }}-registry
 spec:
   replicas: 1
   selector:
     matchLabels:
-      component: aws-registry
+      component: oadp-{{ bsl.name }}-{{ bsl.provider }}-registry
   template:
     metadata:
       labels:
-        component: aws-registry
+        component: oadp-{{ bsl.name }}-{{ bsl.provider }}-registry
     spec:
       restartPolicy: Always
       containers:
       - image: quay.io/konveyor/registry:latest
-        name: aws-registry-container
+        name: oadp-{{ bsl.name }}-{{ bsl.provider }}-registry-container
         ports:
         - containerPort: 5000
           protocol: TCP
@@ -46,39 +46,5 @@ spec:
           - name: REGISTRY_STORAGE_S3_SKIPVERIFY
             value: "{{ bsl.config.insecure_skip_tls_verify | string }}"
 {% endif %}
-
----
-apiVersion: v1
-kind: Service
-metadata:
-  labels:
-    component: aws-registry
-  name: aws-registry-svc
-  namespace: {{ velero_namespace }}
-spec:
-  ports:
-  - name: 5000-tcp
-    port: 5000
-    targetPort: 5000
-    protocol: TCP
-  selector:
-    component: aws-registry
-  type: ClusterIP
-
----
-apiVersion: route.openshift.io/v1
-kind: Route
-metadata:
-  name: aws-registry-route
-  namespace: {{ velero_namespace }}
-  labels:
-    component: aws-registry
-    service: aws-registry-svc
-spec:
-  to:
-    kind: Service
-    name: aws-registry-svc
-  port:
-    targetPort: 5000-tcp
 {% endif %}
 {% endfor %}
