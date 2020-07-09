@@ -3,7 +3,7 @@
   include_tasks: preflight.yml
 
 - name: "Check if cloud-credentials secret exists already so we don't update it"
-  k8s_facts:
+  k8s_info:
     api_version: v1
     kind: Secret
     name: "{{ velero_aws_secret_name }}"
@@ -12,7 +12,7 @@
   when: '"aws" in default_velero_plugins'
 
 - name: "Check if gcp-cloud-credentials secret exists already so we don't update it"
-  k8s_facts:
+  k8s_info:
     api_version: v1
     kind: Secret
     name: "{{ velero_gcp_secret_name }}"
@@ -21,7 +21,7 @@
   when: '"gcp" in default_velero_plugins'
 
 - name: "Check if azure-cloud-credentials secret exists already so we don't update it"
-  k8s_facts:
+  k8s_info:
     api_version: v1
     kind: Secret
     name: "{{ velero_azure_secret_name }}"
@@ -68,6 +68,23 @@
         cloud: ""
   when: '"azure" in default_velero_plugins and (azure_secret_status.resources|length) == 0'
 
+- name: Discover AWS credentials
+  k8s_info:
+    api_version: v1
+    kind: Secret
+    name: "{{ velero_aws_secret_name }}"
+    namespace: "{{ velero_namespace }}"
+  register: aws_secret
+
+- name: Decode AWS credentials
+  set_fact:
+    aws_secret_split: "{{ ((aws_secret.resources[0].data.cloud | b64decode) | regex_replace('\n', ' ')).split(' ') | list }}"
+
+- name: Store AWS credentials
+  set_fact:
+    aws_access_key_id: "{{ aws_secret_split[3] }}"
+    aws_secret_access_key: "{{ aws_secret_split[6] }}"
+
 - name: "Set up velero supporting resources (CRDS, SA, SCC)"
   k8s:
     state: "{{ velero_state }}"
@@ -84,6 +101,12 @@
     definition: "{{ lookup('template', 'velero_bsl_aws.yml.j2') }}"
   when: velero_aws_bsl_configs | int != 0
 
+- name: "Create AWS image registry deployment"
+  k8s:
+    state: "{{ velero_state }}"
+    definition: "{{ lookup('template', 'registry_aws.yml.j2') }}"
+  when: velero_aws_bsl_configs | int != 0
+
 - name: "Create GCP BackupStorageLocation"
   k8s:
     state: "{{ velero_state }}"
@@ -95,6 +118,18 @@
     state: "{{ velero_state }}"
     definition: "{{ lookup('template', 'velero_bsl_azure.yml.j2') }}"
   when: velero_azure_bsl_configs | int != 0
+
+- name: "Create image registry svc and routes for all the BackupStorageLocation(s) configured"
+  k8s:
+    state: "{{ velero_state }}"
+    definition: "{{ lookup('template', 'registry_svc_and_route.yml.j2') }}"
+  when: velero_aws_bsl_configs | int != 0 or velero_gcp_bsl_configs | int != 0 or velero_azure_bsl_configs | int != 0
+  
+- name: "Create internal image registry config map"
+  k8s:
+    state: "{{ velero_state }}"
+    definition: "{{ lookup('template', 'registry_config_map.yml.j2') }}"
+  when: velero_aws_bsl_configs | int != 0 or velero_gcp_bsl_configs | int != 0 or velero_azure_bsl_configs | int != 0
 
 - name: "Create VolumeStorageLocations"
   k8s:
