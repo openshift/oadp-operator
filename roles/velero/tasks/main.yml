@@ -85,10 +85,17 @@
     aws_access_key_id: "{{ aws_secret_split[3] }}"
     aws_secret_access_key: "{{ aws_secret_split[6] }}"
 
-- name: "Set up velero supporting resources (CRDS, SA, SCC)"
-  k8s:
-    state: "{{ velero_state }}"
-    definition: "{{ lookup('template', 'velero_supporting.yml.j2') }}"
+- when: not olm_managed
+  block:
+  - name: "Set up velero supporting resources (CRDS, SA, SCC) when not managed by OLM"
+    k8s:
+      state: "{{ velero_state }}"
+      definition: "{{ lookup('template', 'velero_supporting.yml.j2') }}"
+  rescue:
+  - name: "Set up velero supporting resources (CRDS, SA, SCC) when not managed by OLM"
+    k8s:
+      state: absent
+      definition: "{{ lookup('template', 'velero_supporting.yml.j2') }}"
 
 - name: "Set up velero controller"
   k8s:

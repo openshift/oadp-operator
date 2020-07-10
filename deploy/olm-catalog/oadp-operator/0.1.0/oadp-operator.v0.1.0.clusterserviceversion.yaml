@@ -1,0 +1,252 @@
+apiVersion: operators.coreos.com/v1alpha1
+kind: ClusterServiceVersion
+metadata:
+  annotations:
+    capabilities: Seamless Upgrades
+    containerImage: quay.io/konveyor/oadp-operator
+    alm-examples: |-
+      [
+        {
+          "apiVersion": "konveyor.openshift.io/v1alpha1",
+          "kind": "Velero",
+          "metadata": {
+            "name": "example-velero"
+          },
+          "spec": {
+            "olm_managed": true,
+            "backup_storage_locations": [
+              {
+                "config": {
+                  "profile": "default",
+                  "region": "us-east-1"
+                },
+                "credentials_secret_ref": {
+                  "name": "cloud-credentials",
+                  "namespace": "oadp-operator"
+                },
+                "name": "default",
+                "object_storage": {
+                  "bucket": "myBucket",
+                  "prefix": "velero"
+                },
+                "provider": "aws"
+              }
+            ],
+            "default_velero_plugins": [
+              "aws"
+            ],
+            "enable_restic": true,
+            "volume_snapshot_locations": [
+              {
+                "config": {
+                  "profile": "default",
+                  "region": "us-east-2"
+                },
+                "name": "default",
+                "provider": "aws"
+              }
+            ]
+          }
+        }
+      ]
+    capabilities: Basic Install
+    certified: "false"
+    repository: https://github.com/konveyor/oadp-operator
+    support: Red Hat
+  name: oadp-operator.v0.1.0
+  namespace: placeholder
+spec:
+  apiservicedefinitions: {}
+  customresourcedefinitions:
+    owned:
+    - kind: Velero
+      name: veleros.konveyor.openshift.io
+      version: v1alpha1
+  description: OADP is OpenShift Application Data Protection operator. This operator
+    sets up and installs Velero on the OpenShift platform.
+  displayName: OADP Operator
+  maintainers: 
+  - name: Red Hat
+    email: deshah@redhat.com
+  icon:
+  - base64data: " "    
+    mediatype: image/png
+  install:
+    spec:
+      deployments:
+      - name: oadp-operator
+        spec:
+          replicas: 1
+          selector:
+            matchLabels:
+              name: oadp-operator
+          strategy: {}
+          template:
+            metadata:
+              labels:
+                name: oadp-operator
+            spec:
+              containers:
+              - env:
+                - name: WATCH_NAMESPACE
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.annotations['olm.targetNamespaces']
+                - name: POD_NAME
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.name
+                - name: OPERATOR_NAME
+                  value: oadp-operator
+                - name: ANSIBLE_GATHERING
+                  value: explicit
+                - name: REGISTRY
+                  value: quay.io
+                - name: PROJECT
+                  value: konveyor
+                - name: VELERO_REPO
+                  value: velero
+                - name: VELERO_OPENSHIFT_PLUGIN_REPO
+                  value: openshift-velero-plugin
+                - name: VELERO_RESTIC_RESTORE_HELPER_REPO
+                  value: velero-restic-restore-helper
+                - name: VELERO_AWS_PLUGIN_REPO
+                  value: velero-plugin-for-aws
+                - name: VELERO_GCP_PLUGIN_REPO
+                  value: velero-plugin-for-gcp
+                - name: VELERO_AZURE_PLUGIN_REPO
+                  value: velero-plugin-for-microsoft-azure
+                - name: VELERO_TAG
+                  value: latest
+                - name: VELERO_RESTIC_RESTORE_HELPER_TAG
+                  value: latest
+                - name: VELERO_PLUGIN_TAG
+                  value: latest
+                - name: VELERO_AWS_PLUGIN_TAG
+                  value: latest
+                - name: VELERO_GCP_PLUGIN_TAG
+                  value: latest
+                - name: VELERO_AZURE_PLUGIN_TAG
+                  value: latest
+                image: quay.io/konveyor/oadp-operator:latest
+                imagePullPolicy: Always
+                name: oadp-operator
+                resources: {}
+                volumeMounts:
+                - mountPath: /tmp/ansible-operator/runner
+                  name: runner
+              serviceAccountName: oadp-operator
+              volumes:
+              - emptyDir: {}
+                name: runner
+      permissions:
+      - rules:
+        - apiGroups:
+          - ""
+          resources:
+          - pods
+          - services
+          - services/finalizers
+          - endpoints
+          - persistentvolumeclaims
+          - events
+          - configmaps
+          - secrets
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - apps
+          resources:
+          - deployments
+          - daemonsets
+          - replicasets
+          - statefulsets
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - monitoring.coreos.com
+          resources:
+          - servicemonitors
+          verbs:
+          - get
+          - create
+        - apiGroups:
+          - apps
+          resourceNames:
+          - oadp-operator
+          resources:
+          - deployments/finalizers
+          verbs:
+          - update
+        - apiGroups:
+          - ""
+          resources:
+          - pods
+          verbs:
+          - get
+        - apiGroups:
+          - apps
+          resources:
+          - replicasets
+          - deployments
+          verbs:
+          - get
+        - apiGroups:
+          - konveyor.openshift.io
+          resources:
+          - '*'
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - velero.io
+          resources:
+          - '*'
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        serviceAccountName: oadp-operator
+    strategy: deployment
+  installModes:
+  - supported: true
+    type: OwnNamespace
+  - supported: true
+    type: SingleNamespace
+  - supported: false
+    type: MultiNamespace
+  - supported: true
+    type: AllNamespaces
+  keywords:
+  - velero
+  links:
+  - name: Oadp Operator
+    url: https://oadp-operator.domain
+  maintainers:
+  - email: deshah@redhat.com
+    name: devarsh
+  maturity: alpha
+  provider:
+    name: redhat
+  version: 0.1.0

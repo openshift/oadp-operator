@@ -10,7 +10,7 @@ spec:
   - name: default
     provider: aws
     object_storage:
-      bucket: myBucket
+      bucket: devarsh-6109f5e9711c8c58131acdd2f490f451
       prefix: "velero"
     config:
       region: us-east-1
@@ -22,6 +22,6 @@ spec:
   - name: default
     provider: aws
     config:
-      region: us-west-2
+      region: us-east-2
       profile: "default"
   enable_restic: true

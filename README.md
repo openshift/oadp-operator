@@ -306,6 +306,44 @@ spec:
 ```
 <b>Note:</b> Ensure that `insecure_skip_tls_verify` is set to `false` so that TLS is used.
 
+### OLM Installation
+Make sure operator-sdk and olm is properly installed, for instance the output of the command `operator-sdk olm status` should look like this:
+```
+I0708 14:23:09.267307  211635 request.go:621] Throttling request took 1.049514278s, request: GET:https://api.cluster-dshah0518.dshah0518.mg.dog8code.com:6443/apis/crunchydata.com/v1?timeout=32s
+INFO[0002] Fetching CRDs for version "0.14.1"           
+INFO[0003] Fetching resources for version "0.14.1"      
+INFO[0004] Successfully got OLM status for version "0.14.1" 
+
+NAME                                            NAMESPACE    KIND                        STATUS
+olm                                                          Namespace                   Installed
+operatorgroups.operators.coreos.com                          CustomResourceDefinition    Installed
+catalogsources.operators.coreos.com                          CustomResourceDefinition    Installed
+subscriptions.operators.coreos.com                           CustomResourceDefinition    Installed
+installplans.operators.coreos.com                            CustomResourceDefinition    Installed
+aggregate-olm-edit                                           ClusterRole                 Installed
+catalog-operator                                olm          Deployment                  Installed
+olm-operator                                    olm          Deployment                  Installed
+operatorhubio-catalog                           olm          CatalogSource               Installed
+olm-operators                                   olm          OperatorGroup               Installed
+aggregate-olm-view                                           ClusterRole                 Installed
+operators                                                    Namespace                   Installed
+global-operators                                operators    OperatorGroup               Installed
+olm-operator-serviceaccount                     olm          ServiceAccount              Installed
+packageserver                                   olm          ClusterServiceVersion       Installed
+system:controller:operator-lifecycle-manager                 ClusterRole                 Installed
+clusterserviceversions.operators.coreos.com                  CustomResourceDefinition    Installed
+olm-operator-binding-olm                                     ClusterRoleBinding          Installed
+```
+To install operator-sdk, select compiling and installing from source option from this [link](https://docs.openshift.com/container-platform/4.2/operators/operator_sdk/osdk-getting-started.html).
+
+To install OLM, use the following command `operator-sdk olm install --version 0.14.1`.
+
+### OLM Integration
+<b>Note:</b> Run all the commands at the root of the directory.
+
+To publish the operator on operatorhub in your cluster, run `operator-sdk run packagemanifests --olm-namespace olm --operator-namespace oadp-operator --operator-version 0.1.0`.
+
+
 ### Cleanup
 For cleaning up the deployed resources, use the following commands:
 ```
@@ -315,3 +353,5 @@ oc delete -f deploy/
 oc delete namespace oadp-operator
 oc delete crd $(oc get crds | grep velero.io | awk -F ' ' '{print $1}')
 ```
+
+
