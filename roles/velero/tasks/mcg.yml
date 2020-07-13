@@ -39,6 +39,10 @@
 
   - set_fact:
       noobaa_crds_found: "{{ noobaa_found_crds.results|length >= noobaa_expected_crds|length }}"
+  - debug:
+      msg:
+      - "Found noobaa crds found {{ noobaa_crds_found }}"
+      - "Found noobaa found crds {{ noobaa_found_crds }}"
 
   # Discover existing NooBaa System or create new
   - when: noobaa_crds_found|bool
@@ -48,12 +52,17 @@
         api_version: "noobaa.io/v1alpha1"
         kind: NooBaa
       register: noobaa_system
-
+    
     - set_fact:
         noobaa_system_found: "{{ noobaa_system.resources|length > 0 }}"
 
     - set_fact:
         noobaa_system_namespace: "{{ velero_namespace if not noobaa_system_found else noobaa_system.resources[0].metadata.namespace }}"
+    
+    - debug: 
+        msg: 
+        - "Found noobaa system {{ noobaa_system.resources }}"
+        - "Length of resources {{ noobaa_system.resources|length }}"
 
     - name: Creating a new NooBaa system
       when: not noobaa_system_found|bool
@@ -78,6 +87,11 @@
         noobaa_system_ready: "{{ False if noobaa_system_status.resources|length == 0 or
                             noobaa_system_status.resources[0].status is not defined or
                             noobaa_system_status.resources[0].status.phase != 'Ready' else True }}"
+  
+    - debug:
+        msg:
+        - "Found noobaa system ready {{ noobaa_system_ready }}"
+        - "Found noobaa system ns {{ noobaa_system_namespace }}"
 
   # discover routes and secrets
   - when: noobaa_system_ready|bool
@@ -103,6 +117,9 @@
     - set_fact:
         noobaa_endpoint: "{{ noobaa_s3_endpoint.resources[0].status.loadBalancer.ingress[0].hostname }}"
       when: noobaa_s3_endpoint.resources[0].status.loadBalancer.ingress[0].hostname is defined
+    
+    - debug:
+        msg: "Found noobaa admin secret {{ noobaa_admin_secret }}"
 
     - name: Discovering NooBaa S3 Credentials
       k8s_facts:
@@ -131,6 +148,9 @@
     - set_fact:
         noobaa_ca_bundle: "{{ noobaa_ca_bundle_raw.results[1].stdout }}"
       when: noobaa_s3_endpoint_proto == 'https'
+    
+    - debug:
+        msg: "Found noobaa system ready {{ noobaa_system_ready }}"
 
   # NooBaa Bucket + migstorage creation
   - when: noobaa_system_ready|bool
