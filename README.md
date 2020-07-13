@@ -186,7 +186,7 @@ spec:
 ```
 <b>Note:</b> 
 - Be sure to use the same `secret` name you used while creating the cloud credentials secret in step 3 of Operator   installation section.
-- Another thing to consider are the CR file specs, they should be tailored in accordance to your own cloud provider accouts, for instance `bucket` spec value should be accoring to your own bucket name and so on.
+- Another thing to consider are the CR file specs, they should be tailored in accordance to your own cloud provider accounts, for instance `bucket` spec value should be according to your own bucket name and so on.
 - Do not configure more than one `backupStorageLocations` per cloud provider, the velero installation will fail.  
 - Parameter reference for [backupStorageLocations](https://velero.io/docs/master/api-types/backupstoragelocation/) and [volumeSnapshotLocations](https://velero.io/docs/master/api-types/volumesnapshotlocation/)
 
@@ -209,7 +209,7 @@ spec:
   - name: default
     provider: aws
     object_storage:
-      bucket: shubbam-6109f5e9711c8c58131acdd2f490f451
+      bucket: myBucket
       prefix: "velero"
     config:
       region: us-east-1
