@@ -15,7 +15,7 @@
       namespace: "{{ velero_namespace }}"
       kind: NooBaa
       label_selectors:
-      - app=openshift-migration-noobaa
+      - app=noobaa
     register: mig_noobaa_system
 
   - name: Deleting NooBaa Systems owned by Migration Operator

@@ -136,4 +136,5 @@
     state: "{{ velero_state }}"
     definition: "{{ lookup('template', 'velero_vsl.yml.j2') }}"
 
-- import_tasks: mcg.yml
+- name: "Include mcg tasks"
+  include_tasks: mcg.yml

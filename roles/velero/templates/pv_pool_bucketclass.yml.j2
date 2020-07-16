@@ -9,5 +9,5 @@ spec:
   placementPolicy:
     tiers:
     - backingStores:
-      - mcg-pv-pool-bs
+      - {{ noobaa_system_pv_pool_bs_name }}
       placement: Spread
