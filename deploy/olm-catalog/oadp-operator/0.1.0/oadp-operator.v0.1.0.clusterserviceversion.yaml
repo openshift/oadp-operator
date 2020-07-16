@@ -1,6 +1,8 @@
 apiVersion: operators.coreos.com/v1alpha1
 kind: ClusterServiceVersion
 metadata:
+  name: oadp-operator.v0.1.0
+  namespace: oadp-operator
   annotations:
     capabilities: Seamless Upgrades
     containerImage: quay.io/konveyor/oadp-operator
@@ -11,6 +13,7 @@ metadata:
           "kind": "Velero",
           "metadata": {
             "name": "example-velero"
+            "namespace":"oadp-operator"
           },
           "spec": {
             "olm_managed": true,
@@ -26,7 +29,7 @@ metadata:
                 },
                 "name": "default",
                 "object_storage": {
-                  "bucket": "myBucket",
+                  "bucket": "mybucket",
                   "prefix": "velero"
                 },
                 "provider": "aws"
@@ -40,21 +43,118 @@ metadata:
               {
                 "config": {
                   "profile": "default",
-                  "region": "us-east-2"
+                  "region": "us-west-2"
                 },
                 "name": "default",
                 "provider": "aws"
               }
             ]
           }
+          {
+            "apiVersion": "velero.io/v1",
+            "kind": "Backup",
+            "metadata": {
+              "name": "backup",
+              "namespace": "oadp-operator"
+            },
+            "spec": {}
+        },
+        {
+            "apiVersion": "velero.io/v1",
+            "kind": "BackupStorageLocation",
+            "metadata": {
+              "name": "backupstoragelocation",
+              "namespace": "oadp-operator"
+            },
+            "spec": {}
+        },
+        {
+            "apiVersion": "velero.io/v1",
+            "kind": "DeleteBackupRequest",
+            "metadata": {
+              "name": "deletebackuprequest",
+              "namespace": "oadp-operator"
+            },
+            "spec": {}
+        },
+        {
+            "apiVersion": "velero.io/v1",
+            "kind": "DownloadRequest",
+            "metadata": {
+              "name": "downloadrequest",
+              "namespace": "oadp-operator"
+            },
+            "spec": {}
+        },
+        {
+            "apiVersion": "velero.io/v1",
+            "kind": "PodVolumeBackup",
+            "metadata": {
+              "name": "podvolumebackup",
+              "namespace": "oadp-operator"
+            },
+            "spec": {}
+        },
+        {
+            "apiVersion": "velero.io/v1",
+            "kind": "PodVolumeRestore",
+            "metadata": {
+              "name": "podvolumerestore",
+              "namespace": "oadp-operator"
+            },
+            "spec": {}
+        },
+        {
+            "apiVersion": "velero.io/v1",
+            "kind": "ResticRepository",
+            "metadata": {
+              "name": "resticrepository",
+              "namespace": "oadp-operator"
+            },
+            "spec": {}
+        },
+        {
+            "apiVersion": "velero.io/v1",
+            "kind": "Restore",
+            "metadata": {
+              "name": "restore",
+              "namespace": "oadp-operator"
+            },
+            "spec": {}
+        },
+        {
+            "apiVersion": "velero.io/v1",
+            "kind": "Schedule",
+            "metadata": {
+              "name": "schedule",
+              "namespace": "oadp-operator"
+            },
+            "spec": {}
+        },
+        {
+            "apiVersion": "velero.io/v1",
+            "kind": "ServerStatusRequest",
+            "metadata": {
+              "name": "serverstatusrequest",
+              "namespace": "oadp-operator"
+            },
+            "spec": {}
+        },
+        {
+            "apiVersion": "velero.io/v1",
+            "kind": "VolumeSnapshotLocation",
+            "metadata": {
+              "name": "volumesnapshotlocation",
+              "namespace": "oadp-operator"
+            },
+            "spec": {}
+        },
         }
       ]
     capabilities: Basic Install
     certified: "false"
     repository: https://github.com/konveyor/oadp-operator
     support: Red Hat
-  name: oadp-operator.v0.1.0
-  namespace: placeholder
 spec:
   apiservicedefinitions: {}
   customresourcedefinitions:
@@ -110,6 +210,8 @@ spec:
                   value: openshift-velero-plugin
                 - name: VELERO_RESTIC_RESTORE_HELPER_REPO
                   value: velero-restic-restore-helper
+                - name: VELERO_OPENSHIFT_PLUGIN_TAG
+                  value: unified-repo
                 - name: VELERO_AWS_PLUGIN_REPO
                   value: velero-plugin-for-aws
                 - name: VELERO_GCP_PLUGIN_REPO
@@ -250,3 +352,60 @@ spec:
   provider:
     name: redhat
   version: 0.1.0
+  customresourcedefinitions:
+    owned:
+    - name: backupstoragelocations.velero.io
+      version: v1
+      kind: BackupStorageLocation
+      displayName: BackupStorageLocation
+      description: A velero backup storage location
+    - name: backups.velero.io
+      version: v1
+      kind: Backup
+      displayName: Backup
+      description: A velero backup
+    - name: deletebackuprequests.velero.io
+      version: v1
+      kind: DeleteBackupRequest
+      displayName: DeleteBackupRequest
+      description: A request to delete a velero backup
+    - name: downloadrequests.velero.io
+      version: v1
+      kind: DownloadRequest
+      displayName: DownloadRequest
+      description: A download request for velero
+    - name: podvolumebackups.velero.io
+      version: v1
+      kind: PodVolumeBackup
+      displayName: PodVolumeBackup
+      description: A velero pod volume backup
+    - name: podvolumerestores.velero.io
+      version: v1
+      kind: PodVolumeRestore
+      displayName: PodVolumeRestore
+      description: A velero pod volume restore
+    - name: resticrepositories.velero.io
+      version: v1
+      kind: ResticRepository
+      displayName: ResticRepository
+      description: A restic repository for velero
+    - name: restores.velero.io
+      version: v1
+      kind: Restore
+      displayName: Restore
+      description: A velero restore
+    - name: schedules.velero.io
+      version: v1
+      kind: Schedule
+      displayName: Schedule
+      description: A velero schedule
+    - name: serverstatusrequests.velero.io
+      version: v1
+      kind: ServerStatusRequest
+      displayName: ServerStatusRequest
+      description: A velero server status request
+    - name: volumesnapshotlocations.velero.io
+      version: v1
+      kind: VolumeSnapshotLocation
+      displayName: VolumeSnapshotLocation
+      description: A velero volume snapshot location
