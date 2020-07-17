@@ -49,21 +49,20 @@ upstream_registry: docker.io
 quay_registry: quay.io
 konveyor_project: konveyor
 
-# MCG integration
-noobaa: true
+# noobaa integration
 noobaa_expected_crds:
   - noobaas.noobaa.io
   - bucketclasses.noobaa.io
   - backingstores.noobaa.io
 noobaa_admin_secret: noobaa-admin
 noobaa_system_namespace: "{{ velero_namespace }}"
-noobaa_system_pv_pool_bs_name: oadp-operator-pv-pool-backing-store
-noobaa_system_pool_pv_quantity: 1
+noobaa_system_pv_pool_bs_name: oadp-storage-pv-pool-backing-store
+noobaa_system_pool_pv_quantity: 3
 noobaa_system_pv_pool_pv_size: 30Gi
 noobaa_system_pv_pool_pv_storageclass: gp2
-noobaa_system_pv_pool_bc_name: oadp-operator-pv-pool-backing-class
-noobaa_system_pv_pool_bucket_name: oadp-operator-bucket
-noobaa_mig_bucket_name: oadp-operator-storage
+noobaa_system_pv_pool_bc_name: oadp-storage-pv-pool-bucket-class
+noobaa_system_pv_pool_bucket_name: oadp-store-bucket
+noobaa_oadp_bucket_name: oadp-operator-pv-pool-bucket
 noobaa_s3_endpoint_proto: http
 noobaa_system_core_cpu: 100m
 noobaa_system_core_mem: 400Mi
