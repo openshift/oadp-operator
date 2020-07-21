@@ -76,14 +76,16 @@
     namespace: "{{ velero_namespace }}"
   register: aws_secret
 
-- name: Decode AWS credentials
+- name: Decode AWS credentials #TODO Cred Validation and noobaa switch
   set_fact:
     aws_secret_split: "{{ (aws_secret.resources[0].data.cloud | b64decode).split('\n') }}"
+  when: not noobaa  
 
 - name: Store AWS credentials
   set_fact:
     aws_access_key_id: "{{ (aws_secret_split[1] | regex_replace(' ', '')).split('=')[1] }}"
     aws_secret_access_key: "{{ (aws_secret_split[2] | regex_replace(' ', '')).split('=')[1] }}"
+  when: not noobaa
 
 - name: "Set up velero supporting resources (CRDS, SA, SCC)"
   k8s:
@@ -99,13 +101,13 @@
   k8s:
     state: "{{ velero_state }}"
     definition: "{{ lookup('template', 'velero_bsl_aws.yml.j2') }}"
-  when: velero_aws_bsl_configs | int != 0
+  when: velero_aws_bsl_configs | int != 0 and not noobaa
 
 - name: "Create AWS image registry deployment"
   k8s:
     state: "{{ velero_state }}"
     definition: "{{ lookup('template', 'registry_aws.yml.j2') }}"
-  when: velero_aws_bsl_configs | int != 0
+  when: velero_aws_bsl_configs | int != 0 and not noobaa
 
 - name: "Create GCP BackupStorageLocation"
   k8s:

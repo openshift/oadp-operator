@@ -9,25 +9,17 @@ data:
   aws-access-key-id: {{ noobaa_s3_access_key_id|b64encode }}
   aws-secret-access-key: {{ noobaa_s3_secret_access_key|b64encode }}
 ---
-{% if noobaa %}
 apiVersion: velero.io/v1
 kind: BackupStorageLocation
 metadata:
-  name: noobaa_bsl
+  name: default
   namespace: {{ velero_namespace }}
 spec:
   provider: aws
   objectStorage:
     bucket: {{ noobaa_oadp_bucket_name }}
   config:
-{% if bsl.config.region is defined %}
-    region: {{ bsl.config.region }}
-{% endif %}
-{% if bsl.config.profile is defined %}
-    profile: {{ bsl.config.profile }}
-{% endif %}
-    awsS3ForcePathStyle: true
-{% if noobaa_s3_url is defined %}
-    awsS3Url: {{ noobaa_s3_url }}
-{% endif %}
-{% endif %}
+    region: noobaa
+    s3ForcePathStyle: "true"
+    s3Url: "{{ noobaa_s3_endpoint_proto }}://{{ noobaa_endpoint }}"
+    insecureSkipTLSVerify: "true"
