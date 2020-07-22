@@ -100,8 +100,8 @@
     block:
     - name: Discovering NooBaa S3 endpoint
       k8s_facts:
-        api_version: route.openshift.io/v1  
-        kind: Route
+        api_version: v1
+        kind: Service
         name: s3
         namespace: "{{ noobaa_system_namespace }}"
       register: noobaa_s3_endpoint
@@ -109,11 +109,12 @@
       delay: 3
       until: noobaa_s3_endpoint.resources is defined and
              noobaa_s3_endpoint.resources[0] is defined and
-             noobaa_s3_endpoint.resources[0].status.ingress is defined
+             noobaa_s3_endpoint.resources[0].status.loadBalancer is defined and
+             noobaa_s3_endpoint.resources[0].status.loadBalancer.ingress is defined
 
     - set_fact:
-        noobaa_endpoint: "{{ noobaa_s3_endpoint.resources[0].status.ingress[0].host }}"
-      when: noobaa_s3_endpoint.resources[0].status.ingress[0].host is defined
+        noobaa_endpoint: "{{ noobaa_s3_endpoint.resources[0].status.loadBalancer.ingress[0].hostname }}"
+      when: noobaa_s3_endpoint.resources[0].status.loadBalancer.ingress[0].hostname is defined
     
     - debug:
         msg:
@@ -134,6 +135,28 @@
     - set_fact:
         noobaa_s3_access_key_id: "{{ noobaa_admin_secret.resources[0].data.AWS_ACCESS_KEY_ID | b64decode }}"
         noobaa_s3_secret_access_key: "{{ noobaa_admin_secret.resources[0].data.AWS_SECRET_ACCESS_KEY | b64decode }}"
+
+    - set_fact:
+        noobaa_secret_contents: "[default]\naws_access_key_id={{ noobaa_s3_access_key_id }}\naws_secret_access_key={{ noobaa_s3_secret_access_key }}"
+    
+    - debug:
+        msg:
+        - "Noobaa access key id: {{ noobaa_s3_access_key_id }}"
+        - "Noobaa secret access key: {{ noobaa_s3_secret_access_key }}"
+        - "Noobaa secret content: {{ noobaa_secret_contents }}"
+
+    - name: Create Noobaa s3 cloud-credentials secret
+      k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: "{{ velero_aws_secret_name }}"
+            namespace: "{{ velero_namespace }}"
+          data:
+            cloud: "{{noobaa_secret_contents | b64encode}}"
+    
 
     - name: Discovering NooBaa CA Bundle
       shell: "{{ item }}"
