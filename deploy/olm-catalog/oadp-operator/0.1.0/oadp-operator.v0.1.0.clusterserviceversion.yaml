@@ -4,7 +4,7 @@ metadata:
   name: oadp-operator.v0.1.0
   namespace: oadp-operator
   annotations:
-    containerImage: quay.io/konveyor/oadp-operator
+    containerImage: quay.io/deshah/oadp
     alm-examples: |-
       [
         {
@@ -154,6 +154,7 @@ metadata:
     certified: "false"
     repository: https://github.com/konveyor/oadp-operator
     support: Red Hat
+    operatorframework.io/suggested-namespace: oadp-operator
 spec:
   apiservicedefinitions: {}
   customresourcedefinitions:
@@ -233,7 +234,7 @@ spec:
                   value: latest
                 - name: VELERO_CSI_PLUGIN_TAG
                   value: v0.1.0
-                image: quay.io/konveyor/oadp-operator:latest
+                image: quay.io/deshah/oadp
                 imagePullPolicy: Always
                 name: oadp-operator
                 resources: {}
@@ -421,11 +422,11 @@ spec:
   installModes:
   - supported: true
     type: OwnNamespace
-  - supported: true
+  - supported: false
     type: SingleNamespace
-  - supported: true
+  - supported: false
     type: MultiNamespace
-  - supported: true
+  - supported: false
     type: AllNamespaces
   keywords:
   - velero
@@ -501,4 +502,5 @@ spec:
       kind: VolumeSnapshotLocation
       displayName: VolumeSnapshotLocation
       description: A velero volume snapshot location
+
 
