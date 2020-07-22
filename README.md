@@ -186,7 +186,7 @@ spec:
 ```
 <b>Note:</b> 
 - Be sure to use the same `secret` name you used while creating the cloud credentials secret in step 3 of Operator   installation section.
-- Another thing to consider are the CR file specs, they should be tailored in accordance to your own cloud provider accouts, for instance `bucket` spec value should be accoring to your own bucket name and so on.
+- Another thing to consider are the CR file specs, they should be tailored in accordance to your own cloud provider accounts, for instance `bucket` spec value should be according to your own bucket name and so on.
 - Do not configure more than one `backupStorageLocations` per cloud provider, the velero installation will fail.  
 - Parameter reference for [backupStorageLocations](https://velero.io/docs/master/api-types/backupstoragelocation/) and [volumeSnapshotLocations](https://velero.io/docs/master/api-types/volumesnapshotlocation/)
 
@@ -209,7 +209,7 @@ spec:
   - name: default
     provider: aws
     object_storage:
-      bucket: shubbam-6109f5e9711c8c58131acdd2f490f451
+      bucket: myBucket
       prefix: "velero"
     config:
       region: us-east-1
@@ -306,43 +306,70 @@ spec:
 ```
 <b>Note:</b> Ensure that `insecure_skip_tls_verify` is set to `false` so that TLS is used.
 
-### OLM Installation
-Make sure operator-sdk and olm is properly installed, for instance the output of the command `operator-sdk olm status` should look like this:
-```
-I0708 14:23:09.267307  211635 request.go:621] Throttling request took 1.049514278s, request: GET:https://api.cluster-dshah0518.dshah0518.mg.dog8code.com:6443/apis/crunchydata.com/v1?timeout=32s
-INFO[0002] Fetching CRDs for version "0.14.1"           
-INFO[0003] Fetching resources for version "0.14.1"      
-INFO[0004] Successfully got OLM status for version "0.14.1" 
-
-NAME                                            NAMESPACE    KIND                        STATUS
-olm                                                          Namespace                   Installed
-operatorgroups.operators.coreos.com                          CustomResourceDefinition    Installed
-catalogsources.operators.coreos.com                          CustomResourceDefinition    Installed
-subscriptions.operators.coreos.com                           CustomResourceDefinition    Installed
-installplans.operators.coreos.com                            CustomResourceDefinition    Installed
-aggregate-olm-edit                                           ClusterRole                 Installed
-catalog-operator                                olm          Deployment                  Installed
-olm-operator                                    olm          Deployment                  Installed
-operatorhubio-catalog                           olm          CatalogSource               Installed
-olm-operators                                   olm          OperatorGroup               Installed
-aggregate-olm-view                                           ClusterRole                 Installed
-operators                                                    Namespace                   Installed
-global-operators                                operators    OperatorGroup               Installed
-olm-operator-serviceaccount                     olm          ServiceAccount              Installed
-packageserver                                   olm          ClusterServiceVersion       Installed
-system:controller:operator-lifecycle-manager                 ClusterRole                 Installed
-clusterserviceversions.operators.coreos.com                  CustomResourceDefinition    Installed
-olm-operator-binding-olm                                     ClusterRoleBinding          Installed
-```
-To install operator-sdk, select compiling and installing from source option from this [link](https://docs.openshift.com/container-platform/4.2/operators/operator_sdk/osdk-getting-started.html).
-
-To install OLM, use the following command `operator-sdk olm install --version 0.14.1`.
-
 ### OLM Integration
-<b>Note:</b> Run all the commands at the root of the directory.
+Create `oadp-operator-source.yaml` file like below in oadp-operator directory:
+```
+apiVersion: operators.coreos.com/v1
+kind: OperatorSource
+metadata:
+  name: oadp-operator
+  namespace: openshift-marketplace
+spec:
+  type: appregistry
+  endpoint: https://quay.io/cnr
+  registryNamespace: deshah
+  displayName: "OADP Operator"
+  publisher: "deshah@redhat.com"
+```
+Remove the deployed resources by following all the commands below in Cleanup Section.
 
-To publish the operator on operatorhub in your cluster, run `operator-sdk run packagemanifests --olm-namespace olm --operator-namespace oadp-operator --operator-version 0.1.0`.
+<b>Note:</b> All the commands should be run by being at root of oadp-operator directory.
 
+Run the following commands below:
+
+```
+oc create namespace oadp-operator
+oc project oadp-operator
+oc create secret generic <SECRET_NAME> --namespace oadp-operator --from-file cloud=<CREDENTIALS_FILE_PATH>
+oc create -f oadp-operator-source.yaml
+```
+After running these commands, install OADP Operator from OperatorHub.
+
+When the installation is succeeded, create a Velero CR
+
+```
+oc create -f deploy/crds/konveyor.openshift.io_v1alpha1_velero_cr.yaml
+
+```
+
+Post completion of all the above steps, you can check if the operator was successfully installed or not, the expected result for the command `oc get all -n oadp-operator` is as follows:
+```
+NAME                                             READY   STATUS    RESTARTS   AGE
+pod/oadp-default-aws-registry-568978c9dc-kxjbq   1/1     Running   0          113m
+pod/oadp-operator-5645c4f8b8-64mzn               1/1     Running   0          114m
+pod/restic-cg9z7                                 1/1     Running   0          113m
+pod/restic-dghn9                                 1/1     Running   0          113m
+pod/restic-dl77w                                 1/1     Running   0          113m
+pod/velero-779f785b7d-9q7xd                      1/1     Running   0          113m
+
+NAME                                    TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)             AGE
+service/oadp-default-aws-registry-svc   ClusterIP   172.30.87.162   <none>        5000/TCP            113m
+service/oadp-operator-metrics           ClusterIP   172.30.88.57    <none>        8383/TCP,8686/TCP   114m
+
+NAME                    DESIRED   CURRENT   READY   UP-TO-DATE   AVAILABLE   NODE SELECTOR   AGE
+daemonset.apps/restic   3         3         3       3            3           <none>          113m
+
+NAME                                        READY   UP-TO-DATE   AVAILABLE   AGE
+deployment.apps/oadp-default-aws-registry   1/1     1            1           113m
+deployment.apps/oadp-operator               1/1     1            1           114m
+deployment.apps/velero                      1/1     1            1           113m
+
+NAME                                                   DESIRED   CURRENT   READY   AGE
+replicaset.apps/oadp-default-aws-registry-568978c9dc   1         1         1       113m
+replicaset.apps/oadp-operator-5645c4f8b8               1         1         1       114m
+replicaset.apps/velero-779f785b7d                      1         1         1       113m
+
+``` 
 
 ### Cleanup
 For cleaning up the deployed resources, use the following commands:
@@ -352,6 +379,6 @@ oc delete -f deploy/crds/konveyor.openshift.io_veleros_crd.yaml
 oc delete -f deploy/
 oc delete namespace oadp-operator
 oc delete crd $(oc get crds | grep velero.io | awk -F ' ' '{print $1}')
+oc delete secret <SECRET_NAME> --namespace oadp-operator
 ```
-
 
