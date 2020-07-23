@@ -344,6 +344,12 @@ spec:
           - deployments
           verbs:
           - get
+        - apigroups:
+          - route.openshift.io
+          resources:
+          - routes
+          verbs:
+          - '*'
         - apiGroups:
           - konveyor.openshift.io
           resources:

@@ -339,7 +339,6 @@ When the installation is succeeded, create a Velero CR
 
 ```
 oc create -f deploy/crds/konveyor.openshift.io_v1alpha1_velero_cr.yaml
-
 ```
 
 Post completion of all the above steps, you can check if the operator was successfully installed or not, the expected result for the command `oc get all -n oadp-operator` is as follows:
