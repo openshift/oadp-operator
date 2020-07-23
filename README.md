@@ -333,10 +333,25 @@ oc project oadp-operator
 oc create secret generic <SECRET_NAME> --namespace oadp-operator --from-file cloud=<CREDENTIALS_FILE_PATH>
 oc create -f oadp-operator-source.yaml
 ```
-After running these commands, install OADP Operator from OperatorHub.
+- After running these commands, install OADP Operator from OperatorHub.
+
+In order to use OLM for OADP deployment , you need to change flag `olm_managed` in the `konveyor.openshift.io_v1alpha1_velero_cr.yaml` to true. The file is present in deploy/crds folder.
+
+For instance the `konveyor.openshift.io_v1alpha1_velero_cr.yaml` file might look something like this:
+
+```
+apiVersion: konveyor.openshift.io/v1alpha1
+kind: Velero
+metadata:
+  name: example-velero
+spec:
+  use_upstream_images: true
+  olm_managed: true
+  default_velero_plugins:
+  - aws
+```
 
 When the installation is succeeded, create a Velero CR
-
 ```
 oc create -f deploy/crds/konveyor.openshift.io_v1alpha1_velero_cr.yaml
 ```

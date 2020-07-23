@@ -4,7 +4,7 @@ metadata:
   name: example-velero
 spec:
   use_upstream_images: true
-  olm_managed: true
+  olm_managed: false
   default_velero_plugins:
   - aws
   - openshift
