@@ -344,30 +344,32 @@ oc create -f deploy/crds/konveyor.openshift.io_v1alpha1_velero_cr.yaml
 Post completion of all the above steps, you can check if the operator was successfully installed or not, the expected result for the command `oc get all -n oadp-operator` is as follows:
 ```
 NAME                                             READY   STATUS    RESTARTS   AGE
-pod/oadp-default-aws-registry-568978c9dc-kxjbq   1/1     Running   0          113m
-pod/oadp-operator-5645c4f8b8-64mzn               1/1     Running   0          114m
-pod/restic-cg9z7                                 1/1     Running   0          113m
-pod/restic-dghn9                                 1/1     Running   0          113m
-pod/restic-dl77w                                 1/1     Running   0          113m
-pod/velero-779f785b7d-9q7xd                      1/1     Running   0          113m
+pod/oadp-default-aws-registry-568978c9dc-glpfj   1/1     Running   0          10h
+pod/oadp-operator-64f79d9bf4-4lzl9               1/1     Running   0          10h
+pod/restic-bc5tm                                 1/1     Running   0          10h
+pod/restic-dzrkh                                 1/1     Running   0          10h
+pod/restic-z4mhx                                 1/1     Running   0          10h
+pod/velero-779f785b7d-5z6qf                      1/1     Running   0          10h
 
-NAME                                    TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)             AGE
-service/oadp-default-aws-registry-svc   ClusterIP   172.30.87.162   <none>        5000/TCP            113m
-service/oadp-operator-metrics           ClusterIP   172.30.88.57    <none>        8383/TCP,8686/TCP   114m
+NAME                                    TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)             AGE
+service/oadp-default-aws-registry-svc   ClusterIP   172.30.155.164   <none>        5000/TCP            10h
+service/oadp-operator-metrics           ClusterIP   172.30.58.121    <none>        8383/TCP,8686/TCP   10h
 
 NAME                    DESIRED   CURRENT   READY   UP-TO-DATE   AVAILABLE   NODE SELECTOR   AGE
-daemonset.apps/restic   3         3         3       3            3           <none>          113m
+daemonset.apps/restic   3         3         3       3            3           <none>          10h
 
 NAME                                        READY   UP-TO-DATE   AVAILABLE   AGE
-deployment.apps/oadp-default-aws-registry   1/1     1            1           113m
-deployment.apps/oadp-operator               1/1     1            1           114m
-deployment.apps/velero                      1/1     1            1           113m
+deployment.apps/oadp-default-aws-registry   1/1     1            1           10h
+deployment.apps/oadp-operator               1/1     1            1           10h
+deployment.apps/velero                      1/1     1            1           10h
 
 NAME                                                   DESIRED   CURRENT   READY   AGE
-replicaset.apps/oadp-default-aws-registry-568978c9dc   1         1         1       113m
-replicaset.apps/oadp-operator-5645c4f8b8               1         1         1       114m
-replicaset.apps/velero-779f785b7d                      1         1         1       113m
+replicaset.apps/oadp-default-aws-registry-568978c9dc   1         1         1       10h
+replicaset.apps/oadp-operator-64f79d9bf4               1         1         1       10h
+replicaset.apps/velero-779f785b7d                      1         1         1       10h
 
+NAME                                                       HOST/PORT                                                                                        PATH   SERVICES                        PORT       TERMINATION   WILDCARD
+route.route.openshift.io/oadp-default-aws-registry-route   oadp-default-aws-registry-route-oadp-operator.apps.cluster-dshah-4-5.dshah-4-5.mg.dog8code.com          oadp-default-aws-registry-svc   5000-tcp                 None
 ``` 
 
 ### Cleanup
@@ -378,6 +380,5 @@ oc delete -f deploy/crds/konveyor.openshift.io_veleros_crd.yaml
 oc delete -f deploy/
 oc delete namespace oadp-operator
 oc delete crd $(oc get crds | grep velero.io | awk -F ' ' '{print $1}')
-oc delete secret <SECRET_NAME> --namespace oadp-operator
 ```
 
