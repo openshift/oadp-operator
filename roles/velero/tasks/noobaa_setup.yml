@@ -3,7 +3,7 @@
   - name: Deleting existing NooBaa bsl storage
     k8s:
       state: absent
-      definition: "{{ lookup('template', 'noobaa_bsl.yml.j2') }}"
+      definition: "{{ lookup('template', 'noobaa_bsl_vsl.yml.j2') }}"
     vars:
       noobaa_s3_url: " "
       noobaa_s3_access_key_id: " "
@@ -298,4 +298,4 @@
     name: Create Noobaa BackupStorageLocation
     k8s:
       state: "{{ velero_state }}"
-      definition: "{{ lookup('template', 'noobaa_bsl.yml.j2') }}"
+      definition: "{{ lookup('template', 'noobaa_bsl_vsl.yml.j2') }}"

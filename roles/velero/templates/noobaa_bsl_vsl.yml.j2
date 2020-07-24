@@ -13,3 +13,13 @@ spec:
     s3ForcePathStyle: "true"
     s3Url: "{{ noobaa_s3_endpoint_proto }}://{{ noobaa_endpoint }}"
     insecureSkipTLSVerify: "true"
+---
+apiVersion: velero.io/v1
+kind: VolumeSnapshotLocation
+metadata:
+  name: default
+  namespace: {{ velero_namespace }}
+spec:
+  provider: aws
+  config:
+    region: noobaa
