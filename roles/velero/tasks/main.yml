@@ -68,24 +68,24 @@
         cloud: ""
   when: '"azure" in default_velero_plugins and (azure_secret_status.resources|length) == 0'
 
-- name: Discover AWS credentials
-  k8s_info:
-    api_version: v1
-    kind: Secret
-    name: "{{ velero_aws_secret_name }}"
-    namespace: "{{ velero_namespace }}"
-  register: aws_secret
+- when: '"aws" in default_velero_plugins and (secret_status.resources[0].data.cloud|length) > 0'
+  block:
+  - name: Discover AWS credentials
+    k8s_info:
+      api_version: v1
+      kind: Secret
+      name: "{{ velero_aws_secret_name }}"
+      namespace: "{{ velero_namespace }}"
+    register: aws_secret
 
-- name: Decode AWS credentials #TODO Cred Validation and noobaa switch
-  set_fact:
-    aws_secret_split: "{{ (aws_secret.resources[0].data.cloud | b64decode).split('\n') }}"
-  when: not noobaa  
+  - name: Decode AWS credentials
+    set_fact:
+      aws_secret_split: "{{ (aws_secret.resources[0].data.cloud | b64decode).split('\n') }}"
 
-- name: Store AWS credentials
-  set_fact:
-    aws_access_key_id: "{{ (aws_secret_split[1] | regex_replace(' ', '')).split('=')[1] }}"
-    aws_secret_access_key: "{{ (aws_secret_split[2] | regex_replace(' ', '')).split('=')[1] }}"
-  when: not noobaa
+  - name: Store AWS credentials
+    set_fact:
+      aws_access_key_id: "{{ (aws_secret_split[1] | regex_replace(' ', '')).split('=')[1] }}"
+      aws_secret_access_key: "{{ (aws_secret_split[2] | regex_replace(' ', '')).split('=')[1] }}"
 
 - name: "Set up velero supporting resources (CRDS, SA, SCC)"
   k8s:
@@ -138,5 +138,5 @@
     state: "{{ velero_state }}"
     definition: "{{ lookup('template', 'velero_vsl.yml.j2') }}"
 
-- name: "Include mcg tasks"
+- name: "Include Noobaa Setup tasks"
   include_tasks: noobaa_setup.yml
