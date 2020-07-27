@@ -68,7 +68,11 @@
         cloud: ""
   when: '"azure" in default_velero_plugins and (azure_secret_status.resources|length) == 0'
 
-- when: '"aws" in default_velero_plugins and (secret_status.resources[0].data.cloud|length) > 0'
+- debug:
+    msg:
+    - "aws secret value: {{ secret_status }}"
+
+- when: '"aws" in default_velero_plugins and (secret_status.resources|length) > 0'
   block:
   - name: Discover AWS credentials
     k8s_info:
@@ -137,6 +141,7 @@
   k8s:
     state: "{{ velero_state }}"
     definition: "{{ lookup('template', 'velero_vsl.yml.j2') }}"
+  when: (velero_aws_bsl_configs | int != 0 or velero_azure_bsl_configs | int != 0 or velero_gcp_bsl_configs | int != 0) and not noobaa
 
 - name: "Include Noobaa Setup tasks"
   include_tasks: noobaa_setup.yml

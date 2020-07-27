@@ -203,9 +203,13 @@
         name: "{{ noobaa_system_pv_pool_bs_name }}"
         namespace: "{{ noobaa_system_namespace }}"
       register: noobaa_backingstore
-      until: (noobaa_backingstore.resources|first).status is defined
+      until: (noobaa_backingstore.resources|first).status is defined #TODO changes status to status.phase
       retries: 30
       delay: 10
+
+    - debug:
+        msg:
+        - "backing store object: {{ noobaa_backingstore.resources }}"
 
     - name: "Wait for PV Pool BackingStore to be in Ready phase" #TODO Optimal mode
       k8s_facts:
@@ -295,7 +299,7 @@
       delay: 10
   
   - when: (noobaa_bucket.resources|first).status.phase == "Bound"
-    name: Create Noobaa BackupStorageLocation
+    name: Create Noobaa BackupStorageLocation and VolumeSnapshotLocation
     k8s:
       state: "{{ velero_state }}"
       definition: "{{ lookup('template', 'noobaa_bsl_vsl.yml.j2') }}"
