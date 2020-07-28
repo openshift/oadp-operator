@@ -36,7 +36,12 @@
       name: "{{ item }}"
     loop: "{{ noobaa_expected_crds }}"
     register: noobaa_found_crds
-
+  
+  - name: Validate that NooBaa CRDs exist
+    fail:
+      msg: "NooBaa CRDs are not present, please install the OCS Operator (Noobaa Operator)"
+    when: not noobaa_crds_found
+   
   - set_fact:
       noobaa_crds_found: "{{ noobaa_found_crds.results|length >= noobaa_expected_crds|length }}"
   - debug:
