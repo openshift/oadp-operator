@@ -50,7 +50,7 @@ quay_registry: quay.io
 konveyor_project: konveyor
 
 # noobaa integration
-noobaa: true
+noobaa: false
 noobaa_expected_crds:
   - noobaas.noobaa.io
   - bucketclasses.noobaa.io

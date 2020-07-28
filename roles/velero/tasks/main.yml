@@ -2,6 +2,9 @@
 - name: "Include preflight tasks"
   include_tasks: preflight.yml
 
+- name: "Include Noobaa Setup tasks"
+  include_tasks: noobaa_setup.yml
+
 - name: "Check if cloud-credentials secret exists already so we don't update it"
   k8s_info:
     api_version: v1
@@ -142,6 +145,3 @@
     state: "{{ velero_state }}"
     definition: "{{ lookup('template', 'velero_vsl.yml.j2') }}"
   when: (velero_aws_bsl_configs | int != 0 or velero_azure_bsl_configs | int != 0 or velero_gcp_bsl_configs | int != 0) and not noobaa
-
-- name: "Include Noobaa Setup tasks"
-  include_tasks: noobaa_setup.yml
