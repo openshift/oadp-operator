@@ -367,9 +367,9 @@ NAME                                                       HOST/PORT            
 route.route.openshift.io/oadp-default-aws-registry-route   oadp-default-aws-registry-route-oadp-operator.apps.cluster-dshah-4-5.dshah-4-5.mg.dog8code.com          oadp-default-aws-registry-svc   5000-tcp                 None
 ``` 
 
-- For cleaning up the deployed resources, remove the velero crd instance from web console and then uninstall the operator. To check that, run:
+- For cleaning up the deployed resources, remove the velero crd instance from web console and then uninstall the operator. To check if the resources are removed, run:
 
-'''
+```
 $ oc get all -n oadp-operator
 No resources found in oadp-operator namespace.
 ```
