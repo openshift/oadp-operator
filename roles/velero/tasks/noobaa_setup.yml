@@ -3,11 +3,12 @@
   - name: Deleting existing NooBaa bsl storage
     k8s:
       state: absent
-      definition: "{{ lookup('template', 'noobaa_bsl_vsl.yml.j2') }}"
+      definition: "{{ lookup('template', 'noobaa_bsl.yml.j2') }}"
     vars:
-      noobaa_s3_url: " "
+      noobaa_endpoint: " "
       noobaa_s3_access_key_id: " "
       noobaa_s3_secret_access_key: " "
+    ignore_errors: yes
 
   - name: Discovering existing NooBaa Systems owned by OADP operator
     k8s_facts:
@@ -17,6 +18,7 @@
       label_selectors:
       - app=noobaa
     register: oadp_noobaa_system
+    ignore_errors: yes
 
   - name: Deleting NooBaa Systems owned by OADP operator
     k8s:
@@ -26,10 +28,11 @@
       kind: NooBaa
       namespace: "{{ velero_namespace }}"
     loop: "{{ oadp_noobaa_system.resources }}"
+    ignore_errors: yes
 
 - when: noobaa|bool
   block:
-  - name: Checking if NooBaa CRDs exist
+  - name: Discover NooBaa CRDs
     k8s_facts:
       api_version: "apiextensions.k8s.io/v1beta1"
       kind: CustomResourceDefinition
@@ -37,14 +40,29 @@
     loop: "{{ noobaa_expected_crds }}"
     register: noobaa_found_crds
 
+  - name: Check if NooBaa CRDs exist 
+    set_fact:
+      noobaa_crds_count: "{{ noobaa_crds_count | int + 1 }}"
+    loop: "{{ noobaa_found_crds.results }}"
+    when: item.resources | length > 0 
+  
   - set_fact:
-      noobaa_crds_found: "{{ noobaa_found_crds.results|length >= noobaa_expected_crds|length }}"
+      noobaa_crds_exist: "{{ (noobaa_crds_count | int) >= (noobaa_expected_crds | length) }}"
   - debug:
       msg:
-      - "Found noobaa crds found {{ noobaa_crds_found }}"
+      - "Noobaa crds exist flag: {{ noobaa_crds_exist }}"
+      - "Noobaa crds count : {{ noobaa_crds_count }}"
+      - "Noobaa crds exected object: {{ noobaa_expected_crds }}"
+      - "Noobaa crds found length: {{ noobaa_found_crds.results|length }}"
+      - "Noobaa crds exected length: {{ noobaa_expected_crds|length }}"
+
+  - name: Validate that NooBaa CRDs exist
+    fail:
+      msg: "NooBaa CRDs are not present, please install the OCS Operator (Noobaa Operator)"
+    when: not noobaa_crds_exist
 
   # Discover existing NooBaa System or create new
-  - when: noobaa_crds_found|bool
+  - when: noobaa_crds_exist|bool
     block:
     - name: Discover existing NooBaa system
       k8s_facts:
@@ -57,13 +75,6 @@
 
     - set_fact:
         noobaa_system_namespace: "{{ velero_namespace if not noobaa_system_found else noobaa_system.resources[0].metadata.namespace }}"
-    
-    - debug: 
-        msg: 
-        - "Found noobaa system {{ noobaa_system.resources }}"
-        - "Length of resources {{ noobaa_system.resources|length }}"
-        - "Noobaa system found bool flag values: {{ noobaa_system_found }}"
-        - "Noobaa system namespace: {{ noobaa_system_namespace }}"
 
     - name: Creating a new NooBaa system
       when: not noobaa_system_found|bool
@@ -89,19 +100,14 @@
                             noobaa_system_status.resources[0].status is not defined or
                             noobaa_system_status.resources[0].status.phase != 'Ready' else True }}"
   
-    - debug:
-        msg:
-        - "Found Noobaa system status: {{ noobaa_system_status }}"
-        - "Found noobaa system ready {{ noobaa_system_ready }}"
-        - "Found noobaa system ns {{ noobaa_system_namespace }}"
 
   # discover routes and secrets
   - when: noobaa_system_ready|bool
     block:
     - name: Discovering NooBaa S3 endpoint
       k8s_facts:
-        api_version: v1
-        kind: Service
+        api_version: route.openshift.io/v1
+        kind: Route
         name: s3
         namespace: "{{ noobaa_system_namespace }}"
       register: noobaa_s3_endpoint
@@ -109,12 +115,11 @@
       delay: 3
       until: noobaa_s3_endpoint.resources is defined and
              noobaa_s3_endpoint.resources[0] is defined and
-             noobaa_s3_endpoint.resources[0].status.loadBalancer is defined and
-             noobaa_s3_endpoint.resources[0].status.loadBalancer.ingress is defined
+             noobaa_s3_endpoint.resources[0].status.ingress is defined
 
     - set_fact:
-        noobaa_endpoint: "{{ noobaa_s3_endpoint.resources[0].status.loadBalancer.ingress[0].hostname }}"
-      when: noobaa_s3_endpoint.resources[0].status.loadBalancer.ingress[0].hostname is defined
+        noobaa_endpoint: "{{ noobaa_s3_endpoint.resources[0].status.ingress[0].host }}"
+      when: noobaa_s3_endpoint.resources[0].status.ingress[0].host is defined
     
     - debug:
         msg:
@@ -158,18 +163,18 @@
             cloud: "{{noobaa_secret_contents | b64encode}}"
     
 
-    - name: Discovering NooBaa CA Bundle
-      shell: "{{ item }}"
-      loop:
-      - openssl s_client -showcerts -verify 5 -connect {{ noobaa_endpoint }}:443 < /dev/null | awk '/BEGIN/,/END/{ if(/BEGIN/){a++}; out="cert"a".crt"; print >out}' && for cert in *.crt; do newname=$(openssl x509 -noout -subject -in $cert | sed -n 's/^.*CN=\(.*\)$/\1/; s/[ ,.*]/_/g; s/__/_/g; s/^_//g;p').pem; mv $cert $newname; done;
-      - cat *.pem
-      - rm *.pem
-      register: noobaa_ca_bundle_raw
-      when: noobaa_s3_endpoint_proto == 'https'
+    # - name: Discovering NooBaa CA Bundle
+    #   shell: "{{ item }}"
+    #   loop:
+    #   - openssl s_client -showcerts -verify 5 -connect {{ noobaa_endpoint }}:443 < /dev/null | awk '/BEGIN/,/END/{ if(/BEGIN/){a++}; out="cert"a".crt"; print >out}' && for cert in *.crt; do newname=$(openssl x509 -noout -subject -in $cert | sed -n 's/^.*CN=\(.*\)$/\1/; s/[ ,.*]/_/g; s/__/_/g; s/^_//g;p').pem; mv $cert $newname; done;
+    #   - cat *.pem
+    #   - rm *.pem
+    #   register: noobaa_ca_bundle_raw
+    #   when: noobaa_s3_endpoint_proto == 'https'
 
-    - set_fact:
-        noobaa_ca_bundle: "{{ noobaa_ca_bundle_raw.results[1].stdout }}"
-      when: noobaa_s3_endpoint_proto == 'https'
+    # - set_fact:
+    #     noobaa_ca_bundle: "{{ noobaa_ca_bundle_raw.results[1].stdout }}"
+    #   when: noobaa_s3_endpoint_proto == 'https'
     
     - debug:
         msg: "Found noobaa system ready {{ noobaa_system_ready }}"
@@ -196,29 +201,29 @@
       retries: 30
       delay: 10
 
-    - name: "Wait for PV Pool BackingStore to have status"
+    - name: "Wait for PV Pool BackingStore to have status phase"
       k8s_facts:
         api_version: "noobaa.io/v1alpha1"
         kind: BackingStore
         name: "{{ noobaa_system_pv_pool_bs_name }}"
         namespace: "{{ noobaa_system_namespace }}"
       register: noobaa_backingstore
-      until: (noobaa_backingstore.resources|first).status is defined #TODO changes status to status.phase
-      retries: 30
+      until: (noobaa_backingstore.resources|first).status.phase is defined
+      retries: 60
       delay: 10
 
     - debug:
         msg:
         - "backing store object: {{ noobaa_backingstore.resources }}"
 
-    - name: "Wait for PV Pool BackingStore to be in Ready phase" #TODO Optimal mode
+    - name: "Wait for PV Pool BackingStore to be in Ready phase and OPTIMAL mode"
       k8s_facts:
         api_version: "noobaa.io/v1alpha1"
         kind: BackingStore
         name: "{{ noobaa_system_pv_pool_bs_name }}"
         namespace: "{{ noobaa_system_namespace }}"
       register: noobaa_backingstore
-      until: (noobaa_backingstore.resources|first).status.phase == "Ready"
+      until: ((noobaa_backingstore.resources|first).status.phase == "Ready") and ((noobaa_backingstore.resources|first).status.mode.modeCode == "OPTIMAL") 
       retries: 75
       delay: 10
 
@@ -297,9 +302,3 @@
       until: (noobaa_bucket.resources|first).status.phase == "Bound"
       retries: 75
       delay: 10
-  
-  - when: (noobaa_bucket.resources|first).status.phase == "Bound"
-    name: Create Noobaa BackupStorageLocation and VolumeSnapshotLocation
-    k8s:
-      state: "{{ velero_state }}"
-      definition: "{{ lookup('template', 'noobaa_bsl_vsl.yml.j2') }}"

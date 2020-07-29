@@ -51,6 +51,7 @@ konveyor_project: konveyor
 
 # noobaa integration
 noobaa: false
+noobaa_crds_count: 0
 noobaa_expected_crds:
   - noobaas.noobaa.io
   - bucketclasses.noobaa.io
@@ -64,7 +65,7 @@ noobaa_system_pv_pool_pv_storageclass: gp2
 noobaa_system_pv_pool_bc_name: oadp-storage-pv-pool-bucket-class
 noobaa_system_pv_pool_bucket_name: oadp-storage-pv-pool-bucket-claim
 noobaa_oadp_bucket_name: oadp-operator-pv-pool-bucket
-noobaa_s3_endpoint_proto: http
+noobaa_s3_endpoint_proto: https
 noobaa_system_core_cpu: 100m
 noobaa_system_core_mem: 400Mi
 noobaa_system_db_cpu: 100m
