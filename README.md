@@ -321,9 +321,8 @@ spec:
   displayName: "OADP Operator"
   publisher: "deshah@redhat.com"
 ```
-Remove the deployed resources by following all the commands below in Cleanup Section.
 
-<b>Note:</b> All the commands should be run by being at root of oadp-operator directory.
+<b>Note:</b> All commands should be run in the root directory of this repository.
 
 Run the following commands below:
 
@@ -335,26 +334,7 @@ oc create -f oadp-operator-source.yaml
 ```
 - After running these commands, install OADP Operator from OperatorHub.
 
-In order to use OLM for OADP deployment , you need to change flag `olm_managed` in the `konveyor.openshift.io_v1alpha1_velero_cr.yaml` to true. The file is present in deploy/crds folder.
-
-For instance the `konveyor.openshift.io_v1alpha1_velero_cr.yaml` file might look something like this:
-
-```
-apiVersion: konveyor.openshift.io/v1alpha1
-kind: Velero
-metadata:
-  name: example-velero
-spec:
-  use_upstream_images: true
-  olm_managed: true
-  default_velero_plugins:
-  - aws
-```
-
-When the installation is succeeded, create a Velero CR
-```
-oc create -f deploy/crds/konveyor.openshift.io_v1alpha1_velero_cr.yaml
-```
+When the installation is succeeded, create a Velero CRD instance from web console.
 
 Post completion of all the above steps, you can check if the operator was successfully installed or not, the expected result for the command `oc get all -n oadp-operator` is as follows:
 ```
@@ -386,6 +366,13 @@ replicaset.apps/velero-779f785b7d                      1         1         1    
 NAME                                                       HOST/PORT                                                                                        PATH   SERVICES                        PORT       TERMINATION   WILDCARD
 route.route.openshift.io/oadp-default-aws-registry-route   oadp-default-aws-registry-route-oadp-operator.apps.cluster-dshah-4-5.dshah-4-5.mg.dog8code.com          oadp-default-aws-registry-svc   5000-tcp                 None
 ``` 
+
+- For cleaning up the deployed resources, remove the velero crd instance from web console and then uninstall the operator. To check that, run:
+
+'''
+$ oc get all -n oadp-operator
+No resources found in oadp-operator namespace.
+```
 
 ### Cleanup
 For cleaning up the deployed resources, use the following commands:
