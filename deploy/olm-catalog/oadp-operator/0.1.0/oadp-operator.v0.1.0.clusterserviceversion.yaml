@@ -4,7 +4,7 @@ metadata:
   name: oadp-operator.v0.1.0
   namespace: oadp-operator
   annotations:
-    containerImage: quay.io/deshah/oadp
+    containerImage: "quay.io/konveyor/oadp-operator:latest"
     alm-examples: |-
       [
         {
@@ -28,7 +28,7 @@ metadata:
                 },
                 "name": "default",
                 "object_storage": {
-                  "bucket": "mybucket",
+                  "bucket": "myBucket",
                   "prefix": "velero"
                 },
                 "provider": "aws"
@@ -42,7 +42,7 @@ metadata:
               {
                 "config": {
                   "profile": "default",
-                  "region": "us-west-2"
+                  "region": "us-west-1"
                 },
                 "name": "default",
                 "provider": "aws"
@@ -234,7 +234,7 @@ spec:
                   value: latest
                 - name: VELERO_CSI_PLUGIN_TAG
                   value: v0.1.0
-                image: quay.io/deshah/oadp
+                image: "quay.io/konveyor/oadp-operator:latest"
                 imagePullPolicy: Always
                 name: oadp-operator
                 resources: {}
