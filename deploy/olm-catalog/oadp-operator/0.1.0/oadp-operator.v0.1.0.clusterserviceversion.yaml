@@ -16,6 +16,8 @@ metadata:
           },
           "spec": {
             "olm_managed": true,
+            "enable_csi_plugin":true,
+            "use_upstream_images":true,
             "backup_storage_locations": [
               {
                 "config": {
