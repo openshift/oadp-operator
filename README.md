@@ -11,7 +11,7 @@ OADP is OpenShift Application Data Protection operator. This operator sets up an
 - Access to OpenShift cluster
 
 ***
-## Getting Started with basic install
+## Getting started with basic install
 ***
 
 ### Cloning the Repository
@@ -116,7 +116,7 @@ velero client config set namespace=oadp-operator
 
 ### Plugin customization
 
-During the Velero installation using OADP Operator we need at least one plugin. Please refer [Velero plugin customization](docs/plugins.md) for more details.
+The Velero installation requires at least one cloud provider plugin installed. Please refer [Velero plugin customization](docs/plugins.md) for more details.
 
 ### Enable CSI plugin for Velero
 
