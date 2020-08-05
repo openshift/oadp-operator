@@ -8,7 +8,7 @@ metadata:
 spec:
   type: appregistry
   endpoint: https://quay.io/cnr
-  registryNamespace: deshah
+  registryNamespace: konveyor
   displayName: "OADP Operator"
   publisher: "deshah@redhat.com"
 ```
