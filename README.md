@@ -68,9 +68,13 @@ To install OADP operator and the essential Velero components follow the steps gi
   ```
   oc create secret generic <SECRET_NAME> --namespace oadp-operator --from-file cloud=<CREDENTIALS_FILE_PATH>
   ```
-- Now to create the deployment, role, role binding, service account and the cluster role binding, use the following command:
+- Now to create the deployment, role, role binding, service account, use the following command:
   ```
   oc create -f deploy/
+  ```
+- To create the cluster role binding, run the following command:
+  ```
+  oc create -f deploy/non-olm
   ```
 - Deploy the Velero custom resource definition:
   ```
@@ -141,6 +145,12 @@ By default, the Velero deployment requests 500m CPU, 128Mi memory and sets a lim
 If you intend to use Velero with a storage provider that is secured by a self-signed certificate, you may need to instruct Velero to trust that certificate. See [Use self-sigend certificate](docs/self_signed_certs.md) section for details.
 
 ***
+## OLM Integration
+***
+
+For installing/uninstalling the OADP operator directly from OperatorHub, follow this document [OLM Integration](docs/olm.md) for details.
+
+***
 ## OADP Operator with NooBaa
 ***
 
@@ -161,3 +171,4 @@ oc delete -f deploy/
 oc delete namespace oadp-operator
 oc delete crd $(oc get crds | grep velero.io | awk -F ' ' '{print $1}')
 ```
+
