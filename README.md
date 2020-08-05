@@ -124,83 +124,11 @@ By default the CSI plugin is not enabled, in order to enable the [CSI plugin](ht
 
 ### Backup Storage Locations and Volume Snapshot Locations Customization
 
-<<<<<<< HEAD
-```
-apiVersion: konveyor.openshift.io/v1alpha1
-kind: Velero
-metadata:
-  name: example-velero
-spec:
-  default_velero_plugins:
-  - aws
-  backup_storage_locations:
-  - name: default
-    provider: aws
-    object_storage:
-      bucket: myBucket
-      prefix: "velero"
-    config:
-      region: us-east-1
-      profile: "default"
-    credentials_secret_ref:
-      name: cloud-credentials
-      namespace: oadp-operator
-  volume_snapshot_locations:
-  - name: default
-    provider: aws
-    config:
-      region: us-west-2
-      profile: "default"
-```
-<b>Note:</b> 
-- Be sure to use the same `secret` name you used while creating the cloud credentials secret in step 3 of Operator   installation section.
-- Another thing to consider are the CR file specs, they should be tailored in accordance to your own cloud provider accounts, for instance `bucket` spec value should be according to your own bucket name and so on.
-- Do not configure more than one `backupStorageLocations` per cloud provider, the velero installation will fail.  
-- Parameter reference for [backupStorageLocations](https://velero.io/docs/master/api-types/backupstoragelocation/) and [volumeSnapshotLocations](https://velero.io/docs/master/api-types/volumesnapshotlocation/)
-
-### Using upstream images
-
-In order use the upstream images for Velero deployment as well as its plugins, you need to specify a flag `use_upstream_images` in the `konveyor.openshift.io_v1alpha1_velero_cr.yaml` during installation of the operator.
-
-For instance the `konveyor.openshift.io_v1alpha1_velero_cr.yaml` file might look something like this:
-
-```
-apiVersion: konveyor.openshift.io/v1alpha1
-kind: Velero
-metadata:
-  name: example-velero
-spec:
-  use_upstream_images: true
-  default_velero_plugins:
-  - aws
-  backup_storage_locations:
-  - name: default
-    provider: aws
-    object_storage:
-      bucket: myBucket
-      prefix: "velero"
-    config:
-      region: us-east-1
-      profile: "default"
-    credentials_secret_ref:
-      name: cloud-credentials
-      namespace: oadp-operator
-  volume_snapshot_locations:
-  - name: default
-    provider: aws
-    config:
-      region: us-west-2
-      profile: "default"
-  enable_restic: true
-```
-Such a CR specification will use the upstream images for deployment.
-=======
 Velero supports backup storage locations and volume snapshot locations from a number of cloud providers (AWS, Azure and GCP). Please refer the section [configure Backup Storage Locations and Volume Snapshot Locations](docs/bsl_and_vsl.md). 
 
 ### Using upstream images
 
 In order to use the upstream images for Velero deployment as well as its plugins, you need to set a flag `use_upstream_images` as `true` in the `konveyor.openshift.io_v1alpha1_velero_cr.yaml` during installation of the operator.
->>>>>>> ac6d4ee7f53125ec19452d607e9b26256f994e1b
 
 <b>Note:</b> If the flag `use_upstream_images` is set, the registry will be switched from `quay.io` to `docker.io` and v1.4.0 (current upstream version) image tag will be used for `Velero` and `latest` image tag will be used for the `plugins`.  
 
@@ -213,6 +141,12 @@ By default, the Velero deployment requests 500m CPU, 128Mi memory and sets a lim
 If you intend to use Velero with a storage provider that is secured by a self-signed certificate, you may need to instruct Velero to trust that certificate. See [Use self-sigend certificate](docs/self_signed_certs.md) section for details.
 
 ***
+## OLM Integration
+***
+
+For installing/uninstalling the OADP operator directly from OperatorHub, follow this document [OLM Integration](docs/olm.md) for details.
+
+***
 ## OADP Operator with NooBaa
 ***
 
@@ -221,12 +155,6 @@ Install OADP Operator and use NooBaa as a BackupStoraeLocation
 NooBaa debugging scenarios
 
 Cleanup OADP Operator with NooBaa
-
-***
-## OLM Integration
-***
-
-For installing/uninstalling the OADP operator directly from OperatorHub, follow this document [OLM Integration](docs/olm.md) for details.
 
 ***
 ## Cleanup
