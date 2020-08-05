@@ -10,7 +10,9 @@ OADP is OpenShift Application Data Protection operator. This operator sets up an
 - OpenShift CLI
 - Access to OpenShift cluster
 
-## Getting Started
+***
+## Getting started with basic install
+***
 
 ### Cloning the Repository
 
@@ -108,55 +110,21 @@ replicaset.apps/velero-76546b65c8          1         1         1         2m17s
 velero client config set namespace=oadp-operator
 ```
 
-### Configure Velero Plugins
+***
+## Customize Installation
+***
 
-There are mainly two categories of velero plugins that can be specified while installing Velero:
+### Plugin customization
 
-1. `default-velero-plugins`:<br>
-   4 types of default velero plugins can be installed - AWS, GCP, Azure and OpenShift. For installation, you need to specify them in the `konveyor.openshift.io_v1alpha1_velero_cr.yaml` file during deployment.
-   ```
-    apiVersion: konveyor.openshift.io/v1alpha1
-    kind: Velero
-    metadata:
-      name: example-velero
-    spec:
-      default_velero_plugins:
-      - azure
-      - gcp
-      - aws
-      - openshift    
-   ```
-   The above specification will install Velero with all the 4 default plugins.
-   
-2. `custom-velero-plugin`:<br>
-   For installation of custom velero plugins, you need to specify the plugin `image` and plugin `name` in the `konveyor.openshift.io_v1alpha1_velero_cr.yaml` file during deployment.
-
-   For instance, 
-   ```
-    apiVersion: konveyor.openshift.io/v1alpha1
-    kind: Velero
-    metadata:
-      name: example-velero
-    spec:
-      default_velero_plugins:
-      - azure
-      - gcp
-      custom_velero_plugins:
-      - name: custom-plugin-example
-        image: quay.io/example-repo/custom-velero-plugin   
-   ```
-   The above specification will install Velero with 3 plugins (azure, gcp and custom-plugin-example).
+The Velero installation requires at least one cloud provider plugin installed. Please refer [Velero plugin customization](docs/plugins.md) for more details.
 
 ### Enable CSI plugin for Velero
 
 By default the CSI plugin is not enabled, in order to enable the [CSI plugin](https://github.com/vmware-tanzu/velero-plugin-for-csi/) for velero, you need to specify a flag `enable_csi_plugin` and set it to `true` in the `konveyor.openshift.io_v1alpha1_velero_cr.yaml` file during the installation.
 
-### Configure Backup Storage Locations and Volume Snapshot Locations
+### Backup Storage Locations and Volume Snapshot Locations Customization
 
-For configuring the `backupStorageLocations` and the `volumeSnapshotLocations` we will be using the `backup_storage_locations` and the `volume_snapshot_locations` specs respectively in the `konveyor.openshift.io_v1alpha1_velero_cr.yaml` file during the deployement. 
-
-For instance, If we want to configure `aws` for `backupStorageLocations` as well as `volumeSnapshotLocations` pertaining to velero, our `konveyor.openshift.io_v1alpha1_velero_cr.yaml` file should look something like this:
-
+<<<<<<< HEAD
 ```
 apiVersion: konveyor.openshift.io/v1alpha1
 kind: Velero
@@ -226,155 +194,43 @@ spec:
   enable_restic: true
 ```
 Such a CR specification will use the upstream images for deployment.
+=======
+Velero supports backup storage locations and volume snapshot locations from a number of cloud providers (AWS, Azure and GCP). Please refer the section [configure Backup Storage Locations and Volume Snapshot Locations](docs/bsl_and_vsl.md). 
+
+### Using upstream images
+
+In order to use the upstream images for Velero deployment as well as its plugins, you need to set a flag `use_upstream_images` as `true` in the `konveyor.openshift.io_v1alpha1_velero_cr.yaml` during installation of the operator.
+>>>>>>> ac6d4ee7f53125ec19452d607e9b26256f994e1b
 
 <b>Note:</b> If the flag `use_upstream_images` is set, the registry will be switched from `quay.io` to `docker.io` and v1.4.0 (current upstream version) image tag will be used for `Velero` and `latest` image tag will be used for the `plugins`.  
 
-### Setting resource limits and requests for Velero and Restic Pods
+### Resource requests and limits customization
 
-In order to set specific resource(cpu, memory) `limits` and `requests` for the Velero pod, you need use the `velero_resource_allocation` specification field in the `konveyor.openshift.io_v1alpha1_velero_cr.yaml` file during the deployment.
+By default, the Velero deployment requests 500m CPU, 128Mi memory and sets a limit of 1000m CPU, 256Mi. Customization of these resource requests and limits may be performed using steps specified in the [Resource requests and limits customization](docs/resource_req_limits.md) section.
 
-For instance, the `velero_resource_allocation` can look somewhat similar to:
-```
-velero_resource_allocation:
-  limits:
-    cpu: "2"
-    memory: 512Mi
-  requests:
-    cpu: 500m
-    memory: 256Mi
-```
+### Use self-sigend certificate
 
-Similarly, you can use the `restic_resource_allocation` specification field for setting specific resource `limits` and `requests` for the Restic pods.
+If you intend to use Velero with a storage provider that is secured by a self-signed certificate, you may need to instruct Velero to trust that certificate. See [Use self-sigend certificate](docs/self_signed_certs.md) section for details.
 
-```
-restic_resource_allocation:
-  limits:
-    cpu: "2"
-    memory: 512Mi
-  requests:
-    cpu: 500m
-    memory: 256Mi
-```
+***
+## OADP Operator with NooBaa
+***
 
-<b>Note:</b> 
-- The values for the resource requests and limits flags follow the same format as [Kubernetes resource requirements](https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/)
-- Also, if the `velero_resource_allocation`/`restic_resource_allocation` is not defined by the user then the default resources specification for Velero/Restic pod(s) is 
-  ```
-  resources:
-    limits:
-      cpu: "1"
-      memory: 256Mi
-    requests:
-      cpu: 500m
-      memory: 128Mi
-  ```
+Install OADP Operator and use NooBaa as a BackupStoraeLocation 
 
-### Use Velero with a storage provider secured by a self-signed certificate
+NooBaa debugging scenarios
 
-If you are using an S3-Compatible storage provider that is secured with a self-signed certificate, connections to the object store may fail with a `certificate signed by unknown authority` message. In order to proceed, you will have to specify the a base64 encoded certificate string as a value of the `caCert` spec under the `object_storage` configuration in the velero CR.
+Cleanup OADP Operator with NooBaa
 
-Your CR might look somewhat like this:
+***
+## OLM Integration
+***
 
-```
-apiVersion: konveyor.openshift.io/v1alpha1
-kind: Velero
-metadata:
-  name: example-velero
-spec:
-  use_upstream_images: true
-  default_velero_plugins:
-  - aws
-  - openshift
-  backup_storage_locations:
-  - name: default
-    provider: aws
-    object_storage:
-      bucket: velero
-      caCert: <base64_encoded_cert_string>
-    config:
-      region: us-east-1
-      profile: "default"
-      insecure_skip_tls_verify: "false"
-      signature_version: "1"
-      public_url: "https://m-oadp.apps.cluster-sdpampat0519.sdpampat0519.mg.dog8code.com"
-      s3_url: "https://m-oadp.apps.cluster-sdpampat0519.sdpampat0519.mg.dog8code.com"
-      s3_force_path_style: "true"
-    credentials_secret_ref:
-      name: cloud-credentials
-      namespace: oadp-operator
-  enable_restic: true
-```
-<b>Note:</b> Ensure that `insecure_skip_tls_verify` is set to `false` so that TLS is used.
+For installing/uninstalling the OADP operator directly from OperatorHub, follow this document [OLM Integration](docs/olm.md) for details.
 
-### OLM Integration
-Create `oadp-operator-source.yaml` file like below in oadp-operator directory:
-```
-apiVersion: operators.coreos.com/v1
-kind: OperatorSource
-metadata:
-  name: oadp-operator
-  namespace: openshift-marketplace
-spec:
-  type: appregistry
-  endpoint: https://quay.io/cnr
-  registryNamespace: deshah
-  displayName: "OADP Operator"
-  publisher: "deshah@redhat.com"
-```
-
-<b>Note:</b> All commands should be run in the root directory of this repository.
-
-Run the following commands below:
-
-```
-oc create namespace oadp-operator
-oc project oadp-operator
-oc create secret generic <SECRET_NAME> --namespace oadp-operator --from-file cloud=<CREDENTIALS_FILE_PATH>
-oc create -f oadp-operator-source.yaml
-```
-- After running these commands, install OADP Operator from OperatorHub.
-
-When the installation is succeeded, create a Velero CRD instance from web console.
-
-Post completion of all the above steps, you can check if the operator was successfully installed or not, the expected result for the command `oc get all -n oadp-operator` is as follows:
-```
-NAME                                             READY   STATUS    RESTARTS   AGE
-pod/oadp-default-aws-registry-568978c9dc-glpfj   1/1     Running   0          10h
-pod/oadp-operator-64f79d9bf4-4lzl9               1/1     Running   0          10h
-pod/restic-bc5tm                                 1/1     Running   0          10h
-pod/restic-dzrkh                                 1/1     Running   0          10h
-pod/restic-z4mhx                                 1/1     Running   0          10h
-pod/velero-779f785b7d-5z6qf                      1/1     Running   0          10h
-
-NAME                                    TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)             AGE
-service/oadp-default-aws-registry-svc   ClusterIP   172.30.155.164   <none>        5000/TCP            10h
-service/oadp-operator-metrics           ClusterIP   172.30.58.121    <none>        8383/TCP,8686/TCP   10h
-
-NAME                    DESIRED   CURRENT   READY   UP-TO-DATE   AVAILABLE   NODE SELECTOR   AGE
-daemonset.apps/restic   3         3         3       3            3           <none>          10h
-
-NAME                                        READY   UP-TO-DATE   AVAILABLE   AGE
-deployment.apps/oadp-default-aws-registry   1/1     1            1           10h
-deployment.apps/oadp-operator               1/1     1            1           10h
-deployment.apps/velero                      1/1     1            1           10h
-
-NAME                                                   DESIRED   CURRENT   READY   AGE
-replicaset.apps/oadp-default-aws-registry-568978c9dc   1         1         1       10h
-replicaset.apps/oadp-operator-64f79d9bf4               1         1         1       10h
-replicaset.apps/velero-779f785b7d                      1         1         1       10h
-
-NAME                                                       HOST/PORT                                                                                        PATH   SERVICES                        PORT       TERMINATION   WILDCARD
-route.route.openshift.io/oadp-default-aws-registry-route   oadp-default-aws-registry-route-oadp-operator.apps.cluster-dshah-4-5.dshah-4-5.mg.dog8code.com          oadp-default-aws-registry-svc   5000-tcp                 None
-``` 
-
-- For cleaning up the deployed resources, remove the velero crd instance from web console and then uninstall the operator. To check if the resources are removed, run:
-
-```
-$ oc get all -n oadp-operator
-No resources found in oadp-operator namespace.
-```
-
-### Cleanup
+***
+## Cleanup
+***
 For cleaning up the deployed resources, use the following commands:
 ```
 oc delete -f deploy/crds/konveyor.openshift.io_v1alpha1_velero_cr.yaml

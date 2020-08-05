@@ -30,14 +30,15 @@ metadata:
                 },
                 "name": "default",
                 "object_storage": {
-                  "bucket": "devarsh-6109f5e9711c8c58131acdd2f490f451",
+                  "bucket": "myBucket",
                   "prefix": "velero"
                 },
                 "provider": "aws"
               }
             ],
             "default_velero_plugins": [
-              "aws"
+              "aws",
+              "openshift"
             ],
             "enable_restic": true,
             "volume_snapshot_locations": [

@@ -78,12 +78,12 @@
 
 - name: Decode AWS credentials
   set_fact:
-    aws_secret_split: "{{ ((aws_secret.resources[0].data.cloud | b64decode) | regex_replace('\n', ' ')).split(' ') | list }}"
+    aws_secret_split: "{{ (aws_secret.resources[0].data.cloud | b64decode).split('\n') }}"
 
 - name: Store AWS credentials
   set_fact:
-    aws_access_key_id: "{{ aws_secret_split[3] }}"
-    aws_secret_access_key: "{{ aws_secret_split[6] }}"
+    aws_access_key_id: "{{ (aws_secret_split[1] | regex_replace(' ', '')).split('=')[1] }}"
+    aws_secret_access_key: "{{ (aws_secret_split[2] | regex_replace(' ', '')).split('=')[1] }}"
 
 - when: not olm_managed
   block:
