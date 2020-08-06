@@ -1,10 +1,9 @@
-zxapiVersion: konveyor.openshift.io/v1alpha1
+apiVersion: konveyor.openshift.io/v1alpha1
 kind: Velero
 metadata:
   name: example-velero
 spec:
   olm_managed: false
-  use_upstream_images: true
   default_velero_plugins:
   - aws
   - openshift
@@ -12,7 +11,7 @@ spec:
   - name: default
     provider: aws
     object_storage:
-      bucket: shubbam-6109f5e9711c8c58131acdd2f490f451
+      bucket: myBucket
       prefix: "velero"
     config:
       region: us-east-1
