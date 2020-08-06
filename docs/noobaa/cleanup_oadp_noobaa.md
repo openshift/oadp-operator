@@ -10,7 +10,7 @@ Please follow the following steps in order to cleanup the resources deployed:
     oc delete -f deploy/crds/konveyor.openshift.io_veleros_crd.yaml   
     oc delete -f deploy/
     ```
-2. Now check if there are any instances present for the CRDs namely - backingstores, bucketclass, objectbucketclaim and objectbucket.io, if there are any instances present then delete them and if the deletion gets stuck then try removing the finalizers, it should work.
+2. Now check if there are any instances present for the CRDs namely - backingstores, bucketclass, objectbucketclaim and objectbucket.objectbucket.io, if there are any instances present then delete them and if the deletion gets stuck then try removing the finalizers, it should work.
 3. Once the instances of NooBaa CRDs are deleted, you need to remove the CRDs from cluster, you can use the following commands (also if the deletion of any CRD gets stuck, it implies that there are some instances remaining for that particular CRD and you will have to delete them):
     ```
     oc delete crd $(oc get crds | grep velero.io | awk -F ' ' '{print $1}')
