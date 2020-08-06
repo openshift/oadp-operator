@@ -18,9 +18,10 @@ This error messae implies that the NooBaa CRDs are not present in the OpenShift 
 
 ### NooBaa Operator (OCS Operator) transient issue
 
-In this scenario the NooBaa deployment fails, pods keep on restaring and the default Noobaa Backingstore remians in `Rejected` phase. This is a transient issue and might hinder the installation at random times. Following are some of the indicators of this issue:
-- The pods keep on restarting.
+In this scenario the NooBaa deployment fails, this is a transient issue and might hinder the installation at random times. Following are some of the indicators of this issue:
+- The noobaa-core pod keeps on restarting.
 - The NooBaa deployment returns back to `Connecting` phase from `Ready` phase.
+- Absence of lib-bucket-provisionor operator (should come out of the box with OCS Operator but sometimes the lib-provisioner operator does not get installed)
 - And the most sure shot way indicator is the `modeCode` of `oadp-storage-pv-pool-backing-store` backingstore, the `modeCode` should be `OPTIMAL`.
 - Also, if the `modeCode` of this `oadp-storage-pv-pool-backing-store` backingstore remains in `INITIALIZING` mode even after 10 min.
 
@@ -30,5 +31,5 @@ In order get out of this scenario, you need to perform the [cleanup](docs/../cle
 
 ### Configuration of AWS BackupStorageLocations or VolumeSnapshotLocations via Velero CR
 
-Just a reminder that we do not require AWS BackupStorageLocations or VolumeSnapshotLocations for NooBaa to work with OADP Operator and perform Backup/Restore Operations on OpenShift workload. If AWS BackupStorageLocations or VolumeSnapshotLocations are configured then you might get errors logs in the `velero` pod pertaing to the status codes `401` and `500`. Please make sure there are AWS BackupStorageLocations or VolumeSnapshotLocations configured, only the `noobaa` ones are valid ad required for our use case.
+Just a reminder that we do not require AWS BackupStorageLocations or VolumeSnapshotLocations for NooBaa to work with OADP Operator and perform Backup/Restore Operations on OpenShift workloads. If AWS BackupStorageLocations or VolumeSnapshotLocations are configured then you might get errors logs in the `velero` pod pertaing to the status codes `401` and `500`. Please make sure there are no AWS BackupStorageLocations or VolumeSnapshotLocations configured, only the `noobaa` ones are valid and required for our use case.
 
