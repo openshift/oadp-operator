@@ -14,10 +14,6 @@
   register: secret_status
   when: '"aws" in default_velero_plugins'
 
-- debug:
-    msg:
-    - "aws secret value: {{ secret_status }}"
-
 - name: "Check if the AWS credentials secret exists or not"
   fail:
     msg: "AWS credentials secret does not exist, Please create the same in order to proceed further with Velero installation"
@@ -31,10 +27,6 @@
     namespace: "{{ velero_namespace }}"
   register: gcp_secret_status
   when: '"gcp" in default_velero_plugins'
-
-- debug:
-    msg:
-    - "gcp secret value: {{ gcp_secret_status }}"
 
 - name: "Check if the GCP credentials secret exists or not"
   fail:
@@ -55,7 +47,7 @@
     msg: "Azure credentials secret does not exist, Please create the same in order to proceed further with velero installation"
   when: '"azure" in default_velero_plugins and azure_secret_status.resources | length == 0 and not noobaa'
 
-- when: '"aws" in default_velero_plugins and not noobaa'
+- when: '"aws" in default_velero_plugins and secret_status.resources | length > 0 and not noobaa'
   block:
   - name: Discover AWS credentials
     k8s_info:
@@ -108,11 +100,18 @@
     definition: "{{ lookup('template', 'velero_bsl_azure.yml.j2') }}"
   when: velero_azure_bsl_configs | int != 0 and not noobaa
 
-- name: Create Noobaa BackupStorageLocation
-  k8s:
-    state: "{{ velero_state }}"
-    definition: "{{ lookup('template', 'noobaa_bsl.yml.j2') }}"
-  when: (noobaa_bucket.resources|first).status.phase == "Bound"
+- when: noobaa
+  block:
+  - name: Create Noobaa BackupStorageLocation
+    k8s:
+      state: "{{ velero_state }}"
+      definition: "{{ lookup('template', 'noobaa_bsl.yml.j2') }}"
+    when: (noobaa_bucket.resources|first).status.phase == "Bound"
+  # - name: Create Noobaa registry resources                        ## TODO NooBaa imageregistry
+  #   k8s:
+  #     state: "{{ velero_state }}"
+  #     definition: "{{ lookup('template', 'noobaa_registry.yml.j2') }}"
+  
 
 - name: "Create image registry svc and routes for all the BackupStorageLocation(s) configured"
   k8s:

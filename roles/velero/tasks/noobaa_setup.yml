@@ -48,13 +48,6 @@
   
   - set_fact:
       noobaa_crds_exist: "{{ (noobaa_crds_count | int) >= (noobaa_expected_crds | length) }}"
-  - debug:
-      msg:
-      - "Noobaa crds exist flag: {{ noobaa_crds_exist }}"
-      - "Noobaa crds count : {{ noobaa_crds_count }}"
-      - "Noobaa crds exected object: {{ noobaa_expected_crds }}"
-      - "Noobaa crds found length: {{ noobaa_found_crds.results|length }}"
-      - "Noobaa crds exected length: {{ noobaa_expected_crds|length }}"
 
   - name: Validate that NooBaa CRDs exist
     fail:
@@ -120,11 +113,6 @@
     - set_fact:
         noobaa_endpoint: "{{ noobaa_s3_endpoint.resources[0].status.ingress[0].host }}"
       when: noobaa_s3_endpoint.resources[0].status.ingress[0].host is defined
-    
-    - debug:
-        msg:
-        - "S3 endpont object: {{ noobaa_s3_endpoint }}"
-        - "Noobaa endpoint value: {{ noobaa_endpoint }}"
 
     - name: Discovering NooBaa S3 Credentials
       k8s_facts:
@@ -144,12 +132,6 @@
     - set_fact:
         noobaa_secret_contents: "[default]\naws_access_key_id={{ noobaa_s3_access_key_id }}\naws_secret_access_key={{ noobaa_s3_secret_access_key }}"
     
-    - debug:
-        msg:
-        - "Noobaa access key id: {{ noobaa_s3_access_key_id }}"
-        - "Noobaa secret access key: {{ noobaa_s3_secret_access_key }}"
-        - "Noobaa secret content: {{ noobaa_secret_contents }}"
-
     - name: Create Noobaa s3 cloud-credentials secret
       k8s:
         state: present
@@ -176,8 +158,6 @@
     #     noobaa_ca_bundle: "{{ noobaa_ca_bundle_raw.results[1].stdout }}"
     #   when: noobaa_s3_endpoint_proto == 'https'
     
-    - debug:
-        msg: "Found noobaa system ready {{ noobaa_system_ready }}"
 
   # NooBaa Bucket + noobaa bsl creation
   - when: noobaa_system_ready|bool
@@ -211,10 +191,6 @@
       until: (noobaa_backingstore.resources|first).status.phase is defined
       retries: 60
       delay: 10
-
-    - debug:
-        msg:
-        - "backing store object: {{ noobaa_backingstore.resources }}"
 
     - name: "Wait for PV Pool BackingStore to be in Ready phase and OPTIMAL mode"
       k8s_facts:
