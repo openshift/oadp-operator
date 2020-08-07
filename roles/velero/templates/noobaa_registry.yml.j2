@@ -33,7 +33,7 @@ spec:
           - name: REGISTRY_STORAGE_S3_SECRETKEY
             value: "{{ noobaa_s3_secret_access_key }}"
           - name: REGISTRY_STORAGE_S3_REGIONENDPOINT
-            value: "{{ noobaa_s3_endpoint_proto }}://{{ noobaa_endpoint }}/noobaa"
+            value: "{{ noobaa_s3_endpoint_proto }}://{{ noobaa_endpoint }}"
           - name: REGISTRY_STORAGE_S3_SKIPVERIFY
             value: "true"
 ---
