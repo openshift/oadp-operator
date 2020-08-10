@@ -67,7 +67,7 @@
         noobaa_system_found: "{{ noobaa_system.resources|length > 0 }}"
 
     - set_fact:
-        noobaa_system_namespace: "{{ velero_namespace if not noobaa_system_found else noobaa_system.resources[0].metadata.namespace }}"
+        noobaa_system_namespace: "{{ noobaa_system_namespace if not noobaa_system_found else noobaa_system.resources[0].metadata.namespace }}"
 
     - name: Creating a new NooBaa system
       when: not noobaa_system_found|bool
