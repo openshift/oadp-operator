@@ -114,10 +114,10 @@
       state: "{{ velero_state }}"
       definition: "{{ lookup('template', 'noobaa_bsl.yml.j2') }}"
     when: (noobaa_bucket.resources|first).status.phase == "Bound"
-  # - name: Create Noobaa registry resources                        ## TODO NooBaa imageregistry
-  #   k8s:
-  #     state: "{{ velero_state }}"
-  #     definition: "{{ lookup('template', 'noobaa_registry.yml.j2') }}"
+  - name: Create Noobaa registry resources                        
+    k8s:
+      state: "{{ velero_state }}"
+      definition: "{{ lookup('template', 'noobaa_registry.yml.j2') }}"
   
 
 - name: "Create image registry svc and routes for all the BackupStorageLocation(s) configured"
