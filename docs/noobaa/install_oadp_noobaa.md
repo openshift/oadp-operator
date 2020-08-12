@@ -6,7 +6,7 @@ Please follow the following steps in order to install OADP Operator with NooBaa:
 
 1. Create a namespace named `oadp-operator`.
 2. Do not create any cloud credentials secret as the secret comes out of the box for NooBaa.
-3. Now install the OCS (OpenShift Container Storage) operator from the OperatorHub in the `oadp-operator` namespace, so that the requisite NooBaa CRDs get deployed on the cluster and wait till the OCS operator pods are in running state.
+3. Now install the OCS (OpenShift Container Storage) operator from the OperatorHub in the `openshift-storage` namespace, so that the requisite NooBaa CRDs get deployed on the cluster and wait till the OCS operator pods are in running state.
 4. Make sure the Velero CR file specifically has the following:
    - `noobaa: true`
    - `enable_restic: true`
