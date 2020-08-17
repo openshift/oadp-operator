@@ -82,6 +82,7 @@
   k8s:
     state: "{{ velero_state }}"
     definition: "{{ lookup('template', 'velero.yml.j2') }}"
+    apply: yes
 
 - name: "Create AWS BackupStorageLocation"
   k8s:
