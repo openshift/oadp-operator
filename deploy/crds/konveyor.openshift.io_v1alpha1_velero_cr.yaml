@@ -3,6 +3,7 @@ kind: Velero
 metadata:
   name: example-velero
 spec:
+  olm_managed: false
   default_velero_plugins:
   - aws
   - openshift
