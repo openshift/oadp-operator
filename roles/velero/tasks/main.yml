@@ -84,6 +84,18 @@
     definition: "{{ lookup('template', 'velero.yml.j2') }}"
     apply: yes
 
+- name: "Enable restic"
+  k8s:
+    state: "{{ velero_state }}"
+    definition: "{{ lookup('template', 'restic.yml.j2')}}"
+  when: enable_restic == true
+
+- name: "Disable restic"
+  k8s:
+    state: absent
+    definition: "{{ lookup('template', 'restic.yml.j2')}}"
+  when: enable_restic == false
+
 - name: "Create AWS BackupStorageLocation"
   k8s:
     state: "{{ velero_state }}"
