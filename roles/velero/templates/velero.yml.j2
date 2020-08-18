@@ -184,7 +184,7 @@ spec:
           - mountPath: /target
             name: plugins
 {% endif %}
-{% if enable_csi_plugin is defined and enable_csi_plugin|bool == true %}
+{% if 'csi' in default_velero_plugins %}
         - image: {{ velero_csi_plugin_image }}:{{ velero_csi_plugin_version }}
           imagePullPolicy: "{{ image_pull_policy }}"
           name: velero-plugin-for-csi

@@ -118,13 +118,48 @@ velero client config set namespace=oadp-operator
 ## Customize Installation
 ***
 
-### Plugin customization
+### Configure Velero Plugins
 
-The Velero installation requires at least one cloud provider plugin installed. Please refer [Velero plugin customization](docs/plugins.md) for more details.
+There are mainly two categories of velero plugins that can be specified while installing Velero:
 
-### Enable CSI plugin for Velero
+1. `default-velero-plugins`:<br>
+   Five types of default velero plugins can be installed - AWS, GCP, Azure, OpenShift, and CSI. For installation, you need to specify them in the `konveyor.openshift.io_v1alpha1_velero_cr.yaml` file during deployment.
+   ```
+    apiVersion: konveyor.openshift.io/v1alpha1
+    kind: Velero
+    metadata:
+      name: example-velero
+    spec:
+      default_velero_plugins:
+      - azure
+      - gcp
+      - aws
+      - openshift    
+      - csi
+   ```
+   The above specification will install Velero with all five default plugins. 
 
-By default the CSI plugin is not enabled, in order to enable the [CSI plugin](https://github.com/vmware-tanzu/velero-plugin-for-csi/) for velero, you need to specify a flag `enable_csi_plugin` and set it to `true` in the `konveyor.openshift.io_v1alpha1_velero_cr.yaml` file during the installation.
+   [This](https://github.com/vmware-tanzu/velero-plugin-for-csi/) repository has more information about the CSI plugin.
+   
+2. `custom-velero-plugin`:<br>
+   For installation of custom velero plugins, you need to specify the plugin `image` and plugin `name` in the `konveyor.openshift.io_v1alpha1_velero_cr.yaml` file during deployment.
+
+   For instance, 
+   ```
+    apiVersion: konveyor.openshift.io/v1alpha1
+    kind: Velero
+    metadata:
+      name: example-velero
+    spec:
+      default_velero_plugins:
+      - azure
+      - gcp
+      custom_velero_plugins:
+      - name: custom-plugin-example
+        image: quay.io/example-repo/custom-velero-plugin   
+   ```
+   The above specification will install Velero with 3 plugins (azure, gcp and custom-plugin-example).
+
 
 ### Backup Storage Locations and Volume Snapshot Locations Customization
 
