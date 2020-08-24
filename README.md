@@ -68,11 +68,7 @@ To install OADP operator and the essential Velero components follow the steps gi
   ```
   oc create secret generic <SECRET_NAME> --namespace oadp-operator --from-file cloud=<CREDENTIALS_FILE_PATH>
   ```
-- Now to create the deployment, role, role binding, service account, use the following command:
-  ```
-  oc create -f deploy/
-  ```
-- To create the cluster role binding, run the following command:
+- Now to create the deployment, role, role binding, cluster role, cluster rolebinding, and service account, use the following command:
   ```
   oc create -f deploy/non-olm
   ```

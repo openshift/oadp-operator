@@ -10,6 +10,7 @@ rules:
   - pods
   - services
   - services/finalizers
+  - serviceaccounts
   - endpoints
   - persistentvolumeclaims
   - events
@@ -69,4 +70,21 @@ rules:
   - patch
   - update
   - watch
-
+- apiGroups:
+  - noobaa.io
+  resources:
+  - '*'
+  verbs:
+  - '*'
+- apiGroups:
+  - route.openshift.io
+  resources:
+  - routes
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
