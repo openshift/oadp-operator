@@ -154,6 +154,11 @@ metadata:
         }
       ]
     capabilities: Seamless Upgrades
+    categories: 'OpenShift Optional'
+    createdAt: 2020-09-08T12:21:00Z
+    description: |-
+      OADP is OpenShift Application Data Protection operator. This operator
+      sets up and installs Velero on the OpenShift platform.
     certified: "false"
     repository: https://github.com/konveyor/oadp-operator
     support: Red Hat
@@ -415,9 +420,11 @@ spec:
     type: AllNamespaces
   keywords:
   - velero
+  - konveyor
+  - oadp
   links:
   - name: Oadp Operator
-    url: https://oadp-operator.domain
+    url: https://konveyor.github.io/
   maintainers:
   - name: Dylan Murray
     email: dymurray@redhat.com
@@ -498,5 +505,3 @@ spec:
       displayName: VolumeSnapshotLocation
       description: VolumeSnapshotLocation is a location where Velero stores volume
       snapshots.
-
-
