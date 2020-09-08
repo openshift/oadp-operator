@@ -437,11 +437,11 @@ spec:
       displayName: Velero
       description: Velero is a tool to safely backup and restore, perform disaster recovery,
       and migrate Kubernetes cluster resources and persistent volumes.
-    - name: backupstoragelocations.velero.io
+    - name: backupstoragelocations.velero.io  
       version: v1
       kind: BackupStorageLocation
       displayName: BackupStorageLocation
-      description: BackupStorageLocation is a location where Velero stores backup objects.
+      description: BackupStorageLocation represents an object storage location (Such as Amazon S3 Bucket) where Velero stores backup objects.
     - name: backups.velero.io
       version: v1
       kind: Backup
@@ -457,7 +457,7 @@ spec:
       version: v1
       kind: DownloadRequest
       displayName: DownloadRequest
-      description: DownloadRequest is a request to download an artifact from backup.
+      description: DownloadRequest is a request to download an artifact from object storage such as a backup log file.
       object storage, such as a backup log file.
     - name: podvolumebackups.velero.io
       version: v1
