@@ -203,3 +203,11 @@ oc delete namespace oadp-operator
 oc delete crd $(oc get crds | grep velero.io | awk -F ' ' '{print $1}')
 ```
 
+***
+## Usage Examples
+***
+Following are some of the examples where OADP Operator is used:
+
+- [OADP Capstone](https://github.com/konveyor/oadp-capstone): This repository showcases steps describing the overall workflow of using the OADP Operator, these steps provide detailed instructions right from installing the operator, to using it in order to perform backup and restore operations for complex applications like Cassandra and Postgres.
+  
+- [Velero Examples](https://github.com/konveyor/velero-examples): This repository consists of a collection of examples with Velero custom resource to show backup and restore workflows.  
