@@ -330,6 +330,7 @@ spec:
         rules:
         - apiGroups:
           - rbac.authorization.k8s.io
+          - noobaa.io
           resources:
           - '*'
           verbs:
