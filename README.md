@@ -11,7 +11,43 @@ OADP is OpenShift Application Data Protection operator. This operator sets up an
 - Access to OpenShift cluster
 
 ***
-## Getting started with basic install
+## Getting started with basic install (OLM/OperatorHub)
+***
+
+
+### Installing Operator
+
+You can install the OADP Operator from the Openshift's OperatorHub. You can search for the operator using keywords like `oadp` or `velero`
+
+![OADP-OLM-1](docs/images/OADP-OLM-1.png)
+
+Now click on Install
+
+![OADP-OLM-1](docs/images/OADP-OLM-2.png)
+
+Finally, click on subscribe, this will create a namespace named `oadp-operator` if it does not exist and install the OADP operator in it.
+
+![OADP-OLM-1](docs/images/OADP-OLM-3.png)
+
+### Creating credentials secret
+
+Create secret for the cloud provider credentials to be used. Also, the credentials file present at `CREDENTIALS_FILE_PATH` shoud be in proper format, for instance if the provider is AWS it should follow this AWS credentials [template](https://github.com/konveyor/velero-examples/blob/master/velero-install/aws-credentials)
+  ```
+  oc create secret generic <SECRET_NAME> --namespace oadp-operator --from-file cloud=<CREDENTIALS_FILE_PATH>
+  ```
+
+### Creating Velero CR
+
+Now create an instance of Velero CR by clicking on `Create Instance` as highlighted below:
+
+![Velero-CR-1](docs/images/Velero-CR-1.png)
+
+Finally, set the CR spec values appropriately and click on create.
+
+![Velero-CR-2](docs/images/Velero-CR-2.png)
+
+***
+## Getting started with basic install (Non - OLM)
 ***
 
 ### Cloning the Repository
@@ -81,7 +117,11 @@ To install OADP operator and the essential Velero components follow the steps gi
   oc create -f deploy/crds/konveyor.openshift.io_v1alpha1_velero_cr.yaml
   ```
 
-Post completion of all the above steps, you can check if the operator was successfully installed or not, the expected result for the command `oc get all -n oadp-operator` is as follows:
+***
+## Verify Operator installation
+***
+
+Post completion of all the above steps (Non-OLM or OLM), you can check if the operator was successfully installed or not, the expected result for the command `oc get all -n oadp-operator` is as follows:
 ```
 NAME                                 READY     STATUS    RESTARTS   AGE
 pod/oadp-operator-7749f885f6-9nm9w   1/1       Running   0          6m6s
