@@ -4,11 +4,15 @@
 
 OADP is OpenShift Application Data Protection operator. This operator sets up and installs [Velero](https://velero.io/) on the OpenShift platform.
 
+## Presentations
+* YouTube: [OpenShift Commons AMA: OpenShift API Data Protection (OADP) with Ceph CSI](https://www.youtube.com/watch?v=cyal8B3czLg)
+
 ## Prerequisites
 
 - Docker/Podman
 - OpenShift CLI
 - Access to OpenShift cluster
+
 
 ***
 ## Getting started with basic install (OLM/OperatorHub)
