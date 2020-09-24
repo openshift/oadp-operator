@@ -23,8 +23,25 @@ namespace.
 The credentials file should follow this AWS credentials
 [template](https://github.com/konveyor/velero-examples/blob/master/velero-install/aws-credentials)
 
+### Get NooBaa s3 route + credentials
+To get the required information from NooBaa, you can use the NooBaa CLI to get
+the s3 route, bucket name, and credentials. Optionally, you can grab this
+information from OCP. To get the s3 route (assuming NooBaa/OCS is installed in
+`openshift-storage`):
 ```
-oc create secret generic cloud-credentials --namespace oadp-operator --from-file cloud=<CREDENTIALS_FILE_PATH>
+$ oc get route s3 -n openshift-storage
+```
+
+To get the bucket name for a given `ObjectBucketClaim`:
+```
+$ oc get obc <obc_name> -o yaml -n openshift-storage | grep bucketName
+```
+
+To get the credentials for the bucket, find the associated secret in the NooBaa
+namespace with the same name as the `ObjectBucketClaim`.
+
+```
+$ oc create secret generic cloud-credentials --namespace oadp-operator --from-file cloud=<CREDENTIALS_FILE_PATH>
 ```
 
 With the secret created, make sure you have the URL of the s3 service and set
