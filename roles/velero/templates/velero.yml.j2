@@ -65,6 +65,10 @@ spec:
             - server
             - --restic-timeout
             - {{ restic_timeout }}
+{% if 'csi' in default_velero_plugins %}
+            - --features
+            - EnableCSI
+{% endif %}
 {% if velero_debug %}
             - --log-level
             - debug
