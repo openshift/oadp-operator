@@ -165,6 +165,8 @@ metadata:
     support: Red Hat
     operatorframework.io/suggested-namespace: oadp-operator
 spec:
+  skips:
+  - oadp-operator.v0.1.0
   apiservicedefinitions: {}
   displayName: OADP Operator
   description: OADP is OpenShift Application Data Protection operator. This operator sets up and installs Velero on the OpenShift platform. 
