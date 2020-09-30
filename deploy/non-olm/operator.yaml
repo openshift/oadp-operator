@@ -68,7 +68,7 @@ spec:
             - name: VELERO_AZURE_PLUGIN_TAG
               value: latest
             - name: VELERO_CSI_PLUGIN_TAG
-              value: v0.1.0
+              value: main
       volumes:
         - name: runner
           emptyDir: {}
