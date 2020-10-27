@@ -5,7 +5,7 @@
 - name: "Include Noobaa Setup tasks"
   include_tasks: noobaa_setup.yml
 
-- name: "Dicover AWS credentials secret"
+- name: "Discover AWS credentials secret"
   k8s_info:
     api_version: v1
     kind: Secret
@@ -19,7 +19,7 @@
     msg: "AWS credentials secret does not exist, Please create the same in order to proceed further with Velero installation"
   when: '"aws" in default_velero_plugins and secret_status.resources | length == 0 and not noobaa'
 
-- name: "Dicover GCP credentials secret"
+- name: "Discover GCP credentials secret"
   k8s_info:
     api_version: v1
     kind: Secret
@@ -33,7 +33,7 @@
     msg: "GCP credentials secret does not exist, Please create the same in order to proceed further with velero installation"
   when: '"gcp" in default_velero_plugins and gcp_secret_status.resources | length == 0 and not noobaa'
 
-- name: "Dicover Azure credentials secret"
+- name: "Discover Azure credentials secret"
   k8s_info:
     api_version: v1
     kind: Secret
