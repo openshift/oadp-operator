@@ -17,7 +17,7 @@ velero_gcp_secret_name: gcp-cloud-credentials
 velero_azure_secret_name: azure-cloud-credentials
 velero_debug: false
 velero_upstream_project: velero
-velero_upstream_tag: v1.5.1
+velero_upstream_tag: v1.5.2
 velero_image: "{{ registry }}/{{ project }}/{{ velero_repo }}"
 velero_repo: "{{ lookup( 'env', 'VELERO_REPO') }}"
 velero_version: "{{ velero_upstream_tag if use_upstream_images is defined and use_upstream_images|bool == true else lookup( 'env', 'VELERO_TAG') }}"
