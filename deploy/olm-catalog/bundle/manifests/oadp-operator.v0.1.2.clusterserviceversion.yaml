@@ -1,10 +1,10 @@
 apiVersion: operators.coreos.com/v1alpha1
 kind: ClusterServiceVersion
 metadata:
-  name: oadp-operator.v0.1.1
+  name: oadp-operator.v0.1.2
   namespace: oadp-operator
   annotations:
-    olm.skipRange: '>=0.0.0 <0.1.1'
+    olm.skipRange: '>=0.0.0 <0.1.2'
     containerImage: "quay.io/konveyor/oadp-operator:latest"
     alm-examples: |-
       [
@@ -426,7 +426,7 @@ spec:
   maturity: alpha
   provider:
     name: Red Hat
-  version: 0.1.1
+  version: 0.1.2
   customresourcedefinitions:
     owned:
     - name: veleros.konveyor.openshift.io
