@@ -93,6 +93,8 @@ spec:
             - name: certs
               mountPath: /etc/ssl/certs
           env:
+            - name: LD_LIBRARY_PATH
+              value: /plugins
 {% if 'aws' in default_velero_plugins %}
             - name: AWS_SHARED_CREDENTIALS_FILE
               value: /credentials/cloud
