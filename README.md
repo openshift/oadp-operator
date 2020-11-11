@@ -255,3 +255,14 @@ Following are some of the examples where OADP Operator is used:
 - [OADP Capstone](https://github.com/konveyor/oadp-capstone): This repository showcases steps describing the overall workflow of using the OADP Operator, these steps provide detailed instructions right from installing the operator, to using it in order to perform backup and restore operations for complex applications like Cassandra and Postgres.
   
 - [Velero Examples](https://github.com/konveyor/velero-examples): This repository consists of a collection of examples with Velero custom resource to show backup and restore workflows.  
+
+***
+## Velero Version Relationship
+***
+By default, OADP will install the forked versions of Velero that exist under the `konveyor` organization. These images have minor tweaks to support the OpenShift specific use cases of using Velero with OCP. The `konveyor` images tend to lag behind Velero upstream releases as we are more cautious about supporting older versions. Here is the default mapping of versions:
+| OADP Version   | Velero Version |
+| :------------- |   -----------: |
+|  v0.1.1        | v1.4.1         |
+|  v0.1.2        | v1.4.2         |
+
+Optionally, you can set `use_upstream_images: true` to force OADP to install the upstream Velero images (which defaults to v1.5.2) but note that this is not technically supported by OADP with the default plugins installed as it does not get tested.
