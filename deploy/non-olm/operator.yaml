@@ -17,7 +17,7 @@ spec:
       containers:
         - name: oadp-operator
           # Replace this with the built image name
-          image: "quay.io/konveyor/oadp-operator:latest"
+          image: "quay.io/konveyor/oadp-operator:v0.1.4"
           imagePullPolicy: "Always"
           volumeMounts:
           - mountPath: /tmp/ansible-operator/runner
@@ -44,7 +44,7 @@ spec:
             - name: VELERO_OPENSHIFT_PLUGIN_REPO
               value: openshift-velero-plugin
             - name: VELERO_OPENSHIFT_PLUGIN_TAG
-              value: latest
+              value: release-1.4.0
             - name: VELERO_RESTIC_RESTORE_HELPER_REPO
               value: velero-restic-restore-helper
             - name: VELERO_AWS_PLUGIN_REPO
@@ -56,17 +56,15 @@ spec:
             - name: VELERO_CSI_PLUGIN_REPO
               value: velero-plugin-for-csi
             - name: VELERO_TAG
-              value: latest
+              value: konveyor-1.4.2
             - name: VELERO_RESTIC_RESTORE_HELPER_TAG
               value: latest
-            - name: VELERO_PLUGIN_TAG
-              value: latest
             - name: VELERO_AWS_PLUGIN_TAG
-              value: latest
+              value: konveyor-1.1.0
             - name: VELERO_GCP_PLUGIN_TAG
-              value: latest
+              value: konveyor-1.1.0
             - name: VELERO_AZURE_PLUGIN_TAG
-              value: latest
+              value: konveyor-1.1.0
             - name: VELERO_CSI_PLUGIN_TAG
               value: main
       volumes:
