@@ -264,5 +264,7 @@ By default, OADP will install the forked versions of Velero that exist under the
 | :------------- |   -----------: |
 |  v0.1.1        | v1.4.1         |
 |  v0.1.2        | v1.4.2         |
+|  v0.1.3        | v1.4.2         |
+|  v0.1.4        | v1.4.2         |
 
 Optionally, you can set `use_upstream_images: true` to force OADP to install the upstream Velero images (which defaults to v1.5.2) but note that this is not technically supported by OADP with the default plugins installed as it does not get tested.
