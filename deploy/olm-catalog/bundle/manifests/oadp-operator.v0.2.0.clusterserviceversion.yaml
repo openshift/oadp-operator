@@ -5,7 +5,7 @@ metadata:
   namespace: oadp-operator
   annotations:
     olm.skipRange: '>=0.0.0 <0.2.0'
-    containerImage: "quay.io/konveyor/oadp-operator:latest"
+    containerImage: "quay.io/konveyor/oadp-operator:v0.2.0"
     alm-examples: |-
       [
         {
