@@ -56,7 +56,7 @@ spec:
             - name: VELERO_CSI_PLUGIN_REPO
               value: velero-plugin-for-csi
             - name: VELERO_TAG
-              value: konveyor-1.4.2
+              value: konveyor-1.5.2
             - name: VELERO_RESTIC_RESTORE_HELPER_TAG
               value: latest
             - name: VELERO_AWS_PLUGIN_TAG
