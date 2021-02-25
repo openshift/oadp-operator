@@ -3481,7 +3481,7 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: velero
-  namespace: {{ mig_namespace }}
+  namespace: {{ velero_namespace }}
   labels:
     component: velero
 ---
@@ -3546,7 +3546,7 @@ metadata:
     component: velero
 subjects:
   - kind: ServiceAccount
-    namespace: {{ mig_namespace }}
+    namespace: {{ velero_namespace }}
     name: velero
 roleRef:
   kind: ClusterRole
@@ -3592,7 +3592,7 @@ supplementalGroups:
   type: RunAsAny
 users:
 - system:admin
-- system:serviceaccount:{{ mig_namespace }}:velero
+- system:serviceaccount:{{ velero_namespace }}:velero
 volumes:
 - '*'
 {% endif %}
