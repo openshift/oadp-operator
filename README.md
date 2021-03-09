@@ -229,7 +229,7 @@ For installing/uninstalling the OADP operator directly from OperatorHub, follow 
 ## OADP Operator with NooBaa
 ***
 
-[Install OADP Operator and use NooBaa as a BackupStoraeLocation](docs/noobaa/install_oadp_noobaa.md) 
+[Install OADP Operator and use NooBaa as a BackupStorageLocation](docs/noobaa/install_oadp_noobaa.md) 
 
 [NooBaa debugging scenarios](docs/noobaa/debug_noobaa.md)
 
