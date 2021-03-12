@@ -1,6 +1,7 @@
 ---
 backup_storage_locations: []
 custom_velero_plugins: []
+velero_feature_flags: []
 http_proxy: "{{ lookup( 'env', 'HTTP_PROXY') }}"
 https_proxy: "{{ lookup( 'env', 'HTTPS_PROXY') }}"
 no_proxy: "{{ lookup( 'env', 'NO_PROXY') }}"
@@ -17,7 +18,9 @@ velero_gcp_secret_name: gcp-cloud-credentials
 velero_azure_secret_name: azure-cloud-credentials
 velero_debug: false
 velero_upstream_project: velero
+velero_vsphere_upstream_project: vsphereveleroplugin
 velero_upstream_tag: v1.5.2
+velero_upstream_plugin_tag: main
 velero_image: "{{ registry }}/{{ project }}/{{ velero_repo }}"
 velero_repo: "{{ lookup( 'env', 'VELERO_REPO') }}"
 velero_version: "{{ velero_upstream_tag if use_upstream_images is defined and use_upstream_images|bool == true else lookup( 'env', 'VELERO_TAG') }}"
@@ -28,18 +31,21 @@ velero_openshift_plugin_version: "{{ lookup( 'env', 'VELERO_OPENSHIFT_PLUGIN_TAG
 velero_csi_plugin_image: "{{ upstream_registry }}/{{ velero_upstream_project }}/{{ velero_csi_plugin_repo }}"
 velero_csi_plugin_repo: "{{ lookup('env', 'VELERO_CSI_PLUGIN_REPO') }}"
 velero_csi_plugin_version: "{{ lookup('env', 'VELERO_CSI_PLUGIN_TAG') }}"
+velero_vsphere_plugin_image: "{{ upstream_registry }}/{{ velero_vsphere_upstream_project }}/{{ velero_vsphere_plugin_repo }}"
+velero_vsphere_plugin_repo: "{{ lookup('env', 'VELERO_VSPHERE_PLUGIN_REPO') }}"
+velero_vsphere_plugin_version: "{{ lookup('env', 'VELERO_VSPHERE_PLUGIN_TAG') }}"
 velero_restic_restore_helper_image: "{{ registry }}/{{ project }}/{{ velero_restic_restore_helper_repo }}"
 velero_restic_restore_helper_repo: "{{ lookup( 'env', 'VELERO_RESTIC_RESTORE_HELPER_REPO') }}"
-velero_restic_restore_helper_version: "{{ lookup( 'env', 'VELERO_RESTIC_RESTORE_HELPER_TAG') }}"
+velero_restic_restore_helper_version: "{{ velero_upstream_tag if use_upstream_images is defined and use_upstream_images|bool == true else lookup( 'env', 'VELERO_RESTIC_RESTORE_HELPER_TAG') }}"
 velero_aws_plugin_image: "{{ registry }}/{{ project }}/{{ velero_aws_plugin_repo }}"
 velero_aws_plugin_repo: "{{ lookup( 'env', 'VELERO_AWS_PLUGIN_REPO') }}"
-velero_aws_plugin_version: "{{ lookup( 'env', 'VELERO_AWS_PLUGIN_TAG') }}"
+velero_aws_plugin_version: "{{ velero_upstream_plugin_tag if use_upstream_images is defined and use_upstream_images|bool == true else lookup( 'env', 'VELERO_AWS_PLUGIN_TAG') }}"
 velero_gcp_plugin_image: "{{ registry }}/{{ project }}/{{ velero_gcp_plugin_repo }}"
 velero_gcp_plugin_repo: "{{ lookup( 'env', 'VELERO_GCP_PLUGIN_REPO') }}"
-velero_gcp_plugin_version: "{{ lookup( 'env', 'VELERO_GCP_PLUGIN_TAG') }}"
+velero_gcp_plugin_version: "{{ velero_upstream_plugin_tag if use_upstream_images is defined and use_upstream_images|bool == true else lookup( 'env', 'VELERO_GCP_PLUGIN_TAG') }}"
 velero_azure_plugin_image: "{{ registry }}/{{ project }}/{{ velero_azure_plugin_repo }}"
 velero_azure_plugin_repo: "{{ lookup( 'env', 'VELERO_AZURE_PLUGIN_REPO') }}"
-velero_azure_plugin_version: "{{ lookup( 'env', 'VELERO_AZURE_PLUGIN_TAG') }}"
+velero_azure_plugin_version: "{{ velero_upstream_plugin_tag if use_upstream_images is defined and use_upstream_images|bool == true else lookup( 'env', 'VELERO_AZURE_PLUGIN_TAG') }}"
 restic_pv_host_path: /var/lib/kubelet/pods
 restic_timeout: 1h
 size: 1
