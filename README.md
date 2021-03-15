@@ -181,7 +181,7 @@ There are mainly two categories of velero plugins that can be specified while in
   
   Note:
   - For usage of the `csi` plugin with Velero you will need to additionally set `--features=EnableCSI`, please refer the section titled **Usage of Velero `--features` option** for more details. [This](https://github.com/vmware-tanzu/velero-plugin-for-csi/) repository has more information about the CSI plugin.
-  - Similarly, for installation of `vsphere` plugin, you will need to set `--features=EnableLocalMode`, please refer the section titled **Usage of Velero `--features` option** for more details. [This](https://github.com/vmware-tanzu/velero-plugin-for-vsphere) repository has more information about the vSphere plugin.
+  - Similarly, for installation of `vsphere` plugin, please refer the section titled **Usage of Velero `--features` option** for more details. [This](https://github.com/vmware-tanzu/velero-plugin-for-vsphere) repository has more information about the vSphere plugin.
    
 2. `custom-velero-plugin`:<br>
    For installation of custom velero plugins, you need to specify the plugin `image` and plugin `name` in the `konveyor.openshift.io_v1alpha1_velero_cr.yaml` file during deployment.
@@ -234,7 +234,7 @@ default_velero_plugins:
 velero_feature_flags:
 - EnableCSI
 ```
-- Enabling Velero plugin for vSphere: To enable vSphere plugin you need to add thre things in the `konveyor.openshift.io_v1alpha1_velero_cr.yaml` file during deployment.
+- Enabling Velero plugin for vSphere: To enable vSphere plugin you need to do the following things in the `konveyor.openshift.io_v1alpha1_velero_cr.yaml` file during deployment.
   - First, add `vsphere` under the `default_velero_plugins`
   - Second, add `EnableLocalMode` under the `velero_feature_flags`
   - Lastly, add the flag `use_upstream_images` and set it as `true`.
@@ -245,6 +245,7 @@ velero_feature_flags:
 - EnableLocalMode
 use_upstream_images: true
 ```
+Note: The above is an example of installing the Velero plugin for vSphere in `LocalMode` . Setting `EnableLocalMode` features flag is not always necessary for the usage of vSphere plugin but the pre-requisites must be satisfied and appropriate configuration must be applied, please refer [Velero plugin for vSphere](https://github.com/vmware-tanzu/velero-plugin-for-vsphere) for more details.
 
 ***
 ## OLM Integration
