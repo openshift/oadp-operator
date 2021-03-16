@@ -65,9 +65,11 @@ spec:
             - server
             - --restic-timeout
             - {{ restic_timeout }}
-{% if 'csi' in default_velero_plugins %}
+{% if velero_feature_flags|length > 0 %}
             - --features
-            - EnableCSI
+{% for flag in velero_feature_flags %}
+            - {{ flag }}
+{% endfor %}
 {% endif %}
 {% if velero_debug %}
             - --log-level
@@ -194,6 +196,17 @@ spec:
         - image: {{ velero_csi_plugin_image }}:{{ velero_csi_plugin_version }}
           imagePullPolicy: "{{ image_pull_policy }}"
           name: velero-plugin-for-csi
+          resources: {}
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+          - mountPath: /target
+            name: plugins
+{% endif %}
+{% if 'vsphere' in default_velero_plugins %}
+        - image: {{ velero_vsphere_plugin_image }}:{{ velero_vsphere_plugin_version }}
+          imagePullPolicy: "{{ image_pull_policy }}"
+          name: velero-plugin-for-vsphere
           resources: {}
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File

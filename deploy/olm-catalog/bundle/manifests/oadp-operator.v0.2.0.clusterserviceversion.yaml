@@ -40,6 +40,9 @@ metadata:
               "csi",
               "openshift"
             ],
+            "velero_feature_flags": [
+              "EnableCSI"
+            ],
             "enable_restic": true,
             "volume_snapshot_locations": [
               {
@@ -224,6 +227,8 @@ spec:
                   value: velero-plugin-for-microsoft-azure
                 - name: VELERO_CSI_PLUGIN_REPO
                   value: velero-plugin-for-csi
+                - name: VELERO_VSPHERE_PLUGIN_REPO
+                  value: velero-plugin-for-vsphere
                 - name: VELERO_TAG
                   value: konveyor-1.5.2
                 - name: VELERO_RESTIC_RESTORE_HELPER_TAG
@@ -236,6 +241,8 @@ spec:
                   value: konveyor-1.1.0
                 - name: VELERO_CSI_PLUGIN_TAG
                   value: main
+                - name: VELERO_VSPHERE_PLUGIN_TAG
+                  value: 1.1.0
                 image: "quay.io/konveyor/oadp-operator:latest"
                 imagePullPolicy: Always
                 name: oadp-operator
