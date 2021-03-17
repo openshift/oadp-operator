@@ -231,8 +231,7 @@ Some of the usage instances of the `--features` flag are as follows:
 ```
 default_velero_plugins:
 - csi
-velero_feature_flags:
-- EnableCSI
+velero_feature_flags: EnableCSI
 ```
 - Enabling Velero plugin for vSphere: To enable vSphere plugin you need to do the following things in the `konveyor.openshift.io_v1alpha1_velero_cr.yaml` file during deployment.
   - First, add `vsphere` under the `default_velero_plugins`
@@ -241,11 +240,10 @@ velero_feature_flags:
 ```
 default_velero_plugins:
 - vsphere
-velero_feature_flags:
-- EnableLocalMode
+velero_feature_flags: EnableLocalMode
 use_upstream_images: true
 ```
-Note: The above is an example of installing the Velero plugin for vSphere in `LocalMode` . Setting `EnableLocalMode` features flag is not always necessary for the usage of vSphere plugin but the pre-requisites must be satisfied and appropriate configuration must be applied, please refer [Velero plugin for vSphere](https://github.com/vmware-tanzu/velero-plugin-for-vsphere) for more details.
+Note: The above is an example of installing the Velero plugin for vSphere in `LocalMode` . Setting `EnableLocalMode` features flag is not always necessary for the usage of vSphere plugin but the pre-requisites must be satisfied and appropriate configuration must be applied, please refer [Velero plugin for vSphere](https://github.com/vmware-tanzu/velero-plugin-for-vsphere) for more details. Also, if you plan on using multiple feature flags at once, pass them to `velero_feature_flags` as comma seperated values, for instance, `velero_feature_flags: EnableLocalMode,EnableCSI`
 
 ***
 ## OLM Integration

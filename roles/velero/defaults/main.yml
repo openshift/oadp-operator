@@ -1,7 +1,6 @@
 ---
 backup_storage_locations: []
 custom_velero_plugins: []
-velero_feature_flags: []
 http_proxy: "{{ lookup( 'env', 'HTTP_PROXY') }}"
 https_proxy: "{{ lookup( 'env', 'HTTPS_PROXY') }}"
 no_proxy: "{{ lookup( 'env', 'NO_PROXY') }}"

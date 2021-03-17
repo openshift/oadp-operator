@@ -65,11 +65,9 @@ spec:
             - server
             - --restic-timeout
             - {{ restic_timeout }}
-{% if velero_feature_flags|length > 0 %}
+{% if velero_feature_flags is defined and velero_feature_flags|length > 0 %}
             - --features
-{% for flag in velero_feature_flags %}
-            - {{ flag }}
-{% endfor %}
+            - {{ velero_feature_flags }}
 {% endif %}
 {% if velero_debug %}
             - --log-level
