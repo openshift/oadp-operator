@@ -40,9 +40,7 @@ metadata:
               "csi",
               "openshift"
             ],
-            "velero_feature_flags": [
-              "EnableCSI"
-            ],
+            "velero_feature_flags": "EnableCSI",
             "enable_restic": true,
             "volume_snapshot_locations": [
               {

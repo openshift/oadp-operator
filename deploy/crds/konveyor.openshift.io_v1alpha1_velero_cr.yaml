@@ -27,5 +27,4 @@ spec:
       region: us-west-2
       profile: "default"
   enable_restic: true
-  velero_feature_flags:
-  - EnableCSI
+  velero_feature_flags: EnableCSI
