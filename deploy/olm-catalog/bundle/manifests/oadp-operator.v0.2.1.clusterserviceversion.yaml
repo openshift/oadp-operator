@@ -170,6 +170,7 @@ spec:
   - oadp-operator.v0.1.1
   - oadp-operator.v0.1.2
   - oadp-operator.v0.1.3
+  - oadp-operator.v0.2.0
   apiservicedefinitions: {}
   displayName: OADP Operator
   description: OADP is OpenShift Application Data Protection operator. This operator sets up and installs Velero on the OpenShift platform. 
