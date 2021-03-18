@@ -1,11 +1,11 @@
 apiVersion: operators.coreos.com/v1alpha1
 kind: ClusterServiceVersion
 metadata:
-  name: oadp-operator.v0.2.0
+  name: oadp-operator.v0.2.1
   namespace: oadp-operator
   annotations:
-    olm.skipRange: '>=0.0.0 <0.2.0'
-    containerImage: "quay.io/konveyor/oadp-operator:latest"
+    olm.skipRange: '>=0.0.0 <0.2.1'
+    containerImage: "quay.io/konveyor/oadp-operator:v0.2.1"
     alm-examples: |-
       [
         {
@@ -241,7 +241,7 @@ spec:
                   value: main
                 - name: VELERO_VSPHERE_PLUGIN_TAG
                   value: 1.1.0
-                image: "quay.io/konveyor/oadp-operator:latest"
+                image: "quay.io/konveyor/oadp-operator:v0.2.1"
                 imagePullPolicy: Always
                 name: oadp-operator
                 resources: {}
@@ -431,7 +431,7 @@ spec:
   maturity: alpha
   provider:
     name: Red Hat
-  version: 0.2.0
+  version: 0.2.1
   customresourcedefinitions:
     owned:
     - name: veleros.konveyor.openshift.io
