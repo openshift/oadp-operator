@@ -38,5 +38,7 @@ spec:
 <b>Note:</b> 
 - Be sure to use the same `secret` name you used while creating the cloud credentials secret in step 3 of Operator   installation section.
 - Another thing to consider are the CR file specs, they should be tailored in accordance to your own cloud provider accounts, for instance `bucket` spec value should be according to your own bucket name and so on.
-- Do not configure more than one `backupStorageLocations` per cloud provider, the velero installation will fail.  
+- Do not configure more than one `backupStorageLocations` per cloud provider, the velero installation will fail.
+- bsl/vsl parameters in the OADP Velero CR must be specified using `snake_case` rather than `camelCase`.
+  Keep this in mind when using parameters from the below parameter reference. For example, use `s3_url` rather than `s3Url`.
 - Parameter reference for [backupStorageLocations](https://velero.io/docs/master/api-types/backupstoragelocation/) and [volumeSnapshotLocations](https://velero.io/docs/master/api-types/volumesnapshotlocation/)
