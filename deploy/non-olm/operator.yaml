@@ -17,7 +17,7 @@ spec:
       containers:
         - name: oadp-operator
           # Replace this with the built image name
-          image: "quay.io/spampatt/oadp-operator:latest"
+          image: "quay.io/konveyor/oadp-operator:latest"
           imagePullPolicy: "Always"
           volumeMounts:
           - mountPath: /tmp/ansible-operator/runner
