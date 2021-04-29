@@ -215,7 +215,7 @@ In order to use the upstream images for Velero deployment as well as its plugins
 
 ### Resource requests and limits customization
 
-By default, the Velero deployment requests 500m CPU, 128Mi memory and sets a limit of 1000m CPU, 256Mi. Customization of these resource requests and limits may be performed using steps specified in the [Resource requests and limits customization](docs/resource_req_limits.md) section.
+By default, the Velero deployment requests 500m CPU, 128Mi memory and sets a limit of 1000m CPU, 512Mi. Customization of these resource requests and limits may be performed using steps specified in the [Resource requests and limits customization](docs/resource_req_limits.md) section.
 
 ### Use self-sigend certificate
 
