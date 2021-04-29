@@ -44,7 +44,7 @@ spec:
             - name: VELERO_OPENSHIFT_PLUGIN_REPO
               value: openshift-velero-plugin
             - name: VELERO_OPENSHIFT_PLUGIN_TAG
-              value: release-1.4.0
+              value: oadp-dev
             - name: VELERO_RESTIC_RESTORE_HELPER_REPO
               value: velero-restic-restore-helper
             - name: VELERO_AWS_PLUGIN_REPO
@@ -58,15 +58,15 @@ spec:
             - name: VELERO_VSPHERE_PLUGIN_REPO
               value: velero-plugin-for-vsphere
             - name: VELERO_TAG
-              value: konveyor-1.5.2
+              value: konveyor-oadp
             - name: VELERO_RESTIC_RESTORE_HELPER_TAG
               value: latest
             - name: VELERO_AWS_PLUGIN_TAG
-              value: konveyor-1.1.0
+              value: konveyor-oadp
             - name: VELERO_GCP_PLUGIN_TAG
-              value: konveyor-1.1.0
+              value: konveyor-oadp
             - name: VELERO_AZURE_PLUGIN_TAG
-              value: konveyor-1.1.0
+              value: konveyor-oadp
             - name: VELERO_CSI_PLUGIN_TAG
               value: main
             - name: VELERO_VSPHERE_PLUGIN_TAG
