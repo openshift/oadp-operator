@@ -15,10 +15,10 @@ spec:
     singular: backup
   preserveUnknownFields: false
   scope: Namespaced
-{% if lookup('k8s', cluster_info='version').kubernetes.minor|replace('+', '')|int > 10 %}
+{% if lookup('k8s', cluster_info='version').kubernetes.minor|replace('+', '')|int > 11 %}
   validation:
     openAPIV3Schema:
-      description: Backup is a Velero resource that respresents the capture of Kubernetes
+      description: Backup is a Velero resource that represents the capture of Kubernetes
         cluster state at a point in time (API objects and associated volume state).
       properties:
         apiVersion:
@@ -308,7 +308,7 @@ spec:
                 type: string
               description: OrderedResources specifies the backup order of resources
                 of specific Kind. The map key is the Kind name and value is a list
-                of resource names separeted by commas. Each resource name has format
+                of resource names separated by commas. Each resource name has format
                 "namespace/resourcename".  For cluster resources, simply use "resourcename".
               nullable: true
               type: object
@@ -448,7 +448,7 @@ spec:
     singular: schedule
   preserveUnknownFields: false
   scope: Namespaced
-{% if lookup('k8s', cluster_info='version').kubernetes.minor|replace('+', '')|int > 10 %}
+{% if lookup('k8s', cluster_info='version').kubernetes.minor|replace('+', '')|int > 11 %}
   validation:
     openAPIV3Schema:
       description: Schedule is a Velero resource that represents a pre-scheduled or
@@ -756,7 +756,7 @@ spec:
                     type: string
                   description: OrderedResources specifies the backup order of resources
                     of specific Kind. The map key is the Kind name and value is a
-                    list of resource names separeted by commas. Each resource name
+                    list of resource names separated by commas. Each resource name
                     has format "namespace/resourcename".  For cluster resources, simply
                     use "resourcename".
                   nullable: true
@@ -781,6 +781,11 @@ spec:
                     type: string
                   type: array
               type: object
+            useOwnerReferencesInBackup:
+              description: UseOwnerReferencesBackup specifies whether to use OwnerReferences
+                on backups created by this Schedule.
+              nullable: true
+              type: boolean
           required:
           - schedule
           - template
@@ -838,7 +843,7 @@ spec:
     singular: restore
   preserveUnknownFields: false
   scope: Namespaced
-{% if lookup('k8s', cluster_info='version').kubernetes.minor|replace('+', '')|int > 10 %}
+{% if lookup('k8s', cluster_info='version').kubernetes.minor|replace('+', '')|int > 11 %}
   validation:
     openAPIV3Schema:
       description: Restore is a Velero resource that represents the application of
@@ -1106,10 +1111,10 @@ spec:
                                                 fieldRef:
                                                   description: 'Selects a field of
                                                     the pod: supports metadata.name,
-                                                    metadata.namespace, metadata.labels,
-                                                    metadata.annotations, spec.nodeName,
-                                                    spec.serviceAccountName, status.hostIP,
-                                                    status.podIP, status.podIPs.'
+                                                    metadata.namespace, `metadata.labels[''<KEY>'']`,
+                                                    `metadata.annotations[''<KEY>'']`,
+                                                    spec.nodeName, spec.serviceAccountName,
+                                                    status.hostIP, status.podIP, status.podIPs.'
                                                   properties:
                                                     apiVersion:
                                                       description: Version of the
@@ -1971,6 +1976,36 @@ spec:
                                                   label that applies to the container.
                                                 type: string
                                             type: object
+                                          seccompProfile:
+                                            description: The seccomp options to use
+                                              by this container. If seccomp options
+                                              are provided at both the pod & container
+                                              level, the container options override
+                                              the pod options.
+                                            properties:
+                                              localhostProfile:
+                                                description: localhostProfile indicates
+                                                  a profile defined in a file on the
+                                                  node should be used. The profile
+                                                  must be preconfigured on the node
+                                                  to work. Must be a descending path,
+                                                  relative to the kubelet's configured
+                                                  seccomp profile location. Must only
+                                                  be set if type is "Localhost".
+                                                type: string
+                                              type:
+                                                description: "type indicates which
+                                                  kind of seccomp profile will be
+                                                  applied. Valid options are: \n Localhost
+                                                  - a profile defined in a file on
+                                                  the node should be used. RuntimeDefault
+                                                  - the container runtime default
+                                                  profile should be used. Unconfined
+                                                  - no profile should be applied."
+                                                type: string
+                                            required:
+                                            - type
+                                            type: object
                                           windowsOptions:
                                             description: The Windows specific settings
                                               applied to all containers. If unspecified,
@@ -2370,6 +2405,11 @@ spec:
                 target namespace names to restore into. Any source namespaces not
                 included in the map will be restored into namespaces of the same name.
               type: object
+            preserveNodePorts:
+              description: PreserveNodePorts specifies whether to restore old nodePorts
+                from backup.
+              nullable: true
+              type: boolean
             restorePVs:
               description: RestorePVs specifies whether to restore all included PVs
                 from snapshot (via the cloudprovider).
@@ -2542,6 +2582,22 @@ spec:
                 type: object
               nullable: true
               type: array
+            progress:
+              description: Progress contains information about the restore's execution
+                progress. Note that this information is best-effort only -- if Velero
+                fails to update it during a restore for any reason, it may be inaccurate/stale.
+              nullable: true
+              properties:
+                itemsRestored:
+                  description: ItemsRestored is the number of items that have actually
+                    been restored so far
+                  type: integer
+                totalItems:
+                  description: TotalItems is the total number of items to be restored.
+                    This number may change throughout the execution of the restore
+                    due to plugins that return additional related items to restore
+                  type: integer
+              type: object
             startTimestamp:
               description: StartTimestamp records the time the restore operation was
                 started. The server's time is used for StartTimestamps
@@ -2591,7 +2647,9 @@ spec:
     singular: downloadrequest
   preserveUnknownFields: false
   scope: Namespaced
-{% if lookup('k8s', cluster_info='version').kubernetes.minor|replace('+', '')|int > 10 %}
+  subresources:
+    status: {}
+{% if lookup('k8s', cluster_info='version').kubernetes.minor|replace('+', '')|int > 11 %}
   validation:
     openAPIV3Schema:
       description: DownloadRequest is a request to download an artifact from backup
@@ -2686,7 +2744,7 @@ spec:
     singular: deletebackuprequest
   preserveUnknownFields: false
   scope: Namespaced
-{% if lookup('k8s', cluster_info='version').kubernetes.minor|replace('+', '')|int > 10 %}
+{% if lookup('k8s', cluster_info='version').kubernetes.minor|replace('+', '')|int > 11 %}
   validation:
     openAPIV3Schema:
       description: DeleteBackupRequest is a request to delete one or more backups.
@@ -2760,7 +2818,7 @@ spec:
     singular: podvolumebackup
   preserveUnknownFields: false
   scope: Namespaced
-{% if lookup('k8s', cluster_info='version').kubernetes.minor|replace('+', '')|int > 10 %}
+{% if lookup('k8s', cluster_info='version').kubernetes.minor|replace('+', '')|int > 11 %}
   validation:
     openAPIV3Schema:
       properties:
@@ -2923,7 +2981,7 @@ spec:
     singular: podvolumerestore
   preserveUnknownFields: false
   scope: Namespaced
-{% if lookup('k8s', cluster_info='version').kubernetes.minor|replace('+', '')|int > 10 %}
+{% if lookup('k8s', cluster_info='version').kubernetes.minor|replace('+', '')|int > 11 %}
   validation:
     openAPIV3Schema:
       properties:
@@ -3084,7 +3142,7 @@ spec:
     singular: resticrepository
   preserveUnknownFields: false
   scope: Namespaced
-{% if lookup('k8s', cluster_info='version').kubernetes.minor|replace('+', '')|int > 10 %}
+{% if lookup('k8s', cluster_info='version').kubernetes.minor|replace('+', '')|int > 11 %}
   validation:
     openAPIV3Schema:
       properties:
@@ -3179,6 +3237,10 @@ spec:
   - JSONPath: .metadata.creationTimestamp
     name: Age
     type: date
+  - JSONPath: .spec.default
+    description: Default backup storage location
+    name: Default
+    type: boolean
   group: velero.io
   names:
     kind: BackupStorageLocation
@@ -3191,7 +3253,7 @@ spec:
   scope: Namespaced
   subresources:
     status: {}
-{% if lookup('k8s', cluster_info='version').kubernetes.minor|replace('+', '')|int > 10 %}
+{% if lookup('k8s', cluster_info='version').kubernetes.minor|replace('+', '')|int > 11 %}
   validation:
     openAPIV3Schema:
       description: BackupStorageLocation is a location where Velero stores backup
@@ -3230,6 +3292,28 @@ spec:
                 type: string
               description: Config is for provider-specific configuration fields.
               type: object
+            credential:
+              description: Credential contains the credential information intended
+                to be used with this location
+              properties:
+                key:
+                  description: The key of the secret to select from.  Must be a valid
+                    secret key.
+                  type: string
+                name:
+                  description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                    TODO: Add other useful fields. apiVersion, kind, uid?'
+                  type: string
+                optional:
+                  description: Specify whether the Secret or its key must be defined
+                  type: boolean
+              required:
+              - key
+              type: object
+            default:
+              description: Default indicates this location is the default backup storage
+                location.
+              type: boolean
             objectStorage:
               description: ObjectStorageLocation specifies the settings necessary
                 to connect to a provider's object storage.
@@ -3328,7 +3412,7 @@ spec:
     singular: volumesnapshotlocation
   preserveUnknownFields: false
   scope: Namespaced
-{% if lookup('k8s', cluster_info='version').kubernetes.minor|replace('+', '')|int > 10 %}
+{% if lookup('k8s', cluster_info='version').kubernetes.minor|replace('+', '')|int > 11 %}
   validation:
     openAPIV3Schema:
       description: VolumeSnapshotLocation is a location where Velero stores volume
@@ -3407,7 +3491,7 @@ spec:
   scope: Namespaced
   subresources:
     status: {}
-{% if lookup('k8s', cluster_info='version').kubernetes.minor|replace('+', '')|int > 10 %}
+{% if lookup('k8s', cluster_info='version').kubernetes.minor|replace('+', '')|int > 11 %}
   validation:
     openAPIV3Schema:
       description: ServerStatusRequest is a request to access current status information
