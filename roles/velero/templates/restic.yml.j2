@@ -19,6 +19,11 @@ spec:
       labels:
         name: restic
     spec:
+{% if restic_node_selector is defined %}
+      nodeSelector: {{ restic_node_selector | to_yaml }}
+{% else %}
+      nodeSelector: null
+{% endif %}
       serviceAccountName: velero
       securityContext:
         runAsUser: 0
