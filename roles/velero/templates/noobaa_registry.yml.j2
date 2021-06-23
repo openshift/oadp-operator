@@ -16,7 +16,7 @@ spec:
     spec:
       restartPolicy: Always
       containers:
-      - image: quay.io/konveyor/registry:latest
+      - image: {{ velero_registry_image }}:{{ velero_registry_tag }}
         name: oadp-noobaa-aws-registry-container
         ports:
         - containerPort: 5000

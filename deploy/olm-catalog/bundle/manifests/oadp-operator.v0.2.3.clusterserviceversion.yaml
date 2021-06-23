@@ -213,6 +213,10 @@ spec:
                   value: konveyor
                 - name: VELERO_REPO
                   value: velero
+                - name: VELERO_REGISTRY_REPO
+                  value: registry
+                - name: VELERO_REGISTRY_TAG
+                  value: latest
                 - name: VELERO_OPENSHIFT_PLUGIN_REPO
                   value: openshift-velero-plugin
                 - name: VELERO_OPENSHIFT_PLUGIN_TAG
