@@ -39,6 +39,10 @@ spec:
               value: quay.io
             - name: PROJECT
               value: konveyor
+            - name: VELERO_REGISTRY_REPO
+              value: registry
+            - name: VELERO_REGISTRY_TAG
+              value: latest
             - name: VELERO_REPO
               value: velero
             - name: VELERO_OPENSHIFT_PLUGIN_REPO
