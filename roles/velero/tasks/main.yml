@@ -16,7 +16,7 @@
 
 - name: "Check if the AWS credentials secret exists or not"
   fail:
-    msg: "AWS credentials secret does not exist, Please create the same in order to proceed further with Velero installation"
+    msg: "AWS credentials secret does not exist, Please create the secret {{ velero_aws_secret_name }} in order to proceed further with Velero installation"
   when: '"aws" in default_velero_plugins and secret_status.resources | length == 0 and not noobaa'
 
 - name: "Discover GCP credentials secret"
@@ -30,7 +30,7 @@
 
 - name: "Check if the GCP credentials secret exists or not"
   fail:
-    msg: "GCP credentials secret does not exist, Please create the same in order to proceed further with velero installation"
+    msg: "GCP credentials secret does not exist, Please create the secret {{ velero_gcp_secret_name }} in order to proceed further with velero installation"
   when: '"gcp" in default_velero_plugins and gcp_secret_status.resources | length == 0 and not noobaa'
 
 - name: "Discover Azure credentials secret"
@@ -44,7 +44,7 @@
 
 - name: "Check if the Azure credentials secret exists or not"
   fail:
-    msg: "Azure credentials secret does not exist, Please create the same in order to proceed further with velero installation"
+    msg: "Azure credentials secret does not exist, Please create the secret {{ velero_azure_secret_name }} in order to proceed further with velero installation"
   when: '"azure" in default_velero_plugins and azure_secret_status.resources | length == 0 and not noobaa'
 
 - when: '"aws" in default_velero_plugins and secret_status.resources | length > 0 and not noobaa'
