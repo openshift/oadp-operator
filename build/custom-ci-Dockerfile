@@ -1,0 +1,7 @@
+FROM openshift/origin-release:golang-1.14
+RUN yum -y install epel-release --disablerepo=epel && yum clean all
+RUN yum -y install python3-pip && yum clean all
+RUN pip3 install -U pip
+RUN pip3 install ansible jmespath molecule more-itertools openshift yamllint
+RUN chmod g+rw /etc/passwd
+ENV LC_ALL=en_US.utf-8 LANG=en_US.utf-8
