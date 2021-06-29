@@ -12,7 +12,7 @@
     name: "{{ velero_aws_secret_name }}"
     namespace: "{{ velero_namespace }}"
   register: secret_status
-  when: '"aws" in default_velero_plugins'
+  when: '"aws" in default_velero_plugins and (velero_aws_bsl or velero_aws_vsl)'
 
 - name: "Check if the AWS credentials secret exists or not"
   fail:
@@ -26,7 +26,7 @@
     name: "{{ velero_gcp_secret_name }}"
     namespace: "{{ velero_namespace }}"
   register: gcp_secret_status
-  when: '"gcp" in default_velero_plugins'
+  when: '"gcp" in default_velero_plugins and (velero_gcp_bsl or velero_gcp_vsl)'
 
 - name: "Check if the GCP credentials secret exists or not"
   fail:
@@ -40,14 +40,14 @@
     name: "{{ velero_azure_secret_name }}"
     namespace: "{{ velero_namespace }}"
   register: azure_secret_status
-  when: '"azure" in default_velero_plugins'
+  when: '"azure" in default_velero_plugins and (velero_azure_bsl or velero_azure_vsl)'
 
 - name: "Check if the Azure credentials secret exists or not"
   fail:
     msg: "Azure credentials secret does not exist, Please create the secret {{ velero_azure_secret_name }} in order to proceed further with velero installation"
   when: '"azure" in default_velero_plugins and azure_secret_status.resources | length == 0 and not noobaa'
 
-- when: '"aws" in default_velero_plugins and secret_status.resources | length > 0 and not noobaa'
+- when: '"aws" in default_velero_plugins and secret_status.resources | length > 0 and not noobaa and (velero_aws_bsl or velero_aws_vsl)'
   block:
   - name: Discover AWS credentials
     k8s_info:
