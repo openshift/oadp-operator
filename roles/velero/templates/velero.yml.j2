@@ -99,15 +99,15 @@ spec:
             - debug
 {% endif %}
           volumeMounts:
-{% if 'aws' in default_velero_plugins %}
+{% if 'aws' in default_velero_plugins and velero_aws_bsl %}
             - name: {{ velero_aws_secret_name }}
               mountPath: /credentials
 {% endif %}
-{% if 'gcp' in default_velero_plugins %}
+{% if 'gcp' in default_velero_plugins and velero_gcp_bsl %}
             - name: {{ velero_gcp_secret_name }}
               mountPath: /credentials-gcp
 {% endif %}
-{% if 'azure' in default_velero_plugins %}
+{% if 'azure' in default_velero_plugins and velero_azure_bsl %}
             - name: {{ velero_azure_secret_name }}
               mountPath: /credentials-azure
 {% endif %}
@@ -120,15 +120,15 @@ spec:
           env:
             - name: LD_LIBRARY_PATH
               value: /plugins
-{% if 'aws' in default_velero_plugins %}
+{% if 'aws' in default_velero_plugins and velero_aws_bsl %}
             - name: AWS_SHARED_CREDENTIALS_FILE
               value: /credentials/cloud
 {% endif %}
-{% if 'gcp' in default_velero_plugins %}
+{% if 'gcp' in default_velero_plugins and velero_gcp_bsl %}
             - name: GOOGLE_APPLICATION_CREDENTIALS
               value: /credentials-gcp/cloud
 {% endif %}
-{% if 'azure' in default_velero_plugins %}
+{% if 'azure' in default_velero_plugins and velero_azure_bsl %}
             - name: AZURE_CREDENTIALS_FILE
               value: /credentials-azure/cloud
 {% endif %}
@@ -149,17 +149,17 @@ spec:
               value: {{ no_proxy }}
 {% endif %}
       volumes:
-{% if 'aws' in default_velero_plugins %}
+{% if 'aws' in default_velero_plugins and velero_aws_bsl %}
         - name: {{ velero_aws_secret_name }}
           secret:
             secretName: {{ velero_aws_secret_name }}
 {% endif %}
-{% if 'gcp' in default_velero_plugins %}
+{% if 'gcp' in default_velero_plugins and velero_gcp_bsl %}
         - name: {{ velero_gcp_secret_name }}
           secret:
             secretName: {{ velero_gcp_secret_name }}
 {% endif %}
-{% if 'azure' in default_velero_plugins %}
+{% if 'azure' in default_velero_plugins and velero_azure_bsl %}
         - name: {{ velero_azure_secret_name }}
           secret:
             secretName: {{ velero_azure_secret_name }}
@@ -252,9 +252,17 @@ spec:
           volumeMounts:
           - mountPath: /certs
             name: certs
-{% if 'aws' in default_velero_plugins %}
+{% if 'aws' in default_velero_plugins and velero_aws_bsl %}
           - mountPath: /credentials
             name: {{ velero_aws_secret_name }}
+{% endif %}
+{% if 'gcp' in default_velero_plugins and velero_gcp_bsl %}
+          - name: {{ velero_gcp_secret_name }}
+            mountPath: /credentials-gcp
+{% endif %}
+{% if 'azure' in default_velero_plugins and velero_azure_bsl %}
+          - name: {{ velero_azure_secret_name }}
+            mountPath: /credentials-azure
 {% endif %}
 {% for plugin in custom_velero_plugins %}
         - image: {{ plugin.image }}

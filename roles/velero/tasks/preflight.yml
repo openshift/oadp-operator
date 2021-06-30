@@ -68,41 +68,41 @@
         msg: "The provided caCert for azure is not in valid base64 format"
   when: azure_bsl_res.object_storage.ca_cert is defined
 
-- name: "Discover aws as provider in Volume Snapshot Locations and associate aws secret name"
-  set_fact:
-    velero_aws_secret_name: "{{ item.credentials_secret_ref.name }}"
-    velero_aws_vsl_configs: "{{ velero_aws_vsl_configs | int + 1 }}"
-    velero_aws_vsl: true
-  loop: "{{ volume_snapshot_locations }}"
-  when: item.provider == 'aws'
+# - name: "Discover aws as provider in Volume Snapshot Locations and associate aws secret name"
+#   set_fact:
+#     velero_aws_secret_name: "{{ item.credentials_secret_ref.name }}"
+#     velero_aws_vsl_configs: "{{ velero_aws_vsl_configs | int + 1 }}"
+#     velero_aws_vsl: true
+#   loop: "{{ volume_snapshot_locations }}"
+#   when: item.provider == 'aws'
 
-- name: "Validate that there is only one aws VSL config"
-  fail:
-    msg: "More than one VolumeSnapshotLocations are configured for aws"
-  when: velero_aws_vsl_configs | int > 1
+# - name: "Validate that there is only one aws VSL config"
+#   fail:
+#     msg: "More than one VolumeSnapshotLocations are configured for aws"
+#   when: velero_aws_vsl_configs | int > 1
 
-- name: "Discover gcp as provider in Volume Snapshot Locations and associate gcp secret name"
-  set_fact:
-    velero_gcp_secret_name: "{{ item.credentials_secret_ref.name }}"
-    velero_gcp_vsl_configs: "{{ velero_gcp_vsl_configs | int + 1 }}"
-    velero_gcp_vsl: true
-  loop: "{{ volume_snapshot_locations }}"
-  when: item.provider == 'gcp'
+# - name: "Discover gcp as provider in Volume Snapshot Locations and associate gcp secret name"
+#   set_fact:
+#     velero_gcp_secret_name: "{{ item.credentials_secret_ref.name }}"
+#     velero_gcp_vsl_configs: "{{ velero_gcp_vsl_configs | int + 1 }}"
+#     velero_gcp_vsl: true
+#   loop: "{{ volume_snapshot_locations }}"
+#   when: item.provider == 'gcp'
 
-- name: "Validate that there is only one gcp VSL config"
-  fail:
-    msg: "More than one VolumeSnapshotLocations are configured for gcp"
-  when: velero_gcp_vsl_configs | int > 1
+# - name: "Validate that there is only one gcp VSL config"
+#   fail:
+#     msg: "More than one VolumeSnapshotLocations are configured for gcp"
+#   when: velero_gcp_vsl_configs | int > 1
 
-- name: "Discover azure as provider in Volume Snapshot Locations and associate azure secret name"
-  set_fact:
-    velero_azure_secret_name: "{{ item.credentials_secret_ref.name }}"
-    velero_azure_vsl_configs: "{{ velero_azure_vsl_configs | int + 1 }}"
-    velero_azure_vsl: true
-  loop: "{{ volume_snapshot_locations }}"
-  when: item.provider == 'azure'
+# - name: "Discover azure as provider in Volume Snapshot Locations and associate azure secret name"
+#   set_fact:
+#     velero_azure_secret_name: "{{ item.credentials_secret_ref.name }}"
+#     velero_azure_vsl_configs: "{{ velero_azure_vsl_configs | int + 1 }}"
+#     velero_azure_vsl: true
+#   loop: "{{ volume_snapshot_locations }}"
+#   when: item.provider == 'azure'
 
-- name: "Validate that there is only one azure VSL config"
-  fail:
-    msg: "More than one VolumeSnapshotLocations are configured for azure"
-  when: velero_azure_vsl_configs | int > 1
+# - name: "Validate that there is only one azure VSL config"
+#   fail:
+#     msg: "More than one VolumeSnapshotLocations are configured for azure"
+#   when: velero_azure_vsl_configs | int > 1
