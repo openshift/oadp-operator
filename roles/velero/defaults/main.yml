@@ -48,6 +48,8 @@ velero_azure_plugin_version: "{{ lookup( 'env', 'VELERO_AZURE_PLUGIN_TAG') }}"
 velero_registry_tag: "{{ lookup( 'env', 'VELERO_REGISTRY_TAG') }}"
 velero_registry_repo: "{{ lookup( 'env', 'VELERO_REGISTRY_REPO') }}"
 velero_registry_image: "{{ registry }}/{{ project }}/{{ velero_registry_repo }}"
+velero_tolerations: []
+restic_tolerations: []
 restic_pv_host_path: /var/lib/kubelet/pods
 restic_timeout: 1h
 size: 1
