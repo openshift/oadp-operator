@@ -20,6 +20,11 @@ metadata:
   namespace: {{ velero_namespace }}
   name: velero
 spec:
+{% if velero_node_selector is defined %}
+  nodeSelector: {{ velero_node_selector }}
+{% else %}
+  nodeSelector: null
+{% endif %}
   selector:
     matchLabels:
       component: velero
@@ -35,6 +40,26 @@ spec:
     spec:
       restartPolicy: Always
       serviceAccountName: velero
+{% if velero_tolerations | length > 0 %}
+      tolerations:
+{% for tol in velero_tolerations %}
+{% if tol.key is defined %}
+      - key: {{ tol.key }}
+{% endif %}
+{% if tol.operator is defined %}
+        operator: {{ tol.operator }}
+{% endif %}
+{% if tol.value is defined %}
+        value: {{ tol.value }}
+{% endif %}
+{% if tol.effect is defined %}
+        effect: {{ tol.effect }}
+{% endif %}
+{% if tol.toleration_seconds is defined %}
+        tolerationSeconds: {{ tol.toleration_seconds }}
+{% endif %} 
+{% endfor %}
+{% endif %}
       containers:
         - name: velero
           image: {{ velero_image_fqin }}
