@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/mitchellh/go-homedir"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -11,6 +12,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
@@ -49,7 +51,7 @@ func main() {
 	installVelero()
 
 	// get Velero pod status
-	veleroStatus := getPodStatus()
+	veleroStatus := isPodRunning()
 	fmt.Println(veleroStatus)
 }
 
@@ -94,14 +96,25 @@ func createVeleroCR(res *unstructured.Unstructured, client dynamic.Interface) (u
 	return *createdResource, nil
 }
 
-func installVelero() {
-	// get cluster config
-	config, err := clientcmd.BuildConfigFromFlags("", "/Users/emilymcmullan/.agnosticd/ocp4-emcmulla-06232_kubeconfig")
+func getKubeConfig() *rest.Config {
+	// get path of valid kube config file
+	path, err := homedir.Expand("~/.kube/config")
 	if err != nil {
 		panic(err)
 	}
-	// create dynamic client
-	client, err := dynamic.NewForConfig(config)
+	// use path to build kube config
+	config, err := clientcmd.BuildConfigFromFlags("", path)
+	if err != nil {
+		panic(err)
+	}
+	return config
+}
+
+func installVelero() {
+	kubeConfig := getKubeConfig()
+
+	// create dynamic client for CR
+	client, err := dynamic.NewForConfig(kubeConfig)
 	if err != nil {
 		panic(err)
 	}
@@ -110,14 +123,11 @@ func installVelero() {
 	createVeleroCR(unstrVel, client)
 }
 
-func getPodStatus() string {
-	// get cluster config
-	config, err := clientcmd.BuildConfigFromFlags("", "/Users/emilymcmullan/.agnosticd/ocp4-emcmulla-06232_kubeconfig")
-	if err != nil {
-		panic(err)
-	}
+func isPodRunning() bool {
+	kubeConf := getKubeConfig()
+
 	// create client for pod
-	clientset, err := kubernetes.NewForConfig(config)
+	clientset, err := kubernetes.NewForConfig(kubeConf)
 	if err != nil {
 		panic(err)
 	}
@@ -135,5 +145,5 @@ func getPodStatus() string {
 	for _, podInfo := range (*podList).Items {
 		status = string(podInfo.Status.Phase)
 	}
-	return status
+	return status == "Running"
 }
