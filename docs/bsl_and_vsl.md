@@ -34,9 +34,12 @@ spec:
     config:
       region: us-west-2
       profile: "default"
+    credentials_secret_ref:
+      name: cloud-credentials
+      namespace: oadp-operator
 ```
 <b>Note:</b> 
-- Be sure to use the same `secret` name you used while creating the cloud credentials secret in step 3 of Operator   installation section.
+- Be sure to use the same `secret` name you used while creating the cloud credentials secret in step 3 of Operator installation section.
 - Another thing to consider are the CR file specs, they should be tailored in accordance to your own cloud provider accounts, for instance `bucket` spec value should be according to your own bucket name and so on.
 - Do not configure more than one `backupStorageLocations` per cloud provider, the velero installation will fail.
 - bsl/vsl parameters in the OADP Velero CR must be specified using `snake_case` rather than `camelCase`.

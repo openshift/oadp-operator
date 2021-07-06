@@ -104,7 +104,7 @@ To install OADP operator and the essential Velero components follow the steps gi
   ```
   oc project oadp-operator
   ```
-- Create secret for the cloud provider credentials to be used. Also, the credentials file present at `CREDENTIALS_FILE_PATH` shoud be in proper format, for instance if the provider is AWS it should follow this AWS credentials [template](https://github.com/konveyor/velero-examples/blob/master/velero-install/aws-credentials)
+- Create secret for the cloud provider credentials to be used. Also, the credentials file present at `CREDENTIALS_FILE_PATH` shoud be in proper format, for instance if the provider is AWS it should follow this AWS credentials [template](https://github.com/konveyor/velero-examples/blob/master/velero-install/aws-credentials). Also, not that if you have different cloud providers for `BackupStorageLocation` and `VolumeSnapshotLocation`, make sure you create secrets for each of these cloud providers.
   ```
   oc create secret generic <SECRET_NAME> --namespace oadp-operator --from-file cloud=<CREDENTIALS_FILE_PATH>
   ```

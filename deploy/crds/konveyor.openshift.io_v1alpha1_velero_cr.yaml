@@ -7,7 +7,6 @@ spec:
   default_velero_plugins:
   - aws
   - openshift
-  - csi
   backup_storage_locations:
   - name: default
     provider: aws
@@ -26,5 +25,7 @@ spec:
     config:
       region: us-west-2
       profile: "default"
+    credentials_secret_ref:
+      name: cloud-credentials
+      namespace: oadp-operator
   enable_restic: true
-  velero_feature_flags: EnableCSI

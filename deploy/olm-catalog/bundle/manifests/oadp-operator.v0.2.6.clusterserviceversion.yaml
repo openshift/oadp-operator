@@ -56,6 +56,10 @@ metadata:
                   "profile": "default",
                   "region": "us-west-1"
                 },
+                "credentials_secret_ref": {
+                  "name": "cloud-credentials",
+                  "namespace": "oadp-operator"
+                },
                 "name": "default",
                 "provider": "aws"
               }
