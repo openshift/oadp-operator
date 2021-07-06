@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/mitchellh/go-homedir"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -10,6 +11,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -50,9 +52,10 @@ spec:
 func main() {
 	installVelero()
 
-	// get Velero pod status
-	veleroStatus := isPodRunning()
-	fmt.Println(veleroStatus)
+	// wait for Velero pod status to be 'Running'
+	if err := waitForPodRunning(); err != nil {
+		fmt.Println(err)
+	}
 }
 
 func decodeYaml() *unstructured.Unstructured {
@@ -123,27 +126,38 @@ func installVelero() {
 	createVeleroCR(unstrVel, client)
 }
 
-func isPodRunning() bool {
-	kubeConf := getKubeConfig()
+func isPodRunning() wait.ConditionFunc {
+	return func() (bool, error) {
+		kubeConf := getKubeConfig()
 
-	// create client for pod
-	clientset, err := kubernetes.NewForConfig(kubeConf)
-	if err != nil {
-		panic(err)
+		// create client for pod
+		clientset, err := kubernetes.NewForConfig(kubeConf)
+		if err != nil {
+			panic(err)
+		}
+		// select Velero pod with this label
+		veleroOptions := v1.ListOptions{
+			LabelSelector: "component=velero",
+		}
+		// get pods in the oadp-operator namespace
+		podList, err := clientset.CoreV1().Pods("oadp-operator").List(context.TODO(), veleroOptions)
+		if err != nil {
+			panic(err)
+		}
+		// get pod name and status with specified label selector
+		var status string
+		for _, podInfo := range (*podList).Items {
+			status = string(podInfo.Status.Phase)
+		}
+		if status == "Running" {
+			fmt.Println("Pod is running")
+			return true, nil
+		}
+		return false, err
 	}
-	// select Velero pod with this label
-	veleroOptions := v1.ListOptions{
-		LabelSelector: "component=velero",
-	}
-	// get pods in the oadp-operator namespace
-	podList, err := clientset.CoreV1().Pods("oadp-operator").List(context.TODO(), veleroOptions)
-	if err != nil {
-		panic(err)
-	}
-	// get pod name and status with specified label selector
-	var status string
-	for _, podInfo := range (*podList).Items {
-		status = string(podInfo.Status.Phase)
-	}
-	return status == "Running"
+}
+
+func waitForPodRunning() error {
+	// poll pod every 5 secs for 3 mins until it's running or timeout occurs
+	return wait.PollImmediate(time.Second*5, time.Minute*3, isPodRunning())
 }
