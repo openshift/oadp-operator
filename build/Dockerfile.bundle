@@ -1,0 +1,16 @@
+FROM scratch
+
+LABEL operators.operatorframework.io.bundle.mediatype.v1=registry+v1
+LABEL operators.operatorframework.io.bundle.manifests.v1=manifests/
+LABEL operators.operatorframework.io.bundle.metadata.v1=metadata/
+LABEL operators.operatorframework.io.bundle.package.v1=oadp-operator
+LABEL operators.operatorframework.io.bundle.channels.v1=development
+LABEL operators.operatorframework.io.bundle.channel.default.v1=development
+LABEL operators.operatorframework.io.metrics.builder=operator-sdk-unknown
+LABEL operators.operatorframework.io.metrics.mediatype.v1=metrics+v1
+LABEL operators.operatorframework.io.metrics.project_layout=ansible.sdk.operatorframework.io/v1
+LABEL operators.operatorframework.io.test.config.v1=tests/scorecard/
+LABEL operators.operatorframework.io.test.mediatype.v1=scorecard+v1
+
+COPY deploy/olm-catalog/bundle/manifests /manifests/
+COPY deploy/olm-catalog/bundle/metadata /metadata/
