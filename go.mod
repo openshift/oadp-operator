@@ -8,7 +8,7 @@ require (
 	github.com/gophercloud/gophercloud v0.0.0-20190126172459-c818fa66e4c8 // indirect
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/onsi/ginkgo v1.16.4
-	github.com/onsi/gomega v1.13.0
+	github.com/onsi/gomega v1.14.0
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	k8s.io/apimachinery v0.21.2
 	k8s.io/client-go v0.21.2
