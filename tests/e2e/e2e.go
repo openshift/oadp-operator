@@ -93,6 +93,7 @@ func createVeleroCR(res *unstructured.Unstructured, client dynamic.Interface) (u
 		fmt.Println("Resource already exists")
 	} else if err != nil {
 		fmt.Println("Error creating resource")
+		panic(err)
 	} else {
 		fmt.Println("Velero resource successfully created")
 	}
