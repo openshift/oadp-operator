@@ -4,7 +4,7 @@ import (
 	"k8s.io/client-go/dynamic"
 )
 
-func installVelero() error {
+func installDefaultVelero() error {
 	kubeConfig := getKubeConfig()
 
 	// create dynamic client for CR
@@ -14,6 +14,17 @@ func installVelero() error {
 	}
 	// get Velero unstruct type to create Velero CR
 	unstrVel := decodeYaml()
-	_, err = createVeleroCR(unstrVel, client)
+	_, err = createDefaultVeleroCR(unstrVel, client)
 	return err
+}
+
+func uninstallVelero() error {
+	kubeConfig := getKubeConfig()
+
+	// create dynamic client for CR
+	client, err := dynamic.NewForConfig(kubeConfig)
+	if err != nil {
+		return err
+	}
+	return deleteVeleroCR(client)
 }

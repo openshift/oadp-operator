@@ -2,7 +2,8 @@ package e2e
 
 import (
 	"context"
-	"fmt"
+	"encoding/json"
+	"errors"
 	"time"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -77,11 +78,14 @@ func createOADPTestNamespace() error {
 		},
 	}
 	_, err = clientset.CoreV1().Namespaces().Create(context.TODO(), &ns, metav1.CreateOptions{})
+	if apierrors.IsAlreadyExists(err) {
+		return nil
+	}
 
 	return err
 }
 
-func createVeleroClient(res *unstructured.Unstructured, client dynamic.Interface) (dynamic.ResourceInterface, error) {
+func createVeleroClient(client dynamic.Interface) (dynamic.ResourceInterface, error) {
 
 	resourceClient := client.Resource(schema.GroupVersionResource{
 		Group:    "konveyor.openshift.io",
@@ -93,28 +97,33 @@ func createVeleroClient(res *unstructured.Unstructured, client dynamic.Interface
 	return namespaceResClient, nil
 }
 
-func createVeleroCR(res *unstructured.Unstructured, client dynamic.Interface) (unstructured.Unstructured, error) {
-	veleroClient, err := createVeleroClient(res, client)
+func createDefaultVeleroCR(res *unstructured.Unstructured, client dynamic.Interface) (*unstructured.Unstructured, error) {
+	veleroClient, err := createVeleroClient(client)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 	createdResource, err := veleroClient.Create(context.Background(), res, metav1.CreateOptions{})
 	if apierrors.IsAlreadyExists(err) {
-		fmt.Println("Resource already exists")
+		return nil, errors.New("found unexpected existing Velero CR")
 	} else if err != nil {
-		fmt.Println("Error creating resource")
-		panic(err)
-	} else {
-		fmt.Println("Velero resource successfully created")
+		return nil, err
 	}
-	return *createdResource, nil
+	return createdResource, nil
+}
+
+func deleteVeleroCR(client dynamic.Interface) error {
+	veleroClient, err := createVeleroClient(client)
+	if err != nil {
+		return err
+	}
+	return veleroClient.Delete(context.Background(), "example-velero", metav1.DeleteOptions{})
 }
 
 func getKubeConfig() *rest.Config {
 	return config.GetConfigOrDie()
 }
 
-func isPodRunning() wait.ConditionFunc {
+func isVeleroPodRunning() wait.ConditionFunc {
 	return func() (bool, error) {
 		kubeConf := getKubeConfig()
 
@@ -138,14 +147,112 @@ func isPodRunning() wait.ConditionFunc {
 			status = string(podInfo.Status.Phase)
 		}
 		if status == "Running" {
-			fmt.Println("Pod is running")
 			return true, nil
 		}
 		return false, err
 	}
 }
 
-func waitForPodRunning() error {
+func waitForVeleroPodRunning() error {
 	// poll pod every 5 secs for 3 mins until it's running or timeout occurs
-	return wait.PollImmediate(time.Second*5, time.Minute*3, isPodRunning())
+	return wait.PollImmediate(time.Second*5, time.Minute*3, isVeleroPodRunning())
+}
+
+func areResticPodsRunning() wait.ConditionFunc {
+	return func() (bool, error) {
+		kubeConf := getKubeConfig()
+		// create client for pods
+		client, err := kubernetes.NewForConfig(kubeConf)
+		if err != nil {
+			panic(err)
+		}
+		resticOptions := metav1.ListOptions{
+			FieldSelector: "metadata.name=restic",
+		}
+		resticDaemeonSet, err := client.AppsV1().DaemonSets("oadp-operator").List(context.TODO(), resticOptions)
+		if err != nil {
+			panic(err)
+		}
+		var numScheduled int32
+		var numDesired int32
+		for _, daemonSetInfo := range (*resticDaemeonSet).Items {
+			numScheduled = daemonSetInfo.Status.CurrentNumberScheduled
+			numDesired = daemonSetInfo.Status.DesiredNumberScheduled
+		}
+		if numScheduled != 0 && numDesired != 0 {
+			if numScheduled == numDesired {
+				return true, nil
+			}
+		}
+		return false, err
+	}
+}
+
+func waitForResticPods() error {
+	// poll pod every 5 secs for 3 mins until it's running or timeout occurs
+	return wait.PollImmediate(time.Second*5, time.Minute*3, areResticPodsRunning())
+}
+
+func waitForFailedVeleroCR() error {
+	return wait.PollImmediate(time.Second*5, time.Minute*2, isVeleroCRFailed())
+}
+
+func isVeleroCRFailed() wait.ConditionFunc {
+	kubeConfig := getKubeConfig()
+
+	// create dynamic client for CR
+	client, err := dynamic.NewForConfig(kubeConfig)
+	if err != nil {
+		return nil
+	}
+	veleroClient, err := createVeleroClient(client)
+	if err != nil {
+		return nil
+	}
+	return func() (bool, error) {
+		// Get velero CR in cluster
+		veleroResource, err := veleroClient.Get(context.Background(), "example-velero", metav1.GetOptions{})
+		if err != nil {
+			return false, err
+		}
+		// Read status subresource from cluster
+		veleroStatus := ansibleOperatorStatus{}
+		statusObj := veleroResource.Object["status"]
+		// Convert status subresource interface to typed structure
+		statusBytes, err := json.Marshal(statusObj)
+		if err != nil {
+			return false, err
+		}
+		err = json.Unmarshal(statusBytes, &veleroStatus)
+		if err != nil {
+			return false, err
+		}
+		conditions := veleroStatus.Conditions
+		for _, condition := range conditions {
+			if condition.Type == "Failure" {
+				return true, nil
+			}
+		}
+		return false, nil
+	}
+}
+
+type ansibleOperatorStatus struct {
+	Conditions []condition `json:"conditions"`
+}
+type condition struct {
+	AnsibleResult ansibleResult `json:"ansibleResult,omitempty"`
+	//LastTransitionTime time.Time     `json:"lastTransitionTime"`
+	Message string `json:"message"`
+	Reason  string `json:"reason"`
+	Status  string `json"status"`
+	Type    string `json:"type"`
+}
+
+type ansibleResult struct {
+	Changed int `json:"changed"`
+	//Completion time.Time `json:"completion"`
+	Failures int `json:"failures"`
+	Ok       int `json:"ok"`
+	Skipped  int `json:"skipped"`
 }
