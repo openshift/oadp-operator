@@ -5,20 +5,21 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/mitchellh/go-homedir"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
 	"k8s.io/apimachinery/pkg/util/wait"
+
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
 )
 
-const VeleroYAML = `apiVersion: konveyor.openshift.io/v1alpha1
+const DefaultVeleroConfigYAML = `apiVersion: konveyor.openshift.io/v1alpha1
 kind: Velero
 metadata:
   name: example-velero
@@ -39,7 +40,7 @@ spec:
       profile: "default"
     credentials_secret_ref:
       name: cloud-credentials
-      namespace: oadp-operator
+      namespace: oadp-operator-e2e
   volume_snapshot_locations:
   - name: default
     provider: aws
@@ -49,26 +50,35 @@ spec:
   enable_restic: true
   velero_feature_flags: EnableCSI`
 
-func main() {
-	installVelero()
-
-	// wait for Velero pod status to be 'Running'
-	if err := waitForPodRunning(); err != nil {
-		fmt.Println(err)
-	}
-}
-
 func decodeYaml() *unstructured.Unstructured {
 	// set new unstructured type for Velero CR
 	unstructVelero := &unstructured.Unstructured{}
 
 	// decode yaml into unstructured type
 	dec := yaml.NewDecodingSerializer(unstructured.UnstructuredJSONScheme)
-	_, _, err := dec.Decode([]byte(VeleroYAML), nil, unstructVelero)
+	_, _, err := dec.Decode([]byte(DefaultVeleroConfigYAML), nil, unstructVelero)
 	if err != nil {
 		panic(err)
 	}
 	return unstructVelero
+}
+
+func createOADPTestNamespace() error {
+	kubeConf := getKubeConfig()
+
+	// create client for pod
+	clientset, err := kubernetes.NewForConfig(kubeConf)
+	if err != nil {
+		panic(err)
+	}
+	ns := corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "oadp-operator-e2e",
+		},
+	}
+	_, err = clientset.CoreV1().Namespaces().Create(context.TODO(), &ns, metav1.CreateOptions{})
+
+	return err
 }
 
 func createVeleroClient(res *unstructured.Unstructured, client dynamic.Interface) (dynamic.ResourceInterface, error) {
@@ -78,7 +88,7 @@ func createVeleroClient(res *unstructured.Unstructured, client dynamic.Interface
 		Version:  "v1alpha1",
 		Resource: "veleros",
 	})
-	namespaceResClient := resourceClient.Namespace("oadp-operator")
+	namespaceResClient := resourceClient.Namespace("oadp-operator-e2e")
 
 	return namespaceResClient, nil
 }
@@ -88,7 +98,7 @@ func createVeleroCR(res *unstructured.Unstructured, client dynamic.Interface) (u
 	if err != nil {
 		panic(err)
 	}
-	createdResource, err := veleroClient.Create(context.Background(), res, v1.CreateOptions{})
+	createdResource, err := veleroClient.Create(context.Background(), res, metav1.CreateOptions{})
 	if apierrors.IsAlreadyExists(err) {
 		fmt.Println("Resource already exists")
 	} else if err != nil {
@@ -101,17 +111,7 @@ func createVeleroCR(res *unstructured.Unstructured, client dynamic.Interface) (u
 }
 
 func getKubeConfig() *rest.Config {
-	// get path of valid kube config file
-	path, err := homedir.Expand("~/.kube/config")
-	if err != nil {
-		panic(err)
-	}
-	// use path to build kube config
-	config, err := clientcmd.BuildConfigFromFlags("", path)
-	if err != nil {
-		panic(err)
-	}
-	return config
+	return config.GetConfigOrDie()
 }
 
 func isPodRunning() wait.ConditionFunc {
@@ -124,11 +124,11 @@ func isPodRunning() wait.ConditionFunc {
 			panic(err)
 		}
 		// select Velero pod with this label
-		veleroOptions := v1.ListOptions{
+		veleroOptions := metav1.ListOptions{
 			LabelSelector: "component=velero",
 		}
 		// get pods in the oadp-operator namespace
-		podList, err := clientset.CoreV1().Pods("oadp-operator").List(context.TODO(), veleroOptions)
+		podList, err := clientset.CoreV1().Pods("oadp-operator-e2e").List(context.TODO(), veleroOptions)
 		if err != nil {
 			panic(err)
 		}
