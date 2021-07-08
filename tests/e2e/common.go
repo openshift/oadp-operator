@@ -164,14 +164,14 @@ func areResticPodsRunning() wait.ConditionFunc {
 		// create client for pods
 		client, err := kubernetes.NewForConfig(kubeConf)
 		if err != nil {
-			panic(err)
+			return false, err
 		}
 		resticOptions := metav1.ListOptions{
 			FieldSelector: "metadata.name=restic",
 		}
 		resticDaemeonSet, err := client.AppsV1().DaemonSets("oadp-operator").List(context.TODO(), resticOptions)
 		if err != nil {
-			panic(err)
+			return false, err
 		}
 		var numScheduled int32
 		var numDesired int32
