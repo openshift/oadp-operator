@@ -50,6 +50,26 @@ spec:
           emptyDir: {}
         - name: certs
           emptyDir: {}
+{% if restic_tolerations | length > 0 %}
+      tolerations:
+{% for tol in restic_tolerations %}
+{% if tol.key is defined %}
+      - key: {{ tol.key }}
+{% endif %}
+{% if tol.operator is defined %}
+        operator: {{ tol.operator }}
+{% endif %}
+{% if tol.value is defined %}
+        value: {{ tol.value }}
+{% endif %}
+{% if tol.effect is defined %}
+        effect: {{ tol.effect }}
+{% endif %}
+{% if tol.toleration_seconds is defined %}
+        tolerationSeconds: {{ tol.toleration_seconds }}
+{% endif %} 
+{% endfor %}
+{% endif %}
       containers:
         - name: velero
           securityContext:
