@@ -1,4 +1,4 @@
-module add_nums
+module github.com/openshift/oadp-operator
 
 go 1.16
 
