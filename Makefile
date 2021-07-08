@@ -1,2 +1,2 @@
 test-e2e:
-	ginkgo tests/e2e/
+	cd tests/e2e/ && ginkgo -mod=mod ./
