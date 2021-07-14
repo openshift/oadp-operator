@@ -4,10 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"flag"
+	"fmt"
+	"io/ioutil"
 	"time"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
@@ -41,7 +45,7 @@ spec:
       profile: "default"
     credentials_secret_ref:
       name: cloud-credentials
-      namespace: oadp-operator-e2e
+      namespace: oadp-operator
   volume_snapshot_locations:
   - name: default
     provider: aws
@@ -66,11 +70,9 @@ func decodeYaml() *unstructured.Unstructured {
 
 func createOADPTestNamespace() error {
 	kubeConf := getKubeConfig()
-
-	// create client for pod
 	clientset, err := kubernetes.NewForConfig(kubeConf)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	ns := corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
@@ -81,7 +83,6 @@ func createOADPTestNamespace() error {
 	if apierrors.IsAlreadyExists(err) {
 		return nil
 	}
-
 	return err
 }
 
@@ -92,7 +93,7 @@ func createVeleroClient(client dynamic.Interface) (dynamic.ResourceInterface, er
 		Version:  "v1alpha1",
 		Resource: "veleros",
 	})
-	namespaceResClient := resourceClient.Namespace("oadp-operator-e2e")
+	namespaceResClient := resourceClient.Namespace("oadp-operator")
 
 	return namespaceResClient, nil
 }
@@ -136,8 +137,8 @@ func isVeleroPodRunning() wait.ConditionFunc {
 		veleroOptions := metav1.ListOptions{
 			LabelSelector: "component=velero",
 		}
-		// get pods in the oadp-operator namespace
-		podList, err := clientset.CoreV1().Pods("oadp-operator-e2e").List(context.TODO(), veleroOptions)
+		// get pods in the oadp-operator-e2e namespace
+		podList, err := clientset.CoreV1().Pods("oadp-operator").List(context.TODO(), veleroOptions)
 		if err != nil {
 			panic(err)
 		}
@@ -146,7 +147,11 @@ func isVeleroPodRunning() wait.ConditionFunc {
 		for _, podInfo := range (*podList).Items {
 			status = string(podInfo.Status.Phase)
 		}
+		if status != "Running" {
+			fmt.Println("Checking pod status...")
+		}
 		if status == "Running" {
+			fmt.Println("Velero pod is running")
 			return true, nil
 		}
 		return false, err
@@ -154,14 +159,14 @@ func isVeleroPodRunning() wait.ConditionFunc {
 }
 
 func waitForVeleroPodRunning() error {
-	// poll pod every 5 secs for 3 mins until it's running or timeout occurs
-	return wait.PollImmediate(time.Second*5, time.Minute*3, isVeleroPodRunning())
+	// poll pod every 5 secs for 2 mins until it's running or timeout occurs
+	return wait.PollImmediate(time.Second*5, time.Minute*2, isVeleroPodRunning())
 }
 
 func areResticPodsRunning() wait.ConditionFunc {
 	return func() (bool, error) {
 		kubeConf := getKubeConfig()
-		// create client for pods
+		// create client for daemonset
 		client, err := kubernetes.NewForConfig(kubeConf)
 		if err != nil {
 			return false, err
@@ -169,18 +174,25 @@ func areResticPodsRunning() wait.ConditionFunc {
 		resticOptions := metav1.ListOptions{
 			FieldSelector: "metadata.name=restic",
 		}
+		// get daemonset in oadp-operator-e2e ns with specified field selector
 		resticDaemeonSet, err := client.AppsV1().DaemonSets("oadp-operator").List(context.TODO(), resticOptions)
 		if err != nil {
 			return false, err
 		}
 		var numScheduled int32
 		var numDesired int32
+
 		for _, daemonSetInfo := range (*resticDaemeonSet).Items {
 			numScheduled = daemonSetInfo.Status.CurrentNumberScheduled
 			numDesired = daemonSetInfo.Status.DesiredNumberScheduled
 		}
+		// if numScheduled == numDesired, then all restic pods are running
 		if numScheduled != 0 && numDesired != 0 {
+			if numScheduled != numDesired {
+				fmt.Println("Checking pod status...")
+			}
 			if numScheduled == numDesired {
+				fmt.Println("All restic pods are running")
 				return true, nil
 			}
 		}
@@ -189,12 +201,8 @@ func areResticPodsRunning() wait.ConditionFunc {
 }
 
 func waitForResticPods() error {
-	// poll pod every 5 secs for 3 mins until it's running or timeout occurs
-	return wait.PollImmediate(time.Second*5, time.Minute*3, areResticPodsRunning())
-}
-
-func waitForFailedVeleroCR() error {
-	return wait.PollImmediate(time.Second*5, time.Minute*2, isVeleroCRFailed())
+	// poll pod every 5 secs for 2 mins until it's running or timeout occurs
+	return wait.PollImmediate(time.Second*5, time.Minute*2, areResticPodsRunning())
 }
 
 func isVeleroCRFailed() wait.ConditionFunc {
@@ -228,13 +236,24 @@ func isVeleroCRFailed() wait.ConditionFunc {
 			return false, err
 		}
 		conditions := veleroStatus.Conditions
+		var message string
+
 		for _, condition := range conditions {
+			message = condition.Message
+			if condition.Type != "Failure" {
+				fmt.Println("Checking Velero status...")
+			}
 			if condition.Type == "Failure" {
+				fmt.Printf("Velero install failure: %s\n", message)
 				return true, nil
 			}
 		}
 		return false, nil
 	}
+}
+
+func waitForFailedVeleroCR() error {
+	return wait.PollImmediate(time.Second*5, time.Minute*2, isVeleroCRFailed())
 }
 
 type ansibleOperatorStatus struct {
@@ -255,4 +274,47 @@ type ansibleResult struct {
 	Failures int `json:"failures"`
 	Ok       int `json:"ok"`
 	Skipped  int `json:"skipped"`
+}
+
+func getCredsData() []byte {
+	// pass in aws credentials by cli flag
+	// from cli:  -cloud=<"filepath">
+	// go run main.go -cloud="/Users/emilymcmullan/.aws/credentials"
+	cloud := flag.String("cloud", "", "file path for aws credentials")
+	flag.Parse()
+
+	// save passed in cred file as []byte
+	credsFile, err := ioutil.ReadFile(*cloud)
+	if err != nil {
+		panic(err)
+	}
+	return credsFile
+}
+
+func createSecret(data []byte) error {
+	config := getKubeConfig()
+	clientset, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		return err
+	}
+	sec := corev1.Secret{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      "cloud-credentials",
+			Namespace: "oadp-operator",
+		},
+		TypeMeta: v1.TypeMeta{
+			Kind:       "Secret",
+			APIVersion: v1.SchemeGroupVersion.String(),
+		},
+		Data: map[string][]byte{
+			"cloud": data,
+		},
+		Type: corev1.SecretTypeOpaque,
+	}
+	_, errors := clientset.CoreV1().Secrets("oadp-operator").Create(context.TODO(), &sec, v1.CreateOptions{})
+	if apierrors.IsAlreadyExists(errors) {
+		fmt.Println("Secret already exists in this namespace")
+		return nil
+	}
+	return err
 }
