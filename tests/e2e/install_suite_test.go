@@ -17,6 +17,7 @@ import (
 var _ = AfterSuite(func() {
 	err := uninstallVelero()
 	Expect(err).ToNot(HaveOccurred())
+})
 
 // Check Velero is deleted
 // TODO: Check test namespace is deleted
