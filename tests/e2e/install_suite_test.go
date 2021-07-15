@@ -34,7 +34,6 @@ var _ = Describe("The default Velero custom resource", func() {
 		err := uninstallVelero()
 		Expect(err).NotTo(HaveOccurred())
 	})
-
 	Context("When the default valid Velero CR is created, but no credential secret is present", func() {
 		It("Should print an error to Velero CR status", func() {
 			err := waitForFailedVeleroCR()

@@ -76,6 +76,7 @@ func createOADPTestNamespace() error {
 	if apierrors.IsAlreadyExists(err) {
 		return nil
 	}
+
 	return err
 }
 
