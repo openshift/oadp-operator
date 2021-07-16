@@ -3,6 +3,7 @@ package e2e
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -12,6 +13,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
@@ -137,7 +139,7 @@ func isVeleroCRFailed() wait.ConditionFunc {
 }
 
 func waitForFailedVeleroCR() error {
-	return wait.PollImmediate(time.Second*5, time.Minute*1, isVeleroCRFailed())
+	return wait.PollImmediate(time.Second*5, time.Minute*2, isVeleroCRFailed())
 }
 
 type ansibleOperatorStatus struct {
@@ -181,7 +183,7 @@ func createSecret(data []byte) error {
 	if err != nil {
 		return err
 	}
-	sec := corev1.Secret{
+	secret := corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "cloud-credentials",
 			Namespace: "oadp-operator",
@@ -195,7 +197,7 @@ func createSecret(data []byte) error {
 		},
 		Type: corev1.SecretTypeOpaque,
 	}
-	_, errors := clientset.CoreV1().Secrets("oadp-operator").Create(context.TODO(), &sec, metav1.CreateOptions{})
+	_, errors := clientset.CoreV1().Secrets("oadp-operator").Create(context.TODO(), &secret, metav1.CreateOptions{})
 	if apierrors.IsAlreadyExists(errors) {
 		fmt.Println("Secret already exists in this namespace")
 		return nil
@@ -207,7 +209,7 @@ func disableRestic() error {
 	config := getKubeConfig()
 	client, err := dynamic.NewForConfig(config)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	veleroClient, err := createVeleroClient(client)
 	if err != nil {
@@ -228,5 +230,99 @@ func disableRestic() error {
 		return err
 	}
 	fmt.Println("spec 'enable_restic' has been updated to false")
+	return nil
+}
+
+func isResticDaemonsetDeleted() wait.ConditionFunc {
+	err := disableRestic()
+	if err != nil {
+		panic(err)
+	}
+	return func() (bool, error) {
+		config := getKubeConfig()
+		client, err := dynamic.NewForConfig(config)
+		if err != nil {
+			return false, nil
+		}
+		veleroClient, err := createVeleroClient(client)
+		if err != nil {
+			return false, err
+		}
+		_, errs := veleroClient.Get(context.Background(), "restic", metav1.GetOptions{})
+		if apierrors.IsAlreadyExists(errs) {
+			return false, errors.New("restic daemonset has not been deleted")
+		}
+		fmt.Println("Restic daemonset has been deleted")
+		return true, nil
+	}
+}
+
+func waitForDeletedRestic() error {
+	return wait.PollImmediate(time.Second*5, time.Minute*2, isResticDaemonsetDeleted())
+}
+
+func addResticNodeSelector() error {
+	kubeConf := getKubeConfig()
+	// create client for daemonset
+	clientset, err := kubernetes.NewForConfig(kubeConf)
+	if err != nil {
+		return err
+	}
+
+	// get daemonset in oadp-operator-e2e ns with specified field selector
+	resticDaemeonSet, err := clientset.AppsV1().DaemonSets("oadp-operator").Get(context.Background(), "restic", metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+	// ***** TODO *****
+	// update Restic daemonset to have node selector
+	resticOptions := metav1.UpdateOptions{}
+
+	_, err = clientset.AppsV1().DaemonSets("oadp-operator").Update(context.Background(), resticDaemeonSet, resticOptions)
+	if err != nil {
+		return err
+	}
+	fmt.Println("spec 'enable_restic' has been updated to false")
+	return nil
+}
+
+type patchStringValue struct {
+	Op    string `json:"op"`
+	Path  string `json:"path"`
+	Value string `json:"value"`
+}
+
+func addNodeSelector() error {
+	kubeConf := getKubeConfig()
+	// create client for daemonset
+	clientset, err := kubernetes.NewForConfig(kubeConf)
+	if err != nil {
+		return err
+	}
+	api := clientset.CoreV1()
+
+	// select Velero pod with this label
+	veleroOptions := metav1.ListOptions{
+		LabelSelector: "component=velero",
+	}
+	// get pods in the oadp-operator-e2e namespace
+	podList, _ := clientset.CoreV1().Pods("oadp-operator").List(context.TODO(), veleroOptions)
+	for _, podList := range podList.Items {
+		fmt.Printf("%s, Phase: %s, Message: %s", podList.GetName(), string(podList.Status.Phase), string(podList.Status.Message))
+
+		payload := []patchStringValue{{
+			Op:    "add",
+			Path:  "/spec/nodeSelector/restic_test",
+			Value: "test-node-selector",
+		}}
+		payloadBytes, _ := json.Marshal(payload)
+
+		_, err = api.Pods("oadp-operator").Patch(context.Background(), podList.GetName(), types.JSONPatchType, payloadBytes, metav1.PatchOptions{})
+		if err == nil {
+			fmt.Printf("Pod %s labelled successfully.", podList.GetName())
+		} else {
+			return err
+		}
+	}
 	return nil
 }

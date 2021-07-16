@@ -29,7 +29,7 @@ var _ = Describe("The Velero Restic spec", func() {
 
 	Context("When the value of 'enable_restic' is changed to false", func() {
 		It("Should delete the Restic daemonset", func() {
-			err := disableRestic()
+			err := waitForDeletedRestic()
 			Expect(err).NotTo(HaveOccurred())
 		})
 	})
