@@ -58,6 +58,7 @@ enable_restic: true
 upstream_registry: docker.io
 quay_registry: quay.io
 konveyor_project: konveyor
+restic_supplemental_groups: []
 
 # noobaa integration
 noobaa: false
