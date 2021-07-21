@@ -23,7 +23,7 @@ var _ = Describe("Adding two nums", func() {
 			Expect(err).NotTo(HaveOccurred())
 			fmt.Println("FILE CONTENTS")
 			fmt.Print(file)
-			expected := 9
+			expected := 10
 			Expect(expected).To(Equal(result))
 		})
 	})
