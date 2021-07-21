@@ -1,6 +1,8 @@
 package e2e
 
 import (
+	"fmt"
+
 	"k8s.io/client-go/dynamic"
 )
 
@@ -15,6 +17,7 @@ func installDefaultVelero() error {
 	// get Velero unstruct type to create Velero CR
 	unstrVel := decodeYaml()
 	_, err = createDefaultVeleroCR(unstrVel, client)
+	fmt.Println("Default Velero CR created")
 	return err
 }
 
@@ -26,5 +29,6 @@ func uninstallVelero() error {
 	if err != nil {
 		return err
 	}
+	fmt.Println("Default Velero CR deleted")
 	return deleteVeleroCR(client)
 }
