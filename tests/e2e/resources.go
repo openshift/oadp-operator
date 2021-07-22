@@ -16,7 +16,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-func isVeleroPodRunning() wait.ConditionFunc {
+func isVeleroPodRunning(namespace string) wait.ConditionFunc {
 	return func() (bool, error) {
 		kubeConf := getKubeConfig()
 
@@ -30,7 +30,7 @@ func isVeleroPodRunning() wait.ConditionFunc {
 			LabelSelector: "component=velero",
 		}
 		// get pods in the oadp-operator-e2e namespace
-		podList, err := clientset.CoreV1().Pods("oadp-operator").List(context.TODO(), veleroOptions)
+		podList, err := clientset.CoreV1().Pods(namespace).List(context.TODO(), veleroOptions)
 		if err != nil {
 			panic(err)
 		}
@@ -47,12 +47,12 @@ func isVeleroPodRunning() wait.ConditionFunc {
 	}
 }
 
-func waitForVeleroPodRunning() error {
+func waitForVeleroPodRunning(namespace string) error {
 	// poll pod every 5 secs for 2 mins until it's running or timeout occurs
-	return wait.PollImmediate(time.Second*5, time.Minute*2, isVeleroPodRunning())
+	return wait.PollImmediate(time.Second*5, time.Minute*2, isVeleroPodRunning(namespace))
 }
 
-func isVeleroCRFailed() wait.ConditionFunc {
+func isVeleroCRFailed(namespace string, instanceName string) wait.ConditionFunc {
 	kubeConfig := getKubeConfig()
 
 	// create dynamic client for CR
@@ -60,13 +60,13 @@ func isVeleroCRFailed() wait.ConditionFunc {
 	if err != nil {
 		return nil
 	}
-	veleroClient, err := createVeleroClient(client)
+	veleroClient, err := createVeleroClient(client, namespace)
 	if err != nil {
 		return nil
 	}
 	return func() (bool, error) {
 		// Get velero CR in cluster
-		veleroResource, err := veleroClient.Get(context.Background(), "example-velero", metav1.GetOptions{})
+		veleroResource, err := veleroClient.Get(context.Background(), instanceName, metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}
@@ -96,8 +96,8 @@ func isVeleroCRFailed() wait.ConditionFunc {
 	}
 }
 
-func waitForFailedVeleroCR() error {
-	return wait.PollImmediate(time.Second*5, time.Minute*2, isVeleroCRFailed())
+func waitForFailedVeleroCR(namespace string, instanceName string) error {
+	return wait.PollImmediate(time.Second*5, time.Minute*2, isVeleroCRFailed(namespace, instanceName))
 }
 
 type ansibleOperatorStatus struct {
