@@ -18,7 +18,7 @@ import (
 
 var _ = Describe("The Velero Restic spec", func() {
 	var _ = BeforeEach(func() {
-		prefix := "rs-"
+		prefix := "rs-" // To create individual instance per suite
 
 		credData := getCredsData()
 		err := createSecret(credData)

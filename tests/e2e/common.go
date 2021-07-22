@@ -20,6 +20,7 @@ import (
 )
 
 func getDefaultVeleroConfig(namespace string, s3Bucket string, credSecretRef string, instanceName string) *unstructured.Unstructured {
+	// Velero Instance creation spec with backupstorage location default to AWS. Would need to parameterize this later on to support multiple plugins.
 	var veleroSpec = unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "konveyor.openshift.io/v1alpha1",
@@ -85,6 +86,7 @@ func decodeYaml(DefaultVeleroConfigYAML string) *unstructured.Unstructured {
 }
 
 func getJsonData(path string) []byte {
+	// Return buffer data for json
 	jsonData, err := ioutil.ReadFile(path)
 	if err != nil {
 		panic(err)
@@ -93,10 +95,9 @@ func getJsonData(path string) []byte {
 }
 
 func decodeJson(data []byte) map[string]interface{} {
-	// set new unstructured type for Velero CR
+	// Return JSON from buffer data
 	var jsonData map[string]interface{}
 
-	// decode yaml into unstructured type
 	err := json.Unmarshal(data, &jsonData)
 	if err != nil {
 		panic(err)
@@ -105,6 +106,7 @@ func decodeJson(data []byte) map[string]interface{} {
 }
 
 func createOADPTestNamespace() error {
+	// default OADP Namespace
 	kubeConf := getKubeConfig()
 	clientset, err := kubernetes.NewForConfig(kubeConf)
 	if err != nil {
@@ -126,7 +128,6 @@ func createOADPTestNamespace() error {
 }
 
 func createVeleroClient(client dynamic.Interface, namespace string) (dynamic.ResourceInterface, error) {
-
 	resourceClient := client.Resource(schema.GroupVersionResource{
 		Group:    "konveyor.openshift.io",
 		Version:  "v1alpha1",

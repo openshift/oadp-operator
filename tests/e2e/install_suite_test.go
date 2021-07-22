@@ -48,7 +48,7 @@ import (
 
 var _ = Describe("The default Velero custom resource", func() {
 	var _ = BeforeEach(func() {
-		prefix := "ts-"
+		prefix := "ts-" // To create individual instance per case
 
 		credData := getCredsData()
 		err := createSecret(credData)

@@ -21,6 +21,7 @@ import (
 // panic: cannot deep copy []map[string]string
 
 func getResticVeleroConfig(namespace string, s3Bucket string, credSecretRef string, instanceName string) *unstructured.Unstructured {
+	// Default Velero Instance config with backup_storage_locations defaulted to AWS.
 	var resticVeleroSpec = unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "konveyor.openshift.io/v1alpha1",
