@@ -3,10 +3,8 @@ package e2e
 import (
 	"context"
 	"encoding/json"
-	"flag"
 	"fmt"
 	"io/ioutil"
-	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -16,23 +14,23 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-func isVeleroPodRunning() wait.ConditionFunc {
+func isVeleroPodRunning(namespace string) wait.ConditionFunc {
 	return func() (bool, error) {
 		kubeConf := getKubeConfig()
 
 		// create client for pod
 		clientset, err := kubernetes.NewForConfig(kubeConf)
 		if err != nil {
-			panic(err)
+			return false, nil
 		}
 		// select Velero pod with this label
 		veleroOptions := metav1.ListOptions{
 			LabelSelector: "component=velero",
 		}
 		// get pods in the oadp-operator-e2e namespace
-		podList, err := clientset.CoreV1().Pods("oadp-operator").List(context.TODO(), veleroOptions)
+		podList, err := clientset.CoreV1().Pods(namespace).List(context.TODO(), veleroOptions)
 		if err != nil {
-			panic(err)
+			return false, nil
 		}
 		// get pod name and status with specified label selector
 		var status string
@@ -47,12 +45,7 @@ func isVeleroPodRunning() wait.ConditionFunc {
 	}
 }
 
-func waitForVeleroPodRunning() error {
-	// poll pod every 5 secs for 2 mins until it's running or timeout occurs
-	return wait.PollImmediate(time.Second*5, time.Minute*2, isVeleroPodRunning())
-}
-
-func isVeleroCRFailed() wait.ConditionFunc {
+func isVeleroCRFailed(namespace string, instanceName string) wait.ConditionFunc {
 	kubeConfig := getKubeConfig()
 
 	// create dynamic client for CR
@@ -60,13 +53,13 @@ func isVeleroCRFailed() wait.ConditionFunc {
 	if err != nil {
 		return nil
 	}
-	veleroClient, err := createVeleroClient(client)
+	veleroClient, err := createVeleroClient(client, namespace)
 	if err != nil {
 		return nil
 	}
 	return func() (bool, error) {
 		// Get velero CR in cluster
-		veleroResource, err := veleroClient.Get(context.Background(), "example-velero", metav1.GetOptions{})
+		veleroResource, err := veleroClient.Get(context.Background(), instanceName, metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}
@@ -96,10 +89,6 @@ func isVeleroCRFailed() wait.ConditionFunc {
 	}
 }
 
-func waitForFailedVeleroCR() error {
-	return wait.PollImmediate(time.Second*5, time.Minute*2, isVeleroCRFailed())
-}
-
 type ansibleOperatorStatus struct {
 	Conditions []condition `json:"conditions"`
 }
@@ -120,22 +109,18 @@ type ansibleResult struct {
 	Skipped  int `json:"skipped"`
 }
 
-func getCredsData() []byte {
+func getCredsData(cloud string) ([]byte, error) {
 	// pass in aws credentials by cli flag
 	// from cli:  -cloud=<"filepath">
 	// go run main.go -cloud="/Users/emilymcmullan/.aws/credentials"
-	cloud := flag.String("cloud", "", "file path for aws credentials")
-	flag.Parse()
-
+	// cloud := flag.String("cloud", "", "file path for aws credentials")
+	// flag.Parse()
 	// save passed in cred file as []byte
-	credsFile, err := ioutil.ReadFile(*cloud)
-	if err != nil {
-		panic(err)
-	}
-	return credsFile
+	credsFile, err := ioutil.ReadFile(cloud)
+	return credsFile, err
 }
 
-func createSecret(data []byte) error {
+func createSecret(data []byte, namespace string, credSecretRef string) error {
 	config := getKubeConfig()
 	clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {
@@ -143,8 +128,8 @@ func createSecret(data []byte) error {
 	}
 	secret := corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "cloud-credentials",
-			Namespace: "oadp-operator",
+			Name:      credSecretRef,
+			Namespace: namespace,
 		},
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Secret",
@@ -155,10 +140,20 @@ func createSecret(data []byte) error {
 		},
 		Type: corev1.SecretTypeOpaque,
 	}
-	_, errors := clientset.CoreV1().Secrets("oadp-operator").Create(context.TODO(), &secret, metav1.CreateOptions{})
+	_, errors := clientset.CoreV1().Secrets(namespace).Create(context.TODO(), &secret, metav1.CreateOptions{})
 	if apierrors.IsAlreadyExists(errors) {
 		fmt.Println("Secret already exists in this namespace")
 		return nil
 	}
 	return err
+}
+
+func deleteSecret(namespace string, credSecretRef string) error {
+	config := getKubeConfig()
+	clientset, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		return err
+	}
+	errors := clientset.CoreV1().Secrets(namespace).Delete(context.Background(), credSecretRef, metav1.DeleteOptions{})
+	return errors
 }
