@@ -33,10 +33,13 @@ var _ = Describe("The Velero Restic spec", func() {
 		})
 	})
 
-	// Context("When 'restic_node_selector' is added to the Velero CR spec", func() {
-	// 	It("Should update the Restic daemonSet to include a nodeSelector", func() {
-	// 		err := waitForResticNodeSelector()
-	// 		Expect(err).NotTo(HaveOccurred())
-	// 	})
-	// })
+	Context("When 'restic_node_selector' is added to the Velero CR spec", func() {
+		It("Should update the Restic daemonSet to include a nodeSelector", func() {
+			errs := enableResticNodeSelector()
+			Expect(errs).NotTo(HaveOccurred())
+
+			err := waitForResticNodeSelector()
+			Expect(err).NotTo(HaveOccurred())
+		})
+	})
 })

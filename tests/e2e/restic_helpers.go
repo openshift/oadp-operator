@@ -181,29 +181,28 @@ func enableResticNodeSelector() error {
 }
 
 func resticDaemonSetHasNodeSelector() wait.ConditionFunc {
-	err := enableResticNodeSelector()
-	if err != nil {
-		panic(err)
-	}
+
 	return func() (bool, error) {
 		config := getKubeConfig()
 		client, err := kubernetes.NewForConfig(config)
 		if err != nil {
 			return false, nil
 		}
-		resticOptions := metav1.ListOptions{
-			FieldSelector: "spec.template.spec.nodeSelector.foo=bar",
-		}
 		// get daemonset in oadp-operator-e2e ns with specified field selector
-		_, errs := client.AppsV1().DaemonSets("oadp-operator").List(context.TODO(), resticOptions)
+		ds, errs := client.AppsV1().DaemonSets("oadp-operator").Get(context.TODO(), "restic", metav1.GetOptions{})
 		if errs != nil {
 			return false, err
 		}
-		fmt.Println("Restic daemonset has NodeSelector")
-		return true, nil
+		// verify daemonset has nodeSelector "foo": "bar"
+		selector := ds.Spec.Template.Spec.NodeSelector["foo"]
+		if selector == "bar" {
+			fmt.Println("Restic daemonset has nodeSelector")
+			return true, nil
+		}
+		return false, err
 	}
 }
 
 func waitForResticNodeSelector() error {
-	return wait.PollImmediate(time.Second*5, time.Minute*2, resticDaemonSetHasNodeSelector())
+	return wait.PollImmediate(time.Second*5, time.Minute*1, resticDaemonSetHasNodeSelector())
 }
