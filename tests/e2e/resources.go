@@ -22,7 +22,7 @@ func isVeleroPodRunning(namespace string) wait.ConditionFunc {
 		// create client for pod
 		clientset, err := kubernetes.NewForConfig(kubeConf)
 		if err != nil {
-			panic(err)
+			return false, nil
 		}
 		// select Velero pod with this label
 		veleroOptions := metav1.ListOptions{
@@ -31,7 +31,7 @@ func isVeleroPodRunning(namespace string) wait.ConditionFunc {
 		// get pods in the oadp-operator-e2e namespace
 		podList, err := clientset.CoreV1().Pods(namespace).List(context.TODO(), veleroOptions)
 		if err != nil {
-			panic(err)
+			return false, nil
 		}
 		// get pod name and status with specified label selector
 		var status string
@@ -119,7 +119,7 @@ type ansibleResult struct {
 	Skipped  int `json:"skipped"`
 }
 
-func getCredsData(cloud string) []byte {
+func getCredsData(cloud string) ([]byte, error) {
 	// pass in aws credentials by cli flag
 	// from cli:  -cloud=<"filepath">
 	// go run main.go -cloud="/Users/emilymcmullan/.aws/credentials"
@@ -127,10 +127,7 @@ func getCredsData(cloud string) []byte {
 	// flag.Parse()
 	// save passed in cred file as []byte
 	credsFile, err := ioutil.ReadFile(cloud)
-	if err != nil {
-		panic(err)
-	}
-	return credsFile
+	return credsFile, err
 }
 
 func createSecret(data []byte, namespace string, credSecretRef string) error {

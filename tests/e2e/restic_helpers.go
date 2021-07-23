@@ -59,7 +59,7 @@ func getResticVeleroConfig(namespace string, s3Bucket string, credSecretRef stri
 					},
 				},
 				"velero_feature_flags": "EnableCSI",
-				"enable_restic":        true,
+				"enable_restic":        false,
 				"volume_snapshot_locations": [](map[string]interface{}){
 					map[string]interface{}{
 						"config": map[string]interface{}{
@@ -146,7 +146,7 @@ func disableRestic(namespace string, instanceName string) error {
 func isResticDaemonsetDeleted(namespace string, instanceName string, resticName string) wait.ConditionFunc {
 	err := disableRestic(namespace, instanceName)
 	if err != nil {
-		panic(err)
+		return nil
 	}
 	return func() (bool, error) {
 		config := getKubeConfig()
@@ -171,7 +171,7 @@ func waitForDeletedRestic(namespace string, instanceName string, resticName stri
 	return wait.PollImmediate(time.Second*5, time.Minute*2, isResticDaemonsetDeleted(namespace, instanceName, resticName))
 }
 
-func decodeResticYaml(resticVeleroConfigYAML string) *unstructured.Unstructured {
+func decodeResticYaml(resticVeleroConfigYAML string) (*unstructured.Unstructured, error) {
 	// set new unstructured type for Velero CR
 	unstructVelero := &unstructured.Unstructured{}
 
@@ -179,9 +179,9 @@ func decodeResticYaml(resticVeleroConfigYAML string) *unstructured.Unstructured 
 	dec := yaml.NewDecodingSerializer(unstructured.UnstructuredJSONScheme)
 	_, _, err := dec.Decode([]byte(resticVeleroConfigYAML), nil, unstructVelero)
 	if err != nil {
-		panic(err)
+		return unstructVelero, err
 	}
-	return unstructVelero
+	return unstructVelero, nil
 }
 
 func enableResticNodeSelector(namespace string, s3Bucket string, credSecretRef string, instanceName string) error {
@@ -207,7 +207,7 @@ func enableResticNodeSelector(namespace string, s3Bucket string, credSecretRef s
 func resticDaemonSetHasNodeSelector(namespace string, s3Bucket string, credSecretRef string, instanceName string) wait.ConditionFunc {
 	err := enableResticNodeSelector(namespace, s3Bucket, credSecretRef, instanceName)
 	if err != nil {
-		panic(err)
+		return nil
 	}
 	return func() (bool, error) {
 		config := getKubeConfig()

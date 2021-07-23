@@ -12,7 +12,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
@@ -73,39 +72,21 @@ func getDefaultVeleroConfig(namespace string, s3Bucket string, credSecretRef str
 	return &veleroSpec
 }
 
-func decodeYaml(defaultVeleroConfigYAML string) *unstructured.Unstructured {
-	// set new unstructured type for Velero CR
-	unstructVelero := &unstructured.Unstructured{}
-
-	// decode yaml into unstructured type
-	dec := yaml.NewDecodingSerializer(unstructured.UnstructuredJSONScheme)
-	_, _, err := dec.Decode([]byte(defaultVeleroConfigYAML), nil, unstructVelero)
-	if err != nil {
-		panic(err)
-	}
-	return unstructVelero
-}
-
-func getJsonData(path string) []byte {
+func getJsonData(path string) ([]byte, error) {
 	// Return buffer data for json
 	jsonData, err := ioutil.ReadFile(path)
-	if err != nil {
-		panic(err)
-	}
-	return jsonData
+	return jsonData, err
 }
 
-func decodeJson(data []byte) map[string]interface{} {
+func decodeJson(data []byte) (map[string]interface{}, error) {
 	// Return JSON from buffer data
 	var jsonData map[string]interface{}
 
 	err := json.Unmarshal(data, &jsonData)
-	if err != nil {
-		panic(err)
-	}
-	return jsonData
+	return jsonData, err
 }
 
+// Keeping it for now.
 func createOADPTestNamespace(namespace string) error {
 	// default OADP Namespace
 	kubeConf := getKubeConfig()
@@ -126,6 +107,7 @@ func createOADPTestNamespace(namespace string) error {
 	return err
 }
 
+// Keeping it for now.
 func deleteOADPTestNamespace(namespace string) error {
 	// default OADP Namespace
 	kubeConf := getKubeConfig()
@@ -175,6 +157,7 @@ func deleteVeleroCR(client dynamic.Interface, instanceName string, namespace str
 	return veleroClient.Delete(context.Background(), instanceName, metav1.DeleteOptions{})
 }
 
+// Keeping it for now.
 func isNamespaceDeleted(namespace string) wait.ConditionFunc {
 	return func() (bool, error) {
 		kubeConf := getKubeConfig()
@@ -182,7 +165,7 @@ func isNamespaceDeleted(namespace string) wait.ConditionFunc {
 		// create client for pod
 		clientset, err := kubernetes.NewForConfig(kubeConf)
 		if err != nil {
-			panic(err)
+			return true, err
 		}
 		_, exists := clientset.CoreV1().Namespaces().Get(context.Background(), namespace, metav1.GetOptions{})
 		if exists == nil {
@@ -192,7 +175,19 @@ func isNamespaceDeleted(namespace string) wait.ConditionFunc {
 	}
 }
 
+// Keeping it for now.
 func waitForNamespaceDeletion(namespace string) error {
 	// poll pod every 5 secs for 2 mins until it's running or timeout occurs
 	return wait.PollImmediate(time.Second*5, time.Minute*2, isNamespaceDeleted(namespace))
+}
+
+func isNamespaceExists(namespace string) error {
+	kubeConf := getKubeConfig()
+	// create client for pod
+	clientset, err := kubernetes.NewForConfig(kubeConf)
+	if err != nil {
+		return err
+	}
+	_, exists := clientset.CoreV1().Namespaces().Get(context.Background(), namespace, metav1.GetOptions{})
+	return exists
 }
