@@ -1,2 +1,8 @@
 ---
 # vars file for velero
+velero_aws_bsl_configs: 0
+velero_gcp_bsl_configs: 0
+velero_azure_bsl_configs: 0
+velero_aws_vsl_configs: 0
+velero_gcp_vsl_configs: 0
+velero_azure_vsl_configs: 0
