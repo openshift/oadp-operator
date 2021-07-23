@@ -2,6 +2,7 @@ package e2e
 
 import (
 	"flag"
+	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -35,8 +36,7 @@ var _ = Describe("The Velero Restic spec", func() {
 
 	Context("When the value of 'enable_restic' is changed to false", func() {
 		It("Should delete the Restic daemonset", func() {
-			err := waitForDeletedRestic(namespace, testSuiteInstanceName, "restic")
-			Expect(err).NotTo(HaveOccurred())
+			Eventually(isResticDaemonsetDeleted(namespace, testSuiteInstanceName, "restic"), time.Minute*2, time.Second*5).Should(BeTrue())
 		})
 	})
 })

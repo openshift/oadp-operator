@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -44,11 +43,6 @@ func isVeleroPodRunning(namespace string) wait.ConditionFunc {
 		}
 		return false, err
 	}
-}
-
-func waitForVeleroPodRunning(namespace string) error {
-	// poll pod every 5 secs for 2 mins until it's running or timeout occurs
-	return wait.PollImmediate(time.Second*5, time.Minute*2, isVeleroPodRunning(namespace))
 }
 
 func isVeleroCRFailed(namespace string, instanceName string) wait.ConditionFunc {
@@ -93,10 +87,6 @@ func isVeleroCRFailed(namespace string, instanceName string) wait.ConditionFunc 
 		}
 		return false, err
 	}
-}
-
-func waitForFailedVeleroCR(namespace string, instanceName string) error {
-	return wait.PollImmediate(time.Second*5, time.Minute*2, isVeleroCRFailed(namespace, instanceName))
 }
 
 type ansibleOperatorStatus struct {

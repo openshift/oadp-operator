@@ -2,6 +2,7 @@ package e2e
 
 import (
 	"flag"
+	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -42,12 +43,12 @@ var _ = Describe("The default Velero custom resource", func() {
 
 	Context("When the default valid Velero CR is created", func() {
 		It("Should create a Velero pod in the cluster", func() {
-			veleroResult := waitForVeleroPodRunning(namespace)
-			Expect(veleroResult).To(BeNil())
+			Eventually(isVeleroPodRunning(namespace), time.Minute*2, time.Second*5).Should(BeTrue())
 		})
 		It("Should create a Restic daemonset in the cluster", func() {
-			resticResult := waitForResticPods(namespace)
-			Expect(resticResult).To(BeNil())
+			// resticResult := waitForResticPods(namespace)
+			// Expect(resticResult).To(BeNil())
+			Eventually(areResticPodsRunning(namespace), time.Minute*2, time.Second*5).Should(BeTrue())
 		})
 	})
 })

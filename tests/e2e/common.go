@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"io/ioutil"
-	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -175,12 +174,7 @@ func isNamespaceDeleted(namespace string) wait.ConditionFunc {
 	}
 }
 
-// Keeping it for now.
-func waitForNamespaceDeletion(namespace string) error {
-	// poll pod every 5 secs for 2 mins until it's running or timeout occurs
-	return wait.PollImmediate(time.Second*5, time.Minute*2, isNamespaceDeleted(namespace))
-}
-
+// Keeping it for now
 func isNamespaceExists(namespace string) error {
 	kubeConf := getKubeConfig()
 	// create client for pod

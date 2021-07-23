@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -110,11 +109,6 @@ func areResticPodsRunning(namespace string) wait.ConditionFunc {
 	}
 }
 
-func waitForResticPods(namespace string) error {
-	// poll pod every 5 secs for 2 mins until it's running or timeout occurs
-	return wait.PollImmediate(time.Second*5, time.Minute*2, areResticPodsRunning(namespace))
-}
-
 func disableRestic(namespace string, instanceName string) error {
 	config := getKubeConfig()
 	client, err := dynamic.NewForConfig(config)
@@ -165,10 +159,6 @@ func isResticDaemonsetDeleted(namespace string, instanceName string, resticName 
 		fmt.Println("Restic daemonset has been deleted")
 		return true, nil
 	}
-}
-
-func waitForDeletedRestic(namespace string, instanceName string, resticName string) error {
-	return wait.PollImmediate(time.Second*5, time.Minute*2, isResticDaemonsetDeleted(namespace, instanceName, resticName))
 }
 
 func decodeResticYaml(resticVeleroConfigYAML string) (*unstructured.Unstructured, error) {
@@ -226,8 +216,4 @@ func resticDaemonSetHasNodeSelector(namespace string, s3Bucket string, credSecre
 		fmt.Println("Restic daemonset has NodeSelector")
 		return true, nil
 	}
-}
-
-func waitForResticNodeSelector(namespace string, s3Bucket string, credSecretRef string, instanceName string) error {
-	return wait.PollImmediate(time.Second*5, time.Minute*2, resticDaemonSetHasNodeSelector(namespace, s3Bucket, credSecretRef, instanceName))
 }
