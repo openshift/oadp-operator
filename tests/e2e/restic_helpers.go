@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -19,40 +18,64 @@ import (
 // unable to use setNestedField() to do so as there is currently
 // a bug in using this to set a map[string]string with dynamic client
 // panic: cannot deep copy []map[string]string
-const ResticVeleroConfigYAML = `apiVersion: konveyor.openshift.io/v1alpha1
-kind: Velero
-metadata:
-  name: example-velero
-spec:
-  restic_node_selector:
-    foo: bar
-  olm_managed: false
-  default_velero_plugins:
-  - aws
-  - openshift
-  - csi
-  backup_storage_locations:
-  - name: default
-    provider: aws
-    object_storage:
-      bucket: myBucket
-      prefix: "velero"
-    config:
-      region: us-east-1
-      profile: "default"
-    credentials_secret_ref:
-      name: cloud-credentials
-      namespace: oadp-operator
-  volume_snapshot_locations:
-  - name: default
-    provider: aws
-    config:
-      region: us-west-2
-      profile: "default"
-  enable_restic: true
-  velero_feature_flags: EnableCSI`
 
-func areResticPodsRunning() wait.ConditionFunc {
+func getResticVeleroConfig(namespace string, s3Bucket string, credSecretRef string, instanceName string) *unstructured.Unstructured {
+	// Default Velero Instance config with backup_storage_locations defaulted to AWS.
+	var resticVeleroSpec = unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "konveyor.openshift.io/v1alpha1",
+			"kind":       "Velero",
+			"metadata": map[string]interface{}{
+				"name":      instanceName,
+				"namespace": namespace,
+			},
+			"spec": map[string]interface{}{
+				"restic_node_selector": map[string]interface{}{
+					"foo": "bar",
+				},
+				"olm_managed": false,
+				"default_velero_plugins": []string{
+					"aws",
+					"csix",
+					"openshift",
+				},
+				"backup_storage_locations": [](map[string]interface{}){
+					map[string]interface{}{
+						"config": map[string]interface{}{
+							"profile": "default",
+							"region":  "us-east-1",
+						},
+						"credentials_secret_ref": map[string]interface{}{
+							"name":      credSecretRef,
+							"namespace": "oadp-operator",
+						},
+						"object_storage": map[string]interface{}{
+							"bucket": s3Bucket,
+							"prefix": "velero",
+						},
+						"name":     "default",
+						"provider": "aws",
+					},
+				},
+				"velero_feature_flags": "EnableCSI",
+				"enable_restic":        false,
+				"volume_snapshot_locations": [](map[string]interface{}){
+					map[string]interface{}{
+						"config": map[string]interface{}{
+							"profile": "default",
+							"region":  "us-west-2",
+						},
+						"name":     "default",
+						"provider": "aws",
+					},
+				},
+			},
+		},
+	}
+	return &resticVeleroSpec
+}
+
+func areResticPodsRunning(namespace string) wait.ConditionFunc {
 	return func() (bool, error) {
 		kubeConf := getKubeConfig()
 		// create client for daemonset
@@ -64,7 +87,7 @@ func areResticPodsRunning() wait.ConditionFunc {
 			FieldSelector: "metadata.name=restic",
 		}
 		// get daemonset in oadp-operator-e2e ns with specified field selector
-		resticDaemeonSet, err := client.AppsV1().DaemonSets("oadp-operator").List(context.TODO(), resticOptions)
+		resticDaemeonSet, err := client.AppsV1().DaemonSets(namespace).List(context.TODO(), resticOptions)
 		if err != nil {
 			return false, err
 		}
@@ -86,23 +109,18 @@ func areResticPodsRunning() wait.ConditionFunc {
 	}
 }
 
-func waitForResticPods() error {
-	// poll pod every 5 secs for 2 mins until it's running or timeout occurs
-	return wait.PollImmediate(time.Second*5, time.Minute*2, areResticPodsRunning())
-}
-
-func disableRestic() error {
+func disableRestic(namespace string, instanceName string) error {
 	config := getKubeConfig()
 	client, err := dynamic.NewForConfig(config)
 	if err != nil {
 		return err
 	}
-	veleroClient, err := createVeleroClient(client)
+	veleroClient, err := createVeleroClient(client, namespace)
 	if err != nil {
 		return nil
 	}
 	// get Velero as unstructured type
-	veleroResource, err := veleroClient.Get(context.Background(), "example-velero", metav1.GetOptions{})
+	veleroResource, err := veleroClient.Get(context.Background(), instanceName, metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
@@ -119,10 +137,10 @@ func disableRestic() error {
 	return nil
 }
 
-func isResticDaemonsetDeleted() wait.ConditionFunc {
-	err := disableRestic()
+func isResticDaemonsetDeleted(namespace string, instanceName string, resticName string) wait.ConditionFunc {
+	err := disableRestic(namespace, instanceName)
 	if err != nil {
-		panic(err)
+		return nil
 	}
 	return func() (bool, error) {
 		config := getKubeConfig()
@@ -130,11 +148,11 @@ func isResticDaemonsetDeleted() wait.ConditionFunc {
 		if err != nil {
 			return false, nil
 		}
-		veleroClient, err := createVeleroClient(client)
+		veleroClient, err := createVeleroClient(client, namespace)
 		if err != nil {
 			return false, err
 		}
-		_, errs := veleroClient.Get(context.Background(), "restic", metav1.GetOptions{})
+		_, errs := veleroClient.Get(context.Background(), resticName, metav1.GetOptions{})
 		if apierrors.IsAlreadyExists(errs) {
 			return false, errors.New("restic daemonset has not been deleted")
 		}
@@ -143,35 +161,31 @@ func isResticDaemonsetDeleted() wait.ConditionFunc {
 	}
 }
 
-func waitForDeletedRestic() error {
-	return wait.PollImmediate(time.Second*5, time.Minute*2, isResticDaemonsetDeleted())
-}
-
-func decodeResticYaml() *unstructured.Unstructured {
+func decodeResticYaml(resticVeleroConfigYAML string) (*unstructured.Unstructured, error) {
 	// set new unstructured type for Velero CR
 	unstructVelero := &unstructured.Unstructured{}
 
 	// decode yaml into unstructured type
 	dec := yaml.NewDecodingSerializer(unstructured.UnstructuredJSONScheme)
-	_, _, err := dec.Decode([]byte(ResticVeleroConfigYAML), nil, unstructVelero)
+	_, _, err := dec.Decode([]byte(resticVeleroConfigYAML), nil, unstructVelero)
 	if err != nil {
-		panic(err)
+		return unstructVelero, err
 	}
-	return unstructVelero
+	return unstructVelero, nil
 }
 
-func enableResticNodeSelector() error {
+func enableResticNodeSelector(namespace string, s3Bucket string, credSecretRef string, instanceName string) error {
 	config := getKubeConfig()
 	client, err := dynamic.NewForConfig(config)
 	if err != nil {
 		return err
 	}
-	veleroClient, err := createVeleroClient(client)
+	veleroClient, err := createVeleroClient(client, namespace)
 	if err != nil {
 		return nil
 	}
 	// get Velero as unstructured type
-	veleroResource := decodeResticYaml()
+	veleroResource := getResticVeleroConfig(namespace, s3Bucket, credSecretRef, instanceName) //decodeResticYaml()
 	_, err = veleroClient.Create(context.Background(), veleroResource, metav1.CreateOptions{})
 	if err != nil {
 		return err
@@ -180,10 +194,10 @@ func enableResticNodeSelector() error {
 	return nil
 }
 
-func resticDaemonSetHasNodeSelector() wait.ConditionFunc {
-	err := enableResticNodeSelector()
+func resticDaemonSetHasNodeSelector(namespace string, s3Bucket string, credSecretRef string, instanceName string) wait.ConditionFunc {
+	err := enableResticNodeSelector(namespace, s3Bucket, credSecretRef, instanceName)
 	if err != nil {
-		panic(err)
+		return nil
 	}
 	return func() (bool, error) {
 		config := getKubeConfig()
@@ -195,15 +209,11 @@ func resticDaemonSetHasNodeSelector() wait.ConditionFunc {
 			FieldSelector: "spec.template.spec.nodeSelector.foo=bar",
 		}
 		// get daemonset in oadp-operator-e2e ns with specified field selector
-		_, errs := client.AppsV1().DaemonSets("oadp-operator").List(context.TODO(), resticOptions)
+		_, errs := client.AppsV1().DaemonSets(namespace).List(context.TODO(), resticOptions)
 		if errs != nil {
 			return false, err
 		}
 		fmt.Println("Restic daemonset has NodeSelector")
 		return true, nil
 	}
-}
-
-func waitForResticNodeSelector() error {
-	return wait.PollImmediate(time.Second*5, time.Minute*2, resticDaemonSetHasNodeSelector())
 }
