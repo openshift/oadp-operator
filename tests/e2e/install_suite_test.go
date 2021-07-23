@@ -46,8 +46,6 @@ var _ = Describe("The default Velero custom resource", func() {
 			Eventually(isVeleroPodRunning(namespace), time.Minute*2, time.Second*5).Should(BeTrue())
 		})
 		It("Should create a Restic daemonset in the cluster", func() {
-			// resticResult := waitForResticPods(namespace)
-			// Expect(resticResult).To(BeNil())
 			Eventually(areResticPodsRunning(namespace), time.Minute*2, time.Second*5).Should(BeTrue())
 		})
 	})
