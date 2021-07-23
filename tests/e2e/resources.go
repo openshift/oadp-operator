@@ -3,7 +3,6 @@ package e2e
 import (
 	"context"
 	"encoding/json"
-	"flag"
 	"fmt"
 	"io/ioutil"
 	"time"
@@ -120,22 +119,21 @@ type ansibleResult struct {
 	Skipped  int `json:"skipped"`
 }
 
-func getCredsData() []byte {
+func getCredsData(cloud string) []byte {
 	// pass in aws credentials by cli flag
 	// from cli:  -cloud=<"filepath">
 	// go run main.go -cloud="/Users/emilymcmullan/.aws/credentials"
-	cloud := flag.String("cloud", "", "file path for aws credentials")
-	flag.Parse()
-
+	// cloud := flag.String("cloud", "", "file path for aws credentials")
+	// flag.Parse()
 	// save passed in cred file as []byte
-	credsFile, err := ioutil.ReadFile(*cloud)
+	credsFile, err := ioutil.ReadFile(cloud)
 	if err != nil {
 		panic(err)
 	}
 	return credsFile
 }
 
-func createSecret(data []byte) error {
+func createSecret(data []byte, namespace string, credSecretRef string) error {
 	config := getKubeConfig()
 	clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {
@@ -143,8 +141,8 @@ func createSecret(data []byte) error {
 	}
 	secret := corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "cloud-credentials",
-			Namespace: "oadp-operator",
+			Name:      credSecretRef,
+			Namespace: namespace,
 		},
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Secret",
@@ -155,10 +153,20 @@ func createSecret(data []byte) error {
 		},
 		Type: corev1.SecretTypeOpaque,
 	}
-	_, errors := clientset.CoreV1().Secrets("oadp-operator").Create(context.TODO(), &secret, metav1.CreateOptions{})
+	_, errors := clientset.CoreV1().Secrets(namespace).Create(context.TODO(), &secret, metav1.CreateOptions{})
 	if apierrors.IsAlreadyExists(errors) {
 		fmt.Println("Secret already exists in this namespace")
 		return nil
 	}
 	return err
+}
+
+func deleteSecret(namespace string, credSecretRef string) error {
+	config := getKubeConfig()
+	clientset, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		return err
+	}
+	errors := clientset.CoreV1().Secrets(namespace).Delete(context.Background(), credSecretRef, metav1.DeleteOptions{})
+	return errors
 }

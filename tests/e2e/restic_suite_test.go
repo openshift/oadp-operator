@@ -1,37 +1,58 @@
 package e2e
 
 import (
+	"flag"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
 
 // var _ = BeforeSuite(func() {
-// 	err := installDefaultVelero()
-// 	Expect(err).ToNot(HaveOccurred())
+// 	prefix := "ts-" // To create individual instance per spec
+// 	flag.Parse()
+// 	s3Data := decodeJson(getJsonData(s3BuckerFilePath)) // Might need to change this later on to create s3 for each tests
+// 	s3Bucket = s3Data["velero-bucket-name"].(string)
+// 	credData := getCredsData(cloud)
+// 	err := createSecret(credData, namespace, credSecretRef)
+// 	Expect(err).NotTo(HaveOccurred())
 
+// 	namespace = prefix + namespace
+// 	s3Bucket = prefix + s3Bucket
+// 	credSecretRef = prefix + credSecretRef
+// 	instanceName = prefix + instanceName
+// 	err = createOADPTestNamespace(namespace)
+// 	Expect(err).NotTo(HaveOccurred())
+// 	// Check that OADP operator is installed in test namespace
 // })
 
 // var _ = AfterSuite(func() {
-// 	err := uninstallVelero()
-// 	Expect(err).ToNot(HaveOccurred())
+// 	err := deleteSecret(namespace, credSecretRef)
+// 	Expect(err).NotTo(HaveOccurred())
+// 	err = deleteOADPTestNamespace(namespace)
+// 	Expect(err).NotTo(HaveOccurred())
 // })
 
 var _ = Describe("The Velero Restic spec", func() {
-	var _ = BeforeEach(func() {
-		prefix := "rs-" // To create individual instance per suite
-
-		credData := getCredsData()
-		err := createSecret(credData)
-		Expect(err).NotTo(HaveOccurred())
-
+	BeforeEach(func() {
+		prefix := "ts-" // To create individual instance per spec
+		flag.Parse()
+		s3Data := decodeJson(getJsonData(s3BuckerFilePath)) // Might need to change this later on to create s3 for each tests
+		s3Bucket = s3Data["velero-bucket-name"].(string)
 		namespace = prefix + namespace
 		s3Bucket = prefix + s3Bucket
 		credSecretRef = prefix + credSecretRef
 		instanceName = prefix + instanceName
+
+		err := createOADPTestNamespace(namespace)
+		Expect(err).NotTo(HaveOccurred())
+		credData := getCredsData(cloud)
+		err = createSecret(credData, namespace, credSecretRef)
+		Expect(err).NotTo(HaveOccurred())
+		// Check that OADP operator is installed in test namespace
 	})
 
-	var _ = AfterEach(func() {
-		err := uninstallVelero(namespace, instanceName)
+	AfterEach(func() {
+		err := deleteOADPTestNamespace(namespace)
 		Expect(err).NotTo(HaveOccurred())
 	})
 

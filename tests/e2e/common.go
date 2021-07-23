@@ -72,13 +72,13 @@ func getDefaultVeleroConfig(namespace string, s3Bucket string, credSecretRef str
 	return &veleroSpec
 }
 
-func decodeYaml(DefaultVeleroConfigYAML string) *unstructured.Unstructured {
+func decodeYaml(defaultVeleroConfigYAML string) *unstructured.Unstructured {
 	// set new unstructured type for Velero CR
 	unstructVelero := &unstructured.Unstructured{}
 
 	// decode yaml into unstructured type
 	dec := yaml.NewDecodingSerializer(unstructured.UnstructuredJSONScheme)
-	_, _, err := dec.Decode([]byte(DefaultVeleroConfigYAML), nil, unstructVelero)
+	_, _, err := dec.Decode([]byte(defaultVeleroConfigYAML), nil, unstructVelero)
 	if err != nil {
 		panic(err)
 	}
@@ -105,18 +105,18 @@ func decodeJson(data []byte) map[string]interface{} {
 	return jsonData
 }
 
-func createOADPTestNamespace() error {
+func createOADPTestNamespace(namespace string) error {
 	// default OADP Namespace
 	kubeConf := getKubeConfig()
 	clientset, err := kubernetes.NewForConfig(kubeConf)
 	if err != nil {
 		return err
 	}
-	veleroNamespace := flag.String("velero-namespace", "", "Velero Namespace")
+	// veleroNamespace := flag.String("velero-namespace", "", "Velero Namespace")
 	flag.Parse()
 	ns := corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: *veleroNamespace,
+			Name: namespace,
 		},
 	}
 	_, err = clientset.CoreV1().Namespaces().Create(context.TODO(), &ns, metav1.CreateOptions{})
@@ -124,6 +124,18 @@ func createOADPTestNamespace() error {
 		return nil
 	}
 
+	return err
+}
+
+func deleteOADPTestNamespace(namespace string) error {
+	// default OADP Namespace
+	kubeConf := getKubeConfig()
+	clientset, err := kubernetes.NewForConfig(kubeConf)
+
+	if err != nil {
+		return err
+	}
+	err = clientset.CoreV1().Namespaces().Delete(context.TODO(), namespace, metav1.DeleteOptions{})
 	return err
 }
 

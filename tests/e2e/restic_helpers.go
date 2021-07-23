@@ -171,13 +171,13 @@ func waitForDeletedRestic(namespace string, instanceName string, resticName stri
 	return wait.PollImmediate(time.Second*5, time.Minute*2, isResticDaemonsetDeleted(namespace, instanceName, resticName))
 }
 
-func decodeResticYaml(ResticVeleroConfigYAML string) *unstructured.Unstructured {
+func decodeResticYaml(resticVeleroConfigYAML string) *unstructured.Unstructured {
 	// set new unstructured type for Velero CR
 	unstructVelero := &unstructured.Unstructured{}
 
 	// decode yaml into unstructured type
 	dec := yaml.NewDecodingSerializer(unstructured.UnstructuredJSONScheme)
-	_, _, err := dec.Decode([]byte(ResticVeleroConfigYAML), nil, unstructVelero)
+	_, _, err := dec.Decode([]byte(resticVeleroConfigYAML), nil, unstructVelero)
 	if err != nil {
 		panic(err)
 	}
