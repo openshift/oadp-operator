@@ -39,28 +39,25 @@ import (
 
 var _ = Describe("The default Velero custom resource", func() {
 	var _ = BeforeEach(func() {
-		prefix := "ts-" // To create individual instance per spec
 		flag.Parse()
-		s3Data := decodeJson(getJsonData(s3BuckerFilePath)) // Might need to change this later on to create s3 for each tests
+		s3Data := decodeJson(getJsonData(s3BucketFilePath)) // Might need to change this later on to create s3 for each tests
 		s3Bucket = s3Data["velero-bucket-name"].(string)
-		namespace = prefix + namespace
-		s3Bucket = prefix + s3Bucket
-		credSecretRef = prefix + credSecretRef
-		instanceName = prefix + instanceName
+		testSuiteInstanceName := "ts-" + instanceName
 
-		err := createOADPTestNamespace(namespace)
-		Expect(err).NotTo(HaveOccurred())
+		// err := createOADPTestNamespace(namespace)
+		// Expect(err).NotTo(HaveOccurred())
 		credData := getCredsData(cloud)
-		err = createSecret(credData, namespace, credSecretRef)
+		err := createSecret(credData, namespace, credSecretRef)
 		Expect(err).NotTo(HaveOccurred())
 		// Check that OADP operator is installed in test namespace
-		err = installDefaultVelero(namespace, s3Bucket, credSecretRef, instanceName)
+		err = installDefaultVelero(namespace, s3Bucket, credSecretRef, testSuiteInstanceName)
 		Expect(err).ToNot(HaveOccurred())
 	})
 
 	var _ = AfterEach(func() {
-		err := deleteOADPTestNamespace(namespace)
-		Expect(err).NotTo(HaveOccurred())
+		testSuiteInstanceName := "ts-" + instanceName
+		err := uninstallVelero(namespace, testSuiteInstanceName)
+		Expect(err).ToNot(HaveOccurred())
 	})
 
 	// Context("When the default valid Velero CR is created, but no credential secret is present", func() {

@@ -4,8 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"flag"
 	"io/ioutil"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -13,6 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -44,7 +45,7 @@ func getDefaultVeleroConfig(namespace string, s3Bucket string, credSecretRef str
 						},
 						"credentials_secret_ref": map[string]interface{}{
 							"name":      credSecretRef,
-							"namespace": "oadp-operator",
+							"namespace": namespace,
 						},
 						"object_storage": map[string]interface{}{
 							"bucket": s3Bucket,
@@ -112,8 +113,6 @@ func createOADPTestNamespace(namespace string) error {
 	if err != nil {
 		return err
 	}
-	// veleroNamespace := flag.String("velero-namespace", "", "Velero Namespace")
-	flag.Parse()
 	ns := corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: namespace,
@@ -174,4 +173,26 @@ func deleteVeleroCR(client dynamic.Interface, instanceName string, namespace str
 		return err
 	}
 	return veleroClient.Delete(context.Background(), instanceName, metav1.DeleteOptions{})
+}
+
+func isNamespaceDeleted(namespace string) wait.ConditionFunc {
+	return func() (bool, error) {
+		kubeConf := getKubeConfig()
+
+		// create client for pod
+		clientset, err := kubernetes.NewForConfig(kubeConf)
+		if err != nil {
+			panic(err)
+		}
+		_, exists := clientset.CoreV1().Namespaces().Get(context.Background(), namespace, metav1.GetOptions{})
+		if exists == nil {
+			return false, exists
+		}
+		return true, exists
+	}
+}
+
+func waitForNamespaceDeletion(namespace string) error {
+	// poll pod every 5 secs for 2 mins until it's running or timeout occurs
+	return wait.PollImmediate(time.Second*5, time.Minute*2, isNamespaceDeleted(namespace))
 }

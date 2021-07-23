@@ -2,46 +2,20 @@ package e2e
 
 import (
 	"flag"
+	"fmt"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
 
-// var _ = BeforeSuite(func() {
-// 	prefix := "ts-" // To create individual instance per spec
-// 	flag.Parse()
-// 	s3Data := decodeJson(getJsonData(s3BuckerFilePath)) // Might need to change this later on to create s3 for each tests
-// 	s3Bucket = s3Data["velero-bucket-name"].(string)
-// 	credData := getCredsData(cloud)
-// 	err := createSecret(credData, namespace, credSecretRef)
-// 	Expect(err).NotTo(HaveOccurred())
-
-// 	namespace = prefix + namespace
-// 	s3Bucket = prefix + s3Bucket
-// 	credSecretRef = prefix + credSecretRef
-// 	instanceName = prefix + instanceName
-// 	err = createOADPTestNamespace(namespace)
-// 	Expect(err).NotTo(HaveOccurred())
-// 	// Check that OADP operator is installed in test namespace
-// })
-
-// var _ = AfterSuite(func() {
-// 	err := deleteSecret(namespace, credSecretRef)
-// 	Expect(err).NotTo(HaveOccurred())
-// 	err = deleteOADPTestNamespace(namespace)
-// 	Expect(err).NotTo(HaveOccurred())
-// })
+var testSuiteInstanceName string
 
 var _ = Describe("The Velero Restic spec", func() {
-	BeforeEach(func() {
-		prefix := "ts-" // To create individual instance per spec
+	var _ = BeforeEach(func() {
 		flag.Parse()
-		s3Data := decodeJson(getJsonData(s3BuckerFilePath)) // Might need to change this later on to create s3 for each tests
+		s3Data := decodeJson(getJsonData(s3BucketFilePath)) // Might need to change this later on to create s3 for each tests
 		s3Bucket = s3Data["velero-bucket-name"].(string)
-		namespace = prefix + namespace
-		s3Bucket = prefix + s3Bucket
-		credSecretRef = prefix + credSecretRef
-		instanceName = prefix + instanceName
+		testSuiteInstanceName = "rs-" + instanceName
 
 		err := createOADPTestNamespace(namespace)
 		Expect(err).NotTo(HaveOccurred())
@@ -49,26 +23,25 @@ var _ = Describe("The Velero Restic spec", func() {
 		err = createSecret(credData, namespace, credSecretRef)
 		Expect(err).NotTo(HaveOccurred())
 		// Check that OADP operator is installed in test namespace
+		err = installDefaultVelero(namespace, s3Bucket, credSecretRef, testSuiteInstanceName)
+		Expect(err).ToNot(HaveOccurred())
 	})
 
-	AfterEach(func() {
-		err := deleteOADPTestNamespace(namespace)
-		Expect(err).NotTo(HaveOccurred())
+	var _ = AfterEach(func() {
+		testSuiteInstanceName = "rs-" + instanceName
+		err := uninstallVelero(namespace, testSuiteInstanceName)
+		Expect(err).ToNot(HaveOccurred())
 	})
 
-	Context("When the value of 'enable_restic' is changed to false", func() {
-		It("Should delete the Restic daemonset", func() {
-			errs := installDefaultVelero(namespace, s3Bucket, credSecretRef, instanceName)
-			Expect(errs).NotTo(HaveOccurred())
-
-			err := waitForDeletedRestic(namespace, instanceName, "restic")
-			Expect(err).NotTo(HaveOccurred())
+	Context("When 'restic_node_selector' is added to the Velero CR spec", func() {
+		It("Should update the Restic daemonSet to include a nodeSelector", func() {
+			fmt.Printf("Hello")
 		})
 	})
 
-	// Context("When 'restic_node_selector' is added to the Velero CR spec", func() {
-	// 	It("Should update the Restic daemonSet to include a nodeSelector", func() {
-	// 		err := waitForResticNodeSelector()
+	// Context("When the value of 'enable_restic' is changed to false", func() {
+	// 	It("Should delete the Restic daemonset", func() {
+	// 		err := waitForDeletedRestic(namespace, testSuiteInstanceName, "restic")
 	// 		Expect(err).NotTo(HaveOccurred())
 	// 	})
 	// })
