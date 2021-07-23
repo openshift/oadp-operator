@@ -2,6 +2,7 @@ package e2e
 
 import (
 	"flag"
+	"fmt"
 	"time"
 
 	. "github.com/onsi/ginkgo"
@@ -18,7 +19,7 @@ var _ = Describe("The Velero Restic spec", func() {
 		s3Data, err := decodeJson(s3Buffer) // Might need to change this later on to create s3 for each tests
 		Expect(err).NotTo(HaveOccurred())
 		s3Bucket = s3Data["velero-bucket-name"].(string)
-		testSuiteInstanceName := "rs-" + instanceName
+		testSuiteInstanceName = "rs-" + instanceName
 		credData, err := getCredsData(cloud)
 		Expect(err).NotTo(HaveOccurred())
 		err = createSecret(credData, namespace, credSecretRef)
@@ -29,13 +30,15 @@ var _ = Describe("The Velero Restic spec", func() {
 	})
 
 	var _ = AfterEach(func() {
-		testSuiteInstanceName := "rs-" + instanceName
+		// testSuiteInstanceName := "rs-" + instanceName
+		fmt.Printf("here: 321, " + testSuiteInstanceName)
 		err := uninstallVelero(namespace, testSuiteInstanceName)
 		Expect(err).ToNot(HaveOccurred())
 	})
 
 	Context("When the value of 'enable_restic' is changed to false", func() {
 		It("Should delete the Restic daemonset", func() {
+			fmt.Printf("here: 123, " + testSuiteInstanceName)
 			Eventually(isResticDaemonsetDeleted(namespace, testSuiteInstanceName, "restic"), time.Minute*2, time.Second*5).Should(BeTrue())
 		})
 	})
