@@ -66,30 +66,6 @@
       aws_access_key_id: "{{ (aws_secret_split[1] | regex_replace(' ', '')).split('=')[1] }}"
       aws_secret_access_key: "{{ (aws_secret_split[2] | regex_replace(' ', '')).split('=')[1] }}"
 
-- when: not olm_managed
-  block:
-  - name: "Set up velero supporting resources (CRDS, SA, SCC) when not managed by OLM"
-    k8s:
-      state: "{{ velero_state }}"
-      definition: "{{ lookup('template', 'velero_supporting.yml.j2') }}"
-  rescue:
-  - name: "Set up velero supporting resources (CRDS, SA, SCC) when not managed by OLM"
-    k8s:
-      state: absent
-      definition: "{{ lookup('template', 'velero_supporting.yml.j2') }}"
-
-- name: "Enable restic"
-  k8s:
-    state: "{{ velero_state }}"
-    definition: "{{ lookup('template', 'restic.yml.j2')}}"
-  when: enable_restic == true
-
-- name: "Disable restic"
-  k8s:
-    state: absent
-    definition: "{{ lookup('template', 'restic.yml.j2')}}"
-  when: enable_restic == false
-
 - name: "Create AWS BackupStorageLocation"
   k8s:
     state: "{{ velero_state }}"
