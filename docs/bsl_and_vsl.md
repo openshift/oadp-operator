@@ -41,4 +41,4 @@ spec:
 - Do not configure more than one `backupStorageLocations` per cloud provider, the velero installation will fail.
 - bsl/vsl parameters in the OADP Velero CR must be specified using `snake_case` rather than `camelCase`.
   Keep this in mind when using parameters from the below parameter reference. For example, use `s3_url` rather than `s3Url`.
-- Parameter reference for [backupStorageLocations](https://velero.io/docs/master/api-types/backupstoragelocation/) and [volumeSnapshotLocations](https://velero.io/docs/master/api-types/volumesnapshotlocation/)
+- Parameter reference for [backupStorageLocations](https://velero.io/docs/main/api-types/backupstoragelocation/) and [volumeSnapshotLocations](https://velero.io/docs/main/api-types/volumesnapshotlocation/)
