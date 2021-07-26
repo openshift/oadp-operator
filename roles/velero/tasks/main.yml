@@ -78,12 +78,6 @@
       state: absent
       definition: "{{ lookup('template', 'velero_supporting.yml.j2') }}"
 
-- name: "Set up velero controller"
-  k8s:
-    state: "{{ velero_state }}"
-    definition: "{{ lookup('template', 'velero.yml.j2') }}"
-    apply: yes
-
 - name: "Enable restic"
   k8s:
     state: "{{ velero_state }}"
