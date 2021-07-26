@@ -58,7 +58,7 @@ func getResticVeleroConfig(namespace string, s3Bucket string, credSecretRef stri
 					},
 				},
 				"velero_feature_flags": "EnableCSI",
-				"enable_restic":        false,
+				"enable_restic":        true,
 				"volume_snapshot_locations": [](map[string]interface{}){
 					map[string]interface{}{
 						"config": map[string]interface{}{
@@ -73,6 +73,52 @@ func getResticVeleroConfig(namespace string, s3Bucket string, credSecretRef stri
 		},
 	}
 	return &resticVeleroSpec
+}
+
+const ResticVeleroConfigYAML = `apiVersion: konveyor.openshift.io/v1alpha1
+kind: Velero
+metadata:
+  name: example-velero
+spec:
+  restic_node_selector:
+    foo: bar
+  olm_managed: false
+  default_velero_plugins:
+  - aws
+  - openshift
+  - csi
+  backup_storage_locations:
+  - name: default
+    provider: aws
+    object_storage:
+      bucket: myBucket
+      prefix: "velero"
+    config:
+      region: us-east-1
+      profile: "default"
+    credentials_secret_ref:
+      name: cloud-credentials
+      namespace: oadp-operator
+  volume_snapshot_locations:
+  - name: default
+    provider: aws
+    config:
+      region: us-west-2
+      profile: "default"
+  enable_restic: true
+  velero_feature_flags: EnableCSI`
+
+func decodeResticYaml(resticVeleroConfigYAML string) (*unstructured.Unstructured, error) {
+	// set new unstructured type for Velero CR
+	unstructVelero := &unstructured.Unstructured{}
+
+	// decode yaml into unstructured type
+	dec := yaml.NewDecodingSerializer(unstructured.UnstructuredJSONScheme)
+	_, _, err := dec.Decode([]byte(resticVeleroConfigYAML), nil, unstructVelero)
+	if err != nil {
+		return unstructVelero, err
+	}
+	return unstructVelero, nil
 }
 
 func areResticPodsRunning(namespace string) wait.ConditionFunc {
@@ -140,38 +186,25 @@ func disableRestic(namespace string, instanceName string) error {
 func isResticDaemonsetDeleted(namespace string, instanceName string, resticName string) wait.ConditionFunc {
 	err := disableRestic(namespace, instanceName)
 	if err != nil {
-		return nil
+		panic(err)
 	}
 	return func() (bool, error) {
 		config := getKubeConfig()
-		client, err := dynamic.NewForConfig(config)
+		client, err := kubernetes.NewForConfig(config)
 		if err != nil {
 			return false, nil
 		}
-		veleroClient, err := createVeleroClient(client, namespace)
-		if err != nil {
+		// get daemonset in oadp-operator-e2e ns with specified field selector
+		_, errs := client.AppsV1().DaemonSets(namespace).Get(context.TODO(), "restic", metav1.GetOptions{})
+		if errs != nil {
 			return false, err
 		}
-		_, errs := veleroClient.Get(context.Background(), resticName, metav1.GetOptions{})
 		if apierrors.IsAlreadyExists(errs) {
 			return false, errors.New("restic daemonset has not been deleted")
 		}
 		fmt.Println("Restic daemonset has been deleted")
 		return true, nil
 	}
-}
-
-func decodeResticYaml(resticVeleroConfigYAML string) (*unstructured.Unstructured, error) {
-	// set new unstructured type for Velero CR
-	unstructVelero := &unstructured.Unstructured{}
-
-	// decode yaml into unstructured type
-	dec := yaml.NewDecodingSerializer(unstructured.UnstructuredJSONScheme)
-	_, _, err := dec.Decode([]byte(resticVeleroConfigYAML), nil, unstructVelero)
-	if err != nil {
-		return unstructVelero, err
-	}
-	return unstructVelero, nil
 }
 
 func enableResticNodeSelector(namespace string, s3Bucket string, credSecretRef string, instanceName string) error {
@@ -195,25 +228,23 @@ func enableResticNodeSelector(namespace string, s3Bucket string, credSecretRef s
 }
 
 func resticDaemonSetHasNodeSelector(namespace string, s3Bucket string, credSecretRef string, instanceName string) wait.ConditionFunc {
-	err := enableResticNodeSelector(namespace, s3Bucket, credSecretRef, instanceName)
-	if err != nil {
-		return nil
-	}
 	return func() (bool, error) {
 		config := getKubeConfig()
 		client, err := kubernetes.NewForConfig(config)
 		if err != nil {
 			return false, nil
 		}
-		resticOptions := metav1.ListOptions{
-			FieldSelector: "spec.template.spec.nodeSelector.foo=bar",
-		}
 		// get daemonset in oadp-operator-e2e ns with specified field selector
-		_, errs := client.AppsV1().DaemonSets(namespace).List(context.TODO(), resticOptions)
+		ds, errs := client.AppsV1().DaemonSets(namespace).Get(context.TODO(), "restic", metav1.GetOptions{})
 		if errs != nil {
 			return false, err
 		}
-		fmt.Println("Restic daemonset has NodeSelector")
-		return true, nil
+		// verify daemonset has nodeSelector "foo": "bar"
+		selector := ds.Spec.Template.Spec.NodeSelector["foo"]
+		if selector == "bar" {
+			fmt.Println("Restic daemonset has nodeSelector")
+			return true, nil
+		}
+		return false, err
 	}
 }
