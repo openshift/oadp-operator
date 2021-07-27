@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -121,7 +122,7 @@ func decodeResticYaml(resticVeleroConfigYAML string) (*unstructured.Unstructured
 	return unstructVelero, nil
 }
 
-func areResticPodsRunning(namespace string) wait.ConditionFunc {
+func isCorrectNumResticPods(namespace string) wait.ConditionFunc {
 	return func() (bool, error) {
 		kubeConf := getKubeConfig()
 		// create client for daemonset
@@ -132,6 +133,7 @@ func areResticPodsRunning(namespace string) wait.ConditionFunc {
 		resticOptions := metav1.ListOptions{
 			FieldSelector: "metadata.name=restic",
 		}
+
 		// get daemonset in oadp-operator-e2e ns with specified field selector
 		resticDaemeonSet, err := client.AppsV1().DaemonSets(namespace).List(context.TODO(), resticOptions)
 		if err != nil {
@@ -147,7 +149,44 @@ func areResticPodsRunning(namespace string) wait.ConditionFunc {
 		// if numScheduled == numDesired, then all restic pods are running
 		if numScheduled != 0 && numDesired != 0 {
 			if numScheduled == numDesired {
-				fmt.Println("All restic pods are running")
+				return true, nil
+			}
+		}
+		return false, err
+	}
+}
+
+func waitForDesiredResticPods() error {
+	return wait.PollImmediate(time.Second*5, time.Minute*2, isCorrectNumResticPods("oadp-operator"))
+}
+
+func areResticPodsRunning(namespace string) wait.ConditionFunc {
+	fmt.Println("Checking for correct number of running Restic pods...")
+	return func() (bool, error) {
+		er := waitForDesiredResticPods()
+		if er != nil {
+			return false, er
+		}
+		kubeConf := getKubeConfig()
+		// create client for daemonset
+		client, err := kubernetes.NewForConfig(kubeConf)
+		if err != nil {
+			return false, err
+		}
+		// used to select Restic pods
+		resticPodOptions := metav1.ListOptions{
+			LabelSelector: "name=restic",
+		}
+		// get pods in the oadp-operator-e2e namespace with label selector
+		podList, err := client.CoreV1().Pods(namespace).List(context.TODO(), resticPodOptions)
+		if err != nil {
+			return false, nil
+		}
+		// loop until pod status is 'Running' or timeout
+		for _, podInfo := range (*podList).Items {
+			if podInfo.Status.Phase != "Running" {
+				return false, err
+			} else {
 				return true, nil
 			}
 		}
@@ -188,6 +227,7 @@ func isResticDaemonsetDeleted(namespace string, instanceName string, resticName 
 	if err != nil {
 		panic(err)
 	}
+	fmt.Println("Checking Restic daemonSet has been deleted...")
 	return func() (bool, error) {
 		config := getKubeConfig()
 		client, err := kubernetes.NewForConfig(config)
@@ -195,7 +235,7 @@ func isResticDaemonsetDeleted(namespace string, instanceName string, resticName 
 			return false, nil
 		}
 		// get daemonset in oadp-operator-e2e ns with specified field selector
-		_, errs := client.AppsV1().DaemonSets(namespace).Get(context.TODO(), "restic", metav1.GetOptions{})
+		_, errs := client.AppsV1().DaemonSets(namespace).Get(context.TODO(), resticName, metav1.GetOptions{})
 		if errs != nil {
 			return false, err
 		}
@@ -228,6 +268,7 @@ func enableResticNodeSelector(namespace string, s3Bucket string, credSecretRef s
 }
 
 func resticDaemonSetHasNodeSelector(namespace string, s3Bucket string, credSecretRef string, instanceName string) wait.ConditionFunc {
+	fmt.Println("Checking Restic daemonSet has a nodeSelector...")
 	return func() (bool, error) {
 		config := getKubeConfig()
 		client, err := kubernetes.NewForConfig(config)

@@ -15,6 +15,7 @@ import (
 )
 
 func isVeleroPodRunning(namespace string) wait.ConditionFunc {
+	fmt.Println("Checking for running Velero pod...")
 	return func() (bool, error) {
 		kubeConf := getKubeConfig()
 
@@ -142,7 +143,7 @@ func createSecret(data []byte, namespace string, credSecretRef string) error {
 	}
 	_, errors := clientset.CoreV1().Secrets(namespace).Create(context.TODO(), &secret, metav1.CreateOptions{})
 	if apierrors.IsAlreadyExists(errors) {
-		fmt.Println("Secret already exists in this namespace")
+
 		return nil
 	}
 	return err
