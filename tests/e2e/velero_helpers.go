@@ -4,10 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 
-	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/dynamic"
@@ -108,53 +105,4 @@ type ansibleResult struct {
 	Failures int `json:"failures"`
 	Ok       int `json:"ok"`
 	Skipped  int `json:"skipped"`
-}
-
-func getCredsData(cloud string) ([]byte, error) {
-	// pass in aws credentials by cli flag
-	// from cli:  -cloud=<"filepath">
-	// go run main.go -cloud="/Users/emilymcmullan/.aws/credentials"
-	// cloud := flag.String("cloud", "", "file path for aws credentials")
-	// flag.Parse()
-	// save passed in cred file as []byte
-	credsFile, err := ioutil.ReadFile(cloud)
-	return credsFile, err
-}
-
-func createSecret(data []byte, namespace string, credSecretRef string) error {
-	config := getKubeConfig()
-	clientset, err := kubernetes.NewForConfig(config)
-	if err != nil {
-		return err
-	}
-	secret := corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      credSecretRef,
-			Namespace: namespace,
-		},
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "Secret",
-			APIVersion: metav1.SchemeGroupVersion.String(),
-		},
-		Data: map[string][]byte{
-			"cloud": data,
-		},
-		Type: corev1.SecretTypeOpaque,
-	}
-	_, errors := clientset.CoreV1().Secrets(namespace).Create(context.TODO(), &secret, metav1.CreateOptions{})
-	if apierrors.IsAlreadyExists(errors) {
-
-		return nil
-	}
-	return err
-}
-
-func deleteSecret(namespace string, credSecretRef string) error {
-	config := getKubeConfig()
-	clientset, err := kubernetes.NewForConfig(config)
-	if err != nil {
-		return err
-	}
-	errors := clientset.CoreV1().Secrets(namespace).Delete(context.Background(), credSecretRef, metav1.DeleteOptions{})
-	return errors
 }

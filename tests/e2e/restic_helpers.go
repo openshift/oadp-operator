@@ -2,11 +2,9 @@ package e2e
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
@@ -223,10 +221,10 @@ func disableRestic(namespace string, instanceName string) error {
 }
 
 func isResticDaemonsetDeleted(namespace string, instanceName string, resticName string) wait.ConditionFunc {
-	err := disableRestic(namespace, instanceName)
-	if err != nil {
-		panic(err)
-	}
+	// err := disableRestic(namespace, instanceName)
+	// if err != nil {
+	// 	panic(err)
+	// }
 	fmt.Println("Checking Restic daemonSet has been deleted...")
 	return func() (bool, error) {
 		config := getKubeConfig()
@@ -234,16 +232,14 @@ func isResticDaemonsetDeleted(namespace string, instanceName string, resticName 
 		if err != nil {
 			return false, nil
 		}
-		// get daemonset in oadp-operator-e2e ns with specified field selector
-		_, errs := client.AppsV1().DaemonSets(namespace).Get(context.TODO(), resticName, metav1.GetOptions{})
-		if errs != nil {
-			return false, err
+		// Check for daemonSet
+		_, exists := client.AppsV1().DaemonSets(namespace).Get(context.Background(), resticName, metav1.GetOptions{})
+		if exists != nil {
+			fmt.Println("Restic daemonSet has been deleted")
+			return true, nil
 		}
-		if apierrors.IsAlreadyExists(errs) {
-			return false, errors.New("restic daemonset has not been deleted")
-		}
-		fmt.Println("Restic daemonset has been deleted")
-		return true, nil
+		fmt.Println("daemonSet still exists")
+		return false, exists
 	}
 }
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/ioutil"
 
 	corev1 "k8s.io/api/core/v1"
@@ -156,24 +157,6 @@ func deleteVeleroCR(client dynamic.Interface, instanceName string, namespace str
 	return veleroClient.Delete(context.Background(), instanceName, metav1.DeleteOptions{})
 }
 
-// Keeping it for now.
-func isNamespaceDeleted(namespace string) wait.ConditionFunc {
-	return func() (bool, error) {
-		kubeConf := getKubeConfig()
-
-		// create client for pod
-		clientset, err := kubernetes.NewForConfig(kubeConf)
-		if err != nil {
-			return true, err
-		}
-		_, exists := clientset.CoreV1().Namespaces().Get(context.Background(), namespace, metav1.GetOptions{})
-		if exists == nil {
-			return false, exists
-		}
-		return true, exists
-	}
-}
-
 // Keeping it for now
 func isNamespaceExists(namespace string) error {
 	kubeConf := getKubeConfig()
@@ -184,4 +167,112 @@ func isNamespaceExists(namespace string) error {
 	}
 	_, exists := clientset.CoreV1().Namespaces().Get(context.Background(), namespace, metav1.GetOptions{})
 	return exists
+}
+
+// Keeping it for now.
+func isNamespaceDeleted(namespace string) wait.ConditionFunc {
+	fmt.Println("Checking test namespace has been deleted...")
+	return func() (bool, error) {
+		kubeConf := getKubeConfig()
+		clientset, err := kubernetes.NewForConfig(kubeConf)
+		if err != nil {
+			return false, err
+		}
+		_, exists := clientset.CoreV1().Namespaces().Get(context.Background(), namespace, metav1.GetOptions{})
+		if exists != nil {
+			fmt.Println("Test namespace has been deleted")
+			return true, nil
+		}
+		return false, exists
+	}
+}
+
+func isVeleroDeleted(namespace string, instanceName string) wait.ConditionFunc {
+	fmt.Println("Checking the Velero CR has been deleted...")
+	return func() (bool, error) {
+		kubeConf := getKubeConfig()
+		client, err := dynamic.NewForConfig(kubeConf)
+		if err != nil {
+			return false, err
+		}
+		veleroClient, err := createVeleroClient(client, namespace)
+		if err != nil {
+			return false, err
+		}
+		// Check for velero CR in cluster
+		_, exists := veleroClient.Get(context.Background(), instanceName, metav1.GetOptions{})
+		if exists != nil {
+			fmt.Println("Velero has been deleted")
+			return true, nil
+		}
+		fmt.Println("Velero CR still exists")
+		return false, exists
+	}
+}
+
+func getCredsData(cloud string) ([]byte, error) {
+	// pass in aws credentials by cli flag
+	// from cli:  -cloud=<"filepath">
+	// go run main.go -cloud="/Users/emilymcmullan/.aws/credentials"
+	// cloud := flag.String("cloud", "", "file path for aws credentials")
+	// flag.Parse()
+	// save passed in cred file as []byte
+	credsFile, err := ioutil.ReadFile(cloud)
+	return credsFile, err
+}
+
+func createSecret(data []byte, namespace string, credSecretRef string) error {
+	config := getKubeConfig()
+	clientset, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		return err
+	}
+	secret := corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      credSecretRef,
+			Namespace: namespace,
+		},
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Secret",
+			APIVersion: metav1.SchemeGroupVersion.String(),
+		},
+		Data: map[string][]byte{
+			"cloud": data,
+		},
+		Type: corev1.SecretTypeOpaque,
+	}
+	_, errors := clientset.CoreV1().Secrets(namespace).Create(context.TODO(), &secret, metav1.CreateOptions{})
+	if apierrors.IsAlreadyExists(errors) {
+
+		return nil
+	}
+	return err
+}
+
+func deleteSecret(namespace string, credSecretRef string) error {
+	config := getKubeConfig()
+	clientset, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		return err
+	}
+	errors := clientset.CoreV1().Secrets(namespace).Delete(context.Background(), credSecretRef, metav1.DeleteOptions{})
+	return errors
+}
+
+func isSecretDeleted(namespace string, credSecretRef string) wait.ConditionFunc {
+	fmt.Println("Checking secret has been deleted...")
+	return func() (bool, error) {
+		kubeConf := getKubeConfig()
+		clientset, err := kubernetes.NewForConfig(kubeConf)
+		if err != nil {
+			return false, err
+		}
+		_, exists := clientset.CoreV1().Secrets(namespace).Get(context.Background(), credSecretRef, metav1.GetOptions{})
+		if exists != nil {
+			fmt.Println("Secret in test namespace has been deleted")
+			return true, nil
+		}
+		fmt.Println("Secret still exists in namespace")
+		return false, exists
+	}
 }
