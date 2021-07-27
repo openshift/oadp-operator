@@ -14,5 +14,5 @@ jobs:
     - name: Link Checker
       uses: lycheeverse/lychee-action@v1.0.8
       with:
-        args: --verbose --no-progress --exclude .*dog8code\.com.* -- docs/*.md *.md
+        args: --verbose --no-progress --exclude .*dog8code\.com.* -- docs/**/*.md *.md
     - run: if grep 'Errors in' ./lychee/out.md; then fail; fi
