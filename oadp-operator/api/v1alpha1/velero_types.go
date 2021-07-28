@@ -24,14 +24,32 @@ import (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
+type CustomPlugin struct {
+	Name  string `json:"name"`
+	Image string `json:"image"`
+}
+
 // VeleroSpec defines the desired state of Velero
 type VeleroSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
-	EnableRestic            bool                                `json:"enable_restic,omitempty"`
-	DefaultVeleroPlugins    []string                            `json:"default_velero_plugins,omitempty"`
-	BackupStorageLocations  []velero.BackupStorageLocationSpec  `json:"backup_storage_locations"`
-	VolumeSnapshotLocations []velero.VolumeSnapshotLocationSpec `json:"volume_snapshot_locations"`
+	OlmManaged bool `json:"olmManaged,omitempty"`
+
+	// Velero configuration
+	BackupStorageLocations  []velero.BackupStorageLocationSpec  `json:"backupStorageLocations"`
+	VolumeSnapshotLocations []velero.VolumeSnapshotLocationSpec `json:"volumeSnapshotLocations"`
+	VeleroFeatureFlags      []string                            `json:"veleroFeatureFlags,omitempty"`
+
+	// Plugin configuration
+	DefaultVeleroPlugins []string `json:"defaultVeleroPlugins,omitempty"`
+	// +optional
+	CustomVeleroPlugins []CustomPlugin `json:"customVeleroPlugins,omitempty"`
+	// Noobaa is a boolean to specify if we should install backup storage from OCS operator with Noobaa
+	// +optional
+	Noobaa bool `json:"noobaa,omitempty"`
+
+	// Restic options
+	EnableRestic             bool     `json:"enableRestic,omitempty"`
+	ResticSupplementalGroups []string `json:"resticSupplementalGroups,omitempty"`
 }
 
 // VeleroStatus defines the observed state of Velero
