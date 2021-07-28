@@ -9,6 +9,7 @@ import (
 )
 
 var testSuiteInstanceName string
+var resticName string
 
 var _ = Describe("The Velero Restic spec", func() {
 	var _ = BeforeEach(func() {
@@ -21,14 +22,17 @@ var _ = Describe("The Velero Restic spec", func() {
 
 		testSuiteInstanceName = "rs-" + instanceName
 
+		resticName = "restic"
+
 		credData, err := getCredsData(cloud)
 		Expect(err).NotTo(HaveOccurred())
 
-		err = createSecret(credData, namespace, credSecretRef)
+		err = createCredentialsSecret(credData, namespace, credSecretRef)
 		Expect(err).NotTo(HaveOccurred())
 	})
 
 	var _ = AfterEach(func() {
+		testSuiteInstanceName := "rs-" + instanceName
 		err := uninstallVelero(namespace, testSuiteInstanceName)
 		Expect(err).ToNot(HaveOccurred())
 
@@ -42,10 +46,13 @@ var _ = Describe("The Velero Restic spec", func() {
 			err := installDefaultVelero(namespace, s3Bucket, credSecretRef, testSuiteInstanceName)
 			Expect(err).ToNot(HaveOccurred())
 
-			errs := disableRestic(namespace, testSuiteInstanceName)
-			Expect(errs).ToNot(HaveOccurred())
+			// wait for daemonSet to initialize
+			Eventually(doesDaemonSetExists(namespace, "restic"), time.Minute*2, time.Second*5).Should(BeTrue())
 
-			Eventually(isResticDaemonsetDeleted(namespace, testSuiteInstanceName, "restic"), time.Minute*2, time.Second*5).Should(BeTrue())
+			err = disableRestic(namespace, testSuiteInstanceName)
+			Expect(err).ToNot(HaveOccurred())
+
+			Eventually(isResticDaemonsetDeleted(namespace, testSuiteInstanceName, resticName), time.Minute*2, time.Second*5).Should(BeTrue())
 		})
 	})
 
@@ -53,7 +60,7 @@ var _ = Describe("The Velero Restic spec", func() {
 		It("Should update the Restic daemonSet to include a nodeSelector", func() {
 			err := enableResticNodeSelector(namespace, s3Bucket, credSecretRef, testSuiteInstanceName)
 			Expect(err).ToNot(HaveOccurred())
-			Eventually(resticDaemonSetHasNodeSelector(namespace, s3Bucket, credSecretRef, testSuiteInstanceName), time.Minute*1, time.Second*5).Should(BeTrue())
+			Eventually(resticDaemonSetHasNodeSelector(namespace, s3Bucket, credSecretRef, testSuiteInstanceName, resticName), time.Minute*1, time.Second*5).Should(BeTrue())
 		})
 	})
 })

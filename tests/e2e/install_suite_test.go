@@ -9,7 +9,7 @@ import (
 )
 
 var _ = BeforeSuite(func() {
-	Expect(isNamespaceExists(namespace)).Should(BeNil())
+	Expect(doesNamespaceExists(namespace)).Should(BeFalse())
 })
 
 var _ = AfterSuite(func() {
@@ -20,10 +20,10 @@ var _ = AfterSuite(func() {
 	Eventually(isResticDaemonsetDeleted(namespace, testSuiteInstanceName, "restic"), time.Minute*2, time.Second*5).Should(BeTrue())
 
 	// Check secret is deleted
-	Eventually(isSecretDeleted(namespace, credSecretRef), time.Minute*2, time.Second*5).Should(BeTrue())
+	Eventually(isCredentialsSecretDeleted(namespace, credSecretRef), time.Minute*2, time.Second*5).Should(BeTrue())
 
 	// Check test namespace is deleted
-	Eventually(isNamespaceDeleted(namespace), time.Minute*2, time.Second*5).Should(BeTrue())
+	// Eventually(isNamespaceDeleted(namespace), time.Minute*2, time.Second*5).Should(BeTrue())
 })
 
 var _ = Describe("The default Velero custom resource", func() {
@@ -40,7 +40,7 @@ var _ = Describe("The default Velero custom resource", func() {
 		credData, err := getCredsData(cloud)
 		Expect(err).NotTo(HaveOccurred())
 
-		err = createSecret(credData, namespace, credSecretRef)
+		err = createCredentialsSecret(credData, namespace, credSecretRef)
 		Expect(err).NotTo(HaveOccurred())
 
 		// Check that OADP operator is installed in test namespace
