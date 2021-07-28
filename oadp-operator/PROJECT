@@ -1,0 +1,19 @@
+domain: openshift.io
+layout:
+- go.kubebuilder.io/v3
+plugins:
+  manifests.sdk.operatorframework.io/v2: {}
+  scorecard.sdk.operatorframework.io/v2: {}
+projectName: oadp-operator
+repo: github.com/openshift/oadp-operator
+resources:
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: openshift.io
+  group: oadp
+  kind: Velero
+  path: github.com/openshift/oadp-operator/api/v1alpha1
+  version: v1alpha1
+version: "3"
