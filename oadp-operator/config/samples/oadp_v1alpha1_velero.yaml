@@ -1,0 +1,7 @@
+apiVersion: oadp.openshift.io/v1alpha1
+kind: Velero
+metadata:
+  name: velero-sample
+spec:
+  # Add fields here
+  foo: bar
