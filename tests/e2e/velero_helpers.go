@@ -209,12 +209,12 @@ func isVeleroDeleted(namespace string, instanceName string) wait.ConditionFunc {
 			return false, err
 		}
 		// Check for velero CR in cluster
-		_, exists := veleroClient.Get(context.Background(), instanceName, metav1.GetOptions{})
-		if exists != nil {
+		_, err = veleroClient.Get(context.Background(), instanceName, metav1.GetOptions{})
+		if err != nil {
 			fmt.Println("Velero has been deleted")
 			return true, nil
 		}
 		fmt.Println("Velero CR still exists")
-		return false, exists
+		return false, err
 	}
 }
