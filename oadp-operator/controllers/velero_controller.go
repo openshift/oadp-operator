@@ -98,8 +98,12 @@ func (r *VeleroReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 			},
 		)
 	}
+	statusErr := r.Client.Status().Update(ctx, &velero)
+	if err == nil { // Don't mask previous error
+		err = statusErr
+	}
 
-	return ctrl.Result{}, nil
+	return ctrl.Result{}, err
 }
 
 // SetupWithManager sets up the controller with the Manager.
