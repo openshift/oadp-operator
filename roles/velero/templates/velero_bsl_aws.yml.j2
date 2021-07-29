@@ -28,11 +28,11 @@ spec:
 {% if bsl.config.profile is defined %}
     profile: {{ bsl.config.profile }}
 {% endif %}
-{% if bsl.config.s_3__force_path_style is defined %}
-    s3ForcePathStyle: "{{ bsl.config.s_3__force_path_style | string }}"
+{% if bsl.config.s_3_force_path_style is defined %}
+    s3ForcePathStyle: "{{ bsl.config.s_3_force_path_style | string }}"
 {% endif %}
-{% if bsl.config.s_3__url is defined %}
-    s3Url: {{ bsl.config.s_3__url }}
+{% if bsl.config.s_3_url is defined %}
+    s3Url: {{ bsl.config.s_3_url }}
 {% endif %}
 {% if bsl.config.public_url is defined %}
     publicUrl: {{ bsl.config.public_url }} 
