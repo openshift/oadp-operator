@@ -19,7 +19,16 @@ package controllers
 import (
 	"context"
 
+	security "github.com/openshift/api/security/v1"
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	rbac "k8s.io/api/rbac/v1"
+	apimeta "k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -30,7 +39,10 @@ import (
 // VeleroReconciler reconciles a Velero object
 type VeleroReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
+	Scheme         *runtime.Scheme
+	Log            logr.Logger
+	Context        context.Context
+	NamespacedName types.NamespacedName
 }
 
 //+kubebuilder:rbac:groups=oadp.openshift.io,resources=veleroes,verbs=get;list;watch;create;update;patch;delete
@@ -47,9 +59,45 @@ type VeleroReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.9.2/pkg/reconcile
 func (r *VeleroReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = log.FromContext(ctx)
+	r.Log = log.FromContext(ctx)
+	log := r.Log.WithValues("velero", req.NamespacedName)
+	result := ctrl.Result{}
+	r.Context = ctx
+	r.NamespacedName = req.NamespacedName
 
-	// your logic here
+	velero := oadpv1alpha1.Velero{}
+	if err := r.Get(ctx, req.NamespacedName, &velero); err != nil {
+		log.Error(err, "unable to fetch velero CR")
+		return result, client.IgnoreNotFound(err)
+	}
+	_, err := ReconcileBatch(r.Log,
+		r.ValidateBackupStorageLocations,
+		r.ReconcileBackupStorageLocations,
+		r.ValidateVolumeSnapshotLocations,
+		r.ReconcileVolumeSnapshotLocations,
+		r.ReconcileResticDaemonset,
+		r.ReconcileVeleroDeployment,
+	)
+
+	if err != nil {
+		apimeta.SetStatusCondition(&velero.Status.Conditions,
+			metav1.Condition{
+				Type:    oadpv1alpha1.ConditionReconciled,
+				Status:  metav1.ConditionFalse,
+				Reason:  oadpv1alpha1.ReconciledReasonError,
+				Message: err.Error(),
+			},
+		)
+	} else {
+		apimeta.SetStatusCondition(&velero.Status.Conditions,
+			metav1.Condition{
+				Type:    oadpv1alpha1.ConditionReconciled,
+				Status:  metav1.ConditionTrue,
+				Reason:  oadpv1alpha1.ReconciledReasonComplete,
+				Message: oadpv1alpha1.ReconcileCompleteMessage,
+			},
+		)
+	}
 
 	return ctrl.Result{}, nil
 }
@@ -58,5 +106,29 @@ func (r *VeleroReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 func (r *VeleroReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&oadpv1alpha1.Velero{}).
+		Owns(&appsv1.Deployment{}).
+		Owns(&appsv1.DaemonSet{}).
+		Owns(&security.SecurityContextConstraints{}).
+		Owns(&rbac.ClusterRoleBinding{}).
+		Owns(&rbac.ClusterRole{}).
+		Owns(&rbac.RoleBinding{}).
+		Owns(&rbac.Role{}).
+		Owns(&corev1.ServiceAccount{}).
+		Owns(&corev1.Secret{}).
+		Owns(&corev1.ConfigMap{}).
+		WithEventFilter(veleroPredicate()).
 		Complete(r)
+}
+
+type ReconcileFunc func(logr.Logger) (bool, error)
+
+// reconcileBatch steps through a list of reconcile functions until one returns
+// false or an error.
+func ReconcileBatch(l logr.Logger, reconcileFuncs ...ReconcileFunc) (bool, error) {
+	for _, f := range reconcileFuncs {
+		if cont, err := f(l); !cont || err != nil {
+			return cont, err
+		}
+	}
+	return true, nil
 }
