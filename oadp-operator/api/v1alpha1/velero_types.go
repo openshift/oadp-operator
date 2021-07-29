@@ -18,11 +18,25 @@ package v1alpha1
 
 import (
 	velero "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
+// Conditions
+const ConditionReconciled = "Reconciled"
+const ReconciledReasonComplete = "Complete"
+const ReconciledReasonError = "Error"
+const ReconcileCompleteMessage = "Reconcile complete"
+
+const OadpOperatorLabel = "openshift.io/oadp"
+
+type DefaultPlugin string
+
+const DefaultPluginAWS DefaultPlugin = "aws"
+const DefaultPluginGCP DefaultPlugin = "gcp"
+const DefaultPluginMicrosoftAzure DefaultPlugin = "azure"
+const DefaultPluginCSI DefaultPlugin = "csi"
+const DefaultPluginOpenShift DefaultPlugin = "openshift"
 
 type CustomPlugin struct {
 	Name  string `json:"name"`
@@ -32,30 +46,37 @@ type CustomPlugin struct {
 // VeleroSpec defines the desired state of Velero
 type VeleroSpec struct {
 	// Important: Run "make" to regenerate code after modifying this file
-	OlmManaged bool `json:"olmManaged,omitempty"`
+	// Determine whether this was installed via OLM
+	OlmManaged *bool `json:"olmManaged,omitempty"`
 
 	// Velero configuration
 	BackupStorageLocations  []velero.BackupStorageLocationSpec  `json:"backupStorageLocations"`
 	VolumeSnapshotLocations []velero.VolumeSnapshotLocationSpec `json:"volumeSnapshotLocations"`
 	VeleroFeatureFlags      []string                            `json:"veleroFeatureFlags,omitempty"`
+	// We do not currently support setting tolerations for Velero
+	VeleroTolerations         []corev1.Toleration         `json:"veleroTolerations,omitempty"`
+	VeleroResourceAllocations corev1.ResourceRequirements `json:"veleroResourceAllocations,omitempty"`
 
 	// Plugin configuration
-	DefaultVeleroPlugins []string `json:"defaultVeleroPlugins,omitempty"`
+	DefaultVeleroPlugins []DefaultPlugin `json:"defaultVeleroPlugins,omitempty"`
 	// +optional
 	CustomVeleroPlugins []CustomPlugin `json:"customVeleroPlugins,omitempty"`
+
 	// Noobaa is a boolean to specify if we should install backup storage from OCS operator with Noobaa
 	// +optional
 	Noobaa bool `json:"noobaa,omitempty"`
 
 	// Restic options
-	EnableRestic             bool     `json:"enableRestic,omitempty"`
-	ResticSupplementalGroups []string `json:"resticSupplementalGroups,omitempty"`
+	EnableRestic              *bool                       `json:"enableRestic,omitempty"`
+	ResticSupplementalGroups  []string                    `json:"resticSupplementalGroups,omitempty"`
+	ResticNodeSelector        map[string]string           `json:"resticNodeSelector,omitempty"`
+	ResticTolerations         []corev1.Toleration         `json:"resticTolerations,omitempty"`
+	ResticResourceAllocations corev1.ResourceRequirements `json:"resticResourceAllocations,omitempty"`
 }
 
 // VeleroStatus defines the observed state of Velero
 type VeleroStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	Conditions []metav1.Condition
 }
 
 //+kubebuilder:object:root=true
