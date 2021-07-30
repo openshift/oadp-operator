@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"context"
+	"reflect"
 	"testing"
 
 	"github.com/go-logr/logr"
@@ -30,7 +31,7 @@ func getSchemeForFakeClient() (*runtime.Scheme, error) {
 	return scheme.Scheme, nil
 }
 
-func getFakeClientFromObjects(objs ...client.Object) (client.Client, error) {
+func getFakeClientFromObjects(objs ...client.Object) (client.WithWatch, error) {
 	schemeForFakeClient, err := getSchemeForFakeClient()
 	if err != nil {
 		return nil, err
@@ -129,4 +130,122 @@ func TestVeleroReconciler_ValidateBackupStorageLocations(t *testing.T) {
 
 func newContextForTest(name string) context.Context {
 	return context.TODO()
+}
+
+func TestVeleroReconciler_ReconcileBackupStorageLocations(t *testing.T) {
+	tests := []struct {
+		name     string
+		objs     []client.Object
+		wantBSLs []velerov1.BackupStorageLocation
+		want     bool
+		wantErr  bool
+	}{
+		{
+			name: "test 1 BSLs configured, create, no noobaa",
+			objs: []client.Object{
+				&oadpv1alpha1.Velero{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "foo",
+						Namespace: "bar",
+					},
+					Spec: oadpv1alpha1.VeleroSpec{
+						BackupStorageLocations: []velerov1.BackupStorageLocationSpec{
+							{
+								Provider: "foo",
+							},
+						},
+					},
+				},
+			},
+			wantErr: false,
+			want:    true,
+			wantBSLs: []velerov1.BackupStorageLocation{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "foo-1",
+						Namespace: "bar",
+					},
+					Spec: velerov1.BackupStorageLocationSpec{
+						Provider: "foo",
+					},
+				},
+			},
+		},
+		{
+			name: "test 1 BSLs configured, updated, no noobaa",
+			objs: []client.Object{
+				&oadpv1alpha1.Velero{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "foo",
+						Namespace: "bar",
+					},
+					Spec: oadpv1alpha1.VeleroSpec{
+						BackupStorageLocations: []velerov1.BackupStorageLocationSpec{
+							{
+								Provider: "foo",
+							},
+						},
+					},
+				},
+				&velerov1.BackupStorageLocation{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "foo-1",
+						Namespace: "bar",
+					},
+				},
+			},
+			wantErr: false,
+			want:    true,
+			wantBSLs: []velerov1.BackupStorageLocation{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "foo-1",
+						Namespace: "bar",
+					},
+					Spec: velerov1.BackupStorageLocationSpec{
+						Provider: "foo",
+					},
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fakeClient, err := getFakeClientFromObjects(tt.objs...)
+			if err != nil {
+				t.Errorf("error in creating fake client, likely programmer error")
+			}
+			fakeRecorder := record.NewFakeRecorder(10)
+			r := &VeleroReconciler{
+				Client:  fakeClient,
+				Scheme:  fakeClient.Scheme(),
+				Log:     logr.Discard(),
+				Context: newContextForTest(tt.name),
+				NamespacedName: types.NamespacedName{
+					Namespace: tt.objs[0].GetNamespace(),
+					Name:      tt.objs[0].GetName(),
+				},
+				EventRecorder: fakeRecorder,
+			}
+			got, err := r.ReconcileBackupStorageLocations(r.Log)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ReconcileBackupStorageLocations() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("ReconcileBackupStorageLocations() got = %v, want %v", got, tt.want)
+			}
+
+			for _, obj := range tt.wantBSLs {
+				gotObj := velerov1.BackupStorageLocation{}
+				err := fakeClient.Get(r.Context, client.ObjectKey{Namespace: obj.GetNamespace(), Name: obj.GetName()}, &gotObj)
+				if err != nil {
+					t.Errorf("error getting bsl for asserting, %#v", err)
+				}
+				if gotObj.Namespace != obj.Namespace && gotObj.Name != obj.Name && reflect.DeepEqual(gotObj.Spec, obj.Spec) && len(gotObj.OwnerReferences) == 0 {
+					t.Errorf("got %#v, want %#v, with owner reference", gotObj, obj)
+				}
+			}
+		})
+	}
 }
