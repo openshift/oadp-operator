@@ -32,7 +32,7 @@ func getResticVeleroConfig(namespace string, s3Bucket string, credSecretRef stri
 				"olm_managed": false,
 				"default_velero_plugins": []string{
 					"aws",
-					"csix",
+					"csi",
 					"openshift",
 				},
 				"backup_storage_locations": [](map[string]interface{}){
@@ -92,7 +92,7 @@ func hasCorrectNumResticPods(namespace string) wait.ConditionFunc {
 			numScheduled = daemonSetInfo.Status.CurrentNumberScheduled
 			numDesired = daemonSetInfo.Status.DesiredNumberScheduled
 		}
-		// first check that numScheduled == numDesired
+		// check correct num of Restic pods are initialized
 		if numScheduled != 0 && numDesired != 0 {
 			if numScheduled == numDesired {
 				return true, nil
@@ -148,7 +148,7 @@ func disableRestic(namespace string, instanceName string) error {
 	if err != nil {
 		return err
 	}
-	// update spec enable_restic to be false
+	// update spec 'enable_restic' to be false
 	err = unstructured.SetNestedField(veleroResource.Object, false, "spec", "enable_restic")
 	if err != nil {
 		return err
@@ -169,13 +169,15 @@ func doesDaemonSetExists(namespace string, resticName string) wait.ConditionFunc
 		}
 		_, err = clientset.AppsV1().DaemonSets(namespace).Get(context.Background(), resticName, metav1.GetOptions{})
 		if err != nil {
-			fmt.Println("Waiting for Restic daemonSet to initialize...")
+			fmt.Println("Restic daemonSet does not exist..")
 			return false, err
 		}
+		fmt.Println("Restic daemonSet exists")
 		return true, nil
 	}
 }
 
+// keep for now
 func isResticDaemonsetDeleted(namespace string, instanceName string, resticName string) wait.ConditionFunc {
 	fmt.Println("Checking Restic daemonSet has been deleted...")
 	return func() (bool, error) {
@@ -216,13 +218,13 @@ func resticDaemonSetHasNodeSelector(namespace string, s3Bucket string, credSecre
 		if err != nil {
 			return false, nil
 		}
-		// get daemonset in oadp-operator-e2e ns
 		ds, err := client.AppsV1().DaemonSets(namespace).Get(context.TODO(), resticName, metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}
 		// verify daemonset has nodeSelector "foo": "bar"
 		selector := ds.Spec.Template.Spec.NodeSelector["foo"]
+
 		if selector == "bar" {
 			fmt.Println("Restic daemonset has nodeSelector")
 			return true, nil

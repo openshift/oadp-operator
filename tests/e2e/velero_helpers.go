@@ -28,7 +28,7 @@ func getDefaultVeleroConfig(namespace string, s3Bucket string, credSecretRef str
 				"olm_managed": false,
 				"default_velero_plugins": []string{
 					"aws",
-					"csix",
+					"csi",
 					"openshift",
 				},
 				"backup_storage_locations": [](map[string]interface{}){

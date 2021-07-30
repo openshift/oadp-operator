@@ -21,7 +21,6 @@ var _ = Describe("The Velero Restic spec", func() {
 		s3Bucket = s3Data["velero-bucket-name"].(string)
 
 		testSuiteInstanceName = "rs-" + instanceName
-
 		resticName = "restic"
 
 		credData, err := getCredsData(cloud)
@@ -42,24 +41,31 @@ var _ = Describe("The Velero Restic spec", func() {
 
 	Context("When the value of 'enable_restic' is changed to false", func() {
 		It("Should delete the Restic daemonset", func() {
-			// Check that OADP operator is installed in test namespace
 			err := installDefaultVelero(namespace, s3Bucket, credSecretRef, testSuiteInstanceName)
 			Expect(err).ToNot(HaveOccurred())
 
 			// wait for daemonSet to initialize
-			Eventually(doesDaemonSetExists(namespace, "restic"), time.Minute*2, time.Second*5).Should(BeTrue())
+			Eventually(doesDaemonSetExists(namespace, resticName), time.Minute*2, time.Second*5).Should(BeTrue())
 
 			err = disableRestic(namespace, testSuiteInstanceName)
 			Expect(err).ToNot(HaveOccurred())
 
+			// wait for daemonSet to update
 			Eventually(isResticDaemonsetDeleted(namespace, testSuiteInstanceName, resticName), time.Minute*2, time.Second*5).Should(BeTrue())
 		})
 	})
 
 	Context("When 'restic_node_selector' is added to the Velero CR spec", func() {
 		It("Should update the Restic daemonSet to include a nodeSelector", func() {
+
+			// also installs Velero CR
 			err := enableResticNodeSelector(namespace, s3Bucket, credSecretRef, testSuiteInstanceName)
 			Expect(err).ToNot(HaveOccurred())
+
+			// wait for daemonSet to initialize
+			Eventually(doesDaemonSetExists(namespace, resticName), time.Minute*2, time.Second*5).Should(BeTrue())
+
+			// wait for daemonSet to update
 			Eventually(resticDaemonSetHasNodeSelector(namespace, s3Bucket, credSecretRef, testSuiteInstanceName, resticName), time.Minute*1, time.Second*5).Should(BeTrue())
 		})
 	})

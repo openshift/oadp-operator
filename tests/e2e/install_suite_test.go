@@ -17,13 +17,13 @@ var _ = AfterSuite(func() {
 	Eventually(isVeleroDeleted(namespace, testSuiteInstanceName), time.Minute*2, time.Second*5).Should(BeTrue())
 
 	// Check Restic daemonSet is deleted
-	Eventually(isResticDaemonsetDeleted(namespace, testSuiteInstanceName, "restic"), time.Minute*2, time.Second*5).Should(BeTrue())
+	Eventually(isResticDaemonsetDeleted(namespace, testSuiteInstanceName, resticName), time.Minute*2, time.Second*5).Should(BeTrue())
 
 	// Check secret is deleted
 	Eventually(isCredentialsSecretDeleted(namespace, credSecretRef), time.Minute*2, time.Second*5).Should(BeTrue())
 
 	// Check test namespace is deleted
-	// Eventually(isNamespaceDeleted(namespace), time.Minute*2, time.Second*5).Should(BeTrue())
+	Eventually(isNamespaceDeleted(namespace), time.Minute*2, time.Second*5).Should(BeTrue())
 })
 
 var _ = Describe("The default Velero custom resource", func() {
@@ -61,13 +61,17 @@ var _ = Describe("The default Velero custom resource", func() {
 		It("Should create a Velero pod in the cluster", func() {
 			Eventually(isVeleroPodRunning(namespace), time.Minute*2, time.Second*5).Should(BeTrue())
 		})
-
 		It("Should create a Restic daemonset in the cluster", func() {
 			Eventually(areResticPodsRunning(namespace), time.Minute*2, time.Second*5).Should(BeTrue())
 		})
-
-		// It("Should not have a failed status", func() {
-		// 	Eventually(isVeleroCRFailed(namespace, testSuiteInstanceName), time.Minute*2, time.Second*5).Should(BeTrue())
-		// })
+		It("Should install the aws plugin", func() {
+			Eventually(doesPluginExist(namespace, "velero", "velero-plugin-for-aws"), time.Minute*2, time.Second*5).Should(BeTrue())
+		})
+		It("Should install the openshift plugin", func() {
+			Eventually(doesPluginExist(namespace, "velero", "openshift-velero-plugin"), time.Minute*2, time.Second*5).Should(BeTrue())
+		})
+		It("Should install the csi plugin", func() {
+			Eventually(doesPluginExist(namespace, "velero", "velero-plugin-for-csi"), time.Minute*2, time.Second*5).Should(BeTrue())
+		})
 	})
 })
