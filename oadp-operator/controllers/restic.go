@@ -246,7 +246,6 @@ func (r *VeleroReconciler) ReconcileResticDaemonset(log logr.Logger) (bool, erro
 			)
 		}
 	}
-	fmt.Print(ds)
 	return true, nil
 }
 
