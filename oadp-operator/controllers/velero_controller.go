@@ -29,6 +29,7 @@ import (
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -43,6 +44,7 @@ type VeleroReconciler struct {
 	Log            logr.Logger
 	Context        context.Context
 	NamespacedName types.NamespacedName
+	EventRecorder  record.EventRecorder
 }
 
 //+kubebuilder:rbac:groups=oadp.openshift.io,resources=veleroes,verbs=get;list;watch;create;update;patch;delete
@@ -62,6 +64,7 @@ func (r *VeleroReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	r.Log = log.FromContext(ctx)
 	log := r.Log.WithValues("velero", req.NamespacedName)
 	result := ctrl.Result{}
+	// Set reconciler context + name
 	r.Context = ctx
 	r.NamespacedName = req.NamespacedName
 
