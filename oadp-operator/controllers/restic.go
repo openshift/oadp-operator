@@ -249,6 +249,7 @@ func (r *VeleroReconciler) buildResticDaemonset(velero *oadpv1alpha1.Velero) app
 	// Dynamically add to daemonset definition
 	// If the default velero plugins contains cloud provider, attach VolumeSource
 	var veleroContainer *v1.Container
+	// Find Velero container
 	for _, container := range ds.Spec.Template.Spec.Containers {
 		if container.Name == "velero" {
 			veleroContainer = &container
@@ -267,7 +268,6 @@ func (r *VeleroReconciler) buildResticDaemonset(velero *oadpv1alpha1.Velero) app
 					},
 				},
 			)
-			// Find Velero container
 			veleroContainer.VolumeMounts = append(
 				veleroContainer.VolumeMounts,
 				v1.VolumeMount{
