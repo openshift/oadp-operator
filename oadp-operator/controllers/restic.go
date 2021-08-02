@@ -8,6 +8,7 @@ import (
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
@@ -41,11 +42,10 @@ func (r *VeleroReconciler) ReconcileResticDaemonset(log logr.Logger) (bool, erro
 	if err := r.Get(r.Context, r.NamespacedName, &velero); err != nil {
 		return false, err
 	}
-	if velero.Spec.EnableRestic != nil && !*velero.Spec.EnableRestic {
-		return true, nil
-	}
+
 	var mountPropagationToHostContainer = v1.MountPropagationHostToContainer
-	// restic is nil or true aka default then enable restic
+
+	// Define "static" portion of daemonset
 	ds := appsv1.DaemonSet{
 
 		ObjectMeta: metav1.ObjectMeta{
@@ -230,6 +230,12 @@ func (r *VeleroReconciler) ReconcileResticDaemonset(log logr.Logger) (bool, erro
 		},
 	}
 
+	if velero.Spec.EnableRestic != nil && !*velero.Spec.EnableRestic {
+		// If velero Spec enableRestic exists and is false, attempt to delete.
+		r.Delete(r.Context, &ds) //TODO: delete fail logic?
+		return true, nil
+	}
+	// Dynamically add to daemonset definition
 	// If the default velero plugins contains cloud provider, attach VolumeSource
 	for provider, providerSecretName := range cloudProviderSecretNames {
 		if contains(provider, velero.Spec.DefaultVeleroPlugins) {
@@ -246,6 +252,23 @@ func (r *VeleroReconciler) ReconcileResticDaemonset(log logr.Logger) (bool, erro
 			)
 		}
 	}
+
+	// Check if Daemonset already exists
+	//make a copy of ds to be used in r.Get
+	existingDS := *ds.DeepCopy()
+	if err := r.Get(r.Context, r.NamespacedName, &existingDS); err != nil {
+		if errors.IsNotFound(err) { // Daemonset not found so create Daemonset
+			if err := r.Create(r.Context, &ds); err != nil {
+				return false, err
+			}
+		}
+	} else {
+		// Daemonset found, check if equal.
+		if err := r.Update(r.Context, &ds); err != nil { // Update daemonset
+			return false, err
+		}
+	}
+
 	return true, nil
 }
 
