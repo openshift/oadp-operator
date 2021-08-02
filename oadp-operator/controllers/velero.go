@@ -86,6 +86,12 @@ func (r *VeleroReconciler) ReconcileVeleroDeployment(log logr.Logger) (bool, err
 			}
 		}
 
+		// Setting controller owner reference on the velero deployment
+		err := controllerutil.SetControllerReference(&velero, veleroDeployment, r.Scheme)
+		if err != nil {
+			return err
+		}
+
 		// update the Deployment template
 		veleroDeployment = r.buildVeleroDeployment(veleroDeployment, veleroVolumeMounts, veleroVolumes, veleroEnv, veleroInitContainers, veleroResourceReqs, veleroTolerations)
 		return nil
@@ -94,6 +100,8 @@ func (r *VeleroReconciler) ReconcileVeleroDeployment(log logr.Logger) (bool, err
 	if err != nil {
 		return false, err
 	}
+
+	//TODO: Review velero deployment status and report errors and conditions
 
 	if op == controllerutil.OperationResultCreated || op == controllerutil.OperationResultUpdated {
 		// Trigger event to indicate velero deployment was created or updated
