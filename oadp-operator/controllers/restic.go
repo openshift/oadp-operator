@@ -12,6 +12,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 /**
@@ -28,27 +29,33 @@ const (
 	cloudFieldPath   = "cloud"
 )
 
+type cloudProviderFields struct {
+	secretName         string
+	mountPath          string
+	envCredentialsFile string
+}
+
 // const mountPropagationMode = v1.MountPropagationMode
 var (
 	mountPropagationToHostContainer = v1.MountPropagationHostToContainer
 	resticLabelMap                  = map[string]string{
 		"name": "restic",
 	}
-	cloudProviderConst = map[oadpv1alpha1.DefaultPlugin]map[string]string{
+	cloudProviderConst = map[oadpv1alpha1.DefaultPlugin]cloudProviderFields{
 		oadpv1alpha1.DefaultPluginAWS: {
-			"secret-name":        "cloud-credentials",
-			"mountPath":          "/credentials",
-			"envCredentialsFile": "AWS_SHARED_CREDENTIALS_FILE",
+			secretName:         "cloud-credentials",
+			mountPath:          "/credentials",
+			envCredentialsFile: "AWS_SHARED_CREDENTIALS_FILE",
 		},
 		oadpv1alpha1.DefaultPluginGCP: {
-			"secret-name":        "cloud-credentials-gcp",
-			"mountPath":          "/credentials-gcp",
-			"envCredentialsFile": "GOOGLE_APPLICATION_CREDENTIALS",
+			secretName:         "cloud-credentials-gcp",
+			mountPath:          "/credentials-gcp",
+			envCredentialsFile: "GOOGLE_APPLICATION_CREDENTIALS",
 		},
 		oadpv1alpha1.DefaultPluginMicrosoftAzure: {
-			"secret-name":        "cloud-credentials-azure",
-			"mountPath":          "/credentials-azure",
-			"envCredentialsFile": "AZURE_CREDENTIALS_FILE",
+			secretName:         "cloud-credentials-azure",
+			mountPath:          "/credentials-azure",
+			envCredentialsFile: "AZURE_CREDENTIALS_FILE",
 		},
 	}
 )
@@ -82,6 +89,11 @@ func (r *VeleroReconciler) ReconcileResticDaemonset(log logr.Logger) (bool, erro
 		if err := r.Update(r.Context, ds); err != nil { // Update daemonset
 			return false, err
 		}
+	}
+	if _, err := controllerutil.CreateOrUpdate(r.Context, r.Client, ds, func() error {
+		return nil
+	}); err != nil {
+		return false, err
 	}
 
 	return true, nil
@@ -263,7 +275,7 @@ func (r *VeleroReconciler) buildResticDaemonset(velero *oadpv1alpha1.Velero) *ap
 					Name: string(provider),
 					VolumeSource: v1.VolumeSource{
 						Secret: &v1.SecretVolumeSource{
-							SecretName: cloudProviderMap["secret-name"],
+							SecretName: cloudProviderMap.secretName,
 						},
 					},
 				},
@@ -271,16 +283,16 @@ func (r *VeleroReconciler) buildResticDaemonset(velero *oadpv1alpha1.Velero) *ap
 			veleroContainer.VolumeMounts = append(
 				veleroContainer.VolumeMounts,
 				v1.VolumeMount{
-					Name:             cloudProviderMap["secret-name"],
-					MountPath:        cloudProviderMap["mountPath"],
+					Name:             cloudProviderMap.secretName,
+					MountPath:        cloudProviderMap.mountPath,
 					MountPropagation: &mountPropagationToHostContainer,
 				},
 			)
 			veleroContainer.Env = append(
 				veleroContainer.Env,
 				v1.EnvVar{
-					Name:  cloudProviderMap["envCredentialsFile"],
-					Value: cloudProviderMap["mountPath"] + "/" + cloudFieldPath,
+					Name:  cloudProviderMap.envCredentialsFile,
+					Value: cloudProviderMap.mountPath + "/" + cloudFieldPath,
 				},
 			)
 		}
