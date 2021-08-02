@@ -22,20 +22,36 @@ import (
   when: enable_restic == true
 */
 
-const veleroSAName = "velero"
-const resticPvHostPath = "/var/lib/kubelet/pods"
+const (
+	veleroSAName     = "velero"
+	resticPvHostPath = "/var/lib/kubelet/pods"
+	cloudFieldPath   = "cloud"
+)
 
 // const mountPropagationMode = v1.MountPropagationMode
-
-var resticLabelMap = map[string]string{
-	"name": "restic",
-}
-
-var cloudProviderSecretNames = map[oadpv1alpha1.DefaultPlugin]string{
-	oadpv1alpha1.DefaultPluginAWS:            "cloud-credentials",
-	oadpv1alpha1.DefaultPluginGCP:            "cloud-credentials-gcp",
-	oadpv1alpha1.DefaultPluginMicrosoftAzure: "cloud-credentials-azure",
-}
+var (
+	mountPropagationToHostContainer = v1.MountPropagationHostToContainer
+	resticLabelMap                  = map[string]string{
+		"name": "restic",
+	}
+	cloudProviderConst = map[oadpv1alpha1.DefaultPlugin]map[string]string{
+		oadpv1alpha1.DefaultPluginAWS: {
+			"secret-name":        "cloud-credentials",
+			"mountPath":          "/credentials",
+			"envCredentialsFile": "AWS_SHARED_CREDENTIALS_FILE",
+		},
+		oadpv1alpha1.DefaultPluginGCP: {
+			"secret-name":        "cloud-credentials-gcp",
+			"mountPath":          "/credentials-gcp",
+			"envCredentialsFile": "GOOGLE_APPLICATION_CREDENTIALS",
+		},
+		oadpv1alpha1.DefaultPluginMicrosoftAzure: {
+			"secret-name":        "cloud-credentials-azure",
+			"mountPath":          "/credentials-azure",
+			"envCredentialsFile": "AZURE_CREDENTIALS_FILE",
+		},
+	}
+)
 
 func (r *VeleroReconciler) ReconcileResticDaemonset(log logr.Logger) (bool, error) {
 	velero := oadpv1alpha1.Velero{}
@@ -43,9 +59,35 @@ func (r *VeleroReconciler) ReconcileResticDaemonset(log logr.Logger) (bool, erro
 		return false, err
 	}
 
-	var mountPropagationToHostContainer = v1.MountPropagationHostToContainer
-
 	// Define "static" portion of daemonset
+	ds := r.buildResticDaemonset(&velero)
+
+	if velero.Spec.EnableRestic != nil && !*velero.Spec.EnableRestic {
+		// If velero Spec enableRestic exists and is false, attempt to delete.
+		r.Delete(r.Context, &ds) //TODO: delete fail logic?
+		return true, nil
+	}
+
+	// Check if Daemonset already exists
+	//make a copy of ds to be used in r.Get
+	existingDS := *ds.DeepCopy()
+	if err := r.Get(r.Context, r.NamespacedName, &existingDS); err != nil {
+		if errors.IsNotFound(err) { // Daemonset not found so create Daemonset
+			if err := r.Create(r.Context, &ds); err != nil {
+				return false, err
+			}
+		}
+	} else {
+		// Daemonset found, update it.
+		if err := r.Update(r.Context, &ds); err != nil { // Update daemonset
+			return false, err
+		}
+	}
+
+	return true, nil
+}
+
+func (r *VeleroReconciler) buildResticDaemonset(velero *oadpv1alpha1.Velero) appsv1.DaemonSet {
 	ds := appsv1.DaemonSet{
 
 		ObjectMeta: metav1.ObjectMeta{
@@ -105,7 +147,7 @@ func (r *VeleroReconciler) ReconcileResticDaemonset(log logr.Logger) (bool, erro
 							// velero_image: "{{ registry }}/{{ project }}/{{ velero_repo }}"
 							// velero_version: "{{ lookup( 'env', 'VELERO_TAG') }}"
 							ImagePullPolicy: "Always",
-							Resources:       getVeleroResourceReqs(&velero), //setting default.
+							Resources:       getVeleroResourceReqs(velero), //setting default.
 							Command: []string{
 								"/velero",
 							},
@@ -114,7 +156,6 @@ func (r *VeleroReconciler) ReconcileResticDaemonset(log logr.Logger) (bool, erro
 								"server",
 							},
 							VolumeMounts: []v1.VolumeMount{
-								// v1.VolumeMount{Name: }
 								{
 									Name:             "host-pods",
 									MountPath:        "/host_pods",
@@ -166,30 +207,6 @@ func (r *VeleroReconciler) ReconcileResticDaemonset(log logr.Logger) (bool, erro
 									},
 								},
 								{
-									Name: "AWS_SHARED_CREDENTIALS_FILE",
-									ValueFrom: &v1.EnvVarSource{
-										FieldRef: &v1.ObjectFieldSelector{
-											FieldPath: "/credentials/cloud",
-										},
-									},
-								},
-								{
-									Name: "GOOGLE_APPLICATION_CREDENTIALS",
-									ValueFrom: &v1.EnvVarSource{
-										FieldRef: &v1.ObjectFieldSelector{
-											FieldPath: "/credentials-gcp/cloud",
-										},
-									},
-								},
-								{
-									Name: "AZURE_CREDENTIALS_FILE",
-									ValueFrom: &v1.EnvVarSource{
-										FieldRef: &v1.ObjectFieldSelector{
-											FieldPath: "/credentials-azure/cloud",
-										},
-									},
-								},
-								{
 									Name: "VELERO_SCRATCH_DIR",
 									ValueFrom: &v1.EnvVarSource{
 										FieldRef: &v1.ObjectFieldSelector{
@@ -229,15 +246,15 @@ func (r *VeleroReconciler) ReconcileResticDaemonset(log logr.Logger) (bool, erro
 			},
 		},
 	}
-
-	if velero.Spec.EnableRestic != nil && !*velero.Spec.EnableRestic {
-		// If velero Spec enableRestic exists and is false, attempt to delete.
-		r.Delete(r.Context, &ds) //TODO: delete fail logic?
-		return true, nil
-	}
 	// Dynamically add to daemonset definition
 	// If the default velero plugins contains cloud provider, attach VolumeSource
-	for provider, providerSecretName := range cloudProviderSecretNames {
+	var veleroContainer *v1.Container
+	for _, container := range ds.Spec.Template.Spec.Containers {
+		if container.Name == "velero" {
+			veleroContainer = &container
+		}
+	}
+	for provider, cloudProviderMap := range cloudProviderConst {
 		if contains(provider, velero.Spec.DefaultVeleroPlugins) {
 			ds.Spec.Template.Spec.Volumes = append(
 				ds.Spec.Template.Spec.Volumes,
@@ -245,31 +262,30 @@ func (r *VeleroReconciler) ReconcileResticDaemonset(log logr.Logger) (bool, erro
 					Name: string(provider),
 					VolumeSource: v1.VolumeSource{
 						Secret: &v1.SecretVolumeSource{
-							SecretName: providerSecretName,
+							SecretName: cloudProviderMap["secret-name"],
 						},
 					},
 				},
 			)
+			// Find Velero container
+			veleroContainer.VolumeMounts = append(
+				veleroContainer.VolumeMounts,
+				v1.VolumeMount{
+					Name:             cloudProviderMap["secret-name"],
+					MountPath:        cloudProviderMap["mountPath"],
+					MountPropagation: &mountPropagationToHostContainer,
+				},
+			)
+			veleroContainer.Env = append(
+				veleroContainer.Env,
+				v1.EnvVar{
+					Name:  cloudProviderMap["envCredentialsFile"],
+					Value: cloudProviderMap["mountPath"] + "/" + cloudFieldPath,
+				},
+			)
 		}
 	}
-
-	// Check if Daemonset already exists
-	//make a copy of ds to be used in r.Get
-	existingDS := *ds.DeepCopy()
-	if err := r.Get(r.Context, r.NamespacedName, &existingDS); err != nil {
-		if errors.IsNotFound(err) { // Daemonset not found so create Daemonset
-			if err := r.Create(r.Context, &ds); err != nil {
-				return false, err
-			}
-		}
-	} else {
-		// Daemonset found, check if equal.
-		if err := r.Update(r.Context, &ds); err != nil { // Update daemonset
-			return false, err
-		}
-	}
-
-	return true, nil
+	return ds
 }
 
 func getVeleroResourceReqs(velero *oadpv1alpha1.Velero) v1.ResourceRequirements {
