@@ -68,7 +68,12 @@ func (r *VeleroReconciler) ReconcileVeleroDeployment(log logr.Logger) (bool, err
 	veleroInitContainers := r.getVeleroInitContainers(&velero)
 	veleroResourceReqs := r.getVeleroResourceReqs(&velero)
 	veleroTolerations := velero.Spec.VeleroTolerations
-	veleroDeployment := &appsv1.Deployment{}
+	veleroDeployment := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      Velero,
+			Namespace: VeleroNamespace,
+		},
+	}
 
 	op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, veleroDeployment, func() error {
 
@@ -82,7 +87,7 @@ func (r *VeleroReconciler) ReconcileVeleroDeployment(log logr.Logger) (bool, err
 		}
 
 		// update the Deployment template
-		veleroDeployment = r.buildVeleroDeployment(veleroVolumeMounts, veleroVolumes, veleroEnv, veleroInitContainers, veleroResourceReqs, veleroTolerations)
+		veleroDeployment = r.buildVeleroDeployment(veleroDeployment, veleroVolumeMounts, veleroVolumes, veleroEnv, veleroInitContainers, veleroResourceReqs, veleroTolerations)
 		return nil
 	})
 
@@ -102,58 +107,52 @@ func (r *VeleroReconciler) ReconcileVeleroDeployment(log logr.Logger) (bool, err
 }
 
 // Build Velero Deployment
-func (r *VeleroReconciler) buildVeleroDeployment(veleroVolumeMounts []corev1.VolumeMount, veleroVolumes []corev1.Volume, veleroEnv []corev1.EnvVar, veleroInitContainers []corev1.Container, veleroResourceReqs corev1.ResourceRequirements, veleroTolerations []corev1.Toleration) *appsv1.Deployment {
+func (r *VeleroReconciler) buildVeleroDeployment(veleroDeployment *appsv1.Deployment, veleroVolumeMounts []corev1.VolumeMount, veleroVolumes []corev1.Volume, veleroEnv []corev1.EnvVar, veleroInitContainers []corev1.Container, veleroResourceReqs corev1.ResourceRequirements, veleroTolerations []corev1.Toleration) *appsv1.Deployment {
 
-	deployment := appsv1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      Velero,
-			Namespace: VeleroNamespace,
-		},
-		Spec: appsv1.DeploymentSpec{
-			//TODO: add velero nodeselector, needs to be added to the Velero CR first
-			Replicas: pointer.Int32(1),
-			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{
-						"component": Velero,
-					},
-					Annotations: map[string]string{
-						"prometheus.io/scrape": "true",
-						"prometheus.io/port":   "8085",
-						"prometheus.io/path":   "/metrics",
-					},
+	veleroDeployment.Spec = appsv1.DeploymentSpec{
+		//TODO: add velero nodeselector, needs to be added to the Velero CR first
+		Replicas: pointer.Int32(1),
+		Template: corev1.PodTemplateSpec{
+			ObjectMeta: metav1.ObjectMeta{
+				Labels: map[string]string{
+					"component": Velero,
 				},
-				Spec: corev1.PodSpec{
-					RestartPolicy:      corev1.RestartPolicyAlways,
-					ServiceAccountName: Velero,
-					Tolerations:        veleroTolerations,
-					Containers: []corev1.Container{
-						{
-							Name:  Velero,
-							Image: VELERO_IMAGE,
-							//TODO: Make the image policy parametrized
-							ImagePullPolicy: corev1.PullAlways,
-							Ports: []corev1.ContainerPort{
-								{
-									Name:          "metrics",
-									ContainerPort: 8085,
-								},
+				Annotations: map[string]string{
+					"prometheus.io/scrape": "true",
+					"prometheus.io/port":   "8085",
+					"prometheus.io/path":   "/metrics",
+				},
+			},
+			Spec: corev1.PodSpec{
+				RestartPolicy:      corev1.RestartPolicyAlways,
+				ServiceAccountName: Velero,
+				Tolerations:        veleroTolerations,
+				Containers: []corev1.Container{
+					{
+						Name:  Velero,
+						Image: VELERO_IMAGE,
+						//TODO: Make the image policy parametrized
+						ImagePullPolicy: corev1.PullAlways,
+						Ports: []corev1.ContainerPort{
+							{
+								Name:          "metrics",
+								ContainerPort: 8085,
 							},
-							Resources: veleroResourceReqs,
-							Command:   []string{"/velero"},
-							//TODO: Parametrize restic timeout, Features flag as well as Velero debug flag
-							Args:         []string{"server", "--restic-timeout", "1h"},
-							VolumeMounts: veleroVolumeMounts,
-							Env:          veleroEnv,
 						},
+						Resources: veleroResourceReqs,
+						Command:   []string{"/velero"},
+						//TODO: Parametrize restic timeout, Features flag as well as Velero debug flag
+						Args:         []string{"server", "--restic-timeout", "1h"},
+						VolumeMounts: veleroVolumeMounts,
+						Env:          veleroEnv,
 					},
-					Volumes:        veleroVolumes,
-					InitContainers: veleroInitContainers,
 				},
+				Volumes:        veleroVolumes,
+				InitContainers: veleroInitContainers,
 			},
 		},
 	}
-	return &deployment
+	return veleroDeployment
 }
 
 // Get Velero Resource Requirements
