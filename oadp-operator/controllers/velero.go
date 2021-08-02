@@ -66,10 +66,10 @@ func (r *VeleroReconciler) ReconcileVeleroDeployment(log logr.Logger) (bool, err
 	veleroDeployment := r.buildVeleroDeployment(&velero)
 
 	// Create or Update Velero Deployment
-	op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, &veleroDeployment, func() error {
+	op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, veleroDeployment, func() error {
 
 		// Set controller reference to Velero controller
-		err := controllerutil.SetControllerReference(&velero, &veleroDeployment, r.Scheme)
+		err := controllerutil.SetControllerReference(&velero, veleroDeployment, r.Scheme)
 		if err != nil {
 			return err
 		}
@@ -86,7 +86,7 @@ func (r *VeleroReconciler) ReconcileVeleroDeployment(log logr.Logger) (bool, err
 
 	if op == controllerutil.OperationResultCreated || op == controllerutil.OperationResultUpdated {
 		// Trigger event to indicate Velero Deployment was created or updated
-		r.EventRecorder.Event(&veleroDeployment,
+		r.EventRecorder.Event(veleroDeployment,
 			corev1.EventTypeNormal,
 			"VeleroDeploymentReconciled",
 			fmt.Sprintf("performed %s on velero deployment %s/%s", op, veleroDeployment.Namespace, veleroDeployment.Name),
@@ -96,7 +96,7 @@ func (r *VeleroReconciler) ReconcileVeleroDeployment(log logr.Logger) (bool, err
 }
 
 // Build Velero Deployment
-func (r *VeleroReconciler) buildVeleroDeployment(velero *oadpv1alpha1.Velero) appsv1.Deployment {
+func (r *VeleroReconciler) buildVeleroDeployment(velero *oadpv1alpha1.Velero) *appsv1.Deployment {
 
 	veleroVolumeMounts := r.getVeleroVolumeMounts(velero)
 	veleroVolumes := r.getVeleroVolumes(velero)
@@ -158,7 +158,7 @@ func (r *VeleroReconciler) buildVeleroDeployment(velero *oadpv1alpha1.Velero) ap
 			},
 		},
 	}
-	return deployment
+	return &deployment
 }
 
 // Get Velero Resource Requirements
