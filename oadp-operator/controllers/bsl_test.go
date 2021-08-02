@@ -13,6 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/record"
+	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
@@ -132,119 +133,71 @@ func newContextForTest(name string) context.Context {
 	return context.TODO()
 }
 
-func TestVeleroReconciler_ReconcileBackupStorageLocations(t *testing.T) {
+func TestVeleroReconciler_updateBSLFromSpec(t *testing.T) {
 	tests := []struct {
-		name     string
-		objs     []client.Object
-		wantBSLs []velerov1.BackupStorageLocation
-		want     bool
-		wantErr  bool
+		name    string
+		bsl     *velerov1.BackupStorageLocation
+		velero  *oadpv1alpha1.Velero
+		wantErr bool
 	}{
 		{
-			name: "test 1 BSLs configured, create, no noobaa",
-			objs: []client.Object{
-				&oadpv1alpha1.Velero{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "foo",
-						Namespace: "bar",
-					},
-					Spec: oadpv1alpha1.VeleroSpec{
-						BackupStorageLocations: []velerov1.BackupStorageLocationSpec{
-							{
-								Provider: "foo",
-							},
-						},
-					},
+			name: "BSL without owner reference and labels",
+			bsl: &velerov1.BackupStorageLocation{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo-1",
+					Namespace: "bar",
 				},
 			},
-			wantErr: false,
-			want:    true,
-			wantBSLs: []velerov1.BackupStorageLocation{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "foo-1",
-						Namespace: "bar",
-					},
-					Spec: velerov1.BackupStorageLocationSpec{
-						Provider: "foo",
-					},
-				},
-			},
-		},
-		{
-			name: "test 1 BSLs configured, updated, no noobaa",
-			objs: []client.Object{
-				&oadpv1alpha1.Velero{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "foo",
-						Namespace: "bar",
-					},
-					Spec: oadpv1alpha1.VeleroSpec{
-						BackupStorageLocations: []velerov1.BackupStorageLocationSpec{
-							{
-								Provider: "foo",
-							},
-						},
-					},
-				},
-				&velerov1.BackupStorageLocation{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "foo-1",
-						Namespace: "bar",
-					},
-				},
-			},
-			wantErr: false,
-			want:    true,
-			wantBSLs: []velerov1.BackupStorageLocation{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "foo-1",
-						Namespace: "bar",
-					},
-					Spec: velerov1.BackupStorageLocationSpec{
-						Provider: "foo",
-					},
+			velero: &oadpv1alpha1.Velero{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "bar",
 				},
 			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			fakeClient, err := getFakeClientFromObjects(tt.objs...)
+			scheme, err := getSchemeForFakeClient()
 			if err != nil {
-				t.Errorf("error in creating fake client, likely programmer error")
+				t.Errorf("error getting scheme for the test: %#v", err)
 			}
-			fakeRecorder := record.NewFakeRecorder(10)
 			r := &VeleroReconciler{
-				Client:  fakeClient,
-				Scheme:  fakeClient.Scheme(),
-				Log:     logr.Discard(),
-				Context: newContextForTest(tt.name),
-				NamespacedName: types.NamespacedName{
-					Namespace: tt.objs[0].GetNamespace(),
-					Name:      tt.objs[0].GetName(),
-				},
-				EventRecorder: fakeRecorder,
-			}
-			got, err := r.ReconcileBackupStorageLocations(r.Log)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("ReconcileBackupStorageLocations() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if got != tt.want {
-				t.Errorf("ReconcileBackupStorageLocations() got = %v, want %v", got, tt.want)
+				Scheme: scheme,
 			}
 
-			for _, obj := range tt.wantBSLs {
-				gotObj := velerov1.BackupStorageLocation{}
-				err := fakeClient.Get(r.Context, client.ObjectKey{Namespace: obj.GetNamespace(), Name: obj.GetName()}, &gotObj)
-				if err != nil {
-					t.Errorf("error getting bsl for asserting, %#v", err)
-				}
-				if gotObj.Namespace != obj.Namespace && gotObj.Name != obj.Name && reflect.DeepEqual(gotObj.Spec, obj.Spec) && len(gotObj.OwnerReferences) == 0 {
-					t.Errorf("got %#v, want %#v, with owner reference", gotObj, obj)
-				}
+			wantBSl := &velerov1.BackupStorageLocation{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo-1",
+					Namespace: "bar",
+					Labels: map[string]string{
+						"app.kubernetes.io/name":     "oadp-operator-velero",
+						"app.kubernetes.io/instance": tt.velero.Name + "-1",
+						//"app.kubernetes.io/version":    "x.y.z",
+						"app.kubernetes.io/managed-by": "oadp-operator",
+						"app.kubernetes.io/component":  "bsl",
+					},
+					OwnerReferences: []metav1.OwnerReference{{
+						APIVersion:         oadpv1alpha1.SchemeBuilder.GroupVersion.String(),
+						Kind:               "Velero",
+						Name:               tt.velero.Name,
+						UID:                tt.velero.UID,
+						Controller:         pointer.BoolPtr(true),
+						BlockOwnerDeletion: pointer.BoolPtr(true),
+					}},
+				},
+			}
+
+			err = r.updateBSLFromSpec(tt.bsl, tt.velero)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("updateBSLFromSpec() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(tt.bsl.Labels, wantBSl.Labels) {
+				t.Errorf("expected bsl labels to be %#v, got %#v", wantBSl.Labels, tt.bsl.Labels)
+			}
+			if !reflect.DeepEqual(tt.bsl.OwnerReferences, wantBSl.OwnerReferences) {
+				t.Errorf("expected bsl owner references to be %#v, got %#v", wantBSl.OwnerReferences, tt.bsl.OwnerReferences)
 			}
 		})
 	}
