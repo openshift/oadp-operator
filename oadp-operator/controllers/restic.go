@@ -64,7 +64,7 @@ func (r *VeleroReconciler) ReconcileResticDaemonset(log logr.Logger) (bool, erro
 
 	if velero.Spec.EnableRestic != nil && !*velero.Spec.EnableRestic {
 		// If velero Spec enableRestic exists and is false, attempt to delete.
-		r.Delete(r.Context, &ds) //TODO: delete fail logic?
+		r.Delete(r.Context, ds) //TODO: delete fail logic?
 		return true, nil
 	}
 
@@ -73,13 +73,13 @@ func (r *VeleroReconciler) ReconcileResticDaemonset(log logr.Logger) (bool, erro
 	existingDS := *ds.DeepCopy()
 	if err := r.Get(r.Context, r.NamespacedName, &existingDS); err != nil {
 		if errors.IsNotFound(err) { // Daemonset not found so create Daemonset
-			if err := r.Create(r.Context, &ds); err != nil {
+			if err := r.Create(r.Context, ds); err != nil {
 				return false, err
 			}
 		}
 	} else {
 		// Daemonset found, update it.
-		if err := r.Update(r.Context, &ds); err != nil { // Update daemonset
+		if err := r.Update(r.Context, ds); err != nil { // Update daemonset
 			return false, err
 		}
 	}
@@ -87,7 +87,7 @@ func (r *VeleroReconciler) ReconcileResticDaemonset(log logr.Logger) (bool, erro
 	return true, nil
 }
 
-func (r *VeleroReconciler) buildResticDaemonset(velero *oadpv1alpha1.Velero) appsv1.DaemonSet {
+func (r *VeleroReconciler) buildResticDaemonset(velero *oadpv1alpha1.Velero) *appsv1.DaemonSet {
 	ds := appsv1.DaemonSet{
 
 		ObjectMeta: metav1.ObjectMeta{
@@ -285,7 +285,7 @@ func (r *VeleroReconciler) buildResticDaemonset(velero *oadpv1alpha1.Velero) app
 			)
 		}
 	}
-	return ds
+	return &ds
 }
 
 func getVeleroResourceReqs(velero *oadpv1alpha1.Velero) v1.ResourceRequirements {
