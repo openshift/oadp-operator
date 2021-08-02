@@ -1,15 +1,14 @@
 package controllers
 
 import (
-	"context"
+	"fmt"
 	"github.com/go-logr/logr"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"reflect"
-	k8sclient "sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	"k8s.io/utils/pointer"
 )
@@ -69,81 +68,37 @@ func (r *VeleroReconciler) ReconcileVeleroDeployment(log logr.Logger) (bool, err
 	veleroInitContainers := r.getVeleroInitContainers(&velero)
 	veleroResourceReqs := r.getVeleroResourceReqs(&velero)
 	veleroTolerations := velero.Spec.VeleroTolerations
+	veleroDeployment := &appsv1.Deployment{}
 
-	// Build Velero Deployment
-	newVeleroDeployment := r.buildVeleroDeployment(veleroVolumeMounts, veleroVolumes, veleroEnv, veleroInitContainers, veleroResourceReqs, veleroTolerations)
+	op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, veleroDeployment, func() error {
 
-	// Get existing Velero Deployment if any
-	existingVeleroDeployment, err := GetVeleroDeployment(r.Client)
-
-	if err != nil {
-		return false, err
-	}
-
-	// If no Velero Deployment exists then create one
-	if existingVeleroDeployment == nil {
-		err = r.Client.Create(context.TODO(), newVeleroDeployment)
-		if err != nil {
-			return false, err
+		// Setting Deployment selector if a new object is created as it is immutable
+		if veleroDeployment.ObjectMeta.CreationTimestamp.IsZero() {
+			veleroDeployment.Spec.Selector = &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"component": Velero,
+				},
+			}
 		}
-		return true, nil
-	}
 
-	// If Velero Deployment exists check if it meets the requirements specified
-	if r.EqualsDeployment(existingVeleroDeployment, newVeleroDeployment) {
-		return true, nil
-	}
+		// update the Deployment template
+		veleroDeployment = r.buildVeleroDeployment(veleroVolumeMounts, veleroVolumes, veleroEnv, veleroInitContainers, veleroResourceReqs, veleroTolerations)
+		return nil
+	})
 
-	// Update the Velero Deployment if it already exists
-	err = r.Client.Update(context.TODO(), existingVeleroDeployment)
 	if err != nil {
 		return false, err
 	}
 
+	if op == controllerutil.OperationResultCreated || op == controllerutil.OperationResultUpdated {
+		// Trigger event to indicate velero deployment was created or updated
+		r.EventRecorder.Event(veleroDeployment,
+			corev1.EventTypeNormal,
+			"VeleroDeploymentReconciled",
+			fmt.Sprintf("performed %s on velero deployment %s/%s", op, veleroDeployment.Namespace, veleroDeployment.Name),
+		)
+	}
 	return true, nil
-}
-
-func GetVeleroDeployment(client k8sclient.Client) (*appsv1.Deployment, error) {
-	deploymentList := appsv1.DeploymentList{}
-	labels := map[string]string{
-		"component": Velero,
-	}
-
-	err := client.List(context.TODO(), &deploymentList, k8sclient.MatchingLabels(labels))
-
-	if err != nil {
-		return nil, err
-	}
-
-	if len(deploymentList.Items) > 0 {
-		return &deploymentList.Items[0], nil
-	}
-
-	return nil, nil
-}
-
-// Checks if two Deployments are equal
-func (r *VeleroReconciler) EqualsDeployment(a, b *appsv1.Deployment) bool {
-	if !(reflect.DeepEqual(a.Spec.Replicas, b.Spec.Replicas) &&
-		reflect.DeepEqual(a.Spec.Selector, b.Spec.Selector) &&
-		reflect.DeepEqual(a.Spec.Template.ObjectMeta, b.Spec.Template.ObjectMeta) &&
-		reflect.DeepEqual(a.Spec.Template.Spec.Volumes, b.Spec.Template.Spec.Volumes) &&
-		len(a.Spec.Template.Spec.Containers) == len(b.Spec.Template.Spec.Containers)) {
-		return false
-	}
-	for i, container := range a.Spec.Template.Spec.Containers {
-		if !(reflect.DeepEqual(container.Env, b.Spec.Template.Spec.Containers[i].Env) &&
-			reflect.DeepEqual(container.Name, b.Spec.Template.Spec.Containers[i].Name) &&
-			reflect.DeepEqual(container.Ports, b.Spec.Template.Spec.Containers[i].Ports) &&
-			reflect.DeepEqual(container.LivenessProbe, b.Spec.Template.Spec.Containers[i].LivenessProbe) &&
-			reflect.DeepEqual(container.ReadinessProbe, b.Spec.Template.Spec.Containers[i].ReadinessProbe) &&
-			reflect.DeepEqual(container.TerminationMessagePolicy, b.Spec.Template.Spec.Containers[i].TerminationMessagePolicy) &&
-			reflect.DeepEqual(container.Image, b.Spec.Template.Spec.Containers[i].Image) &&
-			reflect.DeepEqual(container.VolumeMounts, b.Spec.Template.Spec.Containers[i].VolumeMounts)) {
-			return false
-		}
-	}
-	return true
 }
 
 // Build Velero Deployment
@@ -156,11 +111,6 @@ func (r *VeleroReconciler) buildVeleroDeployment(veleroVolumeMounts []corev1.Vol
 		},
 		Spec: appsv1.DeploymentSpec{
 			//TODO: add velero nodeselector, needs to be added to the Velero CR first
-			Selector: &metav1.LabelSelector{
-				MatchLabels: map[string]string{
-					"component": Velero,
-				},
-			},
 			Replicas: pointer.Int32(1),
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
