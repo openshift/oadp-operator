@@ -14,8 +14,10 @@ import (
 )
 
 const (
-	Velero          = "velero"
-	VeleroNamespace = "oadp-operator"
+	VELERO        = "velero"
+	VELERO_NS     = "oadp-operator"
+	OADP_OPERATOR = "oadp-operator"
+	SERVER        = "server"
 	//TODO: Check for default secret names
 	VELERO_AWS_SECRET_NAME   = "cloud-credentials"
 	VELERO_AZURE_SECRET_NAME = "cloud-credentials-azure"
@@ -68,10 +70,11 @@ func (r *VeleroReconciler) ReconcileVeleroDeployment(log logr.Logger) (bool, err
 	veleroInitContainers := r.getVeleroInitContainers(&velero)
 	veleroResourceReqs := r.getVeleroResourceReqs(&velero)
 	veleroTolerations := velero.Spec.VeleroTolerations
+	veleroLabels := r.getAppLabels(&velero)
 	veleroDeployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      Velero,
-			Namespace: VeleroNamespace,
+			Name:      VELERO,
+			Namespace: VELERO_NS,
 		},
 	}
 
@@ -81,7 +84,7 @@ func (r *VeleroReconciler) ReconcileVeleroDeployment(log logr.Logger) (bool, err
 		if veleroDeployment.ObjectMeta.CreationTimestamp.IsZero() {
 			veleroDeployment.Spec.Selector = &metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					"component": Velero,
+					"component": VELERO,
 				},
 			}
 		}
@@ -93,7 +96,7 @@ func (r *VeleroReconciler) ReconcileVeleroDeployment(log logr.Logger) (bool, err
 		}
 
 		// update the Deployment template
-		veleroDeployment = r.buildVeleroDeployment(veleroDeployment, veleroVolumeMounts, veleroVolumes, veleroEnv, veleroInitContainers, veleroResourceReqs, veleroTolerations)
+		veleroDeployment = r.buildVeleroDeployment(veleroDeployment, veleroLabels, veleroVolumeMounts, veleroVolumes, veleroEnv, veleroInitContainers, veleroResourceReqs, veleroTolerations)
 		return nil
 	})
 
@@ -114,16 +117,18 @@ func (r *VeleroReconciler) ReconcileVeleroDeployment(log logr.Logger) (bool, err
 	return true, nil
 }
 
-// Build Velero Deployment
-func (r *VeleroReconciler) buildVeleroDeployment(veleroDeployment *appsv1.Deployment, veleroVolumeMounts []corev1.VolumeMount, veleroVolumes []corev1.Volume, veleroEnv []corev1.EnvVar, veleroInitContainers []corev1.Container, veleroResourceReqs corev1.ResourceRequirements, veleroTolerations []corev1.Toleration) *appsv1.Deployment {
+// Build VELERO Deployment
+func (r *VeleroReconciler) buildVeleroDeployment(veleroDeployment *appsv1.Deployment, veleroLabels map[string]string, veleroVolumeMounts []corev1.VolumeMount, veleroVolumes []corev1.Volume, veleroEnv []corev1.EnvVar, veleroInitContainers []corev1.Container, veleroResourceReqs corev1.ResourceRequirements, veleroTolerations []corev1.Toleration) *appsv1.Deployment {
+
+	veleroDeployment.Labels = veleroLabels
 
 	veleroDeployment.Spec = appsv1.DeploymentSpec{
-		//TODO: add velero nodeselector, needs to be added to the Velero CR first
+		//TODO: add velero nodeselector, needs to be added to the VELERO CR first
 		Replicas: pointer.Int32(1),
 		Template: corev1.PodTemplateSpec{
 			ObjectMeta: metav1.ObjectMeta{
 				Labels: map[string]string{
-					"component": Velero,
+					"component": VELERO,
 				},
 				Annotations: map[string]string{
 					"prometheus.io/scrape": "true",
@@ -133,11 +138,11 @@ func (r *VeleroReconciler) buildVeleroDeployment(veleroDeployment *appsv1.Deploy
 			},
 			Spec: corev1.PodSpec{
 				RestartPolicy:      corev1.RestartPolicyAlways,
-				ServiceAccountName: Velero,
+				ServiceAccountName: VELERO,
 				Tolerations:        veleroTolerations,
 				Containers: []corev1.Container{
 					{
-						Name:  Velero,
+						Name:  VELERO,
 						Image: VELERO_IMAGE,
 						//TODO: Make the image policy parametrized
 						ImagePullPolicy: corev1.PullAlways,
@@ -149,7 +154,7 @@ func (r *VeleroReconciler) buildVeleroDeployment(veleroDeployment *appsv1.Deploy
 						},
 						Resources: veleroResourceReqs,
 						Command:   []string{"/velero"},
-						//TODO: Parametrize restic timeout, Features flag as well as Velero debug flag
+						//TODO: Parametrize restic timeout, Features flag as well as VELERO debug flag
 						Args:         []string{"server", "--restic-timeout", "1h"},
 						VolumeMounts: veleroVolumeMounts,
 						Env:          veleroEnv,
@@ -163,7 +168,17 @@ func (r *VeleroReconciler) buildVeleroDeployment(veleroDeployment *appsv1.Deploy
 	return veleroDeployment
 }
 
-// Get Velero Resource Requirements
+func (r *VeleroReconciler) getAppLabels(velero *oadpv1alpha1.Velero) map[string]string {
+	labels := map[string]string{
+		"app.kubernetes.io/name":       VELERO,
+		"app.kubernetes.io/instance":   velero.Name,
+		"app.kubernetes.io/managed-by": OADP_OPERATOR,
+		"app.kubernetes.io/component":  SERVER,
+	}
+	return labels
+}
+
+// Get VELERO Resource Requirements
 func (r *VeleroReconciler) getVeleroResourceReqs(velero *oadpv1alpha1.Velero) corev1.ResourceRequirements {
 
 	ResourcesReqs := corev1.ResourceRequirements{}
@@ -172,7 +187,7 @@ func (r *VeleroReconciler) getVeleroResourceReqs(velero *oadpv1alpha1.Velero) co
 
 	if velero != nil {
 
-		// Set custom limits and requests values if defined on Velero Spec
+		// Set custom limits and requests values if defined on VELERO Spec
 		if velero.Spec.VeleroResourceAllocations.Requests != nil {
 			ResourceReqsRequests[corev1.ResourceCPU] = resource.MustParse(velero.Spec.VeleroResourceAllocations.Requests.Cpu().String())
 			ResourceReqsRequests[corev1.ResourceMemory] = resource.MustParse(velero.Spec.VeleroResourceAllocations.Requests.Memory().String())
@@ -261,7 +276,7 @@ func (r *VeleroReconciler) getVeleroEnv(velero *oadpv1alpha1.Velero) []corev1.En
 		},
 		{
 			Name:  VELERO_NAMESPACE,
-			Value: VeleroNamespace,
+			Value: VELERO_NS,
 		},
 		{
 			Name:  VELERO_SCRATCH_DIR,
