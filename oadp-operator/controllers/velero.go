@@ -24,14 +24,14 @@ const (
 	VELERO_GCP_SECRET_NAME   = "cloud-credentials-gcp"
 )
 
-// Environment Vars
+// Environment Vars keys
 const (
-	LD_LIBRARY_PATH               = "LD_LIBRARY_PATH"
-	VELERO_NAMESPACE              = "VELERO_NAMESPACE"
-	VELERO_SCRATCH_DIR            = "VELERO_SCRATCH_DIR"
-	AWS_SHARED_CREDENTIALS_FILE   = "AWS_SHARED_CREDENTIALS_FILE"
-	AZURE_SHARED_CREDENTIALS_FILE = "AZURE_SHARED_CREDENTIALS_FILE"
-	GCP_SHARED_CREDENTIALS_FILE   = "GCP_SHARED_CREDENTIALS_FILE"
+	LD_LIBRARY_PATH_ENV_KEY               = "LD_LIBRARY_PATH_ENV_KEY"
+	VELERO_NAMESPACE_ENV_KEY              = "VELERO_NAMESPACE_ENV_KEY"
+	VELERO_SCRATCH_DIR_ENV_KEY            = "VELERO_SCRATCH_DIR_ENV_KEY"
+	AWS_SHARED_CREDENTIALS_FILE_ENV_KEY   = "AWS_SHARED_CREDENTIALS_FILE_ENV_KEY"
+	AZURE_SHARED_CREDENTIALS_FILE_ENV_KEY = "AZURE_SHARED_CREDENTIALS_FILE_ENV_KEY"
+	GCP_SHARED_CREDENTIALS_FILE_ENV_KEY   = "GCP_SHARED_CREDENTIALS_FILE_ENV_KEY"
 	//TODO: Add Proxy env vars
 	HTTP_PROXY  = "HTTP_PROXY"
 	HTTPS_PROXY = "HTTPS_PROXY"
@@ -64,13 +64,6 @@ func (r *VeleroReconciler) ReconcileVeleroDeployment(log logr.Logger) (bool, err
 		return false, err
 	}
 
-	veleroVolumeMounts := r.getVeleroVolumeMounts(&velero)
-	veleroVolumes := r.getVeleroVolumes(&velero)
-	veleroEnv := r.getVeleroEnv(&velero)
-	veleroInitContainers := r.getVeleroInitContainers(&velero)
-	veleroResourceReqs := r.getVeleroResourceReqs(&velero)
-	veleroTolerations := velero.Spec.VeleroTolerations
-	veleroLabels := r.getAppLabels(&velero)
 	veleroDeployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      VELERO,
@@ -96,7 +89,7 @@ func (r *VeleroReconciler) ReconcileVeleroDeployment(log logr.Logger) (bool, err
 		}
 
 		// update the Deployment template
-		veleroDeployment = r.buildVeleroDeployment(veleroDeployment, veleroLabels, veleroVolumeMounts, veleroVolumes, veleroEnv, veleroInitContainers, veleroResourceReqs, veleroTolerations)
+		veleroDeployment = r.buildVeleroDeployment(veleroDeployment, &velero)
 		return nil
 	})
 
@@ -118,9 +111,9 @@ func (r *VeleroReconciler) ReconcileVeleroDeployment(log logr.Logger) (bool, err
 }
 
 // Build VELERO Deployment
-func (r *VeleroReconciler) buildVeleroDeployment(veleroDeployment *appsv1.Deployment, veleroLabels map[string]string, veleroVolumeMounts []corev1.VolumeMount, veleroVolumes []corev1.Volume, veleroEnv []corev1.EnvVar, veleroInitContainers []corev1.Container, veleroResourceReqs corev1.ResourceRequirements, veleroTolerations []corev1.Toleration) *appsv1.Deployment {
+func (r *VeleroReconciler) buildVeleroDeployment(veleroDeployment *appsv1.Deployment, velero *oadpv1alpha1.Velero) *appsv1.Deployment {
 
-	veleroDeployment.Labels = veleroLabels
+	veleroDeployment.Labels = r.getAppLabels(velero)
 
 	veleroDeployment.Spec = appsv1.DeploymentSpec{
 		//TODO: add velero nodeselector, needs to be added to the VELERO CR first
@@ -139,7 +132,7 @@ func (r *VeleroReconciler) buildVeleroDeployment(veleroDeployment *appsv1.Deploy
 			Spec: corev1.PodSpec{
 				RestartPolicy:      corev1.RestartPolicyAlways,
 				ServiceAccountName: VELERO,
-				Tolerations:        veleroTolerations,
+				Tolerations:        velero.Spec.VeleroTolerations,
 				Containers: []corev1.Container{
 					{
 						Name:  VELERO,
@@ -152,16 +145,16 @@ func (r *VeleroReconciler) buildVeleroDeployment(veleroDeployment *appsv1.Deploy
 								ContainerPort: 8085,
 							},
 						},
-						Resources: veleroResourceReqs,
+						Resources: r.getVeleroResourceReqs(velero),
 						Command:   []string{"/velero"},
 						//TODO: Parametrize restic timeout, Features flag as well as VELERO debug flag
 						Args:         []string{"server", "--restic-timeout", "1h"},
-						VolumeMounts: veleroVolumeMounts,
-						Env:          veleroEnv,
+						VolumeMounts: r.getVeleroVolumeMounts(velero),
+						Env:          r.getVeleroEnv(velero),
 					},
 				},
-				Volumes:        veleroVolumes,
-				InitContainers: veleroInitContainers,
+				Volumes:        r.getVeleroVolumes(velero),
+				InitContainers: r.getVeleroInitContainers(velero),
 			},
 		},
 	}
@@ -271,30 +264,30 @@ func (r *VeleroReconciler) getVeleroEnv(velero *oadpv1alpha1.Velero) []corev1.En
 	// add default Env vars
 	envVars := []corev1.EnvVar{
 		{
-			Name:  LD_LIBRARY_PATH,
+			Name:  LD_LIBRARY_PATH_ENV_KEY,
 			Value: "/plugins",
 		},
 		{
-			Name:  VELERO_NAMESPACE,
+			Name:  VELERO_NAMESPACE_ENV_KEY,
 			Value: VELERO_NS,
 		},
 		{
-			Name:  VELERO_SCRATCH_DIR,
+			Name:  VELERO_SCRATCH_DIR_ENV_KEY,
 			Value: "/scratch",
 		},
 		//TODO: Add the PROXY VARS
 	}
 
 	awsPluginEnvVar := corev1.EnvVar{
-		Name:  AWS_SHARED_CREDENTIALS_FILE,
+		Name:  AWS_SHARED_CREDENTIALS_FILE_ENV_KEY,
 		Value: "/credentials/cloud",
 	}
 	azurePluginEnvVar := corev1.EnvVar{
-		Name:  AZURE_SHARED_CREDENTIALS_FILE,
+		Name:  AZURE_SHARED_CREDENTIALS_FILE_ENV_KEY,
 		Value: "/credentials-azure/cloud",
 	}
 	gcpPluginEnvVar := corev1.EnvVar{
-		Name:  GCP_SHARED_CREDENTIALS_FILE,
+		Name:  GCP_SHARED_CREDENTIALS_FILE_ENV_KEY,
 		Value: "/credentials-gcp/cloud",
 	}
 
