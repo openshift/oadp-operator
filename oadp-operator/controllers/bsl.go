@@ -3,6 +3,7 @@ package controllers
 import (
 	"errors"
 	"fmt"
+
 	"github.com/go-logr/logr"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
@@ -48,15 +49,11 @@ func (r *VeleroReconciler) ReconcileBackupStorageLocations(log logr.Logger) (boo
 			// well and taking ownership. If so move this to
 			// SetOwnerReference instead
 
-			// Set controller reference to Velero controller
-			err := controllerutil.SetControllerReference(&velero, &bsl, r.Scheme)
-			if err != nil {
-				return err
-			}
 			// TODO: check for BSL status condition errors and respond here
 
-			bsl.Spec = bslSpec
-			return nil
+			err := r.updateBSLFromSpec(&bsl, &velero)
+
+			return err
 		})
 		if err != nil {
 			return false, err
@@ -71,4 +68,22 @@ func (r *VeleroReconciler) ReconcileBackupStorageLocations(log logr.Logger) (boo
 		}
 	}
 	return true, nil
+}
+
+func (r *VeleroReconciler) updateBSLFromSpec(bsl *velerov1.BackupStorageLocation, velero *oadpv1alpha1.Velero) error {
+	// Set controller reference to Velero controller
+	err := controllerutil.SetControllerReference(velero, bsl, r.Scheme)
+	if err != nil {
+		return err
+	}
+
+	bsl.Labels = map[string]string{
+		"app.kubernetes.io/name":     "oadp-operator-velero",
+		"app.kubernetes.io/instance": bsl.Name,
+		//"app.kubernetes.io/version":    "x.y.z",
+		"app.kubernetes.io/managed-by": "oadp-operator",
+		"app.kubernetes.io/component":  "bsl",
+	}
+
+	return nil
 }
