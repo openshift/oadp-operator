@@ -14,48 +14,48 @@ import (
 )
 
 const (
-	VELERO        = "velero"
-	VELERO_NS     = "oadp-operator"
-	OADP_OPERATOR = "oadp-operator"
-	SERVER        = "server"
+	Velero         = "velero"
+	VeleoNamespace = "oadp-operator"
+	OADPOperator   = "oadp-operator"
+	Server         = "server"
 	//TODO: Check for default secret names
-	VELERO_AWS_SECRET_NAME   = "cloud-credentials"
-	VELERO_AZURE_SECRET_NAME = "cloud-credentials-azure"
-	VELERO_GCP_SECRET_NAME   = "cloud-credentials-gcp"
+	VeleroAWSSecretName   = "cloud-credentials"
+	VeleroAzureSecretName = "cloud-credentials-azure"
+	VeleroGCPSecretName   = "cloud-credentials-gcp"
 )
 
 // Environment Vars keys
 const (
-	LD_LIBRARY_PATH_ENV_KEY               = "LD_LIBRARY_PATH_ENV_KEY"
-	VELERO_NAMESPACE_ENV_KEY              = "VELERO_NAMESPACE_ENV_KEY"
-	VELERO_SCRATCH_DIR_ENV_KEY            = "VELERO_SCRATCH_DIR_ENV_KEY"
-	AWS_SHARED_CREDENTIALS_FILE_ENV_KEY   = "AWS_SHARED_CREDENTIALS_FILE_ENV_KEY"
-	AZURE_SHARED_CREDENTIALS_FILE_ENV_KEY = "AZURE_SHARED_CREDENTIALS_FILE_ENV_KEY"
-	GCP_SHARED_CREDENTIALS_FILE_ENV_KEY   = "GCP_SHARED_CREDENTIALS_FILE_ENV_KEY"
+	LDLibraryPathEnvKey              = "LD_LIBRARY_PATH"
+	VeleroNamespaceEnvKey            = "VELERO_NAMESPACE"
+	VeleroScratchDirEnvKey           = "VELERO_SCRATCH_DIR"
+	AWSSharedCredentialsFileEnvKey   = "AWS_SHARED_CREDENTIALS_FILE"
+	AzureSharedCredentialsFileEnvKey = "AZURE_SHARED_CREDENTIALS_FILE"
+	GCPSharedCredentialsFileEnvKey   = "GCP_SHARED_CREDENTIALS_FILE"
 	//TODO: Add Proxy env vars
-	HTTP_PROXY  = "HTTP_PROXY"
-	HTTPS_PROXY = "HTTPS_PROXY"
-	NO_PROXY    = "NO_PROXY"
+	HTTPProxyEnvVar  = "HTTP_PROXY"
+	HTTPSProxyEnvVar = "HTTPS_PROXY"
+	NoProxyEnvVar    = "NO_PROXY"
 )
 
 //TODO: Add Image customization options
 // Images
 const (
-	VELERO_IMAGE           = "quay.io/konveyor/velero:latest"
-	OPENSHIFT_PLUGIN_IMAGE = "quay.io/konveyor/openshift-velero-plugins:latest"
-	AWS_PLUGIN_IMAGE       = "quay.io/konveyor/velero-plugin-for-aws:latest"
-	AZURE_PLUGIN_IMAGE     = "quay.io/konveyor/velero-plugin-for-microsoft-azure:latest"
-	GCP_PLUGIN_IMAGE       = "quay.io/konveyor/velero-plugin-for-gcp:latest"
-	CSI_PLUGIN_IMAGE       = "quay.io/konveyor/velero-plugin-for-csi:latest"
+	VeleroImage          = "quay.io/konveyor/velero:latest"
+	OpenshiftPluginImage = "quay.io/konveyor/openshift-velero-plugins:latest"
+	AWSPluginImage       = "quay.io/konveyor/velero-plugin-for-aws:latest"
+	AzurePluginImage     = "quay.io/konveyor/velero-plugin-for-microsoft-azure:latest"
+	GCPPluginImage       = "quay.io/konveyor/velero-plugin-for-gcp:latest"
+	CSIPluginImage       = "quay.io/konveyor/velero-plugin-for-csi:latest"
 )
 
 // Plugin names
 const (
-	VELERO_PLUGIN_FOR_AWS       = "velero-plugin-for-aws"
-	VELERO_PLUGIN_FOR_AZURE     = "velero-plugin-for-microsoft-azure"
-	VELERO_PLUGIN_FOR_GCP       = "velero-plugin-for-gcp"
-	VELERO_PLUGIN_FOR_CSI       = "velero-plugin-for-csi"
-	VELERO_PLUGIN_FOR_OPENSHIFT = "openshift-velero-plugin"
+	VeleroPluginForAWS       = "velero-plugin-for-aws"
+	VeleroPluginForAzure     = "velero-plugin-for-microsoft-azure"
+	VeleroPluginForGCP       = "velero-plugin-for-gcp"
+	VeleroPluginForCSI       = "velero-plugin-for-csi"
+	VeleroPluginForOpenshift = "openshift-velero-plugin"
 )
 
 func (r *VeleroReconciler) ReconcileVeleroDeployment(log logr.Logger) (bool, error) {
@@ -66,8 +66,8 @@ func (r *VeleroReconciler) ReconcileVeleroDeployment(log logr.Logger) (bool, err
 
 	veleroDeployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      VELERO,
-			Namespace: VELERO_NS,
+			Name:      Velero,
+			Namespace: VeleoNamespace,
 		},
 	}
 
@@ -77,7 +77,7 @@ func (r *VeleroReconciler) ReconcileVeleroDeployment(log logr.Logger) (bool, err
 		if veleroDeployment.ObjectMeta.CreationTimestamp.IsZero() {
 			veleroDeployment.Spec.Selector = &metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					"component": VELERO,
+					"component": Velero,
 				},
 			}
 		}
@@ -121,7 +121,7 @@ func (r *VeleroReconciler) buildVeleroDeployment(veleroDeployment *appsv1.Deploy
 		Template: corev1.PodTemplateSpec{
 			ObjectMeta: metav1.ObjectMeta{
 				Labels: map[string]string{
-					"component": VELERO,
+					"component": Velero,
 				},
 				Annotations: map[string]string{
 					"prometheus.io/scrape": "true",
@@ -131,12 +131,12 @@ func (r *VeleroReconciler) buildVeleroDeployment(veleroDeployment *appsv1.Deploy
 			},
 			Spec: corev1.PodSpec{
 				RestartPolicy:      corev1.RestartPolicyAlways,
-				ServiceAccountName: VELERO,
+				ServiceAccountName: Velero,
 				Tolerations:        velero.Spec.VeleroTolerations,
 				Containers: []corev1.Container{
 					{
-						Name:  VELERO,
-						Image: VELERO_IMAGE,
+						Name:  Velero,
+						Image: VeleroImage,
 						//TODO: Make the image policy parametrized
 						ImagePullPolicy: corev1.PullAlways,
 						Ports: []corev1.ContainerPort{
@@ -163,10 +163,10 @@ func (r *VeleroReconciler) buildVeleroDeployment(veleroDeployment *appsv1.Deploy
 
 func (r *VeleroReconciler) getAppLabels(velero *oadpv1alpha1.Velero) map[string]string {
 	labels := map[string]string{
-		"app.kubernetes.io/name":       VELERO,
+		"app.kubernetes.io/name":       Velero,
 		"app.kubernetes.io/instance":   velero.Name,
-		"app.kubernetes.io/managed-by": OADP_OPERATOR,
-		"app.kubernetes.io/component":  SERVER,
+		"app.kubernetes.io/managed-by": OADPOperator,
+		"app.kubernetes.io/component":  Server,
 	}
 	return labels
 }
@@ -215,15 +215,15 @@ func (r *VeleroReconciler) getVeleroVolumeMounts(velero *oadpv1alpha1.Velero) []
 
 	defaultVeleroPluginsList := velero.Spec.DefaultVeleroPlugins
 	awsPluginVolumeMount := corev1.VolumeMount{
-		Name:      VELERO_AWS_SECRET_NAME,
+		Name:      VeleroAWSSecretName,
 		MountPath: "/credentials",
 	}
 	azurePluginVolumeMount := corev1.VolumeMount{
-		Name:      VELERO_AZURE_SECRET_NAME,
+		Name:      VeleroAzureSecretName,
 		MountPath: "/credentials-azure",
 	}
 	gcpPluginVolumeMount := corev1.VolumeMount{
-		Name:      VELERO_GCP_SECRET_NAME,
+		Name:      VeleroGCPSecretName,
 		MountPath: "/credentials-gcp",
 	}
 
@@ -264,30 +264,30 @@ func (r *VeleroReconciler) getVeleroEnv(velero *oadpv1alpha1.Velero) []corev1.En
 	// add default Env vars
 	envVars := []corev1.EnvVar{
 		{
-			Name:  LD_LIBRARY_PATH_ENV_KEY,
+			Name:  LDLibraryPathEnvKey,
 			Value: "/plugins",
 		},
 		{
-			Name:  VELERO_NAMESPACE_ENV_KEY,
-			Value: VELERO_NS,
+			Name:  VeleroNamespaceEnvKey,
+			Value: VeleoNamespace,
 		},
 		{
-			Name:  VELERO_SCRATCH_DIR_ENV_KEY,
+			Name:  VeleroScratchDirEnvKey,
 			Value: "/scratch",
 		},
 		//TODO: Add the PROXY VARS
 	}
 
 	awsPluginEnvVar := corev1.EnvVar{
-		Name:  AWS_SHARED_CREDENTIALS_FILE_ENV_KEY,
+		Name:  AWSSharedCredentialsFileEnvKey,
 		Value: "/credentials/cloud",
 	}
 	azurePluginEnvVar := corev1.EnvVar{
-		Name:  AZURE_SHARED_CREDENTIALS_FILE_ENV_KEY,
+		Name:  AzureSharedCredentialsFileEnvKey,
 		Value: "/credentials-azure/cloud",
 	}
 	gcpPluginEnvVar := corev1.EnvVar{
-		Name:  GCP_SHARED_CREDENTIALS_FILE_ENV_KEY,
+		Name:  GCPSharedCredentialsFileEnvKey,
 		Value: "/credentials-gcp/cloud",
 	}
 
@@ -336,26 +336,26 @@ func (r *VeleroReconciler) getVeleroVolumes(velero *oadpv1alpha1.Velero) []corev
 
 	// add default plugin based volumes
 	awsPluginVolume := corev1.Volume{
-		Name: VELERO_AWS_SECRET_NAME,
+		Name: VeleroAWSSecretName,
 		VolumeSource: corev1.VolumeSource{
 			Secret: &corev1.SecretVolumeSource{
-				SecretName: VELERO_AWS_SECRET_NAME,
+				SecretName: VeleroAWSSecretName,
 			},
 		},
 	}
 	azurePluginVolume := corev1.Volume{
-		Name: VELERO_AZURE_SECRET_NAME,
+		Name: VeleroAzureSecretName,
 		VolumeSource: corev1.VolumeSource{
 			Secret: &corev1.SecretVolumeSource{
-				SecretName: VELERO_AZURE_SECRET_NAME,
+				SecretName: VeleroAzureSecretName,
 			},
 		},
 	}
 	gcpPluginVolume := corev1.Volume{
-		Name: VELERO_GCP_SECRET_NAME,
+		Name: VeleroGCPSecretName,
 		VolumeSource: corev1.VolumeSource{
 			Secret: &corev1.SecretVolumeSource{
-				SecretName: VELERO_GCP_SECRET_NAME,
+				SecretName: VeleroGCPSecretName,
 			},
 		},
 	}
@@ -398,7 +398,7 @@ func (r *VeleroReconciler) getVeleroInitContainers(velero *oadpv1alpha1.Velero) 
 			if plugin == oadpv1alpha1.DefaultPluginAWS {
 				volumeMounts = append(volumeMounts, corev1.VolumeMount{
 					MountPath: "/credentials",
-					Name:      VELERO_AWS_SECRET_NAME,
+					Name:      VeleroAWSSecretName,
 				})
 			}
 		}
@@ -408,7 +408,7 @@ func (r *VeleroReconciler) getVeleroInitContainers(velero *oadpv1alpha1.Velero) 
 	initContainers := []corev1.Container{
 		{
 			//TODO: Check this image as well as pull policy
-			Image:                    VELERO_IMAGE,
+			Image:                    VeleroImage,
 			ImagePullPolicy:          corev1.PullAlways,
 			Name:                     "setup-certificate-secret",
 			Command:                  []string{"sh", "'-ec'", "cp /etc/ssl/certs/* /certs/; ln -sf /credentials/ca_bundle.pem /certs/ca_bundle.pem;"},
@@ -423,23 +423,23 @@ func (r *VeleroReconciler) getVeleroInitContainers(velero *oadpv1alpha1.Velero) 
 	if defaultVeleroPluginsList != nil {
 		for _, plugin := range defaultVeleroPluginsList {
 			if plugin == oadpv1alpha1.DefaultPluginAWS {
-				awsInitContainer := buildPluginInitContainer(VELERO_PLUGIN_FOR_AWS, AWS_PLUGIN_IMAGE, corev1.PullAlways)
+				awsInitContainer := buildPluginInitContainer(VeleroPluginForAWS, AWSPluginImage, corev1.PullAlways)
 				initContainers = append(initContainers, awsInitContainer)
 			}
 			if plugin == oadpv1alpha1.DefaultPluginMicrosoftAzure {
-				azureInitContainer := buildPluginInitContainer(VELERO_PLUGIN_FOR_AZURE, AZURE_PLUGIN_IMAGE, corev1.PullAlways)
+				azureInitContainer := buildPluginInitContainer(VeleroPluginForAzure, AzurePluginImage, corev1.PullAlways)
 				initContainers = append(initContainers, azureInitContainer)
 			}
 			if plugin == oadpv1alpha1.DefaultPluginGCP {
-				gcpInitContainer := buildPluginInitContainer(VELERO_PLUGIN_FOR_GCP, GCP_PLUGIN_IMAGE, corev1.PullAlways)
+				gcpInitContainer := buildPluginInitContainer(VeleroPluginForGCP, GCPPluginImage, corev1.PullAlways)
 				initContainers = append(initContainers, gcpInitContainer)
 			}
 			if plugin == oadpv1alpha1.DefaultPluginCSI {
-				csiInitContainer := buildPluginInitContainer(VELERO_PLUGIN_FOR_CSI, CSI_PLUGIN_IMAGE, corev1.PullAlways)
+				csiInitContainer := buildPluginInitContainer(VeleroPluginForCSI, CSIPluginImage, corev1.PullAlways)
 				initContainers = append(initContainers, csiInitContainer)
 			}
 			if plugin == oadpv1alpha1.DefaultPluginOpenShift {
-				openshiftInitContainer := buildPluginInitContainer(VELERO_PLUGIN_FOR_OPENSHIFT, OPENSHIFT_PLUGIN_IMAGE, corev1.PullAlways)
+				openshiftInitContainer := buildPluginInitContainer(VeleroPluginForOpenshift, OpenshiftPluginImage, corev1.PullAlways)
 				initContainers = append(initContainers, openshiftInitContainer)
 			}
 			//TODO: check if vsphere is needed
