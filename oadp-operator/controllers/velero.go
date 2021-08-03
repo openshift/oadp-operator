@@ -14,10 +14,12 @@ import (
 )
 
 const (
-	Velero         = "velero"
-	VeleoNamespace = "oadp-operator"
-	OADPOperator   = "oadp-operator"
-	Server         = "server"
+	Velero                = "velero"
+	VeleoNamespace        = "oadp-operator"
+	OADPOperator          = "oadp-operator"
+	Server                = "server"
+	Registry              = "Registry"
+	BackupStorageLocation = "BackupStorageLocation"
 	//TODO: Check for default secret names
 	VeleroAWSSecretName   = "cloud-credentials"
 	VeleroAzureSecretName = "cloud-credentials-azure"
@@ -47,6 +49,7 @@ const (
 	AzurePluginImage     = "quay.io/konveyor/velero-plugin-for-microsoft-azure:latest"
 	GCPPluginImage       = "quay.io/konveyor/velero-plugin-for-gcp:latest"
 	CSIPluginImage       = "quay.io/konveyor/velero-plugin-for-csi:latest"
+	RegistryImage        = "quay.io/konveyor/registry:latest"
 )
 
 // Plugin names
