@@ -15,7 +15,7 @@ func installDefaultVelero(namespace string, s3Bucket string, credSecretRef strin
 		return err
 	}
 	// get Velero unstruct type to create Velero CR
-	unstrVel := getDefaultVeleroConfig(namespace, s3Bucket, credSecretRef, instanceName) //decodeYaml()
+	unstrVel := getDefaultVeleroConfig(namespace, s3Bucket, credSecretRef, instanceName)
 	_, err = createDefaultVeleroCR(unstrVel, client, namespace)
 	fmt.Println("Default Velero CR created")
 	return err

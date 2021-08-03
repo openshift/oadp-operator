@@ -2,16 +2,12 @@ package e2e
 
 import (
 	"context"
-	"errors"
 	"fmt"
+	"time"
 
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/kubernetes"
 )
 
 // Defining new var for Velero CR to include 'restic_node_selector'
@@ -36,7 +32,7 @@ func getResticVeleroConfig(namespace string, s3Bucket string, credSecretRef stri
 				"olm_managed": false,
 				"default_velero_plugins": []string{
 					"aws",
-					"csix",
+					"csi",
 					"openshift",
 				},
 				"backup_storage_locations": [](map[string]interface{}){
@@ -58,7 +54,7 @@ func getResticVeleroConfig(namespace string, s3Bucket string, credSecretRef stri
 					},
 				},
 				"velero_feature_flags": "EnableCSI",
-				"enable_restic":        false,
+				"enable_restic":        true,
 				"volume_snapshot_locations": [](map[string]interface{}){
 					map[string]interface{}{
 						"config": map[string]interface{}{
@@ -75,11 +71,9 @@ func getResticVeleroConfig(namespace string, s3Bucket string, credSecretRef stri
 	return &resticVeleroSpec
 }
 
-func areResticPodsRunning(namespace string) wait.ConditionFunc {
+func hasCorrectNumResticPods(namespace string) wait.ConditionFunc {
 	return func() (bool, error) {
-		kubeConf := getKubeConfig()
-		// create client for daemonset
-		client, err := kubernetes.NewForConfig(kubeConf)
+		client, err := setUpClient()
 		if err != nil {
 			return false, err
 		}
@@ -98,10 +92,45 @@ func areResticPodsRunning(namespace string) wait.ConditionFunc {
 			numScheduled = daemonSetInfo.Status.CurrentNumberScheduled
 			numDesired = daemonSetInfo.Status.DesiredNumberScheduled
 		}
-		// if numScheduled == numDesired, then all restic pods are running
+		// check correct num of Restic pods are initialized
 		if numScheduled != 0 && numDesired != 0 {
 			if numScheduled == numDesired {
-				fmt.Println("All restic pods are running")
+				return true, nil
+			}
+		}
+		return false, err
+	}
+}
+
+func waitForDesiredResticPods(namespace string) error {
+	return wait.PollImmediate(time.Second*5, time.Minute*2, hasCorrectNumResticPods(namespace))
+}
+
+func areResticPodsRunning(namespace string) wait.ConditionFunc {
+	fmt.Println("Checking for correct number of running Restic pods...")
+	return func() (bool, error) {
+		er := waitForDesiredResticPods(namespace)
+		if er != nil {
+			return false, er
+		}
+		client, err := setUpClient()
+		if err != nil {
+			return false, err
+		}
+		// used to select Restic pods
+		resticPodOptions := metav1.ListOptions{
+			LabelSelector: "name=restic",
+		}
+		// get pods in the oadp-operator-e2e namespace with label selector
+		podList, err := client.CoreV1().Pods(namespace).List(context.TODO(), resticPodOptions)
+		if err != nil {
+			return false, nil
+		}
+		// loop until pod status is 'Running' or timeout
+		for _, podInfo := range (*podList).Items {
+			if podInfo.Status.Phase != "Running" {
+				return false, err
+			} else {
 				return true, nil
 			}
 		}
@@ -110,12 +139,7 @@ func areResticPodsRunning(namespace string) wait.ConditionFunc {
 }
 
 func disableRestic(namespace string, instanceName string) error {
-	config := getKubeConfig()
-	client, err := dynamic.NewForConfig(config)
-	if err != nil {
-		return err
-	}
-	veleroClient, err := createVeleroClient(client, namespace)
+	veleroClient, err := setUpDynamicVeleroClient(namespace)
 	if err != nil {
 		return nil
 	}
@@ -124,7 +148,7 @@ func disableRestic(namespace string, instanceName string) error {
 	if err != nil {
 		return err
 	}
-	// update spec enable_restic to be false
+	// update spec 'enable_restic' to be false
 	err = unstructured.SetNestedField(veleroResource.Object, false, "spec", "enable_restic")
 	if err != nil {
 		return err
@@ -137,55 +161,48 @@ func disableRestic(namespace string, instanceName string) error {
 	return nil
 }
 
-func isResticDaemonsetDeleted(namespace string, instanceName string, resticName string) wait.ConditionFunc {
-	err := disableRestic(namespace, instanceName)
-	if err != nil {
-		return nil
-	}
+func doesDaemonSetExists(namespace string, resticName string) wait.ConditionFunc {
 	return func() (bool, error) {
-		config := getKubeConfig()
-		client, err := dynamic.NewForConfig(config)
-		if err != nil {
-			return false, nil
-		}
-		veleroClient, err := createVeleroClient(client, namespace)
+		clientset, err := setUpClient()
 		if err != nil {
 			return false, err
 		}
-		_, errs := veleroClient.Get(context.Background(), resticName, metav1.GetOptions{})
-		if apierrors.IsAlreadyExists(errs) {
-			return false, errors.New("restic daemonset has not been deleted")
+		_, err = clientset.AppsV1().DaemonSets(namespace).Get(context.Background(), resticName, metav1.GetOptions{})
+		if err != nil {
+			fmt.Println("Restic daemonSet does not exist..")
+			return false, err
 		}
-		fmt.Println("Restic daemonset has been deleted")
+		fmt.Println("Restic daemonSet exists")
 		return true, nil
 	}
 }
 
-func decodeResticYaml(resticVeleroConfigYAML string) (*unstructured.Unstructured, error) {
-	// set new unstructured type for Velero CR
-	unstructVelero := &unstructured.Unstructured{}
-
-	// decode yaml into unstructured type
-	dec := yaml.NewDecodingSerializer(unstructured.UnstructuredJSONScheme)
-	_, _, err := dec.Decode([]byte(resticVeleroConfigYAML), nil, unstructVelero)
-	if err != nil {
-		return unstructVelero, err
+// keep for now
+func isResticDaemonsetDeleted(namespace string, instanceName string, resticName string) wait.ConditionFunc {
+	fmt.Println("Checking Restic daemonSet has been deleted...")
+	return func() (bool, error) {
+		client, err := setUpClient()
+		if err != nil {
+			return false, nil
+		}
+		// Check for daemonSet
+		_, err = client.AppsV1().DaemonSets(namespace).Get(context.Background(), resticName, metav1.GetOptions{})
+		if err != nil {
+			fmt.Println("Restic daemonSet has been deleted")
+			return true, nil
+		}
+		fmt.Println("daemonSet still exists")
+		return false, err
 	}
-	return unstructVelero, nil
 }
 
 func enableResticNodeSelector(namespace string, s3Bucket string, credSecretRef string, instanceName string) error {
-	config := getKubeConfig()
-	client, err := dynamic.NewForConfig(config)
-	if err != nil {
-		return err
-	}
-	veleroClient, err := createVeleroClient(client, namespace)
+	veleroClient, err := setUpDynamicVeleroClient(namespace)
 	if err != nil {
 		return nil
 	}
 	// get Velero as unstructured type
-	veleroResource := getResticVeleroConfig(namespace, s3Bucket, credSecretRef, instanceName) //decodeResticYaml()
+	veleroResource := getResticVeleroConfig(namespace, s3Bucket, credSecretRef, instanceName)
 	_, err = veleroClient.Create(context.Background(), veleroResource, metav1.CreateOptions{})
 	if err != nil {
 		return err
@@ -194,26 +211,24 @@ func enableResticNodeSelector(namespace string, s3Bucket string, credSecretRef s
 	return nil
 }
 
-func resticDaemonSetHasNodeSelector(namespace string, s3Bucket string, credSecretRef string, instanceName string) wait.ConditionFunc {
-	err := enableResticNodeSelector(namespace, s3Bucket, credSecretRef, instanceName)
-	if err != nil {
-		return nil
-	}
+func resticDaemonSetHasNodeSelector(namespace string, s3Bucket string, credSecretRef string, instanceName string, resticName string) wait.ConditionFunc {
+	fmt.Println("Checking Restic daemonSet has a nodeSelector...")
 	return func() (bool, error) {
-		config := getKubeConfig()
-		client, err := kubernetes.NewForConfig(config)
+		client, err := setUpClient()
 		if err != nil {
 			return false, nil
 		}
-		resticOptions := metav1.ListOptions{
-			FieldSelector: "spec.template.spec.nodeSelector.foo=bar",
-		}
-		// get daemonset in oadp-operator-e2e ns with specified field selector
-		_, errs := client.AppsV1().DaemonSets(namespace).List(context.TODO(), resticOptions)
-		if errs != nil {
+		ds, err := client.AppsV1().DaemonSets(namespace).Get(context.TODO(), resticName, metav1.GetOptions{})
+		if err != nil {
 			return false, err
 		}
-		fmt.Println("Restic daemonset has NodeSelector")
-		return true, nil
+		// verify daemonset has nodeSelector "foo": "bar"
+		selector := ds.Spec.Template.Spec.NodeSelector["foo"]
+
+		if selector == "bar" {
+			fmt.Println("Restic daemonset has nodeSelector")
+			return true, nil
+		}
+		return false, err
 	}
 }
