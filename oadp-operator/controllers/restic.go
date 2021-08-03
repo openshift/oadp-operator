@@ -66,7 +66,12 @@ func (r *VeleroReconciler) ReconcileResticDaemonset(log logr.Logger) (bool, erro
 	}
 
 	// Define "static" portion of daemonset
-	ds := r.buildResticDaemonset(&velero)
+	ds := &appsv1.DaemonSet{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      resticLabelMap["name"],
+			Namespace: velero.Namespace,
+		},
+	}
 
 	if velero.Spec.EnableRestic != nil && !*velero.Spec.EnableRestic {
 		// If velero Spec enableRestic exists and is false, attempt to delete.
@@ -89,7 +94,7 @@ func (r *VeleroReconciler) ReconcileResticDaemonset(log logr.Logger) (bool, erro
 			return err
 		}
 
-		ds = r.buildResticDaemonset(&velero)
+		ds = r.buildResticDaemonset(&velero, ds)
 		return nil
 	})
 
@@ -109,158 +114,151 @@ func (r *VeleroReconciler) ReconcileResticDaemonset(log logr.Logger) (bool, erro
 	return true, nil
 }
 
-func (r *VeleroReconciler) buildResticDaemonset(velero *oadpv1alpha1.Velero) *appsv1.DaemonSet {
-	ds := appsv1.DaemonSet{
-
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      resticLabelMap["name"],
-			Namespace: velero.Namespace,
+func (r *VeleroReconciler) buildResticDaemonset(velero *oadpv1alpha1.Velero, ds *appsv1.DaemonSet) *appsv1.DaemonSet {
+	ds.Spec = appsv1.DaemonSetSpec{
+		Selector: &metav1.LabelSelector{
+			MatchLabels: resticLabelMap,
 		},
-		Spec: appsv1.DaemonSetSpec{
-			Selector: &metav1.LabelSelector{
-				MatchLabels: resticLabelMap,
+		UpdateStrategy: appsv1.DaemonSetUpdateStrategy{
+			Type: appsv1.RollingUpdateDaemonSetStrategyType,
+		},
+		Template: v1.PodTemplateSpec{
+			ObjectMeta: metav1.ObjectMeta{
+				Labels: resticLabelMap,
 			},
-			UpdateStrategy: appsv1.DaemonSetUpdateStrategy{
-				Type: appsv1.RollingUpdateDaemonSetStrategyType,
-			},
-			Template: v1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: resticLabelMap,
+			Spec: v1.PodSpec{
+				NodeSelector:       velero.Spec.ResticNodeSelector,
+				ServiceAccountName: veleroSAName,
+				SecurityContext: &v1.PodSecurityContext{
+					RunAsUser:          pointer.Int64(0),
+					SupplementalGroups: []int64{},
 				},
-				Spec: v1.PodSpec{
-					NodeSelector:       velero.Spec.ResticNodeSelector,
-					ServiceAccountName: veleroSAName,
-					SecurityContext: &v1.PodSecurityContext{
-						RunAsUser:          pointer.Int64(0),
-						SupplementalGroups: []int64{},
-					},
-					Volumes: []v1.Volume{
-						// Cloud Provider volumes are dynamically added in the for loop below
-						{
-							Name: "host-pods",
-							VolumeSource: v1.VolumeSource{
-								HostPath: &v1.HostPathVolumeSource{
-									Path: resticPvHostPath,
-								},
-							},
-						},
-						{
-							Name: "scratch",
-							VolumeSource: v1.VolumeSource{
-								EmptyDir: &v1.EmptyDirVolumeSource{},
-							},
-						},
-						{
-							Name: "certs",
-							VolumeSource: v1.VolumeSource{
-								EmptyDir: &v1.EmptyDirVolumeSource{},
+				Volumes: []v1.Volume{
+					// Cloud Provider volumes are dynamically added in the for loop below
+					{
+						Name: "host-pods",
+						VolumeSource: v1.VolumeSource{
+							HostPath: &v1.HostPathVolumeSource{
+								Path: resticPvHostPath,
 							},
 						},
 					},
-					Tolerations: velero.Spec.ResticTolerations,
-					Containers: []v1.Container{
-						{
-							Name: "velero",
-							SecurityContext: &v1.SecurityContext{
-								Privileged: pointer.Bool(true),
+					{
+						Name: "scratch",
+						VolumeSource: v1.VolumeSource{
+							EmptyDir: &v1.EmptyDirVolumeSource{},
+						},
+					},
+					{
+						Name: "certs",
+						VolumeSource: v1.VolumeSource{
+							EmptyDir: &v1.EmptyDirVolumeSource{},
+						},
+					},
+				},
+				Tolerations: velero.Spec.ResticTolerations,
+				Containers: []v1.Container{
+					{
+						Name: "velero",
+						SecurityContext: &v1.SecurityContext{
+							Privileged: pointer.Bool(true),
+						},
+						Image: fmt.Sprintf("%v/%v/%v:%v", os.Getenv("REGISTRY"), os.Getenv("PROJECT"), os.Getenv("VELERO_REPO"), os.Getenv("VELERO_TAG")),
+						// velero_image_fqin: "{{ velero_image }}:{{ velero_version }}"
+						// velero_image: "{{ registry }}/{{ project }}/{{ velero_repo }}"
+						// velero_version: "{{ lookup( 'env', 'VELERO_TAG') }}"
+						ImagePullPolicy: "Always",
+						Resources:       getVeleroResourceReqs(velero), //setting default.
+						Command: []string{
+							"/velero",
+						},
+						Args: []string{
+							"restic",
+							"server",
+						},
+						VolumeMounts: []v1.VolumeMount{
+							{
+								Name:             "host-pods",
+								MountPath:        "/host_pods",
+								MountPropagation: &mountPropagationToHostContainer,
 							},
-							Image: fmt.Sprintf("%v/%v/%v:%v", os.Getenv("REGISTRY"), os.Getenv("PROJECT"), os.Getenv("VELERO_REPO"), os.Getenv("VELERO_TAG")),
-							// velero_image_fqin: "{{ velero_image }}:{{ velero_version }}"
-							// velero_image: "{{ registry }}/{{ project }}/{{ velero_repo }}"
-							// velero_version: "{{ lookup( 'env', 'VELERO_TAG') }}"
-							ImagePullPolicy: "Always",
-							Resources:       getVeleroResourceReqs(velero), //setting default.
-							Command: []string{
-								"/velero",
+							{
+								Name:      "scratch",
+								MountPath: "/scratch",
 							},
-							Args: []string{
-								"restic",
-								"server",
+							{
+								Name:      "certs",
+								MountPath: "/etc/ssl/certs",
 							},
-							VolumeMounts: []v1.VolumeMount{
-								{
-									Name:             "host-pods",
-									MountPath:        "/host_pods",
-									MountPropagation: &mountPropagationToHostContainer,
-								},
-								{
-									Name:      "scratch",
-									MountPath: "/scratch",
-								},
-								{
-									Name:      "certs",
-									MountPath: "/etc/ssl/certs",
-								},
+						},
+						Env: []v1.EnvVar{
+							{
+								Name:  "HTTP_PROXY",
+								Value: os.Getenv("HTTP_PROXY"),
 							},
-							Env: []v1.EnvVar{
-								{
-									Name:  "HTTP_PROXY",
-									Value: os.Getenv("HTTP_PROXY"),
-								},
-								{
-									Name:  "HTTPS_PROXY",
-									Value: os.Getenv("HTTPS_PROXY"),
-								},
-								{
-									Name:  "NO_PROXY",
-									Value: os.Getenv("NO_PROXY"),
-								},
-								{
-									Name: "NODE_NAME",
-									ValueFrom: &v1.EnvVarSource{
-										FieldRef: &v1.ObjectFieldSelector{
-											FieldPath: "spec.nodeName",
-										},
+							{
+								Name:  "HTTPS_PROXY",
+								Value: os.Getenv("HTTPS_PROXY"),
+							},
+							{
+								Name:  "NO_PROXY",
+								Value: os.Getenv("NO_PROXY"),
+							},
+							{
+								Name: "NODE_NAME",
+								ValueFrom: &v1.EnvVarSource{
+									FieldRef: &v1.ObjectFieldSelector{
+										FieldPath: "spec.nodeName",
 									},
 								},
-								{
-									Name: "POD_NAME",
-									ValueFrom: &v1.EnvVarSource{
-										FieldRef: &v1.ObjectFieldSelector{
-											FieldPath: "metadata.name"},
+							},
+							{
+								Name: "POD_NAME",
+								ValueFrom: &v1.EnvVarSource{
+									FieldRef: &v1.ObjectFieldSelector{
+										FieldPath: "metadata.name"},
+								},
+							},
+							{
+								Name: "VELERO_NAMESPACE",
+								ValueFrom: &v1.EnvVarSource{
+									FieldRef: &v1.ObjectFieldSelector{
+										FieldPath: "metadata.namespace",
 									},
 								},
-								{
-									Name: "VELERO_NAMESPACE",
-									ValueFrom: &v1.EnvVarSource{
-										FieldRef: &v1.ObjectFieldSelector{
-											FieldPath: "metadata.namespace",
-										},
-									},
-								},
-								{
-									Name: "VELERO_SCRATCH_DIR",
-									ValueFrom: &v1.EnvVarSource{
-										FieldRef: &v1.ObjectFieldSelector{
-											FieldPath: "/scratch",
-										},
+							},
+							{
+								Name: "VELERO_SCRATCH_DIR",
+								ValueFrom: &v1.EnvVarSource{
+									FieldRef: &v1.ObjectFieldSelector{
+										FieldPath: "/scratch",
 									},
 								},
 							},
 						},
 					},
-					InitContainers: []v1.Container{
-						{
-							Name: "setup-certificate-secret",
-							Command: []string{
-								"sh",
-								"-ec",
-								">-",
-								"cp /etc/ssl/certs/* /certs/; ln -sf /credentials/ca_bundle.pem",
-								"/certs/ca_bundle.pem;",
+				},
+				InitContainers: []v1.Container{
+					{
+						Name: "setup-certificate-secret",
+						Command: []string{
+							"sh",
+							"-ec",
+							">-",
+							"cp /etc/ssl/certs/* /certs/; ln -sf /credentials/ca_bundle.pem",
+							"/certs/ca_bundle.pem;",
+						},
+						Resources:                v1.ResourceRequirements{},
+						TerminationMessagePath:   "/dev/termination-log",
+						TerminationMessagePolicy: v1.TerminationMessagePolicy("File"),
+						VolumeMounts: []v1.VolumeMount{
+							{
+								Name:      "certs",
+								MountPath: "/certs",
 							},
-							Resources:                v1.ResourceRequirements{},
-							TerminationMessagePath:   "/dev/termination-log",
-							TerminationMessagePolicy: v1.TerminationMessagePolicy("File"),
-							VolumeMounts: []v1.VolumeMount{
-								{
-									Name:      "certs",
-									MountPath: "/certs",
-								},
-								{
-									Name:      string(oadpv1alpha1.DefaultPluginAWS),
-									MountPath: "/credentials",
-								},
+							{
+								Name:      string(oadpv1alpha1.DefaultPluginAWS),
+								MountPath: "/credentials",
 							},
 						},
 					},
@@ -307,7 +305,7 @@ func (r *VeleroReconciler) buildResticDaemonset(velero *oadpv1alpha1.Velero) *ap
 			)
 		}
 	}
-	return &ds
+	return ds
 }
 
 func getVeleroResourceReqs(velero *oadpv1alpha1.Velero) v1.ResourceRequirements {
