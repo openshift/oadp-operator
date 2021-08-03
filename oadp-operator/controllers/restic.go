@@ -8,7 +8,6 @@ import (
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
@@ -75,25 +74,36 @@ func (r *VeleroReconciler) ReconcileResticDaemonset(log logr.Logger) (bool, erro
 		return true, nil
 	}
 
-	// Check if Daemonset already exists
-	//make a copy of ds to be used in r.Get
-	existingDS := *ds.DeepCopy()
-	if err := r.Get(r.Context, r.NamespacedName, &existingDS); err != nil {
-		if errors.IsNotFound(err) { // Daemonset not found so create Daemonset
-			if err := r.Create(r.Context, ds); err != nil {
-				return false, err
+	op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, ds, func() error {
+		// Deployment selector is immutable so we set this value only if
+		// a new object is going to be created
+		if ds.ObjectMeta.CreationTimestamp.IsZero() {
+			ds.Spec.Selector = &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"component": veleroSAName,
+				},
 			}
 		}
-	} else {
-		// Daemonset found, update it.
-		if err := r.Update(r.Context, ds); err != nil { // Update daemonset
-			return false, err
+
+		if err := controllerutil.SetControllerReference(&velero, ds, r.Scheme); err != nil {
+			return err
 		}
-	}
-	if _, err := controllerutil.CreateOrUpdate(r.Context, r.Client, ds, func() error {
+
+		ds = r.buildResticDaemonset(&velero)
 		return nil
-	}); err != nil {
+	})
+
+	if err != nil {
 		return false, err
+	}
+
+	if op == controllerutil.OperationResultCreated || op == controllerutil.OperationResultUpdated {
+		// Trigger event to indicate restic was created or updated
+		r.EventRecorder.Event(ds,
+			v1.EventTypeNormal,
+			"ResticDaemonsetReconciled",
+			fmt.Sprintf("performed %s on restic deployment %s/%s", op, ds.Namespace, ds.Name),
+		)
 	}
 
 	return true, nil
