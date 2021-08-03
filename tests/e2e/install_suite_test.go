@@ -9,7 +9,7 @@ import (
 )
 
 var _ = BeforeSuite(func() {
-	Expect(doesNamespaceExists(namespace)).Should(BeFalse())
+	Expect(doesNamespaceExists(namespace)).Should(BeTrue())
 })
 
 var _ = AfterSuite(func() {
@@ -22,8 +22,6 @@ var _ = AfterSuite(func() {
 	// Check secret is deleted
 	Eventually(isCredentialsSecretDeleted(namespace, credSecretRef), time.Minute*2, time.Second*5).Should(BeTrue())
 
-	// Check test namespace is deleted
-	Eventually(isNamespaceDeleted(namespace), time.Minute*2, time.Second*5).Should(BeTrue())
 })
 
 var _ = Describe("The default Velero custom resource", func() {
