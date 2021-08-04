@@ -14,12 +14,12 @@ import (
 )
 
 const (
-	Velero                = "velero"
-	VeleoNamespace        = "oadp-operator"
-	OADPOperator          = "oadp-operator"
-	Server                = "server"
-	Registry              = "Registry"
-	BackupStorageLocation = "BackupStorageLocation"
+	Velero             = "velero"
+	VeleoNamespace     = "oadp-operator"
+	OADPOperator       = "oadp-operator"
+	OADPOperatorVelero = "oadp-operator-velero"
+	Server             = "server"
+	Registry           = "Registry"
 	//TODO: Check for default secret names
 	VeleroAWSSecretName   = "cloud-credentials"
 	VeleroAzureSecretName = "cloud-credentials-azure"

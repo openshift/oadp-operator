@@ -192,7 +192,7 @@ func (r *VeleroReconciler) ReconcileRegistries(log logr.Logger) (bool, error) {
 
 // Construct and update the registry deployment for a bsl
 func (r *VeleroReconciler) buildRegistryDeployment(registryDeployment *appsv1.Deployment, bsl *velerov1.BackupStorageLocation) *appsv1.Deployment {
-	registryDeployment.Labels = r.getBSLLabels(bsl)
+	registryDeployment.Labels = r.getRegistryBSLLabels(bsl)
 
 	registryDeployment.Spec = appsv1.DeploymentSpec{
 		Replicas: pointer.Int32(1),
@@ -211,9 +211,9 @@ func (r *VeleroReconciler) buildRegistryDeployment(registryDeployment *appsv1.De
 	return registryDeployment
 }
 
-func (r *VeleroReconciler) getBSLLabels(bsl *velerov1.BackupStorageLocation) map[string]string {
+func (r *VeleroReconciler) getRegistryBSLLabels(bsl *velerov1.BackupStorageLocation) map[string]string {
 	labels := map[string]string{
-		"app.kubernetes.io/name":       BackupStorageLocation,
+		"app.kubernetes.io/name":       OADPOperatorVelero,
 		"app.kubernetes.io/instance":   constructBSLRegistryName(bsl),
 		"app.kubernetes.io/managed-by": OADPOperator,
 		"app.kubernetes.io/component":  Registry,
@@ -268,89 +268,86 @@ func (r *VeleroReconciler) buildRegistryContainer(bsl *velerov1.BackupStorageLoc
 func getRegistryEnvVars(bsl *velerov1.BackupStorageLocation) []corev1.EnvVar {
 	envVar := []corev1.EnvVar{}
 	if bsl.Spec.Provider == AWSProvider {
-		envVar = buildRegistryEnvVars(bsl, cloudProviderEnvVarMap[AWSProvider], AWSProvider)
+		envVar = getAWSRegistryEnvVars(bsl, cloudProviderEnvVarMap[AWSProvider])
 	}
 
 	if bsl.Spec.Provider == AzureProvider {
-		envVar = buildRegistryEnvVars(bsl, cloudProviderEnvVarMap[AzureProvider], AzureProvider)
+		envVar = getAzureRegistryEnvVars(bsl, cloudProviderEnvVarMap[AzureProvider])
 	}
 
 	if bsl.Spec.Provider == GCPProvider {
-		envVar = buildRegistryEnvVars(bsl, cloudProviderEnvVarMap[GCPProvider], GCPProvider)
+		envVar = getGCPRegistryEnvVars(bsl, cloudProviderEnvVarMap[GCPProvider])
 	}
 
 	return envVar
 }
 
-func buildRegistryEnvVars(bsl *velerov1.BackupStorageLocation, providerEnvVar []corev1.EnvVar, provider string) []corev1.EnvVar {
+func getAWSRegistryEnvVars(bsl *velerov1.BackupStorageLocation, awsEnvVars []corev1.EnvVar) []corev1.EnvVar {
 
-	updatedEnvVar := providerEnvVar
-	// build AWS provider env vars
-	if provider == AWSProvider {
-		for _, key := range updatedEnvVar {
-			//TODO: This needs to be fetch from the provider secret
-			if key.Name == RegistryStorageS3AccesskeyEnvVarKey {
-				key.Value = ""
-			}
+	for i, _ := range awsEnvVars {
+		//TODO: This needs to be fetched from the provider secret
+		if awsEnvVars[i].Name == RegistryStorageS3AccesskeyEnvVarKey {
+			awsEnvVars[i].Value = ""
+		}
 
-			if key.Name == RegistryStorageS3BucketEnvVarKey {
-				key.Value = bsl.Spec.StorageType.ObjectStorage.Bucket
-			}
+		if awsEnvVars[i].Name == RegistryStorageS3BucketEnvVarKey {
+			awsEnvVars[i].Value = bsl.Spec.StorageType.ObjectStorage.Bucket
+		}
 
-			if key.Name == RegistryStorageS3RegionEnvVarKey {
-				key.Value = bsl.Spec.Config[Region]
-			}
-			//TODO: This needs to be fetch from the provider secret
-			if key.Name == RegistryStorageS3SecretkeyEnvVarKey {
-				key.Value = ""
-			}
+		if awsEnvVars[i].Name == RegistryStorageS3RegionEnvVarKey {
+			awsEnvVars[i].Value = bsl.Spec.Config[Region]
+		}
+		//TODO: This needs to be fetched from the provider secret
+		if awsEnvVars[i].Name == RegistryStorageS3SecretkeyEnvVarKey {
+			awsEnvVars[i].Value = ""
+		}
 
-			if key.Name == RegistryStorageS3RegionendpointEnvVarKey && bsl.Spec.Config[S3URL] != "" {
-				key.Value = bsl.Spec.Config[S3URL]
-			}
+		if awsEnvVars[i].Name == RegistryStorageS3RegionendpointEnvVarKey && bsl.Spec.Config[S3URL] != "" {
+			awsEnvVars[i].Value = bsl.Spec.Config[S3URL]
+		}
 
-			if key.Name == RegistryStorageS3RootdirectoryEnvVarKey && bsl.Spec.Config[RootDirectory] != "" {
-				key.Value = bsl.Spec.Config[RootDirectory]
-			}
+		if awsEnvVars[i].Name == RegistryStorageS3RootdirectoryEnvVarKey && bsl.Spec.Config[RootDirectory] != "" {
+			awsEnvVars[i].Value = bsl.Spec.Config[RootDirectory]
+		}
 
-			if key.Name == RegistryStorageS3SkipverifyEnvVarKey && bsl.Spec.Config[InsecureSkipTLSVerify] != "" {
-				key.Value = bsl.Spec.Config[InsecureSkipTLSVerify]
-			}
+		if awsEnvVars[i].Name == RegistryStorageS3SkipverifyEnvVarKey && bsl.Spec.Config[InsecureSkipTLSVerify] != "" {
+			awsEnvVars[i].Value = bsl.Spec.Config[InsecureSkipTLSVerify]
 		}
 	}
+	return awsEnvVars
+}
 
-	// build Azure env vars
-	if provider == AzureProvider {
-		for _, key := range updatedEnvVar {
-			if key.Name == RegistryStorageAzureContainerEnvVarKey {
-				key.Value = bsl.Spec.StorageType.ObjectStorage.Bucket
-			}
+func getAzureRegistryEnvVars(bsl *velerov1.BackupStorageLocation, azureEnvVars []corev1.EnvVar) []corev1.EnvVar {
 
-			if key.Name == RegistryStorageAzureAccountnameEnvVarKey {
-				key.Value = bsl.Spec.Config[StorageAccount]
-			}
-			//TODO: This needs to be fetch from the provider secret
-			if key.Name == RegistryStorageAzureAccountkeyEnvVarKey {
-				key.Value = ""
-			}
+	for i, _ := range azureEnvVars {
+		if azureEnvVars[i].Name == RegistryStorageAzureContainerEnvVarKey {
+			azureEnvVars[i].Value = bsl.Spec.StorageType.ObjectStorage.Bucket
+		}
+
+		if azureEnvVars[i].Name == RegistryStorageAzureAccountnameEnvVarKey {
+			azureEnvVars[i].Value = bsl.Spec.Config[StorageAccount]
+		}
+		//TODO: This needs to be fetched from the provider secret
+		if azureEnvVars[i].Name == RegistryStorageAzureAccountkeyEnvVarKey {
+			azureEnvVars[i].Value = ""
 		}
 	}
+	return azureEnvVars
+}
 
-	// build GCP env vars
-	if provider == GCPProvider {
-		for _, key := range updatedEnvVar {
-			if key.Name == RegistryStorageGCSBucket {
-				key.Value = bsl.Spec.StorageType.ObjectStorage.Bucket
-			}
-			//TODO: This needs to be fetch from the provider secret
-			if key.Name == RegistryStorageGCSKeyfile {
-				key.Value = ""
-			}
-			if key.Name == RegistryStorageGCSRootdirectory && bsl.Spec.Config[RootDirectory] != "" {
-				key.Value = bsl.Spec.Config[RootDirectory]
-			}
+func getGCPRegistryEnvVars(bsl *velerov1.BackupStorageLocation, gcpEnvVars []corev1.EnvVar) []corev1.EnvVar {
+
+	for i, _ := range gcpEnvVars {
+		if gcpEnvVars[i].Name == RegistryStorageGCSBucket {
+			gcpEnvVars[i].Value = bsl.Spec.StorageType.ObjectStorage.Bucket
+		}
+		//TODO: This needs to be fetched from the provider secret
+		if gcpEnvVars[i].Name == RegistryStorageGCSKeyfile {
+			gcpEnvVars[i].Value = ""
+		}
+		if gcpEnvVars[i].Name == RegistryStorageGCSRootdirectory && bsl.Spec.Config[RootDirectory] != "" {
+			gcpEnvVars[i].Value = bsl.Spec.Config[RootDirectory]
 		}
 	}
-
-	return updatedEnvVar
+	return gcpEnvVars
 }
