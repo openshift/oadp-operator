@@ -76,7 +76,7 @@ type VeleroSpec struct {
 
 // VeleroStatus defines the observed state of Velero
 type VeleroStatus struct {
-	Conditions []metav1.Condition
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
 //+kubebuilder:object:root=true
