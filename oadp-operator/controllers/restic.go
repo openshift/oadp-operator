@@ -8,7 +8,6 @@ import (
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -168,7 +167,7 @@ func (r *VeleroReconciler) buildResticDaemonset(velero *oadpv1alpha1.Velero, ds 
 						// velero_image: "{{ registry }}/{{ project }}/{{ velero_repo }}"
 						// velero_version: "{{ lookup( 'env', 'VELERO_TAG') }}"
 						ImagePullPolicy: "Always",
-						Resources:       getVeleroResourceReqs(velero), //setting default.
+						Resources:       r.getVeleroResourceReqs(velero), //setting default.
 						Command: []string{
 							"/velero",
 						},
@@ -306,45 +305,6 @@ func (r *VeleroReconciler) buildResticDaemonset(velero *oadpv1alpha1.Velero, ds 
 		}
 	}
 	return ds
-}
-
-func getVeleroResourceReqs(velero *oadpv1alpha1.Velero) v1.ResourceRequirements {
-
-	ResourcesReqs := v1.ResourceRequirements{}
-	ResourceReqsLimits := v1.ResourceList{}
-	ResourceReqsRequests := v1.ResourceList{}
-
-	if velero != nil {
-
-		// Set custom limits and requests values if defined on Velero Spec
-		if velero.Spec.VeleroResourceAllocations.Requests != nil {
-			ResourceReqsRequests[v1.ResourceCPU] = resource.MustParse(velero.Spec.VeleroResourceAllocations.Requests.Cpu().String())
-			ResourceReqsRequests[v1.ResourceMemory] = resource.MustParse(velero.Spec.VeleroResourceAllocations.Requests.Memory().String())
-		}
-
-		if velero.Spec.VeleroResourceAllocations.Limits != nil {
-			ResourceReqsLimits[v1.ResourceCPU] = resource.MustParse(velero.Spec.VeleroResourceAllocations.Limits.Cpu().String())
-			ResourceReqsLimits[v1.ResourceMemory] = resource.MustParse(velero.Spec.VeleroResourceAllocations.Limits.Memory().String())
-		}
-		ResourcesReqs.Requests = ResourceReqsRequests
-		ResourcesReqs.Limits = ResourceReqsLimits
-
-		return ResourcesReqs
-
-	}
-
-	// Set default values
-	ResourcesReqs = v1.ResourceRequirements{
-		Limits: v1.ResourceList{
-			v1.ResourceCPU:    resource.MustParse("1"),
-			v1.ResourceMemory: resource.MustParse("512Mi"),
-		},
-		Requests: v1.ResourceList{
-			v1.ResourceCPU:    resource.MustParse("500m"),
-			v1.ResourceMemory: resource.MustParse("128Mi"),
-		},
-	}
-	return ResourcesReqs
 }
 
 func contains(thisString oadpv1alpha1.DefaultPlugin, thisArray []oadpv1alpha1.DefaultPlugin) bool {
