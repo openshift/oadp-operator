@@ -267,23 +267,21 @@ func (r *VeleroReconciler) buildRegistryContainer(bsl *velerov1.BackupStorageLoc
 
 func getRegistryEnvVars(bsl *velerov1.BackupStorageLocation) []corev1.EnvVar {
 	envVar := []corev1.EnvVar{}
-	if bsl.Spec.Provider == AWSProvider {
+	provider := bsl.Spec.Provider
+	switch provider {
+	case AWSProvider:
 		envVar = getAWSRegistryEnvVars(bsl, cloudProviderEnvVarMap[AWSProvider])
-	}
 
-	if bsl.Spec.Provider == AzureProvider {
+	case AzureProvider:
 		envVar = getAzureRegistryEnvVars(bsl, cloudProviderEnvVarMap[AzureProvider])
-	}
 
-	if bsl.Spec.Provider == GCPProvider {
+	case GCPProvider:
 		envVar = getGCPRegistryEnvVars(bsl, cloudProviderEnvVarMap[GCPProvider])
 	}
-
 	return envVar
 }
 
 func getAWSRegistryEnvVars(bsl *velerov1.BackupStorageLocation, awsEnvVars []corev1.EnvVar) []corev1.EnvVar {
-
 	for i, _ := range awsEnvVars {
 		//TODO: This needs to be fetched from the provider secret
 		if awsEnvVars[i].Name == RegistryStorageS3AccesskeyEnvVarKey {
@@ -318,7 +316,6 @@ func getAWSRegistryEnvVars(bsl *velerov1.BackupStorageLocation, awsEnvVars []cor
 }
 
 func getAzureRegistryEnvVars(bsl *velerov1.BackupStorageLocation, azureEnvVars []corev1.EnvVar) []corev1.EnvVar {
-
 	for i, _ := range azureEnvVars {
 		if azureEnvVars[i].Name == RegistryStorageAzureContainerEnvVarKey {
 			azureEnvVars[i].Value = bsl.Spec.StorageType.ObjectStorage.Bucket
@@ -336,7 +333,6 @@ func getAzureRegistryEnvVars(bsl *velerov1.BackupStorageLocation, azureEnvVars [
 }
 
 func getGCPRegistryEnvVars(bsl *velerov1.BackupStorageLocation, gcpEnvVars []corev1.EnvVar) []corev1.EnvVar {
-
 	for i, _ := range gcpEnvVars {
 		if gcpEnvVars[i].Name == RegistryStorageGCSBucket {
 			gcpEnvVars[i].Value = bsl.Spec.StorageType.ObjectStorage.Bucket
