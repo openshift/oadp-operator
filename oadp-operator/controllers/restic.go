@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-logr/logr"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
+	"github.com/openshift/oadp-operator/pkg/credentials"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -24,37 +25,13 @@ import (
 const (
 	veleroSAName     = "velero"
 	resticPvHostPath = "/var/lib/kubelet/pods"
-	cloudFieldPath   = "cloud"
 )
-
-type cloudProviderFields struct {
-	secretName         string
-	mountPath          string
-	envCredentialsFile string
-}
 
 // const mountPropagationMode = v1.MountPropagationMode
 var (
 	mountPropagationToHostContainer = v1.MountPropagationHostToContainer
 	resticLabelMap                  = map[string]string{
 		"name": "restic",
-	}
-	cloudProviderConst = map[oadpv1alpha1.DefaultPlugin]cloudProviderFields{
-		oadpv1alpha1.DefaultPluginAWS: {
-			secretName:         "cloud-credentials",
-			mountPath:          "/credentials",
-			envCredentialsFile: "AWS_SHARED_CREDENTIALS_FILE",
-		},
-		oadpv1alpha1.DefaultPluginGCP: {
-			secretName:         "cloud-credentials-gcp",
-			mountPath:          "/credentials-gcp",
-			envCredentialsFile: "GOOGLE_APPLICATION_CREDENTIALS",
-		},
-		oadpv1alpha1.DefaultPluginMicrosoftAzure: {
-			secretName:         "cloud-credentials-azure",
-			mountPath:          "/credentials-azure",
-			envCredentialsFile: "AZURE_CREDENTIALS_FILE",
-		},
 	}
 )
 
@@ -93,7 +70,9 @@ func (r *VeleroReconciler) ReconcileResticDaemonset(log logr.Logger) (bool, erro
 			return err
 		}
 
-		ds = r.buildResticDaemonset(&velero, ds)
+		if _, err := r.buildResticDaemonset(&velero, ds); err != nil {
+			return err
+		}
 		return nil
 	})
 
@@ -113,7 +92,7 @@ func (r *VeleroReconciler) ReconcileResticDaemonset(log logr.Logger) (bool, erro
 	return true, nil
 }
 
-func (r *VeleroReconciler) buildResticDaemonset(velero *oadpv1alpha1.Velero, ds *appsv1.DaemonSet) *appsv1.DaemonSet {
+func (r *VeleroReconciler) buildResticDaemonset(velero *oadpv1alpha1.Velero, ds *appsv1.DaemonSet) (*appsv1.DaemonSet, error) {
 	ds.Spec = appsv1.DaemonSetSpec{
 		Selector: &metav1.LabelSelector{
 			MatchLabels: resticLabelMap,
@@ -265,53 +244,8 @@ func (r *VeleroReconciler) buildResticDaemonset(velero *oadpv1alpha1.Velero, ds 
 			},
 		},
 	}
-	// Dynamically add to daemonset definition
-	// If the default velero plugins contains cloud provider, attach VolumeSource
-	var veleroContainer *v1.Container
-	// Find Velero container
-	for _, container := range ds.Spec.Template.Spec.Containers {
-		if container.Name == "velero" {
-			veleroContainer = &container
-		}
+	if _, err := credentials.AppendCloudProviderVolumes(velero, ds); err != nil {
+		return nil, err
 	}
-	for provider, cloudProviderMap := range cloudProviderConst {
-		if contains(provider, velero.Spec.DefaultVeleroPlugins) {
-			ds.Spec.Template.Spec.Volumes = append(
-				ds.Spec.Template.Spec.Volumes,
-				v1.Volume{
-					Name: string(provider),
-					VolumeSource: v1.VolumeSource{
-						Secret: &v1.SecretVolumeSource{
-							SecretName: cloudProviderMap.secretName,
-						},
-					},
-				},
-			)
-			veleroContainer.VolumeMounts = append(
-				veleroContainer.VolumeMounts,
-				v1.VolumeMount{
-					Name:             cloudProviderMap.secretName,
-					MountPath:        cloudProviderMap.mountPath,
-					MountPropagation: &mountPropagationToHostContainer,
-				},
-			)
-			veleroContainer.Env = append(
-				veleroContainer.Env,
-				v1.EnvVar{
-					Name:  cloudProviderMap.envCredentialsFile,
-					Value: cloudProviderMap.mountPath + "/" + cloudFieldPath,
-				},
-			)
-		}
-	}
-	return ds
-}
-
-func contains(thisString oadpv1alpha1.DefaultPlugin, thisArray []oadpv1alpha1.DefaultPlugin) bool {
-	for _, thisOne := range thisArray {
-		if thisOne == thisString {
-			return true
-		}
-	}
-	return false
+	return ds, nil
 }
