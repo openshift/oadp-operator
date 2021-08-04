@@ -159,15 +159,9 @@ func (r *VeleroReconciler) ReconcileRegistries(log logr.Logger) (bool, error) {
 				}
 			}
 
-			// Setting controller owner reference on the registry deployment
-			err := controllerutil.SetControllerReference(&bsl, registryDeployment, r.Scheme)
-			if err != nil {
-				return err
-			}
-
 			// update the Registry Deployment template
-			registryDeployment = r.buildRegistryDeployment(registryDeployment, &bsl)
-			return nil
+			err := r.buildRegistryDeployment(registryDeployment, &bsl)
+			return err
 		})
 
 		if err != nil {
@@ -191,7 +185,14 @@ func (r *VeleroReconciler) ReconcileRegistries(log logr.Logger) (bool, error) {
 }
 
 // Construct and update the registry deployment for a bsl
-func (r *VeleroReconciler) buildRegistryDeployment(registryDeployment *appsv1.Deployment, bsl *velerov1.BackupStorageLocation) *appsv1.Deployment {
+func (r *VeleroReconciler) buildRegistryDeployment(registryDeployment *appsv1.Deployment, bsl *velerov1.BackupStorageLocation) error {
+
+	// Setting controller owner reference on the registry deployment
+	err := controllerutil.SetControllerReference(bsl, registryDeployment, r.Scheme)
+	if err != nil {
+		return err
+	}
+
 	registryDeployment.Labels = r.getRegistryBSLLabels(bsl)
 
 	registryDeployment.Spec = appsv1.DeploymentSpec{
@@ -208,7 +209,7 @@ func (r *VeleroReconciler) buildRegistryDeployment(registryDeployment *appsv1.De
 			},
 		},
 	}
-	return registryDeployment
+	return nil
 }
 
 func (r *VeleroReconciler) getRegistryBSLLabels(bsl *velerov1.BackupStorageLocation) map[string]string {
