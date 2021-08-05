@@ -120,9 +120,9 @@ func TestVeleroReconciler_buildRegistryDeployment(t *testing.T) {
 
 func TestVeleroReconciler_buildRegistryContainer(t *testing.T) {
 	tests := []struct {
-		name    string
-		bsl     *velerov1.BackupStorageLocation
-		wantErr bool
+		name                  string
+		bsl                   *velerov1.BackupStorageLocation
+		wantRegistryContainer *corev1.Container
 	}{
 		{
 			name: "given bsl appropriate container is built or not",
@@ -143,7 +143,7 @@ func TestVeleroReconciler_buildRegistryContainer(t *testing.T) {
 			r := &VeleroReconciler{
 				Scheme: scheme,
 			}
-			wantRegistryContainer := &corev1.Container{
+			tt.wantRegistryContainer = &corev1.Container{
 				Image: RegistryImage,
 				Name:  "oadp-" + tt.bsl.Name + "-" + tt.bsl.Spec.Provider + "-registry" + "-container",
 				Ports: []corev1.ContainerPort{
@@ -178,18 +178,18 @@ func TestVeleroReconciler_buildRegistryContainer(t *testing.T) {
 
 			gotRegistryContainer := r.buildRegistryContainer(tt.bsl)
 
-			if !reflect.DeepEqual(wantRegistryContainer.Name, gotRegistryContainer[0].Name) {
-				t.Errorf("expected registry container name to be %#v, got %#v", wantRegistryContainer.Name, gotRegistryContainer[0].Name)
+			if !reflect.DeepEqual(tt.wantRegistryContainer.Name, gotRegistryContainer[0].Name) {
+				t.Errorf("expected registry container name to be %#v, got %#v", tt.wantRegistryContainer.Name, gotRegistryContainer[0].Name)
 			}
 
-			if !reflect.DeepEqual(wantRegistryContainer.Ports, gotRegistryContainer[0].Ports) {
-				t.Errorf("expected registry container ports to be %#v, got %#v", wantRegistryContainer.Ports, gotRegistryContainer[0].Ports)
+			if !reflect.DeepEqual(tt.wantRegistryContainer.Ports, gotRegistryContainer[0].Ports) {
+				t.Errorf("expected registry container ports to be %#v, got %#v", tt.wantRegistryContainer.Ports, gotRegistryContainer[0].Ports)
 			}
-			if !reflect.DeepEqual(wantRegistryContainer.ReadinessProbe, gotRegistryContainer[0].ReadinessProbe) {
-				t.Errorf("expected registry container readiness probe to be %#v, got %#v", wantRegistryContainer.ReadinessProbe, gotRegistryContainer[0].ReadinessProbe)
+			if !reflect.DeepEqual(tt.wantRegistryContainer.ReadinessProbe, gotRegistryContainer[0].ReadinessProbe) {
+				t.Errorf("expected registry container readiness probe to be %#v, got %#v", tt.wantRegistryContainer.ReadinessProbe, gotRegistryContainer[0].ReadinessProbe)
 			}
-			if !reflect.DeepEqual(wantRegistryContainer.LivenessProbe, gotRegistryContainer[0].LivenessProbe) {
-				t.Errorf("expected registry container liveness probe to be %#v, got %#v", wantRegistryContainer.LivenessProbe, gotRegistryContainer[0].LivenessProbe)
+			if !reflect.DeepEqual(tt.wantRegistryContainer.LivenessProbe, gotRegistryContainer[0].LivenessProbe) {
+				t.Errorf("expected registry container liveness probe to be %#v, got %#v", tt.wantRegistryContainer.LivenessProbe, gotRegistryContainer[0].LivenessProbe)
 			}
 
 		})
@@ -202,9 +202,9 @@ var testGCPEnvVar = cloudProviderEnvVarMap["gcp"]
 
 func TestVeleroReconciler_getAWSRegistryEnvVars(t *testing.T) {
 	tests := []struct {
-		name    string
-		bsl     *velerov1.BackupStorageLocation
-		wantErr bool
+		name                        string
+		bsl                         *velerov1.BackupStorageLocation
+		wantRegistryContainerEnvVar []corev1.EnvVar
 	}{
 		{
 			name: "given aws bsl, appropriate env var for the container are returned",
@@ -239,7 +239,7 @@ func TestVeleroReconciler_getAWSRegistryEnvVars(t *testing.T) {
 			r := &VeleroReconciler{
 				Scheme: scheme,
 			}
-			wantRegistryContainerEnvVar := []corev1.EnvVar{
+			tt.wantRegistryContainerEnvVar = []corev1.EnvVar{
 				{
 					Name:  RegistryStorageEnvVarKey,
 					Value: S3,
@@ -276,8 +276,8 @@ func TestVeleroReconciler_getAWSRegistryEnvVars(t *testing.T) {
 
 			gotRegistryContainerEnvVar := r.getAWSRegistryEnvVars(tt.bsl, testAWSEnvVar)
 
-			if !reflect.DeepEqual(wantRegistryContainerEnvVar, gotRegistryContainerEnvVar) {
-				t.Errorf("expected registry container env var length to be %#v, got %#v", wantRegistryContainerEnvVar, gotRegistryContainerEnvVar)
+			if !reflect.DeepEqual(tt.wantRegistryContainerEnvVar, gotRegistryContainerEnvVar) {
+				t.Errorf("expected registry container env var to be %#v, got %#v", tt.wantRegistryContainerEnvVar, gotRegistryContainerEnvVar)
 			}
 		})
 	}
@@ -285,9 +285,9 @@ func TestVeleroReconciler_getAWSRegistryEnvVars(t *testing.T) {
 
 func TestVeleroReconciler_getAzureRegistryEnvVars(t *testing.T) {
 	tests := []struct {
-		name    string
-		bsl     *velerov1.BackupStorageLocation
-		wantErr bool
+		name                        string
+		bsl                         *velerov1.BackupStorageLocation
+		wantRegistryContainerEnvVar []corev1.EnvVar
 	}{
 		{
 			name: "given azure bsl, appropriate env var for the container are returned",
@@ -319,7 +319,7 @@ func TestVeleroReconciler_getAzureRegistryEnvVars(t *testing.T) {
 			r := &VeleroReconciler{
 				Scheme: scheme,
 			}
-			wantRegistryContainerEnvVar := []corev1.EnvVar{
+			tt.wantRegistryContainerEnvVar = []corev1.EnvVar{
 				{
 					Name:  RegistryStorageEnvVarKey,
 					Value: Azure,
@@ -340,8 +340,8 @@ func TestVeleroReconciler_getAzureRegistryEnvVars(t *testing.T) {
 
 			gotRegistryContainerEnvVar := r.getAzureRegistryEnvVars(tt.bsl, testAzureEnvVar)
 
-			if !reflect.DeepEqual(wantRegistryContainerEnvVar, gotRegistryContainerEnvVar) {
-				t.Errorf("expected registry container env var length to be %#v, got %#v", wantRegistryContainerEnvVar, gotRegistryContainerEnvVar)
+			if !reflect.DeepEqual(tt.wantRegistryContainerEnvVar, gotRegistryContainerEnvVar) {
+				t.Errorf("expected registry container env var to be %#v, got %#v", tt.wantRegistryContainerEnvVar, gotRegistryContainerEnvVar)
 			}
 		})
 	}
@@ -349,9 +349,9 @@ func TestVeleroReconciler_getAzureRegistryEnvVars(t *testing.T) {
 
 func TestVeleroReconciler_getGCPRegistryEnvVars(t *testing.T) {
 	tests := []struct {
-		name    string
-		bsl     *velerov1.BackupStorageLocation
-		wantErr bool
+		name                        string
+		bsl                         *velerov1.BackupStorageLocation
+		wantRegistryContainerEnvVar []corev1.EnvVar
 	}{
 		{
 			name: "given gcp bsl, appropriate env var for the container are returned",
@@ -383,7 +383,7 @@ func TestVeleroReconciler_getGCPRegistryEnvVars(t *testing.T) {
 			r := &VeleroReconciler{
 				Scheme: scheme,
 			}
-			wantRegistryContainerEnvVar := []corev1.EnvVar{
+			tt.wantRegistryContainerEnvVar = []corev1.EnvVar{
 				{
 					Name:  RegistryStorageEnvVarKey,
 					Value: GCS,
@@ -404,8 +404,8 @@ func TestVeleroReconciler_getGCPRegistryEnvVars(t *testing.T) {
 
 			gotRegistryContainerEnvVar := r.getGCPRegistryEnvVars(tt.bsl, testGCPEnvVar)
 
-			if !reflect.DeepEqual(wantRegistryContainerEnvVar, gotRegistryContainerEnvVar) {
-				t.Errorf("expected registry container env var length to be %#v, got %#v", wantRegistryContainerEnvVar, gotRegistryContainerEnvVar)
+			if !reflect.DeepEqual(tt.wantRegistryContainerEnvVar, gotRegistryContainerEnvVar) {
+				t.Errorf("expected registry container env var to be %#v, got %#v", tt.wantRegistryContainerEnvVar, gotRegistryContainerEnvVar)
 			}
 		})
 	}

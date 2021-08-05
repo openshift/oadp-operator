@@ -143,7 +143,7 @@ func (r *VeleroReconciler) ReconcileRegistries(log logr.Logger) (bool, error) {
 	for _, bsl := range backupStorageLocationList.Items {
 		registryDeployment := &appsv1.Deployment{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      constructBSLRegistryName(&bsl),
+				Name:      registryName(&bsl),
 				Namespace: VeleoNamespace,
 			},
 		}
@@ -154,7 +154,7 @@ func (r *VeleroReconciler) ReconcileRegistries(log logr.Logger) (bool, error) {
 			if registryDeployment.ObjectMeta.CreationTimestamp.IsZero() {
 				registryDeployment.Spec.Selector = &metav1.LabelSelector{
 					MatchLabels: map[string]string{
-						"component": constructBSLRegistryName(&bsl),
+						"component": registryName(&bsl),
 					},
 				}
 			}
@@ -200,7 +200,7 @@ func (r *VeleroReconciler) buildRegistryDeployment(registryDeployment *appsv1.De
 		Template: corev1.PodTemplateSpec{
 			ObjectMeta: metav1.ObjectMeta{
 				Labels: map[string]string{
-					"component": constructBSLRegistryName(bsl),
+					"component": registryName(bsl),
 				},
 			},
 			Spec: corev1.PodSpec{
@@ -215,14 +215,14 @@ func (r *VeleroReconciler) buildRegistryDeployment(registryDeployment *appsv1.De
 func (r *VeleroReconciler) getRegistryBSLLabels(bsl *velerov1.BackupStorageLocation) map[string]string {
 	labels := map[string]string{
 		"app.kubernetes.io/name":       OADPOperatorVelero,
-		"app.kubernetes.io/instance":   constructBSLRegistryName(bsl),
+		"app.kubernetes.io/instance":   registryName(bsl),
 		"app.kubernetes.io/managed-by": OADPOperator,
 		"app.kubernetes.io/component":  Registry,
 	}
 	return labels
 }
 
-func constructBSLRegistryName(bsl *velerov1.BackupStorageLocation) string {
+func registryName(bsl *velerov1.BackupStorageLocation) string {
 	return "oadp-" + bsl.Name + "-" + bsl.Spec.Provider + "-registry"
 }
 
@@ -230,7 +230,7 @@ func (r *VeleroReconciler) buildRegistryContainer(bsl *velerov1.BackupStorageLoc
 	containers := []corev1.Container{
 		{
 			Image: RegistryImage,
-			Name:  constructBSLRegistryName(bsl) + "-container",
+			Name:  registryName(bsl) + "-container",
 			Ports: []corev1.ContainerPort{
 				{
 					ContainerPort: 5000,
