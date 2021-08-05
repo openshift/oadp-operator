@@ -45,6 +45,7 @@ const (
 	AzurePluginImage     = "quay.io/konveyor/velero-plugin-for-microsoft-azure:latest"
 	GCPPluginImage       = "quay.io/konveyor/velero-plugin-for-gcp:latest"
 	CSIPluginImage       = "quay.io/konveyor/velero-plugin-for-csi:latest"
+	RegistryImage        = "quay.io/konveyor/registry:latest"
 )
 
 // Plugin names
