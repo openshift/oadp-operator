@@ -50,11 +50,15 @@ type VeleroSpec struct {
 	OlmManaged *bool `json:"olmManaged,omitempty"`
 
 	// Velero configuration
-	BackupStorageLocations  []velero.BackupStorageLocationSpec  `json:"backupStorageLocations"`
+	BackupStorageLocations []velero.BackupStorageLocationSpec `json:"backupStorageLocations"`
+	// +optional
 	VolumeSnapshotLocations []velero.VolumeSnapshotLocationSpec `json:"volumeSnapshotLocations"`
-	VeleroFeatureFlags      []string                            `json:"veleroFeatureFlags,omitempty"`
+	// +optional
+	VeleroFeatureFlags []string `json:"veleroFeatureFlags,omitempty"`
 	// We do not currently support setting tolerations for Velero
-	VeleroTolerations         []corev1.Toleration         `json:"veleroTolerations,omitempty"`
+	// +optional
+	VeleroTolerations []corev1.Toleration `json:"veleroTolerations,omitempty"`
+	// +optional
 	VeleroResourceAllocations corev1.ResourceRequirements `json:"veleroResourceAllocations,omitempty"`
 
 	// Plugin configuration
@@ -67,10 +71,15 @@ type VeleroSpec struct {
 	Noobaa bool `json:"noobaa,omitempty"`
 
 	// Restic options
-	EnableRestic              *bool                       `json:"enableRestic,omitempty"`
-	ResticSupplementalGroups  []string                    `json:"resticSupplementalGroups,omitempty"`
-	ResticNodeSelector        map[string]string           `json:"resticNodeSelector,omitempty"`
-	ResticTolerations         []corev1.Toleration         `json:"resticTolerations,omitempty"`
+	// +optional
+	EnableRestic *bool `json:"enableRestic,omitempty"`
+	// +optional
+	ResticSupplementalGroups []string `json:"resticSupplementalGroups,omitempty"`
+	// +optional
+	ResticNodeSelector map[string]string `json:"resticNodeSelector,omitempty"`
+	// +optional
+	ResticTolerations []corev1.Toleration `json:"resticTolerations,omitempty"`
+	// +optional
 	ResticResourceAllocations corev1.ResourceRequirements `json:"resticResourceAllocations,omitempty"`
 }
 

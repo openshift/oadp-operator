@@ -305,7 +305,6 @@ spec:
                 type: array
             required:
             - backupStorageLocations
-            - volumeSnapshotLocations
             type: object
           status:
             description: VeleroStatus defines the observed state of Velero
