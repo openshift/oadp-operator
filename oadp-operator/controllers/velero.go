@@ -2,22 +2,20 @@ package controllers
 
 import (
 	"fmt"
+
 	"github.com/go-logr/logr"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
+	"github.com/openshift/oadp-operator/pkg/common"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-
 	"k8s.io/utils/pointer"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 const (
-	Velero         = "velero"
-	VeleoNamespace = "oadp-operator"
-	OADPOperator   = "oadp-operator"
-	Server         = "server"
+	Server = "server"
 	//TODO: Check for default secret names
 	VeleroAWSSecretName   = "cloud-credentials"
 	VeleroAzureSecretName = "cloud-credentials-azure"
@@ -66,8 +64,8 @@ func (r *VeleroReconciler) ReconcileVeleroDeployment(log logr.Logger) (bool, err
 
 	veleroDeployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      Velero,
-			Namespace: VeleoNamespace,
+			Name:      common.Velero,
+			Namespace: common.VeleroNamespace,
 		},
 	}
 
@@ -77,7 +75,7 @@ func (r *VeleroReconciler) ReconcileVeleroDeployment(log logr.Logger) (bool, err
 		if veleroDeployment.ObjectMeta.CreationTimestamp.IsZero() {
 			veleroDeployment.Spec.Selector = &metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					"component": Velero,
+					"component": common.Velero,
 				},
 			}
 		}
@@ -121,7 +119,7 @@ func (r *VeleroReconciler) buildVeleroDeployment(veleroDeployment *appsv1.Deploy
 		Template: corev1.PodTemplateSpec{
 			ObjectMeta: metav1.ObjectMeta{
 				Labels: map[string]string{
-					"component": Velero,
+					"component": common.Velero,
 				},
 				Annotations: map[string]string{
 					"prometheus.io/scrape": "true",
@@ -131,11 +129,11 @@ func (r *VeleroReconciler) buildVeleroDeployment(veleroDeployment *appsv1.Deploy
 			},
 			Spec: corev1.PodSpec{
 				RestartPolicy:      corev1.RestartPolicyAlways,
-				ServiceAccountName: Velero,
+				ServiceAccountName: common.Velero,
 				Tolerations:        velero.Spec.VeleroTolerations,
 				Containers: []corev1.Container{
 					{
-						Name:  Velero,
+						Name:  common.Velero,
 						Image: VeleroImage,
 						//TODO: Make the image policy parametrized
 						ImagePullPolicy: corev1.PullAlways,
@@ -163,9 +161,9 @@ func (r *VeleroReconciler) buildVeleroDeployment(veleroDeployment *appsv1.Deploy
 
 func (r *VeleroReconciler) getAppLabels(velero *oadpv1alpha1.Velero) map[string]string {
 	labels := map[string]string{
-		"app.kubernetes.io/name":       Velero,
+		"app.kubernetes.io/name":       common.Velero,
 		"app.kubernetes.io/instance":   velero.Name,
-		"app.kubernetes.io/managed-by": OADPOperator,
+		"app.kubernetes.io/managed-by": common.OADPOperator,
 		"app.kubernetes.io/component":  Server,
 	}
 	return labels
@@ -269,7 +267,7 @@ func (r *VeleroReconciler) getVeleroEnv(velero *oadpv1alpha1.Velero) []corev1.En
 		},
 		{
 			Name:  VeleroNamespaceEnvKey,
-			Value: VeleoNamespace,
+			Value: common.VeleroNamespace,
 		},
 		{
 			Name:  VeleroScratchDirEnvKey,

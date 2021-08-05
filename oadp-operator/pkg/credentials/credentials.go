@@ -2,6 +2,7 @@ package credentials
 
 import (
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
+	"github.com/openshift/oadp-operator/pkg/common"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 )
@@ -13,9 +14,7 @@ type CloudProviderFields struct {
 }
 
 const (
-	veleroSAName     = "velero"
-	resticPvHostPath = "/var/lib/kubelet/pods"
-	cloudFieldPath   = "cloud"
+	cloudFieldPath = "cloud"
 )
 
 var (
@@ -39,11 +38,11 @@ var (
 	}
 )
 
-func AppendCloudProviderVolumes(velero *oadpv1alpha1.Velero, ds *appsv1.DaemonSet) (*appsv1.DaemonSet, error) {
+func AppendCloudProviderVolumes(velero *oadpv1alpha1.Velero, ds *appsv1.DaemonSet) error {
 	var veleroContainer *corev1.Container
 	// Find Velero container
 	for _, container := range ds.Spec.Template.Spec.Containers {
-		if container.Name == "velero" {
+		if container.Name == common.Velero {
 			veleroContainer = &container
 		}
 	}
@@ -81,5 +80,5 @@ func AppendCloudProviderVolumes(velero *oadpv1alpha1.Velero, ds *appsv1.DaemonSe
 			)
 		}
 	}
-	return ds, nil
+	return nil
 }

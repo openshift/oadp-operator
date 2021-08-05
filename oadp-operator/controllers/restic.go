@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-logr/logr"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
+	"github.com/openshift/oadp-operator/pkg/common"
 	"github.com/openshift/oadp-operator/pkg/credentials"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
@@ -14,25 +15,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-/**
-- name: "Enable restic"
-  k8s:
-    state: "{{ velero_state }}"
-    definition: "{{ lookup('template', 'restic.yml.j2')}}"
-  when: enable_restic == true
-*/
-
 const (
-	veleroSAName     = "velero"
-	resticPvHostPath = "/var/lib/kubelet/pods"
+	Restic           = "restic"
+	resticPvHostPath = "/var/lib/kubelet/pods" //TODO: make configurable with env var
 )
 
-// const mountPropagationMode = v1.MountPropagationMode
 var (
 	mountPropagationToHostContainer = v1.MountPropagationHostToContainer
-	resticLabelMap                  = map[string]string{
-		"name": "restic",
-	}
 )
 
 func (r *VeleroReconciler) ReconcileResticDaemonset(log logr.Logger) (bool, error) {
@@ -44,7 +33,7 @@ func (r *VeleroReconciler) ReconcileResticDaemonset(log logr.Logger) (bool, erro
 	// Define "static" portion of daemonset
 	ds := &appsv1.DaemonSet{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      resticLabelMap["name"],
+			Name:      Restic,
 			Namespace: r.NamespacedName.Namespace,
 		},
 	}
@@ -61,7 +50,7 @@ func (r *VeleroReconciler) ReconcileResticDaemonset(log logr.Logger) (bool, erro
 		if ds.ObjectMeta.CreationTimestamp.IsZero() {
 			ds.Spec.Selector = &metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					"component": veleroSAName,
+					"component": common.Velero,
 				},
 			}
 		}
@@ -107,18 +96,22 @@ func (r *VeleroReconciler) buildResticDaemonset(velero *oadpv1alpha1.Velero, ds 
 	}
 	ds.Spec = appsv1.DaemonSetSpec{
 		Selector: &metav1.LabelSelector{
-			MatchLabels: resticLabelMap,
+			MatchLabels: map[string]string{
+				"name": Restic,
+			},
 		},
 		UpdateStrategy: appsv1.DaemonSetUpdateStrategy{
 			Type: appsv1.RollingUpdateDaemonSetStrategyType,
 		},
 		Template: v1.PodTemplateSpec{
 			ObjectMeta: metav1.ObjectMeta{
-				Labels: resticLabelMap,
+				Labels: map[string]string{
+					"name": Restic,
+				},
 			},
 			Spec: v1.PodSpec{
 				NodeSelector:       velero.Spec.ResticNodeSelector,
-				ServiceAccountName: veleroSAName,
+				ServiceAccountName: common.Velero,
 				SecurityContext: &v1.PodSecurityContext{
 					RunAsUser:          pointer.Int64(0),
 					SupplementalGroups: []int64{},
@@ -149,14 +142,11 @@ func (r *VeleroReconciler) buildResticDaemonset(velero *oadpv1alpha1.Velero, ds 
 				Tolerations: velero.Spec.ResticTolerations,
 				Containers: []v1.Container{
 					{
-						Name: "velero",
+						Name: common.Velero,
 						SecurityContext: &v1.SecurityContext{
 							Privileged: pointer.Bool(true),
 						},
-						Image: fmt.Sprintf("%v/%v/%v:%v", os.Getenv("REGISTRY"), os.Getenv("PROJECT"), os.Getenv("VELERO_REPO"), os.Getenv("VELERO_TAG")),
-						// velero_image_fqin: "{{ velero_image }}:{{ velero_version }}"
-						// velero_image: "{{ registry }}/{{ project }}/{{ velero_repo }}"
-						// velero_version: "{{ lookup( 'env', 'VELERO_TAG') }}"
+						Image:           getResticImage(),
 						ImagePullPolicy: "Always",
 						Resources:       r.getVeleroResourceReqs(velero), //setting default.
 						Command: []string{
@@ -256,8 +246,12 @@ func (r *VeleroReconciler) buildResticDaemonset(velero *oadpv1alpha1.Velero, ds 
 			},
 		},
 	}
-	if _, err := credentials.AppendCloudProviderVolumes(velero, ds); err != nil {
+	if err := credentials.AppendCloudProviderVolumes(velero, ds); err != nil {
 		return nil, err
 	}
 	return ds, nil
+}
+
+func getResticImage() string {
+	return fmt.Sprintf("%v/%v/%v:%v", os.Getenv("REGISTRY"), os.Getenv("PROJECT"), os.Getenv("VELERO_REPO"), os.Getenv("VELERO_TAG"))
 }
