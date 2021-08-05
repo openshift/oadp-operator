@@ -1,14 +1,16 @@
 package controllers
 
 import (
+	"reflect"
+	"testing"
+
+	"github.com/openshift/oadp-operator/pkg/common"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/pointer"
-	"reflect"
-	"testing"
 )
 
 func TestVeleroReconciler_buildRegistryDeployment(t *testing.T) {
@@ -40,9 +42,9 @@ func TestVeleroReconciler_buildRegistryDeployment(t *testing.T) {
 					Name:      "test-registry",
 					Namespace: "test-ns",
 					Labels: map[string]string{
-						"app.kubernetes.io/name":       OADPOperatorVelero,
+						"app.kubernetes.io/name":       common.OADPOperatorVelero,
 						"app.kubernetes.io/instance":   "oadp-test-bsl-test-ns-registry",
-						"app.kubernetes.io/managed-by": OADPOperator,
+						"app.kubernetes.io/managed-by": common.OADPOperator,
 						"app.kubernetes.io/component":  Registry,
 					},
 				},
@@ -69,9 +71,9 @@ func TestVeleroReconciler_buildRegistryDeployment(t *testing.T) {
 					Name:      "test-registry",
 					Namespace: "test-ns",
 					Labels: map[string]string{
-						"app.kubernetes.io/name":       OADPOperatorVelero,
+						"app.kubernetes.io/name":       common.OADPOperatorVelero,
 						"app.kubernetes.io/instance":   "oadp-" + tt.bsl.Name + "-" + tt.bsl.Spec.Provider + "-registry",
-						"app.kubernetes.io/managed-by": OADPOperator,
+						"app.kubernetes.io/managed-by": common.OADPOperator,
 						"app.kubernetes.io/component":  Registry,
 					},
 					OwnerReferences: []metav1.OwnerReference{

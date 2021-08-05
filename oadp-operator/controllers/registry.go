@@ -2,14 +2,15 @@ package controllers
 
 import (
 	"fmt"
+
 	"github.com/go-logr/logr"
+	"github.com/openshift/oadp-operator/pkg/common"
+	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/pointer"
-
-	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
-	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
@@ -144,7 +145,7 @@ func (r *VeleroReconciler) ReconcileRegistries(log logr.Logger) (bool, error) {
 		registryDeployment := &appsv1.Deployment{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      registryName(&bsl),
-				Namespace: VeleoNamespace,
+				Namespace: common.VeleroNamespace,
 			},
 		}
 
@@ -214,9 +215,9 @@ func (r *VeleroReconciler) buildRegistryDeployment(registryDeployment *appsv1.De
 
 func (r *VeleroReconciler) getRegistryBSLLabels(bsl *velerov1.BackupStorageLocation) map[string]string {
 	labels := map[string]string{
-		"app.kubernetes.io/name":       OADPOperatorVelero,
+		"app.kubernetes.io/name":       common.OADPOperatorVelero,
 		"app.kubernetes.io/instance":   registryName(bsl),
-		"app.kubernetes.io/managed-by": OADPOperator,
+		"app.kubernetes.io/managed-by": common.OADPOperator,
 		"app.kubernetes.io/component":  Registry,
 	}
 	return labels
@@ -283,7 +284,7 @@ func (r *VeleroReconciler) getRegistryEnvVars(bsl *velerov1.BackupStorageLocatio
 }
 
 func (r *VeleroReconciler) getAWSRegistryEnvVars(bsl *velerov1.BackupStorageLocation, awsEnvVars []corev1.EnvVar) []corev1.EnvVar {
-	for i, _ := range awsEnvVars {
+	for i := range awsEnvVars {
 		//TODO: This needs to be fetched from the provider secret
 		if awsEnvVars[i].Name == RegistryStorageS3AccesskeyEnvVarKey {
 			awsEnvVars[i].Value = ""
@@ -317,7 +318,7 @@ func (r *VeleroReconciler) getAWSRegistryEnvVars(bsl *velerov1.BackupStorageLoca
 }
 
 func (r *VeleroReconciler) getAzureRegistryEnvVars(bsl *velerov1.BackupStorageLocation, azureEnvVars []corev1.EnvVar) []corev1.EnvVar {
-	for i, _ := range azureEnvVars {
+	for i := range azureEnvVars {
 		if azureEnvVars[i].Name == RegistryStorageAzureContainerEnvVarKey {
 			azureEnvVars[i].Value = bsl.Spec.StorageType.ObjectStorage.Bucket
 		}
@@ -334,7 +335,7 @@ func (r *VeleroReconciler) getAzureRegistryEnvVars(bsl *velerov1.BackupStorageLo
 }
 
 func (r *VeleroReconciler) getGCPRegistryEnvVars(bsl *velerov1.BackupStorageLocation, gcpEnvVars []corev1.EnvVar) []corev1.EnvVar {
-	for i, _ := range gcpEnvVars {
+	for i := range gcpEnvVars {
 		if gcpEnvVars[i].Name == RegistryStorageGCSBucket {
 			gcpEnvVars[i].Value = bsl.Spec.StorageType.ObjectStorage.Bucket
 		}

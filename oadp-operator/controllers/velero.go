@@ -15,7 +15,8 @@ import (
 )
 
 const (
-	Server = "server"
+	Server   = "server"
+	Registry = "Registry"
 	//TODO: Check for default secret names
 	VeleroAWSSecretName   = "cloud-credentials"
 	VeleroAzureSecretName = "cloud-credentials-azure"
