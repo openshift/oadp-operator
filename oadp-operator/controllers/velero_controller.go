@@ -76,6 +76,7 @@ func (r *VeleroReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	_, err := ReconcileBatch(r.Log,
 		r.ValidateBackupStorageLocations,
 		r.ReconcileBackupStorageLocations,
+		r.ReconcileRegistries,
 		r.ValidateVolumeSnapshotLocations,
 		r.ReconcileVolumeSnapshotLocations,
 		r.ReconcileResticDaemonset,
