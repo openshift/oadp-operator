@@ -20,7 +20,7 @@ const (
 
 var (
 	mountPropagationToHostContainer = corev1.MountPropagationHostToContainer
-	cloudProviderConst              = map[oadpv1alpha1.DefaultPlugin]CloudProviderFields{
+	cloudProvidersPluginFields      = map[oadpv1alpha1.DefaultPlugin]CloudProviderFields{
 		oadpv1alpha1.DefaultPluginAWS: {
 			secretName:         "cloud-credentials",
 			mountPath:          "/credentials",
@@ -47,12 +47,16 @@ func AppendCloudProviderVolumes(velero *oadpv1alpha1.Velero, ds *appsv1.DaemonSe
 			veleroContainer = &container
 		}
 	}
-	for provider, cloudProviderMap := range cloudProviderConst {
-		if contains(provider, velero.Spec.DefaultVeleroPlugins) {
+	for _, plugin := range velero.Spec.DefaultVeleroPlugins {
+		// Check that this is a cloud provider plugin in the cloud provider map
+		// ok is boolean that will be true if `plugin` is a valid key in `cloudProvidersPluginFields` map
+		// pattern from https://golang.org/doc/effective_go#maps
+		// this replaces the need to iterate through the `cloudProvidersPluginFields` O(n) -> O(1)
+		if cloudProviderMap, ok := cloudProvidersPluginFields[plugin]; ok {
 			ds.Spec.Template.Spec.Volumes = append(
 				ds.Spec.Template.Spec.Volumes,
 				corev1.Volume{
-					Name: string(provider),
+					Name: string(plugin),
 					VolumeSource: corev1.VolumeSource{
 						Secret: &corev1.SecretVolumeSource{
 							SecretName: cloudProviderMap.secretName,
@@ -78,13 +82,4 @@ func AppendCloudProviderVolumes(velero *oadpv1alpha1.Velero, ds *appsv1.DaemonSe
 		}
 	}
 	return ds, nil
-}
-
-func contains(thisString oadpv1alpha1.DefaultPlugin, thisArray []oadpv1alpha1.DefaultPlugin) bool {
-	for _, thisOne := range thisArray {
-		if thisOne == thisString {
-			return true
-		}
-	}
-	return false
 }
