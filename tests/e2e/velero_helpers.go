@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
+	"log"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -114,7 +114,7 @@ func setUpDynamicVeleroClient(namespace string) (dynamic.ResourceInterface, erro
 }
 
 func isVeleroPodRunning(namespace string) wait.ConditionFunc {
-	fmt.Println("Checking for running Velero pod...")
+	log.Printf("Waiting for velero pod to be running...")
 	return func() (bool, error) {
 		clientset, err := setUpClient()
 		if err != nil {
@@ -135,7 +135,7 @@ func isVeleroPodRunning(namespace string) wait.ConditionFunc {
 			status = string(podInfo.Status.Phase)
 		}
 		if status == "Running" {
-			fmt.Println("Velero pod is running")
+			log.Printf("Velero pod is in a running state")
 			return true, nil
 		}
 		return false, err
@@ -171,7 +171,7 @@ func isVeleroCRFailed(namespace string, instanceName string) wait.ConditionFunc 
 		for _, condition := range conditions {
 			message = condition.Message
 			if condition.Type == "Failure" {
-				fmt.Printf("Velero install failure: %s\n", message)
+				log.Printf("Velero install failure: %s\n", message)
 				return true, nil
 			}
 		}
@@ -202,7 +202,7 @@ type ansibleResult struct {
 }
 
 func isVeleroDeleted(namespace string, instanceName string) wait.ConditionFunc {
-	fmt.Println("Checking the Velero CR has been deleted...")
+	log.Printf("Checking if the Velero Custom Resource has been deleted...")
 	return func() (bool, error) {
 		veleroClient, err := setUpDynamicVeleroClient(namespace)
 		if err != nil {
@@ -211,10 +211,10 @@ func isVeleroDeleted(namespace string, instanceName string) wait.ConditionFunc {
 		// Check for velero CR in cluster
 		_, err = veleroClient.Get(context.Background(), instanceName, metav1.GetOptions{})
 		if err != nil {
-			fmt.Println("Velero has been deleted")
+			log.Printf("Velero has been deleted")
 			return true, nil
 		}
-		fmt.Println("Velero CR still exists")
+		log.Printf("Velero CR still exists")
 		return false, err
 	}
 }

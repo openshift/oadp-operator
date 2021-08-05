@@ -3,8 +3,8 @@ package e2e
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
+	"log"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -87,13 +87,13 @@ func doesNamespaceExists(namespace string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	fmt.Println("Test namespace already exists")
+	log.Printf("Test namespace already exists")
 	return true, nil
 }
 
 // Keeping it for now.
 func isNamespaceDeleted(namespace string) wait.ConditionFunc {
-	fmt.Println("Checking test namespace has been deleted...")
+	log.Printf("Checking test namespace has been deleted...")
 	return func() (bool, error) {
 		clientset, err := setUpClient()
 		if err != nil {
@@ -101,7 +101,7 @@ func isNamespaceDeleted(namespace string) wait.ConditionFunc {
 		}
 		_, err = clientset.CoreV1().Namespaces().Get(context.Background(), namespace, metav1.GetOptions{})
 		if err != nil {
-			fmt.Println("Test namespace has been deleted")
+			log.Printf("Test namespace has been deleted")
 			return true, nil
 		}
 		return false, err
@@ -156,7 +156,7 @@ func deleteSecret(namespace string, credSecretRef string) error {
 }
 
 func isCredentialsSecretDeleted(namespace string, credSecretRef string) wait.ConditionFunc {
-	fmt.Println("Checking secret has been deleted...")
+	log.Printf("Checking secret has been deleted...")
 	return func() (bool, error) {
 		clientset, err := setUpClient()
 		if err != nil {
@@ -164,10 +164,10 @@ func isCredentialsSecretDeleted(namespace string, credSecretRef string) wait.Con
 		}
 		_, err = clientset.CoreV1().Secrets(namespace).Get(context.Background(), credSecretRef, metav1.GetOptions{})
 		if err != nil {
-			fmt.Println("Secret in test namespace has been deleted")
+			log.Printf("Secret in test namespace has been deleted")
 			return true, nil
 		}
-		fmt.Println("Secret still exists in namespace")
+		log.Printf("Secret still exists in namespace")
 		return false, err
 	}
 }
