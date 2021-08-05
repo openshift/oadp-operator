@@ -114,7 +114,7 @@ func (r *VeleroReconciler) buildResticDaemonset(velero *oadpv1alpha1.Velero, ds 
 				ServiceAccountName: common.Velero,
 				SecurityContext: &v1.PodSecurityContext{
 					RunAsUser:          pointer.Int64(0),
-					SupplementalGroups: []int64{},
+					SupplementalGroups: velero.Spec.ResticSupplementalGroups,
 				},
 				Volumes: []v1.Volume{
 					// Cloud Provider volumes are dynamically added in the for loop below
