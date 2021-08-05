@@ -31,8 +31,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
+	security "github.com/openshift/api/security/v1"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	"github.com/openshift/oadp-operator/controllers"
+	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -75,6 +77,16 @@ func main() {
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
+		os.Exit(1)
+	}
+
+	// Setup scheme for OCP resources
+	if err := security.AddToScheme(mgr.GetScheme()); err != nil {
+		setupLog.Error(err, "unable to add OpenShift security APIs to scheme")
+		os.Exit(1)
+	}
+	if err := velerov1.AddToScheme(mgr.GetScheme()); err != nil {
+		setupLog.Error(err, "unable to add Velero APIs to scheme")
 		os.Exit(1)
 	}
 
