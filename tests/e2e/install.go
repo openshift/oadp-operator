@@ -1,7 +1,7 @@
 package e2e
 
 import (
-	"fmt"
+	"log"
 
 	"k8s.io/client-go/dynamic"
 )
@@ -17,7 +17,7 @@ func installDefaultVelero(namespace string, s3Bucket string, credSecretRef strin
 	// get Velero unstruct type to create Velero CR
 	unstrVel := getDefaultVeleroConfig(namespace, s3Bucket, credSecretRef, instanceName)
 	_, err = createDefaultVeleroCR(unstrVel, client, namespace)
-	fmt.Println("Default Velero CR created")
+	log.Printf("Velero Custom Resource created")
 	return err
 }
 
@@ -29,6 +29,6 @@ func uninstallVelero(namespace string, instanceName string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Println("Default Velero CR deleted")
+	log.Printf("Velero Custom Resource deleted")
 	return deleteVeleroCR(client, instanceName, namespace)
 }

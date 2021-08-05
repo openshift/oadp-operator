@@ -2,7 +2,7 @@ package e2e
 
 import (
 	"context"
-	"fmt"
+	"log"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -107,7 +107,7 @@ func waitForDesiredResticPods(namespace string) error {
 }
 
 func areResticPodsRunning(namespace string) wait.ConditionFunc {
-	fmt.Println("Checking for correct number of running Restic pods...")
+	log.Printf("Checking for correct number of running Restic pods...")
 	return func() (bool, error) {
 		er := waitForDesiredResticPods(namespace)
 		if er != nil {
@@ -139,6 +139,7 @@ func areResticPodsRunning(namespace string) wait.ConditionFunc {
 }
 
 func disableRestic(namespace string, instanceName string) error {
+	log.Printf("disabling restic in Velero Custom Resource...")
 	veleroClient, err := setUpDynamicVeleroClient(namespace)
 	if err != nil {
 		return nil
@@ -157,11 +158,11 @@ func disableRestic(namespace string, instanceName string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Println("spec 'enable_restic' has been updated to false")
 	return nil
 }
 
 func doesDaemonSetExists(namespace string, resticName string) wait.ConditionFunc {
+	log.Printf("Checking if restic daemonset exists...")
 	return func() (bool, error) {
 		clientset, err := setUpClient()
 		if err != nil {
@@ -169,17 +170,15 @@ func doesDaemonSetExists(namespace string, resticName string) wait.ConditionFunc
 		}
 		_, err = clientset.AppsV1().DaemonSets(namespace).Get(context.Background(), resticName, metav1.GetOptions{})
 		if err != nil {
-			fmt.Println("Restic daemonSet does not exist..")
 			return false, err
 		}
-		fmt.Println("Restic daemonSet exists")
 		return true, nil
 	}
 }
 
 // keep for now
 func isResticDaemonsetDeleted(namespace string, instanceName string, resticName string) wait.ConditionFunc {
-	fmt.Println("Checking Restic daemonSet has been deleted...")
+	log.Printf("Checking if Restic daemonset has been deleted...")
 	return func() (bool, error) {
 		client, err := setUpClient()
 		if err != nil {
@@ -188,10 +187,9 @@ func isResticDaemonsetDeleted(namespace string, instanceName string, resticName 
 		// Check for daemonSet
 		_, err = client.AppsV1().DaemonSets(namespace).Get(context.Background(), resticName, metav1.GetOptions{})
 		if err != nil {
-			fmt.Println("Restic daemonSet has been deleted")
+			log.Printf("Restic daemonSet has been deleted")
 			return true, nil
 		}
-		fmt.Println("daemonSet still exists")
 		return false, err
 	}
 }
@@ -207,12 +205,12 @@ func enableResticNodeSelector(namespace string, s3Bucket string, credSecretRef s
 	if err != nil {
 		return err
 	}
-	fmt.Println("spec 'restic_node_selector' has been updated")
+	log.Printf("spec 'restic_node_selector' has been updated")
 	return nil
 }
 
 func resticDaemonSetHasNodeSelector(namespace string, s3Bucket string, credSecretRef string, instanceName string, resticName string) wait.ConditionFunc {
-	fmt.Println("Checking Restic daemonSet has a nodeSelector...")
+	log.Printf("Waiting for Restic daemonset to have a nodeSelector...")
 	return func() (bool, error) {
 		client, err := setUpClient()
 		if err != nil {
@@ -226,7 +224,6 @@ func resticDaemonSetHasNodeSelector(namespace string, s3Bucket string, credSecre
 		selector := ds.Spec.Template.Spec.NodeSelector["foo"]
 
 		if selector == "bar" {
-			fmt.Println("Restic daemonset has nodeSelector")
 			return true, nil
 		}
 		return false, err

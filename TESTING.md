@@ -1,6 +1,13 @@
 # E2E Testing
 
 ## Prerequisites
+
+### Install Ginkgo
+```bash
+$ go get -u github.com/onsi/ginkgo/ginkgo
+```
+
+### Setup backup storage configuration
 To get started, the test suite expects 2 files to use as configuration for
 Velero's backup storage. One file that contains your credentials, and another
 that contains additional configuration options (for now the name of the
@@ -22,10 +29,6 @@ aws_secret_access_key=<secret_key>
 {
   "velero-bucket-name": <bucket>
 }
-```
-## Install Ginkgo
-```bash
-$ go get -u github.com/onsi/ginkgo/ginkgo
 ```
 
 ## Run Tests

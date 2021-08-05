@@ -49,10 +49,10 @@ var _ = Describe("The Velero Restic spec", func() {
 			// wait for Velero deployment to initialize
 			Eventually(doesVeleroDeploymentExist(namespace, deploymentName), time.Minute*2, time.Second*5).Should(BeTrue())
 
-			err := removeVeleroPlugin(namespace, testInstanceName, []string{
+			err := updateVeleroPlugins(namespace, testInstanceName, []string{
 				"csi",
 				"openshift",
-			}, "aws")
+			})
 			Expect(err).ToNot(HaveOccurred())
 
 			// wait for deployment to update
@@ -66,10 +66,10 @@ var _ = Describe("The Velero Restic spec", func() {
 			// wait for Velero deployment to initialize
 			Eventually(doesVeleroDeploymentExist(namespace, deploymentName), time.Minute*2, time.Second*5).Should(BeTrue())
 
-			err := removeVeleroPlugin(namespace, testInstanceName, []string{
+			err := updateVeleroPlugins(namespace, testInstanceName, []string{
 				"aws",
 				"csi",
-			}, "openshift")
+			})
 			Expect(err).ToNot(HaveOccurred())
 
 			// wait for deployment to update
@@ -83,30 +83,31 @@ var _ = Describe("The Velero Restic spec", func() {
 			// wait for Velero deployment to initialize
 			Eventually(doesVeleroDeploymentExist(namespace, deploymentName), time.Minute*2, time.Second*5).Should(BeTrue())
 
-			err := removeVeleroPlugin(namespace, testInstanceName, []string{
+			err := updateVeleroPlugins(namespace, testInstanceName, []string{
 				"aws",
 				"openshift",
-			}, "csi")
+			})
 			Expect(err).ToNot(HaveOccurred())
 
 			// wait for deployment to update
 			Eventually(doesPluginExist(namespace, deploymentName, "velero-plugin-for-csi"), time.Minute*2, time.Second*5).Should(BeFalse())
 		})
 	})
-	Context("When the 'gcp' default_velero_plugin is added", func() {
-		It("Should remove the csi plugin image", func() {
+	Context("When the 'csi' default_velero_plugin is added", func() {
+		It("Should add the csi plugin image", func() {
 
 			// wait for Velero deployment to initialize
 			Eventually(doesVeleroDeploymentExist(namespace, deploymentName), time.Minute*2, time.Second*5).Should(BeTrue())
 
-			err := removeVeleroPlugin(namespace, testInstanceName, []string{
+			err := updateVeleroPlugins(namespace, testInstanceName, []string{
 				"aws",
 				"openshift",
-			}, "csi")
+				"csi",
+			})
 			Expect(err).ToNot(HaveOccurred())
 
 			// wait for deployment to update
-			Eventually(doesPluginExist(namespace, deploymentName, "velero-plugin-for-csi"), time.Minute*2, time.Second*5).Should(BeFalse())
+			Eventually(doesPluginExist(namespace, deploymentName, "velero-plugin-for-csi"), time.Minute*2, time.Second*5).Should(BeTrue())
 		})
 	})
 })
