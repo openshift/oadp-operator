@@ -5,6 +5,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/pointer"
 	"reflect"
 	"testing"
@@ -94,7 +95,6 @@ func TestVeleroReconciler_buildRegistryDeployment(t *testing.T) {
 						},
 						Spec: corev1.PodSpec{
 							RestartPolicy: corev1.RestartPolicyAlways,
-							//Containers:    r.buildRegistryContainer(bsl),
 						},
 					},
 				},
@@ -113,6 +113,299 @@ func TestVeleroReconciler_buildRegistryDeployment(t *testing.T) {
 			}
 			if !reflect.DeepEqual(wantRegistryDeployment.Spec.Replicas, tt.registryDeployment.Spec.Replicas) {
 				t.Errorf("expected registry deployment replicas to be %#v, got %#v", wantRegistryDeployment.Spec.Replicas, tt.registryDeployment.Spec.Replicas)
+			}
+		})
+	}
+}
+
+func TestVeleroReconciler_buildRegistryContainer(t *testing.T) {
+	tests := []struct {
+		name    string
+		bsl     *velerov1.BackupStorageLocation
+		wantErr bool
+	}{
+		{
+			name: "given bsl appropriate container is built or not",
+			bsl: &velerov1.BackupStorageLocation{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-bsl",
+					Namespace: "test-ns",
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			scheme, err := getSchemeForFakeClient()
+			if err != nil {
+				t.Errorf("error getting scheme for the test: %#v", err)
+			}
+			r := &VeleroReconciler{
+				Scheme: scheme,
+			}
+			wantRegistryContainer := &corev1.Container{
+				Image: RegistryImage,
+				Name:  "oadp-" + tt.bsl.Name + "-" + tt.bsl.Spec.Provider + "-registry" + "-container",
+				Ports: []corev1.ContainerPort{
+					{
+						ContainerPort: 5000,
+						Protocol:      corev1.ProtocolTCP,
+					},
+				},
+				LivenessProbe: &corev1.Probe{
+					Handler: corev1.Handler{
+						HTTPGet: &corev1.HTTPGetAction{
+							Path: "/v2/_catalog?n=5",
+							Port: intstr.IntOrString{IntVal: 5000},
+						},
+					},
+					PeriodSeconds:       5,
+					TimeoutSeconds:      3,
+					InitialDelaySeconds: 15,
+				},
+				ReadinessProbe: &corev1.Probe{
+					Handler: corev1.Handler{
+						HTTPGet: &corev1.HTTPGetAction{
+							Path: "/v2/_catalog?n=5",
+							Port: intstr.IntOrString{IntVal: 5000},
+						},
+					},
+					PeriodSeconds:       5,
+					TimeoutSeconds:      3,
+					InitialDelaySeconds: 15,
+				},
+			}
+
+			gotRegistryContainer := r.buildRegistryContainer(tt.bsl)
+
+			if !reflect.DeepEqual(wantRegistryContainer.Name, gotRegistryContainer[0].Name) {
+				t.Errorf("expected registry container name to be %#v, got %#v", wantRegistryContainer.Name, gotRegistryContainer[0].Name)
+			}
+
+			if !reflect.DeepEqual(wantRegistryContainer.Ports, gotRegistryContainer[0].Ports) {
+				t.Errorf("expected registry container ports to be %#v, got %#v", wantRegistryContainer.Ports, gotRegistryContainer[0].Ports)
+			}
+			if !reflect.DeepEqual(wantRegistryContainer.ReadinessProbe, gotRegistryContainer[0].ReadinessProbe) {
+				t.Errorf("expected registry container readiness probe to be %#v, got %#v", wantRegistryContainer.ReadinessProbe, gotRegistryContainer[0].ReadinessProbe)
+			}
+			if !reflect.DeepEqual(wantRegistryContainer.LivenessProbe, gotRegistryContainer[0].LivenessProbe) {
+				t.Errorf("expected registry container liveness probe to be %#v, got %#v", wantRegistryContainer.LivenessProbe, gotRegistryContainer[0].LivenessProbe)
+			}
+
+		})
+	}
+}
+
+var testAWSEnvVar = cloudProviderEnvVarMap["aws"]
+var testAzureEnvVar = cloudProviderEnvVarMap["azure"]
+var testGCPEnvVar = cloudProviderEnvVarMap["gcp"]
+
+func TestVeleroReconciler_getAWSRegistryEnvVars(t *testing.T) {
+	tests := []struct {
+		name    string
+		bsl     *velerov1.BackupStorageLocation
+		wantErr bool
+	}{
+		{
+			name: "given aws bsl, appropriate env var for the container are returned",
+			bsl: &velerov1.BackupStorageLocation{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-bsl",
+					Namespace: "test-ns",
+				},
+				Spec: velerov1.BackupStorageLocationSpec{
+					Provider: AWSProvider,
+					StorageType: velerov1.StorageType{
+						ObjectStorage: &velerov1.ObjectStorageLocation{
+							Bucket: "aws-bucket",
+						},
+					},
+					Config: map[string]string{
+						Region:                "aws-region",
+						S3URL:                 "https://sr-url-aws-domain.com",
+						RootDirectory:         "/velero-aws",
+						InsecureSkipTLSVerify: "false",
+					},
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			scheme, err := getSchemeForFakeClient()
+			if err != nil {
+				t.Errorf("error getting scheme for the test: %#v", err)
+			}
+			r := &VeleroReconciler{
+				Scheme: scheme,
+			}
+			wantRegistryContainerEnvVar := []corev1.EnvVar{
+				{
+					Name:  RegistryStorageEnvVarKey,
+					Value: S3,
+				},
+				{
+					Name:  RegistryStorageS3AccesskeyEnvVarKey,
+					Value: "",
+				},
+				{
+					Name:  RegistryStorageS3BucketEnvVarKey,
+					Value: "aws-bucket",
+				},
+				{
+					Name:  RegistryStorageS3RegionEnvVarKey,
+					Value: "aws-region",
+				},
+				{
+					Name:  RegistryStorageS3SecretkeyEnvVarKey,
+					Value: "",
+				},
+				{
+					Name:  RegistryStorageS3RegionendpointEnvVarKey,
+					Value: "https://sr-url-aws-domain.com",
+				},
+				{
+					Name:  RegistryStorageS3RootdirectoryEnvVarKey,
+					Value: "/velero-aws",
+				},
+				{
+					Name:  RegistryStorageS3SkipverifyEnvVarKey,
+					Value: "false",
+				},
+			}
+
+			gotRegistryContainerEnvVar := r.getAWSRegistryEnvVars(tt.bsl, testAWSEnvVar)
+
+			if !reflect.DeepEqual(wantRegistryContainerEnvVar, gotRegistryContainerEnvVar) {
+				t.Errorf("expected registry container env var length to be %#v, got %#v", wantRegistryContainerEnvVar, gotRegistryContainerEnvVar)
+			}
+		})
+	}
+}
+
+func TestVeleroReconciler_getAzureRegistryEnvVars(t *testing.T) {
+	tests := []struct {
+		name    string
+		bsl     *velerov1.BackupStorageLocation
+		wantErr bool
+	}{
+		{
+			name: "given azure bsl, appropriate env var for the container are returned",
+			bsl: &velerov1.BackupStorageLocation{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-bsl",
+					Namespace: "test-ns",
+				},
+				Spec: velerov1.BackupStorageLocationSpec{
+					Provider: AzureProvider,
+					StorageType: velerov1.StorageType{
+						ObjectStorage: &velerov1.ObjectStorageLocation{
+							Bucket: "azure-bucket",
+						},
+					},
+					Config: map[string]string{
+						StorageAccount: "velero-azure-account",
+					},
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			scheme, err := getSchemeForFakeClient()
+			if err != nil {
+				t.Errorf("error getting scheme for the test: %#v", err)
+			}
+			r := &VeleroReconciler{
+				Scheme: scheme,
+			}
+			wantRegistryContainerEnvVar := []corev1.EnvVar{
+				{
+					Name:  RegistryStorageEnvVarKey,
+					Value: Azure,
+				},
+				{
+					Name:  RegistryStorageAzureContainerEnvVarKey,
+					Value: "azure-bucket",
+				},
+				{
+					Name:  RegistryStorageAzureAccountnameEnvVarKey,
+					Value: "velero-azure-account",
+				},
+				{
+					Name:  RegistryStorageAzureAccountkeyEnvVarKey,
+					Value: "",
+				},
+			}
+
+			gotRegistryContainerEnvVar := r.getAzureRegistryEnvVars(tt.bsl, testAzureEnvVar)
+
+			if !reflect.DeepEqual(wantRegistryContainerEnvVar, gotRegistryContainerEnvVar) {
+				t.Errorf("expected registry container env var length to be %#v, got %#v", wantRegistryContainerEnvVar, gotRegistryContainerEnvVar)
+			}
+		})
+	}
+}
+
+func TestVeleroReconciler_getGCPRegistryEnvVars(t *testing.T) {
+	tests := []struct {
+		name    string
+		bsl     *velerov1.BackupStorageLocation
+		wantErr bool
+	}{
+		{
+			name: "given gcp bsl, appropriate env var for the container are returned",
+			bsl: &velerov1.BackupStorageLocation{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-bsl",
+					Namespace: "test-ns",
+				},
+				Spec: velerov1.BackupStorageLocationSpec{
+					Provider: GCPProvider,
+					StorageType: velerov1.StorageType{
+						ObjectStorage: &velerov1.ObjectStorageLocation{
+							Bucket: "gcp-bucket",
+						},
+					},
+					Config: map[string]string{
+						RootDirectory: "/velero-gcp",
+					},
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			scheme, err := getSchemeForFakeClient()
+			if err != nil {
+				t.Errorf("error getting scheme for the test: %#v", err)
+			}
+			r := &VeleroReconciler{
+				Scheme: scheme,
+			}
+			wantRegistryContainerEnvVar := []corev1.EnvVar{
+				{
+					Name:  RegistryStorageEnvVarKey,
+					Value: GCS,
+				},
+				{
+					Name:  RegistryStorageGCSBucket,
+					Value: "gcp-bucket",
+				},
+				{
+					Name:  RegistryStorageGCSKeyfile,
+					Value: "",
+				},
+				{
+					Name:  RegistryStorageGCSRootdirectory,
+					Value: "/velero-gcp",
+				},
+			}
+
+			gotRegistryContainerEnvVar := r.getGCPRegistryEnvVars(tt.bsl, testGCPEnvVar)
+
+			if !reflect.DeepEqual(wantRegistryContainerEnvVar, gotRegistryContainerEnvVar) {
+				t.Errorf("expected registry container env var length to be %#v, got %#v", wantRegistryContainerEnvVar, gotRegistryContainerEnvVar)
 			}
 		})
 	}
