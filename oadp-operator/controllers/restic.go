@@ -45,7 +45,7 @@ func (r *VeleroReconciler) ReconcileResticDaemonset(log logr.Logger) (bool, erro
 	ds := &appsv1.DaemonSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      resticLabelMap["name"],
-			Namespace: velero.Namespace,
+			Namespace: r.NamespacedName.Namespace,
 		},
 	}
 
@@ -92,7 +92,19 @@ func (r *VeleroReconciler) ReconcileResticDaemonset(log logr.Logger) (bool, erro
 	return true, nil
 }
 
+/**
+ * This function builds restic Daemonset. It calls /pkg/credentials function AppendCloudProviderVolumes
+ * args: velero - the velero object pointer
+ * 		 ds		- pointer to daemonset with objectMeta defined
+ * returns: (pointer to daemonset, nil) if successful
+ */
 func (r *VeleroReconciler) buildResticDaemonset(velero *oadpv1alpha1.Velero, ds *appsv1.DaemonSet) (*appsv1.DaemonSet, error) {
+	if velero == nil {
+		return nil, fmt.Errorf("velero cannot be nil")
+	}
+	if ds == nil {
+		return nil, fmt.Errorf("ds cannot be nil")
+	}
 	ds.Spec = appsv1.DaemonSetSpec{
 		Selector: &metav1.LabelSelector{
 			MatchLabels: resticLabelMap,
