@@ -218,31 +218,6 @@ func (r *VeleroReconciler) buildResticDaemonset(velero *oadpv1alpha1.Velero, ds 
 						},
 					},
 				},
-				InitContainers: []v1.Container{
-					{
-						Name: "setup-certificate-secret",
-						Command: []string{
-							"sh",
-							"-ec",
-							">-",
-							"cp /etc/ssl/certs/* /certs/; ln -sf /credentials/ca_bundle.pem",
-							"/certs/ca_bundle.pem;",
-						},
-						Resources:                v1.ResourceRequirements{},
-						TerminationMessagePath:   "/dev/termination-log",
-						TerminationMessagePolicy: v1.TerminationMessagePolicy("File"),
-						VolumeMounts: []v1.VolumeMount{
-							{
-								Name:      "certs",
-								MountPath: "/certs",
-							},
-							{
-								Name:      string(oadpv1alpha1.DefaultPluginAWS),
-								MountPath: "/credentials",
-							},
-						},
-					},
-				},
 			},
 		},
 	}
