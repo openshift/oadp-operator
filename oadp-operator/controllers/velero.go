@@ -15,7 +15,6 @@ import (
 
 const (
 	Velero             = "velero"
-	VeleoNamespace     = "oadp-operator"
 	OADPOperator       = "oadp-operator"
 	OADPOperatorVelero = "oadp-operator-velero"
 	Server             = "server"
@@ -70,7 +69,7 @@ func (r *VeleroReconciler) ReconcileVeleroDeployment(log logr.Logger) (bool, err
 	veleroDeployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      Velero,
-			Namespace: VeleoNamespace,
+			Namespace: velero.Namespace,
 		},
 	}
 
@@ -92,8 +91,7 @@ func (r *VeleroReconciler) ReconcileVeleroDeployment(log logr.Logger) (bool, err
 		}
 
 		// update the Deployment template
-		veleroDeployment = r.buildVeleroDeployment(veleroDeployment, &velero)
-		return nil
+		return r.buildVeleroDeployment(veleroDeployment, &velero)
 	})
 
 	if err != nil {
@@ -114,12 +112,13 @@ func (r *VeleroReconciler) ReconcileVeleroDeployment(log logr.Logger) (bool, err
 }
 
 // Build VELERO Deployment
-func (r *VeleroReconciler) buildVeleroDeployment(veleroDeployment *appsv1.Deployment, velero *oadpv1alpha1.Velero) *appsv1.Deployment {
+func (r *VeleroReconciler) buildVeleroDeployment(veleroDeployment *appsv1.Deployment, velero *oadpv1alpha1.Velero) error {
 
 	veleroDeployment.Labels = r.getAppLabels(velero)
 
 	veleroDeployment.Spec = appsv1.DeploymentSpec{
 		//TODO: add velero nodeselector, needs to be added to the VELERO CR first
+		Selector: veleroDeployment.Spec.Selector,
 		Replicas: pointer.Int32(1),
 		Template: corev1.PodTemplateSpec{
 			ObjectMeta: metav1.ObjectMeta{
@@ -161,7 +160,7 @@ func (r *VeleroReconciler) buildVeleroDeployment(veleroDeployment *appsv1.Deploy
 			},
 		},
 	}
-	return veleroDeployment
+	return nil
 }
 
 func (r *VeleroReconciler) getAppLabels(velero *oadpv1alpha1.Velero) map[string]string {
@@ -272,7 +271,7 @@ func (r *VeleroReconciler) getVeleroEnv(velero *oadpv1alpha1.Velero) []corev1.En
 		},
 		{
 			Name:  VeleroNamespaceEnvKey,
-			Value: VeleoNamespace,
+			Value: velero.Namespace,
 		},
 		{
 			Name:  VeleroScratchDirEnvKey,

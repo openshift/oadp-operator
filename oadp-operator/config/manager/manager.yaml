@@ -30,6 +30,7 @@ spec:
         args:
         - --leader-elect
         image: controller:latest
+        imagePullPolicy: Always
         name: manager
         securityContext:
           allowPrivilegeEscalation: false
@@ -48,9 +49,9 @@ spec:
         resources:
           limits:
             cpu: 100m
-            memory: 30Mi
+            memory: 200Mi
           requests:
             cpu: 100m
-            memory: 20Mi
+            memory: 100Mi
       serviceAccountName: controller-manager
       terminationGracePeriodSeconds: 10
