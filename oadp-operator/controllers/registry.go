@@ -8,6 +8,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/pointer"
 
+	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -125,6 +126,10 @@ var cloudProviderEnvVarMap = map[string][]corev1.EnvVar{
 }
 
 func (r *VeleroReconciler) ReconcileRegistries(log logr.Logger) (bool, error) {
+	velero := oadpv1alpha1.Velero{}
+	if err := r.Get(r.Context, r.NamespacedName, &velero); err != nil {
+		return false, err
+	}
 
 	bslLabels := map[string]string{
 		"app.kubernetes.io/name":       "oadp-operator-velero",
@@ -144,7 +149,7 @@ func (r *VeleroReconciler) ReconcileRegistries(log logr.Logger) (bool, error) {
 		registryDeployment := &appsv1.Deployment{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      registryName(&bsl),
-				Namespace: VeleoNamespace,
+				Namespace: bsl.Namespace,
 			},
 		}
 
@@ -159,8 +164,12 @@ func (r *VeleroReconciler) ReconcileRegistries(log logr.Logger) (bool, error) {
 				}
 			}
 
+			err := controllerutil.SetControllerReference(&velero, registryDeployment, r.Scheme)
+			if err != nil {
+				return err
+			}
 			// update the Registry Deployment template
-			err := r.buildRegistryDeployment(registryDeployment, &bsl)
+			err = r.buildRegistryDeployment(registryDeployment, &bsl)
 			return err
 		})
 
@@ -188,14 +197,10 @@ func (r *VeleroReconciler) ReconcileRegistries(log logr.Logger) (bool, error) {
 func (r *VeleroReconciler) buildRegistryDeployment(registryDeployment *appsv1.Deployment, bsl *velerov1.BackupStorageLocation) error {
 
 	// Setting controller owner reference on the registry deployment
-	err := controllerutil.SetControllerReference(bsl, registryDeployment, r.Scheme)
-	if err != nil {
-		return err
-	}
-
 	registryDeployment.Labels = r.getRegistryBSLLabels(bsl)
 
 	registryDeployment.Spec = appsv1.DeploymentSpec{
+		Selector: registryDeployment.Spec.Selector,
 		Replicas: pointer.Int32(1),
 		Template: corev1.PodTemplateSpec{
 			ObjectMeta: metav1.ObjectMeta{
