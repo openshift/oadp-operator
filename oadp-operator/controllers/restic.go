@@ -118,13 +118,14 @@ func (r *VeleroReconciler) buildResticDaemonset(velero *oadpv1alpha1.Velero, ds 
 		return nil, fmt.Errorf("ds cannot be nil")
 	}
 	ds.Spec = appsv1.DaemonSetSpec{
+		Selector: ds.Spec.Selector,
 		UpdateStrategy: appsv1.DaemonSetUpdateStrategy{
 			Type: appsv1.RollingUpdateDaemonSetStrategyType,
 		},
 		Template: v1.PodTemplateSpec{
 			ObjectMeta: metav1.ObjectMeta{
 				Labels: map[string]string{
-					"name": Restic,
+					"component": Restic,
 				},
 			},
 			Spec: v1.PodSpec{
@@ -226,12 +227,8 @@ func (r *VeleroReconciler) buildResticDaemonset(velero *oadpv1alpha1.Velero, ds 
 								},
 							},
 							{
-								Name: "VELERO_SCRATCH_DIR",
-								ValueFrom: &v1.EnvVarSource{
-									FieldRef: &v1.ObjectFieldSelector{
-										FieldPath: "/scratch",
-									},
-								},
+								Name:  "VELERO_SCRATCH_DIR",
+								Value: "/scratch",
 							},
 						},
 					},
