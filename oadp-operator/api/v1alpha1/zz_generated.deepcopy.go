@@ -153,7 +153,7 @@ func (in *VeleroSpec) DeepCopyInto(out *VeleroSpec) {
 	}
 	if in.ResticSupplementalGroups != nil {
 		in, out := &in.ResticSupplementalGroups, &out.ResticSupplementalGroups
-		*out = make([]string, len(*in))
+		*out = make([]int64, len(*in))
 		copy(*out, *in)
 	}
 	if in.ResticNodeSelector != nil {

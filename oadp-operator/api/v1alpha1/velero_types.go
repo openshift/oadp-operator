@@ -74,7 +74,7 @@ type VeleroSpec struct {
 	// +optional
 	EnableRestic *bool `json:"enableRestic,omitempty"`
 	// +optional
-	ResticSupplementalGroups []string `json:"resticSupplementalGroups,omitempty"`
+	ResticSupplementalGroups []int64 `json:"resticSupplementalGroups,omitempty"`
 	// +optional
 	ResticNodeSelector map[string]string `json:"resticNodeSelector,omitempty"`
 	// +optional
