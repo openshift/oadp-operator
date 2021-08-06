@@ -119,7 +119,7 @@ func TestVeleroReconciler_buildResticDaemonset(t *testing.T) {
 					Template: v1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: map[string]string{
-								"name": Restic,
+								"component": Restic,
 							},
 						},
 						Spec: v1.PodSpec{
@@ -221,12 +221,8 @@ func TestVeleroReconciler_buildResticDaemonset(t *testing.T) {
 											},
 										},
 										{
-											Name: "VELERO_SCRATCH_DIR",
-											ValueFrom: &v1.EnvVarSource{
-												FieldRef: &v1.ObjectFieldSelector{
-													FieldPath: "/scratch",
-												},
-											},
+											Name:  "VELERO_SCRATCH_DIR",
+											Value: "/scratch",
 										},
 									},
 								},
