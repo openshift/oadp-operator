@@ -4,12 +4,16 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
+	security "github.com/openshift/api/security/v1"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	"github.com/openshift/oadp-operator/pkg/common"
+	"github.com/vmware-tanzu/velero/pkg/install"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
@@ -57,6 +61,135 @@ const (
 	VeleroPluginForCSI       = "velero-plugin-for-csi"
 	VeleroPluginForOpenshift = "openshift-velero-plugin"
 )
+
+func (r *VeleroReconciler) ReconcileVeleroServiceAccount(log logr.Logger) (bool, error) {
+	velero := oadpv1alpha1.Velero{}
+	if err := r.Get(r.Context, r.NamespacedName, &velero); err != nil {
+		return false, err
+	}
+	veleroSa := &corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      common.Velero,
+			Namespace: velero.Namespace,
+		},
+	}
+	op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, veleroSa, func() error {
+		// Setting controller owner reference on the velero SA
+		err := controllerutil.SetControllerReference(&velero, veleroSa, r.Scheme)
+		if err != nil {
+			return err
+		}
+
+		// update the SA template
+		veleroSaUpdate, err := r.veleroServiceAccount(&velero)
+		veleroSa = veleroSaUpdate
+		return err
+	})
+
+	if err != nil {
+		return false, err
+	}
+
+	//TODO: Review velero SA status and report errors and conditions
+
+	if op == controllerutil.OperationResultCreated || op == controllerutil.OperationResultUpdated {
+		// Trigger event to indicate velero SA was created or updated
+		r.EventRecorder.Event(veleroSa,
+			corev1.EventTypeNormal,
+			"VeleroServiceAccountReconciled",
+			fmt.Sprintf("performed %s on velero service account %s/%s", op, veleroSa.Namespace, veleroSa.Name),
+		)
+	}
+	return true, nil
+}
+
+func (r *VeleroReconciler) ReconcileVeleroClusterRoleBinding(log logr.Logger) (bool, error) {
+	velero := oadpv1alpha1.Velero{}
+	if err := r.Get(r.Context, r.NamespacedName, &velero); err != nil {
+		return false, err
+	}
+	veleroCRB, err := r.veleroClusterRoleBinding(&velero)
+	if err != nil {
+		return false, err
+	}
+	op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, veleroCRB, func() error {
+		// Setting controller owner reference on the velero CRB
+		// TODO: HOW DO I DO THIS?? ALAY HALP PLZ
+		/*err := controllerutil.SetControllerReference(&velero, veleroCRB, r.Scheme)
+		if err != nil {
+			return err
+		}*/
+
+		// update the CRB template
+		veleroCRBUpdate, err := r.veleroClusterRoleBinding(&velero)
+		veleroCRB = veleroCRBUpdate
+		return err
+	})
+
+	if err != nil {
+		return false, err
+	}
+
+	//TODO: Review velero CRB status and report errors and conditions
+
+	if op == controllerutil.OperationResultCreated || op == controllerutil.OperationResultUpdated {
+		// Trigger event to indicate velero SA was created or updated
+		r.EventRecorder.Event(veleroCRB,
+			corev1.EventTypeNormal,
+			"VeleroClusterRoleBindingReconciled",
+			fmt.Sprintf("performed %s on velero clusterrolebinding %s", op, veleroCRB.Name),
+		)
+	}
+	return true, nil
+}
+
+func (r *VeleroReconciler) ReconcileVeleroSecurityContextConstraint(log logr.Logger) (bool, error) {
+	velero := oadpv1alpha1.Velero{}
+	if err := r.Get(r.Context, r.NamespacedName, &velero); err != nil {
+		return false, err
+	}
+	sa := corev1.ServiceAccount{}
+	nsName := types.NamespacedName{
+		Namespace: velero.Namespace,
+		Name:      common.Velero,
+	}
+	if err := r.Get(r.Context, nsName, &sa); err != nil {
+		return false, err
+	}
+
+	veleroSCC := &security.SecurityContextConstraints{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "velero-privileged",
+		},
+	}
+	op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, veleroSCC, func() error {
+		// Setting controller owner reference on the velero SCC
+		// TODO: HOW DO I DO THIS?? ALAY HALP PLZ
+		/*err := controllerutil.SetControllerReference(&velero, veleroSCC, r.Scheme)
+		if err != nil {
+			return err
+		}*/
+
+		// update the SCC template
+		return r.privilegedSecurityContextConstraints(veleroSCC, &velero, &sa)
+	})
+
+	if err != nil {
+		return false, err
+	}
+
+	//TODO: Review velero SCC status and report errors and conditions
+
+	if op == controllerutil.OperationResultCreated || op == controllerutil.OperationResultUpdated {
+		// Trigger event to indicate velero SCC was created or updated
+		r.EventRecorder.Event(veleroSCC,
+			corev1.EventTypeNormal,
+			"VeleroSecurityContextConstraintsReconciled",
+			fmt.Sprintf("performed %s on velero scc %s", op, veleroSCC.Name),
+		)
+	}
+	return true, nil
+}
 
 func (r *VeleroReconciler) ReconcileVeleroDeployment(log logr.Logger) (bool, error) {
 	velero := oadpv1alpha1.Velero{}
@@ -107,6 +240,68 @@ func (r *VeleroReconciler) ReconcileVeleroDeployment(log logr.Logger) (bool, err
 		)
 	}
 	return true, nil
+}
+
+func (r *VeleroReconciler) veleroServiceAccount(velero *oadpv1alpha1.Velero) (*corev1.ServiceAccount, error) {
+	annotations := make(map[string]string)
+	sa := install.ServiceAccount(velero.Namespace, annotations)
+	sa.Labels = r.getAppLabels(velero)
+	return sa, nil
+}
+
+func (r *VeleroReconciler) veleroClusterRoleBinding(velero *oadpv1alpha1.Velero) (*rbacv1.ClusterRoleBinding, error) {
+	crb := install.ClusterRoleBinding(velero.Namespace)
+	crb.Labels = r.getAppLabels(velero)
+	return crb, nil
+}
+
+func (r *VeleroReconciler) privilegedSecurityContextConstraints(scc *security.SecurityContextConstraints, velero *oadpv1alpha1.Velero, sa *corev1.ServiceAccount) error {
+	scc = &security.SecurityContextConstraints{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   "velero-privileged",
+			Labels: r.getAppLabels(velero),
+		},
+		AllowHostDirVolumePlugin: true,
+		AllowHostIPC:             true,
+		AllowHostNetwork:         true,
+		AllowHostPID:             true,
+		AllowHostPorts:           true,
+		AllowPrivilegeEscalation: pointer.BoolPtr(true),
+		AllowPrivilegedContainer: true,
+		AllowedCapabilities: []corev1.Capability{
+			security.AllowAllCapabilities,
+		},
+		AllowedUnsafeSysctls: []string{
+			"*",
+		},
+		DefaultAddCapabilities: nil,
+		FSGroup: security.FSGroupStrategyOptions{
+			Type: security.FSGroupStrategyRunAsAny,
+		},
+		Priority:                 nil,
+		ReadOnlyRootFilesystem:   false,
+		RequiredDropCapabilities: nil,
+		RunAsUser: security.RunAsUserStrategyOptions{
+			Type: security.RunAsUserStrategyRunAsAny,
+		},
+		SELinuxContext: security.SELinuxContextStrategyOptions{
+			Type: security.SELinuxStrategyRunAsAny,
+		},
+		SeccompProfiles: []string{
+			"*",
+		},
+		SupplementalGroups: security.SupplementalGroupsStrategyOptions{
+			Type: security.SupplementalGroupsStrategyRunAsAny,
+		},
+		Users: []string{
+			"system:admin",
+			fmt.Sprintf("system:serviceaccount:%s:%s", sa.Namespace, sa.Name),
+		},
+		Volumes: []security.FSType{
+			security.FSTypeAll,
+		},
+	}
+	return nil
 }
 
 // Build VELERO Deployment
