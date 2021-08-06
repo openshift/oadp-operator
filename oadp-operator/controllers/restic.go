@@ -16,13 +16,32 @@ import (
 )
 
 const (
-	Restic           = "restic"
-	resticPvHostPath = "/var/lib/kubelet/pods" //TODO: make configurable with env var
+	Restic = "restic"
 )
 
 var (
+	resticPvHostPath string = getResticPvHostPath()
+
+	// v1.MountPropagationHostToContainer is a const. Const cannot be pointed to.
+	// we need to declare mountPropagationToHostContainer so that we have an address to point to
+	// for ds.Spec.Template.Spec.Volumes[].Containers[].VolumeMounts[].MountPropagation
 	mountPropagationToHostContainer = v1.MountPropagationHostToContainer
 )
+
+func getResticPvHostPath() string {
+	env := os.Getenv("RESTIC_PV_HOSTPATH")
+	if env == "" {
+		return "/var/lib/kubelet/pods"
+	}
+	return env
+}
+
+func getResticObjectMeta(r *VeleroReconciler) metav1.ObjectMeta {
+	return metav1.ObjectMeta{
+		Name:      Restic,
+		Namespace: r.NamespacedName.Namespace,
+	}
+}
 
 func (r *VeleroReconciler) ReconcileResticDaemonset(log logr.Logger) (bool, error) {
 	velero := oadpv1alpha1.Velero{}
@@ -32,15 +51,19 @@ func (r *VeleroReconciler) ReconcileResticDaemonset(log logr.Logger) (bool, erro
 
 	// Define "static" portion of daemonset
 	ds := &appsv1.DaemonSet{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      Restic,
-			Namespace: r.NamespacedName.Namespace,
-		},
+		ObjectMeta: getResticObjectMeta(r),
 	}
 
 	if velero.Spec.EnableRestic != nil && !*velero.Spec.EnableRestic {
-		// If velero Spec enableRestic exists and is false, attempt to delete.
-		r.Delete(r.Context, ds) //TODO: delete fail logic?
+
+		if err := r.Get(r.Context, r.NamespacedName, ds); err == nil {
+			// no errors means there already is an existing DaeMonset.
+			// TODO: Check if restic is in use, a backup is running, so don't blindly delete restic.
+			// If velero Spec enableRestic exists and is false, attempt to delete.
+			if err := r.Delete(r.Context, ds); err != nil {
+				return false, err
+			}
+		}
 		return true, nil
 	}
 
@@ -50,7 +73,7 @@ func (r *VeleroReconciler) ReconcileResticDaemonset(log logr.Logger) (bool, erro
 		if ds.ObjectMeta.CreationTimestamp.IsZero() {
 			ds.Spec.Selector = &metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					"component": common.Velero,
+					"component": Restic,
 				},
 			}
 		}
@@ -95,11 +118,6 @@ func (r *VeleroReconciler) buildResticDaemonset(velero *oadpv1alpha1.Velero, ds 
 		return nil, fmt.Errorf("ds cannot be nil")
 	}
 	ds.Spec = appsv1.DaemonSetSpec{
-		Selector: &metav1.LabelSelector{
-			MatchLabels: map[string]string{
-				"name": Restic,
-			},
-		},
 		UpdateStrategy: appsv1.DaemonSetUpdateStrategy{
 			Type: appsv1.RollingUpdateDaemonSetStrategyType,
 		},
@@ -147,7 +165,7 @@ func (r *VeleroReconciler) buildResticDaemonset(velero *oadpv1alpha1.Velero, ds 
 							Privileged: pointer.Bool(true),
 						},
 						Image:           getResticImage(),
-						ImagePullPolicy: "Always",
+						ImagePullPolicy: v1.PullAlways,
 						Resources:       r.getVeleroResourceReqs(velero), //setting default.
 						Command: []string{
 							"/velero",
