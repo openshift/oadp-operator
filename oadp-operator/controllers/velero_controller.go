@@ -47,6 +47,9 @@ type VeleroReconciler struct {
 	EventRecorder  record.EventRecorder
 }
 
+//TODO!!! FIX THIS!!!!
+
+//+kubebuilder:rbac:groups=*,resources=*,verbs=*
 //+kubebuilder:rbac:groups=oadp.openshift.io,resources=veleroes,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=roles;clusterroles;rolebindings;clusterrolebindings,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups="",resources=serviceaccounts;secrets;configmaps,verbs=get;list;watch;create;update;patch;delete
@@ -84,8 +87,11 @@ func (r *VeleroReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		r.ReconcileRegistries,
 		r.ValidateVolumeSnapshotLocations,
 		r.ReconcileVolumeSnapshotLocations,
-		r.ReconcileResticDaemonset,
+		r.ReconcileVeleroServiceAccount,
+		r.ReconcileVeleroClusterRoleBinding,
+		r.ReconcileVeleroSecurityContextConstraint,
 		r.ReconcileVeleroDeployment,
+		r.ReconcileResticDaemonset,
 	)
 
 	if err != nil {

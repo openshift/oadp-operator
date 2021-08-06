@@ -175,7 +175,8 @@ spec:
                 type: object
               resticSupplementalGroups:
                 items:
-                  type: string
+                  format: int64
+                  type: integer
                 type: array
               resticTolerations:
                 items:
