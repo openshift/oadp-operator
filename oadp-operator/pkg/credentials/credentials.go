@@ -66,14 +66,14 @@ func AppendCloudProviderVolumes(velero *oadpv1alpha1.Velero, ds *appsv1.DaemonSe
 		}
 	}
 	for _, plugin := range velero.Spec.DefaultVeleroPlugins {
-		if !plugin.isCloudProvider {
-			continue
-		}
 		// Check that this is a cloud provider plugin in the cloud provider map
 		// ok is boolean that will be true if `plugin` is a valid key in `pluginSpecificFields` map
 		// pattern from https://golang.org/doc/effective_go#maps
 		// this replaces the need to iterate through the `pluginSpecificFields` O(n) -> O(1)
 		if cloudProviderMap, ok := pluginSpecificFields[plugin]; ok {
+			if !cloudProviderMap.isCloudProvider {
+				continue
+			}
 			ds.Spec.Template.Spec.Volumes = append(
 				ds.Spec.Template.Spec.Volumes,
 				corev1.Volume{
@@ -117,11 +117,10 @@ func AppendPluginSpecficSpecs(velero *oadpv1alpha1.Velero, veleroDeployment *app
 	}
 
 	for _, plugin := range velero.Spec.DefaultVeleroPlugins {
-		if !plugin.isCloudProvider {
-			continue
-		}
 		if pluginSpecificMap, ok := pluginSpecificFields[plugin]; ok {
-
+			if !pluginSpecificMap.isCloudProvider {
+				continue
+			}
 			// append plugin specific volume mounts
 			if veleroContainer != nil {
 				veleroContainer.VolumeMounts = append(
