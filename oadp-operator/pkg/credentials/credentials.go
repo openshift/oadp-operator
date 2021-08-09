@@ -10,6 +10,7 @@ import (
 )
 
 type DefaultPluginFields struct {
+	isCloudProvider    bool
 	secretName         string
 	mountPath          string
 	envCredentialsFile string
@@ -24,27 +25,32 @@ var (
 	mountPropagationToHostContainer = corev1.MountPropagationHostToContainer
 	pluginSpecificFields            = map[oadpv1alpha1.DefaultPlugin]DefaultPluginFields{
 		oadpv1alpha1.DefaultPluginAWS: {
+			isCloudProvider:    true,
 			secretName:         "cloud-credentials",
 			mountPath:          "/credentials",
 			envCredentialsFile: "AWS_SHARED_CREDENTIALS_FILE",
 			pluginImage:        fmt.Sprintf("%v/%v/%v:%v", os.Getenv("REGISTRY"), os.Getenv("PROJECT"), os.Getenv("VELERO_AWS_PLUGIN_REPO"), os.Getenv("VELERO_AWS_PLUGIN_TAG")),
 		},
 		oadpv1alpha1.DefaultPluginGCP: {
+			isCloudProvider:    true,
 			secretName:         "cloud-credentials-gcp",
 			mountPath:          "/credentials-gcp",
 			envCredentialsFile: "GOOGLE_APPLICATION_CREDENTIALS",
 			pluginImage:        fmt.Sprintf("%v/%v/%v:%v", os.Getenv("REGISTRY"), os.Getenv("PROJECT"), os.Getenv("VELERO_GCP_PLUGIN_REPO"), os.Getenv("VELERO_GCP_PLUGIN_TAG")),
 		},
 		oadpv1alpha1.DefaultPluginMicrosoftAzure: {
+			isCloudProvider:    true,
 			secretName:         "cloud-credentials-azure",
 			mountPath:          "/credentials-azure",
 			envCredentialsFile: "AZURE_CREDENTIALS_FILE",
 			pluginImage:        fmt.Sprintf("%v/%v/%v:%v", os.Getenv("REGISTRY"), os.Getenv("PROJECT"), os.Getenv("VELERO_AZURE_PLUGIN_REPO"), os.Getenv("VELERO_AZURE_PLUGIN_TAG")),
 		},
 		oadpv1alpha1.DefaultPluginOpenShift: {
-			pluginImage: fmt.Sprintf("%v/%v/%v:%v", os.Getenv("REGISTRY"), os.Getenv("PROJECT"), os.Getenv("VELERO_OPENSHIFT_PLUGIN_REPO"), os.Getenv("VELERO_OPENSHIFT_PLUGIN_TAG")),
+			isCloudProvider: false,
+			pluginImage:     fmt.Sprintf("%v/%v/%v:%v", os.Getenv("REGISTRY"), os.Getenv("PROJECT"), os.Getenv("VELERO_OPENSHIFT_PLUGIN_REPO"), os.Getenv("VELERO_OPENSHIFT_PLUGIN_TAG")),
 		},
 		oadpv1alpha1.DefaultPluginCSI: {
+			isCloudProvider: false,
 			//TODO: Check if the Registry needs to an upstream one from CSI
 			pluginImage: fmt.Sprintf("%v/%v/%v:%v", os.Getenv("REGISTRY"), os.Getenv("PROJECT"), os.Getenv("VELERO_CSI_PLUGIN_REPO"), os.Getenv("VELERO_CSI_PLUGIN_TAG")),
 		},
@@ -60,6 +66,9 @@ func AppendCloudProviderVolumes(velero *oadpv1alpha1.Velero, ds *appsv1.DaemonSe
 		}
 	}
 	for _, plugin := range velero.Spec.DefaultVeleroPlugins {
+		if !plugin.isCloudProvider {
+			continue
+		}
 		// Check that this is a cloud provider plugin in the cloud provider map
 		// ok is boolean that will be true if `plugin` is a valid key in `pluginSpecificFields` map
 		// pattern from https://golang.org/doc/effective_go#maps
@@ -108,9 +117,7 @@ func AppendPluginSpecficSpecs(velero *oadpv1alpha1.Velero, veleroDeployment *app
 	}
 
 	for _, plugin := range velero.Spec.DefaultVeleroPlugins {
-		if plugin != oadpv1alpha1.DefaultPluginAWS && plugin !=
-			oadpv1alpha1.DefaultPluginGCP && plugin !=
-			oadpv1alpha1.DefaultPluginMicrosoftAzure {
+		if !plugin.isCloudProvider {
 			continue
 		}
 		if pluginSpecificMap, ok := pluginSpecificFields[plugin]; ok {
