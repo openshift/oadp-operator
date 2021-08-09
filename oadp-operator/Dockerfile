@@ -23,5 +23,5 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -o $APP_ROOT/src/manager m
 FROM registry.access.redhat.com/ubi8-minimal
 WORKDIR /
 COPY --from=builder /opt/app-root/src/manager .
-
+USER 65532:65532
 ENTRYPOINT ["/manager"]
