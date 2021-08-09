@@ -108,6 +108,11 @@ func AppendPluginSpecficSpecs(velero *oadpv1alpha1.Velero, veleroDeployment *app
 	}
 
 	for _, plugin := range velero.Spec.DefaultVeleroPlugins {
+		if plugin != oadpv1alpha1.DefaultPluginAWS && plugin !=
+			oadpv1alpha1.DefaultPluginGCP && plugin !=
+			oadpv1alpha1.DefaultPluginMicrosoftAzure {
+			continue
+		}
 		if pluginSpecificMap, ok := pluginSpecificFields[plugin]; ok {
 
 			// append plugin specific volume mounts
