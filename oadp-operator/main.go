@@ -24,17 +24,18 @@ import (
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
+	security "github.com/openshift/api/security/v1"
+	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
+	"github.com/openshift/oadp-operator/controllers"
+	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
+	appsv1 "k8s.io/api/apps/v1"
+	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-
-	security "github.com/openshift/api/security/v1"
-	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
-	"github.com/openshift/oadp-operator/controllers"
-	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -87,6 +88,16 @@ func main() {
 	}
 	if err := velerov1.AddToScheme(mgr.GetScheme()); err != nil {
 		setupLog.Error(err, "unable to add Velero APIs to scheme")
+		os.Exit(1)
+	}
+
+	if err := appsv1.AddToScheme(mgr.GetScheme()); err != nil {
+		setupLog.Error(err, "unable to add Kubernetes APIs to scheme")
+		os.Exit(1)
+	}
+
+	if err := v1.AddToScheme(mgr.GetScheme()); err != nil {
+		setupLog.Error(err, "unable to add Kubernetes API extensions to scheme")
 		os.Exit(1)
 	}
 
