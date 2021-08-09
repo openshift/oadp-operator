@@ -1,7 +1,7 @@
 # Build the manager binary
 FROM registry.access.redhat.com/ubi8/go-toolset:1.14.7 as builder
 
-WORKDIR /workspace
+WORKDIR $APP_ROOT/src/github.com/openshift/oadp-operator
 # Copy the Go Modules manifests
 COPY go.mod go.mod
 COPY go.sum go.sum
@@ -16,13 +16,12 @@ COPY pkg/ pkg/
 COPY controllers/ controllers/
 
 # Build
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -o manager main.go
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -o $APP_ROOT/src/manager main.go
 
 # Use distroless as minimal base image to package the manager binary
 # Refer to https://github.com/GoogleContainerTools/distroless for more details
-FROM gcr.io/distroless/static:nonroot
+FROM registry.access.redhat.com/ubi8-minimal
 WORKDIR /
-COPY --from=builder /workspace/manager .
-USER 65532:65532
+COPY --from=builder /opt/app-root/src/manager .
 
 ENTRYPOINT ["/manager"]
