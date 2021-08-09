@@ -21,31 +21,17 @@ func TestVeleroReconciler_buildRegistryDeployment(t *testing.T) {
 		wantErr            bool
 	}{
 		{
-			name: "registry without owner reference as well as labels",
+			name: "given a valid bsl get appropriate registry deployment",
 			registryDeployment: &appsv1.Deployment{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-registry",
 					Namespace: "test-ns",
 				},
-			},
-			bsl: &velerov1.BackupStorageLocation{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-bsl",
-					Namespace: "test-ns",
-				},
-			},
-		},
-		{
-			name: "registry without owner reference but has labels",
-			registryDeployment: &appsv1.Deployment{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-registry",
-					Namespace: "test-ns",
-					Labels: map[string]string{
-						"app.kubernetes.io/name":       common.OADPOperatorVelero,
-						"app.kubernetes.io/instance":   "oadp-test-bsl-test-ns-registry",
-						"app.kubernetes.io/managed-by": common.OADPOperator,
-						"app.kubernetes.io/component":  Registry,
+				Spec: appsv1.DeploymentSpec{
+					Selector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"component": "oadp-" + "test-bsl" + "-" + "aws" + "-registry",
+						},
 					},
 				},
 			},
@@ -53,6 +39,20 @@ func TestVeleroReconciler_buildRegistryDeployment(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-bsl",
 					Namespace: "test-ns",
+				},
+				Spec: velerov1.BackupStorageLocationSpec{
+					Provider: AWSProvider,
+					StorageType: velerov1.StorageType{
+						ObjectStorage: &velerov1.ObjectStorageLocation{
+							Bucket: "aws-bucket",
+						},
+					},
+					Config: map[string]string{
+						Region:                "aws-region",
+						S3URL:                 "https://sr-url-aws-domain.com",
+						RootDirectory:         "/velero-aws",
+						InsecureSkipTLSVerify: "false",
+					},
 				},
 			},
 		},
@@ -89,6 +89,11 @@ func TestVeleroReconciler_buildRegistryDeployment(t *testing.T) {
 				},
 				Spec: appsv1.DeploymentSpec{
 					Replicas: pointer.Int32(1),
+					Selector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"component": "oadp-" + tt.bsl.Name + "-" + tt.bsl.Spec.Provider + "-registry",
+						},
+					},
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: map[string]string{
@@ -97,6 +102,74 @@ func TestVeleroReconciler_buildRegistryDeployment(t *testing.T) {
 						},
 						Spec: corev1.PodSpec{
 							RestartPolicy: corev1.RestartPolicyAlways,
+							Containers: []corev1.Container{
+								{
+									Image: RegistryImage,
+									Name:  "oadp-" + tt.bsl.Name + "-" + tt.bsl.Spec.Provider + "-registry" + "-container",
+									Ports: []corev1.ContainerPort{
+										{
+											ContainerPort: 5000,
+											Protocol:      corev1.ProtocolTCP,
+										},
+									},
+									Env: []corev1.EnvVar{
+										{
+											Name:  RegistryStorageEnvVarKey,
+											Value: S3,
+										},
+										{
+											Name:  RegistryStorageS3AccesskeyEnvVarKey,
+											Value: "",
+										},
+										{
+											Name:  RegistryStorageS3BucketEnvVarKey,
+											Value: "aws-bucket",
+										},
+										{
+											Name:  RegistryStorageS3RegionEnvVarKey,
+											Value: "aws-region",
+										},
+										{
+											Name:  RegistryStorageS3SecretkeyEnvVarKey,
+											Value: "",
+										},
+										{
+											Name:  RegistryStorageS3RegionendpointEnvVarKey,
+											Value: "https://sr-url-aws-domain.com",
+										},
+										{
+											Name:  RegistryStorageS3RootdirectoryEnvVarKey,
+											Value: "/velero-aws",
+										},
+										{
+											Name:  RegistryStorageS3SkipverifyEnvVarKey,
+											Value: "false",
+										},
+									},
+									LivenessProbe: &corev1.Probe{
+										Handler: corev1.Handler{
+											HTTPGet: &corev1.HTTPGetAction{
+												Path: "/v2/_catalog?n=5",
+												Port: intstr.IntOrString{IntVal: 5000},
+											},
+										},
+										PeriodSeconds:       5,
+										TimeoutSeconds:      3,
+										InitialDelaySeconds: 15,
+									},
+									ReadinessProbe: &corev1.Probe{
+										Handler: corev1.Handler{
+											HTTPGet: &corev1.HTTPGetAction{
+												Path: "/v2/_catalog?n=5",
+												Port: intstr.IntOrString{IntVal: 5000},
+											},
+										},
+										PeriodSeconds:       5,
+										TimeoutSeconds:      3,
+										InitialDelaySeconds: 15,
+									},
+								},
+							},
 						},
 					},
 				},
@@ -110,11 +183,8 @@ func TestVeleroReconciler_buildRegistryDeployment(t *testing.T) {
 			if !reflect.DeepEqual(wantRegistryDeployment.Labels, tt.registryDeployment.Labels) {
 				t.Errorf("expected registry deployment labels to be %#v, got %#v", wantRegistryDeployment.Labels, tt.registryDeployment.Labels)
 			}
-			if !reflect.DeepEqual(wantRegistryDeployment.OwnerReferences, tt.registryDeployment.OwnerReferences) {
-				t.Errorf("expected registry deployment owner references to be %#v, got %#v", wantRegistryDeployment.OwnerReferences, tt.registryDeployment.OwnerReferences)
-			}
-			if !reflect.DeepEqual(wantRegistryDeployment.Spec.Replicas, tt.registryDeployment.Spec.Replicas) {
-				t.Errorf("expected registry deployment replicas to be %#v, got %#v", wantRegistryDeployment.Spec.Replicas, tt.registryDeployment.Spec.Replicas)
+			if !reflect.DeepEqual(wantRegistryDeployment.Spec, tt.registryDeployment.Spec) {
+				t.Errorf("expected registry deployment spec to be %#v, got %#v", wantRegistryDeployment, tt.registryDeployment)
 			}
 		})
 	}

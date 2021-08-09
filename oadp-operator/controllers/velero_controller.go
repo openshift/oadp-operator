@@ -82,14 +82,15 @@ func (r *VeleroReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return result, client.IgnoreNotFound(err)
 	}
 	_, err := ReconcileBatch(r.Log,
+		r.ReconcileVeleroServiceAccount,
+		r.ReconcileVeleroClusterRoleBinding,
+		r.ReconcileVeleroSecurityContextConstraint,
+		r.ReconcileVeleroCRDs,
 		r.ValidateBackupStorageLocations,
 		r.ReconcileBackupStorageLocations,
 		r.ReconcileRegistries,
 		r.ValidateVolumeSnapshotLocations,
 		r.ReconcileVolumeSnapshotLocations,
-		r.ReconcileVeleroServiceAccount,
-		r.ReconcileVeleroClusterRoleBinding,
-		r.ReconcileVeleroSecurityContextConstraint,
 		r.ReconcileVeleroDeployment,
 		r.ReconcileResticDaemonset,
 	)
