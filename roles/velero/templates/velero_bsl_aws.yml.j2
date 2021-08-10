@@ -1,0 +1,58 @@
+---
+{% for bsl in backup_storage_locations %}
+{% if bsl.provider == 'aws' %}
+apiVersion: velero.io/v1
+kind: BackupStorageLocation
+metadata:
+  name: {{ bsl.name }}
+  namespace: {{ velero_namespace }}
+spec:
+  provider: {{ bsl.provider }}
+{% if bsl.object_storage is defined %}
+  objectStorage:
+{% if bsl.object_storage.bucket is defined %}
+    bucket: {{ bsl.object_storage.bucket }}
+{% endif %}
+{% if bsl.object_storage.prefix is defined %}
+    prefix: {{ bsl.object_storage.prefix }}
+{% endif %}
+{% if bsl.object_storage.ca_cert is defined %}
+    caCert: {{ bsl.object_storage.ca_cert }}
+{% endif %}
+{% endif %}
+{% if bsl.config is defined %}
+  config:
+{% if bsl.config.region is defined %}
+    region: {{ bsl.config.region }}
+{% endif %}
+{% if bsl.config.profile is defined %}
+    profile: {{ bsl.config.profile }}
+{% endif %}
+{% if bsl.config.s3_force_path_style is defined %}
+    s3ForcePathStyle: "{{ bsl.config.s3_force_path_style | string }}"
+{% endif %}
+{% if bsl.config.s3_url is defined %}
+    s3Url: {{ bsl.config.s3_url }}
+{% endif %}
+{% if bsl.config.public_url is defined %}
+    publicUrl: {{ bsl.config.public_url }} 
+{% endif %}
+{% if bsl.config.server_side_encryption is defined %}
+    serverSideEncryption: {{ bsl.config.server_side_encryption }}
+{% endif %}
+{% if bsl.config.kms_key_id is defined %}
+    kmsKeyId: {{ kms_key_id }}
+{% endif %}
+{% if bsl.config.signature_version is defined %}
+    signatureVersion: "{{ bsl.config.signature_version | string }}"
+{% endif %}
+{% if bsl.config.insecure_skip_tls_verify is defined %}
+    insecureSkipTLSVerify: "{{ bsl.config.insecure_skip_tls_verify | string }}"
+{% endif %}
+{% endif %}
+  accessMode: {{ bsl.access_mode | default('ReadWrite')}}
+{% if bsl.backup_sync_period is defined %}
+  backupSyncPeriod: {{ bsl.backup_sync_period }}
+{% endif %}
+{% endif %}
+{% endfor %}

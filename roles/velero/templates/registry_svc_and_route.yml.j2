@@ -1,0 +1,37 @@
+---
+{% for bsl in backup_storage_locations %}
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    component: oadp-{{ bsl.name }}-{{ bsl.provider }}-registry
+  name: oadp-{{ bsl.name }}-{{ bsl.provider }}-registry-svc
+  namespace: {{ velero_namespace }}
+spec:
+  ports:
+  - name: 5000-tcp
+    port: 5000
+    targetPort: 5000
+    protocol: TCP
+  selector:
+    component: oadp-{{ bsl.name }}-{{ bsl.provider }}-registry
+  type: ClusterIP
+
+---
+
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: oadp-{{ bsl.name }}-{{ bsl.provider }}-registry-route
+  namespace: {{ velero_namespace }}
+  labels:
+    component: oadp-{{ bsl.name }}-{{ bsl.provider }}-registry
+    service: oadp-{{ bsl.name }}-{{ bsl.provider }}-registry-svc
+    track: registry-routes
+spec:
+  to:
+    kind: Service
+    name: oadp-{{ bsl.name }}-{{ bsl.provider }}-registry-svc
+  port:
+    targetPort: 5000-tcp
+{% endfor %}

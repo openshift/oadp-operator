@@ -1,0 +1,152 @@
+---
+- name: "Include preflight tasks"
+  include_tasks: preflight.yml
+
+- name: "Include Noobaa Setup tasks"
+  include_tasks: noobaa_setup.yml
+
+- name: "Discover AWS credentials secret"
+  k8s_info:
+    api_version: v1
+    kind: Secret
+    name: "{{ velero_aws_secret_name }}"
+    namespace: "{{ velero_namespace }}"
+  register: secret_status
+  when: '"aws" in default_velero_plugins'
+
+- name: "Check if the AWS credentials secret exists or not"
+  fail:
+    msg: "AWS credentials secret does not exist, Please create the secret {{ velero_aws_secret_name }} in order to proceed further with Velero installation"
+  when: '"aws" in default_velero_plugins and secret_status.resources | length == 0 and not noobaa'
+
+- name: "Discover GCP credentials secret"
+  k8s_info:
+    api_version: v1
+    kind: Secret
+    name: "{{ velero_gcp_secret_name }}"
+    namespace: "{{ velero_namespace }}"
+  register: gcp_secret_status
+  when: '"gcp" in default_velero_plugins'
+
+- name: "Check if the GCP credentials secret exists or not"
+  fail:
+    msg: "GCP credentials secret does not exist, Please create the secret {{ velero_gcp_secret_name }} in order to proceed further with velero installation"
+  when: '"gcp" in default_velero_plugins and gcp_secret_status.resources | length == 0 and not noobaa'
+
+- name: "Discover Azure credentials secret"
+  k8s_info:
+    api_version: v1
+    kind: Secret
+    name: "{{ velero_azure_secret_name }}"
+    namespace: "{{ velero_namespace }}"
+  register: azure_secret_status
+  when: '"azure" in default_velero_plugins'
+
+- name: "Check if the Azure credentials secret exists or not"
+  fail:
+    msg: "Azure credentials secret does not exist, Please create the secret {{ velero_azure_secret_name }} in order to proceed further with velero installation"
+  when: '"azure" in default_velero_plugins and azure_secret_status.resources | length == 0 and not noobaa'
+
+- when: '"aws" in default_velero_plugins and secret_status.resources | length > 0 and not noobaa'
+  block:
+  - name: Discover AWS credentials
+    k8s_info:
+      api_version: v1
+      kind: Secret
+      name: "{{ velero_aws_secret_name }}"
+      namespace: "{{ velero_namespace }}"
+    register: aws_secret
+
+  - name: Decode AWS credentials
+    set_fact:
+      aws_secret_split: "{{ (aws_secret.resources[0].data.cloud | b64decode).split('\n') }}"
+
+  - name: Store AWS credentials
+    set_fact:
+      aws_access_key_id: "{{ (aws_secret_split[1] | regex_replace(' ', '')).split('=')[1] }}"
+      aws_secret_access_key: "{{ (aws_secret_split[2] | regex_replace(' ', '')).split('=')[1] }}"
+
+- when: not olm_managed
+  block:
+  - name: "Set up velero supporting resources (CRDS, SA, SCC) when not managed by OLM"
+    k8s:
+      state: "{{ velero_state }}"
+      definition: "{{ lookup('template', 'velero_supporting.yml.j2') }}"
+  rescue:
+  - name: "Set up velero supporting resources (CRDS, SA, SCC) when not managed by OLM"
+    k8s:
+      state: absent
+      definition: "{{ lookup('template', 'velero_supporting.yml.j2') }}"
+
+- name: "Set up velero controller"
+  k8s:
+    state: "{{ velero_state }}"
+    definition: "{{ lookup('template', 'velero.yml.j2') }}"
+    apply: yes
+
+- name: "Enable restic"
+  k8s:
+    state: "{{ velero_state }}"
+    definition: "{{ lookup('template', 'restic.yml.j2')}}"
+  when: enable_restic == true
+
+- name: "Disable restic"
+  k8s:
+    state: absent
+    definition: "{{ lookup('template', 'restic.yml.j2')}}"
+  when: enable_restic == false
+
+- name: "Create AWS BackupStorageLocation"
+  k8s:
+    state: "{{ velero_state }}"
+    definition: "{{ lookup('template', 'velero_bsl_aws.yml.j2') }}"
+  when: velero_aws_bsl_configs | int != 0 and not noobaa
+
+- name: "Create AWS image registry deployment"
+  k8s:
+    state: "{{ velero_state }}"
+    definition: "{{ lookup('template', 'registry_aws.yml.j2') }}"
+  when: velero_aws_bsl_configs | int != 0 and not noobaa
+
+- name: "Create GCP BackupStorageLocation"
+  k8s:
+    state: "{{ velero_state }}"
+    definition: "{{ lookup('template', 'velero_bsl_gcp.yml.j2') }}"
+  when: velero_gcp_bsl_configs | int != 0 and not noobaa
+
+- name: "Create Azure BackupStorageLocation"
+  k8s:
+    state: "{{ velero_state }}"
+    definition: "{{ lookup('template', 'velero_bsl_azure.yml.j2') }}"
+  when: velero_azure_bsl_configs | int != 0 and not noobaa
+
+- when: noobaa
+  block:
+  - name: Create Noobaa BackupStorageLocation
+    k8s:
+      state: "{{ velero_state }}"
+      definition: "{{ lookup('template', 'noobaa_bsl.yml.j2') }}"
+    when: (noobaa_bucket.resources|first).status.phase == "Bound"
+  - name: Create Noobaa registry resources                        
+    k8s:
+      state: "{{ velero_state }}"
+      definition: "{{ lookup('template', 'noobaa_registry.yml.j2') }}"
+  
+
+- name: "Create image registry svc and routes for all the BackupStorageLocation(s) configured"
+  k8s:
+    state: "{{ velero_state }}"
+    definition: "{{ lookup('template', 'registry_svc_and_route.yml.j2') }}"
+  when: (velero_aws_bsl_configs | int != 0 or velero_gcp_bsl_configs | int != 0 or velero_azure_bsl_configs | int != 0) and not noobaa 
+  
+- name: "Create internal image registry config map"
+  k8s:
+    state: "{{ velero_state }}"
+    definition: "{{ lookup('template', 'registry_config_map.yml.j2') }}"
+  when: (velero_aws_bsl_configs | int != 0 or velero_gcp_bsl_configs | int != 0 or velero_azure_bsl_configs | int != 0) and not noobaa
+
+- name: "Create VolumeStorageLocations"
+  k8s:
+    state: "{{ velero_state }}"
+    definition: "{{ lookup('template', 'velero_vsl.yml.j2') }}"
+  when: (volume_snapshot_locations|length) > 0
