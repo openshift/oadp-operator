@@ -1,0 +1,98 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    control-plane: controller-manager
+  name: system
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: controller-manager
+  namespace: system
+  labels:
+    control-plane: controller-manager
+spec:
+  selector:
+    matchLabels:
+      control-plane: controller-manager
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        control-plane: controller-manager
+    spec:
+      securityContext:
+        runAsNonRoot: true
+      containers:
+      - command:
+        - /manager
+        env:
+          - name: REGISTRY
+            value: quay.io
+          - name: PROJECT
+            value: konveyor
+          - name: VELERO_REGISTRY_REPO
+            value: registry
+          - name: VELERO_REGISTRY_TAG
+            value: latest
+          - name: VELERO_REPO
+            value: velero
+          - name: VELERO_OPENSHIFT_PLUGIN_REPO
+            value: openshift-velero-plugin
+          - name: VELERO_OPENSHIFT_PLUGIN_TAG
+            value: oadp-dev
+          - name: VELERO_RESTIC_RESTORE_HELPER_REPO
+            value: velero-restic-restore-helper
+          - name: VELERO_AWS_PLUGIN_REPO
+            value: velero-plugin-for-aws
+          - name: VELERO_GCP_PLUGIN_REPO
+            value: velero-plugin-for-gcp
+          - name: VELERO_AZURE_PLUGIN_REPO
+            value: velero-plugin-for-microsoft-azure
+          - name: VELERO_CSI_PLUGIN_REPO
+            value: velero-plugin-for-csi
+          - name: VELERO_VSPHERE_PLUGIN_REPO
+            value: velero-plugin-for-vsphere
+          - name: VELERO_TAG
+            value: konveyor-oadp
+          - name: VELERO_RESTIC_RESTORE_HELPER_TAG
+            value: latest
+          - name: VELERO_AWS_PLUGIN_TAG
+            value: konveyor-oadp
+          - name: VELERO_GCP_PLUGIN_TAG
+            value: konveyor-oadp
+          - name: VELERO_AZURE_PLUGIN_TAG
+            value: konveyor-oadp
+          - name: VELERO_CSI_PLUGIN_TAG
+            value: main
+          - name: VELERO_VSPHERE_PLUGIN_TAG
+            value: 1.1.0
+        args:
+        - --leader-elect
+        image: controller:latest
+        imagePullPolicy: Always
+        name: manager
+        securityContext:
+          allowPrivilegeEscalation: false
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8081
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 8081
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          limits:
+            cpu: 100m
+            memory: 200Mi
+          requests:
+            cpu: 100m
+            memory: 100Mi
+      serviceAccountName: controller-manager
+      terminationGracePeriodSeconds: 10

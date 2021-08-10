@@ -1,0 +1,20 @@
+# permissions for end users to view veleroes.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: velero-viewer-role
+rules:
+- apiGroups:
+  - oadp.openshift.io
+  resources:
+  - veleroes
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - oadp.openshift.io
+  resources:
+  - veleroes/status
+  verbs:
+  - get

@@ -1,0 +1,18 @@
+apiVersion: oadp.openshift.io/v1alpha1
+kind: Velero
+metadata:
+  name: velero-sample
+spec:
+  # Add fields here
+  olmManaged: false
+  backupStorageLocations:
+  - provider: aws
+    default: true
+    objectStorage:
+      bucket: velero-6109f5e9711c8c58131acdd2f490f451
+      prefix: velero
+    config:
+      region: us-east-1
+  defaultVeleroPlugins:
+  - openshift
+  - aws
