@@ -1,4 +1,4 @@
-OADP_TEST_NAMESPACE ?= oadp-operator
+OADP_TEST_NAMESPACE ?= oadp-operator-system
 CREDS_SECRET_REF ?= cloud-credentials
 OADP_AWS_CRED_FILE ?= /var/run/oadp-credentials/aws-credentials
 OADP_S3_BUCKET ?= /var/run/oadp-credentials/velero-bucket-name
