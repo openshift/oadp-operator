@@ -5,31 +5,8 @@ import (
 	"log"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/wait"
 )
-
-func updateVeleroPlugins(namespace string, instanceName string, pluginValues []string) error {
-	veleroClient, err := setUpDynamicVeleroClient(namespace)
-	if err != nil {
-		return nil
-	}
-	// get Velero as unstructured type
-	veleroResource, err := veleroClient.Get(context.Background(), instanceName, metav1.GetOptions{})
-	if err != nil {
-		return err
-	}
-	// remove aws from default_plugins
-	err = unstructured.SetNestedStringSlice(veleroResource.Object, pluginValues, "spec", "default_velero_plugins")
-	if err != nil {
-		return err
-	}
-	_, err = veleroClient.Update(context.Background(), veleroResource, metav1.UpdateOptions{})
-	if err != nil {
-		return err
-	}
-	return nil
-}
 
 func doesPluginExist(namespace string, deploymentName string, pluginName string) wait.ConditionFunc {
 	return func() (bool, error) {

@@ -6,7 +6,6 @@ import (
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
@@ -14,62 +13,6 @@ import (
 // unable to use setNestedField() to do so as there is currently
 // a bug in using this to set a map[string]string with dynamic client
 // panic: cannot deep copy []map[string]string
-
-func getResticVeleroConfig(namespace string, s3Bucket string, credSecretRef string, instanceName string) *unstructured.Unstructured {
-	// Default Velero Instance config with backup_storage_locations defaulted to AWS.
-	var resticVeleroSpec = unstructured.Unstructured{
-		Object: map[string]interface{}{
-			"apiVersion": "konveyor.openshift.io/v1alpha1",
-			"kind":       "Velero",
-			"metadata": map[string]interface{}{
-				"name":      instanceName,
-				"namespace": namespace,
-			},
-			"spec": map[string]interface{}{
-				"restic_node_selector": map[string]interface{}{
-					"foo": "bar",
-				},
-				"olm_managed": false,
-				"default_velero_plugins": []string{
-					"aws",
-					"csi",
-					"openshift",
-				},
-				"backup_storage_locations": [](map[string]interface{}){
-					map[string]interface{}{
-						"config": map[string]interface{}{
-							"profile": "default",
-							"region":  "us-east-1",
-						},
-						"credentials_secret_ref": map[string]interface{}{
-							"name":      credSecretRef,
-							"namespace": "oadp-operator",
-						},
-						"object_storage": map[string]interface{}{
-							"bucket": s3Bucket,
-							"prefix": "velero",
-						},
-						"name":     "default",
-						"provider": "aws",
-					},
-				},
-				"velero_feature_flags": "EnableCSI",
-				"enable_restic":        true,
-				"volume_snapshot_locations": [](map[string]interface{}){
-					map[string]interface{}{
-						"config": map[string]interface{}{
-							"profile": "default",
-							"region":  "us-west-2",
-						},
-						"name":     "default",
-						"provider": "aws",
-					},
-				},
-			},
-		},
-	}
-	return &resticVeleroSpec
-}
 
 func hasCorrectNumResticPods(namespace string) wait.ConditionFunc {
 	return func() (bool, error) {
@@ -138,29 +81,6 @@ func areResticPodsRunning(namespace string) wait.ConditionFunc {
 	}
 }
 
-func disableRestic(namespace string, instanceName string) error {
-	log.Printf("disabling restic in Velero Custom Resource...")
-	veleroClient, err := setUpDynamicVeleroClient(namespace)
-	if err != nil {
-		return nil
-	}
-	// get Velero as unstructured type
-	veleroResource, err := veleroClient.Get(context.Background(), instanceName, metav1.GetOptions{})
-	if err != nil {
-		return err
-	}
-	// update spec 'enable_restic' to be false
-	err = unstructured.SetNestedField(veleroResource.Object, false, "spec", "enable_restic")
-	if err != nil {
-		return err
-	}
-	_, err = veleroClient.Update(context.Background(), veleroResource, metav1.UpdateOptions{})
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
 func doesDaemonSetExists(namespace string, resticName string) wait.ConditionFunc {
 	log.Printf("Checking if restic daemonset exists...")
 	return func() (bool, error) {
@@ -192,21 +112,6 @@ func isResticDaemonsetDeleted(namespace string, instanceName string, resticName 
 		}
 		return false, err
 	}
-}
-
-func enableResticNodeSelector(namespace string, s3Bucket string, credSecretRef string, instanceName string) error {
-	veleroClient, err := setUpDynamicVeleroClient(namespace)
-	if err != nil {
-		return nil
-	}
-	// get Velero as unstructured type
-	veleroResource := getResticVeleroConfig(namespace, s3Bucket, credSecretRef, instanceName)
-	_, err = veleroClient.Create(context.Background(), veleroResource, metav1.CreateOptions{})
-	if err != nil {
-		return err
-	}
-	log.Printf("spec 'restic_node_selector' has been updated")
-	return nil
 }
 
 func resticDaemonSetHasNodeSelector(namespace string, s3Bucket string, credSecretRef string, instanceName string, resticName string) wait.ConditionFunc {
