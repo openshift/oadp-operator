@@ -189,7 +189,7 @@ type condition struct {
 	//LastTransitionTime time.Time     `json:"lastTransitionTime"`
 	Message string `json:"message"`
 	Reason  string `json:"reason"`
-	Status  string `json"status"`
+	Status  string `json:"status"`
 	Type    string `json:"type"`
 }
 
