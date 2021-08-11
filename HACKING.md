@@ -14,7 +14,7 @@ $ oc create secret generic cloud-credentials --namespace oadp-operator-system --
 
 Create a `Velero` Custom Resource to install Velero
 ```
-$ oc create -f config/samples/oadp_v1alpha1_velero.yaml
+$ oc create -n oadp-operator-system -f config/samples/oadp_v1alpha1_velero.yaml
 ```
 
 # Uninstall OADP Operator
