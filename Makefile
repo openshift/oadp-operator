@@ -97,7 +97,7 @@ vet: ## Run go vet against code.
 	go vet ./...
 
 test: manifests generate fmt vet envtest ## Run tests.
-	go test ./... -coverprofile cover.out
+	go test ./controllers/... -coverprofile cover.out
 
 ##@ Build
 
@@ -129,7 +129,7 @@ undeploy: kustomize ## Undeploy controller from the K8s cluster specified in ~/.
 	$(KUSTOMIZE) build config/default | kubectl delete -f -
 
 
-CONTROLLER_GEN = $(shell pwd)/bin/controller-gen
+CONTROLLER_GEN = GOFLAGS="-mod=mod" $(shell pwd)/bin/controller-gen
 controller-gen: ## Download controller-gen locally if necessary.
 	$(call go-get-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@v0.6.1)
 
