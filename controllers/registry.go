@@ -311,7 +311,6 @@ func (r *VeleroReconciler) getAWSRegistryEnvVars(bsl *velerov1.BackupStorageLoca
 	// Check for secret name
 	secretName, secretKey := r.getSecretNameAndKey(bsl.Spec.Credential, oadpv1alpha1.DefaultPluginAWS)
 
-	r.Log.Info(fmt.Sprintf("Secret name: %s and secret key: %s", secretName, secretKey))
 	// fetch secret and error
 	secret, err := r.getProviderSecret(secretName)
 	if err != nil {
@@ -319,7 +318,6 @@ func (r *VeleroReconciler) getAWSRegistryEnvVars(bsl *velerov1.BackupStorageLoca
 		return nil, err
 	}
 
-	r.Log.Info(fmt.Sprintf("Fetched secret: %#v", secret))
 	// parse the secret and get aws access_key and aws secret_key
 	AWSAccessKey, AWSSecretKey, err := r.parseAWSSecret(secret, secretKey)
 	if err != nil {
@@ -327,7 +325,6 @@ func (r *VeleroReconciler) getAWSRegistryEnvVars(bsl *velerov1.BackupStorageLoca
 		return nil, err
 	}
 
-	r.Log.Info(fmt.Sprintf("AWSAccessKey: %s, AWSSecretKey: %s", AWSAccessKey, AWSSecretKey))
 	for i := range awsEnvVars {
 		//TODO: This needs to be fetched from the provider secret
 		if awsEnvVars[i].Name == RegistryStorageS3AccesskeyEnvVarKey {
