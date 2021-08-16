@@ -1,7 +1,12 @@
 package controllers
 
 import (
+	"errors"
 	"fmt"
+	"github.com/openshift/oadp-operator/pkg/credentials"
+	"k8s.io/apimachinery/pkg/types"
+	"regexp"
+	"strings"
 
 	"github.com/go-logr/logr"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
@@ -198,6 +203,11 @@ func (r *VeleroReconciler) ReconcileRegistries(log logr.Logger) (bool, error) {
 // Construct and update the registry deployment for a bsl
 func (r *VeleroReconciler) buildRegistryDeployment(registryDeployment *appsv1.Deployment, bsl *velerov1.BackupStorageLocation) error {
 
+	// Build registry container
+	registryContainer, err := r.buildRegistryContainer(bsl)
+	if err != nil {
+		return err
+	}
 	// Setting controller owner reference on the registry deployment
 	registryDeployment.Labels = r.getRegistryBSLLabels(bsl)
 
@@ -212,7 +222,7 @@ func (r *VeleroReconciler) buildRegistryDeployment(registryDeployment *appsv1.De
 			},
 			Spec: corev1.PodSpec{
 				RestartPolicy: corev1.RestartPolicyAlways,
-				Containers:    r.buildRegistryContainer(bsl),
+				Containers:    registryContainer,
 			},
 		},
 	}
@@ -233,7 +243,12 @@ func registryName(bsl *velerov1.BackupStorageLocation) string {
 	return "oadp-" + bsl.Name + "-" + bsl.Spec.Provider + "-registry"
 }
 
-func (r *VeleroReconciler) buildRegistryContainer(bsl *velerov1.BackupStorageLocation) []corev1.Container {
+func (r *VeleroReconciler) buildRegistryContainer(bsl *velerov1.BackupStorageLocation) ([]corev1.Container, error) {
+	envVars, err := r.getRegistryEnvVars(bsl)
+	if err != nil {
+		r.Log.Info(fmt.Sprintf("Error building registry container for backupstoragelocation %s/%s, could not fetch registry env vars", bsl.Namespace, bsl.Name))
+		return nil, err
+	}
 	containers := []corev1.Container{
 		{
 			Image: RegistryImage,
@@ -244,7 +259,7 @@ func (r *VeleroReconciler) buildRegistryContainer(bsl *velerov1.BackupStorageLoc
 					Protocol:      corev1.ProtocolTCP,
 				},
 			},
-			Env: r.getRegistryEnvVars(bsl),
+			Env: envVars,
 			LivenessProbe: &corev1.Probe{
 				Handler: corev1.Handler{
 					HTTPGet: &corev1.HTTPGetAction{
@@ -270,15 +285,16 @@ func (r *VeleroReconciler) buildRegistryContainer(bsl *velerov1.BackupStorageLoc
 		},
 	}
 
-	return containers
+	return containers, nil
 }
 
-func (r *VeleroReconciler) getRegistryEnvVars(bsl *velerov1.BackupStorageLocation) []corev1.EnvVar {
+func (r *VeleroReconciler) getRegistryEnvVars(bsl *velerov1.BackupStorageLocation) ([]corev1.EnvVar, error) {
 	envVar := []corev1.EnvVar{}
 	provider := bsl.Spec.Provider
+	var err error
 	switch provider {
 	case AWSProvider:
-		envVar = r.getAWSRegistryEnvVars(bsl, cloudProviderEnvVarMap[AWSProvider])
+		envVar, err = r.getAWSRegistryEnvVars(bsl, cloudProviderEnvVarMap[AWSProvider])
 
 	case AzureProvider:
 		envVar = r.getAzureRegistryEnvVars(bsl, cloudProviderEnvVarMap[AzureProvider])
@@ -286,14 +302,34 @@ func (r *VeleroReconciler) getRegistryEnvVars(bsl *velerov1.BackupStorageLocatio
 	case GCPProvider:
 		envVar = r.getGCPRegistryEnvVars(bsl, cloudProviderEnvVarMap[GCPProvider])
 	}
-	return envVar
+	if err != nil {
+		return nil, err
+	}
+	return envVar, nil
 }
 
-func (r *VeleroReconciler) getAWSRegistryEnvVars(bsl *velerov1.BackupStorageLocation, awsEnvVars []corev1.EnvVar) []corev1.EnvVar {
+func (r *VeleroReconciler) getAWSRegistryEnvVars(bsl *velerov1.BackupStorageLocation, awsEnvVars []corev1.EnvVar) ([]corev1.EnvVar, error) {
+	// Check for secret name
+	secretName, secretKey := r.getSecretNameAndKey(bsl.Spec.Credential, oadpv1alpha1.DefaultPluginAWS)
+
+	// fetch secret and error
+	secret, err := r.getProviderSecret(secretName)
+	if err != nil {
+		r.Log.Info(fmt.Sprintf("Error fetching provider secret %s for backupstoragelocation %s/%s", secretName, bsl.Namespace, bsl.Name))
+		return nil, err
+	}
+
+	// parse the secret and get aws access_key and aws secret_key
+	AWSAccessKey, AWSSecretKey, err := r.parseAWSSecret(secret, secretKey)
+	if err != nil {
+		r.Log.Info(fmt.Sprintf("Error parsing provider secret %s for backupstoragelocation %s/%s", secretName, bsl.Namespace, bsl.Name))
+		return nil, err
+	}
+
 	for i := range awsEnvVars {
 		//TODO: This needs to be fetched from the provider secret
 		if awsEnvVars[i].Name == RegistryStorageS3AccesskeyEnvVarKey {
-			awsEnvVars[i].Value = ""
+			awsEnvVars[i].Value = AWSAccessKey
 		}
 
 		if awsEnvVars[i].Name == RegistryStorageS3BucketEnvVarKey {
@@ -305,7 +341,7 @@ func (r *VeleroReconciler) getAWSRegistryEnvVars(bsl *velerov1.BackupStorageLoca
 		}
 		//TODO: This needs to be fetched from the provider secret
 		if awsEnvVars[i].Name == RegistryStorageS3SecretkeyEnvVarKey {
-			awsEnvVars[i].Value = ""
+			awsEnvVars[i].Value = AWSSecretKey
 		}
 
 		if awsEnvVars[i].Name == RegistryStorageS3RegionendpointEnvVarKey && bsl.Spec.Config[S3URL] != "" {
@@ -320,7 +356,7 @@ func (r *VeleroReconciler) getAWSRegistryEnvVars(bsl *velerov1.BackupStorageLoca
 			awsEnvVars[i].Value = bsl.Spec.Config[InsecureSkipTLSVerify]
 		}
 	}
-	return awsEnvVars
+	return awsEnvVars, nil
 }
 
 func (r *VeleroReconciler) getAzureRegistryEnvVars(bsl *velerov1.BackupStorageLocation, azureEnvVars []corev1.EnvVar) []corev1.EnvVar {
@@ -354,4 +390,77 @@ func (r *VeleroReconciler) getGCPRegistryEnvVars(bsl *velerov1.BackupStorageLoca
 		}
 	}
 	return gcpEnvVars
+}
+
+func (r *VeleroReconciler) getProviderSecret(secretName string) (corev1.Secret, error) {
+
+	secret := corev1.Secret{}
+	key := types.NamespacedName{
+		Name:      secretName,
+		Namespace: r.NamespacedName.Namespace,
+	}
+	err := r.Get(r.Context, key, &secret)
+
+	if err != nil {
+		return secret, err
+	}
+
+	return secret, nil
+}
+
+func (r *VeleroReconciler) getSecretNameAndKey(credential *corev1.SecretKeySelector, plugin oadpv1alpha1.DefaultPlugin) (string, string) {
+
+	// check if user specified the Credential Name and Key
+	// TODO: Add validation in the BSL Validations
+	if credential != nil {
+		return credential.Name, credential.Key
+	}
+
+	// return default values
+	return credentials.PluginSpecificFields[plugin].SecretName, credentials.PluginSpecificFields[plugin].PluginSecretKey
+}
+
+func (r *VeleroReconciler) parseAWSSecret(secret corev1.Secret, secretKey string) (string, string, error) {
+
+	AWSAccessKey, AWSSecretKey := "", ""
+	// this logic only supports single profile presence in the aws credentials file
+	splitString := strings.Split(string(secret.Data[secretKey]), "\n")
+	for _, line := range splitString {
+		// check for access key
+		matchedAccessKey, err := regexp.MatchString("\\baws_access_key_id\\b", line)
+
+		if err != nil {
+			r.Log.Info("Error finding access key id for the supplied AWS credential")
+			return AWSAccessKey, AWSSecretKey, err
+		}
+
+		if matchedAccessKey {
+			cleanedLine := strings.ReplaceAll(line, " ", "")
+			splitLine := strings.Split(cleanedLine, "=")
+			if len(splitLine) != 2 {
+				r.Log.Info("Could not parse secret for AWS Access key")
+				return AWSAccessKey, AWSSecretKey, errors.New("secret parsing error")
+			}
+			AWSAccessKey = splitLine[1]
+		}
+
+		// check for secret key
+		matchedSecretKey, err := regexp.MatchString("\\baws_secret_access_key\\b", line)
+		if err != nil {
+			r.Log.Info("Error finding secret access key for the supplied AWS credential")
+			return AWSAccessKey, AWSSecretKey, err
+		}
+
+		if matchedSecretKey {
+			cleanedLine := strings.ReplaceAll(line, " ", "")
+			splitLine := strings.Split(cleanedLine, "=")
+			if len(splitLine) != 2 {
+				r.Log.Info("Could not parse secret for AWS Secret key")
+				return AWSAccessKey, AWSSecretKey, errors.New("secret parsing error")
+			}
+			AWSSecretKey = splitLine[1]
+		}
+	}
+
+	return AWSAccessKey, AWSSecretKey, nil
 }
