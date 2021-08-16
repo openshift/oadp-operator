@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"errors"
 	"fmt"
 	"github.com/openshift/oadp-operator/pkg/credentials"
 	"k8s.io/apimachinery/pkg/types"
@@ -435,7 +436,12 @@ func (r *VeleroReconciler) parseAWSSecret(secret corev1.Secret, secretKey string
 
 		if matchedAccessKey {
 			cleanedLine := strings.ReplaceAll(line, " ", "")
-			AWSAccessKey = strings.Split(cleanedLine, "=")[1]
+			splitLine := strings.Split(cleanedLine, "=")
+			if len(splitLine) != 2 {
+				r.Log.Info("Could not parse secret for AWS Access key")
+				return AWSAccessKey, AWSSecretKey, errors.New("secret parsing error")
+			}
+			AWSAccessKey = splitLine[1]
 		}
 
 		// check for secret key
@@ -447,7 +453,12 @@ func (r *VeleroReconciler) parseAWSSecret(secret corev1.Secret, secretKey string
 
 		if matchedSecretKey {
 			cleanedLine := strings.ReplaceAll(line, " ", "")
-			AWSSecretKey = strings.Split(cleanedLine, "=")[1]
+			splitLine := strings.Split(cleanedLine, "=")
+			if len(splitLine) != 2 {
+				r.Log.Info("Could not parse secret for AWS Secret key")
+				return AWSAccessKey, AWSSecretKey, errors.New("secret parsing error")
+			}
+			AWSSecretKey = splitLine[1]
 		}
 	}
 
