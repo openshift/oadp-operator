@@ -324,10 +324,8 @@ func (r *VeleroReconciler) veleroClusterRoleBinding(velero *oadpv1alpha1.Velero)
 }
 
 func (r *VeleroReconciler) privilegedSecurityContextConstraints(scc *security.SecurityContextConstraints, velero *oadpv1alpha1.Velero, sa *corev1.ServiceAccount) error {
-	scc.ObjectMeta = metav1.ObjectMeta{
-		Name:   "velero-privileged",
-		Labels: r.getAppLabels(velero),
-	}
+	// ObjectMeta set from prior step.
+
 	scc.AllowHostDirVolumePlugin = true
 	scc.AllowHostIPC = true
 	scc.AllowHostNetwork = true
