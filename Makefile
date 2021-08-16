@@ -97,7 +97,7 @@ vet: ## Run go vet against code.
 	go vet -mod=mod ./...
 
 test: manifests generate fmt vet envtest ## Run tests.
-	go test ./controllers/... -coverprofile cover.out
+	go test -mod=mod ./controllers/... -coverprofile cover.out
 
 ##@ Build
 
