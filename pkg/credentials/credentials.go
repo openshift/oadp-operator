@@ -10,11 +10,12 @@ import (
 )
 
 type DefaultPluginFields struct {
-	isCloudProvider    bool
-	secretName         string
-	mountPath          string
-	envCredentialsFile string
-	pluginImage        string
+	IsCloudProvider    bool
+	SecretName         string
+	MountPath          string
+	EnvCredentialsFile string
+	PluginImage        string
+	PluginSecretKey    string
 }
 
 const (
@@ -23,36 +24,37 @@ const (
 
 var (
 	mountPropagationToHostContainer = corev1.MountPropagationHostToContainer
-	pluginSpecificFields            = map[oadpv1alpha1.DefaultPlugin]DefaultPluginFields{
+	PluginSpecificFields            = map[oadpv1alpha1.DefaultPlugin]DefaultPluginFields{
 		oadpv1alpha1.DefaultPluginAWS: {
-			isCloudProvider:    true,
-			secretName:         "cloud-credentials",
-			mountPath:          "/credentials",
-			envCredentialsFile: "AWS_SHARED_CREDENTIALS_FILE",
-			pluginImage:        fmt.Sprintf("%v/%v/%v:%v", os.Getenv("REGISTRY"), os.Getenv("PROJECT"), os.Getenv("VELERO_AWS_PLUGIN_REPO"), os.Getenv("VELERO_AWS_PLUGIN_TAG")),
+			IsCloudProvider:    true,
+			SecretName:         "cloud-credentials",
+			MountPath:          "/credentials",
+			EnvCredentialsFile: "AWS_SHARED_CREDENTIALS_FILE",
+			PluginImage:        fmt.Sprintf("%v/%v/%v:%v", os.Getenv("REGISTRY"), os.Getenv("PROJECT"), os.Getenv("VELERO_AWS_PLUGIN_REPO"), os.Getenv("VELERO_AWS_PLUGIN_TAG")),
+			PluginSecretKey:    "cloud",
 		},
 		oadpv1alpha1.DefaultPluginGCP: {
-			isCloudProvider:    true,
-			secretName:         "cloud-credentials-gcp",
-			mountPath:          "/credentials-gcp",
-			envCredentialsFile: "GOOGLE_APPLICATION_CREDENTIALS",
-			pluginImage:        fmt.Sprintf("%v/%v/%v:%v", os.Getenv("REGISTRY"), os.Getenv("PROJECT"), os.Getenv("VELERO_GCP_PLUGIN_REPO"), os.Getenv("VELERO_GCP_PLUGIN_TAG")),
+			IsCloudProvider:    true,
+			SecretName:         "cloud-credentials-gcp",
+			MountPath:          "/credentials-gcp",
+			EnvCredentialsFile: "GOOGLE_APPLICATION_CREDENTIALS",
+			PluginImage:        fmt.Sprintf("%v/%v/%v:%v", os.Getenv("REGISTRY"), os.Getenv("PROJECT"), os.Getenv("VELERO_GCP_PLUGIN_REPO"), os.Getenv("VELERO_GCP_PLUGIN_TAG")),
 		},
 		oadpv1alpha1.DefaultPluginMicrosoftAzure: {
-			isCloudProvider:    true,
-			secretName:         "cloud-credentials-azure",
-			mountPath:          "/credentials-azure",
-			envCredentialsFile: "AZURE_CREDENTIALS_FILE",
-			pluginImage:        fmt.Sprintf("%v/%v/%v:%v", os.Getenv("REGISTRY"), os.Getenv("PROJECT"), os.Getenv("VELERO_AZURE_PLUGIN_REPO"), os.Getenv("VELERO_AZURE_PLUGIN_TAG")),
+			IsCloudProvider:    true,
+			SecretName:         "cloud-credentials-azure",
+			MountPath:          "/credentials-azure",
+			EnvCredentialsFile: "AZURE_CREDENTIALS_FILE",
+			PluginImage:        fmt.Sprintf("%v/%v/%v:%v", os.Getenv("REGISTRY"), os.Getenv("PROJECT"), os.Getenv("VELERO_AZURE_PLUGIN_REPO"), os.Getenv("VELERO_AZURE_PLUGIN_TAG")),
 		},
 		oadpv1alpha1.DefaultPluginOpenShift: {
-			isCloudProvider: false,
-			pluginImage:     fmt.Sprintf("%v/%v/%v:%v", os.Getenv("REGISTRY"), os.Getenv("PROJECT"), os.Getenv("VELERO_OPENSHIFT_PLUGIN_REPO"), os.Getenv("VELERO_OPENSHIFT_PLUGIN_TAG")),
+			IsCloudProvider: false,
+			PluginImage:     fmt.Sprintf("%v/%v/%v:%v", os.Getenv("REGISTRY"), os.Getenv("PROJECT"), os.Getenv("VELERO_OPENSHIFT_PLUGIN_REPO"), os.Getenv("VELERO_OPENSHIFT_PLUGIN_TAG")),
 		},
 		oadpv1alpha1.DefaultPluginCSI: {
-			isCloudProvider: false,
+			IsCloudProvider: false,
 			//TODO: Check if the Registry needs to an upstream one from CSI
-			pluginImage: fmt.Sprintf("%v/%v/%v:%v", os.Getenv("REGISTRY"), os.Getenv("PROJECT"), os.Getenv("VELERO_CSI_PLUGIN_REPO"), os.Getenv("VELERO_CSI_PLUGIN_TAG")),
+			PluginImage: fmt.Sprintf("%v/%v/%v:%v", os.Getenv("REGISTRY"), os.Getenv("PROJECT"), os.Getenv("VELERO_CSI_PLUGIN_REPO"), os.Getenv("VELERO_CSI_PLUGIN_TAG")),
 		},
 	}
 )
@@ -67,20 +69,20 @@ func AppendCloudProviderVolumes(velero *oadpv1alpha1.Velero, ds *appsv1.DaemonSe
 	}
 	for _, plugin := range velero.Spec.DefaultVeleroPlugins {
 		// Check that this is a cloud provider plugin in the cloud provider map
-		// ok is boolean that will be true if `plugin` is a valid key in `pluginSpecificFields` map
+		// ok is boolean that will be true if `plugin` is a valid key in `PluginSpecificFields` map
 		// pattern from https://golang.org/doc/effective_go#maps
 		// this replaces the need to iterate through the `pluginSpecificFields` O(n) -> O(1)
-		if cloudProviderMap, ok := pluginSpecificFields[plugin]; ok {
-			if !cloudProviderMap.isCloudProvider {
+		if cloudProviderMap, ok := PluginSpecificFields[plugin]; ok {
+			if !cloudProviderMap.IsCloudProvider {
 				continue
 			}
 			ds.Spec.Template.Spec.Volumes = append(
 				ds.Spec.Template.Spec.Volumes,
 				corev1.Volume{
-					Name: cloudProviderMap.secretName,
+					Name: cloudProviderMap.SecretName,
 					VolumeSource: corev1.VolumeSource{
 						Secret: &corev1.SecretVolumeSource{
-							SecretName: cloudProviderMap.secretName,
+							SecretName: cloudProviderMap.SecretName,
 						},
 					},
 				},
@@ -88,8 +90,8 @@ func AppendCloudProviderVolumes(velero *oadpv1alpha1.Velero, ds *appsv1.DaemonSe
 			veleroContainer.VolumeMounts = append(
 				veleroContainer.VolumeMounts,
 				corev1.VolumeMount{
-					Name:      cloudProviderMap.secretName,
-					MountPath: cloudProviderMap.mountPath,
+					Name:      cloudProviderMap.SecretName,
+					MountPath: cloudProviderMap.MountPath,
 					//TODO: Check if MountPropagation is needed for plugin specific volume mounts
 					MountPropagation: &mountPropagationToHostContainer,
 				},
@@ -97,8 +99,8 @@ func AppendCloudProviderVolumes(velero *oadpv1alpha1.Velero, ds *appsv1.DaemonSe
 			veleroContainer.Env = append(
 				veleroContainer.Env,
 				corev1.EnvVar{
-					Name:  cloudProviderMap.envCredentialsFile,
-					Value: cloudProviderMap.mountPath + "/" + cloudFieldPath,
+					Name:  cloudProviderMap.EnvCredentialsFile,
+					Value: cloudProviderMap.MountPath + "/" + cloudFieldPath,
 				},
 			)
 		}
@@ -117,8 +119,8 @@ func AppendPluginSpecficSpecs(velero *oadpv1alpha1.Velero, veleroDeployment *app
 	}
 
 	for _, plugin := range velero.Spec.DefaultVeleroPlugins {
-		if pluginSpecificMap, ok := pluginSpecificFields[plugin]; ok {
-			if !pluginSpecificMap.isCloudProvider {
+		if pluginSpecificMap, ok := PluginSpecificFields[plugin]; ok {
+			if !pluginSpecificMap.IsCloudProvider {
 				continue
 			}
 			// append plugin specific volume mounts
@@ -126,16 +128,16 @@ func AppendPluginSpecficSpecs(velero *oadpv1alpha1.Velero, veleroDeployment *app
 				veleroContainer.VolumeMounts = append(
 					veleroContainer.VolumeMounts,
 					corev1.VolumeMount{
-						Name:      pluginSpecificMap.secretName,
-						MountPath: pluginSpecificMap.mountPath,
+						Name:      pluginSpecificMap.SecretName,
+						MountPath: pluginSpecificMap.MountPath,
 					})
 
 				// append plugin specific env vars
 				veleroContainer.Env = append(
 					veleroContainer.Env,
 					corev1.EnvVar{
-						Name:  pluginSpecificMap.envCredentialsFile,
-						Value: pluginSpecificMap.mountPath + "/" + cloudFieldPath,
+						Name:  pluginSpecificMap.EnvCredentialsFile,
+						Value: pluginSpecificMap.MountPath + "/" + cloudFieldPath,
 					})
 			}
 
@@ -143,10 +145,10 @@ func AppendPluginSpecficSpecs(velero *oadpv1alpha1.Velero, veleroDeployment *app
 			veleroDeployment.Spec.Template.Spec.Volumes = append(
 				veleroDeployment.Spec.Template.Spec.Volumes,
 				corev1.Volume{
-					Name: pluginSpecificMap.secretName,
+					Name: pluginSpecificMap.SecretName,
 					VolumeSource: corev1.VolumeSource{
 						Secret: &corev1.SecretVolumeSource{
-							SecretName: pluginSpecificMap.secretName,
+							SecretName: pluginSpecificMap.SecretName,
 						},
 					},
 				})
@@ -155,7 +157,7 @@ func AppendPluginSpecficSpecs(velero *oadpv1alpha1.Velero, veleroDeployment *app
 			veleroDeployment.Spec.Template.Spec.InitContainers = append(
 				veleroDeployment.Spec.Template.Spec.InitContainers,
 				corev1.Container{
-					Image:                    pluginSpecificMap.pluginImage,
+					Image:                    pluginSpecificMap.PluginImage,
 					Name:                     string(plugin),
 					ImagePullPolicy:          corev1.PullAlways,
 					Resources:                corev1.ResourceRequirements{},

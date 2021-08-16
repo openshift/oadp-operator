@@ -1,7 +1,16 @@
 package controllers
 
 import (
+	"github.com/go-logr/logr"
+	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
+
+	//"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/record"
 	"reflect"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"testing"
 
 	"github.com/openshift/oadp-operator/pkg/common"
@@ -10,14 +19,39 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/utils/pointer"
 )
+
+func getSchemeForFakeClientForRegistry() (*runtime.Scheme, error) {
+	err := oadpv1alpha1.AddToScheme(scheme.Scheme)
+	if err != nil {
+		return nil, err
+	}
+
+	err = velerov1.AddToScheme(scheme.Scheme)
+	if err != nil {
+		return nil, err
+	}
+
+	return scheme.Scheme, nil
+}
+
+func getFakeClientFromObjectsForRegistry(objs ...client.Object) (client.WithWatch, error) {
+	schemeForFakeClient, err := getSchemeForFakeClientForRegistry()
+	if err != nil {
+		return nil, err
+	}
+
+	return fake.NewClientBuilder().WithScheme(schemeForFakeClient).WithObjects(objs...).Build(), nil
+}
 
 func TestVeleroReconciler_buildRegistryDeployment(t *testing.T) {
 	tests := []struct {
 		name               string
 		registryDeployment *appsv1.Deployment
 		bsl                *velerov1.BackupStorageLocation
+		secret             *corev1.Secret
 		wantErr            bool
 	}{
 		{
@@ -55,16 +89,30 @@ func TestVeleroReconciler_buildRegistryDeployment(t *testing.T) {
 					},
 				},
 			},
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cloud-credentials",
+					Namespace: "test-ns",
+				},
+			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			scheme, err := getSchemeForFakeClient()
+			fakeClient, err := getFakeClientFromObjectsForRegistry(tt.secret, tt.registryDeployment, tt.bsl)
 			if err != nil {
-				t.Errorf("error getting scheme for the test: %#v", err)
+				t.Errorf("error in creating fake client, likely programmer error")
 			}
 			r := &VeleroReconciler{
-				Scheme: scheme,
+				Client:  fakeClient,
+				Scheme:  fakeClient.Scheme(),
+				Log:     logr.Discard(),
+				Context: newContextForTest(tt.name),
+				NamespacedName: types.NamespacedName{
+					Namespace: tt.registryDeployment.Namespace,
+					Name:      tt.registryDeployment.Name,
+				},
+				EventRecorder: record.NewFakeRecorder(10),
 			}
 			wantRegistryDeployment := &appsv1.Deployment{
 				ObjectMeta: metav1.ObjectMeta{
@@ -195,6 +243,7 @@ func TestVeleroReconciler_buildRegistryContainer(t *testing.T) {
 		name                  string
 		bsl                   *velerov1.BackupStorageLocation
 		wantRegistryContainer *corev1.Container
+		wantErr               bool
 	}{
 		{
 			name: "given bsl appropriate container is built or not",
@@ -248,7 +297,12 @@ func TestVeleroReconciler_buildRegistryContainer(t *testing.T) {
 				},
 			}
 
-			gotRegistryContainer := r.buildRegistryContainer(tt.bsl)
+			gotRegistryContainer, gotErr := r.buildRegistryContainer(tt.bsl)
+
+			if (gotErr != nil) != tt.wantErr {
+				t.Errorf("ValidateBackupStorageLocations() gotErr = %v, wantErr %v", gotErr, tt.wantErr)
+				return
+			}
 
 			if !reflect.DeepEqual(tt.wantRegistryContainer.Name, gotRegistryContainer[0].Name) {
 				t.Errorf("expected registry container name to be %#v, got %#v", tt.wantRegistryContainer.Name, gotRegistryContainer[0].Name)
@@ -277,6 +331,8 @@ func TestVeleroReconciler_getAWSRegistryEnvVars(t *testing.T) {
 		name                        string
 		bsl                         *velerov1.BackupStorageLocation
 		wantRegistryContainerEnvVar []corev1.EnvVar
+		secret                      *corev1.Secret
+		wantErr                     bool
 	}{
 		{
 			name: "given aws bsl, appropriate env var for the container are returned",
@@ -300,16 +356,30 @@ func TestVeleroReconciler_getAWSRegistryEnvVars(t *testing.T) {
 					},
 				},
 			},
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cloud-credentials",
+					Namespace: "test-ns",
+				},
+			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			scheme, err := getSchemeForFakeClient()
+			fakeClient, err := getFakeClientFromObjectsForRegistry(tt.secret, tt.bsl)
 			if err != nil {
-				t.Errorf("error getting scheme for the test: %#v", err)
+				t.Errorf("error in creating fake client, likely programmer error")
 			}
 			r := &VeleroReconciler{
-				Scheme: scheme,
+				Client:  fakeClient,
+				Scheme:  fakeClient.Scheme(),
+				Log:     logr.Discard(),
+				Context: newContextForTest(tt.name),
+				NamespacedName: types.NamespacedName{
+					Namespace: tt.bsl.Namespace,
+					Name:      tt.bsl.Name,
+				},
+				EventRecorder: record.NewFakeRecorder(10),
 			}
 			tt.wantRegistryContainerEnvVar = []corev1.EnvVar{
 				{
@@ -346,7 +416,12 @@ func TestVeleroReconciler_getAWSRegistryEnvVars(t *testing.T) {
 				},
 			}
 
-			gotRegistryContainerEnvVar := r.getAWSRegistryEnvVars(tt.bsl, testAWSEnvVar)
+			gotRegistryContainerEnvVar, gotErr := r.getAWSRegistryEnvVars(tt.bsl, testAWSEnvVar)
+
+			if (gotErr != nil) != tt.wantErr {
+				t.Errorf("ValidateBackupStorageLocations() gotErr = %v, wantErr %v", gotErr, tt.wantErr)
+				return
+			}
 
 			if !reflect.DeepEqual(tt.wantRegistryContainerEnvVar, gotRegistryContainerEnvVar) {
 				t.Errorf("expected registry container env var to be %#v, got %#v", tt.wantRegistryContainerEnvVar, gotRegistryContainerEnvVar)
