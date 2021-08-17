@@ -482,11 +482,7 @@ func (r *VeleroReconciler) buildVeleroDeployment(veleroDeployment *appsv1.Deploy
 						Resources: r.getVeleroResourceReqs(velero),
 						Command:   []string{"/velero"},
 						//TODO: Parametrize Features flag as well as VELERO debug flag
-						Args: []string{
-							"server",
-							"--restic-timeout",
-							velero.Spec.ResticTimeout,
-						},
+						Args:         []string{"server", "--restic-timeout", "1h"},
 						VolumeMounts: volumeMounts,
 						Env:          envVars,
 					},
