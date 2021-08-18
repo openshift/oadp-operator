@@ -38,7 +38,7 @@ var _ = Describe("The Velero Restic spec", func() {
 			// wait for daemonSet to initialize
 			Eventually(doesDaemonSetExists(namespace, resticName), time.Minute*2, time.Second*5).Should(BeTrue())
 
-			err = disableRestic(namespace, testSuiteInstanceName)
+			err = vel.disableRestic(namespace, testSuiteInstanceName)
 			Expect(err).ToNot(HaveOccurred())
 
 			// wait for daemonSet to update
