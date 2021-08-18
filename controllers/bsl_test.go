@@ -2,6 +2,8 @@ package controllers
 
 import (
 	"context"
+	"fmt"
+	corev1 "k8s.io/api/core/v1"
 	"reflect"
 	"testing"
 
@@ -45,6 +47,7 @@ func TestVeleroReconciler_ValidateBackupStorageLocations(t *testing.T) {
 	tests := []struct {
 		name     string
 		VeleroCR *oadpv1alpha1.Velero
+		secret   *corev1.Secret
 		want     bool
 		wantErr  bool
 	}{
@@ -53,38 +56,454 @@ func TestVeleroReconciler_ValidateBackupStorageLocations(t *testing.T) {
 			VeleroCR: &oadpv1alpha1.Velero{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "foo",
-					Namespace: "bar",
+					Namespace: "test-ns",
 				},
 				Spec: oadpv1alpha1.VeleroSpec{},
 			},
 			want:    false,
 			wantErr: true,
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cloud-credentials",
+					Namespace: "test-ns",
+				},
+			},
 		},
 		{
 			name: "test BSLs specified, no noobaa",
 			VeleroCR: &oadpv1alpha1.Velero{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "foo",
-					Namespace: "bar",
+					Namespace: "test-ns",
 				},
 				Spec: oadpv1alpha1.VeleroSpec{
 					BackupStorageLocations: []velerov1.BackupStorageLocationSpec{
 						{
-							// TODO: foo is invalid provider, add test cases for it
+							Provider: "aws",
+							Config: map[string]string{
+								Region: "us-east-1",
+							},
+						},
+					},
+				},
+			},
+			want:    false,
+			wantErr: true,
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cloud-credentials",
+					Namespace: "test-ns",
+				},
+			},
+		},
+		{
+			name: "test BSLs specified, invalid provider",
+			VeleroCR: &oadpv1alpha1.Velero{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.VeleroSpec{
+					BackupStorageLocations: []velerov1.BackupStorageLocationSpec{
+						{
 							Provider: "foo",
+							Config: map[string]string{
+								Region: "us-east-1",
+							},
+						},
+					},
+				},
+			},
+			want:    false,
+			wantErr: true,
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cloud-credentials",
+					Namespace: "test-ns",
+				},
+			},
+		},
+		{
+			name: "test BSLs specified, aws configured but no provider specified",
+			VeleroCR: &oadpv1alpha1.Velero{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.VeleroSpec{
+					BackupStorageLocations: []velerov1.BackupStorageLocationSpec{
+						{
+							Config: map[string]string{
+								Region: "us-east-1",
+							},
+						},
+					},
+				},
+			},
+			want:    false,
+			wantErr: true,
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cloud-credentials",
+					Namespace: "test-ns",
+				},
+			},
+		},
+		{
+			name: "test BSLs specified, aws configured appropriately but no aws credentials are incorrect",
+			VeleroCR: &oadpv1alpha1.Velero{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.VeleroSpec{
+					BackupStorageLocations: []velerov1.BackupStorageLocationSpec{
+						{
+							Provider: "aws",
+							Config: map[string]string{
+								Region: "us-east-1",
+							},
+							Credential: &corev1.SecretKeySelector{
+								LocalObjectReference: corev1.LocalObjectReference{
+									Name: "aws-creds",
+								},
+							},
+						},
+					},
+				},
+			},
+			want:    false,
+			wantErr: true,
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cloud-credentials",
+					Namespace: "test-ns",
+				},
+			},
+		},
+		{
+			name: "test BSLs specified, aws configured appropriately but no object storage configuration",
+			VeleroCR: &oadpv1alpha1.Velero{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.VeleroSpec{
+					BackupStorageLocations: []velerov1.BackupStorageLocationSpec{
+						{
+							Provider: "aws",
+							Config: map[string]string{
+								Region: "us-east-1",
+							},
+							Credential: &corev1.SecretKeySelector{
+								LocalObjectReference: corev1.LocalObjectReference{
+									Name: "cloud-credentials",
+								},
+							},
+						},
+					},
+				},
+			},
+			want:    false,
+			wantErr: true,
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cloud-credentials",
+					Namespace: "test-ns",
+				},
+			},
+		},
+		{
+			name: "test BSLs specified, aws configured appropriately but no bucket specified",
+			VeleroCR: &oadpv1alpha1.Velero{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.VeleroSpec{
+					BackupStorageLocations: []velerov1.BackupStorageLocationSpec{
+						{
+							Provider: "aws",
+							StorageType: velerov1.StorageType{
+								ObjectStorage: &velerov1.ObjectStorageLocation{
+									Bucket: "",
+								},
+							},
+							Config: map[string]string{
+								Region: "us-east-1",
+							},
+							Credential: &corev1.SecretKeySelector{
+								LocalObjectReference: corev1.LocalObjectReference{
+									Name: "cloud-credentials",
+								},
+							},
+						},
+					},
+				},
+			},
+			want:    false,
+			wantErr: true,
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cloud-credentials",
+					Namespace: "test-ns",
+				},
+			},
+		},
+		{
+			name: "test BSLs specified, aws configured appropriately but no region is specified",
+			VeleroCR: &oadpv1alpha1.Velero{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.VeleroSpec{
+					BackupStorageLocations: []velerov1.BackupStorageLocationSpec{
+						{
+							Provider: "aws",
+							StorageType: velerov1.StorageType{
+								ObjectStorage: &velerov1.ObjectStorageLocation{
+									Bucket: "test-aws-bucket",
+								},
+							},
+							Config: map[string]string{
+								Region: "",
+							},
+							Credential: &corev1.SecretKeySelector{
+								LocalObjectReference: corev1.LocalObjectReference{
+									Name: "cloud-credentials",
+								},
+							},
+						},
+					},
+				},
+			},
+			want:    false,
+			wantErr: true,
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cloud-credentials",
+					Namespace: "test-ns",
+				},
+			},
+		},
+		{
+			name: "test BSLs specified, azure configured appropriately but no resource group is specified",
+			VeleroCR: &oadpv1alpha1.Velero{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.VeleroSpec{
+					BackupStorageLocations: []velerov1.BackupStorageLocationSpec{
+						{
+							Provider: "azure",
+							StorageType: velerov1.StorageType{
+								ObjectStorage: &velerov1.ObjectStorageLocation{
+									Bucket: "test-azure-bucket",
+								},
+							},
+							Config: map[string]string{
+								ResourceGroup: "",
+							},
+							Credential: &corev1.SecretKeySelector{
+								LocalObjectReference: corev1.LocalObjectReference{
+									Name: "cloud-credentials",
+								},
+							},
+						},
+					},
+				},
+			},
+			want:    false,
+			wantErr: true,
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cloud-credentials",
+					Namespace: "test-ns",
+				},
+			},
+		},
+		{
+			name: "test BSLs specified, azure configured appropriately but no storage account is specified",
+			VeleroCR: &oadpv1alpha1.Velero{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.VeleroSpec{
+					BackupStorageLocations: []velerov1.BackupStorageLocationSpec{
+						{
+							Provider: "azure",
+							StorageType: velerov1.StorageType{
+								ObjectStorage: &velerov1.ObjectStorageLocation{
+									Bucket: "test-azure-bucket",
+								},
+							},
+							Config: map[string]string{
+								ResourceGroup:  "test-rg",
+								StorageAccount: "",
+							},
+							Credential: &corev1.SecretKeySelector{
+								LocalObjectReference: corev1.LocalObjectReference{
+									Name: "cloud-credentials",
+								},
+							},
+						},
+					},
+				},
+			},
+			want:    false,
+			wantErr: true,
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cloud-credentials",
+					Namespace: "test-ns",
+				},
+			},
+		},
+		{
+			name: "test BSLs specified, gcp configured appropriately but no bucket is specified",
+			VeleroCR: &oadpv1alpha1.Velero{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.VeleroSpec{
+					BackupStorageLocations: []velerov1.BackupStorageLocationSpec{
+						{
+							Provider: "gcp",
+							StorageType: velerov1.StorageType{
+								ObjectStorage: &velerov1.ObjectStorageLocation{},
+							},
+							Credential: &corev1.SecretKeySelector{
+								LocalObjectReference: corev1.LocalObjectReference{
+									Name: "cloud-credentials",
+								},
+							},
+						},
+					},
+				},
+			},
+			want:    false,
+			wantErr: true,
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cloud-credentials",
+					Namespace: "test-ns",
+				},
+			},
+		},
+		{
+			name: "test BSLs specified, aws configured appropriately, no error case",
+			VeleroCR: &oadpv1alpha1.Velero{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.VeleroSpec{
+					BackupStorageLocations: []velerov1.BackupStorageLocationSpec{
+						{
+							Provider: "aws",
+							StorageType: velerov1.StorageType{
+								ObjectStorage: &velerov1.ObjectStorageLocation{
+									Bucket: "test-aws-bucket",
+								},
+							},
+							Config: map[string]string{
+								Region: "test-region",
+							},
+							Credential: &corev1.SecretKeySelector{
+								LocalObjectReference: corev1.LocalObjectReference{
+									Name: "cloud-credentials",
+								},
+							},
 						},
 					},
 				},
 			},
 			want:    true,
 			wantErr: false,
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cloud-credentials",
+					Namespace: "test-ns",
+				},
+			},
+		},
+		{
+			name: "test BSLs specified, multiple appropriate BSLs configured, no error case",
+			VeleroCR: &oadpv1alpha1.Velero{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.VeleroSpec{
+					BackupStorageLocations: []velerov1.BackupStorageLocationSpec{
+						{
+							Provider: "aws",
+							StorageType: velerov1.StorageType{
+								ObjectStorage: &velerov1.ObjectStorageLocation{
+									Bucket: "test-aws-bucket",
+								},
+							},
+							Config: map[string]string{
+								Region: "test-region",
+							},
+							Credential: &corev1.SecretKeySelector{
+								LocalObjectReference: corev1.LocalObjectReference{
+									Name: "cloud-credentials",
+								},
+							},
+						},
+						{
+							Provider: "azure",
+							StorageType: velerov1.StorageType{
+								ObjectStorage: &velerov1.ObjectStorageLocation{
+									Bucket: "test-azure-bucket",
+								},
+							},
+							Config: map[string]string{
+								ResourceGroup:  "test-rg",
+								StorageAccount: "test-sa",
+							},
+							Credential: &corev1.SecretKeySelector{
+								LocalObjectReference: corev1.LocalObjectReference{
+									Name: "cloud-credentials",
+								},
+							},
+						},
+						{
+							Provider: "gcp",
+							StorageType: velerov1.StorageType{
+								ObjectStorage: &velerov1.ObjectStorageLocation{
+									Bucket: "test-gcp-bucket",
+								},
+							},
+							Credential: &corev1.SecretKeySelector{
+								LocalObjectReference: corev1.LocalObjectReference{
+									Name: "cloud-credentials",
+								},
+							},
+						},
+					},
+				},
+			},
+			want:    true,
+			wantErr: false,
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cloud-credentials",
+					Namespace: "test-ns",
+				},
+			},
 		},
 		{
 			name: "test no BSL, noobaa configured",
 			VeleroCR: &oadpv1alpha1.Velero{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "foo",
-					Namespace: "bar",
+					Namespace: "test-ns",
 				},
 				Spec: oadpv1alpha1.VeleroSpec{
 					Noobaa: true,
@@ -92,17 +511,29 @@ func TestVeleroReconciler_ValidateBackupStorageLocations(t *testing.T) {
 			},
 			want:    true,
 			wantErr: false,
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cloud-credentials",
+					Namespace: "test-ns",
+				},
+			},
 		},
 		{
 			name:     "test get error",
 			VeleroCR: &oadpv1alpha1.Velero{},
 			want:     false,
 			wantErr:  true,
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cloud-credentials",
+					Namespace: "test-ns",
+				},
+			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			fakeClient, err := getFakeClientFromObjects(tt.VeleroCR)
+			fakeClient, err := getFakeClientFromObjects(tt.VeleroCR, tt.secret)
 			if err != nil {
 				t.Errorf("error in creating fake client, likely programmer error")
 			}
@@ -118,6 +549,8 @@ func TestVeleroReconciler_ValidateBackupStorageLocations(t *testing.T) {
 				EventRecorder: record.NewFakeRecorder(10),
 			}
 			got, err := r.ValidateBackupStorageLocations(r.Log)
+			fmt.Println(fmt.Sprintf("ValidateBackupStorageLocations() error = %v, wantErr %v", err, tt.wantErr))
+			fmt.Println(fmt.Sprintf("ValidateBackupStorageLocations() got = %v, want %v", got, tt.want))
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ValidateBackupStorageLocations() error = %v, wantErr %v", err, tt.wantErr)
 				return

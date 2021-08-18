@@ -56,6 +56,7 @@ const (
 	RootDirectory         = "rootDirectory"
 	InsecureSkipTLSVerify = "insecureSkipTLSVerify"
 	StorageAccount        = "storageAccount"
+	ResourceGroup         = "resourceGroup"
 )
 
 // creating skeleton for provider based env var map
@@ -411,7 +412,6 @@ func (r *VeleroReconciler) getProviderSecret(secretName string) (corev1.Secret, 
 func (r *VeleroReconciler) getSecretNameAndKey(credential *corev1.SecretKeySelector, plugin oadpv1alpha1.DefaultPlugin) (string, string) {
 
 	// check if user specified the Credential Name and Key
-	// TODO: Add validation in the BSL Validations
 	if credential != nil {
 		return credential.Name, credential.Key
 	}
