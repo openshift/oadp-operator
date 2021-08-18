@@ -21,15 +21,17 @@ $ oc create -n oadp-operator-system -f config/samples/oadp_v1alpha1_velero.yaml
 You can test your changes by creating your own images and running your builds locally
 
 ```
-1. podman build . -t quay.io/<CONTAINER_REGISTRY_USERNAME>/oadp-operator:golang-operator
+1. podman build . -t quay.io/<CONTAINER_REGISTRY_USERNAME>/oadp-operator:<IMAGE_TAG>
 ```
+Note: The above command for `podman build` is to be executed from the root directory of the operator.
 ```
-2. podman push <IMAGE_ID> quay.io/<CONTAINER_REGISTRY_USERNAME>/oadp-operator:golang-operator
+2. podman push <IMAGE_ID> quay.io/<CONTAINER_REGISTRY_USERNAME>/oadp-operator:<IMAGE_TAG>
 ```
     <IMAGE_ID> can be found out by running `podman images` after the image has been built.
+    <IMAGE_TAG> can be any tag that you would would like to assign to the image.
     
 ```
-3.IMG=quay.io/<CONTAINER_REGISTRY_USERNAME>/oadp-operator:golang-operator make deploy
+3.IMG=quay.io/<CONTAINER_REGISTRY_USERNAME>/oadp-operator:<IMAGE_TAG> make deploy
 ```
 
 # Uninstall OADP Operator
