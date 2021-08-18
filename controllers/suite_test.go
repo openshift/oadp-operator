@@ -18,6 +18,8 @@ package controllers
 
 import (
 	"path/filepath"
+	"runtime"
+	"strconv"
 	"testing"
 
 	. "github.com/onsi/ginkgo"
@@ -29,6 +31,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest/printer"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	"sigs.k8s.io/controller-runtime/tools/setup-envtest/store"
+	"sigs.k8s.io/controller-runtime/tools/setup-envtest/versions"
 
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	//+kubebuilder:scaffold:imports
@@ -53,9 +57,18 @@ var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
 	By("bootstrapping test environment")
+	// Getting binary asset directory. want /Users/tiger/Library/Application Support/io.kubebuilder.envtest/k8s/1.21.2-darwin-amd64
+	binaryAssetsDirectory, _ := store.DefaultStoreDir() //"/Users/tiger/Library/Application Support/io.kubebuilder.envtest"
+	versionTag := "1.21.2"                              // Must specify patch version //this should match the version used in envtest in makefile
+	versionToDownload, _ := versions.FromExpr(versionTag)
+	versionConcrete := versionToDownload.AsConcrete()
+
+	binaryAssetsDirectory += "/k8s/" + strconv.Itoa(versionConcrete.Major) + "." + strconv.Itoa(versionConcrete.Minor) + "." + strconv.Itoa(versionConcrete.Patch) + "-" + runtime.GOOS + "-" + runtime.GOARCH
+
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths:     []string{filepath.Join("..", "config", "crd", "bases")},
 		ErrorIfCRDPathMissing: true,
+		BinaryAssetsDirectory: binaryAssetsDirectory,
 	}
 
 	cfg, err := testEnv.Start()
