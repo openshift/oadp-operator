@@ -121,10 +121,14 @@ func (v *veleroCustomResource) disableRestic(namespace string, instanceName stri
 		Namespace: v.Namespace,
 		Name:      v.Name,
 	}, &vel)
+	if err != nil {
+		return err
+	}
 
 	// update spec 'enable_restic' to be false
-	vel.Spec.EnableRestic = pointer.Bool(false)
-	err = v.Client.Update(context.Background(), &vel)
+	enable := vel.Spec.EnableRestic
+	enable = pointer.Bool(false)
+	err = v.Client.Update(context.Background(), &vel, enable)
 	if err != nil {
 		return err
 	}

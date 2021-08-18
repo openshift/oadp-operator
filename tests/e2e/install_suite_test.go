@@ -69,9 +69,9 @@ var _ = Describe("The default Velero custom resource", func() {
 		It("Should create a Velero pod in the cluster", func() {
 			Eventually(isVeleroPodRunning(namespace), time.Minute*2, time.Second*5).Should(BeTrue())
 		})
-		It("Should create a Restic daemonset in the cluster", func() {
-			Eventually(areResticPodsRunning(namespace), time.Minute*2, time.Second*5).Should(BeTrue())
-		})
+		// It("Should create a Restic daemonset in the cluster", func() {
+		// 	Eventually(areResticPodsRunning(namespace), time.Minute*2, time.Second*5).Should(BeTrue())
+		// })
 		/*It("Should install the aws plugin", func() {
 			Eventually(doesPluginExist(namespace, "velero", "velero-plugin-for-aws"), time.Minute*2, time.Second*5).Should(BeTrue())
 		})*/
