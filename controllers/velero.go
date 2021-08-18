@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"strings"
 
 	"github.com/openshift/oadp-operator/pkg/credentials"
 	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -495,6 +496,12 @@ func (r *VeleroReconciler) buildVeleroDeployment(veleroDeployment *appsv1.Deploy
 				InitContainers: initContainers,
 			},
 		},
+	}
+
+	//Append EnabledFeaturesFlags to velero container
+	if len(velero.Spec.VeleroFeatureFlags) > 0 {
+		veleroContainer := &veleroDeployment.Spec.Template.Spec.Containers[0]
+		veleroContainer.Args = append(veleroContainer.Args, fmt.Sprintf("--features=%s", strings.Join(velero.Spec.VeleroFeatureFlags, ",")))
 	}
 
 	err := credentials.AppendPluginSpecficSpecs(velero, veleroDeployment)
