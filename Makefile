@@ -1,8 +1,8 @@
 OADP_TEST_NAMESPACE ?= oadp-operator-system
 CREDS_SECRET_REF ?= cloud-credentials
-OADP_AWS_CRED_FILE ?= /var/run/oadp-credentials/aws-credentials
-OADP_S3_BUCKET ?= /var/run/oadp-credentials/velero-bucket-name
-VELERO_INSTANCE_NAME ?= example-velero
+OADP_AWS_CRED_FILE ?= /Users/emilymcmullan/.aws/credentials
+OADP_S3_BUCKET ?= /Users/emilymcmullan/.aws/bucket
+VELERO_INSTANCE_NAME ?= velero-sample
 
 .PHONY:ginkgo
 ginkgo: # Make sure ginkgo is in $GOPATH/bin

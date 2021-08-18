@@ -2,17 +2,16 @@ package e2e
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"time"
 
+	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/utils/pointer"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
-
-// Defining new var for Velero CR to include 'restic_node_selector'
-// unable to use setNestedField() to do so as there is currently
-// a bug in using this to set a map[string]string with dynamic client
-// panic: cannot deep copy []map[string]string
 
 func hasCorrectNumResticPods(namespace string) wait.ConditionFunc {
 	return func() (bool, error) {
@@ -23,7 +22,6 @@ func hasCorrectNumResticPods(namespace string) wait.ConditionFunc {
 		resticOptions := metav1.ListOptions{
 			FieldSelector: "metadata.name=restic",
 		}
-		// get daemonset in oadp-operator-e2e ns with specified field selector
 		resticDaemeonSet, err := client.AppsV1().DaemonSets(namespace).List(context.TODO(), resticOptions)
 		if err != nil {
 			return false, err
@@ -52,17 +50,16 @@ func waitForDesiredResticPods(namespace string) error {
 func areResticPodsRunning(namespace string) wait.ConditionFunc {
 	log.Printf("Checking for correct number of running Restic pods...")
 	return func() (bool, error) {
-		er := waitForDesiredResticPods(namespace)
-		if er != nil {
-			return false, er
+		err := waitForDesiredResticPods(namespace)
+		if err != nil {
+			return false, err
 		}
 		client, err := setUpClient()
 		if err != nil {
 			return false, err
 		}
-		// used to select Restic pods
 		resticPodOptions := metav1.ListOptions{
-			LabelSelector: "name=restic",
+			LabelSelector: "component=restic",
 		}
 		// get pods in the oadp-operator-e2e namespace with label selector
 		podList, err := client.CoreV1().Pods(namespace).List(context.TODO(), resticPodOptions)
@@ -113,6 +110,42 @@ func isResticDaemonsetDeleted(namespace string, instanceName string, resticName 
 		return false, err
 	}
 }
+
+func (v *veleroCustomResource) disableRestic(namespace string, instanceName string) error {
+	err := v.SetClient()
+	if err != nil {
+		return err
+	}
+	vel := oadpv1alpha1.Velero{}
+	err = v.Client.Get(context.Background(), client.ObjectKey{
+		Namespace: v.Namespace,
+		Name:      v.Name,
+	}, &vel)
+
+	// update spec 'enable_restic' to be false
+	vel.Spec.EnableRestic = pointer.Bool(false)
+	err = v.Client.Update(context.Background(), &vel)
+	if err != nil {
+		return err
+	}
+	fmt.Println("spec 'enable_restic' has been updated to false")
+	return nil
+}
+
+// func enableResticNodeSelector(namespace string, s3Bucket string, credSecretRef string, instanceName string) error {
+// 	veleroClient, err := setUpDynamicVeleroClient(namespace)
+// 	if err != nil {
+// 		return nil
+// 	}
+// 	// get Velero as unstructured type
+// 	veleroResource := getResticVeleroConfig(namespace, s3Bucket, credSecretRef, instanceName)
+// 	_, err = veleroClient.Create(context.Background(), veleroResource, metav1.CreateOptions{})
+// 	if err != nil {
+// 		return err
+// 	}
+// 	fmt.Println("spec 'restic_node_selector' has been updated")
+// 	return nil
+// }
 
 func resticDaemonSetHasNodeSelector(namespace string, s3Bucket string, credSecretRef string, instanceName string, resticName string) wait.ConditionFunc {
 	log.Printf("Waiting for Restic daemonset to have a nodeSelector...")

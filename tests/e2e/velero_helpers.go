@@ -90,13 +90,13 @@ func (v *veleroCustomResource) Delete() error {
 }
 
 func (v *veleroCustomResource) SetClient() error {
-	cl, err := client.New(config.GetConfigOrDie(), client.Options{})
+	client, err := client.New(config.GetConfigOrDie(), client.Options{})
 	if err != nil {
 		return err
 	}
-	oadpv1alpha1.AddToScheme(cl.Scheme())
+	oadpv1alpha1.AddToScheme(client.Scheme())
 
-	v.Client = cl
+	v.Client = client
 	return nil
 }
 
