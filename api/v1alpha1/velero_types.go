@@ -81,6 +81,8 @@ type VeleroSpec struct {
 	ResticTolerations []corev1.Toleration `json:"resticTolerations,omitempty"`
 	// +optional
 	ResticResourceAllocations corev1.ResourceRequirements `json:"resticResourceAllocations,omitempty"`
+	// +optional
+	ResticTimeout string `json:"resticTimeout,omitempty"`
 }
 
 // VeleroStatus defines the observed state of Velero
