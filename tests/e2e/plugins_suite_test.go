@@ -45,13 +45,13 @@ var _ = Describe("The Velero Restic spec", func() {
 			Eventually(doesVeleroDeploymentExist(namespace, deploymentName), time.Minute*2, time.Second*5).Should(BeTrue())
 
 			err := vel.removeVeleroPlugin(namespace, testInstanceName, []v1alpha1.DefaultPlugin{
-				"csi",
-				"openshift",
+				v1alpha1.DefaultPluginCSI,
+				v1alpha1.DefaultPluginOpenShift,
 			}, "aws")
 			Expect(err).ToNot(HaveOccurred())
 
 			// wait for deployment to update
-			Eventually(doesPluginExist(namespace, deploymentName, "velero-plugin-for-aws"), time.Minute*2, time.Second*5).Should(BeFalse())
+			Eventually(doesPluginExist(namespace, deploymentName, "aws"), time.Minute*2, time.Second*5).Should(BeFalse())
 		})
 	})
 
@@ -62,13 +62,13 @@ var _ = Describe("The Velero Restic spec", func() {
 			Eventually(doesVeleroDeploymentExist(namespace, deploymentName), time.Minute*2, time.Second*5).Should(BeTrue())
 
 			err := vel.removeVeleroPlugin(namespace, testInstanceName, []v1alpha1.DefaultPlugin{
-				"aws",
-				"csi",
+				v1alpha1.DefaultPluginAWS,
+				v1alpha1.DefaultPluginCSI,
 			}, "openshift")
 			Expect(err).ToNot(HaveOccurred())
 
 			// wait for deployment to update
-			Eventually(doesPluginExist(namespace, deploymentName, "openshift-velero-plugin"), time.Minute*2, time.Second*5).Should(BeFalse())
+			Eventually(doesPluginExist(namespace, deploymentName, "openshift"), time.Minute*2, time.Second*5).Should(BeFalse())
 		})
 	})
 
@@ -79,13 +79,13 @@ var _ = Describe("The Velero Restic spec", func() {
 			Eventually(doesVeleroDeploymentExist(namespace, deploymentName), time.Minute*2, time.Second*5).Should(BeTrue())
 
 			err := vel.removeVeleroPlugin(namespace, testInstanceName, []v1alpha1.DefaultPlugin{
-				"aws",
-				"openshift",
+				v1alpha1.DefaultPluginAWS,
+				v1alpha1.DefaultPluginOpenShift,
 			}, "csi")
 			Expect(err).ToNot(HaveOccurred())
 
 			// wait for deployment to update
-			Eventually(doesPluginExist(namespace, deploymentName, "velero-plugin-for-csi"), time.Minute*2, time.Second*5).Should(BeFalse())
+			Eventually(doesPluginExist(namespace, deploymentName, "csi"), time.Minute*2, time.Second*5).Should(BeFalse())
 		})
 	})
 

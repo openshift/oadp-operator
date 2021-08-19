@@ -16,3 +16,4 @@ spec:
   defaultVeleroPlugins:
   - openshift
   - aws
+  - csi

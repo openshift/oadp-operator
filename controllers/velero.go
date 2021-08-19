@@ -2,12 +2,14 @@ package controllers
 
 import (
 	"fmt"
+	"os"
+	"reflect"
+	"strings"
+
 	"github.com/openshift/oadp-operator/pkg/credentials"
 	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
-	"os"
-	"reflect"
 
 	//"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -23,6 +25,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/pointer"
+
 	//"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
@@ -322,51 +325,48 @@ func (r *VeleroReconciler) veleroClusterRoleBinding(velero *oadpv1alpha1.Velero)
 }
 
 func (r *VeleroReconciler) privilegedSecurityContextConstraints(scc *security.SecurityContextConstraints, velero *oadpv1alpha1.Velero, sa *corev1.ServiceAccount) error {
-	scc = &security.SecurityContextConstraints{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:   "velero-privileged",
-			Labels: r.getAppLabels(velero),
-		},
-		AllowHostDirVolumePlugin: true,
-		AllowHostIPC:             true,
-		AllowHostNetwork:         true,
-		AllowHostPID:             true,
-		AllowHostPorts:           true,
-		AllowPrivilegeEscalation: pointer.BoolPtr(true),
-		AllowPrivilegedContainer: true,
-		AllowedCapabilities: []corev1.Capability{
-			security.AllowAllCapabilities,
-		},
-		AllowedUnsafeSysctls: []string{
-			"*",
-		},
-		DefaultAddCapabilities: nil,
-		FSGroup: security.FSGroupStrategyOptions{
-			Type: security.FSGroupStrategyRunAsAny,
-		},
-		Priority:                 nil,
-		ReadOnlyRootFilesystem:   false,
-		RequiredDropCapabilities: nil,
-		RunAsUser: security.RunAsUserStrategyOptions{
-			Type: security.RunAsUserStrategyRunAsAny,
-		},
-		SELinuxContext: security.SELinuxContextStrategyOptions{
-			Type: security.SELinuxStrategyRunAsAny,
-		},
-		SeccompProfiles: []string{
-			"*",
-		},
-		SupplementalGroups: security.SupplementalGroupsStrategyOptions{
-			Type: security.SupplementalGroupsStrategyRunAsAny,
-		},
-		Users: []string{
-			"system:admin",
-			fmt.Sprintf("system:serviceaccount:%s:%s", sa.Namespace, sa.Name),
-		},
-		Volumes: []security.FSType{
-			security.FSTypeAll,
-		},
+	// ObjectMeta set from prior step.
+
+	scc.AllowHostDirVolumePlugin = true
+	scc.AllowHostIPC = true
+	scc.AllowHostNetwork = true
+	scc.AllowHostPID = true
+	scc.AllowHostPorts = true
+	scc.AllowPrivilegeEscalation = pointer.BoolPtr(true)
+	scc.AllowPrivilegedContainer = true
+	scc.AllowedCapabilities = []corev1.Capability{
+		security.AllowAllCapabilities,
 	}
+	scc.AllowedUnsafeSysctls = []string{
+		"*",
+	}
+	scc.DefaultAddCapabilities = nil
+	scc.FSGroup = security.FSGroupStrategyOptions{
+		Type: security.FSGroupStrategyRunAsAny,
+	}
+	scc.Priority = nil
+	scc.ReadOnlyRootFilesystem = false
+	scc.RequiredDropCapabilities = nil
+	scc.RunAsUser = security.RunAsUserStrategyOptions{
+		Type: security.RunAsUserStrategyRunAsAny,
+	}
+	scc.SELinuxContext = security.SELinuxContextStrategyOptions{
+		Type: security.SELinuxStrategyRunAsAny,
+	}
+	scc.SeccompProfiles = []string{
+		"*",
+	}
+	scc.SupplementalGroups = security.SupplementalGroupsStrategyOptions{
+		Type: security.SupplementalGroupsStrategyRunAsAny,
+	}
+	scc.Users = []string{
+		"system:admin",
+		fmt.Sprintf("system:serviceaccount:%s:%s", sa.Namespace, sa.Name),
+	}
+	scc.Volumes = []security.FSType{
+		security.FSTypeAll,
+	}
+
 	return nil
 }
 
@@ -482,8 +482,10 @@ func (r *VeleroReconciler) buildVeleroDeployment(veleroDeployment *appsv1.Deploy
 						},
 						Resources: r.getVeleroResourceReqs(velero),
 						Command:   []string{"/velero"},
-						//TODO: Parametrize restic timeout, Features flag as well as VELERO debug flag
-						Args:         []string{"server", "--restic-timeout", "1h"},
+						//TODO: Parametrize VELERO debug flag
+						Args: []string{
+							"server",
+						},
 						VolumeMounts: volumeMounts,
 						Env:          envVars,
 					},
@@ -493,6 +495,20 @@ func (r *VeleroReconciler) buildVeleroDeployment(veleroDeployment *appsv1.Deploy
 			},
 		},
 	}
+
+	//Append EnabledFeaturesFlags to velero container
+	if len(velero.Spec.VeleroFeatureFlags) > 0 {
+		veleroContainer := &veleroDeployment.Spec.Template.Spec.Containers[0]
+		veleroContainer.Args = append(veleroContainer.Args, fmt.Sprintf("--features=%s", strings.Join(velero.Spec.VeleroFeatureFlags, ",")))
+	}
+
+	// Enable user to specify --restic-timeout (defaults to 1h)
+	resticTimeout := "1h"
+	if len(velero.Spec.ResticTimeout) > 0 {
+		resticTimeout = velero.Spec.ResticTimeout
+	}
+	veleroContainer := &veleroDeployment.Spec.Template.Spec.Containers[0]
+	veleroContainer.Args = append(veleroContainer.Args, fmt.Sprintf("--restic-timeout=%s", resticTimeout))
 
 	err := credentials.AppendPluginSpecficSpecs(velero, veleroDeployment)
 

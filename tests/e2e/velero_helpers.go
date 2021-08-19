@@ -60,6 +60,7 @@ func (v *veleroCustomResource) Build() error {
 			DefaultVeleroPlugins: []oadpv1alpha1.DefaultPlugin{
 				oadpv1alpha1.DefaultPluginOpenShift,
 				oadpv1alpha1.DefaultPluginAWS,
+				oadpv1alpha1.DefaultPluginCSI,
 			},
 		},
 	}
