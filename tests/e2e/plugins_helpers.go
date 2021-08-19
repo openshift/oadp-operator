@@ -2,11 +2,39 @@ package e2e
 
 import (
 	"context"
+	"fmt"
 	"log"
 
+	"github.com/openshift/oadp-operator/api/v1alpha1"
+	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+func (v *veleroCustomResource) removeVeleroPlugin(namespace string, instanceName string, pluginValues []v1alpha1.DefaultPlugin, removedPlugin string) error {
+	err := v.SetClient()
+	if err != nil {
+		return err
+	}
+	velero := &oadpv1alpha1.Velero{}
+	err = v.Client.Get(context.Background(), client.ObjectKey{
+		Namespace: v.Namespace,
+		Name:      v.Name,
+	}, velero)
+	if err != nil {
+		return err
+	}
+	// remove plugin from default_plugins
+	velero.Spec.DefaultVeleroPlugins = pluginValues
+
+	err = v.Client.Update(context.Background(), velero)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("%s plugin has been removed\n", removedPlugin)
+	return nil
+}
 
 func doesPluginExist(namespace string, deploymentName string, pluginName string) wait.ConditionFunc {
 	return func() (bool, error) {
