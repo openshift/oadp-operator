@@ -93,6 +93,8 @@ func (r *VeleroReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		r.ReconcileVolumeSnapshotLocations,
 		r.ReconcileVeleroDeployment,
 		r.ReconcileResticDaemonset,
+		r.ValidateNoobaa,
+		r.ReconcileNoobaa,
 	)
 
 	if err != nil {
