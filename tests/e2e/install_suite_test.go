@@ -17,6 +17,7 @@ var _ = BeforeSuite(func() {
 	s3Data, err := decodeJson(s3Buffer) // Might need to change this later on to create s3 for each tests
 	Expect(err).NotTo(HaveOccurred())
 	s3Bucket = s3Data["velero-bucket-name"].(string)
+
 	vel = &veleroCustomResource{
 		Namespace: namespace,
 		Region:    "us-east-1",

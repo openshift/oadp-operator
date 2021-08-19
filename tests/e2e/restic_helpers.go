@@ -116,19 +116,17 @@ func (v *veleroCustomResource) disableRestic(namespace string, instanceName stri
 	if err != nil {
 		return err
 	}
-	vel := oadpv1alpha1.Velero{}
+	velero := &oadpv1alpha1.Velero{}
 	err = v.Client.Get(context.Background(), client.ObjectKey{
 		Namespace: v.Namespace,
 		Name:      v.Name,
-	}, &vel)
+	}, velero)
 	if err != nil {
 		return err
 	}
+	velero.Spec.EnableRestic = pointer.Bool(false)
 
-	// update spec 'enable_restic' to be false
-	enable := vel.Spec.EnableRestic
-	enable = pointer.Bool(false)
-	err = v.Client.Update(context.Background(), &vel, enable)
+	err = v.Client.Update(context.Background(), velero)
 	if err != nil {
 		return err
 	}
@@ -136,20 +134,29 @@ func (v *veleroCustomResource) disableRestic(namespace string, instanceName stri
 	return nil
 }
 
-// func enableResticNodeSelector(namespace string, s3Bucket string, credSecretRef string, instanceName string) error {
-// 	veleroClient, err := setUpDynamicVeleroClient(namespace)
-// 	if err != nil {
-// 		return nil
-// 	}
-// 	// get Velero as unstructured type
-// 	veleroResource := getResticVeleroConfig(namespace, s3Bucket, credSecretRef, instanceName)
-// 	_, err = veleroClient.Create(context.Background(), veleroResource, metav1.CreateOptions{})
-// 	if err != nil {
-// 		return err
-// 	}
-// 	fmt.Println("spec 'restic_node_selector' has been updated")
-// 	return nil
-// }
+func (v *veleroCustomResource) enableResticNodeSelector(namespace string, s3Bucket string, credSecretRef string, instanceName string) error {
+	err := v.SetClient()
+	if err != nil {
+		return err
+	}
+	velero := &oadpv1alpha1.Velero{}
+	err = v.Client.Get(context.Background(), client.ObjectKey{
+		Namespace: v.Namespace,
+		Name:      v.Name,
+	}, velero)
+	if err != nil {
+		return err
+	}
+	nodeSelector := map[string]string{"foo": "bar"}
+	velero.Spec.ResticNodeSelector = nodeSelector
+
+	err = v.Client.Update(context.Background(), velero)
+	if err != nil {
+		return err
+	}
+	fmt.Println("spec 'restic_node_selector' has been updated")
+	return nil
+}
 
 func resticDaemonSetHasNodeSelector(namespace string, s3Bucket string, credSecretRef string, instanceName string, resticName string) wait.ConditionFunc {
 	log.Printf("Waiting for Restic daemonset to have a nodeSelector...")
