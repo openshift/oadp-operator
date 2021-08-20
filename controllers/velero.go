@@ -536,10 +536,8 @@ func (r *VeleroReconciler) getAppLabels(velero *oadpv1alpha1.Velero) map[string]
 // Get VELERO Resource Requirements
 func (r *VeleroReconciler) getVeleroResourceReqs(velero *oadpv1alpha1.Velero) corev1.ResourceRequirements {
 
-	ResourcesReqs := corev1.ResourceRequirements{}
-
 	// Set default values
-	ResourcesReqs = corev1.ResourceRequirements{
+	ResourcesReqs := corev1.ResourceRequirements{
 		Limits: corev1.ResourceList{
 			corev1.ResourceCPU:    resource.MustParse("1"),
 			corev1.ResourceMemory: resource.MustParse("512Mi"),
