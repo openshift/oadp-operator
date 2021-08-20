@@ -4,12 +4,10 @@ on:
     paths:
       - '**/**.md'
       - '.github/workflows/docs-actions.yml'
-      - '!vendor'
   pull_request:
     paths:
       - '**/**.md'
       - '.github/workflows/docs-actions.yml'
-      - '!vendor'
 jobs:
   link-checker:
     runs-on: ubuntu-latest
