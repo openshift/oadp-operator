@@ -178,6 +178,8 @@ spec:
                   format: int64
                   type: integer
                 type: array
+              resticTimeout:
+                type: string
               resticTolerations:
                 items:
                   description: The pod this Toleration is attached to tolerates any

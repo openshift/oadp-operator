@@ -1,4 +1,5 @@
 mode: set
+
 github.com/openshift/oadp-operator/controllers/bsl.go:16.90,18.68 2 1
 github.com/openshift/oadp-operator/controllers/bsl.go:22.2,22.73 1 1
 github.com/openshift/oadp-operator/controllers/bsl.go:27.2,27.61 1 1
@@ -148,20 +149,24 @@ github.com/openshift/oadp-operator/controllers/registry.go:405.16,407.3 1 1
 github.com/openshift/oadp-operator/controllers/registry.go:412.138,415.23 1 1
 github.com/openshift/oadp-operator/controllers/registry.go:420.2,420.118 1 1
 github.com/openshift/oadp-operator/controllers/registry.go:415.23,417.3 1 0
-github.com/openshift/oadp-operator/controllers/registry.go:423.107,428.35 3 1
-github.com/openshift/oadp-operator/controllers/registry.go:465.2,465.40 1 1
-github.com/openshift/oadp-operator/controllers/registry.go:428.35,432.17 2 1
-github.com/openshift/oadp-operator/controllers/registry.go:437.3,437.23 1 1
-github.com/openshift/oadp-operator/controllers/registry.go:448.3,449.17 2 1
-github.com/openshift/oadp-operator/controllers/registry.go:454.3,454.23 1 1
-github.com/openshift/oadp-operator/controllers/registry.go:432.17,435.4 2 0
-github.com/openshift/oadp-operator/controllers/registry.go:437.23,440.27 3 0
-github.com/openshift/oadp-operator/controllers/registry.go:444.4,444.31 1 0
-github.com/openshift/oadp-operator/controllers/registry.go:440.27,443.5 2 0
-github.com/openshift/oadp-operator/controllers/registry.go:449.17,452.4 2 0
-github.com/openshift/oadp-operator/controllers/registry.go:454.23,457.27 3 0
-github.com/openshift/oadp-operator/controllers/registry.go:461.4,461.31 1 0
-github.com/openshift/oadp-operator/controllers/registry.go:457.27,460.5 2 0
+github.com/openshift/oadp-operator/controllers/registry.go:423.107,431.35 6 1
+github.com/openshift/oadp-operator/controllers/registry.go:466.2,466.24 1 1
+github.com/openshift/oadp-operator/controllers/registry.go:470.2,470.24 1 1
+github.com/openshift/oadp-operator/controllers/registry.go:475.2,475.40 1 1
+github.com/openshift/oadp-operator/controllers/registry.go:431.35,432.17 1 1
+github.com/openshift/oadp-operator/controllers/registry.go:435.3,435.37 1 1
+github.com/openshift/oadp-operator/controllers/registry.go:439.3,441.23 2 1
+github.com/openshift/oadp-operator/controllers/registry.go:453.3,455.23 2 1
+github.com/openshift/oadp-operator/controllers/registry.go:432.17,433.12 1 0
+github.com/openshift/oadp-operator/controllers/registry.go:435.37,436.12 1 1
+github.com/openshift/oadp-operator/controllers/registry.go:441.23,444.27 3 1
+github.com/openshift/oadp-operator/controllers/registry.go:448.4,449.12 2 1
+github.com/openshift/oadp-operator/controllers/registry.go:444.27,447.5 2 0
+github.com/openshift/oadp-operator/controllers/registry.go:455.23,458.27 3 1
+github.com/openshift/oadp-operator/controllers/registry.go:462.4,463.12 2 1
+github.com/openshift/oadp-operator/controllers/registry.go:458.27,461.5 2 0
+github.com/openshift/oadp-operator/controllers/registry.go:466.24,469.3 2 0
+github.com/openshift/oadp-operator/controllers/registry.go:470.24,473.3 2 0
 github.com/openshift/oadp-operator/controllers/restic.go:31.35,33.15 2 1
 github.com/openshift/oadp-operator/controllers/restic.go:36.2,36.12 1 0
 github.com/openshift/oadp-operator/controllers/restic.go:33.15,35.3 1 1

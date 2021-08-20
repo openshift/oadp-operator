@@ -4,6 +4,9 @@ OADP_AWS_CRED_FILE ?= /var/run/oadp-credentials/aws-credentials
 OADP_S3_BUCKET ?= /var/run/oadp-credentials/velero-bucket-name
 VELERO_INSTANCE_NAME ?= example-velero
 
+# ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
+ENVTEST_K8S_VERSION = 1.21
+
 .PHONY:ginkgo
 ginkgo: # Make sure ginkgo is in $GOPATH/bin
 	go get github.com/onsi/ginkgo/ginkgo
@@ -97,7 +100,8 @@ vet: ## Run go vet against code.
 	go vet -mod=mod ./...
 
 test: manifests generate fmt vet envtest ## Run tests.
-	go test -mod=mod ./controllers/... -coverprofile cover.out
+	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" go test -mod=mod ./controllers/... -coverprofile cover.out
+
 
 ##@ Build
 
@@ -140,7 +144,6 @@ kustomize: ## Download kustomize locally if necessary.
 ENVTEST = $(shell pwd)/bin/setup-envtest
 envtest: ## Download envtest-setup locally if necessary.
 	$(call go-get-tool,$(ENVTEST),sigs.k8s.io/controller-runtime/tools/setup-envtest@latest)
-	$(ENVTEST) use 1.21
 
 # go-get-tool will 'go get' any package $2 and install it to $1.
 PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
