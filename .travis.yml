@@ -1,7 +1,6 @@
 ---
-services: docker
-language: python
-install:
-  - pip3 install docker molecule ansible-lint yamllint flake8 openshift jmespath
+language: go
+go:
+- 1.16.x
 script:
-  - molecule test -s test-local
+  - make test
