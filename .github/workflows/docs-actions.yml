@@ -1,5 +1,10 @@
 name: docs-actions
 on:
+  push:
+    paths:
+      - '**/**.md'
+      - '.github/workflows/docs-actions.yml'
+      - '!vendor'
   pull_request:
     paths:
       - '**/**.md'
