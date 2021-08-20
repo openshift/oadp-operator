@@ -1,5 +1,4 @@
 mode: set
-
 github.com/openshift/oadp-operator/controllers/bsl.go:16.90,18.68 2 1
 github.com/openshift/oadp-operator/controllers/bsl.go:22.2,22.73 1 1
 github.com/openshift/oadp-operator/controllers/bsl.go:27.2,27.61 1 1
