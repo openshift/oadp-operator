@@ -83,6 +83,11 @@ type VeleroSpec struct {
 	ResticResourceAllocations corev1.ResourceRequirements `json:"resticResourceAllocations,omitempty"`
 	// +optional
 	ResticTimeout string `json:"resticTimeout,omitempty"`
+	// WithSecret is a boolean to specify whether velero should expect cloud credentials file
+	// 	By default, velero install expects a credentials file for your velero IAM account to be provided via the --secret-file flag.
+	// If you are using an alternate identity mechanism, such as kube2iam/kiam on AWS, Workload Identity on GKE, etc., that does not require a credentials file, you can specify the --no-secret flag instead of --secret-file.
+	// +optional
+	WithSecret bool `json:"withSecret,omitempty"`
 }
 
 // VeleroStatus defines the observed state of Velero
