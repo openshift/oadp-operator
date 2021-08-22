@@ -479,7 +479,7 @@ func (r *VeleroReconciler) buildVeleroDeployment(veleroDeployment *appsv1.Deploy
 		},
 	}
 
-	err := credentials.AppendPluginSpecficSpecs(velero, veleroDeployment)
+	err := credentials.AppendPluginSpecificSpecs(velero, veleroDeployment)
 
 	if err != nil {
 		return err

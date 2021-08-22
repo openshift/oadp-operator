@@ -109,7 +109,7 @@ func AppendCloudProviderVolumes(velero *oadpv1alpha1.Velero, ds *appsv1.DaemonSe
 }
 
 // add plugin specific specs to velero deployment
-func AppendPluginSpecficSpecs(velero *oadpv1alpha1.Velero, veleroDeployment *appsv1.Deployment) error {
+func AppendPluginSpecificSpecs(velero *oadpv1alpha1.Velero, veleroDeployment *appsv1.Deployment) error {
 	var veleroContainer *corev1.Container
 
 	for i, container := range veleroDeployment.Spec.Template.Spec.Containers {
