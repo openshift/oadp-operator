@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"reflect"
-	"strings"
 
 	"github.com/openshift/oadp-operator/pkg/credentials"
 	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -72,6 +71,15 @@ const (
 	VeleroPluginForGCP       = "velero-plugin-for-gcp"
 	VeleroPluginForCSI       = "velero-plugin-for-csi"
 	VeleroPluginForOpenshift = "openshift-velero-plugin"
+)
+
+var (
+	veleroLabelSelector = &metav1.LabelSelector{
+		MatchLabels: map[string]string{
+			"component": common.Velero,
+			"deploy":    common.Velero,
+		},
+	}
 )
 
 func (r *VeleroReconciler) ReconcileVeleroServiceAccount(log logr.Logger) (bool, error) {
@@ -278,11 +286,7 @@ func (r *VeleroReconciler) ReconcileVeleroDeployment(log logr.Logger) (bool, err
 
 		// Setting Deployment selector if a new object is created as it is immutable
 		if veleroDeployment.ObjectMeta.CreationTimestamp.IsZero() {
-			veleroDeployment.Spec.Selector = &metav1.LabelSelector{
-				MatchLabels: map[string]string{
-					"component": common.Velero,
-				},
-			}
+			veleroDeployment.Spec.Selector = veleroLabelSelector
 		}
 
 		// Setting controller owner reference on the velero deployment
@@ -381,133 +385,6 @@ func (r *VeleroReconciler) buildVeleroDeployment(veleroDeployment *appsv1.Deploy
 		return fmt.Errorf("velero deployment cannot be nil")
 	}
 
-	// get default values
-	volumeMounts := []corev1.VolumeMount{
-		{
-			Name:      "plugins",
-			MountPath: "/plugins",
-		},
-		{
-			Name:      "scratch",
-			MountPath: "/scratch",
-		},
-		{
-			Name:      "certs",
-			MountPath: "/etc/ssl/certs",
-		},
-	}
-
-	envVars := []corev1.EnvVar{
-		{
-			Name:  LDLibraryPathEnvKey,
-			Value: "/plugins",
-		},
-		{
-			Name:  VeleroNamespaceEnvKey,
-			Value: velero.Namespace,
-		},
-		{
-			Name:  VeleroScratchDirEnvKey,
-			Value: "/scratch",
-		},
-		{
-			Name:  HTTPProxyEnvVar,
-			Value: os.Getenv("HTTP_PROXY"),
-		},
-		{
-			Name:  HTTPSProxyEnvVar,
-			Value: os.Getenv("HTTPS_PROXY"),
-		},
-		{
-			Name:  NoProxyEnvVar,
-			Value: os.Getenv("NO_PROXY"),
-		},
-	}
-
-	volumes := []corev1.Volume{
-		{
-			Name: "plugins",
-			VolumeSource: corev1.VolumeSource{
-				EmptyDir: &corev1.EmptyDirVolumeSource{},
-			},
-		},
-		{
-			Name: "scratch",
-			VolumeSource: corev1.VolumeSource{
-				EmptyDir: &corev1.EmptyDirVolumeSource{},
-			},
-		},
-		{
-			Name: "certs",
-			VolumeSource: corev1.VolumeSource{
-				EmptyDir: &corev1.EmptyDirVolumeSource{},
-			},
-		},
-	}
-
-	//add any default init containers here if needed eg: setup-certificate-secret
-	initContainers := []corev1.Container{}
-
-	// assign spec values
-	veleroDeployment.Labels = r.getAppLabels(velero)
-
-	veleroDeployment.Spec = appsv1.DeploymentSpec{
-		//TODO: add velero nodeselector, needs to be added to the VELERO CR first
-		Selector: veleroDeployment.Spec.Selector,
-		Replicas: pointer.Int32(1),
-		Template: corev1.PodTemplateSpec{
-			ObjectMeta: metav1.ObjectMeta{
-				Labels: map[string]string{
-					"component": common.Velero,
-				},
-				Annotations: map[string]string{
-					"prometheus.io/scrape": "true",
-					"prometheus.io/port":   "8085",
-					"prometheus.io/path":   "/metrics",
-				},
-			},
-			Spec: corev1.PodSpec{
-				RestartPolicy:      corev1.RestartPolicyAlways,
-				ServiceAccountName: common.Velero,
-				Tolerations:        velero.Spec.VeleroTolerations,
-				Containers: []corev1.Container{
-					r.buildVeleroContainer(velero, volumeMounts, envVars),
-				},
-				Volumes:        volumes,
-				InitContainers: initContainers,
-			},
-		},
-	}
-
-	err := credentials.AppendPluginSpecificSpecs(velero, veleroDeployment)
-
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (r *VeleroReconciler) buildVeleroContainer(velero *oadpv1alpha1.Velero, volumeMounts []corev1.VolumeMount, envVars []corev1.EnvVar) corev1.Container {
-	container := corev1.Container{
-		Name:            common.Velero,
-		Image:           getVeleroImage(),
-		ImagePullPolicy: corev1.PullAlways,
-		Ports: []corev1.ContainerPort{
-			{
-				Name:          "metrics",
-				ContainerPort: 8085,
-			},
-		},
-		Resources: r.getVeleroResourceReqs(velero),
-		Command:   []string{"/velero"},
-		//TODO: Parametrize VELERO debug flag
-		Args: []string{
-			"server",
-		},
-		VolumeMounts: volumeMounts,
-		Env:          envVars,
-	}
 	//check if CSI plugin is added in spec
 	for _, plugin := range velero.Spec.DefaultVeleroPlugins {
 		if plugin == oadpv1alpha1.DefaultPluginCSI {
@@ -525,19 +402,89 @@ func (r *VeleroReconciler) buildVeleroContainer(velero *oadpv1alpha1.Velero, vol
 			break
 		}
 	}
+	deploymentName := veleroDeployment.Name //saves desired deployment name before install.Deployment overwrites them.
+	*veleroDeployment = *install.Deployment(veleroDeployment.Namespace,
+		install.WithResources(r.getVeleroResourceReqs(velero)),
+		install.WithImage(getVeleroImage()),
+		install.WithFeatures(velero.Spec.VeleroFeatureFlags),
+		// use WithSecret false even if we have secret because we use a different VolumeMounts and EnvVars
+		// see: https://github.com/vmware-tanzu/velero/blob/ed5809b7fc22f3661eeef10bdcb63f0d74472b76/pkg/install/deployment.go#L223-L261
+		// our secrets are appended to containers/volumeMounts in credentials.AppendPluginSpecificSpecs function
+		install.WithSecret(false),
+	)
+	// adjust veleroDeployment from install
+	return r.customizeVeleroDeployment(velero, veleroDeployment, deploymentName) //reapply saved deploymentName
+}
 
-	//Append EnabledFeaturesFlags to velero container
-	if len(velero.Spec.VeleroFeatureFlags) > 0 {
-		container.Args = append(container.Args, fmt.Sprintf("--features=%s", strings.Join(velero.Spec.VeleroFeatureFlags, ",")))
+func (r *VeleroReconciler) customizeVeleroDeployment(velero *oadpv1alpha1.Velero, veleroDeployment *appsv1.Deployment, deploymentName string) error {
+	veleroDeployment.Name = deploymentName
+	veleroDeployment.Labels = r.getAppLabels(velero)
+	veleroDeployment.Spec.Selector = veleroLabelSelector
+
+	//TODO: add velero nodeselector, needs to be added to the VELERO CR first
+	// Selector: veleroDeployment.Spec.Selector,
+	veleroDeployment.Spec.Replicas = pointer.Int32(1)
+	veleroDeployment.Spec.Template.Spec.Tolerations = velero.Spec.VeleroTolerations
+	veleroDeployment.Spec.Template.Spec.Volumes = append(veleroDeployment.Spec.Template.Spec.Volumes,
+		corev1.Volume{
+			Name: "certs",
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{},
+			},
+		})
+	//add any default init containers here if needed eg: setup-certificate-secret
+	if veleroDeployment.Spec.Template.Spec.InitContainers == nil {
+		veleroDeployment.Spec.Template.Spec.InitContainers = []corev1.Container{}
 	}
 
+	var veleroContainer *corev1.Container
+	for i, container := range veleroDeployment.Spec.Template.Spec.Containers {
+		if container.Name == common.Velero {
+			veleroContainer = &veleroDeployment.Spec.Template.Spec.Containers[i]
+			break
+		}
+	}
+	if err := r.customizeVeleroContainer(velero, veleroDeployment, veleroContainer); err != nil {
+		return err
+	}
+	return credentials.AppendPluginSpecificSpecs(velero, veleroDeployment, veleroContainer)
+}
+
+func (r *VeleroReconciler) customizeVeleroContainer(velero *oadpv1alpha1.Velero, veleroDeployment *appsv1.Deployment, veleroContainer *corev1.Container) error {
+	if veleroContainer == nil {
+		r.EventRecorder.Event(veleroDeployment, corev1.EventTypeWarning, "VeleroContainerNotFound", "Unable to find velero container for configuration")
+		return fmt.Errorf("could not find velero container in Deployment")
+	}
+
+	veleroContainer.VolumeMounts = append(veleroContainer.VolumeMounts,
+		corev1.VolumeMount{
+			Name:      "certs",
+			MountPath: "/etc/ssl/certs",
+		},
+	)
+
+	veleroContainer.Env = append(veleroContainer.Env,
+		corev1.EnvVar{
+			Name:  HTTPProxyEnvVar,
+			Value: os.Getenv("HTTP_PROXY"),
+		},
+		corev1.EnvVar{
+			Name:  HTTPSProxyEnvVar,
+			Value: os.Getenv("HTTPS_PROXY"),
+		},
+		corev1.EnvVar{
+			Name:  NoProxyEnvVar,
+			Value: os.Getenv("NO_PROXY"),
+		},
+	)
 	// Enable user to specify --restic-timeout (defaults to 1h)
 	resticTimeout := "1h"
 	if len(velero.Spec.ResticTimeout) > 0 {
 		resticTimeout = velero.Spec.ResticTimeout
 	}
-	container.Args = append(container.Args, fmt.Sprintf("--restic-timeout=%s", resticTimeout))
-	return container
+	veleroContainer.Args = append(veleroContainer.Args, fmt.Sprintf("--restic-timeout=%s", resticTimeout))
+
+	return nil
 }
 
 func getVeleroImage() string {

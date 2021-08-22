@@ -45,11 +45,7 @@ func TestVeleroReconciler_buildVeleroDeployment(t *testing.T) {
 					Namespace: "test-ns",
 				},
 				Spec: appsv1.DeploymentSpec{
-					Selector: &metav1.LabelSelector{
-						MatchLabels: map[string]string{
-							"component": common.Velero,
-						},
-					},
+					Selector: veleroLabelSelector,
 				},
 			},
 			velero:  nil,
@@ -60,11 +56,7 @@ func TestVeleroReconciler_buildVeleroDeployment(t *testing.T) {
 					Namespace: "test-ns",
 				},
 				Spec: appsv1.DeploymentSpec{
-					Selector: &metav1.LabelSelector{
-						MatchLabels: map[string]string{
-							"component": common.Velero,
-						},
-					},
+					Selector: veleroLabelSelector,
 				},
 			},
 		},
@@ -84,11 +76,7 @@ func TestVeleroReconciler_buildVeleroDeployment(t *testing.T) {
 					Namespace: "test-ns",
 				},
 				Spec: appsv1.DeploymentSpec{
-					Selector: &metav1.LabelSelector{
-						MatchLabels: map[string]string{
-							"component": common.Velero,
-						},
-					},
+					Selector: veleroLabelSelector,
 				},
 			},
 			velero: &oadpv1alpha1.Velero{
@@ -109,18 +97,16 @@ func TestVeleroReconciler_buildVeleroDeployment(t *testing.T) {
 						"app.kubernetes.io/component":  Server,
 					},
 				},
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "Deployment",
+					APIVersion: "apps/v1",
+				},
 				Spec: appsv1.DeploymentSpec{
-					Selector: &metav1.LabelSelector{
-						MatchLabels: map[string]string{
-							"component": common.Velero,
-						},
-					},
+					Selector: veleroLabelSelector,
 					Replicas: pointer.Int32(1),
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
-							Labels: map[string]string{
-								"component": common.Velero,
-							},
+							Labels: veleroLabelSelector.MatchLabels,
 							Annotations: map[string]string{
 								"prometheus.io/scrape": "true",
 								"prometheus.io/port":   "8085",
@@ -134,7 +120,7 @@ func TestVeleroReconciler_buildVeleroDeployment(t *testing.T) {
 								{
 									Name:            common.Velero,
 									Image:           getVeleroImage(),
-									ImagePullPolicy: corev1.PullAlways,
+									ImagePullPolicy: corev1.PullIfNotPresent,
 									Ports: []corev1.ContainerPort{
 										{
 											Name:          "metrics",
@@ -172,16 +158,20 @@ func TestVeleroReconciler_buildVeleroDeployment(t *testing.T) {
 									},
 									Env: []corev1.EnvVar{
 										{
-											Name:  LDLibraryPathEnvKey,
-											Value: "/plugins",
-										},
-										{
-											Name:  VeleroNamespaceEnvKey,
-											Value: "test-ns",
-										},
-										{
 											Name:  VeleroScratchDirEnvKey,
 											Value: "/scratch",
+										},
+										{
+											Name: VeleroNamespaceEnvKey,
+											ValueFrom: &corev1.EnvVarSource{
+												FieldRef: &corev1.ObjectFieldSelector{
+													FieldPath: "metadata.namespace",
+												},
+											},
+										},
+										{
+											Name:  LDLibraryPathEnvKey,
+											Value: "/plugins",
 										},
 										{
 											Name:  HTTPProxyEnvVar,
@@ -231,12 +221,12 @@ func TestVeleroReconciler_buildVeleroDeployment(t *testing.T) {
 					Name:      "test-velero-deployment",
 					Namespace: "test-ns",
 				},
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "Deployment",
+					APIVersion: "apps/v1",
+				},
 				Spec: appsv1.DeploymentSpec{
-					Selector: &metav1.LabelSelector{
-						MatchLabels: map[string]string{
-							"component": common.Velero,
-						},
-					},
+					Selector: veleroLabelSelector,
 				},
 			},
 			velero: &oadpv1alpha1.Velero{
@@ -269,18 +259,16 @@ func TestVeleroReconciler_buildVeleroDeployment(t *testing.T) {
 						"app.kubernetes.io/component":  Server,
 					},
 				},
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "Deployment",
+					APIVersion: "apps/v1",
+				},
 				Spec: appsv1.DeploymentSpec{
-					Selector: &metav1.LabelSelector{
-						MatchLabels: map[string]string{
-							"component": common.Velero,
-						},
-					},
+					Selector: veleroLabelSelector,
 					Replicas: pointer.Int32(1),
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
-							Labels: map[string]string{
-								"component": common.Velero,
-							},
+							Labels: veleroLabelSelector.MatchLabels,
 							Annotations: map[string]string{
 								"prometheus.io/scrape": "true",
 								"prometheus.io/port":   "8085",
@@ -294,7 +282,7 @@ func TestVeleroReconciler_buildVeleroDeployment(t *testing.T) {
 								{
 									Name:            common.Velero,
 									Image:           getVeleroImage(),
-									ImagePullPolicy: corev1.PullAlways,
+									ImagePullPolicy: corev1.PullIfNotPresent,
 									Ports: []corev1.ContainerPort{
 										{
 											Name:          "metrics",
@@ -332,16 +320,20 @@ func TestVeleroReconciler_buildVeleroDeployment(t *testing.T) {
 									},
 									Env: []corev1.EnvVar{
 										{
-											Name:  LDLibraryPathEnvKey,
-											Value: "/plugins",
-										},
-										{
-											Name:  VeleroNamespaceEnvKey,
-											Value: "test-ns",
-										},
-										{
 											Name:  VeleroScratchDirEnvKey,
 											Value: "/scratch",
+										},
+										{
+											Name: "VELERO_NAMESPACE",
+											ValueFrom: &corev1.EnvVarSource{
+												FieldRef: &corev1.ObjectFieldSelector{
+													FieldPath: "metadata.namespace",
+												},
+											},
+										},
+										{
+											Name:  LDLibraryPathEnvKey,
+											Value: "/plugins",
 										},
 										{
 											Name:  HTTPProxyEnvVar,
@@ -392,11 +384,7 @@ func TestVeleroReconciler_buildVeleroDeployment(t *testing.T) {
 					Namespace: "test-ns",
 				},
 				Spec: appsv1.DeploymentSpec{
-					Selector: &metav1.LabelSelector{
-						MatchLabels: map[string]string{
-							"component": common.Velero,
-						},
-					},
+					Selector: veleroLabelSelector,
 				},
 			},
 			velero: &oadpv1alpha1.Velero{
@@ -422,18 +410,16 @@ func TestVeleroReconciler_buildVeleroDeployment(t *testing.T) {
 						"app.kubernetes.io/component":  Server,
 					},
 				},
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "Deployment",
+					APIVersion: "apps/v1",
+				},
 				Spec: appsv1.DeploymentSpec{
-					Selector: &metav1.LabelSelector{
-						MatchLabels: map[string]string{
-							"component": common.Velero,
-						},
-					},
+					Selector: veleroLabelSelector,
 					Replicas: pointer.Int32(1),
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
-							Labels: map[string]string{
-								"component": common.Velero,
-							},
+							Labels: veleroLabelSelector.MatchLabels,
 							Annotations: map[string]string{
 								"prometheus.io/scrape": "true",
 								"prometheus.io/port":   "8085",
@@ -447,7 +433,7 @@ func TestVeleroReconciler_buildVeleroDeployment(t *testing.T) {
 								{
 									Name:            common.Velero,
 									Image:           getVeleroImage(),
-									ImagePullPolicy: corev1.PullAlways,
+									ImagePullPolicy: corev1.PullIfNotPresent,
 									Ports: []corev1.ContainerPort{
 										{
 											Name:          "metrics",
@@ -489,16 +475,20 @@ func TestVeleroReconciler_buildVeleroDeployment(t *testing.T) {
 									},
 									Env: []corev1.EnvVar{
 										{
-											Name:  LDLibraryPathEnvKey,
-											Value: "/plugins",
-										},
-										{
-											Name:  VeleroNamespaceEnvKey,
-											Value: "test-ns",
-										},
-										{
 											Name:  VeleroScratchDirEnvKey,
 											Value: "/scratch",
+										},
+										{
+											Name: VeleroNamespaceEnvKey,
+											ValueFrom: &corev1.EnvVarSource{
+												FieldRef: &corev1.ObjectFieldSelector{
+													FieldPath: "metadata.namespace",
+												},
+											},
+										},
+										{
+											Name:  LDLibraryPathEnvKey,
+											Value: "/plugins",
 										},
 										{
 											Name:  HTTPProxyEnvVar,
