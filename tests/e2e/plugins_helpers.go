@@ -2,7 +2,6 @@ package e2e
 
 import (
 	"context"
-	"fmt"
 	"log"
 
 	"github.com/openshift/oadp-operator/api/v1alpha1"
@@ -32,7 +31,7 @@ func (v *veleroCustomResource) removeVeleroPlugin(namespace string, instanceName
 	if err != nil {
 		return err
 	}
-	fmt.Printf("%s plugin has been removed\n", removedPlugin)
+	log.Printf("%s plugin has been removed\n", removedPlugin)
 	return nil
 }
 

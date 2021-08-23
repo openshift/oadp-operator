@@ -2,7 +2,6 @@ package e2e
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"time"
 
@@ -130,7 +129,7 @@ func (v *veleroCustomResource) disableRestic(namespace string, instanceName stri
 	if err != nil {
 		return err
 	}
-	fmt.Println("spec 'enable_restic' has been updated to false")
+	log.Printf("spec 'enable_restic' has been updated to false")
 	return nil
 }
 
@@ -154,7 +153,7 @@ func (v *veleroCustomResource) enableResticNodeSelector(namespace string, s3Buck
 	if err != nil {
 		return err
 	}
-	fmt.Println("spec 'restic_node_selector' has been updated")
+	log.Printf("spec 'restic_node_selector' has been updated")
 	return nil
 }
 
