@@ -27,7 +27,7 @@ func (r *VeleroReconciler) ValidateBackupStorageLocations(log logr.Logger) (bool
 	for _, bslSpec := range velero.Spec.BackupStorageLocations {
 		provider := bslSpec.Provider
 		if len(provider) == 0 {
-			return false, fmt.Errorf("no provider sepcified for one of the backupstoragelocations configured")
+			return false, fmt.Errorf("no provider specified for one of the backupstoragelocations configured")
 		}
 
 		// TODO: cases might need some updates for IBM/Minio/noobaa

@@ -2,7 +2,6 @@ package controllers
 
 import (
 	"context"
-	"fmt"
 	corev1 "k8s.io/api/core/v1"
 	"reflect"
 	"testing"
@@ -549,8 +548,6 @@ func TestVeleroReconciler_ValidateBackupStorageLocations(t *testing.T) {
 				EventRecorder: record.NewFakeRecorder(10),
 			}
 			got, err := r.ValidateBackupStorageLocations(r.Log)
-			fmt.Println(fmt.Sprintf("ValidateBackupStorageLocations() error = %v, wantErr %v", err, tt.wantErr))
-			fmt.Println(fmt.Sprintf("ValidateBackupStorageLocations() got = %v, want %v", got, tt.want))
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ValidateBackupStorageLocations() error = %v, wantErr %v", err, tt.wantErr)
 				return
