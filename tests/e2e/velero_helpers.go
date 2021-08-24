@@ -101,7 +101,6 @@ func (v *veleroCustomResource) SetClient() error {
 }
 
 func isVeleroPodRunning(namespace string) wait.ConditionFunc {
-	log.Printf("Waiting for velero pod to be running...")
 	return func() (bool, error) {
 		clientset, err := setUpClient()
 		if err != nil {
@@ -122,7 +121,6 @@ func isVeleroPodRunning(namespace string) wait.ConditionFunc {
 			status = string(podInfo.Status.Phase)
 		}
 		if status == "Running" {
-			log.Printf("Velero pod is in a running state")
 			return true, nil
 		}
 		return false, err
