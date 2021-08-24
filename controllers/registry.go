@@ -410,14 +410,21 @@ func (r *VeleroReconciler) getProviderSecret(secretName string) (corev1.Secret, 
 }
 
 func (r *VeleroReconciler) getSecretNameAndKey(credential *corev1.SecretKeySelector, plugin oadpv1alpha1.DefaultPlugin) (string, string) {
+	// Assume default values unless user has overriden them
+	secretName := credentials.PluginSpecificFields[plugin].SecretName
+	secretKey := credentials.PluginSpecificFields[plugin].PluginSecretKey
 
 	// check if user specified the Credential Name and Key
 	if credential != nil {
-		return credential.Name, credential.Key
+		if len(credential.Name) > 0 {
+			secretName = credential.Name
+		}
+		if len(credential.Key) > 0 {
+			secretKey = credential.Key
+		}
 	}
 
-	// return default values
-	return credentials.PluginSpecificFields[plugin].SecretName, credentials.PluginSpecificFields[plugin].PluginSecretKey
+	return secretName, secretKey
 }
 
 func (r *VeleroReconciler) parseAWSSecret(secret corev1.Secret, secretKey string) (string, string, error) {

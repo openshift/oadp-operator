@@ -2,119 +2,105 @@ package e2e
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
-	"fmt"
+	"log"
 
+	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
+	velero "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/dynamic"
+	"k8s.io/utils/pointer"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
 )
 
-func getDefaultVeleroConfig(namespace string, s3Bucket string, credSecretRef string, instanceName string) *unstructured.Unstructured {
+type veleroCustomResource struct {
+	Name           string
+	Namespace      string
+	SecretName     string
+	Bucket         string
+	Region         string
+	Provider       string
+	CustomResource *oadpv1alpha1.Velero
+	Client         client.Client
+}
+
+func (v *veleroCustomResource) Build() error {
 	// Velero Instance creation spec with backupstorage location default to AWS. Would need to parameterize this later on to support multiple plugins.
-	var veleroSpec = unstructured.Unstructured{
-		Object: map[string]interface{}{
-			"apiVersion": "konveyor.openshift.io/v1alpha1",
-			"kind":       "Velero",
-			"metadata": map[string]interface{}{
-				"name":      instanceName,
-				"namespace": namespace,
+	veleroSpec := oadpv1alpha1.Velero{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      v.Name,
+			Namespace: v.Namespace,
+		},
+		Spec: oadpv1alpha1.VeleroSpec{
+			OlmManaged:   pointer.Bool(false),
+			EnableRestic: pointer.Bool(true),
+			BackupStorageLocations: []velero.BackupStorageLocationSpec{
+				{
+					Provider: v.Provider,
+					Config: map[string]string{
+						"region": v.Region,
+					},
+					Credential: &corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: v.SecretName,
+						},
+						Key: "cloud",
+					},
+					StorageType: velero.StorageType{
+						ObjectStorage: &velero.ObjectStorageLocation{
+							Bucket: v.Bucket,
+							Prefix: "velero",
+						},
+					},
+				},
 			},
-			"spec": map[string]interface{}{
-				"olm_managed": false,
-				"default_velero_plugins": []string{
-					"aws",
-					"csi",
-					"openshift",
-				},
-				"backup_storage_locations": [](map[string]interface{}){
-					map[string]interface{}{
-						"config": map[string]interface{}{
-							"profile": "default",
-							"region":  "us-east-1",
-						},
-						"credentials_secret_ref": map[string]interface{}{
-							"name":      credSecretRef,
-							"namespace": namespace,
-						},
-						"object_storage": map[string]interface{}{
-							"bucket": s3Bucket,
-							"prefix": "velero",
-						},
-						"name":     "default",
-						"provider": "aws",
-					},
-				},
-				"velero_feature_flags": "EnableCSI",
-				"enable_restic":        true,
-				"volume_snapshot_locations": [](map[string]interface{}){
-					map[string]interface{}{
-						"config": map[string]interface{}{
-							"profile": "default",
-							"region":  "us-west-2",
-						},
-						"name":     "default",
-						"provider": "aws",
-					},
-				},
+			DefaultVeleroPlugins: []oadpv1alpha1.DefaultPlugin{
+				oadpv1alpha1.DefaultPluginOpenShift,
+				oadpv1alpha1.DefaultPluginAWS,
 			},
 		},
 	}
-	return &veleroSpec
+	v.CustomResource = &veleroSpec
+	return nil
 }
 
-func createDefaultVeleroCR(res *unstructured.Unstructured, client dynamic.Interface, namespace string) (*unstructured.Unstructured, error) {
-	veleroClient, err := createVeleroClient(client, namespace)
-	if err != nil {
-		return nil, err
-	}
-	createdResource, err := veleroClient.Create(context.Background(), res, metav1.CreateOptions{})
-	if apierrors.IsAlreadyExists(err) {
-		return nil, errors.New("found unexpected existing Velero CR")
-	} else if err != nil {
-		return nil, err
-	}
-	return createdResource, nil
-}
-
-func deleteVeleroCR(client dynamic.Interface, instanceName string, namespace string) error {
-	veleroClient, err := createVeleroClient(client, namespace)
+func (v *veleroCustomResource) Create() error {
+	err := v.SetClient()
 	if err != nil {
 		return err
 	}
-	return veleroClient.Delete(context.Background(), instanceName, metav1.DeleteOptions{})
+	err = v.Client.Create(context.Background(), v.CustomResource)
+	if apierrors.IsAlreadyExists(err) {
+		return errors.New("found unexpected existing Velero CR")
+	} else if err != nil {
+		return err
+	}
+	return nil
 }
 
-func createVeleroClient(client dynamic.Interface, namespace string) (dynamic.ResourceInterface, error) {
-	resourceClient := client.Resource(schema.GroupVersionResource{
-		Group:    "konveyor.openshift.io",
-		Version:  "v1alpha1",
-		Resource: "veleros",
-	})
-	namespaceResClient := resourceClient.Namespace(namespace)
-
-	return namespaceResClient, nil
+func (v *veleroCustomResource) Delete() error {
+	err := v.SetClient()
+	if err != nil {
+		return err
+	}
+	return v.Client.Delete(context.Background(), v.CustomResource)
 }
 
-func setUpDynamicVeleroClient(namespace string) (dynamic.ResourceInterface, error) {
-	kubeConfig := getKubeConfig()
-	client, err := dynamic.NewForConfig(kubeConfig)
+func (v *veleroCustomResource) SetClient() error {
+	client, err := client.New(config.GetConfigOrDie(), client.Options{})
 	if err != nil {
-		return nil, err
+		return err
 	}
-	veleroClient, errs := createVeleroClient(client, namespace)
-	if err != nil {
-		return nil, errs
-	}
-	return veleroClient, nil
+	oadpv1alpha1.AddToScheme(client.Scheme())
+
+	v.Client = client
+	return nil
 }
 
 func isVeleroPodRunning(namespace string) wait.ConditionFunc {
-	fmt.Println("Checking for running Velero pod...")
 	return func() (bool, error) {
 		clientset, err := setUpClient()
 		if err != nil {
@@ -135,86 +121,30 @@ func isVeleroPodRunning(namespace string) wait.ConditionFunc {
 			status = string(podInfo.Status.Phase)
 		}
 		if status == "Running" {
-			fmt.Println("Velero pod is running")
 			return true, nil
 		}
 		return false, err
 	}
 }
 
-func isVeleroCRFailed(namespace string, instanceName string) wait.ConditionFunc {
-	veleroClient, err := setUpDynamicVeleroClient(namespace)
-	if err != nil {
-		return nil
-	}
+func (v *veleroCustomResource) IsDeleted() wait.ConditionFunc {
+	log.Printf("Checking if the Velero Custom Resource has been deleted...")
 	return func() (bool, error) {
-		// Get velero CR
-		veleroResource, err := veleroClient.Get(context.Background(), instanceName, metav1.GetOptions{})
-		if err != nil {
-			return false, err
-		}
-		// Read status subresource from cluster
-		veleroStatus := ansibleOperatorStatus{}
-		statusObj := veleroResource.Object["status"]
-		// Convert status subresource interface to typed structure
-		statusBytes, err := json.Marshal(statusObj)
-		if err != nil {
-			return false, err
-		}
-		err = json.Unmarshal(statusBytes, &veleroStatus)
-		if err != nil {
-			return false, err
-		}
-		conditions := veleroStatus.Conditions
-		var message string
-
-		for _, condition := range conditions {
-			message = condition.Message
-			if condition.Type == "Failure" {
-				fmt.Printf("Velero install failure: %s\n", message)
-				return true, nil
-			}
-		}
-		return false, err
-	}
-}
-
-// Used to read Velero CR fields
-type ansibleOperatorStatus struct {
-	Conditions []condition `json:"conditions"`
-}
-
-type condition struct {
-	AnsibleResult ansibleResult `json:"ansibleResult,omitempty"`
-	//LastTransitionTime time.Time     `json:"lastTransitionTime"`
-	Message string `json:"message"`
-	Reason  string `json:"reason"`
-	Status  string `json:"status"`
-	Type    string `json:"type"`
-}
-
-type ansibleResult struct {
-	Changed int `json:"changed"`
-	//Completion time.Time `json:"completion"`
-	Failures int `json:"failures"`
-	Ok       int `json:"ok"`
-	Skipped  int `json:"skipped"`
-}
-
-func isVeleroDeleted(namespace string, instanceName string) wait.ConditionFunc {
-	fmt.Println("Checking the Velero CR has been deleted...")
-	return func() (bool, error) {
-		veleroClient, err := setUpDynamicVeleroClient(namespace)
+		err := v.SetClient()
 		if err != nil {
 			return false, err
 		}
 		// Check for velero CR in cluster
-		_, err = veleroClient.Get(context.Background(), instanceName, metav1.GetOptions{})
+		vel := oadpv1alpha1.Velero{}
+		err = v.Client.Get(context.Background(), client.ObjectKey{
+			Namespace: v.Namespace,
+			Name:      v.Name,
+		}, &vel)
 		if err != nil {
-			fmt.Println("Velero has been deleted")
+			log.Printf("Velero has been deleted")
 			return true, nil
 		}
-		fmt.Println("Velero CR still exists")
+		log.Printf("Velero CR still exists")
 		return false, err
 	}
 }

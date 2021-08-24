@@ -133,7 +133,8 @@ spec:
                   type: string
                 type: array
               enableRestic:
-                description: Restic options
+                description: Restic options. When false or missing, operator will
+                  attempt to delete Restic DaemonSet
                 type: boolean
               noobaa:
                 description: Noobaa is a boolean to specify if we should install backup

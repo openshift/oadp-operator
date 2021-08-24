@@ -37,6 +37,7 @@ const (
 	VeleroAWSSecretName   = "cloud-credentials"
 	VeleroAzureSecretName = "cloud-credentials-azure"
 	VeleroGCPSecretName   = "cloud-credentials-gcp"
+	enableCSIFeatureFlag  = "EnableCSI"
 )
 
 // Environment Vars keys
@@ -470,25 +471,7 @@ func (r *VeleroReconciler) buildVeleroDeployment(veleroDeployment *appsv1.Deploy
 				ServiceAccountName: common.Velero,
 				Tolerations:        velero.Spec.VeleroTolerations,
 				Containers: []corev1.Container{
-					{
-						Name:            common.Velero,
-						Image:           getVeleroImage(),
-						ImagePullPolicy: corev1.PullAlways,
-						Ports: []corev1.ContainerPort{
-							{
-								Name:          "metrics",
-								ContainerPort: 8085,
-							},
-						},
-						Resources: r.getVeleroResourceReqs(velero),
-						Command:   []string{"/velero"},
-						//TODO: Parametrize VELERO debug flag
-						Args: []string{
-							"server",
-						},
-						VolumeMounts: volumeMounts,
-						Env:          envVars,
-					},
+					r.buildVeleroContainer(velero, volumeMounts, envVars),
 				},
 				Volumes:        volumes,
 				InitContainers: initContainers,
@@ -496,10 +479,56 @@ func (r *VeleroReconciler) buildVeleroDeployment(veleroDeployment *appsv1.Deploy
 		},
 	}
 
+	err := credentials.AppendPluginSpecificSpecs(velero, veleroDeployment)
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (r *VeleroReconciler) buildVeleroContainer(velero *oadpv1alpha1.Velero, volumeMounts []corev1.VolumeMount, envVars []corev1.EnvVar) corev1.Container {
+	container := corev1.Container{
+		Name:            common.Velero,
+		Image:           getVeleroImage(),
+		ImagePullPolicy: corev1.PullAlways,
+		Ports: []corev1.ContainerPort{
+			{
+				Name:          "metrics",
+				ContainerPort: 8085,
+			},
+		},
+		Resources: r.getVeleroResourceReqs(velero),
+		Command:   []string{"/velero"},
+		//TODO: Parametrize VELERO debug flag
+		Args: []string{
+			"server",
+		},
+		VolumeMounts: volumeMounts,
+		Env:          envVars,
+	}
+	//check if CSI plugin is added in spec
+	for _, plugin := range velero.Spec.DefaultVeleroPlugins {
+		if plugin == oadpv1alpha1.DefaultPluginCSI {
+			// CSI plugin is added so ensure that CSI feature flags is set
+			foundCSIFeatureFlag := false
+			for _, featureFlag := range velero.Spec.VeleroFeatureFlags {
+				if featureFlag == enableCSIFeatureFlag {
+					foundCSIFeatureFlag = true
+					break
+				}
+			}
+			if !foundCSIFeatureFlag { // Not Found so append to feature flag
+				velero.Spec.VeleroFeatureFlags = append(velero.Spec.VeleroFeatureFlags, enableCSIFeatureFlag)
+			}
+			break
+		}
+	}
+
 	//Append EnabledFeaturesFlags to velero container
 	if len(velero.Spec.VeleroFeatureFlags) > 0 {
-		veleroContainer := &veleroDeployment.Spec.Template.Spec.Containers[0]
-		veleroContainer.Args = append(veleroContainer.Args, fmt.Sprintf("--features=%s", strings.Join(velero.Spec.VeleroFeatureFlags, ",")))
+		container.Args = append(container.Args, fmt.Sprintf("--features=%s", strings.Join(velero.Spec.VeleroFeatureFlags, ",")))
 	}
 
 	// Enable user to specify --restic-timeout (defaults to 1h)
@@ -507,16 +536,8 @@ func (r *VeleroReconciler) buildVeleroDeployment(veleroDeployment *appsv1.Deploy
 	if len(velero.Spec.ResticTimeout) > 0 {
 		resticTimeout = velero.Spec.ResticTimeout
 	}
-	veleroContainer := &veleroDeployment.Spec.Template.Spec.Containers[0]
-	veleroContainer.Args = append(veleroContainer.Args, fmt.Sprintf("--restic-timeout=%s", resticTimeout))
-
-	err := credentials.AppendPluginSpecficSpecs(velero, veleroDeployment)
-
-	if err != nil {
-		return err
-	}
-
-	return nil
+	container.Args = append(container.Args, fmt.Sprintf("--restic-timeout=%s", resticTimeout))
+	return container
 }
 
 func getVeleroImage() string {

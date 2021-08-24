@@ -1,0 +1,179 @@
+---
+kind: ProjectRequest
+apiVersion: v1
+metadata:
+  name: mssql-persistent
+  labels:
+    app: mssql
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mssql-secret
+  namespace: mssql-persistent
+  labels:
+    app: mssql
+stringData:
+  mssql-password: P@ssw0rd1!
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: mssql-persistent-sa
+  namespace: mssql-persistent
+  labels:
+    component: mssql-persistent
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mssql-pvc
+  namespace: mssql-persistent
+  labels:
+    app: mssql
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+---
+kind: SecurityContextConstraints
+apiVersion: v1
+metadata:
+  name: mssql-persistent-scc
+allowPrivilegeEscalation: true
+allowPrivilegedContainer: true
+runAsUser:
+  type: RunAsAny
+seLinuxContext:
+  type: RunAsAny
+fsGroup:
+  type: RunAsAny
+supplementalGroups:
+  type: RunAsAny
+volumes:
+- '*'
+users:
+- system:admin
+- system:serviceaccount:mssql-persistent:mssql-persistent-sa
+---
+apiVersion: v1
+kind: DeploymentConfig
+metadata:
+  name: mssql-deployment
+  namespace: mssql-persistent
+  labels:
+    app: mssql
+spec:
+  replicas: 1
+  selector:
+    name: mssql
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        name: mssql
+        app: mssql
+    spec:
+      serviceAccountName: mssql-persistent-sa
+      containers:
+      - env:
+        - name: ACCEPT_EULA
+          value: "Y"
+        - name: SA_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: mssql-password
+              name: mssql-secret
+        image: quay.io/ocpmigrate/mssql-server:latest
+        imagePullPolicy: Always
+        name: mssql
+        securityContext:
+          privileged: true
+        ports:
+        - containerPort: 1433
+        resources:
+          limits:
+            memory: "3Gi"
+            cpu: "0.5"
+          requests:
+            memory: "3Gi"
+            cpu: "0.5"
+        volumeMounts:
+        - mountPath: "/var/opt/mssql/data"
+          name: mssql-vol
+      volumes:
+      - name: mssql-vol
+        persistentVolumeClaim:
+          claimName: mssql-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+ name: mssql-service
+ namespace: mssql-persistent
+spec:
+ selector:
+   app: mssql
+ ports:
+   - protocol: TCP
+     nodePort: 32001
+     port: 1433
+     targetPort: 1433
+ type: LoadBalancer
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+ name: mssql-app-deployment
+ namespace: mssql-persistent
+spec:
+ replicas: 1
+ selector:
+   matchLabels:
+     app: mssql-app
+ template:
+   metadata:
+     labels:
+       app: mssql-app
+   spec:
+     terminationGracePeriodSeconds: 10
+     serviceAccountName: mssql-persistent-sa
+     containers:
+     - name: mssql-app
+       image: quay.io/ocpmigrate/mssql-sample-app:microsoft
+       imagePullPolicy: Always
+       ports:
+       - containerPort: 5000
+       securityContext:
+         privileged: true
+       env:
+       - name: ConnString
+         value: "Server=mssql-service.mssql-persistent.svc.cluster.local;Database=ProductCatalog;User ID=WebLogin; password=SQLPass1234!"
+---
+apiVersion: v1
+kind: Service
+metadata:
+ name: mssql-app-service
+ namespace: mssql-persistent
+spec:
+ selector:
+   app: mssql-app
+ ports:
+   - name: "tcp"
+     protocol: TCP
+     port: 5000
+     targetPort: 5000
+---
+apiVersion: v1
+kind: Route
+metadata:
+  name: mssql-app-route
+  namespace: mssql-persistent
+spec:
+  path: "/"
+  to:
+    kind: Service
+    name: mssql-app-service

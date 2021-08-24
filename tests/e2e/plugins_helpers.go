@@ -2,38 +2,40 @@ package e2e
 
 import (
 	"context"
-	"fmt"
+	"log"
 
+	"github.com/openshift/oadp-operator/api/v1alpha1"
+	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func removeVeleroPlugin(namespace string, instanceName string, pluginValues []string, removedPlugin string) error {
-	veleroClient, err := setUpDynamicVeleroClient(namespace)
-	if err != nil {
-		return nil
-	}
-	// get Velero as unstructured type
-	veleroResource, err := veleroClient.Get(context.Background(), instanceName, metav1.GetOptions{})
+func (v *veleroCustomResource) removeVeleroPlugin(namespace string, instanceName string, pluginValues []v1alpha1.DefaultPlugin, removedPlugin string) error {
+	err := v.SetClient()
 	if err != nil {
 		return err
 	}
-	// remove aws from default_plugins
-	err = unstructured.SetNestedStringSlice(veleroResource.Object, pluginValues, "spec", "default_velero_plugins")
+	velero := &oadpv1alpha1.Velero{}
+	err = v.Client.Get(context.Background(), client.ObjectKey{
+		Namespace: v.Namespace,
+		Name:      v.Name,
+	}, velero)
 	if err != nil {
 		return err
 	}
-	_, err = veleroClient.Update(context.Background(), veleroResource, metav1.UpdateOptions{})
+	// remove plugin from default_plugins
+	velero.Spec.DefaultVeleroPlugins = pluginValues
+
+	err = v.Client.Update(context.Background(), velero)
 	if err != nil {
 		return err
 	}
-	fmt.Printf("%s plugin has been removed\n", removedPlugin)
+	log.Printf("%s plugin has been removed\n", removedPlugin)
 	return nil
 }
 
 func doesPluginExist(namespace string, deploymentName string, pluginName string) wait.ConditionFunc {
-	fmt.Printf("Checking if %s exists\n", pluginName)
 	return func() (bool, error) {
 		clientset, err := setUpClient()
 		if err != nil {
@@ -47,16 +49,15 @@ func doesPluginExist(namespace string, deploymentName string, pluginName string)
 		for _, container := range veleroDeployment.Spec.Template.Spec.InitContainers {
 			name := container.Name
 			if name == pluginName {
-				fmt.Printf("%s exists\n", pluginName)
 				return true, nil
 			}
 		}
-		fmt.Printf("%s does not exist\n", pluginName)
 		return false, err
 	}
 }
 
 func doesVeleroDeploymentExist(namespace string, deploymentName string) wait.ConditionFunc {
+	log.Printf("Waiting for velero deployment to be created...")
 	return func() (bool, error) {
 		client, err := setUpClient()
 		if err != nil {
@@ -65,10 +66,8 @@ func doesVeleroDeploymentExist(namespace string, deploymentName string) wait.Con
 		// Check for deployment
 		_, err = client.AppsV1().Deployments(namespace).Get(context.Background(), deploymentName, metav1.GetOptions{})
 		if err != nil {
-			fmt.Println("Velero deployment does not yet exist...")
 			return false, err
 		}
-		fmt.Println("Velero deployment now exists")
 		return true, nil
 	}
 }

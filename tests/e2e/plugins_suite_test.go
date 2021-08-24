@@ -1,11 +1,11 @@
 package e2e
 
 import (
-	"flag"
 	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/openshift/oadp-operator/api/v1alpha1"
 )
 
 var testInstanceName string
@@ -13,16 +13,9 @@ var deploymentName string
 
 var _ = Describe("The Velero Restic spec", func() {
 	var _ = BeforeEach(func() {
-		flag.Parse()
-		s3Buffer, err := getJsonData(s3BucketFilePath)
-		Expect(err).NotTo(HaveOccurred())
-		s3Data, err := decodeJson(s3Buffer) // Might need to change this later on to create s3 for each tests
-		Expect(err).NotTo(HaveOccurred())
-		s3Bucket = s3Data["velero-bucket-name"].(string)
-
 		testInstanceName = "ps-" + instanceName
-
 		deploymentName = "velero"
+		vel.Name = testInstanceName
 
 		credData, err := getCredsData(cloud)
 		Expect(err).NotTo(HaveOccurred())
@@ -30,13 +23,15 @@ var _ = Describe("The Velero Restic spec", func() {
 		err = createCredentialsSecret(credData, namespace, credSecretRef)
 		Expect(err).NotTo(HaveOccurred())
 
-		err = installDefaultVelero(namespace, s3Bucket, credSecretRef, testInstanceName)
-		Expect(err).ToNot(HaveOccurred())
+		err = vel.Build()
+		Expect(err).NotTo(HaveOccurred())
+
+		err = vel.Create()
+		Expect(err).NotTo(HaveOccurred())
 	})
 
 	var _ = AfterEach(func() {
-		testInstanceName := "ps-" + instanceName
-		err := uninstallVelero(namespace, testInstanceName)
+		err := vel.Delete()
 		Expect(err).ToNot(HaveOccurred())
 
 		errs := deleteSecret(namespace, credSecretRef)
@@ -49,7 +44,7 @@ var _ = Describe("The Velero Restic spec", func() {
 			// wait for Velero deployment to initialize
 			Eventually(doesVeleroDeploymentExist(namespace, deploymentName), time.Minute*2, time.Second*5).Should(BeTrue())
 
-			err := removeVeleroPlugin(namespace, testInstanceName, []string{
+			err := vel.removeVeleroPlugin(namespace, testInstanceName, []v1alpha1.DefaultPlugin{
 				"csi",
 				"openshift",
 			}, "aws")
@@ -66,7 +61,7 @@ var _ = Describe("The Velero Restic spec", func() {
 			// wait for Velero deployment to initialize
 			Eventually(doesVeleroDeploymentExist(namespace, deploymentName), time.Minute*2, time.Second*5).Should(BeTrue())
 
-			err := removeVeleroPlugin(namespace, testInstanceName, []string{
+			err := vel.removeVeleroPlugin(namespace, testInstanceName, []v1alpha1.DefaultPlugin{
 				"aws",
 				"csi",
 			}, "openshift")
@@ -83,7 +78,7 @@ var _ = Describe("The Velero Restic spec", func() {
 			// wait for Velero deployment to initialize
 			Eventually(doesVeleroDeploymentExist(namespace, deploymentName), time.Minute*2, time.Second*5).Should(BeTrue())
 
-			err := removeVeleroPlugin(namespace, testInstanceName, []string{
+			err := vel.removeVeleroPlugin(namespace, testInstanceName, []v1alpha1.DefaultPlugin{
 				"aws",
 				"openshift",
 			}, "csi")
@@ -93,20 +88,22 @@ var _ = Describe("The Velero Restic spec", func() {
 			Eventually(doesPluginExist(namespace, deploymentName, "velero-plugin-for-csi"), time.Minute*2, time.Second*5).Should(BeFalse())
 		})
 	})
-	Context("When the 'gcp' default_velero_plugin is added", func() {
-		It("Should remove the csi plugin image", func() {
 
-			// wait for Velero deployment to initialize
-			Eventually(doesVeleroDeploymentExist(namespace, deploymentName), time.Minute*2, time.Second*5).Should(BeTrue())
+	// ***TODO: this needs specific gcp credentials - wait until enabled with CI
+	// Context("When the 'gcp' default_velero_plugin is added", func() {
+	// 	It("Should remove the csi plugin image", func() {
 
-			err := removeVeleroPlugin(namespace, testInstanceName, []string{
-				"aws",
-				"openshift",
-			}, "csi")
-			Expect(err).ToNot(HaveOccurred())
+	// 		// wait for Velero deployment to initialize
+	// 		Eventually(doesVeleroDeploymentExist(namespace, deploymentName), time.Minute*2, time.Second*5).Should(BeTrue())
 
-			// wait for deployment to update
-			Eventually(doesPluginExist(namespace, deploymentName, "velero-plugin-for-csi"), time.Minute*2, time.Second*5).Should(BeFalse())
-		})
-	})
+	// 		err := vel.removeVeleroPlugin(namespace, testInstanceName, []v1alpha1.DefaultPlugin{
+	// 			"aws",
+	// 			"openshift",
+	// 		}, "gcp")
+	// 		Expect(err).ToNot(HaveOccurred())
+
+	// 		// wait for deployment to update
+	// 		Eventually(doesPluginExist(namespace, deploymentName, "velero-plugin-for-csi"), time.Minute*2, time.Second*5).Should(BeFalse())
+	// 	})
+	// })
 })
