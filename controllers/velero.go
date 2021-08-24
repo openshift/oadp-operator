@@ -485,8 +485,6 @@ func (r *VeleroReconciler) buildVeleroDeployment(veleroDeployment *appsv1.Deploy
 						//TODO: Parametrize VELERO debug flag
 						Args: []string{
 							"server",
-							"--restic-timeout",
-							"1h",
 						},
 						VolumeMounts: volumeMounts,
 						Env:          envVars,
@@ -505,14 +503,12 @@ func (r *VeleroReconciler) buildVeleroDeployment(veleroDeployment *appsv1.Deploy
 	}
 
 	// Enable user to specify --restic-timeout (defaults to 1h)
+	resticTimeout := "1h"
 	if len(velero.Spec.ResticTimeout) > 0 {
-		resticTime := &veleroDeployment.Spec.Template.Spec.Containers[0]
-		resticTime.Args = []string{
-			"server",
-			"--restic-timeout",
-			velero.Spec.ResticTimeout,
-		}
+		resticTimeout = velero.Spec.ResticTimeout
 	}
+	veleroContainer := &veleroDeployment.Spec.Template.Spec.Containers[0]
+	veleroContainer.Args = append(veleroContainer.Args, fmt.Sprintf("--restic-timeout=%s", resticTimeout))
 
 	err := credentials.AppendPluginSpecficSpecs(velero, veleroDeployment)
 

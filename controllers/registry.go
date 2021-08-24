@@ -425,14 +425,18 @@ func (r *VeleroReconciler) parseAWSSecret(secret corev1.Secret, secretKey string
 	AWSAccessKey, AWSSecretKey := "", ""
 	// this logic only supports single profile presence in the aws credentials file
 	splitString := strings.Split(string(secret.Data[secretKey]), "\n")
+	keyNameRegex := regexp.MustCompile(`\[.*\]`) //ignore lines such as [default]
+	awsAccessKeyRegex := regexp.MustCompile(`\baws_access_key_id\b`)
+	awsSecretKeyRegex := regexp.MustCompile(`\baws_secret_access_key\b`)
 	for _, line := range splitString {
-		// check for access key
-		matchedAccessKey, err := regexp.MatchString("\\baws_access_key_id\\b", line)
-
-		if err != nil {
-			r.Log.Info("Error finding access key id for the supplied AWS credential")
-			return AWSAccessKey, AWSSecretKey, err
+		if line == "" {
+			continue
 		}
+		if keyNameRegex.MatchString(line) {
+			continue
+		}
+		// check for access key
+		matchedAccessKey := awsAccessKeyRegex.MatchString(line)
 
 		if matchedAccessKey {
 			cleanedLine := strings.ReplaceAll(line, " ", "")
@@ -442,14 +446,11 @@ func (r *VeleroReconciler) parseAWSSecret(secret corev1.Secret, secretKey string
 				return AWSAccessKey, AWSSecretKey, errors.New("secret parsing error")
 			}
 			AWSAccessKey = splitLine[1]
+			continue
 		}
 
 		// check for secret key
-		matchedSecretKey, err := regexp.MatchString("\\baws_secret_access_key\\b", line)
-		if err != nil {
-			r.Log.Info("Error finding secret access key for the supplied AWS credential")
-			return AWSAccessKey, AWSSecretKey, err
-		}
+		matchedSecretKey := awsSecretKeyRegex.MatchString(line)
 
 		if matchedSecretKey {
 			cleanedLine := strings.ReplaceAll(line, " ", "")
@@ -459,7 +460,16 @@ func (r *VeleroReconciler) parseAWSSecret(secret corev1.Secret, secretKey string
 				return AWSAccessKey, AWSSecretKey, errors.New("secret parsing error")
 			}
 			AWSSecretKey = splitLine[1]
+			continue
 		}
+	}
+	if AWSAccessKey == "" {
+		r.Log.Info("Error finding access key id for the supplied AWS credential")
+		return AWSAccessKey, AWSSecretKey, errors.New("error finding access key id for the supplied AWS credential")
+	}
+	if AWSSecretKey == "" {
+		r.Log.Info("Error finding secret access key for the supplied AWS credential")
+		return AWSAccessKey, AWSSecretKey, errors.New("error finding secret access key for the supplied AWS credential")
 	}
 
 	return AWSAccessKey, AWSSecretKey, nil
