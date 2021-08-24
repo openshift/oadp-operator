@@ -3,7 +3,6 @@ package controllers
 import (
 	"errors"
 	"fmt"
-	"github.com/openshift/oadp-operator/pkg/credentials"
 
 	"github.com/go-logr/logr"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
@@ -206,13 +205,7 @@ func (r *VeleroReconciler) validateProviderPluginAndSecret(bslSpec velerov1.Back
 		r.Log.Info(fmt.Sprintf("AWS backupstoragelocation is configured but Velero plugin for AWS is not present"))
 		//TODO: set warning condition on Velero CR
 	}
-
-	// check for existence of provider cloud credentials
-	secretName := credentials.PluginSpecificFields[pluginProvider].SecretName
-
-	if bslSpec.Credential != nil && len(bslSpec.Credential.Name) > 0 {
-		secretName = bslSpec.Credential.Name
-	}
+	secretName, _ := r.getSecretNameAndKey(bslSpec.Credential, pluginProvider)
 
 	_, err := r.getProviderSecret(secretName)
 
