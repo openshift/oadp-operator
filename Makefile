@@ -1,8 +1,8 @@
-OADP_TEST_NAMESPACE ?= oadp-operator
+OADP_TEST_NAMESPACE ?= oadp-operator-system
 CREDS_SECRET_REF ?= cloud-credentials
 OADP_AWS_CRED_FILE ?= /var/run/oadp-credentials/aws-credentials
 OADP_S3_BUCKET ?= /var/run/oadp-credentials/velero-bucket-name
-VELERO_INSTANCE_NAME ?= example-velero
+VELERO_INSTANCE_NAME ?= velero-sample
 
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
 ENVTEST_K8S_VERSION = 1.21
@@ -50,7 +50,7 @@ IMAGE_TAG_BASE ?= openshift.io/oadp-operator
 BUNDLE_IMG ?= $(IMAGE_TAG_BASE)-bundle:v$(VERSION)
 
 # Image URL to use all building/pushing image targets
-IMG ?= quay.io/konveyor/oadp-operator:golang-operator
+IMG ?= quay.io/konveyor/oadp-operator:latest
 # Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
 CRD_OPTIONS ?= "crd:trivialVersions=true,preserveUnknownFields=false"
 
