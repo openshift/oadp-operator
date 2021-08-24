@@ -70,7 +70,7 @@ type VeleroSpec struct {
 	// +optional
 	Noobaa bool `json:"noobaa,omitempty"`
 
-	// Restic options
+	// Restic options. When false or missing, operator will attempt to delete Restic DaemonSet
 	// +optional
 	EnableRestic *bool `json:"enableRestic,omitempty"`
 	// +optional
