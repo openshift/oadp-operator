@@ -11,6 +11,7 @@ import (
 	"github.com/openshift/oadp-operator/pkg/credentials"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/pointer"
@@ -61,19 +62,22 @@ func (r *VeleroReconciler) ReconcileResticDaemonset(log logr.Logger) (bool, erro
 		if err := r.Get(deleteContext, types.NamespacedName{
 			Name:      ds.Name,
 			Namespace: r.NamespacedName.Namespace,
-		}, ds); err == nil {
-			// no errors means there already is an existing DaeMonset.
-			// TODO: Check if restic is in use, a backup is running, so don't blindly delete restic.
-			// If velero Spec enableRestic exists and is false, attempt to delete.
-			deleteOptionPropagationForeground := metav1.DeletePropagationForeground
-			if err := r.Delete(deleteContext, ds, &client.DeleteOptions{PropagationPolicy: &deleteOptionPropagationForeground}); err != nil {
-				r.EventRecorder.Event(ds, v1.EventTypeNormal, "DeleteDaemonSetFailed", "Got DaemonSet to delete but could not delete err:"+err.Error())
-				return false, err
+		}, ds); err != nil {
+			if errors.IsNotFound(err) {
+				return true, nil
 			}
-			r.EventRecorder.Event(ds, v1.EventTypeNormal, "DeletedDaemonSet", "DaemonSet deleted")
-		} else {
-			r.EventRecorder.Event(ds, v1.EventTypeNormal, "GetError", fmt.Sprintf("Could not get DaemonSet, may not exist. err: "+err.Error()))
+			return false, err
 		}
+		// no errors means there already is an existing DaeMonset.
+		// TODO: Check if restic is in use, a backup is running, so don't blindly delete restic.
+		// If velero Spec enableRestic exists and is false, attempt to delete.
+		deleteOptionPropagationForeground := metav1.DeletePropagationForeground
+		if err := r.Delete(deleteContext, ds, &client.DeleteOptions{PropagationPolicy: &deleteOptionPropagationForeground}); err != nil {
+			r.EventRecorder.Event(ds, v1.EventTypeNormal, "DeleteDaemonSetFailed", "Got DaemonSet to delete but could not delete err:"+err.Error())
+			return false, err
+		}
+		r.EventRecorder.Event(ds, v1.EventTypeNormal, "DeletedDaemonSet", "DaemonSet deleted")
+
 		return true, nil
 	}
 
