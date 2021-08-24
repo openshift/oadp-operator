@@ -29,15 +29,7 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = AfterSuite(func() {
-	// Check Velero is deleted
 	Eventually(vel.IsDeleted(), time.Minute*2, time.Second*5).Should(BeTrue())
-
-	// Check Restic daemonSet is deleted
-	//Eventually(isResticDaemonsetDeleted(namespace, testSuiteInstanceName, resticName), time.Minute*2, time.Second*5).Should(BeTrue())
-
-	// Check secret is deleted
-	//Eventually(isCredentialsSecretDeleted(namespace, credSecretRef), time.Minute*2, time.Second*5).Should(BeTrue())
-
 })
 
 var _ = Describe("The default Velero custom resource", func() {
