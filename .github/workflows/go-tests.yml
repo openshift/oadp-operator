@@ -1,0 +1,30 @@
+name: go-tests
+on:
+  push:
+    paths:
+      - '**/**.go'
+      - '**/go.mod'
+      - '.github/workflows/go-tests.yml'
+      - '**/Dockerfile'
+  pull_request:
+    paths:
+      - '**/**.go'
+      - '**/go.mod'
+      - '.github/workflows/go-tests.yml'
+      - '**/Dockerfile'
+jobs:
+  make-test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+
+    - uses: actions/setup-go@v2
+      with:
+        go-version: '^1.16.6' # The Go version to download (if necessary) and use.
+    - run: go version
+    - run: make test
+  podman-build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - run: podman build .

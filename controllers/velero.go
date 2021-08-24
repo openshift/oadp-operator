@@ -37,6 +37,7 @@ const (
 	VeleroAWSSecretName   = "cloud-credentials"
 	VeleroAzureSecretName = "cloud-credentials-azure"
 	VeleroGCPSecretName   = "cloud-credentials-gcp"
+	enableCSIFeatureFlag  = "EnableCSI"
 )
 
 // Environment Vars keys
@@ -470,45 +471,13 @@ func (r *VeleroReconciler) buildVeleroDeployment(veleroDeployment *appsv1.Deploy
 				ServiceAccountName: common.Velero,
 				Tolerations:        velero.Spec.VeleroTolerations,
 				Containers: []corev1.Container{
-					{
-						Name:            common.Velero,
-						Image:           getVeleroImage(),
-						ImagePullPolicy: corev1.PullAlways,
-						Ports: []corev1.ContainerPort{
-							{
-								Name:          "metrics",
-								ContainerPort: 8085,
-							},
-						},
-						Resources: r.getVeleroResourceReqs(velero),
-						Command:   []string{"/velero"},
-						//TODO: Parametrize VELERO debug flag
-						Args: []string{
-							"server",
-						},
-						VolumeMounts: volumeMounts,
-						Env:          envVars,
-					},
+					r.buildVeleroContainer(velero, volumeMounts, envVars),
 				},
 				Volumes:        volumes,
 				InitContainers: initContainers,
 			},
 		},
 	}
-
-	//Append EnabledFeaturesFlags to velero container
-	if len(velero.Spec.VeleroFeatureFlags) > 0 {
-		veleroContainer := &veleroDeployment.Spec.Template.Spec.Containers[0]
-		veleroContainer.Args = append(veleroContainer.Args, fmt.Sprintf("--features=%s", strings.Join(velero.Spec.VeleroFeatureFlags, ",")))
-	}
-
-	// Enable user to specify --restic-timeout (defaults to 1h)
-	resticTimeout := "1h"
-	if len(velero.Spec.ResticTimeout) > 0 {
-		resticTimeout = velero.Spec.ResticTimeout
-	}
-	veleroContainer := &veleroDeployment.Spec.Template.Spec.Containers[0]
-	veleroContainer.Args = append(veleroContainer.Args, fmt.Sprintf("--restic-timeout=%s", resticTimeout))
 
 	err := credentials.AppendPluginSpecficSpecs(velero, veleroDeployment)
 
@@ -517,6 +486,58 @@ func (r *VeleroReconciler) buildVeleroDeployment(veleroDeployment *appsv1.Deploy
 	}
 
 	return nil
+}
+
+func (r *VeleroReconciler) buildVeleroContainer(velero *oadpv1alpha1.Velero, volumeMounts []corev1.VolumeMount, envVars []corev1.EnvVar) corev1.Container {
+	container := corev1.Container{
+		Name:            common.Velero,
+		Image:           getVeleroImage(),
+		ImagePullPolicy: corev1.PullAlways,
+		Ports: []corev1.ContainerPort{
+			{
+				Name:          "metrics",
+				ContainerPort: 8085,
+			},
+		},
+		Resources: r.getVeleroResourceReqs(velero),
+		Command:   []string{"/velero"},
+		//TODO: Parametrize VELERO debug flag
+		Args: []string{
+			"server",
+		},
+		VolumeMounts: volumeMounts,
+		Env:          envVars,
+	}
+	//check if CSI plugin is added in spec
+	for _, plugin := range velero.Spec.DefaultVeleroPlugins {
+		if plugin == oadpv1alpha1.DefaultPluginCSI {
+			// CSI plugin is added so ensure that CSI feature flags is set
+			foundCSIFeatureFlag := false
+			for _, featureFlag := range velero.Spec.VeleroFeatureFlags {
+				if featureFlag == enableCSIFeatureFlag {
+					foundCSIFeatureFlag = true
+					break
+				}
+			}
+			if !foundCSIFeatureFlag { // Not Found so append to feature flag
+				velero.Spec.VeleroFeatureFlags = append(velero.Spec.VeleroFeatureFlags, enableCSIFeatureFlag)
+			}
+			break
+		}
+	}
+
+	//Append EnabledFeaturesFlags to velero container
+	if len(velero.Spec.VeleroFeatureFlags) > 0 {
+		container.Args = append(container.Args, fmt.Sprintf("--features=%s", strings.Join(velero.Spec.VeleroFeatureFlags, ",")))
+	}
+
+	// Enable user to specify --restic-timeout (defaults to 1h)
+	resticTimeout := "1h"
+	if len(velero.Spec.ResticTimeout) > 0 {
+		resticTimeout = velero.Spec.ResticTimeout
+	}
+	container.Args = append(container.Args, fmt.Sprintf("--restic-timeout=%s", resticTimeout))
+	return container
 }
 
 func getVeleroImage() string {
@@ -536,31 +557,8 @@ func (r *VeleroReconciler) getAppLabels(velero *oadpv1alpha1.Velero) map[string]
 // Get VELERO Resource Requirements
 func (r *VeleroReconciler) getVeleroResourceReqs(velero *oadpv1alpha1.Velero) corev1.ResourceRequirements {
 
-	ResourcesReqs := corev1.ResourceRequirements{}
-	ResourceReqsLimits := corev1.ResourceList{}
-	ResourceReqsRequests := corev1.ResourceList{}
-
-	if velero != nil {
-
-		// Set custom limits and requests values if defined on VELERO Spec
-		if velero.Spec.VeleroResourceAllocations.Requests != nil {
-			ResourceReqsRequests[corev1.ResourceCPU] = resource.MustParse(velero.Spec.VeleroResourceAllocations.Requests.Cpu().String())
-			ResourceReqsRequests[corev1.ResourceMemory] = resource.MustParse(velero.Spec.VeleroResourceAllocations.Requests.Memory().String())
-		}
-
-		if velero.Spec.VeleroResourceAllocations.Limits != nil {
-			ResourceReqsLimits[corev1.ResourceCPU] = resource.MustParse(velero.Spec.VeleroResourceAllocations.Limits.Cpu().String())
-			ResourceReqsLimits[corev1.ResourceMemory] = resource.MustParse(velero.Spec.VeleroResourceAllocations.Limits.Memory().String())
-		}
-		ResourcesReqs.Requests = ResourceReqsRequests
-		ResourcesReqs.Limits = ResourceReqsLimits
-
-		return ResourcesReqs
-
-	}
-
 	// Set default values
-	ResourcesReqs = corev1.ResourceRequirements{
+	ResourcesReqs := corev1.ResourceRequirements{
 		Limits: corev1.ResourceList{
 			corev1.ResourceCPU:    resource.MustParse("1"),
 			corev1.ResourceMemory: resource.MustParse("512Mi"),
@@ -570,5 +568,21 @@ func (r *VeleroReconciler) getVeleroResourceReqs(velero *oadpv1alpha1.Velero) co
 			corev1.ResourceMemory: resource.MustParse("128Mi"),
 		},
 	}
+
+	if velero != nil {
+
+		// Set custom limits and requests values if defined on VELERO Spec
+		if velero.Spec.VeleroResourceAllocations.Requests != nil {
+			ResourcesReqs.Requests[corev1.ResourceCPU] = resource.MustParse(velero.Spec.VeleroResourceAllocations.Requests.Cpu().String())
+			ResourcesReqs.Requests[corev1.ResourceMemory] = resource.MustParse(velero.Spec.VeleroResourceAllocations.Requests.Memory().String())
+		}
+
+		if velero.Spec.VeleroResourceAllocations.Limits != nil {
+			ResourcesReqs.Limits[corev1.ResourceCPU] = resource.MustParse(velero.Spec.VeleroResourceAllocations.Limits.Cpu().String())
+			ResourcesReqs.Limits[corev1.ResourceMemory] = resource.MustParse(velero.Spec.VeleroResourceAllocations.Limits.Memory().String())
+		}
+
+	}
+
 	return ResourcesReqs
 }
