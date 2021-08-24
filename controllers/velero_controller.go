@@ -136,7 +136,7 @@ func (r *VeleroReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&corev1.ServiceAccount{}).
 		Owns(&corev1.Secret{}).
 		Owns(&corev1.ConfigMap{}).
-		WithEventFilter(veleroPredicate()).
+		WithEventFilter(veleroPredicate(r.Scheme)).
 		Complete(r)
 }
 
