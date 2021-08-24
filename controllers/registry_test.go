@@ -46,6 +46,19 @@ func getFakeClientFromObjectsForRegistry(objs ...client.Object) (client.WithWatc
 	return fake.NewClientBuilder().WithScheme(schemeForFakeClient).WithObjects(objs...).Build(), nil
 }
 
+const (
+	testAccessKey       = "someAccessKey"
+	testSecretAccessKey = "someSecretAccessKey"
+)
+
+var (
+	secretData = map[string][]byte{
+		"cloud": []byte("[default]" + "\n" +
+			"aws_access_key_id=" + testAccessKey + "\n" +
+			"aws_secret_access_key=" + testSecretAccessKey),
+	}
+)
+
 func TestVeleroReconciler_buildRegistryDeployment(t *testing.T) {
 	tests := []struct {
 		name               string
@@ -94,6 +107,7 @@ func TestVeleroReconciler_buildRegistryDeployment(t *testing.T) {
 					Name:      "cloud-credentials",
 					Namespace: "test-ns",
 				},
+				Data: secretData,
 			},
 		},
 	}
@@ -167,7 +181,7 @@ func TestVeleroReconciler_buildRegistryDeployment(t *testing.T) {
 										},
 										{
 											Name:  RegistryStorageS3AccesskeyEnvVarKey,
-											Value: "",
+											Value: testAccessKey,
 										},
 										{
 											Name:  RegistryStorageS3BucketEnvVarKey,
@@ -179,7 +193,7 @@ func TestVeleroReconciler_buildRegistryDeployment(t *testing.T) {
 										},
 										{
 											Name:  RegistryStorageS3SecretkeyEnvVarKey,
-											Value: "",
+											Value: testSecretAccessKey,
 										},
 										{
 											Name:  RegistryStorageS3RegionendpointEnvVarKey,
@@ -361,6 +375,7 @@ func TestVeleroReconciler_getAWSRegistryEnvVars(t *testing.T) {
 					Name:      "cloud-credentials",
 					Namespace: "test-ns",
 				},
+				Data: secretData,
 			},
 		},
 	}
@@ -388,7 +403,7 @@ func TestVeleroReconciler_getAWSRegistryEnvVars(t *testing.T) {
 				},
 				{
 					Name:  RegistryStorageS3AccesskeyEnvVarKey,
-					Value: "",
+					Value: testAccessKey,
 				},
 				{
 					Name:  RegistryStorageS3BucketEnvVarKey,
@@ -400,7 +415,7 @@ func TestVeleroReconciler_getAWSRegistryEnvVars(t *testing.T) {
 				},
 				{
 					Name:  RegistryStorageS3SecretkeyEnvVarKey,
-					Value: "",
+					Value: testSecretAccessKey,
 				},
 				{
 					Name:  RegistryStorageS3RegionendpointEnvVarKey,
