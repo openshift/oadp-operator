@@ -1,8 +1,6 @@
 package controllers
 
 import (
-	"log"
-
 	oadpApi "github.com/openshift/oadp-operator/api/v1alpha1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -34,14 +32,11 @@ func veleroPredicate(scheme *runtime.Scheme) predicate.Predicate {
 // it first checks if the object has our group, version, and kind
 // else it will check for non empty OadpOperatorlabel labels
 func isObjectOurs(scheme *runtime.Scheme, object client.Object) bool {
-	log := log.Default()
 	objGVKs, _, err := scheme.ObjectKinds(object)
 	if err != nil {
-		log.Println("scheme.ObjectKinds error")
 		return false
 	}
 	if len(objGVKs) != 1 {
-		log.Println("scheme.ObjectKinds too many Kinds, expected 1")
 		return false
 	}
 	gvk := objGVKs[0]
