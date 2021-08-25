@@ -10,6 +10,7 @@ import (
 	"github.com/openshift/oadp-operator/pkg/common"
 	"github.com/openshift/oadp-operator/pkg/credentials"
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -20,7 +21,8 @@ import (
 )
 
 const (
-	Restic = "restic"
+	Restic                = "restic"
+	ResticRestoreHelperCM = "restic-restore-action-config"
 )
 
 var (
@@ -259,4 +261,61 @@ func (r *VeleroReconciler) buildResticDaemonset(velero *oadpv1alpha1.Velero, ds 
 
 func getResticImage() string {
 	return fmt.Sprintf("%v/%v/%v:%v", os.Getenv("REGISTRY"), os.Getenv("PROJECT"), os.Getenv("VELERO_REPO"), os.Getenv("VELERO_TAG"))
+}
+
+func (r *VeleroReconciler) ReconcileResticRestoreHelperConfig(log logr.Logger) (bool, error) {
+	velero := oadpv1alpha1.Velero{}
+	if err := r.Get(r.Context, r.NamespacedName, &velero); err != nil {
+		return false, err
+	}
+
+	resticRestoreHelperCM := corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      ResticRestoreHelperCM,
+			Namespace: r.NamespacedName.Namespace,
+		},
+	}
+
+	op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, &resticRestoreHelperCM, func() error {
+
+		// update the Config Map
+		err := r.updateResticRestoreHelperCM(&resticRestoreHelperCM, &velero)
+		return err
+	})
+
+	if err != nil {
+		return false, err
+	}
+
+	//TODO: Review Restic Restore Helper CM status and report errors and conditions
+
+	if op == controllerutil.OperationResultCreated || op == controllerutil.OperationResultUpdated {
+		// Trigger event to indicate Restic Restore Helper CM was created or updated
+		r.EventRecorder.Event(&resticRestoreHelperCM,
+			corev1.EventTypeNormal,
+			"ReconcileResticRestoreHelperConfigReconciled",
+			fmt.Sprintf("performed %s on restic restore Helper config map %s/%s", op, resticRestoreHelperCM.Namespace, resticRestoreHelperCM.Name),
+		)
+	}
+	return true, nil
+}
+
+func (r *VeleroReconciler) updateResticRestoreHelperCM(resticRestoreHelperCM *corev1.ConfigMap, velero *oadpv1alpha1.Velero) error {
+
+	// Setting controller owner reference on the restic restore helper CM
+	err := controllerutil.SetControllerReference(velero, resticRestoreHelperCM, r.Scheme)
+	if err != nil {
+		return err
+	}
+
+	resticRestoreHelperCM.Labels = map[string]string{
+		"velero.io/plugin-config": "",
+		"velero.io/restic":        "RestoreItemAction",
+	}
+
+	resticRestoreHelperCM.Data = map[string]string{
+		"image": fmt.Sprintf("%v/%v/%v:%v", os.Getenv("REGISTRY"), os.Getenv("PROJECT"), os.Getenv("VELERO_RESTIC_RESTORE_HELPER_REPO"), os.Getenv("VELERO_RESTIC_RESTORE_HELPER_TAG")),
+	}
+
+	return nil
 }
