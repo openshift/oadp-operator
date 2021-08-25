@@ -114,14 +114,20 @@ func TestVeleroReconciler_buildResticDaemonset(t *testing.T) {
 			wantErr: false,
 			want: &appsv1.DaemonSet{
 				ObjectMeta: getResticObjectMeta(r),
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "DaemonSet",
+					APIVersion: appsv1.SchemeGroupVersion.String(),
+				},
 				Spec: appsv1.DaemonSetSpec{
 					UpdateStrategy: appsv1.DaemonSetUpdateStrategy{
 						Type: appsv1.RollingUpdateDaemonSetStrategyType,
 					},
+					Selector: resticLabelSelector,
 					Template: v1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: map[string]string{
-								"component": Restic,
+								"component": common.Velero,
+								"name":      "restic",
 							},
 						},
 						Spec: v1.PodSpec{
@@ -157,7 +163,7 @@ func TestVeleroReconciler_buildResticDaemonset(t *testing.T) {
 							Tolerations: velero.Spec.ResticTolerations,
 							Containers: []v1.Container{
 								{
-									Name: common.Velero,
+									Name: common.Restic,
 									SecurityContext: &v1.SecurityContext{
 										Privileged: pointer.Bool(true),
 									},
@@ -188,30 +194,11 @@ func TestVeleroReconciler_buildResticDaemonset(t *testing.T) {
 									},
 									Env: []v1.EnvVar{
 										{
-											Name:  "HTTP_PROXY",
-											Value: os.Getenv("HTTP_PROXY"),
-										},
-										{
-											Name:  "HTTPS_PROXY",
-											Value: os.Getenv("HTTPS_PROXY"),
-										},
-										{
-											Name:  "NO_PROXY",
-											Value: os.Getenv("NO_PROXY"),
-										},
-										{
 											Name: "NODE_NAME",
 											ValueFrom: &v1.EnvVarSource{
 												FieldRef: &v1.ObjectFieldSelector{
 													FieldPath: "spec.nodeName",
 												},
-											},
-										},
-										{
-											Name: "POD_NAME",
-											ValueFrom: &v1.EnvVarSource{
-												FieldRef: &v1.ObjectFieldSelector{
-													FieldPath: "metadata.name"},
 											},
 										},
 										{
@@ -225,6 +212,18 @@ func TestVeleroReconciler_buildResticDaemonset(t *testing.T) {
 										{
 											Name:  "VELERO_SCRATCH_DIR",
 											Value: "/scratch",
+										},
+										{
+											Name:  "HTTP_PROXY",
+											Value: os.Getenv("HTTP_PROXY"),
+										},
+										{
+											Name:  "HTTPS_PROXY",
+											Value: os.Getenv("HTTPS_PROXY"),
+										},
+										{
+											Name:  "NO_PROXY",
+											Value: os.Getenv("NO_PROXY"),
 										},
 									},
 								},
@@ -251,7 +250,7 @@ func TestVeleroReconciler_buildResticDaemonset(t *testing.T) {
 				return
 			}
 			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("VeleroReconciler.buildResticDaemonset() = %v, want %v", got, tt.want)
+				t.Errorf("VeleroReconciler.buildResticDaemonset() got = %v, want %v", got, tt.want)
 			}
 		})
 	}

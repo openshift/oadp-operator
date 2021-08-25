@@ -66,11 +66,11 @@ var (
 )
 
 func AppendCloudProviderVolumes(velero *oadpv1alpha1.Velero, ds *appsv1.DaemonSet) error {
-	var veleroContainer *corev1.Container
+	var resticContainer *corev1.Container
 	// Find Velero container
 	for i, container := range ds.Spec.Template.Spec.Containers {
-		if container.Name == common.Velero {
-			veleroContainer = &ds.Spec.Template.Spec.Containers[i]
+		if container.Name == common.Restic {
+			resticContainer = &ds.Spec.Template.Spec.Containers[i]
 		}
 	}
 	for _, plugin := range velero.Spec.DefaultVeleroPlugins {
@@ -93,22 +93,25 @@ func AppendCloudProviderVolumes(velero *oadpv1alpha1.Velero, ds *appsv1.DaemonSe
 					},
 				},
 			)
-			veleroContainer.VolumeMounts = append(
-				veleroContainer.VolumeMounts,
-				corev1.VolumeMount{
-					Name:      cloudProviderMap.SecretName,
-					MountPath: cloudProviderMap.MountPath,
-					//TODO: Check if MountPropagation is needed for plugin specific volume mounts
-					MountPropagation: &mountPropagationToHostContainer,
-				},
-			)
-			veleroContainer.Env = append(
-				veleroContainer.Env,
-				corev1.EnvVar{
-					Name:  cloudProviderMap.EnvCredentialsFile,
-					Value: cloudProviderMap.MountPath + "/" + cloudFieldPath,
-				},
-			)
+			if resticContainer != nil {
+				resticContainer.VolumeMounts = append(
+					resticContainer.VolumeMounts,
+					corev1.VolumeMount{
+						Name:      cloudProviderMap.SecretName,
+						MountPath: cloudProviderMap.MountPath,
+						//TODO: Check if MountPropagation is needed for plugin specific volume mounts
+						MountPropagation: &mountPropagationToHostContainer,
+					},
+				)
+				resticContainer.Env = append(
+					resticContainer.Env,
+					corev1.EnvVar{
+						Name:  cloudProviderMap.EnvCredentialsFile,
+						Value: cloudProviderMap.MountPath + "/" + cloudFieldPath,
+					},
+				)
+			}
+
 		}
 	}
 	return nil

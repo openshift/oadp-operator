@@ -2,6 +2,7 @@ package common
 
 const (
 	Velero             = "velero"
+	Restic             = "restic"
 	VeleroNamespace    = "oadp-operator"
 	OADPOperator       = "oadp-operator"
 	OADPOperatorVelero = "oadp-operator-velero"
