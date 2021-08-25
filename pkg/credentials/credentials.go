@@ -115,15 +115,7 @@ func AppendCloudProviderVolumes(velero *oadpv1alpha1.Velero, ds *appsv1.DaemonSe
 }
 
 // add plugin specific specs to velero deployment
-func AppendPluginSpecificSpecs(velero *oadpv1alpha1.Velero, veleroDeployment *appsv1.Deployment) error {
-	var veleroContainer *corev1.Container
-
-	for i, container := range veleroDeployment.Spec.Template.Spec.Containers {
-		if container.Name == common.Velero {
-			veleroContainer = &veleroDeployment.Spec.Template.Spec.Containers[i]
-		}
-	}
-
+func AppendPluginSpecificSpecs(velero *oadpv1alpha1.Velero, veleroDeployment *appsv1.Deployment, veleroContainer *corev1.Container) error {
 	for _, plugin := range velero.Spec.DefaultVeleroPlugins {
 		if pluginSpecificMap, ok := PluginSpecificFields[plugin]; ok {
 			veleroDeployment.Spec.Template.Spec.InitContainers = append(
@@ -145,12 +137,21 @@ func AppendPluginSpecificSpecs(velero *oadpv1alpha1.Velero, veleroDeployment *ap
 			if !pluginSpecificMap.IsCloudProvider {
 				continue
 			}
+			// set default secret name to use
+			secretName := pluginSpecificMap.SecretName
+			// Grab secret name from BSL for this cloud provider plugin
+			for _, bsl := range velero.Spec.BackupStorageLocations {
+				if bsl.Provider == string(plugin) {
+					secretName = bsl.Credential.Name
+					continue
+				}
+			}
 			// append plugin specific volume mounts
 			if veleroContainer != nil {
 				veleroContainer.VolumeMounts = append(
 					veleroContainer.VolumeMounts,
 					corev1.VolumeMount{
-						Name:      pluginSpecificMap.SecretName,
+						Name:      secretName,
 						MountPath: pluginSpecificMap.MountPath,
 					})
 
@@ -167,10 +168,10 @@ func AppendPluginSpecificSpecs(velero *oadpv1alpha1.Velero, veleroDeployment *ap
 			veleroDeployment.Spec.Template.Spec.Volumes = append(
 				veleroDeployment.Spec.Template.Spec.Volumes,
 				corev1.Volume{
-					Name: pluginSpecificMap.SecretName,
+					Name: secretName,
 					VolumeSource: corev1.VolumeSource{
 						Secret: &corev1.SecretVolumeSource{
-							SecretName: pluginSpecificMap.SecretName,
+							SecretName: secretName,
 						},
 					},
 				})
