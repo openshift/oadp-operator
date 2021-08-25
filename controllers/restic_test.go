@@ -11,7 +11,6 @@ import (
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	"github.com/openshift/oadp-operator/pkg/common"
 	appsv1 "k8s.io/api/apps/v1"
-	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/utils/pointer"
@@ -118,51 +117,51 @@ func TestVeleroReconciler_buildResticDaemonset(t *testing.T) {
 					UpdateStrategy: appsv1.DaemonSetUpdateStrategy{
 						Type: appsv1.RollingUpdateDaemonSetStrategyType,
 					},
-					Template: v1.PodTemplateSpec{
+					Template: corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: map[string]string{
 								"component": Restic,
 							},
 						},
-						Spec: v1.PodSpec{
+						Spec: corev1.PodSpec{
 							NodeSelector:       velero.Spec.ResticNodeSelector,
 							ServiceAccountName: common.Velero,
-							SecurityContext: &v1.PodSecurityContext{
+							SecurityContext: &corev1.PodSecurityContext{
 								RunAsUser:          pointer.Int64(0),
 								SupplementalGroups: velero.Spec.ResticSupplementalGroups,
 							},
-							Volumes: []v1.Volume{
+							Volumes: []corev1.Volume{
 								// Cloud Provider volumes are dynamically added in the for loop below
 								{
 									Name: "host-pods",
-									VolumeSource: v1.VolumeSource{
-										HostPath: &v1.HostPathVolumeSource{
+									VolumeSource: corev1.VolumeSource{
+										HostPath: &corev1.HostPathVolumeSource{
 											Path: resticPvHostPath,
 										},
 									},
 								},
 								{
 									Name: "scratch",
-									VolumeSource: v1.VolumeSource{
-										EmptyDir: &v1.EmptyDirVolumeSource{},
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{},
 									},
 								},
 								{
 									Name: "certs",
-									VolumeSource: v1.VolumeSource{
-										EmptyDir: &v1.EmptyDirVolumeSource{},
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{},
 									},
 								},
 							},
 							Tolerations: velero.Spec.ResticTolerations,
-							Containers: []v1.Container{
+							Containers: []corev1.Container{
 								{
 									Name: common.Velero,
-									SecurityContext: &v1.SecurityContext{
+									SecurityContext: &corev1.SecurityContext{
 										Privileged: pointer.Bool(true),
 									},
 									Image:           getResticImage(),
-									ImagePullPolicy: v1.PullAlways,
+									ImagePullPolicy: corev1.PullAlways,
 									Resources:       r.getVeleroResourceReqs(&velero), //setting default.
 									Command: []string{
 										"/velero",
@@ -171,7 +170,7 @@ func TestVeleroReconciler_buildResticDaemonset(t *testing.T) {
 										"restic",
 										"server",
 									},
-									VolumeMounts: []v1.VolumeMount{
+									VolumeMounts: []corev1.VolumeMount{
 										{
 											Name:             "host-pods",
 											MountPath:        "/host_pods",
@@ -186,7 +185,7 @@ func TestVeleroReconciler_buildResticDaemonset(t *testing.T) {
 											MountPath: "/etc/ssl/certs",
 										},
 									},
-									Env: []v1.EnvVar{
+									Env: []corev1.EnvVar{
 										{
 											Name:  "HTTP_PROXY",
 											Value: os.Getenv("HTTP_PROXY"),
@@ -201,23 +200,23 @@ func TestVeleroReconciler_buildResticDaemonset(t *testing.T) {
 										},
 										{
 											Name: "NODE_NAME",
-											ValueFrom: &v1.EnvVarSource{
-												FieldRef: &v1.ObjectFieldSelector{
+											ValueFrom: &corev1.EnvVarSource{
+												FieldRef: &corev1.ObjectFieldSelector{
 													FieldPath: "spec.nodeName",
 												},
 											},
 										},
 										{
 											Name: "POD_NAME",
-											ValueFrom: &v1.EnvVarSource{
-												FieldRef: &v1.ObjectFieldSelector{
+											ValueFrom: &corev1.EnvVarSource{
+												FieldRef: &corev1.ObjectFieldSelector{
 													FieldPath: "metadata.name"},
 											},
 										},
 										{
 											Name: "VELERO_NAMESPACE",
-											ValueFrom: &v1.EnvVarSource{
-												FieldRef: &v1.ObjectFieldSelector{
+											ValueFrom: &corev1.EnvVarSource{
+												FieldRef: &corev1.ObjectFieldSelector{
 													FieldPath: "metadata.namespace",
 												},
 											},
