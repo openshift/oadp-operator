@@ -2,6 +2,7 @@ package e2e
 
 import (
 	"flag"
+	"github.com/openshift/oadp-operator/pkg/common"
 	"time"
 
 	. "github.com/onsi/ginkgo"
@@ -66,13 +67,14 @@ var _ = Describe("The default Velero custom resource", func() {
 			Eventually(areResticPodsRunning(namespace), time.Minute*2, time.Second*5).Should(BeTrue())
 		})
 		It("Should install the aws plugin", func() {
-			Eventually(doesPluginExist(namespace, "velero", "velero-plugin-for-aws"), time.Minute*2, time.Second*5).Should(BeTrue())
+			Eventually(doesPluginExist(namespace, "velero", common.VeleroPluginForAWS), time.Minute*2, time.Second*5).Should(BeTrue())
 		})
-		/*It("Should install the openshift plugin", func() {
-			Eventually(doesPluginExist(namespace, "velero", "openshift-velero-plugin"), time.Minute*2, time.Second*5).Should(BeTrue())
+		It("Should install the openshift plugin", func() {
+			Eventually(doesPluginExist(namespace, "velero", common.VeleroPluginForOpenshift), time.Minute*2, time.Second*5).Should(BeTrue())
 		})
-		It("Should install the csi plugin", func() {
-			Eventually(doesPluginExist(namespace, "velero", "velero-plugin-for-csi"), time.Minute*2, time.Second*5).Should(BeTrue())
-		})*/
+		/*
+			It("Should install the csi plugin", func() {
+				Eventually(doesPluginExist(namespace, "velero", "velero-plugin-for-csi"), time.Minute*2, time.Second*5).Should(BeTrue())
+			})*/
 	})
 })

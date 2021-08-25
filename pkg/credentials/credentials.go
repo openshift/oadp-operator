@@ -16,6 +16,7 @@ type DefaultPluginFields struct {
 	EnvCredentialsFile string
 	PluginImage        string
 	PluginSecretKey    string
+	PluginName         string
 }
 
 const (
@@ -29,7 +30,8 @@ var (
 			IsCloudProvider:    true,
 			SecretName:         "cloud-credentials",
 			MountPath:          "/credentials",
-			EnvCredentialsFile: "AWS_SHARED_CREDENTIALS_FILE",
+			EnvCredentialsFile: common.AWSSharedCredentialsFileEnvKey,
+			PluginName:         common.VeleroPluginForAWS,
 			PluginImage:        fmt.Sprintf("%v/%v/%v:%v", os.Getenv("REGISTRY"), os.Getenv("PROJECT"), os.Getenv("VELERO_AWS_PLUGIN_REPO"), os.Getenv("VELERO_AWS_PLUGIN_TAG")),
 			PluginSecretKey:    "cloud",
 		},
@@ -37,23 +39,27 @@ var (
 			IsCloudProvider:    true,
 			SecretName:         "cloud-credentials-gcp",
 			MountPath:          "/credentials-gcp",
-			EnvCredentialsFile: "GOOGLE_APPLICATION_CREDENTIALS",
+			EnvCredentialsFile: common.GCPCredentialsEnvKey,
+			PluginName:         common.VeleroPluginForGCP,
 			PluginImage:        fmt.Sprintf("%v/%v/%v:%v", os.Getenv("REGISTRY"), os.Getenv("PROJECT"), os.Getenv("VELERO_GCP_PLUGIN_REPO"), os.Getenv("VELERO_GCP_PLUGIN_TAG")),
 		},
 		oadpv1alpha1.DefaultPluginMicrosoftAzure: {
 			IsCloudProvider:    true,
 			SecretName:         "cloud-credentials-azure",
 			MountPath:          "/credentials-azure",
-			EnvCredentialsFile: "AZURE_CREDENTIALS_FILE",
+			EnvCredentialsFile: common.AzureCredentialsFileEnvKey,
+			PluginName:         common.VeleroPluginForAzure,
 			PluginImage:        fmt.Sprintf("%v/%v/%v:%v", os.Getenv("REGISTRY"), os.Getenv("PROJECT"), os.Getenv("VELERO_AZURE_PLUGIN_REPO"), os.Getenv("VELERO_AZURE_PLUGIN_TAG")),
 		},
 		oadpv1alpha1.DefaultPluginOpenShift: {
 			IsCloudProvider: false,
+			PluginName:      common.VeleroPluginForOpenshift,
 			PluginImage:     fmt.Sprintf("%v/%v/%v:%v", os.Getenv("REGISTRY"), os.Getenv("PROJECT"), os.Getenv("VELERO_OPENSHIFT_PLUGIN_REPO"), os.Getenv("VELERO_OPENSHIFT_PLUGIN_TAG")),
 		},
 		oadpv1alpha1.DefaultPluginCSI: {
 			IsCloudProvider: false,
 			//TODO: Check if the Registry needs to an upstream one from CSI
+			PluginName:  common.VeleroPluginForCSI,
 			PluginImage: fmt.Sprintf("%v/%v/%v:%v", os.Getenv("REGISTRY"), os.Getenv("PROJECT"), os.Getenv("VELERO_CSI_PLUGIN_REPO"), os.Getenv("VELERO_CSI_PLUGIN_TAG")),
 		},
 	}
@@ -120,6 +126,22 @@ func AppendPluginSpecificSpecs(velero *oadpv1alpha1.Velero, veleroDeployment *ap
 
 	for _, plugin := range velero.Spec.DefaultVeleroPlugins {
 		if pluginSpecificMap, ok := PluginSpecificFields[plugin]; ok {
+			veleroDeployment.Spec.Template.Spec.InitContainers = append(
+				veleroDeployment.Spec.Template.Spec.InitContainers,
+				corev1.Container{
+					Image:                    pluginSpecificMap.PluginImage,
+					Name:                     pluginSpecificMap.PluginName,
+					ImagePullPolicy:          corev1.PullAlways,
+					Resources:                corev1.ResourceRequirements{},
+					TerminationMessagePath:   "/dev/termination-log",
+					TerminationMessagePolicy: "File",
+					VolumeMounts: []corev1.VolumeMount{
+						{
+							MountPath: "/target",
+							Name:      "plugins",
+						},
+					},
+				})
 			if !pluginSpecificMap.IsCloudProvider {
 				continue
 			}
@@ -149,24 +171,6 @@ func AppendPluginSpecificSpecs(velero *oadpv1alpha1.Velero, veleroDeployment *ap
 					VolumeSource: corev1.VolumeSource{
 						Secret: &corev1.SecretVolumeSource{
 							SecretName: pluginSpecificMap.SecretName,
-						},
-					},
-				})
-
-			// append plugin specifc init containers
-			veleroDeployment.Spec.Template.Spec.InitContainers = append(
-				veleroDeployment.Spec.Template.Spec.InitContainers,
-				corev1.Container{
-					Image:                    pluginSpecificMap.PluginImage,
-					Name:                     string(plugin),
-					ImagePullPolicy:          corev1.PullAlways,
-					Resources:                corev1.ResourceRequirements{},
-					TerminationMessagePath:   "/dev/termination-log",
-					TerminationMessagePolicy: "File",
-					VolumeMounts: []corev1.VolumeMount{
-						{
-							MountPath: "/target",
-							Name:      "plugins",
 						},
 					},
 				})

@@ -172,27 +172,27 @@ func TestVeleroReconciler_buildVeleroDeployment(t *testing.T) {
 									},
 									Env: []corev1.EnvVar{
 										{
-											Name:  LDLibraryPathEnvKey,
+											Name:  common.LDLibraryPathEnvKey,
 											Value: "/plugins",
 										},
 										{
-											Name:  VeleroNamespaceEnvKey,
+											Name:  common.VeleroNamespaceEnvKey,
 											Value: "test-ns",
 										},
 										{
-											Name:  VeleroScratchDirEnvKey,
+											Name:  common.VeleroScratchDirEnvKey,
 											Value: "/scratch",
 										},
 										{
-											Name:  HTTPProxyEnvVar,
+											Name:  common.HTTPProxyEnvVar,
 											Value: os.Getenv("HTTP_PROXY"),
 										},
 										{
-											Name:  HTTPSProxyEnvVar,
+											Name:  common.HTTPSProxyEnvVar,
 											Value: os.Getenv("HTTPS_PROXY"),
 										},
 										{
-											Name:  NoProxyEnvVar,
+											Name:  common.NoProxyEnvVar,
 											Value: os.Getenv("NO_PROXY"),
 										},
 									},
@@ -332,27 +332,27 @@ func TestVeleroReconciler_buildVeleroDeployment(t *testing.T) {
 									},
 									Env: []corev1.EnvVar{
 										{
-											Name:  LDLibraryPathEnvKey,
+											Name:  common.LDLibraryPathEnvKey,
 											Value: "/plugins",
 										},
 										{
-											Name:  VeleroNamespaceEnvKey,
+											Name:  common.VeleroNamespaceEnvKey,
 											Value: "test-ns",
 										},
 										{
-											Name:  VeleroScratchDirEnvKey,
+											Name:  common.VeleroScratchDirEnvKey,
 											Value: "/scratch",
 										},
 										{
-											Name:  HTTPProxyEnvVar,
+											Name:  common.HTTPProxyEnvVar,
 											Value: os.Getenv("HTTP_PROXY"),
 										},
 										{
-											Name:  HTTPSProxyEnvVar,
+											Name:  common.HTTPSProxyEnvVar,
 											Value: os.Getenv("HTTPS_PROXY"),
 										},
 										{
-											Name:  NoProxyEnvVar,
+											Name:  common.NoProxyEnvVar,
 											Value: os.Getenv("NO_PROXY"),
 										},
 									},
@@ -489,31 +489,31 @@ func TestVeleroReconciler_buildVeleroDeployment(t *testing.T) {
 									},
 									Env: []corev1.EnvVar{
 										{
-											Name:  LDLibraryPathEnvKey,
+											Name:  common.LDLibraryPathEnvKey,
 											Value: "/plugins",
 										},
 										{
-											Name:  VeleroNamespaceEnvKey,
+											Name:  common.VeleroNamespaceEnvKey,
 											Value: "test-ns",
 										},
 										{
-											Name:  VeleroScratchDirEnvKey,
+											Name:  common.VeleroScratchDirEnvKey,
 											Value: "/scratch",
 										},
 										{
-											Name:  HTTPProxyEnvVar,
+											Name:  common.HTTPProxyEnvVar,
 											Value: os.Getenv("HTTP_PROXY"),
 										},
 										{
-											Name:  HTTPSProxyEnvVar,
+											Name:  common.HTTPSProxyEnvVar,
 											Value: os.Getenv("HTTPS_PROXY"),
 										},
 										{
-											Name:  NoProxyEnvVar,
+											Name:  common.NoProxyEnvVar,
 											Value: os.Getenv("NO_PROXY"),
 										},
 										{
-											Name:  "AWS_SHARED_CREDENTIALS_FILE",
+											Name:  common.AWSSharedCredentialsFileEnvKey,
 											Value: "/credentials/cloud",
 										},
 									},
@@ -550,7 +550,7 @@ func TestVeleroReconciler_buildVeleroDeployment(t *testing.T) {
 							InitContainers: []corev1.Container{
 								{
 									Image:                    fmt.Sprintf("%v/%v/%v:%v", os.Getenv("REGISTRY"), os.Getenv("PROJECT"), os.Getenv("VELERO_AWS_PLUGIN_REPO"), os.Getenv("VELERO_AWS_PLUGIN_TAG")),
-									Name:                     "aws",
+									Name:                     common.VeleroPluginForAWS,
 									ImagePullPolicy:          corev1.PullAlways,
 									Resources:                corev1.ResourceRequirements{},
 									TerminationMessagePath:   "/dev/termination-log",

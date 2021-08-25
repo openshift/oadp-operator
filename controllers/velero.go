@@ -40,19 +40,6 @@ const (
 	enableCSIFeatureFlag  = "EnableCSI"
 )
 
-// Environment Vars keys
-const (
-	LDLibraryPathEnvKey              = "LD_LIBRARY_PATH"
-	VeleroNamespaceEnvKey            = "VELERO_NAMESPACE"
-	VeleroScratchDirEnvKey           = "VELERO_SCRATCH_DIR"
-	AWSSharedCredentialsFileEnvKey   = "AWS_SHARED_CREDENTIALS_FILE"
-	AzureSharedCredentialsFileEnvKey = "AZURE_SHARED_CREDENTIALS_FILE"
-	GCPSharedCredentialsFileEnvKey   = "GCP_SHARED_CREDENTIALS_FILE"
-	HTTPProxyEnvVar                  = "HTTP_PROXY"
-	HTTPSProxyEnvVar                 = "HTTPS_PROXY"
-	NoProxyEnvVar                    = "NO_PROXY"
-)
-
 //TODO: Add Image customization options
 // Images
 const (
@@ -63,15 +50,6 @@ const (
 	GCPPluginImage       = "quay.io/konveyor/velero-plugin-for-gcp:latest"
 	CSIPluginImage       = "quay.io/konveyor/velero-plugin-for-csi:latest"
 	RegistryImage        = "quay.io/konveyor/registry:latest"
-)
-
-// Plugin names
-const (
-	VeleroPluginForAWS       = "velero-plugin-for-aws"
-	VeleroPluginForAzure     = "velero-plugin-for-microsoft-azure"
-	VeleroPluginForGCP       = "velero-plugin-for-gcp"
-	VeleroPluginForCSI       = "velero-plugin-for-csi"
-	VeleroPluginForOpenshift = "openshift-velero-plugin"
 )
 
 func (r *VeleroReconciler) ReconcileVeleroServiceAccount(log logr.Logger) (bool, error) {
@@ -399,27 +377,27 @@ func (r *VeleroReconciler) buildVeleroDeployment(veleroDeployment *appsv1.Deploy
 
 	envVars := []corev1.EnvVar{
 		{
-			Name:  LDLibraryPathEnvKey,
+			Name:  common.LDLibraryPathEnvKey,
 			Value: "/plugins",
 		},
 		{
-			Name:  VeleroNamespaceEnvKey,
+			Name:  common.VeleroNamespaceEnvKey,
 			Value: velero.Namespace,
 		},
 		{
-			Name:  VeleroScratchDirEnvKey,
+			Name:  common.VeleroScratchDirEnvKey,
 			Value: "/scratch",
 		},
 		{
-			Name:  HTTPProxyEnvVar,
+			Name:  common.HTTPProxyEnvVar,
 			Value: os.Getenv("HTTP_PROXY"),
 		},
 		{
-			Name:  HTTPSProxyEnvVar,
+			Name:  common.HTTPSProxyEnvVar,
 			Value: os.Getenv("HTTPS_PROXY"),
 		},
 		{
-			Name:  NoProxyEnvVar,
+			Name:  common.NoProxyEnvVar,
 			Value: os.Getenv("NO_PROXY"),
 		},
 	}
