@@ -141,7 +141,7 @@ func AppendPluginSpecificSpecs(velero *oadpv1alpha1.Velero, veleroDeployment *ap
 			secretName := pluginSpecificMap.SecretName
 			// Grab secret name from BSL for this cloud provider plugin
 			for _, bsl := range velero.Spec.BackupStorageLocations {
-				if bsl.Provider == string(plugin) {
+				if bsl.Provider == string(plugin) && bsl.Credential != nil && len(bsl.Credential.Name) > 0 {
 					secretName = bsl.Credential.Name
 					continue
 				}
