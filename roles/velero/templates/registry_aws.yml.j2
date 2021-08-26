@@ -30,8 +30,10 @@ spec:
             value: "{{ aws_access_key_id }}"
           - name: REGISTRY_STORAGE_S3_BUCKET
             value: "{{ bsl.object_storage.bucket }}"
+{% if bsl.config.region is defined %}
           - name: REGISTRY_STORAGE_S3_REGION
             value: "{{ bsl.config.region }}"
+{% endif %}
           - name: REGISTRY_STORAGE_S3_SECRETKEY
             value: "{{ aws_secret_access_key }}"
 {% if bsl.config.s_3__url is defined %}
