@@ -3,6 +3,7 @@ CREDS_SECRET_REF ?= cloud-credentials
 OADP_AWS_CRED_FILE ?= /var/run/oadp-credentials/aws-credentials
 OADP_S3_BUCKET ?= /var/run/oadp-credentials/velero-bucket-name
 VELERO_INSTANCE_NAME ?= velero-sample
+export GOFlAGS="-mod=mod"
 
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
 ENVTEST_K8S_VERSION = 1.21
@@ -133,7 +134,7 @@ undeploy: kustomize ## Undeploy controller from the K8s cluster specified in ~/.
 	$(KUSTOMIZE) build config/default | kubectl delete -f -
 
 
-CONTROLLER_GEN = GOFLAGS="-mod=mod" $(shell pwd)/bin/controller-gen
+CONTROLLER_GEN = $(shell pwd)/bin/controller-gen
 controller-gen: ## Download controller-gen locally if necessary.
 	$(call go-get-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@v0.6.1)
 
@@ -216,7 +217,7 @@ catalog-push: ## Push a catalog image.
 	$(MAKE) docker-push IMG=$(CATALOG_IMG)
 
 test-e2e:
-	ginkgo tests/e2e/ -- -cloud=$(OADP_AWS_CRED_FILE) \
+	ginkgo -mod=mod tests/e2e/ -- -cloud=$(OADP_AWS_CRED_FILE) \
 	-s3_bucket=$(OADP_S3_BUCKET) -velero_namespace=$(OADP_TEST_NAMESPACE) \
 	-creds_secret_ref=$(CREDS_SECRET_REF) \
 	-velero_instance_name=$(VELERO_INSTANCE_NAME)
