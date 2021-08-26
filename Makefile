@@ -3,7 +3,6 @@ CREDS_SECRET_REF ?= cloud-credentials
 OADP_AWS_CRED_FILE ?= /var/run/oadp-credentials/aws-credentials
 OADP_S3_BUCKET ?= /var/run/oadp-credentials/velero-bucket-name
 VELERO_INSTANCE_NAME ?= velero-sample
-export GOFlAGS = "-mod=mod"
 
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
 ENVTEST_K8S_VERSION = 1.21
@@ -89,9 +88,11 @@ help: ## Display this help.
 ##@ Development
 
 manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
+	export GOFLAGS="-mod=mod"
 	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 
 generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
+	export GOFLAGS="-mod=mod"
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
 fmt: ## Run go fmt against code.
