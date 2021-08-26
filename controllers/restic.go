@@ -34,7 +34,8 @@ var (
 	mountPropagationToHostContainer = corev1.MountPropagationHostToContainer
 	resticLabelSelector             = &metav1.LabelSelector{
 		MatchLabels: map[string]string{
-			"component": Restic,
+			"component": common.Velero,
+			"name":      common.Restic,
 		},
 	}
 )
