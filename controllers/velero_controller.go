@@ -86,6 +86,7 @@ func (r *VeleroReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		r.ReconcileVeleroClusterRoleBinding,
 		r.ReconcileVeleroSecurityContextConstraint,
 		r.ReconcileVeleroCRDs,
+		r.ReconcileResticRestoreHelperConfig,
 		r.ValidateBackupStorageLocations,
 		r.ReconcileBackupStorageLocations,
 		r.ReconcileRegistries,
