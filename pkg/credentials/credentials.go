@@ -2,11 +2,12 @@ package credentials
 
 import (
 	"fmt"
+	"os"
+
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	"github.com/openshift/oadp-operator/pkg/common"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	"os"
 )
 
 type DefaultPluginFields struct {
@@ -32,7 +33,6 @@ var (
 			MountPath:          "/credentials",
 			EnvCredentialsFile: common.AWSSharedCredentialsFileEnvKey,
 			PluginName:         common.VeleroPluginForAWS,
-			PluginImage:        fmt.Sprintf("%v/%v/%v:%v", os.Getenv("REGISTRY"), os.Getenv("PROJECT"), os.Getenv("VELERO_AWS_PLUGIN_REPO"), os.Getenv("VELERO_AWS_PLUGIN_TAG")),
 			PluginSecretKey:    "cloud",
 		},
 		oadpv1alpha1.DefaultPluginGCP: {
@@ -41,7 +41,6 @@ var (
 			MountPath:          "/credentials-gcp",
 			EnvCredentialsFile: common.GCPCredentialsEnvKey,
 			PluginName:         common.VeleroPluginForGCP,
-			PluginImage:        fmt.Sprintf("%v/%v/%v:%v", os.Getenv("REGISTRY"), os.Getenv("PROJECT"), os.Getenv("VELERO_GCP_PLUGIN_REPO"), os.Getenv("VELERO_GCP_PLUGIN_TAG")),
 		},
 		oadpv1alpha1.DefaultPluginMicrosoftAzure: {
 			IsCloudProvider:    true,
@@ -49,21 +48,88 @@ var (
 			MountPath:          "/credentials-azure",
 			EnvCredentialsFile: common.AzureCredentialsFileEnvKey,
 			PluginName:         common.VeleroPluginForAzure,
-			PluginImage:        fmt.Sprintf("%v/%v/%v:%v", os.Getenv("REGISTRY"), os.Getenv("PROJECT"), os.Getenv("VELERO_AZURE_PLUGIN_REPO"), os.Getenv("VELERO_AZURE_PLUGIN_TAG")),
 		},
 		oadpv1alpha1.DefaultPluginOpenShift: {
 			IsCloudProvider: false,
 			PluginName:      common.VeleroPluginForOpenshift,
-			PluginImage:     fmt.Sprintf("%v/%v/%v:%v", os.Getenv("REGISTRY"), os.Getenv("PROJECT"), os.Getenv("VELERO_OPENSHIFT_PLUGIN_REPO"), os.Getenv("VELERO_OPENSHIFT_PLUGIN_TAG")),
 		},
 		oadpv1alpha1.DefaultPluginCSI: {
 			IsCloudProvider: false,
 			//TODO: Check if the Registry needs to an upstream one from CSI
-			PluginName:  common.VeleroPluginForCSI,
-			PluginImage: fmt.Sprintf("%v/%v/%v:%v", os.Getenv("REGISTRY"), os.Getenv("PROJECT"), os.Getenv("VELERO_CSI_PLUGIN_REPO"), os.Getenv("VELERO_CSI_PLUGIN_TAG")),
+			PluginName: common.VeleroPluginForCSI,
 		},
 	}
 )
+
+func getPluginOverrideImage(velero *oadpv1alpha1.Velero) string {
+	if velero.Spec.UnsupportedOverrides[oadpv1alpha1.AWSImageKey] != "" {
+		return velero.Spec.UnsupportedOverrides[oadpv1alpha1.AWSImageKey]
+	}
+	if velero.Spec.UnsupportedOverrides[oadpv1alpha1.OpenShiftImageKey] != "" {
+		return velero.Spec.UnsupportedOverrides[oadpv1alpha1.OpenShiftImageKey]
+	}
+	if velero.Spec.UnsupportedOverrides[oadpv1alpha1.AzureImageKey] != "" {
+		return velero.Spec.UnsupportedOverrides[oadpv1alpha1.AzureImageKey]
+	}
+	if velero.Spec.UnsupportedOverrides[oadpv1alpha1.CSIImageKey] != "" {
+		return velero.Spec.UnsupportedOverrides[oadpv1alpha1.CSIImageKey]
+	}
+	if velero.Spec.UnsupportedOverrides[oadpv1alpha1.GCPImageKey] != "" {
+		return velero.Spec.UnsupportedOverrides[oadpv1alpha1.GCPImageKey]
+	}
+	// TODO: handle better
+	return ""
+}
+
+func getPluginImage(velero *oadpv1alpha1.Velero) string {
+	// TODO: this assumes no velero image override..handle better
+	if velero.Spec.UnsupportedOverrides != nil {
+		return getPluginOverrideImage(velero)
+	}
+	// AWS
+	for _, plugin := range velero.Spec.DefaultVeleroPlugins {
+		if plugin == oadpv1alpha1.DefaultPluginAWS {
+			if os.Getenv("VELERO_AWS_PLUGIN_REPO") == "" {
+				return "quay.io/konveyor/velero-plugin-for-aws:konveyor-oadp"
+			}
+			return fmt.Sprintf("%v/%v/%v:%v", os.Getenv("REGISTRY"), os.Getenv("PROJECT"), os.Getenv("VELERO_AWS_PLUGIN_REPO"), os.Getenv("VELERO_AWS_PLUGIN_TAG"))
+		}
+
+		// Openshift
+		if plugin == oadpv1alpha1.DefaultPluginOpenShift {
+			if os.Getenv("VELERO_OPENSHIFT_PLUGIN_REPO") == "" {
+				return "quay.io/konveyor/velero-plugin-for-aws:konveyor-oadp"
+			}
+			return fmt.Sprintf("%v/%v/%v:%v", os.Getenv("REGISTRY"), os.Getenv("PROJECT"), os.Getenv("VELERO_OPENSHIFT_PLUGIN_REPO"), os.Getenv("VELERO_OPENSHIFT_PLUGIN_TAG"))
+
+			// GCP
+		} else if plugin == oadpv1alpha1.DefaultPluginGCP {
+			if os.Getenv("VELERO_GCP_PLUGIN_REPO") == "" {
+				// TODO
+				return ""
+			}
+			return fmt.Sprintf("%v/%v/%v:%v", os.Getenv("REGISTRY"), os.Getenv("PROJECT"), os.Getenv("VELERO_GCP_PLUGIN_REPO"), os.Getenv("VELERO_GCP_PLUGIN_TAG"))
+
+			// CSI
+		} else if plugin == oadpv1alpha1.DefaultPluginCSI {
+			if os.Getenv("VELERO_CSI_PLUGIN_REPO") == "" {
+				// TODO
+				return ""
+			}
+			return fmt.Sprintf("%v/%v/%v:%v", os.Getenv("REGISTRY"), os.Getenv("PROJECT"), os.Getenv("VELERO_CSI_PLUGIN_REPO"), os.Getenv("VELERO_CSI_PLUGIN_TAG"))
+
+			// Azure
+		} else if plugin == oadpv1alpha1.DefaultPluginMicrosoftAzure {
+			if os.Getenv("VELERO_AZURE_PLUGIN_REPO") == "" {
+				// TODO
+				return ""
+			}
+			return fmt.Sprintf("%v/%v/%v:%v", os.Getenv("REGISTRY"), os.Getenv("PROJECT"), os.Getenv("VELERO_AZURE_PLUGIN_REPO"), os.Getenv("VELERO_AZURE_PLUGIN_TAG"))
+		}
+	}
+	// TODO
+	return ""
+}
 
 func AppendCloudProviderVolumes(velero *oadpv1alpha1.Velero, ds *appsv1.DaemonSet) error {
 	var veleroContainer *corev1.Container
@@ -129,7 +195,7 @@ func AppendPluginSpecificSpecs(velero *oadpv1alpha1.Velero, veleroDeployment *ap
 			veleroDeployment.Spec.Template.Spec.InitContainers = append(
 				veleroDeployment.Spec.Template.Spec.InitContainers,
 				corev1.Container{
-					Image:                    pluginSpecificMap.PluginImage,
+					Image:                    getPluginImage(velero),
 					Name:                     pluginSpecificMap.PluginName,
 					ImagePullPolicy:          corev1.PullAlways,
 					Resources:                corev1.ResourceRequirements{},

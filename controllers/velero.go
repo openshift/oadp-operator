@@ -469,7 +469,7 @@ func (r *VeleroReconciler) buildVeleroDeployment(veleroDeployment *appsv1.Deploy
 func (r *VeleroReconciler) buildVeleroContainer(velero *oadpv1alpha1.Velero, volumeMounts []corev1.VolumeMount, envVars []corev1.EnvVar) corev1.Container {
 	container := corev1.Container{
 		Name:            common.Velero,
-		Image:           getVeleroImage(),
+		Image:           getVeleroImage(velero),
 		ImagePullPolicy: corev1.PullAlways,
 		Ports: []corev1.ContainerPort{
 			{
@@ -518,7 +518,13 @@ func (r *VeleroReconciler) buildVeleroContainer(velero *oadpv1alpha1.Velero, vol
 	return container
 }
 
-func getVeleroImage() string {
+func getVeleroImage(velero *oadpv1alpha1.Velero) string {
+	if velero.Spec.UnsupportedOverrides[oadpv1alpha1.VeleroImageKey] != "" {
+		return velero.Spec.UnsupportedOverrides[oadpv1alpha1.VeleroImageKey]
+	}
+	if os.Getenv("VELERO_REPO") == "" {
+		return VeleroImage
+	}
 	return fmt.Sprintf("%v/%v/%v:%v", os.Getenv("REGISTRY"), os.Getenv("PROJECT"), os.Getenv("VELERO_REPO"), os.Getenv("VELERO_TAG"))
 }
 

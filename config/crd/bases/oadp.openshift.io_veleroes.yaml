@@ -220,6 +220,10 @@ spec:
                       type: string
                   type: object
                 type: array
+              unsupportedOverrides:
+                additionalProperties:
+                  type: string
+                type: object
               veleroFeatureFlags:
                 items:
                   type: string

@@ -180,7 +180,7 @@ func (r *VeleroReconciler) buildResticDaemonset(velero *oadpv1alpha1.Velero, ds 
 						SecurityContext: &v1.SecurityContext{
 							Privileged: pointer.Bool(true),
 						},
-						Image:           getResticImage(),
+						Image:           getVeleroImage(velero),
 						ImagePullPolicy: v1.PullAlways,
 						Resources:       r.getVeleroResourceReqs(velero), //setting default.
 						Command: []string{
@@ -255,8 +255,4 @@ func (r *VeleroReconciler) buildResticDaemonset(velero *oadpv1alpha1.Velero, ds 
 		return nil, err
 	}
 	return ds, nil
-}
-
-func getResticImage() string {
-	return fmt.Sprintf("%v/%v/%v:%v", os.Getenv("REGISTRY"), os.Getenv("PROJECT"), os.Getenv("VELERO_REPO"), os.Getenv("VELERO_TAG"))
 }

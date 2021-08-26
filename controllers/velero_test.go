@@ -3,6 +3,10 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"os"
+	"reflect"
+	"testing"
+
 	"github.com/go-logr/logr"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	"github.com/openshift/oadp-operator/pkg/common"
@@ -14,10 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/pointer"
-	"os"
-	"reflect"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"testing"
 )
 
 func TestVeleroReconciler_buildVeleroDeployment(t *testing.T) {
@@ -133,7 +134,7 @@ func TestVeleroReconciler_buildVeleroDeployment(t *testing.T) {
 							Containers: []corev1.Container{
 								{
 									Name:            common.Velero,
-									Image:           getVeleroImage(),
+									Image:           getVeleroImage(&oadpv1alpha1.Velero{}),
 									ImagePullPolicy: corev1.PullAlways,
 									Ports: []corev1.ContainerPort{
 										{
@@ -293,7 +294,7 @@ func TestVeleroReconciler_buildVeleroDeployment(t *testing.T) {
 							Containers: []corev1.Container{
 								{
 									Name:            common.Velero,
-									Image:           getVeleroImage(),
+									Image:           getVeleroImage(&oadpv1alpha1.Velero{}),
 									ImagePullPolicy: corev1.PullAlways,
 									Ports: []corev1.ContainerPort{
 										{
@@ -446,7 +447,7 @@ func TestVeleroReconciler_buildVeleroDeployment(t *testing.T) {
 							Containers: []corev1.Container{
 								{
 									Name:            common.Velero,
-									Image:           getVeleroImage(),
+									Image:           getVeleroImage(&oadpv1alpha1.Velero{}),
 									ImagePullPolicy: corev1.PullAlways,
 									Ports: []corev1.ContainerPort{
 										{
