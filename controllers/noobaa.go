@@ -196,12 +196,8 @@ func (r *VeleroReconciler) ReconcileNoobaa(log logr.Logger) (bool, error) {
 		
 
 		//fetch the secret from openshift-storage namespace
-		noobaaSecret := corev1.Secret{}
-		err = r.Client.Get(r.Context, types.NamespacedName{
-			Namespace: openshiftStorageNamespace,
-			Name: "nooba-admin",
-		}, &noobaaSecret)
-
+		noobaaSecret := &corev1.Secret{}
+		noobaaSecret, err = clientset.CoreV1().Secrets(openshiftStorageNamespace).Get(context.TODO(), "nooba-admin", metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}
