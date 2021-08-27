@@ -11,7 +11,7 @@ OADP is OpenShift API for Data Protection operator. This operator sets up and in
 
 - Docker/Podman
 - OpenShift CLI
-- Access to OpenShift cluster
+- Access to OpenShift Cluster
 
 
 ***
