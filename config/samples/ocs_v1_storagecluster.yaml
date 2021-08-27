@@ -1,0 +1,30 @@
+apiVersion: ocs.openshift.io/v1
+kind: StorageCluster
+metadata:
+  namespace: openshift-storage
+  name: oadp-ocs-storagecluster
+spec:
+  manageNodes: false
+  monPVCTemplate:
+    spec:
+      storageClassName: gp2
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: 10Gi
+  storageDeviceSets:
+  - name: oadp-ocs-deviceset
+    count: 3
+    resources: {}
+    placement: {}
+    dataPVCTemplate:
+      spec:
+        storageClassName: gp2
+        accessModes:
+        - ReadWriteOnce
+        volumeMode: Block
+        resources:
+          requests:
+            storage: 1Ti
+    portable: true
