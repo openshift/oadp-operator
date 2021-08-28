@@ -50,6 +50,7 @@ type VeleroSpec struct {
 	OlmManaged *bool `json:"olmManaged,omitempty"`
 
 	// Velero configuration
+	// +optional
 	BackupStorageLocations []velero.BackupStorageLocationSpec `json:"backupStorageLocations"`
 	// +optional
 	VolumeSnapshotLocations []velero.VolumeSnapshotLocationSpec `json:"volumeSnapshotLocations"`
