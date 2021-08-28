@@ -213,7 +213,7 @@ func (r *VeleroReconciler) ReconcileNoobaa(log logr.Logger) (bool, error) {
 		fmt.Println("Step 7")
 		//fetch the secret from openshift-storage namespace
 		noobaaSecret := &corev1.Secret{}
-		noobaaSecret, err = clientset.CoreV1().Secrets(openshiftStorageNamespace).Get(context.TODO(), "nooba-admin", metav1.GetOptions{})
+		noobaaSecret, err = clientset.CoreV1().Secrets(openshiftStorageNamespace).Get(context.TODO(), "noobaa-admin", metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}
@@ -275,23 +275,23 @@ func (r *VeleroReconciler) ReconcileNoobaa(log logr.Logger) (bool, error) {
 						Prefix: "velero",
 					},
 				},
+				//TODO: Add S3 url from noobaa status field as mentioned below from unstructured
 				// Config: map[string]string{
 				// 	S3URL: noobaa.Status.Services.ServiceS3.ExternalDNS[0],
 				// },
 			},
 		}
 
+		//TODO: Add logic to create programmatically create BSL
+
 		fmt.Println("Step 10")
 
-		//Create BSL
 		op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, &bsl, func() error {
 			// TODO: Velero may be setting controllerReference as
 			// well and taking ownership. If so move this to
 			// SetOwnerReference instead
 
-			// TODO: check for BSL status condition errors and respond here
-
-			err := r.updateBSLFromSpec(&bsl, &velero)
+			//TODO: add logic to reconcile all of above using controller runtime reconcile loop
 
 			return err
 		})
