@@ -2,7 +2,10 @@ package controllers
 
 import (
 	"fmt"
+	"time"
+
 	"github.com/go-logr/logr"
+
 	// noobaav1alpha1 "github.com/noobaa/noobaa-operator/v2/pkg/apis/noobaa/v1alpha1"
 	// ocsv1 "github.com/openshift/ocs-operator/api/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -10,12 +13,14 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+
 	// "k8s.io/client-go/tools/clientcmd"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	"golang.org/x/net/context"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+
 	// "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	// "k8s.io/apimachinery/pkg/types"
@@ -83,7 +88,6 @@ func (r *VeleroReconciler) ReconcileNoobaa(log logr.Logger) (bool, error) {
 	// 	return false, err
 	// }
 
-	fmt.Println("Step 2, if noobaa true go inside if loop")
 	//Reconcile logic for Noobaa
 
 	//check if noobaa:true flag is present, if present proceed
@@ -91,11 +95,14 @@ func (r *VeleroReconciler) ReconcileNoobaa(log logr.Logger) (bool, error) {
 		fmt.Println("Step 3, inside the loop")
 		fmt.Println("Entering Noobaa reconciler")
 
-		//TODO: Logic to check if there is a current storage cluster present
-
-		//creating the storageClusterRes and storageCluster object
-		//referenced from the ocs operator README.md "https://github.com/openshift/ocs-operator/blob/master/README.md"
+		//TODO: Logic to check if there is a current storage cluster present. Currently the client creates a storagecluster and errors out, as it keeps trying to create another one, and it aleady exists.
+		//TODO: Implement same logic using CreateOrUpdate functionality, did not implement as was short on time. 
 		storageClusterRes := schema.GroupVersionResource{Group: "ocs.openshift.io", Version: "v1", Resource: "storageclusters"}
+		_, err := kubeClient.Resource(storageClusterRes).Namespace(openshiftStorageNamespace).Get(context.TODO(), "oadp-ocs-storagecluster",metav1.GetOptions{})
+		if err != nil && !apierrors.IsAlreadyExists(err){
+
+		//creating the storageClusterRes and storageCluster object if it does not exist
+		//referenced from the ocs operator README.md "https://github.com/openshift/ocs-operator/blob/master/README.md"
 		storageCluster := &unstructured.Unstructured{
 			Object: map[string]interface{}{
 				"apiVersion": "ocs.openshift.io/v1",
@@ -147,22 +154,33 @@ func (r *VeleroReconciler) ReconcileNoobaa(log logr.Logger) (bool, error) {
 				},
 			},
 		}
-		fmt.Println("Step 4")
 
 		// Create StorageCluster
 		fmt.Println("Creating OADP OCS StorageCluster...")
-		result, err := kubeClient.Resource(storageClusterRes).Namespace(openshiftStorageNamespace).Create(context.TODO(), storageCluster, metav1.CreateOptions{})
+		_, err = kubeClient.Resource(storageClusterRes).Namespace(openshiftStorageNamespace).Create(context.TODO(), storageCluster, metav1.CreateOptions{})
 		if err != nil {
 			return false, err
+			}
 		}
-		fmt.Printf("Created StorageCluster %q.\n", result.GetName())
 
-		fmt.Println("Step 5")
+		//TODO: Track the state of the StorageCluster, and when it transitions from Progressing to Ready, initiate creation of the ObjectBucketClaim. This implementation right now is a hacky and undesirable way of achieving this and was done due to lack of time.
+		//The ObjectBucketClaim depends on the StorageClass to initialize, which is created after the StorageCluster is created above.
+		time.Sleep(8 * time.Minute)
+
+
+
 		//create an objectbucketclaim (which creates a bucket)
 		//referenced from here. https://access.redhat.com/documentation/en-us/red_hat_openshift_container_storage/4.2/html/managing_openshift_container_storage/configure-storage-for-openshift-container-platform-services_rhocs#object-bucket-claim
 		//actually creating the obc
-		objectBucketClaimRes := schema.GroupVersionResource{Group: "objectbucket.io", Version: "v1alpha1", Resource: "ObjectBucketClaim"}
+		objectBucketClaimRes := schema.GroupVersionResource{Group: "objectbucket.io", Version: "v1alpha1", Resource: "objectbucketclaims"}
 		bucketName := "oadp-noobaa-bucket"
+
+		//check if obc exists
+		//TODO: Implement same logic using CreateOrUpdate functionality
+		_, err = kubeClient.Resource(objectBucketClaimRes).Namespace(openshiftStorageNamespace).Get(context.TODO(), "oadp-noobaa-obc",metav1.GetOptions{})
+		if err != nil && !apierrors.IsAlreadyExists(err){
+
+		//if it does not exist, then create a new one
 		noobaaObjectBucketClaim := &unstructured.Unstructured{
 			Object: map[string]interface{}{
 				"apiVersion": "objectbucket.io/v1alpha1",
@@ -180,11 +198,17 @@ func (r *VeleroReconciler) ReconcileNoobaa(log logr.Logger) (bool, error) {
 		fmt.Println("Step 6")
 		// Creating ObjectBucketClaim using the client
 		fmt.Println("Creating ObjectBucketClaim...")
-		result, err = kubeClient.Resource(objectBucketClaimRes).Namespace(openshiftStorageNamespace).Create(context.TODO(), noobaaObjectBucketClaim, metav1.CreateOptions{})
+		_, err = kubeClient.Resource(objectBucketClaimRes).Namespace(openshiftStorageNamespace).Create(context.TODO(), noobaaObjectBucketClaim, metav1.CreateOptions{})
 		if err != nil {
 			return false, err
 		}
-		fmt.Printf("Created ObjectBucketClaim %q.\n", result.GetName())
+		}
+		// if err != nil {
+		// 	return false, err
+		// }
+
+
+		// fmt.Printf("Created ObjectBucketClaim %q.\n", result.GetName())
 
 		fmt.Println("Step 7")
 		//fetch the secret from openshift-storage namespace
