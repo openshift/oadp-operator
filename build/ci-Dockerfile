@@ -17,5 +17,6 @@ COPY api/ api/
 COPY pkg/ pkg/
 COPY controllers/ controllers/
 COPY tests/ tests/
+COPY hack/ hack/
 
-RUN make envtest controller-gen kustomize
+RUN make manifests generate fmt vet envtest kustomize
