@@ -45,12 +45,12 @@ type CustomPlugin struct {
 
 type UnsupportedImageKey string
 
-const VeleroImageKey UnsupportedImageKey = "veleroImageFqin"
-const AWSImageKey UnsupportedImageKey = "awsImageFqin"
-const OpenShiftImageKey UnsupportedImageKey = "openshiftImageFqin"
-const AzureImageKey UnsupportedImageKey = "azureImageFqin"
-const GCPImageKey UnsupportedImageKey = "gcpImageFqin"
-const CSIImageKey UnsupportedImageKey = "csiImageFqin"
+const VeleroImageKey UnsupportedImageKey = "veleroPluginImageFqin"
+const AWSPluginImageKey UnsupportedImageKey = "awsPluginImageFqin"
+const OpenShiftPluginImageKey UnsupportedImageKey = "openshiftPluginImageFqin"
+const AzurePluginImageKey UnsupportedImageKey = "azurePluginImageFqin"
+const GCPPluginImageKey UnsupportedImageKey = "gcpPluginImageFqin"
+const CSIPluginImageKey UnsupportedImageKey = "csiPluginImageFqin"
 const ResticRestoreImageKey UnsupportedImageKey = "resticRestoreImageFqin"
 
 // VeleroSpec defines the desired state of Velero

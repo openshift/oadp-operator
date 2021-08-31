@@ -161,7 +161,7 @@ func TestVeleroReconciler_buildResticDaemonset(t *testing.T) {
 									SecurityContext: &v1.SecurityContext{
 										Privileged: pointer.Bool(true),
 									},
-									Image:           getVeleroImage(&oadpv1alpha1.Velero{}),
+									Image:           getVeleroImage(&velero),
 									ImagePullPolicy: v1.PullAlways,
 									Resources:       r.getVeleroResourceReqs(&velero), //setting default.
 									Command: []string{

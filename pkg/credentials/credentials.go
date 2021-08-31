@@ -61,73 +61,74 @@ var (
 	}
 )
 
-func getPluginOverrideImage(velero *oadpv1alpha1.Velero) string {
-	if velero.Spec.UnsupportedOverrides[oadpv1alpha1.AWSImageKey] != "" {
-		return velero.Spec.UnsupportedOverrides[oadpv1alpha1.AWSImageKey]
+func getAWSPluginImage(velero *oadpv1alpha1.Velero) string {
+	if velero.Spec.UnsupportedOverrides[oadpv1alpha1.AWSPluginImageKey] != "" {
+		return velero.Spec.UnsupportedOverrides[oadpv1alpha1.AWSPluginImageKey]
 	}
-	if velero.Spec.UnsupportedOverrides[oadpv1alpha1.OpenShiftImageKey] != "" {
-		return velero.Spec.UnsupportedOverrides[oadpv1alpha1.OpenShiftImageKey]
+	if os.Getenv("VELERO_AWS_PLUGIN_REPO") == "" {
+		return common.AWSPluginImage
 	}
-	if velero.Spec.UnsupportedOverrides[oadpv1alpha1.AzureImageKey] != "" {
-		return velero.Spec.UnsupportedOverrides[oadpv1alpha1.AzureImageKey]
-	}
-	if velero.Spec.UnsupportedOverrides[oadpv1alpha1.CSIImageKey] != "" {
-		return velero.Spec.UnsupportedOverrides[oadpv1alpha1.CSIImageKey]
-	}
-	if velero.Spec.UnsupportedOverrides[oadpv1alpha1.GCPImageKey] != "" {
-		return velero.Spec.UnsupportedOverrides[oadpv1alpha1.GCPImageKey]
-	}
-	// TODO: handle better
-	return ""
+	return fmt.Sprintf("%v/%v/%v:%v", os.Getenv("REGISTRY"), os.Getenv("PROJECT"), os.Getenv("VELERO_AWS_PLUGIN_REPO"), os.Getenv("VELERO_AWS_PLUGIN_TAG"))
 }
 
-func getPluginImage(velero *oadpv1alpha1.Velero) string {
-	// TODO: this assumes no velero image override..handle better
-	if velero.Spec.UnsupportedOverrides != nil {
-		return getPluginOverrideImage(velero)
+func getCSIPluginImage(velero *oadpv1alpha1.Velero) string {
+	if velero.Spec.UnsupportedOverrides[oadpv1alpha1.CSIPluginImageKey] != "" {
+		return velero.Spec.UnsupportedOverrides[oadpv1alpha1.CSIPluginImageKey]
 	}
-	// AWS
-	for _, plugin := range velero.Spec.DefaultVeleroPlugins {
-		if plugin == oadpv1alpha1.DefaultPluginAWS {
-			if os.Getenv("VELERO_AWS_PLUGIN_REPO") == "" {
-				return "quay.io/konveyor/velero-plugin-for-aws:konveyor-oadp"
-			}
-			return fmt.Sprintf("%v/%v/%v:%v", os.Getenv("REGISTRY"), os.Getenv("PROJECT"), os.Getenv("VELERO_AWS_PLUGIN_REPO"), os.Getenv("VELERO_AWS_PLUGIN_TAG"))
-		}
-
-		// Openshift
-		if plugin == oadpv1alpha1.DefaultPluginOpenShift {
-			if os.Getenv("VELERO_OPENSHIFT_PLUGIN_REPO") == "" {
-				return "quay.io/konveyor/velero-plugin-for-aws:konveyor-oadp"
-			}
-			return fmt.Sprintf("%v/%v/%v:%v", os.Getenv("REGISTRY"), os.Getenv("PROJECT"), os.Getenv("VELERO_OPENSHIFT_PLUGIN_REPO"), os.Getenv("VELERO_OPENSHIFT_PLUGIN_TAG"))
-
-			// GCP
-		} else if plugin == oadpv1alpha1.DefaultPluginGCP {
-			if os.Getenv("VELERO_GCP_PLUGIN_REPO") == "" {
-				// TODO
-				return ""
-			}
-			return fmt.Sprintf("%v/%v/%v:%v", os.Getenv("REGISTRY"), os.Getenv("PROJECT"), os.Getenv("VELERO_GCP_PLUGIN_REPO"), os.Getenv("VELERO_GCP_PLUGIN_TAG"))
-
-			// CSI
-		} else if plugin == oadpv1alpha1.DefaultPluginCSI {
-			if os.Getenv("VELERO_CSI_PLUGIN_REPO") == "" {
-				// TODO
-				return ""
-			}
-			return fmt.Sprintf("%v/%v/%v:%v", os.Getenv("REGISTRY"), os.Getenv("PROJECT"), os.Getenv("VELERO_CSI_PLUGIN_REPO"), os.Getenv("VELERO_CSI_PLUGIN_TAG"))
-
-			// Azure
-		} else if plugin == oadpv1alpha1.DefaultPluginMicrosoftAzure {
-			if os.Getenv("VELERO_AZURE_PLUGIN_REPO") == "" {
-				// TODO
-				return ""
-			}
-			return fmt.Sprintf("%v/%v/%v:%v", os.Getenv("REGISTRY"), os.Getenv("PROJECT"), os.Getenv("VELERO_AZURE_PLUGIN_REPO"), os.Getenv("VELERO_AZURE_PLUGIN_TAG"))
-		}
+	if os.Getenv("VELERO_CSI_PLUGIN_REPO") == "" {
+		return common.CSIPluginImage
 	}
-	// TODO
+	return fmt.Sprintf("%v/%v/%v:%v", os.Getenv("REGISTRY"), os.Getenv("PROJECT"), os.Getenv("VELERO_CSI_PLUGIN_REPO"), os.Getenv("VELERO_CSI_PLUGIN_TAG"))
+}
+
+func getGCPPluginImage(velero *oadpv1alpha1.Velero) string {
+	if velero.Spec.UnsupportedOverrides[oadpv1alpha1.GCPPluginImageKey] != "" {
+		return velero.Spec.UnsupportedOverrides[oadpv1alpha1.GCPPluginImageKey]
+	}
+	if os.Getenv("VELERO_GCP_PLUGIN_REPO") == "" {
+		return common.GCPPluginImage
+	}
+	return fmt.Sprintf("%v/%v/%v:%v", os.Getenv("REGISTRY"), os.Getenv("PROJECT"), os.Getenv("VELERO_GCP_PLUGIN_REPO"), os.Getenv("VELERO_GCP_PLUGIN_TAG"))
+}
+
+func getOpenshiftPluginImage(velero *oadpv1alpha1.Velero) string {
+	if velero.Spec.UnsupportedOverrides[oadpv1alpha1.OpenShiftPluginImageKey] != "" {
+		return velero.Spec.UnsupportedOverrides[oadpv1alpha1.OpenShiftPluginImageKey]
+	}
+	if os.Getenv("VELERO_OPENSHIFT_PLUGIN_REPO") == "" {
+		return common.OpenshiftPluginImage
+	}
+	return fmt.Sprintf("%v/%v/%v:%v", os.Getenv("REGISTRY"), os.Getenv("PROJECT"), os.Getenv("VELERO_OPENSHIFT_PLUGIN_REPO"), os.Getenv("VELERO_OPENSHIFT_PLUGIN_TAG"))
+}
+
+func getAzurePluginImage(velero *oadpv1alpha1.Velero) string {
+	if velero.Spec.UnsupportedOverrides[oadpv1alpha1.AzurePluginImageKey] != "" {
+		return velero.Spec.UnsupportedOverrides[oadpv1alpha1.AzurePluginImageKey]
+	}
+	if os.Getenv("VELERO_OPENSHIFT_PLUGIN_REPO") == "" {
+		return common.AzurePluginImage
+	}
+	return fmt.Sprintf("%v/%v/%v:%v", os.Getenv("REGISTRY"), os.Getenv("PROJECT"), os.Getenv("VELERO_AZURE_PLUGIN_REPO"), os.Getenv("VELERO_AZURE_PLUGIN_TAG"))
+}
+
+func getPluginImage(pluginName string, velero *oadpv1alpha1.Velero) string {
+	switch pluginName {
+
+	case common.VeleroPluginForAWS:
+		return getAWSPluginImage(velero)
+
+	case common.VeleroPluginForCSI:
+		return getCSIPluginImage(velero)
+
+	case common.VeleroPluginForGCP:
+		return getGCPPluginImage(velero)
+
+	case common.VeleroPluginForOpenshift:
+		return getOpenshiftPluginImage(velero)
+
+	case common.VeleroPluginForAzure:
+		return getAzurePluginImage(velero)
+	}
 	return ""
 }
 
@@ -195,7 +196,7 @@ func AppendPluginSpecificSpecs(velero *oadpv1alpha1.Velero, veleroDeployment *ap
 			veleroDeployment.Spec.Template.Spec.InitContainers = append(
 				veleroDeployment.Spec.Template.Spec.InitContainers,
 				corev1.Container{
-					Image:                    getPluginImage(velero),
+					Image:                    getPluginImage(pluginSpecificMap.PluginName, velero),
 					Name:                     pluginSpecificMap.PluginName,
 					ImagePullPolicy:          corev1.PullAlways,
 					Resources:                corev1.ResourceRequirements{},

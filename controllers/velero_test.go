@@ -134,7 +134,7 @@ func TestVeleroReconciler_buildVeleroDeployment(t *testing.T) {
 							Containers: []corev1.Container{
 								{
 									Name:            common.Velero,
-									Image:           getVeleroImage(&oadpv1alpha1.Velero{}),
+									Image:           fmt.Sprintf("%v/%v/%v:%v", os.Getenv("REGISTRY"), os.Getenv("PROJECT"), os.Getenv("VELERO_REPO"), os.Getenv("VELERO_TAG")),
 									ImagePullPolicy: corev1.PullAlways,
 									Ports: []corev1.ContainerPort{
 										{
@@ -294,7 +294,7 @@ func TestVeleroReconciler_buildVeleroDeployment(t *testing.T) {
 							Containers: []corev1.Container{
 								{
 									Name:            common.Velero,
-									Image:           getVeleroImage(&oadpv1alpha1.Velero{}),
+									Image:           fmt.Sprintf("%v/%v/%v:%v", os.Getenv("REGISTRY"), os.Getenv("PROJECT"), os.Getenv("VELERO_REPO"), os.Getenv("VELERO_TAG")),
 									ImagePullPolicy: corev1.PullAlways,
 									Ports: []corev1.ContainerPort{
 										{
@@ -447,7 +447,7 @@ func TestVeleroReconciler_buildVeleroDeployment(t *testing.T) {
 							Containers: []corev1.Container{
 								{
 									Name:            common.Velero,
-									Image:           getVeleroImage(&oadpv1alpha1.Velero{}),
+									Image:           fmt.Sprintf("%v/%v/%v:%v", os.Getenv("REGISTRY"), os.Getenv("PROJECT"), os.Getenv("VELERO_REPO"), os.Getenv("VELERO_TAG")),
 									ImagePullPolicy: corev1.PullAlways,
 									Ports: []corev1.ContainerPort{
 										{
@@ -582,3 +582,40 @@ func TestVeleroReconciler_buildVeleroDeployment(t *testing.T) {
 		})
 	}
 }
+
+// func TestVeleroReconciler_getVeleroPlugin(t *testing.T) {
+// 	type fields struct {
+// 		Client         client.Client
+// 		Scheme         *runtime.Scheme
+// 		Log            logr.Logger
+// 		Context        context.Context
+// 		NamespacedName types.NamespacedName
+// 		EventRecorder  record.EventRecorder
+// 	}
+// 	tests := []struct {
+// 		name     string
+// 		VeleroCR *oadpv1alpha1.Velero
+// 		secret   *corev1.Secret
+// 		want     bool
+// 		wantErr  bool
+// 	}{
+// 		{
+// 			name: "test no BSLs, no noobaa",
+// 			VeleroCR: &oadpv1alpha1.Velero{
+// 				ObjectMeta: metav1.ObjectMeta{
+// 					Name:      "foo",
+// 					Namespace: "test-ns",
+// 				},
+// 				Spec: oadpv1alpha1.VeleroSpec{},
+// 			},
+// 			want:    false,
+// 			wantErr: true,
+// 			secret: &corev1.Secret{
+// 				ObjectMeta: metav1.ObjectMeta{
+// 					Name:      "cloud-credentials",
+// 					Namespace: "test-ns",
+// 				},
+// 			},
+// 		},
+// 		{
+// 			name: "test BSLs specified, no noobaa",
