@@ -410,7 +410,10 @@ func (r *VeleroReconciler) customizeVeleroDeployment(velero *oadpv1alpha1.Velero
 				EmptyDir: &corev1.EmptyDirVolumeSource{},
 			},
 		})
-	//add any default init containers here if needed eg: setup-certificate-secret, please set the ImagePullPolicy to Always
+	//add any default init containers here if needed eg: setup-certificate-secret
+	// When you do this
+	// - please set the ImagePullPolicy to Always, and 
+	// - please also update the test
 	if veleroDeployment.Spec.Template.Spec.InitContainers == nil {
 		veleroDeployment.Spec.Template.Spec.InitContainers = []corev1.Container{}
 	}
