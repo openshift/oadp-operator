@@ -102,6 +102,10 @@ vet: ## Run go vet against code.
 test: manifests generate fmt vet envtest ## Run tests.
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" go test -mod=mod ./controllers/... -coverprofile cover.out
 
+ENVTEST = $(shell pwd)/bin/setup-envtest
+ci-test: ## This assumes "manifests generate fmt vet envtest" ran.
+	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" go test -mod=mod ./controllers/... -coverprofile cover.out
+
 
 ##@ Build
 
