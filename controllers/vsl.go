@@ -1,9 +1,9 @@
 package controllers
 
 import (
+	//"errors"
 	"fmt"
 	"github.com/go-logr/logr"
-	"errors"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -19,66 +19,60 @@ func (r *VeleroReconciler) ValidateVolumeSnapshotLocations(log logr.Logger) (boo
 	// TODO: For each VSL, confirm for each selected provider, we have the
 	// needed config values
 
-	//checking for empty values
-	if len(velero.Spec.VolumeSnapshotLocations) == 0 {
-		return false, errors.New("no VolumeSnapshotLocations configured, ensure a VolumeSnapshotLocation has been configured")
-	}
+	/*
+		for _, vslSpec := range velero.Spec.VolumeSnapshotLocations {
 
-	for _, vslSpec := range velero.Spec.VolumeSnapshotLocations {
+			//AWS
+			if vslSpec.Provider == "aws" {
 
-		//AWS
-		if(vslSpec.Provider == "aws"){
-			
-			//validation for AWS
-			//in AWS, region is a required field
-			if(len(vslSpec.Config["region"]) == 0){
-				return false, errors.New("region for AWS VSL is not configured, please ensure a region is configured")
+				//validation for AWS
+				//in AWS, region is a required field
+				if len(vslSpec.Config["region"]) == 0 {
+					return false, errors.New("region for AWS VSL is not configured, please ensure a region is configured")
+				}
+
+				//checking the aws plugin, if not present, throw warning message
+				if !contains(velero.Spec.DefaultVeleroPlugins, "aws") {
+					r.Log.Info("VSL for AWS specified, but AWS plugin not present, might be a misconfiguration")
+				}
+
+				//TODO: Add warn/error messages to Velero CR status field
 			}
 
-			//checking the aws plugin, if not present, throw warning message
-			if(!contains(velero.Spec.DefaultVeleroPlugins, "aws")){
-				r.Log.Info("VSL for AWS specified, but AWS plugin not present, might be a misconfiguration")
+			//GCP
+			if vslSpec.Provider == "gcp" {
+
+				//validation for GCP
+				if len(vslSpec.Config["region"]) == 0 {
+					r.Log.Info("region for GCP VSL is not configured, please check if a region might be needed")
+				}
+
+				//checking the gcp plugin, if not present, throw warning message
+				if !contains(velero.Spec.DefaultVeleroPlugins, "gcp") {
+					r.Log.Info("VSL for GCP specified, but GCP plugin not present, might be a misconfiguration")
+				}
+
+				//TODO: Add warn/error messages to Velero CR status field
+
 			}
 
-			//TODO: Add warn/error messages to Velero CR status field
-		}
-
-		//GCP
-		if(vslSpec.Provider == "gcp"){
-
-			//validation for GCP
-			if(len(vslSpec.Config["region"]) == 0){
-				r.Log.Info("region for GCP VSL is not configured, please check if a region might be needed")
-			}
-
-			//checking the gcp plugin, if not present, throw warning message
-			if(!contains(velero.Spec.DefaultVeleroPlugins, "gcp")){
-				r.Log.Info("VSL for GCP specified, but GCP plugin not present, might be a misconfiguration")
-			}
-
-			//TODO: Add warn/error messages to Velero CR status field
-
-		}
-
-		//Azure
-		if(vslSpec.Provider == "azure"){
+			//Azure
+			if vslSpec.Provider == "azure" {
 
 			//validation for Azure
-			if(len(vslSpec.Config["region"]) == 0){
+			if len(vslSpec.Config["region"]) == 0 {
 				r.Log.Info("region for Azure VSL is not configured, please check if a region might be needed")
 			}
 
-			//checking the azure plugin, if not present, throw warning message
-			if(!contains(velero.Spec.DefaultVeleroPlugins, "azure")){
-				r.Log.Info("VSL for Azure specified, but Azure plugin not present, might be a misconfiguration")
+				//checking the azure plugin, if not present, throw warning message
+				if !contains(velero.Spec.DefaultVeleroPlugins, "azure") {
+					r.Log.Info("VSL for Azure specified, but Azure plugin not present, might be a misconfiguration")
+				}
+
+				//TODO: Add warn/error messages to Velero CR status field
 			}
 
-			//TODO: Add warn/error messages to Velero CR status field
-		}
-
-
-	}
-
+		}*/
 
 	return true, nil
 }
@@ -135,7 +129,7 @@ func (r *VeleroReconciler) ReconcileVolumeSnapshotLocations(log logr.Logger) (bo
 
 func contains(d []oadpv1alpha1.DefaultPlugin, value string) bool {
 	for _, elem := range d {
-		if string(elem) == value{
+		if string(elem) == value {
 			return true
 		}
 	}

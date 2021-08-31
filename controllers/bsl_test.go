@@ -632,3 +632,89 @@ func TestVeleroReconciler_updateBSLFromSpec(t *testing.T) {
 		})
 	}
 }
+
+func TestVeleroReconciler_ensureBSLProviderMapping(t *testing.T) {
+	type fields struct {
+		Client         client.Client
+		Scheme         *runtime.Scheme
+		Log            logr.Logger
+		Context        context.Context
+		NamespacedName types.NamespacedName
+		EventRecorder  record.EventRecorder
+	}
+	type args struct {
+		velero *oadpv1alpha1.Velero
+	}
+	tests := []struct {
+		name     string
+		VeleroCR *oadpv1alpha1.Velero
+		wantErr  bool
+	}{
+		{
+			name: "one bsl configured per provider",
+			VeleroCR: &oadpv1alpha1.Velero{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.VeleroSpec{
+					BackupStorageLocations: []velerov1.BackupStorageLocationSpec{
+						{
+							Provider: "aws",
+						},
+						{
+							Provider: "azure",
+						},
+						{
+							Provider: "gcp",
+						},
+						{
+							Provider: "thirdpary-objectstorage-provider",
+						},
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "two bsl configured for aws provider",
+			VeleroCR: &oadpv1alpha1.Velero{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.VeleroSpec{
+					BackupStorageLocations: []velerov1.BackupStorageLocationSpec{
+						{
+							Provider: "aws",
+						},
+						{
+							Provider: "azure",
+						},
+						{
+							Provider: "aws",
+						},
+						{
+							Provider: "thirdpary-objectstorage-provider",
+						},
+					},
+				},
+			},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			scheme, err := getSchemeForFakeClient()
+			if err != nil {
+				t.Errorf("error getting scheme for the test: %#v", err)
+			}
+			r := &VeleroReconciler{
+				Scheme: scheme,
+			}
+			if err := r.ensureBSLProviderMapping(tt.VeleroCR); (err != nil) != tt.wantErr {
+				t.Errorf("ensureBSLProviderMapping() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
