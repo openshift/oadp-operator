@@ -391,11 +391,11 @@ func (r *VeleroReconciler) buildVeleroDeployment(veleroDeployment *appsv1.Deploy
 		install.WithSecret(false),
 	)
 	// adjust veleroDeployment from install
-	return r.customizeVeleroDeployment(velero, veleroDeployment, deploymentName) //reapply saved deploymentName
+	veleroDeployment.Name = deploymentName //reapply saved deploymentName
+	return r.customizeVeleroDeployment(velero, veleroDeployment)
 }
 
-func (r *VeleroReconciler) customizeVeleroDeployment(velero *oadpv1alpha1.Velero, veleroDeployment *appsv1.Deployment, deploymentName string) error {
-	veleroDeployment.Name = deploymentName
+func (r *VeleroReconciler) customizeVeleroDeployment(velero *oadpv1alpha1.Velero, veleroDeployment *appsv1.Deployment) error {
 	veleroDeployment.Labels = r.getAppLabels(velero)
 	veleroDeployment.Spec.Selector = veleroLabelSelector
 
@@ -410,7 +410,7 @@ func (r *VeleroReconciler) customizeVeleroDeployment(velero *oadpv1alpha1.Velero
 				EmptyDir: &corev1.EmptyDirVolumeSource{},
 			},
 		})
-	//add any default init containers here if needed eg: setup-certificate-secret
+	//add any default init containers here if needed eg: setup-certificate-secret, please set the ImagePullPolicy to Always
 	if veleroDeployment.Spec.Template.Spec.InitContainers == nil {
 		veleroDeployment.Spec.Template.Spec.InitContainers = []corev1.Container{}
 	}
@@ -430,7 +430,6 @@ func (r *VeleroReconciler) customizeVeleroDeployment(velero *oadpv1alpha1.Velero
 
 func (r *VeleroReconciler) customizeVeleroContainer(velero *oadpv1alpha1.Velero, veleroDeployment *appsv1.Deployment, veleroContainer *corev1.Container) error {
 	if veleroContainer == nil {
-		r.EventRecorder.Event(veleroDeployment, corev1.EventTypeWarning, "VeleroContainerNotFound", "Unable to find velero container for configuration")
 		return fmt.Errorf("could not find velero container in Deployment")
 	}
 
@@ -460,6 +459,7 @@ func (r *VeleroReconciler) customizeVeleroContainer(velero *oadpv1alpha1.Velero,
 	if len(velero.Spec.ResticTimeout) > 0 {
 		resticTimeout = velero.Spec.ResticTimeout
 	}
+	// Append restic timeout option manually. Not configurable via install package, missing from podTemplateConfig struct. See: https://github.com/vmware-tanzu/velero/blob/8d57215ded1aa91cdea2cf091d60e072ce3f340f/pkg/install/deployment.go#L34-L45
 	veleroContainer.Args = append(veleroContainer.Args, fmt.Sprintf("--restic-timeout=%s", resticTimeout))
 
 	return nil

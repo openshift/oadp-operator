@@ -99,7 +99,7 @@ func TestVeleroReconciler_buildVeleroDeployment(t *testing.T) {
 				},
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "Deployment",
-					APIVersion: "apps/v1",
+					APIVersion: appsv1.SchemeGroupVersion.String(),
 				},
 				Spec: appsv1.DeploymentSpec{
 					Selector: veleroLabelSelector,
@@ -223,7 +223,7 @@ func TestVeleroReconciler_buildVeleroDeployment(t *testing.T) {
 				},
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "Deployment",
-					APIVersion: "apps/v1",
+					APIVersion: appsv1.SchemeGroupVersion.String(),
 				},
 				Spec: appsv1.DeploymentSpec{
 					Selector: veleroLabelSelector,
@@ -261,7 +261,7 @@ func TestVeleroReconciler_buildVeleroDeployment(t *testing.T) {
 				},
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "Deployment",
-					APIVersion: "apps/v1",
+					APIVersion: appsv1.SchemeGroupVersion.String(),
 				},
 				Spec: appsv1.DeploymentSpec{
 					Selector: veleroLabelSelector,
@@ -412,7 +412,7 @@ func TestVeleroReconciler_buildVeleroDeployment(t *testing.T) {
 				},
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "Deployment",
-					APIVersion: "apps/v1",
+					APIVersion: appsv1.SchemeGroupVersion.String(),
 				},
 				Spec: appsv1.DeploymentSpec{
 					Selector: veleroLabelSelector,
