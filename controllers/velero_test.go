@@ -120,7 +120,7 @@ func TestVeleroReconciler_buildVeleroDeployment(t *testing.T) {
 								{
 									Name:            common.Velero,
 									Image:           getVeleroImage(),
-									ImagePullPolicy: corev1.PullIfNotPresent,
+									ImagePullPolicy: corev1.PullAlways,
 									Ports: []corev1.ContainerPort{
 										{
 											Name:          "metrics",
@@ -282,7 +282,7 @@ func TestVeleroReconciler_buildVeleroDeployment(t *testing.T) {
 								{
 									Name:            common.Velero,
 									Image:           getVeleroImage(),
-									ImagePullPolicy: corev1.PullIfNotPresent,
+									ImagePullPolicy: corev1.PullAlways,
 									Ports: []corev1.ContainerPort{
 										{
 											Name:          "metrics",
@@ -433,7 +433,7 @@ func TestVeleroReconciler_buildVeleroDeployment(t *testing.T) {
 								{
 									Name:            common.Velero,
 									Image:           getVeleroImage(),
-									ImagePullPolicy: corev1.PullIfNotPresent,
+									ImagePullPolicy: corev1.PullAlways,
 									Ports: []corev1.ContainerPort{
 										{
 											Name:          "metrics",

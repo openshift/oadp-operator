@@ -412,7 +412,7 @@ func (r *VeleroReconciler) customizeVeleroDeployment(velero *oadpv1alpha1.Velero
 		})
 	//add any default init containers here if needed eg: setup-certificate-secret
 	// When you do this
-	// - please set the ImagePullPolicy to Always, and 
+	// - please set the ImagePullPolicy to Always, and
 	// - please also update the test
 	if veleroDeployment.Spec.Template.Spec.InitContainers == nil {
 		veleroDeployment.Spec.Template.Spec.InitContainers = []corev1.Container{}
@@ -435,7 +435,7 @@ func (r *VeleroReconciler) customizeVeleroContainer(velero *oadpv1alpha1.Velero,
 	if veleroContainer == nil {
 		return fmt.Errorf("could not find velero container in Deployment")
 	}
-
+	veleroContainer.ImagePullPolicy = corev1.PullAlways
 	veleroContainer.VolumeMounts = append(veleroContainer.VolumeMounts,
 		corev1.VolumeMount{
 			Name:      "certs",
