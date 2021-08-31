@@ -228,11 +228,7 @@ func (r *VeleroReconciler) ensureBSLProviderMapping(velero *oadpv1alpha1.Velero)
 	for _, bsl := range velero.Spec.BackupStorageLocations {
 		provider := bsl.Provider
 
-		if providerBSLMap[provider] == 0 {
-			providerBSLMap[provider] = 1
-		} else {
-			providerBSLMap[provider]++
-		}
+		providerBSLMap[provider]++
 
 		if providerBSLMap[provider] > 1 {
 			return fmt.Errorf("more than one backupstoragelocations configured for provider %s ", provider)
