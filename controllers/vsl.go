@@ -59,10 +59,10 @@ func (r *VeleroReconciler) ValidateVolumeSnapshotLocations(log logr.Logger) (boo
 			//Azure
 			if vslSpec.Provider == "azure" {
 
-				//validation for Azure
-				if len(vslSpec.Config["region"]) == 0 {
-					r.Log.Info("region for Azure VSL is not configured, please check if a region might be needed")
-				}
+			//validation for Azure
+			if len(vslSpec.Config["region"]) == 0 {
+				r.Log.Info("region for Azure VSL is not configured, please check if a region might be needed")
+			}
 
 				//checking the azure plugin, if not present, throw warning message
 				if !contains(velero.Spec.DefaultVeleroPlugins, "azure") {

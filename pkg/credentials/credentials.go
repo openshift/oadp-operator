@@ -133,11 +133,11 @@ func getPluginImage(pluginName string, velero *oadpv1alpha1.Velero) string {
 }
 
 func AppendCloudProviderVolumes(velero *oadpv1alpha1.Velero, ds *appsv1.DaemonSet) error {
-	var veleroContainer *corev1.Container
+	var resticContainer *corev1.Container
 	// Find Velero container
 	for i, container := range ds.Spec.Template.Spec.Containers {
-		if container.Name == common.Velero {
-			veleroContainer = &ds.Spec.Template.Spec.Containers[i]
+		if container.Name == common.Restic {
+			resticContainer = &ds.Spec.Template.Spec.Containers[i]
 		}
 	}
 	for _, plugin := range velero.Spec.DefaultVeleroPlugins {
@@ -149,48 +149,53 @@ func AppendCloudProviderVolumes(velero *oadpv1alpha1.Velero, ds *appsv1.DaemonSe
 			if !cloudProviderMap.IsCloudProvider {
 				continue
 			}
+
+			// default secret name
+			secretName := cloudProviderMap.SecretName
+
+			// check if secret name is specified in BSL config and use it instead of the default one; Note: assuming one BSL per provider
+			for _, bsl := range velero.Spec.BackupStorageLocations {
+				if bsl.Provider == string(plugin) && bsl.Credential != nil && len(bsl.Credential.Name) > 0 {
+					secretName = bsl.Credential.Name
+					continue
+				}
+			}
+
 			ds.Spec.Template.Spec.Volumes = append(
 				ds.Spec.Template.Spec.Volumes,
 				corev1.Volume{
-					Name: cloudProviderMap.SecretName,
+					Name: secretName,
 					VolumeSource: corev1.VolumeSource{
 						Secret: &corev1.SecretVolumeSource{
-							SecretName: cloudProviderMap.SecretName,
+							SecretName: secretName,
 						},
 					},
 				},
 			)
-			veleroContainer.VolumeMounts = append(
-				veleroContainer.VolumeMounts,
-				corev1.VolumeMount{
-					Name:      cloudProviderMap.SecretName,
-					MountPath: cloudProviderMap.MountPath,
-					//TODO: Check if MountPropagation is needed for plugin specific volume mounts
-					MountPropagation: &mountPropagationToHostContainer,
-				},
-			)
-			veleroContainer.Env = append(
-				veleroContainer.Env,
-				corev1.EnvVar{
-					Name:  cloudProviderMap.EnvCredentialsFile,
-					Value: cloudProviderMap.MountPath + "/" + cloudFieldPath,
-				},
-			)
+			if resticContainer != nil {
+				resticContainer.VolumeMounts = append(
+					resticContainer.VolumeMounts,
+					corev1.VolumeMount{
+						Name:      secretName,
+						MountPath: cloudProviderMap.MountPath,
+					},
+				)
+				resticContainer.Env = append(
+					resticContainer.Env,
+					corev1.EnvVar{
+						Name:  cloudProviderMap.EnvCredentialsFile,
+						Value: cloudProviderMap.MountPath + "/" + cloudFieldPath,
+					},
+				)
+			}
+
 		}
 	}
 	return nil
 }
 
 // add plugin specific specs to velero deployment
-func AppendPluginSpecificSpecs(velero *oadpv1alpha1.Velero, veleroDeployment *appsv1.Deployment) error {
-	var veleroContainer *corev1.Container
-
-	for i, container := range veleroDeployment.Spec.Template.Spec.Containers {
-		if container.Name == common.Velero {
-			veleroContainer = &veleroDeployment.Spec.Template.Spec.Containers[i]
-		}
-	}
-
+func AppendPluginSpecificSpecs(velero *oadpv1alpha1.Velero, veleroDeployment *appsv1.Deployment, veleroContainer *corev1.Container) error {
 	for _, plugin := range velero.Spec.DefaultVeleroPlugins {
 		if pluginSpecificMap, ok := PluginSpecificFields[plugin]; ok {
 			veleroDeployment.Spec.Template.Spec.InitContainers = append(
@@ -212,12 +217,23 @@ func AppendPluginSpecificSpecs(velero *oadpv1alpha1.Velero, veleroDeployment *ap
 			if !pluginSpecificMap.IsCloudProvider {
 				continue
 			}
+			// set default secret name to use
+			secretName := pluginSpecificMap.SecretName
+			// Grab secret name from BSL for this cloud provider plugin
+			for _, bsl := range velero.Spec.BackupStorageLocations {
+				if bsl.Provider == string(plugin) {
+					if bsl.Credential != nil && len(bsl.Credential.Name) > 0 {
+						secretName = bsl.Credential.Name
+					}
+					continue
+				}
+			}
 			// append plugin specific volume mounts
 			if veleroContainer != nil {
 				veleroContainer.VolumeMounts = append(
 					veleroContainer.VolumeMounts,
 					corev1.VolumeMount{
-						Name:      pluginSpecificMap.SecretName,
+						Name:      secretName,
 						MountPath: pluginSpecificMap.MountPath,
 					})
 
@@ -234,10 +250,10 @@ func AppendPluginSpecificSpecs(velero *oadpv1alpha1.Velero, veleroDeployment *ap
 			veleroDeployment.Spec.Template.Spec.Volumes = append(
 				veleroDeployment.Spec.Template.Spec.Volumes,
 				corev1.Volume{
-					Name: pluginSpecificMap.SecretName,
+					Name: secretName,
 					VolumeSource: corev1.VolumeSource{
 						Secret: &corev1.SecretVolumeSource{
-							SecretName: pluginSpecificMap.SecretName,
+							SecretName: secretName,
 						},
 					},
 				})

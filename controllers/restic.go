@@ -5,13 +5,14 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/openshift/oadp-operator/pkg/common"
+	"github.com/vmware-tanzu/velero/pkg/install"
+
 	"github.com/go-logr/logr"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
-	"github.com/openshift/oadp-operator/pkg/common"
 	"github.com/openshift/oadp-operator/pkg/credentials"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -23,6 +24,7 @@ import (
 const (
 	Restic                = "restic"
 	ResticRestoreHelperCM = "restic-restore-action-config"
+	HostPods              = "host-pods"
 )
 
 var (
@@ -31,7 +33,13 @@ var (
 	// v1.MountPropagationHostToContainer is a const. Const cannot be pointed to.
 	// we need to declare mountPropagationToHostContainer so that we have an address to point to
 	// for ds.Spec.Template.Spec.Volumes[].Containers[].VolumeMounts[].MountPropagation
-	mountPropagationToHostContainer = v1.MountPropagationHostToContainer
+	mountPropagationToHostContainer = corev1.MountPropagationHostToContainer
+	resticLabelSelector             = &metav1.LabelSelector{
+		MatchLabels: map[string]string{
+			"component": common.Velero,
+			"name":      common.Restic,
+		},
+	}
 )
 
 func getResticPvHostPath() string {
@@ -46,6 +54,9 @@ func getResticObjectMeta(r *VeleroReconciler) metav1.ObjectMeta {
 	return metav1.ObjectMeta{
 		Name:      Restic,
 		Namespace: r.NamespacedName.Namespace,
+		Labels: map[string]string{
+			"component": "velero",
+		},
 	}
 }
 
@@ -76,10 +87,10 @@ func (r *VeleroReconciler) ReconcileResticDaemonset(log logr.Logger) (bool, erro
 		deleteOptionPropagationForeground := metav1.DeletePropagationForeground
 		if err := r.Delete(deleteContext, ds, &client.DeleteOptions{PropagationPolicy: &deleteOptionPropagationForeground}); err != nil {
 			// TODO: Come back and fix event recording to be consistent
-			r.EventRecorder.Event(ds, v1.EventTypeNormal, "DeleteDaemonSetFailed", "Got DaemonSet to delete but could not delete err:"+err.Error())
+			r.EventRecorder.Event(ds, corev1.EventTypeNormal, "DeleteDaemonSetFailed", "Got DaemonSet to delete but could not delete err:"+err.Error())
 			return false, err
 		}
-		r.EventRecorder.Event(ds, v1.EventTypeNormal, "DeletedDaemonSet", "DaemonSet deleted")
+		r.EventRecorder.Event(ds, corev1.EventTypeNormal, "DeletedDaemonSet", "DaemonSet deleted")
 
 		return true, nil
 	}
@@ -88,11 +99,7 @@ func (r *VeleroReconciler) ReconcileResticDaemonset(log logr.Logger) (bool, erro
 		// Deployment selector is immutable so we set this value only if
 		// a new object is going to be created
 		if ds.ObjectMeta.CreationTimestamp.IsZero() {
-			ds.Spec.Selector = &metav1.LabelSelector{
-				MatchLabels: map[string]string{
-					"component": Restic,
-				},
-			}
+			ds.Spec.Selector = resticLabelSelector
 		}
 
 		if err := controllerutil.SetControllerReference(&velero, ds, r.Scheme); err != nil {
@@ -112,7 +119,7 @@ func (r *VeleroReconciler) ReconcileResticDaemonset(log logr.Logger) (bool, erro
 	if op == controllerutil.OperationResultCreated || op == controllerutil.OperationResultUpdated {
 		// Trigger event to indicate restic was created or updated
 		r.EventRecorder.Event(ds,
-			v1.EventTypeNormal,
+			corev1.EventTypeNormal,
 			"ResticDaemonsetReconciled",
 			fmt.Sprintf("performed %s on restic deployment %s/%s", op, ds.Namespace, ds.Name),
 		)
@@ -134,125 +141,91 @@ func (r *VeleroReconciler) buildResticDaemonset(velero *oadpv1alpha1.Velero, ds 
 	if ds == nil {
 		return nil, fmt.Errorf("ds cannot be nil")
 	}
-	ds.Spec = appsv1.DaemonSetSpec{
-		Selector: ds.Spec.Selector,
-		UpdateStrategy: appsv1.DaemonSetUpdateStrategy{
-			Type: appsv1.RollingUpdateDaemonSetStrategyType,
-		},
-		Template: v1.PodTemplateSpec{
-			ObjectMeta: metav1.ObjectMeta{
-				Labels: map[string]string{
-					"component": Restic,
-				},
-			},
-			Spec: v1.PodSpec{
-				NodeSelector:       velero.Spec.ResticNodeSelector,
-				ServiceAccountName: common.Velero,
-				SecurityContext: &v1.PodSecurityContext{
-					RunAsUser:          pointer.Int64(0),
-					SupplementalGroups: velero.Spec.ResticSupplementalGroups,
-				},
-				Volumes: []v1.Volume{
-					// Cloud Provider volumes are dynamically added in the for loop below
-					{
-						Name: "host-pods",
-						VolumeSource: v1.VolumeSource{
-							HostPath: &v1.HostPathVolumeSource{
-								Path: resticPvHostPath,
-							},
-						},
-					},
-					{
-						Name: "scratch",
-						VolumeSource: v1.VolumeSource{
-							EmptyDir: &v1.EmptyDirVolumeSource{},
-						},
-					},
-					{
-						Name: "certs",
-						VolumeSource: v1.VolumeSource{
-							EmptyDir: &v1.EmptyDirVolumeSource{},
-						},
-					},
-				},
-				Tolerations: velero.Spec.ResticTolerations,
-				Containers: []v1.Container{
-					{
-						Name: common.Velero,
-						SecurityContext: &v1.SecurityContext{
-							Privileged: pointer.Bool(true),
-						},
-						Image:           getVeleroImage(velero),
-						ImagePullPolicy: v1.PullAlways,
-						Resources:       r.getVeleroResourceReqs(velero), //setting default.
-						Command: []string{
-							"/velero",
-						},
-						Args: []string{
-							"restic",
-							"server",
-						},
-						VolumeMounts: []v1.VolumeMount{
-							{
-								Name:             "host-pods",
-								MountPath:        "/host_pods",
-								MountPropagation: &mountPropagationToHostContainer,
-							},
-							{
-								Name:      "scratch",
-								MountPath: "/scratch",
-							},
-							{
-								Name:      "certs",
-								MountPath: "/etc/ssl/certs",
-							},
-						},
-						Env: []v1.EnvVar{
-							{
-								Name:  "HTTP_PROXY",
-								Value: os.Getenv("HTTP_PROXY"),
-							},
-							{
-								Name:  "HTTPS_PROXY",
-								Value: os.Getenv("HTTPS_PROXY"),
-							},
-							{
-								Name:  "NO_PROXY",
-								Value: os.Getenv("NO_PROXY"),
-							},
-							{
-								Name: "NODE_NAME",
-								ValueFrom: &v1.EnvVarSource{
-									FieldRef: &v1.ObjectFieldSelector{
-										FieldPath: "spec.nodeName",
-									},
-								},
-							},
-							{
-								Name: "POD_NAME",
-								ValueFrom: &v1.EnvVarSource{
-									FieldRef: &v1.ObjectFieldSelector{
-										FieldPath: "metadata.name"},
-								},
-							},
-							{
-								Name: "VELERO_NAMESPACE",
-								ValueFrom: &v1.EnvVarSource{
-									FieldRef: &v1.ObjectFieldSelector{
-										FieldPath: "metadata.namespace",
-									},
-								},
-							},
-							{
-								Name:  "VELERO_SCRATCH_DIR",
-								Value: "/scratch",
-							},
-						},
-					},
-				},
-			},
-		},
+
+	resticDaemonSetName := ds.Name
+
+	*ds = *install.DaemonSet(ds.Namespace,
+		install.WithResources(r.getVeleroResourceReqs(velero)),
+		install.WithImage(getResticImage()),
+		install.WithSecret(false))
+
+	ds.Name = resticDaemonSetName
+	return r.customizeResticDaemonset(velero, ds)
+}
+
+func (r *VeleroReconciler) customizeResticDaemonset(velero *oadpv1alpha1.Velero, ds *appsv1.DaemonSet) (*appsv1.DaemonSet, error) {
+
+	// customize specs
+	ds.Spec.Selector = resticLabelSelector
+	ds.Spec.UpdateStrategy = appsv1.DaemonSetUpdateStrategy{
+		Type: appsv1.RollingUpdateDaemonSetStrategyType,
 	}
+
+	// customize template specs
+	ds.Spec.Template.Spec.NodeSelector = velero.Spec.ResticNodeSelector
+
+	ds.Spec.Template.Spec.SecurityContext = &corev1.PodSecurityContext{
+		RunAsUser:          pointer.Int64(0),
+		SupplementalGroups: velero.Spec.ResticSupplementalGroups,
+	}
+
+	// append certs volume
+	ds.Spec.Template.Spec.Volumes = append(ds.Spec.Template.Spec.Volumes,
+		corev1.Volume{
+			Name: "certs",
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{},
+			},
+		})
+
+	// update restic host PV path
+	for i, vol := range ds.Spec.Template.Spec.Volumes {
+		if vol.Name == HostPods {
+			ds.Spec.Template.Spec.Volumes[i].HostPath.Path = getResticPvHostPath()
+		}
+	}
+
+	ds.Spec.Template.Spec.Tolerations = velero.Spec.VeleroTolerations
+
+	// fetch restic container in order to customize it
+	var resticContainer *corev1.Container
+	for i, container := range ds.Spec.Template.Spec.Containers {
+		if container.Name == Restic {
+			resticContainer = &ds.Spec.Template.Spec.Containers[i]
+			break
+		}
+	}
+
+	if resticContainer != nil {
+		// append certs volume mount
+		resticContainer.VolumeMounts = append(resticContainer.VolumeMounts, corev1.VolumeMount{
+			Name:      "certs",
+			MountPath: "/etc/ssl/certs",
+		})
+
+		// append env vars to the restic container
+		resticContainer.Env = append(resticContainer.Env,
+			corev1.EnvVar{
+				Name:  common.HTTPProxyEnvVar,
+				Value: os.Getenv("HTTP_PROXY"),
+			},
+			corev1.EnvVar{
+				Name:  common.HTTPSProxyEnvVar,
+				Value: os.Getenv("HTTPS_PROXY"),
+			},
+			corev1.EnvVar{
+				Name:  common.NoProxyEnvVar,
+				Value: os.Getenv("NO_PROXY"),
+			},
+		)
+
+		resticContainer.SecurityContext = &corev1.SecurityContext{
+			Privileged: pointer.Bool(true),
+		}
+
+		resticContainer.ImagePullPolicy = corev1.PullAlways
+	}
+
 	if err := credentials.AppendCloudProviderVolumes(velero, ds); err != nil {
 		return nil, err
 	}

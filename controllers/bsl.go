@@ -21,6 +21,12 @@ func (r *VeleroReconciler) ValidateBackupStorageLocations(log logr.Logger) (bool
 	if len(velero.Spec.BackupStorageLocations) == 0 && !velero.Spec.Noobaa {
 		return false, errors.New("no backupstoragelocations configured, ensure a backupstoragelocation or noobaa has been configured")
 	}
+
+	// Ensure BSL:Provider has a 1:1 mapping
+	if err := r.ensureBSLProviderMapping(&velero); err != nil {
+		return false, err
+	}
+
 	// Ensure BSL is a valid configuration
 	// First, check for provider and then call functions based on the cloud provider for each backupstoragelocation configured
 	for _, bslSpec := range velero.Spec.BackupStorageLocations {
@@ -212,6 +218,22 @@ func (r *VeleroReconciler) validateProviderPluginAndSecret(bslSpec velerov1.Back
 	if err != nil {
 		r.Log.Info(fmt.Sprintf("error validating AWS provider secret:  %s/%s", r.NamespacedName.Namespace, secretName))
 		return err
+	}
+	return nil
+}
+
+func (r *VeleroReconciler) ensureBSLProviderMapping(velero *oadpv1alpha1.Velero) error {
+
+	providerBSLMap := map[string]int{}
+	for _, bsl := range velero.Spec.BackupStorageLocations {
+		provider := bsl.Provider
+
+		providerBSLMap[provider]++
+
+		if providerBSLMap[provider] > 1 {
+			return fmt.Errorf("more than one backupstoragelocations configured for provider %s ", provider)
+		}
+
 	}
 	return nil
 }
