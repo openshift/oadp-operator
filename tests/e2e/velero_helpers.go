@@ -95,6 +95,7 @@ func (v *veleroCustomResource) SetClient() error {
 		return err
 	}
 	oadpv1alpha1.AddToScheme(client.Scheme())
+	velero.AddToScheme(client.Scheme())
 
 	v.Client = client
 	return nil
