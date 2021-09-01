@@ -19,4 +19,4 @@ COPY controllers/ controllers/
 COPY tests/ tests/
 COPY hack/ hack/
 
-RUN make manifests generate fmt vet envtests
+RUN make manifests generate fmt vet envtest
