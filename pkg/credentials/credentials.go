@@ -105,7 +105,7 @@ func getAzurePluginImage(velero *oadpv1alpha1.Velero) string {
 	if velero.Spec.UnsupportedOverrides[oadpv1alpha1.AzurePluginImageKey] != "" {
 		return velero.Spec.UnsupportedOverrides[oadpv1alpha1.AzurePluginImageKey]
 	}
-	if os.Getenv("VELERO_OPENSHIFT_PLUGIN_REPO") == "" {
+	if os.Getenv("VELERO_AZURE_PLUGIN_REPO") == "" {
 		return common.AzurePluginImage
 	}
 	return fmt.Sprintf("%v/%v/%v:%v", os.Getenv("REGISTRY"), os.Getenv("PROJECT"), os.Getenv("VELERO_AZURE_PLUGIN_REPO"), os.Getenv("VELERO_AZURE_PLUGIN_TAG"))

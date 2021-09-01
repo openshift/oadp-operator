@@ -2,7 +2,6 @@ package controllers
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"reflect"
 	"testing"
@@ -134,7 +133,7 @@ func TestVeleroReconciler_buildVeleroDeployment(t *testing.T) {
 							Containers: []corev1.Container{
 								{
 									Name:            common.Velero,
-									Image:           fmt.Sprintf("%v/%v/%v:%v", os.Getenv("REGISTRY"), os.Getenv("PROJECT"), os.Getenv("VELERO_REPO"), os.Getenv("VELERO_TAG")),
+									Image:           common.VeleroImage,
 									ImagePullPolicy: corev1.PullAlways,
 									Ports: []corev1.ContainerPort{
 										{
@@ -294,7 +293,7 @@ func TestVeleroReconciler_buildVeleroDeployment(t *testing.T) {
 							Containers: []corev1.Container{
 								{
 									Name:            common.Velero,
-									Image:           fmt.Sprintf("%v/%v/%v:%v", os.Getenv("REGISTRY"), os.Getenv("PROJECT"), os.Getenv("VELERO_REPO"), os.Getenv("VELERO_TAG")),
+									Image:           common.VeleroImage,
 									ImagePullPolicy: corev1.PullAlways,
 									Ports: []corev1.ContainerPort{
 										{
@@ -447,7 +446,7 @@ func TestVeleroReconciler_buildVeleroDeployment(t *testing.T) {
 							Containers: []corev1.Container{
 								{
 									Name:            common.Velero,
-									Image:           fmt.Sprintf("%v/%v/%v:%v", os.Getenv("REGISTRY"), os.Getenv("PROJECT"), os.Getenv("VELERO_REPO"), os.Getenv("VELERO_TAG")),
+									Image:           common.VeleroImage,
 									ImagePullPolicy: corev1.PullAlways,
 									Ports: []corev1.ContainerPort{
 										{
@@ -550,7 +549,7 @@ func TestVeleroReconciler_buildVeleroDeployment(t *testing.T) {
 							},
 							InitContainers: []corev1.Container{
 								{
-									Image:                    fmt.Sprintf("%v/%v/%v:%v", os.Getenv("REGISTRY"), os.Getenv("PROJECT"), os.Getenv("VELERO_AWS_PLUGIN_REPO"), os.Getenv("VELERO_AWS_PLUGIN_TAG")),
+									Image:                    common.AWSPluginImage,
 									Name:                     common.VeleroPluginForAWS,
 									ImagePullPolicy:          corev1.PullAlways,
 									Resources:                corev1.ResourceRequirements{},
@@ -583,39 +582,71 @@ func TestVeleroReconciler_buildVeleroDeployment(t *testing.T) {
 	}
 }
 
-// func TestVeleroReconciler_getVeleroPlugin(t *testing.T) {
-// 	type fields struct {
-// 		Client         client.Client
-// 		Scheme         *runtime.Scheme
-// 		Log            logr.Logger
-// 		Context        context.Context
-// 		NamespacedName types.NamespacedName
-// 		EventRecorder  record.EventRecorder
-// 	}
-// 	tests := []struct {
-// 		name     string
-// 		VeleroCR *oadpv1alpha1.Velero
-// 		secret   *corev1.Secret
-// 		want     bool
-// 		wantErr  bool
-// 	}{
-// 		{
-// 			name: "test no BSLs, no noobaa",
-// 			VeleroCR: &oadpv1alpha1.Velero{
-// 				ObjectMeta: metav1.ObjectMeta{
-// 					Name:      "foo",
-// 					Namespace: "test-ns",
-// 				},
-// 				Spec: oadpv1alpha1.VeleroSpec{},
-// 			},
-// 			want:    false,
-// 			wantErr: true,
-// 			secret: &corev1.Secret{
-// 				ObjectMeta: metav1.ObjectMeta{
-// 					Name:      "cloud-credentials",
-// 					Namespace: "test-ns",
-// 				},
-// 			},
-// 		},
-// 		{
-// 			name: "test BSLs specified, no noobaa",
+func TestVeleroReconciler_getVeleroImage(t *testing.T) {
+	tests := []struct {
+		name       string
+		VeleroCR   *oadpv1alpha1.Velero
+		pluginName string
+		wantImage  string
+		setEnvVars map[string]string
+	}{
+		{
+			name: "given Velero image override, custom Velero image should be returned",
+			VeleroCR: &oadpv1alpha1.Velero{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-Velero-CR",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.VeleroSpec{
+					UnsupportedOverrides: map[oadpv1alpha1.UnsupportedImageKey]string{
+						oadpv1alpha1.VeleroImageKey: "test-image",
+					},
+				},
+			},
+			pluginName: common.Velero,
+			wantImage:  "test-image",
+			setEnvVars: make(map[string]string),
+		},
+		{
+			name: "given default Velero CR with no env var, default velero image should be returned",
+			VeleroCR: &oadpv1alpha1.Velero{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-Velero-CR",
+					Namespace: "test-ns",
+				},
+			},
+			pluginName: common.Velero,
+			wantImage:  common.VeleroImage,
+			setEnvVars: make(map[string]string),
+		},
+		{
+			name: "given default Velero CR with env var set, image should be built via env vars",
+			VeleroCR: &oadpv1alpha1.Velero{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-Velero-CR",
+					Namespace: "test-ns",
+				},
+			},
+			pluginName: common.Velero,
+			wantImage:  "quay.io/konveyor/velero:latest",
+			setEnvVars: map[string]string{
+				"REGISTRY":               "quay.io",
+				"PROJECT":                "konveyor",
+				"VELERO_AWS_PLUGIN_REPO": "velero",
+				"VELERO_AWS_PLUGIN_TAG":  "latest",
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			for key, value := range tt.setEnvVars {
+				os.Setenv(key, value)
+				defer os.Unsetenv(key)
+			}
+			gotImage := getVeleroImage(tt.VeleroCR)
+			if gotImage != tt.wantImage {
+				t.Errorf("Expected plugin image %v did not match %v", tt.wantImage, gotImage)
+			}
+		})
+	}
+}
