@@ -127,7 +127,7 @@ func TestVeleroReconciler_buildResticDaemonset(t *testing.T) {
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: map[string]string{
 								"component": common.Velero,
-								"name":      "restic",
+								"name":      common.Restic,
 							},
 						},
 						Spec: corev1.PodSpec{
@@ -140,7 +140,7 @@ func TestVeleroReconciler_buildResticDaemonset(t *testing.T) {
 							Volumes: []corev1.Volume{
 								// Cloud Provider volumes are dynamically added in the for loop below
 								{
-									Name: "host-pods",
+									Name: HostPods,
 									VolumeSource: corev1.VolumeSource{
 										HostPath: &corev1.HostPathVolumeSource{
 											Path: resticPvHostPath,
@@ -262,7 +262,7 @@ func TestVeleroReconciler_buildResticDaemonset(t *testing.T) {
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: map[string]string{
 								"component": common.Velero,
-								"name":      "restic",
+								"name":      common.Restic,
 							},
 						},
 						Spec: corev1.PodSpec{
@@ -434,7 +434,7 @@ func TestVeleroReconciler_buildResticDaemonset(t *testing.T) {
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: map[string]string{
 								"component": common.Velero,
-								"name":      "restic",
+								"name":      common.Restic,
 							},
 						},
 						Spec: corev1.PodSpec{
@@ -447,7 +447,7 @@ func TestVeleroReconciler_buildResticDaemonset(t *testing.T) {
 							Volumes: []corev1.Volume{
 								// Cloud Provider volumes are dynamically added in the for loop below
 								{
-									Name: "host-pods",
+									Name: HostPods,
 									VolumeSource: corev1.VolumeSource{
 										HostPath: &corev1.HostPathVolumeSource{
 											Path: resticPvHostPath,

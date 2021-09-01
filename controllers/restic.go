@@ -23,6 +23,7 @@ import (
 const (
 	Restic                = "restic"
 	ResticRestoreHelperCM = "restic-restore-action-config"
+	HostPods              = "host-pods"
 )
 
 var (
@@ -147,13 +148,11 @@ func (r *VeleroReconciler) buildResticDaemonset(velero *oadpv1alpha1.Velero, ds 
 		install.WithImage(getResticImage()),
 		install.WithSecret(false))
 
-	return r.customizeResticDaemonset(velero, ds, resticDaemonSetName)
+	ds.Name = resticDaemonSetName
+	return r.customizeResticDaemonset(velero, ds)
 }
 
-func (r *VeleroReconciler) customizeResticDaemonset(velero *oadpv1alpha1.Velero, ds *appsv1.DaemonSet, dsName string) (*appsv1.DaemonSet, error) {
-
-	// customize and override the restic ds received from default install
-	ds.Name = dsName
+func (r *VeleroReconciler) customizeResticDaemonset(velero *oadpv1alpha1.Velero, ds *appsv1.DaemonSet) (*appsv1.DaemonSet, error) {
 
 	// customize specs
 	ds.Spec.Selector = resticLabelSelector
@@ -162,9 +161,7 @@ func (r *VeleroReconciler) customizeResticDaemonset(velero *oadpv1alpha1.Velero,
 	}
 
 	// customize template specs
-	if ds.Spec.Template.Spec.NodeSelector != nil {
-		ds.Spec.Template.Spec.NodeSelector = velero.Spec.ResticNodeSelector
-	}
+	ds.Spec.Template.Spec.NodeSelector = velero.Spec.ResticNodeSelector
 
 	ds.Spec.Template.Spec.SecurityContext = &corev1.PodSecurityContext{
 		RunAsUser:          pointer.Int64(0),
@@ -182,14 +179,12 @@ func (r *VeleroReconciler) customizeResticDaemonset(velero *oadpv1alpha1.Velero,
 
 	// update restic host PV path
 	for i, vol := range ds.Spec.Template.Spec.Volumes {
-		if vol.Name == "host-pods" {
+		if vol.Name == HostPods {
 			ds.Spec.Template.Spec.Volumes[i].HostPath.Path = getResticPvHostPath()
 		}
 	}
 
-	if ds.Spec.Template.Spec.Tolerations != nil {
-		ds.Spec.Template.Spec.Tolerations = velero.Spec.VeleroTolerations
-	}
+	ds.Spec.Template.Spec.Tolerations = velero.Spec.VeleroTolerations
 
 	// fetch restic container in order to customize it
 	var resticContainer *corev1.Container
