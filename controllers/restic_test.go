@@ -3,6 +3,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	"os"
 	"reflect"
 	"testing"
@@ -11,12 +12,11 @@ import (
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	"github.com/openshift/oadp-operator/pkg/common"
 	appsv1 "k8s.io/api/apps/v1"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/utils/pointer"
 
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -114,55 +114,61 @@ func TestVeleroReconciler_buildResticDaemonset(t *testing.T) {
 			wantErr: false,
 			want: &appsv1.DaemonSet{
 				ObjectMeta: getResticObjectMeta(r),
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "DaemonSet",
+					APIVersion: appsv1.SchemeGroupVersion.String(),
+				},
 				Spec: appsv1.DaemonSetSpec{
 					UpdateStrategy: appsv1.DaemonSetUpdateStrategy{
 						Type: appsv1.RollingUpdateDaemonSetStrategyType,
 					},
-					Template: v1.PodTemplateSpec{
+					Selector: resticLabelSelector,
+					Template: corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: map[string]string{
-								"component": Restic,
+								"component": common.Velero,
+								"name":      common.Restic,
 							},
 						},
-						Spec: v1.PodSpec{
+						Spec: corev1.PodSpec{
 							NodeSelector:       velero.Spec.ResticNodeSelector,
 							ServiceAccountName: common.Velero,
-							SecurityContext: &v1.PodSecurityContext{
+							SecurityContext: &corev1.PodSecurityContext{
 								RunAsUser:          pointer.Int64(0),
 								SupplementalGroups: velero.Spec.ResticSupplementalGroups,
 							},
-							Volumes: []v1.Volume{
+							Volumes: []corev1.Volume{
 								// Cloud Provider volumes are dynamically added in the for loop below
 								{
-									Name: "host-pods",
-									VolumeSource: v1.VolumeSource{
-										HostPath: &v1.HostPathVolumeSource{
+									Name: HostPods,
+									VolumeSource: corev1.VolumeSource{
+										HostPath: &corev1.HostPathVolumeSource{
 											Path: resticPvHostPath,
 										},
 									},
 								},
 								{
 									Name: "scratch",
-									VolumeSource: v1.VolumeSource{
-										EmptyDir: &v1.EmptyDirVolumeSource{},
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{},
 									},
 								},
 								{
 									Name: "certs",
-									VolumeSource: v1.VolumeSource{
-										EmptyDir: &v1.EmptyDirVolumeSource{},
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{},
 									},
 								},
 							},
 							Tolerations: velero.Spec.ResticTolerations,
-							Containers: []v1.Container{
+							Containers: []corev1.Container{
 								{
-									Name: common.Velero,
-									SecurityContext: &v1.SecurityContext{
+									Name: common.Restic,
+									SecurityContext: &corev1.SecurityContext{
 										Privileged: pointer.Bool(true),
 									},
 									Image:           getResticImage(),
-									ImagePullPolicy: v1.PullAlways,
+									ImagePullPolicy: corev1.PullAlways,
 									Resources:       r.getVeleroResourceReqs(&velero), //setting default.
 									Command: []string{
 										"/velero",
@@ -171,7 +177,7 @@ func TestVeleroReconciler_buildResticDaemonset(t *testing.T) {
 										"restic",
 										"server",
 									},
-									VolumeMounts: []v1.VolumeMount{
+									VolumeMounts: []corev1.VolumeMount{
 										{
 											Name:             "host-pods",
 											MountPath:        "/host_pods",
@@ -186,7 +192,174 @@ func TestVeleroReconciler_buildResticDaemonset(t *testing.T) {
 											MountPath: "/etc/ssl/certs",
 										},
 									},
-									Env: []v1.EnvVar{
+									Env: []corev1.EnvVar{
+										{
+											Name: "NODE_NAME",
+											ValueFrom: &corev1.EnvVarSource{
+												FieldRef: &corev1.ObjectFieldSelector{
+													FieldPath: "spec.nodeName",
+												},
+											},
+										},
+										{
+											Name: "VELERO_NAMESPACE",
+											ValueFrom: &corev1.EnvVarSource{
+												FieldRef: &corev1.ObjectFieldSelector{
+													FieldPath: "metadata.namespace",
+												},
+											},
+										},
+										{
+											Name:  "VELERO_SCRATCH_DIR",
+											Value: "/scratch",
+										},
+										{
+											Name:  "HTTP_PROXY",
+											Value: os.Getenv("HTTP_PROXY"),
+										},
+										{
+											Name:  "HTTPS_PROXY",
+											Value: os.Getenv("HTTPS_PROXY"),
+										},
+										{
+											Name:  "NO_PROXY",
+											Value: os.Getenv("NO_PROXY"),
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "Valid velero and daemonset for aws as bsl",
+			args: args{
+				&oadpv1alpha1.Velero{
+					Spec: oadpv1alpha1.VeleroSpec{
+						DefaultVeleroPlugins: []oadpv1alpha1.DefaultPlugin{
+							oadpv1alpha1.DefaultPluginAWS,
+						},
+					},
+				}, &appsv1.DaemonSet{
+					ObjectMeta: getResticObjectMeta(r),
+				},
+			},
+			wantErr: false,
+			want: &appsv1.DaemonSet{
+				ObjectMeta: getResticObjectMeta(r),
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "DaemonSet",
+					APIVersion: appsv1.SchemeGroupVersion.String(),
+				},
+				Spec: appsv1.DaemonSetSpec{
+					UpdateStrategy: appsv1.DaemonSetUpdateStrategy{
+						Type: appsv1.RollingUpdateDaemonSetStrategyType,
+					},
+					Selector: resticLabelSelector,
+					Template: corev1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Labels: map[string]string{
+								"component": common.Velero,
+								"name":      common.Restic,
+							},
+						},
+						Spec: corev1.PodSpec{
+							NodeSelector:       velero.Spec.ResticNodeSelector,
+							ServiceAccountName: common.Velero,
+							SecurityContext: &corev1.PodSecurityContext{
+								RunAsUser:          pointer.Int64(0),
+								SupplementalGroups: velero.Spec.ResticSupplementalGroups,
+							},
+							Volumes: []corev1.Volume{
+								// Cloud Provider volumes are dynamically added in the for loop below
+								{
+									Name: "host-pods",
+									VolumeSource: corev1.VolumeSource{
+										HostPath: &corev1.HostPathVolumeSource{
+											Path: resticPvHostPath,
+										},
+									},
+								},
+								{
+									Name: "scratch",
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{},
+									},
+								},
+								{
+									Name: "certs",
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{},
+									},
+								},
+								{
+									Name: "cloud-credentials",
+									VolumeSource: corev1.VolumeSource{
+										Secret: &corev1.SecretVolumeSource{
+											SecretName: "cloud-credentials",
+										},
+									},
+								},
+							},
+							Tolerations: velero.Spec.ResticTolerations,
+							Containers: []corev1.Container{
+								{
+									Name: common.Restic,
+									SecurityContext: &corev1.SecurityContext{
+										Privileged: pointer.Bool(true),
+									},
+									Image:           getResticImage(),
+									ImagePullPolicy: corev1.PullAlways,
+									Resources:       r.getVeleroResourceReqs(&velero), //setting default.
+									Command: []string{
+										"/velero",
+									},
+									Args: []string{
+										"restic",
+										"server",
+									},
+									VolumeMounts: []corev1.VolumeMount{
+										{
+											Name:             "host-pods",
+											MountPath:        "/host_pods",
+											MountPropagation: &mountPropagationToHostContainer,
+										},
+										{
+											Name:      "scratch",
+											MountPath: "/scratch",
+										},
+										{
+											Name:      "certs",
+											MountPath: "/etc/ssl/certs",
+										},
+										{
+											Name:      "cloud-credentials",
+											MountPath: "/credentials",
+										},
+									},
+									Env: []corev1.EnvVar{
+										{
+											Name: "NODE_NAME",
+											ValueFrom: &corev1.EnvVarSource{
+												FieldRef: &corev1.ObjectFieldSelector{
+													FieldPath: "spec.nodeName",
+												},
+											},
+										},
+										{
+											Name: "VELERO_NAMESPACE",
+											ValueFrom: &corev1.EnvVarSource{
+												FieldRef: &corev1.ObjectFieldSelector{
+													FieldPath: "metadata.namespace",
+												},
+											},
+										},
+										{
+											Name:  "VELERO_SCRATCH_DIR",
+											Value: "/scratch",
+										},
 										{
 											Name:  "HTTP_PROXY",
 											Value: os.Getenv("HTTP_PROXY"),
@@ -200,24 +373,157 @@ func TestVeleroReconciler_buildResticDaemonset(t *testing.T) {
 											Value: os.Getenv("NO_PROXY"),
 										},
 										{
+											Name:  common.AWSSharedCredentialsFileEnvKey,
+											Value: "/credentials/cloud",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "Valid velero and daemonset for aws as bsl with non-default secret name",
+			args: args{
+				&oadpv1alpha1.Velero{
+					Spec: oadpv1alpha1.VeleroSpec{
+						DefaultVeleroPlugins: []oadpv1alpha1.DefaultPlugin{
+							oadpv1alpha1.DefaultPluginAWS,
+						},
+						BackupStorageLocations: []velerov1.BackupStorageLocationSpec{
+							{
+								Provider: AWSProvider,
+								StorageType: velerov1.StorageType{
+									ObjectStorage: &velerov1.ObjectStorageLocation{
+										Bucket: "aws-bucket",
+									},
+								},
+								Config: map[string]string{
+									Region:                "aws-region",
+									S3URL:                 "https://sr-url-aws-domain.com",
+									RootDirectory:         "/velero-aws",
+									InsecureSkipTLSVerify: "false",
+								},
+								Credential: &corev1.SecretKeySelector{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: "aws-creds",
+									},
+								},
+							},
+						},
+					},
+				}, &appsv1.DaemonSet{
+					ObjectMeta: getResticObjectMeta(r),
+				},
+			},
+			wantErr: false,
+			want: &appsv1.DaemonSet{
+				ObjectMeta: getResticObjectMeta(r),
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "DaemonSet",
+					APIVersion: appsv1.SchemeGroupVersion.String(),
+				},
+				Spec: appsv1.DaemonSetSpec{
+					UpdateStrategy: appsv1.DaemonSetUpdateStrategy{
+						Type: appsv1.RollingUpdateDaemonSetStrategyType,
+					},
+					Selector: resticLabelSelector,
+					Template: corev1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Labels: map[string]string{
+								"component": common.Velero,
+								"name":      common.Restic,
+							},
+						},
+						Spec: corev1.PodSpec{
+							NodeSelector:       velero.Spec.ResticNodeSelector,
+							ServiceAccountName: common.Velero,
+							SecurityContext: &corev1.PodSecurityContext{
+								RunAsUser:          pointer.Int64(0),
+								SupplementalGroups: velero.Spec.ResticSupplementalGroups,
+							},
+							Volumes: []corev1.Volume{
+								// Cloud Provider volumes are dynamically added in the for loop below
+								{
+									Name: HostPods,
+									VolumeSource: corev1.VolumeSource{
+										HostPath: &corev1.HostPathVolumeSource{
+											Path: resticPvHostPath,
+										},
+									},
+								},
+								{
+									Name: "scratch",
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{},
+									},
+								},
+								{
+									Name: "certs",
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{},
+									},
+								},
+								{
+									Name: "aws-creds",
+									VolumeSource: corev1.VolumeSource{
+										Secret: &corev1.SecretVolumeSource{
+											SecretName: "aws-creds",
+										},
+									},
+								},
+							},
+							Tolerations: velero.Spec.ResticTolerations,
+							Containers: []corev1.Container{
+								{
+									Name: common.Restic,
+									SecurityContext: &corev1.SecurityContext{
+										Privileged: pointer.Bool(true),
+									},
+									Image:           getResticImage(),
+									ImagePullPolicy: corev1.PullAlways,
+									Resources:       r.getVeleroResourceReqs(&velero), //setting default.
+									Command: []string{
+										"/velero",
+									},
+									Args: []string{
+										"restic",
+										"server",
+									},
+									VolumeMounts: []corev1.VolumeMount{
+										{
+											Name:             "host-pods",
+											MountPath:        "/host_pods",
+											MountPropagation: &mountPropagationToHostContainer,
+										},
+										{
+											Name:      "scratch",
+											MountPath: "/scratch",
+										},
+										{
+											Name:      "certs",
+											MountPath: "/etc/ssl/certs",
+										},
+										{
+											Name:      "aws-creds",
+											MountPath: "/credentials",
+										},
+									},
+									Env: []corev1.EnvVar{
+										{
 											Name: "NODE_NAME",
-											ValueFrom: &v1.EnvVarSource{
-												FieldRef: &v1.ObjectFieldSelector{
+											ValueFrom: &corev1.EnvVarSource{
+												FieldRef: &corev1.ObjectFieldSelector{
 													FieldPath: "spec.nodeName",
 												},
 											},
 										},
 										{
-											Name: "POD_NAME",
-											ValueFrom: &v1.EnvVarSource{
-												FieldRef: &v1.ObjectFieldSelector{
-													FieldPath: "metadata.name"},
-											},
-										},
-										{
 											Name: "VELERO_NAMESPACE",
-											ValueFrom: &v1.EnvVarSource{
-												FieldRef: &v1.ObjectFieldSelector{
+											ValueFrom: &corev1.EnvVarSource{
+												FieldRef: &corev1.ObjectFieldSelector{
 													FieldPath: "metadata.namespace",
 												},
 											},
@@ -225,6 +531,22 @@ func TestVeleroReconciler_buildResticDaemonset(t *testing.T) {
 										{
 											Name:  "VELERO_SCRATCH_DIR",
 											Value: "/scratch",
+										},
+										{
+											Name:  "HTTP_PROXY",
+											Value: os.Getenv("HTTP_PROXY"),
+										},
+										{
+											Name:  "HTTPS_PROXY",
+											Value: os.Getenv("HTTPS_PROXY"),
+										},
+										{
+											Name:  "NO_PROXY",
+											Value: os.Getenv("NO_PROXY"),
+										},
+										{
+											Name:  common.AWSSharedCredentialsFileEnvKey,
+											Value: "/credentials/cloud",
 										},
 									},
 								},
@@ -251,7 +573,7 @@ func TestVeleroReconciler_buildResticDaemonset(t *testing.T) {
 				return
 			}
 			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("VeleroReconciler.buildResticDaemonset() = %v, want %v", got, tt.want)
+				t.Errorf("VeleroReconciler.buildResticDaemonset() got = %v, want %v", got, tt.want)
 			}
 		})
 	}
