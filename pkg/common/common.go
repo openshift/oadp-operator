@@ -11,7 +11,7 @@ const (
 // Images
 const (
 	VeleroImage          = "quay.io/konveyor/velero:latest"
-	OpenshiftPluginImage = "quay.io/konveyor/openshift-velero-plugins:latest"
+	OpenshiftPluginImage = "quay.io/konveyor/openshift-velero-plugin:latest"
 	AWSPluginImage       = "quay.io/konveyor/velero-plugin-for-aws:latest"
 	AzurePluginImage     = "quay.io/konveyor/velero-plugin-for-microsoft-azure:latest"
 	GCPPluginImage       = "quay.io/konveyor/velero-plugin-for-gcp:latest"
