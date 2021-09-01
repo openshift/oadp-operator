@@ -253,7 +253,7 @@ func (r *VeleroReconciler) buildRegistryContainer(bsl *velerov1.BackupStorageLoc
 	}
 	containers := []corev1.Container{
 		{
-			Image: RegistryImage,
+			Image: common.RegistryImage,
 			Name:  registryName(bsl) + "-container",
 			Ports: []corev1.ContainerPort{
 				{

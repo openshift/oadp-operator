@@ -39,18 +39,6 @@ const (
 	enableCSIFeatureFlag  = "EnableCSI"
 )
 
-//TODO: Add Image customization options
-// Images
-const (
-	VeleroImage          = "quay.io/konveyor/velero:latest"
-	OpenshiftPluginImage = "quay.io/konveyor/openshift-velero-plugins:latest"
-	AWSPluginImage       = "quay.io/konveyor/velero-plugin-for-aws:latest"
-	AzurePluginImage     = "quay.io/konveyor/velero-plugin-for-microsoft-azure:latest"
-	GCPPluginImage       = "quay.io/konveyor/velero-plugin-for-gcp:latest"
-	CSIPluginImage       = "quay.io/konveyor/velero-plugin-for-csi:latest"
-	RegistryImage        = "quay.io/konveyor/registry:latest"
-)
-
 var (
 	veleroLabelSelector = &metav1.LabelSelector{
 		MatchLabels: map[string]string{
@@ -473,7 +461,7 @@ func getVeleroImage(velero *oadpv1alpha1.Velero) string {
 		return velero.Spec.UnsupportedOverrides[oadpv1alpha1.VeleroImageKey]
 	}
 	if os.Getenv("VELERO_REPO") == "" {
-		return VeleroImage
+		return common.VeleroImage
 	}
 	return fmt.Sprintf("%v/%v/%v:%v", os.Getenv("REGISTRY"), os.Getenv("PROJECT"), os.Getenv("VELERO_REPO"), os.Getenv("VELERO_TAG"))
 }
