@@ -3,9 +3,10 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"os"
+
 	"github.com/openshift/oadp-operator/pkg/common"
 	"github.com/vmware-tanzu/velero/pkg/install"
-	"os"
 
 	"github.com/go-logr/logr"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"

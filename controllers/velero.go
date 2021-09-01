@@ -383,7 +383,7 @@ func (r *VeleroReconciler) buildVeleroDeployment(veleroDeployment *appsv1.Deploy
 	deploymentName := veleroDeployment.Name //saves desired deployment name before install.Deployment overwrites them.
 	*veleroDeployment = *install.Deployment(veleroDeployment.Namespace,
 		install.WithResources(r.getVeleroResourceReqs(velero)),
-		install.WithImage(getVeleroImage()),
+		install.WithImage(getVeleroImage(velero)),
 		install.WithFeatures(velero.Spec.VeleroFeatureFlags),
 		// use WithSecret false even if we have secret because we use a different VolumeMounts and EnvVars
 		// see: https://github.com/vmware-tanzu/velero/blob/ed5809b7fc22f3661eeef10bdcb63f0d74472b76/pkg/install/deployment.go#L223-L261
@@ -468,7 +468,13 @@ func (r *VeleroReconciler) customizeVeleroContainer(velero *oadpv1alpha1.Velero,
 	return nil
 }
 
-func getVeleroImage() string {
+func getVeleroImage(velero *oadpv1alpha1.Velero) string {
+	if velero.Spec.UnsupportedOverrides[oadpv1alpha1.VeleroImageKey] != "" {
+		return velero.Spec.UnsupportedOverrides[oadpv1alpha1.VeleroImageKey]
+	}
+	if os.Getenv("VELERO_REPO") == "" {
+		return VeleroImage
+	}
 	return fmt.Sprintf("%v/%v/%v:%v", os.Getenv("REGISTRY"), os.Getenv("PROJECT"), os.Getenv("VELERO_REPO"), os.Getenv("VELERO_TAG"))
 }
 

@@ -8,6 +8,17 @@ const (
 	OADPOperatorVelero = "oadp-operator-velero"
 )
 
+// Images
+const (
+	VeleroImage          = "quay.io/konveyor/velero:latest"
+	OpenshiftPluginImage = "quay.io/konveyor/openshift-velero-plugins:latest"
+	AWSPluginImage       = "quay.io/konveyor/velero-plugin-for-aws:latest"
+	AzurePluginImage     = "quay.io/konveyor/velero-plugin-for-microsoft-azure:latest"
+	GCPPluginImage       = "quay.io/konveyor/velero-plugin-for-gcp:latest"
+	CSIPluginImage       = "quay.io/konveyor/velero-plugin-for-csi:latest"
+	RegistryImage        = "quay.io/konveyor/registry:latest"
+)
+
 // Plugin names
 const (
 	VeleroPluginForAWS       = "velero-plugin-for-aws"

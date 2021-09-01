@@ -2,7 +2,10 @@ package controllers
 
 import (
 	"context"
-	"fmt"
+	"os"
+	"reflect"
+	"testing"
+
 	"github.com/go-logr/logr"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	"github.com/openshift/oadp-operator/pkg/common"
@@ -14,10 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/pointer"
-	"os"
-	"reflect"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"testing"
 )
 
 func TestVeleroReconciler_buildVeleroDeployment(t *testing.T) {
@@ -119,7 +119,7 @@ func TestVeleroReconciler_buildVeleroDeployment(t *testing.T) {
 							Containers: []corev1.Container{
 								{
 									Name:            common.Velero,
-									Image:           getVeleroImage(),
+									Image:           common.VeleroImage,
 									ImagePullPolicy: corev1.PullAlways,
 									Ports: []corev1.ContainerPort{
 										{
@@ -281,7 +281,7 @@ func TestVeleroReconciler_buildVeleroDeployment(t *testing.T) {
 							Containers: []corev1.Container{
 								{
 									Name:            common.Velero,
-									Image:           getVeleroImage(),
+									Image:           common.VeleroImage,
 									ImagePullPolicy: corev1.PullAlways,
 									Ports: []corev1.ContainerPort{
 										{
@@ -432,7 +432,7 @@ func TestVeleroReconciler_buildVeleroDeployment(t *testing.T) {
 							Containers: []corev1.Container{
 								{
 									Name:            common.Velero,
-									Image:           getVeleroImage(),
+									Image:           common.VeleroImage,
 									ImagePullPolicy: corev1.PullAlways,
 									Ports: []corev1.ContainerPort{
 										{
@@ -539,7 +539,7 @@ func TestVeleroReconciler_buildVeleroDeployment(t *testing.T) {
 							},
 							InitContainers: []corev1.Container{
 								{
-									Image:                    fmt.Sprintf("%v/%v/%v:%v", os.Getenv("REGISTRY"), os.Getenv("PROJECT"), os.Getenv("VELERO_AWS_PLUGIN_REPO"), os.Getenv("VELERO_AWS_PLUGIN_TAG")),
+									Image:                    common.AWSPluginImage,
 									Name:                     common.VeleroPluginForAWS,
 									ImagePullPolicy:          corev1.PullAlways,
 									Resources:                corev1.ResourceRequirements{},
@@ -567,6 +567,75 @@ func TestVeleroReconciler_buildVeleroDeployment(t *testing.T) {
 			}
 			if !reflect.DeepEqual(tt.wantVeleroDeployment, tt.veleroDeployment) {
 				t.Errorf("expected registry deployment spec to be %#v, got %#v", tt.wantVeleroDeployment, tt.veleroDeployment)
+			}
+		})
+	}
+}
+
+func TestVeleroReconciler_getVeleroImage(t *testing.T) {
+	tests := []struct {
+		name       string
+		VeleroCR   *oadpv1alpha1.Velero
+		pluginName string
+		wantImage  string
+		setEnvVars map[string]string
+	}{
+		{
+			name: "given Velero image override, custom Velero image should be returned",
+			VeleroCR: &oadpv1alpha1.Velero{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-Velero-CR",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.VeleroSpec{
+					UnsupportedOverrides: map[oadpv1alpha1.UnsupportedImageKey]string{
+						oadpv1alpha1.VeleroImageKey: "test-image",
+					},
+				},
+			},
+			pluginName: common.Velero,
+			wantImage:  "test-image",
+			setEnvVars: make(map[string]string),
+		},
+		{
+			name: "given default Velero CR with no env var, default velero image should be returned",
+			VeleroCR: &oadpv1alpha1.Velero{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-Velero-CR",
+					Namespace: "test-ns",
+				},
+			},
+			pluginName: common.Velero,
+			wantImage:  common.VeleroImage,
+			setEnvVars: make(map[string]string),
+		},
+		{
+			name: "given default Velero CR with env var set, image should be built via env vars",
+			VeleroCR: &oadpv1alpha1.Velero{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-Velero-CR",
+					Namespace: "test-ns",
+				},
+			},
+			pluginName: common.Velero,
+			wantImage:  "quay.io/konveyor/velero:latest",
+			setEnvVars: map[string]string{
+				"REGISTRY":               "quay.io",
+				"PROJECT":                "konveyor",
+				"VELERO_AWS_PLUGIN_REPO": "velero",
+				"VELERO_AWS_PLUGIN_TAG":  "latest",
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			for key, value := range tt.setEnvVars {
+				os.Setenv(key, value)
+				defer os.Unsetenv(key)
+			}
+			gotImage := getVeleroImage(tt.VeleroCR)
+			if gotImage != tt.wantImage {
+				t.Errorf("Expected plugin image %v did not match %v", tt.wantImage, gotImage)
 			}
 		})
 	}
