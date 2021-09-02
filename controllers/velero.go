@@ -368,7 +368,8 @@ func (r *VeleroReconciler) buildVeleroDeployment(veleroDeployment *appsv1.Deploy
 			break
 		}
 	}
-	deploymentName := veleroDeployment.Name //saves desired deployment name before install.Deployment overwrites them.
+	deploymentName := veleroDeployment.Name       //saves desired deployment name before install.Deployment overwrites them.
+	ownerRefs := veleroDeployment.OwnerReferences // saves desired owner refs
 	*veleroDeployment = *install.Deployment(veleroDeployment.Namespace,
 		install.WithResources(r.getVeleroResourceReqs(velero)),
 		install.WithImage(getVeleroImage(velero)),
@@ -379,7 +380,8 @@ func (r *VeleroReconciler) buildVeleroDeployment(veleroDeployment *appsv1.Deploy
 		install.WithSecret(false),
 	)
 	// adjust veleroDeployment from install
-	veleroDeployment.Name = deploymentName //reapply saved deploymentName
+	veleroDeployment.Name = deploymentName //reapply saved deploymentName and owner refs
+	veleroDeployment.OwnerReferences = ownerRefs
 	return r.customizeVeleroDeployment(velero, veleroDeployment)
 }
 

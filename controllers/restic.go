@@ -143,6 +143,7 @@ func (r *VeleroReconciler) buildResticDaemonset(velero *oadpv1alpha1.Velero, ds 
 	}
 
 	resticDaemonSetName := ds.Name
+	ownerRefs := ds.OwnerReferences
 
 	*ds = *install.DaemonSet(ds.Namespace,
 		install.WithResources(r.getVeleroResourceReqs(velero)),
@@ -150,6 +151,7 @@ func (r *VeleroReconciler) buildResticDaemonset(velero *oadpv1alpha1.Velero, ds 
 		install.WithSecret(false))
 
 	ds.Name = resticDaemonSetName
+	ds.OwnerReferences = ownerRefs
 	return r.customizeResticDaemonset(velero, ds)
 }
 
