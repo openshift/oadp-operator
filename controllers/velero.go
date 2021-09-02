@@ -355,19 +355,13 @@ func (r *VeleroReconciler) buildVeleroDeployment(veleroDeployment *appsv1.Deploy
 	for _, plugin := range velero.Spec.DefaultVeleroPlugins {
 		if plugin == oadpv1alpha1.DefaultPluginCSI {
 			// CSI plugin is added so ensure that CSI feature flags is set
-			foundCSIFeatureFlag := false
-			for _, featureFlag := range velero.Spec.VeleroFeatureFlags {
-				if featureFlag == enableCSIFeatureFlag {
-					foundCSIFeatureFlag = true
-					break
-				}
-			}
-			if !foundCSIFeatureFlag { // Not Found so append to feature flag
-				velero.Spec.VeleroFeatureFlags = append(velero.Spec.VeleroFeatureFlags, enableCSIFeatureFlag)
-			}
+			velero.Spec.VeleroFeatureFlags = append(velero.Spec.VeleroFeatureFlags, enableCSIFeatureFlag)
 			break
 		}
 	}
+	r.ReconcileRestoreResourcesVersionPriority(velero)
+
+	velero.Spec.VeleroFeatureFlags = removeDuplicateValues(velero.Spec.VeleroFeatureFlags)
 	deploymentName := veleroDeployment.Name       //saves desired deployment name before install.Deployment overwrites them.
 	ownerRefs := veleroDeployment.OwnerReferences // saves desired owner refs
 	*veleroDeployment = *install.Deployment(veleroDeployment.Namespace,
@@ -384,6 +378,22 @@ func (r *VeleroReconciler) buildVeleroDeployment(veleroDeployment *appsv1.Deploy
 	veleroDeployment.Name = deploymentName //reapply saved deploymentName and owner refs
 	veleroDeployment.OwnerReferences = ownerRefs
 	return r.customizeVeleroDeployment(velero, veleroDeployment)
+}
+
+// remove duplicate entry in string slice
+func removeDuplicateValues(slice []string) []string {
+	if slice == nil {
+		return nil
+	}
+	keys := make(map[string]bool)
+	list := []string{}
+	for _, entry := range slice {
+		if _, found := keys[entry]; !found { //add entry to list if not found in keys already
+			keys[entry] = true
+			list = append(list, entry)
+		}
+	}
+	return list // return the result through the passed in argument
 }
 
 func (r *VeleroReconciler) customizeVeleroDeployment(velero *oadpv1alpha1.Velero, veleroDeployment *appsv1.Deployment) error {
@@ -510,4 +520,46 @@ func (r *VeleroReconciler) getVeleroResourceReqs(velero *oadpv1alpha1.Velero) co
 	}
 
 	return ResourcesReqs
+}
+
+const (
+	enableApiGroupVersionsFeatureFlag      = "EnableAPIGroupVersions"
+	enableApiGroupVersionsConfigMapName    = "enableapigroupversions"
+	restoreResourcesVersionPriorityDataKey = "restoreResourcesVersionPriority"
+)
+
+func (r *VeleroReconciler) ReconcileRestoreResourcesVersionPriority(velero *oadpv1alpha1.Velero) (bool, error) {
+	if len(velero.Spec.RestoreResourcesVersionPriority) == 0 {
+		return true, nil
+	}
+	// if the RestoreResourcesVersionPriority is specified then ensure feature flag is enabled for enableApiGroupVersions
+	// duplicate feature flag checks are done in ReconcileVeleroDeployment
+	velero.Spec.VeleroFeatureFlags = append(velero.Spec.VeleroFeatureFlags, enableApiGroupVersionsFeatureFlag)
+	configMap := corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      enableApiGroupVersionsConfigMapName,
+			Namespace: velero.Namespace,
+		},
+	}
+	// Create ConfigMap
+	op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, &configMap, func() error {
+		if err := controllerutil.SetControllerReference(velero, &configMap, r.Scheme); err != nil {
+			return err
+		}
+		configMap.Data = make(map[string]string, 1)
+		configMap.Data[restoreResourcesVersionPriorityDataKey] = velero.Spec.RestoreResourcesVersionPriority
+		return nil
+	})
+	if err != nil {
+		return false, err
+	}
+	if op == controllerutil.OperationResultCreated || op == controllerutil.OperationResultUpdated {
+		// Trigger event to indicate BSL was created or updated
+		r.EventRecorder.Event(&configMap,
+			corev1.EventTypeNormal,
+			"RestoreResourcesVersionPriorityReconciled",
+			fmt.Sprintf("performed %s on RestoreResourcesVersionPriority %s/%s", op, configMap.Namespace, configMap.Name),
+		)
+	}
+	return true, nil
 }

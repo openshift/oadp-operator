@@ -826,3 +826,46 @@ func TestVeleroReconciler_getVeleroImage(t *testing.T) {
 		})
 	}
 }
+func Test_removeDuplicateValues(t *testing.T) {
+	type args struct {
+		slice []string
+	}
+	tests := []struct {
+		name string
+		args args
+		want []string
+	}{
+		{
+			name: "nill slice",
+			args: args{slice: nil},
+			want: nil,
+		},
+		{
+			name: "empty slice",
+			args: args{slice: []string{}},
+			want: []string{},
+		},
+		{
+			name: "one item in slice",
+			args: args{slice: []string{"yo"}},
+			want: []string{"yo"},
+		},
+		{
+			name: "duplicate item in slice",
+			args: args{slice: []string{"ice", "ice", "baby"}},
+			want: []string{"ice", "baby"},
+		},
+		{
+			name: "maintain order first appearance order item in slice",
+			args: args{slice: []string{"ice", "ice", "baby", "ice"}},
+			want: []string{"ice", "baby"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := removeDuplicateValues(tt.args.slice); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("removeDuplicateValues() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
