@@ -856,7 +856,7 @@ func Test_removeDuplicateValues(t *testing.T) {
 			want: []string{"ice", "baby"},
 		},
 		{
-			name: "maintain order first appearance order item in slice",
+			name: "maintain order of first appearance in slice",
 			args: args{slice: []string{"ice", "ice", "baby", "ice"}},
 			want: []string{"ice", "baby"},
 		},
