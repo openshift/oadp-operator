@@ -95,6 +95,9 @@ type VeleroSpec struct {
 	ResticTimeout string `json:"resticTimeout,omitempty"`
 	// +optional
 	UnsupportedOverrides map[UnsupportedImageKey]string `json:"unsupportedOverrides,omitempty"`
+	// add annotations to pods deployed by operator
+	// +optional
+	PodAnnotations map[string]string `json:"podAnnotations,omitempty"`
 }
 
 // VeleroStatus defines the observed state of Velero

@@ -65,6 +65,7 @@ func TestVeleroReconciler_buildRegistryDeployment(t *testing.T) {
 		registryDeployment *appsv1.Deployment
 		bsl                *velerov1.BackupStorageLocation
 		secret             *corev1.Secret
+		velero             *oadpv1alpha1.Velero
 		wantErr            bool
 	}{
 		{
@@ -108,6 +109,57 @@ func TestVeleroReconciler_buildRegistryDeployment(t *testing.T) {
 					Namespace: "test-ns",
 				},
 				Data: secretData,
+			},
+			velero: &oadpv1alpha1.Velero{},
+		},
+		{
+			name: "given a valid bsl with velero annotation get appropriate registry deployment",
+			registryDeployment: &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-registry",
+					Namespace: "test-ns",
+				},
+				Spec: appsv1.DeploymentSpec{
+					Selector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"component": "oadp-" + "test-bsl" + "-" + "aws" + "-registry",
+						},
+					},
+				},
+			},
+			bsl: &velerov1.BackupStorageLocation{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-bsl",
+					Namespace: "test-ns",
+				},
+				Spec: velerov1.BackupStorageLocationSpec{
+					Provider: AWSProvider,
+					StorageType: velerov1.StorageType{
+						ObjectStorage: &velerov1.ObjectStorageLocation{
+							Bucket: "aws-bucket",
+						},
+					},
+					Config: map[string]string{
+						Region:                "aws-region",
+						S3URL:                 "https://sr-url-aws-domain.com",
+						RootDirectory:         "/velero-aws",
+						InsecureSkipTLSVerify: "false",
+					},
+				},
+			},
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cloud-credentials",
+					Namespace: "test-ns",
+				},
+				Data: secretData,
+			},
+			velero: &oadpv1alpha1.Velero{
+				Spec: oadpv1alpha1.VeleroSpec{
+					PodAnnotations: map[string]string{
+						"test-annotation": "awesome-annotation",
+					},
+				},
 			},
 		},
 	}
@@ -161,6 +213,7 @@ func TestVeleroReconciler_buildRegistryDeployment(t *testing.T) {
 							Labels: map[string]string{
 								"component": "oadp-" + tt.bsl.Name + "-" + tt.bsl.Spec.Provider + "-registry",
 							},
+							Annotations: tt.velero.Spec.PodAnnotations,
 						},
 						Spec: corev1.PodSpec{
 							RestartPolicy: corev1.RestartPolicyAlways,
@@ -237,7 +290,7 @@ func TestVeleroReconciler_buildRegistryDeployment(t *testing.T) {
 				},
 			}
 
-			err = r.buildRegistryDeployment(tt.registryDeployment, tt.bsl)
+			err = r.buildRegistryDeployment(tt.registryDeployment, tt.bsl, tt.velero)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("buildRegistryDeployment() error = %v, wantErr %v", err, tt.wantErr)
 				return
