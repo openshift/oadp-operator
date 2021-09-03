@@ -43,6 +43,16 @@ type CustomPlugin struct {
 	Image string `json:"image"`
 }
 
+type UnsupportedImageKey string
+
+const VeleroImageKey UnsupportedImageKey = "veleroPluginImageFqin"
+const AWSPluginImageKey UnsupportedImageKey = "awsPluginImageFqin"
+const OpenShiftPluginImageKey UnsupportedImageKey = "openshiftPluginImageFqin"
+const AzurePluginImageKey UnsupportedImageKey = "azurePluginImageFqin"
+const GCPPluginImageKey UnsupportedImageKey = "gcpPluginImageFqin"
+const CSIPluginImageKey UnsupportedImageKey = "csiPluginImageFqin"
+const ResticRestoreImageKey UnsupportedImageKey = "resticRestoreImageFqin"
+
 // VeleroSpec defines the desired state of Velero
 type VeleroSpec struct {
 	// Important: Run "make" to regenerate code after modifying this file
@@ -83,6 +93,8 @@ type VeleroSpec struct {
 	ResticResourceAllocations corev1.ResourceRequirements `json:"resticResourceAllocations,omitempty"`
 	// +optional
 	ResticTimeout string `json:"resticTimeout,omitempty"`
+	// +optional
+	UnsupportedOverrides map[UnsupportedImageKey]string `json:"unsupportedOverrides,omitempty"`
 }
 
 // VeleroStatus defines the observed state of Velero

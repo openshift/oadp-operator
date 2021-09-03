@@ -20,4 +20,4 @@ COPY tests/ tests/
 COPY hack/ hack/
 RUN chmod -R 777 ./
 
-RUN make manifests generate fmt vet envtests
+RUN make manifests generate fmt vet envtest

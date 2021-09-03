@@ -166,7 +166,7 @@ func TestVeleroReconciler_buildRegistryDeployment(t *testing.T) {
 							RestartPolicy: corev1.RestartPolicyAlways,
 							Containers: []corev1.Container{
 								{
-									Image: RegistryImage,
+									Image: common.RegistryImage,
 									Name:  "oadp-" + tt.bsl.Name + "-" + tt.bsl.Spec.Provider + "-registry" + "-container",
 									Ports: []corev1.ContainerPort{
 										{
@@ -279,7 +279,7 @@ func TestVeleroReconciler_buildRegistryContainer(t *testing.T) {
 				Scheme: scheme,
 			}
 			tt.wantRegistryContainer = &corev1.Container{
-				Image: RegistryImage,
+				Image: common.RegistryImage,
 				Name:  "oadp-" + tt.bsl.Name + "-" + tt.bsl.Spec.Provider + "-registry" + "-container",
 				Ports: []corev1.ContainerPort{
 					{

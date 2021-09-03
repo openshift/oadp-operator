@@ -3,9 +3,10 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"os"
+
 	"github.com/openshift/oadp-operator/pkg/common"
 	"github.com/vmware-tanzu/velero/pkg/install"
-	"os"
 
 	"github.com/go-logr/logr"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
@@ -142,13 +143,15 @@ func (r *VeleroReconciler) buildResticDaemonset(velero *oadpv1alpha1.Velero, ds 
 	}
 
 	resticDaemonSetName := ds.Name
+	ownerRefs := ds.OwnerReferences
 
 	*ds = *install.DaemonSet(ds.Namespace,
 		install.WithResources(r.getVeleroResourceReqs(velero)),
-		install.WithImage(getResticImage()),
+		install.WithImage(getVeleroImage(velero)),
 		install.WithSecret(false))
 
 	ds.Name = resticDaemonSetName
+	ds.OwnerReferences = ownerRefs
 	return r.customizeResticDaemonset(velero, ds)
 }
 
@@ -229,10 +232,6 @@ func (r *VeleroReconciler) customizeResticDaemonset(velero *oadpv1alpha1.Velero,
 		return nil, err
 	}
 	return ds, nil
-}
-
-func getResticImage() string {
-	return fmt.Sprintf("%v/%v/%v:%v", os.Getenv("REGISTRY"), os.Getenv("PROJECT"), os.Getenv("VELERO_REPO"), os.Getenv("VELERO_TAG"))
 }
 
 func (r *VeleroReconciler) ReconcileResticRestoreHelperConfig(log logr.Logger) (bool, error) {

@@ -3,16 +3,18 @@ package controllers
 import (
 	"context"
 	"fmt"
-	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	"os"
 	"reflect"
 	"testing"
+
+	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 
 	"github.com/go-logr/logr"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	"github.com/openshift/oadp-operator/pkg/common"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/utils/pointer"
@@ -167,8 +169,8 @@ func TestVeleroReconciler_buildResticDaemonset(t *testing.T) {
 									SecurityContext: &corev1.SecurityContext{
 										Privileged: pointer.Bool(true),
 									},
-									Image:           getResticImage(),
-									ImagePullPolicy: corev1.PullAlways,
+									Image:           getVeleroImage(&velero),
+									ImagePullPolicy: v1.PullAlways,
 									Resources:       r.getVeleroResourceReqs(&velero), //setting default.
 									Command: []string{
 										"/velero",
@@ -310,7 +312,7 @@ func TestVeleroReconciler_buildResticDaemonset(t *testing.T) {
 									SecurityContext: &corev1.SecurityContext{
 										Privileged: pointer.Bool(true),
 									},
-									Image:           getResticImage(),
+									Image:           getVeleroImage(&velero),
 									ImagePullPolicy: corev1.PullAlways,
 									Resources:       r.getVeleroResourceReqs(&velero), //setting default.
 									Command: []string{
@@ -482,7 +484,7 @@ func TestVeleroReconciler_buildResticDaemonset(t *testing.T) {
 									SecurityContext: &corev1.SecurityContext{
 										Privileged: pointer.Bool(true),
 									},
-									Image:           getResticImage(),
+									Image:           getVeleroImage(&velero),
 									ImagePullPolicy: corev1.PullAlways,
 									Resources:       r.getVeleroResourceReqs(&velero), //setting default.
 									Command: []string{
