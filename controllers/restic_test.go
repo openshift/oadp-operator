@@ -169,7 +169,7 @@ func TestVeleroReconciler_buildResticDaemonset(t *testing.T) {
 									SecurityContext: &corev1.SecurityContext{
 										Privileged: pointer.Bool(true),
 									},
-									Image:           getResticImage(),
+									Image:           getVeleroImage(&velero),
 									ImagePullPolicy: v1.PullAlways,
 									Resources:       r.getVeleroResourceReqs(&velero), //setting default.
 									Command: []string{
@@ -312,7 +312,7 @@ func TestVeleroReconciler_buildResticDaemonset(t *testing.T) {
 									SecurityContext: &corev1.SecurityContext{
 										Privileged: pointer.Bool(true),
 									},
-									Image:           getResticImage(),
+									Image:           getVeleroImage(&velero),
 									ImagePullPolicy: corev1.PullAlways,
 									Resources:       r.getVeleroResourceReqs(&velero), //setting default.
 									Command: []string{
@@ -484,7 +484,7 @@ func TestVeleroReconciler_buildResticDaemonset(t *testing.T) {
 									SecurityContext: &corev1.SecurityContext{
 										Privileged: pointer.Bool(true),
 									},
-									Image:           getResticImage(),
+									Image:           getVeleroImage(&velero),
 									ImagePullPolicy: corev1.PullAlways,
 									Resources:       r.getVeleroResourceReqs(&velero), //setting default.
 									Command: []string{
