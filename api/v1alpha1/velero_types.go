@@ -98,6 +98,15 @@ type VeleroSpec struct {
 	// add annotations to pods deployed by operator
 	// +optional
 	PodAnnotations map[string]string `json:"podAnnotations,omitempty"`
+	// DNSPolicy defines how a pod's DNS will be configured.
+	// https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy
+	// +optional
+	PodDnsPolicy corev1.DNSPolicy `json:"podDnsPolicy,omitempty"`
+	// PodDNSConfig defines the DNS parameters of a pod in addition to
+	// those generated from DNSPolicy.
+	// https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-dns-config
+	// +optional
+	PodDnsConfig corev1.PodDNSConfig `json:"podDnsConfig,omitempty"`
 }
 
 // VeleroStatus defines the observed state of Velero

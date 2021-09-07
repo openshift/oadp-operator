@@ -8,11 +8,12 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	//"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/tools/record"
 	"reflect"
+	"testing"
+
+	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
-	"testing"
 
 	"github.com/openshift/oadp-operator/pkg/common"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"

@@ -409,6 +409,12 @@ func (r *VeleroReconciler) customizeVeleroDeployment(velero *oadpv1alpha1.Velero
 		veleroDeployment.Spec.Template.Spec.InitContainers = []corev1.Container{}
 	}
 
+	// attach DNS policy and config if enabled
+	veleroDeployment.Spec.Template.Spec.DNSPolicy = velero.Spec.PodDnsPolicy
+	if !reflect.DeepEqual(velero.Spec.PodDnsConfig, corev1.PodDNSConfig{}) {
+		veleroDeployment.Spec.Template.Spec.DNSConfig = &velero.Spec.PodDnsConfig
+	}
+
 	var veleroContainer *corev1.Container
 	for i, container := range veleroDeployment.Spec.Template.Spec.Containers {
 		if container.Name == common.Velero {
