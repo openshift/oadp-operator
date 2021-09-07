@@ -844,8 +844,8 @@ func TestVeleroReconciler_updateRegistryRouteCM(t *testing.T) {
 					"test-bsl": "oadp-" + "test-bsl" + "-" + "test-provider" + "-registry-route",
 				},
 			}
-			if err := r.updateRegistryRouteCM(tt.registryRouteCM, tt.bsl, tt.velero); (err != nil) != tt.wantErr {
-				t.Errorf("updateRegistryRouteCM() error = %v, wantErr %v", err, tt.wantErr)
+			if err := r.updateRegistryConfigMap(tt.registryRouteCM, tt.bsl, tt.velero); (err != nil) != tt.wantErr {
+				t.Errorf("updateRegistryConfigMap() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			if !reflect.DeepEqual(tt.registryRouteCM, wantRegitryRouteCM) {
 				t.Errorf("expected bsl labels to be %#v, got %#v", tt.registryRouteCM, wantRegitryRouteCM)

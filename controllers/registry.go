@@ -580,21 +580,6 @@ func (r *VeleroReconciler) updateRegistrySVC(svc *corev1.Service, bsl *velerov1.
 	svc.Labels = map[string]string{
 		"component": "oadp-" + bsl.Name + "-" + bsl.Spec.Provider + "-registry",
 	}
-
-	//svc.Spec = corev1.ServiceSpec{
-	//	Ports: []corev1.ServicePort{
-	//		{
-	//			Name: "5000-tcp",
-	//			Port: int32(5000),
-	//			TargetPort: intstr.IntOrString{
-	//				IntVal: int32(5000),
-	//			},
-	//			Protocol: corev1.ProtocolTCP,
-	//		},
-	//	},
-	//	Selector: svc.Spec.Selector,
-	//	Type:     svc.Spec.Type,
-	//}
 	return nil
 }
 
@@ -703,7 +688,7 @@ func (r *VeleroReconciler) ReconcileRegistryRouteConfigs(log logr.Logger) (bool,
 			op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, &registryRouteCM, func() error {
 
 				// update the Config Map
-				err := r.updateRegistryRouteCM(&registryRouteCM, &bsl, &velero)
+				err := r.updateRegistryConfigMap(&registryRouteCM, &bsl, &velero)
 				return err
 			})
 
@@ -726,7 +711,7 @@ func (r *VeleroReconciler) ReconcileRegistryRouteConfigs(log logr.Logger) (bool,
 	return true, nil
 }
 
-func (r *VeleroReconciler) updateRegistryRouteCM(registryRouteCM *corev1.ConfigMap, bsl *velerov1.BackupStorageLocation, velero *oadpv1alpha1.Velero) error {
+func (r *VeleroReconciler) updateRegistryConfigMap(registryRouteCM *corev1.ConfigMap, bsl *velerov1.BackupStorageLocation, velero *oadpv1alpha1.Velero) error {
 
 	// Setting controller owner reference on the restic restore helper CM
 	err := controllerutil.SetControllerReference(velero, registryRouteCM, r.Scheme)
