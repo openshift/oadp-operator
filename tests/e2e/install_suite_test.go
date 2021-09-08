@@ -26,7 +26,7 @@ var _ = BeforeSuite(func() {
 		Provider:  "aws",
 	}
 	vel.SetClient()
-	Expect(doesNamespaceExists(namespace)).Should(BeTrue())
+	Expect(doesNamespaceExist(namespace)).Should(BeTrue())
 })
 
 var _ = AfterSuite(func() {
@@ -61,16 +61,16 @@ var _ = Describe("The default Velero custom resource", func() {
 
 	Context("When the default valid Velero CR is created", func() {
 		It("Should create a Velero pod in the cluster", func() {
-			Eventually(isVeleroPodRunning(namespace), time.Minute*2, time.Second*5).Should(BeTrue())
+			Eventually(isVeleroPodRunning(namespace), time.Minute*3, time.Second*5).Should(BeTrue())
 		})
 		It("Should create a Restic daemonset in the cluster", func() {
-			Eventually(areResticPodsRunning(namespace), time.Minute*2, time.Second*5).Should(BeTrue())
+			Eventually(areResticPodsRunning(namespace), time.Minute*3, time.Second*5).Should(BeTrue())
 		})
 		It("Should install the aws plugin", func() {
-			Eventually(doesPluginExist(namespace, "velero", common.VeleroPluginForAWS), time.Minute*2, time.Second*5).Should(BeTrue())
+			Eventually(doesPluginExist(namespace, "velero", common.VeleroPluginForAWS), time.Minute*3, time.Second*5).Should(BeTrue())
 		})
 		It("Should install the openshift plugin", func() {
-			Eventually(doesPluginExist(namespace, "velero", common.VeleroPluginForOpenshift), time.Minute*2, time.Second*5).Should(BeTrue())
+			Eventually(doesPluginExist(namespace, "velero", common.VeleroPluginForOpenshift), time.Minute*3, time.Second*5).Should(BeTrue())
 		})
 		/*
 			It("Should install the csi plugin", func() {

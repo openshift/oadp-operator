@@ -2,6 +2,7 @@ package e2e
 
 import (
 	"context"
+	security "github.com/openshift/api/security/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -33,6 +34,18 @@ func installApplication(ocClient client.Client, file string) error {
 		}
 	}
 	return nil
+}
+
+func doesSCCExist(ocClient client.Client, sccName string) (bool, error) {
+	scc := security.SecurityContextConstraints{}
+	err := ocClient.Get(context.Background(), client.ObjectKey{
+		Name: sccName,
+	}, &scc)
+	if err != nil {
+		return false, err
+	}
+	return true, nil
+
 }
 
 func uninstallApplication(ocClient client.Client, file string) error {

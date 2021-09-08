@@ -5,9 +5,9 @@ import (
 	"errors"
 	"log"
 
+	security "github.com/openshift/api/security/v1"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	velero "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
-	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -43,12 +43,7 @@ func (v *veleroCustomResource) Build() error {
 					Config: map[string]string{
 						"region": v.Region,
 					},
-					Credential: &corev1.SecretKeySelector{
-						LocalObjectReference: corev1.LocalObjectReference{
-							Name: v.SecretName,
-						},
-						Key: "cloud",
-					},
+					Default: true,
 					StorageType: velero.StorageType{
 						ObjectStorage: &velero.ObjectStorageLocation{
 							Bucket: v.Bucket,
@@ -96,6 +91,7 @@ func (v *veleroCustomResource) SetClient() error {
 	}
 	oadpv1alpha1.AddToScheme(client.Scheme())
 	velero.AddToScheme(client.Scheme())
+	security.AddToScheme(client.Scheme())
 
 	v.Client = client
 	return nil

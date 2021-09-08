@@ -8,48 +8,47 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func createBackupForNamespaces(ocClient client.Client, backupName string, namespaces []string) error {
-
-	backup := velero.Backup{
+func createRestoreFromBackup(ocClient client.Client, backupName, restoreName string) error {
+	restore := velero.Restore{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      backupName,
+			Name:      restoreName,
 			Namespace: namespace,
 		},
-		Spec: velero.BackupSpec{
-			IncludedNamespaces: namespaces,
+		Spec: velero.RestoreSpec{
+			BackupName: backupName,
 		},
 	}
-	err := ocClient.Create(context.Background(), &backup)
+	err := ocClient.Create(context.Background(), &restore)
 	return err
 }
 
-func isBackupDone(ocClient client.Client, name string) wait.ConditionFunc {
+func isRestoreDone(ocClient client.Client, name string) wait.ConditionFunc {
 	return func() (bool, error) {
-		backup := velero.Backup{}
+		restore := velero.Restore{}
 		err := ocClient.Get(context.Background(), client.ObjectKey{
 			Namespace: namespace,
 			Name:      name,
-		}, &backup)
+		}, &restore)
 		if err != nil {
 			return false, err
 		}
-		if backup.Status.Phase != "" && backup.Status.Phase != velero.BackupPhaseNew && backup.Status.Phase != velero.BackupPhaseInProgress {
+		if restore.Status.Phase != "" && restore.Status.Phase != velero.RestorePhaseNew && restore.Status.Phase != velero.RestorePhaseInProgress {
 			return true, nil
 		}
 		return false, nil
 	}
 }
 
-func isBackupCompletedSuccessfully(ocClient client.Client, name string) (bool, error) {
-	backup := velero.Backup{}
+func isRestoreCompletedSuccessfully(ocClient client.Client, name string) (bool, error) {
+	restore := velero.Restore{}
 	err := ocClient.Get(context.Background(), client.ObjectKey{
 		Namespace: namespace,
 		Name:      name,
-	}, &backup)
+	}, &restore)
 	if err != nil {
 		return false, err
 	}
-	if backup.Status.Phase == velero.BackupPhaseCompleted {
+	if restore.Status.Phase == velero.RestorePhaseCompleted {
 		return true, nil
 	}
 	return false, nil
