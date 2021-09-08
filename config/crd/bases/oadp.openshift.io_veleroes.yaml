@@ -144,6 +144,11 @@ spec:
                 description: 'Important: Run "make" to regenerate code after modifying
                   this file Determine whether this was installed via OLM'
                 type: boolean
+              podAnnotations:
+                additionalProperties:
+                  type: string
+                description: add annotations to pods deployed by operator
+                type: object
               resticNodeSelector:
                 additionalProperties:
                   type: string
