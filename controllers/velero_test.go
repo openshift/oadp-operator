@@ -558,6 +558,192 @@ func TestVeleroReconciler_buildVeleroDeployment(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "given valid Velero CR with annotations, appropriate velero deployment is build with aws plugin specific specs",
+			veleroDeployment: &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-velero-deployment",
+					Namespace: "test-ns",
+				},
+				Spec: appsv1.DeploymentSpec{
+					Selector: veleroLabelSelector,
+				},
+			},
+			velero: &oadpv1alpha1.Velero{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-Velero-CR",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.VeleroSpec{
+					DefaultVeleroPlugins: []oadpv1alpha1.DefaultPlugin{
+						oadpv1alpha1.DefaultPluginAWS,
+					},
+					PodAnnotations: map[string]string{
+						"test-annotation": "awesome annotation",
+					},
+				},
+			},
+			wantErr: false,
+			wantVeleroDeployment: &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-velero-deployment",
+					Namespace: "test-ns",
+					Labels: map[string]string{
+						"app.kubernetes.io/name":       common.Velero,
+						"app.kubernetes.io/instance":   "test-Velero-CR",
+						"app.kubernetes.io/managed-by": common.OADPOperator,
+						"app.kubernetes.io/component":  Server,
+					},
+				},
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "Deployment",
+					APIVersion: appsv1.SchemeGroupVersion.String(),
+				},
+				Spec: appsv1.DeploymentSpec{
+					Selector: veleroLabelSelector,
+					Replicas: pointer.Int32(1),
+					Template: corev1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Labels: veleroLabelSelector.MatchLabels,
+							Annotations: map[string]string{
+								"prometheus.io/scrape": "true",
+								"prometheus.io/port":   "8085",
+								"prometheus.io/path":   "/metrics",
+								"test-annotation":      "awesome annotation",
+							},
+						},
+						Spec: corev1.PodSpec{
+							RestartPolicy:      corev1.RestartPolicyAlways,
+							ServiceAccountName: common.Velero,
+							Containers: []corev1.Container{
+								{
+									Name:            common.Velero,
+									Image:           common.VeleroImage,
+									ImagePullPolicy: corev1.PullAlways,
+									Ports: []corev1.ContainerPort{
+										{
+											Name:          "metrics",
+											ContainerPort: 8085,
+										},
+									},
+									Resources: corev1.ResourceRequirements{
+										Limits: corev1.ResourceList{
+											corev1.ResourceCPU:    resource.MustParse("1"),
+											corev1.ResourceMemory: resource.MustParse("512Mi"),
+										},
+										Requests: corev1.ResourceList{
+											corev1.ResourceCPU:    resource.MustParse("500m"),
+											corev1.ResourceMemory: resource.MustParse("128Mi"),
+										},
+									},
+									Command: []string{"/velero"},
+									Args: []string{
+										"server",
+										"--restic-timeout=1h",
+									},
+									VolumeMounts: []corev1.VolumeMount{
+										{
+											Name:      "plugins",
+											MountPath: "/plugins",
+										},
+										{
+											Name:      "scratch",
+											MountPath: "/scratch",
+										},
+										{
+											Name:      "certs",
+											MountPath: "/etc/ssl/certs",
+										},
+										{
+											Name:      "cloud-credentials",
+											MountPath: "/credentials",
+										},
+									},
+									Env: []corev1.EnvVar{
+										{
+											Name:  common.VeleroScratchDirEnvKey,
+											Value: "/scratch",
+										},
+										{
+											Name: common.VeleroNamespaceEnvKey,
+											ValueFrom: &corev1.EnvVarSource{
+												FieldRef: &corev1.ObjectFieldSelector{
+													FieldPath: "metadata.namespace",
+												},
+											},
+										},
+										{
+											Name:  common.LDLibraryPathEnvKey,
+											Value: "/plugins",
+										},
+										{
+											Name:  common.HTTPProxyEnvVar,
+											Value: os.Getenv("HTTP_PROXY"),
+										},
+										{
+											Name:  common.HTTPSProxyEnvVar,
+											Value: os.Getenv("HTTPS_PROXY"),
+										},
+										{
+											Name:  common.NoProxyEnvVar,
+											Value: os.Getenv("NO_PROXY"),
+										},
+										{
+											Name:  common.AWSSharedCredentialsFileEnvKey,
+											Value: "/credentials/cloud",
+										},
+									},
+								},
+							},
+							Volumes: []corev1.Volume{
+								{
+									Name: "plugins",
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{},
+									},
+								},
+								{
+									Name: "scratch",
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{},
+									},
+								},
+								{
+									Name: "certs",
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{},
+									},
+								},
+								{
+									Name: "cloud-credentials",
+									VolumeSource: corev1.VolumeSource{
+										Secret: &corev1.SecretVolumeSource{
+											SecretName: "cloud-credentials",
+										},
+									},
+								},
+							},
+							InitContainers: []corev1.Container{
+								{
+									Image:                    common.AWSPluginImage,
+									Name:                     common.VeleroPluginForAWS,
+									ImagePullPolicy:          corev1.PullAlways,
+									Resources:                corev1.ResourceRequirements{},
+									TerminationMessagePath:   "/dev/termination-log",
+									TerminationMessagePolicy: "File",
+									VolumeMounts: []corev1.VolumeMount{
+										{
+											MountPath: "/target",
+											Name:      "plugins",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 	r := &VeleroReconciler{}
 	for _, tt := range tests {

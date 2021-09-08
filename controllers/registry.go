@@ -180,7 +180,7 @@ func (r *VeleroReconciler) ReconcileRegistries(log logr.Logger) (bool, error) {
 				return err
 			}
 			// update the Registry Deployment template
-			err = r.buildRegistryDeployment(registryDeployment, &bsl)
+			err = r.buildRegistryDeployment(registryDeployment, &bsl, &velero)
 			return err
 		})
 
@@ -205,7 +205,7 @@ func (r *VeleroReconciler) ReconcileRegistries(log logr.Logger) (bool, error) {
 }
 
 // Construct and update the registry deployment for a bsl
-func (r *VeleroReconciler) buildRegistryDeployment(registryDeployment *appsv1.Deployment, bsl *velerov1.BackupStorageLocation) error {
+func (r *VeleroReconciler) buildRegistryDeployment(registryDeployment *appsv1.Deployment, bsl *velerov1.BackupStorageLocation, velero *oadpv1alpha1.Velero) error {
 
 	// Build registry container
 	registryContainer, err := r.buildRegistryContainer(bsl)
@@ -223,6 +223,7 @@ func (r *VeleroReconciler) buildRegistryDeployment(registryDeployment *appsv1.De
 				Labels: map[string]string{
 					"component": registryName(bsl),
 				},
+				Annotations: velero.Spec.PodAnnotations,
 			},
 			Spec: corev1.PodSpec{
 				RestartPolicy: corev1.RestartPolicyAlways,
