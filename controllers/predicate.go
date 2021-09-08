@@ -12,8 +12,8 @@ func veleroPredicate(scheme *runtime.Scheme) predicate.Predicate {
 	return predicate.Funcs{
 		// Update returns true if the Update event should be processed
 		UpdateFunc: func(e event.UpdateEvent) bool {
-			if e.ObjectOld.GetGeneration() != e.ObjectNew.GetGeneration() {
-				return true
+			if e.ObjectOld.GetGeneration() == e.ObjectNew.GetGeneration() {
+				return false
 			}
 			return isObjectOurs(scheme, e.ObjectOld)
 		},
