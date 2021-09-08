@@ -8,3 +8,5 @@ RUN go get github.com/onsi/gomega/...
 WORKDIR /go/src/github.com/openshift/oadp-operator
 
 COPY ./ .
+
+RUN go mod download
