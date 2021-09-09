@@ -225,3 +225,14 @@ test-e2e:
 	-s3_bucket=$(OADP_S3_BUCKET) -velero_namespace=$(OADP_TEST_NAMESPACE) \
 	-creds_secret_ref=$(CREDS_SECRET_REF) \
 	-velero_instance_name=$(VELERO_INSTANCE_NAME)
+
+
+GO_LICENSES = $(shell pwd)/bin/go-licenses
+go-licenses: ## Download controller-gen locally if necessary.
+	$(call go-get-tool,$(GO_LICENSES),github.com/google/go-licenses)
+
+licenses: go-licenses
+	$(GO_LICENSES) save "github.com/openshift/oadp-operator" --save_path="./NOTICES"
+
+clean-licenses:
+	rm -rf ./NOTICES
