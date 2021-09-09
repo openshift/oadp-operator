@@ -101,6 +101,7 @@ vet: ## Run go vet against code.
 
 test: manifests generate fmt vet envtest ## Run tests.
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" go test -mod=mod ./controllers/... ./pkg/... -coverprofile cover.out
+	make coverbadge
 
 
 ENVTEST = $(shell pwd)/bin/setup-envtest
@@ -149,6 +150,13 @@ kustomize: ## Download kustomize locally if necessary.
 ENVTEST = $(shell pwd)/bin/setup-envtest
 envtest: ## Download envtest-setup locally if necessary.
 	$(call go-get-tool,$(ENVTEST),sigs.k8s.io/controller-runtime/tools/setup-envtest@latest)
+
+GOPHERBADGER = $(shell pwd)/bin/gopherbadger
+gopherbadger: ## Download envtest-setup locally if necessary.
+	$(call go-get-tool,$(GOPHERBADGER),github.com/jpoles1/gopherbadger)
+
+coverbadge: gopherbadger
+	$(GOPHERBADGER) -manualcov $(shell go tool cover -func=cover.out | grep total: | tr -s '\t' | sed 's/\t/ /g'| cut -d ' ' -f 3 | sed 's/%//g')
 
 # go-get-tool will 'go get' any package $2 and install it to $1.
 PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
