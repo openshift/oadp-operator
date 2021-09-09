@@ -9,4 +9,5 @@ WORKDIR /go/src/github.com/openshift/oadp-operator
 
 COPY ./ .
 
+RUN chmod -R 777 ./
 RUN go mod download
