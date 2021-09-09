@@ -374,6 +374,7 @@ func (r *VeleroReconciler) buildVeleroDeployment(veleroDeployment *appsv1.Deploy
 		install.WithResources(r.getVeleroResourceReqs(velero)),
 		install.WithImage(getVeleroImage(velero)),
 		install.WithFeatures(velero.Spec.VeleroFeatureFlags),
+		install.WithAnnotations(velero.Spec.PodAnnotations),
 		// use WithSecret false even if we have secret because we use a different VolumeMounts and EnvVars
 		// see: https://github.com/vmware-tanzu/velero/blob/ed5809b7fc22f3661eeef10bdcb63f0d74472b76/pkg/install/deployment.go#L223-L261
 		// our secrets are appended to containers/volumeMounts in credentials.AppendPluginSpecificSpecs function
