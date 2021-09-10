@@ -225,6 +225,12 @@ spec:
                       type: string
                   type: object
                 type: array
+              restoreResourcesVersionPriority:
+                description: RestoreResourceVersionPriority represents a configmap
+                  that will be created if defined for use in conjunction with `EnableAPIGroupVersions`
+                  feature flag Defining this field automatically add EnableAPIGroupVersions
+                  to the velero server feature flag
+                type: string
               unsupportedOverrides:
                 additionalProperties:
                   type: string
