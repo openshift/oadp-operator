@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"reflect"
 
 	"github.com/openshift/oadp-operator/pkg/common"
 	"github.com/vmware-tanzu/velero/pkg/install"
@@ -227,6 +228,12 @@ func (r *VeleroReconciler) customizeResticDaemonset(velero *oadpv1alpha1.Velero,
 		}
 
 		resticContainer.ImagePullPolicy = corev1.PullAlways
+	}
+
+	// attach DNS policy and config if enabled
+	ds.Spec.Template.Spec.DNSPolicy = velero.Spec.PodDnsPolicy
+	if !reflect.DeepEqual(velero.Spec.PodDnsConfig, corev1.PodDNSConfig{}) {
+		ds.Spec.Template.Spec.DNSConfig = &velero.Spec.PodDnsConfig
 	}
 
 	if err := credentials.AppendCloudProviderVolumes(velero, ds); err != nil {

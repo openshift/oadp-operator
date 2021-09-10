@@ -3,9 +3,11 @@ package controllers
 import (
 	"errors"
 	"fmt"
-	"k8s.io/apimachinery/pkg/labels"
+	"reflect"
 	"regexp"
 	"strings"
+
+	"k8s.io/apimachinery/pkg/labels"
 
 	"github.com/openshift/oadp-operator/pkg/credentials"
 	"k8s.io/apimachinery/pkg/types"
@@ -231,6 +233,13 @@ func (r *VeleroReconciler) buildRegistryDeployment(registryDeployment *appsv1.De
 			},
 		},
 	}
+
+	// attach DNS policy and config if enabled
+	registryDeployment.Spec.Template.Spec.DNSPolicy = velero.Spec.PodDnsPolicy
+	if !reflect.DeepEqual(velero.Spec.PodDnsConfig, corev1.PodDNSConfig{}) {
+		registryDeployment.Spec.Template.Spec.DNSConfig = &velero.Spec.PodDnsConfig
+	}
+
 	return nil
 }
 
