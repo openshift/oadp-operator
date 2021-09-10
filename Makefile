@@ -156,7 +156,7 @@ gopherbadger: ## Download envtest-setup locally if necessary.
 	$(call go-get-tool,$(GOPHERBADGER),github.com/jpoles1/gopherbadger)
 
 coverbadge: gopherbadger
-	$(GOPHERBADGER) -manualcov $(shell go tool cover -func=cover.out | grep '^total:' | tr -s '\t' | sed 's/\t/ /g'| cut -d ' ' -f 3 | sed 's/%//g')
+	$(GOPHERBADGER) -manualcov $(shell GOFLAGS="-mod=mod" go tool cover -func=cover.out | grep '^total:' | tr -s '\t' | sed 's/\t/ /g'| cut -d ' ' -f 3 | sed 's/%//g')
 
 # go-get-tool will 'go get' any package $2 and install it to $1.
 PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
