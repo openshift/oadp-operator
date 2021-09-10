@@ -107,6 +107,10 @@ type VeleroSpec struct {
 	// https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-dns-config
 	// +optional
 	PodDnsConfig corev1.PodDNSConfig `json:"podDnsConfig,omitempty"`
+	// RestoreResourceVersionPriority represents a configmap that will be created if defined for use in conjunction with `EnableAPIGroupVersions` feature flag
+	// Defining this field automatically add EnableAPIGroupVersions to the velero server feature flag
+	// +optional
+	RestoreResourcesVersionPriority string `json:"restoreResourcesVersionPriority,omitempty"`
 }
 
 // VeleroStatus defines the observed state of Velero
