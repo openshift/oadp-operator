@@ -1,5 +1,5 @@
 # OADP Operator
-![](coverage_badge.png)
+![](coverage_badge.svg)
 ## Overview
 
 OADP is OpenShift API for Data Protection operator. This operator sets up and installs [Velero](https://velero.io/) on the OpenShift platform.

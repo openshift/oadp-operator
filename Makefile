@@ -151,12 +151,8 @@ ENVTEST = $(shell pwd)/bin/setup-envtest
 envtest: ## Download envtest-setup locally if necessary.
 	$(call go-get-tool,$(ENVTEST),sigs.k8s.io/controller-runtime/tools/setup-envtest@latest)
 
-GOPHERBADGER = $(shell pwd)/bin/gopherbadger
-gopherbadger: ## Download envtest-setup locally if necessary.
-	$(call go-get-tool,$(GOPHERBADGER),github.com/jpoles1/gopherbadger)
-
-coverbadge: gopherbadger
-	$(GOPHERBADGER) -manualcov $(shell GOFLAGS="-mod=mod" go tool cover -func=cover.out | grep '^total:' | tr -s '\t' | sed 's/\t/ /g'| cut -d ' ' -f 3 | sed 's/%//g')
+coverbadge:
+	curl https://img.shields.io/badge/Go%20Coverage-$(shell GOFLAGS="-mod=mod" go tool cover -func=cover.out | grep '^total:' | tr -s '\t' | sed 's/\t/ /g'| cut -d ' ' -f 3)25-green -o coverage_badge.svg
 
 # go-get-tool will 'go get' any package $2 and install it to $1.
 PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
