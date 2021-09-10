@@ -137,7 +137,6 @@ func createCredentialsSecret(data []byte, namespace string, credSecretRef string
 	}
 	_, err = clientset.CoreV1().Secrets(namespace).Create(context.TODO(), &secret, metav1.CreateOptions{})
 	if apierrors.IsAlreadyExists(err) {
-
 		return nil
 	}
 	return err
@@ -149,6 +148,9 @@ func deleteSecret(namespace string, credSecretRef string) error {
 		return err
 	}
 	err = clientset.CoreV1().Secrets(namespace).Delete(context.Background(), credSecretRef, metav1.DeleteOptions{})
+	if apierrors.IsNotFound(err) {
+		return nil
+	}
 	return err
 }
 

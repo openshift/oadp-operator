@@ -35,13 +35,13 @@ func (v *veleroCustomResource) removeVeleroPlugin(namespace string, instanceName
 	return nil
 }
 
-func doesPluginExist(namespace string, deploymentName string, pluginName string) wait.ConditionFunc {
+func doesPluginExist(namespace string, pluginName string) wait.ConditionFunc {
 	return func() (bool, error) {
 		clientset, err := setUpClient()
 		if err != nil {
 			return false, err
 		}
-		veleroDeployment, err := clientset.AppsV1().Deployments(namespace).Get(context.TODO(), deploymentName, metav1.GetOptions{})
+		veleroDeployment, err := clientset.AppsV1().Deployments(namespace).Get(context.TODO(), "velero", metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}
