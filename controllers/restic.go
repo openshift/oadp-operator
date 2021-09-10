@@ -148,6 +148,7 @@ func (r *VeleroReconciler) buildResticDaemonset(velero *oadpv1alpha1.Velero, ds 
 	*ds = *install.DaemonSet(ds.Namespace,
 		install.WithResources(r.getVeleroResourceReqs(velero)),
 		install.WithImage(getVeleroImage(velero)),
+		install.WithAnnotations(velero.Spec.PodAnnotations),
 		install.WithSecret(false))
 
 	ds.Name = resticDaemonSetName

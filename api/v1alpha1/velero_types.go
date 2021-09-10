@@ -95,6 +95,13 @@ type VeleroSpec struct {
 	ResticTimeout string `json:"resticTimeout,omitempty"`
 	// +optional
 	UnsupportedOverrides map[UnsupportedImageKey]string `json:"unsupportedOverrides,omitempty"`
+	// add annotations to pods deployed by operator
+	// +optional
+	PodAnnotations map[string]string `json:"podAnnotations,omitempty"`
+	// RestoreResourceVersionPriority represents a configmap that will be created if defined for use in conjunction with `EnableAPIGroupVersions` feature flag
+	// Defining this field automatically add EnableAPIGroupVersions to the velero server feature flag
+	// +optional
+	RestoreResourcesVersionPriority string `json:"restoreResourcesVersionPriority,omitempty"`
 }
 
 // VeleroStatus defines the observed state of Velero

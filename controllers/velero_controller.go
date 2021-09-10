@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"context"
+	routev1 "github.com/openshift/api/route/v1"
 
 	security "github.com/openshift/api/security/v1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -90,6 +91,9 @@ func (r *VeleroReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		r.ValidateBackupStorageLocations,
 		r.ReconcileBackupStorageLocations,
 		r.ReconcileRegistries,
+		r.ReconcileRegistrySVCs,
+		r.ReconcileRegistryRoutes,
+		r.ReconcileRegistryRouteConfigs,
 		r.ValidateVolumeSnapshotLocations,
 		r.ReconcileVolumeSnapshotLocations,
 		r.ReconcileVeleroDeployment,
@@ -136,6 +140,8 @@ func (r *VeleroReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&rbac.Role{}).
 		Owns(&corev1.ServiceAccount{}).
 		Owns(&corev1.Secret{}).
+		Owns(&corev1.Service{}).
+		Owns(&routev1.Route{}).
 		Owns(&corev1.ConfigMap{}).
 		WithEventFilter(veleroPredicate(r.Scheme)).
 		Complete(r)

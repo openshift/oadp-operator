@@ -3,6 +3,7 @@ package controllers
 import (
 	"errors"
 	"fmt"
+	"k8s.io/apimachinery/pkg/labels"
 	"regexp"
 	"strings"
 
@@ -10,6 +11,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/go-logr/logr"
+	routev1 "github.com/openshift/api/route/v1"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	"github.com/openshift/oadp-operator/pkg/common"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
@@ -178,7 +180,7 @@ func (r *VeleroReconciler) ReconcileRegistries(log logr.Logger) (bool, error) {
 				return err
 			}
 			// update the Registry Deployment template
-			err = r.buildRegistryDeployment(registryDeployment, &bsl)
+			err = r.buildRegistryDeployment(registryDeployment, &bsl, &velero)
 			return err
 		})
 
@@ -203,7 +205,7 @@ func (r *VeleroReconciler) ReconcileRegistries(log logr.Logger) (bool, error) {
 }
 
 // Construct and update the registry deployment for a bsl
-func (r *VeleroReconciler) buildRegistryDeployment(registryDeployment *appsv1.Deployment, bsl *velerov1.BackupStorageLocation) error {
+func (r *VeleroReconciler) buildRegistryDeployment(registryDeployment *appsv1.Deployment, bsl *velerov1.BackupStorageLocation, velero *oadpv1alpha1.Velero) error {
 
 	// Build registry container
 	registryContainer, err := r.buildRegistryContainer(bsl)
@@ -221,6 +223,7 @@ func (r *VeleroReconciler) buildRegistryDeployment(registryDeployment *appsv1.De
 				Labels: map[string]string{
 					"component": registryName(bsl),
 				},
+				Annotations: velero.Spec.PodAnnotations,
 			},
 			Spec: corev1.PodSpec{
 				RestartPolicy: corev1.RestartPolicyAlways,
@@ -495,4 +498,231 @@ func (r *VeleroReconciler) parseAWSSecret(secret corev1.Secret, secretKey string
 	}
 
 	return AWSAccessKey, AWSSecretKey, nil
+}
+
+func (r *VeleroReconciler) ReconcileRegistrySVCs(log logr.Logger) (bool, error) {
+	velero := oadpv1alpha1.Velero{}
+	if err := r.Get(r.Context, r.NamespacedName, &velero); err != nil {
+		return false, err
+	}
+
+	// fetch the bsl instances
+	bslList := velerov1.BackupStorageLocationList{}
+	if err := r.List(r.Context, &bslList, &client.ListOptions{
+		Namespace: r.NamespacedName.Namespace,
+		LabelSelector: labels.SelectorFromSet(map[string]string{
+			"app.kubernetes.io/component": "bsl",
+		}),
+	}); err != nil {
+		return false, err
+	}
+
+	// Now for each of these bsl instances, create a service
+	if len(bslList.Items) > 0 {
+		for _, bsl := range bslList.Items {
+			svc := corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "oadp-" + bsl.Name + "-" + bsl.Spec.Provider + "-registry-svc",
+					Namespace: r.NamespacedName.Namespace,
+				},
+			}
+
+			// Create SVC
+			op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, &svc, func() error {
+
+				// Setting selector if a new object is created as it is immutable
+				if svc.ObjectMeta.CreationTimestamp.IsZero() {
+					svc.Spec.Selector = map[string]string{
+						"component": "oadp-" + bsl.Name + "-" + bsl.Spec.Provider + "-registry",
+					}
+					svc.Spec.Type = corev1.ServiceTypeClusterIP
+					svc.Spec.Ports = []corev1.ServicePort{
+						{
+							Name: "5000-tcp",
+							Port: int32(5000),
+							TargetPort: intstr.IntOrString{
+								IntVal: int32(5000),
+							},
+							Protocol: corev1.ProtocolTCP,
+						},
+					}
+				}
+
+				// TODO: check for svc status condition errors and respond here
+
+				err := r.updateRegistrySVC(&svc, &bsl, &velero)
+
+				return err
+			})
+			if err != nil {
+				return false, err
+			}
+			if op == controllerutil.OperationResultCreated || op == controllerutil.OperationResultUpdated {
+				// Trigger event to indicate SVC was created or updated
+				r.EventRecorder.Event(&bsl,
+					corev1.EventTypeNormal,
+					"RegistryServicesReconciled",
+					fmt.Sprintf("performed %s on service %s/%s", op, svc.Namespace, svc.Name),
+				)
+			}
+		}
+	}
+
+	return true, nil
+}
+
+func (r *VeleroReconciler) updateRegistrySVC(svc *corev1.Service, bsl *velerov1.BackupStorageLocation, velero *oadpv1alpha1.Velero) error {
+	// Setting controller owner reference on the registry svc
+	err := controllerutil.SetControllerReference(velero, svc, r.Scheme)
+	if err != nil {
+		return err
+	}
+
+	svc.Labels = map[string]string{
+		"component": "oadp-" + bsl.Name + "-" + bsl.Spec.Provider + "-registry",
+	}
+	return nil
+}
+
+func (r *VeleroReconciler) ReconcileRegistryRoutes(log logr.Logger) (bool, error) {
+	velero := oadpv1alpha1.Velero{}
+	if err := r.Get(r.Context, r.NamespacedName, &velero); err != nil {
+		return false, err
+	}
+
+	// fetch the bsl instances
+	bslList := velerov1.BackupStorageLocationList{}
+	if err := r.List(r.Context, &bslList, &client.ListOptions{
+		Namespace: r.NamespacedName.Namespace,
+		LabelSelector: labels.SelectorFromSet(map[string]string{
+			"app.kubernetes.io/component": "bsl",
+		}),
+	}); err != nil {
+		return false, err
+	}
+
+	// Now for each of these bsl instances, create a route
+	if len(bslList.Items) > 0 {
+		for _, bsl := range bslList.Items {
+			route := routev1.Route{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "oadp-" + bsl.Name + "-" + bsl.Spec.Provider + "-registry-route",
+					Namespace: r.NamespacedName.Namespace,
+				},
+				Spec: routev1.RouteSpec{
+					To: routev1.RouteTargetReference{
+						Kind: "Service",
+						Name: "oadp-" + bsl.Name + "-" + bsl.Spec.Provider + "-registry-svc",
+					},
+				},
+			}
+
+			// Create Route
+			op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, &route, func() error {
+
+				// TODO: check for svc status condition errors and respond here
+
+				err := r.updateRegistryRoute(&route, &bsl, &velero)
+
+				return err
+			})
+			if err != nil {
+				return false, err
+			}
+			if op == controllerutil.OperationResultCreated || op == controllerutil.OperationResultUpdated {
+				// Trigger event to indicate route was created or updated
+				r.EventRecorder.Event(&bsl,
+					corev1.EventTypeNormal,
+					"RegistryroutesReconciled",
+					fmt.Sprintf("performed %s on route %s/%s", op, route.Namespace, route.Name),
+				)
+			}
+		}
+	}
+
+	return true, nil
+}
+
+func (r *VeleroReconciler) updateRegistryRoute(route *routev1.Route, bsl *velerov1.BackupStorageLocation, velero *oadpv1alpha1.Velero) error {
+	// Setting controller owner reference on the registry route
+	err := controllerutil.SetControllerReference(velero, route, r.Scheme)
+	if err != nil {
+		return err
+	}
+
+	route.Labels = map[string]string{
+		"component": "oadp-" + bsl.Name + "-" + bsl.Spec.Provider + "-registry",
+		"service":   "oadp-" + bsl.Name + "-" + bsl.Spec.Provider + "-registry-svc",
+		"track":     "registry-routes",
+	}
+
+	return nil
+}
+
+func (r *VeleroReconciler) ReconcileRegistryRouteConfigs(log logr.Logger) (bool, error) {
+	velero := oadpv1alpha1.Velero{}
+	if err := r.Get(r.Context, r.NamespacedName, &velero); err != nil {
+		return false, err
+	}
+
+	// fetch the bsl instances
+	bslList := velerov1.BackupStorageLocationList{}
+	if err := r.List(r.Context, &bslList, &client.ListOptions{
+		Namespace: r.NamespacedName.Namespace,
+		LabelSelector: labels.SelectorFromSet(map[string]string{
+			"app.kubernetes.io/component": "bsl",
+		}),
+	}); err != nil {
+		return false, err
+	}
+
+	// Now for each of these bsl instances, create a registry route cm for each of them
+	if len(bslList.Items) > 0 {
+		for _, bsl := range bslList.Items {
+			registryRouteCM := corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "oadp-registry-config",
+					Namespace: r.NamespacedName.Namespace,
+				},
+			}
+
+			op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, &registryRouteCM, func() error {
+
+				// update the Config Map
+				err := r.updateRegistryConfigMap(&registryRouteCM, &bsl, &velero)
+				return err
+			})
+
+			if err != nil {
+				return false, err
+			}
+
+			//TODO: Review Registry Route CM status and report errors and conditions
+
+			if op == controllerutil.OperationResultCreated || op == controllerutil.OperationResultUpdated {
+				// Trigger event to indicate Registry Route CM was created or updated
+				r.EventRecorder.Event(&registryRouteCM,
+					corev1.EventTypeNormal,
+					"ReconcileRegistryRouteConfigReconciled",
+					fmt.Sprintf("performed %s on registry route config map %s/%s", op, registryRouteCM.Namespace, registryRouteCM.Name),
+				)
+			}
+		}
+	}
+	return true, nil
+}
+
+func (r *VeleroReconciler) updateRegistryConfigMap(registryRouteCM *corev1.ConfigMap, bsl *velerov1.BackupStorageLocation, velero *oadpv1alpha1.Velero) error {
+
+	// Setting controller owner reference on the restic restore helper CM
+	err := controllerutil.SetControllerReference(velero, registryRouteCM, r.Scheme)
+	if err != nil {
+		return err
+	}
+
+	registryRouteCM.Data = map[string]string{
+		bsl.Name: "oadp-" + bsl.Name + "-" + bsl.Spec.Provider + "-registry-route",
+	}
+
+	return nil
 }
