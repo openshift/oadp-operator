@@ -23,6 +23,15 @@ jobs:
         go-version: '^1.16.6' # The Go version to download (if necessary) and use.
     - run: go version
     - run: make test
+    # Update Coverage badge if not already
+    - uses: stefanzweifel/git-auto-commit-action@v4
+      with:
+        commit_message: coverage badge
+        file_pattern: coverage_badge.svg
+        commit_user_name: Coverage Badge Bot
+        commit_user_email: actions@github.com
+
+
   podman-build:
     runs-on: ubuntu-latest
     steps:
