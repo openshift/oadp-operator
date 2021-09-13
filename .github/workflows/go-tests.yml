@@ -13,7 +13,7 @@ on:
       - '.github/workflows/go-tests.yml'
       - '**/Dockerfile'
 jobs:
-  make-test:
+  make-test_submitcoverage: #test and submit coverage to codecov on pushes
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
@@ -22,7 +22,7 @@ jobs:
       with:
         go-version: '^1.16.6' # The Go version to download (if necessary) and use.
     - run: go version
-    - run: make test
+    - run: make test_submitcoverage
   podman-build:
     runs-on: ubuntu-latest
     steps:
