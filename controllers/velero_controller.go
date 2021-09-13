@@ -48,13 +48,11 @@ type VeleroReconciler struct {
 	EventRecorder  record.EventRecorder
 }
 
-//TODO!!! FIX THIS!!!!
-
-//+kubebuilder:rbac:groups=*,resources=*,verbs=*
 //+kubebuilder:rbac:groups=oadp.openshift.io,resources=veleroes,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=roles;clusterroles;rolebindings;clusterrolebindings,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups="",resources=serviceaccounts;secrets;configmaps,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups="",resources=serviceaccounts;secrets;configmaps;services;pods,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=apps,resources=deployments;daemonsets,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=route.openshift.io,resources=routes,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=security.openshift.io,resources=securitycontextconstraints,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=velero.io,resources=backups;restores;backupstoragelocations;volumesnapshotlocations,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=oadp.openshift.io,resources=veleroes/status,verbs=get;update;patch

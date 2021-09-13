@@ -10,8 +10,10 @@ rules:
   - ""
   resources:
   - configmaps
+  - pods
   - secrets
   - serviceaccounts
+  - services
   verbs:
   - create
   - delete
@@ -20,12 +22,6 @@ rules:
   - patch
   - update
   - watch
-- apiGroups:
-  - '*'
-  resources:
-  - '*'
-  verbs:
-  - '*'
 - apiGroups:
   - apps
   resources:
@@ -72,6 +68,18 @@ rules:
   - clusterroles
   - rolebindings
   - roles
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - route.openshift.io
+  resources:
+  - routes
   verbs:
   - create
   - delete
