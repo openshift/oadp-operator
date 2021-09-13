@@ -1,40 +1,44 @@
-***
-## Use self-sigend certificate
-***
+<hr style="height:1px;border:none;color:#333;">
+<h1 align="center">Use Self-Sigend Certificate</h1>
+<hr style="height:1px;border:none;color:#333;">
 
 ### Use Velero with a storage provider secured by a self-signed certificate
 
-If you are using an S3-Compatible storage provider that is secured with a self-signed certificate, connections to the object store may fail with a `certificate signed by unknown authority` message. In order to proceed, you will have to specify the a base64 encoded certificate string as a value of the `caCert` spec under the `object_storage` configuration in the velero CR.
+If you are using an S3-Compatible storage provider that is secured with a 
+self-signed certificate, connections to the object store may fail with a 
+`certificate signed by unknown authority` message. In order to proceed, you will 
+have to specify a base64 encoded certificate string as a value of the `caCert` 
+spec, under the `objectStorage` configuration in the Velero CR.
 
-Your CR might look somewhat like this:
+Your Velero CR might look somewhat like this:
 
 ```
-apiVersion: konveyor.openshift.io/v1alpha1
+apiVersion: oadp.openshift.io/v1alpha1
 kind: Velero
 metadata:
-  name: example-velero
+  name: velero-sample
 spec:
-  use_upstream_images: true
-  default_velero_plugins:
+  defaultVeleroPlugins:
   - aws
   - openshift
-  backup_storage_locations:
+  backupStorageLocations:
   - name: default
     provider: aws
-    object_storage:
+    objectStorage:
       bucket: velero
       caCert: <base64_encoded_cert_string>
     config:
       region: us-east-1
       profile: "default"
-      insecure_skip_tls_verify: "false"
-      signature_version: "1"
+      insecureSkipTlsVerify: "false"
+      signatureVersion: "1"
       public_url: "https://m-oadp.apps.cluster-sdpampat0519.sdpampat0519.mg.dog8code.com"
-      s3_url: "https://m-oadp.apps.cluster-sdpampat0519.sdpampat0519.mg.dog8code.com"
-      s3_force_path_style: "true"
-    credentials_secret_ref:
+      s3Url: "https://m-oadp.apps.cluster-sdpampat0519.sdpampat0519.mg.dog8code.com"
+      s3ForcePathStyle: "true"
+    credential:
       name: cloud-credentials
-      namespace: oadp-operator
-  enable_restic: true
+      namespace: oadp-operator-system
+  enableRestic: true
 ```
-<b>Note:</b> Ensure that `insecure_skip_tls_verify` is set to `false` so that TLS is used.
+<b>Note:</b> Ensure that `insecureSkipTlsVerify` is set to `false` so that TLS 
+is used.

@@ -16,13 +16,14 @@ installs <a href="https://velero.io/">Velero</a> on the OpenShift platform. </p>
     3. [Installing the Operator](#operator-install)
     4. [Installing Velero + Restic](#velero-restic-install)
     5. [Verify Installation](#verify-install)
+    6. [Uninstall Operator](#uninstall)
 2. [Custom Installation]()
     1. [Configure Plugins](#docs/plugins.md)
     2. [Backup Storage Locations and Volume Snapshot Locations](docs/bsl_and_vsl.md)
     3. [Resource Requests and Limits](docs/resource_req_limits.md)
     4. [Self-Sigend Certificate](docs/self_signed_certs.md)
 3. [OLM Integration](docs/olm.md)
-4. [Use NooBaa as a BackupStorageLocation](docs/noobaa/install_oadp_noobaa.md) 
+4. [Use NooBaa as a Backup Storage Location](docs/noobaa/install_oadp_noobaa.md) 
 5. [Use Velero --features flag](docs/features_flag.md)
 6. [Usage Examples]()
     1. [OADP Capstone](https://github.com/konveyor/oadp-capstone)
@@ -106,6 +107,9 @@ replicaset.apps/oadp-velero-sample-1-aws-registry-5d6968cbdd   1         1      
 replicaset.apps/velero-588db7f655                              1         1         1       96s
 ```
 
+### Uninstall Operator <a id="uninstall"></a>
+
+`$ make undeploy`
 
 <hr style="height:1px;border:none;color:#333;">
 

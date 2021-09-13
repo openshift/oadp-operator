@@ -1,42 +1,50 @@
-***
-## Plugin customization
-***
+<hr style="height:1px;border:none;color:#333;">
+<h1 align="center">Plugins Customization</h1>
+<hr style="height:1px;border:none;color:#333;">
 
 ### Configure Velero Plugins
 
-There are mainly two categories of velero plugins that can be specified while installing Velero:
+There are mainly two categories of Velero plugins that can be specified while 
+installing Velero:
 
-1. `default-velero-plugins`:<br>
-   4 types of default velero plugins can be installed - AWS, GCP, Azure and OpenShift. For installation, you need to specify them in the `konveyor.openshift.io_v1alpha1_velero_cr.yaml` file during deployment.
+1. `defaultVeleroPlugins`:<br>
+   There are five types of default Velero plugins can be installed: 
+   `AWS`, `GCP`, `Azure` and `OpenShift`, and `CSI`. For installation, 
+   you need to specify them in the `oadp_v1alpha1_velero_cr.yaml` file 
+   during deployment.
+
    ```
-    apiVersion: konveyor.openshift.io/v1alpha1
+    apiVersion: oadp.openshift.io/v1alpha1
     kind: Velero
     metadata:
-      name: example-velero
+      name: velero-sample
     spec:
-      default_velero_plugins:
+      defaultVeleroPlugins:
       - azure
       - gcp
       - aws
       - openshift    
    ```
-   The above specification will install Velero with all the 4 default plugins.
+   The above specification will install Velero with four of the default plugins.
    
-2. `custom-velero-plugin`:<br>
-   For installation of custom velero plugins, you need to specify the plugin `image` and plugin `name` in the `konveyor.openshift.io_v1alpha1_velero_cr.yaml` file during deployment.
+2. `customVeleroPlugins`:<br>
+   For installation of custom Velero plugins, you need to specify the plugin 
+   `image` and plugin `name` in the `oadp_v1alpha1_velero_cr.yaml` file during 
+   deployment.
 
    For instance, 
    ```
-    apiVersion: konveyor.openshift.io/v1alpha1
+    apiVersion: oadp.openshift.io/v1alpha1
     kind: Velero
     metadata:
-      name: example-velero
+      name: velero-sample
     spec:
-      default_velero_plugins:
+      defaultVeleroPlugins:
       - azure
       - gcp
-      custom_velero_plugins:
+      customVeleroPlugins:
       - name: custom-plugin-example
         image: quay.io/example-repo/custom-velero-plugin   
    ```
-   The above specification will install Velero with 3 plugins (azure, gcp and custom-plugin-example).
+   The above specification will install Velero with three plugins: 
+   `azure`, `gcp`, and `custom-plugin-example`.
