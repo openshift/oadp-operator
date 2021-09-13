@@ -8,11 +8,12 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	//"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/tools/record"
 	"reflect"
+	"testing"
+
+	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
-	"testing"
 
 	"github.com/openshift/oadp-operator/pkg/common"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
@@ -163,6 +164,72 @@ func TestVeleroReconciler_buildRegistryDeployment(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "given a valid bsl with velero annotation and DNS Policy/Config get appropriate registry deployment",
+			registryDeployment: &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-registry",
+					Namespace: "test-ns",
+				},
+				Spec: appsv1.DeploymentSpec{
+					Selector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"component": "oadp-" + "test-bsl" + "-" + "aws" + "-registry",
+						},
+					},
+				},
+			},
+			bsl: &velerov1.BackupStorageLocation{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-bsl",
+					Namespace: "test-ns",
+				},
+				Spec: velerov1.BackupStorageLocationSpec{
+					Provider: AWSProvider,
+					StorageType: velerov1.StorageType{
+						ObjectStorage: &velerov1.ObjectStorageLocation{
+							Bucket: "aws-bucket",
+						},
+					},
+					Config: map[string]string{
+						Region:                "aws-region",
+						S3URL:                 "https://sr-url-aws-domain.com",
+						RootDirectory:         "/velero-aws",
+						InsecureSkipTLSVerify: "false",
+					},
+				},
+			},
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cloud-credentials",
+					Namespace: "test-ns",
+				},
+				Data: secretData,
+			},
+			velero: &oadpv1alpha1.Velero{
+				Spec: oadpv1alpha1.VeleroSpec{
+					PodAnnotations: map[string]string{
+						"test-annotation": "awesome-annotation",
+					},
+					PodDnsPolicy: "None",
+					PodDnsConfig: corev1.PodDNSConfig{
+						Nameservers: []string{
+							"1.1.1.1",
+							"8.8.8.8",
+						},
+						Options: []corev1.PodDNSConfigOption{
+							{
+								Name:  "ndots",
+								Value: pointer.String("2"),
+							},
+							{
+								Name: "edns0",
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -218,6 +285,8 @@ func TestVeleroReconciler_buildRegistryDeployment(t *testing.T) {
 						},
 						Spec: corev1.PodSpec{
 							RestartPolicy: corev1.RestartPolicyAlways,
+							DNSPolicy:     tt.velero.Spec.PodDnsPolicy,
+							DNSConfig:     &tt.velero.Spec.PodDnsConfig,
 							Containers: []corev1.Container{
 								{
 									Image: common.RegistryImage,
@@ -289,6 +358,9 @@ func TestVeleroReconciler_buildRegistryDeployment(t *testing.T) {
 						},
 					},
 				},
+			}
+			if reflect.DeepEqual(tt.velero.Spec.PodDnsConfig, corev1.PodDNSConfig{}) {
+				wantRegistryDeployment.Spec.Template.Spec.DNSConfig = nil
 			}
 
 			err = r.buildRegistryDeployment(tt.registryDeployment, tt.bsl, tt.velero)
