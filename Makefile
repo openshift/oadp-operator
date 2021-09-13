@@ -101,7 +101,7 @@ vet: ## Run go vet against code.
 
 test: manifests generate fmt vet envtest ## Run tests.
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" go test -mod=mod ./controllers/... ./pkg/... -coverprofile cover.out
-	make coverbadge
+	make submitcoverage
 
 
 ENVTEST = $(shell pwd)/bin/setup-envtest
@@ -151,8 +151,8 @@ ENVTEST = $(shell pwd)/bin/setup-envtest
 envtest: ## Download envtest-setup locally if necessary.
 	$(call go-get-tool,$(ENVTEST),sigs.k8s.io/controller-runtime/tools/setup-envtest@latest)
 
-coverbadge:
-	curl https://img.shields.io/badge/Go%20Coverage-$(shell GOFLAGS="-mod=mod" go tool cover -func=cover.out | tail -n 1 | tr -s '\t' | sed 's/\t/ /g'| cut -d ' ' -f 3)25-green -o coverage_badge.svg
+submitcoverage:
+	bash <(curl -s https://codecov.io/bash);
 
 # go-get-tool will 'go get' any package $2 and install it to $1.
 PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
