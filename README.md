@@ -19,15 +19,15 @@ installs <a href="https://velero.io/">Velero</a> on the OpenShift platform.</p>
     4. [Installing Velero + Restic](#velero-restic-install)
     5. [Verify Installation](#verify-install)
     6. [Uninstall Operator](#uninstall)
-2. [Custom Installation]()
-    1. [Configure Plugins](#docs/plugins.md)
+2. Custom Installation
+    1. [Configure Plugins](docs/plugins.md)
     2. [Backup Storage Locations and Volume Snapshot Locations](docs/bsl_and_vsl.md)
     3. [Resource Requests and Limits](docs/resource_req_limits.md)
     4. [Self-Signed Certificate](docs/self_signed_certs.md)
 3. [OLM Integration](docs/olm.md)
 4. [Use NooBaa as a Backup Storage Location](docs/noobaa/install_oadp_noobaa.md) 
 5. [Use Velero --features flag](docs/features_flag.md)
-6. [Usage Examples]()
+6. Usage Examples
     1. [OADP Capstone](https://github.com/konveyor/oadp-capstone)
     2. [Velero Examples](https://github.com/konveyor/velero-examples)
 7. [Velero Version Relationship](#version)
@@ -35,9 +35,7 @@ installs <a href="https://velero.io/">Velero</a> on the OpenShift platform.</p>
 
 <hr style="height:1px;border:none;color:#333;">
 
-<h1 align="center">Getting Started<a id="get-started"></a></h1>
-
-<hr style="height:1px;border:none;color:#333;">
+<h1>Getting Started<a id="get-started"></a></h1>
 
 ### Prerequisites <a id="prerequisites"></a> 
 
