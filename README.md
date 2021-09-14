@@ -35,7 +35,7 @@ installs <a href="https://velero.io/">Velero</a> on the OpenShift platform.</p>
 
 <hr style="height:1px;border:none;color:#333;">
 
-<h1>Getting Started<a id="get-started"></a></h1>
+<h1 align="center">Getting Started<a id="get-started"></a></h1>
 
 ### Prerequisites <a id="prerequisites"></a> 
 
