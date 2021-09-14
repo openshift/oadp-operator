@@ -1,6 +1,5 @@
 <div align="center">
   <h1> OADP Operator </h1>
-
   <p>  OADP is OpenShift API for Data Protection operator. This operator sets up and 
 installs <a href="https://velero.io/">Velero</a> on the OpenShift platform.</p>
 
