@@ -237,7 +237,7 @@ spec:
                 - name: VELERO_VSPHERE_PLUGIN_REPO
                   value: velero-plugin-for-vsphere
                 - name: VELERO_TAG
-                  value: latest
+                  value: konveyor-1.6.3
                 - name: VELERO_RESTIC_RESTORE_HELPER_TAG
                   value: latest
                 - name: VELERO_AWS_PLUGIN_TAG
