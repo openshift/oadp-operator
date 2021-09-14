@@ -38,33 +38,6 @@ func TestVeleroReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 				},
 			},
 		},
-		{
-			name: "test VSL with invalid provider",
-			VeleroCR: &oadpv1alpha1.Velero{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-Velero-VSL",
-					Namespace: "test-ns",
-				},
-				Spec: oadpv1alpha1.VeleroSpec{
-					VolumeSnapshotLocations: []velerov1.VolumeSnapshotLocationSpec{
-						{
-							Provider: "foo",
-							Config: map[string]string{
-								Region: "us-east-1",
-							},
-						},
-					},
-				},
-			},
-			want:    false,
-			wantErr: true,
-			secret: &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "cloud-credentials",
-					Namespace: "test-ns",
-				},
-			},
-		},
 
 		// AWS tests
 		{

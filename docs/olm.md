@@ -1,4 +1,9 @@
-Create `oadp-operator-source.yaml` file like below in oadp-operator directory:
+<hr style="height:1px;border:none;color:#333;">
+<h1 align="center">OLM Integration</h1>
+<hr style="height:1px;border:none;color:#333;">
+
+Create `oadp-operator-source.yaml` file like below in the oadp-operator directory:
+
 ```
 apiVersion: operators.coreos.com/v1
 kind: OperatorSource
@@ -18,16 +23,21 @@ spec:
 Run the following commands below:
 
 ```
-oc create namespace oadp-operator
-oc project oadp-operator
-oc create secret generic <SECRET_NAME> --namespace oadp-operator --from-file cloud=<CREDENTIALS_FILE_PATH>
+oc create namespace oadp-operator-system
+oc project oadp-operator-system
+oc create secret generic <SECRET_NAME> --namespace oadp-operator-system --from-file cloud=<CREDENTIALS_FILE_PATH>
 oc create -f oadp-operator-source.yaml
 ```
-- After running these commands, install OADP Operator from OperatorHub.
+- After running these commands, install OADP Operator from the `README` 
+instructions.
 
-When the installation is succeeded, create a Velero CRD instance from web console.
+When the installation is succeeded, create a Velero CRD instance from the 
+`README` instructions.
 
-Post completion of all the above steps, you can check if the operator was successfully installed or not, the expected result for the command `oc get all -n oadp-operator` is as follows:
+Post completion of all the above steps, you can check if the operator was 
+successfully installed. The expected result for the command 
+`oc get all -n oadp-operator-system` is as follows:
+
 ```
 NAME                                             READY   STATUS    RESTARTS   AGE
 pod/oadp-default-aws-registry-568978c9dc-glpfj   1/1     Running   0          10h
@@ -58,10 +68,12 @@ NAME                                                       HOST/PORT            
 route.route.openshift.io/oadp-default-aws-registry-route   oadp-default-aws-registry-route-oadp-operator.apps.cluster-dshah-4-5.dshah-4-5.mg.dog8code.com          oadp-default-aws-registry-svc   5000-tcp                 None
 ``` 
 
-- For cleaning up the deployed resources, remove the velero crd instance from web console and then uninstall the operator. To check if the resources are removed, run:
+- For cleaning up the deployed resources, remove the Velero CR instance, 
+and then uninstall the operator from the `README` instructions. To check if the 
+resources are removed, run:
 
 ```
 $ oc get all -n oadp-operator
-No resources found in oadp-operator namespace.
+No resources found in oadp-operator-system namespace.
 ```
 

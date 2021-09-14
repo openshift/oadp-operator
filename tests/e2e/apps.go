@@ -2,6 +2,8 @@ package e2e
 
 import (
 	"context"
+	"errors"
+	appsv1 "github.com/openshift/api/apps/v1"
 	security "github.com/openshift/api/security/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -62,7 +64,9 @@ func uninstallApplication(ocClient client.Client, file string) error {
 	}
 	for _, resource := range obj.Items {
 		err = ocClient.Delete(context.Background(), &resource)
-		if err != nil {
+		if apierrors.IsNotFound(err) {
+			continue
+		} else if err != nil {
 			return err
 		}
 	}
@@ -95,5 +99,22 @@ func areApplicationPodsRunning(namespace string) wait.ConditionFunc {
 			}
 		}
 		return true, err
+	}
+}
+
+func isDCReady(ocClient client.Client, namespace, dc string) wait.ConditionFunc {
+	return func() (bool, error) {
+		dc := appsv1.DeploymentConfig{}
+		err := ocClient.Get(context.Background(), client.ObjectKey{
+			Namespace: namespace,
+			Name:      "restify",
+		}, &dc)
+		if err != nil {
+			return false, err
+		}
+		if dc.Status.AvailableReplicas != dc.Status.Replicas || dc.Status.Replicas == 0 {
+			return false, errors.New("DC is not in a ready state")
+		}
+		return true, nil
 	}
 }

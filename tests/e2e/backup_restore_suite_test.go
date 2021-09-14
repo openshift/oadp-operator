@@ -26,7 +26,7 @@ var _ = Describe("AWS backup restore tests", func() {
 		err = vel.Build()
 		Expect(err).NotTo(HaveOccurred())
 
-		err = vel.Create()
+		err = vel.CreateOrUpdate(&vel.CustomResource.Spec)
 		Expect(err).NotTo(HaveOccurred())
 	})
 
@@ -34,8 +34,6 @@ var _ = Describe("AWS backup restore tests", func() {
 		err := vel.Delete()
 		Expect(err).ToNot(HaveOccurred())
 
-		errs := deleteSecret(namespace, credSecretRef)
-		Expect(errs).ToNot(HaveOccurred())
 	})
 
 	type VerificationFunction func(client.Client, string) error
@@ -69,14 +67,14 @@ var _ = Describe("AWS backup restore tests", func() {
 
 			// create backup
 			log.Printf("Creating backup %s for case %s", backupName, brCase.Name)
-			err = createBackupForNamespaces(vel.Client, backupName, []string{brCase.ApplicationNamespace})
+			err = createBackupForNamespaces(vel.Client, namespace, backupName, []string{brCase.ApplicationNamespace})
 			Expect(err).ToNot(HaveOccurred())
 
 			// wait for backup to not be running
-			Eventually(isBackupDone(vel.Client, backupName), time.Minute*4, time.Second*10).Should(BeTrue())
+			Eventually(isBackupDone(vel.Client, namespace, backupName), time.Minute*4, time.Second*10).Should(BeTrue())
 
 			// check if backup succeeded
-			succeeded, err := isBackupCompletedSuccessfully(vel.Client, backupName)
+			succeeded, err := isBackupCompletedSuccessfully(vel.Client, namespace, backupName)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(succeeded).To(Equal(true))
 			log.Printf("Backup for case %s succeeded", brCase.Name)
@@ -91,12 +89,12 @@ var _ = Describe("AWS backup restore tests", func() {
 
 			// run restore
 			log.Printf("Creating restore %s for case %s", restoreName, brCase.Name)
-			err = createRestoreFromBackup(vel.Client, backupName, restoreName)
+			err = createRestoreFromBackup(vel.Client, namespace, backupName, restoreName)
 			Expect(err).ToNot(HaveOccurred())
-			Eventually(isRestoreDone(vel.Client, restoreName), time.Minute*4, time.Second*10).Should(BeTrue())
+			Eventually(isRestoreDone(vel.Client, namespace, restoreName), time.Minute*4, time.Second*10).Should(BeTrue())
 
 			// Check if restore succeeded
-			succeeded, err = isRestoreCompletedSuccessfully(vel.Client, restoreName)
+			succeeded, err = isRestoreCompletedSuccessfully(vel.Client, namespace, restoreName)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(succeeded).To(Equal(true))
 
@@ -129,6 +127,18 @@ var _ = Describe("AWS backup restore tests", func() {
 				if !exists {
 					return errors.New("did not find MSSQL scc after restore")
 				}
+				return nil
+			}),
+		}, nil),
+		Entry("Parks application", BackupRestoreCase{
+			ApplicationTemplate:  "./sample-applications/parks-app/manifest.yaml",
+			ApplicationNamespace: "parks-app",
+			Name:                 "parks-e2e",
+			PreBackupVerify: VerificationFunction(func(ocClient client.Client, namespace string) error {
+				Eventually(isDCReady(ocClient, "parks-app", "restify"), time.Minute*5, time.Second*10).Should(BeTrue())
+				return nil
+			}),
+			PostRestoreVerify: VerificationFunction(func(ocClient client.Client, namespace string) error {
 				return nil
 			}),
 		}, nil),

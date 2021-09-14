@@ -15,11 +15,13 @@ import (
 // provider specific object storage
 const (
 	AWSProfile          = "profile"
+	AWSRegion           = "region"
 	GCPSnapshotLocation = "shapshotLocation"
 	GCPProject          = "project"
 	AzureApiTimeout     = "apiTimeout"
 	AzureSubscriptionId = "subscriptionId"
 	AzureIncremental    = "incremental"
+	AzureResourceGroup  = "resourceGroup"
 )
 
 func (r *VeleroReconciler) ValidateVolumeSnapshotLocations(log logr.Logger) (bool, error) {
@@ -40,24 +42,35 @@ func (r *VeleroReconciler) ValidateVolumeSnapshotLocations(log logr.Logger) (boo
 		// check for valid provider
 		if vslSpec.Provider != AWSProvider && vslSpec.Provider != GCPProvider &&
 			vslSpec.Provider != Azure {
-			return false, errors.New("invalid provider for VSL")
+			r.Log.Info("Non-supported provider specified, might be a misconfiguration")
+
+			r.EventRecorder.Event(&vsl,
+				corev1.EventTypeWarning,
+				"VSL provider is invalid",
+				fmt.Sprintf("VSL provider %s is invalid, might be a misconfiguration", vslSpec.Provider),
+			)
 		}
 
 		//AWS
 		if vslSpec.Provider == AWSProvider {
-
 			//in AWS, region is a required field
-			if len(vslSpec.Config[Region]) == 0 {
+			if len(vslSpec.Config[AWSRegion]) == 0 {
 				return false, errors.New("region for AWS VSL is not configured, please ensure a region is configured")
 			}
+
 			// check for invalid config key
+			validAWSKeys := map[string]bool{
+				AWSProfile: true,
+				AWSRegion:  true,
+			}
 			for key := range vslSpec.Config {
-				if key != Region && key != AWSProfile {
+				valid := validAWSKeys[key]
+				if !valid {
 					return false, errors.New("invalid AWS config value")
 				}
 			}
 			//checking the aws plugin, if not present, throw warning message
-			if !contains(velero.Spec.DefaultVeleroPlugins, AWSProvider) {
+			if !containsPlugin(velero.Spec.DefaultVeleroPlugins, AWSProvider) {
 				r.Log.Info("VSL for AWS specified, but AWS plugin not present, might be a misconfiguration")
 
 				r.EventRecorder.Event(&vsl,
@@ -71,15 +84,19 @@ func (r *VeleroReconciler) ValidateVolumeSnapshotLocations(log logr.Logger) (boo
 		//GCP
 		if vslSpec.Provider == GCPProvider {
 
-			// no other required fields for gcp
 			// check for invalid config key
+			validGCPKeys := map[string]bool{
+				GCPProject:          true,
+				GCPSnapshotLocation: true,
+			}
 			for key := range vslSpec.Config {
-				if key != GCPSnapshotLocation && key != GCPProject {
+				valid := validGCPKeys[key]
+				if !valid {
 					return false, errors.New("invalid GCP config value")
 				}
 			}
 			//checking the gcp plugin, if not present, throw warning message
-			if !contains(velero.Spec.DefaultVeleroPlugins, "gcp") {
+			if !containsPlugin(velero.Spec.DefaultVeleroPlugins, "gcp") {
 				r.Log.Info("VSL for GCP specified, but GCP plugin not present, might be a misconfiguration")
 
 				r.EventRecorder.Event(&vsl,
@@ -92,16 +109,22 @@ func (r *VeleroReconciler) ValidateVolumeSnapshotLocations(log logr.Logger) (boo
 
 		//Azure
 		if vslSpec.Provider == Azure {
-			// no other required fields for gcp
+
 			// check for invalid config key
+			validAzureKeys := map[string]bool{
+				AzureApiTimeout:     true,
+				AzureIncremental:    true,
+				AzureSubscriptionId: true,
+				AzureResourceGroup:  true,
+			}
 			for key := range vslSpec.Config {
-				if key != AzureApiTimeout && key != ResourceGroup &&
-					key != AzureSubscriptionId && key != AzureIncremental {
+				valid := validAzureKeys[key]
+				if !valid {
 					return false, errors.New("invalid Azure config value")
 				}
 			}
 			//checking the azure plugin, if not present, throw warning message
-			if !contains(velero.Spec.DefaultVeleroPlugins, "azure") {
+			if !containsPlugin(velero.Spec.DefaultVeleroPlugins, "azure") {
 				r.Log.Info("VSL for Azure specified, but Azure plugin not present, might be a misconfiguration")
 
 				r.EventRecorder.Event(&vsl,
@@ -165,7 +188,7 @@ func (r *VeleroReconciler) ReconcileVolumeSnapshotLocations(log logr.Logger) (bo
 	return true, nil
 }
 
-func contains(d []oadpv1alpha1.DefaultPlugin, value string) bool {
+func containsPlugin(d []oadpv1alpha1.DefaultPlugin, value string) bool {
 	for _, elem := range d {
 		if string(elem) == value {
 			return true

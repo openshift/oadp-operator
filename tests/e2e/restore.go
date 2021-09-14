@@ -8,11 +8,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func createRestoreFromBackup(ocClient client.Client, backupName, restoreName string) error {
+func createRestoreFromBackup(ocClient client.Client, veleroNamespace, backupName, restoreName string) error {
 	restore := velero.Restore{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      restoreName,
-			Namespace: namespace,
+			Namespace: veleroNamespace,
 		},
 		Spec: velero.RestoreSpec{
 			BackupName: backupName,
@@ -22,11 +22,11 @@ func createRestoreFromBackup(ocClient client.Client, backupName, restoreName str
 	return err
 }
 
-func isRestoreDone(ocClient client.Client, name string) wait.ConditionFunc {
+func isRestoreDone(ocClient client.Client, veleroNamespace, name string) wait.ConditionFunc {
 	return func() (bool, error) {
 		restore := velero.Restore{}
 		err := ocClient.Get(context.Background(), client.ObjectKey{
-			Namespace: namespace,
+			Namespace: veleroNamespace,
 			Name:      name,
 		}, &restore)
 		if err != nil {
@@ -39,10 +39,10 @@ func isRestoreDone(ocClient client.Client, name string) wait.ConditionFunc {
 	}
 }
 
-func isRestoreCompletedSuccessfully(ocClient client.Client, name string) (bool, error) {
+func isRestoreCompletedSuccessfully(ocClient client.Client, veleroNamespace, name string) (bool, error) {
 	restore := velero.Restore{}
 	err := ocClient.Get(context.Background(), client.ObjectKey{
-		Namespace: namespace,
+		Namespace: veleroNamespace,
 		Name:      name,
 	}, &restore)
 	if err != nil {
