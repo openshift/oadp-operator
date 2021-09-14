@@ -8,12 +8,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func createBackupForNamespaces(ocClient client.Client, backupName string, namespaces []string) error {
+func createBackupForNamespaces(ocClient client.Client, veleroNamespace, backupName string, namespaces []string) error {
 
 	backup := velero.Backup{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      backupName,
-			Namespace: namespace,
+			Namespace: veleroNamespace,
 		},
 		Spec: velero.BackupSpec{
 			IncludedNamespaces: namespaces,
@@ -23,11 +23,11 @@ func createBackupForNamespaces(ocClient client.Client, backupName string, namesp
 	return err
 }
 
-func isBackupDone(ocClient client.Client, name string) wait.ConditionFunc {
+func isBackupDone(ocClient client.Client, veleroNamespace, name string) wait.ConditionFunc {
 	return func() (bool, error) {
 		backup := velero.Backup{}
 		err := ocClient.Get(context.Background(), client.ObjectKey{
-			Namespace: namespace,
+			Namespace: veleroNamespace,
 			Name:      name,
 		}, &backup)
 		if err != nil {
@@ -40,10 +40,10 @@ func isBackupDone(ocClient client.Client, name string) wait.ConditionFunc {
 	}
 }
 
-func isBackupCompletedSuccessfully(ocClient client.Client, name string) (bool, error) {
+func isBackupCompletedSuccessfully(ocClient client.Client, veleroNamespace, name string) (bool, error) {
 	backup := velero.Backup{}
 	err := ocClient.Get(context.Background(), client.ObjectKey{
-		Namespace: namespace,
+		Namespace: veleroNamespace,
 		Name:      name,
 	}, &backup)
 	if err != nil {
