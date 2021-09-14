@@ -1,12 +1,7 @@
-<h1 align="center"> OADP Operator v2 </h1>
+<h1 align="center"> OADP Operator </h1>
 
 <p align="center">  OADP is OpenShift API for Data Protection operator. This operator sets up and 
 installs <a href="https://velero.io/">Velero</a> on the OpenShift platform. </p>
-
-<p align="center"><img src="https://img.shields.io/badge/Verison-2.0-yellow"/>
-<img src="https://img.shields.io/github/go-mod/go-version/openshift/oadp-operator"/>
-<img src="https://img.shields.io/badge/license-Apache_0.2-red" alt="license" />
-</p>
 
 # Table of Contents
 
@@ -21,7 +16,7 @@ installs <a href="https://velero.io/">Velero</a> on the OpenShift platform. </p>
     1. [Configure Plugins](#docs/plugins.md)
     2. [Backup Storage Locations and Volume Snapshot Locations](docs/bsl_and_vsl.md)
     3. [Resource Requests and Limits](docs/resource_req_limits.md)
-    4. [Self-Sigend Certificate](docs/self_signed_certs.md)
+    4. [Self-Signed Certificate](docs/self_signed_certs.md)
 3. [OLM Integration](docs/olm.md)
 4. [Use NooBaa as a Backup Storage Location](docs/noobaa/install_oadp_noobaa.md) 
 5. [Use Velero --features flag](docs/features_flag.md)
