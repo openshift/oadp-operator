@@ -3,7 +3,6 @@ package controllers
 import (
 	//"errors"
 	"fmt"
-
 	"github.com/go-logr/logr"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
