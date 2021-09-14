@@ -355,25 +355,20 @@ func (r *VeleroReconciler) buildVeleroDeployment(veleroDeployment *appsv1.Deploy
 	for _, plugin := range velero.Spec.DefaultVeleroPlugins {
 		if plugin == oadpv1alpha1.DefaultPluginCSI {
 			// CSI plugin is added so ensure that CSI feature flags is set
-			foundCSIFeatureFlag := false
-			for _, featureFlag := range velero.Spec.VeleroFeatureFlags {
-				if featureFlag == enableCSIFeatureFlag {
-					foundCSIFeatureFlag = true
-					break
-				}
-			}
-			if !foundCSIFeatureFlag { // Not Found so append to feature flag
-				velero.Spec.VeleroFeatureFlags = append(velero.Spec.VeleroFeatureFlags, enableCSIFeatureFlag)
-			}
+			velero.Spec.VeleroFeatureFlags = append(velero.Spec.VeleroFeatureFlags, enableCSIFeatureFlag)
 			break
 		}
 	}
+	r.ReconcileRestoreResourcesVersionPriority(velero)
+
+	velero.Spec.VeleroFeatureFlags = removeDuplicateValues(velero.Spec.VeleroFeatureFlags)
 	deploymentName := veleroDeployment.Name       //saves desired deployment name before install.Deployment overwrites them.
 	ownerRefs := veleroDeployment.OwnerReferences // saves desired owner refs
 	*veleroDeployment = *install.Deployment(veleroDeployment.Namespace,
 		install.WithResources(r.getVeleroResourceReqs(velero)),
 		install.WithImage(getVeleroImage(velero)),
 		install.WithFeatures(velero.Spec.VeleroFeatureFlags),
+		install.WithAnnotations(velero.Spec.PodAnnotations),
 		// use WithSecret false even if we have secret because we use a different VolumeMounts and EnvVars
 		// see: https://github.com/vmware-tanzu/velero/blob/ed5809b7fc22f3661eeef10bdcb63f0d74472b76/pkg/install/deployment.go#L223-L261
 		// our secrets are appended to containers/volumeMounts in credentials.AppendPluginSpecificSpecs function
@@ -383,6 +378,22 @@ func (r *VeleroReconciler) buildVeleroDeployment(veleroDeployment *appsv1.Deploy
 	veleroDeployment.Name = deploymentName //reapply saved deploymentName and owner refs
 	veleroDeployment.OwnerReferences = ownerRefs
 	return r.customizeVeleroDeployment(velero, veleroDeployment)
+}
+
+// remove duplicate entry in string slice
+func removeDuplicateValues(slice []string) []string {
+	if slice == nil {
+		return nil
+	}
+	keys := make(map[string]bool)
+	list := []string{}
+	for _, entry := range slice {
+		if _, found := keys[entry]; !found { //add entry to list if not found in keys already
+			keys[entry] = true
+			list = append(list, entry)
+		}
+	}
+	return list // return the result through the passed in argument
 }
 
 func (r *VeleroReconciler) customizeVeleroDeployment(velero *oadpv1alpha1.Velero, veleroDeployment *appsv1.Deployment) error {
@@ -406,6 +417,12 @@ func (r *VeleroReconciler) customizeVeleroDeployment(velero *oadpv1alpha1.Velero
 	// - please also update the test
 	if veleroDeployment.Spec.Template.Spec.InitContainers == nil {
 		veleroDeployment.Spec.Template.Spec.InitContainers = []corev1.Container{}
+	}
+
+	// attach DNS policy and config if enabled
+	veleroDeployment.Spec.Template.Spec.DNSPolicy = velero.Spec.PodDnsPolicy
+	if !reflect.DeepEqual(velero.Spec.PodDnsConfig, corev1.PodDNSConfig{}) {
+		veleroDeployment.Spec.Template.Spec.DNSConfig = &velero.Spec.PodDnsConfig
 	}
 
 	var veleroContainer *corev1.Container

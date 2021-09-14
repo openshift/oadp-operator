@@ -130,8 +130,8 @@ func TestVeleroReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 						{
 							Provider: AWSProvider,
 							Config: map[string]string{
-								Region:  "us-east-1",
-								Profile: "test-profile",
+								Region:     "us-east-1",
+								AWSProfile: "test-profile",
 							},
 						},
 					},
@@ -212,7 +212,7 @@ func TestVeleroReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 						{
 							Provider: GCPProvider,
 							Config: map[string]string{
-								SnapshotLocation: "test-location",
+								GCPSnapshotLocation: "test-location",
 							},
 						},
 					},
@@ -239,7 +239,7 @@ func TestVeleroReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 						{
 							Provider: GCPProvider,
 							Config: map[string]string{
-								Project: "alt-project",
+								GCPProject: "alt-project",
 							},
 						},
 					},
@@ -319,7 +319,7 @@ func TestVeleroReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 						{
 							Provider: AzureProvider,
 							Config: map[string]string{
-								ApiTimeout: "5m",
+								AzureApiTimeout: "5m",
 							},
 						},
 					},
@@ -373,7 +373,7 @@ func TestVeleroReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 						{
 							Provider: AzureProvider,
 							Config: map[string]string{
-								SubscriptionId: "test-alt-sub",
+								AzureSubscriptionId: "test-alt-sub",
 							},
 						},
 					},
@@ -400,7 +400,7 @@ func TestVeleroReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 						{
 							Provider: AzureProvider,
 							Config: map[string]string{
-								Incremental: "false",
+								AzureIncremental: "false",
 							},
 						},
 					},

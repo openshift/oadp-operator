@@ -17,40 +17,40 @@ metadata:
     alm-examples: |-
       [
         {
-          "apiVersion": "konveyor.openshift.io/v1alpha1",
+          "apiVersion": "oadp.openshift.io/v1alpha1",
           "kind": "Velero",
           "metadata": {
             "name": "example-velero",
             "namespace":"oadp-operator"
           },
           "spec": {
-            "olm_managed": true,
-            "backup_storage_locations": [
+            "olmManaged": true,
+            "backupStorageLocations": [
               {
                 "config": {
                   "profile": "default",
                   "region": "us-east-1"
                 },
-                "credentials_secret_ref": {
+                "credentialsSecretRef": {
                   "name": "cloud-credentials",
                   "namespace": "oadp-operator"
                 },
                 "name": "default",
-                "object_storage": {
+                "objectStorage": {
                   "bucket": "myBucket",
                   "prefix": "velero"
                 },
                 "provider": "aws"
               }
             ],
-            "default_velero_plugins": [
+            "defaultVeleroPlugins": [
               "aws",
               "csi",
               "openshift"
             ],
-            "velero_feature_flags": "EnableCSI",
-            "enable_restic": true,
-            "volume_snapshot_locations": [
+            "veleroFeatureFlags": "EnableCSI",
+            "enableRestic": true,
+            "volumeSnapshotLocations": [
               {
                 "config": {
                   "profile": "default",
@@ -173,16 +173,6 @@ metadata:
     support: Red Hat
     operatorframework.io/suggested-namespace: oadp-operator
 spec:
-  skips:
-  - oadp-operator.v0.1.0
-  - oadp-operator.v0.1.1
-  - oadp-operator.v0.1.2
-  - oadp-operator.v0.1.3
-  - oadp-operator.v0.2.0
-  - oadp-operator.v0.2.1
-  - oadp-operator.v0.2.2
-  - oadp-operator.v0.2.3
-  - oadp-operator.v0.2.5
   apiservicedefinitions: {}
   displayName: OADP Operator
   description: OADP is OpenShift Application Data Protection operator. This operator sets up and installs Velero on the OpenShift platform. 
@@ -205,7 +195,9 @@ spec:
                 name: oadp-operator
             spec:
               containers:
-              - env:
+              - command:
+                - /manager
+                env:
                 - name: WATCH_NAMESPACE
                   valueFrom:
                     fieldRef:
@@ -255,20 +247,36 @@ spec:
                 - name: VELERO_AZURE_PLUGIN_TAG
                   value: latest
                 - name: VELERO_CSI_PLUGIN_TAG
-                  value: main
+                  value: latest
                 - name: VELERO_VSPHERE_PLUGIN_TAG
                   value: 1.1.0
+                args:
+                - --leader-elect
                 image: "quay.io/konveyor/oadp-operator:latest"
                 imagePullPolicy: Always
                 name: oadp-operator
-                resources: {}
-                volumeMounts:
-                - mountPath: /tmp/ansible-operator/runner
-                  name: runner
+                securityContext:
+                  allowPrivilegeEscalation: false
+                livenessProbe:
+                  httpGet:
+                    path: /healthz
+                    port: 8081
+                  initialDelaySeconds: 15
+                  periodSeconds: 20
+                readinessProbe:
+                  httpGet:
+                    path: /readyz
+                    port: 8081
+                  initialDelaySeconds: 5
+                  periodSeconds: 10
+                resources:
+                  limits:
+                    cpu: 100m
+                    memory: 200Mi
+                  requests:
+                    cpu: 100m
+                    memory: 100Mi
               serviceAccountName: oadp-operator
-              volumes:
-              - emptyDir: {}
-                name: runner
       permissions:
       - serviceAccountName: oadp-operator
         rules:
@@ -321,7 +329,7 @@ spec:
           verbs:
           - '*'
         - apiGroups:
-          - konveyor.openshift.io
+          - oadp.openshift.io
           resources:
           - '*'
           verbs:
@@ -451,7 +459,7 @@ spec:
   version: 99.0.0
   customresourcedefinitions:
     owned:
-    - name: veleros.konveyor.openshift.io
+    - name: veleroes.oadp.openshift.io
       version: v1alpha1
       kind: Velero
       displayName: Velero

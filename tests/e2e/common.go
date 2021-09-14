@@ -78,7 +78,7 @@ func getKubeConfig() *rest.Config {
 }
 
 // Keeping it for now
-func doesNamespaceExists(namespace string) (bool, error) {
+func doesNamespaceExist(namespace string) (bool, error) {
 	clientset, err := setUpClient()
 	if err != nil {
 		return false, err
@@ -87,13 +87,11 @@ func doesNamespaceExists(namespace string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	log.Printf("Test namespace already exists")
 	return true, nil
 }
 
 // Keeping it for now.
 func isNamespaceDeleted(namespace string) wait.ConditionFunc {
-	log.Printf("Checking test namespace has been deleted...")
 	return func() (bool, error) {
 		clientset, err := setUpClient()
 		if err != nil {
@@ -101,7 +99,6 @@ func isNamespaceDeleted(namespace string) wait.ConditionFunc {
 		}
 		_, err = clientset.CoreV1().Namespaces().Get(context.Background(), namespace, metav1.GetOptions{})
 		if err != nil {
-			log.Printf("Test namespace has been deleted")
 			return true, nil
 		}
 		return false, err
@@ -156,7 +153,6 @@ func deleteSecret(namespace string, credSecretRef string) error {
 }
 
 func isCredentialsSecretDeleted(namespace string, credSecretRef string) wait.ConditionFunc {
-	log.Printf("Checking secret has been deleted...")
 	return func() (bool, error) {
 		clientset, err := setUpClient()
 		if err != nil {

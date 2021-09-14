@@ -14,12 +14,12 @@ import (
 
 // provider specific object storage
 const (
-	Profile          = "profile"
-	SnapshotLocation = "shapshotLocation"
-	Project          = "project"
-	ApiTimeout       = "apiTimeout"
-	SubscriptionId   = "subscriptionId"
-	Incremental      = "incremental"
+	AWSProfile          = "profile"
+	GCPSnapshotLocation = "shapshotLocation"
+	GCPProject          = "project"
+	AzureApiTimeout     = "apiTimeout"
+	AzureSubscriptionId = "subscriptionId"
+	AzureIncremental    = "incremental"
 )
 
 func (r *VeleroReconciler) ValidateVolumeSnapshotLocations(log logr.Logger) (bool, error) {
@@ -27,9 +27,6 @@ func (r *VeleroReconciler) ValidateVolumeSnapshotLocations(log logr.Logger) (boo
 	if err := r.Get(r.Context, r.NamespacedName, &velero); err != nil {
 		return false, err
 	}
-	// TODO: For each VSL, confirm for each selected provider, we have the
-	// needed config values
-
 	for i, vslSpec := range velero.Spec.VolumeSnapshotLocations {
 		vsl := velerov1.VolumeSnapshotLocation{
 			ObjectMeta: metav1.ObjectMeta{
@@ -55,7 +52,7 @@ func (r *VeleroReconciler) ValidateVolumeSnapshotLocations(log logr.Logger) (boo
 			}
 			// check for invalid config key
 			for key := range vslSpec.Config {
-				if key != Region && key != Profile {
+				if key != Region && key != AWSProfile {
 					return false, errors.New("invalid AWS config value")
 				}
 			}
@@ -77,7 +74,7 @@ func (r *VeleroReconciler) ValidateVolumeSnapshotLocations(log logr.Logger) (boo
 			// no other required fields for gcp
 			// check for invalid config key
 			for key := range vslSpec.Config {
-				if key != SnapshotLocation && key != Project {
+				if key != GCPSnapshotLocation && key != GCPProject {
 					return false, errors.New("invalid GCP config value")
 				}
 			}
@@ -98,8 +95,8 @@ func (r *VeleroReconciler) ValidateVolumeSnapshotLocations(log logr.Logger) (boo
 			// no other required fields for gcp
 			// check for invalid config key
 			for key := range vslSpec.Config {
-				if key != ApiTimeout && key != ResourceGroup &&
-					key != SubscriptionId && key != Incremental {
+				if key != AzureApiTimeout && key != ResourceGroup &&
+					key != AzureSubscriptionId && key != AzureIncremental {
 					return false, errors.New("invalid Azure config value")
 				}
 			}

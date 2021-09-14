@@ -58,7 +58,7 @@ func areResticPodsRunning(namespace string) wait.ConditionFunc {
 			return false, err
 		}
 		resticPodOptions := metav1.ListOptions{
-			LabelSelector: "component=restic",
+			LabelSelector: "name=restic",
 		}
 		// get pods in the oadp-operator-e2e namespace with label selector
 		podList, err := client.CoreV1().Pods(namespace).List(context.TODO(), resticPodOptions)

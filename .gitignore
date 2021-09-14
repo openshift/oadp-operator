@@ -1,1 +1,4 @@
 bin/
+.vscode/
+.idea/
+tests/e2e/e2e.test
