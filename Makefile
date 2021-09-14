@@ -150,8 +150,23 @@ ENVTEST = $(shell pwd)/bin/setup-envtest
 envtest: ## Download envtest-setup locally if necessary.
 	$(call go-get-tool,$(ENVTEST),sigs.k8s.io/controller-runtime/tools/setup-envtest@latest)
 
+# Codecov OS String for use in download url
+ifeq ($(OS),Windows_NT)
+    OS_String = windows
+else
+    UNAME_S := $(shell uname -s)
+    ifeq ($(UNAME_S),Linux)
+        OS_String = linux
+    endif
+    ifeq ($(UNAME_S),Darwin)
+        OS_String = macos
+    endif
+endif
 submitcoverage:
-	bash <(curl -s https://codecov.io/bash);
+	curl -Os https://uploader.codecov.io/latest/$(OS_String)/codecov
+	chmod +x codecov
+	./codecov
+	rm -f ./codecov
 
 test_submitcoverage: test submitcoverage
 # go-get-tool will 'go get' any package $2 and install it to $1.
