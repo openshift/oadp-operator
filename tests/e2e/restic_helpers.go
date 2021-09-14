@@ -6,6 +6,7 @@ import (
 	"time"
 
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/utils/pointer"
@@ -37,6 +38,9 @@ func hasCorrectNumResticPods(namespace string) wait.ConditionFunc {
 			if numScheduled == numDesired {
 				return true, nil
 			}
+		}
+		if numDesired == 0 {
+			return true, nil
 		}
 		return false, err
 	}
@@ -93,7 +97,7 @@ func doesDaemonSetExists(namespace string, resticName string) wait.ConditionFunc
 }
 
 // keep for now
-func isResticDaemonsetDeleted(namespace string, instanceName string, resticName string) wait.ConditionFunc {
+func isResticDaemonsetDeleted(namespace string) wait.ConditionFunc {
 	log.Printf("Checking if Restic daemonset has been deleted...")
 	return func() (bool, error) {
 		client, err := setUpClient()
@@ -101,9 +105,8 @@ func isResticDaemonsetDeleted(namespace string, instanceName string, resticName 
 			return false, nil
 		}
 		// Check for daemonSet
-		_, err = client.AppsV1().DaemonSets(namespace).Get(context.Background(), resticName, metav1.GetOptions{})
-		if err != nil {
-			log.Printf("Restic daemonSet has been deleted")
+		_, err = client.AppsV1().DaemonSets(namespace).Get(context.Background(), "restic", metav1.GetOptions{})
+		if apierrors.IsNotFound(err) {
 			return true, nil
 		}
 		return false, err
@@ -157,21 +160,20 @@ func (v *veleroCustomResource) enableResticNodeSelector(namespace string, s3Buck
 	return nil
 }
 
-func resticDaemonSetHasNodeSelector(namespace string, s3Bucket string, credSecretRef string, instanceName string, resticName string) wait.ConditionFunc {
-	log.Printf("Waiting for Restic daemonset to have a nodeSelector...")
+func resticDaemonSetHasNodeSelector(namespace, key, value string) wait.ConditionFunc {
 	return func() (bool, error) {
 		client, err := setUpClient()
 		if err != nil {
 			return false, nil
 		}
-		ds, err := client.AppsV1().DaemonSets(namespace).Get(context.TODO(), resticName, metav1.GetOptions{})
+		ds, err := client.AppsV1().DaemonSets(namespace).Get(context.TODO(), "restic", metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}
 		// verify daemonset has nodeSelector "foo": "bar"
-		selector := ds.Spec.Template.Spec.NodeSelector["foo"]
+		selector := ds.Spec.Template.Spec.NodeSelector[key]
 
-		if selector == "bar" {
+		if selector == value {
 			return true, nil
 		}
 		return false, err

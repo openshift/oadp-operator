@@ -3,8 +3,8 @@ package e2e
 import (
 	"context"
 	"errors"
-	"log"
 
+	appsv1 "github.com/openshift/api/apps/v1"
 	security "github.com/openshift/api/security/v1"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	velero "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
@@ -76,12 +76,50 @@ func (v *veleroCustomResource) Create() error {
 	return nil
 }
 
+func (v *veleroCustomResource) Get() (*oadpv1alpha1.Velero, error) {
+	err := v.SetClient()
+	if err != nil {
+		return nil, err
+	}
+	vel := oadpv1alpha1.Velero{}
+	err = v.Client.Get(context.Background(), client.ObjectKey{
+		Namespace: v.Namespace,
+		Name:      v.Name,
+	}, &vel)
+	if err != nil {
+		return nil, err
+	}
+	return &vel, nil
+}
+
+func (v *veleroCustomResource) CreateOrUpdate(spec *oadpv1alpha1.VeleroSpec) error {
+	cr, err := v.Get()
+	if apierrors.IsNotFound(err) {
+		v.Build()
+		v.CustomResource.Spec = *spec
+		return v.Create()
+	}
+	if err != nil {
+		return err
+	}
+	cr.Spec = *spec
+	err = v.Client.Update(context.Background(), cr)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (v *veleroCustomResource) Delete() error {
 	err := v.SetClient()
 	if err != nil {
 		return err
 	}
-	return v.Client.Delete(context.Background(), v.CustomResource)
+	err = v.Client.Delete(context.Background(), v.CustomResource)
+	if apierrors.IsNotFound(err) {
+		return nil
+	}
+	return err
 }
 
 func (v *veleroCustomResource) SetClient() error {
@@ -91,6 +129,7 @@ func (v *veleroCustomResource) SetClient() error {
 	}
 	oadpv1alpha1.AddToScheme(client.Scheme())
 	velero.AddToScheme(client.Scheme())
+	appsv1.AddToScheme(client.Scheme())
 	security.AddToScheme(client.Scheme())
 
 	v.Client = client
@@ -125,7 +164,6 @@ func isVeleroPodRunning(namespace string) wait.ConditionFunc {
 }
 
 func (v *veleroCustomResource) IsDeleted() wait.ConditionFunc {
-	log.Printf("Checking if the Velero Custom Resource has been deleted...")
 	return func() (bool, error) {
 		err := v.SetClient()
 		if err != nil {
@@ -137,11 +175,9 @@ func (v *veleroCustomResource) IsDeleted() wait.ConditionFunc {
 			Namespace: v.Namespace,
 			Name:      v.Name,
 		}, &vel)
-		if err != nil {
-			log.Printf("Velero has been deleted")
+		if apierrors.IsNotFound(err) {
 			return true, nil
 		}
-		log.Printf("Velero CR still exists")
 		return false, err
 	}
 }
