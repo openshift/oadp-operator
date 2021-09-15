@@ -1,8 +1,9 @@
 package controllers
 
 import (
-	//"errors"
+	"errors"
 	"fmt"
+
 	"github.com/go-logr/logr"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
@@ -11,69 +12,132 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
+// provider specific object storage
+const (
+	AWSProfile          = "profile"
+	AWSRegion           = "region"
+	GCPSnapshotLocation = "shapshotLocation"
+	GCPProject          = "project"
+	AzureApiTimeout     = "apiTimeout"
+	AzureSubscriptionId = "subscriptionId"
+	AzureIncremental    = "incremental"
+	AzureResourceGroup  = "resourceGroup"
+)
+
+var validAWSKeys = map[string]bool{
+	AWSProfile: true,
+	AWSRegion:  true,
+}
+
+var validGCPKeys = map[string]bool{
+	GCPProject:          true,
+	GCPSnapshotLocation: true,
+}
+
+var validAzureKeys = map[string]bool{
+	AzureApiTimeout:     true,
+	AzureIncremental:    true,
+	AzureSubscriptionId: true,
+	AzureResourceGroup:  true,
+}
+
 func (r *VeleroReconciler) ValidateVolumeSnapshotLocations(log logr.Logger) (bool, error) {
 	velero := oadpv1alpha1.Velero{}
 	if err := r.Get(r.Context, r.NamespacedName, &velero); err != nil {
 		return false, err
 	}
-	// TODO: For each VSL, confirm for each selected provider, we have the
-	// needed config values
+	for i, vslSpec := range velero.Spec.VolumeSnapshotLocations {
+		vsl := velerov1.VolumeSnapshotLocation{
+			ObjectMeta: metav1.ObjectMeta{
+				// TODO: Use a hash instead of i
+				Name:      fmt.Sprintf("%s-%d", r.NamespacedName.Name, i+1),
+				Namespace: r.NamespacedName.Namespace,
+			},
+			Spec: vslSpec,
+		}
 
-	/*
-		for _, vslSpec := range velero.Spec.VolumeSnapshotLocations {
+		// check for valid provider
+		if vslSpec.Provider != AWSProvider && vslSpec.Provider != GCPProvider &&
+			vslSpec.Provider != Azure {
+			r.Log.Info("Non-supported provider specified, might be a misconfiguration")
 
-			//AWS
-			if vslSpec.Provider == "aws" {
+			r.EventRecorder.Event(&vsl,
+				corev1.EventTypeWarning,
+				"VSL provider is invalid",
+				fmt.Sprintf("VSL provider %s is invalid, might be a misconfiguration", vslSpec.Provider),
+			)
+		}
 
-				//validation for AWS
-				//in AWS, region is a required field
-				if len(vslSpec.Config["region"]) == 0 {
-					return false, errors.New("region for AWS VSL is not configured, please ensure a region is configured")
-				}
-
-				//checking the aws plugin, if not present, throw warning message
-				if !contains(velero.Spec.DefaultVeleroPlugins, "aws") {
-					r.Log.Info("VSL for AWS specified, but AWS plugin not present, might be a misconfiguration")
-				}
-
-				//TODO: Add warn/error messages to Velero CR status field
+		//AWS
+		if vslSpec.Provider == AWSProvider {
+			//in AWS, region is a required field
+			if len(vslSpec.Config[AWSRegion]) == 0 {
+				return false, errors.New("region for AWS VSL is not configured, please ensure a region is configured")
 			}
 
-			//GCP
-			if vslSpec.Provider == "gcp" {
-
-				//validation for GCP
-				if len(vslSpec.Config["region"]) == 0 {
-					r.Log.Info("region for GCP VSL is not configured, please check if a region might be needed")
+			// check for invalid config key
+			for key := range vslSpec.Config {
+				valid := validAWSKeys[key]
+				if !valid {
+					return false, fmt.Errorf("%s is not a valid AWS config value", key)
 				}
+			}
+			//checking the aws plugin, if not present, throw warning message
+			if !containsPlugin(velero.Spec.DefaultVeleroPlugins, AWSProvider) {
+				r.Log.Info("VSL for AWS specified, but AWS plugin not present, might be a misconfiguration")
 
-				//checking the gcp plugin, if not present, throw warning message
-				if !contains(velero.Spec.DefaultVeleroPlugins, "gcp") {
-					r.Log.Info("VSL for GCP specified, but GCP plugin not present, might be a misconfiguration")
+				r.EventRecorder.Event(&vsl,
+					corev1.EventTypeWarning,
+					"VolumeSnapshotLocation is invalid",
+					fmt.Sprintf("could not validate vsl for AWS plugin on: %s/%s", vsl.Namespace, vsl.Name),
+				)
+			}
+		}
+
+		//GCP
+		if vslSpec.Provider == GCPProvider {
+
+			// check for invalid config key
+			for key := range vslSpec.Config {
+				valid := validGCPKeys[key]
+				if !valid {
+					return false, fmt.Errorf("%s is not a valid GCP config value", key)
 				}
-
-				//TODO: Add warn/error messages to Velero CR status field
-
 			}
+			//checking the gcp plugin, if not present, throw warning message
+			if !containsPlugin(velero.Spec.DefaultVeleroPlugins, "gcp") {
+				r.Log.Info("VSL for GCP specified, but GCP plugin not present, might be a misconfiguration")
 
-			//Azure
-			if vslSpec.Provider == "azure" {
-
-			//validation for Azure
-			if len(vslSpec.Config["region"]) == 0 {
-				r.Log.Info("region for Azure VSL is not configured, please check if a region might be needed")
+				r.EventRecorder.Event(&vsl,
+					corev1.EventTypeWarning,
+					"VolumeSnapshotLocation is invalid",
+					fmt.Sprintf("could not validate vsl for GCP plugin on: %s/%s", vsl.Namespace, vsl.Name),
+				)
 			}
+		}
 
-				//checking the azure plugin, if not present, throw warning message
-				if !contains(velero.Spec.DefaultVeleroPlugins, "azure") {
-					r.Log.Info("VSL for Azure specified, but Azure plugin not present, might be a misconfiguration")
+		//Azure
+		if vslSpec.Provider == Azure {
+
+			// check for invalid config key
+			for key := range vslSpec.Config {
+				valid := validAzureKeys[key]
+				if !valid {
+					return false, fmt.Errorf("%s is not a valid Azure config value", key)
 				}
-
-				//TODO: Add warn/error messages to Velero CR status field
 			}
+			//checking the azure plugin, if not present, throw warning message
+			if !containsPlugin(velero.Spec.DefaultVeleroPlugins, "azure") {
+				r.Log.Info("VSL for Azure specified, but Azure plugin not present, might be a misconfiguration")
 
-		}*/
-
+				r.EventRecorder.Event(&vsl,
+					corev1.EventTypeWarning,
+					"VolumeSnapshotLocation is invalid",
+					fmt.Sprintf("could not validate vsl for Azure plugin on: %s/%s", vsl.Namespace, vsl.Name),
+				)
+			}
+		}
+	}
 	return true, nil
 }
 
@@ -95,7 +159,7 @@ func (r *VeleroReconciler) ReconcileVolumeSnapshotLocations(log logr.Logger) (bo
 			},
 			Spec: vslSpec,
 		}
-		// Create BSL
+		// Create VSL
 		op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, &vsl, func() error {
 			// TODO: Velero may be setting controllerReference as
 			// well and taking ownership. If so move this to
@@ -127,7 +191,7 @@ func (r *VeleroReconciler) ReconcileVolumeSnapshotLocations(log logr.Logger) (bo
 	return true, nil
 }
 
-func contains(d []oadpv1alpha1.DefaultPlugin, value string) bool {
+func containsPlugin(d []oadpv1alpha1.DefaultPlugin, value string) bool {
 	for _, elem := range d {
 		if string(elem) == value {
 			return true
