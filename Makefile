@@ -164,7 +164,7 @@ else
         OS_String = macos
     endif
 endif
-submitcoverage:
+submit-coverage:
 	curl -Os https://uploader.codecov.io/latest/$(OS_String)/codecov
 	chmod +x codecov
 	./codecov
