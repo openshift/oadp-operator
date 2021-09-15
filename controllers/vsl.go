@@ -24,6 +24,23 @@ const (
 	AzureResourceGroup  = "resourceGroup"
 )
 
+var validAWSKeys = map[string]bool{
+	AWSProfile: true,
+	AWSRegion:  true,
+}
+
+var validGCPKeys = map[string]bool{
+	GCPProject:          true,
+	GCPSnapshotLocation: true,
+}
+
+var validAzureKeys = map[string]bool{
+	AzureApiTimeout:     true,
+	AzureIncremental:    true,
+	AzureSubscriptionId: true,
+	AzureResourceGroup:  true,
+}
+
 func (r *VeleroReconciler) ValidateVolumeSnapshotLocations(log logr.Logger) (bool, error) {
 	velero := oadpv1alpha1.Velero{}
 	if err := r.Get(r.Context, r.NamespacedName, &velero); err != nil {
@@ -59,14 +76,10 @@ func (r *VeleroReconciler) ValidateVolumeSnapshotLocations(log logr.Logger) (boo
 			}
 
 			// check for invalid config key
-			validAWSKeys := map[string]bool{
-				AWSProfile: true,
-				AWSRegion:  true,
-			}
 			for key := range vslSpec.Config {
 				valid := validAWSKeys[key]
 				if !valid {
-					return false, errors.New("invalid AWS config value")
+					return false, fmt.Errorf("%s is not a valid AWS config value", key)
 				}
 			}
 			//checking the aws plugin, if not present, throw warning message
@@ -85,14 +98,10 @@ func (r *VeleroReconciler) ValidateVolumeSnapshotLocations(log logr.Logger) (boo
 		if vslSpec.Provider == GCPProvider {
 
 			// check for invalid config key
-			validGCPKeys := map[string]bool{
-				GCPProject:          true,
-				GCPSnapshotLocation: true,
-			}
 			for key := range vslSpec.Config {
 				valid := validGCPKeys[key]
 				if !valid {
-					return false, errors.New("invalid GCP config value")
+					return false, fmt.Errorf("%s is not a valid GCP config value", key)
 				}
 			}
 			//checking the gcp plugin, if not present, throw warning message
@@ -111,16 +120,10 @@ func (r *VeleroReconciler) ValidateVolumeSnapshotLocations(log logr.Logger) (boo
 		if vslSpec.Provider == Azure {
 
 			// check for invalid config key
-			validAzureKeys := map[string]bool{
-				AzureApiTimeout:     true,
-				AzureIncremental:    true,
-				AzureSubscriptionId: true,
-				AzureResourceGroup:  true,
-			}
 			for key := range vslSpec.Config {
 				valid := validAzureKeys[key]
 				if !valid {
-					return false, errors.New("invalid Azure config value")
+					return false, fmt.Errorf("%s is not a valid Azure config value", key)
 				}
 			}
 			//checking the azure plugin, if not present, throw warning message
