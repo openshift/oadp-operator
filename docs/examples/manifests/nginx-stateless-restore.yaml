@@ -1,0 +1,7 @@
+apiVersion: velero.io/v1
+kind: Restore
+metadata:
+  name: nginx-stateless
+  namespace: oadp-operator-system
+spec:
+  backupName: nginx-stateless

@@ -1,0 +1,123 @@
+---
+kind: Namespace
+apiVersion: v1
+metadata:
+  name: mysql-persistent
+  labels:
+    app: mysql
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mysql
+  namespace: mysql-persistent
+  labels:
+    app: mysql
+stringData:
+  database-name: MYSQL_DATABASE
+  database-password: MYSQL_PASSWORD
+  database-root-password: MYSQL_ROOT_PASSWORD
+  database-user: MYSQL_USER
+---
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    template.openshift.io/expose-uri: mysql://{.spec.clusterIP}:{.spec.ports[?(.name=="mysql")].port}
+  name: mysql
+  namespace: mysql-persistent
+  labels:
+    app: mysql
+spec:
+  ports:
+  - name: mysql
+    port: 3306
+  selector:
+    name: mysql
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mysql
+  namespace: mysql-persistent
+  labels:
+    app: mysql
+spec:
+  accessModes:
+  - ReadWriteOnce
+  storageClassName: "gp2"
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: v1
+kind: DeploymentConfig
+metadata:
+  annotations:
+    template.alpha.openshift.io/wait-for-ready: 'true'
+  name: mysql
+  namespace: mysql-persistent
+  labels:
+    app: mysql
+spec:
+  replicas: 1
+  selector:
+    name: mysql
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      annotations:
+        backup.velero.io/backup-volumes: mysql-data
+      labels:
+        name: mysql
+        app: mysql
+    spec:
+      containers:
+      - env:
+        - name: MYSQL_USER
+          valueFrom:
+            secretKeyRef:
+              key: database-user
+              name: mysql
+        - name: MYSQL_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: database-password
+              name: mysql
+        - name: MYSQL_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: database-root-password
+              name: mysql
+        - name: MYSQL_DATABASE
+          valueFrom:
+            secretKeyRef:
+              key: database-name
+              name: mysql
+        image: " "
+        imagePullPolicy: IfNotPresent
+        name: mysql
+        ports:
+        - containerPort: 3306
+        resources:
+          limits:
+            memory: 512Mi
+        volumeMounts:
+        - mountPath: "/var/lib/mysql/data"
+          name: mysql-data
+      volumes:
+      - name: mysql-data
+        persistentVolumeClaim:
+          claimName: mysql
+  triggers:
+  - imageChangeParams:
+      automatic: true
+      containerNames:
+      - mysql
+      from:
+        kind: ImageStreamTag
+        name: mysql:5.7
+        namespace: openshift
+    type: ImageChange
+  - type: ConfigChange

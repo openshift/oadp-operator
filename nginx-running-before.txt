@@ -1,0 +1,15 @@
+NAME                                    READY   STATUS    RESTARTS   AGE
+pod/nginx-deployment-55ddb59f4c-gnwxb   1/1     Running   0          50s
+pod/nginx-deployment-55ddb59f4c-stp6j   1/1     Running   0          50s
+
+NAME               TYPE           CLUSTER-IP      EXTERNAL-IP                                                               PORT(S)          AGE
+service/my-nginx   LoadBalancer   172.30.87.199   ae6d5579ef77648f796d097d87e20e80-1340228996.us-west-2.elb.amazonaws.com   8080:31093/TCP   51s
+
+NAME                               READY   UP-TO-DATE   AVAILABLE   AGE
+deployment.apps/nginx-deployment   2/2     2            2           51s
+
+NAME                                          DESIRED   CURRENT   READY   AGE
+replicaset.apps/nginx-deployment-55ddb59f4c   2         2         2       51s
+
+NAME                                HOST/PORT                                                                                     PATH   SERVICES   PORT   TERMINATION   WILDCARD
+route.route.openshift.io/my-nginx   my-nginx-nginx-example.apps.cluster-emcmulla-ocp4-06232.emcmulla-ocp4-06232.mg.dog8code.com          my-nginx   8080                 None
