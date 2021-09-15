@@ -170,7 +170,6 @@ submitcoverage:
 	./codecov
 	rm -f ./codecov
 
-test_submitcoverage: test submitcoverage
 # go-get-tool will 'go get' any package $2 and install it to $1.
 PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
 define go-get-tool
