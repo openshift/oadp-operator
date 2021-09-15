@@ -164,13 +164,12 @@ else
         OS_String = macos
     endif
 endif
-submitcoverage:
+submit-coverage:
 	curl -Os https://uploader.codecov.io/latest/$(OS_String)/codecov
 	chmod +x codecov
 	./codecov
 	rm -f ./codecov
 
-test_submitcoverage: test submitcoverage
 # go-get-tool will 'go get' any package $2 and install it to $1.
 PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
 define go-get-tool
