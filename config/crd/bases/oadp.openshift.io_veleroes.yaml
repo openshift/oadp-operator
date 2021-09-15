@@ -39,7 +39,7 @@ spec:
               backupStorageLocations:
                 description: Velero configuration
                 items:
-                  description: BackupStorageLocationSpec defines the desired state
+                  description: BackupStorageLocationObject defines the desired state
                     of a Velero BackupStorageLocation
                   properties:
                     accessMode:
@@ -83,6 +83,9 @@ spec:
                       description: Default indicates this location is the default
                         backup storage location.
                       type: boolean
+                    name:
+                      description: Name defines the desired name of the Velero BackupStorageLocation
+                      type: string
                     objectStorage:
                       description: ObjectStorageLocation specifies the settings necessary
                         to connect to a provider's object storage.

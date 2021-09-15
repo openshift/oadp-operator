@@ -2,12 +2,13 @@ package e2e
 
 import (
 	"flag"
+	"log"
+	"time"
+
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	"github.com/openshift/oadp-operator/pkg/common"
 	velero "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	"k8s.io/utils/pointer"
-	"log"
-	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
@@ -91,17 +92,19 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 			VeleroSpec: &oadpv1alpha1.VeleroSpec{
 				OlmManaged:   pointer.Bool(false),
 				EnableRestic: pointer.Bool(true),
-				BackupStorageLocations: []velero.BackupStorageLocationSpec{
+				BackupStorageLocations: []oadpv1alpha1.BackupStorageLocationObject{
 					{
-						Provider: provider,
-						Config: map[string]string{
-							"region": region,
-						},
-						Default: true,
-						StorageType: velero.StorageType{
-							ObjectStorage: &velero.ObjectStorageLocation{
-								Bucket: s3Bucket,
-								Prefix: "velero",
+						BackupStorageLocationSpec: velero.BackupStorageLocationSpec{
+							Provider: provider,
+							Config: map[string]string{
+								"region": region,
+							},
+							Default: true,
+							StorageType: velero.StorageType{
+								ObjectStorage: &velero.ObjectStorageLocation{
+									Bucket: s3Bucket,
+									Prefix: "velero",
+								},
 							},
 						},
 					},
@@ -122,17 +125,19 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 			VeleroSpec: &oadpv1alpha1.VeleroSpec{
 				OlmManaged:   pointer.Bool(false),
 				EnableRestic: pointer.Bool(false),
-				BackupStorageLocations: []velero.BackupStorageLocationSpec{
+				BackupStorageLocations: []oadpv1alpha1.BackupStorageLocationObject{
 					{
-						Provider: provider,
-						Config: map[string]string{
-							"region": region,
-						},
-						Default: true,
-						StorageType: velero.StorageType{
-							ObjectStorage: &velero.ObjectStorageLocation{
-								Bucket: s3Bucket,
-								Prefix: "velero",
+						BackupStorageLocationSpec: velero.BackupStorageLocationSpec{
+							Provider: provider,
+							Config: map[string]string{
+								"region": region,
+							},
+							Default: true,
+							StorageType: velero.StorageType{
+								ObjectStorage: &velero.ObjectStorageLocation{
+									Bucket: s3Bucket,
+									Prefix: "velero",
+								},
 							},
 						},
 					},
@@ -153,17 +158,19 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 			VeleroSpec: &oadpv1alpha1.VeleroSpec{
 				OlmManaged:   pointer.Bool(false),
 				EnableRestic: pointer.Bool(true),
-				BackupStorageLocations: []velero.BackupStorageLocationSpec{
+				BackupStorageLocations: []oadpv1alpha1.BackupStorageLocationObject{
 					{
-						Provider: provider,
-						Config: map[string]string{
-							"region": region,
-						},
-						Default: true,
-						StorageType: velero.StorageType{
-							ObjectStorage: &velero.ObjectStorageLocation{
-								Bucket: s3Bucket,
-								Prefix: "velero",
+						BackupStorageLocationSpec: velero.BackupStorageLocationSpec{
+							Provider: provider,
+							Config: map[string]string{
+								"region": region,
+							},
+							Default: true,
+							StorageType: velero.StorageType{
+								ObjectStorage: &velero.ObjectStorageLocation{
+									Bucket: s3Bucket,
+									Prefix: "velero",
+								},
 							},
 						},
 					},
@@ -189,17 +196,19 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 				ResticNodeSelector: map[string]string{
 					"foo": "bar",
 				},
-				BackupStorageLocations: []velero.BackupStorageLocationSpec{
+				BackupStorageLocations: []oadpv1alpha1.BackupStorageLocationObject{
 					{
-						Provider: provider,
-						Config: map[string]string{
-							"region": region,
-						},
-						Default: true,
-						StorageType: velero.StorageType{
-							ObjectStorage: &velero.ObjectStorageLocation{
-								Bucket: s3Bucket,
-								Prefix: "velero",
+						BackupStorageLocationSpec: velero.BackupStorageLocationSpec{
+							Provider: provider,
+							Config: map[string]string{
+								"region": region,
+							},
+							Default: true,
+							StorageType: velero.StorageType{
+								ObjectStorage: &velero.ObjectStorageLocation{
+									Bucket: s3Bucket,
+									Prefix: "velero",
+								},
 							},
 						},
 					},

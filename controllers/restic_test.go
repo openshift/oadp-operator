@@ -394,23 +394,25 @@ func TestVeleroReconciler_buildResticDaemonset(t *testing.T) {
 						DefaultVeleroPlugins: []oadpv1alpha1.DefaultPlugin{
 							oadpv1alpha1.DefaultPluginAWS,
 						},
-						BackupStorageLocations: []velerov1.BackupStorageLocationSpec{
+						BackupStorageLocations: []oadpv1alpha1.BackupStorageLocationObject{
 							{
-								Provider: AWSProvider,
-								StorageType: velerov1.StorageType{
-									ObjectStorage: &velerov1.ObjectStorageLocation{
-										Bucket: "aws-bucket",
+								BackupStorageLocationSpec: velerov1.BackupStorageLocationSpec{
+									Provider: AWSProvider,
+									StorageType: velerov1.StorageType{
+										ObjectStorage: &velerov1.ObjectStorageLocation{
+											Bucket: "aws-bucket",
+										},
 									},
-								},
-								Config: map[string]string{
-									Region:                "aws-region",
-									S3URL:                 "https://sr-url-aws-domain.com",
-									RootDirectory:         "/velero-aws",
-									InsecureSkipTLSVerify: "false",
-								},
-								Credential: &corev1.SecretKeySelector{
-									LocalObjectReference: corev1.LocalObjectReference{
-										Name: "aws-creds",
+									Config: map[string]string{
+										Region:                "aws-region",
+										S3URL:                 "https://sr-url-aws-domain.com",
+										RootDirectory:         "/velero-aws",
+										InsecureSkipTLSVerify: "false",
+									},
+									Credential: &corev1.SecretKeySelector{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "aws-creds",
+										},
 									},
 								},
 							},
@@ -566,23 +568,25 @@ func TestVeleroReconciler_buildResticDaemonset(t *testing.T) {
 						DefaultVeleroPlugins: []oadpv1alpha1.DefaultPlugin{
 							oadpv1alpha1.DefaultPluginAWS,
 						},
-						BackupStorageLocations: []velerov1.BackupStorageLocationSpec{
+						BackupStorageLocations: []oadpv1alpha1.BackupStorageLocationObject{
 							{
-								Provider: AWSProvider,
-								StorageType: velerov1.StorageType{
-									ObjectStorage: &velerov1.ObjectStorageLocation{
-										Bucket: "aws-bucket",
+								BackupStorageLocationSpec: velerov1.BackupStorageLocationSpec{
+									Provider: AWSProvider,
+									StorageType: velerov1.StorageType{
+										ObjectStorage: &velerov1.ObjectStorageLocation{
+											Bucket: "aws-bucket",
+										},
 									},
-								},
-								Config: map[string]string{
-									Region:                "aws-region",
-									S3URL:                 "https://sr-url-aws-domain.com",
-									RootDirectory:         "/velero-aws",
-									InsecureSkipTLSVerify: "false",
-								},
-								Credential: &corev1.SecretKeySelector{
-									LocalObjectReference: corev1.LocalObjectReference{
-										Name: "aws-creds",
+									Config: map[string]string{
+										Region:                "aws-region",
+										S3URL:                 "https://sr-url-aws-domain.com",
+										RootDirectory:         "/velero-aws",
+										InsecureSkipTLSVerify: "false",
+									},
+									Credential: &corev1.SecretKeySelector{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "aws-creds",
+										},
 									},
 								},
 							},
@@ -744,23 +748,25 @@ func TestVeleroReconciler_buildResticDaemonset(t *testing.T) {
 						DefaultVeleroPlugins: []oadpv1alpha1.DefaultPlugin{
 							oadpv1alpha1.DefaultPluginAWS,
 						},
-						BackupStorageLocations: []velerov1.BackupStorageLocationSpec{
+						BackupStorageLocations: []oadpv1alpha1.BackupStorageLocationObject{
 							{
-								Provider: AWSProvider,
-								StorageType: velerov1.StorageType{
-									ObjectStorage: &velerov1.ObjectStorageLocation{
-										Bucket: "aws-bucket",
+								BackupStorageLocationSpec: velerov1.BackupStorageLocationSpec{
+									Provider: AWSProvider,
+									StorageType: velerov1.StorageType{
+										ObjectStorage: &velerov1.ObjectStorageLocation{
+											Bucket: "aws-bucket",
+										},
 									},
-								},
-								Config: map[string]string{
-									Region:                "aws-region",
-									S3URL:                 "https://sr-url-aws-domain.com",
-									RootDirectory:         "/velero-aws",
-									InsecureSkipTLSVerify: "false",
-								},
-								Credential: &corev1.SecretKeySelector{
-									LocalObjectReference: corev1.LocalObjectReference{
-										Name: "aws-creds",
+									Config: map[string]string{
+										Region:                "aws-region",
+										S3URL:                 "https://sr-url-aws-domain.com",
+										RootDirectory:         "/velero-aws",
+										InsecureSkipTLSVerify: "false",
+									},
+									Credential: &corev1.SecretKeySelector{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "aws-creds",
+										},
 									},
 								},
 							},

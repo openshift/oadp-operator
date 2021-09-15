@@ -53,6 +53,15 @@ const GCPPluginImageKey UnsupportedImageKey = "gcpPluginImageFqin"
 const CSIPluginImageKey UnsupportedImageKey = "csiPluginImageFqin"
 const ResticRestoreImageKey UnsupportedImageKey = "resticRestoreImageFqin"
 
+// BackupStorageLocationObject defines the desired state of a Velero BackupStorageLocation
+type BackupStorageLocationObject struct {
+	// Name defines the desired name of the Velero BackupStorageLocation
+	// +optional
+	Name string `json:"name,omitempty"`
+	// BackupStorageLocationSpec defines the desired state of a Velero BackupStorageLocation
+	velero.BackupStorageLocationSpec `json:",omitempty"`
+}
+
 // VeleroSpec defines the desired state of Velero
 type VeleroSpec struct {
 	// Important: Run "make" to regenerate code after modifying this file
@@ -60,7 +69,7 @@ type VeleroSpec struct {
 	OlmManaged *bool `json:"olmManaged,omitempty"`
 
 	// Velero configuration
-	BackupStorageLocations []velero.BackupStorageLocationSpec `json:"backupStorageLocations"`
+	BackupStorageLocations []BackupStorageLocationObject `json:"backupStorageLocations"`
 	// +optional
 	VolumeSnapshotLocations []velero.VolumeSnapshotLocationSpec `json:"volumeSnapshotLocations"`
 	// +optional

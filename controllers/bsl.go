@@ -29,7 +29,8 @@ func (r *VeleroReconciler) ValidateBackupStorageLocations(log logr.Logger) (bool
 
 	// Ensure BSL is a valid configuration
 	// First, check for provider and then call functions based on the cloud provider for each backupstoragelocation configured
-	for _, bslSpec := range velero.Spec.BackupStorageLocations {
+	for _, bslObj := range velero.Spec.BackupStorageLocations {
+		bslSpec := bslObj.BackupStorageLocationSpec
 		provider := bslSpec.Provider
 		if len(provider) == 0 {
 			return false, fmt.Errorf("no provider specified for one of the backupstoragelocations configured")
@@ -78,7 +79,10 @@ func (r *VeleroReconciler) ReconcileBackupStorageLocations(log logr.Logger) (boo
 				Name:      fmt.Sprintf("%s-%d", r.NamespacedName.Name, i+1),
 				Namespace: r.NamespacedName.Namespace,
 			},
-			Spec: bslSpec,
+			Spec: bslSpec.BackupStorageLocationSpec,
+		}
+		if len(bslSpec.Name) > 0 {
+			bsl.Name = bslSpec.Name
 		}
 		// Create BSL
 		op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, &bsl, func() error {

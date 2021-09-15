@@ -2,9 +2,10 @@ package controllers
 
 import (
 	"context"
-	corev1 "k8s.io/api/core/v1"
 	"reflect"
 	"testing"
+
+	corev1 "k8s.io/api/core/v1"
 
 	"github.com/go-logr/logr"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
@@ -76,11 +77,13 @@ func TestVeleroReconciler_ValidateBackupStorageLocations(t *testing.T) {
 					Namespace: "test-ns",
 				},
 				Spec: oadpv1alpha1.VeleroSpec{
-					BackupStorageLocations: []velerov1.BackupStorageLocationSpec{
+					BackupStorageLocations: []oadpv1alpha1.BackupStorageLocationObject{
 						{
-							Provider: "aws",
-							Config: map[string]string{
-								Region: "us-east-1",
+							BackupStorageLocationSpec: velerov1.BackupStorageLocationSpec{
+								Provider: "aws",
+								Config: map[string]string{
+									Region: "us-east-1",
+								},
 							},
 						},
 					},
@@ -103,11 +106,13 @@ func TestVeleroReconciler_ValidateBackupStorageLocations(t *testing.T) {
 					Namespace: "test-ns",
 				},
 				Spec: oadpv1alpha1.VeleroSpec{
-					BackupStorageLocations: []velerov1.BackupStorageLocationSpec{
+					BackupStorageLocations: []oadpv1alpha1.BackupStorageLocationObject{
 						{
-							Provider: "foo",
-							Config: map[string]string{
-								Region: "us-east-1",
+							BackupStorageLocationSpec: velerov1.BackupStorageLocationSpec{
+								Provider: "foo",
+								Config: map[string]string{
+									Region: "us-east-1",
+								},
 							},
 						},
 					},
@@ -130,10 +135,12 @@ func TestVeleroReconciler_ValidateBackupStorageLocations(t *testing.T) {
 					Namespace: "test-ns",
 				},
 				Spec: oadpv1alpha1.VeleroSpec{
-					BackupStorageLocations: []velerov1.BackupStorageLocationSpec{
+					BackupStorageLocations: []oadpv1alpha1.BackupStorageLocationObject{
 						{
-							Config: map[string]string{
-								Region: "us-east-1",
+							BackupStorageLocationSpec: velerov1.BackupStorageLocationSpec{
+								Config: map[string]string{
+									Region: "us-east-1",
+								},
 							},
 						},
 					},
@@ -156,15 +163,17 @@ func TestVeleroReconciler_ValidateBackupStorageLocations(t *testing.T) {
 					Namespace: "test-ns",
 				},
 				Spec: oadpv1alpha1.VeleroSpec{
-					BackupStorageLocations: []velerov1.BackupStorageLocationSpec{
+					BackupStorageLocations: []oadpv1alpha1.BackupStorageLocationObject{
 						{
-							Provider: "aws",
-							Config: map[string]string{
-								Region: "us-east-1",
-							},
-							Credential: &corev1.SecretKeySelector{
-								LocalObjectReference: corev1.LocalObjectReference{
-									Name: "aws-creds",
+							BackupStorageLocationSpec: velerov1.BackupStorageLocationSpec{
+								Provider: "aws",
+								Config: map[string]string{
+									Region: "us-east-1",
+								},
+								Credential: &corev1.SecretKeySelector{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: "aws-creds",
+									},
 								},
 							},
 						},
@@ -188,15 +197,17 @@ func TestVeleroReconciler_ValidateBackupStorageLocations(t *testing.T) {
 					Namespace: "test-ns",
 				},
 				Spec: oadpv1alpha1.VeleroSpec{
-					BackupStorageLocations: []velerov1.BackupStorageLocationSpec{
+					BackupStorageLocations: []oadpv1alpha1.BackupStorageLocationObject{
 						{
-							Provider: "aws",
-							Config: map[string]string{
-								Region: "us-east-1",
-							},
-							Credential: &corev1.SecretKeySelector{
-								LocalObjectReference: corev1.LocalObjectReference{
-									Name: "cloud-credentials",
+							BackupStorageLocationSpec: velerov1.BackupStorageLocationSpec{
+								Provider: "aws",
+								Config: map[string]string{
+									Region: "us-east-1",
+								},
+								Credential: &corev1.SecretKeySelector{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: "cloud-credentials",
+									},
 								},
 							},
 						},
@@ -220,20 +231,22 @@ func TestVeleroReconciler_ValidateBackupStorageLocations(t *testing.T) {
 					Namespace: "test-ns",
 				},
 				Spec: oadpv1alpha1.VeleroSpec{
-					BackupStorageLocations: []velerov1.BackupStorageLocationSpec{
+					BackupStorageLocations: []oadpv1alpha1.BackupStorageLocationObject{
 						{
-							Provider: "aws",
-							StorageType: velerov1.StorageType{
-								ObjectStorage: &velerov1.ObjectStorageLocation{
-									Bucket: "",
+							BackupStorageLocationSpec: velerov1.BackupStorageLocationSpec{
+								Provider: "aws",
+								StorageType: velerov1.StorageType{
+									ObjectStorage: &velerov1.ObjectStorageLocation{
+										Bucket: "",
+									},
 								},
-							},
-							Config: map[string]string{
-								Region: "us-east-1",
-							},
-							Credential: &corev1.SecretKeySelector{
-								LocalObjectReference: corev1.LocalObjectReference{
-									Name: "cloud-credentials",
+								Config: map[string]string{
+									Region: "us-east-1",
+								},
+								Credential: &corev1.SecretKeySelector{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: "cloud-credentials",
+									},
 								},
 							},
 						},
@@ -257,20 +270,22 @@ func TestVeleroReconciler_ValidateBackupStorageLocations(t *testing.T) {
 					Namespace: "test-ns",
 				},
 				Spec: oadpv1alpha1.VeleroSpec{
-					BackupStorageLocations: []velerov1.BackupStorageLocationSpec{
+					BackupStorageLocations: []oadpv1alpha1.BackupStorageLocationObject{
 						{
-							Provider: "aws",
-							StorageType: velerov1.StorageType{
-								ObjectStorage: &velerov1.ObjectStorageLocation{
-									Bucket: "test-aws-bucket",
+							BackupStorageLocationSpec: velerov1.BackupStorageLocationSpec{
+								Provider: "aws",
+								StorageType: velerov1.StorageType{
+									ObjectStorage: &velerov1.ObjectStorageLocation{
+										Bucket: "test-aws-bucket",
+									},
 								},
-							},
-							Config: map[string]string{
-								Region: "",
-							},
-							Credential: &corev1.SecretKeySelector{
-								LocalObjectReference: corev1.LocalObjectReference{
-									Name: "cloud-credentials",
+								Config: map[string]string{
+									Region: "",
+								},
+								Credential: &corev1.SecretKeySelector{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: "cloud-credentials",
+									},
 								},
 							},
 						},
@@ -294,20 +309,22 @@ func TestVeleroReconciler_ValidateBackupStorageLocations(t *testing.T) {
 					Namespace: "test-ns",
 				},
 				Spec: oadpv1alpha1.VeleroSpec{
-					BackupStorageLocations: []velerov1.BackupStorageLocationSpec{
+					BackupStorageLocations: []oadpv1alpha1.BackupStorageLocationObject{
 						{
-							Provider: "azure",
-							StorageType: velerov1.StorageType{
-								ObjectStorage: &velerov1.ObjectStorageLocation{
-									Bucket: "test-azure-bucket",
+							BackupStorageLocationSpec: velerov1.BackupStorageLocationSpec{
+								Provider: "azure",
+								StorageType: velerov1.StorageType{
+									ObjectStorage: &velerov1.ObjectStorageLocation{
+										Bucket: "test-azure-bucket",
+									},
 								},
-							},
-							Config: map[string]string{
-								ResourceGroup: "",
-							},
-							Credential: &corev1.SecretKeySelector{
-								LocalObjectReference: corev1.LocalObjectReference{
-									Name: "cloud-credentials",
+								Config: map[string]string{
+									ResourceGroup: "",
+								},
+								Credential: &corev1.SecretKeySelector{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: "cloud-credentials",
+									},
 								},
 							},
 						},
@@ -331,21 +348,23 @@ func TestVeleroReconciler_ValidateBackupStorageLocations(t *testing.T) {
 					Namespace: "test-ns",
 				},
 				Spec: oadpv1alpha1.VeleroSpec{
-					BackupStorageLocations: []velerov1.BackupStorageLocationSpec{
+					BackupStorageLocations: []oadpv1alpha1.BackupStorageLocationObject{
 						{
-							Provider: "azure",
-							StorageType: velerov1.StorageType{
-								ObjectStorage: &velerov1.ObjectStorageLocation{
-									Bucket: "test-azure-bucket",
+							BackupStorageLocationSpec: velerov1.BackupStorageLocationSpec{
+								Provider: "azure",
+								StorageType: velerov1.StorageType{
+									ObjectStorage: &velerov1.ObjectStorageLocation{
+										Bucket: "test-azure-bucket",
+									},
 								},
-							},
-							Config: map[string]string{
-								ResourceGroup:  "test-rg",
-								StorageAccount: "",
-							},
-							Credential: &corev1.SecretKeySelector{
-								LocalObjectReference: corev1.LocalObjectReference{
-									Name: "cloud-credentials",
+								Config: map[string]string{
+									ResourceGroup:  "test-rg",
+									StorageAccount: "",
+								},
+								Credential: &corev1.SecretKeySelector{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: "cloud-credentials",
+									},
 								},
 							},
 						},
@@ -369,15 +388,17 @@ func TestVeleroReconciler_ValidateBackupStorageLocations(t *testing.T) {
 					Namespace: "test-ns",
 				},
 				Spec: oadpv1alpha1.VeleroSpec{
-					BackupStorageLocations: []velerov1.BackupStorageLocationSpec{
+					BackupStorageLocations: []oadpv1alpha1.BackupStorageLocationObject{
 						{
-							Provider: "gcp",
-							StorageType: velerov1.StorageType{
-								ObjectStorage: &velerov1.ObjectStorageLocation{},
-							},
-							Credential: &corev1.SecretKeySelector{
-								LocalObjectReference: corev1.LocalObjectReference{
-									Name: "cloud-credentials",
+							BackupStorageLocationSpec: velerov1.BackupStorageLocationSpec{
+								Provider: "gcp",
+								StorageType: velerov1.StorageType{
+									ObjectStorage: &velerov1.ObjectStorageLocation{},
+								},
+								Credential: &corev1.SecretKeySelector{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: "cloud-credentials",
+									},
 								},
 							},
 						},
@@ -401,20 +422,22 @@ func TestVeleroReconciler_ValidateBackupStorageLocations(t *testing.T) {
 					Namespace: "test-ns",
 				},
 				Spec: oadpv1alpha1.VeleroSpec{
-					BackupStorageLocations: []velerov1.BackupStorageLocationSpec{
+					BackupStorageLocations: []oadpv1alpha1.BackupStorageLocationObject{
 						{
-							Provider: "aws",
-							StorageType: velerov1.StorageType{
-								ObjectStorage: &velerov1.ObjectStorageLocation{
-									Bucket: "test-aws-bucket",
+							BackupStorageLocationSpec: velerov1.BackupStorageLocationSpec{
+								Provider: "aws",
+								StorageType: velerov1.StorageType{
+									ObjectStorage: &velerov1.ObjectStorageLocation{
+										Bucket: "test-aws-bucket",
+									},
 								},
-							},
-							Config: map[string]string{
-								Region: "test-region",
-							},
-							Credential: &corev1.SecretKeySelector{
-								LocalObjectReference: corev1.LocalObjectReference{
-									Name: "cloud-credentials",
+								Config: map[string]string{
+									Region: "test-region",
+								},
+								Credential: &corev1.SecretKeySelector{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: "cloud-credentials",
+									},
 								},
 							},
 						},
@@ -438,50 +461,56 @@ func TestVeleroReconciler_ValidateBackupStorageLocations(t *testing.T) {
 					Namespace: "test-ns",
 				},
 				Spec: oadpv1alpha1.VeleroSpec{
-					BackupStorageLocations: []velerov1.BackupStorageLocationSpec{
+					BackupStorageLocations: []oadpv1alpha1.BackupStorageLocationObject{
 						{
-							Provider: "aws",
-							StorageType: velerov1.StorageType{
-								ObjectStorage: &velerov1.ObjectStorageLocation{
-									Bucket: "test-aws-bucket",
+							BackupStorageLocationSpec: velerov1.BackupStorageLocationSpec{
+								Provider: "aws",
+								StorageType: velerov1.StorageType{
+									ObjectStorage: &velerov1.ObjectStorageLocation{
+										Bucket: "test-aws-bucket",
+									},
 								},
-							},
-							Config: map[string]string{
-								Region: "test-region",
-							},
-							Credential: &corev1.SecretKeySelector{
-								LocalObjectReference: corev1.LocalObjectReference{
-									Name: "cloud-credentials",
+								Config: map[string]string{
+									Region: "test-region",
+								},
+								Credential: &corev1.SecretKeySelector{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: "cloud-credentials",
+									},
 								},
 							},
 						},
 						{
-							Provider: "azure",
-							StorageType: velerov1.StorageType{
-								ObjectStorage: &velerov1.ObjectStorageLocation{
-									Bucket: "test-azure-bucket",
+							BackupStorageLocationSpec: velerov1.BackupStorageLocationSpec{
+								Provider: "azure",
+								StorageType: velerov1.StorageType{
+									ObjectStorage: &velerov1.ObjectStorageLocation{
+										Bucket: "test-azure-bucket",
+									},
 								},
-							},
-							Config: map[string]string{
-								ResourceGroup:  "test-rg",
-								StorageAccount: "test-sa",
-							},
-							Credential: &corev1.SecretKeySelector{
-								LocalObjectReference: corev1.LocalObjectReference{
-									Name: "cloud-credentials",
+								Config: map[string]string{
+									ResourceGroup:  "test-rg",
+									StorageAccount: "test-sa",
+								},
+								Credential: &corev1.SecretKeySelector{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: "cloud-credentials",
+									},
 								},
 							},
 						},
 						{
-							Provider: "gcp",
-							StorageType: velerov1.StorageType{
-								ObjectStorage: &velerov1.ObjectStorageLocation{
-									Bucket: "test-gcp-bucket",
+							BackupStorageLocationSpec: velerov1.BackupStorageLocationSpec{
+								Provider: "gcp",
+								StorageType: velerov1.StorageType{
+									ObjectStorage: &velerov1.ObjectStorageLocation{
+										Bucket: "test-gcp-bucket",
+									},
 								},
-							},
-							Credential: &corev1.SecretKeySelector{
-								LocalObjectReference: corev1.LocalObjectReference{
-									Name: "cloud-credentials",
+								Credential: &corev1.SecretKeySelector{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: "cloud-credentials",
+									},
 								},
 							},
 						},
@@ -658,18 +687,26 @@ func TestVeleroReconciler_ensureBSLProviderMapping(t *testing.T) {
 					Namespace: "test-ns",
 				},
 				Spec: oadpv1alpha1.VeleroSpec{
-					BackupStorageLocations: []velerov1.BackupStorageLocationSpec{
+					BackupStorageLocations: []oadpv1alpha1.BackupStorageLocationObject{
 						{
-							Provider: "aws",
+							BackupStorageLocationSpec: velerov1.BackupStorageLocationSpec{
+								Provider: "aws",
+							},
 						},
 						{
-							Provider: "azure",
+							BackupStorageLocationSpec: velerov1.BackupStorageLocationSpec{
+								Provider: "azure",
+							},
 						},
 						{
-							Provider: "gcp",
+							BackupStorageLocationSpec: velerov1.BackupStorageLocationSpec{
+								Provider: "gcp",
+							},
 						},
 						{
-							Provider: "thirdpary-objectstorage-provider",
+							BackupStorageLocationSpec: velerov1.BackupStorageLocationSpec{
+								Provider: "thirdpary-objectstorage-provider",
+							},
 						},
 					},
 				},
@@ -684,18 +721,26 @@ func TestVeleroReconciler_ensureBSLProviderMapping(t *testing.T) {
 					Namespace: "test-ns",
 				},
 				Spec: oadpv1alpha1.VeleroSpec{
-					BackupStorageLocations: []velerov1.BackupStorageLocationSpec{
+					BackupStorageLocations: []oadpv1alpha1.BackupStorageLocationObject{
 						{
-							Provider: "aws",
+							BackupStorageLocationSpec: velerov1.BackupStorageLocationSpec{
+								Provider: "aws",
+							},
 						},
 						{
-							Provider: "azure",
+							BackupStorageLocationSpec: velerov1.BackupStorageLocationSpec{
+								Provider: "azure",
+							},
 						},
 						{
-							Provider: "aws",
+							BackupStorageLocationSpec: velerov1.BackupStorageLocationSpec{
+								Provider: "aws",
+							},
 						},
 						{
-							Provider: "thirdpary-objectstorage-provider",
+							BackupStorageLocationSpec: velerov1.BackupStorageLocationSpec{
+								Provider: "thirdpary-objectstorage-provider",
+							},
 						},
 					},
 				},

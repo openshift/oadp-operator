@@ -37,17 +37,19 @@ func (v *veleroCustomResource) Build() error {
 		Spec: oadpv1alpha1.VeleroSpec{
 			OlmManaged:   pointer.Bool(false),
 			EnableRestic: pointer.Bool(true),
-			BackupStorageLocations: []velero.BackupStorageLocationSpec{
+			BackupStorageLocations: []oadpv1alpha1.BackupStorageLocationObject{
 				{
-					Provider: v.Provider,
-					Config: map[string]string{
-						"region": v.Region,
-					},
-					Default: true,
-					StorageType: velero.StorageType{
-						ObjectStorage: &velero.ObjectStorageLocation{
-							Bucket: v.Bucket,
-							Prefix: "velero",
+					BackupStorageLocationSpec: velero.BackupStorageLocationSpec{
+						Provider: v.Provider,
+						Config: map[string]string{
+							"region": v.Region,
+						},
+						Default: true,
+						StorageType: velero.StorageType{
+							ObjectStorage: &velero.ObjectStorageLocation{
+								Bucket: v.Bucket,
+								Prefix: "velero",
+							},
 						},
 					},
 				},
