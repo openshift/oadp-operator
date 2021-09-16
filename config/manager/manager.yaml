@@ -65,7 +65,7 @@ spec:
           - name: VELERO_AZURE_PLUGIN_TAG
             value: konveyor-oadp
           - name: VELERO_CSI_PLUGIN_TAG
-            value: main
+            value: latest
           - name: VELERO_VSPHERE_PLUGIN_TAG
             value: 1.1.0
         args:
