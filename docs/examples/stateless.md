@@ -8,7 +8,7 @@
 
     `make deploy`
 
-* Create a credentials secret for your aws bucket:
+* Create a credentials secret for AWS:
 
    `oc create secret generic cloud-credentials --namespace oadp-operator-system --from-file cloud=<CREDENTIALS_FILE_PATH>`
 
@@ -18,25 +18,24 @@
     apiVersion: oadp.openshift.io/v1alpha1
     kind: Velero
     metadata:
-    name: velero-sample
+      name: velero-sample
     spec:
-    # Add fields here
-    olmManaged: false
-    backupStorageLocations:
-    - provider: aws
+      olmManaged: false
+      backupStorageLocations:
+      - provider: aws
         default: true
         objectStorage:
-        bucket: my-bucket-name
+          bucket: my-bucket-name
         credential:
-        name: cloud-credentials
-        key: cloud    
+          name: cloud-credentials
+          key: cloud    
         config:
-        region: us-east-1
-        profile: default
-    enableRestic: true
-    defaultVeleroPlugins:
-    - openshift
-    - aws
+          region: us-east-1
+          profile: default
+      enableRestic: true
+      defaultVeleroPlugins:
+      - openshift
+      - aws
     ```
 
 * Install Velero + Restic:
@@ -50,10 +49,10 @@
 `oc create -f docs/examples/manifests/nginx-deployment.yaml`
 
 This will create the following resources:
-* **Namespace:** nginx-example
-* **Deployment:** nginx-deployment
-* **Service:** my-nginx
-* **Route:** my-nginx
+* **Namespace:** 
+* **Deployment:** 
+* **Service:** 
+* **Route:** 
 
 ### Verify Nginx deployment resources:
 
@@ -102,6 +101,12 @@ process. First, delete the `nginx-example` project:
 
 `oc create -f docs/examples/manifests/nginx-stateless-restore.yaml`
 
+### Ensure the restore has completed
+
+`oc get restore -n oadp-operator-system nginx-stateless -o jsonpath='{.status.phase}`
+
+Should result in `Completed`
+
 ### Verify resources have been recreated in the restore process
 
 `oc get all -n nginx-example`
@@ -125,9 +130,3 @@ replicaset.apps/nginx-deployment-55ddb59f4c   2         2         2       77s
 NAME                                HOST/PORT                                                              PATH   SERVICES   PORT   WILDCARD
 route.route.openshift.io/my-nginx   my-nginx-nginx-example.apps.cluster-da0d.da0d.sandbox591.opentlc.com          my-nginx   8080   None
 ```
-
-### Ensure the restore has completed
-
-`oc get restore -n oadp-operator-system nginx-stateless -o jsonpath='{.status.phase}`
-
-Should result in `Completed`

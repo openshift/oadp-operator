@@ -9,14 +9,10 @@ spec:
   - provider: aws
     default: true
     objectStorage:
-      bucket: emcmullavelero-test
-    credential:
-      name: cloud-credentials
-      key: cloud    
+      bucket: velero-6109f5e9711c8c58131acdd2f490f451
+      prefix: velero
     config:
       region: us-east-1
-      profile: default
-  enableRestic: true
   defaultVeleroPlugins:
   - openshift
   - aws

@@ -1,10 +1,10 @@
 apiVersion: velero.io/v1
 kind: Backup
 metadata:
-  name: mysql-persistent
+  name: mssql-persistent
   namespace: oadp-operator-system
 spec:
   includedNamespaces:
-  - mysql-persistent
+  - mssql-persistent
   storageLocation: velero-sample-1
   ttl: 720h0m0s
