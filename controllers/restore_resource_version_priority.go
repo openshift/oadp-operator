@@ -14,6 +14,7 @@ const (
 	enableApiGroupVersionsConfigMapName    = "enableapigroupversions"
 	restoreResourcesVersionPriorityDataKey = "restoreResourcesVersionPriority"
 )
+
 // If RestoreResourcesVersionPriority is defined, configmap is created or updated and feature flag for EnableAPIGroupVersions is added to velero
 func (r *VeleroReconciler) ReconcileRestoreResourcesVersionPriority(velero *oadpv1alpha1.Velero) (bool, error) {
 	if len(velero.Spec.RestoreResourcesVersionPriority) == 0 {
