@@ -31,6 +31,7 @@ installs <a href="https://velero.io/">Velero</a> on the OpenShift platform.</p>
     1. [Stateless App Backup/Restore](docs/examples/stateless.md)
     2. [Stateful App Backup/Restore](docs/examples/stateful.md)
 7. [Velero Version Relationship](#version)
+8. [Troubleshooting](./TROUBLESHOOTING.md)
 
 
 <hr style="height:1px;border:none;color:#333;">
