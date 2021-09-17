@@ -1,0 +1,10 @@
+apiVersion: velero.io/v1
+kind: Backup
+metadata:
+  name: nginx-stateless
+  namespace: oadp-operator-system
+spec:
+  includedNamespaces:
+  - nginx-example
+  storageLocation: velero-sample-1
+  ttl: 720h0m0s

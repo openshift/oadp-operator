@@ -27,9 +27,9 @@ installs <a href="https://velero.io/">Velero</a> on the OpenShift platform.</p>
 3. [OLM Integration](docs/olm.md)
 4. [Use NooBaa as a Backup Storage Location](docs/noobaa/install_oadp_noobaa.md) 
 5. [Use Velero --features flag](docs/features_flag.md)
-6. Usage Examples
-    1. [OADP Capstone](https://github.com/konveyor/oadp-capstone)
-    2. [Velero Examples](https://github.com/konveyor/velero-examples)
+6. Examples
+    1. [Stateless App Backup/Restore](docs/examples/stateless.md)
+    2. [Stateful App Backup/Restore](docs/examples/stateful.md)
 7. [Velero Version Relationship](#version)
 
 
@@ -114,8 +114,6 @@ replicaset.apps/velero-588db7f655                              1         1      
 <hr style="height:1px;border:none;color:#333;">
 
 <h1 align="center">Velero Version Relationship<a id="version"></a></h1>
-
-<hr style="height:1px;border:none;color:#333;">
 
 By default, OADP will install the forked versions of Velero that exist under the `konveyor` organization. These images have minor tweaks to support the OpenShift specific use cases of using Velero with OCP. The `konveyor` images tend to lag behind Velero upstream releases as we are more cautious about supporting older versions. Here is the default mapping of versions:
 

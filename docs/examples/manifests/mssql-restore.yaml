@@ -1,0 +1,8 @@
+apiVersion: velero.io/v1
+kind: Restore
+metadata:
+  name: mssql-persistent
+  namespace: oadp-operator-system
+spec:
+  backupName: mssql-persistent
+  restorePVs: true
