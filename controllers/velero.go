@@ -97,7 +97,7 @@ func (r *VeleroReconciler) ReconcileVeleroCRDs(log logr.Logger) (bool, error) {
 	}
 
 	// check for Non-OLM install and proceed with Velero supporting CRD installation
-	if velero.Spec.OlmManaged != nil && velero.Spec.OlmManaged == pointer.Bool(false) {
+	if velero.Spec.OlmManaged != nil && !*velero.Spec.OlmManaged {
 		err := r.InstallVeleroCRDs(log)
 		if err != nil {
 			return false, err

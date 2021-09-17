@@ -141,8 +141,7 @@ spec:
                   storage from OCS operator with Noobaa
                 type: boolean
               olmManaged:
-                description: 'Important: Run "make" to regenerate code after modifying
-                  this file Determine whether this was installed via OLM'
+                description: Determine whether this was installed via OLM.
                 type: boolean
               podAnnotations:
                 additionalProperties:
