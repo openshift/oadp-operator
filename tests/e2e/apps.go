@@ -102,12 +102,12 @@ func areApplicationPodsRunning(namespace string) wait.ConditionFunc {
 	}
 }
 
-func isDCReady(ocClient client.Client, namespace, dc string) wait.ConditionFunc {
+func isDCReady(ocClient client.Client, namespace, dcName string) wait.ConditionFunc {
 	return func() (bool, error) {
 		dc := appsv1.DeploymentConfig{}
 		err := ocClient.Get(context.Background(), client.ObjectKey{
 			Namespace: namespace,
-			Name:      "restify",
+			Name:      dcName,
 		}, &dc)
 		if err != nil {
 			return false, err
