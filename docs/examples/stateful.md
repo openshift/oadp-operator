@@ -9,7 +9,7 @@
 
 * Create a credentials secret for AWS:
 
-   `oc create secret generic cloud-credentials --namespace oadp-operator-system --from-file cloud=<CREDENTIALS_FILE_PATH>`
+   `oc create secret generic cloud-credentials --namespace openshift-adp --from-file cloud=<CREDENTIALS_FILE_PATH>`
 
 * Make sure your Velero CR is similar to this:
 
@@ -45,7 +45,7 @@
 
 * Install Velero + Restic:
 
-  `oc create -n oadp-operator-system -f config/samples/oadp_v1alpha1_velero.yaml`
+  `oc create -n openshift-adp -f config/samples/oadp_v1alpha1_velero.yaml`
 
 <hr style="height:1px;border:none;color:#333;">
 
@@ -105,7 +105,7 @@ Once completed, it's time to begin a backup.
 
 ### Verify the backup is completed
 
-`oc get backup -n oadp-operator-system mssql-persistent -o jsonpath='{.status.phase}'`
+`oc get backup -n openshift-adp mssql-persistent -o jsonpath='{.status.phase}'`
 
 should result in `Completed`
 
@@ -122,7 +122,7 @@ process. First, delete the `mssql-persistent` project:
 
 ### Verify the restore is completed
 
-`oc get restore -n oadp-operator-system mssql-persistent -o jsonpath='{.status.phase}'`
+`oc get restore -n openshift-adp mssql-persistent -o jsonpath='{.status.phase}'`
 
 Should result in `Completed`
 
