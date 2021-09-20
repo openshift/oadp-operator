@@ -3,13 +3,14 @@ package e2e
 import (
 	"errors"
 	"fmt"
+	"log"
+	"time"
+
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
-	"log"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"time"
 )
 
 var _ = Describe("AWS backup restore tests", func() {
@@ -44,10 +45,15 @@ var _ = Describe("AWS backup restore tests", func() {
 		Name                 string
 		PreBackupVerify      VerificationFunction
 		PostRestoreVerify    VerificationFunction
+		MaxK8SVersion        *k8sVersion
+		MinK8SVersion        *k8sVersion
 	}
 
 	DescribeTable("backup and restore applications",
 		func(brCase BackupRestoreCase, expectedErr error) {
+			if notVersionTarget, reason := NotServerVersionTarget(brCase.MinK8SVersion, brCase.MaxK8SVersion); notVersionTarget {
+				Skip(reason)
+			}
 			backupUid, _ := uuid.NewUUID()
 			restoreUid, _ := uuid.NewUUID()
 			backupName := fmt.Sprintf("%s-%s", brCase.Name, backupUid.String())
@@ -130,7 +136,7 @@ var _ = Describe("AWS backup restore tests", func() {
 				return nil
 			}),
 		}, nil),
-		Entry("Parks application", BackupRestoreCase{
+		Entry("Parks application <4.8.0", BackupRestoreCase{
 			ApplicationTemplate:  "./sample-applications/parks-app/manifest.yaml",
 			ApplicationNamespace: "parks-app",
 			Name:                 "parks-e2e",
@@ -141,6 +147,20 @@ var _ = Describe("AWS backup restore tests", func() {
 			PostRestoreVerify: VerificationFunction(func(ocClient client.Client, namespace string) error {
 				return nil
 			}),
+			MaxK8SVersion: &k8sVersionOcp47,
+		}, nil),
+		Entry("Parks application >=4.8.0", BackupRestoreCase{
+			ApplicationTemplate:  "./sample-applications/parks-app/manifest4.8.yaml",
+			ApplicationNamespace: "parks-app",
+			Name:                 "parks-e2e",
+			PreBackupVerify: VerificationFunction(func(ocClient client.Client, namespace string) error {
+				Eventually(isDCReady(ocClient, "parks-app", "restify"), time.Minute*5, time.Second*10).Should(BeTrue())
+				return nil
+			}),
+			PostRestoreVerify: VerificationFunction(func(ocClient client.Client, namespace string) error {
+				return nil
+			}),
+			MinK8SVersion: &k8sVersionOcp48,
 		}, nil),
 	)
 })
