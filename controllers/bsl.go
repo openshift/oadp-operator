@@ -127,7 +127,7 @@ func (r *VeleroReconciler) updateBSLFromSpec(bsl *velerov1.BackupStorageLocation
 
 func (r *VeleroReconciler) validateAWSBackupStorageLocation(bslSpec velerov1.BackupStorageLocationSpec, velero *oadpv1alpha1.Velero) error {
 	// validate provider plugin and secret
-	err := r.validateProviderPluginAndSecret(bslSpec, velero, oadpv1alpha1.DefaultPluginAWS)
+	err := r.validateProviderPluginAndSecret(bslSpec, velero)
 	if err != nil {
 		return err
 	}
@@ -152,7 +152,7 @@ func (r *VeleroReconciler) validateAWSBackupStorageLocation(bslSpec velerov1.Bac
 
 func (r *VeleroReconciler) validateAzureBackupStorageLocation(bslSpec velerov1.BackupStorageLocationSpec, velero *oadpv1alpha1.Velero) error {
 	// validate provider plugin and secret
-	err := r.validateProviderPluginAndSecret(bslSpec, velero, oadpv1alpha1.DefaultPluginMicrosoftAzure)
+	err := r.validateProviderPluginAndSecret(bslSpec, velero)
 	if err != nil {
 		return err
 	}
@@ -179,7 +179,7 @@ func (r *VeleroReconciler) validateAzureBackupStorageLocation(bslSpec velerov1.B
 
 func (r *VeleroReconciler) validateGCPBackupStorageLocation(bslSpec velerov1.BackupStorageLocationSpec, velero *oadpv1alpha1.Velero) error {
 	// validate provider plugin and secret
-	err := r.validateProviderPluginAndSecret(bslSpec, velero, oadpv1alpha1.DefaultPluginGCP)
+	err := r.validateProviderPluginAndSecret(bslSpec, velero)
 	if err != nil {
 		return err
 	}
@@ -205,13 +205,13 @@ func pluginExistsInVeleroCR(configuredPlugins []oadpv1alpha1.DefaultPlugin, expe
 	return false
 }
 
-func (r *VeleroReconciler) validateProviderPluginAndSecret(bslSpec velerov1.BackupStorageLocationSpec, velero *oadpv1alpha1.Velero, pluginProvider oadpv1alpha1.DefaultPlugin) error {
+func (r *VeleroReconciler) validateProviderPluginAndSecret(bslSpec velerov1.BackupStorageLocationSpec, velero *oadpv1alpha1.Velero) error {
 	// check for existence of provider plugin and warn if the plugin is absent
-	if !pluginExistsInVeleroCR(velero.Spec.DefaultVeleroPlugins, pluginProvider) {
-		r.Log.Info(fmt.Sprintf("AWS backupstoragelocation is configured but Velero plugin for AWS is not present"))
+	if !pluginExistsInVeleroCR(velero.Spec.DefaultVeleroPlugins, oadpv1alpha1.DefaultPlugin(bslSpec.Provider)) {
+		r.Log.Info(fmt.Sprintf("%s backupstoragelocation is configured but velero plugin for %s is not present",bslSpec.Provider, bslSpec.Provider))
 		//TODO: set warning condition on Velero CR
 	}
-	secretName, _ := r.getSecretNameAndKey(bslSpec.Credential, pluginProvider)
+	secretName, _ := r.getSecretNameAndKey(bslSpec.Credential, oadpv1alpha1.DefaultPlugin(bslSpec.Provider))
 
 	_, err := r.getProviderSecret(secretName)
 
