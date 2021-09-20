@@ -38,6 +38,7 @@ var veleroPrefix = "velero-e2e-" + string(uuid.NewUUID())
 
 func (v *veleroCustomResource) Build() error {
 	// Velero Instance creation spec with backupstorage location default to AWS. Would need to parameterize this later on to support multiple plugins.
+
 	veleroSpec := oadpv1alpha1.Velero{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      v.Name,
@@ -48,10 +49,7 @@ func (v *veleroCustomResource) Build() error {
 			BackupStorageLocations: []velero.BackupStorageLocationSpec{
 				{
 					Provider: v.Provider,
-					Config: map[string]string{
-						"region": v.Region,
-					},
-					Default: true,
+					Default:  true,
 					StorageType: velero.StorageType{
 						ObjectStorage: &velero.ObjectStorageLocation{
 							Bucket: v.Bucket,
@@ -62,9 +60,16 @@ func (v *veleroCustomResource) Build() error {
 			},
 			DefaultVeleroPlugins: []oadpv1alpha1.DefaultPlugin{
 				oadpv1alpha1.DefaultPluginOpenShift,
-				oadpv1alpha1.DefaultPluginAWS,
 			},
 		},
+	}
+	switch v.Provider {
+	case "aws":
+		veleroSpec.Spec.BackupStorageLocations[0].Config = map[string]string{
+			"region": v.Region,
+		}
+		veleroSpec.Spec.DefaultVeleroPlugins = append(veleroSpec.Spec.DefaultVeleroPlugins, oadpv1alpha1.DefaultPluginAWS) // case "gcp":
+		// 	config["serviceAccount"] = v.Region
 	}
 	v.CustomResource = &veleroSpec
 	return nil
