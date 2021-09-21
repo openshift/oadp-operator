@@ -10,10 +10,68 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/apimachinery/pkg/version"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 )
+
+type k8sVersion struct {
+	Major string
+	Minor string
+}
+
+var (
+	// Version struct representing OCP 4.8.x https://docs.openshift.com/container-platform/4.8/release_notes/ocp-4-8-release-notes.html
+	k8sVersionOcp48 = k8sVersion{
+		Major: "1",
+		Minor: "21",
+	}
+	// https://docs.openshift.com/container-platform/4.7/release_notes/ocp-4-7-release-notes.html
+	k8sVersionOcp47 = k8sVersion{
+		Major: "1",
+		Minor: "20",
+	}
+)
+
+func k8sVersionGreater(v1 *k8sVersion, v2 *k8sVersion) bool {
+	if v1.Major > v2.Major {
+		return true
+	}
+	if v1.Major == v2.Major {
+		return v1.Minor > v2.Minor
+	}
+	return false
+}
+
+func k8sVersionLesser(v1 *k8sVersion, v2 *k8sVersion) bool {
+	if v1.Major < v2.Major {
+		return true
+	}
+	if v1.Major == v2.Major {
+		return v1.Minor < v2.Minor
+	}
+	return false
+}
+
+func serverK8sVersion() *k8sVersion {
+	version, err := serverVersion()
+	if err != nil {
+		return nil
+	}
+	return &k8sVersion{Major: version.Major, Minor: version.Minor}
+}
+
+func NotServerVersionTarget(minVersion *k8sVersion, maxVersion *k8sVersion) (bool, string) {
+	serverVersion := serverK8sVersion()
+	if maxVersion != nil && k8sVersionGreater(serverVersion, maxVersion) {
+		return true, "Server Version is greater than max target version"
+	}
+	if minVersion != nil && k8sVersionLesser(serverVersion, minVersion) {
+		return true, "Server Version is lesser than min target version"
+	}
+	return false, ""
+}
 
 func setUpClient() (*kubernetes.Clientset, error) {
 	kubeConf := getKubeConfig()
@@ -103,6 +161,14 @@ func isNamespaceDeleted(namespace string) wait.ConditionFunc {
 		}
 		return false, err
 	}
+}
+
+func serverVersion() (*version.Info, error) {
+	clientset, err := setUpClient()
+	if err != nil {
+		return nil, err
+	}
+	return clientset.Discovery().ServerVersion()
 }
 
 func getCredsData(cloud string) ([]byte, error) {
