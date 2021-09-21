@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"reflect"
@@ -19,6 +20,7 @@ import (
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	k8serror "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/pointer"
@@ -164,6 +166,28 @@ func (r *VeleroReconciler) ReconcileRegistries(log logr.Logger) (bool, error) {
 				Name:      registryName(&bsl),
 				Namespace: bsl.Namespace,
 			},
+		}
+
+		if velero.Spec.BackupImages != nil && !*velero.Spec.BackupImages {
+			deleteContext := context.Background()
+			if err := r.Get(deleteContext, types.NamespacedName{
+				Name:      registryDeployment.Name,
+				Namespace: r.NamespacedName.Namespace,
+			}, registryDeployment); err != nil {
+				if k8serror.IsNotFound(err) {
+					return true, nil
+				}
+				return false, err
+			}
+
+			deleteOptionPropagationForeground := metav1.DeletePropagationForeground
+			if err := r.Delete(deleteContext, registryDeployment, &client.DeleteOptions{PropagationPolicy: &deleteOptionPropagationForeground}); err != nil {
+				r.EventRecorder.Event(registryDeployment, corev1.EventTypeNormal, "DeleteRegistryDeploymentFailed", "Could not delete registry deployment:"+err.Error())
+				return false, err
+			}
+			r.EventRecorder.Event(registryDeployment, corev1.EventTypeNormal, "DeletedRegistryDeployment", "Registry Deployment deleted")
+
+			return true, nil
 		}
 
 		op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, registryDeployment, func() error {
@@ -536,6 +560,28 @@ func (r *VeleroReconciler) ReconcileRegistrySVCs(log logr.Logger) (bool, error) 
 				},
 			}
 
+			if velero.Spec.BackupImages != nil && !*velero.Spec.BackupImages {
+				deleteContext := context.Background()
+				if err := r.Get(deleteContext, types.NamespacedName{
+					Name:      svc.Name,
+					Namespace: r.NamespacedName.Namespace,
+				}, &svc); err != nil {
+					if k8serror.IsNotFound(err) {
+						return true, nil
+					}
+					return false, err
+				}
+
+				deleteOptionPropagationForeground := metav1.DeletePropagationForeground
+				if err := r.Delete(deleteContext, &svc, &client.DeleteOptions{PropagationPolicy: &deleteOptionPropagationForeground}); err != nil {
+					r.EventRecorder.Event(&svc, corev1.EventTypeNormal, "DeleteRegistryServiceFailed", "Could not delete registry service:"+err.Error())
+					return false, err
+				}
+				r.EventRecorder.Event(&svc, corev1.EventTypeNormal, "DeletedRegistryService", "Registry service deleted")
+
+				return true, nil
+			}
+
 			// Create SVC
 			op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, &svc, func() error {
 
@@ -626,6 +672,28 @@ func (r *VeleroReconciler) ReconcileRegistryRoutes(log logr.Logger) (bool, error
 				},
 			}
 
+			if velero.Spec.BackupImages != nil && !*velero.Spec.BackupImages {
+				deleteContext := context.Background()
+				if err := r.Get(deleteContext, types.NamespacedName{
+					Name:      route.Name,
+					Namespace: r.NamespacedName.Namespace,
+				}, &route); err != nil {
+					if k8serror.IsNotFound(err) {
+						return true, nil
+					}
+					return false, err
+				}
+
+				deleteOptionPropagationForeground := metav1.DeletePropagationForeground
+				if err := r.Delete(deleteContext, &route, &client.DeleteOptions{PropagationPolicy: &deleteOptionPropagationForeground}); err != nil {
+					r.EventRecorder.Event(&route, corev1.EventTypeNormal, "DeleteRegistryRouteFailed", "Could not delete registry route:"+err.Error())
+					return false, err
+				}
+				r.EventRecorder.Event(&route, corev1.EventTypeNormal, "DeletedRegistryRoute", "Registry route deleted")
+
+				return true, nil
+			}
+
 			// Create Route
 			op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, &route, func() error {
 
@@ -694,6 +762,29 @@ func (r *VeleroReconciler) ReconcileRegistryRouteConfigs(log logr.Logger) (bool,
 					Namespace: r.NamespacedName.Namespace,
 				},
 			}
+
+			if velero.Spec.BackupImages != nil && !*velero.Spec.BackupImages {
+				deleteContext := context.Background()
+				if err := r.Get(deleteContext, types.NamespacedName{
+					Name:      registryRouteCM.Name,
+					Namespace: r.NamespacedName.Namespace,
+				}, &registryRouteCM); err != nil {
+					if k8serror.IsNotFound(err) {
+						return true, nil
+					}
+					return false, err
+				}
+
+				deleteOptionPropagationForeground := metav1.DeletePropagationForeground
+				if err := r.Delete(deleteContext, &registryRouteCM, &client.DeleteOptions{PropagationPolicy: &deleteOptionPropagationForeground}); err != nil {
+					r.EventRecorder.Event(&registryRouteCM, corev1.EventTypeNormal, "DeleteRegistryConfigMapFailed", "Could not delete registry configmap:"+err.Error())
+					return false, err
+				}
+				r.EventRecorder.Event(&registryRouteCM, corev1.EventTypeNormal, "DeletedRegistryConfigMap", "Registry configmap deleted")
+
+				return true, nil
+			}
+
 
 			op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, &registryRouteCM, func() error {
 

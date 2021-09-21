@@ -112,6 +112,9 @@ type VeleroSpec struct {
 	// Defining this field automatically add EnableAPIGroupVersions to the velero server feature flag
 	// +optional
 	RestoreResourcesVersionPriority string `json:"restoreResourcesVersionPriority,omitempty"`
+	// BackupImages is used to specify whether you want to deploy a registry for enabling backup and restore of images
+	// +optional
+	BackupImages *bool `json:"backupImages,omitempty"`
 }
 
 // VeleroStatus defines the observed state of Velero

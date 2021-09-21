@@ -36,6 +36,10 @@ spec:
           spec:
             description: VeleroSpec defines the desired state of Velero
             properties:
+              backupImages:
+                description: BackupImages is used to specify whether you want to deploy
+                  a registry for enabling backup and restore of images
+                type: boolean
               backupStorageLocations:
                 description: Velero configuration
                 items:
