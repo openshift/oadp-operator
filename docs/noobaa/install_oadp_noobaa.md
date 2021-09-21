@@ -21,7 +21,7 @@ first set of instructions below.
 
 With an existing bucket created inside of Noobaa or Minio, a user can configure
 OADP to setup a `BackupStorageLocation` object for Velero. The bucket
-credentials will still need to be created as a secret in the `oadp-operator-system`
+credentials will still need to be created as a secret in the `openshift-adp`
 namespace.
 
 The credentials file should follow this AWS credentials
@@ -47,7 +47,7 @@ To get the credentials for the bucket, find the associated secret in the NooBaa
 namespace with the same name as the `ObjectBucketClaim`.
 
 ```
-$ oc create secret generic cloud-credentials --namespace oadp-operator-system --from-file cloud=<CREDENTIALS_FILE_PATH>
+$ oc create secret generic cloud-credentials --namespace openshift-adp --from-file cloud=<CREDENTIALS_FILE_PATH>
 ```
 
 With the secret created, make sure you have the URL of the s3 service and set
@@ -63,7 +63,7 @@ the following `backupStorageLocations` spec in the Velero CR:
         insecureSkipTlsVerify: "true"   # insecure connections
       credential:
         name: cloud-credentials
-        namespace: oadp-operator-system
+        namespace: openshift-adp
       name: default
       objectStorage:
         bucket: noobaa-bucket-name       # Bucket name
@@ -82,7 +82,7 @@ to bugs.
 
 Please follow the these steps in order to install OADP Operator with NooBaa:
 
-1. Create a namespace named `oadp-operator-system`.
+1. Create a namespace named `openshift-adp`.
 2. Do not create any cloud credentials secret, as the secret comes out of the 
 box for NooBaa.
 3. Now install the OCS (OpenShift Container Storage) operator from the 

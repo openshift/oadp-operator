@@ -1,7 +1,6 @@
 <hr style="height:1px;border:none;color:#333;">
 <h1 align="center">Stateless Application Backup/Restore - Nginx</h1>
 <h2 align="center">Using an AWS s3 Bucket</h2>
-<hr style="height:1px;border:none;color:#333;">
 
 ### Prerequisites
 * Make sure the OADP operator is installed:
@@ -49,10 +48,10 @@
 `oc create -f docs/examples/manifests/nginx-deployment.yaml`
 
 This will create the following resources:
-* **Namespace:** 
-* **Deployment:** 
-* **Service:** 
-* **Route:** 
+* **Namespace** 
+* **Deployment** 
+* **Service** 
+* **Route** 
 
 ### Verify Nginx deployment resources:
 

@@ -1,6 +1,6 @@
-# E2E Testing
+<h1 align="center">E2E Testing</h1>
 
-## Prerequisites
+## Prerequisites:
 
 ### Install Ginkgo
 ```bash
@@ -31,7 +31,19 @@ aws_secret_access_key=<secret_key>
 }
 ```
 
-## Run Tests
+## Run all e2e tests
 ```bash
 $ make test-e2e
 ```
+## Run selected test
+You can run a particular e2e test(s) by placing an `F` at the beginning of a
+`Describe`, `Context`, and `It`. 
+
+```
+ FDescribe("test description", func() { ... })
+ FContext("test scenario", func() { ... })
+ FIt("the assertion", func() { ... })
+```
+
+These need to be removed to run all specs.
+
