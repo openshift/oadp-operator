@@ -10,6 +10,8 @@ installs <a href="https://velero.io/">Velero</a> on the OpenShift platform.</p>
   Azure: [![Azure builds](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-master-operator-e2e-azure-periodic-slack)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-master-operator-e2e-azure-periodic-slack)
 </div>
 
+What would CI do.md
+
 # Table of Contents
 
 1. [Getting Started](#get-started)
