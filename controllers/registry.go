@@ -234,6 +234,20 @@ func (r *VeleroReconciler) buildRegistryDeployment(registryDeployment *appsv1.De
 		},
 	}
 
+	// attach gcp secret volume if provider is gcp
+	if bsl.Spec.Provider == GCPProvider {
+		registryDeployment.Spec.Template.Spec.Volumes = []corev1.Volume{
+			{
+				Name: credentials.PluginSpecificFields[oadpv1alpha1.DefaultPluginGCP].SecretName,
+				VolumeSource: corev1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
+						SecretName: credentials.PluginSpecificFields[oadpv1alpha1.DefaultPluginGCP].SecretName,
+					},
+				},
+			},
+		}
+	}
+
 	// attach DNS policy and config if enabled
 	registryDeployment.Spec.Template.Spec.DNSPolicy = velero.Spec.PodDnsPolicy
 	if !reflect.DeepEqual(velero.Spec.PodDnsConfig, corev1.PodDNSConfig{}) {
@@ -299,6 +313,16 @@ func (r *VeleroReconciler) buildRegistryContainer(bsl *velerov1.BackupStorageLoc
 		},
 	}
 
+	// append secret volumes if the BSL provider is GCP
+	if bsl.Spec.Provider == GCPProvider {
+		containers[0].VolumeMounts = []corev1.VolumeMount{
+			{
+				Name:      credentials.PluginSpecificFields[oadpv1alpha1.DefaultPluginGCP].SecretName,
+				MountPath: credentials.PluginSpecificFields[oadpv1alpha1.DefaultPluginGCP].MountPath,
+			},
+		}
+	}
+
 	return containers, nil
 }
 
@@ -314,7 +338,7 @@ func (r *VeleroReconciler) getRegistryEnvVars(bsl *velerov1.BackupStorageLocatio
 		envVar = r.getAzureRegistryEnvVars(bsl, cloudProviderEnvVarMap[AzureProvider])
 
 	case GCPProvider:
-		envVar = r.getGCPRegistryEnvVars(bsl, cloudProviderEnvVarMap[GCPProvider])
+		envVar, err = r.getGCPRegistryEnvVars(bsl, cloudProviderEnvVarMap[GCPProvider])
 	}
 	if err != nil {
 		return nil, err
@@ -390,20 +414,20 @@ func (r *VeleroReconciler) getAzureRegistryEnvVars(bsl *velerov1.BackupStorageLo
 	return azureEnvVars
 }
 
-func (r *VeleroReconciler) getGCPRegistryEnvVars(bsl *velerov1.BackupStorageLocation, gcpEnvVars []corev1.EnvVar) []corev1.EnvVar {
+func (r *VeleroReconciler) getGCPRegistryEnvVars(bsl *velerov1.BackupStorageLocation, gcpEnvVars []corev1.EnvVar) ([]corev1.EnvVar, error) {
 	for i := range gcpEnvVars {
 		if gcpEnvVars[i].Name == RegistryStorageGCSBucket {
 			gcpEnvVars[i].Value = bsl.Spec.StorageType.ObjectStorage.Bucket
 		}
-		//TODO: This needs to be fetched from the provider secret
+
 		if gcpEnvVars[i].Name == RegistryStorageGCSKeyfile {
-			gcpEnvVars[i].Value = ""
+			gcpEnvVars[i].Value = credentials.PluginSpecificFields[oadpv1alpha1.DefaultPluginGCP].MountPath + "/" + credentials.PluginSpecificFields[oadpv1alpha1.DefaultPluginGCP].PluginSecretKey
 		}
 		if gcpEnvVars[i].Name == RegistryStorageGCSRootdirectory && bsl.Spec.Config[RootDirectory] != "" {
 			gcpEnvVars[i].Value = bsl.Spec.Config[RootDirectory]
 		}
 	}
-	return gcpEnvVars
+	return gcpEnvVars, nil
 }
 
 func (r *VeleroReconciler) getProviderSecret(secretName string) (corev1.Secret, error) {

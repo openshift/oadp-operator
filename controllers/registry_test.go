@@ -640,6 +640,8 @@ func TestVeleroReconciler_getGCPRegistryEnvVars(t *testing.T) {
 		name                        string
 		bsl                         *velerov1.BackupStorageLocation
 		wantRegistryContainerEnvVar []corev1.EnvVar
+		secret                      *corev1.Secret
+		wantErr                     bool
 	}{
 		{
 			name: "given gcp bsl, appropriate env var for the container are returned",
@@ -660,16 +662,31 @@ func TestVeleroReconciler_getGCPRegistryEnvVars(t *testing.T) {
 					},
 				},
 			},
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cloud-credentials-gcp",
+					Namespace: "test-ns",
+				},
+				Data: secretData,
+			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			scheme, err := getSchemeForFakeClient()
+			fakeClient, err := getFakeClientFromObjectsForRegistry(tt.secret, tt.bsl)
 			if err != nil {
-				t.Errorf("error getting scheme for the test: %#v", err)
+				t.Errorf("error in creating fake client, likely programmer error")
 			}
 			r := &VeleroReconciler{
-				Scheme: scheme,
+				Client:  fakeClient,
+				Scheme:  fakeClient.Scheme(),
+				Log:     logr.Discard(),
+				Context: newContextForTest(tt.name),
+				NamespacedName: types.NamespacedName{
+					Namespace: tt.bsl.Namespace,
+					Name:      tt.bsl.Name,
+				},
+				EventRecorder: record.NewFakeRecorder(10),
 			}
 			tt.wantRegistryContainerEnvVar = []corev1.EnvVar{
 				{
@@ -682,7 +699,7 @@ func TestVeleroReconciler_getGCPRegistryEnvVars(t *testing.T) {
 				},
 				{
 					Name:  RegistryStorageGCSKeyfile,
-					Value: "",
+					Value: "/credentials-gcp/cloud",
 				},
 				{
 					Name:  RegistryStorageGCSRootdirectory,
@@ -690,7 +707,12 @@ func TestVeleroReconciler_getGCPRegistryEnvVars(t *testing.T) {
 				},
 			}
 
-			gotRegistryContainerEnvVar := r.getGCPRegistryEnvVars(tt.bsl, testGCPEnvVar)
+			gotRegistryContainerEnvVar, gotErr := r.getGCPRegistryEnvVars(tt.bsl, testGCPEnvVar)
+
+			if (gotErr != nil) != tt.wantErr {
+				t.Errorf("ValidateBackupStorageLocations() gotErr = %v, wantErr %v", gotErr, tt.wantErr)
+				return
+			}
 
 			if !reflect.DeepEqual(tt.wantRegistryContainerEnvVar, gotRegistryContainerEnvVar) {
 				t.Errorf("expected registry container env var to be %#v, got %#v", tt.wantRegistryContainerEnvVar, gotRegistryContainerEnvVar)
