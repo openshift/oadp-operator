@@ -41,6 +41,7 @@ var (
 			MountPath:          "/credentials-gcp",
 			EnvCredentialsFile: common.GCPCredentialsEnvKey,
 			PluginName:         common.VeleroPluginForGCP,
+			PluginSecretKey:    "gcp",
 		},
 		oadpv1alpha1.DefaultPluginMicrosoftAzure: {
 			IsCloudProvider:    true,
@@ -48,6 +49,7 @@ var (
 			MountPath:          "/credentials-azure",
 			EnvCredentialsFile: common.AzureCredentialsFileEnvKey,
 			PluginName:         common.VeleroPluginForAzure,
+			PluginSecretKey:    "azure",
 		},
 		oadpv1alpha1.DefaultPluginOpenShift: {
 			IsCloudProvider: false,

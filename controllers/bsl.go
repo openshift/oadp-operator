@@ -208,7 +208,7 @@ func pluginExistsInVeleroCR(configuredPlugins []oadpv1alpha1.DefaultPlugin, expe
 func (r *VeleroReconciler) validateProviderPluginAndSecret(bslSpec velerov1.BackupStorageLocationSpec, velero *oadpv1alpha1.Velero) error {
 	// check for existence of provider plugin and warn if the plugin is absent
 	if !pluginExistsInVeleroCR(velero.Spec.DefaultVeleroPlugins, oadpv1alpha1.DefaultPlugin(bslSpec.Provider)) {
-		r.Log.Info(fmt.Sprintf("%s backupstoragelocation is configured but velero plugin for %s is not present",bslSpec.Provider, bslSpec.Provider))
+		r.Log.Info(fmt.Sprintf("%s backupstoragelocation is configured but velero plugin for %s is not present", bslSpec.Provider, bslSpec.Provider))
 		//TODO: set warning condition on Velero CR
 	}
 	secretName, _ := r.getSecretNameAndKey(bslSpec.Credential, oadpv1alpha1.DefaultPlugin(bslSpec.Provider))
@@ -216,7 +216,7 @@ func (r *VeleroReconciler) validateProviderPluginAndSecret(bslSpec velerov1.Back
 	_, err := r.getProviderSecret(secretName)
 
 	if err != nil {
-		r.Log.Info(fmt.Sprintf("error validating AWS provider secret:  %s/%s", r.NamespacedName.Namespace, secretName))
+		r.Log.Info(fmt.Sprintf("error validating %s provider secret:  %s/%s", bslSpec.Provider, r.NamespacedName.Namespace, secretName))
 		return err
 	}
 	return nil
