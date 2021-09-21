@@ -22,3 +22,5 @@ If you need help, first search if there is [already an issue filed](https://gith
         prefix: <DirName>
 ```
 2. Delete the offending directories from your object storage location.
+
+HELLO CI WORLD
