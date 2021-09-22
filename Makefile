@@ -172,8 +172,15 @@ endif
 submit-coverage:
 	curl -Os https://uploader.codecov.io/latest/$(OS_String)/codecov
 	chmod +x codecov
-	./codecov
-	rm -f ./codecov
+	./codecov > tmp.results 2> tmp.err
+	cat tmp.results || echo "tmp.results not found"
+	cat tmp.err || echo "tmp.err not found"
+	@echo $$(cat tmp.results | grep 'resultURL' -c)
+	@echo $$(cat tmp.err | grep 'please specify sha and slug manually' -c)
+	if [ $$(cat tmp.err | grep 'please specify sha and slug manually' -c) == 1 ]; then \
+		echo "specifying sha and slug manually" && ./codecov -C $(shell git rev-parse HEAD) -r openshift/oadp-operator; \
+	fi
+	rm -f codecov tmp.*
 
 # go-get-tool will 'go get' any package $2 and install it to $1.
 PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
