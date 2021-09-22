@@ -51,6 +51,8 @@ func getFakeClientFromObjectsForRegistry(objs ...client.Object) (client.WithWatc
 const (
 	testAccessKey       = "someAccessKey"
 	testSecretAccessKey = "someSecretAccessKey"
+	testStoragekey      = "someStorageKey"
+	testCloudName       = "someCloudName"
 )
 
 var (
@@ -58,6 +60,11 @@ var (
 		"cloud": []byte("[default]" + "\n" +
 			"aws_access_key_id=" + testAccessKey + "\n" +
 			"aws_secret_access_key=" + testSecretAccessKey),
+	}
+	secretAzureData = map[string][]byte{
+		"azure": []byte("[default]" + "\n" +
+			"AZURE_STORAGE_ACCOUNT_ACCESS_KEY=" + testStoragekey + "\n" +
+			"AZURE_CLOUD_NAME=" + testCloudName),
 	}
 )
 
@@ -576,6 +583,8 @@ func TestVeleroReconciler_getAzureRegistryEnvVars(t *testing.T) {
 		name                        string
 		bsl                         *velerov1.BackupStorageLocation
 		wantRegistryContainerEnvVar []corev1.EnvVar
+		secret                      *corev1.Secret
+		wantErr                     bool
 	}{
 		{
 			name: "given azure bsl, appropriate env var for the container are returned",
@@ -592,20 +601,37 @@ func TestVeleroReconciler_getAzureRegistryEnvVars(t *testing.T) {
 						},
 					},
 					Config: map[string]string{
-						StorageAccount: "velero-azure-account",
+						StorageAccount:                           "velero-azure-account",
+						ResourceGroup:                            "velero-azure-rg",
+						RegistryStorageAzureAccountnameEnvVarKey: "velero-azure-account",
 					},
 				},
+			},
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cloud-credentials-azure",
+					Namespace: "test-ns",
+				},
+				Data: secretAzureData,
 			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			scheme, err := getSchemeForFakeClient()
+			fakeClient, err := getFakeClientFromObjectsForRegistry(tt.secret, tt.bsl)
 			if err != nil {
-				t.Errorf("error getting scheme for the test: %#v", err)
+				t.Errorf("error in creating fake client, likely programmer error")
 			}
 			r := &VeleroReconciler{
-				Scheme: scheme,
+				Client:  fakeClient,
+				Scheme:  fakeClient.Scheme(),
+				Log:     logr.Discard(),
+				Context: newContextForTest(tt.name),
+				NamespacedName: types.NamespacedName{
+					Namespace: tt.bsl.Namespace,
+					Name:      tt.bsl.Name,
+				},
+				EventRecorder: record.NewFakeRecorder(10),
 			}
 			tt.wantRegistryContainerEnvVar = []corev1.EnvVar{
 				{
@@ -622,11 +648,16 @@ func TestVeleroReconciler_getAzureRegistryEnvVars(t *testing.T) {
 				},
 				{
 					Name:  RegistryStorageAzureAccountkeyEnvVarKey,
-					Value: "",
+					Value: "someStorageKey",
 				},
 			}
 
-			gotRegistryContainerEnvVar := r.getAzureRegistryEnvVars(tt.bsl, testAzureEnvVar)
+			gotRegistryContainerEnvVar, gotErr := r.getAzureRegistryEnvVars(tt.bsl, testAzureEnvVar)
+
+			if (gotErr != nil) != tt.wantErr {
+				t.Errorf("ValidateBackupStorageLocations() gotErr = %v, wantErr %v", gotErr, tt.wantErr)
+				return
+			}
 
 			if !reflect.DeepEqual(tt.wantRegistryContainerEnvVar, gotRegistryContainerEnvVar) {
 				t.Errorf("expected registry container env var to be %#v, got %#v", tt.wantRegistryContainerEnvVar, gotRegistryContainerEnvVar)

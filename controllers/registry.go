@@ -359,7 +359,7 @@ func (r *VeleroReconciler) getRegistryEnvVars(bsl *velerov1.BackupStorageLocatio
 		envVar, err = r.getAWSRegistryEnvVars(bsl, cloudProviderEnvVarMap[AWSProvider])
 
 	case AzureProvider:
-		envVar = r.getAzureRegistryEnvVars(bsl, cloudProviderEnvVarMap[AzureProvider])
+		envVar, err = r.getAzureRegistryEnvVars(bsl, cloudProviderEnvVarMap[AzureProvider])
 
 	case GCPProvider:
 		envVar, err = r.getGCPRegistryEnvVars(bsl, cloudProviderEnvVarMap[GCPProvider])
@@ -389,7 +389,6 @@ func (r *VeleroReconciler) getAWSRegistryEnvVars(bsl *velerov1.BackupStorageLoca
 	}
 
 	for i := range awsEnvVars {
-		//TODO: This needs to be fetched from the provider secret
 		if awsEnvVars[i].Name == RegistryStorageS3AccesskeyEnvVarKey {
 			awsEnvVars[i].Value = AWSAccessKey
 		}
@@ -401,7 +400,7 @@ func (r *VeleroReconciler) getAWSRegistryEnvVars(bsl *velerov1.BackupStorageLoca
 		if awsEnvVars[i].Name == RegistryStorageS3RegionEnvVarKey {
 			awsEnvVars[i].Value = bsl.Spec.Config[Region]
 		}
-		//TODO: This needs to be fetched from the provider secret
+
 		if awsEnvVars[i].Name == RegistryStorageS3SecretkeyEnvVarKey {
 			awsEnvVars[i].Value = AWSSecretKey
 		}
@@ -421,7 +420,25 @@ func (r *VeleroReconciler) getAWSRegistryEnvVars(bsl *velerov1.BackupStorageLoca
 	return awsEnvVars, nil
 }
 
-func (r *VeleroReconciler) getAzureRegistryEnvVars(bsl *velerov1.BackupStorageLocation, azureEnvVars []corev1.EnvVar) []corev1.EnvVar {
+func (r *VeleroReconciler) getAzureRegistryEnvVars(bsl *velerov1.BackupStorageLocation, azureEnvVars []corev1.EnvVar) ([]corev1.EnvVar, error) {
+	// Check for secret name
+	secretName, secretKey := r.getSecretNameAndKey(bsl.Spec.Credential, oadpv1alpha1.DefaultPluginMicrosoftAzure)
+	r.Log.Info(fmt.Sprintf("Azure secret name: %s and secret key: %s", secretName, secretKey))
+
+	// fetch secret and error
+	secret, err := r.getProviderSecret(secretName)
+	if err != nil {
+		r.Log.Info(fmt.Sprintf("Error fetching provider secret %s for backupstoragelocation %s/%s", secretName, bsl.Namespace, bsl.Name))
+		return nil, err
+	}
+
+	// parse the secret and get azure storage account key
+	AzureStorageKey, err := r.parseAzureSecret(secret, secretKey)
+	if err != nil {
+		r.Log.Info(fmt.Sprintf("Error parsing provider secret %s for backupstoragelocation %s/%s", secretName, bsl.Namespace, bsl.Name))
+		return nil, err
+	}
+
 	for i := range azureEnvVars {
 		if azureEnvVars[i].Name == RegistryStorageAzureContainerEnvVarKey {
 			azureEnvVars[i].Value = bsl.Spec.StorageType.ObjectStorage.Bucket
@@ -430,12 +447,13 @@ func (r *VeleroReconciler) getAzureRegistryEnvVars(bsl *velerov1.BackupStorageLo
 		if azureEnvVars[i].Name == RegistryStorageAzureAccountnameEnvVarKey {
 			azureEnvVars[i].Value = bsl.Spec.Config[StorageAccount]
 		}
-		//TODO: This needs to be fetched from the provider secret
+
 		if azureEnvVars[i].Name == RegistryStorageAzureAccountkeyEnvVarKey {
-			azureEnvVars[i].Value = ""
+			azureEnvVars[i].Value = AzureStorageKey
 		}
+
 	}
-	return azureEnvVars
+	return azureEnvVars, nil
 }
 
 func (r *VeleroReconciler) getGCPRegistryEnvVars(bsl *velerov1.BackupStorageLocation, gcpEnvVars []corev1.EnvVar) ([]corev1.EnvVar, error) {
@@ -466,7 +484,7 @@ func (r *VeleroReconciler) getProviderSecret(secretName string) (corev1.Secret, 
 	if err != nil {
 		return secret, err
 	}
-
+	r.Log.Info(fmt.Sprintf("got provider secret name: %s", secret.Name))
 	return secret, nil
 }
 
@@ -555,6 +573,55 @@ func (r *VeleroReconciler) parseAWSSecret(secret corev1.Secret, secretKey string
 	}
 
 	return AWSAccessKey, AWSSecretKey, nil
+}
+
+func (r *VeleroReconciler) parseAzureSecret(secret corev1.Secret, secretKey string) (string, error) {
+
+	AzureStorageKey := ""
+	// this logic only supports single profile presence in the azure credentials file
+	// current support for only usage of storage account access key in credentials file, need to add logic for other options
+	splitString := strings.Split(string(secret.Data[secretKey]), "\n")
+	keyNameRegex, err := regexp.Compile(`\[.*\]`) //ignore lines such as [default]
+	if err != nil {
+		return AzureStorageKey, errors.New("parseAzureSecret faulty regex: keyNameRegex")
+	}
+	azureStorageKeyRegex, err := regexp.Compile(`\bAZURE_STORAGE_ACCOUNT_ACCESS_KEY\b`)
+	if err != nil {
+		return AzureStorageKey, errors.New("parseAzureSecret faulty regex: azureStorageKeyRegex")
+	}
+	for _, line := range splitString {
+		if line == "" {
+			continue
+		}
+		if keyNameRegex.MatchString(line) {
+			continue
+		}
+		// check for storage key
+		matchedStorageKey := azureStorageKeyRegex.MatchString(line)
+
+		if err != nil {
+			r.Log.Info("Error finding storage key for the supplied Azure credential")
+			return AzureStorageKey, err
+		}
+
+		if matchedStorageKey {
+			cleanedLine := strings.ReplaceAll(line, " ", "")
+			storageKeyValue := strings.Replace(cleanedLine, "AZURE_STORAGE_ACCOUNT_ACCESS_KEY=", "", -1)
+			if len(storageKeyValue) == 0 {
+				r.Log.Info("Could not parse secret for Azure Storage key")
+				return AzureStorageKey, errors.New("azure secret parsing error")
+			}
+			AzureStorageKey = storageKeyValue
+			r.Log.Info(fmt.Sprintf("Azure storage key value after parsing: %s", AzureStorageKey))
+			continue
+		}
+	}
+	if AzureStorageKey == "" {
+		r.Log.Info("Error finding storage key for the supplied Azure credential")
+		return AzureStorageKey, errors.New("error finding storage key for the supplied Azure credential")
+	}
+
+	return AzureStorageKey, nil
 }
 
 func (r *VeleroReconciler) ReconcileRegistrySVCs(log logr.Logger) (bool, error) {

@@ -216,7 +216,7 @@ func (r *VeleroReconciler) validateProviderPluginAndSecret(bslSpec velerov1.Back
 	_, err := r.getProviderSecret(secretName)
 
 	if err != nil {
-		r.Log.Info(fmt.Sprintf("error validating AWS provider secret:  %s/%s", r.NamespacedName.Namespace, secretName))
+		r.Log.Info(fmt.Sprintf("error validating %s provider secret:  %s/%s", bslSpec.Provider, r.NamespacedName.Namespace, secretName))
 		return err
 	}
 	return nil
