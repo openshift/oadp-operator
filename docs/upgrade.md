@@ -8,9 +8,9 @@ to `oadp.openshift.io/v1alpha1`.
 2. The `spec` values have changed from `snake_case` to `camelCase` with 
 *nearly* a 1:1 mapping. 
 
-*Important!!* The only config name that has changed is for the credentials secret
+*Important!!* The only config name that will be different is for the credentials secret
 used in the `backupStorageLocations` spec: 
-`credentials_secret_ref` to `credential`.
+`credentials_secret_ref` shoudl now be `credential`.
 
 <hr style="height:1px;border:none;color:#333;">
 
@@ -21,7 +21,7 @@ Save your current Velero CR config as to be sure to remember the values.
 
 ### Convert your CR config to the new version
 As mentioned above, the `spec` values have changed from `snake_case` to `camelCase` with 
-*nearly* a 1:1 mapping. The only config name that has changed is for the credentials secret
+*nearly* a 1:1 mapping. The only config value that will be different is for the credentials secret
 used in the `backupStorageLocations` spec: 
 `credentials_secret_ref` to `credential`.
 
@@ -33,7 +33,6 @@ kind: Velero
 metadata:
   name: example-velero
 spec:
-  olm_managed: false
   default_velero_plugins:
   - aws
   - openshift
@@ -67,7 +66,6 @@ kind: Velero
 metadata:
   name: velero-sample
 spec:
-  olmManaged: false
   defaultVeleroPlugins:
   - openshift
   - aws
@@ -108,11 +106,8 @@ and select `Uninstall Operator`, as shown below.
 To delete the remaining resources that are deployed, use the following commands:
 
 ```
-oc delete -f deploy/crds/konveyor.openshift.io_v1alpha1_velero_cr.yaml
-oc delete -f deploy/crds/konveyor.openshift.io_veleros_crd.yaml   
-oc delete -f deploy/non-olm/
 oc delete namespace oadp-operator
-oc delete crd $(oc get crds | grep velero.io | awk -F ' ' '{print $1}')
+oc delete crd veleros.konveyor.openshift.io
 ```
 
 ### Install OADP Operator 0.3.x

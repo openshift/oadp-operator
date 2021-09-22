@@ -10,14 +10,14 @@ Now click on `Install`
 
 ![OADP-OLM-1](/docs/images/OADP-OLM-2.png)
 
-Finally, click on `Subscribe`. This will create namespace `oadp-operator` 
+Finally, click on `Subscribe`. This will create namespace `openshift-adp` 
 if it does not exist, and install the OADP operator in it.
 
 ![OADP-OLM-1](/docs/images/OADP-OLM-3.png)
 
 ### Create credentials secret
 Before creating a Velero CR, ensure you have created a secret
- `cloud-credentials` in namespace `oadp-operator`.
+ `cloud-credentials` in namespace `openshift-adp`.
 
  Make sure your credentials file is in the proper format. For example, if using
  AWS, it should look like:
