@@ -1,6 +1,5 @@
 <hr style="height:1px;border:none;color:#333;">
 <h1 align="center">Backup Storage Locations and Volume Snapshot Locations Customization</h1>
-<hr style="height:1px;border:none;color:#333;">
 
 ### Configure Backup Storage Locations and Volume Snapshot Locations
 
@@ -24,14 +23,14 @@ spec:
   - name: default
     provider: aws
     objectStorage:
-      bucket: myBucket
+      bucket: my-bucket
       prefix: "velero"
     config:
       region: us-east-1
       profile: "default"
     credential:
       name: cloud-credentials
-      namespace: oadp-operator-system
+      key: cloud
   volumeSnapshotLocations:
   - name: default
     provider: aws
@@ -39,11 +38,13 @@ spec:
       region: us-west-2
       profile: "default"
 ```
+
 <b>Note:</b> 
 - Be sure to use the same `secret` name you used while creating the cloud 
 credentials secret in the Operator installation.
 - Another thing to consider are the CR file specs; they should be tailored in 
-accordance to your own cloud provider accounts. For instance, `bucket` spec value should be according to your own bucket name, and so on.
+accordance to your own cloud provider accounts. 
+For instance, `bucket` spec value should be according to your own bucket name, and so on.
 
 - Do not configure more than one `backupStorageLocations` per cloud provider; 
 the velero installation will fail.

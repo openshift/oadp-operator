@@ -37,7 +37,7 @@ spec:
       s3ForcePathStyle: "true"
     credential:
       name: cloud-credentials
-      namespace: oadp-operator-system
+      key: cloud
   enableRestic: true
 ```
 <b>Note:</b> Ensure that `insecureSkipTlsVerify` is set to `false` so that TLS 

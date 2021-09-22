@@ -1,7 +1,6 @@
 <hr style="height:1px;border:none;color:#333;">
 <h1 align="center">Stateful Application Backup/Restore - MSSQL</h1>
 <h2 align="center">Using an AWS s3 Bucket and AWS EBS Snapshot</h2>
-<hr style="height:1px;border:none;color:#333;">
 
 ### Prerequisites
 * Make sure the OADP operator is installed:
@@ -55,12 +54,12 @@
 `oc create -f docs/examples/manifests/mssql-template.yaml`
 
 This example will create the following resources:
-* **Namespace:** 
-* **Secret:** 
-* **Service:** 
-* **Route:** 
-* **PersistentVolumeClaim:** 
-* **Deployment:** 
+* **Namespace** 
+* **Secret** 
+* **Service** 
+* **Route** 
+* **PersistentVolumeClaim** 
+* **Deployment** 
 
 ### Verify application resources:
 

@@ -12,7 +12,7 @@ cluster role binding, Velero CRD and Velero CR using the commands:
 2. Now check if there are any instances present for the CRDs namely 
 - backingstores, bucketclass, objectbucketclaim and objectbuckets.objectbucket.io.
 
-3. Run `oc api-resources --verbs=list --namespaced -o name | xargs -n 1 oc get --show-kind --ignore-not-found -n oadp-operator-system` 
+3. Run `oc api-resources --verbs=list --namespaced -o name | xargs -n 1 oc get --show-kind --ignore-not-found -n openshift-adp` 
 and `oc api-resources --verbs=list --namespaced -o name | xargs -n 1 oc get --show-kind --ignore-not-found -n openshift-storage` 
 to see if there are any instances present then delete them and if the deletion 
 gets stuck, then try removing the finalizers. It should work.
@@ -32,5 +32,5 @@ particular CRD, and you will have to delete them):
 `oc get statefulset` and delete it. The pv-pool-backingstore pods must get deleted.
 6. Finally, check for the presence of pvc(s) created by Noobaa. If they are 
 present, delete them as well. Once the pvc(s) are deleted, the pv(s) will also 
-be cleaned up, and you should be able to delete the oadp-operator namespace 
+be cleaned up, and you should be able to delete the openshift-adp namespace 
 without any issues.

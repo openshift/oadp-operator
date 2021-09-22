@@ -1,6 +1,5 @@
 <hr style="height:1px;border:none;color:#333;">
 <h1 align="center">OLM Integration</h1>
-<hr style="height:1px;border:none;color:#333;">
 
 Create `oadp-operator-source.yaml` file like below in the oadp-operator directory:
 
@@ -23,9 +22,9 @@ spec:
 Run the following commands below:
 
 ```
-oc create namespace oadp-operator-system
+oc create namespace openshift-adp
 oc project oadp-operator-system
-oc create secret generic <SECRET_NAME> --namespace oadp-operator-system --from-file cloud=<CREDENTIALS_FILE_PATH>
+oc create secret generic <SECRET_NAME> --namespace openshift-adp --from-file cloud=<CREDENTIALS_FILE_PATH>
 oc create -f oadp-operator-source.yaml
 ```
 - After running these commands, install OADP Operator from the `README` 
@@ -74,6 +73,6 @@ resources are removed, run:
 
 ```
 $ oc get all -n oadp-operator
-No resources found in oadp-operator-system namespace.
+No resources found in openshift-adp namespace.
 ```
 
