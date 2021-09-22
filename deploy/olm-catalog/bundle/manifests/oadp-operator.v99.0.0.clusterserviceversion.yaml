@@ -403,15 +403,7 @@ spec:
           resources:
           - '*'
           verbs:
-          - get
-          - watch
-          - list
-          - update
-          - patch
-          - create
-          - delete
-          - assign
-          - deletecollection
+          - '*'
         - nonResourceURLs:
           - '*'
           verbs:
