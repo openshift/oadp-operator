@@ -14,7 +14,7 @@ used in the `backupStorageLocations` spec:
 
 <hr style="height:1px;border:none;color:#333;">
 
-## Upgrade:
+## Upgrade
 
 ### Copy/save old Velero CR definitions to another location
 Save your current Velero CR config as to be sure to remember the values.
@@ -96,13 +96,13 @@ Use the web console to uninstall the OADP operator by clicking on
 `Install Operators` under the `Operators` tab on the left-side menu. 
 Then click on `OADP Operator`, as shown below.
 
-![install_op](docs/images/install_op.png)
+![](/docs/images/installed_op.png)
 
 After clicking on `OADP Operator` under `Installed Operators`, navigate to the
 right side of the page, where the `Actions` drop-down menu is. Click on that, 
 and select `Uninstall Operator`, as shown below.
 
-![uninstall_op](docs/images/uninstall_op.png)
+![](/docs/images/uninstall_op.png)
 
 ### Delete the remaining resources
 To delete the remaining resources that are deployed, use the following commands:
@@ -116,5 +116,5 @@ oc delete crd $(oc get crds | grep velero.io | awk -F ' ' '{print $1}')
 ```
 
 ### Install OADP Operator 0.3.x
-Follow theses [basic install](docs/install_olm.md) instructions to install the 
+Follow theses [basic install](../docs/install_olm.md) instructions to install the 
 new OADP operator version, create the Velero CR, and verify correct installation.

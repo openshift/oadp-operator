@@ -4,20 +4,20 @@
 You can install the OADP Operator from the Openshift's OperatorHub. 
 You can search for the operator using keywords such as `oadp` or `velero`.
 
-![OADP-OLM-1](docs/images/OADP-OLM-1.png)
+![OADP-OLM-1](/docs/images/OADP-OLM-1.png)
 
 Now click on `Install`
 
-![OADP-OLM-1](docs/images/OADP-OLM-2.png)
+![OADP-OLM-1](/docs/images/OADP-OLM-2.png)
 
-Finally, click on `Subscribe`. This will create namespace `openshift-adp` 
+Finally, click on `Subscribe`. This will create namespace `oadp-operator` 
 if it does not exist, and install the OADP operator in it.
 
-![OADP-OLM-1](docs/images/OADP-OLM-3.png)
+![OADP-OLM-1](/docs/images/OADP-OLM-3.png)
 
 ### Create credentials secret
 Before creating a Velero CR, ensure you have created a secret
- `cloud-credentials` in namespace `openshift-adp`
+ `cloud-credentials` in namespace `oadp-operator`.
 
  Make sure your credentials file is in the proper format. For example, if using
  AWS, it should look like:
@@ -29,7 +29,7 @@ Before creating a Velero CR, ensure you have created a secret
   ```
   *Note:* Do not use quotes while putting values in place of INSERT_VALUE Placeholders
 
-Create the secret:
+#### Create the secret:
 
  ```
 $ oc create secret generic cloud-credentials --namespace openshift-adp --from-file cloud=<CREDENTIALS_FILE_PATH>
@@ -39,16 +39,16 @@ $ oc create secret generic cloud-credentials --namespace openshift-adp --from-fi
 
 Create an instance of Velero CR by clicking on `Create Instance` as highlighted below:
 
-![Velero-CR-1](docs/images/Velero-CR-1.png)
+![Velero-CR-1](/docs/images/Velero-CR-1.png)
 
 Finally, set the CR spec values appropriately, and click on `Create`.
 
-![Velero-CR-2](docs/images/Velero-CR-2.png)
+![Velero-CR-2](/docs/images/Velero-CR-2.png)
 
 ### Verify install
 
 To verify all of the correct resources have been created, the following command
-`oc get all -n openshift-adp` should look similar to:
+`oc get all -n oadp-operator` should look similar to:
 
 ```
 NAME                                                     READY   STATUS    RESTARTS   AGE
