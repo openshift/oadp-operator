@@ -23,7 +23,6 @@ import (
 	security "github.com/openshift/api/security/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	rbac "k8s.io/api/rbac/v1"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -80,10 +79,7 @@ func (r *VeleroReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return result, client.IgnoreNotFound(err)
 	}
 	_, err := ReconcileBatch(r.Log,
-		r.ReconcileVeleroServiceAccount,
-		r.ReconcileVeleroClusterRoleBinding,
 		r.ReconcileVeleroSecurityContextConstraint,
-		r.ReconcileVeleroCRDs,
 		r.ReconcileResticRestoreHelperConfig,
 		r.ValidateBackupStorageLocations,
 		r.ReconcileBackupStorageLocations,
@@ -131,11 +127,6 @@ func (r *VeleroReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&appsv1.Deployment{}).
 		Owns(&appsv1.DaemonSet{}).
 		Owns(&security.SecurityContextConstraints{}).
-		Owns(&rbac.ClusterRoleBinding{}).
-		Owns(&rbac.ClusterRole{}).
-		Owns(&rbac.RoleBinding{}).
-		Owns(&rbac.Role{}).
-		Owns(&corev1.ServiceAccount{}).
 		Owns(&corev1.Secret{}).
 		Owns(&corev1.Service{}).
 		Owns(&routev1.Route{}).

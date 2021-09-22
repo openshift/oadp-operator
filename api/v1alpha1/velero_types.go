@@ -55,11 +55,6 @@ const ResticRestoreImageKey UnsupportedImageKey = "resticRestoreImageFqin"
 
 // VeleroSpec defines the desired state of Velero
 type VeleroSpec struct {
-	// Important: Run "make" to regenerate code after modifying this file
-
-	// Determine whether this was installed via OLM.
-	OlmManaged *bool `json:"olmManaged,omitempty"`
-
 	// Velero configuration
 	BackupStorageLocations []velero.BackupStorageLocationSpec `json:"backupStorageLocations"`
 	// +optional

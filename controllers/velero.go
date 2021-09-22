@@ -48,6 +48,7 @@ var (
 	}
 )
 
+// TODO: Remove this function as it's no longer being used
 func (r *VeleroReconciler) ReconcileVeleroServiceAccount(log logr.Logger) (bool, error) {
 	velero := oadpv1alpha1.Velero{}
 	if err := r.Get(r.Context, r.NamespacedName, &velero); err != nil {
@@ -89,6 +90,7 @@ func (r *VeleroReconciler) ReconcileVeleroServiceAccount(log logr.Logger) (bool,
 	return true, nil
 }
 
+// TODO: Remove this function as it's no longer being used
 //TODO: Temporary solution for Non-OLM Operator install
 func (r *VeleroReconciler) ReconcileVeleroCRDs(log logr.Logger) (bool, error) {
 	velero := oadpv1alpha1.Velero{}
@@ -97,16 +99,17 @@ func (r *VeleroReconciler) ReconcileVeleroCRDs(log logr.Logger) (bool, error) {
 	}
 
 	// check for Non-OLM install and proceed with Velero supporting CRD installation
-	if velero.Spec.OlmManaged != nil && !*velero.Spec.OlmManaged {
+	/*if velero.Spec.OlmManaged != nil && !*velero.Spec.OlmManaged {
 		err := r.InstallVeleroCRDs(log)
 		if err != nil {
 			return false, err
 		}
-	}
+	}*/
 
 	return true, nil
 }
 
+// TODO: Remove this function as it's no longer being used
 func (r *VeleroReconciler) InstallVeleroCRDs(log logr.Logger) error {
 	var err error
 	// Install CRDs
@@ -147,6 +150,7 @@ func (r *VeleroReconciler) InstallVeleroCRDs(log logr.Logger) error {
 	return nil
 }
 
+// TODO: Remove this function as it's no longer being used
 func (r *VeleroReconciler) ReconcileVeleroClusterRoleBinding(log logr.Logger) (bool, error) {
 	velero := oadpv1alpha1.Velero{}
 	if err := r.Get(r.Context, r.NamespacedName, &velero); err != nil {

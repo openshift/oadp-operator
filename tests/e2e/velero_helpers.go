@@ -35,7 +35,6 @@ func (v *veleroCustomResource) Build() error {
 			Namespace: v.Namespace,
 		},
 		Spec: oadpv1alpha1.VeleroSpec{
-			OlmManaged:   pointer.Bool(false),
 			EnableRestic: pointer.Bool(true),
 			BackupStorageLocations: []velero.BackupStorageLocationSpec{
 				{

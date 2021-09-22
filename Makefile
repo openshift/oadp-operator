@@ -1,4 +1,4 @@
-OADP_TEST_NAMESPACE ?= oadp-operator-system
+OADP_TEST_NAMESPACE ?= openshift-adp
 REGION ?= us-east-1
 PROVIDER ?= aws
 CREDS_SECRET_REF ?= cloud-credentials

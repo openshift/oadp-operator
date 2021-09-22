@@ -23,7 +23,7 @@ Run the following commands below:
 
 ```
 oc create namespace openshift-adp
-oc project oadp-operator-system
+oc project openshift-adp
 oc create secret generic <SECRET_NAME> --namespace openshift-adp --from-file cloud=<CREDENTIALS_FILE_PATH>
 oc create -f oadp-operator-source.yaml
 ```
@@ -35,7 +35,7 @@ When the installation is succeeded, create a Velero CRD instance from the
 
 Post completion of all the above steps, you can check if the operator was 
 successfully installed. The expected result for the command 
-`oc get all -n oadp-operator-system` is as follows:
+`oc get all -n openshift-adp` is as follows:
 
 ```
 NAME                                             READY   STATUS    RESTARTS   AGE
