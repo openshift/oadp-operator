@@ -89,7 +89,6 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 		Entry("Default velero CR", InstallCase{
 			Name: "default-cr",
 			VeleroSpec: &oadpv1alpha1.VeleroSpec{
-				OlmManaged:   pointer.Bool(false),
 				EnableRestic: pointer.Bool(true),
 				BackupStorageLocations: []velero.BackupStorageLocationSpec{
 					{
@@ -120,7 +119,6 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 		Entry("Default velero CR with restic disabled", InstallCase{
 			Name: "default-cr-no-restic",
 			VeleroSpec: &oadpv1alpha1.VeleroSpec{
-				OlmManaged:   pointer.Bool(false),
 				EnableRestic: pointer.Bool(false),
 				BackupStorageLocations: []velero.BackupStorageLocationSpec{
 					{
@@ -151,7 +149,6 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 		Entry("Adding CSI plugin", InstallCase{
 			Name: "default-cr-csi",
 			VeleroSpec: &oadpv1alpha1.VeleroSpec{
-				OlmManaged:   pointer.Bool(false),
 				EnableRestic: pointer.Bool(true),
 				BackupStorageLocations: []velero.BackupStorageLocationSpec{
 					{
@@ -184,7 +181,6 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 		Entry("Set restic node selector", InstallCase{
 			Name: "default-cr-node-selector",
 			VeleroSpec: &oadpv1alpha1.VeleroSpec{
-				OlmManaged:   pointer.Bool(false),
 				EnableRestic: pointer.Bool(true),
 				ResticNodeSelector: map[string]string{
 					"foo": "bar",

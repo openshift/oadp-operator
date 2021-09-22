@@ -144,9 +144,6 @@ spec:
                 description: Noobaa is a boolean to specify if we should install backup
                   storage from OCS operator with Noobaa
                 type: boolean
-              olmManaged:
-                description: Determine whether this was installed via OLM.
-                type: boolean
               podAnnotations:
                 additionalProperties:
                   type: string
