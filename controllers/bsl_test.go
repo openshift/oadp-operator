@@ -407,6 +407,7 @@ func TestVeleroReconciler_ValidateBackupStorageLocations(t *testing.T) {
 							StorageType: velerov1.StorageType{
 								ObjectStorage: &velerov1.ObjectStorageLocation{
 									Bucket: "test-aws-bucket",
+									Prefix: "velero",
 								},
 							},
 							Config: map[string]string{
@@ -444,6 +445,7 @@ func TestVeleroReconciler_ValidateBackupStorageLocations(t *testing.T) {
 							StorageType: velerov1.StorageType{
 								ObjectStorage: &velerov1.ObjectStorageLocation{
 									Bucket: "test-aws-bucket",
+									Prefix: "velero",
 								},
 							},
 							Config: map[string]string{
@@ -460,6 +462,7 @@ func TestVeleroReconciler_ValidateBackupStorageLocations(t *testing.T) {
 							StorageType: velerov1.StorageType{
 								ObjectStorage: &velerov1.ObjectStorageLocation{
 									Bucket: "test-azure-bucket",
+									Prefix: "velero",
 								},
 							},
 							Config: map[string]string{
@@ -477,6 +480,7 @@ func TestVeleroReconciler_ValidateBackupStorageLocations(t *testing.T) {
 							StorageType: velerov1.StorageType{
 								ObjectStorage: &velerov1.ObjectStorageLocation{
 									Bucket: "test-gcp-bucket",
+									Prefix: "velero",
 								},
 							},
 							Credential: &corev1.SecretKeySelector{

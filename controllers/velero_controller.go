@@ -19,6 +19,7 @@ package controllers
 import (
 	"context"
 	routev1 "github.com/openshift/api/route/v1"
+	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 
 	security "github.com/openshift/api/security/v1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -125,6 +126,8 @@ func (r *VeleroReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&oadpv1alpha1.Velero{}).
 		Owns(&appsv1.Deployment{}).
+		Owns(&velerov1.BackupStorageLocation{}).
+		Owns(&velerov1.VolumeSnapshotLocation{}).
 		Owns(&appsv1.DaemonSet{}).
 		Owns(&security.SecurityContextConstraints{}).
 		Owns(&corev1.Secret{}).
