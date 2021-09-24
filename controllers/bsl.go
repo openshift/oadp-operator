@@ -78,7 +78,6 @@ func (r *VeleroReconciler) ReconcileBackupStorageLocations(log logr.Logger) (boo
 				Name:      fmt.Sprintf("%s-%d", r.NamespacedName.Name, i+1),
 				Namespace: r.NamespacedName.Namespace,
 			},
-			Spec: bslSpec,
 		}
 		// Create BSL
 		op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, &bsl, func() error {
