@@ -60,7 +60,6 @@ const (
 	GCPProvider           = "gcp"
 	Region                = "region"
 	S3URL                 = "s3Url"
-	RootDirectory         = "rootDirectory"
 	InsecureSkipTLSVerify = "insecureSkipTLSVerify"
 	StorageAccount        = "storageAccount"
 	ResourceGroup         = "resourceGroup"
@@ -91,10 +90,6 @@ var cloudProviderEnvVarMap = map[string][]corev1.EnvVar{
 		},
 		{
 			Name:  RegistryStorageS3RegionendpointEnvVarKey,
-			Value: "",
-		},
-		{
-			Name:  RegistryStorageS3RootdirectoryEnvVarKey,
 			Value: "",
 		},
 		{
@@ -131,10 +126,6 @@ var cloudProviderEnvVarMap = map[string][]corev1.EnvVar{
 		},
 		{
 			Name:  RegistryStorageGCSKeyfile,
-			Value: "",
-		},
-		{
-			Name:  RegistryStorageGCSRootdirectory,
 			Value: "",
 		},
 	},
@@ -409,10 +400,6 @@ func (r *VeleroReconciler) getAWSRegistryEnvVars(bsl *velerov1.BackupStorageLoca
 			awsEnvVars[i].Value = bsl.Spec.Config[S3URL]
 		}
 
-		if awsEnvVars[i].Name == RegistryStorageS3RootdirectoryEnvVarKey && bsl.Spec.Config[RootDirectory] != "" {
-			awsEnvVars[i].Value = bsl.Spec.Config[RootDirectory]
-		}
-
 		if awsEnvVars[i].Name == RegistryStorageS3SkipverifyEnvVarKey && bsl.Spec.Config[InsecureSkipTLSVerify] != "" {
 			awsEnvVars[i].Value = bsl.Spec.Config[InsecureSkipTLSVerify]
 		}
@@ -464,9 +451,6 @@ func (r *VeleroReconciler) getGCPRegistryEnvVars(bsl *velerov1.BackupStorageLoca
 
 		if gcpEnvVars[i].Name == RegistryStorageGCSKeyfile {
 			gcpEnvVars[i].Value = credentials.PluginSpecificFields[oadpv1alpha1.DefaultPluginGCP].MountPath + "/" + credentials.PluginSpecificFields[oadpv1alpha1.DefaultPluginGCP].PluginSecretKey
-		}
-		if gcpEnvVars[i].Name == RegistryStorageGCSRootdirectory && bsl.Spec.Config[RootDirectory] != "" {
-			gcpEnvVars[i].Value = bsl.Spec.Config[RootDirectory]
 		}
 	}
 	return gcpEnvVars, nil
@@ -875,7 +859,6 @@ func (r *VeleroReconciler) ReconcileRegistryRouteConfigs(log logr.Logger) (bool,
 
 				return true, nil
 			}
-
 
 			op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, &registryRouteCM, func() error {
 

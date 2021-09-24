@@ -405,7 +405,6 @@ func TestVeleroReconciler_buildResticDaemonset(t *testing.T) {
 								Config: map[string]string{
 									Region:                "aws-region",
 									S3URL:                 "https://sr-url-aws-domain.com",
-									RootDirectory:         "/velero-aws",
 									InsecureSkipTLSVerify: "false",
 								},
 								Credential: &corev1.SecretKeySelector{
@@ -577,7 +576,6 @@ func TestVeleroReconciler_buildResticDaemonset(t *testing.T) {
 								Config: map[string]string{
 									Region:                "aws-region",
 									S3URL:                 "https://sr-url-aws-domain.com",
-									RootDirectory:         "/velero-aws",
 									InsecureSkipTLSVerify: "false",
 								},
 								Credential: &corev1.SecretKeySelector{
@@ -755,7 +753,6 @@ func TestVeleroReconciler_buildResticDaemonset(t *testing.T) {
 								Config: map[string]string{
 									Region:                "aws-region",
 									S3URL:                 "https://sr-url-aws-domain.com",
-									RootDirectory:         "/velero-aws",
 									InsecureSkipTLSVerify: "false",
 								},
 								Credential: &corev1.SecretKeySelector{

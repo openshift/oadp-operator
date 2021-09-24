@@ -62,7 +62,7 @@ var (
 			"aws_secret_access_key=" + testSecretAccessKey),
 	}
 	secretAzureData = map[string][]byte{
-		"azure": []byte("[default]" + "\n" +
+		"cloud": []byte("[default]" + "\n" +
 			"AZURE_STORAGE_ACCOUNT_ACCESS_KEY=" + testStoragekey + "\n" +
 			"AZURE_CLOUD_NAME=" + testCloudName),
 	}
@@ -107,7 +107,6 @@ func TestVeleroReconciler_buildRegistryDeployment(t *testing.T) {
 					Config: map[string]string{
 						Region:                "aws-region",
 						S3URL:                 "https://sr-url-aws-domain.com",
-						RootDirectory:         "/velero-aws",
 						InsecureSkipTLSVerify: "false",
 					},
 				},
@@ -151,7 +150,6 @@ func TestVeleroReconciler_buildRegistryDeployment(t *testing.T) {
 					Config: map[string]string{
 						Region:                "aws-region",
 						S3URL:                 "https://sr-url-aws-domain.com",
-						RootDirectory:         "/velero-aws",
 						InsecureSkipTLSVerify: "false",
 					},
 				},
@@ -201,7 +199,6 @@ func TestVeleroReconciler_buildRegistryDeployment(t *testing.T) {
 					Config: map[string]string{
 						Region:                "aws-region",
 						S3URL:                 "https://sr-url-aws-domain.com",
-						RootDirectory:         "/velero-aws",
 						InsecureSkipTLSVerify: "false",
 					},
 				},
@@ -328,10 +325,6 @@ func TestVeleroReconciler_buildRegistryDeployment(t *testing.T) {
 										{
 											Name:  RegistryStorageS3RegionendpointEnvVarKey,
 											Value: "https://sr-url-aws-domain.com",
-										},
-										{
-											Name:  RegistryStorageS3RootdirectoryEnvVarKey,
-											Value: "/velero-aws",
 										},
 										{
 											Name:  RegistryStorageS3SkipverifyEnvVarKey,
@@ -498,7 +491,6 @@ func TestVeleroReconciler_getAWSRegistryEnvVars(t *testing.T) {
 					Config: map[string]string{
 						Region:                "aws-region",
 						S3URL:                 "https://sr-url-aws-domain.com",
-						RootDirectory:         "/velero-aws",
 						InsecureSkipTLSVerify: "false",
 					},
 				},
@@ -553,10 +545,6 @@ func TestVeleroReconciler_getAWSRegistryEnvVars(t *testing.T) {
 				{
 					Name:  RegistryStorageS3RegionendpointEnvVarKey,
 					Value: "https://sr-url-aws-domain.com",
-				},
-				{
-					Name:  RegistryStorageS3RootdirectoryEnvVarKey,
-					Value: "/velero-aws",
 				},
 				{
 					Name:  RegistryStorageS3SkipverifyEnvVarKey,
@@ -688,9 +676,7 @@ func TestVeleroReconciler_getGCPRegistryEnvVars(t *testing.T) {
 							Bucket: "gcp-bucket",
 						},
 					},
-					Config: map[string]string{
-						RootDirectory: "/velero-gcp",
-					},
+					Config: map[string]string{},
 				},
 			},
 			secret: &corev1.Secret{
@@ -731,10 +717,6 @@ func TestVeleroReconciler_getGCPRegistryEnvVars(t *testing.T) {
 				{
 					Name:  RegistryStorageGCSKeyfile,
 					Value: "/credentials-gcp/cloud",
-				},
-				{
-					Name:  RegistryStorageGCSRootdirectory,
-					Value: "/velero-gcp",
 				},
 			}
 

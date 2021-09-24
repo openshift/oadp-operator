@@ -145,6 +145,10 @@ func (r *VeleroReconciler) validateAWSBackupStorageLocation(bslSpec velerov1.Bac
 		return fmt.Errorf("region for AWS backupstoragelocation config cannot be empty")
 	}
 
+	if len(bslSpec.StorageType.ObjectStorage.Prefix) == 0 && (velero.Spec.BackupImages == nil || *velero.Spec.BackupImages) {
+		return fmt.Errorf("prefix for AWS backupstoragelocation object storage cannot be empty. it is required for backing up images")
+	}
+
 	//TODO: Add minio, noobaa, local storage validations
 
 	return nil
@@ -174,6 +178,10 @@ func (r *VeleroReconciler) validateAzureBackupStorageLocation(bslSpec velerov1.B
 		return fmt.Errorf("storageAccount for Azure backupstoragelocation config cannot be empty")
 	}
 
+	if len(bslSpec.StorageType.ObjectStorage.Prefix) == 0 && (velero.Spec.BackupImages == nil || *velero.Spec.BackupImages) {
+		return fmt.Errorf("prefix for Azure backupstoragelocation object storage cannot be empty. it is required for backing up images")
+	}
+
 	return nil
 }
 
@@ -191,6 +199,10 @@ func (r *VeleroReconciler) validateGCPBackupStorageLocation(bslSpec velerov1.Bac
 
 	if len(bslSpec.ObjectStorage.Bucket) == 0 {
 		return fmt.Errorf("bucket name for GCP backupstoragelocation cannot be empty")
+	}
+
+	if len(bslSpec.StorageType.ObjectStorage.Prefix) == 0 && (velero.Spec.BackupImages == nil || *velero.Spec.BackupImages) {
+		return fmt.Errorf("prefix for GCP backupstoragelocation object storage cannot be empty. it is required for backing up images")
 	}
 
 	return nil
