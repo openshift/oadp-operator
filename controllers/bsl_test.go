@@ -731,7 +731,7 @@ func TestVeleroReconciler_updateBSLFromSpec(t *testing.T) {
 				},
 			}
 
-			err = r.updateBSLFromSpec(tt.bsl, tt.velero)
+			err = r.updateBSLFromSpec(tt.bsl, tt.velero, tt.bsl.Spec)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("updateBSLFromSpec() error = %v, wantErr %v", err, tt.wantErr)
 				return

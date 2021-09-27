@@ -78,7 +78,6 @@ func (r *VeleroReconciler) ReconcileBackupStorageLocations(log logr.Logger) (boo
 				Name:      fmt.Sprintf("%s-%d", r.NamespacedName.Name, i+1),
 				Namespace: r.NamespacedName.Namespace,
 			},
-			Spec: bslSpec,
 		}
 		// Create BSL
 		op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, &bsl, func() error {
@@ -88,7 +87,7 @@ func (r *VeleroReconciler) ReconcileBackupStorageLocations(log logr.Logger) (boo
 
 			// TODO: check for BSL status condition errors and respond here
 
-			err := r.updateBSLFromSpec(&bsl, &velero)
+			err := r.updateBSLFromSpec(&bsl, &velero, bslSpec)
 
 			return err
 		})
@@ -107,7 +106,7 @@ func (r *VeleroReconciler) ReconcileBackupStorageLocations(log logr.Logger) (boo
 	return true, nil
 }
 
-func (r *VeleroReconciler) updateBSLFromSpec(bsl *velerov1.BackupStorageLocation, velero *oadpv1alpha1.Velero) error {
+func (r *VeleroReconciler) updateBSLFromSpec(bsl *velerov1.BackupStorageLocation, velero *oadpv1alpha1.Velero, bslSpec velerov1.BackupStorageLocationSpec) error {
 	// Set controller reference to Velero controller
 	err := controllerutil.SetControllerReference(velero, bsl, r.Scheme)
 	if err != nil {
@@ -121,6 +120,7 @@ func (r *VeleroReconciler) updateBSLFromSpec(bsl *velerov1.BackupStorageLocation
 		"app.kubernetes.io/managed-by": "oadp-operator",
 		"app.kubernetes.io/component":  "bsl",
 	}
+	bsl.Spec = bslSpec
 
 	return nil
 }
