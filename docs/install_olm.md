@@ -10,7 +10,7 @@ Now click on `Install`
 
 ![OADP-OLM-1](/docs/images/OADP-OLM-2.png)
 
-Finally, click on `Subscribe`. This will create namespace `openshift-adp` 
+Finally, click on `Install` again. This will create namespace `openshift-adp` 
 if it does not exist, and install the OADP operator in it.
 
 ![OADP-OLM-1](/docs/images/OADP-OLM-3.png)

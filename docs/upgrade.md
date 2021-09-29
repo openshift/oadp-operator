@@ -10,7 +10,7 @@ to `oadp.openshift.io/v1alpha1`.
 
 *Important!!* The only config name that will be different is for the credentials secret
 used in the `backupStorageLocations` spec: 
-`credentials_secret_ref` shoudl now be `credential`.
+`credentials_secret_ref` should now be `credential`.
 
 <hr style="height:1px;border:none;color:#333;">
 
