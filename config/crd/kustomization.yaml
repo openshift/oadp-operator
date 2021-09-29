@@ -3,6 +3,17 @@
 # It should be run by config/default
 resources:
 - bases/oadp.openshift.io_veleroes.yaml
+- bases/backup.crd.yaml
+- bases/backupstoragelocation.crd.yaml
+- bases/deletebackuprequest.crd.yaml
+- bases/downloadrequest.crd.yaml
+- bases/podvolumebackup.crd.yaml
+- bases/podvolumerestore.crd.yaml
+- bases/resticrepository.crd.yaml
+- bases/restore.crd.yaml
+- bases/schedule.crd.yaml
+- bases/serverstatusrequest.crd.yaml
+- bases/volumesnapshotlocation.crd.yaml
 #+kubebuilder:scaffold:crdkustomizeresource
 
 patchesStrategicMerge:

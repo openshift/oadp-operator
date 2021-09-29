@@ -135,8 +135,14 @@ uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified 
 deploy: manifests kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/config.
 	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
 	$(KUSTOMIZE) build config/default | kubectl apply -f -
+	kubectl apply -f config/rbac/velero-service_account.yaml
+	kubectl apply -f config/rbac/velero-role.yaml
+	kubectl apply -f config/rbac/velero-role_binding.yaml
 
 undeploy: kustomize ## Undeploy controller from the K8s cluster specified in ~/.kube/config.
+	kubectl delete -f config/rbac/velero-service_account.yaml
+	kubectl delete -f config/rbac/velero-role.yaml
+	kubectl delete -f config/rbac/velero-role_binding.yaml
 	$(KUSTOMIZE) build config/default | kubectl delete -f -
 
 build-deploy: THIS_IMAGE=ttl.sh/oadp-operator-$(shell git rev-parse --short HEAD):1h # Set target specific variable
