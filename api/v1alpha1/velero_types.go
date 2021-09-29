@@ -55,20 +55,23 @@ const ResticRestoreImageKey UnsupportedImageKey = "resticRestoreImageFqin"
 
 // VeleroSpec defines the desired state of Velero
 type VeleroSpec struct {
-	// Velero configuration
+	// BackupStorageLocations defines the list of desired configuration to use for BackupStorageLocations
 	BackupStorageLocations []velero.BackupStorageLocationSpec `json:"backupStorageLocations"`
+	// VolumeSnapshotLocations defines the list of desired configuration to use for VolumeSnapshotLocations
 	// +optional
 	VolumeSnapshotLocations []velero.VolumeSnapshotLocationSpec `json:"volumeSnapshotLocations"`
+	// VeleroFeatureFlags defines the list of features to enable for Velero instance
 	// +optional
 	VeleroFeatureFlags []string `json:"veleroFeatureFlags,omitempty"`
-	// We do not currently support setting tolerations for Velero
+	// VeleroTolerations defines the list of tolerations to be applied to Velero deployment
 	// +optional
 	VeleroTolerations []corev1.Toleration `json:"veleroTolerations,omitempty"`
+	// VeleroResourceAllocations defines the CPU and Memory resource allocations for the Velero Pod
 	// +optional
 	VeleroResourceAllocations corev1.ResourceRequirements `json:"veleroResourceAllocations,omitempty"`
-
-	// Plugin configuration
+	// DefaultVeleroPlugins defines the list of default plugins (aws, gcp, azure, openshift, csi) to be installed with Velero
 	DefaultVeleroPlugins []DefaultPlugin `json:"defaultVeleroPlugins,omitempty"`
+	// CustomVeleroPlugins defines the custom plugin to be installed with Velero
 	// +optional
 	CustomVeleroPlugins []CustomPlugin `json:"customVeleroPlugins,omitempty"`
 
@@ -76,17 +79,22 @@ type VeleroSpec struct {
 	// +optional
 	Noobaa bool `json:"noobaa,omitempty"`
 
-	// Restic options. When false or missing, operator will attempt to delete Restic DaemonSet
+	// EnableRestic is a boolean to specify if restic daemonset instance should be created or not
 	// +optional
 	EnableRestic *bool `json:"enableRestic,omitempty"`
+	// ResticSupplementalGroups defines the linux groups to be applied to the Restic Pod
 	// +optional
 	ResticSupplementalGroups []int64 `json:"resticSupplementalGroups,omitempty"`
+	// ResticNodeSelector defines the nodeSelector to be supplied to Restic podSpec
 	// +optional
 	ResticNodeSelector map[string]string `json:"resticNodeSelector,omitempty"`
+	// ResticTolerations defines the list of tolerations to be applied to Restic daemonset
 	// +optional
 	ResticTolerations []corev1.Toleration `json:"resticTolerations,omitempty"`
+	// ResticResourceAllocations defines the CPU and Memory resource allocations for the restic Pod
 	// +optional
 	ResticResourceAllocations corev1.ResourceRequirements `json:"resticResourceAllocations,omitempty"`
+	// ResticTimeout defines the Restic timeout, default value is 1h
 	// +optional
 	ResticTimeout string `json:"resticTimeout,omitempty"`
 	// +optional
