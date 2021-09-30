@@ -63,7 +63,7 @@ the following `backupStorageLocations` spec in the Velero CR:
         insecureSkipTlsVerify: "true"   # insecure connections
       credential:
         name: cloud-credentials
-        namespace: openshift-adp
+        key: cloud
       name: default
       objectStorage:
         bucket: noobaa-bucket-name       # Bucket name
