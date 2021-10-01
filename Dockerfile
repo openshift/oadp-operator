@@ -1,6 +1,7 @@
 # Build the manager binary
 # TODO! Find a real ubi8 image for golang 1.16
-FROM quay.io/app-sre/boilerplate:image-v2.1.0 as builder
+# FROM quay.io/app-sre/boilerplate:image-v2.1.0 as builder
+FROM quay.io/konveyor/builder as builder
 
 WORKDIR /go/src/github.com/openshift/oadp-operator
 # Copy the Go Modules manifests
@@ -17,7 +18,7 @@ COPY pkg/ pkg/
 COPY controllers/ controllers/
 
 # Build
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -mod=mod -a -o /go/src/manager main.go
+RUN CGO_ENABLED=0 GOOS=linux go build -mod=mod -a -o /go/src/manager main.go
 
 # Use distroless as minimal base image to package the manager binary
 # Refer to https://github.com/GoogleContainerTools/distroless for more details
