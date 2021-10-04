@@ -1,12 +1,12 @@
 <h1 align="center">Install & Build from Source (Non-OLM)</h1>
 
-### Prerequisites 
+### Prerequisites
 
-- Docker/Podman  
-- OpenShift CLI  
-- Access to OpenShift cluster  
+- Docker/Podman
+- OpenShift CLI
+- Access to OpenShift cluster
 
-### Cloning the Repository 
+### Cloning the Repository
 
 Checkout this OADP Operator repository:
 
@@ -24,7 +24,7 @@ To install CRDs and deploy the OADP operator to the `openshift-adp`
 $ make deploy
 ```
 
-### Installing Velero + Restic 
+### Installing Velero + Restic
 
 #### Creating credentials secret
 Before creating a Velero CR, ensure you have created a secret
@@ -52,13 +52,13 @@ You can specify your Velero CR config values here: `congig/samples/oadp_v1alpha1
 Create the Velero CR:
 
 ```
-$ oc create -n oadp-operator-system -f config/samples/oadp_v1alpha1_velero.yaml
+$ oc create -n openshift-adp -f config/samples/oadp_v1alpha1_velero.yaml
 ```
 
-### Verify Installation 
+### Verify Installation
 
-Post completion of all the above steps, you can check if the 
-operator was successfully installed if the expected result for the command 
+Post completion of all the above steps, you can check if the
+operator was successfully installed if the expected result for the command
 `oc get all -n openshift-adp` is as follows:
 
 ```
