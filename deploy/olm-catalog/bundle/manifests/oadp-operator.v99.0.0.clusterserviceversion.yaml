@@ -267,11 +267,11 @@ spec:
                   periodSeconds: 10
                 resources:
                   limits:
-                    cpu: 100m
-                    memory: 200Mi
+                    cpu: 1000m
+                    memory: 512Mi
                   requests:
-                    cpu: 100m
-                    memory: 100Mi
+                    cpu: 500m
+                    memory: 128Mi
               serviceAccountName: oadp-operator
       permissions:
       - serviceAccountName: oadp-operator
