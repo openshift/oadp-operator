@@ -37,11 +37,44 @@ $ oc create secret generic cloud-credentials --namespace openshift-adp --from-fi
 
 ### Create the Velero Custom Resource
 
-Create an instance of Velero CR by clicking on `Create Instance` as highlighted below:
+Create an instance of the Velero CR by clicking on `Create Instance` as highlighted below:
 
 ![Velero-CR-1](/docs/images/Velero-CR-1.png)
 
+The Velero instance can be created by selecting configurations using the OCP Web UI or by using a YAML file as mentioned below.
+
 Finally, set the CR spec values appropriately, and click on `Create`.
+
+The CR values are mentioned for ease of use. Please remember to mention `default: true` in backupStorageLocations if you intend on using the default backup storage location as shown below.
+
+```
+apiVersion: oadp.openshift.io/v1alpha1
+kind: Velero
+metadata:
+  name: velero-sample
+spec:
+  defaultVeleroPlugins:
+  - aws
+  backupStorageLocations:
+  - name: default
+    provider: aws
+    default: true
+    objectStorage:
+      bucket: my-bucket
+      prefix: "velero"
+    config:
+      region: us-east-1
+      profile: "default"
+    credential:
+      name: cloud-credentials
+      key: cloud
+  volumeSnapshotLocations:
+  - name: default
+    provider: aws
+    config:
+      region: us-west-2
+      profile: "default"
+```
 
 ![Velero-CR-2](/docs/images/Velero-CR-2.png)
 
