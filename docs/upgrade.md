@@ -8,9 +8,23 @@ to `oadp.openshift.io/v1alpha1`.
 2. The `spec` values have changed from `snake_case` to `camelCase` with 
 *nearly* a 1:1 mapping. 
 
-*Important!!* The only config name that will be different is for the credentials secret
-used in the `backupStorageLocations` spec: 
-`credentials_secret_ref` should now be `credential`.
+*Note:* 
+  - The only config name that will be different is for the credentials secret
+  used in the `backupStorageLocations` spec: 
+  `credentials_secret_ref` should now be `credential`.
+  
+  - `oc get velero` may not return correct results if the old CRDs are installed, 
+    due to the old CRD being picked up first. If this occurs, you can delete
+    the old CRD, or run `oc get velero.oadp.openshift.io`
+      - For example: 
+      ```
+    ❯ oc get velero.oadp.openshift.io -n oadp-operator-system
+      NAME             AGE
+      example-velero   94s
+
+      ❯ oc get velero -n oadp-operator-system
+      No resources found in oadp-operator-system namespace.
+      ```
 
 <hr style="height:1px;border:none;color:#333;">
 

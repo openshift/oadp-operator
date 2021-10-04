@@ -13,13 +13,14 @@
 
 1. [About](#about)
 2. [Basic Install using OperatorHub](docs/install_olm.md)
-3. Custom Installation
-    1. [Configure Plugins](docs/plugins.md)
-    2. [Backup Storage Locations and Volume Snapshot Locations](docs/bsl_and_vsl.md)
-    3. [Resource Requests and Limits](docs/resource_req_limits.md)
-    4. [Self-Signed Certificate](docs/self_signed_certs.md)
-4. [Use NooBaa as a Backup Storage Location](docs/noobaa/install_oadp_noobaa.md) 
-5. [Use Velero --features flag](docs/features_flag.md)
+3. [API References](docs/API_ref.md)
+4. API Usage
+    1. [Configure Plugins](docs/config/plugins.md)
+    2. [Backup Storage Locations and Volume Snapshot Locations](docs/config/bsl_and_vsl.md)
+    3. [Resource Requests and Limits](docs/config/resource_req_limits.md)
+    4. [Self-Signed Certificate](docs/config/self_signed_certs.md)
+    5. [Use NooBaa as a Backup Storage Location](docs/config/noobaa/install_oadp_noobaa.md) 
+    6. [Use Velero --features flag](docs/config/features_flag.md)
 6. [Upgrade from 0.2](docs/upgrade.md)
 7. Examples
     1. [Stateless App Backup/Restore](docs/examples/stateless.md)
