@@ -17,7 +17,9 @@
     ```
 
     *Note:* <IMAGE_ID> can be found out by running `podman images` after the image has been built.
-    <IMAGE_TAG> can be any tag that you would would like to assign to the image.
+    <IMAGE_TAG> can be any tag that you would would like to assign to the image. If the `oadp-operator` 
+    repository exists in `quay.io/<CONTAINER_REGISTRY_USERNAME>`, then verify if the visibility is set to `public`. 
+    If not, change the visibility of the `oadp-operator` repository to `public`. 
     
 3. Deploy OADP operator using your image:
 
