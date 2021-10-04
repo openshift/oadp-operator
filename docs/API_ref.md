@@ -2,7 +2,7 @@
 
 | Property   |      Type     |  Description |
 |:-----------|:--------------|:-------------|
-| backupImages | bool |      |
+| backupImages | bool |  Determine whether the Velero install will backup internal images when an imagestream is backed up.  |
 | backupStorageLocations | [[]velero.BackupStorageLocationSpec](https://velero.io/docs/v1.6/api-types/backupstoragelocation/) |  Location(s) to store backups. For more details, see [here](docs/config/bsl_and_vsl.md).  |
 | customVeleroPlugins | map[string]interface{} |  Used for installation of custom Velero plugins. See [here](docs/config/plugins.md) for further information.  |
 | defaultVeleroPlugins |  []string |  Five types of default Velero plugins can be installed: `AWS`, `GCP`, `Azure` and `OpenShift`, and `CSI`. See [here](docs/config/plugins.md) for further information. |

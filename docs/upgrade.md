@@ -13,7 +13,7 @@ to `oadp.openshift.io/v1alpha1`.
   used in the `backupStorageLocations` spec: 
   `credentials_secret_ref` should now be `credential`.
   
-  - `oc get velero` may not return correct results if the old CRDs are install, 
+  - `oc get velero` may not return correct results if the old CRDs are installed, 
     due to the old CRD being picked up first. If this occurs, you can delete
     the old CRD, or run `oc get velero.oadp.openshift.io`
       - For example: 
