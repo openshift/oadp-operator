@@ -1024,10 +1024,10 @@ func TestVeleroReconciler_getVeleroImage(t *testing.T) {
 			pluginName: common.Velero,
 			wantImage:  "quay.io/konveyor/velero:latest",
 			setEnvVars: map[string]string{
-				"REGISTRY":               "quay.io",
-				"PROJECT":                "konveyor",
-				"VELERO_AWS_PLUGIN_REPO": "velero",
-				"VELERO_AWS_PLUGIN_TAG":  "latest",
+				"REGISTRY":    "quay.io",
+				"PROJECT":     "konveyor",
+				"VELERO_REPO": "velero",
+				"VELERO_TAG":  "latest",
 			},
 		},
 	}
