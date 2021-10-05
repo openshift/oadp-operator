@@ -141,12 +141,9 @@ func (r *VeleroReconciler) validateAWSBackupStorageLocation(bslSpec velerov1.Bac
 		return fmt.Errorf("bucket name for AWS backupstoragelocation cannot be empty")
 	}
 
-	if len(bslSpec.Config[Region]) == 0 {
-		return fmt.Errorf("region for AWS backupstoragelocation config cannot be empty")
-	}
-
-	if len(bslSpec.StorageType.ObjectStorage.Prefix) == 0 && (velero.Spec.BackupImages == nil || *velero.Spec.BackupImages) {
-		return fmt.Errorf("prefix for AWS backupstoragelocation object storage cannot be empty. it is required for backing up images")
+	if len(bslSpec.StorageType.ObjectStorage.Prefix) == 0 || len(bslSpec.Config[Region]) == 0 &&
+		(velero.Spec.BackupImages == nil || *velero.Spec.BackupImages) {
+		return fmt.Errorf("prefix and region for AWS backupstoragelocation object storage cannot be empty. It is required for backing up images")
 	}
 
 	//TODO: Add minio, noobaa, local storage validations
