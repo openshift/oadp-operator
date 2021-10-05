@@ -28,7 +28,7 @@
           prefix: my-prefix
         credential:
           name: cloud-credentials
-          key: cloud    
+          key: cloud
         config:
           region: us-east-1
           profile: "default"
@@ -49,10 +49,10 @@
 `oc create -f docs/examples/manifests/nginx-deployment.yaml`
 
 This will create the following resources:
-* **Namespace** 
-* **Deployment** 
-* **Service** 
-* **Route** 
+* **Namespace**
+* **Deployment**
+* **Service**
+* **Route**
 
 ### Verify Nginx deployment resources:
 
@@ -92,7 +92,7 @@ should result in `Completed`
 
 ### Delete the Nginx application
 
-Once we have ensured the backup is completed, we want to test the restore 
+Once we have ensured the backup is completed, we want to test the restore
 process. First, delete the `nginx-example` project:
 
 `oc delete namespace nginx-example`
@@ -103,7 +103,7 @@ process. First, delete the `nginx-example` project:
 
 ### Ensure the restore has completed
 
-`oc get restore -n openshift-adp nginx-stateless -o jsonpath='{.status.phase}`
+`oc get restore -n openshift-adp nginx-stateless -o jsonpath='{.status.phase}'`
 
 Should result in `Completed`
 
