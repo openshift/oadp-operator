@@ -61,7 +61,7 @@ spec:
     default: true
     objectStorage:
       bucket: my-bucket
-      prefix: "velero"
+      prefix: my-prefix
     config:
       region: us-east-1
       profile: "default"
