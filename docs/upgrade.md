@@ -37,9 +37,9 @@ Save your current Velero CR config as to be sure to remember the values.
 As mentioned above, the `spec` values have changed from `snake_case` to `camelCase` with 
 *nearly* a 1:1 mapping. The only config value that will be different is for the credentials secret
 used in the `backupStorageLocations` spec: 
-`credentials_secret_ref` to `credential`.
+`credentials_secret_ref` to `credential`. You can browse available fields in our [API reference](API_ref.md).
 
-For example, here is a sample Velero CR for the old version:
+For example, here is a sample Velero CR for the 0.2 version:
 
 ```
 apiVersion: konveyor.openshift.io/v1alpha1
@@ -72,7 +72,7 @@ spec:
   enable_restic: true
 ```
 
-And a sample Velero CR for the new version:
+And a sample Velero CR for version 0.3 or later:
 
 ```
 apiVersion: oadp.openshift.io/v1alpha1
