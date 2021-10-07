@@ -543,6 +543,7 @@ func (r *VeleroReconciler) ValidateVeleroDeployment(log logr.Logger) (bool, erro
 	var secretName string
 	var defaultPlugin oadpv1alpha1.DefaultPlugin
 	for _, defaultPlugin = range velero.Spec.DefaultVeleroPlugins {
+		//Switching only for supported cloud providers
 		switch defaultPlugin {
 		case oadpv1alpha1.DefaultPluginAWS:
 			secretName = VeleroAWSSecretName
@@ -550,10 +551,9 @@ func (r *VeleroReconciler) ValidateVeleroDeployment(log logr.Logger) (bool, erro
 			secretName = VeleroAzureSecretName
 		case oadpv1alpha1.DefaultPluginGCP:
 			secretName = VeleroGCPSecretName
-
 		}
 
-		if defaultPlugin != oadpv1alpha1.DefaultPluginOpenShift && defaultPlugin != oadpv1alpha1.DefaultPluginCSI {
+		if len(secretName) != 0 {
 			_, err := r.getProviderSecret(secretName)
 			if err != nil {
 				r.Log.Info(fmt.Sprintf("error validating %s provider secret:  %s/%s", defaultPlugin, r.NamespacedName.Namespace, secretName))
