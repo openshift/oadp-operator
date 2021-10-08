@@ -3,8 +3,8 @@ REGION ?= us-east-1
 GCP_SERVICE_ACCOUNT ?= my-service-account
 CLUSTER_PROFILE ?= aws
 CREDS_SECRET_REF ?= cloud-credentials
-OADP_CRED_FILE ?= /var/run/oadp-credentials/aws-credentials
-OADP_BUCKET ?= /var/run/oadp-credentials/velero-bucket-name
+OADP_CRED_FILE ?= ${CLUSTER_PROFILE_DIR}/.awscred
+OADP_BUCKET ?= oadp-ci-${BUILD_ID}
 VELERO_INSTANCE_NAME ?= velero-sample
 E2E_TIMEOUT_MULTIPLIER ?= 1
 
