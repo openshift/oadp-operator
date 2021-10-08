@@ -18,7 +18,7 @@ func (r *VeleroReconciler) ValidateBackupStorageLocations(log logr.Logger) (bool
 		return false, err
 	}
 	// Ensure we have a BSL or user has specified noobaa install
-	if len(velero.Spec.BackupStorageLocations) == 0 && !velero.Spec.Noobaa {
+	if len(velero.Spec.BackupStorageLocations) == 0 && !(velero.Spec.Noobaa || velero.Spec.NoDefaultBackupLocation) {
 		return false, errors.New("no backupstoragelocations configured, ensure a backupstoragelocation or noobaa has been configured")
 	}
 

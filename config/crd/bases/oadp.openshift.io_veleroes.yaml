@@ -144,6 +144,10 @@ spec:
                 description: EnableRestic is a boolean to specify if restic daemonset
                   instance should be created or not
                 type: boolean
+              noDefaultBackupLocation:
+                description: If you need to install Velero without a default backup
+                  storage location NoDefaultBackupLocation flag is required for confirmation
+                type: boolean
               noobaa:
                 description: Noobaa is a boolean to specify if we should install backup
                   storage from OCS operator with Noobaa
@@ -380,8 +384,6 @@ spec:
                   - provider
                   type: object
                 type: array
-            required:
-            - backupStorageLocations
             type: object
           status:
             description: VeleroStatus defines the observed state of Velero
