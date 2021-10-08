@@ -540,7 +540,7 @@ func (r *VeleroReconciler) ValidateVeleroDeployment(log logr.Logger) (bool, erro
 		return false, err
 	}
 
-	var secretName string
+	secretName := "nosecret"
 	var defaultPlugin oadpv1alpha1.DefaultPlugin
 	for _, defaultPlugin = range velero.Spec.DefaultVeleroPlugins {
 		//Switching only for supported cloud providers
@@ -553,7 +553,7 @@ func (r *VeleroReconciler) ValidateVeleroDeployment(log logr.Logger) (bool, erro
 			secretName = VeleroGCPSecretName
 		}
 
-		if len(secretName) != 0 {
+		if secretName != "nosecret" {
 			_, err := r.getProviderSecret(secretName)
 			if err != nil {
 				r.Log.Info(fmt.Sprintf("error validating %s provider secret:  %s/%s", defaultPlugin, r.NamespacedName.Namespace, secretName))
