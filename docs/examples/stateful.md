@@ -25,6 +25,7 @@
         default: true
         objectStorage:
           bucket: my-bucket
+          prefix: my-prefix
         credential:
           name: cloud-credentials
           key: cloud    

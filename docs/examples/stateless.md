@@ -25,12 +25,13 @@
         default: true
         objectStorage:
           bucket: my-bucket-name
+          prefix: my-prefix
         credential:
           name: cloud-credentials
           key: cloud
         config:
           region: us-east-1
-          profile: default
+          profile: "default"
       enableRestic: true
       defaultVeleroPlugins:
       - openshift

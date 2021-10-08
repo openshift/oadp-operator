@@ -10,13 +10,13 @@ spec:
     default: true
     objectStorage:
       bucket: my-bucket-name
-      prefix: my-prefix-name
+      prefix: my-prefix
     config:
       region: us-east-1
-      profile: "default"
     credential:
       name: cloud-credentials
       key: cloud
+  enableRestic: true
   defaultVeleroPlugins:
   - openshift
   - aws
