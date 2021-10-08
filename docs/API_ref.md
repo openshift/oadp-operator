@@ -21,4 +21,5 @@
 | veleroResourceAllocations | [corev1.ResourceRequirements](https://pkg.go.dev/k8s.io/api/core/v1#ResourceRequirements) |  Set specific resource `limits` and `requests` for the Velero pod. For more information, go [here](docs/config/resource_req_limits.md). |
 | veleroTolerations | [[]corev1.Toleration](https://pkg.go.dev/k8s.io/api/core/v1#Toleration) |        |
 | volumeSnapshotLocations | [[]velero.VolumeSnapshotLocationSpec](https://velero.io/docs/v1.6/api-types/volumesnapshotlocation/) |  Location to store volume snapshots. For further deatils, see [here](docs/config/bsl_and_vsl.md). |
+| NoDefaultBackupLocation | [bool](https://pkg.go.dev/builtin#bool) |  Assert that you do not want to use velero with a backup storage location. See [Velero Docs](https://velero.io/docs/v1.7/customize-installation/#do-not-configure-a-backup-storage-location-during-install). |
 
