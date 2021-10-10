@@ -78,6 +78,7 @@ var _ = Describe("AWS backup restore tests", func() {
 
 			// wait for backup to not be running
 			Eventually(isBackupDone(vel.Client, namespace, backupName), time.Minute*4, time.Second*10).Should(BeTrue())
+			Expect(getVeleroContainerFailureLogs(vel.Namespace)).To(Equal([]string{}))
 
 			// check if backup succeeded
 			succeeded, err := isBackupCompletedSuccessfully(vel.Client, namespace, backupName)
@@ -98,6 +99,7 @@ var _ = Describe("AWS backup restore tests", func() {
 			err = createRestoreFromBackup(vel.Client, namespace, backupName, restoreName)
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(isRestoreDone(vel.Client, namespace, restoreName), time.Minute*4, time.Second*10).Should(BeTrue())
+			Expect(getVeleroContainerFailureLogs(vel.Namespace)).To(Equal([]string{}))
 
 			// Check if restore succeeded
 			succeeded, err = isRestoreCompletedSuccessfully(vel.Client, namespace, restoreName)
