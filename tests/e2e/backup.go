@@ -36,11 +36,11 @@ func isBackupDone(ocClient client.Client, veleroNamespace, name string) wait.Con
 		if err != nil {
 			return false, err
 		}
-		if backup.Status.Phase != "" && backup.Status.Phase != velero.BackupPhaseNew && backup.Status.Phase != velero.BackupPhaseInProgress {
-			return true, nil
-		}
 		if len(backup.Status.Phase) > 0 {
 			ginkgo.GinkgoWriter.Write([]byte(fmt.Sprintf("backup phase: %s\n", backup.Status.Phase)))
+		}
+		if backup.Status.Phase != "" && backup.Status.Phase != velero.BackupPhaseNew && backup.Status.Phase != velero.BackupPhaseInProgress {
+			return true, nil
 		}
 		return false, nil
 	}
@@ -58,5 +58,5 @@ func isBackupCompletedSuccessfully(ocClient client.Client, veleroNamespace, name
 	if backup.Status.Phase == velero.BackupPhaseCompleted {
 		return true, nil
 	}
-	return false, fmt.Errorf("backup phase is: %s; expected: %s", backup.Status.Phase, velero.BackupPhaseCompleted)
+	return false, fmt.Errorf("backup phase is: %s; expected: %s\nvalidation errors: %v", backup.Status.Phase, velero.BackupPhaseCompleted, backup.Status.ValidationErrors)
 }
