@@ -2,6 +2,7 @@ package e2e
 
 import (
 	"flag"
+	"log"
 	"testing"
 
 	. "github.com/onsi/ginkgo"
@@ -32,7 +33,7 @@ func TestOADPE2E(t *testing.T) {
 		t.Fatalf("Error decoding json file: %v", err)
 	}
 	s3Bucket = s3Data["velero-bucket-name"].(string)
-
+	log.Println("Using velero prefix: " + veleroPrefix)
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "OADP E2E Suite")
 }

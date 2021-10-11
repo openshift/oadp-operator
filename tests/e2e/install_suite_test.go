@@ -2,12 +2,13 @@ package e2e
 
 import (
 	"flag"
+	"log"
+	"time"
+
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	"github.com/openshift/oadp-operator/pkg/common"
 	velero "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	"k8s.io/utils/pointer"
-	"log"
-	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
@@ -100,7 +101,7 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 						StorageType: velero.StorageType{
 							ObjectStorage: &velero.ObjectStorageLocation{
 								Bucket: s3Bucket,
-								Prefix: "velero",
+								Prefix: veleroPrefix,
 							},
 						},
 					},
@@ -130,7 +131,7 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 						StorageType: velero.StorageType{
 							ObjectStorage: &velero.ObjectStorageLocation{
 								Bucket: s3Bucket,
-								Prefix: "velero",
+								Prefix: veleroPrefix,
 							},
 						},
 					},
@@ -160,7 +161,7 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 						StorageType: velero.StorageType{
 							ObjectStorage: &velero.ObjectStorageLocation{
 								Bucket: s3Bucket,
-								Prefix: "velero",
+								Prefix: veleroPrefix,
 							},
 						},
 					},
@@ -195,7 +196,7 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 						StorageType: velero.StorageType{
 							ObjectStorage: &velero.ObjectStorageLocation{
 								Bucket: s3Bucket,
-								Prefix: "velero",
+								Prefix: veleroPrefix,
 							},
 						},
 					},

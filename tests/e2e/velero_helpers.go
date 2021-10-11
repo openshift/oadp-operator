@@ -10,6 +10,7 @@ import (
 	velero "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/uuid"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -26,6 +27,8 @@ type veleroCustomResource struct {
 	CustomResource *oadpv1alpha1.Velero
 	Client         client.Client
 }
+
+var veleroPrefix = "velero-e2e-" + string(uuid.NewUUID())
 
 func (v *veleroCustomResource) Build() error {
 	// Velero Instance creation spec with backupstorage location default to AWS. Would need to parameterize this later on to support multiple plugins.
@@ -46,7 +49,7 @@ func (v *veleroCustomResource) Build() error {
 					StorageType: velero.StorageType{
 						ObjectStorage: &velero.ObjectStorageLocation{
 							Bucket: v.Bucket,
-							Prefix: "velero",
+							Prefix: veleroPrefix,
 						},
 					},
 				},
