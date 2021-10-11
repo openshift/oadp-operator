@@ -2,7 +2,7 @@ apiVersion: operators.coreos.com/v1alpha1
 kind: ClusterServiceVersion
 metadata:
   name: oadp-operator.v99.0.0
-  namespace: oadp-operator
+  namespace: openshift-adp
   annotations:
     olm.skipRange: '>=0.0.0 <99.0.0'
     containerImage: "quay.io/konveyor/oadp-operator:latest"
@@ -13,7 +13,7 @@ metadata:
           "kind": "Velero",
           "metadata": {
             "name": "example-velero",
-            "namespace":"oadp-operator"
+            "namespace":"openshift-adp"
           },
           "spec": {
             "olmManaged": true,
@@ -57,7 +57,7 @@ metadata:
             "kind": "Backup",
             "metadata": {
               "name": "backup",
-              "namespace": "oadp-operator"
+              "namespace": "openshift-adp"
             },
             "spec": {}
         },
@@ -66,7 +66,7 @@ metadata:
             "kind": "BackupStorageLocation",
             "metadata": {
               "name": "backupstoragelocation",
-              "namespace": "oadp-operator"
+              "namespace": "openshift-adp"
             },
             "spec": {}
         },
@@ -75,7 +75,7 @@ metadata:
             "kind": "DeleteBackupRequest",
             "metadata": {
               "name": "deletebackuprequest",
-              "namespace": "oadp-operator"
+              "namespace": "openshift-adp"
             },
             "spec": {}
         },
@@ -84,7 +84,7 @@ metadata:
             "kind": "DownloadRequest",
             "metadata": {
               "name": "downloadrequest",
-              "namespace": "oadp-operator"
+              "namespace": "openshift-adp"
             },
             "spec": {}
         },
@@ -93,7 +93,7 @@ metadata:
             "kind": "PodVolumeBackup",
             "metadata": {
               "name": "podvolumebackup",
-              "namespace": "oadp-operator"
+              "namespace": "openshift-adp"
             },
             "spec": {}
         },
@@ -102,7 +102,7 @@ metadata:
             "kind": "PodVolumeRestore",
             "metadata": {
               "name": "podvolumerestore",
-              "namespace": "oadp-operator"
+              "namespace": "openshift-adp"
             },
             "spec": {}
         },
@@ -111,7 +111,7 @@ metadata:
             "kind": "ResticRepository",
             "metadata": {
               "name": "resticrepository",
-              "namespace": "oadp-operator"
+              "namespace": "openshift-adp"
             },
             "spec": {}
         },
@@ -120,7 +120,7 @@ metadata:
             "kind": "Restore",
             "metadata": {
               "name": "restore",
-              "namespace": "oadp-operator"
+              "namespace": "openshift-adp"
             },
             "spec": {}
         },
@@ -129,7 +129,7 @@ metadata:
             "kind": "Schedule",
             "metadata": {
               "name": "schedule",
-              "namespace": "oadp-operator"
+              "namespace": "openshift-adp"
             },
             "spec": {}
         },
@@ -138,7 +138,7 @@ metadata:
             "kind": "ServerStatusRequest",
             "metadata": {
               "name": "serverstatusrequest",
-              "namespace": "oadp-operator"
+              "namespace": "openshift-adp"
             },
             "spec": {}
         },
@@ -147,7 +147,7 @@ metadata:
             "kind": "VolumeSnapshotLocation",
             "metadata": {
               "name": "volumesnapshotlocation",
-              "namespace": "oadp-operator"
+              "namespace": "openshift-adp"
             },
             "spec": {}
         }
