@@ -1,11 +1,11 @@
 apiVersion: operators.coreos.com/v1alpha1
 kind: ClusterServiceVersion
 metadata:
-  name: oadp-operator.v99.0.0
+  name: oadp-operator.v0.3.0
   namespace: oadp-operator
   annotations:
-    olm.skipRange: '>=0.0.0 <99.0.0'
-    containerImage: "quay.io/konveyor/oadp-operator:latest"
+    olm.skipRange: '>=0.0.0 <0.3.0'
+    containerImage: "quay.io/konveyor/oadp-operator:v0.3.0"
     alm-examples: |-
       [
         {
@@ -16,7 +16,6 @@ metadata:
             "namespace":"oadp-operator"
           },
           "spec": {
-            "olmManaged": true,
             "backupStorageLocations": [
               {
                 "config": {
@@ -207,11 +206,11 @@ spec:
                 - name: VELERO_REGISTRY_REPO
                   value: registry
                 - name: VELERO_REGISTRY_TAG
-                  value: latest
+                  value: oadp-0.3.0
                 - name: VELERO_OPENSHIFT_PLUGIN_REPO
                   value: openshift-velero-plugin
                 - name: VELERO_OPENSHIFT_PLUGIN_TAG
-                  value: latest
+                  value: oadp-0.3.0
                 - name: VELERO_RESTIC_RESTORE_HELPER_REPO
                   value: velero-restic-restore-helper
                 - name: VELERO_AWS_PLUGIN_REPO
@@ -227,20 +226,18 @@ spec:
                 - name: VELERO_TAG
                   value: konveyor-1.6.3
                 - name: VELERO_RESTIC_RESTORE_HELPER_TAG
-                  value: latest
+                  value: konveyor-1.6.3
                 - name: VELERO_AWS_PLUGIN_TAG
-                  value: latest
+                  value: oadp-0.3.0
                 - name: VELERO_GCP_PLUGIN_TAG
-                  value: latest
+                  value: oadp-0.3.0
                 - name: VELERO_AZURE_PLUGIN_TAG
-                  value: latest
+                  value: oadp-0.3.0
                 - name: VELERO_CSI_PLUGIN_TAG
-                  value: latest
-                - name: VELERO_VSPHERE_PLUGIN_TAG
-                  value: 1.1.0
+                  value: oadp-0.3.0
                 args:
                 - --leader-elect
-                image: "quay.io/konveyor/oadp-operator:latest"
+                image: "quay.io/konveyor/oadp-operator:v0.3.0"
                 imagePullPolicy: Always
                 name: oadp-operator
                 securityContext:
@@ -427,14 +424,12 @@ spec:
   - name: OADP Operator
     url: https://oadp.konveyor.io/
   maintainers:
-  - name: Dylan Murray
-    email: dymurray@redhat.com
-  - name: Shubham Dilip Pampattiwar
-    email: spampatt@redhat.com
+  - name: Red Hat
+    email: oadp@redhat.com
   maturity: beta
   provider:
     name: Red Hat
-  version: 99.0.0
+  version: 0.3.0
   customresourcedefinitions:
     owned:
     - name: veleroes.oadp.openshift.io
