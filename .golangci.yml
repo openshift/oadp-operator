@@ -1,0 +1,35 @@
+run:
+  timeout: 5m
+  #  modules-download-mode: readonly|vendor|mod
+  # modules-download-mode: vendor
+
+linters-settings:
+  govet:
+    # report about shadowed variables
+    check-shadowing: true
+    enable-all: true
+
+output:
+  sort-results: true
+
+linters:
+  disable-all: true
+  # https://golangci-lint.run/usage/linters/
+  enable:
+    - deadcode
+    - gofmt
+    - gosimple
+    - govet
+    - ineffassign
+    - structcheck
+    - unconvert
+    - unused
+    - varcheck
+
+# similar to .github/workflows/golangci-lint.yml --> only-new-issues:true
+issues:
+  # lint from a specific git hash
+  # new-from-rev: bdbdc9b9436b3cb6aef8882fe8435f78f450cd5e
+  # lint only the pull request
+  new-from-rev: HEAD~1
+
