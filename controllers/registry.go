@@ -659,27 +659,7 @@ func (r *VeleroReconciler) ReconcileRegistrySVCs(log logr.Logger) (bool, error) 
 
 			// Create SVC
 			op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, &svc, func() error {
-
-				// Setting selector if a new object is created as it is immutable
-				if svc.ObjectMeta.CreationTimestamp.IsZero() {
-					svc.Spec.Selector = map[string]string{
-						"component": "oadp-" + bsl.Name + "-" + bsl.Spec.Provider + "-registry",
-					}
-					svc.Spec.Type = corev1.ServiceTypeClusterIP
-					svc.Spec.Ports = []corev1.ServicePort{
-						{
-							Name: "5000-tcp",
-							Port: int32(5000),
-							TargetPort: intstr.IntOrString{
-								IntVal: int32(5000),
-							},
-							Protocol: corev1.ProtocolTCP,
-						},
-					}
-				}
-
 				// TODO: check for svc status condition errors and respond here
-
 				err := r.updateRegistrySVC(&svc, &bsl, &velero)
 
 				return err
@@ -708,6 +688,22 @@ func (r *VeleroReconciler) updateRegistrySVC(svc *corev1.Service, bsl *velerov1.
 		return err
 	}
 
+	// when updating the spec fields we update each field individually
+	// to get around the immutable fields
+	svc.Spec.Selector = map[string]string{
+		"component": "oadp-" + bsl.Name + "-" + bsl.Spec.Provider + "-registry",
+	}
+	svc.Spec.Type = corev1.ServiceTypeClusterIP
+	svc.Spec.Ports = []corev1.ServicePort{
+		{
+			Name: "5000-tcp",
+			Port: int32(5000),
+			TargetPort: intstr.IntOrString{
+				IntVal: int32(5000),
+			},
+			Protocol: corev1.ProtocolTCP,
+		},
+	}
 	svc.Labels = map[string]string{
 		"component": "oadp-" + bsl.Name + "-" + bsl.Spec.Provider + "-registry",
 	}
