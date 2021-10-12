@@ -56,6 +56,7 @@ const ResticRestoreImageKey UnsupportedImageKey = "resticRestoreImageFqin"
 // VeleroSpec defines the desired state of Velero
 type VeleroSpec struct {
 	// BackupStorageLocations defines the list of desired configuration to use for BackupStorageLocations
+	// +optional
 	BackupStorageLocations []velero.BackupStorageLocationSpec `json:"backupStorageLocations"`
 	// VolumeSnapshotLocations defines the list of desired configuration to use for VolumeSnapshotLocations
 	// +optional
@@ -118,6 +119,9 @@ type VeleroSpec struct {
 	// BackupImages is used to specify whether you want to deploy a registry for enabling backup and restore of images
 	// +optional
 	BackupImages *bool `json:"backupImages,omitempty"`
+	// If you need to install Velero without a default backup storage location NoDefaultBackupLocation flag is required for confirmation
+	// +optional
+	NoDefaultBackupLocation bool `json:"noDefaultBackupLocation,omitempty"`
 }
 
 // VeleroStatus defines the observed state of Velero

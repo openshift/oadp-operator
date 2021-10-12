@@ -52,7 +52,7 @@ func TestVeleroReconciler_ValidateBackupStorageLocations(t *testing.T) {
 		wantErr  bool
 	}{
 		{
-			name: "test no BSLs, no noobaa",
+			name: "test no BSLs, no noobaa, no NoDefaultBackupLocation",
 			VeleroCR: &oadpv1alpha1.Velero{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "foo",
@@ -62,6 +62,26 @@ func TestVeleroReconciler_ValidateBackupStorageLocations(t *testing.T) {
 			},
 			want:    false,
 			wantErr: true,
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cloud-credentials",
+					Namespace: "test-ns",
+				},
+			},
+		},
+		{
+			name: "test no BSLs, no noobaa, with NoDefaultBackupLocation",
+			VeleroCR: &oadpv1alpha1.Velero{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.VeleroSpec{
+					NoDefaultBackupLocation: true,
+				},
+			},
+			want:    true,
+			wantErr: false,
 			secret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "cloud-credentials",
