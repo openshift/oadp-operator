@@ -37,6 +37,11 @@ var _ = Describe("AWS backup restore tests", func() {
 			log.Printf("Waiting for restic pods to be running")
 			Eventually(areResticPodsRunning(namespace), time.Minute*3, time.Second*5).Should(BeTrue())
 		}
+		
+		if vel.CustomResource.Spec.BackupImages == nil || *vel.CustomResource.Spec.BackupImages {
+			log.Printf("Waiting for registry pods to be running")
+			Eventually(areRegistryDeploymentsAvailable(namespace), time.Minute*3, time.Second*5).Should(BeTrue())
+		}
 	})
 
 	var _ = AfterEach(func() {
