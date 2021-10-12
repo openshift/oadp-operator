@@ -269,7 +269,7 @@ func AppendPluginSpecificSpecs(velero *oadpv1alpha1.Velero, veleroDeployment *ap
 				veleroDeployment.Spec.Template.Spec.InitContainers,
 				corev1.Container{
 					Image:                    plugin.Image,
-					Name:                     plugin.Image,
+					Name:                     plugin.Name,
 					ImagePullPolicy:          corev1.PullAlways,
 					Resources:                corev1.ResourceRequirements{},
 					TerminationMessagePath:   "/dev/termination-log",

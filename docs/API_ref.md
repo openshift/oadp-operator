@@ -22,3 +22,5 @@
 | veleroTolerations | [[]corev1.Toleration](https://pkg.go.dev/k8s.io/api/core/v1#Toleration) |        |
 | volumeSnapshotLocations | [[]velero.VolumeSnapshotLocationSpec](https://velero.io/docs/v1.6/api-types/volumesnapshotlocation/) |  Location to store volume snapshots. For further deatils, see [here](config/bsl_and_vsl.md). |
 | NoDefaultBackupLocation | [bool](https://pkg.go.dev/builtin#bool) |  Assert that you do not want to use velero with a backup storage location. See [Velero Docs](https://velero.io/docs/v1.7/customize-installation/#do-not-configure-a-backup-storage-location-during-install). |
+
+See also [![Go Reference](https://pkg.go.dev/badge/github.com/openshift/oadp-operator.svg)](https://pkg.go.dev/github.com/openshift/oadp-operator) for a deeper dive.

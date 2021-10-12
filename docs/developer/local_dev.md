@@ -17,7 +17,9 @@
     ```
 
     *Note:* <IMAGE_ID> can be found out by running `podman images` after the image has been built.
-    <IMAGE_TAG> can be any tag that you would would like to assign to the image.
+    <IMAGE_TAG> can be any tag that you would would like to assign to the image. Ensure that the registry 
+    which is hosting the container image is publicly available such that the image can be pulled 
+    from your OpenShift cluster. 
     
 3. Deploy OADP operator using your image:
 
