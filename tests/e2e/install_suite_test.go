@@ -85,6 +85,10 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 				log.Printf("Waiting for restic daemonset to get node selector")
 				Eventually(resticDaemonSetHasNodeSelector(namespace, key, value), time.Minute*3, time.Second*5).Should(BeTrue())
 			}
+			if installCase.VeleroSpec.BackupImages == nil || *installCase.VeleroSpec.BackupImages {
+				log.Printf("Waiting for registry pods to be running")
+				Eventually(areRegistryDeploymentsAvailable(namespace), time.Minute*3, time.Second*5).Should(BeTrue())
+			}
 		},
 		Entry("Default velero CR", InstallCase{
 			Name: "default-cr",
