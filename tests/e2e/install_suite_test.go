@@ -68,14 +68,16 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 
 	DescribeTable("Updating custom resource with new configuration",
 		func(installCase InstallCase, expectedErr error) {
-			switch vel.Provider {
-			case "aws":
-				installCase.VeleroSpec.BackupStorageLocations[0].Config = map[string]string{
-					"region": vel.BslRegion,
+			if len(installCase.VeleroSpec.BackupStorageLocations) > 0 {
+				switch vel.Provider {
+				case "aws":
+					installCase.VeleroSpec.BackupStorageLocations[0].Config = map[string]string{
+						"region": vel.BslRegion,
+					}
+					installCase.VeleroSpec.DefaultVeleroPlugins = append(installCase.VeleroSpec.DefaultVeleroPlugins, oadpv1alpha1.DefaultPluginAWS) // case "gcp":
+					installCase.ExpectedPlugins = append(installCase.ExpectedPlugins, common.VeleroPluginForAWS)
+					// 	config["serviceAccount"] = v.Region
 				}
-				installCase.VeleroSpec.DefaultVeleroPlugins = append(installCase.VeleroSpec.DefaultVeleroPlugins, oadpv1alpha1.DefaultPluginAWS) // case "gcp":
-				installCase.ExpectedPlugins = append(installCase.ExpectedPlugins, common.VeleroPluginForAWS)
-				// 	config["serviceAccount"] = v.Region
 			}
 			err := vel.CreateOrUpdate(installCase.VeleroSpec)
 			Expect(err).ToNot(HaveOccurred())
