@@ -261,6 +261,7 @@ func TestVeleroReconciler_buildRegistryDeployment(t *testing.T) {
 						"app.kubernetes.io/instance":   "oadp-" + tt.bsl.Name + "-" + tt.bsl.Spec.Provider + "-registry",
 						"app.kubernetes.io/managed-by": common.OADPOperator,
 						"app.kubernetes.io/component":  Registry,
+						oadpv1alpha1.OadpOperatorLabel: "True",
 					},
 					OwnerReferences: []metav1.OwnerReference{
 						{

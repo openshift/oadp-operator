@@ -990,8 +990,9 @@ func TestVeleroReconciler_updateResticRestoreHelperCM(t *testing.T) {
 					Name:      ResticRestoreHelperCM,
 					Namespace: "test-ns",
 					Labels: map[string]string{
-						"velero.io/plugin-config": "",
-						"velero.io/restic":        "RestoreItemAction",
+						"velero.io/plugin-config":      "",
+						"velero.io/restic":             "RestoreItemAction",
+						oadpv1alpha1.OadpOperatorLabel: "True",
 					},
 					OwnerReferences: []metav1.OwnerReference{
 						{

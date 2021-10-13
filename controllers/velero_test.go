@@ -95,6 +95,7 @@ func TestVeleroReconciler_buildVeleroDeployment(t *testing.T) {
 						"app.kubernetes.io/instance":   "test-Velero-CR",
 						"app.kubernetes.io/managed-by": common.OADPOperator,
 						"app.kubernetes.io/component":  Server,
+						oadpv1alpha1.OadpOperatorLabel: "True",
 					},
 				},
 				TypeMeta: metav1.TypeMeta{
@@ -257,6 +258,7 @@ func TestVeleroReconciler_buildVeleroDeployment(t *testing.T) {
 						"app.kubernetes.io/instance":   "test-Velero-CR",
 						"app.kubernetes.io/managed-by": common.OADPOperator,
 						"app.kubernetes.io/component":  Server,
+						oadpv1alpha1.OadpOperatorLabel: "True",
 					},
 				},
 				TypeMeta: metav1.TypeMeta{
@@ -408,6 +410,7 @@ func TestVeleroReconciler_buildVeleroDeployment(t *testing.T) {
 						"app.kubernetes.io/instance":   "test-Velero-CR",
 						"app.kubernetes.io/managed-by": common.OADPOperator,
 						"app.kubernetes.io/component":  Server,
+						oadpv1alpha1.OadpOperatorLabel: "True",
 					},
 				},
 				TypeMeta: metav1.TypeMeta{
@@ -593,6 +596,7 @@ func TestVeleroReconciler_buildVeleroDeployment(t *testing.T) {
 						"app.kubernetes.io/instance":   "test-Velero-CR",
 						"app.kubernetes.io/managed-by": common.OADPOperator,
 						"app.kubernetes.io/component":  Server,
+						oadpv1alpha1.OadpOperatorLabel: "True",
 					},
 				},
 				TypeMeta: metav1.TypeMeta{
@@ -795,6 +799,7 @@ func TestVeleroReconciler_buildVeleroDeployment(t *testing.T) {
 						"app.kubernetes.io/instance":   "test-Velero-CR",
 						"app.kubernetes.io/managed-by": common.OADPOperator,
 						"app.kubernetes.io/component":  Server,
+						oadpv1alpha1.OadpOperatorLabel: "True",
 					},
 				},
 				TypeMeta: metav1.TypeMeta{
