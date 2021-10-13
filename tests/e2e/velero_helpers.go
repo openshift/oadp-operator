@@ -1,13 +1,19 @@
 package e2e
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"fmt"
+	"io"
+	"log"
+	"strings"
 
 	appsv1 "github.com/openshift/api/apps/v1"
 	security "github.com/openshift/api/security/v1"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	velero "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/uuid"
@@ -138,20 +144,28 @@ func (v *veleroCustomResource) SetClient() error {
 	return nil
 }
 
+func getVeleroPods (namespace string) (*corev1.PodList, error){
+	clientset, err := setUpClient()
+	if err != nil {
+		return nil, err
+	}
+	// select Velero pod with this label
+	veleroOptions := metav1.ListOptions{
+		LabelSelector: "component=velero",
+	}
+	// get pods in test namespace with labelSelector
+	podList, err := clientset.CoreV1().Pods(namespace).List(context.TODO(), veleroOptions)
+	if err != nil {
+		return nil, err
+	}
+	return podList, nil
+}
+
 func isVeleroPodRunning(namespace string) wait.ConditionFunc {
 	return func() (bool, error) {
-		clientset, err := setUpClient()
+		podList, err := getVeleroPods(namespace)
 		if err != nil {
 			return false, err
-		}
-		// select Velero pod with this label
-		veleroOptions := metav1.ListOptions{
-			LabelSelector: "component=velero",
-		}
-		// get pods in test namespace with labelSelector
-		podList, err := clientset.CoreV1().Pods(namespace).List(context.TODO(), veleroOptions)
-		if err != nil {
-			return false, nil
 		}
 		// get pod name and status with specified label selector
 		var status string
@@ -163,6 +177,56 @@ func isVeleroPodRunning(namespace string) wait.ConditionFunc {
 		}
 		return false, err
 	}
+}
+
+// Returns logs from velero container on velero pod
+func getVeleroContainerLogs(namespace string) (string, error) {
+	podList, err := getVeleroPods(namespace)
+	if err != nil {
+		return "", err
+	}
+	clientset, err := setUpClient()
+	if err != nil {
+		return "", err
+	}
+	var logs string
+	for _, podInfo := range (*podList).Items {
+		if !strings.HasPrefix(podInfo.ObjectMeta.Name, "velero-") {
+			continue
+		}
+		podLogOpts := corev1.PodLogOptions{
+			Container: "velero",
+		}
+		req := clientset.CoreV1().Pods(podInfo.Namespace).GetLogs(podInfo.Name, &podLogOpts)
+		podLogs, err := req.Stream(context.TODO())
+		if err != nil {
+			return "", err
+		}
+		defer podLogs.Close()
+		buf := new(bytes.Buffer)
+		_, err = io.Copy(buf,podLogs)
+		if err != nil {
+			return "", err
+		}
+		logs = buf.String()
+	}
+	return logs, nil
+}
+
+func getVeleroContainerFailureLogs(namespace string) []string {
+	containerLogs, err := getVeleroContainerLogs(namespace)
+	if err != nil {
+		log.Printf("cannot get velero container logs")
+		return nil
+	}
+	containerLogsArray := strings.Split(containerLogs,"\n")
+	var failureArr = []string{}
+	for i, line := range containerLogsArray {
+		if strings.Contains(line, "level=error") {
+			failureArr = append(failureArr, fmt.Sprintf("velero container error line#%d: " + line + "\n", i))
+		}
+	}
+	return failureArr
 }
 
 func (v *veleroCustomResource) IsDeleted() wait.ConditionFunc {

@@ -2,6 +2,9 @@ package e2e
 
 import (
 	"context"
+	"fmt"
+
+	"github.com/onsi/ginkgo"
 	velero "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -32,6 +35,9 @@ func isRestoreDone(ocClient client.Client, veleroNamespace, name string) wait.Co
 		if err != nil {
 			return false, err
 		}
+		if len(restore.Status.Phase) > 0 {
+			ginkgo.GinkgoWriter.Write([]byte(fmt.Sprintf("restore phase: %s\n", restore.Status.Phase)))
+		}
 		if restore.Status.Phase != "" && restore.Status.Phase != velero.RestorePhaseNew && restore.Status.Phase != velero.RestorePhaseInProgress {
 			return true, nil
 		}
@@ -51,5 +57,5 @@ func isRestoreCompletedSuccessfully(ocClient client.Client, veleroNamespace, nam
 	if restore.Status.Phase == velero.RestorePhaseCompleted {
 		return true, nil
 	}
-	return false, nil
+	return false, fmt.Errorf("restore phase is: %s; expected: %s\nfailure reason: %s\nvalidation errors: %v", restore.Status.Phase, velero.RestorePhaseCompleted, restore.Status.FailureReason, restore.Status.ValidationErrors)
 }

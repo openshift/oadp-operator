@@ -2,6 +2,9 @@ package e2e
 
 import (
 	"context"
+	"fmt"
+
+	"github.com/onsi/ginkgo"
 	velero "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -33,6 +36,9 @@ func isBackupDone(ocClient client.Client, veleroNamespace, name string) wait.Con
 		if err != nil {
 			return false, err
 		}
+		if len(backup.Status.Phase) > 0 {
+			ginkgo.GinkgoWriter.Write([]byte(fmt.Sprintf("backup phase: %s\n", backup.Status.Phase)))
+		}
 		if backup.Status.Phase != "" && backup.Status.Phase != velero.BackupPhaseNew && backup.Status.Phase != velero.BackupPhaseInProgress {
 			return true, nil
 		}
@@ -52,5 +58,5 @@ func isBackupCompletedSuccessfully(ocClient client.Client, veleroNamespace, name
 	if backup.Status.Phase == velero.BackupPhaseCompleted {
 		return true, nil
 	}
-	return false, nil
+	return false, fmt.Errorf("backup phase is: %s; expected: %s\nvalidation errors: %v", backup.Status.Phase, velero.BackupPhaseCompleted, backup.Status.ValidationErrors)
 }

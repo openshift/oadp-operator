@@ -3,6 +3,10 @@ package e2e
 import (
 	"context"
 	"errors"
+	"fmt"
+	"os"
+
+	"github.com/onsi/ginkgo"
 	appsv1 "github.com/openshift/api/apps/v1"
 	security "github.com/openshift/api/security/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -11,7 +15,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"os"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -95,6 +98,11 @@ func areApplicationPodsRunning(namespace string) wait.ConditionFunc {
 		for _, podInfo := range podList.Items {
 			status := podInfo.Status.Phase
 			if status != corev1.PodRunning && status != corev1.PodSucceeded {
+				for _, condition := range podInfo.Status.Conditions {
+					if len(condition.Message) > 0 {
+						ginkgo.GinkgoWriter.Write([]byte(fmt.Sprintf("Pod not running with condition: %s\n", condition.Message)))
+					}
+				}				
 				return false, nil
 			}
 		}
@@ -113,6 +121,11 @@ func isDCReady(ocClient client.Client, namespace, dcName string) wait.ConditionF
 			return false, err
 		}
 		if dc.Status.AvailableReplicas != dc.Status.Replicas || dc.Status.Replicas == 0 {
+			for _, condition := range dc.Status.Conditions {
+				if len(condition.Message) > 0 {
+					ginkgo.GinkgoWriter.Write([]byte(fmt.Sprintf("DC not available with condition: %s\n", condition.Message)))
+				}
+			}
 			return false, errors.New("DC is not in a ready state")
 		}
 		return true, nil
