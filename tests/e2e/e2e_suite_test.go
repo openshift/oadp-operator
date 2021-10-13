@@ -4,6 +4,7 @@ import (
 	"flag"
 	"log"
 	"testing"
+	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -11,6 +12,7 @@ import (
 
 // Common vars obtained from flags passed in ginkgo.
 var cloud, namespace, s3Bucket, s3BucketFilePath, credSecretRef, instanceName, region, provider string
+var timeoutMultiplier time.Duration
 
 func init() {
 	flag.StringVar(&cloud, "cloud", "", "Cloud Credentials file path location")
@@ -20,6 +22,11 @@ func init() {
 	flag.StringVar(&provider, "provider", "aws", "BSL provider")
 	flag.StringVar(&credSecretRef, "creds_secret_ref", "cloud-credentials", "Credential secret ref for backup storage location")
 	flag.StringVar(&instanceName, "velero_instance_name", "example-velero", "Velero Instance Name")
+	timeoutMultiplierInput := flag.Int64("timeout_multiplier", 1, "Customize timeout multiplier from default (1)")
+	timeoutMultiplier = 1
+	if timeoutMultiplierInput != nil && *timeoutMultiplierInput >= 1 {
+		timeoutMultiplier = time.Duration(*timeoutMultiplierInput)
+	}
 }
 
 func TestOADPE2E(t *testing.T) {
