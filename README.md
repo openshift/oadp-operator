@@ -21,6 +21,7 @@
     4. [Self-Signed Certificate](docs/config/self_signed_certs.md)
     5. [Use NooBaa as a Backup Storage Location](docs/config/noobaa/install_oadp_noobaa.md) 
     6. [Use Velero --features flag](docs/config/features_flag.md)
+    6. [Use Custom Plugin Images for Velero ](docs/config/custom_plugin_images.md)
 6. [Upgrade from 0.2](docs/upgrade.md)
 7. Examples
     1. [Stateless App Backup/Restore](docs/examples/stateless.md)
