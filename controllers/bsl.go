@@ -119,6 +119,7 @@ func (r *VeleroReconciler) updateBSLFromSpec(bsl *velerov1.BackupStorageLocation
 		//"app.kubernetes.io/version":    "x.y.z",
 		"app.kubernetes.io/managed-by": "oadp-operator",
 		"app.kubernetes.io/component":  "bsl",
+		oadpv1alpha1.OadpOperatorLabel: "True",
 	}
 	bsl.Spec = bslSpec
 
