@@ -495,6 +495,7 @@ func (r *VeleroReconciler) getAppLabels(velero *oadpv1alpha1.Velero) map[string]
 		"app.kubernetes.io/instance":   velero.Name,
 		"app.kubernetes.io/managed-by": common.OADPOperator,
 		"app.kubernetes.io/component":  Server,
+		oadpv1alpha1.OadpOperatorLabel: "True",
 	}
 	return labels
 }

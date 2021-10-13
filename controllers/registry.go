@@ -278,6 +278,7 @@ func (r *VeleroReconciler) getRegistryBSLLabels(bsl *velerov1.BackupStorageLocat
 		"app.kubernetes.io/instance":   registryName(bsl),
 		"app.kubernetes.io/managed-by": common.OADPOperator,
 		"app.kubernetes.io/component":  Registry,
+		oadpv1alpha1.OadpOperatorLabel: "True",
 	}
 	return labels
 }

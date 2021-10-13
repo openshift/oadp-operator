@@ -288,8 +288,9 @@ func (r *VeleroReconciler) updateResticRestoreHelperCM(resticRestoreHelperCM *co
 	}
 
 	resticRestoreHelperCM.Labels = map[string]string{
-		"velero.io/plugin-config": "",
-		"velero.io/restic":        "RestoreItemAction",
+		"velero.io/plugin-config":      "",
+		"velero.io/restic":             "RestoreItemAction",
+		oadpv1alpha1.OadpOperatorLabel: "True",
 	}
 
 	resticRestoreHelperCM.Data = map[string]string{
