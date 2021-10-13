@@ -89,10 +89,12 @@ var _ = Describe("AWS backup restore tests", func() {
 			err = createBackupForNamespaces(vel.Client, namespace, backupName, []string{brCase.ApplicationNamespace})
 			Expect(err).ToNot(HaveOccurred())
 
+			log.Printf("Testing Backup created")
 			// wait for backup to not be running
 			Eventually(isBackupDone(vel.Client, namespace, backupName), timeoutMultiplier*time.Minute*4, time.Second*10).Should(BeTrue())
 			Expect(getVeleroContainerFailureLogs(vel.Namespace)).To(Equal([]string{}))
 
+			log.Printf("Is Backup created")
 			// check if backup succeeded
 			succeeded, err := isBackupCompletedSuccessfully(vel.Client, namespace, backupName)
 			Expect(err).ToNot(HaveOccurred())

@@ -28,7 +28,8 @@ type veleroCustomResource struct {
 	Namespace      string
 	SecretName     string
 	Bucket         string
-	Region         string
+	BslRegion      string
+	VslRegion      string
 	Provider       string
 	CustomResource *oadpv1alpha1.Velero
 	Client         client.Client
@@ -66,7 +67,15 @@ func (v *veleroCustomResource) Build() error {
 	switch v.Provider {
 	case "aws":
 		veleroSpec.Spec.BackupStorageLocations[0].Config = map[string]string{
-			"region": v.Region,
+			"region": v.BslRegion,
+		}
+		veleroSpec.Spec.VolumeSnapshotLocations = []velero.VolumeSnapshotLocationSpec{
+			{
+				Provider: v.Provider,
+				Config: map[string]string{
+					"region": v.VslRegion,
+				},
+			},
 		}
 		veleroSpec.Spec.DefaultVeleroPlugins = append(veleroSpec.Spec.DefaultVeleroPlugins, oadpv1alpha1.DefaultPluginAWS) // case "gcp":
 		// 	config["serviceAccount"] = v.Region
