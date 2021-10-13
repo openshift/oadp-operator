@@ -1,6 +1,6 @@
 OADP_TEST_NAMESPACE ?= openshift-adp
-BSL_REGION ?= ${LEASED_RESOURCE:-us-east-1}
-VSL_REGION ?= ${BSL_REGION}
+BSL_REGION ?= us-east-1
+VSL_REGION ?= ${LEASED_RESOURCE}
 GCP_SERVICE_ACCOUNT ?= my-service-account
 CLUSTER_PROFILE ?= aws
 CREDS_SECRET_REF ?= cloud-credentials
