@@ -37,7 +37,7 @@ var _ = Describe("AWS backup restore tests", func() {
 			log.Printf("Waiting for restic pods to be running")
 			Eventually(areResticPodsRunning(namespace), time.Minute*3, time.Second*5).Should(BeTrue())
 		}
-		
+
 		if vel.CustomResource.Spec.BackupImages == nil || *vel.CustomResource.Spec.BackupImages {
 			log.Printf("Waiting for registry pods to be running")
 			Eventually(areRegistryDeploymentsAvailable(namespace), time.Minute*3, time.Second*5).Should(BeTrue())
@@ -71,6 +71,10 @@ var _ = Describe("AWS backup restore tests", func() {
 			restoreUid, _ := uuid.NewUUID()
 			backupName := fmt.Sprintf("%s-%s", brCase.Name, backupUid.String())
 			restoreName := fmt.Sprintf("%s-%s", brCase.Name, restoreUid.String())
+
+			// Make sure the application namespace does not exist prior to install
+			log.Printf("Check no app namespace for case %s", brCase.Name)
+			Eventually(isNamespaceDeleted(brCase.ApplicationNamespace), time.Minute*2, time.Second*5).Should(BeTrue())
 
 			// install app
 			log.Printf("Installing application for case %s", brCase.Name)
