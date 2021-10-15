@@ -45,7 +45,7 @@ var _ = AfterSuite(func() {
 
 	errs := deleteSecret(namespace, credSecretRef)
 	Expect(errs).ToNot(HaveOccurred())
-	Eventually(vel.IsDeleted(), time.Minute*2, time.Second*5).Should(BeTrue())
+	Eventually(vel.IsDeleted(), timeoutMultiplier*time.Minute*2, time.Second*5).Should(BeTrue())
 })
 
 var _ = Describe("Configuration testing for Velero Custom Resource", func() {
@@ -70,25 +70,25 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 			err := vel.CreateOrUpdate(installCase.VeleroSpec)
 			Expect(err).ToNot(HaveOccurred())
 			log.Printf("Waiting for velero pod to be running")
-			Eventually(isVeleroPodRunning(namespace), time.Minute*3, time.Second*5).Should(BeTrue())
+			Eventually(isVeleroPodRunning(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 			if installCase.ExpectRestic {
 				log.Printf("Waiting for restic pods to be running")
-				Eventually(areResticPodsRunning(namespace), time.Minute*3, time.Second*5).Should(BeTrue())
+				Eventually(areResticPodsRunning(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 			} else {
 				log.Printf("Waiting for restic daemonset to be deleted")
-				Eventually(isResticDaemonsetDeleted(namespace), time.Minute*3, time.Second*5).Should(BeTrue())
+				Eventually(isResticDaemonsetDeleted(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 			}
 			log.Printf("Waiting for velero deployment to have expected plugins")
 			for _, plugin := range installCase.ExpectedPlugins {
-				Eventually(doesPluginExist(namespace, plugin), time.Minute*3, time.Second*5).Should(BeTrue())
+				Eventually(doesPluginExist(namespace, plugin), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 			}
 			for key, value := range installCase.ExpectedResticNodeSelector {
 				log.Printf("Waiting for restic daemonset to get node selector")
-				Eventually(resticDaemonSetHasNodeSelector(namespace, key, value), time.Minute*3, time.Second*5).Should(BeTrue())
+				Eventually(resticDaemonSetHasNodeSelector(namespace, key, value), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 			}
 			if installCase.VeleroSpec.BackupImages == nil || *installCase.VeleroSpec.BackupImages {
 				log.Printf("Waiting for registry pods to be running")
-				Eventually(areRegistryDeploymentsAvailable(namespace), time.Minute*3, time.Second*5).Should(BeTrue())
+				Eventually(areRegistryDeploymentsAvailable(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 			}
 		},
 		Entry("Default velero CR", InstallCase{

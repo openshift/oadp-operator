@@ -31,16 +31,16 @@ var _ = Describe("AWS backup restore tests", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		log.Printf("Waiting for velero pod to be running")
-		Eventually(isVeleroPodRunning(namespace), time.Minute*3, time.Second*5).Should(BeTrue())
+		Eventually(isVeleroPodRunning(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 
 		if vel.CustomResource.Spec.EnableRestic == nil || *vel.CustomResource.Spec.EnableRestic {
 			log.Printf("Waiting for restic pods to be running")
-			Eventually(areResticPodsRunning(namespace), time.Minute*3, time.Second*5).Should(BeTrue())
+			Eventually(areResticPodsRunning(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 		}
 		
 		if vel.CustomResource.Spec.BackupImages == nil || *vel.CustomResource.Spec.BackupImages {
 			log.Printf("Waiting for registry pods to be running")
-			Eventually(areRegistryDeploymentsAvailable(namespace), time.Minute*3, time.Second*5).Should(BeTrue())
+			Eventually(areRegistryDeploymentsAvailable(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 		}
 	})
 
@@ -77,7 +77,7 @@ var _ = Describe("AWS backup restore tests", func() {
 			err := installApplication(vel.Client, brCase.ApplicationTemplate)
 			Expect(err).ToNot(HaveOccurred())
 			// wait for pods to be running
-			Eventually(areApplicationPodsRunning(brCase.ApplicationNamespace), time.Minute*2, time.Second*5).Should(BeTrue())
+			Eventually(areApplicationPodsRunning(brCase.ApplicationNamespace), timeoutMultiplier*time.Minute*2, time.Second*5).Should(BeTrue())
 
 			// Run optional custom verification
 			log.Printf("Running pre-backup function for case %s", brCase.Name)
@@ -90,7 +90,7 @@ var _ = Describe("AWS backup restore tests", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			// wait for backup to not be running
-			Eventually(isBackupDone(vel.Client, namespace, backupName), time.Minute*4, time.Second*10).Should(BeTrue())
+			Eventually(isBackupDone(vel.Client, namespace, backupName), timeoutMultiplier*time.Minute*4, time.Second*10).Should(BeTrue())
 			Expect(getVeleroContainerFailureLogs(vel.Namespace)).To(Equal([]string{}))
 
 			// check if backup succeeded
@@ -105,13 +105,13 @@ var _ = Describe("AWS backup restore tests", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			// Wait for namespace to be deleted
-			Eventually(isNamespaceDeleted(brCase.ApplicationNamespace), time.Minute*2, time.Second*5).Should(BeTrue())
+			Eventually(isNamespaceDeleted(brCase.ApplicationNamespace), timeoutMultiplier*time.Minute*2, time.Second*5).Should(BeTrue())
 
 			// run restore
 			log.Printf("Creating restore %s for case %s", restoreName, brCase.Name)
 			err = createRestoreFromBackup(vel.Client, namespace, backupName, restoreName)
 			Expect(err).ToNot(HaveOccurred())
-			Eventually(isRestoreDone(vel.Client, namespace, restoreName), time.Minute*4, time.Second*10).Should(BeTrue())
+			Eventually(isRestoreDone(vel.Client, namespace, restoreName), timeoutMultiplier*time.Minute*4, time.Second*10).Should(BeTrue())
 			Expect(getVeleroContainerFailureLogs(vel.Namespace)).To(Equal([]string{}))
 
 			// Check if restore succeeded
@@ -120,7 +120,7 @@ var _ = Describe("AWS backup restore tests", func() {
 			Expect(succeeded).To(Equal(true))
 
 			// verify app is running
-			Eventually(areApplicationPodsRunning(brCase.ApplicationNamespace), time.Minute*2, time.Second*5).Should(BeTrue())
+			Eventually(areApplicationPodsRunning(brCase.ApplicationNamespace), timeoutMultiplier*time.Minute*2, time.Second*5).Should(BeTrue())
 
 			// Run optional custom verification
 			log.Printf("Running post-restore function for case %s", brCase.Name)
@@ -156,7 +156,7 @@ var _ = Describe("AWS backup restore tests", func() {
 			ApplicationNamespace: "parks-app",
 			Name:                 "parks-e2e",
 			PreBackupVerify: VerificationFunction(func(ocClient client.Client, namespace string) error {
-				Eventually(isDCReady(ocClient, "parks-app", "restify"), time.Minute*5, time.Second*10).Should(BeTrue())
+				Eventually(isDCReady(ocClient, "parks-app", "restify"), timeoutMultiplier*time.Minute*5, time.Second*10).Should(BeTrue())
 				return nil
 			}),
 			PostRestoreVerify: VerificationFunction(func(ocClient client.Client, namespace string) error {
@@ -169,7 +169,7 @@ var _ = Describe("AWS backup restore tests", func() {
 			ApplicationNamespace: "parks-app",
 			Name:                 "parks-e2e",
 			PreBackupVerify: VerificationFunction(func(ocClient client.Client, namespace string) error {
-				Eventually(isDCReady(ocClient, "parks-app", "restify"), time.Minute*5, time.Second*10).Should(BeTrue())
+				Eventually(isDCReady(ocClient, "parks-app", "restify"), timeoutMultiplier*time.Minute*5, time.Second*10).Should(BeTrue())
 				return nil
 			}),
 			PostRestoreVerify: VerificationFunction(func(ocClient client.Client, namespace string) error {

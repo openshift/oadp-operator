@@ -5,6 +5,7 @@ CREDS_SECRET_REF ?= cloud-credentials
 OADP_AWS_CRED_FILE ?= /var/run/oadp-credentials/aws-credentials
 OADP_S3_BUCKET ?= /var/run/oadp-credentials/velero-bucket-name
 VELERO_INSTANCE_NAME ?= velero-sample
+E2E_TIMEOUT_MULTIPLIER ?= 1
 
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
 ENVTEST_K8S_VERSION = 1.21
@@ -264,4 +265,5 @@ test-e2e:
 	-creds_secret_ref=$(CREDS_SECRET_REF) \
 	-velero_instance_name=$(VELERO_INSTANCE_NAME) \
 	-region=$(REGION) \
-	-provider=$(PROVIDER)
+	-provider=$(PROVIDER) \
+	-timeout_multiplier=$(E2E_TIMEOUT_MULTIPLIER)
