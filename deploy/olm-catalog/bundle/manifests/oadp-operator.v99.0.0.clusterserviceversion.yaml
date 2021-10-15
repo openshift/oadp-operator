@@ -243,6 +243,12 @@ spec:
                 name: oadp-operator
                 securityContext:
                   allowPrivilegeEscalation: false
+                startupProbe:
+                  httpGet:
+                    path: /healthz
+                    port: 8081
+                  failureThreshold: 12
+                  periodSeconds: 10
                 livenessProbe:
                   httpGet:
                     path: /healthz
