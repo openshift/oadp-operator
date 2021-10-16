@@ -277,12 +277,7 @@ test-e2e:
 	-velero_namespace=$(OADP_TEST_NAMESPACE) \
 	-creds_secret_ref=$(CREDS_SECRET_REF) \
 	-velero_instance_name=$(VELERO_INSTANCE_NAME) \
-<<<<<<< HEAD
-	-region=$(REGION) \
-	-provider=$(CLUSTER_PROFILE) \
-	-timeout_multiplier=$(E2E_TIMEOUT_MULTIPLIER)
-=======
 	-bsl_region=$(BSL_REGION) \
 	-vsl_region=$(VSL_REGION) \
-	-provider=$(CLUSTER_PROFILE)
->>>>>>> 3e02e40 (Adding vsl region)
+	-provider=$(CLUSTER_PROFILE) \
+	-timeout_multiplier=$(E2E_TIMEOUT_MULTIPLIER)
