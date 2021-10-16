@@ -1,11 +1,14 @@
 package e2e
 
 import (
+	"flag"
 	"log"
 	"time"
 
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	"github.com/openshift/oadp-operator/pkg/common"
+	velero "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
+	"k8s.io/utils/pointer"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
@@ -15,12 +18,12 @@ import (
 var vel *veleroCustomResource
 
 var _ = BeforeSuite(func() {
-	// flag.Parse()
-	// s3Buffer, err := getJsonData(bucketFilePath)
-	// Expect(err).NotTo(HaveOccurred())
-	// s3Data, err := decodeJson(s3Buffer) // Might need to change this later on to create s3 for each tests
-	// Expect(err).NotTo(HaveOccurred())
-	// bucket = s3Data["velero-bucket-name"].(string)
+	flag.Parse()
+	s3Buffer, err := getJsonData(bucketFilePath)
+	Expect(err).NotTo(HaveOccurred())
+	s3Data, err := decodeJson(s3Buffer) // Might need to change this later on to create s3 for each tests
+	Expect(err).NotTo(HaveOccurred())
+	bucket = s3Data["velero-bucket-name"].(string)
 
 	vel = &veleroCustomResource{
 		Namespace:     namespace,
@@ -33,7 +36,7 @@ var _ = BeforeSuite(func() {
 	}
 	testSuiteInstanceName := "ts-" + instanceName
 	vel.Name = testSuiteInstanceName
-	err := vel.createBsl()
+	// err := vel.createBsl()
 	Expect(err).NotTo(HaveOccurred())
 	vel.SetClient()
 	Expect(doesNamespaceExist(namespace)).Should(BeTrue())
@@ -43,7 +46,7 @@ var _ = AfterSuite(func() {
 	log.Printf("Deleting Velero CR")
 	err := vel.Delete()
 	Expect(err).ToNot(HaveOccurred())
-	err = vel.deleteBsl()
+	// err = vel.deleteBsl()
 	Expect(err).NotTo(HaveOccurred())
 	errs := deleteSecret(namespace, credSecretRef)
 	Expect(errs).ToNot(HaveOccurred())
@@ -104,7 +107,7 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 				Eventually(areRegistryDeploymentsAvailable(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 			}
 		},
-		/*Entry("Default velero CR", InstallCase{
+		Entry("Default velero CR", InstallCase{
 			Name: "default-cr",
 			VeleroSpec: &oadpv1alpha1.VeleroSpec{
 				EnableRestic: pointer.Bool(true),
@@ -229,6 +232,5 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 				common.VeleroPluginForOpenshift,
 			},
 		}, nil),
-		*/
 	)
 })

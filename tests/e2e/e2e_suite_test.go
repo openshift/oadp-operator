@@ -16,7 +16,7 @@ var timeoutMultiplier time.Duration
 
 func init() {
 	flag.StringVar(&credentials, "credentials", "", "Cloud Credentials file path location")
-	flag.StringVar(&bucket, "velero_bucket", "myBucket", "AWS S3 data file path location")
+	flag.StringVar(&bucketFilePath, "velero_bucket", "myBucket", "AWS S3 data file path location")
 	flag.StringVar(&namespace, "velero_namespace", "oadp-operator", "Velero Namespace")
 	flag.StringVar(&bsl_region, "bsl_region", "us-east-1", "BSL region")
 	flag.StringVar(&vsl_region, "vsl_region", bsl_region, "VSL region")
@@ -32,15 +32,15 @@ func init() {
 
 func TestOADPE2E(t *testing.T) {
 	flag.Parse()
-	// s3Buffer, err := getJsonData(bucketFilePath)
-	// if err != nil {
-	// t.Fatalf("Error getting bucket json file: %v", err)
-	// }
-	// s3Data, err := decodeJson(s3Buffer) // Might need to change this later on to create s3 for each tests
-	// if err != nil {
-	// t.Fatalf("Error decoding json file: %v", err)
-	// }
-	// bucket = s3Data["velero-bucket-name"].(string)
+	s3Buffer, err := getJsonData(bucketFilePath)
+	if err != nil {
+		t.Fatalf("Error getting bucket json file: %v", err)
+	}
+	s3Data, err := decodeJson(s3Buffer) // Might need to change this later on to create s3 for each tests
+	if err != nil {
+		t.Fatalf("Error decoding json file: %v", err)
+	}
+	bucket = s3Data["velero-bucket-name"].(string)
 	log.Println("Using velero prefix: " + veleroPrefix)
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "OADP E2E Suite")

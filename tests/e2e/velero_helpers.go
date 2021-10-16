@@ -9,9 +9,6 @@ import (
 	"log"
 	"strings"
 
-	awsconfig "github.com/aws/aws-sdk-go-v2/config"
-	awss3 "github.com/aws/aws-sdk-go-v2/service/s3"
-	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	appsv1 "github.com/openshift/api/apps/v1"
 	security "github.com/openshift/api/security/v1"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
@@ -271,72 +268,4 @@ func (v *veleroCustomResource) IsDeleted() wait.ConditionFunc {
 		}
 		return false, err
 	}
-}
-
-func (v *veleroCustomResource) createBsl() error {
-	switch v.Provider {
-	case "aws":
-		// print(v.credentials)
-		cfg, err := awsconfig.LoadDefaultConfig(context.TODO(),
-			awsconfig.WithSharedCredentialsFiles(
-				[]string{v.credentials},
-			),
-			awsconfig.WithDefaultRegion(v.BslRegion),
-		)
-		if err != nil {
-			return err
-		}
-		s3BucketInput := awss3.CreateBucketInput{
-			Bucket: pointer.String("deepak-123"),
-		}
-		if v.BslRegion != "us-east-1" {
-			s3BucketInput = awss3.CreateBucketInput{
-				Bucket: pointer.String("deepak-123"),
-				CreateBucketConfiguration: &types.CreateBucketConfiguration{
-					LocationConstraint: types.BucketLocationConstraint(v.BslRegion),
-				},
-			}
-		}
-		s3client := awss3.NewFromConfig(cfg)
-		_, err = s3client.CreateBucket(context.Background(), &s3BucketInput)
-		if err != nil {
-			var bne *types.BucketAlreadyExists
-			if errors.As(err, &bne) {
-				return nil
-			}
-			return err
-		}
-		// v.Bucket
-	}
-	return nil
-}
-
-func (v *veleroCustomResource) deleteBsl() error {
-	switch v.Provider {
-	case "aws":
-		// print(v.credentials)
-		cfg, err := awsconfig.LoadDefaultConfig(context.TODO(),
-			awsconfig.WithSharedCredentialsFiles(
-				[]string{v.credentials},
-			),
-			awsconfig.WithDefaultRegion(v.BslRegion),
-		)
-		if err != nil {
-			return err
-		}
-		s3BucketInput := awss3.DeleteBucketInput{
-			Bucket: pointer.String("deepak-123"),
-		}
-		s3client := awss3.NewFromConfig(cfg)
-		_, err = s3client.DeleteBucket(context.Background(), &s3BucketInput)
-		if err != nil {
-			var bne *types.NoSuchBucket
-			if errors.As(err, &bne) {
-				return nil
-			}
-			return err
-		}
-		// v.Bucket
-	}
-	return nil
 }

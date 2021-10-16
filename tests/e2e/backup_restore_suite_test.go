@@ -153,7 +153,7 @@ var _ = Describe("AWS backup restore tests", func() {
 				return nil
 			}),
 		}, nil),
-		/*Entry("Parks application <4.8.0", BackupRestoreCase{
+		Entry("Parks application <4.8.0", BackupRestoreCase{
 			ApplicationTemplate:  "./sample-applications/parks-app/manifest.yaml",
 			ApplicationNamespace: "parks-app",
 			Name:                 "parks-e2e",
@@ -179,6 +179,5 @@ var _ = Describe("AWS backup restore tests", func() {
 			}),
 			MinK8SVersion: &k8sVersionOcp48,
 		}, nil),
-		*/
 	)
 })
