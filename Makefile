@@ -4,10 +4,19 @@ VSL_REGION ?= ${LEASED_RESOURCE}
 GCP_SERVICE_ACCOUNT ?= my-service-account
 CLUSTER_PROFILE ?= aws
 CREDS_SECRET_REF ?= cloud-credentials
-OADP_CRED_FILE ?= /var/run/oadp-credentials/aws-credentials
-OADP_BUCKET ?= /var/run/oadp-credentials/velero-bucket-name
+OADP_CRED_FILE ?= ${CLUSTER_PROFILE_DIR}/.awscred
+BUILD_ID ?= 12345
+OADP_BUCKET ?= oadp-e2e-${BUILD_ID}
 VELERO_INSTANCE_NAME ?= velero-sample
 E2E_TIMEOUT_MULTIPLIER ?= 1
+
+ifeq (${CLUSTER_PROFILE}, 'gcp')
+	OADP_CRED_FILE = ${CLUSTER_PROFILE_DIR}/gce.json
+endif
+
+ifeq (${CLUSTER_PROFILE}, 'azure')
+	OADP_CRED_FILE = ${CLUSTER_PROFILE_DIR}/osServicePrincipal.json
+endif
 
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
 ENVTEST_K8S_VERSION = 1.21

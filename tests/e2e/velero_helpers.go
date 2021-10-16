@@ -9,6 +9,9 @@ import (
 	"log"
 	"strings"
 
+	awsconfig "github.com/aws/aws-sdk-go-v2/config"
+	awss3 "github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	appsv1 "github.com/openshift/api/apps/v1"
 	security "github.com/openshift/api/security/v1"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
@@ -31,6 +34,8 @@ type veleroCustomResource struct {
 	BslRegion      string
 	VslRegion      string
 	Provider       string
+	credentials    string
+	credSecretRef  string
 	CustomResource *oadpv1alpha1.Velero
 	Client         client.Client
 }
@@ -51,6 +56,12 @@ func (v *veleroCustomResource) Build() error {
 				{
 					Provider: v.Provider,
 					Default:  true,
+					Credential: &corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: v.credSecretRef,
+						},
+						Key: "cloud",
+					},
 					StorageType: velero.StorageType{
 						ObjectStorage: &velero.ObjectStorageLocation{
 							Bucket: v.Bucket,
@@ -158,7 +169,7 @@ func (v *veleroCustomResource) SetClient() error {
 	return nil
 }
 
-func getVeleroPods (namespace string) (*corev1.PodList, error){
+func getVeleroPods(namespace string) (*corev1.PodList, error) {
 	clientset, err := setUpClient()
 	if err != nil {
 		return nil, err
@@ -218,7 +229,7 @@ func getVeleroContainerLogs(namespace string) (string, error) {
 		}
 		defer podLogs.Close()
 		buf := new(bytes.Buffer)
-		_, err = io.Copy(buf,podLogs)
+		_, err = io.Copy(buf, podLogs)
 		if err != nil {
 			return "", err
 		}
@@ -233,11 +244,11 @@ func getVeleroContainerFailureLogs(namespace string) []string {
 		log.Printf("cannot get velero container logs")
 		return nil
 	}
-	containerLogsArray := strings.Split(containerLogs,"\n")
+	containerLogsArray := strings.Split(containerLogs, "\n")
 	var failureArr = []string{}
 	for i, line := range containerLogsArray {
 		if strings.Contains(line, "level=error") {
-			failureArr = append(failureArr, fmt.Sprintf("velero container error line#%d: " + line + "\n", i))
+			failureArr = append(failureArr, fmt.Sprintf("velero container error line#%d: "+line+"\n", i))
 		}
 	}
 	return failureArr
@@ -260,4 +271,72 @@ func (v *veleroCustomResource) IsDeleted() wait.ConditionFunc {
 		}
 		return false, err
 	}
+}
+
+func (v *veleroCustomResource) createBsl() error {
+	switch v.Provider {
+	case "aws":
+		// print(v.credentials)
+		cfg, err := awsconfig.LoadDefaultConfig(context.TODO(),
+			awsconfig.WithSharedCredentialsFiles(
+				[]string{v.credentials},
+			),
+			awsconfig.WithDefaultRegion(v.BslRegion),
+		)
+		if err != nil {
+			return err
+		}
+		s3BucketInput := awss3.CreateBucketInput{
+			Bucket: pointer.String("deepak-123"),
+		}
+		if v.BslRegion != "us-east-1" {
+			s3BucketInput = awss3.CreateBucketInput{
+				Bucket: pointer.String("deepak-123"),
+				CreateBucketConfiguration: &types.CreateBucketConfiguration{
+					LocationConstraint: types.BucketLocationConstraint(v.BslRegion),
+				},
+			}
+		}
+		s3client := awss3.NewFromConfig(cfg)
+		_, err = s3client.CreateBucket(context.Background(), &s3BucketInput)
+		if err != nil {
+			var bne *types.BucketAlreadyExists
+			if errors.As(err, &bne) {
+				return nil
+			}
+			return err
+		}
+		// v.Bucket
+	}
+	return nil
+}
+
+func (v *veleroCustomResource) deleteBsl() error {
+	switch v.Provider {
+	case "aws":
+		// print(v.credentials)
+		cfg, err := awsconfig.LoadDefaultConfig(context.TODO(),
+			awsconfig.WithSharedCredentialsFiles(
+				[]string{v.credentials},
+			),
+			awsconfig.WithDefaultRegion(v.BslRegion),
+		)
+		if err != nil {
+			return err
+		}
+		s3BucketInput := awss3.DeleteBucketInput{
+			Bucket: pointer.String("deepak-123"),
+		}
+		s3client := awss3.NewFromConfig(cfg)
+		_, err = s3client.DeleteBucket(context.Background(), &s3BucketInput)
+		if err != nil {
+			var bne *types.NoSuchBucket
+			if errors.As(err, &bne) {
+				return nil
+			}
+			return err
+		}
+		// v.Bucket
+	}
+	return nil
 }
