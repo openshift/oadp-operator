@@ -16,7 +16,7 @@ import (
 const (
 	AWSProfile          = "profile"
 	AWSRegion           = "region"
-	GCPSnapshotLocation = "shapshotLocation"
+	GCPSnapshotLocation = "snapshotLocation"
 	GCPProject          = "project"
 	AzureApiTimeout     = "apiTimeout"
 	AzureSubscriptionId = "subscriptionId"
