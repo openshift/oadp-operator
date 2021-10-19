@@ -62,7 +62,7 @@ var _ = Describe("AWS backup restore tests", func() {
 		MinK8SVersion        *k8sVersion
 	}
 
-	FDescribeTable("backup and restore applications",
+	DescribeTable("backup and restore applications",
 		func(brCase BackupRestoreCase, expectedErr error) {
 			if notVersionTarget, reason := NotServerVersionTarget(brCase.MinK8SVersion, brCase.MaxK8SVersion); notVersionTarget {
 				Skip(reason)
