@@ -37,7 +37,7 @@ var _ = Describe("AWS backup restore tests", func() {
 			log.Printf("Waiting for restic pods to be running")
 			Eventually(areResticPodsRunning(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 		}
-		
+
 		if vel.CustomResource.Spec.BackupImages == nil || *vel.CustomResource.Spec.BackupImages {
 			log.Printf("Waiting for registry pods to be running")
 			Eventually(areRegistryDeploymentsAvailable(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
@@ -62,7 +62,7 @@ var _ = Describe("AWS backup restore tests", func() {
 		MinK8SVersion        *k8sVersion
 	}
 
-	DescribeTable("backup and restore applications",
+	FDescribeTable("backup and restore applications",
 		func(brCase BackupRestoreCase, expectedErr error) {
 			if notVersionTarget, reason := NotServerVersionTarget(brCase.MinK8SVersion, brCase.MaxK8SVersion); notVersionTarget {
 				Skip(reason)
@@ -91,11 +91,13 @@ var _ = Describe("AWS backup restore tests", func() {
 
 			// wait for backup to not be running
 			Eventually(isBackupDone(vel.Client, namespace, backupName), timeoutMultiplier*time.Minute*4, time.Second*10).Should(BeTrue())
-			Expect(getVeleroContainerFailureLogs(vel.Namespace)).To(Equal([]string{}))
 
 			// check if backup succeeded
 			succeeded, err := isBackupCompletedSuccessfully(vel.Client, namespace, backupName)
 			Expect(err).ToNot(HaveOccurred())
+			if !succeeded {
+				Expect(getVeleroContainerFailureLogs(vel.Namespace)).To(Equal([]string{}))
+			}
 			Expect(succeeded).To(Equal(true))
 			log.Printf("Backup for case %s succeeded", brCase.Name)
 
@@ -112,11 +114,13 @@ var _ = Describe("AWS backup restore tests", func() {
 			err = createRestoreFromBackup(vel.Client, namespace, backupName, restoreName)
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(isRestoreDone(vel.Client, namespace, restoreName), timeoutMultiplier*time.Minute*4, time.Second*10).Should(BeTrue())
-			Expect(getVeleroContainerFailureLogs(vel.Namespace)).To(Equal([]string{}))
 
 			// Check if restore succeeded
 			succeeded, err = isRestoreCompletedSuccessfully(vel.Client, namespace, restoreName)
 			Expect(err).ToNot(HaveOccurred())
+			if !succeeded {
+				Expect(getVeleroContainerFailureLogs(vel.Namespace)).To(Equal([]string{}))
+			}
 			Expect(succeeded).To(Equal(true))
 
 			// verify app is running
