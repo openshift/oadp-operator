@@ -17,14 +17,14 @@ var (
 		Name: "oadp_app_workload_backup_total",
 		Help: "Count of OADP backups sorted by phase",
 	},
-			[]string{"phase"},
+		[]string{"phase"},
 	)
 
 	restoreGauge = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "oadp_app_workload_restore_total",
 		Help: "Count of OADP restores sorted by phase",
 	},
-			[]string{"phase"},
+		[]string{"phase"},
 	)
 )
 
@@ -32,15 +32,15 @@ func recordBackupMetrics(client client.Client) {
 
 	const (
 		// backup Phases
-		New = "New"
-		FailedValidation = "FailedValidation"
-		InProgress = "InProgress"
-		Uploading = "Uploading"
+		New                     = "New"
+		FailedValidation        = "FailedValidation"
+		InProgress              = "InProgress"
+		Uploading               = "Uploading"
 		UploadingPartialFailure = "UploadingPartialFailure"
-		Completed = "Completed"
-		PartiallyFailed = "PartiallyFailed"
-		Failed = "Failed"
-		Deleting = "Deleting"
+		Completed               = "Completed"
+		PartiallyFailed         = "PartiallyFailed"
+		Failed                  = "Failed"
+		Deleting                = "Deleting"
 	)
 
 	go func() {
@@ -53,7 +53,7 @@ func recordBackupMetrics(client client.Client) {
 
 			// retry if errored
 			if err != nil {
-				log.Info("Metrics Backups list error: %v", err)
+				log.Info("Metrics Backups list error: " + err.Error())
 				continue
 			}
 
@@ -126,12 +126,12 @@ func recordRestoreMetrics(client client.Client) {
 
 	const (
 		// restore Phases
-		New = "New"
+		New              = "New"
 		FailedValidation = "FailedValidation"
-		InProgress = "InProgress"
-		Completed = "Completed"
-		PartiallyFailed = "PartiallyFailed"
-		Failed = "Failed"
+		InProgress       = "InProgress"
+		Completed        = "Completed"
+		PartiallyFailed  = "PartiallyFailed"
+		Failed           = "Failed"
 	)
 
 	go func() {
@@ -144,7 +144,7 @@ func recordRestoreMetrics(client client.Client) {
 
 			// retry if errored
 			if err != nil {
-				log.Info("Metrics Restores list error: %v", err)
+				log.Info("Metrics Restores list error: " + err.Error())
 				continue
 			}
 
