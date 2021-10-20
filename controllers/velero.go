@@ -534,7 +534,7 @@ func (r *VeleroReconciler) getVeleroResourceReqs(velero *oadpv1alpha1.Velero) co
 // For later: Move this code into validator.go when more need for validation arises
 // TODO: if multiple default plugins exist, ensure we validate all of them.
 // Right now its sequential validation
-func (r *VeleroReconciler) ValidateVeleroPiugins(log logr.Logger) (bool, error) {
+func (r *VeleroReconciler) ValidateVeleroPlugins(log logr.Logger) (bool, error) {
 	velero := oadpv1alpha1.Velero{}
 	if err := r.Get(r.Context, r.NamespacedName, &velero); err != nil {
 		return false, err
