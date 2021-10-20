@@ -52,7 +52,6 @@ const AzurePluginImageKey UnsupportedImageKey = "azurePluginImageFqin"
 const GCPPluginImageKey UnsupportedImageKey = "gcpPluginImageFqin"
 const CSIPluginImageKey UnsupportedImageKey = "csiPluginImageFqin"
 const ResticRestoreImageKey UnsupportedImageKey = "resticRestoreImageFqin"
-const RegistryImageKey UnsupportedImageKey = "registryImageFqin"
 
 type VeleroConfig struct {
 	// FeatureFlags defines the list of features to enable for Velero instance
@@ -108,10 +107,32 @@ type ApplicationConfig struct {
 	Restic *ResticConfig `json:"restic,omitempty"`
 }
 
+type BucketBackupLocation struct {
+	BucketRef corev1.LocalObjectReference `json:"bucketRef"`
+
+	// Config is for provider-specific configuration fields.
+	// +optional
+	Config map[string]string `json:"config,omitempty"`
+
+	// Credential contains the credential information intended to be used with this location
+	// +optional
+	Credential *corev1.SecretKeySelector `json:"credential,omitempty"`
+
+	// Default indicates this location is the default backup storage location.
+	// +optional
+	Default bool `json:"default,omitempty"`
+
+	// BackupSyncPeriod defines how frequently to sync backup API objects from object storage. A value of 0 disables sync.
+	// +optional
+	// +nullable
+	BackupSyncPeriod *metav1.Duration `json:"backupSyncPeriod,omitempty"`
+}
+
 // BackupLocation defines the configuration for the DPA backup storage
 type BackupLocation struct {
 	// TODO: Add name/annotations/labels support
 	Velero *velero.BackupStorageLocationSpec `json:"velero"`
+	Bucket *BucketBackupLocation             `json:"bucket"`
 }
 
 // SnapshotLocation defines the configuration for the DPA snapshot store

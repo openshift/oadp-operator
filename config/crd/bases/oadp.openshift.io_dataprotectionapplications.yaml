@@ -50,6 +50,17 @@ spec:
                   description: BackupLocation defines the configuration for the DPA
                     backup storage
                   properties:
+                    bucket:
+                      properties:
+                        backupSyncPeriod:
+                          description: BackupSyncPeriod defines how frequently to
+                            sync backup API objects from object storage. A value of
+                            0 disables sync.
+                          nullable: true
+                          type: string
+                      type: object
+                    metadata:
+                      type: object
                     velero:
                       description: 'TODO: Add name/annotations/labels support'
                       properties:
@@ -129,6 +140,7 @@ spec:
                       - provider
                       type: object
                   required:
+                  - bucket
                   - velero
                   type: object
                 type: array

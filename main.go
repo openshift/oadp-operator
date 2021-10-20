@@ -119,9 +119,17 @@ func main() {
 	if err = (&controllers.DPAReconciler{
 		Client:        mgr.GetClient(),
 		Scheme:        mgr.GetScheme(),
-		EventRecorder: mgr.GetEventRecorderFor("controller"),
+		EventRecorder: mgr.GetEventRecorderFor("velero-controller"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "DataProtectionApplication")
+		os.Exit(1)
+	}
+	if err = (&controllers.BucketReconciler{
+		Client:        mgr.GetClient(),
+		Scheme:        mgr.GetScheme(),
+		EventRecorder: mgr.GetEventRecorderFor("bucket-controller"),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Bucket")
 		os.Exit(1)
 	}
 	//+kubebuilder:scaffold:builder
