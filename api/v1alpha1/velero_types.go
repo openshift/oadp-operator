@@ -76,10 +76,6 @@ type VeleroSpec struct {
 	// +optional
 	CustomVeleroPlugins []CustomPlugin `json:"customVeleroPlugins,omitempty"`
 
-	// Noobaa is a boolean to specify if we should install backup storage from OCS operator with Noobaa
-	// +optional
-	Noobaa bool `json:"noobaa,omitempty"`
-
 	// EnableRestic is a boolean to specify if restic daemonset instance should be created or not
 	// +optional
 	EnableRestic *bool `json:"enableRestic,omitempty"`
