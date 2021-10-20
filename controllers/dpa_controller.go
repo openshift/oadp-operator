@@ -127,6 +127,8 @@ func (r *DPAReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *DPAReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	recordBackupMetrics(mgr.GetClient())
+	recordRestoreMetrics(mgr.GetClient())
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&oadpv1alpha1.DataProtectionApplication{}).
 		Owns(&appsv1.Deployment{}).

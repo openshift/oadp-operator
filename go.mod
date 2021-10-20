@@ -10,6 +10,9 @@ require (
 	github.com/openshift/api v0.0.0-20210805075156-d8fab4513288
 	github.com/operator-framework/operator-lib v0.9.0
 	github.com/vmware-tanzu/velero v1.7.0 // TODO: Update this to a pinned version
+	github.com/prometheus/client_golang v1.11.0
+	github.com/prometheus/common v0.26.0
+	github.com/vmware-tanzu/velero v1.6.1-0.20210806003158-ed5809b7fc22 // TODO: Update this to a pinned version
 	k8s.io/api v0.22.0
 	k8s.io/apiextensions-apiserver v0.21.3
 	k8s.io/apimachinery v0.22.0

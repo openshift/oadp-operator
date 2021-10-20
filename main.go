@@ -19,6 +19,8 @@ package main
 import (
 	"flag"
 	"fmt"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"net/http"
 	"os"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
@@ -75,6 +77,10 @@ func main() {
 		setupLog.Error(err, "unable to get WatchNamespace, "+
 			"the manager will watch and manage resources in all namespaces")
 	}
+	// Start prometheus metrics HTTP handler
+	setupLog.Info("setting up prometheus endpoint :2112/metrics")
+	http.Handle("/metrics", promhttp.Handler())
+	go http.ListenAndServe(":2112", nil)
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,
