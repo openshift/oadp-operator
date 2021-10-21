@@ -52,6 +52,7 @@ const AzurePluginImageKey UnsupportedImageKey = "azurePluginImageFqin"
 const GCPPluginImageKey UnsupportedImageKey = "gcpPluginImageFqin"
 const CSIPluginImageKey UnsupportedImageKey = "csiPluginImageFqin"
 const ResticRestoreImageKey UnsupportedImageKey = "resticRestoreImageFqin"
+const RegistryImageKey UnsupportedImageKey = "registryImageFqin"
 
 // VeleroSpec defines the desired state of Velero
 type VeleroSpec struct {
