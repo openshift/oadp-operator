@@ -545,6 +545,7 @@ func (r *VeleroReconciler) ValidateVeleroPlugins(log logr.Logger) (bool, error) 
 	for _, plugin := range velero.Spec.DefaultVeleroPlugins {
 		if pluginSpecificMap, ok := credentials.PluginSpecificFields[plugin]; ok && pluginSpecificMap.IsCloudProvider {
 			secretName = pluginSpecificMap.SecretName
+			break
 		}
 	}
 
