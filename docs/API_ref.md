@@ -7,7 +7,6 @@
 | customVeleroPlugins | map[string]interface{} |  Used for installation of custom Velero plugins. See [here](config/plugins.md) for further information.  |
 | defaultVeleroPlugins |  []string |  Five types of default Velero plugins can be installed: `AWS`, `GCP`, `Azure` and `OpenShift`, and `CSI`. See [here](config/plugins.md) for further information. |
 | enableRestic |   bool  |   Enables backup/restore using Restic. If set to false, snapshots are needed.  |
-| Noobaa | bool |  An optional backup storage locaion. For more information, go [here](config/noobaa/install_oadp_noobaa.md). |
 | podAnnotations |  map[string]string |   Add metadata to your pods to select and find certain pods. |
 | podDnsConfig |    [corev1.PodDNSConfig](https://pkg.go.dev/k8s.io/api/core/v1#PodDNSConfig)   |        |
 | podDndPolicy | [corev1.DNSPolicy](https://pkg.go.dev/k8s.io/api/core/v1#DNSPolicy) |         |
