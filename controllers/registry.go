@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"reflect"
 	"regexp"
 	"strings"
@@ -225,7 +226,7 @@ func (r *VeleroReconciler) ReconcileRegistries(log logr.Logger) (bool, error) {
 func (r *VeleroReconciler) buildRegistryDeployment(registryDeployment *appsv1.Deployment, bsl *velerov1.BackupStorageLocation, velero *oadpv1alpha1.Velero) error {
 
 	// Build registry container
-	registryContainer, err := r.buildRegistryContainer(bsl)
+	registryContainer, err := r.buildRegistryContainer(bsl, velero)
 	if err != nil {
 		return err
 	}
@@ -287,7 +288,17 @@ func registryName(bsl *velerov1.BackupStorageLocation) string {
 	return "oadp-" + bsl.Name + "-" + bsl.Spec.Provider + "-registry"
 }
 
-func (r *VeleroReconciler) buildRegistryContainer(bsl *velerov1.BackupStorageLocation) ([]corev1.Container, error) {
+func getRegistryImage(velero *oadpv1alpha1.Velero) string {
+	if velero.Spec.UnsupportedOverrides[oadpv1alpha1.RegistryImageKey] != "" {
+		return velero.Spec.UnsupportedOverrides[oadpv1alpha1.RegistryImageKey]
+	}
+	if os.Getenv("VELERO_REGISTRY_REPO") == "" {
+		return common.RegistryImage
+	}
+	return fmt.Sprintf("%v/%v/%v:%v", os.Getenv("REGISTRY"), os.Getenv("PROJECT"), os.Getenv("VELERO_REGISTRY_REPO"), os.Getenv("VELERO_REGISTRY_TAG"))
+}
+
+func (r *VeleroReconciler) buildRegistryContainer(bsl *velerov1.BackupStorageLocation, velero *oadpv1alpha1.Velero) ([]corev1.Container, error) {
 	envVars, err := r.getRegistryEnvVars(bsl)
 	if err != nil {
 		r.Log.Info(fmt.Sprintf("Error building registry container for backupstoragelocation %s/%s, could not fetch registry env vars", bsl.Namespace, bsl.Name))
@@ -295,7 +306,7 @@ func (r *VeleroReconciler) buildRegistryContainer(bsl *velerov1.BackupStorageLoc
 	}
 	containers := []corev1.Container{
 		{
-			Image: common.RegistryImage,
+			Image: getRegistryImage(velero),
 			Name:  registryName(bsl) + "-container",
 			Ports: []corev1.ContainerPort{
 				{
