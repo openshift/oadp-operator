@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"context"
+	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/common/log"
@@ -26,7 +27,78 @@ var (
 	},
 		[]string{"phase"},
 	)
+
+	oadpGauge = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "oadp_app_instances",
+		Help: "Count of OADP instances sorted by status",
+	},
+		[]string{"status"},
+	)
 )
+
+func recordOADPMetrics(client client.Client) {
+	const (
+		// OADP CR status
+		Upgradeable = "Upgradeable"
+		Progressing = "Progressing"
+		Available   = "Available"
+		Degraded    = "Degraded"
+	)
+
+	go func() {
+		time.Sleep(10 * time.Second)
+
+		for {
+			// get all OADP Velero CRs
+			veleroCRs := oadpv1alpha1.VeleroList{}
+			err := client.List(context.TODO(), &veleroCRs)
+
+			// retry if errored
+			if err != nil {
+				log.Info("Metrics veleroCRs list error: " + err.Error())
+				continue
+			}
+
+			// Holding counters to make gauge update atomic
+			var oadpUpgradeable, oadpProgressing, oadpAvailable, oadpDegraded float64
+
+			// for all OADP Velero CRs, count # in each phase
+			// TODO: Remove Conditions[0] and loop through the list and check for the type and true status
+			for _, v := range veleroCRs.Items {
+				if v.Status.Conditions[0].Type == Upgradeable && v.Status.Conditions[0].Status == "True" {
+					oadpUpgradeable++
+					continue
+				}
+
+				if v.Status.Conditions[0].Type == Progressing && v.Status.Conditions[0].Status == "True" {
+					oadpProgressing++
+					continue
+				}
+
+				if v.Status.Conditions[0].Type == Available && v.Status.Conditions[0].Status == "True" {
+					oadpAvailable++
+					continue
+				}
+
+				if v.Status.Conditions[0].Type == Degraded && v.Status.Conditions[0].Status == "True" {
+					oadpDegraded++
+					continue
+				}
+			}
+
+			oadpGauge.With(
+				prometheus.Labels{"status": Upgradeable}).Set(oadpUpgradeable)
+			oadpGauge.With(
+				prometheus.Labels{"status": Progressing}).Set(oadpProgressing)
+			oadpGauge.With(
+				prometheus.Labels{"status": Available}).Set(oadpAvailable)
+			oadpGauge.With(
+				prometheus.Labels{"status": Degraded}).Set(oadpDegraded)
+
+		}
+
+	}()
+}
 
 func recordBackupMetrics(client client.Client) {
 
