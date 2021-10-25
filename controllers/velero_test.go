@@ -1087,3 +1087,120 @@ func Test_removeDuplicateValues(t *testing.T) {
 		})
 	}
 }
+
+func Test_validateVeleroPlugins(t *testing.T) {
+	tests := []struct {
+		name    string
+		velero  *oadpv1alpha1.Velero
+		secret  *corev1.Secret
+		wantErr bool
+		want    bool
+	}{
+
+		{
+			name: "given valid Velero default plugin, default secret gets mounted as volume mounts",
+			velero: &oadpv1alpha1.Velero{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-Velero-CR",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.VeleroSpec{
+					DefaultVeleroPlugins: []oadpv1alpha1.DefaultPlugin{
+						oadpv1alpha1.DefaultPluginAWS,
+					},
+				},
+			},
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cloud-credentials",
+					Namespace: "test-ns",
+				},
+			},
+			wantErr: false,
+			want:    true,
+		},
+		{
+			name: "given valid Velero default plugin that is not a cloud provider, no secrets get mounted",
+			velero: &oadpv1alpha1.Velero{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-Velero-CR",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.VeleroSpec{
+					DefaultVeleroPlugins: []oadpv1alpha1.DefaultPlugin{
+						oadpv1alpha1.DefaultPluginOpenShift,
+					},
+				},
+			},
+			secret:  &corev1.Secret{},
+			wantErr: false,
+			want:    true,
+		},
+		{
+			name: "given valid multiple Velero default plugins, default secrets gets mounted for each plugin if applicable",
+			velero: &oadpv1alpha1.Velero{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-Velero-CR",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.VeleroSpec{
+					DefaultVeleroPlugins: []oadpv1alpha1.DefaultPlugin{
+						oadpv1alpha1.DefaultPluginAWS,
+						oadpv1alpha1.DefaultPluginOpenShift,
+					},
+				},
+			},
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cloud-credentials",
+					Namespace: "test-ns",
+				},
+			},
+			wantErr: false,
+			want:    true,
+		},
+		{
+			name: "given invalid Velero secret, the validplugin check fails",
+			velero: &oadpv1alpha1.Velero{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-Velero-CR",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.VeleroSpec{
+					DefaultVeleroPlugins: []oadpv1alpha1.DefaultPlugin{
+						oadpv1alpha1.DefaultPluginAWS,
+					},
+				},
+			},
+			secret:  &corev1.Secret{},
+			wantErr: true,
+			want:    false,
+		},
+	}
+	for _, tt := range tests {
+		fakeClient, err := getFakeClientFromObjects(tt.velero, tt.secret)
+		if err != nil {
+			t.Errorf("error in creating fake client, likely programmer error")
+		}
+		r := &VeleroReconciler{
+			Client:  fakeClient,
+			Scheme:  fakeClient.Scheme(),
+			Log:     logr.Discard(),
+			Context: newContextForTest(tt.name),
+			NamespacedName: types.NamespacedName{
+				Namespace: tt.velero.Namespace,
+				Name:      tt.velero.Name,
+			},
+			EventRecorder: record.NewFakeRecorder(10),
+		}
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := r.ValidateVeleroPlugins(r.Log)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ValidateVeleroPlugins() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if !reflect.DeepEqual(result, tt.want) {
+				t.Errorf("ValidateVeleroPlugins() = %v, want %v", result, tt.want)
+			}
+		})
+	}
+}
