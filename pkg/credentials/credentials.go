@@ -155,14 +155,6 @@ func AppendCloudProviderVolumes(velero *oadpv1alpha1.Velero, ds *appsv1.DaemonSe
 			// default secret name
 			secretName := cloudProviderMap.SecretName
 
-			// check if secret name is specified in BSL config and use it instead of the default one; Note: assuming one BSL per provider
-			for _, bsl := range velero.Spec.BackupStorageLocations {
-				if bsl.Provider == string(plugin) && bsl.Credential != nil && len(bsl.Credential.Name) > 0 {
-					secretName = bsl.Credential.Name
-					continue
-				}
-			}
-
 			ds.Spec.Template.Spec.Volumes = append(
 				ds.Spec.Template.Spec.Volumes,
 				corev1.Volume{
@@ -221,15 +213,6 @@ func AppendPluginSpecificSpecs(velero *oadpv1alpha1.Velero, veleroDeployment *ap
 			}
 			// set default secret name to use
 			secretName := pluginSpecificMap.SecretName
-			// Grab secret name from BSL for this cloud provider plugin
-			for _, bsl := range velero.Spec.BackupStorageLocations {
-				if bsl.Provider == string(plugin) {
-					if bsl.Credential != nil && len(bsl.Credential.Name) > 0 {
-						secretName = bsl.Credential.Name
-					}
-					continue
-				}
-			}
 			// append plugin specific volume mounts
 			if veleroContainer != nil {
 				veleroContainer.VolumeMounts = append(

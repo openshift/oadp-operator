@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"context"
+
 	routev1 "github.com/openshift/api/route/v1"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 
@@ -73,13 +74,15 @@ func (r *VeleroReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	// Set reconciler context + name
 	r.Context = ctx
 	r.NamespacedName = req.NamespacedName
-
 	velero := oadpv1alpha1.Velero{}
+
 	if err := r.Get(ctx, req.NamespacedName, &velero); err != nil {
 		log.Error(err, "unable to fetch velero CR")
 		return result, client.IgnoreNotFound(err)
 	}
+
 	_, err := ReconcileBatch(r.Log,
+		r.ValidateVeleroPlugins,
 		r.ReconcileVeleroSecurityContextConstraint,
 		r.ReconcileResticRestoreHelperConfig,
 		r.ValidateBackupStorageLocations,
@@ -103,6 +106,7 @@ func (r *VeleroReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 				Message: err.Error(),
 			},
 		)
+
 	} else {
 		apimeta.SetStatusCondition(&velero.Status.Conditions,
 			metav1.Condition{
