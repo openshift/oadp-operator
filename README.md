@@ -14,7 +14,7 @@ OADP is OpenShift API for Data Protection operator. This operator sets up and in
 - Access to OpenShift cluster
 
 
-***
+*** 
 ## Getting started with basic install (OLM/OperatorHub)
 ***
 
