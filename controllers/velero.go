@@ -540,22 +540,16 @@ func (r *VeleroReconciler) ValidateVeleroPlugins(log logr.Logger) (bool, error) 
 		return false, err
 	}
 
-	secretName := ""
 	var defaultPlugin oadpv1alpha1.DefaultPlugin
 	for _, plugin := range velero.Spec.DefaultVeleroPlugins {
 		if pluginSpecificMap, ok := credentials.PluginSpecificFields[plugin]; ok && pluginSpecificMap.IsCloudProvider {
-			secretName = pluginSpecificMap.SecretName
-			break
+			secretName := pluginSpecificMap.SecretName
+			_, err := r.getProviderSecret(secretName)
+			if err != nil {
+				r.Log.Info(fmt.Sprintf("error validating %s provider secret:  %s/%s", defaultPlugin, r.NamespacedName.Namespace, secretName))
+				return false, err
+			}
 		}
-	}
-
-	if secretName != "" {
-		_, err := r.getProviderSecret(secretName)
-		if err != nil {
-			r.Log.Info(fmt.Sprintf("error validating %s provider secret:  %s/%s", defaultPlugin, r.NamespacedName.Namespace, secretName))
-			return false, err
-		}
-
 	}
 	return true, nil
 }
