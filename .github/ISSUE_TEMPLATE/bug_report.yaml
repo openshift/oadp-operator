@@ -39,6 +39,7 @@ body:
       label: OADP Version
       description: What version of our software are you running?
       options:
+        - 0.4.x (Beta)
         - 0.3.x (Beta)
         - 0.2.x (Alpha)
     validations:
