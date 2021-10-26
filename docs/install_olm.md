@@ -81,7 +81,7 @@ spec:
 ### Verify install
 
 To verify all of the correct resources have been created, the following command
-`oc get all -n oadp-operator` should look similar to:
+`oc get all -n openshift-adp` should look similar to:
 
 ```
 NAME                                                     READY   STATUS    RESTARTS   AGE

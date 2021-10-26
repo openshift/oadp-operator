@@ -18,11 +18,11 @@ to `oadp.openshift.io/v1alpha1`.
     the old CRD, or run `oc get velero.oadp.openshift.io`
       - For example: 
       ```
-    ❯ oc get velero.oadp.openshift.io -n oadp-operator-system
+    ❯ oc get velero.oadp.openshift.io -n openshift-adp
       NAME             AGE
       example-velero   94s
 
-      ❯ oc get velero -n oadp-operator-system
+      ❯ oc get velero -n openshift-adp
       No resources found in oadp-operator-system namespace.
       ```
 
