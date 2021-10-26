@@ -104,6 +104,95 @@ func (r *VeleroReconciler) buildServiceMonitor(serviceMonitor *monitor.ServiceMo
 	return nil
 }
 
+func (r *VeleroReconciler) ReconcileVeleroServiceMonitor(log logr.Logger) (bool, error) {
+
+	velero := oadpv1alpha1.Velero{}
+	if err := r.Get(r.Context, r.NamespacedName, &velero); err != nil {
+		return false, err
+	}
+
+	serviceMonitor := &monitor.ServiceMonitor{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "openshift-adp-velero-monitor",
+			Namespace: r.NamespacedName.Namespace,
+		},
+	}
+
+	op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, serviceMonitor, func() error {
+
+		if serviceMonitor.ObjectMeta.CreationTimestamp.IsZero() {
+			serviceMonitor.Spec.Selector = metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"k8s-app":                         "openshift-adp",
+				},
+			}
+		}
+
+		// update service monitor
+		return r.buildVeleroServiceMonitor(serviceMonitor, &velero)
+	})
+
+	if err != nil {
+		return false, err
+	}
+
+	//TODO: Review service monitor status and report errors and conditions
+
+	if op == controllerutil.OperationResultCreated || op == controllerutil.OperationResultUpdated {
+		// Trigger event to indicate service monitor was created or updated
+		r.EventRecorder.Event(serviceMonitor,
+			corev1.EventTypeNormal,
+			"VeleroServiceMonitorReconciled",
+			fmt.Sprintf("performed %s on velero service monitor %s/%s", op, serviceMonitor.Namespace, serviceMonitor.Name),
+		)
+	}
+	return true, nil
+}
+
+func (r *VeleroReconciler) buildVeleroServiceMonitor(serviceMonitor *monitor.ServiceMonitor, velero *oadpv1alpha1.Velero) error {
+
+	if velero == nil {
+		return fmt.Errorf("velero CR cannot be nil")
+	}
+
+	if serviceMonitor == nil {
+		return fmt.Errorf("service monitor cannot be nil")
+	}
+
+	// Setting controller owner reference on the service monitor
+	err := controllerutil.SetControllerReference(velero, serviceMonitor, r.Scheme)
+	if err != nil {
+		return err
+	}
+
+	serviceMonitor.Spec.Selector = metav1.LabelSelector{
+		MatchLabels: map[string]string{
+			"k8s-app":                          "openshift-adp",
+		},
+	}
+
+	serviceMonitor.Labels = map[string]string{
+		"k8s-app":                          "openshift-adp-velero-monitor",
+	}
+
+	serviceMonitor.Spec.Endpoints = []monitor.Endpoint{
+		{
+			Interval: "30s",
+			Port:     "monitoring",
+		},
+	}
+
+	//serviceMonitor.Spec.JobLabel = "app"
+
+	serviceMonitor.Spec.NamespaceSelector = monitor.NamespaceSelector{
+		MatchNames: []string{
+			velero.Namespace,
+		},
+	}
+
+	return nil
+}
+
 func (r *VeleroReconciler) ReconcileMetricsSVC(log logr.Logger) (bool, error) {
 	velero := oadpv1alpha1.Velero{}
 	if err := r.Get(r.Context, r.NamespacedName, &velero); err != nil {
@@ -172,6 +261,71 @@ func (r *VeleroReconciler) updateMetricsSVC(svc *corev1.Service, velero *oadpv1a
 	svc.Labels = map[string]string{
 		oadpv1alpha1.OadpOperatorLabel: "true",
 		"app":                          "oadp-operator",
+	}
+	return nil
+}
+
+func (r *VeleroReconciler) ReconcileVeleroMetricsSVC(log logr.Logger) (bool, error) {
+	velero := oadpv1alpha1.Velero{}
+	if err := r.Get(r.Context, r.NamespacedName, &velero); err != nil {
+		return false, err
+	}
+
+	svc := corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      r.NamespacedName.Name,
+			Namespace: r.NamespacedName.Namespace,
+		},
+	}
+
+	// Create SVC
+	op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, &svc, func() error {
+		// TODO: check for svc status condition errors and respond here
+		err := r.updateVeleroMetricsSVC(&svc, &velero)
+
+		return err
+	})
+	if err != nil {
+		return false, err
+	}
+	if op == controllerutil.OperationResultCreated || op == controllerutil.OperationResultUpdated {
+		// Trigger event to indicate SVC was created or updated
+		r.EventRecorder.Event(&svc,
+			corev1.EventTypeNormal,
+			"VeleroMetricsServiceReconciled",
+			fmt.Sprintf("performed %s on velero metrics service %s/%s", op, svc.Namespace, svc.Name),
+		)
+	}
+
+	return true, nil
+}
+
+func (r *VeleroReconciler) updateVeleroMetricsSVC(svc *corev1.Service, velero *oadpv1alpha1.Velero) error {
+	// Setting controller owner reference on the metrics svc
+	err := controllerutil.SetControllerReference(velero, svc, r.Scheme)
+	if err != nil {
+		return err
+	}
+
+	// when updating the spec fields we update each field individually
+	// to get around the immutable fields
+	svc.Spec.Selector = map[string]string{
+		"k8s-app":                "openshift-adp",
+	}
+
+	svc.Spec.Type = corev1.ServiceTypeClusterIP
+	svc.Spec.Ports = []corev1.ServicePort{
+		{
+			Name:     "monitoring",
+			Port:     int32(8085),
+			TargetPort: intstr.IntOrString{
+				IntVal: int32(8085),
+			},
+		},
+	}
+
+	svc.Labels = map[string]string{
+		"k8s-app":                          "openshift-adp",
 	}
 	return nil
 }
