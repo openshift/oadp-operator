@@ -80,7 +80,7 @@ func (r *VeleroReconciler) ReconcileResticDaemonset(log logr.Logger) (bool, erro
 			if errors.IsNotFound(err) {
 				return true, nil
 			}
-			return false, err
+			return true, err
 		}
 		// no errors means there already is an existing DaeMonset.
 		// TODO: Check if restic is in use, a backup is running, so don't blindly delete restic.
@@ -89,7 +89,7 @@ func (r *VeleroReconciler) ReconcileResticDaemonset(log logr.Logger) (bool, erro
 		if err := r.Delete(deleteContext, ds, &client.DeleteOptions{PropagationPolicy: &deleteOptionPropagationForeground}); err != nil {
 			// TODO: Come back and fix event recording to be consistent
 			r.EventRecorder.Event(ds, corev1.EventTypeNormal, "DeleteDaemonSetFailed", "Got DaemonSet to delete but could not delete err:"+err.Error())
-			return false, err
+			return true, err
 		}
 		r.EventRecorder.Event(ds, corev1.EventTypeNormal, "DeletedDaemonSet", "DaemonSet deleted")
 
@@ -114,9 +114,10 @@ func (r *VeleroReconciler) ReconcileResticDaemonset(log logr.Logger) (bool, erro
 	})
 
 	if err != nil {
-		return false, err
+		return true, err
 	}
 
+	progressing := false
 	if op == controllerutil.OperationResultCreated || op == controllerutil.OperationResultUpdated {
 		// Trigger event to indicate restic was created or updated
 		r.EventRecorder.Event(ds,
@@ -124,9 +125,10 @@ func (r *VeleroReconciler) ReconcileResticDaemonset(log logr.Logger) (bool, erro
 			"ResticDaemonsetReconciled",
 			fmt.Sprintf("performed %s on restic deployment %s/%s", op, ds.Namespace, ds.Name),
 		)
+		progressing = true
 	}
 
-	return true, nil
+	return progressing, nil
 }
 
 /**
@@ -268,6 +270,7 @@ func (r *VeleroReconciler) ReconcileResticRestoreHelperConfig(log logr.Logger) (
 
 	//TODO: Review Restic Restore Helper CM status and report errors and conditions
 
+	progressing := false
 	if op == controllerutil.OperationResultCreated || op == controllerutil.OperationResultUpdated {
 		// Trigger event to indicate Restic Restore Helper CM was created or updated
 		r.EventRecorder.Event(&resticRestoreHelperCM,
@@ -275,8 +278,9 @@ func (r *VeleroReconciler) ReconcileResticRestoreHelperConfig(log logr.Logger) (
 			"ReconcileResticRestoreHelperConfigReconciled",
 			fmt.Sprintf("performed %s on restic restore Helper config map %s/%s", op, resticRestoreHelperCM.Namespace, resticRestoreHelperCM.Name),
 		)
+		progressing = true
 	}
-	return true, nil
+	return progressing, nil
 }
 
 func (r *VeleroReconciler) updateResticRestoreHelperCM(resticRestoreHelperCM *corev1.ConfigMap, velero *oadpv1alpha1.Velero) error {

@@ -60,7 +60,7 @@ func (r *VeleroReconciler) ValidateBackupStorageLocations(log logr.Logger) (bool
 
 	// TODO: Discuss If multiple BSLs exist, ensure we have multiple credentials
 
-	return true, nil
+	return false, nil
 }
 
 func (r *VeleroReconciler) ReconcileBackupStorageLocations(log logr.Logger) (bool, error) {
@@ -68,6 +68,7 @@ func (r *VeleroReconciler) ReconcileBackupStorageLocations(log logr.Logger) (boo
 	if err := r.Get(r.Context, r.NamespacedName, &velero); err != nil {
 		return false, err
 	}
+	progressing := false
 	// Loop through all configured BSLs
 	for i, bslSpec := range velero.Spec.BackupStorageLocations {
 		// Create BSL as is, we can safely assume they are valid from
@@ -92,7 +93,7 @@ func (r *VeleroReconciler) ReconcileBackupStorageLocations(log logr.Logger) (boo
 			return err
 		})
 		if err != nil {
-			return false, err
+			return true, err
 		}
 		if op == controllerutil.OperationResultCreated || op == controllerutil.OperationResultUpdated {
 			// Trigger event to indicate BSL was created or updated
@@ -101,9 +102,10 @@ func (r *VeleroReconciler) ReconcileBackupStorageLocations(log logr.Logger) (boo
 				"BackupStorageLocationReconciled",
 				fmt.Sprintf("performed %s on backupstoragelocation %s/%s", op, bsl.Namespace, bsl.Name),
 			)
+			progressing = true
 		}
 	}
-	return true, nil
+	return progressing, nil
 }
 
 func (r *VeleroReconciler) updateBSLFromSpec(bsl *velerov1.BackupStorageLocation, velero *oadpv1alpha1.Velero, bslSpec velerov1.BackupStorageLocationSpec) error {

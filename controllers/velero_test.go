@@ -1122,7 +1122,7 @@ func Test_validateVeleroPlugins(t *testing.T) {
 				},
 			},
 			wantErr: false,
-			want:    true,
+			want:    false,
 		},
 		{
 			name: "given valid Velero default plugin that is not a cloud provider, no secrets get mounted",
@@ -1139,7 +1139,7 @@ func Test_validateVeleroPlugins(t *testing.T) {
 			},
 			secret:  &corev1.Secret{},
 			wantErr: false,
-			want:    true,
+			want:    false,
 		},
 		{
 			name: "given valid multiple Velero default plugins, default secrets gets mounted for each plugin if applicable",
@@ -1162,7 +1162,7 @@ func Test_validateVeleroPlugins(t *testing.T) {
 				},
 			},
 			wantErr: false,
-			want:    true,
+			want:    false,
 		},
 		{
 			name: "given invalid Velero secret, the validplugin check fails",

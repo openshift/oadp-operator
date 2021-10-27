@@ -228,6 +228,7 @@ func (r *VeleroReconciler) ReconcileVeleroSecurityContextConstraint(log logr.Log
 
 	//TODO: Review velero SCC status and report errors and conditions
 
+	progressing := false
 	if op == controllerutil.OperationResultCreated || op == controllerutil.OperationResultUpdated {
 		// Trigger event to indicate velero SCC was created or updated
 		r.EventRecorder.Event(veleroSCC,
@@ -235,8 +236,9 @@ func (r *VeleroReconciler) ReconcileVeleroSecurityContextConstraint(log logr.Log
 			"VeleroSecurityContextConstraintsReconciled",
 			fmt.Sprintf("performed %s on velero scc %s", op, veleroSCC.Name),
 		)
+		progressing = true
 	}
-	return true, nil
+	return progressing, nil
 }
 
 func (r *VeleroReconciler) ReconcileVeleroDeployment(log logr.Logger) (bool, error) {
@@ -269,11 +271,12 @@ func (r *VeleroReconciler) ReconcileVeleroDeployment(log logr.Logger) (bool, err
 	})
 
 	if err != nil {
-		return false, err
+		return true, err
 	}
 
 	//TODO: Review velero deployment status and report errors and conditions
 
+	progressing := false
 	if op == controllerutil.OperationResultCreated || op == controllerutil.OperationResultUpdated {
 		// Trigger event to indicate velero deployment was created or updated
 		r.EventRecorder.Event(veleroDeployment,
@@ -281,8 +284,9 @@ func (r *VeleroReconciler) ReconcileVeleroDeployment(log logr.Logger) (bool, err
 			"VeleroDeploymentReconciled",
 			fmt.Sprintf("performed %s on velero deployment %s/%s", op, veleroDeployment.Namespace, veleroDeployment.Name),
 		)
+		progressing = true
 	}
-	return true, nil
+	return progressing, nil
 }
 
 func (r *VeleroReconciler) veleroServiceAccount(velero *oadpv1alpha1.Velero) (*corev1.ServiceAccount, error) {
@@ -552,5 +556,5 @@ func (r *VeleroReconciler) ValidateVeleroPlugins(log logr.Logger) (bool, error) 
 			}
 		}
 	}
-	return true, nil
+	return false, nil
 }

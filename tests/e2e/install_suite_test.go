@@ -224,8 +224,8 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 		Entry("NoDefaultBackupLocation", InstallCase{
 			Name: "default-cr-node-selector",
 			VeleroSpec: &oadpv1alpha1.VeleroSpec{
-				EnableRestic: pointer.Bool(true),
-				BackupStorageLocations: []velero.BackupStorageLocationSpec{},
+				EnableRestic:            pointer.Bool(true),
+				BackupStorageLocations:  []velero.BackupStorageLocationSpec{},
 				NoDefaultBackupLocation: true,
 				DefaultVeleroPlugins: []oadpv1alpha1.DefaultPlugin{
 					oadpv1alpha1.DefaultPluginOpenShift,

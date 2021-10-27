@@ -29,7 +29,7 @@ func TestVeleroReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 				},
 				Spec: oadpv1alpha1.VeleroSpec{},
 			},
-			want:    true,
+			want:    false,
 			wantErr: false,
 			secret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
@@ -58,7 +58,7 @@ func TestVeleroReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 					},
 				},
 			},
-			want:    true,
+			want:    false,
 			wantErr: false,
 			secret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
@@ -110,7 +110,7 @@ func TestVeleroReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 					},
 				},
 			},
-			want:    true,
+			want:    false,
 			wantErr: false,
 			secret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
@@ -164,7 +164,7 @@ func TestVeleroReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 					},
 				},
 			},
-			want:    true,
+			want:    false,
 			wantErr: false,
 			secret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
@@ -191,7 +191,7 @@ func TestVeleroReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 					},
 				},
 			},
-			want:    true,
+			want:    false,
 			wantErr: false,
 			secret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
@@ -218,7 +218,7 @@ func TestVeleroReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 					},
 				},
 			},
-			want:    true,
+			want:    false,
 			wantErr: false,
 			secret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
@@ -271,7 +271,7 @@ func TestVeleroReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 					},
 				},
 			},
-			want:    true,
+			want:    false,
 			wantErr: false,
 			secret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
@@ -298,7 +298,7 @@ func TestVeleroReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 					},
 				},
 			},
-			want:    true,
+			want:    false,
 			wantErr: false,
 			secret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
@@ -325,7 +325,7 @@ func TestVeleroReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 					},
 				},
 			},
-			want:    true,
+			want:    false,
 			wantErr: false,
 			secret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
@@ -352,7 +352,7 @@ func TestVeleroReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 					},
 				},
 			},
-			want:    true,
+			want:    false,
 			wantErr: false,
 			secret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
@@ -379,7 +379,7 @@ func TestVeleroReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 					},
 				},
 			},
-			want:    true,
+			want:    false,
 			wantErr: false,
 			secret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{

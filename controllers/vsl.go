@@ -138,7 +138,7 @@ func (r *VeleroReconciler) ValidateVolumeSnapshotLocations(log logr.Logger) (boo
 			}
 		}
 	}
-	return true, nil
+	return false, nil
 }
 
 func (r *VeleroReconciler) ReconcileVolumeSnapshotLocations(log logr.Logger) (bool, error) {
@@ -147,6 +147,7 @@ func (r *VeleroReconciler) ReconcileVolumeSnapshotLocations(log logr.Logger) (bo
 		return false, err
 	}
 
+	progressing := false
 	// Loop through all configured VSLs
 	for i, vslSpec := range velero.Spec.VolumeSnapshotLocations {
 		// Create VSL as is, we can safely assume they are valid from
@@ -176,7 +177,7 @@ func (r *VeleroReconciler) ReconcileVolumeSnapshotLocations(log logr.Logger) (bo
 			return nil
 		})
 		if err != nil {
-			return false, err
+			return true, err
 		}
 		if op == controllerutil.OperationResultCreated || op == controllerutil.OperationResultUpdated {
 			// Trigger event to indicate VSL was created or updated
@@ -185,10 +186,11 @@ func (r *VeleroReconciler) ReconcileVolumeSnapshotLocations(log logr.Logger) (bo
 				"VolumeSnapshotLocationReconciled",
 				fmt.Sprintf("performed %s on volumesnapshotlocation %s/%s", op, vsl.Namespace, vsl.Name),
 			)
+			progressing = true
 		}
 
 	}
-	return true, nil
+	return progressing, nil
 }
 
 func containsPlugin(d []oadpv1alpha1.DefaultPlugin, value string) bool {

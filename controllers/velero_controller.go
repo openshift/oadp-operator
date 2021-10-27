@@ -81,7 +81,7 @@ func (r *VeleroReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return result, client.IgnoreNotFound(err)
 	}
 
-	_, err := ReconcileBatch(r.Log,
+	progressing, err := ReconcileBatch(r.Log,
 		r.ValidateVeleroPlugins,
 		r.ReconcileVeleroSecurityContextConstraint,
 		r.ReconcileResticRestoreHelperConfig,
@@ -97,7 +97,13 @@ func (r *VeleroReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		r.ReconcileResticDaemonset,
 	)
 
+	// TODO!!!
+	// We need to remove this condition and add separate health checks for
+	// available/degraded conditions to be set
 	if err != nil {
+		// TODO:
+		// Fire an error event and set the appropiate status condition
+		// based on error type
 		apimeta.SetStatusCondition(&velero.Status.Conditions,
 			metav1.Condition{
 				Type:    oadpv1alpha1.ConditionReconciled,
@@ -117,12 +123,31 @@ func (r *VeleroReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 			},
 		)
 	}
+	if progressing {
+		apimeta.SetStatusCondition(&velero.Status.Conditions,
+			metav1.Condition{
+				Type:    oadpv1alpha1.ConditionProgressing,
+				Status:  metav1.ConditionTrue,
+				Reason:  oadpv1alpha1.ReconcilingReasonInProgress,
+				Message: oadpv1alpha1.ReconcileInProgressMessage,
+			},
+		)
+	} else {
+		apimeta.SetStatusCondition(&velero.Status.Conditions,
+			metav1.Condition{
+				Type:    oadpv1alpha1.ConditionProgressing,
+				Status:  metav1.ConditionFalse,
+				Reason:  oadpv1alpha1.ReconcilingReasonDone,
+				Message: oadpv1alpha1.ReconcileProgressingDoneMessage,
+			},
+		)
+	}
 	statusErr := r.Client.Status().Update(ctx, &velero)
 	if err == nil { // Don't mask previous error
 		err = statusErr
 	}
 
-	return ctrl.Result{}, err
+	return result, err
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -147,10 +172,15 @@ type ReconcileFunc func(logr.Logger) (bool, error)
 // reconcileBatch steps through a list of reconcile functions until one returns
 // false or an error.
 func ReconcileBatch(l logr.Logger, reconcileFuncs ...ReconcileFunc) (bool, error) {
+	ret := false
 	for _, f := range reconcileFuncs {
-		if cont, err := f(l); !cont || err != nil {
+		cont, err := f(l)
+		if err != nil {
 			return cont, err
 		}
+		if cont {
+			ret = true
+		}
 	}
-	return true, nil
+	return ret, nil
 }

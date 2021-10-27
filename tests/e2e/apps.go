@@ -102,7 +102,7 @@ func areApplicationPodsRunning(namespace string) wait.ConditionFunc {
 					if len(condition.Message) > 0 {
 						ginkgo.GinkgoWriter.Write([]byte(fmt.Sprintf("Pod not running with condition: %s\n", condition.Message)))
 					}
-				}				
+				}
 				return false, nil
 			}
 		}

@@ -80,7 +80,7 @@ func TestVeleroReconciler_ValidateBackupStorageLocations(t *testing.T) {
 					NoDefaultBackupLocation: true,
 				},
 			},
-			want:    true,
+			want:    false,
 			wantErr: false,
 			secret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
@@ -373,7 +373,7 @@ func TestVeleroReconciler_ValidateBackupStorageLocations(t *testing.T) {
 					},
 				},
 			},
-			want:    true,
+			want:    false,
 			wantErr: false,
 			secret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
@@ -518,7 +518,7 @@ func TestVeleroReconciler_ValidateBackupStorageLocations(t *testing.T) {
 					},
 				},
 			},
-			want:    true,
+			want:    false,
 			wantErr: false,
 			secret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
@@ -697,7 +697,7 @@ func TestVeleroReconciler_ValidateBackupStorageLocations(t *testing.T) {
 					},
 				},
 			},
-			want:    true,
+			want:    false,
 			wantErr: false,
 			secret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{

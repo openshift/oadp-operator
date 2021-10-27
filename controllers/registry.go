@@ -151,6 +151,8 @@ func (r *VeleroReconciler) ReconcileRegistries(log logr.Logger) (bool, error) {
 		return false, err
 	}
 
+	progressing := false
+
 	// Loop through all the configured BSLs and create registry for each of them
 	for _, bsl := range backupStorageLocationList.Items {
 		registryDeployment := &appsv1.Deployment{
@@ -167,7 +169,7 @@ func (r *VeleroReconciler) ReconcileRegistries(log logr.Logger) (bool, error) {
 				Namespace: r.NamespacedName.Namespace,
 			}, registryDeployment); err != nil {
 				if k8serror.IsNotFound(err) {
-					return true, nil
+					return false, nil
 				}
 				return false, err
 			}
@@ -175,7 +177,7 @@ func (r *VeleroReconciler) ReconcileRegistries(log logr.Logger) (bool, error) {
 			deleteOptionPropagationForeground := metav1.DeletePropagationForeground
 			if err := r.Delete(deleteContext, registryDeployment, &client.DeleteOptions{PropagationPolicy: &deleteOptionPropagationForeground}); err != nil {
 				r.EventRecorder.Event(registryDeployment, corev1.EventTypeNormal, "DeleteRegistryDeploymentFailed", "Could not delete registry deployment:"+err.Error())
-				return false, err
+				return true, err
 			}
 			r.EventRecorder.Event(registryDeployment, corev1.EventTypeNormal, "DeletedRegistryDeployment", "Registry Deployment deleted")
 
@@ -203,7 +205,7 @@ func (r *VeleroReconciler) ReconcileRegistries(log logr.Logger) (bool, error) {
 		})
 
 		if err != nil {
-			return false, err
+			return true, err
 		}
 
 		//TODO: Review registry deployment status and report errors and conditions
@@ -215,11 +217,12 @@ func (r *VeleroReconciler) ReconcileRegistries(log logr.Logger) (bool, error) {
 				"RegistryDeploymentReconciled",
 				fmt.Sprintf("performed %s on registry deployment %s/%s", op, registryDeployment.Namespace, registryDeployment.Name),
 			)
+			progressing = true
 		}
 
 	}
 
-	return true, nil
+	return progressing, nil
 }
 
 // Construct and update the registry deployment for a bsl
@@ -637,6 +640,7 @@ func (r *VeleroReconciler) ReconcileRegistrySVCs(log logr.Logger) (bool, error) 
 		return false, err
 	}
 
+	progressing := false
 	// Now for each of these bsl instances, create a service
 	if len(bslList.Items) > 0 {
 		for _, bsl := range bslList.Items {
@@ -662,7 +666,7 @@ func (r *VeleroReconciler) ReconcileRegistrySVCs(log logr.Logger) (bool, error) 
 				deleteOptionPropagationForeground := metav1.DeletePropagationForeground
 				if err := r.Delete(deleteContext, &svc, &client.DeleteOptions{PropagationPolicy: &deleteOptionPropagationForeground}); err != nil {
 					r.EventRecorder.Event(&svc, corev1.EventTypeNormal, "DeleteRegistryServiceFailed", "Could not delete registry service:"+err.Error())
-					return false, err
+					return true, err
 				}
 				r.EventRecorder.Event(&svc, corev1.EventTypeNormal, "DeletedRegistryService", "Registry service deleted")
 
@@ -677,7 +681,7 @@ func (r *VeleroReconciler) ReconcileRegistrySVCs(log logr.Logger) (bool, error) 
 				return err
 			})
 			if err != nil {
-				return false, err
+				return true, err
 			}
 			if op == controllerutil.OperationResultCreated || op == controllerutil.OperationResultUpdated {
 				// Trigger event to indicate SVC was created or updated
@@ -686,11 +690,12 @@ func (r *VeleroReconciler) ReconcileRegistrySVCs(log logr.Logger) (bool, error) 
 					"RegistryServicesReconciled",
 					fmt.Sprintf("performed %s on service %s/%s", op, svc.Namespace, svc.Name),
 				)
+				progressing = true
 			}
 		}
 	}
 
-	return true, nil
+	return progressing, nil
 }
 
 func (r *VeleroReconciler) updateRegistrySVC(svc *corev1.Service, bsl *velerov1.BackupStorageLocation, velero *oadpv1alpha1.Velero) error {
@@ -739,6 +744,7 @@ func (r *VeleroReconciler) ReconcileRegistryRoutes(log logr.Logger) (bool, error
 		return false, err
 	}
 
+	progressing := false
 	// Now for each of these bsl instances, create a route
 	if len(bslList.Items) > 0 {
 		for _, bsl := range bslList.Items {
@@ -770,7 +776,7 @@ func (r *VeleroReconciler) ReconcileRegistryRoutes(log logr.Logger) (bool, error
 				deleteOptionPropagationForeground := metav1.DeletePropagationForeground
 				if err := r.Delete(deleteContext, &route, &client.DeleteOptions{PropagationPolicy: &deleteOptionPropagationForeground}); err != nil {
 					r.EventRecorder.Event(&route, corev1.EventTypeNormal, "DeleteRegistryRouteFailed", "Could not delete registry route:"+err.Error())
-					return false, err
+					return true, err
 				}
 				r.EventRecorder.Event(&route, corev1.EventTypeNormal, "DeletedRegistryRoute", "Registry route deleted")
 
@@ -787,7 +793,7 @@ func (r *VeleroReconciler) ReconcileRegistryRoutes(log logr.Logger) (bool, error
 				return err
 			})
 			if err != nil {
-				return false, err
+				return true, err
 			}
 			if op == controllerutil.OperationResultCreated || op == controllerutil.OperationResultUpdated {
 				// Trigger event to indicate route was created or updated
@@ -796,11 +802,12 @@ func (r *VeleroReconciler) ReconcileRegistryRoutes(log logr.Logger) (bool, error
 					"RegistryroutesReconciled",
 					fmt.Sprintf("performed %s on route %s/%s", op, route.Namespace, route.Name),
 				)
+				progressing = true
 			}
 		}
 	}
 
-	return true, nil
+	return progressing, nil
 }
 
 func (r *VeleroReconciler) updateRegistryRoute(route *routev1.Route, bsl *velerov1.BackupStorageLocation, velero *oadpv1alpha1.Velero) error {
@@ -836,6 +843,7 @@ func (r *VeleroReconciler) ReconcileRegistryRouteConfigs(log logr.Logger) (bool,
 		return false, err
 	}
 
+	progressing := false
 	// Now for each of these bsl instances, create a registry route cm for each of them
 	if len(bslList.Items) > 0 {
 		for _, bsl := range bslList.Items {
@@ -855,13 +863,13 @@ func (r *VeleroReconciler) ReconcileRegistryRouteConfigs(log logr.Logger) (bool,
 					if k8serror.IsNotFound(err) {
 						return true, nil
 					}
-					return false, err
+					return true, err
 				}
 
 				deleteOptionPropagationForeground := metav1.DeletePropagationForeground
 				if err := r.Delete(deleteContext, &registryRouteCM, &client.DeleteOptions{PropagationPolicy: &deleteOptionPropagationForeground}); err != nil {
 					r.EventRecorder.Event(&registryRouteCM, corev1.EventTypeNormal, "DeleteRegistryConfigMapFailed", "Could not delete registry configmap:"+err.Error())
-					return false, err
+					return true, err
 				}
 				r.EventRecorder.Event(&registryRouteCM, corev1.EventTypeNormal, "DeletedRegistryConfigMap", "Registry configmap deleted")
 
@@ -876,7 +884,7 @@ func (r *VeleroReconciler) ReconcileRegistryRouteConfigs(log logr.Logger) (bool,
 			})
 
 			if err != nil {
-				return false, err
+				return true, err
 			}
 
 			//TODO: Review Registry Route CM status and report errors and conditions
@@ -888,10 +896,11 @@ func (r *VeleroReconciler) ReconcileRegistryRouteConfigs(log logr.Logger) (bool,
 					"ReconcileRegistryRouteConfigReconciled",
 					fmt.Sprintf("performed %s on registry route config map %s/%s", op, registryRouteCM.Namespace, registryRouteCM.Name),
 				)
+				progressing = true
 			}
 		}
 	}
-	return true, nil
+	return progressing, nil
 }
 
 func (r *VeleroReconciler) updateRegistryConfigMap(registryRouteCM *corev1.ConfigMap, bsl *velerov1.BackupStorageLocation, velero *oadpv1alpha1.Velero) error {

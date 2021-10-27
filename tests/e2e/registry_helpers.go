@@ -22,18 +22,18 @@ func areRegistryDeploymentsAvailable(namespace string) wait.ConditionFunc {
 			LabelSelector: "app.kubernetes.io/component=Registry",
 		}
 		// get pods in the oadp-operator-e2e namespace with label selector
-		deploymentList, err := client.AppsV1().Deployments(namespace).List(context.TODO(),registryListOptions)
+		deploymentList, err := client.AppsV1().Deployments(namespace).List(context.TODO(), registryListOptions)
 		if err != nil {
 			return false, nil
 		}
 		if len(deploymentList.Items) == 0 {
-			return false,  fmt.Errorf("registry deployment is not yet created")
+			return false, fmt.Errorf("registry deployment is not yet created")
 		}
 		// loop until deployment status is 'Running' or timeout
 		for _, deploymentInfo := range deploymentList.Items {
 			for _, conditions := range deploymentInfo.Status.Conditions {
-				if conditions.Type == appsv1.DeploymentAvailable && conditions.Status != corev1.ConditionTrue{
-					return false,  fmt.Errorf("registry deployment is not yet available.\nconditions: %v", deploymentInfo.Status.Conditions)
+				if conditions.Type == appsv1.DeploymentAvailable && conditions.Status != corev1.ConditionTrue {
+					return false, fmt.Errorf("registry deployment is not yet available.\nconditions: %v", deploymentInfo.Status.Conditions)
 				}
 			}
 		}

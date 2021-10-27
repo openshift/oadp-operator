@@ -23,10 +23,25 @@ import (
 )
 
 // Conditions
+const ConditionAvailable = "Available"
+const ConditionDegraded = "Degraded"
+const ConditionProgressing = "Progressing"
+const ConditionUpgradeable = "Upgradeable"
 const ConditionReconciled = "Reconciled"
+
+// Reasons
 const ReconciledReasonComplete = "Complete"
 const ReconciledReasonError = "Error"
+const ReconcilingReasonInProgress = "InProgress"
+const ReconcilingReasonDone = "Done"
+const ReconciledReasonHealthy = "Healthy"
+
+// Messages
 const ReconcileCompleteMessage = "Reconcile complete"
+const ReconcileDegradedMessage = "Operator is in a degraded state"
+const ReconcileHealthyMessage = "Operator is healthy"
+const ReconcileInProgressMessage = "Reconcile of resources in progress"
+const ReconcileProgressingDoneMessage = "Reconcile progression is done"
 
 const OadpOperatorLabel = "openshift.io/oadp"
 
