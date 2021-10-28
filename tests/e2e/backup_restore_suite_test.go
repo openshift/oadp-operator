@@ -1,6 +1,7 @@
 package e2e
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log"
@@ -10,11 +11,15 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
+	routev1 "github.com/openshift/api/route/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var _ = Describe("AWS backup restore tests", func() {
 	var _ = BeforeEach(func() {
+
 		testSuiteInstanceName := "ts-" + instanceName
 		vel.Name = testSuiteInstanceName
 
@@ -64,6 +69,7 @@ var _ = Describe("AWS backup restore tests", func() {
 
 	DescribeTable("backup and restore applications",
 		func(brCase BackupRestoreCase, expectedErr error) {
+
 			if notVersionTarget, reason := NotServerVersionTarget(brCase.MinK8SVersion, brCase.MaxK8SVersion); notVersionTarget {
 				Skip(reason)
 			}
@@ -94,10 +100,10 @@ var _ = Describe("AWS backup restore tests", func() {
 
 			// check if backup succeeded
 			succeeded, err := isBackupCompletedSuccessfully(vel.Client, namespace, backupName)
-			Expect(err).ToNot(HaveOccurred())
-			if !succeeded {
+			if !succeeded || err != nil {
 				Expect(getVeleroContainerFailureLogs(vel.Namespace)).To(Equal([]string{}))
 			}
+			Expect(err).ToNot(HaveOccurred())
 			Expect(succeeded).To(Equal(true))
 			log.Printf("Backup for case %s succeeded", brCase.Name)
 
@@ -117,10 +123,10 @@ var _ = Describe("AWS backup restore tests", func() {
 
 			// Check if restore succeeded
 			succeeded, err = isRestoreCompletedSuccessfully(vel.Client, namespace, restoreName)
-			Expect(err).ToNot(HaveOccurred())
-			if !succeeded {
+			if !succeeded || err != nil {
 				Expect(getVeleroContainerFailureLogs(vel.Namespace)).To(Equal([]string{}))
 			}
+			Expect(err).ToNot(HaveOccurred())
 			Expect(succeeded).To(Equal(true))
 
 			// verify app is running
@@ -141,9 +147,78 @@ var _ = Describe("AWS backup restore tests", func() {
 			ApplicationNamespace: "mssql-persistent",
 			Name:                 "mssql-e2e",
 			PreBackupVerify: VerificationFunction(func(ocClient client.Client, namespace string) error {
+
+				// get mssql app route
+				mssql_route := routev1.Route{
+					TypeMeta: v1.TypeMeta{
+						Kind:       "Route",
+						APIVersion: "route.openshift.io/v1",
+					},
+					ObjectMeta: v1.ObjectMeta{
+						Name:      "mssql-app-route",
+						Namespace: "mssql-persistent",
+					},
+					Spec: routev1.RouteSpec{},
+				}
+
+				err := ocClient.Get(context.Background(), types.NamespacedName{
+					Name:      mssql_route.Name,
+					Namespace: mssql_route.Namespace,
+				}, &mssql_route)
+				if err != nil {
+					return err
+				}
+
+				// get route url
+				url := mssql_route.Spec.Host
+				url = "http://" + url + "/api/Product/"
+
+				Eventually(isAppReady(url), timeoutMultiplier*time.Minute*2, time.Second*5).Should(BeTrue())
+
+				// add data to mssql
+				_, err = postProductData(url, dataToVerify)
+				if err != nil {
+					fmt.Printf("ERROR %v", err)
+				}
 				return nil
 			}),
+
 			PostRestoreVerify: VerificationFunction(func(ocClient client.Client, namespace string) error {
+				// get mssql app route
+				mssql_route := routev1.Route{
+					TypeMeta: v1.TypeMeta{
+						Kind:       "Route",
+						APIVersion: "route.openshift.io/v1",
+					},
+					ObjectMeta: v1.ObjectMeta{
+						Name:      "mssql-app-route",
+						Namespace: "mssql-persistent",
+					},
+					Spec: routev1.RouteSpec{},
+				}
+
+				err := ocClient.Get(context.Background(), types.NamespacedName{
+					Name:      mssql_route.Name,
+					Namespace: mssql_route.Namespace,
+				}, &mssql_route)
+				if err != nil {
+					return err
+				}
+
+				// get route url
+				url := mssql_route.Spec.Host
+				url = "http://" + url + "/api/Product/"
+
+				Eventually(isAppReady(url), timeoutMultiplier*time.Minute*2, time.Second*5).Should(BeTrue())
+
+				// verify previously added data in mssql db exists after delete
+				dataVerified := getProductData(url, dataToVerify["Name"])
+				if dataVerified == true {
+					fmt.Printf("Name has been found in Mssql db: %t\n", dataVerified)
+				} else {
+					fmt.Println("Unable to find name in Mssql db")
+				}
+
 				// This test confirms that SCC restore logic in our plugin is working
 				exists, err := doesSCCExist(ocClient, "mssql-persistent-scc")
 				if err != nil {
@@ -155,6 +230,7 @@ var _ = Describe("AWS backup restore tests", func() {
 				return nil
 			}),
 		}, nil),
+
 		Entry("Parks application <4.8.0", BackupRestoreCase{
 			ApplicationTemplate:  "./sample-applications/parks-app/manifest.yaml",
 			ApplicationNamespace: "parks-app",

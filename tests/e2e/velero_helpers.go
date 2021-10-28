@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	appsv1 "github.com/openshift/api/apps/v1"
+	routev1 "github.com/openshift/api/route/v1"
 	security "github.com/openshift/api/security/v1"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	velero "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
@@ -57,6 +58,14 @@ func (v *veleroCustomResource) Build() error {
 							Bucket: v.Bucket,
 							Prefix: veleroPrefix,
 						},
+					},
+				},
+			},
+			VolumeSnapshotLocations: []velero.VolumeSnapshotLocationSpec{
+				{
+					Provider: v.Provider,
+					Config: map[string]string{
+						"region": v.Region,
 					},
 				},
 			},
@@ -139,12 +148,13 @@ func (v *veleroCustomResource) SetClient() error {
 	velero.AddToScheme(client.Scheme())
 	appsv1.AddToScheme(client.Scheme())
 	security.AddToScheme(client.Scheme())
+	routev1.AddToScheme(client.Scheme())
 
 	v.Client = client
 	return nil
 }
 
-func getVeleroPods (namespace string) (*corev1.PodList, error){
+func getVeleroPods(namespace string) (*corev1.PodList, error) {
 	clientset, err := setUpClient()
 	if err != nil {
 		return nil, err
@@ -204,7 +214,7 @@ func getVeleroContainerLogs(namespace string) (string, error) {
 		}
 		defer podLogs.Close()
 		buf := new(bytes.Buffer)
-		_, err = io.Copy(buf,podLogs)
+		_, err = io.Copy(buf, podLogs)
 		if err != nil {
 			return "", err
 		}
@@ -219,11 +229,11 @@ func getVeleroContainerFailureLogs(namespace string) []string {
 		log.Printf("cannot get velero container logs")
 		return nil
 	}
-	containerLogsArray := strings.Split(containerLogs,"\n")
+	containerLogsArray := strings.Split(containerLogs, "\n")
 	var failureArr = []string{}
 	for i, line := range containerLogsArray {
 		if strings.Contains(line, "level=error") {
-			failureArr = append(failureArr, fmt.Sprintf("velero container error line#%d: " + line + "\n", i))
+			failureArr = append(failureArr, fmt.Sprintf("velero container error line#%d: "+line+"\n", i))
 		}
 	}
 	return failureArr
