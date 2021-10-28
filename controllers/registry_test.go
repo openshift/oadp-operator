@@ -294,7 +294,7 @@ func TestVeleroReconciler_buildRegistryDeployment(t *testing.T) {
 							DNSConfig:     &tt.velero.Spec.PodDnsConfig,
 							Containers: []corev1.Container{
 								{
-									Image: common.RegistryImage,
+									Image: getRegistryImage(tt.velero),
 									Name:  "oadp-" + tt.bsl.Name + "-" + tt.bsl.Spec.Provider + "-registry" + "-container",
 									Ports: []corev1.ContainerPort{
 										{
@@ -383,6 +383,7 @@ func TestVeleroReconciler_buildRegistryContainer(t *testing.T) {
 	tests := []struct {
 		name                  string
 		bsl                   *velerov1.BackupStorageLocation
+		VeleroCR              *oadpv1alpha1.Velero
 		wantRegistryContainer *corev1.Container
 		wantErr               bool
 	}{
@@ -391,6 +392,12 @@ func TestVeleroReconciler_buildRegistryContainer(t *testing.T) {
 			bsl: &velerov1.BackupStorageLocation{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-bsl",
+					Namespace: "test-ns",
+				},
+			},
+			VeleroCR: &oadpv1alpha1.Velero{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "Velero-test-CR",
 					Namespace: "test-ns",
 				},
 			},
@@ -406,7 +413,7 @@ func TestVeleroReconciler_buildRegistryContainer(t *testing.T) {
 				Scheme: scheme,
 			}
 			tt.wantRegistryContainer = &corev1.Container{
-				Image: common.RegistryImage,
+				Image: getRegistryImage(tt.VeleroCR),
 				Name:  "oadp-" + tt.bsl.Name + "-" + tt.bsl.Spec.Provider + "-registry" + "-container",
 				Ports: []corev1.ContainerPort{
 					{
@@ -438,7 +445,7 @@ func TestVeleroReconciler_buildRegistryContainer(t *testing.T) {
 				},
 			}
 
-			gotRegistryContainer, gotErr := r.buildRegistryContainer(tt.bsl)
+			gotRegistryContainer, gotErr := r.buildRegistryContainer(tt.bsl, tt.VeleroCR)
 
 			if (gotErr != nil) != tt.wantErr {
 				t.Errorf("ValidateBackupStorageLocations() gotErr = %v, wantErr %v", gotErr, tt.wantErr)

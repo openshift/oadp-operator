@@ -264,7 +264,6 @@ func (r *VeleroReconciler) ReconcileVeleroDeployment(log logr.Logger) (bool, err
 		if err != nil {
 			return err
 		}
-
 		// update the Deployment template
 		return r.buildVeleroDeployment(veleroDeployment, &velero)
 	})
@@ -531,4 +530,27 @@ func (r *VeleroReconciler) getVeleroResourceReqs(velero *oadpv1alpha1.Velero) co
 	}
 
 	return ResourcesReqs
+}
+
+// For later: Move this code into validator.go when more need for validation arises
+// TODO: if multiple default plugins exist, ensure we validate all of them.
+// Right now its sequential validation
+func (r *VeleroReconciler) ValidateVeleroPlugins(log logr.Logger) (bool, error) {
+	velero := oadpv1alpha1.Velero{}
+	if err := r.Get(r.Context, r.NamespacedName, &velero); err != nil {
+		return false, err
+	}
+
+	var defaultPlugin oadpv1alpha1.DefaultPlugin
+	for _, plugin := range velero.Spec.DefaultVeleroPlugins {
+		if pluginSpecificMap, ok := credentials.PluginSpecificFields[plugin]; ok && pluginSpecificMap.IsCloudProvider {
+			secretName := pluginSpecificMap.SecretName
+			_, err := r.getProviderSecret(secretName)
+			if err != nil {
+				r.Log.Info(fmt.Sprintf("error validating %s provider secret:  %s/%s", defaultPlugin, r.NamespacedName.Namespace, secretName))
+				return false, err
+			}
+		}
+	}
+	return true, nil
 }

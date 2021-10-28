@@ -72,7 +72,7 @@ and then uninstall the operator from the `README` instructions. To check if the
 resources are removed, run:
 
 ```
-$ oc get all -n oadp-operator
+$ oc get all -n openshift-adp
 No resources found in openshift-adp namespace.
 ```
 

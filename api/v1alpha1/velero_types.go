@@ -52,6 +52,7 @@ const AzurePluginImageKey UnsupportedImageKey = "azurePluginImageFqin"
 const GCPPluginImageKey UnsupportedImageKey = "gcpPluginImageFqin"
 const CSIPluginImageKey UnsupportedImageKey = "csiPluginImageFqin"
 const ResticRestoreImageKey UnsupportedImageKey = "resticRestoreImageFqin"
+const RegistryImageKey UnsupportedImageKey = "registryImageFqin"
 
 // VeleroSpec defines the desired state of Velero
 type VeleroSpec struct {
@@ -75,10 +76,6 @@ type VeleroSpec struct {
 	// CustomVeleroPlugins defines the custom plugin to be installed with Velero
 	// +optional
 	CustomVeleroPlugins []CustomPlugin `json:"customVeleroPlugins,omitempty"`
-
-	// Noobaa is a boolean to specify if we should install backup storage from OCS operator with Noobaa
-	// +optional
-	Noobaa bool `json:"noobaa,omitempty"`
 
 	// EnableRestic is a boolean to specify if restic daemonset instance should be created or not
 	// +optional
