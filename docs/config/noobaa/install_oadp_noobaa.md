@@ -60,7 +60,7 @@ the following `backupStorageLocations` spec in the Velero CR:
         region: noobaa                  # could be different for Minio depending on server configuration
         s3Url: <S3_URL_ROUTE>           # s3 URL
         s3ForcePathStyle: "true"        # force velero to use path-style convention
-        insecureSkipTlsVerify: "true"   # insecure connections
+        insecureSkipTLSVerify: "true"   # insecure connections
       credential:
         name: cloud-credentials
         key: cloud

@@ -50,3 +50,6 @@ For instance, `bucket` spec value should be according to your own bucket name, a
 the velero installation will fail.
 - Parameter reference for [backupStorageLocations](https://velero.io/docs/main/api-types/backupstoragelocation/) 
 and [volumeSnapshotLocations](https://velero.io/docs/main/api-types/volumesnapshotlocation/)
+- Please add the spec `spec.backupStorageLocations.default: true` if you see recurring
+warnings in velero logs with the message `"There is no existing backup storage location set as default."`. Similarly, you can
+add `default: true` for `volumeSnapshotLocation` as well.

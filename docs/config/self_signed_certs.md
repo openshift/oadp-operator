@@ -30,7 +30,7 @@ spec:
     config:
       region: us-east-1
       profile: "default"
-      insecureSkipTlsVerify: "false"
+      insecureSkipTLSVerify: "false"
       signatureVersion: "1"
       public_url: "https://m-oadp.apps.cluster-sdpampat0519.sdpampat0519.mg.dog8code.com"
       s3Url: "https://m-oadp.apps.cluster-sdpampat0519.sdpampat0519.mg.dog8code.com"
@@ -40,5 +40,5 @@ spec:
       key: cloud
   enableRestic: true
 ```
-<b>Note:</b> Ensure that `insecureSkipTlsVerify` is set to `false` so that TLS 
+<b>Note:</b> Ensure that `insecureSkipTLSVerify` is set to `false` so that TLS 
 is used.
