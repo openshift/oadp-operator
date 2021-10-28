@@ -37,7 +37,7 @@ var _ = Describe("AWS backup restore tests", func() {
 			log.Printf("Waiting for restic pods to be running")
 			Eventually(areResticPodsRunning(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 		}
-		
+
 		if vel.CustomResource.Spec.BackupImages == nil || *vel.CustomResource.Spec.BackupImages {
 			log.Printf("Waiting for registry pods to be running")
 			Eventually(areRegistryDeploymentsAvailable(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
@@ -156,7 +156,7 @@ var _ = Describe("AWS backup restore tests", func() {
 			ApplicationNamespace: "parks-app",
 			Name:                 "parks-e2e",
 			PreBackupVerify: VerificationFunction(func(ocClient client.Client, namespace string) error {
-				Eventually(isDCReady(ocClient, "parks-app", "restify"), timeoutMultiplier*time.Minute*5, time.Second*10).Should(BeTrue())
+				Eventually(isDCReady(ocClient, "parks-app", "restify"), timeoutMultiplier*time.Minute*10, time.Second*10).Should(BeTrue())
 				return nil
 			}),
 			PostRestoreVerify: VerificationFunction(func(ocClient client.Client, namespace string) error {
@@ -169,7 +169,7 @@ var _ = Describe("AWS backup restore tests", func() {
 			ApplicationNamespace: "parks-app",
 			Name:                 "parks-e2e",
 			PreBackupVerify: VerificationFunction(func(ocClient client.Client, namespace string) error {
-				Eventually(isDCReady(ocClient, "parks-app", "restify"), timeoutMultiplier*time.Minute*5, time.Second*10).Should(BeTrue())
+				Eventually(isDCReady(ocClient, "parks-app", "restify"), timeoutMultiplier*time.Minute*10, time.Second*10).Should(BeTrue())
 				return nil
 			}),
 			PostRestoreVerify: VerificationFunction(func(ocClient client.Client, namespace string) error {
