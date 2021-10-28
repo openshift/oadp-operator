@@ -83,6 +83,9 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 				if len(velero.Spec.DefaultVeleroPlugins) > 0 {
 					// move these to velero_helper code
 					log.Printf("Checking for default plugins")
+					for _, plugin := range velero.Spec.DefaultVeleroPlugins {
+						Eventually(doesPluginExist(namespace, string(plugin)), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
+					}
 				}
 				//check for tolerations
 				// check for custom velero plugins
