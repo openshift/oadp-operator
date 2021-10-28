@@ -70,16 +70,34 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 			velero, err := veleroCR.Get()
 			if err != nil {
 				if len(velero.Spec.BackupStorageLocations) > 0 {
-					// move these to velero_helper code
+					// TODO move these to velero_helper code
 					log.Printf("Checking for bsl spec")
 					for _, bsl := range velero.Spec.BackupStorageLocations {
 						// Check if bsl matches the spec
+						Eventually(doesBSLExist(namespace, bsl), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 					}
 				}
 				if len(velero.Spec.VolumeSnapshotLocations) > 0 {
-					// move these to velero_helper code
+					// TODO move these to velero_helper code
 					log.Printf("Checking for vsl spec")
+					for _, vsl := range velero.Spec.VolumeSnapshotLocations {
+						Eventually(doesVSLExist(namespace, vsl), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
+					}
 				}
+
+				// TODO check for tolerations
+				// TODO check for custom velero plugins
+
+				//restic installation
+				if *velero.Spec.EnableRestic {
+					log.Printf("Waiting for restic pods to be running")
+					Eventually(areResticPodsRunning(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
+				} else {
+					log.Printf("Waiting for restic daemonset to be deleted")
+					Eventually(isResticDaemonsetDeleted(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
+				}
+				// check defaultplugins
+				log.Printf("Waiting for velero deployment to have expected plugins")
 				if len(velero.Spec.DefaultVeleroPlugins) > 0 {
 					// move these to velero_helper code
 					log.Printf("Checking for default plugins")
@@ -87,9 +105,15 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 						Eventually(doesPluginExist(namespace, string(plugin)), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 					}
 				}
-				//check for tolerations
-				// check for custom velero plugins
-				//restic installation
+
+				for key, value := range velero.Spec.ResticNodeSelector {
+					log.Printf("Waiting for restic daemonset to get node selector")
+					Eventually(resticDaemonSetHasNodeSelector(namespace, key, value), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
+				}
+				if velero.Spec.BackupImages == nil || *installCase.VeleroSpec.BackupImages {
+					log.Printf("Waiting for registry pods to be running")
+					Eventually(areRegistryDeploymentsAvailable(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
+				}
 			}
 		},
 	)
