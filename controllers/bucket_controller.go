@@ -2,13 +2,15 @@ package controllers
 
 import (
 	"context"
+	"fmt"
+	"time"
 
 	"github.com/go-logr/logr"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	bucketpkg "github.com/openshift/oadp-operator/pkg/bucket"
 	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -19,12 +21,10 @@ import (
 
 // VeleroReconciler reconciles a Velero object
 type BucketReconciler struct {
-	client.Client
-	Scheme         *runtime.Scheme
-	Log            logr.Logger
-	Context        context.Context
-	NamespacedName types.NamespacedName
-	EventRecorder  record.EventRecorder
+	Client        client.Client
+	Scheme        *runtime.Scheme
+	Log           logr.Logger
+	EventRecorder record.EventRecorder
 }
 
 //TODO!!! FIX THIS!!!!
@@ -45,20 +45,49 @@ type BucketReconciler struct {
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.9.2/pkg/reconcile
 func (b BucketReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	b.Log = log.FromContext(ctx)
-	log := b.Log.WithValues("velero", req.NamespacedName)
+	log := b.Log.WithValues("bucket", req.NamespacedName)
 	result := ctrl.Result{}
 	// Set reconciler context + name
-	b.Context = ctx
-	b.NamespacedName = req.NamespacedName
 
 	bucket := oadpv1alpha1.Bucket{}
-	if err := b.Get(ctx, req.NamespacedName, &bucket); err != nil {
-		log.Error(err, "unable to fetch velero CR")
+
+	if err := b.Client.Get(ctx, req.NamespacedName, &bucket); err != nil {
+		log.Error(err, "unable to fetch bucket CR")
 		return result, client.IgnoreNotFound(err)
 	}
 
-	_, _ = bucketpkg.NewClient(bucket, b.Client)
+	clnt, err := bucketpkg.NewClient(bucket, b.Client)
+	if err != nil {
+		return result, err
+	}
 
+	var ok bool
+	if ok, err = clnt.Exists(); !ok {
+		created, err := clnt.Create()
+		if !created {
+			log.Info("unable to create object bucket")
+			b.EventRecorder.Event(&bucket, corev1.EventTypeWarning, "BucketNotCreated", fmt.Sprintf("unable to create bucket: %v", err))
+			return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
+		}
+		if err != nil {
+			//TODO: LOG/EVENT THE MESSAGE
+			log.Error(err, "Error while creating event")
+			return ctrl.Result{RequeueAfter: 1 * time.Minute}, nil
+		}
+		b.EventRecorder.Event(&bucket, corev1.EventTypeNormal, "BucketCreated", fmt.Sprintf("bucket %v has been created", bucket.Spec.Name))
+	}
+	if err != nil {
+		// Bucket may be created but something else went wrong.
+		log.Error(err, "unable to determine if bucket exists.")
+		b.EventRecorder.Event(&bucket, corev1.EventTypeWarning, "BucketNotFound", fmt.Sprintf("unable to find bucket: %v", err))
+		return ctrl.Result{RequeueAfter: 1 * time.Minute}, nil
+	}
+
+	// Update status with updated value
+	bucket.Status.LastSyncTimestamp = &v1.Time{Time: time.Now()}
+	bucket.Status.Name = bucket.Spec.Name
+
+	b.Client.Status().Update(ctx, &bucket, &client.UpdateOptions{})
 	return ctrl.Result{}, nil
 }
 
@@ -67,9 +96,9 @@ func (b *BucketReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&oadpv1alpha1.Bucket{}).
-		Owns(&corev1.Secret{}).
 		WithEventFilter(bucketPredicate()).
 		Complete(b)
+
 }
 
 func bucketPredicate() predicate.Predicate {

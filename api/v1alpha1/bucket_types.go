@@ -6,6 +6,7 @@ import (
 )
 
 //+kubebuilder:object:root=true
+//+kubebuilder:subresource:status
 
 type Bucket struct {
 	metav1.TypeMeta   `json:",inline"`
@@ -16,10 +17,11 @@ type Bucket struct {
 }
 
 type BucketSpec struct {
-	Name           string                      `json:"name"`
-	CreationSecret corev1api.SecretKeySelector `json:"bucketCreationSecret,omitempty"`
-	Tags           map[string]string           `json:"bucketTags,omitempty"`
-	Region         string                      `json:"region"`
+	Name               string                      `json:"name"`
+	CreationSecret     corev1api.SecretKeySelector `json:"bucketCreationSecret,omitempty"`
+	EnableSharedConfig bool                        `json:"enableSharedConfig,omitempty"`
+	Tags               map[string]string           `json:"bucketTags,omitempty"`
+	Region             string                      `json:"region"`
 }
 
 type BucketStatus struct {
@@ -33,8 +35,4 @@ type BucketList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []Bucket `json:"items"`
-}
-
-func init() {
-	SchemeBuilder.Register(&Bucket{}, &BucketList{})
 }
