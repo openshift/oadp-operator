@@ -85,7 +85,12 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 					}
 				}
 
-				// TODO check for tolerations
+				// Check for velero tolerations
+				if len(velero.Spec.VeleroTolerations) > 0 {
+					log.Printf("Checking for velero tolerations")
+					Eventually(verifyVeleroTolerations(namespace, velero.Name, velero.Spec.VeleroTolerations), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
+				}
+
 				// TODO check for custom velero plugins
 
 				//restic installation

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"reflect"
 	"strings"
 
 	appsv1 "github.com/openshift/api/apps/v1"
@@ -269,5 +270,22 @@ func doesVSLExist(namespace string, vsl velero.VolumeSnapshotLocationSpec) wait.
 		}
 
 		return false, err
+	}
+}
+
+//check tolerations
+func verifyVeleroTolerations(namespace string, deploymentName string, t []corev1.Toleration) wait.ConditionFunc {
+	return func() (bool, error) {
+		clientset, err := setUpClient()
+		if err != nil {
+			return false, err
+		}
+		veldep, err := clientset.AppsV1().Deployments(namespace).Get(context.Background(), deploymentName, metav1.GetOptions{})
+
+		if !reflect.DeepEqual(t, veldep.Spec.Template.Spec.Tolerations) {
+			//TODO check if `err` is the right thing to return
+			return false, err
+		}
+		return true, nil
 	}
 }
