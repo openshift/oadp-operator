@@ -44,3 +44,37 @@ func TestOADPE2E(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "OADP E2E Suite")
 }
+
+var vel *veleroCustomResource
+
+var _ = BeforeSuite(func() {
+	flag.Parse()
+	s3Buffer, err := getJsonData(s3BucketFilePath)
+	Expect(err).NotTo(HaveOccurred())
+	s3Data, err := decodeJson(s3Buffer) // Might need to change this later on to create s3 for each tests
+	Expect(err).NotTo(HaveOccurred())
+	s3Bucket = s3Data["velero-bucket-name"].(string)
+
+	vel = &veleroCustomResource{
+		Namespace: namespace,
+		Region:    region,
+		Bucket:    s3Bucket,
+		Provider:  provider,
+	}
+	testSuiteInstanceName := "ts-" + instanceName
+	vel.Name = testSuiteInstanceName
+
+	vel.SetClient()
+	vel.Build()
+	Expect(doesNamespaceExist(namespace)).Should(BeTrue())
+})
+
+var _ = AfterSuite(func() {
+	log.Printf("Deleting Velero CR")
+	err := vel.Delete()
+	Expect(err).ToNot(HaveOccurred())
+
+	errs := deleteSecret(namespace, credSecretRef)
+	Expect(errs).ToNot(HaveOccurred())
+	Eventually(vel.IsDeleted(), timeoutMultiplier*time.Minute*2, time.Second*5).Should(BeTrue())
+})
