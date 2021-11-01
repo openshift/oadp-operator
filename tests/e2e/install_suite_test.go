@@ -3,14 +3,16 @@ package e2e
 import (
 	"flag"
 	"log"
+	"os"
+	"strconv"
 	"time"
 
+	. "github.com/onsi/ginkgo"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	"github.com/openshift/oadp-operator/pkg/common"
 	velero "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	"k8s.io/utils/pointer"
 
-	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 )
@@ -31,12 +33,32 @@ var _ = BeforeSuite(func() {
 		VslRegion:     vsl_region,
 		Bucket:        bucket,
 		Provider:      provider,
+		BslProfile:    bsl_profile,
 		credentials:   credentials,
 		credSecretRef: credSecretRef,
 	}
 	testSuiteInstanceName := "ts-" + instanceName
 	vel.Name = testSuiteInstanceName
 	// err := vel.createBsl()
+	openshift_ci_bool, err := strconv.ParseBool(openshift_ci)
+	if err != nil {
+		if openshift_ci_bool {
+			switch vel.Provider {
+			case "aws":
+				f, err := os.OpenFile(vel.credentials,
+					os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+				if err != nil {
+					log.Println(err)
+				}
+				defer f.Close()
+				ciCredData, err := getCredsData(ci_cred_file)
+				Expect(err).NotTo(HaveOccurred())
+				if _, err := f.WriteString(string(ciCredData)); err != nil {
+					log.Println(err)
+				}
+			}
+		}
+	}
 	Expect(err).NotTo(HaveOccurred())
 	vel.SetClient()
 	Expect(doesNamespaceExist(namespace)).Should(BeTrue())

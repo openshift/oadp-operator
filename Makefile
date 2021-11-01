@@ -1,13 +1,20 @@
 OADP_TEST_NAMESPACE ?= openshift-adp
+CLUSTER_PROFILE ?= aws
+
+# CONFIGS FOR CLOUD
+CREDS_SECRET_REF ?= cloud-credentials
+OADP_CRED_FILE ?= /var/run/oadp-credentials/new-aws-credentials
 BSL_REGION ?= us-east-1
 VSL_REGION ?= ${LEASED_RESOURCE}
+CI_AWS_CRED_FILE ?= ${CLUSTER_PROFILE_DIR}/.awscred
+BSL_AWS_PROFILE ?= migration-engineering
 GCP_SERVICE_ACCOUNT ?= my-service-account
-CLUSTER_PROFILE ?= aws
-CREDS_SECRET_REF ?= cloud-credentials
-OADP_CRED_FILE ?= /var/run/oadp-credentials/aws-credentials
+
+# OTHER CONFIGS
 OADP_BUCKET ?= /var/run/oadp-credentials/velero-bucket-name
 VELERO_INSTANCE_NAME ?= velero-sample
 E2E_TIMEOUT_MULTIPLIER ?= 1
+OPENSHIFT_CI ?= false
 
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
 ENVTEST_K8S_VERSION = 1.21
@@ -270,5 +277,8 @@ test-e2e:
 	-velero_instance_name=$(VELERO_INSTANCE_NAME) \
 	-bsl_region=$(BSL_REGION) \
 	-vsl_region=$(VSL_REGION) \
+	-bsl_profile=$(BSL_AWS_PROFILE) \
 	-provider=$(CLUSTER_PROFILE) \
-	-timeout_multiplier=$(E2E_TIMEOUT_MULTIPLIER)
+	-timeout_multiplier=$(E2E_TIMEOUT_MULTIPLIER) \
+	-openshift_ci=$(OPENSHIFT_CI) \
+	-ci_cred_file=$(CI_AWS_CRED_FILE)

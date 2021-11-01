@@ -30,6 +30,7 @@ type veleroCustomResource struct {
 	Bucket         string
 	BslRegion      string
 	VslRegion      string
+	BslProfile     string
 	Provider       string
 	credentials    string
 	credSecretRef  string
@@ -75,7 +76,8 @@ func (v *veleroCustomResource) Build() error {
 	switch v.Provider {
 	case "aws":
 		veleroSpec.Spec.BackupStorageLocations[0].Config = map[string]string{
-			"region": v.BslRegion,
+			"region":  v.BslRegion,
+			"profile": v.BslProfile,
 		}
 		veleroSpec.Spec.VolumeSnapshotLocations = []velero.VolumeSnapshotLocationSpec{
 			{
