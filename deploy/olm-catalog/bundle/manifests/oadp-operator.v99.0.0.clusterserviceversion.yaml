@@ -5,7 +5,7 @@ metadata:
   namespace: openshift-adp
   annotations:
     olm.skipRange: '>=0.0.0 <99.0.0'
-    containerImage: "quay.io/konveyor/oadp-operator:latest"
+    containerImage: "quay.io/spampatt/oadp-operator:latest"
     alm-examples: |-
       [
         {
@@ -191,7 +191,7 @@ spec:
                 - name: WATCH_NAMESPACE
                   valueFrom:
                     fieldRef:
-                      fieldPath: metadata.annotations['olm.targetNamespaces']
+                      fieldPath: metadata.namespace
                 - name: POD_NAME
                   valueFrom:
                     fieldRef:
@@ -238,7 +238,7 @@ spec:
                   value: konveyor-0.2.0
                 args:
                 - --leader-elect
-                image: "quay.io/konveyor/oadp-operator:latest"
+                image: "quay.io/spampatt/oadp-operator:latest"
                 imagePullPolicy: Always
                 name: oadp-operator
                 securityContext:
