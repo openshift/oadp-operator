@@ -68,20 +68,24 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 			log.Printf("Waiting for velero pod to be running")
 			Eventually(isVeleroPodRunning(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 			velero, err := veleroCR.Get()
-			if err != nil {
+			if err == nil {
+				// To verify
+				Expect(err).NotTo(HaveOccurred())
+			} else {
+
 				if len(velero.Spec.BackupStorageLocations) > 0 {
 					// TODO move these to velero_helper code
 					log.Printf("Checking for bsl spec")
 					for _, bsl := range velero.Spec.BackupStorageLocations {
 						// Check if bsl matches the spec
-						Eventually(doesBSLExist(namespace, bsl), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
+						Eventually(doesBSLExist(namespace, bsl, installCase.VeleroSpec), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 					}
 				}
 				if len(velero.Spec.VolumeSnapshotLocations) > 0 {
 					// TODO move these to velero_helper code
 					log.Printf("Checking for vsl spec")
 					for _, vsl := range velero.Spec.VolumeSnapshotLocations {
-						Eventually(doesVSLExist(namespace, vsl), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
+						Eventually(doesVSLExist(namespace, vsl, installCase.VeleroSpec), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 					}
 				}
 

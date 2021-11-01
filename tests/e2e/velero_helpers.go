@@ -250,26 +250,41 @@ func (v *veleroCustomResource) IsDeleted() wait.ConditionFunc {
 }
 
 //check if bsl matches the spec
-func doesBSLExist(namespace string, bsl velero.BackupStorageLocationSpec) wait.ConditionFunc {
+func doesBSLExist(namespace string, bsl velero.BackupStorageLocationSpec, spec *oadpv1alpha1.VeleroSpec) wait.ConditionFunc {
 	return func() (bool, error) {
-		clientset, err := setUpClient()
-		if err != nil {
-			return false, err
-		}
+		if len(spec.BackupStorageLocations) > 0 {
+			for _, b := range spec.BackupStorageLocations {
+				if b.Provider == bsl.Provider {
+					if !reflect.DeepEqual(bsl, b) {
+						return false, errors.New("Given Velero bsl does not match the deployed velero bsl")
+					}
+					return true, nil
 
-		return false, err
+				}
+			}
+		}
+		return false, errors.New("No backup storage location configured. Expected BSL to be configured")
+
 	}
 }
 
 //check if vsl matches the spec
-func doesVSLExist(namespace string, vsl velero.VolumeSnapshotLocationSpec) wait.ConditionFunc {
+func doesVSLExist(namespace string, vslspec velero.VolumeSnapshotLocationSpec, spec *oadpv1alpha1.VeleroSpec) wait.ConditionFunc {
 	return func() (bool, error) {
-		clientset, err := setUpClient()
-		if err != nil {
-			return false, err
-		}
 
-		return false, err
+		if len(spec.VolumeSnapshotLocations) > 0 {
+			for _, v := range spec.VolumeSnapshotLocations {
+				if v.Provider == vslspec.Provider {
+					if !reflect.DeepEqual(vslspec, v) {
+						return false, errors.New("Given Velero vslspec does not match the deployed velero vslspec")
+					}
+					return true, nil
+
+				}
+			}
+		}
+		return false, errors.New("No volume storage location configured. Expected VSL to be configured")
+
 	}
 }
 
@@ -283,8 +298,7 @@ func verifyVeleroTolerations(namespace string, deploymentName string, t []corev1
 		veldep, err := clientset.AppsV1().Deployments(namespace).Get(context.Background(), deploymentName, metav1.GetOptions{})
 
 		if !reflect.DeepEqual(t, veldep.Spec.Template.Spec.Tolerations) {
-			//TODO check if `err` is the right thing to return
-			return false, err
+			return false, errors.New("Given Velero tolerations does not match the deployed velero tolerations")
 		}
 		return true, nil
 	}
