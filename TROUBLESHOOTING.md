@@ -39,6 +39,8 @@
 ## Common Misconfigurations:
 
 ### Credentials secret is not properly formatted:
+
+
   - AWS:
     - An example of correct AWS credentials:
 
@@ -53,7 +55,20 @@
   - GCP:
 
   - Azure:
-   
+
+<hr style="height:1px;border:none;color:#333;">
+
+### Restic - NFS volumes and `root_squash`:
+
+If using NFS volumes while `root_squash` is enabled, Restic will be mapped to 
+`nfsnobody` and not have the proper permissions to perform a backup/restore. 
+
+#### To solve this issue:
+  - Use supplemental groups, and apply this same supplemental group to the Restic
+    daemonset.
+  - Set `no_root_squash`.
+
+  <hr style="height:1px;border:none;color:#333;"> 
 
 ### Errors in the Velero pod:
 
