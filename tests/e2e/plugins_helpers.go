@@ -50,9 +50,12 @@ func doesPluginExist(namespace string, plugin oadpv1alpha1.DefaultPlugin) wait.C
 
 		for _, container := range veleroDeployment.Spec.Template.Spec.InitContainers {
 			// TODO : check if the pluginfields struct exists before assigning
+
 			pluginName := credentials.PluginSpecificFields[plugin].PluginName
-			if container.Name == pluginName {
-				return true, nil
+			if pluginName != "" {
+				if container.Name == pluginName {
+					return true, nil
+				}
 			}
 		}
 		return false, err
