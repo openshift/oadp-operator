@@ -116,5 +116,100 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 			},
 			WantError: false,
 		}, nil),
+		Entry("Default velero CR with restic disabled", InstallCase{
+			Name: "default-cr-no-restic",
+			VeleroSpec: &oadpv1alpha1.VeleroSpec{
+				EnableRestic: pointer.Bool(false),
+				BackupStorageLocations: []velero.BackupStorageLocationSpec{
+					{
+						Provider: provider,
+						Config: map[string]string{
+							"region": region,
+						},
+						Default: true,
+						StorageType: velero.StorageType{
+							ObjectStorage: &velero.ObjectStorageLocation{
+								Bucket: s3Bucket,
+								Prefix: veleroPrefix,
+							},
+						},
+					},
+				},
+				DefaultVeleroPlugins: []oadpv1alpha1.DefaultPlugin{
+					oadpv1alpha1.DefaultPluginOpenShift,
+					oadpv1alpha1.DefaultPluginAWS,
+				},
+			},
+			WantError: false,
+		}, nil),
+		Entry("Adding CSI plugin", InstallCase{
+			Name: "default-cr-csi",
+			VeleroSpec: &oadpv1alpha1.VeleroSpec{
+				EnableRestic: pointer.Bool(true),
+				BackupStorageLocations: []velero.BackupStorageLocationSpec{
+					{
+						Provider: provider,
+						Config: map[string]string{
+							"region": region,
+						},
+						Default: true,
+						StorageType: velero.StorageType{
+							ObjectStorage: &velero.ObjectStorageLocation{
+								Bucket: s3Bucket,
+								Prefix: veleroPrefix,
+							},
+						},
+					},
+				},
+				DefaultVeleroPlugins: []oadpv1alpha1.DefaultPlugin{
+					oadpv1alpha1.DefaultPluginOpenShift,
+					oadpv1alpha1.DefaultPluginAWS,
+					oadpv1alpha1.DefaultPluginCSI,
+				},
+			},
+			WantError: false,
+		}, nil),
+		Entry("Set restic node selector", InstallCase{
+			Name: "default-cr-node-selector",
+			VeleroSpec: &oadpv1alpha1.VeleroSpec{
+				EnableRestic: pointer.Bool(true),
+				ResticNodeSelector: map[string]string{
+					"foo": "bar",
+				},
+				BackupStorageLocations: []velero.BackupStorageLocationSpec{
+					{
+						Provider: provider,
+						Config: map[string]string{
+							"region": region,
+						},
+						Default: true,
+						StorageType: velero.StorageType{
+							ObjectStorage: &velero.ObjectStorageLocation{
+								Bucket: s3Bucket,
+								Prefix: veleroPrefix,
+							},
+						},
+					},
+				},
+				DefaultVeleroPlugins: []oadpv1alpha1.DefaultPlugin{
+					oadpv1alpha1.DefaultPluginOpenShift,
+					oadpv1alpha1.DefaultPluginAWS,
+					oadpv1alpha1.DefaultPluginCSI,
+				},
+			},
+			WantError: false,
+		}, nil),
+		Entry("NoDefaultBackupLocation", InstallCase{
+			Name: "default-cr-node-selector",
+			VeleroSpec: &oadpv1alpha1.VeleroSpec{
+				EnableRestic:            pointer.Bool(true),
+				BackupStorageLocations:  []velero.BackupStorageLocationSpec{},
+				NoDefaultBackupLocation: true,
+				DefaultVeleroPlugins: []oadpv1alpha1.DefaultPlugin{
+					oadpv1alpha1.DefaultPluginOpenShift,
+				},
+			},
+			WantError: false,
+		}, nil),
 	)
 })
