@@ -31,14 +31,14 @@ type veleroCustomResource struct {
 	Bucket            string
 	Region            string
 	Provider          string
-	backupRestoreType string
+	backupRestoreType BackupRestoreType
 	CustomResource    *oadpv1alpha1.Velero
 	Client            client.Client
 }
 
 var veleroPrefix = "velero-e2e-" + string(uuid.NewUUID())
 
-func (v *veleroCustomResource) Build(backupRestoreType string) error {
+func (v *veleroCustomResource) Build(backupRestoreType BackupRestoreType) error {
 	// Velero Instance creation spec with backupstorage location default to AWS. Would need to parameterize this later on to support multiple plugins.
 	veleroSpec := oadpv1alpha1.Velero{
 		ObjectMeta: metav1.ObjectMeta{
@@ -70,9 +70,9 @@ func (v *veleroCustomResource) Build(backupRestoreType string) error {
 	}
 	v.backupRestoreType = backupRestoreType
 	switch backupRestoreType {
-	case "restic":
+	case restic:
 		veleroSpec.Spec.EnableRestic = pointer.Bool(true)
-	case "csi":
+	case csi:
 		veleroSpec.Spec.EnableRestic = pointer.Bool(false)
 		veleroSpec.Spec.DefaultVeleroPlugins = append(veleroSpec.Spec.DefaultVeleroPlugins, oadpv1alpha1.DefaultPluginCSI)
 		veleroSpec.Spec.VeleroFeatureFlags = append(veleroSpec.Spec.VeleroFeatureFlags, "EnableCSI")
