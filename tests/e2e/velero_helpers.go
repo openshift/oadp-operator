@@ -25,19 +25,20 @@ import (
 )
 
 type veleroCustomResource struct {
-	Name           string
-	Namespace      string
-	SecretName     string
-	Bucket         string
-	Region         string
-	Provider       string
-	CustomResource *oadpv1alpha1.Velero
-	Client         client.Client
+	Name              string
+	Namespace         string
+	SecretName        string
+	Bucket            string
+	Region            string
+	Provider          string
+	backupRestoreType string
+	CustomResource    *oadpv1alpha1.Velero
+	Client            client.Client
 }
 
 var veleroPrefix = "velero-e2e-" + string(uuid.NewUUID())
 
-func (v *veleroCustomResource) Build() error {
+func (v *veleroCustomResource) Build(backupRestoreType string) error {
 	// Velero Instance creation spec with backupstorage location default to AWS. Would need to parameterize this later on to support multiple plugins.
 	veleroSpec := oadpv1alpha1.Velero{
 		ObjectMeta: metav1.ObjectMeta{
@@ -45,7 +46,6 @@ func (v *veleroCustomResource) Build() error {
 			Namespace: v.Namespace,
 		},
 		Spec: oadpv1alpha1.VeleroSpec{
-			EnableRestic: pointer.Bool(true),
 			BackupStorageLocations: []velero.BackupStorageLocationSpec{
 				{
 					Provider: v.Provider,
@@ -65,7 +65,17 @@ func (v *veleroCustomResource) Build() error {
 				oadpv1alpha1.DefaultPluginOpenShift,
 				oadpv1alpha1.DefaultPluginAWS,
 			},
+			VeleroFeatureFlags: []string{},
 		},
+	}
+	v.backupRestoreType = backupRestoreType
+	switch backupRestoreType {
+	case "restic":
+		veleroSpec.Spec.EnableRestic = pointer.Bool(true)
+	case "csi":
+		veleroSpec.Spec.EnableRestic = pointer.Bool(false)
+		veleroSpec.Spec.DefaultVeleroPlugins = append(veleroSpec.Spec.DefaultVeleroPlugins, oadpv1alpha1.DefaultPluginCSI)
+		veleroSpec.Spec.VeleroFeatureFlags = append(veleroSpec.Spec.VeleroFeatureFlags, "EnableCSI")
 	}
 	v.CustomResource = &veleroSpec
 	return nil
@@ -104,7 +114,7 @@ func (v *veleroCustomResource) Get() (*oadpv1alpha1.Velero, error) {
 func (v *veleroCustomResource) CreateOrUpdate(spec *oadpv1alpha1.VeleroSpec) error {
 	cr, err := v.Get()
 	if apierrors.IsNotFound(err) {
-		v.Build()
+		v.Build(v.backupRestoreType)
 		v.CustomResource.Spec = *spec
 		return v.Create()
 	}
