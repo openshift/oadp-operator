@@ -182,6 +182,17 @@ func getCredsData(cloud string) ([]byte, error) {
 	return credsFile, err
 }
 
+func putCredsData(credFile string, data []byte) error {
+	// pass in aws credentials by cli flag
+	// from cli:  -cloud=<"filepath">
+	// go run main.go -cloud="/Users/emilymcmullan/.aws/credentials"
+	// cloud := flag.String("cloud", "", "file path for aws credentials")
+	// flag.Parse()
+	// save passed in cred file as []byte
+	err := ioutil.WriteFile(credFile, data, 0644)
+	return err
+}
+
 func createCredentialsSecret(data []byte, namespace string, credSecretRef string) error {
 	clientset, err := setUpClient()
 	if err != nil {

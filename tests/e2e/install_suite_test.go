@@ -3,12 +3,12 @@ package e2e
 import (
 	"flag"
 	"log"
-	"os"
 	"strconv"
 	"time"
 
 	. "github.com/onsi/ginkgo"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
+
 	"github.com/openshift/oadp-operator/pkg/common"
 	velero "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	"k8s.io/utils/pointer"
@@ -44,17 +44,13 @@ var _ = BeforeSuite(func() {
 	if openshift_ci_bool == true {
 		switch vel.Provider {
 		case "aws":
-			f, err := os.OpenFile(vel.credentials,
-				os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-			if err != nil {
-				log.Println(err)
-			}
-			defer f.Close()
+			cloudCredData, err := getCredsData(vel.credentials)
+			Expect(err).NotTo(HaveOccurred())
 			ciCredData, err := getCredsData(ci_cred_file)
 			Expect(err).NotTo(HaveOccurred())
-			if _, err := f.WriteString(string(ciCredData)); err != nil {
-				log.Println(err)
-			}
+			credData := append(cloudCredData, ciCredData...)
+			vel.credentials = "/tmp/aws-credentials"
+			putCredsData(vel.credentials, credData)
 		}
 	}
 	Expect(err).NotTo(HaveOccurred())
