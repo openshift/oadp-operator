@@ -7,7 +7,9 @@ import (
 	"os"
 
 	"github.com/onsi/ginkgo"
-	appsv1 "github.com/openshift/api/apps/v1"
+	ocpappsv1 "github.com/openshift/api/apps/v1"
+	appsv1 "k8s.io/api/apps/v1"
+
 	security "github.com/openshift/api/security/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -102,7 +104,7 @@ func areApplicationPodsRunning(namespace string) wait.ConditionFunc {
 					if len(condition.Message) > 0 {
 						ginkgo.GinkgoWriter.Write([]byte(fmt.Sprintf("Pod not running with condition: %s\n", condition.Message)))
 					}
-				}				
+				}
 				return false, nil
 			}
 		}
@@ -112,7 +114,7 @@ func areApplicationPodsRunning(namespace string) wait.ConditionFunc {
 
 func isDCReady(ocClient client.Client, namespace, dcName string) wait.ConditionFunc {
 	return func() (bool, error) {
-		dc := appsv1.DeploymentConfig{}
+		dc := ocpappsv1.DeploymentConfig{}
 		err := ocClient.Get(context.Background(), client.ObjectKey{
 			Namespace: namespace,
 			Name:      dcName,
@@ -127,6 +129,28 @@ func isDCReady(ocClient client.Client, namespace, dcName string) wait.ConditionF
 				}
 			}
 			return false, errors.New("DC is not in a ready state")
+		}
+		return true, nil
+	}
+}
+
+func isDeploymentReady(ocClient client.Client, namespace, dName string) wait.ConditionFunc {
+	return func() (bool, error) {
+		deployment := appsv1.Deployment{}
+		err := ocClient.Get(context.Background(), client.ObjectKey{
+			Namespace: namespace,
+			Name:      dName,
+		}, &deployment)
+		if err != nil {
+			return false, err
+		}
+		if deployment.Status.AvailableReplicas != deployment.Status.Replicas || deployment.Status.Replicas == 0 {
+			for _, condition := range deployment.Status.Conditions {
+				if len(condition.Message) > 0 {
+					ginkgo.GinkgoWriter.Write([]byte(fmt.Sprintf("deployment not available with condition: %s\n", condition.Message)))
+				}
+			}
+			return false, errors.New("deployment is not in a ready state")
 		}
 		return true, nil
 	}
