@@ -50,7 +50,8 @@ var _ = BeforeSuite(func() {
 			Expect(err).NotTo(HaveOccurred())
 			credData := append(cloudCredData, ciCredData...)
 			vel.credentials = "/tmp/aws-credentials"
-			putCredsData(vel.credentials, credData)
+			err = putCredsData(vel.credentials, credData)
+			Expect(err).NotTo(HaveOccurred())
 		}
 	}
 	Expect(err).NotTo(HaveOccurred())
