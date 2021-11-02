@@ -256,14 +256,14 @@ func doesBSLExist(namespace string, bsl velero.BackupStorageLocationSpec, spec *
 			for _, b := range spec.BackupStorageLocations {
 				if b.Provider == bsl.Provider {
 					if !reflect.DeepEqual(bsl, b) {
-						return false, errors.New("Given Velero bsl does not match the deployed velero bsl")
+						return false, errors.New("given Velero bsl does not match the deployed velero bsl")
 					}
 					return true, nil
 
 				}
 			}
 		}
-		return false, errors.New("No backup storage location configured. Expected BSL to be configured")
+		return false, errors.New("no backup storage location configured. Expected BSL to be configured")
 
 	}
 }
@@ -276,29 +276,29 @@ func doesVSLExist(namespace string, vslspec velero.VolumeSnapshotLocationSpec, s
 			for _, v := range spec.VolumeSnapshotLocations {
 				if v.Provider == vslspec.Provider {
 					if !reflect.DeepEqual(vslspec, v) {
-						return false, errors.New("Given Velero vslspec does not match the deployed velero vslspec")
+						return false, errors.New("given Velero vslspec does not match the deployed velero vslspec")
 					}
 					return true, nil
 
 				}
 			}
 		}
-		return false, errors.New("No volume storage location configured. Expected VSL to be configured")
+		return false, errors.New("no volume storage location configured. Expected VSL to be configured")
 
 	}
 }
 
 //check tolerations
-func verifyVeleroTolerations(namespace string, deploymentName string, t []corev1.Toleration) wait.ConditionFunc {
+func verifyVeleroTolerations(namespace string, t []corev1.Toleration) wait.ConditionFunc {
 	return func() (bool, error) {
 		clientset, err := setUpClient()
 		if err != nil {
 			return false, err
 		}
-		veldep, err := clientset.AppsV1().Deployments(namespace).Get(context.Background(), deploymentName, metav1.GetOptions{})
+		veldep, _ := clientset.AppsV1().Deployments(namespace).Get(context.Background(), "velero", metav1.GetOptions{})
 
 		if !reflect.DeepEqual(t, veldep.Spec.Template.Spec.Tolerations) {
-			return false, errors.New("Given Velero tolerations does not match the deployed velero tolerations")
+			return false, errors.New("given Velero tolerations does not match the deployed velero tolerations")
 		}
 		return true, nil
 	}
