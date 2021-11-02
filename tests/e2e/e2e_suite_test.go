@@ -11,8 +11,7 @@ import (
 )
 
 // Common vars obtained from flags passed in ginkgo.
-var credentials, namespace, bucket, bucketFilePath, credSecretRef,
-	instanceName, bsl_region, vsl_region, provider, bsl_profile, openshift_ci, ci_cred_file string
+var credentials, namespace, bucket, bucketFilePath, credSecretRef, instanceName, bsl_region, vsl_region, provider, bsl_profile, openshift_ci, ci_cred_file string
 var timeoutMultiplier time.Duration
 
 func init() {

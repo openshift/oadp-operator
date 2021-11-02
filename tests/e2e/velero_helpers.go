@@ -83,7 +83,8 @@ func (v *veleroCustomResource) Build() error {
 			{
 				Provider: v.Provider,
 				Config: map[string]string{
-					"region": v.VslRegion,
+					"region":  v.VslRegion,
+					"profile": "default",
 				},
 			},
 		}
