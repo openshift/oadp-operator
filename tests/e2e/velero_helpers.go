@@ -252,19 +252,17 @@ func (v *veleroCustomResource) IsDeleted() wait.ConditionFunc {
 //check if bsl matches the spec
 func doesBSLExist(namespace string, bsl velero.BackupStorageLocationSpec, spec *oadpv1alpha1.VeleroSpec) wait.ConditionFunc {
 	return func() (bool, error) {
-		if len(spec.BackupStorageLocations) > 0 {
-			for _, b := range spec.BackupStorageLocations {
-				if b.Provider == bsl.Provider {
-					if !reflect.DeepEqual(bsl, b) {
-						return false, errors.New("given Velero bsl does not match the deployed velero bsl")
-					}
-					return true, nil
-
+		if len(spec.BackupStorageLocations) == 0 {
+			return false, errors.New("no backup storage location configured. Expected BSL to be configured")
+		}
+		for _, b := range spec.BackupStorageLocations {
+			if b.Provider == bsl.Provider {
+				if !reflect.DeepEqual(bsl, b) {
+					return false, errors.New("given Velero bsl does not match the deployed velero bsl")
 				}
 			}
 		}
-		return false, errors.New("no backup storage location configured. Expected BSL to be configured")
-
+		return true, nil
 	}
 }
 
@@ -272,23 +270,21 @@ func doesBSLExist(namespace string, bsl velero.BackupStorageLocationSpec, spec *
 func doesVSLExist(namespace string, vslspec velero.VolumeSnapshotLocationSpec, spec *oadpv1alpha1.VeleroSpec) wait.ConditionFunc {
 	return func() (bool, error) {
 
-		if len(spec.VolumeSnapshotLocations) > 0 {
-			for _, v := range spec.VolumeSnapshotLocations {
-				if v.Provider == vslspec.Provider {
-					if !reflect.DeepEqual(vslspec, v) {
-						return false, errors.New("given Velero vslspec does not match the deployed velero vslspec")
-					}
-					return true, nil
-
+		if len(spec.VolumeSnapshotLocations) == 0 {
+			return false, errors.New("no volume storage location configured. Expected VSL to be configured")
+		}
+		for _, v := range spec.VolumeSnapshotLocations {
+			if v.Provider == vslspec.Provider {
+				if !reflect.DeepEqual(vslspec, v) {
+					return false, errors.New("given Velero vslspec does not match the deployed velero vslspec")
 				}
 			}
 		}
-		return false, errors.New("no volume storage location configured. Expected VSL to be configured")
-
+		return true, nil
 	}
 }
 
-//check tolerations
+//check velero tolerations
 func verifyVeleroTolerations(namespace string, t []corev1.Toleration) wait.ConditionFunc {
 	return func() (bool, error) {
 		clientset, err := setUpClient()

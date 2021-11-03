@@ -15,14 +15,6 @@ import (
 
 var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 
-	var _ = BeforeEach(func() {
-		credData, err := getCredsData(cloud)
-		Expect(err).NotTo(HaveOccurred())
-
-		err = createCredentialsSecret(credData, namespace, credSecretRef)
-		Expect(err).NotTo(HaveOccurred())
-	})
-
 	type InstallCase struct {
 		Name       string
 		VeleroSpec *oadpv1alpha1.VeleroSpec

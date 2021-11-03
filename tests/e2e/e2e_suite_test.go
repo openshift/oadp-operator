@@ -54,6 +54,10 @@ var _ = BeforeSuite(func() {
 	s3Data, err := decodeJson(s3Buffer) // Might need to change this later on to create s3 for each tests
 	Expect(err).NotTo(HaveOccurred())
 	s3Bucket = s3Data["velero-bucket-name"].(string)
+	credData, err := getCredsData(cloud)
+	Expect(err).NotTo(HaveOccurred())
+	err = createCredentialsSecret(credData, namespace, credSecretRef)
+	Expect(err).NotTo(HaveOccurred())
 
 	vel = &veleroCustomResource{
 		Namespace: namespace,
