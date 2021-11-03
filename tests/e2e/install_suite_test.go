@@ -73,7 +73,7 @@ var _ = AfterSuite(func() {
 
 var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 	var _ = BeforeEach(func() {
-		credData, err := getCredsData(credentials)
+		credData, err := getCredsData(vel.credentials)
 		Expect(err).NotTo(HaveOccurred())
 
 		err = createCredentialsSecret(credData, namespace, credSecretRef)
