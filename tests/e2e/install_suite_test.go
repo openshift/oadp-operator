@@ -55,6 +55,9 @@ var _ = BeforeSuite(func() {
 			Expect(err).NotTo(HaveOccurred())
 		}
 	}
+	credData, err := getCredsData(vel.credentials)
+	Expect(err).NotTo(HaveOccurred())
+	err = createCredentialsSecret(credData, namespace, credSecretRef)
 	Expect(err).NotTo(HaveOccurred())
 	vel.SetClient()
 	Expect(doesNamespaceExist(namespace)).Should(BeTrue())
@@ -72,13 +75,13 @@ var _ = AfterSuite(func() {
 })
 
 var _ = Describe("Configuration testing for Velero Custom Resource", func() {
-	var _ = BeforeEach(func() {
-		credData, err := getCredsData(vel.credentials)
-		Expect(err).NotTo(HaveOccurred())
+	// var _ = BeforeEach(func() {
+	// 	credData, err := getCredsData(vel.credentials)
+	// 	Expect(err).NotTo(HaveOccurred())
 
-		err = createCredentialsSecret(credData, namespace, credSecretRef)
-		Expect(err).NotTo(HaveOccurred())
-	})
+	// 	err = createCredentialsSecret(credData, namespace, credSecretRef)
+	// 	Expect(err).NotTo(HaveOccurred())
+	// })
 
 	type InstallCase struct {
 		Name                       string
