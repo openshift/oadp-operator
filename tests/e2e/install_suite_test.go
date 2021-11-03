@@ -8,7 +8,6 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
-
 	"github.com/openshift/oadp-operator/pkg/common"
 	velero "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	"k8s.io/utils/pointer"

@@ -15,7 +15,7 @@ import (
 
 var _ = Describe("AWS backup restore tests", func() {
 	var _ = BeforeEach(func() {
-		testSuiteInstanceName := "ts-" + instanceName
+		testSuiteInstanceName := "br-" + instanceName
 		vel.Name = testSuiteInstanceName
 
 		credData, err := getCredsData(credentials)
