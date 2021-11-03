@@ -48,6 +48,7 @@ var _ = BeforeSuite(func() {
 			Expect(err).NotTo(HaveOccurred())
 			ciCredData, err := getCredsData(ci_cred_file)
 			Expect(err).NotTo(HaveOccurred())
+			cloudCredData = append(cloudCredData, []byte("\n")...)
 			credData := append(cloudCredData, ciCredData...)
 			vel.credentials = "/tmp/aws-credentials"
 			err = putCredsData(vel.credentials, credData)
