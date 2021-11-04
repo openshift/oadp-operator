@@ -6,6 +6,7 @@ import (
 
 	"github.com/openshift/oadp-operator/api/v1alpha1"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
+	"github.com/openshift/oadp-operator/pkg/credentials"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -35,7 +36,7 @@ func (v *veleroCustomResource) removeVeleroPlugin(namespace string, instanceName
 	return nil
 }
 
-func doesPluginExist(namespace string, pluginName string) wait.ConditionFunc {
+func doesPluginExist(namespace string, plugin oadpv1alpha1.DefaultPlugin) wait.ConditionFunc {
 	return func() (bool, error) {
 		clientset, err := setUpClient()
 		if err != nil {
@@ -46,10 +47,12 @@ func doesPluginExist(namespace string, pluginName string) wait.ConditionFunc {
 			return false, err
 		}
 		// loop over initContainers and get names
+
 		for _, container := range veleroDeployment.Spec.Template.Spec.InitContainers {
-			name := container.Name
-			if name == pluginName {
-				return true, nil
+			if p, ok := credentials.PluginSpecificFields[plugin]; ok {
+				if container.Name == p.PluginName {
+					return true, nil
+				}
 			}
 		}
 		return false, err
