@@ -320,6 +320,10 @@ func TestVeleroReconciler_buildRegistryDeployment(t *testing.T) {
 											Value: "aws-region",
 										},
 										{
+											Name:  RegistryStorageS3ProfileEnvVarKey,
+											Value: "default",
+										},
+										{
 											Name:  RegistryStorageS3SecretkeyEnvVarKey,
 											Value: testSecretAccessKey,
 										},
@@ -545,6 +549,10 @@ func TestVeleroReconciler_getAWSRegistryEnvVars(t *testing.T) {
 				{
 					Name:  RegistryStorageS3RegionEnvVarKey,
 					Value: "aws-region",
+				},
+				{
+					Name:  RegistryStorageS3ProfileEnvVarKey,
+					Value: "default",
 				},
 				{
 					Name:  RegistryStorageS3SecretkeyEnvVarKey,
