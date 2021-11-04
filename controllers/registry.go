@@ -88,6 +88,10 @@ var cloudProviderEnvVarMap = map[string][]corev1.EnvVar{
 			Value: "",
 		},
 		{
+			Name:  RegistryStorageS3ProfileEnvVarKey,
+			Value: "",
+		},
+		{
 			Name:  RegistryStorageS3SecretkeyEnvVarKey,
 			Value: "",
 		},
