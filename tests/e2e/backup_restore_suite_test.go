@@ -151,7 +151,7 @@ var _ = Describe("AWS backup restore tests", func() {
 			Expect(succeeded).To(Equal(true))
 
 			// verify app is running
-			Eventually(areApplicationPodsRunning(brCase.ApplicationNamespace), timeoutMultiplier*time.Minute*2, time.Second*5).Should(BeTrue())
+			Eventually(areApplicationPodsRunning(brCase.ApplicationNamespace), timeoutMultiplier*time.Minute*9, time.Second*5).Should(BeTrue())
 
 			// Run optional custom verification
 			log.Printf("Running post-restore function for case %s", brCase.Name)
