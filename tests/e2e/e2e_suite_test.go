@@ -3,6 +3,7 @@ package e2e
 import (
 	"flag"
 	"log"
+	"strconv"
 	"testing"
 	"time"
 
@@ -32,6 +33,61 @@ func init() {
 		timeoutMultiplier = time.Duration(*timeoutMultiplierInput)
 	}
 }
+
+var _ = BeforeSuite(func() {
+	flag.Parse()
+	s3Buffer, err := getJsonData(bucketFilePath)
+	Expect(err).NotTo(HaveOccurred())
+	s3Data, err := decodeJson(s3Buffer) // Might need to change this later on to create s3 for each tests
+	Expect(err).NotTo(HaveOccurred())
+	bucket = s3Data["velero-bucket-name"].(string)
+
+	vel = &veleroCustomResource{
+		Namespace:     namespace,
+		BslRegion:     bsl_region,
+		VslRegion:     vsl_region,
+		Bucket:        bucket,
+		Provider:      provider,
+		BslProfile:    bsl_profile,
+		credentials:   credentials,
+		credSecretRef: credSecretRef,
+	}
+	testSuiteInstanceName := "ts-" + instanceName
+	vel.Name = testSuiteInstanceName
+	// err := vel.createBsl()
+	openshift_ci_bool, _ := strconv.ParseBool(openshift_ci)
+	if openshift_ci_bool == true {
+		switch vel.Provider {
+		case "aws":
+			cloudCredData, err := getCredsData(vel.credentials)
+			Expect(err).NotTo(HaveOccurred())
+			ciCredData, err := getCredsData(ci_cred_file)
+			Expect(err).NotTo(HaveOccurred())
+			cloudCredData = append(cloudCredData, []byte("\n")...)
+			credData := append(cloudCredData, ciCredData...)
+			vel.credentials = "/tmp/aws-credentials"
+			err = putCredsData(vel.credentials, credData)
+			Expect(err).NotTo(HaveOccurred())
+		}
+	}
+	credData, err := getCredsData(vel.credentials)
+	Expect(err).NotTo(HaveOccurred())
+	err = createCredentialsSecret(credData, namespace, credSecretRef)
+	Expect(err).NotTo(HaveOccurred())
+	vel.SetClient()
+	Expect(doesNamespaceExist(namespace)).Should(BeTrue())
+})
+
+var _ = AfterSuite(func() {
+	log.Printf("Deleting Velero CR")
+	err := vel.Delete()
+	Expect(err).ToNot(HaveOccurred())
+	// err = vel.deleteBsl()
+	Expect(err).NotTo(HaveOccurred())
+	errs := deleteSecret(namespace, credSecretRef)
+	Expect(errs).ToNot(HaveOccurred())
+	Eventually(vel.IsDeleted(), timeoutMultiplier*time.Minute*2, time.Second*5).Should(BeTrue())
+})
 
 func TestOADPE2E(t *testing.T) {
 	flag.Parse()
