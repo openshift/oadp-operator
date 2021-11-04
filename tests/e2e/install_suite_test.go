@@ -38,7 +38,8 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 				switch vel.Provider {
 				case "aws":
 					installCase.VeleroSpec.BackupStorageLocations[0].Config = map[string]string{
-						"region": vel.BslRegion,
+						"region":  vel.BslRegion,
+						"profile": vel.BslProfile,
 					}
 					installCase.VeleroSpec.DefaultVeleroPlugins = append(installCase.VeleroSpec.DefaultVeleroPlugins, oadpv1alpha1.DefaultPluginAWS) // case "gcp":
 					installCase.ExpectedPlugins = append(installCase.ExpectedPlugins, common.VeleroPluginForAWS)
