@@ -1,7 +1,6 @@
-language: bash
+language: shell
 os: linux
 services: docker
-sudo: required
 dist: bionic
 
 env:
@@ -13,13 +12,17 @@ jobs:
   include:
    - stage: build image
      arch: ppc64le
-     script: ./.travis-build-image.sh
+     script:
+     - travis_wait 60 ./.travis-build-image.sh
    - arch: amd64
-     script: ./.travis-build-image.sh
+     script:
+     - travis_wait 60 ./.travis-build-image.sh
    - arch: s390x
-     script: ./.travis-build-image.sh
+     script:
+     - travis_wait 60 ./.travis-build-image.sh
    - arch: arm64
-     script: ./.travis-build-image.sh
+     script:
+     - travis_wait 60 ./.travis-build-image.sh
    - stage: push manifest
-     arch: x86_64
+     arch: amd64
      script: ./.travis-push-manifest.sh
