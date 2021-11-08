@@ -535,7 +535,7 @@ func (r *VeleroReconciler) parseAWSSecret(secret corev1.Secret, secretKey string
 			cleanedLine := strings.ReplaceAll(line, " ", "")
 			parsedProfile := awsProfileRegex.ReplaceAllString(cleanedLine, "")
 			if parsedProfile == awsProfile {
-				// check for access key
+				// check for end of arr
 				if index+1 >= len(splitString) {
 					break
 				}
@@ -549,7 +549,7 @@ func (r *VeleroReconciler) parseAWSSecret(secret corev1.Secret, secretKey string
 						r.Log.Info("Error finding access key id for the supplied AWS credential")
 						return AWSAccessKey, AWSSecretKey, err
 					}
-
+					// check for access key
 					if matchedAccessKey {
 						cleanedLine := strings.ReplaceAll(profLine, " ", "")
 						splitLine := strings.Split(cleanedLine, "=")
