@@ -536,6 +536,9 @@ func (r *VeleroReconciler) parseAWSSecret(secret corev1.Secret, secretKey string
 			parsedProfile := awsProfileRegex.ReplaceAllString(cleanedLine, "")
 			if parsedProfile == awsProfile {
 				// check for access key
+				if index+1 >= len(splitString) {
+					break
+				}
 				for _, profLine := range splitString[index+1:] {
 					if profLine == "" {
 						continue
