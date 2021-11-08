@@ -7,12 +7,21 @@
 <hr style="height:1px;border:none;color:#333;">
 
 ## Debugging Failed Backups:
- - 
+ - This section includes how to debug a failed backup. For more specific issues related to restic/CSI/Volume snapshots check out the section <link to section>.
 
+1. Check for validation errors in the backup by running the following command,
+`oc describe backup <backupName>`
+Alternatively, if you have a local velero installation, you can also run `velero describe backup <backupName> -n <namespace>`
+2. Run `oc logs pod/<veleroPodName>` to check if there are any errors.
+3. Fix errors if any. If the issue still persists, [create a new issue](https://github.com/openshift/oadp-operator/issues/new) if [an issue doesnt exist already](https://github.com/openshift/oadp-operator/issues)
 
 ### Debugging failed volume backups:
   - Restic:
+     -  **Error:** 
 
+        **Problem:** 
+
+        **Solutions:** 
 
   - Cloud Snapshots:
 
