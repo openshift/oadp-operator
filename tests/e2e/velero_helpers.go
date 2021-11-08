@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"reflect"
 	"strings"
 
 	appsv1 "github.com/openshift/api/apps/v1"
@@ -255,5 +256,56 @@ func (v *veleroCustomResource) IsDeleted() wait.ConditionFunc {
 			return true, nil
 		}
 		return false, err
+	}
+}
+
+//check if bsl matches the spec
+func doesBSLExist(namespace string, bsl velero.BackupStorageLocationSpec, spec *oadpv1alpha1.VeleroSpec) wait.ConditionFunc {
+	return func() (bool, error) {
+		if len(spec.BackupStorageLocations) == 0 {
+			return false, errors.New("no backup storage location configured. Expected BSL to be configured")
+		}
+		for _, b := range spec.BackupStorageLocations {
+			if b.Provider == bsl.Provider {
+				if !reflect.DeepEqual(bsl, b) {
+					return false, errors.New("given Velero bsl does not match the deployed velero bsl")
+				}
+			}
+		}
+		return true, nil
+	}
+}
+
+//check if vsl matches the spec
+func doesVSLExist(namespace string, vslspec velero.VolumeSnapshotLocationSpec, spec *oadpv1alpha1.VeleroSpec) wait.ConditionFunc {
+	return func() (bool, error) {
+
+		if len(spec.VolumeSnapshotLocations) == 0 {
+			return false, errors.New("no volume storage location configured. Expected VSL to be configured")
+		}
+		for _, v := range spec.VolumeSnapshotLocations {
+			if v.Provider == vslspec.Provider {
+				if !reflect.DeepEqual(vslspec, v) {
+					return false, errors.New("given Velero vslspec does not match the deployed velero vslspec")
+				}
+			}
+		}
+		return true, nil
+	}
+}
+
+//check velero tolerations
+func verifyVeleroTolerations(namespace string, t []corev1.Toleration) wait.ConditionFunc {
+	return func() (bool, error) {
+		clientset, err := setUpClient()
+		if err != nil {
+			return false, err
+		}
+		veldep, _ := clientset.AppsV1().Deployments(namespace).Get(context.Background(), "velero", metav1.GetOptions{})
+
+		if !reflect.DeepEqual(t, veldep.Spec.Template.Spec.Tolerations) {
+			return false, errors.New("given Velero tolerations does not match the deployed velero tolerations")
+		}
+		return true, nil
 	}
 }
