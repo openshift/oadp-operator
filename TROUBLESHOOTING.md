@@ -40,7 +40,8 @@ If the issue still persists, [create a new issue](https://github.com/openshift/o
 
 ### Debugging failed volume restores:
   - Restic:
-
+  1. Obtain the Restic pod logs by running the following command,
+  `oc logs -l name=restic`. Check for errors.  
 
   - Cloud Snapshots:
 
