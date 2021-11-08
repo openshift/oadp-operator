@@ -49,6 +49,7 @@ func getFakeClientFromObjectsForRegistry(objs ...client.Object) (client.WithWatc
 }
 
 const (
+	testProfile         = "someProfile"
 	testAccessKey       = "someAccessKey"
 	testSecretAccessKey = "someSecretAccessKey"
 	testStoragekey      = "someStorageKey"
@@ -59,7 +60,11 @@ var (
 	secretData = map[string][]byte{
 		"cloud": []byte("[default]" + "\n" +
 			"aws_access_key_id=" + testAccessKey + "\n" +
-			"aws_secret_access_key=" + testSecretAccessKey),
+			"aws_secret_access_key=" + testSecretAccessKey +
+			"\n[test-profile]\n" +
+			"aws_access_key_id=" + testAccessKey + "\n" +
+			"aws_secret_access_key=" + testSecretAccessKey,
+		),
 	}
 	secretAzureData = map[string][]byte{
 		"cloud": []byte("[default]" + "\n" +
@@ -483,6 +488,7 @@ func TestVeleroReconciler_getAWSRegistryEnvVars(t *testing.T) {
 		name                        string
 		bsl                         *velerov1.BackupStorageLocation
 		wantRegistryContainerEnvVar []corev1.EnvVar
+		wantProfile                 string
 		secret                      *corev1.Secret
 		wantErr                     bool
 	}{
@@ -515,6 +521,7 @@ func TestVeleroReconciler_getAWSRegistryEnvVars(t *testing.T) {
 				},
 				Data: secretData,
 			},
+			wantProfile: "test-profile",
 		},
 	}
 	for _, tt := range tests {
@@ -553,7 +560,7 @@ func TestVeleroReconciler_getAWSRegistryEnvVars(t *testing.T) {
 				},
 				{
 					Name:  RegistryStorageS3ProfileEnvVarKey,
-					Value: "default",
+					Value: tt.wantProfile,
 				},
 				{
 					Name:  RegistryStorageS3SecretkeyEnvVarKey,
