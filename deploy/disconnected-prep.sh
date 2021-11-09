@@ -5,8 +5,6 @@ export OADPVERSION=$(ls deploy/olm-catalog/bundle/manifests/oadp-operator.v* | a
 export OADPTAG=$(git branch --show-current)
 git checkout origin/$(git branch --show-current) -- Dockerfile
 git checkout origin/$(git branch --show-current) -- .gitignore
-#git checkout origin/$(git branch --show-current) -- content_sets.yml
-#git checkout origin/$(git branch --show-current) -- container.yaml
 for file in $(git status --porcelain -- render_templates* | awk '{print $2}'); do
   git checkout origin/$(git branch --show-current) -- "${file}"
 done
@@ -67,7 +65,6 @@ for i in ${IMAGES[@]}; do
   fi
 done
 
-#sed -i 's,crane-operator,mtc-operator,g' deploy/olm-catalog/bundle/metadata/annotations.yaml
 
 # Make CSV Changes check for OADP version inf csv file name
 for f in deploy/olm-catalog/bundle/manifests/oadp-operator.${OADPVERSION}.clusterserviceversion.yaml
