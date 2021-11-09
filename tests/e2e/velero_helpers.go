@@ -56,7 +56,6 @@ func (v *dpaCustomResource) Build(backupRestoreType BackupRestoreType) error {
 			Name:      v.Name,
 			Namespace: v.Namespace,
 		},
-<<<<<<< HEAD
 		Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 			Configuration: &oadpv1alpha1.ApplicationConfig{
 				Velero: &oadpv1alpha1.VeleroConfig{
@@ -70,11 +69,6 @@ func (v *dpaCustomResource) Build(backupRestoreType BackupRestoreType) error {
 				},
 			},
 			BackupLocations: []oadpv1alpha1.BackupLocation{
-=======
-		Spec: oadpv1alpha1.VeleroSpec{
-			EnableRestic: pointer.Bool(true),
-			BackupStorageLocations: []oadpv1alpha1.BackupStorageLocation{
->>>>>>> a5a77dc (getting types changed over)
 				{
 					Velero: &velero.BackupStorageLocationSpec{
 						Provider: v.Provider,
