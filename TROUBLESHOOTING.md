@@ -19,9 +19,11 @@ If the issue still persists, [create a new issue](https://github.com/openshift/o
 
 ### Debugging failed volume backups:
   - Restic: 
+    1. Obtain the Restic pod logs by running the following command,
+  `oc logs -l name=restic`. Check for errors.  
 
   - Cloud Snapshots:
-
+  
 
   - CSI Snapshots:
 
@@ -44,6 +46,8 @@ If the issue still persists, [create a new issue](https://github.com/openshift/o
   `oc logs -l name=restic`. Check for errors.  
 
   - Cloud Snapshots:
+
+
 
 
   - CSI Snapshots:
@@ -88,6 +92,14 @@ If the issue still persists, [create a new issue](https://github.com/openshift/o
     2. Delete the offending directories from your object storage location.
 
 
+### Errors in backup logs:
 
--  
+-   **Error:** 
+    `error getting volume info: rpc error: code = Unknown desc = InvalidVolume.NotFound: The volume ‘vol-xxxx’ does not exist.\n\tstatus code: 400`
+
+    **Problem** 
+    AWS PV and Volume snaphot location are in different region.
+
+    **Solution**
+    Edit Velero `volume_snapshot_location` to the region specified in PV, change region in VolumeSnapshotLocation resource to the region mentioned in the PV, and then create a new Backup.
 
