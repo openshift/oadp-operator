@@ -36,6 +36,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 		dpa                  *oadpv1alpha1.DataProtectionApplication
 		wantErr              bool
 		wantVeleroDeployment *appsv1.Deployment
+		clientObjects        []client.Object
 	}{
 		{
 			name: "DPA CR is nil",
@@ -930,10 +931,254 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "given valid Velero CR with with aws plugin from bucket",
+			veleroDeployment: &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-velero-deployment",
+					Namespace: "test-ns",
+				},
+				Spec: appsv1.DeploymentSpec{
+					Selector: veleroLabelSelector,
+				},
+			},
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-Velero-CR",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+								oadpv1alpha1.DefaultPluginAWS,
+							},
+						},
+					},
+					BackupLocations: []oadpv1alpha1.BackupLocation{
+						{
+							Bucket: &oadpv1alpha1.BucketBackupLocation{
+								BucketRef: corev1.LocalObjectReference{
+									Name: "bucket-123",
+								},
+								Config: map[string]string{},
+								Credential: &corev1.SecretKeySelector{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: "cloud-credentials",
+									},
+									Key: "creds",
+								},
+								Default:          false,
+								BackupSyncPeriod: &metav1.Duration{},
+							},
+						},
+					},
+				},
+			},
+			wantErr: false,
+			wantVeleroDeployment: &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-velero-deployment",
+					Namespace: "test-ns",
+					Labels: map[string]string{
+						"app.kubernetes.io/name":       common.Velero,
+						"app.kubernetes.io/instance":   "test-Velero-CR",
+						"app.kubernetes.io/managed-by": common.OADPOperator,
+						"app.kubernetes.io/component":  Server,
+						oadpv1alpha1.OadpOperatorLabel: "True",
+					},
+				},
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "Deployment",
+					APIVersion: appsv1.SchemeGroupVersion.String(),
+				},
+				Spec: appsv1.DeploymentSpec{
+					Selector: veleroLabelSelector,
+					Replicas: pointer.Int32(1),
+					Template: corev1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Labels: veleroLabelSelector.MatchLabels,
+							Annotations: map[string]string{
+								"prometheus.io/scrape": "true",
+								"prometheus.io/port":   "8085",
+								"prometheus.io/path":   "/metrics",
+							},
+						},
+						Spec: corev1.PodSpec{
+							RestartPolicy:      corev1.RestartPolicyAlways,
+							ServiceAccountName: common.Velero,
+							Containers: []corev1.Container{
+								{
+									Name:            common.Velero,
+									Image:           common.VeleroImage,
+									ImagePullPolicy: corev1.PullAlways,
+									Ports: []corev1.ContainerPort{
+										{
+											Name:          "metrics",
+											ContainerPort: 8085,
+										},
+									},
+									Resources: corev1.ResourceRequirements{
+										Limits: corev1.ResourceList{
+											corev1.ResourceCPU:    resource.MustParse("1"),
+											corev1.ResourceMemory: resource.MustParse("512Mi"),
+										},
+										Requests: corev1.ResourceList{
+											corev1.ResourceCPU:    resource.MustParse("500m"),
+											corev1.ResourceMemory: resource.MustParse("128Mi"),
+										},
+									},
+									Command: []string{"/velero"},
+									Args: []string{
+										"server",
+										"--restic-timeout=1h",
+									},
+									VolumeMounts: []corev1.VolumeMount{
+										{
+											Name:      "plugins",
+											MountPath: "/plugins",
+										},
+										{
+											Name:      "scratch",
+											MountPath: "/scratch",
+										},
+										{
+											Name:      "certs",
+											MountPath: "/etc/ssl/certs",
+										},
+										{
+											Name:      "bound-sa-token",
+											MountPath: "/var/run/secrets/openshift/serviceaccount",
+											ReadOnly:  true,
+										},
+										{
+											Name:      "cloud-credentials",
+											MountPath: "/credentials",
+										},
+									},
+									Env: []corev1.EnvVar{
+										{
+											Name:  common.VeleroScratchDirEnvKey,
+											Value: "/scratch",
+										},
+										{
+											Name: common.VeleroNamespaceEnvKey,
+											ValueFrom: &corev1.EnvVarSource{
+												FieldRef: &corev1.ObjectFieldSelector{
+													FieldPath: "metadata.namespace",
+												},
+											},
+										},
+										{
+											Name:  common.LDLibraryPathEnvKey,
+											Value: "/plugins",
+										},
+										{
+											Name:  common.HTTPProxyEnvVar,
+											Value: os.Getenv("HTTP_PROXY"),
+										},
+										{
+											Name:  common.HTTPSProxyEnvVar,
+											Value: os.Getenv("HTTPS_PROXY"),
+										},
+										{
+											Name:  common.NoProxyEnvVar,
+											Value: os.Getenv("NO_PROXY"),
+										},
+										{
+											Name:  common.AWSSharedCredentialsFileEnvKey,
+											Value: "/credentials/cloud",
+										},
+									},
+								},
+							},
+							Volumes: []corev1.Volume{
+								{
+									Name: "plugins",
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{},
+									},
+								},
+								{
+									Name: "scratch",
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{},
+									},
+								},
+								{
+									Name: "certs",
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{},
+									},
+								},
+								{
+									Name: "bound-sa-token",
+									VolumeSource: corev1.VolumeSource{
+										Projected: &corev1.ProjectedVolumeSource{
+											DefaultMode: pointer.Int32(420),
+											Sources: []corev1.VolumeProjection{
+												{
+													ServiceAccountToken: &corev1.ServiceAccountTokenProjection{
+														Audience:          "openshift",
+														ExpirationSeconds: pointer.Int64(3600),
+														Path:              "token",
+													},
+												},
+											},
+										},
+									},
+								},
+								{
+									Name: "cloud-credentials",
+									VolumeSource: corev1.VolumeSource{
+										Secret: &corev1.SecretVolumeSource{
+											SecretName: "cloud-credentials",
+										},
+									},
+								},
+							},
+							InitContainers: []corev1.Container{
+								{
+									Image:                    common.AWSPluginImage,
+									Name:                     common.VeleroPluginForAWS,
+									ImagePullPolicy:          corev1.PullAlways,
+									Resources:                corev1.ResourceRequirements{},
+									TerminationMessagePath:   "/dev/termination-log",
+									TerminationMessagePolicy: "File",
+									VolumeMounts: []corev1.VolumeMount{
+										{
+											MountPath: "/target",
+											Name:      "plugins",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			clientObjects: []client.Object{
+				&oadpv1alpha1.Bucket{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "bucket-123",
+						Namespace: "test-ns",
+					},
+					Spec: oadpv1alpha1.BucketSpec{
+						EnableSharedConfig: true,
+					},
+				},
+			},
+		},
 	}
-	r := &DPAReconciler{}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			fakeClient, err := getFakeClientFromObjects(tt.clientObjects...)
+			if err != nil {
+				t.Errorf("error in creating fake client, likely programmer error")
+			}
+			r := DPAReconciler{
+				Client: fakeClient,
+			}
 			if err := r.buildVeleroDeployment(tt.veleroDeployment, tt.dpa); (err != nil) != tt.wantErr {
 				t.Errorf("buildVeleroDeployment() error = %v, wantErr %v", err, tt.wantErr)
 			}
