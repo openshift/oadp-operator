@@ -16,7 +16,6 @@ metadata:
             "namespace":"openshift-adp"
           },
           "spec": {
-            "olmManaged": true,
             "backupStorageLocations": [
               {
                 "config": {
@@ -163,6 +162,23 @@ metadata:
     support: Red Hat
     operatorframework.io/suggested-namespace: openshift-adp
 spec:
+  relatedImages:
+  - name: velero
+    image: quay.io/konveyor/velero:latest
+  - name: velero_restic_restore_helper
+    image: quay.io/konveyor/velero-restic-restore-helper:latest
+  - name: openshift_plugin
+    image: quay.io/konveyor/openshift-velero-plugin:latest
+  - name: aws_plugin
+    image: quay.io/konveyor/velero-plugin-for-aws:latest
+  - name: azure_plugin
+    image: quay.io/konveyor/velero-plugin-for-microsoft-azure:latest
+  - name: gcp_plugin
+    image: quay.io/konveyor/velero-plugin-for-gcp:latest
+  - name: csi_plugin
+    image: quay.io/konveyor/velero-plugin-for-csi:latest
+  - name: registry
+    image: quay.io/konveyor/registry:latest
   apiservicedefinitions: {}
   displayName: OADP Operator
   description: OADP (OpenShift API for Data Protection) operator sets up and installs Velero on the OpenShift platform.
@@ -207,11 +223,11 @@ spec:
                 - name: VELERO_REGISTRY_REPO
                   value: registry
                 - name: VELERO_REGISTRY_TAG
-                  value: oadp-0.3.0
+                  value: latest
                 - name: VELERO_OPENSHIFT_PLUGIN_REPO
                   value: openshift-velero-plugin
                 - name: VELERO_OPENSHIFT_PLUGIN_TAG
-                  value: oadp-0.3.0
+                  value: latest
                 - name: VELERO_RESTIC_RESTORE_HELPER_REPO
                   value: velero-restic-restore-helper
                 - name: VELERO_AWS_PLUGIN_REPO
@@ -222,20 +238,18 @@ spec:
                   value: velero-plugin-for-microsoft-azure
                 - name: VELERO_CSI_PLUGIN_REPO
                   value: velero-plugin-for-csi
-                - name: VELERO_VSPHERE_PLUGIN_REPO
-                  value: velero-plugin-for-vsphere
                 - name: VELERO_TAG
-                  value: konveyor-1.7.0
+                  value: latest
                 - name: VELERO_RESTIC_RESTORE_HELPER_TAG
                   value: latest
                 - name: VELERO_AWS_PLUGIN_TAG
-                  value: konveyor-1.3.0
+                  value: latest
                 - name: VELERO_GCP_PLUGIN_TAG
-                  value: konveyor-1.3.0
+                  value: latest
                 - name: VELERO_AZURE_PLUGIN_TAG
-                  value: konveyor-1.3.0
+                  value: latest
                 - name: VELERO_CSI_PLUGIN_TAG
-                  value: konveyor-0.2.0
+                  value: latest
                 args:
                 - --leader-elect
                 image: "quay.io/konveyor/oadp-operator:latest"
