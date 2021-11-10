@@ -1,7 +1,7 @@
 apiVersion: operators.coreos.com/v1alpha1
 kind: ClusterServiceVersion
 metadata:
-  name: oadp-operator.v99.0.0
+  name: oadp-operator.v0.4.2
   namespace: openshift-adp
   labels:
     operatorframework.io/arch.amd64: supported
@@ -9,8 +9,8 @@ metadata:
     operatorframework.io/arch.ppc64le: supported
     operatorframework.io/arch.s390x: supported
   annotations:
-    olm.skipRange: '>=0.0.0 <99.0.0'
-    containerImage: "quay.io/konveyor/oadp-operator:latest"
+    olm.skipRange: '>=0.0.0 <0.4.2'
+    containerImage: "quay.io/konveyor/oadp-operator@sha256:f5f83dc8addbfdc1ec8e885c4dc9ae4958e861aa8532189ac84cca5545f844a7
     alm-examples: |-
       [
         {
@@ -166,24 +166,30 @@ metadata:
     repository: https://github.com/openshift/oadp-operator
     support: Red Hat
     operatorframework.io/suggested-namespace: openshift-adp
+    operators.openshift.io/infrastructure-features: '["Disconnected"]'
+    operatorframework.io/cluster-monitoring: "true"
 spec:
+  skips:
+  - oadp-operator.v0.3.0
+  - oadp-operator.v0.4.0
+  - oadp-operator.v0.4.1
   relatedImages:
   - name: velero
-    image: quay.io/konveyor/velero:latest
+    image: quay.io/konveyor/velero@sha256:e7865cc707664eb6ee767e77ccd933420604c2562736b53e16c8043a51df9d86
   - name: velero_restic_restore_helper
-    image: quay.io/konveyor/velero-restic-restore-helper:latest
+    image: quay.io/konveyor/velero-restic-restore-helper@sha256:c4d12829e42cabe70b662a659875900677dfb415f912f931c3bf4c09a26aed5b
   - name: openshift_plugin
-    image: quay.io/konveyor/openshift-velero-plugin:latest
+    image: quay.io/konveyor/openshift-velero-plugin@sha256:aec8b4fc66cfcebd5a35ce99d8c985453ebf25c11453d30256089a8b425990b5
   - name: aws_plugin
-    image: quay.io/konveyor/velero-plugin-for-aws:latest
+    image: quay.io/konveyor/velero-plugin-for-aws@sha256:2197c6fef32910747526d33c1462b75cb7940aeace65791d0a5ddaa038480e52
   - name: azure_plugin
-    image: quay.io/konveyor/velero-plugin-for-microsoft-azure:latest
+    image: quay.io/konveyor/velero-plugin-for-microsoft-azure@sha256:62a344e5cf196e55dae92e537648987d758ccc75985bc45e9be6d0646a9e64d0
   - name: gcp_plugin
-    image: quay.io/konveyor/velero-plugin-for-gcp:latest
+    image: quay.io/konveyor/velero-plugin-for-gcp@sha256:3300458b1d6c1514dca7d24353ad03bd92db396b2a29f7d3522563160a5f5219
   - name: csi_plugin
-    image: quay.io/konveyor/velero-plugin-for-csi:latest
+    image: quay.io/konveyor/velero-plugin-for-csi@sha256:5c2261effc902d8baa16e38265f9ad1fbe5284a3e6abd2bbc97761c161fa92cf
   - name: registry
-    image: quay.io/konveyor/registry:latest
+    image: quay.io/konveyor/registry@sha256:b74ab3278b79eb89f99b6970c6aa0f5306221a8495b5496faad6cab2f74ff2cd
   apiservicedefinitions: {}
   displayName: OADP Operator
   description: OADP (OpenShift API for Data Protection) operator sets up and installs Velero on the OpenShift platform.
@@ -224,40 +230,40 @@ spec:
                 - name: PROJECT
                   value: konveyor
                 - name: VELERO_REPO
-                  value: velero
+                  value: velero@sha256
                 - name: VELERO_REGISTRY_REPO
-                  value: registry
+                  value: registry@sha256
                 - name: VELERO_REGISTRY_TAG
-                  value: latest
+                  value: b74ab3278b79eb89f99b6970c6aa0f5306221a8495b5496faad6cab2f74ff2cd
                 - name: VELERO_OPENSHIFT_PLUGIN_REPO
-                  value: openshift-velero-plugin
+                  value: openshift-velero-plugin@sha256
                 - name: VELERO_OPENSHIFT_PLUGIN_TAG
-                  value: latest
+                  value: aec8b4fc66cfcebd5a35ce99d8c985453ebf25c11453d30256089a8b425990b5
                 - name: VELERO_RESTIC_RESTORE_HELPER_REPO
-                  value: velero-restic-restore-helper
+                  value: velero-restic-restore-helper@sha256
                 - name: VELERO_AWS_PLUGIN_REPO
-                  value: velero-plugin-for-aws
+                  value: velero-plugin-for-aws@sha256
                 - name: VELERO_GCP_PLUGIN_REPO
-                  value: velero-plugin-for-gcp
+                  value: velero-plugin-for-gcp@sha256
                 - name: VELERO_AZURE_PLUGIN_REPO
-                  value: velero-plugin-for-microsoft-azure
+                  value: velero-plugin-for-microsoft-azure@sha256
                 - name: VELERO_CSI_PLUGIN_REPO
-                  value: velero-plugin-for-csi
+                  value: velero-plugin-for-csi@sha256
                 - name: VELERO_TAG
-                  value: latest
+                  value: e7865cc707664eb6ee767e77ccd933420604c2562736b53e16c8043a51df9d86
                 - name: VELERO_RESTIC_RESTORE_HELPER_TAG
-                  value: latest
+                  value: c4d12829e42cabe70b662a659875900677dfb415f912f931c3bf4c09a26aed5b
                 - name: VELERO_AWS_PLUGIN_TAG
-                  value: latest
+                  value: 2197c6fef32910747526d33c1462b75cb7940aeace65791d0a5ddaa038480e52
                 - name: VELERO_GCP_PLUGIN_TAG
-                  value: latest
+                  value: 3300458b1d6c1514dca7d24353ad03bd92db396b2a29f7d3522563160a5f5219
                 - name: VELERO_AZURE_PLUGIN_TAG
-                  value: latest
+                  value: 62a344e5cf196e55dae92e537648987d758ccc75985bc45e9be6d0646a9e64d0
                 - name: VELERO_CSI_PLUGIN_TAG
-                  value: latest
+                  value: 5c2261effc902d8baa16e38265f9ad1fbe5284a3e6abd2bbc97761c161fa92cf
                 args:
                 - --leader-elect
-                image: "quay.io/konveyor/oadp-operator:latest"
+                image: "quay.io/konveyor/oadp-operator@sha256:f5f83dc8addbfdc1ec8e885c4dc9ae4958e861aa8532189ac84cca5545f844a7
                 imagePullPolicy: Always
                 name: oadp-operator
                 securityContext:
@@ -457,7 +463,8 @@ spec:
   maturity: beta
   provider:
     name: Red Hat
-  version: 99.0.0
+  version: 0.4.2
+  replaces: oadp-operator.v0.4.1
   customresourcedefinitions:
     owned:
     - name: veleroes.oadp.openshift.io
