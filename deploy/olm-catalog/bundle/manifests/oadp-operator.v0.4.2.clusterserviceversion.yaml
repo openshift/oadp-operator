@@ -10,7 +10,7 @@ metadata:
     operatorframework.io/arch.s390x: supported
   annotations:
     olm.skipRange: '>=0.0.0 <0.4.2'
-    containerImage: "quay.io/konveyor/oadp-operator@sha256:f5f83dc8addbfdc1ec8e885c4dc9ae4958e861aa8532189ac84cca5545f844a7
+    containerImage: "quay.io/konveyor/oadp-operator@sha256:ecb8534fbc245e890b9c7766946d01e1a8b4ce9be359c4ada4c95fd908b679b3"
     alm-examples: |-
       [
         {
@@ -263,7 +263,7 @@ spec:
                   value: 5c2261effc902d8baa16e38265f9ad1fbe5284a3e6abd2bbc97761c161fa92cf
                 args:
                 - --leader-elect
-                image: "quay.io/konveyor/oadp-operator@sha256:f5f83dc8addbfdc1ec8e885c4dc9ae4958e861aa8532189ac84cca5545f844a7
+                image: "quay.io/konveyor/oadp-operator@sha256:ecb8534fbc245e890b9c7766946d01e1a8b4ce9be359c4ada4c95fd908b679b3"
                 imagePullPolicy: Always
                 name: oadp-operator
                 securityContext:
