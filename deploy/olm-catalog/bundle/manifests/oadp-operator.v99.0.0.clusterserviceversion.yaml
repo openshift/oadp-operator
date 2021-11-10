@@ -3,6 +3,11 @@ kind: ClusterServiceVersion
 metadata:
   name: oadp-operator.v99.0.0
   namespace: openshift-adp
+  labels:
+    operatorframework.io/arch.amd64: supported
+    operatorframework.io/arch.arm64: supported
+    operatorframework.io/arch.ppc64le: supported
+    operatorframework.io/arch.s390x: supported
   annotations:
     olm.skipRange: '>=0.0.0 <99.0.0'
     containerImage: "quay.io/konveyor/oadp-operator:latest"
