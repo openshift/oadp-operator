@@ -506,10 +506,9 @@ func (r *VeleroReconciler) getSecretNameAndKey(credential *corev1.SecretKeySelec
 	return secretName, secretKey
 }
 
-func (r *VeleroReconciler) parseAWSSecret(secret corev1.Secret, secretKey string, awsProfile string) (string, string, error) {
+func (r *VeleroReconciler) parseAWSSecret(secret corev1.Secret, secretKey string, matchProfile string) (string, string, error) {
 
-	AWSAccessKey, AWSSecretKey := "", ""
-	// this logic only supports single profile presence in the aws credentials file
+	AWSAccessKey, AWSSecretKey, AWSProfile := "", "", ""
 	splitString := strings.Split(string(secret.Data[secretKey]), "\n")
 	keyNameRegex, err := regexp.Compile(`\[.*\]`) //ignore lines such as [default]
 	if err != nil {
@@ -534,7 +533,8 @@ func (r *VeleroReconciler) parseAWSSecret(secret corev1.Secret, secretKey string
 			}
 			cleanedLine := strings.ReplaceAll(line, " ", "")
 			parsedProfile := awsProfileRegex.ReplaceAllString(cleanedLine, "")
-			if parsedProfile == awsProfile {
+			if parsedProfile == matchProfile {
+				AWSProfile = matchProfile
 				// check for end of arr
 				if index+1 >= len(splitString) {
 					break
@@ -577,6 +577,10 @@ func (r *VeleroReconciler) parseAWSSecret(secret corev1.Secret, secretKey string
 				}
 			}
 		}
+	}
+	if AWSProfile == "" {
+		r.Log.Info("Error finding AWS Profile for the supplied AWS credential")
+		return AWSAccessKey, AWSSecretKey, errors.New("Error finding AWS Profile for the supplied AWS credential")
 	}
 	if AWSAccessKey == "" {
 		r.Log.Info("Error finding access key id for the supplied AWS credential")
