@@ -37,7 +37,6 @@ const (
 	RegistryStorageS3AccesskeyEnvVarKey      = "REGISTRY_STORAGE_S3_ACCESSKEY"
 	RegistryStorageS3BucketEnvVarKey         = "REGISTRY_STORAGE_S3_BUCKET"
 	RegistryStorageS3RegionEnvVarKey         = "REGISTRY_STORAGE_S3_REGION"
-	RegistryStorageS3ProfileEnvVarKey        = "REGISTRY_STORAGE_S3_PROFILE"
 	RegistryStorageS3SecretkeyEnvVarKey      = "REGISTRY_STORAGE_S3_SECRETKEY"
 	RegistryStorageS3RegionendpointEnvVarKey = "REGISTRY_STORAGE_S3_REGIONENDPOINT"
 	RegistryStorageS3RootdirectoryEnvVarKey  = "REGISTRY_STORAGE_S3_ROOTDIRECTORY"
@@ -85,10 +84,6 @@ var cloudProviderEnvVarMap = map[string][]corev1.EnvVar{
 		},
 		{
 			Name:  RegistryStorageS3RegionEnvVarKey,
-			Value: "",
-		},
-		{
-			Name:  RegistryStorageS3ProfileEnvVarKey,
 			Value: "",
 		},
 		{
@@ -411,14 +406,6 @@ func (r *VeleroReconciler) getAWSRegistryEnvVars(bsl *velerov1.BackupStorageLoca
 
 		if awsEnvVars[i].Name == RegistryStorageS3RegionEnvVarKey {
 			awsEnvVars[i].Value = bsl.Spec.Config[Region]
-		}
-
-		if awsEnvVars[i].Name == RegistryStorageS3ProfileEnvVarKey {
-			if value, exists := bsl.Spec.Config[Profile]; exists {
-				awsEnvVars[i].Value = value
-			} else {
-				awsEnvVars[i].Value = "default"
-			}
 		}
 
 		if awsEnvVars[i].Name == RegistryStorageS3SecretkeyEnvVarKey {
