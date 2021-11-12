@@ -13,13 +13,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type BackupRestoreType string
-
-const (
-	csi    BackupRestoreType = "csi"
-	restic BackupRestoreType = "restic"
-)
-
 type VerificationFunction func(client.Client, string) error
 
 var _ = Describe("AWS backup restore tests", func() {

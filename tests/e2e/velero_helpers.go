@@ -24,6 +24,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 )
 
+type BackupRestoreType string
+
+const (
+	csi    BackupRestoreType = "csi"
+	restic BackupRestoreType = "restic"
+)
+
 type veleroCustomResource struct {
 	Name              string
 	Namespace         string

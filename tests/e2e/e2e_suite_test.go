@@ -69,7 +69,6 @@ var _ = BeforeSuite(func() {
 	vel.Name = testSuiteInstanceName
 
 	vel.SetClient()
-	//vel.Build()
 	Expect(doesNamespaceExist(namespace)).Should(BeTrue())
 })
 
