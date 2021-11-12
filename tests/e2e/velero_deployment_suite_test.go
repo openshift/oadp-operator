@@ -37,6 +37,15 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 						"profile": vel.BslProfile,
 					}
 					installCase.VeleroSpec.DefaultVeleroPlugins = append(installCase.VeleroSpec.DefaultVeleroPlugins, oadpv1alpha1.DefaultPluginAWS) // case "gcp":
+					installCase.VeleroSpec.VolumeSnapshotLocations = []velero.VolumeSnapshotLocationSpec{
+						{
+							Provider: vel.Provider,
+							Config: map[string]string{
+								"region":  vel.VslRegion,
+								"profile": "default",
+							},
+						},
+					}
 					// 	config["serviceAccount"] = v.Region
 				}
 			}
@@ -135,23 +144,14 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 						},
 					},
 				},
-				VolumeSnapshotLocations: []velero.VolumeSnapshotLocationSpec{
-					{
-						Provider: "aws",
-						Config: map[string]string{
-							"Region": "us-east-1",
-						},
-					},
-				},
 				DefaultVeleroPlugins: []oadpv1alpha1.DefaultPlugin{
 					oadpv1alpha1.DefaultPluginOpenShift,
 				},
 			},
 			WantError: false,
 		}, nil),
-		Entry("Velero CR with bsl and multiple vsl", InstallCase{
-			Name:         "default-cr-bsl-vsl",
-			BRestoreType: "restic",
+		/* Entry("Velero CR with bsl and multiple vsl", InstallCase{
+			Name: "default-cr-bsl-vsl",
 			VeleroSpec: &oadpv1alpha1.VeleroSpec{
 				EnableRestic: pointer.Bool(true),
 				BackupStorageLocations: []velero.BackupStorageLocationSpec{
@@ -211,6 +211,7 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 			},
 			WantError: false,
 		}, nil),
+		*/
 		Entry("Default velero CR with restic disabled", InstallCase{
 			Name:         "default-cr-no-restic",
 			BRestoreType: "restic",
