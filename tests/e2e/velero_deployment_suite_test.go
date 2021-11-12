@@ -29,6 +29,17 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 			// instead of assigning the values in advance to the Velero CR
 			err := vel.Build(installCase.BRestoreType)
 			Expect(err).NotTo(HaveOccurred())
+			if len(installCase.VeleroSpec.BackupStorageLocations) > 0 {
+				switch vel.Provider {
+				case "aws":
+					installCase.VeleroSpec.BackupStorageLocations[0].Config = map[string]string{
+						"region":  vel.BslRegion,
+						"profile": vel.BslProfile,
+					}
+					installCase.VeleroSpec.DefaultVeleroPlugins = append(installCase.VeleroSpec.DefaultVeleroPlugins, oadpv1alpha1.DefaultPluginAWS) // case "gcp":
+					// 	config["serviceAccount"] = v.Region
+				}
+			}
 			err = vel.CreateOrUpdate(installCase.VeleroSpec)
 			Expect(err).ToNot(HaveOccurred())
 			log.Printf("Waiting for velero pod to be running")
@@ -92,13 +103,10 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 				BackupStorageLocations: []velero.BackupStorageLocationSpec{
 					{
 						Provider: provider,
-						Config: map[string]string{
-							"region": region,
-						},
-						Default: true,
+						Default:  true,
 						StorageType: velero.StorageType{
 							ObjectStorage: &velero.ObjectStorageLocation{
-								Bucket: s3Bucket,
+								Bucket: bucket,
 								Prefix: veleroPrefix,
 							},
 						},
@@ -106,7 +114,6 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 				},
 				DefaultVeleroPlugins: []oadpv1alpha1.DefaultPlugin{
 					oadpv1alpha1.DefaultPluginOpenShift,
-					oadpv1alpha1.DefaultPluginAWS,
 				},
 			},
 			WantError: false,
@@ -119,13 +126,10 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 				BackupStorageLocations: []velero.BackupStorageLocationSpec{
 					{
 						Provider: provider,
-						Config: map[string]string{
-							"region": region,
-						},
-						Default: true,
+						Default:  true,
 						StorageType: velero.StorageType{
 							ObjectStorage: &velero.ObjectStorageLocation{
-								Bucket: s3Bucket,
+								Bucket: bucket,
 								Prefix: veleroPrefix,
 							},
 						},
@@ -141,7 +145,6 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 				},
 				DefaultVeleroPlugins: []oadpv1alpha1.DefaultPlugin{
 					oadpv1alpha1.DefaultPluginOpenShift,
-					oadpv1alpha1.DefaultPluginAWS,
 				},
 			},
 			WantError: false,
@@ -154,13 +157,10 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 				BackupStorageLocations: []velero.BackupStorageLocationSpec{
 					{
 						Provider: provider,
-						Config: map[string]string{
-							"region": region,
-						},
-						Default: true,
+						Default:  true,
 						StorageType: velero.StorageType{
 							ObjectStorage: &velero.ObjectStorageLocation{
-								Bucket: s3Bucket,
+								Bucket: bucket,
 								Prefix: veleroPrefix,
 							},
 						},
@@ -182,7 +182,6 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 				},
 				DefaultVeleroPlugins: []oadpv1alpha1.DefaultPlugin{
 					oadpv1alpha1.DefaultPluginOpenShift,
-					oadpv1alpha1.DefaultPluginAWS,
 				},
 			},
 			WantError: false,
@@ -208,7 +207,6 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 				},
 				DefaultVeleroPlugins: []oadpv1alpha1.DefaultPlugin{
 					oadpv1alpha1.DefaultPluginOpenShift,
-					oadpv1alpha1.DefaultPluginAWS,
 				},
 			},
 			WantError: false,
@@ -221,13 +219,10 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 				BackupStorageLocations: []velero.BackupStorageLocationSpec{
 					{
 						Provider: provider,
-						Config: map[string]string{
-							"region": region,
-						},
-						Default: true,
+						Default:  true,
 						StorageType: velero.StorageType{
 							ObjectStorage: &velero.ObjectStorageLocation{
-								Bucket: s3Bucket,
+								Bucket: bucket,
 								Prefix: veleroPrefix,
 							},
 						},
@@ -235,7 +230,6 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 				},
 				DefaultVeleroPlugins: []oadpv1alpha1.DefaultPlugin{
 					oadpv1alpha1.DefaultPluginOpenShift,
-					oadpv1alpha1.DefaultPluginAWS,
 				},
 			},
 			WantError: false,
@@ -248,13 +242,10 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 				BackupStorageLocations: []velero.BackupStorageLocationSpec{
 					{
 						Provider: provider,
-						Config: map[string]string{
-							"region": region,
-						},
-						Default: true,
+						Default:  true,
 						StorageType: velero.StorageType{
 							ObjectStorage: &velero.ObjectStorageLocation{
-								Bucket: s3Bucket,
+								Bucket: bucket,
 								Prefix: veleroPrefix,
 							},
 						},
@@ -262,7 +253,6 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 				},
 				DefaultVeleroPlugins: []oadpv1alpha1.DefaultPlugin{
 					oadpv1alpha1.DefaultPluginOpenShift,
-					oadpv1alpha1.DefaultPluginAWS,
 					oadpv1alpha1.DefaultPluginCSI,
 				},
 			},
@@ -279,13 +269,10 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 				BackupStorageLocations: []velero.BackupStorageLocationSpec{
 					{
 						Provider: provider,
-						Config: map[string]string{
-							"region": region,
-						},
-						Default: true,
+						Default:  true,
 						StorageType: velero.StorageType{
 							ObjectStorage: &velero.ObjectStorageLocation{
-								Bucket: s3Bucket,
+								Bucket: bucket,
 								Prefix: veleroPrefix,
 							},
 						},
@@ -293,7 +280,6 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 				},
 				DefaultVeleroPlugins: []oadpv1alpha1.DefaultPlugin{
 					oadpv1alpha1.DefaultPluginOpenShift,
-					oadpv1alpha1.DefaultPluginAWS,
 					oadpv1alpha1.DefaultPluginCSI,
 				},
 			},
@@ -315,13 +301,10 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 				BackupStorageLocations: []velero.BackupStorageLocationSpec{
 					{
 						Provider: provider,
-						Config: map[string]string{
-							"region": region,
-						},
-						Default: true,
+						Default:  true,
 						StorageType: velero.StorageType{
 							ObjectStorage: &velero.ObjectStorageLocation{
-								Bucket: s3Bucket,
+								Bucket: bucket,
 								Prefix: veleroPrefix,
 							},
 						},
@@ -329,7 +312,6 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 				},
 				DefaultVeleroPlugins: []oadpv1alpha1.DefaultPlugin{
 					oadpv1alpha1.DefaultPluginOpenShift,
-					oadpv1alpha1.DefaultPluginAWS,
 					oadpv1alpha1.DefaultPluginCSI,
 				},
 			},

@@ -36,8 +36,12 @@ type veleroCustomResource struct {
 	Namespace         string
 	SecretName        string
 	Bucket            string
-	Region            string
+	BslRegion         string
+	VslRegion         string
+	BslProfile        string
 	Provider          string
+	credentials       string
+	credSecretRef     string
 	backupRestoreType BackupRestoreType
 	CustomResource    *oadpv1alpha1.Velero
 	Client            client.Client
@@ -47,6 +51,7 @@ var veleroPrefix = "velero-e2e-" + string(uuid.NewUUID())
 
 func (v *veleroCustomResource) Build(backupRestoreType BackupRestoreType) error {
 	// Velero Instance creation spec with backupstorage location default to AWS. Would need to parameterize this later on to support multiple plugins.
+
 	veleroSpec := oadpv1alpha1.Velero{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      v.Name,
@@ -56,10 +61,13 @@ func (v *veleroCustomResource) Build(backupRestoreType BackupRestoreType) error 
 			BackupStorageLocations: []velero.BackupStorageLocationSpec{
 				{
 					Provider: v.Provider,
-					Config: map[string]string{
-						"region": v.Region,
+					Default:  true,
+					Credential: &corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: v.credSecretRef,
+						},
+						Key: "cloud",
 					},
-					Default: true,
 					StorageType: velero.StorageType{
 						ObjectStorage: &velero.ObjectStorageLocation{
 							Bucket: v.Bucket,
@@ -70,7 +78,6 @@ func (v *veleroCustomResource) Build(backupRestoreType BackupRestoreType) error 
 			},
 			DefaultVeleroPlugins: []oadpv1alpha1.DefaultPlugin{
 				oadpv1alpha1.DefaultPluginOpenShift,
-				oadpv1alpha1.DefaultPluginAWS,
 			},
 			VeleroFeatureFlags: []string{},
 		},
@@ -83,6 +90,24 @@ func (v *veleroCustomResource) Build(backupRestoreType BackupRestoreType) error 
 		veleroSpec.Spec.EnableRestic = pointer.Bool(false)
 		veleroSpec.Spec.DefaultVeleroPlugins = append(veleroSpec.Spec.DefaultVeleroPlugins, oadpv1alpha1.DefaultPluginCSI)
 		veleroSpec.Spec.VeleroFeatureFlags = append(veleroSpec.Spec.VeleroFeatureFlags, "EnableCSI")
+	}
+	switch v.Provider {
+	case "aws":
+		veleroSpec.Spec.BackupStorageLocations[0].Config = map[string]string{
+			"region":  v.BslRegion,
+			"profile": v.BslProfile,
+		}
+		veleroSpec.Spec.VolumeSnapshotLocations = []velero.VolumeSnapshotLocationSpec{
+			{
+				Provider: v.Provider,
+				Config: map[string]string{
+					"region":  v.VslRegion,
+					"profile": "default",
+				},
+			},
+		}
+		veleroSpec.Spec.DefaultVeleroPlugins = append(veleroSpec.Spec.DefaultVeleroPlugins, oadpv1alpha1.DefaultPluginAWS) // case "gcp":
+		// 	config["serviceAccount"] = v.Region
 	}
 	v.CustomResource = &veleroSpec
 	return nil
