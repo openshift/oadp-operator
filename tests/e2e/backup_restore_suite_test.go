@@ -13,6 +13,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+type VerificationFunction func(client.Client, string) error
+
 var _ = Describe("AWS backup restore tests", func() {
 	var _ = BeforeEach(func() {
 		testSuiteInstanceName := "ts-" + instanceName
@@ -23,25 +25,6 @@ var _ = Describe("AWS backup restore tests", func() {
 
 		err = createCredentialsSecret(credData, namespace, credSecretRef)
 		Expect(err).NotTo(HaveOccurred())
-
-		err = vel.Build()
-		Expect(err).NotTo(HaveOccurred())
-
-		err = vel.CreateOrUpdate(&vel.CustomResource.Spec)
-		Expect(err).NotTo(HaveOccurred())
-
-		log.Printf("Waiting for velero pod to be running")
-		Eventually(isVeleroPodRunning(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
-
-		if vel.CustomResource.Spec.EnableRestic == nil || *vel.CustomResource.Spec.EnableRestic {
-			log.Printf("Waiting for restic pods to be running")
-			Eventually(areResticPodsRunning(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
-		}
-
-		if vel.CustomResource.Spec.BackupImages == nil || *vel.CustomResource.Spec.BackupImages {
-			log.Printf("Waiting for registry pods to be running")
-			Eventually(areRegistryDeploymentsAvailable(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
-		}
 	})
 
 	var _ = AfterEach(func() {
@@ -50,20 +33,61 @@ var _ = Describe("AWS backup restore tests", func() {
 
 	})
 
-	type VerificationFunction func(client.Client, string) error
-
 	type BackupRestoreCase struct {
 		ApplicationTemplate  string
 		ApplicationNamespace string
 		Name                 string
+		BackupRestoreType    BackupRestoreType
 		PreBackupVerify      VerificationFunction
 		PostRestoreVerify    VerificationFunction
 		MaxK8SVersion        *k8sVersion
 		MinK8SVersion        *k8sVersion
 	}
 
+	parksAppReady := VerificationFunction(func(ocClient client.Client, namespace string) error {
+		Eventually(isDCReady(ocClient, "parks-app", "restify"), timeoutMultiplier*time.Minute*10, time.Second*10).Should(BeTrue())
+		return nil
+	})
+	mssqlReady := VerificationFunction(func(ocClient client.Client, namespace string) error {
+		// This test confirms that SCC restore logic in our plugin is working
+		Eventually(isDCReady(ocClient, "mssql-persistent", "mssql-deployment"), timeoutMultiplier*time.Minute*10, time.Second*10).Should(BeTrue())
+		Eventually(isDeploymentReady(ocClient, "mssql-persistent", "mssql-app-deployment"), timeoutMultiplier*time.Minute*10, time.Second*10).Should(BeTrue())
+		exists, err := doesSCCExist(ocClient, "mssql-persistent-scc")
+		if err != nil {
+			return err
+		}
+		if !exists {
+			return errors.New("did not find MSSQL scc")
+		}
+		return nil
+	})
+
 	DescribeTable("backup and restore applications",
 		func(brCase BackupRestoreCase, expectedErr error) {
+
+			err := vel.Build(brCase.BackupRestoreType)
+			Expect(err).NotTo(HaveOccurred())
+
+			err = vel.CreateOrUpdate(&vel.CustomResource.Spec)
+			Expect(err).NotTo(HaveOccurred())
+
+			log.Printf("Waiting for velero pod to be running")
+			Eventually(isVeleroPodRunning(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
+
+			if brCase.BackupRestoreType == restic {
+				log.Printf("Waiting for restic pods to be running")
+				Eventually(areResticPodsRunning(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
+			}
+			if brCase.BackupRestoreType == csi {
+				log.Printf("Creating VolumeSnapshot for CSI backuprestore of %s", brCase.Name)
+				err = installApplication(vel.Client, "./sample-applications/gp2-csi/volumeSnapshotClass.yaml")
+				Expect(err).ToNot(HaveOccurred())
+			}
+
+			if vel.CustomResource.Spec.BackupImages == nil || *vel.CustomResource.Spec.BackupImages {
+				log.Printf("Waiting for registry pods to be running")
+				Eventually(areRegistryDeploymentsAvailable(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
+			}
 			if notVersionTarget, reason := NotServerVersionTarget(brCase.MinK8SVersion, brCase.MaxK8SVersion); notVersionTarget {
 				Skip(reason)
 			}
@@ -74,7 +98,7 @@ var _ = Describe("AWS backup restore tests", func() {
 
 			// install app
 			log.Printf("Installing application for case %s", brCase.Name)
-			err := installApplication(vel.Client, brCase.ApplicationTemplate)
+			err = installApplication(vel.Client, brCase.ApplicationTemplate)
 			Expect(err).ToNot(HaveOccurred())
 			// wait for pods to be running
 			Eventually(areApplicationPodsRunning(brCase.ApplicationNamespace), timeoutMultiplier*time.Minute*2, time.Second*5).Should(BeTrue())
@@ -120,7 +144,7 @@ var _ = Describe("AWS backup restore tests", func() {
 			Expect(succeeded).To(Equal(true))
 
 			// verify app is running
-			Eventually(areApplicationPodsRunning(brCase.ApplicationNamespace), timeoutMultiplier*time.Minute*2, time.Second*5).Should(BeTrue())
+			Eventually(areApplicationPodsRunning(brCase.ApplicationNamespace), timeoutMultiplier*time.Minute*9, time.Second*5).Should(BeTrue())
 
 			// Run optional custom verification
 			log.Printf("Running post-restore function for case %s", brCase.Name)
@@ -131,51 +155,50 @@ var _ = Describe("AWS backup restore tests", func() {
 			log.Printf("Uninstalling application for case %s", brCase.Name)
 			err = uninstallApplication(vel.Client, brCase.ApplicationTemplate)
 			Expect(err).ToNot(HaveOccurred())
+
+			// Wait for namespace to be deleted
+			Eventually(isNamespaceDeleted(brCase.ApplicationNamespace), timeoutMultiplier*time.Minute*2, time.Second*5).Should(BeTrue())
+
+			if brCase.BackupRestoreType == csi {
+				log.Printf("Deleting VolumeSnapshot for CSI backuprestore of %s", brCase.Name)
+				err = uninstallApplication(vel.Client, "./sample-applications/gp2-csi/volumeSnapshotClass.yaml")
+				Expect(err).ToNot(HaveOccurred())
+			}
+
 		},
-		Entry("MSSQL application", BackupRestoreCase{
-			ApplicationTemplate:  "./sample-applications/mssql-persistent/mssql-persistent-template.yaml",
+		Entry("MSSQL application CSI", BackupRestoreCase{
+			ApplicationTemplate:  "./sample-applications/mssql-persistent/mssql-persistent-csi-template.yaml",
 			ApplicationNamespace: "mssql-persistent",
 			Name:                 "mssql-e2e",
-			PreBackupVerify: VerificationFunction(func(ocClient client.Client, namespace string) error {
-				return nil
-			}),
-			PostRestoreVerify: VerificationFunction(func(ocClient client.Client, namespace string) error {
-				// This test confirms that SCC restore logic in our plugin is working
-				exists, err := doesSCCExist(ocClient, "mssql-persistent-scc")
-				if err != nil {
-					return err
-				}
-				if !exists {
-					return errors.New("did not find MSSQL scc after restore")
-				}
-				return nil
-			}),
+			BackupRestoreType:    csi,
+			PreBackupVerify:      mssqlReady,
+			PostRestoreVerify:    mssqlReady,
 		}, nil),
 		Entry("Parks application <4.8.0", BackupRestoreCase{
 			ApplicationTemplate:  "./sample-applications/parks-app/manifest.yaml",
 			ApplicationNamespace: "parks-app",
 			Name:                 "parks-e2e",
-			PreBackupVerify: VerificationFunction(func(ocClient client.Client, namespace string) error {
-				Eventually(isDCReady(ocClient, "parks-app", "restify"), timeoutMultiplier*time.Minute*10, time.Second*10).Should(BeTrue())
-				return nil
-			}),
-			PostRestoreVerify: VerificationFunction(func(ocClient client.Client, namespace string) error {
-				return nil
-			}),
-			MaxK8SVersion: &k8sVersionOcp47,
+			BackupRestoreType:    restic,
+			PreBackupVerify:      parksAppReady,
+			PostRestoreVerify:    parksAppReady,
+			MaxK8SVersion:        &k8sVersionOcp47,
+		}, nil),
+		Entry("MSSQL application", BackupRestoreCase{
+			ApplicationTemplate:  "./sample-applications/mssql-persistent/mssql-persistent-template.yaml",
+			ApplicationNamespace: "mssql-persistent",
+			Name:                 "mssql-e2e",
+			BackupRestoreType:    restic,
+			PreBackupVerify:      mssqlReady,
+			PostRestoreVerify:    mssqlReady,
 		}, nil),
 		Entry("Parks application >=4.8.0", BackupRestoreCase{
 			ApplicationTemplate:  "./sample-applications/parks-app/manifest4.8.yaml",
 			ApplicationNamespace: "parks-app",
 			Name:                 "parks-e2e",
-			PreBackupVerify: VerificationFunction(func(ocClient client.Client, namespace string) error {
-				Eventually(isDCReady(ocClient, "parks-app", "restify"), timeoutMultiplier*time.Minute*10, time.Second*10).Should(BeTrue())
-				return nil
-			}),
-			PostRestoreVerify: VerificationFunction(func(ocClient client.Client, namespace string) error {
-				return nil
-			}),
-			MinK8SVersion: &k8sVersionOcp48,
+			BackupRestoreType:    restic,
+			PreBackupVerify:      parksAppReady,
+			PostRestoreVerify:    parksAppReady,
+			MinK8SVersion:        &k8sVersionOcp48,
 		}, nil),
 	)
 })
