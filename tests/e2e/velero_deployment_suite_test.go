@@ -16,14 +16,20 @@ import (
 var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 
 	type InstallCase struct {
-		Name       string
-		VeleroSpec *oadpv1alpha1.VeleroSpec
-		WantError  bool
+		Name         string
+		BRestoreType BackupRestoreType
+		VeleroSpec   *oadpv1alpha1.VeleroSpec
+		WantError    bool
 	}
 
 	DescribeTable("Updating custom resource with new configuration",
 		func(installCase InstallCase, expectedErr error) {
-			err := vel.CreateOrUpdate(installCase.VeleroSpec)
+			//TODO: Calling vel.build() is the old pattern.
+			//Change it later to make sure all the spec values are passed for every test case,
+			// instead of assigning the values in advance to the Velero CR
+			err := vel.Build(installCase.BRestoreType)
+			Expect(err).NotTo(HaveOccurred())
+			err = vel.CreateOrUpdate(installCase.VeleroSpec)
 			Expect(err).ToNot(HaveOccurred())
 			log.Printf("Waiting for velero pod to be running")
 			Eventually(isVeleroPodRunning(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
@@ -79,7 +85,8 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 
 		},
 		Entry("Default velero CR", InstallCase{
-			Name: "default-cr",
+			Name:         "default-cr",
+			BRestoreType: restic,
 			VeleroSpec: &oadpv1alpha1.VeleroSpec{
 				EnableRestic: pointer.Bool(true),
 				BackupStorageLocations: []velero.BackupStorageLocationSpec{
@@ -105,7 +112,8 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 			WantError: false,
 		}, nil),
 		Entry("Velero CR with bsl and vsl", InstallCase{
-			Name: "default-cr-bsl-vsl",
+			Name:         "default-cr-bsl-vsl",
+			BRestoreType: "restic",
 			VeleroSpec: &oadpv1alpha1.VeleroSpec{
 				EnableRestic: pointer.Bool(true),
 				BackupStorageLocations: []velero.BackupStorageLocationSpec{
@@ -139,7 +147,8 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 			WantError: false,
 		}, nil),
 		Entry("Velero CR with bsl and multiple vsl", InstallCase{
-			Name: "default-cr-bsl-vsl",
+			Name:         "default-cr-bsl-vsl",
+			BRestoreType: "restic",
 			VeleroSpec: &oadpv1alpha1.VeleroSpec{
 				EnableRestic: pointer.Bool(true),
 				BackupStorageLocations: []velero.BackupStorageLocationSpec{
@@ -179,7 +188,8 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 			WantError: false,
 		}, nil),
 		Entry("Velero CR with no bsl and multiple vsl", InstallCase{
-			Name: "default-cr-multiple-vsl",
+			Name:         "default-cr-multiple-vsl",
+			BRestoreType: "restic",
 			VeleroSpec: &oadpv1alpha1.VeleroSpec{
 				EnableRestic: pointer.Bool(true),
 				VolumeSnapshotLocations: []velero.VolumeSnapshotLocationSpec{
@@ -204,9 +214,10 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 			WantError: false,
 		}, nil),
 		Entry("Default velero CR with restic disabled", InstallCase{
-			Name: "default-cr-no-restic",
+			Name:         "default-cr-no-restic",
+			BRestoreType: "restic",
 			VeleroSpec: &oadpv1alpha1.VeleroSpec{
-				EnableRestic: pointer.Bool(false),
+				EnableRestic: pointer.Bool(true),
 				BackupStorageLocations: []velero.BackupStorageLocationSpec{
 					{
 						Provider: provider,
@@ -230,7 +241,8 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 			WantError: false,
 		}, nil),
 		Entry("Adding CSI plugin", InstallCase{
-			Name: "default-cr-csi",
+			Name:         "default-cr-csi",
+			BRestoreType: "restic",
 			VeleroSpec: &oadpv1alpha1.VeleroSpec{
 				EnableRestic: pointer.Bool(true),
 				BackupStorageLocations: []velero.BackupStorageLocationSpec{
@@ -257,7 +269,8 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 			WantError: false,
 		}, nil),
 		Entry("Set restic node selector", InstallCase{
-			Name: "default-cr-node-selector",
+			Name:         "default-cr-node-selector",
+			BRestoreType: "restic",
 			VeleroSpec: &oadpv1alpha1.VeleroSpec{
 				EnableRestic: pointer.Bool(true),
 				ResticNodeSelector: map[string]string{
@@ -287,7 +300,8 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 			WantError: false,
 		}, nil),
 		Entry("Enable tolerations", InstallCase{
-			Name: "default-cr-tolerations",
+			Name:         "default-cr-tolerations",
+			BRestoreType: "restic",
 			VeleroSpec: &oadpv1alpha1.VeleroSpec{
 				EnableRestic: pointer.Bool(true),
 				VeleroTolerations: []corev1.Toleration{
@@ -322,7 +336,8 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 			WantError: false,
 		}, nil),
 		Entry("NoDefaultBackupLocation", InstallCase{
-			Name: "default-cr-node-selector",
+			Name:         "default-cr-node-selector",
+			BRestoreType: "restic",
 			VeleroSpec: &oadpv1alpha1.VeleroSpec{
 				EnableRestic:            pointer.Bool(true),
 				BackupStorageLocations:  []velero.BackupStorageLocationSpec{},
