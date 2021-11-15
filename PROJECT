@@ -4,6 +4,6 @@ layout:
 plugins:
   manifests.sdk.operatorframework.io/v2: {}
   scorecard.sdk.operatorframework.io/v2: {}
-projectName: OADP Operator
+projectName: oadp-operator
 repo: github.com/openshift/oadp-operator
 version: "3"
