@@ -55,11 +55,14 @@ spec:
                 additionalProperties:
                   type: string
                 type: object
+              enableSharedConfig:
+                type: boolean
               name:
                 type: string
               region:
                 type: string
             required:
+            - bucketCreationSecret
             - name
             - region
             type: object

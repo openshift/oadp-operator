@@ -10,7 +10,6 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3iface"
@@ -30,6 +29,7 @@ func init() {
 type Client interface {
 	Exists() (bool, error)
 	Create() (bool, error)
+	Delete() (bool, error)
 	ForceCredentialRefresh() error
 }
 
@@ -157,24 +157,23 @@ func (a awsBucketClient) getS3Client() (s3iface.S3API, error) {
 		return nil, err
 	}
 
-	awsConfig.Credentials = cred
-
 	opts := session.Options{
-		Config: *awsConfig,
+		Config:            *awsConfig,
+		SharedConfigFiles: []string{cred},
 	}
 
 	if a.bucket.Spec.EnableSharedConfig {
 		opts.SharedConfigState = session.SharedConfigEnable
 	}
 
-	s, err := session.NewSession(awsConfig)
+	s, err := session.NewSessionWithOptions(opts)
 	if err != nil {
 		return nil, err
 	}
 	return s3.New(s), nil
 }
 
-func (a awsBucketClient) getCredentialFromSecret() (*credentials.Credentials, error) {
+func (a awsBucketClient) getCredentialFromSecret() (string, error) {
 	var filename string
 	var ok bool
 	namespaceName := types.NamespacedName{Namespace: a.bucket.Namespace, Name: a.bucket.Name}
@@ -189,18 +188,18 @@ func (a awsBucketClient) getCredentialFromSecret() (*credentials.Credentials, er
 			},
 			secret)
 		if err != nil {
-			return nil, err
+			return "", err
 		}
 
 		cred := secret.Data[a.bucket.Spec.CreationSecret.Key]
 		//create a tmp file based on the bucket name, if it does not exist
 		dir, err := os.MkdirTemp("", fmt.Sprintf("secret-%v-%v", a.bucket.Namespace, a.bucket.Name))
 		if err != nil {
-			return nil, err
+			return "", err
 		}
 		f, err := os.CreateTemp(dir, "aws-secret")
 		if err != nil {
-			return nil, err
+			return "", err
 		}
 		defer f.Close()
 		f.Write(cred)
@@ -208,9 +207,30 @@ func (a awsBucketClient) getCredentialFromSecret() (*credentials.Credentials, er
 		fileBucketCache[namespaceName] = filename
 	}
 
-	return credentials.NewCredentials(&credentials.SharedCredentialsProvider{Filename: filename}), nil
+	return filename, nil
 }
 
 func (a awsBucketClient) ForceCredentialRefresh() error {
 	return nil
+}
+
+func (a awsBucketClient) Delete() (bool, error) {
+	s3Client, err := a.getS3Client()
+	if err != nil {
+		return false, err
+	}
+	deleteBucketInput := &s3.DeleteBucketInput{
+		Bucket: aws.String(a.bucket.Spec.Name),
+	}
+
+	if err := deleteBucketInput.Validate(); err != nil {
+		return false, fmt.Errorf("unable to validate %v bucket deletion configuration: %v", a.bucket.Spec.Name, err)
+	}
+
+	_, err = s3Client.DeleteBucket(deleteBucketInput)
+	if err != nil {
+		return false, err
+	}
+
+	return true, nil
 }

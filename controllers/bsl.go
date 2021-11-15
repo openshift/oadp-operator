@@ -100,12 +100,17 @@ func (r *DPAReconciler) ReconcileBackupStorageLocations(log logr.Logger) (bool, 
 				bsl.Spec.BackupSyncPeriod = bslSpec.Bucket.BackupSyncPeriod
 				bsl.Spec.Config = bslSpec.Bucket.Config
 				if bucket.Spec.EnableSharedConfig {
+					if bsl.Spec.Config == nil {
+						bsl.Spec.Config = map[string]string{}
+					}
 					bsl.Spec.Config["enableSharedConfig"] = "true"
 				}
 				bsl.Spec.Credential = bslSpec.Bucket.Credential
 				bsl.Spec.Default = bslSpec.Bucket.Default
 				bsl.Spec.Provider = AWSProvider
-				bsl.Spec.ObjectStorage.Bucket = bucket.Spec.Name
+				bsl.Spec.ObjectStorage = &velerov1.ObjectStorageLocation{
+					Bucket: bucket.Spec.Name,
+				}
 			}
 			return nil
 		})

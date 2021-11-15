@@ -19,6 +19,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
+const (
+	oadpFinalizerBucket = "oadp.openshift.io/bucket-protection"
+)
+
 // VeleroReconciler reconciles a Velero object
 type BucketReconciler struct {
 	Client        client.Client
@@ -56,6 +60,17 @@ func (b BucketReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return result, client.IgnoreNotFound(err)
 	}
 
+	// Add finalizer if none exists.
+	if !containFinalizer(bucket.Finalizers, oadpFinalizerBucket) {
+		bucket.Finalizers = append(bucket.Finalizers, oadpFinalizerBucket)
+		err := b.Client.Update(ctx, &bucket, &client.UpdateOptions{})
+		if err != nil {
+			b.EventRecorder.Event(&bucket, corev1.EventTypeWarning, "UnableToAddFinalizer", fmt.Sprintf("unable to add finalizer: %v", err))
+			return ctrl.Result{Requeue: true}, nil
+		}
+		return ctrl.Result{Requeue: true}, nil
+	}
+
 	clnt, err := bucketpkg.NewClient(bucket, b.Client)
 	if err != nil {
 		return result, err
@@ -63,6 +78,19 @@ func (b BucketReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 
 	var ok bool
 	if ok, err = clnt.Exists(); !ok {
+		// Handle Deletion.
+		if bucket.DeletionTimestamp != nil {
+			deleted, err := clnt.Delete()
+			if err != nil {
+				b.EventRecorder.Event(&bucket, corev1.EventTypeWarning, "unable to delete bucket", fmt.Sprintf("unable to delete bucket: %v", err))
+				return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
+			}
+			if !deleted {
+				b.EventRecorder.Event(&bucket, corev1.EventTypeWarning, "unable to delete bucket", fmt.Sprintf("unable to delete bucket: %v", err))
+				return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
+			}
+			return ctrl.Result{Requeue: true}, nil
+		}
 		created, err := clnt.Create()
 		if !created {
 			log.Info("unable to create object bucket")
@@ -116,4 +144,13 @@ func bucketPredicate() predicate.Predicate {
 			return !e.DeleteStateUnknown
 		},
 	}
+}
+
+func containFinalizer(finalizers []string, f string) bool {
+	for _, finalizer := range finalizers {
+		if finalizer == f {
+			return true
+		}
+	}
+	return false
 }
