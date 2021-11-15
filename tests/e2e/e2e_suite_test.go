@@ -100,8 +100,6 @@ var _ = AfterSuite(func() {
 	log.Printf("Deleting Velero CR")
 	err := vel.Delete()
 	Expect(err).ToNot(HaveOccurred())
-	// err = vel.deleteBsl()
-	Expect(err).NotTo(HaveOccurred())
 	errs := deleteSecret(namespace, credSecretRef)
 	Expect(errs).ToNot(HaveOccurred())
 	Eventually(vel.IsDeleted(), timeoutMultiplier*time.Minute*2, time.Second*5).Should(BeTrue())
