@@ -65,7 +65,7 @@ metadata:
     operatorframework.io/arch.arm64: supported
     operatorframework.io/arch.ppc64le: supported
     operatorframework.io/arch.s390x: supported
-  name: oadp-operator.v0.0.1
+  name: oadp-operator.v99.0.0
   namespace: openshift-adp
 spec:
   apiservicedefinitions: {}
@@ -407,4 +407,4 @@ spec:
     name: csi_plugin
   - image: quay.io/konveyor/registry:latest
     name: registry
-  version: 0.0.1
+  version: 99.0.0
