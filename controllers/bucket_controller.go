@@ -57,7 +57,7 @@ func (b BucketReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 
 	if err := b.Client.Get(ctx, req.NamespacedName, &bucket); err != nil {
 		log.Error(err, "unable to fetch bucket CR")
-		return result, client.IgnoreNotFound(err)
+		return result, nil
 	}
 
 	// Add finalizer if none exists.
@@ -79,18 +79,6 @@ func (b BucketReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	var ok bool
 	if ok, err = clnt.Exists(); !ok {
 		// Handle Deletion.
-		if bucket.DeletionTimestamp != nil {
-			deleted, err := clnt.Delete()
-			if err != nil {
-				b.EventRecorder.Event(&bucket, corev1.EventTypeWarning, "unable to delete bucket", fmt.Sprintf("unable to delete bucket: %v", err))
-				return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
-			}
-			if !deleted {
-				b.EventRecorder.Event(&bucket, corev1.EventTypeWarning, "unable to delete bucket", fmt.Sprintf("unable to delete bucket: %v", err))
-				return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
-			}
-			return ctrl.Result{Requeue: true}, nil
-		}
 		created, err := clnt.Create()
 		if !created {
 			log.Info("unable to create object bucket")
@@ -109,6 +97,20 @@ func (b BucketReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		log.Error(err, "unable to determine if bucket exists.")
 		b.EventRecorder.Event(&bucket, corev1.EventTypeWarning, "BucketNotFound", fmt.Sprintf("unable to find bucket: %v", err))
 		return ctrl.Result{RequeueAfter: 1 * time.Minute}, nil
+	}
+	if bucket.DeletionTimestamp != nil {
+		deleted, err := clnt.Delete()
+		if err != nil {
+			log.Error(err, "unable to delete bucket")
+			b.EventRecorder.Event(&bucket, corev1.EventTypeWarning, "unable to delete bucket", fmt.Sprintf("unable to delete bucket: %v", bucket.Spec.Name))
+			return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
+		}
+		if !deleted {
+			log.Info("unable to delete bucket for unknown reason")
+			b.EventRecorder.Event(&bucket, corev1.EventTypeWarning, "unable to delete bucket", fmt.Sprintf("unable to delete bucket: %v", bucket.Spec.Name))
+			return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
+		}
+		return ctrl.Result{Requeue: true}, nil
 	}
 
 	// Update status with updated value
@@ -133,6 +135,9 @@ func bucketPredicate() predicate.Predicate {
 	return predicate.Funcs{
 		// Update returns true if the Update event should be processed
 		UpdateFunc: func(e event.UpdateEvent) bool {
+			if e.ObjectNew.GetDeletionTimestamp() != nil {
+				return true
+			}
 			return e.ObjectOld.GetGeneration() != e.ObjectNew.GetGeneration()
 		},
 		// Create returns true if the Create event should be processed
@@ -141,7 +146,7 @@ func bucketPredicate() predicate.Predicate {
 		},
 		// Delete returns true if the Delete event should be processed
 		DeleteFunc: func(e event.DeleteEvent) bool {
-			return !e.DeleteStateUnknown
+			return true
 		},
 	}
 }

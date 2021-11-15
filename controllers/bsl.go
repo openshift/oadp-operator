@@ -34,28 +34,44 @@ func (r *DPAReconciler) ValidateBackupStorageLocations(log logr.Logger) (bool, e
 	// Ensure BSL is a valid configuration
 	// First, check for provider and then call functions based on the cloud provider for each backupstoragelocation configured
 	for _, bslSpec := range dpa.Spec.BackupLocations {
-		provider := bslSpec.Velero.Provider
-		if len(provider) == 0 {
-			return false, fmt.Errorf("no provider specified for one of the backupstoragelocations configured")
-		}
+		if bslSpec.Velero != nil {
+			provider := bslSpec.Velero.Provider
+			if len(provider) == 0 {
+				return false, fmt.Errorf("no provider specified for one of the backupstoragelocations configured")
+			}
 
-		// TODO: cases might need some updates for IBM/Minio/noobaa
-		switch provider {
-		case AWSProvider, "velero.io/aws":
-			err := r.validateAWSBackupStorageLocation(*bslSpec.Velero, &dpa)
-			if err != nil {
-				return false, err
+			// TODO: cases might need some updates for IBM/Minio/noobaa
+			switch provider {
+			case AWSProvider, "velero.io/aws":
+				err := r.validateAWSBackupStorageLocation(*bslSpec.Velero, &dpa)
+				if err != nil {
+					return false, err
+				}
+			case AzureProvider, "velero.io/azure":
+				err := r.validateAzureBackupStorageLocation(*bslSpec.Velero, &dpa)
+				if err != nil {
+					return false, err
+				}
+			case GCPProvider, "velero.io/gcp":
+				err := r.validateGCPBackupStorageLocation(*bslSpec.Velero, &dpa)
+				if err != nil {
+					return false, err
+				}
+			default:
+				return false, fmt.Errorf("invalid provider")
 			}
-		case AzureProvider, "velero.io/azure":
-			err := r.validateAzureBackupStorageLocation(*bslSpec.Velero, &dpa)
-			if err != nil {
-				return false, err
+		}
+		if bslSpec.Bucket != nil {
+			// Make sure credentials are specified.
+			if bslSpec.Bucket.Credential == nil {
+				return false, fmt.Errorf("must provide a valid credential secret")
 			}
-		case GCPProvider, "velero.io/gcp":
-			err := r.validateGCPBackupStorageLocation(*bslSpec.Velero, &dpa)
-			if err != nil {
-				return false, err
+			if bslSpec.Bucket.Credential.LocalObjectReference.Name == "" {
+				return false, fmt.Errorf("must provide a valid credential secret name")
 			}
+		}
+		if bslSpec.Bucket != nil && bslSpec.Velero != nil {
+			return false, fmt.Errorf("must choose one of bucket or velero")
 		}
 	}
 	// TODO: Discuss If multiple BSLs exist, ensure we have multiple credentials
@@ -262,9 +278,7 @@ func (r *DPAReconciler) ensureBSLProviderMapping(dpa *oadpv1alpha1.DataProtectio
 		if bsl.Bucket == nil && bsl.Velero == nil {
 			return fmt.Errorf("no bucket or BSL provided for backupstoragelocations")
 		}
-		velero := false
 		if bsl.Velero != nil {
-			velero = true
 			// Only check the default providers here, if there are extra credentials passed then we can have more than one.
 			if bsl.Velero.Credential == nil {
 				provider := bsl.Velero.Provider
@@ -276,7 +290,7 @@ func (r *DPAReconciler) ensureBSLProviderMapping(dpa *oadpv1alpha1.DataProtectio
 				}
 			}
 		}
-		if bsl.Bucket != nil && velero {
+		if bsl.Bucket != nil && bsl.Velero != nil {
 			return fmt.Errorf("more than one of backupstoragelocations and bucket provided for a single StorageLocation")
 		}
 	}

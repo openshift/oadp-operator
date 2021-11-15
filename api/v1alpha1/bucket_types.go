@@ -1,7 +1,7 @@
 package v1alpha1
 
 import (
-	corev1api "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -17,11 +17,11 @@ type Bucket struct {
 }
 
 type BucketSpec struct {
-	Name               string                      `json:"name"`
-	CreationSecret     corev1api.SecretKeySelector `json:"bucketCreationSecret"`
-	EnableSharedConfig bool                        `json:"enableSharedConfig,omitempty"`
-	Tags               map[string]string           `json:"bucketTags,omitempty"`
-	Region             string                      `json:"region"`
+	Name               string                   `json:"name"`
+	CreationSecret     corev1.SecretKeySelector `json:"bucketCreationSecret"`
+	EnableSharedConfig *bool                    `json:"enableSharedConfig,omitempty"`
+	Tags               map[string]string        `json:"bucketTags,omitempty"`
+	Region             string                   `json:"region"`
 }
 
 type BucketStatus struct {

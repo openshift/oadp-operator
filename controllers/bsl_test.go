@@ -810,13 +810,16 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 		},
 		{
 			name: "test BSL specified, with both bucket and velero",
-			VeleroCR: &oadpv1alpha1.Velero{
+			dpa: &oadpv1alpha1.DataProtectionApplication{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "foo",
 					Namespace: "test-ns",
 				},
-				Spec: oadpv1alpha1.VeleroSpec{
-					BackupStorageLocations: []oadpv1alpha1.BackupStorageLocation{
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{},
+					},
+					BackupLocations: []oadpv1alpha1.BackupLocation{
 						{
 							Velero: &velerov1.BackupStorageLocationSpec{
 								Provider: "aws",
@@ -835,7 +838,7 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 									},
 								},
 							},
-							Bucket: &oadpv1alpha1.BucketStorageLocation{
+							Bucket: &oadpv1alpha1.BucketBackupLocation{
 								BucketRef:        corev1.LocalObjectReference{},
 								Config:           map[string]string{},
 								Credential:       &corev1.SecretKeySelector{},
@@ -857,15 +860,15 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 		},
 		{
 			name: "test BSL specified, bucket with no name",
-			VeleroCR: &oadpv1alpha1.Velero{
+			dpa: &oadpv1alpha1.DataProtectionApplication{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "foo",
 					Namespace: "test-ns",
 				},
-				Spec: oadpv1alpha1.VeleroSpec{
-					BackupStorageLocations: []oadpv1alpha1.BackupStorageLocation{
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					BackupLocations: []oadpv1alpha1.BackupLocation{
 						{
-							Bucket: &oadpv1alpha1.BucketStorageLocation{
+							Bucket: &oadpv1alpha1.BucketBackupLocation{
 								BucketRef:        corev1.LocalObjectReference{},
 								Config:           map[string]string{},
 								Credential:       &corev1.SecretKeySelector{},
@@ -887,15 +890,15 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 		},
 		{
 			name: "test BSL specified, bucket with no credential",
-			VeleroCR: &oadpv1alpha1.Velero{
+			dpa: &oadpv1alpha1.DataProtectionApplication{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "foo",
 					Namespace: "test-ns",
 				},
-				Spec: oadpv1alpha1.VeleroSpec{
-					BackupStorageLocations: []oadpv1alpha1.BackupStorageLocation{
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					BackupLocations: []oadpv1alpha1.BackupLocation{
 						{
-							Bucket: &oadpv1alpha1.BucketStorageLocation{
+							Bucket: &oadpv1alpha1.BucketBackupLocation{
 								BucketRef: corev1.LocalObjectReference{
 									Name: "testing",
 								},
@@ -919,15 +922,15 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 		},
 		{
 			name: "test BSL specified, bucket with no credential name",
-			VeleroCR: &oadpv1alpha1.Velero{
+			dpa: &oadpv1alpha1.DataProtectionApplication{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "foo",
 					Namespace: "test-ns",
 				},
-				Spec: oadpv1alpha1.VeleroSpec{
-					BackupStorageLocations: []oadpv1alpha1.BackupStorageLocation{
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					BackupLocations: []oadpv1alpha1.BackupLocation{
 						{
-							Bucket: &oadpv1alpha1.BucketStorageLocation{
+							Bucket: &oadpv1alpha1.BucketBackupLocation{
 								BucketRef: corev1.LocalObjectReference{
 									Name: "testing",
 								},
@@ -951,13 +954,16 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 		},
 		{
 			name: "test BSLs specified, multiple appropriate BSLs configured, no error case with bucket",
-			VeleroCR: &oadpv1alpha1.Velero{
+			dpa: &oadpv1alpha1.DataProtectionApplication{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "foo",
 					Namespace: "test-ns",
 				},
-				Spec: oadpv1alpha1.VeleroSpec{
-					BackupStorageLocations: []oadpv1alpha1.BackupStorageLocation{
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{},
+					},
+					BackupLocations: []oadpv1alpha1.BackupLocation{
 						{
 							Velero: &velerov1.BackupStorageLocationSpec{
 								Provider: "aws",
@@ -1014,7 +1020,7 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 							},
 						},
 						{
-							Bucket: &oadpv1alpha1.BucketStorageLocation{
+							Bucket: &oadpv1alpha1.BucketBackupLocation{
 								BucketRef: corev1.LocalObjectReference{
 									Name: "testing",
 								},
@@ -1058,7 +1064,7 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 				},
 				EventRecorder: record.NewFakeRecorder(10),
 			}
-			got, err := r.ValidateBackupStorage(r.Log)
+			got, err := r.ValidateBackupStorageLocations(r.Log)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ValidateBackupStorageLocations() error = %v, wantErr %v", err, tt.wantErr)
 				return

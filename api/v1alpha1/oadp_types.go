@@ -52,6 +52,7 @@ const AzurePluginImageKey UnsupportedImageKey = "azurePluginImageFqin"
 const GCPPluginImageKey UnsupportedImageKey = "gcpPluginImageFqin"
 const CSIPluginImageKey UnsupportedImageKey = "csiPluginImageFqin"
 const ResticRestoreImageKey UnsupportedImageKey = "resticRestoreImageFqin"
+const RegistryImageKey UnsupportedImageKey = "registryImageFqin"
 
 type VeleroConfig struct {
 	// FeatureFlags defines the list of features to enable for Velero instance
