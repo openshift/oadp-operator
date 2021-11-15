@@ -60,6 +60,7 @@ const (
 	AzureProvider         = "azure"
 	GCPProvider           = "gcp"
 	Region                = "region"
+	Profile               = "profile"
 	S3URL                 = "s3Url"
 	InsecureSkipTLSVerify = "insecureSkipTLSVerify"
 	StorageAccount        = "storageAccount"
@@ -383,9 +384,12 @@ func (r *VeleroReconciler) getAWSRegistryEnvVars(bsl *velerov1.BackupStorageLoca
 		r.Log.Info(fmt.Sprintf("Error fetching provider secret %s for backupstoragelocation %s/%s", secretName, bsl.Namespace, bsl.Name))
 		return nil, err
 	}
-
+	awsProfile := "default"
+	if value, exists := bsl.Spec.Config[Profile]; exists {
+		awsProfile = value
+	}
 	// parse the secret and get aws access_key and aws secret_key
-	AWSAccessKey, AWSSecretKey, err := r.parseAWSSecret(secret, secretKey)
+	AWSAccessKey, AWSSecretKey, err := r.parseAWSSecret(secret, secretKey, awsProfile)
 	if err != nil {
 		r.Log.Info(fmt.Sprintf("Error parsing provider secret %s for backupstoragelocation %s/%s", secretName, bsl.Namespace, bsl.Name))
 		return nil, err
@@ -502,12 +506,11 @@ func (r *VeleroReconciler) getSecretNameAndKey(credential *corev1.SecretKeySelec
 	return secretName, secretKey
 }
 
-func (r *VeleroReconciler) parseAWSSecret(secret corev1.Secret, secretKey string) (string, string, error) {
+func (r *VeleroReconciler) parseAWSSecret(secret corev1.Secret, secretKey string, matchProfile string) (string, string, error) {
 
-	AWSAccessKey, AWSSecretKey := "", ""
-	// this logic only supports single profile presence in the aws credentials file
+	AWSAccessKey, AWSSecretKey, profile := "", "", ""
 	splitString := strings.Split(string(secret.Data[secretKey]), "\n")
-	keyNameRegex, err := regexp.Compile(`\[.*\]`) //ignore lines such as [default]
+	keyNameRegex, err := regexp.Compile(`\[.*\]`)
 	if err != nil {
 		return AWSAccessKey, AWSSecretKey, errors.New("parseAWSSecret faulty regex: keyNameRegex")
 	}
@@ -519,45 +522,65 @@ func (r *VeleroReconciler) parseAWSSecret(secret corev1.Secret, secretKey string
 	if err != nil {
 		return AWSAccessKey, AWSSecretKey, errors.New("parseAWSSecret faulty regex: awsSecretKeyRegex")
 	}
-	for _, line := range splitString {
+	for index, line := range splitString {
 		if line == "" {
 			continue
 		}
 		if keyNameRegex.MatchString(line) {
-			continue
-		}
-		// check for access key
-		matchedAccessKey := awsAccessKeyRegex.MatchString(line)
-
-		if err != nil {
-			r.Log.Info("Error finding access key id for the supplied AWS credential")
-			return AWSAccessKey, AWSSecretKey, err
-		}
-
-		if matchedAccessKey {
-			cleanedLine := strings.ReplaceAll(line, " ", "")
-			splitLine := strings.Split(cleanedLine, "=")
-			if len(splitLine) != 2 {
-				r.Log.Info("Could not parse secret for AWS Access key")
-				return AWSAccessKey, AWSSecretKey, errors.New("secret parsing error")
+			awsProfileRegex, err := regexp.Compile(`\[|\]`)
+			if err != nil {
+				return AWSAccessKey, AWSSecretKey, errors.New("parseAWSSecret faulty regex: keyNameRegex")
 			}
-			AWSAccessKey = splitLine[1]
-			continue
-		}
-
-		// check for secret key
-		matchedSecretKey := awsSecretKeyRegex.MatchString(line)
-
-		if matchedSecretKey {
 			cleanedLine := strings.ReplaceAll(line, " ", "")
-			splitLine := strings.Split(cleanedLine, "=")
-			if len(splitLine) != 2 {
-				r.Log.Info("Could not parse secret for AWS Secret key")
-				return AWSAccessKey, AWSSecretKey, errors.New("secret parsing error")
+			parsedProfile := awsProfileRegex.ReplaceAllString(cleanedLine, "")
+			if parsedProfile == matchProfile {
+				profile = matchProfile
+				// check for end of arr
+				if index+1 >= len(splitString) {
+					break
+				}
+				for _, profLine := range splitString[index+1:] {
+					if profLine == "" {
+						continue
+					}
+					matchedAccessKey := awsAccessKeyRegex.MatchString(profLine)
+
+					if err != nil {
+						r.Log.Info("Error finding access key id for the supplied AWS credential")
+						return AWSAccessKey, AWSSecretKey, err
+					}
+					// check for access key
+					if matchedAccessKey {
+						cleanedLine := strings.ReplaceAll(profLine, " ", "")
+						splitLine := strings.Split(cleanedLine, "=")
+						if len(splitLine) != 2 {
+							r.Log.Info("Could not parse secret for AWS Access key")
+							return AWSAccessKey, AWSSecretKey, errors.New("secret parsing error")
+						}
+						AWSAccessKey = splitLine[1]
+						continue
+					}
+
+					// check for secret key
+					matchedSecretKey := awsSecretKeyRegex.MatchString(profLine)
+
+					if matchedSecretKey {
+						cleanedLine := strings.ReplaceAll(profLine, " ", "")
+						splitLine := strings.Split(cleanedLine, "=")
+						if len(splitLine) != 2 {
+							r.Log.Info("Could not parse secret for AWS Secret key")
+							return AWSAccessKey, AWSSecretKey, errors.New("secret parsing error")
+						}
+						AWSSecretKey = splitLine[1]
+						continue
+					}
+				}
 			}
-			AWSSecretKey = splitLine[1]
-			continue
 		}
+	}
+	if profile == "" {
+		r.Log.Info("Error finding AWS Profile for the supplied AWS credential")
+		return AWSAccessKey, AWSSecretKey, errors.New("Error finding AWS Profile for the supplied AWS credential")
 	}
 	if AWSAccessKey == "" {
 		r.Log.Info("Error finding access key id for the supplied AWS credential")
