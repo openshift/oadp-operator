@@ -146,10 +146,6 @@ spec:
                 description: If you need to install Velero without a default backup
                   storage location NoDefaultBackupLocation flag is required for confirmation
                 type: boolean
-              noobaa:
-                description: Noobaa is a boolean to specify if we should install backup
-                  storage from OCS operator with Noobaa
-                type: boolean
               podAnnotations:
                 additionalProperties:
                   type: string
