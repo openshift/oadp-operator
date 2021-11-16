@@ -13,13 +13,8 @@ import (
 )
 
 func (r *DPAReconciler) ValidateBackupStorageLocations(log logr.Logger) (bool, error) {
-<<<<<<< HEAD
 	dpa := oadpv1alpha1.DataProtectionApplication{}
 	if err := r.Get(r.Context, r.NamespacedName, &dpa); err != nil {
-=======
-	velero := oadpv1alpha1.Velero{}
-	if err := r.Get(r.Context, r.NamespacedName, &velero); err != nil {
->>>>>>> e0ebb95 (Rename everything for DPA (#456))
 		return false, err
 	}
 	if dpa.Spec.Configuration == nil || dpa.Spec.Configuration.Velero == nil {
@@ -72,13 +67,8 @@ func (r *DPAReconciler) ValidateBackupStorageLocations(log logr.Logger) (bool, e
 }
 
 func (r *DPAReconciler) ReconcileBackupStorageLocations(log logr.Logger) (bool, error) {
-<<<<<<< HEAD
 	dpa := oadpv1alpha1.DataProtectionApplication{}
 	if err := r.Get(r.Context, r.NamespacedName, &dpa); err != nil {
-=======
-	velero := oadpv1alpha1.Velero{}
-	if err := r.Get(r.Context, r.NamespacedName, &velero); err != nil {
->>>>>>> e0ebb95 (Rename everything for DPA (#456))
 		return false, err
 	}
 	// Loop through all configured BSLs
@@ -119,11 +109,7 @@ func (r *DPAReconciler) ReconcileBackupStorageLocations(log logr.Logger) (bool, 
 	return true, nil
 }
 
-<<<<<<< HEAD
 func (r *DPAReconciler) updateBSLFromSpec(bsl *velerov1.BackupStorageLocation, dpa *oadpv1alpha1.DataProtectionApplication, bslSpec velerov1.BackupStorageLocationSpec) error {
-=======
-func (r *DPAReconciler) updateBSLFromSpec(bsl *velerov1.BackupStorageLocation, velero *oadpv1alpha1.Velero, bslSpec velerov1.BackupStorageLocationSpec) error {
->>>>>>> e0ebb95 (Rename everything for DPA (#456))
 	// Set controller reference to Velero controller
 	err := controllerutil.SetControllerReference(dpa, bsl, r.Scheme)
 	if err != nil {
@@ -143,11 +129,7 @@ func (r *DPAReconciler) updateBSLFromSpec(bsl *velerov1.BackupStorageLocation, v
 	return nil
 }
 
-<<<<<<< HEAD
 func (r *DPAReconciler) validateAWSBackupStorageLocation(bslSpec velerov1.BackupStorageLocationSpec, dpa *oadpv1alpha1.DataProtectionApplication) error {
-=======
-func (r *DPAReconciler) validateAWSBackupStorageLocation(bslSpec velerov1.BackupStorageLocationSpec, velero *oadpv1alpha1.Velero) error {
->>>>>>> e0ebb95 (Rename everything for DPA (#456))
 	// validate provider plugin and secret
 	err := r.validateProviderPluginAndSecret(bslSpec, dpa)
 	if err != nil {
@@ -173,11 +155,7 @@ func (r *DPAReconciler) validateAWSBackupStorageLocation(bslSpec velerov1.Backup
 	return nil
 }
 
-<<<<<<< HEAD
 func (r *DPAReconciler) validateAzureBackupStorageLocation(bslSpec velerov1.BackupStorageLocationSpec, dpa *oadpv1alpha1.DataProtectionApplication) error {
-=======
-func (r *DPAReconciler) validateAzureBackupStorageLocation(bslSpec velerov1.BackupStorageLocationSpec, velero *oadpv1alpha1.Velero) error {
->>>>>>> e0ebb95 (Rename everything for DPA (#456))
 	// validate provider plugin and secret
 	err := r.validateProviderPluginAndSecret(bslSpec, dpa)
 	if err != nil {
@@ -208,11 +186,7 @@ func (r *DPAReconciler) validateAzureBackupStorageLocation(bslSpec velerov1.Back
 	return nil
 }
 
-<<<<<<< HEAD
 func (r *DPAReconciler) validateGCPBackupStorageLocation(bslSpec velerov1.BackupStorageLocationSpec, dpa *oadpv1alpha1.DataProtectionApplication) error {
-=======
-func (r *DPAReconciler) validateGCPBackupStorageLocation(bslSpec velerov1.BackupStorageLocationSpec, velero *oadpv1alpha1.Velero) error {
->>>>>>> e0ebb95 (Rename everything for DPA (#456))
 	// validate provider plugin and secret
 	err := r.validateProviderPluginAndSecret(bslSpec, dpa)
 	if err != nil {
@@ -244,11 +218,7 @@ func pluginExistsInVeleroCR(configuredPlugins []oadpv1alpha1.DefaultPlugin, expe
 	return false
 }
 
-<<<<<<< HEAD
 func (r *DPAReconciler) validateProviderPluginAndSecret(bslSpec velerov1.BackupStorageLocationSpec, dpa *oadpv1alpha1.DataProtectionApplication) error {
-=======
-func (r *DPAReconciler) validateProviderPluginAndSecret(bslSpec velerov1.BackupStorageLocationSpec, velero *oadpv1alpha1.Velero) error {
->>>>>>> e0ebb95 (Rename everything for DPA (#456))
 	// check for existence of provider plugin and warn if the plugin is absent
 	if !pluginExistsInVeleroCR(dpa.Spec.Configuration.Velero.DefaultPlugins, oadpv1alpha1.DefaultPlugin(bslSpec.Provider)) {
 		r.Log.Info(fmt.Sprintf("%s backupstoragelocation is configured but velero plugin for %s is not present", bslSpec.Provider, bslSpec.Provider))
@@ -265,11 +235,7 @@ func (r *DPAReconciler) validateProviderPluginAndSecret(bslSpec velerov1.BackupS
 	return nil
 }
 
-<<<<<<< HEAD
 func (r *DPAReconciler) ensureBSLProviderMapping(dpa *oadpv1alpha1.DataProtectionApplication) error {
-=======
-func (r *DPAReconciler) ensureBSLProviderMapping(velero *oadpv1alpha1.Velero) error {
->>>>>>> e0ebb95 (Rename everything for DPA (#456))
 
 	providerBSLMap := map[string]int{}
 	for _, bsl := range dpa.Spec.BackupLocations {
