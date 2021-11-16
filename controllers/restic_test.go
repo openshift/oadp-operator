@@ -110,9 +110,11 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 			name: "Valid velero and daemonset",
 			args: args{
 				&oadpv1alpha1.DataProtectionApplication{
-					Configuration: &oadpv1alpha1.ApplicationConfig{
-						Restic: &oadpv1alpha1.ResticConfig{
-							PodConfig: &oadpv1alpha1.PodConfig{},
+					Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+						Configuration: &oadpv1alpha1.ApplicationConfig{
+							Restic: &oadpv1alpha1.ResticConfig{
+								PodConfig: &oadpv1alpha1.PodConfig{},
+							},
 						},
 					},
 				}, &appsv1.DaemonSet{
@@ -175,7 +177,7 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 									SecurityContext: &corev1.SecurityContext{
 										Privileged: pointer.Bool(true),
 									},
-									Image:           getVeleroImage(&velero),
+									Image:           getVeleroImage(&dpa),
 									ImagePullPolicy: v1.PullAlways,
 									Resources:       r.getResticResourceReqs(&dpa), //setting default.
 									Command: []string{
@@ -233,9 +235,11 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 			name: "Valid velero and daemonset for aws as bsl",
 			args: args{
 				&oadpv1alpha1.DataProtectionApplication{
-					Configuration: &oadpv1alpha1.ApplicationConfig{
-						Restic: &oadpv1alpha1.ResticConfig{
-							PodConfig: &oadpv1alpha1.PodConfig{},
+					Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+						Configuration: &oadpv1alpha1.ApplicationConfig{
+							Restic: &oadpv1alpha1.ResticConfig{
+								PodConfig: &oadpv1alpha1.PodConfig{},
+							},
 						},
 					},
 				}, &appsv1.DaemonSet{
@@ -371,27 +375,33 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 		{
 			name: "Valid velero with annotation and daemonset for aws as bsl with default secret name",
 			args: args{
-				&oadpv1alpha1.Velero{
-					Spec: oadpv1alpha1.VeleroSpec{
-						DefaultVeleroPlugins: []oadpv1alpha1.DefaultPlugin{
-							oadpv1alpha1.DefaultPluginAWS,
+				&oadpv1alpha1.DataProtectionApplication{
+					Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+						Configuration: &oadpv1alpha1.ApplicationConfig{
+							Velero: &oadpv1alpha1.VeleroConfig{
+								DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+									oadpv1alpha1.DefaultPluginAWS,
+								},
+							},
 						},
 						BackupLocations: []oadpv1alpha1.BackupLocation{
-							Velero: &velerov1.BackupStorageLocationSpec{
-								Provider: AWSProvider,
-								StorageType: velerov1.StorageType{
-									ObjectStorage: &velerov1.ObjectStorageLocation{
-										Bucket: "aws-bucket",
+							{
+								Velero: &velerov1.BackupStorageLocationSpec{
+									Provider: AWSProvider,
+									StorageType: velerov1.StorageType{
+										ObjectStorage: &velerov1.ObjectStorageLocation{
+											Bucket: "aws-bucket",
+										},
 									},
-								},
-								Config: map[string]string{
-									Region:                "aws-region",
-									S3URL:                 "https://sr-url-aws-domain.com",
-									InsecureSkipTLSVerify: "false",
-								},
-								Credential: &corev1.SecretKeySelector{
-									LocalObjectReference: corev1.LocalObjectReference{
-										Name: "cloud-credentials",
+									Config: map[string]string{
+										Region:                "aws-region",
+										S3URL:                 "https://sr-url-aws-domain.com",
+										InsecureSkipTLSVerify: "false",
+									},
+									Credential: &corev1.SecretKeySelector{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "cloud-credentials",
+										},
 									},
 								},
 							},
@@ -536,27 +546,33 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 		{
 			name: "Valid velero with DNS Policy/Config with annotation and daemonset for aws as bsl with default secret name",
 			args: args{
-				&oadpv1alpha1.Velero{
-					Spec: oadpv1alpha1.VeleroSpec{
-						DefaultVeleroPlugins: []oadpv1alpha1.DefaultPlugin{
-							oadpv1alpha1.DefaultPluginAWS,
+				&oadpv1alpha1.DataProtectionApplication{
+					Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+						Configuration: &oadpv1alpha1.ApplicationConfig{
+							Velero: &oadpv1alpha1.VeleroConfig{
+								DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+									oadpv1alpha1.DefaultPluginAWS,
+								},
+							},
 						},
 						BackupLocations: []oadpv1alpha1.BackupLocation{
-							Velero: &velerov1.BackupStorageLocationSpec{
-								Provider: AWSProvider,
-								StorageType: velerov1.StorageType{
-									ObjectStorage: &velerov1.ObjectStorageLocation{
-										Bucket: "aws-bucket",
+							{
+								Velero: &velerov1.BackupStorageLocationSpec{
+									Provider: AWSProvider,
+									StorageType: velerov1.StorageType{
+										ObjectStorage: &velerov1.ObjectStorageLocation{
+											Bucket: "aws-bucket",
+										},
 									},
-								},
-								Config: map[string]string{
-									Region:                "aws-region",
-									S3URL:                 "https://sr-url-aws-domain.com",
-									InsecureSkipTLSVerify: "false",
-								},
-								Credential: &corev1.SecretKeySelector{
-									LocalObjectReference: corev1.LocalObjectReference{
-										Name: "cloud-credentials",
+									Config: map[string]string{
+										Region:                "aws-region",
+										S3URL:                 "https://sr-url-aws-domain.com",
+										InsecureSkipTLSVerify: "false",
+									},
+									Credential: &corev1.SecretKeySelector{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "cloud-credentials",
+										},
 									},
 								},
 							},
@@ -763,7 +779,7 @@ func TestDPAReconciler_updateResticRestoreHelperCM(t *testing.T) {
 		wantResticRestoreHelperCM *corev1.ConfigMap
 	}{
 		{
-			name: "Given Velero CR instance, appropriate restic restore helper cm is created",
+			name: "Given DPA CR instance, appropriate restic restore helper cm is created",
 			resticRestoreHelperCM: &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      ResticRestoreHelperCM,
