@@ -961,7 +961,7 @@ func TestDPAReconciler_getVeleroImage(t *testing.T) {
 				},
 				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 					UnsupportedOverrides: map[oadpv1alpha1.UnsupportedImageKey]string{
-						oadpv1alpha1.DataProtectionApplicationImageKey: "test-image",
+						oadpv1alpha1.VeleroImageKey: "test-image",
 					},
 				},
 			},
