@@ -88,6 +88,10 @@ type PodConfig struct {
 
 // ResticConfig is the configuration for restic server
 type ResticConfig struct {
+	// Enable defines a boolean pointer whether we want the daemonset to
+	// exist or not
+	// +optional
+	Enable *bool `json:"enable,omitempty"`
 	// SupplementalGroups defines the linux groups to be applied to the Restic Pod
 	// +optional
 	SupplementalGroups []int64 `json:"supplementalGroups,omitempty"`

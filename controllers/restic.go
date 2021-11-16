@@ -63,16 +63,19 @@ func getResticObjectMeta(r *DPAReconciler) metav1.ObjectMeta {
 }
 
 func (r *DPAReconciler) ReconcileResticDaemonset(log logr.Logger) (bool, error) {
-	velero := oadpv1alpha1.Velero{}
-	if err := r.Get(r.Context, r.NamespacedName, &velero); err != nil {
+	dpa := oadpv1alpha1.DataProtectionApplication{}
+	if err := r.Get(r.Context, r.NamespacedName, &dpa); err != nil {
 		return false, err
+	}
+	if dpa.Spec.Configuration.Restic == nil {
+		return false, nil
 	}
 
 	// Define "static" portion of daemonset
 	ds := &appsv1.DaemonSet{
 		ObjectMeta: getResticObjectMeta(r),
 	}
-	if velero.Spec.EnableRestic != nil && !*velero.Spec.EnableRestic {
+	if dpa.Spec.Configuration.Restic.Enable == nil || !*dpa.Spec.Configuration.Restic.Enable {
 		deleteContext := context.Background()
 		if err := r.Get(deleteContext, types.NamespacedName{
 			Name:      ds.Name,
@@ -85,7 +88,7 @@ func (r *DPAReconciler) ReconcileResticDaemonset(log logr.Logger) (bool, error) 
 		}
 		// no errors means there already is an existing DaeMonset.
 		// TODO: Check if restic is in use, a backup is running, so don't blindly delete restic.
-		// If velero Spec enableRestic exists and is false, attempt to delete.
+		// If dpa.Spec enableRestic exists and is false, attempt to delete.
 		deleteOptionPropagationForeground := metav1.DeletePropagationForeground
 		if err := r.Delete(deleteContext, ds, &client.DeleteOptions{PropagationPolicy: &deleteOptionPropagationForeground}); err != nil {
 			// TODO: Come back and fix event recording to be consistent
@@ -104,11 +107,11 @@ func (r *DPAReconciler) ReconcileResticDaemonset(log logr.Logger) (bool, error) 
 			ds.Spec.Selector = resticLabelSelector
 		}
 
-		if err := controllerutil.SetControllerReference(&velero, ds, r.Scheme); err != nil {
+		if err := controllerutil.SetControllerReference(&dpa, ds, r.Scheme); err != nil {
 			return err
 		}
 
-		if _, err := r.buildResticDaemonset(&velero, ds); err != nil {
+		if _, err := r.buildResticDaemonset(&dpa, ds); err != nil {
 			return err
 		}
 		return nil
@@ -136,9 +139,9 @@ func (r *DPAReconciler) ReconcileResticDaemonset(log logr.Logger) (bool, error) 
  * 		 ds		- pointer to daemonset with objectMeta defined
  * returns: (pointer to daemonset, nil) if successful
  */
-func (r *DPAReconciler) buildResticDaemonset(velero *oadpv1alpha1.Velero, ds *appsv1.DaemonSet) (*appsv1.DaemonSet, error) {
-	if velero == nil {
-		return nil, fmt.Errorf("velero cannot be nil")
+func (r *DPAReconciler) buildResticDaemonset(dpa *oadpv1alpha1.DataProtectionApplication, ds *appsv1.DaemonSet) (*appsv1.DaemonSet, error) {
+	if dpa == nil {
+		return nil, fmt.Errorf("dpa cannot be nil")
 	}
 	if ds == nil {
 		return nil, fmt.Errorf("ds cannot be nil")
@@ -148,17 +151,17 @@ func (r *DPAReconciler) buildResticDaemonset(velero *oadpv1alpha1.Velero, ds *ap
 	ownerRefs := ds.OwnerReferences
 
 	*ds = *install.DaemonSet(ds.Namespace,
-		install.WithResources(r.getVeleroResourceReqs(velero)),
-		install.WithImage(getVeleroImage(velero)),
-		install.WithAnnotations(velero.Spec.PodAnnotations),
+		install.WithResources(r.getResticResourceReqs(dpa)),
+		install.WithImage(getVeleroImage(dpa)),
+		install.WithAnnotations(dpa.Spec.PodAnnotations),
 		install.WithSecret(false))
 
 	ds.Name = resticDaemonSetName
 	ds.OwnerReferences = ownerRefs
-	return r.customizeResticDaemonset(velero, ds)
+	return r.customizeResticDaemonset(dpa, ds)
 }
 
-func (r *DPAReconciler) customizeResticDaemonset(velero *oadpv1alpha1.Velero, ds *appsv1.DaemonSet) (*appsv1.DaemonSet, error) {
+func (r *DPAReconciler) customizeResticDaemonset(dpa *oadpv1alpha1.DataProtectionApplication, ds *appsv1.DaemonSet) (*appsv1.DaemonSet, error) {
 
 	// customize specs
 	ds.Spec.Selector = resticLabelSelector
@@ -167,11 +170,9 @@ func (r *DPAReconciler) customizeResticDaemonset(velero *oadpv1alpha1.Velero, ds
 	}
 
 	// customize template specs
-	ds.Spec.Template.Spec.NodeSelector = velero.Spec.ResticNodeSelector
-
 	ds.Spec.Template.Spec.SecurityContext = &corev1.PodSecurityContext{
 		RunAsUser:          pointer.Int64(0),
-		SupplementalGroups: velero.Spec.ResticSupplementalGroups,
+		SupplementalGroups: dpa.Spec.Configuration.Restic.SupplementalGroups,
 	}
 
 	// append certs volume
@@ -190,7 +191,11 @@ func (r *DPAReconciler) customizeResticDaemonset(velero *oadpv1alpha1.Velero, ds
 		}
 	}
 
-	ds.Spec.Template.Spec.Tolerations = velero.Spec.VeleroTolerations
+	// Update with any pod config values
+	if dpa.Spec.Configuration.Restic.PodConfig != nil {
+		ds.Spec.Template.Spec.Tolerations = dpa.Spec.Configuration.Restic.PodConfig.Tolerations
+		ds.Spec.Template.Spec.NodeSelector = dpa.Spec.Configuration.Restic.PodConfig.NodeSelector
+	}
 
 	// fetch restic container in order to customize it
 	var resticContainer *corev1.Container
@@ -219,20 +224,20 @@ func (r *DPAReconciler) customizeResticDaemonset(velero *oadpv1alpha1.Velero, ds
 	}
 
 	// attach DNS policy and config if enabled
-	ds.Spec.Template.Spec.DNSPolicy = velero.Spec.PodDnsPolicy
-	if !reflect.DeepEqual(velero.Spec.PodDnsConfig, corev1.PodDNSConfig{}) {
-		ds.Spec.Template.Spec.DNSConfig = &velero.Spec.PodDnsConfig
+	ds.Spec.Template.Spec.DNSPolicy = dpa.Spec.PodDnsPolicy
+	if !reflect.DeepEqual(dpa.Spec.PodDnsConfig, corev1.PodDNSConfig{}) {
+		ds.Spec.Template.Spec.DNSConfig = &dpa.Spec.PodDnsConfig
 	}
 
-	if err := credentials.AppendCloudProviderVolumes(velero, ds); err != nil {
+	if err := credentials.AppendCloudProviderVolumes(dpa, ds); err != nil {
 		return nil, err
 	}
 	return ds, nil
 }
 
 func (r *DPAReconciler) ReconcileResticRestoreHelperConfig(log logr.Logger) (bool, error) {
-	velero := oadpv1alpha1.Velero{}
-	if err := r.Get(r.Context, r.NamespacedName, &velero); err != nil {
+	dpa := oadpv1alpha1.DataProtectionApplication{}
+	if err := r.Get(r.Context, r.NamespacedName, &dpa); err != nil {
 		return false, err
 	}
 
@@ -246,7 +251,7 @@ func (r *DPAReconciler) ReconcileResticRestoreHelperConfig(log logr.Logger) (boo
 	op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, &resticRestoreHelperCM, func() error {
 
 		// update the Config Map
-		err := r.updateResticRestoreHelperCM(&resticRestoreHelperCM, &velero)
+		err := r.updateResticRestoreHelperCM(&resticRestoreHelperCM, &dpa)
 		return err
 	})
 
@@ -267,10 +272,10 @@ func (r *DPAReconciler) ReconcileResticRestoreHelperConfig(log logr.Logger) (boo
 	return true, nil
 }
 
-func (r *DPAReconciler) updateResticRestoreHelperCM(resticRestoreHelperCM *corev1.ConfigMap, velero *oadpv1alpha1.Velero) error {
+func (r *DPAReconciler) updateResticRestoreHelperCM(resticRestoreHelperCM *corev1.ConfigMap, dpa *oadpv1alpha1.DataProtectionApplication) error {
 
 	// Setting controller owner reference on the restic restore helper CM
-	err := controllerutil.SetControllerReference(velero, resticRestoreHelperCM, r.Scheme)
+	err := controllerutil.SetControllerReference(dpa, resticRestoreHelperCM, r.Scheme)
 	if err != nil {
 		return err
 	}

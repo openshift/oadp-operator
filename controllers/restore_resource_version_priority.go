@@ -16,26 +16,26 @@ const (
 )
 
 // If RestoreResourcesVersionPriority is defined, configmap is created or updated and feature flag for EnableAPIGroupVersions is added to velero
-func (r *DPAReconciler) ReconcileRestoreResourcesVersionPriority(velero *oadpv1alpha1.Velero) (bool, error) {
-	if len(velero.Spec.RestoreResourcesVersionPriority) == 0 {
+func (r *DPAReconciler) ReconcileRestoreResourcesVersionPriority(dpa *oadpv1alpha1.DataProtectionApplication) (bool, error) {
+	if len(dpa.Spec.Configuration.Velero.RestoreResourcesVersionPriority) == 0 {
 		return true, nil
 	}
 	// if the RestoreResourcesVersionPriority is specified then ensure feature flag is enabled for enableApiGroupVersions
 	// duplicate feature flag checks are done in ReconcileVeleroDeployment
-	velero.Spec.VeleroFeatureFlags = append(velero.Spec.VeleroFeatureFlags, enableApiGroupVersionsFeatureFlag)
+	dpa.Spec.Configuration.Velero.FeatureFlags = append(dpa.Spec.Configuration.Velero.FeatureFlags, enableApiGroupVersionsFeatureFlag)
 	configMap := corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      enableApiGroupVersionsConfigMapName,
-			Namespace: velero.Namespace,
+			Namespace: dpa.Namespace,
 		},
 	}
 	// Create ConfigMap
 	op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, &configMap, func() error {
-		if err := controllerutil.SetControllerReference(velero, &configMap, r.Scheme); err != nil {
+		if err := controllerutil.SetControllerReference(dpa, &configMap, r.Scheme); err != nil {
 			return err
 		}
 		configMap.Data = make(map[string]string, 1)
-		configMap.Data[restoreResourcesVersionPriorityDataKey] = velero.Spec.RestoreResourcesVersionPriority
+		configMap.Data[restoreResourcesVersionPriorityDataKey] = dpa.Spec.Configuration.Velero.RestoreResourcesVersionPriority
 		return nil
 	})
 	if err != nil {

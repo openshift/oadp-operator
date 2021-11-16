@@ -140,6 +140,10 @@ spec:
                   restic:
                     description: ResticConfig is the configuration for restic server
                     properties:
+                      enable:
+                        description: Enable defines a boolean pointer whether we want
+                          the daemonset to exist or not
+                        type: boolean
                       podConfig:
                         description: Pod specific configuration
                         properties:

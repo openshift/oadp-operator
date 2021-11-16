@@ -135,8 +135,8 @@ var cloudProviderEnvVarMap = map[string][]corev1.EnvVar{
 }
 
 func (r *DPAReconciler) ReconcileRegistries(log logr.Logger) (bool, error) {
-	velero := oadpv1alpha1.Velero{}
-	if err := r.Get(r.Context, r.NamespacedName, &velero); err != nil {
+	dpa := oadpv1alpha1.DataProtectionApplication{}
+	if err := r.Get(r.Context, r.NamespacedName, &dpa); err != nil {
 		return false, err
 	}
 
@@ -162,7 +162,7 @@ func (r *DPAReconciler) ReconcileRegistries(log logr.Logger) (bool, error) {
 			},
 		}
 
-		if velero.Spec.BackupImages != nil && !*velero.Spec.BackupImages {
+		if dpa.Spec.BackupImages != nil && !*dpa.Spec.BackupImages {
 			deleteContext := context.Background()
 			if err := r.Get(deleteContext, types.NamespacedName{
 				Name:      registryDeployment.Name,
@@ -195,12 +195,12 @@ func (r *DPAReconciler) ReconcileRegistries(log logr.Logger) (bool, error) {
 				}
 			}
 
-			err := controllerutil.SetControllerReference(&velero, registryDeployment, r.Scheme)
+			err := controllerutil.SetControllerReference(&dpa, registryDeployment, r.Scheme)
 			if err != nil {
 				return err
 			}
 			// update the Registry Deployment template
-			err = r.buildRegistryDeployment(registryDeployment, &bsl, &velero)
+			err = r.buildRegistryDeployment(registryDeployment, &bsl, &dpa)
 			return err
 		})
 
@@ -225,10 +225,10 @@ func (r *DPAReconciler) ReconcileRegistries(log logr.Logger) (bool, error) {
 }
 
 // Construct and update the registry deployment for a bsl
-func (r *DPAReconciler) buildRegistryDeployment(registryDeployment *appsv1.Deployment, bsl *velerov1.BackupStorageLocation, velero *oadpv1alpha1.Velero) error {
+func (r *DPAReconciler) buildRegistryDeployment(registryDeployment *appsv1.Deployment, bsl *velerov1.BackupStorageLocation, dpa *oadpv1alpha1.DataProtectionApplication) error {
 
 	// Build registry container
-	registryContainer, err := r.buildRegistryContainer(bsl, velero)
+	registryContainer, err := r.buildRegistryContainer(bsl, dpa)
 	if err != nil {
 		return err
 	}
@@ -243,7 +243,7 @@ func (r *DPAReconciler) buildRegistryDeployment(registryDeployment *appsv1.Deplo
 				Labels: map[string]string{
 					"component": registryName(bsl),
 				},
-				Annotations: velero.Spec.PodAnnotations,
+				Annotations: dpa.Spec.PodAnnotations,
 			},
 			Spec: corev1.PodSpec{
 				RestartPolicy: corev1.RestartPolicyAlways,
@@ -267,9 +267,9 @@ func (r *DPAReconciler) buildRegistryDeployment(registryDeployment *appsv1.Deplo
 	}
 
 	// attach DNS policy and config if enabled
-	registryDeployment.Spec.Template.Spec.DNSPolicy = velero.Spec.PodDnsPolicy
-	if !reflect.DeepEqual(velero.Spec.PodDnsConfig, corev1.PodDNSConfig{}) {
-		registryDeployment.Spec.Template.Spec.DNSConfig = &velero.Spec.PodDnsConfig
+	registryDeployment.Spec.Template.Spec.DNSPolicy = dpa.Spec.PodDnsPolicy
+	if !reflect.DeepEqual(dpa.Spec.PodDnsConfig, corev1.PodDNSConfig{}) {
+		registryDeployment.Spec.Template.Spec.DNSConfig = &dpa.Spec.PodDnsConfig
 	}
 
 	return nil
@@ -290,9 +290,9 @@ func registryName(bsl *velerov1.BackupStorageLocation) string {
 	return "oadp-" + bsl.Name + "-" + bsl.Spec.Provider + "-registry"
 }
 
-func getRegistryImage(velero *oadpv1alpha1.Velero) string {
-	if velero.Spec.UnsupportedOverrides[oadpv1alpha1.RegistryImageKey] != "" {
-		return velero.Spec.UnsupportedOverrides[oadpv1alpha1.RegistryImageKey]
+func getRegistryImage(dpa *oadpv1alpha1.DataProtectionApplication) string {
+	if dpa.Spec.UnsupportedOverrides[oadpv1alpha1.RegistryImageKey] != "" {
+		return dpa.Spec.UnsupportedOverrides[oadpv1alpha1.RegistryImageKey]
 	}
 	if os.Getenv("VELERO_REGISTRY_REPO") == "" {
 		return common.RegistryImage
@@ -300,7 +300,7 @@ func getRegistryImage(velero *oadpv1alpha1.Velero) string {
 	return fmt.Sprintf("%v/%v/%v:%v", os.Getenv("REGISTRY"), os.Getenv("PROJECT"), os.Getenv("VELERO_REGISTRY_REPO"), os.Getenv("VELERO_REGISTRY_TAG"))
 }
 
-func (r *DPAReconciler) buildRegistryContainer(bsl *velerov1.BackupStorageLocation, velero *oadpv1alpha1.Velero) ([]corev1.Container, error) {
+func (r *DPAReconciler) buildRegistryContainer(bsl *velerov1.BackupStorageLocation, dpa *oadpv1alpha1.DataProtectionApplication) ([]corev1.Container, error) {
 	envVars, err := r.getRegistryEnvVars(bsl)
 	if err != nil {
 		r.Log.Info(fmt.Sprintf("Error building registry container for backupstoragelocation %s/%s, could not fetch registry env vars", bsl.Namespace, bsl.Name))
@@ -308,7 +308,7 @@ func (r *DPAReconciler) buildRegistryContainer(bsl *velerov1.BackupStorageLocati
 	}
 	containers := []corev1.Container{
 		{
-			Image: getRegistryImage(velero),
+			Image: getRegistryImage(dpa),
 			Name:  registryName(bsl) + "-container",
 			Ports: []corev1.ContainerPort{
 				{
@@ -644,8 +644,8 @@ func (r *DPAReconciler) parseAzureSecret(secret corev1.Secret, secretKey string)
 }
 
 func (r *DPAReconciler) ReconcileRegistrySVCs(log logr.Logger) (bool, error) {
-	velero := oadpv1alpha1.Velero{}
-	if err := r.Get(r.Context, r.NamespacedName, &velero); err != nil {
+	dpa := oadpv1alpha1.DataProtectionApplication{}
+	if err := r.Get(r.Context, r.NamespacedName, &dpa); err != nil {
 		return false, err
 	}
 
@@ -670,7 +670,7 @@ func (r *DPAReconciler) ReconcileRegistrySVCs(log logr.Logger) (bool, error) {
 				},
 			}
 
-			if velero.Spec.BackupImages != nil && !*velero.Spec.BackupImages {
+			if dpa.Spec.BackupImages != nil && !*dpa.Spec.BackupImages {
 				deleteContext := context.Background()
 				if err := r.Get(deleteContext, types.NamespacedName{
 					Name:      svc.Name,
@@ -695,7 +695,7 @@ func (r *DPAReconciler) ReconcileRegistrySVCs(log logr.Logger) (bool, error) {
 			// Create SVC
 			op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, &svc, func() error {
 				// TODO: check for svc status condition errors and respond here
-				err := r.updateRegistrySVC(&svc, &bsl, &velero)
+				err := r.updateRegistrySVC(&svc, &bsl, &dpa)
 
 				return err
 			})
@@ -716,9 +716,9 @@ func (r *DPAReconciler) ReconcileRegistrySVCs(log logr.Logger) (bool, error) {
 	return true, nil
 }
 
-func (r *DPAReconciler) updateRegistrySVC(svc *corev1.Service, bsl *velerov1.BackupStorageLocation, velero *oadpv1alpha1.Velero) error {
+func (r *DPAReconciler) updateRegistrySVC(svc *corev1.Service, bsl *velerov1.BackupStorageLocation, dpa *oadpv1alpha1.DataProtectionApplication) error {
 	// Setting controller owner reference on the registry svc
-	err := controllerutil.SetControllerReference(velero, svc, r.Scheme)
+	err := controllerutil.SetControllerReference(dpa, svc, r.Scheme)
 	if err != nil {
 		return err
 	}
@@ -746,8 +746,8 @@ func (r *DPAReconciler) updateRegistrySVC(svc *corev1.Service, bsl *velerov1.Bac
 }
 
 func (r *DPAReconciler) ReconcileRegistryRoutes(log logr.Logger) (bool, error) {
-	velero := oadpv1alpha1.Velero{}
-	if err := r.Get(r.Context, r.NamespacedName, &velero); err != nil {
+	dpa := oadpv1alpha1.DataProtectionApplication{}
+	if err := r.Get(r.Context, r.NamespacedName, &dpa); err != nil {
 		return false, err
 	}
 
@@ -778,7 +778,7 @@ func (r *DPAReconciler) ReconcileRegistryRoutes(log logr.Logger) (bool, error) {
 				},
 			}
 
-			if velero.Spec.BackupImages != nil && !*velero.Spec.BackupImages {
+			if dpa.Spec.BackupImages != nil && !*dpa.Spec.BackupImages {
 				deleteContext := context.Background()
 				if err := r.Get(deleteContext, types.NamespacedName{
 					Name:      route.Name,
@@ -805,7 +805,7 @@ func (r *DPAReconciler) ReconcileRegistryRoutes(log logr.Logger) (bool, error) {
 
 				// TODO: check for svc status condition errors and respond here
 
-				err := r.updateRegistryRoute(&route, &bsl, &velero)
+				err := r.updateRegistryRoute(&route, &bsl, &dpa)
 
 				return err
 			})
@@ -826,9 +826,9 @@ func (r *DPAReconciler) ReconcileRegistryRoutes(log logr.Logger) (bool, error) {
 	return true, nil
 }
 
-func (r *DPAReconciler) updateRegistryRoute(route *routev1.Route, bsl *velerov1.BackupStorageLocation, velero *oadpv1alpha1.Velero) error {
+func (r *DPAReconciler) updateRegistryRoute(route *routev1.Route, bsl *velerov1.BackupStorageLocation, dpa *oadpv1alpha1.DataProtectionApplication) error {
 	// Setting controller owner reference on the registry route
-	err := controllerutil.SetControllerReference(velero, route, r.Scheme)
+	err := controllerutil.SetControllerReference(dpa, route, r.Scheme)
 	if err != nil {
 		return err
 	}
@@ -843,8 +843,8 @@ func (r *DPAReconciler) updateRegistryRoute(route *routev1.Route, bsl *velerov1.
 }
 
 func (r *DPAReconciler) ReconcileRegistryRouteConfigs(log logr.Logger) (bool, error) {
-	velero := oadpv1alpha1.Velero{}
-	if err := r.Get(r.Context, r.NamespacedName, &velero); err != nil {
+	dpa := oadpv1alpha1.DataProtectionApplication{}
+	if err := r.Get(r.Context, r.NamespacedName, &dpa); err != nil {
 		return false, err
 	}
 
@@ -869,7 +869,7 @@ func (r *DPAReconciler) ReconcileRegistryRouteConfigs(log logr.Logger) (bool, er
 				},
 			}
 
-			if velero.Spec.BackupImages != nil && !*velero.Spec.BackupImages {
+			if dpa.Spec.BackupImages != nil && !*dpa.Spec.BackupImages {
 				deleteContext := context.Background()
 				if err := r.Get(deleteContext, types.NamespacedName{
 					Name:      registryRouteCM.Name,
@@ -894,7 +894,7 @@ func (r *DPAReconciler) ReconcileRegistryRouteConfigs(log logr.Logger) (bool, er
 			op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, &registryRouteCM, func() error {
 
 				// update the Config Map
-				err := r.updateRegistryConfigMap(&registryRouteCM, &bsl, &velero)
+				err := r.updateRegistryConfigMap(&registryRouteCM, &bsl, &dpa)
 				return err
 			})
 
@@ -917,10 +917,10 @@ func (r *DPAReconciler) ReconcileRegistryRouteConfigs(log logr.Logger) (bool, er
 	return true, nil
 }
 
-func (r *DPAReconciler) updateRegistryConfigMap(registryRouteCM *corev1.ConfigMap, bsl *velerov1.BackupStorageLocation, velero *oadpv1alpha1.Velero) error {
+func (r *DPAReconciler) updateRegistryConfigMap(registryRouteCM *corev1.ConfigMap, bsl *velerov1.BackupStorageLocation, dpa *oadpv1alpha1.DataProtectionApplication) error {
 
 	// Setting controller owner reference on the restic restore helper CM
-	err := controllerutil.SetControllerReference(velero, registryRouteCM, r.Scheme)
+	err := controllerutil.SetControllerReference(dpa, registryRouteCM, r.Scheme)
 	if err != nil {
 		return err
 	}

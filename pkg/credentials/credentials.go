@@ -142,7 +142,7 @@ func AppendCloudProviderVolumes(dpa *oadpv1alpha1.DataProtectionApplication, ds 
 			resticContainer = &ds.Spec.Template.Spec.Containers[i]
 		}
 	}
-	for _, plugin := range dpa.Spec.DefaultVeleroPlugins {
+	for _, plugin := range dpa.Spec.Configuration.Velero.DefaultPlugins {
 		// Check that this is a cloud provider plugin in the cloud provider map
 		// ok is boolean that will be true if `plugin` is a valid key in `PluginSpecificFields` map
 		// pattern from https://golang.org/doc/effective_go#maps
@@ -190,7 +190,7 @@ func AppendCloudProviderVolumes(dpa *oadpv1alpha1.DataProtectionApplication, ds 
 
 // add plugin specific specs to velero deployment
 func AppendPluginSpecificSpecs(dpa *oadpv1alpha1.DataProtectionApplication, veleroDeployment *appsv1.Deployment, veleroContainer *corev1.Container) error {
-	for _, plugin := range dpa.Spec.DefaultVeleroPlugins {
+	for _, plugin := range dpa.Spec.Configuration.Velero.DefaultPlugins {
 		if pluginSpecificMap, ok := PluginSpecificFields[plugin]; ok {
 			veleroDeployment.Spec.Template.Spec.InitContainers = append(
 				veleroDeployment.Spec.Template.Spec.InitContainers,
@@ -246,8 +246,8 @@ func AppendPluginSpecificSpecs(dpa *oadpv1alpha1.DataProtectionApplication, vele
 		}
 	}
 	// append custom plugin init containers
-	if dpa.Spec.CustomVeleroPlugins != nil {
-		for _, plugin := range dpa.Spec.CustomVeleroPlugins {
+	if dpa.Spec.Configuration.Velero.CustomPlugins != nil {
+		for _, plugin := range dpa.Spec.Configuration.Velero.CustomPlugins {
 			veleroDeployment.Spec.Template.Spec.InitContainers = append(
 				veleroDeployment.Spec.Template.Spec.InitContainers,
 				corev1.Container{
