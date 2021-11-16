@@ -12,7 +12,7 @@ import (
 func TestCredentials_getPluginImage(t *testing.T) {
 	tests := []struct {
 		name       string
-		VeleroCR   *oadpv1alpha1.Velero
+		VeleroCR   *oadpv1alpha1.DataProtectionApplication
 		pluginName string
 		wantImage  string
 		setEnvVars map[string]string
@@ -20,12 +20,12 @@ func TestCredentials_getPluginImage(t *testing.T) {
 		// AWS tests
 		{
 			name: "given aws plugin override, custom aws image should be returned",
-			VeleroCR: &oadpv1alpha1.Velero{
+			VeleroCR: &oadpv1alpha1.DataProtectionApplication{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-Velero-CR",
 					Namespace: "test-ns",
 				},
-				Spec: oadpv1alpha1.VeleroSpec{
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 					DefaultVeleroPlugins: []oadpv1alpha1.DefaultPlugin{
 						oadpv1alpha1.DefaultPluginAWS,
 					},
@@ -40,12 +40,12 @@ func TestCredentials_getPluginImage(t *testing.T) {
 		},
 		{
 			name: "given default Velero CR with no env var, default aws image should be returned",
-			VeleroCR: &oadpv1alpha1.Velero{
+			VeleroCR: &oadpv1alpha1.DataProtectionApplication{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-Velero-CR",
 					Namespace: "test-ns",
 				},
-				Spec: oadpv1alpha1.VeleroSpec{
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 					DefaultVeleroPlugins: []oadpv1alpha1.DefaultPlugin{
 						oadpv1alpha1.DefaultPluginAWS,
 					},
@@ -57,12 +57,12 @@ func TestCredentials_getPluginImage(t *testing.T) {
 		},
 		{
 			name: "given default Velero CR with env var set, image should be built via env vars",
-			VeleroCR: &oadpv1alpha1.Velero{
+			VeleroCR: &oadpv1alpha1.DataProtectionApplication{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-Velero-CR",
 					Namespace: "test-ns",
 				},
-				Spec: oadpv1alpha1.VeleroSpec{
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 					DefaultVeleroPlugins: []oadpv1alpha1.DefaultPlugin{
 						oadpv1alpha1.DefaultPluginAWS,
 					},
@@ -81,12 +81,12 @@ func TestCredentials_getPluginImage(t *testing.T) {
 		// OpenShift tests
 		{
 			name: "given openshift plugin override, custom openshift image should be returned",
-			VeleroCR: &oadpv1alpha1.Velero{
+			VeleroCR: &oadpv1alpha1.DataProtectionApplication{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-Velero-CR",
 					Namespace: "test-ns",
 				},
-				Spec: oadpv1alpha1.VeleroSpec{
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 					DefaultVeleroPlugins: []oadpv1alpha1.DefaultPlugin{
 						oadpv1alpha1.DefaultPluginOpenShift,
 					},
@@ -101,12 +101,12 @@ func TestCredentials_getPluginImage(t *testing.T) {
 		},
 		{
 			name: "given default Velero CR with no env var, default openshift image should be returned",
-			VeleroCR: &oadpv1alpha1.Velero{
+			VeleroCR: &oadpv1alpha1.DataProtectionApplication{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-Velero-CR",
 					Namespace: "test-ns",
 				},
-				Spec: oadpv1alpha1.VeleroSpec{
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 					DefaultVeleroPlugins: []oadpv1alpha1.DefaultPlugin{
 						oadpv1alpha1.DefaultPluginOpenShift,
 					},
@@ -118,12 +118,12 @@ func TestCredentials_getPluginImage(t *testing.T) {
 		},
 		{
 			name: "given default Velero CR with env var set, image should be built via env vars",
-			VeleroCR: &oadpv1alpha1.Velero{
+			VeleroCR: &oadpv1alpha1.DataProtectionApplication{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-Velero-CR",
 					Namespace: "test-ns",
 				},
-				Spec: oadpv1alpha1.VeleroSpec{
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 					DefaultVeleroPlugins: []oadpv1alpha1.DefaultPlugin{
 						oadpv1alpha1.DefaultPluginOpenShift,
 					},
@@ -142,12 +142,12 @@ func TestCredentials_getPluginImage(t *testing.T) {
 		// GCP tests
 		{
 			name: "given gcp plugin override, custom gcp image should be returned",
-			VeleroCR: &oadpv1alpha1.Velero{
+			VeleroCR: &oadpv1alpha1.DataProtectionApplication{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-Velero-CR",
 					Namespace: "test-ns",
 				},
-				Spec: oadpv1alpha1.VeleroSpec{
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 					DefaultVeleroPlugins: []oadpv1alpha1.DefaultPlugin{
 						oadpv1alpha1.DefaultPluginGCP,
 					},
@@ -162,12 +162,12 @@ func TestCredentials_getPluginImage(t *testing.T) {
 		},
 		{
 			name: "given default Velero CR with no env var, default gcp image should be returned",
-			VeleroCR: &oadpv1alpha1.Velero{
+			VeleroCR: &oadpv1alpha1.DataProtectionApplication{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-Velero-CR",
 					Namespace: "test-ns",
 				},
-				Spec: oadpv1alpha1.VeleroSpec{
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 					DefaultVeleroPlugins: []oadpv1alpha1.DefaultPlugin{
 						oadpv1alpha1.DefaultPluginGCP,
 					},
@@ -179,12 +179,12 @@ func TestCredentials_getPluginImage(t *testing.T) {
 		},
 		{
 			name: "given default Velero CR with env var set, image should be built via env vars",
-			VeleroCR: &oadpv1alpha1.Velero{
+			VeleroCR: &oadpv1alpha1.DataProtectionApplication{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-Velero-CR",
 					Namespace: "test-ns",
 				},
-				Spec: oadpv1alpha1.VeleroSpec{
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 					DefaultVeleroPlugins: []oadpv1alpha1.DefaultPlugin{
 						oadpv1alpha1.DefaultPluginGCP,
 					},
@@ -203,12 +203,12 @@ func TestCredentials_getPluginImage(t *testing.T) {
 		// Azure tests
 		{
 			name: "given azure plugin override, custom azure image should be returned",
-			VeleroCR: &oadpv1alpha1.Velero{
+			VeleroCR: &oadpv1alpha1.DataProtectionApplication{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-Velero-CR",
 					Namespace: "test-ns",
 				},
-				Spec: oadpv1alpha1.VeleroSpec{
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 					DefaultVeleroPlugins: []oadpv1alpha1.DefaultPlugin{
 						oadpv1alpha1.DefaultPluginMicrosoftAzure,
 					},
@@ -223,12 +223,12 @@ func TestCredentials_getPluginImage(t *testing.T) {
 		},
 		{
 			name: "given default Velero CR with no env var, default azure image should be returned",
-			VeleroCR: &oadpv1alpha1.Velero{
+			VeleroCR: &oadpv1alpha1.DataProtectionApplication{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-Velero-CR",
 					Namespace: "test-ns",
 				},
-				Spec: oadpv1alpha1.VeleroSpec{
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 					DefaultVeleroPlugins: []oadpv1alpha1.DefaultPlugin{
 						oadpv1alpha1.DefaultPluginMicrosoftAzure,
 					},
@@ -240,12 +240,12 @@ func TestCredentials_getPluginImage(t *testing.T) {
 		},
 		{
 			name: "given default Velero CR with env var set, image should be built via env vars",
-			VeleroCR: &oadpv1alpha1.Velero{
+			VeleroCR: &oadpv1alpha1.DataProtectionApplication{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-Velero-CR",
 					Namespace: "test-ns",
 				},
-				Spec: oadpv1alpha1.VeleroSpec{
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 					DefaultVeleroPlugins: []oadpv1alpha1.DefaultPlugin{
 						oadpv1alpha1.DefaultPluginMicrosoftAzure,
 					},
@@ -264,12 +264,12 @@ func TestCredentials_getPluginImage(t *testing.T) {
 		// CSI tests
 		{
 			name: "given csi plugin override, custom csi image should be returned",
-			VeleroCR: &oadpv1alpha1.Velero{
+			VeleroCR: &oadpv1alpha1.DataProtectionApplication{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-Velero-CR",
 					Namespace: "test-ns",
 				},
-				Spec: oadpv1alpha1.VeleroSpec{
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 					DefaultVeleroPlugins: []oadpv1alpha1.DefaultPlugin{
 						oadpv1alpha1.DefaultPluginCSI,
 					},
@@ -284,12 +284,12 @@ func TestCredentials_getPluginImage(t *testing.T) {
 		},
 		{
 			name: "given default Velero CR with no env var, default csi image should be returned",
-			VeleroCR: &oadpv1alpha1.Velero{
+			VeleroCR: &oadpv1alpha1.DataProtectionApplication{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-Velero-CR",
 					Namespace: "test-ns",
 				},
-				Spec: oadpv1alpha1.VeleroSpec{
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 					DefaultVeleroPlugins: []oadpv1alpha1.DefaultPlugin{
 						oadpv1alpha1.DefaultPluginCSI,
 					},
@@ -301,12 +301,12 @@ func TestCredentials_getPluginImage(t *testing.T) {
 		},
 		{
 			name: "given default Velero CR with env var set, image should be built via env vars",
-			VeleroCR: &oadpv1alpha1.Velero{
+			VeleroCR: &oadpv1alpha1.DataProtectionApplication{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-Velero-CR",
 					Namespace: "test-ns",
 				},
-				Spec: oadpv1alpha1.VeleroSpec{
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 					DefaultVeleroPlugins: []oadpv1alpha1.DefaultPlugin{
 						oadpv1alpha1.DefaultPluginCSI,
 					},

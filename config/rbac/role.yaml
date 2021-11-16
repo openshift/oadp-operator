@@ -15,7 +15,7 @@ rules:
 - apiGroups:
   - oadp.openshift.io
   resources:
-  - veleroes
+  - dataprotectionapplications
   verbs:
   - create
   - delete
@@ -27,13 +27,13 @@ rules:
 - apiGroups:
   - oadp.openshift.io
   resources:
-  - veleroes/finalizers
+  - dataprotectionapplications/finalizers
   verbs:
   - update
 - apiGroups:
   - oadp.openshift.io
   resources:
-  - veleroes/status
+  - dataprotectionapplications/status
   verbs:
   - get
   - patch

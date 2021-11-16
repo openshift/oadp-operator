@@ -51,7 +51,7 @@ func getResticPvHostPath() string {
 	return env
 }
 
-func getResticObjectMeta(r *VeleroReconciler) metav1.ObjectMeta {
+func getResticObjectMeta(r *DPAReconciler) metav1.ObjectMeta {
 	return metav1.ObjectMeta{
 		Name:      Restic,
 		Namespace: r.NamespacedName.Namespace,
@@ -61,7 +61,7 @@ func getResticObjectMeta(r *VeleroReconciler) metav1.ObjectMeta {
 	}
 }
 
-func (r *VeleroReconciler) ReconcileResticDaemonset(log logr.Logger) (bool, error) {
+func (r *DPAReconciler) ReconcileResticDaemonset(log logr.Logger) (bool, error) {
 	velero := oadpv1alpha1.Velero{}
 	if err := r.Get(r.Context, r.NamespacedName, &velero); err != nil {
 		return false, err
@@ -135,7 +135,7 @@ func (r *VeleroReconciler) ReconcileResticDaemonset(log logr.Logger) (bool, erro
  * 		 ds		- pointer to daemonset with objectMeta defined
  * returns: (pointer to daemonset, nil) if successful
  */
-func (r *VeleroReconciler) buildResticDaemonset(velero *oadpv1alpha1.Velero, ds *appsv1.DaemonSet) (*appsv1.DaemonSet, error) {
+func (r *DPAReconciler) buildResticDaemonset(velero *oadpv1alpha1.Velero, ds *appsv1.DaemonSet) (*appsv1.DaemonSet, error) {
 	if velero == nil {
 		return nil, fmt.Errorf("velero cannot be nil")
 	}
@@ -157,7 +157,7 @@ func (r *VeleroReconciler) buildResticDaemonset(velero *oadpv1alpha1.Velero, ds 
 	return r.customizeResticDaemonset(velero, ds)
 }
 
-func (r *VeleroReconciler) customizeResticDaemonset(velero *oadpv1alpha1.Velero, ds *appsv1.DaemonSet) (*appsv1.DaemonSet, error) {
+func (r *DPAReconciler) customizeResticDaemonset(velero *oadpv1alpha1.Velero, ds *appsv1.DaemonSet) (*appsv1.DaemonSet, error) {
 
 	// customize specs
 	ds.Spec.Selector = resticLabelSelector
@@ -242,7 +242,7 @@ func (r *VeleroReconciler) customizeResticDaemonset(velero *oadpv1alpha1.Velero,
 	return ds, nil
 }
 
-func (r *VeleroReconciler) ReconcileResticRestoreHelperConfig(log logr.Logger) (bool, error) {
+func (r *DPAReconciler) ReconcileResticRestoreHelperConfig(log logr.Logger) (bool, error) {
 	velero := oadpv1alpha1.Velero{}
 	if err := r.Get(r.Context, r.NamespacedName, &velero); err != nil {
 		return false, err
@@ -279,7 +279,7 @@ func (r *VeleroReconciler) ReconcileResticRestoreHelperConfig(log logr.Logger) (
 	return true, nil
 }
 
-func (r *VeleroReconciler) updateResticRestoreHelperCM(resticRestoreHelperCM *corev1.ConfigMap, velero *oadpv1alpha1.Velero) error {
+func (r *DPAReconciler) updateResticRestoreHelperCM(resticRestoreHelperCM *corev1.ConfigMap, velero *oadpv1alpha1.Velero) error {
 
 	// Setting controller owner reference on the restic restore helper CM
 	err := controllerutil.SetControllerReference(velero, resticRestoreHelperCM, r.Scheme)

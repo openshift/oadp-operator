@@ -43,7 +43,7 @@ func getFakeClientFromObjects(objs ...client.Object) (client.WithWatch, error) {
 	return fake.NewClientBuilder().WithScheme(schemeForFakeClient).WithObjects(objs...).Build(), nil
 }
 
-func TestVeleroReconciler_ValidateBackupStorageLocations(t *testing.T) {
+func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 	tests := []struct {
 		name     string
 		VeleroCR *oadpv1alpha1.Velero
@@ -725,7 +725,7 @@ func TestVeleroReconciler_ValidateBackupStorageLocations(t *testing.T) {
 			if err != nil {
 				t.Errorf("error in creating fake client, likely programmer error")
 			}
-			r := &VeleroReconciler{
+			r := &DPAReconciler{
 				Client:  fakeClient,
 				Scheme:  fakeClient.Scheme(),
 				Log:     logr.Discard(),
@@ -752,7 +752,7 @@ func newContextForTest(name string) context.Context {
 	return context.TODO()
 }
 
-func TestVeleroReconciler_updateBSLFromSpec(t *testing.T) {
+func TestDPAReconciler_updateBSLFromSpec(t *testing.T) {
 	tests := []struct {
 		name    string
 		bsl     *velerov1.BackupStorageLocation
@@ -781,7 +781,7 @@ func TestVeleroReconciler_updateBSLFromSpec(t *testing.T) {
 			if err != nil {
 				t.Errorf("error getting scheme for the test: %#v", err)
 			}
-			r := &VeleroReconciler{
+			r := &DPAReconciler{
 				Scheme: scheme,
 			}
 
@@ -823,7 +823,7 @@ func TestVeleroReconciler_updateBSLFromSpec(t *testing.T) {
 	}
 }
 
-func TestVeleroReconciler_ensureBSLProviderMapping(t *testing.T) {
+func TestDPAReconciler_ensureBSLProviderMapping(t *testing.T) {
 	type fields struct {
 		Client         client.Client
 		Scheme         *runtime.Scheme
@@ -899,7 +899,7 @@ func TestVeleroReconciler_ensureBSLProviderMapping(t *testing.T) {
 			if err != nil {
 				t.Errorf("error getting scheme for the test: %#v", err)
 			}
-			r := &VeleroReconciler{
+			r := &DPAReconciler{
 				Scheme: scheme,
 			}
 			if err := r.ensureBSLProviderMapping(tt.VeleroCR); (err != nil) != tt.wantErr {

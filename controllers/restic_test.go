@@ -24,7 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func TestVeleroReconciler_ReconcileResticDaemonset(t *testing.T) {
+func TestDPAReconciler_ReconcileResticDaemonset(t *testing.T) {
 	type fields struct {
 		Client         client.Client
 		Scheme         *runtime.Scheme
@@ -47,7 +47,7 @@ func TestVeleroReconciler_ReconcileResticDaemonset(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			r := &VeleroReconciler{
+			r := &DPAReconciler{
 				Client:         tt.fields.Client,
 				Scheme:         tt.fields.Scheme,
 				Log:            tt.fields.Log,
@@ -57,17 +57,17 @@ func TestVeleroReconciler_ReconcileResticDaemonset(t *testing.T) {
 			}
 			got, err := r.ReconcileResticDaemonset(tt.args.log)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("VeleroReconciler.ReconcileResticDaemonset() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("DPAReconciler.ReconcileResticDaemonset() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if got != tt.want {
-				t.Errorf("VeleroReconciler.ReconcileResticDaemonset() = %v, want %v", got, tt.want)
+				t.Errorf("DPAReconciler.ReconcileResticDaemonset() = %v, want %v", got, tt.want)
 			}
 		})
 	}
 }
 
-func TestVeleroReconciler_buildResticDaemonset(t *testing.T) {
+func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 	type fields struct {
 		Client         client.Client
 		Scheme         *runtime.Scheme
@@ -80,7 +80,7 @@ func TestVeleroReconciler_buildResticDaemonset(t *testing.T) {
 		velero *oadpv1alpha1.Velero
 		ds     *appsv1.DaemonSet
 	}
-	r := &VeleroReconciler{}
+	r := &DPAReconciler{}
 	velero := oadpv1alpha1.Velero{}
 	tests := []struct {
 		name    string
@@ -775,7 +775,7 @@ func TestVeleroReconciler_buildResticDaemonset(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			r := &VeleroReconciler{
+			r := &DPAReconciler{
 				Client:         tt.fields.Client,
 				Scheme:         tt.fields.Scheme,
 				Log:            tt.fields.Log,
@@ -785,17 +785,17 @@ func TestVeleroReconciler_buildResticDaemonset(t *testing.T) {
 			}
 			got, err := r.buildResticDaemonset(tt.args.velero, tt.args.ds)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("VeleroReconciler.buildResticDaemonset() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("DPAReconciler.buildResticDaemonset() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("VeleroReconciler.buildResticDaemonset() got = %v, want %v", got, tt.want)
+				t.Errorf("DPAReconciler.buildResticDaemonset() got = %v, want %v", got, tt.want)
 			}
 		})
 	}
 }
 
-func TestVeleroReconciler_updateResticRestoreHelperCM(t *testing.T) {
+func TestDPAReconciler_updateResticRestoreHelperCM(t *testing.T) {
 
 	tests := []struct {
 		name                      string
@@ -846,7 +846,7 @@ func TestVeleroReconciler_updateResticRestoreHelperCM(t *testing.T) {
 			t.Errorf("error in creating fake client, likely programmer error")
 		}
 		t.Run(tt.name, func(t *testing.T) {
-			r := &VeleroReconciler{
+			r := &DPAReconciler{
 				Client:  fakeClient,
 				Scheme:  fakeClient.Scheme(),
 				Log:     logr.Discard(),
