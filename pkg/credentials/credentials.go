@@ -63,9 +63,9 @@ var (
 	}
 )
 
-func getAWSPluginImage(velero *oadpv1alpha1.Velero) string {
-	if velero.Spec.UnsupportedOverrides[oadpv1alpha1.AWSPluginImageKey] != "" {
-		return velero.Spec.UnsupportedOverrides[oadpv1alpha1.AWSPluginImageKey]
+func getAWSPluginImage(dpa *oadpv1alpha1.DataProtectionApplication) string {
+	if dpa.Spec.UnsupportedOverrides[oadpv1alpha1.AWSPluginImageKey] != "" {
+		return dpa.Spec.UnsupportedOverrides[oadpv1alpha1.AWSPluginImageKey]
 	}
 	if os.Getenv("VELERO_AWS_PLUGIN_REPO") == "" {
 		return common.AWSPluginImage
@@ -73,9 +73,9 @@ func getAWSPluginImage(velero *oadpv1alpha1.Velero) string {
 	return fmt.Sprintf("%v/%v/%v:%v", os.Getenv("REGISTRY"), os.Getenv("PROJECT"), os.Getenv("VELERO_AWS_PLUGIN_REPO"), os.Getenv("VELERO_AWS_PLUGIN_TAG"))
 }
 
-func getCSIPluginImage(velero *oadpv1alpha1.Velero) string {
-	if velero.Spec.UnsupportedOverrides[oadpv1alpha1.CSIPluginImageKey] != "" {
-		return velero.Spec.UnsupportedOverrides[oadpv1alpha1.CSIPluginImageKey]
+func getCSIPluginImage(dpa *oadpv1alpha1.DataProtectionApplication) string {
+	if dpa.Spec.UnsupportedOverrides[oadpv1alpha1.CSIPluginImageKey] != "" {
+		return dpa.Spec.UnsupportedOverrides[oadpv1alpha1.CSIPluginImageKey]
 	}
 	if os.Getenv("VELERO_CSI_PLUGIN_REPO") == "" {
 		return common.CSIPluginImage
@@ -83,9 +83,9 @@ func getCSIPluginImage(velero *oadpv1alpha1.Velero) string {
 	return fmt.Sprintf("%v/%v/%v:%v", os.Getenv("REGISTRY"), os.Getenv("PROJECT"), os.Getenv("VELERO_CSI_PLUGIN_REPO"), os.Getenv("VELERO_CSI_PLUGIN_TAG"))
 }
 
-func getGCPPluginImage(velero *oadpv1alpha1.Velero) string {
-	if velero.Spec.UnsupportedOverrides[oadpv1alpha1.GCPPluginImageKey] != "" {
-		return velero.Spec.UnsupportedOverrides[oadpv1alpha1.GCPPluginImageKey]
+func getGCPPluginImage(dpa *oadpv1alpha1.DataProtectionApplication) string {
+	if dpa.Spec.UnsupportedOverrides[oadpv1alpha1.GCPPluginImageKey] != "" {
+		return dpa.Spec.UnsupportedOverrides[oadpv1alpha1.GCPPluginImageKey]
 	}
 	if os.Getenv("VELERO_GCP_PLUGIN_REPO") == "" {
 		return common.GCPPluginImage
@@ -93,9 +93,9 @@ func getGCPPluginImage(velero *oadpv1alpha1.Velero) string {
 	return fmt.Sprintf("%v/%v/%v:%v", os.Getenv("REGISTRY"), os.Getenv("PROJECT"), os.Getenv("VELERO_GCP_PLUGIN_REPO"), os.Getenv("VELERO_GCP_PLUGIN_TAG"))
 }
 
-func getOpenshiftPluginImage(velero *oadpv1alpha1.Velero) string {
-	if velero.Spec.UnsupportedOverrides[oadpv1alpha1.OpenShiftPluginImageKey] != "" {
-		return velero.Spec.UnsupportedOverrides[oadpv1alpha1.OpenShiftPluginImageKey]
+func getOpenshiftPluginImage(dpa *oadpv1alpha1.DataProtectionApplication) string {
+	if dpa.Spec.UnsupportedOverrides[oadpv1alpha1.OpenShiftPluginImageKey] != "" {
+		return dpa.Spec.UnsupportedOverrides[oadpv1alpha1.OpenShiftPluginImageKey]
 	}
 	if os.Getenv("VELERO_OPENSHIFT_PLUGIN_REPO") == "" {
 		return common.OpenshiftPluginImage
@@ -103,9 +103,9 @@ func getOpenshiftPluginImage(velero *oadpv1alpha1.Velero) string {
 	return fmt.Sprintf("%v/%v/%v:%v", os.Getenv("REGISTRY"), os.Getenv("PROJECT"), os.Getenv("VELERO_OPENSHIFT_PLUGIN_REPO"), os.Getenv("VELERO_OPENSHIFT_PLUGIN_TAG"))
 }
 
-func getAzurePluginImage(velero *oadpv1alpha1.Velero) string {
-	if velero.Spec.UnsupportedOverrides[oadpv1alpha1.AzurePluginImageKey] != "" {
-		return velero.Spec.UnsupportedOverrides[oadpv1alpha1.AzurePluginImageKey]
+func getAzurePluginImage(dpa *oadpv1alpha1.DataProtectionApplication) string {
+	if dpa.Spec.UnsupportedOverrides[oadpv1alpha1.AzurePluginImageKey] != "" {
+		return dpa.Spec.UnsupportedOverrides[oadpv1alpha1.AzurePluginImageKey]
 	}
 	if os.Getenv("VELERO_AZURE_PLUGIN_REPO") == "" {
 		return common.AzurePluginImage
@@ -113,28 +113,28 @@ func getAzurePluginImage(velero *oadpv1alpha1.Velero) string {
 	return fmt.Sprintf("%v/%v/%v:%v", os.Getenv("REGISTRY"), os.Getenv("PROJECT"), os.Getenv("VELERO_AZURE_PLUGIN_REPO"), os.Getenv("VELERO_AZURE_PLUGIN_TAG"))
 }
 
-func getPluginImage(pluginName string, velero *oadpv1alpha1.Velero) string {
+func getPluginImage(pluginName string, dpa *oadpv1alpha1.DataProtectionApplication) string {
 	switch pluginName {
 
 	case common.VeleroPluginForAWS:
-		return getAWSPluginImage(velero)
+		return getAWSPluginImage(dpa)
 
 	case common.VeleroPluginForCSI:
-		return getCSIPluginImage(velero)
+		return getCSIPluginImage(dpa)
 
 	case common.VeleroPluginForGCP:
-		return getGCPPluginImage(velero)
+		return getGCPPluginImage(dpa)
 
 	case common.VeleroPluginForOpenshift:
-		return getOpenshiftPluginImage(velero)
+		return getOpenshiftPluginImage(dpa)
 
 	case common.VeleroPluginForAzure:
-		return getAzurePluginImage(velero)
+		return getAzurePluginImage(dpa)
 	}
 	return ""
 }
 
-func AppendCloudProviderVolumes(velero *oadpv1alpha1.Velero, ds *appsv1.DaemonSet) error {
+func AppendCloudProviderVolumes(dpa *oadpv1alpha1.DataProtectionApplication, ds *appsv1.DaemonSet) error {
 	var resticContainer *corev1.Container
 	// Find Velero container
 	for i, container := range ds.Spec.Template.Spec.Containers {
@@ -142,7 +142,7 @@ func AppendCloudProviderVolumes(velero *oadpv1alpha1.Velero, ds *appsv1.DaemonSe
 			resticContainer = &ds.Spec.Template.Spec.Containers[i]
 		}
 	}
-	for _, plugin := range velero.Spec.DefaultVeleroPlugins {
+	for _, plugin := range dpa.Spec.DefaultVeleroPlugins {
 		// Check that this is a cloud provider plugin in the cloud provider map
 		// ok is boolean that will be true if `plugin` is a valid key in `PluginSpecificFields` map
 		// pattern from https://golang.org/doc/effective_go#maps
@@ -189,13 +189,13 @@ func AppendCloudProviderVolumes(velero *oadpv1alpha1.Velero, ds *appsv1.DaemonSe
 }
 
 // add plugin specific specs to velero deployment
-func AppendPluginSpecificSpecs(velero *oadpv1alpha1.Velero, veleroDeployment *appsv1.Deployment, veleroContainer *corev1.Container) error {
-	for _, plugin := range velero.Spec.DefaultVeleroPlugins {
+func AppendPluginSpecificSpecs(dpa *oadpv1alpha1.DataProtectionApplication, veleroDeployment *appsv1.Deployment, veleroContainer *corev1.Container) error {
+	for _, plugin := range dpa.Spec.DefaultVeleroPlugins {
 		if pluginSpecificMap, ok := PluginSpecificFields[plugin]; ok {
 			veleroDeployment.Spec.Template.Spec.InitContainers = append(
 				veleroDeployment.Spec.Template.Spec.InitContainers,
 				corev1.Container{
-					Image:                    getPluginImage(pluginSpecificMap.PluginName, velero),
+					Image:                    getPluginImage(pluginSpecificMap.PluginName, dpa),
 					Name:                     pluginSpecificMap.PluginName,
 					ImagePullPolicy:          corev1.PullAlways,
 					Resources:                corev1.ResourceRequirements{},
@@ -246,8 +246,8 @@ func AppendPluginSpecificSpecs(velero *oadpv1alpha1.Velero, veleroDeployment *ap
 		}
 	}
 	// append custom plugin init containers
-	if velero.Spec.CustomVeleroPlugins != nil {
-		for _, plugin := range velero.Spec.CustomVeleroPlugins {
+	if dpa.Spec.CustomVeleroPlugins != nil {
+		for _, plugin := range dpa.Spec.CustomVeleroPlugins {
 			veleroDeployment.Spec.Template.Spec.InitContainers = append(
 				veleroDeployment.Spec.Template.Spec.InitContainers,
 				corev1.Container{

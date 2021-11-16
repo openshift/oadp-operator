@@ -50,7 +50,7 @@ var (
 )
 
 // TODO: Remove this function as it's no longer being used
-func (r *VeleroReconciler) ReconcileVeleroServiceAccount(log logr.Logger) (bool, error) {
+func (r *DPAReconciler) ReconcileVeleroServiceAccount(log logr.Logger) (bool, error) {
 	velero := oadpv1alpha1.Velero{}
 	if err := r.Get(r.Context, r.NamespacedName, &velero); err != nil {
 		return false, err
@@ -93,7 +93,7 @@ func (r *VeleroReconciler) ReconcileVeleroServiceAccount(log logr.Logger) (bool,
 
 // TODO: Remove this function as it's no longer being used
 //TODO: Temporary solution for Non-OLM Operator install
-func (r *VeleroReconciler) ReconcileVeleroCRDs(log logr.Logger) (bool, error) {
+func (r *DPAReconciler) ReconcileVeleroCRDs(log logr.Logger) (bool, error) {
 	velero := oadpv1alpha1.Velero{}
 	if err := r.Get(r.Context, r.NamespacedName, &velero); err != nil {
 		return false, err
@@ -111,7 +111,7 @@ func (r *VeleroReconciler) ReconcileVeleroCRDs(log logr.Logger) (bool, error) {
 }
 
 // TODO: Remove this function as it's no longer being used
-func (r *VeleroReconciler) InstallVeleroCRDs(log logr.Logger) error {
+func (r *DPAReconciler) InstallVeleroCRDs(log logr.Logger) error {
 	var err error
 	// Install CRDs
 	for _, unstructuredCrd := range install.AllCRDs("v1").Items {
@@ -152,7 +152,7 @@ func (r *VeleroReconciler) InstallVeleroCRDs(log logr.Logger) error {
 }
 
 // TODO: Remove this function as it's no longer being used
-func (r *VeleroReconciler) ReconcileVeleroClusterRoleBinding(log logr.Logger) (bool, error) {
+func (r *DPAReconciler) ReconcileVeleroClusterRoleBinding(log logr.Logger) (bool, error) {
 	velero := oadpv1alpha1.Velero{}
 	if err := r.Get(r.Context, r.NamespacedName, &velero); err != nil {
 		return false, err
@@ -192,7 +192,7 @@ func (r *VeleroReconciler) ReconcileVeleroClusterRoleBinding(log logr.Logger) (b
 	return true, nil
 }
 
-func (r *VeleroReconciler) ReconcileVeleroSecurityContextConstraint(log logr.Logger) (bool, error) {
+func (r *DPAReconciler) ReconcileVeleroSecurityContextConstraint(log logr.Logger) (bool, error) {
 	velero := oadpv1alpha1.Velero{}
 	if err := r.Get(r.Context, r.NamespacedName, &velero); err != nil {
 		return false, err
@@ -240,7 +240,7 @@ func (r *VeleroReconciler) ReconcileVeleroSecurityContextConstraint(log logr.Log
 	return true, nil
 }
 
-func (r *VeleroReconciler) ReconcileVeleroDeployment(log logr.Logger) (bool, error) {
+func (r *DPAReconciler) ReconcileVeleroDeployment(log logr.Logger) (bool, error) {
 	velero := oadpv1alpha1.Velero{}
 	if err := r.Get(r.Context, r.NamespacedName, &velero); err != nil {
 		return false, err
@@ -286,20 +286,20 @@ func (r *VeleroReconciler) ReconcileVeleroDeployment(log logr.Logger) (bool, err
 	return true, nil
 }
 
-func (r *VeleroReconciler) veleroServiceAccount(velero *oadpv1alpha1.Velero) (*corev1.ServiceAccount, error) {
+func (r *DPAReconciler) veleroServiceAccount(velero *oadpv1alpha1.Velero) (*corev1.ServiceAccount, error) {
 	annotations := make(map[string]string)
 	sa := install.ServiceAccount(velero.Namespace, annotations)
 	sa.Labels = r.getAppLabels(velero)
 	return sa, nil
 }
 
-func (r *VeleroReconciler) veleroClusterRoleBinding(velero *oadpv1alpha1.Velero) (*rbacv1.ClusterRoleBinding, error) {
+func (r *DPAReconciler) veleroClusterRoleBinding(velero *oadpv1alpha1.Velero) (*rbacv1.ClusterRoleBinding, error) {
 	crb := install.ClusterRoleBinding(velero.Namespace)
 	crb.Labels = r.getAppLabels(velero)
 	return crb, nil
 }
 
-func (r *VeleroReconciler) privilegedSecurityContextConstraints(scc *security.SecurityContextConstraints, velero *oadpv1alpha1.Velero, sa *corev1.ServiceAccount) error {
+func (r *DPAReconciler) privilegedSecurityContextConstraints(scc *security.SecurityContextConstraints, velero *oadpv1alpha1.Velero, sa *corev1.ServiceAccount) error {
 	// ObjectMeta set from prior step.
 
 	scc.AllowHostDirVolumePlugin = true
@@ -346,7 +346,7 @@ func (r *VeleroReconciler) privilegedSecurityContextConstraints(scc *security.Se
 }
 
 // Build VELERO Deployment
-func (r *VeleroReconciler) buildVeleroDeployment(veleroDeployment *appsv1.Deployment, velero *oadpv1alpha1.Velero) error {
+func (r *DPAReconciler) buildVeleroDeployment(veleroDeployment *appsv1.Deployment, velero *oadpv1alpha1.Velero) error {
 
 	if velero == nil {
 		return fmt.Errorf("velero CR cannot be nil")
@@ -400,7 +400,7 @@ func removeDuplicateValues(slice []string) []string {
 	return list // return the result through the passed in argument
 }
 
-func (r *VeleroReconciler) customizeVeleroDeployment(velero *oadpv1alpha1.Velero, veleroDeployment *appsv1.Deployment) error {
+func (r *DPAReconciler) customizeVeleroDeployment(velero *oadpv1alpha1.Velero, veleroDeployment *appsv1.Deployment) error {
 	veleroDeployment.Labels = r.getAppLabels(velero)
 	veleroDeployment.Spec.Selector = veleroLabelSelector
 
@@ -442,7 +442,7 @@ func (r *VeleroReconciler) customizeVeleroDeployment(velero *oadpv1alpha1.Velero
 	return credentials.AppendPluginSpecificSpecs(velero, veleroDeployment, veleroContainer)
 }
 
-func (r *VeleroReconciler) customizeVeleroContainer(velero *oadpv1alpha1.Velero, veleroDeployment *appsv1.Deployment, veleroContainer *corev1.Container) error {
+func (r *DPAReconciler) customizeVeleroContainer(velero *oadpv1alpha1.Velero, veleroDeployment *appsv1.Deployment, veleroContainer *corev1.Container) error {
 	if veleroContainer == nil {
 		return fmt.Errorf("could not find velero container in Deployment")
 	}
@@ -476,7 +476,7 @@ func getVeleroImage(velero *oadpv1alpha1.Velero) string {
 	return fmt.Sprintf("%v/%v/%v:%v", os.Getenv("REGISTRY"), os.Getenv("PROJECT"), os.Getenv("VELERO_REPO"), os.Getenv("VELERO_TAG"))
 }
 
-func (r *VeleroReconciler) getAppLabels(velero *oadpv1alpha1.Velero) map[string]string {
+func (r *DPAReconciler) getAppLabels(velero *oadpv1alpha1.Velero) map[string]string {
 	labels := map[string]string{
 		"app.kubernetes.io/name":       common.Velero,
 		"app.kubernetes.io/instance":   velero.Name,
@@ -488,7 +488,7 @@ func (r *VeleroReconciler) getAppLabels(velero *oadpv1alpha1.Velero) map[string]
 }
 
 // Get VELERO Resource Requirements
-func (r *VeleroReconciler) getVeleroResourceReqs(velero *oadpv1alpha1.Velero) corev1.ResourceRequirements {
+func (r *DPAReconciler) getVeleroResourceReqs(velero *oadpv1alpha1.Velero) corev1.ResourceRequirements {
 
 	// Set default values
 	ResourcesReqs := corev1.ResourceRequirements{
@@ -523,7 +523,7 @@ func (r *VeleroReconciler) getVeleroResourceReqs(velero *oadpv1alpha1.Velero) co
 // For later: Move this code into validator.go when more need for validation arises
 // TODO: if multiple default plugins exist, ensure we validate all of them.
 // Right now its sequential validation
-func (r *VeleroReconciler) ValidateVeleroPlugins(log logr.Logger) (bool, error) {
+func (r *DPAReconciler) ValidateVeleroPlugins(log logr.Logger) (bool, error) {
 	velero := oadpv1alpha1.Velero{}
 	if err := r.Get(r.Context, r.NamespacedName, &velero); err != nil {
 		return false, err

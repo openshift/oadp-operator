@@ -20,7 +20,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func TestVeleroReconciler_buildVeleroDeployment(t *testing.T) {
+func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 	type fields struct {
 		Client         client.Client
 		Scheme         *runtime.Scheme
@@ -908,7 +908,7 @@ func TestVeleroReconciler_buildVeleroDeployment(t *testing.T) {
 			},
 		},
 	}
-	r := &VeleroReconciler{}
+	r := &DPAReconciler{}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if err := r.buildVeleroDeployment(tt.veleroDeployment, tt.velero); (err != nil) != tt.wantErr {
@@ -921,7 +921,7 @@ func TestVeleroReconciler_buildVeleroDeployment(t *testing.T) {
 	}
 }
 
-func TestVeleroReconciler_getVeleroImage(t *testing.T) {
+func TestDPAReconciler_getVeleroImage(t *testing.T) {
 	tests := []struct {
 		name       string
 		VeleroCR   *oadpv1alpha1.Velero
@@ -1127,7 +1127,7 @@ func Test_validateVeleroPlugins(t *testing.T) {
 		if err != nil {
 			t.Errorf("error in creating fake client, likely programmer error")
 		}
-		r := &VeleroReconciler{
+		r := &DPAReconciler{
 			Client:  fakeClient,
 			Scheme:  fakeClient.Scheme(),
 			Log:     logr.Discard(),

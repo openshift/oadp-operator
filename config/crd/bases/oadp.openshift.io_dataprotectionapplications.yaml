@@ -45,6 +45,8 @@ spec:
                 description: BackupLocations defines the list of desired configuration
                   to use for BackupStorageLocations
                 items:
+                  description: BackupLocation defines the configuration for the DPA
+                    backup storage
                   properties:
                     metadata:
                       type: object
@@ -410,6 +412,8 @@ spec:
                 description: VolumeSnapshotLocations defines the list of desired configuration
                   to use for VolumeSnapshotLocations
                 items:
+                  description: VolumeSnapshot defines the configuration for the DPA
+                    snapshot store
                   properties:
                     metadata:
                       type: object

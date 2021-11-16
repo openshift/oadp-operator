@@ -12,7 +12,7 @@ import (
 	"k8s.io/client-go/tools/record"
 )
 
-func TestVeleroReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
+func TestDPAReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 	tests := []struct {
 		name     string
 		VeleroCR *oadpv1alpha1.Velero
@@ -422,7 +422,7 @@ func TestVeleroReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 			if err != nil {
 				t.Errorf("error in creating fake client, likely programmer error")
 			}
-			r := &VeleroReconciler{
+			r := &DPAReconciler{
 				Client:  fakeClient,
 				Scheme:  fakeClient.Scheme(),
 				Log:     logr.Discard(),

@@ -12,7 +12,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-func (r *VeleroReconciler) ValidateBackupStorageLocations(log logr.Logger) (bool, error) {
+func (r *DPAReconciler) ValidateBackupStorageLocations(log logr.Logger) (bool, error) {
 	velero := oadpv1alpha1.Velero{}
 	if err := r.Get(r.Context, r.NamespacedName, &velero); err != nil {
 		return false, err
@@ -63,7 +63,7 @@ func (r *VeleroReconciler) ValidateBackupStorageLocations(log logr.Logger) (bool
 	return true, nil
 }
 
-func (r *VeleroReconciler) ReconcileBackupStorageLocations(log logr.Logger) (bool, error) {
+func (r *DPAReconciler) ReconcileBackupStorageLocations(log logr.Logger) (bool, error) {
 	velero := oadpv1alpha1.Velero{}
 	if err := r.Get(r.Context, r.NamespacedName, &velero); err != nil {
 		return false, err
@@ -106,7 +106,7 @@ func (r *VeleroReconciler) ReconcileBackupStorageLocations(log logr.Logger) (boo
 	return true, nil
 }
 
-func (r *VeleroReconciler) updateBSLFromSpec(bsl *velerov1.BackupStorageLocation, velero *oadpv1alpha1.Velero, bslSpec velerov1.BackupStorageLocationSpec) error {
+func (r *DPAReconciler) updateBSLFromSpec(bsl *velerov1.BackupStorageLocation, velero *oadpv1alpha1.Velero, bslSpec velerov1.BackupStorageLocationSpec) error {
 	// Set controller reference to Velero controller
 	err := controllerutil.SetControllerReference(velero, bsl, r.Scheme)
 	if err != nil {
@@ -126,7 +126,7 @@ func (r *VeleroReconciler) updateBSLFromSpec(bsl *velerov1.BackupStorageLocation
 	return nil
 }
 
-func (r *VeleroReconciler) validateAWSBackupStorageLocation(bslSpec velerov1.BackupStorageLocationSpec, velero *oadpv1alpha1.Velero) error {
+func (r *DPAReconciler) validateAWSBackupStorageLocation(bslSpec velerov1.BackupStorageLocationSpec, velero *oadpv1alpha1.Velero) error {
 	// validate provider plugin and secret
 	err := r.validateProviderPluginAndSecret(bslSpec, velero)
 	if err != nil {
@@ -152,7 +152,7 @@ func (r *VeleroReconciler) validateAWSBackupStorageLocation(bslSpec velerov1.Bac
 	return nil
 }
 
-func (r *VeleroReconciler) validateAzureBackupStorageLocation(bslSpec velerov1.BackupStorageLocationSpec, velero *oadpv1alpha1.Velero) error {
+func (r *DPAReconciler) validateAzureBackupStorageLocation(bslSpec velerov1.BackupStorageLocationSpec, velero *oadpv1alpha1.Velero) error {
 	// validate provider plugin and secret
 	err := r.validateProviderPluginAndSecret(bslSpec, velero)
 	if err != nil {
@@ -183,7 +183,7 @@ func (r *VeleroReconciler) validateAzureBackupStorageLocation(bslSpec velerov1.B
 	return nil
 }
 
-func (r *VeleroReconciler) validateGCPBackupStorageLocation(bslSpec velerov1.BackupStorageLocationSpec, velero *oadpv1alpha1.Velero) error {
+func (r *DPAReconciler) validateGCPBackupStorageLocation(bslSpec velerov1.BackupStorageLocationSpec, velero *oadpv1alpha1.Velero) error {
 	// validate provider plugin and secret
 	err := r.validateProviderPluginAndSecret(bslSpec, velero)
 	if err != nil {
@@ -215,7 +215,7 @@ func pluginExistsInVeleroCR(configuredPlugins []oadpv1alpha1.DefaultPlugin, expe
 	return false
 }
 
-func (r *VeleroReconciler) validateProviderPluginAndSecret(bslSpec velerov1.BackupStorageLocationSpec, velero *oadpv1alpha1.Velero) error {
+func (r *DPAReconciler) validateProviderPluginAndSecret(bslSpec velerov1.BackupStorageLocationSpec, velero *oadpv1alpha1.Velero) error {
 	// check for existence of provider plugin and warn if the plugin is absent
 	if !pluginExistsInVeleroCR(velero.Spec.DefaultVeleroPlugins, oadpv1alpha1.DefaultPlugin(bslSpec.Provider)) {
 		r.Log.Info(fmt.Sprintf("%s backupstoragelocation is configured but velero plugin for %s is not present", bslSpec.Provider, bslSpec.Provider))
@@ -232,7 +232,7 @@ func (r *VeleroReconciler) validateProviderPluginAndSecret(bslSpec velerov1.Back
 	return nil
 }
 
-func (r *VeleroReconciler) ensureBSLProviderMapping(velero *oadpv1alpha1.Velero) error {
+func (r *DPAReconciler) ensureBSLProviderMapping(velero *oadpv1alpha1.Velero) error {
 
 	providerBSLMap := map[string]int{}
 	for _, bsl := range velero.Spec.BackupStorageLocations {

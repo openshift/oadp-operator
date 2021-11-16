@@ -90,7 +90,7 @@ var (
 	}
 )
 
-func TestVeleroReconciler_buildRegistryDeployment(t *testing.T) {
+func TestDPAReconciler_buildRegistryDeployment(t *testing.T) {
 	tests := []struct {
 		name               string
 		registryDeployment *appsv1.Deployment
@@ -263,7 +263,7 @@ func TestVeleroReconciler_buildRegistryDeployment(t *testing.T) {
 			if err != nil {
 				t.Errorf("error in creating fake client, likely programmer error")
 			}
-			r := &VeleroReconciler{
+			r := &DPAReconciler{
 				Client:  fakeClient,
 				Scheme:  fakeClient.Scheme(),
 				Log:     logr.Discard(),
@@ -401,7 +401,7 @@ func TestVeleroReconciler_buildRegistryDeployment(t *testing.T) {
 	}
 }
 
-func TestVeleroReconciler_buildRegistryContainer(t *testing.T) {
+func TestDPAReconciler_buildRegistryContainer(t *testing.T) {
 	tests := []struct {
 		name                  string
 		bsl                   *velerov1.BackupStorageLocation
@@ -431,7 +431,7 @@ func TestVeleroReconciler_buildRegistryContainer(t *testing.T) {
 			if err != nil {
 				t.Errorf("error getting scheme for the test: %#v", err)
 			}
-			r := &VeleroReconciler{
+			r := &DPAReconciler{
 				Scheme: scheme,
 			}
 			tt.wantRegistryContainer = &corev1.Container{
@@ -496,7 +496,7 @@ var testAWSEnvVar = cloudProviderEnvVarMap["aws"]
 var testAzureEnvVar = cloudProviderEnvVarMap["azure"]
 var testGCPEnvVar = cloudProviderEnvVarMap["gcp"]
 
-func TestVeleroReconciler_getAWSRegistryEnvVars(t *testing.T) {
+func TestDPAReconciler_getAWSRegistryEnvVars(t *testing.T) {
 	tests := []struct {
 		name                        string
 		bsl                         *velerov1.BackupStorageLocation
@@ -607,7 +607,7 @@ func TestVeleroReconciler_getAWSRegistryEnvVars(t *testing.T) {
 			if err != nil {
 				t.Errorf("error in creating fake client, likely programmer error")
 			}
-			r := &VeleroReconciler{
+			r := &DPAReconciler{
 				Client:  fakeClient,
 				Scheme:  fakeClient.Scheme(),
 				Log:     logr.Discard(),
@@ -695,7 +695,7 @@ func TestVeleroReconciler_getAWSRegistryEnvVars(t *testing.T) {
 	}
 }
 
-func TestVeleroReconciler_getAzureRegistryEnvVars(t *testing.T) {
+func TestDPAReconciler_getAzureRegistryEnvVars(t *testing.T) {
 	tests := []struct {
 		name                        string
 		bsl                         *velerov1.BackupStorageLocation
@@ -739,7 +739,7 @@ func TestVeleroReconciler_getAzureRegistryEnvVars(t *testing.T) {
 			if err != nil {
 				t.Errorf("error in creating fake client, likely programmer error")
 			}
-			r := &VeleroReconciler{
+			r := &DPAReconciler{
 				Client:  fakeClient,
 				Scheme:  fakeClient.Scheme(),
 				Log:     logr.Discard(),
@@ -783,7 +783,7 @@ func TestVeleroReconciler_getAzureRegistryEnvVars(t *testing.T) {
 	}
 }
 
-func TestVeleroReconciler_getGCPRegistryEnvVars(t *testing.T) {
+func TestDPAReconciler_getGCPRegistryEnvVars(t *testing.T) {
 	tests := []struct {
 		name                        string
 		bsl                         *velerov1.BackupStorageLocation
@@ -823,7 +823,7 @@ func TestVeleroReconciler_getGCPRegistryEnvVars(t *testing.T) {
 			if err != nil {
 				t.Errorf("error in creating fake client, likely programmer error")
 			}
-			r := &VeleroReconciler{
+			r := &DPAReconciler{
 				Client:  fakeClient,
 				Scheme:  fakeClient.Scheme(),
 				Log:     logr.Discard(),
@@ -863,7 +863,7 @@ func TestVeleroReconciler_getGCPRegistryEnvVars(t *testing.T) {
 	}
 }
 
-func TestVeleroReconciler_updateRegistrySVC(t *testing.T) {
+func TestDPAReconciler_updateRegistrySVC(t *testing.T) {
 	tests := []struct {
 		name    string
 		svc     *corev1.Service
@@ -919,7 +919,7 @@ func TestVeleroReconciler_updateRegistrySVC(t *testing.T) {
 			if err != nil {
 				t.Errorf("error in creating fake client, likely programmer error")
 			}
-			r := &VeleroReconciler{
+			r := &DPAReconciler{
 				Client:  fakeClient,
 				Scheme:  fakeClient.Scheme(),
 				Log:     logr.Discard(),
@@ -973,7 +973,7 @@ func TestVeleroReconciler_updateRegistrySVC(t *testing.T) {
 	}
 }
 
-func TestVeleroReconciler_updateRegistryRoute(t *testing.T) {
+func TestDPAReconciler_updateRegistryRoute(t *testing.T) {
 	tests := []struct {
 		name    string
 		route   *routev1.Route
@@ -1019,7 +1019,7 @@ func TestVeleroReconciler_updateRegistryRoute(t *testing.T) {
 			if err != nil {
 				t.Errorf("error in creating fake client, likely programmer error")
 			}
-			r := &VeleroReconciler{
+			r := &DPAReconciler{
 				Client:  fakeClient,
 				Scheme:  fakeClient.Scheme(),
 				Log:     logr.Discard(),
@@ -1065,7 +1065,7 @@ func TestVeleroReconciler_updateRegistryRoute(t *testing.T) {
 	}
 }
 
-func TestVeleroReconciler_updateRegistryRouteCM(t *testing.T) {
+func TestDPAReconciler_updateRegistryRouteCM(t *testing.T) {
 	tests := []struct {
 		name            string
 		registryRouteCM *corev1.ConfigMap
@@ -1105,7 +1105,7 @@ func TestVeleroReconciler_updateRegistryRouteCM(t *testing.T) {
 			if err != nil {
 				t.Errorf("error in creating fake client, likely programmer error")
 			}
-			r := &VeleroReconciler{
+			r := &DPAReconciler{
 				Client:  fakeClient,
 				Scheme:  fakeClient.Scheme(),
 				Log:     logr.Discard(),
