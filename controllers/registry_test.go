@@ -96,7 +96,7 @@ func TestDPAReconciler_buildRegistryDeployment(t *testing.T) {
 		registryDeployment *appsv1.Deployment
 		bsl                *velerov1.BackupStorageLocation
 		secret             *corev1.Secret
-		velero             *oadpv1alpha1.Velero
+		dpa                *oadpv1alpha1.DataProtectionApplication
 		wantErr            bool
 	}{
 		{
@@ -140,7 +140,7 @@ func TestDPAReconciler_buildRegistryDeployment(t *testing.T) {
 				},
 				Data: secretData,
 			},
-			velero: &oadpv1alpha1.Velero{},
+			dpa: &oadpv1alpha1.DataProtectionApplication{},
 		},
 		{
 			name: "given a valid bsl with velero annotation get appropriate registry deployment",
@@ -183,8 +183,8 @@ func TestDPAReconciler_buildRegistryDeployment(t *testing.T) {
 				},
 				Data: secretData,
 			},
-			velero: &oadpv1alpha1.Velero{
-				Spec: oadpv1alpha1.VeleroSpec{
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 					PodAnnotations: map[string]string{
 						"test-annotation": "awesome-annotation",
 					},
@@ -232,8 +232,8 @@ func TestDPAReconciler_buildRegistryDeployment(t *testing.T) {
 				},
 				Data: secretData,
 			},
-			velero: &oadpv1alpha1.Velero{
-				Spec: oadpv1alpha1.VeleroSpec{
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 					PodAnnotations: map[string]string{
 						"test-annotation": "awesome-annotation",
 					},
@@ -308,15 +308,15 @@ func TestDPAReconciler_buildRegistryDeployment(t *testing.T) {
 							Labels: map[string]string{
 								"component": "oadp-" + tt.bsl.Name + "-" + tt.bsl.Spec.Provider + "-registry",
 							},
-							Annotations: tt.velero.Spec.PodAnnotations,
+							Annotations: tt.dpa.Spec.PodAnnotations,
 						},
 						Spec: corev1.PodSpec{
 							RestartPolicy: corev1.RestartPolicyAlways,
-							DNSPolicy:     tt.velero.Spec.PodDnsPolicy,
-							DNSConfig:     &tt.velero.Spec.PodDnsConfig,
+							DNSPolicy:     tt.dpa.Spec.PodDnsPolicy,
+							DNSConfig:     &tt.dpa.Spec.PodDnsConfig,
 							Containers: []corev1.Container{
 								{
-									Image: getRegistryImage(tt.velero),
+									Image: getRegistryImage(tt.dpa),
 									Name:  "oadp-" + tt.bsl.Name + "-" + tt.bsl.Spec.Provider + "-registry" + "-container",
 									Ports: []corev1.ContainerPort{
 										{
@@ -382,11 +382,11 @@ func TestDPAReconciler_buildRegistryDeployment(t *testing.T) {
 					},
 				},
 			}
-			if reflect.DeepEqual(tt.velero.Spec.PodDnsConfig, corev1.PodDNSConfig{}) {
+			if reflect.DeepEqual(tt.dpa.Spec.PodDnsConfig, corev1.PodDNSConfig{}) {
 				wantRegistryDeployment.Spec.Template.Spec.DNSConfig = nil
 			}
 
-			err = r.buildRegistryDeployment(tt.registryDeployment, tt.bsl, tt.velero)
+			err = r.buildRegistryDeployment(tt.registryDeployment, tt.bsl, tt.dpa)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("buildRegistryDeployment() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -405,7 +405,7 @@ func TestDPAReconciler_buildRegistryContainer(t *testing.T) {
 	tests := []struct {
 		name                  string
 		bsl                   *velerov1.BackupStorageLocation
-		VeleroCR              *oadpv1alpha1.Velero
+		dpa                   *oadpv1alpha1.DataProtectionApplication
 		wantRegistryContainer *corev1.Container
 		wantErr               bool
 	}{
@@ -417,7 +417,7 @@ func TestDPAReconciler_buildRegistryContainer(t *testing.T) {
 					Namespace: "test-ns",
 				},
 			},
-			VeleroCR: &oadpv1alpha1.Velero{
+			dpa: &oadpv1alpha1.DataProtectionApplication{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "Velero-test-CR",
 					Namespace: "test-ns",
@@ -435,7 +435,7 @@ func TestDPAReconciler_buildRegistryContainer(t *testing.T) {
 				Scheme: scheme,
 			}
 			tt.wantRegistryContainer = &corev1.Container{
-				Image: getRegistryImage(tt.VeleroCR),
+				Image: getRegistryImage(tt.dpa),
 				Name:  "oadp-" + tt.bsl.Name + "-" + tt.bsl.Spec.Provider + "-registry" + "-container",
 				Ports: []corev1.ContainerPort{
 					{
@@ -467,7 +467,7 @@ func TestDPAReconciler_buildRegistryContainer(t *testing.T) {
 				},
 			}
 
-			gotRegistryContainer, gotErr := r.buildRegistryContainer(tt.bsl, tt.VeleroCR)
+			gotRegistryContainer, gotErr := r.buildRegistryContainer(tt.bsl, tt.dpa)
 
 			if (gotErr != nil) != tt.wantErr {
 				t.Errorf("ValidateBackupStorageLocations() gotErr = %v, wantErr %v", gotErr, tt.wantErr)
@@ -868,7 +868,7 @@ func TestDPAReconciler_updateRegistrySVC(t *testing.T) {
 		name    string
 		svc     *corev1.Service
 		bsl     *velerov1.BackupStorageLocation
-		velero  *oadpv1alpha1.Velero
+		dpa     *oadpv1alpha1.DataProtectionApplication
 		wantErr bool
 	}{
 		{
@@ -905,7 +905,7 @@ func TestDPAReconciler_updateRegistrySVC(t *testing.T) {
 					},
 				},
 			},
-			velero: &oadpv1alpha1.Velero{
+			dpa: &oadpv1alpha1.DataProtectionApplication{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "Velero-test-CR",
 					Namespace: "test-ns",
@@ -925,8 +925,8 @@ func TestDPAReconciler_updateRegistrySVC(t *testing.T) {
 				Log:     logr.Discard(),
 				Context: newContextForTest(tt.name),
 				NamespacedName: types.NamespacedName{
-					Namespace: tt.velero.Namespace,
-					Name:      tt.velero.Name,
+					Namespace: tt.dpa.Namespace,
+					Name:      tt.dpa.Name,
 				},
 				EventRecorder: record.NewFakeRecorder(10),
 			}
@@ -940,8 +940,8 @@ func TestDPAReconciler_updateRegistrySVC(t *testing.T) {
 					OwnerReferences: []metav1.OwnerReference{{
 						APIVersion:         oadpv1alpha1.SchemeBuilder.GroupVersion.String(),
 						Kind:               "Velero",
-						Name:               tt.velero.Name,
-						UID:                tt.velero.UID,
+						Name:               tt.dpa.Name,
+						UID:                tt.dpa.UID,
 						Controller:         pointer.BoolPtr(true),
 						BlockOwnerDeletion: pointer.BoolPtr(true),
 					}},
@@ -963,7 +963,7 @@ func TestDPAReconciler_updateRegistrySVC(t *testing.T) {
 					Type: corev1.ServiceTypeClusterIP,
 				},
 			}
-			if err := r.updateRegistrySVC(tt.svc, tt.bsl, tt.velero); (err != nil) != tt.wantErr {
+			if err := r.updateRegistrySVC(tt.svc, tt.bsl, tt.dpa); (err != nil) != tt.wantErr {
 				t.Errorf("updateRegistrySVC() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			if !reflect.DeepEqual(tt.svc, wantSVC) {
@@ -978,7 +978,7 @@ func TestDPAReconciler_updateRegistryRoute(t *testing.T) {
 		name    string
 		route   *routev1.Route
 		bsl     *velerov1.BackupStorageLocation
-		velero  *oadpv1alpha1.Velero
+		dpa     *oadpv1alpha1.DataProtectionApplication
 		wantErr bool
 	}{
 		{
@@ -993,7 +993,7 @@ func TestDPAReconciler_updateRegistryRoute(t *testing.T) {
 					Provider: "test-provider",
 				},
 			},
-			velero: &oadpv1alpha1.Velero{
+			dpa: &oadpv1alpha1.DataProtectionApplication{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "Velero-test-CR",
 					Namespace: "test-ns",
@@ -1025,8 +1025,8 @@ func TestDPAReconciler_updateRegistryRoute(t *testing.T) {
 				Log:     logr.Discard(),
 				Context: newContextForTest(tt.name),
 				NamespacedName: types.NamespacedName{
-					Namespace: tt.velero.Namespace,
-					Name:      tt.velero.Name,
+					Namespace: tt.dpa.Namespace,
+					Name:      tt.dpa.Name,
 				},
 				EventRecorder: record.NewFakeRecorder(10),
 			}
@@ -1042,8 +1042,8 @@ func TestDPAReconciler_updateRegistryRoute(t *testing.T) {
 					OwnerReferences: []metav1.OwnerReference{{
 						APIVersion:         oadpv1alpha1.SchemeBuilder.GroupVersion.String(),
 						Kind:               "Velero",
-						Name:               tt.velero.Name,
-						UID:                tt.velero.UID,
+						Name:               tt.dpa.Name,
+						UID:                tt.dpa.UID,
 						Controller:         pointer.BoolPtr(true),
 						BlockOwnerDeletion: pointer.BoolPtr(true),
 					}},
@@ -1055,7 +1055,7 @@ func TestDPAReconciler_updateRegistryRoute(t *testing.T) {
 					},
 				},
 			}
-			if err := r.updateRegistryRoute(tt.route, tt.bsl, tt.velero); (err != nil) != tt.wantErr {
+			if err := r.updateRegistryRoute(tt.route, tt.bsl, tt.dpa); (err != nil) != tt.wantErr {
 				t.Errorf("updateRegistryRoute() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			if !reflect.DeepEqual(tt.route, wantRoute) {
@@ -1070,7 +1070,7 @@ func TestDPAReconciler_updateRegistryRouteCM(t *testing.T) {
 		name            string
 		registryRouteCM *corev1.ConfigMap
 		bsl             *velerov1.BackupStorageLocation
-		velero          *oadpv1alpha1.Velero
+		dpa             *oadpv1alpha1.DataProtectionApplication
 		wantErr         bool
 	}{
 		{
@@ -1085,7 +1085,7 @@ func TestDPAReconciler_updateRegistryRouteCM(t *testing.T) {
 					Provider: "test-provider",
 				},
 			},
-			velero: &oadpv1alpha1.Velero{
+			dpa: &oadpv1alpha1.DataProtectionApplication{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "Velero-test-CR",
 					Namespace: "test-ns",
@@ -1111,8 +1111,8 @@ func TestDPAReconciler_updateRegistryRouteCM(t *testing.T) {
 				Log:     logr.Discard(),
 				Context: newContextForTest(tt.name),
 				NamespacedName: types.NamespacedName{
-					Namespace: tt.velero.Namespace,
-					Name:      tt.velero.Name,
+					Namespace: tt.dpa.Namespace,
+					Name:      tt.dpa.Name,
 				},
 				EventRecorder: record.NewFakeRecorder(10),
 			}
@@ -1122,9 +1122,9 @@ func TestDPAReconciler_updateRegistryRouteCM(t *testing.T) {
 					Namespace: "test-ns",
 					OwnerReferences: []metav1.OwnerReference{{
 						APIVersion:         oadpv1alpha1.SchemeBuilder.GroupVersion.String(),
-						Kind:               "Velero",
-						Name:               tt.velero.Name,
-						UID:                tt.velero.UID,
+						Kind:               "DataProtectionApplication",
+						Name:               tt.dpa.Name,
+						UID:                tt.dpa.UID,
 						Controller:         pointer.BoolPtr(true),
 						BlockOwnerDeletion: pointer.BoolPtr(true),
 					}},
@@ -1133,7 +1133,7 @@ func TestDPAReconciler_updateRegistryRouteCM(t *testing.T) {
 					"test-bsl": "oadp-" + "test-bsl" + "-" + "test-provider" + "-registry-route",
 				},
 			}
-			if err := r.updateRegistryConfigMap(tt.registryRouteCM, tt.bsl, tt.velero); (err != nil) != tt.wantErr {
+			if err := r.updateRegistryConfigMap(tt.registryRouteCM, tt.bsl, tt.dpa); (err != nil) != tt.wantErr {
 				t.Errorf("updateRegistryConfigMap() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			if !reflect.DeepEqual(tt.registryRouteCM, wantRegitryRouteCM) {
