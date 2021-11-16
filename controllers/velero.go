@@ -536,7 +536,11 @@ func (r *DPAReconciler) getResticResourceReqs(dpa *oadpv1alpha1.DataProtectionAp
 		},
 	}
 
+<<<<<<< HEAD
 	if dpa != nil && dpa.Spec.Configuration != nil && dpa.Spec.Configuration.Restic != nil && dpa.Spec.Configuration.Restic.PodConfig != nil {
+=======
+	if dpa != nil && dpa.Spec.Configuration.Restic.PodConfig != nil {
+>>>>>>> 63aac1c (Update all the controllers for new API)
 		// Set custom limits and requests values if defined on VELERO Spec
 		if dpa.Spec.Configuration.Restic.PodConfig.ResourceAllocations.Requests != nil {
 			ResourcesReqs.Requests[corev1.ResourceCPU] = resource.MustParse(dpa.Spec.Configuration.Restic.PodConfig.ResourceAllocations.Requests.Cpu().String())
