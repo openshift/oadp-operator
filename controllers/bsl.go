@@ -17,6 +17,9 @@ func (r *DPAReconciler) ValidateBackupStorageLocations(log logr.Logger) (bool, e
 	if err := r.Get(r.Context, r.NamespacedName, &dpa); err != nil {
 		return false, err
 	}
+	if dpa.Spec.Configuration == nil || dpa.Spec.Configuration.Velero == nil {
+		return false, errors.New("DPA CR Velero configuration cannot be nil")
+	}
 	// Ensure we have a BSL or user has specified NoDefaultBackupLocation install
 	if len(dpa.Spec.BackupLocations) == 0 && !dpa.Spec.Configuration.Velero.NoDefaultBackupLocation {
 		return false, errors.New("no backupstoragelocations configured, ensure a backupstoragelocation has been configured")
