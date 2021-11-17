@@ -12,23 +12,23 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func (v *veleroCustomResource) removeVeleroPlugin(namespace string, instanceName string, pluginValues []v1alpha1.DefaultPlugin, removedPlugin string) error {
+func (v *dpaCustomResource) removeVeleroPlugin(namespace string, instanceName string, pluginValues []v1alpha1.DefaultPlugin, removedPlugin string) error {
 	err := v.SetClient()
 	if err != nil {
 		return err
 	}
-	velero := &oadpv1alpha1.Velero{}
+	dpa := &oadpv1alpha1.DataProtectionApplication{}
 	err = v.Client.Get(context.Background(), client.ObjectKey{
 		Namespace: v.Namespace,
 		Name:      v.Name,
-	}, velero)
+	}, dpa)
 	if err != nil {
 		return err
 	}
 	// remove plugin from default_plugins
-	velero.Spec.DefaultVeleroPlugins = pluginValues
+	dpa.Spec.Configuration.Velero.DefaultPlugins = pluginValues
 
-	err = v.Client.Update(context.Background(), velero)
+	err = v.Client.Update(context.Background(), dpa)
 	if err != nil {
 		return err
 	}

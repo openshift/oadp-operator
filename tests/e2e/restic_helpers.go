@@ -113,22 +113,22 @@ func isResticDaemonsetDeleted(namespace string) wait.ConditionFunc {
 	}
 }
 
-func (v *veleroCustomResource) disableRestic(namespace string, instanceName string) error {
+func (v *dpaCustomResource) disableRestic(namespace string, instanceName string) error {
 	err := v.SetClient()
 	if err != nil {
 		return err
 	}
-	velero := &oadpv1alpha1.Velero{}
+	dpa := &oadpv1alpha1.DataProtectionApplication{}
 	err = v.Client.Get(context.Background(), client.ObjectKey{
 		Namespace: v.Namespace,
 		Name:      v.Name,
-	}, velero)
+	}, dpa)
 	if err != nil {
 		return err
 	}
-	velero.Spec.EnableRestic = pointer.Bool(false)
+	dpa.Spec.Configuration.Restic.Enable = pointer.Bool(false)
 
-	err = v.Client.Update(context.Background(), velero)
+	err = v.Client.Update(context.Background(), dpa)
 	if err != nil {
 		return err
 	}
@@ -136,23 +136,23 @@ func (v *veleroCustomResource) disableRestic(namespace string, instanceName stri
 	return nil
 }
 
-func (v *veleroCustomResource) enableResticNodeSelector(namespace string, s3Bucket string, credSecretRef string, instanceName string) error {
+func (v *dpaCustomResource) enableResticNodeSelector(namespace string, s3Bucket string, credSecretRef string, instanceName string) error {
 	err := v.SetClient()
 	if err != nil {
 		return err
 	}
-	velero := &oadpv1alpha1.Velero{}
+	dpa := &oadpv1alpha1.DataProtectionApplication{}
 	err = v.Client.Get(context.Background(), client.ObjectKey{
 		Namespace: v.Namespace,
 		Name:      v.Name,
-	}, velero)
+	}, dpa)
 	if err != nil {
 		return err
 	}
 	nodeSelector := map[string]string{"foo": "bar"}
-	velero.Spec.ResticNodeSelector = nodeSelector
+	dpa.Spec.Configuration.Restic.PodConfig.NodeSelector = nodeSelector
 
-	err = v.Client.Update(context.Background(), velero)
+	err = v.Client.Update(context.Background(), dpa)
 	if err != nil {
 		return err
 	}

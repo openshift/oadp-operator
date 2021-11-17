@@ -31,7 +31,7 @@ const (
 	restic BackupRestoreType = "restic"
 )
 
-type veleroCustomResource struct {
+type dpaCustomResource struct {
 	Name              string
 	Namespace         string
 	SecretName        string
@@ -39,56 +39,61 @@ type veleroCustomResource struct {
 	Region            string
 	Provider          string
 	backupRestoreType BackupRestoreType
-	CustomResource    *oadpv1alpha1.Velero
+	CustomResource    *oadpv1alpha1.DataProtectionApplication
 	Client            client.Client
 }
 
 var veleroPrefix = "velero-e2e-" + string(uuid.NewUUID())
 
-func (v *veleroCustomResource) Build(backupRestoreType BackupRestoreType) error {
+func (v *dpaCustomResource) Build(backupRestoreType BackupRestoreType) error {
 	// Velero Instance creation spec with backupstorage location default to AWS. Would need to parameterize this later on to support multiple plugins.
-	veleroSpec := oadpv1alpha1.Velero{
+	dpa := oadpv1alpha1.DataProtectionApplication{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      v.Name,
 			Namespace: v.Namespace,
 		},
-		Spec: oadpv1alpha1.VeleroSpec{
-			BackupStorageLocations: []velero.BackupStorageLocationSpec{
-				{
-					Provider: v.Provider,
-					Config: map[string]string{
-						"region": v.Region,
+		Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+			Configuration: &oadpv1alpha1.ApplicationConfig{
+				Velero: &oadpv1alpha1.VeleroConfig{
+					DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+						oadpv1alpha1.DefaultPluginOpenShift,
+						oadpv1alpha1.DefaultPluginAWS,
 					},
-					Default: true,
-					StorageType: velero.StorageType{
-						ObjectStorage: &velero.ObjectStorageLocation{
-							Bucket: v.Bucket,
-							Prefix: veleroPrefix,
+				},
+			},
+			BackupLocations: []oadpv1alpha1.BackupLocation{
+				{
+					Velero: &velero.BackupStorageLocationSpec{
+						Provider: v.Provider,
+						Config: map[string]string{
+							"region": v.Region,
+						},
+						Default: true,
+						StorageType: velero.StorageType{
+							ObjectStorage: &velero.ObjectStorageLocation{
+								Bucket: v.Bucket,
+								Prefix: veleroPrefix,
+							},
 						},
 					},
 				},
 			},
-			DefaultVeleroPlugins: []oadpv1alpha1.DefaultPlugin{
-				oadpv1alpha1.DefaultPluginOpenShift,
-				oadpv1alpha1.DefaultPluginAWS,
-			},
-			VeleroFeatureFlags: []string{},
 		},
 	}
 	v.backupRestoreType = backupRestoreType
 	switch backupRestoreType {
 	case restic:
-		veleroSpec.Spec.EnableRestic = pointer.Bool(true)
+		dpa.Spec.Configuration.Restic.Enable = pointer.Bool(true)
 	case csi:
-		veleroSpec.Spec.EnableRestic = pointer.Bool(false)
-		veleroSpec.Spec.DefaultVeleroPlugins = append(veleroSpec.Spec.DefaultVeleroPlugins, oadpv1alpha1.DefaultPluginCSI)
-		veleroSpec.Spec.VeleroFeatureFlags = append(veleroSpec.Spec.VeleroFeatureFlags, "EnableCSI")
+		dpa.Spec.Configuration.Restic.Enable = pointer.Bool(false)
+		dpa.Spec.Configuration.Velero.DefaultPlugins = append(dpa.Spec.Configuration.Velero.DefaultPlugins, oadpv1alpha1.DefaultPluginCSI)
+		dpa.Spec.Configuration.Velero.FeatureFlags = append(dpa.Spec.Configuration.Velero.FeatureFlags, "EnableCSI")
 	}
-	v.CustomResource = &veleroSpec
+	v.CustomResource = &dpa
 	return nil
 }
 
-func (v *veleroCustomResource) Create() error {
+func (v *dpaCustomResource) Create() error {
 	err := v.SetClient()
 	if err != nil {
 		return err
@@ -102,12 +107,12 @@ func (v *veleroCustomResource) Create() error {
 	return nil
 }
 
-func (v *veleroCustomResource) Get() (*oadpv1alpha1.Velero, error) {
+func (v *dpaCustomResource) Get() (*oadpv1alpha1.DataProtectionApplication, error) {
 	err := v.SetClient()
 	if err != nil {
 		return nil, err
 	}
-	vel := oadpv1alpha1.Velero{}
+	vel := oadpv1alpha1.DataProtectionApplication{}
 	err = v.Client.Get(context.Background(), client.ObjectKey{
 		Namespace: v.Namespace,
 		Name:      v.Name,
@@ -118,7 +123,7 @@ func (v *veleroCustomResource) Get() (*oadpv1alpha1.Velero, error) {
 	return &vel, nil
 }
 
-func (v *veleroCustomResource) CreateOrUpdate(spec *oadpv1alpha1.VeleroSpec) error {
+func (v *dpaCustomResource) CreateOrUpdate(spec *oadpv1alpha1.DataProtectionApplicationSpec) error {
 	cr, err := v.Get()
 	if apierrors.IsNotFound(err) {
 		v.Build(v.backupRestoreType)
@@ -136,7 +141,7 @@ func (v *veleroCustomResource) CreateOrUpdate(spec *oadpv1alpha1.VeleroSpec) err
 	return nil
 }
 
-func (v *veleroCustomResource) Delete() error {
+func (v *dpaCustomResource) Delete() error {
 	err := v.SetClient()
 	if err != nil {
 		return err
@@ -148,7 +153,7 @@ func (v *veleroCustomResource) Delete() error {
 	return err
 }
 
-func (v *veleroCustomResource) SetClient() error {
+func (v *dpaCustomResource) SetClient() error {
 	client, err := client.New(config.GetConfigOrDie(), client.Options{})
 	if err != nil {
 		return err
@@ -247,14 +252,14 @@ func getVeleroContainerFailureLogs(namespace string) []string {
 	return failureArr
 }
 
-func (v *veleroCustomResource) IsDeleted() wait.ConditionFunc {
+func (v *dpaCustomResource) IsDeleted() wait.ConditionFunc {
 	return func() (bool, error) {
 		err := v.SetClient()
 		if err != nil {
 			return false, err
 		}
 		// Check for velero CR in cluster
-		vel := oadpv1alpha1.Velero{}
+		vel := oadpv1alpha1.DataProtectionApplication{}
 		err = v.Client.Get(context.Background(), client.ObjectKey{
 			Namespace: v.Namespace,
 			Name:      v.Name,
@@ -267,13 +272,13 @@ func (v *veleroCustomResource) IsDeleted() wait.ConditionFunc {
 }
 
 //check if bsl matches the spec
-func doesBSLExist(namespace string, bsl velero.BackupStorageLocationSpec, spec *oadpv1alpha1.VeleroSpec) wait.ConditionFunc {
+func doesBSLExist(namespace string, bsl velero.BackupStorageLocationSpec, spec *oadpv1alpha1.DataProtectionApplicationSpec) wait.ConditionFunc {
 	return func() (bool, error) {
-		if len(spec.BackupStorageLocations) == 0 {
+		if len(spec.BackupLocations) == 0 {
 			return false, errors.New("no backup storage location configured. Expected BSL to be configured")
 		}
-		for _, b := range spec.BackupStorageLocations {
-			if b.Provider == bsl.Provider {
+		for _, b := range spec.BackupLocations {
+			if b.Velero.Provider == bsl.Provider {
 				if !reflect.DeepEqual(bsl, b) {
 					return false, errors.New("given Velero bsl does not match the deployed velero bsl")
 				}
@@ -284,14 +289,14 @@ func doesBSLExist(namespace string, bsl velero.BackupStorageLocationSpec, spec *
 }
 
 //check if vsl matches the spec
-func doesVSLExist(namespace string, vslspec velero.VolumeSnapshotLocationSpec, spec *oadpv1alpha1.VeleroSpec) wait.ConditionFunc {
+func doesVSLExist(namespace string, vslspec velero.VolumeSnapshotLocationSpec, spec *oadpv1alpha1.DataProtectionApplicationSpec) wait.ConditionFunc {
 	return func() (bool, error) {
 
-		if len(spec.VolumeSnapshotLocations) == 0 {
+		if len(spec.VolumeSnapshots) == 0 {
 			return false, errors.New("no volume storage location configured. Expected VSL to be configured")
 		}
-		for _, v := range spec.VolumeSnapshotLocations {
-			if v.Provider == vslspec.Provider {
+		for _, v := range spec.VolumeSnapshots {
+			if v.Velero.Provider == vslspec.Provider {
 				if !reflect.DeepEqual(vslspec, v) {
 					return false, errors.New("given Velero vslspec does not match the deployed velero vslspec")
 				}

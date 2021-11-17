@@ -18,7 +18,7 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 	type InstallCase struct {
 		Name         string
 		BRestoreType BackupRestoreType
-		VeleroSpec   *oadpv1alpha1.VeleroSpec
+		DpaSpec      *oadpv1alpha1.DataProtectionApplicationSpec
 		WantError    bool
 	}
 
@@ -29,36 +29,36 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 			// instead of assigning the values in advance to the Velero CR
 			err := vel.Build(installCase.BRestoreType)
 			Expect(err).NotTo(HaveOccurred())
-			err = vel.CreateOrUpdate(installCase.VeleroSpec)
+			err = vel.CreateOrUpdate(installCase.DpaSpec)
 			Expect(err).ToNot(HaveOccurred())
 			log.Printf("Waiting for velero pod to be running")
 			Eventually(isVeleroPodRunning(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
-			velero, err := vel.Get()
+			dpa, err := vel.Get()
 			Expect(err).NotTo(HaveOccurred())
-			if len(velero.Spec.BackupStorageLocations) > 0 {
+			if len(dpa.Spec.BackupLocations) > 0 {
 				log.Printf("Checking for bsl spec")
-				for _, bsl := range velero.Spec.BackupStorageLocations {
+				for _, bsl := range dpa.Spec.BackupLocations {
 					// Check if bsl matches the spec
-					Eventually(doesBSLExist(namespace, bsl, installCase.VeleroSpec), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
+					Eventually(doesBSLExist(namespace, *bsl.Velero, installCase.DpaSpec), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 				}
 			}
-			if len(velero.Spec.VolumeSnapshotLocations) > 0 {
+			if len(dpa.Spec.VolumeSnapshots) > 0 {
 				log.Printf("Checking for vsl spec")
-				for _, vsl := range velero.Spec.VolumeSnapshotLocations {
-					Eventually(doesVSLExist(namespace, vsl, installCase.VeleroSpec), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
+				for _, vsl := range dpa.Spec.VolumeSnapshots {
+					Eventually(doesVSLExist(namespace, *vsl.Velero, installCase.DpaSpec), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 				}
 			}
 
 			// Check for velero tolerations
-			if len(velero.Spec.VeleroTolerations) > 0 {
+			if len(dpa.Spec.Configuration.Velero.PodConfig.Tolerations) > 0 {
 				log.Printf("Checking for velero tolerations")
-				Eventually(verifyVeleroTolerations(namespace, velero.Spec.VeleroTolerations), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
+				Eventually(verifyVeleroTolerations(namespace, dpa.Spec.Configuration.Velero.PodConfig.Tolerations), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 			}
 
 			// TODO check for custom velero plugins
 
 			//restic installation
-			if *velero.Spec.EnableRestic {
+			if dpa.Spec.Configuration.Restic != nil && *dpa.Spec.Configuration.Restic.Enable {
 				log.Printf("Waiting for restic pods to be running")
 				Eventually(areResticPodsRunning(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 			} else {
@@ -67,18 +67,18 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 			}
 			// check defaultplugins
 			log.Printf("Waiting for velero deployment to have expected plugins")
-			if len(velero.Spec.DefaultVeleroPlugins) > 0 {
+			if len(dpa.Spec.Configuration.Velero.DefaultPlugins) > 0 {
 				log.Printf("Checking for default plugins")
-				for _, plugin := range velero.Spec.DefaultVeleroPlugins {
+				for _, plugin := range dpa.Spec.Configuration.Velero.DefaultPlugins {
 					Eventually(doesPluginExist(namespace, plugin), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 				}
 			}
 
-			for key, value := range velero.Spec.ResticNodeSelector {
+			for key, value := range dpa.Spec.Configuration.Restic.PodConfig.NodeSelector {
 				log.Printf("Waiting for restic daemonset to get node selector")
 				Eventually(resticDaemonSetHasNodeSelector(namespace, key, value), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 			}
-			if velero.Spec.BackupImages == nil || *installCase.VeleroSpec.BackupImages {
+			if dpa.Spec.BackupImages == nil || *installCase.DpaSpec.BackupImages {
 				log.Printf("Waiting for registry pods to be running")
 				Eventually(areRegistryDeploymentsAvailable(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 			}
@@ -87,26 +87,34 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 		Entry("Default velero CR", InstallCase{
 			Name:         "default-cr",
 			BRestoreType: restic,
-			VeleroSpec: &oadpv1alpha1.VeleroSpec{
-				EnableRestic: pointer.Bool(true),
-				BackupStorageLocations: []velero.BackupStorageLocationSpec{
-					{
-						Provider: provider,
-						Config: map[string]string{
-							"region": region,
+			DpaSpec: &oadpv1alpha1.DataProtectionApplicationSpec{
+				Configuration: &oadpv1alpha1.ApplicationConfig{
+					Velero: &oadpv1alpha1.VeleroConfig{
+						DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+							oadpv1alpha1.DefaultPluginOpenShift,
+							oadpv1alpha1.DefaultPluginAWS,
 						},
-						Default: true,
-						StorageType: velero.StorageType{
-							ObjectStorage: &velero.ObjectStorageLocation{
-								Bucket: s3Bucket,
-								Prefix: veleroPrefix,
+					},
+					Restic: &oadpv1alpha1.ResticConfig{
+						Enable: pointer.Bool(true),
+					},
+				},
+				BackupLocations: []oadpv1alpha1.BackupLocation{
+					{
+						Velero: &velero.BackupStorageLocationSpec{
+							Provider: provider,
+							Config: map[string]string{
+								"region": region,
+							},
+							Default: true,
+							StorageType: velero.StorageType{
+								ObjectStorage: &velero.ObjectStorageLocation{
+									Bucket: s3Bucket,
+									Prefix: veleroPrefix,
+								},
 							},
 						},
 					},
-				},
-				DefaultVeleroPlugins: []oadpv1alpha1.DefaultPlugin{
-					oadpv1alpha1.DefaultPluginOpenShift,
-					oadpv1alpha1.DefaultPluginAWS,
 				},
 			},
 			WantError: false,
@@ -114,34 +122,44 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 		Entry("Velero CR with bsl and vsl", InstallCase{
 			Name:         "default-cr-bsl-vsl",
 			BRestoreType: "restic",
-			VeleroSpec: &oadpv1alpha1.VeleroSpec{
-				EnableRestic: pointer.Bool(true),
-				BackupStorageLocations: []velero.BackupStorageLocationSpec{
-					{
-						Provider: provider,
-						Config: map[string]string{
-							"region": region,
+			DpaSpec: &oadpv1alpha1.DataProtectionApplicationSpec{
+				Configuration: &oadpv1alpha1.ApplicationConfig{
+					Velero: &oadpv1alpha1.VeleroConfig{
+						DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+							oadpv1alpha1.DefaultPluginOpenShift,
+							oadpv1alpha1.DefaultPluginAWS,
 						},
-						Default: true,
-						StorageType: velero.StorageType{
-							ObjectStorage: &velero.ObjectStorageLocation{
-								Bucket: s3Bucket,
-								Prefix: veleroPrefix,
+					},
+					Restic: &oadpv1alpha1.ResticConfig{
+						Enable: pointer.Bool(true),
+					},
+				},
+				VolumeSnapshots: []oadpv1alpha1.VolumeSnapshot{
+					{
+						Velero: &velero.VolumeSnapshotLocationSpec{
+							Provider: "aws",
+							Config: map[string]string{
+								"Region": "us-east-1",
 							},
 						},
 					},
 				},
-				VolumeSnapshotLocations: []velero.VolumeSnapshotLocationSpec{
+				BackupLocations: []oadpv1alpha1.BackupLocation{
 					{
-						Provider: "aws",
-						Config: map[string]string{
-							"Region": "us-east-1",
+						Velero: &velero.BackupStorageLocationSpec{
+							Provider: provider,
+							Config: map[string]string{
+								"region": region,
+							},
+							Default: true,
+							StorageType: velero.StorageType{
+								ObjectStorage: &velero.ObjectStorageLocation{
+									Bucket: s3Bucket,
+									Prefix: veleroPrefix,
+								},
+							},
 						},
 					},
-				},
-				DefaultVeleroPlugins: []oadpv1alpha1.DefaultPlugin{
-					oadpv1alpha1.DefaultPluginOpenShift,
-					oadpv1alpha1.DefaultPluginAWS,
 				},
 			},
 			WantError: false,
@@ -149,40 +167,52 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 		Entry("Velero CR with bsl and multiple vsl", InstallCase{
 			Name:         "default-cr-bsl-vsl",
 			BRestoreType: "restic",
-			VeleroSpec: &oadpv1alpha1.VeleroSpec{
-				EnableRestic: pointer.Bool(true),
-				BackupStorageLocations: []velero.BackupStorageLocationSpec{
-					{
-						Provider: provider,
-						Config: map[string]string{
-							"region": region,
+			DpaSpec: &oadpv1alpha1.DataProtectionApplicationSpec{
+				Configuration: &oadpv1alpha1.ApplicationConfig{
+					Velero: &oadpv1alpha1.VeleroConfig{
+						DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+							oadpv1alpha1.DefaultPluginOpenShift,
+							oadpv1alpha1.DefaultPluginAWS,
 						},
-						Default: true,
-						StorageType: velero.StorageType{
-							ObjectStorage: &velero.ObjectStorageLocation{
-								Bucket: s3Bucket,
-								Prefix: veleroPrefix,
+					},
+					Restic: &oadpv1alpha1.ResticConfig{
+						Enable: pointer.Bool(true),
+					},
+				},
+				VolumeSnapshots: []oadpv1alpha1.VolumeSnapshot{
+					{
+						Velero: &velero.VolumeSnapshotLocationSpec{
+							Provider: "aws",
+							Config: map[string]string{
+								"Region": "us-east-1",
+							},
+						},
+					},
+					{
+						Velero: &velero.VolumeSnapshotLocationSpec{
+							Provider: "azure",
+							Config: map[string]string{
+								"Region": "us-east-1",
 							},
 						},
 					},
 				},
-				VolumeSnapshotLocations: []velero.VolumeSnapshotLocationSpec{
+				BackupLocations: []oadpv1alpha1.BackupLocation{
 					{
-						Provider: "aws",
-						Config: map[string]string{
-							"Region": "us-east-1",
+						Velero: &velero.BackupStorageLocationSpec{
+							Provider: provider,
+							Config: map[string]string{
+								"region": region,
+							},
+							Default: true,
+							StorageType: velero.StorageType{
+								ObjectStorage: &velero.ObjectStorageLocation{
+									Bucket: s3Bucket,
+									Prefix: veleroPrefix,
+								},
+							},
 						},
 					},
-					{
-						Provider: "azure",
-						Config: map[string]string{
-							"Region": "us-east-1",
-						},
-					},
-				},
-				DefaultVeleroPlugins: []oadpv1alpha1.DefaultPlugin{
-					oadpv1alpha1.DefaultPluginOpenShift,
-					oadpv1alpha1.DefaultPluginAWS,
 				},
 			},
 			WantError: false,
@@ -190,25 +220,35 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 		Entry("Velero CR with no bsl and multiple vsl", InstallCase{
 			Name:         "default-cr-multiple-vsl",
 			BRestoreType: "restic",
-			VeleroSpec: &oadpv1alpha1.VeleroSpec{
-				EnableRestic: pointer.Bool(true),
-				VolumeSnapshotLocations: []velero.VolumeSnapshotLocationSpec{
-					{
-						Provider: "aws",
-						Config: map[string]string{
-							"Region": "us-east-1",
+			DpaSpec: &oadpv1alpha1.DataProtectionApplicationSpec{
+				Configuration: &oadpv1alpha1.ApplicationConfig{
+					Velero: &oadpv1alpha1.VeleroConfig{
+						DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+							oadpv1alpha1.DefaultPluginOpenShift,
+							oadpv1alpha1.DefaultPluginAWS,
 						},
 					},
-					{
-						Provider: "azure",
-						Config: map[string]string{
-							"Region": "us-east-1",
-						},
+					Restic: &oadpv1alpha1.ResticConfig{
+						Enable: pointer.Bool(true),
 					},
 				},
-				DefaultVeleroPlugins: []oadpv1alpha1.DefaultPlugin{
-					oadpv1alpha1.DefaultPluginOpenShift,
-					oadpv1alpha1.DefaultPluginAWS,
+				VolumeSnapshots: []oadpv1alpha1.VolumeSnapshot{
+					{
+						Velero: &velero.VolumeSnapshotLocationSpec{
+							Provider: "aws",
+							Config: map[string]string{
+								"Region": "us-east-1",
+							},
+						},
+					},
+					{
+						Velero: &velero.VolumeSnapshotLocationSpec{
+							Provider: "azure",
+							Config: map[string]string{
+								"Region": "us-east-1",
+							},
+						},
+					},
 				},
 			},
 			WantError: false,
@@ -216,26 +256,34 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 		Entry("Default velero CR with restic disabled", InstallCase{
 			Name:         "default-cr-no-restic",
 			BRestoreType: "restic",
-			VeleroSpec: &oadpv1alpha1.VeleroSpec{
-				EnableRestic: pointer.Bool(true),
-				BackupStorageLocations: []velero.BackupStorageLocationSpec{
-					{
-						Provider: provider,
-						Config: map[string]string{
-							"region": region,
+			DpaSpec: &oadpv1alpha1.DataProtectionApplicationSpec{
+				Configuration: &oadpv1alpha1.ApplicationConfig{
+					Velero: &oadpv1alpha1.VeleroConfig{
+						DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+							oadpv1alpha1.DefaultPluginOpenShift,
+							oadpv1alpha1.DefaultPluginAWS,
 						},
-						Default: true,
-						StorageType: velero.StorageType{
-							ObjectStorage: &velero.ObjectStorageLocation{
-								Bucket: s3Bucket,
-								Prefix: veleroPrefix,
+					},
+					Restic: &oadpv1alpha1.ResticConfig{
+						Enable: pointer.Bool(false),
+					},
+				},
+				BackupLocations: []oadpv1alpha1.BackupLocation{
+					{
+						Velero: &velero.BackupStorageLocationSpec{
+							Provider: provider,
+							Config: map[string]string{
+								"region": region,
+							},
+							Default: true,
+							StorageType: velero.StorageType{
+								ObjectStorage: &velero.ObjectStorageLocation{
+									Bucket: s3Bucket,
+									Prefix: veleroPrefix,
+								},
 							},
 						},
 					},
-				},
-				DefaultVeleroPlugins: []oadpv1alpha1.DefaultPlugin{
-					oadpv1alpha1.DefaultPluginOpenShift,
-					oadpv1alpha1.DefaultPluginAWS,
 				},
 			},
 			WantError: false,
@@ -243,27 +291,35 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 		Entry("Adding CSI plugin", InstallCase{
 			Name:         "default-cr-csi",
 			BRestoreType: "restic",
-			VeleroSpec: &oadpv1alpha1.VeleroSpec{
-				EnableRestic: pointer.Bool(true),
-				BackupStorageLocations: []velero.BackupStorageLocationSpec{
-					{
-						Provider: provider,
-						Config: map[string]string{
-							"region": region,
+			DpaSpec: &oadpv1alpha1.DataProtectionApplicationSpec{
+				Configuration: &oadpv1alpha1.ApplicationConfig{
+					Velero: &oadpv1alpha1.VeleroConfig{
+						DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+							oadpv1alpha1.DefaultPluginOpenShift,
+							oadpv1alpha1.DefaultPluginCSI,
+							oadpv1alpha1.DefaultPluginAWS,
 						},
-						Default: true,
-						StorageType: velero.StorageType{
-							ObjectStorage: &velero.ObjectStorageLocation{
-								Bucket: s3Bucket,
-								Prefix: veleroPrefix,
+					},
+					Restic: &oadpv1alpha1.ResticConfig{
+						Enable: pointer.Bool(false),
+					},
+				},
+				BackupLocations: []oadpv1alpha1.BackupLocation{
+					{
+						Velero: &velero.BackupStorageLocationSpec{
+							Provider: provider,
+							Config: map[string]string{
+								"region": region,
+							},
+							Default: true,
+							StorageType: velero.StorageType{
+								ObjectStorage: &velero.ObjectStorageLocation{
+									Bucket: s3Bucket,
+									Prefix: veleroPrefix,
+								},
 							},
 						},
 					},
-				},
-				DefaultVeleroPlugins: []oadpv1alpha1.DefaultPlugin{
-					oadpv1alpha1.DefaultPluginOpenShift,
-					oadpv1alpha1.DefaultPluginAWS,
-					oadpv1alpha1.DefaultPluginCSI,
 				},
 			},
 			WantError: false,
@@ -271,30 +327,22 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 		Entry("Set restic node selector", InstallCase{
 			Name:         "default-cr-node-selector",
 			BRestoreType: "restic",
-			VeleroSpec: &oadpv1alpha1.VeleroSpec{
-				EnableRestic: pointer.Bool(true),
-				ResticNodeSelector: map[string]string{
-					"foo": "bar",
-				},
-				BackupStorageLocations: []velero.BackupStorageLocationSpec{
-					{
-						Provider: provider,
-						Config: map[string]string{
-							"region": region,
-						},
-						Default: true,
-						StorageType: velero.StorageType{
-							ObjectStorage: &velero.ObjectStorageLocation{
-								Bucket: s3Bucket,
-								Prefix: veleroPrefix,
-							},
+			DpaSpec: &oadpv1alpha1.DataProtectionApplicationSpec{
+				Configuration: &oadpv1alpha1.ApplicationConfig{
+					Velero: &oadpv1alpha1.VeleroConfig{
+						DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+							oadpv1alpha1.DefaultPluginOpenShift,
+							oadpv1alpha1.DefaultPluginAWS,
 						},
 					},
-				},
-				DefaultVeleroPlugins: []oadpv1alpha1.DefaultPlugin{
-					oadpv1alpha1.DefaultPluginOpenShift,
-					oadpv1alpha1.DefaultPluginAWS,
-					oadpv1alpha1.DefaultPluginCSI,
+					Restic: &oadpv1alpha1.ResticConfig{
+						PodConfig: &oadpv1alpha1.PodConfig{
+							NodeSelector: map[string]string{
+								"foo": "bar",
+							},
+						},
+						Enable: pointer.Bool(true),
+					},
 				},
 			},
 			WantError: false,
@@ -302,35 +350,27 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 		Entry("Enable tolerations", InstallCase{
 			Name:         "default-cr-tolerations",
 			BRestoreType: "restic",
-			VeleroSpec: &oadpv1alpha1.VeleroSpec{
-				EnableRestic: pointer.Bool(true),
-				VeleroTolerations: []corev1.Toleration{
-					{
-						Key:               "node.kubernetes.io/unreachable",
-						Operator:          "Exists",
-						Effect:            "NoExecute",
-						TolerationSeconds: func(i int64) *int64 { return &i }(6000),
-					},
-				},
-				BackupStorageLocations: []velero.BackupStorageLocationSpec{
-					{
-						Provider: provider,
-						Config: map[string]string{
-							"region": region,
+			DpaSpec: &oadpv1alpha1.DataProtectionApplicationSpec{
+				Configuration: &oadpv1alpha1.ApplicationConfig{
+					Velero: &oadpv1alpha1.VeleroConfig{
+						DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+							oadpv1alpha1.DefaultPluginOpenShift,
+							oadpv1alpha1.DefaultPluginAWS,
 						},
-						Default: true,
-						StorageType: velero.StorageType{
-							ObjectStorage: &velero.ObjectStorageLocation{
-								Bucket: s3Bucket,
-								Prefix: veleroPrefix,
+					},
+					Restic: &oadpv1alpha1.ResticConfig{
+						PodConfig: &oadpv1alpha1.PodConfig{
+							Tolerations: []corev1.Toleration{
+								{
+									Key:               "node.kubernetes.io/unreachable",
+									Operator:          "Exists",
+									Effect:            "NoExecute",
+									TolerationSeconds: func(i int64) *int64 { return &i }(6000),
+								},
 							},
 						},
+						Enable: pointer.Bool(true),
 					},
-				},
-				DefaultVeleroPlugins: []oadpv1alpha1.DefaultPlugin{
-					oadpv1alpha1.DefaultPluginOpenShift,
-					oadpv1alpha1.DefaultPluginAWS,
-					oadpv1alpha1.DefaultPluginCSI,
 				},
 			},
 			WantError: false,
@@ -338,12 +378,19 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 		Entry("NoDefaultBackupLocation", InstallCase{
 			Name:         "default-cr-node-selector",
 			BRestoreType: "restic",
-			VeleroSpec: &oadpv1alpha1.VeleroSpec{
-				EnableRestic:            pointer.Bool(true),
-				BackupStorageLocations:  []velero.BackupStorageLocationSpec{},
-				NoDefaultBackupLocation: true,
-				DefaultVeleroPlugins: []oadpv1alpha1.DefaultPlugin{
-					oadpv1alpha1.DefaultPluginOpenShift,
+			DpaSpec: &oadpv1alpha1.DataProtectionApplicationSpec{
+				Configuration: &oadpv1alpha1.ApplicationConfig{
+					Velero: &oadpv1alpha1.VeleroConfig{
+						NoDefaultBackupLocation: true,
+						DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+							oadpv1alpha1.DefaultPluginOpenShift,
+							oadpv1alpha1.DefaultPluginAWS,
+						},
+					},
+					Restic: &oadpv1alpha1.ResticConfig{
+						PodConfig: &oadpv1alpha1.PodConfig{},
+						Enable:    pointer.Bool(true),
+					},
 				},
 			},
 			WantError: false,
