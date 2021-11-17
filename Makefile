@@ -150,9 +150,7 @@ undeploy: kustomize ## Undeploy controller from the K8s cluster specified in ~/.
 
 build-deploy: THIS_IMAGE=ttl.sh/oadp-operator-$(shell git rev-parse --short HEAD):1h # Set target specific variable
 build-deploy: ## Build current branch image and deploy controller to the k8s cluster specified in ~/.kube/config.
-	docker build -t $(THIS_IMAGE) . && \
-	docker push $(THIS_IMAGE) && \
-	IMG=$(THIS_IMAGE) make deploy
+	IMG=$(THIS_IMAGE) make docker-build docker-push deploy
 
 CONTROLLER_GEN = $(shell pwd)/bin/controller-gen
 controller-gen: ## Download controller-gen locally if necessary.
