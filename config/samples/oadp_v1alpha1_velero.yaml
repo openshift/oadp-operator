@@ -3,9 +3,8 @@ kind: Velero
 metadata:
   name: velero-sample
 spec:
-  defaultVeleroPlugins:
-  - openshift
-  - aws
+  # Add fields here
+  olmManaged: false
   backupStorageLocations:
   - provider: aws
     default: true
@@ -14,13 +13,10 @@ spec:
       prefix: my-prefix
     config:
       region: us-east-1
-      profile: "default"
     credential:
       name: cloud-credentials
       key: cloud
-  volumeSnapshotLocations:
-    - provider: aws
-      config:
-        region: us-west-2
-        profile: "default"
   enableRestic: true
+  defaultVeleroPlugins:
+  - openshift
+  - aws
