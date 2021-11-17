@@ -220,6 +220,16 @@ bundle-build: ## Build the bundle image.
 bundle-push: ## Push the bundle image.
 	$(MAKE) docker-push IMG=$(BUNDLE_IMG)
 
+## Build current branch operator image, bundle image, push and install via OLM
+deploy-olm: GIT_REV=$(shell git rev-parse --short HEAD)
+deploy-olm: THIS_OPERATOR_IMAGE=ttl.sh/oadp-operator-$(GIT_REV):1h # Set target specific variable
+deploy-olm: THIS_BUNDLE_IMAGE=ttl.sh/oadp-operator-bundle-$(GIT_REV):1h # Set target specific variable
+deploy-olm:
+	oc whoami # Check if logged in
+	IMG=$(THIS_OPERATOR_IMAGE) BUNDLE_IMG=$(THIS_BUNDLE_IMAGE) \
+		make docker-build docker-push bundle bundle-build bundle-push # build and push operator and bundle image
+	operator-sdk run bundle $(THIS_BUNDLE_IMAGE) --namespace openshift-adp # use operator-sdk to install bundle to authenticated cluster
+
 .PHONY: opm
 OPM = ./bin/opm
 opm: ## Download opm locally if necessary.
