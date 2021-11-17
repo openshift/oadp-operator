@@ -4,3 +4,4 @@ bin/
 tests/e2e/e2e.test
 cover.out
 .DS_Store
+tests/e2e/templates/*.yaml
