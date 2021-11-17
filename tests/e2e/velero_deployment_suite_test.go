@@ -13,7 +13,7 @@ import (
 	"k8s.io/utils/pointer"
 )
 
-var _ = Describe("Configuration testing for Velero Custom Resource", func() {
+var _ = FDescribe("Configuration testing for Velero Custom Resource", func() {
 
 	type InstallCase struct {
 		Name         string
@@ -94,9 +94,11 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 							oadpv1alpha1.DefaultPluginOpenShift,
 							oadpv1alpha1.DefaultPluginAWS,
 						},
+						PodConfig: &oadpv1alpha1.PodConfig{},
 					},
 					Restic: &oadpv1alpha1.ResticConfig{
-						Enable: pointer.Bool(true),
+						PodConfig: &oadpv1alpha1.PodConfig{},
+						Enable:    pointer.Bool(true),
 					},
 				},
 				BackupLocations: []oadpv1alpha1.BackupLocation{
@@ -125,13 +127,15 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 			DpaSpec: &oadpv1alpha1.DataProtectionApplicationSpec{
 				Configuration: &oadpv1alpha1.ApplicationConfig{
 					Velero: &oadpv1alpha1.VeleroConfig{
+						PodConfig: &oadpv1alpha1.PodConfig{},
 						DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
 							oadpv1alpha1.DefaultPluginOpenShift,
 							oadpv1alpha1.DefaultPluginAWS,
 						},
 					},
 					Restic: &oadpv1alpha1.ResticConfig{
-						Enable: pointer.Bool(true),
+						PodConfig: &oadpv1alpha1.PodConfig{},
+						Enable:    pointer.Bool(true),
 					},
 				},
 				VolumeSnapshots: []oadpv1alpha1.VolumeSnapshot{
@@ -170,13 +174,15 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 			DpaSpec: &oadpv1alpha1.DataProtectionApplicationSpec{
 				Configuration: &oadpv1alpha1.ApplicationConfig{
 					Velero: &oadpv1alpha1.VeleroConfig{
+						PodConfig: &oadpv1alpha1.PodConfig{},
 						DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
 							oadpv1alpha1.DefaultPluginOpenShift,
 							oadpv1alpha1.DefaultPluginAWS,
 						},
 					},
 					Restic: &oadpv1alpha1.ResticConfig{
-						Enable: pointer.Bool(true),
+						PodConfig: &oadpv1alpha1.PodConfig{},
+						Enable:    pointer.Bool(true),
 					},
 				},
 				VolumeSnapshots: []oadpv1alpha1.VolumeSnapshot{
@@ -223,13 +229,15 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 			DpaSpec: &oadpv1alpha1.DataProtectionApplicationSpec{
 				Configuration: &oadpv1alpha1.ApplicationConfig{
 					Velero: &oadpv1alpha1.VeleroConfig{
+						PodConfig: &oadpv1alpha1.PodConfig{},
 						DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
 							oadpv1alpha1.DefaultPluginOpenShift,
 							oadpv1alpha1.DefaultPluginAWS,
 						},
 					},
 					Restic: &oadpv1alpha1.ResticConfig{
-						Enable: pointer.Bool(true),
+						PodConfig: &oadpv1alpha1.PodConfig{},
+						Enable:    pointer.Bool(true),
 					},
 				},
 				VolumeSnapshots: []oadpv1alpha1.VolumeSnapshot{
@@ -259,13 +267,15 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 			DpaSpec: &oadpv1alpha1.DataProtectionApplicationSpec{
 				Configuration: &oadpv1alpha1.ApplicationConfig{
 					Velero: &oadpv1alpha1.VeleroConfig{
+						PodConfig: &oadpv1alpha1.PodConfig{},
 						DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
 							oadpv1alpha1.DefaultPluginOpenShift,
 							oadpv1alpha1.DefaultPluginAWS,
 						},
 					},
 					Restic: &oadpv1alpha1.ResticConfig{
-						Enable: pointer.Bool(false),
+						PodConfig: &oadpv1alpha1.PodConfig{},
+						Enable:    pointer.Bool(false),
 					},
 				},
 				BackupLocations: []oadpv1alpha1.BackupLocation{
@@ -294,6 +304,7 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 			DpaSpec: &oadpv1alpha1.DataProtectionApplicationSpec{
 				Configuration: &oadpv1alpha1.ApplicationConfig{
 					Velero: &oadpv1alpha1.VeleroConfig{
+						PodConfig: &oadpv1alpha1.PodConfig{},
 						DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
 							oadpv1alpha1.DefaultPluginOpenShift,
 							oadpv1alpha1.DefaultPluginCSI,
@@ -301,7 +312,8 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 						},
 					},
 					Restic: &oadpv1alpha1.ResticConfig{
-						Enable: pointer.Bool(false),
+						PodConfig: &oadpv1alpha1.PodConfig{},
+						Enable:    pointer.Bool(false),
 					},
 				},
 				BackupLocations: []oadpv1alpha1.BackupLocation{
@@ -330,6 +342,7 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 			DpaSpec: &oadpv1alpha1.DataProtectionApplicationSpec{
 				Configuration: &oadpv1alpha1.ApplicationConfig{
 					Velero: &oadpv1alpha1.VeleroConfig{
+						PodConfig: &oadpv1alpha1.PodConfig{},
 						DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
 							oadpv1alpha1.DefaultPluginOpenShift,
 							oadpv1alpha1.DefaultPluginAWS,
@@ -353,6 +366,7 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 			DpaSpec: &oadpv1alpha1.DataProtectionApplicationSpec{
 				Configuration: &oadpv1alpha1.ApplicationConfig{
 					Velero: &oadpv1alpha1.VeleroConfig{
+						PodConfig: &oadpv1alpha1.PodConfig{},
 						DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
 							oadpv1alpha1.DefaultPluginOpenShift,
 							oadpv1alpha1.DefaultPluginAWS,
@@ -381,6 +395,7 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 			DpaSpec: &oadpv1alpha1.DataProtectionApplicationSpec{
 				Configuration: &oadpv1alpha1.ApplicationConfig{
 					Velero: &oadpv1alpha1.VeleroConfig{
+						PodConfig:               &oadpv1alpha1.PodConfig{},
 						NoDefaultBackupLocation: true,
 						DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
 							oadpv1alpha1.DefaultPluginOpenShift,

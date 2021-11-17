@@ -60,6 +60,9 @@ func (v *dpaCustomResource) Build(backupRestoreType BackupRestoreType) error {
 						oadpv1alpha1.DefaultPluginAWS,
 					},
 				},
+				Restic: &oadpv1alpha1.ResticConfig{
+					PodConfig: &oadpv1alpha1.PodConfig{},
+				},
 			},
 			BackupLocations: []oadpv1alpha1.BackupLocation{
 				{
