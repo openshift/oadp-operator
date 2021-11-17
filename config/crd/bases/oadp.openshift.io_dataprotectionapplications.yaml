@@ -409,13 +409,8 @@ spec:
                 description: VolumeSnapshotLocations defines the list of desired configuration
                   to use for VolumeSnapshotLocations
                 items:
-<<<<<<< HEAD
                   description: SnapshotLocation defines the configuration for the
                     DPA snapshot store
-=======
-                  description: VolumeSnapshot defines the configuration for the DPA
-                    snapshot store
->>>>>>> e0ebb95 (Rename everything for DPA (#456))
                   properties:
                     velero:
                       description: 'TODO: Add name/annotations/labels support'
