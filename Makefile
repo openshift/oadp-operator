@@ -226,6 +226,7 @@ deploy-olm: THIS_OPERATOR_IMAGE=ttl.sh/oadp-operator-$(GIT_REV):1h # Set target 
 deploy-olm: THIS_BUNDLE_IMAGE=ttl.sh/oadp-operator-bundle-$(GIT_REV):1h # Set target specific variable
 deploy-olm:
 	oc whoami # Check if logged in
+	oc create namespace openshift-adp # This should error out if namespace already exists, delete namespace (to clear current resources) before proceeding
 	IMG=$(THIS_OPERATOR_IMAGE) BUNDLE_IMG=$(THIS_BUNDLE_IMAGE) \
 		make docker-build docker-push bundle bundle-build bundle-push # build and push operator and bundle image
 	operator-sdk run bundle $(THIS_BUNDLE_IMAGE) --namespace openshift-adp # use operator-sdk to install bundle to authenticated cluster
