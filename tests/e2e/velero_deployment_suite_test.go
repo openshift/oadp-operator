@@ -1,9 +1,10 @@
 package e2e
 
 import (
-	"k8s.io/apimachinery/pkg/api/resource"
 	"log"
 	"time"
+
+	"k8s.io/apimachinery/pkg/api/resource"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
@@ -315,6 +316,9 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 							},
 						},
 					},
+					Restic: &oadpv1alpha1.ResticConfig{
+						Enable: pointer.Bool(true),
+					},
 				},
 			},
 			WantError: false,
@@ -507,6 +511,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 								},
 							},
 						},
+						Enable: pointer.Bool(true),
 					},
 				},
 				Configuration: &oadpv1alpha1.ApplicationConfig{
