@@ -10,6 +10,7 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/ghodss/yaml"
 	appsv1 "github.com/openshift/api/apps/v1"
 	security "github.com/openshift/api/security/v1"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
@@ -298,4 +299,38 @@ func verifyVeleroTolerations(namespace string, t []corev1.Toleration) wait.Condi
 		}
 		return true, nil
 	}
+}
+
+// Create Velero Custom Resource Definition from yaml
+func (v *veleroCustomResource) CreateVeleroFromYaml(yamlTemplatePath string, data interface{}) error {
+	// Define var for holding Velero type
+	veleroSpec := oadpv1alpha1.Velero{}
+
+	// Parse and read data as bytes from template
+	veleroYamlData, err := parseTemplate(yamlTemplatePath, data)
+	if err != nil {
+		return err
+	}
+
+	// Unmarshall data to type Velero
+	err = yaml.Unmarshal(veleroYamlData, &veleroSpec)
+	if err != nil {
+		return err
+	}
+
+	// Set client config to read/write resources through API
+	err = v.SetClient()
+	if err != nil {
+		return err
+	}
+
+	// Create custom resource (velero in this case)
+	err = v.Client.Create(context.Background(), &veleroSpec)
+	if apierrors.IsAlreadyExists(err) {
+		return errors.New("found unexpected existing Velero CR")
+	} else if err != nil {
+		return err
+	}
+	log.Printf("Velero CR created \n")
+	return nil
 }
