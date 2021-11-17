@@ -16,3 +16,9 @@ resources:
 - auth_proxy_role.yaml
 - auth_proxy_role_binding.yaml
 - auth_proxy_client_clusterrole.yaml
+# Velero roles
+- velero-role.yaml
+- velero-role_binding.yaml
+- velero-service_account.yaml
+- velero_editor_role.yaml
+- velero_viewer_role.yaml

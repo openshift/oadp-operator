@@ -1,0 +1,24 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  creationTimestamp: null
+  name: openshift-adp-velero-editor-role
+rules:
+- apiGroups:
+  - oadp.openshift.io
+  resources:
+  - veleroes
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - oadp.openshift.io
+  resources:
+  - veleroes/status
+  verbs:
+  - get
