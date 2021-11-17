@@ -2,19 +2,20 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   creationTimestamp: null
-  name: openshift-adp-velero-viewer-role
+  name: velero-role
 rules:
 - apiGroups:
-  - oadp.openshift.io
+  - '*'
   resources:
-  - veleroes
+  - '*'
   verbs:
-  - get
-  - list
-  - watch
+  - '*'
 - apiGroups:
-  - oadp.openshift.io
+  - security.openshift.io
+  resourceNames:
+  - privileged
+  - velero-privileged
   resources:
-  - veleroes/status
+  - securitycontextconstraints
   verbs:
-  - get
+  - use
