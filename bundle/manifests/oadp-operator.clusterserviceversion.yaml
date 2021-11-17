@@ -8,7 +8,8 @@ metadata:
           "apiVersion": "oadp.openshift.io/v1alpha1",
           "kind": "Velero",
           "metadata": {
-            "name": "velero-sample"
+            "name": "example-velero",
+            "namespace": "openshift-adp"
           },
           "spec": {
             "backupStorageLocations": [
@@ -17,33 +18,133 @@ metadata:
                   "profile": "default",
                   "region": "us-east-1"
                 },
-                "credential": {
-                  "key": "cloud",
-                  "name": "cloud-credentials"
-                },
-                "default": true,
+                "name": "default",
                 "objectStorage": {
-                  "bucket": "my-bucket-name",
-                  "prefix": "my-prefix"
+                  "bucket": "myBucket",
+                  "prefix": "velero"
                 },
                 "provider": "aws"
               }
             ],
             "defaultVeleroPlugins": [
-              "openshift",
-              "aws"
+              "aws",
+              "csi",
+              "openshift"
             ],
             "enableRestic": true,
+            "veleroFeatureFlags": [
+              "EnableCSI"
+            ],
             "volumeSnapshotLocations": [
               {
                 "config": {
                   "profile": "default",
-                  "region": "us-west-2"
+                  "region": "us-west-1"
                 },
+                "name": "default",
                 "provider": "aws"
               }
             ]
           }
+        },
+        {
+          "apiVersion": "velero.io/v1",
+          "kind": "Backup",
+          "metadata": {
+            "name": "backup",
+            "namespace": "openshift-adp"
+          },
+          "spec": {}
+        },
+        {
+          "apiVersion": "velero.io/v1",
+          "kind": "BackupStorageLocation",
+          "metadata": {
+            "name": "backupstoragelocation",
+            "namespace": "openshift-adp"
+          },
+          "spec": {}
+        },
+        {
+          "apiVersion": "velero.io/v1",
+          "kind": "DeleteBackupRequest",
+          "metadata": {
+            "name": "deletebackuprequest",
+            "namespace": "openshift-adp"
+          },
+          "spec": {}
+        },
+        {
+          "apiVersion": "velero.io/v1",
+          "kind": "DownloadRequest",
+          "metadata": {
+            "name": "downloadrequest",
+            "namespace": "openshift-adp"
+          },
+          "spec": {}
+        },
+        {
+          "apiVersion": "velero.io/v1",
+          "kind": "PodVolumeBackup",
+          "metadata": {
+            "name": "podvolumebackup",
+            "namespace": "openshift-adp"
+          },
+          "spec": {}
+        },
+        {
+          "apiVersion": "velero.io/v1",
+          "kind": "PodVolumeRestore",
+          "metadata": {
+            "name": "podvolumerestore",
+            "namespace": "openshift-adp"
+          },
+          "spec": {}
+        },
+        {
+          "apiVersion": "velero.io/v1",
+          "kind": "ResticRepository",
+          "metadata": {
+            "name": "resticrepository",
+            "namespace": "openshift-adp"
+          },
+          "spec": {}
+        },
+        {
+          "apiVersion": "velero.io/v1",
+          "kind": "Restore",
+          "metadata": {
+            "name": "restore",
+            "namespace": "openshift-adp"
+          },
+          "spec": {}
+        },
+        {
+          "apiVersion": "velero.io/v1",
+          "kind": "Schedule",
+          "metadata": {
+            "name": "schedule",
+            "namespace": "openshift-adp"
+          },
+          "spec": {}
+        },
+        {
+          "apiVersion": "velero.io/v1",
+          "kind": "ServerStatusRequest",
+          "metadata": {
+            "name": "serverstatusrequest",
+            "namespace": "openshift-adp"
+          },
+          "spec": {}
+        },
+        {
+          "apiVersion": "velero.io/v1",
+          "kind": "VolumeSnapshotLocation",
+          "metadata": {
+            "name": "volumesnapshotlocation",
+            "namespace": "openshift-adp"
+          },
+          "spec": {}
         }
       ]
     capabilities: Seamless Upgrades

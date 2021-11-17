@@ -1,0 +1,6 @@
+apiVersion: velero.io/v1
+kind: DownloadRequest
+metadata:
+  name: downloadrequest
+  namespace: openshift-adp
+spec: {}
