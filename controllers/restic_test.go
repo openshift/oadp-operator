@@ -81,7 +81,15 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 		ds  *appsv1.DaemonSet
 	}
 	r := &DPAReconciler{}
-	dpa := oadpv1alpha1.DataProtectionApplication{}
+	dpa := oadpv1alpha1.DataProtectionApplication{
+		Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+			Configuration: &oadpv1alpha1.ApplicationConfig{
+				Restic: &oadpv1alpha1.ResticConfig{
+					PodConfig: &oadpv1alpha1.PodConfig{},
+				},
+			},
+		},
+	}
 	tests := []struct {
 		name    string
 		fields  fields
@@ -113,6 +121,9 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 					Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 						Configuration: &oadpv1alpha1.ApplicationConfig{
 							Restic: &oadpv1alpha1.ResticConfig{
+								PodConfig: &oadpv1alpha1.PodConfig{},
+							},
+							Velero: &oadpv1alpha1.VeleroConfig{
 								PodConfig: &oadpv1alpha1.PodConfig{},
 							},
 						},
@@ -239,6 +250,12 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 						Configuration: &oadpv1alpha1.ApplicationConfig{
 							Restic: &oadpv1alpha1.ResticConfig{
 								PodConfig: &oadpv1alpha1.PodConfig{},
+							},
+							Velero: &oadpv1alpha1.VeleroConfig{
+								PodConfig: &oadpv1alpha1.PodConfig{},
+								DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+									oadpv1alpha1.DefaultPluginAWS,
+								},
 							},
 						},
 					},
@@ -383,6 +400,7 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 									oadpv1alpha1.DefaultPluginAWS,
 								},
 							},
+							Restic: &oadpv1alpha1.ResticConfig{},
 						},
 						BackupLocations: []oadpv1alpha1.BackupLocation{
 							{
@@ -554,6 +572,7 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 									oadpv1alpha1.DefaultPluginAWS,
 								},
 							},
+							Restic: &oadpv1alpha1.ResticConfig{},
 						},
 						BackupLocations: []oadpv1alpha1.BackupLocation{
 							{

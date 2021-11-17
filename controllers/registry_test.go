@@ -915,7 +915,7 @@ func TestDPAReconciler_updateRegistrySVC(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			fakeClient, err := getFakeClientFromObjects()
+			fakeClient, err := getFakeClientFromObjects(tt.dpa)
 			if err != nil {
 				t.Errorf("error in creating fake client, likely programmer error")
 			}
@@ -939,7 +939,7 @@ func TestDPAReconciler_updateRegistrySVC(t *testing.T) {
 					},
 					OwnerReferences: []metav1.OwnerReference{{
 						APIVersion:         oadpv1alpha1.SchemeBuilder.GroupVersion.String(),
-						Kind:               "Velero",
+						Kind:               "DataProtectionApplication",
 						Name:               tt.dpa.Name,
 						UID:                tt.dpa.UID,
 						Controller:         pointer.BoolPtr(true),
@@ -982,7 +982,7 @@ func TestDPAReconciler_updateRegistryRoute(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name:    "Given Velero CR and BSL and SVC instance, appropriate registry route gets updated",
+			name:    "Given DPA CR and BSL and SVC instance, appropriate registry route gets updated",
 			wantErr: false,
 			bsl: &velerov1.BackupStorageLocation{
 				ObjectMeta: metav1.ObjectMeta{
@@ -1041,7 +1041,7 @@ func TestDPAReconciler_updateRegistryRoute(t *testing.T) {
 					},
 					OwnerReferences: []metav1.OwnerReference{{
 						APIVersion:         oadpv1alpha1.SchemeBuilder.GroupVersion.String(),
-						Kind:               "Velero",
+						Kind:               "DataProtectionApplication",
 						Name:               tt.dpa.Name,
 						UID:                tt.dpa.UID,
 						Controller:         pointer.BoolPtr(true),

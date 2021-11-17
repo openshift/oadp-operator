@@ -27,7 +27,11 @@ func TestDPAReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 					Name:      "test-Velero-VSL",
 					Namespace: "test-ns",
 				},
-				Spec: oadpv1alpha1.DataProtectionApplicationSpec{},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{},
+					},
+				},
 			},
 			want:    true,
 			wantErr: false,
@@ -48,6 +52,9 @@ func TestDPAReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 					Namespace: "test-ns",
 				},
 				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{},
+					},
 					VolumeSnapshots: []oadpv1alpha1.VolumeSnapshot{
 						{
 							Velero: &velerov1.VolumeSnapshotLocationSpec{
@@ -77,6 +84,9 @@ func TestDPAReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 					Namespace: "test-ns",
 				},
 				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{},
+					},
 					VolumeSnapshots: []oadpv1alpha1.VolumeSnapshot{
 						{
 							Velero: &velerov1.VolumeSnapshotLocationSpec{
@@ -103,6 +113,9 @@ func TestDPAReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 					Namespace: "test-ns",
 				},
 				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{},
+					},
 					VolumeSnapshots: []oadpv1alpha1.VolumeSnapshot{
 						{
 							Velero: &velerov1.VolumeSnapshotLocationSpec{
@@ -133,6 +146,9 @@ func TestDPAReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 					Namespace: "test-ns",
 				},
 				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{},
+					},
 					VolumeSnapshots: []oadpv1alpha1.VolumeSnapshot{
 						{
 							Velero: &velerov1.VolumeSnapshotLocationSpec{
@@ -165,6 +181,9 @@ func TestDPAReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 					Namespace: "test-ns",
 				},
 				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{},
+					},
 					VolumeSnapshots: []oadpv1alpha1.VolumeSnapshot{
 						{
 							Velero: &velerov1.VolumeSnapshotLocationSpec{
@@ -191,6 +210,9 @@ func TestDPAReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 					Namespace: "test-ns",
 				},
 				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{},
+					},
 					VolumeSnapshots: []oadpv1alpha1.VolumeSnapshot{
 						{
 							Velero: &velerov1.VolumeSnapshotLocationSpec{
@@ -220,6 +242,9 @@ func TestDPAReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 					Namespace: "test-ns",
 				},
 				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{},
+					},
 					VolumeSnapshots: []oadpv1alpha1.VolumeSnapshot{
 						{
 							Velero: &velerov1.VolumeSnapshotLocationSpec{
@@ -249,6 +274,9 @@ func TestDPAReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 					Namespace: "test-ns",
 				},
 				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{},
+					},
 					VolumeSnapshots: []oadpv1alpha1.VolumeSnapshot{
 						{
 							Velero: &velerov1.VolumeSnapshotLocationSpec{
@@ -280,6 +308,9 @@ func TestDPAReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 					Namespace: "test-ns",
 				},
 				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{},
+					},
 					VolumeSnapshots: []oadpv1alpha1.VolumeSnapshot{
 						{
 							Velero: &velerov1.VolumeSnapshotLocationSpec{
@@ -306,6 +337,9 @@ func TestDPAReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 					Namespace: "test-ns",
 				},
 				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{},
+					},
 					VolumeSnapshots: []oadpv1alpha1.VolumeSnapshot{
 						{
 							Velero: &velerov1.VolumeSnapshotLocationSpec{
@@ -335,6 +369,9 @@ func TestDPAReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 					Namespace: "test-ns",
 				},
 				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{},
+					},
 					VolumeSnapshots: []oadpv1alpha1.VolumeSnapshot{
 						{
 							Velero: &velerov1.VolumeSnapshotLocationSpec{
@@ -364,6 +401,9 @@ func TestDPAReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 					Namespace: "test-ns",
 				},
 				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{},
+					},
 					VolumeSnapshots: []oadpv1alpha1.VolumeSnapshot{
 						{
 							Velero: &velerov1.VolumeSnapshotLocationSpec{
@@ -393,6 +433,9 @@ func TestDPAReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 					Namespace: "test-ns",
 				},
 				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{},
+					},
 					VolumeSnapshots: []oadpv1alpha1.VolumeSnapshot{
 						{
 							Velero: &velerov1.VolumeSnapshotLocationSpec{
@@ -422,6 +465,9 @@ func TestDPAReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 					Namespace: "test-ns",
 				},
 				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{},
+					},
 					VolumeSnapshots: []oadpv1alpha1.VolumeSnapshot{
 						{
 							Velero: &velerov1.VolumeSnapshotLocationSpec{

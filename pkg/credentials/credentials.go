@@ -1,6 +1,7 @@
 package credentials
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
@@ -135,6 +136,9 @@ func getPluginImage(pluginName string, dpa *oadpv1alpha1.DataProtectionApplicati
 }
 
 func AppendCloudProviderVolumes(dpa *oadpv1alpha1.DataProtectionApplication, ds *appsv1.DaemonSet) error {
+	if dpa.Spec.Configuration.Velero == nil {
+		return errors.New("velero configuration not found")
+	}
 	var resticContainer *corev1.Container
 	// Find Velero container
 	for i, container := range ds.Spec.Template.Spec.Containers {

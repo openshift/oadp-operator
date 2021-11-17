@@ -46,6 +46,12 @@ func (r *DPAReconciler) ValidateVolumeSnapshotLocations(log logr.Logger) (bool, 
 	if err := r.Get(r.Context, r.NamespacedName, &dpa); err != nil {
 		return false, err
 	}
+	if dpa.Spec.Configuration == nil {
+		return false, errors.New("application configuration not found")
+	}
+	if dpa.Spec.Configuration.Velero == nil {
+		return false, errors.New("velero configuration not found")
+	}
 	for i, vslSpec := range dpa.Spec.VolumeSnapshots {
 		vsl := velerov1.VolumeSnapshotLocation{
 			ObjectMeta: metav1.ObjectMeta{
