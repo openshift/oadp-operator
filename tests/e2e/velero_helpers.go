@@ -106,8 +106,20 @@ func (v *veleroCustomResource) Build(backupRestoreType BackupRestoreType) error 
 				},
 			},
 		}
-		veleroSpec.Spec.DefaultVeleroPlugins = append(veleroSpec.Spec.DefaultVeleroPlugins, oadpv1alpha1.DefaultPluginAWS) // case "gcp":
-		// 	config["serviceAccount"] = v.Region
+		veleroSpec.Spec.DefaultVeleroPlugins = append(veleroSpec.Spec.DefaultVeleroPlugins, oadpv1alpha1.DefaultPluginAWS)
+	case "gcp":
+		veleroSpec.Spec.BackupStorageLocations[0].Config = map[string]string{
+			"credentialsFile": v.credentials,
+		}
+		veleroSpec.Spec.DefaultVeleroPlugins = append(veleroSpec.Spec.DefaultVeleroPlugins, oadpv1alpha1.DefaultPluginGCP)
+		veleroSpec.Spec.VolumeSnapshotLocations = []velero.VolumeSnapshotLocationSpec{
+			{
+				Provider: v.Provider,
+				Config: map[string]string{
+					"snapshotLocation": v.VslRegion,
+				},
+			},
+		}
 	}
 	v.CustomResource = &veleroSpec
 	return nil

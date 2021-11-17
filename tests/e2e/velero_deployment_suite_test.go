@@ -36,7 +36,7 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 						"region":  vel.BslRegion,
 						"profile": vel.BslProfile,
 					}
-					installCase.VeleroSpec.DefaultVeleroPlugins = append(installCase.VeleroSpec.DefaultVeleroPlugins, oadpv1alpha1.DefaultPluginAWS) // case "gcp":
+					installCase.VeleroSpec.DefaultVeleroPlugins = append(installCase.VeleroSpec.DefaultVeleroPlugins, oadpv1alpha1.DefaultPluginAWS)
 					installCase.VeleroSpec.VolumeSnapshotLocations = []velero.VolumeSnapshotLocationSpec{
 						{
 							Provider: vel.Provider,
@@ -46,7 +46,19 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 							},
 						},
 					}
-					// 	config["serviceAccount"] = v.Region
+				case "gcp":
+					installCase.VeleroSpec.BackupStorageLocations[0].Config = map[string]string{
+						"credentialsFile": vel.credentials,
+					}
+					installCase.VeleroSpec.DefaultVeleroPlugins = append(installCase.VeleroSpec.DefaultVeleroPlugins, oadpv1alpha1.DefaultPluginGCP)
+					installCase.VeleroSpec.VolumeSnapshotLocations = []velero.VolumeSnapshotLocationSpec{
+						{
+							Provider: vel.Provider,
+							Config: map[string]string{
+								"snapshotLocation": vel.VslRegion,
+							},
+						},
+					}
 				}
 			}
 			err = vel.CreateOrUpdate(installCase.VeleroSpec)
@@ -150,68 +162,6 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 			},
 			WantError: false,
 		}, nil),
-		/* Entry("Velero CR with bsl and multiple vsl", InstallCase{
-			Name: "default-cr-bsl-vsl",
-			VeleroSpec: &oadpv1alpha1.VeleroSpec{
-				EnableRestic: pointer.Bool(true),
-				BackupStorageLocations: []velero.BackupStorageLocationSpec{
-					{
-						Provider: provider,
-						Default:  true,
-						StorageType: velero.StorageType{
-							ObjectStorage: &velero.ObjectStorageLocation{
-								Bucket: bucket,
-								Prefix: veleroPrefix,
-							},
-						},
-					},
-				},
-				VolumeSnapshotLocations: []velero.VolumeSnapshotLocationSpec{
-					{
-						Provider: "aws",
-						Config: map[string]string{
-							"Region": "us-east-1",
-						},
-					},
-					{
-						Provider: "azure",
-						Config: map[string]string{
-							"Region": "us-east-1",
-						},
-					},
-				},
-				DefaultVeleroPlugins: []oadpv1alpha1.DefaultPlugin{
-					oadpv1alpha1.DefaultPluginOpenShift,
-				},
-			},
-			WantError: false,
-		}, nil),
-		Entry("Velero CR with no bsl and multiple vsl", InstallCase{
-			Name:         "default-cr-multiple-vsl",
-			BRestoreType: "restic",
-			VeleroSpec: &oadpv1alpha1.VeleroSpec{
-				EnableRestic: pointer.Bool(true),
-				VolumeSnapshotLocations: []velero.VolumeSnapshotLocationSpec{
-					{
-						Provider: "aws",
-						Config: map[string]string{
-							"Region": "us-east-1",
-						},
-					},
-					{
-						Provider: "azure",
-						Config: map[string]string{
-							"Region": "us-east-1",
-						},
-					},
-				},
-				DefaultVeleroPlugins: []oadpv1alpha1.DefaultPlugin{
-					oadpv1alpha1.DefaultPluginOpenShift,
-				},
-			},
-			WantError: false,
-		}, nil),
-		*/
 		Entry("Default velero CR with restic disabled", InstallCase{
 			Name:         "default-cr-no-restic",
 			BRestoreType: "restic",
