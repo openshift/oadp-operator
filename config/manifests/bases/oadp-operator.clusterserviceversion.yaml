@@ -11,7 +11,9 @@ metadata:
       OADP (OpenShift API for Data Protection) operator sets up and installs
       Velero on the OpenShift platform.
     olm.skipRange: '>=0.0.0 <99.0.0'
+    operatorframework.io/cluster-monitoring: "true"
     operatorframework.io/suggested-namespace: openshift-adp
+    operators.openshift.io/infrastructure-features: '["Disconnected"]'
     repository: https://github.com/openshift/oadp-operator
     support: Red Hat
   labels:
