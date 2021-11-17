@@ -282,7 +282,7 @@ func doesBSLExist(namespace string, bsl velero.BackupStorageLocationSpec, spec *
 		}
 		for _, b := range spec.BackupLocations {
 			if b.Velero.Provider == bsl.Provider {
-				if !reflect.DeepEqual(bsl, b) {
+				if !reflect.DeepEqual(bsl, *b.Velero) {
 					return false, errors.New("given Velero bsl does not match the deployed velero bsl")
 				}
 			}
@@ -300,7 +300,7 @@ func doesVSLExist(namespace string, vslspec velero.VolumeSnapshotLocationSpec, s
 		}
 		for _, v := range spec.VolumeSnapshots {
 			if v.Velero.Provider == vslspec.Provider {
-				if !reflect.DeepEqual(vslspec, v) {
+				if !reflect.DeepEqual(vslspec, *v.Velero) {
 					return false, errors.New("given Velero vslspec does not match the deployed velero vslspec")
 				}
 			}

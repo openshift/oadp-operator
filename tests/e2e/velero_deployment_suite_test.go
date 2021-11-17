@@ -340,6 +340,23 @@ var _ = FDescribe("Configuration testing for Velero Custom Resource", func() {
 			Name:         "default-cr-node-selector",
 			BRestoreType: "restic",
 			DpaSpec: &oadpv1alpha1.DataProtectionApplicationSpec{
+				BackupLocations: []oadpv1alpha1.BackupLocation{
+					{
+						Velero: &velero.BackupStorageLocationSpec{
+							Provider: provider,
+							Config: map[string]string{
+								"region": region,
+							},
+							Default: true,
+							StorageType: velero.StorageType{
+								ObjectStorage: &velero.ObjectStorageLocation{
+									Bucket: s3Bucket,
+									Prefix: veleroPrefix,
+								},
+							},
+						},
+					},
+				},
 				Configuration: &oadpv1alpha1.ApplicationConfig{
 					Velero: &oadpv1alpha1.VeleroConfig{
 						PodConfig: &oadpv1alpha1.PodConfig{},
@@ -364,6 +381,23 @@ var _ = FDescribe("Configuration testing for Velero Custom Resource", func() {
 			Name:         "default-cr-tolerations",
 			BRestoreType: "restic",
 			DpaSpec: &oadpv1alpha1.DataProtectionApplicationSpec{
+				BackupLocations: []oadpv1alpha1.BackupLocation{
+					{
+						Velero: &velero.BackupStorageLocationSpec{
+							Provider: provider,
+							Config: map[string]string{
+								"region": region,
+							},
+							Default: true,
+							StorageType: velero.StorageType{
+								ObjectStorage: &velero.ObjectStorageLocation{
+									Bucket: s3Bucket,
+									Prefix: veleroPrefix,
+								},
+							},
+						},
+					},
+				},
 				Configuration: &oadpv1alpha1.ApplicationConfig{
 					Velero: &oadpv1alpha1.VeleroConfig{
 						PodConfig: &oadpv1alpha1.PodConfig{},

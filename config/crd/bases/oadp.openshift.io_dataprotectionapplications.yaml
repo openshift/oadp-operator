@@ -13,6 +13,8 @@ spec:
     kind: DataProtectionApplication
     listKind: DataProtectionApplicationList
     plural: dataprotectionapplications
+    shortNames:
+    - dpa
     singular: dataprotectionapplication
   scope: Namespaced
   versions:
@@ -41,7 +43,7 @@ spec:
                 description: BackupImages is used to specify whether you want to deploy
                   a registry for enabling backup and restore of images
                 type: boolean
-              backupStorageLocations:
+              backupLocations:
                 description: BackupLocations defines the list of desired configuration
                   to use for BackupStorageLocations
                 items:
@@ -412,7 +414,7 @@ spec:
                 description: UnsupportedOverrides can be used to override the deployed
                   dependent images for development
                 type: object
-              volumeSnapshotLocations:
+              volumeSnapshots:
                 description: VolumeSnapshotLocations defines the list of desired configuration
                   to use for VolumeSnapshotLocations
                 items:

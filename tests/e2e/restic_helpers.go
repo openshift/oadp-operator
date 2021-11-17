@@ -73,11 +73,9 @@ func areResticPodsRunning(namespace string) wait.ConditionFunc {
 		for _, podInfo := range (*podList).Items {
 			if podInfo.Status.Phase != "Running" {
 				return false, err
-			} else {
-				return true, nil
 			}
 		}
-		return false, err
+		return true, err
 	}
 }
 

@@ -124,10 +124,10 @@ type VolumeSnapshot struct {
 type DataProtectionApplicationSpec struct {
 	// BackupLocations defines the list of desired configuration to use for BackupStorageLocations
 	// +optional
-	BackupLocations []BackupLocation `json:"backupStorageLocations"`
+	BackupLocations []BackupLocation `json:"backupLocations"`
 	// VolumeSnapshotLocations defines the list of desired configuration to use for VolumeSnapshotLocations
 	// +optional
-	VolumeSnapshots []VolumeSnapshot `json:"volumeSnapshotLocations"`
+	VolumeSnapshots []VolumeSnapshot `json:"volumeSnapshots"`
 	// UnsupportedOverrides can be used to override the deployed dependent images for development
 	// +optional
 	UnsupportedOverrides map[UnsupportedImageKey]string `json:"unsupportedOverrides,omitempty"`
@@ -158,6 +158,7 @@ type DataProtectionApplicationStatus struct {
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
+//+kubebuilder:resource:path=dataprotectionapplications,shortName=dpa
 
 // DataProtectionApplication is the Schema for the dpa API
 type DataProtectionApplication struct {
