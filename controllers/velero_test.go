@@ -174,18 +174,6 @@ func TestVeleroReconciler_buildVeleroDeployment(t *testing.T) {
 											Name:  common.LDLibraryPathEnvKey,
 											Value: "/plugins",
 										},
-										{
-											Name:  common.HTTPProxyEnvVar,
-											Value: os.Getenv("HTTP_PROXY"),
-										},
-										{
-											Name:  common.HTTPSProxyEnvVar,
-											Value: os.Getenv("HTTPS_PROXY"),
-										},
-										{
-											Name:  common.NoProxyEnvVar,
-											Value: os.Getenv("NO_PROXY"),
-										},
 									},
 								},
 							},
@@ -337,18 +325,6 @@ func TestVeleroReconciler_buildVeleroDeployment(t *testing.T) {
 											Name:  common.LDLibraryPathEnvKey,
 											Value: "/plugins",
 										},
-										{
-											Name:  common.HTTPProxyEnvVar,
-											Value: os.Getenv("HTTP_PROXY"),
-										},
-										{
-											Name:  common.HTTPSProxyEnvVar,
-											Value: os.Getenv("HTTPS_PROXY"),
-										},
-										{
-											Name:  common.NoProxyEnvVar,
-											Value: os.Getenv("NO_PROXY"),
-										},
 									},
 								},
 							},
@@ -492,18 +468,6 @@ func TestVeleroReconciler_buildVeleroDeployment(t *testing.T) {
 										{
 											Name:  common.LDLibraryPathEnvKey,
 											Value: "/plugins",
-										},
-										{
-											Name:  common.HTTPProxyEnvVar,
-											Value: os.Getenv("HTTP_PROXY"),
-										},
-										{
-											Name:  common.HTTPSProxyEnvVar,
-											Value: os.Getenv("HTTPS_PROXY"),
-										},
-										{
-											Name:  common.NoProxyEnvVar,
-											Value: os.Getenv("NO_PROXY"),
 										},
 										{
 											Name:  common.AWSSharedCredentialsFileEnvKey,
@@ -679,18 +643,6 @@ func TestVeleroReconciler_buildVeleroDeployment(t *testing.T) {
 										{
 											Name:  common.LDLibraryPathEnvKey,
 											Value: "/plugins",
-										},
-										{
-											Name:  common.HTTPProxyEnvVar,
-											Value: os.Getenv("HTTP_PROXY"),
-										},
-										{
-											Name:  common.HTTPSProxyEnvVar,
-											Value: os.Getenv("HTTPS_PROXY"),
-										},
-										{
-											Name:  common.NoProxyEnvVar,
-											Value: os.Getenv("NO_PROXY"),
 										},
 										{
 											Name:  common.AWSSharedCredentialsFileEnvKey,
@@ -898,18 +850,6 @@ func TestVeleroReconciler_buildVeleroDeployment(t *testing.T) {
 										{
 											Name:  common.LDLibraryPathEnvKey,
 											Value: "/plugins",
-										},
-										{
-											Name:  common.HTTPProxyEnvVar,
-											Value: os.Getenv("HTTP_PROXY"),
-										},
-										{
-											Name:  common.HTTPSProxyEnvVar,
-											Value: os.Getenv("HTTPS_PROXY"),
-										},
-										{
-											Name:  common.NoProxyEnvVar,
-											Value: os.Getenv("NO_PROXY"),
 										},
 										{
 											Name:  common.AWSSharedCredentialsFileEnvKey,

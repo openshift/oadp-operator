@@ -26,6 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/pointer"
 
+	"github.com/operator-framework/operator-lib/proxy"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
@@ -371,6 +372,8 @@ func (r *VeleroReconciler) getRegistryEnvVars(bsl *velerov1.BackupStorageLocatio
 	if err != nil {
 		return nil, err
 	}
+	// Appending proxy env vars
+	envVar = append(envVar, proxy.ReadProxyVarsFromEnv()...)
 	return envVar, nil
 }
 

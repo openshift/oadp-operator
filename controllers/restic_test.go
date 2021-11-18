@@ -215,18 +215,6 @@ func TestVeleroReconciler_buildResticDaemonset(t *testing.T) {
 											Name:  "VELERO_SCRATCH_DIR",
 											Value: "/scratch",
 										},
-										{
-											Name:  "HTTP_PROXY",
-											Value: os.Getenv("HTTP_PROXY"),
-										},
-										{
-											Name:  "HTTPS_PROXY",
-											Value: os.Getenv("HTTPS_PROXY"),
-										},
-										{
-											Name:  "NO_PROXY",
-											Value: os.Getenv("NO_PROXY"),
-										},
 									},
 								},
 							},
@@ -361,18 +349,6 @@ func TestVeleroReconciler_buildResticDaemonset(t *testing.T) {
 										{
 											Name:  "VELERO_SCRATCH_DIR",
 											Value: "/scratch",
-										},
-										{
-											Name:  "HTTP_PROXY",
-											Value: os.Getenv("HTTP_PROXY"),
-										},
-										{
-											Name:  "HTTPS_PROXY",
-											Value: os.Getenv("HTTPS_PROXY"),
-										},
-										{
-											Name:  "NO_PROXY",
-											Value: os.Getenv("NO_PROXY"),
 										},
 										{
 											Name:  common.AWSSharedCredentialsFileEnvKey,
@@ -538,18 +514,6 @@ func TestVeleroReconciler_buildResticDaemonset(t *testing.T) {
 										{
 											Name:  "VELERO_SCRATCH_DIR",
 											Value: "/scratch",
-										},
-										{
-											Name:  "HTTP_PROXY",
-											Value: os.Getenv("HTTP_PROXY"),
-										},
-										{
-											Name:  "HTTPS_PROXY",
-											Value: os.Getenv("HTTPS_PROXY"),
-										},
-										{
-											Name:  "NO_PROXY",
-											Value: os.Getenv("NO_PROXY"),
 										},
 										{
 											Name:  common.AWSSharedCredentialsFileEnvKey,
@@ -747,18 +711,6 @@ func TestVeleroReconciler_buildResticDaemonset(t *testing.T) {
 										{
 											Name:  "VELERO_SCRATCH_DIR",
 											Value: "/scratch",
-										},
-										{
-											Name:  "HTTP_PROXY",
-											Value: os.Getenv("HTTP_PROXY"),
-										},
-										{
-											Name:  "HTTPS_PROXY",
-											Value: os.Getenv("HTTPS_PROXY"),
-										},
-										{
-											Name:  "NO_PROXY",
-											Value: os.Getenv("NO_PROXY"),
 										},
 										{
 											Name:  common.AWSSharedCredentialsFileEnvKey,
