@@ -1,0 +1,6 @@
+apiVersion: velero.io/v1
+kind: PodVolumeBackup
+metadata:
+  name: podvolumebackup
+  namespace: openshift-adp
+spec: {}

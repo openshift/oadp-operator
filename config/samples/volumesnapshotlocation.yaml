@@ -1,0 +1,6 @@
+apiVersion: velero.io/v1
+kind: VolumeSnapshotLocation
+metadata:
+  name: volumesnapshotlocation
+  namespace: openshift-adp
+spec: {}

@@ -1,0 +1,6 @@
+apiVersion: velero.io/v1
+kind: Schedule
+metadata:
+  name: schedule
+  namespace: openshift-adp
+spec: {}
