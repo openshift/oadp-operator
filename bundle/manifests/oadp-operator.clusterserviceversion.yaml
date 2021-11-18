@@ -256,15 +256,9 @@ spec:
       clusterPermissions:
       - rules:
         - apiGroups:
-          - '*'
-          resources:
-          - '*'
-          verbs:
-          - '*'
-        - apiGroups:
           - oadp.openshift.io
           resources:
-          - veleroes
+          - '*'
           verbs:
           - create
           - delete
@@ -274,19 +268,41 @@ spec:
           - update
           - watch
         - apiGroups:
-          - oadp.openshift.io
+          - coordination.k8s.io
           resources:
-          - veleroes/finalizers
+          - leases
           verbs:
-          - update
-        - apiGroups:
-          - oadp.openshift.io
-          resources:
-          - veleroes/status
-          verbs:
+          - create
+          - delete
           - get
+          - list
           - patch
           - update
+          - watch
+        - apiGroups:
+          - velero.io
+          resources:
+          - '*'
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - security.openshift.io
+          resources:
+          - securitycontextconstraints
+          verbs:
+          - list
+          - get
+          - create
+          - delete
+          - patch
+          - update
+          - watch
         - apiGroups:
           - security.openshift.io
           resourceNames:
@@ -297,12 +313,38 @@ spec:
           verbs:
           - use
         - apiGroups:
-          - velero.io
+          - ""
           resources:
-          - backups
-          - backupstoragelocations
-          - restores
-          - volumesnapshotlocations
+          - secrets
+          - configmaps
+          - pods
+          - services
+          - serviceaccounts
+          verbs:
+          - list
+          - get
+          - create
+          - delete
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - apps
+          resources:
+          - deployments
+          - daemonsets
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - route.openshift.io
+          resources:
+          - routes
           verbs:
           - create
           - delete
