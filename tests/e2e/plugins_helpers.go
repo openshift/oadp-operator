@@ -59,6 +59,27 @@ func doesPluginExist(namespace string, plugin oadpv1alpha1.DefaultPlugin) wait.C
 	}
 }
 
+func doesCustomPluginExist(namespace string, plugin oadpv1alpha1.CustomPlugin) wait.ConditionFunc {
+	return func() (bool, error) {
+		clientset, err := setUpClient()
+		if err != nil {
+			return false, err
+		}
+		veleroDeployment, err := clientset.AppsV1().Deployments(namespace).Get(context.TODO(), "velero", metav1.GetOptions{})
+		if err != nil {
+			return false, err
+		}
+		// loop over initContainers and check for custom plugins
+
+		for _, container := range veleroDeployment.Spec.Template.Spec.InitContainers {
+				if container.Name == plugin.Name && container.Image == plugin.Image {
+					return true, nil
+				}
+		}
+		return false, err
+	}
+}
+
 func doesVeleroDeploymentExist(namespace string, deploymentName string) wait.ConditionFunc {
 	log.Printf("Waiting for velero deployment to be created...")
 	return func() (bool, error) {

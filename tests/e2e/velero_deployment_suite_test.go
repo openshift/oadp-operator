@@ -67,8 +67,6 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 				Eventually(verifyVeleroResourceLimits(namespace, dpa.Spec.Configuration.Velero.PodConfig.ResourceAllocations.Limits), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 			}
 
-			// TODO check for custom velero plugins
-
 			//restic installation
 			if dpa.Spec.Configuration.Restic != nil && *dpa.Spec.Configuration.Restic.Enable {
 				log.Printf("Waiting for restic pods to be running")
@@ -83,6 +81,15 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 				log.Printf("Checking for default plugins")
 				for _, plugin := range dpa.Spec.Configuration.Velero.DefaultPlugins {
 					Eventually(doesPluginExist(namespace, plugin), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
+				}
+			}
+
+			// check customplugins
+			log.Printf("Waiting for velero deployment to have expected custom plugins")
+			if len(dpa.Spec.Configuration.Velero.CustomPlugins) > 0 {
+				log.Printf("Checking for custom plugins")
+				for _, plugin := range dpa.Spec.Configuration.Velero.CustomPlugins {
+					Eventually(doesCustomPluginExist(namespace, plugin), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 				}
 			}
 
@@ -113,6 +120,51 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 						Enable:    pointer.Bool(true),
 					},
 				},
+				BackupLocations: []oadpv1alpha1.BackupLocation{
+					{
+						Velero: &velero.BackupStorageLocationSpec{
+							Provider: provider,
+							Config: map[string]string{
+								"region": region,
+							},
+							Default: true,
+							StorageType: velero.StorageType{
+								ObjectStorage: &velero.ObjectStorageLocation{
+									Bucket: s3Bucket,
+									Prefix: veleroPrefix,
+								},
+							},
+						},
+					},
+				},
+			},
+			WantError: false,
+		}, nil),
+		Entry("Adding Velero custom plugin", InstallCase{
+			Name:         "default-cr-velero-custom-plugin",
+			BRestoreType: "restic",
+			DpaSpec: &oadpv1alpha1.DataProtectionApplicationSpec{
+				Configuration: &oadpv1alpha1.ApplicationConfig{
+					Velero: &oadpv1alpha1.VeleroConfig{
+						PodConfig: &oadpv1alpha1.PodConfig{},
+						DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+							oadpv1alpha1.DefaultPluginCSI,
+							oadpv1alpha1.DefaultPluginAWS,
+							oadpv1alpha1.DefaultPluginOpenShift,
+						},
+						CustomPlugins: []oadpv1alpha1.CustomPlugin{
+							{
+								Name: "encryption-plugin",
+								Image: "quay.io/konveyor/openshift-velero-plugin:latest",
+							},
+						},
+					},
+					Restic: &oadpv1alpha1.ResticConfig{
+						PodConfig: &oadpv1alpha1.PodConfig{},
+						Enable:    pointer.Bool(false),
+					},
+				},
+				BackupImages: pointer.Bool(false),
 				BackupLocations: []oadpv1alpha1.BackupLocation{
 					{
 						Velero: &velero.BackupStorageLocationSpec{
