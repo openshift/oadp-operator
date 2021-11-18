@@ -6,6 +6,8 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/resource"
 
+	"k8s.io/apimachinery/pkg/api/resource"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
