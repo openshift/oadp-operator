@@ -1,0 +1,40 @@
+#!/bin/bash
+
+# Prepare gather setup
+unset KUBECONFIG
+object_collection_path="/must-gather/metrics"
+mkdir ${object_collection_path}
+mkdir "${object_collection_path}/prometheus_queries"
+
+# Setup vars
+time_now=$(date +%s)
+time_ago=$(($time_now - 6*60*60))
+
+# OpenShift monitoring namespace status
+oc get all -n openshift-monitoring > "${object_collection_path}/openshift_monitoring_status"
+
+# Prometheus - metadata json dump
+echo "[cluster=host] Dumping Prometheus metadata ..."
+oc exec -n openshift-monitoring prometheus-k8s-0 -- \
+  curl -G http://localhost:9090/api/v1/targets/metadata -s --data match_target%3D%7Binstance!%3D%22%22%7D \
+  > "${object_collection_path}/prometheus_target_metadata.json"
+
+# Prometheus - filtered metrics json using query_range and HTML files with charts
+for metric_name in node_load1 cam_app_workload_migrations mtc_client_request_count mtc_client_request_elapsed
+do
+  echo "[cluster=host] Capturing prometheus metric [${metric_name}]"
+  oc exec -n openshift-monitoring prometheus-k8s-0 -- curl -s "http://localhost:9090/api/v1/query_range?query=${metric_name}&start=${time_ago}&end=${time_now}&step=14" \
+    > dump.json
+
+  # JSON data
+  echo "[cluster=host] Building chart for prometheus metric [${metric_name}]"
+  cat dump.json > "${object_collection_path}/prometheus_queries/${metric_name}.json"
+
+  # HTML file with the chart (using concatenated write to file, an elegant string replacement/variable evaluation didn't work with 100s kBs data)
+  cat /usr/bin/_metrics_chart_template_part_1.html > "${object_collection_path}/prometheus_queries/${metric_name}.html"
+  cat dump.json >> "${object_collection_path}/prometheus_queries/${metric_name}.html"
+  cat /usr/bin/_metrics_chart_template_part_2.html >> "${object_collection_path}/prometheus_queries/${metric_name}.html"
+
+  # Cleanup the temp file
+  rm -f dump.json
+done

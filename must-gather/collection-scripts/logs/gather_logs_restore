@@ -1,0 +1,19 @@
+#!/bin/bash
+source pwait
+
+# Cluster passed in from main gather
+cluster=$1
+ns=$2
+logs_since=$3
+max_parallelism=$4
+restore=$5
+object_collection_path=$6
+
+# Gather restore describe and logs
+mkdir -p "{object_collection_path}"
+echo "[cluster=${cluster}][ns=${ns}] Gathering 'velero restore describe ${restore}'"
+oc -n ${ns} exec $(oc -n ${ns} get po -l component=velero -o custom-columns=name:.metadata.name --no-headers) -- /bin/bash -c "/velero describe restore ${restore} --details" &> "${object_collection_path}/restore-describe-${restore}.txt" &
+echo "[cluster=${cluster}][ns=${ns}] Gathering 'velero restore logs ${restore}'"
+oc -n ${ns} exec $(oc -n ${ns} get po -l component=velero -o custom-columns=name:.metadata.name --no-headers) -- /bin/bash -c "/velero restore logs ${restore} --timeout=30s" &> "${object_collection_path}/restore-${restore}.log" &
+
+wait
