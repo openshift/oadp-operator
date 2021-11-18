@@ -1,6 +1,7 @@
 package e2e
 
 import (
+	"k8s.io/apimachinery/pkg/api/resource"
 	"log"
 	"time"
 
@@ -13,7 +14,7 @@ import (
 	"k8s.io/utils/pointer"
 )
 
-var _ = FDescribe("Configuration testing for Velero Custom Resource", func() {
+var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 
 	type InstallCase struct {
 		Name         string
@@ -53,6 +54,17 @@ var _ = FDescribe("Configuration testing for Velero Custom Resource", func() {
 			if len(dpa.Spec.Configuration.Velero.PodConfig.Tolerations) > 0 {
 				log.Printf("Checking for velero tolerations")
 				Eventually(verifyVeleroTolerations(namespace, dpa.Spec.Configuration.Velero.PodConfig.Tolerations), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
+			}
+
+			// check for velero resource allocations
+			if dpa.Spec.Configuration.Velero.PodConfig.ResourceAllocations.Requests != nil {
+				log.Printf("Checking for velero resource allocation requests")
+				Eventually(verifyVeleroResourceRequests(namespace, dpa.Spec.Configuration.Velero.PodConfig.ResourceAllocations.Requests), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
+			}
+
+			if dpa.Spec.Configuration.Velero.PodConfig.ResourceAllocations.Limits != nil {
+				log.Printf("Checking for velero resource allocation limits")
+				Eventually(verifyVeleroResourceLimits(namespace, dpa.Spec.Configuration.Velero.PodConfig.ResourceAllocations.Limits), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 			}
 
 			// TODO check for custom velero plugins
@@ -101,6 +113,93 @@ var _ = FDescribe("Configuration testing for Velero Custom Resource", func() {
 						Enable:    pointer.Bool(true),
 					},
 				},
+				BackupLocations: []oadpv1alpha1.BackupLocation{
+					{
+						Velero: &velero.BackupStorageLocationSpec{
+							Provider: provider,
+							Config: map[string]string{
+								"region": region,
+							},
+							Default: true,
+							StorageType: velero.StorageType{
+								ObjectStorage: &velero.ObjectStorageLocation{
+									Bucket: s3Bucket,
+									Prefix: veleroPrefix,
+								},
+							},
+						},
+					},
+				},
+			},
+			WantError: false,
+		}, nil),
+		Entry("Adding Velero resource allocations", InstallCase{
+			Name:         "default-cr-velero-resource-alloc",
+			BRestoreType: "restic",
+			DpaSpec: &oadpv1alpha1.DataProtectionApplicationSpec{
+				Configuration: &oadpv1alpha1.ApplicationConfig{
+					Velero: &oadpv1alpha1.VeleroConfig{
+						PodConfig: &oadpv1alpha1.PodConfig{
+							ResourceAllocations: corev1.ResourceRequirements{
+								Limits: corev1.ResourceList{
+									corev1.ResourceCPU:    resource.MustParse("2"),
+									corev1.ResourceMemory: resource.MustParse("512Mi"),
+								},
+								Requests: corev1.ResourceList{
+									corev1.ResourceCPU:    resource.MustParse("500m"),
+									corev1.ResourceMemory: resource.MustParse("256Mi"),
+								},
+							},
+						},
+						DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+							oadpv1alpha1.DefaultPluginCSI,
+							oadpv1alpha1.DefaultPluginAWS,
+							oadpv1alpha1.DefaultPluginOpenShift,
+						},
+					},
+					Restic: &oadpv1alpha1.ResticConfig{
+						PodConfig: &oadpv1alpha1.PodConfig{},
+						Enable:    pointer.Bool(false),
+					},
+				},
+				BackupImages: pointer.Bool(false),
+				BackupLocations: []oadpv1alpha1.BackupLocation{
+					{
+						Velero: &velero.BackupStorageLocationSpec{
+							Provider: provider,
+							Config: map[string]string{
+								"region": region,
+							},
+							Default: true,
+							StorageType: velero.StorageType{
+								ObjectStorage: &velero.ObjectStorageLocation{
+									Bucket: s3Bucket,
+									Prefix: veleroPrefix,
+								},
+							},
+						},
+					},
+				},
+			},
+			WantError: false,
+		}, nil),
+		Entry("Adding AWS plugin", InstallCase{
+			Name:         "default-cr-aws-plugin",
+			BRestoreType: "restic",
+			DpaSpec: &oadpv1alpha1.DataProtectionApplicationSpec{
+				Configuration: &oadpv1alpha1.ApplicationConfig{
+					Velero: &oadpv1alpha1.VeleroConfig{
+						PodConfig: &oadpv1alpha1.PodConfig{},
+						DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+							oadpv1alpha1.DefaultPluginCSI,
+						},
+					},
+					Restic: &oadpv1alpha1.ResticConfig{
+						PodConfig: &oadpv1alpha1.PodConfig{},
+						Enable:    pointer.Bool(false),
+					},
+				},
+				BackupImages: pointer.Bool(false),
 				BackupLocations: []oadpv1alpha1.BackupLocation{
 					{
 						Velero: &velero.BackupStorageLocationSpec{

@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/openshift/oadp-operator/pkg/common"
 	"io"
 	"log"
 	"reflect"
@@ -320,6 +321,47 @@ func verifyVeleroTolerations(namespace string, t []corev1.Toleration) wait.Condi
 
 		if !reflect.DeepEqual(t, veldep.Spec.Template.Spec.Tolerations) {
 			return false, errors.New("given Velero tolerations does not match the deployed velero tolerations")
+		}
+		return true, nil
+	}
+}
+
+// check for velero resource requests
+func verifyVeleroResourceRequests(namespace string, requests corev1.ResourceList) wait.ConditionFunc {
+	return func() (bool, error) {
+		clientset, err := setUpClient()
+		if err != nil {
+			return false, err
+		}
+		veldep, _ := clientset.AppsV1().Deployments(namespace).Get(context.Background(), "velero", metav1.GetOptions{})
+
+		for _,c := range veldep.Spec.Template.Spec.Containers {
+			if c.Name == common.Velero {
+				if !reflect.DeepEqual(requests, c.Resources.Requests) {
+					return false, errors.New("given Velero resource requests do not match the deployed velero resource requests")
+				}
+			}
+		}
+		return true, nil
+	}
+}
+
+
+// check for velero resource limits
+func verifyVeleroResourceLimits(namespace string, limits corev1.ResourceList) wait.ConditionFunc {
+	return func() (bool, error) {
+		clientset, err := setUpClient()
+		if err != nil {
+			return false, err
+		}
+		veldep, _ := clientset.AppsV1().Deployments(namespace).Get(context.Background(), "velero", metav1.GetOptions{})
+
+		for _,c := range veldep.Spec.Template.Spec.Containers {
+			if c.Name == common.Velero {
+				if !reflect.DeepEqual(limits, c.Resources.Limits) {
+					return false, errors.New("given Velero resource limits do not match the deployed velero resource limits")
+				}
+			}
 		}
 		return true, nil
 	}
