@@ -451,7 +451,7 @@ spec:
                   value: latest
                 - name: VELERO_VSPHERE_PLUGIN_TAG
                   value: 1.1.0
-                image: quay.io/konveyor/oadp-operator:latest
+                image: ttl.sh/oadp-operator-967a78f:1h
                 imagePullPolicy: Always
                 livenessProbe:
                   httpGet:
