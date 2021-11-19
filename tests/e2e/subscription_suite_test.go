@@ -135,7 +135,7 @@ var _ = Describe("Subscription Config Suite Test", func() {
 			failureExpected: pointer.Bool(true),
 		}),
 		// Leave this as last entry to reset config
-		FEntry("Config unset", SubscriptionConfigTestCase{
+		Entry("Config unset", SubscriptionConfigTestCase{
 			SubscriptionConfig: operators.SubscriptionConfig{},
 		}),
 	)
