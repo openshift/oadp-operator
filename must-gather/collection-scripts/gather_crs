@@ -30,7 +30,7 @@ for resource in ${resources[@]}; do
     ocobject=$(echo $ocresource | awk '{print $1}')
     ocproject=$(echo $ocresource | awk '{print $2}')
     if [ -z "${ocproject}" ]|[ "${ocproject}" == "<none>" ]; then
-      object_collection_path=must-gather/clusters/${clusterID}/cluster-scoped-resources/${resource}
+      object_collection_path=/must-gather/clusters/${clusterID}/cluster-scoped-resources/${resource}
       mkdir -p ${object_collection_path}
       /usr/bin/oc get ${resource} -o yaml ${ocobject} &> ${object_collection_path}/${ocobject}.yaml &
     else
@@ -39,7 +39,7 @@ for resource in ${resources[@]}; do
       if [[ ${skip[*]} =~ "${resource}" ]]; then
         continue
       fi
-      object_collection_path=must-gather/clusters/${clusterID}/namespaces/${ocproject}/velero.io/${resource}
+      object_collection_path=/must-gather/clusters/${clusterID}/namespaces/${ocproject}/velero.io/${resource}
       mkdir -p ${object_collection_path}
       /usr/bin/oc get ${resource} -n ${ocproject} -o yaml ${ocobject} &> ${object_collection_path}/${ocobject}.yaml & 
     fi
@@ -49,8 +49,8 @@ done
 
 for ns in ${namespaces[@]}; do
   for vel in $(oc get velero --namespace ${ns} --no-headers | awk '{print $1}'); do
-    mkdir -p "/must-gather/clusters/${cluster}/namespaces/${ns}/oadp/dpa-${vel}"
-    oc get velero ${vel} -o yaml --namespace ${ns} &> "/must-gather/clusters/${cluster}/namespaces/${ns}/oadp/dpa-${vel}/${vel}.yml" &
+    mkdir -p "/must-gather/clusters/${clusterID}/namespaces/${ns}/oadp.openshift.io/dpa-${vel}"
+    oc get velero ${vel} -o yaml --namespace ${ns} &> "/must-gather/clusters/${clusterID}/namespaces/${ns}/oadp.openshift.io/dpa-${vel}/${vel}.yml" &
     pwait $max_parallelism
   done
 done
