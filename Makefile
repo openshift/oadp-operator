@@ -224,8 +224,8 @@ bundle-push: ## Push the bundle image.
 
 ## Build current branch operator image, bundle image, push and install via OLM
 deploy-olm: GIT_REV=$(shell git rev-parse --short HEAD)
-deploy-olm: THIS_OPERATOR_IMAGE=ttl.sh/oadp-operator-$(GIT_REV):1h # Set target specific variable
-deploy-olm: THIS_BUNDLE_IMAGE=ttl.sh/oadp-operator-bundle-$(GIT_REV):1h # Set target specific variable
+deploy-olm: THIS_OPERATOR_IMAGE?=ttl.sh/oadp-operator-$(GIT_REV):1h # Set target specific variable
+deploy-olm: THIS_BUNDLE_IMAGE?=ttl.sh/oadp-operator-bundle-$(GIT_REV):1h # Set target specific variable
 deploy-olm:
 	oc whoami # Check if logged in
 	oc create namespace openshift-adp # This should error out if namespace already exists, delete namespace (to clear current resources) before proceeding
