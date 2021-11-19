@@ -43,13 +43,9 @@ var _ = Describe("Subscription Config Suite Test", func() {
 			err = vel.Client.Update(context.Background(), s.Subscription)
 			Expect(err).To(BeNil())
 
-			// get installplan from subscription
-
 			// get csv from installplan from subscription
 			log.Printf("Wait for CSV to be succeeded")
 			Eventually(s.csvIsReady, "2m").Should(BeTrue())
-			log.Printf("Wait for CSV status.phase to be succeeded")
-			log.Printf("Waiting for InstallPlanPending condition to be false")
 
 			log.Printf("Building veleroSpec")
 			err = vel.Build(csi)
@@ -58,8 +54,6 @@ var _ = Describe("Subscription Config Suite Test", func() {
 			log.Printf("CreatingOrUpdate test Velero")
 			err = vel.CreateOrUpdate(&vel.CustomResource.Spec)
 			Expect(err).NotTo(HaveOccurred())
-			
-			log.Printf("Checking config environment variables are passed to each container in each pod")
 
 			log.Printf("Getting velero object")
 			velero, err := vel.Get()
