@@ -12,10 +12,6 @@ for pod in $(/usr/bin/oc get pods --no-headers --namespace $ns | awk '{print $1}
     mkdir -p ${object_collection_path}
 
     containers="--all-containers"
-    # Only gather plain logs from mig-log-reader
-    if [[ $pod == *"log-reader"* ]]; then
-        containers="-c plain"
-    fi
 
     echo "[cluster=${cluster}][ns=${ns}][pod=${pod}] Collecting Pod logs..."
     /usr/bin/oc logs ${containers} --namespace ${ns} ${pod} --since ${logs_since} &> "${object_collection_path}/current.log" &
