@@ -11,6 +11,7 @@ import (
 	. "github.com/onsi/gomega"
 	operators "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/utils/pointer"
 )
 
 var _ = Describe("Subscription Config Suite Test", func() {
@@ -31,6 +32,7 @@ var _ = Describe("Subscription Config Suite Test", func() {
 	})
 	type SubscriptionConfigTestCase struct {
 		operators.SubscriptionConfig
+		failureExpected *bool
 	}
 	DescribeTable("Proxy test table",
 		func(testCase SubscriptionConfigTestCase) {
@@ -45,41 +47,45 @@ var _ = Describe("Subscription Config Suite Test", func() {
 
 			// get csv from installplan from subscription
 			log.Printf("Wait for CSV to be succeeded")
-			Eventually(s.csvIsReady, "2m").Should(BeTrue())
-
-			log.Printf("Building veleroSpec")
-			err = vel.Build(csi)
-			Expect(err).NotTo(HaveOccurred())
-
-			log.Printf("CreatingOrUpdate test Velero")
-			err = vel.CreateOrUpdate(&vel.CustomResource.Spec)
-			Expect(err).NotTo(HaveOccurred())
-
-			log.Printf("Getting velero object")
-			velero, err := vel.Get()
-			Expect(err).NotTo(HaveOccurred())
-			log.Printf("Waiting for velero pod to be running")
-			Eventually(isVeleroPodRunning(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
-			if *velero.Spec.EnableRestic {
-				log.Printf("Waiting for restic pods to be running")
-				Eventually(areResticPodsRunning(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
-			}
-			if velero.Spec.BackupImages == nil || *velero.Spec.BackupImages {
-				log.Printf("Waiting for registry pods to be running")
-				Eventually(areRegistryDeploymentsAvailable(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
-			}
-			if s.Spec.Config != nil && s.Spec.Config.Env != nil {
-				// get pod env vars
-				log.Printf("Getting velero pods")
-				podList, err := getVeleroPods(namespace)
+			if testCase.failureExpected != nil && *testCase.failureExpected {
+				Consistently(s.csvIsReady, time.Minute*2).Should(BeFalse())
+			} else {
+				Eventually(s.csvIsReady, time.Minute*2).Should(BeTrue())
+				
+	
+				log.Printf("Building veleroSpec")
+				err = vel.Build(csi)
 				Expect(err).NotTo(HaveOccurred())
-				log.Printf("Getting pods containers env vars")
-				bsl := vel.CustomResource.Spec.BackupStorageLocations[0]
-				for _, podInfo := range podList.Items {
-					// we care about pods that have labels control-plane=controller-manager, component=velero, "component": "oadp-" + bsl.Name + "-" + bsl.Spec.Provider + "-registry",
-					if podInfo.Labels["control-plane"] == "controller-manager" ||
-						podInfo.Labels["component"] == "velero" ||
-						podInfo.Labels["component"] == "oadp-"+fmt.Sprintf("%s-%d", vel.Name, 1)+"-"+bsl.Provider+"-registry" {
+	
+				log.Printf("CreatingOrUpdate test Velero")
+				err = vel.CreateOrUpdate(&vel.CustomResource.Spec)
+				Expect(err).NotTo(HaveOccurred())
+	
+				log.Printf("Getting velero object")
+				velero, err := vel.Get()
+				Expect(err).NotTo(HaveOccurred())
+				log.Printf("Waiting for velero pod to be running")
+				Eventually(isVeleroPodRunning(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
+				if *velero.Spec.EnableRestic {
+					log.Printf("Waiting for restic pods to be running")
+					Eventually(areResticPodsRunning(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
+				}
+				if velero.Spec.BackupImages == nil || *velero.Spec.BackupImages {
+					log.Printf("Waiting for registry pods to be running")
+					Eventually(areRegistryDeploymentsAvailable(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
+				}
+				if s.Spec.Config != nil && s.Spec.Config.Env != nil {
+					// get pod env vars
+					log.Printf("Getting velero pods")
+					podList, err := getVeleroPods(namespace)
+					Expect(err).NotTo(HaveOccurred())
+					log.Printf("Getting pods containers env vars")
+					bsl := vel.CustomResource.Spec.BackupStorageLocations[0]
+					for _, podInfo := range podList.Items {
+						// we care about pods that have labels control-plane=controller-manager, component=velero, "component": "oadp-" + bsl.Name + "-" + bsl.Spec.Provider + "-registry",
+						if podInfo.Labels["control-plane"] == "controller-manager" ||
+							podInfo.Labels["component"] == "velero" ||
+							podInfo.Labels["component"] == "oadp-"+fmt.Sprintf("%s-%d", vel.Name, 1)+"-"+bsl.Provider+"-registry" {
 							log.Printf("Checking env vars are passed to each container in each pod")
 							for _, container := range podInfo.Spec.Containers {
 								for _, env := range s.Spec.Config.Env {
@@ -87,12 +93,13 @@ var _ = Describe("Subscription Config Suite Test", func() {
 								}
 							}
 	
+						}
 					}
 				}
+				log.Printf("Deleting test Velero")
+				err = vel.Delete()
+				Expect(err).ToNot(HaveOccurred())
 			}
-			log.Printf("Deleting test Velero")
-			err = vel.Delete()
-			Expect(err).ToNot(HaveOccurred())
 
 		},
 		Entry("HTTP_PROXY set", SubscriptionConfigTestCase{
@@ -101,16 +108,6 @@ var _ = Describe("Subscription Config Suite Test", func() {
 					{
 						Name:  "HTTP_PROXY",
 						Value: "http://proxy.example.com:8080",
-					},
-				},
-			},
-		}),
-		Entry("HTTPS_PROXY set", SubscriptionConfigTestCase{
-			SubscriptionConfig: operators.SubscriptionConfig{
-				Env: []corev1.EnvVar{
-					{
-						Name:  "HTTPS_PROXY",
-						Value: "https://proxy.example.com:8080",
 					},
 				},
 			},
@@ -124,6 +121,18 @@ var _ = Describe("Subscription Config Suite Test", func() {
 					},
 				},
 			},
+		}),
+		Entry("HTTPS_PROXY set", SubscriptionConfigTestCase{
+			SubscriptionConfig: operators.SubscriptionConfig{
+				Env: []corev1.EnvVar{
+					{
+						Name:  "HTTPS_PROXY",
+						Value: "localhost",
+					},
+				},
+			},
+			// Failure is expected because localhost is not a valid https proxy and manager container will fail setup
+			failureExpected: pointer.Bool(true),
 		}),
 		// Leave this as last entry to reset config
 		Entry("Config unset", SubscriptionConfigTestCase{
