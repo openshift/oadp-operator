@@ -1,0 +1,22 @@
+apiVersion: oadp.openshift.io/v1alpha1
+kind: Velero
+metadata:
+  name: d-velero-sample
+spec:
+  olmManaged: false
+  backupStorageLocations:
+  - provider: gcp
+    default: true
+    objectStorage:
+      bucket: deepakvelero 
+      prefix: my-prefix
+    config:
+      credentialsFile: /Users/drajds/.gcp/credentials
+      serviceAccount: aos-serviceaccount
+    credential:
+      name: cloud-credentials-gcp
+      key: cloud
+  enableRestic: true
+  defaultVeleroPlugins:
+  - openshift
+  - gcp
