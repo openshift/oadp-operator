@@ -58,5 +58,5 @@ func isBackupCompletedSuccessfully(ocClient client.Client, veleroNamespace, name
 	if backup.Status.Phase == velero.BackupPhaseCompleted {
 		return true, nil
 	}
-	return false, fmt.Errorf("backup phase is: %s; expected: %s\nvalidation errors: %v", backup.Status.Phase, velero.BackupPhaseCompleted, backup.Status.ValidationErrors)
+	return false, fmt.Errorf("backup phase is: %s; expected: %s\nvalidation errors: %v\nvelero failure logs: %v", backup.Status.Phase, velero.BackupPhaseCompleted, backup.Status.ValidationErrors, getVeleroContainerFailureLogs(veleroNamespace))
 }
