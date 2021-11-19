@@ -162,7 +162,7 @@ func (a awsBucketClient) getS3Client() (s3iface.S3API, error) {
 		SharedConfigFiles: []string{cred},
 	}
 
-	if a.bucket.Spec.EnableSharedConfig {
+	if a.bucket.Spec.EnableSharedConfig != nil && *a.bucket.Spec.EnableSharedConfig {
 		opts.SharedConfigState = session.SharedConfigEnable
 	}
 

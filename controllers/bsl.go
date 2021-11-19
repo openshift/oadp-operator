@@ -115,7 +115,7 @@ func (r *DPAReconciler) ReconcileBackupStorageLocations(log logr.Logger) (bool, 
 				}
 				bsl.Spec.BackupSyncPeriod = bslSpec.Bucket.BackupSyncPeriod
 				bsl.Spec.Config = bslSpec.Bucket.Config
-				if bucket.Spec.EnableSharedConfig {
+				if bucket.Spec.EnableSharedConfig != nil && *bucket.Spec.EnableSharedConfig {
 					if bsl.Spec.Config == nil {
 						bsl.Spec.Config = map[string]string{}
 					}
