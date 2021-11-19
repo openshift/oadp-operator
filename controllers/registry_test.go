@@ -935,7 +935,8 @@ func TestDPAReconciler_updateRegistrySVC(t *testing.T) {
 					Name:      "oadp-" + "test-bsl" + "-" + "test-provider" + "-registry-svc",
 					Namespace: "test-ns",
 					Labels: map[string]string{
-						"component": "oadp-" + "test-bsl" + "-" + "test-provider" + "-registry",
+						"component":                    "oadp-" + "test-bsl" + "-" + "test-provider" + "-registry",
+						oadpv1alpha1.OadpOperatorLabel: "True",
 					},
 					OwnerReferences: []metav1.OwnerReference{{
 						APIVersion:         oadpv1alpha1.SchemeBuilder.GroupVersion.String(),
@@ -1035,9 +1036,10 @@ func TestDPAReconciler_updateRegistryRoute(t *testing.T) {
 					Name:      "oadp-" + "test-bsl" + "-" + "test-provider" + "-registry-route",
 					Namespace: "test-ns",
 					Labels: map[string]string{
-						"component": "oadp-" + "test-bsl" + "-" + "test-provider" + "-registry",
-						"service":   "oadp-" + "test-bsl" + "-" + "test-provider" + "-registry-svc",
-						"track":     "registry-routes",
+						"component":                    "oadp-" + "test-bsl" + "-" + "test-provider" + "-registry",
+						"service":                      "oadp-" + "test-bsl" + "-" + "test-provider" + "-registry-svc",
+						"track":                        "registry-routes",
+						oadpv1alpha1.OadpOperatorLabel: "True",
 					},
 					OwnerReferences: []metav1.OwnerReference{{
 						APIVersion:         oadpv1alpha1.SchemeBuilder.GroupVersion.String(),

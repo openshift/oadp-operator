@@ -52,7 +52,7 @@ func (r *DPAReconciler) ValidateVolumeSnapshotLocations(log logr.Logger) (bool, 
 	if dpa.Spec.Configuration.Velero == nil {
 		return false, errors.New("velero configuration not found")
 	}
-	for i, vslSpec := range dpa.Spec.VolumeSnapshots {
+	for i, vslSpec := range dpa.Spec.SnapshotLocations {
 		vsl := velerov1.VolumeSnapshotLocation{
 			ObjectMeta: metav1.ObjectMeta{
 				// TODO: Use a hash instead of i
@@ -154,7 +154,7 @@ func (r *DPAReconciler) ReconcileVolumeSnapshotLocations(log logr.Logger) (bool,
 	}
 
 	// Loop through all configured VSLs
-	for i, vslSpec := range dpa.Spec.VolumeSnapshots {
+	for i, vslSpec := range dpa.Spec.SnapshotLocations {
 		// Create VSL as is, we can safely assume they are valid from
 		// ValidateVolumeSnapshotLocations
 		vsl := velerov1.VolumeSnapshotLocation{

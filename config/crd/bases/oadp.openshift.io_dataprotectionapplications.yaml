@@ -408,18 +408,12 @@ spec:
                 description: DNSPolicy defines how a pod's DNS will be configured.
                   https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy
                 type: string
-              unsupportedOverrides:
-                additionalProperties:
-                  type: string
-                description: UnsupportedOverrides can be used to override the deployed
-                  dependent images for development
-                type: object
-              volumeSnapshots:
+              snapshotLocations:
                 description: VolumeSnapshotLocations defines the list of desired configuration
                   to use for VolumeSnapshotLocations
                 items:
-                  description: VolumeSnapshot defines the configuration for the DPA
-                    snapshot store
+                  description: SnapshotLocation defines the configuration for the
+                    DPA snapshot store
                   properties:
                     metadata:
                       type: object
@@ -443,6 +437,12 @@ spec:
                   - velero
                   type: object
                 type: array
+              unsupportedOverrides:
+                additionalProperties:
+                  type: string
+                description: UnsupportedOverrides can be used to override the deployed
+                  dependent images for development
+                type: object
             required:
             - configuration
             type: object

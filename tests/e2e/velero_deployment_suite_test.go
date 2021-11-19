@@ -43,9 +43,9 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 					Eventually(doesBSLExist(namespace, *bsl.Velero, installCase.DpaSpec), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 				}
 			}
-			if len(dpa.Spec.VolumeSnapshots) > 0 {
+			if len(dpa.Spec.SnapshotLocations) > 0 {
 				log.Printf("Checking for vsl spec")
-				for _, vsl := range dpa.Spec.VolumeSnapshots {
+				for _, vsl := range dpa.Spec.SnapshotLocations {
 					Eventually(doesVSLExist(namespace, *vsl.Velero, installCase.DpaSpec), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 				}
 			}
@@ -289,7 +289,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 						Enable:    pointer.Bool(true),
 					},
 				},
-				VolumeSnapshots: []oadpv1alpha1.VolumeSnapshot{
+				SnapshotLocations: []oadpv1alpha1.SnapshotLocation{
 					{
 						Velero: &velero.VolumeSnapshotLocationSpec{
 							Provider: "aws",
@@ -336,7 +336,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 						Enable:    pointer.Bool(true),
 					},
 				},
-				VolumeSnapshots: []oadpv1alpha1.VolumeSnapshot{
+				SnapshotLocations: []oadpv1alpha1.SnapshotLocation{
 					{
 						Velero: &velero.VolumeSnapshotLocationSpec{
 							Provider: "aws",
@@ -389,7 +389,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 						Enable:    pointer.Bool(true),
 					},
 				},
-				VolumeSnapshots: []oadpv1alpha1.VolumeSnapshot{
+				SnapshotLocations: []oadpv1alpha1.SnapshotLocation{
 					{
 						Velero: &velero.VolumeSnapshotLocationSpec{
 							Provider: "aws",

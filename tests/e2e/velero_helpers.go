@@ -296,10 +296,10 @@ func doesBSLExist(namespace string, bsl velero.BackupStorageLocationSpec, spec *
 func doesVSLExist(namespace string, vslspec velero.VolumeSnapshotLocationSpec, spec *oadpv1alpha1.DataProtectionApplicationSpec) wait.ConditionFunc {
 	return func() (bool, error) {
 
-		if len(spec.VolumeSnapshots) == 0 {
+		if len(spec.SnapshotLocations) == 0 {
 			return false, errors.New("no volume storage location configured. Expected VSL to be configured")
 		}
-		for _, v := range spec.VolumeSnapshots {
+		for _, v := range spec.SnapshotLocations {
 			if v.Velero.Provider == vslspec.Provider {
 				if !reflect.DeepEqual(vslspec, *v.Velero) {
 					return false, errors.New("given Velero vslspec does not match the deployed velero vslspec")
@@ -335,7 +335,7 @@ func verifyVeleroResourceRequests(namespace string, requests corev1.ResourceList
 		}
 		veldep, _ := clientset.AppsV1().Deployments(namespace).Get(context.Background(), "velero", metav1.GetOptions{})
 
-		for _,c := range veldep.Spec.Template.Spec.Containers {
+		for _, c := range veldep.Spec.Template.Spec.Containers {
 			if c.Name == common.Velero {
 				if !reflect.DeepEqual(requests, c.Resources.Requests) {
 					return false, errors.New("given Velero resource requests do not match the deployed velero resource requests")
@@ -346,7 +346,6 @@ func verifyVeleroResourceRequests(namespace string, requests corev1.ResourceList
 	}
 }
 
-
 // check for velero resource limits
 func verifyVeleroResourceLimits(namespace string, limits corev1.ResourceList) wait.ConditionFunc {
 	return func() (bool, error) {
@@ -356,7 +355,7 @@ func verifyVeleroResourceLimits(namespace string, limits corev1.ResourceList) wa
 		}
 		veldep, _ := clientset.AppsV1().Deployments(namespace).Get(context.Background(), "velero", metav1.GetOptions{})
 
-		for _,c := range veldep.Spec.Template.Spec.Containers {
+		for _, c := range veldep.Spec.Template.Spec.Containers {
 			if c.Name == common.Velero {
 				if !reflect.DeepEqual(limits, c.Resources.Limits) {
 					return false, errors.New("given Velero resource limits do not match the deployed velero resource limits")

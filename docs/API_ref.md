@@ -4,8 +4,8 @@
 
 | Property             | Type                                                                        | Description                                                                                                     |
 |----------------------|-----------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------|
-| backupLocations      | [] BackupLocation                                                           | BackupLocations defines the list of desired configuration to use for BackupStorageLocations                     |
-| VolumeSnapshots      | [] VolumeSnapshot                                                           | VolumeSnapshotLocations defines the list of desired configuration to use for VolumeSnapshotLocations            |
+| BackupLocations      | [] BackupLocation                                                           | BackupLocations defines the list of desired configuration to use for BackupStorageLocations                     |
+| SnapshotLocations      | [] SnapshotLocation                                                       | SnapshotLocations defines the list of desired configuration to use for VolumeSnapshotLocations                  |
 | UnsupportedOverrides | map [ UnsupportedImageKey ] string                                          | UnsupportedOverrides can be used to override the deployed dependent images for development                      |
 | PodAnnotations       | map [ string ] string                                                       | Used to add annotations to pods deployed by operator                                                            |
 | PodDnsPolicy         | [corev1.DNSPolicy] ( https://pkg.go.dev/k8s.io/api/core/v1#DNSPolicy)       | DNSPolicy defines how a pod's DNS will be configured.                                                           |

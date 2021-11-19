@@ -114,8 +114,8 @@ type BackupLocation struct {
 	Velero            *velero.BackupStorageLocationSpec `json:"velero"`
 }
 
-// VolumeSnapshot defines the configuration for the DPA snapshot store
-type VolumeSnapshot struct {
+// SnapshotLocation defines the configuration for the DPA snapshot store
+type SnapshotLocation struct {
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 	Velero            *velero.VolumeSnapshotLocationSpec `json:"velero"`
 }
@@ -127,7 +127,7 @@ type DataProtectionApplicationSpec struct {
 	BackupLocations []BackupLocation `json:"backupLocations"`
 	// VolumeSnapshotLocations defines the list of desired configuration to use for VolumeSnapshotLocations
 	// +optional
-	VolumeSnapshots []VolumeSnapshot `json:"volumeSnapshots"`
+	SnapshotLocations []SnapshotLocation `json:"snapshotLocations"`
 	// UnsupportedOverrides can be used to override the deployed dependent images for development
 	// +optional
 	UnsupportedOverrides map[UnsupportedImageKey]string `json:"unsupportedOverrides,omitempty"`

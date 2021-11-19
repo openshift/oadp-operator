@@ -72,9 +72,9 @@ func doesCustomPluginExist(namespace string, plugin oadpv1alpha1.CustomPlugin) w
 		// loop over initContainers and check for custom plugins
 
 		for _, container := range veleroDeployment.Spec.Template.Spec.InitContainers {
-				if container.Name == plugin.Name && container.Image == plugin.Image {
-					return true, nil
-				}
+			if container.Name == plugin.Name && container.Image == plugin.Image {
+				return true, nil
+			}
 		}
 		return false, err
 	}

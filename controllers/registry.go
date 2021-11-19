@@ -740,7 +740,8 @@ func (r *DPAReconciler) updateRegistrySVC(svc *corev1.Service, bsl *velerov1.Bac
 		},
 	}
 	svc.Labels = map[string]string{
-		"component": "oadp-" + bsl.Name + "-" + bsl.Spec.Provider + "-registry",
+		oadpv1alpha1.OadpOperatorLabel: "True",
+		"component":                    "oadp-" + bsl.Name + "-" + bsl.Spec.Provider + "-registry",
 	}
 	return nil
 }
@@ -834,9 +835,10 @@ func (r *DPAReconciler) updateRegistryRoute(route *routev1.Route, bsl *velerov1.
 	}
 
 	route.Labels = map[string]string{
-		"component": "oadp-" + bsl.Name + "-" + bsl.Spec.Provider + "-registry",
-		"service":   "oadp-" + bsl.Name + "-" + bsl.Spec.Provider + "-registry-svc",
-		"track":     "registry-routes",
+		oadpv1alpha1.OadpOperatorLabel: "True",
+		"component":                    "oadp-" + bsl.Name + "-" + bsl.Spec.Provider + "-registry",
+		"service":                      "oadp-" + bsl.Name + "-" + bsl.Spec.Provider + "-registry-svc",
+		"track":                        "registry-routes",
 	}
 
 	return nil

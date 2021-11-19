@@ -55,7 +55,7 @@ func TestDPAReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 					Configuration: &oadpv1alpha1.ApplicationConfig{
 						Velero: &oadpv1alpha1.VeleroConfig{},
 					},
-					VolumeSnapshots: []oadpv1alpha1.VolumeSnapshot{
+					SnapshotLocations: []oadpv1alpha1.SnapshotLocation{
 						{
 							Velero: &velerov1.VolumeSnapshotLocationSpec{
 								Provider: AWSProvider,
@@ -87,7 +87,7 @@ func TestDPAReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 					Configuration: &oadpv1alpha1.ApplicationConfig{
 						Velero: &oadpv1alpha1.VeleroConfig{},
 					},
-					VolumeSnapshots: []oadpv1alpha1.VolumeSnapshot{
+					SnapshotLocations: []oadpv1alpha1.SnapshotLocation{
 						{
 							Velero: &velerov1.VolumeSnapshotLocationSpec{
 								Provider: AWSProvider,
@@ -116,7 +116,7 @@ func TestDPAReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 					Configuration: &oadpv1alpha1.ApplicationConfig{
 						Velero: &oadpv1alpha1.VeleroConfig{},
 					},
-					VolumeSnapshots: []oadpv1alpha1.VolumeSnapshot{
+					SnapshotLocations: []oadpv1alpha1.SnapshotLocation{
 						{
 							Velero: &velerov1.VolumeSnapshotLocationSpec{
 								Provider: AWSProvider,
@@ -149,7 +149,7 @@ func TestDPAReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 					Configuration: &oadpv1alpha1.ApplicationConfig{
 						Velero: &oadpv1alpha1.VeleroConfig{},
 					},
-					VolumeSnapshots: []oadpv1alpha1.VolumeSnapshot{
+					SnapshotLocations: []oadpv1alpha1.SnapshotLocation{
 						{
 							Velero: &velerov1.VolumeSnapshotLocationSpec{
 								Provider: AWSProvider,
@@ -184,7 +184,7 @@ func TestDPAReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 					Configuration: &oadpv1alpha1.ApplicationConfig{
 						Velero: &oadpv1alpha1.VeleroConfig{},
 					},
-					VolumeSnapshots: []oadpv1alpha1.VolumeSnapshot{
+					SnapshotLocations: []oadpv1alpha1.SnapshotLocation{
 						{
 							Velero: &velerov1.VolumeSnapshotLocationSpec{
 								Provider: GCPProvider,
@@ -213,7 +213,7 @@ func TestDPAReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 					Configuration: &oadpv1alpha1.ApplicationConfig{
 						Velero: &oadpv1alpha1.VeleroConfig{},
 					},
-					VolumeSnapshots: []oadpv1alpha1.VolumeSnapshot{
+					SnapshotLocations: []oadpv1alpha1.SnapshotLocation{
 						{
 							Velero: &velerov1.VolumeSnapshotLocationSpec{
 								Provider: GCPProvider,
@@ -245,7 +245,7 @@ func TestDPAReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 					Configuration: &oadpv1alpha1.ApplicationConfig{
 						Velero: &oadpv1alpha1.VeleroConfig{},
 					},
-					VolumeSnapshots: []oadpv1alpha1.VolumeSnapshot{
+					SnapshotLocations: []oadpv1alpha1.SnapshotLocation{
 						{
 							Velero: &velerov1.VolumeSnapshotLocationSpec{
 								Provider: GCPProvider,
@@ -277,7 +277,7 @@ func TestDPAReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 					Configuration: &oadpv1alpha1.ApplicationConfig{
 						Velero: &oadpv1alpha1.VeleroConfig{},
 					},
-					VolumeSnapshots: []oadpv1alpha1.VolumeSnapshot{
+					SnapshotLocations: []oadpv1alpha1.SnapshotLocation{
 						{
 							Velero: &velerov1.VolumeSnapshotLocationSpec{
 								Provider: GCPProvider,
@@ -311,7 +311,7 @@ func TestDPAReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 					Configuration: &oadpv1alpha1.ApplicationConfig{
 						Velero: &oadpv1alpha1.VeleroConfig{},
 					},
-					VolumeSnapshots: []oadpv1alpha1.VolumeSnapshot{
+					SnapshotLocations: []oadpv1alpha1.SnapshotLocation{
 						{
 							Velero: &velerov1.VolumeSnapshotLocationSpec{
 								Provider: AzureProvider,
@@ -340,7 +340,7 @@ func TestDPAReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 					Configuration: &oadpv1alpha1.ApplicationConfig{
 						Velero: &oadpv1alpha1.VeleroConfig{},
 					},
-					VolumeSnapshots: []oadpv1alpha1.VolumeSnapshot{
+					SnapshotLocations: []oadpv1alpha1.SnapshotLocation{
 						{
 							Velero: &velerov1.VolumeSnapshotLocationSpec{
 								Provider: AzureProvider,
@@ -372,7 +372,7 @@ func TestDPAReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 					Configuration: &oadpv1alpha1.ApplicationConfig{
 						Velero: &oadpv1alpha1.VeleroConfig{},
 					},
-					VolumeSnapshots: []oadpv1alpha1.VolumeSnapshot{
+					SnapshotLocations: []oadpv1alpha1.SnapshotLocation{
 						{
 							Velero: &velerov1.VolumeSnapshotLocationSpec{
 								Provider: AzureProvider,
@@ -404,7 +404,7 @@ func TestDPAReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 					Configuration: &oadpv1alpha1.ApplicationConfig{
 						Velero: &oadpv1alpha1.VeleroConfig{},
 					},
-					VolumeSnapshots: []oadpv1alpha1.VolumeSnapshot{
+					SnapshotLocations: []oadpv1alpha1.SnapshotLocation{
 						{
 							Velero: &velerov1.VolumeSnapshotLocationSpec{
 								Provider: AzureProvider,
@@ -436,7 +436,7 @@ func TestDPAReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 					Configuration: &oadpv1alpha1.ApplicationConfig{
 						Velero: &oadpv1alpha1.VeleroConfig{},
 					},
-					VolumeSnapshots: []oadpv1alpha1.VolumeSnapshot{
+					SnapshotLocations: []oadpv1alpha1.SnapshotLocation{
 						{
 							Velero: &velerov1.VolumeSnapshotLocationSpec{
 								Provider: AzureProvider,
@@ -468,7 +468,7 @@ func TestDPAReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 					Configuration: &oadpv1alpha1.ApplicationConfig{
 						Velero: &oadpv1alpha1.VeleroConfig{},
 					},
-					VolumeSnapshots: []oadpv1alpha1.VolumeSnapshot{
+					SnapshotLocations: []oadpv1alpha1.SnapshotLocation{
 						{
 							Velero: &velerov1.VolumeSnapshotLocationSpec{
 								Provider: GCPProvider,
