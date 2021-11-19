@@ -36,13 +36,6 @@ else
   echo "Essential-only must-gather was requested. Skipping prometheus metrics collection"
 fi
 
-  # Collect memory profile data
-if [ -z "$essential_only" ]; then
-  /usr/bin/gather_pprof ${ns} &
-else
-  echo "Essential-only must-gather was requested. Skipping pprof memory profile gather"
-fi
-
   # Waits for gather_crs, gather_logs, gather_metrics running in background
 echo "Waiting for background gather tasks to finish"
 wait

@@ -30,7 +30,7 @@ for ns in ${namespaces[@]}; do
           # Gather PVB
           pvb_path="${backup_path}/podvolumebackup-${pvb}"
           mkdir -p ${pvb_path}
-          /usr/bin/logs/gather_logs_pvb ${cluster} ${ns} ${logs_since} ${max_parallelism} ${pvb} ${pvb_path} &
+          /usr/bin/gather_logs_pvb ${cluster} ${ns} ${logs_since} ${max_parallelism} ${pvb} ${pvb_path} &
           pwait $max_parallelism
         done
       done
