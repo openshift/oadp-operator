@@ -547,13 +547,13 @@ func (r *VeleroReconciler) parseAWSSecret(secret corev1.Secret, secretKey string
 						continue
 					}
 					matchedAccessKey := awsAccessKeyRegex.MatchString(profLine)
+					matchedSecretKey := awsSecretKeyRegex.MatchString(profLine)
 
 					if err != nil {
 						r.Log.Info("Error finding access key id for the supplied AWS credential")
 						return AWSAccessKey, AWSSecretKey, err
 					}
-					// check for access key
-					if matchedAccessKey {
+					if matchedAccessKey { // check for access key
 						cleanedLine := strings.ReplaceAll(profLine, " ", "")
 						splitLine := strings.Split(cleanedLine, "=")
 						if len(splitLine) != 2 {
@@ -562,12 +562,7 @@ func (r *VeleroReconciler) parseAWSSecret(secret corev1.Secret, secretKey string
 						}
 						AWSAccessKey = splitLine[1]
 						continue
-					}
-
-					// check for secret key
-					matchedSecretKey := awsSecretKeyRegex.MatchString(profLine)
-
-					if matchedSecretKey {
+					} else if matchedSecretKey { // check for secret key
 						cleanedLine := strings.ReplaceAll(profLine, " ", "")
 						splitLine := strings.Split(cleanedLine, "=")
 						if len(splitLine) != 2 {
@@ -576,6 +571,8 @@ func (r *VeleroReconciler) parseAWSSecret(secret corev1.Secret, secretKey string
 						}
 						AWSSecretKey = splitLine[1]
 						continue
+					} else {
+						break // aws credentials file is only allowed to have profile followed by aws_access_key_id, aws_secret_access_key
 					}
 				}
 			}

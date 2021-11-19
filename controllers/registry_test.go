@@ -49,21 +49,38 @@ func getFakeClientFromObjectsForRegistry(objs ...client.Object) (client.WithWatc
 }
 
 const (
-	testProfile         = "someProfile"
-	testAccessKey       = "someAccessKey"
-	testSecretAccessKey = "someSecretAccessKey"
-	testStoragekey      = "someStorageKey"
-	testCloudName       = "someCloudName"
+	testProfile            = "someProfile"
+	testAccessKey          = "someAccessKey"
+	testSecretAccessKey    = "someSecretAccessKey"
+	testStoragekey         = "someStorageKey"
+	testCloudName          = "someCloudName"
+	testBslProfile         = "bslProfile"
+	testBslAccessKey       = "bslAccessKey"
+	testBslSecretAccessKey = "bslSecretAccessKey"
 )
 
 var (
 	secretData = map[string][]byte{
-		"cloud": []byte("[default]" + "\n" +
-			"aws_access_key_id=" + testAccessKey + "\n" +
-			"aws_secret_access_key=" + testSecretAccessKey +
-			"\n[test-profile]\n" +
-			"aws_access_key_id=" + testAccessKey + "\n" +
-			"aws_secret_access_key=" + testSecretAccessKey,
+		"cloud": []byte(
+			"\n[" + testBslProfile + "]\n" +
+				"aws_access_key_id=" + testBslAccessKey + "\n" +
+				"aws_secret_access_key=" + testBslSecretAccessKey +
+				"\n[default]" + "\n" +
+				"aws_access_key_id=" + testAccessKey + "\n" +
+				"aws_secret_access_key=" + testSecretAccessKey +
+				"\n[test-profile]\n" +
+				"aws_access_key_id=" + testAccessKey + "\n" +
+				"aws_secret_access_key=" + testSecretAccessKey,
+		),
+	}
+	awsSecretDataWithMissingProfile = map[string][]byte{
+		"cloud": []byte(
+			"[default]" + "\n" +
+				"aws_access_key_id=" + testAccessKey + "\n" +
+				"aws_secret_access_key=" + testSecretAccessKey +
+				"\n[test-profile]\n" +
+				"aws_access_key_id=" + testAccessKey + "\n" +
+				"aws_secret_access_key=" + testSecretAccessKey,
 		),
 	}
 	secretAzureData = map[string][]byte{
@@ -487,6 +504,7 @@ func TestVeleroReconciler_getAWSRegistryEnvVars(t *testing.T) {
 		wantProfile                 string
 		secret                      *corev1.Secret
 		wantErr                     bool
+		matchProfile                bool
 	}{
 		{
 			name: "given aws bsl, appropriate env var for the container are returned",
@@ -517,7 +535,70 @@ func TestVeleroReconciler_getAWSRegistryEnvVars(t *testing.T) {
 				},
 				Data: secretData,
 			},
-			wantProfile: "test-profile",
+			wantProfile:  "test-profile",
+			matchProfile: true,
+		}, {
+			name: "given aws profile in bsl, appropriate env var for the container are returned",
+			bsl: &velerov1.BackupStorageLocation{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-bsl",
+					Namespace: "test-ns",
+				},
+				Spec: velerov1.BackupStorageLocationSpec{
+					Provider: AWSProvider,
+					StorageType: velerov1.StorageType{
+						ObjectStorage: &velerov1.ObjectStorageLocation{
+							Bucket: "aws-bucket",
+						},
+					},
+					Config: map[string]string{
+						Region:                "aws-region",
+						S3URL:                 "https://sr-url-aws-domain.com",
+						InsecureSkipTLSVerify: "false",
+						Profile:               testBslProfile,
+					},
+				},
+			},
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cloud-credentials",
+					Namespace: "test-ns",
+				},
+				Data: secretData,
+			},
+			wantProfile:  testBslProfile,
+			matchProfile: true,
+		}, {
+			name: "given missing aws profile in bsl, env var should not match",
+			bsl: &velerov1.BackupStorageLocation{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-bsl",
+					Namespace: "test-ns",
+				},
+				Spec: velerov1.BackupStorageLocationSpec{
+					Provider: AWSProvider,
+					StorageType: velerov1.StorageType{
+						ObjectStorage: &velerov1.ObjectStorageLocation{
+							Bucket: "aws-bucket",
+						},
+					},
+					Config: map[string]string{
+						Region:                "aws-region",
+						S3URL:                 "https://sr-url-aws-domain.com",
+						InsecureSkipTLSVerify: "false",
+						Profile:               testBslProfile,
+					},
+				},
+			},
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cloud-credentials",
+					Namespace: "test-ns",
+				},
+				Data: awsSecretDataWithMissingProfile,
+			},
+			wantProfile:  testBslProfile,
+			matchProfile: false,
 		},
 	}
 	for _, tt := range tests {
@@ -567,15 +648,47 @@ func TestVeleroReconciler_getAWSRegistryEnvVars(t *testing.T) {
 					Value: "false",
 				},
 			}
+			if tt.wantProfile == testBslProfile {
+				tt.wantRegistryContainerEnvVar = []corev1.EnvVar{
+					{
+						Name:  RegistryStorageEnvVarKey,
+						Value: S3,
+					},
+					{
+						Name:  RegistryStorageS3AccesskeyEnvVarKey,
+						Value: testBslAccessKey,
+					},
+					{
+						Name:  RegistryStorageS3BucketEnvVarKey,
+						Value: "aws-bucket",
+					},
+					{
+						Name:  RegistryStorageS3RegionEnvVarKey,
+						Value: "aws-region",
+					},
+					{
+						Name:  RegistryStorageS3SecretkeyEnvVarKey,
+						Value: testBslSecretAccessKey,
+					},
+					{
+						Name:  RegistryStorageS3RegionendpointEnvVarKey,
+						Value: "https://sr-url-aws-domain.com",
+					},
+					{
+						Name:  RegistryStorageS3SkipverifyEnvVarKey,
+						Value: "false",
+					},
+				}
+			}
 
 			gotRegistryContainerEnvVar, gotErr := r.getAWSRegistryEnvVars(tt.bsl, testAWSEnvVar)
 
-			if (gotErr != nil) != tt.wantErr {
+			if tt.matchProfile && (gotErr != nil) != tt.wantErr {
 				t.Errorf("ValidateBackupStorageLocations() gotErr = %v, wantErr %v", gotErr, tt.wantErr)
 				return
 			}
 
-			if !reflect.DeepEqual(tt.wantRegistryContainerEnvVar, gotRegistryContainerEnvVar) {
+			if tt.matchProfile && !reflect.DeepEqual(tt.wantRegistryContainerEnvVar, gotRegistryContainerEnvVar) {
 				t.Errorf("expected registry container env var to be %#v, got %#v", tt.wantRegistryContainerEnvVar, gotRegistryContainerEnvVar)
 			}
 		})
