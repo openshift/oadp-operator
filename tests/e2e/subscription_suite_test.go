@@ -50,7 +50,7 @@ var _ = Describe("Subscription Config Suite Test", func() {
 			if testCase.failureExpected != nil && *testCase.failureExpected {
 				Consistently(s.csvIsReady, time.Minute*2).Should(BeFalse())
 			} else {
-				Eventually(s.csvIsReady, time.Minute*2).Should(BeTrue())
+				Eventually(s.csvIsReady, time.Minute*9).Should(BeTrue())
 				
 	
 				log.Printf("Building veleroSpec")
@@ -135,7 +135,7 @@ var _ = Describe("Subscription Config Suite Test", func() {
 			failureExpected: pointer.Bool(true),
 		}),
 		// Leave this as last entry to reset config
-		Entry("Config unset", SubscriptionConfigTestCase{
+		FEntry("Config unset", SubscriptionConfigTestCase{
 			SubscriptionConfig: operators.SubscriptionConfig{},
 		}),
 	)
