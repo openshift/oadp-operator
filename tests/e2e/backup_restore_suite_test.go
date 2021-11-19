@@ -20,7 +20,7 @@ var _ = Describe("AWS backup restore tests", func() {
 		testSuiteInstanceName := "ts-" + instanceName
 		vel.Name = testSuiteInstanceName
 
-		credData, err := getCredsData(cloud)
+		credData, err := getCredsData(credFile)
 		Expect(err).NotTo(HaveOccurred())
 
 		err = createCredentialsSecret(credData, namespace, credSecretRef)

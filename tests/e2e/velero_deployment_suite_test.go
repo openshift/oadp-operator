@@ -29,6 +29,38 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 			// instead of assigning the values in advance to the Velero CR
 			err := vel.Build(installCase.BRestoreType)
 			Expect(err).NotTo(HaveOccurred())
+			if len(installCase.VeleroSpec.BackupStorageLocations) > 0 {
+				switch vel.Provider {
+				case "aws":
+					installCase.VeleroSpec.BackupStorageLocations[0].Config = map[string]string{
+						"region":  vel.BslRegion,
+						"profile": vel.BslProfile,
+					}
+					installCase.VeleroSpec.DefaultVeleroPlugins = append(installCase.VeleroSpec.DefaultVeleroPlugins, oadpv1alpha1.DefaultPluginAWS)
+					installCase.VeleroSpec.VolumeSnapshotLocations = []velero.VolumeSnapshotLocationSpec{
+						{
+							Provider: vel.Provider,
+							Config: map[string]string{
+								"region":  vel.VslRegion,
+								"profile": "default",
+							},
+						},
+					}
+				case "gcp":
+					installCase.VeleroSpec.BackupStorageLocations[0].Config = map[string]string{
+						"credentialsFile": vel.credentials,
+					}
+					installCase.VeleroSpec.DefaultVeleroPlugins = append(installCase.VeleroSpec.DefaultVeleroPlugins, oadpv1alpha1.DefaultPluginGCP)
+					installCase.VeleroSpec.VolumeSnapshotLocations = []velero.VolumeSnapshotLocationSpec{
+						{
+							Provider: vel.Provider,
+							Config: map[string]string{
+								"snapshotLocation": vel.VslRegion,
+							},
+						},
+					}
+				}
+			}
 			err = vel.CreateOrUpdate(installCase.VeleroSpec)
 			Expect(err).ToNot(HaveOccurred())
 			log.Printf("Waiting for velero pod to be running")
@@ -92,13 +124,10 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 				BackupStorageLocations: []velero.BackupStorageLocationSpec{
 					{
 						Provider: provider,
-						Config: map[string]string{
-							"region": region,
-						},
-						Default: true,
+						Default:  true,
 						StorageType: velero.StorageType{
 							ObjectStorage: &velero.ObjectStorageLocation{
-								Bucket: s3Bucket,
+								Bucket: bucket,
 								Prefix: veleroPrefix,
 							},
 						},
@@ -106,7 +135,6 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 				},
 				DefaultVeleroPlugins: []oadpv1alpha1.DefaultPlugin{
 					oadpv1alpha1.DefaultPluginOpenShift,
-					oadpv1alpha1.DefaultPluginAWS,
 				},
 			},
 			WantError: false,
@@ -119,96 +147,17 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 				BackupStorageLocations: []velero.BackupStorageLocationSpec{
 					{
 						Provider: provider,
-						Config: map[string]string{
-							"region": region,
-						},
-						Default: true,
+						Default:  true,
 						StorageType: velero.StorageType{
 							ObjectStorage: &velero.ObjectStorageLocation{
-								Bucket: s3Bucket,
+								Bucket: bucket,
 								Prefix: veleroPrefix,
 							},
 						},
 					},
 				},
-				VolumeSnapshotLocations: []velero.VolumeSnapshotLocationSpec{
-					{
-						Provider: "aws",
-						Config: map[string]string{
-							"Region": "us-east-1",
-						},
-					},
-				},
 				DefaultVeleroPlugins: []oadpv1alpha1.DefaultPlugin{
 					oadpv1alpha1.DefaultPluginOpenShift,
-					oadpv1alpha1.DefaultPluginAWS,
-				},
-			},
-			WantError: false,
-		}, nil),
-		Entry("Velero CR with bsl and multiple vsl", InstallCase{
-			Name:         "default-cr-bsl-vsl",
-			BRestoreType: "restic",
-			VeleroSpec: &oadpv1alpha1.VeleroSpec{
-				EnableRestic: pointer.Bool(true),
-				BackupStorageLocations: []velero.BackupStorageLocationSpec{
-					{
-						Provider: provider,
-						Config: map[string]string{
-							"region": region,
-						},
-						Default: true,
-						StorageType: velero.StorageType{
-							ObjectStorage: &velero.ObjectStorageLocation{
-								Bucket: s3Bucket,
-								Prefix: veleroPrefix,
-							},
-						},
-					},
-				},
-				VolumeSnapshotLocations: []velero.VolumeSnapshotLocationSpec{
-					{
-						Provider: "aws",
-						Config: map[string]string{
-							"Region": "us-east-1",
-						},
-					},
-					{
-						Provider: "azure",
-						Config: map[string]string{
-							"Region": "us-east-1",
-						},
-					},
-				},
-				DefaultVeleroPlugins: []oadpv1alpha1.DefaultPlugin{
-					oadpv1alpha1.DefaultPluginOpenShift,
-					oadpv1alpha1.DefaultPluginAWS,
-				},
-			},
-			WantError: false,
-		}, nil),
-		Entry("Velero CR with no bsl and multiple vsl", InstallCase{
-			Name:         "default-cr-multiple-vsl",
-			BRestoreType: "restic",
-			VeleroSpec: &oadpv1alpha1.VeleroSpec{
-				EnableRestic: pointer.Bool(true),
-				VolumeSnapshotLocations: []velero.VolumeSnapshotLocationSpec{
-					{
-						Provider: "aws",
-						Config: map[string]string{
-							"Region": "us-east-1",
-						},
-					},
-					{
-						Provider: "azure",
-						Config: map[string]string{
-							"Region": "us-east-1",
-						},
-					},
-				},
-				DefaultVeleroPlugins: []oadpv1alpha1.DefaultPlugin{
-					oadpv1alpha1.DefaultPluginOpenShift,
-					oadpv1alpha1.DefaultPluginAWS,
 				},
 			},
 			WantError: false,
@@ -221,13 +170,10 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 				BackupStorageLocations: []velero.BackupStorageLocationSpec{
 					{
 						Provider: provider,
-						Config: map[string]string{
-							"region": region,
-						},
-						Default: true,
+						Default:  true,
 						StorageType: velero.StorageType{
 							ObjectStorage: &velero.ObjectStorageLocation{
-								Bucket: s3Bucket,
+								Bucket: bucket,
 								Prefix: veleroPrefix,
 							},
 						},
@@ -235,7 +181,6 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 				},
 				DefaultVeleroPlugins: []oadpv1alpha1.DefaultPlugin{
 					oadpv1alpha1.DefaultPluginOpenShift,
-					oadpv1alpha1.DefaultPluginAWS,
 				},
 			},
 			WantError: false,
@@ -248,13 +193,10 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 				BackupStorageLocations: []velero.BackupStorageLocationSpec{
 					{
 						Provider: provider,
-						Config: map[string]string{
-							"region": region,
-						},
-						Default: true,
+						Default:  true,
 						StorageType: velero.StorageType{
 							ObjectStorage: &velero.ObjectStorageLocation{
-								Bucket: s3Bucket,
+								Bucket: bucket,
 								Prefix: veleroPrefix,
 							},
 						},
@@ -262,7 +204,6 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 				},
 				DefaultVeleroPlugins: []oadpv1alpha1.DefaultPlugin{
 					oadpv1alpha1.DefaultPluginOpenShift,
-					oadpv1alpha1.DefaultPluginAWS,
 					oadpv1alpha1.DefaultPluginCSI,
 				},
 			},
@@ -279,13 +220,10 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 				BackupStorageLocations: []velero.BackupStorageLocationSpec{
 					{
 						Provider: provider,
-						Config: map[string]string{
-							"region": region,
-						},
-						Default: true,
+						Default:  true,
 						StorageType: velero.StorageType{
 							ObjectStorage: &velero.ObjectStorageLocation{
-								Bucket: s3Bucket,
+								Bucket: bucket,
 								Prefix: veleroPrefix,
 							},
 						},
@@ -293,7 +231,6 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 				},
 				DefaultVeleroPlugins: []oadpv1alpha1.DefaultPlugin{
 					oadpv1alpha1.DefaultPluginOpenShift,
-					oadpv1alpha1.DefaultPluginAWS,
 					oadpv1alpha1.DefaultPluginCSI,
 				},
 			},
@@ -315,13 +252,10 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 				BackupStorageLocations: []velero.BackupStorageLocationSpec{
 					{
 						Provider: provider,
-						Config: map[string]string{
-							"region": region,
-						},
-						Default: true,
+						Default:  true,
 						StorageType: velero.StorageType{
 							ObjectStorage: &velero.ObjectStorageLocation{
-								Bucket: s3Bucket,
+								Bucket: bucket,
 								Prefix: veleroPrefix,
 							},
 						},
@@ -329,7 +263,6 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 				},
 				DefaultVeleroPlugins: []oadpv1alpha1.DefaultPlugin{
 					oadpv1alpha1.DefaultPluginOpenShift,
-					oadpv1alpha1.DefaultPluginAWS,
 					oadpv1alpha1.DefaultPluginCSI,
 				},
 			},

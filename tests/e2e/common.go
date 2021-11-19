@@ -235,3 +235,8 @@ func isCredentialsSecretDeleted(namespace string, credSecretRef string) wait.Con
 		return false, err
 	}
 }
+
+func putCredsData(credFile string, data []byte) error {
+	err := ioutil.WriteFile(credFile, data, 0644)
+	return err
+}

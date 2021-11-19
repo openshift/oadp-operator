@@ -1,11 +1,29 @@
 OADP_TEST_NAMESPACE ?= openshift-adp
-REGION ?= us-east-1
-PROVIDER ?= aws
+CLUSTER_PROFILE ?= aws
+
+# CONFIGS FOR CLOUD
+OADP_CRED_FILE ?= /var/run/oadp-credentials/new-aws-credentials
+BSL_REGION ?= us-east-1
+VSL_REGION ?= ${LEASED_RESOURCE}
+CI_CRED_FILE ?= ${CLUSTER_PROFILE_DIR}/.awscred
+BSL_AWS_PROFILE ?= migration-engineering
+GCP_PROJECT ?= /var/run/secrets/ci.openshift.io/cluster-profile/openshift_gcp_project
+
+ifeq ($(CLUSTER_PROFILE), gcp)
+	CI_CRED_FILE = ${CLUSTER_PROFILE_DIR}/gce.json
+else ifeq ($(CLUSTER_PROFILE), azure)
+	CI_CRED_FILE = ${CLUSTER_PROFILE_DIR}/osServicePrincipal.json
+endif
+
+GOOGLE_APPLICATION_CREDENTIALS ?= ${CI_CRED_FILE}
+
+# Misc
+OADP_BUCKET ?= /var/run/oadp-credentials/velero-bucket-name
+OPENSHIFT_CI ?= true
 CREDS_SECRET_REF ?= cloud-credentials
-OADP_AWS_CRED_FILE ?= /var/run/oadp-credentials/aws-credentials
-OADP_S3_BUCKET ?= /var/run/oadp-credentials/velero-bucket-name
 VELERO_INSTANCE_NAME ?= velero-sample
 E2E_TIMEOUT_MULTIPLIER ?= 1
+
 
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
 ENVTEST_K8S_VERSION = 1.21
@@ -274,11 +292,18 @@ catalog-build: opm ## Build a catalog image.
 catalog-push: ## Push a catalog image.
 	$(MAKE) docker-push IMG=$(CATALOG_IMG)
 
-test-e2e:
-	ginkgo -mod=mod tests/e2e/ -- -cloud=$(OADP_AWS_CRED_FILE) \
-	-s3_bucket=$(OADP_S3_BUCKET) -velero_namespace=$(OADP_TEST_NAMESPACE) \
+test-e2e: 
+	export GOOGLE_APPLICATION_CREDENTIALS=${GOOGLE_APPLICATION_CREDENTIALS} && \
+	ginkgo -mod=mod tests/e2e/ -- \
+	-credentials=$(OADP_CRED_FILE) \
+	-velero_bucket=$(OADP_BUCKET) \
+	-velero_namespace=$(OADP_TEST_NAMESPACE) \
 	-creds_secret_ref=$(CREDS_SECRET_REF) \
 	-velero_instance_name=$(VELERO_INSTANCE_NAME) \
-	-region=$(REGION) \
-	-provider=$(PROVIDER) \
-	-timeout_multiplier=$(E2E_TIMEOUT_MULTIPLIER)
+	-bsl_region=$(BSL_REGION) \
+	-vsl_region=$(VSL_REGION) \
+	-bsl_profile=$(BSL_AWS_PROFILE) \
+	-provider=$(CLUSTER_PROFILE) \
+	-timeout_multiplier=$(E2E_TIMEOUT_MULTIPLIER) \
+	-openshift_ci=$(OPENSHIFT_CI) \
+	-ci_cred_file=$(CI_CRED_FILE)
