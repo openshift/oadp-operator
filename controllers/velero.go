@@ -6,6 +6,7 @@ import (
 	"reflect"
 
 	"github.com/openshift/oadp-operator/pkg/credentials"
+	"github.com/operator-framework/operator-lib/proxy"
 	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -452,21 +453,8 @@ func (r *VeleroReconciler) customizeVeleroContainer(velero *oadpv1alpha1.Velero,
 			MountPath: "/etc/ssl/certs",
 		},
 	)
-
-	veleroContainer.Env = append(veleroContainer.Env,
-		corev1.EnvVar{
-			Name:  common.HTTPProxyEnvVar,
-			Value: os.Getenv("HTTP_PROXY"),
-		},
-		corev1.EnvVar{
-			Name:  common.HTTPSProxyEnvVar,
-			Value: os.Getenv("HTTPS_PROXY"),
-		},
-		corev1.EnvVar{
-			Name:  common.NoProxyEnvVar,
-			Value: os.Getenv("NO_PROXY"),
-		},
-	)
+	// Append proxy settings to the container from environment variables
+	veleroContainer.Env = append(veleroContainer.Env, proxy.ReadProxyVarsFromEnv()...)
 	// Enable user to specify --restic-timeout (defaults to 1h)
 	resticTimeout := "1h"
 	if len(velero.Spec.ResticTimeout) > 0 {
