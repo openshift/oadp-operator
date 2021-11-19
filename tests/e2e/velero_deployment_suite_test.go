@@ -14,7 +14,7 @@ import (
 	"k8s.io/utils/pointer"
 )
 
-var _ = Describe("Configuration testing for Velero Custom Resource", func() {
+var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 
 	type InstallCase struct {
 		Name         string
@@ -27,7 +27,7 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 		func(installCase InstallCase, expectedErr error) {
 			//TODO: Calling vel.build() is the old pattern.
 			//Change it later to make sure all the spec values are passed for every test case,
-			// instead of assigning the values in advance to the Velero CR
+			// instead of assigning the values in advance to the DPA CR
 			err := vel.Build(installCase.BRestoreType)
 			Expect(err).NotTo(HaveOccurred())
 			err = vel.CreateOrUpdate(installCase.DpaSpec)
@@ -154,7 +154,7 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 						},
 						CustomPlugins: []oadpv1alpha1.CustomPlugin{
 							{
-								Name: "encryption-plugin",
+								Name:  "encryption-plugin",
 								Image: "quay.io/konveyor/openshift-velero-plugin:latest",
 							},
 						},
@@ -272,7 +272,7 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 			},
 			WantError: false,
 		}, nil),
-		Entry("Velero CR with bsl and vsl", InstallCase{
+		Entry("DPA CR with bsl and vsl", InstallCase{
 			Name:         "default-cr-bsl-vsl",
 			BRestoreType: "restic",
 			DpaSpec: &oadpv1alpha1.DataProtectionApplicationSpec{
@@ -294,7 +294,7 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 						Velero: &velero.VolumeSnapshotLocationSpec{
 							Provider: "aws",
 							Config: map[string]string{
-								"Region": "us-east-1",
+								"region": "us-east-1",
 							},
 						},
 					},
@@ -319,7 +319,7 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 			},
 			WantError: false,
 		}, nil),
-		Entry("Velero CR with bsl and multiple vsl", InstallCase{
+		Entry("DPA CR with bsl and multiple vsl", InstallCase{
 			Name:         "default-cr-bsl-vsl",
 			BRestoreType: "restic",
 			DpaSpec: &oadpv1alpha1.DataProtectionApplicationSpec{
@@ -341,16 +341,14 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 						Velero: &velero.VolumeSnapshotLocationSpec{
 							Provider: "aws",
 							Config: map[string]string{
-								"Region": "us-east-1",
+								"region": "us-east-1",
 							},
 						},
 					},
 					{
 						Velero: &velero.VolumeSnapshotLocationSpec{
 							Provider: "azure",
-							Config: map[string]string{
-								"Region": "us-east-1",
-							},
+							Config:   map[string]string{},
 						},
 					},
 				},
@@ -374,7 +372,7 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 			},
 			WantError: false,
 		}, nil),
-		Entry("Velero CR with no bsl and multiple vsl", InstallCase{
+		Entry("DPA CR with no bsl and multiple vsl", InstallCase{
 			Name:         "default-cr-multiple-vsl",
 			BRestoreType: "restic",
 			DpaSpec: &oadpv1alpha1.DataProtectionApplicationSpec{
@@ -396,16 +394,14 @@ var _ = Describe("Configuration testing for Velero Custom Resource", func() {
 						Velero: &velero.VolumeSnapshotLocationSpec{
 							Provider: "aws",
 							Config: map[string]string{
-								"Region": "us-east-1",
+								"region": "us-east-1",
 							},
 						},
 					},
 					{
 						Velero: &velero.VolumeSnapshotLocationSpec{
 							Provider: "azure",
-							Config: map[string]string{
-								"Region": "us-east-1",
-							},
+							Config:   map[string]string{},
 						},
 					},
 				},
