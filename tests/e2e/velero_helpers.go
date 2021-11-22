@@ -300,13 +300,12 @@ func doesVSLExist(namespace string, vslspec velero.VolumeSnapshotLocationSpec, s
 			return false, errors.New("no volume storage location configured. Expected VSL to be configured")
 		}
 		for _, v := range spec.SnapshotLocations {
-			if v.Velero.Provider == vslspec.Provider {
-				if !reflect.DeepEqual(vslspec, *v.Velero) {
-					return false, errors.New("given Velero vslspec does not match the deployed velero vslspec")
-				}
+			if reflect.DeepEqual(vslspec, *v.Velero) {
+				return true, nil
 			}
 		}
-		return true, nil
+		return false, errors.New("did not find expected VSL")
+
 	}
 }
 

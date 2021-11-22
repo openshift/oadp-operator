@@ -14,7 +14,7 @@ import (
 	"k8s.io/utils/pointer"
 )
 
-var _ = Describe("Configuration testing for DPA Custom Resource", func() {
+var _ = FDescribe("Configuration testing for DPA Custom Resource", func() {
 
 	type InstallCase struct {
 		Name         string
@@ -347,8 +347,10 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 					},
 					{
 						Velero: &velero.VolumeSnapshotLocationSpec{
-							Provider: "azure",
-							Config:   map[string]string{},
+							Provider: "aws",
+							Config: map[string]string{
+								"region": "us-east-2",
+							},
 						},
 					},
 				},
@@ -383,6 +385,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 							oadpv1alpha1.DefaultPluginOpenShift,
 							oadpv1alpha1.DefaultPluginAWS,
 						},
+						NoDefaultBackupLocation: true,
 					},
 					Restic: &oadpv1alpha1.ResticConfig{
 						PodConfig: &oadpv1alpha1.PodConfig{},
@@ -400,8 +403,10 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 					},
 					{
 						Velero: &velero.VolumeSnapshotLocationSpec{
-							Provider: "azure",
-							Config:   map[string]string{},
+							Provider: "aws",
+							Config: map[string]string{
+								"region": "us-east-2",
+							},
 						},
 					},
 				},
