@@ -48,11 +48,8 @@ spec:
                   description: BackupLocation defines the configuration for the DPA
                     backup storage
                   properties:
-                    metadata:
-                      type: object
                     velero:
-                      description: BackupStorageLocationSpec defines the desired state
-                        of a Velero BackupStorageLocation
+                      description: 'TODO: Add name/annotations/labels support'
                       properties:
                         accessMode:
                           description: AccessMode defines the permissions for the
@@ -413,11 +410,8 @@ spec:
                   description: SnapshotLocation defines the configuration for the
                     DPA snapshot store
                   properties:
-                    metadata:
-                      type: object
                     velero:
-                      description: VolumeSnapshotLocationSpec defines the specification
-                        for a Velero VolumeSnapshotLocation.
+                      description: 'TODO: Add name/annotations/labels support'
                       properties:
                         config:
                           additionalProperties:

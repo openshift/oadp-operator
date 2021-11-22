@@ -13,7 +13,6 @@ metadata:
           "spec": {
             "backupLocations": [
               {
-                "name": "foo",
                 "velero": {
                   "config": {
                     "profile": "default",
@@ -43,7 +42,7 @@ metadata:
                 ]
               }
             },
-            "volumeSnapshots": [
+            "snapshotLocations": [
               {
                 "velero": {
                   "config": {
