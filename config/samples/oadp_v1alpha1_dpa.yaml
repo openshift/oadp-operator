@@ -11,8 +11,7 @@ spec:
     restic:
       enable: true
   backupLocations:
-    - name: foo
-      velero:
+    - velero:
         provider: aws
         default: true
         objectStorage:

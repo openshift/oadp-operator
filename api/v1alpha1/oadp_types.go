@@ -110,14 +110,14 @@ type ApplicationConfig struct {
 
 // BackupLocation defines the configuration for the DPA backup storage
 type BackupLocation struct {
-	metav1.ObjectMeta `json:"metadata,omitempty"`
-	Velero            *velero.BackupStorageLocationSpec `json:"velero"`
+	// TODO: Add name/annotations/labels support
+	Velero *velero.BackupStorageLocationSpec `json:"velero"`
 }
 
 // SnapshotLocation defines the configuration for the DPA snapshot store
 type SnapshotLocation struct {
-	metav1.ObjectMeta `json:"metadata,omitempty"`
-	Velero            *velero.VolumeSnapshotLocationSpec `json:"velero"`
+	// TODO: Add name/annotations/labels support
+	Velero *velero.VolumeSnapshotLocationSpec `json:"velero"`
 }
 
 // DataProtectionApplicationSpec defines the desired state of Velero
