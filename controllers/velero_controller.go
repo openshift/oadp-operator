@@ -78,7 +78,7 @@ func (r *VeleroReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 
 	if err := r.Get(ctx, req.NamespacedName, &velero); err != nil {
 		log.Error(err, "unable to fetch velero CR")
-		return result, client.IgnoreNotFound(err)
+		return result, nil
 	}
 
 	_, err := ReconcileBatch(r.Log,
