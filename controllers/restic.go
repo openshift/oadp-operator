@@ -7,6 +7,7 @@ import (
 	"reflect"
 
 	"github.com/openshift/oadp-operator/pkg/common"
+	"github.com/operator-framework/operator-lib/proxy"
 	"github.com/vmware-tanzu/velero/pkg/install"
 
 	"github.com/go-logr/logr"
@@ -208,20 +209,7 @@ func (r *VeleroReconciler) customizeResticDaemonset(velero *oadpv1alpha1.Velero,
 		})
 
 		// append env vars to the restic container
-		resticContainer.Env = append(resticContainer.Env,
-			corev1.EnvVar{
-				Name:  common.HTTPProxyEnvVar,
-				Value: os.Getenv("HTTP_PROXY"),
-			},
-			corev1.EnvVar{
-				Name:  common.HTTPSProxyEnvVar,
-				Value: os.Getenv("HTTPS_PROXY"),
-			},
-			corev1.EnvVar{
-				Name:  common.NoProxyEnvVar,
-				Value: os.Getenv("NO_PROXY"),
-			},
-		)
+		resticContainer.Env = append(resticContainer.Env, proxy.ReadProxyVarsFromEnv()...)
 
 		resticContainer.SecurityContext = &corev1.SecurityContext{
 			Privileged: pointer.Bool(true),

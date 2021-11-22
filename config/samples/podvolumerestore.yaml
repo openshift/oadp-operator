@@ -1,0 +1,6 @@
+apiVersion: velero.io/v1
+kind: PodVolumeRestore
+metadata:
+  name: podvolumerestore
+  namespace: openshift-adp
+spec: {}
