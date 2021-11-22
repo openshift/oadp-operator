@@ -14,7 +14,7 @@ import (
 	"k8s.io/utils/pointer"
 )
 
-var _ = FDescribe("Configuration testing for DPA Custom Resource", func() {
+var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 
 	type InstallCase struct {
 		Name         string
