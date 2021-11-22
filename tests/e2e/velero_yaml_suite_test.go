@@ -10,9 +10,10 @@ import (
 type veleroTemplateParams struct {
 	VeleroName      string
 	BslRegion       string
-	S3Url           string
+	Provider        string
 	CredentialsName string
 	BucketName      string
+	Prefix          string
 }
 
 var _ = AfterEach(func() {
@@ -26,11 +27,12 @@ var _ = Describe("Test Velero CR creation with", func() {
 		// Create Velero CR and verify it is successful
 		veleroTemplate, _ := filepath.Abs("templates/velero_bsl_template.tmpl")
 		params := veleroTemplateParams{
-			"example-vel",
-			"us-west-1",
-			"http://192.156.2.4:9000",
-			"cloud-credentials",
-			"mybucket",
+			instanceName,
+			region,
+			provider,
+			credSecretRef,
+			s3Bucket,
+			veleroPrefix,
 		}
 		err := vel.CreateVeleroFromYaml(veleroTemplate, params)
 		if err != nil {
