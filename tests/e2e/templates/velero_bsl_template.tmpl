@@ -2,24 +2,21 @@ apiVersion: oadp.openshift.io/v1alpha1
 kind: Velero
 metadata:
  namespace: openshift-adp
- name: {{ .VeleroName}}
+ name: {{ .VeleroName }}
 spec:
+ olmManaged: false
  backupStorageLocations:
-   - config:
-       profile: default
-       region: {{ .BslRegion }}
-       s3Url: {{ .S3Url }}
-       s3ForcePathStyle: "true"
-       insecureSkipTLSVerify: "true"
-     credential:
-       name: {{ .CredentialsName }}
-       namespace: openshift-adp
-       key: cloud
-     name: default
+   - provider: {{ .Provider }}
+     default: true
      objectStorage:
-       bucket: {{ .BucketName }}
-       prefix: velero
-     provider: aws
+      bucket: {{ .BucketName }}
+      prefix: {{ .Prefix }}
+     credential:
+      name: {{ .CredentialsName }}
+      key: cloud
+     config:
+      region: {{ .BslRegion }}
+      profile: default
  enableRestic: true
  veleroFeatureFlags:
    - EnableCSI
