@@ -319,7 +319,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 			},
 			WantError: false,
 		}, nil),
-		Entry("DPA CR with bsl and multiple vsl", InstallCase{
+		/*Entry("DPA CR with bsl and multiple vsl", InstallCase{
 			Name:         "default-cr-bsl-vsl",
 			BRestoreType: "restic",
 			DpaSpec: &oadpv1alpha1.DataProtectionApplicationSpec{
@@ -373,8 +373,8 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 				},
 			},
 			WantError: false,
-		}, nil),
-		Entry("DPA CR with no bsl and multiple vsl", InstallCase{
+		}, nil),*/
+		/*Entry("DPA CR with no bsl and multiple vsl", InstallCase{
 			Name:         "default-cr-multiple-vsl",
 			BRestoreType: "restic",
 			DpaSpec: &oadpv1alpha1.DataProtectionApplicationSpec{
@@ -412,7 +412,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 				},
 			},
 			WantError: false,
-		}, nil),
+		}, nil),*/
 		Entry("Default velero CR with restic disabled", InstallCase{
 			Name:         "default-cr-no-restic",
 			BRestoreType: "restic",

@@ -24,7 +24,7 @@ spec:
         credential:
           name: cloud-credentials
           key: cloud
-  volumeSnapshots:
+  snapshotLocations:
   - velero:  
       provider: aws
       config:
