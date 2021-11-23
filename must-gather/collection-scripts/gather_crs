@@ -50,7 +50,7 @@ done
 for ns in ${namespaces[@]}; do
   for dpa in $(oc get dpa --namespace ${ns} --no-headers | awk '{print $1}'); do
     mkdir -p "/must-gather/clusters/${clusterID}/namespaces/${ns}/oadp.openshift.io/dpa-${dpa}"
-    oc get velero ${vel} -o yaml --namespace ${ns} &> "/must-gather/clusters/${clusterID}/namespaces/${ns}/oadp.openshift.io/dpa-${dpa}/${dpa}.yml" &
+    oc get dpa ${dpa} -o yaml --namespace ${ns} &> "/must-gather/clusters/${clusterID}/namespaces/${ns}/oadp.openshift.io/dpa-${dpa}/${dpa}.yml" &
     pwait $max_parallelism
   done
 done
