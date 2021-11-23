@@ -4,39 +4,48 @@
 ### Configure Backup Storage Locations and Volume Snapshot Locations
 
 For configuring the `backupStorageLocations` and the `volumeSnapshotLocations` 
-we will be using the `backupStorageLocations` and the `volumeSnapshotLocations` 
-specs respectively in the `oadp_v1alpha1_velero_cr.yaml` file during the deployement. 
+we will be using the `backupLocations.Velero` and the `volumeSnapshots.Velero` 
+specs respectively in the `oadp_v1alpha1_dpa.yaml` file during the deployment. 
 
 For instance, If we want to configure `aws` for `backupStorageLocations` as 
 well as `volumeSnapshotLocations` pertaining to velero, our 
-`oadp_v1alpha1_velero_cr.yaml` file should look something like this:
+`oadp_v1alpha1_dpa.yaml` file should look something like this:
 
 ```
 apiVersion: oadp.openshift.io/v1alpha1
-kind: Velero
+kind: DataProtectionApplication
 metadata:
-  name: velero-sample
+  name: dpa-sample
 spec:
-  defaultVeleroPlugins:
-  - aws
-  backupStorageLocations:
-  - name: default
-    provider: aws
-    objectStorage:
-      bucket: my-bucket
-      prefix: "velero"
-    config:
-      region: us-east-1
-      profile: "default"
-    credential:
-      name: cloud-credentials
-      key: cloud
-  volumeSnapshotLocations:
-  - name: default
-    provider: aws
-    config:
-      region: us-west-2
-      profile: "default"
+  configuration:
+    velero:
+      defaultPlugins:
+      - openshift
+      - aws
+    restic:
+      enable: true
+  backupLocations:
+    - name: default
+      velero:
+        provider: aws
+        default: true
+        objectStorage:
+          bucket: my-bucket
+          prefix: my-prefix
+        config:
+          region: us-east-1
+          profile: "default"
+        credential:
+          name: cloud-credentials
+          key: cloud
+  volumeSnapshots:
+    - name: default
+      velero:
+        provider: aws
+        config:
+          region: us-west-2
+          profile: "default"
+
 ```
 
 <b>Note:</b> 

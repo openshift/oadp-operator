@@ -1,24 +1,20 @@
-# permissions for end users to edit veleroes.
+# permissions for end users to view veleroes.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: velero-editor-role
+  name: dpa-viewer-role
 rules:
 - apiGroups:
   - oadp.openshift.io
   resources:
-  - veleroes
+  - dataprotectionapplications
   verbs:
-  - create
-  - delete
   - get
   - list
-  - patch
-  - update
   - watch
 - apiGroups:
   - oadp.openshift.io
   resources:
-  - veleroes/status
+  - dataprotectionapplications/status
   verbs:
   - get

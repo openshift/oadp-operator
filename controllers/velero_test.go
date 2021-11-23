@@ -20,7 +20,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func TestVeleroReconciler_buildVeleroDeployment(t *testing.T) {
+func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 	type fields struct {
 		Client         client.Client
 		Scheme         *runtime.Scheme
@@ -33,12 +33,12 @@ func TestVeleroReconciler_buildVeleroDeployment(t *testing.T) {
 		name                 string
 		fields               fields
 		veleroDeployment     *appsv1.Deployment
-		velero               *oadpv1alpha1.Velero
+		dpa                  *oadpv1alpha1.DataProtectionApplication
 		wantErr              bool
 		wantVeleroDeployment *appsv1.Deployment
 	}{
 		{
-			name: "Velero CR is nil",
+			name: "DPA CR is nil",
 			veleroDeployment: &appsv1.Deployment{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-velero-deployment",
@@ -48,7 +48,7 @@ func TestVeleroReconciler_buildVeleroDeployment(t *testing.T) {
 					Selector: veleroLabelSelector,
 				},
 			},
-			velero:  nil,
+			dpa:     nil,
 			wantErr: true,
 			wantVeleroDeployment: &appsv1.Deployment{
 				ObjectMeta: metav1.ObjectMeta{
@@ -64,12 +64,12 @@ func TestVeleroReconciler_buildVeleroDeployment(t *testing.T) {
 		{
 			name:                 "Velero Deployment is nil",
 			veleroDeployment:     nil,
-			velero:               &oadpv1alpha1.Velero{},
+			dpa:                  &oadpv1alpha1.DataProtectionApplication{},
 			wantErr:              true,
 			wantVeleroDeployment: nil,
 		},
 		{
-			name: "given valid Velero CR, appropriate Velero Deployment is built",
+			name: "given valid DPA CR, appropriate Velero Deployment is built",
 			veleroDeployment: &appsv1.Deployment{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-velero-deployment",
@@ -79,10 +79,15 @@ func TestVeleroReconciler_buildVeleroDeployment(t *testing.T) {
 					Selector: veleroLabelSelector,
 				},
 			},
-			velero: &oadpv1alpha1.Velero{
+			dpa: &oadpv1alpha1.DataProtectionApplication{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-Velero-CR",
 					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{},
+					},
 				},
 			},
 			wantErr: false,
@@ -204,7 +209,7 @@ func TestVeleroReconciler_buildVeleroDeployment(t *testing.T) {
 			},
 		},
 		{
-			name: "given valid Velero CR, velero deployment resource customization",
+			name: "given valid DPA CR, velero deployment resource customization",
 			veleroDeployment: &appsv1.Deployment{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-velero-deployment",
@@ -218,20 +223,26 @@ func TestVeleroReconciler_buildVeleroDeployment(t *testing.T) {
 					Selector: veleroLabelSelector,
 				},
 			},
-			velero: &oadpv1alpha1.Velero{
+			dpa: &oadpv1alpha1.DataProtectionApplication{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-Velero-CR",
 					Namespace: "test-ns",
 				},
-				Spec: oadpv1alpha1.VeleroSpec{
-					VeleroResourceAllocations: corev1.ResourceRequirements{
-						Limits: corev1.ResourceList{
-							corev1.ResourceCPU:    resource.MustParse("2"),
-							corev1.ResourceMemory: resource.MustParse("700Mi"),
-						},
-						Requests: corev1.ResourceList{
-							corev1.ResourceCPU:    resource.MustParse("1"),
-							corev1.ResourceMemory: resource.MustParse("256Mi"),
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							PodConfig: &oadpv1alpha1.PodConfig{
+								ResourceAllocations: corev1.ResourceRequirements{
+									Limits: corev1.ResourceList{
+										corev1.ResourceCPU:    resource.MustParse("2"),
+										corev1.ResourceMemory: resource.MustParse("700Mi"),
+									},
+									Requests: corev1.ResourceList{
+										corev1.ResourceCPU:    resource.MustParse("1"),
+										corev1.ResourceMemory: resource.MustParse("256Mi"),
+									},
+								},
+							},
 						},
 					},
 				},
@@ -355,7 +366,7 @@ func TestVeleroReconciler_buildVeleroDeployment(t *testing.T) {
 			},
 		},
 		{
-			name: "given valid Velero CR, appropriate velero deployment is build with aws plugin specific specs",
+			name: "given valid DPA CR, appropriate velero deployment is build with aws plugin specific specs",
 			veleroDeployment: &appsv1.Deployment{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-velero-deployment",
@@ -365,14 +376,18 @@ func TestVeleroReconciler_buildVeleroDeployment(t *testing.T) {
 					Selector: veleroLabelSelector,
 				},
 			},
-			velero: &oadpv1alpha1.Velero{
+			dpa: &oadpv1alpha1.DataProtectionApplication{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-Velero-CR",
 					Namespace: "test-ns",
 				},
-				Spec: oadpv1alpha1.VeleroSpec{
-					DefaultVeleroPlugins: []oadpv1alpha1.DefaultPlugin{
-						oadpv1alpha1.DefaultPluginAWS,
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+								oadpv1alpha1.DefaultPluginAWS,
+							},
+						},
 					},
 				},
 			},
@@ -526,7 +541,7 @@ func TestVeleroReconciler_buildVeleroDeployment(t *testing.T) {
 			},
 		},
 		{
-			name: "given valid Velero CR with annotations, appropriate velero deployment is build with aws plugin specific specs",
+			name: "given valid DPA CR with annotations, appropriate velero deployment is build with aws plugin specific specs",
 			veleroDeployment: &appsv1.Deployment{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-velero-deployment",
@@ -536,14 +551,18 @@ func TestVeleroReconciler_buildVeleroDeployment(t *testing.T) {
 					Selector: veleroLabelSelector,
 				},
 			},
-			velero: &oadpv1alpha1.Velero{
+			dpa: &oadpv1alpha1.DataProtectionApplication{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-Velero-CR",
 					Namespace: "test-ns",
 				},
-				Spec: oadpv1alpha1.VeleroSpec{
-					DefaultVeleroPlugins: []oadpv1alpha1.DefaultPlugin{
-						oadpv1alpha1.DefaultPluginAWS,
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+								oadpv1alpha1.DefaultPluginAWS,
+							},
+						},
 					},
 					PodAnnotations: map[string]string{
 						"test-annotation": "awesome annotation",
@@ -701,7 +720,7 @@ func TestVeleroReconciler_buildVeleroDeployment(t *testing.T) {
 			},
 		},
 		{
-			name: "given valid Velero CR with PodDNS Policy/Config, annotations, appropriate velero deployment is build with aws plugin specific specs",
+			name: "given valid DPA CR with PodDNS Policy/Config, annotations, appropriate velero deployment is build with aws plugin specific specs",
 			veleroDeployment: &appsv1.Deployment{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-velero-deployment",
@@ -711,14 +730,18 @@ func TestVeleroReconciler_buildVeleroDeployment(t *testing.T) {
 					Selector: veleroLabelSelector,
 				},
 			},
-			velero: &oadpv1alpha1.Velero{
+			dpa: &oadpv1alpha1.DataProtectionApplication{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-Velero-CR",
 					Namespace: "test-ns",
 				},
-				Spec: oadpv1alpha1.VeleroSpec{
-					DefaultVeleroPlugins: []oadpv1alpha1.DefaultPlugin{
-						oadpv1alpha1.DefaultPluginAWS,
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+								oadpv1alpha1.DefaultPluginAWS,
+							},
+						},
 					},
 					PodAnnotations: map[string]string{
 						"test-annotation": "awesome annotation",
@@ -908,10 +931,10 @@ func TestVeleroReconciler_buildVeleroDeployment(t *testing.T) {
 			},
 		},
 	}
-	r := &VeleroReconciler{}
+	r := &DPAReconciler{}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if err := r.buildVeleroDeployment(tt.veleroDeployment, tt.velero); (err != nil) != tt.wantErr {
+			if err := r.buildVeleroDeployment(tt.veleroDeployment, tt.dpa); (err != nil) != tt.wantErr {
 				t.Errorf("buildVeleroDeployment() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			if !reflect.DeepEqual(tt.wantVeleroDeployment, tt.veleroDeployment) {
@@ -921,22 +944,22 @@ func TestVeleroReconciler_buildVeleroDeployment(t *testing.T) {
 	}
 }
 
-func TestVeleroReconciler_getVeleroImage(t *testing.T) {
+func TestDPAReconciler_getVeleroImage(t *testing.T) {
 	tests := []struct {
 		name       string
-		VeleroCR   *oadpv1alpha1.Velero
+		DpaCR      *oadpv1alpha1.DataProtectionApplication
 		pluginName string
 		wantImage  string
 		setEnvVars map[string]string
 	}{
 		{
 			name: "given Velero image override, custom Velero image should be returned",
-			VeleroCR: &oadpv1alpha1.Velero{
+			DpaCR: &oadpv1alpha1.DataProtectionApplication{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-Velero-CR",
 					Namespace: "test-ns",
 				},
-				Spec: oadpv1alpha1.VeleroSpec{
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 					UnsupportedOverrides: map[oadpv1alpha1.UnsupportedImageKey]string{
 						oadpv1alpha1.VeleroImageKey: "test-image",
 					},
@@ -947,8 +970,8 @@ func TestVeleroReconciler_getVeleroImage(t *testing.T) {
 			setEnvVars: make(map[string]string),
 		},
 		{
-			name: "given default Velero CR with no env var, default velero image should be returned",
-			VeleroCR: &oadpv1alpha1.Velero{
+			name: "given default DPA CR with no env var, default velero image should be returned",
+			DpaCR: &oadpv1alpha1.DataProtectionApplication{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-Velero-CR",
 					Namespace: "test-ns",
@@ -959,8 +982,8 @@ func TestVeleroReconciler_getVeleroImage(t *testing.T) {
 			setEnvVars: make(map[string]string),
 		},
 		{
-			name: "given default Velero CR with env var set, image should be built via env vars",
-			VeleroCR: &oadpv1alpha1.Velero{
+			name: "given default DPA CR with env var set, image should be built via env vars",
+			DpaCR: &oadpv1alpha1.DataProtectionApplication{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-Velero-CR",
 					Namespace: "test-ns",
@@ -982,7 +1005,7 @@ func TestVeleroReconciler_getVeleroImage(t *testing.T) {
 				os.Setenv(key, value)
 				defer os.Unsetenv(key)
 			}
-			gotImage := getVeleroImage(tt.VeleroCR)
+			gotImage := getVeleroImage(tt.DpaCR)
 			if gotImage != tt.wantImage {
 				t.Errorf("Expected plugin image %v did not match %v", tt.wantImage, gotImage)
 			}
@@ -1036,7 +1059,7 @@ func Test_removeDuplicateValues(t *testing.T) {
 func Test_validateVeleroPlugins(t *testing.T) {
 	tests := []struct {
 		name    string
-		velero  *oadpv1alpha1.Velero
+		dpa     *oadpv1alpha1.DataProtectionApplication
 		secret  *corev1.Secret
 		wantErr bool
 		want    bool
@@ -1044,14 +1067,18 @@ func Test_validateVeleroPlugins(t *testing.T) {
 
 		{
 			name: "given valid Velero default plugin, default secret gets mounted as volume mounts",
-			velero: &oadpv1alpha1.Velero{
+			dpa: &oadpv1alpha1.DataProtectionApplication{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-Velero-CR",
 					Namespace: "test-ns",
 				},
-				Spec: oadpv1alpha1.VeleroSpec{
-					DefaultVeleroPlugins: []oadpv1alpha1.DefaultPlugin{
-						oadpv1alpha1.DefaultPluginAWS,
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+								oadpv1alpha1.DefaultPluginAWS,
+							},
+						},
 					},
 				},
 			},
@@ -1066,14 +1093,18 @@ func Test_validateVeleroPlugins(t *testing.T) {
 		},
 		{
 			name: "given valid Velero default plugin that is not a cloud provider, no secrets get mounted",
-			velero: &oadpv1alpha1.Velero{
+			dpa: &oadpv1alpha1.DataProtectionApplication{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-Velero-CR",
 					Namespace: "test-ns",
 				},
-				Spec: oadpv1alpha1.VeleroSpec{
-					DefaultVeleroPlugins: []oadpv1alpha1.DefaultPlugin{
-						oadpv1alpha1.DefaultPluginOpenShift,
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+								oadpv1alpha1.DefaultPluginOpenShift,
+							},
+						},
 					},
 				},
 			},
@@ -1083,15 +1114,19 @@ func Test_validateVeleroPlugins(t *testing.T) {
 		},
 		{
 			name: "given valid multiple Velero default plugins, default secrets gets mounted for each plugin if applicable",
-			velero: &oadpv1alpha1.Velero{
+			dpa: &oadpv1alpha1.DataProtectionApplication{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-Velero-CR",
 					Namespace: "test-ns",
 				},
-				Spec: oadpv1alpha1.VeleroSpec{
-					DefaultVeleroPlugins: []oadpv1alpha1.DefaultPlugin{
-						oadpv1alpha1.DefaultPluginAWS,
-						oadpv1alpha1.DefaultPluginOpenShift,
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+								oadpv1alpha1.DefaultPluginAWS,
+								oadpv1alpha1.DefaultPluginOpenShift,
+							},
+						},
 					},
 				},
 			},
@@ -1106,14 +1141,18 @@ func Test_validateVeleroPlugins(t *testing.T) {
 		},
 		{
 			name: "given invalid Velero secret, the validplugin check fails",
-			velero: &oadpv1alpha1.Velero{
+			dpa: &oadpv1alpha1.DataProtectionApplication{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-Velero-CR",
 					Namespace: "test-ns",
 				},
-				Spec: oadpv1alpha1.VeleroSpec{
-					DefaultVeleroPlugins: []oadpv1alpha1.DefaultPlugin{
-						oadpv1alpha1.DefaultPluginAWS,
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+								oadpv1alpha1.DefaultPluginAWS,
+							},
+						},
 					},
 				},
 			},
@@ -1123,18 +1162,18 @@ func Test_validateVeleroPlugins(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		fakeClient, err := getFakeClientFromObjects(tt.velero, tt.secret)
+		fakeClient, err := getFakeClientFromObjects(tt.dpa, tt.secret)
 		if err != nil {
 			t.Errorf("error in creating fake client, likely programmer error")
 		}
-		r := &VeleroReconciler{
+		r := &DPAReconciler{
 			Client:  fakeClient,
 			Scheme:  fakeClient.Scheme(),
 			Log:     logr.Discard(),
 			Context: newContextForTest(tt.name),
 			NamespacedName: types.NamespacedName{
-				Namespace: tt.velero.Namespace,
-				Name:      tt.velero.Name,
+				Namespace: tt.dpa.Namespace,
+				Name:      tt.dpa.Name,
 			},
 			EventRecorder: record.NewFakeRecorder(10),
 		}

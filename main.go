@@ -116,12 +116,12 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (&controllers.VeleroReconciler{
+	if err = (&controllers.DPAReconciler{
 		Client:        mgr.GetClient(),
 		Scheme:        mgr.GetScheme(),
 		EventRecorder: mgr.GetEventRecorderFor("controller"),
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "Velero")
+		setupLog.Error(err, "unable to create controller", "controller", "DataProtectionApplication")
 		os.Exit(1)
 	}
 	//+kubebuilder:scaffold:builder

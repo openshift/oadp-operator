@@ -11,42 +11,51 @@
 
    `oc create secret generic cloud-credentials --namespace openshift-adp --from-file cloud=<CREDENTIALS_FILE_PATH>`
 
-* Make sure your Velero CR is similar to this:
+  * Make sure your DataProtectionApplication (DPA) CR is similar to this:
 
     ```
     apiVersion: oadp.openshift.io/v1alpha1
-    kind: Velero
+    kind: DataProtectionApplication
     metadata:
-      name: velero-sample
+      name: dpa-sample
     spec:
-      olmManaged: false
-      backupStorageLocations:
-      - provider: aws
-        default: true
-        objectStorage:
-          bucket: my-bucket
-          prefix: my-prefix
-        credential:
-          name: cloud-credentials
-          key: cloud    
-        config:
-          region: us-east-1
-          profile: default
-      volumeSnapshotLocations:
-      - provider: aws
-        config:
-          region: us-west-2
-      enableRestic: true
-      defaultVeleroPlugins:
-      - openshift
-      - aws
+      configuration:
+        velero:
+          defaultPlugins:
+          - openshift
+          - aws
+        restic:
+          enable: true
+      backupLocations:
+        - name: default
+          velero:
+            provider: aws
+            default: true
+            objectStorage:
+              bucket: my-bucket
+              prefix: my-prefix
+            config:
+              region: us-east-1
+              profile: "default"
+            credential:
+              name: cloud-credentials
+              key: cloud
+      volumeSnapshots:
+        - name: default
+          velero:
+            provider: aws
+            config:
+              region: us-west-2
+              profile: "default"
+  
     ```
-    *Note*: Your BSL region should be the same as your s3 bucket, and your
-            VSL region should be your cluster's region. 
+  
+      *Note*: Your BSL region should be the same as your s3 bucket, and your
+              VSL region should be your cluster's region. 
 
 * Install Velero + Restic:
 
-  `oc create -n openshift-adp -f config/samples/oadp_v1alpha1_velero.yaml`
+  `oc create -n openshift-adp -f config/samples/oadp_v1alpha1_dpa.yaml`
 
 <hr style="height:1px;border:none;color:#333;">
 

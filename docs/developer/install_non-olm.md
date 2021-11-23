@@ -27,7 +27,7 @@ $ make deploy
 ### Installing Velero + Restic
 
 #### Creating credentials secret
-Before creating a Velero CR, ensure you have created a secret
+Before creating a DataProtectionApplication (DPA) CR, ensure you have created a secret
  `cloud-credentials` in namespace `openshift-adp`
 
  Make sure your credentials file is in the proper format. For example, if using
@@ -46,13 +46,13 @@ Create the secret:
 $ oc create secret generic cloud-credentials --namespace openshift-adp --from-file cloud=<CREDENTIALS_FILE_PATH>
 ```
 
-#### Creating a Velero custom resource to install Velero
-You can specify your Velero CR config values here: `congig/samples/oadp_v1alpha1_velero.yaml`
+#### Creating a DataProtectionApplication custom resource to install Velero
+You can specify your DataProtectionApplication (DPA) CR config values here: `congig/samples/oadp_v1alpha1_dpa.yaml`
 
-Create the Velero CR:
+Create the DPA CR:
 
 ```
-$ oc create -n openshift-adp -f config/samples/oadp_v1alpha1_velero.yaml
+$ oc create -n openshift-adp -f config/samples/oadp_v1alpha1_dpa.yaml
 ```
 
 ### Verify Installation

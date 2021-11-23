@@ -30,7 +30,7 @@ oc create -f oadp-operator-source.yaml
 - After running these commands, install OADP Operator from the `README` 
 instructions.
 
-When the installation is succeeded, create a Velero CRD instance from the 
+When the installation is succeeded, create a DataProtectionApplication (DPA) CRD instance from the 
 `README` instructions.
 
 Post completion of all the above steps, you can check if the operator was 
@@ -67,7 +67,7 @@ NAME                                                       HOST/PORT            
 route.route.openshift.io/oadp-default-aws-registry-route   oadp-default-aws-registry-route-oadp-operator.apps.cluster-dshah-4-5.dshah-4-5.mg.dog8code.com          oadp-default-aws-registry-svc   5000-tcp                 None
 ``` 
 
-- For cleaning up the deployed resources, remove the Velero CR instance, 
+- For cleaning up the deployed resources, remove the DataProtectionApplication CR instance, 
 and then uninstall the operator from the `README` instructions. To check if the 
 resources are removed, run:
 
