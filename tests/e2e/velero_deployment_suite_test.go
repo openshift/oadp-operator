@@ -6,8 +6,6 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/resource"
 
-	"k8s.io/apimachinery/pkg/api/resource"
-
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
@@ -318,9 +316,6 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 							},
 						},
 					},
-					Restic: &oadpv1alpha1.ResticConfig{
-						Enable: pointer.Bool(true),
-					},
 				},
 			},
 			WantError: false,
@@ -513,7 +508,6 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 								},
 							},
 						},
-						Enable: pointer.Bool(true),
 					},
 				},
 				Configuration: &oadpv1alpha1.ApplicationConfig{

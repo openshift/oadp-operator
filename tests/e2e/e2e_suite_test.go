@@ -45,6 +45,8 @@ func TestOADPE2E(t *testing.T) {
 	RunSpecs(t, "OADP E2E Suite")
 }
 
+var vel *dpaCustomResource
+
 var _ = BeforeSuite(func() {
 	flag.Parse()
 	s3Buffer, err := getJsonData(s3BucketFilePath)
