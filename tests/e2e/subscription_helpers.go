@@ -16,13 +16,13 @@ type Subscription struct {
 	*operators.Subscription
 }
 
-func (v *veleroCustomResource) getOperatorSubscription() (*Subscription, error) {
-	err := v.SetClient()
+func (d *dpaCustomResource) getOperatorSubscription() (*Subscription, error) {
+	err := d.SetClient()
 	if err != nil {
 		return nil, err
 	}
 	sl := operators.SubscriptionList{}
-	err = v.Client.List(context.Background(), &sl, client.InNamespace(v.Namespace), client.MatchingLabels(map[string]string{"operators.coreos.com/oadp-operator.openshift-adp": ""}))
+	err = d.Client.List(context.Background(), &sl, client.InNamespace(d.Namespace), client.MatchingLabels(map[string]string{"operators.coreos.com/oadp-operator.openshift-adp": ""}))
 	if err != nil {
 		return nil, err
 	}
@@ -60,6 +60,14 @@ func (s *Subscription) csvIsReady() bool {
 		return false
 	}
 	return csv.Status.Phase == operators.CSVPhaseSucceeded
+}
+func (s *Subscription) csvIsInstalling() bool {
+	csv, err := s.getCSV()
+	if err != nil {
+		log.Printf("Error getting CSV: %v", err)
+		return false
+	}
+	return csv.Status.Phase == operators.CSVPhaseInstalling
 }
 
 func (s *Subscription) CreateOrUpdate() error {

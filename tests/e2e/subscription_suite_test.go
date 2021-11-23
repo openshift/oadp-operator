@@ -51,22 +51,21 @@ var _ = Describe("Subscription Config Suite Test", func() {
 				Consistently(s.csvIsReady, time.Minute*2).Should(BeFalse())
 			} else {
 				Eventually(s.csvIsReady, time.Minute*9).Should(BeTrue())
-				
-	
+
 				log.Printf("Building veleroSpec")
 				err = vel.Build(csi)
 				Expect(err).NotTo(HaveOccurred())
-	
+
 				log.Printf("CreatingOrUpdate test Velero")
 				err = vel.CreateOrUpdate(&vel.CustomResource.Spec)
 				Expect(err).NotTo(HaveOccurred())
-	
+
 				log.Printf("Getting velero object")
 				velero, err := vel.Get()
 				Expect(err).NotTo(HaveOccurred())
 				log.Printf("Waiting for velero pod to be running")
 				Eventually(isVeleroPodRunning(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
-				if *velero.Spec.EnableRestic {
+				if velero.Spec.Configuration.Restic.Enable != nil && *velero.Spec.Configuration.Restic.Enable {
 					log.Printf("Waiting for restic pods to be running")
 					Eventually(areResticPodsRunning(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 				}
@@ -80,19 +79,18 @@ var _ = Describe("Subscription Config Suite Test", func() {
 					podList, err := getVeleroPods(namespace)
 					Expect(err).NotTo(HaveOccurred())
 					log.Printf("Getting pods containers env vars")
-					bsl := vel.CustomResource.Spec.BackupStorageLocations[0]
+					bl := vel.CustomResource.Spec.BackupLocations[0]
 					for _, podInfo := range podList.Items {
 						// we care about pods that have labels control-plane=controller-manager, component=velero, "component": "oadp-" + bsl.Name + "-" + bsl.Spec.Provider + "-registry",
 						if podInfo.Labels["control-plane"] == "controller-manager" ||
 							podInfo.Labels["component"] == "velero" ||
-							podInfo.Labels["component"] == "oadp-"+fmt.Sprintf("%s-%d", vel.Name, 1)+"-"+bsl.Provider+"-registry" {
+							podInfo.Labels["component"] == "oadp-"+fmt.Sprintf("%s-%d", vel.Name, 1)+"-"+bl.Velero.Provider+"-registry" {
 							log.Printf("Checking env vars are passed to each container in each pod")
 							for _, container := range podInfo.Spec.Containers {
 								for _, env := range s.Spec.Config.Env {
 									Expect(container.Env).To(ContainElement(env))
 								}
 							}
-	
 						}
 					}
 				}
