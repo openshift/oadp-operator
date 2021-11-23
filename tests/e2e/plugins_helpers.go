@@ -4,7 +4,6 @@ import (
 	"context"
 	"log"
 
-	"github.com/openshift/oadp-operator/api/v1alpha1"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	"github.com/openshift/oadp-operator/pkg/credentials"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -12,15 +11,15 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func (v *dpaCustomResource) removeVeleroPlugin(namespace string, instanceName string, pluginValues []v1alpha1.DefaultPlugin, removedPlugin string) error {
-	err := v.SetClient()
+func (d *dpaCustomResource) removeVeleroPlugin(namespace string, instanceName string, pluginValues []oadpv1alpha1.DefaultPlugin, removedPlugin string) error {
+	err := d.SetClient()
 	if err != nil {
 		return err
 	}
 	dpa := &oadpv1alpha1.DataProtectionApplication{}
-	err = v.Client.Get(context.Background(), client.ObjectKey{
-		Namespace: v.Namespace,
-		Name:      v.Name,
+	err = d.Client.Get(context.Background(), client.ObjectKey{
+		Namespace: d.Namespace,
+		Name:      d.Name,
 	}, dpa)
 	if err != nil {
 		return err
@@ -28,7 +27,7 @@ func (v *dpaCustomResource) removeVeleroPlugin(namespace string, instanceName st
 	// remove plugin from default_plugins
 	dpa.Spec.Configuration.Velero.DefaultPlugins = pluginValues
 
-	err = v.Client.Update(context.Background(), dpa)
+	err = d.Client.Update(context.Background(), dpa)
 	if err != nil {
 		return err
 	}
