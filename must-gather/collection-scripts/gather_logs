@@ -17,7 +17,7 @@ for ns in ${namespaces[@]}; do
 
   # Gather logs for each oadp operator instance
   for vel in $(oc get velero --namespace ${ns} --no-headers | awk '{print $1}'); do
-    plan_path="/must-gather/clusters/${cluster}/namespaces/${ns}/oadp/dpa-${vel}"
+    plan_path="/must-gather/clusters/${cluster}/namespaces/${ns}/oadp.openshift.io/dpa-${vel}"
     mkdir -p ${plan_path}
     
       for backup in $(oc get backup --namespace ${ns} --no-headers | awk '{print $1}'); do
