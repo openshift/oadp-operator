@@ -114,7 +114,7 @@ func (b BucketReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	}
 
 	// Update status with updated value
-	bucket.Status.LastSyncTimestamp = &v1.Time{Time: time.Now()}
+	bucket.Status.LastSynced = &v1.Time{Time: time.Now()}
 	bucket.Status.Name = bucket.Spec.Name
 
 	b.Client.Status().Update(ctx, &bucket, &client.UpdateOptions{})

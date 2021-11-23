@@ -88,10 +88,10 @@ func (a awsBucketClient) Create() (bool, error) {
 		Bucket: aws.String(a.bucket.Spec.Name),
 	}
 	if a.bucket.Spec.Region != "us-east-1" {
-		createBucketConfiguation := &s3.CreateBucketConfiguration{
+		createBucketConfiguration := &s3.CreateBucketConfiguration{
 			LocationConstraint: &a.bucket.Spec.Region,
 		}
-		createBucketInput.SetCreateBucketConfiguration(createBucketConfiguation)
+		createBucketInput.SetCreateBucketConfiguration(createBucketConfiguration)
 	}
 	if err := createBucketInput.Validate(); err != nil {
 		return false, fmt.Errorf("unable to validate %v bucket creation configuration: %v", a.bucket.Spec.Name, err)

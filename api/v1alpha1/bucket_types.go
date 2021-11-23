@@ -17,16 +17,21 @@ type Bucket struct {
 }
 
 type BucketSpec struct {
-	Name               string                   `json:"name"`
-	CreationSecret     corev1.SecretKeySelector `json:"bucketCreationSecret"`
-	EnableSharedConfig *bool                    `json:"enableSharedConfig,omitempty"`
-	Tags               map[string]string        `json:"bucketTags,omitempty"`
-	Region             string                   `json:"region"`
+	// Name is the name requested for the bucket
+	Name string `json:"name"`
+	// CreationSecret is the secret that is needed to be used while creating the bucket.
+	CreationSecret corev1.SecretKeySelector `json:"creationSecret"`
+	// EnableSharedConfig enable the use of shared config loading for AWS Buckets
+	EnableSharedConfig *bool `json:"enableSharedConfig,omitempty"`
+	// Tags for the bucket
+	Tags map[string]string `json:"tags,omitempty"`
+	// Region for the bucket to be in, will be us-east-1 if not set.
+	Region string `json:"region,omitempty"`
 }
 
 type BucketStatus struct {
-	Name              string       `json:"name"`
-	LastSyncTimestamp *metav1.Time `json:"lastSyncTimestamp,omitempty"`
+	Name       string       `json:"name"`
+	LastSynced *metav1.Time `json:"lastSyncTimestamp,omitempty"`
 }
 
 //+kubebuilder:object:root=true
