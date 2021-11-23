@@ -580,7 +580,7 @@ func (r *DPAReconciler) parseAWSSecret(secret corev1.Secret, secretKey string, m
 	}
 	if profile == "" {
 		r.Log.Info("Error finding AWS Profile for the supplied AWS credential")
-		return AWSAccessKey, AWSSecretKey, errors.New("Error finding AWS Profile for the supplied AWS credential")
+		return AWSAccessKey, AWSSecretKey, errors.New("error finding AWS Profile for the supplied AWS credential")
 	}
 	if AWSAccessKey == "" {
 		r.Log.Info("Error finding access key id for the supplied AWS credential")

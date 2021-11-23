@@ -34,7 +34,12 @@ type Client interface {
 }
 
 func NewClient(b v1alpha1.Bucket, c client.Client) (Client, error) {
-	return &awsBucketClient{bucket: b, client: c}, nil
+	switch b.Spec.Provider {
+	case v1alpha1.AWSBucketProvider:
+		return &awsBucketClient{bucket: b, client: c}, nil
+	default:
+		return nil, fmt.Errorf("unable to determine bucket client")
+	}
 }
 
 type awsBucketClient struct {

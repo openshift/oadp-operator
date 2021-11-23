@@ -16,6 +16,12 @@ type Bucket struct {
 	Status BucketStatus `json:"status,omitempty"`
 }
 
+type BucketProvider string
+
+const (
+	AWSBucketProvider BucketProvider = "AWS"
+)
+
 type BucketSpec struct {
 	// Name is the name requested for the bucket
 	Name string `json:"name"`
@@ -24,9 +30,12 @@ type BucketSpec struct {
 	// EnableSharedConfig enable the use of shared config loading for AWS Buckets
 	EnableSharedConfig *bool `json:"enableSharedConfig,omitempty"`
 	// Tags for the bucket
+	// +kubebuilder:validation:Optional
 	Tags map[string]string `json:"tags,omitempty"`
 	// Region for the bucket to be in, will be us-east-1 if not set.
 	Region string `json:"region,omitempty"`
+	// +kubebuilder:validation:Enum=AWS
+	Provider BucketProvider `json:"provider"`
 }
 
 type BucketStatus struct {

@@ -1152,17 +1152,6 @@ func TestDPAReconciler_updateBSLFromSpec(t *testing.T) {
 }
 
 func TestDPAReconciler_ensureBSLProviderMapping(t *testing.T) {
-	type fields struct {
-		Client         client.Client
-		Scheme         *runtime.Scheme
-		Log            logr.Logger
-		Context        context.Context
-		NamespacedName types.NamespacedName
-		EventRecorder  record.EventRecorder
-	}
-	type args struct {
-		dpa *oadpv1alpha1.DataProtectionApplication
-	}
 	tests := []struct {
 		name    string
 		dpa     *oadpv1alpha1.DataProtectionApplication
