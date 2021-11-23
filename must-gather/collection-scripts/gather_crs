@@ -35,7 +35,7 @@ for resource in ${resources[@]}; do
       /usr/bin/oc get ${resource} -o yaml ${ocobject} &> ${object_collection_path}/${ocobject}.yaml &
     else
       #TODO: verify if there are more crds to add for oadp
-      skip=("veleroes.oadp.openshift.io")
+      skip=("dataprotectionapplications.oadp.openshift.io")
       if [[ ${skip[*]} =~ "${resource}" ]]; then
         continue
       fi
@@ -48,9 +48,9 @@ for resource in ${resources[@]}; do
 done
 
 for ns in ${namespaces[@]}; do
-  for vel in $(oc get velero --namespace ${ns} --no-headers | awk '{print $1}'); do
-    mkdir -p "/must-gather/clusters/${clusterID}/namespaces/${ns}/oadp.openshift.io/dpa-${vel}"
-    oc get velero ${vel} -o yaml --namespace ${ns} &> "/must-gather/clusters/${clusterID}/namespaces/${ns}/oadp.openshift.io/dpa-${vel}/${vel}.yml" &
+  for dpa in $(oc get dpa --namespace ${ns} --no-headers | awk '{print $1}'); do
+    mkdir -p "/must-gather/clusters/${clusterID}/namespaces/${ns}/oadp.openshift.io/dpa-${dpa}"
+    oc get velero ${vel} -o yaml --namespace ${ns} &> "/must-gather/clusters/${clusterID}/namespaces/${ns}/oadp.openshift.io/dpa-${dpa}/${dpa}.yml" &
     pwait $max_parallelism
   done
 done

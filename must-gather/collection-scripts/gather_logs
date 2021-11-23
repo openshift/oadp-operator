@@ -16,8 +16,8 @@ for ns in ${namespaces[@]}; do
   /usr/bin/gather_logs_pods ${cluster} ${ns} ${logs_since} ${max_parallelism} &
 
   # Gather logs for each oadp operator instance
-  for vel in $(oc get velero --namespace ${ns} --no-headers | awk '{print $1}'); do
-    plan_path="/must-gather/clusters/${cluster}/namespaces/${ns}/oadp.openshift.io/dpa-${vel}"
+  for dpa in $(oc get dpa --namespace ${ns} --no-headers | awk '{print $1}'); do
+    plan_path="/must-gather/clusters/${cluster}/namespaces/${ns}/oadp.openshift.io/dpa-${dpa}"
     mkdir -p ${plan_path}
     
       for backup in $(oc get backup --namespace ${ns} --no-headers | awk '{print $1}'); do
