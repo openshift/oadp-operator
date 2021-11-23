@@ -7,7 +7,7 @@ that expands its capabilities to gather OADP operator specific resources
 
 **Full gather**
 ```sh
-oc adm must-gather --image=quay.io/oadp/must-gather:latest
+oc adm must-gather --image=quay.io/konveyor/oadp-must-gather:latest
 ```
 
 The command above will create a local directory with a dump of the OADP Operator state.
@@ -24,14 +24,14 @@ Differences from full gather:
  - Skips collection of prometheus metrics. Removes duplicate logs from payload.
 ```
 # Essential gather (available time windows: [1h, 6h, 24h, 72h, all])
-oc adm must-gather --image=quay.io/oadp/must-gather:latest -- /usr/bin/gather_24h_essential
+oc adm must-gather --image=quay.io/konveyor/oadp-must-gather:latest -- /usr/bin/gather_24h_essential
 ```
 
 #### Preview metrics on local Prometheus server
 
 Get Prometheus metrics data directory dump (last day, might take a while):
 ```sh
-oc adm must-gather --image quay.io/oadp/must-gather:latest -- /usr/bin/gather_metrics_dump
+oc adm must-gather --image quay.io/konveyor/oadp-must-gather:latest -- /usr/bin/gather_metrics_dump
 ```
 
 Run local Prometheus instance with dumped data:
