@@ -82,7 +82,7 @@ func (r *DPAReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	}
 
 	_, err := ReconcileBatch(r.Log,
-		r.ValidateVeleroPlugins,
+		r.ValidateDataProtectionCR,
 		r.ReconcileVeleroSecurityContextConstraint,
 		r.ReconcileResticRestoreHelperConfig,
 		r.ValidateBackupStorageLocations,
