@@ -1,0 +1,3 @@
+#!/bin/bash
+# Gather 72 hours of logs
+logs_since="72h" /usr/bin/gather
