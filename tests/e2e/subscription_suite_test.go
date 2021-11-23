@@ -85,8 +85,9 @@ var _ = Describe("Subscription Config Suite Test", func() {
 						if podInfo.Labels["control-plane"] == "controller-manager" ||
 							podInfo.Labels["component"] == "velero" ||
 							podInfo.Labels["component"] == "oadp-"+fmt.Sprintf("%s-%d", vel.Name, 1)+"-"+bl.Velero.Provider+"-registry" {
-							log.Printf("Checking env vars are passed to each container in each pod")
+							log.Printf("Checking env vars are passed to each container in " + podInfo.Name)
 							for _, container := range podInfo.Spec.Containers {
+								log.Printf("Checking env vars are passed to container " + container.Name)
 								for _, env := range s.Spec.Config.Env {
 									Expect(container.Env).To(ContainElement(env))
 								}
