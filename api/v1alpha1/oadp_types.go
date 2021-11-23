@@ -132,8 +132,10 @@ type BucketBackupLocation struct {
 // BackupLocation defines the configuration for the DPA backup storage
 type BackupLocation struct {
 	// TODO: Add name/annotations/labels support
-	Velero *velero.BackupStorageLocationSpec `json:"velero"`
-	Bucket *BucketBackupLocation             `json:"bucket"`
+	// +optional
+	Velero *velero.BackupStorageLocationSpec `json:"velero,omitempty"`
+	// +optional
+	Bucket *BucketBackupLocation `json:"bucket,omitempty"`
 }
 
 // SnapshotLocation defines the configuration for the DPA snapshot store
