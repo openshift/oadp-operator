@@ -509,7 +509,7 @@ func (r *DPAReconciler) isSTSTokenNeeded(bsls []oadpv1alpha1.BackupLocation, ns 
 
 	for _, bsl := range bsls {
 		if bsl.Bucket != nil {
-			bucket := &oadpv1alpha1.Bucket{}
+			bucket := &oadpv1alpha1.CloudStorage{}
 			err := r.Get(r.Context, client.ObjectKey{
 				Name:      bsl.Bucket.BucketRef.Name,
 				Namespace: ns,

@@ -203,5 +203,5 @@ type DataProtectionApplicationList struct {
 }
 
 func init() {
-	SchemeBuilder.Register(&DataProtectionApplication{}, &DataProtectionApplicationList{}, &Bucket{}, &BucketList{})
+	SchemeBuilder.Register(&DataProtectionApplication{}, &DataProtectionApplicationList{}, &CloudStorage{}, &CloudStorageList{})
 }

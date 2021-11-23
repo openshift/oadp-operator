@@ -108,7 +108,7 @@ func (r *DPAReconciler) ReconcileBackupStorageLocations(log logr.Logger) (bool, 
 				return err
 			}
 			if bslSpec.Bucket != nil {
-				bucket := &oadpv1alpha1.Bucket{}
+				bucket := &oadpv1alpha1.CloudStorage{}
 				err := r.Get(r.Context, client.ObjectKey{Namespace: dpa.Namespace, Name: bslSpec.Bucket.BucketRef.Name}, bucket)
 				if err != nil {
 					return err

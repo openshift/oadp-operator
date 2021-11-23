@@ -53,7 +53,7 @@ func (b BucketReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	result := ctrl.Result{}
 	// Set reconciler context + name
 
-	bucket := oadpv1alpha1.Bucket{}
+	bucket := oadpv1alpha1.CloudStorage{}
 
 	if err := b.Client.Get(ctx, req.NamespacedName, &bucket); err != nil {
 		log.Error(err, "unable to fetch bucket CR")
@@ -125,7 +125,7 @@ func (b BucketReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 func (b *BucketReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&oadpv1alpha1.Bucket{}).
+		For(&oadpv1alpha1.CloudStorage{}).
 		WithEventFilter(bucketPredicate()).
 		Complete(b)
 

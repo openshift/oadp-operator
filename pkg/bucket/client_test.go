@@ -10,14 +10,14 @@ import (
 func TestNewClient(t *testing.T) {
 	tests := []struct {
 		name    string
-		bucket  oadpv1alpha1.Bucket
+		bucket  oadpv1alpha1.CloudStorage
 		wantErr bool
 		want    bool
 	}{
 		{
 			name: "Test AWS",
-			bucket: oadpv1alpha1.Bucket{
-				Spec: oadpv1alpha1.BucketSpec{
+			bucket: oadpv1alpha1.CloudStorage{
+				Spec: oadpv1alpha1.CloudStorageSpec{
 					Provider: oadpv1alpha1.AWSBucketProvider,
 				},
 			},
@@ -26,8 +26,8 @@ func TestNewClient(t *testing.T) {
 		},
 		{
 			name: "Error when invalid provider",
-			bucket: oadpv1alpha1.Bucket{
-				Spec: oadpv1alpha1.BucketSpec{
+			bucket: oadpv1alpha1.CloudStorage{
+				Spec: oadpv1alpha1.CloudStorageSpec{
 					Provider: "invalid",
 				},
 			},

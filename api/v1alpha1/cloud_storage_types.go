@@ -8,12 +8,12 @@ import (
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 
-type Bucket struct {
+type CloudStorage struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   BucketSpec   `json:"spec,omitempty"`
-	Status BucketStatus `json:"status,omitempty"`
+	Spec   CloudStorageSpec   `json:"spec,omitempty"`
+	Status CloudStorageStatus `json:"status,omitempty"`
 }
 
 type BucketProvider string
@@ -22,7 +22,7 @@ const (
 	AWSBucketProvider BucketProvider = "AWS"
 )
 
-type BucketSpec struct {
+type CloudStorageSpec struct {
 	// Name is the name requested for the bucket
 	Name string `json:"name"`
 	// CreationSecret is the secret that is needed to be used while creating the bucket.
@@ -38,15 +38,15 @@ type BucketSpec struct {
 	Provider BucketProvider `json:"provider"`
 }
 
-type BucketStatus struct {
+type CloudStorageStatus struct {
 	Name       string       `json:"name"`
 	LastSynced *metav1.Time `json:"lastSyncTimestamp,omitempty"`
 }
 
 //+kubebuilder:object:root=true
 
-type BucketList struct {
+type CloudStorageList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []Bucket `json:"items"`
+	Items           []CloudStorage `json:"items"`
 }

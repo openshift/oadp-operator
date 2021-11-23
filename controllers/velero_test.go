@@ -1148,12 +1148,12 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 				},
 			},
 			clientObjects: []client.Object{
-				&oadpv1alpha1.Bucket{
+				&oadpv1alpha1.CloudStorage{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "bucket-123",
 						Namespace: "test-ns",
 					},
-					Spec: oadpv1alpha1.BucketSpec{
+					Spec: oadpv1alpha1.CloudStorageSpec{
 						EnableSharedConfig: &trueVal,
 					},
 				},

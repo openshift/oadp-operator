@@ -33,7 +33,7 @@ type Client interface {
 	ForceCredentialRefresh() error
 }
 
-func NewClient(b v1alpha1.Bucket, c client.Client) (Client, error) {
+func NewClient(b v1alpha1.CloudStorage, c client.Client) (Client, error) {
 	switch b.Spec.Provider {
 	case v1alpha1.AWSBucketProvider:
 		return &awsBucketClient{bucket: b, client: c}, nil
@@ -43,7 +43,7 @@ func NewClient(b v1alpha1.Bucket, c client.Client) (Client, error) {
 }
 
 type awsBucketClient struct {
-	bucket v1alpha1.Bucket
+	bucket v1alpha1.CloudStorage
 	client client.Client
 }
 
