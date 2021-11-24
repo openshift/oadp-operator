@@ -194,6 +194,9 @@ spec:
       kind: BackupStorageLocation
       name: backupstoragelocations.velero.io
       version: v1
+    - kind: CloudStorage
+      name: cloudstorages.oadp.openshift.io
+      version: v1alpha1
     - description: DataProtectionApplication represents configuration to install a
         data protection application to safely backup and restore, perform disaster
         recovery and migrate Kubernetes cluster resources and persistent volumes.
