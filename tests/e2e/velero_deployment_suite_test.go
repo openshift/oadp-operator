@@ -179,7 +179,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 			DpaSpec: &oadpv1alpha1.DataProtectionApplicationSpec{
 				Configuration: &oadpv1alpha1.ApplicationConfig{
 					Velero: &oadpv1alpha1.VeleroConfig{
-						PodConfig: &oadpv1alpha1.PodConfig{},``
+						PodConfig: &oadpv1alpha1.PodConfig{},
 						DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
 							oadpv1alpha1.DefaultPluginCSI,
 							oadpv1alpha1.DefaultPluginOpenShift,
