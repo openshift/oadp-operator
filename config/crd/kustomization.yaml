@@ -3,6 +3,7 @@
 # It should be run by config/default
 resources:
 - bases/oadp.openshift.io_dataprotectionapplications.yaml
+- bases/oadp.openshift.io_cloudstorages.yaml
 - bases/backup.crd.yaml
 - bases/backupstoragelocation.crd.yaml
 - bases/deletebackuprequest.crd.yaml

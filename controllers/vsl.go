@@ -14,19 +14,23 @@ import (
 
 // provider specific object storage
 const (
-	AWSProfile          = "profile"
-	AWSRegion           = "region"
-	GCPSnapshotLocation = "snapshotLocation"
-	GCPProject          = "project"
-	AzureApiTimeout     = "apiTimeout"
-	AzureSubscriptionId = "subscriptionId"
-	AzureIncremental    = "incremental"
-	AzureResourceGroup  = "resourceGroup"
+	AWSProfile            = "profile"
+	AWSRegion             = "region"
+	CredentialsFileKey    = "credentialsFile"
+	EnableSharedConfigKey = "enableSharedConfig"
+	GCPSnapshotLocation   = "snapshotLocation"
+	GCPProject            = "project"
+	AzureApiTimeout       = "apiTimeout"
+	AzureSubscriptionId   = "subscriptionId"
+	AzureIncremental      = "incremental"
+	AzureResourceGroup    = "resourceGroup"
 )
 
 var validAWSKeys = map[string]bool{
-	AWSProfile: true,
-	AWSRegion:  true,
+	AWSProfile:            true,
+	AWSRegion:             true,
+	CredentialsFileKey:    true,
+	EnableSharedConfigKey: true,
 }
 
 var validGCPKeys = map[string]bool{

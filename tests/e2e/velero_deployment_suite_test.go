@@ -1,9 +1,10 @@
 package e2e
 
 import (
-	"k8s.io/apimachinery/pkg/api/resource"
 	"log"
 	"time"
+
+	"k8s.io/apimachinery/pkg/api/resource"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"

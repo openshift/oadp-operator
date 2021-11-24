@@ -27,6 +27,7 @@ import (
 	"k8s.io/utils/pointer"
 
 	//"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
@@ -404,6 +405,8 @@ func (r *DPAReconciler) customizeVeleroDeployment(dpa *oadpv1alpha1.DataProtecti
 	veleroDeployment.Labels = r.getAppLabels(dpa)
 	veleroDeployment.Spec.Selector = veleroLabelSelector
 
+	isSTSNeeded := r.isSTSTokenNeeded(dpa.Spec.BackupLocations, dpa.Namespace)
+
 	//TODO: add velero nodeselector, needs to be added to the VELERO CR first
 	// Selector: veleroDeployment.Spec.Selector,
 	veleroDeployment.Spec.Replicas = pointer.Int32(1)
@@ -417,6 +420,30 @@ func (r *DPAReconciler) customizeVeleroDeployment(dpa *oadpv1alpha1.DataProtecti
 				EmptyDir: &corev1.EmptyDirVolumeSource{},
 			},
 		})
+
+	if isSTSNeeded {
+		defaultMode := int32(420)
+		expirationSeconds := int64(3600)
+		veleroDeployment.Spec.Template.Spec.Volumes = append(veleroDeployment.Spec.Template.Spec.Volumes,
+			corev1.Volume{
+				Name: "bound-sa-token",
+				VolumeSource: corev1.VolumeSource{
+					Projected: &corev1.ProjectedVolumeSource{
+						DefaultMode: &defaultMode,
+						Sources: []corev1.VolumeProjection{
+							{
+								ServiceAccountToken: &corev1.ServiceAccountTokenProjection{
+									Audience:          "openshift",
+									ExpirationSeconds: &expirationSeconds,
+									Path:              "token",
+								},
+							},
+						},
+					},
+				},
+			},
+		)
+	}
 	//add any default init containers here if needed eg: setup-certificate-secret
 	// When you do this
 	// - please set the ImagePullPolicy to Always, and
@@ -438,13 +465,13 @@ func (r *DPAReconciler) customizeVeleroDeployment(dpa *oadpv1alpha1.DataProtecti
 			break
 		}
 	}
-	if err := r.customizeVeleroContainer(dpa, veleroDeployment, veleroContainer); err != nil {
+	if err := r.customizeVeleroContainer(dpa, veleroDeployment, veleroContainer, isSTSNeeded); err != nil {
 		return err
 	}
 	return credentials.AppendPluginSpecificSpecs(dpa, veleroDeployment, veleroContainer)
 }
 
-func (r *DPAReconciler) customizeVeleroContainer(dpa *oadpv1alpha1.DataProtectionApplication, veleroDeployment *appsv1.Deployment, veleroContainer *corev1.Container) error {
+func (r *DPAReconciler) customizeVeleroContainer(dpa *oadpv1alpha1.DataProtectionApplication, veleroDeployment *appsv1.Deployment, veleroContainer *corev1.Container, isSTSNeeded bool) error {
 	if veleroContainer == nil {
 		return fmt.Errorf("could not find velero container in Deployment")
 	}
@@ -455,8 +482,18 @@ func (r *DPAReconciler) customizeVeleroContainer(dpa *oadpv1alpha1.DataProtectio
 			MountPath: "/etc/ssl/certs",
 		},
 	)
+
+	if isSTSNeeded {
+		veleroContainer.VolumeMounts = append(veleroContainer.VolumeMounts,
+			corev1.VolumeMount{
+				Name:      "bound-sa-token",
+				MountPath: "/var/run/secrets/openshift/serviceaccount",
+				ReadOnly:  true,
+			})
+	}
 	// Append proxy settings to the container from environment variables
 	veleroContainer.Env = append(veleroContainer.Env, proxy.ReadProxyVarsFromEnv()...)
+
 	// Enable user to specify --restic-timeout (defaults to 1h)
 	resticTimeout := "1h"
 	if dpa.Spec.Configuration.Restic != nil && len(dpa.Spec.Configuration.Restic.Timeout) > 0 {
@@ -466,6 +503,28 @@ func (r *DPAReconciler) customizeVeleroContainer(dpa *oadpv1alpha1.DataProtectio
 	veleroContainer.Args = append(veleroContainer.Args, fmt.Sprintf("--restic-timeout=%s", resticTimeout))
 
 	return nil
+}
+
+func (r *DPAReconciler) isSTSTokenNeeded(bsls []oadpv1alpha1.BackupLocation, ns string) bool {
+
+	for _, bsl := range bsls {
+		if bsl.Bucket != nil {
+			bucket := &oadpv1alpha1.CloudStorage{}
+			err := r.Get(r.Context, client.ObjectKey{
+				Name:      bsl.Bucket.BucketRef.Name,
+				Namespace: ns,
+			}, bucket)
+			if err != nil {
+				//log
+				return false
+			}
+			if bucket.Spec.EnableSharedConfig != nil && *bucket.Spec.EnableSharedConfig {
+				return true
+			}
+		}
+	}
+
+	return false
 }
 
 func getVeleroImage(dpa *oadpv1alpha1.DataProtectionApplication) string {

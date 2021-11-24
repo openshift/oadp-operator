@@ -13,7 +13,6 @@ import (
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	"github.com/openshift/oadp-operator/pkg/common"
 	appsv1 "k8s.io/api/apps/v1"
-	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -144,48 +143,48 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 						Type: appsv1.RollingUpdateDaemonSetStrategyType,
 					},
 					Selector: resticLabelSelector,
-					Template: corev1.PodTemplateSpec{
+					Template: v1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: map[string]string{
 								"component": common.Velero,
 								"name":      common.Restic,
 							},
 						},
-						Spec: corev1.PodSpec{
+						Spec: v1.PodSpec{
 							NodeSelector:       dpa.Spec.Configuration.Restic.PodConfig.NodeSelector,
 							ServiceAccountName: common.Velero,
-							SecurityContext: &corev1.PodSecurityContext{
+							SecurityContext: &v1.PodSecurityContext{
 								RunAsUser:          pointer.Int64(0),
 								SupplementalGroups: dpa.Spec.Configuration.Restic.SupplementalGroups,
 							},
-							Volumes: []corev1.Volume{
+							Volumes: []v1.Volume{
 								// Cloud Provider volumes are dynamically added in the for loop below
 								{
 									Name: HostPods,
-									VolumeSource: corev1.VolumeSource{
-										HostPath: &corev1.HostPathVolumeSource{
+									VolumeSource: v1.VolumeSource{
+										HostPath: &v1.HostPathVolumeSource{
 											Path: resticPvHostPath,
 										},
 									},
 								},
 								{
 									Name: "scratch",
-									VolumeSource: corev1.VolumeSource{
-										EmptyDir: &corev1.EmptyDirVolumeSource{},
+									VolumeSource: v1.VolumeSource{
+										EmptyDir: &v1.EmptyDirVolumeSource{},
 									},
 								},
 								{
 									Name: "certs",
-									VolumeSource: corev1.VolumeSource{
-										EmptyDir: &corev1.EmptyDirVolumeSource{},
+									VolumeSource: v1.VolumeSource{
+										EmptyDir: &v1.EmptyDirVolumeSource{},
 									},
 								},
 							},
 							Tolerations: dpa.Spec.Configuration.Restic.PodConfig.Tolerations,
-							Containers: []corev1.Container{
+							Containers: []v1.Container{
 								{
 									Name: common.Restic,
-									SecurityContext: &corev1.SecurityContext{
+									SecurityContext: &v1.SecurityContext{
 										Privileged: pointer.Bool(true),
 									},
 									Image:           getVeleroImage(&dpa),
@@ -198,7 +197,7 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 										"restic",
 										"server",
 									},
-									VolumeMounts: []corev1.VolumeMount{
+									VolumeMounts: []v1.VolumeMount{
 										{
 											Name:             "host-pods",
 											MountPath:        "/host_pods",
@@ -213,19 +212,19 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 											MountPath: "/etc/ssl/certs",
 										},
 									},
-									Env: []corev1.EnvVar{
+									Env: []v1.EnvVar{
 										{
 											Name: "NODE_NAME",
-											ValueFrom: &corev1.EnvVarSource{
-												FieldRef: &corev1.ObjectFieldSelector{
+											ValueFrom: &v1.EnvVarSource{
+												FieldRef: &v1.ObjectFieldSelector{
 													FieldPath: "spec.nodeName",
 												},
 											},
 										},
 										{
 											Name: "VELERO_NAMESPACE",
-											ValueFrom: &corev1.EnvVarSource{
-												FieldRef: &corev1.ObjectFieldSelector{
+											ValueFrom: &v1.EnvVarSource{
+												FieldRef: &v1.ObjectFieldSelector{
 													FieldPath: "metadata.namespace",
 												},
 											},
@@ -275,60 +274,60 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 						Type: appsv1.RollingUpdateDaemonSetStrategyType,
 					},
 					Selector: resticLabelSelector,
-					Template: corev1.PodTemplateSpec{
+					Template: v1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: map[string]string{
 								"component": common.Velero,
 								"name":      common.Restic,
 							},
 						},
-						Spec: corev1.PodSpec{
+						Spec: v1.PodSpec{
 							NodeSelector:       dpa.Spec.Configuration.Restic.PodConfig.NodeSelector,
 							ServiceAccountName: common.Velero,
-							SecurityContext: &corev1.PodSecurityContext{
+							SecurityContext: &v1.PodSecurityContext{
 								RunAsUser:          pointer.Int64(0),
 								SupplementalGroups: dpa.Spec.Configuration.Restic.SupplementalGroups,
 							},
-							Volumes: []corev1.Volume{
+							Volumes: []v1.Volume{
 								// Cloud Provider volumes are dynamically added in the for loop below
 								{
 									Name: "host-pods",
-									VolumeSource: corev1.VolumeSource{
-										HostPath: &corev1.HostPathVolumeSource{
+									VolumeSource: v1.VolumeSource{
+										HostPath: &v1.HostPathVolumeSource{
 											Path: resticPvHostPath,
 										},
 									},
 								},
 								{
 									Name: "scratch",
-									VolumeSource: corev1.VolumeSource{
-										EmptyDir: &corev1.EmptyDirVolumeSource{},
+									VolumeSource: v1.VolumeSource{
+										EmptyDir: &v1.EmptyDirVolumeSource{},
 									},
 								},
 								{
 									Name: "certs",
-									VolumeSource: corev1.VolumeSource{
-										EmptyDir: &corev1.EmptyDirVolumeSource{},
+									VolumeSource: v1.VolumeSource{
+										EmptyDir: &v1.EmptyDirVolumeSource{},
 									},
 								},
 								{
 									Name: "cloud-credentials",
-									VolumeSource: corev1.VolumeSource{
-										Secret: &corev1.SecretVolumeSource{
+									VolumeSource: v1.VolumeSource{
+										Secret: &v1.SecretVolumeSource{
 											SecretName: "cloud-credentials",
 										},
 									},
 								},
 							},
 							Tolerations: dpa.Spec.Configuration.Restic.PodConfig.Tolerations,
-							Containers: []corev1.Container{
+							Containers: []v1.Container{
 								{
 									Name: common.Restic,
-									SecurityContext: &corev1.SecurityContext{
+									SecurityContext: &v1.SecurityContext{
 										Privileged: pointer.Bool(true),
 									},
 									Image:           getVeleroImage(&dpa),
-									ImagePullPolicy: corev1.PullAlways,
+									ImagePullPolicy: v1.PullAlways,
 									Resources:       r.getResticResourceReqs(&dpa), //setting default.
 									Command: []string{
 										"/velero",
@@ -337,7 +336,7 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 										"restic",
 										"server",
 									},
-									VolumeMounts: []corev1.VolumeMount{
+									VolumeMounts: []v1.VolumeMount{
 										{
 											Name:             "host-pods",
 											MountPath:        "/host_pods",
@@ -356,19 +355,19 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 											MountPath: "/credentials",
 										},
 									},
-									Env: []corev1.EnvVar{
+									Env: []v1.EnvVar{
 										{
 											Name: "NODE_NAME",
-											ValueFrom: &corev1.EnvVarSource{
-												FieldRef: &corev1.ObjectFieldSelector{
+											ValueFrom: &v1.EnvVarSource{
+												FieldRef: &v1.ObjectFieldSelector{
 													FieldPath: "spec.nodeName",
 												},
 											},
 										},
 										{
 											Name: "VELERO_NAMESPACE",
-											ValueFrom: &corev1.EnvVarSource{
-												FieldRef: &corev1.ObjectFieldSelector{
+											ValueFrom: &v1.EnvVarSource{
+												FieldRef: &v1.ObjectFieldSelector{
 													FieldPath: "metadata.namespace",
 												},
 											},
@@ -416,8 +415,8 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 										S3URL:                 "https://sr-url-aws-domain.com",
 										InsecureSkipTLSVerify: "false",
 									},
-									Credential: &corev1.SecretKeySelector{
-										LocalObjectReference: corev1.LocalObjectReference{
+									Credential: &v1.SecretKeySelector{
+										LocalObjectReference: v1.LocalObjectReference{
 											Name: "cloud-credentials",
 										},
 									},
@@ -444,7 +443,7 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 						Type: appsv1.RollingUpdateDaemonSetStrategyType,
 					},
 					Selector: resticLabelSelector,
-					Template: corev1.PodTemplateSpec{
+					Template: v1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: map[string]string{
 								"component": common.Velero,
@@ -454,53 +453,53 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 								"test-annotation": "awesome annotation",
 							},
 						},
-						Spec: corev1.PodSpec{
+						Spec: v1.PodSpec{
 							NodeSelector:       dpa.Spec.Configuration.Restic.PodConfig.NodeSelector,
 							ServiceAccountName: common.Velero,
-							SecurityContext: &corev1.PodSecurityContext{
+							SecurityContext: &v1.PodSecurityContext{
 								RunAsUser:          pointer.Int64(0),
 								SupplementalGroups: dpa.Spec.Configuration.Restic.SupplementalGroups,
 							},
-							Volumes: []corev1.Volume{
+							Volumes: []v1.Volume{
 								// Cloud Provider volumes are dynamically added in the for loop below
 								{
 									Name: HostPods,
-									VolumeSource: corev1.VolumeSource{
-										HostPath: &corev1.HostPathVolumeSource{
+									VolumeSource: v1.VolumeSource{
+										HostPath: &v1.HostPathVolumeSource{
 											Path: resticPvHostPath,
 										},
 									},
 								},
 								{
 									Name: "scratch",
-									VolumeSource: corev1.VolumeSource{
-										EmptyDir: &corev1.EmptyDirVolumeSource{},
+									VolumeSource: v1.VolumeSource{
+										EmptyDir: &v1.EmptyDirVolumeSource{},
 									},
 								},
 								{
 									Name: "certs",
-									VolumeSource: corev1.VolumeSource{
-										EmptyDir: &corev1.EmptyDirVolumeSource{},
+									VolumeSource: v1.VolumeSource{
+										EmptyDir: &v1.EmptyDirVolumeSource{},
 									},
 								},
 								{
 									Name: "cloud-credentials",
-									VolumeSource: corev1.VolumeSource{
-										Secret: &corev1.SecretVolumeSource{
+									VolumeSource: v1.VolumeSource{
+										Secret: &v1.SecretVolumeSource{
 											SecretName: "cloud-credentials",
 										},
 									},
 								},
 							},
 							Tolerations: dpa.Spec.Configuration.Restic.PodConfig.Tolerations,
-							Containers: []corev1.Container{
+							Containers: []v1.Container{
 								{
 									Name: common.Restic,
-									SecurityContext: &corev1.SecurityContext{
+									SecurityContext: &v1.SecurityContext{
 										Privileged: pointer.Bool(true),
 									},
 									Image:           getVeleroImage(&dpa),
-									ImagePullPolicy: corev1.PullAlways,
+									ImagePullPolicy: v1.PullAlways,
 									Resources:       r.getResticResourceReqs(&dpa), //setting default.
 									Command: []string{
 										"/velero",
@@ -509,7 +508,7 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 										"restic",
 										"server",
 									},
-									VolumeMounts: []corev1.VolumeMount{
+									VolumeMounts: []v1.VolumeMount{
 										{
 											Name:             "host-pods",
 											MountPath:        "/host_pods",
@@ -528,19 +527,19 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 											MountPath: "/credentials",
 										},
 									},
-									Env: []corev1.EnvVar{
+									Env: []v1.EnvVar{
 										{
 											Name: "NODE_NAME",
-											ValueFrom: &corev1.EnvVarSource{
-												FieldRef: &corev1.ObjectFieldSelector{
+											ValueFrom: &v1.EnvVarSource{
+												FieldRef: &v1.ObjectFieldSelector{
 													FieldPath: "spec.nodeName",
 												},
 											},
 										},
 										{
 											Name: "VELERO_NAMESPACE",
-											ValueFrom: &corev1.EnvVarSource{
-												FieldRef: &corev1.ObjectFieldSelector{
+											ValueFrom: &v1.EnvVarSource{
+												FieldRef: &v1.ObjectFieldSelector{
 													FieldPath: "metadata.namespace",
 												},
 											},
@@ -588,8 +587,8 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 										S3URL:                 "https://sr-url-aws-domain.com",
 										InsecureSkipTLSVerify: "false",
 									},
-									Credential: &corev1.SecretKeySelector{
-										LocalObjectReference: corev1.LocalObjectReference{
+									Credential: &v1.SecretKeySelector{
+										LocalObjectReference: v1.LocalObjectReference{
 											Name: "cloud-credentials",
 										},
 									},
@@ -600,12 +599,12 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 							"test-annotation": "awesome annotation",
 						},
 						PodDnsPolicy: "None",
-						PodDnsConfig: corev1.PodDNSConfig{
+						PodDnsConfig: v1.PodDNSConfig{
 							Nameservers: []string{
 								"1.1.1.1",
 								"8.8.8.8",
 							},
-							Options: []corev1.PodDNSConfigOption{
+							Options: []v1.PodDNSConfigOption{
 								{
 									Name:  "ndots",
 									Value: pointer.String("2"),
@@ -632,7 +631,7 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 						Type: appsv1.RollingUpdateDaemonSetStrategyType,
 					},
 					Selector: resticLabelSelector,
-					Template: corev1.PodTemplateSpec{
+					Template: v1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: map[string]string{
 								"component": common.Velero,
@@ -642,20 +641,20 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 								"test-annotation": "awesome annotation",
 							},
 						},
-						Spec: corev1.PodSpec{
+						Spec: v1.PodSpec{
 							NodeSelector:       dpa.Spec.Configuration.Restic.PodConfig.NodeSelector,
 							ServiceAccountName: common.Velero,
-							SecurityContext: &corev1.PodSecurityContext{
+							SecurityContext: &v1.PodSecurityContext{
 								RunAsUser:          pointer.Int64(0),
 								SupplementalGroups: dpa.Spec.Configuration.Restic.SupplementalGroups,
 							},
 							DNSPolicy: "None",
-							DNSConfig: &corev1.PodDNSConfig{
+							DNSConfig: &v1.PodDNSConfig{
 								Nameservers: []string{
 									"1.1.1.1",
 									"8.8.8.8",
 								},
-								Options: []corev1.PodDNSConfigOption{
+								Options: []v1.PodDNSConfigOption{
 									{
 										Name:  "ndots",
 										Value: pointer.String("2"),
@@ -665,46 +664,46 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 									},
 								},
 							},
-							Volumes: []corev1.Volume{
+							Volumes: []v1.Volume{
 								// Cloud Provider volumes are dynamically added in the for loop below
 								{
 									Name: HostPods,
-									VolumeSource: corev1.VolumeSource{
-										HostPath: &corev1.HostPathVolumeSource{
+									VolumeSource: v1.VolumeSource{
+										HostPath: &v1.HostPathVolumeSource{
 											Path: resticPvHostPath,
 										},
 									},
 								},
 								{
 									Name: "scratch",
-									VolumeSource: corev1.VolumeSource{
-										EmptyDir: &corev1.EmptyDirVolumeSource{},
+									VolumeSource: v1.VolumeSource{
+										EmptyDir: &v1.EmptyDirVolumeSource{},
 									},
 								},
 								{
 									Name: "certs",
-									VolumeSource: corev1.VolumeSource{
-										EmptyDir: &corev1.EmptyDirVolumeSource{},
+									VolumeSource: v1.VolumeSource{
+										EmptyDir: &v1.EmptyDirVolumeSource{},
 									},
 								},
 								{
 									Name: "cloud-credentials",
-									VolumeSource: corev1.VolumeSource{
-										Secret: &corev1.SecretVolumeSource{
+									VolumeSource: v1.VolumeSource{
+										Secret: &v1.SecretVolumeSource{
 											SecretName: "cloud-credentials",
 										},
 									},
 								},
 							},
 							Tolerations: dpa.Spec.Configuration.Restic.PodConfig.Tolerations,
-							Containers: []corev1.Container{
+							Containers: []v1.Container{
 								{
 									Name: common.Restic,
-									SecurityContext: &corev1.SecurityContext{
+									SecurityContext: &v1.SecurityContext{
 										Privileged: pointer.Bool(true),
 									},
 									Image:           getVeleroImage(&dpa),
-									ImagePullPolicy: corev1.PullAlways,
+									ImagePullPolicy: v1.PullAlways,
 									Resources:       r.getResticResourceReqs(&dpa), //setting default.
 									Command: []string{
 										"/velero",
@@ -713,7 +712,7 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 										"restic",
 										"server",
 									},
-									VolumeMounts: []corev1.VolumeMount{
+									VolumeMounts: []v1.VolumeMount{
 										{
 											Name:             "host-pods",
 											MountPath:        "/host_pods",
@@ -732,19 +731,19 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 											MountPath: "/credentials",
 										},
 									},
-									Env: []corev1.EnvVar{
+									Env: []v1.EnvVar{
 										{
 											Name: "NODE_NAME",
-											ValueFrom: &corev1.EnvVarSource{
-												FieldRef: &corev1.ObjectFieldSelector{
+											ValueFrom: &v1.EnvVarSource{
+												FieldRef: &v1.ObjectFieldSelector{
 													FieldPath: "spec.nodeName",
 												},
 											},
 										},
 										{
 											Name: "VELERO_NAMESPACE",
-											ValueFrom: &corev1.EnvVarSource{
-												FieldRef: &corev1.ObjectFieldSelector{
+											ValueFrom: &v1.EnvVarSource{
+												FieldRef: &v1.ObjectFieldSelector{
 													FieldPath: "metadata.namespace",
 												},
 											},
@@ -792,14 +791,14 @@ func TestDPAReconciler_updateResticRestoreHelperCM(t *testing.T) {
 
 	tests := []struct {
 		name                      string
-		resticRestoreHelperCM     *corev1.ConfigMap
+		resticRestoreHelperCM     *v1.ConfigMap
 		dpa                       *oadpv1alpha1.DataProtectionApplication
 		wantErr                   bool
-		wantResticRestoreHelperCM *corev1.ConfigMap
+		wantResticRestoreHelperCM *v1.ConfigMap
 	}{
 		{
 			name: "Given DPA CR instance, appropriate restic restore helper cm is created",
-			resticRestoreHelperCM: &corev1.ConfigMap{
+			resticRestoreHelperCM: &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      ResticRestoreHelperCM,
 					Namespace: "test-ns",
@@ -807,7 +806,7 @@ func TestDPAReconciler_updateResticRestoreHelperCM(t *testing.T) {
 			},
 			dpa:     &oadpv1alpha1.DataProtectionApplication{},
 			wantErr: false,
-			wantResticRestoreHelperCM: &corev1.ConfigMap{
+			wantResticRestoreHelperCM: &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      ResticRestoreHelperCM,
 					Namespace: "test-ns",

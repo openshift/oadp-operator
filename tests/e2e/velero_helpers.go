@@ -5,11 +5,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/openshift/oadp-operator/pkg/common"
 	"io"
 	"log"
 	"reflect"
 	"strings"
+
+	"github.com/openshift/oadp-operator/pkg/common"
 
 	appsv1 "github.com/openshift/api/apps/v1"
 	security "github.com/openshift/api/security/v1"

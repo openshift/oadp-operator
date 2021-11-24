@@ -9,6 +9,7 @@ import (
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
@@ -33,34 +34,46 @@ func (r *DPAReconciler) ValidateBackupStorageLocations(log logr.Logger) (bool, e
 	// Ensure BSL is a valid configuration
 	// First, check for provider and then call functions based on the cloud provider for each backupstoragelocation configured
 	for _, bslSpec := range dpa.Spec.BackupLocations {
-		provider := bslSpec.Velero.Provider
-		if len(provider) == 0 {
-			return false, fmt.Errorf("no provider specified for one of the backupstoragelocations configured")
-		}
+		if bslSpec.Velero != nil {
+			provider := bslSpec.Velero.Provider
+			if len(provider) == 0 {
+				return false, fmt.Errorf("no provider specified for one of the backupstoragelocations configured")
+			}
 
-		// TODO: cases might need some updates for IBM/Minio/noobaa
-		switch provider {
-		case AWSProvider, "velero.io/aws":
-			err := r.validateAWSBackupStorageLocation(*bslSpec.Velero, &dpa)
-			if err != nil {
-				return false, err
+			// TODO: cases might need some updates for IBM/Minio/noobaa
+			switch provider {
+			case AWSProvider, "velero.io/aws":
+				err := r.validateAWSBackupStorageLocation(*bslSpec.Velero, &dpa)
+				if err != nil {
+					return false, err
+				}
+			case AzureProvider, "velero.io/azure":
+				err := r.validateAzureBackupStorageLocation(*bslSpec.Velero, &dpa)
+				if err != nil {
+					return false, err
+				}
+			case GCPProvider, "velero.io/gcp":
+				err := r.validateGCPBackupStorageLocation(*bslSpec.Velero, &dpa)
+				if err != nil {
+					return false, err
+				}
+			default:
+				return false, fmt.Errorf("invalid provider")
 			}
-		case AzureProvider, "velero.io/azure":
-			err := r.validateAzureBackupStorageLocation(*bslSpec.Velero, &dpa)
-			if err != nil {
-				return false, err
+		}
+		if bslSpec.Bucket != nil {
+			// Make sure credentials are specified.
+			if bslSpec.Bucket.Credential == nil {
+				return false, fmt.Errorf("must provide a valid credential secret")
 			}
-		case GCPProvider, "velero.io/gcp":
-			err := r.validateGCPBackupStorageLocation(*bslSpec.Velero, &dpa)
-			if err != nil {
-				return false, err
+			if bslSpec.Bucket.Credential.LocalObjectReference.Name == "" {
+				return false, fmt.Errorf("must provide a valid credential secret name")
 			}
-		// case when no supporting cloud provider is configured in bsl
-		default:
-			return false, fmt.Errorf("no valid provider configured for one of the backupstoragelocations")
+		}
+		if bslSpec.Bucket != nil && bslSpec.Velero != nil {
+			return false, fmt.Errorf("must choose one of bucket or velero")
 		}
 	}
-
 	// TODO: Discuss If multiple BSLs exist, ensure we have multiple credentials
 
 	return true, nil
@@ -89,10 +102,33 @@ func (r *DPAReconciler) ReconcileBackupStorageLocations(log logr.Logger) (bool, 
 			// SetOwnerReference instead
 
 			// TODO: check for BSL status condition errors and respond here
+			if bslSpec.Velero != nil {
+				err := r.updateBSLFromSpec(&bsl, &dpa, *bslSpec.Velero)
 
-			err := r.updateBSLFromSpec(&bsl, &dpa, *bslSpec.Velero)
-
-			return err
+				return err
+			}
+			if bslSpec.Bucket != nil {
+				bucket := &oadpv1alpha1.CloudStorage{}
+				err := r.Get(r.Context, client.ObjectKey{Namespace: dpa.Namespace, Name: bslSpec.Bucket.BucketRef.Name}, bucket)
+				if err != nil {
+					return err
+				}
+				bsl.Spec.BackupSyncPeriod = bslSpec.Bucket.BackupSyncPeriod
+				bsl.Spec.Config = bslSpec.Bucket.Config
+				if bucket.Spec.EnableSharedConfig != nil && *bucket.Spec.EnableSharedConfig {
+					if bsl.Spec.Config == nil {
+						bsl.Spec.Config = map[string]string{}
+					}
+					bsl.Spec.Config["enableSharedConfig"] = "true"
+				}
+				bsl.Spec.Credential = bslSpec.Bucket.Credential
+				bsl.Spec.Default = bslSpec.Bucket.Default
+				bsl.Spec.Provider = AWSProvider
+				bsl.Spec.ObjectStorage = &velerov1.ObjectStorageLocation{
+					Bucket: bucket.Spec.Name,
+				}
+			}
+			return nil
 		})
 		if err != nil {
 			return false, err
@@ -239,14 +275,24 @@ func (r *DPAReconciler) ensureBSLProviderMapping(dpa *oadpv1alpha1.DataProtectio
 
 	providerBSLMap := map[string]int{}
 	for _, bsl := range dpa.Spec.BackupLocations {
-		provider := bsl.Velero.Provider
-
-		providerBSLMap[provider]++
-
-		if providerBSLMap[provider] > 1 {
-			return fmt.Errorf("more than one backupstoragelocations configured for provider %s ", provider)
+		if bsl.Bucket == nil && bsl.Velero == nil {
+			return fmt.Errorf("no bucket or BSL provided for backupstoragelocations")
 		}
+		if bsl.Velero != nil {
+			// Only check the default providers here, if there are extra credentials passed then we can have more than one.
+			if bsl.Velero.Credential == nil {
+				provider := bsl.Velero.Provider
 
+				providerBSLMap[provider]++
+
+				if providerBSLMap[provider] > 1 {
+					return fmt.Errorf("more than one backupstoragelocations configured for provider %s ", provider)
+				}
+			}
+		}
+		if bsl.Bucket != nil && bsl.Velero != nil {
+			return fmt.Errorf("more than one of backupstoragelocations and bucket provided for a single StorageLocation")
+		}
 	}
 	return nil
 }

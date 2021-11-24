@@ -808,6 +808,244 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "test BSL specified, with both bucket and velero",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{},
+					},
+					BackupLocations: []oadpv1alpha1.BackupLocation{
+						{
+							Velero: &velerov1.BackupStorageLocationSpec{
+								Provider: "aws",
+								StorageType: velerov1.StorageType{
+									ObjectStorage: &velerov1.ObjectStorageLocation{
+										Bucket: "test-aws-bucket",
+										Prefix: "velero",
+									},
+								},
+								Config: map[string]string{
+									Region: "test-region",
+								},
+								Credential: &corev1.SecretKeySelector{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: "cloud-credentials",
+									},
+								},
+							},
+							Bucket: &oadpv1alpha1.BucketBackupLocation{
+								BucketRef:        corev1.LocalObjectReference{},
+								Config:           map[string]string{},
+								Credential:       &corev1.SecretKeySelector{},
+								Default:          false,
+								BackupSyncPeriod: &metav1.Duration{},
+							},
+						},
+					},
+				},
+			},
+			want:    false,
+			wantErr: true,
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cloud-credentials",
+					Namespace: "test-ns",
+				},
+			},
+		},
+		{
+			name: "test BSL specified, bucket with no name",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					BackupLocations: []oadpv1alpha1.BackupLocation{
+						{
+							Bucket: &oadpv1alpha1.BucketBackupLocation{
+								BucketRef:        corev1.LocalObjectReference{},
+								Config:           map[string]string{},
+								Credential:       &corev1.SecretKeySelector{},
+								Default:          false,
+								BackupSyncPeriod: &metav1.Duration{},
+							},
+						},
+					},
+				},
+			},
+			want:    false,
+			wantErr: true,
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cloud-credentials",
+					Namespace: "test-ns",
+				},
+			},
+		},
+		{
+			name: "test BSL specified, bucket with no credential",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					BackupLocations: []oadpv1alpha1.BackupLocation{
+						{
+							Bucket: &oadpv1alpha1.BucketBackupLocation{
+								BucketRef: corev1.LocalObjectReference{
+									Name: "testing",
+								},
+								Config:           map[string]string{},
+								Credential:       nil,
+								Default:          false,
+								BackupSyncPeriod: &metav1.Duration{},
+							},
+						},
+					},
+				},
+			},
+			want:    false,
+			wantErr: true,
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cloud-credentials",
+					Namespace: "test-ns",
+				},
+			},
+		},
+		{
+			name: "test BSL specified, bucket with no credential name",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					BackupLocations: []oadpv1alpha1.BackupLocation{
+						{
+							Bucket: &oadpv1alpha1.BucketBackupLocation{
+								BucketRef: corev1.LocalObjectReference{
+									Name: "testing",
+								},
+								Config:           map[string]string{},
+								Credential:       &corev1.SecretKeySelector{},
+								Default:          false,
+								BackupSyncPeriod: &metav1.Duration{},
+							},
+						},
+					},
+				},
+			},
+			want:    false,
+			wantErr: true,
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cloud-credentials",
+					Namespace: "test-ns",
+				},
+			},
+		},
+		{
+			name: "test BSLs specified, multiple appropriate BSLs configured, no error case with bucket",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{},
+					},
+					BackupLocations: []oadpv1alpha1.BackupLocation{
+						{
+							Velero: &velerov1.BackupStorageLocationSpec{
+								Provider: "aws",
+								StorageType: velerov1.StorageType{
+									ObjectStorage: &velerov1.ObjectStorageLocation{
+										Bucket: "test-aws-bucket",
+										Prefix: "velero",
+									},
+								},
+								Config: map[string]string{
+									Region: "test-region",
+								},
+								Credential: &corev1.SecretKeySelector{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: "cloud-credentials",
+									},
+								},
+							},
+						},
+						{
+							Velero: &velerov1.BackupStorageLocationSpec{
+								Provider: "azure",
+								StorageType: velerov1.StorageType{
+									ObjectStorage: &velerov1.ObjectStorageLocation{
+										Bucket: "test-azure-bucket",
+										Prefix: "velero",
+									},
+								},
+								Config: map[string]string{
+									ResourceGroup:  "test-rg",
+									StorageAccount: "test-sa",
+								},
+								Credential: &corev1.SecretKeySelector{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: "cloud-credentials",
+									},
+								},
+							},
+						},
+						{
+							Velero: &velerov1.BackupStorageLocationSpec{
+								Provider: "gcp",
+								StorageType: velerov1.StorageType{
+									ObjectStorage: &velerov1.ObjectStorageLocation{
+										Bucket: "test-gcp-bucket",
+										Prefix: "velero",
+									},
+								},
+								Credential: &corev1.SecretKeySelector{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: "cloud-credentials",
+									},
+								},
+							},
+						},
+						{
+							Bucket: &oadpv1alpha1.BucketBackupLocation{
+								BucketRef: corev1.LocalObjectReference{
+									Name: "testing",
+								},
+								Config: map[string]string{},
+								Credential: &corev1.SecretKeySelector{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: "cloud-credentials",
+									},
+									Key: "testing",
+								},
+								BackupSyncPeriod: &metav1.Duration{},
+							},
+						},
+					},
+				},
+			},
+			want:    true,
+			wantErr: false,
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cloud-credentials",
+					Namespace: "test-ns",
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -914,17 +1152,6 @@ func TestDPAReconciler_updateBSLFromSpec(t *testing.T) {
 }
 
 func TestDPAReconciler_ensureBSLProviderMapping(t *testing.T) {
-	type fields struct {
-		Client         client.Client
-		Scheme         *runtime.Scheme
-		Log            logr.Logger
-		Context        context.Context
-		NamespacedName types.NamespacedName
-		EventRecorder  record.EventRecorder
-	}
-	type args struct {
-		dpa *oadpv1alpha1.DataProtectionApplication
-	}
 	tests := []struct {
 		name    string
 		dpa     *oadpv1alpha1.DataProtectionApplication

@@ -108,10 +108,34 @@ type ApplicationConfig struct {
 	Restic *ResticConfig `json:"restic,omitempty"`
 }
 
+type BucketBackupLocation struct {
+	BucketRef corev1.LocalObjectReference `json:"bucketRef"`
+
+	// Config is for provider-specific configuration fields.
+	// +optional
+	Config map[string]string `json:"config,omitempty"`
+
+	// Credential contains the credential information intended to be used with this location
+	// +optional
+	Credential *corev1.SecretKeySelector `json:"credential,omitempty"`
+
+	// Default indicates this location is the default backup storage location.
+	// +optional
+	Default bool `json:"default,omitempty"`
+
+	// BackupSyncPeriod defines how frequently to sync backup API objects from object storage. A value of 0 disables sync.
+	// +optional
+	// +nullable
+	BackupSyncPeriod *metav1.Duration `json:"backupSyncPeriod,omitempty"`
+}
+
 // BackupLocation defines the configuration for the DPA backup storage
 type BackupLocation struct {
 	// TODO: Add name/annotations/labels support
-	Velero *velero.BackupStorageLocationSpec `json:"velero"`
+	// +optional
+	Velero *velero.BackupStorageLocationSpec `json:"velero,omitempty"`
+	// +optional
+	Bucket *BucketBackupLocation `json:"bucket,omitempty"`
 }
 
 // SnapshotLocation defines the configuration for the DPA snapshot store
@@ -179,5 +203,5 @@ type DataProtectionApplicationList struct {
 }
 
 func init() {
-	SchemeBuilder.Register(&DataProtectionApplication{}, &DataProtectionApplicationList{})
+	SchemeBuilder.Register(&DataProtectionApplication{}, &DataProtectionApplicationList{}, &CloudStorage{}, &CloudStorageList{})
 }
