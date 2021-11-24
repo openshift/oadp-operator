@@ -23,11 +23,8 @@ func (r *DPAReconciler) ValidateDataProtectionCR(log logr.Logger) (bool, error) 
 	if len(dpa.Spec.BackupLocations) > 0 {
 		for _, location := range dpa.Spec.BackupLocations {
 			// check for velero BSL config or cloud storage config
-			if location.Velero != nil || location.Bucket != nil {
+			if location.Velero == nil && location.Bucket == nil {
 				return false, errors.New("BackupLocation must have velero or bucket configuration")
-			}
-			if location.Velero != nil && location.Bucket != nil {
-				return false, errors.New("BackupLocation must have only one of velero or bucket configuration")
 			}
 		}
 	}
