@@ -100,8 +100,6 @@ spec:
                       required:
                       - bucketRef
                       type: object
-                    metadata:
-                      type: object
                     velero:
                       description: 'TODO: Add name/annotations/labels support'
                       properties:
@@ -180,9 +178,6 @@ spec:
                       - objectStorage
                       - provider
                       type: object
-                  required:
-                  - bucket
-                  - velero
                   type: object
                 type: array
               configuration:

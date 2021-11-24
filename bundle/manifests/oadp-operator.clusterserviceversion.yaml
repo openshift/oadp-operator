@@ -167,7 +167,7 @@ metadata:
     operatorframework.io/cluster-monitoring: "true"
     operatorframework.io/suggested-namespace: openshift-adp
     operators.openshift.io/infrastructure-features: '["Disconnected"]'
-    operators.operatorframework.io/builder: operator-sdk-v1.13.0+git
+    operators.operatorframework.io/builder: operator-sdk-v1.14.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
     repository: https://github.com/openshift/oadp-operator
     support: Red Hat
@@ -278,6 +278,45 @@ spec:
           - watch
         - apiGroups:
           - coordination.k8s.io
+          - corev1
+          resources:
+          - secrets
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - oadp.openshift.io
+          resources:
+          - buckets
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - oadp.openshift.io
+          resources:
+          - buckets/finalizers
+          verbs:
+          - update
+        - apiGroups:
+          - oadp.openshift.io
+          resources:
+          - buckets/status
+          verbs:
+          - get
+          - patch
+          - update
+        - apiGroups:
+          - oadp.openshift.io
           resources:
           - leases
           verbs:
