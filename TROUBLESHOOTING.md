@@ -7,29 +7,47 @@
 <hr style="height:1px;border:none;color:#333;">
 
 ## Debugging Failed Backups:
- - 
+ This section includes how to debug a failed backup. For more specific issues related to restic/CSI/Volume snapshots check out the section <link to section>.
 
+1. Check for validation errors in the backup by running the following command,
+`oc describe backup <backupName>`
+Alternatively, if you have a local velero installation, you can also run `velero describe backup <backupName> -n <namespace>` and `velero backup logs <backupName> -n <namespace>`.
+2. Run `oc logs pod/<veleroPodName>` to check if there are any errors.
+3. Fix errors if any. 
+
+If the issue still persists, [create a new issue](https://github.com/openshift/oadp-operator/issues/new) if [an issue doesnt exist already](https://github.com/openshift/oadp-operator/issues)
 
 ### Debugging failed volume backups:
-  - Restic:
-
+  - Restic: 
+    1. Obtain the Restic pod logs by running the following command,
+  `oc logs -l name=restic`. Check for errors.  
 
   - Cloud Snapshots:
-
+  
 
   - CSI Snapshots:
 
 <hr style="height:1px;border:none;color:#333;">
 
 ## Debugging Failed Restores:
- - 
+ This section includes how to debug a failed restore. For more specific issues related to restic/CSI/Volume snapshots check out the section <link to section>.
 
+1. Check for validation errors in the restore by running the following command,
+`oc describe restore <restoreName>`
+Alternatively, if you have a local velero installation, you can also run `velero describe restore <restoreName> -n <namespace>` and `velero restore logs <restoreName> -n <namespace>`.
+2. Run `oc logs pod/<veleroPodName>` to check if there are any errors.
+3. Fix errors if any. 
+
+If the issue still persists, [create a new issue](https://github.com/openshift/oadp-operator/issues/new) if [an issue doesnt exist already](https://github.com/openshift/oadp-operator/issues)
 
 ### Debugging failed volume restores:
   - Restic:
-
+  1. Obtain the Restic pod logs by running the following command,
+  `oc logs -l name=restic`. Check for errors.  
 
   - Cloud Snapshots:
+
+
 
 
   - CSI Snapshots:
@@ -74,6 +92,14 @@
     2. Delete the offending directories from your object storage location.
 
 
+### Errors in backup logs:
 
--  
+-   **Error:** 
+    `error getting volume info: rpc error: code = Unknown desc = InvalidVolume.NotFound: The volume ‘vol-xxxx’ does not exist.\n\tstatus code: 400`
+
+    **Problem** 
+    AWS PV and Volume snaphot location are in different region.
+
+    **Solution**
+    Edit Velero `volume_snapshot_location` to the region specified in PV, change region in VolumeSnapshotLocation resource to the region mentioned in the PV, and then create a new Backup.
 

@@ -57,5 +57,5 @@ func isRestoreCompletedSuccessfully(ocClient client.Client, veleroNamespace, nam
 	if restore.Status.Phase == velero.RestorePhaseCompleted {
 		return true, nil
 	}
-	return false, fmt.Errorf("restore phase is: %s; expected: %s\nfailure reason: %s\nvalidation errors: %v", restore.Status.Phase, velero.RestorePhaseCompleted, restore.Status.FailureReason, restore.Status.ValidationErrors)
+	return false, fmt.Errorf("restore phase is: %s; expected: %s\nfailure reason: %s\nvalidation errors: %v\nvelero failure logs: %v", restore.Status.Phase, velero.RestorePhaseCompleted, restore.Status.FailureReason, restore.Status.ValidationErrors, getVeleroContainerFailureLogs(veleroNamespace))
 }

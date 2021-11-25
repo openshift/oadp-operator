@@ -10,7 +10,7 @@ to `oadp.openshift.io/v1alpha1`.
 
 *Note:* 
   - The only config name that will be different is for the credentials secret
-  used in the `backupStorageLocations` spec: 
+  used in the `backupLocations.velero` spec: 
   `credentials_secret_ref` should now be `credential`.
   
   - `oc get velero` may not return correct results if the old CRDs are installed, 
@@ -31,15 +31,15 @@ to `oadp.openshift.io/v1alpha1`.
 ## Upgrade
 
 ### Copy/save old Velero CR definitions to another location
-Save your current Velero CR config as to be sure to remember the values.
+Save your current Velero (Now DataProtectionApplication - DPA) CR config as to be sure to remember the values.
 
 ### Convert your CR config to the new version
 As mentioned above, the `spec` values have changed from `snake_case` to `camelCase` with 
 *nearly* a 1:1 mapping. The only config value that will be different is for the credentials secret
-used in the `backupStorageLocations` spec: 
+used in the `backupLocations.velero` spec: 
 `credentials_secret_ref` to `credential`. You can browse available fields in our [API reference](API_ref.md).
 
-For example, here is a sample Velero CR for the 0.2 version:
+For example, here is a sample Velero CR (Now DataProtectionApplication - DPA) for the 0.2 version:
 
 ```
 apiVersion: konveyor.openshift.io/v1alpha1
@@ -72,35 +72,42 @@ spec:
   enable_restic: true
 ```
 
-And a sample Velero CR for version 0.3 or later:
+And a sample Velero CR (DPA) for version 0.3 or later:
 
 ```
 apiVersion: oadp.openshift.io/v1alpha1
-kind: Velero
+kind: DataProtectionApplication
 metadata:
   name: velero-sample
 spec:
-  defaultVeleroPlugins:
-  - openshift
-  - aws
-  backupStorageLocations:
-  - provider: aws
-    default: true
-    objectStorage:
-      bucket: my-bucket-name
-      prefix: my-prefix
-    config:
-      region: us-east-1
-      profile: "default"
-    credential:
-      name: cloud-credentials
-      key: cloud
-  volumeSnapshotLocations:
-    - provider: aws
-      config:
-        region: us-west-2
-        profile: "default"
-  enableRestic: true
+  configuration:
+    velero:
+      defaultPlugins:
+      - openshift
+      - aws
+    restic:
+      enable: true
+  backupLocations:
+    - name: default
+      velero:
+        provider: aws
+        default: true
+        objectStorage:
+          bucket: my-bucket-name
+          prefix: my-prefix
+        config:
+          region: us-east-1
+          profile: "default"
+        credential:
+          name: cloud-credentials
+          key: cloud
+  volumeSnapshots:
+    - name: default
+      velero:
+        provider: aws
+        config:
+          region: us-west-2
+          profile: "default"
 ```
 
 ### Uninstall the OADP operator
@@ -126,4 +133,4 @@ oc delete crd veleros.konveyor.openshift.io
 
 ### Install OADP Operator 0.3.x
 Follow theses [basic install](../docs/install_olm.md) instructions to install the 
-new OADP operator version, create the Velero CR, and verify correct installation.
+new OADP operator version, create the Velero (DPA) CR, and verify correct installation.

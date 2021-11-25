@@ -1,0 +1,32 @@
+');
+
+		// Parse a metric sample to ChartJS-friendly format
+		function parseSample(promSample) {
+			return {x: new Date(parseInt(promSample[0]) * 1000), y: parseFloat(promSample[1])}
+		}
+
+		// Parse Prometheus query_range JSON output to be processed by chart library
+		function prepareDataset(queryResp) {
+			var dataset = []
+			data = JSON.parse(queryResp).data.result;
+			for (var i = 0; i < data.length; i++) {
+				var dataline = {
+					pointRadius: 0,
+					fill: false,
+					borderWidth: 2,
+					tension: 0,
+				};
+				var metric = data[i].metric;
+				dataline.label = metric.instance + " \n" + metric.__name__
+				if (metric.type) dataline.label += " \n" + metric.type
+				if (metric.status) dataline.label += " \n" + metric.status
+				// Append additional metric identifiers similar to ^ if needed
+
+				dataline.data = data[i].values.map(parseSample);
+				dataset.push(dataline);
+			}
+			return dataset;
+		}
+	</script>
+</body>
+</html>

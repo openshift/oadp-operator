@@ -145,9 +145,9 @@ deploy: manifests kustomize ## Deploy controller to the K8s cluster specified in
 	kubectl apply -f config/velero/velero-role_binding.yaml
 
 undeploy: kustomize ## Undeploy controller from the K8s cluster specified in ~/.kube/config.
-	kubectl delete -f config/rbac/velero-service_account.yaml
-	kubectl delete -f config/rbac/velero-role.yaml
-	kubectl delete -f config/rbac/velero-role_binding.yaml
+	kubectl delete -f config/velero/velero-service_account.yaml
+	kubectl delete -f config/velero/velero-role.yaml
+	kubectl delete -f config/velero/velero-role_binding.yaml
 	$(KUSTOMIZE) build config/default | kubectl delete -f -
 
 build-deploy: THIS_IMAGE=ttl.sh/oadp-operator-$(shell git rev-parse --short HEAD):1h # Set target specific variable
@@ -211,6 +211,7 @@ bundle: manifests kustomize ## Generate bundle manifests and metadata, then vali
 	cd config/manager && $(KUSTOMIZE) edit set image controller=$(IMG)
 	$(KUSTOMIZE) build config/manifests | operator-sdk generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
 	# Copy updated bundle.Dockerfile to CI's Dockerfile.bundle
+	# TODO: update CI to use generated one
 	cp bundle.Dockerfile build/Dockerfile.bundle
 	operator-sdk bundle validate ./bundle
 

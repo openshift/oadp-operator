@@ -7,7 +7,7 @@ valid s3 provider. This can include tools like Noobaa & Minio. OADP Operator
 allows you to integrate with Noobaa in a couple of ways: 
 
 The first option is to manually install Noobaa somewhere, and then configure 
-the BackupStorageLocation configuration on the Velero CR. 
+the BackupStorageLocation configuration on the DataProtectionApplication (DPA) CR. 
 
 The second option is to allow OADP to discover an existing OCS operator 
 installation and attempt to create the Noobaa bucket automatically for the user, 
@@ -54,21 +54,23 @@ With the secret created, make sure you have the URL of the s3 service and set
 the following `backupStorageLocations` spec in the Velero CR:
 
 ```
-  backupStorageLocations:
-    - config:
-        profile: "default"
-        region: noobaa                  # could be different for Minio depending on server configuration
-        s3Url: <S3_URL_ROUTE>           # s3 URL
-        s3ForcePathStyle: "true"        # force velero to use path-style convention
-        insecureSkipTLSVerify: "true"   # insecure connections
-      credential:
-        name: cloud-credentials
-        key: cloud
-      name: default
-      objectStorage:
-        bucket: noobaa-bucket-name       # Bucket name
-        prefix: velero
-      provider: aws                      # aws provider means use s3 client               
+  backupLocations:
+    - name: default
+      velero:
+       config:
+         profile: "default"
+         region: noobaa                  # could be different for Minio depending on server configuration
+         s3Url: <S3_URL_ROUTE>           # s3 URL
+         s3ForcePathStyle: "true"        # force velero to use path-style convention
+         insecureSkipTLSVerify: "true"   # insecure connections
+       credential:
+         name: cloud-credentials
+         key: cloud
+       objectStorage:
+         bucket: noobaa-bucket-name       # Bucket name
+         prefix: velero
+       provider: aws                      # aws provider means use s3 client               
+
 ```
 
 *NOTE*: For Minio, the default region is `minio`, and can change depending on
@@ -90,27 +92,29 @@ OperatorHub in the `openshift-storage` namespace, so that the requisite NooBaa
 CRDs get deployed on the cluster, and wait untill the OCS operator pods are in 
 running state.
 4. Make sure the Velero CR file specifically has the following:
-   - `noobaa: true`
-   - `enableRestic: true`
-   - `defaultVeleroPlugins` list should only consist of `aws` plugin
+   - `configuration.restic.enable: true`
+   - `defaultPlugins` list should only consist of `aws` plugin
    - No data pertaining to Volume Snapshot Locations and Backup Storage Locations.
  
-The CR file may look somewhat like this:
+The DPA CR file may look somewhat like this:
 
   ```
-  apiVersion: oadp.openshift.io/v1alpha1
-  kind: Velero
-  metadata:
+apiVersion: oadp.openshift.io/v1alpha1
+kind: DataProtectionApplication
+metadata:
   name: velero-sample
-  spec:
-    noobaa: true
-      defaultVeleroPlugins:
+spec:
+  configuration:
+    velero:
+      defaultPlugins:
+      - openshift
       - aws
-    enableRestic: true
+    restic:
+      enable: true
   ```
   
 5. Now for deployment of Velero use the following:
 
 ```
-oc create -f config/samples/oadp_v1alpha1_velero.yaml
+oc create -f config/samples/oadp_v1alpha1_dpa.yaml
 ```

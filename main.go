@@ -27,7 +27,6 @@ import (
 
 	routev1 "github.com/openshift/api/route/v1"
 	security "github.com/openshift/api/security/v1"
-	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	"github.com/openshift/oadp-operator/controllers"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -38,7 +37,9 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+
 	//+kubebuilder:scaffold:imports
+	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 )
 
 var (
@@ -116,12 +117,21 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (&controllers.VeleroReconciler{
+	if err = (&controllers.DPAReconciler{
 		Client:        mgr.GetClient(),
 		Scheme:        mgr.GetScheme(),
-		EventRecorder: mgr.GetEventRecorderFor("controller"),
+		EventRecorder: mgr.GetEventRecorderFor("DPA-controller"),
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "Velero")
+		setupLog.Error(err, "unable to create controller", "controller", "DataProtectionApplication")
+		os.Exit(1)
+	}
+
+	if err = (&controllers.BucketReconciler{
+		Client:        mgr.GetClient(),
+		Scheme:        mgr.GetScheme(),
+		EventRecorder: mgr.GetEventRecorderFor("bucket-controller"),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Bucket")
 		os.Exit(1)
 	}
 	//+kubebuilder:scaffold:builder

@@ -5,9 +5,10 @@ go 1.16
 require (
 	github.com/fsnotify/fsnotify v1.5.1 // indirect
 	github.com/ghodss/yaml v1.0.0 // indirect
+	github.com/aws/aws-sdk-go v1.28.2
 	github.com/go-logr/logr v0.4.0
 	github.com/google/uuid v1.1.2
-	github.com/onsi/ginkgo v1.16.5
+	github.com/onsi/ginkgo v1.16.4
 	github.com/onsi/gomega v1.16.0
 	github.com/openshift/api v0.0.0-20210805075156-d8fab4513288
 	golang.org/x/sys v0.0.0-20211113001501-0c823b97ae02 // indirect
