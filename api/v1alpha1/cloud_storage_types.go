@@ -16,10 +16,10 @@ type CloudStorage struct {
 	Status CloudStorageStatus `json:"status,omitempty"`
 }
 
-type BucketProvider string
+type CloudStorageProvider string
 
 const (
-	AWSBucketProvider BucketProvider = "AWS"
+	AWSBucketProvider CloudStorageProvider = "aws"
 )
 
 type CloudStorageSpec struct {
@@ -34,8 +34,8 @@ type CloudStorageSpec struct {
 	Tags map[string]string `json:"tags,omitempty"`
 	// Region for the bucket to be in, will be us-east-1 if not set.
 	Region string `json:"region,omitempty"`
-	// +kubebuilder:validation:Enum=AWS
-	Provider BucketProvider `json:"provider"`
+	// +kubebuilder:validation:Enum=aws
+	Provider CloudStorageProvider `json:"provider"`
 }
 
 type CloudStorageStatus struct {

@@ -61,16 +61,16 @@ func (r *DPAReconciler) ValidateBackupStorageLocations(log logr.Logger) (bool, e
 				return false, fmt.Errorf("invalid provider")
 			}
 		}
-		if bslSpec.Bucket != nil {
+		if bslSpec.CloudStorage != nil {
 			// Make sure credentials are specified.
-			if bslSpec.Bucket.Credential == nil {
+			if bslSpec.CloudStorage.Credential == nil {
 				return false, fmt.Errorf("must provide a valid credential secret")
 			}
-			if bslSpec.Bucket.Credential.LocalObjectReference.Name == "" {
+			if bslSpec.CloudStorage.Credential.LocalObjectReference.Name == "" {
 				return false, fmt.Errorf("must provide a valid credential secret name")
 			}
 		}
-		if bslSpec.Bucket != nil && bslSpec.Velero != nil {
+		if bslSpec.CloudStorage != nil && bslSpec.Velero != nil {
 			return false, fmt.Errorf("must choose one of bucket or velero")
 		}
 	}
@@ -107,22 +107,22 @@ func (r *DPAReconciler) ReconcileBackupStorageLocations(log logr.Logger) (bool, 
 
 				return err
 			}
-			if bslSpec.Bucket != nil {
+			if bslSpec.CloudStorage != nil {
 				bucket := &oadpv1alpha1.CloudStorage{}
-				err := r.Get(r.Context, client.ObjectKey{Namespace: dpa.Namespace, Name: bslSpec.Bucket.BucketRef.Name}, bucket)
+				err := r.Get(r.Context, client.ObjectKey{Namespace: dpa.Namespace, Name: bslSpec.CloudStorage.CloudStorageRef.Name}, bucket)
 				if err != nil {
 					return err
 				}
-				bsl.Spec.BackupSyncPeriod = bslSpec.Bucket.BackupSyncPeriod
-				bsl.Spec.Config = bslSpec.Bucket.Config
+				bsl.Spec.BackupSyncPeriod = bslSpec.CloudStorage.BackupSyncPeriod
+				bsl.Spec.Config = bslSpec.CloudStorage.Config
 				if bucket.Spec.EnableSharedConfig != nil && *bucket.Spec.EnableSharedConfig {
 					if bsl.Spec.Config == nil {
 						bsl.Spec.Config = map[string]string{}
 					}
 					bsl.Spec.Config["enableSharedConfig"] = "true"
 				}
-				bsl.Spec.Credential = bslSpec.Bucket.Credential
-				bsl.Spec.Default = bslSpec.Bucket.Default
+				bsl.Spec.Credential = bslSpec.CloudStorage.Credential
+				bsl.Spec.Default = bslSpec.CloudStorage.Default
 				bsl.Spec.Provider = AWSProvider
 				bsl.Spec.ObjectStorage = &velerov1.ObjectStorageLocation{
 					Bucket: bucket.Spec.Name,
@@ -275,7 +275,7 @@ func (r *DPAReconciler) ensureBSLProviderMapping(dpa *oadpv1alpha1.DataProtectio
 
 	providerBSLMap := map[string]int{}
 	for _, bsl := range dpa.Spec.BackupLocations {
-		if bsl.Bucket == nil && bsl.Velero == nil {
+		if bsl.CloudStorage == nil && bsl.Velero == nil {
 			return fmt.Errorf("no bucket or BSL provided for backupstoragelocations")
 		}
 		if bsl.Velero != nil {
@@ -290,7 +290,7 @@ func (r *DPAReconciler) ensureBSLProviderMapping(dpa *oadpv1alpha1.DataProtectio
 				}
 			}
 		}
-		if bsl.Bucket != nil && bsl.Velero != nil {
+		if bsl.CloudStorage != nil && bsl.Velero != nil {
 			return fmt.Errorf("more than one of backupstoragelocations and bucket provided for a single StorageLocation")
 		}
 	}

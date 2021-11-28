@@ -838,8 +838,8 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 									},
 								},
 							},
-							Bucket: &oadpv1alpha1.BucketBackupLocation{
-								BucketRef:        corev1.LocalObjectReference{},
+							CloudStorage: &oadpv1alpha1.CloudStoreageLocation{
+								CloudStorageRef:  corev1.LocalObjectReference{},
 								Config:           map[string]string{},
 								Credential:       &corev1.SecretKeySelector{},
 								Default:          false,
@@ -868,8 +868,8 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 					BackupLocations: []oadpv1alpha1.BackupLocation{
 						{
-							Bucket: &oadpv1alpha1.BucketBackupLocation{
-								BucketRef:        corev1.LocalObjectReference{},
+							CloudStorage: &oadpv1alpha1.CloudStoreageLocation{
+								CloudStorageRef:  corev1.LocalObjectReference{},
 								Config:           map[string]string{},
 								Credential:       &corev1.SecretKeySelector{},
 								Default:          false,
@@ -898,8 +898,8 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 					BackupLocations: []oadpv1alpha1.BackupLocation{
 						{
-							Bucket: &oadpv1alpha1.BucketBackupLocation{
-								BucketRef: corev1.LocalObjectReference{
+							CloudStorage: &oadpv1alpha1.CloudStoreageLocation{
+								CloudStorageRef: corev1.LocalObjectReference{
 									Name: "testing",
 								},
 								Config:           map[string]string{},
@@ -930,8 +930,8 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 					BackupLocations: []oadpv1alpha1.BackupLocation{
 						{
-							Bucket: &oadpv1alpha1.BucketBackupLocation{
-								BucketRef: corev1.LocalObjectReference{
+							CloudStorage: &oadpv1alpha1.CloudStoreageLocation{
+								CloudStorageRef: corev1.LocalObjectReference{
 									Name: "testing",
 								},
 								Config:           map[string]string{},
@@ -1020,8 +1020,8 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 							},
 						},
 						{
-							Bucket: &oadpv1alpha1.BucketBackupLocation{
-								BucketRef: corev1.LocalObjectReference{
+							CloudStorage: &oadpv1alpha1.CloudStoreageLocation{
+								CloudStorageRef: corev1.LocalObjectReference{
 									Name: "testing",
 								},
 								Config: map[string]string{},

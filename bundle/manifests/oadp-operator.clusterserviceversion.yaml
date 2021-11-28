@@ -438,10 +438,6 @@ spec:
                 - --v=10
                 image: gcr.io/kubebuilder/kube-rbac-proxy:v0.8.0
                 name: kube-rbac-proxy
-                volumeMounts:
-                - mountPath: /var/run/secrets/openshift/serviceaccount
-                  name: bound-sa-token
-                  readOnly: true
                 ports:
                 - containerPort: 8443
                   name: https
@@ -452,6 +448,10 @@ spec:
                 - --leader-elect
                 command:
                 - /manager
+                volumeMounts:
+                - mountPath: /var/run/secrets/openshift/serviceaccount
+                  name: bound-sa-token
+                  readOnly: true
                 env:
                 - name: WATCH_NAMESPACE
                   valueFrom:

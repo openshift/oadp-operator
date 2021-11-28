@@ -61,7 +61,7 @@ spec:
                 type: string
               provider:
                 enum:
-                - AWS
+                - aws
                 type: string
               region:
                 description: Region for the bucket to be in, will be us-east-1 if
