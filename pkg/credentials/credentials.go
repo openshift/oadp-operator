@@ -15,6 +15,7 @@ type DefaultPluginFields struct {
 	IsCloudProvider    bool
 	SecretName         string
 	MountPath          string
+	BslSecretName      string
 	EnvCredentialsFile string
 	PluginImage        string
 	PluginSecretKey    string
@@ -187,6 +188,29 @@ func AppendCloudProviderVolumes(dpa *oadpv1alpha1.DataProtectionApplication, ds 
 				)
 			}
 
+		}
+	}
+	for _, bslSpec := range dpa.Spec.BackupLocations {
+		if credFilePath, ok := bslSpec.Velero.Config["credentialsFile"]; ok {
+			if cloudProviderMap, bslCredOk := PluginSpecificFields[oadpv1alpha1.DefaultPlugin(bslSpec.Velero.Provider)]; bslCredOk {
+				ds.Spec.Template.Spec.Volumes = append(
+					ds.Spec.Template.Spec.Volumes,
+					corev1.Volume{
+						Name: cloudProviderMap.BslSecretName,
+						VolumeSource: corev1.VolumeSource{
+							Secret: &corev1.SecretVolumeSource{
+								SecretName: cloudProviderMap.BslSecretName,
+								Items: []corev1.KeyToPath{
+									{
+										Key:  cloudProviderMap.PluginSecretKey,
+										Path: credFilePath,
+									},
+								},
+							},
+						},
+					},
+				)
+			}
 		}
 	}
 	return nil
