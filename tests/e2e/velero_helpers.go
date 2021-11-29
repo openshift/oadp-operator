@@ -5,11 +5,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/openshift/oadp-operator/pkg/common"
 	"io"
 	"log"
 	"reflect"
 	"strings"
+
+	"github.com/openshift/oadp-operator/pkg/common"
 
 	appsv1 "github.com/openshift/api/apps/v1"
 	security "github.com/openshift/api/security/v1"
@@ -37,8 +38,12 @@ type dpaCustomResource struct {
 	Namespace         string
 	SecretName        string
 	Bucket            string
-	Region            string
+	BslRegion         string
+	VslRegion         string
+	BslProfile        string
 	Provider          string
+	credentials       string
+	credSecretRef     string
 	backupRestoreType BackupRestoreType
 	CustomResource    *oadpv1alpha1.DataProtectionApplication
 	Client            client.Client
@@ -58,7 +63,6 @@ func (v *dpaCustomResource) Build(backupRestoreType BackupRestoreType) error {
 				Velero: &oadpv1alpha1.VeleroConfig{
 					DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
 						oadpv1alpha1.DefaultPluginOpenShift,
-						oadpv1alpha1.DefaultPluginAWS,
 					},
 				},
 				Restic: &oadpv1alpha1.ResticConfig{
@@ -69,10 +73,13 @@ func (v *dpaCustomResource) Build(backupRestoreType BackupRestoreType) error {
 				{
 					Velero: &velero.BackupStorageLocationSpec{
 						Provider: v.Provider,
-						Config: map[string]string{
-							"region": v.Region,
+						Default:  true,
+						Credential: &corev1.SecretKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: v.credSecretRef,
+							},
+							Key: "cloud",
 						},
-						Default: true,
 						StorageType: velero.StorageType{
 							ObjectStorage: &velero.ObjectStorageLocation{
 								Bucket: v.Bucket,
@@ -92,6 +99,40 @@ func (v *dpaCustomResource) Build(backupRestoreType BackupRestoreType) error {
 		dpa.Spec.Configuration.Restic.Enable = pointer.Bool(false)
 		dpa.Spec.Configuration.Velero.DefaultPlugins = append(dpa.Spec.Configuration.Velero.DefaultPlugins, oadpv1alpha1.DefaultPluginCSI)
 		dpa.Spec.Configuration.Velero.FeatureFlags = append(dpa.Spec.Configuration.Velero.FeatureFlags, "EnableCSI")
+	}
+	switch v.Provider {
+	case "aws":
+		dpa.Spec.BackupLocations[0].Velero.Config = map[string]string{
+			"region":  v.BslRegion,
+			"profile": v.BslProfile,
+		}
+		dpa.Spec.SnapshotLocations = []oadpv1alpha1.SnapshotLocation{
+			{
+				Velero: &velero.VolumeSnapshotLocationSpec{
+					Provider: v.Provider,
+					Config: map[string]string{
+						"region":  v.VslRegion,
+						"profile": "default",
+					},
+				},
+			},
+		}
+		dpa.Spec.Configuration.Velero.DefaultPlugins = append(dpa.Spec.Configuration.Velero.DefaultPlugins, oadpv1alpha1.DefaultPluginAWS)
+	case "gcp":
+		dpa.Spec.BackupLocations[0].Velero.Config = map[string]string{
+			"credentialsFile": v.credentials,
+		}
+		dpa.Spec.Configuration.Velero.DefaultPlugins = append(dpa.Spec.Configuration.Velero.DefaultPlugins, oadpv1alpha1.DefaultPluginGCP)
+		dpa.Spec.SnapshotLocations = []oadpv1alpha1.SnapshotLocation{
+			{
+				Velero: &velero.VolumeSnapshotLocationSpec{
+					Provider: v.Provider,
+					Config: map[string]string{
+						"snapshotLocation": v.VslRegion,
+					},
+				},
+			},
+		}
 	}
 	v.CustomResource = &dpa
 	return nil
