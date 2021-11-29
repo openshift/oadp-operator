@@ -268,6 +268,23 @@ spec:
       clusterPermissions:
       - rules:
         - apiGroups:
+          - '*'
+          resources:
+          - '*'
+          verbs:
+          - '*'
+        - apiGroups:
+          - security.openshift.io
+          resourceNames:
+          - privileged
+          - velero-privileged
+          resources:
+          - securitycontextconstraints
+          verbs:
+          - use
+        serviceAccountName: velero
+      - rules:
+        - apiGroups:
           - oadp.openshift.io
           resources:
           - '*'
@@ -438,10 +455,6 @@ spec:
                 - --v=10
                 image: gcr.io/kubebuilder/kube-rbac-proxy:v0.8.0
                 name: kube-rbac-proxy
-                volumeMounts:
-                - mountPath: /var/run/secrets/openshift/serviceaccount
-                  name: bound-sa-token
-                  readOnly: true
                 ports:
                 - containerPort: 8443
                   name: https
@@ -527,6 +540,10 @@ spec:
                     path: /healthz
                     port: 8081
                   periodSeconds: 10
+                volumeMounts:
+                - mountPath: /var/run/secrets/openshift/serviceaccount
+                  name: bound-sa-token
+                  readOnly: true
               securityContext:
                 runAsNonRoot: true
               serviceAccountName: openshift-adp-controller-manager
@@ -536,9 +553,9 @@ spec:
                 projected:
                   sources:
                   - serviceAccountToken:
-                      path: token
-                      expirationSeconds: 3600
                       audience: openshift
+                      expirationSeconds: 3600
+                      path: token
       permissions:
       - rules:
         - apiGroups:

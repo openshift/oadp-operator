@@ -207,12 +207,12 @@ endef
 
 .PHONY: bundle
 bundle: manifests kustomize ## Generate bundle manifests and metadata, then validate generated files.
-	operator-sdk generate kustomize manifests -q
-	cd config/manager && $(KUSTOMIZE) edit set image controller=$(IMG)
-	$(KUSTOMIZE) build config/manifests | operator-sdk generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
+	# operator-sdk generate kustomize manifests -q
+	#cd config/manager && $(KUSTOMIZE) edit set image controller=$(IMG)
+	# $(KUSTOMIZE) build config/manifests | operator-sdk generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
 	# Copy updated bundle.Dockerfile to CI's Dockerfile.bundle
 	# TODO: update CI to use generated one
-	cp bundle.Dockerfile build/Dockerfile.bundle
+	# cp bundle.Dockerfile build/Dockerfile.bundle
 	operator-sdk bundle validate ./bundle
 
 .PHONY: bundle-build

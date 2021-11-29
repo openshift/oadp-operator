@@ -56,7 +56,7 @@ spec:
                             0 disables sync.
                           nullable: true
                           type: string
-                        bucketRef:
+                        cloudStorageRef:
                           description: LocalObjectReference contains enough information
                             to let you locate the referenced object inside the same
                             namespace.
@@ -96,7 +96,7 @@ spec:
                             backup storage location.
                           type: boolean
                       required:
-                      - bucketRef
+                      - cloudStorageRef
                       type: object
                     velero:
                       description: 'TODO: Add name/annotations/labels support'
