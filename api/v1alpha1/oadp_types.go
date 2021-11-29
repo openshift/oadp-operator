@@ -108,7 +108,7 @@ type ApplicationConfig struct {
 	Restic *ResticConfig `json:"restic,omitempty"`
 }
 
-type CloudStoreageLocation struct {
+type CloudStorageLocation struct {
 	CloudStorageRef corev1.LocalObjectReference `json:"cloudStorageRef"`
 
 	// Config is for provider-specific configuration fields.
@@ -135,7 +135,7 @@ type BackupLocation struct {
 	// +optional
 	Velero *velero.BackupStorageLocationSpec `json:"velero,omitempty"`
 	// +optional
-	CloudStorage *CloudStoreageLocation `json:"bucket,omitempty"`
+	CloudStorage *CloudStorageLocation `json:"bucket,omitempty"`
 }
 
 // SnapshotLocation defines the configuration for the DPA snapshot store

@@ -448,10 +448,6 @@ spec:
                 - --leader-elect
                 command:
                 - /manager
-                volumeMounts:
-                - mountPath: /var/run/secrets/openshift/serviceaccount
-                  name: bound-sa-token
-                  readOnly: true
                 env:
                 - name: WATCH_NAMESPACE
                   valueFrom:
@@ -527,6 +523,10 @@ spec:
                     path: /healthz
                     port: 8081
                   periodSeconds: 10
+                volumeMounts:
+                - mountPath: /var/run/secrets/openshift/serviceaccount
+                  name: bound-sa-token
+                  readOnly: true
               securityContext:
                 runAsNonRoot: true
               serviceAccountName: openshift-adp-controller-manager
@@ -536,9 +536,9 @@ spec:
                 projected:
                   sources:
                   - serviceAccountToken:
-                      path: token
-                      expirationSeconds: 3600
                       audience: openshift
+                      expirationSeconds: 3600
+                      path: token
       permissions:
       - rules:
         - apiGroups:

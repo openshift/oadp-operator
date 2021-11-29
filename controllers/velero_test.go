@@ -959,7 +959,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 					},
 					BackupLocations: []oadpv1alpha1.BackupLocation{
 						{
-							CloudStorage: &oadpv1alpha1.CloudStoreageLocation{
+							CloudStorage: &oadpv1alpha1.CloudStorageLocation{
 								CloudStorageRef: corev1.LocalObjectReference{
 									Name: "bucket-123",
 								},

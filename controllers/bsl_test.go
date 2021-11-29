@@ -838,7 +838,7 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 									},
 								},
 							},
-							CloudStorage: &oadpv1alpha1.CloudStoreageLocation{
+							CloudStorage: &oadpv1alpha1.CloudStorageLocation{
 								CloudStorageRef:  corev1.LocalObjectReference{},
 								Config:           map[string]string{},
 								Credential:       &corev1.SecretKeySelector{},
@@ -868,7 +868,7 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 					BackupLocations: []oadpv1alpha1.BackupLocation{
 						{
-							CloudStorage: &oadpv1alpha1.CloudStoreageLocation{
+							CloudStorage: &oadpv1alpha1.CloudStorageLocation{
 								CloudStorageRef:  corev1.LocalObjectReference{},
 								Config:           map[string]string{},
 								Credential:       &corev1.SecretKeySelector{},
@@ -898,7 +898,7 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 					BackupLocations: []oadpv1alpha1.BackupLocation{
 						{
-							CloudStorage: &oadpv1alpha1.CloudStoreageLocation{
+							CloudStorage: &oadpv1alpha1.CloudStorageLocation{
 								CloudStorageRef: corev1.LocalObjectReference{
 									Name: "testing",
 								},
@@ -930,7 +930,7 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 					BackupLocations: []oadpv1alpha1.BackupLocation{
 						{
-							CloudStorage: &oadpv1alpha1.CloudStoreageLocation{
+							CloudStorage: &oadpv1alpha1.CloudStorageLocation{
 								CloudStorageRef: corev1.LocalObjectReference{
 									Name: "testing",
 								},
@@ -1020,7 +1020,7 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 							},
 						},
 						{
-							CloudStorage: &oadpv1alpha1.CloudStoreageLocation{
+							CloudStorage: &oadpv1alpha1.CloudStorageLocation{
 								CloudStorageRef: corev1.LocalObjectReference{
 									Name: "testing",
 								},

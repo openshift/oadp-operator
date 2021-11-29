@@ -58,24 +58,33 @@ func (r *DPAReconciler) ValidateVeleroPlugins(log logr.Logger) (bool, error) {
 	}
 
 	providerNeedsDefaultCreds := map[string]bool{}
+	hasCloudStorage := false
 
 	for _, bsl := range dpa.Spec.BackupLocations {
 		if bsl.Velero != nil && bsl.Velero.Credential == nil {
 			providerNeedsDefaultCreds[strings.TrimPrefix(bsl.Velero.Provider, "velero.io/")] = true
 		}
-		if bsl.CloudStorage != nil && bsl.CloudStorage.Credential == nil {
-			cloudStroage := oadpv1alpha1.CloudStorage{}
-			err := r.Get(r.Context, types.NamespacedName{Name: bsl.CloudStorage.CloudStorageRef.Name, Namespace: dpa.Namespace}, &cloudStroage)
-			if err != nil {
-				return false, err
+		if bsl.CloudStorage != nil {
+			hasCloudStorage = true
+			if bsl.CloudStorage.Credential == nil {
+				cloudStroage := oadpv1alpha1.CloudStorage{}
+				err := r.Get(r.Context, types.NamespacedName{Name: bsl.CloudStorage.CloudStorageRef.Name, Namespace: dpa.Namespace}, &cloudStroage)
+				if err != nil {
+					return false, err
+				}
+				providerNeedsDefaultCreds[string(cloudStroage.Spec.Provider)] = true
 			}
-			providerNeedsDefaultCreds[string(cloudStroage.Spec.Provider)] = true
 		}
 	}
 
 	for _, vsl := range dpa.Spec.SnapshotLocations {
 		if vsl.Velero != nil {
-			providerNeedsDefaultCreds[vsl.Velero.Provider] = true
+			// To handle the case where we want to manually hand the credentials for a cloud storage created
+			// Bucket credententials via configuration. Only AWS is supported
+			provider := strings.TrimPrefix(vsl.Velero.Provider, "velero.io")
+			if provider != string(oadpv1alpha1.AWSBucketProvider) {
+				providerNeedsDefaultCreds[provider] = true
+			}
 		}
 	}
 
@@ -83,7 +92,13 @@ func (r *DPAReconciler) ValidateVeleroPlugins(log logr.Logger) (bool, error) {
 	for _, plugin := range dpa.Spec.Configuration.Velero.DefaultPlugins {
 
 		pluginSpecificMap, ok := credentials.PluginSpecificFields[plugin]
-		if ok && pluginSpecificMap.IsCloudProvider && providerNeedsDefaultCreds[string(plugin)] {
+		pluginNeedsCheck, foundInBSLorVSL := providerNeedsDefaultCreds[string(plugin)]
+
+		if !foundInBSLorVSL && !hasCloudStorage {
+			pluginNeedsCheck = true
+		}
+
+		if ok && pluginSpecificMap.IsCloudProvider && pluginNeedsCheck {
 			secretName := pluginSpecificMap.SecretName
 			_, err := r.getProviderSecret(secretName)
 			if err != nil {

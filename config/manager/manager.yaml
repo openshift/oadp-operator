@@ -27,6 +27,10 @@ spec:
       containers:
       - command:
         - /manager
+        volumeMounts:
+          - mountPath: /var/run/secrets/openshift/serviceaccount
+            name: bound-sa-token
+            readOnly: true
         env:
           - name: WATCH_NAMESPACE
             valueFrom:
@@ -105,4 +109,12 @@ spec:
             cpu: 500m
             memory: 128Mi
       serviceAccountName: controller-manager
+      volumes:
+      - name: bound-sa-token
+        projected:
+          sources:
+          - serviceAccountToken:
+              path: token
+              expirationSeconds: 3600
+              audience: openshift
       terminationGracePeriodSeconds: 10
