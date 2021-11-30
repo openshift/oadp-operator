@@ -7,15 +7,22 @@ metadata:
   name: manager-role
 rules:
 - apiGroups:
-  - '*'
+  - oadp.openshift.io
   resources:
   - '*'
   verbs:
-  - '*'
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
 - apiGroups:
-  - oadp.openshift.io
+  - coordination.k8s.io
+  - corev1
   resources:
-  - veleroes
+  - secrets
   verbs:
   - create
   - delete
@@ -27,33 +34,107 @@ rules:
 - apiGroups:
   - oadp.openshift.io
   resources:
-  - veleroes/finalizers
+  - buckets
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - oadp.openshift.io
+  resources:
+  - buckets/finalizers
   verbs:
   - update
 - apiGroups:
   - oadp.openshift.io
   resources:
-  - veleroes/status
+  - buckets/status
   verbs:
   - get
   - patch
   - update
 - apiGroups:
+  - oadp.openshift.io
+  resources:
+  - leases
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - velero.io
+  resources:
+  - '*'
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
   - security.openshift.io
-  resourceNames:
-  - privileged
-  - velero-privileged
+  resources:
+  - securitycontextconstraints
+  verbs:
+  - list
+  - get
+  - create
+  - delete
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - security.openshift.io
   resources:
   - securitycontextconstraints
   verbs:
   - use
+  resourceNames:
+  - privileged
+  - velero-privileged
 - apiGroups:
-  - velero.io
+  - ""
   resources:
-  - backups
-  - backupstoragelocations
-  - restores
-  - volumesnapshotlocations
+  - secrets
+  - configmaps
+  - pods
+  - services
+  - serviceaccounts
+  verbs:
+  - list
+  - get
+  - create
+  - delete
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - apps
+  resources:
+  - deployments
+  - daemonsets
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - route.openshift.io
+  resources:
+  - routes
   verbs:
   - create
   - delete

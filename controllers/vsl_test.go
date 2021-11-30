@@ -12,22 +12,26 @@ import (
 	"k8s.io/client-go/tools/record"
 )
 
-func TestVeleroReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
+func TestDPAReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 	tests := []struct {
-		name     string
-		VeleroCR *oadpv1alpha1.Velero
-		secret   *corev1.Secret
-		want     bool
-		wantErr  bool
+		name    string
+		dpa     *oadpv1alpha1.DataProtectionApplication
+		secret  *corev1.Secret
+		want    bool
+		wantErr bool
 	}{
 		{
 			name: "test no VSLs specified",
-			VeleroCR: &oadpv1alpha1.Velero{
+			dpa: &oadpv1alpha1.DataProtectionApplication{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-Velero-VSL",
 					Namespace: "test-ns",
 				},
-				Spec: oadpv1alpha1.VeleroSpec{},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{},
+					},
+				},
 			},
 			want:    true,
 			wantErr: false,
@@ -42,17 +46,22 @@ func TestVeleroReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 		// AWS tests
 		{
 			name: "test AWS VSL with only region specified",
-			VeleroCR: &oadpv1alpha1.Velero{
+			dpa: &oadpv1alpha1.DataProtectionApplication{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-Velero-VSL",
 					Namespace: "test-ns",
 				},
-				Spec: oadpv1alpha1.VeleroSpec{
-					VolumeSnapshotLocations: []velerov1.VolumeSnapshotLocationSpec{
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{},
+					},
+					SnapshotLocations: []oadpv1alpha1.SnapshotLocation{
 						{
-							Provider: AWSProvider,
-							Config: map[string]string{
-								Region: "us-east-1",
+							Velero: &velerov1.VolumeSnapshotLocationSpec{
+								Provider: AWSProvider,
+								Config: map[string]string{
+									Region: "us-east-1",
+								},
 							},
 						},
 					},
@@ -69,15 +78,20 @@ func TestVeleroReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 		},
 		{
 			name: "test AWS VSL with no region specified",
-			VeleroCR: &oadpv1alpha1.Velero{
+			dpa: &oadpv1alpha1.DataProtectionApplication{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-Velero-VSL",
 					Namespace: "test-ns",
 				},
-				Spec: oadpv1alpha1.VeleroSpec{
-					VolumeSnapshotLocations: []velerov1.VolumeSnapshotLocationSpec{
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{},
+					},
+					SnapshotLocations: []oadpv1alpha1.SnapshotLocation{
 						{
-							Provider: AWSProvider,
+							Velero: &velerov1.VolumeSnapshotLocationSpec{
+								Provider: AWSProvider,
+							},
 						},
 					},
 				},
@@ -93,18 +107,23 @@ func TestVeleroReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 		},
 		{
 			name: "test AWS VSL with region and profile specified",
-			VeleroCR: &oadpv1alpha1.Velero{
+			dpa: &oadpv1alpha1.DataProtectionApplication{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-Velero-VSL",
 					Namespace: "test-ns",
 				},
-				Spec: oadpv1alpha1.VeleroSpec{
-					VolumeSnapshotLocations: []velerov1.VolumeSnapshotLocationSpec{
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{},
+					},
+					SnapshotLocations: []oadpv1alpha1.SnapshotLocation{
 						{
-							Provider: AWSProvider,
-							Config: map[string]string{
-								Region:     "us-east-1",
-								AWSProfile: "test-profile",
+							Velero: &velerov1.VolumeSnapshotLocationSpec{
+								Provider: AWSProvider,
+								Config: map[string]string{
+									Region:     "us-east-1",
+									AWSProfile: "test-profile",
+								},
 							},
 						},
 					},
@@ -121,18 +140,23 @@ func TestVeleroReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 		},
 		{
 			name: "test AWS VSL with region specified and invalid config value",
-			VeleroCR: &oadpv1alpha1.Velero{
+			dpa: &oadpv1alpha1.DataProtectionApplication{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-Velero-VSL",
 					Namespace: "test-ns",
 				},
-				Spec: oadpv1alpha1.VeleroSpec{
-					VolumeSnapshotLocations: []velerov1.VolumeSnapshotLocationSpec{
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{},
+					},
+					SnapshotLocations: []oadpv1alpha1.SnapshotLocation{
 						{
-							Provider: AWSProvider,
-							Config: map[string]string{
-								Region:         "us-east-1",
-								"invalid-test": "foo",
+							Velero: &velerov1.VolumeSnapshotLocationSpec{
+								Provider: AWSProvider,
+								Config: map[string]string{
+									Region:         "us-east-1",
+									"invalid-test": "foo",
+								},
 							},
 						},
 					},
@@ -151,15 +175,20 @@ func TestVeleroReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 		// GCP tests
 		{
 			name: "test GCP VSL with no config values",
-			VeleroCR: &oadpv1alpha1.Velero{
+			dpa: &oadpv1alpha1.DataProtectionApplication{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-Velero-VSL",
 					Namespace: "test-ns",
 				},
-				Spec: oadpv1alpha1.VeleroSpec{
-					VolumeSnapshotLocations: []velerov1.VolumeSnapshotLocationSpec{
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{},
+					},
+					SnapshotLocations: []oadpv1alpha1.SnapshotLocation{
 						{
-							Provider: GCPProvider,
+							Velero: &velerov1.VolumeSnapshotLocationSpec{
+								Provider: GCPProvider,
+							},
 						},
 					},
 				},
@@ -175,17 +204,22 @@ func TestVeleroReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 		},
 		{
 			name: "test GCP VSL with snapshotLocation specified",
-			VeleroCR: &oadpv1alpha1.Velero{
+			dpa: &oadpv1alpha1.DataProtectionApplication{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-Velero-VSL",
 					Namespace: "test-ns",
 				},
-				Spec: oadpv1alpha1.VeleroSpec{
-					VolumeSnapshotLocations: []velerov1.VolumeSnapshotLocationSpec{
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{},
+					},
+					SnapshotLocations: []oadpv1alpha1.SnapshotLocation{
 						{
-							Provider: GCPProvider,
-							Config: map[string]string{
-								GCPSnapshotLocation: "test-location",
+							Velero: &velerov1.VolumeSnapshotLocationSpec{
+								Provider: GCPProvider,
+								Config: map[string]string{
+									GCPSnapshotLocation: "test-location",
+								},
 							},
 						},
 					},
@@ -202,17 +236,22 @@ func TestVeleroReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 		},
 		{
 			name: "test GCP VSL with project specified",
-			VeleroCR: &oadpv1alpha1.Velero{
+			dpa: &oadpv1alpha1.DataProtectionApplication{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-Velero-VSL",
 					Namespace: "test-ns",
 				},
-				Spec: oadpv1alpha1.VeleroSpec{
-					VolumeSnapshotLocations: []velerov1.VolumeSnapshotLocationSpec{
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{},
+					},
+					SnapshotLocations: []oadpv1alpha1.SnapshotLocation{
 						{
-							Provider: GCPProvider,
-							Config: map[string]string{
-								GCPProject: "alt-project",
+							Velero: &velerov1.VolumeSnapshotLocationSpec{
+								Provider: GCPProvider,
+								Config: map[string]string{
+									GCPProject: "alt-project",
+								},
 							},
 						},
 					},
@@ -229,17 +268,22 @@ func TestVeleroReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 		},
 		{
 			name: "test GCP VSL with invalid config value",
-			VeleroCR: &oadpv1alpha1.Velero{
+			dpa: &oadpv1alpha1.DataProtectionApplication{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-Velero-VSL",
 					Namespace: "test-ns",
 				},
-				Spec: oadpv1alpha1.VeleroSpec{
-					VolumeSnapshotLocations: []velerov1.VolumeSnapshotLocationSpec{
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{},
+					},
+					SnapshotLocations: []oadpv1alpha1.SnapshotLocation{
 						{
-							Provider: GCPProvider,
-							Config: map[string]string{
-								"invalid-test": "foo",
+							Velero: &velerov1.VolumeSnapshotLocationSpec{
+								Provider: GCPProvider,
+								Config: map[string]string{
+									"invalid-test": "foo",
+								},
 							},
 						},
 					},
@@ -258,15 +302,20 @@ func TestVeleroReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 		// Azure tests
 		{
 			name: "test Azure VSL with no config values",
-			VeleroCR: &oadpv1alpha1.Velero{
+			dpa: &oadpv1alpha1.DataProtectionApplication{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-Velero-VSL",
 					Namespace: "test-ns",
 				},
-				Spec: oadpv1alpha1.VeleroSpec{
-					VolumeSnapshotLocations: []velerov1.VolumeSnapshotLocationSpec{
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{},
+					},
+					SnapshotLocations: []oadpv1alpha1.SnapshotLocation{
 						{
-							Provider: AzureProvider,
+							Velero: &velerov1.VolumeSnapshotLocationSpec{
+								Provider: AzureProvider,
+							},
 						},
 					},
 				},
@@ -282,17 +331,22 @@ func TestVeleroReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 		},
 		{
 			name: "test Azure VSL with apiTimeout specified",
-			VeleroCR: &oadpv1alpha1.Velero{
+			dpa: &oadpv1alpha1.DataProtectionApplication{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-Velero-VSL",
 					Namespace: "test-ns",
 				},
-				Spec: oadpv1alpha1.VeleroSpec{
-					VolumeSnapshotLocations: []velerov1.VolumeSnapshotLocationSpec{
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{},
+					},
+					SnapshotLocations: []oadpv1alpha1.SnapshotLocation{
 						{
-							Provider: AzureProvider,
-							Config: map[string]string{
-								AzureApiTimeout: "5m",
+							Velero: &velerov1.VolumeSnapshotLocationSpec{
+								Provider: AzureProvider,
+								Config: map[string]string{
+									AzureApiTimeout: "5m",
+								},
 							},
 						},
 					},
@@ -309,17 +363,22 @@ func TestVeleroReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 		},
 		{
 			name: "test Azure VSL with resourceGroup specified",
-			VeleroCR: &oadpv1alpha1.Velero{
+			dpa: &oadpv1alpha1.DataProtectionApplication{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-Velero-VSL",
 					Namespace: "test-ns",
 				},
-				Spec: oadpv1alpha1.VeleroSpec{
-					VolumeSnapshotLocations: []velerov1.VolumeSnapshotLocationSpec{
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{},
+					},
+					SnapshotLocations: []oadpv1alpha1.SnapshotLocation{
 						{
-							Provider: AzureProvider,
-							Config: map[string]string{
-								ResourceGroup: "test-rg",
+							Velero: &velerov1.VolumeSnapshotLocationSpec{
+								Provider: AzureProvider,
+								Config: map[string]string{
+									ResourceGroup: "test-rg",
+								},
 							},
 						},
 					},
@@ -336,17 +395,22 @@ func TestVeleroReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 		},
 		{
 			name: "test Azure VSL with subscriptionId specified",
-			VeleroCR: &oadpv1alpha1.Velero{
+			dpa: &oadpv1alpha1.DataProtectionApplication{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-Velero-VSL",
 					Namespace: "test-ns",
 				},
-				Spec: oadpv1alpha1.VeleroSpec{
-					VolumeSnapshotLocations: []velerov1.VolumeSnapshotLocationSpec{
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{},
+					},
+					SnapshotLocations: []oadpv1alpha1.SnapshotLocation{
 						{
-							Provider: AzureProvider,
-							Config: map[string]string{
-								AzureSubscriptionId: "test-alt-sub",
+							Velero: &velerov1.VolumeSnapshotLocationSpec{
+								Provider: AzureProvider,
+								Config: map[string]string{
+									AzureSubscriptionId: "test-alt-sub",
+								},
 							},
 						},
 					},
@@ -363,17 +427,22 @@ func TestVeleroReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 		},
 		{
 			name: "test Azure VSL with incremental specified",
-			VeleroCR: &oadpv1alpha1.Velero{
+			dpa: &oadpv1alpha1.DataProtectionApplication{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-Velero-VSL",
 					Namespace: "test-ns",
 				},
-				Spec: oadpv1alpha1.VeleroSpec{
-					VolumeSnapshotLocations: []velerov1.VolumeSnapshotLocationSpec{
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{},
+					},
+					SnapshotLocations: []oadpv1alpha1.SnapshotLocation{
 						{
-							Provider: AzureProvider,
-							Config: map[string]string{
-								AzureIncremental: "false",
+							Velero: &velerov1.VolumeSnapshotLocationSpec{
+								Provider: AzureProvider,
+								Config: map[string]string{
+									AzureIncremental: "false",
+								},
 							},
 						},
 					},
@@ -390,17 +459,22 @@ func TestVeleroReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 		},
 		{
 			name: "test AzureVSL with invalid config value",
-			VeleroCR: &oadpv1alpha1.Velero{
+			dpa: &oadpv1alpha1.DataProtectionApplication{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-Velero-VSL",
 					Namespace: "test-ns",
 				},
-				Spec: oadpv1alpha1.VeleroSpec{
-					VolumeSnapshotLocations: []velerov1.VolumeSnapshotLocationSpec{
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{},
+					},
+					SnapshotLocations: []oadpv1alpha1.SnapshotLocation{
 						{
-							Provider: GCPProvider,
-							Config: map[string]string{
-								"invalid-test": "foo",
+							Velero: &velerov1.VolumeSnapshotLocationSpec{
+								Provider: GCPProvider,
+								Config: map[string]string{
+									"invalid-test": "foo",
+								},
 							},
 						},
 					},
@@ -418,18 +492,18 @@ func TestVeleroReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			fakeClient, err := getFakeClientFromObjects(tt.VeleroCR, tt.secret)
+			fakeClient, err := getFakeClientFromObjects(tt.dpa, tt.secret)
 			if err != nil {
 				t.Errorf("error in creating fake client, likely programmer error")
 			}
-			r := &VeleroReconciler{
+			r := &DPAReconciler{
 				Client:  fakeClient,
 				Scheme:  fakeClient.Scheme(),
 				Log:     logr.Discard(),
 				Context: newContextForTest(tt.name),
 				NamespacedName: types.NamespacedName{
-					Namespace: tt.VeleroCR.Namespace,
-					Name:      tt.VeleroCR.Name,
+					Namespace: tt.dpa.Namespace,
+					Name:      tt.dpa.Name,
 				},
 				EventRecorder: record.NewFakeRecorder(10),
 			}

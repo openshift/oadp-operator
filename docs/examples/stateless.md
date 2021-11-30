@@ -11,36 +11,40 @@
 
    `oc create secret generic cloud-credentials --namespace openshift-adp --from-file cloud=<CREDENTIALS_FILE_PATH>`
 
-* Make sure your Velero CR is similar to this in `config/samples/oadp_v1alpha1_velero.yaml`
+* Make sure your DataProtectionApplication (DPA) CR is similar to this in `config/samples/oadp_v1alpha1_dpa.yaml`
 
-    ```
-    apiVersion: oadp.openshift.io/v1alpha1
-    kind: Velero
-    metadata:
-      name: velero-sample
-    spec:
-      olmManaged: false
-      backupStorageLocations:
-      - provider: aws
+```
+apiVersion: oadp.openshift.io/v1alpha1
+kind: DataProtectionApplication
+metadata:
+  name: dpa-sample
+spec:
+  configuration:
+    velero:
+      defaultPlugins:
+      - openshift
+      - aws
+    restic:
+      enable: true
+  backupLocations:
+    - name: default
+      velero:
+        provider: aws
         default: true
         objectStorage:
-          bucket: my-bucket-name
+          bucket: my-bucket
           prefix: my-prefix
-        credential:
-          name: cloud-credentials
-          key: cloud
         config:
           region: us-east-1
           profile: "default"
-      enableRestic: true
-      defaultVeleroPlugins:
-      - openshift
-      - aws
-    ```
+        credential:
+          name: cloud-credentials
+          key: cloud
+```
 
 * Install Velero + Restic:
 
-  `oc create -n openshift-adp -f config/samples/oadp_v1alpha1_velero.yaml`
+  `oc create -n openshift-adp -f config/samples/oadp_v1alpha1_dpa.yaml`
 
 <hr style="height:1px;border:none;color:#333;">
 

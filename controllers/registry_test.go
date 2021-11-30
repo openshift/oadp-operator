@@ -49,17 +49,39 @@ func getFakeClientFromObjectsForRegistry(objs ...client.Object) (client.WithWatc
 }
 
 const (
-	testAccessKey       = "someAccessKey"
-	testSecretAccessKey = "someSecretAccessKey"
-	testStoragekey      = "someStorageKey"
-	testCloudName       = "someCloudName"
+	testProfile            = "someProfile"
+	testAccessKey          = "someAccessKey"
+	testSecretAccessKey    = "someSecretAccessKey"
+	testStoragekey         = "someStorageKey"
+	testCloudName          = "someCloudName"
+	testBslProfile         = "bslProfile"
+	testBslAccessKey       = "bslAccessKey"
+	testBslSecretAccessKey = "bslSecretAccessKey"
 )
 
 var (
 	secretData = map[string][]byte{
-		"cloud": []byte("[default]" + "\n" +
-			"aws_access_key_id=" + testAccessKey + "\n" +
-			"aws_secret_access_key=" + testSecretAccessKey),
+		"cloud": []byte(
+			"\n[" + testBslProfile + "]\n" +
+				"aws_access_key_id=" + testBslAccessKey + "\n" +
+				"aws_secret_access_key=" + testBslSecretAccessKey +
+				"\n[default]" + "\n" +
+				"aws_access_key_id=" + testAccessKey + "\n" +
+				"aws_secret_access_key=" + testSecretAccessKey +
+				"\n[test-profile]\n" +
+				"aws_access_key_id=" + testAccessKey + "\n" +
+				"aws_secret_access_key=" + testSecretAccessKey,
+		),
+	}
+	awsSecretDataWithMissingProfile = map[string][]byte{
+		"cloud": []byte(
+			"[default]" + "\n" +
+				"aws_access_key_id=" + testAccessKey + "\n" +
+				"aws_secret_access_key=" + testSecretAccessKey +
+				"\n[test-profile]\n" +
+				"aws_access_key_id=" + testAccessKey + "\n" +
+				"aws_secret_access_key=" + testSecretAccessKey,
+		),
 	}
 	secretAzureData = map[string][]byte{
 		"cloud": []byte("[default]" + "\n" +
@@ -68,13 +90,13 @@ var (
 	}
 )
 
-func TestVeleroReconciler_buildRegistryDeployment(t *testing.T) {
+func TestDPAReconciler_buildRegistryDeployment(t *testing.T) {
 	tests := []struct {
 		name               string
 		registryDeployment *appsv1.Deployment
 		bsl                *velerov1.BackupStorageLocation
 		secret             *corev1.Secret
-		velero             *oadpv1alpha1.Velero
+		dpa                *oadpv1alpha1.DataProtectionApplication
 		wantErr            bool
 	}{
 		{
@@ -118,7 +140,7 @@ func TestVeleroReconciler_buildRegistryDeployment(t *testing.T) {
 				},
 				Data: secretData,
 			},
-			velero: &oadpv1alpha1.Velero{},
+			dpa: &oadpv1alpha1.DataProtectionApplication{},
 		},
 		{
 			name: "given a valid bsl with velero annotation get appropriate registry deployment",
@@ -161,8 +183,8 @@ func TestVeleroReconciler_buildRegistryDeployment(t *testing.T) {
 				},
 				Data: secretData,
 			},
-			velero: &oadpv1alpha1.Velero{
-				Spec: oadpv1alpha1.VeleroSpec{
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 					PodAnnotations: map[string]string{
 						"test-annotation": "awesome-annotation",
 					},
@@ -210,8 +232,8 @@ func TestVeleroReconciler_buildRegistryDeployment(t *testing.T) {
 				},
 				Data: secretData,
 			},
-			velero: &oadpv1alpha1.Velero{
-				Spec: oadpv1alpha1.VeleroSpec{
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 					PodAnnotations: map[string]string{
 						"test-annotation": "awesome-annotation",
 					},
@@ -241,7 +263,7 @@ func TestVeleroReconciler_buildRegistryDeployment(t *testing.T) {
 			if err != nil {
 				t.Errorf("error in creating fake client, likely programmer error")
 			}
-			r := &VeleroReconciler{
+			r := &DPAReconciler{
 				Client:  fakeClient,
 				Scheme:  fakeClient.Scheme(),
 				Log:     logr.Discard(),
@@ -286,15 +308,15 @@ func TestVeleroReconciler_buildRegistryDeployment(t *testing.T) {
 							Labels: map[string]string{
 								"component": "oadp-" + tt.bsl.Name + "-" + tt.bsl.Spec.Provider + "-registry",
 							},
-							Annotations: tt.velero.Spec.PodAnnotations,
+							Annotations: tt.dpa.Spec.PodAnnotations,
 						},
 						Spec: corev1.PodSpec{
 							RestartPolicy: corev1.RestartPolicyAlways,
-							DNSPolicy:     tt.velero.Spec.PodDnsPolicy,
-							DNSConfig:     &tt.velero.Spec.PodDnsConfig,
+							DNSPolicy:     tt.dpa.Spec.PodDnsPolicy,
+							DNSConfig:     &tt.dpa.Spec.PodDnsConfig,
 							Containers: []corev1.Container{
 								{
-									Image: getRegistryImage(tt.velero),
+									Image: getRegistryImage(tt.dpa),
 									Name:  "oadp-" + tt.bsl.Name + "-" + tt.bsl.Spec.Provider + "-registry" + "-container",
 									Ports: []corev1.ContainerPort{
 										{
@@ -360,11 +382,11 @@ func TestVeleroReconciler_buildRegistryDeployment(t *testing.T) {
 					},
 				},
 			}
-			if reflect.DeepEqual(tt.velero.Spec.PodDnsConfig, corev1.PodDNSConfig{}) {
+			if reflect.DeepEqual(tt.dpa.Spec.PodDnsConfig, corev1.PodDNSConfig{}) {
 				wantRegistryDeployment.Spec.Template.Spec.DNSConfig = nil
 			}
 
-			err = r.buildRegistryDeployment(tt.registryDeployment, tt.bsl, tt.velero)
+			err = r.buildRegistryDeployment(tt.registryDeployment, tt.bsl, tt.dpa)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("buildRegistryDeployment() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -379,11 +401,11 @@ func TestVeleroReconciler_buildRegistryDeployment(t *testing.T) {
 	}
 }
 
-func TestVeleroReconciler_buildRegistryContainer(t *testing.T) {
+func TestDPAReconciler_buildRegistryContainer(t *testing.T) {
 	tests := []struct {
 		name                  string
 		bsl                   *velerov1.BackupStorageLocation
-		VeleroCR              *oadpv1alpha1.Velero
+		dpa                   *oadpv1alpha1.DataProtectionApplication
 		wantRegistryContainer *corev1.Container
 		wantErr               bool
 	}{
@@ -395,7 +417,7 @@ func TestVeleroReconciler_buildRegistryContainer(t *testing.T) {
 					Namespace: "test-ns",
 				},
 			},
-			VeleroCR: &oadpv1alpha1.Velero{
+			dpa: &oadpv1alpha1.DataProtectionApplication{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "Velero-test-CR",
 					Namespace: "test-ns",
@@ -409,11 +431,11 @@ func TestVeleroReconciler_buildRegistryContainer(t *testing.T) {
 			if err != nil {
 				t.Errorf("error getting scheme for the test: %#v", err)
 			}
-			r := &VeleroReconciler{
+			r := &DPAReconciler{
 				Scheme: scheme,
 			}
 			tt.wantRegistryContainer = &corev1.Container{
-				Image: getRegistryImage(tt.VeleroCR),
+				Image: getRegistryImage(tt.dpa),
 				Name:  "oadp-" + tt.bsl.Name + "-" + tt.bsl.Spec.Provider + "-registry" + "-container",
 				Ports: []corev1.ContainerPort{
 					{
@@ -445,7 +467,7 @@ func TestVeleroReconciler_buildRegistryContainer(t *testing.T) {
 				},
 			}
 
-			gotRegistryContainer, gotErr := r.buildRegistryContainer(tt.bsl, tt.VeleroCR)
+			gotRegistryContainer, gotErr := r.buildRegistryContainer(tt.bsl, tt.dpa)
 
 			if (gotErr != nil) != tt.wantErr {
 				t.Errorf("ValidateBackupStorageLocations() gotErr = %v, wantErr %v", gotErr, tt.wantErr)
@@ -474,13 +496,15 @@ var testAWSEnvVar = cloudProviderEnvVarMap["aws"]
 var testAzureEnvVar = cloudProviderEnvVarMap["azure"]
 var testGCPEnvVar = cloudProviderEnvVarMap["gcp"]
 
-func TestVeleroReconciler_getAWSRegistryEnvVars(t *testing.T) {
+func TestDPAReconciler_getAWSRegistryEnvVars(t *testing.T) {
 	tests := []struct {
 		name                        string
 		bsl                         *velerov1.BackupStorageLocation
 		wantRegistryContainerEnvVar []corev1.EnvVar
+		wantProfile                 string
 		secret                      *corev1.Secret
 		wantErr                     bool
+		matchProfile                bool
 	}{
 		{
 			name: "given aws bsl, appropriate env var for the container are returned",
@@ -500,6 +524,7 @@ func TestVeleroReconciler_getAWSRegistryEnvVars(t *testing.T) {
 						Region:                "aws-region",
 						S3URL:                 "https://sr-url-aws-domain.com",
 						InsecureSkipTLSVerify: "false",
+						Profile:               "test-profile",
 					},
 				},
 			},
@@ -510,6 +535,70 @@ func TestVeleroReconciler_getAWSRegistryEnvVars(t *testing.T) {
 				},
 				Data: secretData,
 			},
+			wantProfile:  "test-profile",
+			matchProfile: true,
+		}, {
+			name: "given aws profile in bsl, appropriate env var for the container are returned",
+			bsl: &velerov1.BackupStorageLocation{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-bsl",
+					Namespace: "test-ns",
+				},
+				Spec: velerov1.BackupStorageLocationSpec{
+					Provider: AWSProvider,
+					StorageType: velerov1.StorageType{
+						ObjectStorage: &velerov1.ObjectStorageLocation{
+							Bucket: "aws-bucket",
+						},
+					},
+					Config: map[string]string{
+						Region:                "aws-region",
+						S3URL:                 "https://sr-url-aws-domain.com",
+						InsecureSkipTLSVerify: "false",
+						Profile:               testBslProfile,
+					},
+				},
+			},
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cloud-credentials",
+					Namespace: "test-ns",
+				},
+				Data: secretData,
+			},
+			wantProfile:  testBslProfile,
+			matchProfile: true,
+		}, {
+			name: "given missing aws profile in bsl, env var should not match",
+			bsl: &velerov1.BackupStorageLocation{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-bsl",
+					Namespace: "test-ns",
+				},
+				Spec: velerov1.BackupStorageLocationSpec{
+					Provider: AWSProvider,
+					StorageType: velerov1.StorageType{
+						ObjectStorage: &velerov1.ObjectStorageLocation{
+							Bucket: "aws-bucket",
+						},
+					},
+					Config: map[string]string{
+						Region:                "aws-region",
+						S3URL:                 "https://sr-url-aws-domain.com",
+						InsecureSkipTLSVerify: "false",
+						Profile:               testBslProfile,
+					},
+				},
+			},
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cloud-credentials",
+					Namespace: "test-ns",
+				},
+				Data: awsSecretDataWithMissingProfile,
+			},
+			wantProfile:  testBslProfile,
+			matchProfile: false,
 		},
 	}
 	for _, tt := range tests {
@@ -518,7 +607,7 @@ func TestVeleroReconciler_getAWSRegistryEnvVars(t *testing.T) {
 			if err != nil {
 				t.Errorf("error in creating fake client, likely programmer error")
 			}
-			r := &VeleroReconciler{
+			r := &DPAReconciler{
 				Client:  fakeClient,
 				Scheme:  fakeClient.Scheme(),
 				Log:     logr.Discard(),
@@ -559,22 +648,54 @@ func TestVeleroReconciler_getAWSRegistryEnvVars(t *testing.T) {
 					Value: "false",
 				},
 			}
+			if tt.wantProfile == testBslProfile {
+				tt.wantRegistryContainerEnvVar = []corev1.EnvVar{
+					{
+						Name:  RegistryStorageEnvVarKey,
+						Value: S3,
+					},
+					{
+						Name:  RegistryStorageS3AccesskeyEnvVarKey,
+						Value: testBslAccessKey,
+					},
+					{
+						Name:  RegistryStorageS3BucketEnvVarKey,
+						Value: "aws-bucket",
+					},
+					{
+						Name:  RegistryStorageS3RegionEnvVarKey,
+						Value: "aws-region",
+					},
+					{
+						Name:  RegistryStorageS3SecretkeyEnvVarKey,
+						Value: testBslSecretAccessKey,
+					},
+					{
+						Name:  RegistryStorageS3RegionendpointEnvVarKey,
+						Value: "https://sr-url-aws-domain.com",
+					},
+					{
+						Name:  RegistryStorageS3SkipverifyEnvVarKey,
+						Value: "false",
+					},
+				}
+			}
 
 			gotRegistryContainerEnvVar, gotErr := r.getAWSRegistryEnvVars(tt.bsl, testAWSEnvVar)
 
-			if (gotErr != nil) != tt.wantErr {
+			if tt.matchProfile && (gotErr != nil) != tt.wantErr {
 				t.Errorf("ValidateBackupStorageLocations() gotErr = %v, wantErr %v", gotErr, tt.wantErr)
 				return
 			}
 
-			if !reflect.DeepEqual(tt.wantRegistryContainerEnvVar, gotRegistryContainerEnvVar) {
+			if tt.matchProfile && !reflect.DeepEqual(tt.wantRegistryContainerEnvVar, gotRegistryContainerEnvVar) {
 				t.Errorf("expected registry container env var to be %#v, got %#v", tt.wantRegistryContainerEnvVar, gotRegistryContainerEnvVar)
 			}
 		})
 	}
 }
 
-func TestVeleroReconciler_getAzureRegistryEnvVars(t *testing.T) {
+func TestDPAReconciler_getAzureRegistryEnvVars(t *testing.T) {
 	tests := []struct {
 		name                        string
 		bsl                         *velerov1.BackupStorageLocation
@@ -618,7 +739,7 @@ func TestVeleroReconciler_getAzureRegistryEnvVars(t *testing.T) {
 			if err != nil {
 				t.Errorf("error in creating fake client, likely programmer error")
 			}
-			r := &VeleroReconciler{
+			r := &DPAReconciler{
 				Client:  fakeClient,
 				Scheme:  fakeClient.Scheme(),
 				Log:     logr.Discard(),
@@ -662,7 +783,7 @@ func TestVeleroReconciler_getAzureRegistryEnvVars(t *testing.T) {
 	}
 }
 
-func TestVeleroReconciler_getGCPRegistryEnvVars(t *testing.T) {
+func TestDPAReconciler_getGCPRegistryEnvVars(t *testing.T) {
 	tests := []struct {
 		name                        string
 		bsl                         *velerov1.BackupStorageLocation
@@ -702,7 +823,7 @@ func TestVeleroReconciler_getGCPRegistryEnvVars(t *testing.T) {
 			if err != nil {
 				t.Errorf("error in creating fake client, likely programmer error")
 			}
-			r := &VeleroReconciler{
+			r := &DPAReconciler{
 				Client:  fakeClient,
 				Scheme:  fakeClient.Scheme(),
 				Log:     logr.Discard(),
@@ -742,12 +863,12 @@ func TestVeleroReconciler_getGCPRegistryEnvVars(t *testing.T) {
 	}
 }
 
-func TestVeleroReconciler_updateRegistrySVC(t *testing.T) {
+func TestDPAReconciler_updateRegistrySVC(t *testing.T) {
 	tests := []struct {
 		name    string
 		svc     *corev1.Service
 		bsl     *velerov1.BackupStorageLocation
-		velero  *oadpv1alpha1.Velero
+		dpa     *oadpv1alpha1.DataProtectionApplication
 		wantErr bool
 	}{
 		{
@@ -784,7 +905,7 @@ func TestVeleroReconciler_updateRegistrySVC(t *testing.T) {
 					},
 				},
 			},
-			velero: &oadpv1alpha1.Velero{
+			dpa: &oadpv1alpha1.DataProtectionApplication{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "Velero-test-CR",
 					Namespace: "test-ns",
@@ -794,18 +915,18 @@ func TestVeleroReconciler_updateRegistrySVC(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			fakeClient, err := getFakeClientFromObjects()
+			fakeClient, err := getFakeClientFromObjects(tt.dpa)
 			if err != nil {
 				t.Errorf("error in creating fake client, likely programmer error")
 			}
-			r := &VeleroReconciler{
+			r := &DPAReconciler{
 				Client:  fakeClient,
 				Scheme:  fakeClient.Scheme(),
 				Log:     logr.Discard(),
 				Context: newContextForTest(tt.name),
 				NamespacedName: types.NamespacedName{
-					Namespace: tt.velero.Namespace,
-					Name:      tt.velero.Name,
+					Namespace: tt.dpa.Namespace,
+					Name:      tt.dpa.Name,
 				},
 				EventRecorder: record.NewFakeRecorder(10),
 			}
@@ -814,13 +935,14 @@ func TestVeleroReconciler_updateRegistrySVC(t *testing.T) {
 					Name:      "oadp-" + "test-bsl" + "-" + "test-provider" + "-registry-svc",
 					Namespace: "test-ns",
 					Labels: map[string]string{
-						"component": "oadp-" + "test-bsl" + "-" + "test-provider" + "-registry",
+						"component":                    "oadp-" + "test-bsl" + "-" + "test-provider" + "-registry",
+						oadpv1alpha1.OadpOperatorLabel: "True",
 					},
 					OwnerReferences: []metav1.OwnerReference{{
 						APIVersion:         oadpv1alpha1.SchemeBuilder.GroupVersion.String(),
-						Kind:               "Velero",
-						Name:               tt.velero.Name,
-						UID:                tt.velero.UID,
+						Kind:               "DataProtectionApplication",
+						Name:               tt.dpa.Name,
+						UID:                tt.dpa.UID,
 						Controller:         pointer.BoolPtr(true),
 						BlockOwnerDeletion: pointer.BoolPtr(true),
 					}},
@@ -842,7 +964,7 @@ func TestVeleroReconciler_updateRegistrySVC(t *testing.T) {
 					Type: corev1.ServiceTypeClusterIP,
 				},
 			}
-			if err := r.updateRegistrySVC(tt.svc, tt.bsl, tt.velero); (err != nil) != tt.wantErr {
+			if err := r.updateRegistrySVC(tt.svc, tt.bsl, tt.dpa); (err != nil) != tt.wantErr {
 				t.Errorf("updateRegistrySVC() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			if !reflect.DeepEqual(tt.svc, wantSVC) {
@@ -852,16 +974,16 @@ func TestVeleroReconciler_updateRegistrySVC(t *testing.T) {
 	}
 }
 
-func TestVeleroReconciler_updateRegistryRoute(t *testing.T) {
+func TestDPAReconciler_updateRegistryRoute(t *testing.T) {
 	tests := []struct {
 		name    string
 		route   *routev1.Route
 		bsl     *velerov1.BackupStorageLocation
-		velero  *oadpv1alpha1.Velero
+		dpa     *oadpv1alpha1.DataProtectionApplication
 		wantErr bool
 	}{
 		{
-			name:    "Given Velero CR and BSL and SVC instance, appropriate registry route gets updated",
+			name:    "Given DPA CR and BSL and SVC instance, appropriate registry route gets updated",
 			wantErr: false,
 			bsl: &velerov1.BackupStorageLocation{
 				ObjectMeta: metav1.ObjectMeta{
@@ -872,7 +994,7 @@ func TestVeleroReconciler_updateRegistryRoute(t *testing.T) {
 					Provider: "test-provider",
 				},
 			},
-			velero: &oadpv1alpha1.Velero{
+			dpa: &oadpv1alpha1.DataProtectionApplication{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "Velero-test-CR",
 					Namespace: "test-ns",
@@ -898,14 +1020,14 @@ func TestVeleroReconciler_updateRegistryRoute(t *testing.T) {
 			if err != nil {
 				t.Errorf("error in creating fake client, likely programmer error")
 			}
-			r := &VeleroReconciler{
+			r := &DPAReconciler{
 				Client:  fakeClient,
 				Scheme:  fakeClient.Scheme(),
 				Log:     logr.Discard(),
 				Context: newContextForTest(tt.name),
 				NamespacedName: types.NamespacedName{
-					Namespace: tt.velero.Namespace,
-					Name:      tt.velero.Name,
+					Namespace: tt.dpa.Namespace,
+					Name:      tt.dpa.Name,
 				},
 				EventRecorder: record.NewFakeRecorder(10),
 			}
@@ -914,15 +1036,16 @@ func TestVeleroReconciler_updateRegistryRoute(t *testing.T) {
 					Name:      "oadp-" + "test-bsl" + "-" + "test-provider" + "-registry-route",
 					Namespace: "test-ns",
 					Labels: map[string]string{
-						"component": "oadp-" + "test-bsl" + "-" + "test-provider" + "-registry",
-						"service":   "oadp-" + "test-bsl" + "-" + "test-provider" + "-registry-svc",
-						"track":     "registry-routes",
+						"component":                    "oadp-" + "test-bsl" + "-" + "test-provider" + "-registry",
+						"service":                      "oadp-" + "test-bsl" + "-" + "test-provider" + "-registry-svc",
+						"track":                        "registry-routes",
+						oadpv1alpha1.OadpOperatorLabel: "True",
 					},
 					OwnerReferences: []metav1.OwnerReference{{
 						APIVersion:         oadpv1alpha1.SchemeBuilder.GroupVersion.String(),
-						Kind:               "Velero",
-						Name:               tt.velero.Name,
-						UID:                tt.velero.UID,
+						Kind:               "DataProtectionApplication",
+						Name:               tt.dpa.Name,
+						UID:                tt.dpa.UID,
 						Controller:         pointer.BoolPtr(true),
 						BlockOwnerDeletion: pointer.BoolPtr(true),
 					}},
@@ -934,7 +1057,7 @@ func TestVeleroReconciler_updateRegistryRoute(t *testing.T) {
 					},
 				},
 			}
-			if err := r.updateRegistryRoute(tt.route, tt.bsl, tt.velero); (err != nil) != tt.wantErr {
+			if err := r.updateRegistryRoute(tt.route, tt.bsl, tt.dpa); (err != nil) != tt.wantErr {
 				t.Errorf("updateRegistryRoute() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			if !reflect.DeepEqual(tt.route, wantRoute) {
@@ -944,12 +1067,12 @@ func TestVeleroReconciler_updateRegistryRoute(t *testing.T) {
 	}
 }
 
-func TestVeleroReconciler_updateRegistryRouteCM(t *testing.T) {
+func TestDPAReconciler_updateRegistryRouteCM(t *testing.T) {
 	tests := []struct {
 		name            string
 		registryRouteCM *corev1.ConfigMap
 		bsl             *velerov1.BackupStorageLocation
-		velero          *oadpv1alpha1.Velero
+		dpa             *oadpv1alpha1.DataProtectionApplication
 		wantErr         bool
 	}{
 		{
@@ -964,7 +1087,7 @@ func TestVeleroReconciler_updateRegistryRouteCM(t *testing.T) {
 					Provider: "test-provider",
 				},
 			},
-			velero: &oadpv1alpha1.Velero{
+			dpa: &oadpv1alpha1.DataProtectionApplication{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "Velero-test-CR",
 					Namespace: "test-ns",
@@ -984,14 +1107,14 @@ func TestVeleroReconciler_updateRegistryRouteCM(t *testing.T) {
 			if err != nil {
 				t.Errorf("error in creating fake client, likely programmer error")
 			}
-			r := &VeleroReconciler{
+			r := &DPAReconciler{
 				Client:  fakeClient,
 				Scheme:  fakeClient.Scheme(),
 				Log:     logr.Discard(),
 				Context: newContextForTest(tt.name),
 				NamespacedName: types.NamespacedName{
-					Namespace: tt.velero.Namespace,
-					Name:      tt.velero.Name,
+					Namespace: tt.dpa.Namespace,
+					Name:      tt.dpa.Name,
 				},
 				EventRecorder: record.NewFakeRecorder(10),
 			}
@@ -1001,9 +1124,9 @@ func TestVeleroReconciler_updateRegistryRouteCM(t *testing.T) {
 					Namespace: "test-ns",
 					OwnerReferences: []metav1.OwnerReference{{
 						APIVersion:         oadpv1alpha1.SchemeBuilder.GroupVersion.String(),
-						Kind:               "Velero",
-						Name:               tt.velero.Name,
-						UID:                tt.velero.UID,
+						Kind:               "DataProtectionApplication",
+						Name:               tt.dpa.Name,
+						UID:                tt.dpa.UID,
 						Controller:         pointer.BoolPtr(true),
 						BlockOwnerDeletion: pointer.BoolPtr(true),
 					}},
@@ -1012,7 +1135,7 @@ func TestVeleroReconciler_updateRegistryRouteCM(t *testing.T) {
 					"test-bsl": "oadp-" + "test-bsl" + "-" + "test-provider" + "-registry-route",
 				},
 			}
-			if err := r.updateRegistryConfigMap(tt.registryRouteCM, tt.bsl, tt.velero); (err != nil) != tt.wantErr {
+			if err := r.updateRegistryConfigMap(tt.registryRouteCM, tt.bsl, tt.dpa); (err != nil) != tt.wantErr {
 				t.Errorf("updateRegistryConfigMap() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			if !reflect.DeepEqual(tt.registryRouteCM, wantRegitryRouteCM) {

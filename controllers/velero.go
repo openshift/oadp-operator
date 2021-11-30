@@ -6,6 +6,7 @@ import (
 	"reflect"
 
 	"github.com/openshift/oadp-operator/pkg/credentials"
+	"github.com/operator-framework/operator-lib/proxy"
 	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -26,6 +27,7 @@ import (
 	"k8s.io/utils/pointer"
 
 	//"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
@@ -49,26 +51,26 @@ var (
 )
 
 // TODO: Remove this function as it's no longer being used
-func (r *VeleroReconciler) ReconcileVeleroServiceAccount(log logr.Logger) (bool, error) {
-	velero := oadpv1alpha1.Velero{}
-	if err := r.Get(r.Context, r.NamespacedName, &velero); err != nil {
+func (r *DPAReconciler) ReconcileVeleroServiceAccount(log logr.Logger) (bool, error) {
+	dpa := oadpv1alpha1.DataProtectionApplication{}
+	if err := r.Get(r.Context, r.NamespacedName, &dpa); err != nil {
 		return false, err
 	}
 	veleroSa := &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      common.Velero,
-			Namespace: velero.Namespace,
+			Namespace: dpa.Namespace,
 		},
 	}
 	op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, veleroSa, func() error {
 		// Setting controller owner reference on the velero SA
-		err := controllerutil.SetControllerReference(&velero, veleroSa, r.Scheme)
+		err := controllerutil.SetControllerReference(&dpa, veleroSa, r.Scheme)
 		if err != nil {
 			return err
 		}
 
 		// update the SA template
-		veleroSaUpdate, err := r.veleroServiceAccount(&velero)
+		veleroSaUpdate, err := r.veleroServiceAccount(&dpa)
 		veleroSa = veleroSaUpdate
 		return err
 	})
@@ -92,9 +94,9 @@ func (r *VeleroReconciler) ReconcileVeleroServiceAccount(log logr.Logger) (bool,
 
 // TODO: Remove this function as it's no longer being used
 //TODO: Temporary solution for Non-OLM Operator install
-func (r *VeleroReconciler) ReconcileVeleroCRDs(log logr.Logger) (bool, error) {
-	velero := oadpv1alpha1.Velero{}
-	if err := r.Get(r.Context, r.NamespacedName, &velero); err != nil {
+func (r *DPAReconciler) ReconcileVeleroCRDs(log logr.Logger) (bool, error) {
+	dpa := oadpv1alpha1.DataProtectionApplication{}
+	if err := r.Get(r.Context, r.NamespacedName, &dpa); err != nil {
 		return false, err
 	}
 
@@ -110,7 +112,7 @@ func (r *VeleroReconciler) ReconcileVeleroCRDs(log logr.Logger) (bool, error) {
 }
 
 // TODO: Remove this function as it's no longer being used
-func (r *VeleroReconciler) InstallVeleroCRDs(log logr.Logger) error {
+func (r *DPAReconciler) InstallVeleroCRDs(log logr.Logger) error {
 	var err error
 	// Install CRDs
 	for _, unstructuredCrd := range install.AllCRDs("v1").Items {
@@ -151,12 +153,12 @@ func (r *VeleroReconciler) InstallVeleroCRDs(log logr.Logger) error {
 }
 
 // TODO: Remove this function as it's no longer being used
-func (r *VeleroReconciler) ReconcileVeleroClusterRoleBinding(log logr.Logger) (bool, error) {
-	velero := oadpv1alpha1.Velero{}
-	if err := r.Get(r.Context, r.NamespacedName, &velero); err != nil {
+func (r *DPAReconciler) ReconcileVeleroClusterRoleBinding(log logr.Logger) (bool, error) {
+	dpa := oadpv1alpha1.DataProtectionApplication{}
+	if err := r.Get(r.Context, r.NamespacedName, &dpa); err != nil {
 		return false, err
 	}
-	veleroCRB, err := r.veleroClusterRoleBinding(&velero)
+	veleroCRB, err := r.veleroClusterRoleBinding(&dpa)
 	if err != nil {
 		return false, err
 	}
@@ -169,7 +171,7 @@ func (r *VeleroReconciler) ReconcileVeleroClusterRoleBinding(log logr.Logger) (b
 		}*/
 
 		// update the CRB template
-		veleroCRBUpdate, err := r.veleroClusterRoleBinding(&velero)
+		veleroCRBUpdate, err := r.veleroClusterRoleBinding(&dpa)
 		veleroCRB = veleroCRBUpdate
 		return err
 	})
@@ -191,14 +193,14 @@ func (r *VeleroReconciler) ReconcileVeleroClusterRoleBinding(log logr.Logger) (b
 	return true, nil
 }
 
-func (r *VeleroReconciler) ReconcileVeleroSecurityContextConstraint(log logr.Logger) (bool, error) {
-	velero := oadpv1alpha1.Velero{}
-	if err := r.Get(r.Context, r.NamespacedName, &velero); err != nil {
+func (r *DPAReconciler) ReconcileVeleroSecurityContextConstraint(log logr.Logger) (bool, error) {
+	dpa := oadpv1alpha1.DataProtectionApplication{}
+	if err := r.Get(r.Context, r.NamespacedName, &dpa); err != nil {
 		return false, err
 	}
 	sa := corev1.ServiceAccount{}
 	nsName := types.NamespacedName{
-		Namespace: velero.Namespace,
+		Namespace: dpa.Namespace,
 		Name:      common.Velero,
 	}
 	if err := r.Get(r.Context, nsName, &sa); err != nil {
@@ -219,7 +221,7 @@ func (r *VeleroReconciler) ReconcileVeleroSecurityContextConstraint(log logr.Log
 		}*/
 
 		// update the SCC template
-		return r.privilegedSecurityContextConstraints(veleroSCC, &velero, &sa)
+		return r.privilegedSecurityContextConstraints(veleroSCC, &dpa, &sa)
 	})
 
 	if err != nil {
@@ -239,16 +241,16 @@ func (r *VeleroReconciler) ReconcileVeleroSecurityContextConstraint(log logr.Log
 	return true, nil
 }
 
-func (r *VeleroReconciler) ReconcileVeleroDeployment(log logr.Logger) (bool, error) {
-	velero := oadpv1alpha1.Velero{}
-	if err := r.Get(r.Context, r.NamespacedName, &velero); err != nil {
+func (r *DPAReconciler) ReconcileVeleroDeployment(log logr.Logger) (bool, error) {
+	dpa := oadpv1alpha1.DataProtectionApplication{}
+	if err := r.Get(r.Context, r.NamespacedName, &dpa); err != nil {
 		return false, err
 	}
 
 	veleroDeployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      common.Velero,
-			Namespace: velero.Namespace,
+			Namespace: dpa.Namespace,
 		},
 	}
 
@@ -260,12 +262,12 @@ func (r *VeleroReconciler) ReconcileVeleroDeployment(log logr.Logger) (bool, err
 		}
 
 		// Setting controller owner reference on the velero deployment
-		err := controllerutil.SetControllerReference(&velero, veleroDeployment, r.Scheme)
+		err := controllerutil.SetControllerReference(&dpa, veleroDeployment, r.Scheme)
 		if err != nil {
 			return err
 		}
 		// update the Deployment template
-		return r.buildVeleroDeployment(veleroDeployment, &velero)
+		return r.buildVeleroDeployment(veleroDeployment, &dpa)
 	})
 
 	if err != nil {
@@ -285,20 +287,20 @@ func (r *VeleroReconciler) ReconcileVeleroDeployment(log logr.Logger) (bool, err
 	return true, nil
 }
 
-func (r *VeleroReconciler) veleroServiceAccount(velero *oadpv1alpha1.Velero) (*corev1.ServiceAccount, error) {
+func (r *DPAReconciler) veleroServiceAccount(dpa *oadpv1alpha1.DataProtectionApplication) (*corev1.ServiceAccount, error) {
 	annotations := make(map[string]string)
-	sa := install.ServiceAccount(velero.Namespace, annotations)
-	sa.Labels = r.getAppLabels(velero)
+	sa := install.ServiceAccount(dpa.Namespace, annotations)
+	sa.Labels = r.getAppLabels(dpa)
 	return sa, nil
 }
 
-func (r *VeleroReconciler) veleroClusterRoleBinding(velero *oadpv1alpha1.Velero) (*rbacv1.ClusterRoleBinding, error) {
-	crb := install.ClusterRoleBinding(velero.Namespace)
-	crb.Labels = r.getAppLabels(velero)
+func (r *DPAReconciler) veleroClusterRoleBinding(dpa *oadpv1alpha1.DataProtectionApplication) (*rbacv1.ClusterRoleBinding, error) {
+	crb := install.ClusterRoleBinding(dpa.Namespace)
+	crb.Labels = r.getAppLabels(dpa)
 	return crb, nil
 }
 
-func (r *VeleroReconciler) privilegedSecurityContextConstraints(scc *security.SecurityContextConstraints, velero *oadpv1alpha1.Velero, sa *corev1.ServiceAccount) error {
+func (r *DPAReconciler) privilegedSecurityContextConstraints(scc *security.SecurityContextConstraints, dpa *oadpv1alpha1.DataProtectionApplication, sa *corev1.ServiceAccount) error {
 	// ObjectMeta set from prior step.
 
 	scc.AllowHostDirVolumePlugin = true
@@ -345,33 +347,33 @@ func (r *VeleroReconciler) privilegedSecurityContextConstraints(scc *security.Se
 }
 
 // Build VELERO Deployment
-func (r *VeleroReconciler) buildVeleroDeployment(veleroDeployment *appsv1.Deployment, velero *oadpv1alpha1.Velero) error {
+func (r *DPAReconciler) buildVeleroDeployment(veleroDeployment *appsv1.Deployment, dpa *oadpv1alpha1.DataProtectionApplication) error {
 
-	if velero == nil {
-		return fmt.Errorf("velero CR cannot be nil")
+	if dpa == nil {
+		return fmt.Errorf("DPA CR cannot be nil")
 	}
 	if veleroDeployment == nil {
 		return fmt.Errorf("velero deployment cannot be nil")
 	}
 
 	//check if CSI plugin is added in spec
-	for _, plugin := range velero.Spec.DefaultVeleroPlugins {
+	for _, plugin := range dpa.Spec.Configuration.Velero.DefaultPlugins {
 		if plugin == oadpv1alpha1.DefaultPluginCSI {
 			// CSI plugin is added so ensure that CSI feature flags is set
-			velero.Spec.VeleroFeatureFlags = append(velero.Spec.VeleroFeatureFlags, enableCSIFeatureFlag)
+			dpa.Spec.Configuration.Velero.FeatureFlags = append(dpa.Spec.Configuration.Velero.FeatureFlags, enableCSIFeatureFlag)
 			break
 		}
 	}
-	r.ReconcileRestoreResourcesVersionPriority(velero)
+	r.ReconcileRestoreResourcesVersionPriority(dpa)
 
-	velero.Spec.VeleroFeatureFlags = removeDuplicateValues(velero.Spec.VeleroFeatureFlags)
+	dpa.Spec.Configuration.Velero.FeatureFlags = removeDuplicateValues(dpa.Spec.Configuration.Velero.FeatureFlags)
 	deploymentName := veleroDeployment.Name       //saves desired deployment name before install.Deployment overwrites them.
 	ownerRefs := veleroDeployment.OwnerReferences // saves desired owner refs
 	*veleroDeployment = *install.Deployment(veleroDeployment.Namespace,
-		install.WithResources(r.getVeleroResourceReqs(velero)),
-		install.WithImage(getVeleroImage(velero)),
-		install.WithFeatures(velero.Spec.VeleroFeatureFlags),
-		install.WithAnnotations(velero.Spec.PodAnnotations),
+		install.WithResources(r.getVeleroResourceReqs(dpa)),
+		install.WithImage(getVeleroImage(dpa)),
+		install.WithFeatures(dpa.Spec.Configuration.Velero.FeatureFlags),
+		install.WithAnnotations(dpa.Spec.PodAnnotations),
 		// use WithSecret false even if we have secret because we use a different VolumeMounts and EnvVars
 		// see: https://github.com/vmware-tanzu/velero/blob/ed5809b7fc22f3661eeef10bdcb63f0d74472b76/pkg/install/deployment.go#L223-L261
 		// our secrets are appended to containers/volumeMounts in credentials.AppendPluginSpecificSpecs function
@@ -380,7 +382,7 @@ func (r *VeleroReconciler) buildVeleroDeployment(veleroDeployment *appsv1.Deploy
 	// adjust veleroDeployment from install
 	veleroDeployment.Name = deploymentName //reapply saved deploymentName and owner refs
 	veleroDeployment.OwnerReferences = ownerRefs
-	return r.customizeVeleroDeployment(velero, veleroDeployment)
+	return r.customizeVeleroDeployment(dpa, veleroDeployment)
 }
 
 // remove duplicate entry in string slice
@@ -399,14 +401,18 @@ func removeDuplicateValues(slice []string) []string {
 	return list // return the result through the passed in argument
 }
 
-func (r *VeleroReconciler) customizeVeleroDeployment(velero *oadpv1alpha1.Velero, veleroDeployment *appsv1.Deployment) error {
-	veleroDeployment.Labels = r.getAppLabels(velero)
+func (r *DPAReconciler) customizeVeleroDeployment(dpa *oadpv1alpha1.DataProtectionApplication, veleroDeployment *appsv1.Deployment) error {
+	veleroDeployment.Labels = r.getAppLabels(dpa)
 	veleroDeployment.Spec.Selector = veleroLabelSelector
+
+	isSTSNeeded := r.isSTSTokenNeeded(dpa.Spec.BackupLocations, dpa.Namespace)
 
 	//TODO: add velero nodeselector, needs to be added to the VELERO CR first
 	// Selector: veleroDeployment.Spec.Selector,
 	veleroDeployment.Spec.Replicas = pointer.Int32(1)
-	veleroDeployment.Spec.Template.Spec.Tolerations = velero.Spec.VeleroTolerations
+	if dpa.Spec.Configuration.Velero.PodConfig != nil {
+		veleroDeployment.Spec.Template.Spec.Tolerations = dpa.Spec.Configuration.Velero.PodConfig.Tolerations
+	}
 	veleroDeployment.Spec.Template.Spec.Volumes = append(veleroDeployment.Spec.Template.Spec.Volumes,
 		corev1.Volume{
 			Name: "certs",
@@ -414,6 +420,30 @@ func (r *VeleroReconciler) customizeVeleroDeployment(velero *oadpv1alpha1.Velero
 				EmptyDir: &corev1.EmptyDirVolumeSource{},
 			},
 		})
+
+	if isSTSNeeded {
+		defaultMode := int32(420)
+		expirationSeconds := int64(3600)
+		veleroDeployment.Spec.Template.Spec.Volumes = append(veleroDeployment.Spec.Template.Spec.Volumes,
+			corev1.Volume{
+				Name: "bound-sa-token",
+				VolumeSource: corev1.VolumeSource{
+					Projected: &corev1.ProjectedVolumeSource{
+						DefaultMode: &defaultMode,
+						Sources: []corev1.VolumeProjection{
+							{
+								ServiceAccountToken: &corev1.ServiceAccountTokenProjection{
+									Audience:          "openshift",
+									ExpirationSeconds: &expirationSeconds,
+									Path:              "token",
+								},
+							},
+						},
+					},
+				},
+			},
+		)
+	}
 	//add any default init containers here if needed eg: setup-certificate-secret
 	// When you do this
 	// - please set the ImagePullPolicy to Always, and
@@ -423,9 +453,9 @@ func (r *VeleroReconciler) customizeVeleroDeployment(velero *oadpv1alpha1.Velero
 	}
 
 	// attach DNS policy and config if enabled
-	veleroDeployment.Spec.Template.Spec.DNSPolicy = velero.Spec.PodDnsPolicy
-	if !reflect.DeepEqual(velero.Spec.PodDnsConfig, corev1.PodDNSConfig{}) {
-		veleroDeployment.Spec.Template.Spec.DNSConfig = &velero.Spec.PodDnsConfig
+	veleroDeployment.Spec.Template.Spec.DNSPolicy = dpa.Spec.PodDnsPolicy
+	if !reflect.DeepEqual(dpa.Spec.PodDnsConfig, corev1.PodDNSConfig{}) {
+		veleroDeployment.Spec.Template.Spec.DNSConfig = &dpa.Spec.PodDnsConfig
 	}
 
 	var veleroContainer *corev1.Container
@@ -435,13 +465,13 @@ func (r *VeleroReconciler) customizeVeleroDeployment(velero *oadpv1alpha1.Velero
 			break
 		}
 	}
-	if err := r.customizeVeleroContainer(velero, veleroDeployment, veleroContainer); err != nil {
+	if err := r.customizeVeleroContainer(dpa, veleroDeployment, veleroContainer, isSTSNeeded); err != nil {
 		return err
 	}
-	return credentials.AppendPluginSpecificSpecs(velero, veleroDeployment, veleroContainer)
+	return credentials.AppendPluginSpecificSpecs(dpa, veleroDeployment, veleroContainer)
 }
 
-func (r *VeleroReconciler) customizeVeleroContainer(velero *oadpv1alpha1.Velero, veleroDeployment *appsv1.Deployment, veleroContainer *corev1.Container) error {
+func (r *DPAReconciler) customizeVeleroContainer(dpa *oadpv1alpha1.DataProtectionApplication, veleroDeployment *appsv1.Deployment, veleroContainer *corev1.Container, isSTSNeeded bool) error {
 	if veleroContainer == nil {
 		return fmt.Errorf("could not find velero container in Deployment")
 	}
@@ -453,24 +483,21 @@ func (r *VeleroReconciler) customizeVeleroContainer(velero *oadpv1alpha1.Velero,
 		},
 	)
 
-	veleroContainer.Env = append(veleroContainer.Env,
-		corev1.EnvVar{
-			Name:  common.HTTPProxyEnvVar,
-			Value: os.Getenv("HTTP_PROXY"),
-		},
-		corev1.EnvVar{
-			Name:  common.HTTPSProxyEnvVar,
-			Value: os.Getenv("HTTPS_PROXY"),
-		},
-		corev1.EnvVar{
-			Name:  common.NoProxyEnvVar,
-			Value: os.Getenv("NO_PROXY"),
-		},
-	)
+	if isSTSNeeded {
+		veleroContainer.VolumeMounts = append(veleroContainer.VolumeMounts,
+			corev1.VolumeMount{
+				Name:      "bound-sa-token",
+				MountPath: "/var/run/secrets/openshift/serviceaccount",
+				ReadOnly:  true,
+			})
+	}
+	// Append proxy settings to the container from environment variables
+	veleroContainer.Env = append(veleroContainer.Env, proxy.ReadProxyVarsFromEnv()...)
+
 	// Enable user to specify --restic-timeout (defaults to 1h)
 	resticTimeout := "1h"
-	if len(velero.Spec.ResticTimeout) > 0 {
-		resticTimeout = velero.Spec.ResticTimeout
+	if dpa.Spec.Configuration.Restic != nil && len(dpa.Spec.Configuration.Restic.Timeout) > 0 {
+		resticTimeout = dpa.Spec.Configuration.Restic.Timeout
 	}
 	// Append restic timeout option manually. Not configurable via install package, missing from podTemplateConfig struct. See: https://github.com/vmware-tanzu/velero/blob/8d57215ded1aa91cdea2cf091d60e072ce3f340f/pkg/install/deployment.go#L34-L45
 	veleroContainer.Args = append(veleroContainer.Args, fmt.Sprintf("--restic-timeout=%s", resticTimeout))
@@ -478,9 +505,31 @@ func (r *VeleroReconciler) customizeVeleroContainer(velero *oadpv1alpha1.Velero,
 	return nil
 }
 
-func getVeleroImage(velero *oadpv1alpha1.Velero) string {
-	if velero.Spec.UnsupportedOverrides[oadpv1alpha1.VeleroImageKey] != "" {
-		return velero.Spec.UnsupportedOverrides[oadpv1alpha1.VeleroImageKey]
+func (r *DPAReconciler) isSTSTokenNeeded(bsls []oadpv1alpha1.BackupLocation, ns string) bool {
+
+	for _, bsl := range bsls {
+		if bsl.CloudStorage != nil {
+			bucket := &oadpv1alpha1.CloudStorage{}
+			err := r.Get(r.Context, client.ObjectKey{
+				Name:      bsl.CloudStorage.CloudStorageRef.Name,
+				Namespace: ns,
+			}, bucket)
+			if err != nil {
+				//log
+				return false
+			}
+			if bucket.Spec.EnableSharedConfig != nil && *bucket.Spec.EnableSharedConfig {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+func getVeleroImage(dpa *oadpv1alpha1.DataProtectionApplication) string {
+	if dpa.Spec.UnsupportedOverrides[oadpv1alpha1.VeleroImageKey] != "" {
+		return dpa.Spec.UnsupportedOverrides[oadpv1alpha1.VeleroImageKey]
 	}
 	if os.Getenv("VELERO_REPO") == "" {
 		return common.VeleroImage
@@ -488,10 +537,10 @@ func getVeleroImage(velero *oadpv1alpha1.Velero) string {
 	return fmt.Sprintf("%v/%v/%v:%v", os.Getenv("REGISTRY"), os.Getenv("PROJECT"), os.Getenv("VELERO_REPO"), os.Getenv("VELERO_TAG"))
 }
 
-func (r *VeleroReconciler) getAppLabels(velero *oadpv1alpha1.Velero) map[string]string {
+func (r *DPAReconciler) getAppLabels(dpa *oadpv1alpha1.DataProtectionApplication) map[string]string {
 	labels := map[string]string{
 		"app.kubernetes.io/name":       common.Velero,
-		"app.kubernetes.io/instance":   velero.Name,
+		"app.kubernetes.io/instance":   dpa.Name,
 		"app.kubernetes.io/managed-by": common.OADPOperator,
 		"app.kubernetes.io/component":  Server,
 		oadpv1alpha1.OadpOperatorLabel: "True",
@@ -499,8 +548,8 @@ func (r *VeleroReconciler) getAppLabels(velero *oadpv1alpha1.Velero) map[string]
 	return labels
 }
 
-// Get VELERO Resource Requirements
-func (r *VeleroReconciler) getVeleroResourceReqs(velero *oadpv1alpha1.Velero) corev1.ResourceRequirements {
+// Get Velero Resource Requirements
+func (r *DPAReconciler) getVeleroResourceReqs(dpa *oadpv1alpha1.DataProtectionApplication) corev1.ResourceRequirements {
 
 	// Set default values
 	ResourcesReqs := corev1.ResourceRequirements{
@@ -514,17 +563,16 @@ func (r *VeleroReconciler) getVeleroResourceReqs(velero *oadpv1alpha1.Velero) co
 		},
 	}
 
-	if velero != nil {
-
+	if dpa != nil && dpa.Spec.Configuration.Velero.PodConfig != nil {
 		// Set custom limits and requests values if defined on VELERO Spec
-		if velero.Spec.VeleroResourceAllocations.Requests != nil {
-			ResourcesReqs.Requests[corev1.ResourceCPU] = resource.MustParse(velero.Spec.VeleroResourceAllocations.Requests.Cpu().String())
-			ResourcesReqs.Requests[corev1.ResourceMemory] = resource.MustParse(velero.Spec.VeleroResourceAllocations.Requests.Memory().String())
+		if dpa.Spec.Configuration.Velero.PodConfig.ResourceAllocations.Requests != nil {
+			ResourcesReqs.Requests[corev1.ResourceCPU] = resource.MustParse(dpa.Spec.Configuration.Velero.PodConfig.ResourceAllocations.Requests.Cpu().String())
+			ResourcesReqs.Requests[corev1.ResourceMemory] = resource.MustParse(dpa.Spec.Configuration.Velero.PodConfig.ResourceAllocations.Requests.Memory().String())
 		}
 
-		if velero.Spec.VeleroResourceAllocations.Limits != nil {
-			ResourcesReqs.Limits[corev1.ResourceCPU] = resource.MustParse(velero.Spec.VeleroResourceAllocations.Limits.Cpu().String())
-			ResourcesReqs.Limits[corev1.ResourceMemory] = resource.MustParse(velero.Spec.VeleroResourceAllocations.Limits.Memory().String())
+		if dpa.Spec.Configuration.Velero.PodConfig.ResourceAllocations.Limits != nil {
+			ResourcesReqs.Limits[corev1.ResourceCPU] = resource.MustParse(dpa.Spec.Configuration.Velero.PodConfig.ResourceAllocations.Limits.Cpu().String())
+			ResourcesReqs.Limits[corev1.ResourceMemory] = resource.MustParse(dpa.Spec.Configuration.Velero.PodConfig.ResourceAllocations.Limits.Memory().String())
 		}
 
 	}
@@ -532,25 +580,34 @@ func (r *VeleroReconciler) getVeleroResourceReqs(velero *oadpv1alpha1.Velero) co
 	return ResourcesReqs
 }
 
-// For later: Move this code into validator.go when more need for validation arises
-// TODO: if multiple default plugins exist, ensure we validate all of them.
-// Right now its sequential validation
-func (r *VeleroReconciler) ValidateVeleroPlugins(log logr.Logger) (bool, error) {
-	velero := oadpv1alpha1.Velero{}
-	if err := r.Get(r.Context, r.NamespacedName, &velero); err != nil {
-		return false, err
+// Get Restic Resource Requirements
+func (r *DPAReconciler) getResticResourceReqs(dpa *oadpv1alpha1.DataProtectionApplication) corev1.ResourceRequirements {
+
+	// Set default values
+	ResourcesReqs := corev1.ResourceRequirements{
+		Limits: corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse("1"),
+			corev1.ResourceMemory: resource.MustParse("512Mi"),
+		},
+		Requests: corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse("500m"),
+			corev1.ResourceMemory: resource.MustParse("128Mi"),
+		},
 	}
 
-	var defaultPlugin oadpv1alpha1.DefaultPlugin
-	for _, plugin := range velero.Spec.DefaultVeleroPlugins {
-		if pluginSpecificMap, ok := credentials.PluginSpecificFields[plugin]; ok && pluginSpecificMap.IsCloudProvider {
-			secretName := pluginSpecificMap.SecretName
-			_, err := r.getProviderSecret(secretName)
-			if err != nil {
-				r.Log.Info(fmt.Sprintf("error validating %s provider secret:  %s/%s", defaultPlugin, r.NamespacedName.Namespace, secretName))
-				return false, err
-			}
+	if dpa != nil && dpa.Spec.Configuration != nil && dpa.Spec.Configuration.Restic != nil && dpa.Spec.Configuration.Restic.PodConfig != nil {
+		// Set custom limits and requests values if defined on VELERO Spec
+		if dpa.Spec.Configuration.Restic.PodConfig.ResourceAllocations.Requests != nil {
+			ResourcesReqs.Requests[corev1.ResourceCPU] = resource.MustParse(dpa.Spec.Configuration.Restic.PodConfig.ResourceAllocations.Requests.Cpu().String())
+			ResourcesReqs.Requests[corev1.ResourceMemory] = resource.MustParse(dpa.Spec.Configuration.Restic.PodConfig.ResourceAllocations.Requests.Memory().String())
 		}
+
+		if dpa.Spec.Configuration.Restic.PodConfig.ResourceAllocations.Limits != nil {
+			ResourcesReqs.Limits[corev1.ResourceCPU] = resource.MustParse(dpa.Spec.Configuration.Restic.PodConfig.ResourceAllocations.Limits.Cpu().String())
+			ResourcesReqs.Limits[corev1.ResourceMemory] = resource.MustParse(dpa.Spec.Configuration.Restic.PodConfig.ResourceAllocations.Limits.Memory().String())
+		}
+
 	}
-	return true, nil
+
+	return ResourcesReqs
 }

@@ -2,7 +2,8 @@
 # since it depends on service name and namespace that are out of this kustomize package.
 # It should be run by config/default
 resources:
-- bases/oadp.openshift.io_veleroes.yaml
+- bases/oadp.openshift.io_dataprotectionapplications.yaml
+- bases/oadp.openshift.io_cloudstorages.yaml
 - bases/backup.crd.yaml
 - bases/backupstoragelocation.crd.yaml
 - bases/deletebackuprequest.crd.yaml

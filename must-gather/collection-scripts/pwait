@@ -1,0 +1,7 @@
+# Limits background job parallelism.
+# Usage: `pwait 10` -> wait for background jobs to be < 10 before proceeding.
+function pwait() {
+    while [ $(jobs -p | wc -l) -ge $1 ]; do
+        sleep 1
+    done
+}

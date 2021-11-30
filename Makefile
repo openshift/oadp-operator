@@ -20,13 +20,14 @@ ginkgo: # Make sure ginkgo is in $GOPATH/bin
 # To re-generate a bundle for another specific version without changing the standard setup, you can:
 # - use the VERSION as arg of the bundle target (e.g make bundle VERSION=0.0.2)
 # - use environment variables to overwrite this value (e.g export VERSION=0.0.2)
-VERSION ?= 0.0.1
+VERSION ?= 99.0.0
 
 # CHANNELS define the bundle channels used in the bundle.
 # Add a new line here if you would like to change its default config. (E.g CHANNELS = "candidate,fast,stable")
 # To re-generate a bundle for other specific channels without changing the standard setup, you can:
 # - use the CHANNELS as arg of the bundle target (e.g make bundle CHANNELS=candidate,fast,stable)
 # - use environment variables to overwrite this value (e.g export CHANNELS="candidate,fast,stable")
+CHANNELS = "beta"
 ifneq ($(origin CHANNELS), undefined)
 BUNDLE_CHANNELS := --channels=$(CHANNELS)
 endif
@@ -36,6 +37,7 @@ endif
 # To re-generate a bundle for any other default channel without changing the default setup, you can:
 # - use the DEFAULT_CHANNEL as arg of the bundle target (e.g make bundle DEFAULT_CHANNEL=stable)
 # - use environment variables to overwrite this value (e.g export DEFAULT_CHANNEL="stable")
+DEFAULT_CHANNEL = "beta"
 ifneq ($(origin DEFAULT_CHANNEL), undefined)
 BUNDLE_DEFAULT_CHANNEL := --default-channel=$(DEFAULT_CHANNEL)
 endif
@@ -91,7 +93,9 @@ help: ## Display this help.
 ##@ Development
 
 manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
-	GOFLAGS="-mod=mod" $(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+	# Commenting out default which overwrites scoped config/rbac/role.yaml
+	# GOFLAGS="-mod=mod" $(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+	GOFLAGS="-mod=mod" $(CONTROLLER_GEN) $(CRD_OPTIONS) webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 
 generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
 	GOFLAGS="-mod=mod" $(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
@@ -136,21 +140,19 @@ uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified 
 deploy: manifests kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/config.
 	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
 	$(KUSTOMIZE) build config/default | kubectl apply -f -
-	kubectl apply -f config/rbac/velero-service_account.yaml
-	kubectl apply -f config/rbac/velero-role.yaml
-	kubectl apply -f config/rbac/velero-role_binding.yaml
+	kubectl apply -f config/velero/velero-service_account.yaml
+	kubectl apply -f config/velero/velero-role.yaml
+	kubectl apply -f config/velero/velero-role_binding.yaml
 
 undeploy: kustomize ## Undeploy controller from the K8s cluster specified in ~/.kube/config.
-	kubectl delete -f config/rbac/velero-service_account.yaml
-	kubectl delete -f config/rbac/velero-role.yaml
-	kubectl delete -f config/rbac/velero-role_binding.yaml
+	kubectl delete -f config/velero/velero-service_account.yaml
+	kubectl delete -f config/velero/velero-role.yaml
+	kubectl delete -f config/velero/velero-role_binding.yaml
 	$(KUSTOMIZE) build config/default | kubectl delete -f -
 
 build-deploy: THIS_IMAGE=ttl.sh/oadp-operator-$(shell git rev-parse --short HEAD):1h # Set target specific variable
 build-deploy: ## Build current branch image and deploy controller to the k8s cluster specified in ~/.kube/config.
-	docker build -t $(THIS_IMAGE) . && \
-	docker push $(THIS_IMAGE) && \
-	IMG=$(THIS_IMAGE) make deploy
+	IMG=$(THIS_IMAGE) make docker-build docker-push deploy
 
 CONTROLLER_GEN = $(shell pwd)/bin/controller-gen
 controller-gen: ## Download controller-gen locally if necessary.
@@ -205,9 +207,12 @@ endef
 
 .PHONY: bundle
 bundle: manifests kustomize ## Generate bundle manifests and metadata, then validate generated files.
-	operator-sdk generate kustomize manifests -q
-	cd config/manager && $(KUSTOMIZE) edit set image controller=$(IMG)
-	$(KUSTOMIZE) build config/manifests | operator-sdk generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
+	# operator-sdk generate kustomize manifests -q
+	#cd config/manager && $(KUSTOMIZE) edit set image controller=$(IMG)
+	# $(KUSTOMIZE) build config/manifests | operator-sdk generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
+	# Copy updated bundle.Dockerfile to CI's Dockerfile.bundle
+	# TODO: update CI to use generated one
+	# cp bundle.Dockerfile build/Dockerfile.bundle
 	operator-sdk bundle validate ./bundle
 
 .PHONY: bundle-build
@@ -217,6 +222,17 @@ bundle-build: ## Build the bundle image.
 .PHONY: bundle-push
 bundle-push: ## Push the bundle image.
 	$(MAKE) docker-push IMG=$(BUNDLE_IMG)
+
+## Build current branch operator image, bundle image, push and install via OLM
+deploy-olm: GIT_REV=$(shell git rev-parse --short HEAD)
+deploy-olm: THIS_OPERATOR_IMAGE?=ttl.sh/oadp-operator-$(GIT_REV):1h # Set target specific variable
+deploy-olm: THIS_BUNDLE_IMAGE?=ttl.sh/oadp-operator-bundle-$(GIT_REV):1h # Set target specific variable
+deploy-olm:
+	oc whoami # Check if logged in
+	oc create namespace openshift-adp # This should error out if namespace already exists, delete namespace (to clear current resources) before proceeding
+	IMG=$(THIS_OPERATOR_IMAGE) BUNDLE_IMG=$(THIS_BUNDLE_IMAGE) \
+		make docker-build docker-push bundle bundle-build bundle-push # build and push operator and bundle image
+	operator-sdk run bundle $(THIS_BUNDLE_IMAGE) --namespace openshift-adp # use operator-sdk to install bundle to authenticated cluster
 
 .PHONY: opm
 OPM = ./bin/opm

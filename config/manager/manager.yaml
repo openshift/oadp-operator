@@ -27,7 +27,15 @@ spec:
       containers:
       - command:
         - /manager
+        volumeMounts:
+          - mountPath: /var/run/secrets/openshift/serviceaccount
+            name: bound-sa-token
+            readOnly: true
         env:
+          - name: WATCH_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
           - name: REGISTRY
             value: quay.io
           - name: PROJECT
@@ -41,7 +49,7 @@ spec:
           - name: VELERO_OPENSHIFT_PLUGIN_REPO
             value: openshift-velero-plugin
           - name: VELERO_OPENSHIFT_PLUGIN_TAG
-            value: oadp-dev
+            value: latest
           - name: VELERO_RESTIC_RESTORE_HELPER_REPO
             value: velero-restic-restore-helper
           - name: VELERO_AWS_PLUGIN_REPO
@@ -55,15 +63,15 @@ spec:
           - name: VELERO_VSPHERE_PLUGIN_REPO
             value: velero-plugin-for-vsphere
           - name: VELERO_TAG
-            value: konveyor-oadp
+            value: latest
           - name: VELERO_RESTIC_RESTORE_HELPER_TAG
             value: latest
           - name: VELERO_AWS_PLUGIN_TAG
-            value: konveyor-oadp
+            value: latest
           - name: VELERO_GCP_PLUGIN_TAG
-            value: konveyor-oadp
+            value: latest
           - name: VELERO_AZURE_PLUGIN_TAG
-            value: konveyor-oadp
+            value: latest
           - name: VELERO_CSI_PLUGIN_TAG
             value: latest
           - name: VELERO_VSPHERE_PLUGIN_TAG
@@ -101,4 +109,12 @@ spec:
             cpu: 500m
             memory: 128Mi
       serviceAccountName: controller-manager
+      volumes:
+      - name: bound-sa-token
+        projected:
+          sources:
+          - serviceAccountToken:
+              path: token
+              expirationSeconds: 3600
+              audience: openshift
       terminationGracePeriodSeconds: 10

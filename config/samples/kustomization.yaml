@@ -1,4 +1,15 @@
 ## Append samples you want in your CSV to this file as resources ##
 resources:
-- oadp_v1alpha1_velero.yaml
+- oadp_v1alpha1_dpa.yaml
+- backupstoragelocation.yaml
+- deletebackuprequest.yaml
+- downloadrequest.yaml
+- podvolumebackup.yaml
+- podvolumerestore.yaml
+- resticrepository.yaml
+- backup.yaml
+- restore.yaml
+- schedule.yaml
+- serverstatusrequest.yaml
+- volumesnapshotlocation.yaml
 #+kubebuilder:scaffold:manifestskustomizesamples

@@ -16,7 +16,7 @@ if it does not exist, and install the OADP operator in it.
 ![OADP-OLM-1](/docs/images/OADP-OLM-3.png)
 
 ### Create credentials secret
-Before creating a Velero CR, ensure you have created a secret
+Before creating a DataProtectionApplication (DPA) CR, ensure you have created a secret
  `cloud-credentials` in namespace `openshift-adp`.
 
  Make sure your credentials file is in the proper format. For example, if using
@@ -35,9 +35,9 @@ Before creating a Velero CR, ensure you have created a secret
 $ oc create secret generic cloud-credentials --namespace openshift-adp --from-file cloud=<CREDENTIALS_FILE_PATH>
 ```
 
-### Create the Velero Custom Resource
+### Create the DataProtectionApplication Custom Resource
 
-Create an instance of the Velero CR by clicking on `Create Instance` as highlighted below:
+Create an instance of the DataProtectionApplication (DPA) CR by clicking on `Create Instance` as highlighted below:
 
 ![Velero-CR-1](/docs/images/Velero-CR-1.png)
 
@@ -49,31 +49,39 @@ The CR values are mentioned for ease of use. Please remember to mention `default
 
 ```
 apiVersion: oadp.openshift.io/v1alpha1
-kind: Velero
+kind: DataProtectionApplication
 metadata:
-  name: velero-sample
+  name: dpa-sample
 spec:
-  defaultVeleroPlugins:
-  - aws
-  backupStorageLocations:
-  - name: default
-    provider: aws
-    default: true
-    objectStorage:
-      bucket: my-bucket
-      prefix: my-prefix
-    config:
-      region: us-east-1
-      profile: "default"
-    credential:
-      name: cloud-credentials
-      key: cloud
-  volumeSnapshotLocations:
-  - name: default
-    provider: aws
-    config:
-      region: us-west-2
-      profile: "default"
+  configuration:
+    velero:
+      defaultPlugins:
+      - openshift
+      - aws
+    restic:
+      enable: true
+  backupLocations:
+    - name: default
+      velero:
+        provider: aws
+        default: true
+        objectStorage:
+          bucket: my-bucket
+          prefix: my-prefix
+        config:
+          region: us-east-1
+          profile: "default"
+        credential:
+          name: cloud-credentials
+          key: cloud
+  volumeSnapshots:
+    - name: default
+      velero:
+        provider: aws
+        config:
+          region: us-west-2
+          profile: "default"
+
 ```
 
 ![Velero-CR-2](/docs/images/Velero-CR-2.png)
