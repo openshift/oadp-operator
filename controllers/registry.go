@@ -134,9 +134,9 @@ var cloudProviderEnvVarMap = map[string][]corev1.EnvVar{
 	},
 }
 
-func (r *VeleroReconciler) ReconcileRegistries(log logr.Logger) (bool, error) {
-	velero := oadpv1alpha1.Velero{}
-	if err := r.Get(r.Context, r.NamespacedName, &velero); err != nil {
+func (r *DPAReconciler) ReconcileRegistries(log logr.Logger) (bool, error) {
+	dpa := oadpv1alpha1.DataProtectionApplication{}
+	if err := r.Get(r.Context, r.NamespacedName, &dpa); err != nil {
 		return false, err
 	}
 
@@ -162,7 +162,7 @@ func (r *VeleroReconciler) ReconcileRegistries(log logr.Logger) (bool, error) {
 			},
 		}
 
-		if velero.Spec.BackupImages != nil && !*velero.Spec.BackupImages {
+		if dpa.Spec.BackupImages != nil && !*dpa.Spec.BackupImages {
 			deleteContext := context.Background()
 			if err := r.Get(deleteContext, types.NamespacedName{
 				Name:      registryDeployment.Name,
@@ -195,12 +195,12 @@ func (r *VeleroReconciler) ReconcileRegistries(log logr.Logger) (bool, error) {
 				}
 			}
 
-			err := controllerutil.SetControllerReference(&velero, registryDeployment, r.Scheme)
+			err := controllerutil.SetControllerReference(&dpa, registryDeployment, r.Scheme)
 			if err != nil {
 				return err
 			}
 			// update the Registry Deployment template
-			err = r.buildRegistryDeployment(registryDeployment, &bsl, &velero)
+			err = r.buildRegistryDeployment(registryDeployment, &bsl, &dpa)
 			return err
 		})
 
@@ -225,10 +225,10 @@ func (r *VeleroReconciler) ReconcileRegistries(log logr.Logger) (bool, error) {
 }
 
 // Construct and update the registry deployment for a bsl
-func (r *VeleroReconciler) buildRegistryDeployment(registryDeployment *appsv1.Deployment, bsl *velerov1.BackupStorageLocation, velero *oadpv1alpha1.Velero) error {
+func (r *DPAReconciler) buildRegistryDeployment(registryDeployment *appsv1.Deployment, bsl *velerov1.BackupStorageLocation, dpa *oadpv1alpha1.DataProtectionApplication) error {
 
 	// Build registry container
-	registryContainer, err := r.buildRegistryContainer(bsl, velero)
+	registryContainer, err := r.buildRegistryContainer(bsl, dpa)
 	if err != nil {
 		return err
 	}
@@ -243,7 +243,7 @@ func (r *VeleroReconciler) buildRegistryDeployment(registryDeployment *appsv1.De
 				Labels: map[string]string{
 					"component": registryName(bsl),
 				},
-				Annotations: velero.Spec.PodAnnotations,
+				Annotations: dpa.Spec.PodAnnotations,
 			},
 			Spec: corev1.PodSpec{
 				RestartPolicy: corev1.RestartPolicyAlways,
@@ -267,15 +267,15 @@ func (r *VeleroReconciler) buildRegistryDeployment(registryDeployment *appsv1.De
 	}
 
 	// attach DNS policy and config if enabled
-	registryDeployment.Spec.Template.Spec.DNSPolicy = velero.Spec.PodDnsPolicy
-	if !reflect.DeepEqual(velero.Spec.PodDnsConfig, corev1.PodDNSConfig{}) {
-		registryDeployment.Spec.Template.Spec.DNSConfig = &velero.Spec.PodDnsConfig
+	registryDeployment.Spec.Template.Spec.DNSPolicy = dpa.Spec.PodDnsPolicy
+	if !reflect.DeepEqual(dpa.Spec.PodDnsConfig, corev1.PodDNSConfig{}) {
+		registryDeployment.Spec.Template.Spec.DNSConfig = &dpa.Spec.PodDnsConfig
 	}
 
 	return nil
 }
 
-func (r *VeleroReconciler) getRegistryBSLLabels(bsl *velerov1.BackupStorageLocation) map[string]string {
+func (r *DPAReconciler) getRegistryBSLLabels(bsl *velerov1.BackupStorageLocation) map[string]string {
 	labels := map[string]string{
 		"app.kubernetes.io/name":       common.OADPOperatorVelero,
 		"app.kubernetes.io/instance":   registryName(bsl),
@@ -290,9 +290,9 @@ func registryName(bsl *velerov1.BackupStorageLocation) string {
 	return "oadp-" + bsl.Name + "-" + bsl.Spec.Provider + "-registry"
 }
 
-func getRegistryImage(velero *oadpv1alpha1.Velero) string {
-	if velero.Spec.UnsupportedOverrides[oadpv1alpha1.RegistryImageKey] != "" {
-		return velero.Spec.UnsupportedOverrides[oadpv1alpha1.RegistryImageKey]
+func getRegistryImage(dpa *oadpv1alpha1.DataProtectionApplication) string {
+	if dpa.Spec.UnsupportedOverrides[oadpv1alpha1.RegistryImageKey] != "" {
+		return dpa.Spec.UnsupportedOverrides[oadpv1alpha1.RegistryImageKey]
 	}
 	if os.Getenv("VELERO_REGISTRY_REPO") == "" {
 		return common.RegistryImage
@@ -300,7 +300,7 @@ func getRegistryImage(velero *oadpv1alpha1.Velero) string {
 	return fmt.Sprintf("%v/%v/%v:%v", os.Getenv("REGISTRY"), os.Getenv("PROJECT"), os.Getenv("VELERO_REGISTRY_REPO"), os.Getenv("VELERO_REGISTRY_TAG"))
 }
 
-func (r *VeleroReconciler) buildRegistryContainer(bsl *velerov1.BackupStorageLocation, velero *oadpv1alpha1.Velero) ([]corev1.Container, error) {
+func (r *DPAReconciler) buildRegistryContainer(bsl *velerov1.BackupStorageLocation, dpa *oadpv1alpha1.DataProtectionApplication) ([]corev1.Container, error) {
 	envVars, err := r.getRegistryEnvVars(bsl)
 	if err != nil {
 		r.Log.Info(fmt.Sprintf("Error building registry container for backupstoragelocation %s/%s, could not fetch registry env vars", bsl.Namespace, bsl.Name))
@@ -308,7 +308,7 @@ func (r *VeleroReconciler) buildRegistryContainer(bsl *velerov1.BackupStorageLoc
 	}
 	containers := []corev1.Container{
 		{
-			Image: getRegistryImage(velero),
+			Image: getRegistryImage(dpa),
 			Name:  registryName(bsl) + "-container",
 			Ports: []corev1.ContainerPort{
 				{
@@ -355,7 +355,7 @@ func (r *VeleroReconciler) buildRegistryContainer(bsl *velerov1.BackupStorageLoc
 	return containers, nil
 }
 
-func (r *VeleroReconciler) getRegistryEnvVars(bsl *velerov1.BackupStorageLocation) ([]corev1.EnvVar, error) {
+func (r *DPAReconciler) getRegistryEnvVars(bsl *velerov1.BackupStorageLocation) ([]corev1.EnvVar, error) {
 	envVar := []corev1.EnvVar{}
 	provider := bsl.Spec.Provider
 	var err error
@@ -377,7 +377,7 @@ func (r *VeleroReconciler) getRegistryEnvVars(bsl *velerov1.BackupStorageLocatio
 	return envVar, nil
 }
 
-func (r *VeleroReconciler) getAWSRegistryEnvVars(bsl *velerov1.BackupStorageLocation, awsEnvVars []corev1.EnvVar) ([]corev1.EnvVar, error) {
+func (r *DPAReconciler) getAWSRegistryEnvVars(bsl *velerov1.BackupStorageLocation, awsEnvVars []corev1.EnvVar) ([]corev1.EnvVar, error) {
 	// Check for secret name
 	secretName, secretKey := r.getSecretNameAndKey(bsl.Spec.Credential, oadpv1alpha1.DefaultPluginAWS)
 
@@ -426,7 +426,7 @@ func (r *VeleroReconciler) getAWSRegistryEnvVars(bsl *velerov1.BackupStorageLoca
 	return awsEnvVars, nil
 }
 
-func (r *VeleroReconciler) getAzureRegistryEnvVars(bsl *velerov1.BackupStorageLocation, azureEnvVars []corev1.EnvVar) ([]corev1.EnvVar, error) {
+func (r *DPAReconciler) getAzureRegistryEnvVars(bsl *velerov1.BackupStorageLocation, azureEnvVars []corev1.EnvVar) ([]corev1.EnvVar, error) {
 	// Check for secret name
 	secretName, secretKey := r.getSecretNameAndKey(bsl.Spec.Credential, oadpv1alpha1.DefaultPluginMicrosoftAzure)
 	r.Log.Info(fmt.Sprintf("Azure secret name: %s and secret key: %s", secretName, secretKey))
@@ -462,7 +462,7 @@ func (r *VeleroReconciler) getAzureRegistryEnvVars(bsl *velerov1.BackupStorageLo
 	return azureEnvVars, nil
 }
 
-func (r *VeleroReconciler) getGCPRegistryEnvVars(bsl *velerov1.BackupStorageLocation, gcpEnvVars []corev1.EnvVar) ([]corev1.EnvVar, error) {
+func (r *DPAReconciler) getGCPRegistryEnvVars(bsl *velerov1.BackupStorageLocation, gcpEnvVars []corev1.EnvVar) ([]corev1.EnvVar, error) {
 	for i := range gcpEnvVars {
 		if gcpEnvVars[i].Name == RegistryStorageGCSBucket {
 			gcpEnvVars[i].Value = bsl.Spec.StorageType.ObjectStorage.Bucket
@@ -475,7 +475,7 @@ func (r *VeleroReconciler) getGCPRegistryEnvVars(bsl *velerov1.BackupStorageLoca
 	return gcpEnvVars, nil
 }
 
-func (r *VeleroReconciler) getProviderSecret(secretName string) (corev1.Secret, error) {
+func (r *DPAReconciler) getProviderSecret(secretName string) (corev1.Secret, error) {
 
 	secret := corev1.Secret{}
 	key := types.NamespacedName{
@@ -491,7 +491,7 @@ func (r *VeleroReconciler) getProviderSecret(secretName string) (corev1.Secret, 
 	return secret, nil
 }
 
-func (r *VeleroReconciler) getSecretNameAndKey(credential *corev1.SecretKeySelector, plugin oadpv1alpha1.DefaultPlugin) (string, string) {
+func (r *DPAReconciler) getSecretNameAndKey(credential *corev1.SecretKeySelector, plugin oadpv1alpha1.DefaultPlugin) (string, string) {
 	// Assume default values unless user has overriden them
 	secretName := credentials.PluginSpecificFields[plugin].SecretName
 	secretKey := credentials.PluginSpecificFields[plugin].PluginSecretKey
@@ -509,7 +509,7 @@ func (r *VeleroReconciler) getSecretNameAndKey(credential *corev1.SecretKeySelec
 	return secretName, secretKey
 }
 
-func (r *VeleroReconciler) parseAWSSecret(secret corev1.Secret, secretKey string, matchProfile string) (string, string, error) {
+func (r *DPAReconciler) parseAWSSecret(secret corev1.Secret, secretKey string, matchProfile string) (string, string, error) {
 
 	AWSAccessKey, AWSSecretKey, profile := "", "", ""
 	splitString := strings.Split(string(secret.Data[secretKey]), "\n")
@@ -580,7 +580,7 @@ func (r *VeleroReconciler) parseAWSSecret(secret corev1.Secret, secretKey string
 	}
 	if profile == "" {
 		r.Log.Info("Error finding AWS Profile for the supplied AWS credential")
-		return AWSAccessKey, AWSSecretKey, errors.New("Error finding AWS Profile for the supplied AWS credential")
+		return AWSAccessKey, AWSSecretKey, errors.New("error finding AWS Profile for the supplied AWS credential")
 	}
 	if AWSAccessKey == "" {
 		r.Log.Info("Error finding access key id for the supplied AWS credential")
@@ -594,7 +594,7 @@ func (r *VeleroReconciler) parseAWSSecret(secret corev1.Secret, secretKey string
 	return AWSAccessKey, AWSSecretKey, nil
 }
 
-func (r *VeleroReconciler) parseAzureSecret(secret corev1.Secret, secretKey string) (string, error) {
+func (r *DPAReconciler) parseAzureSecret(secret corev1.Secret, secretKey string) (string, error) {
 
 	AzureStorageKey := ""
 	// this logic only supports single profile presence in the azure credentials file
@@ -643,9 +643,9 @@ func (r *VeleroReconciler) parseAzureSecret(secret corev1.Secret, secretKey stri
 	return AzureStorageKey, nil
 }
 
-func (r *VeleroReconciler) ReconcileRegistrySVCs(log logr.Logger) (bool, error) {
-	velero := oadpv1alpha1.Velero{}
-	if err := r.Get(r.Context, r.NamespacedName, &velero); err != nil {
+func (r *DPAReconciler) ReconcileRegistrySVCs(log logr.Logger) (bool, error) {
+	dpa := oadpv1alpha1.DataProtectionApplication{}
+	if err := r.Get(r.Context, r.NamespacedName, &dpa); err != nil {
 		return false, err
 	}
 
@@ -670,7 +670,7 @@ func (r *VeleroReconciler) ReconcileRegistrySVCs(log logr.Logger) (bool, error) 
 				},
 			}
 
-			if velero.Spec.BackupImages != nil && !*velero.Spec.BackupImages {
+			if dpa.Spec.BackupImages != nil && !*dpa.Spec.BackupImages {
 				deleteContext := context.Background()
 				if err := r.Get(deleteContext, types.NamespacedName{
 					Name:      svc.Name,
@@ -695,7 +695,7 @@ func (r *VeleroReconciler) ReconcileRegistrySVCs(log logr.Logger) (bool, error) 
 			// Create SVC
 			op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, &svc, func() error {
 				// TODO: check for svc status condition errors and respond here
-				err := r.updateRegistrySVC(&svc, &bsl, &velero)
+				err := r.updateRegistrySVC(&svc, &bsl, &dpa)
 
 				return err
 			})
@@ -716,9 +716,9 @@ func (r *VeleroReconciler) ReconcileRegistrySVCs(log logr.Logger) (bool, error) 
 	return true, nil
 }
 
-func (r *VeleroReconciler) updateRegistrySVC(svc *corev1.Service, bsl *velerov1.BackupStorageLocation, velero *oadpv1alpha1.Velero) error {
+func (r *DPAReconciler) updateRegistrySVC(svc *corev1.Service, bsl *velerov1.BackupStorageLocation, dpa *oadpv1alpha1.DataProtectionApplication) error {
 	// Setting controller owner reference on the registry svc
-	err := controllerutil.SetControllerReference(velero, svc, r.Scheme)
+	err := controllerutil.SetControllerReference(dpa, svc, r.Scheme)
 	if err != nil {
 		return err
 	}
@@ -740,14 +740,15 @@ func (r *VeleroReconciler) updateRegistrySVC(svc *corev1.Service, bsl *velerov1.
 		},
 	}
 	svc.Labels = map[string]string{
-		"component": "oadp-" + bsl.Name + "-" + bsl.Spec.Provider + "-registry",
+		oadpv1alpha1.OadpOperatorLabel: "True",
+		"component":                    "oadp-" + bsl.Name + "-" + bsl.Spec.Provider + "-registry",
 	}
 	return nil
 }
 
-func (r *VeleroReconciler) ReconcileRegistryRoutes(log logr.Logger) (bool, error) {
-	velero := oadpv1alpha1.Velero{}
-	if err := r.Get(r.Context, r.NamespacedName, &velero); err != nil {
+func (r *DPAReconciler) ReconcileRegistryRoutes(log logr.Logger) (bool, error) {
+	dpa := oadpv1alpha1.DataProtectionApplication{}
+	if err := r.Get(r.Context, r.NamespacedName, &dpa); err != nil {
 		return false, err
 	}
 
@@ -778,7 +779,7 @@ func (r *VeleroReconciler) ReconcileRegistryRoutes(log logr.Logger) (bool, error
 				},
 			}
 
-			if velero.Spec.BackupImages != nil && !*velero.Spec.BackupImages {
+			if dpa.Spec.BackupImages != nil && !*dpa.Spec.BackupImages {
 				deleteContext := context.Background()
 				if err := r.Get(deleteContext, types.NamespacedName{
 					Name:      route.Name,
@@ -805,7 +806,7 @@ func (r *VeleroReconciler) ReconcileRegistryRoutes(log logr.Logger) (bool, error
 
 				// TODO: check for svc status condition errors and respond here
 
-				err := r.updateRegistryRoute(&route, &bsl, &velero)
+				err := r.updateRegistryRoute(&route, &bsl, &dpa)
 
 				return err
 			})
@@ -826,25 +827,26 @@ func (r *VeleroReconciler) ReconcileRegistryRoutes(log logr.Logger) (bool, error
 	return true, nil
 }
 
-func (r *VeleroReconciler) updateRegistryRoute(route *routev1.Route, bsl *velerov1.BackupStorageLocation, velero *oadpv1alpha1.Velero) error {
+func (r *DPAReconciler) updateRegistryRoute(route *routev1.Route, bsl *velerov1.BackupStorageLocation, dpa *oadpv1alpha1.DataProtectionApplication) error {
 	// Setting controller owner reference on the registry route
-	err := controllerutil.SetControllerReference(velero, route, r.Scheme)
+	err := controllerutil.SetControllerReference(dpa, route, r.Scheme)
 	if err != nil {
 		return err
 	}
 
 	route.Labels = map[string]string{
-		"component": "oadp-" + bsl.Name + "-" + bsl.Spec.Provider + "-registry",
-		"service":   "oadp-" + bsl.Name + "-" + bsl.Spec.Provider + "-registry-svc",
-		"track":     "registry-routes",
+		oadpv1alpha1.OadpOperatorLabel: "True",
+		"component":                    "oadp-" + bsl.Name + "-" + bsl.Spec.Provider + "-registry",
+		"service":                      "oadp-" + bsl.Name + "-" + bsl.Spec.Provider + "-registry-svc",
+		"track":                        "registry-routes",
 	}
 
 	return nil
 }
 
-func (r *VeleroReconciler) ReconcileRegistryRouteConfigs(log logr.Logger) (bool, error) {
-	velero := oadpv1alpha1.Velero{}
-	if err := r.Get(r.Context, r.NamespacedName, &velero); err != nil {
+func (r *DPAReconciler) ReconcileRegistryRouteConfigs(log logr.Logger) (bool, error) {
+	dpa := oadpv1alpha1.DataProtectionApplication{}
+	if err := r.Get(r.Context, r.NamespacedName, &dpa); err != nil {
 		return false, err
 	}
 
@@ -869,7 +871,7 @@ func (r *VeleroReconciler) ReconcileRegistryRouteConfigs(log logr.Logger) (bool,
 				},
 			}
 
-			if velero.Spec.BackupImages != nil && !*velero.Spec.BackupImages {
+			if dpa.Spec.BackupImages != nil && !*dpa.Spec.BackupImages {
 				deleteContext := context.Background()
 				if err := r.Get(deleteContext, types.NamespacedName{
 					Name:      registryRouteCM.Name,
@@ -894,7 +896,7 @@ func (r *VeleroReconciler) ReconcileRegistryRouteConfigs(log logr.Logger) (bool,
 			op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, &registryRouteCM, func() error {
 
 				// update the Config Map
-				err := r.updateRegistryConfigMap(&registryRouteCM, &bsl, &velero)
+				err := r.updateRegistryConfigMap(&registryRouteCM, &bsl, &dpa)
 				return err
 			})
 
@@ -917,10 +919,10 @@ func (r *VeleroReconciler) ReconcileRegistryRouteConfigs(log logr.Logger) (bool,
 	return true, nil
 }
 
-func (r *VeleroReconciler) updateRegistryConfigMap(registryRouteCM *corev1.ConfigMap, bsl *velerov1.BackupStorageLocation, velero *oadpv1alpha1.Velero) error {
+func (r *DPAReconciler) updateRegistryConfigMap(registryRouteCM *corev1.ConfigMap, bsl *velerov1.BackupStorageLocation, dpa *oadpv1alpha1.DataProtectionApplication) error {
 
 	// Setting controller owner reference on the restic restore helper CM
-	err := controllerutil.SetControllerReference(velero, registryRouteCM, r.Scheme)
+	err := controllerutil.SetControllerReference(dpa, registryRouteCM, r.Scheme)
 	if err != nil {
 		return err
 	}

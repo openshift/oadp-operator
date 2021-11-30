@@ -45,7 +45,7 @@ func TestOADPE2E(t *testing.T) {
 	RunSpecs(t, "OADP E2E Suite")
 }
 
-var vel *veleroCustomResource
+var vel *dpaCustomResource
 
 var _ = BeforeSuite(func() {
 	flag.Parse()
@@ -59,7 +59,7 @@ var _ = BeforeSuite(func() {
 	err = createCredentialsSecret(credData, namespace, credSecretRef)
 	Expect(err).NotTo(HaveOccurred())
 
-	vel = &veleroCustomResource{
+	vel = &dpaCustomResource{
 		Namespace: namespace,
 		Region:    region,
 		Bucket:    s3Bucket,

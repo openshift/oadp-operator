@@ -1,0 +1,62 @@
+#!/bin/bash
+
+# Default to gathering 72h of logs unless specified as var
+logs_since="${logs_since:-72h}"
+
+unset KUBECONFIG
+
+clusterID=$(oc get clusterversion -o jsonpath='{.items[].spec.clusterID}' | cut -c -8)
+namespaces=()
+for ns in $(oc get dataprotectionapplications.oadp.openshift.io --all-namespaces --no-headers | awk '{print $1}')
+  do
+    echo "[namespace=${ns}] Detected OADP operator installation"
+    namespaces+=(${ns})
+  done
+# Collect all resources in OADP operator namespaces with must-gather
+for ns in ${namespaces[@]}; do
+    echo "[namespace=${ns}] Running oc adm inspect"
+    /usr/bin/oc adm inspect --dest-dir must-gather/clusters/${clusterID} --all-namespaces ns/${ns} &
+  done
+
+# Collect DPA CRs
+echo "Gathering DPA CRs for namespaces [${namespaces[@]}]"
+/usr/bin/gather_crs ${clusterID} ${namespaces[@]} &
+
+# Collect the logs"
+echo "[cluster=${clusterID}] Gathering logs for namespaces [${namespaces[@]}]"
+/usr/bin/gather_logs ${clusterID} ${logs_since} ${namespaces[@]} &
+
+
+# Collect metrics from Prometheus
+if [ -z "$essential_only" ]; then
+  echo "[cluster=${clusterID}] Gathering prometheus metrics"
+  /usr/bin/gather_metrics &
+else
+  echo "Essential-only must-gather was requested. Skipping prometheus metrics collection"
+fi
+
+# Waits for gather_crs, gather_logs, gather_metrics running in background
+echo "Waiting for background gather tasks to finish"
+wait
+
+# If running essential-only must-gather, delete duplicated logs collected by oc adm inspect
+if [ -z "$essential_only" ]; then
+  echo "Full must-gather was requested. Keeping full log payload from oc adm inspect"
+else
+  echo "Essential-only must-gather was requested. Removing duplicate pod logs from oc adm inspect to reduce must-gather size"
+  find /must-gather/clusters/*/namespaces/*/pods/ -name '*.log' -delete
+fi
+
+# Tar all must-gather artifacts for faster transmission 
+echo "Tarring must-gather artifacts..."
+archive_path="/must-gather-archive"
+mkdir -p ${archive_path}
+tar -zcf ${archive_path}/must-gather.tar.gz /must-gather/
+rm -rf /must-gather/*
+mv ${archive_path}/must-gather.tar.gz /must-gather/
+rmdir ${archive_path}
+echo "Created /must-gather/must-gather.tar.gz"
+
+
+echo "Waiting for copy phase..."
+exit 0

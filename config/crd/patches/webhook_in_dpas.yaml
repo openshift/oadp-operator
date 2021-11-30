@@ -2,7 +2,7 @@
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
-  name: veleroes.oadp.openshift.io
+  name: dataprotectionapplications.oadp.openshift.io
 spec:
   conversion:
     strategy: Webhook
