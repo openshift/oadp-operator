@@ -86,6 +86,12 @@ var _ = BeforeSuite(func() {
 			vel.credentials = "/tmp/aws-credentials"
 			err = putCredsData(vel.credentials, credData)
 			Expect(err).NotTo(HaveOccurred())
+		case "gcp":
+			vel.credentials = ci_cred_file
+			cloudCredData, err := getCredsData(ci_cred_file)
+			Expect(err).NotTo(HaveOccurred())
+			err = createCredentialsSecret(cloudCredData, namespace, "bsl-cloud-credentials-gcp")
+			Expect(err).NotTo(HaveOccurred())
 		}
 	}
 	credData, err := getCredsData(vel.credentials)

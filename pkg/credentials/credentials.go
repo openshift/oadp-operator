@@ -41,6 +41,7 @@ var (
 			IsCloudProvider:    true,
 			SecretName:         "cloud-credentials-gcp",
 			MountPath:          "/credentials-gcp",
+			BslSecretName:      "bsl-cloud-credentials-gcp",
 			EnvCredentialsFile: common.GCPCredentialsEnvKey,
 			PluginName:         common.VeleroPluginForGCP,
 			PluginSecretKey:    "cloud",
