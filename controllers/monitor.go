@@ -123,7 +123,9 @@ func (r *DPAReconciler) ReconcileVeleroServiceMonitor(log logr.Logger) (bool, er
 		if serviceMonitor.ObjectMeta.CreationTimestamp.IsZero() {
 			serviceMonitor.Spec.Selector = metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					"k8s-app":                         "openshift-adp",
+					"k8s-app":   "openshift-adp",
+					"component": "velero",
+					"deploy":    "velero",
 				},
 			}
 		}
@@ -167,12 +169,14 @@ func (r *DPAReconciler) buildVeleroServiceMonitor(serviceMonitor *monitor.Servic
 
 	serviceMonitor.Spec.Selector = metav1.LabelSelector{
 		MatchLabels: map[string]string{
-			"k8s-app":                          "openshift-adp",
+			"k8s-app":   "openshift-adp",
+			"component": "velero",
+			"deploy":    "velero",
 		},
 	}
 
 	serviceMonitor.Labels = map[string]string{
-		"k8s-app":                          "openshift-adp-dpa-monitor",
+		"k8s-app": "openshift-adp-dpa-monitor",
 	}
 
 	serviceMonitor.Spec.Endpoints = []monitor.Endpoint{
@@ -310,14 +314,16 @@ func (r *DPAReconciler) updateVeleroMetricsSVC(svc *corev1.Service, dpa *oadpv1a
 	// when updating the spec fields we update each field individually
 	// to get around the immutable fields
 	svc.Spec.Selector = map[string]string{
-		"k8s-app":                "openshift-adp",
+		"k8s-app":   "openshift-adp",
+		"component": "velero",
+		"deploy":    "velero",
 	}
 
 	svc.Spec.Type = corev1.ServiceTypeClusterIP
 	svc.Spec.Ports = []corev1.ServicePort{
 		{
-			Name:     "monitoring",
-			Port:     int32(8085),
+			Name: "monitoring",
+			Port: int32(8085),
 			TargetPort: intstr.IntOrString{
 				IntVal: int32(8085),
 			},
@@ -325,7 +331,9 @@ func (r *DPAReconciler) updateVeleroMetricsSVC(svc *corev1.Service, dpa *oadpv1a
 	}
 
 	svc.Labels = map[string]string{
-		"k8s-app":                          "openshift-adp",
+		"k8s-app":   "openshift-adp",
+		"component": "velero",
+		"deploy":    "velero",
 	}
 	return nil
 }

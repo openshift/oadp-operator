@@ -44,6 +44,7 @@ const (
 var (
 	veleroLabelSelector = &metav1.LabelSelector{
 		MatchLabels: map[string]string{
+			"k8s-app":   "openshift-adp",
 			"component": common.Velero,
 			"deploy":    common.Velero,
 		},
@@ -404,6 +405,7 @@ func removeDuplicateValues(slice []string) []string {
 func (r *DPAReconciler) customizeVeleroDeployment(dpa *oadpv1alpha1.DataProtectionApplication, veleroDeployment *appsv1.Deployment) error {
 	veleroDeployment.Labels = r.getAppLabels(dpa)
 	veleroDeployment.Spec.Selector = veleroLabelSelector
+	veleroDeployment.Spec.Template.Labels = veleroLabelSelector.MatchLabels
 
 	isSTSNeeded := r.isSTSTokenNeeded(dpa.Spec.BackupLocations, dpa.Namespace)
 
@@ -543,6 +545,7 @@ func (r *DPAReconciler) getAppLabels(dpa *oadpv1alpha1.DataProtectionApplication
 		"app.kubernetes.io/instance":   dpa.Name,
 		"app.kubernetes.io/managed-by": common.OADPOperator,
 		"app.kubernetes.io/component":  Server,
+		"k8s-app":                      "openshift-adp",
 		oadpv1alpha1.OadpOperatorLabel: "True",
 	}
 	return labels

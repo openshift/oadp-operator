@@ -987,6 +987,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 						"app.kubernetes.io/instance":   "test-Velero-CR",
 						"app.kubernetes.io/managed-by": common.OADPOperator,
 						"app.kubernetes.io/component":  Server,
+						"k8s-app":                      "openshift-adp",
 						oadpv1alpha1.OadpOperatorLabel: "True",
 					},
 				},
