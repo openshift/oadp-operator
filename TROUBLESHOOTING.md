@@ -92,7 +92,7 @@ If the issue still persists, [create a new issue](https://github.com/openshift/o
     2. Delete the offending directories from your object storage location.
 
 
-### Known issue with Backup/Restore using Restic:
+### Known issue with Backup/Restore of DeploymentConfigs using Restic:
 
 -  **Error:** `Using Restic as backup method causes PartiallyFailed/Failed errors in the Restore/Backup`
 
