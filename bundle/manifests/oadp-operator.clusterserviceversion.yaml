@@ -272,23 +272,6 @@ spec:
       clusterPermissions:
       - rules:
         - apiGroups:
-          - '*'
-          resources:
-          - '*'
-          verbs:
-          - '*'
-        - apiGroups:
-          - security.openshift.io
-          resourceNames:
-          - privileged
-          - velero-privileged
-          resources:
-          - securitycontextconstraints
-          verbs:
-          - use
-        serviceAccountName: velero
-      - rules:
-        - apiGroups:
           - oadp.openshift.io
           resources:
           - '*'
@@ -438,6 +421,23 @@ spec:
           verbs:
           - create
         serviceAccountName: openshift-adp-controller-manager
+      - rules:
+        - apiGroups:
+          - '*'
+          resources:
+          - '*'
+          verbs:
+          - '*'
+        - apiGroups:
+          - security.openshift.io
+          resourceNames:
+          - privileged
+          - velero-privileged
+          resources:
+          - securitycontextconstraints
+          verbs:
+          - use
+        serviceAccountName: velero
       deployments:
       - name: openshift-adp-controller-manager
         spec:
@@ -560,6 +560,118 @@ spec:
                       audience: openshift
                       expirationSeconds: 3600
                       path: token
+      - name: velero
+        spec:
+          progressDeadlineSeconds: 600
+          replicas: 0
+          revisionHistoryLimit: 10
+          selector:
+            matchLabels:
+              component: velero
+              deploy: velero
+          strategy:
+            rollingUpdate:
+              maxSurge: 25%
+              maxUnavailable: 25%
+            type: RollingUpdate
+          template:
+            metadata:
+              annotations:
+                prometheus.io/path: /metrics
+                prometheus.io/port: "8085"
+                prometheus.io/scrape: "true"
+              labels:
+                component: velero
+                deploy: velero
+            spec:
+              containers:
+              - args:
+                - server
+                command:
+                - /velero
+                env:
+                - name: VELERO_SCRATCH_DIR
+                  value: /scratch
+                - name: VELERO_NAMESPACE
+                  valueFrom:
+                    fieldRef:
+                      apiVersion: v1
+                      fieldPath: metadata.namespace
+                - name: LD_LIBRARY_PATH
+                  value: /plugins
+                - name: AWS_SHARED_CREDENTIALS_FILE
+                  value: /credentials/cloud
+                image: quay.io/konveyor/velero:latest
+                imagePullPolicy: Always
+                name: velero
+                ports:
+                - containerPort: 8085
+                  name: metrics
+                  protocol: TCP
+                resources:
+                  limits:
+                    cpu: "1"
+                    memory: 512Mi
+                  requests:
+                    cpu: 500m
+                    memory: 128Mi
+                terminationMessagePath: /dev/termination-log
+                terminationMessagePolicy: File
+                volumeMounts:
+                - mountPath: /plugins
+                  name: plugins
+                - mountPath: /scratch
+                  name: scratch
+                - mountPath: /etc/ssl/certs
+                  name: certs
+                - mountPath: /credentials
+                  name: cloud-credentials
+              dnsPolicy: ClusterFirst
+              initContainers:
+              - image: quay.io/konveyor/openshift-velero-plugin:latest
+                imagePullPolicy: Always
+                name: openshift-velero-plugin
+                resources: {}
+                terminationMessagePath: /dev/termination-log
+                terminationMessagePolicy: File
+                volumeMounts:
+                - mountPath: /target
+                  name: plugins
+              - image: quay.io/konveyor/velero-plugin-for-aws:latest
+                imagePullPolicy: Always
+                name: velero-plugin-for-aws
+                resources: {}
+                terminationMessagePath: /dev/termination-log
+                terminationMessagePolicy: File
+                volumeMounts:
+                - mountPath: /target
+                  name: plugins
+              - image: quay.io/konveyor/velero-plugin-for-csi:latest
+                imagePullPolicy: Always
+                name: velero-plugin-for-csi
+                resources: {}
+                terminationMessagePath: /dev/termination-log
+                terminationMessagePolicy: File
+                volumeMounts:
+                - mountPath: /target
+                  name: plugins
+              restartPolicy: Always
+              schedulerName: default-scheduler
+              securityContext: {}
+              serviceAccount: velero
+              serviceAccountName: velero
+              terminationGracePeriodSeconds: 30
+              volumes:
+              - emptyDir: {}
+                name: plugins
+              - emptyDir: {}
+                name: scratch
+              - emptyDir: {}
+                name: certs
+              - name: cloud-credentials
+                secret:
+                  defaultMode: 420
+                  secretName: cloud-credentials
       permissions:
       - rules:
         - apiGroups:

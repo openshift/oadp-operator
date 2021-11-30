@@ -9,4 +9,4 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: velero
-  namespace: openshift-adp
+  namespace: system
