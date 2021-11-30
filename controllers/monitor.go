@@ -12,10 +12,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-func (r *VeleroReconciler) ReconcileServiceMonitor(log logr.Logger) (bool, error) {
+func (r *DPAReconciler) ReconcileServiceMonitor(log logr.Logger) (bool, error) {
 
-	velero := oadpv1alpha1.Velero{}
-	if err := r.Get(r.Context, r.NamespacedName, &velero); err != nil {
+	dpa := oadpv1alpha1.DataProtectionApplication{}
+	if err := r.Get(r.Context, r.NamespacedName, &dpa); err != nil {
 		return false, err
 	}
 
@@ -38,7 +38,7 @@ func (r *VeleroReconciler) ReconcileServiceMonitor(log logr.Logger) (bool, error
 		}
 
 		// update service monitor
-		return r.buildServiceMonitor(serviceMonitor, &velero)
+		return r.buildServiceMonitor(serviceMonitor, &dpa)
 	})
 
 	if err != nil {
@@ -58,10 +58,10 @@ func (r *VeleroReconciler) ReconcileServiceMonitor(log logr.Logger) (bool, error
 	return true, nil
 }
 
-func (r *VeleroReconciler) buildServiceMonitor(serviceMonitor *monitor.ServiceMonitor, velero *oadpv1alpha1.Velero) error {
+func (r *DPAReconciler) buildServiceMonitor(serviceMonitor *monitor.ServiceMonitor, dpa *oadpv1alpha1.DataProtectionApplication) error {
 
-	if velero == nil {
-		return fmt.Errorf("velero CR cannot be nil")
+	if dpa == nil {
+		return fmt.Errorf("dpa CR cannot be nil")
 	}
 
 	if serviceMonitor == nil {
@@ -69,7 +69,7 @@ func (r *VeleroReconciler) buildServiceMonitor(serviceMonitor *monitor.ServiceMo
 	}
 
 	// Setting controller owner reference on the service monitor
-	err := controllerutil.SetControllerReference(velero, serviceMonitor, r.Scheme)
+	err := controllerutil.SetControllerReference(dpa, serviceMonitor, r.Scheme)
 	if err != nil {
 		return err
 	}
@@ -97,23 +97,23 @@ func (r *VeleroReconciler) buildServiceMonitor(serviceMonitor *monitor.ServiceMo
 
 	serviceMonitor.Spec.NamespaceSelector = monitor.NamespaceSelector{
 		MatchNames: []string{
-			velero.Namespace,
+			dpa.Namespace,
 		},
 	}
 
 	return nil
 }
 
-func (r *VeleroReconciler) ReconcileVeleroServiceMonitor(log logr.Logger) (bool, error) {
+func (r *DPAReconciler) ReconcileVeleroServiceMonitor(log logr.Logger) (bool, error) {
 
-	velero := oadpv1alpha1.Velero{}
-	if err := r.Get(r.Context, r.NamespacedName, &velero); err != nil {
+	dpa := oadpv1alpha1.DataProtectionApplication{}
+	if err := r.Get(r.Context, r.NamespacedName, &dpa); err != nil {
 		return false, err
 	}
 
 	serviceMonitor := &monitor.ServiceMonitor{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "openshift-adp-velero-monitor",
+			Name:      "openshift-adp-dpa-monitor",
 			Namespace: r.NamespacedName.Namespace,
 		},
 	}
@@ -129,7 +129,7 @@ func (r *VeleroReconciler) ReconcileVeleroServiceMonitor(log logr.Logger) (bool,
 		}
 
 		// update service monitor
-		return r.buildVeleroServiceMonitor(serviceMonitor, &velero)
+		return r.buildVeleroServiceMonitor(serviceMonitor, &dpa)
 	})
 
 	if err != nil {
@@ -143,16 +143,16 @@ func (r *VeleroReconciler) ReconcileVeleroServiceMonitor(log logr.Logger) (bool,
 		r.EventRecorder.Event(serviceMonitor,
 			corev1.EventTypeNormal,
 			"VeleroServiceMonitorReconciled",
-			fmt.Sprintf("performed %s on velero service monitor %s/%s", op, serviceMonitor.Namespace, serviceMonitor.Name),
+			fmt.Sprintf("performed %s on dpa service monitor %s/%s", op, serviceMonitor.Namespace, serviceMonitor.Name),
 		)
 	}
 	return true, nil
 }
 
-func (r *VeleroReconciler) buildVeleroServiceMonitor(serviceMonitor *monitor.ServiceMonitor, velero *oadpv1alpha1.Velero) error {
+func (r *DPAReconciler) buildVeleroServiceMonitor(serviceMonitor *monitor.ServiceMonitor, dpa *oadpv1alpha1.DataProtectionApplication) error {
 
-	if velero == nil {
-		return fmt.Errorf("velero CR cannot be nil")
+	if dpa == nil {
+		return fmt.Errorf("dpa CR cannot be nil")
 	}
 
 	if serviceMonitor == nil {
@@ -160,7 +160,7 @@ func (r *VeleroReconciler) buildVeleroServiceMonitor(serviceMonitor *monitor.Ser
 	}
 
 	// Setting controller owner reference on the service monitor
-	err := controllerutil.SetControllerReference(velero, serviceMonitor, r.Scheme)
+	err := controllerutil.SetControllerReference(dpa, serviceMonitor, r.Scheme)
 	if err != nil {
 		return err
 	}
@@ -172,7 +172,7 @@ func (r *VeleroReconciler) buildVeleroServiceMonitor(serviceMonitor *monitor.Ser
 	}
 
 	serviceMonitor.Labels = map[string]string{
-		"k8s-app":                          "openshift-adp-velero-monitor",
+		"k8s-app":                          "openshift-adp-dpa-monitor",
 	}
 
 	serviceMonitor.Spec.Endpoints = []monitor.Endpoint{
@@ -186,16 +186,16 @@ func (r *VeleroReconciler) buildVeleroServiceMonitor(serviceMonitor *monitor.Ser
 
 	serviceMonitor.Spec.NamespaceSelector = monitor.NamespaceSelector{
 		MatchNames: []string{
-			velero.Namespace,
+			dpa.Namespace,
 		},
 	}
 
 	return nil
 }
 
-func (r *VeleroReconciler) ReconcileMetricsSVC(log logr.Logger) (bool, error) {
-	velero := oadpv1alpha1.Velero{}
-	if err := r.Get(r.Context, r.NamespacedName, &velero); err != nil {
+func (r *DPAReconciler) ReconcileMetricsSVC(log logr.Logger) (bool, error) {
+	dpa := oadpv1alpha1.DataProtectionApplication{}
+	if err := r.Get(r.Context, r.NamespacedName, &dpa); err != nil {
 		return false, err
 	}
 
@@ -209,7 +209,7 @@ func (r *VeleroReconciler) ReconcileMetricsSVC(log logr.Logger) (bool, error) {
 	// Create SVC
 	op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, &svc, func() error {
 		// TODO: check for svc status condition errors and respond here
-		err := r.updateMetricsSVC(&svc, &velero)
+		err := r.updateMetricsSVC(&svc, &dpa)
 
 		return err
 	})
@@ -228,9 +228,9 @@ func (r *VeleroReconciler) ReconcileMetricsSVC(log logr.Logger) (bool, error) {
 	return true, nil
 }
 
-func (r *VeleroReconciler) updateMetricsSVC(svc *corev1.Service, velero *oadpv1alpha1.Velero) error {
+func (r *DPAReconciler) updateMetricsSVC(svc *corev1.Service, dpa *oadpv1alpha1.DataProtectionApplication) error {
 	// Setting controller owner reference on the metrics svc
-	err := controllerutil.SetControllerReference(velero, svc, r.Scheme)
+	err := controllerutil.SetControllerReference(dpa, svc, r.Scheme)
 	if err != nil {
 		return err
 	}
@@ -265,9 +265,9 @@ func (r *VeleroReconciler) updateMetricsSVC(svc *corev1.Service, velero *oadpv1a
 	return nil
 }
 
-func (r *VeleroReconciler) ReconcileVeleroMetricsSVC(log logr.Logger) (bool, error) {
-	velero := oadpv1alpha1.Velero{}
-	if err := r.Get(r.Context, r.NamespacedName, &velero); err != nil {
+func (r *DPAReconciler) ReconcileVeleroMetricsSVC(log logr.Logger) (bool, error) {
+	dpa := oadpv1alpha1.DataProtectionApplication{}
+	if err := r.Get(r.Context, r.NamespacedName, &dpa); err != nil {
 		return false, err
 	}
 
@@ -281,7 +281,7 @@ func (r *VeleroReconciler) ReconcileVeleroMetricsSVC(log logr.Logger) (bool, err
 	// Create SVC
 	op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, &svc, func() error {
 		// TODO: check for svc status condition errors and respond here
-		err := r.updateVeleroMetricsSVC(&svc, &velero)
+		err := r.updateVeleroMetricsSVC(&svc, &dpa)
 
 		return err
 	})
@@ -293,16 +293,16 @@ func (r *VeleroReconciler) ReconcileVeleroMetricsSVC(log logr.Logger) (bool, err
 		r.EventRecorder.Event(&svc,
 			corev1.EventTypeNormal,
 			"VeleroMetricsServiceReconciled",
-			fmt.Sprintf("performed %s on velero metrics service %s/%s", op, svc.Namespace, svc.Name),
+			fmt.Sprintf("performed %s on dpa metrics service %s/%s", op, svc.Namespace, svc.Name),
 		)
 	}
 
 	return true, nil
 }
 
-func (r *VeleroReconciler) updateVeleroMetricsSVC(svc *corev1.Service, velero *oadpv1alpha1.Velero) error {
+func (r *DPAReconciler) updateVeleroMetricsSVC(svc *corev1.Service, dpa *oadpv1alpha1.DataProtectionApplication) error {
 	// Setting controller owner reference on the metrics svc
-	err := controllerutil.SetControllerReference(velero, svc, r.Scheme)
+	err := controllerutil.SetControllerReference(dpa, svc, r.Scheme)
 	if err != nil {
 		return err
 	}
@@ -330,9 +330,9 @@ func (r *VeleroReconciler) updateVeleroMetricsSVC(svc *corev1.Service, velero *o
 	return nil
 }
 
-func (r *VeleroReconciler) ReconcileMetricsRole(log logr.Logger) (bool, error) {
-	velero := oadpv1alpha1.Velero{}
-	if err := r.Get(r.Context, r.NamespacedName, &velero); err != nil {
+func (r *DPAReconciler) ReconcileMetricsRole(log logr.Logger) (bool, error) {
+	dpa := oadpv1alpha1.DataProtectionApplication{}
+	if err := r.Get(r.Context, r.NamespacedName, &dpa); err != nil {
 		return false, err
 	}
 
@@ -346,7 +346,7 @@ func (r *VeleroReconciler) ReconcileMetricsRole(log logr.Logger) (bool, error) {
 	// Create Role
 	op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, &role, func() error {
 		// TODO: check for role status condition errors and respond here
-		err := r.updateMetricsRole(&role, &velero)
+		err := r.updateMetricsRole(&role, &dpa)
 
 		return err
 	})
@@ -365,9 +365,9 @@ func (r *VeleroReconciler) ReconcileMetricsRole(log logr.Logger) (bool, error) {
 	return true, nil
 }
 
-func (r *VeleroReconciler) updateMetricsRole(role *rbacv1.Role, velero *oadpv1alpha1.Velero) error {
+func (r *DPAReconciler) updateMetricsRole(role *rbacv1.Role, dpa *oadpv1alpha1.DataProtectionApplication) error {
 	// Setting controller owner reference on the metrics role
-	err := controllerutil.SetControllerReference(velero, role, r.Scheme)
+	err := controllerutil.SetControllerReference(dpa, role, r.Scheme)
 	if err != nil {
 		return err
 	}
@@ -393,9 +393,9 @@ func (r *VeleroReconciler) updateMetricsRole(role *rbacv1.Role, velero *oadpv1al
 	return nil
 }
 
-func (r *VeleroReconciler) ReconcileMetricsRoleBinding(log logr.Logger) (bool, error) {
-	velero := oadpv1alpha1.Velero{}
-	if err := r.Get(r.Context, r.NamespacedName, &velero); err != nil {
+func (r *DPAReconciler) ReconcileMetricsRoleBinding(log logr.Logger) (bool, error) {
+	dpa := oadpv1alpha1.DataProtectionApplication{}
+	if err := r.Get(r.Context, r.NamespacedName, &dpa); err != nil {
 		return false, err
 	}
 
@@ -409,7 +409,7 @@ func (r *VeleroReconciler) ReconcileMetricsRoleBinding(log logr.Logger) (bool, e
 	// Create RoleBinding
 	op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, &roleBinding, func() error {
 		// TODO: check for roleBinding status condition errors and respond here
-		err := r.updateMetricsRoleBinding(&roleBinding, &velero)
+		err := r.updateMetricsRoleBinding(&roleBinding, &dpa)
 
 		return err
 	})
@@ -428,9 +428,9 @@ func (r *VeleroReconciler) ReconcileMetricsRoleBinding(log logr.Logger) (bool, e
 	return true, nil
 }
 
-func (r *VeleroReconciler) updateMetricsRoleBinding(roleBinding *rbacv1.RoleBinding, velero *oadpv1alpha1.Velero) error {
+func (r *DPAReconciler) updateMetricsRoleBinding(roleBinding *rbacv1.RoleBinding, dpa *oadpv1alpha1.DataProtectionApplication) error {
 	// Setting controller owner reference on the metrics roleBinding
-	err := controllerutil.SetControllerReference(velero, roleBinding, r.Scheme)
+	err := controllerutil.SetControllerReference(dpa, roleBinding, r.Scheme)
 	if err != nil {
 		return err
 	}

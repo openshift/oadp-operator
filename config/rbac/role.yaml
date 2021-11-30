@@ -110,6 +110,9 @@ rules:
   - pods
   - services
   - serviceaccounts
+  - endpoints
+  - persistentvolumeclaims
+  - events
   verbs:
   - list
   - get
@@ -140,6 +143,31 @@ rules:
   - delete
   - get
   - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - monitoring.coreos.com
+  resources:
+  - servicemonitors
+  verbs:
+  - get
+  - create
+  - list
+  - delete
+  - update
+  - patch
+  - watch
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - roles
+  - rolebindings
+  verbs:
+  - list
+  - get
+  - create
+  - delete
   - patch
   - update
   - watch
