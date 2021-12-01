@@ -6,5 +6,5 @@ metadata:
 spec:
   includedNamespaces:
   - mssql-persistent
-  storageLocation: velero-sample-1
+  storageLocation: dpa-sample-1
   ttl: 720h0m0s
