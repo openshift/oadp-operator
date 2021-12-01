@@ -210,6 +210,9 @@ bundle: manifests kustomize ## Generate bundle manifests and metadata, then vali
 	operator-sdk generate kustomize manifests -q
 	cd config/manager && $(KUSTOMIZE) edit set image controller=$(IMG)
 	$(KUSTOMIZE) build config/manifests | operator-sdk generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
+	# Removes placeholder velero deployment used so `operator-sdk generate bundle` adds velero service account and role to bundle CSV using yq. See https://github.com/mikefarah/yq/#install
+	yq eval 'del(.spec.install.spec.deployments.1)' bundle/manifests/oadp-operator.clusterserviceversion.yaml > bundle/manifests/oadp-operator.clusterserviceversion.yaml.yqresult
+	mv bundle/manifests/oadp-operator.clusterserviceversion.yaml.yqresult bundle/manifests/oadp-operator.clusterserviceversion.yaml
 	# Copy updated bundle.Dockerfile to CI's Dockerfile.bundle
 	# TODO: update CI to use generated one
 	cp bundle.Dockerfile build/Dockerfile.bundle
