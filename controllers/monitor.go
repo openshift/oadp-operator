@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/go-logr/logr"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
+	"github.com/openshift/oadp-operator/pkg/common"
 	monitor "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -123,9 +124,11 @@ func (r *DPAReconciler) ReconcileVeleroServiceMonitor(log logr.Logger) (bool, er
 		if serviceMonitor.ObjectMeta.CreationTimestamp.IsZero() {
 			serviceMonitor.Spec.Selector = metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					"k8s-app":   "openshift-adp",
-					"component": "velero",
-					"deploy":    "velero",
+					"app.kubernetes.io/name":       common.Velero,
+					"app.kubernetes.io/instance":   dpa.Name,
+					"app.kubernetes.io/managed-by": common.OADPOperator,
+					"app.kubernetes.io/component":  Server,
+					oadpv1alpha1.OadpOperatorLabel: "True",
 				},
 			}
 		}
@@ -169,14 +172,20 @@ func (r *DPAReconciler) buildVeleroServiceMonitor(serviceMonitor *monitor.Servic
 
 	serviceMonitor.Spec.Selector = metav1.LabelSelector{
 		MatchLabels: map[string]string{
-			"k8s-app":   "openshift-adp",
-			"component": "velero",
-			"deploy":    "velero",
+			"app.kubernetes.io/name":       common.Velero,
+			"app.kubernetes.io/instance":   dpa.Name,
+			"app.kubernetes.io/managed-by": common.OADPOperator,
+			"app.kubernetes.io/component":  Server,
+			oadpv1alpha1.OadpOperatorLabel: "True",
 		},
 	}
 
 	serviceMonitor.Labels = map[string]string{
-		"k8s-app": "openshift-adp-dpa-monitor",
+		"app.kubernetes.io/name":       common.Velero,
+		"app.kubernetes.io/instance":   dpa.Name,
+		"app.kubernetes.io/managed-by": common.OADPOperator,
+		"app.kubernetes.io/component":  Server,
+		oadpv1alpha1.OadpOperatorLabel: "True",
 	}
 
 	serviceMonitor.Spec.Endpoints = []monitor.Endpoint{
@@ -314,9 +323,11 @@ func (r *DPAReconciler) updateVeleroMetricsSVC(svc *corev1.Service, dpa *oadpv1a
 	// when updating the spec fields we update each field individually
 	// to get around the immutable fields
 	svc.Spec.Selector = map[string]string{
-		"k8s-app":   "openshift-adp",
-		"component": "velero",
-		"deploy":    "velero",
+		"app.kubernetes.io/name":       common.Velero,
+		"app.kubernetes.io/instance":   dpa.Name,
+		"app.kubernetes.io/managed-by": common.OADPOperator,
+		"app.kubernetes.io/component":  Server,
+		oadpv1alpha1.OadpOperatorLabel: "True",
 	}
 
 	svc.Spec.Type = corev1.ServiceTypeClusterIP
@@ -331,9 +342,11 @@ func (r *DPAReconciler) updateVeleroMetricsSVC(svc *corev1.Service, dpa *oadpv1a
 	}
 
 	svc.Labels = map[string]string{
-		"k8s-app":   "openshift-adp",
-		"component": "velero",
-		"deploy":    "velero",
+		"app.kubernetes.io/name":       common.Velero,
+		"app.kubernetes.io/instance":   dpa.Name,
+		"app.kubernetes.io/managed-by": common.OADPOperator,
+		"app.kubernetes.io/component":  Server,
+		oadpv1alpha1.OadpOperatorLabel: "True",
 	}
 	return nil
 }

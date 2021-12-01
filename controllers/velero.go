@@ -259,7 +259,15 @@ func (r *DPAReconciler) ReconcileVeleroDeployment(log logr.Logger) (bool, error)
 
 		// Setting Deployment selector if a new object is created as it is immutable
 		if veleroDeployment.ObjectMeta.CreationTimestamp.IsZero() {
-			veleroDeployment.Spec.Selector = veleroLabelSelector
+			veleroDeployment.Spec.Selector = &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"app.kubernetes.io/name":       common.Velero,
+					"app.kubernetes.io/instance":   dpa.Name,
+					"app.kubernetes.io/managed-by": common.OADPOperator,
+					"app.kubernetes.io/component":  Server,
+					oadpv1alpha1.OadpOperatorLabel: "True",
+				},
+			}
 		}
 
 		// Setting controller owner reference on the velero deployment
@@ -404,8 +412,22 @@ func removeDuplicateValues(slice []string) []string {
 
 func (r *DPAReconciler) customizeVeleroDeployment(dpa *oadpv1alpha1.DataProtectionApplication, veleroDeployment *appsv1.Deployment) error {
 	veleroDeployment.Labels = r.getAppLabels(dpa)
-	veleroDeployment.Spec.Selector = veleroLabelSelector
-	veleroDeployment.Spec.Template.Labels = veleroLabelSelector.MatchLabels
+	veleroDeployment.Spec.Selector = &metav1.LabelSelector{
+		MatchLabels: map[string]string{
+			"app.kubernetes.io/name":       common.Velero,
+			"app.kubernetes.io/instance":   dpa.Name,
+			"app.kubernetes.io/managed-by": common.OADPOperator,
+			"app.kubernetes.io/component":  Server,
+			oadpv1alpha1.OadpOperatorLabel: "True",
+		},
+	}
+	veleroDeployment.Spec.Template.Labels = map[string]string{
+		"app.kubernetes.io/name":       common.Velero,
+		"app.kubernetes.io/instance":   dpa.Name,
+		"app.kubernetes.io/managed-by": common.OADPOperator,
+		"app.kubernetes.io/component":  Server,
+		oadpv1alpha1.OadpOperatorLabel: "True",
+	}
 
 	isSTSNeeded := r.isSTSTokenNeeded(dpa.Spec.BackupLocations, dpa.Namespace)
 
@@ -545,7 +567,6 @@ func (r *DPAReconciler) getAppLabels(dpa *oadpv1alpha1.DataProtectionApplication
 		"app.kubernetes.io/instance":   dpa.Name,
 		"app.kubernetes.io/managed-by": common.OADPOperator,
 		"app.kubernetes.io/component":  Server,
-		"k8s-app":                      "openshift-adp",
 		oadpv1alpha1.OadpOperatorLabel: "True",
 	}
 	return labels

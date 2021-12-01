@@ -941,7 +941,15 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 					Namespace: "test-ns",
 				},
 				Spec: appsv1.DeploymentSpec{
-					Selector: veleroLabelSelector,
+					Selector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"app.kubernetes.io/name":       common.Velero,
+							"app.kubernetes.io/instance":   "test-Velero-CR",
+							"app.kubernetes.io/managed-by": common.OADPOperator,
+							"app.kubernetes.io/component":  Server,
+							oadpv1alpha1.OadpOperatorLabel: "True",
+						},
+					},
 				},
 			},
 			dpa: &oadpv1alpha1.DataProtectionApplication{
@@ -987,7 +995,6 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 						"app.kubernetes.io/instance":   "test-Velero-CR",
 						"app.kubernetes.io/managed-by": common.OADPOperator,
 						"app.kubernetes.io/component":  Server,
-						"k8s-app":                      "openshift-adp",
 						oadpv1alpha1.OadpOperatorLabel: "True",
 					},
 				},
@@ -996,11 +1003,25 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 					APIVersion: appsv1.SchemeGroupVersion.String(),
 				},
 				Spec: appsv1.DeploymentSpec{
-					Selector: veleroLabelSelector,
+					Selector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"app.kubernetes.io/name":       common.Velero,
+							"app.kubernetes.io/instance":   "test-Velero-CR",
+							"app.kubernetes.io/managed-by": common.OADPOperator,
+							"app.kubernetes.io/component":  Server,
+							oadpv1alpha1.OadpOperatorLabel: "True",
+						},
+					},
 					Replicas: pointer.Int32(1),
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
-							Labels: veleroLabelSelector.MatchLabels,
+							Labels: map[string]string{
+								"app.kubernetes.io/name":       common.Velero,
+								"app.kubernetes.io/instance":   "test-Velero-CR",
+								"app.kubernetes.io/managed-by": common.OADPOperator,
+								"app.kubernetes.io/component":  Server,
+								oadpv1alpha1.OadpOperatorLabel: "True",
+							},
 							Annotations: map[string]string{
 								"prometheus.io/scrape": "true",
 								"prometheus.io/port":   "8085",
