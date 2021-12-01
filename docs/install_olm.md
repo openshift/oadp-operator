@@ -8,12 +8,12 @@ You can search for the operator using keywords such as `oadp` or `velero`.
 
 Now click on `Install`
 
-![OADP-OLM-1](/docs/images/OADP-OLM-2.png)
+![OADP-OLM-1](/docs/images/click-install.png)
 
 Finally, click on `Install` again. This will create namespace `openshift-adp` 
 if it does not exist, and install the OADP operator in it.
 
-![OADP-OLM-1](/docs/images/OADP-OLM-3.png)
+![OADP-OLM-1](/docs/images/click-install-again.png)
 
 ### Create credentials secret
 Before creating a DataProtectionApplication (DPA) CR, ensure you have created a secret
@@ -39,7 +39,7 @@ $ oc create secret generic cloud-credentials --namespace openshift-adp --from-fi
 
 Create an instance of the DataProtectionApplication (DPA) CR by clicking on `Create Instance` as highlighted below:
 
-![Velero-CR-1](/docs/images/Velero-CR-1.png)
+![Velero-CR-1](/docs/images/dpa-cr.png)
 
 The Velero instance can be created by selecting configurations using the OCP Web UI or by using a YAML file as mentioned below.
 
@@ -84,7 +84,7 @@ spec:
 
 ```
 
-![Velero-CR-2](/docs/images/Velero-CR-2.png)
+![Velero-CR-2](/docs/images/create-dpa-cr-yaml.png)
 
 ### Verify install
 
