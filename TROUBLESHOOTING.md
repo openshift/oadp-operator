@@ -92,6 +92,30 @@ If the issue still persists, [create a new issue](https://github.com/openshift/o
     2. Delete the offending directories from your object storage location.
 
 
+### Known issue with Backup/Restore of DeploymentConfigs using Restic:
+
+-  **Error:** `Using Restic as backup method causes PartiallyFailed/Failed errors in the Restore/Backup`
+
+    **Solution:**
+    
+    The changes in the backup/restore process for mitigating this error would be a two step restore process where, in the first step we would perform a restore excluding the replicationcontroller and deploymentconfig resources, and the second step would involve a restore including these resources. The backup and restore commands are given below for more clarity. (The examples given below are a use case for backup/restore of a target namespace, for other cases a similar strategy can be followed).
+
+    Please note that this is a temporary fix for this issue and there are ongoing discussions to solve it.
+
+    Step 1: Initiate the backup as any normal backup for restic.
+    ```
+    velero create backup <backup-name> -n openshift-adp --include-namespaces=<TARGET_NAMESPACE>
+    ```
+
+    Step 2: Initiate a restore excluding the replicationcontroller and deploymentconfig resources.
+    ```
+    velero restore create --from-backup=<BACKUP_NAME> -n openshift-adp --include-namespaces <TARGET_NAMESPACE> --exclude-resources replicationcontroller,deploymentconfig --restore-volumes=true
+    ```
+
+    Step 3: Initiate a restore including the replicationcontroller and deploymentconfig resources.
+    ```
+    velero restore create --from-backup=<BACKUP_NAME> -n openshift-adp --include-namespaces <TARGET_NAMESPACE> --include-resources replicationcontroller,deploymentconfig --restore-volumes=true
+    ```
 ### Errors in backup logs:
 
 -   **Error:** 
