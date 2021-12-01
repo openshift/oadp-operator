@@ -3,7 +3,7 @@ kind: Namespace
 metadata:
   labels:
     control-plane: controller-manager
-    openshift.io/cluster-monitoring: "true" #TODO: Will this work for OLM installations as well
+    openshift.io/cluster-monitoring: "true"
   name: system
 ---
 apiVersion: apps/v1
