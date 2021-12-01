@@ -97,8 +97,6 @@ func (r *DPAReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		r.ReconcileResticDaemonset,
 		r.ReconcileVeleroServiceMonitor,
 		r.ReconcileVeleroMetricsSVC,
-		r.ReconcileServiceMonitor,
-		r.ReconcileMetricsSVC,
 		r.ReconcileMetricsRole,
 		r.ReconcileMetricsRoleBinding,
 	)

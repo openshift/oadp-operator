@@ -13,97 +13,97 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-func (r *DPAReconciler) ReconcileServiceMonitor(log logr.Logger) (bool, error) {
-
-	dpa := oadpv1alpha1.DataProtectionApplication{}
-	if err := r.Get(r.Context, r.NamespacedName, &dpa); err != nil {
-		return false, err
-	}
-
-	serviceMonitor := &monitor.ServiceMonitor{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "oadp-operator",
-			Namespace: r.NamespacedName.Namespace,
-		},
-	}
-
-	op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, serviceMonitor, func() error {
-
-		if serviceMonitor.ObjectMeta.CreationTimestamp.IsZero() {
-			serviceMonitor.Spec.Selector = metav1.LabelSelector{
-				MatchLabels: map[string]string{
-					oadpv1alpha1.OadpOperatorLabel: "true",
-					"app":                          "oadp-operator",
-				},
-			}
-		}
-
-		// update service monitor
-		return r.buildServiceMonitor(serviceMonitor, &dpa)
-	})
-
-	if err != nil {
-		return false, err
-	}
-
-	//TODO: Review service monitor status and report errors and conditions
-
-	if op == controllerutil.OperationResultCreated || op == controllerutil.OperationResultUpdated {
-		// Trigger event to indicate service monitor was created or updated
-		r.EventRecorder.Event(serviceMonitor,
-			corev1.EventTypeNormal,
-			"ServiceMonitorReconciled",
-			fmt.Sprintf("performed %s on service monitor %s/%s", op, serviceMonitor.Namespace, serviceMonitor.Name),
-		)
-	}
-	return true, nil
-}
-
-func (r *DPAReconciler) buildServiceMonitor(serviceMonitor *monitor.ServiceMonitor, dpa *oadpv1alpha1.DataProtectionApplication) error {
-
-	if dpa == nil {
-		return fmt.Errorf("dpa CR cannot be nil")
-	}
-
-	if serviceMonitor == nil {
-		return fmt.Errorf("service monitor cannot be nil")
-	}
-
-	// Setting controller owner reference on the service monitor
-	err := controllerutil.SetControllerReference(dpa, serviceMonitor, r.Scheme)
-	if err != nil {
-		return err
-	}
-
-	serviceMonitor.Spec.Selector = metav1.LabelSelector{
-		MatchLabels: map[string]string{
-			oadpv1alpha1.OadpOperatorLabel: "true",
-			"app":                          "oadp-operator",
-		},
-	}
-
-	serviceMonitor.Labels = map[string]string{
-		oadpv1alpha1.OadpOperatorLabel: "true",
-		"app":                          "oadp-operator",
-	}
-
-	serviceMonitor.Spec.Endpoints = []monitor.Endpoint{
-		{
-			Interval: "30s",
-			Port:     "metrics",
-		},
-	}
-
-	serviceMonitor.Spec.JobLabel = "app"
-
-	serviceMonitor.Spec.NamespaceSelector = monitor.NamespaceSelector{
-		MatchNames: []string{
-			dpa.Namespace,
-		},
-	}
-
-	return nil
-}
+//func (r *DPAReconciler) ReconcileServiceMonitor(log logr.Logger) (bool, error) {
+//
+//	dpa := oadpv1alpha1.DataProtectionApplication{}
+//	if err := r.Get(r.Context, r.NamespacedName, &dpa); err != nil {
+//		return false, err
+//	}
+//
+//	serviceMonitor := &monitor.ServiceMonitor{
+//		ObjectMeta: metav1.ObjectMeta{
+//			Name:      "oadp-operator",
+//			Namespace: r.NamespacedName.Namespace,
+//		},
+//	}
+//
+//	op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, serviceMonitor, func() error {
+//
+//		if serviceMonitor.ObjectMeta.CreationTimestamp.IsZero() {
+//			serviceMonitor.Spec.Selector = metav1.LabelSelector{
+//				MatchLabels: map[string]string{
+//					oadpv1alpha1.OadpOperatorLabel: "true",
+//					"app":                          "oadp-operator",
+//				},
+//			}
+//		}
+//
+//		// update service monitor
+//		return r.buildServiceMonitor(serviceMonitor, &dpa)
+//	})
+//
+//	if err != nil {
+//		return false, err
+//	}
+//
+//	//TODO: Review service monitor status and report errors and conditions
+//
+//	if op == controllerutil.OperationResultCreated || op == controllerutil.OperationResultUpdated {
+//		// Trigger event to indicate service monitor was created or updated
+//		r.EventRecorder.Event(serviceMonitor,
+//			corev1.EventTypeNormal,
+//			"ServiceMonitorReconciled",
+//			fmt.Sprintf("performed %s on service monitor %s/%s", op, serviceMonitor.Namespace, serviceMonitor.Name),
+//		)
+//	}
+//	return true, nil
+//}
+//
+//func (r *DPAReconciler) buildServiceMonitor(serviceMonitor *monitor.ServiceMonitor, dpa *oadpv1alpha1.DataProtectionApplication) error {
+//
+//	if dpa == nil {
+//		return fmt.Errorf("dpa CR cannot be nil")
+//	}
+//
+//	if serviceMonitor == nil {
+//		return fmt.Errorf("service monitor cannot be nil")
+//	}
+//
+//	// Setting controller owner reference on the service monitor
+//	err := controllerutil.SetControllerReference(dpa, serviceMonitor, r.Scheme)
+//	if err != nil {
+//		return err
+//	}
+//
+//	serviceMonitor.Spec.Selector = metav1.LabelSelector{
+//		MatchLabels: map[string]string{
+//			oadpv1alpha1.OadpOperatorLabel: "true",
+//			"app":                          "oadp-operator",
+//		},
+//	}
+//
+//	serviceMonitor.Labels = map[string]string{
+//		oadpv1alpha1.OadpOperatorLabel: "true",
+//		"app":                          "oadp-operator",
+//	}
+//
+//	serviceMonitor.Spec.Endpoints = []monitor.Endpoint{
+//		{
+//			Interval: "30s",
+//			Port:     "metrics",
+//		},
+//	}
+//
+//	serviceMonitor.Spec.JobLabel = "app"
+//
+//	serviceMonitor.Spec.NamespaceSelector = monitor.NamespaceSelector{
+//		MatchNames: []string{
+//			dpa.Namespace,
+//		},
+//	}
+//
+//	return nil
+//}
 
 func (r *DPAReconciler) ReconcileVeleroServiceMonitor(log logr.Logger) (bool, error) {
 
@@ -114,7 +114,7 @@ func (r *DPAReconciler) ReconcileVeleroServiceMonitor(log logr.Logger) (bool, er
 
 	serviceMonitor := &monitor.ServiceMonitor{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "openshift-adp-dpa-monitor",
+			Name:      "openshift-adp-velero-metrics-sm",
 			Namespace: r.NamespacedName.Namespace,
 		},
 	}
@@ -206,77 +206,77 @@ func (r *DPAReconciler) buildVeleroServiceMonitor(serviceMonitor *monitor.Servic
 	return nil
 }
 
-func (r *DPAReconciler) ReconcileMetricsSVC(log logr.Logger) (bool, error) {
-	dpa := oadpv1alpha1.DataProtectionApplication{}
-	if err := r.Get(r.Context, r.NamespacedName, &dpa); err != nil {
-		return false, err
-	}
-
-	svc := corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "oadp-operator-metrics",
-			Namespace: r.NamespacedName.Namespace,
-		},
-	}
-
-	// Create SVC
-	op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, &svc, func() error {
-		// TODO: check for svc status condition errors and respond here
-		err := r.updateMetricsSVC(&svc, &dpa)
-
-		return err
-	})
-	if err != nil {
-		return false, err
-	}
-	if op == controllerutil.OperationResultCreated || op == controllerutil.OperationResultUpdated {
-		// Trigger event to indicate SVC was created or updated
-		r.EventRecorder.Event(&svc,
-			corev1.EventTypeNormal,
-			"MetricsServiceReconciled",
-			fmt.Sprintf("performed %s on service %s/%s", op, svc.Namespace, svc.Name),
-		)
-	}
-
-	return true, nil
-}
-
-func (r *DPAReconciler) updateMetricsSVC(svc *corev1.Service, dpa *oadpv1alpha1.DataProtectionApplication) error {
-	// Setting controller owner reference on the metrics svc
-	err := controllerutil.SetControllerReference(dpa, svc, r.Scheme)
-	if err != nil {
-		return err
-	}
-
-	// when updating the spec fields we update each field individually
-	// to get around the immutable fields
-	svc.Spec.Selector = map[string]string{
-		oadpv1alpha1.OadpOperatorLabel: "true",
-		"control-plane":                "controller-manager",
-	}
-
-	svc.Spec.Type = corev1.ServiceTypeClusterIP
-	svc.Spec.Ports = []corev1.ServicePort{
-		{
-			Name:     "metrics",
-			Port:     int32(2112),
-			Protocol: corev1.ProtocolTCP,
-			TargetPort: intstr.IntOrString{
-				IntVal: int32(2112),
-			},
-		},
-	}
-
-	svc.Spec.ClusterIP = "None"
-
-	svc.Spec.SessionAffinity = "None"
-
-	svc.Labels = map[string]string{
-		oadpv1alpha1.OadpOperatorLabel: "true",
-		"app":                          "oadp-operator",
-	}
-	return nil
-}
+//func (r *DPAReconciler) ReconcileMetricsSVC(log logr.Logger) (bool, error) {
+//	dpa := oadpv1alpha1.DataProtectionApplication{}
+//	if err := r.Get(r.Context, r.NamespacedName, &dpa); err != nil {
+//		return false, err
+//	}
+//
+//	svc := corev1.Service{
+//		ObjectMeta: metav1.ObjectMeta{
+//			Name:      "oadp-operator-metrics",
+//			Namespace: r.NamespacedName.Namespace,
+//		},
+//	}
+//
+//	// Create SVC
+//	op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, &svc, func() error {
+//		// TODO: check for svc status condition errors and respond here
+//		err := r.updateMetricsSVC(&svc, &dpa)
+//
+//		return err
+//	})
+//	if err != nil {
+//		return false, err
+//	}
+//	if op == controllerutil.OperationResultCreated || op == controllerutil.OperationResultUpdated {
+//		// Trigger event to indicate SVC was created or updated
+//		r.EventRecorder.Event(&svc,
+//			corev1.EventTypeNormal,
+//			"MetricsServiceReconciled",
+//			fmt.Sprintf("performed %s on service %s/%s", op, svc.Namespace, svc.Name),
+//		)
+//	}
+//
+//	return true, nil
+//}
+//
+//func (r *DPAReconciler) updateMetricsSVC(svc *corev1.Service, dpa *oadpv1alpha1.DataProtectionApplication) error {
+//	// Setting controller owner reference on the metrics svc
+//	err := controllerutil.SetControllerReference(dpa, svc, r.Scheme)
+//	if err != nil {
+//		return err
+//	}
+//
+//	// when updating the spec fields we update each field individually
+//	// to get around the immutable fields
+//	svc.Spec.Selector = map[string]string{
+//		oadpv1alpha1.OadpOperatorLabel: "true",
+//		"control-plane":                "controller-manager",
+//	}
+//
+//	svc.Spec.Type = corev1.ServiceTypeClusterIP
+//	svc.Spec.Ports = []corev1.ServicePort{
+//		{
+//			Name:     "metrics",
+//			Port:     int32(2112),
+//			Protocol: corev1.ProtocolTCP,
+//			TargetPort: intstr.IntOrString{
+//				IntVal: int32(2112),
+//			},
+//		},
+//	}
+//
+//	svc.Spec.ClusterIP = "None"
+//
+//	svc.Spec.SessionAffinity = "None"
+//
+//	svc.Labels = map[string]string{
+//		oadpv1alpha1.OadpOperatorLabel: "true",
+//		"app":                          "oadp-operator",
+//	}
+//	return nil
+//}
 
 func (r *DPAReconciler) ReconcileVeleroMetricsSVC(log logr.Logger) (bool, error) {
 	dpa := oadpv1alpha1.DataProtectionApplication{}
@@ -286,7 +286,7 @@ func (r *DPAReconciler) ReconcileVeleroMetricsSVC(log logr.Logger) (bool, error)
 
 	svc := corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      r.NamespacedName.Name,
+			Name:      "openshift-adp-velero-metrics-svc",
 			Namespace: r.NamespacedName.Namespace,
 		},
 	}
