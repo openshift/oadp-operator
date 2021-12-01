@@ -599,7 +599,7 @@ spec:
       name: Dylan Murray
     - email: spampatt@redhat.com
       name: Shubham Dilip Pampattiwar
-  maturity: beta
+  maturity: stable
   provider:
     name: Red Hat
   relatedImages:
