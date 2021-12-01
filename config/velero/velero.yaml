@@ -1,3 +1,5 @@
+# This is a placeholder deployment config so operator-sdk add cluster-roles for velero to ClusterServiceVersion
+# It will be removed by yq during make bundle
 kind: Deployment
 apiVersion: apps/v1
 metadata:
