@@ -194,7 +194,11 @@ spec:
       kind: BackupStorageLocation
       name: backupstoragelocations.velero.io
       version: v1
-    - kind: CloudStorage
+    - description: CloudStorage represents configuration for creation of a
+        cloud storage bucket to be used with a Data Protection Application.
+        Currently this feature is in Tech Preview.
+      displayName: CloudStorage
+      kind: CloudStorage
       name: cloudstorages.oadp.openshift.io
       version: v1alpha1
     - description: DataProtectionApplication represents configuration to install a
@@ -612,7 +616,7 @@ spec:
     name: Dylan Murray
   - email: spampatt@redhat.com
     name: Shubham Dilip Pampattiwar
-  maturity: beta
+  maturity: stable
   provider:
     name: Red Hat
   relatedImages:
