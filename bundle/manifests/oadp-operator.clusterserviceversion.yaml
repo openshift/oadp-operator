@@ -565,7 +565,14 @@ spec:
         - apiGroups:
           - ""
           resources:
+          - secrets
           - configmaps
+          - pods
+          - services
+          - serviceaccounts
+          - endpoints
+          - persistentvolumeclaims
+          - events
           verbs:
           - get
           - list
@@ -593,6 +600,31 @@ spec:
           verbs:
           - create
           - patch
+        - apiGroups:
+          - monitoring.coreos.com
+          resources:
+          - servicemonitors
+          verbs:
+          - get
+          - create
+          - list
+          - delete
+          - update
+          - patch
+          - watch
+        - apiGroups:
+          - rbac.authorization.k8s.io
+          resources:
+          - roles
+          - rolebindings
+          verbs:
+          - list
+          - get
+          - create
+          - delete
+          - patch
+          - update
+          - watch
         serviceAccountName: openshift-adp-controller-manager
     strategy: deployment
   installModes:
