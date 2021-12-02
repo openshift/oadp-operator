@@ -192,8 +192,11 @@ func AppendCloudProviderVolumes(dpa *oadpv1alpha1.DataProtectionApplication, ds 
 		}
 	}
 	for _, bslSpec := range dpa.Spec.BackupLocations {
+		print("here")
 		if credFilePath, ok := bslSpec.Velero.Config["credentialsFile"]; ok {
+			print("here 2")
 			if cloudProviderMap, bslCredOk := PluginSpecificFields[oadpv1alpha1.DefaultPlugin(bslSpec.Velero.Provider)]; bslCredOk {
+				print("here 3")
 				ds.Spec.Template.Spec.Volumes = append(
 					ds.Spec.Template.Spec.Volumes,
 					corev1.Volume{
