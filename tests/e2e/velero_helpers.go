@@ -120,7 +120,7 @@ func (v *dpaCustomResource) Build(backupRestoreType BackupRestoreType) error {
 		dpa.Spec.Configuration.Velero.DefaultPlugins = append(dpa.Spec.Configuration.Velero.DefaultPlugins, oadpv1alpha1.DefaultPluginAWS)
 	case "gcp":
 		dpa.Spec.BackupLocations[0].Velero.Config = map[string]string{
-			"credentialsFile": v.credentials,
+			"credentialsFile": "bsl-cloud-credentials-gcp",
 		}
 		dpa.Spec.Configuration.Velero.DefaultPlugins = append(dpa.Spec.Configuration.Velero.DefaultPlugins, oadpv1alpha1.DefaultPluginGCP)
 		dpa.Spec.SnapshotLocations = []oadpv1alpha1.SnapshotLocation{
