@@ -508,10 +508,10 @@ func (r *DPAReconciler) customizeVeleroContainer(dpa *oadpv1alpha1.DataProtectio
 func (r *DPAReconciler) isSTSTokenNeeded(bsls []oadpv1alpha1.BackupLocation, ns string) bool {
 
 	for _, bsl := range bsls {
-		if bsl.Bucket != nil {
+		if bsl.CloudStorage != nil {
 			bucket := &oadpv1alpha1.CloudStorage{}
 			err := r.Get(r.Context, client.ObjectKey{
-				Name:      bsl.Bucket.BucketRef.Name,
+				Name:      bsl.CloudStorage.CloudStorageRef.Name,
 				Namespace: ns,
 			}, bucket)
 			if err != nil {
@@ -610,27 +610,4 @@ func (r *DPAReconciler) getResticResourceReqs(dpa *oadpv1alpha1.DataProtectionAp
 	}
 
 	return ResourcesReqs
-}
-
-// For later: Move this code into validator.go when more need for validation arises
-// TODO: if multiple default plugins exist, ensure we validate all of them.
-// Right now its sequential validation
-func (r *DPAReconciler) ValidateVeleroPlugins(log logr.Logger) (bool, error) {
-	dpa := oadpv1alpha1.DataProtectionApplication{}
-	if err := r.Get(r.Context, r.NamespacedName, &dpa); err != nil {
-		return false, err
-	}
-
-	var defaultPlugin oadpv1alpha1.DefaultPlugin
-	for _, plugin := range dpa.Spec.Configuration.Velero.DefaultPlugins {
-		if pluginSpecificMap, ok := credentials.PluginSpecificFields[plugin]; ok && pluginSpecificMap.IsCloudProvider {
-			secretName := pluginSpecificMap.SecretName
-			_, err := r.getProviderSecret(secretName)
-			if err != nil {
-				r.Log.Info(fmt.Sprintf("error validating %s provider secret:  %s/%s", defaultPlugin, r.NamespacedName.Namespace, secretName))
-				return false, err
-			}
-		}
-	}
-	return true, nil
 }

@@ -194,7 +194,11 @@ spec:
       kind: BackupStorageLocation
       name: backupstoragelocations.velero.io
       version: v1
-    - kind: CloudStorage
+    - description: CloudStorage represents configuration for creation of a
+        cloud storage bucket to be used with a Data Protection Application.
+        Currently this feature is in Tech Preview.
+      displayName: CloudStorage
+      kind: CloudStorage
       name: cloudstorages.oadp.openshift.io
       version: v1alpha1
     - description: DataProtectionApplication represents configuration to install a
@@ -266,6 +270,23 @@ spec:
   install:
     spec:
       clusterPermissions:
+      - rules:
+        - apiGroups:
+          - '*'
+          resources:
+          - '*'
+          verbs:
+          - '*'
+        - apiGroups:
+          - security.openshift.io
+          resourceNames:
+          - privileged
+          - velero-privileged
+          resources:
+          - securitycontextconstraints
+          verbs:
+          - use
+        serviceAccountName: velero
       - rules:
         - apiGroups:
           - oadp.openshift.io
@@ -438,10 +459,6 @@ spec:
                 - --v=10
                 image: gcr.io/kubebuilder/kube-rbac-proxy:v0.8.0
                 name: kube-rbac-proxy
-                volumeMounts:
-                - mountPath: /var/run/secrets/openshift/serviceaccount
-                  name: bound-sa-token
-                  readOnly: true
                 ports:
                 - containerPort: 8443
                   name: https
@@ -527,6 +544,10 @@ spec:
                     path: /healthz
                     port: 8081
                   periodSeconds: 10
+                volumeMounts:
+                - mountPath: /var/run/secrets/openshift/serviceaccount
+                  name: bound-sa-token
+                  readOnly: true
               securityContext:
                 runAsNonRoot: true
               serviceAccountName: openshift-adp-controller-manager
@@ -536,9 +557,9 @@ spec:
                 projected:
                   sources:
                   - serviceAccountToken:
-                      path: token
-                      expirationSeconds: 3600
                       audience: openshift
+                      expirationSeconds: 3600
+                      path: token
       permissions:
       - rules:
         - apiGroups:
@@ -595,7 +616,7 @@ spec:
     name: Dylan Murray
   - email: spampatt@redhat.com
     name: Shubham Dilip Pampattiwar
-  maturity: beta
+  maturity: stable
   provider:
     name: Red Hat
   relatedImages:

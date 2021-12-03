@@ -1,7 +1,6 @@
 #!/bin/bash
 
 #Find most recent version
-export OADPVERSION=$(ls deploy/olm-catalog/bundle/manifests/oadp-operator.v* | awk -F '.' '{out=""; for(i=2;i<4;i++){out=out$i"."}{out=out$4}; print out}')
 export OADPTAG=$(git branch --show-current)
 git checkout origin/$(git branch --show-current) -- Dockerfile
 git checkout origin/$(git branch --show-current) -- .gitignore
@@ -67,7 +66,7 @@ done
 
 
 # Make CSV Changes check for OADP version inf csv file name
-for f in deploy/olm-catalog/bundle/manifests/oadp-operator.${OADPVERSION}.clusterserviceversion.yaml
+for f in bundle/manifests/oadp-operator.clusterserviceversion.yaml
   do
   sed -i "s,oadp-operator:.*,oadp-operator@sha256:${IMG_MAP[operator_sha]},g"                                                              ${f}
   sed -i "s,/velero:.*,/velero@sha256:${IMG_MAP[velero_sha]},g"                                                                            ${f}

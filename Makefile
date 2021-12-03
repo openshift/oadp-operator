@@ -207,12 +207,12 @@ endef
 
 .PHONY: bundle
 bundle: manifests kustomize ## Generate bundle manifests and metadata, then validate generated files.
-	operator-sdk generate kustomize manifests -q
-	cd config/manager && $(KUSTOMIZE) edit set image controller=$(IMG)
-	$(KUSTOMIZE) build config/manifests | operator-sdk generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
+	# operator-sdk generate kustomize manifests -q
+	#cd config/manager && $(KUSTOMIZE) edit set image controller=$(IMG)
+	# $(KUSTOMIZE) build config/manifests | operator-sdk generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
 	# Copy updated bundle.Dockerfile to CI's Dockerfile.bundle
 	# TODO: update CI to use generated one
-	cp bundle.Dockerfile build/Dockerfile.bundle
+	# cp bundle.Dockerfile build/Dockerfile.bundle
 	operator-sdk bundle validate ./bundle
 
 .PHONY: bundle-build
@@ -225,8 +225,8 @@ bundle-push: ## Push the bundle image.
 
 ## Build current branch operator image, bundle image, push and install via OLM
 deploy-olm: GIT_REV=$(shell git rev-parse --short HEAD)
-deploy-olm: THIS_OPERATOR_IMAGE=ttl.sh/oadp-operator-$(GIT_REV):1h # Set target specific variable
-deploy-olm: THIS_BUNDLE_IMAGE=ttl.sh/oadp-operator-bundle-$(GIT_REV):1h # Set target specific variable
+deploy-olm: THIS_OPERATOR_IMAGE?=ttl.sh/oadp-operator-$(GIT_REV):1h # Set target specific variable
+deploy-olm: THIS_BUNDLE_IMAGE?=ttl.sh/oadp-operator-bundle-$(GIT_REV):1h # Set target specific variable
 deploy-olm:
 	oc whoami # Check if logged in
 	oc create namespace openshift-adp # This should error out if namespace already exists, delete namespace (to clear current resources) before proceeding

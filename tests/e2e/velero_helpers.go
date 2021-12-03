@@ -16,6 +16,7 @@ import (
 	appsv1 "github.com/openshift/api/apps/v1"
 	security "github.com/openshift/api/security/v1"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
+	operators "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	velero "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -140,11 +141,7 @@ func (v *dpaCustomResource) CreateOrUpdate(spec *oadpv1alpha1.DataProtectionAppl
 		return err
 	}
 	cr.Spec = *spec
-	err = v.Client.Update(context.Background(), cr)
-	if err != nil {
-		return err
-	}
-	return nil
+	return v.Client.Update(context.Background(), cr)
 }
 
 func (v *dpaCustomResource) Delete() error {
@@ -168,6 +165,7 @@ func (v *dpaCustomResource) SetClient() error {
 	velero.AddToScheme(client.Scheme())
 	appsv1.AddToScheme(client.Scheme())
 	security.AddToScheme(client.Scheme())
+	operators.AddToScheme(client.Scheme())
 
 	v.Client = client
 	return nil

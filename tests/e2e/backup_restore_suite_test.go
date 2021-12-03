@@ -101,7 +101,7 @@ var _ = Describe("AWS backup restore tests", func() {
 			err = installApplication(vel.Client, brCase.ApplicationTemplate)
 			Expect(err).ToNot(HaveOccurred())
 			// wait for pods to be running
-			Eventually(areApplicationPodsRunning(brCase.ApplicationNamespace), timeoutMultiplier*time.Minute*2, time.Second*5).Should(BeTrue())
+			Eventually(areApplicationPodsRunning(brCase.ApplicationNamespace), timeoutMultiplier*time.Minute*9, time.Second*5).Should(BeTrue())
 
 			// Run optional custom verification
 			log.Printf("Running pre-backup function for case %s", brCase.Name)
