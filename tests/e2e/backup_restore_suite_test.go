@@ -171,7 +171,7 @@ var _ = Describe("AWS backup restore tests", func() {
 			}
 
 		},
-		Entry("MSSQL application CSI", BackupRestoreCase{
+		/*Entry("MSSQL application CSI", BackupRestoreCase{
 			ApplicationTemplate:  "./sample-applications/mssql-persistent/mssql-persistent-csi-template.yaml",
 			ApplicationNamespace: "mssql-persistent",
 			Name:                 "mssql-e2e",
@@ -179,6 +179,7 @@ var _ = Describe("AWS backup restore tests", func() {
 			PreBackupVerify:      mssqlReady,
 			PostRestoreVerify:    mssqlReady,
 		}, nil),
+		*/
 		Entry("Parks application <4.8.0", BackupRestoreCase{
 			ApplicationTemplate:  "./sample-applications/parks-app/manifest.yaml",
 			ApplicationNamespace: "parks-app",

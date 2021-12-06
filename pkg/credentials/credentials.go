@@ -15,6 +15,8 @@ type DefaultPluginFields struct {
 	IsCloudProvider    bool
 	SecretName         string
 	MountPath          string
+	BslSecretName      string
+	BSlMountPath       string
 	EnvCredentialsFile string
 	PluginImage        string
 	PluginSecretKey    string
@@ -40,6 +42,8 @@ var (
 			IsCloudProvider:    true,
 			SecretName:         "cloud-credentials-gcp",
 			MountPath:          "/credentials-gcp",
+			BslSecretName:      "bsl-cloud-credentials-gcp",
+			BSlMountPath:       "/bsl-cloud-credentials-gcp",
 			EnvCredentialsFile: common.GCPCredentialsEnvKey,
 			PluginName:         common.VeleroPluginForGCP,
 			PluginSecretKey:    "cloud",
@@ -189,6 +193,23 @@ func AppendCloudProviderVolumes(dpa *oadpv1alpha1.DataProtectionApplication, ds 
 
 		}
 	}
+	for _, bslSpec := range dpa.Spec.BackupLocations {
+		if _, ok := bslSpec.Velero.Config["credentialsFile"]; ok {
+			if cloudProviderMap, bslCredOk := PluginSpecificFields[oadpv1alpha1.DefaultPlugin(bslSpec.Velero.Provider)]; bslCredOk {
+				ds.Spec.Template.Spec.Volumes = append(
+					ds.Spec.Template.Spec.Volumes,
+					corev1.Volume{
+						Name: cloudProviderMap.BslSecretName,
+						VolumeSource: corev1.VolumeSource{
+							Secret: &corev1.SecretVolumeSource{
+								SecretName: cloudProviderMap.BslSecretName,
+							},
+						},
+					},
+				)
+			}
+		}
+	}
 	return nil
 }
 
@@ -253,7 +274,29 @@ func AppendPluginSpecificSpecs(dpa *oadpv1alpha1.DataProtectionApplication, vele
 						},
 					},
 				})
-
+			for _, bslSpec := range dpa.Spec.BackupLocations {
+				if _, ok := bslSpec.Velero.Config["credentialsFile"]; ok {
+					if cloudProviderMap, bslCredOk := PluginSpecificFields[oadpv1alpha1.DefaultPlugin(bslSpec.Velero.Provider)]; bslCredOk {
+						veleroContainer.VolumeMounts = append(
+							veleroContainer.VolumeMounts,
+							corev1.VolumeMount{
+								Name:      cloudProviderMap.BslSecretName,
+								MountPath: pluginSpecificMap.BSlMountPath,
+							})
+						veleroDeployment.Spec.Template.Spec.Volumes = append(
+							veleroDeployment.Spec.Template.Spec.Volumes,
+							corev1.Volume{
+								Name: cloudProviderMap.BslSecretName,
+								VolumeSource: corev1.VolumeSource{
+									Secret: &corev1.SecretVolumeSource{
+										SecretName: cloudProviderMap.BslSecretName,
+									},
+								},
+							},
+						)
+					}
+				}
+			}
 		}
 	}
 	// append custom plugin init containers

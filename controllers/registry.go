@@ -285,15 +285,32 @@ func (r *DPAReconciler) buildRegistryDeployment(registryDeployment *appsv1.Deplo
 
 	// attach gcp secret volume if provider is gcp
 	if bsl.Spec.Provider == GCPProvider {
-		registryDeployment.Spec.Template.Spec.Volumes = []corev1.Volume{
-			{
-				Name: credentials.PluginSpecificFields[oadpv1alpha1.DefaultPluginGCP].SecretName,
-				VolumeSource: corev1.VolumeSource{
-					Secret: &corev1.SecretVolumeSource{
-						SecretName: credentials.PluginSpecificFields[oadpv1alpha1.DefaultPluginGCP].SecretName,
+		cloudProviderMap := credentials.PluginSpecificFields[oadpv1alpha1.DefaultPluginGCP]
+		if _, ok := bsl.Spec.Config["credentialsFile"]; ok {
+			if cloudProviderMap, bslCredOk := credentials.PluginSpecificFields[GCPProvider]; bslCredOk {
+				registryDeployment.Spec.Template.Spec.Volumes = append(
+					registryDeployment.Spec.Template.Spec.Volumes,
+					corev1.Volume{
+						Name: cloudProviderMap.SecretName,
+						VolumeSource: corev1.VolumeSource{
+							Secret: &corev1.SecretVolumeSource{
+								SecretName: cloudProviderMap.BslSecretName,
+							},
+						},
+					},
+				)
+			}
+		} else {
+			registryDeployment.Spec.Template.Spec.Volumes = []corev1.Volume{
+				{
+					Name: cloudProviderMap.SecretName,
+					VolumeSource: corev1.VolumeSource{
+						Secret: &corev1.SecretVolumeSource{
+							SecretName: cloudProviderMap.SecretName,
+						},
 					},
 				},
-			},
+			}
 		}
 	}
 

@@ -75,12 +75,6 @@ func (v *dpaCustomResource) Build(backupRestoreType BackupRestoreType) error {
 					Velero: &velero.BackupStorageLocationSpec{
 						Provider: v.Provider,
 						Default:  true,
-						Credential: &corev1.SecretKeySelector{
-							LocalObjectReference: corev1.LocalObjectReference{
-								Name: v.credSecretRef,
-							},
-							Key: "cloud",
-						},
 						StorageType: velero.StorageType{
 							ObjectStorage: &velero.ObjectStorageLocation{
 								Bucket: v.Bucket,
@@ -107,6 +101,12 @@ func (v *dpaCustomResource) Build(backupRestoreType BackupRestoreType) error {
 			"region":  v.BslRegion,
 			"profile": v.BslProfile,
 		}
+		dpa.Spec.BackupLocations[0].Velero.Credential = &corev1.SecretKeySelector{
+			LocalObjectReference: corev1.LocalObjectReference{
+				Name: v.credSecretRef,
+			},
+			Key: "cloud",
+		}
 		dpa.Spec.SnapshotLocations = []oadpv1alpha1.SnapshotLocation{
 			{
 				Velero: &velero.VolumeSnapshotLocationSpec{
@@ -121,7 +121,7 @@ func (v *dpaCustomResource) Build(backupRestoreType BackupRestoreType) error {
 		dpa.Spec.Configuration.Velero.DefaultPlugins = append(dpa.Spec.Configuration.Velero.DefaultPlugins, oadpv1alpha1.DefaultPluginAWS)
 	case "gcp":
 		dpa.Spec.BackupLocations[0].Velero.Config = map[string]string{
-			"credentialsFile": v.credentials,
+			"credentialsFile": "bsl-cloud-credentials-gcp/cloud", // <secret_name>/<key>
 		}
 		dpa.Spec.Configuration.Velero.DefaultPlugins = append(dpa.Spec.Configuration.Velero.DefaultPlugins, oadpv1alpha1.DefaultPluginGCP)
 		dpa.Spec.SnapshotLocations = []oadpv1alpha1.SnapshotLocation{
@@ -133,6 +133,13 @@ func (v *dpaCustomResource) Build(backupRestoreType BackupRestoreType) error {
 					},
 				},
 			},
+		}
+	case "azure":
+		dpa.Spec.BackupLocations[0].Velero.Credential = &corev1.SecretKeySelector{
+			LocalObjectReference: corev1.LocalObjectReference{
+				Name: v.credSecretRef,
+			},
+			Key: "cloud",
 		}
 	}
 	v.CustomResource = &dpa
