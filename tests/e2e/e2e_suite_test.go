@@ -11,7 +11,7 @@ import (
 )
 
 // Common vars obtained from flags passed in ginkgo.
-var cloud, namespace, s3Bucket, s3BucketFilePath, credSecretRef, instanceName, region, provider string
+var cloud, namespace, s3Bucket, s3BucketFilePath, credSecretRef, instanceName, region, provider, clusterProfile string
 var timeoutMultiplier time.Duration
 
 func init() {
@@ -20,6 +20,7 @@ func init() {
 	flag.StringVar(&namespace, "velero_namespace", "oadp-operator", "Velero Namespace")
 	flag.StringVar(&region, "region", "us-east-1", "BSL region")
 	flag.StringVar(&provider, "provider", "aws", "BSL provider")
+	flag.StringVar(&clusterProfile, "clusterProfile", "aws", "Cluster Profile")
 	flag.StringVar(&credSecretRef, "creds_secret_ref", "cloud-credentials", "Credential secret ref for backup storage location")
 	flag.StringVar(&instanceName, "velero_instance_name", "example-velero", "Velero Instance Name")
 	timeoutMultiplierInput := flag.Int64("timeout_multiplier", 1, "Customize timeout multiplier from default (1)")
@@ -64,6 +65,7 @@ var _ = BeforeSuite(func() {
 		Region:    region,
 		Bucket:    s3Bucket,
 		Provider:  provider,
+		ClusterProfile: clusterProfile,
 	}
 	testSuiteInstanceName := "ts-" + instanceName
 	vel.Name = testSuiteInstanceName
