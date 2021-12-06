@@ -19,6 +19,8 @@ var _ = Describe("Subscription Config Suite Test", func() {
 		log.Printf("Building veleroSpec")
 		err := vel.Build(csi)
 		Expect(err).NotTo(HaveOccurred())
+		//also test restic
+		vel.CustomResource.Spec.Configuration.Restic.Enable = pointer.BoolPtr(true)
 
 		err = vel.Delete()
 		Expect(err).ToNot(HaveOccurred())
