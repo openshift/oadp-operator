@@ -16,6 +16,13 @@ import (
 
 var _ = Describe("Subscription Config Suite Test", func() {
 	var _ = BeforeEach(func() {
+		log.Printf("Building veleroSpec")
+		err := vel.Build(csi)
+		Expect(err).NotTo(HaveOccurred())
+
+		err = vel.Delete()
+		Expect(err).ToNot(HaveOccurred())
+
 		testSuiteInstanceName := "ts-" + instanceName
 		vel.Name = testSuiteInstanceName
 
@@ -51,10 +58,6 @@ var _ = Describe("Subscription Config Suite Test", func() {
 				Consistently(s.csvIsReady, time.Minute*2).Should(BeFalse())
 			} else {
 				Eventually(s.csvIsReady, time.Minute*9).Should(BeTrue())
-
-				log.Printf("Building veleroSpec")
-				err = vel.Build(csi)
-				Expect(err).NotTo(HaveOccurred())
 
 				log.Printf("CreatingOrUpdate test Velero")
 				err = vel.CreateOrUpdate(&vel.CustomResource.Spec)
