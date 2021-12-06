@@ -78,10 +78,15 @@ var _ = Describe("AWS backup restore tests", func() {
 				log.Printf("Waiting for restic pods to be running")
 				Eventually(areResticPodsRunning(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 			}
+
 			if brCase.BackupRestoreType == csi {
-				log.Printf("Creating VolumeSnapshot for CSI backuprestore of %s", brCase.Name)
-				err = installApplication(vel.Client, "./sample-applications/gp2-csi/volumeSnapshotClass.yaml")
-				Expect(err).ToNot(HaveOccurred())
+				if vel.ClusterProfile == "aws" {
+					log.Printf("Creating VolumeSnapshot for CSI backuprestore of %s", brCase.Name)
+					err = installApplication(vel.Client, "./sample-applications/gp2-csi/volumeSnapshotClass.yaml")
+					Expect(err).ToNot(HaveOccurred())
+				} else {
+					Skip("CSI testing is not provided for this cluster provider.")
+				}
 			}
 
 			if vel.CustomResource.Spec.BackupImages == nil || *vel.CustomResource.Spec.BackupImages {

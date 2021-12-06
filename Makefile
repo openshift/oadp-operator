@@ -1,6 +1,7 @@
 OADP_TEST_NAMESPACE ?= openshift-adp
 REGION ?= us-east-1
 PROVIDER ?= aws
+CLUSTER_PROFILE ?= aws
 CREDS_SECRET_REF ?= cloud-credentials
 OADP_AWS_CRED_FILE ?= /var/run/oadp-credentials/aws-credentials
 OADP_S3_BUCKET ?= /var/run/oadp-credentials/velero-bucket-name
@@ -285,4 +286,5 @@ test-e2e:
 	-velero_instance_name=$(VELERO_INSTANCE_NAME) \
 	-region=$(REGION) \
 	-provider=$(PROVIDER) \
+	-clusterProfile=$(CLUSTER_PROFILE) \
 	-timeout_multiplier=$(E2E_TIMEOUT_MULTIPLIER)
