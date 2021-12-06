@@ -2,7 +2,7 @@
 
 # Default to gathering 72h of logs unless specified as var
 logs_since="${logs_since:-72h}"
-
+request_timeout="${request_timeout:-0s}"
 unset KUBECONFIG
 
 clusterID=$(oc get clusterversion -o jsonpath='{.items[].spec.clusterID}' | cut -c -8)
@@ -24,7 +24,7 @@ echo "Gathering DPA CRs for namespaces [${namespaces[@]}]"
 
 # Collect the logs"
 echo "[cluster=${clusterID}] Gathering logs for namespaces [${namespaces[@]}]"
-/usr/bin/gather_logs ${clusterID} ${logs_since} ${namespaces[@]} &
+/usr/bin/gather_logs ${clusterID} ${logs_since} ${request_timeout} ${namespaces[@]} &
 
 
 # Collect metrics from Prometheus
