@@ -74,12 +74,6 @@ func (v *dpaCustomResource) Build(backupRestoreType BackupRestoreType) error {
 					Velero: &velero.BackupStorageLocationSpec{
 						Provider: v.Provider,
 						Default:  true,
-						Credential: &corev1.SecretKeySelector{
-							LocalObjectReference: corev1.LocalObjectReference{
-								Name: v.credSecretRef,
-							},
-							Key: "cloud",
-						},
 						StorageType: velero.StorageType{
 							ObjectStorage: &velero.ObjectStorageLocation{
 								Bucket: v.Bucket,
@@ -105,6 +99,12 @@ func (v *dpaCustomResource) Build(backupRestoreType BackupRestoreType) error {
 		dpa.Spec.BackupLocations[0].Velero.Config = map[string]string{
 			"region":  v.BslRegion,
 			"profile": v.BslProfile,
+		}
+		dpa.Spec.BackupLocations[0].Velero.Credential = &corev1.SecretKeySelector{
+			LocalObjectReference: corev1.LocalObjectReference{
+				Name: v.credSecretRef,
+			},
+			Key: "cloud",
 		}
 		dpa.Spec.SnapshotLocations = []oadpv1alpha1.SnapshotLocation{
 			{
@@ -132,6 +132,13 @@ func (v *dpaCustomResource) Build(backupRestoreType BackupRestoreType) error {
 					},
 				},
 			},
+		}
+	case "azure":
+		dpa.Spec.BackupLocations[0].Velero.Credential = &corev1.SecretKeySelector{
+			LocalObjectReference: corev1.LocalObjectReference{
+				Name: v.credSecretRef,
+			},
+			Key: "cloud",
 		}
 	}
 	v.CustomResource = &dpa
