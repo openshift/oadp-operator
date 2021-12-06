@@ -154,15 +154,6 @@ items:
       strategy:
         type: Recreate
       triggers:
-      - type: ImageChange
-        imageChangeParams:
-          automatic: true
-          containerNames:
-          - mongodb-container
-          from:
-            kind: ImageStreamTag
-            name: mongodb:latest
-            namespace: openshift
       - type: ConfigChange
       replicas: 1
       selector:
@@ -175,7 +166,8 @@ items:
         spec:
           containers:
           - name: mongodb-container
-            image: " "
+            image: >-
+              registry.redhat.io/rhscl/mongodb-36-rhel7:latest
             ports:
             - containerPort: 27017
               protocol: TCP

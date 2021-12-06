@@ -3,12 +3,10 @@ package controllers
 import (
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/go-logr/logr"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	"github.com/openshift/oadp-operator/pkg/credentials"
-	"k8s.io/apimachinery/pkg/types"
 )
 
 func (r *DPAReconciler) ValidateDataProtectionCR(log logr.Logger) (bool, error) {
@@ -57,35 +55,9 @@ func (r *DPAReconciler) ValidateVeleroPlugins(log logr.Logger) (bool, error) {
 		return false, err
 	}
 
-	providerNeedsDefaultCreds := map[string]bool{}
-	hasCloudStorage := false
-
-	for _, bsl := range dpa.Spec.BackupLocations {
-		if bsl.Velero != nil && bsl.Velero.Credential == nil {
-			providerNeedsDefaultCreds[strings.TrimPrefix(bsl.Velero.Provider, "velero.io/")] = true
-		}
-		if bsl.CloudStorage != nil {
-			hasCloudStorage = true
-			if bsl.CloudStorage.Credential == nil {
-				cloudStroage := oadpv1alpha1.CloudStorage{}
-				err := r.Get(r.Context, types.NamespacedName{Name: bsl.CloudStorage.CloudStorageRef.Name, Namespace: dpa.Namespace}, &cloudStroage)
-				if err != nil {
-					return false, err
-				}
-				providerNeedsDefaultCreds[string(cloudStroage.Spec.Provider)] = true
-			}
-		}
-	}
-
-	for _, vsl := range dpa.Spec.SnapshotLocations {
-		if vsl.Velero != nil {
-			// To handle the case where we want to manually hand the credentials for a cloud storage created
-			// Bucket credententials via configuration. Only AWS is supported
-			provider := strings.TrimPrefix(vsl.Velero.Provider, "velero.io")
-			if provider != string(oadpv1alpha1.AWSBucketProvider) {
-				providerNeedsDefaultCreds[provider] = true
-			}
-		}
+	providerNeedsDefaultCreds, hasCloudStorage, err := r.noDefaultCredentials(dpa)
+	if err != nil {
+		return false, err
 	}
 
 	var defaultPlugin oadpv1alpha1.DefaultPlugin

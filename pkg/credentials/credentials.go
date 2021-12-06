@@ -193,7 +193,7 @@ func AppendCloudProviderVolumes(dpa *oadpv1alpha1.DataProtectionApplication, ds 
 }
 
 // add plugin specific specs to velero deployment
-func AppendPluginSpecificSpecs(dpa *oadpv1alpha1.DataProtectionApplication, veleroDeployment *appsv1.Deployment, veleroContainer *corev1.Container) error {
+func AppendPluginSpecificSpecs(dpa *oadpv1alpha1.DataProtectionApplication, veleroDeployment *appsv1.Deployment, veleroContainer *corev1.Container, providerNeedsDefaultCreds map[string]bool, hasCloudStorage bool) error {
 	for _, plugin := range dpa.Spec.Configuration.Velero.DefaultPlugins {
 		if pluginSpecificMap, ok := PluginSpecificFields[plugin]; ok {
 			veleroDeployment.Spec.Template.Spec.InitContainers = append(
@@ -212,7 +212,14 @@ func AppendPluginSpecificSpecs(dpa *oadpv1alpha1.DataProtectionApplication, vele
 						},
 					},
 				})
-			if !pluginSpecificMap.IsCloudProvider {
+
+			pluginNeedsCheck, foundInBSLorVSL := providerNeedsDefaultCreds[string(plugin)]
+
+			if !foundInBSLorVSL && !hasCloudStorage {
+				pluginNeedsCheck = true
+			}
+
+			if !pluginSpecificMap.IsCloudProvider || !pluginNeedsCheck {
 				continue
 			}
 			// set default secret name to use

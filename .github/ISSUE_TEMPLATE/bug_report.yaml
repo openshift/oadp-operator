@@ -39,9 +39,11 @@ body:
       label: OADP Version
       description: What version of our software are you running?
       options:
+        - 0.5.x (Stable)
         - 0.4.x (Beta)
         - 0.3.x (Beta)
         - 0.2.x (Alpha)
+        - Unreleased (built from source)
     validations:
       required: true
   - type: dropdown
@@ -50,6 +52,7 @@ body:
       label: OpenShift Version
       description: What version of OpenShift are you running?
       options:
+        - 4.10
         - 4.9
         - 4.8
         - 4.7
