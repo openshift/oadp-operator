@@ -618,6 +618,9 @@ func (r *DPAReconciler) getResticResourceReqs(dpa *oadpv1alpha1.DataProtectionAp
 	return ResourcesReqs
 }
 
+// noDefaultCredentials determines if a provider needs the default credentials.
+// This returns a map of providers found to if they need a default credential,
+// a boolean if Cloud Storage backup storage location was used and an error if any occured.
 func (r DPAReconciler) noDefaultCredentials(dpa oadpv1alpha1.DataProtectionApplication) (map[string]bool, bool, error) {
 	providerNeedsDefaultCreds := map[string]bool{}
 	hasCloudStorage := false

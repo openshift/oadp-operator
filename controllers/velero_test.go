@@ -1157,7 +1157,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 				t.Errorf("buildVeleroDeployment() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			if !reflect.DeepEqual(tt.wantVeleroDeployment, tt.veleroDeployment) {
-				t.Errorf("expected registry deployment spec to be %#v, got %#v", tt.wantVeleroDeployment.Spec.Template.Spec.Volumes, tt.veleroDeployment.Spec.Template.Spec.Volumes)
+				t.Errorf("expected registry deployment spec to be %#v, got %#v", tt.wantVeleroDeployment, tt.veleroDeployment)
 			}
 		})
 	}
