@@ -1,6 +1,7 @@
 OADP_TEST_NAMESPACE ?= openshift-adp
 REGION ?= us-east-1
 PROVIDER ?= aws
+CLUSTER_PROFILE ?= aws
 CREDS_SECRET_REF ?= cloud-credentials
 OADP_AWS_CRED_FILE ?= /var/run/oadp-credentials/aws-credentials
 OADP_S3_BUCKET ?= /var/run/oadp-credentials/velero-bucket-name
@@ -27,7 +28,7 @@ VERSION ?= 99.0.0
 # To re-generate a bundle for other specific channels without changing the standard setup, you can:
 # - use the CHANNELS as arg of the bundle target (e.g make bundle CHANNELS=candidate,fast,stable)
 # - use environment variables to overwrite this value (e.g export CHANNELS="candidate,fast,stable")
-CHANNELS = "beta"
+CHANNELS = "stable"
 ifneq ($(origin CHANNELS), undefined)
 BUNDLE_CHANNELS := --channels=$(CHANNELS)
 endif
@@ -37,7 +38,7 @@ endif
 # To re-generate a bundle for any other default channel without changing the default setup, you can:
 # - use the DEFAULT_CHANNEL as arg of the bundle target (e.g make bundle DEFAULT_CHANNEL=stable)
 # - use environment variables to overwrite this value (e.g export DEFAULT_CHANNEL="stable")
-DEFAULT_CHANNEL = "beta"
+DEFAULT_CHANNEL = "stable"
 ifneq ($(origin DEFAULT_CHANNEL), undefined)
 BUNDLE_DEFAULT_CHANNEL := --default-channel=$(DEFAULT_CHANNEL)
 endif
@@ -207,12 +208,15 @@ endef
 
 .PHONY: bundle
 bundle: manifests kustomize ## Generate bundle manifests and metadata, then validate generated files.
-	# operator-sdk generate kustomize manifests -q
-	#cd config/manager && $(KUSTOMIZE) edit set image controller=$(IMG)
-	# $(KUSTOMIZE) build config/manifests | operator-sdk generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
+	operator-sdk generate kustomize manifests -q
+	cd config/manager && $(KUSTOMIZE) edit set image controller=$(IMG)
+	$(KUSTOMIZE) build config/manifests | operator-sdk generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
+	# Removes placeholder velero deployment used so `operator-sdk generate bundle` adds velero service account and role to bundle CSV using yq. See https://github.com/mikefarah/yq/#install
+	yq eval 'del(.spec.install.spec.deployments.1)' bundle/manifests/oadp-operator.clusterserviceversion.yaml > bundle/manifests/oadp-operator.clusterserviceversion.yaml.yqresult
+	mv bundle/manifests/oadp-operator.clusterserviceversion.yaml.yqresult bundle/manifests/oadp-operator.clusterserviceversion.yaml
 	# Copy updated bundle.Dockerfile to CI's Dockerfile.bundle
 	# TODO: update CI to use generated one
-	# cp bundle.Dockerfile build/Dockerfile.bundle
+	cp bundle.Dockerfile build/Dockerfile.bundle
 	operator-sdk bundle validate ./bundle
 
 .PHONY: bundle-build
@@ -229,10 +233,10 @@ deploy-olm: THIS_OPERATOR_IMAGE?=ttl.sh/oadp-operator-$(GIT_REV):1h # Set target
 deploy-olm: THIS_BUNDLE_IMAGE?=ttl.sh/oadp-operator-bundle-$(GIT_REV):1h # Set target specific variable
 deploy-olm:
 	oc whoami # Check if logged in
-	oc create namespace openshift-adp # This should error out if namespace already exists, delete namespace (to clear current resources) before proceeding
+	oc create namespace $(OADP_TEST_NAMESPACE) # This should error out if namespace already exists, delete namespace (to clear current resources) before proceeding
 	IMG=$(THIS_OPERATOR_IMAGE) BUNDLE_IMG=$(THIS_BUNDLE_IMAGE) \
 		make docker-build docker-push bundle bundle-build bundle-push # build and push operator and bundle image
-	operator-sdk run bundle $(THIS_BUNDLE_IMAGE) --namespace openshift-adp # use operator-sdk to install bundle to authenticated cluster
+	operator-sdk run bundle $(THIS_BUNDLE_IMAGE) --namespace $(OADP_TEST_NAMESPACE) # use operator-sdk to install bundle to authenticated cluster
 
 .PHONY: opm
 OPM = ./bin/opm
@@ -282,4 +286,5 @@ test-e2e:
 	-velero_instance_name=$(VELERO_INSTANCE_NAME) \
 	-region=$(REGION) \
 	-provider=$(PROVIDER) \
+	-clusterProfile=$(CLUSTER_PROFILE) \
 	-timeout_multiplier=$(E2E_TIMEOUT_MULTIPLIER)

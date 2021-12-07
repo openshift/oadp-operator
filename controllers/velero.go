@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"strings"
 
 	"github.com/openshift/oadp-operator/pkg/credentials"
 	"github.com/operator-framework/operator-lib/proxy"
@@ -468,7 +469,12 @@ func (r *DPAReconciler) customizeVeleroDeployment(dpa *oadpv1alpha1.DataProtecti
 	if err := r.customizeVeleroContainer(dpa, veleroDeployment, veleroContainer, isSTSNeeded); err != nil {
 		return err
 	}
-	return credentials.AppendPluginSpecificSpecs(dpa, veleroDeployment, veleroContainer)
+
+	providerNeedsDefaultCreds, hasCloudStorage, err := r.noDefaultCredentials(*dpa)
+	if err != nil {
+		return err
+	}
+	return credentials.AppendPluginSpecificSpecs(dpa, veleroDeployment, veleroContainer, providerNeedsDefaultCreds, hasCloudStorage)
 }
 
 func (r *DPAReconciler) customizeVeleroContainer(dpa *oadpv1alpha1.DataProtectionApplication, veleroDeployment *appsv1.Deployment, veleroContainer *corev1.Container, isSTSNeeded bool) error {
@@ -610,4 +616,43 @@ func (r *DPAReconciler) getResticResourceReqs(dpa *oadpv1alpha1.DataProtectionAp
 	}
 
 	return ResourcesReqs
+}
+
+// noDefaultCredentials determines if a provider needs the default credentials.
+// This returns a map of providers found to if they need a default credential,
+// a boolean if Cloud Storage backup storage location was used and an error if any occured.
+func (r DPAReconciler) noDefaultCredentials(dpa oadpv1alpha1.DataProtectionApplication) (map[string]bool, bool, error) {
+	providerNeedsDefaultCreds := map[string]bool{}
+	hasCloudStorage := false
+
+	for _, bsl := range dpa.Spec.BackupLocations {
+		if bsl.Velero != nil && bsl.Velero.Credential == nil {
+			providerNeedsDefaultCreds[strings.TrimPrefix(bsl.Velero.Provider, "velero.io/")] = true
+		}
+		if bsl.CloudStorage != nil {
+			hasCloudStorage = true
+			if bsl.CloudStorage.Credential == nil {
+				cloudStroage := oadpv1alpha1.CloudStorage{}
+				err := r.Get(r.Context, types.NamespacedName{Name: bsl.CloudStorage.CloudStorageRef.Name, Namespace: dpa.Namespace}, &cloudStroage)
+				if err != nil {
+					return nil, false, err
+				}
+				providerNeedsDefaultCreds[string(cloudStroage.Spec.Provider)] = true
+			}
+		}
+	}
+
+	for _, vsl := range dpa.Spec.SnapshotLocations {
+		if vsl.Velero != nil {
+			// To handle the case where we want to manually hand the credentials for a cloud storage created
+			// Bucket credententials via configuration. Only AWS is supported
+			provider := strings.TrimPrefix(vsl.Velero.Provider, "velero.io")
+			if provider != string(oadpv1alpha1.AWSBucketProvider) {
+				providerNeedsDefaultCreds[provider] = true
+			}
+		}
+	}
+
+	return providerNeedsDefaultCreds, hasCloudStorage, nil
+
 }

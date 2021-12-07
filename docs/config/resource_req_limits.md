@@ -5,10 +5,10 @@
 ### Setting resource limits and requests for Velero and Restic Pods
 
 In order to set specific resource(cpu, memory) `limits` and `requests` for the 
-Velero pod, you need use the `configuration.velero.podConfig.resourceAllocation` specification field in 
+Velero pod, you need use the `configuration.velero.podConfig.resourceAllocations` specification field in 
 the `oadp_v1alpha1_dpa.yaml` file during the deployment.
 
-For instance, the `configuration.velero.podConfig.resourceAllocation` can look somewhat similar to:
+For instance, the `configuration.velero.podConfig.resourceAllocations` can look somewhat similar to:
 
 ```
   configuration:
@@ -23,7 +23,7 @@ For instance, the `configuration.velero.podConfig.resourceAllocation` can look s
             memory: 256Mi
 ```
 
-Similarly, you can use the `configuration.restic.podConfig.resourceAllocation` specification field for 
+Similarly, you can use the `configuration.restic.podConfig.resourceAllocations` specification field for 
 setting specific resource `limits` and `requests` for the Restic pods.
 
 ```
@@ -42,7 +42,7 @@ setting specific resource `limits` and `requests` for the Restic pods.
 <b>Note:</b> 
 - The values for the resource requests and limits flags follow the same format 
 as [Kubernetes resource requirements](https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/)
-- Also, if the `configuration.velero.podConfig.resourceAllocation` / `configuration.restic.podConfig.resourceAllocation` is not 
+- Also, if the `configuration.velero.podConfig.resourceAllocations` / `configuration.restic.podConfig.resourceAllocations` is not 
 defined by the user, then the default resources specification for Velero/Restic 
 pod(s) is:
 

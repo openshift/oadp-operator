@@ -42,6 +42,7 @@ type dpaCustomResource struct {
 	Bucket            string
 	Region            string
 	Provider          string
+	ClusterProfile    string
 	backupRestoreType BackupRestoreType
 	CustomResource    *oadpv1alpha1.DataProtectionApplication
 	Client            client.Client
