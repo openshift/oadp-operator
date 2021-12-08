@@ -57,6 +57,8 @@ If the issue still persists, [create a new issue](https://github.com/openshift/o
 ## Common Misconfigurations:
 
 ### Credentials secret is not properly formatted:
+
+
   - AWS:
     - An example of correct AWS credentials:
 
@@ -71,7 +73,37 @@ If the issue still persists, [create a new issue](https://github.com/openshift/o
   - GCP:
 
   - Azure:
-   
+
+<hr style="height:1px;border:none;color:#333;">
+
+### Restic - NFS volumes and `rootSquash`:
+
+If using NFS volumes while `rootSquash` is enabled, Restic will be mapped to 
+`nfsnobody` and not have the proper permissions to perform a backup/restore. 
+
+#### To solve this issue:
+  - Use supplemental groups, and apply this same supplemental group to the Restic
+    daemonset.
+
+### An example of using Restic supplemental groups in the Velero CR could look like this:
+
+```
+    apiVersion: oadp.openshift.io/v1alpha1
+    kind: DataProtectionApplication
+    metadata:
+      name: dpa-sample
+    spec:
+      configuration:
+        velero:
+          defaultPlugins:
+          - openshift
+        restic:
+          enable: true
+          supplementalGroups:
+            - 1234
+```
+
+  <hr style="height:1px;border:none;color:#333;"> 
 
 ### Errors in the Velero pod:
 

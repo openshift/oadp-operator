@@ -40,6 +40,9 @@ make prometheus-run # and prometheus-cleanup when you're done
 ```
 The latest Prometheus data file (prom_data.tar.gz) in current directory/subdirectories is searched by default. Could be specified in ```PROMETHEUS_DUMP_PATH``` environment variable.
 
+### Known Limitations
+
+`velero backups` with phase `FailedValidation` could cause `must-gather` to be slow. There are no workarounds right now.  
 
 ### Development
 You can build the image locally using the Dockerfile included.
