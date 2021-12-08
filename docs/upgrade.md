@@ -72,7 +72,37 @@ spec:
   enable_restic: true
 ```
 
-And a sample Velero CR (DPA) for version 0.3 or later:
+Sample Velero CR for version 0.3-0.4
+```
+apiVersion: oadp.openshift.io/v1alpha1
+kind: Velero
+metadata:
+  name: velero-sample
+spec:
+  defaultVeleroPlugins:
+  - openshift
+  - aws
+  backupStorageLocations:
+  - provider: aws
+    default: true
+    objectStorage:
+      bucket: my-bucket-name
+      prefix: my-prefix
+    config:
+      region: us-east-1
+      profile: "default"
+    credential:
+      name: cloud-credentials
+      key: cloud
+  volumeSnapshotLocations:
+    - provider: aws
+      config:
+        region: us-west-2
+        profile: "default"
+  enableRestic: true
+```
+
+And a sample DataProtectionApplication (previously Velero) for version 0.5 or later:
 
 ```
 apiVersion: oadp.openshift.io/v1alpha1
