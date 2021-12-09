@@ -10,9 +10,11 @@ BSL_AWS_PROFILE ?= migration-engineering
 GCP_PROJECT ?= /var/run/secrets/ci.openshift.io/cluster-profile/openshift_gcp_project
 
 ifeq ($(CLUSTER_PROFILE), gcp)
-	CI_CRED_FILE ?= ${CLUSTER_PROFILE_DIR}/gce.json
+	CI_CRED_FILE = ${CLUSTER_PROFILE_DIR}/gce.json
+	OADP_CRED_FILE = /var/run/oadp-credentials/gcp-credentials
 else ifeq ($(CLUSTER_PROFILE), azure)
-	CI_CRED_FILE ?= ${CLUSTER_PROFILE_DIR}/osServicePrincipal.json
+	CI_CRED_FILE = ${CLUSTER_PROFILE_DIR}/osServicePrincipal.json
+	OADP_CRED_FILE = /var/run/oadp-credentials/azure-credentials
 endif
 
 GOOGLE_APPLICATION_CREDENTIALS ?= ${CI_CRED_FILE}
