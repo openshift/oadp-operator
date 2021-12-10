@@ -474,6 +474,17 @@ func (r *DPAReconciler) getAzureRegistryEnvVars(bsl *velerov1.BackupStorageLocat
 		r.Log.Info(fmt.Sprintf("Error parsing provider secret %s for backupstoragelocation %s/%s", secretName, bsl.Namespace, bsl.Name))
 		return nil, err
 	}
+	if len(bsl.Spec.Config["storageAccountKeyEnvVar"]) != 0 {
+		if azcreds.strorageAccountKey == "" {
+			r.Log.Info("Expecting storageAccountKeyEnvVar value set present in the credentials")
+			return nil, errors.New("no strorageAccountKey value present in credentials file")
+		}
+	} else {
+		r.Log.Info("Checking for service principal credentials")
+		if len(azcreds.subscriptionID) == 0 && len(azcreds.tenantID) == 0 && len(azcreds.clientID) == 0 && len(azcreds.clientSecret) == 0 && len(azcreds.resourceGroup) == 0 {
+			return nil, errors.New("error finding service principal parameters for the supplied Azure credential")
+		}
+	}
 
 	for i := range azureEnvVars {
 		if azureEnvVars[i].Name == RegistryStorageAzureContainerEnvVarKey {
@@ -682,12 +693,6 @@ func (r *DPAReconciler) parseAzureSecret(secret corev1.Secret, secretKey string)
 		matchedClientsecret := azureClientSecretRegex.MatchString(line)
 		matchedResourceGroup := azureResourceGroupRegex.MatchString(line)
 
-		/*
-			if err != nil {
-				r.Log.Info("Error finding storage key for the supplied Azure credential")
-				return AzureStorageKey, err
-			}
-		*/
 		if matchedStorageKey {
 			storageKeyValue, err := r.getMatchedKeyValue("AZURE_STORAGE_ACCOUNT_ACCESS_KEY=", line)
 			if err != nil {
@@ -735,13 +740,6 @@ func (r *DPAReconciler) parseAzureSecret(secret corev1.Secret, secretKey string)
 			azcreds.tenantID = tenantIdValue
 			r.Log.Info(fmt.Sprintf("Azure Tenant id value after parsing: %s", azcreds.tenantID))
 		}
-	}
-	if azcreds.strorageAccountKey == "" {
-		r.Log.Info("Checking for service principal credentials")
-		if len(azcreds.subscriptionID) == 0 && len(azcreds.tenantID) == 0 && len(azcreds.clientID) == 0 && len(azcreds.clientSecret) == 0 && len(azcreds.resourceGroup) == 0 {
-			return azcreds, errors.New("error finding service principal parameters for the supplied Azure credential")
-		}
-
 	}
 	return azcreds, nil
 }
