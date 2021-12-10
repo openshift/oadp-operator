@@ -24,8 +24,8 @@ spec:
           name: cloud-credentials
           key: cloud
   snapshotLocations:
-  - velero:  
-      provider: aws
-      config:
-        region: us-west-2
-        profile: "default"
+    - velero:  
+        provider: aws
+        config:
+          region: us-west-2
+          profile: "default"
