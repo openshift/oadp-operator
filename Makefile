@@ -1,5 +1,5 @@
 OADP_TEST_NAMESPACE ?= openshift-adp
-CLUSTER_PROFILE ?= aws
+CLUSTER_TYPE ?= aws
 
 # CONFIGS FOR CLOUD
 OADP_CRED_FILE ?= /var/run/oadp-credentials/new-aws-credentials
@@ -9,10 +9,10 @@ CI_CRED_FILE ?= ${CLUSTER_PROFILE_DIR}/.awscred
 BSL_AWS_PROFILE ?= migration-engineering
 GCP_PROJECT ?= /var/run/secrets/ci.openshift.io/cluster-profile/openshift_gcp_project
 
-ifeq ($(CLUSTER_PROFILE), gcp)
+ifeq ($(CLUSTER_TYPE), gcp)
 	CI_CRED_FILE = ${CLUSTER_PROFILE_DIR}/gce.json
 	OADP_CRED_FILE = /var/run/oadp-credentials/gcp-credentials
-else ifeq ($(CLUSTER_PROFILE), azure)
+else ifeq ($(CLUSTER_TYPE), azure)
 	CI_CRED_FILE = ${CLUSTER_PROFILE_DIR}/osServicePrincipal.json
 	OADP_CRED_FILE = /var/run/oadp-credentials/azure-credentials
 endif
@@ -319,7 +319,7 @@ test-e2e:
 	-bsl_region=$(BSL_REGION) \
 	-vsl_region=$(VSL_REGION) \
 	-bsl_profile=$(BSL_AWS_PROFILE) \
-	-provider=$(CLUSTER_PROFILE) \
+	-provider=$(CLUSTER_TYPE) \
 	-timeout_multiplier=$(E2E_TIMEOUT_MULTIPLIER) \
 	-openshift_ci=$(OPENSHIFT_CI) \
 	-ci_cred_file=$(CI_CRED_FILE)
