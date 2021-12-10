@@ -43,9 +43,13 @@ const (
 	RegistryStorageS3RootdirectoryEnvVarKey  = "REGISTRY_STORAGE_S3_ROOTDIRECTORY"
 	RegistryStorageS3SkipverifyEnvVarKey     = "REGISTRY_STORAGE_S3_SKIPVERIFY"
 	// Azure registry env vars
-	RegistryStorageAzureContainerEnvVarKey   = "REGISTRY_STORAGE_AZURE_CONTAINER"
-	RegistryStorageAzureAccountnameEnvVarKey = "REGISTRY_STORAGE_AZURE_ACCOUNTNAME"
-	RegistryStorageAzureAccountkeyEnvVarKey  = "REGISTRY_STORAGE_AZURE_ACCOUNTKEY"
+	RegistryStorageAzureContainerEnvVarKey       = "REGISTRY_STORAGE_AZURE_CONTAINER"
+	RegistryStorageAzureAccountnameEnvVarKey     = "REGISTRY_STORAGE_AZURE_ACCOUNTNAME"
+	RegistryStorageAzureAccountkeyEnvVarKey      = "REGISTRY_STORAGE_AZURE_ACCOUNTKEY"
+	RegistryStorageAzureSPNClientIDEnvVarKey     = "REGISTRY_STORAGE_AZURE_SPN_CLIENT_ID"
+	RegistryStorageAzureSPNClientSecretEnvVarKey = "REGISTRY_STORAGE_AZURE_SPN_CLIENT_SECRET"
+	RegistryStorageAzureSPNTenantIDEnvVarKey     = "REGISTRY_STORAGE_AZURE_SPN_TENANT_ID"
+	RegistryStorageAzureAADEndpointEnvVarKey     = "REGISTRY_STORAGE_AZURE_AAD_ENDPOINT"
 	// GCP registry env vars
 	RegistryStorageGCSBucket        = "REGISTRY_STORAGE_GCS_BUCKET"
 	RegistryStorageGCSKeyfile       = "REGISTRY_STORAGE_GCS_KEYFILE"
@@ -117,6 +121,22 @@ var cloudProviderEnvVarMap = map[string][]corev1.EnvVar{
 			Name:  RegistryStorageAzureAccountkeyEnvVarKey,
 			Value: "",
 		},
+		{
+			Name:  RegistryStorageAzureAADEndpointEnvVarKey,
+			Value: "",
+		},
+		{
+			Name:  RegistryStorageAzureSPNClientIDEnvVarKey,
+			Value: "",
+		},
+		{
+			Name:  RegistryStorageAzureSPNClientSecretEnvVarKey,
+			Value: "",
+		},
+		{
+			Name:  RegistryStorageAzureSPNTenantIDEnvVarKey,
+			Value: "",
+		},
 	},
 	"gcp": {
 		{
@@ -135,12 +155,12 @@ var cloudProviderEnvVarMap = map[string][]corev1.EnvVar{
 }
 
 type azureCredentials struct {
-	subscriptionID     string
-	tenantID           string
-	clientID           string
-	clientSecret       string
-	resourceGroup      string
-	cloudName          string
+	subscriptionID string
+	tenantID       string
+	clientID       string
+	clientSecret   string
+	resourceGroup  string
+	//cloudName          string
 	strorageAccountKey string
 }
 
@@ -467,7 +487,16 @@ func (r *DPAReconciler) getAzureRegistryEnvVars(bsl *velerov1.BackupStorageLocat
 		if azureEnvVars[i].Name == RegistryStorageAzureAccountkeyEnvVarKey {
 			azureEnvVars[i].Value = azcreds.strorageAccountKey
 		}
+		if azureEnvVars[i].Name == RegistryStorageAzureSPNClientIDEnvVarKey {
+			azureEnvVars[i].Value = azcreds.clientID
+		}
 
+		if azureEnvVars[i].Name == RegistryStorageAzureSPNClientSecretEnvVarKey {
+			azureEnvVars[i].Value = azcreds.clientSecret
+		}
+		if azureEnvVars[i].Name == RegistryStorageAzureSPNTenantIDEnvVarKey {
+			azureEnvVars[i].Value = azcreds.tenantID
+		}
 	}
 	return azureEnvVars, nil
 }
@@ -606,7 +635,6 @@ func (r *DPAReconciler) parseAWSSecret(secret corev1.Secret, secretKey string, m
 
 func (r *DPAReconciler) parseAzureSecret(secret corev1.Secret, secretKey string) (azureCredentials, error) {
 
-	AzureStorageKey := ""
 	azcreds := azureCredentials{}
 
 	splitString := strings.Split(string(secret.Data[secretKey]), "\n")
@@ -622,15 +650,15 @@ func (r *DPAReconciler) parseAzureSecret(secret corev1.Secret, secretKey string)
 	if err != nil {
 		return azcreds, errors.New("parseAzureSecret faulty regex: azureTenantIdRegex")
 	}
-	azureClientIdRegex, err := regexp.Compile(`\AZURE_CLIENT_ID\b`)
+	azureClientIdRegex, err := regexp.Compile(`\bAZURE_CLIENT_ID\b`)
 	if err != nil {
 		return azcreds, errors.New("parseAzureSecret faulty regex: azureClientIdRegex")
 	}
-	azureClientSecretRegex, err := regexp.Compile(`\AZURE_CLIENT_SECRET\b`)
+	azureClientSecretRegex, err := regexp.Compile(`\bAZURE_CLIENT_SECRET\b`)
 	if err != nil {
 		return azcreds, errors.New("parseAzureSecret faulty regex: azureClientSecretRegex")
 	}
-	azureResourceGroupRegex, err := regexp.Compile(`\AZURE_RESOURCE_GROUP\b`)
+	azureResourceGroupRegex, err := regexp.Compile(`\bAZURE_RESOURCE_GROUP\b`)
 	if err != nil {
 		return azcreds, errors.New("parseAzureSecret faulty regex: azureResourceGroupRegex")
 	}
@@ -681,7 +709,7 @@ func (r *DPAReconciler) parseAzureSecret(secret corev1.Secret, secretKey string)
 				return azcreds, err
 			}
 			azcreds.clientID = clientIdValue
-			r.Log.Info(fmt.Sprintf("Azure Subscription id value after parsing: %s", azcreds.clientID))
+			r.Log.Info(fmt.Sprintf("Azure Client id value after parsing: %s", azcreds.clientID))
 
 		} else if matchedClientsecret {
 			clientSecretValue, err := r.getMatchedKeyValue("AZURE_CLIENT_SECRET=", line)
@@ -689,7 +717,7 @@ func (r *DPAReconciler) parseAzureSecret(secret corev1.Secret, secretKey string)
 				return azcreds, err
 			}
 			azcreds.clientSecret = clientSecretValue
-			r.Log.Info(fmt.Sprintf("Azure Subscription id value after parsing: %s", azcreds.clientSecret))
+			r.Log.Info(fmt.Sprintf("Azure Client secret value after parsing: %s", azcreds.clientSecret))
 
 		} else if matchedResourceGroup {
 			resourceGroupValue, err := r.getMatchedKeyValue("AZURE_RESOURCE_GROUP=", line)
@@ -697,7 +725,7 @@ func (r *DPAReconciler) parseAzureSecret(secret corev1.Secret, secretKey string)
 				return azcreds, err
 			}
 			azcreds.resourceGroup = resourceGroupValue
-			r.Log.Info(fmt.Sprintf("Azure Subscription id value after parsing: %s", azcreds.resourceGroup))
+			r.Log.Info(fmt.Sprintf("Azure Resource group value after parsing: %s", azcreds.resourceGroup))
 
 		} else if matchedTenantId {
 			tenantIdValue, err := r.getMatchedKeyValue("AZURE_TENANT_ID=", line)
@@ -705,7 +733,7 @@ func (r *DPAReconciler) parseAzureSecret(secret corev1.Secret, secretKey string)
 				return azcreds, err
 			}
 			azcreds.tenantID = tenantIdValue
-			r.Log.Info(fmt.Sprintf("Azure Subscription id value after parsing: %s", azcreds.tenantID))
+			r.Log.Info(fmt.Sprintf("Azure Tenant id value after parsing: %s", azcreds.tenantID))
 		}
 	}
 	if azcreds.strorageAccountKey == "" {
@@ -715,12 +743,12 @@ func (r *DPAReconciler) parseAzureSecret(secret corev1.Secret, secretKey string)
 		}
 
 	}
-
 	return azcreds, nil
 }
 
 func (r *DPAReconciler) getMatchedKeyValue(matchedKey string, line string) (string, error) {
 	cleanedLine := strings.ReplaceAll(line, " ", "")
+	cleanedLine = strings.ReplaceAll(cleanedLine, "\"", "")
 	matchedKeyValue := strings.Replace(cleanedLine, matchedKey, "", -1)
 	if len(matchedKeyValue) == 0 {
 		r.Log.Info("Could not parse secret for %s", matchedKey)
