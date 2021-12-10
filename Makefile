@@ -138,12 +138,17 @@ install: manifests kustomize ## Install CRDs into the K8s cluster specified in ~
 uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified in ~/.kube/config.
 	$(KUSTOMIZE) build config/crd | kubectl delete -f -
 
+deploy: TMP_DIR=/tmp/oadp-make-deploy
 deploy: manifests kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/config.
 	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
 	$(KUSTOMIZE) build config/default | kubectl apply -f -
-	kubectl apply -f config/velero/velero-service_account.yaml
-	kubectl apply -f config/velero/velero-role.yaml
-	kubectl apply -f config/velero/velero-role_binding.yaml
+	mkdir -p $(TMP_DIR)
+	sed -e 's/namespace: system/namespace: $(OADP_TEST_NAMESPACE)/g' config/velero/velero-service_account.yaml > $(TMP_DIR)/velero-service_account.yaml
+	sed -e 's/namespace: system/namespace: $(OADP_TEST_NAMESPACE)/g' config/velero/velero-role.yaml > $(TMP_DIR)/velero-role.yaml
+	sed -e 's/namespace: system/namespace: $(OADP_TEST_NAMESPACE)/g' config/velero/velero-role_binding.yaml > $(TMP_DIR)/velero-role_binding.yaml
+	kubectl apply -f $(TMP_DIR)/velero-service_account.yaml
+	kubectl apply -f $(TMP_DIR)/velero-role.yaml
+	kubectl apply -f $(TMP_DIR)/velero-role_binding.yaml
 
 undeploy: kustomize ## Undeploy controller from the K8s cluster specified in ~/.kube/config.
 	kubectl delete -f config/velero/velero-service_account.yaml
