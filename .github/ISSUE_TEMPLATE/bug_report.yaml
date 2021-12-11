@@ -52,11 +52,11 @@ body:
       label: OpenShift Version
       description: What version of OpenShift are you running?
       options:
-        - 4.10
-        - 4.9
-        - 4.8
-        - 4.7
-        - 4.6
+        - "4.10"
+        - "4.9"
+        - "4.8"
+        - "4.7"
+        - "4.6"
     validations:
       required: false
   - type: markdown
