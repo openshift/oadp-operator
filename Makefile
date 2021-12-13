@@ -8,21 +8,23 @@ VSL_REGION ?= ${LEASED_RESOURCE}
 CI_CRED_FILE ?= ${CLUSTER_PROFILE_DIR}/.awscred
 BSL_AWS_PROFILE ?= migration-engineering
 GCP_PROJECT ?= /var/run/secrets/ci.openshift.io/cluster-profile/openshift_gcp_project
+CREDS_SECRET_REF ?= cloud-credentials
+OADP_BUCKET ?= /var/run/oadp-credentials/velero-bucket-name
 
 ifeq ($(CLUSTER_TYPE), gcp)
 	CI_CRED_FILE = ${CLUSTER_PROFILE_DIR}/gce.json
 	OADP_CRED_FILE = /var/run/oadp-credentials/gcp-credentials
+	CREDS_SECRET_REF = cloud-credentials-gcp
+	OADP_BUCKET = /var/run/oadp-credentials/gcp-velero-bucket-name
 else ifeq ($(CLUSTER_TYPE), azure)
 	CI_CRED_FILE = ${CLUSTER_PROFILE_DIR}/osServicePrincipal.json
 	OADP_CRED_FILE = /var/run/oadp-credentials/azure-credentials
+	CREDS_SECRET_REF = cloud-credentials-azure
+	OADP_BUCKET = /var/run/oadp-credentials/azure-velero-bucket-name
 endif
 
-GOOGLE_APPLICATION_CREDENTIALS ?= ${CI_CRED_FILE}
-
 # Misc
-OADP_BUCKET ?= /var/run/oadp-credentials/velero-bucket-name
 OPENSHIFT_CI ?= true
-CREDS_SECRET_REF ?= cloud-credentials
 VELERO_INSTANCE_NAME ?= velero-sample
 E2E_TIMEOUT_MULTIPLIER ?= 1
 
@@ -309,7 +311,6 @@ catalog-push: ## Push a catalog image.
 	$(MAKE) docker-push IMG=$(CATALOG_IMG)
 
 test-e2e: 
-	export GOOGLE_APPLICATION_CREDENTIALS=${GOOGLE_APPLICATION_CREDENTIALS} && \
 	ginkgo -mod=mod tests/e2e/ -- \
 	-credentials=$(OADP_CRED_FILE) \
 	-velero_bucket=$(OADP_BUCKET) \
