@@ -721,6 +721,7 @@ func TestDPAReconciler_getAzureRegistryEnvVars(t *testing.T) {
 						StorageAccount:                           "velero-azure-account",
 						ResourceGroup:                            "velero-azure-rg",
 						RegistryStorageAzureAccountnameEnvVarKey: "velero-azure-account",
+						"storageAccountKeyEnvVar":                "AZURE_STORAGE_ACCOUNT_ACCESS_KEY",
 					},
 				},
 			},
@@ -766,6 +767,22 @@ func TestDPAReconciler_getAzureRegistryEnvVars(t *testing.T) {
 				{
 					Name:  RegistryStorageAzureAccountkeyEnvVarKey,
 					Value: "someStorageKey",
+				},
+				{
+					Name:  RegistryStorageAzureAADEndpointEnvVarKey,
+					Value: "",
+				},
+				{
+					Name:  RegistryStorageAzureSPNClientIDEnvVarKey,
+					Value: "",
+				},
+				{
+					Name:  RegistryStorageAzureSPNClientSecretEnvVarKey,
+					Value: "",
+				},
+				{
+					Name:  RegistryStorageAzureSPNTenantIDEnvVarKey,
+					Value: "",
 				},
 			}
 
