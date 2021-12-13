@@ -42,7 +42,10 @@ The latest Prometheus data file (prom_data.tar.gz) in current directory/subdirec
 
 ### Known Limitations
 
-`velero backups` with phase `FailedValidation` could cause `must-gather` to be slow. There are no workarounds right now.  
+`velero backups` with phase `FailedValidation` could cause `must-gather` to be slow. In order to speed up the process, pass a timeout value to the command as follows,
+```sh
+oc adm must-gather --image=quay.io/konveyor/oadp-must-gather:latest -- /usr/bin/gather_with_timeout <timeout_value_in_seconds>
+```
 
 ### Development
 You can build the image locally using the Dockerfile included.
