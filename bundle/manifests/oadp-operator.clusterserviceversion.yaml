@@ -468,8 +468,6 @@ spec:
                         value: velero-plugin-for-microsoft-azure
                       - name: VELERO_CSI_PLUGIN_REPO
                         value: velero-plugin-for-csi
-                      - name: VELERO_VSPHERE_PLUGIN_REPO
-                        value: velero-plugin-for-vsphere
                       - name: VELERO_TAG
                         value: latest
                       - name: VELERO_RESTIC_RESTORE_HELPER_TAG
@@ -482,8 +480,6 @@ spec:
                         value: latest
                       - name: VELERO_CSI_PLUGIN_TAG
                         value: latest
-                      - name: VELERO_VSPHERE_PLUGIN_TAG
-                        value: 1.1.0
                     image: quay.io/konveyor/oadp-operator:latest
                     imagePullPolicy: Always
                     livenessProbe:
