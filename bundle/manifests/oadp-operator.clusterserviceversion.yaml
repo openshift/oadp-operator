@@ -13,6 +13,7 @@ metadata:
           "spec": {
             "backupLocations": [
               {
+                "name": "foo",
                 "velero": {
                   "config": {
                     "profile": "default",
@@ -24,7 +25,7 @@ metadata:
                   },
                   "default": true,
                   "objectStorage": {
-                    "bucket": "my-bucket-name",
+                    "bucket": "shubbam-6109f5e9711c8c58131acdd2f490f451",
                     "prefix": "velero"
                   },
                   "provider": "aws"
@@ -44,6 +45,7 @@ metadata:
             },
             "snapshotLocations": [
               {
+                "name": "foo",
                 "velero": {
                   "config": {
                     "profile": "default",
@@ -167,7 +169,7 @@ metadata:
     operatorframework.io/cluster-monitoring: "true"
     operatorframework.io/suggested-namespace: openshift-adp
     operators.openshift.io/infrastructure-features: '["Disconnected"]'
-    operators.operatorframework.io/builder: operator-sdk-v1.14.0
+    operators.operatorframework.io/builder: operator-sdk-v1.10.0+git
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
     repository: https://github.com/openshift/oadp-operator
     support: Red Hat
@@ -358,6 +360,9 @@ spec:
                 - pods
                 - services
                 - serviceaccounts
+                - endpoints
+                - persistentvolumeclaims
+                - events
               verbs:
                 - list
                 - get
@@ -388,6 +393,31 @@ spec:
                 - delete
                 - get
                 - list
+                - patch
+                - update
+                - watch
+            - apiGroups:
+                - monitoring.coreos.com
+              resources:
+                - servicemonitors
+              verbs:
+                - get
+                - create
+                - list
+                - delete
+                - update
+                - patch
+                - watch
+            - apiGroups:
+                - rbac.authorization.k8s.io
+              resources:
+                - roles
+                - rolebindings
+              verbs:
+                - list
+                - get
+                - create
+                - delete
                 - patch
                 - update
                 - watch
@@ -544,71 +574,39 @@ spec:
                             expirationSeconds: 3600
                             path: token
       permissions:
-      - rules:
-        - apiGroups:
-          - ""
-          resources:
-          - secrets
-          - configmaps
-          - pods
-          - services
-          - serviceaccounts
-          - endpoints
-          - persistentvolumeclaims
-          - events
-          verbs:
-          - get
-          - list
-          - watch
-          - create
-          - update
-          - patch
-          - delete
-        - apiGroups:
-          - coordination.k8s.io
-          resources:
-          - leases
-          verbs:
-          - get
-          - list
-          - watch
-          - create
-          - update
-          - patch
-          - delete
-        - apiGroups:
-          - ""
-          resources:
-          - events
-          verbs:
-          - create
-          - patch
-        - apiGroups:
-          - monitoring.coreos.com
-          resources:
-          - servicemonitors
-          verbs:
-          - get
-          - create
-          - list
-          - delete
-          - update
-          - patch
-          - watch
-        - apiGroups:
-          - rbac.authorization.k8s.io
-          resources:
-          - roles
-          - rolebindings
-          verbs:
-          - list
-          - get
-          - create
-          - delete
-          - patch
-          - update
-          - watch
-        serviceAccountName: openshift-adp-controller-manager
+        - rules:
+            - apiGroups:
+                - ""
+              resources:
+                - configmaps
+              verbs:
+                - get
+                - list
+                - watch
+                - create
+                - update
+                - patch
+                - delete
+            - apiGroups:
+                - coordination.k8s.io
+              resources:
+                - leases
+              verbs:
+                - get
+                - list
+                - watch
+                - create
+                - update
+                - patch
+                - delete
+            - apiGroups:
+                - ""
+              resources:
+                - events
+              verbs:
+                - create
+                - patch
+          serviceAccountName: openshift-adp-controller-manager
     strategy: deployment
   installModes:
     - supported: true
