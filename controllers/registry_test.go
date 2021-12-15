@@ -57,6 +57,11 @@ const (
 	testBslProfile         = "bslProfile"
 	testBslAccessKey       = "bslAccessKey"
 	testBslSecretAccessKey = "bslSecretAccessKey"
+	testSubscriptionID     = "someSubscriptionID"
+	testTenantID           = "someTenantID"
+	testClientID           = "someClientID"
+	testClientSecret       = "someClientSecret"
+	testResourceGroup      = "someResourceGroup"
 )
 
 var (
@@ -87,6 +92,16 @@ var (
 		"cloud": []byte("[default]" + "\n" +
 			"AZURE_STORAGE_ACCOUNT_ACCESS_KEY=" + testStoragekey + "\n" +
 			"AZURE_CLOUD_NAME=" + testCloudName),
+	}
+	secretAzureServicePrincipalData = map[string][]byte{
+		"cloud": []byte("[default]" + "\n" +
+			"AZURE_STORAGE_ACCOUNT_ACCESS_KEY=" + testStoragekey + "\n" +
+			"AZURE_CLOUD_NAME=" + testCloudName + "\n" +
+			"AZURE_SUBSCRIPTION_ID=" + testSubscriptionID + "\n" +
+			"AZURE_TENANT_ID=" + testTenantID + "\n" +
+			"AZURE_CLIENT_ID=" + testClientID + "\n" +
+			"AZURE_CLIENT_SECRET=" + testClientSecret + "\n" +
+			"AZURE_RESOURCE_GROUP=" + testResourceGroup),
 	}
 )
 
@@ -702,6 +717,8 @@ func TestDPAReconciler_getAzureRegistryEnvVars(t *testing.T) {
 		wantRegistryContainerEnvVar []corev1.EnvVar
 		secret                      *corev1.Secret
 		wantErr                     bool
+		wantProfile                 string
+		matchProfile                bool
 	}{
 		{
 			name: "given azure bsl, appropriate env var for the container are returned",
@@ -719,8 +736,9 @@ func TestDPAReconciler_getAzureRegistryEnvVars(t *testing.T) {
 					},
 					Config: map[string]string{
 						StorageAccount:                           "velero-azure-account",
-						ResourceGroup:                            "velero-azure-rg",
+						ResourceGroup:                            testResourceGroup,
 						RegistryStorageAzureAccountnameEnvVarKey: "velero-azure-account",
+						"storageAccountKeyEnvVar":                "AZURE_STORAGE_ACCOUNT_ACCESS_KEY",
 					},
 				},
 			},
@@ -731,6 +749,39 @@ func TestDPAReconciler_getAzureRegistryEnvVars(t *testing.T) {
 				},
 				Data: secretAzureData,
 			},
+			wantProfile:  "test-profile",
+			matchProfile: true,
+		},
+		{
+			name: "given azure bsl & SP credentials, appropriate env var for the container are returned",
+			bsl: &velerov1.BackupStorageLocation{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-bsl",
+					Namespace: "test-ns",
+				},
+				Spec: velerov1.BackupStorageLocationSpec{
+					Provider: AzureProvider,
+					StorageType: velerov1.StorageType{
+						ObjectStorage: &velerov1.ObjectStorageLocation{
+							Bucket: "azure-bucket",
+						},
+					},
+					Config: map[string]string{
+						StorageAccount:   "velero-azure-account",
+						ResourceGroup:    testResourceGroup,
+						"subscriptionId": testSubscriptionID,
+					},
+				},
+			},
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cloud-credentials-azure",
+					Namespace: "test-ns",
+				},
+				Data: secretAzureServicePrincipalData,
+			},
+			wantProfile:  "test-sp-profile",
+			matchProfile: true,
 		},
 	}
 	for _, tt := range tests {
@@ -767,16 +818,68 @@ func TestDPAReconciler_getAzureRegistryEnvVars(t *testing.T) {
 					Name:  RegistryStorageAzureAccountkeyEnvVarKey,
 					Value: "someStorageKey",
 				},
+				{
+					Name:  RegistryStorageAzureAADEndpointEnvVarKey,
+					Value: "",
+				},
+				{
+					Name:  RegistryStorageAzureSPNClientIDEnvVarKey,
+					Value: "",
+				},
+				{
+					Name:  RegistryStorageAzureSPNClientSecretEnvVarKey,
+					Value: "",
+				},
+				{
+					Name:  RegistryStorageAzureSPNTenantIDEnvVarKey,
+					Value: "",
+				},
+			}
+			if tt.wantProfile == "test-sp-profile" {
+				tt.wantRegistryContainerEnvVar = []corev1.EnvVar{
+					{
+						Name:  RegistryStorageEnvVarKey,
+						Value: Azure,
+					},
+					{
+						Name:  RegistryStorageAzureContainerEnvVarKey,
+						Value: "azure-bucket",
+					},
+					{
+						Name:  RegistryStorageAzureAccountnameEnvVarKey,
+						Value: "velero-azure-account",
+					},
+					{
+						Name:  RegistryStorageAzureAccountkeyEnvVarKey,
+						Value: "someStorageKey",
+					},
+					{
+						Name:  RegistryStorageAzureAADEndpointEnvVarKey,
+						Value: "",
+					},
+					{
+						Name:  RegistryStorageAzureSPNClientIDEnvVarKey,
+						Value: "someClientID",
+					},
+					{
+						Name:  RegistryStorageAzureSPNClientSecretEnvVarKey,
+						Value: "someClientSecret",
+					},
+					{
+						Name:  RegistryStorageAzureSPNTenantIDEnvVarKey,
+						Value: "someTenantID",
+					},
+				}
 			}
 
 			gotRegistryContainerEnvVar, gotErr := r.getAzureRegistryEnvVars(tt.bsl, testAzureEnvVar)
 
-			if (gotErr != nil) != tt.wantErr {
+			if tt.matchProfile && (gotErr != nil) != tt.wantErr {
 				t.Errorf("ValidateBackupStorageLocations() gotErr = %v, wantErr %v", gotErr, tt.wantErr)
 				return
 			}
 
-			if !reflect.DeepEqual(tt.wantRegistryContainerEnvVar, gotRegistryContainerEnvVar) {
+			if tt.matchProfile && !reflect.DeepEqual(tt.wantRegistryContainerEnvVar, gotRegistryContainerEnvVar) {
 				t.Errorf("expected registry container env var to be %#v, got %#v", tt.wantRegistryContainerEnvVar, gotRegistryContainerEnvVar)
 			}
 		})

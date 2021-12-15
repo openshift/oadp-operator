@@ -24,6 +24,7 @@ var _ = Describe("Subscription Config Suite Test", func() {
 
 		err = vel.Delete()
 		Expect(err).ToNot(HaveOccurred())
+		Eventually(vel.IsDeleted(), timeoutMultiplier*time.Minute*2, time.Second*5).Should(BeTrue())
 
 		testSuiteInstanceName := "ts-" + instanceName
 		vel.Name = testSuiteInstanceName
