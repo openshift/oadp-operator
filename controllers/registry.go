@@ -43,9 +43,13 @@ const (
 	RegistryStorageS3RootdirectoryEnvVarKey  = "REGISTRY_STORAGE_S3_ROOTDIRECTORY"
 	RegistryStorageS3SkipverifyEnvVarKey     = "REGISTRY_STORAGE_S3_SKIPVERIFY"
 	// Azure registry env vars
-	RegistryStorageAzureContainerEnvVarKey   = "REGISTRY_STORAGE_AZURE_CONTAINER"
-	RegistryStorageAzureAccountnameEnvVarKey = "REGISTRY_STORAGE_AZURE_ACCOUNTNAME"
-	RegistryStorageAzureAccountkeyEnvVarKey  = "REGISTRY_STORAGE_AZURE_ACCOUNTKEY"
+	RegistryStorageAzureContainerEnvVarKey       = "REGISTRY_STORAGE_AZURE_CONTAINER"
+	RegistryStorageAzureAccountnameEnvVarKey     = "REGISTRY_STORAGE_AZURE_ACCOUNTNAME"
+	RegistryStorageAzureAccountkeyEnvVarKey      = "REGISTRY_STORAGE_AZURE_ACCOUNTKEY"
+	RegistryStorageAzureSPNClientIDEnvVarKey     = "REGISTRY_STORAGE_AZURE_SPN_CLIENT_ID"
+	RegistryStorageAzureSPNClientSecretEnvVarKey = "REGISTRY_STORAGE_AZURE_SPN_CLIENT_SECRET"
+	RegistryStorageAzureSPNTenantIDEnvVarKey     = "REGISTRY_STORAGE_AZURE_SPN_TENANT_ID"
+	RegistryStorageAzureAADEndpointEnvVarKey     = "REGISTRY_STORAGE_AZURE_AAD_ENDPOINT"
 	// GCP registry env vars
 	RegistryStorageGCSBucket        = "REGISTRY_STORAGE_GCS_BUCKET"
 	RegistryStorageGCSKeyfile       = "REGISTRY_STORAGE_GCS_KEYFILE"
@@ -117,6 +121,22 @@ var cloudProviderEnvVarMap = map[string][]corev1.EnvVar{
 			Name:  RegistryStorageAzureAccountkeyEnvVarKey,
 			Value: "",
 		},
+		{
+			Name:  RegistryStorageAzureAADEndpointEnvVarKey,
+			Value: "",
+		},
+		{
+			Name:  RegistryStorageAzureSPNClientIDEnvVarKey,
+			Value: "",
+		},
+		{
+			Name:  RegistryStorageAzureSPNClientSecretEnvVarKey,
+			Value: "",
+		},
+		{
+			Name:  RegistryStorageAzureSPNTenantIDEnvVarKey,
+			Value: "",
+		},
 	},
 	"gcp": {
 		{
@@ -132,6 +152,15 @@ var cloudProviderEnvVarMap = map[string][]corev1.EnvVar{
 			Value: "",
 		},
 	},
+}
+
+type azureCredentials struct {
+	subscriptionID     string
+	tenantID           string
+	clientID           string
+	clientSecret       string
+	resourceGroup      string
+	strorageAccountKey string
 }
 
 func (r *DPAReconciler) ReconcileRegistries(log logr.Logger) (bool, error) {
@@ -439,10 +468,25 @@ func (r *DPAReconciler) getAzureRegistryEnvVars(bsl *velerov1.BackupStorageLocat
 	}
 
 	// parse the secret and get azure storage account key
-	AzureStorageKey, err := r.parseAzureSecret(secret, secretKey)
+	azcreds, err := r.parseAzureSecret(secret, secretKey)
 	if err != nil {
 		r.Log.Info(fmt.Sprintf("Error parsing provider secret %s for backupstoragelocation %s/%s", secretName, bsl.Namespace, bsl.Name))
 		return nil, err
+	}
+	if len(bsl.Spec.Config["storageAccountKeyEnvVar"]) != 0 {
+		if azcreds.strorageAccountKey == "" {
+			r.Log.Info("Expecting storageAccountKeyEnvVar value set present in the credentials")
+			return nil, errors.New("no strorageAccountKey value present in credentials file")
+		}
+	} else {
+		r.Log.Info("Checking for service principal credentials")
+		if len(azcreds.subscriptionID) == 0 &&
+			len(azcreds.tenantID) == 0 &&
+			len(azcreds.clientID) == 0 &&
+			len(azcreds.clientSecret) == 0 &&
+			len(azcreds.resourceGroup) == 0 {
+			return nil, errors.New("error finding service principal parameters for the supplied Azure credential")
+		}
 	}
 
 	for i := range azureEnvVars {
@@ -455,9 +499,18 @@ func (r *DPAReconciler) getAzureRegistryEnvVars(bsl *velerov1.BackupStorageLocat
 		}
 
 		if azureEnvVars[i].Name == RegistryStorageAzureAccountkeyEnvVarKey {
-			azureEnvVars[i].Value = AzureStorageKey
+			azureEnvVars[i].Value = azcreds.strorageAccountKey
+		}
+		if azureEnvVars[i].Name == RegistryStorageAzureSPNClientIDEnvVarKey {
+			azureEnvVars[i].Value = azcreds.clientID
 		}
 
+		if azureEnvVars[i].Name == RegistryStorageAzureSPNClientSecretEnvVarKey {
+			azureEnvVars[i].Value = azcreds.clientSecret
+		}
+		if azureEnvVars[i].Name == RegistryStorageAzureSPNTenantIDEnvVarKey {
+			azureEnvVars[i].Value = azcreds.tenantID
+		}
 	}
 	return azureEnvVars, nil
 }
@@ -594,20 +647,40 @@ func (r *DPAReconciler) parseAWSSecret(secret corev1.Secret, secretKey string, m
 	return AWSAccessKey, AWSSecretKey, nil
 }
 
-func (r *DPAReconciler) parseAzureSecret(secret corev1.Secret, secretKey string) (string, error) {
+func (r *DPAReconciler) parseAzureSecret(secret corev1.Secret, secretKey string) (azureCredentials, error) {
 
-	AzureStorageKey := ""
-	// this logic only supports single profile presence in the azure credentials file
-	// current support for only usage of storage account access key in credentials file, need to add logic for other options
+	azcreds := azureCredentials{}
+
 	splitString := strings.Split(string(secret.Data[secretKey]), "\n")
 	keyNameRegex, err := regexp.Compile(`\[.*\]`) //ignore lines such as [default]
 	if err != nil {
-		return AzureStorageKey, errors.New("parseAzureSecret faulty regex: keyNameRegex")
+		return azcreds, errors.New("parseAzureSecret faulty regex: keyNameRegex")
 	}
 	azureStorageKeyRegex, err := regexp.Compile(`\bAZURE_STORAGE_ACCOUNT_ACCESS_KEY\b`)
 	if err != nil {
-		return AzureStorageKey, errors.New("parseAzureSecret faulty regex: azureStorageKeyRegex")
+		return azcreds, errors.New("parseAzureSecret faulty regex: azureStorageKeyRegex")
 	}
+	azureTenantIdRegex, err := regexp.Compile(`\bAZURE_TENANT_ID\b`)
+	if err != nil {
+		return azcreds, errors.New("parseAzureSecret faulty regex: azureTenantIdRegex")
+	}
+	azureClientIdRegex, err := regexp.Compile(`\bAZURE_CLIENT_ID\b`)
+	if err != nil {
+		return azcreds, errors.New("parseAzureSecret faulty regex: azureClientIdRegex")
+	}
+	azureClientSecretRegex, err := regexp.Compile(`\bAZURE_CLIENT_SECRET\b`)
+	if err != nil {
+		return azcreds, errors.New("parseAzureSecret faulty regex: azureClientSecretRegex")
+	}
+	azureResourceGroupRegex, err := regexp.Compile(`\bAZURE_RESOURCE_GROUP\b`)
+	if err != nil {
+		return azcreds, errors.New("parseAzureSecret faulty regex: azureResourceGroupRegex")
+	}
+	azureSubscriptionIdRegex, err := regexp.Compile(`\bAZURE_SUBSCRIPTION_ID\b`)
+	if err != nil {
+		return azcreds, errors.New("parseAzureSecret faulty regex: azureSubscriptionIdRegex")
+	}
+
 	for _, line := range splitString {
 		if line == "" {
 			continue
@@ -617,30 +690,63 @@ func (r *DPAReconciler) parseAzureSecret(secret corev1.Secret, secretKey string)
 		}
 		// check for storage key
 		matchedStorageKey := azureStorageKeyRegex.MatchString(line)
+		matchedSubscriptionId := azureSubscriptionIdRegex.MatchString(line)
+		matchedTenantId := azureTenantIdRegex.MatchString(line)
+		matchedCliendId := azureClientIdRegex.MatchString(line)
+		matchedClientsecret := azureClientSecretRegex.MatchString(line)
+		matchedResourceGroup := azureResourceGroupRegex.MatchString(line)
 
-		if err != nil {
-			r.Log.Info("Error finding storage key for the supplied Azure credential")
-			return AzureStorageKey, err
-		}
-
-		if matchedStorageKey {
-			cleanedLine := strings.ReplaceAll(line, " ", "")
-			storageKeyValue := strings.Replace(cleanedLine, "AZURE_STORAGE_ACCOUNT_ACCESS_KEY=", "", -1)
-			if len(storageKeyValue) == 0 {
-				r.Log.Info("Could not parse secret for Azure Storage key")
-				return AzureStorageKey, errors.New("azure secret parsing error")
+		switch {
+		case matchedStorageKey:
+			storageKeyValue, err := r.getMatchedKeyValue("AZURE_STORAGE_ACCOUNT_ACCESS_KEY=", line)
+			if err != nil {
+				return azcreds, err
 			}
-			AzureStorageKey = storageKeyValue
-			r.Log.Info(fmt.Sprintf("Azure storage key value after parsing: %s", AzureStorageKey))
-			continue
+			azcreds.strorageAccountKey = storageKeyValue
+		case matchedSubscriptionId:
+			subscriptionIdValue, err := r.getMatchedKeyValue("AZURE_SUBSCRIPTION_ID=", line)
+			if err != nil {
+				return azcreds, err
+			}
+			azcreds.subscriptionID = subscriptionIdValue
+		case matchedCliendId:
+			clientIdValue, err := r.getMatchedKeyValue("AZURE_CLIENT_ID=", line)
+			if err != nil {
+				return azcreds, err
+			}
+			azcreds.clientID = clientIdValue
+		case matchedClientsecret:
+			clientSecretValue, err := r.getMatchedKeyValue("AZURE_CLIENT_SECRET=", line)
+			if err != nil {
+				return azcreds, err
+			}
+			azcreds.clientSecret = clientSecretValue
+		case matchedResourceGroup:
+			resourceGroupValue, err := r.getMatchedKeyValue("AZURE_RESOURCE_GROUP=", line)
+			if err != nil {
+				return azcreds, err
+			}
+			azcreds.resourceGroup = resourceGroupValue
+		case matchedTenantId:
+			tenantIdValue, err := r.getMatchedKeyValue("AZURE_TENANT_ID=", line)
+			if err != nil {
+				return azcreds, err
+			}
+			azcreds.tenantID = tenantIdValue
 		}
 	}
-	if AzureStorageKey == "" {
-		r.Log.Info("Error finding storage key for the supplied Azure credential")
-		return AzureStorageKey, errors.New("error finding storage key for the supplied Azure credential")
-	}
+	return azcreds, nil
+}
 
-	return AzureStorageKey, nil
+func (r *DPAReconciler) getMatchedKeyValue(matchedKey string, line string) (string, error) {
+	cleanedLine := strings.ReplaceAll(line, " ", "")
+	cleanedLine = strings.ReplaceAll(cleanedLine, "\"", "")
+	matchedKeyValue := strings.Replace(cleanedLine, matchedKey, "", -1)
+	if len(matchedKeyValue) == 0 {
+		r.Log.Info("Could not parse secret for %s", matchedKey)
+		return matchedKeyValue, errors.New("azure secret parsing error")
+	}
+	return matchedKeyValue, nil
 }
 
 func (r *DPAReconciler) ReconcileRegistrySVCs(log logr.Logger) (bool, error) {
