@@ -415,13 +415,14 @@ func (r *DPAReconciler) getAWSRegistryEnvVars(bsl *velerov1.BackupStorageLocatio
 			awsEnvVars[i].Value = AWSSecretKey
 		}
 
-		if awsEnvVars[i].Name == RegistryStorageS3RegionendpointEnvVarKey && bsl.Spec.Config[S3URL] != "" {
+		if awsEnvVars[i].Name == RegistryStorageS3RegionendpointEnvVarKey {
 			awsEnvVars[i].Value = bsl.Spec.Config[S3URL]
 		}
 
-		if awsEnvVars[i].Name == RegistryStorageS3SkipverifyEnvVarKey && bsl.Spec.Config[InsecureSkipTLSVerify] != "" {
+		if awsEnvVars[i].Name == RegistryStorageS3SkipverifyEnvVarKey {
 			awsEnvVars[i].Value = bsl.Spec.Config[InsecureSkipTLSVerify]
 		}
+
 	}
 	return awsEnvVars, nil
 }
