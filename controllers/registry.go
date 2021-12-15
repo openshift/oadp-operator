@@ -155,12 +155,11 @@ var cloudProviderEnvVarMap = map[string][]corev1.EnvVar{
 }
 
 type azureCredentials struct {
-	subscriptionID string
-	tenantID       string
-	clientID       string
-	clientSecret   string
-	resourceGroup  string
-	//cloudName          string
+	subscriptionID     string
+	tenantID           string
+	clientID           string
+	clientSecret       string
+	resourceGroup      string
 	strorageAccountKey string
 }
 
@@ -481,7 +480,11 @@ func (r *DPAReconciler) getAzureRegistryEnvVars(bsl *velerov1.BackupStorageLocat
 		}
 	} else {
 		r.Log.Info("Checking for service principal credentials")
-		if len(azcreds.subscriptionID) == 0 && len(azcreds.tenantID) == 0 && len(azcreds.clientID) == 0 && len(azcreds.clientSecret) == 0 && len(azcreds.resourceGroup) == 0 {
+		if len(azcreds.subscriptionID) == 0 &&
+			len(azcreds.tenantID) == 0 &&
+			len(azcreds.clientID) == 0 &&
+			len(azcreds.clientSecret) == 0 &&
+			len(azcreds.resourceGroup) == 0 {
 			return nil, errors.New("error finding service principal parameters for the supplied Azure credential")
 		}
 	}
@@ -693,46 +696,43 @@ func (r *DPAReconciler) parseAzureSecret(secret corev1.Secret, secretKey string)
 		matchedClientsecret := azureClientSecretRegex.MatchString(line)
 		matchedResourceGroup := azureResourceGroupRegex.MatchString(line)
 
-		if matchedStorageKey {
+		switch {
+		case matchedStorageKey:
 			storageKeyValue, err := r.getMatchedKeyValue("AZURE_STORAGE_ACCOUNT_ACCESS_KEY=", line)
 			if err != nil {
 				return azcreds, err
 			}
 			azcreds.strorageAccountKey = storageKeyValue
 			r.Log.Info(fmt.Sprintf("Azure storage key value after parsing: %s", azcreds.strorageAccountKey))
-		} else if matchedSubscriptionId {
+		case matchedSubscriptionId:
 			subscriptionIdValue, err := r.getMatchedKeyValue("AZURE_SUBSCRIPTION_ID=", line)
 			if err != nil {
 				return azcreds, err
 			}
 			azcreds.subscriptionID = subscriptionIdValue
 			r.Log.Info(fmt.Sprintf("Azure Subscription id value after parsing: %s", azcreds.subscriptionID))
-
-		} else if matchedCliendId {
+		case matchedCliendId:
 			clientIdValue, err := r.getMatchedKeyValue("AZURE_CLIENT_ID=", line)
 			if err != nil {
 				return azcreds, err
 			}
 			azcreds.clientID = clientIdValue
 			r.Log.Info(fmt.Sprintf("Azure Client id value after parsing: %s", azcreds.clientID))
-
-		} else if matchedClientsecret {
+		case matchedClientsecret:
 			clientSecretValue, err := r.getMatchedKeyValue("AZURE_CLIENT_SECRET=", line)
 			if err != nil {
 				return azcreds, err
 			}
 			azcreds.clientSecret = clientSecretValue
 			r.Log.Info(fmt.Sprintf("Azure Client secret value after parsing: %s", azcreds.clientSecret))
-
-		} else if matchedResourceGroup {
+		case matchedResourceGroup:
 			resourceGroupValue, err := r.getMatchedKeyValue("AZURE_RESOURCE_GROUP=", line)
 			if err != nil {
 				return azcreds, err
 			}
 			azcreds.resourceGroup = resourceGroupValue
 			r.Log.Info(fmt.Sprintf("Azure Resource group value after parsing: %s", azcreds.resourceGroup))
-
-		} else if matchedTenantId {
+		case matchedTenantId:
 			tenantIdValue, err := r.getMatchedKeyValue("AZURE_TENANT_ID=", line)
 			if err != nil {
 				return azcreds, err
