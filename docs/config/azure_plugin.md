@@ -1,5 +1,5 @@
 <hr style="height:1px;border:none;color:#333;">
-<h1 align="center">Various Authentication Mechanism for Azure Plugin </h1>
+<h1 align="center">Authentication Methods for Azure Plugin </h1>
 
 ### Using Service Principal Credentials
 1. To use Service Principal as authentication mechanism, create a credential file using the following command,
