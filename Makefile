@@ -138,18 +138,28 @@ install: manifests kustomize ## Install CRDs into the K8s cluster specified in ~
 uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified in ~/.kube/config.
 	$(KUSTOMIZE) build config/crd | kubectl delete -f -
 
-deploy: manifests kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/config.
+DEPLOY_TMP=/tmp/oadp-make-deploy
+deploy-tmp: kustomize
+	mkdir -p $(DEPLOY_TMP)
+	sed -e 's/namespace: system/namespace: $(OADP_TEST_NAMESPACE)/g' config/velero/velero-service_account.yaml > $(DEPLOY_TMP)/velero-service_account.yaml
+	sed -e 's/namespace: system/namespace: $(OADP_TEST_NAMESPACE)/g' config/velero/velero-role.yaml > $(DEPLOY_TMP)/velero-role.yaml
+	sed -e 's/namespace: system/namespace: $(OADP_TEST_NAMESPACE)/g' config/velero/velero-role_binding.yaml > $(DEPLOY_TMP)/velero-role_binding.yaml
+deploy-tmp-cleanup:
+	rm -rf $(DEPLOY_TMP)
+deploy: manifests deploy-tmp  ## Deploy controller to the K8s cluster specified in ~/.kube/config.
 	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
 	$(KUSTOMIZE) build config/default | kubectl apply -f -
-	kubectl apply -f config/velero/velero-service_account.yaml
-	kubectl apply -f config/velero/velero-role.yaml
-	kubectl apply -f config/velero/velero-role_binding.yaml
+	kubectl apply -f $(DEPLOY_TMP)/velero-service_account.yaml
+	kubectl apply -f $(DEPLOY_TMP)/velero-role.yaml
+	kubectl apply -f $(DEPLOY_TMP)/velero-role_binding.yaml
+	make deploy-tmp-cleanup
 
-undeploy: kustomize ## Undeploy controller from the K8s cluster specified in ~/.kube/config.
-	kubectl delete -f config/velero/velero-service_account.yaml
-	kubectl delete -f config/velero/velero-role.yaml
-	kubectl delete -f config/velero/velero-role_binding.yaml
+undeploy: deploy-tmp ## Undeploy controller from the K8s cluster specified in ~/.kube/config.
+	kubectl delete -f $(DEPLOY_TMP)/velero-service_account.yaml
+	kubectl delete -f $(DEPLOY_TMP)/velero-role.yaml
+	kubectl delete -f $(DEPLOY_TMP)/velero-role_binding.yaml
 	$(KUSTOMIZE) build config/default | kubectl delete -f -
+	make deploy-tmp-cleanup
 
 build-deploy: THIS_IMAGE=ttl.sh/oadp-operator-$(shell git rev-parse --short HEAD):1h # Set target specific variable
 build-deploy: ## Build current branch image and deploy controller to the k8s cluster specified in ~/.kube/config.
