@@ -16,7 +16,7 @@ EOF
 ```
 
 <b>Note:</b> 
-- Make sure to include `AZURE_STORAGE_ACCOUNT_ACCESS_KEY` in the credentails file, as it is required by the Azure registry pod operations.
+- Make sure to include `AZURE_STORAGE_ACCOUNT_ACCESS_KEY` in the credentails file, as it is required by the Azure registry pod to perform registry related operations.
 
 2. Once you have the credentials file, create the secret using the following command,
 
