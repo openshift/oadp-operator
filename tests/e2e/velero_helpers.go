@@ -188,8 +188,17 @@ func getVeleroPods(namespace string) (*corev1.PodList, error) {
 	return podList, nil
 }
 
-func isVeleroPodRunning(namespace string) wait.ConditionFunc {
+func isVeleroPodRunning(namespace string, v *dpaCustomResource) wait.ConditionFunc {
 	return func() (bool, error) {
+		err := v.SetClient()
+		if err != nil {
+			return false, err
+		}
+		dpa, err := v.Get()
+		if err != nil {
+			return false, err
+		}
+
 		podList, err := getVeleroPods(namespace)
 		if err != nil {
 			return false, err
@@ -199,7 +208,7 @@ func isVeleroPodRunning(namespace string) wait.ConditionFunc {
 		for _, podInfo := range (*podList).Items {
 			status = string(podInfo.Status.Phase)
 		}
-		if status == "Running" {
+		if status == "Running" && dpa.Status.Conditions[0].Status == "True" {
 			return true, nil
 		}
 		return false, err

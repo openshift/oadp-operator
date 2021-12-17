@@ -50,10 +50,19 @@ func waitForDesiredResticPods(namespace string) error {
 	return wait.PollImmediate(time.Second*5, time.Minute*2, hasCorrectNumResticPods(namespace))
 }
 
-func areResticPodsRunning(namespace string) wait.ConditionFunc {
+func areResticPodsRunning(namespace string,v *dpaCustomResource) wait.ConditionFunc {
 	log.Printf("Checking for correct number of running Restic pods...")
 	return func() (bool, error) {
-		err := waitForDesiredResticPods(namespace)
+		err := v.SetClient()
+		if err != nil {
+			return false, err
+		}
+		dpa, err := v.Get()
+		if err != nil {
+			return false, err
+		}
+
+		err = waitForDesiredResticPods(namespace)
 		if err != nil {
 			return false, err
 		}
@@ -66,16 +75,16 @@ func areResticPodsRunning(namespace string) wait.ConditionFunc {
 		}
 		// get pods in the oadp-operator-e2e namespace with label selector
 		podList, err := client.CoreV1().Pods(namespace).List(context.TODO(), resticPodOptions)
-		if err != nil {
+		if err != nil && apierrors.IsNotFound(err) {
 			return false, nil
 		}
 		// loop until pod status is 'Running' or timeout
 		for _, podInfo := range (*podList).Items {
-			if podInfo.Status.Phase != "Running" {
-				return false, err
+			if podInfo.Status.Phase == "Running" && dpa.Status.Conditions[0].Status == "True" {
+				return true, nil
 			}
 		}
-		return true, err
+		return false, err
 	}
 }
 

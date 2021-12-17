@@ -72,11 +72,11 @@ var _ = Describe("AWS backup restore tests", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			log.Printf("Waiting for velero pod to be running")
-			Eventually(isVeleroPodRunning(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
+			Eventually(isVeleroPodRunning(namespace,vel), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 
 			if brCase.BackupRestoreType == restic {
 				log.Printf("Waiting for restic pods to be running")
-				Eventually(areResticPodsRunning(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
+				Eventually(areResticPodsRunning(namespace,vel), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 			}
 
 			if brCase.BackupRestoreType == csi {
@@ -91,7 +91,7 @@ var _ = Describe("AWS backup restore tests", func() {
 
 			if vel.CustomResource.Spec.BackupImages == nil || *vel.CustomResource.Spec.BackupImages {
 				log.Printf("Waiting for registry pods to be running")
-				Eventually(areRegistryDeploymentsAvailable(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
+				Eventually(areRegistryDeploymentsAvailable(namespace,vel), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 			}
 			if notVersionTarget, reason := NotServerVersionTarget(brCase.MinK8SVersion, brCase.MaxK8SVersion); notVersionTarget {
 				Skip(reason)

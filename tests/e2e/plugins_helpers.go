@@ -35,8 +35,17 @@ func (d *dpaCustomResource) removeVeleroPlugin(namespace string, instanceName st
 	return nil
 }
 
-func doesPluginExist(namespace string, plugin oadpv1alpha1.DefaultPlugin) wait.ConditionFunc {
+func doesPluginExist(namespace string, plugin oadpv1alpha1.DefaultPlugin, v *dpaCustomResource) wait.ConditionFunc {
 	return func() (bool, error) {
+		err := v.SetClient()
+		if err != nil {
+			return false, err
+		}
+		dpa, err := v.Get()
+		if err != nil {
+			return false, err
+		}
+
 		clientset, err := setUpClient()
 		if err != nil {
 			return false, err
@@ -49,7 +58,7 @@ func doesPluginExist(namespace string, plugin oadpv1alpha1.DefaultPlugin) wait.C
 
 		for _, container := range veleroDeployment.Spec.Template.Spec.InitContainers {
 			if p, ok := credentials.PluginSpecificFields[plugin]; ok {
-				if container.Name == p.PluginName {
+				if container.Name == p.PluginName && dpa.Status.Conditions[0].Status == "True" {
 					return true, nil
 				}
 			}

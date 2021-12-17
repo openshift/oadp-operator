@@ -11,9 +11,19 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
-func areRegistryDeploymentsAvailable(namespace string) wait.ConditionFunc {
+func areRegistryDeploymentsAvailable(namespace string, v *dpaCustomResource) wait.ConditionFunc {
 	log.Printf("Checking for available registry deployments")
 	return func() (bool, error) {
+		err := v.SetClient()
+		if err != nil {
+			return false, err
+		}
+		dpa, err := v.Get()
+		if err != nil {
+			return false, err
+		}
+
+
 		client, err := setUpClient()
 		if err != nil {
 			return false, err
@@ -32,11 +42,11 @@ func areRegistryDeploymentsAvailable(namespace string) wait.ConditionFunc {
 		// loop until deployment status is 'Running' or timeout
 		for _, deploymentInfo := range deploymentList.Items {
 			for _, conditions := range deploymentInfo.Status.Conditions {
-				if conditions.Type == appsv1.DeploymentAvailable && conditions.Status != corev1.ConditionTrue {
-					return false, fmt.Errorf("registry deployment is not yet available.\nconditions: %v", deploymentInfo.Status.Conditions)
+				if conditions.Type == appsv1.DeploymentAvailable && conditions.Status == corev1.ConditionTrue && dpa.Status.Conditions[0].Status == "True" {
+					return true, nil
 				}
 			}
 		}
-		return true, nil
+		return false, fmt.Errorf("registry deployment is not yet available")
 	}
 }
