@@ -70,14 +70,14 @@ var _ = Describe("Subscription Config Suite Test", func() {
 				velero, err := vel.Get()
 				Expect(err).NotTo(HaveOccurred())
 				log.Printf("Waiting for velero pod to be running")
-				Eventually(isVeleroPodRunning(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
+				Eventually(isVeleroPodRunning(namespace,vel), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 				if velero.Spec.Configuration.Restic.Enable != nil && *velero.Spec.Configuration.Restic.Enable {
 					log.Printf("Waiting for restic pods to be running")
-					Eventually(areResticPodsRunning(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
+					Eventually(areResticPodsRunning(namespace,vel), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 				}
 				if velero.Spec.BackupImages == nil || *velero.Spec.BackupImages {
 					log.Printf("Waiting for registry pods to be running")
-					Eventually(areRegistryDeploymentsAvailable(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
+					Eventually(areRegistryDeploymentsAvailable(namespace,vel), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 				}
 				if s.Spec.Config != nil && s.Spec.Config.Env != nil {
 					// get pod env vars
