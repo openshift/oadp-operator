@@ -186,7 +186,7 @@ func (r *DPAReconciler) validateAWSBackupStorageLocation(bslSpec velerov1.Backup
 	}
 	// BSL region is required when s3ForcePathStyle is true
 	if len(bslSpec.Config[Region]) == 0 && bslSpec.Config[S3ForcePathStyle] == "true" {
-		return fmt.Errorf("region for AWS backupstoragelocation cannot be empty")
+		return fmt.Errorf("region for AWS backupstoragelocation cannot be empty when s3ForcePathStyle is true")
 	}
 
 	//TODO: Add minio, noobaa, local storage validations

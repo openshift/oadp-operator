@@ -37,6 +37,8 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 			if installCase.WantError {
 				// Eventually()
 				log.Printf("Test case expected to error. Waiting for the error to show in DPA Status")
+				Eventually(vel.GetNoErr().Status.Conditions[0].Type, timeoutMultiplier*time.Minute*3, time.Second*5).Should(Equal("Reconciled"))
+				Eventually(vel.GetNoErr().Status.Conditions[0].Status, timeoutMultiplier*time.Minute*3, time.Second*5).Should(Equal(v1.ConditionFalse))
 				Eventually(vel.GetNoErr().Status.Conditions[0].Reason, timeoutMultiplier*time.Minute*3, time.Second*5).Should(Equal("Error"))
 				Eventually(vel.GetNoErr().Status.Conditions[0].Message, timeoutMultiplier*time.Minute*3, time.Second*5).Should(Equal(expectedErr.Error()))
 				return
@@ -703,6 +705,6 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 				},
 			},
 			WantError: true,
-		}, fmt.Errorf("region for AWS backupstoragelocation cannot be empty")),
+		}, fmt.Errorf("region for AWS backupstoragelocation cannot be empty when s3ForcePathStyle is true")),
 	)
 })
