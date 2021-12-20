@@ -151,6 +151,9 @@ func (r *DPAReconciler) updateBSLFromSpec(bsl *velerov1.BackupStorageLocation, d
 	if err != nil {
 		return err
 	}
+	// While using Service Principal as Azure credentials, `storageAccountKeyEnvVar` value is not required to be set.
+	// Howver, the registry deployemnt fails without a valid storage account key.
+	// Thi slogic prevents the registry pods from being deployed if Azure SP is used as an auth mechanism
 	registryDeployment := "True"
 	if bslSpec.Provider == "azure" {
 		if len(bslSpec.Config["storageAccountKeyEnvVar"]) == 0 {
