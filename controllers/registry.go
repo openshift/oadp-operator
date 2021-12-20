@@ -306,11 +306,12 @@ func (r *DPAReconciler) buildRegistryDeployment(registryDeployment *appsv1.Deplo
 
 func (r *DPAReconciler) getRegistryBSLLabels(bsl *velerov1.BackupStorageLocation) map[string]string {
 	labels := map[string]string{
-		"app.kubernetes.io/name":       common.OADPOperatorVelero,
-		"app.kubernetes.io/instance":   registryName(bsl),
-		"app.kubernetes.io/managed-by": common.OADPOperator,
-		"app.kubernetes.io/component":  Registry,
-		oadpv1alpha1.OadpOperatorLabel: "True",
+		"app.kubernetes.io/name":             common.OADPOperatorVelero,
+		"app.kubernetes.io/instance":         registryName(bsl),
+		"app.kubernetes.io/managed-by":       common.OADPOperator,
+		"app.kubernetes.io/component":        Registry,
+		oadpv1alpha1.OadpOperatorLabel:       "True",
+		oadpv1alpha1.RegistryDeploymentLabel: "True",
 	}
 	return labels
 }

@@ -29,6 +29,7 @@ const ReconciledReasonError = "Error"
 const ReconcileCompleteMessage = "Reconcile complete"
 
 const OadpOperatorLabel = "openshift.io/oadp"
+const RegistryDeploymentLabel = "openshift.io/registryDeployed"
 
 type DefaultPlugin string
 
