@@ -61,10 +61,10 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	vel = &dpaCustomResource{
-		Namespace: namespace,
-		Region:    region,
-		Bucket:    s3Bucket,
-		Provider:  provider,
+		Namespace:      namespace,
+		Region:         region,
+		Bucket:         s3Bucket,
+		Provider:       provider,
 		ClusterProfile: clusterProfile,
 	}
 	testSuiteInstanceName := "ts-" + instanceName

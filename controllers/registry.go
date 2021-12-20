@@ -67,6 +67,7 @@ const (
 	Region                = "region"
 	Profile               = "profile"
 	S3URL                 = "s3Url"
+	S3ForcePathStyle      = "s3ForcePathStyle"
 	InsecureSkipTLSVerify = "insecureSkipTLSVerify"
 	StorageAccount        = "storageAccount"
 	ResourceGroup         = "resourceGroup"
