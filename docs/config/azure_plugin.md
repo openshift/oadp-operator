@@ -10,13 +10,24 @@ AZURE_TENANT_ID=${AZURE_TENANT_ID}
 AZURE_CLIENT_ID=${AZURE_CLIENT_ID}
 AZURE_CLIENT_SECRET=${AZURE_CLIENT_SECRET}
 AZURE_RESOURCE_GROUP=${AZURE_RESOURCE_GROUP}
-AZURE_STORAGE_ACCOUNT_ACCESS_KEY=${AZURE_STORAGE_ACCOUNT_ACCESS_KEY}
 AZURE_CLOUD_NAME=AzurePublicCloud
 EOF
 ```
 
 <b>Note:</b> 
-- Make sure to include `AZURE_STORAGE_ACCOUNT_ACCESS_KEY` in the credentails file, as it is required by the Azure registry pod to perform registry related operations.
+- Servical Principal credentials does not support backing up of images. 
+- If you are looking for that feature, please add storage access key to the credentials as follows,
+ ```
+cat << EOF  > ./credentials-velero
+AZURE_SUBSCRIPTION_ID=${AZURE_SUBSCRIPTION_ID}
+AZURE_TENANT_ID=${AZURE_TENANT_ID}
+AZURE_CLIENT_ID=${AZURE_CLIENT_ID}
+AZURE_CLIENT_SECRET=${AZURE_CLIENT_SECRET}
+AZURE_RESOURCE_GROUP=${AZURE_RESOURCE_GROUP}
+AZURE_STORAGE_ACCOUNT_ACCESS_KEY=${AZURE_STORAGE_ACCOUNT_ACCESS_KEY}
+AZURE_CLOUD_NAME=AzurePublicCloud
+EOF
+```
 
 2. Once you have the credentials file, create the secret using the following command,
 
