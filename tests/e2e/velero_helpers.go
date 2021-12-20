@@ -130,6 +130,11 @@ func (v *dpaCustomResource) Get() (*oadpv1alpha1.DataProtectionApplication, erro
 	return &vel, nil
 }
 
+func (v *dpaCustomResource) GetNoErr() *oadpv1alpha1.DataProtectionApplication {
+	dpa, _ := v.Get()
+	return dpa
+}
+
 func (v *dpaCustomResource) CreateOrUpdate(spec *oadpv1alpha1.DataProtectionApplicationSpec) error {
 	cr, err := v.Get()
 	if apierrors.IsNotFound(err) {

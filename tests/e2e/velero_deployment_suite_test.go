@@ -1,6 +1,7 @@
 package e2e
 
 import (
+	"fmt"
 	"log"
 	"time"
 
@@ -33,6 +34,13 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 			Expect(err).NotTo(HaveOccurred())
 			err = vel.CreateOrUpdate(installCase.DpaSpec)
 			Expect(err).ToNot(HaveOccurred())
+			if installCase.WantError {
+				// Eventually()
+				log.Printf("Test case expected to error. Waiting for the error to show in DPA Status")
+				Eventually(vel.GetNoErr().Status.Conditions[0].Reason, timeoutMultiplier*time.Minute*3, time.Second*5).Should(Equal("Error"))
+				Eventually(vel.GetNoErr().Status.Conditions[0].Message, timeoutMultiplier*time.Minute*3, time.Second*5).Should(Equal(expectedErr.Error()))
+				return
+			}
 			log.Printf("Waiting for velero pod to be running")
 			Eventually(isVeleroPodRunning(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 			dpa, err := vel.Get()
@@ -695,6 +703,6 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 				},
 			},
 			WantError: true,
-		}, nil),
+		}, fmt.Errorf("region for AWS backupstoragelocation cannot be empty")),
 	)
 })
