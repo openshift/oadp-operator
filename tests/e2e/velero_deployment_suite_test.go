@@ -94,9 +94,11 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 				}
 			}
 
-			for key, value := range dpa.Spec.Configuration.Restic.PodConfig.NodeSelector {
-				log.Printf("Waiting for restic daemonset to get node selector")
-				Eventually(resticDaemonSetHasNodeSelector(namespace, key, value), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
+			if dpa.Spec.Configuration.Restic != nil && dpa.Spec.Configuration.Restic.PodConfig != nil {
+				for key, value := range dpa.Spec.Configuration.Restic.PodConfig.NodeSelector {
+					log.Printf("Waiting for restic daemonset to get node selector")
+					Eventually(resticDaemonSetHasNodeSelector(namespace, key, value), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
+				}
 			}
 			if dpa.Spec.BackupImages == nil || *installCase.DpaSpec.BackupImages {
 				log.Printf("Waiting for registry pods to be running")
