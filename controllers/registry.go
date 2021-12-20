@@ -192,7 +192,7 @@ func (r *DPAReconciler) ReconcileRegistries(log logr.Logger) (bool, error) {
 			},
 		}
 
-		if dpa.Spec.BackupImages != nil && !*dpa.Spec.BackupImages {
+		if !dpa.BackupImages() {
 			deleteContext := context.Background()
 			if err := r.Get(deleteContext, types.NamespacedName{
 				Name:      registryDeployment.Name,
@@ -438,7 +438,12 @@ func (r *DPAReconciler) getAWSRegistryEnvVars(bsl *velerov1.BackupStorageLocatio
 		}
 
 		if awsEnvVars[i].Name == RegistryStorageS3RegionEnvVarKey {
-			awsEnvVars[i].Value = bsl.Spec.Config[Region]
+			bslSpecRegion, regionInConfig := bsl.Spec.Config[Region]
+			if regionInConfig {
+				awsEnvVars[i].Value = bslSpecRegion
+			} else {
+				r.Log.Info("region not found in backupstoragelocation spec")
+			}
 		}
 
 		if awsEnvVars[i].Name == RegistryStorageS3SecretkeyEnvVarKey {
@@ -778,7 +783,7 @@ func (r *DPAReconciler) ReconcileRegistrySVCs(log logr.Logger) (bool, error) {
 				},
 			}
 
-			if dpa.Spec.BackupImages != nil && !*dpa.Spec.BackupImages {
+			if !dpa.BackupImages() {
 				deleteContext := context.Background()
 				if err := r.Get(deleteContext, types.NamespacedName{
 					Name:      svc.Name,
@@ -887,7 +892,7 @@ func (r *DPAReconciler) ReconcileRegistryRoutes(log logr.Logger) (bool, error) {
 				},
 			}
 
-			if dpa.Spec.BackupImages != nil && !*dpa.Spec.BackupImages {
+			if !dpa.BackupImages() {
 				deleteContext := context.Background()
 				if err := r.Get(deleteContext, types.NamespacedName{
 					Name:      route.Name,
@@ -979,7 +984,7 @@ func (r *DPAReconciler) ReconcileRegistryRouteConfigs(log logr.Logger) (bool, er
 				},
 			}
 
-			if dpa.Spec.BackupImages != nil && !*dpa.Spec.BackupImages {
+			if !dpa.BackupImages() {
 				deleteContext := context.Background()
 				if err := r.Get(deleteContext, types.NamespacedName{
 					Name:      registryRouteCM.Name,

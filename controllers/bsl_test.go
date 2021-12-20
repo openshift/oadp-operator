@@ -1047,7 +1047,7 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 			},
 		},
 		{
-			name: "BSL Region not set for aws provider without S3ForcePathStyle expect to succeed",
+			name: "BSL Region not set for aws provider without S3ForcePathStyle expect to fail",
 			dpa: &oadpv1alpha1.DataProtectionApplication{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "foo",
@@ -1072,23 +1072,17 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 					},
 				},
 			},
-			secret: &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "cloud-credentials",
-					Namespace: "test-ns",
-				},
-			},
-			want:    true,
-			wantErr: false,
+			wantErr: true,
 		},
 		{
-			name: "BSL Region not set for aws provider with S3ForcePathStyle expect to fail",
+			name: "BSL Region not set for aws provider without S3ForcePathStyle with BackupImages false expect to succeed",
 			dpa: &oadpv1alpha1.DataProtectionApplication{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "foo",
 					Namespace: "test-ns",
 				},
 				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					BackupImages: pointer.Bool(false),
 					Configuration: &oadpv1alpha1.ApplicationConfig{
 						Velero: &oadpv1alpha1.VeleroConfig{},
 					},
@@ -1096,9 +1090,6 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 						{
 							Velero: &velerov1.BackupStorageLocationSpec{
 								Provider: "aws",
-								Config: map[string]string{
-									S3ForcePathStyle: "true",
-								},
 								StorageType: velerov1.StorageType{
 									ObjectStorage: &velerov1.ObjectStorageLocation{
 										Bucket: "bucket",
@@ -1157,6 +1148,44 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 			},
 			want:    true,
 			wantErr: false,
+		},
+		{
+			name: "BSL Region not set for aws provider with S3ForcePathStyle expect to fail",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{},
+					},
+					BackupLocations: []oadpv1alpha1.BackupLocation{
+						{
+							Velero: &velerov1.BackupStorageLocationSpec{
+								Provider: "aws",
+								Config: map[string]string{
+									S3ForcePathStyle: "true",
+								},
+								StorageType: velerov1.StorageType{
+									ObjectStorage: &velerov1.ObjectStorageLocation{
+										Bucket: "bucket",
+										Prefix: "prefix",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cloud-credentials",
+					Namespace: "test-ns",
+				},
+			},
+			want:    false,
+			wantErr: true,
 		},
 	}
 	for _, tt := range tests {

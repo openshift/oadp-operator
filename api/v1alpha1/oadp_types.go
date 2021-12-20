@@ -203,7 +203,7 @@ type DataProtectionApplicationList struct {
 }
 
 // Default BackupImages behavior when nil to true
-func (dpa *DataProtectionApplication) BSLPrefixRequired() bool {
+func (dpa *DataProtectionApplication) BackupImages() bool {
 	return dpa.Spec.BackupImages == nil || *dpa.Spec.BackupImages
 }
 
