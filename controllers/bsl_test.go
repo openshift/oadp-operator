@@ -1063,8 +1063,13 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 								Provider: "aws",
 								StorageType: velerov1.StorageType{
 									ObjectStorage: &velerov1.ObjectStorageLocation{
-										Bucket: "bucket",
-										Prefix: "prefix",
+										Bucket: "test-aws-bucket",
+										Prefix: "test-prefix",
+									},
+								},
+								Credential: &corev1.SecretKeySelector{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: "cloud-credentials",
 									},
 								},
 							},
@@ -1072,7 +1077,14 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 					},
 				},
 			},
+			want:    false,
 			wantErr: true,
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cloud-credentials",
+					Namespace: "test-ns",
+				},
+			},
 		},
 		{
 			name: "BSL Region not set for aws provider without S3ForcePathStyle with BackupImages false expect to succeed",
@@ -1107,8 +1119,8 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 					Namespace: "test-ns",
 				},
 			},
-			want:    false,
-			wantErr: true,
+			want:    true,
+			wantErr: false,
 		},
 		{
 			name: "BSL Region set for aws provider with S3ForcePathStyle expect to succeed",
