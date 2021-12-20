@@ -151,14 +151,23 @@ func (r *DPAReconciler) updateBSLFromSpec(bsl *velerov1.BackupStorageLocation, d
 	if err != nil {
 		return err
 	}
-
+	// While using Service Principal as Azure credentials, `storageAccountKeyEnvVar` value is not required to be set.
+	// However, the registry deployment fails without a valid storage account key.
+	// This logic prevents the registry pods from being deployed if Azure SP is used as an auth mechanism.
+	registryDeployment := "True"
+	if bslSpec.Provider == "azure" {
+		if len(bslSpec.Config["storageAccountKeyEnvVar"]) == 0 {
+			registryDeployment = "False"
+		}
+	}
 	bsl.Labels = map[string]string{
 		"app.kubernetes.io/name":     "oadp-operator-velero",
 		"app.kubernetes.io/instance": bsl.Name,
 		//"app.kubernetes.io/version":    "x.y.z",
-		"app.kubernetes.io/managed-by": "oadp-operator",
-		"app.kubernetes.io/component":  "bsl",
-		oadpv1alpha1.OadpOperatorLabel: "True",
+		"app.kubernetes.io/managed-by":       "oadp-operator",
+		"app.kubernetes.io/component":        "bsl",
+		oadpv1alpha1.OadpOperatorLabel:       "True",
+		oadpv1alpha1.RegistryDeploymentLabel: registryDeployment,
 	}
 	bsl.Spec = bslSpec
 

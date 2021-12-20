@@ -170,9 +170,10 @@ func (r *DPAReconciler) ReconcileRegistries(log logr.Logger) (bool, error) {
 	}
 
 	bslLabels := map[string]string{
-		"app.kubernetes.io/name":       "oadp-operator-velero",
-		"app.kubernetes.io/managed-by": "oadp-operator",
-		"app.kubernetes.io/component":  "bsl",
+		"app.kubernetes.io/name":             "oadp-operator-velero",
+		"app.kubernetes.io/managed-by":       "oadp-operator",
+		"app.kubernetes.io/component":        "bsl",
+		oadpv1alpha1.RegistryDeploymentLabel: "True",
 	}
 	bslListOptions := client.MatchingLabels(bslLabels)
 	backupStorageLocationList := velerov1.BackupStorageLocationList{}
@@ -306,11 +307,12 @@ func (r *DPAReconciler) buildRegistryDeployment(registryDeployment *appsv1.Deplo
 
 func (r *DPAReconciler) getRegistryBSLLabels(bsl *velerov1.BackupStorageLocation) map[string]string {
 	labels := map[string]string{
-		"app.kubernetes.io/name":       common.OADPOperatorVelero,
-		"app.kubernetes.io/instance":   registryName(bsl),
-		"app.kubernetes.io/managed-by": common.OADPOperator,
-		"app.kubernetes.io/component":  Registry,
-		oadpv1alpha1.OadpOperatorLabel: "True",
+		"app.kubernetes.io/name":             common.OADPOperatorVelero,
+		"app.kubernetes.io/instance":         registryName(bsl),
+		"app.kubernetes.io/managed-by":       common.OADPOperator,
+		"app.kubernetes.io/component":        Registry,
+		oadpv1alpha1.OadpOperatorLabel:       "True",
+		oadpv1alpha1.RegistryDeploymentLabel: "True",
 	}
 	return labels
 }
