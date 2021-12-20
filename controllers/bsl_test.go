@@ -1121,9 +1121,10 @@ func TestDPAReconciler_updateBSLFromSpec(t *testing.T) {
 						"app.kubernetes.io/name":     "oadp-operator-velero",
 						"app.kubernetes.io/instance": tt.dpa.Name + "-1",
 						//"app.kubernetes.io/version":    "x.y.z",
-						"app.kubernetes.io/managed-by": "oadp-operator",
-						"app.kubernetes.io/component":  "bsl",
-						oadpv1alpha1.OadpOperatorLabel: "True",
+						"app.kubernetes.io/managed-by":       "oadp-operator",
+						"app.kubernetes.io/component":        "bsl",
+						oadpv1alpha1.OadpOperatorLabel:       "True",
+						oadpv1alpha1.RegistryDeploymentLabel: "True",
 					},
 					OwnerReferences: []metav1.OwnerReference{{
 						APIVersion:         oadpv1alpha1.SchemeBuilder.GroupVersion.String(),

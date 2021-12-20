@@ -294,11 +294,12 @@ func TestDPAReconciler_buildRegistryDeployment(t *testing.T) {
 					Name:      "test-registry",
 					Namespace: "test-ns",
 					Labels: map[string]string{
-						"app.kubernetes.io/name":       common.OADPOperatorVelero,
-						"app.kubernetes.io/instance":   "oadp-" + tt.bsl.Name + "-" + tt.bsl.Spec.Provider + "-registry",
-						"app.kubernetes.io/managed-by": common.OADPOperator,
-						"app.kubernetes.io/component":  Registry,
-						oadpv1alpha1.OadpOperatorLabel: "True",
+						"app.kubernetes.io/name":             common.OADPOperatorVelero,
+						"app.kubernetes.io/instance":         "oadp-" + tt.bsl.Name + "-" + tt.bsl.Spec.Provider + "-registry",
+						"app.kubernetes.io/managed-by":       common.OADPOperator,
+						"app.kubernetes.io/component":        Registry,
+						oadpv1alpha1.OadpOperatorLabel:       "True",
+						oadpv1alpha1.RegistryDeploymentLabel: "True",
 					},
 					OwnerReferences: []metav1.OwnerReference{
 						{
