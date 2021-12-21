@@ -158,12 +158,12 @@ metadata:
     capabilities: Seamless Upgrades
     categories: OpenShift Optional
     certified: "false"
-    containerImage: quay.io/konveyor/oadp-operator:latest
+    containerImage: quay.io/konveyor/oadp-operator@sha256:48c69b13b9586a794b7ab4d783241ef3f48b3217f862d008f0260c9473918b92
     createdAt: "2020-09-08T12:21:00Z"
     description: |-
       OADP (OpenShift API for Data Protection) operator sets up and installs
       Velero on the OpenShift platform.
-    olm.skipRange: '>=0.0.0 <99.0.0'
+    olm.skipRange: '>=0.0.0 <0.5.3'
     operatorframework.io/cluster-monitoring: "true"
     operatorframework.io/suggested-namespace: openshift-adp
     operators.openshift.io/infrastructure-features: '["Disconnected"]'
@@ -176,9 +176,13 @@ metadata:
     operatorframework.io/arch.arm64: supported
     operatorframework.io/arch.ppc64le: supported
     operatorframework.io/arch.s390x: supported
-  name: oadp-operator.v99.0.0
+  name: oadp-operator.v0.5.3
   namespace: openshift-adp
 spec:
+  skips:
+  - oadp-operator.v0.5.0
+  - oadp-operator.v0.5.1
+  - oadp-operator.v0.5.2
   apiservicedefinitions: {}
   customresourcedefinitions:
     owned:
@@ -449,38 +453,38 @@ spec:
                       - name: PROJECT
                         value: konveyor
                       - name: VELERO_REGISTRY_REPO
-                        value: registry
+                        value: registry@sha256
                       - name: VELERO_REGISTRY_TAG
-                        value: latest
+                        value: c3eaca3aa3e1c29f0da25a245d3e27e378074ee79c8afd0436887586a88793b8
                       - name: VELERO_REPO
-                        value: velero
+                        value: velero@sha256
                       - name: VELERO_OPENSHIFT_PLUGIN_REPO
-                        value: openshift-velero-plugin
+                        value: openshift-velero-plugin@sha256
                       - name: VELERO_OPENSHIFT_PLUGIN_TAG
-                        value: latest
+                        value: 831ac7cb12d1b6975b1f725a3b0fe610891048f67a5796a5bfe401dd578892b6
                       - name: VELERO_RESTIC_RESTORE_HELPER_REPO
-                        value: velero-restic-restore-helper
+                        value: velero-restic-restore-helper@sha256
                       - name: VELERO_AWS_PLUGIN_REPO
-                        value: velero-plugin-for-aws
+                        value: velero-plugin-for-aws@sha256
                       - name: VELERO_GCP_PLUGIN_REPO
-                        value: velero-plugin-for-gcp
+                        value: velero-plugin-for-gcp@sha256
                       - name: VELERO_AZURE_PLUGIN_REPO
-                        value: velero-plugin-for-microsoft-azure
+                        value: velero-plugin-for-microsoft-azure@sha256
                       - name: VELERO_CSI_PLUGIN_REPO
-                        value: velero-plugin-for-csi
+                        value: velero-plugin-for-csi@sha256
                       - name: VELERO_TAG
-                        value: latest
+                        value: 4dd78cad2e651f3fe67a8d231a01ae85422ffd6f861bea9a351095628f2f5119
                       - name: VELERO_RESTIC_RESTORE_HELPER_TAG
-                        value: latest
+                        value: 1f77be02420868794068636341d713f373da1d30206ea03b647be1a8174eb121
                       - name: VELERO_AWS_PLUGIN_TAG
-                        value: latest
+                        value: 32e1eca7dfb8ed0faf91b1bcb7bf8f388afd5d335380408f07a27edcd4f502ff
                       - name: VELERO_GCP_PLUGIN_TAG
-                        value: latest
+                        value: 55680ecd72ea94b1956ad09985e01fbf7794f963124dc9b8588763d6b5dc0dc9
                       - name: VELERO_AZURE_PLUGIN_TAG
-                        value: latest
+                        value: b9953dfe968063af1382aeaba608f1206e2fd3a7755c5dac83455ebce1fa2c99
                       - name: VELERO_CSI_PLUGIN_TAG
-                        value: latest
-                    image: quay.io/konveyor/oadp-operator:latest
+                        value: 3b3476f6731b2276fc3ec5cc5f99fbfb9c0d5c0df20cdb084701016b97aa7e15
+                    image: quay.io/konveyor/oadp-operator@sha256:48c69b13b9586a794b7ab4d783241ef3f48b3217f862d008f0260c9473918b92
                     imagePullPolicy: Always
                     livenessProbe:
                       httpGet:
@@ -586,20 +590,21 @@ spec:
   provider:
     name: Red Hat
   relatedImages:
-    - image: quay.io/konveyor/velero:latest
+    - image: quay.io/konveyor/velero@sha256:4dd78cad2e651f3fe67a8d231a01ae85422ffd6f861bea9a351095628f2f5119
       name: velero
-    - image: quay.io/konveyor/velero-restic-restore-helper:latest
+    - image: quay.io/konveyor/velero-restic-restore-helper@sha256:1f77be02420868794068636341d713f373da1d30206ea03b647be1a8174eb121
       name: velero_restic_restore_helper
-    - image: quay.io/konveyor/openshift-velero-plugin:latest
+    - image: quay.io/konveyor/openshift-velero-plugin@sha256:831ac7cb12d1b6975b1f725a3b0fe610891048f67a5796a5bfe401dd578892b6
       name: openshift_plugin
-    - image: quay.io/konveyor/velero-plugin-for-aws:latest
+    - image: quay.io/konveyor/velero-plugin-for-aws@sha256:32e1eca7dfb8ed0faf91b1bcb7bf8f388afd5d335380408f07a27edcd4f502ff
       name: aws_plugin
-    - image: quay.io/konveyor/velero-plugin-for-microsoft-azure:latest
+    - image: quay.io/konveyor/velero-plugin-for-microsoft-azure@sha256:b9953dfe968063af1382aeaba608f1206e2fd3a7755c5dac83455ebce1fa2c99
       name: azure_plugin
-    - image: quay.io/konveyor/velero-plugin-for-gcp:latest
+    - image: quay.io/konveyor/velero-plugin-for-gcp@sha256:55680ecd72ea94b1956ad09985e01fbf7794f963124dc9b8588763d6b5dc0dc9
       name: gcp_plugin
-    - image: quay.io/konveyor/velero-plugin-for-csi:latest
+    - image: quay.io/konveyor/velero-plugin-for-csi@sha256:3b3476f6731b2276fc3ec5cc5f99fbfb9c0d5c0df20cdb084701016b97aa7e15
       name: csi_plugin
-    - image: quay.io/konveyor/registry:latest
+    - image: quay.io/konveyor/registry@sha256:c3eaca3aa3e1c29f0da25a245d3e27e378074ee79c8afd0436887586a88793b8
       name: registry
-  version: 99.0.0
+  version: 0.5.3
+  replaces: oadp-operator.v0.5.2
