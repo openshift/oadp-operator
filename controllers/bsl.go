@@ -190,9 +190,12 @@ func (r *DPAReconciler) validateAWSBackupStorageLocation(bslSpec velerov1.Backup
 		return fmt.Errorf("bucket name for AWS backupstoragelocation cannot be empty")
 	}
 
-	if len(bslSpec.StorageType.ObjectStorage.Prefix) == 0 || len(bslSpec.Config[Region]) == 0 &&
-		(dpa.Spec.BackupImages == nil || *dpa.Spec.BackupImages) {
-		return fmt.Errorf("prefix and region for AWS backupstoragelocation object storage cannot be empty. It is required for backing up images")
+	if len(bslSpec.StorageType.ObjectStorage.Prefix) == 0 && dpa.BackupImages() {
+		return fmt.Errorf("prefix for AWS backupstoragelocation object storage cannot be empty. It is required for backing up images")
+	}
+	// BSL region is required when s3ForcePathStyle is true AND BackupImages is false
+	if (bslSpec.Config == nil || len(bslSpec.Config[Region]) == 0 && bslSpec.Config[S3ForcePathStyle] == "true") && dpa.BackupImages() {
+		return fmt.Errorf("region for AWS backupstoragelocation cannot be empty when s3ForcePathStyle is true or when backing up images")
 	}
 
 	//TODO: Add minio, noobaa, local storage validations
@@ -224,7 +227,7 @@ func (r *DPAReconciler) validateAzureBackupStorageLocation(bslSpec velerov1.Back
 		return fmt.Errorf("storageAccount for Azure backupstoragelocation config cannot be empty")
 	}
 
-	if len(bslSpec.StorageType.ObjectStorage.Prefix) == 0 && (dpa.Spec.BackupImages == nil || *dpa.Spec.BackupImages) {
+	if len(bslSpec.StorageType.ObjectStorage.Prefix) == 0 && dpa.BackupImages() {
 		return fmt.Errorf("prefix for Azure backupstoragelocation object storage cannot be empty. it is required for backing up images")
 	}
 
@@ -246,8 +249,7 @@ func (r *DPAReconciler) validateGCPBackupStorageLocation(bslSpec velerov1.Backup
 	if len(bslSpec.ObjectStorage.Bucket) == 0 {
 		return fmt.Errorf("bucket name for GCP backupstoragelocation cannot be empty")
 	}
-
-	if len(bslSpec.StorageType.ObjectStorage.Prefix) == 0 && (dpa.Spec.BackupImages == nil || *dpa.Spec.BackupImages) {
+	if len(bslSpec.StorageType.ObjectStorage.Prefix) == 0 && dpa.BackupImages() {
 		return fmt.Errorf("prefix for GCP backupstoragelocation object storage cannot be empty. it is required for backing up images")
 	}
 

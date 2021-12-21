@@ -203,6 +203,11 @@ type DataProtectionApplicationList struct {
 	Items           []DataProtectionApplication `json:"items"`
 }
 
+// Default BackupImages behavior when nil to true
+func (dpa *DataProtectionApplication) BackupImages() bool {
+	return dpa.Spec.BackupImages == nil || *dpa.Spec.BackupImages
+}
+
 func init() {
 	SchemeBuilder.Register(&DataProtectionApplication{}, &DataProtectionApplicationList{}, &CloudStorage{}, &CloudStorageList{})
 }

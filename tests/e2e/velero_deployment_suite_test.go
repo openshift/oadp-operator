@@ -1,10 +1,12 @@
 package e2e
 
 import (
+	"fmt"
 	"log"
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
@@ -33,6 +35,15 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 			Expect(err).NotTo(HaveOccurred())
 			err = vel.CreateOrUpdate(installCase.DpaSpec)
 			Expect(err).ToNot(HaveOccurred())
+			if installCase.WantError {
+				// Eventually()
+				log.Printf("Test case expected to error. Waiting for the error to show in DPA Status")
+				Eventually(vel.GetNoErr().Status.Conditions[0].Type, timeoutMultiplier*time.Minute*3, time.Second*5).Should(Equal("Reconciled"))
+				Eventually(vel.GetNoErr().Status.Conditions[0].Status, timeoutMultiplier*time.Minute*3, time.Second*5).Should(Equal(metav1.ConditionFalse))
+				Eventually(vel.GetNoErr().Status.Conditions[0].Reason, timeoutMultiplier*time.Minute*3, time.Second*5).Should(Equal("Error"))
+				Eventually(vel.GetNoErr().Status.Conditions[0].Message, timeoutMultiplier*time.Minute*3, time.Second*5).Should(Equal(expectedErr.Error()))
+				return
+			}
 			log.Printf("Waiting for velero pod to be running")
 			Eventually(isVeleroPodRunning(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 			dpa, err := vel.Get()
@@ -94,9 +105,11 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 				}
 			}
 
-			for key, value := range dpa.Spec.Configuration.Restic.PodConfig.NodeSelector {
-				log.Printf("Waiting for restic daemonset to get node selector")
-				Eventually(resticDaemonSetHasNodeSelector(namespace, key, value), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
+			if dpa.Spec.Configuration.Restic != nil && dpa.Spec.Configuration.Restic.PodConfig != nil {
+				for key, value := range dpa.Spec.Configuration.Restic.PodConfig.NodeSelector {
+					log.Printf("Waiting for restic daemonset to get node selector")
+					Eventually(resticDaemonSetHasNodeSelector(namespace, key, value), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
+				}
 			}
 			if dpa.Spec.BackupImages == nil || *installCase.DpaSpec.BackupImages {
 				log.Printf("Waiting for registry pods to be running")
@@ -143,7 +156,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 		}, nil),
 		Entry("Adding Velero custom plugin", InstallCase{
 			Name:         "default-cr-velero-custom-plugin",
-			BRestoreType: "restic",
+			BRestoreType: restic,
 			DpaSpec: &oadpv1alpha1.DataProtectionApplicationSpec{
 				Configuration: &oadpv1alpha1.ApplicationConfig{
 					Velero: &oadpv1alpha1.VeleroConfig{
@@ -188,7 +201,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 		}, nil),
 		Entry("Adding Velero resource allocations", InstallCase{
 			Name:         "default-cr-velero-resource-alloc",
-			BRestoreType: "restic",
+			BRestoreType: restic,
 			DpaSpec: &oadpv1alpha1.DataProtectionApplicationSpec{
 				Configuration: &oadpv1alpha1.ApplicationConfig{
 					Velero: &oadpv1alpha1.VeleroConfig{
@@ -238,7 +251,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 		}, nil),
 		Entry("Adding AWS plugin", InstallCase{
 			Name:         "default-cr-aws-plugin",
-			BRestoreType: "restic",
+			BRestoreType: restic,
 			DpaSpec: &oadpv1alpha1.DataProtectionApplicationSpec{
 				Configuration: &oadpv1alpha1.ApplicationConfig{
 					Velero: &oadpv1alpha1.VeleroConfig{
@@ -275,7 +288,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 		}, nil),
 		Entry("DPA CR with bsl and vsl", InstallCase{
 			Name:         "default-cr-bsl-vsl",
-			BRestoreType: "restic",
+			BRestoreType: restic,
 			DpaSpec: &oadpv1alpha1.DataProtectionApplicationSpec{
 				Configuration: &oadpv1alpha1.ApplicationConfig{
 					Velero: &oadpv1alpha1.VeleroConfig{
@@ -322,7 +335,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 		}, nil),
 		/*Entry("DPA CR with bsl and multiple vsl", InstallCase{
 			Name:         "default-cr-bsl-vsl",
-			BRestoreType: "restic",
+			BRestoreType: restic,
 			DpaSpec: &oadpv1alpha1.DataProtectionApplicationSpec{
 				Configuration: &oadpv1alpha1.ApplicationConfig{
 					Velero: &oadpv1alpha1.VeleroConfig{
@@ -377,7 +390,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 		}, nil),*/
 		/*Entry("DPA CR with no bsl and multiple vsl", InstallCase{
 			Name:         "default-cr-multiple-vsl",
-			BRestoreType: "restic",
+			BRestoreType: restic,
 			DpaSpec: &oadpv1alpha1.DataProtectionApplicationSpec{
 				Configuration: &oadpv1alpha1.ApplicationConfig{
 					Velero: &oadpv1alpha1.VeleroConfig{
@@ -416,7 +429,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 		}, nil),*/
 		Entry("Default velero CR with restic disabled", InstallCase{
 			Name:         "default-cr-no-restic",
-			BRestoreType: "restic",
+			BRestoreType: restic,
 			DpaSpec: &oadpv1alpha1.DataProtectionApplicationSpec{
 				Configuration: &oadpv1alpha1.ApplicationConfig{
 					Velero: &oadpv1alpha1.VeleroConfig{
@@ -453,7 +466,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 		}, nil),
 		Entry("Adding CSI plugin", InstallCase{
 			Name:         "default-cr-csi",
-			BRestoreType: "restic",
+			BRestoreType: restic,
 			DpaSpec: &oadpv1alpha1.DataProtectionApplicationSpec{
 				Configuration: &oadpv1alpha1.ApplicationConfig{
 					Velero: &oadpv1alpha1.VeleroConfig{
@@ -491,7 +504,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 		}, nil),
 		Entry("Set restic node selector", InstallCase{
 			Name:         "default-cr-node-selector",
-			BRestoreType: "restic",
+			BRestoreType: restic,
 			DpaSpec: &oadpv1alpha1.DataProtectionApplicationSpec{
 				BackupLocations: []oadpv1alpha1.BackupLocation{
 					{
@@ -532,7 +545,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 		}, nil),
 		Entry("Enable tolerations", InstallCase{
 			Name:         "default-cr-tolerations",
-			BRestoreType: "restic",
+			BRestoreType: restic,
 			DpaSpec: &oadpv1alpha1.DataProtectionApplicationSpec{
 				BackupLocations: []oadpv1alpha1.BackupLocation{
 					{
@@ -578,7 +591,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 		}, nil),
 		Entry("NoDefaultBackupLocation", InstallCase{
 			Name:         "default-cr-node-selector",
-			BRestoreType: "restic",
+			BRestoreType: restic,
 			DpaSpec: &oadpv1alpha1.DataProtectionApplicationSpec{
 				Configuration: &oadpv1alpha1.ApplicationConfig{
 					Velero: &oadpv1alpha1.VeleroConfig{
@@ -597,5 +610,103 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 			},
 			WantError: false,
 		}, nil),
+		Entry("AWS Without Region No S3ForcePathStyle with BackupImages false should succeed", InstallCase{
+			Name:         "default-no-region-no-s3forcepathstyle",
+			BRestoreType: restic,
+			DpaSpec: &oadpv1alpha1.DataProtectionApplicationSpec{
+				BackupImages: pointer.Bool(false),
+				BackupLocations: []oadpv1alpha1.BackupLocation{
+					{
+						Velero: &velero.BackupStorageLocationSpec{
+							Provider: provider,
+							Default:  true,
+							StorageType: velero.StorageType{
+								ObjectStorage: &velero.ObjectStorageLocation{
+									Bucket: s3Bucket,
+									Prefix: veleroPrefix,
+								},
+							},
+						},
+					},
+				},
+				Configuration: &oadpv1alpha1.ApplicationConfig{
+					Velero: &oadpv1alpha1.VeleroConfig{
+						PodConfig: &oadpv1alpha1.PodConfig{},
+						DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+							oadpv1alpha1.DefaultPluginOpenShift,
+							oadpv1alpha1.DefaultPluginAWS,
+						},
+					},
+				},
+			},
+			WantError: false,
+		}, nil),
+		Entry("AWS With Region And S3ForcePathStyle should succeed", InstallCase{
+			Name:         "default-with-region-and-s3forcepathstyle",
+			BRestoreType: restic,
+			DpaSpec: &oadpv1alpha1.DataProtectionApplicationSpec{
+				BackupLocations: []oadpv1alpha1.BackupLocation{
+					{
+						Velero: &velero.BackupStorageLocationSpec{
+							Provider: provider,
+							Config: map[string]string{
+								"region":           region,
+								"s3ForcePathStyle": "true",
+							},
+							Default: true,
+							StorageType: velero.StorageType{
+								ObjectStorage: &velero.ObjectStorageLocation{
+									Bucket: s3Bucket,
+									Prefix: veleroPrefix,
+								},
+							},
+						},
+					},
+				},
+				Configuration: &oadpv1alpha1.ApplicationConfig{
+					Velero: &oadpv1alpha1.VeleroConfig{
+						PodConfig: &oadpv1alpha1.PodConfig{},
+						DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+							oadpv1alpha1.DefaultPluginOpenShift,
+							oadpv1alpha1.DefaultPluginAWS,
+						},
+					},
+				},
+			},
+			WantError: false,
+		}, nil),
+		Entry("AWS Without Region And S3ForcePathStyle true should fail", InstallCase{
+			Name:         "default-with-region-and-s3forcepathstyle",
+			BRestoreType: restic,
+			DpaSpec: &oadpv1alpha1.DataProtectionApplicationSpec{
+				BackupLocations: []oadpv1alpha1.BackupLocation{
+					{
+						Velero: &velero.BackupStorageLocationSpec{
+							Provider: provider,
+							Config: map[string]string{
+								"s3ForcePathStyle": "true",
+							},
+							Default: true,
+							StorageType: velero.StorageType{
+								ObjectStorage: &velero.ObjectStorageLocation{
+									Bucket: s3Bucket,
+									Prefix: veleroPrefix,
+								},
+							},
+						},
+					},
+				},
+				Configuration: &oadpv1alpha1.ApplicationConfig{
+					Velero: &oadpv1alpha1.VeleroConfig{
+						PodConfig: &oadpv1alpha1.PodConfig{},
+						DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+							oadpv1alpha1.DefaultPluginOpenShift,
+							oadpv1alpha1.DefaultPluginAWS,
+						},
+					},
+				},
+			},
+			WantError: true,
+		}, fmt.Errorf("region for AWS backupstoragelocation cannot be empty when s3ForcePathStyle is true or when backing up images")),
 	)
 })

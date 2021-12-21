@@ -67,15 +67,12 @@ func (r *DPAReconciler) ReconcileResticDaemonset(log logr.Logger) (bool, error) 
 	if err := r.Get(r.Context, r.NamespacedName, &dpa); err != nil {
 		return false, err
 	}
-	if dpa.Spec.Configuration.Restic == nil {
-		return false, nil
-	}
 
 	// Define "static" portion of daemonset
 	ds := &appsv1.DaemonSet{
 		ObjectMeta: getResticObjectMeta(r),
 	}
-	if dpa.Spec.Configuration.Restic.Enable == nil || !*dpa.Spec.Configuration.Restic.Enable {
+	if dpa.Spec.Configuration.Restic == nil || dpa.Spec.Configuration.Restic != nil && (dpa.Spec.Configuration.Restic.Enable == nil || !*dpa.Spec.Configuration.Restic.Enable) {
 		deleteContext := context.Background()
 		if err := r.Get(deleteContext, types.NamespacedName{
 			Name:      ds.Name,
