@@ -67,3 +67,7 @@ versions. Here is the default mapping of versions:
 |  v0.3.0        | v1.6.2         |
 |  v0.4.0        | v1.7.0         |
 |  v0.5.0        | v1.7.0         |
+|  v0.5.1        | v1.7.1         |
+|  v0.5.2        | v1.7.1         |
+|  v0.5.3        | v1.7.1         |
+
