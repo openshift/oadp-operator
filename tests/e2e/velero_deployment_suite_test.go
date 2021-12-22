@@ -45,7 +45,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 				return
 			}
 			log.Printf("Waiting for velero pod to be running")
-			Eventually(isVeleroPodRunning(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
+			Eventually(areVeleroPodsRunning(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 			dpa, err := vel.Get()
 			Expect(err).NotTo(HaveOccurred())
 			if len(dpa.Spec.BackupLocations) > 0 {

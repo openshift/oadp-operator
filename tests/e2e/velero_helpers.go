@@ -193,21 +193,19 @@ func getVeleroPods(namespace string) (*corev1.PodList, error) {
 	return podList, nil
 }
 
-func isVeleroPodRunning(namespace string) wait.ConditionFunc {
+func areVeleroPodsRunning(namespace string) wait.ConditionFunc {
 	return func() (bool, error) {
 		podList, err := getVeleroPods(namespace)
 		if err != nil {
 			return false, err
 		}
-		// get pod name and status with specified label selector
-		var status string
 		for _, podInfo := range (*podList).Items {
-			status = string(podInfo.Status.Phase)
+			if podInfo.Status.Phase != corev1.PodRunning {
+				log.Printf("pod: %s is not yet running with status: %v", podInfo.Name, podInfo.Status)
+				return false, nil
+			}
 		}
-		if status == "Running" {
-			return true, nil
-		}
-		return false, err
+		return true, nil
 	}
 }
 
