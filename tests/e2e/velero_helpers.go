@@ -367,7 +367,7 @@ func verifyVeleroResourceLimits(namespace string, limits corev1.ResourceList) wa
 }
 
 // Create Velero Custom Resource Definition from yaml
-func (v *dpaCustomResource) CreateVeleroFromYaml(yamlTemplatePath string, data interface{}) error {
+func (v *dpaCustomResource) CreateDpaFromYaml(yamlTemplatePath string, data interface{}) error {
 	// Define var for holding Velero type
 	veleroSpec := oadpv1alpha1.DataProtectionApplication{}
 
