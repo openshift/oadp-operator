@@ -10,6 +10,7 @@ import (
 type dpaTemplateParams struct {
 	DpaName         string
 	BslRegion       string
+	ClusterProfile  string
 	Provider        string
 	CredentialsName string
 	BucketName      string
@@ -29,6 +30,7 @@ var _ = Describe("Test DPA creation with", func() {
 		params := dpaTemplateParams{
 			DpaName:         instanceName,
 			BslRegion:       region,
+			ClusterProfile:  clusterProfile,
 			Provider:        provider,
 			CredentialsName: credSecretRef,
 			BucketName:      s3Bucket,
