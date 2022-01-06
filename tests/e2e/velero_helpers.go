@@ -366,19 +366,19 @@ func verifyVeleroResourceLimits(namespace string, limits corev1.ResourceList) wa
 	}
 }
 
-// Create Velero Custom Resource Definition from yaml
+// Create DPA Custom Resource Definition from yaml
 func (v *dpaCustomResource) CreateDpaFromYaml(yamlTemplatePath string, data interface{}) error {
-	// Define var for holding Velero type
-	veleroSpec := oadpv1alpha1.DataProtectionApplication{}
+	// Define var for holding DPA type
+	dpaSpec := oadpv1alpha1.DataProtectionApplication{}
 
 	// Parse and read data as bytes from template
-	veleroYamlData, err := parseTemplate(yamlTemplatePath, data)
+	dpaYamlData, err := parseTemplate(yamlTemplatePath, data)
 	if err != nil {
 		return err
 	}
 
-	// Unmarshall data to type Velero
-	err = yaml.Unmarshal(veleroYamlData, &veleroSpec)
+	// Unmarshall data to type DPA
+	err = yaml.Unmarshal(dpaYamlData, &dpaSpec)
 	if err != nil {
 		return err
 	}
@@ -389,13 +389,13 @@ func (v *dpaCustomResource) CreateDpaFromYaml(yamlTemplatePath string, data inte
 		return err
 	}
 
-	// Create custom resource (velero in this case)
-	err = v.Client.Create(context.Background(), &veleroSpec)
+	// Create custom resource
+	err = v.Client.Create(context.Background(), &dpaSpec)
 	if apierrors.IsAlreadyExists(err) {
-		return errors.New("found unexpected existing Velero CR")
+		return errors.New("found unexpected existing DPA")
 	} else if err != nil {
 		return err
 	}
-	log.Printf("Velero CR created \n")
+	log.Printf("DPA created \n")
 	return nil
 }

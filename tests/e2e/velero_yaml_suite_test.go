@@ -17,15 +17,15 @@ type dpaTemplateParams struct {
 }
 
 var _ = AfterEach(func() {
-	// Delete Velero CR once the test has finished
+	// Delete DPA once the test has finished
 	err := vel.Delete()
 	Expect(err).ToNot(HaveOccurred())
 })
 
-var _ = Describe("Test Velero CR creation with", func() {
+var _ = Describe("Test DPA creation with", func() {
 	It("One Backup Storage Location templated from yaml", func() {
-		// Create Velero CR and verify it is successful
-		veleroTemplate, _ := filepath.Abs("templates/velero_bsl_template.tmpl")
+		// Create DPA and verify it is successful
+		dpaTemplate, _ := filepath.Abs("templates/dpa_template.tmpl")
 		params := dpaTemplateParams{
 			DpaName:         instanceName,
 			BslRegion:       region,
@@ -34,7 +34,7 @@ var _ = Describe("Test Velero CR creation with", func() {
 			BucketName:      s3Bucket,
 			Prefix:          veleroPrefix,
 		}
-		err := vel.CreateDpaFromYaml(veleroTemplate, params)
+		err := vel.CreateDpaFromYaml(dpaTemplate, params)
 		if err != nil {
 			Expect(err).NotTo(HaveOccurred())
 		}
