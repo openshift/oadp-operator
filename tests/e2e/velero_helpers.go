@@ -34,18 +34,34 @@ const (
 	restic BackupRestoreType = "restic"
 )
 
+type dpaAwsConfig struct {
+	BslRegion  string
+	VslRegion  string
+	BslProfile string
+}
+
+type dpaGcpConfig struct {
+	VslRegion string
+}
+
+type dpaAzureConfig struct {
+	VslSubscriptionId string
+	BslSubscriptionId string
+	BslResourceGroup  string
+	BslstorageAccount string
+}
+
 type dpaCustomResource struct {
 	Name              string
 	Namespace         string
 	SecretName        string
 	Bucket            string
-	BslRegion         string
-	VslRegion         string
-	VslSubscriptionId string
-	BslProfile        string
 	Provider          string
 	credentials       string
 	credSecretRef     string
+	awsConfig         dpaAwsConfig
+	gcpConfig         dpaGcpConfig
+	azureConfig       dpaAzureConfig
 	backupRestoreType BackupRestoreType
 	CustomResource    *oadpv1alpha1.DataProtectionApplication
 	Client            client.Client
@@ -99,8 +115,8 @@ func (v *dpaCustomResource) Build(backupRestoreType BackupRestoreType) error {
 	switch v.Provider {
 	case "aws":
 		dpa.Spec.BackupLocations[0].Velero.Config = map[string]string{
-			"region":  v.BslRegion,
-			"profile": v.BslProfile,
+			"region":  v.awsConfig.BslRegion,
+			"profile": v.awsConfig.BslProfile,
 		}
 		dpa.Spec.BackupLocations[0].Velero.Credential = &corev1.SecretKeySelector{
 			LocalObjectReference: corev1.LocalObjectReference{
@@ -113,7 +129,7 @@ func (v *dpaCustomResource) Build(backupRestoreType BackupRestoreType) error {
 				Velero: &velero.VolumeSnapshotLocationSpec{
 					Provider: v.Provider,
 					Config: map[string]string{
-						"region":  v.VslRegion,
+						"region":  v.awsConfig.VslRegion,
 						"profile": "default",
 					},
 				},
@@ -130,7 +146,7 @@ func (v *dpaCustomResource) Build(backupRestoreType BackupRestoreType) error {
 				Velero: &velero.VolumeSnapshotLocationSpec{
 					Provider: v.Provider,
 					Config: map[string]string{
-						"snapshotLocation": v.VslRegion,
+						"snapshotLocation": v.gcpConfig.VslRegion,
 					},
 				},
 			},
@@ -138,6 +154,9 @@ func (v *dpaCustomResource) Build(backupRestoreType BackupRestoreType) error {
 	case "azure":
 		dpa.Spec.BackupLocations[0].Velero.Config = map[string]string{
 			"credentialsFile": "bsl-cloud-credentials-azure/cloud", // <secret_name>/<key>
+			"subscriptionId":  v.azureConfig.BslSubscriptionId,
+			"storageAccount":  v.azureConfig.BslstorageAccount,
+			"resourceGroup":   v.azureConfig.BslResourceGroup,
 		}
 		dpa.Spec.Configuration.Velero.DefaultPlugins = append(dpa.Spec.Configuration.Velero.DefaultPlugins, oadpv1alpha1.DefaultPluginMicrosoftAzure)
 		dpa.Spec.SnapshotLocations = []oadpv1alpha1.SnapshotLocation{
@@ -145,7 +164,7 @@ func (v *dpaCustomResource) Build(backupRestoreType BackupRestoreType) error {
 				Velero: &velero.VolumeSnapshotLocationSpec{
 					Provider: v.Provider,
 					Config: map[string]string{
-						"subscriptionId": v.VslSubscriptionId,
+						"subscriptionId": v.azureConfig.VslSubscriptionId,
 					},
 				},
 			},

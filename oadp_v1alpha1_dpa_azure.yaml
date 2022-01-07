@@ -21,9 +21,9 @@ spec:
           name: cloud-credentials-azure
           key: cloud
         config:
+          subscriptionId: 89a9ba4b-8b66-446a-813d-a9ed3a129e3d
           resourceGroup: Deepak_Velero_Backups
           storageAccount: velerodpk68c64591c324
-          subscriptionId: 89a9ba4b-8b66-446a-813d-a9ed3a129e3d
   snapshotLocations:
     - velero:
         config:

@@ -57,11 +57,8 @@ var _ = BeforeSuite(func() {
 
 	vel = &dpaCustomResource{
 		Namespace:     namespace,
-		BslRegion:     bsl_region,
-		VslRegion:     vsl_region,
 		Bucket:        bucket,
 		Provider:      provider,
-		BslProfile:    bsl_profile,
 		credentials:   credFile,
 		credSecretRef: credSecretRef,
 	}
@@ -81,24 +78,39 @@ var _ = BeforeSuite(func() {
 			vel.credentials = "/tmp/aws-credentials"
 			err = putCredsData(vel.credentials, credData)
 			Expect(err).NotTo(HaveOccurred())
+			vel.awsConfig = dpaAwsConfig{
+				BslProfile: bsl_profile,
+				BslRegion:  bsl_region,
+				VslRegion:  vsl_region,
+			}
 		case "gcp":
 			cloudCredData, err := getCredsData(vel.credentials)
 			Expect(err).NotTo(HaveOccurred())
 			err = createCredentialsSecret(cloudCredData, namespace, "bsl-cloud-credentials-gcp")
 			Expect(err).NotTo(HaveOccurred())
 			vel.credentials = ci_cred_file
+			vel.gcpConfig = dpaGcpConfig{
+				VslRegion: vsl_region,
+			}
 		case "azure":
+			// bsl cloud
+			cloudCredData, err := getJsonData(vel.credentials)
+			Expect(err).NotTo(HaveOccurred())
+			vel.azureConfig = dpaAzureConfig{
+				BslSubscriptionId: fmt.Sprintf("%v", cloudCredData["subscriptionId"]),
+				BslResourceGroup:  fmt.Sprintf("%v", cloudCredData["resourceGroup"]),
+				BslstorageAccount: fmt.Sprintf("%v", cloudCredData["storageAccount"]),
+			}
+			cloudCreds := getAzureCreds(cloudCredData)
+			err = createCredentialsSecret(cloudCreds, namespace, "bsl-cloud-credentials-azure")
+			Expect(err).NotTo(HaveOccurred())
+			// ci cloud
 			ciJsonData, err := getJsonData(ci_cred_file)
 			Expect(err).NotTo(HaveOccurred())
-			vel.VslSubscriptionId = fmt.Sprintf("%v", ciJsonData["subscriptionId"])
 			ciCreds := getAzureCreds(ciJsonData)
-			err = putCredsData(ci_cred_file, ciCreds)
+			vel.credentials = "/tmp/azure-credentials"
+			err = putCredsData(vel.credentials, ciCreds)
 			Expect(err).NotTo(HaveOccurred())
-			cloudCredData, err := getCredsData(vel.credentials)
-			Expect(err).NotTo(HaveOccurred())
-			err = createCredentialsSecret(cloudCredData, namespace, "bsl-cloud-credentials-azure")
-			Expect(err).NotTo(HaveOccurred())
-			vel.credentials = ci_cred_file
 		}
 	}
 	credData, err := getCredsData(vel.credentials)
