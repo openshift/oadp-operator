@@ -405,19 +405,6 @@ spec:
                 - patch
                 - watch
             - apiGroups:
-                - rbac.authorization.k8s.io
-              resources:
-                - roles
-                - rolebindings
-              verbs:
-                - list
-                - get
-                - create
-                - delete
-                - patch
-                - update
-                - watch
-            - apiGroups:
                 - authentication.k8s.io
               resources:
                 - tokenreviews
