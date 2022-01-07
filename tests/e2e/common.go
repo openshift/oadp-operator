@@ -3,6 +3,7 @@ package e2e
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"log"
 
@@ -83,18 +84,37 @@ func setUpClient() (*kubernetes.Clientset, error) {
 	return clientset, nil
 }
 
-func getJsonData(path string) ([]byte, error) {
-	// Return buffer data for json
-	jsonData, err := ioutil.ReadFile(path)
-	return jsonData, err
-}
-
 func decodeJson(data []byte) (map[string]interface{}, error) {
 	// Return JSON from buffer data
 	var jsonData map[string]interface{}
 
 	err := json.Unmarshal(data, &jsonData)
 	return jsonData, err
+}
+
+func getJsonData(path string) (map[string]interface{}, error) {
+	// Return buffer data for json
+	jsonData, _ := ioutil.ReadFile(path)
+	return decodeJson(jsonData)
+}
+
+func getAzureCreds(ciCred map[string]interface{}) []byte {
+	azureCreds := string("AZURE_CLOUD_NAME=AzurePublicCloud\n")
+
+	for k, v := range ciCred {
+		switch k {
+		case "subscriptionId":
+			azureCreds += "\n" + "AZURE_SUBSCRIPTION_ID=" + fmt.Sprintf("%v", v)
+		case "clientId":
+			azureCreds += "\n" + "AZURE_CLIENT_ID=" + fmt.Sprintf("%v", v)
+		case "clientSecret":
+			azureCreds += "\n" + "AZURE_CLIENT_SECRET=" + fmt.Sprintf("%v", v)
+		case "tenantId":
+			azureCreds += "\n" + "AZURE_TENANT_ID=" + fmt.Sprintf("%v", v)
+		}
+	}
+
+	return []byte(azureCreds)
 }
 
 // Keeping it for now.

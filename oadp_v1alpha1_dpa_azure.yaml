@@ -1,0 +1,31 @@
+apiVersion: oadp.openshift.io/v1alpha1
+kind: DataProtectionApplication
+metadata:
+  name: d-velero-sample
+spec:
+  configuration:
+    velero:
+      defaultPlugins:
+      - openshift
+      - azure
+    restic:
+      enable: true
+  backupLocations:
+    - velero:
+        provider: azure
+        default: true
+        objectStorage:
+          bucket: deepakvelero 
+          prefix: velero
+        credential:
+          name: cloud-credentials-azure
+          key: cloud
+        config:
+          resourceGroup: Deepak_Velero_Backups
+          storageAccount: velerodpk68c64591c324
+          subscriptionId: 89a9ba4b-8b66-446a-813d-a9ed3a129e3d
+  snapshotLocations:
+    - velero:
+        config:
+          subscriptionId: 89a9ba4b-8b66-446a-813d-a9ed3a129e3d 
+        provider: azure 

@@ -2,6 +2,7 @@ package e2e
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"strconv"
 	"testing"
@@ -36,13 +37,9 @@ func init() {
 
 func TestOADPE2E(t *testing.T) {
 	flag.Parse()
-	s3Buffer, err := getJsonData(bucketFilePath)
+	s3Data, err := getJsonData(bucketFilePath)
 	if err != nil {
 		t.Fatalf("Error getting bucket json file: %v", err)
-	}
-	s3Data, err := decodeJson(s3Buffer) // Might need to change this later on to create s3 for each tests
-	if err != nil {
-		t.Fatalf("Error decoding json file: %v", err)
 	}
 	bucket = s3Data["velero-bucket-name"].(string)
 	log.Println("Using velero prefix: " + veleroPrefix)
@@ -54,9 +51,7 @@ var vel *dpaCustomResource
 
 var _ = BeforeSuite(func() {
 	flag.Parse()
-	s3Buffer, err := getJsonData(bucketFilePath)
-	Expect(err).NotTo(HaveOccurred())
-	s3Data, err := decodeJson(s3Buffer) // Might need to change this later on to create s3 for each tests
+	s3Data, err := getJsonData(bucketFilePath)
 	Expect(err).NotTo(HaveOccurred())
 	bucket = s3Data["velero-bucket-name"].(string)
 
@@ -90,6 +85,18 @@ var _ = BeforeSuite(func() {
 			cloudCredData, err := getCredsData(vel.credentials)
 			Expect(err).NotTo(HaveOccurred())
 			err = createCredentialsSecret(cloudCredData, namespace, "bsl-cloud-credentials-gcp")
+			Expect(err).NotTo(HaveOccurred())
+			vel.credentials = ci_cred_file
+		case "azure":
+			ciJsonData, err := getJsonData(ci_cred_file)
+			Expect(err).NotTo(HaveOccurred())
+			vel.VslSubscriptionId = fmt.Sprintf("%v", ciJsonData["subscriptionId"])
+			ciCreds := getAzureCreds(ciJsonData)
+			err = putCredsData(ci_cred_file, ciCreds)
+			Expect(err).NotTo(HaveOccurred())
+			cloudCredData, err := getCredsData(vel.credentials)
+			Expect(err).NotTo(HaveOccurred())
+			err = createCredentialsSecret(cloudCredData, namespace, "bsl-cloud-credentials-azure")
 			Expect(err).NotTo(HaveOccurred())
 			vel.credentials = ci_cred_file
 		}
