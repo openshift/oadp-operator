@@ -1,18 +1,12 @@
 package e2e
 
+/*
 import (
-	"context"
-	"fmt"
-	"log"
-	"time"
-
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
-	operators "github.com/operator-framework/api/pkg/operators/v1alpha1"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/utils/pointer"
 )
+
 
 var _ = Describe("Subscription Config Suite Test", func() {
 	var _ = BeforeEach(func() {
@@ -145,3 +139,4 @@ var _ = Describe("Subscription Config Suite Test", func() {
 		}),
 	)
 })
+*/

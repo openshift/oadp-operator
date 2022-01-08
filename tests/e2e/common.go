@@ -99,7 +99,7 @@ func getJsonData(path string) (map[string]interface{}, error) {
 }
 
 func getAzureCreds(ciCred map[string]interface{}) []byte {
-	azureCreds := string("AZURE_CLOUD_NAME=AzurePublicCloud\n")
+	azureCreds := string("AZURE_CLOUD_NAME=AzurePublicCloud")
 
 	for k, v := range ciCred {
 		switch k {
@@ -111,6 +111,10 @@ func getAzureCreds(ciCred map[string]interface{}) []byte {
 			azureCreds += "\n" + "AZURE_CLIENT_SECRET=" + fmt.Sprintf("%v", v)
 		case "tenantId":
 			azureCreds += "\n" + "AZURE_TENANT_ID=" + fmt.Sprintf("%v", v)
+		case "storageAccountAccessKey":
+			azureCreds += "\n" + "AZURE_STORAGE_ACCOUNT_ACCESS_KEY=" + fmt.Sprintf("%v", v)
+		case "resourceGroup":
+			azureCreds += "\n" + "AZURE_RESOURCE_GROUP=" + fmt.Sprintf("%v", v)
 		}
 	}
 

@@ -97,9 +97,10 @@ var _ = BeforeSuite(func() {
 			cloudCredData, err := getJsonData(vel.credentials)
 			Expect(err).NotTo(HaveOccurred())
 			vel.azureConfig = dpaAzureConfig{
-				BslSubscriptionId: fmt.Sprintf("%v", cloudCredData["subscriptionId"]),
-				BslResourceGroup:  fmt.Sprintf("%v", cloudCredData["resourceGroup"]),
-				BslstorageAccount: fmt.Sprintf("%v", cloudCredData["storageAccount"]),
+				BslSubscriptionId:          fmt.Sprintf("%v", cloudCredData["subscriptionId"]),
+				BslResourceGroup:           fmt.Sprintf("%v", cloudCredData["resourceGroup"]),
+				BslStorageAccount:          fmt.Sprintf("%v", cloudCredData["storageAccount"]),
+				BslStorageAccountAccessKey: fmt.Sprintf("%v", cloudCredData["storageAccountAccessKey"]),
 			}
 			cloudCreds := getAzureCreds(cloudCredData)
 			err = createCredentialsSecret(cloudCreds, namespace, "bsl-cloud-credentials-azure")

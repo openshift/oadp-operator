@@ -1,14 +1,8 @@
 package e2e
 
 import (
-	"errors"
-	"fmt"
-	"log"
-	"time"
-
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/ginkgo/extensions/table"
+	// . "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -43,26 +37,26 @@ var _ = Describe("AWS backup restore tests", func() {
 		MaxK8SVersion        *k8sVersion
 		MinK8SVersion        *k8sVersion
 	}
+	/*
+		parksAppReady := VerificationFunction(func(ocClient client.Client, namespace string) error {
+			Eventually(isDCReady(ocClient, "parks-app", "restify"), timeoutMultiplier*time.Minute*10, time.Second*10).Should(BeTrue())
+			return nil
+		})
+		mssqlReady := VerificationFunction(func(ocClient client.Client, namespace string) error {
+			// This test confirms that SCC restore logic in our plugin is working
+			Eventually(isDCReady(ocClient, "mssql-persistent", "mssql-deployment"), timeoutMultiplier*time.Minute*10, time.Second*10).Should(BeTrue())
+			Eventually(isDeploymentReady(ocClient, "mssql-persistent", "mssql-app-deployment"), timeoutMultiplier*time.Minute*10, time.Second*10).Should(BeTrue())
+			exists, err := doesSCCExist(ocClient, "mssql-persistent-scc")
+			if err != nil {
+				return err
+			}
+			if !exists {
+				return errors.New("did not find MSSQL scc")
+			}
+			return nil
+		})
 
-	parksAppReady := VerificationFunction(func(ocClient client.Client, namespace string) error {
-		Eventually(isDCReady(ocClient, "parks-app", "restify"), timeoutMultiplier*time.Minute*10, time.Second*10).Should(BeTrue())
-		return nil
-	})
-	mssqlReady := VerificationFunction(func(ocClient client.Client, namespace string) error {
-		// This test confirms that SCC restore logic in our plugin is working
-		Eventually(isDCReady(ocClient, "mssql-persistent", "mssql-deployment"), timeoutMultiplier*time.Minute*10, time.Second*10).Should(BeTrue())
-		Eventually(isDeploymentReady(ocClient, "mssql-persistent", "mssql-app-deployment"), timeoutMultiplier*time.Minute*10, time.Second*10).Should(BeTrue())
-		exists, err := doesSCCExist(ocClient, "mssql-persistent-scc")
-		if err != nil {
-			return err
-		}
-		if !exists {
-			return errors.New("did not find MSSQL scc")
-		}
-		return nil
-	})
-
-	DescribeTable("backup and restore applications",
+		DescribeTable("backup and restore applications",
 		func(brCase BackupRestoreCase, expectedErr error) {
 
 			err := vel.Build(brCase.BackupRestoreType)
@@ -179,8 +173,8 @@ var _ = Describe("AWS backup restore tests", func() {
 			PreBackupVerify:      mssqlReady,
 			PostRestoreVerify:    mssqlReady,
 		}, nil),
-		*/
-		Entry("Parks application <4.8.0", BackupRestoreCase{
+	*/
+	/*Entry("Parks application <4.8.0", BackupRestoreCase{
 			ApplicationTemplate:  "./sample-applications/parks-app/manifest.yaml",
 			ApplicationNamespace: "parks-app",
 			Name:                 "parks-e2e",
@@ -207,4 +201,5 @@ var _ = Describe("AWS backup restore tests", func() {
 			MinK8SVersion:        &k8sVersionOcp48,
 		}, nil),
 	)
+	*/
 })
