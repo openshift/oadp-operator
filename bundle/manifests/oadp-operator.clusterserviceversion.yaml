@@ -358,6 +358,7 @@ spec:
                 - pods
                 - services
                 - serviceaccounts
+                - endpoints
               verbs:
                 - list
                 - get
@@ -390,6 +391,18 @@ spec:
                 - list
                 - patch
                 - update
+                - watch
+            - apiGroups:
+                - monitoring.coreos.com
+              resources:
+                - servicemonitors
+              verbs:
+                - get
+                - create
+                - list
+                - delete
+                - update
+                - patch
                 - watch
             - apiGroups:
                 - authentication.k8s.io

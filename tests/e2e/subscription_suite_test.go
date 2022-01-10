@@ -89,7 +89,7 @@ var _ = Describe("Subscription Config Suite Test", func() {
 					for _, podInfo := range podList.Items {
 						// we care about pods that have labels control-plane=controller-manager, component=velero, "component": "oadp-" + bsl.Name + "-" + bsl.Spec.Provider + "-registry",
 						if podInfo.Labels["control-plane"] == "controller-manager" ||
-							podInfo.Labels["component"] == "velero" ||
+							podInfo.Labels["app.kubernetes.io/name"] == "velero" ||
 							podInfo.Labels["component"] == "oadp-"+fmt.Sprintf("%s-%d", vel.Name, 1)+"-"+bl.Velero.Provider+"-registry" {
 							log.Printf("Checking env vars are passed to each container in " + podInfo.Name)
 							for _, container := range podInfo.Spec.Containers {

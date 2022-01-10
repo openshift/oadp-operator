@@ -110,6 +110,7 @@ rules:
   - pods
   - services
   - serviceaccounts
+  - endpoints
   verbs:
   - list
   - get
@@ -142,4 +143,16 @@ rules:
   - list
   - patch
   - update
+  - watch
+- apiGroups:
+  - monitoring.coreos.com
+  resources:
+  - servicemonitors
+  verbs:
+  - get
+  - create
+  - list
+  - delete
+  - update
+  - patch
   - watch
