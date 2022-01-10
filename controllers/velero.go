@@ -651,7 +651,14 @@ func (r DPAReconciler) noDefaultCredentials(dpa oadpv1alpha1.DataProtectionAppli
 
 	for _, bsl := range dpa.Spec.BackupLocations {
 		if bsl.Velero != nil && bsl.Velero.Credential == nil {
-			providerNeedsDefaultCreds[strings.TrimPrefix(bsl.Velero.Provider, "velero.io/")] = true
+			bslProvider := strings.TrimPrefix(bsl.Velero.Provider, "velero.io/")
+			providerNeedsDefaultCreds[bslProvider] = true
+		}
+		if bsl.Velero != nil && bsl.Velero.Credential != nil {
+			bslProvider := strings.TrimPrefix(bsl.Velero.Provider, "velero.io/")
+			if found := providerNeedsDefaultCreds[bslProvider]; !found {
+				providerNeedsDefaultCreds[bslProvider] = false
+			}
 		}
 		if bsl.CloudStorage != nil {
 			hasCloudStorage = true
