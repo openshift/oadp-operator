@@ -68,10 +68,11 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 					}
 				case "azure":
 					installCase.DpaSpec.BackupLocations[0].Velero.Config = map[string]string{
-						"credentialsFile": "bsl-cloud-credentials-azure/cloud",
-						"subscriptionId":  vel.azureConfig.BslSubscriptionId,
-						"storageAccount":  vel.azureConfig.BslStorageAccount,
-						"resourceGroup":   vel.azureConfig.BslResourceGroup,
+						"credentialsFile":         "bsl-cloud-credentials-azure/cloud",
+						"subscriptionId":          vel.azureConfig.BslSubscriptionId,
+						"storageAccount":          vel.azureConfig.BslStorageAccount,
+						"resourceGroup":           vel.azureConfig.BslResourceGroup,
+						"storageAccountKeyEnvVar": vel.azureConfig.BslStorageAccountKeyEnvVar,
 						// "storageAccountKeyEnvVar": vel.azureConfig.BslStorageAccountKeyEnvVar,
 					}
 					installCase.DpaSpec.Configuration.Velero.DefaultPlugins = append(installCase.DpaSpec.Configuration.Velero.DefaultPlugins, oadpv1alpha1.DefaultPluginMicrosoftAzure)

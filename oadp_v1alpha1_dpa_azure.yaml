@@ -24,6 +24,7 @@ spec:
           subscriptionId: 89a9ba4b-8b66-446a-813d-a9ed3a129e3d
           resourceGroup: Deepak_Velero_Backups
           storageAccount: velerodpk68c64591c324
+          storageAccountKeyEnvVar: AZURE_STORAGE_ACCOUNT_ACCESS_KEY
   snapshotLocations:
     - velero:
         config:
