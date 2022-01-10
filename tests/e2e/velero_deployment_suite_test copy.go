@@ -1,10 +1,10 @@
 package e2e
 
 import (
+	"fmt"
 	"log"
 	"time"
 
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	. "github.com/onsi/ginkgo"
@@ -12,7 +12,6 @@ import (
 	. "github.com/onsi/gomega"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	velero "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/utils/pointer"
 )
 
@@ -188,62 +187,10 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 			}
 
 		},
-		Entry("Default velero CR", InstallCase{
-			Name:         "default-cr",
+		Entry("AWS Without Region No S3ForcePathStyle with BackupImages false should succeed", InstallCase{
+			Name:         "default-no-region-no-s3forcepathstyle",
 			BRestoreType: restic,
 			DpaSpec: &oadpv1alpha1.DataProtectionApplicationSpec{
-				Configuration: &oadpv1alpha1.ApplicationConfig{
-					Velero: &oadpv1alpha1.VeleroConfig{
-						DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
-							oadpv1alpha1.DefaultPluginOpenShift,
-						},
-						PodConfig: &oadpv1alpha1.PodConfig{},
-					},
-					Restic: &oadpv1alpha1.ResticConfig{
-						PodConfig: &oadpv1alpha1.PodConfig{},
-						Enable:    pointer.Bool(true),
-					},
-				},
-				BackupLocations: []oadpv1alpha1.BackupLocation{
-					{
-						Velero: &velero.BackupStorageLocationSpec{
-							Provider: provider,
-							Default:  true,
-							StorageType: velero.StorageType{
-								ObjectStorage: &velero.ObjectStorageLocation{
-									Bucket: bucket,
-									Prefix: veleroPrefix,
-								},
-							},
-						},
-					},
-				},
-			},
-			WantError: false,
-		}, nil),
-		Entry("Adding Velero custom plugin", InstallCase{
-			Name:         "default-cr-velero-custom-plugin",
-			BRestoreType: restic,
-			DpaSpec: &oadpv1alpha1.DataProtectionApplicationSpec{
-				Configuration: &oadpv1alpha1.ApplicationConfig{
-					Velero: &oadpv1alpha1.VeleroConfig{
-						PodConfig: &oadpv1alpha1.PodConfig{},
-						DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
-							oadpv1alpha1.DefaultPluginCSI,
-							oadpv1alpha1.DefaultPluginOpenShift,
-						},
-						CustomPlugins: []oadpv1alpha1.CustomPlugin{
-							{
-								Name:  "encryption-plugin",
-								Image: "quay.io/konveyor/openshift-velero-plugin:latest",
-							},
-						},
-					},
-					Restic: &oadpv1alpha1.ResticConfig{
-						PodConfig: &oadpv1alpha1.PodConfig{},
-						Enable:    pointer.Bool(false),
-					},
-				},
 				BackupImages: pointer.Bool(false),
 				BackupLocations: []oadpv1alpha1.BackupLocation{
 					{
@@ -259,198 +206,30 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 						},
 					},
 				},
-			},
-			WantError: false,
-		}, nil),
-		Entry("Adding Velero resource allocations", InstallCase{
-			Name:         "default-cr-velero-resource-alloc",
-			BRestoreType: restic,
-			DpaSpec: &oadpv1alpha1.DataProtectionApplicationSpec{
-				Configuration: &oadpv1alpha1.ApplicationConfig{
-					Velero: &oadpv1alpha1.VeleroConfig{
-						PodConfig: &oadpv1alpha1.PodConfig{
-							ResourceAllocations: corev1.ResourceRequirements{
-								Limits: corev1.ResourceList{
-									corev1.ResourceCPU:    resource.MustParse("2"),
-									corev1.ResourceMemory: resource.MustParse("512Mi"),
-								},
-								Requests: corev1.ResourceList{
-									corev1.ResourceCPU:    resource.MustParse("500m"),
-									corev1.ResourceMemory: resource.MustParse("256Mi"),
-								},
-							},
-						},
-						DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
-							oadpv1alpha1.DefaultPluginCSI,
-							oadpv1alpha1.DefaultPluginOpenShift,
-						},
-					},
-					Restic: &oadpv1alpha1.ResticConfig{
-						PodConfig: &oadpv1alpha1.PodConfig{},
-						Enable:    pointer.Bool(false),
-					},
-				},
-				BackupImages: pointer.Bool(false),
-				BackupLocations: []oadpv1alpha1.BackupLocation{
-					{
-						Velero: &velero.BackupStorageLocationSpec{
-							Provider: provider,
-							Default:  true,
-							StorageType: velero.StorageType{
-								ObjectStorage: &velero.ObjectStorageLocation{
-									Bucket: bucket,
-									Prefix: veleroPrefix,
-								},
-							},
-						},
-					},
-				},
-			},
-			WantError: false,
-		}, nil),
-		Entry("Adding Cloud plugin", InstallCase{
-			Name:         "default-cr-cloud-plugin",
-			BRestoreType: "restic",
-			DpaSpec: &oadpv1alpha1.DataProtectionApplicationSpec{
-				Configuration: &oadpv1alpha1.ApplicationConfig{
-					Velero: &oadpv1alpha1.VeleroConfig{
-						PodConfig: &oadpv1alpha1.PodConfig{},
-						DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
-							oadpv1alpha1.DefaultPluginCSI,
-						},
-					},
-					Restic: &oadpv1alpha1.ResticConfig{
-						PodConfig: &oadpv1alpha1.PodConfig{},
-						Enable:    pointer.Bool(false),
-					},
-				},
-				BackupImages: pointer.Bool(false),
-				BackupLocations: []oadpv1alpha1.BackupLocation{
-					{
-						Velero: &velero.BackupStorageLocationSpec{
-							Provider: provider,
-							Default:  true,
-							StorageType: velero.StorageType{
-								ObjectStorage: &velero.ObjectStorageLocation{
-									Bucket: bucket,
-									Prefix: veleroPrefix,
-								},
-							},
-						},
-					},
-				},
-			},
-			WantError: false,
-		}, nil),
-		Entry("DPA CR with bsl and vsl", InstallCase{
-			Name:         "default-cr-bsl-vsl",
-			BRestoreType: restic,
-			DpaSpec: &oadpv1alpha1.DataProtectionApplicationSpec{
 				Configuration: &oadpv1alpha1.ApplicationConfig{
 					Velero: &oadpv1alpha1.VeleroConfig{
 						PodConfig: &oadpv1alpha1.PodConfig{},
 						DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
 							oadpv1alpha1.DefaultPluginOpenShift,
-						},
-					},
-					Restic: &oadpv1alpha1.ResticConfig{
-						PodConfig: &oadpv1alpha1.PodConfig{},
-						Enable:    pointer.Bool(true),
-					},
-				},
-				BackupLocations: []oadpv1alpha1.BackupLocation{
-					{
-						Velero: &velero.BackupStorageLocationSpec{
-							Provider: provider,
-							Default:  true,
-							StorageType: velero.StorageType{
-								ObjectStorage: &velero.ObjectStorageLocation{
-									Bucket: bucket,
-									Prefix: veleroPrefix,
-								},
-							},
+							oadpv1alpha1.DefaultPluginAWS,
 						},
 					},
 				},
 			},
 			WantError: false,
 		}, nil),
-		Entry("Default velero CR with restic disabled", InstallCase{
-			Name:         "default-cr-no-restic",
+		Entry("AWS With Region And S3ForcePathStyle should succeed", InstallCase{
+			Name:         "default-with-region-and-s3forcepathstyle",
 			BRestoreType: restic,
 			DpaSpec: &oadpv1alpha1.DataProtectionApplicationSpec{
-				Configuration: &oadpv1alpha1.ApplicationConfig{
-					Velero: &oadpv1alpha1.VeleroConfig{
-						PodConfig: &oadpv1alpha1.PodConfig{},
-						DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
-							oadpv1alpha1.DefaultPluginOpenShift,
-						},
-					},
-					Restic: &oadpv1alpha1.ResticConfig{
-						PodConfig: &oadpv1alpha1.PodConfig{},
-						Enable:    pointer.Bool(false),
-					},
-				},
 				BackupLocations: []oadpv1alpha1.BackupLocation{
 					{
 						Velero: &velero.BackupStorageLocationSpec{
 							Provider: provider,
-							Default:  true,
-							StorageType: velero.StorageType{
-								ObjectStorage: &velero.ObjectStorageLocation{
-									Bucket: bucket,
-									Prefix: veleroPrefix,
-								},
+							Config: map[string]string{
+								"s3ForcePathStyle": "true",
 							},
-						},
-					},
-				},
-			},
-			WantError: false,
-		}, nil),
-		Entry("Adding CSI plugin", InstallCase{
-			Name:         "default-cr-csi",
-			BRestoreType: restic,
-			DpaSpec: &oadpv1alpha1.DataProtectionApplicationSpec{
-				Configuration: &oadpv1alpha1.ApplicationConfig{
-					Velero: &oadpv1alpha1.VeleroConfig{
-						PodConfig: &oadpv1alpha1.PodConfig{},
-						DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
-							oadpv1alpha1.DefaultPluginOpenShift,
-							oadpv1alpha1.DefaultPluginCSI,
-						},
-					},
-					Restic: &oadpv1alpha1.ResticConfig{
-						PodConfig: &oadpv1alpha1.PodConfig{},
-						Enable:    pointer.Bool(false),
-					},
-				},
-				BackupLocations: []oadpv1alpha1.BackupLocation{
-					{
-						Velero: &velero.BackupStorageLocationSpec{
-							Provider: provider,
-							Default:  true,
-							StorageType: velero.StorageType{
-								ObjectStorage: &velero.ObjectStorageLocation{
-									Bucket: bucket,
-									Prefix: veleroPrefix,
-								},
-							},
-						},
-					},
-				},
-			},
-			WantError: false,
-		}, nil),
-		Entry("Set restic node selector", InstallCase{
-			Name:         "default-cr-node-selector",
-			BRestoreType: restic,
-			DpaSpec: &oadpv1alpha1.DataProtectionApplicationSpec{
-				BackupLocations: []oadpv1alpha1.BackupLocation{
-					{
-						Velero: &velero.BackupStorageLocationSpec{
-							Provider: provider,
-							Default:  true,
+							Default: true,
 							StorageType: velero.StorageType{
 								ObjectStorage: &velero.ObjectStorageLocation{
 									Bucket: bucket,
@@ -465,29 +244,25 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 						PodConfig: &oadpv1alpha1.PodConfig{},
 						DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
 							oadpv1alpha1.DefaultPluginOpenShift,
+							oadpv1alpha1.DefaultPluginAWS,
 						},
-					},
-					Restic: &oadpv1alpha1.ResticConfig{
-						PodConfig: &oadpv1alpha1.PodConfig{
-							NodeSelector: map[string]string{
-								"foo": "bar",
-							},
-						},
-						Enable: pointer.Bool(true),
 					},
 				},
 			},
 			WantError: false,
 		}, nil),
-		Entry("Enable tolerations", InstallCase{
-			Name:         "default-cr-tolerations",
+		Entry("AWS Without Region And S3ForcePathStyle true should fail", InstallCase{
+			Name:         "default-with-region-and-s3forcepathstyle",
 			BRestoreType: restic,
 			DpaSpec: &oadpv1alpha1.DataProtectionApplicationSpec{
 				BackupLocations: []oadpv1alpha1.BackupLocation{
 					{
 						Velero: &velero.BackupStorageLocationSpec{
 							Provider: provider,
-							Default:  true,
+							Config: map[string]string{
+								"s3ForcePathStyle": "true",
+							},
+							Default: true,
 							StorageType: velero.StorageType{
 								ObjectStorage: &velero.ObjectStorageLocation{
 									Bucket: bucket,
@@ -502,44 +277,12 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 						PodConfig: &oadpv1alpha1.PodConfig{},
 						DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
 							oadpv1alpha1.DefaultPluginOpenShift,
+							oadpv1alpha1.DefaultPluginAWS,
 						},
-					},
-					Restic: &oadpv1alpha1.ResticConfig{
-						PodConfig: &oadpv1alpha1.PodConfig{
-							Tolerations: []corev1.Toleration{
-								{
-									Key:               "node.kubernetes.io/unreachable",
-									Operator:          "Exists",
-									Effect:            "NoExecute",
-									TolerationSeconds: func(i int64) *int64 { return &i }(6000),
-								},
-							},
-						},
-						Enable: pointer.Bool(true),
 					},
 				},
 			},
-			WantError: false,
-		}, nil),
-		Entry("NoDefaultBackupLocation", InstallCase{
-			Name:         "default-cr-node-selector",
-			BRestoreType: restic,
-			DpaSpec: &oadpv1alpha1.DataProtectionApplicationSpec{
-				Configuration: &oadpv1alpha1.ApplicationConfig{
-					Velero: &oadpv1alpha1.VeleroConfig{
-						PodConfig:               &oadpv1alpha1.PodConfig{},
-						NoDefaultBackupLocation: true,
-						DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
-							oadpv1alpha1.DefaultPluginOpenShift,
-						},
-					},
-					Restic: &oadpv1alpha1.ResticConfig{
-						PodConfig: &oadpv1alpha1.PodConfig{},
-						Enable:    pointer.Bool(true),
-					},
-				},
-			},
-			WantError: false,
-		}, nil),
+			WantError: true,
+		}, fmt.Errorf("region for AWS backupstoragelocation cannot be empty when s3ForcePathStyle is true or when backing up images")),
 	)
 })
