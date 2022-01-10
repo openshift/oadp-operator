@@ -95,6 +95,18 @@ func (r *DPAReconciler) ReconcileBackupStorageLocations(log logr.Logger) (bool, 
 				Namespace: r.NamespacedName.Namespace,
 			},
 		}
+		// Annotate secret with oadpApi.OadpOperatorLabel to add it to reconciliation loop
+		if bslSpec.Velero.Credential != nil {
+			secretName, _ := r.getSecretNameAndKey(bslSpec.Velero.Credential, oadpv1alpha1.DefaultPlugin(bslSpec.Velero.Provider))
+
+			secret, err := r.getProviderSecret(secretName)
+
+			if err != nil {
+				secret.SetLabels(map[string]string{oadpv1alpha1.OadpOperatorLabel: "True"})
+			}
+
+		}
+
 		// Create BSL
 		op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, &bsl, func() error {
 			// TODO: Velero may be setting controllerReference as

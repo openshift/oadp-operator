@@ -29,14 +29,16 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/go-logr/logr"
+	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/util/workqueue"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-
-	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 // DPAReconciler reconciles a Velero object
@@ -138,8 +140,35 @@ func (r *DPAReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&corev1.Service{}).
 		Owns(&routev1.Route{}).
 		Owns(&corev1.ConfigMap{}).
+		Watches(&source.Kind{Type: &corev1.Secret{}}, &labelHandler{}).
 		WithEventFilter(veleroPredicate(r.Scheme)).
 		Complete(r)
+}
+
+type labelHandler struct {
+	//label metav1.LabelSelector
+}
+
+func (l *labelHandler) Create(evt event.CreateEvent, q workqueue.RateLimitingInterface) {
+	// check for the label & add it to the queue
+	if evt.Object.GetLabels()[oadpv1alpha1.OadpOperatorLabel] != "" {
+		q.Add(evt.Object)
+	}
+}
+func (l *labelHandler) Delete(evt event.DeleteEvent, q workqueue.RateLimitingInterface) {
+	if evt.Object.GetLabels()[oadpv1alpha1.OadpOperatorLabel] != "" {
+		q.Add(evt.Object)
+	}
+}
+func (l *labelHandler) Update(evt event.UpdateEvent, q workqueue.RateLimitingInterface) {
+	if evt.ObjectNew.GetLabels()[oadpv1alpha1.OadpOperatorLabel] != "" {
+		q.Add(evt.ObjectNew)
+	}
+}
+func (l *labelHandler) Generic(evt event.GenericEvent, q workqueue.RateLimitingInterface) {
+	if evt.Object.GetLabels()[oadpv1alpha1.OadpOperatorLabel] != "" {
+		q.Add(evt.Object)
+	}
 }
 
 type ReconcileFunc func(logr.Logger) (bool, error)
