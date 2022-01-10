@@ -100,7 +100,7 @@ var _ = BeforeSuite(func() {
 				BslSubscriptionId:          fmt.Sprintf("%v", cloudCredData["subscriptionId"]),
 				BslResourceGroup:           fmt.Sprintf("%v", cloudCredData["resourceGroup"]),
 				BslStorageAccount:          fmt.Sprintf("%v", cloudCredData["storageAccount"]),
-				BslStorageAccountAccessKey: fmt.Sprintf("%v", cloudCredData["storageAccountAccessKey"]),
+				BslStorageAccountKeyEnvVar: "AZURE_STORAGE_ACCOUNT_ACCESS_KEY",
 			}
 			cloudCreds := getAzureCreds(cloudCredData)
 			err = createCredentialsSecret(cloudCreds, namespace, "bsl-cloud-credentials-azure")

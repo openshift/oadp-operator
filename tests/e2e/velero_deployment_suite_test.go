@@ -53,7 +53,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 					}
 				case "gcp":
 					installCase.DpaSpec.BackupLocations[0].Velero.Config = map[string]string{
-						"credentialsFile": vel.credentials,
+						"credentialsFile": "bsl-cloud-credentials-gcp/cloud",
 					}
 					installCase.DpaSpec.Configuration.Velero.DefaultPlugins = append(installCase.DpaSpec.Configuration.Velero.DefaultPlugins, oadpv1alpha1.DefaultPluginGCP)
 					installCase.DpaSpec.SnapshotLocations = []oadpv1alpha1.SnapshotLocation{
@@ -68,10 +68,11 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 					}
 				case "azure":
 					installCase.DpaSpec.BackupLocations[0].Velero.Config = map[string]string{
-						"credentialsFile": vel.credentials,
+						"credentialsFile": "bsl-cloud-credentials-azure/cloud",
 						"subscriptionId":  vel.azureConfig.BslSubscriptionId,
 						"storageAccount":  vel.azureConfig.BslStorageAccount,
 						"resourceGroup":   vel.azureConfig.BslResourceGroup,
+						// "storageAccountKeyEnvVar": vel.azureConfig.BslStorageAccountKeyEnvVar,
 					}
 					installCase.DpaSpec.Configuration.Velero.DefaultPlugins = append(installCase.DpaSpec.Configuration.Velero.DefaultPlugins, oadpv1alpha1.DefaultPluginMicrosoftAzure)
 					installCase.DpaSpec.SnapshotLocations = []oadpv1alpha1.SnapshotLocation{

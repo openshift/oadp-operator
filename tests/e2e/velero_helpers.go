@@ -49,7 +49,7 @@ type dpaAzureConfig struct {
 	BslSubscriptionId          string
 	BslResourceGroup           string
 	BslStorageAccount          string
-	BslStorageAccountAccessKey string
+	BslStorageAccountKeyEnvVar string
 }
 
 type dpaCustomResource struct {
@@ -154,10 +154,11 @@ func (v *dpaCustomResource) Build(backupRestoreType BackupRestoreType) error {
 		}
 	case "azure":
 		dpa.Spec.BackupLocations[0].Velero.Config = map[string]string{
-			"credentialsFile": "bsl-cloud-credentials-azure/cloud", // <secret_name>/<key>
-			"subscriptionId":  v.azureConfig.BslSubscriptionId,
-			"storageAccount":  v.azureConfig.BslStorageAccount,
-			"resourceGroup":   v.azureConfig.BslResourceGroup,
+			"credentialsFile":         "bsl-cloud-credentials-azure/cloud", // <secret_name>/<key>
+			"subscriptionId":          v.azureConfig.BslSubscriptionId,
+			"storageAccount":          v.azureConfig.BslStorageAccount,
+			"resourceGroup":           v.azureConfig.BslResourceGroup,
+			"storageAccountKeyEnvVar": v.azureConfig.BslStorageAccountKeyEnvVar,
 		}
 		dpa.Spec.Configuration.Velero.DefaultPlugins = append(dpa.Spec.Configuration.Velero.DefaultPlugins, oadpv1alpha1.DefaultPluginMicrosoftAzure)
 		dpa.Spec.SnapshotLocations = []oadpv1alpha1.SnapshotLocation{
