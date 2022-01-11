@@ -171,7 +171,7 @@ var _ = Describe("AWS backup restore tests", func() {
 			}
 
 		},
-		/*Entry("MSSQL application CSI", BackupRestoreCase{
+		Entry("MSSQL application CSI", BackupRestoreCase{
 			ApplicationTemplate:  "./sample-applications/mssql-persistent/mssql-persistent-csi-template.yaml",
 			ApplicationNamespace: "mssql-persistent",
 			Name:                 "mssql-e2e",
@@ -188,7 +188,7 @@ var _ = Describe("AWS backup restore tests", func() {
 			PostRestoreVerify:    parksAppReady,
 			MaxK8SVersion:        &k8sVersionOcp47,
 		}, nil),
-		*/Entry("MSSQL application", BackupRestoreCase{
+		Entry("MSSQL application", BackupRestoreCase{
 			ApplicationTemplate:  "./sample-applications/mssql-persistent/mssql-persistent-template.yaml",
 			ApplicationNamespace: "mssql-persistent",
 			Name:                 "mssql-e2e",
