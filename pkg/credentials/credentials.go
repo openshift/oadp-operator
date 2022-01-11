@@ -135,7 +135,7 @@ func getPluginImage(pluginName string, dpa *oadpv1alpha1.DataProtectionApplicati
 	return ""
 }
 
-func AppendCloudProviderVolumes(dpa *oadpv1alpha1.DataProtectionApplication, ds *appsv1.DaemonSet) error {
+func AppendCloudProviderVolumes(dpa *oadpv1alpha1.DataProtectionApplication, ds *appsv1.DaemonSet, providerNeedsDefaultCreds map[string]bool, hasCloudStorage bool) error {
 	if dpa.Spec.Configuration.Velero == nil {
 		return errors.New("velero configuration not found")
 	}
@@ -153,6 +153,16 @@ func AppendCloudProviderVolumes(dpa *oadpv1alpha1.DataProtectionApplication, ds 
 		// this replaces the need to iterate through the `pluginSpecificFields` O(n) -> O(1)
 		if cloudProviderMap, ok := PluginSpecificFields[plugin]; ok {
 			if !cloudProviderMap.IsCloudProvider {
+				continue
+			}
+
+			pluginNeedsCheck, foundInBSLorVSL := providerNeedsDefaultCreds[string(plugin)]
+
+			if !foundInBSLorVSL && !hasCloudStorage {
+				pluginNeedsCheck = true
+			}
+
+			if !cloudProviderMap.IsCloudProvider || !pluginNeedsCheck {
 				continue
 			}
 
