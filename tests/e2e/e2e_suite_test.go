@@ -66,6 +66,25 @@ var _ = BeforeSuite(func() {
 	vel.Name = testSuiteInstanceName
 	// err := vel.createBsl()
 	openshift_ci_bool, _ := strconv.ParseBool(openshift_ci)
+	vel.openshift_ci = openshift_ci_bool
+	vel.awsConfig = dpaAwsConfig{
+		BslProfile: bsl_profile,
+		BslRegion:  bsl_region,
+		VslRegion:  vsl_region,
+	}
+	vel.gcpConfig = dpaGcpConfig{
+		VslRegion: vsl_region,
+	}
+	cloudCredData, err := getJsonData(vel.credentials) // azure credentials need to be in json - can be changed
+	Expect(err).NotTo(HaveOccurred())
+	vel.azureConfig = dpaAzureConfig{
+		BslSubscriptionId:          fmt.Sprintf("%v", cloudCredData["subscriptionId"]),
+		BslResourceGroup:           fmt.Sprintf("%v", cloudCredData["resourceGroup"]),
+		BslStorageAccount:          fmt.Sprintf("%v", cloudCredData["storageAccount"]),
+		BslStorageAccountKeyEnvVar: "AZURE_STORAGE_ACCOUNT_ACCESS_KEY",
+		VslSubscriptionId:          fmt.Sprintf("%v", cloudCredData["subscriptionId"]),
+		VslResourceGroup:           fmt.Sprintf("%v", cloudCredData["resourceGroup"]),
+	}
 	if openshift_ci_bool == true {
 		switch vel.Provider {
 		case "aws":
@@ -78,36 +97,22 @@ var _ = BeforeSuite(func() {
 			vel.credentials = "/tmp/aws-credentials"
 			err = putCredsData(vel.credentials, credData)
 			Expect(err).NotTo(HaveOccurred())
-			vel.awsConfig = dpaAwsConfig{
-				BslProfile: bsl_profile,
-				BslRegion:  bsl_region,
-				VslRegion:  vsl_region,
-			}
 		case "gcp":
 			cloudCredData, err := getCredsData(vel.credentials)
 			Expect(err).NotTo(HaveOccurred())
 			err = createCredentialsSecret(cloudCredData, namespace, "bsl-cloud-credentials-gcp")
 			Expect(err).NotTo(HaveOccurred())
 			vel.credentials = ci_cred_file
-			vel.gcpConfig = dpaGcpConfig{
-				VslRegion: vsl_region,
-			}
 		case "azure":
 			// bsl cloud
-			cloudCredData, err := getJsonData(vel.credentials)
-			Expect(err).NotTo(HaveOccurred())
-			vel.azureConfig = dpaAzureConfig{
-				BslSubscriptionId:          fmt.Sprintf("%v", cloudCredData["subscriptionId"]),
-				BslResourceGroup:           fmt.Sprintf("%v", cloudCredData["resourceGroup"]),
-				BslStorageAccount:          fmt.Sprintf("%v", cloudCredData["storageAccount"]),
-				BslStorageAccountKeyEnvVar: "AZURE_STORAGE_ACCOUNT_ACCESS_KEY",
-			}
 			cloudCreds := getAzureCreds(cloudCredData)
 			err = createCredentialsSecret(cloudCreds, namespace, "bsl-cloud-credentials-azure")
 			Expect(err).NotTo(HaveOccurred())
 			// ci cloud
 			ciJsonData, err := getJsonData(ci_cred_file)
 			Expect(err).NotTo(HaveOccurred())
+			vel.azureConfig.VslSubscriptionId = fmt.Sprintf("%v", ciJsonData["subscriptionId"])
+			vel.azureConfig.VslResourceGroup = fmt.Sprintf("%v", ciJsonData["resourceGroup"])
 			ciCreds := getAzureCreds(ciJsonData)
 			vel.credentials = "/tmp/azure-credentials"
 			err = putCredsData(vel.credentials, ciCreds)
