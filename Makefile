@@ -331,7 +331,7 @@ SETTINGS_TMP=/tmp/test-settings
 
 test-e2e-setup:
 	mkdir -p $(SETTINGS_TMP)
-	PROVIDER="$(CLUSTER_TYPE)" BUCKET="$(OADP_BUCKET)" BSL_REGION="$(BSL_REGION)" SECRET="$(CREDS_SECRET_REF)" TMP_DIR=$(SETTINGS_TMP) \
+	NAMESPACE="$(OADP_TEST_NAMESPACE)" PROVIDER="$(CLUSTER_TYPE)" BUCKET="$(OADP_BUCKET)" BSL_REGION="$(BSL_REGION)" SECRET="$(CREDS_SECRET_REF)" TMP_DIR=$(SETTINGS_TMP) \
 	VSL_REGION="$(VSL_REGION)" BSL_AWS_PROFILE="$(BSL_AWS_PROFILE)" BSL_REGION="$(BSL_REGION)" /bin/bash "tests/e2e/scripts/$(CLUSTER_TYPE)_settings.sh"
 
 test-e2e: test-e2e-setup
@@ -347,6 +347,7 @@ test-e2e: test-e2e-setup
 	-azure_resource_file=$(AZURE_RESOURCE_FILE) \
 	-provider=$(CLUSTER_TYPE) \
 	-creds_secret_ref=$(CREDS_SECRET_REF)
+	-csi_driver=$(CSI_DRIVER)
 
 test-e2e-cleanup:
 	rm -rf $(SETTINGS_TMP)

@@ -2,6 +2,9 @@
 
 cat > $TMP_DIR/oadpcreds <<EOF
 {
+  "metadata": {
+    "namespace": "$NAMESPACE"
+  },
   "spec": {
       "configuration":{
         "velero":{

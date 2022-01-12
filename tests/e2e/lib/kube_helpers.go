@@ -4,15 +4,23 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"regexp"
+	"strings"
+
+	ocpv1 "github.com/openshift/api/config/v1"
+	ocpclientscheme "github.com/openshift/client-go/config/clientset/versioned/scheme"
 
 	utils "github.com/openshift/oadp-operator/tests/e2e/utils"
 	corev1 "k8s.io/api/core/v1"
+	v1storage "k8s.io/api/storage/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	types "k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apimachinery/pkg/version"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 )
 
@@ -238,4 +246,101 @@ func GetAzureResource(path string) (string, error) {
 	azure_config, err := utils.GetJsonData(path)
 	resourceGroup := fmt.Sprintf("%v", azure_config["infraID"]) + "-rg"
 	return resourceGroup, err
+}
+
+func GetDefaultStorageClass() (*v1storage.StorageClass, error) {
+	clientset, err := setUpClient()
+	if err != nil {
+		return nil, err
+	}
+
+	storageClassList, err := clientset.StorageV1().StorageClasses().List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+	for _, storageClass := range storageClassList.Items {
+		annotations := storageClass.GetAnnotations()
+		if annotation, ok := annotations["storageclass.kubernetes.io/is-default-class"]; ok {
+			if ok && annotation == "true" {
+				return &storageClass, nil
+			}
+		}
+	}
+
+	// means no error occured, but neither found default storageclass
+	return nil, nil
+}
+
+func GetStorageClassByProvisioner(provisioner string) (*v1storage.StorageClass, error) {
+	clientset, err := setUpClient()
+	if err != nil {
+		return nil, err
+	}
+
+	storageClassList, err := clientset.StorageV1().StorageClasses().List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+	for _, storageClass := range storageClassList.Items {
+		match, err := regexp.MatchString(provisioner, storageClass.Provisioner)
+		if err != nil {
+			return nil, err
+		}
+		if match {
+			return &storageClass, nil
+		}
+	}
+
+	// means no error occured, but neither found default storageclass
+	return nil, nil
+}
+
+func SetNewDefaultStorageClass(newDefaultStorageclassName string) error {
+	defaultStorageClassAnnotation := `{"metadata":{"annotations":{"storageclass.kubernetes.io/is-default-class":"%s"}}}`
+	patch := fmt.Sprintf(defaultStorageClassAnnotation, "false")
+
+	clientset, err := setUpClient()
+	if err != nil {
+		return err
+	}
+
+	currentDefaultStorageClass, err := GetDefaultStorageClass()
+	if err != nil {
+		return err
+	}
+	if currentDefaultStorageClass != nil {
+
+		_, err := clientset.StorageV1().StorageClasses().Patch(context.Background(),
+			currentDefaultStorageClass.Name, types.StrategicMergePatchType, []byte(patch), metav1.PatchOptions{})
+		if err != nil {
+			return err
+		}
+	}
+	patch = fmt.Sprintf(defaultStorageClassAnnotation, "true")
+	newStorageClass, err := clientset.StorageV1().StorageClasses().Patch(context.Background(),
+		newDefaultStorageclassName, types.StrategicMergePatchType, []byte(patch), metav1.PatchOptions{})
+
+	if err != nil || newStorageClass == nil {
+		return err
+	}
+
+	return nil
+}
+
+func GetInfrastructure(c client.Client) (string, error) {
+
+	err := ocpclientscheme.AddToScheme(c.Scheme())
+
+	if err != nil {
+		return "", err
+	}
+	infrastructure := ocpv1.Infrastructure{}
+	err = c.Get(context.Background(), client.ObjectKey{
+		Name: "cluster",
+	}, &infrastructure)
+	if err != nil {
+		return "", err
+	}
+
+	return strings.ToLower(string(infrastructure.Status.PlatformStatus.Type)), err
 }

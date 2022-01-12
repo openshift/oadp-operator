@@ -2,7 +2,10 @@ package utils
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
+
+	"github.com/google/uuid"
 )
 
 func ReadFile(path string) ([]byte, error) {
@@ -36,4 +39,9 @@ func GetJsonData(path string) (map[string]interface{}, error) {
 func WriteFile(credFile string, data []byte) error {
 	err := ioutil.WriteFile(credFile, data, 0644)
 	return err
+}
+
+func GenNameUuid(prefix string) string {
+	uid, _ := uuid.NewUUID()
+	return fmt.Sprintf("%s-%s", prefix, uid.String())
 }

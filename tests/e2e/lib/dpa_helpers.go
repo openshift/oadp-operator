@@ -35,6 +35,7 @@ type BackupRestoreType string
 const (
 	CSI    BackupRestoreType = "csi"
 	RESTIC BackupRestoreType = "restic"
+	VSL    BackupRestoreType = "vsl"
 )
 
 type DpaAzureConfig struct {
@@ -68,28 +69,27 @@ func (v *DpaCustomResource) Build(backupRestoreType BackupRestoreType) error {
 	dpaInstance := oadpv1alpha1.DataProtectionApplication{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      v.Name,
-			Namespace: v.Namespace,
+			Namespace: Dpa.Namespace,
 		},
 		Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 			Configuration: &oadpv1alpha1.ApplicationConfig{
 				Velero: &oadpv1alpha1.VeleroConfig{
-					DefaultPlugins: v.CustomResource.Spec.Configuration.Velero.DefaultPlugins,
+					DefaultPlugins: Dpa.Spec.Configuration.Velero.DefaultPlugins,
 				},
 				Restic: &oadpv1alpha1.ResticConfig{
 					PodConfig: &oadpv1alpha1.PodConfig{},
 				},
 			},
-			SnapshotLocations: v.CustomResource.Spec.SnapshotLocations,
 			BackupLocations: []oadpv1alpha1.BackupLocation{
 				{
 					Velero: &velero.BackupStorageLocationSpec{
-						Provider:   v.CustomResource.Spec.BackupLocations[0].Velero.Provider,
+						Provider:   Dpa.Spec.BackupLocations[0].Velero.Provider,
 						Default:    true,
-						Config:     v.CustomResource.Spec.BackupLocations[0].Velero.Config,
-						Credential: v.CustomResource.Spec.BackupLocations[0].Velero.Credential,
+						Config:     Dpa.Spec.BackupLocations[0].Velero.Config,
+						Credential: Dpa.Spec.BackupLocations[0].Velero.Credential,
 						StorageType: velero.StorageType{
 							ObjectStorage: &velero.ObjectStorageLocation{
-								Bucket: v.CustomResource.Spec.BackupLocations[0].Velero.ObjectStorage.Bucket,
+								Bucket: Dpa.Spec.BackupLocations[0].Velero.ObjectStorage.Bucket,
 								Prefix: VeleroPrefix,
 							},
 						},
@@ -166,6 +166,9 @@ func (v *DpaCustomResource) Build(backupRestoreType BackupRestoreType) error {
 		}
 	}
 	v.backupRestoreType = backupRestoreType
+	if v.Provider == "aws" && !v.OpenshiftCi {
+		delete(Dpa.Spec.BackupLocations[0].Velero.Config, "profile")
+	}
 	switch backupRestoreType {
 	case RESTIC:
 		dpaInstance.Spec.Configuration.Restic.Enable = pointer.Bool(true)
@@ -173,6 +176,8 @@ func (v *DpaCustomResource) Build(backupRestoreType BackupRestoreType) error {
 		dpaInstance.Spec.Configuration.Restic.Enable = pointer.Bool(false)
 		dpaInstance.Spec.Configuration.Velero.DefaultPlugins = append(dpaInstance.Spec.Configuration.Velero.DefaultPlugins, oadpv1alpha1.DefaultPluginCSI)
 		dpaInstance.Spec.Configuration.Velero.FeatureFlags = append(dpaInstance.Spec.Configuration.Velero.FeatureFlags, "EnableCSI")
+	case VSL:
+		dpaInstance.Spec.SnapshotLocations = v.CustomResource.Spec.SnapshotLocations
 	}
 	v.CustomResource = &dpaInstance
 	return nil
@@ -261,7 +266,7 @@ func GetVeleroPods(namespace string) (*corev1.PodList, error) {
 	}
 	// select Velero pod with this label
 	veleroOptions := metav1.ListOptions{
-		LabelSelector: "deploy=velero",
+		LabelSelector: "app.kubernetes.io/name=velero",
 	}
 	// get pods in test namespace with labelSelector
 	podList, err := clientset.CoreV1().Pods(namespace).List(context.TODO(), veleroOptions)

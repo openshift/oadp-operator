@@ -2,6 +2,9 @@
 
 cat > $TMP_DIR/oadpcreds <<EOF
 {
+  "metadata": {
+    "namespace": "$NAMESPACE"
+  },
   "spec": {
       "configuration":{
         "velero":{
@@ -15,7 +18,6 @@ cat > $TMP_DIR/oadpcreds <<EOF
           "velero": {
             "provider": "$PROVIDER",
             "config": {
-             "profile": "$BSL_AWS_PROFILE",
               "region": "$BSL_REGION"
             },
             "objectStorage":{
@@ -24,10 +26,10 @@ cat > $TMP_DIR/oadpcreds <<EOF
           }
         }
       ],
-    "credential":{
-      "name": "$SECRET",
-      "key": "cloud"
-    },
+      "credential":{
+        "name": "$SECRET",
+        "key": "cloud"
+      },
      "snapshotLocations": [
        {
          "velero": {

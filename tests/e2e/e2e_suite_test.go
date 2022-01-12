@@ -13,16 +13,17 @@ import (
 	. "github.com/onsi/gomega"
 	. "github.com/openshift/oadp-operator/tests/e2e/lib"
 	"github.com/openshift/oadp-operator/tests/e2e/utils"
+	v1storage "k8s.io/api/storage/v1"
 )
 
 // Common vars obtained from flags passed in ginkgo.
-var credFile, namespace, credSecretRef, instanceName, provider, azure_resource_file, openshift_ci, ci_cred_file, settings, bsl_profile string
+var credFile, namespace, credSecretRef, instanceName, provider, azure_resource_file, openshift_ci, ci_cred_file, settings, bsl_profile, csi_driver string
 var timeoutMultiplier time.Duration
 
 func init() {
-	flag.StringVar(&credFile, "credentials", "", "Cloud Credentials file path location")
-	flag.StringVar(&namespace, "velero_namespace", "velero", "Velero Namespace")
-	flag.StringVar(&settings, "settings", "./templates/default_settings.json", "Settings of the velero instance")
+	flag.StringVar(&credFile, "credentials", "/tmp/test-settings/aws_creds", "Cloud Credentials file path location")
+	flag.StringVar(&namespace, "velero_namespace", "openshift-adp", "Velero Namespace")
+	flag.StringVar(&settings, "settings", "/tmp/test-settings/aws_settings.json", "Settings of the velero instance")
 	flag.StringVar(&instanceName, "velero_instance_name", "example-velero", "Velero Instance Name")
 	flag.StringVar(&bsl_profile, "cluster_profile", "aws", "Cluster profile")
 	flag.StringVar(&credSecretRef, "creds_secret_ref", "cloud-credentials", "Credential secret ref for backup storage location")
@@ -30,6 +31,7 @@ func init() {
 	flag.StringVar(&azure_resource_file, "azure_resource_file", "azure resource file", "Resource Group Dir for azure")
 	flag.StringVar(&ci_cred_file, "ci_cred_file", credFile, "CI Cloud Cred File")
 	flag.StringVar(&openshift_ci, "openshift_ci", "false", "ENV for tests")
+	flag.StringVar(&csi_driver, "csi_driver", "", "CSI driver for CSI tests; defaults to the default CSI driver installed on the cluster")
 
 	timeoutMultiplierInput := flag.Int64("timeout_multiplier", 1, "Customize timeout multiplier from default (1)")
 	timeoutMultiplier = 1
@@ -141,6 +143,19 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	dpaCR.SetClient()
 	Expect(DoesNamespaceExist(namespace)).Should(BeTrue())
+	var dsc *v1storage.StorageClass
+
+	dsc, err = GetDefaultStorageClass()
+	Expect(err).NotTo(HaveOccurred())
+	if dsc == nil {
+		log.Printf("No default StorageClass; Setting")
+		sc, err := GetStorageClassByProvisioner(fmt.Sprintf("kubernetes.io/%v-.*", bsl_profile))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(sc).NotTo(BeNil())
+		log.Printf("No default StorageClass; Setting %s to default StorageClass", sc.Name)
+		err = SetNewDefaultStorageClass(sc.Name)
+		Expect(err).NotTo(HaveOccurred())
+	}
 })
 
 var _ = AfterSuite(func() {
