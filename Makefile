@@ -15,13 +15,13 @@ ifeq ($(CLUSTER_TYPE), gcp)
 	CI_CRED_FILE = ${CLUSTER_PROFILE_DIR}/gce.json
 	OADP_CRED_FILE = ${OADP_CRED_DIR}/gcp-credentials
 	CREDS_SECRET_REF = cloud-credentials-gcp
-	OADP_BUCKET = ${OADP_CRED_DIR}/velero-bucket-name
+	OADP_BUCKET = ${OADP_CRED_DIR}/gcp-velero-bucket-name
 else ifeq ($(CLUSTER_TYPE), azure4)
 	CLUSTER_TYPE = azure
 	CI_CRED_FILE = ${CLUSTER_PROFILE_DIR}/osServicePrincipal.json
 	OADP_CRED_FILE = ${OADP_CRED_DIR}/azure-credentials
 	CREDS_SECRET_REF = cloud-credentials-azure
-	OADP_BUCKET = ${OADP_CRED_DIR}/velero-bucket-name
+	OADP_BUCKET = ${OADP_CRED_DIR}/azure-velero-bucket-name
 endif
 
 # Misc
