@@ -94,7 +94,10 @@ func decodeJson(data []byte) (map[string]interface{}, error) {
 
 func getJsonData(path string) (map[string]interface{}, error) {
 	// Return buffer data for json
-	jsonData, _ := ioutil.ReadFile(path)
+	jsonData, err := ioutil.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
 	return decodeJson(jsonData)
 }
 
