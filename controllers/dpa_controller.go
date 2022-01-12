@@ -38,6 +38,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
@@ -153,12 +154,29 @@ type labelHandler struct {
 func (l *labelHandler) Create(evt event.CreateEvent, q workqueue.RateLimitingInterface) {
 	// check for the label & add it to the queue
 	if evt.Object.GetLabels()[oadpv1alpha1.OadpOperatorLabel] != "" {
-		q.Add(evt.Object)
+		q.Add(reconcile.Request{NamespacedName: types.NamespacedName{
+			Name:      evt.Object.GetName(),
+			Namespace: evt.Object.GetNamespace(),
+		}})
+	} else {
+		log.Log.Error(nil, "CreateEvent received with no metadata", "event", evt)
+		return
 	}
+
 }
 func (l *labelHandler) Delete(evt event.DeleteEvent, q workqueue.RateLimitingInterface) {
+	dpaname := evt.Object.GetLabels()["dpaName"]
+	namespace := evt.Object.GetLabels()["namespace"]
 	if evt.Object.GetLabels()[oadpv1alpha1.OadpOperatorLabel] != "" {
-		q.Add(evt.Object)
+
+		q.Add(reconcile.Request{NamespacedName: types.NamespacedName{
+			Name:      dpaname,
+			Namespace: namespace,
+		}})
+
+	} else {
+		log.Log.Error(nil, "DeleteEvent received with no metadata", "event", evt)
+		return
 	}
 }
 func (l *labelHandler) Update(evt event.UpdateEvent, q workqueue.RateLimitingInterface) {
@@ -168,8 +186,15 @@ func (l *labelHandler) Update(evt event.UpdateEvent, q workqueue.RateLimitingInt
 }
 func (l *labelHandler) Generic(evt event.GenericEvent, q workqueue.RateLimitingInterface) {
 	if evt.Object.GetLabels()[oadpv1alpha1.OadpOperatorLabel] != "" {
-		q.Add(evt.Object)
+		q.Add(reconcile.Request{NamespacedName: types.NamespacedName{
+			Name:      evt.Object.GetName(),
+			Namespace: evt.Object.GetNamespace(),
+		}})
+	} else {
+		log.Log.Error(nil, "Generic received with no metadata", "event", evt)
+		return
 	}
+
 }
 
 type ReconcileFunc func(logr.Logger) (bool, error)

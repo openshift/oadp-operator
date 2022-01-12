@@ -106,7 +106,7 @@ func (r *DPAReconciler) ReconcileBackupStorageLocations(log logr.Logger) (bool, 
 				Namespace: r.NamespacedName.Namespace,
 			},
 		}
-		secret.SetLabels(map[string]string{oadpv1alpha1.OadpOperatorLabel: "True"})
+		secret.SetLabels(map[string]string{oadpv1alpha1.OadpOperatorLabel: "True", "dpaName": dpa.Name, "namespace": dpa.Namespace})
 		op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, &sec, func() error {
 			sec = secret
 			return nil
