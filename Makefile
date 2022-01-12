@@ -290,7 +290,7 @@ catalog-push: ## Push a catalog image.
 	$(MAKE) docker-push IMG=$(CATALOG_IMG)
 
 test-e2e:
-	ginkgo -mod=mod tests/e2e/ -- -cloud=$(OADP_AWS_CRED_FILE) \
+	ginkgo -mod=mod tests/e2e/suites -- -cloud=$(OADP_AWS_CRED_FILE) \
 	-s3_bucket=$(OADP_S3_BUCKET) -velero_namespace=$(OADP_TEST_NAMESPACE) \
 	-creds_secret_ref=$(CREDS_SECRET_REF) \
 	-velero_instance_name=$(VELERO_INSTANCE_NAME) \
