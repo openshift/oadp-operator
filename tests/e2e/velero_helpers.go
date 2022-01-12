@@ -183,7 +183,7 @@ func getVeleroPods(namespace string) (*corev1.PodList, error) {
 	}
 	// select Velero pod with this label
 	veleroOptions := metav1.ListOptions{
-		LabelSelector: "component=velero",
+		LabelSelector: "app.kubernetes.io/name=velero",
 	}
 	// get pods in test namespace with labelSelector
 	podList, err := clientset.CoreV1().Pods(namespace).List(context.TODO(), veleroOptions)
