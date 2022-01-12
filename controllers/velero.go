@@ -661,14 +661,15 @@ func (r DPAReconciler) noDefaultCredentials(dpa oadpv1alpha1.DataProtectionAppli
 			}
 		}
 		if bsl.CloudStorage != nil {
-			hasCloudStorage = true
 			if bsl.CloudStorage.Credential == nil {
-				cloudStroage := oadpv1alpha1.CloudStorage{}
-				err := r.Get(r.Context, types.NamespacedName{Name: bsl.CloudStorage.CloudStorageRef.Name, Namespace: dpa.Namespace}, &cloudStroage)
+				cloudStorage := oadpv1alpha1.CloudStorage{}
+				err := r.Get(r.Context, types.NamespacedName{Name: bsl.CloudStorage.CloudStorageRef.Name, Namespace: dpa.Namespace}, &cloudStorage)
 				if err != nil {
 					return nil, false, err
 				}
-				providerNeedsDefaultCreds[string(cloudStroage.Spec.Provider)] = true
+				providerNeedsDefaultCreds[string(cloudStorage.Spec.Provider)] = true
+			} else {
+				hasCloudStorage = true
 			}
 		}
 	}
@@ -676,9 +677,11 @@ func (r DPAReconciler) noDefaultCredentials(dpa oadpv1alpha1.DataProtectionAppli
 	for _, vsl := range dpa.Spec.SnapshotLocations {
 		if vsl.Velero != nil {
 			// To handle the case where we want to manually hand the credentials for a cloud storage created
-			// Bucket credententials via configuration. Only AWS is supported
+			// Bucket credentials via configuration. Only AWS is supported
 			provider := strings.TrimPrefix(vsl.Velero.Provider, "velero.io")
-			if provider != string(oadpv1alpha1.AWSBucketProvider) {
+			if provider == string(oadpv1alpha1.AWSBucketProvider) && hasCloudStorage {
+				providerNeedsDefaultCreds[provider] = false
+			} else {
 				providerNeedsDefaultCreds[provider] = true
 			}
 		}

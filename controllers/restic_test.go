@@ -482,14 +482,6 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 										EmptyDir: &v1.EmptyDirVolumeSource{},
 									},
 								},
-								{
-									Name: "cloud-credentials",
-									VolumeSource: v1.VolumeSource{
-										Secret: &v1.SecretVolumeSource{
-											SecretName: "cloud-credentials",
-										},
-									},
-								},
 							},
 							Tolerations: dpa.Spec.Configuration.Restic.PodConfig.Tolerations,
 							Containers: []v1.Container{
@@ -522,10 +514,6 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 											Name:      "certs",
 											MountPath: "/etc/ssl/certs",
 										},
-										{
-											Name:      "cloud-credentials",
-											MountPath: "/credentials",
-										},
 									},
 									Env: []v1.EnvVar{
 										{
@@ -548,10 +536,6 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 											Name:  "VELERO_SCRATCH_DIR",
 											Value: "/scratch",
 										},
-										{
-											Name:  common.AWSSharedCredentialsFileEnvKey,
-											Value: "/credentials/cloud",
-										},
 									},
 								},
 							},
@@ -561,7 +545,7 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 			},
 		},
 		{
-			name: "Valid velero with DNS Policy/Config with annotation and daemonset for aws as bsl with default secret name",
+			name: "Valid velero with DNS Policy/Config with annotation and daemonset for aws as bsl with default secret name not specified",
 			args: args{
 				&oadpv1alpha1.DataProtectionApplication{
 					Spec: oadpv1alpha1.DataProtectionApplicationSpec{
@@ -586,11 +570,6 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 										Region:                "aws-region",
 										S3URL:                 "https://sr-url-aws-domain.com",
 										InsecureSkipTLSVerify: "false",
-									},
-									Credential: &v1.SecretKeySelector{
-										LocalObjectReference: v1.LocalObjectReference{
-											Name: "cloud-credentials",
-										},
 									},
 								},
 							},
