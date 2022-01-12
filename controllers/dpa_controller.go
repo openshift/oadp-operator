@@ -138,7 +138,6 @@ func (r *DPAReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&velerov1.VolumeSnapshotLocation{}).
 		Owns(&appsv1.DaemonSet{}).
 		Owns(&security.SecurityContextConstraints{}).
-		Owns(&corev1.Secret{}).
 		Owns(&corev1.Service{}).
 		Owns(&routev1.Route{}).
 		Owns(&corev1.ConfigMap{}).

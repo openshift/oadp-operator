@@ -95,20 +95,40 @@ func (r *DPAReconciler) ReconcileBackupStorageLocations(log logr.Logger) (bool, 
 				Namespace: r.NamespacedName.Namespace,
 			},
 		}
-		// Annotate secret with oadpApi.OadpOperatorLabel to add it to reconciliation loop
-		if bslSpec.Velero.Credential != nil {
-			secretName, _ := r.getSecretNameAndKey(bslSpec.Velero.Credential, oadpv1alpha1.DefaultPlugin(bslSpec.Velero.Provider))
+		// Add label oadpApi.OadpOperatorLabel to the bsl secret
+		// which in turn will add it to the reconciliation loop
 
-			secret, err := r.getProviderSecret(secretName)
-
-			if err != nil {
-				secret.SetLabels(map[string]string{oadpv1alpha1.OadpOperatorLabel: "True"})
-			}
-
+		secretName, _ := r.getSecretNameAndKey(bslSpec.Velero.Credential, oadpv1alpha1.DefaultPlugin(bslSpec.Velero.Provider))
+		secret, _ := r.getProviderSecret(secretName)
+		sec := corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      secretName,
+				Namespace: r.NamespacedName.Namespace,
+			},
 		}
+		secret.SetLabels(map[string]string{oadpv1alpha1.OadpOperatorLabel: "True"})
+		op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, &sec, func() error {
+			sec = secret
+			return nil
+
+		})
+		if err != nil {
+			return false, err
+		}
+		//if err then return
+		if op == controllerutil.OperationResultCreated || op == controllerutil.OperationResultUpdated {
+			// Trigger event to indicate BSL was created or updated
+			r.EventRecorder.Event(&secret,
+				corev1.EventTypeNormal,
+				"SecretReconciled",
+				fmt.Sprintf("performed %s on Secret %s", op, secretName),
+			)
+		}
+		r.Log.Info(fmt.Sprintf("labels for %s : %v", secretName, secret.GetLabels()))
+		//}
 
 		// Create BSL
-		op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, &bsl, func() error {
+		op, err = controllerutil.CreateOrUpdate(r.Context, r.Client, &bsl, func() error {
 			// TODO: Velero may be setting controllerReference as
 			// well and taking ownership. If so move this to
 			// SetOwnerReference instead
