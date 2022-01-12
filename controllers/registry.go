@@ -428,7 +428,7 @@ func (r *DPAReconciler) getRegistryEnvVars(bsl *velerov1.BackupStorageLocation) 
 
 func (r *DPAReconciler) getAWSRegistryEnvVars(bsl *velerov1.BackupStorageLocation, awsEnvVars []corev1.EnvVar) ([]corev1.EnvVar, error) {
 	// Check for secret name
-	secretName, secretKey := r.getSecretNameAndKey(bsl.Spec.Credential, oadpv1alpha1.DefaultPluginAWS)
+	secretName, secretKey := r.getSecretNameAndKey(&bsl.Spec, oadpv1alpha1.DefaultPluginAWS)
 
 	// fetch secret and error
 	secret, err := r.getProviderSecret(secretName)
@@ -483,7 +483,7 @@ func (r *DPAReconciler) getAWSRegistryEnvVars(bsl *velerov1.BackupStorageLocatio
 
 func (r *DPAReconciler) getAzureRegistryEnvVars(bsl *velerov1.BackupStorageLocation, azureEnvVars []corev1.EnvVar) ([]corev1.EnvVar, error) {
 	// Check for secret name
-	secretName, secretKey := r.getSecretNameAndKey(bsl.Spec.Credential, oadpv1alpha1.DefaultPluginMicrosoftAzure)
+	secretName, secretKey := r.getSecretNameAndKey(&bsl.Spec, oadpv1alpha1.DefaultPluginMicrosoftAzure)
 	r.Log.Info(fmt.Sprintf("Azure secret name: %s and secret key: %s", secretName, secretKey))
 
 	// fetch secret and error
@@ -502,7 +502,7 @@ func (r *DPAReconciler) getAzureRegistryEnvVars(bsl *velerov1.BackupStorageLocat
 	if len(bsl.Spec.Config["storageAccountKeyEnvVar"]) != 0 {
 		if azcreds.strorageAccountKey == "" {
 			r.Log.Info("Expecting storageAccountKeyEnvVar value set present in the credentials")
-			return nil, errors.New("no strorageAccountKey value present in credentials file")
+			return nil, errors.New("no storageAccountKey value present in credentials file")
 		}
 	} else {
 		r.Log.Info("Checking for service principal credentials")
@@ -570,12 +570,18 @@ func (r *DPAReconciler) getProviderSecret(secretName string) (corev1.Secret, err
 	return secret, nil
 }
 
-func (r *DPAReconciler) getSecretNameAndKey(credential *corev1.SecretKeySelector, plugin oadpv1alpha1.DefaultPlugin) (string, string) {
+func (r *DPAReconciler) getSecretNameAndKey(bslSpec *velerov1.BackupStorageLocationSpec, plugin oadpv1alpha1.DefaultPlugin) (string, string) {
 	// Assume default values unless user has overriden them
 	secretName := credentials.PluginSpecificFields[plugin].SecretName
 	secretKey := credentials.PluginSpecificFields[plugin].PluginSecretKey
-
+	if _, ok := bslSpec.Config["credentialsFile"]; ok {
+		secretName = credentials.PluginSpecificFields[plugin].BslSecretName
+		secretKey = credentials.PluginSpecificFields[plugin].PluginSecretKey
+	}
+	r.Log.Info(fmt.Sprintf("secret: %s", secretName))
+	r.Log.Info(fmt.Sprintf("key: %s", secretKey))
 	// check if user specified the Credential Name and Key
+	credential := bslSpec.Credential
 	if credential != nil {
 		if len(credential.Name) > 0 {
 			secretName = credential.Name

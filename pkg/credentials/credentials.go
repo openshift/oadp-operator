@@ -52,6 +52,8 @@ var (
 			IsCloudProvider:    true,
 			SecretName:         "cloud-credentials-azure",
 			MountPath:          "/credentials-azure",
+			BslSecretName:      "bsl-cloud-credentials-azure",
+			BSlMountPath:       "/bsl-cloud-credentials-azure",
 			EnvCredentialsFile: common.AzureCredentialsFileEnvKey,
 			PluginName:         common.VeleroPluginForAzure,
 			PluginSecretKey:    "cloud",

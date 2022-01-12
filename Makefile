@@ -2,25 +2,26 @@ OADP_TEST_NAMESPACE ?= openshift-adp
 CLUSTER_TYPE ?= aws
 
 # CONFIGS FOR CLOUD
-OADP_CRED_FILE ?= /var/run/oadp-credentials/new-aws-credentials
+OADP_CRED_DIR ?= /var/run/oadp-credentials
+OADP_CRED_FILE ?= ${OADP_CRED_DIR}/new-aws-credentials
 BSL_REGION ?= us-east-1
 VSL_REGION ?= ${LEASED_RESOURCE}
 CI_CRED_FILE ?= ${CLUSTER_PROFILE_DIR}/.awscred
 BSL_AWS_PROFILE ?= migration-engineering
-GCP_PROJECT ?= /var/run/secrets/ci.openshift.io/cluster-profile/openshift_gcp_project
 CREDS_SECRET_REF ?= cloud-credentials
-OADP_BUCKET ?= /var/run/oadp-credentials/velero-bucket-name
+OADP_BUCKET ?= ${OADP_CRED_DIR}/velero-bucket-name
 
 ifeq ($(CLUSTER_TYPE), gcp)
 	CI_CRED_FILE = ${CLUSTER_PROFILE_DIR}/gce.json
-	OADP_CRED_FILE = /var/run/oadp-credentials/gcp-credentials
+	OADP_CRED_FILE = ${OADP_CRED_DIR}/gcp-credentials
 	CREDS_SECRET_REF = cloud-credentials-gcp
-	OADP_BUCKET = /var/run/oadp-credentials/gcp-velero-bucket-name
-else ifeq ($(CLUSTER_TYPE), azure)
+	OADP_BUCKET = ${OADP_CRED_DIR}/gcp-velero-bucket-name
+else ifeq ($(CLUSTER_TYPE), azure4)
+	CLUSTER_TYPE = azure
 	CI_CRED_FILE = ${CLUSTER_PROFILE_DIR}/osServicePrincipal.json
-	OADP_CRED_FILE = /var/run/oadp-credentials/azure-credentials
+	OADP_CRED_FILE = ${OADP_CRED_DIR}/azure-credentials
 	CREDS_SECRET_REF = cloud-credentials-azure
-	OADP_BUCKET = /var/run/oadp-credentials/azure-velero-bucket-name
+	OADP_BUCKET = ${OADP_CRED_DIR}/azure-velero-bucket-name
 endif
 
 # Misc

@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo"
+
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -43,7 +44,6 @@ var _ = Describe("AWS backup restore tests", func() {
 		MaxK8SVersion        *k8sVersion
 		MinK8SVersion        *k8sVersion
 	}
-
 	parksAppReady := VerificationFunction(func(ocClient client.Client, namespace string) error {
 		Eventually(isDCReady(ocClient, "parks-app", "restify"), timeoutMultiplier*time.Minute*10, time.Second*10).Should(BeTrue())
 		return nil
@@ -171,7 +171,7 @@ var _ = Describe("AWS backup restore tests", func() {
 			}
 
 		},
-		/*Entry("MSSQL application CSI", BackupRestoreCase{
+		Entry("MSSQL application CSI", BackupRestoreCase{
 			ApplicationTemplate:  "./sample-applications/mssql-persistent/mssql-persistent-csi-template.yaml",
 			ApplicationNamespace: "mssql-persistent",
 			Name:                 "mssql-e2e",
@@ -179,7 +179,6 @@ var _ = Describe("AWS backup restore tests", func() {
 			PreBackupVerify:      mssqlReady,
 			PostRestoreVerify:    mssqlReady,
 		}, nil),
-		*/
 		Entry("Parks application <4.8.0", BackupRestoreCase{
 			ApplicationTemplate:  "./sample-applications/parks-app/manifest.yaml",
 			ApplicationNamespace: "parks-app",

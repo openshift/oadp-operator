@@ -2,6 +2,7 @@ package e2e
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"strconv"
 	"testing"
@@ -36,13 +37,9 @@ func init() {
 
 func TestOADPE2E(t *testing.T) {
 	flag.Parse()
-	s3Buffer, err := getJsonData(bucketFilePath)
+	s3Data, err := getJsonData(bucketFilePath)
 	if err != nil {
 		t.Fatalf("Error getting bucket json file: %v", err)
-	}
-	s3Data, err := decodeJson(s3Buffer) // Might need to change this later on to create s3 for each tests
-	if err != nil {
-		t.Fatalf("Error decoding json file: %v", err)
 	}
 	bucket = s3Data["velero-bucket-name"].(string)
 	log.Println("Using velero prefix: " + veleroPrefix)
@@ -54,19 +51,14 @@ var vel *dpaCustomResource
 
 var _ = BeforeSuite(func() {
 	flag.Parse()
-	s3Buffer, err := getJsonData(bucketFilePath)
-	Expect(err).NotTo(HaveOccurred())
-	s3Data, err := decodeJson(s3Buffer) // Might need to change this later on to create s3 for each tests
+	s3Data, err := getJsonData(bucketFilePath)
 	Expect(err).NotTo(HaveOccurred())
 	bucket = s3Data["velero-bucket-name"].(string)
 
 	vel = &dpaCustomResource{
 		Namespace:     namespace,
-		BslRegion:     bsl_region,
-		VslRegion:     vsl_region,
 		Bucket:        bucket,
 		Provider:      provider,
-		BslProfile:    bsl_profile,
 		credentials:   credFile,
 		credSecretRef: credSecretRef,
 	}
@@ -74,6 +66,25 @@ var _ = BeforeSuite(func() {
 	vel.Name = testSuiteInstanceName
 	// err := vel.createBsl()
 	openshift_ci_bool, _ := strconv.ParseBool(openshift_ci)
+	vel.openshift_ci = openshift_ci_bool
+	vel.awsConfig = dpaAwsConfig{
+		BslProfile: bsl_profile,
+		BslRegion:  bsl_region,
+		VslRegion:  vsl_region,
+	}
+	vel.gcpConfig = dpaGcpConfig{
+		VslRegion: vsl_region,
+	}
+	cloudCredData, err := getJsonData(vel.credentials) // azure credentials need to be in json - can be changed
+	Expect(err).NotTo(HaveOccurred())
+	vel.azureConfig = dpaAzureConfig{
+		BslSubscriptionId:          fmt.Sprintf("%v", cloudCredData["subscriptionId"]),
+		BslResourceGroup:           fmt.Sprintf("%v", cloudCredData["resourceGroup"]),
+		BslStorageAccount:          fmt.Sprintf("%v", cloudCredData["storageAccount"]),
+		BslStorageAccountKeyEnvVar: "AZURE_STORAGE_ACCOUNT_ACCESS_KEY",
+		VslSubscriptionId:          fmt.Sprintf("%v", cloudCredData["subscriptionId"]),
+		VslResourceGroup:           fmt.Sprintf("%v", cloudCredData["resourceGroup"]),
+	}
 	if openshift_ci_bool == true {
 		switch vel.Provider {
 		case "aws":
@@ -92,6 +103,20 @@ var _ = BeforeSuite(func() {
 			err = createCredentialsSecret(cloudCredData, namespace, "bsl-cloud-credentials-gcp")
 			Expect(err).NotTo(HaveOccurred())
 			vel.credentials = ci_cred_file
+		case "azure":
+			// bsl cloud
+			cloudCreds := getAzureCreds(cloudCredData)
+			err = createCredentialsSecret(cloudCreds, namespace, "bsl-cloud-credentials-azure")
+			Expect(err).NotTo(HaveOccurred())
+			// ci cloud
+			ciJsonData, err := getJsonData(ci_cred_file)
+			Expect(err).NotTo(HaveOccurred())
+			vel.azureConfig.VslSubscriptionId = fmt.Sprintf("%v", ciJsonData["subscriptionId"])
+			vel.azureConfig.VslResourceGroup = fmt.Sprintf("%v", ciJsonData["resourceGroup"])
+			ciCreds := getAzureCreds(ciJsonData)
+			vel.credentials = "/tmp/azure-credentials"
+			err = putCredsData(vel.credentials, ciCreds)
+			Expect(err).NotTo(HaveOccurred())
 		}
 	}
 	credData, err := getCredsData(vel.credentials)
