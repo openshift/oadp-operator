@@ -1047,58 +1047,56 @@ func (r *DPAReconciler) ReconcileRegistrySecrets(log logr.Logger) (bool, error) 
 	}
 
 	// Now for each of these bsl instances, create a registry secret
-	if len(bslList.Items) > 0 {
-		for _, bsl := range bslList.Items {
-			secret := corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "oadp-" + bsl.Name + "-" + bsl.Spec.Provider + "-registry-secret",
-					Namespace: r.NamespacedName.Namespace,
-					Labels: map[string]string{
-						oadpv1alpha1.OadpOperatorLabel: "True",
-					},
+	for _, bsl := range bslList.Items {
+		secret := corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "oadp-" + bsl.Name + "-" + bsl.Spec.Provider + "-registry-secret",
+				Namespace: r.NamespacedName.Namespace,
+				Labels: map[string]string{
+					oadpv1alpha1.OadpOperatorLabel: "True",
 				},
-			}
+			},
+		}
 
-			if !dpa.BackupImages() {
-				deleteContext := context.Background()
-				if err := r.Get(deleteContext, types.NamespacedName{
-					Name:      secret.Name,
-					Namespace: r.NamespacedName.Namespace,
-				}, &secret); err != nil {
-					if k8serror.IsNotFound(err) {
-						return true, nil
-					}
-					return false, err
+		if !dpa.BackupImages() {
+			deleteContext := context.Background()
+			if err := r.Get(deleteContext, types.NamespacedName{
+				Name:      secret.Name,
+				Namespace: r.NamespacedName.Namespace,
+			}, &secret); err != nil {
+				if k8serror.IsNotFound(err) {
+					return true, nil
 				}
-
-				deleteOptionPropagationForeground := metav1.DeletePropagationForeground
-				if err := r.Delete(deleteContext, &secret, &client.DeleteOptions{PropagationPolicy: &deleteOptionPropagationForeground}); err != nil {
-					r.EventRecorder.Event(&secret, corev1.EventTypeNormal, "DeleteRegistrySecretFailed", "Could not delete registry secret:"+err.Error())
-					return false, err
-				}
-				r.EventRecorder.Event(&secret, corev1.EventTypeNormal, "DeletedRegistrySecret", "Registry secret deleted")
-
-				return true, nil
-			}
-
-			// Create Secret
-			op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, &secret, func() error {
-				// TODO: check for secret status condition errors and respond here
-				err := r.updateRegistrySecret(&secret, &bsl, &dpa)
-
-				return err
-			})
-			if err != nil {
 				return false, err
 			}
-			if op == controllerutil.OperationResultCreated || op == controllerutil.OperationResultUpdated {
-				// Trigger event to indicate Secret was created or updated
-				r.EventRecorder.Event(&secret,
-					corev1.EventTypeNormal,
-					"RegistrySecretsReconciled",
-					fmt.Sprintf("performed %s on secret %s/%s", op, secret.Namespace, secret.Name),
-				)
+
+			deleteOptionPropagationForeground := metav1.DeletePropagationForeground
+			if err := r.Delete(deleteContext, &secret, &client.DeleteOptions{PropagationPolicy: &deleteOptionPropagationForeground}); err != nil {
+				r.EventRecorder.Event(&secret, corev1.EventTypeNormal, "DeleteRegistrySecretFailed", "Could not delete registry secret:"+err.Error())
+				return false, err
 			}
+			r.EventRecorder.Event(&secret, corev1.EventTypeNormal, "DeletedRegistrySecret", "Registry secret deleted")
+
+			return true, nil
+		}
+
+		// Create Secret
+		op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, &secret, func() error {
+			// TODO: check for secret status condition errors and respond here
+			err := r.updateRegistrySecret(&secret, &bsl, &dpa)
+
+			return err
+		})
+		if err != nil {
+			return false, err
+		}
+		if op == controllerutil.OperationResultCreated || op == controllerutil.OperationResultUpdated {
+			// Trigger event to indicate Secret was created or updated
+			r.EventRecorder.Event(&secret,
+				corev1.EventTypeNormal,
+				"RegistrySecretsReconciled",
+				fmt.Sprintf("performed %s on secret %s/%s", op, secret.Namespace, secret.Name),
+			)
 		}
 	}
 
