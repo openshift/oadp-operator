@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"log"
 
+	"gopkg.in/yaml.v2"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -20,6 +21,14 @@ import (
 type k8sVersion struct {
 	Major string
 	Minor string
+}
+
+type cloudKey struct {
+	Resourcegroup string `yaml:"baseDomainResourceGroupName"`
+}
+
+type azureResourceGroup struct {
+	Platform map[string]cloudKey `yaml:"Platform"`
 }
 
 var (
@@ -122,6 +131,21 @@ func getAzureCreds(ciCred map[string]interface{}) []byte {
 	}
 
 	return []byte(azureCreds)
+}
+
+func getAzureResource(path string) (string, error) {
+	byteData, err := ioutil.ReadFile(path)
+	if err != nil {
+		return "Error", err
+	}
+	var yamlData azureResourceGroup
+
+	err = yaml.Unmarshal(byteData, &yamlData)
+	if err != nil {
+		return "Error", err
+	}
+	resourceGroup := yamlData.Platform["azure"]
+	return resourceGroup.Resourcegroup, err
 }
 
 // Keeping it for now.

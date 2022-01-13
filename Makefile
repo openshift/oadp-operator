@@ -10,6 +10,7 @@ CI_CRED_FILE ?= ${CLUSTER_PROFILE_DIR}/.awscred
 BSL_AWS_PROFILE ?= migration-engineering
 CREDS_SECRET_REF ?= cloud-credentials
 OADP_BUCKET ?= ${OADP_CRED_DIR}/velero-bucket-name
+AZURE_RESOURCE_FILE ?= /var/run/secrets/ci.openshift.io/multi-stage/install-config.yaml 
 
 ifeq ($(CLUSTER_TYPE), gcp)
 	CI_CRED_FILE = ${CLUSTER_PROFILE_DIR}/gce.json
@@ -324,4 +325,5 @@ test-e2e:
 	-provider=$(CLUSTER_TYPE) \
 	-timeout_multiplier=$(E2E_TIMEOUT_MULTIPLIER) \
 	-openshift_ci=$(OPENSHIFT_CI) \
-	-ci_cred_file=$(CI_CRED_FILE)
+	-ci_cred_file=$(CI_CRED_FILE) \
+	-azure_resource_file=$(AZURE_RESOURCE_FILE)
