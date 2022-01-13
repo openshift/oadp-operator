@@ -388,10 +388,11 @@ func (v *dpaCustomResource) CreateDpaFromYaml(yamlTemplatePath string, data inte
 	if err != nil {
 		return err
 	}
+
 	v.CustomResource = &dpaSpec
 
 	// Create custom resource
-	err = v.Client.Create(context.Background(), &dpaSpec)
+	err = v.Client.Create(context.Background(), v.CustomResource)
 	if apierrors.IsAlreadyExists(err) {
 		return errors.New("found unexpected existing DPA")
 	} else if err != nil {
