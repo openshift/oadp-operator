@@ -13,7 +13,7 @@ import (
 )
 
 // Common vars obtained from flags passed in ginkgo.
-var credFile, namespace, bucket, bucketFilePath, credSecretRef, instanceName, bsl_region, vsl_region, provider, bsl_profile, openshift_ci, ci_cred_file string
+var credFile, namespace, bucket, bucketFilePath, credSecretRef, instanceName, bsl_region, vsl_region, provider, bsl_profile, azure_resource_file, openshift_ci, ci_cred_file string
 var timeoutMultiplier time.Duration
 
 func init() {
@@ -24,6 +24,7 @@ func init() {
 	flag.StringVar(&bsl_profile, "bsl_profile", "default", "AWS Profile for BSL")
 	flag.StringVar(&vsl_region, "vsl_region", bsl_region, "VSL region")
 	flag.StringVar(&provider, "provider", "aws", "BSL provider")
+	flag.StringVar(&azure_resource_file, "azure_resource_file", "azure resource file", "Resource Group Dir for azure")
 	flag.StringVar(&ci_cred_file, "ci_cred_file", credFile, "CI Cloud Cred File")
 	flag.StringVar(&openshift_ci, "openshift_ci", "false", "ENV for tests")
 	flag.StringVar(&credSecretRef, "creds_secret_ref", "cloud-credentials", "Credential secret ref for backup storage location")
@@ -111,6 +112,9 @@ var _ = BeforeSuite(func() {
 			// ci cloud
 			ciJsonData, err := getJsonData(ci_cred_file)
 			Expect(err).NotTo(HaveOccurred())
+			resourceGroup, err := getAzureResource(azure_resource_file)
+			Expect(err).NotTo(HaveOccurred())
+			ciJsonData["resourceGroup"] = resourceGroup
 			vel.azureConfig.VslSubscriptionId = fmt.Sprintf("%v", ciJsonData["subscriptionId"])
 			vel.azureConfig.VslResourceGroup = fmt.Sprintf("%v", ciJsonData["resourceGroup"])
 			ciCreds := getAzureCreds(ciJsonData)
