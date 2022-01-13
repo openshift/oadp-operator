@@ -87,6 +87,7 @@ func (r *DPAReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		r.ReconcileResticRestoreHelperConfig,
 		r.ValidateBackupStorageLocations,
 		r.ReconcileBackupStorageLocations,
+		r.ReconcileRegistrySecrets,
 		r.ReconcileRegistries,
 		r.ReconcileRegistrySVCs,
 		r.ReconcileRegistryRoutes,
