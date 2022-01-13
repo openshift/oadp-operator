@@ -226,7 +226,12 @@ func (r *DPAReconciler) customizeResticDaemonset(dpa *oadpv1alpha1.DataProtectio
 		ds.Spec.Template.Spec.DNSConfig = &dpa.Spec.PodDnsConfig
 	}
 
-	if err := credentials.AppendCloudProviderVolumes(dpa, ds); err != nil {
+	providerNeedsDefaultCreds, hasCloudStorage, err := r.noDefaultCredentials(*dpa)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := credentials.AppendCloudProviderVolumes(dpa, ds, providerNeedsDefaultCreds, hasCloudStorage); err != nil {
 		return nil, err
 	}
 	return ds, nil
