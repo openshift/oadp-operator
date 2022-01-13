@@ -24,7 +24,7 @@ func init() {
 	flag.StringVar(&bsl_profile, "bsl_profile", "default", "AWS Profile for BSL")
 	flag.StringVar(&vsl_region, "vsl_region", bsl_region, "VSL region")
 	flag.StringVar(&provider, "provider", "aws", "BSL provider")
-	flag.StringVar(&azure_resource_file, "cluster_dir", "azure resource file", "Resource Group Dir for azure")
+	flag.StringVar(&azure_resource_file, "azure_resource_file", "azure resource file", "Resource Group Dir for azure")
 	flag.StringVar(&ci_cred_file, "ci_cred_file", credFile, "CI Cloud Cred File")
 	flag.StringVar(&openshift_ci, "openshift_ci", "false", "ENV for tests")
 	flag.StringVar(&credSecretRef, "creds_secret_ref", "cloud-credentials", "Credential secret ref for backup storage location")
