@@ -148,15 +148,17 @@ func (r *DPAReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 type labelHandler struct {
-	//label metav1.LabelSelector
 }
 
 func (l *labelHandler) Create(evt event.CreateEvent, q workqueue.RateLimitingInterface) {
 	// check for the label & add it to the queue
+
 	if evt.Object.GetLabels()[oadpv1alpha1.OadpOperatorLabel] != "" {
+		dpaname := evt.Object.GetLabels()["dpaName"]
+		namespace := evt.Object.GetLabels()["namespace"]
 		q.Add(reconcile.Request{NamespacedName: types.NamespacedName{
-			Name:      evt.Object.GetName(),
-			Namespace: evt.Object.GetNamespace(),
+			Name:      dpaname,
+			Namespace: namespace,
 		}})
 	} else {
 		log.Log.Error(nil, "CreateEvent received with no metadata", "event", evt)
@@ -165,10 +167,10 @@ func (l *labelHandler) Create(evt event.CreateEvent, q workqueue.RateLimitingInt
 
 }
 func (l *labelHandler) Delete(evt event.DeleteEvent, q workqueue.RateLimitingInterface) {
-	dpaname := evt.Object.GetLabels()["dpaName"]
-	namespace := evt.Object.GetLabels()["namespace"]
-	if evt.Object.GetLabels()[oadpv1alpha1.OadpOperatorLabel] != "" {
 
+	if evt.Object.GetLabels()[oadpv1alpha1.OadpOperatorLabel] != "" {
+		dpaname := evt.Object.GetLabels()["dpaName"]
+		namespace := evt.Object.GetLabels()["namespace"]
 		q.Add(reconcile.Request{NamespacedName: types.NamespacedName{
 			Name:      dpaname,
 			Namespace: namespace,
@@ -180,15 +182,24 @@ func (l *labelHandler) Delete(evt event.DeleteEvent, q workqueue.RateLimitingInt
 	}
 }
 func (l *labelHandler) Update(evt event.UpdateEvent, q workqueue.RateLimitingInterface) {
+
 	if evt.ObjectNew.GetLabels()[oadpv1alpha1.OadpOperatorLabel] != "" {
-		q.Add(evt.ObjectNew)
+		dpaname := evt.ObjectNew.GetLabels()["dpaName"]
+		namespace := evt.ObjectNew.GetLabels()["namespace"]
+		q.Add(reconcile.Request{NamespacedName: types.NamespacedName{
+			Name:      dpaname,
+			Namespace: namespace,
+		}})
 	}
 }
 func (l *labelHandler) Generic(evt event.GenericEvent, q workqueue.RateLimitingInterface) {
+
 	if evt.Object.GetLabels()[oadpv1alpha1.OadpOperatorLabel] != "" {
+		dpaname := evt.Object.GetLabels()["dpaName"]
+		namespace := evt.Object.GetLabels()["namespace"]
 		q.Add(reconcile.Request{NamespacedName: types.NamespacedName{
-			Name:      evt.Object.GetName(),
-			Namespace: evt.Object.GetNamespace(),
+			Name:      dpaname,
+			Namespace: namespace,
 		}})
 	} else {
 		log.Log.Error(nil, "Generic received with no metadata", "event", evt)
