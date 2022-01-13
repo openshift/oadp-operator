@@ -408,6 +408,7 @@ func (v *dpaCustomResource) CreateDpaFromYaml(yamlTemplatePath string, data inte
 	if err != nil {
 		return err
 	}
+	v.CustomResource = &dpaSpec
 
 	v.CustomResource = &dpaSpec
 
