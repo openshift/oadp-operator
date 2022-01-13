@@ -388,6 +388,7 @@ func (v *dpaCustomResource) CreateDpaFromYaml(yamlTemplatePath string, data inte
 	if err != nil {
 		return err
 	}
+	v.CustomResource = &dpaSpec
 
 	// Create custom resource
 	err = v.Client.Create(context.Background(), &dpaSpec)
@@ -396,6 +397,5 @@ func (v *dpaCustomResource) CreateDpaFromYaml(yamlTemplatePath string, data inte
 	} else if err != nil {
 		return err
 	}
-	log.Printf("DPA created \n")
 	return nil
 }
