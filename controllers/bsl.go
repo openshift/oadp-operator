@@ -98,7 +98,6 @@ func (r *DPAReconciler) ReconcileBackupStorageLocations(log logr.Logger) (bool, 
 		// Add the following labels to the bsl secret,
 		//	 1. oadpApi.OadpOperatorLabel: "True"
 		// 	 2. dataprotectionapplication: <name>
-		// 	 3. namespace": <dpa namespace>
 		// which in turn will be used in th elabel handler to trigger the reconciliation loop
 
 		secretName, _ := r.getSecretNameAndKey(bslSpec.Velero.Credential, oadpv1alpha1.DefaultPlugin(bslSpec.Velero.Provider))
@@ -109,7 +108,7 @@ func (r *DPAReconciler) ReconcileBackupStorageLocations(log logr.Logger) (bool, 
 				Namespace: r.NamespacedName.Namespace,
 			},
 		}
-		secret.SetLabels(map[string]string{oadpv1alpha1.OadpOperatorLabel: "True", "dataprotectionapplication": dpa.Name, "namespace": dpa.Namespace})
+		secret.SetLabels(map[string]string{oadpv1alpha1.OadpOperatorLabel: "True", "dataprotectionapplication": dpa.Name})
 		op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, &sec, func() error {
 			sec = secret
 			return nil
