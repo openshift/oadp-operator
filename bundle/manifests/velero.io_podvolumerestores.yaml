@@ -101,11 +101,6 @@ spec:
                 format: date-time
                 nullable: true
                 type: string
-              errors:
-                description: Errors is a count of all error messages that were generated
-                  during execution of the pod volume restore. The actual errors are
-                  in the restic log
-                type: integer
               message:
                 description: Message is a message about the pod volume restore's status.
                 type: string
@@ -129,22 +124,12 @@ spec:
                     format: int64
                     type: integer
                 type: object
-              resticPod:
-                description: ResticPod is the name of the restic pod which processed
-                  the restore. Any errors referenced in Errors or VerifyErrors will
-                  be logged in this pod's log.
-                type: string
               startTimestamp:
                 description: StartTimestamp records the time a restore was started.
                   The server's time is used for StartTimestamps
                 format: date-time
                 nullable: true
                 type: string
-              verifyErrors:
-                description: VerifyErrors is a count of all verification-related error
-                  messages that were generated during execution of the pod volume
-                  restore. The actual errors are in the restic log
-                type: integer
             type: object
         type: object
     served: true
