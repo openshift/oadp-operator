@@ -58,19 +58,19 @@ func (r *DPAReconciler) LabelVSLSecrets(log logr.Logger) (bool, error) {
 		switch provider {
 		case "aws":
 			secretName := credentials.PluginSpecificFields[oadpv1alpha1.DefaultPluginAWS].SecretName
-			_, err := r.UpdateLabels(secretName, dpa.Namespace, dpa.Name)
+			_, err := r.UpdateCredentialsSecretLabels(secretName, dpa.Namespace, dpa.Name)
 			if err != nil {
 				return false, err
 			}
 		case "gcp":
 			secretName := credentials.PluginSpecificFields[oadpv1alpha1.DefaultPluginGCP].SecretName
-			_, err := r.UpdateLabels(secretName, dpa.Namespace, dpa.Name)
+			_, err := r.UpdateCredentialsSecretLabels(secretName, dpa.Namespace, dpa.Name)
 			if err != nil {
 				return false, err
 			}
 		case "azure":
 			secretName := credentials.PluginSpecificFields[oadpv1alpha1.DefaultPluginMicrosoftAzure].SecretName
-			_, err := r.UpdateLabels(secretName, dpa.Namespace, dpa.Name)
+			_, err := r.UpdateCredentialsSecretLabels(secretName, dpa.Namespace, dpa.Name)
 			if err != nil {
 				return false, err
 			}

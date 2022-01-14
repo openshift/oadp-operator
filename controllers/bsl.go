@@ -101,7 +101,7 @@ func (r *DPAReconciler) ReconcileBackupStorageLocations(log logr.Logger) (bool, 
 		// which in turn will be used in th elabel handler to trigger the reconciliation loop
 
 		secretName, _ := r.getSecretNameAndKey(bslSpec.Velero.Credential, oadpv1alpha1.DefaultPlugin(bslSpec.Velero.Provider))
-		_, err := r.UpdateLabels(secretName, dpa.Namespace, dpa.Name)
+		_, err := r.UpdateCredentialsSecretLabels(secretName, dpa.Namespace, dpa.Name)
 		if err != nil {
 			return false, err
 		}
@@ -156,19 +156,21 @@ func (r *DPAReconciler) ReconcileBackupStorageLocations(log logr.Logger) (bool, 
 	return true, nil
 }
 
-func (r *DPAReconciler) UpdateLabels(secretName string, namespace string, dpaName string) (bool, error) {
+func (r *DPAReconciler) UpdateCredentialsSecretLabels(secretName string, namespace string, dpaName string) (bool, error) {
 	var secret corev1.Secret
 	secret, err := r.getProviderSecret(secretName)
 	if err != nil {
 		return false, err
 	}
-	if secret.Name != "" {
-		secret.SetLabels(map[string]string{oadpv1alpha1.OadpOperatorLabel: "True", namespace + ".dataprotectionapplication": dpaName})
-		err := r.Client.Update(r.Context, &secret, &client.UpdateOptions{})
-		if err != nil {
-			return false, err
-		}
+	if secret.Name == "" {
+		return false, errors.New("secret not found")
 	}
+	secret.SetLabels(map[string]string{oadpv1alpha1.OadpOperatorLabel: "True", namespace + ".dataprotectionapplication": dpaName})
+	err = r.Client.Update(r.Context, &secret, &client.UpdateOptions{})
+	if err != nil {
+		return false, err
+	}
+
 	r.EventRecorder.Event(&secret, corev1.EventTypeNormal, "SecretLabelled", fmt.Sprintf("Secret %s has been labelled", secretName))
 	return true, nil
 }

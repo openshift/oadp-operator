@@ -179,15 +179,16 @@ func (l *labelHandler) Delete(evt event.DeleteEvent, q workqueue.RateLimitingInt
 
 }
 func (l *labelHandler) Update(evt event.UpdateEvent, q workqueue.RateLimitingInterface) {
-
-	if evt.ObjectNew.GetLabels()[oadpv1alpha1.OadpOperatorLabel] != "" {
-		namespace := evt.ObjectNew.GetNamespace()
-		dpaname := evt.ObjectNew.GetLabels()[namespace+".dataprotectionapplication"]
-		q.Add(reconcile.Request{NamespacedName: types.NamespacedName{
-			Name:      dpaname,
-			Namespace: namespace,
-		}})
+	namespace := evt.ObjectNew.GetNamespace()
+	dpaname := evt.ObjectNew.GetLabels()[namespace+".dataprotectionapplication"]
+	if evt.ObjectNew.GetLabels()[oadpv1alpha1.OadpOperatorLabel] == "" || dpaname == "" {
+		return
 	}
+	q.Add(reconcile.Request{NamespacedName: types.NamespacedName{
+		Name:      dpaname,
+		Namespace: namespace,
+	}})
+
 }
 func (l *labelHandler) Generic(evt event.GenericEvent, q workqueue.RateLimitingInterface) {
 
