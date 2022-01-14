@@ -140,6 +140,15 @@ func TestDPAReconciler_buildVeleroServiceMonitor(t *testing.T) {
 						{
 							Interval: "30s",
 							Port:     "monitoring",
+							MetricRelabelConfigs: []*monitor.RelabelConfig{
+								{
+									Action: "keep",
+									Regex:  ("velero_backup_total|velero_restore_total"),
+									SourceLabels: []string{
+										"__name__",
+									},
+								},
+							},
 						},
 					},
 					NamespaceSelector: monitor.NamespaceSelector{
