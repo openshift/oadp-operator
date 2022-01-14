@@ -72,7 +72,7 @@ var _ = Describe("AWS backup restore tests", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			log.Printf("Waiting for velero pod to be running")
-			Eventually(isVeleroPodRunning(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
+			Eventually(areVeleroPodsRunning(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 
 			if brCase.BackupRestoreType == restic {
 				log.Printf("Waiting for restic pods to be running")
