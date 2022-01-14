@@ -95,6 +95,7 @@ func (r *DPAReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		r.ReconcileRegistryRoutes,
 		r.ReconcileRegistryRouteConfigs,
 		r.ValidateVolumeSnapshotLocations,
+		r.LabelVSLSecrets,
 		r.ReconcileVolumeSnapshotLocations,
 		r.ReconcileVeleroDeployment,
 		r.ReconcileResticDaemonset,
@@ -152,12 +153,12 @@ type labelHandler struct {
 
 func (l *labelHandler) Create(evt event.CreateEvent, q workqueue.RateLimitingInterface) {
 	// check for the label & add it to the queue
-
-	if evt.Object.GetLabels()[oadpv1alpha1.OadpOperatorLabel] == "" {
+	namespace := evt.Object.GetNamespace()
+	dpaname := evt.Object.GetLabels()[namespace+".dataprotectionapplication"]
+	if evt.Object.GetLabels()[oadpv1alpha1.OadpOperatorLabel] == "" || dpaname == "" {
 		return
 	}
-	dpaname := evt.Object.GetLabels()["dataprotectionapplication"]
-	namespace := evt.Object.GetNamespace()
+
 	q.Add(reconcile.Request{NamespacedName: types.NamespacedName{
 		Name:      dpaname,
 		Namespace: namespace,
@@ -166,11 +167,11 @@ func (l *labelHandler) Create(evt event.CreateEvent, q workqueue.RateLimitingInt
 }
 func (l *labelHandler) Delete(evt event.DeleteEvent, q workqueue.RateLimitingInterface) {
 
-	if evt.Object.GetLabels()[oadpv1alpha1.OadpOperatorLabel] == "" {
+	namespace := evt.Object.GetNamespace()
+	dpaname := evt.Object.GetLabels()[namespace+".dataprotectionapplication"]
+	if evt.Object.GetLabels()[oadpv1alpha1.OadpOperatorLabel] == "" || dpaname == "" {
 		return
 	}
-	dpaname := evt.Object.GetLabels()["dataprotectionapplication"]
-	namespace := evt.Object.GetNamespace()
 	q.Add(reconcile.Request{NamespacedName: types.NamespacedName{
 		Name:      dpaname,
 		Namespace: namespace,
@@ -180,8 +181,8 @@ func (l *labelHandler) Delete(evt event.DeleteEvent, q workqueue.RateLimitingInt
 func (l *labelHandler) Update(evt event.UpdateEvent, q workqueue.RateLimitingInterface) {
 
 	if evt.ObjectNew.GetLabels()[oadpv1alpha1.OadpOperatorLabel] != "" {
-		dpaname := evt.ObjectNew.GetLabels()["dataprotectionapplication"]
 		namespace := evt.ObjectNew.GetNamespace()
+		dpaname := evt.ObjectNew.GetLabels()[namespace+".dataprotectionapplication"]
 		q.Add(reconcile.Request{NamespacedName: types.NamespacedName{
 			Name:      dpaname,
 			Namespace: namespace,
@@ -190,11 +191,11 @@ func (l *labelHandler) Update(evt event.UpdateEvent, q workqueue.RateLimitingInt
 }
 func (l *labelHandler) Generic(evt event.GenericEvent, q workqueue.RateLimitingInterface) {
 
-	if evt.Object.GetLabels()[oadpv1alpha1.OadpOperatorLabel] == "" {
+	namespace := evt.Object.GetNamespace()
+	dpaname := evt.Object.GetLabels()[namespace+".dataprotectionapplication"]
+	if evt.Object.GetLabels()[oadpv1alpha1.OadpOperatorLabel] == "" || dpaname == "" {
 		return
 	}
-	dpaname := evt.Object.GetLabels()["dataprotectionapplication"]
-	namespace := evt.Object.GetNamespace()
 	q.Add(reconcile.Request{NamespacedName: types.NamespacedName{
 		Name:      dpaname,
 		Namespace: namespace,
