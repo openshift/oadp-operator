@@ -101,33 +101,10 @@ func (r *DPAReconciler) ReconcileBackupStorageLocations(log logr.Logger) (bool, 
 		// which in turn will be used in th elabel handler to trigger the reconciliation loop
 
 		secretName, _ := r.getSecretNameAndKey(bslSpec.Velero.Credential, oadpv1alpha1.DefaultPlugin(bslSpec.Velero.Provider))
-		secret, _ := r.getProviderSecret(secretName)
-		/*sec := corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      secretName,
-				Namespace: r.NamespacedName.Namespace,
-			},
-		} */
-		secret.SetLabels(map[string]string{oadpv1alpha1.OadpOperatorLabel: "True", dpa.Namespace + ".dataprotectionapplication": dpa.Name})
-		err := r.Client.Update(r.Context, &secret, &client.UpdateOptions{})
-		/*op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, &sec, func() error {
-			sec = secret
-			return nil
-
-		}) */
-		//if err then return
+		_, err := r.UpdateLabels(secretName, dpa.Namespace, dpa.Name)
 		if err != nil {
 			return false, err
 		}
-		r.EventRecorder.Event(&secret, corev1.EventTypeNormal, "SecretLabelled", fmt.Sprintf("Secret %s has been labelled", secretName))
-		/*	if op == controllerutil.OperationResultCreated || op == controllerutil.OperationResultUpdated {
-			// Trigger event to indicate BSL was created or updated
-			r.EventRecorder.Event(&secret,
-				corev1.EventTypeNormal,
-				"SecretReconciled",
-				fmt.Sprintf("performed %s on Secret %s", op, secretName),
-			)
-		} */
 
 		// Create BSL
 		op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, &bsl, func() error {
@@ -176,6 +153,23 @@ func (r *DPAReconciler) ReconcileBackupStorageLocations(log logr.Logger) (bool, 
 			)
 		}
 	}
+	return true, nil
+}
+
+func (r *DPAReconciler) UpdateLabels(secretName string, namespace string, dpaName string) (bool, error) {
+	var secret corev1.Secret
+	secret, err := r.getProviderSecret(secretName)
+	if err != nil {
+		return false, err
+	}
+	if secret.Name != "" {
+		secret.SetLabels(map[string]string{oadpv1alpha1.OadpOperatorLabel: "True", namespace + ".dataprotectionapplication": dpaName})
+		err := r.Client.Update(r.Context, &secret, &client.UpdateOptions{})
+		if err != nil {
+			return false, err
+		}
+	}
+	r.EventRecorder.Event(&secret, corev1.EventTypeNormal, "SecretLabelled", fmt.Sprintf("Secret %s has been labelled", secretName))
 	return true, nil
 }
 

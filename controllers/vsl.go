@@ -11,7 +11,6 @@ import (
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
@@ -77,22 +76,6 @@ func (r *DPAReconciler) LabelVSLSecrets(log logr.Logger) (bool, error) {
 			}
 		}
 
-	}
-	return true, nil
-}
-
-func (r *DPAReconciler) UpdateLabels(secretName string, namespace string, dpaName string) (bool, error) {
-	var secret corev1.Secret
-	secret, err := r.getProviderSecret(secretName)
-	if err != nil {
-		return false, err
-	}
-	if secret.Name != "" {
-		secret.SetLabels(map[string]string{oadpv1alpha1.OadpOperatorLabel: "True", namespace + ".dataprotectionapplication": dpaName})
-		err := r.Client.Update(r.Context, &secret, &client.UpdateOptions{})
-		if err != nil {
-			return false, err
-		}
 	}
 	return true, nil
 }
