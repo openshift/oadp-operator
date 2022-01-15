@@ -28,7 +28,7 @@ type cloudKey struct {
 }
 
 type azureResourceGroup struct {
-	Platform map[string]cloudKey `yaml:"Platform"`
+	Platform map[string]cloudKey `yaml:"platform"`
 }
 
 var (

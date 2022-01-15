@@ -112,9 +112,11 @@ var _ = BeforeSuite(func() {
 			// ci cloud
 			ciJsonData, err := getJsonData(ci_cred_file)
 			Expect(err).NotTo(HaveOccurred())
-			resourceGroup, err := getAzureResource(azure_resource_file)
-			Expect(err).NotTo(HaveOccurred())
-			ciJsonData["resourceGroup"] = resourceGroup
+			if _, ok := ciJsonData["resourceGroup"]; !ok {
+				resourceGroup, err := getAzureResource(azure_resource_file)
+				Expect(err).NotTo(HaveOccurred())
+				ciJsonData["resourceGroup"] = resourceGroup
+			}
 			vel.azureConfig.VslSubscriptionId = fmt.Sprintf("%v", ciJsonData["subscriptionId"])
 			vel.azureConfig.VslResourceGroup = fmt.Sprintf("%v", ciJsonData["resourceGroup"])
 			ciCreds := getAzureCreds(ciJsonData)
