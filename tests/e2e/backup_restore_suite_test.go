@@ -20,10 +20,9 @@ var _ = Describe("AWS backup restore tests", func() {
 		testSuiteInstanceName := "ts-" + instanceName
 		vel.Name = testSuiteInstanceName
 
-		credData, err := getCredsData(cloud)
+		credData, err := readFile(cloud)
 		Expect(err).NotTo(HaveOccurred())
-
-		err = createCredentialsSecret(credData, namespace, credSecretRef)
+		err = createCredentialsSecret(credData, namespace, getSecretRef(credSecretRef))
 		Expect(err).NotTo(HaveOccurred())
 	})
 
@@ -80,7 +79,7 @@ var _ = Describe("AWS backup restore tests", func() {
 			}
 
 			if brCase.BackupRestoreType == csi {
-				if vel.ClusterProfile == "aws" {
+				if clusterProfile == "aws" {
 					log.Printf("Creating VolumeSnapshot for CSI backuprestore of %s", brCase.Name)
 					err = installApplication(vel.Client, "./sample-applications/gp2-csi/volumeSnapshotClass.yaml")
 					Expect(err).ToNot(HaveOccurred())

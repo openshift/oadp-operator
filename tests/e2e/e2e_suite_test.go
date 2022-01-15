@@ -1,6 +1,7 @@
 package e2e
 
 import (
+	"errors"
 	"flag"
 	"log"
 	"testing"
@@ -11,18 +12,17 @@ import (
 )
 
 // Common vars obtained from flags passed in ginkgo.
-var cloud, namespace, s3Bucket, s3BucketFilePath, credSecretRef, instanceName, region, provider, clusterProfile string
+var namespace, instanceName, settings, cloud, clusterProfile, credSecretRef string
 var timeoutMultiplier time.Duration
 
 func init() {
 	flag.StringVar(&cloud, "cloud", "", "Cloud Credentials file path location")
-	flag.StringVar(&s3BucketFilePath, "s3_bucket", "myBucket", "AWS S3 data file path location")
-	flag.StringVar(&namespace, "velero_namespace", "oadp-operator", "Velero Namespace")
-	flag.StringVar(&region, "region", "us-east-1", "BSL region")
-	flag.StringVar(&provider, "provider", "aws", "BSL provider")
-	flag.StringVar(&clusterProfile, "clusterProfile", "aws", "Cluster Profile")
-	flag.StringVar(&credSecretRef, "creds_secret_ref", "cloud-credentials", "Credential secret ref for backup storage location")
+	flag.StringVar(&namespace, "velero_namespace", "velero", "Velero Namespace")
+	flag.StringVar(&settings, "settings", "./templates/default_settings.json", "Settings of the velero instance")
 	flag.StringVar(&instanceName, "velero_instance_name", "example-velero", "Velero Instance Name")
+	flag.StringVar(&clusterProfile, "cluster_profile", "aws", "Cluster profile")
+	flag.StringVar(&credSecretRef, "creds_secret_ref", "cloud-credentials", "Credential secret ref for backup storage location")
+
 	timeoutMultiplierInput := flag.Int64("timeout_multiplier", 1, "Customize timeout multiplier from default (1)")
 	timeoutMultiplier = 1
 	if timeoutMultiplierInput != nil && *timeoutMultiplierInput >= 1 {
@@ -32,15 +32,11 @@ func init() {
 
 func TestOADPE2E(t *testing.T) {
 	flag.Parse()
-	s3Buffer, err := getJsonData(s3BucketFilePath)
-	if err != nil {
-		t.Fatalf("Error getting bucket json file: %v", err)
+	errString := loadDpaSettingsFromJson(settings)
+	if errString != "" {
+		t.Fatalf(errString)
 	}
-	s3Data, err := decodeJson(s3Buffer) // Might need to change this later on to create s3 for each tests
-	if err != nil {
-		t.Fatalf("Error decoding json file: %v", err)
-	}
-	s3Bucket = s3Data["velero-bucket-name"].(string)
+
 	log.Println("Using velero prefix: " + veleroPrefix)
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "OADP E2E Suite")
@@ -50,23 +46,20 @@ var vel *dpaCustomResource
 
 var _ = BeforeSuite(func() {
 	flag.Parse()
-	s3Buffer, err := getJsonData(s3BucketFilePath)
+	errString := loadDpaSettingsFromJson(settings)
+	if errString != "" {
+		Expect(errors.New(errString)).NotTo(HaveOccurred())
+	}
+	
+	credData, err := readFile(cloud)
 	Expect(err).NotTo(HaveOccurred())
-	s3Data, err := decodeJson(s3Buffer) // Might need to change this later on to create s3 for each tests
-	Expect(err).NotTo(HaveOccurred())
-	s3Bucket = s3Data["velero-bucket-name"].(string)
-	credData, err := getCredsData(cloud)
-	Expect(err).NotTo(HaveOccurred())
-	err = createCredentialsSecret(credData, namespace, credSecretRef)
+	err = createCredentialsSecret(credData, namespace, getSecretRef(credSecretRef))
 	Expect(err).NotTo(HaveOccurred())
 
 	vel = &dpaCustomResource{
-		Namespace:      namespace,
-		Region:         region,
-		Bucket:         s3Bucket,
-		Provider:       provider,
-		ClusterProfile: clusterProfile,
+		Namespace: namespace,
 	}
+	vel.CustomResource = dpa
 	testSuiteInstanceName := "ts-" + instanceName
 	vel.Name = testSuiteInstanceName
 
@@ -76,10 +69,9 @@ var _ = BeforeSuite(func() {
 
 var _ = AfterSuite(func() {
 	log.Printf("Deleting Velero CR")
+	errs := deleteSecret(namespace, getSecretRef(credSecretRef))
+	Expect(errs).ToNot(HaveOccurred())
 	err := vel.Delete()
 	Expect(err).ToNot(HaveOccurred())
-
-	errs := deleteSecret(namespace, credSecretRef)
-	Expect(errs).ToNot(HaveOccurred())
 	Eventually(vel.IsDeleted(), timeoutMultiplier*time.Minute*2, time.Second*5).Should(BeTrue())
 })

@@ -29,10 +29,10 @@ var _ = Describe("Subscription Config Suite Test", func() {
 		testSuiteInstanceName := "ts-" + instanceName
 		vel.Name = testSuiteInstanceName
 
-		credData, err := getCredsData(cloud)
+		credData, err := readFile(cloud)
 		Expect(err).NotTo(HaveOccurred())
 
-		err = createCredentialsSecret(credData, namespace, credSecretRef)
+		err = createCredentialsSecret(credData, namespace, vel.CustomResource.Spec.BackupLocations[0].Velero.Credential.Name)
 		Expect(err).NotTo(HaveOccurred())
 	})
 
