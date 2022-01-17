@@ -289,12 +289,16 @@ catalog-build: opm ## Build a catalog image.
 catalog-push: ## Push a catalog image.
 	$(MAKE) docker-push IMG=$(CATALOG_IMG)
 
+S3_BUCKET := $(shell cat $(OADP_S3_BUCKET) | awk '/velero-bucket-name/  {gsub(/"/, "", $$2); print $$2}')
+SETTINGS_TMP=/tmp/test-settings
 test-e2e:
+	mkdir -p $(SETTINGS_TMP)
+	PROVIDER="$(PROVIDER)" BUCKET="$(S3_BUCKET)" REGION="$(REGION)" SECRET="$(CREDS_SECRET_REF)" TMP_DIR=$(SETTINGS_TMP) /bin/bash tests/e2e/scripts/aws_settings.sh
 	ginkgo -mod=mod tests/e2e/ -- -cloud=$(OADP_AWS_CRED_FILE) \
-	-s3_bucket=$(OADP_S3_BUCKET) -velero_namespace=$(OADP_TEST_NAMESPACE) \
-	-creds_secret_ref=$(CREDS_SECRET_REF) \
+	-velero_namespace=$(OADP_TEST_NAMESPACE) \
+	-settings=$(SETTINGS_TMP)/awscreds \
 	-velero_instance_name=$(VELERO_INSTANCE_NAME) \
-	-region=$(REGION) \
-	-provider=$(PROVIDER) \
-	-clusterProfile=$(CLUSTER_PROFILE) \
 	-timeout_multiplier=$(E2E_TIMEOUT_MULTIPLIER)
+	-cluster_profile=$(CLUSTER_PROFILE)
+test-e2e-cleanup:
+	rm -rf $(SETTINGS_TMP)
