@@ -289,7 +289,7 @@ catalog-build: opm ## Build a catalog image.
 catalog-push: ## Push a catalog image.
 	$(MAKE) docker-push IMG=$(CATALOG_IMG)
 
-S3_BUCKET := $(shell cat $(OADP_S3_BUCKET) | jq  -r '."velero-bucket-name"')
+S3_BUCKET := $(shell cat $(OADP_S3_BUCKET) | awk '/velero-bucket-name/  {gsub(/"/, "", $2); print $2}')
 SETTINGS_TMP=/tmp/test-settings
 test-e2e:
 	mkdir -p $(SETTINGS_TMP)
