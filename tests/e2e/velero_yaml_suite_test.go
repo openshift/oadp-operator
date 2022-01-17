@@ -1,7 +1,6 @@
 package e2e
 
 import (
-	"log"
 	"path/filepath"
 	"time"
 
@@ -56,13 +55,11 @@ var _ = Describe("Test DPA creation with", func() {
 			Expect(err).NotTo(HaveOccurred())
 		}
 
-		log.Printf("Wait for velero pod to be running..")
 		Eventually(isVeleroPodRunning(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 
 		dpa, err := vel.Get()
 		Expect(err).NotTo(HaveOccurred())
 		if len(dpa.Spec.BackupLocations) > 0 {
-			log.Printf("Checking for bsl spec")
 			for _, bsl := range dpa.Spec.BackupLocations {
 				// Check if bsl matches the spec
 				Eventually(doesBSLExist(namespace, *bsl.Velero, &dpa.Spec), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
