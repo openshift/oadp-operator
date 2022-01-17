@@ -7,7 +7,7 @@ The provider secret gets created independently by the user, and it is not part o
  2. <namespace>.dataprotectionapplication: <name>
 ```
 
-where <namespace> is the namespace where OADP operator is installed and <name> is the name of the DPA instance
+where `<namespace>` is the namespace where OADP operator is installed and `<name>` is the name of the DPA instance
 
 # Current State
 
