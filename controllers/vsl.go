@@ -3,9 +3,11 @@ package controllers
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/go-logr/logr"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
+	"github.com/openshift/oadp-operator/pkg/credentials"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -43,6 +45,39 @@ var validAzureKeys = map[string]bool{
 	AzureIncremental:    true,
 	AzureSubscriptionId: true,
 	AzureResourceGroup:  true,
+}
+
+func (r *DPAReconciler) LabelVSLSecrets(log logr.Logger) (bool, error) {
+	dpa := oadpv1alpha1.DataProtectionApplication{}
+	if err := r.Get(r.Context, r.NamespacedName, &dpa); err != nil {
+		return false, err
+	}
+
+	for _, vsl := range dpa.Spec.SnapshotLocations {
+		provider := strings.TrimPrefix(vsl.Velero.Provider, "velero.io")
+		switch provider {
+		case "aws":
+			secretName := credentials.PluginSpecificFields[oadpv1alpha1.DefaultPluginAWS].SecretName
+			_, err := r.UpdateCredentialsSecretLabels(secretName, dpa.Namespace, dpa.Name)
+			if err != nil {
+				return false, err
+			}
+		case "gcp":
+			secretName := credentials.PluginSpecificFields[oadpv1alpha1.DefaultPluginGCP].SecretName
+			_, err := r.UpdateCredentialsSecretLabels(secretName, dpa.Namespace, dpa.Name)
+			if err != nil {
+				return false, err
+			}
+		case "azure":
+			secretName := credentials.PluginSpecificFields[oadpv1alpha1.DefaultPluginMicrosoftAzure].SecretName
+			_, err := r.UpdateCredentialsSecretLabels(secretName, dpa.Namespace, dpa.Name)
+			if err != nil {
+				return false, err
+			}
+		}
+
+	}
+	return true, nil
 }
 
 func (r *DPAReconciler) ValidateVolumeSnapshotLocations(log logr.Logger) (bool, error) {

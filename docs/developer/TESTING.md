@@ -82,21 +82,18 @@ Example Configuration: **launch.json**
 * The [e2e_suite_test.go](https://github.com/openshift/oadp-operator/blob/master/tests/e2e/e2e_suite_test.go) file must be overridden with parameters specific to your environment and aws buckets.
     * The critical paramaters to change are under `func init()`:
         * cloud
-        * s3BucketFilePath
+        * settings
         * namespace
-        * region
-        * provider
+        * cluster_profile
 
 Example Configuration: **e2e_suite_test.go**
 ```go=
 func init() {
 	flag.StringVar(&cloud, "cloud", "/home/user/oadp_e2e/aws_credentials", "Cloud Credentials file path location")
-	flag.StringVar(&s3BucketFilePath, "s3_bucket", "/home/user/oadp_e2e/oadp_s3_bucket", "AWS S3 data file path location")
-	flag.StringVar(&namespace, "velero_namespace", "oadp-operator", "Velero Namespace")
-	flag.StringVar(&region, "region", "us-east-1", "BSL region")
-	flag.StringVar(&provider, "provider", "aws", "BSL provider")
-	flag.StringVar(&credSecretRef, "creds_secret_ref", "cloud-credentials", "Credential secret ref for backup storage location")
+	flag.StringVar(&namespace, "velero_namespace", "oadp-operator", "DPA Namespace")
+	flag.StringVar(&settings, "settings", "./templates/default_settings.json", "Settings of the velero instance")
 	flag.StringVar(&instanceName, "velero_instance_name", "example-velero", "Velero Instance Name")
+	flag.StringVar(&clusterProfile, "cluster_profile", "aws", "Cluster profile")
 	timeoutMultiplierInput := flag.Int64("timeout_multiplier", 1, "Customize timeout multiplier from default (1)")
 	timeoutMultiplier = 1
 	if timeoutMultiplierInput != nil && *timeoutMultiplierInput >= 1 {
@@ -105,6 +102,8 @@ func init() {
 }
 
 ```
+Example settings file could be found under oadp-operator/tests/e2e/templates/default_settings.json, and can be overriden used with different providers with similar structure.
+
 
 * Note that your shell overrides documented [here](https://github.com/openshift/oadp-operator/blob/master/docs/developer/TESTING.md) are not accessable to Visual Studio Code.
 

@@ -99,6 +99,15 @@ func (r *DPAReconciler) buildVeleroServiceMonitor(serviceMonitor *monitor.Servic
 		{
 			Interval: "30s",
 			Port:     "monitoring",
+			MetricRelabelConfigs: []*monitor.RelabelConfig{
+				{
+					Action: "keep",
+					Regex:  ("velero_backup_total|velero_restore_total"),
+					SourceLabels: []string{
+						"__name__",
+					},
+				},
+			},
 		},
 	}
 

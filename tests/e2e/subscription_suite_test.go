@@ -29,10 +29,10 @@ var _ = Describe("Subscription Config Suite Test", func() {
 		testSuiteInstanceName := "ts-" + instanceName
 		vel.Name = testSuiteInstanceName
 
-		credData, err := getCredsData(cloud)
+		credData, err := readFile(cloud)
 		Expect(err).NotTo(HaveOccurred())
 
-		err = createCredentialsSecret(credData, namespace, credSecretRef)
+		err = createCredentialsSecret(credData, namespace, getSecretRef(credSecretRef))
 		Expect(err).NotTo(HaveOccurred())
 	})
 
@@ -70,7 +70,7 @@ var _ = Describe("Subscription Config Suite Test", func() {
 				velero, err := vel.Get()
 				Expect(err).NotTo(HaveOccurred())
 				log.Printf("Waiting for velero pod to be running")
-				Eventually(isVeleroPodRunning(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
+				Eventually(areVeleroPodsRunning(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 				if velero.Spec.Configuration.Restic.Enable != nil && *velero.Spec.Configuration.Restic.Enable {
 					log.Printf("Waiting for restic pods to be running")
 					Eventually(areResticPodsRunning(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
