@@ -29,6 +29,7 @@ const ReconciledReasonError = "Error"
 const ReconcileCompleteMessage = "Reconcile complete"
 
 const OadpOperatorLabel = "openshift.io/oadp"
+const RegistryDeploymentLabel = "openshift.io/oadp-registry"
 
 type DefaultPlugin string
 
@@ -200,6 +201,11 @@ type DataProtectionApplicationList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []DataProtectionApplication `json:"items"`
+}
+
+// Default BackupImages behavior when nil to true
+func (dpa *DataProtectionApplication) BackupImages() bool {
+	return dpa.Spec.BackupImages == nil || *dpa.Spec.BackupImages
 }
 
 func init() {

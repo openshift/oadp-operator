@@ -20,7 +20,7 @@ oc exec -n openshift-monitoring prometheus-k8s-0 -- \
   > "${object_collection_path}/prometheus_target_metadata.json"
 
 # Prometheus - filtered metrics json using query_range and HTML files with charts
-for metric_name in node_load1 
+for metric_name in velero_backup_total velero_restore_total
 do
   echo "[cluster=host] Capturing prometheus metric [${metric_name}]"
   oc exec -n openshift-monitoring prometheus-k8s-0 -- curl -s "http://localhost:9090/api/v1/query_range?query=${metric_name}&start=${time_ago}&end=${time_now}&step=14" \

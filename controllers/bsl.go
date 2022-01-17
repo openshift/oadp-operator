@@ -95,6 +95,17 @@ func (r *DPAReconciler) ReconcileBackupStorageLocations(log logr.Logger) (bool, 
 				Namespace: r.NamespacedName.Namespace,
 			},
 		}
+		// Add the following labels to the bsl secret,
+		//	 1. oadpApi.OadpOperatorLabel: "True"
+		// 	 2. <namespace>.dataprotectionapplication: <name>
+		// which in turn will be used in th elabel handler to trigger the reconciliation loop
+
+		secretName, _ := r.getSecretNameAndKey(bslSpec.Velero.Credential, oadpv1alpha1.DefaultPlugin(bslSpec.Velero.Provider))
+		_, err := r.UpdateCredentialsSecretLabels(secretName, dpa.Namespace, dpa.Name)
+		if err != nil {
+			return false, err
+		}
+
 		// Create BSL
 		op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, &bsl, func() error {
 			// TODO: Velero may be setting controllerReference as
@@ -145,20 +156,48 @@ func (r *DPAReconciler) ReconcileBackupStorageLocations(log logr.Logger) (bool, 
 	return true, nil
 }
 
+func (r *DPAReconciler) UpdateCredentialsSecretLabels(secretName string, namespace string, dpaName string) (bool, error) {
+	var secret corev1.Secret
+	secret, err := r.getProviderSecret(secretName)
+	if err != nil {
+		return false, err
+	}
+	if secret.Name == "" {
+		return false, errors.New("secret not found")
+	}
+	secret.SetLabels(map[string]string{oadpv1alpha1.OadpOperatorLabel: "True", namespace + ".dataprotectionapplication": dpaName})
+	err = r.Client.Update(r.Context, &secret, &client.UpdateOptions{})
+	if err != nil {
+		return false, err
+	}
+
+	r.EventRecorder.Event(&secret, corev1.EventTypeNormal, "SecretLabelled", fmt.Sprintf("Secret %s has been labelled", secretName))
+	return true, nil
+}
+
 func (r *DPAReconciler) updateBSLFromSpec(bsl *velerov1.BackupStorageLocation, dpa *oadpv1alpha1.DataProtectionApplication, bslSpec velerov1.BackupStorageLocationSpec) error {
 	// Set controller reference to Velero controller
 	err := controllerutil.SetControllerReference(dpa, bsl, r.Scheme)
 	if err != nil {
 		return err
 	}
-
+	// While using Service Principal as Azure credentials, `storageAccountKeyEnvVar` value is not required to be set.
+	// However, the registry deployment fails without a valid storage account key.
+	// This logic prevents the registry pods from being deployed if Azure SP is used as an auth mechanism.
+	registryDeployment := "True"
+	if bslSpec.Provider == "azure" {
+		if len(bslSpec.Config["storageAccountKeyEnvVar"]) == 0 {
+			registryDeployment = "False"
+		}
+	}
 	bsl.Labels = map[string]string{
 		"app.kubernetes.io/name":     "oadp-operator-velero",
 		"app.kubernetes.io/instance": bsl.Name,
 		//"app.kubernetes.io/version":    "x.y.z",
-		"app.kubernetes.io/managed-by": "oadp-operator",
-		"app.kubernetes.io/component":  "bsl",
-		oadpv1alpha1.OadpOperatorLabel: "True",
+		"app.kubernetes.io/managed-by":       "oadp-operator",
+		"app.kubernetes.io/component":        "bsl",
+		oadpv1alpha1.OadpOperatorLabel:       "True",
+		oadpv1alpha1.RegistryDeploymentLabel: registryDeployment,
 	}
 	bsl.Spec = bslSpec
 
@@ -181,9 +220,12 @@ func (r *DPAReconciler) validateAWSBackupStorageLocation(bslSpec velerov1.Backup
 		return fmt.Errorf("bucket name for AWS backupstoragelocation cannot be empty")
 	}
 
-	if len(bslSpec.StorageType.ObjectStorage.Prefix) == 0 || len(bslSpec.Config[Region]) == 0 &&
-		(dpa.Spec.BackupImages == nil || *dpa.Spec.BackupImages) {
-		return fmt.Errorf("prefix and region for AWS backupstoragelocation object storage cannot be empty. It is required for backing up images")
+	if len(bslSpec.StorageType.ObjectStorage.Prefix) == 0 && dpa.BackupImages() {
+		return fmt.Errorf("prefix for AWS backupstoragelocation object storage cannot be empty. It is required for backing up images")
+	}
+	// BSL region is required when s3ForcePathStyle is true AND BackupImages is false
+	if (bslSpec.Config == nil || len(bslSpec.Config[Region]) == 0 && bslSpec.Config[S3ForcePathStyle] == "true") && dpa.BackupImages() {
+		return fmt.Errorf("region for AWS backupstoragelocation cannot be empty when s3ForcePathStyle is true or when backing up images")
 	}
 
 	//TODO: Add minio, noobaa, local storage validations
@@ -215,7 +257,7 @@ func (r *DPAReconciler) validateAzureBackupStorageLocation(bslSpec velerov1.Back
 		return fmt.Errorf("storageAccount for Azure backupstoragelocation config cannot be empty")
 	}
 
-	if len(bslSpec.StorageType.ObjectStorage.Prefix) == 0 && (dpa.Spec.BackupImages == nil || *dpa.Spec.BackupImages) {
+	if len(bslSpec.StorageType.ObjectStorage.Prefix) == 0 && dpa.BackupImages() {
 		return fmt.Errorf("prefix for Azure backupstoragelocation object storage cannot be empty. it is required for backing up images")
 	}
 
@@ -237,8 +279,7 @@ func (r *DPAReconciler) validateGCPBackupStorageLocation(bslSpec velerov1.Backup
 	if len(bslSpec.ObjectStorage.Bucket) == 0 {
 		return fmt.Errorf("bucket name for GCP backupstoragelocation cannot be empty")
 	}
-
-	if len(bslSpec.StorageType.ObjectStorage.Prefix) == 0 && (dpa.Spec.BackupImages == nil || *dpa.Spec.BackupImages) {
+	if len(bslSpec.StorageType.ObjectStorage.Prefix) == 0 && dpa.BackupImages() {
 		return fmt.Errorf("prefix for GCP backupstoragelocation object storage cannot be empty. it is required for backing up images")
 	}
 

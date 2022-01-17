@@ -22,7 +22,7 @@ func (d *dpaCustomResource) getOperatorSubscription() (*Subscription, error) {
 		return nil, err
 	}
 	sl := operators.SubscriptionList{}
-	err = d.Client.List(context.Background(), &sl, client.InNamespace(d.Namespace), client.MatchingLabels(map[string]string{"operators.coreos.com/oadp-operator.openshift-adp": ""}))
+	err = d.Client.List(context.Background(), &sl, client.InNamespace(d.Namespace), client.MatchingLabels(map[string]string{"operators.coreos.com/oadp-operator." + d.Namespace: ""}))
 	if err != nil {
 		return nil, err
 	}

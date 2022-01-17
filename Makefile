@@ -138,18 +138,28 @@ install: manifests kustomize ## Install CRDs into the K8s cluster specified in ~
 uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified in ~/.kube/config.
 	$(KUSTOMIZE) build config/crd | kubectl delete -f -
 
-deploy: manifests kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/config.
+DEPLOY_TMP=/tmp/oadp-make-deploy
+deploy-tmp: kustomize
+	mkdir -p $(DEPLOY_TMP)
+	sed -e 's/namespace: system/namespace: $(OADP_TEST_NAMESPACE)/g' config/velero/velero-service_account.yaml > $(DEPLOY_TMP)/velero-service_account.yaml
+	sed -e 's/namespace: system/namespace: $(OADP_TEST_NAMESPACE)/g' config/velero/velero-role.yaml > $(DEPLOY_TMP)/velero-role.yaml
+	sed -e 's/namespace: system/namespace: $(OADP_TEST_NAMESPACE)/g' config/velero/velero-role_binding.yaml > $(DEPLOY_TMP)/velero-role_binding.yaml
+deploy-tmp-cleanup:
+	rm -rf $(DEPLOY_TMP)
+deploy: manifests deploy-tmp  ## Deploy controller to the K8s cluster specified in ~/.kube/config.
 	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
 	$(KUSTOMIZE) build config/default | kubectl apply -f -
-	kubectl apply -f config/velero/velero-service_account.yaml
-	kubectl apply -f config/velero/velero-role.yaml
-	kubectl apply -f config/velero/velero-role_binding.yaml
+	kubectl apply -f $(DEPLOY_TMP)/velero-service_account.yaml
+	kubectl apply -f $(DEPLOY_TMP)/velero-role.yaml
+	kubectl apply -f $(DEPLOY_TMP)/velero-role_binding.yaml
+	make deploy-tmp-cleanup
 
-undeploy: kustomize ## Undeploy controller from the K8s cluster specified in ~/.kube/config.
-	kubectl delete -f config/velero/velero-service_account.yaml
-	kubectl delete -f config/velero/velero-role.yaml
-	kubectl delete -f config/velero/velero-role_binding.yaml
+undeploy: deploy-tmp ## Undeploy controller from the K8s cluster specified in ~/.kube/config.
+	kubectl delete -f $(DEPLOY_TMP)/velero-service_account.yaml
+	kubectl delete -f $(DEPLOY_TMP)/velero-role.yaml
+	kubectl delete -f $(DEPLOY_TMP)/velero-role_binding.yaml
 	$(KUSTOMIZE) build config/default | kubectl delete -f -
+	make deploy-tmp-cleanup
 
 build-deploy: THIS_IMAGE=ttl.sh/oadp-operator-$(shell git rev-parse --short HEAD):1h # Set target specific variable
 build-deploy: ## Build current branch image and deploy controller to the k8s cluster specified in ~/.kube/config.
@@ -279,12 +289,16 @@ catalog-build: opm ## Build a catalog image.
 catalog-push: ## Push a catalog image.
 	$(MAKE) docker-push IMG=$(CATALOG_IMG)
 
+S3_BUCKET := $(shell cat $(OADP_S3_BUCKET) | awk '/velero-bucket-name/  {gsub(/"/, "", $$2); print $$2}')
+SETTINGS_TMP=/tmp/test-settings
 test-e2e:
+	mkdir -p $(SETTINGS_TMP)
+	PROVIDER="$(PROVIDER)" BUCKET="$(S3_BUCKET)" REGION="$(REGION)" SECRET="$(CREDS_SECRET_REF)" TMP_DIR=$(SETTINGS_TMP) /bin/bash tests/e2e/scripts/aws_settings.sh
 	ginkgo -mod=mod tests/e2e/ -- -cloud=$(OADP_AWS_CRED_FILE) \
-	-s3_bucket=$(OADP_S3_BUCKET) -velero_namespace=$(OADP_TEST_NAMESPACE) \
-	-creds_secret_ref=$(CREDS_SECRET_REF) \
+	-velero_namespace=$(OADP_TEST_NAMESPACE) \
+	-settings=$(SETTINGS_TMP)/awscreds \
 	-velero_instance_name=$(VELERO_INSTANCE_NAME) \
-	-region=$(REGION) \
-	-provider=$(PROVIDER) \
-	-clusterProfile=$(CLUSTER_PROFILE) \
 	-timeout_multiplier=$(E2E_TIMEOUT_MULTIPLIER)
+	-cluster_profile=$(CLUSTER_PROFILE)
+test-e2e-cleanup:
+	rm -rf $(SETTINGS_TMP)

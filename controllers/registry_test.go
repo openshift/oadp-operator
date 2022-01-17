@@ -57,6 +57,11 @@ const (
 	testBslProfile         = "bslProfile"
 	testBslAccessKey       = "bslAccessKey"
 	testBslSecretAccessKey = "bslSecretAccessKey"
+	testSubscriptionID     = "someSubscriptionID"
+	testTenantID           = "someTenantID"
+	testClientID           = "someClientID"
+	testClientSecret       = "someClientSecret"
+	testResourceGroup      = "someResourceGroup"
 )
 
 var (
@@ -88,6 +93,36 @@ var (
 			"AZURE_STORAGE_ACCOUNT_ACCESS_KEY=" + testStoragekey + "\n" +
 			"AZURE_CLOUD_NAME=" + testCloudName),
 	}
+	secretAzureServicePrincipalData = map[string][]byte{
+		"cloud": []byte("[default]" + "\n" +
+			"AZURE_STORAGE_ACCOUNT_ACCESS_KEY=" + testStoragekey + "\n" +
+			"AZURE_CLOUD_NAME=" + testCloudName + "\n" +
+			"AZURE_SUBSCRIPTION_ID=" + testSubscriptionID + "\n" +
+			"AZURE_TENANT_ID=" + testTenantID + "\n" +
+			"AZURE_CLIENT_ID=" + testClientID + "\n" +
+			"AZURE_CLIENT_SECRET=" + testClientSecret + "\n" +
+			"AZURE_RESOURCE_GROUP=" + testResourceGroup),
+	}
+	awsRegistrySecretData = map[string][]byte{
+		"access_key": []byte(testBslAccessKey),
+		"secret_key": []byte(testBslSecretAccessKey),
+	}
+	azureRegistrySecretData = map[string][]byte{
+		"client_id_key":       []byte(""),
+		"client_secret_key":   []byte(""),
+		"resource_group_key":  []byte(""),
+		"storage_account_key": []byte(testStoragekey),
+		"subscription_id_key": []byte(""),
+		"tenant_id_key":       []byte(""),
+	}
+	azureRegistrySPSecretData = map[string][]byte{
+		"client_id_key":       []byte(testClientID),
+		"client_secret_key":   []byte(testClientSecret),
+		"resource_group_key":  []byte(testResourceGroup),
+		"storage_account_key": []byte(testStoragekey),
+		"subscription_id_key": []byte(testSubscriptionID),
+		"tenant_id_key":       []byte(testTenantID),
+	}
 )
 
 func TestDPAReconciler_buildRegistryDeployment(t *testing.T) {
@@ -96,6 +131,7 @@ func TestDPAReconciler_buildRegistryDeployment(t *testing.T) {
 		registryDeployment *appsv1.Deployment
 		bsl                *velerov1.BackupStorageLocation
 		secret             *corev1.Secret
+		registrySecret     *corev1.Secret
 		dpa                *oadpv1alpha1.DataProtectionApplication
 		wantErr            bool
 	}{
@@ -140,6 +176,13 @@ func TestDPAReconciler_buildRegistryDeployment(t *testing.T) {
 				},
 				Data: secretData,
 			},
+			registrySecret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "oadp-test-bsl-aws-registry-secret",
+					Namespace: "test-ns",
+				},
+				Data: awsRegistrySecretData,
+			},
 			dpa: &oadpv1alpha1.DataProtectionApplication{},
 		},
 		{
@@ -182,6 +225,13 @@ func TestDPAReconciler_buildRegistryDeployment(t *testing.T) {
 					Namespace: "test-ns",
 				},
 				Data: secretData,
+			},
+			registrySecret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "oadp-test-bsl-aws-registry-secret",
+					Namespace: "test-ns",
+				},
+				Data: awsRegistrySecretData,
 			},
 			dpa: &oadpv1alpha1.DataProtectionApplication{
 				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
@@ -232,6 +282,13 @@ func TestDPAReconciler_buildRegistryDeployment(t *testing.T) {
 				},
 				Data: secretData,
 			},
+			registrySecret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "oadp-test-bsl-aws-registry-secret",
+					Namespace: "test-ns",
+				},
+				Data: awsRegistrySecretData,
+			},
 			dpa: &oadpv1alpha1.DataProtectionApplication{
 				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 					PodAnnotations: map[string]string{
@@ -259,7 +316,7 @@ func TestDPAReconciler_buildRegistryDeployment(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			fakeClient, err := getFakeClientFromObjectsForRegistry(tt.secret, tt.registryDeployment, tt.bsl)
+			fakeClient, err := getFakeClientFromObjectsForRegistry(tt.secret, tt.registryDeployment, tt.bsl, tt.registrySecret)
 			if err != nil {
 				t.Errorf("error in creating fake client, likely programmer error")
 			}
@@ -279,11 +336,12 @@ func TestDPAReconciler_buildRegistryDeployment(t *testing.T) {
 					Name:      "test-registry",
 					Namespace: "test-ns",
 					Labels: map[string]string{
-						"app.kubernetes.io/name":       common.OADPOperatorVelero,
-						"app.kubernetes.io/instance":   "oadp-" + tt.bsl.Name + "-" + tt.bsl.Spec.Provider + "-registry",
-						"app.kubernetes.io/managed-by": common.OADPOperator,
-						"app.kubernetes.io/component":  Registry,
-						oadpv1alpha1.OadpOperatorLabel: "True",
+						"app.kubernetes.io/name":             common.OADPOperatorVelero,
+						"app.kubernetes.io/instance":         "oadp-" + tt.bsl.Name + "-" + tt.bsl.Spec.Provider + "-registry",
+						"app.kubernetes.io/managed-by":       common.OADPOperator,
+						"app.kubernetes.io/component":        Registry,
+						oadpv1alpha1.OadpOperatorLabel:       "True",
+						oadpv1alpha1.RegistryDeploymentLabel: "True",
 					},
 					OwnerReferences: []metav1.OwnerReference{
 						{
@@ -330,8 +388,13 @@ func TestDPAReconciler_buildRegistryDeployment(t *testing.T) {
 											Value: S3,
 										},
 										{
-											Name:  RegistryStorageS3AccesskeyEnvVarKey,
-											Value: testAccessKey,
+											Name: RegistryStorageS3AccesskeyEnvVarKey,
+											ValueFrom: &corev1.EnvVarSource{
+												SecretKeyRef: &corev1.SecretKeySelector{
+													LocalObjectReference: corev1.LocalObjectReference{Name: "oadp-" + tt.bsl.Name + "-" + tt.bsl.Spec.Provider + "-registry-secret"},
+													Key:                  "access_key",
+												},
+											},
 										},
 										{
 											Name:  RegistryStorageS3BucketEnvVarKey,
@@ -342,8 +405,13 @@ func TestDPAReconciler_buildRegistryDeployment(t *testing.T) {
 											Value: "aws-region",
 										},
 										{
-											Name:  RegistryStorageS3SecretkeyEnvVarKey,
-											Value: testSecretAccessKey,
+											Name: RegistryStorageS3SecretkeyEnvVarKey,
+											ValueFrom: &corev1.EnvVarSource{
+												SecretKeyRef: &corev1.SecretKeySelector{
+													LocalObjectReference: corev1.LocalObjectReference{Name: "oadp-" + tt.bsl.Name + "-" + tt.bsl.Spec.Provider + "-registry-secret"},
+													Key:                  "secret_key",
+												},
+											},
 										},
 										{
 											Name:  RegistryStorageS3RegionendpointEnvVarKey,
@@ -503,6 +571,7 @@ func TestDPAReconciler_getAWSRegistryEnvVars(t *testing.T) {
 		wantRegistryContainerEnvVar []corev1.EnvVar
 		wantProfile                 string
 		secret                      *corev1.Secret
+		registrySecret              *corev1.Secret
 		wantErr                     bool
 		matchProfile                bool
 	}{
@@ -535,6 +604,13 @@ func TestDPAReconciler_getAWSRegistryEnvVars(t *testing.T) {
 				},
 				Data: secretData,
 			},
+			registrySecret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "oadp-test-bsl-aws-registry-secret",
+					Namespace: "test-ns",
+				},
+				Data: awsRegistrySecretData,
+			},
 			wantProfile:  "test-profile",
 			matchProfile: true,
 		}, {
@@ -565,6 +641,13 @@ func TestDPAReconciler_getAWSRegistryEnvVars(t *testing.T) {
 					Namespace: "test-ns",
 				},
 				Data: secretData,
+			},
+			registrySecret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "oadp-test-bsl-aws-registry-secret",
+					Namespace: "test-ns",
+				},
+				Data: awsRegistrySecretData,
 			},
 			wantProfile:  testBslProfile,
 			matchProfile: true,
@@ -597,13 +680,20 @@ func TestDPAReconciler_getAWSRegistryEnvVars(t *testing.T) {
 				},
 				Data: awsSecretDataWithMissingProfile,
 			},
+			registrySecret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "oadp-test-bsl-aws-registry-secret",
+					Namespace: "test-ns",
+				},
+				Data: awsRegistrySecretData,
+			},
 			wantProfile:  testBslProfile,
 			matchProfile: false,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			fakeClient, err := getFakeClientFromObjectsForRegistry(tt.secret, tt.bsl)
+			fakeClient, err := getFakeClientFromObjectsForRegistry(tt.secret, tt.bsl, tt.registrySecret)
 			if err != nil {
 				t.Errorf("error in creating fake client, likely programmer error")
 			}
@@ -624,8 +714,13 @@ func TestDPAReconciler_getAWSRegistryEnvVars(t *testing.T) {
 					Value: S3,
 				},
 				{
-					Name:  RegistryStorageS3AccesskeyEnvVarKey,
-					Value: testAccessKey,
+					Name: RegistryStorageS3AccesskeyEnvVarKey,
+					ValueFrom: &corev1.EnvVarSource{
+						SecretKeyRef: &corev1.SecretKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{Name: "oadp-" + tt.bsl.Name + "-" + tt.bsl.Spec.Provider + "-registry-secret"},
+							Key:                  "access_key",
+						},
+					},
 				},
 				{
 					Name:  RegistryStorageS3BucketEnvVarKey,
@@ -636,8 +731,13 @@ func TestDPAReconciler_getAWSRegistryEnvVars(t *testing.T) {
 					Value: "aws-region",
 				},
 				{
-					Name:  RegistryStorageS3SecretkeyEnvVarKey,
-					Value: testSecretAccessKey,
+					Name: RegistryStorageS3SecretkeyEnvVarKey,
+					ValueFrom: &corev1.EnvVarSource{
+						SecretKeyRef: &corev1.SecretKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{Name: "oadp-" + tt.bsl.Name + "-" + tt.bsl.Spec.Provider + "-registry-secret"},
+							Key:                  "secret_key",
+						},
+					},
 				},
 				{
 					Name:  RegistryStorageS3RegionendpointEnvVarKey,
@@ -655,8 +755,13 @@ func TestDPAReconciler_getAWSRegistryEnvVars(t *testing.T) {
 						Value: S3,
 					},
 					{
-						Name:  RegistryStorageS3AccesskeyEnvVarKey,
-						Value: testBslAccessKey,
+						Name: RegistryStorageS3AccesskeyEnvVarKey,
+						ValueFrom: &corev1.EnvVarSource{
+							SecretKeyRef: &corev1.SecretKeySelector{
+								LocalObjectReference: corev1.LocalObjectReference{Name: "oadp-" + tt.bsl.Name + "-" + tt.bsl.Spec.Provider + "-registry-secret"},
+								Key:                  "access_key",
+							},
+						},
 					},
 					{
 						Name:  RegistryStorageS3BucketEnvVarKey,
@@ -667,8 +772,13 @@ func TestDPAReconciler_getAWSRegistryEnvVars(t *testing.T) {
 						Value: "aws-region",
 					},
 					{
-						Name:  RegistryStorageS3SecretkeyEnvVarKey,
-						Value: testBslSecretAccessKey,
+						Name: RegistryStorageS3SecretkeyEnvVarKey,
+						ValueFrom: &corev1.EnvVarSource{
+							SecretKeyRef: &corev1.SecretKeySelector{
+								LocalObjectReference: corev1.LocalObjectReference{Name: "oadp-" + tt.bsl.Name + "-" + tt.bsl.Spec.Provider + "-registry-secret"},
+								Key:                  "secret_key",
+							},
+						},
 					},
 					{
 						Name:  RegistryStorageS3RegionendpointEnvVarKey,
@@ -701,7 +811,10 @@ func TestDPAReconciler_getAzureRegistryEnvVars(t *testing.T) {
 		bsl                         *velerov1.BackupStorageLocation
 		wantRegistryContainerEnvVar []corev1.EnvVar
 		secret                      *corev1.Secret
+		registrySecret              *corev1.Secret
 		wantErr                     bool
+		wantProfile                 string
+		matchProfile                bool
 	}{
 		{
 			name: "given azure bsl, appropriate env var for the container are returned",
@@ -719,8 +832,9 @@ func TestDPAReconciler_getAzureRegistryEnvVars(t *testing.T) {
 					},
 					Config: map[string]string{
 						StorageAccount:                           "velero-azure-account",
-						ResourceGroup:                            "velero-azure-rg",
+						ResourceGroup:                            testResourceGroup,
 						RegistryStorageAzureAccountnameEnvVarKey: "velero-azure-account",
+						"storageAccountKeyEnvVar":                "AZURE_STORAGE_ACCOUNT_ACCESS_KEY",
 					},
 				},
 			},
@@ -731,11 +845,58 @@ func TestDPAReconciler_getAzureRegistryEnvVars(t *testing.T) {
 				},
 				Data: secretAzureData,
 			},
+			registrySecret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "oadp-test-bsl-azure-registry-secret",
+					Namespace: "test-ns",
+				},
+				Data: azureRegistrySecretData,
+			},
+			wantProfile:  "test-profile",
+			matchProfile: true,
+		},
+		{
+			name: "given azure bsl & SP credentials, appropriate env var for the container are returned",
+			bsl: &velerov1.BackupStorageLocation{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-bsl",
+					Namespace: "test-ns",
+				},
+				Spec: velerov1.BackupStorageLocationSpec{
+					Provider: AzureProvider,
+					StorageType: velerov1.StorageType{
+						ObjectStorage: &velerov1.ObjectStorageLocation{
+							Bucket: "azure-bucket",
+						},
+					},
+					Config: map[string]string{
+						StorageAccount:   "velero-azure-account",
+						ResourceGroup:    testResourceGroup,
+						"subscriptionId": testSubscriptionID,
+					},
+				},
+			},
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cloud-credentials-azure",
+					Namespace: "test-ns",
+				},
+				Data: secretAzureServicePrincipalData,
+			},
+			registrySecret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "oadp-test-bsl-azure-registry-secret",
+					Namespace: "test-ns",
+				},
+				Data: azureRegistrySPSecretData,
+			},
+			wantProfile:  "test-sp-profile",
+			matchProfile: true,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			fakeClient, err := getFakeClientFromObjectsForRegistry(tt.secret, tt.bsl)
+			fakeClient, err := getFakeClientFromObjectsForRegistry(tt.secret, tt.bsl, tt.registrySecret)
 			if err != nil {
 				t.Errorf("error in creating fake client, likely programmer error")
 			}
@@ -764,19 +925,111 @@ func TestDPAReconciler_getAzureRegistryEnvVars(t *testing.T) {
 					Value: "velero-azure-account",
 				},
 				{
-					Name:  RegistryStorageAzureAccountkeyEnvVarKey,
-					Value: "someStorageKey",
+					Name: RegistryStorageAzureAccountkeyEnvVarKey,
+					ValueFrom: &corev1.EnvVarSource{
+						SecretKeyRef: &corev1.SecretKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{Name: "oadp-" + tt.bsl.Name + "-" + tt.bsl.Spec.Provider + "-registry-secret"},
+							Key:                  "storage_account_key",
+						},
+					},
 				},
+				{
+					Name:  RegistryStorageAzureAADEndpointEnvVarKey,
+					Value: "",
+				},
+				{
+					Name: RegistryStorageAzureSPNClientIDEnvVarKey,
+					ValueFrom: &corev1.EnvVarSource{
+						SecretKeyRef: &corev1.SecretKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{Name: "oadp-" + tt.bsl.Name + "-" + tt.bsl.Spec.Provider + "-registry-secret"},
+							Key:                  "client_id_key",
+						},
+					},
+				},
+				{
+					Name: RegistryStorageAzureSPNClientSecretEnvVarKey,
+					ValueFrom: &corev1.EnvVarSource{
+						SecretKeyRef: &corev1.SecretKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{Name: "oadp-" + tt.bsl.Name + "-" + tt.bsl.Spec.Provider + "-registry-secret"},
+							Key:                  "client_secret_key",
+						},
+					},
+				},
+				{
+					Name: RegistryStorageAzureSPNTenantIDEnvVarKey,
+					ValueFrom: &corev1.EnvVarSource{
+						SecretKeyRef: &corev1.SecretKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{Name: "oadp-" + tt.bsl.Name + "-" + tt.bsl.Spec.Provider + "-registry-secret"},
+							Key:                  "tenant_id_key",
+						},
+					},
+				},
+			}
+			if tt.wantProfile == "test-sp-profile" {
+				tt.wantRegistryContainerEnvVar = []corev1.EnvVar{
+					{
+						Name:  RegistryStorageEnvVarKey,
+						Value: Azure,
+					},
+					{
+						Name:  RegistryStorageAzureContainerEnvVarKey,
+						Value: "azure-bucket",
+					},
+					{
+						Name:  RegistryStorageAzureAccountnameEnvVarKey,
+						Value: "velero-azure-account",
+					},
+					{
+						Name: RegistryStorageAzureAccountkeyEnvVarKey,
+						ValueFrom: &corev1.EnvVarSource{
+							SecretKeyRef: &corev1.SecretKeySelector{
+								LocalObjectReference: corev1.LocalObjectReference{Name: "oadp-" + tt.bsl.Name + "-" + tt.bsl.Spec.Provider + "-registry-secret"},
+								Key:                  "storage_account_key",
+							},
+						},
+					},
+					{
+						Name:  RegistryStorageAzureAADEndpointEnvVarKey,
+						Value: "",
+					},
+					{
+						Name: RegistryStorageAzureSPNClientIDEnvVarKey,
+						ValueFrom: &corev1.EnvVarSource{
+							SecretKeyRef: &corev1.SecretKeySelector{
+								LocalObjectReference: corev1.LocalObjectReference{Name: "oadp-" + tt.bsl.Name + "-" + tt.bsl.Spec.Provider + "-registry-secret"},
+								Key:                  "client_id_key",
+							},
+						},
+					},
+					{
+						Name: RegistryStorageAzureSPNClientSecretEnvVarKey,
+						ValueFrom: &corev1.EnvVarSource{
+							SecretKeyRef: &corev1.SecretKeySelector{
+								LocalObjectReference: corev1.LocalObjectReference{Name: "oadp-" + tt.bsl.Name + "-" + tt.bsl.Spec.Provider + "-registry-secret"},
+								Key:                  "client_secret_key",
+							},
+						},
+					},
+					{
+						Name: RegistryStorageAzureSPNTenantIDEnvVarKey,
+						ValueFrom: &corev1.EnvVarSource{
+							SecretKeyRef: &corev1.SecretKeySelector{
+								LocalObjectReference: corev1.LocalObjectReference{Name: "oadp-" + tt.bsl.Name + "-" + tt.bsl.Spec.Provider + "-registry-secret"},
+								Key:                  "tenant_id_key",
+							},
+						},
+					},
+				}
 			}
 
 			gotRegistryContainerEnvVar, gotErr := r.getAzureRegistryEnvVars(tt.bsl, testAzureEnvVar)
 
-			if (gotErr != nil) != tt.wantErr {
+			if tt.matchProfile && (gotErr != nil) != tt.wantErr {
 				t.Errorf("ValidateBackupStorageLocations() gotErr = %v, wantErr %v", gotErr, tt.wantErr)
 				return
 			}
 
-			if !reflect.DeepEqual(tt.wantRegistryContainerEnvVar, gotRegistryContainerEnvVar) {
+			if tt.matchProfile && !reflect.DeepEqual(tt.wantRegistryContainerEnvVar, gotRegistryContainerEnvVar) {
 				t.Errorf("expected registry container env var to be %#v, got %#v", tt.wantRegistryContainerEnvVar, gotRegistryContainerEnvVar)
 			}
 		})
@@ -1139,7 +1392,190 @@ func TestDPAReconciler_updateRegistryRouteCM(t *testing.T) {
 				t.Errorf("updateRegistryConfigMap() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			if !reflect.DeepEqual(tt.registryRouteCM, wantRegitryRouteCM) {
-				t.Errorf("expected bsl labels to be %#v, got %#v", tt.registryRouteCM, wantRegitryRouteCM)
+				t.Errorf("expected registry CM to be %#v, got %#v", tt.registryRouteCM, wantRegitryRouteCM)
+			}
+		})
+	}
+}
+
+func TestDPAReconciler_populateAWSRegistrySecret(t *testing.T) {
+
+	tests := []struct {
+		name           string
+		bsl            *velerov1.BackupStorageLocation
+		registrySecret *corev1.Secret
+		awsSecret      *corev1.Secret
+		dpa            *oadpv1alpha1.DataProtectionApplication
+		wantErr        bool
+	}{
+		{
+			name:    "Given Velero CR and bsl instance, appropriate registry secret is updated for aws case",
+			wantErr: false,
+			bsl: &velerov1.BackupStorageLocation{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-bsl",
+					Namespace: "test-ns",
+				},
+				Spec: velerov1.BackupStorageLocationSpec{
+					StorageType: velerov1.StorageType{
+						ObjectStorage: &velerov1.ObjectStorageLocation{
+							Bucket: "aws-bucket",
+						},
+					},
+					Config: map[string]string{
+						Region:                "aws-region",
+						S3URL:                 "https://sr-url-aws-domain.com",
+						InsecureSkipTLSVerify: "false",
+						Profile:               testBslProfile,
+					},
+				},
+			},
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "Velero-test-CR",
+					Namespace: "test-ns",
+				},
+			},
+			awsSecret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cloud-credentials",
+					Namespace: "test-ns",
+				},
+				Data: secretData,
+			},
+			registrySecret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "oadp-test-bsl-aws-registry-secret",
+					Namespace: "test-ns",
+					Labels: map[string]string{
+						oadpv1alpha1.OadpOperatorLabel: "True",
+					},
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fakeClient, err := getFakeClientFromObjects(tt.awsSecret, tt.dpa)
+			if err != nil {
+				t.Errorf("error in creating fake client, likely programmer error")
+			}
+			r := &DPAReconciler{
+				Client:  fakeClient,
+				Scheme:  fakeClient.Scheme(),
+				Log:     logr.Discard(),
+				Context: newContextForTest(tt.name),
+				NamespacedName: types.NamespacedName{
+					Namespace: tt.bsl.Namespace,
+					Name:      tt.bsl.Name,
+				},
+				EventRecorder: record.NewFakeRecorder(10),
+			}
+			wantRegistrySecret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "oadp-" + tt.bsl.Name + "-" + tt.bsl.Spec.Provider + "-registry-secret",
+					Namespace: r.NamespacedName.Namespace,
+					Labels: map[string]string{
+						oadpv1alpha1.OadpOperatorLabel: "True",
+					},
+				},
+				Data: awsRegistrySecretData,
+			}
+			if err := r.populateAWSRegistrySecret(tt.bsl, tt.registrySecret); (err != nil) != tt.wantErr {
+				t.Errorf("populateAWSRegistrySecret() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if !reflect.DeepEqual(tt.registrySecret.Data, wantRegistrySecret.Data) {
+				t.Errorf("expected bsl labels to be %#v, got %#v", tt.registrySecret.Data, wantRegistrySecret.Data)
+			}
+		})
+	}
+}
+
+func TestDPAReconciler_populateAzureRegistrySecret(t *testing.T) {
+	tests := []struct {
+		name           string
+		bsl            *velerov1.BackupStorageLocation
+		registrySecret *corev1.Secret
+		azureSecret    *corev1.Secret
+		dpa            *oadpv1alpha1.DataProtectionApplication
+		wantErr        bool
+	}{
+		{
+			name:    "Given Velero CR and bsl instance, appropriate registry secret is updated for azure case",
+			wantErr: false,
+			bsl: &velerov1.BackupStorageLocation{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-bsl",
+					Namespace: "test-ns",
+				},
+				Spec: velerov1.BackupStorageLocationSpec{
+					Provider: AzureProvider,
+					StorageType: velerov1.StorageType{
+						ObjectStorage: &velerov1.ObjectStorageLocation{
+							Bucket: "azure-bucket",
+						},
+					},
+					Config: map[string]string{
+						StorageAccount:                           "velero-azure-account",
+						ResourceGroup:                            testResourceGroup,
+						RegistryStorageAzureAccountnameEnvVarKey: "velero-azure-account",
+						"storageAccountKeyEnvVar":                "AZURE_STORAGE_ACCOUNT_ACCESS_KEY",
+					},
+				},
+			},
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "Velero-test-CR",
+					Namespace: "test-ns",
+				},
+			},
+			azureSecret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cloud-credentials-azure",
+					Namespace: "test-ns",
+				},
+				Data: secretAzureData,
+			},
+			registrySecret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "oadp-test-bsl-azure-registry-secret",
+					Namespace: "test-ns",
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fakeClient, err := getFakeClientFromObjects(tt.azureSecret, tt.dpa)
+			if err != nil {
+				t.Errorf("error in creating fake client, likely programmer error")
+			}
+			r := &DPAReconciler{
+				Client:  fakeClient,
+				Scheme:  fakeClient.Scheme(),
+				Log:     logr.Discard(),
+				Context: newContextForTest(tt.name),
+				NamespacedName: types.NamespacedName{
+					Namespace: tt.bsl.Namespace,
+					Name:      tt.bsl.Name,
+				},
+				EventRecorder: record.NewFakeRecorder(10),
+			}
+			wantRegistrySecret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "oadp-" + tt.bsl.Name + "-" + tt.bsl.Spec.Provider + "-registry-secret",
+					Namespace: r.NamespacedName.Namespace,
+					Labels: map[string]string{
+						oadpv1alpha1.OadpOperatorLabel: "True",
+					},
+				},
+				Data: azureRegistrySecretData,
+			}
+			if err := r.populateAzureRegistrySecret(tt.bsl, tt.registrySecret); (err != nil) != tt.wantErr {
+				t.Errorf("populateAWSRegistrySecret() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if !reflect.DeepEqual(tt.registrySecret.Data, wantRegistrySecret.Data) {
+				t.Errorf("expected bsl labels to be %#v, got %#v", tt.registrySecret, wantRegistrySecret.Data)
 			}
 		})
 	}

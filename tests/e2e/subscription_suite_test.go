@@ -24,14 +24,15 @@ var _ = Describe("Subscription Config Suite Test", func() {
 
 		err = vel.Delete()
 		Expect(err).ToNot(HaveOccurred())
+		Eventually(vel.IsDeleted(), timeoutMultiplier*time.Minute*2, time.Second*5).Should(BeTrue())
 
 		testSuiteInstanceName := "ts-" + instanceName
 		vel.Name = testSuiteInstanceName
 
-		credData, err := getCredsData(cloud)
+		credData, err := readFile(cloud)
 		Expect(err).NotTo(HaveOccurred())
 
-		err = createCredentialsSecret(credData, namespace, credSecretRef)
+		err = createCredentialsSecret(credData, namespace, getSecretRef(credSecretRef))
 		Expect(err).NotTo(HaveOccurred())
 	})
 
@@ -69,7 +70,7 @@ var _ = Describe("Subscription Config Suite Test", func() {
 				velero, err := vel.Get()
 				Expect(err).NotTo(HaveOccurred())
 				log.Printf("Waiting for velero pod to be running")
-				Eventually(isVeleroPodRunning(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
+				Eventually(areVeleroPodsRunning(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 				if velero.Spec.Configuration.Restic.Enable != nil && *velero.Spec.Configuration.Restic.Enable {
 					log.Printf("Waiting for restic pods to be running")
 					Eventually(areResticPodsRunning(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
@@ -88,7 +89,7 @@ var _ = Describe("Subscription Config Suite Test", func() {
 					for _, podInfo := range podList.Items {
 						// we care about pods that have labels control-plane=controller-manager, component=velero, "component": "oadp-" + bsl.Name + "-" + bsl.Spec.Provider + "-registry",
 						if podInfo.Labels["control-plane"] == "controller-manager" ||
-							podInfo.Labels["component"] == "velero" ||
+							podInfo.Labels["app.kubernetes.io/name"] == "velero" ||
 							podInfo.Labels["component"] == "oadp-"+fmt.Sprintf("%s-%d", vel.Name, 1)+"-"+bl.Velero.Provider+"-registry" {
 							log.Printf("Checking env vars are passed to each container in " + podInfo.Name)
 							for _, container := range podInfo.Spec.Containers {

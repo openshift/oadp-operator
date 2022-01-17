@@ -13,6 +13,7 @@ require (
 	github.com/openshift/api v0.0.0-20210805075156-d8fab4513288
 	github.com/operator-framework/api v0.10.7
 	github.com/operator-framework/operator-lib v0.9.0
+	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.51.2
 	github.com/vmware-tanzu/velero v1.7.0 // TODO: Update this to a pinned version
 	golang.org/x/sys v0.0.0-20220114195835-da31bd327af9 // indirect
 	golang.org/x/tools v0.1.8 // indirect

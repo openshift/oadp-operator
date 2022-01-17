@@ -11,6 +11,7 @@
     4. [Backup/Restore is Stuck In Progress](#stuck)
     5. [Restic - NFS Volumes and rootSquash](#rootsquash)
     6. [Issue with Backup/Restore of DeploymentConfig using Restic](#deployconfig)
+    7. [New Restic Backup Partially Failing After Clearing Bucket](#resbackup)
 
 
 If you need help, first search if there is [already an issue filed](https://github.com/openshift/oadp-operator/issues) 
@@ -202,3 +203,30 @@ If the issue still persists, [create a new issue](https://github.com/openshift/o
     velero restore create --from-backup=<BACKUP_NAME> -n openshift-adp --include-namespaces <TARGET_NAMESPACE> --include-resources replicationcontroller,deploymentconfig --restore-volumes=true
     ```
 
+
+<hr style="height:1px;border:none;color:#333;"> 
+
+<h3 align="center">New Restic Backup Partially Failing After Clearing Bucket<a id="resbackup"></a></h3>
+
+  After creating a backup for a stateful app using Restic on a given namespace, 
+  clearing the bucket, and then creating a new backup again using Restic, the 
+  backup will partially fail. 
+  
+  - Velero pod logs after attempting to backup the Mssql app using the steps 
+  defined above:
+
+  ```
+  level=error msg="Error checking repository for stale locks" controller=restic-repo error="error running command=restic unlock --repo=s3:s3-us-east-1.amazonaws.com/<bucketname>/<prefix>/restic/mssql-persistent --password-file=/tmp/credentials/openshift-adp/velero-restic-credentials-repository-password --cache-dir=/scratch/.cache/restic, stdout=, stderr=Fatal: unable to open config file: Stat: The specified key does not exist.\nIs there a repository at the following location?\ns3:s3-us-east-1.amazonaws.com/<bucketname>/<prefix>/restic/mssql-persistent\n: exit status 1" error.file="/go/src/github.com/vmware-tanzu/velero/pkg/restic/repository_manager.go:293" error.function="github.com/vmware-tanzu/velero/pkg/restic.(*repositoryManager).exec" logSource="pkg/controller/restic_repository_controller.go:144" name=mssql-persistent-velero-sample-1-ckcj4 namespace=openshift-adp
+  ```
+
+  - Running the command `velero backup describe <backup-name> --details -n openshift-adp` 
+  results in:
+
+  ```
+  Restic Backups:
+  Failed:
+    mssql-persistent/mssql-deployment-1-l7482: mssql-vol
+  ```
+
+  This is a known Velero [issue](https://github.com/vmware-tanzu/velero/issues/4421) 
+  which appears to be in the process of deciding expected behavior. 

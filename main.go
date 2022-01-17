@@ -19,6 +19,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	monitor "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"os"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
@@ -92,6 +93,11 @@ func main() {
 	}
 
 	// Setup scheme for OCP resources
+	if err := monitor.AddToScheme(mgr.GetScheme()); err != nil {
+		setupLog.Error(err, "unable to add OpenShift monitoring APIs to scheme")
+		os.Exit(1)
+	}
+
 	if err := security.AddToScheme(mgr.GetScheme()); err != nil {
 		setupLog.Error(err, "unable to add OpenShift security APIs to scheme")
 		os.Exit(1)

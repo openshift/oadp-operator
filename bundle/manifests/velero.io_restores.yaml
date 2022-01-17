@@ -205,8 +205,10 @@ spec:
                                             are expanded using the container''s environment.
                                             If a variable cannot be resolved, the
                                             reference in the input string will be
-                                            unchanged. The $(VAR_NAME) syntax can
-                                            be escaped with a double $$, ie: $$(VAR_NAME).
+                                            unchanged. Double $$ are reduced to a
+                                            single $, which allows for escaping the
+                                            $(VAR_NAME) syntax: i.e. "$$(VAR_NAME)"
+                                            will produce the string literal "$(VAR_NAME)".
                                             Escaped references will never be expanded,
                                             regardless of whether the variable exists
                                             or not. Cannot be updated. More info:
@@ -221,12 +223,14 @@ spec:
                                             references $(VAR_NAME) are expanded using
                                             the container''s environment. If a variable
                                             cannot be resolved, the reference in the
-                                            input string will be unchanged. The $(VAR_NAME)
-                                            syntax can be escaped with a double $$,
-                                            ie: $$(VAR_NAME). Escaped references will
-                                            never be expanded, regardless of whether
-                                            the variable exists or not. Cannot be
-                                            updated. More info: https://kubernetes.io/docs/tasks/inject-data-application/define-command-argument-container/#running-a-command-in-a-shell'
+                                            input string will be unchanged. Double
+                                            $$ are reduced to a single $, which allows
+                                            for escaping the $(VAR_NAME) syntax: i.e.
+                                            "$$(VAR_NAME)" will produce the string
+                                            literal "$(VAR_NAME)". Escaped references
+                                            will never be expanded, regardless of
+                                            whether the variable exists or not. Cannot
+                                            be updated. More info: https://kubernetes.io/docs/tasks/inject-data-application/define-command-argument-container/#running-a-command-in-a-shell'
                                           items:
                                             type: string
                                           type: array
@@ -244,17 +248,19 @@ spec:
                                               value:
                                                 description: 'Variable references
                                                   $(VAR_NAME) are expanded using the
-                                                  previous defined environment variables
+                                                  previously defined environment variables
                                                   in the container and any service
                                                   environment variables. If a variable
                                                   cannot be resolved, the reference
                                                   in the input string will be unchanged.
-                                                  The $(VAR_NAME) syntax can be escaped
-                                                  with a double $$, ie: $$(VAR_NAME).
-                                                  Escaped references will never be
-                                                  expanded, regardless of whether
-                                                  the variable exists or not. Defaults
-                                                  to "".'
+                                                  Double $$ are reduced to a single
+                                                  $, which allows for escaping the
+                                                  $(VAR_NAME) syntax: i.e. "$$(VAR_NAME)"
+                                                  will produce the string literal
+                                                  "$(VAR_NAME)". Escaped references
+                                                  will never be expanded, regardless
+                                                  of whether the variable exists or
+                                                  not. Defaults to "".'
                                                 type: string
                                               valueFrom:
                                                 description: Source for the environment
@@ -804,6 +810,30 @@ spec:
                                               required:
                                               - port
                                               type: object
+                                            terminationGracePeriodSeconds:
+                                              description: Optional duration in seconds
+                                                the pod needs to terminate gracefully
+                                                upon probe failure. The grace period
+                                                is the duration in seconds after the
+                                                processes running in the pod are sent
+                                                a termination signal and the time
+                                                when the processes are forcibly halted
+                                                with a kill signal. Set this value
+                                                longer than the expected cleanup time
+                                                for your process. If this value is
+                                                nil, the pod's terminationGracePeriodSeconds
+                                                will be used. Otherwise, this value
+                                                overrides the value provided by the
+                                                pod spec. Value must be non-negative
+                                                integer. The value zero indicates
+                                                stop immediately via the kill signal
+                                                (no opportunity to shut down). This
+                                                is a beta field and requires enabling
+                                                ProbeTerminationGracePeriod feature
+                                                gate. Minimum value is 1. spec.terminationGracePeriodSeconds
+                                                is used if unset.
+                                              format: int64
+                                              type: integer
                                             timeoutSeconds:
                                               description: 'Number of seconds after
                                                 which the probe times out. Defaults
@@ -1006,6 +1036,30 @@ spec:
                                               required:
                                               - port
                                               type: object
+                                            terminationGracePeriodSeconds:
+                                              description: Optional duration in seconds
+                                                the pod needs to terminate gracefully
+                                                upon probe failure. The grace period
+                                                is the duration in seconds after the
+                                                processes running in the pod are sent
+                                                a termination signal and the time
+                                                when the processes are forcibly halted
+                                                with a kill signal. Set this value
+                                                longer than the expected cleanup time
+                                                for your process. If this value is
+                                                nil, the pod's terminationGracePeriodSeconds
+                                                will be used. Otherwise, this value
+                                                overrides the value provided by the
+                                                pod spec. Value must be non-negative
+                                                integer. The value zero indicates
+                                                stop immediately via the kill signal
+                                                (no opportunity to shut down). This
+                                                is a beta field and requires enabling
+                                                ProbeTerminationGracePeriod feature
+                                                gate. Minimum value is 1. spec.terminationGracePeriodSeconds
+                                                is used if unset.
+                                              format: int64
+                                              type: integer
                                             timeoutSeconds:
                                               description: 'Number of seconds after
                                                 which the probe times out. Defaults
@@ -1017,7 +1071,7 @@ spec:
                                         resources:
                                           description: 'Compute Resources required
                                             by this container. Cannot be updated.
-                                            More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
+                                            More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                                           properties:
                                             limits:
                                               additionalProperties:
@@ -1028,7 +1082,7 @@ spec:
                                                 x-kubernetes-int-or-string: true
                                               description: 'Limits describes the maximum
                                                 amount of compute resources allowed.
-                                                More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
+                                                More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                                               type: object
                                             requests:
                                               additionalProperties:
@@ -1043,12 +1097,14 @@ spec:
                                                 a container, it defaults to Limits
                                                 if that is explicitly specified, otherwise
                                                 to an implementation-defined value.
-                                                More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
+                                                More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                                               type: object
                                           type: object
                                         securityContext:
-                                          description: 'Security options the pod should
-                                            run with. More info: https://kubernetes.io/docs/concepts/policy/security-context/
+                                          description: 'SecurityContext defines the
+                                            security options the container should
+                                            be run with. If set, the fields of SecurityContext
+                                            override the equivalent fields of PodSecurityContext.
                                             More info: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/'
                                           properties:
                                             allowPrivilegeEscalation:
@@ -1217,6 +1273,25 @@ spec:
                                                     is the name of the GMSA credential
                                                     spec to use.
                                                   type: string
+                                                hostProcess:
+                                                  description: HostProcess determines
+                                                    if a container should be run as
+                                                    a 'Host Process' container. This
+                                                    field is alpha-level and will
+                                                    only be honored by components
+                                                    that enable the WindowsHostProcessContainers
+                                                    feature flag. Setting this field
+                                                    without the feature flag will
+                                                    result in errors when validating
+                                                    the Pod. All of a Pod's containers
+                                                    must have the same effective HostProcess
+                                                    value (it is not allowed to have
+                                                    a mix of HostProcess containers
+                                                    and non-HostProcess containers).  In
+                                                    addition, if HostProcess is true
+                                                    then HostNetwork must also be
+                                                    set to true.
+                                                  type: boolean
                                                 runAsUserName:
                                                   description: The UserName in Windows
                                                     to run the entrypoint of the container
@@ -1369,6 +1444,30 @@ spec:
                                               required:
                                               - port
                                               type: object
+                                            terminationGracePeriodSeconds:
+                                              description: Optional duration in seconds
+                                                the pod needs to terminate gracefully
+                                                upon probe failure. The grace period
+                                                is the duration in seconds after the
+                                                processes running in the pod are sent
+                                                a termination signal and the time
+                                                when the processes are forcibly halted
+                                                with a kill signal. Set this value
+                                                longer than the expected cleanup time
+                                                for your process. If this value is
+                                                nil, the pod's terminationGracePeriodSeconds
+                                                will be used. Otherwise, this value
+                                                overrides the value provided by the
+                                                pod spec. Value must be non-negative
+                                                integer. The value zero indicates
+                                                stop immediately via the kill signal
+                                                (no opportunity to shut down). This
+                                                is a beta field and requires enabling
+                                                ProbeTerminationGracePeriod feature
+                                                gate. Minimum value is 1. spec.terminationGracePeriodSeconds
+                                                is used if unset.
+                                              format: int64
+                                              type: integer
                                             timeoutSeconds:
                                               description: 'Number of seconds after
                                                 which the probe times out. Defaults
@@ -1651,138 +1750,6 @@ spec:
                 - PartiallyFailed
                 - Failed
                 type: string
-              podVolumeRestoreErrors:
-                description: PodVolumeRestoreErrors is a slice of all PodVolumeRestores
-                  with errors (errors encountered by restic when restoring a pod)
-                  (if applicable)
-                items:
-                  description: 'ObjectReference contains enough information to let
-                    you inspect or modify the referred object. --- New uses of this
-                    type are discouraged because of difficulty describing its usage
-                    when embedded in APIs.  1. Ignored fields.  It includes many fields
-                    which are not generally honored.  For instance, ResourceVersion
-                    and FieldPath are both very rarely valid in actual usage.  2.
-                    Invalid usage help.  It is impossible to add specific help for
-                    individual usage.  In most embedded usages, there are particular     restrictions
-                    like, "must refer only to types A and B" or "UID not honored"
-                    or "name must be restricted".     Those cannot be well described
-                    when embedded.  3. Inconsistent validation.  Because the usages
-                    are different, the validation rules are different by usage, which
-                    makes it hard for users to predict what will happen.  4. The fields
-                    are both imprecise and overly precise.  Kind is not a precise
-                    mapping to a URL. This can produce ambiguity     during interpretation
-                    and require a REST mapping.  In most cases, the dependency is
-                    on the group,resource tuple     and the version of the actual
-                    struct is irrelevant.  5. We cannot easily change it.  Because
-                    this type is embedded in many locations, updates to this type     will
-                    affect numerous schemas.  Don''t make new APIs embed an underspecified
-                    API type they do not control. Instead of using this type, create
-                    a locally provided and used type that is well-focused on your
-                    reference. For example, ServiceReferences for admission registration:
-                    https://github.com/kubernetes/api/blob/release-1.17/admissionregistration/v1/types.go#L533
-                    .'
-                  properties:
-                    apiVersion:
-                      description: API version of the referent.
-                      type: string
-                    fieldPath:
-                      description: 'If referring to a piece of an object instead of
-                        an entire object, this string should contain a valid JSON/Go
-                        field access statement, such as desiredState.manifest.containers[2].
-                        For example, if the object reference is to a container within
-                        a pod, this would take on a value like: "spec.containers{name}"
-                        (where "name" refers to the name of the container that triggered
-                        the event) or if no container name is specified "spec.containers[2]"
-                        (container with index 2 in this pod). This syntax is chosen
-                        only to have some well-defined way of referencing a part of
-                        an object. TODO: this design is not final and this field is
-                        subject to change in the future.'
-                      type: string
-                    kind:
-                      description: 'Kind of the referent. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
-                      type: string
-                    name:
-                      description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
-                      type: string
-                    namespace:
-                      description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
-                      type: string
-                    resourceVersion:
-                      description: 'Specific resourceVersion to which this reference
-                        is made, if any. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency'
-                      type: string
-                    uid:
-                      description: 'UID of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids'
-                      type: string
-                  type: object
-                nullable: true
-                type: array
-              podVolumeRestoreVerifyErrors:
-                description: PodVolumeRestoreVerifyErrors is a slice of all PodVolumeRestore
-                  errors from restore verification (errors encountered by restic when
-                  verifying a pod restore) (if applicable)
-                items:
-                  description: 'ObjectReference contains enough information to let
-                    you inspect or modify the referred object. --- New uses of this
-                    type are discouraged because of difficulty describing its usage
-                    when embedded in APIs.  1. Ignored fields.  It includes many fields
-                    which are not generally honored.  For instance, ResourceVersion
-                    and FieldPath are both very rarely valid in actual usage.  2.
-                    Invalid usage help.  It is impossible to add specific help for
-                    individual usage.  In most embedded usages, there are particular     restrictions
-                    like, "must refer only to types A and B" or "UID not honored"
-                    or "name must be restricted".     Those cannot be well described
-                    when embedded.  3. Inconsistent validation.  Because the usages
-                    are different, the validation rules are different by usage, which
-                    makes it hard for users to predict what will happen.  4. The fields
-                    are both imprecise and overly precise.  Kind is not a precise
-                    mapping to a URL. This can produce ambiguity     during interpretation
-                    and require a REST mapping.  In most cases, the dependency is
-                    on the group,resource tuple     and the version of the actual
-                    struct is irrelevant.  5. We cannot easily change it.  Because
-                    this type is embedded in many locations, updates to this type     will
-                    affect numerous schemas.  Don''t make new APIs embed an underspecified
-                    API type they do not control. Instead of using this type, create
-                    a locally provided and used type that is well-focused on your
-                    reference. For example, ServiceReferences for admission registration:
-                    https://github.com/kubernetes/api/blob/release-1.17/admissionregistration/v1/types.go#L533
-                    .'
-                  properties:
-                    apiVersion:
-                      description: API version of the referent.
-                      type: string
-                    fieldPath:
-                      description: 'If referring to a piece of an object instead of
-                        an entire object, this string should contain a valid JSON/Go
-                        field access statement, such as desiredState.manifest.containers[2].
-                        For example, if the object reference is to a container within
-                        a pod, this would take on a value like: "spec.containers{name}"
-                        (where "name" refers to the name of the container that triggered
-                        the event) or if no container name is specified "spec.containers[2]"
-                        (container with index 2 in this pod). This syntax is chosen
-                        only to have some well-defined way of referencing a part of
-                        an object. TODO: this design is not final and this field is
-                        subject to change in the future.'
-                      type: string
-                    kind:
-                      description: 'Kind of the referent. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
-                      type: string
-                    name:
-                      description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
-                      type: string
-                    namespace:
-                      description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
-                      type: string
-                    resourceVersion:
-                      description: 'Specific resourceVersion to which this reference
-                        is made, if any. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency'
-                      type: string
-                    uid:
-                      description: 'UID of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids'
-                      type: string
-                  type: object
-                nullable: true
-                type: array
               progress:
                 description: Progress contains information about the restore's execution
                   progress. Note that this information is best-effort only -- if Velero

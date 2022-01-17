@@ -1,7 +1,7 @@
 package controllers
 
 import (
-	oadpApi "github.com/openshift/oadp-operator/api/v1alpha1"
+	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -40,8 +40,8 @@ func isObjectOurs(scheme *runtime.Scheme, object client.Object) bool {
 		return false
 	}
 	gvk := objGVKs[0]
-	if gvk.Group == oadpApi.GroupVersion.Group && gvk.Version == oadpApi.GroupVersion.Version && gvk.Kind == oadpApi.Kind {
+	if gvk.Group == oadpv1alpha1.GroupVersion.Group && gvk.Version == oadpv1alpha1.GroupVersion.Version && gvk.Kind == oadpv1alpha1.Kind {
 		return true
 	}
-	return object.GetLabels()[oadpApi.OadpOperatorLabel] != ""
+	return object.GetLabels()[oadpv1alpha1.OadpOperatorLabel] != ""
 }
