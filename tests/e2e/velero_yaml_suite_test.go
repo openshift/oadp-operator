@@ -1,7 +1,9 @@
 package e2e
 
 import (
+	"log"
 	"path/filepath"
+	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -17,18 +19,29 @@ type dpaTemplateParams struct {
 	Prefix          string
 }
 
-var _ = AfterEach(func() {
-	// Delete DPA once the test has finished
-	err := vel.Delete()
-	Expect(err).ToNot(HaveOccurred())
-})
-
 var _ = Describe("Test DPA creation with", func() {
+	var _ = BeforeEach(func() {
+		testSuiteInstanceName := "ts-" + instanceName
+		vel.Name = testSuiteInstanceName
+
+		credData, err := getCredsData(cloud)
+		Expect(err).NotTo(HaveOccurred())
+
+		err = createCredentialsSecret(credData, namespace, credSecretRef)
+		Expect(err).NotTo(HaveOccurred())
+	})
+
+	var _ = AfterEach(func() {
+		err := vel.Delete()
+		Expect(err).ToNot(HaveOccurred())
+
+	})
+
 	It("One Backup Storage Location templated from yaml", func() {
 		// Create DPA and verify it is successful
 		dpaTemplate, _ := filepath.Abs("templates/dpa_template.tmpl")
 		params := dpaTemplateParams{
-			DpaName:         instanceName,
+			DpaName:         vel.Name,
 			BslRegion:       region,
 			ClusterProfile:  clusterProfile,
 			Provider:        provider,
@@ -39,6 +52,19 @@ var _ = Describe("Test DPA creation with", func() {
 		err := vel.CreateDpaFromYaml(dpaTemplate, params)
 		if err != nil {
 			Expect(err).NotTo(HaveOccurred())
+		}
+
+		log.Printf("Wait for velero pod to be running..")
+		Eventually(isVeleroPodRunning(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
+
+		dpa, err := vel.Get()
+		Expect(err).NotTo(HaveOccurred())
+		if len(dpa.Spec.BackupLocations) > 0 {
+			log.Printf("Checking for bsl spec")
+			for _, bsl := range dpa.Spec.BackupLocations {
+				// Check if bsl matches the spec
+				Eventually(doesBSLExist(namespace, *bsl.Velero, &dpa.Spec), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
+			}
 		}
 	})
 })
