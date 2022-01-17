@@ -32,7 +32,7 @@ var _ = Describe("Subscription Config Suite Test", func() {
 		credData, err := readFile(cloud)
 		Expect(err).NotTo(HaveOccurred())
 
-		err = createCredentialsSecret(credData, namespace, vel.CustomResource.Spec.BackupLocations[0].Velero.Credential.Name)
+		err = createCredentialsSecret(credData, namespace, getSecretRef(credSecretRef))
 		Expect(err).NotTo(HaveOccurred())
 	})
 
