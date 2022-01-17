@@ -11,6 +11,7 @@ import (
 
 type dpaTemplateParams struct {
 	DpaName         string
+	Namespace       string
 	BslRegion       string
 	ClusterProfile  string
 	Provider        string
@@ -42,6 +43,7 @@ var _ = Describe("Test DPA creation with", func() {
 		dpaTemplate, _ := filepath.Abs("templates/dpa_template.tmpl")
 		params := dpaTemplateParams{
 			DpaName:         vel.Name,
+			Namespace:       namespace,
 			BslRegion:       region,
 			ClusterProfile:  clusterProfile,
 			Provider:        provider,

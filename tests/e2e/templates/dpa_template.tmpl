@@ -1,7 +1,7 @@
 apiVersion: oadp.openshift.io/v1alpha1
 kind: DataProtectionApplication
 metadata:
- namespace: openshift-adp
+ namespace: {{ .Namespace }}
  name: {{ .DpaName }}
 spec:
  configuration:
