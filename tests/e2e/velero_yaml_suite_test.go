@@ -23,7 +23,7 @@ var _ = Describe("Test DPA creation with", func() {
 		testSuiteInstanceName := "ts-" + instanceName
 		vel.Name = testSuiteInstanceName
 
-		credData, err := getCredsData(cloud)
+		credData, err := readFile(cloud)
 		Expect(err).NotTo(HaveOccurred())
 
 		err = createCredentialsSecret(credData, namespace, credSecretRef)
@@ -42,11 +42,11 @@ var _ = Describe("Test DPA creation with", func() {
 		params := dpaTemplateParams{
 			DpaName:         vel.Name,
 			Namespace:       namespace,
-			BslRegion:       region,
+			BslRegion:       dpa.Spec.BackupLocations[0].Velero.Config["region"],
 			ClusterProfile:  clusterProfile,
-			Provider:        provider,
+			Provider:        dpa.Spec.BackupLocations[0].Velero.Provider,
 			CredentialsName: credSecretRef,
-			BucketName:      s3Bucket,
+			BucketName:      dpa.Spec.BackupLocations[0].Velero.ObjectStorage.Bucket,
 			Prefix:          veleroPrefix,
 		}
 		err := vel.CreateDpaFromYaml(dpaTemplate, params)
