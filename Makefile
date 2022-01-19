@@ -298,7 +298,7 @@ test-e2e:
 	-velero_namespace=$(OADP_TEST_NAMESPACE) \
 	-settings=$(SETTINGS_TMP)/awscreds \
 	-velero_instance_name=$(VELERO_INSTANCE_NAME) \
-	-timeout_multiplier=$(E2E_TIMEOUT_MULTIPLIER)
+	-timeout_multiplier=$(E2E_TIMEOUT_MULTIPLIER) \
 	-cluster_profile=$(CLUSTER_PROFILE)
 test-e2e-cleanup:
 	rm -rf $(SETTINGS_TMP)
