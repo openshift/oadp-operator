@@ -46,7 +46,7 @@ type CustomPlugin struct {
 
 type UnsupportedImageKey string
 
-const VeleroImageKey UnsupportedImageKey = "veleroPluginImageFqin"
+const VeleroImageKey UnsupportedImageKey = "veleroImageFqin"
 const AWSPluginImageKey UnsupportedImageKey = "awsPluginImageFqin"
 const OpenShiftPluginImageKey UnsupportedImageKey = "openshiftPluginImageFqin"
 const AzurePluginImageKey UnsupportedImageKey = "azurePluginImageFqin"
