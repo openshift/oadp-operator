@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"reflect"
@@ -281,6 +282,16 @@ func (r *DPAReconciler) ReconcileVeleroDeployment(log logr.Logger) (bool, error)
 	})
 
 	if err != nil {
+		if veleroDeployment.Labels["component"] == common.Velero {
+			deleteOptionPropagationForeground := metav1.DeletePropagationForeground
+			if err := r.Delete(context.Background(), veleroDeployment, &client.DeleteOptions{PropagationPolicy: &deleteOptionPropagationForeground}); err != nil {
+				r.EventRecorder.Event(veleroDeployment, corev1.EventTypeNormal, "DeleteVeleroDeploymentFailed", "Could not delete velero deployment:"+err.Error())
+				return false, err
+			}
+			r.EventRecorder.Event(veleroDeployment, corev1.EventTypeNormal, "DeleteVeleroDeploymentFailed", "Velero deployment deleted")
+
+			return true, nil
+		}
 		return false, err
 	}
 
