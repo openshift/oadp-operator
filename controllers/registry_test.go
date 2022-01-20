@@ -569,7 +569,6 @@ func TestDPAReconciler_getSecretNameAndKeyforBackupLocation(t *testing.T) {
 		name           string
 		bsl            *oadpv1alpha1.BackupLocation
 		secret         *corev1.Secret
-		registrySecret *corev1.Secret
 		wantProfile    string
 		wantSecretName string
 		wantSecretKey  string

@@ -533,18 +533,17 @@ func (r *DPAReconciler) getProviderSecret(secretName string) (corev1.Secret, err
 	return secret, nil
 }
 func (r *DPAReconciler) getSecretNameAndKeyforBackupLocation(bslspec oadpv1alpha1.BackupLocation) (string, string) {
-	var secretName, secretKey string
+
 	if bslspec.CloudStorage != nil {
 		if bslspec.CloudStorage.Credential != nil {
-			secretName = bslspec.CloudStorage.Credential.Name
-			secretKey = bslspec.CloudStorage.Credential.Key
+			return bslspec.CloudStorage.Credential.Name, bslspec.CloudStorage.Credential.Key
 		}
 	}
 	if bslspec.Velero != nil {
-		secretName, secretKey = r.getSecretNameAndKey(bslspec.Velero.Credential, oadpv1alpha1.DefaultPlugin(bslspec.Velero.Provider))
+		return r.getSecretNameAndKey(bslspec.Velero.Credential, oadpv1alpha1.DefaultPlugin(bslspec.Velero.Provider))
 	}
 
-	return secretName, secretKey
+	return "", ""
 }
 
 func (r *DPAReconciler) getSecretNameAndKey(credential *corev1.SecretKeySelector, plugin oadpv1alpha1.DefaultPlugin) (string, string) {
