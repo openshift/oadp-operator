@@ -564,6 +564,152 @@ var testAWSEnvVar = cloudProviderEnvVarMap["aws"]
 var testAzureEnvVar = cloudProviderEnvVarMap["azure"]
 var testGCPEnvVar = cloudProviderEnvVarMap["gcp"]
 
+func TestDPAReconciler_getSecretNameAndKeyforBackupLocation(t *testing.T) {
+	tests := []struct {
+		name           string
+		bsl            *oadpv1alpha1.BackupLocation
+		secret         *corev1.Secret
+		registrySecret *corev1.Secret
+		wantProfile    string
+		wantSecretName string
+		wantSecretKey  string
+	}{
+		{
+			name: "given provider secret, appropriate secret name and key are returned",
+			bsl: &oadpv1alpha1.BackupLocation{
+				Velero: &velerov1.BackupStorageLocationSpec{
+					Provider: AWSProvider,
+					Credential: &corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: "cloud-credentials-aws",
+						},
+						Key: "cloud",
+					},
+					Config: map[string]string{
+						Region:                "aws-region",
+						S3URL:                 "https://sr-url-aws-domain.com",
+						InsecureSkipTLSVerify: "false",
+					},
+				},
+			},
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cloud-credentials-aws",
+					Namespace: "test-ns",
+				},
+				Data: secretData,
+			},
+
+			wantProfile: "aws-provider",
+		},
+		{
+			name: "given no provider secret, appropriate secret name and key are returned",
+			bsl: &oadpv1alpha1.BackupLocation{
+				Velero: &velerov1.BackupStorageLocationSpec{
+					Provider: AWSProvider,
+					Config: map[string]string{
+						Region:                "aws-region",
+						S3URL:                 "https://sr-url-aws-domain.com",
+						InsecureSkipTLSVerify: "false",
+					},
+				},
+			},
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cloud-credentials",
+					Namespace: "test-ns",
+				},
+				Data: secretData,
+			},
+
+			wantProfile: "aws-provider-no-cred",
+		},
+		{
+			name: "given cloud storage secret, appropriate secret name and key are returned",
+			bsl: &oadpv1alpha1.BackupLocation{
+				CloudStorage: &oadpv1alpha1.CloudStorageLocation{
+					Credential: &corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: "cloud-credentials-aws",
+						},
+						Key: "cloud",
+					},
+					CloudStorageRef: corev1.LocalObjectReference{
+						Name: "example",
+					},
+				},
+			},
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cloud-credentials-aws",
+					Namespace: "test-ns",
+				},
+				Data: secretData,
+			},
+
+			wantProfile: "aws-cloud-cred",
+		},
+		{
+			name: "given no cloud storage secret, appropriate secret name and key are returned",
+			bsl: &oadpv1alpha1.BackupLocation{
+				CloudStorage: &oadpv1alpha1.CloudStorageLocation{
+					CloudStorageRef: corev1.LocalObjectReference{
+						Name: "example",
+					},
+				},
+			},
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "",
+					Namespace: "test-ns",
+				},
+				Data: secretData,
+			},
+
+			wantProfile: "aws-cloud-no-cred",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fakeClient, err := getFakeClientFromObjects(tt.secret)
+			if err != nil {
+				t.Errorf("error in creating fake client, likely programmer error")
+			}
+			r := &DPAReconciler{
+				Client:        fakeClient,
+				Scheme:        fakeClient.Scheme(),
+				Log:           logr.Discard(),
+				Context:       newContextForTest(tt.name),
+				EventRecorder: record.NewFakeRecorder(10),
+			}
+
+			if tt.wantProfile == "aws-provider" {
+				tt.wantSecretKey = "cloud"
+				tt.wantSecretName = "cloud-credentials-aws"
+			}
+			if tt.wantProfile == "aws-provider-no-cred" {
+				tt.wantSecretKey = "cloud"
+				tt.wantSecretName = "cloud-credentials"
+			}
+			if tt.wantProfile == "aws-cloud-cred" {
+				tt.wantSecretKey = "cloud"
+				tt.wantSecretName = "cloud-credentials-aws"
+			}
+			if tt.wantProfile == "aws-cloud-no-cred" {
+				tt.wantSecretKey = ""
+				tt.wantSecretName = ""
+			}
+
+			gotName, gotKey := r.getSecretNameAndKeyforBackupLocation(*tt.bsl)
+			if !reflect.DeepEqual(tt.wantSecretName, gotName) {
+				t.Errorf("expected registry container env var to be %#v, got %#v", tt.wantSecretName, gotName)
+			}
+			if !reflect.DeepEqual(tt.wantSecretKey, gotKey) {
+				t.Errorf("expected registry container env var to be %#v, got %#v", tt.wantSecretKey, gotKey)
+			}
+		})
+	}
+}
 func TestDPAReconciler_getAWSRegistryEnvVars(t *testing.T) {
 	tests := []struct {
 		name                        string
