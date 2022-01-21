@@ -100,7 +100,7 @@ func (r *DPAReconciler) ReconcileBackupStorageLocations(log logr.Logger) (bool, 
 		// 	 2. <namespace>.dataprotectionapplication: <name>
 		// which in turn will be used in th elabel handler to trigger the reconciliation loop
 
-		secretName, _ := r.getSecretNameAndKey(bslSpec.Velero.Credential, oadpv1alpha1.DefaultPlugin(bslSpec.Velero.Provider))
+		secretName, _ := r.getSecretNameAndKeyforBackupLocation(bslSpec)
 		_, err := r.UpdateCredentialsSecretLabels(secretName, dpa.Namespace, dpa.Name)
 		if err != nil {
 			return false, err
