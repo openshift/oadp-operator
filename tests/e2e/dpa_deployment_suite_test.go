@@ -32,25 +32,25 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 	DescribeTable("Updating custom resource with new configuration",
 
 		func(installCase InstallCase, expectedErr error) {
-			//TODO: Calling vel.build() is the old pattern.
+			//TODO: Calling dpaCR.build() is the old pattern.
 			//Change it later to make sure all the spec values are passed for every test case,
 			// instead of assigning the values in advance to the DPA CR
-			err := vel.Build(installCase.BRestoreType)
+			err := dpaCR.Build(installCase.BRestoreType)
 			Expect(err).NotTo(HaveOccurred())
-			err = vel.CreateOrUpdate(installCase.DpaSpec)
+			err = dpaCR.CreateOrUpdate(installCase.DpaSpec)
 			Expect(err).ToNot(HaveOccurred())
 			if installCase.WantError {
 				// Eventually()
 				log.Printf("Test case expected to error. Waiting for the error to show in DPA Status")
-				Eventually(vel.GetNoErr().Status.Conditions[0].Type, timeoutMultiplier*time.Minute*3, time.Second*5).Should(Equal("Reconciled"))
-				Eventually(vel.GetNoErr().Status.Conditions[0].Status, timeoutMultiplier*time.Minute*3, time.Second*5).Should(Equal(metav1.ConditionFalse))
-				Eventually(vel.GetNoErr().Status.Conditions[0].Reason, timeoutMultiplier*time.Minute*3, time.Second*5).Should(Equal("Error"))
-				Eventually(vel.GetNoErr().Status.Conditions[0].Message, timeoutMultiplier*time.Minute*3, time.Second*5).Should(Equal(expectedErr.Error()))
+				Eventually(dpaCR.GetNoErr().Status.Conditions[0].Type, timeoutMultiplier*time.Minute*3, time.Second*5).Should(Equal("Reconciled"))
+				Eventually(dpaCR.GetNoErr().Status.Conditions[0].Status, timeoutMultiplier*time.Minute*3, time.Second*5).Should(Equal(metav1.ConditionFalse))
+				Eventually(dpaCR.GetNoErr().Status.Conditions[0].Reason, timeoutMultiplier*time.Minute*3, time.Second*5).Should(Equal("Error"))
+				Eventually(dpaCR.GetNoErr().Status.Conditions[0].Message, timeoutMultiplier*time.Minute*3, time.Second*5).Should(Equal(expectedErr.Error()))
 				return
 			}
 			log.Printf("Waiting for velero pod to be running")
 			Eventually(areVeleroPodsRunning(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
-			dpa, err := vel.Get()
+			dpa, err := dpaCR.Get()
 			Expect(err).NotTo(HaveOccurred())
 			if len(dpa.Spec.BackupLocations) > 0 {
 				log.Printf("Checking for bsl spec")

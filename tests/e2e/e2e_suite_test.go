@@ -42,7 +42,7 @@ func TestOADPE2E(t *testing.T) {
 	RunSpecs(t, "OADP E2E Suite")
 }
 
-var vel *dpaCustomResource
+var dpaCR *dpaCustomResource
 
 var _ = BeforeSuite(func() {
 	flag.Parse()
@@ -56,14 +56,14 @@ var _ = BeforeSuite(func() {
 	err = createCredentialsSecret(credData, namespace, getSecretRef(credSecretRef))
 	Expect(err).NotTo(HaveOccurred())
 
-	vel = &dpaCustomResource{
+	dpaCR = &dpaCustomResource{
 		Namespace: namespace,
 	}
-	vel.CustomResource = dpa
+	dpaCR.CustomResource = dpa
 	testSuiteInstanceName := "ts-" + instanceName
-	vel.Name = testSuiteInstanceName
+	dpaCR.Name = testSuiteInstanceName
 
-	vel.SetClient()
+	dpaCR.SetClient()
 	Expect(doesNamespaceExist(namespace)).Should(BeTrue())
 })
 
@@ -71,7 +71,7 @@ var _ = AfterSuite(func() {
 	log.Printf("Deleting Velero CR")
 	errs := deleteSecret(namespace, getSecretRef(credSecretRef))
 	Expect(errs).ToNot(HaveOccurred())
-	err := vel.Delete()
+	err := dpaCR.Delete()
 	Expect(err).ToNot(HaveOccurred())
-	Eventually(vel.IsDeleted(), timeoutMultiplier*time.Minute*2, time.Second*5).Should(BeTrue())
+	Eventually(dpaCR.IsDeleted(), timeoutMultiplier*time.Minute*2, time.Second*5).Should(BeTrue())
 })

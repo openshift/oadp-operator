@@ -18,7 +18,7 @@ type VerificationFunction func(client.Client, string) error
 var _ = Describe("AWS backup restore tests", func() {
 	var _ = BeforeEach(func() {
 		testSuiteInstanceName := "ts-" + instanceName
-		vel.Name = testSuiteInstanceName
+		dpaCR.Name = testSuiteInstanceName
 
 		credData, err := readFile(cloud)
 		Expect(err).NotTo(HaveOccurred())
@@ -27,7 +27,7 @@ var _ = Describe("AWS backup restore tests", func() {
 	})
 
 	var _ = AfterEach(func() {
-		err := vel.Delete()
+		err := dpaCR.Delete()
 		Expect(err).ToNot(HaveOccurred())
 
 	})
@@ -64,10 +64,10 @@ var _ = Describe("AWS backup restore tests", func() {
 	DescribeTable("backup and restore applications",
 		func(brCase BackupRestoreCase, expectedErr error) {
 
-			err := vel.Build(brCase.BackupRestoreType)
+			err := dpaCR.Build(brCase.BackupRestoreType)
 			Expect(err).NotTo(HaveOccurred())
 
-			err = vel.CreateOrUpdate(&vel.CustomResource.Spec)
+			err = dpaCR.CreateOrUpdate(&dpaCR.CustomResource.Spec)
 			Expect(err).NotTo(HaveOccurred())
 
 			log.Printf("Waiting for velero pod to be running")
@@ -81,14 +81,14 @@ var _ = Describe("AWS backup restore tests", func() {
 			if brCase.BackupRestoreType == csi {
 				if clusterProfile == "aws" {
 					log.Printf("Creating VolumeSnapshot for CSI backuprestore of %s", brCase.Name)
-					err = installApplication(vel.Client, "./sample-applications/gp2-csi/volumeSnapshotClass.yaml")
+					err = installApplication(dpaCR.Client, "./sample-applications/gp2-csi/volumeSnapshotClass.yaml")
 					Expect(err).ToNot(HaveOccurred())
 				} else {
 					Skip("CSI testing is not provided for this cluster provider.")
 				}
 			}
 
-			if vel.CustomResource.Spec.BackupImages == nil || *vel.CustomResource.Spec.BackupImages {
+			if dpaCR.CustomResource.Spec.BackupImages == nil || *dpaCR.CustomResource.Spec.BackupImages {
 				log.Printf("Waiting for registry pods to be running")
 				Eventually(areRegistryDeploymentsAvailable(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 			}
@@ -102,34 +102,34 @@ var _ = Describe("AWS backup restore tests", func() {
 
 			// install app
 			log.Printf("Installing application for case %s", brCase.Name)
-			err = installApplication(vel.Client, brCase.ApplicationTemplate)
+			err = installApplication(dpaCR.Client, brCase.ApplicationTemplate)
 			Expect(err).ToNot(HaveOccurred())
 			// wait for pods to be running
 			Eventually(areApplicationPodsRunning(brCase.ApplicationNamespace), timeoutMultiplier*time.Minute*9, time.Second*5).Should(BeTrue())
 
 			// Run optional custom verification
 			log.Printf("Running pre-backup function for case %s", brCase.Name)
-			err = brCase.PreBackupVerify(vel.Client, brCase.ApplicationNamespace)
+			err = brCase.PreBackupVerify(dpaCR.Client, brCase.ApplicationNamespace)
 			Expect(err).ToNot(HaveOccurred())
 
 			// create backup
 			log.Printf("Creating backup %s for case %s", backupName, brCase.Name)
-			err = createBackupForNamespaces(vel.Client, namespace, backupName, []string{brCase.ApplicationNamespace})
+			err = createBackupForNamespaces(dpaCR.Client, namespace, backupName, []string{brCase.ApplicationNamespace})
 			Expect(err).ToNot(HaveOccurred())
 
 			// wait for backup to not be running
-			Eventually(isBackupDone(vel.Client, namespace, backupName), timeoutMultiplier*time.Minute*4, time.Second*10).Should(BeTrue())
-			Expect(getVeleroContainerFailureLogs(vel.Namespace)).To(Equal([]string{}))
+			Eventually(isBackupDone(dpaCR.Client, namespace, backupName), timeoutMultiplier*time.Minute*4, time.Second*10).Should(BeTrue())
+			Expect(getVeleroContainerFailureLogs(dpaCR.Namespace)).To(Equal([]string{}))
 
 			// check if backup succeeded
-			succeeded, err := isBackupCompletedSuccessfully(vel.Client, namespace, backupName)
+			succeeded, err := isBackupCompletedSuccessfully(dpaCR.Client, namespace, backupName)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(succeeded).To(Equal(true))
 			log.Printf("Backup for case %s succeeded", brCase.Name)
 
 			// uninstall app
 			log.Printf("Uninstalling app for case %s", brCase.Name)
-			err = uninstallApplication(vel.Client, brCase.ApplicationTemplate)
+			err = uninstallApplication(dpaCR.Client, brCase.ApplicationTemplate)
 			Expect(err).ToNot(HaveOccurred())
 
 			// Wait for namespace to be deleted
@@ -137,13 +137,13 @@ var _ = Describe("AWS backup restore tests", func() {
 
 			// run restore
 			log.Printf("Creating restore %s for case %s", restoreName, brCase.Name)
-			err = createRestoreFromBackup(vel.Client, namespace, backupName, restoreName)
+			err = createRestoreFromBackup(dpaCR.Client, namespace, backupName, restoreName)
 			Expect(err).ToNot(HaveOccurred())
-			Eventually(isRestoreDone(vel.Client, namespace, restoreName), timeoutMultiplier*time.Minute*4, time.Second*10).Should(BeTrue())
-			Expect(getVeleroContainerFailureLogs(vel.Namespace)).To(Equal([]string{}))
+			Eventually(isRestoreDone(dpaCR.Client, namespace, restoreName), timeoutMultiplier*time.Minute*4, time.Second*10).Should(BeTrue())
+			Expect(getVeleroContainerFailureLogs(dpaCR.Namespace)).To(Equal([]string{}))
 
 			// Check if restore succeeded
-			succeeded, err = isRestoreCompletedSuccessfully(vel.Client, namespace, restoreName)
+			succeeded, err = isRestoreCompletedSuccessfully(dpaCR.Client, namespace, restoreName)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(succeeded).To(Equal(true))
 
@@ -152,12 +152,12 @@ var _ = Describe("AWS backup restore tests", func() {
 
 			// Run optional custom verification
 			log.Printf("Running post-restore function for case %s", brCase.Name)
-			err = brCase.PostRestoreVerify(vel.Client, brCase.ApplicationNamespace)
+			err = brCase.PostRestoreVerify(dpaCR.Client, brCase.ApplicationNamespace)
 			Expect(err).ToNot(HaveOccurred())
 
 			// Test is successful, clean up everything
 			log.Printf("Uninstalling application for case %s", brCase.Name)
-			err = uninstallApplication(vel.Client, brCase.ApplicationTemplate)
+			err = uninstallApplication(dpaCR.Client, brCase.ApplicationTemplate)
 			Expect(err).ToNot(HaveOccurred())
 
 			// Wait for namespace to be deleted
@@ -165,7 +165,7 @@ var _ = Describe("AWS backup restore tests", func() {
 
 			if brCase.BackupRestoreType == csi {
 				log.Printf("Deleting VolumeSnapshot for CSI backuprestore of %s", brCase.Name)
-				err = uninstallApplication(vel.Client, "./sample-applications/gp2-csi/volumeSnapshotClass.yaml")
+				err = uninstallApplication(dpaCR.Client, "./sample-applications/gp2-csi/volumeSnapshotClass.yaml")
 				Expect(err).ToNot(HaveOccurred())
 			}
 
