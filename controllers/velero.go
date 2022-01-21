@@ -282,9 +282,18 @@ func (r *DPAReconciler) ReconcileVeleroDeployment(log logr.Logger) (bool, error)
 	})
 
 	if err != nil {
-		if veleroDeployment.Labels["component"] == common.Velero {
+		//fetch the mig-operator velero deployment and delete it
+		MTCVeleroDeployment, err := r.getMTCVeleroDeployment(&dpa)
+
+		if err != nil {
+			return false, err
+		}
+
+		fmt.Sprintf("Fetched old MYC deployment with labels: %#v", MTCVeleroDeployment.Labels)
+
+		if MTCVeleroDeployment.Labels["component"] == common.Velero {
 			deleteOptionPropagationForeground := metav1.DeletePropagationForeground
-			if err := r.Delete(context.Background(), veleroDeployment, &client.DeleteOptions{PropagationPolicy: &deleteOptionPropagationForeground}); err != nil {
+			if err := r.Delete(context.Background(), MTCVeleroDeployment, &client.DeleteOptions{PropagationPolicy: &deleteOptionPropagationForeground}); err != nil {
 				r.EventRecorder.Event(veleroDeployment, corev1.EventTypeNormal, "DeleteVeleroDeploymentFailed", "Could not delete velero deployment:"+err.Error())
 				return false, err
 			}
@@ -306,6 +315,24 @@ func (r *DPAReconciler) ReconcileVeleroDeployment(log logr.Logger) (bool, error)
 		)
 	}
 	return true, nil
+}
+
+func (r *DPAReconciler) getMTCVeleroDeployment(dpa *oadpv1alpha1.DataProtectionApplication) (*appsv1.Deployment, error) {
+	oldVeleroDeployment := &appsv1.Deployment{}
+	err := r.Get(context.Background(), client.ObjectKey{
+		Namespace: dpa.Namespace,
+		Name:      common.Velero,
+	}, oldVeleroDeployment)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if oldVeleroDeployment == nil {
+		return nil, fmt.Errorf("could not find old velero deployment")
+	}
+
+	return oldVeleroDeployment, nil
 }
 
 func (r *DPAReconciler) veleroServiceAccount(dpa *oadpv1alpha1.DataProtectionApplication) (*corev1.ServiceAccount, error) {

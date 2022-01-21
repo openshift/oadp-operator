@@ -158,7 +158,7 @@ metadata:
     capabilities: Seamless Upgrades
     categories: OpenShift Optional
     certified: "false"
-    containerImage: quay.io/konveyor/oadp-operator:latest
+    containerImage: quay.io/spampatt/oadp-operator:latest
     createdAt: "2020-09-08T12:21:00Z"
     description: |-
       OADP (OpenShift API for Data Protection) operator sets up and installs
@@ -176,7 +176,7 @@ metadata:
     operatorframework.io/arch.arm64: supported
     operatorframework.io/arch.ppc64le: supported
     operatorframework.io/arch.s390x: supported
-  name: oadp-operator.v99.0.0
+  name: mtc-oadp-operator.v1.0.0
   namespace: openshift-adp
 spec:
   apiservicedefinitions: {}
@@ -493,7 +493,7 @@ spec:
                         value: latest
                       - name: VELERO_CSI_PLUGIN_TAG
                         value: latest
-                    image: quay.io/konveyor/oadp-operator:latest
+                    image: quay.io/spampatt/oadp-operator:latest
                     imagePullPolicy: Always
                     livenessProbe:
                       httpGet:
@@ -615,4 +615,4 @@ spec:
       name: csi_plugin
     - image: quay.io/konveyor/registry:latest
       name: registry
-  version: 99.0.0
+  version: 1.0.0
