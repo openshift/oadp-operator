@@ -147,6 +147,7 @@ func (a awsBucketClient) getS3Client() (s3iface.S3API, error) {
 }
 
 func (a awsBucketClient) ForceCredentialRefresh() error {
+	panic("implement me")
 	return nil
 }
 

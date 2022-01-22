@@ -25,7 +25,7 @@ const (
 )
 
 type CloudStorageSpec struct {
-	// Name is the name requested for the bucket
+	// Name is the name requested for the bucket (aws) or container (azure)
 	Name string `json:"name"`
 	// CreationSecret is the secret that is needed to be used while creating the bucket.
 	CreationSecret corev1.SecretKeySelector `json:"creationSecret"`
@@ -38,6 +38,14 @@ type CloudStorageSpec struct {
 	Region string `json:"region,omitempty"`
 	// +kubebuilder:validation:Enum=aws
 	Provider CloudStorageProvider `json:"provider"`
+
+	// https://pkg.go.dev/github.com/Azure/azure-sdk-for-go/sdk/storage/azblob@v0.2.0#section-readme
+	// azure blob primary endpoint
+	// az storage account show -g <resource-group> -n <storage-account>
+	// need storage account name and key to create azure container
+	// az storage container create -n <container-name> --account-name <storage-account-name> --account-key <storage-account-key>
+	// azure account key will use CreationSecret to store key and account name
+
 }
 
 type CloudStorageStatus struct {
