@@ -16,18 +16,18 @@ import (
 
 var _ = Describe("Subscription Config Suite Test", func() {
 	var _ = BeforeEach(func() {
-		log.Printf("Building veleroSpec")
-		err := vel.Build(csi)
+		log.Printf("Building dpaSpec")
+		err := dpaCR.Build(csi)
 		Expect(err).NotTo(HaveOccurred())
 		//also test restic
-		vel.CustomResource.Spec.Configuration.Restic.Enable = pointer.BoolPtr(true)
+		dpaCR.CustomResource.Spec.Configuration.Restic.Enable = pointer.BoolPtr(true)
 
-		err = vel.Delete()
+		err = dpaCR.Delete()
 		Expect(err).ToNot(HaveOccurred())
-		Eventually(vel.IsDeleted(), timeoutMultiplier*time.Minute*2, time.Second*5).Should(BeTrue())
+		Eventually(dpaCR.IsDeleted(), timeoutMultiplier*time.Minute*2, time.Second*5).Should(BeTrue())
 
 		testSuiteInstanceName := "ts-" + instanceName
-		vel.Name = testSuiteInstanceName
+		dpaCR.Name = testSuiteInstanceName
 
 		credData, err := readFile(cloud)
 		Expect(err).NotTo(HaveOccurred())
@@ -37,7 +37,7 @@ var _ = Describe("Subscription Config Suite Test", func() {
 	})
 
 	var _ = AfterEach(func() {
-		err := vel.Delete()
+		err := dpaCR.Delete()
 		Expect(err).ToNot(HaveOccurred())
 	})
 	type SubscriptionConfigTestCase struct {
@@ -47,12 +47,12 @@ var _ = Describe("Subscription Config Suite Test", func() {
 	DescribeTable("Proxy test table",
 		func(testCase SubscriptionConfigTestCase) {
 			log.Printf("Getting Operator Subscription")
-			s, err := vel.getOperatorSubscription()
+			s, err := dpaCR.getOperatorSubscription()
 			Expect(err).To(BeNil())
 			log.Printf("Setting test case subscription config")
 			s.Spec.Config = &testCase.SubscriptionConfig
 			log.Printf("Updating Subscription")
-			err = vel.Client.Update(context.Background(), s.Subscription)
+			err = dpaCR.Client.Update(context.Background(), s.Subscription)
 			Expect(err).To(BeNil())
 
 			// get csv from installplan from subscription
@@ -63,11 +63,11 @@ var _ = Describe("Subscription Config Suite Test", func() {
 				Eventually(s.csvIsReady, time.Minute*9).Should(BeTrue())
 
 				log.Printf("CreatingOrUpdate test Velero")
-				err = vel.CreateOrUpdate(&vel.CustomResource.Spec)
+				err = dpaCR.CreateOrUpdate(&dpaCR.CustomResource.Spec)
 				Expect(err).NotTo(HaveOccurred())
 
 				log.Printf("Getting velero object")
-				velero, err := vel.Get()
+				velero, err := dpaCR.Get()
 				Expect(err).NotTo(HaveOccurred())
 				log.Printf("Waiting for velero pod to be running")
 				Eventually(areVeleroPodsRunning(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
@@ -85,12 +85,12 @@ var _ = Describe("Subscription Config Suite Test", func() {
 					podList, err := getVeleroPods(namespace)
 					Expect(err).NotTo(HaveOccurred())
 					log.Printf("Getting pods containers env vars")
-					bl := vel.CustomResource.Spec.BackupLocations[0]
+					bl := dpaCR.CustomResource.Spec.BackupLocations[0]
 					for _, podInfo := range podList.Items {
 						// we care about pods that have labels control-plane=controller-manager, component=velero, "component": "oadp-" + bsl.Name + "-" + bsl.Spec.Provider + "-registry",
 						if podInfo.Labels["control-plane"] == "controller-manager" ||
 							podInfo.Labels["app.kubernetes.io/name"] == "velero" ||
-							podInfo.Labels["component"] == "oadp-"+fmt.Sprintf("%s-%d", vel.Name, 1)+"-"+bl.Velero.Provider+"-registry" {
+							podInfo.Labels["component"] == "oadp-"+fmt.Sprintf("%s-%d", dpaCR.Name, 1)+"-"+bl.Velero.Provider+"-registry" {
 							log.Printf("Checking env vars are passed to each container in " + podInfo.Name)
 							for _, container := range podInfo.Spec.Containers {
 								log.Printf("Checking env vars are passed to container " + container.Name)
@@ -102,7 +102,7 @@ var _ = Describe("Subscription Config Suite Test", func() {
 					}
 				}
 				log.Printf("Deleting test Velero")
-				err = vel.Delete()
+				err = dpaCR.Delete()
 				Expect(err).ToNot(HaveOccurred())
 			}
 
