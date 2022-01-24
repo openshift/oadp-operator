@@ -98,13 +98,10 @@ func areApplicationPodsRunning(namespace string) wait.ConditionFunc {
 		}
 		// get pod name and status with specified label selector
 		for _, podInfo := range podList.Items {
-			status := podInfo.Status.Phase
-			if status != corev1.PodRunning && status != corev1.PodSucceeded {
-				for _, condition := range podInfo.Status.Conditions {
-					if len(condition.Message) > 0 {
-						ginkgo.GinkgoWriter.Write([]byte(fmt.Sprintf("Pod not running with condition: %s\n", condition.Message)))
-					}
-				}
+			phase := podInfo.Status.Phase
+			if phase != corev1.PodRunning && phase != corev1.PodSucceeded {
+				ginkgo.GinkgoWriter.Write([]byte(fmt.Sprintf("Pod %v not yet succeeded", podInfo.Name)))
+				ginkgo.GinkgoWriter.Write([]byte(fmt.Sprintf("status: %v", podInfo.Status)))
 				return false, nil
 			}
 		}
