@@ -7,7 +7,7 @@ The OADP Operator supports custom plugin images under the `unsupportedOverrides`
 Details for supported plugins and their usage is given below, and please use the respective keys for the plugins. All keys must be entered in the Velero CR under a new field called as `unsupportedOverrides`, and with the key below for reference and corresponding image tag as their value.
 
 
- - Velero Imagekey  -> `veleroPluginImageFqin`
+ - Velero Imagekey  -> `veleroImageFqin`
  - AWS Plugin ImageKey  -> `awsPluginImageFqin`
  - OpenShift Plugin ImageKey  -> `openshiftPluginImageFqin`
  - Azure Plugin ImageKey -> `azurePluginImageFqin`
