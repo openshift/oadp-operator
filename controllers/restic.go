@@ -115,6 +115,24 @@ func (r *DPAReconciler) ReconcileResticDaemonset(log logr.Logger) (bool, error) 
 	})
 
 	if err != nil {
+		//fetch the mig-operator restic daemonset and delete if it exists
+		MTCResticDS := &appsv1.DaemonSet{}
+		err = r.getMTCResticDS(&dpa, MTCResticDS)
+
+		if MTCResticDS != nil && MTCResticDS.Spec.Template.Labels["name"] == common.Restic {
+			deleteOptionPropagationForeground := metav1.DeletePropagationForeground
+			if err := r.Delete(context.Background(), MTCResticDS, &client.DeleteOptions{PropagationPolicy: &deleteOptionPropagationForeground}); err != nil {
+				r.EventRecorder.Event(MTCResticDS, corev1.EventTypeNormal, "DeleteResticDSFailed", "Could not delete restic daemonset:"+err.Error())
+				return false, err
+			}
+			r.EventRecorder.Event(MTCResticDS, corev1.EventTypeNormal, "DeleteMTCResticDSFailed", "restic daemonset deleted")
+
+			return true, nil
+		}
+
+		if errors.IsNotFound(err) {
+			return true, nil
+		}
 		return false, err
 	}
 
@@ -128,6 +146,23 @@ func (r *DPAReconciler) ReconcileResticDaemonset(log logr.Logger) (bool, error) 
 	}
 
 	return true, nil
+}
+
+func (r *DPAReconciler) getMTCResticDS(dpa *oadpv1alpha1.DataProtectionApplication, MTCResticDS *appsv1.DaemonSet) error {
+	err := r.Get(context.Background(), client.ObjectKey{
+		Namespace: dpa.Namespace,
+		Name:      common.Restic,
+	}, MTCResticDS)
+
+	if err != nil {
+		return err
+	}
+
+	if MTCResticDS == nil {
+		return fmt.Errorf("could not find old restic daemonset")
+	}
+
+	return nil
 }
 
 /**

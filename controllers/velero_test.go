@@ -1539,3 +1539,100 @@ func Test_validateVeleroPlugins(t *testing.T) {
 		})
 	}
 }
+
+func TestDPAReconciler_getMTCVeleroDeployment(t *testing.T) {
+	tests := []struct {
+		name                 string
+		dpa                  *oadpv1alpha1.DataProtectionApplication
+		MTCVeleroDeployment  *appsv1.Deployment
+		want                 *appsv1.Deployment
+		fakeVeleroDeployment *appsv1.Deployment
+		wantErr              bool
+	}{
+		{
+			name: "given valid DPA, MTC velero deployment is fetched",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-Velero-CR",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+								oadpv1alpha1.DefaultPluginAWS,
+							},
+						},
+					},
+				},
+			},
+			MTCVeleroDeployment: &appsv1.Deployment{},
+			fakeVeleroDeployment: &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      common.Velero,
+					Namespace: "test-ns",
+				},
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "Deployment",
+					APIVersion: appsv1.SchemeGroupVersion.String(),
+				},
+				Spec: appsv1.DeploymentSpec{
+					Template: corev1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Labels: map[string]string{
+								"component": common.Velero,
+							},
+						},
+					},
+				},
+			},
+			want: &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      common.Velero,
+					Namespace: "test-ns",
+				},
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "Deployment",
+					APIVersion: appsv1.SchemeGroupVersion.String(),
+				},
+				Spec: appsv1.DeploymentSpec{
+					Template: corev1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Labels: map[string]string{
+								"component": common.Velero,
+							},
+						},
+					},
+				},
+			},
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fakeClient, err := getFakeClientFromObjects(tt.dpa, tt.fakeVeleroDeployment)
+			if err != nil {
+				t.Errorf("error in creating fake client, likely programmer error")
+			}
+			r := &DPAReconciler{
+				Client:  fakeClient,
+				Scheme:  fakeClient.Scheme(),
+				Log:     logr.Discard(),
+				Context: newContextForTest(tt.name),
+				NamespacedName: types.NamespacedName{
+					Namespace: tt.dpa.Namespace,
+					Name:      tt.dpa.Name,
+				},
+				EventRecorder: record.NewFakeRecorder(10),
+			}
+			err = r.getMTCVeleroDeployment(tt.dpa, tt.MTCVeleroDeployment)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("getMTCVeleroDeployment() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(tt.MTCVeleroDeployment.Name, tt.want.Name) && !reflect.DeepEqual(tt.MTCVeleroDeployment.Namespace, tt.want.Namespace) && !reflect.DeepEqual(tt.MTCVeleroDeployment.Spec.Template.Labels, tt.want.Spec.Template.Labels) {
+				t.Errorf("getMTCVeleroDeployment() got = %v, want %v", tt.MTCVeleroDeployment, tt.want)
+			}
+		})
+	}
+}

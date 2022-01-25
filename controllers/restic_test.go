@@ -837,3 +837,109 @@ func TestDPAReconciler_updateResticRestoreHelperCM(t *testing.T) {
 		})
 	}
 }
+
+func TestDPAReconciler_getMTCResticDS(t *testing.T) {
+	tests := []struct {
+		name          string
+		dpa           *oadpv1alpha1.DataProtectionApplication
+		MTCResticDS   *appsv1.DaemonSet
+		want          *appsv1.DaemonSet
+		fakeDaemonSet *appsv1.DaemonSet
+		wantErr       bool
+	}{
+		{
+			name: "given valid DPA, MTC restic daemonset is fetched",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-Velero-CR",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+								oadpv1alpha1.DefaultPluginAWS,
+							},
+						},
+					},
+				},
+			},
+			MTCResticDS: &appsv1.DaemonSet{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      common.Restic,
+					Namespace: "test-ns",
+				},
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "DaemonSet",
+					APIVersion: appsv1.SchemeGroupVersion.String(),
+				},
+			},
+			want: &appsv1.DaemonSet{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      common.Restic,
+					Namespace: "test-ns",
+				},
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "DaemonSet",
+					APIVersion: appsv1.SchemeGroupVersion.String(),
+				},
+				Spec: appsv1.DaemonSetSpec{
+					Template: v1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Labels: map[string]string{
+								"name": common.Restic,
+							},
+						},
+					},
+				},
+			},
+			fakeDaemonSet: &appsv1.DaemonSet{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      common.Restic,
+					Namespace: "test-ns",
+				},
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "DaemonSet",
+					APIVersion: appsv1.SchemeGroupVersion.String(),
+				},
+				Spec: appsv1.DaemonSetSpec{
+					Template: v1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Labels: map[string]string{
+								"name": common.Restic,
+							},
+						},
+					},
+				},
+			},
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fakeClient, err := getFakeClientFromObjects(tt.dpa, tt.fakeDaemonSet)
+			if err != nil {
+				t.Errorf("error in creating fake client, likely programmer error")
+			}
+			r := &DPAReconciler{
+				Client:  fakeClient,
+				Scheme:  fakeClient.Scheme(),
+				Log:     logr.Discard(),
+				Context: newContextForTest(tt.name),
+				NamespacedName: types.NamespacedName{
+					Namespace: tt.dpa.Namespace,
+					Name:      tt.dpa.Name,
+				},
+				EventRecorder: record.NewFakeRecorder(10),
+			}
+			err = r.getMTCResticDS(tt.dpa, tt.MTCResticDS)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("getMTCResticDS() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(tt.MTCResticDS.Name, tt.want.Name) && !reflect.DeepEqual(tt.MTCResticDS.Namespace, tt.want.Namespace) && !reflect.DeepEqual(tt.MTCResticDS.Spec.Template.Labels, tt.want.Spec.Template.Labels) {
+				t.Errorf("getMTCResticDS() got = %v, want %v", tt.MTCResticDS, tt.want)
+			}
+		})
+	}
+}
