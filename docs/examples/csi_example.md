@@ -2,7 +2,7 @@
 <h2 align="center">CSI Volume Snapshotting with AWS EBS</h2>
 
 ### Prerequisites
-* OADP operator is installed:
+* OADP operator is [installed](/docs/install_olm.md).
 * Create a credentials secret for AWS:
 
    `oc create secret generic cloud-credentials --namespace openshift-adp --from-file cloud=<CREDENTIALS_FILE_PATH>`
