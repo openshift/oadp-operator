@@ -163,7 +163,7 @@ metadata:
     description: |-
       OADP (OpenShift API for Data Protection) operator sets up and installs
       Velero on the OpenShift platform.
-    olm.skipRange: '>=0.0.0 <99.0.0'
+    olm.skipRange: '>=0.0.0 <1.0.0'
     operatorframework.io/cluster-monitoring: "true"
     operatorframework.io/suggested-namespace: openshift-adp
     operators.openshift.io/infrastructure-features: '["Disconnected"]'
@@ -176,7 +176,7 @@ metadata:
     operatorframework.io/arch.arm64: supported
     operatorframework.io/arch.ppc64le: supported
     operatorframework.io/arch.s390x: supported
-  name: mtc-oadp-operator.v1.0.0
+  name: mtc2-oadp-operator.v1.0.0
   namespace: openshift-adp
 spec:
   apiservicedefinitions: {}
