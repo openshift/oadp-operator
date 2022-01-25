@@ -3,10 +3,7 @@
 <h2 align="center">Using an AWS s3 Bucket</h2>
 
 ### Prerequisites
-* Make sure the OADP operator is installed:
-
-    `make deploy`
-
+* OADP operator is installed:
 * Create a credentials secret for AWS:
 
    `oc create secret generic cloud-credentials --namespace openshift-adp --from-file cloud=<CREDENTIALS_FILE_PATH>`
@@ -50,7 +47,7 @@ spec:
 
 ### Create the Nginx deployment:
 
-`oc create -f docs/examples/manifests/nginx-deployment.yaml`
+`oc create -f docs/examples/manifests/nginx/nginx-deployment.yaml`
 
 This will create the following resources:
 * **Namespace**
@@ -85,7 +82,7 @@ route.route.openshift.io/my-nginx   my-nginx-nginx-example.apps.cluster-da0d.da0
 
 ### Create application backup
 
-`oc create -f docs/examples/manifests/nginx-stateless-backup.yaml`
+`oc create -f docs/examples/manifests/nginx/nginx-stateless-backup.yaml`
 
 ### Verify backup is completed
 
@@ -103,7 +100,7 @@ process. First, delete the `nginx-example` project:
 
 ### Create the restore for the application
 
-`oc create -f docs/examples/manifests/nginx-stateless-restore.yaml`
+`oc create -f docs/examples/manifests/nginx/nginx-stateless-restore.yaml`
 
 ### Ensure the restore has completed
 
