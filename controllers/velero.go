@@ -282,24 +282,6 @@ func (r *DPAReconciler) ReconcileVeleroDeployment(log logr.Logger) (bool, error)
 	})
 
 	if err != nil {
-		//fetch the mig-operator velero deployment and delete if it exists
-		MTCVeleroDeployment := &appsv1.Deployment{}
-		err = r.getMTCVeleroDeployment(&dpa, MTCVeleroDeployment)
-
-		if MTCVeleroDeployment != nil && MTCVeleroDeployment.Spec.Template.Labels["component"] == common.Velero {
-			deleteOptionPropagationForeground := metav1.DeletePropagationForeground
-			if err := r.Delete(context.Background(), MTCVeleroDeployment, &client.DeleteOptions{PropagationPolicy: &deleteOptionPropagationForeground}); err != nil {
-				r.EventRecorder.Event(veleroDeployment, corev1.EventTypeNormal, "DeleteVeleroDeploymentFailed", "Could not delete velero deployment:"+err.Error())
-				return false, err
-			}
-			r.EventRecorder.Event(veleroDeployment, corev1.EventTypeNormal, "DeleteVeleroDeploymentFailed", "Velero deployment deleted")
-
-			return true, nil
-		}
-
-		if errors.IsNotFound(err) {
-			return true, nil
-		}
 		return false, err
 	}
 
@@ -313,6 +295,42 @@ func (r *DPAReconciler) ReconcileVeleroDeployment(log logr.Logger) (bool, error)
 			fmt.Sprintf("performed %s on velero deployment %s/%s", op, veleroDeployment.Namespace, veleroDeployment.Name),
 		)
 	}
+	return true, nil
+}
+
+func (r *DPAReconciler) DeleteMTCVeleroDeployment(log logr.Logger) (bool, error) {
+	dpa := oadpv1alpha1.DataProtectionApplication{}
+	if err := r.Get(r.Context, r.NamespacedName, &dpa); err != nil {
+		return false, err
+	}
+
+	//fetch the mig-operator velero deployment and delete if it exists
+	MTCVeleroDeployment := &appsv1.Deployment{}
+	err := r.getMTCVeleroDeployment(&dpa, MTCVeleroDeployment)
+
+	if MTCVeleroDeployment != nil && len(MTCVeleroDeployment.OwnerReferences) != 0 && MTCVeleroDeployment.OwnerReferences[0].Kind == "MigrationController" {
+		deleteOptionPropagationForeground := metav1.DeletePropagationForeground
+		if err := r.Delete(context.Background(), MTCVeleroDeployment, &client.DeleteOptions{PropagationPolicy: &deleteOptionPropagationForeground}); err != nil {
+			r.EventRecorder.Event(MTCVeleroDeployment, corev1.EventTypeNormal, "DeleteVeleroDeploymentFailed", "Could not delete velero deployment:"+err.Error())
+			return false, err
+		}
+		r.EventRecorder.Event(MTCVeleroDeployment, corev1.EventTypeNormal, "DeletedMTCVeleroDeployment", "Velero deployment deleted")
+		return true, nil
+	}
+
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return true, nil
+		}
+		return false, err
+	}
+
+	// Trigger event to indicate velero deployment was created or updated
+	r.EventRecorder.Event(MTCVeleroDeployment,
+		corev1.EventTypeNormal,
+		"DeleteMTCVeleroDeploymentReconciled",
+		fmt.Sprintf("performed delete on MTC velero deployment %s/%s", MTCVeleroDeployment.Namespace, MTCVeleroDeployment.Name),
+	)
 	return true, nil
 }
 

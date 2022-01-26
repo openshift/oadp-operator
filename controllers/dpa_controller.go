@@ -98,6 +98,8 @@ func (r *DPAReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		r.ValidateVolumeSnapshotLocations,
 		r.LabelVSLSecrets,
 		r.ReconcileVolumeSnapshotLocations,
+		r.DeleteMTCVeleroDeployment,
+		r.DeleteMTCResticDaemonSet,
 		r.ReconcileVeleroDeployment,
 		r.ReconcileResticDaemonset,
 		r.ReconcileVeleroServiceMonitor,

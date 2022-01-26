@@ -115,24 +115,6 @@ func (r *DPAReconciler) ReconcileResticDaemonset(log logr.Logger) (bool, error) 
 	})
 
 	if err != nil {
-		//fetch the mig-operator restic daemonset and delete if it exists
-		MTCResticDS := &appsv1.DaemonSet{}
-		err = r.getMTCResticDS(&dpa, MTCResticDS)
-
-		if MTCResticDS != nil && MTCResticDS.Spec.Template.Labels["name"] == common.Restic {
-			deleteOptionPropagationForeground := metav1.DeletePropagationForeground
-			if err := r.Delete(context.Background(), MTCResticDS, &client.DeleteOptions{PropagationPolicy: &deleteOptionPropagationForeground}); err != nil {
-				r.EventRecorder.Event(MTCResticDS, corev1.EventTypeNormal, "DeleteResticDSFailed", "Could not delete restic daemonset:"+err.Error())
-				return false, err
-			}
-			r.EventRecorder.Event(MTCResticDS, corev1.EventTypeNormal, "DeleteMTCResticDSFailed", "restic daemonset deleted")
-
-			return true, nil
-		}
-
-		if errors.IsNotFound(err) {
-			return true, nil
-		}
 		return false, err
 	}
 
@@ -145,6 +127,41 @@ func (r *DPAReconciler) ReconcileResticDaemonset(log logr.Logger) (bool, error) 
 		)
 	}
 
+	return true, nil
+}
+
+func (r *DPAReconciler) DeleteMTCResticDaemonSet(log logr.Logger) (bool, error) {
+	dpa := oadpv1alpha1.DataProtectionApplication{}
+	if err := r.Get(r.Context, r.NamespacedName, &dpa); err != nil {
+		return false, err
+	}
+
+	MTCResticDS := &appsv1.DaemonSet{}
+	err := r.getMTCResticDS(&dpa, MTCResticDS)
+
+	if MTCResticDS != nil && len(MTCResticDS.OwnerReferences) != 0 && MTCResticDS.OwnerReferences[0].Kind == "MigrationController" {
+		deleteOptionPropagationForeground := metav1.DeletePropagationForeground
+		if err := r.Delete(context.Background(), MTCResticDS, &client.DeleteOptions{PropagationPolicy: &deleteOptionPropagationForeground}); err != nil {
+			r.EventRecorder.Event(MTCResticDS, corev1.EventTypeNormal, "DeleteResticDSFailed", "Could not delete restic daemonset:"+err.Error())
+			return false, err
+		}
+		r.EventRecorder.Event(MTCResticDS, corev1.EventTypeNormal, "DeletedMTCResticDS", "restic daemonset deleted")
+		return true, nil
+	}
+
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return true, nil
+		}
+		return false, err
+	}
+
+	// Trigger event to indicate velero deployment was created or updated
+	r.EventRecorder.Event(MTCResticDS,
+		corev1.EventTypeNormal,
+		"DeleteMTCResticDaemonSetReconciled",
+		fmt.Sprintf("performed delete on MTC restic daemonset %s/%s", MTCResticDS.Namespace, MTCResticDS.Name),
+	)
 	return true, nil
 }
 
