@@ -376,6 +376,8 @@ func (r *DPAReconciler) buildVeleroDeployment(veleroDeployment *appsv1.Deploymen
 	}
 	r.ReconcileRestoreResourcesVersionPriority(dpa)
 
+	// TODO! Reuse removeDuplicateValues with interface type
+	dpa.Spec.Configuration.Velero.DefaultPlugins = removeDuplicatePluginValues(dpa.Spec.Configuration.Velero.DefaultPlugins)
 	dpa.Spec.Configuration.Velero.FeatureFlags = removeDuplicateValues(dpa.Spec.Configuration.Velero.FeatureFlags)
 	deploymentName := veleroDeployment.Name       //saves desired deployment name before install.Deployment overwrites them.
 	ownerRefs := veleroDeployment.OwnerReferences // saves desired owner refs
@@ -393,6 +395,21 @@ func (r *DPAReconciler) buildVeleroDeployment(veleroDeployment *appsv1.Deploymen
 	veleroDeployment.Name = deploymentName //reapply saved deploymentName and owner refs
 	veleroDeployment.OwnerReferences = ownerRefs
 	return r.customizeVeleroDeployment(dpa, veleroDeployment)
+}
+
+func removeDuplicatePluginValues(slice []oadpv1alpha1.DefaultPlugin) []oadpv1alpha1.DefaultPlugin {
+	if slice == nil {
+		return nil
+	}
+	keys := make(map[oadpv1alpha1.DefaultPlugin]bool)
+	list := []oadpv1alpha1.DefaultPlugin{}
+	for _, entry := range slice {
+		if _, found := keys[entry]; !found { //add entry to list if not found in keys already
+			keys[entry] = true
+			list = append(list, entry)
+		}
+	}
+	return list // return the result through the passed in argument
 }
 
 // remove duplicate entry in string slice
