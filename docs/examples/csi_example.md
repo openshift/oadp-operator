@@ -2,13 +2,14 @@
 <h2 align="center">CSI Volume Snapshotting with AWS EBS</h2>
 
 ### Prerequisites
-* OADP operator is [installed](/docs/install_olm.md).
-* Create a credentials secret for AWS:
+* OADP operator, a credentials secret, and a DataProtectionApplication (DPA) CR 
+  are all created. Follow [these steps](/docs/install_olm.md) for installation instructions.
 
-   `oc create secret generic cloud-credentials --namespace openshift-adp --from-file cloud=<CREDENTIALS_FILE_PATH>`
+  - Make sure your DPA CR is similar to below in the install step. 
+    Note the `EnableCSI` feature flag and the `csi` default plugin.
 
-* Make sure your DataProtectionApplication (DPA) CR is similar to below. Note 
-    the `EnableCSI` feature flag and the `csi` default plugin.
+* Information on `backupLocations` and `snapshotLocations` specs 
+  can be found [here](/docs/config/bsl_and_vsl.md). 
 
     ```
     apiVersion: oadp.openshift.io/v1alpha1
@@ -40,7 +41,7 @@
             credential:
               name: cloud-credentials
               key: cloud
-      volumeSnapshots:
+      snapshotLocations:
         - name: default
           velero:
             provider: aws
@@ -49,13 +50,6 @@
               profile: "default"
   
     ```
-
-    *Note*: Your VSL region should be your cluster's region. 
-
-
-* Install Velero:
-
-    `oc create -n openshift-adp -f config/samples/oadp_v1alpha1_dpa.yaml`
 
 
 <hr style="height:1px;border:none;color:#333;">
