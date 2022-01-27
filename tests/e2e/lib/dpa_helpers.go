@@ -3,6 +3,7 @@ package e2e
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -38,20 +39,17 @@ type dpaCustomResource struct {
 	Name              string
 	Namespace         string
 	SecretName        string
-	Bucket            string
-	Region            string
-	Provider          string
-	ClusterProfile    string
 	backupRestoreType BackupRestoreType
 	CustomResource    *oadpv1alpha1.DataProtectionApplication
 	Client            client.Client
 }
 
 var veleroPrefix = "velero-e2e-" + string(uuid.NewUUID())
+var dpa *oadpv1alpha1.DataProtectionApplication
 
 func (v *dpaCustomResource) Build(backupRestoreType BackupRestoreType) error {
 	// Velero Instance creation spec with backupstorage location default to AWS. Would need to parameterize this later on to support multiple plugins.
-	dpa := oadpv1alpha1.DataProtectionApplication{
+	dpaInstance := oadpv1alpha1.DataProtectionApplication{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      v.Name,
 			Namespace: v.Namespace,
@@ -59,26 +57,23 @@ func (v *dpaCustomResource) Build(backupRestoreType BackupRestoreType) error {
 		Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 			Configuration: &oadpv1alpha1.ApplicationConfig{
 				Velero: &oadpv1alpha1.VeleroConfig{
-					DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
-						oadpv1alpha1.DefaultPluginOpenShift,
-						oadpv1alpha1.DefaultPluginAWS,
-					},
+					DefaultPlugins: v.CustomResource.Spec.Configuration.Velero.DefaultPlugins,
 				},
 				Restic: &oadpv1alpha1.ResticConfig{
 					PodConfig: &oadpv1alpha1.PodConfig{},
 				},
 			},
+			SnapshotLocations: v.CustomResource.Spec.SnapshotLocations,
 			BackupLocations: []oadpv1alpha1.BackupLocation{
 				{
 					Velero: &velero.BackupStorageLocationSpec{
-						Provider: v.Provider,
-						Config: map[string]string{
-							"region": v.Region,
-						},
-						Default: true,
+						Provider:   v.CustomResource.Spec.BackupLocations[0].Velero.Provider,
+						Default:    true,
+						Config:     v.CustomResource.Spec.BackupLocations[0].Velero.Config,
+						Credential: v.CustomResource.Spec.BackupLocations[0].Velero.Credential,
 						StorageType: velero.StorageType{
 							ObjectStorage: &velero.ObjectStorageLocation{
-								Bucket: v.Bucket,
+								Bucket: v.CustomResource.Spec.BackupLocations[0].Velero.ObjectStorage.Bucket,
 								Prefix: veleroPrefix,
 							},
 						},
@@ -90,13 +85,13 @@ func (v *dpaCustomResource) Build(backupRestoreType BackupRestoreType) error {
 	v.backupRestoreType = backupRestoreType
 	switch backupRestoreType {
 	case restic:
-		dpa.Spec.Configuration.Restic.Enable = pointer.Bool(true)
+		dpaInstance.Spec.Configuration.Restic.Enable = pointer.Bool(true)
 	case csi:
-		dpa.Spec.Configuration.Restic.Enable = pointer.Bool(false)
-		dpa.Spec.Configuration.Velero.DefaultPlugins = append(dpa.Spec.Configuration.Velero.DefaultPlugins, oadpv1alpha1.DefaultPluginCSI)
-		dpa.Spec.Configuration.Velero.FeatureFlags = append(dpa.Spec.Configuration.Velero.FeatureFlags, "EnableCSI")
+		dpaInstance.Spec.Configuration.Restic.Enable = pointer.Bool(false)
+		dpaInstance.Spec.Configuration.Velero.DefaultPlugins = append(dpaInstance.Spec.Configuration.Velero.DefaultPlugins, oadpv1alpha1.DefaultPluginCSI)
+		dpaInstance.Spec.Configuration.Velero.FeatureFlags = append(dpaInstance.Spec.Configuration.Velero.FeatureFlags, "EnableCSI")
 	}
-	v.CustomResource = &dpa
+	v.CustomResource = &dpaInstance
 	return nil
 }
 
@@ -183,7 +178,7 @@ func getVeleroPods(namespace string) (*corev1.PodList, error) {
 	}
 	// select Velero pod with this label
 	veleroOptions := metav1.ListOptions{
-		LabelSelector: "app.kubernetes.io/name=velero",
+		LabelSelector: "deploy=velero",
 	}
 	// get pods in test namespace with labelSelector
 	podList, err := clientset.CoreV1().Pods(namespace).List(context.TODO(), veleroOptions)
@@ -193,21 +188,19 @@ func getVeleroPods(namespace string) (*corev1.PodList, error) {
 	return podList, nil
 }
 
-func isVeleroPodRunning(namespace string) wait.ConditionFunc {
+func areVeleroPodsRunning(namespace string) wait.ConditionFunc {
 	return func() (bool, error) {
 		podList, err := getVeleroPods(namespace)
 		if err != nil {
 			return false, err
 		}
-		// get pod name and status with specified label selector
-		var status string
 		for _, podInfo := range (*podList).Items {
-			status = string(podInfo.Status.Phase)
+			if podInfo.Status.Phase != corev1.PodRunning {
+				log.Printf("pod: %s is not yet running with status: %v", podInfo.Name, podInfo.Status)
+				return false, nil
+			}
 		}
-		if status == "Running" {
-			return true, nil
-		}
-		return false, err
+		return true, nil
 	}
 }
 
@@ -367,5 +360,27 @@ func verifyVeleroResourceLimits(namespace string, limits corev1.ResourceList) wa
 			}
 		}
 		return true, nil
+	}
+}
+
+func loadDpaSettingsFromJson(settings string) string {
+	file, err := readFile(settings)
+	if err != nil {
+		return fmt.Sprintf("Error decoding json file: %v", err)
+	}
+
+	dpa = &oadpv1alpha1.DataProtectionApplication{}
+	err = json.Unmarshal(file, &dpa)
+	if err != nil {
+		return fmt.Sprintf("Error getting settings json file: %v", err)
+	}
+	return ""
+}
+
+func getSecretRef(credSecretRef string) string {
+	if dpa.Spec.BackupLocations[0].Velero.Credential == nil {
+		return credSecretRef
+	} else {
+		return dpa.Spec.BackupLocations[0].Velero.Credential.Name
 	}
 }

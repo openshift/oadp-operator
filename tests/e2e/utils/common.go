@@ -83,12 +83,6 @@ func setUpClient() (*kubernetes.Clientset, error) {
 	return clientset, nil
 }
 
-func getJsonData(path string) ([]byte, error) {
-	// Return buffer data for json
-	jsonData, err := ioutil.ReadFile(path)
-	return jsonData, err
-}
-
 func decodeJson(data []byte) (map[string]interface{}, error) {
 	// Return JSON from buffer data
 	var jsonData map[string]interface{}
@@ -97,7 +91,7 @@ func decodeJson(data []byte) (map[string]interface{}, error) {
 	return jsonData, err
 }
 
-// Keeping it for now.
+// FIXME: Remove
 func createOADPTestNamespace(namespace string) error {
 	// default OADP Namespace
 	kubeConf := getKubeConfig()
@@ -118,7 +112,7 @@ func createOADPTestNamespace(namespace string) error {
 	return err
 }
 
-// Keeping it for now.
+// FIXME: Remove
 func deleteOADPTestNamespace(namespace string) error {
 	// default OADP Namespace
 	kubeConf := getKubeConfig()
@@ -135,7 +129,7 @@ func getKubeConfig() *rest.Config {
 	return config.GetConfigOrDie()
 }
 
-// Keeping it for now
+// FIXME: Remove
 func doesNamespaceExist(namespace string) (bool, error) {
 	clientset, err := setUpClient()
 	if err != nil {
@@ -171,15 +165,15 @@ func serverVersion() (*version.Info, error) {
 	return clientset.Discovery().ServerVersion()
 }
 
-func getCredsData(cloud string) ([]byte, error) {
+func readFile(path string) ([]byte, error) {
 	// pass in aws credentials by cli flag
 	// from cli:  -cloud=<"filepath">
 	// go run main.go -cloud="/Users/emilymcmullan/.aws/credentials"
 	// cloud := flag.String("cloud", "", "file path for aws credentials")
 	// flag.Parse()
-	// save passed in cred file as []byte
-	credsFile, err := ioutil.ReadFile(cloud)
-	return credsFile, err
+	// save passed in cred file as []byteq
+	file, err := ioutil.ReadFile(path)
+	return file, err
 }
 
 func createCredentialsSecret(data []byte, namespace string, credSecretRef string) error {
@@ -235,3 +229,4 @@ func isCredentialsSecretDeleted(namespace string, credSecretRef string) wait.Con
 		return false, err
 	}
 }
+
