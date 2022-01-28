@@ -4,7 +4,7 @@
 ### Configure Backup Storage Locations and Volume Snapshot Locations
 
 For configuring the `backupStorageLocations` and the `volumeSnapshotLocations` 
-we will be using the `backupLocations.Velero` and the `volumeSnapshots.Velero` 
+we will be using the `backupLocations.Velero` and the `snapshotLocations.Velero` 
 specs respectively in the `oadp_v1alpha1_dpa.yaml` file during the deployment. 
 
 For instance, If we want to configure `aws` for `backupStorageLocations` as 
@@ -38,7 +38,7 @@ spec:
         credential:
           name: cloud-credentials
           key: cloud
-  volumeSnapshots:
+  snapshotLocations:
     - name: default
       velero:
         provider: aws
