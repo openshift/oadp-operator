@@ -3,7 +3,8 @@
 
 ### Configure Backup Storage Locations and Volume Snapshot Locations
 
-For configuring the `backupLocations` and the `snapshotLocations` 
+
+For configuring the `backupStorageLocations` and the `volumeSnapshotLocations` 
 we will be using the `backupLocations.Velero` and the `snapshotLocations.Velero` 
 specs respectively in the `oadp_v1alpha1_dpa.yaml` file during the deployment. 
 
