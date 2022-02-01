@@ -12,22 +12,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type awsConfigMap map[awsConfigKey]string
-type awsConfigKey string
-
-// Config Keys for AWS
-const (
-	region                awsConfigKey = "region"
-	s3ForcePathStyle      awsConfigKey = "s3ForcePathStyle"
-	s3Url                 awsConfigKey = "s3Url"
-	publicUrl             awsConfigKey = "publicUrl"
-	serverSideEncryption  awsConfigKey = "serverSideEncryption"
-	kmsKeyID              awsConfigKey = "kmsKeyID"
-	signatureVersion      awsConfigKey = "signatureVersion"
-	profile               awsConfigKey = "profile"
-	insecureSkipTLSVerify awsConfigKey = "insecureSkipTLSVerify"
-)
-
 type awsBucketClient struct {
 	bucket v1alpha1.CloudStorage
 	client client.Client
