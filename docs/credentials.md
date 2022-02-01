@@ -79,7 +79,7 @@ your `BackupStorageLocation` must provide a custom secret name.
             credential:
               name: cloud-credentials
               key: cloud
-      volumeSnapshots:
+      snapshotLocations:
         - name: default
           velero:
             provider: aws
@@ -115,7 +115,7 @@ spec:
         credential:
           name: cloud-credentials
           key: cloud
-  volumeSnapshots:
+  snapshotLocations:
     - name: default
       velero:
         provider: aws
@@ -160,7 +160,7 @@ spec:
         credential:
           name: my-custom-name
           key: cloud
-  volumeSnapshots:
+  snapshotLocations:
     - name: default
       velero:
         provider: aws
