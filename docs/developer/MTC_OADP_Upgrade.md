@@ -7,7 +7,7 @@ simulating the MTC-OADP Integration upgrade scenario via OLM.
 Prerequisites:
 - MTC 1.6.3 installed
 - OPM
-- export ORG="your ord name"
+- export ORG="your org name"
 - export TAG="your tag name"
 - Also take care of replacing the $ORG and $TAG values wherever necessary in the steps (specs/files/commands).
 
