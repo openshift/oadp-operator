@@ -19,7 +19,9 @@ type CloudStorage struct {
 type CloudStorageProvider string
 
 const (
-	AWSBucketProvider CloudStorageProvider = "aws"
+	AWSBucketProvider   CloudStorageProvider = "aws"
+	AzureBucketProvider CloudStorageProvider = "azure"
+	GCPBucketProvider   CloudStorageProvider = "gcp"
 )
 
 type CloudStorageSpec struct {
