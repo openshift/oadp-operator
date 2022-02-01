@@ -8,7 +8,7 @@ Prerequisites:
 - MTC 1.6.3 installed
 - OPM
 - export ORG="your ord name"
-- export TAF="your tag name"
+- export TAG="your tag name"
 - Also take care of replacing the $ORG and $TAG values wherever necessary in the steps (specs/files/commands).
 
 Before you follow the steps, install MTC `1.6.3` in the cluster and also make the required changes to MTC and OADP.
