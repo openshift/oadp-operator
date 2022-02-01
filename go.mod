@@ -9,6 +9,7 @@ require (
 	github.com/google/uuid v1.1.2
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.16.0
+	github.com/ghodss/yaml v1.0.0
 	github.com/openshift/api v0.0.0-20210805075156-d8fab4513288
 	github.com/operator-framework/api v0.10.7
 	github.com/operator-framework/operator-lib v0.9.0

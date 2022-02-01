@@ -1,0 +1,27 @@
+apiVersion: oadp.openshift.io/v1alpha1
+kind: DataProtectionApplication
+metadata:
+ namespace: {{ .Namespace }}
+ name: {{ .DpaName }}
+spec:
+ configuration:
+    velero:
+      defaultPlugins:
+      - openshift
+      - aws
+    restic:
+      enable: true
+ backupLocations:
+    - name: default
+      velero:
+        provider: {{ .Provider }}
+        default: true
+        objectStorage:
+          bucket: {{ .BucketName }}
+          prefix: {{ .Prefix }}
+        config:
+          region: {{ .BslRegion }}
+          profile: {{ .ClusterProfile }}
+        credential:
+          name: {{ .CredentialsName }}
+          key: cloud

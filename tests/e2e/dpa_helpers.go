@@ -11,6 +11,7 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/ghodss/yaml"
 	"github.com/openshift/oadp-operator/pkg/common"
 
 	appsv1 "github.com/openshift/api/apps/v1"
@@ -383,4 +384,39 @@ func getSecretRef(credSecretRef string) string {
 	} else {
 		return dpa.Spec.BackupLocations[0].Velero.Credential.Name
 	}
+}
+
+// Create DPA Custom Resource Definition from yaml
+func (v *dpaCustomResource) CreateDpaFromYaml(yamlTemplatePath string, data interface{}) error {
+	// Define var for holding DPA type
+	dpaSpec := oadpv1alpha1.DataProtectionApplication{}
+
+	// Parse and read data as bytes from template
+	dpaYamlData, err := parseTemplate(yamlTemplatePath, data)
+	if err != nil {
+		return err
+	}
+
+	// Unmarshall data to type DPA
+	err = yaml.Unmarshal(dpaYamlData, &dpaSpec)
+	if err != nil {
+		return err
+	}
+
+	// Set client config to read/write resources through API
+	err = v.SetClient()
+	if err != nil {
+		return err
+	}
+
+	v.CustomResource = &dpaSpec
+
+	// Create custom resource
+	err = v.Client.Create(context.Background(), v.CustomResource)
+	if apierrors.IsAlreadyExists(err) {
+		return errors.New("found unexpected existing DPA")
+	} else if err != nil {
+		return err
+	}
+	return nil
 }
