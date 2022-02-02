@@ -153,6 +153,40 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 			},
 			WantError: false,
 		}, nil),
+		Entry("KubeVirt velero CR", InstallCase{
+			Name:         "default-cr",
+			BRestoreType: restic,
+			DpaSpec: &oadpv1alpha1.DataProtectionApplicationSpec{
+				Configuration: &oadpv1alpha1.ApplicationConfig{
+					Velero: &oadpv1alpha1.VeleroConfig{
+						DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+							oadpv1alpha1.DefaultPluginKubeVirt,
+						},
+						PodConfig: &oadpv1alpha1.PodConfig{},
+					},
+					Restic: &oadpv1alpha1.ResticConfig{
+						PodConfig: &oadpv1alpha1.PodConfig{},
+						Enable:    pointer.Bool(true),
+					},
+				},
+				BackupLocations: []oadpv1alpha1.BackupLocation{
+					{
+						Velero: &velero.BackupStorageLocationSpec{
+							Provider: provider,
+							Config:   bslConfig,
+							Default:  true,
+							StorageType: velero.StorageType{
+								ObjectStorage: &velero.ObjectStorageLocation{
+									Bucket: bucket,
+									Prefix: veleroPrefix,
+								},
+							},
+						},
+					},
+				},
+			},
+			WantError: false,
+		}, nil),
 		Entry("Adding Velero custom plugin", InstallCase{
 			Name:         "default-cr-velero-custom-plugin",
 			BRestoreType: restic,

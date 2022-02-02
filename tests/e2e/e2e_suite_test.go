@@ -50,7 +50,7 @@ var _ = BeforeSuite(func() {
 	if errString != "" {
 		Expect(errors.New(errString)).NotTo(HaveOccurred())
 	}
-	
+
 	credData, err := readFile(cloud)
 	Expect(err).NotTo(HaveOccurred())
 	err = createCredentialsSecret(credData, namespace, getSecretRef(credSecretRef))

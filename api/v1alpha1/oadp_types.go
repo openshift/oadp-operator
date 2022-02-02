@@ -38,6 +38,7 @@ const DefaultPluginGCP DefaultPlugin = "gcp"
 const DefaultPluginMicrosoftAzure DefaultPlugin = "azure"
 const DefaultPluginCSI DefaultPlugin = "csi"
 const DefaultPluginOpenShift DefaultPlugin = "openshift"
+const DefaultPluginKubeVirt DefaultPlugin = "kubevirt"
 
 type CustomPlugin struct {
 	Name  string `json:"name"`
@@ -54,6 +55,7 @@ const GCPPluginImageKey UnsupportedImageKey = "gcpPluginImageFqin"
 const CSIPluginImageKey UnsupportedImageKey = "csiPluginImageFqin"
 const ResticRestoreImageKey UnsupportedImageKey = "resticRestoreImageFqin"
 const RegistryImageKey UnsupportedImageKey = "registryImageFqin"
+const KubeVirtPluginImageKey UnsupportedImageKey = "kubevirtPluginImageFqin"
 
 type VeleroConfig struct {
 	// FeatureFlags defines the list of features to enable for Velero instance
