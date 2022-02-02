@@ -38,7 +38,8 @@ metadata:
               "velero": {
                 "defaultPlugins": [
                   "openshift",
-                  "aws"
+                  "aws",
+                  "kubevirt"
                 ]
               }
             },
