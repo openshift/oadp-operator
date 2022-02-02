@@ -1,4 +1,4 @@
-package e2e
+package lib
 
 import (
 	"context"
@@ -11,7 +11,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func createRestoreFromBackup(ocClient client.Client, veleroNamespace, backupName, restoreName string) error {
+func CreateRestoreFromBackup(ocClient client.Client, veleroNamespace, backupName, restoreName string) error {
 	restore := velero.Restore{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      restoreName,
@@ -25,7 +25,7 @@ func createRestoreFromBackup(ocClient client.Client, veleroNamespace, backupName
 	return err
 }
 
-func isRestoreDone(ocClient client.Client, veleroNamespace, name string) wait.ConditionFunc {
+func IsRestoreDone(ocClient client.Client, veleroNamespace, name string) wait.ConditionFunc {
 	return func() (bool, error) {
 		restore := velero.Restore{}
 		err := ocClient.Get(context.Background(), client.ObjectKey{
@@ -45,7 +45,7 @@ func isRestoreDone(ocClient client.Client, veleroNamespace, name string) wait.Co
 	}
 }
 
-func isRestoreCompletedSuccessfully(ocClient client.Client, veleroNamespace, name string) (bool, error) {
+func IsRestoreCompletedSuccessfully(ocClient client.Client, veleroNamespace, name string) (bool, error) {
 	restore := velero.Restore{}
 	err := ocClient.Get(context.Background(), client.ObjectKey{
 		Namespace: veleroNamespace,
@@ -57,5 +57,5 @@ func isRestoreCompletedSuccessfully(ocClient client.Client, veleroNamespace, nam
 	if restore.Status.Phase == velero.RestorePhaseCompleted {
 		return true, nil
 	}
-	return false, fmt.Errorf("restore phase is: %s; expected: %s\nfailure reason: %s\nvalidation errors: %v\nvelero failure logs: %v", restore.Status.Phase, velero.RestorePhaseCompleted, restore.Status.FailureReason, restore.Status.ValidationErrors, getVeleroContainerFailureLogs(veleroNamespace))
+	return false, fmt.Errorf("restore phase is: %s; expected: %s\nfailure reason: %s\nvalidation errors: %v\nvelero failure logs: %v", restore.Status.Phase, velero.RestorePhaseCompleted, restore.Status.FailureReason, restore.Status.ValidationErrors, GetVeleroContainerFailureLogs(veleroNamespace))
 }

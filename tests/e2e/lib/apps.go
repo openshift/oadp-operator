@@ -1,4 +1,4 @@
-package e2e
+package lib
 
 import (
 	"context"
@@ -8,19 +8,16 @@ import (
 
 	"github.com/onsi/ginkgo"
 	ocpappsv1 "github.com/openshift/api/apps/v1"
-	appsv1 "k8s.io/api/apps/v1"
-
 	security "github.com/openshift/api/security/v1"
-	corev1 "k8s.io/api/core/v1"
+	appsv1 "k8s.io/api/apps/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func installApplication(ocClient client.Client, file string) error {
+func InstallApplication(ocClient client.Client, file string) error {
 	template, err := os.ReadFile(file)
 	if err != nil {
 		return err
@@ -43,7 +40,7 @@ func installApplication(ocClient client.Client, file string) error {
 	return nil
 }
 
-func doesSCCExist(ocClient client.Client, sccName string) (bool, error) {
+func DoesSCCExist(ocClient client.Client, sccName string) (bool, error) {
 	scc := security.SecurityContextConstraints{}
 	err := ocClient.Get(context.Background(), client.ObjectKey{
 		Name: sccName,
@@ -55,7 +52,7 @@ func doesSCCExist(ocClient client.Client, sccName string) (bool, error) {
 
 }
 
-func uninstallApplication(ocClient client.Client, file string) error {
+func UninstallApplication(ocClient client.Client, file string) error {
 	template, err := os.ReadFile(file)
 	if err != nil {
 		return err
@@ -78,38 +75,38 @@ func uninstallApplication(ocClient client.Client, file string) error {
 	return nil
 }
 
-func areApplicationPodsRunning(namespace string) wait.ConditionFunc {
-	return func() (bool, error) {
-		clientset, err := setUpClient()
-		if err != nil {
-			return false, err
-		}
-		// select Velero pod with this label
-		veleroOptions := metav1.ListOptions{
-			LabelSelector: "e2e-app=true",
-		}
-		// get pods in test namespace with labelSelector
-		podList, err := clientset.CoreV1().Pods(namespace).List(context.TODO(), veleroOptions)
-		if err != nil {
-			return false, nil
-		}
-		if len(podList.Items) == 0 {
-			return false, nil
-		}
-		// get pod name and status with specified label selector
-		for _, podInfo := range podList.Items {
-			phase := podInfo.Status.Phase
-			if phase != corev1.PodRunning && phase != corev1.PodSucceeded {
-				ginkgo.GinkgoWriter.Write([]byte(fmt.Sprintf("Pod %v not yet succeeded", podInfo.Name)))
-				ginkgo.GinkgoWriter.Write([]byte(fmt.Sprintf("status: %v", podInfo.Status)))
-				return false, nil
-			}
-		}
-		return true, err
-	}
-}
+// func AreApplicationPodsRunning(namespace string) wait.ConditionFunc {
+// 	return func() (bool, error) {
+// 		clientset, err := setUpClient()
+// 		if err != nil {
+// 			return false, err
+// 		}
+// 		// select Velero pod with this label
+// 		veleroOptions := metav1.ListOptions{
+// 			LabelSelector: "e2e-app=true",
+// 		}
+// 		// get pods in test namespace with labelSelector
+// 		podList, err := clientset.CoreV1().Pods(namespace).List(context.TODO(), veleroOptions)
+// 		if err != nil {
+// 			return false, nil
+// 		}
+// 		if len(podList.Items) == 0 {
+// 			return false, nil
+// 		}
+// 		// get pod name and status with specified label selector
+// 		for _, podInfo := range podList.Items {
+// 			phase := podInfo.Status.Phase
+// 			if phase != corev1.PodRunning && phase != corev1.PodSucceeded {
+// 				ginkgo.GinkgoWriter.Write([]byte(fmt.Sprintf("Pod %v not yet succeeded", podInfo.Name)))
+// 				ginkgo.GinkgoWriter.Write([]byte(fmt.Sprintf("status: %v", podInfo.Status)))
+// 				return false, nil
+// 			}
+// 		}
+// 		return true, err
+// 	}
+// }
 
-func isDCReady(ocClient client.Client, namespace, dcName string) wait.ConditionFunc {
+func IsDCReady(ocClient client.Client, namespace, dcName string) wait.ConditionFunc {
 	return func() (bool, error) {
 		dc := ocpappsv1.DeploymentConfig{}
 		err := ocClient.Get(context.Background(), client.ObjectKey{
@@ -131,7 +128,7 @@ func isDCReady(ocClient client.Client, namespace, dcName string) wait.ConditionF
 	}
 }
 
-func isDeploymentReady(ocClient client.Client, namespace, dName string) wait.ConditionFunc {
+func IsDeploymentReady(ocClient client.Client, namespace, dName string) wait.ConditionFunc {
 	return func() (bool, error) {
 		deployment := appsv1.Deployment{}
 		err := ocClient.Get(context.Background(), client.ObjectKey{
