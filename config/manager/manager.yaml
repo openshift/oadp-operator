@@ -59,6 +59,8 @@ spec:
             value: velero-plugin-for-gcp
           - name: VELERO_AZURE_PLUGIN_REPO
             value: velero-plugin-for-microsoft-azure
+          - name: VELERO_KUBEVIRT_PLUGIN_REPO
+            value: kubevirt-velero-plugin
           - name: VELERO_CSI_PLUGIN_REPO
             value: velero-plugin-for-csi
           - name: VELERO_TAG
@@ -73,6 +75,8 @@ spec:
             value: latest
           - name: VELERO_CSI_PLUGIN_TAG
             value: latest
+          - name: VELERO_KUBEVIRT_PLUGIN_TAG
+            value: 0.2.0
         args:
         - --leader-elect
         image: controller:latest

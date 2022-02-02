@@ -114,6 +114,16 @@ func getAzurePluginImage(dpa *oadpv1alpha1.DataProtectionApplication) string {
 	return fmt.Sprintf("%v/%v/%v:%v", os.Getenv("REGISTRY"), os.Getenv("PROJECT"), os.Getenv("VELERO_AZURE_PLUGIN_REPO"), os.Getenv("VELERO_AZURE_PLUGIN_TAG"))
 }
 
+func getKubeVirtPluginImage(dpa *oadpv1alpha1.DataProtectionApplication) string {
+	if dpa.Spec.UnsupportedOverrides[oadpv1alpha1.KubeVirtPluginImageKey] != "" {
+		return dpa.Spec.UnsupportedOverrides[oadpv1alpha1.KubeVirtPluginImageKey]
+	}
+	if os.Getenv("VELERO_KUBEVIRT_PLUGIN_REPO") == "" {
+		return common.KubeVirtPluginImage
+	}
+	return fmt.Sprintf("%v/%v/%v:%v", os.Getenv("REGISTRY"), os.Getenv("PROJECT"), os.Getenv("VELERO_KUBEVIRT_PLUGIN_REPO"), os.Getenv("VELERO_KUBEVIRT_PLUGIN_TAG"))
+}
+
 func getPluginImage(pluginName string, dpa *oadpv1alpha1.DataProtectionApplication) string {
 	switch pluginName {
 
@@ -131,6 +141,9 @@ func getPluginImage(pluginName string, dpa *oadpv1alpha1.DataProtectionApplicati
 
 	case common.VeleroPluginForAzure:
 		return getAzurePluginImage(dpa)
+
+	case common.KubeVirtPlugin:
+		return getKubeVirtPluginImage(dpa)
 	}
 	return ""
 }

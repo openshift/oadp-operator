@@ -229,4 +229,3 @@ func isCredentialsSecretDeleted(namespace string, credSecretRef string) wait.Con
 		return false, err
 	}
 }
-

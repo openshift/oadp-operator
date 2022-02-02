@@ -3,7 +3,9 @@
       "configuration":{
         "velero":{
           "defaultPlugins": [
-            "openshift", "aws"
+            "openshift",
+            "aws",
+            "kubevirt"
           ]
         }
       },

@@ -381,6 +381,53 @@ func TestCredentials_getPluginImage(t *testing.T) {
 				"VELERO_CSI_PLUGIN_TAG":  "latest",
 			},
 		},
+		// KubeVirt tests
+		{
+			name: "given default Velero CR without env var set, image should be built from default",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-Velero-CR",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+								oadpv1alpha1.DefaultPluginKubeVirt,
+							},
+						},
+					},
+				},
+			},
+			pluginName: common.KubeVirtPlugin,
+			wantImage:  "quay.io/konveyor/kubevirt-velero-plugin:v0.2.0",
+		},
+		{
+			name: "given default Velero CR with env var set, image should be built via env vars",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-Velero-CR",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+								oadpv1alpha1.DefaultPluginKubeVirt,
+							},
+						},
+					},
+				},
+			},
+			pluginName: common.KubeVirtPlugin,
+			wantImage:  "quay.io/kubevirt/kubevirt-velero-plugin:latest",
+			setEnvVars: map[string]string{
+				"REGISTRY":                    "quay.io",
+				"PROJECT":                     "kubevirt",
+				"VELERO_KUBEVIRT_PLUGIN_REPO": "kubevirt-velero-plugin",
+				"VELERO_KUBEVIRT_PLUGIN_TAG":  "latest",
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
