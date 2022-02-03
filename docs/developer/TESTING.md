@@ -4,7 +4,7 @@
 
 ### Install Ginkgo
 ```bash
-$ go get -u github.com/onsi/ginkgo/ginkgo
+$ go get -u github.com/onsi/ginkgo/v2/ginkgo
 ```
 
 ### Setup backup storage configuration

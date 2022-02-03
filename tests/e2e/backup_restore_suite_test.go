@@ -7,8 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/ginkgo/extensions/table"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/openshift/oadp-operator/tests/e2e/lib"
 	utils "github.com/openshift/oadp-operator/tests/e2e/utils"
@@ -169,7 +168,7 @@ var _ = Describe("AWS backup restore tests", func() {
 			}
 
 		},
-		Entry("MSSQL application CSI", BackupRestoreCase{
+		Entry("MSSQL application CSI", Label("aws"), BackupRestoreCase{
 			ApplicationTemplate:  "./sample-applications/mssql-persistent/mssql-persistent-csi-template.yaml",
 			ApplicationNamespace: "mssql-persistent",
 			Name:                 "mssql-e2e",

@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/v2"
 	ocpappsv1 "github.com/openshift/api/apps/v1"
 	security "github.com/openshift/api/security/v1"
 	appsv1 "k8s.io/api/apps/v1"
