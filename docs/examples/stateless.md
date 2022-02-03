@@ -3,15 +3,12 @@
 <h2 align="center">Using an AWS s3 Bucket</h2>
 
 ### Prerequisites
-* Make sure the OADP operator is installed:
+* OADP operator, a credentials secret, and a DataProtectionApplication (DPA) CR 
+  are all created. Follow [these steps](/docs/install_olm.md) for installation instructions.
 
-    `make deploy`
+  - Make sure your DPA CR is similar to below in the install step. 
 
-* Create a credentials secret for AWS:
-
-   `oc create secret generic cloud-credentials --namespace openshift-adp --from-file cloud=<CREDENTIALS_FILE_PATH>`
-
-* Make sure your DataProtectionApplication (DPA) CR is similar to this in `config/samples/oadp_v1alpha1_dpa.yaml`
+* Information on `backupLocations` spec can be found [here](/docs/config/bsl_and_vsl.md). 
 
 ```
 apiVersion: oadp.openshift.io/v1alpha1
@@ -42,15 +39,11 @@ spec:
           key: cloud
 ```
 
-* Install Velero + Restic:
-
-  `oc create -n openshift-adp -f config/samples/oadp_v1alpha1_dpa.yaml`
-
 <hr style="height:1px;border:none;color:#333;">
 
 ### Create the Nginx deployment:
 
-`oc create -f docs/examples/manifests/nginx-deployment.yaml`
+`oc create -f docs/examples/manifests/nginx/nginx-deployment.yaml`
 
 This will create the following resources:
 * **Namespace**
@@ -85,7 +78,7 @@ route.route.openshift.io/my-nginx   my-nginx-nginx-example.apps.cluster-da0d.da0
 
 ### Create application backup
 
-`oc create -f docs/examples/manifests/nginx-stateless-backup.yaml`
+`oc create -f docs/examples/manifests/nginx/nginx-stateless-backup.yaml`
 
 ### Verify backup is completed
 
@@ -103,7 +96,7 @@ process. First, delete the `nginx-example` project:
 
 ### Create the restore for the application
 
-`oc create -f docs/examples/manifests/nginx-stateless-restore.yaml`
+`oc create -f docs/examples/manifests/nginx/nginx-stateless-restore.yaml`
 
 ### Ensure the restore has completed
 
