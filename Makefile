@@ -14,6 +14,7 @@ ENVTEST_K8S_VERSION = 1.21
 .PHONY:ginkgo
 ginkgo: # Make sure ginkgo is in $GOPATH/bin
 	go get github.com/onsi/ginkgo/ginkgo
+	go get github.com/onsi/ginkgo/v2/ginkgo
 	go get github.com/onsi/gomega/...
 
 # VERSION defines the project version for the bundle.
@@ -290,15 +291,17 @@ catalog-push: ## Push a catalog image.
 	$(MAKE) docker-push IMG=$(CATALOG_IMG)
 
 S3_BUCKET := $(shell cat $(OADP_S3_BUCKET) | awk '/velero-bucket-name/  {gsub(/"/, "", $$2);gsub(/}/,""); print $$2}')
+TEST_FILTER := $(shell echo '! aws && ! gcp && ! azure' | sed -r "s/[&]* [!] $(CLUSTER_PROFILE)|[!] $(CLUSTER_PROFILE) [&]*//")
 SETTINGS_TMP=/tmp/test-settings
 test-e2e:
 	mkdir -p $(SETTINGS_TMP)
 	PROVIDER="$(PROVIDER)" BUCKET="$(S3_BUCKET)" REGION="$(REGION)" SECRET="$(CREDS_SECRET_REF)" TMP_DIR=$(SETTINGS_TMP) /bin/bash tests/e2e/scripts/aws_settings.sh
-	ginkgo -mod=mod tests/e2e/ -- -cloud=$(OADP_AWS_CRED_FILE) \
+	ginkgo run -mod=mod tests/e2e/ -- -cloud=$(OADP_AWS_CRED_FILE) \
 	-velero_namespace=$(OADP_TEST_NAMESPACE) \
 	-settings=$(SETTINGS_TMP)/awscreds \
 	-velero_instance_name=$(VELERO_INSTANCE_NAME) \
 	-timeout_multiplier=$(E2E_TIMEOUT_MULTIPLIER) \
-	-cluster_profile=$(CLUSTER_PROFILE)
+	-cluster_profile=$(CLUSTER_PROFILE) \
+	--ginkgo.label-filter="$(TEST_FILTER)"
 test-e2e-cleanup:
 	rm -rf $(SETTINGS_TMP)
