@@ -322,7 +322,7 @@ test-e2e-setup:
 	VSL_REGION="$(VSL_REGION)" BSL_AWS_PROFILE="$(BSL_AWS_PROFILE)" BSL_REGION="$(BSL_REGION)" /bin/bash "tests/e2e/scripts/$(PROVIDER)_settings.sh"
 
 test-e2e:
-	ginkgo run -mod=mod tests/e2e/ -- -cloud=$(OADP_CRED_FILE) \
+	ginkgo run -mod=mod tests/e2e/ -- -credentials=$(OADP_CRED_FILE) \
 	-velero_namespace=$(OADP_TEST_NAMESPACE) \
 	-settings=$(SETTINGS_TMP)/oadpcreds \
 	-velero_instance_name=$(VELERO_INSTANCE_NAME) \
@@ -331,7 +331,9 @@ test-e2e:
 	--ginkgo.label-filter="$(TEST_FILTER)" \
 	-openshift_ci=$(OPENSHIFT_CI) \
 	-ci_cred_file=$(CI_CRED_FILE) \
-	-azure_resource_file=$(AZURE_RESOURCE_FILE)
+	-azure_resource_file=$(AZURE_RESOURCE_FILE) \
+	-provider=$(PROVIDER) \
+	-creds_secret_ref=$(CREDS_SECRET_REF)
 
 test-e2e-cleanup:
 	rm -rf $(SETTINGS_TMP)
