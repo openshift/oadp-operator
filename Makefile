@@ -9,20 +9,20 @@ VSL_REGION ?= ${LEASED_RESOURCE}
 CI_CRED_FILE ?= ${CLUSTER_PROFILE_DIR}/.awscred
 BSL_AWS_PROFILE ?= migration-engineering
 CREDS_SECRET_REF ?= cloud-credentials
-OADP_BUCKET ?= ${OADP_CRED_DIR}/velero-bucket-name
+OADP_BUCKET_FILE ?= ${OADP_CRED_DIR}/velero-bucket-name
 AZURE_RESOURCE_FILE ?= /var/run/secrets/ci.openshift.io/multi-stage/metadata.json
 
 ifeq ($(CLUSTER_TYPE), gcp)
 	CI_CRED_FILE = ${CLUSTER_PROFILE_DIR}/gce.json
 	OADP_CRED_FILE = ${OADP_CRED_DIR}/gcp-credentials
 	CREDS_SECRET_REF = cloud-credentials-gcp
-	OADP_BUCKET = ${OADP_CRED_DIR}/gcp-velero-bucket-name
+	OADP_BUCKET_FILE = ${OADP_CRED_DIR}/gcp-velero-bucket-name
 else ifeq ($(CLUSTER_TYPE), azure4)
 	CLUSTER_TYPE = azure
 	CI_CRED_FILE = ${CLUSTER_PROFILE_DIR}/osServicePrincipal.json
 	OADP_CRED_FILE = ${OADP_CRED_DIR}/azure-credentials
 	CREDS_SECRET_REF = cloud-credentials-azure
-	OADP_BUCKET = ${OADP_CRED_DIR}/azure-velero-bucket-name
+	OADP_BUCKET_FILE = ${OADP_CRED_DIR}/azure-velero-bucket-name
 endif
 
 # Misc
@@ -312,13 +312,13 @@ catalog-build: opm ## Build a catalog image.
 catalog-push: ## Push a catalog image.
 	$(MAKE) docker-push IMG=$(CATALOG_IMG)
 
-S3_BUCKET := $(shell cat $(OADP_BUCKET))
+OADP_BUCKET := $(shell cat $(OADP_BUCKET_FILE))
 TEST_FILTER := $(shell echo '! aws && ! gcp && ! azure' | sed -r "s/[&]* [!] $(CLUSTER_TYPE)|[!] $(CLUSTER_TYPE) [&]*//")
 SETTINGS_TMP=/tmp/test-settings
 
 test-e2e-setup:
 	mkdir -p $(SETTINGS_TMP)
-	PROVIDER="$(CLUSTER_TYPE)" BUCKET="$(S3_BUCKET)" BSL_REGION="$(BSL_REGION)" SECRET="$(CREDS_SECRET_REF)" TMP_DIR=$(SETTINGS_TMP) \
+	PROVIDER="$(CLUSTER_TYPE)" BUCKET="$(OADP_BUCKET)" BSL_REGION="$(BSL_REGION)" SECRET="$(CREDS_SECRET_REF)" TMP_DIR=$(SETTINGS_TMP) \
 	VSL_REGION="$(VSL_REGION)" BSL_AWS_PROFILE="$(BSL_AWS_PROFILE)" BSL_REGION="$(BSL_REGION)" /bin/bash "tests/e2e/scripts/$(CLUSTER_TYPE)_settings.sh"
 
 test-e2e:
