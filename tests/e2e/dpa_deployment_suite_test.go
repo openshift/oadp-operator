@@ -8,8 +8,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/ginkgo/extensions/table"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	. "github.com/openshift/oadp-operator/tests/e2e/lib"

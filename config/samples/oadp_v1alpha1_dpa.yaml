@@ -8,6 +8,7 @@ spec:
       defaultPlugins:
       - openshift
       - aws
+      - kubevirt
     restic:
       enable: true
   backupLocations:

@@ -7,8 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/ginkgo/extensions/table"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/openshift/oadp-operator/tests/e2e/lib"
 	utils "github.com/openshift/oadp-operator/tests/e2e/utils"
@@ -82,13 +81,9 @@ var _ = Describe("AWS backup restore tests", func() {
 			}
 
 			if brCase.BackupRestoreType == CSI {
-				if clusterProfile == "aws" {
-					log.Printf("Creating VolumeSnapshot for CSI backuprestore of %s", brCase.Name)
-					err = InstallApplication(dpaCR.Client, "./sample-applications/gp2-csi/volumeSnapshotClass.yaml")
-					Expect(err).ToNot(HaveOccurred())
-				} else {
-					Skip("CSI testing is not provided for this cluster provider.")
-				}
+				log.Printf("Creating VolumeSnapshot for CSI backuprestore of %s", brCase.Name)
+				err = InstallApplication(dpaCR.Client, "./sample-applications/gp2-csi/volumeSnapshotClass.yaml")
+				Expect(err).ToNot(HaveOccurred())
 			}
 
 			if dpaCR.CustomResource.Spec.BackupImages == nil || *dpaCR.CustomResource.Spec.BackupImages {
@@ -173,7 +168,7 @@ var _ = Describe("AWS backup restore tests", func() {
 			}
 
 		},
-		Entry("MSSQL application CSI", BackupRestoreCase{
+		Entry("MSSQL application CSI", Label("aws"), BackupRestoreCase{
 			ApplicationTemplate:  "./sample-applications/mssql-persistent/mssql-persistent-csi-template.yaml",
 			ApplicationNamespace: "mssql-persistent",
 			Name:                 "mssql-e2e",
