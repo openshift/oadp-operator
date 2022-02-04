@@ -285,15 +285,32 @@ func (r *DPAReconciler) buildRegistryDeployment(registryDeployment *appsv1.Deplo
 
 	// attach gcp secret volume if provider is gcp
 	if bsl.Spec.Provider == GCPProvider {
-		registryDeployment.Spec.Template.Spec.Volumes = []corev1.Volume{
-			{
-				Name: credentials.PluginSpecificFields[oadpv1alpha1.DefaultPluginGCP].SecretName,
-				VolumeSource: corev1.VolumeSource{
-					Secret: &corev1.SecretVolumeSource{
-						SecretName: credentials.PluginSpecificFields[oadpv1alpha1.DefaultPluginGCP].SecretName,
+		cloudProviderMap := credentials.PluginSpecificFields[oadpv1alpha1.DefaultPluginGCP]
+		if _, ok := bsl.Spec.Config["credentialsFile"]; ok {
+			if cloudProviderMap, bslCredOk := credentials.PluginSpecificFields[GCPProvider]; bslCredOk {
+				registryDeployment.Spec.Template.Spec.Volumes = append(
+					registryDeployment.Spec.Template.Spec.Volumes,
+					corev1.Volume{
+						Name: cloudProviderMap.SecretName,
+						VolumeSource: corev1.VolumeSource{
+							Secret: &corev1.SecretVolumeSource{
+								SecretName: cloudProviderMap.BslSecretName,
+							},
+						},
+					},
+				)
+			}
+		} else {
+			registryDeployment.Spec.Template.Spec.Volumes = []corev1.Volume{
+				{
+					Name: cloudProviderMap.SecretName,
+					VolumeSource: corev1.VolumeSource{
+						Secret: &corev1.SecretVolumeSource{
+							SecretName: cloudProviderMap.SecretName,
+						},
 					},
 				},
-			},
+			}
 		}
 	}
 
@@ -540,24 +557,24 @@ func (r *DPAReconciler) getSecretNameAndKeyforBackupLocation(bslspec oadpv1alpha
 		}
 	}
 	if bslspec.Velero != nil {
-		return r.getSecretNameAndKey(bslspec.Velero.Credential, oadpv1alpha1.DefaultPlugin(bslspec.Velero.Provider))
+		return r.getSecretNameAndKey(bslspec.Velero, oadpv1alpha1.DefaultPlugin(bslspec.Velero.Provider))
 	}
 
 	return "", ""
 }
 
-func (r *DPAReconciler) getSecretNameAndKey(credential *corev1.SecretKeySelector, plugin oadpv1alpha1.DefaultPlugin) (string, string) {
+func (r *DPAReconciler) getSecretNameAndKey(bslSpec *velerov1.BackupStorageLocationSpec, plugin oadpv1alpha1.DefaultPlugin) (string, string) {
 	// Assume default values unless user has overriden them
 	secretName := credentials.PluginSpecificFields[plugin].SecretName
 	secretKey := credentials.PluginSpecificFields[plugin].PluginSecretKey
 
 	// check if user specified the Credential Name and Key
-	if credential != nil {
-		if len(credential.Name) > 0 {
-			secretName = credential.Name
+	if bslSpec.Credential != nil {
+		if len(bslSpec.Credential.Name) > 0 {
+			secretName = bslSpec.Credential.Name
 		}
-		if len(credential.Key) > 0 {
-			secretKey = credential.Key
+		if len(bslSpec.Credential.Key) > 0 {
+			secretKey = bslSpec.Credential.Key
 		}
 	}
 
@@ -1138,7 +1155,7 @@ func (r *DPAReconciler) updateRegistrySecret(secret *corev1.Secret, bsl *velerov
 
 func (r *DPAReconciler) populateAWSRegistrySecret(bsl *velerov1.BackupStorageLocation, registrySecret *corev1.Secret) error {
 	// Check for secret name
-	secretName, secretKey := r.getSecretNameAndKey(bsl.Spec.Credential, oadpv1alpha1.DefaultPluginAWS)
+	secretName, secretKey := r.getSecretNameAndKey(&bsl.Spec, oadpv1alpha1.DefaultPluginAWS)
 
 	// fetch secret and error
 	secret, err := r.getProviderSecret(secretName)
@@ -1167,7 +1184,7 @@ func (r *DPAReconciler) populateAWSRegistrySecret(bsl *velerov1.BackupStorageLoc
 
 func (r *DPAReconciler) populateAzureRegistrySecret(bsl *velerov1.BackupStorageLocation, registrySecret *corev1.Secret) error {
 	// Check for secret name
-	secretName, secretKey := r.getSecretNameAndKey(bsl.Spec.Credential, oadpv1alpha1.DefaultPluginMicrosoftAzure)
+	secretName, secretKey := r.getSecretNameAndKey(&bsl.Spec, oadpv1alpha1.DefaultPluginMicrosoftAzure)
 	r.Log.Info(fmt.Sprintf("Azure secret name: %s and secret key: %s", secretName, secretKey))
 
 	// fetch secret and error

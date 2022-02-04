@@ -301,7 +301,7 @@ func (r *DPAReconciler) validateProviderPluginAndSecret(bslSpec velerov1.BackupS
 		r.Log.Info(fmt.Sprintf("%s backupstoragelocation is configured but velero plugin for %s is not present", bslSpec.Provider, bslSpec.Provider))
 		//TODO: set warning condition on Velero CR
 	}
-	secretName, _ := r.getSecretNameAndKey(bslSpec.Credential, oadpv1alpha1.DefaultPlugin(bslSpec.Provider))
+	secretName, _ := r.getSecretNameAndKey(&bslSpec, oadpv1alpha1.DefaultPlugin(bslSpec.Provider))
 
 	_, err := r.getProviderSecret(secretName)
 

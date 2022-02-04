@@ -3,6 +3,8 @@ package lib
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"io/ioutil"
 	"log"
 
 	corev1 "k8s.io/api/core/v1"
@@ -216,4 +218,47 @@ func isCredentialsSecretDeleted(namespace string, credSecretRef string) wait.Con
 		log.Printf("Secret still exists in namespace")
 		return false, err
 	}
+}
+
+func GetJsonData(path string) (map[string]interface{}, error) {
+	// Return buffer data for json
+	jsonData, err := ioutil.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	return decodeJson(jsonData)
+}
+
+func GetAzureCreds(ciCred map[string]interface{}) []byte {
+	azureCreds := string("AZURE_CLOUD_NAME=AzurePublicCloud")
+
+	for k, v := range ciCred {
+		switch k {
+		case "subscriptionId":
+			azureCreds += "\n" + "AZURE_SUBSCRIPTION_ID=" + fmt.Sprintf("%v", v)
+		case "clientId":
+			azureCreds += "\n" + "AZURE_CLIENT_ID=" + fmt.Sprintf("%v", v)
+		case "clientSecret":
+			azureCreds += "\n" + "AZURE_CLIENT_SECRET=" + fmt.Sprintf("%v", v)
+		case "tenantId":
+			azureCreds += "\n" + "AZURE_TENANT_ID=" + fmt.Sprintf("%v", v)
+		case "storageAccountAccessKey":
+			azureCreds += "\n" + "AZURE_STORAGE_ACCOUNT_ACCESS_KEY=" + fmt.Sprintf("%v", v)
+		case "resourceGroup":
+			azureCreds += "\n" + "AZURE_RESOURCE_GROUP=" + fmt.Sprintf("%v", v)
+		}
+	}
+
+	return []byte(azureCreds)
+}
+
+func GetAzureResource(path string) (string, error) {
+	azure_config, err := GetJsonData(path)
+	resourceGroup := fmt.Sprintf("%v", azure_config["infraID"]) + "-rg"
+	return resourceGroup, err
+}
+
+func WriteFile(credFile string, data []byte) error {
+	err := ioutil.WriteFile(credFile, data, 0644)
+	return err
 }

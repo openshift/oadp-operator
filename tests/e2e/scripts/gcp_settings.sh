@@ -15,8 +15,6 @@ cat > $TMP_DIR/oadpcreds <<EOF
           "velero": {
             "provider": "$PROVIDER",
             "config": {
-             "profile": "$BSL_AWS_PROFILE",
-              "region": "$BSL_REGION"
             },
             "objectStorage":{
               "bucket": "$BUCKET"
@@ -33,8 +31,7 @@ cat > $TMP_DIR/oadpcreds <<EOF
          "velero": {
            "provider": "$PROVIDER",
            "config": { 
-             "profile": "default",
-             "region": "$VSL_REGION"
+             "snapshotLocation": "$VSL_REGION"
            }
          }
        }
