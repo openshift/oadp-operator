@@ -318,8 +318,8 @@ SETTINGS_TMP=/tmp/test-settings
 
 test-e2e-setup:
 	mkdir -p $(SETTINGS_TMP)
-	PROVIDER="$(PROVIDER)" BUCKET="$(S3_BUCKET)" BSL_REGION="$(BSL_REGION)" SECRET="$(CREDS_SECRET_REF)" TMP_DIR=$(SETTINGS_TMP) \
-	VSL_REGION="$(VSL_REGION)" BSL_AWS_PROFILE="$(BSL_AWS_PROFILE)" BSL_REGION="$(BSL_REGION)" /bin/bash "tests/e2e/scripts/$(PROVIDER)_settings.sh"
+	PROVIDER="$(CLUSTER_TYPE)" BUCKET="$(S3_BUCKET)" BSL_REGION="$(BSL_REGION)" SECRET="$(CREDS_SECRET_REF)" TMP_DIR=$(SETTINGS_TMP) \
+	VSL_REGION="$(VSL_REGION)" BSL_AWS_PROFILE="$(BSL_AWS_PROFILE)" BSL_REGION="$(BSL_REGION)" /bin/bash "tests/e2e/scripts/$(CLUSTER_TYPE)_settings.sh"
 
 test-e2e:
 	ginkgo run -mod=mod tests/e2e/ -- -credentials=$(OADP_CRED_FILE) \
@@ -332,7 +332,7 @@ test-e2e:
 	-openshift_ci=$(OPENSHIFT_CI) \
 	-ci_cred_file=$(CI_CRED_FILE) \
 	-azure_resource_file=$(AZURE_RESOURCE_FILE) \
-	-provider=$(PROVIDER) \
+	-provider=$(CLUSTER_TYPE) \
 	-creds_secret_ref=$(CREDS_SECRET_REF)
 
 test-e2e-cleanup:
