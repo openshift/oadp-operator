@@ -10,7 +10,9 @@ import (
 	ocpappsv1 "github.com/openshift/api/apps/v1"
 	security "github.com/openshift/api/security/v1"
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -147,5 +149,36 @@ func IsDeploymentReady(ocClient client.Client, namespace, dName string) wait.Con
 			return false, errors.New("deployment is not in a ready state")
 		}
 		return true, nil
+	}
+}
+
+func AreApplicationPodsRunning(namespace string) wait.ConditionFunc {
+	return func() (bool, error) {
+		clientset, err := setUpClient()
+		if err != nil {
+			return false, err
+		}
+		// select Velero pod with this label
+		veleroOptions := metav1.ListOptions{
+			LabelSelector: "e2e-app=true",
+		}
+		// get pods in test namespace with labelSelector
+		podList, err := clientset.CoreV1().Pods(namespace).List(context.TODO(), veleroOptions)
+		if err != nil {
+			return false, nil
+		}
+		if len(podList.Items) == 0 {
+			return false, nil
+		}
+		// get pod name and status with specified label selector
+		for _, podInfo := range podList.Items {
+			phase := podInfo.Status.Phase
+			if phase != corev1.PodRunning && phase != corev1.PodSucceeded {
+				ginkgo.GinkgoWriter.Write([]byte(fmt.Sprintf("Pod %v not yet succeeded", podInfo.Name)))
+				ginkgo.GinkgoWriter.Write([]byte(fmt.Sprintf("status: %v", podInfo.Status)))
+				return false, nil
+			}
+		}
+		return true, err
 	}
 }
