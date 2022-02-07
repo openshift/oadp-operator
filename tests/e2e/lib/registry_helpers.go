@@ -1,4 +1,4 @@
-package e2e
+package lib
 
 import (
 	"context"
@@ -11,7 +11,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
-func areRegistryDeploymentsAvailable(namespace string) wait.ConditionFunc {
+func AreRegistryDeploymentsAvailable(namespace string) wait.ConditionFunc {
 	log.Printf("Checking for available registry deployments")
 	return func() (bool, error) {
 		client, err := setUpClient()

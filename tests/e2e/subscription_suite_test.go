@@ -1,4 +1,4 @@
-package e2e
+package e2e_test
 
 import (
 	"context"
@@ -8,6 +8,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/openshift/oadp-operator/tests/e2e/lib"
+	utils "github.com/openshift/oadp-operator/tests/e2e/utils"
 	operators "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/utils/pointer"
@@ -16,7 +18,7 @@ import (
 var _ = Describe("Subscription Config Suite Test", func() {
 	var _ = BeforeEach(func() {
 		log.Printf("Building dpaSpec")
-		err := dpaCR.Build(csi)
+		err := dpaCR.Build(CSI)
 		Expect(err).NotTo(HaveOccurred())
 		//also test restic
 		dpaCR.CustomResource.Spec.Configuration.Restic.Enable = pointer.BoolPtr(true)
@@ -28,10 +30,10 @@ var _ = Describe("Subscription Config Suite Test", func() {
 		testSuiteInstanceName := "ts-" + instanceName
 		dpaCR.Name = testSuiteInstanceName
 
-		credData, err := readFile(cloud)
+		credData, err := utils.ReadFile(cloud)
 		Expect(err).NotTo(HaveOccurred())
 
-		err = createCredentialsSecret(credData, namespace, getSecretRef(credSecretRef))
+		err = CreateCredentialsSecret(credData, namespace, GetSecretRef(credSecretRef))
 		Expect(err).NotTo(HaveOccurred())
 	})
 
@@ -46,7 +48,7 @@ var _ = Describe("Subscription Config Suite Test", func() {
 	DescribeTable("Proxy test table",
 		func(testCase SubscriptionConfigTestCase) {
 			log.Printf("Getting Operator Subscription")
-			s, err := dpaCR.getOperatorSubscription()
+			s, err := dpaCR.GetOperatorSubscription()
 			Expect(err).To(BeNil())
 			log.Printf("Setting test case subscription config")
 			s.Spec.Config = &testCase.SubscriptionConfig
@@ -57,9 +59,9 @@ var _ = Describe("Subscription Config Suite Test", func() {
 			// get csv from installplan from subscription
 			log.Printf("Wait for CSV to be succeeded")
 			if testCase.failureExpected != nil && *testCase.failureExpected {
-				Consistently(s.csvIsReady, time.Minute*2).Should(BeFalse())
+				Consistently(s.CsvIsReady, time.Minute*2).Should(BeFalse())
 			} else {
-				Eventually(s.csvIsReady, time.Minute*9).Should(BeTrue())
+				Eventually(s.CsvIsReady, time.Minute*9).Should(BeTrue())
 
 				log.Printf("CreatingOrUpdate test Velero")
 				err = dpaCR.CreateOrUpdate(&dpaCR.CustomResource.Spec)
@@ -69,19 +71,19 @@ var _ = Describe("Subscription Config Suite Test", func() {
 				velero, err := dpaCR.Get()
 				Expect(err).NotTo(HaveOccurred())
 				log.Printf("Waiting for velero pod to be running")
-				Eventually(areVeleroPodsRunning(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
+				Eventually(AreVeleroPodsRunning(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 				if velero.Spec.Configuration.Restic.Enable != nil && *velero.Spec.Configuration.Restic.Enable {
 					log.Printf("Waiting for restic pods to be running")
-					Eventually(areResticPodsRunning(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
+					Eventually(AreResticPodsRunning(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 				}
 				if velero.Spec.BackupImages == nil || *velero.Spec.BackupImages {
 					log.Printf("Waiting for registry pods to be running")
-					Eventually(areRegistryDeploymentsAvailable(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
+					Eventually(AreRegistryDeploymentsAvailable(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 				}
 				if s.Spec.Config != nil && s.Spec.Config.Env != nil {
 					// get pod env vars
 					log.Printf("Getting velero pods")
-					podList, err := getVeleroPods(namespace)
+					podList, err := GetVeleroPods(namespace)
 					Expect(err).NotTo(HaveOccurred())
 					log.Printf("Getting pods containers env vars")
 					bl := dpaCR.CustomResource.Spec.BackupLocations[0]

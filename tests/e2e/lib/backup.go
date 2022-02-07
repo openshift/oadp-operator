@@ -1,4 +1,4 @@
-package e2e
+package lib
 
 import (
 	"context"
@@ -11,7 +11,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func createBackupForNamespaces(ocClient client.Client, veleroNamespace, backupName string, namespaces []string) error {
+func CreateBackupForNamespaces(ocClient client.Client, veleroNamespace, backupName string, namespaces []string) error {
 
 	backup := velero.Backup{
 		ObjectMeta: metav1.ObjectMeta{
@@ -26,7 +26,7 @@ func createBackupForNamespaces(ocClient client.Client, veleroNamespace, backupNa
 	return err
 }
 
-func isBackupDone(ocClient client.Client, veleroNamespace, name string) wait.ConditionFunc {
+func IsBackupDone(ocClient client.Client, veleroNamespace, name string) wait.ConditionFunc {
 	return func() (bool, error) {
 		backup := velero.Backup{}
 		err := ocClient.Get(context.Background(), client.ObjectKey{
@@ -46,7 +46,7 @@ func isBackupDone(ocClient client.Client, veleroNamespace, name string) wait.Con
 	}
 }
 
-func isBackupCompletedSuccessfully(ocClient client.Client, veleroNamespace, name string) (bool, error) {
+func IsBackupCompletedSuccessfully(ocClient client.Client, veleroNamespace, name string) (bool, error) {
 	backup := velero.Backup{}
 	err := ocClient.Get(context.Background(), client.ObjectKey{
 		Namespace: veleroNamespace,
@@ -58,5 +58,5 @@ func isBackupCompletedSuccessfully(ocClient client.Client, veleroNamespace, name
 	if backup.Status.Phase == velero.BackupPhaseCompleted {
 		return true, nil
 	}
-	return false, fmt.Errorf("backup phase is: %s; expected: %s\nvalidation errors: %v\nvelero failure logs: %v", backup.Status.Phase, velero.BackupPhaseCompleted, backup.Status.ValidationErrors, getVeleroContainerFailureLogs(veleroNamespace))
+	return false, fmt.Errorf("backup phase is: %s; expected: %s\nvalidation errors: %v\nvelero failure logs: %v", backup.Status.Phase, velero.BackupPhaseCompleted, backup.Status.ValidationErrors, GetVeleroContainerFailureLogs(veleroNamespace))
 }

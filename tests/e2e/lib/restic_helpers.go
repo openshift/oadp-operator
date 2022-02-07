@@ -1,4 +1,4 @@
-package e2e
+package lib
 
 import (
 	"context"
@@ -13,7 +13,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func hasCorrectNumResticPods(namespace string) wait.ConditionFunc {
+func HasCorrectNumResticPods(namespace string) wait.ConditionFunc {
 	return func() (bool, error) {
 		client, err := setUpClient()
 		if err != nil {
@@ -47,10 +47,10 @@ func hasCorrectNumResticPods(namespace string) wait.ConditionFunc {
 }
 
 func waitForDesiredResticPods(namespace string) error {
-	return wait.PollImmediate(time.Second*5, time.Minute*2, hasCorrectNumResticPods(namespace))
+	return wait.PollImmediate(time.Second*5, time.Minute*2, HasCorrectNumResticPods(namespace))
 }
 
-func areResticPodsRunning(namespace string) wait.ConditionFunc {
+func AreResticPodsRunning(namespace string) wait.ConditionFunc {
 	log.Printf("Checking for correct number of running Restic pods...")
 	return func() (bool, error) {
 		err := waitForDesiredResticPods(namespace)
@@ -79,7 +79,7 @@ func areResticPodsRunning(namespace string) wait.ConditionFunc {
 	}
 }
 
-func doesDaemonSetExists(namespace string, resticName string) wait.ConditionFunc {
+func DoesDaemonSetExists(namespace string, resticName string) wait.ConditionFunc {
 	log.Printf("Checking if restic daemonset exists...")
 	return func() (bool, error) {
 		clientset, err := setUpClient()
@@ -95,7 +95,7 @@ func doesDaemonSetExists(namespace string, resticName string) wait.ConditionFunc
 }
 
 // keep for now
-func isResticDaemonsetDeleted(namespace string) wait.ConditionFunc {
+func IsResticDaemonsetDeleted(namespace string) wait.ConditionFunc {
 	log.Printf("Checking if Restic daemonset has been deleted...")
 	return func() (bool, error) {
 		client, err := setUpClient()
@@ -111,7 +111,7 @@ func isResticDaemonsetDeleted(namespace string) wait.ConditionFunc {
 	}
 }
 
-func (v *dpaCustomResource) disableRestic(namespace string, instanceName string) error {
+func (v *DpaCustomResource) DisableRestic(namespace string, instanceName string) error {
 	err := v.SetClient()
 	if err != nil {
 		return err
@@ -134,7 +134,7 @@ func (v *dpaCustomResource) disableRestic(namespace string, instanceName string)
 	return nil
 }
 
-func (v *dpaCustomResource) enableResticNodeSelector(namespace string, s3Bucket string, credSecretRef string, instanceName string) error {
+func (v *DpaCustomResource) EnableResticNodeSelector(namespace string, s3Bucket string, credSecretRef string, instanceName string) error {
 	err := v.SetClient()
 	if err != nil {
 		return err
@@ -158,7 +158,7 @@ func (v *dpaCustomResource) enableResticNodeSelector(namespace string, s3Bucket 
 	return nil
 }
 
-func resticDaemonSetHasNodeSelector(namespace, key, value string) wait.ConditionFunc {
+func ResticDaemonSetHasNodeSelector(namespace, key, value string) wait.ConditionFunc {
 	return func() (bool, error) {
 		client, err := setUpClient()
 		if err != nil {
