@@ -140,19 +140,19 @@ Upgrade simulation steps:
 
 1. Build the MTC bundle using the following command (from MTC root directory)
 ```
-podman build -f build/Dockerfile.bundle -t quay.io/$ORG/oadp-operator-bundle:$TAG .  
+podman build -f build/Dockerfile.bundle -t quay.io/$ORG/mig-operator-bundle:$TAG .  
 ```
 2. Push the MTC bundle image
 ```
-podman push quay.io/$ORG/oadp-operator-bundle:$TAG
+podman push quay.io/$ORG/mig-operator-bundle:$TAG
 ```
 3. Build the OADP Operator bundle using the following command (from OADP root directory)
 ```
-podman build -f build/Dockerfile.bundle -t quay.io/$ORG/mig-operator-bundle:$TAG .
+podman build -f build/Dockerfile.bundle -t quay.io/$ORG/oadp-operator-bundle:$TAG .
 ```
 4. Push the OADP bundle image
 ```
-podman push quay.io/$ORG/mig-operator-bundle:$TAG
+podman push quay.io/$ORG/oadp-operator-bundle:$TAG
 ```
 5. Now, create an index image and the bundles of MRC and OADP to this index image
 ```
@@ -184,7 +184,7 @@ spec:
   startingCSV: mtc-operator.v1.6.3
 ```
 Debugging tips:
-- Always stream the pod logs `catalog-oprator` pod from the `openshift-operator-lifecycle-manager` namespace when you edit
+- Always stream the pod logs `catalog-operator` pod from the `openshift-operator-lifecycle-manager` namespace when you edit
 the MTC operator subscription
 - Lookout for the status of `installPlan`
 - Also, check up on the health of the catalog source pods in `openshift-marketplace` namespace.
