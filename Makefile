@@ -321,7 +321,7 @@ test-e2e-setup:
 	PROVIDER="$(CLUSTER_TYPE)" BUCKET="$(OADP_BUCKET)" BSL_REGION="$(BSL_REGION)" SECRET="$(CREDS_SECRET_REF)" TMP_DIR=$(SETTINGS_TMP) \
 	VSL_REGION="$(VSL_REGION)" BSL_AWS_PROFILE="$(BSL_AWS_PROFILE)" BSL_REGION="$(BSL_REGION)" /bin/bash "tests/e2e/scripts/$(CLUSTER_TYPE)_settings.sh"
 
-test-e2e:
+test-e2e: test-e2e-setup
 	ginkgo run -mod=mod tests/e2e/ -- -credentials=$(OADP_CRED_FILE) \
 	-velero_namespace=$(OADP_TEST_NAMESPACE) \
 	-settings=$(SETTINGS_TMP)/oadpcreds \
