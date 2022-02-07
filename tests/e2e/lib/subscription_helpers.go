@@ -1,4 +1,4 @@
-package e2e
+package lib
 
 import (
 	"context"
@@ -16,7 +16,7 @@ type Subscription struct {
 	*operators.Subscription
 }
 
-func (d *dpaCustomResource) getOperatorSubscription() (*Subscription, error) {
+func (d *DpaCustomResource) GetOperatorSubscription() (*Subscription, error) {
 	err := d.SetClient()
 	if err != nil {
 		return nil, err
@@ -53,7 +53,7 @@ func (s *Subscription) getCSV() (*operators.ClusterServiceVersion, error) {
 	return &csv, nil
 }
 
-func (s *Subscription) csvIsReady() bool {
+func (s *Subscription) CsvIsReady() bool {
 	csv, err := s.getCSV()
 	if err != nil {
 		log.Printf("Error getting CSV: %v", err)
@@ -61,7 +61,7 @@ func (s *Subscription) csvIsReady() bool {
 	}
 	return csv.Status.Phase == operators.CSVPhaseSucceeded
 }
-func (s *Subscription) csvIsInstalling() bool {
+func (s *Subscription) CsvIsInstalling() bool {
 	csv, err := s.getCSV()
 	if err != nil {
 		log.Printf("Error getting CSV: %v", err)

@@ -1,4 +1,4 @@
-package e2e
+package e2e_test
 
 import (
 	"errors"
@@ -9,6 +9,8 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	. "github.com/openshift/oadp-operator/tests/e2e/lib"
+	utils "github.com/openshift/oadp-operator/tests/e2e/utils"
 )
 
 // Common vars obtained from flags passed in ginkgo.
@@ -32,44 +34,44 @@ func init() {
 
 func TestOADPE2E(t *testing.T) {
 	flag.Parse()
-	errString := loadDpaSettingsFromJson(settings)
+	errString := LoadDpaSettingsFromJson(settings)
 	if errString != "" {
 		t.Fatalf(errString)
 	}
 
-	log.Println("Using velero prefix: " + veleroPrefix)
+	log.Println("Using velero prefix: " + VeleroPrefix)
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "OADP E2E Suite")
 }
 
-var dpaCR *dpaCustomResource
+var dpaCR *DpaCustomResource
 
 var _ = BeforeSuite(func() {
 	flag.Parse()
-	errString := loadDpaSettingsFromJson(settings)
+	errString := LoadDpaSettingsFromJson(settings)
 	if errString != "" {
 		Expect(errors.New(errString)).NotTo(HaveOccurred())
 	}
 
-	credData, err := readFile(cloud)
+	credData, err := utils.ReadFile(cloud)
 	Expect(err).NotTo(HaveOccurred())
-	err = createCredentialsSecret(credData, namespace, getSecretRef(credSecretRef))
+	err = CreateCredentialsSecret(credData, namespace, GetSecretRef(credSecretRef))
 	Expect(err).NotTo(HaveOccurred())
 
-	dpaCR = &dpaCustomResource{
+	dpaCR = &DpaCustomResource{
 		Namespace: namespace,
 	}
-	dpaCR.CustomResource = dpa
+	dpaCR.CustomResource = Dpa
 	testSuiteInstanceName := "ts-" + instanceName
 	dpaCR.Name = testSuiteInstanceName
 
 	dpaCR.SetClient()
-	Expect(doesNamespaceExist(namespace)).Should(BeTrue())
+	Expect(DoesNamespaceExist(namespace)).Should(BeTrue())
 })
 
 var _ = AfterSuite(func() {
 	log.Printf("Deleting Velero CR")
-	errs := deleteSecret(namespace, getSecretRef(credSecretRef))
+	errs := DeleteSecret(namespace, GetSecretRef(credSecretRef))
 	Expect(errs).ToNot(HaveOccurred())
 	err := dpaCR.Delete()
 	Expect(err).ToNot(HaveOccurred())
