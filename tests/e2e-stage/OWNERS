@@ -1,0 +1,35 @@
+# This is a list of community members for staged e2e tests
+approvers:
+  - mperetzred
+  - nitishSr
+  - jwmatthews
+  - sseago
+  - jmontleon
+  - shawn-hurley
+  - rayfordj
+  - alaypatel07
+  - pranavgaikwad
+  - dymurray
+  - shubham-pampattiwar
+  - JaydipGabani
+  - kaovilai
+  - hhpatel14
+  - weshayutin 
+  - deepakraj1997
+reviewers:
+  - mperetzred
+  - nitishSr
+  - jwmatthews
+  - sseago
+  - jmontleon
+  - shawn-hurley
+  - rayfordj
+  - alaypatel07
+  - pranavgaikwad
+  - dymurray
+  - shubham-pampattiwar
+  - JaydipGabani
+  - kaovilai
+  - hhpatel14
+  - weshayutin 
+  - deepakraj1997

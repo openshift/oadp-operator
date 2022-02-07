@@ -305,3 +305,13 @@ test-e2e:
 	--ginkgo.label-filter="$(TEST_FILTER)"
 test-e2e-cleanup:
 	rm -rf $(SETTINGS_TMP)
+test-e2e-stage:
+	mkdir -p $(SETTINGS_TMP)
+	PROVIDER="$(PROVIDER)" BUCKET="$(S3_BUCKET)" REGION="$(REGION)" SECRET="$(CREDS_SECRET_REF)" TMP_DIR=$(SETTINGS_TMP) /bin/bash tests/e2e/scripts/aws_settings.sh
+	ginkgo run -mod=mod tests/e2e-stage/ -- -cloud=$(OADP_AWS_CRED_FILE) \
+	-velero_namespace=$(OADP_TEST_NAMESPACE) \
+	-settings=$(SETTINGS_TMP)/awscreds \
+	-velero_instance_name=$(VELERO_INSTANCE_NAME) \
+	-timeout_multiplier=$(E2E_TIMEOUT_MULTIPLIER) \
+	-cluster_profile=$(CLUSTER_PROFILE) \
+	--ginkgo.label-filter="$(TEST_FILTER)"
