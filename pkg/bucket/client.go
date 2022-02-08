@@ -25,8 +25,6 @@ type Client interface {
 	Create() (bool, error)
 	Delete() (bool, error)
 	ForceCredentialRefresh() error
-	getCloudStorage() v1alpha1.CloudStorage
-	getClient() client.Client
 }
 
 func NewClient(b v1alpha1.CloudStorage, c client.Client) (Client, error) {
@@ -38,27 +36,28 @@ func NewClient(b v1alpha1.CloudStorage, c client.Client) (Client, error) {
 	}
 }
 
-func getCredentialFromSecret(a Client) (string, error) {
+func getCredentialFromCloudStorageSecret(a client.Client, cloudStorage v1alpha1.CloudStorage) (string, error) {
 	var filename string
 	var ok bool
-	namespaceName := types.NamespacedName{Namespace: a.getCloudStorage().Namespace, Name: a.getCloudStorage().Name}
-	if filename, ok = fileBucketCache[namespaceName]; !ok {
+	cloudStorageNamespacedName := types.NamespacedName{
+		Name:      cloudStorage.Name,
+		Namespace: cloudStorage.Namespace,
+	}
+	if filename, ok = fileBucketCache[cloudStorageNamespacedName]; !ok {
 		// Look for file in tmp based on name.
 		// TODO: handle force credential refesh
 		secret := &corev1.Secret{}
-		err := a.getClient().Get(context.TODO(),
-			types.NamespacedName{
-				Name:      a.getCloudStorage().Spec.CreationSecret.Name,
-				Namespace: a.getCloudStorage().Namespace,
-			},
-			secret)
+		err := a.Get(context.TODO(), types.NamespacedName{
+			Name: cloudStorage.Spec.CreationSecret.Name,
+			Namespace: cloudStorage.Namespace,
+		}, secret)
 		if err != nil {
 			return "", err
 		}
 
-		cred := secret.Data[a.getCloudStorage().Spec.CreationSecret.Key]
+		cred := secret.Data[cloudStorage.Spec.CreationSecret.Key]
 		//create a tmp file based on the bucket name, if it does not exist
-		dir, err := os.MkdirTemp("", fmt.Sprintf("secret-%v-%v", a.getCloudStorage().Namespace, a.getCloudStorage().Name))
+		dir, err := os.MkdirTemp("", fmt.Sprintf("secret-%v-%v", cloudStorage.Namespace, cloudStorage.Name))
 		if err != nil {
 			return "", err
 		}
@@ -69,7 +68,7 @@ func getCredentialFromSecret(a Client) (string, error) {
 		defer f.Close()
 		f.Write(cred)
 		filename = filepath.Join(f.Name())
-		fileBucketCache[namespaceName] = filename
+		fileBucketCache[cloudStorageNamespacedName] = filename
 	}
 
 	return filename, nil

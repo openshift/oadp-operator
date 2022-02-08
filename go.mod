@@ -5,7 +5,7 @@ go 1.16
 require (
 	github.com/Azure-Samples/azure-sdk-for-go-samples v0.0.0-20210506191746-b49c4162aa1d
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v0.20.0 // indirect
-	github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v0.2.0 // indirect
+	github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v0.2.0
 	github.com/Azure/azure-storage-blob-go v0.0.0-20181023070848-cf01652132cc
 	github.com/aws/aws-sdk-go v1.28.2
 	github.com/go-logr/logr v0.4.0

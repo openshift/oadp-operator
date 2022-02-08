@@ -125,7 +125,7 @@ func CreateBucketTaggingInput(bucketname string, tags map[string]string) *s3.Put
 
 func (a awsBucketClient) getS3Client() (s3iface.S3API, error) {
 	awsConfig := &aws.Config{Region: &a.bucket.Spec.Region}
-	cred, err := getCredentialFromSecret(a)
+	cred, err := getCredentialFromCloudStorageSecret(a.client, a.bucket)
 	if err != nil {
 		return nil, err
 	}
@@ -147,8 +147,7 @@ func (a awsBucketClient) getS3Client() (s3iface.S3API, error) {
 }
 
 func (a awsBucketClient) ForceCredentialRefresh() error {
-	panic("implement me")
-	return nil
+	return fmt.Errorf("force credential refresh is not yet implemented")
 }
 
 func (a awsBucketClient) Delete() (bool, error) {
@@ -157,11 +156,11 @@ func (a awsBucketClient) Delete() (bool, error) {
 		return false, err
 	}
 	deleteBucketInput := &s3.DeleteBucketInput{
-		Bucket: aws.String(a.getCloudStorage().Spec.Name),
+		Bucket: aws.String(a.bucket.Spec.Name),
 	}
 
 	if err := deleteBucketInput.Validate(); err != nil {
-		return false, fmt.Errorf("unable to validate %v bucket deletion configuration: %v", a.getCloudStorage().Spec.Name, err)
+		return false, fmt.Errorf("unable to validate %v bucket deletion configuration: %v", a.bucket.Spec.Name, err)
 	}
 
 	_, err = s3Client.DeleteBucket(deleteBucketInput)
@@ -170,12 +169,4 @@ func (a awsBucketClient) Delete() (bool, error) {
 	}
 
 	return true, nil
-}
-
-func (a awsBucketClient) getClient() client.Client {
-	return a.client
-}
-
-func (a awsBucketClient) getCloudStorage() v1alpha1.CloudStorage {
-	return a.bucket
 }
