@@ -48,7 +48,7 @@ func getCredentialFromCloudStorageSecret(a client.Client, cloudStorage v1alpha1.
 		// TODO: handle force credential refesh
 		secret := &corev1.Secret{}
 		err := a.Get(context.TODO(), types.NamespacedName{
-			Name: cloudStorage.Spec.CreationSecret.Name,
+			Name:      cloudStorage.Spec.CreationSecret.Name,
 			Namespace: cloudStorage.Namespace,
 		}, secret)
 		if err != nil {
