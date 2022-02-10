@@ -2,15 +2,28 @@ OADP_TEST_NAMESPACE ?= openshift-adp
 CLUSTER_TYPE ?= aws
 
 # CONFIGS FOR CLOUD
-OADP_CRED_DIR ?= /var/run/oadp-credentials
-OADP_CRED_FILE ?= ${OADP_CRED_DIR}/new-aws-credentials
+OADP_CRED_DIR ?= /var/run/oadp-credentials # bsl / blob storage cred dir
+CLUSTER_PROFILE_DIR ?= /Users/drajds/.aws # vsl / volume/cluster cred dir
+
+OADP_CRED_FILE ?= ${OADP_CRED_DIR}/new-aws-credentials # bsl cred file
+CI_CRED_FILE ?= ${CLUSTER_PROFILE_DIR}/.awscred # vsl cred file
+
+# aws configs - default
 BSL_REGION ?= us-east-1
 VSL_REGION ?= ${LEASED_RESOURCE}
-CI_CRED_FILE ?= ${CLUSTER_PROFILE_DIR}/.awscred
 BSL_AWS_PROFILE ?= migration-engineering
+
+# vsl secret
 CREDS_SECRET_REF ?= cloud-credentials
-OADP_BUCKET_FILE ?= ${OADP_CRED_DIR}/velero-bucket-name
+# bucket file
+OADP_BUCKET_FILE ?= ${OADP_CRED_DIR}/new-velero-bucket-name
+# azure cluster resource file - only in CI
 AZURE_RESOURCE_FILE ?= /var/run/secrets/ci.openshift.io/multi-stage/metadata.json
+
+# Misc
+OPENSHIFT_CI ?= true
+VELERO_INSTANCE_NAME ?= velero-sample
+E2E_TIMEOUT_MULTIPLIER ?= 1
 
 ifeq ($(CLUSTER_TYPE), gcp)
 	CI_CRED_FILE = ${CLUSTER_PROFILE_DIR}/gce.json
@@ -24,11 +37,6 @@ else ifeq ($(CLUSTER_TYPE), azure4)
 	CREDS_SECRET_REF = cloud-credentials-azure
 	OADP_BUCKET_FILE = ${OADP_CRED_DIR}/azure-velero-bucket-name
 endif
-
-# Misc
-OPENSHIFT_CI ?= true
-VELERO_INSTANCE_NAME ?= velero-sample
-E2E_TIMEOUT_MULTIPLIER ?= 1
 
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
 ENVTEST_K8S_VERSION = 1.21
