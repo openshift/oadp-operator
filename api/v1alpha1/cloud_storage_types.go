@@ -25,7 +25,7 @@ const (
 )
 
 type CloudStorageSpec struct {
-	// Name is the name requested for the bucket (aws) or container (azure)
+	// Name is the name requested for the bucket (aws, gcp) or container (azure)
 	Name string `json:"name"`
 	// CreationSecret is the secret that is needed to be used while creating the bucket.
 	CreationSecret corev1.SecretKeySelector `json:"creationSecret"`

@@ -139,21 +139,13 @@ func (r *DPAReconciler) ReconcileBackupStorageLocations(log logr.Logger) (bool, 
 				}
 				switch bucket.Spec.Provider {
 				case oadpv1alpha1.AWSBucketProvider:
-					{
-						bsl.Spec.Provider = AWSProvider
-					}
+					bsl.Spec.Provider = AWSProvider
 				case oadpv1alpha1.AzureBucketProvider:
-					{
-						panic("Azure provider not yet supported")
-					}
+					return fmt.Errorf("azure provider not yet supported")
 				case oadpv1alpha1.GCPBucketProvider:
-					{
-						panic("GCP provider not yet supported")
-					}
+					return fmt.Errorf("gcp provider not yet supported")
 				default:
-					{
-						return fmt.Errorf("invalid provider")
-					}
+					return fmt.Errorf("invalid provider")
 				}
 			}
 			return nil
