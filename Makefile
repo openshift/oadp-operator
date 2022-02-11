@@ -335,7 +335,7 @@ test-e2e: test-e2e-setup
 	-settings=$(SETTINGS_TMP)/oadpcreds \
 	-velero_instance_name=$(VELERO_INSTANCE_NAME) \
 	-timeout_multiplier=$(E2E_TIMEOUT_MULTIPLIER) \
-	-cluster_profile=$(CLUSTER_PROFILE) \
+	-cluster_profile=$(CLUSTER_TYPE) \
 	--ginkgo.label-filter="$(TEST_FILTER)" \
 	-openshift_ci=$(OPENSHIFT_CI) \
 	-ci_cred_file=$(CI_CRED_FILE) \
