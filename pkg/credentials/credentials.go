@@ -34,6 +34,8 @@ var (
 			IsCloudProvider:    true,
 			SecretName:         "cloud-credentials",
 			MountPath:          "/credentials",
+			BslSecretName:      "bsl-cloud-credentials-aws",
+			BSlMountPath:       "/bsl-cloud-credentials-aws",
 			EnvCredentialsFile: common.AWSSharedCredentialsFileEnvKey,
 			PluginName:         common.VeleroPluginForAWS,
 			PluginSecretKey:    "cloud",

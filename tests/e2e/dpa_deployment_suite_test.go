@@ -494,10 +494,10 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 			Expect(err).NotTo(HaveOccurred())
 			if len(installCase.DpaSpec.BackupLocations) > 0 {
 				switch dpaCR.Provider {
+				case "aws":
+					installCase.DpaSpec.BackupLocations[0].Velero.Config["credentialsFile"] = "bsl-cloud-credentials-aws/cloud"
 				case "gcp":
-					installCase.DpaSpec.BackupLocations[0].Velero.Config = map[string]string{
-						"credentialsFile": "bsl-cloud-credentials-gcp/cloud",
-					}
+					installCase.DpaSpec.BackupLocations[0].Velero.Config["credentialsFile"] = "bsl-cloud-credentials-gcp/cloud"
 				case "azure":
 					installCase.DpaSpec.BackupLocations[0].Velero.Config = map[string]string{
 						"credentialsFile":         "bsl-cloud-credentials-azure/cloud",

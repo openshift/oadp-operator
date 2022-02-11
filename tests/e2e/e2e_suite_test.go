@@ -76,13 +76,16 @@ var _ = BeforeSuite(func() {
 		case "aws":
 			cloudCredData, err := utils.ReadFile(dpaCR.Credentials)
 			Expect(err).NotTo(HaveOccurred())
-			ciCredData, err := utils.ReadFile(ci_cred_file)
+			err = CreateCredentialsSecret(cloudCredData, namespace, "bsl-cloud-credentials-aws")
 			Expect(err).NotTo(HaveOccurred())
-			cloudCredData = append(cloudCredData, []byte("\n")...)
-			credData := append(cloudCredData, ciCredData...)
-			dpaCR.Credentials = "/tmp/aws-credentials"
-			err = WriteFile(dpaCR.Credentials, credData)
-			Expect(err).NotTo(HaveOccurred())
+			dpaCR.Credentials = ci_cred_file
+			// ciCredData, err := utils.ReadFile(ci_cred_file)
+			// Expect(err).NotTo(HaveOccurred())
+			// cloudCredData = append(cloudCredData, []byte("\n")...)
+			// credData := append(cloudCredData, ciCredData...)
+			// dpaCR.Credentials = "/tmp/aws-credentials"
+			// err = WriteFile(dpaCR.Credentials, credData)
+			// Expect(err).NotTo(HaveOccurred())
 		case "gcp":
 			cloudCredData, err := utils.ReadFile(dpaCR.Credentials)
 			Expect(err).NotTo(HaveOccurred())
@@ -124,6 +127,8 @@ var _ = BeforeSuite(func() {
 	}
 	credData, err := utils.ReadFile(dpaCR.Credentials)
 	Expect(err).NotTo(HaveOccurred())
+	fmt.Println(credSecretRef)
+	fmt.Println(namespace)
 	err = CreateCredentialsSecret(credData, namespace, credSecretRef)
 	Expect(err).NotTo(HaveOccurred())
 	dpaCR.SetClient()

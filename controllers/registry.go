@@ -283,34 +283,32 @@ func (r *DPAReconciler) buildRegistryDeployment(registryDeployment *appsv1.Deplo
 		},
 	}
 
-	// attach gcp secret volume if provider is gcp
-	if bsl.Spec.Provider == GCPProvider {
-		cloudProviderMap := credentials.PluginSpecificFields[oadpv1alpha1.DefaultPluginGCP]
-		if _, ok := bsl.Spec.Config["credentialsFile"]; ok {
-			if cloudProviderMap, bslCredOk := credentials.PluginSpecificFields[GCPProvider]; bslCredOk {
-				registryDeployment.Spec.Template.Spec.Volumes = append(
-					registryDeployment.Spec.Template.Spec.Volumes,
-					corev1.Volume{
-						Name: cloudProviderMap.SecretName,
-						VolumeSource: corev1.VolumeSource{
-							Secret: &corev1.SecretVolumeSource{
-								SecretName: cloudProviderMap.BslSecretName,
-							},
-						},
-					},
-				)
-			}
-		} else {
-			registryDeployment.Spec.Template.Spec.Volumes = []corev1.Volume{
-				{
+	// attach secret volume for cloud providers
+	if _, ok := bsl.Spec.Config["credentialsFile"]; ok {
+		if cloudProviderMap, bslCredOk := credentials.PluginSpecificFields[oadpv1alpha1.DefaultPlugin(bsl.Spec.Provider)]; bslCredOk {
+			registryDeployment.Spec.Template.Spec.Volumes = append(
+				registryDeployment.Spec.Template.Spec.Volumes,
+				corev1.Volume{
 					Name: cloudProviderMap.SecretName,
 					VolumeSource: corev1.VolumeSource{
 						Secret: &corev1.SecretVolumeSource{
-							SecretName: cloudProviderMap.SecretName,
+							SecretName: cloudProviderMap.BslSecretName,
 						},
 					},
 				},
-			}
+			)
+		}
+	} else if bsl.Spec.Provider == GCPProvider {
+		cloudProviderMap := credentials.PluginSpecificFields[oadpv1alpha1.DefaultPluginGCP]
+		registryDeployment.Spec.Template.Spec.Volumes = []corev1.Volume{
+			{
+				Name: cloudProviderMap.SecretName,
+				VolumeSource: corev1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
+						SecretName: cloudProviderMap.SecretName,
+					},
+				},
+			},
 		}
 	}
 
@@ -567,14 +565,20 @@ func (r *DPAReconciler) getSecretNameAndKey(bslSpec *velerov1.BackupStorageLocat
 	// Assume default values unless user has overriden them
 	secretName := credentials.PluginSpecificFields[plugin].SecretName
 	secretKey := credentials.PluginSpecificFields[plugin].PluginSecretKey
-
+	if _, ok := bslSpec.Config["credentialsFile"]; ok {
+		secretName = credentials.PluginSpecificFields[plugin].BslSecretName
+		secretKey = credentials.PluginSpecificFields[plugin].PluginSecretKey
+	}
+	r.Log.Info(fmt.Sprintf("secret: %s", secretName))
+	r.Log.Info(fmt.Sprintf("key: %s", secretKey))
 	// check if user specified the Credential Name and Key
-	if bslSpec.Credential != nil {
-		if len(bslSpec.Credential.Name) > 0 {
-			secretName = bslSpec.Credential.Name
+	credential := bslSpec.Credential
+	if credential != nil {
+		if len(credential.Name) > 0 {
+			secretName = credential.Name
 		}
-		if len(bslSpec.Credential.Key) > 0 {
-			secretKey = bslSpec.Credential.Key
+		if len(credential.Key) > 0 {
+			secretKey = credential.Key
 		}
 	}
 
