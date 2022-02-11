@@ -127,8 +127,6 @@ var _ = BeforeSuite(func() {
 	}
 	credData, err := utils.ReadFile(dpaCR.Credentials)
 	Expect(err).NotTo(HaveOccurred())
-	fmt.Println(credSecretRef)
-	fmt.Println(namespace)
 	err = CreateCredentialsSecret(credData, namespace, credSecretRef)
 	Expect(err).NotTo(HaveOccurred())
 	dpaCR.SetClient()
