@@ -101,7 +101,9 @@ func (v *DpaCustomResource) Build(backupRestoreType BackupRestoreType) error {
 	switch v.Provider {
 	case "aws":
 		if v.OpenshiftCi {
-			dpaInstance.Spec.BackupLocations[0].Velero.Config["credentialsFile"] = "bsl-cloud-credentials-aws/cloud"
+			if dpaInstance.Spec.BackupLocations[0].Velero.Config != nil {
+				dpaInstance.Spec.BackupLocations[0].Velero.Config["credentialsFile"] = "bsl-cloud-credentials-aws/cloud"
+			}
 		} else {
 			dpaInstance.Spec.BackupLocations[0].Velero.Credential = &corev1.SecretKeySelector{
 				LocalObjectReference: corev1.LocalObjectReference{
@@ -112,7 +114,9 @@ func (v *DpaCustomResource) Build(backupRestoreType BackupRestoreType) error {
 		}
 	case "gcp":
 		if v.OpenshiftCi {
-			dpaInstance.Spec.BackupLocations[0].Velero.Config["credentialsFile"] = "bsl-cloud-credentials-gcp/cloud"
+			if dpaInstance.Spec.BackupLocations[0].Velero.Config != nil {
+				dpaInstance.Spec.BackupLocations[0].Velero.Config["credentialsFile"] = "bsl-cloud-credentials-gcp/cloud"
+			}
 		} else {
 			dpaInstance.Spec.BackupLocations[0].Velero.Credential = &corev1.SecretKeySelector{
 				LocalObjectReference: corev1.LocalObjectReference{
