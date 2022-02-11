@@ -2,11 +2,15 @@ OADP_TEST_NAMESPACE ?= openshift-adp
 CLUSTER_TYPE ?= aws
 
 # CONFIGS FOR CLOUD
-OADP_CRED_DIR ?= /var/run/oadp-credentials # bsl / blob storage cred dir
-CLUSTER_PROFILE_DIR ?= /Users/drajds/.aws # vsl / volume/cluster cred dir
+# bsl / blob storage cred dir
+OADP_CRED_DIR ?= /var/run/oadp-credentials
+# vsl / volume/cluster cred dir
+CLUSTER_PROFILE_DIR ?= /Users/drajds/.aws
 
-OADP_CRED_FILE ?= ${OADP_CRED_DIR}/new-aws-credentials # bsl cred file
-CI_CRED_FILE ?= ${CLUSTER_PROFILE_DIR}/.awscred # vsl cred file
+# bsl cred file
+OADP_CRED_FILE ?= ${OADP_CRED_DIR}/new-aws-credentials
+# vsl cred file
+CI_CRED_FILE ?= ${CLUSTER_PROFILE_DIR}/.awscred
 
 # aws configs - default
 BSL_REGION ?= us-east-1
