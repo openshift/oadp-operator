@@ -423,6 +423,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 							Config: map[string]string{
 								"region":           bslConfig["region"],
 								"s3ForcePathStyle": "true",
+								"profile":          bslConfig["profile"],
 							},
 							Default: true,
 							StorageType: velero.StorageType{
