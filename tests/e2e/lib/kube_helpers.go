@@ -2,11 +2,10 @@ package lib
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"log"
 
+	utils "github.com/openshift/oadp-operator/tests/e2e/utils"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -82,14 +81,6 @@ func setUpClient() (*kubernetes.Clientset, error) {
 		return nil, err
 	}
 	return clientset, nil
-}
-
-func decodeJson(data []byte) (map[string]interface{}, error) {
-	// Return JSON from buffer data
-	var jsonData map[string]interface{}
-
-	err := json.Unmarshal(data, &jsonData)
-	return jsonData, err
 }
 
 // FIXME: Remove
@@ -220,15 +211,6 @@ func isCredentialsSecretDeleted(namespace string, credSecretRef string) wait.Con
 	}
 }
 
-func GetJsonData(path string) (map[string]interface{}, error) {
-	// Return buffer data for json
-	jsonData, err := ioutil.ReadFile(path)
-	if err != nil {
-		return nil, err
-	}
-	return decodeJson(jsonData)
-}
-
 func GetAzureCreds(ciCred map[string]interface{}) []byte {
 	azureCreds := string("AZURE_CLOUD_NAME=AzurePublicCloud")
 
@@ -253,12 +235,7 @@ func GetAzureCreds(ciCred map[string]interface{}) []byte {
 }
 
 func GetAzureResource(path string) (string, error) {
-	azure_config, err := GetJsonData(path)
+	azure_config, err := utils.GetJsonData(path)
 	resourceGroup := fmt.Sprintf("%v", azure_config["infraID"]) + "-rg"
 	return resourceGroup, err
-}
-
-func WriteFile(credFile string, data []byte) error {
-	err := ioutil.WriteFile(credFile, data, 0644)
-	return err
 }

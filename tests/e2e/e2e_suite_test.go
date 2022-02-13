@@ -79,13 +79,6 @@ var _ = BeforeSuite(func() {
 			err = CreateCredentialsSecret(cloudCredData, namespace, "bsl-cloud-credentials-aws")
 			Expect(err).NotTo(HaveOccurred())
 			dpaCR.Credentials = ci_cred_file
-			// ciCredData, err := utils.ReadFile(ci_cred_file)
-			// Expect(err).NotTo(HaveOccurred())
-			// cloudCredData = append(cloudCredData, []byte("\n")...)
-			// credData := append(cloudCredData, ciCredData...)
-			// dpaCR.Credentials = "/tmp/aws-credentials"
-			// err = WriteFile(dpaCR.Credentials, credData)
-			// Expect(err).NotTo(HaveOccurred())
 		case "gcp":
 			cloudCredData, err := utils.ReadFile(dpaCR.Credentials)
 			Expect(err).NotTo(HaveOccurred())
@@ -93,8 +86,7 @@ var _ = BeforeSuite(func() {
 			Expect(err).NotTo(HaveOccurred())
 			dpaCR.Credentials = ci_cred_file
 		case "azure":
-			cloudCredData, err := GetJsonData(dpaCR.Credentials) // azure credentials need to be in json - can be changed
-
+			cloudCredData, err := utils.GetJsonData(dpaCR.Credentials) // azure credentials need to be in json - can be changed
 			Expect(err).NotTo(HaveOccurred())
 			dpaCR.DpaAzureConfig = DpaAzureConfig{
 				BslSubscriptionId:          fmt.Sprintf("%v", cloudCredData["subscriptionId"]),
@@ -110,7 +102,7 @@ var _ = BeforeSuite(func() {
 			err = CreateCredentialsSecret(cloudCreds, namespace, "bsl-cloud-credentials-azure")
 			Expect(err).NotTo(HaveOccurred())
 			// ci cloud
-			ciJsonData, err := GetJsonData(ci_cred_file)
+			ciJsonData, err := utils.GetJsonData(ci_cred_file)
 			Expect(err).NotTo(HaveOccurred())
 			if _, ok := ciJsonData["resourceGroup"]; !ok {
 				resourceGroup, err := GetAzureResource(azure_resource_file)
@@ -121,7 +113,7 @@ var _ = BeforeSuite(func() {
 			dpaCR.DpaAzureConfig.VslResourceGroup = fmt.Sprintf("%v", ciJsonData["resourceGroup"])
 			ciCreds := GetAzureCreds(ciJsonData)
 			dpaCR.Credentials = "/tmp/azure-credentials"
-			err = WriteFile(dpaCR.Credentials, ciCreds)
+			err = utils.WriteFile(dpaCR.Credentials, ciCreds)
 			Expect(err).NotTo(HaveOccurred())
 		}
 	}
