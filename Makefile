@@ -1,12 +1,47 @@
 OADP_TEST_NAMESPACE ?= openshift-adp
-REGION ?= us-east-1
-PROVIDER ?= aws
-CLUSTER_PROFILE ?= aws
+CLUSTER_TYPE ?= aws
+
+# CONFIGS FOR CLOUD
+# bsl / blob storage cred dir
+OADP_CRED_DIR ?= /var/run/oadp-credentials
+# vsl / volume/cluster cred dir
+CLUSTER_PROFILE_DIR ?= /Users/drajds/.aws
+
+# bsl cred file
+OADP_CRED_FILE ?= ${OADP_CRED_DIR}/new-aws-credentials
+# vsl cred file
+CI_CRED_FILE ?= ${CLUSTER_PROFILE_DIR}/.awscred
+
+# aws configs - default
+BSL_REGION ?= us-east-1
+VSL_REGION ?= ${LEASED_RESOURCE}
+# BSL_AWS_PROFILE ?= default
+BSL_AWS_PROFILE ?= migration-engineering
+
+# vsl secret
 CREDS_SECRET_REF ?= cloud-credentials
-OADP_AWS_CRED_FILE ?= /var/run/oadp-credentials/aws-credentials
-OADP_S3_BUCKET ?= /var/run/oadp-credentials/velero-bucket-name
+# bucket file
+OADP_BUCKET_FILE ?= ${OADP_CRED_DIR}/new-velero-bucket-name
+# azure cluster resource file - only in CI
+AZURE_RESOURCE_FILE ?= /var/run/secrets/ci.openshift.io/multi-stage/metadata.json
+
+# Misc
+OPENSHIFT_CI ?= true
 VELERO_INSTANCE_NAME ?= velero-sample
 E2E_TIMEOUT_MULTIPLIER ?= 1
+
+ifeq ($(CLUSTER_TYPE), gcp)
+	CI_CRED_FILE = ${CLUSTER_PROFILE_DIR}/gce.json
+	OADP_CRED_FILE = ${OADP_CRED_DIR}/gcp-credentials
+	CREDS_SECRET_REF = cloud-credentials-gcp
+	OADP_BUCKET_FILE = ${OADP_CRED_DIR}/gcp-velero-bucket-name
+else ifeq ($(CLUSTER_TYPE), azure4)
+	CLUSTER_TYPE = azure
+	CI_CRED_FILE = ${CLUSTER_PROFILE_DIR}/osServicePrincipal.json
+	OADP_CRED_FILE = ${OADP_CRED_DIR}/azure-credentials
+	CREDS_SECRET_REF = cloud-credentials-azure
+	OADP_BUCKET_FILE = ${OADP_CRED_DIR}/azure-velero-bucket-name
+endif
 
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
 ENVTEST_K8S_VERSION = 1.21
@@ -290,16 +325,28 @@ catalog-build: opm ## Build a catalog image.
 catalog-push: ## Push a catalog image.
 	$(MAKE) docker-push IMG=$(CATALOG_IMG)
 
-S3_BUCKET := $(shell cat $(OADP_S3_BUCKET) | awk '/velero-bucket-name/  {gsub(/"/, "", $$2);gsub(/}/,""); print $$2}')
+OADP_BUCKET := $(shell cat $(OADP_BUCKET_FILE))
+TEST_FILTER := $(shell echo '! aws && ! gcp && ! azure' | sed -r "s/[&]* [!] $(CLUSTER_TYPE)|[!] $(CLUSTER_TYPE) [&]*//")
 SETTINGS_TMP=/tmp/test-settings
-test-e2e:
+
+test-e2e-setup:
 	mkdir -p $(SETTINGS_TMP)
-	PROVIDER="$(PROVIDER)" BUCKET="$(S3_BUCKET)" REGION="$(REGION)" SECRET="$(CREDS_SECRET_REF)" TMP_DIR=$(SETTINGS_TMP) /bin/bash tests/e2e/scripts/aws_settings.sh
-	ginkgo -mod=mod tests/e2e/ -- -cloud=$(OADP_AWS_CRED_FILE) \
+	PROVIDER="$(CLUSTER_TYPE)" BUCKET="$(OADP_BUCKET)" BSL_REGION="$(BSL_REGION)" SECRET="$(CREDS_SECRET_REF)" TMP_DIR=$(SETTINGS_TMP) \
+	VSL_REGION="$(VSL_REGION)" BSL_AWS_PROFILE="$(BSL_AWS_PROFILE)" BSL_REGION="$(BSL_REGION)" /bin/bash "tests/e2e/scripts/$(CLUSTER_TYPE)_settings.sh"
+
+test-e2e: test-e2e-setup
+	ginkgo run -mod=mod tests/e2e/ -- -credentials=$(OADP_CRED_FILE) \
 	-velero_namespace=$(OADP_TEST_NAMESPACE) \
-	-settings=$(SETTINGS_TMP)/awscreds \
+	-settings=$(SETTINGS_TMP)/oadpcreds \
 	-velero_instance_name=$(VELERO_INSTANCE_NAME) \
 	-timeout_multiplier=$(E2E_TIMEOUT_MULTIPLIER) \
-	-cluster_profile=$(CLUSTER_PROFILE)
+	-cluster_profile=$(CLUSTER_TYPE) \
+	--ginkgo.label-filter="$(TEST_FILTER)" \
+	-openshift_ci=$(OPENSHIFT_CI) \
+	-ci_cred_file=$(CI_CRED_FILE) \
+	-azure_resource_file=$(AZURE_RESOURCE_FILE) \
+	-provider=$(CLUSTER_TYPE) \
+	-creds_secret_ref=$(CREDS_SECRET_REF)
+
 test-e2e-cleanup:
 	rm -rf $(SETTINGS_TMP)

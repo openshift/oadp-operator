@@ -31,7 +31,7 @@ var _ = Describe("Subscription Config Suite Test", func() {
 		testSuiteInstanceName := "ts-" + instanceName
 		dpaCR.Name = testSuiteInstanceName
 
-		credData, err := utils.ReadFile(cloud)
+		credData, err := utils.ReadFile(credFile)
 		Expect(err).NotTo(HaveOccurred())
 
 		err = CreateCredentialsSecret(credData, namespace, GetSecretRef(credSecretRef))

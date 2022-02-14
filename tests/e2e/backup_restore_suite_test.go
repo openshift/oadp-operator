@@ -23,7 +23,7 @@ var _ = Describe("AWS backup restore tests", func() {
 		testSuiteInstanceName := "ts-" + instanceName
 		dpaCR.Name = testSuiteInstanceName
 
-		credData, err := utils.ReadFile(cloud)
+		credData, err := utils.ReadFile(credFile)
 		Expect(err).NotTo(HaveOccurred())
 		err = CreateCredentialsSecret(credData, namespace, GetSecretRef(credSecretRef))
 		Expect(err).NotTo(HaveOccurred())
