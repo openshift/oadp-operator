@@ -134,9 +134,18 @@ func (r *DPAReconciler) ReconcileBackupStorageLocations(log logr.Logger) (bool, 
 				}
 				bsl.Spec.Credential = bslSpec.CloudStorage.Credential
 				bsl.Spec.Default = bslSpec.CloudStorage.Default
-				bsl.Spec.Provider = AWSProvider
 				bsl.Spec.ObjectStorage = &velerov1.ObjectStorageLocation{
 					Bucket: bucket.Spec.Name,
+				}
+				switch bucket.Spec.Provider {
+				case oadpv1alpha1.AWSBucketProvider:
+					bsl.Spec.Provider = AWSProvider
+				case oadpv1alpha1.AzureBucketProvider:
+					return fmt.Errorf("azure provider not yet supported")
+				case oadpv1alpha1.GCPBucketProvider:
+					return fmt.Errorf("gcp provider not yet supported")
+				default:
+					return fmt.Errorf("invalid provider")
 				}
 			}
 			return nil
