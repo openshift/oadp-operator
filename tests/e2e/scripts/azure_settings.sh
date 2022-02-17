@@ -37,7 +37,7 @@ cat > $TMP_DIR/oadpcreds <<EOF
            "provider": "$PROVIDER",
            "config": { 
               "subscriptionId": "",
-						  "resourceGroup": ""
+              "resourceGroup": ""
            }
          }
        }
