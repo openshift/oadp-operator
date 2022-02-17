@@ -18,7 +18,7 @@ cat > $TMP_DIR/oadpcreds <<EOF
               "subscriptionId": "",
               "storageAccount": "",
               "resourceGroup": "",
-              "storageAccountKeyEnvVar": "",
+              "storageAccountKeyEnvVar": ""
             },
             
             "objectStorage":{
@@ -37,7 +37,7 @@ cat > $TMP_DIR/oadpcreds <<EOF
            "provider": "$PROVIDER",
            "config": { 
               "subscriptionId": "",
-						  "resourceGroup": "",
+						  "resourceGroup": ""
            }
          }
        }
