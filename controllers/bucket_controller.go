@@ -76,6 +76,36 @@ func (b BucketReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return result, err
 	}
 
+	if bucket.DeletionTimestamp != nil {
+		deleted, err := clnt.Delete()
+		if err != nil {
+			log.Error(err, "unable to delete bucket")
+			b.EventRecorder.Event(&bucket, corev1.EventTypeWarning, "unable to delete bucket", fmt.Sprintf("unable to delete bucket: %v", bucket.Spec.Name))
+			return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
+		}
+		if !deleted {
+			log.Info("unable to delete bucket for unknown reason")
+			b.EventRecorder.Event(&bucket, corev1.EventTypeWarning, "unable to delete bucket", fmt.Sprintf("unable to delete bucket: %v", bucket.Spec.Name))
+			return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
+		}
+		log.Info("bucket deleted")
+		b.EventRecorder.Event(&bucket, corev1.EventTypeNormal, "BucketDeleted", fmt.Sprintf("bucket %v deleted", bucket.Spec.Name))
+
+		//Removing oadpFinalizerBucket from bucket.Finalizers
+		var newFinalizers []string
+		for _, finalizer := range bucket.Finalizers {
+			if finalizer == oadpFinalizerBucket {
+				continue
+			}
+			newFinalizers = append(newFinalizers, finalizer)
+		}
+		bucket.Finalizers = newFinalizers
+		err = b.Client.Update(ctx, &bucket, &client.UpdateOptions{})
+		if err != nil {
+			b.EventRecorder.Event(&bucket, corev1.EventTypeWarning, "UnableToRemoveFinalizer", fmt.Sprintf("unable to remove finalizer: %v", err))
+		}
+		return ctrl.Result{Requeue: true}, nil
+	}
 	var ok bool
 	if ok, err = clnt.Exists(); !ok {
 		// Handle Deletion.
@@ -97,20 +127,6 @@ func (b BucketReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		log.Error(err, "unable to determine if bucket exists.")
 		b.EventRecorder.Event(&bucket, corev1.EventTypeWarning, "BucketNotFound", fmt.Sprintf("unable to find bucket: %v", err))
 		return ctrl.Result{RequeueAfter: 1 * time.Minute}, nil
-	}
-	if bucket.DeletionTimestamp != nil {
-		deleted, err := clnt.Delete()
-		if err != nil {
-			log.Error(err, "unable to delete bucket")
-			b.EventRecorder.Event(&bucket, corev1.EventTypeWarning, "unable to delete bucket", fmt.Sprintf("unable to delete bucket: %v", bucket.Spec.Name))
-			return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
-		}
-		if !deleted {
-			log.Info("unable to delete bucket for unknown reason")
-			b.EventRecorder.Event(&bucket, corev1.EventTypeWarning, "unable to delete bucket", fmt.Sprintf("unable to delete bucket: %v", bucket.Spec.Name))
-			return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
-		}
-		return ctrl.Result{Requeue: true}, nil
 	}
 
 	// Update status with updated value
