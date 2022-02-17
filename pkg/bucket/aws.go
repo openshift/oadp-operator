@@ -125,7 +125,7 @@ func CreateBucketTaggingInput(bucketname string, tags map[string]string) *s3.Put
 
 func (a awsBucketClient) getS3Client() (s3iface.S3API, error) {
 	awsConfig := &aws.Config{Region: &a.bucket.Spec.Region}
-	cred, err := getCredentialFromCloudStorageSecret(a.client, a.bucket)
+	cred, err := getCredentialFromCloudStorageSecretAsFilename(a.client, a.bucket)
 	if err != nil {
 		return nil, err
 	}
