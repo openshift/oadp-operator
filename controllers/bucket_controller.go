@@ -20,7 +20,8 @@ import (
 )
 
 const (
-	oadpFinalizerBucket = "oadp.openshift.io/bucket-protection"
+	oadpFinalizerBucket              = "oadp.openshift.io/bucket-protection"
+	oadpCloudStorageDeleteAnnotation = "oadp.openshift.io/cloudstorage-delete"
 )
 
 // VeleroReconciler reconciles a Velero object
@@ -60,8 +61,8 @@ func (b BucketReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return result, nil
 	}
 
-	// Add finalizer if none exists.
-	if !containFinalizer(bucket.Finalizers, oadpFinalizerBucket) {
+	// Add finalizer if none exists and object is not being deleted.
+	if bucket.DeletionTimestamp == nil && !containFinalizer(bucket.Finalizers, oadpFinalizerBucket) {
 		bucket.Finalizers = append(bucket.Finalizers, oadpFinalizerBucket)
 		err := b.Client.Update(ctx, &bucket, &client.UpdateOptions{})
 		if err != nil {
@@ -75,8 +76,7 @@ func (b BucketReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	if err != nil {
 		return result, err
 	}
-
-	if bucket.DeletionTimestamp != nil {
+	if bucket.Annotations[oadpCloudStorageDeleteAnnotation] == "true" && bucket.DeletionTimestamp != nil {
 		deleted, err := clnt.Delete()
 		if err != nil {
 			log.Error(err, "unable to delete bucket")
@@ -107,8 +107,8 @@ func (b BucketReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return ctrl.Result{Requeue: true}, nil
 	}
 	var ok bool
-	if ok, err = clnt.Exists(); !ok {
-		// Handle Deletion.
+	if ok, err = clnt.Exists(); !ok && err == nil {
+		// Handle Creation if not exist.
 		created, err := clnt.Create()
 		if !created {
 			log.Info("unable to create object bucket")
