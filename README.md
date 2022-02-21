@@ -9,7 +9,7 @@
   Azure: [![Azure builds](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-master-4.8-operator-e2e-azure-periodic-slack)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-master-4.8-operator-e2e-azure-periodic-slack)
 </div>
 
-# Table of Contents
+# Table of Contents Test
 
 1. [About](#about)
 2. [Basic Install using OperatorHub](docs/install_olm.md)
