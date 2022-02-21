@@ -104,6 +104,7 @@ var _ = BeforeSuite(func() {
 			// ci cloud
 			ciJsonData, err := utils.GetJsonData(ci_cred_file)
 			Expect(err).NotTo(HaveOccurred())
+
 			if _, ok := ciJsonData["resourceGroup"]; !ok {
 				resourceGroup, err := GetAzureResource(azure_resource_file)
 				Expect(err).NotTo(HaveOccurred())
@@ -112,6 +113,23 @@ var _ = BeforeSuite(func() {
 			dpaCR.DpaAzureConfig.VslSubscriptionId = fmt.Sprintf("%v", ciJsonData["subscriptionId"])
 			dpaCR.DpaAzureConfig.VslResourceGroup = fmt.Sprintf("%v", ciJsonData["resourceGroup"])
 			ciCreds := GetAzureCreds(ciJsonData)
+			dpaCR.Credentials = "/tmp/azure-credentials"
+			err = utils.WriteFile(dpaCR.Credentials, ciCreds)
+			Expect(err).NotTo(HaveOccurred())
+		}
+	} else {
+		if dpaCR.Provider == "azure" {
+			cloudCredData, err := utils.GetJsonData(dpaCR.Credentials) // azure credentials need to be in json - can be changed
+			Expect(err).NotTo(HaveOccurred())
+			dpaCR.DpaAzureConfig = DpaAzureConfig{
+				BslSubscriptionId:          fmt.Sprintf("%v", cloudCredData["subscriptionId"]),
+				BslResourceGroup:           fmt.Sprintf("%v", cloudCredData["resourceGroup"]),
+				BslStorageAccount:          fmt.Sprintf("%v", cloudCredData["storageAccount"]),
+				BslStorageAccountKeyEnvVar: "AZURE_STORAGE_ACCOUNT_ACCESS_KEY",
+				VslSubscriptionId:          fmt.Sprintf("%v", cloudCredData["subscriptionId"]),
+				VslResourceGroup:           fmt.Sprintf("%v", cloudCredData["resourceGroup"]),
+			}
+			ciCreds := GetAzureCreds(cloudCredData)
 			dpaCR.Credentials = "/tmp/azure-credentials"
 			err = utils.WriteFile(dpaCR.Credentials, ciCreds)
 			Expect(err).NotTo(HaveOccurred())
