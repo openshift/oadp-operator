@@ -92,14 +92,7 @@ func (b BucketReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		b.EventRecorder.Event(&bucket, corev1.EventTypeNormal, "BucketDeleted", fmt.Sprintf("bucket %v deleted", bucket.Spec.Name))
 
 		//Removing oadpFinalizerBucket from bucket.Finalizers
-		var newFinalizers []string
-		for _, finalizer := range bucket.Finalizers {
-			if finalizer == oadpFinalizerBucket {
-				continue
-			}
-			newFinalizers = append(newFinalizers, finalizer)
-		}
-		bucket.Finalizers = newFinalizers
+		bucket.Finalizers = removeKey(bucket.Finalizers, oadpFinalizerBucket)
 		err = b.Client.Update(ctx, &bucket, &client.UpdateOptions{})
 		if err != nil {
 			b.EventRecorder.Event(&bucket, corev1.EventTypeWarning, "UnableToRemoveFinalizer", fmt.Sprintf("unable to remove finalizer: %v", err))
@@ -174,4 +167,13 @@ func containFinalizer(finalizers []string, f string) bool {
 		}
 	}
 	return false
+}
+
+func removeKey(slice []string, s string) []string {
+	for i, v := range slice {
+		if v == s {
+			return append(slice[:i], slice[i+1:]...)
+		}
+	}
+	return slice
 }
