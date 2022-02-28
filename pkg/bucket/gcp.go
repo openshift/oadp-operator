@@ -62,7 +62,14 @@ func (g gcpBucketClient) Exists() (bool, error) {
 	}
 	defer sc.Close()
 	_, err = sc.Bucket(g.bucket.Spec.Name).Attrs(context.Background())
-	return err != storage.ErrBucketNotExist, err
+	if err == nil {
+		return true, nil
+	}
+	if err != nil && err.Error() == storage.ErrBucketNotExist.Error(){
+		return false, nil
+	}
+	// no error means bucket exists
+	return false, err
 }
 
 
