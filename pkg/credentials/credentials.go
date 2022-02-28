@@ -156,7 +156,7 @@ func getPluginImage(pluginName string, dpa *oadpv1alpha1.DataProtectionApplicati
 	return ""
 }
 
-func AppendCloudProviderVolumes(dpa *oadpv1alpha1.DataProtectionApplication, ds *appsv1.DaemonSet, providerNeedsDefaultCreds map[string]bool, hasCloudStorage bool) error {
+func AppendCloudProviderVolumes(dpa *oadpv1alpha1.DataProtectionApplication, ds *appsv1.DaemonSet, providerNeedsDefaultCreds map[string]bool, hasCloudStorage bool, providers []string) error {
 	if dpa.Spec.Configuration.Velero == nil {
 		return errors.New("velero configuration not found")
 	}
@@ -220,22 +220,23 @@ func AppendCloudProviderVolumes(dpa *oadpv1alpha1.DataProtectionApplication, ds 
 
 		}
 	}
-	for _, bslSpec := range dpa.Spec.BackupLocations {
-		if _, ok := bslSpec.Velero.Config["credentialsFile"]; ok {
-			if cloudProviderMap, bslCredOk := PluginSpecificFields[oadpv1alpha1.DefaultPlugin(bslSpec.Velero.Provider)]; bslCredOk {
-				ds.Spec.Template.Spec.Volumes = append(
-					ds.Spec.Template.Spec.Volumes,
-					corev1.Volume{
-						Name: cloudProviderMap.BslSecretName,
-						VolumeSource: corev1.VolumeSource{
-							Secret: &corev1.SecretVolumeSource{
-								SecretName: cloudProviderMap.BslSecretName,
+	for _, provider := range providers {
+		var cloudProviderMap DefaultPluginFields
+		cloudProviderMap, ok := PluginSpecificFields[oadpv1alpha1.DefaultPlugin(provider)]
+		if !ok {
+			return fmt.Errorf("could not find cloud provider %v in PluginSpecificFields map", provider)
+		}
+		ds.Spec.Template.Spec.Volumes = append(
+						ds.Spec.Template.Spec.Volumes,
+						corev1.Volume{
+							Name: cloudProviderMap.BslSecretName,
+							VolumeSource: corev1.VolumeSource{
+								Secret: &corev1.SecretVolumeSource{
+									SecretName: cloudProviderMap.BslSecretName,
+								},
 							},
 						},
-					},
-				)
-			}
-		}
+					)
 	}
 	return nil
 }

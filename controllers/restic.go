@@ -230,11 +230,39 @@ func (r *DPAReconciler) customizeResticDaemonset(dpa *oadpv1alpha1.DataProtectio
 	if err != nil {
 		return nil, err
 	}
-
-	if err := credentials.AppendCloudProviderVolumes(dpa, ds, providerNeedsDefaultCreds, hasCloudStorage); err != nil {
+	providers, err :=  r.getBackupLocationProviders(*dpa)
+	if err != nil {
+		return nil, err
+	}
+	if err := credentials.AppendCloudProviderVolumes(dpa, ds, providerNeedsDefaultCreds, hasCloudStorage, providers); err != nil {
 		return nil, err
 	}
 	return ds, nil
+}
+
+func (r *DPAReconciler) getBackupLocationProviders(dpa oadpv1alpha1.DataProtectionApplication) ([]string, error) {
+	var providersMap = make(map[string]bool)
+	for _, backupLocation := range dpa.Spec.BackupLocations {
+		if  backupLocation.Velero != nil {
+			providersMap[backupLocation.Velero.Provider] = true
+		}
+		if backupLocation.CloudStorage != nil {
+			var cs *oadpv1alpha1.CloudStorage
+			err :=	r.Get(context.TODO(), types.NamespacedName{Name: backupLocation.CloudStorage.CloudStorageRef.Name, Namespace: dpa.Namespace}, cs)
+			if err != nil {
+				return nil, err
+			}
+			providersMap[string(cs.Spec.Provider)] = true
+		}
+	}
+	var providers []string
+	for provider, providerBool := range providersMap {
+		if !providerBool {
+			continue
+		}
+		providers = append(providers, provider)
+	}
+	return providers, nil
 }
 
 func (r *DPAReconciler) ReconcileResticRestoreHelperConfig(log logr.Logger) (bool, error) {
