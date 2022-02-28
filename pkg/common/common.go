@@ -1,5 +1,7 @@
 package common
 
+import "strings"
+
 const (
 	Velero             = "velero"
 	Restic             = "restic"
@@ -42,3 +44,7 @@ const (
 	HTTPSProxyEnvVar               = "HTTPS_PROXY"
 	NoProxyEnvVar                  = "NO_PROXY"
 )
+
+func TrimVeleroPrefix(name string) string {
+	return strings.TrimPrefix(name, "velero.io/")
+}
