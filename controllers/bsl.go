@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-logr/logr"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
+	"github.com/openshift/oadp-operator/pkg/common"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -41,18 +42,18 @@ func (r *DPAReconciler) ValidateBackupStorageLocations(log logr.Logger) (bool, e
 			}
 
 			// TODO: cases might need some updates for IBM/Minio/noobaa
-			switch provider {
-			case AWSProvider, "velero.io/aws":
+			switch common.TrimVeleroPrefix(provider) {
+			case AWSProvider:
 				err := r.validateAWSBackupStorageLocation(*bslSpec.Velero, &dpa)
 				if err != nil {
 					return false, err
 				}
-			case AzureProvider, "velero.io/azure":
+			case AzureProvider:
 				err := r.validateAzureBackupStorageLocation(*bslSpec.Velero, &dpa)
 				if err != nil {
 					return false, err
 				}
-			case GCPProvider, "velero.io/gcp":
+			case GCPProvider:
 				err := r.validateGCPBackupStorageLocation(*bslSpec.Velero, &dpa)
 				if err != nil {
 					return false, err
@@ -143,7 +144,7 @@ func (r *DPAReconciler) ReconcileBackupStorageLocations(log logr.Logger) (bool, 
 				case oadpv1alpha1.AzureBucketProvider:
 					return fmt.Errorf("azure provider not yet supported")
 				case oadpv1alpha1.GCPBucketProvider:
-					return fmt.Errorf("gcp provider not yet supported")
+					bsl.Spec.Provider = GCPProvider
 				default:
 					return fmt.Errorf("invalid provider")
 				}
