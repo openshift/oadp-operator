@@ -168,7 +168,7 @@ metadata:
     operatorframework.io/cluster-monitoring: "true"
     operatorframework.io/suggested-namespace: openshift-adp
     operators.openshift.io/infrastructure-features: '["Disconnected"]'
-    operators.operatorframework.io/builder: operator-sdk-v1.14.0
+    operators.operatorframework.io/builder: operator-sdk-v1.10.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
     repository: https://github.com/openshift/oadp-operator
     support: Red Hat
@@ -187,11 +187,55 @@ spec:
         displayName: Backup
         kind: Backup
         name: backups.velero.io
+        statusDescriptors:
+          - description: CompletionTimestamp records the time a backup was completed. Completion time is recorded even on failed backups. Completion time is recorded before uploading the backup object. The server's time is used for CompletionTimestamps.
+            displayName: CompletionTimestamp
+            path: completionTimestamp
+          - description: Expiration is when this Backup is eligible for garbage collection.
+            displayName: Expiration
+            path: expiration
+          - description: Format Version is the backup format version, including major, minor, and patch verison.
+            displayName: FormatVersion
+            path: formatVersion
+          - description: Phase is the current state of the Backup
+            displayName: Phase
+            path: phase
+          - description: Progress contains information about the backup's execution progress. Note that this information is best-effort only -- if Velero fails to update it during a backup for any reason, itm= may be inaccurate/stale.
+            displayName: Progress
+            path: progress
+          - description: Start Timestamp records the time a backup was started. Separate from CreationTimestamp, since that value vhanges on restores. The server's time is used for StartTimestamps.
+            displayName: StartTimestamp
+            path: startTimestamp
+          - description: ValidationErrors are a slice of all validation errors (if applicable).
+            displayName: Validation Errors
+            path: validationErrors
+          - description: VolumeSnapshotsAttempted is the total number of attempted volume snapshots for this backup.
+            displayName: VolumeSnapshotsAttempted
+            path: volumeSnapshotsAttempted
+          - description: VolumeSnapshotsCompleted is the total number of successfully completed volume snapshots for this backup.
+            displayName: VolumeSnapshotsCompleted
+            path: volumeSnapshotsCompleted
+          - description: Warnings is a count of all warning messages that were generated during execution of the backup. The actual warnings are in the backup's log file in object storage.
+            displayName: Warnings
+            path: warnings
+          - description: Errors is a count of all error messages that were generated during execution of the backup.  The actual errors are in the backup's log file in object storage.
+            displayName: Errors
+            path: errors
         version: v1
       - description: BackupStorageLocation represents an object storage location (Such as Amazon S3 Bucket) where Velero stores backup objects.
         displayName: BackupStorageLocation
         kind: BackupStorageLocation
         name: backupstoragelocations.velero.io
+        statusDescriptors:
+          - description: Phase is the current state of the BackupStorageLocation
+            displayName: Phase
+            path: phase
+          - description: LastSyncedTime is the last time the contents of the location weer synced into
+            displayName: LastSyncedTime
+            path: lastSyncedTime
+          - description: LastValidationTime is the last time the backup store location was validated
+            displayName: LastValidationTime
+            path: lastValidationTime
         version: v1
       - kind: CloudStorage
         name: cloudstorages.oadp.openshift.io
@@ -200,51 +244,172 @@ spec:
         displayName: DataProtectionApplication
         kind: DataProtectionApplication
         name: dataprotectionapplications.oadp.openshift.io
+        statusDescriptors:
+          - description: Conditions defines the observed state of Velero
+            displayName: Conditions
+            path: conditions
         version: v1alpha1
       - description: DeleteBackupRequest is a request to delete one or more backups.
         displayName: DeleteBackupRequest
         kind: DeleteBackupRequest
         name: deletebackuprequests.velero.io
+        statusDescriptors:
+          - description: Phase is the current status of a DeleteBackupRequest
+            displayName: Phase
+            path: phase
+          - description: Errors contains any errors that were encountered during the deletion process.
+            displayName: Errors
+            path: errors
         version: v1
       - description: DownloadRequest is a request to download an artifact from object storage such as a backup log file.
         displayName: DownloadRequest
         kind: DownloadRequest
         name: downloadrequests.velero.io
+        statusDescriptors:
+          - description: Phase is the current state of the DownloadRequest.
+            displayName: Phase
+            path: phase
+          - description: DownloadURL contains the pre-signed URL for the target file.
+            displayName: DownloadURL
+            path: downloadURL
+          - description: Expiration is when this DownloadRequest expires and can be deleted by the system.
+            displayName: Expiration
+            path: expiration
         version: v1
       - description: A velero pod volume backup is a restic backup of persistent volumes attached to a running pod.
         displayName: PodVolumeBackup
         kind: PodVolumeBackup
         name: podvolumebackups.velero.io
+        statusDescriptors:
+          - description: Phase is the current state of the PodVolumeBackup.
+            displayName: Phase
+            path: phase
+          - description: Path is the full path within the controller pod being backed up.
+            displayName: Path
+            path: path
+          - description: SnapshotID is the identifier for the snapshot of the pod volume.
+            displayName: SnapshotID
+            path: snapshotID
+          - description: Message is a message about the pod volume backup's status.
+            displayName: Message
+            path: message
+          - description: StartTimestamp records the time a backup was started. Separate from CreationTimestamp, since that value changes on restores. The server's time is used for StartTimestamps
+            displayName: StartTimestamp
+            path: startTimestamp
+          - description: CompletionTimestamp records the time a backup was completed. Completion time is recorded even on failed backups. Completion time is recorded before uploading the backup object. The server's time is used for CompletionTimestamps
+            displayName: CompletionTimestamp
+            path: completionTimestamp
+          - description: Progress holds the total number of bytes of the volume and the current number of backed up bytes. This can be used to display progress information about the backup operation.
+            displayName: Progress
+            path: progress
         version: v1
       - description: A velero pod volume restore is a restic restore of persistent volumes attached to a running pod.
         displayName: PodVolumeRestore
         kind: PodVolumeRestore
         name: podvolumerestores.velero.io
+        statusDescriptors:
+          - description: Phase is the current state of the PodVolumeRestore.
+            displayName: Phase
+            path: phase
+          - description: Message is a message about the pod volume restore's status.
+            displayName: Message
+            path: message
+          - description: StartTimestamp records the time a restore was started. The server's time is used for StartTimestamps
+            displayName: StartTimestamp
+            path: startTimestamp
+          - description: CompletionTimestamp records the time a restore was completed. Completion time is recorded even on failed restores. The server's time is used for CompletionTimestamps
+            displayName: CompletionTimestamp
+            path: completionTimestamp
+          - description: Progress holds the total number of bytes of the snapshot and the current number of restored bytes. This can be used to display progress information about the restore operation.
+            displayName: Progress
+            path: progress
         version: v1
       - description: A restic repository is an indicator of a connection from the restic server to the backupstoragelocation.
         displayName: ResticRepository
         kind: ResticRepository
         name: resticrepositories.velero.io
+        statusDescriptors:
+          - description: Phase is the current state of the ResticRepository.
+            displayName: Phase
+            path: phase
+          - description: Message is a message about the current status of the ResticRepository.
+            displayName: Message
+            path: message
+          - description: LastMaintenanceTime is the last time maintenance was run.
+            displayName: LastMaintenanceTime
+            path: lastMaintenanceTime
         version: v1
       - description: Restore is a Velero resource that represents the application of resources from a Velero backup to a target Kubernetes cluster.
         displayName: Restore
         kind: Restore
         name: restores.velero.io
+        statusDescriptors:
+          - description: Phase is the current state of the Restore
+            displayName: Phase
+            path: phase
+          - description: ValidationErrors is a slice of all validation errors (if applicable)
+            displayName: ValidationErrors
+            path: validationErrors
+          - description: Warnings is a count of all warning messages that were generated during execution of the restore. The actual warnings are stored in object storage.
+            displayName: Warnings
+            path: warnings
+          - description: Errors is a count of all error messages that were generated during execution of the restore. The actual errors are stored in object storage.
+            displayName: Errors
+            path: errors
+          - description: FailureReason is an error that caused the entire restore to fail.
+            displayName: FailureReason
+            path: failureReason
+          - description: StartTimestamp records the time the restore operation was started. The server's time is used for StartTimestamps
+            displayName: StartTimestamp
+            path: startTimestamp
+          - description: CompletionTimestamp records the time the restore operation was completed. Completion time is recorded even on failed restore. The server's time is used for StartTimestamps
+            displayName: CompletionTimestamp
+            path: completionTimestamp
+          - description: Progress contains information about the restore's execution progress. Note that this information is best-effort only -- if Velero fails to update it during a restore for any reason, it may be inaccurate/stale.
+            displayName: Progress
+            path: progress
         version: v1
       - description: Schedule is a Velero resource that represents a pre-scheduled or periodic Backup that should be run.
         displayName: Schedule
         kind: Schedule
         name: schedules.velero.io
+        statusDescriptors:
+          - description: Phase is the current phase of the Schedule
+            displayName: Phase
+            path: phase
+          - description: LastBackup is the last time a Backup was run for this Schedule schedule
+            displayName: LastBackup
+            path: lastBackup
+          - description: ValidationErrors is a slice of all validation errors (if applicable)
+            displayName: ValidationErrors
+            path: validationErrors
         version: v1
       - description: ServerStatusRequest is a request to access current status information about the Velero server.
         displayName: ServerStatusRequest
         kind: ServerStatusRequest
         name: serverstatusrequests.velero.io
+        statusDescriptors:
+          - description: Phase is the current lifecycle phase of the ServerStatusRequest.
+            displayName: Phase
+            path: phase
+          - description: ProcessedTimestamp is when the ServerStatusRequest was processed by the ServerStatusRequestController.
+            displayName: ProcessedTimestamp
+            path: processedTimestamp
+          - description: ServerVersion is the Velero server version.
+            displayName: ServerVersion
+            path: serverVersion
+          - description: Plugins list information about the plugins running on the Velero server
+            displayName: Plugins
+            path: plugins
         version: v1
       - description: VolumeSnapshotLocation is a location where Velero stores volume snapshots.
         displayName: VolumeSnapshotLocation
         kind: VolumeSnapshotLocation
         name: volumesnapshotlocations.velero.io
+        statusDescriptors:
+          - description: Phase is the current lifecycle phase of the VolumeSnapshotLocation
+            displayName: Phase
+            path: phase
         version: v1
   description: OADP (OpenShift API for Data Protection) operator sets up and installs Data Protection Applications on the OpenShift platform.
   displayName: OADP Operator
