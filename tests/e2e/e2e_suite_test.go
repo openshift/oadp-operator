@@ -70,7 +70,7 @@ var _ = BeforeSuite(func() {
 	openshift_ci_bool, _ := strconv.ParseBool(openshift_ci)
 	dpaCR.OpenshiftCi = openshift_ci_bool
 
-	if openshift_ci_bool == true {
+	if openshift_ci_bool {
 		cloudCredData, err := utils.ReadFile(dpaCR.Credentials)
 		Expect(err).NotTo(HaveOccurred())
 		err = CreateCredentialsSecret(cloudCredData, namespace, "bsl-cloud-credentials-"+provider)
