@@ -493,36 +493,6 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 			// instead of assigning the values in advance to the DPA CR
 			err := dpaCR.Build(installCase.BRestoreType)
 			Expect(err).NotTo(HaveOccurred())
-			if len(installCase.DpaSpec.BackupLocations) > 0 {
-				switch dpaCR.Provider {
-				case "aws":
-					if installCase.DpaSpec.BackupLocations[0].Velero.Config != nil {
-						installCase.DpaSpec.BackupLocations[0].Velero.Config["credentialsFile"] = "bsl-cloud-credentials-aws/cloud"
-					}
-				case "gcp":
-					if installCase.DpaSpec.BackupLocations[0].Velero.Config != nil {
-						installCase.DpaSpec.BackupLocations[0].Velero.Config["credentialsFile"] = "bsl-cloud-credentials-gcp/cloud"
-					}
-				case "azure":
-					installCase.DpaSpec.BackupLocations[0].Velero.Config = map[string]string{
-						"credentialsFile":         "bsl-cloud-credentials-azure/cloud",
-						"subscriptionId":          dpaCR.DpaAzureConfig.BslSubscriptionId,
-						"storageAccount":          dpaCR.DpaAzureConfig.BslStorageAccount,
-						"resourceGroup":           dpaCR.DpaAzureConfig.BslResourceGroup,
-						"storageAccountKeyEnvVar": dpaCR.DpaAzureConfig.BslStorageAccountKeyEnvVar,
-					}
-					installCase.DpaSpec.SnapshotLocations = []oadpv1alpha1.SnapshotLocation{
-						{
-							Velero: &velero.VolumeSnapshotLocationSpec{
-								Provider: dpaCR.Provider,
-								Config: map[string]string{
-									"subscriptionId": dpaCR.DpaAzureConfig.VslSubscriptionId,
-								},
-							},
-						},
-					}
-				}
-			}
 			err = dpaCR.CreateOrUpdate(installCase.DpaSpec)
 			Expect(err).ToNot(HaveOccurred())
 			if installCase.WantError {
