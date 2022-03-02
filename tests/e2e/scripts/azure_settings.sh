@@ -4,7 +4,11 @@ CI_AZURE_SUBSCRIPTION_ID=$(cat $CI_JSON_CRED_FILE | awk '/subscriptionId/ { gsub
 CI_AZURE_CLIENT_ID=$(cat $CI_JSON_CRED_FILE | awk '/clientId/ { gsub(/["]|,.*/,""); print $2}')
 CI_AZURE_CLIENT_SECRET=$(cat $CI_JSON_CRED_FILE | awk '/clientSecret/ { gsub(/["]|,.*/,""); print $2}')
 CI_AZURE_TENANT_ID=$(cat $CI_JSON_CRED_FILE | awk '/tenantId/ { gsub(/["]|,.*/,""); print $2}')
-CI_AZURE_RESOURCE_GROUP=$(cat $AZURE_RESOURCE_FILE | awk '/infraID/ { gsub(/["]|,.*/,""); print $2}')-rg
+CI_AZURE_RESOURCE_GROUP=$(cat $AZURE_RESOURCE_FILE | awk '/infraID/ { gsub(/["]|,.*/,""); print $2}')
+
+if [ "$OPENSHIFT_CI" == "true" ]; then\
+  CI_AZURE_RESOURCE_GROUP="${CI_AZURE_RESOURCE_GROUP}-rg"; \
+fi
 
 cat > $TARGET_CI_CRED_FILE <<EOF
 AZURE_SUBSCRIPTION_ID=${CI_AZURE_SUBSCRIPTION_ID}
@@ -23,7 +27,7 @@ AZURE_RESOURCE_GROUP=$(cat $OADP_JSON_CRED_FILE | awk '/resourceGroup/ { gsub(/[
 AZURE_STORAGE_ACCOUNT_ACCESS_KEY=$(cat $OADP_JSON_CRED_FILE | awk '/storageAccountAccessKey/ { gsub(/["]|,.*/,""); print $2}')
 AZURE_STORAGE_ACCOUNT=$(cat $OADP_JSON_CRED_FILE | awk '/storageAccount/ { gsub(/["]|,.*/,""); print $2}')
 
-cat > $TARGET_CI_CRED_FILE <<EOF
+cat > $OADP_CRED_FILE <<EOF
 AZURE_SUBSCRIPTION_ID=${AZURE_SUBSCRIPTION_ID}
 AZURE_TENANT_ID=${AZURE_TENANT_ID}
 AZURE_CLIENT_ID=${AZURE_CLIENT_ID}
