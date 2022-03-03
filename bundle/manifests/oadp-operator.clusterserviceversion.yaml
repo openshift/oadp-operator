@@ -222,7 +222,7 @@ spec:
             displayName: Errors
             path: errors
         version: v1
-      - description: BackupStorageLocation represents an object storage location (Such as Amazon S3 Bucket) where Velero stores backup objects.
+      - description: BackupStorageLocation represents an object storage location (such as Amazon S3 Bucket) where Velero stores backup objects.
         displayName: BackupStorageLocation
         kind: BackupStorageLocation
         name: backupstoragelocations.velero.io
@@ -245,7 +245,7 @@ spec:
         kind: DataProtectionApplication
         name: dataprotectionapplications.oadp.openshift.io
         statusDescriptors:
-          - description: Conditions defines the observed state of Velero
+          - description: Conditions defines the observed state of DataProtectionApplication
             displayName: Conditions
             path: conditions
         version: v1alpha1
