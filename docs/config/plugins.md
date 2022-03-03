@@ -8,8 +8,16 @@ There are mainly two categories of Velero plugins that can be specified while
 installing Velero:
 
 1. `defaultPlugins`:<br>
-   There are five types of default Velero plugins can be installed: 
-   `AWS`, `GCP`, `Azure` and `OpenShift`, and `CSI`. For installation, 
+   There are six types of default Velero plugins can be installed: 
+   - `AWS` [Plugins for AWS
+](https://github.com/vmware-tanzu/velero-plugin-for-aws)
+   - `GCP` [Plugins for Google Cloud Platform](https://github.com/vmware-tanzu/velero-plugin-for-gcp)
+   - `Azure` [Plugins for Microsoft Azure](https://github.com/vmware-tanzu/velero-plugin-for-microsoft-azure)
+   - `OpenShift` [OpenShift Velero Plugin](https://github.com/openshift/openshift-velero-plugin)
+   - `CSI` [Plugins for CSI](https://github.com/vmware-tanzu/velero-plugin-for-csi)
+   - `kubevirt` [Plugins for Kubevirt](https://github.com/kubevirt/kubevirt-velero-plugin)
+
+   For installation, 
    you need to specify them in the `oadp_v1alpha1_dpa.yaml` file 
    during deployment.
 
