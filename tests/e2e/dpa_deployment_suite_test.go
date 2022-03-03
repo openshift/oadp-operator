@@ -493,16 +493,18 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 			// instead of assigning the values in advance to the DPA CR
 			err := dpaCR.Build(installCase.BRestoreType)
 			Expect(err).NotTo(HaveOccurred())
-			if dpaCR.OpenshiftCi {
-				if installCase.DpaSpec.BackupLocations[0].Velero.Config != nil {
-					installCase.DpaSpec.BackupLocations[0].Velero.Config["credentialsFile"] = "bsl-cloud-credentials-" + dpaCR.Provider + "/cloud"
-				}
-			} else {
-				installCase.DpaSpec.BackupLocations[0].Velero.Credential = &corev1.SecretKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: dpaCR.CredSecretRef,
-					},
-					Key: "cloud",
+			if len(installCase.DpaSpec.BackupLocations) > 0 {
+				if dpaCR.OpenshiftCi {
+					if installCase.DpaSpec.BackupLocations[0].Velero.Config != nil {
+						installCase.DpaSpec.BackupLocations[0].Velero.Config["credentialsFile"] = "bsl-cloud-credentials-" + dpaCR.Provider + "/cloud"
+					}
+				} else {
+					installCase.DpaSpec.BackupLocations[0].Velero.Credential = &corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: dpaCR.CredSecretRef,
+						},
+						Key: "cloud",
+					}
 				}
 			}
 			err = dpaCR.CreateOrUpdate(installCase.DpaSpec)
