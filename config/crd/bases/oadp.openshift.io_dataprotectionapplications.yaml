@@ -490,7 +490,7 @@ spec:
             type: object
           status:
             description: DataProtectionApplicationStatus defines the observed state
-              of Velero
+              of DataProtectionApplication
             properties:
               conditions:
                 items:

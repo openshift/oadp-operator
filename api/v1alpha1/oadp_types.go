@@ -178,7 +178,7 @@ type DataProtectionApplicationSpec struct {
 	Configuration *ApplicationConfig `json:"configuration"`
 }
 
-// DataProtectionApplicationStatus defines the observed state of Velero
+// DataProtectionApplicationStatus defines the observed state of DataProtectionApplication
 type DataProtectionApplicationStatus struct {
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
