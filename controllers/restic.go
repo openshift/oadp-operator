@@ -230,7 +230,7 @@ func (r *DPAReconciler) customizeResticDaemonset(dpa *oadpv1alpha1.DataProtectio
 	if err != nil {
 		return nil, err
 	}
-	providers, err :=  r.getBackupLocationProviders(*dpa)
+	providers, err := r.getBackupLocationProviders(*dpa)
 	if err != nil {
 		return nil, err
 	}
@@ -243,12 +243,12 @@ func (r *DPAReconciler) customizeResticDaemonset(dpa *oadpv1alpha1.DataProtectio
 func (r *DPAReconciler) getBackupLocationProviders(dpa oadpv1alpha1.DataProtectionApplication) ([]string, error) {
 	var providersMap = make(map[string]bool)
 	for _, backupLocation := range dpa.Spec.BackupLocations {
-		if  backupLocation.Velero != nil {
+		if backupLocation.Velero != nil {
 			providersMap[backupLocation.Velero.Provider] = true
 		}
 		if backupLocation.CloudStorage != nil {
 			cs := &oadpv1alpha1.CloudStorage{}
-			err :=	r.Get(context.TODO(), types.NamespacedName{Name: backupLocation.CloudStorage.CloudStorageRef.Name, Namespace: dpa.Namespace}, cs)
+			err := r.Get(context.TODO(), types.NamespacedName{Name: backupLocation.CloudStorage.CloudStorageRef.Name, Namespace: dpa.Namespace}, cs)
 			if err != nil {
 				return nil, err
 			}

@@ -227,16 +227,16 @@ func AppendCloudProviderVolumes(dpa *oadpv1alpha1.DataProtectionApplication, ds 
 			return fmt.Errorf("could not find cloud provider %v in PluginSpecificFields map", provider)
 		}
 		ds.Spec.Template.Spec.Volumes = append(
-						ds.Spec.Template.Spec.Volumes,
-						corev1.Volume{
-							Name: cloudProviderMap.BslSecretName,
-							VolumeSource: corev1.VolumeSource{
-								Secret: &corev1.SecretVolumeSource{
-									SecretName: cloudProviderMap.BslSecretName,
-								},
-							},
-						},
-					)
+			ds.Spec.Template.Spec.Volumes,
+			corev1.Volume{
+				Name: cloudProviderMap.BslSecretName,
+				VolumeSource: corev1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
+						SecretName: cloudProviderMap.BslSecretName,
+					},
+				},
+			},
+		)
 	}
 	return nil
 }

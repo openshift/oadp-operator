@@ -65,15 +65,15 @@ func (g gcpBucketClient) Exists() (bool, error) {
 	if err == nil {
 		return true, nil
 	}
-	if err != nil && err.Error() == storage.ErrBucketNotExist.Error(){
+	if err != nil && err.Error() == storage.ErrBucketNotExist.Error() {
 		return false, nil
 	}
 	// no error means bucket exists
 	return false, err
 }
 
-
 const errorCodeBucketDoesNotExist = 404
+
 // Returns true if bucket is deleted
 // Returns false if bucket is not deleted
 func (g gcpBucketClient) Delete() (bool, error) {
