@@ -25,7 +25,7 @@ AZURE_CLIENT_SECRET=$(cat $OADP_JSON_CRED_FILE | awk '/clientSecret/ { gsub(/["]
 AZURE_TENANT_ID=$(cat $OADP_JSON_CRED_FILE | awk '/tenantId/ { gsub(/["]|,.*/,""); print $2}')
 AZURE_RESOURCE_GROUP=$(cat $OADP_JSON_CRED_FILE | awk '/resourceGroup/ { gsub(/["]|,.*/,""); print $2}')
 AZURE_STORAGE_ACCOUNT_ACCESS_KEY=$(cat $OADP_JSON_CRED_FILE | awk '/storageAccountAccessKey/ { gsub(/["]|,.*/,""); print $2}')
-AZURE_STORAGE_ACCOUNT=$(cat $OADP_JSON_CRED_FILE | awk '/storageAccount/ { gsub(/["]|,.*/,""); print $2}')
+AZURE_STORAGE_ACCOUNT=$(cat $OADP_JSON_CRED_FILE | awk '/"storageAccount"/ { gsub(/["]|,.*/,""); print $2}')
 
 cat > $OADP_CRED_FILE <<EOF
 AZURE_SUBSCRIPTION_ID=${AZURE_SUBSCRIPTION_ID}
