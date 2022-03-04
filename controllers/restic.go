@@ -247,7 +247,7 @@ func (r *DPAReconciler) getBackupLocationProviders(dpa oadpv1alpha1.DataProtecti
 			providersMap[backupLocation.Velero.Provider] = true
 		}
 		if backupLocation.CloudStorage != nil {
-			var cs *oadpv1alpha1.CloudStorage
+			cs := &oadpv1alpha1.CloudStorage{}
 			err :=	r.Get(context.TODO(), types.NamespacedName{Name: backupLocation.CloudStorage.CloudStorageRef.Name, Namespace: dpa.Namespace}, cs)
 			if err != nil {
 				return nil, err
