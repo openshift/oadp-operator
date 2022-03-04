@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"fmt"
+
 	"github.com/go-logr/logr"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	"github.com/openshift/oadp-operator/pkg/common"
@@ -166,31 +167,39 @@ func (r *DPAReconciler) updateVeleroMetricsSVC(svc *corev1.Service, dpa *oadpv1a
 
 	// when updating the spec fields we update each field individually
 	// to get around the immutable fields
-	svc.Spec.Selector = map[string]string{
-		"app.kubernetes.io/name":       common.Velero,
-		"app.kubernetes.io/instance":   dpa.Name,
-		"app.kubernetes.io/managed-by": common.OADPOperator,
-		"app.kubernetes.io/component":  Server,
-		oadpv1alpha1.OadpOperatorLabel: "True",
+	if svc.Spec.Selector == nil {
+		svc.Spec.Selector = map[string]string{}
 	}
+	svc.Spec.Selector["app.kubernetes.io/name"] = common.Velero
+	svc.Spec.Selector["app.kubernetes.io/instance"] = dpa.Name
+	svc.Spec.Selector["app.kubernetes.io/managed-by"] = common.OADPOperator
+	svc.Spec.Selector["app.kubernetes.io/component"] = Server
+	svc.Spec.Selector[oadpv1alpha1.OadpOperatorLabel] = "True"
 
 	svc.Spec.Type = corev1.ServiceTypeClusterIP
-	svc.Spec.Ports = []corev1.ServicePort{
-		{
-			Name: "monitoring",
-			Port: int32(8085),
-			TargetPort: intstr.IntOrString{
-				IntVal: int32(8085),
-			},
+	svcPort := corev1.ServicePort{
+		Name:     "monitoring",
+		Protocol: corev1.ProtocolTCP,
+		Port:     int32(8085),
+		TargetPort: intstr.IntOrString{
+			IntVal: int32(8085),
 		},
 	}
-
-	svc.Labels = map[string]string{
-		"app.kubernetes.io/name":       common.Velero,
-		"app.kubernetes.io/instance":   dpa.Name,
-		"app.kubernetes.io/managed-by": common.OADPOperator,
-		"app.kubernetes.io/component":  Server,
-		oadpv1alpha1.OadpOperatorLabel: "True",
+	if svc.Spec.Ports == nil {
+		svc.Spec.Ports = []corev1.ServicePort{
+			svcPort,
+		}
 	}
+	if svc.Spec.Ports[0] != svcPort {
+		svc.Spec.Ports[0] = svcPort
+	}
+	if svc.Labels == nil {
+		svc.Labels = map[string]string{}
+	}
+	svc.Labels["app.kubernetes.io/name"] = common.Velero
+	svc.Labels["app.kubernetes.io/instance"] = dpa.Name
+	svc.Labels["app.kubernetes.io/managed-by"] = common.OADPOperator
+	svc.Labels["app.kubernetes.io/component"] = Server
+	svc.Labels[oadpv1alpha1.OadpOperatorLabel] = "True"
 	return nil
 }
