@@ -70,6 +70,7 @@ var (
 			PluginName: common.VeleroPluginForCSI,
 		},
 	}
+	int32_0644 = int32(0644)
 )
 
 func getAWSPluginImage(dpa *oadpv1alpha1.DataProtectionApplication) string {
@@ -196,7 +197,8 @@ func AppendCloudProviderVolumes(dpa *oadpv1alpha1.DataProtectionApplication, ds 
 					Name: secretName,
 					VolumeSource: corev1.VolumeSource{
 						Secret: &corev1.SecretVolumeSource{
-							SecretName: secretName,
+							SecretName:  secretName,
+							DefaultMode: &int32_0644,
 						},
 					},
 				},
@@ -318,7 +320,8 @@ func AppendPluginSpecificSpecs(dpa *oadpv1alpha1.DataProtectionApplication, vele
 								Name: cloudProviderMap.BslSecretName,
 								VolumeSource: corev1.VolumeSource{
 									Secret: &corev1.SecretVolumeSource{
-										SecretName: cloudProviderMap.BslSecretName,
+										SecretName:  cloudProviderMap.BslSecretName,
+										DefaultMode: &int32_0644,
 									},
 								},
 							},

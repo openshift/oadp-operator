@@ -314,7 +314,8 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 									Name: "cloud-credentials",
 									VolumeSource: v1.VolumeSource{
 										Secret: &v1.SecretVolumeSource{
-											SecretName: "cloud-credentials",
+											SecretName:  "cloud-credentials",
+											DefaultMode: pointer.Int32Ptr(0644),
 										},
 									},
 								},
@@ -669,7 +670,8 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 									Name: "cloud-credentials",
 									VolumeSource: v1.VolumeSource{
 										Secret: &v1.SecretVolumeSource{
-											SecretName: "cloud-credentials",
+											SecretName:  "cloud-credentials",
+											DefaultMode: pointer.Int32Ptr(0644),
 										},
 									},
 								},
@@ -759,6 +761,11 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 				t.Errorf("DPAReconciler.buildResticDaemonset() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
+			//ignore typemeta
+			if tt.want != nil {
+				got.TypeMeta = tt.want.TypeMeta
+			}
+			setDsDefaults(tt.want, tt.want)
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("DPAReconciler.buildResticDaemonset() got = %v, want %v", got, tt.want)
 			}
