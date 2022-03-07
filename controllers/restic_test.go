@@ -765,7 +765,6 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 			if tt.want != nil {
 				got.TypeMeta = tt.want.TypeMeta
 			}
-			setDsDefaults(tt.want, tt.want)
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("DPAReconciler.buildResticDaemonset() got = %v, want %v", got, tt.want)
 			}

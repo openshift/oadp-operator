@@ -231,56 +231,7 @@ func (r *DPAReconciler) customizeResticDaemonset(dpa *oadpv1alpha1.DataProtectio
 		return nil, err
 	}
 
-	// Define defaults to avoid update events
-	// replace volumeSource HostPath Type if nil with empty string
-	setDsDefaults(ds, prevDs)
-
 	return ds, nil
-}
-
-func setDsDefaults(ds *appsv1.DaemonSet, prevDs *appsv1.DaemonSet) {
-	if ds == nil && prevDs == nil {
-		return
-	}
-	for i, vol := range ds.Spec.Template.Spec.Volumes {
-		if vol.VolumeSource.HostPath != nil && vol.VolumeSource.HostPath.Type == nil {
-			ds.Spec.Template.Spec.Volumes[i].VolumeSource.HostPath.Type = (*corev1.HostPathType)(&emptyString)
-		}
-	}
-	for i, container := range ds.Spec.Template.Spec.Containers {
-		for j, env := range container.Env {
-			if env.ValueFrom != nil && env.ValueFrom.FieldRef != nil && ds.Spec.Template.Spec.Containers[i].Env[j].ValueFrom.FieldRef.APIVersion == "" {
-				ds.Spec.Template.Spec.Containers[i].Env[j].ValueFrom.FieldRef.APIVersion = "v1"
-			}
-		}
-		if container.TerminationMessagePath == "" {
-			ds.Spec.Template.Spec.Containers[i].TerminationMessagePath = corev1.TerminationMessagePathDefault
-		}
-		if container.TerminationMessagePolicy == "" {
-			ds.Spec.Template.Spec.Containers[i].TerminationMessagePolicy = corev1.TerminationMessageReadFile
-		}
-	}
-	if ds.Spec.Template.Spec.RestartPolicy == "" {
-		ds.Spec.Template.Spec.RestartPolicy = prevDs.Spec.Template.Spec.RestartPolicy
-	}
-	if ds.Spec.Template.Spec.DNSPolicy == "" {
-		ds.Spec.Template.Spec.DNSPolicy = prevDs.Spec.Template.Spec.DNSPolicy
-	}
-	if ds.Spec.Template.Spec.SchedulerName == "" {
-		ds.Spec.Template.Spec.SchedulerName = prevDs.Spec.Template.Spec.SchedulerName
-	}
-	if ds.Spec.Template.Spec.DeprecatedServiceAccount == "" {
-		ds.Spec.Template.Spec.DeprecatedServiceAccount = prevDs.Spec.Template.Spec.DeprecatedServiceAccount
-	}
-	if ds.Spec.Template.Spec.TerminationGracePeriodSeconds == nil {
-		ds.Spec.Template.Spec.TerminationGracePeriodSeconds = prevDs.Spec.Template.Spec.TerminationGracePeriodSeconds
-	}
-	if ds.Spec.UpdateStrategy.RollingUpdate == nil {
-		ds.Spec.UpdateStrategy.RollingUpdate = prevDs.Spec.UpdateStrategy.RollingUpdate
-	}
-	if ds.Spec.RevisionHistoryLimit == nil {
-		ds.Spec.RevisionHistoryLimit = prevDs.Spec.RevisionHistoryLimit
-	}
 }
 
 func (r *DPAReconciler) ReconcileResticRestoreHelperConfig(log logr.Logger) (bool, error) {
