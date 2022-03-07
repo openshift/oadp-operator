@@ -143,17 +143,16 @@ func (r *DPAReconciler) buildResticDaemonset(dpa *oadpv1alpha1.DataProtectionApp
 		return nil, fmt.Errorf("ds cannot be nil")
 	}
 
-	prevDs := ds.DeepCopy()
 	ds.Spec = install.DaemonSet(ds.Namespace,
 		install.WithResources(r.getResticResourceReqs(dpa)),
 		install.WithImage(getVeleroImage(dpa)),
 		install.WithAnnotations(dpa.Spec.PodAnnotations),
 		install.WithSecret(false)).Spec
 
-	return r.customizeResticDaemonset(dpa, ds, prevDs)
+	return r.customizeResticDaemonset(dpa, ds)
 }
 
-func (r *DPAReconciler) customizeResticDaemonset(dpa *oadpv1alpha1.DataProtectionApplication, ds *appsv1.DaemonSet, prevDs *appsv1.DaemonSet) (*appsv1.DaemonSet, error) {
+func (r *DPAReconciler) customizeResticDaemonset(dpa *oadpv1alpha1.DataProtectionApplication, ds *appsv1.DaemonSet) (*appsv1.DaemonSet, error) {
 
 	// customize specs
 	ds.Spec.Selector = resticLabelSelector
