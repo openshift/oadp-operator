@@ -1,9 +1,6 @@
 package controllers
 
 import (
-	"reflect"
-	"testing"
-
 	"github.com/go-logr/logr"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	"github.com/openshift/oadp-operator/pkg/common"
@@ -17,8 +14,10 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/record"
+	"reflect"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"testing"
 )
 
 func getSchemeForFakeClientForMonitor() (*runtime.Scheme, error) {
@@ -267,9 +266,8 @@ func TestDPAReconciler_updateVeleroMetricsSVC(t *testing.T) {
 					Type: corev1.ServiceTypeClusterIP,
 					Ports: []corev1.ServicePort{
 						{
-							Name:     "monitoring",
-							Protocol: corev1.ProtocolTCP,
-							Port:     int32(8085),
+							Name: "monitoring",
+							Port: int32(8085),
 							TargetPort: intstr.IntOrString{
 								IntVal: int32(8085),
 							},
