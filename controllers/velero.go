@@ -8,6 +8,7 @@ import (
 
 	"github.com/openshift/oadp-operator/pkg/credentials"
 	"github.com/operator-framework/operator-lib/proxy"
+	"github.com/sirupsen/logrus"
 	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -515,6 +516,20 @@ func (r *DPAReconciler) customizeVeleroDeployment(dpa *oadpv1alpha1.DataProtecti
 	if err != nil {
 		return err
 	}
+
+	if dpa.Spec.Configuration.Velero.LogLevel != "" {
+		_, err := logrus.ParseLevel(dpa.Spec.Configuration.Velero.LogLevel)
+		if err != nil {
+			allowedLevels := ""
+			for _, level := range logrus.AllLevels {
+				allowedLevels += level.String() + ","
+			}
+			allowedLevels = strings.TrimSuffix(allowedLevels, ",")
+			return fmt.Errorf("invalid log level %s\nallowed: %s", dpa.Spec.Configuration.Velero.LogLevel, allowedLevels)
+		}
+		veleroContainer.Args = append(veleroContainer.Args, "--log-level", dpa.Spec.Configuration.Velero.LogLevel)
+	}
+
 	return credentials.AppendPluginSpecificSpecs(dpa, veleroDeployment, veleroContainer, providerNeedsDefaultCreds, hasCloudStorage)
 }
 
