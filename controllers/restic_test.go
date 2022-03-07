@@ -314,8 +314,7 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 									Name: "cloud-credentials",
 									VolumeSource: v1.VolumeSource{
 										Secret: &v1.SecretVolumeSource{
-											SecretName:  "cloud-credentials",
-											DefaultMode: pointer.Int32Ptr(0644),
+											SecretName: "cloud-credentials",
 										},
 									},
 								},
@@ -670,8 +669,7 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 									Name: "cloud-credentials",
 									VolumeSource: v1.VolumeSource{
 										Secret: &v1.SecretVolumeSource{
-											SecretName:  "cloud-credentials",
-											DefaultMode: pointer.Int32Ptr(0644),
+											SecretName: "cloud-credentials",
 										},
 									},
 								},

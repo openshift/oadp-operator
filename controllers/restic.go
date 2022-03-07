@@ -31,7 +31,6 @@ const (
 
 var (
 	resticPvHostPath string = getResticPvHostPath()
-	emptyString             = ""
 
 	// v1.MountPropagationHostToContainer is a const. Const cannot be pointed to.
 	// we need to declare mountPropagationToHostContainer so that we have an address to point to
