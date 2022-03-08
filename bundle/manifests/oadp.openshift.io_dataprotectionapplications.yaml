@@ -314,8 +314,6 @@ spec:
                         description: Velero server’s log level (default info, use
                           debug for the most logging)
                         enum:
-                        - panic
-                        - fatal
                         - error
                         - warn
                         - warning

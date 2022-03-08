@@ -76,7 +76,7 @@ type VeleroConfig struct {
 	PodConfig *PodConfig `json:"podConfig,omitempty"`
 	// Velero server’s log level (default info, use debug for the most logging)
 	// +optional
-	// +kubebuilder:validation:Enum=panic;fatal;error;warn;warning;info;debug;trace
+	// +kubebuilder:validation:Enum=error;warn;warning;info;debug;trace
 	LogLevel string `json:"logLevel,omitempty"`
 }
 
