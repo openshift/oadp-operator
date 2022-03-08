@@ -759,10 +759,6 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 				t.Errorf("DPAReconciler.buildResticDaemonset() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			//ignore typemeta
-			if tt.want != nil {
-				got.TypeMeta = tt.want.TypeMeta
-			}
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("DPAReconciler.buildResticDaemonset() got = %v, want %v", got, tt.want)
 			}

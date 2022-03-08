@@ -379,7 +379,7 @@ func (r *DPAReconciler) buildVeleroDeployment(veleroDeployment *appsv1.Deploymen
 	// TODO! Reuse removeDuplicateValues with interface type
 	dpa.Spec.Configuration.Velero.DefaultPlugins = removeDuplicatePluginValues(dpa.Spec.Configuration.Velero.DefaultPlugins)
 	dpa.Spec.Configuration.Velero.FeatureFlags = removeDuplicateValues(dpa.Spec.Configuration.Velero.FeatureFlags)
-	veleroDeployment.Spec = install.Deployment(veleroDeployment.Namespace,
+	installDeployment := install.Deployment(veleroDeployment.Namespace,
 		install.WithResources(r.getVeleroResourceReqs(dpa)),
 		install.WithImage(getVeleroImage(dpa)),
 		install.WithFeatures(dpa.Spec.Configuration.Velero.FeatureFlags),
@@ -388,7 +388,9 @@ func (r *DPAReconciler) buildVeleroDeployment(veleroDeployment *appsv1.Deploymen
 		// see: https://github.com/vmware-tanzu/velero/blob/ed5809b7fc22f3661eeef10bdcb63f0d74472b76/pkg/install/deployment.go#L223-L261
 		// our secrets are appended to containers/volumeMounts in credentials.AppendPluginSpecificSpecs function
 		install.WithSecret(false),
-	).Spec
+	)
+	veleroDeployment.TypeMeta = installDeployment.TypeMeta
+	veleroDeployment.Spec = installDeployment.Spec
 	return r.customizeVeleroDeployment(dpa, veleroDeployment)
 }
 

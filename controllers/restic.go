@@ -143,11 +143,15 @@ func (r *DPAReconciler) buildResticDaemonset(dpa *oadpv1alpha1.DataProtectionApp
 		return nil, fmt.Errorf("ds cannot be nil")
 	}
 
-	ds.Spec = install.DaemonSet(ds.Namespace,
+	installDs := install.DaemonSet(ds.Namespace,
 		install.WithResources(r.getResticResourceReqs(dpa)),
 		install.WithImage(getVeleroImage(dpa)),
 		install.WithAnnotations(dpa.Spec.PodAnnotations),
-		install.WithSecret(false)).Spec
+		install.WithSecret(false))
+	// Update Items in ObjectMeta
+	ds.TypeMeta = installDs.TypeMeta
+	// Update Spec
+	ds.Spec = installDs.Spec
 
 	return r.customizeResticDaemonset(dpa, ds)
 }
