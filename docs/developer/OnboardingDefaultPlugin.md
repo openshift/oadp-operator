@@ -17,4 +17,7 @@ pkg/credentials/credentials.go
 - add new plugin to map `PluginSpecificFields`
 
 controllers/velero_test.go
-Add tests for buildVeleroDeployment in check plugin exist in velero deployment as initContainer
+- Add tests for buildVeleroDeployment in check plugin exist in velero deployment as initContainer
+
+docs/config/plugins.md
+- add new plugin
