@@ -90,12 +90,12 @@ func (b BucketReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 			deleted, err := clnt.Delete()
 			if err != nil {
 				log.Error(err, "unable to delete bucket")
-				b.EventRecorder.Event(&bucket, corev1.EventTypeWarning, "unable to delete bucket", fmt.Sprintf("unable to delete bucket: %v", bucket.Spec.Name))
+				b.EventRecorder.Event(&bucket, corev1.EventTypeWarning, "UnableToDeleteBucket", fmt.Sprintf("unable to delete bucket: %v", bucket.Spec.Name))
 				return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
 			}
 			if !deleted {
 				log.Info("unable to delete bucket for unknown reason")
-				b.EventRecorder.Event(&bucket, corev1.EventTypeWarning, "unable to delete bucket", fmt.Sprintf("unable to delete bucket: %v", bucket.Spec.Name))
+				b.EventRecorder.Event(&bucket, corev1.EventTypeWarning, "UnableToDeleteBucketUnknown", fmt.Sprintf("unable to delete bucket: %v", bucket.Spec.Name))
 				return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
 			}
 			log.Info("bucket deleted")
