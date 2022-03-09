@@ -379,9 +379,7 @@ func (r *DPAReconciler) buildVeleroDeployment(veleroDeployment *appsv1.Deploymen
 	// TODO! Reuse removeDuplicateValues with interface type
 	dpa.Spec.Configuration.Velero.DefaultPlugins = removeDuplicatePluginValues(dpa.Spec.Configuration.Velero.DefaultPlugins)
 	dpa.Spec.Configuration.Velero.FeatureFlags = removeDuplicateValues(dpa.Spec.Configuration.Velero.FeatureFlags)
-	deploymentName := veleroDeployment.Name       //saves desired deployment name before install.Deployment overwrites them.
-	ownerRefs := veleroDeployment.OwnerReferences // saves desired owner refs
-	*veleroDeployment = *install.Deployment(veleroDeployment.Namespace,
+	installDeployment := install.Deployment(veleroDeployment.Namespace,
 		install.WithResources(r.getVeleroResourceReqs(dpa)),
 		install.WithImage(getVeleroImage(dpa)),
 		install.WithFeatures(dpa.Spec.Configuration.Velero.FeatureFlags),
@@ -391,9 +389,8 @@ func (r *DPAReconciler) buildVeleroDeployment(veleroDeployment *appsv1.Deploymen
 		// our secrets are appended to containers/volumeMounts in credentials.AppendPluginSpecificSpecs function
 		install.WithSecret(false),
 	)
-	// adjust veleroDeployment from install
-	veleroDeployment.Name = deploymentName //reapply saved deploymentName and owner refs
-	veleroDeployment.OwnerReferences = ownerRefs
+	veleroDeployment.TypeMeta = installDeployment.TypeMeta
+	veleroDeployment.Spec = installDeployment.Spec
 	return r.customizeVeleroDeployment(dpa, veleroDeployment)
 }
 
