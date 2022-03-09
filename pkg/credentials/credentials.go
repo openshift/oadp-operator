@@ -28,8 +28,7 @@ const (
 )
 
 var (
-	mountPropagationToHostContainer = corev1.MountPropagationHostToContainer
-	PluginSpecificFields            = map[oadpv1alpha1.DefaultPlugin]DefaultPluginFields{
+	PluginSpecificFields = map[oadpv1alpha1.DefaultPlugin]DefaultPluginFields{
 		oadpv1alpha1.DefaultPluginAWS: {
 			IsCloudProvider:    true,
 			SecretName:         "cloud-credentials",
@@ -68,6 +67,10 @@ var (
 			IsCloudProvider: false,
 			//TODO: Check if the Registry needs to an upstream one from CSI
 			PluginName: common.VeleroPluginForCSI,
+		},
+		oadpv1alpha1.DefaultPluginKubeVirt: {
+			IsCloudProvider: false,
+			PluginName:      common.KubeVirtPlugin,
 		},
 	}
 )
