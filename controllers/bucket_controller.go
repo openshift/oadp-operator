@@ -3,6 +3,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -20,7 +21,8 @@ import (
 )
 
 const (
-	oadpFinalizerBucket = "oadp.openshift.io/bucket-protection"
+	oadpFinalizerBucket              = "oadp.openshift.io/bucket-protection"
+	oadpCloudStorageDeleteAnnotation = "oadp.openshift.io/cloudstorage-delete"
 )
 
 // VeleroReconciler reconciles a Velero object
@@ -60,8 +62,8 @@ func (b BucketReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return result, nil
 	}
 
-	// Add finalizer if none exists.
-	if !containFinalizer(bucket.Finalizers, oadpFinalizerBucket) {
+	// Add finalizer if none exists and object is not being deleted.
+	if bucket.DeletionTimestamp == nil && !containFinalizer(bucket.Finalizers, oadpFinalizerBucket) {
 		bucket.Finalizers = append(bucket.Finalizers, oadpFinalizerBucket)
 		err := b.Client.Update(ctx, &bucket, &client.UpdateOptions{})
 		if err != nil {
@@ -75,10 +77,42 @@ func (b BucketReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	if err != nil {
 		return result, err
 	}
-
+	annotation, annotationExists := bucket.Annotations[oadpCloudStorageDeleteAnnotation]
+	shouldDelete := false
+	if annotationExists {
+		shouldDelete, err = strconv.ParseBool(annotation)
+		if err != nil {
+			// delete annotation should have values of "1", "t", "T", "true", "TRUE", "True" or "0", "f", "F", "false", "FALSE", "False"
+			b.EventRecorder.Event(&bucket, corev1.EventTypeWarning, "UnableToParseAnnotation", fmt.Sprintf("unable to parse annotation: %v, use \"1\", \"t\", \"T\", \"true\", \"TRUE\", \"True\" or \"0\", \"f\", \"F\", \"false\", \"FALSE\", \"False\"", err))
+			return ctrl.Result{Requeue: true}, nil
+		}
+		if  shouldDelete && bucket.DeletionTimestamp != nil {
+			deleted, err := clnt.Delete()
+			if err != nil {
+				log.Error(err, "unable to delete bucket")
+				b.EventRecorder.Event(&bucket, corev1.EventTypeWarning, "UnableToDeleteBucket", fmt.Sprintf("unable to delete bucket: %v", bucket.Spec.Name))
+				return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
+			}
+			if !deleted {
+				log.Info("unable to delete bucket for unknown reason")
+				b.EventRecorder.Event(&bucket, corev1.EventTypeWarning, "UnableToDeleteBucketUnknown", fmt.Sprintf("unable to delete bucket: %v", bucket.Spec.Name))
+				return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
+			}
+			log.Info("bucket deleted")
+			b.EventRecorder.Event(&bucket, corev1.EventTypeNormal, "BucketDeleted", fmt.Sprintf("bucket %v deleted", bucket.Spec.Name))
+	
+			//Removing oadpFinalizerBucket from bucket.Finalizers
+			bucket.Finalizers = removeKey(bucket.Finalizers, oadpFinalizerBucket)
+			err = b.Client.Update(ctx, &bucket, &client.UpdateOptions{})
+			if err != nil {
+				b.EventRecorder.Event(&bucket, corev1.EventTypeWarning, "UnableToRemoveFinalizer", fmt.Sprintf("unable to remove finalizer: %v", err))
+			}
+			return ctrl.Result{Requeue: true}, nil
+		}
+	}
 	var ok bool
-	if ok, err = clnt.Exists(); !ok {
-		// Handle Deletion.
+	if ok, err = clnt.Exists(); !ok && err == nil {
+		// Handle Creation if not exist.
 		created, err := clnt.Create()
 		if !created {
 			log.Info("unable to create object bucket")
@@ -97,20 +131,6 @@ func (b BucketReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		log.Error(err, "unable to determine if bucket exists.")
 		b.EventRecorder.Event(&bucket, corev1.EventTypeWarning, "BucketNotFound", fmt.Sprintf("unable to find bucket: %v", err))
 		return ctrl.Result{RequeueAfter: 1 * time.Minute}, nil
-	}
-	if bucket.DeletionTimestamp != nil {
-		deleted, err := clnt.Delete()
-		if err != nil {
-			log.Error(err, "unable to delete bucket")
-			b.EventRecorder.Event(&bucket, corev1.EventTypeWarning, "unable to delete bucket", fmt.Sprintf("unable to delete bucket: %v", bucket.Spec.Name))
-			return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
-		}
-		if !deleted {
-			log.Info("unable to delete bucket for unknown reason")
-			b.EventRecorder.Event(&bucket, corev1.EventTypeWarning, "unable to delete bucket", fmt.Sprintf("unable to delete bucket: %v", bucket.Spec.Name))
-			return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
-		}
-		return ctrl.Result{Requeue: true}, nil
 	}
 
 	// Update status with updated value
@@ -158,4 +178,13 @@ func containFinalizer(finalizers []string, f string) bool {
 		}
 	}
 	return false
+}
+
+func removeKey(slice []string, s string) []string {
+	for i, v := range slice {
+		if v == s {
+			return append(slice[:i], slice[i+1:]...)
+		}
+	}
+	return slice
 }
