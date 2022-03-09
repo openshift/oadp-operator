@@ -107,7 +107,6 @@ func (r *DPAReconciler) ReconcileResticDaemonset(log logr.Logger) (bool, error) 
 		if err := controllerutil.SetControllerReference(&dpa, ds, r.Scheme); err != nil {
 			return err
 		}
-
 		if _, err := r.buildResticDaemonset(&dpa, ds); err != nil {
 			return err
 		}
@@ -144,17 +143,16 @@ func (r *DPAReconciler) buildResticDaemonset(dpa *oadpv1alpha1.DataProtectionApp
 		return nil, fmt.Errorf("ds cannot be nil")
 	}
 
-	resticDaemonSetName := ds.Name
-	ownerRefs := ds.OwnerReferences
-
-	*ds = *install.DaemonSet(ds.Namespace,
+	installDs := install.DaemonSet(ds.Namespace,
 		install.WithResources(r.getResticResourceReqs(dpa)),
 		install.WithImage(getVeleroImage(dpa)),
 		install.WithAnnotations(dpa.Spec.PodAnnotations),
 		install.WithSecret(false))
+	// Update Items in ObjectMeta
+	ds.TypeMeta = installDs.TypeMeta
+	// Update Spec
+	ds.Spec = installDs.Spec
 
-	ds.Name = resticDaemonSetName
-	ds.OwnerReferences = ownerRefs
 	return r.customizeResticDaemonset(dpa, ds)
 }
 
@@ -234,6 +232,7 @@ func (r *DPAReconciler) customizeResticDaemonset(dpa *oadpv1alpha1.DataProtectio
 	if err := credentials.AppendCloudProviderVolumes(dpa, ds, providerNeedsDefaultCreds, hasCloudStorage); err != nil {
 		return nil, err
 	}
+
 	return ds, nil
 }
 
