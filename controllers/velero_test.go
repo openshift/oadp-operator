@@ -2,13 +2,11 @@ package controllers
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"reflect"
 	"testing"
 
 	"github.com/go-logr/logr"
-	"github.com/google/go-cmp/cmp"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	"github.com/openshift/oadp-operator/pkg/common"
 	"github.com/sirupsen/logrus"
@@ -1498,7 +1496,6 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 				t.Skip()
 			}
 			if !reflect.DeepEqual(tt.wantVeleroDeployment, tt.veleroDeployment) {
-				fmt.Println(cmp.Diff(tt.wantVeleroDeployment, tt.veleroDeployment))
 				t.Errorf("expected velero deployment spec to be %#v, got %#v", tt.wantVeleroDeployment, tt.veleroDeployment)
 			}
 		})
