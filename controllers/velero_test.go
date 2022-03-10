@@ -1487,13 +1487,14 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 			r := DPAReconciler{
 				Client: fakeClient,
 			}
-			err = nil
-			if err = r.buildVeleroDeployment(tt.veleroDeployment, tt.dpa); (err != nil) != tt.wantErr {
-				t.Errorf("buildVeleroDeployment() error = %v, wantErr %v", err, tt.wantErr)
-			}
-			if tt.wantErr && err != nil && tt.wantVeleroDeployment == nil {
-				// if we expect an error and we got one, and wantVeleroDeployment is not defined, we don't need to compare further.
-				t.Skip()
+			if err := r.buildVeleroDeployment(tt.veleroDeployment, tt.dpa); err != nil {
+				if !tt.wantErr {
+					t.Errorf("buildVeleroDeployment() error = %v, wantErr %v", err, tt.wantErr)
+				}
+				if tt.wantErr && tt.wantVeleroDeployment == nil {
+					// if we expect an error and we got one, and wantVeleroDeployment is not defined, we don't need to compare further.
+					t.Skip()
+				}
 			}
 			if !reflect.DeepEqual(tt.wantVeleroDeployment, tt.veleroDeployment) {
 				t.Errorf("expected velero deployment spec to be %#v, got %#v", tt.wantVeleroDeployment, tt.veleroDeployment)
