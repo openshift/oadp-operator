@@ -330,7 +330,7 @@ catalog-build: opm ## Build a catalog image.
 catalog-push: ## Push a catalog image.
 	$(MAKE) docker-push IMG=$(CATALOG_IMG)
 
-OADP_BUCKET := $(shell cat $(OADP_BUCKET_FILE))
+OADP_BUCKET = $(shell cat $(OADP_BUCKET_FILE))
 TEST_FILTER := $(shell echo '! aws && ! gcp && ! azure' | sed -r "s/[&]* [!] $(CLUSTER_TYPE)|[!] $(CLUSTER_TYPE) [&]*//")
 SETTINGS_TMP=/tmp/test-settings
 
