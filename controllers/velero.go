@@ -522,6 +522,10 @@ func (r *DPAReconciler) customizeVeleroDeployment(dpa *oadpv1alpha1.DataProtecti
 		if err != nil {
 			allowedLevels := ""
 			for _, level := range logrus.AllLevels {
+				// panic and fatal not covered by velero
+				if level == logrus.PanicLevel || level == logrus.FatalLevel {
+					continue
+				}
 				allowedLevels += level.String() + ","
 			}
 			allowedLevels = strings.TrimSuffix(allowedLevels, ",")
