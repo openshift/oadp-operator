@@ -60,35 +60,38 @@ We will be using OpenShift Data Foundation to simplify application deployment ac
 
 ![OpenShift Data Foundation Installation finished](ODFfinishedInstall.png)
 
-3. Click *Create StorageSystem* button after it turned blue.
+1. Click *Create StorageSystem* button after it turned blue.
     
 <!-- 4. Select *Create a new StorageClass using local storage devices* and click *Next*.
     ![](ODFlocalStorageDev.png) -->
-4. Select *Create a new StorageClass* and follow the *Creating an OpenShift Data Foundation cluster* steps for your cloud provider.
+2. Select *Create a new StorageClass* and follow the *Creating an OpenShift Data Foundation cluster* steps for your cloud provider.
    - [Amazon Web Services(AWS)](https://access.redhat.com/documentation/en-us/red_hat_openshift_data_foundation/4.9/html/deploying_openshift_data_foundation_using_amazon_web_services/deploy-using-dynamic-storage-devices-aws#creating-an-openshift-data-foundation-service_cloud-storage)
    - [Google Cloud (GCP)](https://access.redhat.com/documentation/en-us/red_hat_openshift_data_foundation/4.9/html/deploying_and_managing_openshift_data_foundation_using_google_cloud/deploying_openshift_data_foundation_on_google_cloud#creating-an-openshift-data-foundation-service_gcp)
    - [Microsoft Azure](https://access.redhat.com/documentation/en-us/red_hat_openshift_data_foundation/4.9/html/deploying_openshift_data_foundation_using_microsoft_azure_and_azure_red_hat_openshift/deploying-openshift-data-foundation-on-microsoft-azure_azure#creating-an-openshift-data-foundation-service_azure)
    - [VMware vSphere](https://access.redhat.com/documentation/en-us/red_hat_openshift_data_foundation/4.9/html/deploying_openshift_data_foundation_on_vmware_vsphere/deploy-using-dynamic-storage-devices-vmware#creating-an-openshift-data-foundation-service_cloud-storage)
 
-5. Navigate to *Storage* > *Object Bucket CLaim* and click *Create Object Bucket CLaim*
+### Creating Object Bucket Claim
+Object Bucket Claim creates a persistent storage bucket for Velero to store backed up kubernetes manifests.
+
+1. Navigate to *Storage* > *Object Bucket CLaim* and click *Create Object Bucket CLaim*
    ![](ObjectBucketClaimCreate.png)
 
-6. set the following values:
+2. set the following values:
    - ObjectBucketClaim Name:  `oadp-bucket`
    - StorageClass: `openshift-storage.noobaa.io`
    - BucketClass: `noobaa-default-bucket-class`
 
    ![](ObjectBucketClaimFields.png)
 
-7. Click *Create*
+3. Click *Create*
 
    ![](ObjectBucketClaimReady.png)
    When the *Status* is *Bound*, the bucket is ready.
 
-8. Click on oadp-secret in the bottom left to view bucket secrets
-9. Click Reveal values to see the bucket secret values. Copy data from *AWS_ACCESS_KEY_ID* and *AWS_SECRET_ACCESS_KEY* and save it as we'll need it later when installing the OADP Operator.
+4. Click on oadp-secret in the bottom left to view bucket secrets
+5. Click Reveal values to see the bucket secret values. Copy data from *AWS_ACCESS_KEY_ID* and *AWS_SECRET_ACCESS_KEY* and save it as we'll need it later when installing the OADP Operator.
 ## Deploying an application
-Since we are using OpenShift Data Foundation, we can use common application definition across cloud providers.
+Since we are using OpenShift Data Foundation, we can use common application definition across cloud providers regardless of available storage class.
 
 Clone our demo apps repository and enter the cloned repository.
 ```sh
