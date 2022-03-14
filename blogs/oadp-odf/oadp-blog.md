@@ -354,6 +354,8 @@ Try to access the chat application via URL:
 ```sh
 oc get route rocket-chat -n rocket-chat -ojsonpath="{.spec.host}"
 ```
+Check previous message exists.
+![First message!](firstMessage.png)
 ## Conclusion
 Phew.. what a ride. We have covered the basic usage of OpenShift API for Data Protection (OADP) Operator, Velero, and the OpenShift Data Foundation.
 
