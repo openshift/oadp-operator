@@ -25,6 +25,9 @@ Red Hat® OpenShift® Data Foundation is software-defined storage for containers
   - [Deploying an application](#deploying-an-application)
   - [Installing OpenShift API for Data Protection Operator](#installing-openshift-api-for-data-protection-operator)
     - [Create credentials secret for OADP Operator to use](#create-credentials-secret-for-oadp-operator-to-use)
+    - [Create the DataProtectionApplication Custom Resource](#create-the-dataprotectionapplication-custom-resource)
+    - [Verify install](#verify-install)
+    - [Modifying VolumeSnapshotClass](#modifying-volumesnapshotclass)
   - [Back up application](#back-up-application)
   - [Uhh what? Disasters?](#uhh-what-disasters)
   - [Restore application](#restore-application)
@@ -197,10 +200,6 @@ Fill out the following fields:
       *Note:* Do not use quotes while putting values in place of INSERT_VALUE Placeholders
 
 ![](secretKeyValFields.png)
-
-<!-- ```
-$ oc create secret generic cloud-credentials --namespace openshift-adp --from-file cloud=<CREDENTIALS_FILE_PATH>
-``` -->
 
 ### Create the DataProtectionApplication Custom Resource
 From side bars navigate to *Operators* > *Installed Operators* 
