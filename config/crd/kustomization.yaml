@@ -4,17 +4,17 @@
 resources:
 - bases/oadp.openshift.io_dataprotectionapplications.yaml
 - bases/oadp.openshift.io_cloudstorages.yaml
-- bases/backup.crd.yaml
-- bases/backupstoragelocation.crd.yaml
-- bases/deletebackuprequest.crd.yaml
-- bases/downloadrequest.crd.yaml
-- bases/podvolumebackup.crd.yaml
-- bases/podvolumerestore.crd.yaml
-- bases/resticrepository.crd.yaml
-- bases/restore.crd.yaml
-- bases/schedule.crd.yaml
-- bases/serverstatusrequest.crd.yaml
-- bases/volumesnapshotlocation.crd.yaml
+- bases/velero.io_backups.yaml
+- bases/velero.io_backupstoragelocations.yaml
+- bases/velero.io_deletebackuprequests.yaml
+- bases/velero.io_downloadrequests.yaml
+- bases/velero.io_podvolumebackups.yaml
+- bases/velero.io_podvolumerestores.yaml
+- bases/velero.io_resticrepositories.yaml
+- bases/velero.io_restores.yaml
+- bases/velero.io_schedules.yaml
+- bases/velero.io_serverstatusrequests.yaml
+- bases/velero.io_volumesnapshotlocations.yaml
 #+kubebuilder:scaffold:crdkustomizeresource
 
 patchesStrategicMerge:
