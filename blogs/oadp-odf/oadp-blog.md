@@ -213,6 +213,8 @@ Create an instance of the DataProtectionApplication (DPA) CR by clicking on `Cre
 Select *Configure via*: `YAML view`
 
 Finally, copy the values provided below and update fields with comments with information obtained earlier.
+- update `.spec.backupLocations[0].objectStorage.bucket` with `bucketName` from earlier steps.
+- update `.spec.backupLocations[0].config.s3Url` with `bucketHost` from earlier steps.
 
 ```
 apiVersion: oadp.openshift.io/v1alpha1
