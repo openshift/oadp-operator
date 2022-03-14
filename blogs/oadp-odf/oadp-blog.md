@@ -1,4 +1,4 @@
-# Guide: back up and restore persistent workloads on OpenShift using OADP and ODF
+# Guide: Backup and Restore Stateful Applications on OpenShift using OADP and ODF
 <!--
 We want to publish a blog that contains a guided example of backing up and restoring a CSI-based workload. This should contain:
 
