@@ -214,8 +214,6 @@ Select *Configure via*: `YAML view`
 
 Finally, copy the values provided below and update fields with comments with information obtained earlier.
 
-The CR values are mentioned for ease of use. Please remember to mention `default: true` in backupStorageLocations if you intend on using the default backup storage location as shown below.
-
 ```
 apiVersion: oadp.openshift.io/v1alpha1
 kind: DataProtectionApplication
