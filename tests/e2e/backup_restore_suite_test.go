@@ -49,16 +49,16 @@ var _ = Describe("AWS backup restore tests", func() {
 		Eventually(IsDCReady(ocClient, "parks-app", "restify"), timeoutMultiplier*time.Minute*10, time.Second*10).Should(BeTrue())
 		return nil
 	})
-	mssqlReady := VerificationFunction(func(ocClient client.Client, namespace string) error {
+	mysqlReady := VerificationFunction(func(ocClient client.Client, namespace string) error {
 		// This test confirms that SCC restore logic in our plugin is working
-		Eventually(IsDCReady(ocClient, "mssql-persistent", "mssql-deployment"), timeoutMultiplier*time.Minute*10, time.Second*10).Should(BeTrue())
-		Eventually(IsDeploymentReady(ocClient, "mssql-persistent", "mssql-app-deployment"), timeoutMultiplier*time.Minute*10, time.Second*10).Should(BeTrue())
-		exists, err := DoesSCCExist(ocClient, "mssql-persistent-scc")
+		//Eventually(IsDCReady(ocClient, "mssql-persistent", "mysql"), timeoutMultiplier*time.Minute*10, time.Second*10).Should(BeTrue())
+		Eventually(IsDeploymentReady(ocClient, "mysql-persistent", "mysql"), timeoutMultiplier*time.Minute*10, time.Second*10).Should(BeTrue())
+		exists, err := DoesSCCExist(ocClient, "mysql-persistent-scc")
 		if err != nil {
 			return err
 		}
 		if !exists {
-			return errors.New("did not find MSSQL scc")
+			return errors.New("did not find MYSQL scc")
 		}
 		return nil
 	})
@@ -168,13 +168,13 @@ var _ = Describe("AWS backup restore tests", func() {
 			}
 
 		},
-		Entry("MSSQL application CSI", Label("aws"), BackupRestoreCase{
-			ApplicationTemplate:  "./sample-applications/mssql-persistent/mssql-persistent-csi-template.yaml",
-			ApplicationNamespace: "mssql-persistent",
-			Name:                 "mssql-e2e",
+		Entry("MySQL application CSI", Label("aws"), BackupRestoreCase{
+			ApplicationTemplate:  "./sample-applications/mysql-persistent/mysql-persistent-csi-template.yaml",
+			ApplicationNamespace: "mysql-persistent",
+			Name:                 "mysql-e2e",
 			BackupRestoreType:    CSI,
-			PreBackupVerify:      mssqlReady,
-			PostRestoreVerify:    mssqlReady,
+			PreBackupVerify:   mysqlReady,
+			PostRestoreVerify: mysqlReady,
 		}, nil),
 		Entry("Parks application <4.8.0", BackupRestoreCase{
 			ApplicationTemplate:  "./sample-applications/parks-app/manifest.yaml",
@@ -185,13 +185,13 @@ var _ = Describe("AWS backup restore tests", func() {
 			PostRestoreVerify:    parksAppReady,
 			MaxK8SVersion:        &K8sVersionOcp47,
 		}, nil),
-		Entry("MSSQL application", BackupRestoreCase{
-			ApplicationTemplate:  "./sample-applications/mssql-persistent/mssql-persistent-template.yaml",
-			ApplicationNamespace: "mssql-persistent",
-			Name:                 "mssql-e2e",
+		Entry("MySQL application", BackupRestoreCase{
+			ApplicationTemplate:  "./sample-applications/mysql-persistent/mysql-persistent-template.yaml",
+			ApplicationNamespace: "mysql-persistent",
+			Name:                 "mysql-e2e",
 			BackupRestoreType:    RESTIC,
-			PreBackupVerify:      mssqlReady,
-			PostRestoreVerify:    mssqlReady,
+			PreBackupVerify:   mysqlReady,
+			PostRestoreVerify: mysqlReady,
 		}, nil),
 		Entry("Parks application >=4.8.0", BackupRestoreCase{
 			ApplicationTemplate:  "./sample-applications/parks-app/manifest4.8.yaml",
