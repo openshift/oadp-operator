@@ -28,6 +28,10 @@ In this guide, we will cover:
   - Your terminal has the following commands
     - [oc](https://access.redhat.com/documentation/en-us/openshift_container_platform/4.9/html/cli_tools/openshift-cli-oc) binary
     - [git](https://git-scm.com/downloads) binary
+    - velero
+      - Set alias to use command from cluster (preferred)
+        - `alias velero='oc -n openshift-adp exec deployment/velero -c velero -it -- ./velero'`
+      - [Download velero from Github Release](https://velero.io/docs/v1.8/basic-install/#option-2-github-release)
   - Alternatively enter prepared environment in your terminal with `docker run -it ghcr.io/kaovilai/oadp-cli:v1.0.1 bash`
     - source can be found at https://github.com/kaovilai/oadp-cli
 - [Authenticate as Cluster Admin inside your environment](https://access.redhat.com/documentation/en-us/openshift_container_platform/4.9/html/cli_tools/openshift-cli-oc#cli-logging-in_cli-developer-commands) of an OpenShift 4.9 Cluster.
@@ -258,3 +262,8 @@ oc delete ns openshift-adp rocket-chat openshift-storage
 ```
 
 If openshift-storage namespace is stuck, follow [troubleshooting guide](https://access.redhat.com/documentation/en-us/red_hat_openshift_data_foundation/4.9/html/troubleshooting_openshift_data_foundation/troubleshooting-and-deleting-remaining-resources-during-uninstall_rhodf).
+
+If you have set velero alias per this guide, you can remove it by running the following command:
+```sh
+unalias velero
+```
