@@ -357,7 +357,7 @@ oc get route rocket-chat -n rocket-chat -ojsonpath="{.spec.host}"
 Check previous message exists.
 ![First message!](firstMessage.png)
 ## Conclusion
-Phew.. what a ride. We have covered the basic usage of OpenShift API for Data Protection (OADP) Operator, Velero, and the OpenShift Data Foundation.
+Phew.. what a ride. We have covered the basic usage of OpenShift API for Data Protection (OADP) Operator, Velero, and OpenShift Data Foundation.
 
 Data is protected! Good bye data loss! Oh, and eat your breakfast people!
 
