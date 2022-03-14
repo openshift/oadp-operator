@@ -299,7 +299,7 @@ Click YAML view to modify values `deletionPolicy` and `labels` as shown below:
 
 Setting a `DeletionPolicy` of `Retain` on the *VolumeSnapshotClass* will preserve the volume snapshot in the storage system for the lifetime of the Velero backup and will prevent the deletion of the volume snapshot, in the storage system, in the event of a disaster where the namespace with the *VolumeSnapshot* object may be lost.
 
-The Velero CSI plugin, to backup CSI backed PVCs, will choose the VolumeSnapshotClass in the cluster that has the same driver name and also has the velero.io/csi-volumesnapshot-class label set on it.
+The Velero CSI plugin, to backup CSI backed PVCs, will choose the VolumeSnapshotClass in the cluster that has the same driver name and also has the `velero.io/csi-volumesnapshot-class: "true"` label set on it.
 ## Back up application
 From side menu, navigate to *Operators* > *Installed Operators*
 Under *Project* `openshift-adp`, click on *OADP Operator*.
