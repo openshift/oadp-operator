@@ -124,7 +124,9 @@ Object Bucket Claim creates a persistent storage bucket for Velero to store back
    When the *Status* is *Bound*, the bucket is ready.
 
 ### Gathering information from Object Bucket
-1. Click on Object Bucket *obc-default-oadp-bucket* and select YAML view
+1. Gathering bucket name and host 
+
+   Click on Object Bucket *obc-default-oadp-bucket* and select YAML view
 
    ![](obc-default-oadp-bucket.png)
    Take note of the following information which may differ from the guide:
@@ -133,12 +135,23 @@ Object Bucket Claim creates a persistent storage bucket for Velero to store back
     - `.spec.endpoint.bucketHost`: Seen in my screenshot as `s3.openshift-storage.svc`
       - or run `oc get configmap odrbucket -n default -o jsonpath='{.data.BUCKET_HOST}{"\n"}'`
 
-2. Navigate to *Storage* > *Object Bucket Claim* > *oadp-bucket*. Ensure you are in the same *Project* used to create *oadp-bucket*.
-3. Click on oadp-secret in the bottom left to view bucket secrets
-4. Click Reveal values to see the bucket secret values. Copy data from *AWS_ACCESS_KEY_ID* and *AWS_SECRET_ACCESS_KEY* and save it as we'll need it later when installing the OADP Operator.
+2. Gather oadp-bucket secret
+   - Using terminal commands
+      1. Get *AWS_ACCESS_KEY*
+        ```
+        oc get secret oadp-bucket -n default -o jsonpath='{.data.AWS_ACCESS_KEY_ID}{"\n"}'
+        ```
+      2. Get *AWS_SECRET_ACCESS_KEY*
+        ```
+        oc get secret oadp-bucket -n default -o jsonpath='{.data.AWS_SECRET_ACCESS_KEY}{"\n"}'
+        ```
+   - Using OpenShift Web Console
+     1. Navigate to *Storage* > *Object Bucket Claim* > *oadp-bucket*. Ensure you are in the same *Project* used to create *oadp-bucket*.
+     2. Click on oadp-secret in the bottom left to view bucket secrets
+     3. Click Reveal values to see the bucket secret values. Copy data from *AWS_ACCESS_KEY_ID* and *AWS_SECRET_ACCESS_KEY* and save it as we'll need it later when installing the OADP Operator.
    
    Note: regardless of the cloud provider, the secret field names seen here may contain *AWS_\**.
-5. Now you should have the following information:
+3. Now you should have the following information:
    - *bucketName*
    - *bucketHost*
    - *AWS_ACCESS_KEY_ID*
