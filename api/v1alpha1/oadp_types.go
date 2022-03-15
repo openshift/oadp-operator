@@ -74,7 +74,7 @@ type VeleroConfig struct {
 	NoDefaultBackupLocation bool `json:"noDefaultBackupLocation,omitempty"`
 	// Pod specific configuration
 	PodConfig *PodConfig `json:"podConfig,omitempty"`
-	// Velero server’s log level (default info, use debug for the most logging)
+	// Velero server’s log level (use debug for the most logging, leave unset for velero default)
 	// +optional
 	// +kubebuilder:validation:Enum=error;warn;warning;info;debug;trace
 	LogLevel string `json:"logLevel,omitempty"`
