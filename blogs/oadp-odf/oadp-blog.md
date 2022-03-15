@@ -359,7 +359,7 @@ Check previous message exists.
 ## Conclusion
 Phew.. what a ride. We have covered the basic usage of OpenShift API for Data Protection (OADP) Operator, Velero, and OpenShift Data Foundation.
 
-Protect your data with OADP, so you can rest easy restoration is possible when your team forgot their breakfast.
+Protect your data with OADP, so you can rest easy restoration is possible whenever your team forgets their breakfast.
 
 
 ### Remove workloads from this guide
