@@ -313,8 +313,8 @@ spec:
                           type: string
                         type: array
                       logLevel:
-                        description: Velero server’s log level (default info, use
-                          debug for the most logging)
+                        description: Velero server’s log level (use debug for the
+                          most logging, leave unset for velero default)
                         enum:
                         - error
                         - warn
