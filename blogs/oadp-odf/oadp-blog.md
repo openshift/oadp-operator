@@ -89,11 +89,7 @@ We will be using OpenShift Data Foundation to simplify application deployment ac
 ![OpenShift Data Foundation Installation finished](ODFfinishedInstall.png)
 
 1. Click *Create StorageSystem* button after the install is completed (turns blue).
-    
-<!-- 4. Select *Create a new StorageClass using local storage devices* and click *Next*.
-    ![](ODFlocalStorageDev.png) -->
-2. Select *Create a new StorageClass* and follow the *Creating an OpenShift Data Foundation cluster* steps for your cloud provider.
-3. [Go to Product Documentation for Red Hat OpenShift Data Foundation 4.9](https://access.redhat.com/documentation/en-us/red_hat_openshift_data_foundation/4.9)
+2. [Go to Product Documentation for Red Hat OpenShift Data Foundation 4.9](https://access.redhat.com/documentation/en-us/red_hat_openshift_data_foundation/4.9)
     1. Filter *Category* by **Deploying**
     2. Open deployment documentation your cloud provider.
     3. Follow *Creating an OpenShift Data Foundation cluster* instructions.
