@@ -129,7 +129,9 @@ Object Bucket Claim creates a persistent storage bucket for Velero to store back
    ![](obc-default-oadp-bucket.png)
    Take note of the following information which may differ from the guide:
     - `.spec.endpoint.bucketName`. Seen in my screenshot as `oadp-bucket-c21e8d02-4d0b-4d19-a295-cecbf247f51f`
+      - or run `oc get configmap odrbucket -n default -o jsonpath='{.data.BUCKET_NAME}{"\n"}'`
     - `.spec.endpoint.bucketHost`: Seen in my screenshot as `s3.openshift-storage.svc`
+      - or run `oc get configmap odrbucket -n default -o jsonpath='{.data.BUCKET_HOST}{"\n"}'`
 
 2. Navigate to *Storage* > *Object Bucket Claim* > *oadp-bucket*. Ensure you are in the same *Project* used to create *oadp-bucket*.
 3. Click on oadp-secret in the bottom left to view bucket secrets
