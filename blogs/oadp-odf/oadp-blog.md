@@ -285,9 +285,12 @@ Click *Create*
 ### Verify install
 
 To verify all of the correct resources have been created, the following command
-`oc get all -n openshift-adp` should look similar to:
-
+```sh
+oc get all -n openshift-adp
 ```
+results should look similar to:
+
+```text
 NAME                                                     READY   STATUS    RESTARTS   AGE
 pod/oadp-operator-controller-manager-67d9494d47-6l8z8    2/2     Running   0          2m8s
 pod/oadp-velero-sample-1-aws-registry-5d6968cbdd-d5w9k   1/1     Running   0          95s
@@ -312,25 +315,34 @@ replicaset.apps/velero-588db7f655                              1         1      
 ```
 
 ### Modifying VolumeSnapshotClass
-Navigate to *Storage* > *VolumeSnapshotClasses* and click *ocs-storagecluster-rbdplugin-snapclass*
-
-Click YAML view to modify values `deletionPolicy` and `labels` as shown below:
-
-```diff
-  apiVersion: snapshot.storage.k8s.io/v1
-- deletionPolicy: Delete
-+ deletionPolicy: Retain
-  driver: openshift-storage.rbd.csi.ceph.com
-  kind: VolumeSnapshotClass
-  metadata:
-    name: ocs-storagecluster-rbdplugin-snapclass
-+   labels:
-+     velero.io/csi-volumesnapshot-class: "true"
-```
 
 Setting a `DeletionPolicy` of `Retain` on the *VolumeSnapshotClass* will preserve the volume snapshot in the storage system for the lifetime of the Velero backup and will prevent the deletion of the volume snapshot, in the storage system, in the event of a disaster where the namespace with the *VolumeSnapshot* object may be lost.
 
 The Velero CSI plugin, to backup CSI backed PVCs, will choose the VolumeSnapshotClass in the cluster that has the same driver name and also has the `velero.io/csi-volumesnapshot-class: "true"` label set on it.
+
+- Using OpenShift CLI
+
+  ```sh
+  oc patch volumesnapshotclass ocs-storagecluster-rbdplugin-snapclass --type=merge -p '{"deletionPolicy": "Retain"}'
+  oc label volumesnapshotclass ocs-storagecluster-rbdplugin-snapclass velero.io/csi-volumesnapshot-class="true"
+  ```
+- Using OpenShift Web Console
+
+  Navigate to *Storage* > *VolumeSnapshotClasses* and click *ocs-storagecluster-rbdplugin-snapclass*
+
+  Click YAML view to modify values `deletionPolicy` and `labels` as shown below:
+
+  ```diff
+    apiVersion: snapshot.storage.k8s.io/v1
+  - deletionPolicy: Delete
+  + deletionPolicy: Retain
+    driver: openshift-storage.rbd.csi.ceph.com
+    kind: VolumeSnapshotClass
+    metadata:
+      name: ocs-storagecluster-rbdplugin-snapclass
+  +   labels:
+  +     velero.io/csi-volumesnapshot-class: "true"
+  ```
 ## Back up application
 From side menu, navigate to *Operators* > *Installed Operators*
 Under *Project* `openshift-adp`, click on *OADP Operator*.
