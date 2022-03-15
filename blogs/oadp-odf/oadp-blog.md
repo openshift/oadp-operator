@@ -125,18 +125,20 @@ Object Bucket Claim creates a persistent storage bucket for Velero to store back
 
 ### Gathering information from Object Bucket
 1. Gathering bucket name and host 
-
-   Click on Object Bucket *obc-default-oadp-bucket* and select YAML view
-
-   ![](obc-default-oadp-bucket.png)
-   Take note of the following information which may differ from the guide:
-    - `.spec.endpoint.bucketName`. Seen in my screenshot as `oadp-bucket-c21e8d02-4d0b-4d19-a295-cecbf247f51f`
+   - Using OpenShift CLI:
       - or run `oc get configmap odrbucket -n default -o jsonpath='{.data.BUCKET_NAME}{"\n"}'`
-    - `.spec.endpoint.bucketHost`: Seen in my screenshot as `s3.openshift-storage.svc`
       - or run `oc get configmap odrbucket -n default -o jsonpath='{.data.BUCKET_HOST}{"\n"}'`
+   - Using OpenShift Web Console:
+
+     1. Click on Object Bucket *obc-default-oadp-bucket* and select YAML view
+
+        ![](obc-default-oadp-bucket.png)
+        Take note of the following information which may differ from the guide:
+          - `.spec.endpoint.bucketName`. Seen in my screenshot as `oadp-bucket-c21e8d02-4d0b-4d19-a295-cecbf247f51f`
+          - `.spec.endpoint.bucketHost`: Seen in my screenshot as `s3.openshift-storage.svc`
 
 2. Gather oadp-bucket secret
-   - Using terminal commands
+   - Using OpenShift CLI:
       1. Get *AWS_ACCESS_KEY*
         ```
         oc get secret oadp-bucket -n default -o jsonpath='{.data.AWS_ACCESS_KEY_ID}{"\n"}'
