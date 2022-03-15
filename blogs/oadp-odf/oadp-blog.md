@@ -126,8 +126,15 @@ Object Bucket Claim creates a persistent storage bucket for Velero to store back
 ### Gathering information from Object Bucket
 1. Gathering bucket name and host 
    - Using OpenShift CLI:
-      - or run `oc get configmap odrbucket -n default -o jsonpath='{.data.BUCKET_NAME}{"\n"}'`
-      - or run `oc get configmap odrbucket -n default -o jsonpath='{.data.BUCKET_HOST}{"\n"}'`
+      - Get bucket name
+        
+        ```
+        oc get configmap odrbucket -n default -o jsonpath='{.data.BUCKET_NAME}{"\n"}'
+        ```
+      - Get bucket host
+        ```
+        oc get configmap odrbucket -n default -o jsonpath='{.data.BUCKET_HOST}{"\n"}'
+        ```
    - Using OpenShift Web Console:
 
      1. Click on Object Bucket *obc-default-oadp-bucket* and select YAML view
