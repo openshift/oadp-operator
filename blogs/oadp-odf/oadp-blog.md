@@ -126,12 +126,12 @@ Object Bucket Claim creates a persistent storage bucket for Velero to store back
 ### Gathering information from Object Bucket
 1. Gathering bucket name and host 
    - Using OpenShift CLI:
-      - Get bucket name
+      - Get *bucket name*
         
         ```
         oc get configmap odrbucket -n default -o jsonpath='{.data.BUCKET_NAME}{"\n"}'
         ```
-      - Get bucket host
+      - Get *bucket host*
         ```
         oc get configmap odrbucket -n default -o jsonpath='{.data.BUCKET_HOST}{"\n"}'
         ```
@@ -161,8 +161,8 @@ Object Bucket Claim creates a persistent storage bucket for Velero to store back
    
    Note: regardless of the cloud provider, the secret field names seen here may contain *AWS_\**.
 3. Now you should have the following information:
-   - *bucketName*
-   - *bucketHost*
+   - *bucket name*
+   - *bucket host*
    - *AWS_ACCESS_KEY_ID*
    - *AWS_SECRET_ACCESS_KEY*
 ## Deploying an application
@@ -243,8 +243,8 @@ Create an instance of the DataProtectionApplication (DPA) CR by clicking on `Cre
 Select *Configure via*: `YAML view`
 
 Finally, copy the values provided below and update fields with comments with information obtained earlier.
-- update `.spec.backupLocations[0].objectStorage.bucket` with `bucketName` from earlier steps.
-- update `.spec.backupLocations[0].config.s3Url` with `bucketHost` from earlier steps.
+- update `.spec.backupLocations[0].objectStorage.bucket` with **bucket name** from earlier steps.
+- update `.spec.backupLocations[0].config.s3Url` with **bucket host** from earlier steps.
 
 ```
 apiVersion: oadp.openshift.io/v1alpha1
