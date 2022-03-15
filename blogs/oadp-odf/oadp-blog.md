@@ -144,7 +144,7 @@ Object Bucket Claim creates a persistent storage bucket for Velero to store back
    - *AWS_ACCESS_KEY_ID*
    - *AWS_SECRET_ACCESS_KEY*
 ## Deploying an application
-Since we are using OpenShift Data Foundation, we can use common application definition across cloud providers regardless of available storage class.
+Since we are using OpenShift Data Foundation, we can use common application definitions across cloud providers regardless of available storage class.
 
 Clone our demo apps repository and enter the cloned repository.
 ```sh
