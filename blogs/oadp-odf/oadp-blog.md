@@ -358,7 +358,7 @@ Click *Create*.
 
 The status of `restore` should eventually show `Phase: Completed`
 ## Uhh what? Disasters?
-Someone forgot their breakfast and their brain is deprived of minerals. They proceeded to delete `rocket-chat` namespace.
+Someone forgot their breakfast and their brain is deprived of minerals. They proceeded to delete the `rocket-chat` namespace.
 
 Navigate to *Home* > *Projects* > `rocket-chat`
 ![](deleteRocketChat.png)
