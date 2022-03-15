@@ -20,6 +20,7 @@ Red Hat® OpenShift® Data Foundation is software-defined storage for containers
   - [Pre-requisites](#pre-requisites)
   - [Installing OpenShift Data Foundation Operator](#installing-openshift-data-foundation-operator)
     - [Creating StorageSystem](#creating-storagesystem)
+    - [Verify OpenShift Data Foundation Operator installation](#verify-openshift-data-foundation-operator-installation)
     - [Creating Object Bucket Claim](#creating-object-bucket-claim)
     - [Gathering information from Object Bucket](#gathering-information-from-object-bucket)
   - [Deploying an application](#deploying-an-application)
@@ -87,16 +88,26 @@ We will be using OpenShift Data Foundation to simplify application deployment ac
 
 ![OpenShift Data Foundation Installation finished](ODFfinishedInstall.png)
 
-1. Click *Create StorageSystem* button after it turned blue.
+1. Click *Create StorageSystem* button after the install is completed (turns blue).
     
 <!-- 4. Select *Create a new StorageClass using local storage devices* and click *Next*.
     ![](ODFlocalStorageDev.png) -->
 2. Select *Create a new StorageClass* and follow the *Creating an OpenShift Data Foundation cluster* steps for your cloud provider.
-   - [Amazon Web Services(AWS)](https://access.redhat.com/documentation/en-us/red_hat_openshift_data_foundation/4.9/html/deploying_openshift_data_foundation_using_amazon_web_services/deploy-using-dynamic-storage-devices-aws#creating-an-openshift-data-foundation-service_cloud-storage)
-   - [Google Cloud (GCP)](https://access.redhat.com/documentation/en-us/red_hat_openshift_data_foundation/4.9/html/deploying_and_managing_openshift_data_foundation_using_google_cloud/deploying_openshift_data_foundation_on_google_cloud#creating-an-openshift-data-foundation-service_gcp)
-   - [Microsoft Azure](https://access.redhat.com/documentation/en-us/red_hat_openshift_data_foundation/4.9/html/deploying_openshift_data_foundation_using_microsoft_azure_and_azure_red_hat_openshift/deploying-openshift-data-foundation-on-microsoft-azure_azure#creating-an-openshift-data-foundation-service_azure)
-   - [VMware vSphere](https://access.redhat.com/documentation/en-us/red_hat_openshift_data_foundation/4.9/html/deploying_openshift_data_foundation_on_vmware_vsphere/deploy-using-dynamic-storage-devices-vmware#creating-an-openshift-data-foundation-service_cloud-storage)
+3. [Go to Product Documentation for Red Hat OpenShift Data Foundation 4.9](https://access.redhat.com/documentation/en-us/red_hat_openshift_data_foundation/4.9)
+    1. Filter *Category* by **Deploying**
+    2. Open deployment documentation your cloud provider.
+    3. Follow *Creating an OpenShift Data Foundation cluster* instructions.
 
+### Verify OpenShift Data Foundation Operator installation
+
+You can validate the successful deployment of OpenShift Data Foundationn cluster following *Verifying OpenShift Data Foundation deployment* in the previous deployment documentation or with the following command:
+```sh
+oc get storagecluster -n openshift-storage ocs-storagecluster -o jsonpath='{.status.phase}{"\n"}'
+```
+And for the Multi-Cluster Gateway (MCG):
+```sh
+oc get noobaa -n openshift-storage noobaa -o jsonpath='{.status.phase}{"\n"}'
+```
 ### Creating Object Bucket Claim
 Object Bucket Claim creates a persistent storage bucket for Velero to store backed up kubernetes manifests.
 
