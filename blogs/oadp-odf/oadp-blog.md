@@ -117,9 +117,8 @@ Object Bucket Claim creates a persistent storage bucket for Velero to store back
    When the *Status* is *Bound*, the bucket is ready.
 
 ### Gathering information from Object Bucket
-1. Click on Object Bucket *obc-default-oadp-bucket*
-   
-   This Object Bucket is an S3 storage provided by OpenShift Data Foundation with local endpoint at 
+1. Click on Object Bucket *obc-default-oadp-bucket* and select YAML view
+
    ![](obc-default-oadp-bucket.png)
    Take note of the following information which may differ from the guide:
     - `.spec.endpoint.bucketName`. Seen in my screenshot as `oadp-bucket-c21e8d02-4d0b-4d19-a295-cecbf247f51f`
