@@ -129,11 +129,11 @@ Object Bucket Claim creates a persistent storage bucket for Velero to store back
       - Get *bucket name*
         
         ```
-        oc get configmap odrbucket -n default -o jsonpath='{.data.BUCKET_NAME}{"\n"}'
+        oc get configmap oadp-bucket -n default -o jsonpath='{.data.BUCKET_NAME}{"\n"}'
         ```
       - Get *bucket host*
         ```
-        oc get configmap odrbucket -n default -o jsonpath='{.data.BUCKET_HOST}{"\n"}'
+        oc get configmap oadp-bucket -n default -o jsonpath='{.data.BUCKET_HOST}{"\n"}'
         ```
    - Using OpenShift Web Console:
 
