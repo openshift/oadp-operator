@@ -6,7 +6,7 @@ reviewers:
   - "@shawn_hurley"
   - "@alaypatel07"
   - "@dymurray"
-  - "eemcmullan"
+  - "@eemcmullan"
 approvers:
   - "@shawn_hurley"
   - "@alaypatel07"
