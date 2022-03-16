@@ -29,7 +29,7 @@ Red Hat® OpenShift® Data Foundation is software-defined storage for containers
     - [Create the DataProtectionApplication Custom Resource](#create-the-dataprotectionapplication-custom-resource)
     - [Verify install](#verify-install)
     - [Modifying VolumeSnapshotClass](#modifying-volumesnapshotclass)
-  - [Back up application](#back-up-application)
+  - [Backup application](#backup-application)
   - [Uhh what? Disasters?](#uhh-what-disasters)
   - [Restore application](#restore-application)
   - [Conclusion](#conclusion)
@@ -343,7 +343,7 @@ The Velero CSI plugin, to backup CSI backed PVCs, will choose the VolumeSnapshot
   +   labels:
   +     velero.io/csi-volumesnapshot-class: "true"
   ```
-## Back up application
+## Backup application
 From side menu, navigate to *Operators* > *Installed Operators*
 Under *Project* `openshift-adp`, click on *OADP Operator*.
 Under *Provided APIs* > *Backup*, click on *Create instance*
@@ -356,7 +356,7 @@ In IncludedNamespaces, add `rocket-chat`
 
 Click *Create*.
 
-The status of `restore` should eventually show `Phase: Completed`
+The status of `backup` should eventually show `Phase: Completed`
 ## Uhh what? Disasters?
 Someone forgot their breakfast and their brain is deprived of minerals. They proceeded to delete the `rocket-chat` namespace.
 
