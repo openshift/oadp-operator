@@ -32,11 +32,11 @@ status: provisional
     * Upstream vs downstream
 
 ## Summary
-
+OADP operator currently supports backup and restore of applications backed by CSI volumes. It takes advantage of Velero CSI plugin to achieve the same. However, these snapshots are local to the Openshift cluster and cannot be recovered if the cluster gets deleted accidentally or if there is a disaster. In order to overcome this issue, DataMover is made available for users to store the snapshot in a remote storage. 
 
 ## Motivation
 
-Create an extensible design to support various data movers. Vendors can bring their own data mover controller and implementation, and use that with OADP operator.
+Create an extensible design to support various data movers that can be integrated with OADP operator. Vendors should be able to bring their own data mover controller and implementation, and use that with OADP operator.
 
 ## Goals
 * Create an extensible data mover solution
@@ -48,6 +48,14 @@ Create an extensible design to support various data movers. Vendors can bring th
 ## Non Goals
 * Maintain 3rd party data mover implementations
 * Adding a status watch controller to Velero
+
+## User stories
+
+Story 1: 
+As an application developer, I would like to save the CSI snaphots in a S3 bucket. 
+
+Story 2:
+As a cluster admin, I would like to be able to restore CSI snapshots if disaster happens.
 
 ## Design & Implementation details
 
