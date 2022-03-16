@@ -32,7 +32,7 @@ status: provisional
     * Upstream vs downstream
 
 ## Summary
-OADP operator currently supports backup and restore of applications backed by CSI volumes. It takes advantage of Velero CSI plugin to achieve the same. However, these snapshots are local to the Openshift cluster and cannot be recovered if the cluster gets deleted accidentally or if there is a disaster. In order to overcome this issue, DataMover is made available for users to store the snapshot in a remote storage. 
+OADP operator currently supports backup and restore of applications backed by CSI volumes. It takes advantage of Velero CSI plugin to achieve the same. However, these snapshots are local to the Openshift cluster and cannot be recovered if the cluster gets deleted accidentally or if there is a disaster. In order to overcome this issue, DataMover is made available for users to save the snapshots in a remote storage. 
 
 ## Motivation
 
