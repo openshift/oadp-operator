@@ -25,14 +25,12 @@ status: provisional
 
 ## Open questions
 
-* PVC mover/ volumesnapshot mover
-    * Talk through how are we going to support these two types
-    * Snapshots as de-facto standard in the Kube world
-* Tech preview conversation
-    * Upstream vs downstream
+* PVC/VolumeSnapshot mover - Should the Datamover Backup process be triggered off a PVC or a snapshot? 
+    * Should we support both types and provide user an option to pick either PVC or snapshot?
+
 
 ## Summary
-OADP operator currently supports backup and restore of applications backed by CSI volumes. It takes advantage of Velero CSI plugin to achieve the same. However, these snapshots are local to the Openshift cluster and cannot be recovered if the cluster gets deleted accidentally or if there is a disaster. In order to overcome this issue, DataMover is made available for users to save the snapshots in a remote storage. 
+OADP operator currently supports backup and restore of applications backed by CSI volumes by leveraging the Velero CSI plugin. The problem with CSI snapshots on some providers such as ODF is that these snapshots are local to the Openshift cluster and cannot be recovered if the cluster gets deleted accidentally or if there is a disaster. In order to overcome this issue, DataMover is made available for users to save the snapshots in a remote storage. 
 
 ## Motivation
 
@@ -144,7 +142,7 @@ We will provide a sample codebase which the vendors will be able to extend and i
 
 ### Default OADP Data Mover controller
 
-VolSync will be used as the default Data Mover for OADP and `restic` will be the supported method for backup & restore of PVCs. Restic repository details are configured in a `secret` object which gets used by the VolSync's resources. This design takes advantage of VolSync's two resources - `ReplicationSource` & `ReplicationDestination`. `ReplicationSource` object helps with taking a backup of the PVCs and using restic to move it to the storage specified in the restic secret. `ReplicationDestination` object takes care of restoring the backup from the restic repository. There will be a 1:1 relationship between the replication src/dest CRs and PVCs.
+VolSync will be used as the default Data Mover for OADP and `restic` will be the supported method for backup & restore of PVCs. When OADP operator gets installed, VolSync will be installed alongside. Method of installation is TBD (Waiting on VolSync operator to be available. If not, we will do a  helm install). Restic repository details are configured in a `secret` object which gets used by the VolSync's resources. This design takes advantage of VolSync's two resources - `ReplicationSource` & `ReplicationDestination`. `ReplicationSource` object helps with taking a backup of the PVCs and using restic to move it to the storage specified in the restic secret. `ReplicationDestination` object takes care of restoring the backup from the restic repository. There will be a 1:1 relationship between the replication src/dest CRs and PVCs.
 
 We will follow a two phased approach for implementation of this controller. For phase 1, the user will create a restic secret. Using that secret as source, the controller will create on-demand secrets for every backup/restore request. For phase 2, the user will provide the restic repo details. This may be an encryption password and BSL reference, and the controller will create restic secret using BSL info, or they can supply their own backup target repo and access credentials. We will be focussing on phase 1 approach for this design.
 
