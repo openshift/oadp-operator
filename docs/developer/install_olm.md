@@ -21,7 +21,7 @@ To install CRDs and deploy the OADP operator to the `openshift-adp`
  namespace, run:
 
 ```
-$ make deploy
+$ make deploy-olm
 ```
 
 ### Installing Velero + Restic
