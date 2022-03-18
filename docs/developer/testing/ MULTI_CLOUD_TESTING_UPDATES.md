@@ -18,7 +18,7 @@ Our Cloud credential used for BSL is present at this location.
 
 Here since they are two profiles, we are using the concept of credentialsFile in BSL config [ref] (https://github.com/vmware-tanzu/velero/issues/3428)
 
-We are also mounting credentials [here]  (https://github.com/deepakraj1997/oadp-operator/blob/multi-cloud-e2e-master-rebase/pkg/credentials/credentials.go#L38)
+We are also mounting credentials [here](https://github.com/openshift/oadp-operator/blob/master/pkg/credentials/credentials.go#L37)
 
 #### GCP
 
@@ -28,9 +28,9 @@ The CI Cloud credential is present at this location in OpenShift CI Environment,
 Our Cloud credential used for BSL is present at this location.
 `/var/run/oadp-credentials/gcp-credentials`
 
-Here since they are two different credentials and not profiles, we are using the concept of credentialsFile in BSL config [ref] (https://github.com/vmware-tanzu/velero/issues/3430)
+Here since they are two different credentials and not profiles, we are using the concept of credentialsFile in BSL config [ref](https://github.com/vmware-tanzu/velero/issues/3430)
 
-We are also mounting credentials [here]  (https://github.com/deepakraj1997/oadp-operator/blob/multi-cloud-e2e-master-rebase/pkg/credentials/credentials.go#L48)
+We are also mounting credentials [here](https://github.com/openshift/oadp-operator/blob/master/pkg/credentials/credentials.go#L47)
 
 #### [Azure](https://github.com/vmware-tanzu/velero/issues/3429)
 
