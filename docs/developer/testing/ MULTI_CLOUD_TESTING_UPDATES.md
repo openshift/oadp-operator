@@ -10,10 +10,10 @@ In ideal cases, both the credentials / profile for BSL and VSL would be the same
 
 #### AWS Multi Profile Support
 
-The CI Cloud credential is present at this location in OpenShift CI Cluster,
+The CI Cloud credential is present at this location in OpenShift CI Cluster: 
 `/var/run/secrets/ci.openshift.io/cluster-profile/.awscred` 
 
-Our Cloud credential used for BSL is present at this location.
+Our Cloud credential used for BSL is present at this location: 
 `/var/run/oadp-credentials/new-aws-credentials`
 
 Here since they are two profiles, we are using the concept of credentialsFile in BSL config [ref] (https://github.com/vmware-tanzu/velero/issues/3428)
@@ -22,10 +22,10 @@ We are also mounting credentials [here](https://github.com/openshift/oadp-operat
 
 #### GCP
 
-The CI Cloud credential is present at this location in OpenShift CI Cluster,
+The CI Cloud credential is present at this location in OpenShift CI Cluster: 
 `/var/run/secrets/ci.openshift.io/cluster-profile/gce.json` 
 
-Our Cloud credential used for BSL is present at this location.
+Our Cloud credential used for BSL is present at this location: 
 `/var/run/oadp-credentials/gcp-credentials`
 
 Here since they are two different credentials and not profiles, we are using the concept of credentialsFile in BSL config [ref](https://github.com/vmware-tanzu/velero/issues/3430)
@@ -34,15 +34,15 @@ We are also mounting credentials [here](https://github.com/openshift/oadp-operat
 
 #### [Azure](https://github.com/vmware-tanzu/velero/issues/3429)
 
-The CI Cloud credential is present at this location in OpenShift CI Cluster,
+The CI Cloud credential is present at this location in OpenShift CI Cluster: 
 `/var/run/secrets/ci.openshift.io/cluster-profile/osServicePrincipal.json` 
 
-Our Cloud credential used for BSL is present at this location.
+Our Cloud credential used for BSL is present at this location: 
 `/var/run/oadp-credentials/azure-credentials`
 
-The required variables to e2e tests are 
+The required variables for e2e tests are 
 
-For object storage with backup of registy support
+For object storage with backup of registy support, We need the below credentials
 ```
 {
   "subscriptionId": "xxxxx",
@@ -55,7 +55,7 @@ For object storage with backup of registy support
 }
 ```
 
-Assuming only the below is given to the volume backup credential
+The below is given to the volume backup credentials in CI Environment
 
 ```
 {
@@ -66,7 +66,7 @@ Assuming only the below is given to the volume backup credential
 }
 ```
 
-The resource group is different in OpenShift CI environment. After some research, it was found that the resource group is same as the cluster name which can be derived from 
+The resource group is different in OpenShift CI environment. After some research, it was found that the resource group is same as the "<cluster_name>-rg" where the cluster group can be derived from
 
 ```
 sh-4.4$ cat metadata.json 
