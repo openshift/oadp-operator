@@ -190,8 +190,10 @@ func RunMustGather(artifact_dir string) error {
 	mustGatherCmd := "must-gather"
 	mustGatherImg := "--image=quay.io/konveyor/oadp-must-gather:latest"
 	destDir := "--dest-dir=" + artifact_dir
+	logCmdPmt := "--"
+	logCmd := "gather_logs_without_zip"
 
-	cmd := exec.Command(ocClient, ocAdmin, mustGatherCmd, mustGatherImg, destDir)
+	cmd := exec.Command(ocClient, ocAdmin, mustGatherCmd, mustGatherImg, destDir, logCmdPmt, logCmd)
 	_, err := cmd.Output()
 	return err
 }
