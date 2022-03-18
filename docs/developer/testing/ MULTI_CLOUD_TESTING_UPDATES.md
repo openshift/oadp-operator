@@ -93,12 +93,12 @@ export OADP_CRED_DIR=/Users/drajds/.aws
 export CI_CRED_FILE=/Users/drajds/.aws/ci-credentials
 ```
 
-VSL_REGION - the region the cluster is spawned on
-CREDS_SECRET_REF - reference for VSL (& BSL if not using different profile)
-OADP_CRED_FILE - credentials file for BSL
-OADP_BUCKET_FILE - bucket file for BSL - has only the bucket name - no json
-CLUSTER_PROFILE_DIR - directory containing credentials for VSL
-OADP_CRED_DIR - directory containing credentials and bucket file for BSL
+* VSL_REGION - the region the cluster is spawned on
+* CREDS_SECRET_REF - reference for VSL (& BSL if not using different profile)
+* OADP_CRED_FILE - credentials file for BSL
+* OADP_BUCKET_FILE - bucket file for BSL - has only the bucket name - no json
+* CLUSTER_PROFILE_DIR - directory containing credentials for VSL
+* OADP_CRED_DIR - directory containing credentials and bucket file for BSL
 
 For GCE & Azure, put your credentials file with name `${OADP_CRED_DIR}/<provider>-credentials` and bucket with name `${OADP_CRED_DIR}/azure-velero-bucket-name`
 
