@@ -6,40 +6,38 @@ Running backup/restore test cases with cloud-provider specific snapshots enabled
 The Test Suite now takes different env variables related to the cloud as flags and create the VSLs based on that cloud provider. Validating the backup / restore test cases on the same.
 
 ### How multiple profiles are enabled to support Backup / Restore.
-In ideal cases, both the credentials / profile for BSL and VSL would be the same and usually we dont mention the separate creds for them, but this is different in CI environments. In CI environment, the cluster is provisioned in CI Cloud / Cluster which we dont have access to, hence supporting volume backup using our credentials which is mounted in CI environment is not a valid option. Hence we are using different methods to support these.
+In ideal cases, both the credentials / profile for BSL and VSL would be the same and usually we dont mention the separate credentials for them, but this is different in CI environments. In a OpenShift / Prow CI environment, the cluster is provisioned in either AWS / GCP / Azure Cloud which we dont have access to, hence supporting volume backup using our credentials which is mounted in OpenShift CI environment is not a valid option. Hence we are using different methods to support these.
 
 #### AWS Multi Profile Support
 
-The CI Cloud cred is present at this location in CI Environment,
+The CI Cloud credential is present at this location in OpenShift CI Environment,
 `/var/run/secrets/ci.openshift.io/cluster-profile/.awscred` 
 
-Our Cloud Cred used for BSL is present at this location.
+Our Cloud credential used for BSL is present at this location.
 `/var/run/oadp-credentials/new-aws-credentials`
 
-Here since they are two profiles, we are using the concept of credentialsFile in BSL config ref: https://github.com/vmware-tanzu/velero/issues/3428.
+Here since they are two profiles, we are using the concept of credentialsFile in BSL config [ref] (https://github.com/vmware-tanzu/velero/issues/3428)
 
-We are also mounting credentials here: 
-https://github.com/deepakraj1997/oadp-operator/blob/multi-cloud-e2e-master-rebase/pkg/credentials/credentials.go#L38
+We are also mounting credentials [here]  (https://github.com/deepakraj1997/oadp-operator/blob/multi-cloud-e2e-master-rebase/pkg/credentials/credentials.go#L38)
 
 #### GCP
 
-The CI Cloud cred is present at this location in CI Environment,
+The CI Cloud credential is present at this location in OpenShift CI Environment,
 `/var/run/secrets/ci.openshift.io/cluster-profile/gce.json` 
 
-Our Cloud Cred used for BSL is present at this location.
+Our Cloud credential used for BSL is present at this location.
 `/var/run/oadp-credentials/gcp-credentials`
 
-Here since they are two different credentials and not profiles, we are using the concept of credentialsFile in BSL config ref: https://github.com/vmware-tanzu/velero/issues/3430.
+Here since they are two different credentials and not profiles, we are using the concept of credentialsFile in BSL config [ref] (https://github.com/vmware-tanzu/velero/issues/3430)
 
-We are also mounting credentials here: 
-https://github.com/deepakraj1997/oadp-operator/blob/multi-cloud-e2e-master-rebase/pkg/credentials/credentials.go#L48
+We are also mounting credentials [here]  (https://github.com/deepakraj1997/oadp-operator/blob/multi-cloud-e2e-master-rebase/pkg/credentials/credentials.go#L48)
 
 #### [Azure](https://github.com/vmware-tanzu/velero/issues/3429)
 
-The CI Cloud cred is present at this location in CI Environment,
+The CI Cloud credential is present at this location in OpenShift CI Environment,
 `/var/run/secrets/ci.openshift.io/cluster-profile/osServicePrincipal.json` 
 
-Our Cloud Cred used for BSL is present at this location.
+Our Cloud credential used for BSL is present at this location.
 `/var/run/oadp-credentials/azure-credentials`
 
 The required variables to e2e tests are 
@@ -57,7 +55,7 @@ For object storage with backup of registy support
 }
 ```
 
-Assuming only the below is given to the volume backup cred
+Assuming only the below is given to the volume backup credential
 
 ```
 {
@@ -68,7 +66,7 @@ Assuming only the below is given to the volume backup cred
 }
 ```
 
-The resource group is different in CI environment. After some research, it was found that the resource group is same as the cluster name which can be derived from 
+The resource group is different in OpenShift CI environment. After some research, it was found that the resource group is same as the cluster name which can be derived from 
 
 ```
 sh-4.4$ cat metadata.json 
