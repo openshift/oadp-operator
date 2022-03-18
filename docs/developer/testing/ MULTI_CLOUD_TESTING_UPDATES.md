@@ -131,3 +131,10 @@ export AZURE_RESOURCE_FILE=/Users/drajds/.azure/resource.yaml
 export OADP_BUCKET_FILE=/Users/drajds/.azure/bucket
 export OADP_CRED_DIR=/Users/drajds/.azure
 ```
+
+* `OADP_CRED_DIR` - is a directory that contains
+  * bsl-<cloud>-credentials
+  * new-velero-bucket-name
+* `CLUSTER_PROFILE_DIR` - is a directory that contains
+  * vsl/ci-<cloud>-credentials
+* `OADP_BUCKET_FILE` - this file contains name of the bucket in plain text.
