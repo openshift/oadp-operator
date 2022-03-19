@@ -721,37 +721,37 @@ func (r *DPAReconciler) parseAzureSecret(secret corev1.Secret, secretKey string)
 
 		switch {
 		case matchedStorageKey:
-			storageKeyValue, err := r.getMatchedKeyValue("AZURE_STORAGE_ACCOUNT_ACCESS_KEY=", line)
+			storageKeyValue, err := r.getMatchedKeyValue("AZURE_STORAGE_ACCOUNT_ACCESS_KEY", line)
 			if err != nil {
 				return azcreds, err
 			}
 			azcreds.strorageAccountKey = storageKeyValue
 		case matchedSubscriptionId:
-			subscriptionIdValue, err := r.getMatchedKeyValue("AZURE_SUBSCRIPTION_ID=", line)
+			subscriptionIdValue, err := r.getMatchedKeyValue("AZURE_SUBSCRIPTION_ID", line)
 			if err != nil {
 				return azcreds, err
 			}
 			azcreds.subscriptionID = subscriptionIdValue
 		case matchedCliendId:
-			clientIdValue, err := r.getMatchedKeyValue("AZURE_CLIENT_ID=", line)
+			clientIdValue, err := r.getMatchedKeyValue("AZURE_CLIENT_ID", line)
 			if err != nil {
 				return azcreds, err
 			}
 			azcreds.clientID = clientIdValue
 		case matchedClientsecret:
-			clientSecretValue, err := r.getMatchedKeyValue("AZURE_CLIENT_SECRET=", line)
+			clientSecretValue, err := r.getMatchedKeyValue("AZURE_CLIENT_SECRET", line)
 			if err != nil {
 				return azcreds, err
 			}
 			azcreds.clientSecret = clientSecretValue
 		case matchedResourceGroup:
-			resourceGroupValue, err := r.getMatchedKeyValue("AZURE_RESOURCE_GROUP=", line)
+			resourceGroupValue, err := r.getMatchedKeyValue("AZURE_RESOURCE_GROUP", line)
 			if err != nil {
 				return azcreds, err
 			}
 			azcreds.resourceGroup = resourceGroupValue
 		case matchedTenantId:
-			tenantIdValue, err := r.getMatchedKeyValue("AZURE_TENANT_ID=", line)
+			tenantIdValue, err := r.getMatchedKeyValue("AZURE_TENANT_ID", line)
 			if err != nil {
 				return azcreds, err
 			}
