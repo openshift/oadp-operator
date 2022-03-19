@@ -86,7 +86,7 @@ func (b BucketReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 			b.EventRecorder.Event(&bucket, corev1.EventTypeWarning, "UnableToParseAnnotation", fmt.Sprintf("unable to parse annotation: %v, use \"1\", \"t\", \"T\", \"true\", \"TRUE\", \"True\" or \"0\", \"f\", \"F\", \"false\", \"FALSE\", \"False\"", err))
 			return ctrl.Result{Requeue: true}, nil
 		}
-		if  shouldDelete && bucket.DeletionTimestamp != nil {
+		if shouldDelete && bucket.DeletionTimestamp != nil {
 			deleted, err := clnt.Delete()
 			if err != nil {
 				log.Error(err, "unable to delete bucket")
@@ -100,7 +100,7 @@ func (b BucketReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 			}
 			log.Info("bucket deleted")
 			b.EventRecorder.Event(&bucket, corev1.EventTypeNormal, "BucketDeleted", fmt.Sprintf("bucket %v deleted", bucket.Spec.Name))
-	
+
 			//Removing oadpFinalizerBucket from bucket.Finalizers
 			bucket.Finalizers = removeKey(bucket.Finalizers, oadpFinalizerBucket)
 			err = b.Client.Update(ctx, &bucket, &client.UpdateOptions{})

@@ -48,9 +48,9 @@ ENVTEST_K8S_VERSION = 1.21
 
 .PHONY:ginkgo
 ginkgo: # Make sure ginkgo is in $GOPATH/bin
-	go get github.com/onsi/ginkgo/ginkgo
-	go get github.com/onsi/ginkgo/v2/ginkgo
-	go get github.com/onsi/gomega/...
+	go get -d github.com/onsi/ginkgo/ginkgo
+	go get -d github.com/onsi/ginkgo/v2/ginkgo
+	go get -d github.com/onsi/gomega/...
 
 # VERSION defines the project version for the bundle.
 # Update this value when you upgrade the version of your project.
@@ -243,7 +243,7 @@ submit-coverage:
 	fi
 	rm -f codecov tmp.*
 
-# go-get-tool will 'go get' any package $2 and install it to $1.
+# go-get-tool will 'go get -d' any package $2 and install it to $1.
 PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
 define go-get-tool
 @[ -f $(1) ] || { \
@@ -252,7 +252,7 @@ TMP_DIR=$$(mktemp -d) ;\
 cd $$TMP_DIR ;\
 go mod init tmp ;\
 echo "Downloading $(2)" ;\
-GOBIN=$(PROJECT_DIR)/bin go get $(2) ;\
+GOBIN=$(PROJECT_DIR)/bin go get -d $(2) ;\
 rm -rf $$TMP_DIR ;\
 }
 endef

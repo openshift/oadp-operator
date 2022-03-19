@@ -173,8 +173,8 @@ var _ = Describe("AWS backup restore tests", func() {
 			ApplicationNamespace: "mysql-persistent",
 			Name:                 "mysql-e2e",
 			BackupRestoreType:    CSI,
-			PreBackupVerify:   mysqlReady,
-			PostRestoreVerify: mysqlReady,
+			PreBackupVerify:      mysqlReady,
+			PostRestoreVerify:    mysqlReady,
 		}, nil),
 		Entry("Parks application <4.8.0", BackupRestoreCase{
 			ApplicationTemplate:  "./sample-applications/parks-app/manifest.yaml",
@@ -190,8 +190,8 @@ var _ = Describe("AWS backup restore tests", func() {
 			ApplicationNamespace: "mysql-persistent",
 			Name:                 "mysql-e2e",
 			BackupRestoreType:    RESTIC,
-			PreBackupVerify:   mysqlReady,
-			PostRestoreVerify: mysqlReady,
+			PreBackupVerify:      mysqlReady,
+			PostRestoreVerify:    mysqlReady,
 		}, nil),
 		Entry("Parks application >=4.8.0", BackupRestoreCase{
 			ApplicationTemplate:  "./sample-applications/parks-app/manifest4.8.yaml",
