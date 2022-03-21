@@ -39,7 +39,7 @@ Create an extensible design to support various data movers that can be integrate
 ## Goals
 * Create an extensible data mover solution
 * Supply a default data mover option 
-* Supply APIs for DataMover CRs (eg: DataMoverBackup, DataMoverRestore,DataMoverType)
+* Supply APIs for DataMover CRs (eg: DataMoverBackup, DataMoverRestore, DataMoverClass)
 * Supply a sample codebase for the Data Mover plugin and controller implementation
 
 
@@ -63,24 +63,24 @@ This design supports adding the data mover feature to the OADP operator and faci
 
 Note: We will be supporting VolSync as the default data mover. 
 
-The DataMoverBackup Controller will watch for DataMoverBackup CR. Likewise, DataMoverRestore Controller will watch for DataMoverRestore CR. Both of these CRs will have a reference to a DataMoverType. 
+The DataMoverBackup Controller will watch for DataMoverBackup CR. Likewise, DataMoverRestore Controller will watch for DataMoverRestore CR. Both of these CRs will have a reference to a DataMoverClass. 
 
-`DataMoverType` is a cluster scoped Custom Resource that will have details about the data mover provisioner. The provisioner will be responsbile for creating a DataMover plugin that will create a `DataMoverBackup` CR & `DataMoverRestore` CR. They will also be responsible for implementing the logic for DataMoverBackup & DataMoverRestore controller that corresponds to their data mover. The spec will also include a field to identify the PVCs that would be moved with the given provisioner. 
+`DataMoverClass` is a cluster scoped Custom Resource that will have details about the data mover provisioner. The provisioner (identified by the field `mover`) will be responsbile for creating a DataMover plugin that will create a `DataMoverBackup` CR & `DataMoverRestore` CR. They will also be responsible for implementing the logic for DataMoverBackup & DataMoverRestore controller that corresponds to their data mover. The spec will also include a field (`selector`) to identify the PVCs that would be moved with the given provisioner. 
 
 ```
 apiVersion: oadp.openshift.io/v1alpha1
-kind: DataMoverType
+kind: DataMoverClass
 metadata:
   annotations:
     oadp.openshift.io/default: "true"
   name: <name>
 spec:
-  provisioner: <VolSync>
-  pvcIdentifier: <tagname>
+  mover: <VolSync>
+  selector: <tagname>
 
 ```
 
-The above `DataMoverType` name will be referenced in `DataMoverBackup` & `DataMoverRestore` CRs. This will help in selecting the data mover implementation during runtime. If the `DataMoverType` name is not defined, then the default `DataMoverType` will be used, which in this case will be `VolSync`
+The above `DataMoverClass` name will be referenced in `DataMoverBackup` & `DataMoverRestore` CRs. This will help in selecting the data mover implementation during runtime. If the `DataMoverClass` name is not defined, then the default `DataMoverClass` will be used, which in this case will be `VolSync`
 
 ### Data Mover Backup
 
@@ -95,7 +95,7 @@ kind: DataMoverBackup
 metadata:
   name: <name>
 spec:
-  dataMoverType: <datamovertype name> 
+  DataMoverClass: <DataMoverClass name> 
   - type: <VolumeSnapshot|PVC>
     sourceClaimRef:
       name: <snapshot_content_name>|<pvc_name>
@@ -112,7 +112,7 @@ kind: DataMoverRestore
 metadata:
   name: <name>
 spec:
-  dataMoverType: <datamovertype name>
+  DataMoverClass: <DataMoverClass name>
   destinationClaimRef:
     name: <PVC_claim_name>
     namespace: <namespace>
@@ -128,7 +128,7 @@ kind: DataMoverRestore
 metadata:
   name: <name>
 spec:
-  dataMoverType: <datamovertype name>
+  DataMoverClass: <DataMoverClass name>
   destinationClaimRef:
     name: <PVC_claim_name>
     namespace: <namespace>
@@ -221,12 +221,12 @@ Data mover controller will clean up all controller-created resources after the p
 
 
 ### Support for multiple data mover plugins
-`DataMoveType` spec will support the following field,
-    `pvcIdentifier: <tagname>`
-PVC must be labelled with the `<tagname>`, to be moved by the specific `DataMoverType`. User/Admin of the cluster must label the PVCs with the required `<tagname>` and map it to a `DataMoverType`. If the PVCs are not labelled, it will be moved by the default datamover.
+`DataMoverClass` spec will support the following field,
+    `selector: <tagname>`
+PVC must be labelled with the `<tagname>`, to be moved by the specific `DataMoverClass`. User/Admin of the cluster must label the PVCs with the required `<tagname>` and map it to a `DataMoverClass`. If the PVCs are not labelled, it will be moved by the default datamover.
 
 #### Alternate options
-PVCs can be annotated with the `DataMoverType`, and when a backup is created, the controller will look at the DataMoverType and add it to the `DataMoverBackup` CR. 
+PVCs can be annotated with the `DataMoverClass`, and when a backup is created, the controller will look at the DataMoverClass and add it to the `DataMoverBackup` CR. 
 
  
 ---
