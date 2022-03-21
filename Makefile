@@ -324,7 +324,8 @@ endif
 .PHONY: catalog-build
 catalog-build: opm ## Build a catalog image.
 	$(OPM) index add --container-tool docker --mode semver --tag $(CATALOG_IMG) --bundles $(BUNDLE_IMGS) $(FROM_INDEX_OPT)
-
+catalog-build-replaces: opm ## Build a catalog image using replace mode
+	$(OPM) index add --container-tool docker --mode replaces --tag $(CATALOG_IMG) --bundles $(BUNDLE_IMGS) $(FROM_INDEX_OPT)
 # Push the catalog image.
 .PHONY: catalog-push
 catalog-push: ## Push a catalog image.

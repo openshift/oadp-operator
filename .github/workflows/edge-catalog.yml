@@ -1,0 +1,245 @@
+# This action publishes or update a catalog source that subscribe users to a specific branch or commit from the repository
+name: edge-catalog
+on:
+  # Get updated catalog source on every push
+  push: 
+  # Get updated catalog source on every pull_request
+  pull_request:
+  # Get updated catalog source for default branch on schedule
+  schedule:
+  - cron: '*/30 * * * *' #every 30 minutes
+env:
+  # Use docker.io for Docker Hub if empty
+  REGISTRY: ghcr.io
+  # github.repository as <account>/<repo>
+  IMAGE_NAME: ${{ github.repository }}
+jobs:
+  publish-new-edge-catalog:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      # This is used to complete the identity challenge
+      # with sigstore/fulcio when running outside of PRs.
+      id-token: write
+    env:
+      EVENT_NAME: ${{ github.event_name }}
+    steps:
+    - uses: actions/cache@v2
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+    # In this step, this action saves a list of existing images,
+    # the cache is created without them in the post run.
+    # It also restores the cache if it exists.
+    - uses: satackey/action-docker-layer-caching@v0.0.11
+      # Ignore the failure of a step and avoid terminating the job.
+      continue-on-error: true
+    - uses: actions/checkout@v2
+    - run: cat Makefile
+    - name: get git ref
+      id: git-ref
+      run: echo "::set-output name=GIT_REF::$(git rev-parse HEAD)"
+    - name: echo git-ref
+      run: echo ${{ steps.git-ref.outputs.GIT_REF }}
+    - name: echo build-tag
+      run: echo ${{ github.ref_name }}
+    - name: get year month date hour minutes
+      id: dateversion
+      run: echo "::set-output name=YMdHM::$(date -u +%Y%m%d%H%M)"
+    - name: echo dateversion
+      run: echo ${{ steps.dateversion.outputs.YMdHM }}
+
+    # Install the cosign tool except on PR
+    # https://github.com/sigstore/cosign-installer
+    - uses: actions/setup-go@v2
+      with:
+        go-version: '^1.16.6' # The Go version to download (if necessary) and use.
+    - run: go version
+    - name: install operator-sdk opm
+      run: |
+        export ARCH=$(case $(uname -m) in x86_64) echo -n amd64 ;; aarch64) echo -n arm64 ;; *) echo -n $(uname -m) ;; esac)
+        export OS=$(uname | awk '{print tolower($0)}')
+        export OPERATOR_SDK_DL_URL=https://github.com/operator-framework/operator-sdk/releases/download/v1.18.1
+        curl -LO ${OPERATOR_SDK_DL_URL}/operator-sdk_${OS}_${ARCH}
+        chmod +x operator-sdk_${OS}_${ARCH} && sudo mv operator-sdk_${OS}_${ARCH} /usr/local/bin/operator-sdk
+
+        export OPM_DL_URL=https://github.com/operator-framework/operator-registry/releases/download/v1.21.0
+        curl -LO ${OPM_DL_URL}/${OS}-${ARCH}-opm
+        chmod +x ${OS}-${ARCH}-opm && sudo mv ${OS}-${ARCH}-opm /usr/local/bin/opm
+    - name: Install cosign
+      if: ${{ github.event_name != 'pull_request' }}
+      uses: sigstore/cosign-installer@1e95c1de343b5b0c23352d6417ee3e48d5bcd422
+      with:
+        cosign-release: 'v1.4.0'
+    # Workaround: https://github.com/docker/build-push-action/issues/461
+    - name: Setup Docker buildx
+      uses: docker/setup-buildx-action@79abd3f86f79a9d68a23c75a09a9a85889262adf
+    # Login against a Docker registry except on PR
+    # https://github.com/docker/login-action
+    - name: Log into registry ${{ env.REGISTRY }}
+      if: ${{ github.event_name != 'pull_request' }}
+      uses: docker/login-action@28218f9b04b4f3f62068d7b6ce6ca5b26e35336c
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    - name: check ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-catalog:${{ steps.git-ref.outputs.GIT_REF }} can be pulled
+      id: catalog-git-ref-exist
+      continue-on-error: true
+      run: docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-catalog:${{ steps.git-ref.outputs.GIT_REF }}
+    - name: check ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-catalog:${{ github.ref_name }} can be pulled
+      id: catalog-build-tag-exist
+      continue-on-error: true
+      run: docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-catalog:${{ github.ref_name }}
+    # Extract metadata (tags, labels) for Docker
+    # https://github.com/docker/metadata-action
+    - name: Extract Docker metadata
+      id: meta-git-ref
+      if: ${{ steps.catalog-git-ref-exist.outcome != 'success' }}
+      uses: docker/metadata-action@98669ae865ea3cffbcbaa878cf57c20bbf1c6c38
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+        tags: |
+          type=raw,value=${{ steps.git-ref.outputs.GIT_REF }}
+    - name: Extract Docker metadata
+      id: meta-build-tag
+      if: ${{ steps.catalog-build-tag-exist.outcome != 'success' }}
+      uses: docker/metadata-action@98669ae865ea3cffbcbaa878cf57c20bbf1c6c38
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+        tags: |
+          type=raw,value=${{ github.ref_name }}
+    # Build and push Docker image with Buildx (don't push on PR)
+    # https://github.com/docker/build-push-action
+    - name: Build and push Docker image
+      id: build-and-push-git-ref
+      if: ${{ steps.catalog-git-ref-exist.outcome != 'success' }}
+      uses: docker/build-push-action@ad44023a93711e3deb337508980b4b5e9bcdc5dc
+      with:
+        context: .
+        push: ${{ github.event_name != 'pull_request' }}
+        tags: ${{ steps.meta-git-ref.outputs.tags }}
+        labels: ${{ steps.meta-git-ref.outputs.labels }}
+    # Build and push Docker image with Buildx (don't push on PR)
+    # https://github.com/docker/build-push-action
+    - name: Build and push Docker image
+      id: build-and-push-build-tag
+      if: ${{ steps.catalog-build-tag-exist.outcome != 'success' }}
+      uses: docker/build-push-action@ad44023a93711e3deb337508980b4b5e9bcdc5dc
+      with:
+        context: .
+        push: ${{ github.event_name != 'pull_request' }}
+        tags: ${{ steps.meta-build-tag.outputs.tags }}
+        labels: ${{ steps.meta-build-tag.outputs.labels }}
+    # Sign the resulting Docker image digest except on PRs.
+    # This will only write to the public Rekor transparency log when the Docker
+    # repository is public to avoid leaking data.  If you would like to publish
+    # transparency data even for private images, pass --force to cosign below.
+    # https://github.com/sigstore/cosign
+    - name: Sign the published Docker image
+      if: ${{ github.event_name != 'pull_request' && steps.catalog-git-ref-exist.outcome != 'success' }}
+      env:
+        COSIGN_EXPERIMENTAL: "true"
+      # This step uses the identity token to provision an ephemeral certificate
+      # against the sigstore community Fulcio instance.
+      run: cosign sign ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build-and-push-git-ref.outputs.digest }}
+    - name: Sign the published Docker image
+      if: ${{ github.event_name != 'pull_request' && steps.catalog-build-tag-exist.outcome != 'success' }}
+      env:
+        COSIGN_EXPERIMENTAL: "true"
+      # This step uses the identity token to provision an ephemeral certificate
+      # against the sigstore community Fulcio instance.
+      run: cosign sign ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build-and-push-build-tag.outputs.digest }}
+    - name: make bundle
+      if: ${{ steps.catalog-git-ref-exist.outcome != 'success' }}
+      run: CHANNELS=${{ github.ref_name }},${{ steps.git-ref.outputs.GIT_REF }} VERSION=0.0.${{ steps.dateversion.outputs.YMdHM }} IMG=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build-and-push-git-ref.outputs.digest }} make bundle
+    - name: Extract Docker metadata
+      id: meta-bundle-git-ref
+      if: ${{ steps.catalog-git-ref-exist.outcome != 'success' }}
+      uses: docker/metadata-action@98669ae865ea3cffbcbaa878cf57c20bbf1c6c38
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-bundle
+        tags: |
+          type=raw,value=${{ steps.git-ref.outputs.GIT_REF }}
+    - name: Extract Docker metadata
+      id: meta-bundle-build-tag
+      if: ${{ steps.catalog-build-tag-exist.outcome != 'success' }}
+      uses: docker/metadata-action@98669ae865ea3cffbcbaa878cf57c20bbf1c6c38
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-bundle
+        tags: |
+          type=raw,value=${{ github.ref_name }}
+    # Build and push Docker image with Buildx (don't push on PR)
+    # https://github.com/docker/build-push-action
+    - name: Build and push Docker image
+      id: build-and-push-bundle-git-ref
+      if: ${{ steps.catalog-git-ref-exist.outcome != 'success' }}
+      uses: docker/build-push-action@ad44023a93711e3deb337508980b4b5e9bcdc5dc
+      with:
+        file: bundle.Dockerfile
+        context: .
+        push: ${{ github.event_name != 'pull_request' }}
+        tags: ${{ steps.meta-bundle-git-ref.outputs.tags }}
+        labels: ${{ steps.meta-bundle-git-ref.outputs.labels }}
+    # Build and push Docker image with Buildx (don't push on PR)
+    # https://github.com/docker/build-push-action
+    - name: Build and push Docker image
+      id: build-and-push-bundle-build-tag
+      if: ${{ steps.catalog-build-tag-exist.outcome != 'success' }}
+      uses: docker/build-push-action@ad44023a93711e3deb337508980b4b5e9bcdc5dc
+      with:
+        file: bundle.Dockerfile
+        context: .
+        push: ${{ github.event_name != 'pull_request' }}
+        tags: ${{ steps.meta-bundle-build-tag.outputs.tags }}
+        labels: ${{ steps.meta-bundle-build-tag.outputs.labels }}
+    # Sign the resulting Docker image digest except on PRs.
+    # This will only write to the public Rekor transparency log when the Docker
+    # repository is public to avoid leaking data.  If you would like to publish
+    # transparency data even for private images, pass --force to cosign below.
+    # https://github.com/sigstore/cosign
+    - name: Sign the published Docker image
+      if: ${{ github.event_name != 'pull_request' && steps.catalog-git-ref-exist.outcome != 'success' }}
+      env:
+        COSIGN_EXPERIMENTAL: "true"
+      # This step uses the identity token to provision an ephemeral certificate
+      # against the sigstore community Fulcio instance.
+      run: cosign sign ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-bundle@${{ steps.build-and-push-bundle-git-ref.outputs.digest }}
+    # Sign the resulting Docker image digest except on PRs.
+    # This will only write to the public Rekor transparency log when the Docker
+    # repository is public to avoid leaking data.  If you would like to publish
+    # transparency data even for private images, pass --force to cosign below.
+    # https://github.com/sigstore/cosign
+    - name: Sign the published Docker image
+      if: ${{ github.event_name != 'pull_request' && steps.catalog-build-tag-exist.outcome != 'success'}}
+      env:
+        COSIGN_EXPERIMENTAL: "true"
+      # This step uses the identity token to provision an ephemeral certificate
+      # against the sigstore community Fulcio instance.
+      run: cosign sign ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-bundle@${{ steps.build-and-push-bundle-build-tag.outputs.digest }}
+    - name: add bundle to git ref catalog build and push
+      if: ${{ steps.catalog-git-ref-exist.outcome != 'success' }}
+      run: |
+        CATALOG_IMG=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-catalog:${{ steps.git-ref.outputs.GIT_REF }} \
+        BUNDLE_IMG=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-bundle:${{ steps.git-ref.outputs.GIT_REF }} \
+        make catalog-build catalog-push
+    - name: add bundle to ${{ github.ref_name }} existing catalog build and push
+      if: ${{ steps.catalog-build-tag-exist.outcome == 'success' }}
+      id: add-to-existing-catalog
+      continue-on-error: true
+      run: |
+        CATALOG_BASE_IMG=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-catalog:${{ github.ref_name }} \
+        CATALOG_IMG=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-catalog:${{ github.ref_name }} \
+        BUNDLE_IMG=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-bundle:${{ steps.git-ref.outputs.GIT_REF }} \
+        make catalog-build-replaces catalog-push
+    - name: if existing fail, add bundle to new ${{ github.ref_name }} catalog build and push
+      if: ${{ steps.catalog-build-tag-exist.outcome != 'success'}}
+      run: |
+        CATALOG_IMG=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-catalog:${{ github.ref_name }} \
+        BUNDLE_IMG=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-bundle:${{ steps.git-ref.outputs.GIT_REF }} \
+        make catalog-build-replaces catalog-push
