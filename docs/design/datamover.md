@@ -65,7 +65,7 @@ Note: We will be supporting VolSync as the default data mover.
 
 The DataMoverBackup Controller will watch for DataMoverBackup CR. Likewise, DataMoverRestore Controller will watch for DataMoverRestore CR. Both of these CRs will have a reference to a DataMoverClass. 
 
-`DataMoverClass` is a cluster scoped Custom Resource that will have details about the data mover provisioner. The provisioner (identified by the field `mover`) will be responsbile for creating a DataMover plugin that will create a `DataMoverBackup` CR & `DataMoverRestore` CR. They will also be responsible for implementing the logic for DataMoverBackup & DataMoverRestore controller that corresponds to their data mover. The spec will also include a field (`selector`) to identify the PVCs that would be moved with the given provisioner. 
+`DataMoverClass` is a cluster scoped Custom Resource that will have details about the data mover provisioner. The provisioner (identified by the field `mover`) will be responsbile for creating a DataMover plugin that will create a `DataMoverBackup` CR & `DataMoverRestore` CR. They will also be responsible for implementing the logic for DataMoverBackup & DataMoverRestore controller that corresponds to their data mover. The spec will also include a field (`dmselector`) to identify the PVCs that would be moved with the given provisioner. 
 
 ```
 apiVersion: oadp.openshift.io/v1alpha1
@@ -76,7 +76,7 @@ metadata:
   name: <name>
 spec:
   mover: <VolSync>
-  selector: <tagname>
+  dmselector: <tagname>
 
 ```
 
@@ -222,7 +222,7 @@ Data mover controller will clean up all controller-created resources after the p
 
 ### Support for multiple data mover plugins
 `DataMoverClass` spec will support the following field,
-    `selector: <tagname>`
+    `dmselector: <tagname>`
 PVC must be labelled with the `<tagname>`, to be moved by the specific `DataMoverClass`. User/Admin of the cluster must label the PVCs with the required `<tagname>` and map it to a `DataMoverClass`. If the PVCs are not labelled, it will be moved by the default datamover.
 
 #### Alternate options
