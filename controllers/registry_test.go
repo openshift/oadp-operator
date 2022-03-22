@@ -91,6 +91,19 @@ var (
 				"aws_secret_access_key=" + testSecretAccessKey + "=" + testSecretAccessKey,
 		),
 	}
+	secretDataWithMixedQuotesAndSpacesInSecret = map[string][]byte{
+		"cloud": []byte(
+			"\n[" + testBslProfile + "]\n" +
+				"aws_access_key_id =" + testBslAccessKey + "\n" +
+				" aws_secret_access_key=" + "\" " + testBslSecretAccessKey + "\"" +
+				"\n[default]" + "\n" +
+				" aws_access_key_id= " + testAccessKey + "\n" +
+				"aws_secret_access_key =" + "'" + testSecretAccessKey + " '" +
+				"\n[test-profile]\n" +
+				"aws_access_key_id =" + testAccessKey + "\n" +
+				"aws_secret_access_key=" + "\" " + testSecretAccessKey + "\"",
+		),
+	}
 	awsSecretDataWithMissingProfile = map[string][]byte{
 		"cloud": []byte(
 			"[default]" + "\n" +
@@ -238,6 +251,56 @@ func TestDPAReconciler_buildRegistryDeployment(t *testing.T) {
 					Namespace: "test-ns",
 				},
 				Data: secretDataWithEqualInSecret,
+			},
+			registrySecret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "oadp-test-bsl-aws-registry-secret",
+					Namespace: "test-ns",
+				},
+				Data: awsRegistrySecretData,
+			},
+			dpa: &oadpv1alpha1.DataProtectionApplication{},
+		},
+		{
+			name: "given a valid bsl with use of quotes in secret val get appropriate registry deployment",
+			registryDeployment: &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-registry",
+					Namespace: "test-ns",
+				},
+				Spec: appsv1.DeploymentSpec{
+					Selector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"component": "oadp-" + "test-bsl" + "-" + "aws" + "-registry",
+						},
+					},
+				},
+			},
+			bsl: &velerov1.BackupStorageLocation{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-bsl",
+					Namespace: "test-ns",
+				},
+				Spec: velerov1.BackupStorageLocationSpec{
+					Provider: AWSProvider,
+					StorageType: velerov1.StorageType{
+						ObjectStorage: &velerov1.ObjectStorageLocation{
+							Bucket: "aws-bucket",
+						},
+					},
+					Config: map[string]string{
+						Region:                "aws-region",
+						S3URL:                 "https://sr-url-aws-domain.com",
+						InsecureSkipTLSVerify: "false",
+					},
+				},
+			},
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cloud-credentials",
+					Namespace: "test-ns",
+				},
+				Data: secretDataWithMixedQuotesAndSpacesInSecret,
 			},
 			registrySecret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
