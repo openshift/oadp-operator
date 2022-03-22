@@ -22,6 +22,10 @@ func (r *DPAReconciler) ValidateDataProtectionCR(log logr.Logger) (bool, error) 
 		return false, errors.New("no backupstoragelocations configured, ensure a backupstoragelocation has been configured or use the noDefaultLocationBackupLocation flag")
 	}
 
+	if dpa.Spec.Configuration.Velero.NoDefaultBackupLocation && dpa.BackupImages() {
+		return false, errors.New("backupImages needs to be set to false when noDefaultLocationBackupLocation is set")
+	}
+
 	if len(dpa.Spec.BackupLocations) > 0 {
 		for _, location := range dpa.Spec.BackupLocations {
 			// check for velero BSL config or cloud storage config
