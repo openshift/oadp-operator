@@ -51,7 +51,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 			want:    true,
 		},
 		{
-			name: "given valid DPA CR, error case",
+			name: "given valid DPA CR, no default backup location, no error case",
 			dpa: &oadpv1alpha1.DataProtectionApplication{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-DPA-CR",
@@ -69,8 +69,8 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 				},
 			},
 			objects: []client.Object{},
-			wantErr: true,
-			want:    false,
+			wantErr: false,
+			want:    true,
 		},
 		{
 			name: "given invalid DPA CR, velero configuration is nil, error case",

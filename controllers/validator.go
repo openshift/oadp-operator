@@ -70,7 +70,7 @@ func (r *DPAReconciler) ValidateVeleroPlugins(log logr.Logger) (bool, error) {
 			pluginNeedsCheck = true
 		}
 
-		if ok && pluginSpecificMap.IsCloudProvider && pluginNeedsCheck {
+		if ok && pluginSpecificMap.IsCloudProvider && pluginNeedsCheck && !dpa.Spec.Configuration.Velero.NoDefaultBackupLocation {
 			secretName := pluginSpecificMap.SecretName
 			_, err := r.getProviderSecret(secretName)
 			if err != nil {
