@@ -763,14 +763,12 @@ func (r *DPAReconciler) parseAzureSecret(secret corev1.Secret, secretKey string)
 
 // Return value to the right of = sign with quotations and spaces removed.
 func (r *DPAReconciler) getMatchedKeyValue(key string, s string) (string, error) {
-	for _, removeChar := range []string{"\"", "'"} {
+	for _, removeChar := range []string{"\"", "'", " "} {
 		s = strings.ReplaceAll(s, removeChar, "")
 	}
 	for _, prefix := range []string{key, "="} {
-		s = strings.Trim(s, " ")
 		s = strings.TrimPrefix(s, prefix)
 	}
-	s = strings.Trim(s, " ")
 	if len(s) == 0 {
 		r.Log.Info("Could not parse secret for %s", key)
 		return s, errors.New(key + " secret parsing error")
