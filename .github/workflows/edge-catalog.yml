@@ -135,7 +135,7 @@ jobs:
         push: ${{ github.event_name != 'pull_request' }}
         tags: ${{ steps.meta-git-ref.outputs.tags }}
         labels: ${{ steps.meta-git-ref.outputs.labels }}
-        platforms: ${{ steps.buildx.outputs.platforms }}
+        platforms: linux/amd64,linux/arm64,linux/ppc64le,linux/s390x
     # Build and push Docker image with Buildx (don't push on PR)
     # https://github.com/docker/build-push-action
     - name: Build and push Docker image
@@ -147,7 +147,7 @@ jobs:
         push: ${{ github.event_name != 'pull_request' }}
         tags: ${{ steps.meta-build-tag.outputs.tags }}
         labels: ${{ steps.meta-build-tag.outputs.labels }}
-        platforms: ${{ steps.buildx.outputs.platforms }}
+        platforms: linux/amd64,linux/arm64,linux/ppc64le,linux/s390x
     # Sign the resulting Docker image digest except on PRs.
     # This will only write to the public Rekor transparency log when the Docker
     # repository is public to avoid leaking data.  If you would like to publish
@@ -198,7 +198,7 @@ jobs:
         push: ${{ github.event_name != 'pull_request' }}
         tags: ${{ steps.meta-bundle-git-ref.outputs.tags }}
         labels: ${{ steps.meta-bundle-git-ref.outputs.labels }}
-        platforms: ${{ steps.buildx.outputs.platforms }}
+        platforms: linux/amd64,linux/arm64,linux/ppc64le,linux/s390x
     # Build and push Docker image with Buildx (don't push on PR)
     # https://github.com/docker/build-push-action
     - name: Build and push Docker image
@@ -211,7 +211,7 @@ jobs:
         push: ${{ github.event_name != 'pull_request' }}
         tags: ${{ steps.meta-bundle-build-tag.outputs.tags }}
         labels: ${{ steps.meta-bundle-build-tag.outputs.labels }}
-        platforms: ${{ steps.buildx.outputs.platforms }}
+        platforms: linux/amd64,linux/arm64,linux/ppc64le,linux/s390x
     # Sign the resulting Docker image digest except on PRs.
     # This will only write to the public Rekor transparency log when the Docker
     # repository is public to avoid leaking data.  If you would like to publish
