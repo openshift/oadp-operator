@@ -47,7 +47,6 @@ type DpaCustomResource struct {
 	Credentials       string
 	CredSecretRef     string
 	Provider          string
-	OpenshiftCi       bool
 }
 
 var VeleroPrefix = "velero-e2e-" + string(uuid.NewUUID())
@@ -88,17 +87,8 @@ func (v *DpaCustomResource) Build(backupRestoreType BackupRestoreType) error {
 			},
 		},
 	}
-	if v.OpenshiftCi {
-		if dpaInstance.Spec.BackupLocations[0].Velero.Config != nil {
-			dpaInstance.Spec.BackupLocations[0].Velero.Config["credentialsFile"] = "bsl-cloud-credentials-" + v.Provider + "/cloud"
-		}
-	} else {
-		dpaInstance.Spec.BackupLocations[0].Velero.Credential = &corev1.SecretKeySelector{
-			LocalObjectReference: corev1.LocalObjectReference{
-				Name: v.CredSecretRef,
-			},
-			Key: "cloud",
-		}
+	if dpaInstance.Spec.BackupLocations[0].Velero.Config != nil {
+		dpaInstance.Spec.BackupLocations[0].Velero.Config["credentialsFile"] = "bsl-cloud-credentials-" + v.Provider + "/cloud"
 	}
 	v.backupRestoreType = backupRestoreType
 	switch backupRestoreType {

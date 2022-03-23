@@ -16,7 +16,7 @@ type DefaultPluginFields struct {
 	SecretName         string
 	MountPath          string
 	BslSecretName      string
-	BSlMountPath       string
+	BslMountPath       string
 	EnvCredentialsFile string
 	PluginImage        string
 	PluginSecretKey    string
@@ -34,7 +34,7 @@ var (
 			SecretName:         "cloud-credentials",
 			MountPath:          "/credentials",
 			BslSecretName:      "bsl-cloud-credentials-aws",
-			BSlMountPath:       "/bsl-cloud-credentials-aws",
+			BslMountPath:       "/bsl-cloud-credentials-aws",
 			EnvCredentialsFile: common.AWSSharedCredentialsFileEnvKey,
 			PluginName:         common.VeleroPluginForAWS,
 			PluginSecretKey:    "cloud",
@@ -44,7 +44,7 @@ var (
 			SecretName:         "cloud-credentials-gcp",
 			MountPath:          "/credentials-gcp",
 			BslSecretName:      "bsl-cloud-credentials-gcp",
-			BSlMountPath:       "/bsl-cloud-credentials-gcp",
+			BslMountPath:       "/bsl-cloud-credentials-gcp",
 			EnvCredentialsFile: common.GCPCredentialsEnvKey,
 			PluginName:         common.VeleroPluginForGCP,
 			PluginSecretKey:    "cloud",
@@ -54,7 +54,7 @@ var (
 			SecretName:         "cloud-credentials-azure",
 			MountPath:          "/credentials-azure",
 			BslSecretName:      "bsl-cloud-credentials-azure",
-			BSlMountPath:       "/bsl-cloud-credentials-azure",
+			BslMountPath:       "/bsl-cloud-credentials-azure",
 			EnvCredentialsFile: common.AzureCredentialsFileEnvKey,
 			PluginName:         common.VeleroPluginForAzure,
 			PluginSecretKey:    "cloud",
@@ -313,7 +313,7 @@ func AppendPluginSpecificSpecs(dpa *oadpv1alpha1.DataProtectionApplication, vele
 							veleroContainer.VolumeMounts,
 							corev1.VolumeMount{
 								Name:      cloudProviderMap.BslSecretName,
-								MountPath: pluginSpecificMap.BSlMountPath,
+								MountPath: pluginSpecificMap.BslMountPath,
 							})
 						veleroDeployment.Spec.Template.Spec.Volumes = append(
 							veleroDeployment.Spec.Template.Spec.Volumes,

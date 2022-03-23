@@ -360,7 +360,6 @@ test-e2e: test-e2e-setup
 	-velero_instance_name=$(VELERO_INSTANCE_NAME) \
 	-timeout_multiplier=$(E2E_TIMEOUT_MULTIPLIER) \
 	--ginkgo.label-filter="$(TEST_FILTER)" \
-	-openshift_ci=$(OPENSHIFT_CI) \
 	-ci_cred_file=$(CI_CRED_FILE) \
 	-provider=$(CLUSTER_TYPE) \
 	-creds_secret_ref=$(CREDS_SECRET_REF) \
