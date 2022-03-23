@@ -184,8 +184,8 @@ func AreApplicationPodsRunning(namespace string) wait.ConditionFunc {
 	}
 }
 
-func RunMustGather(artifact_dir string) error {
-	ocClient := "oc"
+func RunMustGather(oc_cli string, artifact_dir string) error {
+	ocClient := oc_cli
 	ocAdmin := "adm"
 	mustGatherCmd := "must-gather"
 	mustGatherImg := "--image=quay.io/konveyor/oadp-must-gather:latest"

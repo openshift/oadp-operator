@@ -16,7 +16,7 @@ import (
 )
 
 // Common vars obtained from flags passed in ginkgo.
-var credFile, namespace, credSecretRef, instanceName, provider, azure_resource_file, openshift_ci, ci_cred_file, settings, bsl_profile, artifact_dir string
+var credFile, namespace, credSecretRef, instanceName, provider, azure_resource_file, openshift_ci, ci_cred_file, settings, bsl_profile, artifact_dir, oc_cli string
 var timeoutMultiplier time.Duration
 
 func init() {
@@ -31,6 +31,7 @@ func init() {
 	flag.StringVar(&ci_cred_file, "ci_cred_file", credFile, "CI Cloud Cred File")
 	flag.StringVar(&openshift_ci, "openshift_ci", "false", "ENV for tests")
 	flag.StringVar(&artifact_dir, "artifact_dir", "/tmp", "Directory for storing must gather")
+	flag.StringVar(&oc_cli, "oc_cli", "oc", "OC CLI Client")
 
 	timeoutMultiplierInput := flag.Int64("timeout_multiplier", 1, "Customize timeout multiplier from default (1)")
 	timeoutMultiplier = 1
@@ -147,7 +148,7 @@ var _ = BeforeSuite(func() {
 var _ = ReportAfterEach(func(report SpecReport) {
 	if report.Failed() {
 		log.Printf("Running must gather for failed test - " + report.LeafNodeText)
-		err := RunMustGather(artifact_dir + "/must-gather-" + report.LeafNodeText)
+		err := RunMustGather(oc_cli, artifact_dir+"/must-gather-"+report.LeafNodeText)
 		if err != nil {
 			log.Printf("Failed to run must gather: " + err.Error())
 		}

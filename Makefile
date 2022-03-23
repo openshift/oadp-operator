@@ -30,6 +30,11 @@ OPENSHIFT_CI ?= true
 VELERO_INSTANCE_NAME ?= velero-sample
 E2E_TIMEOUT_MULTIPLIER ?= 1
 ARTIFACT_DIR ?= /tmp
+OC_CLI = $(shell which oc)
+
+ifdef CLI_DIR
+	OC_CLI = ${CLI_DIR}/oc
+endif
 
 ifeq ($(CLUSTER_TYPE), gcp)
 	CI_CRED_FILE = ${CLUSTER_PROFILE_DIR}/gce.json
@@ -353,7 +358,8 @@ test-e2e: test-e2e-setup
 	-azure_resource_file=$(AZURE_RESOURCE_FILE) \
 	-provider=$(CLUSTER_TYPE) \
 	-creds_secret_ref=$(CREDS_SECRET_REF) \
-	-artifact_dir=$(ARTIFACT_DIR)
+	-artifact_dir=$(ARTIFACT_DIR) \
+	-oc_cli=$(OC_CLI)
 
 test-e2e-cleanup:
 	rm -rf $(SETTINGS_TMP)
