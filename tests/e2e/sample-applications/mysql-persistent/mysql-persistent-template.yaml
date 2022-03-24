@@ -4,33 +4,44 @@ items:
   - kind: Namespace
     apiVersion: v1
     metadata:
-      name: mysql-persistent
+      name: mariadb-persistent
       labels:
-        app: mysql
+        app: mariadb
   - apiVersion: v1
     kind: ServiceAccount
     metadata:
-      name: mysql-persistent-sa
-      namespace: mysql-persistent
+      name: mariadb-persistent-sa
+      namespace: mariadb-persistent
       labels:
-        component: mysql-persistent
+        component: mariadb-persistent
   - apiVersion: v1
     kind: PersistentVolumeClaim
     metadata:
-      name: mysql
-      namespace: mysql-persistent
+      name: mariadb
+      namespace: mariadb-persistent
       labels:
-        app: mysql
+        app: mariadb
     spec:
       accessModes:
       - ReadWriteOnce
       resources:
         requests:
-          storage: 2Gi
+          storage: 1Gi
+  - apiVersion: v1
+    kind: PersistentVolumeClaim
+    metadata:
+      name: mediawiki
+      namespace: mariadb-persistent
+    spec:
+      accessModes:
+        - ReadWriteOnce
+      resources:
+        requests:
+          storage: 1Gi
   - kind: SecurityContextConstraints
     apiVersion: security.openshift.io/v1
     metadata:
-      name: mysql-persistent-scc
+      name: mariadb-persistent-scc
     allowPrivilegeEscalation: true
     allowPrivilegedContainer: true
     runAsUser:
@@ -45,92 +56,163 @@ items:
     - '*'
     users:
     - system:admin
-    - system:serviceaccount:mysql-persistent:mysql-persistent-sa
-  - apiVersion: v1
-    kind: Secret
-    metadata:
-      name: mysql
-      namespace: mysql-persistent
-      labels:
-        app: mysql
-    stringData:
-      database-name: MYSQL_DATABASE
-      database-password: MYSQL_PASSWORD
-      database-root-password: MYSQL_ROOT_PASSWORD
-      database-user: MYSQL_USER
+    - system:serviceaccount:mariadb-persistent:mariadb-persistent-sa
   - apiVersion: v1
     kind: Service
     metadata:
       annotations:
-        template.openshift.io/expose-uri: mysql://{.spec.clusterIP}:{.spec.ports[?(.name=="mysql")].port}
-      name: mysql
-      namespace: mysql-persistent
+        template.openshift.io/expose-uri: mariadb://mariadb:{.spec.ports[?(.name=="mariadb")].port}
+      name: mariadb
+      namespace: mariadb-persistent
       labels:
-        app: mysql
+        app: mariadb
+        service: mariadb
     spec:
       ports:
-      - name: mysql
+      - protocol: TCP
+        name: mariadb
         port: 3306
       selector:
-        name: mysql
+        app: mariadb
   - apiVersion: apps/v1
     kind: Deployment
     metadata:
       annotations:
         template.alpha.openshift.io/wait-for-ready: 'true'
-      name: mysql
-      namespace: mysql-persistent
+      name: mariadb
+      namespace: mariadb-persistent
       labels:
         e2e-app: "true"
     spec:
       selector:
         matchLabels:
-          app: mysql
+          app: mariadb
       strategy:
         type: Recreate
       template:
         metadata:
           labels:
             e2e-app: "true"
-            app: mysql
+            app: mariadb
         spec:
-          serviceAccountName: mysql-persistent-sa
+          serviceAccountName: mariadb-persistent-sa
           containers:
-          - image: registry.redhat.io/rhel8/mysql-80:latest
-            name: mysql            
+          - image: registry.redhat.io/rhel8/mariadb-105:latest
+            name: mariadb
             securityContext:
               privileged: true
             env:
-            - name: MYSQL_USER
-              valueFrom:
-                secretKeyRef:
-                  key: database-user
-                  name: mysql
-            - name: MYSQL_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  key: database-password
-                  name: mysql
-            - name: MYSQL_ROOT_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  key: database-root-password
-                  name: mysql
-            - name: MYSQL_DATABASE
-              valueFrom:
-                secretKeyRef:
-                  key: database-name
-                  name: mysql
+              - name: MYSQL_USER
+                value: changeme
+              - name: MYSQL_PASSWORD
+                value: changeme
+              - name: MYSQL_ROOT_PASSWORD
+                value: changeme
+              - name: MYSQL_DATABASE
+                value: changeme
             ports:
             - containerPort: 3306
-              name: mysql
+              name: mariadb
             resources:
               limits:
                 memory: 512Mi
             volumeMounts:
-            - name: mysql-data
-              mountPath: /var/lib/mysql
+            - name: mariadb-data
+              mountPath: /var/lib/mariadb
           volumes:
-          - name: mysql-data
+          - name: mariadb-data
             persistentVolumeClaim:
-              claimName: mysql
+              claimName: mariadb
+  - apiVersion: v1
+    kind: Service
+    metadata:
+      name: mediawiki
+      namespace: mariadb-persistent
+      labels:
+        app: mediawiki
+        service: mediawiki
+    spec:
+      ports:
+        - name: web
+          port: 8080
+          targetPort: 8080
+      selector:
+        app: mediawiki
+        service: mediawiki
+  - apiVersion: apps.openshift.io/v1
+    kind: DeploymentConfig
+    metadata:
+      name: mediawiki
+      namespace: mariadb-persistent
+      labels:
+        app: mediawiki
+        service: mediawiki
+    spec:
+      replicas: 1
+      selector:
+        app: mediawiki
+        service: mediawiki
+      strategy:
+        type: Recreate
+      template:
+        metadata:
+          labels:
+            app: mediawiki
+            service: mediawiki
+        spec:
+          containers:
+          - name: mediawiki
+            image:  docker.io/ansibleplaybookbundle/mediawiki:latest
+            env:
+              - name: MEDIAWIKI_DB_SCHEMA
+                value: mediawiki
+              - name: MEDIAWIKI_SITE_NAME
+                value: Mediawiki
+              - name: MEDIAWIKI_SITE_LANG
+                value: en
+              - name: MEDIAWIKI_ADMIN_USER
+                value: admin
+              - name: MEDIAWIKI_ADMIN_PASS
+                value: changeme
+              - name: MEDIAWIKI_SITE_SERVER
+                value: mediawiki-mariadb-persistent.apps.cluster-wdh0321dpk48.wdh0321dpk48.mg.dog8code.com
+              - name: DB_TYPE
+                value: mysql
+              - name: DB_HOST
+                value: mariadb
+              - name: DB_PORT
+                value: "3306"
+              - name: DB_USER
+                value: changeme
+              - name: DB_PASSWORD
+                value: changeme
+              - name: DB_NAME
+                value: changeme
+            ports:
+              - containerPort: 8080
+                protocol: TCP
+            volumeMounts:
+              - name: mediawiki
+                mountPath: /persistent
+          initContainers:
+          - name: init-myservice
+            image: registry.access.redhat.com/ubi8/ubi:latest
+            command: ['sh', '-c', 'until getent hosts mariadb; do echo waiting for mariadb; sleep 2; done;']
+          volumes:
+            - name: mediawiki
+              persistentVolumeClaim:
+                claimName: mediawiki
+  - apiVersion: route.openshift.io/v1
+    kind: Route
+    metadata:
+      name: mediawiki
+      namespace: mariadb-persistent
+      labels:
+        app: mediawiki
+        service: mediawiki
+    spec:
+      to:
+        kind: Service
+        name: mediawiki
+      port:
+        targetPort: web
