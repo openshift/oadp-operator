@@ -193,14 +193,15 @@ unapply-velerosa-role: velero-role-tmp
 	kubectl delete -f $(VELERO_ROLE_TMP)/velero-role_binding.yaml
 	VELERO_ROLE_TMP=$(VELERO_ROLE_TMP) make velero-role-tmp-cleanup
 
-deploy: manifests velero-role-tmp  ## Deploy controller to the K8s cluster specified in ~/.kube/config.
-	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
-	$(KUSTOMIZE) build config/default | kubectl apply -f -
-	VELERO_ROLE_TMP=$(VELERO_ROLE_TMP) make apply-velerosa-role
+# Deprecated in favor of `deploy-olm`
+# deploy: manifests velero-role-tmp  ## Deploy controller to the K8s cluster specified in ~/.kube/config.
+# 	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
+# 	$(KUSTOMIZE) build config/default | kubectl apply -f -
+# 	VELERO_ROLE_TMP=$(VELERO_ROLE_TMP) make apply-velerosa-role
 
-undeploy: velero-role-tmp ## Undeploy controller from the K8s cluster specified in ~/.kube/config.
-	VELERO_ROLE_TMP=$(VELERO_ROLE_TMP) make unapply-velerosa-role
-	$(KUSTOMIZE) build config/default | kubectl delete -f -
+# undeploy: velero-role-tmp ## Undeploy controller from the K8s cluster specified in ~/.kube/config.
+# 	VELERO_ROLE_TMP=$(VELERO_ROLE_TMP) make unapply-velerosa-role
+# 	$(KUSTOMIZE) build config/default | kubectl delete -f -
 
 build-deploy: THIS_IMAGE=ttl.sh/oadp-operator-$(shell git rev-parse --short HEAD):1h # Set target specific variable
 build-deploy: ## Build current branch image and deploy controller to the k8s cluster specified in ~/.kube/config.
