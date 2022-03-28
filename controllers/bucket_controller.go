@@ -75,7 +75,6 @@ func (b BucketReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	if err != nil {
 		return result, err
 	}
-
 	var ok bool
 	if ok, err = clnt.Exists(); !ok {
 		// Handle Deletion.

@@ -575,14 +575,18 @@ func (r *DPAReconciler) parseAWSSecret(secret corev1.Secret, secretKey string, m
 	AWSAccessKey, AWSSecretKey, profile := "", "", ""
 	splitString := strings.Split(string(secret.Data[secretKey]), "\n")
 	keyNameRegex, err := regexp.Compile(`\[.*\]`)
+	const (
+		accessKeyKey = "aws_access_key_id"
+		secretKeyKey = "aws_secret_access_key"
+	)
 	if err != nil {
 		return AWSAccessKey, AWSSecretKey, errors.New("parseAWSSecret faulty regex: keyNameRegex")
 	}
-	awsAccessKeyRegex, err := regexp.Compile(`\baws_access_key_id\b`)
+	awsAccessKeyRegex, err := regexp.Compile(`\b` + accessKeyKey + `\b`)
 	if err != nil {
 		return AWSAccessKey, AWSSecretKey, errors.New("parseAWSSecret faulty regex: awsAccessKeyRegex")
 	}
-	awsSecretKeyRegex, err := regexp.Compile(`\baws_secret_access_key\b`)
+	awsSecretKeyRegex, err := regexp.Compile(`\b` + secretKeyKey + `\b`)
 	if err != nil {
 		return AWSAccessKey, AWSSecretKey, errors.New("parseAWSSecret faulty regex: awsSecretKeyRegex")
 	}
@@ -615,22 +619,18 @@ func (r *DPAReconciler) parseAWSSecret(secret corev1.Secret, secretKey string, m
 						return AWSAccessKey, AWSSecretKey, err
 					}
 					if matchedAccessKey { // check for access key
-						cleanedLine := strings.ReplaceAll(profLine, " ", "")
-						splitLine := strings.Split(cleanedLine, "=")
-						if len(splitLine) != 2 {
-							r.Log.Info("Could not parse secret for AWS Access key")
-							return AWSAccessKey, AWSSecretKey, errors.New("secret parsing error")
+						AWSAccessKey, err = r.getMatchedKeyValue(accessKeyKey, profLine)
+						if err != nil {
+							r.Log.Info("Error processing access key id for the supplied AWS credential")
+							return AWSAccessKey, AWSSecretKey, err
 						}
-						AWSAccessKey = splitLine[1]
 						continue
 					} else if matchedSecretKey { // check for secret key
-						cleanedLine := strings.ReplaceAll(profLine, " ", "")
-						splitLine := strings.Split(cleanedLine, "=")
-						if len(splitLine) != 2 {
-							r.Log.Info("Could not parse secret for AWS Secret key")
-							return AWSAccessKey, AWSSecretKey, errors.New("secret parsing error")
+						AWSSecretKey, err = r.getMatchedKeyValue(secretKeyKey, profLine)
+						if err != nil {
+							r.Log.Info("Error processing secret key id for the supplied AWS credential")
+							return AWSAccessKey, AWSSecretKey, err
 						}
-						AWSSecretKey = splitLine[1]
 						continue
 					} else {
 						break // aws credentials file is only allowed to have profile followed by aws_access_key_id, aws_secret_access_key
@@ -706,37 +706,37 @@ func (r *DPAReconciler) parseAzureSecret(secret corev1.Secret, secretKey string)
 
 		switch {
 		case matchedStorageKey:
-			storageKeyValue, err := r.getMatchedKeyValue("AZURE_STORAGE_ACCOUNT_ACCESS_KEY=", line)
+			storageKeyValue, err := r.getMatchedKeyValue("AZURE_STORAGE_ACCOUNT_ACCESS_KEY", line)
 			if err != nil {
 				return azcreds, err
 			}
 			azcreds.strorageAccountKey = storageKeyValue
 		case matchedSubscriptionId:
-			subscriptionIdValue, err := r.getMatchedKeyValue("AZURE_SUBSCRIPTION_ID=", line)
+			subscriptionIdValue, err := r.getMatchedKeyValue("AZURE_SUBSCRIPTION_ID", line)
 			if err != nil {
 				return azcreds, err
 			}
 			azcreds.subscriptionID = subscriptionIdValue
 		case matchedCliendId:
-			clientIdValue, err := r.getMatchedKeyValue("AZURE_CLIENT_ID=", line)
+			clientIdValue, err := r.getMatchedKeyValue("AZURE_CLIENT_ID", line)
 			if err != nil {
 				return azcreds, err
 			}
 			azcreds.clientID = clientIdValue
 		case matchedClientsecret:
-			clientSecretValue, err := r.getMatchedKeyValue("AZURE_CLIENT_SECRET=", line)
+			clientSecretValue, err := r.getMatchedKeyValue("AZURE_CLIENT_SECRET", line)
 			if err != nil {
 				return azcreds, err
 			}
 			azcreds.clientSecret = clientSecretValue
 		case matchedResourceGroup:
-			resourceGroupValue, err := r.getMatchedKeyValue("AZURE_RESOURCE_GROUP=", line)
+			resourceGroupValue, err := r.getMatchedKeyValue("AZURE_RESOURCE_GROUP", line)
 			if err != nil {
 				return azcreds, err
 			}
 			azcreds.resourceGroup = resourceGroupValue
 		case matchedTenantId:
-			tenantIdValue, err := r.getMatchedKeyValue("AZURE_TENANT_ID=", line)
+			tenantIdValue, err := r.getMatchedKeyValue("AZURE_TENANT_ID", line)
 			if err != nil {
 				return azcreds, err
 			}
@@ -746,15 +746,19 @@ func (r *DPAReconciler) parseAzureSecret(secret corev1.Secret, secretKey string)
 	return azcreds, nil
 }
 
-func (r *DPAReconciler) getMatchedKeyValue(matchedKey string, line string) (string, error) {
-	cleanedLine := strings.ReplaceAll(line, " ", "")
-	cleanedLine = strings.ReplaceAll(cleanedLine, "\"", "")
-	matchedKeyValue := strings.Replace(cleanedLine, matchedKey, "", -1)
-	if len(matchedKeyValue) == 0 {
-		r.Log.Info("Could not parse secret for %s", matchedKey)
-		return matchedKeyValue, errors.New("azure secret parsing error")
+// Return value to the right of = sign with quotations and spaces removed.
+func (r *DPAReconciler) getMatchedKeyValue(key string, s string) (string, error) {
+	for _, removeChar := range []string{"\"", "'", " "} {
+		s = strings.ReplaceAll(s, removeChar, "")
 	}
-	return matchedKeyValue, nil
+	for _, prefix := range []string{key, "="} {
+		s = strings.TrimPrefix(s, prefix)
+	}
+	if len(s) == 0 {
+		r.Log.Info("Could not parse secret for %s", key)
+		return s, errors.New(key + " secret parsing error")
+	}
+	return s, nil
 }
 
 func (r *DPAReconciler) ReconcileRegistrySVCs(log logr.Logger) (bool, error) {
