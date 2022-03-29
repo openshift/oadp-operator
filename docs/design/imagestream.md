@@ -88,6 +88,8 @@ The spec fields in the ImageStreamsRestore are identical to the ImageStreamsBack
 - startBackup
 - veleroBackupReference
 
+Source registry path in dockerImageReference will be ignored if inaccessble (ie. from another cluster's internal registry) and only the sha256 digest will be used when looking up image from object storage to restore to internal registry.
+
 `ImageStreamsBackupReference` is the reference of the ImageStreamsBackup to restore from. The name is used when looking up backup from backup location.
 
 To simplify the restore process, there is no startRestore field, and the operator will automatically start the restore.
