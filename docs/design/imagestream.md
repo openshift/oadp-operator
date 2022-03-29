@@ -58,6 +58,8 @@ kind: ImageStreamsRestore
 metadata:
   name: my-restore
 spec:
+  ImageStreamsBackupReference:
+    name: my-backup
   backupLocation:
     name: default
     velero:
@@ -85,6 +87,8 @@ spec:
 The spec fields in the ImageStreamsRestore are identical to the ImageStreamsBackup except:
 - startBackup
 - veleroBackupReference
+
+`ImageStreamsBackupReference` is the reference of the ImageStreamsBackup to restore from. The name is used when looking up backup from backup location.
 
 To simplify the restore process, there is no startRestore field, and the operator will automatically start the restore.
 
