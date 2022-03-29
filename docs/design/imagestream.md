@@ -13,6 +13,9 @@ Alternative approach:
 - Backup internal registry's PV directly
   - We don't have granular control over what images will be backed up and snapshots are not movable until data mover is available
 
+Why new controller?:
+- We want to not be limited by the velero plugin system for backing up OpenShift internal images which is specific to OpenShift distribution of Kubernetes
+- The deduplication benefits outweighs the benefits from staying within the velero plugin system
 
 ```yaml
 apiVersion: v1alpha1
