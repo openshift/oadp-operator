@@ -42,12 +42,15 @@ spec:
 When the user is ready to start backing up, they will mark `startBackup: true` on the custom resource.
 
 `veleroBackupReference:` (optional) is the name of a velero backup which operator will check for completion before allowing the backup to start.
+
 `veleroBackupReference.startOnCompletion:` (optional) if `true`, operator will start the backup if the velero backup is complete.
 
 `backupLocation:` (optional) is the name of the DPA compatible backup location to use.
 
 `imageStreams` is a list of imagestreams to include in the backup and can be created and appended to by a human operator, or by velero plugin when scanning a backupItem.
-`imageStreams[].dockerImageReferences` is a list of dockerImageReferences for the imagestream.
+
+`imageStreams[].dockerImageReferences` is a list of dockerImageReferences for the imagestream. Each dockerImageReference must be a digest type to be accepted by the operator.
+
 `imageStreams[].dockerImageReferences[].tags` is a list of tags to create from this dockerImageReference upon restore.
 
 ImageStreamsRestore will most likely be performed by a human operator and will be used to restore imagestreams from a ImageStreamsBackup before restoring a dependent velero backup.
