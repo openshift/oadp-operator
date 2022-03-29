@@ -13,7 +13,7 @@ spec:
   veleroBackupReference:
     name: my-backup
     namespace: my-namespace
-    autoStartBackup: true
+    startOnCompletion: true
   backupLocation:
     name: default
     velero:
@@ -42,7 +42,7 @@ spec:
 When the user is ready to start backing up, they will mark `startBackup: true` on the custom resource.
 
 `veleroBackupReference:` (optional) is the name of a velero backup which operator will check for completion before allowing the backup to start.
-`veleroBackupReference.autoStartBackup:` (optional) if `true`, operator will start the backup if the velero backup is complete.
+`veleroBackupReference.startOnCompletion:` (optional) if `true`, operator will start the backup if the velero backup is complete.
 
 `backupLocation:` (optional) is the name of the DPA compatible backup location to use.
 
