@@ -9,6 +9,7 @@ Alternative approaches:
     - Plugins in velero can only process one backupItem at a time
       - Makes it difficult to deduplicate images when you only see one image at a time
     - Post Backup plugin is not yet available in Velero
+      - This can help with our deduping when available
       - This might be a good option if we want to write to S3 from within the Velero Plugin if and when it is available
 - Backup internal registry's PV directly
   - We don't have granular control over what images will be backed up and snapshots are not movable until data mover is available
