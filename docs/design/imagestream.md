@@ -3,6 +3,17 @@
 Our new approach to backing up images will not require use of a registry.
 OADP Operator will contain a controller that will watch for ImageStreamsBackup Custom Resource.
 
+Alternative approach:
+- Writing to S3 from within the Velero Plugin
+  - Why we have decided against this approach?
+    - Plugins in velero can only process one backupItem at a time
+      - Makes it difficult to deduplicate images when you only see one image at a time
+    - Post Backup plugin is not yet available in Velero
+      - This might be a good option if we want to write to S3 from within the Velero Plugin if and when it is available
+- Backup internal registry's PV directly
+  - We don't have granular control over what images will be backed up and snapshots are not movable until data mover is available
+
+
 ```yaml
 apiVersion: v1alpha1
 kind: ImageStreamsBackup
