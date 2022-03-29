@@ -31,8 +31,8 @@ spec:
 
   imageStreams:
     - name: my-image-stream
-      sha256s:
-        - sha256: "1234567890123456789012345678901234567890123456789012345678901234"
+      dockerImageReferences:
+        - dockerImageReference: image-registry.openshift-image-registry.svc:5000/openshift/apicast-gateway@sha256:313df5722ddd866d43758af161e5932dfd4648b99a5c57acfddfc2a955669fe8
           tags:
             - latest
             - v1.0.0
@@ -47,8 +47,8 @@ When the user is ready to start backing up, they will mark `startBackup: true` o
 `backupLocation:` (optional) is the name of the DPA compatible backup location to use.
 
 `imageStreams` is a list of imagestreams to include in the backup and can be created and appended to by a human operator, or by velero plugin when scanning a backupItem.
-`imageStreams[].sha256s` is a list of sha256s for the imagestream.
-`imageStreams[].sha256s[].tags` is a list of tags to create from this sha256s upon restore.
+`imageStreams[].dockerImageReferences` is a list of dockerImageReferences for the imagestream.
+`imageStreams[].dockerImageReferences[].tags` is a list of tags to create from this dockerImageReference upon restore.
 
 ImageStreamsRestore will most likely be performed by a human operator and will be used to restore imagestreams from a ImageStreamsBackup before restoring a dependent velero backup.
 
@@ -76,8 +76,8 @@ spec:
         key: cloud
   imageStreams:
     - name: my-image-stream
-      sha256s:
-        - sha256: "1234567890123456789012345678901234567890123456789012345678901234"
+      dockerImageReferences:
+        - dockerImageReference: image-registry.openshift-image-registry.svc:5000/openshift/apicast-gateway@sha256:313df5722ddd866d43758af161e5932dfd4648b99a5c57acfddfc2a955669fe8
           tags:
             - latest
             - v1.0.0
