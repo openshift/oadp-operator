@@ -131,6 +131,7 @@ items:
       labels:
         app: todolist
         service: todolist
+        e2e-app: "true"
     spec:
       ports:
         - name: web
@@ -147,6 +148,7 @@ items:
       labels:
         app: todolist
         service: todolist
+        e2e-app: "true"
     spec:
       replicas: 1
       selector:
@@ -159,6 +161,7 @@ items:
           labels:
             app: todolist
             service: todolist
+            e2e-app: "true"
         spec:
           containers:
           - name: todolist
