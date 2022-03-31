@@ -4,21 +4,21 @@ items:
   - kind: Namespace
     apiVersion: v1
     metadata:
-      name: mariadb-persistent
+      name: mysql-persistent
       labels:
         app: mariadb
   - apiVersion: v1
     kind: ServiceAccount
     metadata:
-      name: mariadb-persistent-sa
-      namespace: mariadb-persistent
+      name: mysql-persistent-sa
+      namespace: mysql-persistent
       labels:
-        component: mariadb-persistent
+        component: mysql-persistent
   - apiVersion: v1
     kind: PersistentVolumeClaim
     metadata:
       name: mariadb
-      namespace: mariadb-persistent
+      namespace: mysql-persistent
       labels:
         app: mariadb
     spec:
@@ -32,7 +32,7 @@ items:
     kind: PersistentVolumeClaim
     metadata:
       name: mediawiki
-      namespace: mariadb-persistent
+      namespace: mysql-persistent
     spec:
       accessModes:
         - ReadWriteOnce
@@ -42,7 +42,7 @@ items:
   - kind: SecurityContextConstraints
     apiVersion: security.openshift.io/v1
     metadata:
-      name: mariadb-persistent-scc
+      name: mysql-persistent-scc
     allowPrivilegeEscalation: true
     allowPrivilegedContainer: true
     runAsUser:
@@ -57,14 +57,14 @@ items:
     - '*'
     users:
     - system:admin
-    - system:serviceaccount:mariadb-persistent:mariadb-persistent-sa
+    - system:serviceaccount:mysql-persistent:mysql-persistent-sa
   - apiVersion: v1
     kind: Service
     metadata:
       annotations:
-        template.openshift.io/expose-uri: mariadb://mariadb:{.spec.ports[?(.name=="mariadb")].port}
+        template.openshift.io/expose-uri: mariadb://{.spec.clusterIP}:{.spec.ports[?(.name=="mysql")].port}
       name: mariadb
-      namespace: mariadb-persistent
+      namespace: mysql-persistent
       labels:
         app: mariadb
         service: mariadb
@@ -81,7 +81,7 @@ items:
       annotations:
         template.alpha.openshift.io/wait-for-ready: 'true'
       name: mariadb
-      namespace: mariadb-persistent
+      namespace: mysql-persistent
       labels:
         e2e-app: "true"
     spec:
@@ -96,7 +96,7 @@ items:
             e2e-app: "true"
             app: mariadb
         spec:
-          serviceAccountName: mariadb-persistent-sa
+          serviceAccountName: mysql-persistent-sa
           containers:
           - image: registry.redhat.io/rhel8/mariadb-105:latest
             name: mariadb
@@ -108,9 +108,9 @@ items:
               - name: MYSQL_PASSWORD
                 value: changeme
               - name: MYSQL_ROOT_PASSWORD
-                value: changeme
+                value: root
               - name: MYSQL_DATABASE
-                value: changeme
+                value: todolist
             ports:
             - containerPort: 3306
               name: mariadb
@@ -127,93 +127,60 @@ items:
   - apiVersion: v1
     kind: Service
     metadata:
-      name: mediawiki
-      namespace: mariadb-persistent
+      name: todolist
+      namespace: mysql-persistent
       labels:
-        app: mediawiki
-        service: mediawiki
+        app: todolist
+        service: todolist
     spec:
       ports:
         - name: web
-          port: 8080
-          targetPort: 8080
+          port: 8000
+          targetPort: 8000
       selector:
-        app: mediawiki
-        service: mediawiki
+        app: todolist
+        service: todolist
   - apiVersion: apps.openshift.io/v1
     kind: DeploymentConfig
     metadata:
-      name: mediawiki
-      namespace: mariadb-persistent
+      name: todolist
+      namespace: mysql-persistent
       labels:
-        app: mediawiki
-        service: mediawiki
+        app: todolist
+        service: todolist
     spec:
       replicas: 1
       selector:
-        app: mediawiki
-        service: mediawiki
+        app: todolist
+        service: todolist
       strategy:
         type: Recreate
       template:
         metadata:
           labels:
-            app: mediawiki
-            service: mediawiki
+            app: todolist
+            service: todolist
         spec:
           containers:
-          - name: mediawiki
-            image:  docker.io/ansibleplaybookbundle/mediawiki:latest
+          - name: todolist
+            image:  quay.io/rhn_engineering_whayutin/todolist-mariadb-go:latest
             env:
-              - name: MEDIAWIKI_DB_SCHEMA
-                value: mediawiki
-              - name: MEDIAWIKI_SITE_NAME
-                value: Mediawiki
-              - name: MEDIAWIKI_SITE_LANG
-                value: en
-              - name: MEDIAWIKI_ADMIN_USER
-                value: admin
-              - name: MEDIAWIKI_ADMIN_PASS
-                value: changeme
-              - name: MEDIAWIKI_SITE_SERVER
-                value: mediawiki-mariadb-persistent.apps.cluster-wdh0321dpk48.wdh0321dpk48.mg.dog8code.com
-              - name: DB_TYPE
-                value: mysql
-              - name: DB_HOST
-                value: mariadb
-              - name: DB_PORT
-                value: "3306"
-              - name: DB_USER
-                value: changeme
-              - name: DB_PASSWORD
-                value: changeme
-              - name: DB_NAME
-                value: changeme
+              - name: foo
+                value: bar
             ports:
-              - containerPort: 8080
+              - containerPort: 8000
                 protocol: TCP
-            volumeMounts:
-              - name: mediawiki
-                mountPath: /persistent
           initContainers:
           - name: init-myservice
             image: registry.access.redhat.com/ubi8/ubi:latest
-            command: ['sh', '-c', 'until getent hosts mariadb; do echo waiting for mariadb; sleep 2; done;']
-          volumes:
-            - name: mediawiki
-              persistentVolumeClaim:
-                claimName: mediawiki
+            command: ['sh', '-c', 'sleep 10; until getent hosts mariadb; do echo waiting for mariadb; sleep 5; done;']
   - apiVersion: route.openshift.io/v1
     kind: Route
     metadata:
-      name: mediawiki
-      namespace: mariadb-persistent
-      labels:
-        app: mediawiki
-        service: mediawiki
+      name: todolist-route
+      namespace: mysql-persistent
     spec:
+      path: "/"
       to:
         kind: Service
-        name: mediawiki
-      port:
-        targetPort: web
+        name: todolist
