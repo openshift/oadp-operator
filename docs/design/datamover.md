@@ -85,7 +85,7 @@ The above `DataMoverClass` name will be referenced in `DataMoverBackup` & `DataM
 
 ### Data Mover Backup
 
-Assuming that the `DataMover Enable` flag is set to true in the DPA config, when a velero backup is created, it triggers DataMover plugin to create the `DataMoverBackup` CR in the app namespace. The plugin looks up for the PVCs in the user namespace mentioned in the velero backup and creates a `DataMoverBackup` CR for every PVC in that namespace that is filtered by the `datamoverclass.spec.selector`.
+Assuming that the `DataMover Enable` flag is set to true in the DPA config, when a velero backup is created, it triggers DataMover plugin (velero BackupItemAction plugin) to create the `DataMoverBackup` CR in the app namespace. The plugin looks up for the PVCs in the user namespace mentioned in the velero backup and creates a `DataMoverBackup` CR for every PVC in that namespace that is filtered by the `datamoverclass.spec.selector`.
 
 `DataMoverBackup` CR supports either a volumesnapshot or a pvc as the type of the backup object. If the velero CSI plugin is used for backup, `VolumeSnapshot` is used as the type or else `PVC`
 is used.
@@ -105,7 +105,7 @@ spec:
 
 ```
 ### Data Mover Restore
-When a velero restore is triggered, the DataMover plugin looks for `DataMoverBackup` in the backup resources. If it encounters a `DataMoverBackup` resource, then the plugin will create a `DataMoverRestore` CR in the app namespace. It will populate the CR with the details obtained from the `DataMoverBackup` resource. 
+When a velero restore is triggered, the DataMover plugin looks for `DataMoverBackup` in the backup resources. If it encounters a `DataMoverBackup` resource, then the plugin (velero RestoreItemAction plugin) will create a `DataMoverRestore` CR in the app namespace. It will populate the CR with the details obtained from the `DataMoverBackup` resource. 
 
 ```
 apiVersion: oadp.openshift.io/v1alpha1
