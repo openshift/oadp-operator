@@ -36,7 +36,6 @@ items:
       resources:
         requests:
           storage: 10Gi
-      storageClassName: gp2
   - kind: SecurityContextConstraints
     apiVersion: security.openshift.io/v1
     metadata:
