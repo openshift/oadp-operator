@@ -65,7 +65,8 @@ Note: We will be supporting VolSync as the default data mover.
 
 The DataMoverBackup Controller will watch for DataMoverBackup CR. Likewise, DataMoverRestore Controller will watch for DataMoverRestore CR. Both of these CRs will have a reference to a DataMoverClass. 
 
-`DataMoverClass` is a cluster scoped Custom Resource that will have details about the data mover provisioner. The provisioner (identified by the field `mover`) will be responsbile for creating a DataMover plugin that will create a `DataMoverBackup` CR & `DataMoverRestore` CR. They will also be responsible for implementing the logic for DataMoverBackup & DataMoverRestore controller that corresponds to their data mover. The spec will also include a field (`dmselector`) to identify the PVCs that would be moved with the given provisioner. 
+`DataMoverClass` is a cluster scoped Custom Resource that will have details about the data mover. The specified mover will be registered in the system by creating the datamoverclass CR, addig a velero plugin that will create the appropriate resources for datamovement of a single datamoverclass and a controller that will reconcile the objects created by the plugin. The datamoverclass spec will also include a field (`selector`) to identify the PVCs that would be moved with the given data mover.
+
 
 ```
 apiVersion: oadp.openshift.io/v1alpha1
@@ -76,7 +77,7 @@ metadata:
   name: <name>
 spec:
   mover: <VolSync>
-  dmselector: <tagname>
+  selector: <tagname>
 
 ```
 
@@ -84,7 +85,7 @@ The above `DataMoverClass` name will be referenced in `DataMoverBackup` & `DataM
 
 ### Data Mover Backup
 
-Assuming that the `DataMover Enable` flag is set to true in the DPA config, when a velero backup is created, it triggers DataMover plugin to create the `DataMoverBackup` CR in the app namespace. The plugin looks up for the PVCs in the user namespace mentioned in the velero backup and creates a `DataMoverBackup` CR for every PVC in that namespace.
+Assuming that the `DataMover Enable` flag is set to true in the DPA config, when a velero backup is created, it triggers DataMover plugin to create the `DataMoverBackup` CR in the app namespace. The plugin looks up for the PVCs in the user namespace mentioned in the velero backup and creates a `DataMoverBackup` CR for every PVC in that namespace that is filtered by the `datamoverclass.spec.selector`.
 
 `DataMoverBackup` CR supports either a volumesnapshot or a pvc as the type of the backup object. If the velero CSI plugin is used for backup, `VolumeSnapshot` is used as the type or else `PVC`
 is used.
@@ -95,12 +96,12 @@ kind: DataMoverBackup
 metadata:
   name: <name>
 spec:
-  DataMoverClass: <DataMoverClass name> 
-  - type: <VolumeSnapshot|PVC>
-    sourceClaimRef:
-      name: <snapshot_content_name>|<pvc_name>
-      namespace: <namespace>  //optional 
-    config:     //optional based on the datamover impl
+  dataMoverClass: <DataMoverClass name> 
+  dataSourceRef:
+    apiGroup: <APIGroup>
+    kind: <PVC|VolumeSnapshotContent>
+    name: <name>
+  config:  //optional based on the datamover impl
 
 ```
 ### Data Mover Restore
@@ -222,7 +223,7 @@ Data mover controller will clean up all controller-created resources after the p
 
 ### Support for multiple data mover plugins
 `DataMoverClass` spec will support the following field,
-    `dmselector: <tagname>`
+    `selector: <tagname>`
 PVC must be labelled with the `<tagname>`, to be moved by the specific `DataMoverClass`. User/Admin of the cluster must label the PVCs with the required `<tagname>` and map it to a `DataMoverClass`. If the PVCs are not labelled, it will be moved by the default datamover.
 
 #### Alternate options
