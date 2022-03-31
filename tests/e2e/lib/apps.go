@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 
 	"github.com/onsi/ginkgo/v2"
 	ocpappsv1 "github.com/openshift/api/apps/v1"
@@ -181,4 +182,18 @@ func AreApplicationPodsRunning(namespace string) wait.ConditionFunc {
 		}
 		return true, err
 	}
+}
+
+func RunMustGather(oc_cli string, artifact_dir string) error {
+	ocClient := oc_cli
+	ocAdmin := "adm"
+	mustGatherCmd := "must-gather"
+	mustGatherImg := "--image=quay.io/konveyor/oadp-must-gather:latest"
+	destDir := "--dest-dir=" + artifact_dir
+	logCmdPmt := "--"
+	logCmd := "gather_logs_without_zip"
+
+	cmd := exec.Command(ocClient, ocAdmin, mustGatherCmd, mustGatherImg, destDir, logCmdPmt, logCmd)
+	_, err := cmd.Output()
+	return err
 }
