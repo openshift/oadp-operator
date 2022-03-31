@@ -6,7 +6,7 @@ items:
     metadata:
       name: mysql-persistent
       labels:
-        app: mariadb
+        app: mysql
   - apiVersion: v1
     kind: ServiceAccount
     metadata:
@@ -17,10 +17,10 @@ items:
   - apiVersion: v1
     kind: PersistentVolumeClaim
     metadata:
-      name: mariadb
+      name: mysql
       namespace: mysql-persistent
       labels:
-        app: mariadb
+        app: mysql
     spec:
       accessModes:
       - ReadWriteOnce
@@ -62,43 +62,43 @@ items:
     metadata:
       annotations:
         template.openshift.io/expose-uri: mariadb://{.spec.clusterIP}:{.spec.ports[?(.name=="mysql")].port}
-      name: mariadb
+      name: mysql
       namespace: mysql-persistent
       labels:
-        app: mariadb
-        service: mariadb
+        app: mysql
+        service: mysql
     spec:
       ports:
       - protocol: TCP
-        name: mariadb
+        name: mysql
         port: 3306
       selector:
-        app: mariadb
+        app: mysql
   - apiVersion: apps/v1
     kind: Deployment
     metadata:
       annotations:
         template.alpha.openshift.io/wait-for-ready: 'true'
-      name: mariadb
+      name: mysql
       namespace: mysql-persistent
       labels:
         e2e-app: "true"
     spec:
       selector:
         matchLabels:
-          app: mariadb
+          app: mysql
       strategy:
         type: Recreate
       template:
         metadata:
           labels:
             e2e-app: "true"
-            app: mariadb
+            app: mysql
         spec:
           serviceAccountName: mysql-persistent-sa
           containers:
           - image: registry.redhat.io/rhel8/mariadb-105:latest
-            name: mariadb
+            name: mysql
             securityContext:
               privileged: true
             env:
@@ -112,17 +112,17 @@ items:
                 value: todolist
             ports:
             - containerPort: 3306
-              name: mariadb
+              name: mysql
             resources:
               limits:
                 memory: 512Mi
             volumeMounts:
-            - name: mariadb-data
+            - name: mysql-data
               mountPath: /var/lib/mariadb
           volumes:
-          - name: mariadb-data
+          - name: mysql-data
             persistentVolumeClaim:
-              claimName: mariadb
+              claimName: mysql
   - apiVersion: v1
     kind: Service
     metadata:
@@ -172,7 +172,7 @@ items:
           initContainers:
           - name: init-myservice
             image: registry.access.redhat.com/ubi8/ubi:latest
-            command: ['sh', '-c', 'sleep 10; until getent hosts mariadb; do echo waiting for mariadb; sleep 5; done;']
+            command: ['sh', '-c', 'sleep 10; until getent hosts mysql; do echo waiting for mysql; sleep 5; done;']
   - apiVersion: route.openshift.io/v1
     kind: Route
     metadata:
