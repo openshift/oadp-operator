@@ -6,8 +6,9 @@ on:
   # Get updated catalog source on every pull_request
   pull_request:
   # Get updated catalog source for default branch on schedule
-  schedule:
-  - cron: '*/30 * * * *' #every 30 minutes
+  schedule: #Every 90 minutes because cross builds take 1 hour, don't want more than two running at the same time.
+  - cron: '30 1-22/3 * * *'
+  - cron: '0 0-21/3 * * *'
 env:
   # Use docker.io for Docker Hub if empty
   REGISTRY: ghcr.io
