@@ -381,7 +381,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 	}
 
 	awsTests := []TableEntry{
-		Entry("AWS Without Region No S3ForcePathStyle with BackupImages false should succeed", InstallCase{
+		Entry("AWS Without Region No S3ForcePathStyle with BackupImages false should succeed", Label("aws"), InstallCase{
 			Name:         "default-no-region-no-s3forcepathstyle",
 			BRestoreType: RESTIC,
 			DpaSpec: &oadpv1alpha1.DataProtectionApplicationSpec{
@@ -412,7 +412,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 			},
 			WantError: false,
 		}, nil),
-		Entry("AWS With Region And S3ForcePathStyle should succeed", InstallCase{
+		Entry("AWS With Region And S3ForcePathStyle should succeed", Label("aws"), InstallCase{
 			Name:         "default-with-region-and-s3forcepathstyle",
 			BRestoreType: RESTIC,
 			DpaSpec: &oadpv1alpha1.DataProtectionApplicationSpec{
@@ -447,7 +447,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 			},
 			WantError: false,
 		}, nil),
-		Entry("AWS Without Region And S3ForcePathStyle true should fail", InstallCase{
+		Entry("AWS Without Region And S3ForcePathStyle true should fail", Label("aws"), InstallCase{
 			Name:         "default-with-region-and-s3forcepathstyle",
 			BRestoreType: RESTIC,
 			DpaSpec: &oadpv1alpha1.DataProtectionApplicationSpec{
@@ -481,10 +481,8 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 			WantError: true,
 		}, fmt.Errorf("region for AWS backupstoragelocation cannot be empty when s3ForcePathStyle is true or when backing up images")),
 	}
+	genericTests = append(genericTests, awsTests...)
 
-	if provider == "aws" {
-		genericTests = append(genericTests, awsTests...)
-	}
 	var lastInstallingApplicationNamespace string
 	var lastInstallTime time.Time
 	var _ = ReportAfterEach(func(report SpecReport) {

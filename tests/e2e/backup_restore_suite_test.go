@@ -101,9 +101,12 @@ var _ = Describe("AWS backup restore tests", func() {
 				Eventually(AreResticPodsRunning(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 			}
 			if brCase.BackupRestoreType == CSI {
-				log.Printf("Creating VolumeSnapshotClass for CSI backuprestore of %s", brCase.Name)
-				err = InstallApplication(dpaCR.Client, "./sample-applications/gp2-csi/volumeSnapshotClass.yaml")
-				Expect(err).ToNot(HaveOccurred())
+				if provider == "aws" || provider == "ibmcloud" {
+					log.Printf("Creating VolumeSnapshot for CSI backuprestore of %s", brCase.Name)
+					snapshotClassPath := fmt.Sprintf("./sample-applications/snapclass-csi/%s.yaml", provider)
+					err = InstallApplication(dpaCR.Client, snapshotClassPath)
+					Expect(err).ToNot(HaveOccurred())
+				}
 			}
 
 			if dpaCR.CustomResource.BackupImages() {
@@ -229,13 +232,14 @@ var _ = Describe("AWS backup restore tests", func() {
 
 			if brCase.BackupRestoreType == CSI {
 				log.Printf("Deleting VolumeSnapshot for CSI backuprestore of %s", brCase.Name)
-				err = UninstallApplication(dpaCR.Client, "./sample-applications/gp2-csi/volumeSnapshotClass.yaml")
+				snapshotClassPath := fmt.Sprintf("./sample-applications/snapclass-csi/%s.yaml", provider)
+				err = UninstallApplication(dpaCR.Client, snapshotClassPath)
 				Expect(err).ToNot(HaveOccurred())
 			}
 
 		},
-		Entry("MySQL application CSI", Label("aws"), BackupRestoreCase{
-			ApplicationTemplate:  "./sample-applications/mysql-persistent/mysql-persistent-csi-template.yaml",
+		Entry("MySQL application CSI", Label("ibmcloud", "aws"), BackupRestoreCase{
+			ApplicationTemplate:  fmt.Sprintf("./sample-applications/mysql-persistent/mysql-persistent-csi-%s-template.yaml", provider),
 			ApplicationNamespace: "mysql-persistent",
 			Name:                 "mysql-e2e",
 			BackupRestoreType:    CSI,
