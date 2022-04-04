@@ -118,7 +118,7 @@ items:
                 memory: 512Mi
             volumeMounts:
             - name: mysql-data
-              mountPath: /var/lib/mariadb
+              mountPath: /var/lib/mysql
           volumes:
           - name: mysql-data
             persistentVolumeClaim:
