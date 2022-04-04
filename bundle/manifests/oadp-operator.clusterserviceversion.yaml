@@ -759,7 +759,7 @@ spec:
     - oadp
   links:
     - name: OADP Operator
-      url: https://oadp.konveyor.io/
+      url: https://github.com/openshift/oadp-operator
   maintainers:
     - email: dymurray@redhat.com
       name: Dylan Murray
