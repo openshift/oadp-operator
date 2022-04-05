@@ -15,8 +15,8 @@ CI_CRED_FILE ?= ${CLUSTER_PROFILE_DIR}/.awscred
 # aws configs - default
 BSL_REGION ?= us-east-1
 VSL_REGION ?= ${LEASED_RESOURCE}
-# BSL_AWS_PROFILE ?= default
-BSL_AWS_PROFILE ?= migration-engineering
+BSL_AWS_PROFILE ?= default
+# BSL_AWS_PROFILE ?= migration-engineering
 
 # vsl secret
 CREDS_SECRET_REF ?= cloud-credentials
