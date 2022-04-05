@@ -9,10 +9,13 @@
   Azure: [![Azure builds](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-master-4.8-operator-e2e-azure-periodic-slack)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-master-4.8-operator-e2e-azure-periodic-slack)
 </div>
 
+Note: Official Overview and usage documents are being moved to [docs.openshift.com](https://docs.openshift.com/container-platform/latest/backup_and_restore/)
+
+Documentation in this repository are considered unofficial and for development purposes only.
 # Table of Contents
 
 1. [About](#about)
-2. [Basic Install using OperatorHub](docs/install_olm.md)
+2. [Installing from OperatorHub](https://docs.openshift.com/container-platform/latest/backup_and_restore/application_backup_and_restore/installing/about-installing-oadp.html)
 3. [API References](docs/API_ref.md)
 4. API Usage
     1. [Configure Plugins](docs/config/plugins.md)
@@ -21,19 +24,19 @@
     4. [Self-Signed Certificate](docs/config/self_signed_certs.md)
     5. [Use NooBaa as a Backup Storage Location](docs/config/noobaa/install_oadp_noobaa.md) 
     6. [Use Velero --features flag](docs/config/features_flag.md)
-    6. [Use Custom Plugin Images for Velero ](docs/config/custom_plugin_images.md)
-6. [Upgrade from 0.2](docs/upgrade.md)
-7. Examples
+    7. [Use Custom Plugin Images for Velero ](docs/config/custom_plugin_images.md)
+5. [Upgrade from 0.2](docs/upgrade.md)
+6. Examples
     1. [Stateless App Backup/Restore](docs/examples/stateless.md)
     2. [Stateful App Backup/Restore](docs/examples/stateful.md)
-    2. [CSI Backup/Restore](docs/examples/csi_example.md)
-8. [Troubleshooting](docs/TROUBLESHOOTING.md)
-9. Contribute
+    3. [CSI Backup/Restore](docs/examples/csi_example.md)
+7. [Troubleshooting](docs/TROUBLESHOOTING.md)
+8. Contribute
     1. [Install & Build from Source (Non-OLM)](docs/developer/install_non-olm.md)
     2. [OLM Integration](docs/developer/olm_hacking.md)
     3. [Test Operator Changes](docs/developer/local_dev.md)
     4. [E2E Test Suite](docs/developer/TESTING.md)
-10. [Velero Version Relationship](#version)
+9.  [Velero Version Relationship](#version)
 
 
 <hr style="height:1px;border:none;color:#333;">

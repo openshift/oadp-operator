@@ -29,6 +29,12 @@ AZURE_RESOURCE_FILE ?= /var/run/secrets/ci.openshift.io/multi-stage/metadata.jso
 OPENSHIFT_CI ?= true
 VELERO_INSTANCE_NAME ?= velero-sample
 E2E_TIMEOUT_MULTIPLIER ?= 1
+ARTIFACT_DIR ?= /tmp
+OC_CLI = $(shell which oc)
+
+ifdef CLI_DIR
+	OC_CLI = ${CLI_DIR}/oc
+endif
 
 ifeq ($(CLUSTER_TYPE), gcp)
 	CI_CRED_FILE = ${CLUSTER_PROFILE_DIR}/gce.json
@@ -48,9 +54,9 @@ ENVTEST_K8S_VERSION = 1.21
 
 .PHONY:ginkgo
 ginkgo: # Make sure ginkgo is in $GOPATH/bin
-	go get github.com/onsi/ginkgo/ginkgo
-	go get github.com/onsi/ginkgo/v2/ginkgo
-	go get github.com/onsi/gomega/...
+	go get -d github.com/onsi/ginkgo/ginkgo
+	go get -d github.com/onsi/ginkgo/v2/ginkgo
+	go get -d github.com/onsi/gomega/...
 
 # VERSION defines the project version for the bundle.
 # Update this value when you upgrade the version of your project.
@@ -193,14 +199,15 @@ unapply-velerosa-role: velero-role-tmp
 	kubectl delete -f $(VELERO_ROLE_TMP)/velero-role_binding.yaml
 	VELERO_ROLE_TMP=$(VELERO_ROLE_TMP) make velero-role-tmp-cleanup
 
-deploy: manifests velero-role-tmp  ## Deploy controller to the K8s cluster specified in ~/.kube/config.
-	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
-	$(KUSTOMIZE) build config/default | kubectl apply -f -
-	VELERO_ROLE_TMP=$(VELERO_ROLE_TMP) make apply-velerosa-role
+# Deprecated in favor of `deploy-olm`
+# deploy: manifests velero-role-tmp  ## Deploy controller to the K8s cluster specified in ~/.kube/config.
+# 	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
+# 	$(KUSTOMIZE) build config/default | kubectl apply -f -
+# 	VELERO_ROLE_TMP=$(VELERO_ROLE_TMP) make apply-velerosa-role
 
-undeploy: velero-role-tmp ## Undeploy controller from the K8s cluster specified in ~/.kube/config.
-	VELERO_ROLE_TMP=$(VELERO_ROLE_TMP) make unapply-velerosa-role
-	$(KUSTOMIZE) build config/default | kubectl delete -f -
+# undeploy: velero-role-tmp ## Undeploy controller from the K8s cluster specified in ~/.kube/config.
+# 	VELERO_ROLE_TMP=$(VELERO_ROLE_TMP) make unapply-velerosa-role
+# 	$(KUSTOMIZE) build config/default | kubectl delete -f -
 
 build-deploy: THIS_IMAGE=ttl.sh/oadp-operator-$(shell git rev-parse --short HEAD):1h # Set target specific variable
 build-deploy: ## Build current branch image and deploy controller to the k8s cluster specified in ~/.kube/config.
@@ -257,13 +264,16 @@ rm -rf $$TMP_DIR ;\
 }
 endef
 
+yq:
+	go install github.com/mikefarah/yq/v4@latest
+
 .PHONY: bundle
-bundle: manifests kustomize ## Generate bundle manifests and metadata, then validate generated files.
+bundle: manifests kustomize yq ## Generate bundle manifests and metadata, then validate generated files.
 	operator-sdk generate kustomize manifests -q
 	cd config/manager && $(KUSTOMIZE) edit set image controller=$(IMG)
 	$(KUSTOMIZE) build config/manifests | operator-sdk generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
 	# Removes placeholder velero deployment used so `operator-sdk generate bundle` adds velero service account and role to bundle CSV using yq. See https://github.com/mikefarah/yq/#install
-	yq eval 'del(.spec.install.spec.deployments.1)' bundle/manifests/oadp-operator.clusterserviceversion.yaml > bundle/manifests/oadp-operator.clusterserviceversion.yaml.yqresult
+	$(GOBIN)/yq eval 'del(.spec.install.spec.deployments.1)' bundle/manifests/oadp-operator.clusterserviceversion.yaml > bundle/manifests/oadp-operator.clusterserviceversion.yaml.yqresult
 	mv bundle/manifests/oadp-operator.clusterserviceversion.yaml.yqresult bundle/manifests/oadp-operator.clusterserviceversion.yaml
 	# Copy updated bundle.Dockerfile to CI's Dockerfile.bundle
 	# TODO: update CI to use generated one
@@ -351,7 +361,9 @@ test-e2e: test-e2e-setup
 	-ci_cred_file=$(CI_CRED_FILE) \
 	-azure_resource_file=$(AZURE_RESOURCE_FILE) \
 	-provider=$(CLUSTER_TYPE) \
-	-creds_secret_ref=$(CREDS_SECRET_REF)
+	-creds_secret_ref=$(CREDS_SECRET_REF) \
+	-artifact_dir=$(ARTIFACT_DIR) \
+	-oc_cli=$(OC_CLI)
 
 test-e2e-cleanup:
 	rm -rf $(SETTINGS_TMP)
