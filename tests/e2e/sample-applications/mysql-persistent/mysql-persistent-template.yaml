@@ -27,17 +27,6 @@ items:
       resources:
         requests:
           storage: 1Gi
-  - apiVersion: v1
-    kind: PersistentVolumeClaim
-    metadata:
-      name: mediawiki
-      namespace: mysql-persistent
-    spec:
-      accessModes:
-        - ReadWriteOnce
-      resources:
-        requests:
-          storage: 1Gi
   - kind: SecurityContextConstraints
     apiVersion: security.openshift.io/v1
     metadata:
