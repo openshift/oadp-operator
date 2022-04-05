@@ -26,7 +26,7 @@ items:
       - ReadWriteOnce
       resources:
         requests:
-          storage: 2Gi
+          storage: 1Gi
   - kind: SecurityContextConstraints
     apiVersion: security.openshift.io/v1
     metadata:
@@ -47,32 +47,22 @@ items:
     - system:admin
     - system:serviceaccount:mysql-persistent:mysql-persistent-sa
   - apiVersion: v1
-    kind: Secret
-    metadata:
-      name: mysql
-      namespace: mysql-persistent
-      labels:
-        app: mysql
-    stringData:
-      database-name: MYSQL_DATABASE
-      database-password: MYSQL_PASSWORD
-      database-root-password: MYSQL_ROOT_PASSWORD
-      database-user: MYSQL_USER
-  - apiVersion: v1
     kind: Service
     metadata:
       annotations:
-        template.openshift.io/expose-uri: mysql://{.spec.clusterIP}:{.spec.ports[?(.name=="mysql")].port}
+        template.openshift.io/expose-uri: mariadb://{.spec.clusterIP}:{.spec.ports[?(.name=="mysql")].port}
       name: mysql
       namespace: mysql-persistent
       labels:
         app: mysql
+        service: mysql
     spec:
       ports:
-      - name: mysql
+      - protocol: TCP
+        name: mysql
         port: 3306
       selector:
-        name: mysql
+        app: mysql
   - apiVersion: apps/v1
     kind: Deployment
     metadata:
@@ -96,31 +86,19 @@ items:
         spec:
           serviceAccountName: mysql-persistent-sa
           containers:
-          - image: registry.redhat.io/rhel8/mysql-80:latest
-            name: mysql            
+          - image: registry.redhat.io/rhel8/mariadb-105:latest
+            name: mysql
             securityContext:
               privileged: true
             env:
-            - name: MYSQL_USER
-              valueFrom:
-                secretKeyRef:
-                  key: database-user
-                  name: mysql
-            - name: MYSQL_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  key: database-password
-                  name: mysql
-            - name: MYSQL_ROOT_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  key: database-root-password
-                  name: mysql
-            - name: MYSQL_DATABASE
-              valueFrom:
-                secretKeyRef:
-                  key: database-name
-                  name: mysql
+              - name: MYSQL_USER
+                value: changeme
+              - name: MYSQL_PASSWORD
+                value: changeme
+              - name: MYSQL_ROOT_PASSWORD
+                value: root
+              - name: MYSQL_DATABASE
+                value: todolist
             ports:
             - containerPort: 3306
               name: mysql
@@ -134,3 +112,66 @@ items:
           - name: mysql-data
             persistentVolumeClaim:
               claimName: mysql
+  - apiVersion: v1
+    kind: Service
+    metadata:
+      name: todolist
+      namespace: mysql-persistent
+      labels:
+        app: todolist
+        service: todolist
+        e2e-app: "true"
+    spec:
+      ports:
+        - name: web
+          port: 8000
+          targetPort: 8000
+      selector:
+        app: todolist
+        service: todolist
+  - apiVersion: apps.openshift.io/v1
+    kind: DeploymentConfig
+    metadata:
+      name: todolist
+      namespace: mysql-persistent
+      labels:
+        app: todolist
+        service: todolist
+        e2e-app: "true"
+    spec:
+      replicas: 1
+      selector:
+        app: todolist
+        service: todolist
+      strategy:
+        type: Recreate
+      template:
+        metadata:
+          labels:
+            app: todolist
+            service: todolist
+            e2e-app: "true"
+        spec:
+          containers:
+          - name: todolist
+            image:  quay.io/rhn_engineering_whayutin/todolist-mariadb-go:latest
+            env:
+              - name: foo
+                value: bar
+            ports:
+              - containerPort: 8000
+                protocol: TCP
+          initContainers:
+          - name: init-myservice
+            image: registry.access.redhat.com/ubi8/ubi:latest
+            command: ['sh', '-c', 'sleep 10; until getent hosts mysql; do echo waiting for mysql; sleep 5; done;']
+  - apiVersion: route.openshift.io/v1
+    kind: Route
+    metadata:
+      name: todolist-route
+      namespace: mysql-persistent
+    spec:
+      path: "/"
+      to:
+        kind: Service
+        name: todolist
