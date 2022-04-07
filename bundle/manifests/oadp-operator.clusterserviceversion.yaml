@@ -663,7 +663,7 @@ spec:
                       - name: VELERO_CSI_PLUGIN_TAG
                         value: latest
                       - name: VELERO_KUBEVIRT_PLUGIN_TAG
-                        value: 0.2.0
+                        value: v0.2.0
                     image: quay.io/konveyor/oadp-operator:latest
                     imagePullPolicy: Always
                     livenessProbe:
