@@ -285,12 +285,14 @@ func (r *DPAReconciler) buildRegistryDeployment(registryDeployment *appsv1.Deplo
 
 	// attach gcp secret volume if provider is gcp
 	if bsl.Spec.Provider == GCPProvider {
+		// check for secret name
+		secretName, _ := r.getSecretNameAndKey(bsl.Spec.Credential, oadpv1alpha1.DefaultPluginGCP)
 		registryDeployment.Spec.Template.Spec.Volumes = []corev1.Volume{
 			{
-				Name: credentials.PluginSpecificFields[oadpv1alpha1.DefaultPluginGCP].SecretName,
+				Name: secretName,
 				VolumeSource: corev1.VolumeSource{
 					Secret: &corev1.SecretVolumeSource{
-						SecretName: credentials.PluginSpecificFields[oadpv1alpha1.DefaultPluginGCP].SecretName,
+						SecretName: secretName,
 					},
 				},
 			},
@@ -376,9 +378,11 @@ func (r *DPAReconciler) buildRegistryContainer(bsl *velerov1.BackupStorageLocati
 
 	// append secret volumes if the BSL provider is GCP
 	if bsl.Spec.Provider == GCPProvider {
+		// check for secret name
+		secretName, _ := r.getSecretNameAndKey(bsl.Spec.Credential, oadpv1alpha1.DefaultPluginGCP)
 		containers[0].VolumeMounts = []corev1.VolumeMount{
 			{
-				Name:      credentials.PluginSpecificFields[oadpv1alpha1.DefaultPluginGCP].SecretName,
+				Name:      secretName,
 				MountPath: credentials.PluginSpecificFields[oadpv1alpha1.DefaultPluginGCP].MountPath,
 			},
 		}
@@ -511,7 +515,9 @@ func (r *DPAReconciler) getGCPRegistryEnvVars(bsl *velerov1.BackupStorageLocatio
 		}
 
 		if gcpEnvVars[i].Name == RegistryStorageGCSKeyfile {
-			gcpEnvVars[i].Value = credentials.PluginSpecificFields[oadpv1alpha1.DefaultPluginGCP].MountPath + "/" + credentials.PluginSpecificFields[oadpv1alpha1.DefaultPluginGCP].PluginSecretKey
+			// check for secret key
+			_, secretKey := r.getSecretNameAndKey(bsl.Spec.Credential, oadpv1alpha1.DefaultPluginGCP)
+			gcpEnvVars[i].Value = credentials.PluginSpecificFields[oadpv1alpha1.DefaultPluginGCP].MountPath + "/" + secretKey
 		}
 	}
 	return gcpEnvVars, nil
@@ -1061,6 +1067,10 @@ func (r *DPAReconciler) ReconcileRegistrySecrets(log logr.Logger) (bool, error) 
 
 	// Now for each of these bsl instances, create a registry secret
 	for _, bsl := range bslList.Items {
+		// skip for GCP as nothing is directly exposed in env vars
+		if bsl.Spec.Provider == GCPProvider {
+			continue
+		}
 		secret := corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "oadp-" + bsl.Name + "-" + bsl.Spec.Provider + "-registry-secret",
