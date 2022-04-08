@@ -13,6 +13,7 @@ require (
 	github.com/operator-framework/api v0.10.7
 	github.com/operator-framework/operator-lib v0.9.0
 	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.51.2
+	github.com/sirupsen/logrus v1.8.1
 	github.com/vmware-tanzu/velero v1.7.0 // TODO: Update this to a pinned version
 	golang.org/x/net v0.0.0-20210805182204-aaa1db679c0d // indirect
 	golang.org/x/text v0.3.7 // indirect

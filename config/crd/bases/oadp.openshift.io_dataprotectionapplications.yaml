@@ -312,6 +312,17 @@ spec:
                         items:
                           type: string
                         type: array
+                      logLevel:
+                        description: Velero server’s log level (use debug for the
+                          most logging, leave unset for velero default)
+                        enum:
+                        - error
+                        - warn
+                        - warning
+                        - info
+                        - debug
+                        - trace
+                        type: string
                       noDefaultBackupLocation:
                         description: If you need to install Velero without a default
                           backup storage location NoDefaultBackupLocation flag is
