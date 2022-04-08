@@ -14,6 +14,8 @@ metadata:
     operatorframework.io/cluster-monitoring: "true"
     operatorframework.io/suggested-namespace: openshift-adp
     operators.openshift.io/infrastructure-features: '["Disconnected"]'
+    operators.openshift.io/valid-subscription: '["OpenShift Container Platform", "OpenShift
+      Platform Plus"]'
     repository: https://github.com/openshift/oadp-operator
     support: Red Hat
   labels:
@@ -329,7 +331,7 @@ spec:
   - oadp
   links:
   - name: OADP Operator
-    url: https://oadp.konveyor.io/
+    url: https://github.com/openshift/oadp-operator
   maintainers:
   - email: dymurray@redhat.com
     name: Dylan Murray
