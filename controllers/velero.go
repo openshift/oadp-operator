@@ -430,7 +430,9 @@ func removeDuplicateValues(slice []string) []string {
 func (r *DPAReconciler) customizeVeleroDeployment(dpa *oadpv1alpha1.DataProtectionApplication, veleroDeployment *appsv1.Deployment) error {
 	//append dpa labels
 	for k, v := range r.getDpaAppLabels(dpa) {
-		veleroDeployment.Labels[k] = v
+		if veleroDeployment.Labels[k] == "" { //saves component: velero labels
+			veleroDeployment.Labels[k] = v
+		}
 	}
 	veleroDeployment.Spec.Selector = &metav1.LabelSelector{
 		MatchLabels: veleroDeployment.Labels,
@@ -586,12 +588,12 @@ func getVeleroImage(dpa *oadpv1alpha1.DataProtectionApplication) string {
 func (r *DPAReconciler) getDpaAppLabels(dpa *oadpv1alpha1.DataProtectionApplication) map[string]string {
 	//append dpa name
 	if dpa != nil {
-		return r.getAppLabels(dpa.Name)
+		return getAppLabels(dpa.Name)
 	}
 	return nil
 }
 
-func (r *DPAReconciler) getAppLabels(instanceName string) map[string]string {
+func getAppLabels(instanceName string) map[string]string {
 	labels := make(map[string]string)
 	//copy base labels
 	for k, v := range oadpAppLabel {
