@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-logr/logr"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
+	"github.com/openshift/oadp-operator/pkg/common"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -200,10 +201,10 @@ func (r *DPAReconciler) updateBSLFromSpec(bsl *velerov1.BackupStorageLocation, d
 		}
 	}
 	bsl.Labels = map[string]string{
-		"app.kubernetes.io/name":     "oadp-operator-velero",
+		"app.kubernetes.io/name":     common.OADPOperatorVelero,
 		"app.kubernetes.io/instance": bsl.Name,
 		//"app.kubernetes.io/version":    "x.y.z",
-		"app.kubernetes.io/managed-by":       "oadp-operator",
+		"app.kubernetes.io/managed-by":       common.OADPOperator,
 		"app.kubernetes.io/component":        "bsl",
 		oadpv1alpha1.OadpOperatorLabel:       "True",
 		oadpv1alpha1.RegistryDeploymentLabel: registryDeployment,

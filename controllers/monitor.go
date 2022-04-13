@@ -2,9 +2,9 @@ package controllers
 
 import (
 	"fmt"
+
 	"github.com/go-logr/logr"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
-	"github.com/openshift/oadp-operator/pkg/common"
 	monitor "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -30,13 +30,7 @@ func (r *DPAReconciler) ReconcileVeleroServiceMonitor(log logr.Logger) (bool, er
 
 		if serviceMonitor.ObjectMeta.CreationTimestamp.IsZero() {
 			serviceMonitor.Spec.Selector = metav1.LabelSelector{
-				MatchLabels: map[string]string{
-					"app.kubernetes.io/name":       common.Velero,
-					"app.kubernetes.io/instance":   dpa.Name,
-					"app.kubernetes.io/managed-by": common.OADPOperator,
-					"app.kubernetes.io/component":  Server,
-					oadpv1alpha1.OadpOperatorLabel: "True",
-				},
+				MatchLabels: r.getDpaAppLabels(&dpa),
 			}
 		}
 
@@ -78,22 +72,10 @@ func (r *DPAReconciler) buildVeleroServiceMonitor(serviceMonitor *monitor.Servic
 	}
 
 	serviceMonitor.Spec.Selector = metav1.LabelSelector{
-		MatchLabels: map[string]string{
-			"app.kubernetes.io/name":       common.Velero,
-			"app.kubernetes.io/instance":   dpa.Name,
-			"app.kubernetes.io/managed-by": common.OADPOperator,
-			"app.kubernetes.io/component":  Server,
-			oadpv1alpha1.OadpOperatorLabel: "True",
-		},
+		MatchLabels: r.getDpaAppLabels(dpa),
 	}
 
-	serviceMonitor.Labels = map[string]string{
-		"app.kubernetes.io/name":       common.Velero,
-		"app.kubernetes.io/instance":   dpa.Name,
-		"app.kubernetes.io/managed-by": common.OADPOperator,
-		"app.kubernetes.io/component":  Server,
-		oadpv1alpha1.OadpOperatorLabel: "True",
-	}
+	serviceMonitor.Labels = r.getDpaAppLabels(dpa)
 
 	serviceMonitor.Spec.Endpoints = []monitor.Endpoint{
 		{
@@ -166,13 +148,7 @@ func (r *DPAReconciler) updateVeleroMetricsSVC(svc *corev1.Service, dpa *oadpv1a
 
 	// when updating the spec fields we update each field individually
 	// to get around the immutable fields
-	svc.Spec.Selector = map[string]string{
-		"app.kubernetes.io/name":       common.Velero,
-		"app.kubernetes.io/instance":   dpa.Name,
-		"app.kubernetes.io/managed-by": common.OADPOperator,
-		"app.kubernetes.io/component":  Server,
-		oadpv1alpha1.OadpOperatorLabel: "True",
-	}
+	svc.Spec.Selector = r.getDpaAppLabels(dpa)
 
 	svc.Spec.Type = corev1.ServiceTypeClusterIP
 	svc.Spec.Ports = []corev1.ServicePort{
@@ -185,12 +161,6 @@ func (r *DPAReconciler) updateVeleroMetricsSVC(svc *corev1.Service, dpa *oadpv1a
 		},
 	}
 
-	svc.Labels = map[string]string{
-		"app.kubernetes.io/name":       common.Velero,
-		"app.kubernetes.io/instance":   dpa.Name,
-		"app.kubernetes.io/managed-by": common.OADPOperator,
-		"app.kubernetes.io/component":  Server,
-		oadpv1alpha1.OadpOperatorLabel: "True",
-	}
+	svc.Labels = r.getDpaAppLabels(dpa)
 	return nil
 }
