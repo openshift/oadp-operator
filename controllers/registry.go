@@ -395,8 +395,8 @@ func (r *DPAReconciler) buildRegistryContainer(bsl *velerov1.BackupStorageLocati
 		if _, bslCredOk := credentials.PluginSpecificFields[oadpv1alpha1.DefaultPlugin(bsl.Spec.Provider)]; bslCredOk {
 			containers[0].VolumeMounts = []corev1.VolumeMount{
 				{
-					Name:      credentials.PluginSpecificFields[oadpv1alpha1.DefaultPluginGCP].BslSecretName,
-					MountPath: credentials.PluginSpecificFields[oadpv1alpha1.DefaultPluginGCP].BSlMountPath,
+					Name:      credentials.PluginSpecificFields[oadpv1alpha1.DefaultPlugin(bsl.Spec.Provider)].BslSecretName,
+					MountPath: credentials.PluginSpecificFields[oadpv1alpha1.DefaultPlugin(bsl.Spec.Provider)].BSlMountPath,
 				},
 			}
 		}
