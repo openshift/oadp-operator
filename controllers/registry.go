@@ -289,7 +289,7 @@ func (r *DPAReconciler) buildRegistryDeployment(registryDeployment *appsv1.Deplo
 			registryDeployment.Spec.Template.Spec.Volumes = append(
 				registryDeployment.Spec.Template.Spec.Volumes,
 				corev1.Volume{
-					Name: cloudProviderMap.SecretName,
+					Name: cloudProviderMap.BslSecretName,
 					VolumeSource: corev1.VolumeSource{
 						Secret: &corev1.SecretVolumeSource{
 							SecretName: cloudProviderMap.BslSecretName,
@@ -385,9 +385,17 @@ func (r *DPAReconciler) buildRegistryContainer(bsl *velerov1.BackupStorageLocati
 		},
 	}
 
-	// append secret volumes if the BSL provider is GCP
-	if bsl.Spec.Provider == GCPProvider {
-		// check for secret name
+	// check for secret name
+	if _, ok := bsl.Spec.Config["credentialsFile"]; ok { // If credentialsFile config is used, then mount the bsl secret
+		if _, bslCredOk := credentials.PluginSpecificFields[oadpv1alpha1.DefaultPlugin(bsl.Spec.Provider)]; bslCredOk {
+			containers[0].VolumeMounts = []corev1.VolumeMount{
+				{
+					Name:      credentials.PluginSpecificFields[oadpv1alpha1.DefaultPlugin(bsl.Spec.Provider)].BslSecretName,
+					MountPath: credentials.PluginSpecificFields[oadpv1alpha1.DefaultPlugin(bsl.Spec.Provider)].BSlMountPath,
+				},
+			}
+		}
+	} else if bsl.Spec.Provider == GCPProvider { // append secret volumes if the BSL provider is GCP
 		secretName, _ := r.getSecretNameAndKey(&bsl.Spec, oadpv1alpha1.DefaultPluginGCP)
 		containers[0].VolumeMounts = []corev1.VolumeMount{
 			{
@@ -526,7 +534,11 @@ func (r *DPAReconciler) getGCPRegistryEnvVars(bsl *velerov1.BackupStorageLocatio
 		if gcpEnvVars[i].Name == RegistryStorageGCSKeyfile {
 			// check for secret key
 			_, secretKey := r.getSecretNameAndKey(&bsl.Spec, oadpv1alpha1.DefaultPluginGCP)
-			gcpEnvVars[i].Value = credentials.PluginSpecificFields[oadpv1alpha1.DefaultPluginGCP].MountPath + "/" + secretKey
+			if _, ok := bsl.Spec.Config["credentialsFile"]; ok {
+				gcpEnvVars[i].Value = credentials.PluginSpecificFields[oadpv1alpha1.DefaultPluginGCP].BSlMountPath + "/" + secretKey
+			} else {
+				gcpEnvVars[i].Value = credentials.PluginSpecificFields[oadpv1alpha1.DefaultPluginGCP].MountPath + "/" + secretKey
+			}
 		}
 	}
 	return gcpEnvVars, nil
