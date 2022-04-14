@@ -59,3 +59,6 @@ You can now use Run and Debug menu to launch
     - You have installed OADP Operator. To install current commit run `make deploy-olm`
 - Launch main.go
   - This runs the operator on your machine in debug mode. You can add breakpoints and step through the code.
+  - You will not see OADP in Installed Operators but it will be watching for DPA resources in the namespace as if it was installed.
+  - Prerequisites:
+    - Run `make install apply-velerosa-role` to install CRDs and create service accounts, a task normally handled by OLM but not in this case.
