@@ -189,7 +189,7 @@ type DataProtectionApplicationStatus struct {
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
-//+kubebuilder:resource:path=dataprotectionapplications,shortName=dpa
+//+kubebuilder:resource:categories=all,path=dataprotectionapplications,shortName=dpa
 
 // DataProtectionApplication is the Schema for the dpa API
 type DataProtectionApplication struct {

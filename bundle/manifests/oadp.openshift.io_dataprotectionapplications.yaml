@@ -8,6 +8,8 @@ metadata:
 spec:
   group: oadp.openshift.io
   names:
+    categories:
+    - all
     kind: DataProtectionApplication
     listKind: DataProtectionApplicationList
     plural: dataprotectionapplications
