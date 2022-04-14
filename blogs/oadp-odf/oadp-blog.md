@@ -148,11 +148,11 @@ Object Bucket Claim creates a persistent storage bucket for Velero to store back
    - Using OpenShift CLI:
       1. Get *AWS_ACCESS_KEY*
         ```
-        oc get secret oadp-bucket -n default -o jsonpath='{.data.AWS_ACCESS_KEY_ID}{"\n"}'
+        oc get secret oadp-bucket -n default -o jsonpath='{.data.AWS_ACCESS_KEY_ID}{"\n"}' | base64 -d
         ```
       2. Get *AWS_SECRET_ACCESS_KEY*
         ```
-        oc get secret oadp-bucket -n default -o jsonpath='{.data.AWS_SECRET_ACCESS_KEY}{"\n"}'
+        oc get secret oadp-bucket -n default -o jsonpath='{.data.AWS_SECRET_ACCESS_KEY}{"\n"}' | base64 -d
         ```
    - Using OpenShift Web Console
      1. Navigate to *Storage* > *Object Bucket Claim* > *oadp-bucket*. Ensure you are in the same *Project* used to create *oadp-bucket*.
