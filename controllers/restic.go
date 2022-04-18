@@ -152,6 +152,7 @@ func (r *DPAReconciler) buildResticDaemonset(dpa *oadpv1alpha1.DataProtectionApp
 	ds.TypeMeta = installDs.TypeMeta
 	// Update Spec
 	ds.Spec = installDs.Spec
+	ds.Labels = installDs.Labels
 
 	return r.customizeResticDaemonset(dpa, ds)
 }
