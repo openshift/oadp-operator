@@ -14,7 +14,7 @@ The OpenShift API for Data Protection (OADP) is designed to protect Application 
 
 Red Hat® OpenShift® Data Foundation is software-defined storage for containers. Engineered as the data and storage services platform for Red Hat OpenShift, Red Hat OpenShift Data Foundation helps teams develop and deploy applications quickly and efficiently across clouds.
 
-## Table of Content
+## Table of Contents
 - [Guide: Backup and Restore Stateful Applications on OpenShift using OADP and ODF](#guide-backup-and-restore-stateful-applications-on-openshift-using-oadp-and-odf)
   - [Table of Content](#table-of-content)
   - [Pre-requisites](#pre-requisites)
