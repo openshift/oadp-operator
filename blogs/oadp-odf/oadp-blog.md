@@ -16,7 +16,7 @@ Red Hat® OpenShift® Data Foundation is software-defined storage for containers
 
 ## Table of Contents
 - [Guide: Backup and Restore Stateful Applications on OpenShift using OADP and ODF](#guide-backup-and-restore-stateful-applications-on-openshift-using-oadp-and-odf)
-  - [Table of Content](#table-of-content)
+  - [Table of Contents](#table-of-contents)
   - [Pre-requisites](#pre-requisites)
   - [Installing OpenShift Data Foundation Operator](#installing-openshift-data-foundation-operator)
     - [Creating StorageSystem](#creating-storagesystem)
