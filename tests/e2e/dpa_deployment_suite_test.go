@@ -601,7 +601,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 					Eventually(ResticDaemonSetHasNodeSelector(namespace, key, value), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 				}
 			}
-			if dpa.Spec.BackupImages == nil || *installCase.DpaSpec.BackupImages {
+			if dpa.BackupImages() {
 				log.Printf("Waiting for registry pods to be running")
 				Eventually(AreRegistryDeploymentsAvailable(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 			}

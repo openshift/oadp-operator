@@ -86,7 +86,7 @@ var _ = Describe("AWS backup restore tests", func() {
 				Expect(err).ToNot(HaveOccurred())
 			}
 
-			if dpaCR.CustomResource.Spec.BackupImages == nil || *dpaCR.CustomResource.Spec.BackupImages {
+			if dpaCR.CustomResource.BackupImages() {
 				log.Printf("Waiting for registry pods to be running")
 				Eventually(AreRegistryDeploymentsAvailable(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 			}
