@@ -28,6 +28,10 @@ func (r *DPAReconciler) ValidateDataProtectionCR(log logr.Logger) (bool, error) 
 		}
 	}
 
+	if dpa.Spec.Configuration.Velero.NoDefaultBackupLocation && dpa.BackupImages() {
+		return false, errors.New("backupImages needs to be set to false when noDefaultLocationBackupLocation is set")
+	}
+
 	if len(dpa.Spec.BackupLocations) > 0 {
 		for _, location := range dpa.Spec.BackupLocations {
 			// check for velero BSL config or cloud storage config
@@ -80,7 +84,7 @@ func (r *DPAReconciler) ValidateVeleroPlugins(log logr.Logger) (bool, error) {
 			pluginNeedsCheck = true
 		}
 
-		if ok && pluginSpecificMap.IsCloudProvider && pluginNeedsCheck {
+		if ok && pluginSpecificMap.IsCloudProvider && pluginNeedsCheck && !dpa.Spec.Configuration.Velero.NoDefaultBackupLocation {
 			secretName := pluginSpecificMap.SecretName
 			_, err := r.getProviderSecret(secretName)
 			if err != nil {
