@@ -47,6 +47,7 @@ var _ = Describe("AWS backup restore tests", func() {
 
 	parksAppReady := VerificationFunction(func(ocClient client.Client, namespace string) error {
 		Eventually(IsDCReady(ocClient, "parks-app", "restify"), timeoutMultiplier*time.Minute*10, time.Second*10).Should(BeTrue())
+		// err := VerifyBackUpRestoreData(artifact_dir, namespace, "restify", "parks-app") // TODO: VERIFY PARKS APP DATA
 		return nil
 	})
 	mysqlReady := VerificationFunction(func(ocClient client.Client, namespace string) error {
@@ -60,7 +61,8 @@ var _ = Describe("AWS backup restore tests", func() {
 		if !exists {
 			return errors.New("did not find MYSQL scc")
 		}
-		return nil
+		err = VerifyBackUpRestoreData(artifact_dir, namespace, "todolist-route", "todolist")
+		return err
 	})
 
 	DescribeTable("backup and restore applications",
