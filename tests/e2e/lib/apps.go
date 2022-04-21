@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"time"
 
 	"github.com/onsi/ginkgo/v2"
 	ocpappsv1 "github.com/openshift/api/apps/v1"
@@ -233,6 +234,22 @@ func VerifyBackUpRestoreData(artifact_dir string, namespace string, routeName st
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode != 200 { // # TODO: NEED TO FIND A BETTER WAY TO DEBUG RESPONSE
+		var retrySchedule = []time.Duration{
+			15 * time.Second,
+			1 * time.Minute,
+			2 * time.Minute,
+		}
+		for _, backoff := range retrySchedule {
+			resp, err = http.Get(appApi)
+			if resp.StatusCode != 200 {
+				log.Printf("Request error: %+v\n", err)
+				log.Printf("Retrying in %v\n", backoff)
+				time.Sleep(backoff)
+			}
+		}
+	}
+
 	respData, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return err
@@ -243,7 +260,7 @@ func VerifyBackUpRestoreData(artifact_dir string, namespace string, routeName st
 			return err
 		}
 		os.Remove(backupFile)
-		if bytes.Compare(backupData, respData) != 0 {
+		if !bytes.Equal(backupData, respData) {
 			return errors.New("Backup and Restore Data are not the same")
 		}
 	} else if errors.Is(err, os.ErrNotExist) {
