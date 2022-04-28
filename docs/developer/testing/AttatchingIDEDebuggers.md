@@ -29,6 +29,7 @@ Create `.vscode/launch.json` file with following content
                 "CREDS_SECRET_REF": "",
                 "PROVIDER": "",
                 "CI_CRED_FILE": "",
+                "OPENSHIFT_CI": "true",
                 "ARTIFACT_DIR": "",
                 "OC_CLI": "",
             }

@@ -37,6 +37,9 @@ func init() {
 		if os.Getenv("VELERO_NAMESPACE") != "" {
 			namespace = os.Getenv("VELERO_NAMESPACE")
 		}
+		if os.Getenv("SETTINGS") != "" {
+			settings = os.Getenv("SETTINGS")
+		}
 		if os.Getenv("VELERO_INSTANCE_NAME") != "" {
 			instanceName = os.Getenv("VELERO_INSTANCE_NAME")
 		}
@@ -51,8 +54,8 @@ func init() {
 		} else {
 			ci_cred_file = credFile
 		}
-		if os.Getenv("SETTINGS") != "" {
-			settings = os.Getenv("SETTINGS")
+		if os.Getenv("OPENSHIFT_CI") != "" {
+			openshift_ci = os.Getenv("OPENSHIFT_CI")
 		}
 		if os.Getenv("ARTIFACT_DIR") != "" {
 			artifact_dir = os.Getenv("ARTIFACT_DIR")
