@@ -205,7 +205,7 @@ func RunMustGather(oc_cli string, artifact_dir string) error {
 	return err
 }
 
-func VerifyBackUpRestoreData(artifact_dir string, namespace string, routeName string, app string) error {
+func VerifyBackupRestoreData(artifact_dir string, namespace string, routeName string, app string) error {
 	log.Printf("Verifying backup/restore data of %s", app)
 	appRoute := &routev1.Route{}
 	clientv1, err := client.New(config.GetConfigOrDie(), client.Options{})
