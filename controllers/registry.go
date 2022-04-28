@@ -558,8 +558,18 @@ func (r *DPAReconciler) getProviderSecret(secretName string) (corev1.Secret, err
 		return secret, err
 	}
 	r.Log.Info(fmt.Sprintf("got provider secret name: %s", secret.Name))
+	// replace carriage return with new line
+	secret.Data = replaceCarriageReturn(secret.Data)
 	return secret, nil
 }
+
+func replaceCarriageReturn(data map[string][]byte) map[string][]byte {
+	for k, v := range data {
+		data[k] = []byte(strings.Replace(string(v), "\r\n", "\n", -1))
+	}
+	return data
+}
+
 func (r *DPAReconciler) getSecretNameAndKeyforBackupLocation(bslspec oadpv1alpha1.BackupLocation) (string, string) {
 
 	if bslspec.CloudStorage != nil {
