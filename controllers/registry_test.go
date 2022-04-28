@@ -1,28 +1,26 @@
 package controllers
 
 import (
-	"github.com/go-logr/logr"
-	routev1 "github.com/openshift/api/route/v1"
-	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
-
-	//"k8s.io/apimachinery/pkg/types"
+	"context"
 	"reflect"
 	"testing"
 
-	"k8s.io/client-go/tools/record"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/client/fake"
-
+	"github.com/go-logr/logr"
+	routev1 "github.com/openshift/api/route/v1"
+	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	"github.com/openshift/oadp-operator/pkg/common"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/pointer"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
 func getSchemeForFakeClientForRegistry() (*runtime.Scheme, error) {
@@ -1910,6 +1908,46 @@ func TestDPAReconciler_populateAzureRegistrySecret(t *testing.T) {
 			}
 			if !reflect.DeepEqual(tt.registrySecret.Data, wantRegistrySecret.Data) {
 				t.Errorf("expected bsl labels to be %#v, got %#v", tt.registrySecret, wantRegistrySecret.Data)
+			}
+		})
+	}
+}
+
+func Test_replaceCarriageReturn(t *testing.T) {
+	type args struct {
+		data   map[string][]byte
+		logger logr.Logger
+	}
+	tests := []struct {
+		name string
+		args args
+		want map[string][]byte
+	}{
+		{
+			name: "Given a map with carriage return, carriage return is replaced with new line",
+			args: args{
+				data: map[string][]byte{
+					"test": []byte("test\r\n"),
+				},
+				logger: logr.FromContextOrDiscard(context.TODO()),
+			},
+			want: map[string][]byte{
+				"test": []byte("test\n"),
+			},
+		},
+		{
+			name: "Given secret data with carriage return, carriage return is replaced with new line",
+			args: args{
+				data: secretDataWithCarriageReturnInSecret,
+				logger: logr.FromContextOrDiscard(context.TODO()),
+			},
+			want: secretDataWithEqualInSecret,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := replaceCarriageReturn(tt.args.data, tt.args.logger); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("replaceCarriageReturn() = %v, want %v", got, tt.want)
 			}
 		})
 	}
