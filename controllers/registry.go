@@ -559,13 +559,17 @@ func (r *DPAReconciler) getProviderSecret(secretName string) (corev1.Secret, err
 	}
 	r.Log.Info(fmt.Sprintf("got provider secret name: %s", secret.Name))
 	// replace carriage return with new line
-	secret.Data = replaceCarriageReturn(secret.Data)
+	secret.Data = replaceCarriageReturn(secret.Data, r.Log)
 	return secret, nil
 }
 
-func replaceCarriageReturn(data map[string][]byte) map[string][]byte {
+func replaceCarriageReturn(data map[string][]byte, logger logr.Logger) map[string][]byte {
 	for k, v := range data {
-		data[k] = []byte(strings.Replace(string(v), "\r\n", "\n", -1))
+		// report if carriage return is found
+		if strings.Contains(string(v), "\r\n") {
+			logger.Info("carriage return replaced")
+			data[k] = []byte(strings.ReplaceAll(string(v), "\r\n", "\n"))
+		}
 	}
 	return data
 }
