@@ -205,7 +205,7 @@ func PrintNamespaceEventsAfterTime(namespace string, startTime time.Time) {
 	}
 	for _, event := range events.Items {
 		// only get events before 10 seconds ago
-		if event.LastTimestamp.Before(startTime) {
+		if event.LastTimestamp.Before(&metav1.Time{Time: startTime}) {
 			ginkgo.GinkgoWriter.Println(fmt.Sprintf("Event: %v, Src: %v, Reason: %v", event.Message, event.Source.Component, event.Reason))
 		}
 	}
