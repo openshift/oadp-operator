@@ -33,6 +33,16 @@ var _ = Describe("AWS backup restore tests", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 	})
+	var lastInstallingApplicationNamespace string
+	var lastInstallTime time.Time
+	var _ = ReportAfterEach(func(report SpecReport){
+		if report.Failed() {
+			// print namespace error events for app namespace
+			if lastInstallingApplicationNamespace != "" {
+				PrintNamespaceEventsAfterTime(lastInstallingApplicationNamespace, lastInstallTime)
+			}
+		}
+	})
 
 	type BackupRestoreCase struct {
 		ApplicationTemplate  string
@@ -67,10 +77,11 @@ var _ = Describe("AWS backup restore tests", func() {
 
 	DescribeTable("backup and restore applications",
 		func(brCase BackupRestoreCase, expectedErr error) {
-
 			err := dpaCR.Build(brCase.BackupRestoreType)
 			Expect(err).NotTo(HaveOccurred())
 
+			lastInstallingApplicationNamespace = dpaCR.Namespace
+			lastInstallTime = time.Now()
 			err = dpaCR.CreateOrUpdate(&dpaCR.CustomResource.Spec)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -81,9 +92,8 @@ var _ = Describe("AWS backup restore tests", func() {
 				log.Printf("Waiting for restic pods to be running")
 				Eventually(AreResticPodsRunning(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 			}
-
 			if brCase.BackupRestoreType == CSI {
-				log.Printf("Creating VolumeSnapshot for CSI backuprestore of %s", brCase.Name)
+				log.Printf("Creating VolumeSnapshotClass for CSI backuprestore of %s", brCase.Name)
 				err = InstallApplication(dpaCR.Client, "./sample-applications/gp2-csi/volumeSnapshotClass.yaml")
 				Expect(err).ToNot(HaveOccurred())
 			}
@@ -101,6 +111,8 @@ var _ = Describe("AWS backup restore tests", func() {
 			restoreName := fmt.Sprintf("%s-%s", brCase.Name, restoreUid.String())
 
 			// install app
+			lastInstallingApplicationNamespace = brCase.ApplicationNamespace
+			lastInstallTime = time.Now()
 			log.Printf("Installing application for case %s", brCase.Name)
 			err = InstallApplication(dpaCR.Client, brCase.ApplicationTemplate)
 			Expect(err).ToNot(HaveOccurred())

@@ -191,6 +191,26 @@ func AreApplicationPodsRunning(namespace string) wait.ConditionFunc {
 	}
 }
 
+func PrintNamespaceEventsAfterTime(namespace string, startTime time.Time) {
+	log.Println("Printing events for namespace: ", namespace)
+	clientset, err := setUpClient()
+	if err != nil {
+		ginkgo.GinkgoWriter.Write([]byte(fmt.Sprintf("Error getting client: %v\n", err)))
+		return
+	}
+	events, err := clientset.CoreV1().Events(namespace).List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		ginkgo.GinkgoWriter.Write([]byte(fmt.Sprintf("Error getting events: %v\n", err)))
+		return
+	}
+	for _, event := range events.Items {
+		// only get events before 10 seconds ago
+		if event.LastTimestamp.Before(startTime) {
+			ginkgo.GinkgoWriter.Println(fmt.Sprintf("Event: %v, Src: %v, Reason: %v", event.Message, event.Source.Component, event.Reason))
+		}
+	}
+}
+
 func RunMustGather(oc_cli string, artifact_dir string) error {
 	ocClient := oc_cli
 	ocAdmin := "adm"

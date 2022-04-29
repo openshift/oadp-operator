@@ -485,6 +485,16 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 	if provider == "aws" {
 		genericTests = append(genericTests, awsTests...)
 	}
+	var lastInstallingApplicationNamespace string
+	var lastInstallTime time.Time
+	var _ = ReportAfterEach(func(report SpecReport){
+		if report.Failed() {
+			// print namespace error events for app namespace
+			if lastInstallingApplicationNamespace != "" {
+				PrintNamespaceEventsAfterTime(lastInstallingApplicationNamespace, lastInstallTime)
+			}
+		}
+	})
 	DescribeTable("Updating custom resource with new configuration",
 
 		func(installCase InstallCase, expectedErr error) {
@@ -498,6 +508,8 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 					installCase.DpaSpec.BackupLocations[0].Velero.Config["credentialsFile"] = "bsl-cloud-credentials-" + dpaCR.Provider + "/cloud"
 				}
 			}
+			lastInstallingApplicationNamespace = dpaCR.Namespace
+			lastInstallTime = time.Now()
 			err = dpaCR.CreateOrUpdate(installCase.DpaSpec)
 			Expect(err).ToNot(HaveOccurred())
 			if installCase.WantError {
