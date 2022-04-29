@@ -3,9 +3,7 @@ package e2e_test
 import (
 	"errors"
 	"flag"
-	"fmt"
 	"log"
-	"strconv"
 	"testing"
 	"time"
 
@@ -16,7 +14,7 @@ import (
 )
 
 // Common vars obtained from flags passed in ginkgo.
-var credFile, namespace, credSecretRef, instanceName, provider, azure_resource_file, openshift_ci, ci_cred_file, settings, bsl_profile string
+var credFile, namespace, credSecretRef, instanceName, provider, ci_cred_file, settings, artifact_dir, oc_cli string
 var timeoutMultiplier time.Duration
 
 func init() {
@@ -24,12 +22,11 @@ func init() {
 	flag.StringVar(&namespace, "velero_namespace", "velero", "Velero Namespace")
 	flag.StringVar(&settings, "settings", "./templates/default_settings.json", "Settings of the velero instance")
 	flag.StringVar(&instanceName, "velero_instance_name", "example-velero", "Velero Instance Name")
-	flag.StringVar(&bsl_profile, "cluster_profile", "aws", "Cluster profile")
 	flag.StringVar(&credSecretRef, "creds_secret_ref", "cloud-credentials", "Credential secret ref for backup storage location")
-	flag.StringVar(&provider, "provider", "aws", "BSL provider")
-	flag.StringVar(&azure_resource_file, "azure_resource_file", "azure resource file", "Resource Group Dir for azure")
+	flag.StringVar(&provider, "provider", "aws", "Cloud provider")
 	flag.StringVar(&ci_cred_file, "ci_cred_file", credFile, "CI Cloud Cred File")
-	flag.StringVar(&openshift_ci, "openshift_ci", "false", "ENV for tests")
+	flag.StringVar(&artifact_dir, "artifact_dir", "/tmp", "Directory for storing must gather")
+	flag.StringVar(&oc_cli, "oc_cli", "oc", "OC CLI Client")
 
 	timeoutMultiplierInput := flag.Int64("timeout_multiplier", 1, "Customize timeout multiplier from default (1)")
 	timeoutMultiplier = 1
@@ -68,73 +65,13 @@ var _ = BeforeSuite(func() {
 	dpaCR.CustomResource = Dpa
 	testSuiteInstanceName := "ts-" + instanceName
 	dpaCR.Name = testSuiteInstanceName
-	openshift_ci_bool, _ := strconv.ParseBool(openshift_ci)
-	dpaCR.OpenshiftCi = openshift_ci_bool
 
-	if openshift_ci_bool == true {
-		switch dpaCR.Provider {
-		case "aws":
-			cloudCredData, err := utils.ReadFile(dpaCR.Credentials)
-			Expect(err).NotTo(HaveOccurred())
-			err = CreateCredentialsSecret(cloudCredData, namespace, "bsl-cloud-credentials-aws")
-			Expect(err).NotTo(HaveOccurred())
-			dpaCR.Credentials = ci_cred_file
-		case "gcp":
-			cloudCredData, err := utils.ReadFile(dpaCR.Credentials)
-			Expect(err).NotTo(HaveOccurred())
-			err = CreateCredentialsSecret(cloudCredData, namespace, "bsl-cloud-credentials-gcp")
-			Expect(err).NotTo(HaveOccurred())
-			dpaCR.Credentials = ci_cred_file
-		case "azure":
-			cloudCredData, err := utils.GetJsonData(dpaCR.Credentials) // azure credentials need to be in json - can be changed
-			Expect(err).NotTo(HaveOccurred())
-			dpaCR.DpaAzureConfig = DpaAzureConfig{
-				BslSubscriptionId:          fmt.Sprintf("%v", cloudCredData["subscriptionId"]),
-				BslResourceGroup:           fmt.Sprintf("%v", cloudCredData["resourceGroup"]),
-				BslStorageAccount:          fmt.Sprintf("%v", cloudCredData["storageAccount"]),
-				BslStorageAccountKeyEnvVar: "AZURE_STORAGE_ACCOUNT_ACCESS_KEY",
-				VslSubscriptionId:          fmt.Sprintf("%v", cloudCredData["subscriptionId"]),
-				VslResourceGroup:           fmt.Sprintf("%v", cloudCredData["resourceGroup"]),
-			}
+	cloudCredData, err := utils.ReadFile(dpaCR.Credentials)
+	Expect(err).NotTo(HaveOccurred())
+	err = CreateCredentialsSecret(cloudCredData, namespace, "bsl-cloud-credentials-"+provider)
+	Expect(err).NotTo(HaveOccurred())
+	dpaCR.Credentials = ci_cred_file
 
-			// bsl cloud
-			cloudCreds := GetAzureCreds(cloudCredData)
-			err = CreateCredentialsSecret(cloudCreds, namespace, "bsl-cloud-credentials-azure")
-			Expect(err).NotTo(HaveOccurred())
-			// ci cloud
-			ciJsonData, err := utils.GetJsonData(ci_cred_file)
-			Expect(err).NotTo(HaveOccurred())
-
-			if _, ok := ciJsonData["resourceGroup"]; !ok {
-				resourceGroup, err := GetAzureResource(azure_resource_file)
-				Expect(err).NotTo(HaveOccurred())
-				ciJsonData["resourceGroup"] = resourceGroup
-			}
-			dpaCR.DpaAzureConfig.VslSubscriptionId = fmt.Sprintf("%v", ciJsonData["subscriptionId"])
-			dpaCR.DpaAzureConfig.VslResourceGroup = fmt.Sprintf("%v", ciJsonData["resourceGroup"])
-			ciCreds := GetAzureCreds(ciJsonData)
-			dpaCR.Credentials = "/tmp/azure-credentials"
-			err = utils.WriteFile(dpaCR.Credentials, ciCreds)
-			Expect(err).NotTo(HaveOccurred())
-		}
-	} else {
-		if dpaCR.Provider == "azure" {
-			cloudCredData, err := utils.GetJsonData(dpaCR.Credentials) // azure credentials need to be in json - can be changed
-			Expect(err).NotTo(HaveOccurred())
-			dpaCR.DpaAzureConfig = DpaAzureConfig{
-				BslSubscriptionId:          fmt.Sprintf("%v", cloudCredData["subscriptionId"]),
-				BslResourceGroup:           fmt.Sprintf("%v", cloudCredData["resourceGroup"]),
-				BslStorageAccount:          fmt.Sprintf("%v", cloudCredData["storageAccount"]),
-				BslStorageAccountKeyEnvVar: "AZURE_STORAGE_ACCOUNT_ACCESS_KEY",
-				VslSubscriptionId:          fmt.Sprintf("%v", cloudCredData["subscriptionId"]),
-				VslResourceGroup:           fmt.Sprintf("%v", cloudCredData["resourceGroup"]),
-			}
-			ciCreds := GetAzureCreds(cloudCredData)
-			dpaCR.Credentials = "/tmp/azure-credentials"
-			err = utils.WriteFile(dpaCR.Credentials, ciCreds)
-			Expect(err).NotTo(HaveOccurred())
-		}
-	}
 	credData, err := utils.ReadFile(dpaCR.Credentials)
 	Expect(err).NotTo(HaveOccurred())
 	err = CreateCredentialsSecret(credData, namespace, credSecretRef)

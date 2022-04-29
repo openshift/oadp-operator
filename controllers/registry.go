@@ -391,7 +391,7 @@ func (r *DPAReconciler) buildRegistryContainer(bsl *velerov1.BackupStorageLocati
 			containers[0].VolumeMounts = []corev1.VolumeMount{
 				{
 					Name:      credentials.PluginSpecificFields[oadpv1alpha1.DefaultPlugin(bsl.Spec.Provider)].BslSecretName,
-					MountPath: credentials.PluginSpecificFields[oadpv1alpha1.DefaultPlugin(bsl.Spec.Provider)].BSlMountPath,
+					MountPath: credentials.PluginSpecificFields[oadpv1alpha1.DefaultPlugin(bsl.Spec.Provider)].BslMountPath,
 				},
 			}
 		}
@@ -535,7 +535,7 @@ func (r *DPAReconciler) getGCPRegistryEnvVars(bsl *velerov1.BackupStorageLocatio
 			// check for secret key
 			_, secretKey := r.getSecretNameAndKey(&bsl.Spec, oadpv1alpha1.DefaultPluginGCP)
 			if _, ok := bsl.Spec.Config["credentialsFile"]; ok {
-				gcpEnvVars[i].Value = credentials.PluginSpecificFields[oadpv1alpha1.DefaultPluginGCP].BSlMountPath + "/" + secretKey
+				gcpEnvVars[i].Value = credentials.PluginSpecificFields[oadpv1alpha1.DefaultPluginGCP].BslMountPath + "/" + secretKey
 			} else {
 				gcpEnvVars[i].Value = credentials.PluginSpecificFields[oadpv1alpha1.DefaultPluginGCP].MountPath + "/" + secretKey
 			}
