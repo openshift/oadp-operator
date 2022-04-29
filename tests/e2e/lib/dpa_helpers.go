@@ -10,6 +10,7 @@ import (
 	"log"
 	"reflect"
 	"strings"
+	"time"
 
 	"github.com/openshift/oadp-operator/pkg/common"
 
@@ -139,6 +140,9 @@ func (v *DpaCustomResource) GetNoErr() *oadpv1alpha1.DataProtectionApplication {
 }
 
 func (v *DpaCustomResource) CreateOrUpdate(spec *oadpv1alpha1.DataProtectionApplicationSpec) error {
+	return v.CreateOrUpdateWithRetries(spec, 3)
+}
+func (v *DpaCustomResource) CreateOrUpdateWithRetries(spec *oadpv1alpha1.DataProtectionApplicationSpec, retries int) error {
 	cr, err := v.Get()
 	if apierrors.IsNotFound(err) {
 		v.Build(v.backupRestoreType)
@@ -149,7 +153,15 @@ func (v *DpaCustomResource) CreateOrUpdate(spec *oadpv1alpha1.DataProtectionAppl
 		return err
 	}
 	cr.Spec = *spec
-	return v.Client.Update(context.Background(), cr)
+	if err := v.Client.Update(context.Background(), cr); err != nil {
+		if apierrors.IsConflict(err) && retries > 0 {
+			log.Println("conflict detected during DPA CreateOrUpdate, retrying for ", retries, " more times")
+			time.Sleep(time.Second * 2)
+			return v.CreateOrUpdateWithRetries(spec, retries-1)
+		}
+		return err
+	}
+	return nil
 }
 
 func (v *DpaCustomResource) Delete() error {
