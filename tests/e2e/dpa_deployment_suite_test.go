@@ -487,7 +487,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 	}
 	var lastInstallingApplicationNamespace string
 	var lastInstallTime time.Time
-	var _ = ReportAfterEach(func(report SpecReport){
+	var _ = ReportAfterEach(func(report SpecReport) {
 		if report.Failed() {
 			// print namespace error events for app namespace
 			if lastInstallingApplicationNamespace != "" {
