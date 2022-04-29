@@ -158,8 +158,8 @@ func (v *DpaCustomResource) CreateOrUpdateWithRetries(spec *oadpv1alpha1.DataPro
 		cr.Spec = *spec
 		if err := v.Client.Update(context.Background(), cr); err == nil {
 			return nil
-		} else if apierrors.IsConflict(err) {
-			log.Println("conflict detected during DPA CreateOrUpdate, retrying for ", retries - i , " more times")
+		} else if apierrors.IsConflict(err) && i < retries-1 {
+			log.Println("conflict detected during DPA CreateOrUpdate, retrying for ", retries - i - 1 , " more times")
 			time.Sleep(time.Second * 2)
 			continue
 		}
