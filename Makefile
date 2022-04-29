@@ -15,8 +15,8 @@ CI_CRED_FILE ?= ${CLUSTER_PROFILE_DIR}/.awscred
 # aws configs - default
 BSL_REGION ?= us-east-1
 VSL_REGION ?= ${LEASED_RESOURCE}
-# BSL_AWS_PROFILE ?= default
-BSL_AWS_PROFILE ?= migration-engineering
+BSL_AWS_PROFILE ?= default
+# BSL_AWS_PROFILE ?= migration-engineering
 
 # vsl secret
 CREDS_SECRET_REF ?= cloud-credentials
@@ -24,10 +24,12 @@ CREDS_SECRET_REF ?= cloud-credentials
 OADP_BUCKET_FILE ?= ${OADP_CRED_DIR}/new-velero-bucket-name
 # azure cluster resource file - only in CI
 AZURE_RESOURCE_FILE ?= /var/run/secrets/ci.openshift.io/multi-stage/metadata.json
+AZURE_CI_JSON_CRED_FILE ?= ${CLUSTER_PROFILE_DIR}/osServicePrincipal.json
+AZURE_OADP_JSON_CRED_FILE ?= ${OADP_CRED_DIR}/azure-credentials
 
 # Misc
 OPENSHIFT_CI ?= true
-VELERO_INSTANCE_NAME ?= velero-sample
+VELERO_INSTANCE_NAME ?= velero-test
 E2E_TIMEOUT_MULTIPLIER ?= 1
 ARTIFACT_DIR ?= /tmp
 OC_CLI = $(shell which oc)
@@ -43,8 +45,8 @@ ifeq ($(CLUSTER_TYPE), gcp)
 	OADP_BUCKET_FILE = ${OADP_CRED_DIR}/gcp-velero-bucket-name
 else ifeq ($(CLUSTER_TYPE), azure4)
 	CLUSTER_TYPE = azure
-	CI_CRED_FILE = ${CLUSTER_PROFILE_DIR}/osServicePrincipal.json
-	OADP_CRED_FILE = ${OADP_CRED_DIR}/azure-credentials
+	CI_CRED_FILE = /tmp/ci-azure-credentials
+	OADP_CRED_FILE = /tmp/oadp-azure-credentials
 	CREDS_SECRET_REF = cloud-credentials-azure
 	OADP_BUCKET_FILE = ${OADP_CRED_DIR}/azure-velero-bucket-name
 endif
@@ -346,6 +348,8 @@ SETTINGS_TMP=/tmp/test-settings
 
 test-e2e-setup:
 	mkdir -p $(SETTINGS_TMP)
+	TARGET_CI_CRED_FILE="$(CI_CRED_FILE)" AZURE_RESOURCE_FILE="$(AZURE_RESOURCE_FILE)" CI_JSON_CRED_FILE="$(AZURE_CI_JSON_CRED_FILE)" \
+	OADP_JSON_CRED_FILE="$(AZURE_OADP_JSON_CRED_FILE)" OADP_CRED_FILE="$(OADP_CRED_FILE)" OPENSHIFT_CI="$(OPENSHIFT_CI)" \
 	PROVIDER="$(CLUSTER_TYPE)" BUCKET="$(OADP_BUCKET)" BSL_REGION="$(BSL_REGION)" SECRET="$(CREDS_SECRET_REF)" TMP_DIR=$(SETTINGS_TMP) \
 	VSL_REGION="$(VSL_REGION)" BSL_AWS_PROFILE="$(BSL_AWS_PROFILE)" BSL_REGION="$(BSL_REGION)" /bin/bash "tests/e2e/scripts/$(CLUSTER_TYPE)_settings.sh"
 
@@ -355,11 +359,8 @@ test-e2e: test-e2e-setup
 	-settings=$(SETTINGS_TMP)/oadpcreds \
 	-velero_instance_name=$(VELERO_INSTANCE_NAME) \
 	-timeout_multiplier=$(E2E_TIMEOUT_MULTIPLIER) \
-	-cluster_profile=$(CLUSTER_TYPE) \
 	--ginkgo.label-filter="$(TEST_FILTER)" \
-	-openshift_ci=$(OPENSHIFT_CI) \
 	-ci_cred_file=$(CI_CRED_FILE) \
-	-azure_resource_file=$(AZURE_RESOURCE_FILE) \
 	-provider=$(CLUSTER_TYPE) \
 	-creds_secret_ref=$(CREDS_SECRET_REF) \
 	-artifact_dir=$(ARTIFACT_DIR) \

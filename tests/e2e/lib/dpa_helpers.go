@@ -37,15 +37,6 @@ const (
 	RESTIC BackupRestoreType = "restic"
 )
 
-type DpaAzureConfig struct {
-	VslSubscriptionId          string
-	VslResourceGroup           string
-	BslSubscriptionId          string
-	BslResourceGroup           string
-	BslStorageAccount          string
-	BslStorageAccountKeyEnvVar string
-}
-
 type DpaCustomResource struct {
 	Name              string
 	Namespace         string
@@ -53,11 +44,9 @@ type DpaCustomResource struct {
 	backupRestoreType BackupRestoreType
 	CustomResource    *oadpv1alpha1.DataProtectionApplication
 	Client            client.Client
-	DpaAzureConfig    DpaAzureConfig
 	Credentials       string
 	CredSecretRef     string
 	Provider          string
-	OpenshiftCi       bool
 }
 
 var VeleroPrefix = "velero-e2e-" + string(uuid.NewUUID())
@@ -98,72 +87,8 @@ func (v *DpaCustomResource) Build(backupRestoreType BackupRestoreType) error {
 			},
 		},
 	}
-	switch v.Provider {
-	case "aws":
-		if v.OpenshiftCi {
-			if dpaInstance.Spec.BackupLocations[0].Velero.Config != nil {
-				dpaInstance.Spec.BackupLocations[0].Velero.Config["credentialsFile"] = "bsl-cloud-credentials-aws/cloud"
-			}
-		} else {
-			dpaInstance.Spec.BackupLocations[0].Velero.Credential = &corev1.SecretKeySelector{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: v.CredSecretRef,
-				},
-				Key: "cloud",
-			}
-		}
-	case "gcp":
-		if v.OpenshiftCi {
-			if dpaInstance.Spec.BackupLocations[0].Velero.Config != nil {
-				dpaInstance.Spec.BackupLocations[0].Velero.Config["credentialsFile"] = "bsl-cloud-credentials-gcp/cloud"
-			}
-		} else {
-			dpaInstance.Spec.BackupLocations[0].Velero.Credential = &corev1.SecretKeySelector{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: v.CredSecretRef,
-				},
-				Key: "cloud",
-			}
-		}
-		// dpaInstance.Spec.Configuration.Velero.DefaultPlugins = append(dpaInstance.Spec.Configuration.Velero.DefaultPlugins, oadpv1alpha1.DefaultPluginGCP)
-		// dpaInstance.Spec.SnapshotLocations = []oadpv1alpha1.SnapshotLocation{
-		// 	{
-		// 		Velero: &velero.VolumeSnapshotLocationSpec{
-		// 			Provider: v.Provider,
-		// 			Config: map[string]string{
-		// 				"snapshotLocation": v.gcpConfig.VslRegion,
-		// 			},
-		// 		},
-		// 	},
-		// }
-	case "azure":
-		dpaInstance.Spec.BackupLocations[0].Velero.Config = map[string]string{
-			"subscriptionId":          v.DpaAzureConfig.BslSubscriptionId,
-			"storageAccount":          v.DpaAzureConfig.BslStorageAccount,
-			"resourceGroup":           v.DpaAzureConfig.BslResourceGroup,
-			"storageAccountKeyEnvVar": v.DpaAzureConfig.BslStorageAccountKeyEnvVar,
-		}
-		if v.OpenshiftCi {
-			dpaInstance.Spec.BackupLocations[0].Velero.Config["credentialsFile"] = "bsl-cloud-credentials-azure/cloud" // <secret_name>/<key>
-		} else {
-			dpaInstance.Spec.BackupLocations[0].Velero.Credential = &corev1.SecretKeySelector{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: v.CredSecretRef,
-				},
-				Key: "cloud",
-			}
-		}
-		dpaInstance.Spec.SnapshotLocations = []oadpv1alpha1.SnapshotLocation{
-			{
-				Velero: &velero.VolumeSnapshotLocationSpec{
-					Provider: v.Provider,
-					Config: map[string]string{
-						"subscriptionId": v.DpaAzureConfig.VslSubscriptionId,
-						"resourceGroup":  v.DpaAzureConfig.VslResourceGroup,
-					},
-				},
-			},
-		}
+	if dpaInstance.Spec.BackupLocations[0].Velero.Config != nil {
+		dpaInstance.Spec.BackupLocations[0].Velero.Config["credentialsFile"] = "bsl-cloud-credentials-" + v.Provider + "/cloud"
 	}
 	v.backupRestoreType = backupRestoreType
 	switch backupRestoreType {
