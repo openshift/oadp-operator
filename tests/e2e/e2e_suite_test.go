@@ -54,9 +54,6 @@ func init() {
 		} else {
 			ci_cred_file = credFile
 		}
-		if os.Getenv("OPENSHIFT_CI") != "" {
-			openshift_ci = os.Getenv("OPENSHIFT_CI")
-		}
 		if os.Getenv("ARTIFACT_DIR") != "" {
 			artifact_dir = os.Getenv("ARTIFACT_DIR")
 		}
