@@ -4,7 +4,7 @@ CI_AZURE_SUBSCRIPTION_ID=$(cat $CI_JSON_CRED_FILE | awk '/subscriptionId/ { gsub
 CI_AZURE_CLIENT_ID=$(cat $CI_JSON_CRED_FILE | awk '/clientId/ { gsub(/["]|,.*/,""); print $2}')
 CI_AZURE_CLIENT_SECRET=$(cat $CI_JSON_CRED_FILE | awk '/clientSecret/ { gsub(/["]|,.*/,""); print $2}')
 CI_AZURE_TENANT_ID=$(cat $CI_JSON_CRED_FILE | awk '/tenantId/ { gsub(/["]|,.*/,""); print $2}')
-CI_AZURE_RESOURCE_GROUP=$(cat $AZURE_RESOURCE_FILE | awk '/infraID/ { gsub(/["]|,.*/,""); print $2}')
+CI_AZURE_RESOURCE_GROUP=$(cat $AZURE_RESOURCE_FILE | awk '{ gsub(/["\{\}:]|.*infraID/,"");gsub(/,/," "); print $1}')
 
 if [ "$OPENSHIFT_CI" == "true" ]; then\
   CI_AZURE_RESOURCE_GROUP="${CI_AZURE_RESOURCE_GROUP}-rg"; \
