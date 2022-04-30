@@ -116,6 +116,17 @@ func UninstallApplication(ocClient client.Client, file string) error {
 // 		return true, err
 // 	}
 // }
+func HasDCsInNamespace(ocClient client.Client, namespace string) (bool, error) {
+	dcList := &ocpappsv1.DeploymentConfigList{}
+	err := ocClient.List(context.Background(), dcList, client.InNamespace(namespace))
+	if err!= nil {
+		return false, err
+	}
+	if len(dcList.Items) == 0 {
+		return false, nil
+	}
+	return true, nil
+}
 
 func IsDCReady(ocClient client.Client, namespace, dcName string) wait.ConditionFunc {
 	return func() (bool, error) {

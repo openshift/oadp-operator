@@ -124,6 +124,8 @@ var _ = Describe("AWS backup restore tests", func() {
 			err = brCase.PreBackupVerify(dpaCR.Client, brCase.ApplicationNamespace)
 			Expect(err).ToNot(HaveOccurred())
 
+			hasDCsInNamespace, err := HasDCsInNamespace(dpaCR.Client, brCase.ApplicationNamespace)
+			Expect(err).ToNot(HaveOccurred())
 			// create backup
 			log.Printf("Creating backup %s for case %s", backupName, brCase.Name)
 			err = CreateBackupForNamespaces(dpaCR.Client, namespace, backupName, []string{brCase.ApplicationNamespace})
@@ -147,19 +149,49 @@ var _ = Describe("AWS backup restore tests", func() {
 			// Wait for namespace to be deleted
 			Eventually(IsNamespaceDeleted(brCase.ApplicationNamespace), timeoutMultiplier*time.Minute*2, time.Second*5).Should(BeTrue())
 
-			// run restore
-			lastInstallingApplicationNamespace = brCase.ApplicationNamespace
-			lastInstallTime = time.Now()
-			log.Printf("Creating restore %s for case %s", restoreName, brCase.Name)
-			err = CreateRestoreFromBackup(dpaCR.Client, namespace, backupName, restoreName)
-			Expect(err).ToNot(HaveOccurred())
-			Eventually(IsRestoreDone(dpaCR.Client, namespace, restoreName), timeoutMultiplier*time.Minute*4, time.Second*10).Should(BeTrue())
-			Expect(GetVeleroContainerFailureLogs(dpaCR.Namespace)).To(Equal([]string{}))
+			// Check if backup needs restic deploymentconfig workaround. https://github.com/openshift/oadp-operator/blob/master/docs/TROUBLESHOOTING.md#deployconfig
+			if brCase.BackupRestoreType == RESTIC && hasDCsInNamespace {
+				log.Printf("DC found in backup namespace, using DC restic workaround")
+				var dcWorkaroundResources = []string{"replicationcontroller","deploymentconfig","templateinstances.template.openshift.io"}
+				// run restore
+				lastInstallingApplicationNamespace = brCase.ApplicationNamespace
+				lastInstallTime = time.Now()
+				log.Printf("Creating restore %s excluding DC workaround resources for case %s", restoreName, brCase.Name)
+				err = CreateRestoreFromBackup(dpaCR.Client, namespace, backupName, restoreName, WithExcludedResources(dcWorkaroundResources))
+				Expect(err).ToNot(HaveOccurred())
+				Eventually(IsRestoreDone(dpaCR.Client, namespace, restoreName), timeoutMultiplier*time.Minute*4, time.Second*10).Should(BeTrue())
+				Expect(GetVeleroContainerFailureLogs(dpaCR.Namespace)).To(Equal([]string{}))
+	
+				// Check if restore succeeded
+				succeeded, err = IsRestoreCompletedSuccessfully(dpaCR.Client, namespace, restoreName)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(succeeded).To(Equal(true))
 
-			// Check if restore succeeded
-			succeeded, err = IsRestoreCompletedSuccessfully(dpaCR.Client, namespace, restoreName)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(succeeded).To(Equal(true))
+				// run restore
+				log.Printf("Creating restore %s including DC workaround resources for case %s", restoreName, brCase.Name)
+				err = CreateRestoreFromBackup(dpaCR.Client, namespace, backupName, restoreName, WithIncludedResources(dcWorkaroundResources))
+				Expect(err).ToNot(HaveOccurred())
+				Eventually(IsRestoreDone(dpaCR.Client, namespace, restoreName), timeoutMultiplier*time.Minute*4, time.Second*10).Should(BeTrue())
+				Expect(GetVeleroContainerFailureLogs(dpaCR.Namespace)).To(Equal([]string{}))
+	
+				// Check if restore succeeded
+				succeeded, err = IsRestoreCompletedSuccessfully(dpaCR.Client, namespace, restoreName)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(succeeded).To(Equal(true))
+
+			} else {
+				// run restore
+				log.Printf("Creating restore %s for case %s", restoreName, brCase.Name)
+				err = CreateRestoreFromBackup(dpaCR.Client, namespace, backupName, restoreName)
+				Expect(err).ToNot(HaveOccurred())
+				Eventually(IsRestoreDone(dpaCR.Client, namespace, restoreName), timeoutMultiplier*time.Minute*4, time.Second*10).Should(BeTrue())
+				Expect(GetVeleroContainerFailureLogs(dpaCR.Namespace)).To(Equal([]string{}))
+	
+				// Check if restore succeeded
+				succeeded, err = IsRestoreCompletedSuccessfully(dpaCR.Client, namespace, restoreName)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(succeeded).To(Equal(true))
+			}
 
 			// verify app is running
 			Eventually(AreApplicationPodsRunning(brCase.ApplicationNamespace), timeoutMultiplier*time.Minute*9, time.Second*5).Should(BeTrue())
