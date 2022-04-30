@@ -15,6 +15,7 @@ import (
 
 	utils "github.com/openshift/oadp-operator/tests/e2e/utils"
 
+	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 	appsv1 "github.com/openshift/api/apps/v1"
 	security "github.com/openshift/api/security/v1"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
@@ -174,6 +175,7 @@ func (v *DpaCustomResource) SetClient() error {
 	appsv1.AddToScheme(client.Scheme())
 	security.AddToScheme(client.Scheme())
 	operators.AddToScheme(client.Scheme())
+	volumesnapshotv1.AddToScheme(client.Scheme())
 
 	v.Client = client
 	return nil
