@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"sort"
 	"time"
 
 	"github.com/onsi/ginkgo/v2"
@@ -203,10 +204,15 @@ func PrintNamespaceEventsAfterTime(namespace string, startTime time.Time) {
 		ginkgo.GinkgoWriter.Write([]byte(fmt.Sprintf("Error getting events: %v\n", err)))
 		return
 	}
-	for _, event := range events.Items {
+	eventItems := events.Items
+	// sort events by timestamp
+	sort.Slice(eventItems, func(i, j int) bool {
+		return eventItems[i].LastTimestamp.Before(&eventItems[j].LastTimestamp)
+	})
+	for _, event := range eventItems {
 		// only get events after time
 		if event.LastTimestamp.After(startTime) {
-			ginkgo.GinkgoWriter.Println(fmt.Sprintf("Event: %v, Src: %v, Reason: %v", event.Message, event.Source.Component, event.Reason))
+			ginkgo.GinkgoWriter.Println(fmt.Sprintf("Event: %v, Type: %v, Count: %v, Src: %v, Reason: %v", event.Message, event.Type, event.Count, event.InvolvedObject, event.Reason))
 		}
 	}
 }
