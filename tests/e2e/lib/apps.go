@@ -176,18 +176,43 @@ func NamespaceRequiresResticDCWorkaround(ocClient client.Client, namespace strin
 func IsVolumeSnapshotsReady(ocClient client.Client, namespace string) wait.ConditionFunc {
 	return func() (bool, error) {
 		vList := &volumesnapshotv1.VolumeSnapshotList{}
+		// vListBeta := &volumesnapshotv1beta1.VolumeSnapshotList{}
 		err := ocClient.List(context.Background(), vList, client.InNamespace(namespace))
-		if err!= nil {
+		if err != nil {
+			// try beta version
+			// if runtime.IsNotRegisteredError(err) {
+			// 	// try v1beta1
+			// 	vList = nil // reset
+			// 	err = ocClient.List(context.Background(), vList, client.InNamespace(namespace))
+			// 	if err!= nil {
+			// 		if runtime.IsNotRegisteredError(err) {
+			// 			return false, nil
+			// 		}
+			// 	}
+			// }
 			return false, err
 		}
+		// if vList != nil {
 		if len(vList.Items) == 0 {
 			return false, nil
 		}
 		for _, v := range vList.Items {
-			if v.Status.ReadyToUse == nil || *v.Status.ReadyToUse == false {
+			if v.Status.ReadyToUse == nil || !*v.Status.ReadyToUse {
 				return false, nil
 			}
 		}
+		// } 
+		// } else {
+		// 	if len(vListBeta.Items) == 0 {
+		// 		return false, nil
+		// 	}
+		// 	for _, v := range vListBeta.Items {
+		// 		if v.Status.ReadyToUse == nil || !*v.Status.ReadyToUse {
+		// 			return false, nil
+		// 		}
+		// 	}
+		// }
+
 		return true, nil
 	}
 }
