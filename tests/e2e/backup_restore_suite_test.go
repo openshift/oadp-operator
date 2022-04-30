@@ -148,6 +148,8 @@ var _ = Describe("AWS backup restore tests", func() {
 			Eventually(IsNamespaceDeleted(brCase.ApplicationNamespace), timeoutMultiplier*time.Minute*2, time.Second*5).Should(BeTrue())
 
 			// run restore
+			lastInstallingApplicationNamespace = brCase.ApplicationNamespace
+			lastInstallTime = time.Now()
 			log.Printf("Creating restore %s for case %s", restoreName, brCase.Name)
 			err = CreateRestoreFromBackup(dpaCR.Client, namespace, backupName, restoreName)
 			Expect(err).ToNot(HaveOccurred())
