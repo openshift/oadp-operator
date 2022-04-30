@@ -16,7 +16,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -138,9 +137,9 @@ func HasTemplateInstancesInNamespace(ocClient client.Client, namespace string) (
 	tiList := &templatev1.TemplateInstanceList{}
 	err := ocClient.List(context.Background(), tiList, client.InNamespace(namespace))
 	if err != nil {
-		if runtime.IsNotRegisteredError(err) {
-			return false, nil
-		}
+		// if runtime.IsNotRegisteredError(err) {
+		// 	return false, nil
+		// }
 		return false, err
 	}
 	if len(tiList.Items) == 0 {

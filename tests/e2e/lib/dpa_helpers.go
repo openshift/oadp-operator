@@ -17,6 +17,7 @@ import (
 
 	appsv1 "github.com/openshift/api/apps/v1"
 	security "github.com/openshift/api/security/v1"
+	templatev1 "github.com/openshift/api/template/v1"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	operators "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	velero "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
@@ -172,6 +173,8 @@ func (v *DpaCustomResource) SetClient() error {
 	oadpv1alpha1.AddToScheme(client.Scheme())
 	velero.AddToScheme(client.Scheme())
 	appsv1.AddToScheme(client.Scheme())
+	corev1.AddToScheme(client.Scheme())
+	templatev1.AddToScheme(client.Scheme())
 	security.AddToScheme(client.Scheme())
 	operators.AddToScheme(client.Scheme())
 
