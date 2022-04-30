@@ -200,7 +200,7 @@ If the issue still persists, [create a new issue](https://github.com/openshift/o
 
     Step 3: Initiate a restore including the replicationcontroller and deploymentconfig resources.
     ```
-    velero restore create --from-backup=<BACKUP_NAME> -n openshift-adp --include-namespaces <TARGET_NAMESPACE> --include-resources replicationcontroller,deploymentconfig --restore-volumes=true
+    velero restore create --from-backup=<BACKUP_NAME> -n openshift-adp --include-namespaces <TARGET_NAMESPACE> --include-resources replicationcontroller,deploymentconfig,templateinstances.template.openshift.io --restore-volumes=true
     ```
 
 
