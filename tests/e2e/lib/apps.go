@@ -23,6 +23,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -120,7 +121,7 @@ func UninstallApplication(ocClient client.Client, file string) error {
 func HasDCsInNamespace(ocClient client.Client, namespace string) (bool, error) {
 	dcList := &ocpappsv1.DeploymentConfigList{}
 	err := ocClient.List(context.Background(), dcList, client.InNamespace(namespace))
-	if err!= nil {
+	if err != nil {
 		return false, err
 	}
 	if len(dcList.Items) == 0 {
@@ -132,7 +133,7 @@ func HasDCsInNamespace(ocClient client.Client, namespace string) (bool, error) {
 func HasReplicationControllersInNamespace(ocClient client.Client, namespace string) (bool, error) {
 	rcList := &corev1.ReplicationControllerList{}
 	err := ocClient.List(context.Background(), rcList, client.InNamespace(namespace))
-	if err!= nil {
+	if err != nil {
 		return false, err
 	}
 	if len(rcList.Items) == 0 {
@@ -144,7 +145,10 @@ func HasReplicationControllersInNamespace(ocClient client.Client, namespace stri
 func HasTemplateInstancesInNamespace(ocClient client.Client, namespace string) (bool, error) {
 	tiList := &templatev1.TemplateInstanceList{}
 	err := ocClient.List(context.Background(), tiList, client.InNamespace(namespace))
-	if err!= nil {
+	if err != nil {
+		if runtime.IsNotRegisteredError(err) {
+			return false, nil
+		}
 		return false, err
 	}
 	if len(tiList.Items) == 0 {
@@ -159,11 +163,11 @@ func NamespaceRequiresResticDCWorkaround(ocClient client.Client, namespace strin
 		return false, err
 	}
 	hasRC, err := HasReplicationControllersInNamespace(ocClient, namespace)
-	if err!= nil {
+	if err != nil {
 		return false, err
 	}
 	hasTI, err := HasTemplateInstancesInNamespace(ocClient, namespace)
-	if err!= nil {
+	if err != nil {
 		return false, err
 	}
 	return hasDC || hasRC || hasTI, nil
