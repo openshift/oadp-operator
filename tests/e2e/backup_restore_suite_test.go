@@ -125,6 +125,11 @@ var _ = Describe("AWS backup restore tests", func() {
 			Expect(succeeded).To(Equal(true))
 			log.Printf("Backup for case %s succeeded", brCase.Name)
 
+			if brCase.BackupRestoreType == CSI {
+				// wait for volume snapshot to be Ready
+				Eventually(IsVolumeSnapshotsReady(dpaCR.Client, namespace), timeoutMultiplier*time.Minute*4, time.Second*10).Should(BeTrue())
+			}
+
 			// uninstall app
 			log.Printf("Uninstalling app for case %s", brCase.Name)
 			err = UninstallApplication(dpaCR.Client, brCase.ApplicationTemplate)

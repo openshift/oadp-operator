@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 
+	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 	"github.com/onsi/ginkgo/v2"
 	ocpappsv1 "github.com/openshift/api/apps/v1"
 	security "github.com/openshift/api/security/v1"
@@ -108,6 +109,25 @@ func UninstallApplication(ocClient client.Client, file string) error {
 // 		return true, err
 // 	}
 // }
+
+func IsVolumeSnapshotsReady(ocClient client.Client, namespace string) wait.ConditionFunc {
+	return func() (bool, error) {
+		vList := &volumesnapshotv1.VolumeSnapshotList{}
+		err := ocClient.List(context.Background(), vList, client.InNamespace(namespace))
+		if err!= nil {
+			return false, err
+		}
+		if len(vList.Items) == 0 {
+			return false, nil
+		}
+		for _, v := range vList.Items {
+			if v.Status.ReadyToUse == nil || *v.Status.ReadyToUse == false {
+				return false, nil
+			}
+		}
+		return true, nil
+	}
+}
 
 func IsDCReady(ocClient client.Client, namespace, dcName string) wait.ConditionFunc {
 	return func() (bool, error) {
