@@ -141,14 +141,14 @@ var _ = Describe("AWS backup restore tests", func() {
 				var dcWorkaroundResources = []string{"replicationcontroller","deploymentconfig","templateinstances.template.openshift.io"}
 				// run restore
 				log.Printf("Creating restore %s excluding DC workaround resources for case %s", restoreName, brCase.Name)
-				noDcDrestoreName := fmt.Sprintf("%s-no-dc-workaround", restoreName)
-				err = CreateRestoreFromBackup(dpaCR.Client, namespace, backupName, noDcDrestoreName , WithExcludedResources(dcWorkaroundResources))
+				noDcRestoreName := fmt.Sprintf("%s-no-dc-workaround", restoreName)
+				err = CreateRestoreFromBackup(dpaCR.Client, namespace, backupName, noDcRestoreName , WithExcludedResources(dcWorkaroundResources))
 				Expect(err).ToNot(HaveOccurred())
-				Eventually(IsRestoreDone(dpaCR.Client, namespace, restoreName), timeoutMultiplier*time.Minute*4, time.Second*10).Should(BeTrue())
+				Eventually(IsRestoreDone(dpaCR.Client, namespace, noDcRestoreName), timeoutMultiplier*time.Minute*4, time.Second*10).Should(BeTrue())
 				Expect(GetVeleroContainerFailureLogs(dpaCR.Namespace)).To(Equal([]string{}))
 	
 				// Check if restore succeeded
-				succeeded, err = IsRestoreCompletedSuccessfully(dpaCR.Client, namespace, noDcDrestoreName)
+				succeeded, err = IsRestoreCompletedSuccessfully(dpaCR.Client, namespace, noDcRestoreName)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(succeeded).To(Equal(true))
 
@@ -157,7 +157,7 @@ var _ = Describe("AWS backup restore tests", func() {
 				withDcRestoreName := fmt.Sprintf("%s-with-dc-workaround", restoreName)
 				err = CreateRestoreFromBackup(dpaCR.Client, namespace, backupName, withDcRestoreName, WithIncludedResources(dcWorkaroundResources))
 				Expect(err).ToNot(HaveOccurred())
-				Eventually(IsRestoreDone(dpaCR.Client, namespace, restoreName), timeoutMultiplier*time.Minute*4, time.Second*10).Should(BeTrue())
+				Eventually(IsRestoreDone(dpaCR.Client, namespace, withDcRestoreName), timeoutMultiplier*time.Minute*4, time.Second*10).Should(BeTrue())
 				Expect(GetVeleroContainerFailureLogs(dpaCR.Namespace)).To(Equal([]string{}))
 	
 				// Check if restore succeeded
