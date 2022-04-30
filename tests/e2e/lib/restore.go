@@ -11,7 +11,33 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func CreateRestoreFromBackup(ocClient client.Client, veleroNamespace, backupName, restoreName string) error {
+type restoreOpts func(*velero.Restore)
+
+func WithIncludedResources(resources []string) restoreOpts {
+	return func(restore *velero.Restore) {
+		restore.Spec.IncludedResources = resources
+	}
+}
+
+func WithExcludedResources(resources []string) restoreOpts {
+	return func(restore *velero.Restore) {
+		restore.Spec.ExcludedResources = resources
+	}
+}
+
+func WithIncludedNamespaces(namespaces []string) restoreOpts {
+	return func(restore *velero.Restore) {
+		restore.Spec.IncludedNamespaces = namespaces
+	}
+}
+
+func WithExcludedNamespaces(namespaces []string) restoreOpts {
+	return func(restore *velero.Restore) {
+		restore.Spec.ExcludedNamespaces = namespaces
+	}
+}
+
+func CreateRestoreFromBackup(ocClient client.Client, veleroNamespace, backupName, restoreName string, opts ...restoreOpts) error {
 	restore := velero.Restore{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      restoreName,
@@ -20,6 +46,9 @@ func CreateRestoreFromBackup(ocClient client.Client, veleroNamespace, backupName
 		Spec: velero.RestoreSpec{
 			BackupName: backupName,
 		},
+	}
+	for _, opt := range opts {
+		opt(&restore)
 	}
 	err := ocClient.Create(context.Background(), &restore)
 	return err
