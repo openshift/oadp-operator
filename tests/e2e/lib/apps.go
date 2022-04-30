@@ -10,6 +10,7 @@ import (
 	"github.com/onsi/ginkgo/v2"
 	ocpappsv1 "github.com/openshift/api/apps/v1"
 	security "github.com/openshift/api/security/v1"
+	templatev1 "github.com/openshift/api/template/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -118,6 +119,46 @@ func HasDCsInNamespace(ocClient client.Client, namespace string) (bool, error) {
 		return false, nil
 	}
 	return true, nil
+}
+
+func HasReplicationControllersInNamespace(ocClient client.Client, namespace string) (bool, error) {
+	rcList := &corev1.ReplicationControllerList{}
+	err := ocClient.List(context.Background(), rcList, client.InNamespace(namespace))
+	if err!= nil {
+		return false, err
+	}
+	if len(rcList.Items) == 0 {
+		return false, nil
+	}
+	return true, nil
+}
+
+func HasTemplateInstancesInNamespace(ocClient client.Client, namespace string) (bool, error) {
+	tiList := &templatev1.TemplateInstanceList{}
+	err := ocClient.List(context.Background(), tiList, client.InNamespace(namespace))
+	if err!= nil {
+		return false, err
+	}
+	if len(tiList.Items) == 0 {
+		return false, nil
+	}
+	return true, nil
+}
+
+func NamespaceRequiresResticDCWorkaround(ocClient client.Client, namespace string) (bool, error) {
+	hasDC ,err := HasDCsInNamespace(ocClient, namespace)
+	if err != nil {
+		return false, err
+	}
+	hasRC, err := HasReplicationControllersInNamespace(ocClient, namespace)
+	if err!= nil {
+		return false, err
+	}
+	hasTI, err := HasTemplateInstancesInNamespace(ocClient, namespace)
+	if err!= nil {
+		return false, err
+	}
+	return hasDC || hasRC || hasTI, nil
 }
 
 func IsDCReady(ocClient client.Client, namespace, dcName string) wait.ConditionFunc {
