@@ -157,25 +157,27 @@ var _ = Describe("AWS backup restore tests", func() {
 				lastInstallingApplicationNamespace = brCase.ApplicationNamespace
 				lastInstallTime = time.Now()
 				log.Printf("Creating restore %s excluding DC workaround resources for case %s", restoreName, brCase.Name)
-				err = CreateRestoreFromBackup(dpaCR.Client, namespace, backupName, restoreName, WithExcludedResources(dcWorkaroundResources))
+				noDcDrestoreName := fmt.Sprintf("%s-no-dc-workaround", restoreName)
+				err = CreateRestoreFromBackup(dpaCR.Client, namespace, backupName, noDcDrestoreName , WithExcludedResources(dcWorkaroundResources))
 				Expect(err).ToNot(HaveOccurred())
 				Eventually(IsRestoreDone(dpaCR.Client, namespace, restoreName), timeoutMultiplier*time.Minute*4, time.Second*10).Should(BeTrue())
 				Expect(GetVeleroContainerFailureLogs(dpaCR.Namespace)).To(Equal([]string{}))
 	
 				// Check if restore succeeded
-				succeeded, err = IsRestoreCompletedSuccessfully(dpaCR.Client, namespace, restoreName)
+				succeeded, err = IsRestoreCompletedSuccessfully(dpaCR.Client, namespace, noDcDrestoreName)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(succeeded).To(Equal(true))
 
 				// run restore
 				log.Printf("Creating restore %s including DC workaround resources for case %s", restoreName, brCase.Name)
-				err = CreateRestoreFromBackup(dpaCR.Client, namespace, backupName, restoreName, WithIncludedResources(dcWorkaroundResources))
+				withDcRestoreName := fmt.Sprintf("%s-with-dc-workaround", restoreName)
+				err = CreateRestoreFromBackup(dpaCR.Client, namespace, backupName, withDcRestoreName, WithIncludedResources(dcWorkaroundResources))
 				Expect(err).ToNot(HaveOccurred())
 				Eventually(IsRestoreDone(dpaCR.Client, namespace, restoreName), timeoutMultiplier*time.Minute*4, time.Second*10).Should(BeTrue())
 				Expect(GetVeleroContainerFailureLogs(dpaCR.Namespace)).To(Equal([]string{}))
 	
 				// Check if restore succeeded
-				succeeded, err = IsRestoreCompletedSuccessfully(dpaCR.Client, namespace, restoreName)
+				succeeded, err = IsRestoreCompletedSuccessfully(dpaCR.Client, namespace, withDcRestoreName)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(succeeded).To(Equal(true))
 
