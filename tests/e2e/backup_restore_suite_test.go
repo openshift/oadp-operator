@@ -124,7 +124,7 @@ var _ = Describe("AWS backup restore tests", func() {
 			err = brCase.PreBackupVerify(dpaCR.Client, brCase.ApplicationNamespace)
 			Expect(err).ToNot(HaveOccurred())
 
-			hasDCsInNamespace, err := HasDCsInNamespace(dpaCR.Client, brCase.ApplicationNamespace)
+			nsRequiresResticDCWorkaround, err := NamespaceRequiresResticDCWorkaround(dpaCR.Client, brCase.ApplicationNamespace)
 			Expect(err).ToNot(HaveOccurred())
 			// create backup
 			log.Printf("Creating backup %s for case %s", backupName, brCase.Name)
@@ -150,7 +150,7 @@ var _ = Describe("AWS backup restore tests", func() {
 			Eventually(IsNamespaceDeleted(brCase.ApplicationNamespace), timeoutMultiplier*time.Minute*2, time.Second*5).Should(BeTrue())
 
 			// Check if backup needs restic deploymentconfig workaround. https://github.com/openshift/oadp-operator/blob/master/docs/TROUBLESHOOTING.md#deployconfig
-			if brCase.BackupRestoreType == RESTIC && hasDCsInNamespace {
+			if brCase.BackupRestoreType == RESTIC && nsRequiresResticDCWorkaround {
 				log.Printf("DC found in backup namespace, using DC restic workaround")
 				var dcWorkaroundResources = []string{"replicationcontroller","deploymentconfig","templateinstances.template.openshift.io"}
 				// run restore
