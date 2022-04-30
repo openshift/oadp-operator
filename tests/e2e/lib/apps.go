@@ -13,6 +13,7 @@ import (
 	"sort"
 	"time"
 
+	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 	"github.com/onsi/ginkgo/v2"
 	ocpappsv1 "github.com/openshift/api/apps/v1"
 	routev1 "github.com/openshift/api/route/v1"
@@ -170,6 +171,25 @@ func NamespaceRequiresResticDCWorkaround(ocClient client.Client, namespace strin
 		return false, err
 	}
 	return hasDC || hasRC || hasTI, nil
+}
+
+func IsVolumeSnapshotsReady(ocClient client.Client, namespace string) wait.ConditionFunc {
+	return func() (bool, error) {
+		vList := &volumesnapshotv1.VolumeSnapshotList{}
+		err := ocClient.List(context.Background(), vList, client.InNamespace(namespace))
+		if err!= nil {
+			return false, err
+		}
+		if len(vList.Items) == 0 {
+			return false, nil
+		}
+		for _, v := range vList.Items {
+			if v.Status.ReadyToUse == nil || *v.Status.ReadyToUse == false {
+				return false, nil
+			}
+		}
+		return true, nil
+	}
 }
 
 func IsDCReady(ocClient client.Client, namespace, dcName string) wait.ConditionFunc {
