@@ -11,6 +11,7 @@ import (
 	"github.com/onsi/ginkgo/v2"
 	ocpappsv1 "github.com/openshift/api/apps/v1"
 	security "github.com/openshift/api/security/v1"
+	"github.com/vmware-tanzu/velero/pkg/label"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -110,11 +111,11 @@ func UninstallApplication(ocClient client.Client, file string) error {
 // 	}
 // }
 
-func IsVolumeSnapshotsReady(ocClient client.Client, namespace string) wait.ConditionFunc {
+func IsVolumeSnapshotsReady(ocClient client.Client, backupName string) wait.ConditionFunc {
 	return func() (bool, error) {
 		vList := &volumesnapshotv1.VolumeSnapshotList{}
 		// vListBeta := &volumesnapshotv1beta1.VolumeSnapshotList{}
-		err := ocClient.List(context.Background(), vList, client.InNamespace(namespace))
+		err := ocClient.List(context.Background(), vList, &client.ListOptions{LabelSelector: label.NewSelectorForBackup(backupName)})
 		if err != nil {
 			// try beta version
 			// if runtime.IsNotRegisteredError(err) {
@@ -131,10 +132,17 @@ func IsVolumeSnapshotsReady(ocClient client.Client, namespace string) wait.Condi
 		}
 		// if vList != nil {
 		if len(vList.Items) == 0 {
+			ginkgo.GinkgoWriter.Println("No VolumeSnapshots found")
 			return false, nil
 		}
 		for _, v := range vList.Items {
-			if v.Status.ReadyToUse == nil || !*v.Status.ReadyToUse {
+			if v.Status.ReadyToUse == nil {
+				ginkgo.GinkgoWriter.Println("VolumeSnapshots Ready status not found for " + v.Name)
+				ginkgo.GinkgoWriter.Println(fmt.Sprintf("status: %v", v.Status))
+				return false, nil
+			}
+			if !*v.Status.ReadyToUse {
+				ginkgo.GinkgoWriter.Println("VolumeSnapshots Ready status is false " + v.Name)
 				return false, nil
 			}
 		}

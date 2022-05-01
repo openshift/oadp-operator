@@ -127,7 +127,7 @@ var _ = Describe("AWS backup restore tests", func() {
 
 			if brCase.BackupRestoreType == CSI {
 				// wait for volume snapshot to be Ready
-				Eventually(IsVolumeSnapshotsReady(dpaCR.Client, namespace), timeoutMultiplier*time.Minute*4, time.Second*10).Should(BeTrue())
+				Eventually(IsVolumeSnapshotsReady(dpaCR.Client, backupName), timeoutMultiplier*time.Minute*4, time.Second*10).Should(BeTrue())
 			}
 
 			// uninstall app
