@@ -176,6 +176,7 @@ var _ = Describe("AWS backup restore tests", func() {
 				succeeded, err = IsRestoreCompletedSuccessfully(dpaCR.Client, namespace, noDcDrestoreName)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(succeeded).To(Equal(true))
+				Eventually(AreAppBuildsReady(dpaCR.Client, brCase.ApplicationNamespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 
 				// run restore
 				log.Printf("Creating restore %s including DC workaround resources for case %s", restoreName, brCase.Name)
