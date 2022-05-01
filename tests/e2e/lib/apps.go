@@ -185,7 +185,7 @@ func IsVolumeSnapshotsReady(ocClient client.Client, backupName string) wait.Cond
 			// 	// try v1beta1
 			// 	vList = nil // reset
 			// 	err = ocClient.List(context.Background(), vList, client.InNamespace(namespace))
-			// 	if err!= nil {
+			// 	if err != nil {
 			// 		if runtime.IsNotRegisteredError(err) {
 			// 			return false, nil
 			// 		}
@@ -199,6 +199,7 @@ func IsVolumeSnapshotsReady(ocClient client.Client, backupName string) wait.Cond
 			return false, nil
 		}
 		for _, v := range vList.Items {
+			log.Println(fmt.Sprintf("waiting for volume snapshot %s to be ready", v.Name))
 			if v.Status.ReadyToUse == nil {
 				ginkgo.GinkgoWriter.Println("VolumeSnapshots Ready status not found for " + v.Name)
 				ginkgo.GinkgoWriter.Println(fmt.Sprintf("status: %v", v.Status))
