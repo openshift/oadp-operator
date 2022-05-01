@@ -192,7 +192,7 @@ func NamespaceRequiresResticDCWorkaround(ocClient client.Client, namespace strin
 	return hasDC || hasRC || hasTI, nil
 }
 
-func IsVolumeSnapshotsReady(ocClient client.Client, backupName string) wait.ConditionFunc {
+func AreVolumeSnapshotsReady(ocClient client.Client, backupName string) wait.ConditionFunc {
 	return func() (bool, error) {
 		vList := &volumesnapshotv1.VolumeSnapshotList{}
 		// vListBeta := &volumesnapshotv1beta1.VolumeSnapshotList{}
