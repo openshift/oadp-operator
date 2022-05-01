@@ -131,15 +131,16 @@ var _ = Describe("AWS backup restore tests", func() {
 			Expect(err).ToNot(HaveOccurred())
 			// create backup
 			log.Printf("Creating backup %s for case %s", backupName, brCase.Name)
-			err = CreateBackupForNamespaces(dpaCR.Client, namespace, backupName, []string{brCase.ApplicationNamespace})
+			backup, err := CreateBackupForNamespaces(dpaCR.Client, namespace, backupName, []string{brCase.ApplicationNamespace})
 			Expect(err).ToNot(HaveOccurred())
 
 			// wait for backup to not be running
 			Eventually(IsBackupDone(dpaCR.Client, namespace, backupName), timeoutMultiplier*time.Minute*4, time.Second*10).Should(BeTrue())
+			log.Printf(DescribeBackup(dpaCR.Client, backup))
 			Expect(GetVeleroContainerFailureLogs(dpaCR.Namespace)).To(Equal([]string{}))
-
+			
 			// check if backup succeeded
-			succeeded, err := IsBackupCompletedSuccessfully(dpaCR.Client, namespace, backupName)
+			succeeded, err := IsBackupCompletedSuccessfully(dpaCR.Client, backup)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(succeeded).To(Equal(true))
 			log.Printf("Backup for case %s succeeded", brCase.Name)
@@ -153,7 +154,7 @@ var _ = Describe("AWS backup restore tests", func() {
 			log.Printf("Uninstalling app for case %s", brCase.Name)
 			err = UninstallApplication(dpaCR.Client, brCase.ApplicationTemplate)
 			Expect(err).ToNot(HaveOccurred())
-
+			
 			// Wait for namespace to be deleted
 			Eventually(IsNamespaceDeleted(brCase.ApplicationNamespace), timeoutMultiplier*time.Minute*2, time.Second*5).Should(BeTrue())
 
@@ -168,6 +169,7 @@ var _ = Describe("AWS backup restore tests", func() {
 				err = CreateRestoreFromBackup(dpaCR.Client, namespace, backupName, noDcDrestoreName , WithExcludedResources(dcWorkaroundResources))
 				Expect(err).ToNot(HaveOccurred())
 				Eventually(IsRestoreDone(dpaCR.Client, namespace, restoreName), timeoutMultiplier*time.Minute*4, time.Second*10).Should(BeTrue())
+				log.Printf(DescribeRestore(dpaCR.Client, restore))
 				Expect(GetVeleroContainerFailureLogs(dpaCR.Namespace)).To(Equal([]string{}))
 	
 				// Check if restore succeeded
@@ -181,6 +183,7 @@ var _ = Describe("AWS backup restore tests", func() {
 				err = CreateRestoreFromBackup(dpaCR.Client, namespace, backupName, withDcRestoreName, WithIncludedResources(dcWorkaroundResources))
 				Expect(err).ToNot(HaveOccurred())
 				Eventually(IsRestoreDone(dpaCR.Client, namespace, restoreName), timeoutMultiplier*time.Minute*4, time.Second*10).Should(BeTrue())
+				log.Printf(DescribeRestore(dpaCR.Client, restore))
 				Expect(GetVeleroContainerFailureLogs(dpaCR.Namespace)).To(Equal([]string{}))
 	
 				// Check if restore succeeded

@@ -51,7 +51,7 @@ func CreateRestoreFromBackup(ocClient client.Client, veleroNamespace, backupName
 		opt(&restore)
 	}
 	err := ocClient.Create(context.Background(), &restore)
-	return err
+	return restore, err
 }
 
 func IsRestoreDone(ocClient client.Client, veleroNamespace, name string) wait.ConditionFunc {
