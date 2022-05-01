@@ -170,7 +170,7 @@ var _ = Describe("AWS backup restore tests", func() {
 				restore, err := CreateRestoreFromBackup(dpaCR.Client, namespace, backupName, noDcDrestoreName, WithExcludedResources(dcWorkaroundResources))
 				Expect(err).ToNot(HaveOccurred())
 				Eventually(IsRestoreDone(dpaCR.Client, namespace, noDcDrestoreName), timeoutMultiplier*time.Minute*4, time.Second*10).Should(BeTrue())
-				log.Print(DescribeRestore(dpaCR.Client, restore))
+				GinkgoWriter.Println(DescribeRestore(dpaCR.Client, restore))
 				Expect(GetVeleroContainerFailureLogs(dpaCR.Namespace)).To(Equal([]string{}))
 				// Check if restore succeeded
 				succeeded, err = IsRestoreCompletedSuccessfully(dpaCR.Client, namespace, noDcDrestoreName)
@@ -184,7 +184,7 @@ var _ = Describe("AWS backup restore tests", func() {
 				restore, err = CreateRestoreFromBackup(dpaCR.Client, namespace, backupName, withDcRestoreName, WithIncludedResources(dcWorkaroundResources))
 				Expect(err).ToNot(HaveOccurred())
 				Eventually(IsRestoreDone(dpaCR.Client, namespace, withDcRestoreName), timeoutMultiplier*time.Minute*4, time.Second*10).Should(BeTrue())
-				log.Print(DescribeRestore(dpaCR.Client, restore))
+				GinkgoWriter.Println(DescribeRestore(dpaCR.Client, restore))
 				Expect(GetVeleroContainerFailureLogs(dpaCR.Namespace)).To(Equal([]string{}))
 				// Check if restore succeeded
 				succeeded, err = IsRestoreCompletedSuccessfully(dpaCR.Client, namespace, withDcRestoreName)
