@@ -159,7 +159,7 @@ func HasTemplateInstancesInNamespace(ocClient client.Client, namespace string) (
 }
 
 func NamespaceRequiresResticDCWorkaround(ocClient client.Client, namespace string) (bool, error) {
-	hasDC ,err := HasDCsInNamespace(ocClient, namespace)
+	hasDC, err := HasDCsInNamespace(ocClient, namespace)
 	if err != nil {
 		return false, err
 	}
@@ -209,7 +209,7 @@ func IsVolumeSnapshotsReady(ocClient client.Client, backupName string) wait.Cond
 				return false, nil
 			}
 		}
-		// } 
+		// }
 		// } else {
 		// 	if len(vListBeta.Items) == 0 {
 		// 		return false, nil

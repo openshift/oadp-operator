@@ -54,7 +54,7 @@ func IsBackupCompletedSuccessfully(ocClient client.Client, backup velero.Backup)
 	if err != nil {
 		return false, err
 	}
-	
+
 	if backup.Status.Phase == velero.BackupPhaseCompleted {
 		return true, nil
 	}

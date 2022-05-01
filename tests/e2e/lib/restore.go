@@ -37,7 +37,7 @@ func WithExcludedNamespaces(namespaces []string) restoreOpts {
 	}
 }
 
-func CreateRestoreFromBackup(ocClient client.Client, veleroNamespace, backupName, restoreName string, opts ...restoreOpts) error {
+func CreateRestoreFromBackup(ocClient client.Client, veleroNamespace, backupName, restoreName string, opts ...restoreOpts) (velero.Restore, error) {
 	restore := velero.Restore{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      restoreName,

@@ -75,7 +75,7 @@ var _ = Describe("AWS backup restore tests", func() {
 		return err
 	})
 
-	updateLastInstallingNamespace := func (namespace string) {
+	updateLastInstallingNamespace := func(namespace string) {
 		lastInstallingApplicationNamespace = namespace
 		lastInstallTime = time.Now()
 	}
@@ -138,7 +138,7 @@ var _ = Describe("AWS backup restore tests", func() {
 			Eventually(IsBackupDone(dpaCR.Client, namespace, backupName), timeoutMultiplier*time.Minute*4, time.Second*10).Should(BeTrue())
 			log.Printf(DescribeBackup(dpaCR.Client, backup))
 			Expect(GetVeleroContainerFailureLogs(dpaCR.Namespace)).To(Equal([]string{}))
-			
+
 			// check if backup succeeded
 			succeeded, err := IsBackupCompletedSuccessfully(dpaCR.Client, backup)
 			Expect(err).ToNot(HaveOccurred())
@@ -154,7 +154,7 @@ var _ = Describe("AWS backup restore tests", func() {
 			log.Printf("Uninstalling app for case %s", brCase.Name)
 			err = UninstallApplication(dpaCR.Client, brCase.ApplicationTemplate)
 			Expect(err).ToNot(HaveOccurred())
-			
+
 			// Wait for namespace to be deleted
 			Eventually(IsNamespaceDeleted(brCase.ApplicationNamespace), timeoutMultiplier*time.Minute*2, time.Second*5).Should(BeTrue())
 
@@ -162,16 +162,15 @@ var _ = Describe("AWS backup restore tests", func() {
 			// Check if backup needs restic deploymentconfig workaround. https://github.com/openshift/oadp-operator/blob/master/docs/TROUBLESHOOTING.md#deployconfig
 			if brCase.BackupRestoreType == RESTIC && nsRequiresResticDCWorkaround {
 				log.Printf("DC found in backup namespace, using DC restic workaround")
-				var dcWorkaroundResources = []string{"replicationcontroller","deploymentconfig","templateinstances.template.openshift.io"}
+				var dcWorkaroundResources = []string{"replicationcontroller", "deploymentconfig", "templateinstances.template.openshift.io"}
 				// run restore
 				log.Printf("Creating restore %s excluding DC workaround resources for case %s", restoreName, brCase.Name)
 				noDcDrestoreName := fmt.Sprintf("%s-no-dc-workaround", restoreName)
-				err = CreateRestoreFromBackup(dpaCR.Client, namespace, backupName, noDcDrestoreName , WithExcludedResources(dcWorkaroundResources))
+				restore, err := CreateRestoreFromBackup(dpaCR.Client, namespace, backupName, noDcDrestoreName, WithExcludedResources(dcWorkaroundResources))
 				Expect(err).ToNot(HaveOccurred())
 				Eventually(IsRestoreDone(dpaCR.Client, namespace, restoreName), timeoutMultiplier*time.Minute*4, time.Second*10).Should(BeTrue())
 				log.Printf(DescribeRestore(dpaCR.Client, restore))
 				Expect(GetVeleroContainerFailureLogs(dpaCR.Namespace)).To(Equal([]string{}))
-	
 				// Check if restore succeeded
 				succeeded, err = IsRestoreCompletedSuccessfully(dpaCR.Client, namespace, noDcDrestoreName)
 				Expect(err).ToNot(HaveOccurred())
@@ -180,12 +179,11 @@ var _ = Describe("AWS backup restore tests", func() {
 				// run restore
 				log.Printf("Creating restore %s including DC workaround resources for case %s", restoreName, brCase.Name)
 				withDcRestoreName := fmt.Sprintf("%s-with-dc-workaround", restoreName)
-				err = CreateRestoreFromBackup(dpaCR.Client, namespace, backupName, withDcRestoreName, WithIncludedResources(dcWorkaroundResources))
+				restore, err = CreateRestoreFromBackup(dpaCR.Client, namespace, backupName, withDcRestoreName, WithIncludedResources(dcWorkaroundResources))
 				Expect(err).ToNot(HaveOccurred())
 				Eventually(IsRestoreDone(dpaCR.Client, namespace, restoreName), timeoutMultiplier*time.Minute*4, time.Second*10).Should(BeTrue())
 				log.Printf(DescribeRestore(dpaCR.Client, restore))
 				Expect(GetVeleroContainerFailureLogs(dpaCR.Namespace)).To(Equal([]string{}))
-	
 				// Check if restore succeeded
 				succeeded, err = IsRestoreCompletedSuccessfully(dpaCR.Client, namespace, withDcRestoreName)
 				Expect(err).ToNot(HaveOccurred())
@@ -194,11 +192,12 @@ var _ = Describe("AWS backup restore tests", func() {
 			} else {
 				// run restore
 				log.Printf("Creating restore %s for case %s", restoreName, brCase.Name)
-				err = CreateRestoreFromBackup(dpaCR.Client, namespace, backupName, restoreName)
+				restore, err := CreateRestoreFromBackup(dpaCR.Client, namespace, backupName, restoreName)
 				Expect(err).ToNot(HaveOccurred())
 				Eventually(IsRestoreDone(dpaCR.Client, namespace, restoreName), timeoutMultiplier*time.Minute*4, time.Second*10).Should(BeTrue())
+				log.Printf(DescribeRestore(dpaCR.Client, restore))
 				Expect(GetVeleroContainerFailureLogs(dpaCR.Namespace)).To(Equal([]string{}))
-	
+
 				// Check if restore succeeded
 				succeeded, err = IsRestoreCompletedSuccessfully(dpaCR.Client, namespace, restoreName)
 				Expect(err).ToNot(HaveOccurred())

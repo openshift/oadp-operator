@@ -36,13 +36,13 @@ func DescribeBackup(ocClient client.Client, backup velero.Backup) string {
 		return "could not get provided backup: " + err.Error()
 	}
 	veleroClient, err := GetVeleroClient()
-	if err!= nil {
+	if err != nil {
 		return err.Error()
 	}
 	details := true
 	insecureSkipTLSVerify := true
 	caCertFile := ""
-	
+
 	deleteRequestListOptions := pkgbackup.NewDeleteBackupRequestListOptions(backup.Name, string(backup.UID))
 	deleteRequestList, err := veleroClient.VeleroV1().DeleteBackupRequests(backup.Namespace).List(context.TODO(), deleteRequestListOptions)
 	if err != nil {
@@ -83,7 +83,7 @@ func DescribeRestore(ocClient client.Client, restore velero.Restore) string {
 		return "could not get provided backup: " + err.Error()
 	}
 	veleroClient, err := GetVeleroClient()
-	if err!= nil {
+	if err != nil {
 		return err.Error()
 	}
 	details := true
