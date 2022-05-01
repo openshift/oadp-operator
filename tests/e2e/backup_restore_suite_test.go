@@ -75,13 +75,17 @@ var _ = Describe("AWS backup restore tests", func() {
 		return err
 	})
 
+	updateLastInstallingNamespace := func (namespace string) {
+		lastInstallingApplicationNamespace = namespace
+		lastInstallTime = time.Now()
+	}
+
 	DescribeTable("backup and restore applications",
 		func(brCase BackupRestoreCase, expectedErr error) {
 			err := dpaCR.Build(brCase.BackupRestoreType)
 			Expect(err).NotTo(HaveOccurred())
 
-			lastInstallingApplicationNamespace = dpaCR.Namespace
-			lastInstallTime = time.Now()
+			updateLastInstallingNamespace(dpaCR.Namespace)
 			err = dpaCR.CreateOrUpdate(&dpaCR.CustomResource.Spec)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -111,8 +115,7 @@ var _ = Describe("AWS backup restore tests", func() {
 			restoreName := fmt.Sprintf("%s-%s", brCase.Name, restoreUid.String())
 
 			// install app
-			lastInstallingApplicationNamespace = brCase.ApplicationNamespace
-			lastInstallTime = time.Now()
+			updateLastInstallingNamespace(brCase.ApplicationNamespace)
 			log.Printf("Installing application for case %s", brCase.Name)
 			err = InstallApplication(dpaCR.Client, brCase.ApplicationTemplate)
 			Expect(err).ToNot(HaveOccurred())
@@ -149,13 +152,12 @@ var _ = Describe("AWS backup restore tests", func() {
 			// Wait for namespace to be deleted
 			Eventually(IsNamespaceDeleted(brCase.ApplicationNamespace), timeoutMultiplier*time.Minute*2, time.Second*5).Should(BeTrue())
 
+			updateLastInstallingNamespace(brCase.ApplicationNamespace)
 			// Check if backup needs restic deploymentconfig workaround. https://github.com/openshift/oadp-operator/blob/master/docs/TROUBLESHOOTING.md#deployconfig
 			if brCase.BackupRestoreType == RESTIC && nsRequiresResticDCWorkaround {
 				log.Printf("DC found in backup namespace, using DC restic workaround")
 				var dcWorkaroundResources = []string{"replicationcontroller","deploymentconfig","templateinstances.template.openshift.io"}
 				// run restore
-				lastInstallingApplicationNamespace = brCase.ApplicationNamespace
-				lastInstallTime = time.Now()
 				log.Printf("Creating restore %s excluding DC workaround resources for case %s", restoreName, brCase.Name)
 				noDcDrestoreName := fmt.Sprintf("%s-no-dc-workaround", restoreName)
 				err = CreateRestoreFromBackup(dpaCR.Client, namespace, backupName, noDcDrestoreName , WithExcludedResources(dcWorkaroundResources))
