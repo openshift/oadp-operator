@@ -11,7 +11,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func CreateBackupForNamespaces(ocClient client.Client, veleroNamespace, backupName string, namespaces []string) error {
+func CreateBackupForNamespaces(ocClient client.Client, veleroNamespace, backupName string, namespaces []string) (velero.Backup, error) {
 
 	backup := velero.Backup{
 		ObjectMeta: metav1.ObjectMeta{
@@ -23,7 +23,7 @@ func CreateBackupForNamespaces(ocClient client.Client, veleroNamespace, backupNa
 		},
 	}
 	err := ocClient.Create(context.Background(), &backup)
-	return err
+	return backup, err
 }
 
 func IsBackupDone(ocClient client.Client, veleroNamespace, name string) wait.ConditionFunc {
@@ -46,17 +46,17 @@ func IsBackupDone(ocClient client.Client, veleroNamespace, name string) wait.Con
 	}
 }
 
-func IsBackupCompletedSuccessfully(ocClient client.Client, veleroNamespace, name string) (bool, error) {
-	backup := velero.Backup{}
+func IsBackupCompletedSuccessfully(ocClient client.Client, backup velero.Backup) (bool, error) {
 	err := ocClient.Get(context.Background(), client.ObjectKey{
-		Namespace: veleroNamespace,
-		Name:      name,
+		Namespace: backup.Namespace,
+		Name:      backup.Name,
 	}, &backup)
 	if err != nil {
 		return false, err
 	}
+	
 	if backup.Status.Phase == velero.BackupPhaseCompleted {
 		return true, nil
 	}
-	return false, fmt.Errorf("backup phase is: %s; expected: %s\nvalidation errors: %v\nvelero failure logs: %v", backup.Status.Phase, velero.BackupPhaseCompleted, backup.Status.ValidationErrors, GetVeleroContainerFailureLogs(veleroNamespace))
+	return false, fmt.Errorf("backup phase is: %s; expected: %s\nvalidation errors: %v\nvelero failure logs: %v", backup.Status.Phase, velero.BackupPhaseCompleted, backup.Status.ValidationErrors, GetVeleroContainerFailureLogs(backup.Namespace))
 }
