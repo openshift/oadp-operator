@@ -16,6 +16,7 @@ import (
 	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 	"github.com/onsi/ginkgo/v2"
 	ocpappsv1 "github.com/openshift/api/apps/v1"
+	buildv1 "github.com/openshift/api/build/v1"
 	routev1 "github.com/openshift/api/route/v1"
 	security "github.com/openshift/api/security/v1"
 	templatev1 "github.com/openshift/api/template/v1"
@@ -25,11 +26,22 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
+	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 )
+
+const e2eAppLabelKey = "e2e-app"
+const e2eAppLabelValue = "true"
+
+var (
+	e2eAppLabelRequirement, _ = labels.NewRequirement(e2eAppLabelKey, selection.Equals, []string{e2eAppLabelValue})
+	e2eAppLabelSelector = labels.NewSelector().Add(*e2eAppLabelRequirement)
+)
+
 
 func InstallApplication(ocClient client.Client, file string) error {
 	template, err := os.ReadFile(file)
@@ -44,6 +56,12 @@ func InstallApplication(ocClient client.Client, file string) error {
 		return err
 	}
 	for _, resource := range obj.Items {
+		labels := resource.GetLabels()
+		if labels == nil {
+			labels = make(map[string]string)
+		}
+		labels[e2eAppLabelKey] = "true"
+		resource.SetLabels(labels)
 		err = ocClient.Create(context.Background(), &resource)
 		if apierrors.IsAlreadyExists(err) {
 			continue
@@ -236,6 +254,12 @@ func IsDCReady(ocClient client.Client, namespace, dcName string) wait.ConditionF
 		if err != nil {
 			return false, err
 		}
+		// check dc for false availability condition which occurs when a new replication controller is created (after a new build completed) even if there are satisfactory available replicas
+		for _, condition := range dc.Status.Conditions {
+			if condition.Type == ocpappsv1.DeploymentAvailable && condition.Status == corev1.ConditionFalse {
+				return false, nil
+			}
+		}
 		if dc.Status.AvailableReplicas != dc.Status.Replicas || dc.Status.Replicas == 0 {
 			for _, condition := range dc.Status.Conditions {
 				if len(condition.Message) > 0 {
@@ -243,6 +267,13 @@ func IsDCReady(ocClient client.Client, namespace, dcName string) wait.ConditionF
 				}
 			}
 			return false, errors.New("DC is not in a ready state")
+		}
+		for _, trigger := range dc.Spec.Triggers {
+			if trigger.Type == ocpappsv1.DeploymentTriggerOnImageChange {
+				if trigger.ImageChangeParams.Automatic {
+					return areAppBuildsReady(ocClient, namespace)
+				}
+			}
 		}
 		return true, nil
 	}
@@ -270,6 +301,36 @@ func IsDeploymentReady(ocClient client.Client, namespace, dName string) wait.Con
 	}
 }
 
+func AreAppBuildsReady(ocClient client.Client, namespace string) wait.ConditionFunc {
+	return func() (bool, error) {
+		return areAppBuildsReady(ocClient, namespace)
+	}
+}
+
+func areAppBuildsReady(ocClient client.Client, namespace string) (bool, error) {
+	buildList := &buildv1.BuildList{}
+	err := ocClient.List(context.Background(), buildList, &client.ListOptions{Namespace: namespace, LabelSelector: e2eAppLabelSelector})
+	if err != nil && !apierrors.IsNotFound(err) {
+		return false, err
+	}
+	if buildList.Items != nil{
+		for _, build := range buildList.Items {
+			if build.Status.Phase == buildv1.BuildPhaseNew ||
+				build.Status.Phase == buildv1.BuildPhasePending  ||
+				build.Status.Phase == buildv1.BuildPhaseRunning {
+				log.Println("Build is not ready: " + build.Name)
+				return false, nil
+			}
+			if build.Status.Phase == buildv1.BuildPhaseFailed || build.Status.Phase == buildv1.BuildPhaseError {
+				ginkgo.GinkgoWriter.Println("Build failed/error: " + build.Name)
+				ginkgo.GinkgoWriter.Println(fmt.Sprintf("status: %v", build.Status))
+				return false, errors.New("found build failed or error")
+			}
+		}
+	}
+	return true, nil
+}
+
 func AreApplicationPodsRunning(namespace string) wait.ConditionFunc {
 	return func() (bool, error) {
 		clientset, err := setUpClient()
@@ -278,7 +339,7 @@ func AreApplicationPodsRunning(namespace string) wait.ConditionFunc {
 		}
 		// select Velero pod with this label
 		veleroOptions := metav1.ListOptions{
-			LabelSelector: "e2e-app=true",
+			LabelSelector: e2eAppLabelSelector.String(),
 		}
 		// get pods in test namespace with labelSelector
 		podList, err := clientset.CoreV1().Pods(namespace).List(context.TODO(), veleroOptions)

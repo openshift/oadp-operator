@@ -11,15 +11,15 @@ import (
 	"reflect"
 	"strings"
 
+	buildv1 "github.com/openshift/api/build/v1"
 	"github.com/openshift/oadp-operator/pkg/common"
-
-	utils "github.com/openshift/oadp-operator/tests/e2e/utils"
 
 	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 	appsv1 "github.com/openshift/api/apps/v1"
 	security "github.com/openshift/api/security/v1"
 	templatev1 "github.com/openshift/api/template/v1"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
+	utils "github.com/openshift/oadp-operator/tests/e2e/utils"
 	operators "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	velero "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -179,6 +179,7 @@ func (v *DpaCustomResource) SetClient() error {
 	security.AddToScheme(client.Scheme())
 	operators.AddToScheme(client.Scheme())
 	volumesnapshotv1.AddToScheme(client.Scheme())
+	buildv1.AddToScheme(client.Scheme())
 
 	v.Client = client
 	return nil
