@@ -138,7 +138,7 @@ var _ = Describe("AWS backup restore tests", func() {
 			// wait for backup to not be running
 			Eventually(IsBackupDone(dpaCR.Client, namespace, backupName), timeoutMultiplier*time.Minute*4, time.Second*10).Should(BeTrue())
 			GinkgoWriter.Println(DescribeBackup(dpaCR.Client, backup))
-			Expect(GetVeleroContainerFailureLogs(dpaCR.Namespace)).To(Equal([]string{}))
+			Expect(BackupErrorLogs(dpaCR.Client,backup)).To(Equal([]string{}))
 
 			// check if backup succeeded
 			succeeded, err := IsBackupCompletedSuccessfully(dpaCR.Client, backup)
@@ -171,7 +171,8 @@ var _ = Describe("AWS backup restore tests", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Eventually(IsRestoreDone(dpaCR.Client, namespace, noDcDrestoreName), timeoutMultiplier*time.Minute*4, time.Second*10).Should(BeTrue())
 				GinkgoWriter.Println(DescribeRestore(dpaCR.Client, restore))
-				Expect(GetVeleroContainerFailureLogs(dpaCR.Namespace)).To(Equal([]string{}))
+				Expect(RestoreErrorLogs(dpaCR.Client,restore)).To(Equal([]string{}))
+
 				// Check if restore succeeded
 				succeeded, err = IsRestoreCompletedSuccessfully(dpaCR.Client, namespace, noDcDrestoreName)
 				Expect(err).ToNot(HaveOccurred())
@@ -185,7 +186,8 @@ var _ = Describe("AWS backup restore tests", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Eventually(IsRestoreDone(dpaCR.Client, namespace, withDcRestoreName), timeoutMultiplier*time.Minute*4, time.Second*10).Should(BeTrue())
 				GinkgoWriter.Println(DescribeRestore(dpaCR.Client, restore))
-				Expect(GetVeleroContainerFailureLogs(dpaCR.Namespace)).To(Equal([]string{}))
+				Expect(RestoreErrorLogs(dpaCR.Client,restore)).To(Equal([]string{}))
+
 				// Check if restore succeeded
 				succeeded, err = IsRestoreCompletedSuccessfully(dpaCR.Client, namespace, withDcRestoreName)
 				Expect(err).ToNot(HaveOccurred())
@@ -198,7 +200,7 @@ var _ = Describe("AWS backup restore tests", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Eventually(IsRestoreDone(dpaCR.Client, namespace, restoreName), timeoutMultiplier*time.Minute*4, time.Second*10).Should(BeTrue())
 				GinkgoWriter.Println(DescribeRestore(dpaCR.Client, restore))
-				Expect(GetVeleroContainerFailureLogs(dpaCR.Namespace)).To(Equal([]string{}))
+				Expect(RestoreErrorLogs(dpaCR.Client,restore)).To(Equal([]string{}))
 
 				// Check if restore succeeded
 				succeeded, err = IsRestoreCompletedSuccessfully(dpaCR.Client, namespace, restoreName)
