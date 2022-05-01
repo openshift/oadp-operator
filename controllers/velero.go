@@ -124,7 +124,7 @@ func (r *DPAReconciler) ReconcileVeleroCRDs(log logr.Logger) (bool, error) {
 func (r *DPAReconciler) InstallVeleroCRDs(log logr.Logger) error {
 	var err error
 	// Install CRDs
-	for _, unstructuredCrd := range install.AllCRDs("v1").Items {
+	for _, unstructuredCrd := range install.AllCRDs().Items {
 		foundCrd := &v1.CustomResourceDefinition{}
 		crd := &v1.CustomResourceDefinition{}
 		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(unstructuredCrd.Object, crd); err != nil {
