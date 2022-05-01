@@ -82,6 +82,10 @@ var _ = Describe("AWS backup restore tests", func() {
 
 	DescribeTable("backup and restore applications",
 		func(brCase BackupRestoreCase, expectedErr error) {
+			if notVersionTarget, reason := NotServerVersionTarget(brCase.MinK8SVersion, brCase.MaxK8SVersion); notVersionTarget {
+				Skip(reason)
+			}
+
 			err := dpaCR.Build(brCase.BackupRestoreType)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -106,9 +110,7 @@ var _ = Describe("AWS backup restore tests", func() {
 				log.Printf("Waiting for registry pods to be running")
 				Eventually(AreRegistryDeploymentsAvailable(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 			}
-			if notVersionTarget, reason := NotServerVersionTarget(brCase.MinK8SVersion, brCase.MaxK8SVersion); notVersionTarget {
-				Skip(reason)
-			}
+
 			backupUid, _ := uuid.NewUUID()
 			restoreUid, _ := uuid.NewUUID()
 			backupName := fmt.Sprintf("%s-%s", brCase.Name, backupUid.String())
