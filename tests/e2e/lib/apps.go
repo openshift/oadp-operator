@@ -199,8 +199,11 @@ func IsDCReady(ocClient client.Client, namespace, dcName string) wait.ConditionF
 		}
 		// check dc for false availability condition which occurs when a new replication controller is created (after a new build completed) even if there are satisfactory available replicas
 		for _, condition := range dc.Status.Conditions {
-			if condition.Type == ocpappsv1.DeploymentAvailable && condition.Status == corev1.ConditionFalse {
-				return false, nil
+			if condition.Type == ocpappsv1.DeploymentAvailable {
+				if condition.Status == corev1.ConditionFalse {
+					return false, nil
+				}
+				break
 			}
 		}
 		if dc.Status.AvailableReplicas != dc.Status.Replicas || dc.Status.Replicas == 0 {
