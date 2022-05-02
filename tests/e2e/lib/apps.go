@@ -1,14 +1,20 @@
 package lib
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"io/ioutil"
+	"log"
+	"net/http"
 	"os"
 	"os/exec"
+	"time"
 
 	"github.com/onsi/ginkgo/v2"
 	ocpappsv1 "github.com/openshift/api/apps/v1"
+	routev1 "github.com/openshift/api/route/v1"
 	security "github.com/openshift/api/security/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -18,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
 )
 
 func InstallApplication(ocClient client.Client, file string) error {
@@ -196,4 +203,71 @@ func RunMustGather(oc_cli string, artifact_dir string) error {
 	cmd := exec.Command(ocClient, ocAdmin, mustGatherCmd, mustGatherImg, destDir, logCmdPmt, logCmd)
 	_, err := cmd.Output()
 	return err
+}
+
+func VerifyBackupRestoreData(artifact_dir string, namespace string, routeName string, app string) error {
+	log.Printf("Verifying backup/restore data of %s", app)
+	appRoute := &routev1.Route{}
+	clientv1, err := client.New(config.GetConfigOrDie(), client.Options{})
+	if err != nil {
+		return err
+	}
+	backupFile := artifact_dir + "/backup-data.txt"
+	routev1.AddToScheme(clientv1.Scheme())
+	err = clientv1.Get(context.Background(), client.ObjectKey{
+		Namespace: namespace,
+		Name:      routeName,
+	}, appRoute)
+	if err != nil {
+		return err
+	}
+	appApi := "http://" + appRoute.Spec.Host
+	switch app {
+	case "todolist":
+		appApi += "/todo-completed"
+	case "parks-app":
+		appApi += "/parks"
+	}
+	resp, err := http.Get(appApi)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 { // # TODO: NEED TO FIND A BETTER WAY TO DEBUG RESPONSE
+		var retrySchedule = []time.Duration{
+			15 * time.Second,
+			1 * time.Minute,
+			2 * time.Minute,
+		}
+		for _, backoff := range retrySchedule {
+			resp, err = http.Get(appApi)
+			if resp.StatusCode != 200 {
+				log.Printf("Request error: %+v\n", err)
+				log.Printf("Retrying in %v\n", backoff)
+				time.Sleep(backoff)
+			}
+		}
+	}
+
+	respData, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+	if _, err := os.Stat(backupFile); err == nil {
+		backupData, err := os.ReadFile(backupFile)
+		if err != nil {
+			return err
+		}
+		os.Remove(backupFile)
+		if !bytes.Equal(backupData, respData) {
+			return errors.New("Backup and Restore Data are not the same")
+		}
+	} else if errors.Is(err, os.ErrNotExist) {
+		err := os.WriteFile(backupFile, respData, 0644)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
