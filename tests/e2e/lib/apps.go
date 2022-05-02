@@ -39,9 +39,8 @@ const e2eAppLabelValue = "true"
 
 var (
 	e2eAppLabelRequirement, _ = labels.NewRequirement(e2eAppLabelKey, selection.Equals, []string{e2eAppLabelValue})
-	e2eAppLabelSelector = labels.NewSelector().Add(*e2eAppLabelRequirement)
+	e2eAppLabelSelector       = labels.NewSelector().Add(*e2eAppLabelRequirement)
 )
-
 
 func InstallApplication(ocClient client.Client, file string) error {
 	template, err := os.ReadFile(file)
@@ -259,10 +258,10 @@ func areAppBuildsReady(ocClient client.Client, namespace string) (bool, error) {
 	if err != nil && !apierrors.IsNotFound(err) {
 		return false, err
 	}
-	if buildList.Items != nil{
+	if buildList.Items != nil {
 		for _, build := range buildList.Items {
 			if build.Status.Phase == buildv1.BuildPhaseNew ||
-				build.Status.Phase == buildv1.BuildPhasePending  ||
+				build.Status.Phase == buildv1.BuildPhasePending ||
 				build.Status.Phase == buildv1.BuildPhaseRunning {
 				log.Println("Build is not ready: " + build.Name)
 				return false, nil

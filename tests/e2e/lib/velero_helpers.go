@@ -99,7 +99,7 @@ func DescribeRestore(ocClient client.Client, restore velero.Restore) string {
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error getting PodVolumeRestores for restore %s: %v\n", restore.Name, err)
 	}
-	
+
 	return output.DescribeRestore(context.Background(), ocClient, &restore, podvolumeRestoreList.Items, details, veleroClient, insecureSkipTLSVerify, caCertFile)
 }
 
@@ -109,9 +109,9 @@ func BackupLogs(ocClient client.Client, backup velero.Backup) string {
 	// new io.Writer that store the logs in a string
 	logs := &bytes.Buffer{}
 	// new io.Writer that store the logs in a string
-	
+
 	downloadrequest.Stream(context.Background(), ocClient, backup.Namespace, backup.Name, velero.DownloadTargetKindBackupLog, logs, time.Minute, insecureSkipTLSVerify, caCertFile)
-	
+
 	return logs.String()
 }
 
@@ -121,7 +121,7 @@ func RestoreLogs(ocClient client.Client, restore velero.Restore) string {
 	// new io.Writer that store the logs in a string
 	logs := &bytes.Buffer{}
 	// new io.Writer that store the logs in a string
-	
+
 	downloadrequest.Stream(context.Background(), ocClient, restore.Namespace, restore.Name, velero.DownloadTargetKindRestoreLog, logs, time.Minute, insecureSkipTLSVerify, caCertFile)
 
 	return logs.String()

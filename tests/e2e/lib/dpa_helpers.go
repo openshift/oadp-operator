@@ -205,7 +205,7 @@ func GetVeleroPods(namespace string) (*corev1.PodList, error) {
 	}
 	if len(podList.Items) == 0 {
 		// handle some oadp versions where label was deploy=velero
-		if podList, err = clientset.CoreV1().Pods(namespace).List(context.TODO(), veleroOptionsDeploy); err!= nil {
+		if podList, err = clientset.CoreV1().Pods(namespace).List(context.TODO(), veleroOptionsDeploy); err != nil {
 			return nil, err
 		}
 	}
