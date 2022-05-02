@@ -3,8 +3,7 @@ package lib
 import (
 	"bytes"
 	"context"
-	"fmt"
-	"os"
+	"log"
 	"regexp"
 	"strings"
 	"time"
@@ -51,13 +50,13 @@ func DescribeBackup(ocClient client.Client, backup velero.Backup) string {
 	deleteRequestListOptions := pkgbackup.NewDeleteBackupRequestListOptions(backup.Name, string(backup.UID))
 	deleteRequestList, err := veleroClient.VeleroV1().DeleteBackupRequests(backup.Namespace).List(context.TODO(), deleteRequestListOptions)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "error getting DeleteBackupRequests for backup %s: %v\n", backup.Name, err)
+		log.Printf("error getting DeleteBackupRequests for backup %s: %v\n", backup.Name, err)
 	}
 
 	opts := label.NewListOptionsForBackup(backup.Name)
 	podVolumeBackupList, err := veleroClient.VeleroV1().PodVolumeBackups(backup.Namespace).List(context.TODO(), opts)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "error getting PodVolumeBackups for backup %s: %v\n", backup.Name, err)
+		log.Printf("error getting PodVolumeBackups for backup %s: %v\n", backup.Name, err)
 	}
 
 	var csiClient *snapshotv1beta1client.Clientset
@@ -71,7 +70,7 @@ func DescribeBackup(ocClient client.Client, backup velero.Backup) string {
 
 		vscList, err = csiClient.SnapshotV1beta1().VolumeSnapshotContents().List(context.TODO(), opts)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "error getting VolumeSnapshotContent objects for backup %s: %v\n", backup.Name, err)
+			log.Printf("error getting VolumeSnapshotContent objects for backup %s: %v\n", backup.Name, err)
 		}
 	}
 
@@ -97,7 +96,7 @@ func DescribeRestore(ocClient client.Client, restore velero.Restore) string {
 	opts := restic.NewPodVolumeRestoreListOptions(restore.Name)
 	podvolumeRestoreList, err := veleroClient.VeleroV1().PodVolumeRestores(restore.Namespace).List(context.TODO(), opts)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "error getting PodVolumeRestores for restore %s: %v\n", restore.Name, err)
+		log.Printf("error getting PodVolumeRestores for restore %s: %v\n", restore.Name, err)
 	}
 
 	return output.DescribeRestore(context.Background(), ocClient, &restore, podvolumeRestoreList.Items, details, veleroClient, insecureSkipTLSVerify, caCertFile)
