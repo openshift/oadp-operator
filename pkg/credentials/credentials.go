@@ -273,6 +273,9 @@ func AppendPluginSpecificSpecs(dpa *oadpv1alpha1.DataProtectionApplication, vele
 			if !pluginSpecificMap.IsCloudProvider || !pluginNeedsCheck {
 				continue
 			}
+			if dpa.Spec.Configuration.Velero.NoDefaultBackupLocation && pluginSpecificMap.IsCloudProvider {
+				continue
+			}
 			// set default secret name to use
 			secretName := pluginSpecificMap.SecretName
 			// append plugin specific volume mounts
