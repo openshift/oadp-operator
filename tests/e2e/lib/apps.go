@@ -107,36 +107,6 @@ func UninstallApplication(ocClient client.Client, file string) error {
 	return nil
 }
 
-// func AreApplicationPodsRunning(namespace string) wait.ConditionFunc {
-// 	return func() (bool, error) {
-// 		clientset, err := setUpClient()
-// 		if err != nil {
-// 			return false, err
-// 		}
-// 		// select Velero pod with this label
-// 		veleroOptions := metav1.ListOptions{
-// 			LabelSelector: "e2e-app=true",
-// 		}
-// 		// get pods in test namespace with labelSelector
-// 		podList, err := clientset.CoreV1().Pods(namespace).List(context.TODO(), veleroOptions)
-// 		if err != nil {
-// 			return false, nil
-// 		}
-// 		if len(podList.Items) == 0 {
-// 			return false, nil
-// 		}
-// 		// get pod name and status with specified label selector
-// 		for _, podInfo := range podList.Items {
-// 			phase := podInfo.Status.Phase
-// 			if phase != corev1.PodRunning && phase != corev1.PodSucceeded {
-// 				ginkgo.GinkgoWriter.Write([]byte(fmt.Sprintf("Pod %v not yet succeeded", podInfo.Name)))
-// 				ginkgo.GinkgoWriter.Write([]byte(fmt.Sprintf("status: %v", podInfo.Status)))
-// 				return false, nil
-// 			}
-// 		}
-// 		return true, err
-// 	}
-// }
 func HasDCsInNamespace(ocClient client.Client, namespace string) (bool, error) {
 	dcList := &ocpappsv1.DeploymentConfigList{}
 	err := ocClient.List(context.Background(), dcList, client.InNamespace(namespace))
@@ -165,9 +135,6 @@ func HasTemplateInstancesInNamespace(ocClient client.Client, namespace string) (
 	tiList := &templatev1.TemplateInstanceList{}
 	err := ocClient.List(context.Background(), tiList, client.InNamespace(namespace))
 	if err != nil {
-		// if runtime.IsNotRegisteredError(err) {
-		// 	return false, nil
-		// }
 		return false, err
 	}
 	if len(tiList.Items) == 0 {
@@ -198,20 +165,8 @@ func AreVolumeSnapshotsReady(ocClient client.Client, backupName string) wait.Con
 		// vListBeta := &volumesnapshotv1beta1.VolumeSnapshotList{}
 		err := ocClient.List(context.Background(), vList, &client.ListOptions{LabelSelector: label.NewSelectorForBackup(backupName)})
 		if err != nil {
-			// try beta version
-			// if runtime.IsNotRegisteredError(err) {
-			// 	// try v1beta1
-			// 	vList = nil // reset
-			// 	err = ocClient.List(context.Background(), vList, client.InNamespace(namespace))
-			// 	if err != nil {
-			// 		if runtime.IsNotRegisteredError(err) {
-			// 			return false, nil
-			// 		}
-			// 	}
-			// }
 			return false, err
 		}
-		// if vList != nil {
 		if len(vList.Items) == 0 {
 			ginkgo.GinkgoWriter.Println("No VolumeSnapshots found")
 			return false, nil
@@ -228,18 +183,6 @@ func AreVolumeSnapshotsReady(ocClient client.Client, backupName string) wait.Con
 				return false, nil
 			}
 		}
-		// }
-		// } else {
-		// 	if len(vListBeta.Items) == 0 {
-		// 		return false, nil
-		// 	}
-		// 	for _, v := range vListBeta.Items {
-		// 		if v.Status.ReadyToUse == nil || !*v.Status.ReadyToUse {
-		// 			return false, nil
-		// 		}
-		// 	}
-		// }
-
 		return true, nil
 	}
 }
