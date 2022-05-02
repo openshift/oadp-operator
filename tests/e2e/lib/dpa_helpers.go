@@ -11,13 +11,16 @@ import (
 	"reflect"
 	"strings"
 
+	. "github.com/onsi/ginkgo/v2"
+	buildv1 "github.com/openshift/api/build/v1"
 	"github.com/openshift/oadp-operator/pkg/common"
 
-	utils "github.com/openshift/oadp-operator/tests/e2e/utils"
-
+	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 	appsv1 "github.com/openshift/api/apps/v1"
 	security "github.com/openshift/api/security/v1"
+	templatev1 "github.com/openshift/api/template/v1"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
+	utils "github.com/openshift/oadp-operator/tests/e2e/utils"
 	operators "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	velero "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -172,8 +175,12 @@ func (v *DpaCustomResource) SetClient() error {
 	oadpv1alpha1.AddToScheme(client.Scheme())
 	velero.AddToScheme(client.Scheme())
 	appsv1.AddToScheme(client.Scheme())
+	corev1.AddToScheme(client.Scheme())
+	templatev1.AddToScheme(client.Scheme())
 	security.AddToScheme(client.Scheme())
 	operators.AddToScheme(client.Scheme())
+	volumesnapshotv1.AddToScheme(client.Scheme())
+	buildv1.AddToScheme(client.Scheme())
 
 	v.Client = client
 	return nil
@@ -186,12 +193,21 @@ func GetVeleroPods(namespace string) (*corev1.PodList, error) {
 	}
 	// select Velero pod with this label
 	veleroOptions := metav1.ListOptions{
+		LabelSelector: "component=velero",
+	}
+	veleroOptionsDeploy := metav1.ListOptions{
 		LabelSelector: "deploy=velero",
 	}
 	// get pods in test namespace with labelSelector
-	podList, err := clientset.CoreV1().Pods(namespace).List(context.TODO(), veleroOptions)
-	if err != nil {
+	var podList *corev1.PodList
+	if podList, err = clientset.CoreV1().Pods(namespace).List(context.TODO(), veleroOptions); err != nil {
 		return nil, err
+	}
+	if len(podList.Items) == 0 {
+		// handle some oadp versions where label was deploy=velero
+		if podList, err = clientset.CoreV1().Pods(namespace).List(context.TODO(), veleroOptionsDeploy); err != nil {
+			return nil, err
+		}
 	}
 	return podList, nil
 }
@@ -201,6 +217,10 @@ func AreVeleroPodsRunning(namespace string) wait.ConditionFunc {
 		podList, err := GetVeleroPods(namespace)
 		if err != nil {
 			return false, err
+		}
+		if podList.Items == nil || len(podList.Items) == 0 {
+			GinkgoWriter.Println("velero pods not found")
+			return false, nil
 		}
 		for _, podInfo := range (*podList).Items {
 			if podInfo.Status.Phase != corev1.PodRunning {
