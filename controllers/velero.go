@@ -708,16 +708,16 @@ func (r DPAReconciler) noDefaultCredentials(dpa oadpv1alpha1.DataProtectionAppli
 				}
 			}
 		}
-		for _, vsl := range dpa.Spec.SnapshotLocations {
-			if vsl.Velero != nil {
-				// To handle the case where we want to manually hand the credentials for a cloud storage created
-				// Bucket credentials via configuration. Only AWS is supported
-				provider := strings.TrimPrefix(vsl.Velero.Provider, "velero.io")
-				if provider == string(oadpv1alpha1.AWSBucketProvider) && hasCloudStorage {
-					providerNeedsDefaultCreds[provider] = false
-				} else {
-					providerNeedsDefaultCreds[provider] = true
-				}
+	}
+	for _, vsl := range dpa.Spec.SnapshotLocations {
+		if vsl.Velero != nil {
+			// To handle the case where we want to manually hand the credentials for a cloud storage created
+			// Bucket credentials via configuration. Only AWS is supported
+			provider := strings.TrimPrefix(vsl.Velero.Provider, "velero.io")
+			if provider == string(oadpv1alpha1.AWSBucketProvider) && hasCloudStorage {
+				providerNeedsDefaultCreds[provider] = false
+			} else {
+				providerNeedsDefaultCreds[provider] = true
 			}
 		}
 	}
