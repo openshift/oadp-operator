@@ -184,9 +184,9 @@ spec:
       defaultPlugins:
       - openshift
       - aws
+      noDefaultBackupLocation: true
     restic:
       enable: true
-    noDefaultBackupLocation: true
 ```
 If you don't need volumesnapshotlocation, you will not need to create a VSL credentials.
 
