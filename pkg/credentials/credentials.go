@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	"github.com/openshift/oadp-operator/pkg/common"
@@ -15,7 +16,6 @@ type DefaultPluginFields struct {
 	IsCloudProvider    bool
 	SecretName         string
 	MountPath          string
-	BslSecretName      string
 	BslMountPath       string
 	EnvCredentialsFile string
 	PluginImage        string
@@ -33,7 +33,6 @@ var (
 			IsCloudProvider:    true,
 			SecretName:         "cloud-credentials",
 			MountPath:          "/credentials",
-			BslSecretName:      "bsl-cloud-credentials-aws",
 			BslMountPath:       "/bsl-cloud-credentials-aws",
 			EnvCredentialsFile: common.AWSSharedCredentialsFileEnvKey,
 			PluginName:         common.VeleroPluginForAWS,
@@ -43,7 +42,6 @@ var (
 			IsCloudProvider:    true,
 			SecretName:         "cloud-credentials-gcp",
 			MountPath:          "/credentials-gcp",
-			BslSecretName:      "bsl-cloud-credentials-gcp",
 			BslMountPath:       "/bsl-cloud-credentials-gcp",
 			EnvCredentialsFile: common.GCPCredentialsEnvKey,
 			PluginName:         common.VeleroPluginForGCP,
@@ -53,7 +51,6 @@ var (
 			IsCloudProvider:    true,
 			SecretName:         "cloud-credentials-azure",
 			MountPath:          "/credentials-azure",
-			BslSecretName:      "bsl-cloud-credentials-azure",
 			BslMountPath:       "/bsl-cloud-credentials-azure",
 			EnvCredentialsFile: common.AzureCredentialsFileEnvKey,
 			PluginName:         common.VeleroPluginForAzure,
@@ -74,6 +71,24 @@ var (
 		},
 	}
 )
+
+// Get secretName and secretKey from "secretName/secretKey"
+func GetSecretNameKeyFromCredentialsFileConfigString(credentialsFile string) (string, string, error) {
+	credentialsFile = strings.TrimSpace(credentialsFile)
+	if credentialsFile == "" {
+		return "", "", nil
+	}
+	nameKeyArray := strings.Split(credentialsFile, "/")
+	if len(nameKeyArray) != 2 {
+		return "", "", errors.New("credentials file is not supported")
+	}
+	return nameKeyArray[0], nameKeyArray[1], nil
+}
+
+func GetSecretNameFromCredentialsFileConfigString(credentialsFile string) (string, error) {
+	name, _, err := GetSecretNameKeyFromCredentialsFileConfigString(credentialsFile)
+	return name, err
+}
 
 func getAWSPluginImage(dpa *oadpv1alpha1.DataProtectionApplication) string {
 	if dpa.Spec.UnsupportedOverrides[oadpv1alpha1.AWSPluginImageKey] != "" {
@@ -225,14 +240,14 @@ func AppendCloudProviderVolumes(dpa *oadpv1alpha1.DataProtectionApplication, ds 
 	}
 	for _, bslSpec := range dpa.Spec.BackupLocations {
 		if _, ok := bslSpec.Velero.Config["credentialsFile"]; ok {
-			if cloudProviderMap, bslCredOk := PluginSpecificFields[oadpv1alpha1.DefaultPlugin(bslSpec.Velero.Provider)]; bslCredOk {
+			if secretName, err := GetSecretNameFromCredentialsFileConfigString(bslSpec.Velero.Config["credentialsFile"]); err == nil {
 				ds.Spec.Template.Spec.Volumes = append(
 					ds.Spec.Template.Spec.Volumes,
 					corev1.Volume{
-						Name: cloudProviderMap.BslSecretName,
+						Name: secretName,
 						VolumeSource: corev1.VolumeSource{
 							Secret: &corev1.SecretVolumeSource{
-								SecretName: cloudProviderMap.BslSecretName,
+								SecretName: secretName,
 							},
 						},
 					},
@@ -308,20 +323,20 @@ func AppendPluginSpecificSpecs(dpa *oadpv1alpha1.DataProtectionApplication, vele
 			// append bsl volume secret
 			for _, bslSpec := range dpa.Spec.BackupLocations {
 				if _, ok := bslSpec.Velero.Config["credentialsFile"]; ok {
-					if cloudProviderMap, bslCredOk := PluginSpecificFields[oadpv1alpha1.DefaultPlugin(bslSpec.Velero.Provider)]; bslCredOk {
+					if secretName, err := GetSecretNameFromCredentialsFileConfigString(bslSpec.Velero.Config["credentialsFile"]); err == nil {
 						veleroContainer.VolumeMounts = append(
 							veleroContainer.VolumeMounts,
 							corev1.VolumeMount{
-								Name:      cloudProviderMap.BslSecretName,
+								Name:      secretName,
 								MountPath: pluginSpecificMap.BslMountPath,
 							})
 						veleroDeployment.Spec.Template.Spec.Volumes = append(
 							veleroDeployment.Spec.Template.Spec.Volumes,
 							corev1.Volume{
-								Name: cloudProviderMap.BslSecretName,
+								Name: secretName,
 								VolumeSource: corev1.VolumeSource{
 									Secret: &corev1.SecretVolumeSource{
-										SecretName: cloudProviderMap.BslSecretName,
+										SecretName: secretName,
 									},
 								},
 							},

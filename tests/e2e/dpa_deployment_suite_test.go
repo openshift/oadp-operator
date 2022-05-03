@@ -27,6 +27,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 		Name         string
 		BRestoreType BackupRestoreType
 		DpaSpec      *oadpv1alpha1.DataProtectionApplicationSpec
+		TestCarriageReturn bool
 		WantError    bool
 	}
 
@@ -34,6 +35,39 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 		Entry("Default velero CR", InstallCase{
 			Name:         "default-cr",
 			BRestoreType: RESTIC,
+			DpaSpec: &oadpv1alpha1.DataProtectionApplicationSpec{
+				Configuration: &oadpv1alpha1.ApplicationConfig{
+					Velero: &oadpv1alpha1.VeleroConfig{
+						DefaultPlugins: Dpa.Spec.Configuration.Velero.DefaultPlugins,
+						PodConfig:      &oadpv1alpha1.PodConfig{},
+					},
+					Restic: &oadpv1alpha1.ResticConfig{
+						PodConfig: &oadpv1alpha1.PodConfig{},
+						Enable:    pointer.Bool(true),
+					},
+				},
+				BackupLocations: []oadpv1alpha1.BackupLocation{
+					{
+						Velero: &velero.BackupStorageLocationSpec{
+							Provider: provider,
+							Config:   bslConfig,
+							Default:  true,
+							StorageType: velero.StorageType{
+								ObjectStorage: &velero.ObjectStorageLocation{
+									Bucket: bucket,
+									Prefix: VeleroPrefix,
+								},
+							},
+						},
+					},
+				},
+			},
+			WantError: false,
+		}, nil),
+		Entry("Default velero CR, test carriage return", InstallCase{
+			Name:         "default-cr",
+			BRestoreType: RESTIC,
+			TestCarriageReturn: true,
 			DpaSpec: &oadpv1alpha1.DataProtectionApplicationSpec{
 				Configuration: &oadpv1alpha1.ApplicationConfig{
 					Velero: &oadpv1alpha1.VeleroConfig{
@@ -497,6 +531,9 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 			if len(installCase.DpaSpec.BackupLocations) > 0 {
 				if installCase.DpaSpec.BackupLocations[0].Velero.Config != nil {
 					installCase.DpaSpec.BackupLocations[0].Velero.Config["credentialsFile"] = "bsl-cloud-credentials-" + dpaCR.Provider + "/cloud"
+					if installCase.TestCarriageReturn {
+						installCase.DpaSpec.BackupLocations[0].Velero.Config["credentialsFile"] = "bsl-cloud-credentials-" + dpaCR.Provider + "-with-carriage-return/cloud"
+					}
 				}
 			}
 			err = dpaCR.CreateOrUpdate(installCase.DpaSpec)

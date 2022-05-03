@@ -285,14 +285,14 @@ func (r *DPAReconciler) buildRegistryDeployment(registryDeployment *appsv1.Deplo
 
 	// attach secret volume for cloud providers
 	if _, ok := bsl.Spec.Config["credentialsFile"]; ok {
-		if cloudProviderMap, bslCredOk := credentials.PluginSpecificFields[oadpv1alpha1.DefaultPlugin(bsl.Spec.Provider)]; bslCredOk {
+		if secretName, err := credentials.GetSecretNameFromCredentialsFileConfigString(bsl.Spec.Config["credentialsFile"]); err == nil {
 			registryDeployment.Spec.Template.Spec.Volumes = append(
 				registryDeployment.Spec.Template.Spec.Volumes,
 				corev1.Volume{
-					Name: cloudProviderMap.BslSecretName,
+					Name: secretName,
 					VolumeSource: corev1.VolumeSource{
 						Secret: &corev1.SecretVolumeSource{
-							SecretName: cloudProviderMap.BslSecretName,
+							SecretName: secretName,
 						},
 					},
 				},
@@ -387,12 +387,14 @@ func (r *DPAReconciler) buildRegistryContainer(bsl *velerov1.BackupStorageLocati
 
 	// check for secret name
 	if _, ok := bsl.Spec.Config["credentialsFile"]; ok { // If credentialsFile config is used, then mount the bsl secret
-		if _, bslCredOk := credentials.PluginSpecificFields[oadpv1alpha1.DefaultPlugin(bsl.Spec.Provider)]; bslCredOk {
-			containers[0].VolumeMounts = []corev1.VolumeMount{
-				{
-					Name:      credentials.PluginSpecificFields[oadpv1alpha1.DefaultPlugin(bsl.Spec.Provider)].BslSecretName,
-					MountPath: credentials.PluginSpecificFields[oadpv1alpha1.DefaultPlugin(bsl.Spec.Provider)].BslMountPath,
-				},
+		if secretName, err := credentials.GetSecretNameFromCredentialsFileConfigString(bsl.Spec.Config["credentialsFile"]); err == nil {
+			if _, bslCredOk := credentials.PluginSpecificFields[oadpv1alpha1.DefaultPlugin(bsl.Spec.Provider)]; bslCredOk {
+				containers[0].VolumeMounts = []corev1.VolumeMount{
+					{
+						Name:      secretName,
+						MountPath: credentials.PluginSpecificFields[oadpv1alpha1.DefaultPlugin(bsl.Spec.Provider)].BslMountPath,
+					},
+				}
 			}
 		}
 	} else if bsl.Spec.Provider == GCPProvider { // append secret volumes if the BSL provider is GCP
@@ -557,8 +559,22 @@ func (r *DPAReconciler) getProviderSecret(secretName string) (corev1.Secret, err
 		return secret, err
 	}
 	r.Log.Info(fmt.Sprintf("got provider secret name: %s", secret.Name))
+	// replace carriage return with new line
+	secret.Data = replaceCarriageReturn(secret.Data, r.Log)
 	return secret, nil
 }
+
+func replaceCarriageReturn(data map[string][]byte, logger logr.Logger) map[string][]byte {
+	for k, v := range data {
+		// report if carriage return is found
+		if strings.Contains(string(v), "\r\n") {
+			logger.Info("carriage return replaced")
+			data[k] = []byte(strings.ReplaceAll(string(v), "\r\n", "\n"))
+		}
+	}
+	return data
+}
+
 func (r *DPAReconciler) getSecretNameAndKeyforBackupLocation(bslspec oadpv1alpha1.BackupLocation) (string, string) {
 
 	if bslspec.CloudStorage != nil {
@@ -578,11 +594,12 @@ func (r *DPAReconciler) getSecretNameAndKey(bslSpec *velerov1.BackupStorageLocat
 	secretName := credentials.PluginSpecificFields[plugin].SecretName
 	secretKey := credentials.PluginSpecificFields[plugin].PluginSecretKey
 	if _, ok := bslSpec.Config["credentialsFile"]; ok {
-		secretName = credentials.PluginSpecificFields[plugin].BslSecretName
-		secretKey = credentials.PluginSpecificFields[plugin].PluginSecretKey
+		if secretName, secretKey, err :=
+			credentials.GetSecretNameKeyFromCredentialsFileConfigString(bslSpec.Config["credentialsFile"]); err == nil {
+			r.Log.Info(fmt.Sprintf("credentialsFile secret: %s, key: %s", secretName, secretKey))
+			return secretName, secretKey
+		}
 	}
-	r.Log.Info(fmt.Sprintf("secret: %s", secretName))
-	r.Log.Info(fmt.Sprintf("key: %s", secretKey))
 	// check if user specified the Credential Name and Key
 	credential := bslSpec.Credential
 	if credential != nil {

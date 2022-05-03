@@ -2,6 +2,7 @@ package utils
 
 import (
 	"io/ioutil"
+	"strings"
 )
 
 func ReadFile(path string) ([]byte, error) {
@@ -13,4 +14,10 @@ func ReadFile(path string) ([]byte, error) {
 	// save passed in cred file as []byteq
 	file, err := ioutil.ReadFile(path)
 	return file, err
+}
+
+func ReplaceSecretDataNewLineWithCarriageReturn(data []byte) []byte {
+	// Replace new line with carriage return
+	data = []byte(strings.ReplaceAll(string(data), "\n", "\r\n"))
+	return data
 }
