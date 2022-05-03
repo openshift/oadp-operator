@@ -4,6 +4,7 @@ import (
 	"errors"
 	"flag"
 	"log"
+	"os"
 	"testing"
 	"time"
 
@@ -27,6 +28,39 @@ func init() {
 	flag.StringVar(&ci_cred_file, "ci_cred_file", credFile, "CI Cloud Cred File")
 	flag.StringVar(&artifact_dir, "artifact_dir", "/tmp", "Directory for storing must gather")
 	flag.StringVar(&oc_cli, "oc_cli", "oc", "OC CLI Client")
+
+	// helps with launching debug sessions from IDE
+	if os.Getenv("E2E_USE_ENV_FLAGS") == "true" {
+		if os.Getenv("CLOUD_CREDENTIALS") != "" {
+			credFile = os.Getenv("CLOUD_CREDENTIALS")
+		}
+		if os.Getenv("VELERO_NAMESPACE") != "" {
+			namespace = os.Getenv("VELERO_NAMESPACE")
+		}
+		if os.Getenv("SETTINGS") != "" {
+			settings = os.Getenv("SETTINGS")
+		}
+		if os.Getenv("VELERO_INSTANCE_NAME") != "" {
+			instanceName = os.Getenv("VELERO_INSTANCE_NAME")
+		}
+		if os.Getenv("CREDS_SECRET_REF") != "" {
+			credSecretRef = os.Getenv("CREDS_SECRET_REF")
+		}
+		if os.Getenv("PROVIDER") != "" {
+			provider = os.Getenv("PROVIDER")
+		}
+		if os.Getenv("CI_CRED_FILE") != "" {
+			ci_cred_file = os.Getenv("CI_CRED_FILE")
+		} else {
+			ci_cred_file = credFile
+		}
+		if os.Getenv("ARTIFACT_DIR") != "" {
+			artifact_dir = os.Getenv("ARTIFACT_DIR")
+		}
+		if os.Getenv("OC_CLI") != "" {
+			oc_cli = os.Getenv("OC_CLI")
+		}
+	}
 
 	timeoutMultiplierInput := flag.Int64("timeout_multiplier", 1, "Customize timeout multiplier from default (1)")
 	timeoutMultiplier = 1
