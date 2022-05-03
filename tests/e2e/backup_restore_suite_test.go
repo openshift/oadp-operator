@@ -55,8 +55,8 @@ var _ = Describe("AWS backup restore tests", func() {
 		MinK8SVersion        *K8sVersion
 	}
 
-	parksAppReady := VerificationFunction(func(ocClient client.Client, namespace string) error {
-		Eventually(IsDCReady(ocClient, "parks-app", "restify"), timeoutMultiplier*time.Minute*10, time.Second*10).Should(BeTrue())
+	mongoReady := VerificationFunction(func(ocClient client.Client, namespace string) error {
+		Eventually(IsDCReady(ocClient, "mongo-persistent", "todolist"), timeoutMultiplier*time.Minute*10, time.Second*10).Should(BeTrue())
 		// err := VerifyBackupRestoreData(artifact_dir, namespace, "restify", "parks-app") // TODO: VERIFY PARKS APP DATA
 		return nil
 	})
@@ -242,14 +242,13 @@ var _ = Describe("AWS backup restore tests", func() {
 			PreBackupVerify:      mysqlReady,
 			PostRestoreVerify:    mysqlReady,
 		}, nil),
-		Entry("Parks application <4.8.0", BackupRestoreCase{
-			ApplicationTemplate:  "./sample-applications/parks-app/manifest.yaml",
-			ApplicationNamespace: "parks-app",
-			Name:                 "parks-e2e",
+		Entry("Mongo application", BackupRestoreCase{
+			ApplicationTemplate:  "./sample-applications/mongo-persistent/mongo-persistent.yaml",
+			ApplicationNamespace: "mongo-persistent",
+			Name:                 "mongo-e2e",
 			BackupRestoreType:    RESTIC,
-			PreBackupVerify:      parksAppReady,
-			PostRestoreVerify:    parksAppReady,
-			MaxK8SVersion:        &K8sVersionOcp47,
+			PreBackupVerify:      mongoReady,
+			PostRestoreVerify:    mongoReady,
 		}, nil),
 		Entry("MySQL application", BackupRestoreCase{
 			ApplicationTemplate:  "./sample-applications/mysql-persistent/mysql-persistent-template.yaml",
@@ -258,15 +257,6 @@ var _ = Describe("AWS backup restore tests", func() {
 			BackupRestoreType:    RESTIC,
 			PreBackupVerify:      mysqlReady,
 			PostRestoreVerify:    mysqlReady,
-		}, nil),
-		Entry("Parks application >=4.8.0", BackupRestoreCase{
-			ApplicationTemplate:  "./sample-applications/parks-app/manifest4.8.yaml",
-			ApplicationNamespace: "parks-app",
-			Name:                 "parks-e2e",
-			BackupRestoreType:    RESTIC,
-			PreBackupVerify:      parksAppReady,
-			PostRestoreVerify:    parksAppReady,
-			MinK8SVersion:        &K8sVersionOcp48,
 		}, nil),
 	)
 })
