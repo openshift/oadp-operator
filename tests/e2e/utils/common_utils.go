@@ -1,7 +1,6 @@
 package utils
 
 import (
-	"encoding/json"
 	"io/ioutil"
 )
 
@@ -14,26 +13,4 @@ func ReadFile(path string) ([]byte, error) {
 	// save passed in cred file as []byteq
 	file, err := ioutil.ReadFile(path)
 	return file, err
-}
-
-func decodeJson(data []byte) (map[string]interface{}, error) {
-	// Return JSON from buffer data
-	var jsonData map[string]interface{}
-
-	err := json.Unmarshal(data, &jsonData)
-	return jsonData, err
-}
-
-func GetJsonData(path string) (map[string]interface{}, error) {
-	// Return buffer data for json
-	jsonData, err := ioutil.ReadFile(path)
-	if err != nil {
-		return nil, err
-	}
-	return decodeJson(jsonData)
-}
-
-func WriteFile(credFile string, data []byte) error {
-	err := ioutil.WriteFile(credFile, data, 0644)
-	return err
 }
