@@ -10,6 +10,7 @@ import (
 	"log"
 	"reflect"
 	"strings"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	buildv1 "github.com/openshift/api/build/v1"
@@ -142,17 +143,33 @@ func (v *DpaCustomResource) GetNoErr() *oadpv1alpha1.DataProtectionApplication {
 }
 
 func (v *DpaCustomResource) CreateOrUpdate(spec *oadpv1alpha1.DataProtectionApplicationSpec) error {
-	cr, err := v.Get()
-	if apierrors.IsNotFound(err) {
-		v.Build(v.backupRestoreType)
-		v.CustomResource.Spec = *spec
-		return v.Create()
+	return v.CreateOrUpdateWithRetries(spec, 3)
+}
+func (v *DpaCustomResource) CreateOrUpdateWithRetries(spec *oadpv1alpha1.DataProtectionApplicationSpec, retries int) error {
+	var (
+		err error
+		cr *oadpv1alpha1.DataProtectionApplication
+	)
+	for i := 0; i < retries; i++ {
+		if cr, err = v.Get(); apierrors.IsNotFound(err) {
+			v.Build(v.backupRestoreType)
+			v.CustomResource.Spec = *spec
+			return v.Create()
+		} else if err != nil {
+			return err
+		}
+		cr.Spec = *spec
+		if err = v.Client.Update(context.Background(), cr); err != nil{
+			if apierrors.IsConflict(err) && i < retries-1 {
+				log.Println("conflict detected during DPA CreateOrUpdate, retrying for ", retries - i - 1 , " more times")
+				time.Sleep(time.Second * 2)
+				continue
+			}
+			return err
+		}
+		return nil
 	}
-	if err != nil {
-		return err
-	}
-	cr.Spec = *spec
-	return v.Client.Update(context.Background(), cr)
+	return err
 }
 
 func (v *DpaCustomResource) Delete() error {
