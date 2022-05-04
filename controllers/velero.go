@@ -683,7 +683,7 @@ func (r DPAReconciler) noDefaultCredentials(dpa oadpv1alpha1.DataProtectionAppli
 				providerNeedsDefaultCreds[psf.PluginName] = false
 			}
 		}
-	} else {		
+	} else {
 		for _, bsl := range dpa.Spec.BackupLocations {
 			if bsl.Velero != nil && bsl.Velero.Credential == nil {
 				bslProvider := strings.TrimPrefix(bsl.Velero.Provider, "velero.io/")
