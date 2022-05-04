@@ -148,7 +148,7 @@ func (v *DpaCustomResource) CreateOrUpdate(spec *oadpv1alpha1.DataProtectionAppl
 func (v *DpaCustomResource) CreateOrUpdateWithRetries(spec *oadpv1alpha1.DataProtectionApplicationSpec, retries int) error {
 	var (
 		err error
-		cr *oadpv1alpha1.DataProtectionApplication
+		cr  *oadpv1alpha1.DataProtectionApplication
 	)
 	for i := 0; i < retries; i++ {
 		if cr, err = v.Get(); apierrors.IsNotFound(err) {
@@ -159,9 +159,9 @@ func (v *DpaCustomResource) CreateOrUpdateWithRetries(spec *oadpv1alpha1.DataPro
 			return err
 		}
 		cr.Spec = *spec
-		if err = v.Client.Update(context.Background(), cr); err != nil{
+		if err = v.Client.Update(context.Background(), cr); err != nil {
 			if apierrors.IsConflict(err) && i < retries-1 {
-				log.Println("conflict detected during DPA CreateOrUpdate, retrying for ", retries - i - 1 , " more times")
+				log.Println("conflict detected during DPA CreateOrUpdate, retrying for ", retries-i-1, " more times")
 				time.Sleep(time.Second * 2)
 				continue
 			}
