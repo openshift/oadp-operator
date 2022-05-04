@@ -102,7 +102,7 @@ var _ = Describe("AWS backup restore tests", func() {
 			}
 			if brCase.BackupRestoreType == CSI {
 				if provider == "aws" || provider == "ibmcloud" {
-					log.Printf("Creating VolumeSnapshot for CSI backuprestore of %s", brCase.Name)
+					log.Printf("Creating VolumeSnapshotClass for CSI backuprestore of %s", brCase.Name)
 					snapshotClassPath := fmt.Sprintf("./sample-applications/snapclass-csi/%s.yaml", provider)
 					err = InstallApplication(dpaCR.Client, snapshotClassPath)
 					Expect(err).ToNot(HaveOccurred())
