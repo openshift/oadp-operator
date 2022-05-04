@@ -51,10 +51,10 @@ else ifeq ($(CLUSTER_TYPE), azure4)
 	OADP_BUCKET_FILE = ${OADP_CRED_DIR}/azure-velero-bucket-name
 endif
 
+VELERO_PLUGIN ?= ${CLUSTER_TYPE}
+
 ifeq ($(CLUSTER_TYPE), ibmcloud)
 	VELERO_PLUGIN ?= aws
-else
-	VELERO_PLUGIN ?= ${CLUSTER_TYPE}
 endif
 
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
