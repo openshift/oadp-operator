@@ -646,6 +646,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							"app.kubernetes.io/managed-by": common.OADPOperator,
 							"app.kubernetes.io/component":  Server,
 							oadpv1alpha1.OadpOperatorLabel: "True",
+							"component":                    "velero",
 						},
 					},
 				},
@@ -693,6 +694,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 						"app.kubernetes.io/managed-by": common.OADPOperator,
 						"app.kubernetes.io/component":  Server,
 						oadpv1alpha1.OadpOperatorLabel: "True",
+						"component":                    "velero",
 					},
 				},
 				TypeMeta: metav1.TypeMeta{
@@ -707,6 +709,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							"app.kubernetes.io/managed-by": common.OADPOperator,
 							"app.kubernetes.io/component":  Server,
 							oadpv1alpha1.OadpOperatorLabel: "True",
+							"component":                    "velero",
 						},
 					},
 					Replicas: pointer.Int32(1),
@@ -718,6 +721,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 								"app.kubernetes.io/managed-by": common.OADPOperator,
 								"app.kubernetes.io/component":  Server,
 								oadpv1alpha1.OadpOperatorLabel: "True",
+								"component":                    "velero",
 							},
 							Annotations: map[string]string{
 								"prometheus.io/scrape": "true",
@@ -841,6 +845,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							"app.kubernetes.io/managed-by": common.OADPOperator,
 							"app.kubernetes.io/component":  Server,
 							oadpv1alpha1.OadpOperatorLabel: "True",
+							"component":                    "velero",
 						},
 					},
 				},
@@ -883,6 +888,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 						"app.kubernetes.io/managed-by": common.OADPOperator,
 						"app.kubernetes.io/component":  Server,
 						oadpv1alpha1.OadpOperatorLabel: "True",
+						"component":                    "velero",
 					},
 				},
 				TypeMeta: metav1.TypeMeta{
@@ -897,6 +903,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							"app.kubernetes.io/managed-by": common.OADPOperator,
 							"app.kubernetes.io/component":  Server,
 							oadpv1alpha1.OadpOperatorLabel: "True",
+							"component":                    "velero",
 						},
 					},
 					Replicas: pointer.Int32(1),
@@ -908,6 +915,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 								"app.kubernetes.io/managed-by": common.OADPOperator,
 								"app.kubernetes.io/component":  Server,
 								oadpv1alpha1.OadpOperatorLabel: "True",
+								"component":                    "velero",
 							},
 							Annotations: map[string]string{
 								"prometheus.io/scrape": "true",
