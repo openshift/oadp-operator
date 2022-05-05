@@ -242,6 +242,321 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 			},
 		},
 		{
+			name: "test restic nodeselector customization via dpa",
+			args: args{
+				&oadpv1alpha1.DataProtectionApplication{
+					Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+						Configuration: &oadpv1alpha1.ApplicationConfig{
+							Restic: &oadpv1alpha1.ResticConfig{
+								PodConfig: &oadpv1alpha1.PodConfig{
+									NodeSelector: map[string]string{
+										"foo": "bar",
+									},
+								},
+							},
+							Velero: &oadpv1alpha1.VeleroConfig{
+								PodConfig: &oadpv1alpha1.PodConfig{},
+								DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+									oadpv1alpha1.DefaultPluginAWS,
+								},
+							},
+						},
+					},
+				}, &appsv1.DaemonSet{
+					ObjectMeta: getResticObjectMeta(r),
+				},
+			},
+			wantErr: false,
+			want: &appsv1.DaemonSet{
+				ObjectMeta: getResticObjectMeta(r),
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "DaemonSet",
+					APIVersion: appsv1.SchemeGroupVersion.String(),
+				},
+				Spec: appsv1.DaemonSetSpec{
+					UpdateStrategy: appsv1.DaemonSetUpdateStrategy{
+						Type: appsv1.RollingUpdateDaemonSetStrategyType,
+					},
+					Selector: resticLabelSelector,
+					Template: v1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Labels: map[string]string{
+								"component": common.Velero,
+								"name":      common.Restic,
+							},
+						},
+						Spec: v1.PodSpec{
+							NodeSelector: map[string]string{
+								"foo": "bar",
+							},
+							ServiceAccountName: common.Velero,
+							SecurityContext: &v1.PodSecurityContext{
+								RunAsUser:          pointer.Int64(0),
+								SupplementalGroups: dpa.Spec.Configuration.Restic.SupplementalGroups,
+							},
+							Volumes: []v1.Volume{
+								// Cloud Provider volumes are dynamically added in the for loop below
+								{
+									Name: "host-pods",
+									VolumeSource: v1.VolumeSource{
+										HostPath: &v1.HostPathVolumeSource{
+											Path: resticPvHostPath,
+										},
+									},
+								},
+								{
+									Name: "scratch",
+									VolumeSource: v1.VolumeSource{
+										EmptyDir: &v1.EmptyDirVolumeSource{},
+									},
+								},
+								{
+									Name: "certs",
+									VolumeSource: v1.VolumeSource{
+										EmptyDir: &v1.EmptyDirVolumeSource{},
+									},
+								},
+								{
+									Name: "cloud-credentials",
+									VolumeSource: v1.VolumeSource{
+										Secret: &v1.SecretVolumeSource{
+											SecretName: "cloud-credentials",
+										},
+									},
+								},
+							},
+							Tolerations: dpa.Spec.Configuration.Restic.PodConfig.Tolerations,
+							Containers: []v1.Container{
+								{
+									Name: common.Restic,
+									SecurityContext: &v1.SecurityContext{
+										Privileged: pointer.Bool(true),
+									},
+									Image:           getVeleroImage(&dpa),
+									ImagePullPolicy: v1.PullAlways,
+									Resources:       r.getResticResourceReqs(&dpa), //setting default.
+									Command: []string{
+										"/velero",
+									},
+									Args: []string{
+										"restic",
+										"server",
+									},
+									VolumeMounts: []v1.VolumeMount{
+										{
+											Name:             "host-pods",
+											MountPath:        "/host_pods",
+											MountPropagation: &mountPropagationToHostContainer,
+										},
+										{
+											Name:      "scratch",
+											MountPath: "/scratch",
+										},
+										{
+											Name:      "certs",
+											MountPath: "/etc/ssl/certs",
+										},
+										{
+											Name:      "cloud-credentials",
+											MountPath: "/credentials",
+										},
+									},
+									Env: []v1.EnvVar{
+										{
+											Name: "NODE_NAME",
+											ValueFrom: &v1.EnvVarSource{
+												FieldRef: &v1.ObjectFieldSelector{
+													FieldPath: "spec.nodeName",
+												},
+											},
+										},
+										{
+											Name: "VELERO_NAMESPACE",
+											ValueFrom: &v1.EnvVarSource{
+												FieldRef: &v1.ObjectFieldSelector{
+													FieldPath: "metadata.namespace",
+												},
+											},
+										},
+										{
+											Name:  "VELERO_SCRATCH_DIR",
+											Value: "/scratch",
+										},
+										{
+											Name:  common.AWSSharedCredentialsFileEnvKey,
+											Value: "/credentials/cloud",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "test restic tolerations customization via dpa",
+			args: args{
+				&oadpv1alpha1.DataProtectionApplication{
+					Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+						Configuration: &oadpv1alpha1.ApplicationConfig{
+							Restic: &oadpv1alpha1.ResticConfig{
+								PodConfig: &oadpv1alpha1.PodConfig{
+									Tolerations: []v1.Toleration{
+										{
+											Key:      "key1",
+											Operator: "Equal",
+											Value:    "value1",
+											Effect:   "NoSchedule",
+										},
+									},
+								},
+							},
+							Velero: &oadpv1alpha1.VeleroConfig{
+								PodConfig: &oadpv1alpha1.PodConfig{},
+								DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+									oadpv1alpha1.DefaultPluginAWS,
+								},
+							},
+						},
+					},
+				}, &appsv1.DaemonSet{
+					ObjectMeta: getResticObjectMeta(r),
+				},
+			},
+			wantErr: false,
+			want: &appsv1.DaemonSet{
+				ObjectMeta: getResticObjectMeta(r),
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "DaemonSet",
+					APIVersion: appsv1.SchemeGroupVersion.String(),
+				},
+				Spec: appsv1.DaemonSetSpec{
+					UpdateStrategy: appsv1.DaemonSetUpdateStrategy{
+						Type: appsv1.RollingUpdateDaemonSetStrategyType,
+					},
+					Selector: resticLabelSelector,
+					Template: v1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Labels: map[string]string{
+								"component": common.Velero,
+								"name":      common.Restic,
+							},
+						},
+						Spec: v1.PodSpec{
+							ServiceAccountName: common.Velero,
+							SecurityContext: &v1.PodSecurityContext{
+								RunAsUser:          pointer.Int64(0),
+								SupplementalGroups: dpa.Spec.Configuration.Restic.SupplementalGroups,
+							},
+							Volumes: []v1.Volume{
+								// Cloud Provider volumes are dynamically added in the for loop below
+								{
+									Name: "host-pods",
+									VolumeSource: v1.VolumeSource{
+										HostPath: &v1.HostPathVolumeSource{
+											Path: resticPvHostPath,
+										},
+									},
+								},
+								{
+									Name: "scratch",
+									VolumeSource: v1.VolumeSource{
+										EmptyDir: &v1.EmptyDirVolumeSource{},
+									},
+								},
+								{
+									Name: "certs",
+									VolumeSource: v1.VolumeSource{
+										EmptyDir: &v1.EmptyDirVolumeSource{},
+									},
+								},
+								{
+									Name: "cloud-credentials",
+									VolumeSource: v1.VolumeSource{
+										Secret: &v1.SecretVolumeSource{
+											SecretName: "cloud-credentials",
+										},
+									},
+								},
+							},
+							Tolerations: []v1.Toleration{
+								{
+									Key:      "key1",
+									Operator: "Equal",
+									Value:    "value1",
+									Effect:   "NoSchedule",
+								},
+							},
+							Containers: []v1.Container{
+								{
+									Name: common.Restic,
+									SecurityContext: &v1.SecurityContext{
+										Privileged: pointer.Bool(true),
+									},
+									Image:           getVeleroImage(&dpa),
+									ImagePullPolicy: v1.PullAlways,
+									Resources:       r.getResticResourceReqs(&dpa), //setting default.
+									Command: []string{
+										"/velero",
+									},
+									Args: []string{
+										"restic",
+										"server",
+									},
+									VolumeMounts: []v1.VolumeMount{
+										{
+											Name:             "host-pods",
+											MountPath:        "/host_pods",
+											MountPropagation: &mountPropagationToHostContainer,
+										},
+										{
+											Name:      "scratch",
+											MountPath: "/scratch",
+										},
+										{
+											Name:      "certs",
+											MountPath: "/etc/ssl/certs",
+										},
+										{
+											Name:      "cloud-credentials",
+											MountPath: "/credentials",
+										},
+									},
+									Env: []v1.EnvVar{
+										{
+											Name: "NODE_NAME",
+											ValueFrom: &v1.EnvVarSource{
+												FieldRef: &v1.ObjectFieldSelector{
+													FieldPath: "spec.nodeName",
+												},
+											},
+										},
+										{
+											Name: "VELERO_NAMESPACE",
+											ValueFrom: &v1.EnvVarSource{
+												FieldRef: &v1.ObjectFieldSelector{
+													FieldPath: "metadata.namespace",
+												},
+											},
+										},
+										{
+											Name:  "VELERO_SCRATCH_DIR",
+											Value: "/scratch",
+										},
+										{
+											Name:  common.AWSSharedCredentialsFileEnvKey,
+											Value: "/credentials/cloud",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
 			name: "Valid velero and daemonset for aws as bsl",
 			args: args{
 				&oadpv1alpha1.DataProtectionApplication{
