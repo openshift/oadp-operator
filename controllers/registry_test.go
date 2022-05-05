@@ -1938,7 +1938,7 @@ func Test_replaceCarriageReturn(t *testing.T) {
 		{
 			name: "Given secret data with carriage return, carriage return is replaced with new line",
 			args: args{
-				data: secretDataWithCarriageReturnInSecret,
+				data:   secretDataWithCarriageReturnInSecret,
 				logger: logr.FromContextOrDiscard(context.TODO()),
 			},
 			want: secretDataWithEqualInSecret,
