@@ -1,5 +1,4 @@
 OADP_TEST_NAMESPACE ?= openshift-adp
-CLUSTER_TYPE ?= $(shell oc get infrastructures cluster -o jsonpath='{.status.platform}' | awk '{print tolower($0)}')
 
 # CONFIGS FOR CLOUD
 # bsl / blob storage cred dir
@@ -37,6 +36,8 @@ OC_CLI = $(shell which oc)
 ifdef CLI_DIR
 	OC_CLI = ${CLI_DIR}/oc
 endif
+
+CLUSTER_TYPE ?= $(shell $(OC_CLI) get infrastructures cluster -o jsonpath='{.status.platform}' | awk '{print tolower($0)}')
 
 ifeq ($(CLUSTER_TYPE), gcp)
 	CI_CRED_FILE = ${CLUSTER_PROFILE_DIR}/gce.json
