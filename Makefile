@@ -44,7 +44,9 @@ ifeq ($(CLUSTER_TYPE), gcp)
 	OADP_CRED_FILE = ${OADP_CRED_DIR}/gcp-credentials
 	CREDS_SECRET_REF = cloud-credentials-gcp
 	OADP_BUCKET_FILE = ${OADP_CRED_DIR}/gcp-velero-bucket-name
-else ifeq ($(CLUSTER_TYPE), azure4)
+endif
+
+ifeq ($(CLUSTER_TYPE), azure4)
 	CLUSTER_TYPE = azure
 endif
 
