@@ -194,6 +194,11 @@ spec:
                       podConfig:
                         description: Pod specific configuration
                         properties:
+                          labels:
+                            additionalProperties:
+                              type: string
+                            description: Labels to add to pod
+                            type: object
                           nodeSelector:
                             additionalProperties:
                               type: string
@@ -331,6 +336,11 @@ spec:
                       podConfig:
                         description: Pod specific configuration
                         properties:
+                          labels:
+                            additionalProperties:
+                              type: string
+                            description: Labels to add to pod
+                            type: object
                           nodeSelector:
                             additionalProperties:
                               type: string
