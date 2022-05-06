@@ -149,16 +149,25 @@ func (r *DPAReconciler) buildResticDaemonset(dpa *oadpv1alpha1.DataProtectionApp
 		install.WithAnnotations(dpa.Spec.PodAnnotations),
 		install.WithSecret(false))
 	// Update Items in ObjectMeta
+	dsName := ds.Name
 	ds.TypeMeta = installDs.TypeMeta
 	// Update Spec
 	ds.Spec = installDs.Spec
-	ds.Labels = installDs.Labels
+	ds.ObjectMeta = installDs.ObjectMeta
+	ds.Name = dsName
 
 	return r.customizeResticDaemonset(dpa, ds)
 }
 
 func (r *DPAReconciler) customizeResticDaemonset(dpa *oadpv1alpha1.DataProtectionApplication, ds *appsv1.DaemonSet) (*appsv1.DaemonSet, error) {
-
+	// add custom pod labels
+	if dpa.Spec.Configuration.Restic != nil && dpa.Spec.Configuration.Restic.PodConfig != nil  && dpa.Spec.Configuration.Restic.PodConfig.Labels != nil {
+		var err error
+		ds.Spec.Template.Labels, err = common.AppendUniqueLabels(ds.Spec.Template.Labels, dpa.Spec.Configuration.Restic.PodConfig.Labels)
+		if err != nil {
+			return nil, fmt.Errorf("restic daemonset template custom label: %s", err)
+		}
+	}
 	// customize specs
 	ds.Spec.Selector = resticLabelSelector
 	ds.Spec.UpdateStrategy = appsv1.DaemonSetUpdateStrategy{

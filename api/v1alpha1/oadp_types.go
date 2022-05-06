@@ -82,6 +82,9 @@ type VeleroConfig struct {
 
 // PodConfig defines the pod configuration options
 type PodConfig struct {
+	// Labels
+	// +optional
+	Labels map[string]string `json:"labels,omitempty"`
 	// NodeSelector defines the nodeSelector to be supplied to Restic podSpec
 	// +optional
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`

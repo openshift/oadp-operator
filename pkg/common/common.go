@@ -53,7 +53,7 @@ func AppendUniqueLabels(userLabels ...map[string]string) (map[string]string, err
 func AppendUniqueKeyStringOfStringMaps(userLabels ...map[string]string) (map[string]string, error) {
 	base := map[string]string{}
 	for _, labels := range userLabels {
-		if userLabels == nil {
+		if labels == nil {
 			continue
 		}
 		for k, v := range labels {
