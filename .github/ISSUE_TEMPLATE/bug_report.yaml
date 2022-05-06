@@ -39,6 +39,8 @@ body:
       label: OADP Version
       description: What version of our software are you running?
       options:
+        - 1.0.3 (Stable)
+        - 1.0.2 (Stable)
         - 1.0.1 (Stable)
         - 1.0.0 (Stable)
         - 0.5.x (Stable)
