@@ -436,8 +436,17 @@ func (r *DPAReconciler) customizeVeleroDeployment(dpa *oadpv1alpha1.DataProtecti
 	if err != nil {
 		return fmt.Errorf("velero deployment label: %v", err)
 	}
-	veleroDeployment.Spec.Selector = &metav1.LabelSelector{
-		MatchLabels: veleroDeployment.Labels,
+	if veleroDeployment.Spec.Selector == nil {
+		veleroDeployment.Spec.Selector = &metav1.LabelSelector{
+			MatchLabels: make(map[string]string),
+		}
+	}
+	if veleroDeployment.Spec.Selector.MatchLabels == nil {
+		veleroDeployment.Spec.Selector.MatchLabels = make(map[string]string)
+	}
+	veleroDeployment.Spec.Selector.MatchLabels, err = common.AppendUniqueLabels(veleroDeployment.Spec.Selector.MatchLabels, veleroDeployment.Labels, r.getDpaAppLabels(dpa))
+	if err != nil {
+		return fmt.Errorf("velero deployment selector label: %v", err)
 	}
 	veleroDeployment.Spec.Template.Labels, err = common.AppendUniqueLabels(veleroDeployment.Spec.Template.Labels, veleroDeployment.Labels)
 	if err != nil {

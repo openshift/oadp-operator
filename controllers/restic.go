@@ -101,7 +101,22 @@ func (r *DPAReconciler) ReconcileResticDaemonset(log logr.Logger) (bool, error) 
 		// Deployment selector is immutable so we set this value only if
 		// a new object is going to be created
 		if ds.ObjectMeta.CreationTimestamp.IsZero() {
-			ds.Spec.Selector = resticLabelSelector
+			if ds.Spec.Selector == nil {
+				ds.Spec.Selector = &metav1.LabelSelector{}
+			}
+			var err error
+			if ds.Spec.Selector == nil {
+				ds.Spec.Selector = &metav1.LabelSelector{
+					MatchLabels: make(map[string]string),
+				}
+			}
+			if ds.Spec.Selector.MatchLabels == nil {
+				ds.Spec.Selector.MatchLabels = make(map[string]string)
+			}
+			ds.Spec.Selector.MatchLabels, err = common.AppendUniqueLabels(ds.Spec.Selector.MatchLabels, resticLabelSelector.MatchLabels)
+			if err != nil {
+				return fmt.Errorf("failed to append labels to selector: %s", err)
+			}
 		}
 
 		if err := controllerutil.SetControllerReference(&dpa, ds, r.Scheme); err != nil {
