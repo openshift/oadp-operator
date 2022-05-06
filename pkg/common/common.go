@@ -47,13 +47,20 @@ const (
 
 // append labels together
 func AppendUniqueLabels(userLabels ...map[string]string) (map[string]string, error) {
+	return AppendUniqueKeyStringOfStringMaps(userLabels...)	
+}
+
+func AppendUniqueKeyStringOfStringMaps(userLabels ...map[string]string) (map[string]string, error) {
 	base := map[string]string{}
 	for _, labels := range userLabels {
+		if userLabels == nil {
+			continue
+		}
 		for k, v := range labels {
 			if base[k] == "" {
 				base[k] = v
 			} else if base[k] != v {
-				return nil, fmt.Errorf("duplicate label %s", k)
+				return nil, fmt.Errorf("duplicate key %s", k)
 			}
 		}
 	}

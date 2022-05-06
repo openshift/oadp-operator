@@ -29,6 +29,20 @@ func TestAppendUniqueLabels(t *testing.T) {
 			},
 		},
 		{
+			name: "append unique labels together - nil sandwich",
+			args: args{
+				userLabels: []map[string]string{
+					{"a": "a"},
+					nil,
+					{"b": "b"},
+				},
+			},
+			want: map[string]string{
+				"a": "a",
+				"b": "b",
+			},
+		},
+		{
 			name: "should error when append duplicate label keys with different value together",
 			args: args{
 				userLabels: []map[string]string{
