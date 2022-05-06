@@ -13,8 +13,9 @@ ENVTEST_K8S_VERSION = 1.21
 
 .PHONY:ginkgo
 ginkgo: # Make sure ginkgo is in $GOPATH/bin
-	go get github.com/onsi/ginkgo/ginkgo
-	go get github.com/onsi/gomega/...
+	go get -d github.com/onsi/ginkgo/ginkgo
+	go get -d github.com/onsi/ginkgo/v2/ginkgo
+	go get -d github.com/onsi/gomega/...
 
 # VERSION defines the project version for the bundle.
 # Update this value when you upgrade the version of your project.
