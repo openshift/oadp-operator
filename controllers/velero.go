@@ -390,9 +390,11 @@ func (r *DPAReconciler) buildVeleroDeployment(veleroDeployment *appsv1.Deploymen
 		// our secrets are appended to containers/volumeMounts in credentials.AppendPluginSpecificSpecs function
 		install.WithSecret(false),
 	)
+	veleroDeploymentName := veleroDeployment.Name
 	veleroDeployment.TypeMeta = installDeployment.TypeMeta
 	veleroDeployment.Spec = installDeployment.Spec
-	veleroDeployment.Labels = installDeployment.Labels
+	veleroDeployment.ObjectMeta = installDeployment.ObjectMeta
+	veleroDeployment.Name = veleroDeploymentName
 	return r.customizeVeleroDeployment(dpa, veleroDeployment)
 }
 
@@ -429,15 +431,11 @@ func removeDuplicateValues(slice []string) []string {
 
 func (r *DPAReconciler) customizeVeleroDeployment(dpa *oadpv1alpha1.DataProtectionApplication, veleroDeployment *appsv1.Deployment) error {
 	//append dpa labels
-	for k, v := range r.getDpaAppLabels(dpa) {
-		if veleroDeployment.Labels[k] == "" { //saves component: velero labels
-			veleroDeployment.Labels[k] = v
-		}
-	}
+	veleroDeployment.Labels = common.AppendLabels(veleroDeployment.Labels, r.getDpaAppLabels(dpa))
 	veleroDeployment.Spec.Selector = &metav1.LabelSelector{
 		MatchLabels: veleroDeployment.Labels,
 	}
-	veleroDeployment.Spec.Template.Labels = veleroDeployment.Labels
+	veleroDeployment.Spec.Template.Labels = common.AppendLabels(veleroDeployment.Spec.Template.Labels, veleroDeployment.Labels)
 
 	isSTSNeeded := r.isSTSTokenNeeded(dpa.Spec.BackupLocations, dpa.Namespace)
 

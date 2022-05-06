@@ -42,3 +42,14 @@ const (
 	HTTPSProxyEnvVar               = "HTTPS_PROXY"
 	NoProxyEnvVar                  = "NO_PROXY"
 )
+
+// append labels together
+func AppendLabels(userLabels ...map[string]string) map[string]string {
+	base := map[string]string{}
+	for _, labels := range userLabels {
+		for k, v := range labels {
+			base[k] = v
+		}
+	}
+	return base
+}
