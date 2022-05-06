@@ -449,11 +449,11 @@ func (r *DPAReconciler) customizeVeleroDeployment(dpa *oadpv1alpha1.DataProtecti
 
 	isSTSNeeded := r.isSTSTokenNeeded(dpa.Spec.BackupLocations, dpa.Namespace)
 
-	//TODO: add velero nodeselector, needs to be added to the VELERO CR first
 	// Selector: veleroDeployment.Spec.Selector,
 	veleroDeployment.Spec.Replicas = pointer.Int32(1)
 	if dpa.Spec.Configuration.Velero.PodConfig != nil {
 		veleroDeployment.Spec.Template.Spec.Tolerations = dpa.Spec.Configuration.Velero.PodConfig.Tolerations
+		veleroDeployment.Spec.Template.Spec.NodeSelector = dpa.Spec.Configuration.Velero.PodConfig.NodeSelector
 	}
 	veleroDeployment.Spec.Template.Spec.Volumes = append(veleroDeployment.Spec.Template.Spec.Volumes,
 		corev1.Volume{
