@@ -21,8 +21,10 @@ import (
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
+
 const proxyEnvKey = "HTTP_PROXY"
 const proxyEnvValue = "http://proxy.example.com:8080"
+
 func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 	type fields struct {
 		Client         client.Client
@@ -42,7 +44,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 		wantErr              bool
 		wantVeleroDeployment *appsv1.Deployment
 		clientObjects        []client.Object
-		testProxy	bool
+		testProxy            bool
 	}{
 		{
 			name: "DPA CR is nil",
@@ -387,11 +389,11 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 											Value: "/plugins",
 										},
 										{
-											Name: proxyEnvKey,
+											Name:  proxyEnvKey,
 											Value: proxyEnvValue,
 										},
 										{
-											Name: strings.ToLower(proxyEnvKey),
+											Name:  strings.ToLower(proxyEnvKey),
 											Value: proxyEnvValue,
 										},
 									},
