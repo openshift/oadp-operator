@@ -282,8 +282,8 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 					Template: v1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: map[string]string{
-								"component": common.Velero,
-								"name":      common.Restic,
+								"component":   common.Velero,
+								"name":        common.Restic,
 								"resticLabel": "this is a label",
 							},
 						},
@@ -405,7 +405,7 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 				},
 			},
 			wantErr: true,
-			want: nil,
+			want:    nil,
 		},
 		{
 			name: "test restic nodeselector customization via dpa",

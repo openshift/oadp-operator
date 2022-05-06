@@ -161,7 +161,7 @@ func (r *DPAReconciler) buildResticDaemonset(dpa *oadpv1alpha1.DataProtectionApp
 
 func (r *DPAReconciler) customizeResticDaemonset(dpa *oadpv1alpha1.DataProtectionApplication, ds *appsv1.DaemonSet) (*appsv1.DaemonSet, error) {
 	// add custom pod labels
-	if dpa.Spec.Configuration.Restic != nil && dpa.Spec.Configuration.Restic.PodConfig != nil  && dpa.Spec.Configuration.Restic.PodConfig.Labels != nil {
+	if dpa.Spec.Configuration.Restic != nil && dpa.Spec.Configuration.Restic.PodConfig != nil && dpa.Spec.Configuration.Restic.PodConfig.Labels != nil {
 		var err error
 		ds.Spec.Template.Labels, err = common.AppendUniqueLabels(ds.Spec.Template.Labels, dpa.Spec.Configuration.Restic.PodConfig.Labels)
 		if err != nil {

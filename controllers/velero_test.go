@@ -316,7 +316,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 								"component":                    "velero",
 								"deploy":                       "velero",
 								oadpv1alpha1.OadpOperatorLabel: "True",
-								"thisIsVelero": "yes",
+								"thisIsVelero":                 "yes",
 							},
 							Annotations: map[string]string{
 								"prometheus.io/scrape": "true",
@@ -450,7 +450,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 					},
 				},
 			},
-			wantErr: true,
+			wantErr:              true,
 			wantVeleroDeployment: nil,
 		},
 		{

@@ -47,7 +47,7 @@ const (
 
 // append labels together
 func AppendUniqueLabels(userLabels ...map[string]string) (map[string]string, error) {
-	return AppendUniqueKeyStringOfStringMaps(userLabels...)	
+	return AppendUniqueKeyStringOfStringMaps(userLabels...)
 }
 
 func AppendUniqueKeyStringOfStringMaps(userLabels ...map[string]string) (map[string]string, error) {
