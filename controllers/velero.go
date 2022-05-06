@@ -439,11 +439,11 @@ func (r *DPAReconciler) customizeVeleroDeployment(dpa *oadpv1alpha1.DataProtecti
 	veleroDeployment.Spec.Selector = &metav1.LabelSelector{
 		MatchLabels: veleroDeployment.Labels,
 	}
-	// add custom pod labels
 	veleroDeployment.Spec.Template.Labels, err = common.AppendUniqueLabels(veleroDeployment.Spec.Template.Labels, veleroDeployment.Labels)
 	if err != nil {
 		return fmt.Errorf("velero deployment template label: %v", err)
 	}
+	// add custom pod labels
 	if dpa.Spec.Configuration.Velero != nil && dpa.Spec.Configuration.Velero.PodConfig != nil && dpa.Spec.Configuration.Velero.PodConfig.Labels != nil {
 		veleroDeployment.Spec.Template.Labels, err = common.AppendUniqueLabels(veleroDeployment.Spec.Template.Labels, dpa.Spec.Configuration.Velero.PodConfig.Labels)
 		if err != nil {
