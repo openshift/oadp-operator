@@ -725,6 +725,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 								"app.kubernetes.io/component":  Server,
 								oadpv1alpha1.OadpOperatorLabel: "True",
 								"component":                    "velero",
+								"deploy":                       "velero",
 							},
 							Annotations: map[string]string{
 								"prometheus.io/scrape": "true",
@@ -919,6 +920,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 								"app.kubernetes.io/component":  Server,
 								oadpv1alpha1.OadpOperatorLabel: "True",
 								"component":                    "velero",
+								"deploy":                       "velero",
 							},
 							Annotations: map[string]string{
 								"prometheus.io/scrape": "true",

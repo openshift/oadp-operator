@@ -431,11 +431,18 @@ func removeDuplicateValues(slice []string) []string {
 
 func (r *DPAReconciler) customizeVeleroDeployment(dpa *oadpv1alpha1.DataProtectionApplication, veleroDeployment *appsv1.Deployment) error {
 	//append dpa labels
-	veleroDeployment.Labels = common.AppendLabels(veleroDeployment.Labels, r.getDpaAppLabels(dpa))
+	var err error
+	veleroDeployment.Labels, err = common.AppendUniqueLabels(veleroDeployment.Labels, r.getDpaAppLabels(dpa), )
+	if err != nil {
+		return fmt.Errorf("error appending veleroDeployment label: %v", err)
+	}
 	veleroDeployment.Spec.Selector = &metav1.LabelSelector{
 		MatchLabels: veleroDeployment.Labels,
 	}
-	veleroDeployment.Spec.Template.Labels = common.AppendLabels(veleroDeployment.Spec.Template.Labels, veleroDeployment.Labels)
+	veleroDeployment.Spec.Template.Labels, err = common.AppendUniqueLabels(veleroDeployment.Spec.Template.Labels, veleroDeployment.Labels)
+	if err != nil {
+		return fmt.Errorf("error appending veleroDeployment template label: %v", err)
+	}
 
 	isSTSNeeded := r.isSTSTokenNeeded(dpa.Spec.BackupLocations, dpa.Namespace)
 

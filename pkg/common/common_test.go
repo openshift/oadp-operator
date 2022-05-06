@@ -5,17 +5,18 @@ import (
 	"testing"
 )
 
-func TestAppendLabels(t *testing.T) {
+func TestAppendUniqueLabels(t *testing.T) {
 	type args struct {
 		userLabels []map[string]string
 	}
 	tests := []struct {
-		name string
-		args args
-		want map[string]string
+		name    string
+		args    args
+		want    map[string]string
+		wantErr bool
 	}{
 		{
-			name: "append labels together",
+			name: "append unique labels together",
 			args: args{
 				userLabels: []map[string]string{
 					{"a": "a"},
@@ -27,11 +28,27 @@ func TestAppendLabels(t *testing.T) {
 				"b": "b",
 			},
 		},
+		{
+			name: "should error when append duplicate label keys with different value together",
+			args: args{
+				userLabels: []map[string]string{
+					{"a": "a"},
+					{"a": "b"},
+				},
+			},
+			want:    nil,
+			wantErr: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := AppendLabels(tt.args.userLabels...); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("AppendLabels() = %v, want %v", got, tt.want)
+			got, err := AppendUniqueLabels(tt.args.userLabels...)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("AppendUniqueLabels() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("AppendUniqueLabels() = %v, want %v", got, tt.want)
 			}
 		})
 	}

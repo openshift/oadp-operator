@@ -1,5 +1,7 @@
 package common
 
+import "fmt"
+
 const (
 	Velero             = "velero"
 	Restic             = "restic"
@@ -44,12 +46,16 @@ const (
 )
 
 // append labels together
-func AppendLabels(userLabels ...map[string]string) map[string]string {
+func AppendUniqueLabels(userLabels ...map[string]string) (map[string]string, error) {
 	base := map[string]string{}
 	for _, labels := range userLabels {
 		for k, v := range labels {
-			base[k] = v
+			if base[k] == "" {
+				base[k] = v
+			} else if base[k] != v {
+				return nil, fmt.Errorf("duplicate label %s", k)
+			}
 		}
 	}
-	return base
+	return base, nil
 }
