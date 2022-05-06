@@ -298,12 +298,15 @@ deploy-olm: DEPLOY_TMP?=/tmp/oadp-deploy-olm/ # Set target specific variable
 deploy-olm:
 	oc whoami # Check if logged in
 	oc create namespace $(OADP_TEST_NAMESPACE) # This should error out if namespace already exists, delete namespace (to clear current resources) before proceeding
+	rm -rf $(DEPLOY_TMP)
 	mkdir -p $(DEPLOY_TMP)
 	cp -r . $(DEPLOY_TMP)
+	# build and push operator and bundle image
+	# use operator-sdk to install bundle to authenticated cluster
 	cd $(DEPLOY_TMP) &&	\
 	IMG=$(THIS_OPERATOR_IMAGE) BUNDLE_IMG=$(THIS_BUNDLE_IMAGE) \
-		make docker-build docker-push bundle bundle-build bundle-push && \ # build and push operator and bundle image
-	operator-sdk run bundle $(THIS_BUNDLE_IMAGE) --namespace $(OADP_TEST_NAMESPACE) # use operator-sdk to install bundle to authenticated cluster
+		make docker-build docker-push bundle bundle-build bundle-push && \
+	operator-sdk run bundle $(THIS_BUNDLE_IMAGE) --namespace $(OADP_TEST_NAMESPACE) ; \
 	rm -rf $(DEPLOY_TMP)
 
 .PHONY: opm
