@@ -60,7 +60,7 @@ func AppendUniqueKeyStringOfStringMaps(userLabels ...map[string]string) (map[str
 			if base[k] == "" {
 				base[k] = v
 			} else if base[k] != v {
-				return nil, fmt.Errorf("duplicate key %s", k)
+				return nil, fmt.Errorf("conflicting key %s with value %s may not override %s", k, v, base[k])
 			}
 		}
 	}

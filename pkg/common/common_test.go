@@ -29,6 +29,20 @@ func TestAppendUniqueLabels(t *testing.T) {
 			},
 		},
 		{
+			name: "append unique labels together, with valid duplicates",
+			args: args{
+				userLabels: []map[string]string{
+					{"a": "a"},
+					{"b": "b"},
+					{"b": "b"},
+				},
+			},
+			want: map[string]string{
+				"a": "a",
+				"b": "b",
+			},
+		},
+		{
 			name: "append unique labels together - nil sandwich",
 			args: args{
 				userLabels: []map[string]string{
