@@ -465,6 +465,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 						"app.kubernetes.io/instance":   "test-Velero-CR",
 						"app.kubernetes.io/managed-by": common.OADPOperator,
 						"app.kubernetes.io/component":  Server,
+						"component":                    "velero",
 						oadpv1alpha1.OadpOperatorLabel: "True",
 					},
 				},
@@ -479,6 +480,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							"app.kubernetes.io/instance":   "test-Velero-CR",
 							"app.kubernetes.io/managed-by": common.OADPOperator,
 							"app.kubernetes.io/component":  Server,
+							"component":                    "velero",
 							oadpv1alpha1.OadpOperatorLabel: "True",
 						},
 					},
@@ -490,6 +492,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 								"app.kubernetes.io/instance":   "test-Velero-CR",
 								"app.kubernetes.io/managed-by": common.OADPOperator,
 								"app.kubernetes.io/component":  Server,
+								"component":                    "velero",
 								oadpv1alpha1.OadpOperatorLabel: "True",
 							},
 							Annotations: map[string]string{
@@ -1914,7 +1917,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 				t.Errorf("buildVeleroDeployment() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			if !reflect.DeepEqual(tt.wantVeleroDeployment, tt.veleroDeployment) {
-				t.Errorf("expected velero deployment spec to be %#v, got %#v", tt.wantVeleroDeployment, tt.veleroDeployment)
+				t.Errorf("expected velero deployment spec to be \n%#v\n, got \n%#v", tt.wantVeleroDeployment, tt.veleroDeployment)
 			}
 		})
 	}
