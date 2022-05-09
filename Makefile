@@ -1,5 +1,4 @@
 OADP_TEST_NAMESPACE ?= openshift-adp
-CLUSTER_TYPE ?= aws
 
 # CONFIGS FOR CLOUD
 # bsl / blob storage cred dir
@@ -38,13 +37,20 @@ ifdef CLI_DIR
 	OC_CLI = ${CLI_DIR}/oc
 endif
 
+CLUSTER_TYPE ?= $(shell $(OC_CLI) get infrastructures cluster -o jsonpath='{.status.platform}' | awk '{print tolower($0)}')
+
 ifeq ($(CLUSTER_TYPE), gcp)
 	CI_CRED_FILE = ${CLUSTER_PROFILE_DIR}/gce.json
 	OADP_CRED_FILE = ${OADP_CRED_DIR}/gcp-credentials
 	CREDS_SECRET_REF = cloud-credentials-gcp
 	OADP_BUCKET_FILE = ${OADP_CRED_DIR}/gcp-velero-bucket-name
-else ifeq ($(CLUSTER_TYPE), azure4)
+endif
+
+ifeq ($(CLUSTER_TYPE), azure4)
 	CLUSTER_TYPE = azure
+endif
+
+ifeq ($(CLUSTER_TYPE), azure)
 	CI_CRED_FILE = /tmp/ci-azure-credentials
 	OADP_CRED_FILE = /tmp/oadp-azure-credentials
 	CREDS_SECRET_REF = cloud-credentials-azure
@@ -292,14 +298,21 @@ bundle-push: ## Push the bundle image.
 
 GIT_REV:=$(shell git rev-parse --short HEAD)
 ## Build current branch operator image, bundle image, push and install via OLM
+.PHONY: deploy-olm
 deploy-olm: THIS_OPERATOR_IMAGE?=ttl.sh/oadp-operator-$(GIT_REV):1h # Set target specific variable
 deploy-olm: THIS_BUNDLE_IMAGE?=ttl.sh/oadp-operator-bundle-$(GIT_REV):1h # Set target specific variable
+deploy-olm: DEPLOY_TMP:=$(shell mktemp -d)/ # Set target specific variable
 deploy-olm:
 	oc whoami # Check if logged in
 	oc create namespace $(OADP_TEST_NAMESPACE) # This should error out if namespace already exists, delete namespace (to clear current resources) before proceeding
+	@echo "DEPLOY_TMP: $(DEPLOY_TMP)"
+	# build and push operator and bundle image
+	# use operator-sdk to install bundle to authenticated cluster
+	cp -r . $(DEPLOY_TMP) && cd $(DEPLOY_TMP) && \
 	IMG=$(THIS_OPERATOR_IMAGE) BUNDLE_IMG=$(THIS_BUNDLE_IMAGE) \
-		make docker-build docker-push bundle bundle-build bundle-push # build and push operator and bundle image
-	operator-sdk run bundle $(THIS_BUNDLE_IMAGE) --namespace $(OADP_TEST_NAMESPACE) # use operator-sdk to install bundle to authenticated cluster
+		make docker-build docker-push bundle bundle-build bundle-push; \
+	rm -rf $(DEPLOY_TMP)
+	operator-sdk run bundle $(THIS_BUNDLE_IMAGE) --namespace $(OADP_TEST_NAMESPACE)
 
 .PHONY: opm
 OPM = ./bin/opm

@@ -7,8 +7,41 @@ metadata:
   name: velero-role
 rules:
 - apiGroups:
+  - build.openshift.io
+  - migration.openshift.io
+  - rbac.authorization.k8s.io
+  - velero.io
+  resources:
+  - '*'
+  verbs:
+  - '*'
+- apiGroups:
+  - ""
+  resources:
+  - serviceaccounts
+  verbs:
+  - '*'
+- apiGroups:
+  - packages.operators.coreos.com
+  resources:
+  - packagemanifests
+  verbs:
+  - '*'
+- apiGroups:
   - '*'
   resources:
+  - '*'
+  verbs:
+  - get
+  - watch
+  - list
+  - update
+  - patch
+  - create
+  - delete
+  - assign
+  - deletecollection
+- nonResourceURLs:
   - '*'
   verbs:
   - '*'
@@ -16,7 +49,6 @@ rules:
   - security.openshift.io
   resourceNames:
   - privileged
-  - velero-privileged
   resources:
   - securitycontextconstraints
   verbs:
