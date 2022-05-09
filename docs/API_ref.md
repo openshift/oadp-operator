@@ -44,6 +44,7 @@
 | restoreResourcesVersionPriority | string                  | RestoreResourceVersionPriority represents a configmap that will be created if defined for use in conjunction with `EnableAPIGroupVersions` feature flag. Defining this field automatically add EnableAPIGroupVersions to the velero server feature flag  |
 | noDefaultBackupLocation         | bool                    | If you need to install Velero without a default backup storage location NoDefaultBackupLocation flag is required for confirmation                                                                                                                        |
 | podConfig                       | *PodConfig              | Velero Pod specific configuration                                                                                                                                                                                                                        |
+| logLevel                       | string              | Velero server’s log level (default info, use debug for the most logging). Valid options are error, warn, warning, info, debug, trace                                                                                                                                                                                                                        |
 
 ### ResticConfig
 
