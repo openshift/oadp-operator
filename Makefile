@@ -1,5 +1,4 @@
 OADP_TEST_NAMESPACE ?= openshift-adp
-CLUSTER_TYPE ?= aws
 
 # CONFIGS FOR CLOUD
 # bsl / blob storage cred dir
@@ -38,13 +37,20 @@ ifdef CLI_DIR
 	OC_CLI = ${CLI_DIR}/oc
 endif
 
+CLUSTER_TYPE ?= $(shell $(OC_CLI) get infrastructures cluster -o jsonpath='{.status.platform}' | awk '{print tolower($0)}')
+
 ifeq ($(CLUSTER_TYPE), gcp)
 	CI_CRED_FILE = ${CLUSTER_PROFILE_DIR}/gce.json
 	OADP_CRED_FILE = ${OADP_CRED_DIR}/gcp-credentials
 	CREDS_SECRET_REF = cloud-credentials-gcp
 	OADP_BUCKET_FILE = ${OADP_CRED_DIR}/gcp-velero-bucket-name
-else ifeq ($(CLUSTER_TYPE), azure4)
+endif
+
+ifeq ($(CLUSTER_TYPE), azure4)
 	CLUSTER_TYPE = azure
+endif
+
+ifeq ($(CLUSTER_TYPE), azure)
 	CI_CRED_FILE = /tmp/ci-azure-credentials
 	OADP_CRED_FILE = /tmp/oadp-azure-credentials
 	CREDS_SECRET_REF = cloud-credentials-azure
