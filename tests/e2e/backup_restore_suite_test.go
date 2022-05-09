@@ -56,14 +56,15 @@ var _ = Describe("AWS backup restore tests", func() {
 	}
 
 	mongoReady := VerificationFunction(func(ocClient client.Client, namespace string) error {
-		Eventually(IsDCReady(ocClient, "mongo-persistent", "todolist"), timeoutMultiplier*time.Minute*10, time.Second*10).Should(BeTrue())
-		// err := VerifyBackupRestoreData(artifact_dir, namespace, "restify", "parks-app") // TODO: VERIFY PARKS APP DATA
-		return nil
+		Eventually(IsDCReady(ocClient, namespace, "todolist"), timeoutMultiplier*time.Minute*10, time.Second*10).Should(BeTrue())
+		err := VerifyBackupRestoreData(artifact_dir, namespace, "todolist-route", "todolist")
+		return err
 	})
+
 	mysqlReady := VerificationFunction(func(ocClient client.Client, namespace string) error {
 		// This test confirms that SCC restore logic in our plugin is working
 		//Eventually(IsDCReady(ocClient, "mssql-persistent", "mysql"), timeoutMultiplier*time.Minute*10, time.Second*10).Should(BeTrue())
-		Eventually(IsDeploymentReady(ocClient, "mysql-persistent", "mysql"), timeoutMultiplier*time.Minute*10, time.Second*10).Should(BeTrue())
+		Eventually(IsDeploymentReady(ocClient, namespace, "mysql"), timeoutMultiplier*time.Minute*10, time.Second*10).Should(BeTrue())
 		exists, err := DoesSCCExist(ocClient, "mysql-persistent-scc")
 		if err != nil {
 			return err

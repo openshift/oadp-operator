@@ -362,20 +362,15 @@ func VerifyBackupRestoreData(artifact_dir string, namespace string, routeName st
 	if err != nil {
 		return err
 	}
-	appApi := "http://" + appRoute.Spec.Host
-	switch app {
-	case "todolist":
-		appApi += "/todo-completed"
-	case "parks-app":
-		appApi += "/parks"
-	}
+	appApi := "http://" + appRoute.Spec.Host + "/todo-completed" // Maybe different for other apps, might need a change in logic if thats the case.
+
 	resp, err := http.Get(appApi)
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != 200 { // # TODO: NEED TO FIND A BETTER WAY TO DEBUG RESPONSE
+	if resp.StatusCode != 200 {
 		var retrySchedule = []time.Duration{
 			15 * time.Second,
 			1 * time.Minute,
@@ -395,6 +390,7 @@ func VerifyBackupRestoreData(artifact_dir string, namespace string, routeName st
 	if err != nil {
 		return err
 	}
+
 	if _, err := os.Stat(backupFile); err == nil {
 		backupData, err := os.ReadFile(backupFile)
 		if err != nil {
