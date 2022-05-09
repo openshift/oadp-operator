@@ -24,11 +24,11 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 	bslConfig := Dpa.Spec.BackupLocations[0].Velero.Config
 
 	type InstallCase struct {
-		Name         string
-		BRestoreType BackupRestoreType
-		DpaSpec      *oadpv1alpha1.DataProtectionApplicationSpec
+		Name               string
+		BRestoreType       BackupRestoreType
+		DpaSpec            *oadpv1alpha1.DataProtectionApplicationSpec
 		TestCarriageReturn bool
-		WantError    bool
+		WantError          bool
 	}
 
 	genericTests := []TableEntry{
@@ -65,8 +65,8 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 			WantError: false,
 		}, nil),
 		Entry("Default velero CR, test carriage return", InstallCase{
-			Name:         "default-cr",
-			BRestoreType: RESTIC,
+			Name:               "default-cr",
+			BRestoreType:       RESTIC,
 			TestCarriageReturn: true,
 			DpaSpec: &oadpv1alpha1.DataProtectionApplicationSpec{
 				Configuration: &oadpv1alpha1.ApplicationConfig{
