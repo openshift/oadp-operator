@@ -290,8 +290,8 @@ bundle-build: ## Build the bundle image.
 bundle-push: ## Push the bundle image.
 	$(MAKE) docker-push IMG=$(BUNDLE_IMG)
 
+GIT_REV:=$(shell git rev-parse --short HEAD)
 ## Build current branch operator image, bundle image, push and install via OLM
-deploy-olm: GIT_REV=$(shell git rev-parse --short HEAD)
 deploy-olm: THIS_OPERATOR_IMAGE?=ttl.sh/oadp-operator-$(GIT_REV):1h # Set target specific variable
 deploy-olm: THIS_BUNDLE_IMAGE?=ttl.sh/oadp-operator-bundle-$(GIT_REV):1h # Set target specific variable
 deploy-olm:
@@ -336,6 +336,11 @@ endif
 .PHONY: catalog-build
 catalog-build: opm ## Build a catalog image.
 	$(OPM) index add --container-tool docker --mode semver --tag $(CATALOG_IMG) --bundles $(BUNDLE_IMGS) $(FROM_INDEX_OPT)
+
+# For testing oeprator upgrade
+# opm upgrade
+catalog-build-replaces: opm ## Build a catalog image using replace mode
+	$(OPM) index add --container-tool docker --mode replaces --tag $(CATALOG_IMG) --bundles $(BUNDLE_IMGS) $(FROM_INDEX_OPT)
 
 # Push the catalog image.
 .PHONY: catalog-push
