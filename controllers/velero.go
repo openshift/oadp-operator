@@ -51,6 +51,12 @@ var (
 			"deploy":    common.Velero,
 		},
 	}
+	oadpAppLabel = map[string]string{
+		"app.kubernetes.io/name":       common.Velero,
+		"app.kubernetes.io/managed-by": common.OADPOperator,
+		"app.kubernetes.io/component":  Server,
+		oadpv1alpha1.OadpOperatorLabel: "True",
+	}
 )
 
 // TODO: Remove this function as it's no longer being used
@@ -262,13 +268,7 @@ func (r *DPAReconciler) ReconcileVeleroDeployment(log logr.Logger) (bool, error)
 		// Setting Deployment selector if a new object is created as it is immutable
 		if veleroDeployment.ObjectMeta.CreationTimestamp.IsZero() {
 			veleroDeployment.Spec.Selector = &metav1.LabelSelector{
-				MatchLabels: map[string]string{
-					"app.kubernetes.io/name":       common.Velero,
-					"app.kubernetes.io/instance":   dpa.Name,
-					"app.kubernetes.io/managed-by": common.OADPOperator,
-					"app.kubernetes.io/component":  Server,
-					oadpv1alpha1.OadpOperatorLabel: "True",
-				},
+				MatchLabels: r.getDpaAppLabels(&dpa),
 			}
 		}
 
@@ -301,13 +301,13 @@ func (r *DPAReconciler) ReconcileVeleroDeployment(log logr.Logger) (bool, error)
 func (r *DPAReconciler) veleroServiceAccount(dpa *oadpv1alpha1.DataProtectionApplication) (*corev1.ServiceAccount, error) {
 	annotations := make(map[string]string)
 	sa := install.ServiceAccount(dpa.Namespace, annotations)
-	sa.Labels = r.getAppLabels(dpa)
+	sa.Labels = r.getDpaAppLabels(dpa)
 	return sa, nil
 }
 
 func (r *DPAReconciler) veleroClusterRoleBinding(dpa *oadpv1alpha1.DataProtectionApplication) (*rbacv1.ClusterRoleBinding, error) {
 	crb := install.ClusterRoleBinding(dpa.Namespace)
-	crb.Labels = r.getAppLabels(dpa)
+	crb.Labels = r.getDpaAppLabels(dpa)
 	return crb, nil
 }
 
@@ -392,6 +392,7 @@ func (r *DPAReconciler) buildVeleroDeployment(veleroDeployment *appsv1.Deploymen
 	)
 	veleroDeployment.TypeMeta = installDeployment.TypeMeta
 	veleroDeployment.Spec = installDeployment.Spec
+	veleroDeployment.Labels = installDeployment.Labels
 	return r.customizeVeleroDeployment(dpa, veleroDeployment)
 }
 
@@ -427,23 +428,16 @@ func removeDuplicateValues(slice []string) []string {
 }
 
 func (r *DPAReconciler) customizeVeleroDeployment(dpa *oadpv1alpha1.DataProtectionApplication, veleroDeployment *appsv1.Deployment) error {
-	veleroDeployment.Labels = r.getAppLabels(dpa)
+	//append dpa labels
+	for k, v := range r.getDpaAppLabels(dpa) {
+		if veleroDeployment.Labels[k] == "" { //saves component: velero labels
+			veleroDeployment.Labels[k] = v
+		}
+	}
 	veleroDeployment.Spec.Selector = &metav1.LabelSelector{
-		MatchLabels: map[string]string{
-			"app.kubernetes.io/name":       common.Velero,
-			"app.kubernetes.io/instance":   dpa.Name,
-			"app.kubernetes.io/managed-by": common.OADPOperator,
-			"app.kubernetes.io/component":  Server,
-			oadpv1alpha1.OadpOperatorLabel: "True",
-		},
+		MatchLabels: veleroDeployment.Labels,
 	}
-	veleroDeployment.Spec.Template.Labels = map[string]string{
-		"app.kubernetes.io/name":       common.Velero,
-		"app.kubernetes.io/instance":   dpa.Name,
-		"app.kubernetes.io/managed-by": common.OADPOperator,
-		"app.kubernetes.io/component":  Server,
-		oadpv1alpha1.OadpOperatorLabel: "True",
-	}
+	veleroDeployment.Spec.Template.Labels = veleroDeployment.Labels
 
 	isSTSNeeded := r.isSTSTokenNeeded(dpa.Spec.BackupLocations, dpa.Namespace)
 
@@ -591,13 +585,23 @@ func getVeleroImage(dpa *oadpv1alpha1.DataProtectionApplication) string {
 	return fmt.Sprintf("%v/%v/%v:%v", os.Getenv("REGISTRY"), os.Getenv("PROJECT"), os.Getenv("VELERO_REPO"), os.Getenv("VELERO_TAG"))
 }
 
-func (r *DPAReconciler) getAppLabels(dpa *oadpv1alpha1.DataProtectionApplication) map[string]string {
-	labels := map[string]string{
-		"app.kubernetes.io/name":       common.Velero,
-		"app.kubernetes.io/instance":   dpa.Name,
-		"app.kubernetes.io/managed-by": common.OADPOperator,
-		"app.kubernetes.io/component":  Server,
-		oadpv1alpha1.OadpOperatorLabel: "True",
+func (r *DPAReconciler) getDpaAppLabels(dpa *oadpv1alpha1.DataProtectionApplication) map[string]string {
+	//append dpa name
+	if dpa != nil {
+		return getAppLabels(dpa.Name)
+	}
+	return nil
+}
+
+func getAppLabels(instanceName string) map[string]string {
+	labels := make(map[string]string)
+	//copy base labels
+	for k, v := range oadpAppLabel {
+		labels[k] = v
+	}
+	//append instance name
+	if instanceName != "" {
+		labels["app.kubernetes.io/instance"] = instanceName
 	}
 	return labels
 }
