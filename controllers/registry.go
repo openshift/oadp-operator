@@ -1192,6 +1192,10 @@ func (r *DPAReconciler) updateRegistrySecret(secret *corev1.Secret, bsl *velerov
 		err = r.populateAzureRegistrySecret(bsl, secret)
 	}
 
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
