@@ -607,6 +607,6 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 				Eventually(AreRegistryDeploymentsAvailable(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 			}
 
-		}, genericTests,
+		}, genericTests...,
 	)
 })
