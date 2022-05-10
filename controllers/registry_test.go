@@ -1,28 +1,26 @@
 package controllers
 
 import (
-	"github.com/go-logr/logr"
-	routev1 "github.com/openshift/api/route/v1"
-	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
-
-	//"k8s.io/apimachinery/pkg/types"
+	"context"
 	"reflect"
 	"testing"
 
-	"k8s.io/client-go/tools/record"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/client/fake"
-
+	"github.com/go-logr/logr"
+	routev1 "github.com/openshift/api/route/v1"
+	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	"github.com/openshift/oadp-operator/pkg/common"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/pointer"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
 func getSchemeForFakeClientForRegistry() (*runtime.Scheme, error) {
@@ -88,6 +86,19 @@ var (
 				"aws_secret_access_key=" + testSecretAccessKey + "=" + testSecretAccessKey +
 				"\n[test-profile]\n" +
 				"aws_access_key_id=" + testAccessKey + "\n" +
+				"aws_secret_access_key=" + testSecretAccessKey + "=" + testSecretAccessKey,
+		),
+	}
+	secretDataWithCarriageReturnInSecret = map[string][]byte{
+		"cloud": []byte(
+			"\n[" + testBslProfile + "]\r\n" +
+				"aws_access_key_id=" + testBslAccessKey + "\n" +
+				"aws_secret_access_key=" + testBslSecretAccessKey + "=" + testBslSecretAccessKey +
+				"\n[default]" + "\n" +
+				"aws_access_key_id=" + testAccessKey + "\n" +
+				"aws_secret_access_key=" + testSecretAccessKey + "=" + testSecretAccessKey +
+				"\r\n[test-profile]\n" +
+				"aws_access_key_id=" + testAccessKey + "\r\n" +
 				"aws_secret_access_key=" + testSecretAccessKey + "=" + testSecretAccessKey,
 		),
 	}
@@ -258,6 +269,56 @@ func TestDPAReconciler_buildRegistryDeployment(t *testing.T) {
 					Namespace: "test-ns",
 				},
 				Data: awsRegistrySecretData,
+			},
+			dpa: &oadpv1alpha1.DataProtectionApplication{},
+		},
+		{
+			name: "given a valid bsl with carriageReturn in secret val get appropriate registry deployment",
+			registryDeployment: &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-registry",
+					Namespace: "test-ns",
+				},
+				Spec: appsv1.DeploymentSpec{
+					Selector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"component": "oadp-" + "test-bsl" + "-" + "aws" + "-registry",
+						},
+					},
+				},
+			},
+			bsl: &velerov1.BackupStorageLocation{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-bsl",
+					Namespace: "test-ns",
+				},
+				Spec: velerov1.BackupStorageLocationSpec{
+					Provider: AWSProvider,
+					StorageType: velerov1.StorageType{
+						ObjectStorage: &velerov1.ObjectStorageLocation{
+							Bucket: "aws-bucket",
+						},
+					},
+					Config: map[string]string{
+						Region:                "aws-region",
+						S3URL:                 "https://sr-url-aws-domain.com",
+						InsecureSkipTLSVerify: "false",
+					},
+				},
+			},
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cloud-credentials",
+					Namespace: "test-ns",
+				},
+				Data: secretDataWithCarriageReturnInSecret,
+			},
+			registrySecret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "oadp-test-bsl-aws-registry-secret",
+					Namespace: "test-ns",
+				},
+				Data: secretDataWithCarriageReturnInSecret,
 			},
 			dpa: &oadpv1alpha1.DataProtectionApplication{},
 		},
@@ -1847,6 +1908,46 @@ func TestDPAReconciler_populateAzureRegistrySecret(t *testing.T) {
 			}
 			if !reflect.DeepEqual(tt.registrySecret.Data, wantRegistrySecret.Data) {
 				t.Errorf("expected bsl labels to be %#v, got %#v", tt.registrySecret, wantRegistrySecret.Data)
+			}
+		})
+	}
+}
+
+func Test_replaceCarriageReturn(t *testing.T) {
+	type args struct {
+		data   map[string][]byte
+		logger logr.Logger
+	}
+	tests := []struct {
+		name string
+		args args
+		want map[string][]byte
+	}{
+		{
+			name: "Given a map with carriage return, carriage return is replaced with new line",
+			args: args{
+				data: map[string][]byte{
+					"test": []byte("test\r\n"),
+				},
+				logger: logr.FromContextOrDiscard(context.TODO()),
+			},
+			want: map[string][]byte{
+				"test": []byte("test\n"),
+			},
+		},
+		{
+			name: "Given secret data with carriage return, carriage return is replaced with new line",
+			args: args{
+				data:   secretDataWithCarriageReturnInSecret,
+				logger: logr.FromContextOrDiscard(context.TODO()),
+			},
+			want: secretDataWithEqualInSecret,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := replaceCarriageReturn(tt.args.data, tt.args.logger); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("replaceCarriageReturn() = %v, want %v", got, tt.want)
 			}
 		})
 	}

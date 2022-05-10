@@ -1,4 +1,4 @@
-package e2e
+package lib
 
 import (
 	"bytes"
@@ -12,6 +12,8 @@ import (
 	"strings"
 
 	"github.com/openshift/oadp-operator/pkg/common"
+
+	utils "github.com/openshift/oadp-operator/tests/e2e/utils"
 
 	appsv1 "github.com/openshift/api/apps/v1"
 	security "github.com/openshift/api/security/v1"
@@ -31,23 +33,26 @@ import (
 type BackupRestoreType string
 
 const (
-	csi    BackupRestoreType = "csi"
-	restic BackupRestoreType = "restic"
+	CSI    BackupRestoreType = "csi"
+	RESTIC BackupRestoreType = "restic"
 )
 
-type dpaCustomResource struct {
+type DpaCustomResource struct {
 	Name              string
 	Namespace         string
 	SecretName        string
 	backupRestoreType BackupRestoreType
 	CustomResource    *oadpv1alpha1.DataProtectionApplication
 	Client            client.Client
+	Credentials       string
+	CredSecretRef     string
+	Provider          string
 }
 
-var veleroPrefix = "velero-e2e-" + string(uuid.NewUUID())
-var dpa *oadpv1alpha1.DataProtectionApplication
+var VeleroPrefix = "velero-e2e-" + string(uuid.NewUUID())
+var Dpa *oadpv1alpha1.DataProtectionApplication
 
-func (v *dpaCustomResource) Build(backupRestoreType BackupRestoreType) error {
+func (v *DpaCustomResource) Build(backupRestoreType BackupRestoreType) error {
 	// Velero Instance creation spec with backupstorage location default to AWS. Would need to parameterize this later on to support multiple plugins.
 	dpaInstance := oadpv1alpha1.DataProtectionApplication{
 		ObjectMeta: metav1.ObjectMeta{
@@ -74,7 +79,7 @@ func (v *dpaCustomResource) Build(backupRestoreType BackupRestoreType) error {
 						StorageType: velero.StorageType{
 							ObjectStorage: &velero.ObjectStorageLocation{
 								Bucket: v.CustomResource.Spec.BackupLocations[0].Velero.ObjectStorage.Bucket,
-								Prefix: veleroPrefix,
+								Prefix: VeleroPrefix,
 							},
 						},
 					},
@@ -82,11 +87,14 @@ func (v *dpaCustomResource) Build(backupRestoreType BackupRestoreType) error {
 			},
 		},
 	}
+	if dpaInstance.Spec.BackupLocations[0].Velero.Config != nil {
+		dpaInstance.Spec.BackupLocations[0].Velero.Config["credentialsFile"] = "bsl-cloud-credentials-" + v.Provider + "/cloud"
+	}
 	v.backupRestoreType = backupRestoreType
 	switch backupRestoreType {
-	case restic:
+	case RESTIC:
 		dpaInstance.Spec.Configuration.Restic.Enable = pointer.Bool(true)
-	case csi:
+	case CSI:
 		dpaInstance.Spec.Configuration.Restic.Enable = pointer.Bool(false)
 		dpaInstance.Spec.Configuration.Velero.DefaultPlugins = append(dpaInstance.Spec.Configuration.Velero.DefaultPlugins, oadpv1alpha1.DefaultPluginCSI)
 		dpaInstance.Spec.Configuration.Velero.FeatureFlags = append(dpaInstance.Spec.Configuration.Velero.FeatureFlags, "EnableCSI")
@@ -95,7 +103,7 @@ func (v *dpaCustomResource) Build(backupRestoreType BackupRestoreType) error {
 	return nil
 }
 
-func (v *dpaCustomResource) Create() error {
+func (v *DpaCustomResource) Create() error {
 	err := v.SetClient()
 	if err != nil {
 		return err
@@ -109,7 +117,7 @@ func (v *dpaCustomResource) Create() error {
 	return nil
 }
 
-func (v *dpaCustomResource) Get() (*oadpv1alpha1.DataProtectionApplication, error) {
+func (v *DpaCustomResource) Get() (*oadpv1alpha1.DataProtectionApplication, error) {
 	err := v.SetClient()
 	if err != nil {
 		return nil, err
@@ -125,12 +133,12 @@ func (v *dpaCustomResource) Get() (*oadpv1alpha1.DataProtectionApplication, erro
 	return &vel, nil
 }
 
-func (v *dpaCustomResource) GetNoErr() *oadpv1alpha1.DataProtectionApplication {
-	dpa, _ := v.Get()
-	return dpa
+func (v *DpaCustomResource) GetNoErr() *oadpv1alpha1.DataProtectionApplication {
+	Dpa, _ := v.Get()
+	return Dpa
 }
 
-func (v *dpaCustomResource) CreateOrUpdate(spec *oadpv1alpha1.DataProtectionApplicationSpec) error {
+func (v *DpaCustomResource) CreateOrUpdate(spec *oadpv1alpha1.DataProtectionApplicationSpec) error {
 	cr, err := v.Get()
 	if apierrors.IsNotFound(err) {
 		v.Build(v.backupRestoreType)
@@ -144,7 +152,7 @@ func (v *dpaCustomResource) CreateOrUpdate(spec *oadpv1alpha1.DataProtectionAppl
 	return v.Client.Update(context.Background(), cr)
 }
 
-func (v *dpaCustomResource) Delete() error {
+func (v *DpaCustomResource) Delete() error {
 	err := v.SetClient()
 	if err != nil {
 		return err
@@ -156,7 +164,7 @@ func (v *dpaCustomResource) Delete() error {
 	return err
 }
 
-func (v *dpaCustomResource) SetClient() error {
+func (v *DpaCustomResource) SetClient() error {
 	client, err := client.New(config.GetConfigOrDie(), client.Options{})
 	if err != nil {
 		return err
@@ -171,7 +179,7 @@ func (v *dpaCustomResource) SetClient() error {
 	return nil
 }
 
-func getVeleroPods(namespace string) (*corev1.PodList, error) {
+func GetVeleroPods(namespace string) (*corev1.PodList, error) {
 	clientset, err := setUpClient()
 	if err != nil {
 		return nil, err
@@ -188,9 +196,9 @@ func getVeleroPods(namespace string) (*corev1.PodList, error) {
 	return podList, nil
 }
 
-func areVeleroPodsRunning(namespace string) wait.ConditionFunc {
+func AreVeleroPodsRunning(namespace string) wait.ConditionFunc {
 	return func() (bool, error) {
-		podList, err := getVeleroPods(namespace)
+		podList, err := GetVeleroPods(namespace)
 		if err != nil {
 			return false, err
 		}
@@ -206,7 +214,7 @@ func areVeleroPodsRunning(namespace string) wait.ConditionFunc {
 
 // Returns logs from velero container on velero pod
 func getVeleroContainerLogs(namespace string) (string, error) {
-	podList, err := getVeleroPods(namespace)
+	podList, err := GetVeleroPods(namespace)
 	if err != nil {
 		return "", err
 	}
@@ -238,7 +246,7 @@ func getVeleroContainerLogs(namespace string) (string, error) {
 	return logs, nil
 }
 
-func getVeleroContainerFailureLogs(namespace string) []string {
+func GetVeleroContainerFailureLogs(namespace string) []string {
 	containerLogs, err := getVeleroContainerLogs(namespace)
 	if err != nil {
 		log.Printf("cannot get velero container logs")
@@ -254,7 +262,7 @@ func getVeleroContainerFailureLogs(namespace string) []string {
 	return failureArr
 }
 
-func (v *dpaCustomResource) IsDeleted() wait.ConditionFunc {
+func (v *DpaCustomResource) IsDeleted() wait.ConditionFunc {
 	return func() (bool, error) {
 		err := v.SetClient()
 		if err != nil {
@@ -274,7 +282,7 @@ func (v *dpaCustomResource) IsDeleted() wait.ConditionFunc {
 }
 
 //check if bsl matches the spec
-func doesBSLExist(namespace string, bsl velero.BackupStorageLocationSpec, spec *oadpv1alpha1.DataProtectionApplicationSpec) wait.ConditionFunc {
+func DoesBSLExist(namespace string, bsl velero.BackupStorageLocationSpec, spec *oadpv1alpha1.DataProtectionApplicationSpec) wait.ConditionFunc {
 	return func() (bool, error) {
 		if len(spec.BackupLocations) == 0 {
 			return false, errors.New("no backup storage location configured. Expected BSL to be configured")
@@ -291,7 +299,7 @@ func doesBSLExist(namespace string, bsl velero.BackupStorageLocationSpec, spec *
 }
 
 //check if vsl matches the spec
-func doesVSLExist(namespace string, vslspec velero.VolumeSnapshotLocationSpec, spec *oadpv1alpha1.DataProtectionApplicationSpec) wait.ConditionFunc {
+func DoesVSLExist(namespace string, vslspec velero.VolumeSnapshotLocationSpec, spec *oadpv1alpha1.DataProtectionApplicationSpec) wait.ConditionFunc {
 	return func() (bool, error) {
 
 		if len(spec.SnapshotLocations) == 0 {
@@ -308,12 +316,13 @@ func doesVSLExist(namespace string, vslspec velero.VolumeSnapshotLocationSpec, s
 }
 
 //check velero tolerations
-func verifyVeleroTolerations(namespace string, t []corev1.Toleration) wait.ConditionFunc {
+func VerifyVeleroTolerations(namespace string, t []corev1.Toleration) wait.ConditionFunc {
 	return func() (bool, error) {
 		clientset, err := setUpClient()
 		if err != nil {
 			return false, err
 		}
+
 		veldep, _ := clientset.AppsV1().Deployments(namespace).Get(context.Background(), "velero", metav1.GetOptions{})
 
 		if !reflect.DeepEqual(t, veldep.Spec.Template.Spec.Tolerations) {
@@ -324,7 +333,7 @@ func verifyVeleroTolerations(namespace string, t []corev1.Toleration) wait.Condi
 }
 
 // check for velero resource requests
-func verifyVeleroResourceRequests(namespace string, requests corev1.ResourceList) wait.ConditionFunc {
+func VerifyVeleroResourceRequests(namespace string, requests corev1.ResourceList) wait.ConditionFunc {
 	return func() (bool, error) {
 		clientset, err := setUpClient()
 		if err != nil {
@@ -344,7 +353,7 @@ func verifyVeleroResourceRequests(namespace string, requests corev1.ResourceList
 }
 
 // check for velero resource limits
-func verifyVeleroResourceLimits(namespace string, limits corev1.ResourceList) wait.ConditionFunc {
+func VerifyVeleroResourceLimits(namespace string, limits corev1.ResourceList) wait.ConditionFunc {
 	return func() (bool, error) {
 		clientset, err := setUpClient()
 		if err != nil {
@@ -363,24 +372,24 @@ func verifyVeleroResourceLimits(namespace string, limits corev1.ResourceList) wa
 	}
 }
 
-func loadDpaSettingsFromJson(settings string) string {
-	file, err := readFile(settings)
+func LoadDpaSettingsFromJson(settings string) string {
+	file, err := utils.ReadFile(settings)
 	if err != nil {
 		return fmt.Sprintf("Error decoding json file: %v", err)
 	}
 
-	dpa = &oadpv1alpha1.DataProtectionApplication{}
-	err = json.Unmarshal(file, &dpa)
+	Dpa = &oadpv1alpha1.DataProtectionApplication{}
+	err = json.Unmarshal(file, &Dpa)
 	if err != nil {
 		return fmt.Sprintf("Error getting settings json file: %v", err)
 	}
 	return ""
 }
 
-func getSecretRef(credSecretRef string) string {
-	if dpa.Spec.BackupLocations[0].Velero.Credential == nil {
+func GetSecretRef(credSecretRef string) string {
+	if Dpa.Spec.BackupLocations[0].Velero.Credential == nil {
 		return credSecretRef
 	} else {
-		return dpa.Spec.BackupLocations[0].Velero.Credential.Name
+		return Dpa.Spec.BackupLocations[0].Velero.Credential.Name
 	}
 }
