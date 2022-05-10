@@ -242,6 +242,172 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 			},
 		},
 		{
+			name: "podConfig label for velero and restic",
+			args: args{
+				&oadpv1alpha1.DataProtectionApplication{
+					Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+						Configuration: &oadpv1alpha1.ApplicationConfig{
+							Restic: &oadpv1alpha1.ResticConfig{
+								PodConfig: &oadpv1alpha1.PodConfig{
+									Labels: map[string]string{
+										"resticLabel": "this is a label",
+									},
+								},
+							},
+							Velero: &oadpv1alpha1.VeleroConfig{
+								PodConfig: &oadpv1alpha1.PodConfig{
+									Labels: map[string]string{
+										"veleroLabel": "this is a label",
+									},
+								},
+							},
+						},
+					},
+				}, &appsv1.DaemonSet{
+					ObjectMeta: getResticObjectMeta(r),
+				},
+			},
+			wantErr: false,
+			want: &appsv1.DaemonSet{
+				ObjectMeta: getResticObjectMeta(r),
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "DaemonSet",
+					APIVersion: appsv1.SchemeGroupVersion.String(),
+				},
+				Spec: appsv1.DaemonSetSpec{
+					UpdateStrategy: appsv1.DaemonSetUpdateStrategy{
+						Type: appsv1.RollingUpdateDaemonSetStrategyType,
+					},
+					Selector: resticLabelSelector,
+					Template: v1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Labels: map[string]string{
+								"component":   common.Velero,
+								"name":        common.Restic,
+								"resticLabel": "this is a label",
+							},
+						},
+						Spec: v1.PodSpec{
+							NodeSelector:       dpa.Spec.Configuration.Restic.PodConfig.NodeSelector,
+							ServiceAccountName: common.Velero,
+							SecurityContext: &v1.PodSecurityContext{
+								RunAsUser:          pointer.Int64(0),
+								SupplementalGroups: dpa.Spec.Configuration.Restic.SupplementalGroups,
+							},
+							Volumes: []v1.Volume{
+								// Cloud Provider volumes are dynamically added in the for loop below
+								{
+									Name: HostPods,
+									VolumeSource: v1.VolumeSource{
+										HostPath: &v1.HostPathVolumeSource{
+											Path: resticPvHostPath,
+										},
+									},
+								},
+								{
+									Name: "scratch",
+									VolumeSource: v1.VolumeSource{
+										EmptyDir: &v1.EmptyDirVolumeSource{},
+									},
+								},
+								{
+									Name: "certs",
+									VolumeSource: v1.VolumeSource{
+										EmptyDir: &v1.EmptyDirVolumeSource{},
+									},
+								},
+							},
+							Tolerations: dpa.Spec.Configuration.Restic.PodConfig.Tolerations,
+							Containers: []v1.Container{
+								{
+									Name: common.Restic,
+									SecurityContext: &v1.SecurityContext{
+										Privileged: pointer.Bool(true),
+									},
+									Image:           getVeleroImage(&dpa),
+									ImagePullPolicy: v1.PullAlways,
+									Resources:       r.getResticResourceReqs(&dpa), //setting default.
+									Command: []string{
+										"/velero",
+									},
+									Args: []string{
+										"restic",
+										"server",
+									},
+									VolumeMounts: []v1.VolumeMount{
+										{
+											Name:             "host-pods",
+											MountPath:        "/host_pods",
+											MountPropagation: &mountPropagationToHostContainer,
+										},
+										{
+											Name:      "scratch",
+											MountPath: "/scratch",
+										},
+										{
+											Name:      "certs",
+											MountPath: "/etc/ssl/certs",
+										},
+									},
+									Env: []v1.EnvVar{
+										{
+											Name: "NODE_NAME",
+											ValueFrom: &v1.EnvVarSource{
+												FieldRef: &v1.ObjectFieldSelector{
+													FieldPath: "spec.nodeName",
+												},
+											},
+										},
+										{
+											Name: "VELERO_NAMESPACE",
+											ValueFrom: &v1.EnvVarSource{
+												FieldRef: &v1.ObjectFieldSelector{
+													FieldPath: "metadata.namespace",
+												},
+											},
+										},
+										{
+											Name:  "VELERO_SCRATCH_DIR",
+											Value: "/scratch",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "Invalid podConfig label for velero and restic",
+			args: args{
+				&oadpv1alpha1.DataProtectionApplication{
+					Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+						Configuration: &oadpv1alpha1.ApplicationConfig{
+							Restic: &oadpv1alpha1.ResticConfig{
+								PodConfig: &oadpv1alpha1.PodConfig{
+									Labels: map[string]string{
+										"name": "not-restic", // this label is already defined by https://github.com/openshift/velero/blob/198ea57407d5271dc4ae00068123754ecff306ea/pkg/install/daemonset.go#L72
+									},
+								},
+							},
+							Velero: &oadpv1alpha1.VeleroConfig{
+								PodConfig: &oadpv1alpha1.PodConfig{
+									Labels: map[string]string{
+										"veleroLabel": "this is a label",
+									},
+								},
+							},
+						},
+					},
+				}, &appsv1.DaemonSet{
+					ObjectMeta: getResticObjectMeta(r),
+				},
+			},
+			wantErr: true,
+			want:    nil,
+		},
+		{
 			name: "test restic nodeselector customization via dpa",
 			args: args{
 				&oadpv1alpha1.DataProtectionApplication{
