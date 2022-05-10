@@ -197,7 +197,7 @@ spec:
                           labels:
                             additionalProperties:
                               type: string
-                            description: Labels to add to pod
+                            description: Labels to add to pods
                             type: object
                           nodeSelector:
                             additionalProperties:
@@ -339,7 +339,7 @@ spec:
                           labels:
                             additionalProperties:
                               type: string
-                            description: Labels to add to pod
+                            description: Labels to add to pods
                             type: object
                           nodeSelector:
                             additionalProperties:
