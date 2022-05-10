@@ -397,6 +397,9 @@ func VerifyBackupRestoreData(artifact_dir string, namespace string, routeName st
 			return err
 		}
 		os.Remove(backupFile)
+		log.Printf(string(backupData))
+		log.Printf("Resp")
+		log.Printf(string(respData))
 		if !bytes.Equal(backupData, respData) {
 			return errors.New("Backup and Restore Data are not the same")
 		}
