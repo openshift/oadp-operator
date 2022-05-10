@@ -135,7 +135,10 @@ func (r *DPAReconciler) ReconcileResticDaemonset(log logr.Logger) (bool, error) 
 				// recreate deployment
 				// TODO: check for in-progress backup/restore to wait for it to finish
 				log.Info("Found immutable selector from previous daemonset, recreating restic daemonset")
-				r.Delete(r.Context, ds)
+				err := r.Delete(r.Context, ds)
+				if err != nil {
+					return false, err
+				}
 				return r.ReconcileResticDaemonset(log)
 			}
 		}

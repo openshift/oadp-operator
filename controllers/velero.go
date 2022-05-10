@@ -288,7 +288,10 @@ func (r *DPAReconciler) ReconcileVeleroDeployment(log logr.Logger) (bool, error)
 				// recreate deployment
 				// TODO: check for in-progress backup/restore to wait for it to finish
 				log.Info("Found immutable selector from previous deployment, recreating Velero Deployment")
-				r.Delete(r.Context, veleroDeployment)
+				err := r.Delete(r.Context, veleroDeployment)
+				if err != nil {
+					return false, err
+				}
 				return r.ReconcileVeleroDeployment(log)
 			}
 		}
