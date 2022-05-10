@@ -76,7 +76,7 @@ var _ = Describe("Subscription Config Suite Test", func() {
 					log.Printf("Waiting for restic pods to be running")
 					Eventually(AreResticPodsRunning(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 				}
-				if velero.Spec.BackupImages == nil || *velero.Spec.BackupImages {
+				if velero.BackupImages() {
 					log.Printf("Waiting for registry pods to be running")
 					Eventually(AreRegistryDeploymentsAvailable(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 				}
