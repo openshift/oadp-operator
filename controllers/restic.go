@@ -129,6 +129,16 @@ func (r *DPAReconciler) ReconcileResticDaemonset(log logr.Logger) (bool, error) 
 	})
 
 	if err != nil {
+		if errors.IsInvalid(err) {
+			cause, isStatusCause := errors.StatusCause(err, metav1.CauseTypeFieldValueInvalid)
+			if isStatusCause && cause.Field == "spec.selector" {
+				// recreate deployment
+				// TODO: check for in-progress backup/restore to wait for it to finish
+				log.Info("Found immutable selector from previous daemonset, recreating restic daemonset")
+				r.Delete(r.Context, ds)
+				return r.ReconcileResticDaemonset(log)
+			}
+		}
 		return false, err
 	}
 

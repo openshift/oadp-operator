@@ -282,6 +282,17 @@ func (r *DPAReconciler) ReconcileVeleroDeployment(log logr.Logger) (bool, error)
 	})
 
 	if err != nil {
+		if errors.IsInvalid(err) {
+			cause, isStatusCause := errors.StatusCause(err, metav1.CauseTypeFieldValueInvalid)
+			if isStatusCause && cause.Field == "spec.selector" {
+				// recreate deployment
+				// TODO: check for in-progress backup/restore to wait for it to finish
+				log.Info("Found immutable selector from previous deployment, recreating Velero Deployment")
+				r.Delete(r.Context, veleroDeployment)
+				return r.ReconcileVeleroDeployment(log)
+			}
+		}
+
 		return false, err
 	}
 
