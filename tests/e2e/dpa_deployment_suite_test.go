@@ -519,6 +519,16 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 	if provider == "aws" {
 		genericTests = append(genericTests, awsTests...)
 	}
+	var lastInstallingApplicationNamespace string
+	var lastInstallTime time.Time
+	var _ = ReportAfterEach(func(report SpecReport) {
+		if report.Failed() {
+			// print namespace error events for app namespace
+			if lastInstallingApplicationNamespace != "" {
+				PrintNamespaceEventsAfterTime(lastInstallingApplicationNamespace, lastInstallTime)
+			}
+		}
+	})
 	DescribeTable("Updating custom resource with new configuration",
 
 		func(installCase InstallCase, expectedErr error) {
@@ -535,6 +545,8 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 					}
 				}
 			}
+			lastInstallingApplicationNamespace = dpaCR.Namespace
+			lastInstallTime = time.Now()
 			err = dpaCR.CreateOrUpdate(installCase.DpaSpec)
 			Expect(err).ToNot(HaveOccurred())
 			if installCase.WantError {
@@ -613,7 +625,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 					Eventually(ResticDaemonSetHasNodeSelector(namespace, key, value), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 				}
 			}
-			if dpa.Spec.BackupImages == nil || *installCase.DpaSpec.BackupImages {
+			if dpa.BackupImages() {
 				log.Printf("Waiting for registry pods to be running")
 				Eventually(AreRegistryDeploymentsAvailable(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 			}
