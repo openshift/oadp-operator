@@ -6,6 +6,7 @@ import (
 	"time"
 
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -71,8 +72,23 @@ func AreResticPodsRunning(namespace string) wait.ConditionFunc {
 		}
 		// loop until pod status is 'Running' or timeout
 		for _, podInfo := range (*podList).Items {
-			if podInfo.Status.Phase != "Running" {
-				return false, err
+			if podInfo.Status.Phase != corev1.PodRunning {
+				unschedulable := false
+				unschedulableMessage := ""
+				for _, condition := range podInfo.Status.Conditions {
+					if condition.Type == corev1.PodScheduled &&
+						condition.Status == corev1.ConditionFalse &&
+						condition.Reason == corev1.PodReasonUnschedulable {
+						unschedulable = true
+						unschedulableMessage = condition.Message
+						break
+					}
+				}
+				if !unschedulable {
+					return false, err
+				} else {
+					log.Printf("ignoring unschedulable pod: %s with message %s", podInfo.Name, unschedulableMessage)
+				}
 			}
 		}
 		return true, err

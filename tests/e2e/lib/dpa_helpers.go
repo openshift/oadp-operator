@@ -241,8 +241,23 @@ func AreVeleroPodsRunning(namespace string) wait.ConditionFunc {
 		}
 		for _, podInfo := range (*podList).Items {
 			if podInfo.Status.Phase != corev1.PodRunning {
-				log.Printf("pod: %s is not yet running with status: %v", podInfo.Name, podInfo.Status)
-				return false, nil
+				unschedulable := false
+				unschedulableMessage := ""
+				for _, condition := range podInfo.Status.Conditions {
+					if condition.Type == corev1.PodScheduled &&
+						condition.Status == corev1.ConditionFalse &&
+						condition.Reason == corev1.PodReasonUnschedulable {
+						unschedulable = true
+						unschedulableMessage = condition.Message
+						break
+					}
+				}
+				if !unschedulable {
+					log.Printf("pod: %s is not yet running with status: %v", podInfo.Name, podInfo.Status)
+					return false, nil
+				} else {
+					log.Printf("ignoring unschedulable pod: %s with message %s", podInfo.Name, unschedulableMessage)
+				}
 			}
 		}
 		return true, nil
