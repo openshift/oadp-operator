@@ -171,7 +171,25 @@ spec:
 
 <hr style="height:1px;border:none;color:#333;">
 
-3. #### No `BackupStorageLocation` or `VolumeSnapshotLocation` specified, but the plugin for the provider exists:
+1. #### No `BackupStorageLocation` specified, but the plugin for the provider exists:
+Specify .spec.configuration.noDefaultBackupLocation like so:
+```yaml
+apiVersion: oadp.openshift.io/v1alpha1
+kind: DataProtectionApplication
+metadata:
+  name: velero-sample
+spec:
+  configuration:
+    velero:
+      defaultPlugins:
+      - openshift
+      - aws
+      noDefaultBackupLocation: true
+    restic:
+      enable: true
+```
+If you don't need volumesnapshotlocation, you will not need to create a VSL credentials.
 
-    - The default secret name still needs to exist in order for the Velero installation
-    to be successful, but the secret can be empty.
+If you need `VolumeSnapshotLocation`, regardless of the `noDefaultBackupLocation` setting, you will need a to create VSL credentials.
+
+VSL credentials **must** be the [default secret name](#defaultsecrets)
