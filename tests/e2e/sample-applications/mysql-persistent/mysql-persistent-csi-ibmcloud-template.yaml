@@ -24,6 +24,7 @@ items:
     spec:
       accessModes:
       - ReadWriteOnce
+      storageClassName: ocs-storagecluster-cephfs
       resources:
         requests:
           storage: 1Gi
