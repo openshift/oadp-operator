@@ -1,5 +1,7 @@
 package common
 
+import "fmt"
+
 const (
 	Velero             = "velero"
 	Restic             = "restic"
@@ -42,3 +44,25 @@ const (
 	HTTPSProxyEnvVar               = "HTTPS_PROXY"
 	NoProxyEnvVar                  = "NO_PROXY"
 )
+
+// append labels together
+func AppendUniqueLabels(userLabels ...map[string]string) (map[string]string, error) {
+	return AppendUniqueKeyStringOfStringMaps(userLabels...)
+}
+
+func AppendUniqueKeyStringOfStringMaps(userLabels ...map[string]string) (map[string]string, error) {
+	base := map[string]string{}
+	for _, labels := range userLabels {
+		if labels == nil {
+			continue
+		}
+		for k, v := range labels {
+			if base[k] == "" {
+				base[k] = v
+			} else if base[k] != v {
+				return nil, fmt.Errorf("conflicting key %s with value %s may not override %s", k, v, base[k])
+			}
+		}
+	}
+	return base, nil
+}

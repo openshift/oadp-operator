@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/go-logr/logr"
@@ -20,6 +21,9 @@ import (
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+const proxyEnvKey = "HTTP_PROXY"
+const proxyEnvValue = "http://proxy.example.com:8080"
 
 func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 	type fields struct {
@@ -40,6 +44,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 		wantErr              bool
 		wantVeleroDeployment *appsv1.Deployment
 		clientObjects        []client.Object
+		testProxy            bool
 	}{
 		{
 			name: "DPA CR is nil",
@@ -87,6 +92,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							"app.kubernetes.io/managed-by": common.OADPOperator,
 							"app.kubernetes.io/component":  Server,
 							"component":                    "velero",
+							"deploy":                       "velero",
 							oadpv1alpha1.OadpOperatorLabel: "True",
 						},
 					},
@@ -129,6 +135,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							"app.kubernetes.io/managed-by": common.OADPOperator,
 							"app.kubernetes.io/component":  Server,
 							"component":                    "velero",
+							"deploy":                       "velero",
 							oadpv1alpha1.OadpOperatorLabel: "True",
 						},
 					},
@@ -141,6 +148,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 								"app.kubernetes.io/managed-by": common.OADPOperator,
 								"app.kubernetes.io/component":  Server,
 								"component":                    "velero",
+								"deploy":                       "velero",
 								oadpv1alpha1.OadpOperatorLabel: "True",
 							},
 							Annotations: map[string]string{
@@ -239,6 +247,402 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 			},
 		},
 		{
+			name: "given valid DPA CR with proxy env var, appropriate Velero Deployment is built",
+			veleroDeployment: &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-velero-deployment",
+					Namespace: "test-ns",
+				},
+				Spec: appsv1.DeploymentSpec{
+					Selector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"app.kubernetes.io/name":       common.Velero,
+							"app.kubernetes.io/instance":   "test-Velero-CR",
+							"app.kubernetes.io/managed-by": common.OADPOperator,
+							"app.kubernetes.io/component":  Server,
+							"component":                    "velero",
+							"deploy":                       "velero",
+							oadpv1alpha1.OadpOperatorLabel: "True",
+						},
+					},
+				},
+			},
+			testProxy: true,
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-Velero-CR",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{},
+					},
+				},
+			},
+			wantErr: false,
+			wantVeleroDeployment: &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-velero-deployment",
+					Namespace: "test-ns",
+					Labels: map[string]string{
+						"app.kubernetes.io/name":       common.Velero,
+						"app.kubernetes.io/instance":   "test-Velero-CR",
+						"app.kubernetes.io/managed-by": common.OADPOperator,
+						"app.kubernetes.io/component":  Server,
+						"component":                    "velero",
+						oadpv1alpha1.OadpOperatorLabel: "True",
+					},
+				},
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "Deployment",
+					APIVersion: appsv1.SchemeGroupVersion.String(),
+				},
+				Spec: appsv1.DeploymentSpec{
+					Selector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"app.kubernetes.io/name":       common.Velero,
+							"app.kubernetes.io/instance":   "test-Velero-CR",
+							"app.kubernetes.io/managed-by": common.OADPOperator,
+							"app.kubernetes.io/component":  Server,
+							"component":                    "velero",
+							"deploy":                       "velero",
+							oadpv1alpha1.OadpOperatorLabel: "True",
+						},
+					},
+					Replicas: pointer.Int32(1),
+					Template: corev1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Labels: map[string]string{
+								"app.kubernetes.io/name":       common.Velero,
+								"app.kubernetes.io/instance":   "test-Velero-CR",
+								"app.kubernetes.io/managed-by": common.OADPOperator,
+								"app.kubernetes.io/component":  Server,
+								"component":                    "velero",
+								"deploy":                       "velero",
+								oadpv1alpha1.OadpOperatorLabel: "True",
+							},
+							Annotations: map[string]string{
+								"prometheus.io/scrape": "true",
+								"prometheus.io/port":   "8085",
+								"prometheus.io/path":   "/metrics",
+							},
+						},
+						Spec: corev1.PodSpec{
+							RestartPolicy:      corev1.RestartPolicyAlways,
+							ServiceAccountName: common.Velero,
+							Containers: []corev1.Container{
+								{
+									Name:            common.Velero,
+									Image:           common.VeleroImage,
+									ImagePullPolicy: corev1.PullAlways,
+									Ports: []corev1.ContainerPort{
+										{
+											Name:          "metrics",
+											ContainerPort: 8085,
+										},
+									},
+									Resources: corev1.ResourceRequirements{
+										Limits: corev1.ResourceList{
+											corev1.ResourceCPU:    resource.MustParse("1"),
+											corev1.ResourceMemory: resource.MustParse("512Mi"),
+										},
+										Requests: corev1.ResourceList{
+											corev1.ResourceCPU:    resource.MustParse("500m"),
+											corev1.ResourceMemory: resource.MustParse("128Mi"),
+										},
+									},
+									Command: []string{"/velero"},
+									Args: []string{
+										"server",
+										"--restic-timeout=1h",
+									},
+									VolumeMounts: []corev1.VolumeMount{
+										{
+											Name:      "plugins",
+											MountPath: "/plugins",
+										},
+										{
+											Name:      "scratch",
+											MountPath: "/scratch",
+										},
+										{
+											Name:      "certs",
+											MountPath: "/etc/ssl/certs",
+										},
+									},
+
+									Env: []corev1.EnvVar{
+										{
+											Name:  common.VeleroScratchDirEnvKey,
+											Value: "/scratch",
+										},
+										{
+											Name: common.VeleroNamespaceEnvKey,
+											ValueFrom: &corev1.EnvVarSource{
+												FieldRef: &corev1.ObjectFieldSelector{
+													FieldPath: "metadata.namespace",
+												},
+											},
+										},
+										{
+											Name:  common.LDLibraryPathEnvKey,
+											Value: "/plugins",
+										},
+										{
+											Name:  proxyEnvKey,
+											Value: proxyEnvValue,
+										},
+										{
+											Name:  strings.ToLower(proxyEnvKey),
+											Value: proxyEnvValue,
+										},
+									},
+								},
+							},
+							Volumes: []corev1.Volume{
+								{
+									Name: "plugins",
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{},
+									},
+								},
+								{
+									Name: "scratch",
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{},
+									},
+								},
+								{
+									Name: "certs",
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{},
+									},
+								},
+							},
+							InitContainers: []corev1.Container{},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "given valid DPA CR with podConfig label, appropriate Velero Deployment has template labels",
+			veleroDeployment: &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-velero-deployment",
+					Namespace: "test-ns",
+				},
+				Spec: appsv1.DeploymentSpec{
+					Selector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"app.kubernetes.io/name":       common.Velero,
+							"app.kubernetes.io/instance":   "test-Velero-CR",
+							"app.kubernetes.io/managed-by": common.OADPOperator,
+							"app.kubernetes.io/component":  Server,
+							"component":                    "velero",
+							"deploy":                       "velero",
+							oadpv1alpha1.OadpOperatorLabel: "True",
+						},
+					},
+				},
+			},
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-Velero-CR",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							PodConfig: &oadpv1alpha1.PodConfig{
+								Labels: map[string]string{
+									"thisIsVelero": "yes",
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr: false,
+			wantVeleroDeployment: &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-velero-deployment",
+					Namespace: "test-ns",
+					Labels: map[string]string{
+						"app.kubernetes.io/name":       common.Velero,
+						"app.kubernetes.io/instance":   "test-Velero-CR",
+						"app.kubernetes.io/managed-by": common.OADPOperator,
+						"app.kubernetes.io/component":  Server,
+						"component":                    "velero",
+						oadpv1alpha1.OadpOperatorLabel: "True",
+					},
+				},
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "Deployment",
+					APIVersion: appsv1.SchemeGroupVersion.String(),
+				},
+				Spec: appsv1.DeploymentSpec{
+					Selector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"app.kubernetes.io/name":       common.Velero,
+							"app.kubernetes.io/instance":   "test-Velero-CR",
+							"app.kubernetes.io/managed-by": common.OADPOperator,
+							"app.kubernetes.io/component":  Server,
+							"component":                    "velero",
+							"deploy":                       "velero",
+							oadpv1alpha1.OadpOperatorLabel: "True",
+						},
+					},
+					Replicas: pointer.Int32(1),
+					Template: corev1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Labels: map[string]string{
+								"app.kubernetes.io/name":       common.Velero,
+								"app.kubernetes.io/instance":   "test-Velero-CR",
+								"app.kubernetes.io/managed-by": common.OADPOperator,
+								"app.kubernetes.io/component":  Server,
+								"component":                    "velero",
+								"deploy":                       "velero",
+								oadpv1alpha1.OadpOperatorLabel: "True",
+								"thisIsVelero":                 "yes",
+							},
+							Annotations: map[string]string{
+								"prometheus.io/scrape": "true",
+								"prometheus.io/port":   "8085",
+								"prometheus.io/path":   "/metrics",
+							},
+						},
+						Spec: corev1.PodSpec{
+							RestartPolicy:      corev1.RestartPolicyAlways,
+							ServiceAccountName: common.Velero,
+							Containers: []corev1.Container{
+								{
+									Name:            common.Velero,
+									Image:           common.VeleroImage,
+									ImagePullPolicy: corev1.PullAlways,
+									Ports: []corev1.ContainerPort{
+										{
+											Name:          "metrics",
+											ContainerPort: 8085,
+										},
+									},
+									Resources: corev1.ResourceRequirements{
+										Limits: corev1.ResourceList{
+											corev1.ResourceCPU:    resource.MustParse("1"),
+											corev1.ResourceMemory: resource.MustParse("512Mi"),
+										},
+										Requests: corev1.ResourceList{
+											corev1.ResourceCPU:    resource.MustParse("500m"),
+											corev1.ResourceMemory: resource.MustParse("128Mi"),
+										},
+									},
+									Command: []string{"/velero"},
+									Args: []string{
+										"server",
+										"--restic-timeout=1h",
+									},
+									VolumeMounts: []corev1.VolumeMount{
+										{
+											Name:      "plugins",
+											MountPath: "/plugins",
+										},
+										{
+											Name:      "scratch",
+											MountPath: "/scratch",
+										},
+										{
+											Name:      "certs",
+											MountPath: "/etc/ssl/certs",
+										},
+									},
+									Env: []corev1.EnvVar{
+										{
+											Name:  common.VeleroScratchDirEnvKey,
+											Value: "/scratch",
+										},
+										{
+											Name: common.VeleroNamespaceEnvKey,
+											ValueFrom: &corev1.EnvVarSource{
+												FieldRef: &corev1.ObjectFieldSelector{
+													FieldPath: "metadata.namespace",
+												},
+											},
+										},
+										{
+											Name:  common.LDLibraryPathEnvKey,
+											Value: "/plugins",
+										},
+									},
+								},
+							},
+							Volumes: []corev1.Volume{
+								{
+									Name: "plugins",
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{},
+									},
+								},
+								{
+									Name: "scratch",
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{},
+									},
+								},
+								{
+									Name: "certs",
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{},
+									},
+								},
+							},
+							InitContainers: []corev1.Container{},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "given invalid DPA CR because invalid podConfig label, appropriate Velero Deployment is nil with error",
+			veleroDeployment: &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-velero-deployment",
+					Namespace: "test-ns",
+				},
+				Spec: appsv1.DeploymentSpec{
+					Selector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"app.kubernetes.io/name":       common.Velero,
+							"app.kubernetes.io/instance":   "test-Velero-CR",
+							"app.kubernetes.io/managed-by": common.OADPOperator,
+							"app.kubernetes.io/component":  Server,
+							"component":                    "velero",
+							"deploy":                       "velero",
+							oadpv1alpha1.OadpOperatorLabel: "True",
+						},
+					},
+				},
+			},
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-Velero-CR",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							PodConfig: &oadpv1alpha1.PodConfig{
+								Labels: map[string]string{
+									"component": "restic",
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr:              true,
+			wantVeleroDeployment: nil,
+		},
+		{
 			name: "given valid DPA CR and log level is defined correctly, log level is set",
 			veleroDeployment: &appsv1.Deployment{
 				ObjectMeta: metav1.ObjectMeta{
@@ -253,6 +657,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							"app.kubernetes.io/managed-by": common.OADPOperator,
 							"app.kubernetes.io/component":  Server,
 							"component":                    "velero",
+							"deploy":                       "velero",
 							oadpv1alpha1.OadpOperatorLabel: "True",
 						},
 					},
@@ -297,6 +702,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							"app.kubernetes.io/managed-by": common.OADPOperator,
 							"app.kubernetes.io/component":  Server,
 							"component":                    "velero",
+							"deploy":                       "velero",
 							oadpv1alpha1.OadpOperatorLabel: "True",
 						},
 					},
@@ -309,6 +715,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 								"app.kubernetes.io/managed-by": common.OADPOperator,
 								"app.kubernetes.io/component":  Server,
 								"component":                    "velero",
+								"deploy":                       "velero",
 								oadpv1alpha1.OadpOperatorLabel: "True",
 							},
 							Annotations: map[string]string{
@@ -423,6 +830,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							"app.kubernetes.io/managed-by": common.OADPOperator,
 							"app.kubernetes.io/component":  Server,
 							"component":                    "velero",
+							"deploy":                       "velero",
 							oadpv1alpha1.OadpOperatorLabel: "True",
 						},
 					},
@@ -463,6 +871,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							"app.kubernetes.io/managed-by": common.OADPOperator,
 							"app.kubernetes.io/component":  Server,
 							"component":                    "velero",
+							"deploy":                       "velero",
 							oadpv1alpha1.OadpOperatorLabel: "True",
 						},
 					},
@@ -518,6 +927,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							"app.kubernetes.io/managed-by": common.OADPOperator,
 							"app.kubernetes.io/component":  Server,
 							"component":                    "velero",
+							"deploy":                       "velero",
 							oadpv1alpha1.OadpOperatorLabel: "True",
 						},
 					},
@@ -530,6 +940,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 								"app.kubernetes.io/managed-by": common.OADPOperator,
 								"app.kubernetes.io/component":  Server,
 								"component":                    "velero",
+								"deploy":                       "velero",
 								oadpv1alpha1.OadpOperatorLabel: "True",
 							},
 							Annotations: map[string]string{
@@ -647,6 +1058,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							"app.kubernetes.io/component":  Server,
 							oadpv1alpha1.OadpOperatorLabel: "True",
 							"component":                    "velero",
+							"deploy":                       "velero",
 						},
 					},
 				},
@@ -710,6 +1122,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							"app.kubernetes.io/component":  Server,
 							oadpv1alpha1.OadpOperatorLabel: "True",
 							"component":                    "velero",
+							"deploy":                       "velero",
 						},
 					},
 					Replicas: pointer.Int32(1),
@@ -722,6 +1135,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 								"app.kubernetes.io/component":  Server,
 								oadpv1alpha1.OadpOperatorLabel: "True",
 								"component":                    "velero",
+								"deploy":                       "velero",
 							},
 							Annotations: map[string]string{
 								"prometheus.io/scrape": "true",
@@ -846,6 +1260,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							"app.kubernetes.io/component":  Server,
 							oadpv1alpha1.OadpOperatorLabel: "True",
 							"component":                    "velero",
+							"deploy":                       "velero",
 						},
 					},
 				},
@@ -904,6 +1319,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							"app.kubernetes.io/component":  Server,
 							oadpv1alpha1.OadpOperatorLabel: "True",
 							"component":                    "velero",
+							"deploy":                       "velero",
 						},
 					},
 					Replicas: pointer.Int32(1),
@@ -916,6 +1332,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 								"app.kubernetes.io/component":  Server,
 								oadpv1alpha1.OadpOperatorLabel: "True",
 								"component":                    "velero",
+								"deploy":                       "velero",
 							},
 							Annotations: map[string]string{
 								"prometheus.io/scrape": "true",
@@ -1030,6 +1447,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							"app.kubernetes.io/managed-by": common.OADPOperator,
 							"app.kubernetes.io/component":  Server,
 							"component":                    "velero",
+							"deploy":                       "velero",
 							oadpv1alpha1.OadpOperatorLabel: "True",
 						},
 					},
@@ -1076,6 +1494,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							"app.kubernetes.io/managed-by": common.OADPOperator,
 							"app.kubernetes.io/component":  Server,
 							"component":                    "velero",
+							"deploy":                       "velero",
 							oadpv1alpha1.OadpOperatorLabel: "True",
 						},
 					},
@@ -1088,6 +1507,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 								"app.kubernetes.io/managed-by": common.OADPOperator,
 								"app.kubernetes.io/component":  Server,
 								"component":                    "velero",
+								"deploy":                       "velero",
 								oadpv1alpha1.OadpOperatorLabel: "True",
 							},
 							Annotations: map[string]string{
@@ -1231,6 +1651,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							"app.kubernetes.io/managed-by": common.OADPOperator,
 							"app.kubernetes.io/component":  Server,
 							"component":                    "velero",
+							"deploy":                       "velero",
 							oadpv1alpha1.OadpOperatorLabel: "True",
 						},
 					},
@@ -1278,6 +1699,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							"app.kubernetes.io/managed-by": common.OADPOperator,
 							"app.kubernetes.io/component":  Server,
 							"component":                    "velero",
+							"deploy":                       "velero",
 							oadpv1alpha1.OadpOperatorLabel: "True",
 						},
 					},
@@ -1290,6 +1712,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 								"app.kubernetes.io/managed-by": common.OADPOperator,
 								"app.kubernetes.io/component":  Server,
 								"component":                    "velero",
+								"deploy":                       "velero",
 								oadpv1alpha1.OadpOperatorLabel: "True",
 							},
 							Annotations: map[string]string{
@@ -1447,6 +1870,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							"app.kubernetes.io/managed-by": common.OADPOperator,
 							"app.kubernetes.io/component":  Server,
 							"component":                    "velero",
+							"deploy":                       "velero",
 							oadpv1alpha1.OadpOperatorLabel: "True",
 						},
 					},
@@ -1496,6 +1920,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							"app.kubernetes.io/managed-by": common.OADPOperator,
 							"app.kubernetes.io/component":  Server,
 							"component":                    "velero",
+							"deploy":                       "velero",
 							oadpv1alpha1.OadpOperatorLabel: "True",
 						},
 					},
@@ -1508,6 +1933,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 								"app.kubernetes.io/managed-by": common.OADPOperator,
 								"app.kubernetes.io/component":  Server,
 								"component":                    "velero",
+								"deploy":                       "velero",
 								oadpv1alpha1.OadpOperatorLabel: "True",
 							},
 							Annotations: map[string]string{
@@ -1652,6 +2078,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							"app.kubernetes.io/managed-by": common.OADPOperator,
 							"app.kubernetes.io/component":  Server,
 							"component":                    "velero",
+							"deploy":                       "velero",
 							oadpv1alpha1.OadpOperatorLabel: "True",
 						},
 					},
@@ -1717,6 +2144,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							"app.kubernetes.io/managed-by": common.OADPOperator,
 							"app.kubernetes.io/component":  Server,
 							"component":                    "velero",
+							"deploy":                       "velero",
 							oadpv1alpha1.OadpOperatorLabel: "True",
 						},
 					},
@@ -1729,6 +2157,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 								"app.kubernetes.io/managed-by": common.OADPOperator,
 								"app.kubernetes.io/component":  Server,
 								"component":                    "velero",
+								"deploy":                       "velero",
 								oadpv1alpha1.OadpOperatorLabel: "True",
 							},
 							Annotations: map[string]string{
@@ -1889,6 +2318,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							"app.kubernetes.io/managed-by": common.OADPOperator,
 							"app.kubernetes.io/component":  Server,
 							"component":                    "velero",
+							"deploy":                       "velero",
 							oadpv1alpha1.OadpOperatorLabel: "True",
 						},
 					},
@@ -1953,6 +2383,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							"app.kubernetes.io/managed-by": common.OADPOperator,
 							"app.kubernetes.io/component":  Server,
 							"component":                    "velero",
+							"deploy":                       "velero",
 							oadpv1alpha1.OadpOperatorLabel: "True",
 						},
 					},
@@ -1965,6 +2396,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 								"app.kubernetes.io/managed-by": common.OADPOperator,
 								"app.kubernetes.io/component":  Server,
 								"component":                    "velero",
+								"deploy":                       "velero",
 								oadpv1alpha1.OadpOperatorLabel: "True",
 							},
 							Annotations: map[string]string{
@@ -2120,6 +2552,10 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 			r := DPAReconciler{
 				Client: fakeClient,
 			}
+			if tt.testProxy {
+				os.Setenv(proxyEnvKey, proxyEnvValue)
+				defer os.Unsetenv(proxyEnvKey)
+			}
 			if err := r.buildVeleroDeployment(tt.veleroDeployment, tt.dpa); err != nil {
 				if !tt.wantErr {
 					t.Errorf("buildVeleroDeployment() error = %v, wantErr %v", err, tt.wantErr)
@@ -2130,7 +2566,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 				}
 			}
 			if !reflect.DeepEqual(tt.wantVeleroDeployment, tt.veleroDeployment) {
-				t.Errorf("expected velero deployment spec to be %#v, got %#v", tt.wantVeleroDeployment, tt.veleroDeployment)
+				t.Errorf("expected velero deployment spec to be \n%#v, got \n%#v", tt.wantVeleroDeployment, tt.veleroDeployment)
 			}
 		})
 	}

@@ -282,6 +282,20 @@ func (r *DPAReconciler) ReconcileVeleroDeployment(log logr.Logger) (bool, error)
 	})
 
 	if err != nil {
+		if errors.IsInvalid(err) {
+			cause, isStatusCause := errors.StatusCause(err, metav1.CauseTypeFieldValueInvalid)
+			if isStatusCause && cause.Field == "spec.selector" {
+				// recreate deployment
+				// TODO: check for in-progress backup/restore to wait for it to finish
+				log.Info("Found immutable selector from previous deployment, recreating Velero Deployment")
+				err := r.Delete(r.Context, veleroDeployment)
+				if err != nil {
+					return false, err
+				}
+				return r.ReconcileVeleroDeployment(log)
+			}
+		}
+
 		return false, err
 	}
 
@@ -390,9 +404,11 @@ func (r *DPAReconciler) buildVeleroDeployment(veleroDeployment *appsv1.Deploymen
 		// our secrets are appended to containers/volumeMounts in credentials.AppendPluginSpecificSpecs function
 		install.WithSecret(false),
 	)
+	veleroDeploymentName := veleroDeployment.Name
 	veleroDeployment.TypeMeta = installDeployment.TypeMeta
 	veleroDeployment.Spec = installDeployment.Spec
-	veleroDeployment.Labels = installDeployment.Labels
+	veleroDeployment.ObjectMeta = installDeployment.ObjectMeta
+	veleroDeployment.Name = veleroDeploymentName
 	return r.customizeVeleroDeployment(dpa, veleroDeployment)
 }
 
@@ -429,15 +445,34 @@ func removeDuplicateValues(slice []string) []string {
 
 func (r *DPAReconciler) customizeVeleroDeployment(dpa *oadpv1alpha1.DataProtectionApplication, veleroDeployment *appsv1.Deployment) error {
 	//append dpa labels
-	for k, v := range r.getDpaAppLabels(dpa) {
-		if veleroDeployment.Labels[k] == "" { //saves component: velero labels
-			veleroDeployment.Labels[k] = v
+	var err error
+	veleroDeployment.Labels, err = common.AppendUniqueLabels(veleroDeployment.Labels, r.getDpaAppLabels(dpa))
+	if err != nil {
+		return fmt.Errorf("velero deployment label: %v", err)
+	}
+	if veleroDeployment.Spec.Selector == nil {
+		veleroDeployment.Spec.Selector = &metav1.LabelSelector{
+			MatchLabels: make(map[string]string),
 		}
 	}
-	veleroDeployment.Spec.Selector = &metav1.LabelSelector{
-		MatchLabels: veleroDeployment.Labels,
+	if veleroDeployment.Spec.Selector.MatchLabels == nil {
+		veleroDeployment.Spec.Selector.MatchLabels = make(map[string]string)
 	}
-	veleroDeployment.Spec.Template.Labels = veleroDeployment.Labels
+	veleroDeployment.Spec.Selector.MatchLabels, err = common.AppendUniqueLabels(veleroDeployment.Spec.Selector.MatchLabels, veleroDeployment.Labels, r.getDpaAppLabels(dpa))
+	if err != nil {
+		return fmt.Errorf("velero deployment selector label: %v", err)
+	}
+	veleroDeployment.Spec.Template.Labels, err = common.AppendUniqueLabels(veleroDeployment.Spec.Template.Labels, veleroDeployment.Labels)
+	if err != nil {
+		return fmt.Errorf("velero deployment template label: %v", err)
+	}
+	// add custom pod labels
+	if dpa.Spec.Configuration.Velero != nil && dpa.Spec.Configuration.Velero.PodConfig != nil && dpa.Spec.Configuration.Velero.PodConfig.Labels != nil {
+		veleroDeployment.Spec.Template.Labels, err = common.AppendUniqueLabels(veleroDeployment.Spec.Template.Labels, dpa.Spec.Configuration.Velero.PodConfig.Labels)
+		if err != nil {
+			return fmt.Errorf("velero deployment template custom label: %v", err)
+		}
+	}
 
 	isSTSNeeded := r.isSTSTokenNeeded(dpa.Spec.BackupLocations, dpa.Namespace)
 
