@@ -9,12 +9,14 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/openshift/oadp-operator/api/v1alpha1"
 	. "github.com/openshift/oadp-operator/tests/e2e/lib"
 	utils "github.com/openshift/oadp-operator/tests/e2e/utils"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-type VerificationFunction func(client.Client, string) error
+type VerificationFunction func(*DpaCustomResource, string) error
 
 var _ = Describe("AWS backup restore tests", func() {
 
@@ -53,18 +55,19 @@ var _ = Describe("AWS backup restore tests", func() {
 		PostRestoreVerify    VerificationFunction
 		MaxK8SVersion        *K8sVersion
 		MinK8SVersion        *K8sVersion
+		dpaCrOpts            []DpaCROption
 	}
 
-	mongoReady := VerificationFunction(func(ocClient client.Client, namespace string) error {
-		Eventually(IsDCReady(ocClient, "mongo-persistent", "todolist"), timeoutMultiplier*time.Minute*10, time.Second*10).Should(BeTrue())
+	mongoReady := VerificationFunction(func(dpaCR *DpaCustomResource, namespace string) error {
+		Eventually(IsDCReady(dpaCR.Client, "mongo-persistent", "todolist"), timeoutMultiplier*time.Minute*10, time.Second*10).Should(BeTrue())
 		// err := VerifyBackupRestoreData(artifact_dir, namespace, "restify", "parks-app") // TODO: VERIFY PARKS APP DATA
 		return nil
 	})
-	mysqlReady := VerificationFunction(func(ocClient client.Client, namespace string) error {
+	mysqlReady := VerificationFunction(func(dpaCR *DpaCustomResource, namespace string) error {
 		// This test confirms that SCC restore logic in our plugin is working
 		//Eventually(IsDCReady(ocClient, "mssql-persistent", "mysql"), timeoutMultiplier*time.Minute*10, time.Second*10).Should(BeTrue())
-		Eventually(IsDeploymentReady(ocClient, "mysql-persistent", "mysql"), timeoutMultiplier*time.Minute*10, time.Second*10).Should(BeTrue())
-		exists, err := DoesSCCExist(ocClient, "mysql-persistent-scc")
+		Eventually(IsDeploymentReady(dpaCR.Client, "mysql-persistent", "mysql"), timeoutMultiplier*time.Minute*10, time.Second*10).Should(BeTrue())
+		exists, err := DoesSCCExist(dpaCR.Client, "mysql-persistent-scc")
 		if err != nil {
 			return err
 		}
@@ -86,7 +89,7 @@ var _ = Describe("AWS backup restore tests", func() {
 				Skip(reason)
 			}
 
-			err := dpaCR.Build(brCase.BackupRestoreType)
+			err := dpaCR.Build(brCase.BackupRestoreType, brCase.dpaCrOpts...)
 			Expect(err).NotTo(HaveOccurred())
 
 			updateLastInstallingNamespace(dpaCR.Namespace)
@@ -130,7 +133,7 @@ var _ = Describe("AWS backup restore tests", func() {
 
 			// Run optional custom verification
 			log.Printf("Running pre-backup function for case %s", brCase.Name)
-			err = brCase.PreBackupVerify(dpaCR.Client, brCase.ApplicationNamespace)
+			err = brCase.PreBackupVerify(dpaCR, brCase.ApplicationNamespace)
 			Expect(err).ToNot(HaveOccurred())
 
 			nsRequiresResticDCWorkaround, err := NamespaceRequiresResticDCWorkaround(dpaCR.Client, brCase.ApplicationNamespace)
@@ -219,7 +222,7 @@ var _ = Describe("AWS backup restore tests", func() {
 
 			// Run optional custom verification
 			log.Printf("Running post-restore function for case %s", brCase.Name)
-			err = brCase.PostRestoreVerify(dpaCR.Client, brCase.ApplicationNamespace)
+			err = brCase.PostRestoreVerify(dpaCR, brCase.ApplicationNamespace)
 			Expect(err).ToNot(HaveOccurred())
 
 			// Test is successful, clean up everything
@@ -261,6 +264,35 @@ var _ = Describe("AWS backup restore tests", func() {
 			BackupRestoreType:    RESTIC,
 			PreBackupVerify:      mysqlReady,
 			PostRestoreVerify:    mysqlReady,
+		}, nil),
+		Entry("MySQL application NoDefaultBackupStorageLocation", BackupRestoreCase{
+			ApplicationTemplate:  "./sample-applications/mysql-persistent/mysql-persistent-template.yaml",
+			ApplicationNamespace: "mysql-persistent",
+			Name:                 "mysql-e2e",
+			BackupRestoreType:    RESTIC,
+			PreBackupVerify: VerificationFunction(func(dpaCR *DpaCustomResource, namespace string) error {
+				// create BSL
+				CreateBackupStorageLocation(dpaCR.Client, velerov1.BackupStorageLocation{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      dpaCR.Name + "nobsl-1",
+						Namespace: dpaCR.Namespace,
+					},
+					Spec: *dpaCR.VeleroBSL(),
+				})
+				return mysqlReady(dpaCR, namespace)
+			}),
+			PostRestoreVerify: VerificationFunction(func(dpaCR *DpaCustomResource, namespace string) error {
+				// delete BSL
+				DeleteBackupStorageLocation(dpaCR.Client, velerov1.BackupStorageLocation{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      dpaCR.Name + "nobsl-1",
+						Namespace: dpaCR.Namespace,
+					}})
+				return mysqlReady(dpaCR, namespace)
+			}),
+			dpaCrOpts: []DpaCROption{WithVeleroConfig(&v1alpha1.VeleroConfig{
+				NoDefaultBackupLocation: true,
+			})},
 		}, nil),
 	)
 })
