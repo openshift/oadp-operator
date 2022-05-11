@@ -268,22 +268,28 @@ var _ = Describe("AWS backup restore tests", func() {
 			BackupRestoreType:    RESTIC,
 			PreBackupVerify: VerificationFunction(func(dpaCR *DpaCustomResource, namespace string) error {
 				// create BSL
-				CreateBackupStorageLocation(dpaCR.Client, velerov1.BackupStorageLocation{
+				err := CreateBackupStorageLocation(dpaCR.Client, velerov1.BackupStorageLocation{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      dpaCR.Name + "nobsl-1",
 						Namespace: dpaCR.Namespace,
 					},
 					Spec: *dpaCR.VeleroBSL(),
 				})
+				if err != nil {
+					return err
+				}
 				return mysqlReady(dpaCR, namespace)
 			}),
 			PostRestoreVerify: VerificationFunction(func(dpaCR *DpaCustomResource, namespace string) error {
 				// delete BSL
-				DeleteBackupStorageLocation(dpaCR.Client, velerov1.BackupStorageLocation{
+				err := DeleteBackupStorageLocation(dpaCR.Client, velerov1.BackupStorageLocation{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      dpaCR.Name + "nobsl-1",
 						Namespace: dpaCR.Namespace,
 					}})
+				if err != nil {
+					return err
+				}
 				return mysqlReady(dpaCR, namespace)
 			}),
 			dpaCrOpts: []DpaCROption{WithVeleroConfig(&v1alpha1.VeleroConfig{
