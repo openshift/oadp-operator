@@ -2816,3 +2816,96 @@ func Test_validateVeleroPlugins(t *testing.T) {
 		})
 	}
 }
+
+var allDefaultPluginsList = []oadpv1alpha1.DefaultPlugin{
+	oadpv1alpha1.DefaultPluginAWS,
+	oadpv1alpha1.DefaultPluginGCP,
+	oadpv1alpha1.DefaultPluginMicrosoftAzure,
+	oadpv1alpha1.DefaultPluginKubeVirt,
+	oadpv1alpha1.DefaultPluginOpenShift,
+	oadpv1alpha1.DefaultPluginCSI,
+}
+
+func TestDPAReconciler_noDefaultCredentials(t *testing.T) {
+	type args struct {
+		dpa oadpv1alpha1.DataProtectionApplication
+	}
+	tests := []struct {
+		name                string
+		args                args
+		want                map[string]bool
+		wantHasCloudStorage bool
+		wantErr             bool
+	}{
+		{
+			name: "dpa with all plugins but with noDefualtBackupLocation should not require default credentials",
+			args: args{
+				dpa: oadpv1alpha1.DataProtectionApplication{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-Velero-CR",
+						Namespace: "test-ns",
+					},
+					Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+						Configuration: &oadpv1alpha1.ApplicationConfig{
+							Velero: &oadpv1alpha1.VeleroConfig{
+								DefaultPlugins:          allDefaultPluginsList,
+								NoDefaultBackupLocation: true,
+							},
+						},
+					},
+				},
+			},
+			want: map[string]bool{
+				"velero-plugin-for-aws":             false,
+				"velero-plugin-for-gcp":             false,
+				"velero-plugin-for-microsoft-azure": false,
+			},
+			wantHasCloudStorage: false,
+			wantErr:             false,
+		},
+		{
+			name: "dpa no default cloudprovider plugins should not require default credentials",
+			args: args{
+				dpa: oadpv1alpha1.DataProtectionApplication{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-Velero-CR",
+						Namespace: "test-ns",
+					},
+					Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+						Configuration: &oadpv1alpha1.ApplicationConfig{
+							Velero: &oadpv1alpha1.VeleroConfig{
+								DefaultPlugins:          []oadpv1alpha1.DefaultPlugin{oadpv1alpha1.DefaultPluginOpenShift},
+								NoDefaultBackupLocation: true,
+							},
+						},
+					},
+				},
+			},
+			want:                map[string]bool{},
+			wantHasCloudStorage: false,
+			wantErr:             false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fakeClient, err := getFakeClientFromObjects(&tt.args.dpa)
+			if err != nil {
+				t.Errorf("error in creating fake client, likely programmer error")
+			}
+			r := DPAReconciler{
+				Client: fakeClient,
+			}
+			got, got1, err := r.noDefaultCredentials(tt.args.dpa)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("DPAReconciler.noDefaultCredentials() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("DPAReconciler.noDefaultCredentials() got = \n%v, \nwant \n%v", got, tt.want)
+			}
+			if got1 != tt.wantHasCloudStorage {
+				t.Errorf("DPAReconciler.noDefaultCredentials() got1 = %v, want %v", got1, tt.wantHasCloudStorage)
+			}
+		})
+	}
+}

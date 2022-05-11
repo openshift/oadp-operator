@@ -711,32 +711,39 @@ func (r *DPAReconciler) getResticResourceReqs(dpa *oadpv1alpha1.DataProtectionAp
 func (r DPAReconciler) noDefaultCredentials(dpa oadpv1alpha1.DataProtectionApplication) (map[string]bool, bool, error) {
 	providerNeedsDefaultCreds := map[string]bool{}
 	hasCloudStorage := false
-
-	for _, bsl := range dpa.Spec.BackupLocations {
-		if bsl.Velero != nil && bsl.Velero.Credential == nil {
-			bslProvider := strings.TrimPrefix(bsl.Velero.Provider, "velero.io/")
-			providerNeedsDefaultCreds[bslProvider] = true
-		}
-		if bsl.Velero != nil && bsl.Velero.Credential != nil {
-			bslProvider := strings.TrimPrefix(bsl.Velero.Provider, "velero.io/")
-			if found := providerNeedsDefaultCreds[bslProvider]; !found {
-				providerNeedsDefaultCreds[bslProvider] = false
+	if dpa.Spec.Configuration.Velero.NoDefaultBackupLocation {
+		// go through cloudprovider plugins and mark providerNeedsDefaultCreds to false
+		for _, provider := range dpa.Spec.Configuration.Velero.DefaultPlugins {
+			if psf, ok := credentials.PluginSpecificFields[provider]; ok && psf.IsCloudProvider {
+				providerNeedsDefaultCreds[psf.PluginName] = false
 			}
 		}
-		if bsl.CloudStorage != nil {
-			if bsl.CloudStorage.Credential == nil {
-				cloudStorage := oadpv1alpha1.CloudStorage{}
-				err := r.Get(r.Context, types.NamespacedName{Name: bsl.CloudStorage.CloudStorageRef.Name, Namespace: dpa.Namespace}, &cloudStorage)
-				if err != nil {
-					return nil, false, err
+	} else {
+		for _, bsl := range dpa.Spec.BackupLocations {
+			if bsl.Velero != nil && bsl.Velero.Credential == nil {
+				bslProvider := strings.TrimPrefix(bsl.Velero.Provider, "velero.io/")
+				providerNeedsDefaultCreds[bslProvider] = true
+			}
+			if bsl.Velero != nil && bsl.Velero.Credential != nil {
+				bslProvider := strings.TrimPrefix(bsl.Velero.Provider, "velero.io/")
+				if found := providerNeedsDefaultCreds[bslProvider]; !found {
+					providerNeedsDefaultCreds[bslProvider] = false
 				}
-				providerNeedsDefaultCreds[string(cloudStorage.Spec.Provider)] = true
-			} else {
-				hasCloudStorage = true
+			}
+			if bsl.CloudStorage != nil {
+				if bsl.CloudStorage.Credential == nil {
+					cloudStorage := oadpv1alpha1.CloudStorage{}
+					err := r.Get(r.Context, types.NamespacedName{Name: bsl.CloudStorage.CloudStorageRef.Name, Namespace: dpa.Namespace}, &cloudStorage)
+					if err != nil {
+						return nil, false, err
+					}
+					providerNeedsDefaultCreds[string(cloudStorage.Spec.Provider)] = true
+				} else {
+					hasCloudStorage = true
+				}
 			}
 		}
 	}
-
 	for _, vsl := range dpa.Spec.SnapshotLocations {
 		if vsl.Velero != nil {
 			// To handle the case where we want to manually hand the credentials for a cloud storage created
