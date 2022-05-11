@@ -101,7 +101,22 @@ func (r *DPAReconciler) ReconcileResticDaemonset(log logr.Logger) (bool, error) 
 		// Deployment selector is immutable so we set this value only if
 		// a new object is going to be created
 		if ds.ObjectMeta.CreationTimestamp.IsZero() {
-			ds.Spec.Selector = resticLabelSelector
+			if ds.Spec.Selector == nil {
+				ds.Spec.Selector = &metav1.LabelSelector{}
+			}
+			var err error
+			if ds.Spec.Selector == nil {
+				ds.Spec.Selector = &metav1.LabelSelector{
+					MatchLabels: make(map[string]string),
+				}
+			}
+			if ds.Spec.Selector.MatchLabels == nil {
+				ds.Spec.Selector.MatchLabels = make(map[string]string)
+			}
+			ds.Spec.Selector.MatchLabels, err = common.AppendUniqueLabels(ds.Spec.Selector.MatchLabels, resticLabelSelector.MatchLabels)
+			if err != nil {
+				return fmt.Errorf("failed to append labels to selector: %s", err)
+			}
 		}
 
 		if err := controllerutil.SetControllerReference(&dpa, ds, r.Scheme); err != nil {
@@ -114,6 +129,19 @@ func (r *DPAReconciler) ReconcileResticDaemonset(log logr.Logger) (bool, error) 
 	})
 
 	if err != nil {
+		if errors.IsInvalid(err) {
+			cause, isStatusCause := errors.StatusCause(err, metav1.CauseTypeFieldValueInvalid)
+			if isStatusCause && cause.Field == "spec.selector" {
+				// recreate deployment
+				// TODO: check for in-progress backup/restore to wait for it to finish
+				log.Info("Found immutable selector from previous daemonset, recreating restic daemonset")
+				err := r.Delete(r.Context, ds)
+				if err != nil {
+					return false, err
+				}
+				return r.ReconcileResticDaemonset(log)
+			}
+		}
 		return false, err
 	}
 
@@ -149,16 +177,29 @@ func (r *DPAReconciler) buildResticDaemonset(dpa *oadpv1alpha1.DataProtectionApp
 		install.WithAnnotations(dpa.Spec.PodAnnotations),
 		install.WithSecret(false))
 	// Update Items in ObjectMeta
+	dsName := ds.Name
 	ds.TypeMeta = installDs.TypeMeta
 	// Update Spec
 	ds.Spec = installDs.Spec
-	ds.Labels = installDs.Labels
+	ds.ObjectMeta = installDs.ObjectMeta
+	ds.Name = dsName
 
 	return r.customizeResticDaemonset(dpa, ds)
 }
 
 func (r *DPAReconciler) customizeResticDaemonset(dpa *oadpv1alpha1.DataProtectionApplication, ds *appsv1.DaemonSet) (*appsv1.DaemonSet, error) {
-
+	if dpa.Spec.Configuration.Restic == nil {
+		// if restic is not configured, therefore not enabled, return early.
+		return nil, nil
+	}
+	// add custom pod labels
+	if dpa.Spec.Configuration.Restic.PodConfig != nil && dpa.Spec.Configuration.Restic.PodConfig.Labels != nil {
+		var err error
+		ds.Spec.Template.Labels, err = common.AppendUniqueLabels(ds.Spec.Template.Labels, dpa.Spec.Configuration.Restic.PodConfig.Labels)
+		if err != nil {
+			return nil, fmt.Errorf("restic daemonset template custom label: %s", err)
+		}
+	}
 	// customize specs
 	ds.Spec.Selector = resticLabelSelector
 	ds.Spec.UpdateStrategy = appsv1.DaemonSetUpdateStrategy{
