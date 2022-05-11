@@ -421,8 +421,41 @@ spec:
           serviceAccountName: openshift-adp-controller-manager
         - rules:
             - apiGroups:
+                - build.openshift.io
+                - migration.openshift.io
+                - rbac.authorization.k8s.io
+                - velero.io
+              resources:
+                - '*'
+              verbs:
+                - '*'
+            - apiGroups:
+                - ""
+              resources:
+                - serviceaccounts
+              verbs:
+                - '*'
+            - apiGroups:
+                - packages.operators.coreos.com
+              resources:
+                - packagemanifests
+              verbs:
+                - '*'
+            - apiGroups:
                 - '*'
               resources:
+                - '*'
+              verbs:
+                - get
+                - watch
+                - list
+                - update
+                - patch
+                - create
+                - delete
+                - assign
+                - deletecollection
+            - nonResourceURLs:
                 - '*'
               verbs:
                 - '*'
