@@ -321,12 +321,13 @@ spec:
                         description: Velero server’s log level (use debug for the
                           most logging, leave unset for velero default)
                         enum:
-                        - error
-                        - warn
-                        - warning
-                        - info
-                        - debug
                         - trace
+                        - debug
+                        - info
+                        - warning
+                        - error
+                        - fatal
+                        - panic
                         type: string
                       noDefaultBackupLocation:
                         description: If you need to install Velero without a default
