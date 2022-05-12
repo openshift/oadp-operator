@@ -297,7 +297,7 @@ var _ = Describe("AWS backup restore tests", func() {
 				WithVeleroConfig(&v1alpha1.VeleroConfig{NoDefaultBackupLocation: true}),
 				WithBackupImages(false),
 			},
-			backupOpts: []BackupOpts{WithBackupStorageLocation(dpaCR.Name + "nobsl-1")},
+			backupOpts: []BackupOpts{WithBackupStorageLocation("ts-" + instanceName + "nobsl-1")}, // e2e_sute_test.go: dpaCR.name = "ts-" + instanceName
 		}, nil),
 	)
 })
