@@ -76,6 +76,13 @@ func WithResticConfig(config *oadpv1alpha1.ResticConfig) DpaCROption {
 	}
 }
 
+func WithBackupImages(backupImage bool) DpaCROption {
+	return func(cr *oadpv1alpha1.DataProtectionApplication) error {
+		cr.Spec.BackupImages = pointer.Bool(backupImage)
+		return nil
+	}
+}
+
 var VeleroPrefix = "velero-e2e-" + string(uuid.NewUUID())
 var Dpa *oadpv1alpha1.DataProtectionApplication
 
