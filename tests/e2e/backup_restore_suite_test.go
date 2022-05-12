@@ -56,6 +56,7 @@ var _ = Describe("AWS backup restore tests", func() {
 		MaxK8SVersion        *K8sVersion
 		MinK8SVersion        *K8sVersion
 		dpaCrOpts            []DpaCROption
+		backupOpts		  	 []BackupOpts
 	}
 
 	mongoReady := VerificationFunction(func(dpaCR *DpaCustomResource, namespace string) error {
@@ -140,7 +141,7 @@ var _ = Describe("AWS backup restore tests", func() {
 			Expect(err).ToNot(HaveOccurred())
 			// create backup
 			log.Printf("Creating backup %s for case %s", backupName, brCase.Name)
-			backup, err := CreateBackupForNamespaces(dpaCR.Client, namespace, backupName, []string{brCase.ApplicationNamespace})
+			backup, err := CreateBackupForNamespaces(dpaCR.Client, namespace, backupName, []string{brCase.ApplicationNamespace}, brCase.backupOpts...)
 			Expect(err).ToNot(HaveOccurred())
 
 			// wait for backup to not be running
@@ -300,6 +301,7 @@ var _ = Describe("AWS backup restore tests", func() {
 				WithVeleroConfig(&v1alpha1.VeleroConfig{NoDefaultBackupLocation: true,}),
 				WithBackupImages(false),
 			},
+			backupOpts: []BackupOpts{WithBackupStorageLocation(dpaCR.Name + "nobsl-1")},
 		}, nil),
 	)
 })
