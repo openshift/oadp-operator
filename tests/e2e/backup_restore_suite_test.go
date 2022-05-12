@@ -292,9 +292,10 @@ var _ = Describe("AWS backup restore tests", func() {
 				}
 				return mysqlReady(dpaCR, namespace)
 			}),
-			dpaCrOpts: []DpaCROption{WithVeleroConfig(&v1alpha1.VeleroConfig{
-				NoDefaultBackupLocation: true,
-			})},
+			dpaCrOpts: []DpaCROption{
+				WithVeleroConfig(&v1alpha1.VeleroConfig{NoDefaultBackupLocation: true,}),
+				WithBackupImages(false),
+			},
 		}, nil),
 	)
 })
