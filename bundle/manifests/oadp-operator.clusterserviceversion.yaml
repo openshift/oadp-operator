@@ -533,6 +533,24 @@ spec:
                         value: latest
                       - name: VELERO_KUBEVIRT_PLUGIN_TAG
                         value: v0.2.0
+                      - name: RELATED_IMAGE_velero
+                        value: quay.io/konveyor/velero:latest
+                      - name: RELATED_IMAGE_velero_restic_restore_helper
+                        value: quay.io/konveyor/velero-restic-restore-helper:latest
+                      - name: RELATED_IMAGE_openshift_plugin
+                        value: quay.io/konveyor/openshift-velero-plugin:latest
+                      - name: RELATED_IMAGE_aws_plugin
+                        value: quay.io/konveyor/velero-plugin-for-aws:latest
+                      - name: RELATED_IMAGE_azure_plugin
+                        value: quay.io/konveyor/velero-plugin-for-microsoft-azure:latest
+                      - name: RELATED_IMAGE_gcp_plugin
+                        value: quay.io/konveyor/velero-plugin-for-gcp:latest
+                      - name: RELATED_IMAGE_csi_plugin
+                        value: quay.io/konveyor/velero-plugin-for-csi:latest
+                      - name: RELATED_IMAGE_registry
+                        value: quay.io/konveyor/registry:latest
+                      - name: RELATED_IMAGE_kubevirt_plugin
+                        value: quay.io/konveyor/kubevirt-velero-plugin:v0.2.0
                     image: quay.io/konveyor/oadp-operator:latest
                     imagePullPolicy: Always
                     livenessProbe:
@@ -642,19 +660,19 @@ spec:
     - image: quay.io/konveyor/velero:latest
       name: velero
     - image: quay.io/konveyor/velero-restic-restore-helper:latest
-      name: velero_restic_restore_helper
+      name: velero-restic-restore-helper
     - image: quay.io/konveyor/openshift-velero-plugin:latest
-      name: openshift_plugin
+      name: openshift-plugin
     - image: quay.io/konveyor/velero-plugin-for-aws:latest
-      name: aws_plugin
+      name: aws-plugin
     - image: quay.io/konveyor/velero-plugin-for-microsoft-azure:latest
-      name: azure_plugin
+      name: azure-plugin
     - image: quay.io/konveyor/velero-plugin-for-gcp:latest
-      name: gcp_plugin
+      name: gcp-plugin
     - image: quay.io/konveyor/velero-plugin-for-csi:latest
-      name: csi_plugin
+      name: csi-plugin
     - image: quay.io/konveyor/registry:latest
       name: registry
     - image: quay.io/konveyor/kubevirt-velero-plugin:v0.2.0
-      name: kubevirt_plugin
-  version: 1.0.2
+      name: kubevirt-plugin
+  version: 99.0.0
