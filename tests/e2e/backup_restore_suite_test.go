@@ -56,7 +56,7 @@ var _ = Describe("AWS backup restore tests", func() {
 		MaxK8SVersion        *K8sVersion
 		MinK8SVersion        *K8sVersion
 		dpaCrOpts            []DpaCROption
-		backupOpts		  	 []BackupOpts
+		backupOpts           []BackupOpts
 	}
 
 	mongoReady := VerificationFunction(func(dpaCR *DpaCustomResource, namespace string) error {
@@ -298,7 +298,7 @@ var _ = Describe("AWS backup restore tests", func() {
 				return mysqlReady(dpaCR, namespace)
 			}),
 			dpaCrOpts: []DpaCROption{
-				WithVeleroConfig(&v1alpha1.VeleroConfig{NoDefaultBackupLocation: true,}),
+				WithVeleroConfig(&v1alpha1.VeleroConfig{NoDefaultBackupLocation: true}),
 				WithBackupImages(false),
 			},
 			backupOpts: []BackupOpts{WithBackupStorageLocation(dpaCR.Name + "nobsl-1")},
