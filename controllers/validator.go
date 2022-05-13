@@ -18,8 +18,14 @@ func (r *DPAReconciler) ValidateDataProtectionCR(log logr.Logger) (bool, error) 
 		return false, errors.New("DPA CR Velero configuration cannot be nil")
 	}
 
-	if len(dpa.Spec.BackupLocations) == 0 && !dpa.Spec.Configuration.Velero.NoDefaultBackupLocation {
-		return false, errors.New("no backupstoragelocations configured, ensure a backupstoragelocation has been configured or use the noDefaultLocationBackupLocation flag")
+	if dpa.Spec.Configuration.Velero.NoDefaultBackupLocation {
+		if len(dpa.Spec.BackupLocations) != 0 {
+			return false, errors.New("DPA CR Velero configuration cannot have backup locations if noDefaultBackupLocation is set")
+		}
+	} else {
+		if len(dpa.Spec.BackupLocations) == 0 {
+			return false, errors.New("no backupstoragelocations configured, ensure a backupstoragelocation has been configured or use the noDefaultBackupLocation flag")
+		}
 	}
 
 	if len(dpa.Spec.BackupLocations) > 0 {

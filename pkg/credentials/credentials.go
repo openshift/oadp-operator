@@ -190,14 +190,12 @@ func AppendCloudProviderVolumes(dpa *oadpv1alpha1.DataProtectionApplication, ds 
 		// ok is boolean that will be true if `plugin` is a valid key in `PluginSpecificFields` map
 		// pattern from https://golang.org/doc/effective_go#maps
 		// this replaces the need to iterate through the `pluginSpecificFields` O(n) -> O(1)
-		if cloudProviderMap, ok := PluginSpecificFields[plugin]; ok {
-			if !cloudProviderMap.IsCloudProvider {
-				continue
-			}
+		if cloudProviderMap, ok := PluginSpecificFields[plugin]; ok &&
+			cloudProviderMap.IsCloudProvider &&
+			!dpa.Spec.Configuration.Velero.NoDefaultBackupLocation {
 
-			pluginNeedsCheck, foundInBSLorVSL := providerNeedsDefaultCreds[string(plugin)]
-
-			if !foundInBSLorVSL && !hasCloudStorage {
+			pluginNeedsCheck, foundProviderPlugin := providerNeedsDefaultCreds[string(plugin)]
+			if !foundProviderPlugin && !hasCloudStorage {
 				pluginNeedsCheck = true
 			}
 
@@ -286,6 +284,9 @@ func AppendPluginSpecificSpecs(dpa *oadpv1alpha1.DataProtectionApplication, vele
 			}
 
 			if !pluginSpecificMap.IsCloudProvider || !pluginNeedsCheck {
+				continue
+			}
+			if dpa.Spec.Configuration.Velero.NoDefaultBackupLocation && pluginSpecificMap.IsCloudProvider {
 				continue
 			}
 			// set default secret name to use
