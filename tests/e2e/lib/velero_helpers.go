@@ -19,6 +19,8 @@ import (
 	veleroClientset "github.com/vmware-tanzu/velero/pkg/generated/clientset/versioned"
 	"github.com/vmware-tanzu/velero/pkg/label"
 	"github.com/vmware-tanzu/velero/pkg/restic"
+	appsv1 "k8s.io/api/apps/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -154,4 +156,20 @@ func RestoreErrorLogs(ocClient client.Client, restore velero.Restore) []string {
 		}
 	}
 	return logLines
+}
+
+func GetVeleroDeploymentList(namespace string) (*appsv1.DeploymentList, error) {
+	client, err := setUpClient()
+	if err != nil {
+		return nil, err
+	}
+	registryListOptions := metav1.ListOptions{
+		LabelSelector: "component=velero",
+	}
+	// get pods in the oadp-operator-e2e namespace with label selector
+	deploymentList, err := client.AppsV1().Deployments(namespace).List(context.TODO(), registryListOptions)
+	if err != nil {
+		return nil, err
+	}
+	return deploymentList, nil
 }
