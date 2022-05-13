@@ -6,6 +6,7 @@ import (
 	"time"
 
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
+	appsv1 "k8s.io/api/apps/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -176,4 +177,20 @@ func ResticDaemonSetHasNodeSelector(namespace, key, value string) wait.Condition
 		}
 		return false, err
 	}
+}
+
+func GetResticDaemonsetList(namespace string) (*appsv1.DaemonSetList, error) {
+	client, err := setUpClient()
+	if err != nil {
+		return nil, err
+	}
+	registryListOptions := metav1.ListOptions{
+		LabelSelector: "component=velero",
+	}
+	// get pods in the oadp-operator-e2e namespace with label selector
+	deploymentList, err := client.AppsV1().DaemonSets(namespace).List(context.TODO(), registryListOptions)
+	if err != nil {
+		return nil, err
+	}
+	return deploymentList, nil
 }
