@@ -14,17 +14,9 @@ import (
 func AreRegistryDeploymentsAvailable(namespace string) wait.ConditionFunc {
 	log.Printf("Checking for available registry deployments")
 	return func() (bool, error) {
-		client, err := setUpClient()
+		deploymentList, err := GetRegistryDeploymentList(namespace)
 		if err != nil {
 			return false, err
-		}
-		registryListOptions := metav1.ListOptions{
-			LabelSelector: "app.kubernetes.io/component=Registry",
-		}
-		// get pods in the oadp-operator-e2e namespace with label selector
-		deploymentList, err := client.AppsV1().Deployments(namespace).List(context.TODO(), registryListOptions)
-		if err != nil {
-			return false, nil
 		}
 		if len(deploymentList.Items) == 0 {
 			return false, fmt.Errorf("registry deployment is not yet created")
@@ -39,4 +31,20 @@ func AreRegistryDeploymentsAvailable(namespace string) wait.ConditionFunc {
 		}
 		return true, nil
 	}
+}
+
+func GetRegistryDeploymentList(namespace string) (*appsv1.DeploymentList, error) {
+	client, err := setUpClient()
+	if err != nil {
+		return nil, err
+	}
+	registryListOptions := metav1.ListOptions{
+		LabelSelector: "app.kubernetes.io/component=Registry",
+	}
+	// get pods in the oadp-operator-e2e namespace with label selector
+	deploymentList, err := client.AppsV1().Deployments(namespace).List(context.TODO(), registryListOptions)
+	if err != nil {
+		return nil, err
+	}
+	return deploymentList, nil
 }
