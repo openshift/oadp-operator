@@ -272,13 +272,14 @@ func (r *DPAReconciler) ReconcileVeleroDeployment(log logr.Logger) (bool, error)
 			}
 		}
 
-		// Setting controller owner reference on the velero deployment
-		err := controllerutil.SetControllerReference(&dpa, veleroDeployment, r.Scheme)
+		// update the Deployment template
+		err := r.buildVeleroDeployment(veleroDeployment, &dpa)
 		if err != nil {
 			return err
 		}
-		// update the Deployment template
-		return r.buildVeleroDeployment(veleroDeployment, &dpa)
+
+		// Setting controller owner reference on the velero deployment
+		return controllerutil.SetControllerReference(&dpa, veleroDeployment, r.Scheme)
 	})
 
 	if err != nil {
