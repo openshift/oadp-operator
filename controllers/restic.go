@@ -119,10 +119,10 @@ func (r *DPAReconciler) ReconcileResticDaemonset(log logr.Logger) (bool, error) 
 			}
 		}
 
-		if err := controllerutil.SetControllerReference(&dpa, ds, r.Scheme); err != nil {
+		if _, err := r.buildResticDaemonset(&dpa, ds); err != nil {
 			return err
 		}
-		if _, err := r.buildResticDaemonset(&dpa, ds); err != nil {
+		if err := controllerutil.SetControllerReference(&dpa, ds, r.Scheme); err != nil {
 			return err
 		}
 		return nil
