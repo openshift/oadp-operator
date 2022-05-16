@@ -5,6 +5,7 @@ go 1.16
 require (
 	github.com/aws/aws-sdk-go v1.28.2
 	github.com/go-logr/logr v0.4.0
+	github.com/google/go-cmp v0.5.6 // indirect
 	github.com/google/uuid v1.1.2
 	github.com/kubernetes-csi/external-snapshotter/client/v4 v4.2.0
 	github.com/onsi/ginkgo v1.16.4

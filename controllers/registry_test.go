@@ -722,7 +722,7 @@ func TestDPAReconciler_buildRegistryContainer(t *testing.T) {
 				},
 			}
 
-			gotRegistryContainer, gotErr := r.buildRegistryContainer(tt.bsl, tt.dpa)
+			gotRegistryContainer, gotErr := r.buildRegistryContainer(tt.bsl, tt.dpa, nil)
 
 			if (gotErr != nil) != tt.wantErr {
 				t.Errorf("ValidateBackupStorageLocations() gotErr = %v, wantErr %v", gotErr, tt.wantErr)

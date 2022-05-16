@@ -7,6 +7,7 @@ import (
 	"os"
 	"reflect"
 	"regexp"
+	"sort"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/labels"
@@ -192,8 +193,8 @@ func (r *DPAReconciler) ReconcileRegistries(log logr.Logger) (bool, error) {
 				Namespace: bsl.Namespace,
 			},
 		}
-
-		if !dpa.BackupImages() {
+		// delete registry deployment if it exists
+		// if !dpa.BackupImages() {
 			deleteContext := context.Background()
 			if err := r.Get(deleteContext, types.NamespacedName{
 				Name:      registryDeployment.Name,
@@ -213,53 +214,102 @@ func (r *DPAReconciler) ReconcileRegistries(log logr.Logger) (bool, error) {
 			r.EventRecorder.Event(registryDeployment, corev1.EventTypeNormal, "DeletedRegistryDeployment", "Registry Deployment deleted")
 
 			return true, nil
-		}
+		// }
+		// TODO: double check delete logic for upgrade to velero registry
+		// op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, registryDeployment, func() error {
 
-		op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, registryDeployment, func() error {
+		// 	// Setting Registry Deployment selector if a new object is created as it is immutable
+		// 	if registryDeployment.ObjectMeta.CreationTimestamp.IsZero() {
+		// 		registryDeployment.Spec.Selector = &metav1.LabelSelector{
+		// 			MatchLabels: map[string]string{
+		// 				"component": registryName(&bsl),
+		// 			},
+		// 		}
+		// 	}
 
-			// Setting Registry Deployment selector if a new object is created as it is immutable
-			if registryDeployment.ObjectMeta.CreationTimestamp.IsZero() {
-				registryDeployment.Spec.Selector = &metav1.LabelSelector{
-					MatchLabels: map[string]string{
-						"component": registryName(&bsl),
-					},
-				}
-			}
+		// 	err := controllerutil.SetControllerReference(&dpa, registryDeployment, r.Scheme)
+		// 	if err != nil {
+		// 		return err
+		// 	}
+		// 	// update the Registry Deployment template
+		// 	err = r.buildRegistryDeployment(registryDeployment, &bsl, &dpa)
+		// 	return err
+		// })
 
-			err := controllerutil.SetControllerReference(&dpa, registryDeployment, r.Scheme)
-			if err != nil {
-				return err
-			}
-			// update the Registry Deployment template
-			err = r.buildRegistryDeployment(registryDeployment, &bsl, &dpa)
-			return err
-		})
+		// if err != nil {
+		// 	return false, err
+		// }
 
-		if err != nil {
-			return false, err
-		}
+		// //TODO: Review registry deployment status and report errors and conditions
 
-		//TODO: Review registry deployment status and report errors and conditions
-
-		if op == controllerutil.OperationResultCreated || op == controllerutil.OperationResultUpdated {
-			// Trigger event to indicate registry deployment was created or updated
-			r.EventRecorder.Event(registryDeployment,
-				corev1.EventTypeNormal,
-				"RegistryDeploymentReconciled",
-				fmt.Sprintf("performed %s on registry deployment %s/%s", op, registryDeployment.Namespace, registryDeployment.Name),
-			)
-		}
+		// if op == controllerutil.OperationResultCreated || op == controllerutil.OperationResultUpdated {
+		// 	// Trigger event to indicate registry deployment was created or updated
+		// 	r.EventRecorder.Event(registryDeployment,
+		// 		corev1.EventTypeNormal,
+		// 		"RegistryDeploymentReconciled",
+		// 		fmt.Sprintf("performed %s on registry deployment %s/%s", op, registryDeployment.Namespace, registryDeployment.Name),
+		// 	)
+		// }
 
 	}
 
 	return true, nil
 }
 
+func (r *DPAReconciler) BuildRegistryContainers(veleroContainer *corev1.Container) (containers []corev1.Container, err error) {
+	dpa := oadpv1alpha1.DataProtectionApplication{}
+	if err := r.Get(r.Context, r.NamespacedName, &dpa); err != nil {
+		return nil, err
+	}
+	if !dpa.BackupImages() {
+		return nil, nil
+	}
+
+	backupStorageLocationList := velerov1.BackupStorageLocationList{}
+
+	// Fetch the configured backupstoragelocations
+	if err := r.List(r.Context, &backupStorageLocationList); err != nil {
+		return nil, err
+	}
+	// sorting items by creationTimeStamp from oldest to newest
+	sort.Slice(backupStorageLocationList.Items, func(i, j int) bool {
+		return backupStorageLocationList.Items[i].CreationTimestamp.Before(&backupStorageLocationList.Items[j].CreationTimestamp)
+	})
+	// Loop through all the configured BSLs and create registry for each of them
+	for i, bsl := range backupStorageLocationList.Items {
+		// debug server listens on port +1 so increment by 2
+		containerPort := int32(5000+i*2)
+		if containerPort >= 8084 {
+			// +2 containerPort to avoid conflict with metrics server (8085)
+			containerPort += 2
+		}
+		container, err := r.buildRegistryContainer(&bsl, &dpa, &containerPort)
+		if err != nil {
+			return nil, err
+		}
+		containers = append(containers, container...)
+		veleroContainerENVKey := "OADP_REGISTRY_BSL_" + strings.ToUpper(bsl.Name)
+		veleroContainer.Env = append(veleroContainer.Env,
+			corev1.EnvVar{
+				Name: veleroContainerENVKey,
+				Value: fmt.Sprintf("%v",containerPort),
+			},
+		)
+	}
+	veleroContainer.Env = append(veleroContainer.Env,
+		corev1.EnvVar{
+			Name: "OADP_VELERO_POD_REGISTRY_ENABLED",
+			Value: "true",
+		},
+	)
+	return containers, err
+}
+
 // Construct and update the registry deployment for a bsl
 func (r *DPAReconciler) buildRegistryDeployment(registryDeployment *appsv1.Deployment, bsl *velerov1.BackupStorageLocation, dpa *oadpv1alpha1.DataProtectionApplication) error {
 
 	// Build registry container
-	registryContainer, err := r.buildRegistryContainer(bsl, dpa)
+	registryContainer, err := r.buildRegistryContainer(bsl, dpa, nil)
 	if err != nil {
 		return err
 	}
@@ -344,45 +394,50 @@ func getRegistryImage(dpa *oadpv1alpha1.DataProtectionApplication) string {
 	return fmt.Sprintf("%v/%v/%v:%v", os.Getenv("REGISTRY"), os.Getenv("PROJECT"), os.Getenv("VELERO_REGISTRY_REPO"), os.Getenv("VELERO_REGISTRY_TAG"))
 }
 
-func (r *DPAReconciler) buildRegistryContainer(bsl *velerov1.BackupStorageLocation, dpa *oadpv1alpha1.DataProtectionApplication) ([]corev1.Container, error) {
+func (r *DPAReconciler) buildRegistryContainer(bsl *velerov1.BackupStorageLocation, dpa *oadpv1alpha1.DataProtectionApplication, containerPort *int32) ([]corev1.Container, error) {
+	if containerPort == nil {
+		containerPort = pointer.Int32(5000)
+	}
+	if *containerPort < 5000 || *containerPort > 65534 {
+		return nil, fmt.Errorf("invalid container port %v. has to be 5000 < x < 65535", containerPort)
+	}
+	debugPort := *containerPort + 1
 	envVars, err := r.getRegistryEnvVars(bsl)
 	if err != nil {
 		r.Log.Info(fmt.Sprintf("Error building registry container for backupstoragelocation %s/%s, could not fetch registry env vars", bsl.Namespace, bsl.Name))
 		return nil, err
 	}
+	// append port config to env vars
+	envVars = append(envVars, corev1.EnvVar{
+		Name: "REGISTRY_HTTP_ADDR",
+		Value: fmt.Sprintf("localhost:%v", *containerPort),
+	}, corev1.EnvVar{
+		Name: "REGISTRY_HTTP_DEBUG_ADDR",
+		Value: fmt.Sprintf("localhost:%v", debugPort),
+	})
+	probe := corev1.Probe{
+				Handler: corev1.Handler{
+					Exec: &corev1.ExecAction{
+						Command: []string{"/bin/sh", "-c", "curl --fail localhost:" + fmt.Sprintf("%v",*containerPort) +"/v2/_catalog?n=5"},
+					},
+				},
+				PeriodSeconds:       5,
+				TimeoutSeconds:      3,
+				InitialDelaySeconds: 15,
+			}
 	containers := []corev1.Container{
 		{
 			Image: getRegistryImage(dpa),
 			Name:  registryName(bsl) + "-container",
 			Ports: []corev1.ContainerPort{
 				{
-					ContainerPort: 5000,
+					ContainerPort: *containerPort,
 					Protocol:      corev1.ProtocolTCP,
 				},
 			},
 			Env: envVars,
-			LivenessProbe: &corev1.Probe{
-				Handler: corev1.Handler{
-					HTTPGet: &corev1.HTTPGetAction{
-						Path: "/v2/_catalog?n=5",
-						Port: intstr.IntOrString{IntVal: 5000},
-					},
-				},
-				PeriodSeconds:       5,
-				TimeoutSeconds:      3,
-				InitialDelaySeconds: 15,
-			},
-			ReadinessProbe: &corev1.Probe{
-				Handler: corev1.Handler{
-					HTTPGet: &corev1.HTTPGetAction{
-						Path: "/v2/_catalog?n=5",
-						Port: intstr.IntOrString{IntVal: 5000},
-					},
-				},
-				PeriodSeconds:       5,
-				TimeoutSeconds:      3,
-				InitialDelaySeconds: 15,
-			},
+			LivenessProbe: &probe,
+			ReadinessProbe: &probe,
 		},
 	}
 
@@ -816,9 +871,9 @@ func (r *DPAReconciler) ReconcileRegistrySVCs(log logr.Logger) (bool, error) {
 	bslList := velerov1.BackupStorageLocationList{}
 	if err := r.List(r.Context, &bslList, &client.ListOptions{
 		Namespace: r.NamespacedName.Namespace,
-		LabelSelector: labels.SelectorFromSet(map[string]string{
-			"app.kubernetes.io/component": "bsl",
-		}),
+		// LabelSelector: labels.SelectorFromSet(map[string]string{
+			// "app.kubernetes.io/component": "bsl",
+		// }),
 	}); err != nil {
 		return false, err
 	}
@@ -832,8 +887,8 @@ func (r *DPAReconciler) ReconcileRegistrySVCs(log logr.Logger) (bool, error) {
 					Namespace: r.NamespacedName.Namespace,
 				},
 			}
-
-			if !dpa.BackupImages() {
+			// Delete the service if it already exists
+			// if !dpa.BackupImages() {
 				deleteContext := context.Background()
 				if err := r.Get(deleteContext, types.NamespacedName{
 					Name:      svc.Name,
@@ -853,26 +908,26 @@ func (r *DPAReconciler) ReconcileRegistrySVCs(log logr.Logger) (bool, error) {
 				r.EventRecorder.Event(&svc, corev1.EventTypeNormal, "DeletedRegistryService", "Registry service deleted")
 
 				return true, nil
-			}
+			// }
 
-			// Create SVC
-			op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, &svc, func() error {
-				// TODO: check for svc status condition errors and respond here
-				err := r.updateRegistrySVC(&svc, &bsl, &dpa)
+			// // Create SVC
+			// op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, &svc, func() error {
+			// 	// TODO: check for svc status condition errors and respond here
+			// 	err := r.updateRegistrySVC(&svc, &bsl, &dpa)
 
-				return err
-			})
-			if err != nil {
-				return false, err
-			}
-			if op == controllerutil.OperationResultCreated || op == controllerutil.OperationResultUpdated {
-				// Trigger event to indicate SVC was created or updated
-				r.EventRecorder.Event(&bsl,
-					corev1.EventTypeNormal,
-					"RegistryServicesReconciled",
-					fmt.Sprintf("performed %s on service %s/%s", op, svc.Namespace, svc.Name),
-				)
-			}
+			// 	return err
+			// })
+			// if err != nil {
+			// 	return false, err
+			// }
+			// if op == controllerutil.OperationResultCreated || op == controllerutil.OperationResultUpdated {
+			// 	// Trigger event to indicate SVC was created or updated
+			// 	r.EventRecorder.Event(&bsl,
+			// 		corev1.EventTypeNormal,
+			// 		"RegistryServicesReconciled",
+			// 		fmt.Sprintf("performed %s on service %s/%s", op, svc.Namespace, svc.Name),
+			// 	)
+			// }
 		}
 	}
 
@@ -941,8 +996,8 @@ func (r *DPAReconciler) ReconcileRegistryRoutes(log logr.Logger) (bool, error) {
 					},
 				},
 			}
-
-			if !dpa.BackupImages() {
+			// Delete the route if it already exists
+			// if !dpa.BackupImages() {
 				deleteContext := context.Background()
 				if err := r.Get(deleteContext, types.NamespacedName{
 					Name:      route.Name,
@@ -962,28 +1017,28 @@ func (r *DPAReconciler) ReconcileRegistryRoutes(log logr.Logger) (bool, error) {
 				r.EventRecorder.Event(&route, corev1.EventTypeNormal, "DeletedRegistryRoute", "Registry route deleted")
 
 				return true, nil
-			}
+			// }
 
 			// Create Route
-			op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, &route, func() error {
+			// op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, &route, func() error {
 
-				// TODO: check for svc status condition errors and respond here
+			// 	// TODO: check for svc status condition errors and respond here
 
-				err := r.updateRegistryRoute(&route, &bsl, &dpa)
+			// 	err := r.updateRegistryRoute(&route, &bsl, &dpa)
 
-				return err
-			})
-			if err != nil {
-				return false, err
-			}
-			if op == controllerutil.OperationResultCreated || op == controllerutil.OperationResultUpdated {
-				// Trigger event to indicate route was created or updated
-				r.EventRecorder.Event(&bsl,
-					corev1.EventTypeNormal,
-					"RegistryroutesReconciled",
-					fmt.Sprintf("performed %s on route %s/%s", op, route.Namespace, route.Name),
-				)
-			}
+			// 	return err
+			// })
+			// if err != nil {
+			// 	return false, err
+			// }
+			// if op == controllerutil.OperationResultCreated || op == controllerutil.OperationResultUpdated {
+			// 	// Trigger event to indicate route was created or updated
+			// 	r.EventRecorder.Event(&bsl,
+			// 		corev1.EventTypeNormal,
+			// 		"RegistryroutesReconciled",
+			// 		fmt.Sprintf("performed %s on route %s/%s", op, route.Namespace, route.Name),
+			// 	)
+			// }
 		}
 	}
 
@@ -1107,9 +1162,9 @@ func (r *DPAReconciler) ReconcileRegistrySecrets(log logr.Logger) (bool, error) 
 	bslList := velerov1.BackupStorageLocationList{}
 	if err := r.List(r.Context, &bslList, &client.ListOptions{
 		Namespace: r.NamespacedName.Namespace,
-		LabelSelector: labels.SelectorFromSet(map[string]string{
-			"app.kubernetes.io/component": "bsl",
-		}),
+		// LabelSelector: labels.SelectorFromSet(map[string]string{
+		// 	"app.kubernetes.io/component": "bsl",
+		// }),
 	}); err != nil {
 		return false, err
 	}

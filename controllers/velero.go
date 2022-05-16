@@ -262,7 +262,7 @@ func (r *DPAReconciler) ReconcileVeleroDeployment(log logr.Logger) (bool, error)
 			Namespace: dpa.Namespace,
 		},
 	}
-
+	// var oldVeleroDeployment *appsv1.Deployment
 	op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, veleroDeployment, func() error {
 
 		// Setting Deployment selector if a new object is created as it is immutable
@@ -272,15 +272,20 @@ func (r *DPAReconciler) ReconcileVeleroDeployment(log logr.Logger) (bool, error)
 			}
 		}
 
+		// store before update
+		// oldVeleroDeployment = veleroDeployment.DeepCopy()
+
 		// update the Deployment template
 		err := r.buildVeleroDeployment(veleroDeployment, &dpa)
 		if err != nil {
 			return err
 		}
 
+		
 		// Setting controller owner reference on the velero deployment
 		return controllerutil.SetControllerReference(&dpa, veleroDeployment, r.Scheme)
 	})
+	// log.Info(cmp.Diff(oldVeleroDeployment, veleroDeployment))
 
 	if err != nil {
 		if errors.IsInvalid(err) {
@@ -405,11 +410,18 @@ func (r *DPAReconciler) buildVeleroDeployment(veleroDeployment *appsv1.Deploymen
 		// our secrets are appended to containers/volumeMounts in credentials.AppendPluginSpecificSpecs function
 		install.WithSecret(false),
 	)
-	veleroDeploymentName := veleroDeployment.Name
+	oldDeployment := veleroDeployment.DeepCopy()
 	veleroDeployment.TypeMeta = installDeployment.TypeMeta
 	veleroDeployment.Spec = installDeployment.Spec
 	veleroDeployment.ObjectMeta = installDeployment.ObjectMeta
-	veleroDeployment.Name = veleroDeploymentName
+	veleroDeployment.Name = oldDeployment.Name
+	// attempt to save annotations to avoid reconcile race
+	// Annotations:                map[string]string{"deployment.kubernetes.io/revision": "1"},
+	var err error
+	veleroDeployment.Annotations, err = common.AppendUniqueKeyStringOfStringMaps(veleroDeployment.Annotations, oldDeployment.Annotations)
+	if err != nil {
+		return err
+	}
 	return r.customizeVeleroDeployment(dpa, veleroDeployment)
 }
 
@@ -537,6 +549,15 @@ func (r *DPAReconciler) customizeVeleroDeployment(dpa *oadpv1alpha1.DataProtecti
 	}
 	if err := r.customizeVeleroContainer(dpa, veleroDeployment, veleroContainer, isSTSNeeded); err != nil {
 		return err
+	}
+
+	// add registry containers
+	if dpa.BackupImages() {
+		regContainers, err := r.BuildRegistryContainers(veleroContainer)
+		if err != nil {
+			return err
+		}
+		veleroDeployment.Spec.Template.Spec.Containers = append(veleroDeployment.Spec.Template.Spec.Containers, regContainers...)
 	}
 
 	providerNeedsDefaultCreds, hasCloudStorage, err := r.noDefaultCredentials(*dpa)
