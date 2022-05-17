@@ -48,7 +48,6 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 					},
 				},
 			},
-			// objects: []client.Object{},
 			wantErr: false,
 			want:    true,
 		},
