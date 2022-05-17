@@ -72,7 +72,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 			want:    true,
 		},
 		{
-			name: "given valid DPA CR, no default backup location, no backup images, notMTC type override, no error case",
+			name: "given valid DPA CR, no default backup location, no backup images, notMTC type override, error case",
 			dpa: &oadpv1alpha1.DataProtectionApplication{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-DPA-CR",
