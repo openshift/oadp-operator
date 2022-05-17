@@ -55,6 +55,14 @@ const (
 	RegistryStorageGCSBucket        = "REGISTRY_STORAGE_GCS_BUCKET"
 	RegistryStorageGCSKeyfile       = "REGISTRY_STORAGE_GCS_KEYFILE"
 	RegistryStorageGCSRootdirectory = "REGISTRY_STORAGE_GCS_ROOTDIRECTORY"
+	// Velero pod registry env vars
+	RegistryENVKeyBSLPrefix = "OADP_REGISTRY_BSL_"
+	RegistryENVKeyHTTPAddr = "REGISTRY_HTTP_ADDR"
+	RegistryENVKeyHTTPDebugAddr = "REGISTRY_HTTP_DEBUG_ADDR"
+	RegistryENVKeyEnabled = "OADP_VELERO_POD_REGISTRY_ENABLED"
+	RegistryDefaultPort   = 5000
+	RegistryContainerPortMax = 65534
+	RegistryContainerPortMin = RegistryDefaultPort
 )
 
 // provider specific object storage
@@ -193,66 +201,25 @@ func (r *DPAReconciler) ReconcileRegistries(log logr.Logger) (bool, error) {
 				Namespace: bsl.Namespace,
 			},
 		}
-		// delete registry deployment if it exists
-		// if !dpa.BackupImages() {
-			deleteContext := context.Background()
-			if err := r.Get(deleteContext, types.NamespacedName{
-				Name:      registryDeployment.Name,
-				Namespace: r.NamespacedName.Namespace,
-			}, registryDeployment); err != nil {
-				if k8serror.IsNotFound(err) {
-					return true, nil
-				}
-				return false, err
+		// delete registry deployment if it exists from previous version
+		deleteContext := context.Background()
+		if err := r.Get(deleteContext, types.NamespacedName{
+			Name:      registryDeployment.Name,
+			Namespace: r.NamespacedName.Namespace,
+		}, registryDeployment); err != nil {
+			if k8serror.IsNotFound(err) {
+				return true, nil
 			}
+			return false, err
+		}
 
-			deleteOptionPropagationForeground := metav1.DeletePropagationForeground
-			if err := r.Delete(deleteContext, registryDeployment, &client.DeleteOptions{PropagationPolicy: &deleteOptionPropagationForeground}); err != nil {
-				r.EventRecorder.Event(registryDeployment, corev1.EventTypeNormal, "DeleteRegistryDeploymentFailed", "Could not delete registry deployment:"+err.Error())
-				return false, err
-			}
-			r.EventRecorder.Event(registryDeployment, corev1.EventTypeNormal, "DeletedRegistryDeployment", "Registry Deployment deleted")
-
-			return true, nil
-		// }
-		// TODO: double check delete logic for upgrade to velero registry
-		// op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, registryDeployment, func() error {
-
-		// 	// Setting Registry Deployment selector if a new object is created as it is immutable
-		// 	if registryDeployment.ObjectMeta.CreationTimestamp.IsZero() {
-		// 		registryDeployment.Spec.Selector = &metav1.LabelSelector{
-		// 			MatchLabels: map[string]string{
-		// 				"component": registryName(&bsl),
-		// 			},
-		// 		}
-		// 	}
-
-		// 	err := controllerutil.SetControllerReference(&dpa, registryDeployment, r.Scheme)
-		// 	if err != nil {
-		// 		return err
-		// 	}
-		// 	// update the Registry Deployment template
-		// 	err = r.buildRegistryDeployment(registryDeployment, &bsl, &dpa)
-		// 	return err
-		// })
-
-		// if err != nil {
-		// 	return false, err
-		// }
-
-		// //TODO: Review registry deployment status and report errors and conditions
-
-		// if op == controllerutil.OperationResultCreated || op == controllerutil.OperationResultUpdated {
-		// 	// Trigger event to indicate registry deployment was created or updated
-		// 	r.EventRecorder.Event(registryDeployment,
-		// 		corev1.EventTypeNormal,
-		// 		"RegistryDeploymentReconciled",
-		// 		fmt.Sprintf("performed %s on registry deployment %s/%s", op, registryDeployment.Namespace, registryDeployment.Name),
-		// 	)
-		// }
-
+		deleteOptionPropagationForeground := metav1.DeletePropagationForeground
+		if err := r.Delete(deleteContext, registryDeployment, &client.DeleteOptions{PropagationPolicy: &deleteOptionPropagationForeground}); err != nil {
+			r.EventRecorder.Event(registryDeployment, corev1.EventTypeNormal, "DeleteRegistryDeploymentFailed", "Could not delete registry deployment:"+err.Error())
+			return false, err
+		}
+		r.EventRecorder.Event(registryDeployment, corev1.EventTypeNormal, "DeletedRegistryDeployment", "Registry Deployment deleted")
 	}
-
 	return true, nil
 }
 
@@ -288,7 +255,7 @@ func (r *DPAReconciler) BuildRegistryContainers(veleroContainer *corev1.Containe
 			return nil, err
 		}
 		containers = append(containers, container...)
-		veleroContainerENVKey := "OADP_REGISTRY_BSL_" + strings.ToUpper(bsl.Name)
+		veleroContainerENVKey := fmt.Sprint(RegistryENVKeyBSLPrefix, strings.ToUpper(bsl.Name))
 		veleroContainer.Env = append(veleroContainer.Env,
 			corev1.EnvVar{
 				Name: veleroContainerENVKey,
@@ -298,7 +265,7 @@ func (r *DPAReconciler) BuildRegistryContainers(veleroContainer *corev1.Containe
 	}
 	veleroContainer.Env = append(veleroContainer.Env,
 		corev1.EnvVar{
-			Name: "OADP_VELERO_POD_REGISTRY_ENABLED",
+			Name: RegistryENVKeyEnabled,
 			Value: "true",
 		},
 	)
@@ -396,10 +363,10 @@ func getRegistryImage(dpa *oadpv1alpha1.DataProtectionApplication) string {
 
 func (r *DPAReconciler) buildRegistryContainer(bsl *velerov1.BackupStorageLocation, dpa *oadpv1alpha1.DataProtectionApplication, containerPort *int32) ([]corev1.Container, error) {
 	if containerPort == nil {
-		containerPort = pointer.Int32(5000)
+		containerPort = pointer.Int32(RegistryDefaultPort)
 	}
-	if *containerPort < 5000 || *containerPort > 65534 {
-		return nil, fmt.Errorf("invalid container port %v. has to be 5000 < x < 65535", containerPort)
+	if *containerPort < RegistryContainerPortMin || *containerPort > RegistryContainerPortMax {
+		return nil, fmt.Errorf("invalid container port %v. has to be %v < x < %v", RegistryContainerPortMin ,RegistryContainerPortMax, containerPort)
 	}
 	debugPort := *containerPort + 1
 	envVars, err := r.getRegistryEnvVars(bsl)
@@ -409,10 +376,10 @@ func (r *DPAReconciler) buildRegistryContainer(bsl *velerov1.BackupStorageLocati
 	}
 	// append port config to env vars
 	envVars = append(envVars, corev1.EnvVar{
-		Name: "REGISTRY_HTTP_ADDR",
+		Name: RegistryENVKeyHTTPAddr,
 		Value: fmt.Sprintf("localhost:%v", *containerPort),
 	}, corev1.EnvVar{
-		Name: "REGISTRY_HTTP_DEBUG_ADDR",
+		Name: RegistryENVKeyHTTPDebugAddr,
 		Value: fmt.Sprintf("localhost:%v", debugPort),
 	})
 	probe := corev1.Probe{
