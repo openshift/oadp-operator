@@ -45,6 +45,10 @@ func (r *DPAReconciler) ValidateDataProtectionCR(log logr.Logger) (bool, error) 
 		}
 	}
 
+	if val, found := dpa.Spec.UnsupportedOverrides[oadpv1alpha1.OperatorTypeKey]; found && val != oadpv1alpha1.OperatorTypeMTC {
+		return false, errors.New("only mtc operator type override is supported")
+	}
+
 	if _, err := r.ValidateVeleroPlugins(r.Log); err != nil {
 		return false, err
 	}

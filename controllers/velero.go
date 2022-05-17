@@ -713,10 +713,16 @@ func (r DPAReconciler) noDefaultCredentials(dpa oadpv1alpha1.DataProtectionAppli
 	providerNeedsDefaultCreds := map[string]bool{}
 	hasCloudStorage := false
 	if dpa.Spec.Configuration.Velero.NoDefaultBackupLocation {
+		needDefaultCred := false
+
+		if dpa.Spec.UnsupportedOverrides[oadpv1alpha1.OperatorTypeKey] == oadpv1alpha1.OperatorTypeMTC {
+			// MTC requires default credentials
+			needDefaultCred = true
+		}
 		// go through cloudprovider plugins and mark providerNeedsDefaultCreds to false
 		for _, provider := range dpa.Spec.Configuration.Velero.DefaultPlugins {
 			if psf, ok := credentials.PluginSpecificFields[provider]; ok && psf.IsCloudProvider {
-				providerNeedsDefaultCreds[psf.PluginName] = false
+				providerNeedsDefaultCreds[psf.PluginName] = needDefaultCred
 			}
 		}
 	} else {
@@ -761,4 +767,3 @@ func (r DPAReconciler) noDefaultCredentials(dpa oadpv1alpha1.DataProtectionAppli
 	return providerNeedsDefaultCreds, hasCloudStorage, nil
 
 }
-
