@@ -286,7 +286,9 @@ func AppendPluginSpecificSpecs(dpa *oadpv1alpha1.DataProtectionApplication, vele
 			if !pluginSpecificMap.IsCloudProvider || !pluginNeedsCheck {
 				continue
 			}
-			if dpa.Spec.Configuration.Velero.NoDefaultBackupLocation && pluginSpecificMap.IsCloudProvider {
+			if dpa.Spec.Configuration.Velero.NoDefaultBackupLocation &&
+				dpa.Spec.UnsupportedOverrides[oadpv1alpha1.OperatorTypeKey] != oadpv1alpha1.OperatorTypeMTC &&
+				pluginSpecificMap.IsCloudProvider {
 				continue
 			}
 			// set default secret name to use

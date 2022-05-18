@@ -630,11 +630,11 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 
 		}, genericTests,
 	)
-	
+
 	type deletionCase struct {
 		WantError bool
 	}
-	DescribeTable("DPA Deletion test", 
+	DescribeTable("DPA Deletion test",
 		func(installCase deletionCase) {
 			log.Printf("Building dpa")
 			err := dpaCR.Build(RESTIC)
@@ -661,5 +661,5 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 			}
 		},
 		Entry("Should succeed", deletionCase{WantError: false}),
-    )
+	)
 })
