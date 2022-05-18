@@ -396,12 +396,6 @@ func (r *DPAReconciler) buildRegistryContainer(bsl *velerov1.BackupStorageLocati
 		{
 			Image: getRegistryImage(dpa),
 			Name:  registryName(bsl) + "-container",
-			Ports: []corev1.ContainerPort{
-				{
-					ContainerPort: *containerPort,
-					Protocol:      corev1.ProtocolTCP,
-				},
-			},
 			Env: envVars,
 			LivenessProbe: &probe,
 			ReadinessProbe: &probe,
