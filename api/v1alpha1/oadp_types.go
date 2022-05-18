@@ -56,6 +56,9 @@ const CSIPluginImageKey UnsupportedImageKey = "csiPluginImageFqin"
 const ResticRestoreImageKey UnsupportedImageKey = "resticRestoreImageFqin"
 const RegistryImageKey UnsupportedImageKey = "registryImageFqin"
 const KubeVirtPluginImageKey UnsupportedImageKey = "kubevirtPluginImageFqin"
+const OperatorTypeKey UnsupportedImageKey = "operator-type"
+
+const OperatorTypeMTC = "mtc"
 
 type VeleroConfig struct {
 	// FeatureFlags defines the list of features to enable for Velero instance
