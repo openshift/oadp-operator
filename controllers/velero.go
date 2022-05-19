@@ -393,6 +393,7 @@ func (r *DPAReconciler) buildVeleroDeployment(veleroDeployment *appsv1.Deploymen
 	r.ReconcileRestoreResourcesVersionPriority(dpa)
 
 	// get resource requirements for velero deployment
+	// ignoring err here as it is checked in validator.go
 	veleroResourceReqs, _ := r.getVeleroResourceReqs(dpa)
 
 	// TODO! Reuse removeDuplicateValues with interface type
