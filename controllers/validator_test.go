@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"k8s.io/apimachinery/pkg/api/resource"
 	"testing"
 
 	"github.com/go-logr/logr"
@@ -235,6 +236,115 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 						Velero: &oadpv1alpha1.VeleroConfig{
 							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
 								oadpv1alpha1.DefaultPluginAWS,
+							},
+						},
+					},
+				},
+			},
+			objects: []client.Object{
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "cloud-credentials",
+						Namespace: "test-ns",
+					},
+				},
+			},
+			wantErr: false,
+			want:    true,
+		},
+		{
+			name: "given valid DPA CR with valid velero resource requirements ",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-DPA-CR",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					BackupLocations: []oadpv1alpha1.BackupLocation{
+						{
+							CloudStorage: &oadpv1alpha1.CloudStorageLocation{
+								CloudStorageRef: corev1.LocalObjectReference{
+									Name: "testing",
+								},
+								Credential: &corev1.SecretKeySelector{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: "testing",
+									},
+									Key: "credentials",
+								},
+							},
+						},
+					},
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+								oadpv1alpha1.DefaultPluginAWS,
+							},
+							PodConfig: &oadpv1alpha1.PodConfig{
+								ResourceAllocations: corev1.ResourceRequirements{
+									Requests: corev1.ResourceList{
+										corev1.ResourceCPU: resource.MustParse("2"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			objects: []client.Object{
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "cloud-credentials",
+						Namespace: "test-ns",
+					},
+				},
+			},
+			wantErr: false,
+			want:    true,
+		},
+		{
+			name: "given valid DPA CR with valid restic resource requirements ",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-DPA-CR",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					BackupLocations: []oadpv1alpha1.BackupLocation{
+						{
+							CloudStorage: &oadpv1alpha1.CloudStorageLocation{
+								CloudStorageRef: corev1.LocalObjectReference{
+									Name: "testing",
+								},
+								Credential: &corev1.SecretKeySelector{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: "testing",
+									},
+									Key: "credentials",
+								},
+							},
+						},
+					},
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+								oadpv1alpha1.DefaultPluginAWS,
+							},
+							PodConfig: &oadpv1alpha1.PodConfig{
+								ResourceAllocations: corev1.ResourceRequirements{
+									Requests: corev1.ResourceList{
+										corev1.ResourceCPU: resource.MustParse("2"),
+									},
+								},
+							},
+						},
+						Restic: &oadpv1alpha1.ResticConfig{
+							PodConfig: &oadpv1alpha1.PodConfig{
+								ResourceAllocations: corev1.ResourceRequirements{
+									Requests: corev1.ResourceList{
+										corev1.ResourceCPU: resource.MustParse("2"),
+									},
+								},
 							},
 						},
 					},

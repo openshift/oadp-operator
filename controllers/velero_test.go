@@ -1552,6 +1552,730 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 			},
 		},
 		{
+			name: "given valid DPA CR, velero deployment resource customization only cpu limit",
+			veleroDeployment: &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-velero-deployment",
+					Namespace: "test-ns",
+				},
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "Deployment",
+					APIVersion: appsv1.SchemeGroupVersion.String(),
+				},
+				Spec: appsv1.DeploymentSpec{
+					Selector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"app.kubernetes.io/name":       common.Velero,
+							"app.kubernetes.io/instance":   "test-Velero-CR",
+							"app.kubernetes.io/managed-by": common.OADPOperator,
+							"app.kubernetes.io/component":  Server,
+							"component":                    "velero",
+							"deploy":                       "velero",
+							oadpv1alpha1.OadpOperatorLabel: "True",
+						},
+					},
+				},
+			},
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-Velero-CR",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							PodConfig: &oadpv1alpha1.PodConfig{
+								ResourceAllocations: corev1.ResourceRequirements{
+									Limits: corev1.ResourceList{
+										corev1.ResourceCPU: resource.MustParse("2"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr: false,
+			wantVeleroDeployment: &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-velero-deployment",
+					Namespace: "test-ns",
+					Labels: map[string]string{
+						"app.kubernetes.io/name":       common.Velero,
+						"app.kubernetes.io/instance":   "test-Velero-CR",
+						"app.kubernetes.io/managed-by": common.OADPOperator,
+						"app.kubernetes.io/component":  Server,
+						"component":                    "velero",
+						oadpv1alpha1.OadpOperatorLabel: "True",
+					},
+				},
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "Deployment",
+					APIVersion: appsv1.SchemeGroupVersion.String(),
+				},
+				Spec: appsv1.DeploymentSpec{
+					Selector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"app.kubernetes.io/name":       common.Velero,
+							"app.kubernetes.io/instance":   "test-Velero-CR",
+							"app.kubernetes.io/managed-by": common.OADPOperator,
+							"app.kubernetes.io/component":  Server,
+							"component":                    "velero",
+							"deploy":                       "velero",
+							oadpv1alpha1.OadpOperatorLabel: "True",
+						},
+					},
+					Replicas: pointer.Int32(1),
+					Template: corev1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Labels: map[string]string{
+								"app.kubernetes.io/name":       common.Velero,
+								"app.kubernetes.io/instance":   "test-Velero-CR",
+								"app.kubernetes.io/managed-by": common.OADPOperator,
+								"app.kubernetes.io/component":  Server,
+								"component":                    "velero",
+								"deploy":                       "velero",
+								oadpv1alpha1.OadpOperatorLabel: "True",
+							},
+							Annotations: map[string]string{
+								"prometheus.io/scrape": "true",
+								"prometheus.io/port":   "8085",
+								"prometheus.io/path":   "/metrics",
+							},
+						},
+						Spec: corev1.PodSpec{
+							RestartPolicy:      corev1.RestartPolicyAlways,
+							ServiceAccountName: common.Velero,
+							Containers: []corev1.Container{
+								{
+									Name:            common.Velero,
+									Image:           common.VeleroImage,
+									ImagePullPolicy: corev1.PullAlways,
+									Ports: []corev1.ContainerPort{
+										{
+											Name:          "metrics",
+											ContainerPort: 8085,
+										},
+									},
+									Resources: corev1.ResourceRequirements{
+										Limits: corev1.ResourceList{
+											corev1.ResourceCPU:    resource.MustParse("2"),
+											corev1.ResourceMemory: resource.MustParse("512Mi"),
+										},
+										Requests: corev1.ResourceList{
+											corev1.ResourceCPU:    resource.MustParse("500m"),
+											corev1.ResourceMemory: resource.MustParse("128Mi"),
+										},
+									},
+									Command: []string{"/velero"},
+									Args: []string{
+										"server",
+										"--restic-timeout=1h",
+									},
+									VolumeMounts: []corev1.VolumeMount{
+										{
+											Name:      "plugins",
+											MountPath: "/plugins",
+										},
+										{
+											Name:      "scratch",
+											MountPath: "/scratch",
+										},
+										{
+											Name:      "certs",
+											MountPath: "/etc/ssl/certs",
+										},
+									},
+									Env: []corev1.EnvVar{
+										{
+											Name:  common.VeleroScratchDirEnvKey,
+											Value: "/scratch",
+										},
+										{
+											Name: common.VeleroNamespaceEnvKey,
+											ValueFrom: &corev1.EnvVarSource{
+												FieldRef: &corev1.ObjectFieldSelector{
+													FieldPath: "metadata.namespace",
+												},
+											},
+										},
+										{
+											Name:  common.LDLibraryPathEnvKey,
+											Value: "/plugins",
+										},
+									},
+								},
+							},
+							Volumes: []corev1.Volume{
+								{
+									Name: "plugins",
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{},
+									},
+								},
+								{
+									Name: "scratch",
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{},
+									},
+								},
+								{
+									Name: "certs",
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{},
+									},
+								},
+							},
+							InitContainers: []corev1.Container{},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "given valid DPA CR, velero deployment resource customization only cpu request",
+			veleroDeployment: &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-velero-deployment",
+					Namespace: "test-ns",
+				},
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "Deployment",
+					APIVersion: appsv1.SchemeGroupVersion.String(),
+				},
+				Spec: appsv1.DeploymentSpec{
+					Selector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"app.kubernetes.io/name":       common.Velero,
+							"app.kubernetes.io/instance":   "test-Velero-CR",
+							"app.kubernetes.io/managed-by": common.OADPOperator,
+							"app.kubernetes.io/component":  Server,
+							"component":                    "velero",
+							"deploy":                       "velero",
+							oadpv1alpha1.OadpOperatorLabel: "True",
+						},
+					},
+				},
+			},
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-Velero-CR",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							PodConfig: &oadpv1alpha1.PodConfig{
+								ResourceAllocations: corev1.ResourceRequirements{
+									Requests: corev1.ResourceList{
+										corev1.ResourceCPU: resource.MustParse("2"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr: false,
+			wantVeleroDeployment: &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-velero-deployment",
+					Namespace: "test-ns",
+					Labels: map[string]string{
+						"app.kubernetes.io/name":       common.Velero,
+						"app.kubernetes.io/instance":   "test-Velero-CR",
+						"app.kubernetes.io/managed-by": common.OADPOperator,
+						"app.kubernetes.io/component":  Server,
+						"component":                    "velero",
+						oadpv1alpha1.OadpOperatorLabel: "True",
+					},
+				},
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "Deployment",
+					APIVersion: appsv1.SchemeGroupVersion.String(),
+				},
+				Spec: appsv1.DeploymentSpec{
+					Selector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"app.kubernetes.io/name":       common.Velero,
+							"app.kubernetes.io/instance":   "test-Velero-CR",
+							"app.kubernetes.io/managed-by": common.OADPOperator,
+							"app.kubernetes.io/component":  Server,
+							"component":                    "velero",
+							"deploy":                       "velero",
+							oadpv1alpha1.OadpOperatorLabel: "True",
+						},
+					},
+					Replicas: pointer.Int32(1),
+					Template: corev1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Labels: map[string]string{
+								"app.kubernetes.io/name":       common.Velero,
+								"app.kubernetes.io/instance":   "test-Velero-CR",
+								"app.kubernetes.io/managed-by": common.OADPOperator,
+								"app.kubernetes.io/component":  Server,
+								"component":                    "velero",
+								"deploy":                       "velero",
+								oadpv1alpha1.OadpOperatorLabel: "True",
+							},
+							Annotations: map[string]string{
+								"prometheus.io/scrape": "true",
+								"prometheus.io/port":   "8085",
+								"prometheus.io/path":   "/metrics",
+							},
+						},
+						Spec: corev1.PodSpec{
+							RestartPolicy:      corev1.RestartPolicyAlways,
+							ServiceAccountName: common.Velero,
+							Containers: []corev1.Container{
+								{
+									Name:            common.Velero,
+									Image:           common.VeleroImage,
+									ImagePullPolicy: corev1.PullAlways,
+									Ports: []corev1.ContainerPort{
+										{
+											Name:          "metrics",
+											ContainerPort: 8085,
+										},
+									},
+									Resources: corev1.ResourceRequirements{
+										Limits: corev1.ResourceList{
+											corev1.ResourceCPU:    resource.MustParse("1"),
+											corev1.ResourceMemory: resource.MustParse("512Mi"),
+										},
+										Requests: corev1.ResourceList{
+											corev1.ResourceCPU:    resource.MustParse("2"),
+											corev1.ResourceMemory: resource.MustParse("128Mi"),
+										},
+									},
+									Command: []string{"/velero"},
+									Args: []string{
+										"server",
+										"--restic-timeout=1h",
+									},
+									VolumeMounts: []corev1.VolumeMount{
+										{
+											Name:      "plugins",
+											MountPath: "/plugins",
+										},
+										{
+											Name:      "scratch",
+											MountPath: "/scratch",
+										},
+										{
+											Name:      "certs",
+											MountPath: "/etc/ssl/certs",
+										},
+									},
+									Env: []corev1.EnvVar{
+										{
+											Name:  common.VeleroScratchDirEnvKey,
+											Value: "/scratch",
+										},
+										{
+											Name: common.VeleroNamespaceEnvKey,
+											ValueFrom: &corev1.EnvVarSource{
+												FieldRef: &corev1.ObjectFieldSelector{
+													FieldPath: "metadata.namespace",
+												},
+											},
+										},
+										{
+											Name:  common.LDLibraryPathEnvKey,
+											Value: "/plugins",
+										},
+									},
+								},
+							},
+							Volumes: []corev1.Volume{
+								{
+									Name: "plugins",
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{},
+									},
+								},
+								{
+									Name: "scratch",
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{},
+									},
+								},
+								{
+									Name: "certs",
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{},
+									},
+								},
+							},
+							InitContainers: []corev1.Container{},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "given valid DPA CR, velero deployment resource customization only memory request",
+			veleroDeployment: &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-velero-deployment",
+					Namespace: "test-ns",
+				},
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "Deployment",
+					APIVersion: appsv1.SchemeGroupVersion.String(),
+				},
+				Spec: appsv1.DeploymentSpec{
+					Selector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"app.kubernetes.io/name":       common.Velero,
+							"app.kubernetes.io/instance":   "test-Velero-CR",
+							"app.kubernetes.io/managed-by": common.OADPOperator,
+							"app.kubernetes.io/component":  Server,
+							"component":                    "velero",
+							"deploy":                       "velero",
+							oadpv1alpha1.OadpOperatorLabel: "True",
+						},
+					},
+				},
+			},
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-Velero-CR",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							PodConfig: &oadpv1alpha1.PodConfig{
+								ResourceAllocations: corev1.ResourceRequirements{
+									Requests: corev1.ResourceList{
+										corev1.ResourceMemory: resource.MustParse("256Mi"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr: false,
+			wantVeleroDeployment: &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-velero-deployment",
+					Namespace: "test-ns",
+					Labels: map[string]string{
+						"app.kubernetes.io/name":       common.Velero,
+						"app.kubernetes.io/instance":   "test-Velero-CR",
+						"app.kubernetes.io/managed-by": common.OADPOperator,
+						"app.kubernetes.io/component":  Server,
+						"component":                    "velero",
+						oadpv1alpha1.OadpOperatorLabel: "True",
+					},
+				},
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "Deployment",
+					APIVersion: appsv1.SchemeGroupVersion.String(),
+				},
+				Spec: appsv1.DeploymentSpec{
+					Selector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"app.kubernetes.io/name":       common.Velero,
+							"app.kubernetes.io/instance":   "test-Velero-CR",
+							"app.kubernetes.io/managed-by": common.OADPOperator,
+							"app.kubernetes.io/component":  Server,
+							"component":                    "velero",
+							"deploy":                       "velero",
+							oadpv1alpha1.OadpOperatorLabel: "True",
+						},
+					},
+					Replicas: pointer.Int32(1),
+					Template: corev1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Labels: map[string]string{
+								"app.kubernetes.io/name":       common.Velero,
+								"app.kubernetes.io/instance":   "test-Velero-CR",
+								"app.kubernetes.io/managed-by": common.OADPOperator,
+								"app.kubernetes.io/component":  Server,
+								"component":                    "velero",
+								"deploy":                       "velero",
+								oadpv1alpha1.OadpOperatorLabel: "True",
+							},
+							Annotations: map[string]string{
+								"prometheus.io/scrape": "true",
+								"prometheus.io/port":   "8085",
+								"prometheus.io/path":   "/metrics",
+							},
+						},
+						Spec: corev1.PodSpec{
+							RestartPolicy:      corev1.RestartPolicyAlways,
+							ServiceAccountName: common.Velero,
+							Containers: []corev1.Container{
+								{
+									Name:            common.Velero,
+									Image:           common.VeleroImage,
+									ImagePullPolicy: corev1.PullAlways,
+									Ports: []corev1.ContainerPort{
+										{
+											Name:          "metrics",
+											ContainerPort: 8085,
+										},
+									},
+									Resources: corev1.ResourceRequirements{
+										Limits: corev1.ResourceList{
+											corev1.ResourceCPU:    resource.MustParse("1"),
+											corev1.ResourceMemory: resource.MustParse("512Mi"),
+										},
+										Requests: corev1.ResourceList{
+											corev1.ResourceCPU:    resource.MustParse("500m"),
+											corev1.ResourceMemory: resource.MustParse("256Mi"),
+										},
+									},
+									Command: []string{"/velero"},
+									Args: []string{
+										"server",
+										"--restic-timeout=1h",
+									},
+									VolumeMounts: []corev1.VolumeMount{
+										{
+											Name:      "plugins",
+											MountPath: "/plugins",
+										},
+										{
+											Name:      "scratch",
+											MountPath: "/scratch",
+										},
+										{
+											Name:      "certs",
+											MountPath: "/etc/ssl/certs",
+										},
+									},
+									Env: []corev1.EnvVar{
+										{
+											Name:  common.VeleroScratchDirEnvKey,
+											Value: "/scratch",
+										},
+										{
+											Name: common.VeleroNamespaceEnvKey,
+											ValueFrom: &corev1.EnvVarSource{
+												FieldRef: &corev1.ObjectFieldSelector{
+													FieldPath: "metadata.namespace",
+												},
+											},
+										},
+										{
+											Name:  common.LDLibraryPathEnvKey,
+											Value: "/plugins",
+										},
+									},
+								},
+							},
+							Volumes: []corev1.Volume{
+								{
+									Name: "plugins",
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{},
+									},
+								},
+								{
+									Name: "scratch",
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{},
+									},
+								},
+								{
+									Name: "certs",
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{},
+									},
+								},
+							},
+							InitContainers: []corev1.Container{},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "given valid DPA CR, velero deployment resource customization only memory limit",
+			veleroDeployment: &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-velero-deployment",
+					Namespace: "test-ns",
+				},
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "Deployment",
+					APIVersion: appsv1.SchemeGroupVersion.String(),
+				},
+				Spec: appsv1.DeploymentSpec{
+					Selector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"app.kubernetes.io/name":       common.Velero,
+							"app.kubernetes.io/instance":   "test-Velero-CR",
+							"app.kubernetes.io/managed-by": common.OADPOperator,
+							"app.kubernetes.io/component":  Server,
+							"component":                    "velero",
+							"deploy":                       "velero",
+							oadpv1alpha1.OadpOperatorLabel: "True",
+						},
+					},
+				},
+			},
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-Velero-CR",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							PodConfig: &oadpv1alpha1.PodConfig{
+								ResourceAllocations: corev1.ResourceRequirements{
+									Limits: corev1.ResourceList{
+										corev1.ResourceMemory: resource.MustParse("128Mi"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr: false,
+			wantVeleroDeployment: &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-velero-deployment",
+					Namespace: "test-ns",
+					Labels: map[string]string{
+						"app.kubernetes.io/name":       common.Velero,
+						"app.kubernetes.io/instance":   "test-Velero-CR",
+						"app.kubernetes.io/managed-by": common.OADPOperator,
+						"app.kubernetes.io/component":  Server,
+						"component":                    "velero",
+						oadpv1alpha1.OadpOperatorLabel: "True",
+					},
+				},
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "Deployment",
+					APIVersion: appsv1.SchemeGroupVersion.String(),
+				},
+				Spec: appsv1.DeploymentSpec{
+					Selector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"app.kubernetes.io/name":       common.Velero,
+							"app.kubernetes.io/instance":   "test-Velero-CR",
+							"app.kubernetes.io/managed-by": common.OADPOperator,
+							"app.kubernetes.io/component":  Server,
+							"component":                    "velero",
+							"deploy":                       "velero",
+							oadpv1alpha1.OadpOperatorLabel: "True",
+						},
+					},
+					Replicas: pointer.Int32(1),
+					Template: corev1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Labels: map[string]string{
+								"app.kubernetes.io/name":       common.Velero,
+								"app.kubernetes.io/instance":   "test-Velero-CR",
+								"app.kubernetes.io/managed-by": common.OADPOperator,
+								"app.kubernetes.io/component":  Server,
+								"component":                    "velero",
+								"deploy":                       "velero",
+								oadpv1alpha1.OadpOperatorLabel: "True",
+							},
+							Annotations: map[string]string{
+								"prometheus.io/scrape": "true",
+								"prometheus.io/port":   "8085",
+								"prometheus.io/path":   "/metrics",
+							},
+						},
+						Spec: corev1.PodSpec{
+							RestartPolicy:      corev1.RestartPolicyAlways,
+							ServiceAccountName: common.Velero,
+							Containers: []corev1.Container{
+								{
+									Name:            common.Velero,
+									Image:           common.VeleroImage,
+									ImagePullPolicy: corev1.PullAlways,
+									Ports: []corev1.ContainerPort{
+										{
+											Name:          "metrics",
+											ContainerPort: 8085,
+										},
+									},
+									Resources: corev1.ResourceRequirements{
+										Limits: corev1.ResourceList{
+											corev1.ResourceCPU:    resource.MustParse("1"),
+											corev1.ResourceMemory: resource.MustParse("128Mi"),
+										},
+										Requests: corev1.ResourceList{
+											corev1.ResourceCPU:    resource.MustParse("500m"),
+											corev1.ResourceMemory: resource.MustParse("128Mi"),
+										},
+									},
+									Command: []string{"/velero"},
+									Args: []string{
+										"server",
+										"--restic-timeout=1h",
+									},
+									VolumeMounts: []corev1.VolumeMount{
+										{
+											Name:      "plugins",
+											MountPath: "/plugins",
+										},
+										{
+											Name:      "scratch",
+											MountPath: "/scratch",
+										},
+										{
+											Name:      "certs",
+											MountPath: "/etc/ssl/certs",
+										},
+									},
+									Env: []corev1.EnvVar{
+										{
+											Name:  common.VeleroScratchDirEnvKey,
+											Value: "/scratch",
+										},
+										{
+											Name: common.VeleroNamespaceEnvKey,
+											ValueFrom: &corev1.EnvVarSource{
+												FieldRef: &corev1.ObjectFieldSelector{
+													FieldPath: "metadata.namespace",
+												},
+											},
+										},
+										{
+											Name:  common.LDLibraryPathEnvKey,
+											Value: "/plugins",
+										},
+									},
+								},
+							},
+							Volumes: []corev1.Volume{
+								{
+									Name: "plugins",
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{},
+									},
+								},
+								{
+									Name: "scratch",
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{},
+									},
+								},
+								{
+									Name: "certs",
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{},
+									},
+								},
+							},
+							InitContainers: []corev1.Container{},
+						},
+					},
+				},
+			},
+		},
+		{
 			name: "given valid DPA CR, velero deployment tolerations",
 			veleroDeployment: &appsv1.Deployment{
 				ObjectMeta: metav1.ObjectMeta{
