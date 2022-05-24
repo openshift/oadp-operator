@@ -171,8 +171,12 @@ func (r *DPAReconciler) buildResticDaemonset(dpa *oadpv1alpha1.DataProtectionApp
 		return nil, fmt.Errorf("ds cannot be nil")
 	}
 
+	// get resource requirements for restic ds
+	// ignoring err here as it is checked in validator.go
+	resticResourceReqs, _ := r.getResticResourceReqs(dpa)
+
 	installDs := install.DaemonSet(ds.Namespace,
-		install.WithResources(r.getResticResourceReqs(dpa)),
+		install.WithResources(resticResourceReqs),
 		install.WithImage(getVeleroImage(dpa)),
 		install.WithAnnotations(dpa.Spec.PodAnnotations),
 		install.WithSecret(false))
