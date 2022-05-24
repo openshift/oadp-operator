@@ -545,11 +545,11 @@ func (r *DPAReconciler) customizeVeleroDeployment(dpa *oadpv1alpha1.DataProtecti
 	}
 
 	if dpa.Spec.Configuration.Velero.LogLevel != "" {
-		_, err := veleroLogrusParseLevel(dpa.Spec.Configuration.Velero.LogLevel)
+		logLevel, err := logrus.ParseLevel(dpa.Spec.Configuration.Velero.LogLevel)
 		if err != nil {
-			return fmt.Errorf("invalid log level %s\nallowed: %s", dpa.Spec.Configuration.Velero.LogLevel, "error;warn;warning;info;debug;trace")
+			return fmt.Errorf("invalid log level %s, use: %s", dpa.Spec.Configuration.Velero.LogLevel, "trace, debug, info, warning, error, fatal, or panic")
 		}
-		veleroContainer.Args = append(veleroContainer.Args, "--log-level", dpa.Spec.Configuration.Velero.LogLevel)
+		veleroContainer.Args = append(veleroContainer.Args, "--log-level", logLevel.String())
 	}
 
 	return credentials.AppendPluginSpecificSpecs(dpa, veleroDeployment, veleroContainer, providerNeedsDefaultCreds, hasCloudStorage)
@@ -768,26 +768,3 @@ func (r DPAReconciler) noDefaultCredentials(dpa oadpv1alpha1.DataProtectionAppli
 
 }
 
-// imported from https://github.com/sirupsen/logrus/blob/v1.8.1/logrus.go#L25-L45
-// removes panic and fatal from valid levels.
-func veleroLogrusParseLevel(lvl string) (logrus.Level, error) {
-	switch strings.ToLower(lvl) {
-	// case "panic":
-	// 	return logrus.PanicLevel, nil
-	// case "fatal":
-	// 	return logrus.FatalLevel, nil
-	case "error":
-		return logrus.ErrorLevel, nil
-	case "warn", "warning":
-		return logrus.WarnLevel, nil
-	case "info":
-		return logrus.InfoLevel, nil
-	case "debug":
-		return logrus.DebugLevel, nil
-	case "trace":
-		return logrus.TraceLevel, nil
-	}
-
-	var l logrus.Level
-	return l, fmt.Errorf("not a valid logrus Level: %q", lvl)
-}
