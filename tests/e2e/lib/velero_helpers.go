@@ -19,6 +19,9 @@ import (
 	veleroClientset "github.com/vmware-tanzu/velero/pkg/generated/clientset/versioned"
 	"github.com/vmware-tanzu/velero/pkg/label"
 	"github.com/vmware-tanzu/velero/pkg/restic"
+	appsv1 "k8s.io/api/apps/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -154,4 +157,50 @@ func RestoreErrorLogs(ocClient client.Client, restore velero.Restore) []string {
 		}
 	}
 	return logLines
+}
+
+func CreateBackupStorageLocation(ocClient client.Client, backupStorageLocation velero.BackupStorageLocation) error {
+	veleroClient, err := GetVeleroClient()
+	if err != nil {
+		return err
+	}
+	_, err = veleroClient.VeleroV1().BackupStorageLocations(backupStorageLocation.Namespace).Create(context.TODO(), &backupStorageLocation, metav1.CreateOptions{})
+	if err != nil {
+		if apierrors.IsAlreadyExists(err) {
+			return nil
+		}
+		return err
+	}
+	return nil
+}
+
+func DeleteBackupStorageLocation(ocClient client.Client, backupStorageLocation velero.BackupStorageLocation) error {
+	veleroClient, err := GetVeleroClient()
+	if err != nil {
+		return err
+	}
+	err = veleroClient.VeleroV1().BackupStorageLocations(backupStorageLocation.Namespace).Delete(context.TODO(), backupStorageLocation.Name, metav1.DeleteOptions{})
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil
+		}
+		return err
+	}
+	return nil
+}
+
+func GetVeleroDeploymentList(namespace string) (*appsv1.DeploymentList, error) {
+	client, err := setUpClient()
+	if err != nil {
+		return nil, err
+	}
+	registryListOptions := metav1.ListOptions{
+		LabelSelector: "component=velero",
+	}
+	// get pods in the oadp-operator-e2e namespace with label selector
+	deploymentList, err := client.AppsV1().Deployments(namespace).List(context.TODO(), registryListOptions)
+	if err != nil {
+		return nil, err
+	}
+	return deploymentList, nil
 }
