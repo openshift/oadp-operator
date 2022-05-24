@@ -12,10 +12,12 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	"github.com/onsi/ginkgo/v2/types"
 	. "github.com/onsi/gomega"
+	"github.com/openshift/oadp-operator/api/v1alpha1"
 	. "github.com/openshift/oadp-operator/tests/e2e/lib"
+	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serror "k8s.io/apimachinery/pkg/api/errors"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -80,7 +82,7 @@ var _ = Describe("AWS backup restore tests", func() {
 			GinkgoWriter.Println("End of velero deployment pod logs")
 		}
 		// remove app namespace if leftover (likely previously failed before reaching uninstall applications) to clear items such as PVCs which are immutable so that next test can create new ones
-		err := dpaCR.Client.Delete(context.Background(), &corev1.Namespace{ObjectMeta: v1.ObjectMeta{
+		err := dpaCR.Client.Delete(context.Background(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{
 			Name:      lastInstallingApplicationNamespace,
 			Namespace: lastInstallingApplicationNamespace,
 		}}, &client.DeleteOptions{})
@@ -101,6 +103,8 @@ var _ = Describe("AWS backup restore tests", func() {
 		PostRestoreVerify    VerificationFunction
 		MaxK8SVersion        *K8sVersion
 		MinK8SVersion        *K8sVersion
+		dpaCrOpts            []DpaCROption
+		backupOpts           []BackupOpts
 	}
 
 	updateLastInstallingNamespace := func(namespace string) {
@@ -123,7 +127,7 @@ var _ = Describe("AWS backup restore tests", func() {
 				Skip(reason)
 			}
 
-			err := dpaCR.Build(brCase.BackupRestoreType)
+			err := dpaCR.Build(brCase.BackupRestoreType, brCase.dpaCrOpts...)
 			Expect(err).NotTo(HaveOccurred())
 
 			updateLastInstallingNamespace(dpaCR.Namespace)
@@ -140,6 +144,7 @@ var _ = Describe("AWS backup restore tests", func() {
 			if brCase.BackupRestoreType == RESTIC {
 				log.Printf("Waiting for restic pods to be running")
 				Eventually(AreResticPodsRunning(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
+				brCase.backupOpts = append(brCase.backupOpts, WithDefaultVolumesToRestic(true))
 			}
 			if brCase.BackupRestoreType == CSI {
 				if provider == "aws" || provider == "ibmcloud" || provider == "gcp" || provider == "azure" {
@@ -189,7 +194,7 @@ var _ = Describe("AWS backup restore tests", func() {
 			Expect(err).ToNot(HaveOccurred())
 			// create backup
 			log.Printf("Creating backup %s for case %s", backupName, brCase.Name)
-			backup, err := CreateBackupForNamespaces(dpaCR.Client, namespace, backupName, []string{brCase.ApplicationNamespace}, brCase.BackupRestoreType == RESTIC)
+			backup, err := CreateBackupForNamespaces(dpaCR.Client, namespace, backupName, []string{brCase.ApplicationNamespace}, brCase.backupOpts...)
 			Expect(err).ToNot(HaveOccurred())
 
 			// wait for backup to not be running
@@ -301,6 +306,45 @@ var _ = Describe("AWS backup restore tests", func() {
 			BackupRestoreType:    RESTIC,
 			PreBackupVerify:      mysqlReady(true, false, RESTIC),
 			PostRestoreVerify:    mysqlReady(false, false, RESTIC),
+		}, nil),
+		Entry("MySQL application NoDefaultBackupStorageLocation", BackupRestoreCase{
+			ApplicationTemplate:  "./sample-applications/mysql-persistent/mysql-persistent-template.yaml",
+			ApplicationNamespace: "mysql-persistent",
+			Name:                 "mysql-e2e",
+			BackupRestoreType:    RESTIC,
+			PreBackupVerify: VerificationFunction(func(client client.Client, namespace string) error {
+				// create BSL
+				err := CreateBackupStorageLocation(client, velerov1.BackupStorageLocation{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      dpaCR.Name + "nobsl-1",
+						Namespace: dpaCR.Namespace,
+					},
+					Spec: *dpaCR.VeleroBSL(),
+				})
+				if err != nil {
+					return err
+				}
+				return mysqlReady(true, false, RESTIC)(client, namespace)
+			}),
+			PostRestoreVerify: VerificationFunction(func(client client.Client, namespace string) error {
+				// delete BSL
+				err := DeleteBackupStorageLocation(client, velerov1.BackupStorageLocation{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      dpaCR.Name + "nobsl-1",
+						Namespace: dpaCR.Namespace,
+					}})
+				if err != nil {
+					return err
+				}
+				return mysqlReady(false, false, RESTIC)(client, namespace)
+			}),
+			dpaCrOpts: []DpaCROption{
+				WithVeleroConfig(&v1alpha1.VeleroConfig{NoDefaultBackupLocation: true}),
+				WithBackupImages(false),
+			},
+			backupOpts: []BackupOpts{
+				WithBackupStorageLocation("ts-" + instanceName + "nobsl-1"),
+			}, // e2e_sute_test.go: dpaCR.name = "ts-" + instanceName
 		}, nil),
 	)
 })

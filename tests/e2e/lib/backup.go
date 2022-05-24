@@ -8,10 +8,27 @@ import (
 	velero "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func CreateBackupForNamespaces(ocClient client.Client, veleroNamespace, backupName string, namespaces []string, defaultVolumesToRestic bool) (velero.Backup, error) {
+type BackupOpts func(*velero.Backup) error
+
+func WithBackupStorageLocation(name string) BackupOpts {
+	return func(backup *velero.Backup) error {
+		backup.Spec.StorageLocation = name
+		return nil
+	}
+}
+
+func WithDefaultVolumesToRestic(val bool) BackupOpts {
+	return func(backup *velero.Backup) error {
+		backup.Spec.DefaultVolumesToRestic = pointer.Bool(val)
+		return nil
+	}
+}
+
+func CreateBackupForNamespaces(ocClient client.Client, veleroNamespace, backupName string, namespaces []string, backupOpts ...BackupOpts) (velero.Backup, error) {
 
 	backup := velero.Backup{
 		ObjectMeta: metav1.ObjectMeta{
@@ -19,9 +36,14 @@ func CreateBackupForNamespaces(ocClient client.Client, veleroNamespace, backupNa
 			Namespace: veleroNamespace,
 		},
 		Spec: velero.BackupSpec{
-			IncludedNamespaces:     namespaces,
-			DefaultVolumesToRestic: &defaultVolumesToRestic,
+			IncludedNamespaces: namespaces,
 		},
+	}
+	for _, opt := range backupOpts {
+		err := opt(&backup)
+		if err != nil {
+			return velero.Backup{}, err
+		}
 	}
 	err := ocClient.Create(context.Background(), &backup)
 	return backup, err

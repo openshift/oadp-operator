@@ -49,10 +49,55 @@ type DpaCustomResource struct {
 	Provider          string
 }
 
+type DpaCROption func(*oadpv1alpha1.DataProtectionApplication) error
+
+func WithConfiguration(configuration *oadpv1alpha1.ApplicationConfig) DpaCROption {
+	return func(cr *oadpv1alpha1.DataProtectionApplication) error {
+		cr.Spec.Configuration = configuration
+		return nil
+	}
+}
+
+func WithVeleroConfig(config *oadpv1alpha1.VeleroConfig) DpaCROption {
+	return func(cr *oadpv1alpha1.DataProtectionApplication) error {
+		cr.Spec.Configuration.Velero = config
+		return nil
+	}
+}
+
+func WithResticConfig(config *oadpv1alpha1.ResticConfig) DpaCROption {
+	return func(cr *oadpv1alpha1.DataProtectionApplication) error {
+		cr.Spec.Configuration.Restic = config
+		return nil
+	}
+}
+
+func WithBackupImages(backupImage bool) DpaCROption {
+	return func(cr *oadpv1alpha1.DataProtectionApplication) error {
+		cr.Spec.BackupImages = pointer.Bool(backupImage)
+		return nil
+	}
+}
+
 var VeleroPrefix = "velero-e2e-" + string(uuid.NewUUID())
 var Dpa *oadpv1alpha1.DataProtectionApplication
 
-func (v *DpaCustomResource) Build(backupRestoreType BackupRestoreType) error {
+func (v *DpaCustomResource) VeleroBSL() *velero.BackupStorageLocationSpec {
+	return &velero.BackupStorageLocationSpec{
+		Provider:   v.CustomResource.Spec.BackupLocations[0].Velero.Provider,
+		Default:    true,
+		Config:     v.CustomResource.Spec.BackupLocations[0].Velero.Config,
+		Credential: v.CustomResource.Spec.BackupLocations[0].Velero.Credential,
+		StorageType: velero.StorageType{
+			ObjectStorage: &velero.ObjectStorageLocation{
+				Bucket: v.CustomResource.Spec.BackupLocations[0].Velero.ObjectStorage.Bucket,
+				Prefix: VeleroPrefix,
+			},
+		},
+	}
+}
+
+func (v *DpaCustomResource) Build(backupRestoreType BackupRestoreType, dpaCrOpts ...DpaCROption) error {
 	// Velero Instance creation spec with backupstorage location default to AWS. Would need to parameterize this later on to support multiple plugins.
 	dpaInstance := oadpv1alpha1.DataProtectionApplication{
 		ObjectMeta: metav1.ObjectMeta{
@@ -121,6 +166,12 @@ func (v *DpaCustomResource) Build(backupRestoreType BackupRestoreType) error {
 	dpaInstance.Spec.Configuration.Velero.FeatureFlags = make([]string, 0)
 	for k := range featureFlags {
 		dpaInstance.Spec.Configuration.Velero.FeatureFlags = append(dpaInstance.Spec.Configuration.Velero.FeatureFlags, k)
+	}
+
+	for _, opt := range dpaCrOpts {
+		if err := opt(&dpaInstance); err != nil {
+			return err
+		}
 	}
 	v.CustomResource = &dpaInstance
 	return nil
