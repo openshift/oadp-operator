@@ -10,6 +10,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
+	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -22,7 +23,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "given valid DPA CR, no error case",
+			name: "given valid DPA CR, no default backup location, no backup images, no error case",
 			dpa: &oadpv1alpha1.DataProtectionApplication{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-DPA-CR",
@@ -36,6 +37,33 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 							},
 							NoDefaultBackupLocation: true,
 						},
+					},
+					BackupImages: pointer.Bool(false),
+				},
+			},
+			objects: []client.Object{},
+			wantErr: false,
+			want:    true,
+		},
+		{
+			name: "given valid DPA CR, no default backup location, no backup images, MTC type override, no error case",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-DPA-CR",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+								oadpv1alpha1.DefaultPluginAWS,
+							},
+							NoDefaultBackupLocation: true,
+						},
+					},
+					BackupImages: pointer.Bool(false),
+					UnsupportedOverrides: map[oadpv1alpha1.UnsupportedImageKey]string{
+						oadpv1alpha1.OperatorTypeKey: oadpv1alpha1.OperatorTypeMTC,
 					},
 				},
 			},
@@ -51,7 +79,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 			want:    true,
 		},
 		{
-			name: "given valid DPA CR, error case",
+			name: "given valid DPA CR, no default backup location, no backup images, notMTC type override, error case",
 			dpa: &oadpv1alpha1.DataProtectionApplication{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-DPA-CR",
@@ -66,6 +94,62 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 							NoDefaultBackupLocation: true,
 						},
 					},
+					BackupImages: pointer.Bool(false),
+					UnsupportedOverrides: map[oadpv1alpha1.UnsupportedImageKey]string{
+						oadpv1alpha1.OperatorTypeKey: "not" + oadpv1alpha1.OperatorTypeMTC,
+					},
+				},
+			},
+			objects: []client.Object{
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "cloud-credentials",
+						Namespace: "test-ns",
+					},
+				},
+			},
+			wantErr: true,
+			want:    false,
+		},
+		{
+			name: "given valid DPA CR, no default backup location, backup images cannot be nil, error case",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-DPA-CR",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+								oadpv1alpha1.DefaultPluginAWS,
+							},
+							NoDefaultBackupLocation: true,
+						},
+					},
+				},
+			},
+			objects: []client.Object{},
+			wantErr: true,
+			want:    false,
+		},
+		{
+			name: "given valid DPA CR, no default backup location, backup images cannot be true, error case",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-DPA-CR",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+								oadpv1alpha1.DefaultPluginAWS,
+							},
+							NoDefaultBackupLocation: true,
+						},
+					},
+					BackupImages: pointer.Bool(true),
 				},
 			},
 			objects: []client.Object{},
