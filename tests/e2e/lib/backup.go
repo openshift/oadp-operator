@@ -11,7 +11,16 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func CreateBackupForNamespaces(ocClient client.Client, veleroNamespace, backupName string, namespaces []string) (velero.Backup, error) {
+type BackupOpts func(*velero.Backup) error
+
+func WithBackupStorageLocation(name string) BackupOpts {
+	return func(backup *velero.Backup) error {
+		backup.Spec.StorageLocation = name
+		return nil
+	}
+}
+
+func CreateBackupForNamespaces(ocClient client.Client, veleroNamespace, backupName string, namespaces []string, backupOpts ...BackupOpts) (velero.Backup, error) {
 
 	backup := velero.Backup{
 		ObjectMeta: metav1.ObjectMeta{
@@ -21,6 +30,12 @@ func CreateBackupForNamespaces(ocClient client.Client, veleroNamespace, backupNa
 		Spec: velero.BackupSpec{
 			IncludedNamespaces: namespaces,
 		},
+	}
+	for _, opt := range backupOpts {
+		err := opt(&backup)
+		if err != nil {
+			return velero.Backup{}, err
+		}
 	}
 	err := ocClient.Create(context.Background(), &backup)
 	return backup, err
