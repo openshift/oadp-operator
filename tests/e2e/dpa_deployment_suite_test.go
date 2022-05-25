@@ -15,7 +15,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/utils/pointer"
 )
-
 var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 	provider := Dpa.Spec.BackupLocations[0].Velero.Provider
 	bucket := Dpa.Spec.BackupLocations[0].Velero.ObjectStorage.Bucket
@@ -408,6 +407,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 						Enable:    pointer.Bool(true),
 					},
 				},
+				BackupImages: pointer.BoolPtr(false),
 			},
 			WantError: false,
 		}, nil),
