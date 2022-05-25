@@ -192,64 +192,23 @@ func (r *DPAReconciler) ReconcileRegistries(log logr.Logger) (bool, error) {
 				Namespace: bsl.Namespace,
 			},
 		}
-
-		if !dpa.BackupImages() {
-			deleteContext := context.Background()
-			if err := r.Get(deleteContext, types.NamespacedName{
-				Name:      registryDeployment.Name,
-				Namespace: r.NamespacedName.Namespace,
-			}, registryDeployment); err != nil {
-				if k8serror.IsNotFound(err) {
-					return true, nil
-				}
-				return false, err
+		deleteContext := context.Background()
+		if err := r.Get(deleteContext, types.NamespacedName{
+			Name:      registryDeployment.Name,
+			Namespace: r.NamespacedName.Namespace,
+		}, registryDeployment); err != nil {
+			if k8serror.IsNotFound(err) {
+				return true, nil
 			}
-
-			deleteOptionPropagationForeground := metav1.DeletePropagationForeground
-			if err := r.Delete(deleteContext, registryDeployment, &client.DeleteOptions{PropagationPolicy: &deleteOptionPropagationForeground}); err != nil {
-				r.EventRecorder.Event(registryDeployment, corev1.EventTypeNormal, "DeleteRegistryDeploymentFailed", "Could not delete registry deployment:"+err.Error())
-				return false, err
-			}
-			r.EventRecorder.Event(registryDeployment, corev1.EventTypeNormal, "DeletedRegistryDeployment", "Registry Deployment deleted")
-
-			return true, nil
-		}
-
-		op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, registryDeployment, func() error {
-
-			// Setting Registry Deployment selector if a new object is created as it is immutable
-			if registryDeployment.ObjectMeta.CreationTimestamp.IsZero() {
-				registryDeployment.Spec.Selector = &metav1.LabelSelector{
-					MatchLabels: map[string]string{
-						"component": registryName(&bsl),
-					},
-				}
-			}
-
-			err := controllerutil.SetControllerReference(&dpa, registryDeployment, r.Scheme)
-			if err != nil {
-				return err
-			}
-			// update the Registry Deployment template
-			err = r.buildRegistryDeployment(registryDeployment, &bsl, &dpa)
-			return err
-		})
-
-		if err != nil {
 			return false, err
 		}
 
-		//TODO: Review registry deployment status and report errors and conditions
-
-		if op == controllerutil.OperationResultCreated || op == controllerutil.OperationResultUpdated {
-			// Trigger event to indicate registry deployment was created or updated
-			r.EventRecorder.Event(registryDeployment,
-				corev1.EventTypeNormal,
-				"RegistryDeploymentReconciled",
-				fmt.Sprintf("performed %s on registry deployment %s/%s", op, registryDeployment.Namespace, registryDeployment.Name),
-			)
+		deleteOptionPropagationForeground := metav1.DeletePropagationForeground
+		if err := r.Delete(deleteContext, registryDeployment, &client.DeleteOptions{PropagationPolicy: &deleteOptionPropagationForeground}); err != nil {
+			r.EventRecorder.Event(registryDeployment, corev1.EventTypeNormal, "DeleteRegistryDeploymentFailed", "Could not delete registry deployment:"+err.Error())
+			return false, err
 		}
-
+		r.EventRecorder.Event(registryDeployment, corev1.EventTypeNormal, "DeletedRegistryDeployment", "Registry Deployment deleted")
 	}
 
 	return true, nil
