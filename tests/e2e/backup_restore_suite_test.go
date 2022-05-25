@@ -133,6 +133,7 @@ var _ = Describe("AWS backup restore tests", func() {
 
 			fmt.Printf("Cluster type: %s \n", provider)
 
+			Eventually(dpaCR.DPAReconcileError(), timeoutMultiplier*time.Minute*3, time.Second*5).Should(Equal(""))
 			log.Printf("Waiting for velero pod to be running")
 			Eventually(AreVeleroPodsRunning(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 

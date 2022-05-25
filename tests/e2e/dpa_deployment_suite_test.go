@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/google/go-cmp/cmp"
 	. "github.com/onsi/ginkgo/v2"
@@ -587,12 +586,10 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 			if installCase.WantError {
 				// Eventually()
 				log.Printf("Test case expected to error. Waiting for the error to show in DPA Status")
-				Eventually(dpaCR.GetNoErr().Status.Conditions[0].Type, timeoutMultiplier*time.Minute*3, time.Second*5).Should(Equal("Reconciled"))
-				Eventually(dpaCR.GetNoErr().Status.Conditions[0].Status, timeoutMultiplier*time.Minute*3, time.Second*5).Should(Equal(metav1.ConditionFalse))
-				Eventually(dpaCR.GetNoErr().Status.Conditions[0].Reason, timeoutMultiplier*time.Minute*3, time.Second*5).Should(Equal("Error"))
-				Eventually(dpaCR.GetNoErr().Status.Conditions[0].Message, timeoutMultiplier*time.Minute*3, time.Second*5).Should(Equal(expectedErr.Error()))
+				Eventually(dpaCR.DPAReconcileError(), timeoutMultiplier*time.Minute*3, time.Second*5).Should(Equal(expectedErr.Error()))
 				return
 			}
+			Eventually(dpaCR.DPAReconcileError(), timeoutMultiplier*time.Minute*3, time.Second*5).Should(Equal(""))
 			// sleep to accomodates throttled CI environment
 			time.Sleep(20 * time.Second)
 			// Capture logs right after DPA is reconciled for diffing after one minute.
@@ -695,6 +692,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 			log.Printf("Creating dpa")
 			err = dpaCR.CreateOrUpdate(&dpaCR.CustomResource.Spec)
 			Expect(err).NotTo(HaveOccurred())
+			Eventually(dpaCR.DPAReconcileError(), timeoutMultiplier*time.Minute*3, time.Second*5).Should(Equal(""))
 			log.Printf("Waiting for velero pod to be running")
 			Eventually(AreVeleroPodsRunning(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 			log.Printf("Deleting dpa")

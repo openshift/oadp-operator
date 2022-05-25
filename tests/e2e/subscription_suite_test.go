@@ -59,7 +59,7 @@ var _ = Describe("Subscription Config Suite Test", func() {
 				log.Printf("CreatingOrUpdate test Velero")
 				err = dpaCR.CreateOrUpdate(&dpaCR.CustomResource.Spec)
 				Expect(err).NotTo(HaveOccurred())
-
+				Eventually(dpaCR.DPAReconcileError(), timeoutMultiplier*time.Minute*3, time.Second*5).Should(Equal(""))
 				log.Printf("Getting velero object")
 				velero, err := dpaCR.Get()
 				Expect(err).NotTo(HaveOccurred())
