@@ -41,6 +41,8 @@ const (
 	RESTIC BackupRestoreType = "restic"
 )
 
+var backupLocations []oadpv1alpha1.BackupLocation
+
 type DpaCustomResource struct {
 	Name              string
 	Namespace         string
@@ -82,23 +84,23 @@ func WithBackupImages(backupImage bool) DpaCROption {
 		return nil
 	}
 }
+func WithBackupLocations(locations []oadpv1alpha1.BackupLocation) DpaCROption {
+	return func(cr *oadpv1alpha1.DataProtectionApplication) error {
+		cr.Spec.BackupLocations = locations
+		return nil
+	}
+}
 
 var VeleroPrefix = "velero-e2e-" + string(uuid.NewUUID())
 var Dpa *oadpv1alpha1.DataProtectionApplication
 
 func (v *DpaCustomResource) VeleroBSL() *velero.BackupStorageLocationSpec {
-	return &velero.BackupStorageLocationSpec{
-		Provider:   v.CustomResource.Spec.BackupLocations[0].Velero.Provider,
-		Default:    true,
-		Config:     v.CustomResource.Spec.BackupLocations[0].Velero.Config,
-		Credential: v.CustomResource.Spec.BackupLocations[0].Velero.Credential,
-		StorageType: velero.StorageType{
-			ObjectStorage: &velero.ObjectStorageLocation{
-				Bucket: v.CustomResource.Spec.BackupLocations[0].Velero.ObjectStorage.Bucket,
-				Prefix: VeleroPrefix,
-			},
-		},
-	}
+	return GetBackupLocations()[0].Velero
+}
+
+// get var that was initialized from `func LoadDpaSettingsFromJson(settings string) error {`
+func GetBackupLocations() []oadpv1alpha1.BackupLocation {
+	return backupLocations
 }
 
 func (v *DpaCustomResource) Build(backupRestoreType BackupRestoreType, dpaCrOpts ...DpaCROption) error {
@@ -296,8 +298,8 @@ func AreVeleroDeploymentReplicasReady(namespace string) wait.ConditionFunc {
 			return false, nil
 		}
 		for _, deploymentInfo := range (*deploymentList).Items {
-			if deploymentInfo.Status.UpdatedReplicas != deploymentInfo.Status.Replicas || 
-				deploymentInfo.Status.AvailableReplicas != deploymentInfo.Status.Replicas || 
+			if deploymentInfo.Status.UpdatedReplicas != deploymentInfo.Status.Replicas ||
+				deploymentInfo.Status.AvailableReplicas != deploymentInfo.Status.Replicas ||
 				deploymentInfo.Status.UnavailableReplicas != 0 {
 				log.Printf("deployment: %s does not have desired updated replicas: %v", deploymentInfo.Name, deploymentInfo.Status)
 				log.Printf("deployment has conditions: %v", deploymentInfo.Status.Conditions)
@@ -479,6 +481,7 @@ func LoadDpaSettingsFromJson(settings string) string {
 	if err != nil {
 		return fmt.Sprintf("Error getting settings json file: %v", err)
 	}
+	backupLocations = Dpa.Spec.BackupLocations
 	return ""
 }
 

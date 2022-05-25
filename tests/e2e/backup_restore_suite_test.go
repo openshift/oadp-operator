@@ -300,6 +300,7 @@ var _ = Describe("AWS backup restore tests", func() {
 			dpaCrOpts: []DpaCROption{
 				WithVeleroConfig(&v1alpha1.VeleroConfig{NoDefaultBackupLocation: true}),
 				WithBackupImages(false),
+				WithBackupLocations([]v1alpha1.BackupLocation{}), //empty backuplocations
 			},
 			backupOpts: []BackupOpts{WithBackupStorageLocation("ts-" + instanceName + "nobsl-1")}, // e2e_sute_test.go: dpaCR.name = "ts-" + instanceName
 		}, nil),
