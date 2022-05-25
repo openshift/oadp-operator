@@ -299,13 +299,13 @@ func (r *DPAReconciler) buildRegistryDeployment(registryDeployment *appsv1.Deplo
 			)
 		}
 	} else if bsl.Spec.Provider == GCPProvider {
-		cloudProviderMap := credentials.PluginSpecificFields[oadpv1alpha1.DefaultPluginGCP]
+		secretName, _ := r.getSecretNameAndKey(&bsl.Spec, oadpv1alpha1.DefaultPluginGCP)
 		registryDeployment.Spec.Template.Spec.Volumes = []corev1.Volume{
 			{
-				Name: cloudProviderMap.SecretName,
+				Name: secretName,
 				VolumeSource: corev1.VolumeSource{
 					Secret: &corev1.SecretVolumeSource{
-						SecretName: cloudProviderMap.SecretName,
+						SecretName: secretName,
 					},
 				},
 			},
