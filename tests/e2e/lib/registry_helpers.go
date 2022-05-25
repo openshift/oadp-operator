@@ -24,6 +24,10 @@ func AreRegistryDeploymentsAvailable(namespace string) wait.ConditionFunc {
 		}
 		// loop until deployment status is 'Running' or timeout
 		for _, deploymentInfo := range deploymentList.Items {
+			if deploymentInfo.Status.UpdatedReplicas != deploymentInfo.Status.Replicas  ||
+				deploymentInfo.Status.ReadyReplicas != deploymentInfo.Status.Replicas {
+				return false, fmt.Errorf("registry deployment is not yet ready.\nupdatedReplicas: %v\nreadyReplicas: %v\nwantedReplicas: %v", deploymentInfo.Status.UpdatedReplicas, deploymentInfo.Status.ReadyReplicas, deploymentInfo.Status.Replicas)
+			}
 			for _, conditions := range deploymentInfo.Status.Conditions {
 				if conditions.Type == appsv1.DeploymentAvailable && conditions.Status != corev1.ConditionTrue {
 					return false, fmt.Errorf("registry deployment is not yet available.\nconditions: %v", deploymentInfo.Status.Conditions)

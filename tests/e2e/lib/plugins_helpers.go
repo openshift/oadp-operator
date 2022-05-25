@@ -79,18 +79,3 @@ func DoesCustomPluginExist(namespace string, plugin oadpv1alpha1.CustomPlugin) w
 	}
 }
 
-func DoesVeleroDeploymentExist(namespace string, deploymentName string) wait.ConditionFunc {
-	log.Printf("Waiting for velero deployment to be created...")
-	return func() (bool, error) {
-		client, err := setUpClient()
-		if err != nil {
-			return false, err
-		}
-		// Check for deployment
-		_, err = client.AppsV1().Deployments(namespace).Get(context.Background(), deploymentName, metav1.GetOptions{})
-		if err != nil {
-			return false, err
-		}
-		return true, nil
-	}
-}

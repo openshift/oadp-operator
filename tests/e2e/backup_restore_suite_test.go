@@ -98,11 +98,11 @@ var _ = Describe("AWS backup restore tests", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			log.Printf("Waiting for velero pod to be running")
-			Eventually(AreVeleroPodsRunning(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
+			Eventually(AreVeleroDeploymentReplicasReady(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 
 			if brCase.BackupRestoreType == RESTIC {
 				log.Printf("Waiting for restic pods to be running")
-				Eventually(AreResticPodsRunning(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
+				Eventually(AreResticDaemonsetUpdatedAndReady(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 			}
 			if brCase.BackupRestoreType == CSI {
 				if provider == "aws" || provider == "ibmcloud" {

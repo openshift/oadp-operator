@@ -269,19 +269,22 @@ func GetVeleroPods(namespace string) (*corev1.PodList, error) {
 	return podList, nil
 }
 
-func AreVeleroPodsRunning(namespace string) wait.ConditionFunc {
+func AreVeleroDeploymentReplicasReady(namespace string) wait.ConditionFunc {
 	return func() (bool, error) {
-		podList, err := GetVeleroPods(namespace)
+		deploymentList, err := GetVeleroDeploymentList(namespace)
 		if err != nil {
 			return false, err
 		}
-		if podList.Items == nil || len(podList.Items) == 0 {
-			GinkgoWriter.Println("velero pods not found")
+		if deploymentList.Items == nil || len(deploymentList.Items) == 0 {
+			GinkgoWriter.Println("velero deployments not found")
 			return false, nil
 		}
-		for _, podInfo := range (*podList).Items {
-			if podInfo.Status.Phase != corev1.PodRunning {
-				log.Printf("pod: %s is not yet running with status: %v", podInfo.Name, podInfo.Status)
+		for _, deploymentInfo := range (*deploymentList).Items {
+			if deploymentInfo.Status.UpdatedReplicas != deploymentInfo.Status.Replicas || 
+				deploymentInfo.Status.AvailableReplicas != deploymentInfo.Status.Replicas || 
+				deploymentInfo.Status.UnavailableReplicas != 0 {
+				log.Printf("deployment: %s does not have desired updated replicas: %v", deploymentInfo.Name, deploymentInfo.Status)
+				log.Printf("deployment has conditions: %v", deploymentInfo.Status.Conditions)
 				return false, nil
 			}
 		}
