@@ -299,13 +299,13 @@ var _ = Describe("AWS backup restore tests", func() {
 			}),
 			dpaCrOpts: []DpaCROption{
 				WithVeleroConfig(&v1alpha1.VeleroConfig{
-					FeatureFlags: GetDpa().Spec.Configuration.Velero.FeatureFlags,
-					DefaultPlugins: GetDpa().Spec.Configuration.Velero.DefaultPlugins,
-					CustomPlugins: GetDpa().Spec.Configuration.Velero.CustomPlugins,
-					PodConfig: GetDpa().Spec.Configuration.Velero.PodConfig,
+					FeatureFlags:                    GetDpa().Spec.Configuration.Velero.FeatureFlags,
+					DefaultPlugins:                  GetDpa().Spec.Configuration.Velero.DefaultPlugins,
+					CustomPlugins:                   GetDpa().Spec.Configuration.Velero.CustomPlugins,
+					PodConfig:                       GetDpa().Spec.Configuration.Velero.PodConfig,
 					RestoreResourcesVersionPriority: GetDpa().Spec.Configuration.Velero.RestoreResourcesVersionPriority,
-					LogLevel: GetDpa().Spec.Configuration.Velero.LogLevel,
-					NoDefaultBackupLocation: true, // the only difference from the default velero config
+					LogLevel:                        GetDpa().Spec.Configuration.Velero.LogLevel,
+					NoDefaultBackupLocation:         true, // the only difference from the default velero config
 				}),
 				WithBackupImages(false),
 				WithBackupLocations([]v1alpha1.BackupLocation{}), //empty backuplocations

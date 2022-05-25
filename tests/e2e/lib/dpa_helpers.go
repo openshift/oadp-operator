@@ -93,6 +93,7 @@ func WithBackupLocations(locations []oadpv1alpha1.BackupLocation) DpaCROption {
 
 var VeleroPrefix = "velero-e2e-" + string(uuid.NewUUID())
 var dpa *oadpv1alpha1.DataProtectionApplication
+
 //  This function should be the source of truth for the DPA CR loaded from JSON
 // DPA is set in LoadDpaSettingsFromJson only.
 func GetDpa() *oadpv1alpha1.DataProtectionApplication {
