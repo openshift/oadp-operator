@@ -78,4 +78,3 @@ func DoesCustomPluginExist(namespace string, plugin oadpv1alpha1.CustomPlugin) w
 		return false, err
 	}
 }
-

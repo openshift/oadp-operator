@@ -53,7 +53,7 @@ func AreResticDaemonsetUpdatedAndReady(namespace string) wait.ConditionFunc {
 		if err != nil {
 			return false, err
 		}
-		if rds.Status.UpdatedNumberScheduled == rds.Status.DesiredNumberScheduled && 
+		if rds.Status.UpdatedNumberScheduled == rds.Status.DesiredNumberScheduled &&
 			rds.Status.NumberUnavailable == 0 {
 			return true, nil
 		}
@@ -75,9 +75,9 @@ func DoesDaemonSetExists(namespace string, resticName string) wait.ConditionFunc
 
 func GetResticDaemonSet(namespace, resticName string) (*appsv1.DaemonSet, error) {
 	clientset, err := setUpClient()
-		if err != nil {
-			return nil, err
-		}
+	if err != nil {
+		return nil, err
+	}
 	return clientset.AppsV1().DaemonSets(namespace).Get(context.Background(), resticName, metav1.GetOptions{})
 }
 
