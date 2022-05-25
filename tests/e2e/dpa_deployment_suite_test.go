@@ -17,9 +17,9 @@ import (
 )
 
 var _ = Describe("Configuration testing for DPA Custom Resource", func() {
-	provider := Dpa.Spec.BackupLocations[0].Velero.Provider
-	bucket := Dpa.Spec.BackupLocations[0].Velero.ObjectStorage.Bucket
-	bslConfig := Dpa.Spec.BackupLocations[0].Velero.Config
+	provider := GetDpa().Spec.BackupLocations[0].Velero.Provider
+	bucket := GetDpa().Spec.BackupLocations[0].Velero.ObjectStorage.Bucket
+	bslConfig := GetDpa().Spec.BackupLocations[0].Velero.Config
 
 	type InstallCase struct {
 		Name               string
@@ -36,7 +36,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 			DpaSpec: &oadpv1alpha1.DataProtectionApplicationSpec{
 				Configuration: &oadpv1alpha1.ApplicationConfig{
 					Velero: &oadpv1alpha1.VeleroConfig{
-						DefaultPlugins: Dpa.Spec.Configuration.Velero.DefaultPlugins,
+						DefaultPlugins: GetDpa().Spec.Configuration.Velero.DefaultPlugins,
 						PodConfig:      &oadpv1alpha1.PodConfig{},
 					},
 					Restic: &oadpv1alpha1.ResticConfig{
@@ -69,7 +69,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 			DpaSpec: &oadpv1alpha1.DataProtectionApplicationSpec{
 				Configuration: &oadpv1alpha1.ApplicationConfig{
 					Velero: &oadpv1alpha1.VeleroConfig{
-						DefaultPlugins: Dpa.Spec.Configuration.Velero.DefaultPlugins,
+						DefaultPlugins: GetDpa().Spec.Configuration.Velero.DefaultPlugins,
 						PodConfig:      &oadpv1alpha1.PodConfig{},
 					},
 					Restic: &oadpv1alpha1.ResticConfig{
@@ -104,7 +104,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 						PodConfig: &oadpv1alpha1.PodConfig{},
 						DefaultPlugins: append([]oadpv1alpha1.DefaultPlugin{
 							oadpv1alpha1.DefaultPluginCSI,
-						}, Dpa.Spec.Configuration.Velero.DefaultPlugins...),
+						}, GetDpa().Spec.Configuration.Velero.DefaultPlugins...),
 						CustomPlugins: []oadpv1alpha1.CustomPlugin{
 							{
 								Name:  "encryption-plugin",
@@ -156,7 +156,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 						},
 						DefaultPlugins: append([]oadpv1alpha1.DefaultPlugin{
 							oadpv1alpha1.DefaultPluginCSI,
-						}, Dpa.Spec.Configuration.Velero.DefaultPlugins...),
+						}, GetDpa().Spec.Configuration.Velero.DefaultPlugins...),
 					},
 					Restic: &oadpv1alpha1.ResticConfig{
 						PodConfig: &oadpv1alpha1.PodConfig{},
@@ -224,14 +224,14 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 				Configuration: &oadpv1alpha1.ApplicationConfig{
 					Velero: &oadpv1alpha1.VeleroConfig{
 						PodConfig:      &oadpv1alpha1.PodConfig{},
-						DefaultPlugins: Dpa.Spec.Configuration.Velero.DefaultPlugins,
+						DefaultPlugins: GetDpa().Spec.Configuration.Velero.DefaultPlugins,
 					},
 					Restic: &oadpv1alpha1.ResticConfig{
 						PodConfig: &oadpv1alpha1.PodConfig{},
 						Enable:    pointer.Bool(true),
 					},
 				},
-				SnapshotLocations: Dpa.Spec.SnapshotLocations,
+				SnapshotLocations: GetDpa().Spec.SnapshotLocations,
 				BackupLocations: []oadpv1alpha1.BackupLocation{
 					{
 						Velero: &velero.BackupStorageLocationSpec{
@@ -257,7 +257,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 				Configuration: &oadpv1alpha1.ApplicationConfig{
 					Velero: &oadpv1alpha1.VeleroConfig{
 						PodConfig:      &oadpv1alpha1.PodConfig{},
-						DefaultPlugins: Dpa.Spec.Configuration.Velero.DefaultPlugins,
+						DefaultPlugins: GetDpa().Spec.Configuration.Velero.DefaultPlugins,
 					},
 					Restic: &oadpv1alpha1.ResticConfig{
 						PodConfig: &oadpv1alpha1.PodConfig{},
@@ -291,7 +291,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 						PodConfig: &oadpv1alpha1.PodConfig{},
 						DefaultPlugins: append([]oadpv1alpha1.DefaultPlugin{
 							oadpv1alpha1.DefaultPluginCSI,
-						}, Dpa.Spec.Configuration.Velero.DefaultPlugins...),
+						}, GetDpa().Spec.Configuration.Velero.DefaultPlugins...),
 					},
 					Restic: &oadpv1alpha1.ResticConfig{
 						PodConfig: &oadpv1alpha1.PodConfig{},
@@ -338,7 +338,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 				Configuration: &oadpv1alpha1.ApplicationConfig{
 					Velero: &oadpv1alpha1.VeleroConfig{
 						PodConfig:      &oadpv1alpha1.PodConfig{},
-						DefaultPlugins: Dpa.Spec.Configuration.Velero.DefaultPlugins,
+						DefaultPlugins: GetDpa().Spec.Configuration.Velero.DefaultPlugins,
 					},
 					Restic: &oadpv1alpha1.ResticConfig{
 						PodConfig: &oadpv1alpha1.PodConfig{
@@ -374,7 +374,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 				Configuration: &oadpv1alpha1.ApplicationConfig{
 					Velero: &oadpv1alpha1.VeleroConfig{
 						PodConfig:      &oadpv1alpha1.PodConfig{},
-						DefaultPlugins: Dpa.Spec.Configuration.Velero.DefaultPlugins,
+						DefaultPlugins: GetDpa().Spec.Configuration.Velero.DefaultPlugins,
 					},
 					Restic: &oadpv1alpha1.ResticConfig{
 						PodConfig: &oadpv1alpha1.PodConfig{
@@ -401,7 +401,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 					Velero: &oadpv1alpha1.VeleroConfig{
 						PodConfig:               &oadpv1alpha1.PodConfig{},
 						NoDefaultBackupLocation: true,
-						DefaultPlugins:          Dpa.Spec.Configuration.Velero.DefaultPlugins,
+						DefaultPlugins:          GetDpa().Spec.Configuration.Velero.DefaultPlugins,
 					},
 					Restic: &oadpv1alpha1.ResticConfig{
 						PodConfig: &oadpv1alpha1.PodConfig{},

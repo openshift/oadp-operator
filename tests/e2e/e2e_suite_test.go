@@ -96,7 +96,7 @@ var _ = BeforeSuite(func() {
 		CredSecretRef: credSecretRef,
 		Provider:      provider,
 	}
-	dpaCR.CustomResource = Dpa
+	dpaCR.CustomResource = GetDpa()
 	testSuiteInstanceName := "ts-" + instanceName
 	dpaCR.Name = testSuiteInstanceName
 

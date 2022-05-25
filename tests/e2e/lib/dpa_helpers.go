@@ -92,7 +92,12 @@ func WithBackupLocations(locations []oadpv1alpha1.BackupLocation) DpaCROption {
 }
 
 var VeleroPrefix = "velero-e2e-" + string(uuid.NewUUID())
-var Dpa *oadpv1alpha1.DataProtectionApplication
+var dpa *oadpv1alpha1.DataProtectionApplication
+//  This function should be the source of truth for the DPA CR loaded from JSON
+// DPA is set in LoadDpaSettingsFromJson only.
+func GetDpa() *oadpv1alpha1.DataProtectionApplication {
+	return dpa
+}
 
 func (v *DpaCustomResource) VeleroBSL() *velero.BackupStorageLocationSpec {
 	return GetBackupLocations()[0].Velero
@@ -100,7 +105,7 @@ func (v *DpaCustomResource) VeleroBSL() *velero.BackupStorageLocationSpec {
 
 // get var that was initialized from `func LoadDpaSettingsFromJson(settings string) error {`
 func GetBackupLocations() []oadpv1alpha1.BackupLocation {
-	return backupLocations
+	return GetDpa().Spec.BackupLocations
 }
 
 func (v *DpaCustomResource) Build(backupRestoreType BackupRestoreType, dpaCrOpts ...DpaCROption) error {
@@ -113,7 +118,8 @@ func (v *DpaCustomResource) Build(backupRestoreType BackupRestoreType, dpaCrOpts
 		Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 			Configuration: &oadpv1alpha1.ApplicationConfig{
 				Velero: &oadpv1alpha1.VeleroConfig{
-					DefaultPlugins: v.CustomResource.Spec.Configuration.Velero.DefaultPlugins,
+					// DefaultPlugins: v.CustomResource.Spec.Configuration.Velero.DefaultPlugins,
+					DefaultPlugins:GetDpa().Spec.Configuration.Velero.DefaultPlugins,
 				},
 				Restic: &oadpv1alpha1.ResticConfig{
 					PodConfig: &oadpv1alpha1.PodConfig{},
@@ -480,19 +486,18 @@ func LoadDpaSettingsFromJson(settings string) string {
 		return fmt.Sprintf("Error decoding json file: %v", err)
 	}
 
-	Dpa = &oadpv1alpha1.DataProtectionApplication{}
-	err = json.Unmarshal(file, &Dpa)
+	dpa = &oadpv1alpha1.DataProtectionApplication{}
+	err = json.Unmarshal(file, &dpa)
 	if err != nil {
 		return fmt.Sprintf("Error getting settings json file: %v", err)
 	}
-	backupLocations = Dpa.Spec.BackupLocations
 	return ""
 }
 
 func GetSecretRef(credSecretRef string) string {
-	if Dpa.Spec.BackupLocations[0].Velero.Credential == nil {
+	if GetDpa().Spec.BackupLocations[0].Velero.Credential == nil {
 		return credSecretRef
 	} else {
-		return Dpa.Spec.BackupLocations[0].Velero.Credential.Name
+		return GetDpa().Spec.BackupLocations[0].Velero.Credential.Name
 	}
 }
