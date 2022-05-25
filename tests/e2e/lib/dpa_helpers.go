@@ -12,7 +12,6 @@ import (
 	"strings"
 	"time"
 
-	. "github.com/onsi/ginkgo/v2"
 	buildv1 "github.com/openshift/api/build/v1"
 	"github.com/openshift/oadp-operator/pkg/common"
 
@@ -120,7 +119,7 @@ func (v *DpaCustomResource) Build(backupRestoreType BackupRestoreType, dpaCrOpts
 			Configuration: &oadpv1alpha1.ApplicationConfig{
 				Velero: &oadpv1alpha1.VeleroConfig{
 					// DefaultPlugins: v.CustomResource.Spec.Configuration.Velero.DefaultPlugins,
-					DefaultPlugins:GetDpa().Spec.Configuration.Velero.DefaultPlugins,
+					DefaultPlugins: GetDpa().Spec.Configuration.Velero.DefaultPlugins,
 				},
 				Restic: &oadpv1alpha1.ResticConfig{
 					PodConfig: &oadpv1alpha1.PodConfig{},
@@ -300,22 +299,16 @@ func GetVeleroPods(namespace string) (*corev1.PodList, error) {
 
 func AreVeleroDeploymentReplicasReady(namespace string) wait.ConditionFunc {
 	return func() (bool, error) {
-		deploymentList, err := GetVeleroDeploymentList(namespace)
+		deployment, err := GetVeleroDeployment(namespace)
 		if err != nil {
 			return false, err
 		}
-		if deploymentList.Items == nil || len(deploymentList.Items) == 0 {
-			GinkgoWriter.Println("velero deployments not found")
+		if deployment.Status.UpdatedReplicas != deployment.Status.Replicas ||
+			deployment.Status.AvailableReplicas != deployment.Status.Replicas ||
+			deployment.Status.UnavailableReplicas != 0 {
+			log.Printf("deployment: %s does not have desired updated replicas: %v", deployment.Name, deployment.Status)
+			log.Printf("deployment has conditions: %v", deployment.Status.Conditions)
 			return false, nil
-		}
-		for _, deploymentInfo := range (*deploymentList).Items {
-			if deploymentInfo.Status.UpdatedReplicas != deploymentInfo.Status.Replicas ||
-				deploymentInfo.Status.AvailableReplicas != deploymentInfo.Status.Replicas ||
-				deploymentInfo.Status.UnavailableReplicas != 0 {
-				log.Printf("deployment: %s does not have desired updated replicas: %v", deploymentInfo.Name, deploymentInfo.Status)
-				log.Printf("deployment has conditions: %v", deploymentInfo.Status.Conditions)
-				return false, nil
-			}
 		}
 		return true, nil
 	}

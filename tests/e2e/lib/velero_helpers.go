@@ -189,18 +189,15 @@ func DeleteBackupStorageLocation(ocClient client.Client, backupStorageLocation v
 	return nil
 }
 
-func GetVeleroDeploymentList(namespace string) (*appsv1.DeploymentList, error) {
+func GetVeleroDeployment(namespace string) (*appsv1.Deployment, error) {
 	client, err := setUpClient()
 	if err != nil {
 		return nil, err
 	}
-	registryListOptions := metav1.ListOptions{
-		LabelSelector: "component=velero",
-	}
 	// get pods in the oadp-operator-e2e namespace with label selector
-	deploymentList, err := client.AppsV1().Deployments(namespace).List(context.TODO(), registryListOptions)
+	deployment, err := client.AppsV1().Deployments(namespace).Get(context.TODO(), "velero", metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
-	return deploymentList, nil
+	return deployment, nil
 }

@@ -82,7 +82,7 @@ var _ = Describe("Subscription Config Suite Test", func() {
 				if s.Spec.Config != nil && s.Spec.Config.Env != nil {
 					// get pod env vars
 					log.Printf("Getting deployments")
-					vd, err := GetVeleroDeploymentList(namespace)
+					vd, err := GetVeleroDeployment(namespace)
 					Expect(err).NotTo(HaveOccurred())
 					rd, err := GetRegistryDeploymentList(namespace)
 					Expect(err).NotTo(HaveOccurred())
@@ -90,7 +90,7 @@ var _ = Describe("Subscription Config Suite Test", func() {
 					rds, err := GetResticDaemonsetList(namespace)
 					Expect(err).NotTo(HaveOccurred())
 					for _, env := range s.Spec.Config.Env {
-						for _, deployment := range append(vd.Items, rd.Items...) {
+						for _, deployment := range append(rd.Items, *vd) {
 							log.Printf("Checking env vars are passed to deployment " + deployment.Name)
 							for _, container := range deployment.Spec.Template.Spec.Containers {
 								log.Printf("Checking env vars are passed to container " + container.Name)
