@@ -15,6 +15,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/utils/pointer"
 )
+
 var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 	provider := Dpa.Spec.BackupLocations[0].Velero.Provider
 	bucket := Dpa.Spec.BackupLocations[0].Velero.ObjectStorage.Bucket
@@ -552,7 +553,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 				Eventually(dpaCR.DPAReconcileError(), timeoutMultiplier*time.Minute*3, time.Second*5).Should(Equal(expectedErr.Error()))
 				return
 			}
-			Eventually(dpaCR.DPAReconcileError(), timeoutMultiplier*time.Minute*3, time.Second*5).Should(Equal(nil))
+			Eventually(dpaCR.DPAReconcileError(), timeoutMultiplier*time.Minute*3, time.Second*5).Should(Equal(""))
 			log.Printf("Waiting for velero pod to be running")
 			Eventually(AreVeleroDeploymentReplicasReady(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 			dpa, err := dpaCR.Get()
@@ -639,7 +640,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 			log.Printf("Creating dpa")
 			err = dpaCR.CreateOrUpdate(&dpaCR.CustomResource.Spec)
 			Expect(err).NotTo(HaveOccurred())
-			Eventually(dpaCR.DPAReconcileError(), timeoutMultiplier*time.Minute*3, time.Second*5).Should(Equal(nil))
+			Eventually(dpaCR.DPAReconcileError(), timeoutMultiplier*time.Minute*3, time.Second*5).Should(Equal(""))
 			log.Printf("Waiting for velero pod to be running")
 			Eventually(AreVeleroDeploymentReplicasReady(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 			if dpaCR.CustomResource.BackupImages() {
