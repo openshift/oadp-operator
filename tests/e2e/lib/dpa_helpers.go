@@ -244,6 +244,9 @@ func (v *DpaCustomResource) SetClient() error {
 }
 
 func (dpa *DpaCustomResource) DPAReconcileError() error {
+	if dpa.GetNoErr().Status.Conditions == nil {
+		return errors.New("no status conditions yet")
+	}
 	if dpa.GetNoErr().Status.Conditions[0].Type != ("Reconciled") {
 		return errors.New("Expected Reconciled condition on DPA, got " + dpa.GetNoErr().Status.Conditions[0].Type)
 	}
