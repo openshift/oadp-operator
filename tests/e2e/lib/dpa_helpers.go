@@ -243,6 +243,19 @@ func (v *DpaCustomResource) SetClient() error {
 	return nil
 }
 
+func (dpa *DpaCustomResource) DPAReconcileError() error {
+	if dpa.GetNoErr().Status.Conditions[0].Type != ("Reconciled") {
+		return errors.New("Expected Reconciled condition on DPA, got " + dpa.GetNoErr().Status.Conditions[0].Type)
+	}
+	if dpa.GetNoErr().Status.Conditions[0].Status != metav1.ConditionTrue {
+		return fmt.Errorf("expected reconciled condition on DPA to be true, got %v", dpa.GetNoErr().Status.Conditions[0].Status)
+	}
+	if dpa.GetNoErr().Status.Conditions[0].Reason !="Error" {
+		return nil
+	}
+	return errors.New(dpa.GetNoErr().Status.Conditions[0].Message)
+}
+
 func GetVeleroPods(namespace string) (*corev1.PodList, error) {
 	clientset, err := setUpClient()
 	if err != nil {

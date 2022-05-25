@@ -96,7 +96,7 @@ var _ = Describe("AWS backup restore tests", func() {
 			updateLastInstallingNamespace(dpaCR.Namespace)
 			err = dpaCR.CreateOrUpdate(&dpaCR.CustomResource.Spec)
 			Expect(err).NotTo(HaveOccurred())
-
+			Eventually(dpaCR.DPAReconcileError(), timeoutMultiplier*time.Minute*3, time.Second*5).Should(Equal(nil))
 			log.Printf("Waiting for velero pod to be running")
 			Eventually(AreVeleroDeploymentReplicasReady(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 
