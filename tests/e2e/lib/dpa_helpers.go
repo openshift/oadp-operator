@@ -313,6 +313,9 @@ func AreVeleroDeploymentReplicasReady(namespace string) wait.ConditionFunc {
 	return func() (bool, error) {
 		deployment, err := GetVeleroDeployment(namespace)
 		if err != nil {
+			if apierrors.IsNotFound(err) {
+				return false, nil
+			}
 			return false, err
 		}
 		if deployment.Status.UpdatedReplicas != deployment.Status.Replicas ||
