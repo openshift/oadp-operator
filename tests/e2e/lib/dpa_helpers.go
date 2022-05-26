@@ -105,11 +105,11 @@ func GetVeleroPrefix() string {
 	return veleroPrefix
 }
 
-var dpa *oadpv1alpha1.DataProtectionApplication
+var dpa oadpv1alpha1.DataProtectionApplication
 
 //  This function should be the source of truth for the DPA CR loaded from JSON
 // DPA is set in LoadDpaSettingsFromJson only.
-func GetDpa() *oadpv1alpha1.DataProtectionApplication {
+func GetDpa() oadpv1alpha1.DataProtectionApplication {
 	return dpa
 }
 
@@ -501,13 +501,13 @@ func LoadDpaSettingsFromJson(settings string) string {
 		return fmt.Sprintf("Error decoding json file: %v", err)
 	}
 
-	dpa = &oadpv1alpha1.DataProtectionApplication{}
+	dpa = oadpv1alpha1.DataProtectionApplication{}
 	err = json.Unmarshal(file, &dpa)
 	if err != nil {
 		return fmt.Sprintf("Error getting settings json file: %v", err)
 	}
 	// set prefix after unmarshalling
-	for i, _ := range dpa.Spec.BackupLocations {
+	for i := range dpa.Spec.BackupLocations {
 		if i == 0 {
 			dpa.Spec.BackupLocations[i].Velero.Default = true // set first one as default
 		}
