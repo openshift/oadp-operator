@@ -206,6 +206,7 @@ spec:
                           resourceAllocations:
                             description: ResourceAllocations defines the CPU and Memory
                               resource allocations for the restic Pod
+                            nullable: true
                             properties:
                               limits:
                                 additionalProperties:
@@ -351,6 +352,7 @@ spec:
                           resourceAllocations:
                             description: ResourceAllocations defines the CPU and Memory
                               resource allocations for the restic Pod
+                            nullable: true
                             properties:
                               limits:
                                 additionalProperties:
