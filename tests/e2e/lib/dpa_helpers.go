@@ -259,13 +259,7 @@ func (dpa *DpaCustomResource) DPAReconcileError() string {
 	if cr.Status.Conditions == nil || len(cr.Status.Conditions) == 0 {
 		return "no status conditions yet"
 	}
-	if cr.Status.Conditions[0].Type != ("Reconciled") {
-		return "Expected Reconciled condition on DPA, got " + dpa.GetNoErr().Status.Conditions[0].Type
-	}
-	if cr.Status.Conditions[0].Status != metav1.ConditionTrue {
-		return fmt.Sprintf("expected reconciled condition on DPA to be true, got %v", dpa.GetNoErr().Status.Conditions[0].Status)
-	}
-	if cr.Status.Conditions[0].Reason != "Error" {
+	if cr.Status.Conditions[0].Reason != "Error" && cr.Status.Conditions[0].Type == ("Reconciled") {
 		return ""
 	}
 	return dpa.GetNoErr().Status.Conditions[0].Message
