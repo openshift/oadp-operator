@@ -53,7 +53,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 							StorageType: velero.StorageType{
 								ObjectStorage: &velero.ObjectStorageLocation{
 									Bucket: bucket,
-									Prefix: VeleroPrefix,
+									Prefix: GetVeleroPrefix(),
 								},
 							},
 						},
@@ -86,7 +86,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 							StorageType: velero.StorageType{
 								ObjectStorage: &velero.ObjectStorageLocation{
 									Bucket: bucket,
-									Prefix: VeleroPrefix,
+									Prefix: GetVeleroPrefix(),
 								},
 							},
 						},
@@ -127,7 +127,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 							StorageType: velero.StorageType{
 								ObjectStorage: &velero.ObjectStorageLocation{
 									Bucket: bucket,
-									Prefix: VeleroPrefix,
+									Prefix: GetVeleroPrefix(),
 								},
 							},
 						},
@@ -173,7 +173,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 							StorageType: velero.StorageType{
 								ObjectStorage: &velero.ObjectStorageLocation{
 									Bucket: bucket,
-									Prefix: VeleroPrefix,
+									Prefix: GetVeleroPrefix(),
 								},
 							},
 						},
@@ -208,7 +208,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 							StorageType: velero.StorageType{
 								ObjectStorage: &velero.ObjectStorageLocation{
 									Bucket: bucket,
-									Prefix: VeleroPrefix,
+									Prefix: GetVeleroPrefix(),
 								},
 							},
 						},
@@ -241,7 +241,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 							StorageType: velero.StorageType{
 								ObjectStorage: &velero.ObjectStorageLocation{
 									Bucket: bucket,
-									Prefix: VeleroPrefix,
+									Prefix: GetVeleroPrefix(),
 								},
 							},
 						},
@@ -273,7 +273,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 							StorageType: velero.StorageType{
 								ObjectStorage: &velero.ObjectStorageLocation{
 									Bucket: bucket,
-									Prefix: VeleroPrefix,
+									Prefix: GetVeleroPrefix(),
 								},
 							},
 						},
@@ -307,7 +307,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 							StorageType: velero.StorageType{
 								ObjectStorage: &velero.ObjectStorageLocation{
 									Bucket: bucket,
-									Prefix: VeleroPrefix,
+									Prefix: GetVeleroPrefix(),
 								},
 							},
 						},
@@ -329,7 +329,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 							StorageType: velero.StorageType{
 								ObjectStorage: &velero.ObjectStorageLocation{
 									Bucket: bucket,
-									Prefix: VeleroPrefix,
+									Prefix: GetVeleroPrefix(),
 								},
 							},
 						},
@@ -365,7 +365,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 							StorageType: velero.StorageType{
 								ObjectStorage: &velero.ObjectStorageLocation{
 									Bucket: bucket,
-									Prefix: VeleroPrefix,
+									Prefix: GetVeleroPrefix(),
 								},
 							},
 						},
@@ -428,7 +428,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 							StorageType: velero.StorageType{
 								ObjectStorage: &velero.ObjectStorageLocation{
 									Bucket: bucket,
-									Prefix: VeleroPrefix,
+									Prefix: GetVeleroPrefix(),
 								},
 							},
 						},
@@ -463,7 +463,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 							StorageType: velero.StorageType{
 								ObjectStorage: &velero.ObjectStorageLocation{
 									Bucket: bucket,
-									Prefix: VeleroPrefix,
+									Prefix: GetVeleroPrefix(),
 								},
 							},
 						},
@@ -496,7 +496,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 							StorageType: velero.StorageType{
 								ObjectStorage: &velero.ObjectStorageLocation{
 									Bucket: bucket,
-									Prefix: VeleroPrefix,
+									Prefix: GetVeleroPrefix(),
 								},
 							},
 						},

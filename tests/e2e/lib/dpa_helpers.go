@@ -97,7 +97,10 @@ func WithSnapshotLocations(locations []oadpv1alpha1.SnapshotLocation) DpaCROptio
 	}
 }
 
-var VeleroPrefix = "velero-e2e-" + string(uuid.NewUUID())
+var veleroPrefix = "velero-e2e-" + string(uuid.NewUUID())
+func GetVeleroPrefix() string {
+	return veleroPrefix
+}
 var dpa *oadpv1alpha1.DataProtectionApplication
 
 //  This function should be the source of truth for the DPA CR loaded from JSON
@@ -485,6 +488,13 @@ func LoadDpaSettingsFromJson(settings string) string {
 	err = json.Unmarshal(file, &dpa)
 	if err != nil {
 		return fmt.Sprintf("Error getting settings json file: %v", err)
+	}
+	// set prefix after unmarshalling
+	for i, _ := range dpa.Spec.BackupLocations {
+		if i == 0 {
+			dpa.Spec.BackupLocations[i].Velero.Default = true	// set first one as default
+		}
+		dpa.Spec.BackupLocations[i].Velero.ObjectStorage.Prefix = GetVeleroPrefix()
 	}
 	return ""
 }

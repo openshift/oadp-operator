@@ -76,7 +76,7 @@ func TestOADPE2E(t *testing.T) {
 		t.Fatalf(errString)
 	}
 
-	log.Println("Using velero prefix: " + VeleroPrefix)
+	log.Println("Using velero prefix: " + GetVeleroPrefix())
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "OADP E2E Suite")
 }
