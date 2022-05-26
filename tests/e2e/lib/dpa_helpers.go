@@ -23,6 +23,7 @@ import (
 	utils "github.com/openshift/oadp-operator/tests/e2e/utils"
 	operators "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	velero "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
+	"github.com/vmware-tanzu/velero/pkg/features"
 	kappsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -211,6 +212,8 @@ func (v *DpaCustomResource) CreateOrUpdateWithRetries(spec *oadpv1alpha1.DataPro
 		err error
 		cr  *oadpv1alpha1.DataProtectionApplication
 	)
+	// update featureFlags sets for backup describe
+	features.NewFeatureFlagSet(spec.Configuration.Velero.FeatureFlags...)
 	for i := 0; i < retries; i++ {
 		if cr, err = v.Get(); apierrors.IsNotFound(err) {
 			v.Build(v.backupRestoreType)
