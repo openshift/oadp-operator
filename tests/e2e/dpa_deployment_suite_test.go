@@ -408,7 +408,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 						Enable:    pointer.Bool(true),
 					},
 				},
-				BackupImages: pointer.BoolPtr(false), // tried to use pointer.Bool(false) but gomega had nil pointer dereference panic
+				BackupImages: pointer.BoolPtr(false),
 			},
 			WantError: false,
 		}, nil),
