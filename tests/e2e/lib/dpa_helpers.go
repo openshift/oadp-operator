@@ -90,6 +90,13 @@ func WithBackupLocations(locations []oadpv1alpha1.BackupLocation) DpaCROption {
 	}
 }
 
+func WithSnapshotLocations(locations []oadpv1alpha1.SnapshotLocation) DpaCROption {
+	return func(cr *oadpv1alpha1.DataProtectionApplication) error {
+		cr.Spec.SnapshotLocations = locations
+		return nil
+	}
+}
+
 var VeleroPrefix = "velero-e2e-" + string(uuid.NewUUID())
 var dpa *oadpv1alpha1.DataProtectionApplication
 

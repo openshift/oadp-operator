@@ -309,6 +309,7 @@ var _ = Describe("AWS backup restore tests", func() {
 				}),
 				WithBackupImages(false),
 				WithBackupLocations([]v1alpha1.BackupLocation{}), //empty backuplocations
+				WithSnapshotLocations([]v1alpha1.SnapshotLocation{}), //empty snapshotlocations
 			},
 			backupOpts: []BackupOpts{WithBackupStorageLocation("ts-" + instanceName + "nobsl-1")}, // e2e_sute_test.go: dpaCR.name = "ts-" + instanceName
 		}, nil),
