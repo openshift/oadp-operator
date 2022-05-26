@@ -23,6 +23,7 @@ import (
 	utils "github.com/openshift/oadp-operator/tests/e2e/utils"
 	operators "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	velero "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
+	kappsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -98,9 +99,11 @@ func WithSnapshotLocations(locations []oadpv1alpha1.SnapshotLocation) DpaCROptio
 }
 
 var veleroPrefix = "velero-e2e-" + string(uuid.NewUUID())
+
 func GetVeleroPrefix() string {
 	return veleroPrefix
 }
+
 var dpa *oadpv1alpha1.DataProtectionApplication
 
 //  This function should be the source of truth for the DPA CR loaded from JSON
@@ -301,6 +304,8 @@ func GetVeleroPods(namespace string) (*corev1.PodList, error) {
 	return podList, nil
 }
 
+var lastObservedReadyVeleroDeployment *kappsv1.Deployment
+
 func AreVeleroDeploymentReplicasReady(namespace string) wait.ConditionFunc {
 	return func() (bool, error) {
 		deployment, err := GetVeleroDeployment(namespace)
@@ -314,6 +319,15 @@ func AreVeleroDeploymentReplicasReady(namespace string) wait.ConditionFunc {
 			log.Printf("deployment has conditions: %v", deployment.Status.Conditions)
 			return false, nil
 		}
+		if lastObservedReadyVeleroDeployment != nil &&
+			lastObservedReadyVeleroDeployment.CreationTimestamp.Equal(&deployment.CreationTimestamp) && // same deployment, not recreated
+			!reflect.DeepEqual(lastObservedReadyVeleroDeployment.Spec, deployment.Spec) &&
+			lastObservedReadyVeleroDeployment.Status.ObservedGeneration == deployment.Status.ObservedGeneration {
+			// wait for observed generation to change
+			log.Print("deployment spec has changed, waiting for observed generation to change")
+			return false, nil
+		}
+		lastObservedReadyVeleroDeployment = deployment.DeepCopy()
 		return true, nil
 	}
 }
@@ -492,7 +506,7 @@ func LoadDpaSettingsFromJson(settings string) string {
 	// set prefix after unmarshalling
 	for i, _ := range dpa.Spec.BackupLocations {
 		if i == 0 {
-			dpa.Spec.BackupLocations[i].Velero.Default = true	// set first one as default
+			dpa.Spec.BackupLocations[i].Velero.Default = true // set first one as default
 		}
 		dpa.Spec.BackupLocations[i].Velero.ObjectStorage.Prefix = GetVeleroPrefix()
 	}
