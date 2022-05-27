@@ -108,10 +108,7 @@ var _ = BeforeSuite(func() {
 	err = CreateCredentialsSecret(utils.ReplaceSecretDataNewLineWithCarriageReturn(cloudCredData), namespace, "bsl-cloud-credentials-"+provider+"-with-carriage-return")
 	Expect(err).NotTo(HaveOccurred())
 	dpaCR.Credentials = ci_cred_file
-
-	credData, err := utils.ReadFile(dpaCR.Credentials)
-	Expect(err).NotTo(HaveOccurred())
-	err = CreateCredentialsSecret(credData, namespace, credSecretRef)
+	err = CreateCredentialsSecret(cloudCredData, namespace, credSecretRef)
 	Expect(err).NotTo(HaveOccurred())
 	dpaCR.SetClient()
 	Expect(DoesNamespaceExist(namespace)).Should(BeTrue())
