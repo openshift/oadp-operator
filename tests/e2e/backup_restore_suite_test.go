@@ -275,14 +275,17 @@ var _ = Describe("AWS backup restore tests", func() {
 			Name:                 "mysql-e2e",
 			BackupRestoreType:    RESTIC,
 			PreBackupVerify: VerificationFunction(func(dpaCR *DpaCustomResource, namespace string) error {
-				// create BSL
-				err := CreateBackupStorageLocation(velerov1.BackupStorageLocation{
+				bsl := velerov1.BackupStorageLocation{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      dpaCR.Name + "nobsl-1",
 						Namespace: dpaCR.Namespace,
 					},
 					Spec: *dpaCR.VeleroBSL(),
-				})
+				}
+				// clear out credentialsFile
+				delete(bsl.Spec.Config, "credentialsFile")
+				// create BSL
+				err := CreateBackupStorageLocation(bsl)
 				if err != nil {
 					return err
 				}
