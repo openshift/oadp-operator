@@ -815,3 +815,4 @@ func (r DPAReconciler) noDefaultCredentials(dpa oadpv1alpha1.DataProtectionAppli
 	return providerNeedsDefaultCreds, hasCloudStorage, nil
 
 }
+
