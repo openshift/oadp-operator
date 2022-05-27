@@ -394,6 +394,15 @@ func GetVeleroContainerFailureLogs(namespace string) []string {
 	return failureArr
 }
 
+func GetVeleroContainerFailureLogsAsString(namespace string) string {
+	failureLogs := GetVeleroContainerFailureLogs(namespace)
+	var logs string
+	for _, log := range failureLogs {
+		logs += log
+	}
+	return logs
+}
+
 func (v *DpaCustomResource) IsDeleted() wait.ConditionFunc {
 	return func() (bool, error) {
 		err := v.SetClient()

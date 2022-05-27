@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/openshift/oadp-operator/api/v1alpha1"
@@ -31,6 +32,8 @@ var _ = Describe("AWS backup restore tests", func() {
 	})
 
 	var _ = AfterEach(func() {
+		ginkgo.GinkgoWriter.Println("Grabbing velero failure logs before dpa deletion")
+		ginkgo.GinkgoWriter.Println(GetVeleroContainerFailureLogsAsString(dpaCR.Namespace))
 		err := dpaCR.Delete()
 		Expect(err).ToNot(HaveOccurred())
 
