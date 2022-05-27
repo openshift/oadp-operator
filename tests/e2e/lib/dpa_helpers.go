@@ -107,7 +107,7 @@ var dpa oadpv1alpha1.DataProtectionApplication
 //  This function should be the source of truth for the DPA CR loaded from JSON
 // DPA is set in LoadDpaSettingsFromJson only.
 func GetDpa() oadpv1alpha1.DataProtectionApplication {
-	return dpa
+	return *dpa.DeepCopy() // dpa contains pointer, so still need to send a deepcopy
 }
 
 func VeleroBSL() *velero.BackupStorageLocationSpec {
