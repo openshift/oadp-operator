@@ -96,6 +96,7 @@ type PodConfig struct {
 	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
 	// ResourceAllocations defines the CPU and Memory resource allocations for the restic Pod
 	// +optional
+	// +nullable
 	ResourceAllocations corev1.ResourceRequirements `json:"resourceAllocations,omitempty"`
 }
 
