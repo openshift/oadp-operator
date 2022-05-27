@@ -41,8 +41,6 @@ const (
 	RESTIC BackupRestoreType = "restic"
 )
 
-var backupLocations []oadpv1alpha1.BackupLocation
-
 type DpaCustomResource struct {
 	Name              string
 	Namespace         string
