@@ -3,6 +3,7 @@ package lib
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"log"
 	"regexp"
 	"strings"
@@ -31,7 +32,7 @@ func GetVeleroClient() (veleroClientset.Interface, error) {
 }
 
 // https://github.com/vmware-tanzu/velero/blob/11bfe82342c9f54c63f40d3e97313ce763b446f2/pkg/cmd/cli/backup/describe.go#L77-L111
-func DescribeBackup(ocClient client.Client, backup velero.Backup) string {
+func DescribeBackup(ocClient client.Client, backup velero.Backup) (backupDescription string) {
 	err := ocClient.Get(context.Background(), client.ObjectKey{
 		Namespace: backup.Namespace,
 		Name:      backup.Name,
@@ -73,7 +74,15 @@ func DescribeBackup(ocClient client.Client, backup velero.Backup) string {
 			log.Printf("error getting VolumeSnapshotContent objects for backup %s: %v\n", backup.Name, err)
 		}
 	}
-
+	// output.DescribeBackup is a helper function from velero CLI that attempts to download logs for a backup.
+	// if a backup failed, this function may panic. Recover from the panic and return string of backup object
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("Recovered from panic in DescribeBackup: %v\n", r)
+			log.Print("returning backup object instead")
+			backupDescription = fmt.Sprint(backup)
+		}
+	}()
 	return output.DescribeBackup(context.Background(), ocClient, &backup, deleteRequestList.Items, podVolumeBackupList.Items, vscList.Items, details, veleroClient, insecureSkipTLSVerify, caCertFile)
 }
 
@@ -102,25 +111,47 @@ func DescribeRestore(ocClient client.Client, restore velero.Restore) string {
 	return output.DescribeRestore(context.Background(), ocClient, &restore, podvolumeRestoreList.Items, details, veleroClient, insecureSkipTLSVerify, caCertFile)
 }
 
-func BackupLogs(ocClient client.Client, backup velero.Backup) string {
+func BackupLogs(ocClient client.Client, backup velero.Backup) (backupLogs string) {
 	insecureSkipTLSVerify := true
 	caCertFile := ""
 	// new io.Writer that store the logs in a string
 	logs := &bytes.Buffer{}
 	// new io.Writer that store the logs in a string
-
+	// if a backup failed, this function may panic. Recover from the panic and return container logs
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("Recovered from panic in BackupLogs: %v\n", r)
+			log.Print("returning container logs instead")
+			var err error
+			backupLogs, err = getVeleroContainerLogs(backup.Namespace)
+			if err != nil {
+				log.Printf("error getting container logs: %v\n", err)
+			}
+		}
+	}()
 	downloadrequest.Stream(context.Background(), ocClient, backup.Namespace, backup.Name, velero.DownloadTargetKindBackupLog, logs, time.Minute, insecureSkipTLSVerify, caCertFile)
 
 	return logs.String()
 }
 
-func RestoreLogs(ocClient client.Client, restore velero.Restore) string {
+func RestoreLogs(ocClient client.Client, restore velero.Restore) (restoreLogs string) {
 	insecureSkipTLSVerify := true
 	caCertFile := ""
 	// new io.Writer that store the logs in a string
 	logs := &bytes.Buffer{}
 	// new io.Writer that store the logs in a string
-
+	// if a backup failed, this function may panic. Recover from the panic and return container logs
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("Recovered from panic in BackupLogs: %v\n", r)
+			log.Print("returning container logs instead")
+			var err error
+			restoreLogs, err = getVeleroContainerLogs(restore.Namespace)
+			if err != nil {
+				log.Printf("error getting container logs: %v\n", err)
+			}
+		}
+	}()
 	downloadrequest.Stream(context.Background(), ocClient, restore.Namespace, restore.Name, velero.DownloadTargetKindRestoreLog, logs, time.Minute, insecureSkipTLSVerify, caCertFile)
 
 	return logs.String()
