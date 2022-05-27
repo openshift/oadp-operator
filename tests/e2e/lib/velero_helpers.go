@@ -202,7 +202,7 @@ func BackupStorageLocationIsAvailable(ocClient client.Client, bslName, namespace
 			log.Printf("error getting backup storage location %s: %v\n", bslName, err)
 			return false, err
 		}
-		log.Printf("backup storage location %s is %s\n", bslName, bsl.Status.Phase)
+		log.Printf("backup storage location %s has status %v\n", bslName, bsl.Status)
 		log.Printf("backup storage location .Spec.Credential is %v\n", bsl.Spec.Credential)
 		log.Printf("backup storage location .Spec.Config[\"credentialsFile\"] is %v\n", bsl.Spec.Config["credentialsFile"])
 		return bsl.Status.Phase == velero.BackupStorageLocationPhaseAvailable, nil
