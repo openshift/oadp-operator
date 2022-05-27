@@ -517,14 +517,6 @@ func LoadDpaSettingsFromJson(settings string) string {
 		}
 		dpa.Spec.BackupLocations[i].Velero.ObjectStorage.Prefix = GetVeleroPrefix()
 	}
-	bsl := velero.BackupStorageLocation{
-	ObjectMeta: metav1.ObjectMeta{
-		Name:      "nobsl-1",
-		Namespace: "name",
-	},
-	Spec: *VeleroBSL(),
-	}
-	log.Fatalf("%v", bsl)
 	return ""
 }
 
