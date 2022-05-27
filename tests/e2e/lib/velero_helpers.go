@@ -190,6 +190,30 @@ func RestoreErrorLogs(ocClient client.Client, restore velero.Restore) []string {
 	return logLines
 }
 
+func BackupStorageLocationIsAvailable(ocClient client.Client, bslName, namespace string) (bool, error) {
+	var bsl velero.BackupStorageLocation
+	err := ocClient.Get(context.Background(), client.ObjectKey{
+		Namespace: namespace,
+		Name:      bslName,
+	}, &bsl)
+	if err != nil {
+		return false, err
+	}
+	return bsl.Status.Phase == velero.BackupStorageLocationPhaseAvailable, nil
+}
+
+func GetBackupStorageLocation(ocClient client.Client, bslName, namespace string) (velero.BackupStorageLocation, error) {
+	var bsl velero.BackupStorageLocation
+	err := ocClient.Get(context.Background(), client.ObjectKey{
+		Namespace: namespace,
+		Name:      bslName,
+	}, &bsl)
+	if err != nil {
+		return bsl, err
+	}
+	return bsl, nil
+}
+
 func CreateBackupStorageLocation(ocClient client.Client, backupStorageLocation velero.BackupStorageLocation) error {
 	veleroClient, err := GetVeleroClient()
 	if err != nil {
