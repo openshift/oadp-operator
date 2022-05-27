@@ -284,14 +284,7 @@ var _ = Describe("AWS backup restore tests", func() {
 					return err
 				}
 				// wait for BSL to be available
-				Eventually(func() bool {
-					available, err := BackupStorageLocationIsAvailable(dpaCR.Client, dpaCR.Name+"nobsl-1", dpaCR.Namespace)
-					if err != nil {
-						log.Printf("Error checking if BSL is available: %s", err)
-						return false
-					}
-					return available
-				}, timeoutMultiplier*time.Minute*2, time.Second*5).Should(BeTrue())
+				Eventually(BackupStorageLocationIsAvailable(dpaCR.Client, dpaCR.Name+"nobsl-1", dpaCR.Namespace), timeoutMultiplier*time.Minute*2, time.Second*5).Should(BeTrue())
 				return mysqlReady(dpaCR, namespace)
 			}),
 			PostRestoreVerify: VerificationFunction(func(dpaCR *DpaCustomResource, namespace string) error {

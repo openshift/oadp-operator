@@ -23,6 +23,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -190,16 +191,20 @@ func RestoreErrorLogs(ocClient client.Client, restore velero.Restore) []string {
 	return logLines
 }
 
-func BackupStorageLocationIsAvailable(ocClient client.Client, bslName, namespace string) (bool, error) {
-	var bsl velero.BackupStorageLocation
-	err := ocClient.Get(context.Background(), client.ObjectKey{
-		Namespace: namespace,
-		Name:      bslName,
-	}, &bsl)
-	if err != nil {
-		return false, err
+func BackupStorageLocationIsAvailable(ocClient client.Client, bslName, namespace string) wait.ConditionFunc {
+	return func() (bool, error) {
+		var bsl velero.BackupStorageLocation
+		err := ocClient.Get(context.Background(), client.ObjectKey{
+			Namespace: namespace,
+			Name:      bslName,
+		}, &bsl)
+		if err != nil {
+			log.Printf("error getting backup storage location %s: %v\n", bslName, err)
+			return false, err
+		}
+		log.Printf("backup storage location %s is %s\n", bslName, bsl.Status.Phase)
+		return bsl.Status.Phase == velero.BackupStorageLocationPhaseAvailable, nil
 	}
-	return bsl.Status.Phase == velero.BackupStorageLocationPhaseAvailable, nil
 }
 
 func GetBackupStorageLocation(ocClient client.Client, bslName, namespace string) (velero.BackupStorageLocation, error) {
