@@ -550,10 +550,10 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 			if installCase.WantError {
 				// Eventually()
 				log.Printf("Test case expected to error. Waiting for the error to show in DPA Status")
-				Eventually(dpaCR.DPAReconcileError(), timeoutMultiplier*time.Minute*2, time.Second*5).Should(Equal(expectedErr.Error()))
+				Eventually(dpaCR.DPAReconcileError(), timeoutMultiplier*time.Minute*2, time.Second*5).Should(BeTrue())
 				return
 			}
-			Eventually(dpaCR.DPAReconcileError(), timeoutMultiplier*time.Minute*2, time.Second*5).Should(Equal(""))
+			Eventually(dpaCR.DPAReconcileError(), timeoutMultiplier*time.Minute*2, time.Second*5).Should(BeFalse())
 			log.Printf("Waiting for velero pod to be running")
 			Eventually(AreVeleroDeploymentReplicasReady(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 			dpa, err := dpaCR.Get()
@@ -640,7 +640,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 			log.Printf("Creating dpa")
 			err = dpaCR.CreateOrUpdate(&dpaCR.CustomResource.Spec)
 			Expect(err).NotTo(HaveOccurred())
-			Eventually(dpaCR.DPAReconcileError(), timeoutMultiplier*time.Minute*2, time.Second*5).Should(Equal(""))
+			Eventually(dpaCR.DPAReconcileError(), timeoutMultiplier*time.Minute*2, time.Second*5).Should(BeFalse())
 			log.Printf("Waiting for velero pod to be running")
 			Eventually(AreVeleroDeploymentReplicasReady(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 			if dpaCR.CustomResource.BackupImages() {

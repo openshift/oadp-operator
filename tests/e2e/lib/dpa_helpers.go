@@ -267,18 +267,24 @@ func (v *DpaCustomResource) SetClient() error {
 	return nil
 }
 
-func (dpa *DpaCustomResource) DPAReconcileError() string {
-	cr, err := dpa.Get()
-	if err != nil {
-		return "cr get error: " + err.Error()
+func (dpa *DpaCustomResource) DPAReconcileError() wait.ConditionFunc {
+	return func() (bool, error) {
+		log.Print("Checking DPA reconcile error")
+		cr, err := dpa.Get()
+		if err != nil {
+			log.Printf("cr get error: %v", err)
+			return true, err
+		}
+		if cr.Status.Conditions == nil || len(cr.Status.Conditions) == 0 {
+			log.Print("no conditions found")
+			return true, nil
+		}
+		if cr.Status.Conditions[0].Reason != "Error" && cr.Status.Conditions[0].Type == ("Reconciled") {
+			return false, nil
+		}
+		log.Printf("reconcile error: %s", cr.Status.Conditions[0].Message)
+		return true, nil
 	}
-	if cr.Status.Conditions == nil || len(cr.Status.Conditions) == 0 {
-		return "no status conditions yet"
-	}
-	if cr.Status.Conditions[0].Reason != "Error" && cr.Status.Conditions[0].Type == ("Reconciled") {
-		return ""
-	}
-	return dpa.GetNoErr().Status.Conditions[0].Message
 }
 
 func GetVeleroPods(namespace string) (*corev1.PodList, error) {
