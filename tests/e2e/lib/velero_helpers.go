@@ -219,7 +219,7 @@ func GetBackupStorageLocation(ocClient client.Client, bslName, namespace string)
 	return bsl, nil
 }
 
-func CreateBackupStorageLocation(ocClient client.Client, backupStorageLocation velero.BackupStorageLocation) error {
+func CreateBackupStorageLocation(backupStorageLocation velero.BackupStorageLocation) error {
 	veleroClient, err := GetVeleroClient()
 	if err != nil {
 		return err
@@ -227,7 +227,8 @@ func CreateBackupStorageLocation(ocClient client.Client, backupStorageLocation v
 	_, err = veleroClient.VeleroV1().BackupStorageLocations(backupStorageLocation.Namespace).Create(context.TODO(), &backupStorageLocation, metav1.CreateOptions{})
 	if err != nil {
 		if apierrors.IsAlreadyExists(err) {
-			return nil
+			_, err = veleroClient.VeleroV1().BackupStorageLocations(backupStorageLocation.Namespace).Update(context.TODO(), &backupStorageLocation, metav1.UpdateOptions{})
+			return err
 		}
 		return err
 	}

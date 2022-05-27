@@ -546,5 +546,5 @@ func (dpaCR *DpaCustomResource) CreateBackupStorageLocation(bsl velero.BackupSto
 	if bsl.Spec.Config != nil {
 		bsl.Spec.Config["credentialsFile"] = "bsl-cloud-credentials-" + dpaCR.Provider + "/cloud"
 	}
-	return CreateBackupStorageLocation(dpaCR.Client, bsl)
+	return CreateBackupStorageLocation(bsl)
 }
