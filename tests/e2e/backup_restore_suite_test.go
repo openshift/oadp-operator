@@ -276,7 +276,7 @@ var _ = Describe("AWS backup restore tests", func() {
 			BackupRestoreType:    RESTIC,
 			PreBackupVerify: VerificationFunction(func(dpaCR *DpaCustomResource, namespace string) error {
 				// create BSL
-				err := dpaCR.CreateBackupStorageLocation(velerov1.BackupStorageLocation{
+				err := CreateBackupStorageLocation(velerov1.BackupStorageLocation{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      dpaCR.Name + "nobsl-1",
 						Namespace: dpaCR.Namespace,

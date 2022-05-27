@@ -527,10 +527,3 @@ func GetSecretRef(credSecretRef string) string {
 		return GetDpa().Spec.BackupLocations[0].Velero.Credential.Name
 	}
 }
-
-func (dpaCR *DpaCustomResource) CreateBackupStorageLocation(bsl velero.BackupStorageLocation) error {
-	if bsl.Spec.Config != nil {
-		bsl.Spec.Config["credentialsFile"] = "bsl-cloud-credentials-" + dpaCR.Provider + "/cloud"
-	}
-	return CreateBackupStorageLocation(bsl)
-}
