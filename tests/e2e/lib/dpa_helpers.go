@@ -110,8 +110,8 @@ func GetDpa() oadpv1alpha1.DataProtectionApplication {
 	return dpa
 }
 
-func (v *DpaCustomResource) VeleroBSL() *velero.BackupStorageLocationSpec {
-	return GetBackupLocations()[0].Velero
+func VeleroBSL() *velero.BackupStorageLocationSpec {
+	return GetBackupLocations()[0].Velero.DeepCopy() // don't send original!
 }
 
 // get var that was initialized from `func LoadDpaSettingsFromJson(settings string) error {`
@@ -139,7 +139,7 @@ func (v *DpaCustomResource) Build(backupRestoreType BackupRestoreType, dpaCrOpts
 			SnapshotLocations: v.CustomResource.Spec.SnapshotLocations,
 			BackupLocations: []oadpv1alpha1.BackupLocation{
 				{
-					Velero: v.VeleroBSL(),
+					Velero: VeleroBSL(),
 				},
 			},
 		},
@@ -517,6 +517,14 @@ func LoadDpaSettingsFromJson(settings string) string {
 		}
 		dpa.Spec.BackupLocations[i].Velero.ObjectStorage.Prefix = GetVeleroPrefix()
 	}
+	bsl := velero.BackupStorageLocation{
+	ObjectMeta: metav1.ObjectMeta{
+		Name:      "nobsl-1",
+		Namespace: "name",
+	},
+	Spec: *VeleroBSL(),
+	}
+	log.Fatalf("%v", bsl)
 	return ""
 }
 
