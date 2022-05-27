@@ -3,7 +3,6 @@ package lib
 import (
 	"context"
 	"log"
-	"reflect"
 
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -47,8 +46,6 @@ func HasCorrectNumResticPods(namespace string) wait.ConditionFunc {
 	}
 }
 
-var lastObservedReadyResticDaemeonSet *appsv1.DaemonSet
-
 func AreResticDaemonsetUpdatedAndReady(namespace string) wait.ConditionFunc {
 	log.Printf("Checking if Restic daemonset is ready...")
 	return func() (bool, error) {
@@ -61,15 +58,6 @@ func AreResticDaemonsetUpdatedAndReady(namespace string) wait.ConditionFunc {
 			log.Printf("Restic daemonset is not ready with condition: %v", rds.Status.Conditions)
 			return false, nil
 		}
-		if lastObservedReadyResticDaemeonSet != nil &&
-			lastObservedReadyResticDaemeonSet.CreationTimestamp.Equal(&rds.CreationTimestamp) && // same object
-			!reflect.DeepEqual(lastObservedReadyResticDaemeonSet.Spec, rds.Spec) &&
-			// if spec is not deep equal, something updated. Consider ready only if observedGeneration has increased.
-			rds.Status.ObservedGeneration == lastObservedReadyResticDaemeonSet.Status.ObservedGeneration {
-			log.Printf("daemonset spec has changed, waiting for observed generation to change")
-			return false, nil
-		}
-		lastObservedReadyResticDaemeonSet = rds.DeepCopy()
 		return true, nil
 	}
 }
