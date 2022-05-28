@@ -124,7 +124,9 @@ var _ = ReportAfterEach(func(report SpecReport) {
 
 var _ = AfterSuite(func() {
 	log.Printf("Deleting Velero CR")
-	errs := DeleteSecret(namespace, GetSecretRef(credSecretRef))
+	errs := DeleteSecret(namespace, credSecretRef)
+	Expect(errs).ToNot(HaveOccurred())
+	errs = DeleteSecret(namespace, "credential-with-carriage-return")
 	Expect(errs).ToNot(HaveOccurred())
 	err := dpaCR.Delete()
 	Expect(err).ToNot(HaveOccurred())

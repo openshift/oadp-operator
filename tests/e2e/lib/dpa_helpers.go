@@ -516,11 +516,3 @@ func LoadDpaSettingsFromJson(settings string) string {
 	}
 	return ""
 }
-
-func GetSecretRef(credSecretRef string) string {
-	if GetDpa().Spec.BackupLocations[0].Velero.Credential == nil {
-		return credSecretRef
-	} else {
-		return GetDpa().Spec.BackupLocations[0].Velero.Credential.Name
-	}
-}
