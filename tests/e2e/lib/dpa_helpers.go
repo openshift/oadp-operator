@@ -21,6 +21,7 @@ import (
 	security "github.com/openshift/api/security/v1"
 	templatev1 "github.com/openshift/api/template/v1"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
+	i "github.com/openshift/oadp-operator/tests/e2e/lib/init"
 	utils "github.com/openshift/oadp-operator/tests/e2e/utils"
 	operators "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	velero "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
@@ -501,6 +502,9 @@ func LoadDpaSettingsFromJson(settings string) string {
 	if err != nil {
 		return fmt.Sprintf("Error getting settings json file: %v", err)
 	}
+	// set name and namespace
+	dpa.Name = i.GetTestSuiteInstanceName()
+	dpa.Namespace = i.GetNamespace()
 	// set prefix after unmarshalling
 	for i := range dpa.Spec.BackupLocations {
 		if i == 0 {
