@@ -2,6 +2,7 @@ package e2e_test
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"time"
 
@@ -64,6 +65,11 @@ var _ = Describe("Subscription Config Suite Test", func() {
 				Expect(err).NotTo(HaveOccurred())
 				log.Printf("Waiting for velero pod to be running")
 				Eventually(AreVeleroDeploymentReplicasReady(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
+				for i, bl := range dpaCR.CustomResource.Spec.BackupLocations {
+					if bl.Velero != nil {
+						Eventually(BackupStorageLocationIsAvailable(dpaCR.Client, fmt.Sprintf("%s-%d", dpaCR.Name, i+1), dpaCR.Namespace), timeoutMultiplier*time.Minute*2, time.Second*5).Should(BeTrue())
+					}
+				}
 				if velero.Spec.Configuration.Restic.Enable != nil && *velero.Spec.Configuration.Restic.Enable {
 					log.Printf("Waiting for restic pods to be running")
 					Eventually(AreResticDaemonsetUpdatedAndReady(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())

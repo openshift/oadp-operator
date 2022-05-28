@@ -556,9 +556,11 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 			Expect(err).NotTo(HaveOccurred())
 			if len(dpa.Spec.BackupLocations) > 0 {
 				log.Printf("Checking for bsl spec")
-				for _, bsl := range dpa.Spec.BackupLocations {
+				for i, bsl := range dpa.Spec.BackupLocations {
 					// Check if bsl matches the spec
 					Eventually(DoesBSLExist(namespace, *bsl.Velero, installCase.DpaSpec), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
+					// wait for BSL to be ready using name pattern from controller https://github.com/openshift/oadp-operator/blob/a29c162c64c42c25029b176ff8b6a92914906639/controllers/bsl.go#L95
+					Eventually(BackupStorageLocationIsAvailable(dpaCR.Client, fmt.Sprintf("%s-%d", dpaCR.Name, i+1), dpaCR.Namespace), timeoutMultiplier*time.Minute*2, time.Second*5).Should(BeTrue())
 				}
 			}
 			if len(dpa.Spec.SnapshotLocations) > 0 {
