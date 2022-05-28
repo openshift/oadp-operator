@@ -11,7 +11,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/openshift/oadp-operator/api/v1alpha1"
 	. "github.com/openshift/oadp-operator/tests/e2e/lib"
-	utils "github.com/openshift/oadp-operator/tests/e2e/utils"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -24,11 +23,6 @@ var _ = Describe("AWS backup restore tests", func() {
 	var _ = BeforeEach(func() {
 		testSuiteInstanceName := "ts-" + instanceName
 		dpaCR.Name = testSuiteInstanceName
-
-		credData, err := utils.ReadFile(credFile)
-		Expect(err).NotTo(HaveOccurred())
-		err = CreateCredentialsSecret(credData, namespace, GetSecretRef(credSecretRef))
-		Expect(err).NotTo(HaveOccurred())
 	})
 
 	var _ = AfterEach(func() {
