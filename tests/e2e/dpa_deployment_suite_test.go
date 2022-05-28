@@ -552,43 +552,31 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 			Eventually(dpaCR.DPAReconcileError(), timeoutMultiplier*time.Minute*2, time.Second*5).Should(BeFalse())
 			log.Printf("Waiting for velero pod to be running")
 			Eventually(AreVeleroDeploymentReplicasReady(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
-			dpa, err := dpaCR.Get()
-			Expect(err).NotTo(HaveOccurred())
-			if len(dpa.Spec.BackupLocations) > 0 {
-				log.Printf("Checking for bsl spec")
-				for i, bsl := range dpa.Spec.BackupLocations {
-					// Check if bsl matches the spec
-					Eventually(DoesBSLExist(namespace, *bsl.Velero, installCase.DpaSpec), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
-					// wait for BSL to be ready using name pattern from controller https://github.com/openshift/oadp-operator/blob/a29c162c64c42c25029b176ff8b6a92914906639/controllers/bsl.go#L95
-					Eventually(BackupStorageLocationIsAvailable(dpaCR.Client, fmt.Sprintf("%s-%d", dpaCR.Name, i+1), dpaCR.Namespace), timeoutMultiplier*time.Minute*2, time.Second*5).Should(BeTrue())
-				}
-			}
-			if len(dpa.Spec.SnapshotLocations) > 0 {
-				log.Printf("Checking for vsl spec")
-				for _, vsl := range dpa.Spec.SnapshotLocations {
-					Eventually(DoesVSLExist(namespace, *vsl.Velero, installCase.DpaSpec), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
-				}
+			Eventually(dpaCR.DoesDPAMatchSpec(namespace, installCase.DpaSpec), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
+			for i := range installCase.DpaSpec.BackupLocations {
+				// wait for BSL to be ready using name pattern from controller https://github.com/openshift/oadp-operator/blob/a29c162c64c42c25029b176ff8b6a92914906639/controllers/bsl.go#L95
+				Eventually(BackupStorageLocationIsAvailable(dpaCR.Client, fmt.Sprintf("%s-%d", dpaCR.Name, i+1), dpaCR.Namespace), timeoutMultiplier*time.Minute*2, time.Second*5).Should(BeTrue())
 			}
 
 			// Check for velero tolerations
-			if len(dpa.Spec.Configuration.Velero.PodConfig.Tolerations) > 0 {
+			if len(installCase.DpaSpec.Configuration.Velero.PodConfig.Tolerations) > 0 {
 				log.Printf("Checking for velero tolerations")
-				Eventually(VerifyVeleroTolerations(namespace, dpa.Spec.Configuration.Velero.PodConfig.Tolerations), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
+				Eventually(VerifyVeleroTolerations(namespace, installCase.DpaSpec.Configuration.Velero.PodConfig.Tolerations), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 			}
 
 			// check for velero resource allocations
-			if dpa.Spec.Configuration.Velero.PodConfig.ResourceAllocations.Requests != nil {
-				log.Printf("Checking for velero resource allocation requests")
-				Eventually(VerifyVeleroResourceRequests(namespace, dpa.Spec.Configuration.Velero.PodConfig.ResourceAllocations.Requests), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
+			if installCase.DpaSpec.Configuration.Velero.PodConfig.ResourceAllocations.Requests != nil {
+			log.Printf("Checking for velero resource allocation requests")
+				Eventually(VerifyVeleroResourceRequests(namespace, installCase.DpaSpec.Configuration.Velero.PodConfig.ResourceAllocations.Requests), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 			}
 
-			if dpa.Spec.Configuration.Velero.PodConfig.ResourceAllocations.Limits != nil {
+			if installCase.DpaSpec.Configuration.Velero.PodConfig.ResourceAllocations.Limits != nil {
 				log.Printf("Checking for velero resource allocation limits")
-				Eventually(VerifyVeleroResourceLimits(namespace, dpa.Spec.Configuration.Velero.PodConfig.ResourceAllocations.Limits), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
+				Eventually(VerifyVeleroResourceLimits(namespace, installCase.DpaSpec.Configuration.Velero.PodConfig.ResourceAllocations.Limits), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 			}
 
 			//restic installation
-			if dpa.Spec.Configuration.Restic != nil && *dpa.Spec.Configuration.Restic.Enable {
+			if installCase.DpaSpec.Configuration.Restic != nil && *installCase.DpaSpec.Configuration.Restic.Enable {
 				log.Printf("Waiting for restic pods to be running")
 				Eventually(AreResticDaemonsetUpdatedAndReady(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 			} else {
@@ -597,27 +585,31 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 			}
 			// check defaultplugins
 			log.Printf("Waiting for velero deployment to have expected plugins")
-			if len(dpa.Spec.Configuration.Velero.DefaultPlugins) > 0 {
+			if len(installCase.DpaSpec.Configuration.Velero.DefaultPlugins) > 0 {
 				log.Printf("Checking for default plugins")
-				for _, plugin := range dpa.Spec.Configuration.Velero.DefaultPlugins {
+				for _, plugin := range installCase.DpaSpec.Configuration.Velero.DefaultPlugins {
 					Eventually(DoesPluginExist(namespace, plugin), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 				}
 			}
 
 			// check customplugins
 			log.Printf("Waiting for velero deployment to have expected custom plugins")
-			if len(dpa.Spec.Configuration.Velero.CustomPlugins) > 0 {
+			if len(installCase.DpaSpec.Configuration.Velero.CustomPlugins) > 0 {
 				log.Printf("Checking for custom plugins")
-				for _, plugin := range dpa.Spec.Configuration.Velero.CustomPlugins {
+				for _, plugin := range installCase.DpaSpec.Configuration.Velero.CustomPlugins {
 					Eventually(DoesCustomPluginExist(namespace, plugin), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 				}
 			}
 
-			if dpa.Spec.Configuration.Restic != nil && dpa.Spec.Configuration.Restic.PodConfig != nil {
-				for key, value := range dpa.Spec.Configuration.Restic.PodConfig.NodeSelector {
+			if installCase.DpaSpec.Configuration.Restic != nil && installCase.DpaSpec.Configuration.Restic.PodConfig != nil {
+				for key, value := range installCase.DpaSpec.Configuration.Restic.PodConfig.NodeSelector {
 					log.Printf("Waiting for restic daemonset to get node selector")
 					Eventually(ResticDaemonSetHasNodeSelector(namespace, key, value), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 				}
+			}
+			// create dpa struct to access BackupImages function
+			dpa := oadpv1alpha1.DataProtectionApplication{
+				Spec: *installCase.DpaSpec,
 			}
 			if dpa.BackupImages() {
 				log.Printf("Waiting for registry pods to be running")

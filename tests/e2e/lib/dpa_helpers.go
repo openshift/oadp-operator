@@ -407,20 +407,18 @@ func (v *DpaCustomResource) IsDeleted() wait.ConditionFunc {
 }
 
 //check if bsl matches the spec
-func DoesBSLExist(namespace string, bsl velero.BackupStorageLocationSpec, spec *oadpv1alpha1.DataProtectionApplicationSpec) wait.ConditionFunc {
+func (v *DpaCustomResource) DoesDPAMatchSpec(namespace string, spec *oadpv1alpha1.DataProtectionApplicationSpec) wait.ConditionFunc {
 	return func() (bool, error) {
-		if len(spec.BackupLocations) == 0 {
-			return false, errors.New("no backup storage location configured. Expected BSL to be configured")
+		dpa, err := v.Get()
+		if err != nil {
+			return false, err
 		}
-		for _, b := range spec.BackupLocations {
-			if b.Velero.Provider == bsl.Provider {
-				if !reflect.DeepEqual(bsl, *b.Velero) {
-					log.Printf("bslspec differs from specified in dpa, diff: %s", cmp.Diff(*b.Velero, bsl))
-					return false, errors.New("given Velero bsl does not match the deployed velero bsl")
-				}
-			}
+		if reflect.DeepEqual(dpa.Spec, *spec) {
+			return true, nil
 		}
-		return true, nil
+		log.Printf("spec does not match: %v", dpa.Spec)
+		log.Printf("diff: %v", cmp.Diff(dpa.Spec, *spec))
+		return false, nil
 	}
 }
 
