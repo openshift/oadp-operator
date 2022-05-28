@@ -48,11 +48,11 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 				BackupLocations: []oadpv1alpha1.BackupLocation{
 					{
 						Velero: &velero.BackupStorageLocationSpec{
-							Provider: provider,
+							Provider:   provider,
 							Credential: credential,
-							
-							Config:   bslConfig,
-							Default:  true,
+
+							Config:  bslConfig,
+							Default: true,
 							StorageType: velero.StorageType{
 								ObjectStorage: &velero.ObjectStorageLocation{
 									Bucket: bucket,
@@ -84,9 +84,9 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 					{
 						Velero: &velero.BackupStorageLocationSpec{
 							Provider: provider,
-							
-							Config:   bslConfig,
-							Default:  true,
+
+							Config:  bslConfig,
+							Default: true,
 							StorageType: velero.StorageType{
 								ObjectStorage: &velero.ObjectStorageLocation{
 									Bucket: bucket,
@@ -125,11 +125,11 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 				BackupLocations: []oadpv1alpha1.BackupLocation{
 					{
 						Velero: &velero.BackupStorageLocationSpec{
-							Provider: provider,
+							Provider:   provider,
 							Credential: credential,
-							
-							Config:   bslConfig,
-							Default:  true,
+
+							Config:  bslConfig,
+							Default: true,
 							StorageType: velero.StorageType{
 								ObjectStorage: &velero.ObjectStorageLocation{
 									Bucket: bucket,
@@ -173,10 +173,10 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 				BackupLocations: []oadpv1alpha1.BackupLocation{
 					{
 						Velero: &velero.BackupStorageLocationSpec{
-							Provider: provider,
+							Provider:   provider,
 							Credential: credential,
-							Config:   bslConfig,
-							Default:  true,
+							Config:     bslConfig,
+							Default:    true,
 							StorageType: velero.StorageType{
 								ObjectStorage: &velero.ObjectStorageLocation{
 									Bucket: bucket,
@@ -209,10 +209,10 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 				BackupLocations: []oadpv1alpha1.BackupLocation{
 					{
 						Velero: &velero.BackupStorageLocationSpec{
-							Provider: provider,
+							Provider:   provider,
 							Credential: credential,
-							Config:   bslConfig,
-							Default:  true,
+							Config:     bslConfig,
+							Default:    true,
 							StorageType: velero.StorageType{
 								ObjectStorage: &velero.ObjectStorageLocation{
 									Bucket: bucket,
@@ -243,10 +243,10 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 				BackupLocations: []oadpv1alpha1.BackupLocation{
 					{
 						Velero: &velero.BackupStorageLocationSpec{
-							Provider: provider,
+							Provider:   provider,
 							Credential: credential,
-							Config:   bslConfig,
-							Default:  true,
+							Config:     bslConfig,
+							Default:    true,
 							StorageType: velero.StorageType{
 								ObjectStorage: &velero.ObjectStorageLocation{
 									Bucket: bucket,
@@ -276,11 +276,11 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 				BackupLocations: []oadpv1alpha1.BackupLocation{
 					{
 						Velero: &velero.BackupStorageLocationSpec{
-							Provider: provider,
+							Provider:   provider,
 							Credential: credential,
-							
-							Config:   bslConfig,
-							Default:  true,
+
+							Config:  bslConfig,
+							Default: true,
 							StorageType: velero.StorageType{
 								ObjectStorage: &velero.ObjectStorageLocation{
 									Bucket: bucket,
@@ -312,10 +312,10 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 				BackupLocations: []oadpv1alpha1.BackupLocation{
 					{
 						Velero: &velero.BackupStorageLocationSpec{
-							Provider: provider,
+							Provider:   provider,
 							Credential: credential,
-							Config:   bslConfig,
-							Default:  true,
+							Config:     bslConfig,
+							Default:    true,
 							StorageType: velero.StorageType{
 								ObjectStorage: &velero.ObjectStorageLocation{
 									Bucket: bucket,
@@ -335,10 +335,10 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 				BackupLocations: []oadpv1alpha1.BackupLocation{
 					{
 						Velero: &velero.BackupStorageLocationSpec{
-							Provider: provider,
+							Provider:   provider,
 							Credential: credential,
-							Config:   bslConfig,
-							Default:  true,
+							Config:     bslConfig,
+							Default:    true,
 							StorageType: velero.StorageType{
 								ObjectStorage: &velero.ObjectStorageLocation{
 									Bucket: bucket,
@@ -372,10 +372,10 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 				BackupLocations: []oadpv1alpha1.BackupLocation{
 					{
 						Velero: &velero.BackupStorageLocationSpec{
-							Provider: provider,
+							Provider:   provider,
 							Credential: credential,
-							Config:   bslConfig,
-							Default:  true,
+							Config:     bslConfig,
+							Default:    true,
 							StorageType: velero.StorageType{
 								ObjectStorage: &velero.ObjectStorageLocation{
 									Bucket: bucket,
@@ -437,9 +437,9 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 				BackupLocations: []oadpv1alpha1.BackupLocation{
 					{
 						Velero: &velero.BackupStorageLocationSpec{
-							Provider: provider,
+							Provider:   provider,
 							Credential: credential,
-							Default:  true,
+							Default:    true,
 							StorageType: velero.StorageType{
 								ObjectStorage: &velero.ObjectStorageLocation{
 									Bucket: bucket,
@@ -468,7 +468,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 				BackupLocations: []oadpv1alpha1.BackupLocation{
 					{
 						Velero: &velero.BackupStorageLocationSpec{
-							Provider: provider,
+							Provider:   provider,
 							Credential: credential,
 							Config: map[string]string{
 								"region":           bslConfig["region"],
@@ -504,7 +504,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 				BackupLocations: []oadpv1alpha1.BackupLocation{
 					{
 						Velero: &velero.BackupStorageLocationSpec{
-							Provider: provider,
+							Provider:   provider,
 							Credential: credential,
 							Config: map[string]string{
 								"s3ForcePathStyle": "true",
@@ -583,7 +583,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 
 			// check for velero resource allocations
 			if installCase.DpaSpec.Configuration.Velero.PodConfig.ResourceAllocations.Requests != nil {
-			log.Printf("Checking for velero resource allocation requests")
+				log.Printf("Checking for velero resource allocation requests")
 				Eventually(VerifyVeleroResourceRequests(namespace, installCase.DpaSpec.Configuration.Velero.PodConfig.ResourceAllocations.Requests), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 			}
 
