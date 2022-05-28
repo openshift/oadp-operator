@@ -98,3 +98,7 @@ func GetOc_Cli () string {
 func GetTimeoutMultiplier() time.Duration {
 	return timeoutMultiplier
 }
+
+func GetBslSecretName() string {
+	return "bsl-secret-" + instanceName
+}

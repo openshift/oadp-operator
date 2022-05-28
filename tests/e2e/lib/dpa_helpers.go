@@ -511,6 +511,17 @@ func LoadDpaSettingsFromJson(settings string) string {
 			dpa.Spec.BackupLocations[i].Velero.Default = true // set first one as default
 		}
 		dpa.Spec.BackupLocations[i].Velero.ObjectStorage.Prefix = GetVeleroPrefix()
+		// use bsl credential
+		dpa.Spec.BackupLocations[i].Velero.Credential = GetBslSecretKeySelector()
 	}
 	return ""
+}
+
+func GetBslSecretKeySelector() *corev1.SecretKeySelector {
+	return &corev1.SecretKeySelector{
+		LocalObjectReference: corev1.LocalObjectReference{
+			Name: i.GetBslSecretName(),
+		},
+		Key: "cloud",
+	}
 }
