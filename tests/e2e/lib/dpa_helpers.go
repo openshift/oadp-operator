@@ -413,6 +413,12 @@ func (v *DpaCustomResource) DoesDPAMatchSpec(namespace string, spec *oadpv1alpha
 		if err != nil {
 			return false, err
 		}
+		for i := range spec.BackupLocations {
+			if len(spec.BackupLocations[i].Velero.Config) == 0 {
+				// mimic omit empty before comparison
+				spec.BackupLocations[i].Velero.Config = nil
+			}
+		}
 		if reflect.DeepEqual(dpa.Spec, *spec) {
 			return true, nil
 		}
