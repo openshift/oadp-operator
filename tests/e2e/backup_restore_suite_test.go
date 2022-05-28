@@ -12,7 +12,6 @@ import (
 	"github.com/openshift/oadp-operator/api/v1alpha1"
 	. "github.com/openshift/oadp-operator/tests/e2e/lib"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -275,17 +274,6 @@ var _ = Describe("AWS backup restore tests", func() {
 						Namespace: dpaCR.Namespace,
 					},
 					Spec: *VeleroBSL(),
-				}
-				// set credentials
-				// clear out credentialsFile
-				delete(bsl.Spec.Config, "credentialsFile")
-				if bsl.Spec.Credential == nil {
-					bsl.Spec.Credential = &corev1.SecretKeySelector{
-						LocalObjectReference: corev1.LocalObjectReference{
-							Name: credSecretRef,
-						},
-						Key: "cloud",
-					}
 				}
 				// create BSL
 				err := CreateBackupStorageLocation(bsl)
