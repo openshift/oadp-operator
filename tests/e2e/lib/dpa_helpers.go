@@ -123,7 +123,16 @@ func GetBackupLocations() []oadpv1alpha1.BackupLocation {
 func (v *DpaCustomResource) Build(backupRestoreType BackupRestoreType, dpaCrOpts ...DpaCROption) error {
 	// Velero Instance creation spec with backupstorage location default to AWS. Would need to parameterize this later on to support multiple plugins.
 	dpaInstance := GetDpa()
-	
+	if dpaInstance.Spec.Configuration == nil {
+		dpaInstance.Spec.Configuration = &oadpv1alpha1.ApplicationConfig{}
+	}
+	if dpaInstance.Spec.Configuration.Velero == nil {
+		dpaInstance.Spec.Configuration.Velero = &oadpv1alpha1.VeleroConfig{}
+	}
+	if dpaInstance.Spec.Configuration.Restic == nil {
+		dpaInstance.Spec.Configuration.Restic = &oadpv1alpha1.ResticConfig{}
+	}
+
 	v.backupRestoreType = backupRestoreType
 	switch backupRestoreType {
 	case RESTIC:
