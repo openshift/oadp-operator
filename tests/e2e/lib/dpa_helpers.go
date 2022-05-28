@@ -144,9 +144,6 @@ func (v *DpaCustomResource) Build(backupRestoreType BackupRestoreType, dpaCrOpts
 			},
 		},
 	}
-	if dpaInstance.Spec.BackupLocations[0].Velero.Config != nil {
-		dpaInstance.Spec.BackupLocations[0].Velero.Config["credentialsFile"] = "bsl-cloud-credentials-" + v.Provider + "/cloud"
-	}
 	v.backupRestoreType = backupRestoreType
 	switch backupRestoreType {
 	case RESTIC:

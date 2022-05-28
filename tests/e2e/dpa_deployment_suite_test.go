@@ -535,13 +535,9 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 			// instead of assigning the values in advance to the DPA CR
 			err := dpaCR.Build(installCase.BRestoreType)
 			Expect(err).NotTo(HaveOccurred())
-			if len(installCase.DpaSpec.BackupLocations) > 0 {
-				if installCase.DpaSpec.BackupLocations[0].Velero.Config != nil {
-					installCase.DpaSpec.BackupLocations[0].Velero.Config["credentialsFile"] = "bsl-cloud-credentials-" + dpaCR.Provider + "/cloud"
-					if installCase.TestCarriageReturn {
-						installCase.DpaSpec.BackupLocations[0].Velero.Config["credentialsFile"] = "bsl-cloud-credentials-" + dpaCR.Provider + "-with-carriage-return/cloud"
-					}
-				}
+			if len(installCase.DpaSpec.BackupLocations) > 0 && installCase.TestCarriageReturn {
+				// use carriage return credential.
+				installCase.DpaSpec.BackupLocations[0].Velero.Credential = &corev1.SecretKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "credential-with-carriage-return"}, Key: "cloud"}
 			}
 			lastInstallingApplicationNamespace = dpaCR.Namespace
 			lastInstallTime = time.Now()
