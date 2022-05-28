@@ -19,7 +19,13 @@ func TestOADPE2E(t *testing.T) {
 	if errString != "" {
 		t.Fatalf(errString)
 	}
-
+	dpaCR = &DpaCustomResource{
+		Name:      i.GetTestSuiteInstanceName(),
+		Namespace:     i.GetNamespace(),
+		Credentials:   i.GetCredfile(),
+		CredSecretRef: i.GetCredsecretref(),
+		Provider:      i.GetProvider(),
+	}
 	log.Println("Using velero prefix: " + GetVeleroPrefix())
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "OADP E2E Suite")
@@ -28,13 +34,6 @@ func TestOADPE2E(t *testing.T) {
 var dpaCR *DpaCustomResource
 
 var _ = BeforeSuite(func() {
-	dpaCR = &DpaCustomResource{
-		Name:      i.GetTestSuiteInstanceName(),
-		Namespace:     i.GetNamespace(),
-		Credentials:   i.GetCredfile(),
-		CredSecretRef: i.GetCredsecretref(),
-		Provider:      i.GetProvider(),
-	}
 	dpaCopy := GetDpa()
 	dpaCR.CustomResource = &dpaCopy
 
