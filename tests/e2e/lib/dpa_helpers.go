@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
 	buildv1 "github.com/openshift/api/build/v1"
 	"github.com/openshift/oadp-operator/pkg/common"
 
@@ -414,6 +415,7 @@ func DoesBSLExist(namespace string, bsl velero.BackupStorageLocationSpec, spec *
 		for _, b := range spec.BackupLocations {
 			if b.Velero.Provider == bsl.Provider {
 				if !reflect.DeepEqual(bsl, *b.Velero) {
+					log.Printf("bslspec differs from specified in dpa, diff: %s", cmp.Diff(*b.Velero, bsl))
 					return false, errors.New("given Velero bsl does not match the deployed velero bsl")
 				}
 			}
