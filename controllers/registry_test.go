@@ -617,7 +617,7 @@ func TestDPAReconciler_buildRegistryDeployment(t *testing.T) {
 											},
 										},
 										PeriodSeconds:       5,
-										TimeoutSeconds:      3,
+										TimeoutSeconds:      5,
 										InitialDelaySeconds: 15,
 									},
 									ReadinessProbe: &corev1.Probe{
@@ -628,7 +628,7 @@ func TestDPAReconciler_buildRegistryDeployment(t *testing.T) {
 											},
 										},
 										PeriodSeconds:       5,
-										TimeoutSeconds:      3,
+										TimeoutSeconds:      5,
 										InitialDelaySeconds: 15,
 									},
 								},
@@ -706,7 +706,7 @@ func TestDPAReconciler_buildRegistryContainer(t *testing.T) {
 						},
 					},
 					PeriodSeconds:       5,
-					TimeoutSeconds:      3,
+					TimeoutSeconds:      5,
 					InitialDelaySeconds: 15,
 				},
 				ReadinessProbe: &corev1.Probe{
@@ -717,7 +717,7 @@ func TestDPAReconciler_buildRegistryContainer(t *testing.T) {
 						},
 					},
 					PeriodSeconds:       5,
-					TimeoutSeconds:      3,
+					TimeoutSeconds:      5,
 					InitialDelaySeconds: 15,
 				},
 			}

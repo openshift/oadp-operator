@@ -369,7 +369,7 @@ func (r *DPAReconciler) buildRegistryContainer(bsl *velerov1.BackupStorageLocati
 					},
 				},
 				PeriodSeconds:       5,
-				TimeoutSeconds:      3,
+				TimeoutSeconds:      5,
 				InitialDelaySeconds: 15,
 			},
 			ReadinessProbe: &corev1.Probe{
@@ -380,7 +380,7 @@ func (r *DPAReconciler) buildRegistryContainer(bsl *velerov1.BackupStorageLocati
 					},
 				},
 				PeriodSeconds:       5,
-				TimeoutSeconds:      3,
+				TimeoutSeconds:      5,
 				InitialDelaySeconds: 15,
 			},
 		},
