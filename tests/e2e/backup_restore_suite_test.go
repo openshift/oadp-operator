@@ -92,7 +92,7 @@ var _ = Describe("AWS backup restore tests", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Eventually(dpaCR.DPAReconcileError(), i.GetTimeoutMultiplier()*time.Minute*2, time.Second*5).Should(BeFalse())
 			log.Printf("Waiting for velero pod to be running")
-			Eventually(AreVeleroDeploymentReplicasReady(i.GetNamespace()), i.GetTimeoutMultiplier() *time.Minute*3, time.Second*5).Should(BeTrue())
+			Eventually(AreVeleroDeploymentReplicasReady(i.GetNamespace()), i.GetTimeoutMultiplier()*time.Minute*3, time.Second*5).Should(BeTrue())
 			for n, bl := range dpaCR.CustomResource.Spec.BackupLocations {
 				if bl.Velero != nil {
 					Eventually(BackupStorageLocationIsAvailable(dpaCR.Client, fmt.Sprintf("%s-%d", i.GetTestSuiteInstanceName(), n+1), i.GetNamespace()), i.GetTimeoutMultiplier()*time.Minute*2, time.Second*5).Should(BeTrue())

@@ -69,29 +69,29 @@ func GetNamespace() string {
 	return namespace
 }
 
-func GetCredfile () string {
+func GetCredfile() string {
 	return credFile
 }
 
-func GetCredsecretref () string {
+func GetCredsecretref() string {
 	return credSecretRef
 }
-func GetInstancename () string {
+func GetInstancename() string {
 	return instanceName
 }
-func GetProvider () string {
+func GetProvider() string {
 	return provider
 }
-func GetCi_Cred_File () string {
+func GetCi_Cred_File() string {
 	return ci_cred_file
 }
-func GetSettings () string {
+func GetSettings() string {
 	return settings
 }
-func GetArtifact_Dir () string {
+func GetArtifact_Dir() string {
 	return artifact_dir
 }
-func GetOc_Cli () string {
+func GetOc_Cli() string {
 	return oc_cli
 }
 

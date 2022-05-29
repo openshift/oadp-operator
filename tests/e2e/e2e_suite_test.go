@@ -20,7 +20,7 @@ func TestOADPE2E(t *testing.T) {
 		t.Fatalf(errString)
 	}
 	dpaCR = &DpaCustomResource{
-		Name:      i.GetTestSuiteInstanceName(),
+		Name:          i.GetTestSuiteInstanceName(),
 		Namespace:     i.GetNamespace(),
 		Credentials:   i.GetCredfile(), // secret data for BSL
 		CredSecretRef: i.GetCredsecretref(),
@@ -43,7 +43,7 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	err = CreateCredentialsSecret(utils.ReplaceSecretDataNewLineWithCarriageReturn(cloudCredData), i.GetNamespace(), "credential-with-carriage-return") // secret with data for BSL with carriage return
 	Expect(err).NotTo(HaveOccurred())
-	
+
 	vslCredData, err := utils.ReadFile(i.GetCi_Cred_File()) // get secret data for vsl
 	Expect(err).NotTo(HaveOccurred())
 	err = CreateCredentialsSecret(vslCredData, i.GetNamespace(), i.GetCredsecretref()) // secret with data for vsl with name oadp expects https://github.com/openshift/oadp-operator/blob/b64e96e4432d266fe5a7680aa5406e160cded824/pkg/credentials/credentials.go#L34
