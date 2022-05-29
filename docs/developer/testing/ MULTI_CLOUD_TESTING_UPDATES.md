@@ -10,27 +10,23 @@ In ideal cases, both the credentials / profile for BSL and VSL would be the same
 
 #### AWS Multi Profile Support
 
-The CI Cloud credential is present at this location in OpenShift CI Cluster: 
+The CI Cloud credential for VSL is present at this location in OpenShift CI Cluster: 
 `/var/run/secrets/ci.openshift.io/cluster-profile/.awscred` 
 
 Our Cloud credential used for BSL is present at this location: 
 `/var/run/oadp-credentials/new-aws-credentials`
 
-Here since they are two profiles, we are using the concept of credentialsFile in BSL config [ref] (https://github.com/vmware-tanzu/velero/issues/3428)
-
-We are also mounting credentials [here](https://github.com/openshift/oadp-operator/blob/master/pkg/credentials/credentials.go#L37)
+Here since they are two profiles, we are using BSL.Spec.Credential to set BSL credentials, and [default credential names](https://github.com/openshift/oadp-operator/blob/b64e96e4432d266fe5a7680aa5406e160cded824/pkg/credentials/credentials.go#L34) for VSL.
 
 #### GCP
 
-The CI Cloud credential is present at this location in OpenShift CI Cluster: 
+The CI Cloud credential for VSL is present at this location in OpenShift CI Cluster: 
 `/var/run/secrets/ci.openshift.io/cluster-profile/gce.json` 
 
 Our Cloud credential used for BSL is present at this location: 
 `/var/run/oadp-credentials/gcp-credentials`
 
-Here since they are two different credentials and not profiles, we are using the concept of credentialsFile in BSL config [ref](https://github.com/vmware-tanzu/velero/issues/3430)
-
-We are also mounting credentials [here](https://github.com/openshift/oadp-operator/blob/master/pkg/credentials/credentials.go#L47)
+Here since they are two profiles, we are using BSL.Spec.Credential to set BSL credentials, and [default credential names](https://github.com/openshift/oadp-operator/blob/b64e96e4432d266fe5a7680aa5406e160cded824/pkg/credentials/credentials.go#L34) for VSL.
 
 #### [Azure](https://github.com/vmware-tanzu/velero/issues/3429)
 
