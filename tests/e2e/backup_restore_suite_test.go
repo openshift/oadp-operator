@@ -11,7 +11,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/openshift/oadp-operator/api/v1alpha1"
 	. "github.com/openshift/oadp-operator/tests/e2e/lib"
-	i "github.com/openshift/oadp-operator/tests/e2e/lib/init"
+	libinit "github.com/openshift/oadp-operator/tests/e2e/lib/init"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -24,7 +24,7 @@ var _ = Describe("AWS backup restore tests", func() {
 
 	var _ = AfterEach(func() {
 		GinkgoWriter.Println("Grabbing velero failure logs before dpa deletion")
-		GinkgoWriter.Println(GetVeleroContainerFailureLogsAsString(i.GetNamespace()))
+		GinkgoWriter.Println(GetVeleroContainerFailureLogsAsString(libinit.GetNamespace()))
 		err := dpaCR.Delete()
 		Expect(err).ToNot(HaveOccurred())
 
@@ -54,14 +54,13 @@ var _ = Describe("AWS backup restore tests", func() {
 	}
 
 	mongoReady := VerificationFunction(func(dpaCR *DpaCustomResource, namespace string) error {
-		Eventually(IsDCReady(dpaCR.Client, "mongo-persistent", "todolist"), i.GetTimeoutMultiplier()*time.Minute*10, time.Second*10).Should(BeTrue())
-		// err := VerifyBackupRestoreData(i.GetArtifact_Dir(), namespace, "restify", "parks-app") // TODO: VERIFY PARKS APP DATA
+		Eventually(IsDCReady(dpaCR.Client, "mongo-persistent", "todolist"), libinit.GetTimeoutMultiplier()*time.Minute*10, time.Second*10).Should(BeTrue())
+		// err := VerifyBackupRestoreData(libinit.GetArtifact_Dir(), namespace, "restify", "parks-app") // TODO: VERIFY PARKS APP DATA
 		return nil
 	})
 	mysqlReady := VerificationFunction(func(dpaCR *DpaCustomResource, namespace string) error {
 		// This test confirms that SCC restore logic in our plugin is working
-		//Eventually(IsDCReady(ocClient, "mssql-persistent", "mysql"), i.GetTimeoutMultiplier()*time.Minute*10, time.Second*10).Should(BeTrue())
-		Eventually(IsDeploymentReady(dpaCR.Client, "mysql-persistent", "mysql"), i.GetTimeoutMultiplier()*time.Minute*10, time.Second*10).Should(BeTrue())
+		Eventually(IsDeploymentReady(dpaCR.Client, "mysql-persistent", "mysql"), libinit.GetTimeoutMultiplier()*time.Minute*10, time.Second*10).Should(BeTrue())
 		exists, err := DoesSCCExist(dpaCR.Client, "mysql-persistent-scc")
 		if err != nil {
 			return err
@@ -69,7 +68,7 @@ var _ = Describe("AWS backup restore tests", func() {
 		if !exists {
 			return errors.New("did not find MYSQL scc")
 		}
-		err = VerifyBackupRestoreData(i.GetArtifact_Dir(), namespace, "todolist-route", "todolist")
+		err = VerifyBackupRestoreData(libinit.GetArtifact_Dir(), namespace, "todolist-route", "todolist")
 		return err
 	})
 
@@ -87,25 +86,25 @@ var _ = Describe("AWS backup restore tests", func() {
 			err := dpaCR.Build(brCase.BackupRestoreType, brCase.dpaCrOpts...)
 			Expect(err).NotTo(HaveOccurred())
 
-			updateLastInstallingNamespace(i.GetNamespace())
+			updateLastInstallingNamespace(libinit.GetNamespace())
 			err = dpaCR.CreateOrUpdate(&dpaCR.CustomResource.Spec)
 			Expect(err).NotTo(HaveOccurred())
-			Eventually(dpaCR.DPAReconcileError(), i.GetTimeoutMultiplier()*time.Minute*2, time.Second*5).Should(BeFalse())
+			Eventually(dpaCR.DPAReconcileError(), libinit.GetTimeoutMultiplier()*time.Minute*2, time.Second*5).Should(BeFalse())
 			log.Printf("Waiting for velero pod to be running")
-			Eventually(AreVeleroDeploymentReplicasReady(i.GetNamespace()), i.GetTimeoutMultiplier()*time.Minute*3, time.Second*5).Should(BeTrue())
+			Eventually(AreVeleroDeploymentReplicasReady(libinit.GetNamespace()), libinit.GetTimeoutMultiplier()*time.Minute*3, time.Second*5).Should(BeTrue())
 			for n, bl := range dpaCR.CustomResource.Spec.BackupLocations {
 				if bl.Velero != nil {
-					Eventually(BackupStorageLocationIsAvailable(dpaCR.Client, fmt.Sprintf("%s-%d", i.GetTestSuiteInstanceName(), n+1), i.GetNamespace()), i.GetTimeoutMultiplier()*time.Minute*2, time.Second*5).Should(BeTrue())
+					Eventually(BackupStorageLocationIsAvailable(dpaCR.Client, fmt.Sprintf("%s-%d", libinit.GetTestSuiteInstanceName(), n+1), libinit.GetNamespace()), libinit.GetTimeoutMultiplier()*time.Minute*2, time.Second*5).Should(BeTrue())
 				}
 			}
 			if brCase.BackupRestoreType == RESTIC {
 				log.Printf("Waiting for restic pods to be running")
-				Eventually(AreResticDaemonsetUpdatedAndReady(i.GetNamespace()), i.GetTimeoutMultiplier()*time.Minute*3, time.Second*5).Should(BeTrue())
+				Eventually(AreResticDaemonsetUpdatedAndReady(libinit.GetNamespace()), libinit.GetTimeoutMultiplier()*time.Minute*3, time.Second*5).Should(BeTrue())
 			}
 			if brCase.BackupRestoreType == CSI {
-				if i.GetProvider() == "aws" || i.GetProvider() == "ibmcloud" {
+				if libinit.GetProvider() == "aws" || libinit.GetProvider() == "ibmcloud" {
 					log.Printf("Creating VolumeSnapshotClass for CSI backuprestore of %s", brCase.Name)
-					snapshotClassPath := fmt.Sprintf("./sample-applications/snapclass-csi/%s.yaml", i.GetProvider())
+					snapshotClassPath := fmt.Sprintf("./sample-applications/snapclass-csi/%s.yaml", libinit.GetProvider())
 					err = InstallApplication(dpaCR.Client, snapshotClassPath)
 					Expect(err).ToNot(HaveOccurred())
 				}
@@ -113,7 +112,7 @@ var _ = Describe("AWS backup restore tests", func() {
 
 			if dpaCR.CustomResource.BackupImages() {
 				log.Printf("Waiting for registry pods to be running")
-				Eventually(AreRegistryDeploymentsAvailable(i.GetNamespace()), i.GetTimeoutMultiplier()*time.Minute*3, time.Second*5).Should(BeTrue())
+				Eventually(AreRegistryDeploymentsAvailable(libinit.GetNamespace()), libinit.GetTimeoutMultiplier()*time.Minute*3, time.Second*5).Should(BeTrue())
 			}
 
 			backupUid, _ := uuid.NewUUID()
@@ -127,8 +126,8 @@ var _ = Describe("AWS backup restore tests", func() {
 			err = InstallApplication(dpaCR.Client, brCase.ApplicationTemplate)
 			Expect(err).ToNot(HaveOccurred())
 			// wait for pods to be running
-			Eventually(AreAppBuildsReady(dpaCR.Client, brCase.ApplicationNamespace), i.GetTimeoutMultiplier()*time.Minute*3, time.Second*5).Should(BeTrue())
-			Eventually(AreApplicationPodsRunning(brCase.ApplicationNamespace), i.GetTimeoutMultiplier()*time.Minute*9, time.Second*5).Should(BeTrue())
+			Eventually(AreAppBuildsReady(dpaCR.Client, brCase.ApplicationNamespace), libinit.GetTimeoutMultiplier()*time.Minute*3, time.Second*5).Should(BeTrue())
+			Eventually(AreApplicationPodsRunning(brCase.ApplicationNamespace), libinit.GetTimeoutMultiplier()*time.Minute*9, time.Second*5).Should(BeTrue())
 
 			// Run optional custom verification
 			log.Printf("Running pre-backup function for case %s", brCase.Name)
@@ -139,11 +138,11 @@ var _ = Describe("AWS backup restore tests", func() {
 			Expect(err).ToNot(HaveOccurred())
 			// create backup
 			log.Printf("Creating backup %s for case %s", backupName, brCase.Name)
-			backup, err := CreateBackupForNamespaces(dpaCR.Client, i.GetNamespace(), backupName, []string{brCase.ApplicationNamespace}, brCase.backupOpts...)
+			backup, err := CreateBackupForNamespaces(dpaCR.Client, libinit.GetNamespace(), backupName, []string{brCase.ApplicationNamespace}, brCase.backupOpts...)
 			Expect(err).ToNot(HaveOccurred())
 
 			// wait for backup to not be running
-			Eventually(IsBackupDone(dpaCR.Client, i.GetNamespace(), backupName), i.GetTimeoutMultiplier()*time.Minute*4, time.Second*10).Should(BeTrue())
+			Eventually(IsBackupDone(dpaCR.Client, libinit.GetNamespace(), backupName), libinit.GetTimeoutMultiplier()*time.Minute*4, time.Second*10).Should(BeTrue())
 			GinkgoWriter.Println(DescribeBackup(dpaCR.Client, backup))
 			Expect(BackupErrorLogs(dpaCR.Client, backup)).To(Equal([]string{}))
 
@@ -155,7 +154,7 @@ var _ = Describe("AWS backup restore tests", func() {
 
 			if brCase.BackupRestoreType == CSI {
 				// wait for volume snapshot to be Ready
-				Eventually(AreVolumeSnapshotsReady(dpaCR.Client, backupName), i.GetTimeoutMultiplier()*time.Minute*4, time.Second*10).Should(BeTrue())
+				Eventually(AreVolumeSnapshotsReady(dpaCR.Client, backupName), libinit.GetTimeoutMultiplier()*time.Minute*4, time.Second*10).Should(BeTrue())
 			}
 
 			// uninstall app
@@ -164,60 +163,60 @@ var _ = Describe("AWS backup restore tests", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			// Wait for namespace to be deleted
-			Eventually(IsNamespaceDeleted(brCase.ApplicationNamespace), i.GetTimeoutMultiplier()*time.Minute*2, time.Second*5).Should(BeTrue())
+			Eventually(IsNamespaceDeleted(brCase.ApplicationNamespace), libinit.GetTimeoutMultiplier()*time.Minute*2, time.Second*5).Should(BeTrue())
 
 			updateLastInstallingNamespace(brCase.ApplicationNamespace)
 			// Check if backup needs restic deploymentconfig workaround. https://github.com/openshift/oadp-operator/blob/master/docs/TROUBLESHOOTING.md#deployconfig
 			if brCase.BackupRestoreType == RESTIC && nsRequiresResticDCWorkaround {
-				log.Printf("DC found in backup i.GetNamespace(), using DC restic workaround")
+				log.Printf("DC found in backup libinit.GetNamespace(), using DC restic workaround")
 				var dcWorkaroundResources = []string{"replicationcontroller", "deploymentconfig", "templateinstances.template.openshift.io"}
 				// run restore
 				log.Printf("Creating restore %s excluding DC workaround resources for case %s", restoreName, brCase.Name)
 				noDcDrestoreName := fmt.Sprintf("%s-no-dc-workaround", restoreName)
-				restore, err := CreateRestoreFromBackup(dpaCR.Client, i.GetNamespace(), backupName, noDcDrestoreName, WithExcludedResources(dcWorkaroundResources))
+				restore, err := CreateRestoreFromBackup(dpaCR.Client, libinit.GetNamespace(), backupName, noDcDrestoreName, WithExcludedResources(dcWorkaroundResources))
 				Expect(err).ToNot(HaveOccurred())
-				Eventually(IsRestoreDone(dpaCR.Client, i.GetNamespace(), noDcDrestoreName), i.GetTimeoutMultiplier()*time.Minute*4, time.Second*10).Should(BeTrue())
+				Eventually(IsRestoreDone(dpaCR.Client, libinit.GetNamespace(), noDcDrestoreName), libinit.GetTimeoutMultiplier()*time.Minute*4, time.Second*10).Should(BeTrue())
 				GinkgoWriter.Println(DescribeRestore(dpaCR.Client, restore))
 				Expect(RestoreErrorLogs(dpaCR.Client, restore)).To(Equal([]string{}))
 
 				// Check if restore succeeded
-				succeeded, err = IsRestoreCompletedSuccessfully(dpaCR.Client, i.GetNamespace(), noDcDrestoreName)
+				succeeded, err = IsRestoreCompletedSuccessfully(dpaCR.Client, libinit.GetNamespace(), noDcDrestoreName)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(succeeded).To(Equal(true))
-				Eventually(AreAppBuildsReady(dpaCR.Client, brCase.ApplicationNamespace), i.GetTimeoutMultiplier()*time.Minute*3, time.Second*5).Should(BeTrue())
+				Eventually(AreAppBuildsReady(dpaCR.Client, brCase.ApplicationNamespace), libinit.GetTimeoutMultiplier()*time.Minute*3, time.Second*5).Should(BeTrue())
 
 				// run restore
 				log.Printf("Creating restore %s including DC workaround resources for case %s", restoreName, brCase.Name)
 				withDcRestoreName := fmt.Sprintf("%s-with-dc-workaround", restoreName)
-				restore, err = CreateRestoreFromBackup(dpaCR.Client, i.GetNamespace(), backupName, withDcRestoreName, WithIncludedResources(dcWorkaroundResources))
+				restore, err = CreateRestoreFromBackup(dpaCR.Client, libinit.GetNamespace(), backupName, withDcRestoreName, WithIncludedResources(dcWorkaroundResources))
 				Expect(err).ToNot(HaveOccurred())
-				Eventually(IsRestoreDone(dpaCR.Client, i.GetNamespace(), withDcRestoreName), i.GetTimeoutMultiplier()*time.Minute*4, time.Second*10).Should(BeTrue())
+				Eventually(IsRestoreDone(dpaCR.Client, libinit.GetNamespace(), withDcRestoreName), libinit.GetTimeoutMultiplier()*time.Minute*4, time.Second*10).Should(BeTrue())
 				GinkgoWriter.Println(DescribeRestore(dpaCR.Client, restore))
 				Expect(RestoreErrorLogs(dpaCR.Client, restore)).To(Equal([]string{}))
 
 				// Check if restore succeeded
-				succeeded, err = IsRestoreCompletedSuccessfully(dpaCR.Client, i.GetNamespace(), withDcRestoreName)
+				succeeded, err = IsRestoreCompletedSuccessfully(dpaCR.Client, libinit.GetNamespace(), withDcRestoreName)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(succeeded).To(Equal(true))
 
 			} else {
 				// run restore
 				log.Printf("Creating restore %s for case %s", restoreName, brCase.Name)
-				restore, err := CreateRestoreFromBackup(dpaCR.Client, i.GetNamespace(), backupName, restoreName)
+				restore, err := CreateRestoreFromBackup(dpaCR.Client, libinit.GetNamespace(), backupName, restoreName)
 				Expect(err).ToNot(HaveOccurred())
-				Eventually(IsRestoreDone(dpaCR.Client, i.GetNamespace(), restoreName), i.GetTimeoutMultiplier()*time.Minute*4, time.Second*10).Should(BeTrue())
+				Eventually(IsRestoreDone(dpaCR.Client, libinit.GetNamespace(), restoreName), libinit.GetTimeoutMultiplier()*time.Minute*4, time.Second*10).Should(BeTrue())
 				GinkgoWriter.Println(DescribeRestore(dpaCR.Client, restore))
 				Expect(RestoreErrorLogs(dpaCR.Client, restore)).To(Equal([]string{}))
 
 				// Check if restore succeeded
-				succeeded, err = IsRestoreCompletedSuccessfully(dpaCR.Client, i.GetNamespace(), restoreName)
+				succeeded, err = IsRestoreCompletedSuccessfully(dpaCR.Client, libinit.GetNamespace(), restoreName)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(succeeded).To(Equal(true))
 			}
 
 			// verify app is running
-			Eventually(AreAppBuildsReady(dpaCR.Client, brCase.ApplicationNamespace), i.GetTimeoutMultiplier()*time.Minute*3, time.Second*5).Should(BeTrue())
-			Eventually(AreApplicationPodsRunning(brCase.ApplicationNamespace), i.GetTimeoutMultiplier()*time.Minute*9, time.Second*5).Should(BeTrue())
+			Eventually(AreAppBuildsReady(dpaCR.Client, brCase.ApplicationNamespace), libinit.GetTimeoutMultiplier()*time.Minute*3, time.Second*5).Should(BeTrue())
+			Eventually(AreApplicationPodsRunning(brCase.ApplicationNamespace), libinit.GetTimeoutMultiplier()*time.Minute*9, time.Second*5).Should(BeTrue())
 
 			// Run optional custom verification
 			log.Printf("Running post-restore function for case %s", brCase.Name)
@@ -230,18 +229,18 @@ var _ = Describe("AWS backup restore tests", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			// Wait for namespace to be deleted
-			Eventually(IsNamespaceDeleted(brCase.ApplicationNamespace), i.GetTimeoutMultiplier()*time.Minute*2, time.Second*5).Should(BeTrue())
+			Eventually(IsNamespaceDeleted(brCase.ApplicationNamespace), libinit.GetTimeoutMultiplier()*time.Minute*2, time.Second*5).Should(BeTrue())
 
 			if brCase.BackupRestoreType == CSI {
 				log.Printf("Deleting VolumeSnapshot for CSI backuprestore of %s", brCase.Name)
-				snapshotClassPath := fmt.Sprintf("./sample-applications/snapclass-csi/%s.yaml", i.GetProvider())
+				snapshotClassPath := fmt.Sprintf("./sample-applications/snapclass-csi/%s.yaml", libinit.GetProvider())
 				err = UninstallApplication(dpaCR.Client, snapshotClassPath)
 				Expect(err).ToNot(HaveOccurred())
 			}
 
 		},
 		Entry("MySQL application CSI", Label("ibmcloud", "aws"), BackupRestoreCase{
-			ApplicationTemplate:  fmt.Sprintf("./sample-applications/mysql-persistent/mysql-persistent-csi-%s-template.yaml", i.GetProvider()),
+			ApplicationTemplate:  fmt.Sprintf("./sample-applications/mysql-persistent/mysql-persistent-csi-%s-template.yaml", libinit.GetProvider()),
 			ApplicationNamespace: "mysql-persistent",
 			Name:                 "mysql-e2e",
 			BackupRestoreType:    CSI,
@@ -272,8 +271,8 @@ var _ = Describe("AWS backup restore tests", func() {
 			PreBackupVerify: VerificationFunction(func(dpaCR *DpaCustomResource, namespace string) error {
 				bsl := velerov1.BackupStorageLocation{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      i.GetTestSuiteInstanceName() + "nobsl-1",
-						Namespace: i.GetNamespace(),
+						Name:      libinit.GetTestSuiteInstanceName() + "nobsl-1",
+						Namespace: libinit.GetNamespace(),
 					},
 					Spec: *VeleroBSL(),
 				}
@@ -283,15 +282,15 @@ var _ = Describe("AWS backup restore tests", func() {
 					return err
 				}
 				// wait for BSL to be available
-				Eventually(BackupStorageLocationIsAvailable(dpaCR.Client, dpaCR.Name+"nobsl-1", i.GetNamespace()), i.GetTimeoutMultiplier()*time.Minute*2, time.Second*5).Should(BeTrue())
+				Eventually(BackupStorageLocationIsAvailable(dpaCR.Client, dpaCR.Name+"nobsl-1", libinit.GetNamespace()), libinit.GetTimeoutMultiplier()*time.Minute*2, time.Second*5).Should(BeTrue())
 				return mysqlReady(dpaCR, namespace)
 			}),
 			PostRestoreVerify: VerificationFunction(func(dpaCR *DpaCustomResource, namespace string) error {
 				// delete BSL
 				err := DeleteBackupStorageLocation(dpaCR.Client, velerov1.BackupStorageLocation{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      i.GetTestSuiteInstanceName() + "nobsl-1",
-						Namespace: i.GetNamespace(),
+						Name:      libinit.GetTestSuiteInstanceName() + "nobsl-1",
+						Namespace: libinit.GetNamespace(),
 					}})
 				if err != nil {
 					return err
@@ -312,7 +311,7 @@ var _ = Describe("AWS backup restore tests", func() {
 				WithBackupLocations([]v1alpha1.BackupLocation{}),     //empty backuplocations
 				WithSnapshotLocations([]v1alpha1.SnapshotLocation{}), //empty snapshotlocations
 			},
-			backupOpts: []BackupOpts{WithBackupStorageLocation(i.GetTestSuiteInstanceName() + "nobsl-1")}, // e2e_sute_test.go: dpaCR.name = "ts-" + instanceName
+			backupOpts: []BackupOpts{WithBackupStorageLocation(libinit.GetTestSuiteInstanceName() + "nobsl-1")}, // e2e_sute_test.go: dpaCR.name = "ts-" + instanceName
 		}, nil),
 	)
 })

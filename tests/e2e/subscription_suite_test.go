@@ -9,7 +9,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/openshift/oadp-operator/tests/e2e/lib"
-	i "github.com/openshift/oadp-operator/tests/e2e/lib/init"
+	libinit "github.com/openshift/oadp-operator/tests/e2e/lib/init"
 	operators "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/utils/pointer"
@@ -25,7 +25,7 @@ var _ = Describe("Subscription Config Suite Test", func() {
 
 		err = dpaCR.Delete()
 		Expect(err).ToNot(HaveOccurred())
-		Eventually(dpaCR.IsDeleted(), i.GetTimeoutMultiplier()*time.Minute*2, time.Second*5).Should(BeTrue())
+		Eventually(dpaCR.IsDeleted(), libinit.GetTimeoutMultiplier()*time.Minute*2, time.Second*5).Should(BeTrue())
 	})
 
 	var _ = AfterEach(func() {
@@ -57,34 +57,34 @@ var _ = Describe("Subscription Config Suite Test", func() {
 				log.Printf("CreatingOrUpdate test Velero")
 				err = dpaCR.CreateOrUpdate(&dpaCR.CustomResource.Spec)
 				Expect(err).NotTo(HaveOccurred())
-				Eventually(dpaCR.DPAReconcileError(), i.GetTimeoutMultiplier()*time.Minute*2, time.Second*5).Should(BeFalse())
+				Eventually(dpaCR.DPAReconcileError(), libinit.GetTimeoutMultiplier()*time.Minute*2, time.Second*5).Should(BeFalse())
 				log.Printf("Getting velero object")
 				velero, err := dpaCR.Get()
 				Expect(err).NotTo(HaveOccurred())
 				log.Printf("Waiting for velero pod to be running")
-				Eventually(AreVeleroDeploymentReplicasReady(i.GetNamespace()), i.GetTimeoutMultiplier()*time.Minute*3, time.Second*5).Should(BeTrue())
+				Eventually(AreVeleroDeploymentReplicasReady(libinit.GetNamespace()), libinit.GetTimeoutMultiplier()*time.Minute*3, time.Second*5).Should(BeTrue())
 				for n, bl := range dpaCR.CustomResource.Spec.BackupLocations {
 					if bl.Velero != nil {
-						Eventually(BackupStorageLocationIsAvailable(dpaCR.Client, fmt.Sprintf("%s-%d", dpaCR.Name, n+1), i.GetNamespace()), i.GetTimeoutMultiplier()*time.Minute*2, time.Second*5).Should(BeTrue())
+						Eventually(BackupStorageLocationIsAvailable(dpaCR.Client, fmt.Sprintf("%s-%d", dpaCR.Name, n+1), libinit.GetNamespace()), libinit.GetTimeoutMultiplier()*time.Minute*2, time.Second*5).Should(BeTrue())
 					}
 				}
 				if velero.Spec.Configuration.Restic.Enable != nil && *velero.Spec.Configuration.Restic.Enable {
 					log.Printf("Waiting for restic pods to be running")
-					Eventually(AreResticDaemonsetUpdatedAndReady(i.GetNamespace()), i.GetTimeoutMultiplier()*time.Minute*3, time.Second*5).Should(BeTrue())
+					Eventually(AreResticDaemonsetUpdatedAndReady(libinit.GetNamespace()), libinit.GetTimeoutMultiplier()*time.Minute*3, time.Second*5).Should(BeTrue())
 				}
 				if velero.BackupImages() {
 					log.Printf("Waiting for registry pods to be running")
-					Eventually(AreRegistryDeploymentsAvailable(i.GetNamespace()), i.GetTimeoutMultiplier()*time.Minute*3, time.Second*5).Should(BeTrue())
+					Eventually(AreRegistryDeploymentsAvailable(libinit.GetNamespace()), libinit.GetTimeoutMultiplier()*time.Minute*3, time.Second*5).Should(BeTrue())
 				}
 				if s.Spec.Config != nil && s.Spec.Config.Env != nil {
 					// get pod env vars
 					log.Printf("Getting deployments")
-					vd, err := GetVeleroDeployment(i.GetNamespace())
+					vd, err := GetVeleroDeployment(libinit.GetNamespace())
 					Expect(err).NotTo(HaveOccurred())
-					rd, err := GetRegistryDeploymentList(i.GetNamespace())
+					rd, err := GetRegistryDeploymentList(libinit.GetNamespace())
 					Expect(err).NotTo(HaveOccurred())
 					log.Printf("Getting daemonsets")
-					rds, err := GetResticDaemonsetList(i.GetNamespace())
+					rds, err := GetResticDaemonsetList(libinit.GetNamespace())
 					Expect(err).NotTo(HaveOccurred())
 					for _, env := range s.Spec.Config.Env {
 						for _, deployment := range append(rd.Items, *vd) {
