@@ -208,26 +208,22 @@ spec:
                           resourceAllocations:
                             description: ResourceAllocations defines the CPU and Memory
                               resource allocations for the restic Pod
-                            nullable: true
                             properties:
                               limits:
                                 additionalProperties:
                                   anyOf:
                                   - type: integer
                                   - type: string
-                                  nullable: true
                                   pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                   x-kubernetes-int-or-string: true
                                 description: 'Limits describes the maximum amount
                                   of compute resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
-                                nullable: true
                                 type: object
                               requests:
                                 additionalProperties:
                                   anyOf:
                                   - type: integer
                                   - type: string
-                                  nullable: true
                                   pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                   x-kubernetes-int-or-string: true
                                 description: 'Requests describes the minimum amount
@@ -235,7 +231,6 @@ spec:
                                   for a container, it defaults to Limits if that is
                                   explicitly specified, otherwise to an implementation-defined
                                   value. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
-                                nullable: true
                                 type: object
                             type: object
                           tolerations:
@@ -326,13 +321,12 @@ spec:
                         description: Velero server’s log level (use debug for the
                           most logging, leave unset for velero default)
                         enum:
-                        - trace
-                        - debug
-                        - info
-                        - warning
                         - error
-                        - fatal
-                        - panic
+                        - warn
+                        - warning
+                        - info
+                        - debug
+                        - trace
                         type: string
                       noDefaultBackupLocation:
                         description: If you need to install Velero without a default
@@ -356,26 +350,22 @@ spec:
                           resourceAllocations:
                             description: ResourceAllocations defines the CPU and Memory
                               resource allocations for the restic Pod
-                            nullable: true
                             properties:
                               limits:
                                 additionalProperties:
                                   anyOf:
                                   - type: integer
                                   - type: string
-                                  nullable: true
                                   pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                   x-kubernetes-int-or-string: true
                                 description: 'Limits describes the maximum amount
                                   of compute resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
-                                nullable: true
                                 type: object
                               requests:
                                 additionalProperties:
                                   anyOf:
                                   - type: integer
                                   - type: string
-                                  nullable: true
                                   pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                   x-kubernetes-int-or-string: true
                                 description: 'Requests describes the minimum amount
@@ -383,7 +373,6 @@ spec:
                                   for a container, it defaults to Limits if that is
                                   explicitly specified, otherwise to an implementation-defined
                                   value. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
-                                nullable: true
                                 type: object
                             type: object
                           tolerations:

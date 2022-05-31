@@ -392,15 +392,11 @@ func (r *DPAReconciler) buildVeleroDeployment(veleroDeployment *appsv1.Deploymen
 	}
 	r.ReconcileRestoreResourcesVersionPriority(dpa)
 
-	// get resource requirements for velero deployment
-	// ignoring err here as it is checked in validator.go
-	veleroResourceReqs, _ := r.getVeleroResourceReqs(dpa)
-
 	// TODO! Reuse removeDuplicateValues with interface type
 	dpa.Spec.Configuration.Velero.DefaultPlugins = removeDuplicatePluginValues(dpa.Spec.Configuration.Velero.DefaultPlugins)
 	dpa.Spec.Configuration.Velero.FeatureFlags = removeDuplicateValues(dpa.Spec.Configuration.Velero.FeatureFlags)
 	installDeployment := install.Deployment(veleroDeployment.Namespace,
-		install.WithResources(veleroResourceReqs),
+		install.WithResources(r.getVeleroResourceReqs(dpa)),
 		install.WithImage(getVeleroImage(dpa)),
 		install.WithFeatures(dpa.Spec.Configuration.Velero.FeatureFlags),
 		install.WithAnnotations(dpa.Spec.PodAnnotations),
@@ -549,11 +545,11 @@ func (r *DPAReconciler) customizeVeleroDeployment(dpa *oadpv1alpha1.DataProtecti
 	}
 
 	if dpa.Spec.Configuration.Velero.LogLevel != "" {
-		logLevel, err := logrus.ParseLevel(dpa.Spec.Configuration.Velero.LogLevel)
+		_, err := veleroLogrusParseLevel(dpa.Spec.Configuration.Velero.LogLevel)
 		if err != nil {
-			return fmt.Errorf("invalid log level %s, use: %s", dpa.Spec.Configuration.Velero.LogLevel, "trace, debug, info, warning, error, fatal, or panic")
+			return fmt.Errorf("invalid log level %s\nallowed: %s", dpa.Spec.Configuration.Velero.LogLevel, "error;warn;warning;info;debug;trace")
 		}
-		veleroContainer.Args = append(veleroContainer.Args, "--log-level", logLevel.String())
+		veleroContainer.Args = append(veleroContainer.Args, "--log-level", dpa.Spec.Configuration.Velero.LogLevel)
 	}
 
 	return credentials.AppendPluginSpecificSpecs(dpa, veleroDeployment, veleroContainer, providerNeedsDefaultCreds, hasCloudStorage)
@@ -647,7 +643,7 @@ func getAppLabels(instanceName string) map[string]string {
 }
 
 // Get Velero Resource Requirements
-func (r *DPAReconciler) getVeleroResourceReqs(dpa *oadpv1alpha1.DataProtectionApplication) (corev1.ResourceRequirements, error) {
+func (r *DPAReconciler) getVeleroResourceReqs(dpa *oadpv1alpha1.DataProtectionApplication) corev1.ResourceRequirements {
 
 	// Set default values
 	ResourcesReqs := corev1.ResourceRequirements{
@@ -661,47 +657,25 @@ func (r *DPAReconciler) getVeleroResourceReqs(dpa *oadpv1alpha1.DataProtectionAp
 		},
 	}
 
-	if dpa != nil && dpa.Spec.Configuration != nil && dpa.Spec.Configuration.Velero != nil && dpa.Spec.Configuration.Velero.PodConfig != nil {
+	if dpa != nil && dpa.Spec.Configuration.Velero.PodConfig != nil {
 		// Set custom limits and requests values if defined on VELERO Spec
-		if dpa.Spec.Configuration.Velero.PodConfig.ResourceAllocations.Requests.Cpu() != nil && dpa.Spec.Configuration.Velero.PodConfig.ResourceAllocations.Requests.Cpu().Value() != 0 {
-			parsedQuantity, err := resource.ParseQuantity(dpa.Spec.Configuration.Velero.PodConfig.ResourceAllocations.Requests.Cpu().String())
-			ResourcesReqs.Requests[corev1.ResourceCPU] = parsedQuantity
-			if err != nil {
-				return ResourcesReqs, err
-			}
+		if dpa.Spec.Configuration.Velero.PodConfig.ResourceAllocations.Requests != nil {
+			ResourcesReqs.Requests[corev1.ResourceCPU] = resource.MustParse(dpa.Spec.Configuration.Velero.PodConfig.ResourceAllocations.Requests.Cpu().String())
+			ResourcesReqs.Requests[corev1.ResourceMemory] = resource.MustParse(dpa.Spec.Configuration.Velero.PodConfig.ResourceAllocations.Requests.Memory().String())
 		}
 
-		if dpa.Spec.Configuration.Velero.PodConfig.ResourceAllocations.Requests.Memory() != nil && dpa.Spec.Configuration.Velero.PodConfig.ResourceAllocations.Requests.Memory().Value() != 0 {
-			parsedQuantity, err := resource.ParseQuantity(dpa.Spec.Configuration.Velero.PodConfig.ResourceAllocations.Requests.Memory().String())
-			ResourcesReqs.Requests[corev1.ResourceMemory] = parsedQuantity
-			if err != nil {
-				return ResourcesReqs, err
-			}
-		}
-
-		if dpa.Spec.Configuration.Velero.PodConfig.ResourceAllocations.Limits.Cpu() != nil && dpa.Spec.Configuration.Velero.PodConfig.ResourceAllocations.Limits.Cpu().Value() != 0 {
-			parsedQuantity, err := resource.ParseQuantity(dpa.Spec.Configuration.Velero.PodConfig.ResourceAllocations.Limits.Cpu().String())
-			ResourcesReqs.Limits[corev1.ResourceCPU] = parsedQuantity
-			if err != nil {
-				return ResourcesReqs, err
-			}
-		}
-
-		if dpa.Spec.Configuration.Velero.PodConfig.ResourceAllocations.Limits.Memory() != nil && dpa.Spec.Configuration.Velero.PodConfig.ResourceAllocations.Limits.Memory().Value() != 0 {
-			parsedQuantiy, err := resource.ParseQuantity(dpa.Spec.Configuration.Velero.PodConfig.ResourceAllocations.Limits.Memory().String())
-			ResourcesReqs.Limits[corev1.ResourceMemory] = parsedQuantiy
-			if err != nil {
-				return ResourcesReqs, err
-			}
+		if dpa.Spec.Configuration.Velero.PodConfig.ResourceAllocations.Limits != nil {
+			ResourcesReqs.Limits[corev1.ResourceCPU] = resource.MustParse(dpa.Spec.Configuration.Velero.PodConfig.ResourceAllocations.Limits.Cpu().String())
+			ResourcesReqs.Limits[corev1.ResourceMemory] = resource.MustParse(dpa.Spec.Configuration.Velero.PodConfig.ResourceAllocations.Limits.Memory().String())
 		}
 
 	}
 
-	return ResourcesReqs, nil
+	return ResourcesReqs
 }
 
 // Get Restic Resource Requirements
-func (r *DPAReconciler) getResticResourceReqs(dpa *oadpv1alpha1.DataProtectionApplication) (corev1.ResourceRequirements, error) {
+func (r *DPAReconciler) getResticResourceReqs(dpa *oadpv1alpha1.DataProtectionApplication) corev1.ResourceRequirements {
 
 	// Set default values
 	ResourcesReqs := corev1.ResourceRequirements{
@@ -716,42 +690,20 @@ func (r *DPAReconciler) getResticResourceReqs(dpa *oadpv1alpha1.DataProtectionAp
 	}
 
 	if dpa != nil && dpa.Spec.Configuration != nil && dpa.Spec.Configuration.Restic != nil && dpa.Spec.Configuration.Restic.PodConfig != nil {
-		// Set custom limits and requests values if defined on Restic Spec
-		if dpa.Spec.Configuration.Restic.PodConfig.ResourceAllocations.Requests.Cpu() != nil && dpa.Spec.Configuration.Restic.PodConfig.ResourceAllocations.Requests.Cpu().Value() != 0 {
-			parsedQuantity, err := resource.ParseQuantity(dpa.Spec.Configuration.Restic.PodConfig.ResourceAllocations.Requests.Cpu().String())
-			ResourcesReqs.Requests[corev1.ResourceCPU] = parsedQuantity
-			if err != nil {
-				return ResourcesReqs, err
-			}
+		// Set custom limits and requests values if defined on VELERO Spec
+		if dpa.Spec.Configuration.Restic.PodConfig.ResourceAllocations.Requests != nil {
+			ResourcesReqs.Requests[corev1.ResourceCPU] = resource.MustParse(dpa.Spec.Configuration.Restic.PodConfig.ResourceAllocations.Requests.Cpu().String())
+			ResourcesReqs.Requests[corev1.ResourceMemory] = resource.MustParse(dpa.Spec.Configuration.Restic.PodConfig.ResourceAllocations.Requests.Memory().String())
 		}
 
-		if dpa.Spec.Configuration.Restic.PodConfig.ResourceAllocations.Requests.Memory() != nil && dpa.Spec.Configuration.Restic.PodConfig.ResourceAllocations.Requests.Memory().Value() != 0 {
-			parsedQuantity, err := resource.ParseQuantity(dpa.Spec.Configuration.Restic.PodConfig.ResourceAllocations.Requests.Memory().String())
-			ResourcesReqs.Requests[corev1.ResourceMemory] = parsedQuantity
-			if err != nil {
-				return ResourcesReqs, err
-			}
-		}
-
-		if dpa.Spec.Configuration.Restic.PodConfig.ResourceAllocations.Limits.Cpu() != nil && dpa.Spec.Configuration.Restic.PodConfig.ResourceAllocations.Limits.Cpu().Value() != 0 {
-			parsedQuantity, err := resource.ParseQuantity(dpa.Spec.Configuration.Restic.PodConfig.ResourceAllocations.Limits.Cpu().String())
-			ResourcesReqs.Limits[corev1.ResourceCPU] = parsedQuantity
-			if err != nil {
-				return ResourcesReqs, err
-			}
-		}
-
-		if dpa.Spec.Configuration.Restic.PodConfig.ResourceAllocations.Limits.Memory() != nil && dpa.Spec.Configuration.Restic.PodConfig.ResourceAllocations.Limits.Memory().Value() != 0 {
-			parsedQuantiy, err := resource.ParseQuantity(dpa.Spec.Configuration.Restic.PodConfig.ResourceAllocations.Limits.Memory().String())
-			ResourcesReqs.Limits[corev1.ResourceMemory] = parsedQuantiy
-			if err != nil {
-				return ResourcesReqs, err
-			}
+		if dpa.Spec.Configuration.Restic.PodConfig.ResourceAllocations.Limits != nil {
+			ResourcesReqs.Limits[corev1.ResourceCPU] = resource.MustParse(dpa.Spec.Configuration.Restic.PodConfig.ResourceAllocations.Limits.Cpu().String())
+			ResourcesReqs.Limits[corev1.ResourceMemory] = resource.MustParse(dpa.Spec.Configuration.Restic.PodConfig.ResourceAllocations.Limits.Memory().String())
 		}
 
 	}
 
-	return ResourcesReqs, nil
+	return ResourcesReqs
 }
 
 // noDefaultCredentials determines if a provider needs the default credentials.
@@ -816,3 +768,26 @@ func (r DPAReconciler) noDefaultCredentials(dpa oadpv1alpha1.DataProtectionAppli
 
 }
 
+// imported from https://github.com/sirupsen/logrus/blob/v1.8.1/logrus.go#L25-L45
+// removes panic and fatal from valid levels.
+func veleroLogrusParseLevel(lvl string) (logrus.Level, error) {
+	switch strings.ToLower(lvl) {
+	// case "panic":
+	// 	return logrus.PanicLevel, nil
+	// case "fatal":
+	// 	return logrus.FatalLevel, nil
+	case "error":
+		return logrus.ErrorLevel, nil
+	case "warn", "warning":
+		return logrus.WarnLevel, nil
+	case "info":
+		return logrus.InfoLevel, nil
+	case "debug":
+		return logrus.DebugLevel, nil
+	case "trace":
+		return logrus.TraceLevel, nil
+	}
+
+	var l logrus.Level
+	return l, fmt.Errorf("not a valid logrus Level: %q", lvl)
+}

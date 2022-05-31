@@ -79,7 +79,7 @@ type VeleroConfig struct {
 	PodConfig *PodConfig `json:"podConfig,omitempty"`
 	// Velero server’s log level (use debug for the most logging, leave unset for velero default)
 	// +optional
-	// +kubebuilder:validation:Enum=trace;debug;info;warning;error;fatal;panic
+	// +kubebuilder:validation:Enum=error;warn;warning;info;debug;trace
 	LogLevel string `json:"logLevel,omitempty"`
 }
 
@@ -96,7 +96,6 @@ type PodConfig struct {
 	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
 	// ResourceAllocations defines the CPU and Memory resource allocations for the restic Pod
 	// +optional
-	// +nullable
 	ResourceAllocations corev1.ResourceRequirements `json:"resourceAllocations,omitempty"`
 }
 

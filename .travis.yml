@@ -40,7 +40,7 @@ jobs:
     arch: ppc64le
   - arch: s390x
   - arch: arm64-graviton2
-    virt: vm
+    virt: lxd
     group: edge
   - arch: amd64
   - stage: push manifest

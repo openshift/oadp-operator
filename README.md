@@ -32,7 +32,7 @@ Documentation in this repository are considered unofficial and for development p
     3. [CSI Backup/Restore](docs/examples/csi_example.md)
 7. [Troubleshooting](docs/TROUBLESHOOTING.md)
 8. Contribute
-    1. [Install & Build from Source](docs/developer/install_from_source.md)
+    1. [Install & Build from Source (Non-OLM)](docs/developer/install_non-olm.md)
     2. [OLM Integration](docs/developer/olm_hacking.md)
     3. [Test Operator Changes](docs/developer/local_dev.md)
     4. [E2E Test Suite](docs/developer/TESTING.md)
