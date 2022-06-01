@@ -37,8 +37,12 @@ ifdef CLI_DIR
 	OC_CLI = ${CLI_DIR}/oc
 endif
 
-ifeq ($0,"")
-CLUSTER_TYPE ?= $(shell $(OC_CLI) get infrastructures cluster -o jsonpath='{.status.platform}' | awk '{print tolower($0)}')
+CLUSTER_TYPE ?= ""
+ifdef OC_CLI
+	CLUSTER_TYPE ?= $(shell $(OC_CLI) get infrastructures cluster -o jsonpath='{.status.platform}')
+endif
+ifneq ($(CLUSTER_TYPE), "")
+	CLUSTER_TYPE := $(shell echo $(CLUSTER_TYPE) | awk '{print tolower($0)}')
 endif
 
 ifeq ($(CLUSTER_TYPE), gcp)
