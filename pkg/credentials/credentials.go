@@ -192,6 +192,7 @@ func AppendCloudProviderVolumes(dpa *oadpv1alpha1.DataProtectionApplication, ds 
 		// this replaces the need to iterate through the `pluginSpecificFields` O(n) -> O(1)
 		if cloudProviderMap, ok := PluginSpecificFields[plugin]; ok &&
 			cloudProviderMap.IsCloudProvider &&
+			dpa.Spec.UnsupportedOverrides[oadpv1alpha1.OperatorTypeKey] != oadpv1alpha1.OperatorTypeMTC &&
 			!dpa.Spec.Configuration.Velero.NoDefaultBackupLocation {
 
 			pluginNeedsCheck, foundProviderPlugin := providerNeedsDefaultCreds[string(plugin)]
