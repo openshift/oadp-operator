@@ -191,9 +191,9 @@ func AppendCloudProviderVolumes(dpa *oadpv1alpha1.DataProtectionApplication, ds 
 		// pattern from https://golang.org/doc/effective_go#maps
 		// this replaces the need to iterate through the `pluginSpecificFields` O(n) -> O(1)
 		if cloudProviderMap, ok := PluginSpecificFields[plugin]; ok &&
-			cloudProviderMap.IsCloudProvider &&
-			dpa.Spec.UnsupportedOverrides[oadpv1alpha1.OperatorTypeKey] != oadpv1alpha1.OperatorTypeMTC &&
-			!dpa.Spec.Configuration.Velero.NoDefaultBackupLocation {
+			cloudProviderMap.IsCloudProvider && //if plugin is a cloud provider plugin, and one of the following condition is true
+			(!dpa.Spec.Configuration.Velero.NoDefaultBackupLocation || // it has a backup location in OADP/velero context OR
+				dpa.Spec.UnsupportedOverrides[oadpv1alpha1.OperatorTypeKey] == oadpv1alpha1.OperatorTypeMTC) { // OADP is installed via MTC
 
 			pluginNeedsCheck, foundProviderPlugin := providerNeedsDefaultCreds[string(plugin)]
 			if !foundProviderPlugin && !hasCloudStorage {
