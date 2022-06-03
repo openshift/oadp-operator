@@ -159,7 +159,7 @@ metadata:
     capabilities: Seamless Upgrades
     categories: OpenShift Optional
     certified: "false"
-    containerImage: quay.io/spampatt/oadp-operator:latest
+    containerImage: quay.io/konveyor/oadp-operator:latest
     createdAt: "2020-09-08T12:21:00Z"
     description: |-
       OADP (OpenShift API for Data Protection) operator sets up and installs
@@ -717,7 +717,7 @@ spec:
                         value: latest
                       - name: VELERO_KUBEVIRT_PLUGIN_TAG
                         value: v0.2.0
-                    image: quay.io/spampatt/oadp-operator:latest
+                    image: quay.io/konveyor/oadp-operator:latest
                     imagePullPolicy: Always
                     livenessProbe:
                       httpGet:
