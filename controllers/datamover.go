@@ -1,14 +1,18 @@
 package controllers
 
 import (
+	"context"
 	"fmt"
 	"github.com/go-logr/logr"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	k8serror "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/pointer"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
@@ -27,6 +31,28 @@ func (r *DPAReconciler) ReconcileDataMoverController(log logr.Logger) (bool, err
 		},
 	}
 
+	if !dpa.EnableDataMover() {
+		deleteContext := context.Background()
+		if err := r.Get(deleteContext, types.NamespacedName{
+			Name:      dataMoverDeployment.Name,
+			Namespace: r.NamespacedName.Namespace,
+		}, dataMoverDeployment); err != nil {
+			if k8serror.IsNotFound(err) {
+				return true, nil
+			}
+			return false, err
+		}
+
+		deleteOptionPropagationForeground := metav1.DeletePropagationForeground
+		if err := r.Delete(deleteContext, dataMoverDeployment, &client.DeleteOptions{PropagationPolicy: &deleteOptionPropagationForeground}); err != nil {
+			r.EventRecorder.Event(dataMoverDeployment, corev1.EventTypeNormal, "DeleteDataMoverDeploymentFailed", "Could not delete DataMover deployment:"+err.Error())
+			return false, err
+		}
+		r.EventRecorder.Event(dataMoverDeployment, corev1.EventTypeNormal, "DeletedDataMoverDeploymentDeployment", "DataMover Deployment deleted")
+
+		return true, nil
+	}
+
 	//TODO: deploy basedon the existence of csi datamover plugin
 	op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, dataMoverDeployment, func() error {
 
@@ -40,7 +66,7 @@ func (r *DPAReconciler) ReconcileDataMoverController(log logr.Logger) (bool, err
 		}
 
 		// update the Deployment template
-		err := r.builddataMoverDeployment(dataMoverDeployment, &dpa)
+		err := r.buildDataMoverDeployment(dataMoverDeployment, &dpa)
 		if err != nil {
 			return err
 		}
@@ -81,7 +107,7 @@ func (r *DPAReconciler) ReconcileDataMoverController(log logr.Logger) (bool, err
 }
 
 // Build DataMover Deployment
-func (r *DPAReconciler) builddataMoverDeployment(dataMoverDeployment *appsv1.Deployment, dpa *oadpv1alpha1.DataProtectionApplication) error {
+func (r *DPAReconciler) buildDataMoverDeployment(dataMoverDeployment *appsv1.Deployment, dpa *oadpv1alpha1.DataProtectionApplication) error {
 
 	if dpa == nil {
 		return fmt.Errorf("DPA CR cannot be nil")

@@ -184,7 +184,9 @@ type DataProtectionApplicationSpec struct {
 	// BackupImages is used to specify whether you want to deploy a registry for enabling backup and restore of images
 	// +optional
 	BackupImages *bool `json:"backupImages,omitempty"`
-
+	// EnableDataMover is used to specify whether you want to deploy the volume snapshot mover controller and a modified csi datamover plugin
+	// +optional
+	EnableDataMover *bool `json:"enableDataMover,omitempty"`
 	// Configuration is used to configure the data protection application's server config
 	Configuration *ApplicationConfig `json:"configuration"`
 }
@@ -219,6 +221,11 @@ type DataProtectionApplicationList struct {
 // Default BackupImages behavior when nil to true
 func (dpa *DataProtectionApplication) BackupImages() bool {
 	return dpa.Spec.BackupImages == nil || *dpa.Spec.BackupImages
+}
+
+// Default EnableDataMover behavior when nil to true
+func (dpa *DataProtectionApplication) EnableDataMover() bool {
+	return dpa.Spec.EnableDataMover == nil || *dpa.Spec.EnableDataMover
 }
 
 func init() {

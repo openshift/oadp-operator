@@ -328,6 +328,11 @@ func (in *DataProtectionApplicationSpec) DeepCopyInto(out *DataProtectionApplica
 		*out = new(bool)
 		**out = **in
 	}
+	if in.EnableDataMover != nil {
+		in, out := &in.EnableDataMover, &out.EnableDataMover
+		*out = new(bool)
+		**out = **in
+	}
 	if in.Configuration != nil {
 		in, out := &in.Configuration, &out.Configuration
 		*out = new(ApplicationConfig)

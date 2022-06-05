@@ -441,6 +441,11 @@ spec:
                         type: string
                     type: object
                 type: object
+              enableDataMover:
+                description: EnableDataMover is used to specify whether you want to
+                  deploy the volume snapshot mover controller and a modified csi datamover
+                  plugin
+                type: boolean
               podAnnotations:
                 additionalProperties:
                   type: string
