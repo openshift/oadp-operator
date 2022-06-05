@@ -3,13 +3,12 @@ kind: DataProtectionApplication
 metadata:
   name: velero-sample
 spec:
-  enableDataMover: true
   configuration:
     velero:
       defaultPlugins:
       - openshift
       - aws
-      - csi
+      - kubevirt
     restic:
       enable: true
   backupLocations:
@@ -17,7 +16,7 @@ spec:
         provider: aws
         default: true
         objectStorage:
-          bucket: shubbam-6109f5e9711c8c58131acdd2f490f451
+          bucket: my-bucket-name
           prefix: velero
         config:
           region: us-east-1
