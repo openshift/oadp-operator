@@ -32,7 +32,7 @@ func (r *DPAReconciler) ReconcileDataMoverController(log logr.Logger) (bool, err
 		},
 	}
 
-	if !dpa.EnableDataMover() {
+	if !dpa.Spec.EnableDataMover {
 		deleteContext := context.Background()
 		if err := r.Get(deleteContext, types.NamespacedName{
 			Name:      dataMoverDeployment.Name,

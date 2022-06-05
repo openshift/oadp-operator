@@ -101,7 +101,7 @@ func getAWSPluginImage(dpa *oadpv1alpha1.DataProtectionApplication) string {
 }
 
 func getCSIPluginImage(dpa *oadpv1alpha1.DataProtectionApplication) string {
-	if dpa.EnableDataMover() {
+	if dpa.Spec.EnableDataMover {
 		return common.CSIDataMoverPluginImage
 	}
 	if dpa.Spec.UnsupportedOverrides[oadpv1alpha1.CSIPluginImageKey] != "" {

@@ -82,7 +82,7 @@ func TestDPAReconciler_buildDataMoverDeployment(t *testing.T) {
 					Configuration: &oadpv1alpha1.ApplicationConfig{
 						Velero: &oadpv1alpha1.VeleroConfig{},
 					},
-					EnableDataMover: pointer.Bool(true),
+					EnableDataMover: true,
 				},
 			},
 			wantErr: false,
