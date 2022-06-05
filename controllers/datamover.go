@@ -125,6 +125,7 @@ func (r *DPAReconciler) buildDataMoverDeployment(dataMoverDeployment *appsv1.Dep
 		},
 	}
 
+	dataMoverDeployment.Labels = r.getDataMoverLabels()
 	dataMoverDeployment.Spec = appsv1.DeploymentSpec{
 		Selector: dataMoverDeployment.Spec.Selector,
 		Replicas: pointer.Int32(1),
@@ -150,4 +151,12 @@ func (r *DPAReconciler) getDataMoverImage(dpa *oadpv1alpha1.DataProtectionApplic
 		return dpa.Spec.UnsupportedOverrides[oadpv1alpha1.DataMoverImageKey]
 	}
 	return common.DataMoverImage
+}
+
+func (r *DPAReconciler) getDataMoverLabels() map[string]string {
+	labels := getAppLabels(common.DataMover)
+	labels["app.kubernetes.io/name"] = common.OADPOperatorVelero
+	labels["app.kubernetes.io/component"] = common.DataMover
+	labels[oadpv1alpha1.DataMoverDeploymentLabel] = "True"
+	return labels
 }

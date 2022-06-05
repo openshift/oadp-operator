@@ -30,6 +30,7 @@ const ReconcileCompleteMessage = "Reconcile complete"
 
 const OadpOperatorLabel = "openshift.io/oadp"
 const RegistryDeploymentLabel = "openshift.io/oadp-registry"
+const DataMoverDeploymentLabel = "openshift.io/oadp-data-mover"
 
 type DefaultPlugin string
 
