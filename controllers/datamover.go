@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/go-logr/logr"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
+	"github.com/openshift/oadp-operator/pkg/common"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -26,7 +27,7 @@ func (r *DPAReconciler) ReconcileDataMoverController(log logr.Logger) (bool, err
 
 	dataMoverDeployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "data-mover",
+			Name:      common.DataMover,
 			Namespace: dpa.Namespace,
 		},
 	}
@@ -53,14 +54,13 @@ func (r *DPAReconciler) ReconcileDataMoverController(log logr.Logger) (bool, err
 		return true, nil
 	}
 
-	//TODO: deploy basedon the existence of csi datamover plugin
 	op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, dataMoverDeployment, func() error {
 
 		// Setting Deployment selector if a new object is created as it is immutable
 		if dataMoverDeployment.ObjectMeta.CreationTimestamp.IsZero() {
 			dataMoverDeployment.Spec.Selector = &metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					"component": "datamover-controller",
+					"component": common.DataMoverController,
 				},
 			}
 		}
@@ -119,8 +119,8 @@ func (r *DPAReconciler) buildDataMoverDeployment(dataMoverDeployment *appsv1.Dep
 	//TODO: Add unsupportedoverrides support for datamover deployment image
 	datamoverContainer := []corev1.Container{
 		{
-			Image:           "quay.io/konveyor/volume-snapshot-mover:latest",
-			Name:            "datamover-controller-container",
+			Image:           r.getDataMoverImage(dpa),
+			Name:            common.DataMoverControllerContainer,
 			ImagePullPolicy: corev1.PullAlways,
 		},
 	}
@@ -131,7 +131,7 @@ func (r *DPAReconciler) buildDataMoverDeployment(dataMoverDeployment *appsv1.Dep
 		Template: corev1.PodTemplateSpec{
 			ObjectMeta: metav1.ObjectMeta{
 				Labels: map[string]string{
-					"component": "datamover-controller",
+					"component": common.DataMoverController,
 				},
 			},
 			Spec: corev1.PodSpec{
@@ -143,4 +143,11 @@ func (r *DPAReconciler) buildDataMoverDeployment(dataMoverDeployment *appsv1.Dep
 	}
 
 	return nil
+}
+
+func (r *DPAReconciler) getDataMoverImage(dpa *oadpv1alpha1.DataProtectionApplication) string {
+	if dpa.Spec.UnsupportedOverrides[oadpv1alpha1.DataMoverImageKey] != "" {
+		return dpa.Spec.UnsupportedOverrides[oadpv1alpha1.DataMoverImageKey]
+	}
+	return common.DataMoverImage
 }
