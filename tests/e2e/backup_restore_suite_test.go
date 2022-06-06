@@ -31,6 +31,8 @@ var _ = Describe("AWS backup restore tests", func() {
 	})
 
 	var _ = AfterEach(func() {
+		GinkgoWriter.Println("velero container logs")
+		GinkgoWriter.Print(GetVeleroContainerFailureLogs(dpaCR.Namespace))
 		err := dpaCR.Delete()
 		Expect(err).ToNot(HaveOccurred())
 
