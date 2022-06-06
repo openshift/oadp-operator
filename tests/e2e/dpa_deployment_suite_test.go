@@ -586,7 +586,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 			if installCase.WantError {
 				// Eventually()
 				log.Printf("Test case expected to error. Waiting for the error to show in DPA Status")
-				Eventually(dpaCR.DPAReconcileError(), timeoutMultiplier*time.Minute*3, time.Second*5).Should(Equal(expectedErr.Error()))
+				Eventually(dpaCR.DPAReconcileError(), timeoutMultiplier*time.Second*30, time.Second*5).Should(Equal(expectedErr.Error()))
 				return
 			}
 			Eventually(dpaCR.DPAReconcileError(), timeoutMultiplier*time.Minute*3, time.Second*5).Should(Equal(""))
