@@ -79,18 +79,32 @@ func WithBackupImages(backupImage bool) DpaCROption {
 	}
 }
 
+func WithBackupLocations(backupLocations []oadpv1alpha1.BackupLocation) DpaCROption {
+	return func(cr *oadpv1alpha1.DataProtectionApplication) error {
+		cr.Spec.BackupLocations = backupLocations
+		return nil
+	}
+}
+
+func WithSnapshotLocations(snapshotLocations []oadpv1alpha1.SnapshotLocation) DpaCROption {
+	return func(cr *oadpv1alpha1.DataProtectionApplication) error {
+		cr.Spec.SnapshotLocations = snapshotLocations
+		return nil
+	}
+}
+
 var VeleroPrefix = "velero-e2e-" + string(uuid.NewUUID())
 var Dpa *oadpv1alpha1.DataProtectionApplication
 
 func (v *DpaCustomResource) VeleroBSL() *velero.BackupStorageLocationSpec {
 	return &velero.BackupStorageLocationSpec{
-		Provider:   v.CustomResource.Spec.BackupLocations[0].Velero.Provider,
+		Provider:   Dpa.Spec.BackupLocations[0].Velero.Provider,
 		Default:    true,
-		Config:     v.CustomResource.Spec.BackupLocations[0].Velero.Config,
-		Credential: v.CustomResource.Spec.BackupLocations[0].Velero.Credential,
+		Config:     Dpa.Spec.BackupLocations[0].Velero.Config,
+		Credential: Dpa.Spec.BackupLocations[0].Velero.Credential,
 		StorageType: velero.StorageType{
 			ObjectStorage: &velero.ObjectStorageLocation{
-				Bucket: v.CustomResource.Spec.BackupLocations[0].Velero.ObjectStorage.Bucket,
+				Bucket: Dpa.Spec.BackupLocations[0].Velero.ObjectStorage.Bucket,
 				Prefix: VeleroPrefix,
 			},
 		},
@@ -273,8 +287,8 @@ func (v *DpaCustomResource) SetClient() error {
 	return nil
 }
 
-func (dpa *DpaCustomResource) DPAReconcileError() func() (string) {
-	return func() (string) {
+func (dpa *DpaCustomResource) DPAReconcileError() func() string {
+	return func() string {
 		cr, err := dpa.Get()
 		if err != nil {
 			return "cr get error: " + err.Error()

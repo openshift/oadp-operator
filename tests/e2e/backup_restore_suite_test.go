@@ -324,6 +324,7 @@ var _ = Describe("AWS backup restore tests", func() {
 				if err != nil {
 					return err
 				}
+				Eventually(BackupStorageLocationIsAvailable(dpaCR.Client, dpaCR.Name+"nobsl-1", dpaCR.Namespace), timeoutMultiplier*time.Minute, timeoutMultiplier*time.Second).Should(Equal(true))
 				return mysqlReady(true, false, RESTIC)(client, namespace)
 			}),
 			PostRestoreVerify: VerificationFunction(func(client client.Client, namespace string) error {
@@ -339,8 +340,18 @@ var _ = Describe("AWS backup restore tests", func() {
 				return mysqlReady(false, false, RESTIC)(client, namespace)
 			}),
 			dpaCrOpts: []DpaCROption{
-				WithVeleroConfig(&v1alpha1.VeleroConfig{NoDefaultBackupLocation: true}),
+				WithVeleroConfig(&v1alpha1.VeleroConfig{
+					NoDefaultBackupLocation:         true,
+					FeatureFlags:                    Dpa.Spec.Configuration.Velero.FeatureFlags,
+					DefaultPlugins:                  Dpa.Spec.Configuration.Velero.DefaultPlugins,
+					CustomPlugins:                   Dpa.Spec.Configuration.Velero.CustomPlugins,
+					PodConfig:                       Dpa.Spec.Configuration.Velero.PodConfig,
+					RestoreResourcesVersionPriority: Dpa.Spec.Configuration.Velero.RestoreResourcesVersionPriority,
+					LogLevel:                        Dpa.Spec.Configuration.Velero.LogLevel,
+				}),
 				WithBackupImages(false),
+				WithBackupLocations([]v1alpha1.BackupLocation{}),
+				WithSnapshotLocations([]v1alpha1.SnapshotLocation{}),
 			},
 			backupOpts: []BackupOpts{
 				WithBackupStorageLocation("ts-" + instanceName + "nobsl-1"),
