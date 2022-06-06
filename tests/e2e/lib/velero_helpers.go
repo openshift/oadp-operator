@@ -221,6 +221,22 @@ func BackupStorageLocationIsAvailable(ocClient client.Client, bslName, namespace
 		log.Printf("backup storage location %s has status %v\n", bslName, bsl.Status)
 		log.Printf("backup storage location .Spec.Credential is %v\n", bsl.Spec.Credential)
 		log.Printf("backup storage location .Spec.Config[\"credentialsFile\"] is %v\n", bsl.Spec.Config["credentialsFile"])
+		log.Printf("bsl last fail message: %v\n", LastBackupStorageLocationMessage(bslName, namespace))
+		
 		return bsl.Status.Phase == velero.BackupStorageLocationPhaseAvailable, nil
 	}
+}
+
+func LastBackupStorageLocationMessage(name, namespace string) string {
+	logs := GetVeleroContainerFailureLogs(namespace)
+	lenLogs := len(logs)
+	for i := 0; i < lenLogs; i++ {
+		if strings.Contains(logs[lenLogs - i - 1], "backup-storage-location=" + name) {
+			return logs[lenLogs - i - 1]
+		}
+		if strings.Contains(logs[lenLogs - i - 1], "backupLocation=" + name) {
+			return logs[lenLogs - i - 1]
+		}
+	}
+	return ""
 }
