@@ -13,6 +13,7 @@ import (
 	. "github.com/openshift/oadp-operator/tests/e2e/lib"
 	utils "github.com/openshift/oadp-operator/tests/e2e/utils"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -270,18 +271,26 @@ var _ = Describe("AWS backup restore tests", func() {
 			Name:                 "mysql-e2e",
 			BackupRestoreType:    RESTIC,
 			PreBackupVerify: VerificationFunction(func(dpaCR *DpaCustomResource, namespace string) error {
-				// create BSL
-				err := CreateBackupStorageLocation(dpaCR.Client, velerov1.BackupStorageLocation{
+				bsl := velerov1.BackupStorageLocation{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      dpaCR.Name + "nobsl-1",
 						Namespace: dpaCR.Namespace,
 					},
 					Spec: *dpaCR.VeleroBSL(),
-				})
+				}
+				// clear credentialsFile from config
+				delete(bsl.Spec.Config, "credentialsFile")
+				// set credentials to bsl credentials
+				bsl.Spec.Credential = &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{Name: "bsl-cloud-credentials-" + provider},
+					Key:                  "cloud",
+				}
+				// create BSL
+				err := CreateBackupStorageLocation(dpaCR.Client, bsl)
 				if err != nil {
 					return err
 				}
-				Eventually(BackupStorageLocationIsAvailable(dpaCR.Client, dpaCR.Name + "nobsl-1", dpaCR.Namespace), timeoutMultiplier*time.Minute, timeoutMultiplier*time.Second).Should(Equal(true))
+				Eventually(BackupStorageLocationIsAvailable(dpaCR.Client, dpaCR.Name+"nobsl-1", dpaCR.Namespace), timeoutMultiplier*time.Minute, timeoutMultiplier*time.Second).Should(Equal(true))
 				return mysqlReady(dpaCR, namespace)
 			}),
 			PostRestoreVerify: VerificationFunction(func(dpaCR *DpaCustomResource, namespace string) error {
@@ -298,13 +307,13 @@ var _ = Describe("AWS backup restore tests", func() {
 			}),
 			dpaCrOpts: []DpaCROption{
 				WithVeleroConfig(&v1alpha1.VeleroConfig{
-					NoDefaultBackupLocation: true,
-					FeatureFlags: Dpa.Spec.Configuration.Velero.FeatureFlags,
-					DefaultPlugins: Dpa.Spec.Configuration.Velero.DefaultPlugins,
-					CustomPlugins: Dpa.Spec.Configuration.Velero.CustomPlugins,
-					PodConfig: Dpa.Spec.Configuration.Velero.PodConfig,
+					NoDefaultBackupLocation:         true,
+					FeatureFlags:                    Dpa.Spec.Configuration.Velero.FeatureFlags,
+					DefaultPlugins:                  Dpa.Spec.Configuration.Velero.DefaultPlugins,
+					CustomPlugins:                   Dpa.Spec.Configuration.Velero.CustomPlugins,
+					PodConfig:                       Dpa.Spec.Configuration.Velero.PodConfig,
 					RestoreResourcesVersionPriority: Dpa.Spec.Configuration.Velero.RestoreResourcesVersionPriority,
-					LogLevel: Dpa.Spec.Configuration.Velero.LogLevel,
+					LogLevel:                        Dpa.Spec.Configuration.Velero.LogLevel,
 				}),
 				WithBackupImages(false),
 				WithBackupLocations([]v1alpha1.BackupLocation{}),
