@@ -20,9 +20,7 @@ import (
 	"github.com/vmware-tanzu/velero/pkg/label"
 	"github.com/vmware-tanzu/velero/pkg/restic"
 	appsv1 "k8s.io/api/apps/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -160,36 +158,6 @@ func RestoreErrorLogs(ocClient client.Client, restore velero.Restore) []string {
 	return logLines
 }
 
-func CreateBackupStorageLocation(ocClient client.Client, backupStorageLocation velero.BackupStorageLocation) error {
-	veleroClient, err := GetVeleroClient()
-	if err != nil {
-		return err
-	}
-	_, err = veleroClient.VeleroV1().BackupStorageLocations(backupStorageLocation.Namespace).Create(context.TODO(), &backupStorageLocation, metav1.CreateOptions{})
-	if err != nil {
-		if apierrors.IsAlreadyExists(err) {
-			return nil
-		}
-		return err
-	}
-	return nil
-}
-
-func DeleteBackupStorageLocation(ocClient client.Client, backupStorageLocation velero.BackupStorageLocation) error {
-	veleroClient, err := GetVeleroClient()
-	if err != nil {
-		return err
-	}
-	err = veleroClient.VeleroV1().BackupStorageLocations(backupStorageLocation.Namespace).Delete(context.TODO(), backupStorageLocation.Name, metav1.DeleteOptions{})
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			return nil
-		}
-		return err
-	}
-	return nil
-}
-
 func GetVeleroDeploymentList(namespace string) (*appsv1.DeploymentList, error) {
 	client, err := setUpClient()
 	if err != nil {
@@ -204,39 +172,4 @@ func GetVeleroDeploymentList(namespace string) (*appsv1.DeploymentList, error) {
 		return nil, err
 	}
 	return deploymentList, nil
-}
-
-// Returns true if condition is satisfied
-func BackupStorageLocationIsAvailable(ocClient client.Client, bslName, namespace string) wait.ConditionFunc {
-	return func() (bool, error) {
-		var bsl velero.BackupStorageLocation
-		err := ocClient.Get(context.Background(), client.ObjectKey{
-			Namespace: namespace,
-			Name:      bslName,
-		}, &bsl)
-		if err != nil {
-			log.Printf("error getting backup storage location %s: %v\n", bslName, err)
-			return false, err
-		}
-		log.Printf("backup storage location %s has status %v\n", bslName, bsl.Status)
-		log.Printf("backup storage location .Spec.Credential is %v\n", bsl.Spec.Credential)
-		log.Printf("backup storage location .Spec.Config[\"credentialsFile\"] is %v\n", bsl.Spec.Config["credentialsFile"])
-		log.Printf("bsl last fail message: %v\n", LastBackupStorageLocationMessage(bslName, namespace))
-
-		return bsl.Status.Phase == velero.BackupStorageLocationPhaseAvailable, nil
-	}
-}
-
-func LastBackupStorageLocationMessage(name, namespace string) string {
-	logs := GetVeleroContainerFailureLogs(namespace)
-	lenLogs := len(logs)
-	for i := 0; i < lenLogs; i++ {
-		if strings.Contains(logs[lenLogs-i-1], "backup-storage-location="+name) {
-			return logs[lenLogs-i-1]
-		}
-		if strings.Contains(logs[lenLogs-i-1], "backupLocation="+name) {
-			return logs[lenLogs-i-1]
-		}
-	}
-	return ""
 }
