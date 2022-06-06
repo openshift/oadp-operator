@@ -257,8 +257,8 @@ func (v *DpaCustomResource) SetClient() error {
 	return nil
 }
 
-func (dpa *DpaCustomResource) DPAReconcileError() func() (string) {
-	return func() (string) {
+func (dpa *DpaCustomResource) DPAReconcileError() func() string {
+	return func() string {
 		cr, err := dpa.Get()
 		if err != nil {
 			return "cr get error: " + err.Error()
