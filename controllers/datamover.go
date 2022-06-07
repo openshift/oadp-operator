@@ -32,7 +32,7 @@ func (r *DPAReconciler) ReconcileDataMoverController(log logr.Logger) (bool, err
 		},
 	}
 
-	if !dpa.Spec.EnableDataMover {
+	if (dpa.Spec.Features == nil) || (dpa.Spec.Features != nil && !dpa.Spec.Features.EnableDataMover) {
 		deleteContext := context.Background()
 		if err := r.Get(deleteContext, types.NamespacedName{
 			Name:      dataMoverDeployment.Name,
@@ -138,7 +138,7 @@ func (r *DPAReconciler) buildDataMoverDeployment(dataMoverDeployment *appsv1.Dep
 			Spec: corev1.PodSpec{
 				RestartPolicy:      corev1.RestartPolicyAlways,
 				Containers:         datamoverContainer,
-				ServiceAccountName: "openshift-adp-controller-manager",
+				ServiceAccountName: common.OADPOperatorServiceAccount,
 			},
 		},
 	}

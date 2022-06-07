@@ -19,6 +19,24 @@ rules:
   - update
   - watch
 - apiGroups:
+  - datamover.oadp.openshift.io
+  resources:
+  - '*'
+  verbs:
+  - '*'
+- apiGroups:
+  - volsync.backube
+  resources:
+  - '*'
+  verbs:
+  - '*'
+- apiGroups:
+  - snapshot.storage.k8s.io
+  resources:
+  - '*'
+  verbs:
+  - '*'
+- apiGroups:
   - coordination.k8s.io
   - corev1
   resources:
@@ -111,6 +129,7 @@ rules:
   - services
   - serviceaccounts
   - endpoints
+  - persistentvolumeclaims
   verbs:
   - list
   - get

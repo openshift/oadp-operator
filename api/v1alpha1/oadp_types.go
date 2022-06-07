@@ -160,6 +160,13 @@ type SnapshotLocation struct {
 	Velero *velero.VolumeSnapshotLocationSpec `json:"velero"`
 }
 
+// Features defines the configuration for the DPA to enable the tech preview features
+type Features struct {
+	// EnableDataMover is used to specify whether you want to deploy the volume snapshot mover controller and a modified csi datamover plugin
+	// +optional
+	EnableDataMover bool `json:"enableDataMover,omitempty"`
+}
+
 // DataProtectionApplicationSpec defines the desired state of Velero
 type DataProtectionApplicationSpec struct {
 	// BackupLocations defines the list of desired configuration to use for BackupStorageLocations
@@ -186,11 +193,11 @@ type DataProtectionApplicationSpec struct {
 	// BackupImages is used to specify whether you want to deploy a registry for enabling backup and restore of images
 	// +optional
 	BackupImages *bool `json:"backupImages,omitempty"`
-	// EnableDataMover is used to specify whether you want to deploy the volume snapshot mover controller and a modified csi datamover plugin
-	// +optional
-	EnableDataMover bool `json:"enableDataMover,omitempty"`
 	// Configuration is used to configure the data protection application's server config
 	Configuration *ApplicationConfig `json:"configuration"`
+	// Features defines the configuration for the DPA to enable the OADP tech preview features
+	// +optional
+	Features *Features `json:"features"`
 }
 
 // DataProtectionApplicationStatus defines the observed state of DataProtectionApplication
