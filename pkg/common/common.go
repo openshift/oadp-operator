@@ -8,7 +8,7 @@ const (
 	VeleroNamespace              = "oadp-operator"
 	OADPOperator                 = "oadp-operator"
 	OADPOperatorVelero           = "oadp-operator-velero"
-	DataMover                    = "data-mover"
+	DataMover                    = "volume-snapshot-mover"
 	DataMoverController          = "data-mover-controller"
 	DataMoverControllerContainer = "data-mover-controller-container"
 	OADPOperatorServiceAccount   = "openshift-adp-controller-manager"
