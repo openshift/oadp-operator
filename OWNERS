@@ -1,4 +1,5 @@
 approvers:
+  - jwmatthews
   - sseago
   - jmontleon
   - shawn-hurley
@@ -10,10 +11,6 @@ approvers:
   - savitharaghunathan
 reviewers:
   - sseago
-  - jmontleon
-  - shawn-hurley
-  - rayfordj
-  - dymurray
   - shubham-pampattiwar
   - kaovilai
   - eemcmullan
