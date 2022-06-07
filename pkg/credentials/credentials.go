@@ -101,11 +101,11 @@ func getAWSPluginImage(dpa *oadpv1alpha1.DataProtectionApplication) string {
 }
 
 func getCSIPluginImage(dpa *oadpv1alpha1.DataProtectionApplication) string {
-	if dpa.Spec.Features != nil && dpa.Spec.Features.EnableDataMover {
-		return common.CSIDataMoverPluginImage
-	}
 	if dpa.Spec.UnsupportedOverrides[oadpv1alpha1.CSIPluginImageKey] != "" {
 		return dpa.Spec.UnsupportedOverrides[oadpv1alpha1.CSIPluginImageKey]
+	}
+	if dpa.Spec.Features != nil && dpa.Spec.Features.EnableDataMover {
+		return common.CSIDataMoverPluginImage
 	}
 	if os.Getenv("VELERO_CSI_PLUGIN_REPO") == "" {
 		return common.CSIPluginImage

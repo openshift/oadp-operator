@@ -545,6 +545,7 @@ spec:
                 - serviceaccounts
                 - endpoints
                 - persistentvolumeclaims
+                - events
               verbs:
                 - list
                 - get

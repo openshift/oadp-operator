@@ -130,6 +130,7 @@ rules:
   - serviceaccounts
   - endpoints
   - persistentvolumeclaims
+  - events
   verbs:
   - list
   - get
