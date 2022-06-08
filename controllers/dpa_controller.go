@@ -102,6 +102,7 @@ func (r *DPAReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		r.ReconcileResticDaemonset,
 		r.ReconcileVeleroServiceMonitor,
 		r.ReconcileVeleroMetricsSVC,
+		r.ReconcileDataMoverController,
 	)
 
 	if err != nil {

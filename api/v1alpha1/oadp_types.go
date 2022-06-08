@@ -30,6 +30,7 @@ const ReconcileCompleteMessage = "Reconcile complete"
 
 const OadpOperatorLabel = "openshift.io/oadp"
 const RegistryDeploymentLabel = "openshift.io/oadp-registry"
+const DataMoverDeploymentLabel = "openshift.io/oadp-data-mover"
 
 type DefaultPlugin string
 
@@ -53,6 +54,7 @@ const OpenShiftPluginImageKey UnsupportedImageKey = "openshiftPluginImageFqin"
 const AzurePluginImageKey UnsupportedImageKey = "azurePluginImageFqin"
 const GCPPluginImageKey UnsupportedImageKey = "gcpPluginImageFqin"
 const CSIPluginImageKey UnsupportedImageKey = "csiPluginImageFqin"
+const DataMoverImageKey UnsupportedImageKey = "dataMoverImageFqin"
 const ResticRestoreImageKey UnsupportedImageKey = "resticRestoreImageFqin"
 const RegistryImageKey UnsupportedImageKey = "registryImageFqin"
 const KubeVirtPluginImageKey UnsupportedImageKey = "kubevirtPluginImageFqin"
@@ -158,6 +160,13 @@ type SnapshotLocation struct {
 	Velero *velero.VolumeSnapshotLocationSpec `json:"velero"`
 }
 
+// Features defines the configuration for the DPA to enable the tech preview features
+type Features struct {
+	// EnableDataMover is used to specify whether you want to deploy the volume snapshot mover controller and a modified csi datamover plugin
+	// +optional
+	EnableDataMover bool `json:"enableDataMover,omitempty"`
+}
+
 // DataProtectionApplicationSpec defines the desired state of Velero
 type DataProtectionApplicationSpec struct {
 	// BackupLocations defines the list of desired configuration to use for BackupStorageLocations
@@ -184,9 +193,11 @@ type DataProtectionApplicationSpec struct {
 	// BackupImages is used to specify whether you want to deploy a registry for enabling backup and restore of images
 	// +optional
 	BackupImages *bool `json:"backupImages,omitempty"`
-
 	// Configuration is used to configure the data protection application's server config
 	Configuration *ApplicationConfig `json:"configuration"`
+	// Features defines the configuration for the DPA to enable the OADP tech preview features
+	// +optional
+	Features *Features `json:"features"`
 }
 
 // DataProtectionApplicationStatus defines the observed state of DataProtectionApplication

@@ -441,6 +441,16 @@ spec:
                         type: string
                     type: object
                 type: object
+              features:
+                description: Features defines the configuration for the DPA to enable
+                  the OADP tech preview features
+                properties:
+                  enableDataMover:
+                    description: EnableDataMover is used to specify whether you want
+                      to deploy the volume snapshot mover controller and a modified
+                      csi datamover plugin
+                    type: boolean
+                type: object
               podAnnotations:
                 additionalProperties:
                   type: string

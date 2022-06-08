@@ -403,6 +403,9 @@ spec:
             displayName: Plugins
             path: plugins
         version: v1
+      - kind: VolumeSnapshotBackup
+        name: volumesnapshotbackups.datamover.oadp.openshift.io
+        version: v1alpha1
       - description: VolumeSnapshotLocation is a location where Velero stores volume snapshots.
         displayName: VolumeSnapshotLocation
         kind: VolumeSnapshotLocation
@@ -412,6 +415,9 @@ spec:
             displayName: Phase
             path: phase
         version: v1
+      - kind: VolumeSnapshotRestore
+        name: volumesnapshotrestores.datamover.oadp.openshift.io
+        version: v1alpha1
   description: OADP (OpenShift API for Data Protection) operator sets up and installs Data Protection Applications on the OpenShift platform.
   displayName: OADP Operator
   icon:
@@ -433,6 +439,24 @@ spec:
                 - patch
                 - update
                 - watch
+            - apiGroups:
+                - datamover.oadp.openshift.io
+              resources:
+                - '*'
+              verbs:
+                - '*'
+            - apiGroups:
+                - volsync.backube
+              resources:
+                - '*'
+              verbs:
+                - '*'
+            - apiGroups:
+                - snapshot.storage.k8s.io
+              resources:
+                - '*'
+              verbs:
+                - '*'
             - apiGroups:
                 - coordination.k8s.io
                 - corev1
@@ -526,6 +550,8 @@ spec:
                 - services
                 - serviceaccounts
                 - endpoints
+                - persistentvolumeclaims
+                - events
               verbs:
                 - list
                 - get

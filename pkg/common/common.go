@@ -3,11 +3,15 @@ package common
 import "fmt"
 
 const (
-	Velero             = "velero"
-	Restic             = "restic"
-	VeleroNamespace    = "oadp-operator"
-	OADPOperator       = "oadp-operator"
-	OADPOperatorVelero = "oadp-operator-velero"
+	Velero                       = "velero"
+	Restic                       = "restic"
+	VeleroNamespace              = "oadp-operator"
+	OADPOperator                 = "oadp-operator"
+	OADPOperatorVelero           = "oadp-operator-velero"
+	DataMover                    = "volume-snapshot-mover"
+	DataMoverController          = "data-mover-controller"
+	DataMoverControllerContainer = "data-mover-controller-container"
+	OADPOperatorServiceAccount   = "openshift-adp-controller-manager"
 )
 
 // Images
@@ -18,8 +22,12 @@ const (
 	AzurePluginImage     = "quay.io/konveyor/velero-plugin-for-microsoft-azure:latest"
 	GCPPluginImage       = "quay.io/konveyor/velero-plugin-for-gcp:latest"
 	CSIPluginImage       = "quay.io/konveyor/velero-plugin-for-csi:latest"
-	RegistryImage        = "quay.io/konveyor/registry:latest"
-	KubeVirtPluginImage  = "quay.io/konveyor/kubevirt-velero-plugin:v0.2.0"
+	// CSIDataMoverPluginImage is the modified version of the velero plugin for csi which facilitates movement of csi snapshots
+	CSIDataMoverPluginImage = "quay.io/konveyor/velero-plugin-for-csi:data-mover"
+	// DataMoverImage is the data mover controller for data mover CRs - VolumeSnapshotBackup and VolumeSnapshotRestore
+	DataMoverImage      = "quay.io/konveyor/volume-snapshot-mover:latest"
+	RegistryImage       = "quay.io/konveyor/registry:latest"
+	KubeVirtPluginImage = "quay.io/konveyor/kubevirt-velero-plugin:v0.2.0"
 )
 
 // Plugin names
