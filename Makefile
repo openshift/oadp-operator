@@ -164,12 +164,17 @@ vet: ## Run go vet against code.
 	go vet -mod=mod ./...
 
 test: manifests generate fmt vet envtest ## Run tests.
-	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" go test -mod=mod ./controllers/... ./pkg/... -coverprofile cover.out
+	KUBEBUILDER_ASSETS="$(ENVTESTPATH)" go test -mod=mod ./controllers/... ./pkg/... -coverprofile cover.out
 
 
 ENVTEST = $(shell pwd)/bin/setup-envtest
+ENVTESTPATH = $(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)
+# if there is no native arch available, attempt to use amd64
+ifeq ($(shell $(ENVTEST) list),)
+	ENVTESTPATH = $(shell $(ENVTEST) --arch=amd64 use $(ENVTEST_K8S_VERSION) -p path)
+endif
 ci-test: ## This assumes "manifests generate fmt vet envtest" ran.
-	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" go test -mod=mod ./controllers/... -coverprofile cover.out
+	KUBEBUILDER_ASSETS="$(ENVTESTPATH)" go test -mod=mod ./controllers/... -coverprofile cover.out
 
 
 ##@ Build
