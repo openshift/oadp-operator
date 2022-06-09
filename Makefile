@@ -43,7 +43,7 @@ ifneq ($(OC_CLI),)
 	endif
 endif
 ifneq ($(CLUSTER_TYPE),)
-	CLUSTER_TYPE := $(shell echo $(CLUSTER_TYPE) | awk "{print tolower($0)}")
+	CLUSTER_TYPE := $(shell echo $(CLUSTER_TYPE) | awk -v AWKVAR="${0}" '{print tolower(AWKVAR)}')
 endif
 
 ifeq ($(CLUSTER_TYPE), gcp)
