@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	snapshotv1beta1api "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1beta1"
-	snapshotv1beta1client "github.com/kubernetes-csi/external-snapshotter/client/v4/clientset/versioned"
+	snapshotv1api "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
+	snapshotv1client "github.com/kubernetes-csi/external-snapshotter/client/v4/clientset/versioned"
 	velero "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	pkgbackup "github.com/vmware-tanzu/velero/pkg/backup"
 	"github.com/vmware-tanzu/velero/pkg/cmd"
@@ -61,16 +61,16 @@ func DescribeBackup(ocClient client.Client, backup velero.Backup) string {
 		log.Printf("error getting PodVolumeBackups for backup %s: %v\n", backup.Name, err)
 	}
 
-	var csiClient *snapshotv1beta1client.Clientset
+	var csiClient *snapshotv1client.Clientset
 	// declare vscList up here since it may be empty and we'll pass the empty Items field into DescribeBackup
-	vscList := new(snapshotv1beta1api.VolumeSnapshotContentList)
+	vscList := new(snapshotv1api.VolumeSnapshotContentList)
 	if features.IsEnabled(velero.CSIFeatureFlag) {
 		clientConfig := getKubeConfig()
 
-		csiClient, err = snapshotv1beta1client.NewForConfig(clientConfig)
+		csiClient, err = snapshotv1client.NewForConfig(clientConfig)
 		cmd.CheckError(err)
 
-		vscList, err = csiClient.SnapshotV1beta1().VolumeSnapshotContents().List(context.TODO(), opts)
+		vscList, err = csiClient.SnapshotV1().VolumeSnapshotContents().List(context.TODO(), opts)
 		if err != nil {
 			log.Printf("error getting VolumeSnapshotContent objects for backup %s: %v\n", backup.Name, err)
 		}
