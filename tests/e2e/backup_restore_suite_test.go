@@ -16,6 +16,31 @@ import (
 
 type VerificationFunction func(client.Client, string) error
 
+func mongoready(preBackupState bool, backupRestoreType BackupRestoreType) VerificationFunction {
+	return VerificationFunction(func(ocClient client.Client, namespace string) error {
+		Eventually(IsDCReady(ocClient, namespace, "todolist"), timeoutMultiplier*time.Minute*10, time.Second*10).Should(BeTrue())
+		err := VerifyBackupRestoreData(artifact_dir, namespace, "todolist-route", "todolist", preBackupState, backupRestoreType) // TODO: VERIFY PARKS APP DATA
+		return err
+	})
+}
+func mysqlReady(preBackupState bool, backupRestoreType BackupRestoreType) VerificationFunction {
+	return VerificationFunction(func(ocClient client.Client, namespace string) error {
+		fmt.Printf("checking for the NAMESPACE: %s\n ", namespace)
+		// This test confirms that SCC restore logic in our plugin is working
+		//Eventually(IsDCReady(ocClient, "mssql-persistent", "mysql"), timeoutMultiplier*time.Minute*10, time.Second*10).Should(BeTrue())
+		Eventually(IsDeploymentReady(ocClient, namespace, "mysql"), timeoutMultiplier*time.Minute*10, time.Second*10).Should(BeTrue())
+		exists, err := DoesSCCExist(ocClient, "mysql-persistent-scc")
+		if err != nil {
+			return err
+		}
+		if !exists {
+			return errors.New("did not find MYSQL scc")
+		}
+		err = VerifyBackupRestoreData(artifact_dir, namespace, "todolist-route", "todolist", preBackupState, backupRestoreType)
+		return err
+	})
+}
+
 var _ = Describe("AWS backup restore tests", func() {
 
 	var _ = BeforeEach(func() {
@@ -55,26 +80,6 @@ var _ = Describe("AWS backup restore tests", func() {
 		MinK8SVersion        *K8sVersion
 	}
 
-	mongoReady := VerificationFunction(func(ocClient client.Client, namespace string) error {
-		Eventually(IsDCReady(ocClient, "mongo-persistent", "todolist"), timeoutMultiplier*time.Minute*10, time.Second*10).Should(BeTrue())
-		// err := VerifyBackupRestoreData(artifact_dir, namespace, "restify", "parks-app") // TODO: VERIFY PARKS APP DATA
-		return nil
-	})
-	mysqlReady := VerificationFunction(func(ocClient client.Client, namespace string) error {
-		// This test confirms that SCC restore logic in our plugin is working
-		//Eventually(IsDCReady(ocClient, "mssql-persistent", "mysql"), timeoutMultiplier*time.Minute*10, time.Second*10).Should(BeTrue())
-		Eventually(IsDeploymentReady(ocClient, "mysql-persistent", "mysql"), timeoutMultiplier*time.Minute*10, time.Second*10).Should(BeTrue())
-		exists, err := DoesSCCExist(ocClient, "mysql-persistent-scc")
-		if err != nil {
-			return err
-		}
-		if !exists {
-			return errors.New("did not find MYSQL scc")
-		}
-		err = VerifyBackupRestoreData(artifact_dir, namespace, "todolist-route", "todolist")
-		return err
-	})
-
 	updateLastInstallingNamespace := func(namespace string) {
 		lastInstallingApplicationNamespace = namespace
 		lastInstallTime = time.Now()
@@ -92,6 +97,8 @@ var _ = Describe("AWS backup restore tests", func() {
 			updateLastInstallingNamespace(dpaCR.Namespace)
 			err = dpaCR.CreateOrUpdate(&dpaCR.CustomResource.Spec)
 			Expect(err).NotTo(HaveOccurred())
+
+			fmt.Printf("Cluster type: %s \n", provider)
 
 			log.Printf("Waiting for velero pod to be running")
 			Eventually(AreVeleroPodsRunning(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
@@ -243,24 +250,32 @@ var _ = Describe("AWS backup restore tests", func() {
 			ApplicationNamespace: "mysql-persistent",
 			Name:                 "mysql-e2e",
 			BackupRestoreType:    CSI,
-			PreBackupVerify:      mysqlReady,
-			PostRestoreVerify:    mysqlReady,
+			PreBackupVerify:      mysqlReady(true, CSI),
+			PostRestoreVerify:    mysqlReady(false, CSI),
 		}, nil),
-		Entry("Mongo application", BackupRestoreCase{
+		Entry("Mongo application CSI", Label("aws"), BackupRestoreCase{
+			ApplicationTemplate:  "./sample-applications/mongo-persistent/mongo-persistent-csi-template.yaml",
+			ApplicationNamespace: "mongo-persistent",
+			Name:                 "mongo-e2e",
+			BackupRestoreType:    CSI,
+			PreBackupVerify:      mongoready(true, CSI),
+			PostRestoreVerify:    mongoready(false, CSI),
+		}, nil),
+		Entry("Mongo application RESTIC", BackupRestoreCase{
 			ApplicationTemplate:  "./sample-applications/mongo-persistent/mongo-persistent.yaml",
 			ApplicationNamespace: "mongo-persistent",
 			Name:                 "mongo-e2e",
 			BackupRestoreType:    RESTIC,
-			PreBackupVerify:      mongoReady,
-			PostRestoreVerify:    mongoReady,
+			PreBackupVerify:      mongoready(false, RESTIC),
+			PostRestoreVerify:    mongoready(false, RESTIC),
 		}, nil),
-		Entry("MySQL application", BackupRestoreCase{
+		Entry("MySQL application RESTIC", BackupRestoreCase{
 			ApplicationTemplate:  "./sample-applications/mysql-persistent/mysql-persistent-template.yaml",
 			ApplicationNamespace: "mysql-persistent",
 			Name:                 "mysql-e2e",
 			BackupRestoreType:    RESTIC,
-			PreBackupVerify:      mysqlReady,
-			PostRestoreVerify:    mysqlReady,
+			PreBackupVerify:      mysqlReady(false, RESTIC),
+			PostRestoreVerify:    mysqlReady(false, RESTIC),
 		}, nil),
 	)
 })
