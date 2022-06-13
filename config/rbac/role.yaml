@@ -136,6 +136,7 @@ rules:
   - get
   - create
   - delete
+  - deletecollection
   - patch
   - update
   - watch
