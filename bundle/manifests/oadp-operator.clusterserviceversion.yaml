@@ -557,6 +557,7 @@ spec:
                 - get
                 - create
                 - delete
+                - deletecollection
                 - patch
                 - update
                 - watch
