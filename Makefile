@@ -191,7 +191,7 @@ run: manifests generate fmt vet ## Run a controller from your host.
 # - podman machine ssh sudo rpm-ostree install qemu-user-static && sudo systemctl reboot
 # from: https://github.com/containers/podman/issues/12144#issuecomment-955760527
 # related enhancements that may remove the need to manually install qemu-user-static https://bugzilla.redhat.com/show_bug.cgi?id=2061584
-DOCKER_BUILD_ARGS?=--platform=linux/amd64
+DOCKER_BUILD_ARGS ?= --platform=linux/amd64
 docker-build: test ## Build docker image with the manager.
 	docker build -t $(IMG) . $(DOCKER_BUILD_ARGS)
 
