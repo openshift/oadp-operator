@@ -185,8 +185,15 @@ build: generate fmt vet ## Build manager binary.
 run: manifests generate fmt vet ## Run a controller from your host.
 	go run ./main.go
 
+# Development clusters require linux/amd64 OCI image
+# Set platform to linux/amd64 regardless of host platform.
+# If using podman machine, and host platform is not linux/amd64 run
+# - podman machine ssh sudo rpm-ostree install qemu-user-static && sudo systemctl reboot
+# from: https://github.com/containers/podman/issues/12144#issuecomment-955760527
+# related enhancements that may remove the need to manually install qemu-user-static https://bugzilla.redhat.com/show_bug.cgi?id=2061584
+DOCKER_BUILD_ARGS?=--platform=linux/amd64
 docker-build: test ## Build docker image with the manager.
-	docker build -t ${IMG} .
+	docker build -t $(IMG) . $(DOCKER_BUILD_ARGS)
 
 docker-push: ## Push docker image with the manager.
 	docker push ${IMG}
@@ -301,7 +308,7 @@ bundle: manifests kustomize yq ## Generate bundle manifests and metadata, then v
 
 .PHONY: bundle-build
 bundle-build: ## Build the bundle image.
-	docker build -f bundle.Dockerfile -t $(BUNDLE_IMG) .
+	docker build -f bundle.Dockerfile -t $(BUNDLE_IMG) . $(DOCKER_BUILD_ARGS)
 
 .PHONY: bundle-push
 bundle-push: ## Push the bundle image.
