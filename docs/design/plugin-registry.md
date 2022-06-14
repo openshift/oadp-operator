@@ -64,11 +64,11 @@ As more backups and/or new Backup Storage Location are added and thus caching mo
 
 OADP-Operator controller manager will
  * set environment variables on the velero container
- ** tell openshift-velero-plugin to initialize [udistribution transport](https://github.com/kaovilai/udistribution/blob/main/pkg/image/udistribution/docker_transport.go#L36) to be used to talk to storage drivers such as s3
+   * tell openshift-velero-plugin to initialize [udistribution transport](https://github.com/kaovilai/udistribution/blob/main/pkg/image/udistribution/docker_transport.go#L36) to be used to talk to storage drivers such as s3
 
 openshift-velero-plugin will
  * initialize [udistribution transport](https://github.com/kaovilai/udistribution/blob/main/pkg/image/udistribution/docker_transport.go#L36) to be used to talk to storage drivers such as s3
- * use udistributionTransport.ParseReference
+ * substitute transport name given to `image.Copy()` from `docker://` to [generated udistribution transport name](https://github.com/openshift/openshift-velero-plugin/blob/1600327cb3f6f9f60ade880aef8fe16d34e6fb04/velero-plugins/imagecopy/imagestream.go#L102) for bsl when plugin registry is requested.
 
 ### Test Plan
 - Check for no user experience changes
