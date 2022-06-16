@@ -25,4 +25,4 @@ require (
 	sigs.k8s.io/controller-runtime v0.10.3
 )
 
-replace github.com/vmware-tanzu/velero => github.com/konveyor/velero v0.10.2-0.20220608184903-e0a380fc0705
+replace github.com/vmware-tanzu/velero => github.com/konveyor/velero v0.10.2-0.20220617143707-a539132cacc7
