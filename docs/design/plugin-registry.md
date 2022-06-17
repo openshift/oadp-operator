@@ -43,6 +43,8 @@ Current image backup workflow depends on registry deployment with exposed insecu
 ### Goals
 
 Exposed routes are eliminated.
+Remove dependency on registry deployment.
+Be backward compatible with existing image backup workflow.
 
 ### Non-Goals
 
@@ -62,11 +64,18 @@ As more backups and/or new Backup Storage Location are added and thus caching mo
 
 ## Design Details
 
+[![plugin-registry](plugin-registry.svg)](https://lucid.app/documents/view/14dd9d7d-38a5-40f7-a378-c89a99a1ace6)
+
+[udistribution](https://github.com/kaovilai/udistribution) library has been created to help with the following:
+- Initializing Registry [App](https://github.com/distribution/distribution/blob/b5e2f3f33dbc80d2c40b5d550541467477d5d36e/registry/handlers/app.go#L58) from configuration resolved from environment variables passed via [function parameters](https://github.com/kaovilai/udistribution/blob/d7f491d7c354caa1df6893d20c735b9c08c20108/pkg/client/client.go#L58).
+- Add a custom container/images docker transport with modified [makeRequestToResolvedURLOnce()](https://github.com/kaovilai/udistribution/blob/d7f491d7c354caa1df6893d20c735b9c08c20108/pkg/image/udistribution/docker_client.go#L559) to use [Registry App ServeHTTP method](https://github.com/kaovilai/udistribution/blob/d7f491d7c354caa1df6893d20c735b9c08c20108/pkg/image/udistribution/docker_client.go#L613) instead of sending HTTP requests to a listening HTTP server.
+
 OADP-Operator controller manager will
  * set environment variables on the velero container
    * tell openshift-velero-plugin to initialize [udistribution transport](https://github.com/kaovilai/udistribution/blob/main/pkg/image/udistribution/docker_transport.go#L36) to be used to talk to storage drivers such as s3
 
 openshift-velero-plugin will
+ * resolve registry secret for a given Backup Storage Location by looking up the secret in the namespace of the Backup Storage Location.
  * initialize [udistribution transport](https://github.com/kaovilai/udistribution/blob/main/pkg/image/udistribution/docker_transport.go#L36) to be used to talk to storage drivers such as s3
  * substitute transport name given to `image.Copy()` from `docker://` to [generated udistribution transport name](https://github.com/openshift/openshift-velero-plugin/blob/1600327cb3f6f9f60ade880aef8fe16d34e6fb04/velero-plugins/imagecopy/imagestream.go#L102) for bsl when plugin registry is requested.
 
