@@ -160,25 +160,25 @@ func NamespaceRequiresResticDCWorkaround(ocClient client.Client, namespace strin
 
 func AreVolumeSnapshotsReady(ocClient client.Client, backupName string) wait.ConditionFunc {
 	return func() (bool, error) {
-		vList := &volumesnapshotv1.VolumeSnapshotList{}
+		vList := &volumesnapshotv1.VolumeSnapshotContentList{}
 		// vListBeta := &volumesnapshotv1beta1.VolumeSnapshotList{}
 		err := ocClient.List(context.Background(), vList, &client.ListOptions{LabelSelector: label.NewSelectorForBackup(backupName)})
 		if err != nil {
 			return false, err
 		}
 		if len(vList.Items) == 0 {
-			ginkgo.GinkgoWriter.Println("No VolumeSnapshots found")
+			ginkgo.GinkgoWriter.Println("No VolumeSnapshotContents found")
 			return false, nil
 		}
 		for _, v := range vList.Items {
-			log.Println(fmt.Sprintf("waiting for volume snapshot %s to be ready", v.Name))
+			log.Println(fmt.Sprintf("waiting for volume snapshot contents %s to be ready", v.Name))
 			if v.Status.ReadyToUse == nil {
-				ginkgo.GinkgoWriter.Println("VolumeSnapshots Ready status not found for " + v.Name)
+				ginkgo.GinkgoWriter.Println("VolumeSnapshotContents Ready status not found for " + v.Name)
 				ginkgo.GinkgoWriter.Println(fmt.Sprintf("status: %v", v.Status))
 				return false, nil
 			}
 			if !*v.Status.ReadyToUse {
-				ginkgo.GinkgoWriter.Println("VolumeSnapshots Ready status is false " + v.Name)
+				ginkgo.GinkgoWriter.Println("VolumeSnapshotContents Ready status is false " + v.Name)
 				return false, nil
 			}
 		}
