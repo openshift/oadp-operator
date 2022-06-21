@@ -166,10 +166,6 @@ func AreVolumeSnapshotsReady(ocClient client.Client, backupName string) wait.Con
 		if err != nil {
 			return false, err
 		}
-		if len(vList.Items) == 0 {
-			ginkgo.GinkgoWriter.Println("No VolumeSnapshots found")
-			return false, nil
-		}
 		for _, v := range vList.Items {
 			log.Println(fmt.Sprintf("waiting for volume snapshot %s to be ready", v.Name))
 			if v.Status.ReadyToUse == nil {
