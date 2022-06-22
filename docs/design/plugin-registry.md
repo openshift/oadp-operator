@@ -39,12 +39,15 @@ removes a listening HTTP server and connect [openshift-velero-plugin](https://gi
 ## Motivation
 
 Current image backup workflow depends on registry deployment with exposed insecure routes allowing anyone knowing the URL of the exposed routes to push or pull images to the registry.
+There are some transient errors such as pod health probe timeouts that are resolved by this design.
+This approach will eliminate registry deployment dependency which the operator will no longer have to reconcile.
 
 ### Goals
 
-Exposed routes are eliminated.
-Remove dependency on registry deployment.
-Be backward compatible with existing image backup workflow.
+- Exposed routes are eliminated.
+- Remove dependency on registry deployment.
+- Be backward compatible with existing image backup workflow.
+- Keep deduplication across backups.
 
 ### Non-Goals
 
