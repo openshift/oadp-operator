@@ -74,12 +74,10 @@ As more backups and/or new Backup Storage Location are added and thus caching mo
 - Add a custom container/images docker transport with modified [makeRequestToResolvedURLOnce()](https://github.com/kaovilai/udistribution/blob/d7f491d7c354caa1df6893d20c735b9c08c20108/pkg/image/udistribution/docker_client.go#L559) to use [Registry App ServeHTTP method](https://github.com/kaovilai/udistribution/blob/d7f491d7c354caa1df6893d20c735b9c08c20108/pkg/image/udistribution/docker_client.go#L613) instead of sending HTTP requests to a listening HTTP server.
 
 OADP-Operator controller manager will
- * set environment variables on the velero container
-   * tell openshift-velero-plugin to initialize [udistribution transport](https://github.com/kaovilai/udistribution/blob/main/pkg/image/udistribution/docker_transport.go#L36) to be used to talk to storage drivers such as s3
+ * set a single environment variable on the velero container to tell openshift-velero-plugin to initialize [udistribution transport](https://github.com/kaovilai/udistribution/blob/main/pkg/image/udistribution/docker_transport.go#L36) to be used to talk to storage drivers such as s3
 
 openshift-velero-plugin will
- * resolve registry secret for a given Backup Storage Location by looking up the secret in the namespace of the Backup Storage Location.
- * initialize [udistribution transport](https://github.com/kaovilai/udistribution/blob/main/pkg/image/udistribution/docker_transport.go#L36) to be used to talk to storage drivers such as s3, gcs, and azure
+ * resolve registry secret for a given Backup Storage Location by looking up the secret in the namespace of the Backup Storage Location and use them as parameters to initialize [udistribution transport](https://github.com/kaovilai/udistribution/blob/main/pkg/image/udistribution/docker_transport.go#L36) to be used to talk to storage drivers such as s3, gcs, and azure
  * substitute transport name given to `image.Copy()` from `docker://` to [generated udistribution transport name](https://github.com/openshift/openshift-velero-plugin/blob/1600327cb3f6f9f60ade880aef8fe16d34e6fb04/velero-plugins/imagecopy/imagestream.go#L102) for bsl when plugin registry is requested.
 
 ### Test Plan
