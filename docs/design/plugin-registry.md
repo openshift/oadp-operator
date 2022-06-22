@@ -55,7 +55,7 @@ Creating another custom resource and a controller to replace usage of [distribut
 
 ## Proposal
 
-We propose that insecure routes are eliminated by removing registry deployment, and making network requests to [distribution/distribution](https://github.com/distribution/distribution) storage drivers such as [s3-aws](https://github.com/distribution/distribution/blob/main/registry/storage/driver/s3-aws/s3.go) from within velero pod via openshift-velero-plugin.
+We propose that insecure routes are eliminated by removing registry deployment, and making network requests to [distribution/distribution](https://github.com/distribution/distribution) storage drivers such as [`s3-aws`](https://github.com/distribution/distribution/blob/main/registry/storage/driver/s3-aws/s3.go),`gcs` , and `azure` from within velero pod via openshift-velero-plugin.
 
 ### Implementation Details/Notes/Constraints [optional]
 
@@ -79,7 +79,7 @@ OADP-Operator controller manager will
 
 openshift-velero-plugin will
  * resolve registry secret for a given Backup Storage Location by looking up the secret in the namespace of the Backup Storage Location.
- * initialize [udistribution transport](https://github.com/kaovilai/udistribution/blob/main/pkg/image/udistribution/docker_transport.go#L36) to be used to talk to storage drivers such as s3
+ * initialize [udistribution transport](https://github.com/kaovilai/udistribution/blob/main/pkg/image/udistribution/docker_transport.go#L36) to be used to talk to storage drivers such as s3, gcs, and azure
  * substitute transport name given to `image.Copy()` from `docker://` to [generated udistribution transport name](https://github.com/openshift/openshift-velero-plugin/blob/1600327cb3f6f9f60ade880aef8fe16d34e6fb04/velero-plugins/imagecopy/imagestream.go#L102) for bsl when plugin registry is requested.
 
 ### Test Plan
