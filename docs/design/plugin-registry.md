@@ -90,7 +90,7 @@ openshift-velero-plugin will
 
 ### Upgrade / Downgrade Strategy
 
-Upon upgrading, operator will attempt to for detected BSLs remove any remaining registry deployments.
+Upon upgrading, operator will attempt to remove remaining registry deployments for dpa BSLs.
 
 <!--
 ## Implementation History
@@ -112,4 +112,4 @@ TBC
  - Sidecar registry container inside velero pod
    - [move registry container inside velero pod by kaovilai · Pull Request #700 · openshift/oadp-operator (github.com)](https://github.com/openshift/oadp-operator/pull/700)
    - Reasons against
-     - As BSLs are added, velero pod has to be recreated, thus causing running backups to fail or has to wait for backups to complete before a new BSL can have registry active.
+     - As BSLs are added, velero pod has to be recreated, thus causing running backups to fail or has to wait for backups to complete before a new BSL can have a working registry.
