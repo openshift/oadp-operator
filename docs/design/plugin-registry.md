@@ -83,7 +83,7 @@ openshift-velero-plugin will
 ### Test Plan
 - Check for no user experience changes
 - Image backup continues to work and upload to s3/azure/gcp
-
+- e2e test that verify backed up internal images exists in the object store
 #### Test Changes
 - Remove check for ready registry deployments
 - Deploy a dummy bsl registry deployment and check for removal
