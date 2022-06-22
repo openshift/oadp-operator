@@ -11,6 +11,8 @@ const (
 	DataMover                    = "volume-snapshot-mover"
 	DataMoverController          = "data-mover-controller"
 	DataMoverControllerContainer = "data-mover-controller-container"
+	VolSyncDeployment            = "volsync-controller-manager"
+	VolSyncOperatorNamespace     = "openshift-operators"
 	OADPOperatorServiceAccount   = "openshift-adp-controller-manager"
 )
 

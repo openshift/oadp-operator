@@ -3,6 +3,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+
 	"github.com/go-logr/logr"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	"github.com/openshift/oadp-operator/pkg/common"
@@ -114,6 +115,14 @@ func (r *DPAReconciler) buildDataMoverDeployment(dataMoverDeployment *appsv1.Dep
 	}
 	if dataMoverDeployment == nil {
 		return fmt.Errorf("datamover deployment cannot be nil")
+	}
+
+	volSyncDeployment := appsv1.Deployment{}
+	if err := r.Get(r.Context, types.NamespacedName{Name: common.VolSyncDeployment, Namespace: common.VolSyncOperatorNamespace}, &volSyncDeployment); err != nil {
+		if k8serror.IsNotFound(err) {
+			return fmt.Errorf("volSync controller not installed")
+		}
+		return err
 	}
 
 	//TODO: Add unsupportedoverrides support for datamover deployment image
