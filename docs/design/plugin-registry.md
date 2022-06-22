@@ -19,7 +19,7 @@ status: implementable
 
 # Plugin Registry
 
-Plugin registry enhancement replaces current usage of [registry](https://github.com/konveyor/distribution/) [deployment](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/) insecure [routes](https://access.redhat.com/documentation/en-us/openshift_container_platform/4.10/html/networking/configuring-routes)
+Plugin registry enhancement replaces current usage of [registry](https://github.com/konveyor/distribution/) [deployment](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/) insecure [routes](https://access.redhat.com/documentation/en-us/openshift_container_platform/4.10/html/networking/configuring-routes) by talking to registry API server inside the velero container itself via openshift-velero-plugin.
 
 ## Release Signoff Checklist
 
