@@ -59,7 +59,7 @@ We propose that insecure routes are eliminated by removing registry deployment, 
 
 ### Implementation Details/Notes/Constraints [optional]
 
-The logs relating to registry will be mixed into velero pod logs
+The logs relating to registry will be mixed into velero container logs. It is possbile to set log level. Could be done by setting `REGISTRY_LOG_LEVEL` environment variable on the velero container, or by discovering velero log level from velero container itself.
 
 ### Security, Risks, and Mitigations
 
