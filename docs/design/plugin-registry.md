@@ -47,6 +47,7 @@ This approach will eliminate registry deployment dependency which the operator w
 - Exposed routes are eliminated.
 - Remove dependency on registry deployment.
 - Be backward compatible with existing image backup workflow.
+  - images backed up will continue to be in the same directory in object storage as they were prior to this enhancement.
 - Keep deduplication across backups.
 
 ### Non-Goals
