@@ -71,7 +71,7 @@ ut, err := udistribution.NewTransportFromNewConfig("", os.Environ())
 	}
 ```
 
-This function [registers a new container/images transport](https://github.com/kaovilai/udistribution/blob/2b5e16ac1f8efa0bbcdc513ae7103d4f56f3befa/pkg/image/udistribution/docker_transport.go#L61) that is a modified `docker://` transport designed to use [ServeHTTP method available from the initialized Registry App](https://github.com/distribution/distribution/blob/3e4f8a0ab1476a9516d02d76fbf869480541657f/registry/handlers/app.go#L624) instead of communicating over HTTP protocol. 
+This function [registers a new container/images transport](https://github.com/kaovilai/udistribution/blob/2b5e16ac1f8efa0bbcdc513ae7103d4f56f3befa/pkg/image/udistribution/docker_transport.go#L61) that is a modified `docker://` transport designed to use [ServeHTTP method available from the initialized Registry App](https://github.com/distribution/distribution/blob/3e4f8a0ab1476a9516d02d76fbf869480541657f/registry/handlers/app.go#L624) instead of communicating over to a listening web server through a route to a registry deployment which was insecure.
 
 This approach does not require an exposed port on the container.
 
