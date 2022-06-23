@@ -61,7 +61,7 @@ We propose that insecure routes are eliminated by removing registry deployment, 
 
 ### Implementation Details/Notes/Constraints [optional]
 
-First, a udistribution client are to be initialized using `udistribution.NewTransportFromNewConfig()` function.
+First, a udistribution client are to be initialized using [`udistribution.NewTransportFromNewConfig()`](https://github.com/kaovilai/udistribution/blob/2b5e16ac1f8efa0bbcdc513ae7103d4f56f3befa/pkg/image/udistribution/docker_transport.go#L50) function.
 
 ```go
 ut, err := udistribution.NewTransportFromNewConfig("", os.Environ())
