@@ -56,9 +56,24 @@ Creating another custom resource and a controller to replace usage of [distribut
 
 ## Proposal
 
-We propose that insecure routes are eliminated by removing registry deployment, and making network requests to [distribution/distribution](https://github.com/distribution/distribution) storage drivers such as [`s3-aws`](https://github.com/distribution/distribution/blob/main/registry/storage/driver/s3-aws/s3.go),`gcs` , and `azure` from within velero pod via openshift-velero-plugin.
+We propose that insecure routes are eliminated by removing registry deployment, and to instead have openshift-velero-plugin make network requests to registry APIs internally via [golang ServeHTTP function provided by distribution/distribution](https://github.com/distribution/distribution/blob/3e4f8a0ab1476a9516d02d76fbf869480541657f/registry/handlers/app.go#L624) which will then through storage drivers such as [`s3-aws`](https://github.com/distribution/distribution/blob/main/registry/storage/driver/s3-aws/s3.go),`gcs` , and `azure` write to desired object storage.
+
 
 ### Implementation Details/Notes/Constraints [optional]
+
+First, a udistribution client are to be initialized using `udistribution.NewTransportFromNewConfig()` function.
+
+```go
+ut, err := udistribution.NewTransportFromNewConfig("", os.Environ())
+	defer ut.Deregister()
+	if err != nil {
+		t.Errorf("failed to create transport with environment variables: %v", err)
+	}
+```
+
+This function [registers a new container/images transport](https://github.com/kaovilai/udistribution/blob/2b5e16ac1f8efa0bbcdc513ae7103d4f56f3befa/pkg/image/udistribution/docker_transport.go#L61) that is a modified `docker://` transport designed to use [ServeHTTP method available from the initialized Registry App](https://github.com/distribution/distribution/blob/3e4f8a0ab1476a9516d02d76fbf869480541657f/registry/handlers/app.go#L624) instead of communicating over HTTP protocol. 
+
+This approach does not require an exposed port on the container.
 
 The logs relating to registry will be mixed into velero container logs. It is possbile to set log level. Could be done by setting `REGISTRY_LOG_LEVEL` environment variable on the velero container, or by discovering velero log level from velero container itself.
 
