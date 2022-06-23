@@ -106,7 +106,7 @@ openshift-velero-plugin will
 
 ### Upgrade / Downgrade Strategy
 
-Upon upgrading, operator will attempt to remove remaining registry deployments for dpa BSLs.
+Upon upgrading, operator will attempt to remove remaining registry deployments specified in dpa BSLs.
 
 <!--
 ## Implementation History
