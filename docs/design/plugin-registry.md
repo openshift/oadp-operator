@@ -50,10 +50,7 @@ This approach will eliminate registry deployment dependency which the operator w
   - images backed up will continue to be in the same directory in object storage as they were prior to this enhancement.
 - Keep deduplication across backups.
 
-### Non-Goals
-
-Creating another custom resource and a controller to replace usage of [distribution/distribution](https://github.com/distribution/distribution).
-
+<!-- ### Non-Goals -->
 ## Proposal
 
 We propose that insecure routes are eliminated by removing registry deployment, and to instead have openshift-velero-plugin make network requests to registry APIs internally via [golang ServeHTTP function provided by distribution/distribution](https://github.com/distribution/distribution/blob/3e4f8a0ab1476a9516d02d76fbf869480541657f/registry/handlers/app.go#L624) which will then through storage drivers such as [`s3-aws`](https://github.com/distribution/distribution/blob/main/registry/storage/driver/s3-aws/s3.go),`gcs` , and `azure` write to desired object storage.
