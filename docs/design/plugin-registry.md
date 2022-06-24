@@ -96,6 +96,7 @@ openshift-velero-plugin will
 ### Test Plan
 - Check for no user experience changes
 - Image backup continues to work and upload to s3/azure/gcp
+  - ex: backup image with oadp-1.0 using registry deployment and restore using oadp-1.1 without registry deployment
 - e2e test that verify backed up internal images exists in the object store
 #### Test Changes
 - Remove check for ready registry deployments
