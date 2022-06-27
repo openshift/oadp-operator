@@ -623,10 +623,6 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 					Eventually(ResticDaemonSetHasNodeSelector(namespace, key, value), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 				}
 			}
-			if dpa.BackupImages() {
-				log.Printf("Waiting for registry pods to be running")
-				Eventually(AreRegistryDeploymentsAvailable(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
-			}
 
 		}, genericTests,
 	)
@@ -644,10 +640,6 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 			Expect(err).NotTo(HaveOccurred())
 			log.Printf("Waiting for velero pod to be running")
 			Eventually(AreVeleroPodsRunning(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
-			if dpaCR.CustomResource.BackupImages() {
-				log.Printf("Waiting for registry pods to be running")
-				Eventually(AreRegistryDeploymentsAvailable(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
-			}
 			log.Printf("Deleting dpa")
 			err = dpaCR.Delete()
 			if installCase.WantError {
@@ -656,8 +648,6 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 				Expect(err).NotTo(HaveOccurred())
 				log.Printf("Checking no velero pods are running")
 				Eventually(AreVeleroPodsRunning(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).ShouldNot(BeTrue())
-				log.Printf("Checking no registry deployment available")
-				Eventually(AreRegistryDeploymentsNotAvailable(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 			}
 		},
 		Entry("Should succeed", deletionCase{WantError: false}),

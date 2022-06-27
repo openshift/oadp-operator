@@ -124,8 +124,10 @@ var _ = Describe("AWS backup restore tests", func() {
 			}
 
 			if dpaCR.CustomResource.BackupImages() {
-				log.Printf("Waiting for registry pods to be running")
-				Eventually(AreRegistryDeploymentsAvailable(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
+				// log.Printf("Waiting for registry pods to be running")
+				// Eventually(AreRegistryDeploymentsAvailable(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
+				// TODO: check registry deployments are deleted
+				// TODO: check S3 for images
 			}
 
 			backupUid, _ := uuid.NewUUID()
