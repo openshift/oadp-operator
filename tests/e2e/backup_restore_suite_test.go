@@ -115,7 +115,7 @@ var _ = Describe("AWS backup restore tests", func() {
 				Eventually(AreResticPodsRunning(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 			}
 			if brCase.BackupRestoreType == CSI {
-				if provider == "aws" || provider == "ibmcloud" {
+				if provider == "aws" || provider == "ibmcloud" || provider == "gcp" {
 					log.Printf("Creating VolumeSnapshotClass for CSI backuprestore of %s", brCase.Name)
 					snapshotClassPath := fmt.Sprintf("./sample-applications/snapclass-csi/%s.yaml", provider)
 					err = InstallApplication(dpaCR.Client, snapshotClassPath)
@@ -252,7 +252,7 @@ var _ = Describe("AWS backup restore tests", func() {
 			}
 
 		},
-		Entry("MySQL application CSI", Label("ibmcloud", "aws"), BackupRestoreCase{
+		Entry("MySQL application CSI", Label("ibmcloud", "aws", "gcp"), BackupRestoreCase{
 			ApplicationTemplate:  fmt.Sprintf("./sample-applications/mysql-persistent/mysql-persistent-csi-%s-template.yaml", provider),
 			ApplicationNamespace: "mysql-persistent",
 			Name:                 "mysql-e2e",
