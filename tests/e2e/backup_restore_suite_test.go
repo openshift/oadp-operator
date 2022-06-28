@@ -260,8 +260,8 @@ var _ = Describe("AWS backup restore tests", func() {
 			PreBackupVerify:      mysqlReady(true, CSI),
 			PostRestoreVerify:    mysqlReady(false, CSI),
 		}, nil),
-		Entry("Mongo application CSI", Label("aws"), BackupRestoreCase{
-			ApplicationTemplate:  "./sample-applications/mongo-persistent/mongo-persistent-csi-template.yaml",
+		Entry("Mongo application CSI", Label("ibmcloud", "aws", "gcp"), BackupRestoreCase{
+			ApplicationTemplate:  fmt.Sprintf("./sample-applications/mongo-persistent/mongo-persistent-csi-%s-template.yaml", provider),
 			ApplicationNamespace: "mongo-persistent",
 			Name:                 "mongo-e2e",
 			BackupRestoreType:    CSI,
