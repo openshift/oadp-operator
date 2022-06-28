@@ -35,7 +35,7 @@ spec:
           terminationMessagePolicy: File
           imagePullPolicy: Always
         - name: velero-plugin-for-aws
-          image: 'quay.io/konveyor/velero-plugin-for-aws:latest'
+          image: 'quay.io/konveyor/velero-plugin-for-aws:konveyor-1.5'
           resources: {}
           volumeMounts:
             - name: plugins
@@ -44,7 +44,7 @@ spec:
           terminationMessagePolicy: File
           imagePullPolicy: Always
         - name: velero-plugin-for-csi
-          image: 'quay.io/konveyor/velero-plugin-for-csi:latest'
+          image: 'quay.io/konveyor/velero-plugin-for-csi:konveyor-0.3'
           resources: {}
           volumeMounts:
             - name: plugins
@@ -95,7 +95,7 @@ spec:
             - name: cloud-credentials
               mountPath: /credentials
           terminationMessagePolicy: File
-          image: 'quay.io/konveyor/velero:latest'
+          image: 'quay.io/konveyor/velero:konveyor-1.9'
           args:
             - server
       serviceAccount: velero

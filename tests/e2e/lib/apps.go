@@ -8,9 +8,11 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"sort"
+	"strings"
 	"time"
 
 	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
@@ -160,25 +162,25 @@ func NamespaceRequiresResticDCWorkaround(ocClient client.Client, namespace strin
 
 func AreVolumeSnapshotsReady(ocClient client.Client, backupName string) wait.ConditionFunc {
 	return func() (bool, error) {
-		vList := &volumesnapshotv1.VolumeSnapshotList{}
+		vList := &volumesnapshotv1.VolumeSnapshotContentList{}
 		// vListBeta := &volumesnapshotv1beta1.VolumeSnapshotList{}
 		err := ocClient.List(context.Background(), vList, &client.ListOptions{LabelSelector: label.NewSelectorForBackup(backupName)})
 		if err != nil {
 			return false, err
 		}
 		if len(vList.Items) == 0 {
-			ginkgo.GinkgoWriter.Println("No VolumeSnapshots found")
+			ginkgo.GinkgoWriter.Println("No VolumeSnapshotContents found")
 			return false, nil
 		}
 		for _, v := range vList.Items {
-			log.Println(fmt.Sprintf("waiting for volume snapshot %s to be ready", v.Name))
+			log.Println(fmt.Sprintf("waiting for volume snapshot contents %s to be ready", v.Name))
 			if v.Status.ReadyToUse == nil {
-				ginkgo.GinkgoWriter.Println("VolumeSnapshots Ready status not found for " + v.Name)
+				ginkgo.GinkgoWriter.Println("VolumeSnapshotContents Ready status not found for " + v.Name)
 				ginkgo.GinkgoWriter.Println(fmt.Sprintf("status: %v", v.Status))
 				return false, nil
 			}
 			if !*v.Status.ReadyToUse {
-				ginkgo.GinkgoWriter.Println("VolumeSnapshots Ready status is false " + v.Name)
+				ginkgo.GinkgoWriter.Println("VolumeSnapshotContents Ready status is false " + v.Name)
 				return false, nil
 			}
 		}
@@ -346,7 +348,24 @@ func RunMustGather(oc_cli string, artifact_dir string) error {
 	return err
 }
 
-func VerifyBackupRestoreData(artifact_dir string, namespace string, routeName string, app string) error {
+func makeRequest(request string, api string, todo string) {
+	params := url.Values{}
+	params.Add("description", todo)
+	body := strings.NewReader(params.Encode())
+	req, err := http.NewRequest(request, api, body)
+	if err != nil {
+		log.Printf("Error making post request to todo app before Prebackup  %s", err)
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		log.Printf("Response of todo POST REQUEST  %s", resp.Status)
+	}
+	defer resp.Body.Close()
+}
+
+// VerifyBackupRestoreData verifies if app ready before backup and after restore to compare data.
+func VerifyBackupRestoreData(artifact_dir string, namespace string, routeName string, app string, prebackupState bool, backupRestoretype BackupRestoreType) error {
 	log.Printf("Verifying backup/restore data of %s", app)
 	appRoute := &routev1.Route{}
 	clientv1, err := client.New(config.GetConfigOrDie(), client.Options{})
@@ -363,15 +382,80 @@ func VerifyBackupRestoreData(artifact_dir string, namespace string, routeName st
 		return err
 	}
 	appApi := "http://" + appRoute.Spec.Host
+
+	//if this is prebackstate = true, add items via makeRequest function. We only want to make request before backup
+	//and ignore post restore checks.
+	if prebackupState {
+		//data before curl request
+		dataBeforeCurl, err := getResponseData(appApi + "/todo-incomplete")
+		if err != nil {
+			return err
+		} else {
+			fmt.Printf("Data before the curl request: \n %s\n", dataBeforeCurl)
+		}
+		//make post request to given api
+		switch app {
+		case "todolist":
+			fmt.Printf("PrebackState: %t, so make a curl request\n", prebackupState)
+			makeRequest("POST", appApi+"/todo", time.Now().String())
+			makeRequest("POST", appApi+"/todo", time.Now().Weekday().String())
+		}
+	}
 	switch app {
 	case "todolist":
-		appApi += "/todo-completed"
-	case "parks-app":
-		appApi += "/parks"
+		appApi += "/todo-incomplete"
 	}
-	resp, err := http.Get(appApi)
+
+	//get response Data if response status is 200
+	respData, err := getResponseData(appApi)
 	if err != nil {
 		return err
+	}
+	//Verifying backup-restore data only for CSI as of now.
+	if backupRestoretype == CSI {
+		//check if backupfile exists. If true { compare data response with data from file} (post restore step)
+		//else write data to backup-data.txt (prebackup step)
+		if _, err := os.Stat(backupFile); err == nil {
+			backupData, err := os.ReadFile(backupFile)
+			if err != nil {
+				return err
+			}
+			os.Remove(backupFile)
+			fmt.Printf("Data came from backup-file\n %s\n", backupData)
+			fmt.Printf("Data from the response after restore\n %s\n", respData)
+			backDataIsEqual := false
+			for i := 0; i < 5 && !backDataIsEqual; i++ {
+				respData, err = getResponseData(appApi)
+				if err != nil {
+					return err
+				}
+				backDataIsEqual = bytes.Equal(backupData, respData)
+				if backDataIsEqual != true {
+					fmt.Printf("Backup and Restore Data are not equal, retry %d\n", i)
+					fmt.Printf("Data from the response after restore\n %s\n", respData)
+					time.Sleep(10 * time.Second)
+				}
+			}
+			if backDataIsEqual != true {
+				return errors.New("Backup and Restore Data are not the same")
+			}
+
+		} else if errors.Is(err, os.ErrNotExist) {
+			fmt.Printf("Writing data to backupFile (backup-data.txt): \n %s\n", respData)
+			err := os.WriteFile(backupFile, respData, 0644)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func getResponseData(appApi string) ([]byte, error) {
+	resp, err := http.Get(appApi)
+	if err != nil {
+		return nil, err
 	}
 	defer resp.Body.Close()
 
@@ -390,25 +474,6 @@ func VerifyBackupRestoreData(artifact_dir string, namespace string, routeName st
 			}
 		}
 	}
+	return ioutil.ReadAll(resp.Body)
 
-	respData, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return err
-	}
-	if _, err := os.Stat(backupFile); err == nil {
-		backupData, err := os.ReadFile(backupFile)
-		if err != nil {
-			return err
-		}
-		os.Remove(backupFile)
-		if !bytes.Equal(backupData, respData) {
-			return errors.New("Backup and Restore Data are not the same")
-		}
-	} else if errors.Is(err, os.ErrNotExist) {
-		err := os.WriteFile(backupFile, respData, 0644)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
 }

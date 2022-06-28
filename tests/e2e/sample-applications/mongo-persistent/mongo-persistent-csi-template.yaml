@@ -147,7 +147,7 @@ items:
       strategy:
         type: Docker
         dockerStrategy:
-          dockerfilePath: Dockerfile
+          dockerfilePath: apps/todolist-mongo-go/Dockerfile
       output:
         to:
           kind: ImageStreamTag
