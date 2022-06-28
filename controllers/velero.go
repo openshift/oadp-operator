@@ -390,7 +390,10 @@ func (r *DPAReconciler) buildVeleroDeployment(veleroDeployment *appsv1.Deploymen
 			break
 		}
 	}
-	r.ReconcileRestoreResourcesVersionPriority(dpa)
+	_, err := r.ReconcileRestoreResourcesVersionPriority(dpa)
+	if err != nil {
+		return fmt.Errorf("error creating configmap for restore resource version priority:" + err.Error())
+	}
 
 	// get resource requirements for velero deployment
 	// ignoring err here as it is checked in validator.go
@@ -815,4 +818,3 @@ func (r DPAReconciler) noDefaultCredentials(dpa oadpv1alpha1.DataProtectionAppli
 	return providerNeedsDefaultCreds, hasCloudStorage, nil
 
 }
-
