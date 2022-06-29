@@ -454,9 +454,16 @@ spec:
             - apiGroups:
                 - snapshot.storage.k8s.io
               resources:
-                - '*'
+                - volumesnapshots
+                - volumesnapshotcontents
               verbs:
-                - '*'
+                - create
+                - delete
+                - get
+                - list
+                - patch
+                - update
+                - watch
             - apiGroups:
                 - coordination.k8s.io
                 - corev1
