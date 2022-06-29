@@ -188,7 +188,7 @@ func (r *DPAReconciler) validateDataMoverCredential(resticsecret *corev1.Secret)
 	}
 	for key, val := range resticsecret.Data {
 		if key == ResticPassword {
-			if len(val) != 0 {
+			if len(val) == 0 {
 				return false
 			}
 		}
@@ -269,7 +269,7 @@ func (r *DPAReconciler) createResticSecretsPerBSL(bsl velerov1.BackupStorageLoca
 func (r *DPAReconciler) createResticSecret(dpa *oadpv1alpha1.DataProtectionApplication) (bool, error) {
 
 	// obtain restic secret name from the config
-	// if no name is mentioned in the config, ten assume default restic secret name
+	// if no name is mentioned in the config, then assume default restic secret name
 	resticsecretname := "restic-secret"
 	cred := dpa.Spec.Features.DataMoverCredential
 	if cred != nil {
@@ -286,7 +286,7 @@ func (r *DPAReconciler) createResticSecret(dpa *oadpv1alpha1.DataProtectionAppli
 	// validate restic secret
 	val := r.validateDataMoverCredential(&resticSecret)
 	if !val {
-		return false, fmt.Errorf("invalid restic credential")
+		return false, fmt.Errorf("no password supplied in the restic secret")
 	}
 
 	// obtain the password from user supllied restic secret
