@@ -165,6 +165,9 @@ type Features struct {
 	// EnableDataMover is used to specify whether you want to deploy the volume snapshot mover controller and a modified csi datamover plugin
 	// +optional
 	EnableDataMover bool `json:"enableDataMover,omitempty"`
+	// User suplied Restic Secret name
+	// +optional
+	DataMoverCredential *corev1.SecretKeySelector `json:"dataMoverCredential,omitempty"`
 }
 
 // DataProtectionApplicationSpec defines the desired state of Velero

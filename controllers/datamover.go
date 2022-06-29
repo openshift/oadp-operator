@@ -3,6 +3,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+
 	"github.com/go-logr/logr"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	"github.com/openshift/oadp-operator/pkg/common"
@@ -15,6 +16,11 @@ import (
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+)
+
+const (
+	ResticPassword   = "RESTIC_PASSWORD"
+	ResticRepository = "RESTIC_REPOSITORY"
 )
 
 func (r *DPAReconciler) ReconcileDataMoverController(log logr.Logger) (bool, error) {
@@ -54,6 +60,24 @@ func (r *DPAReconciler) ReconcileDataMoverController(log logr.Logger) (bool, err
 		return true, nil
 	}
 
+	resticsecretname := "restic-secret"
+	cred := dpa.Spec.Features.DataMoverCredential
+	if cred != nil {
+		resticsecretname = cred.Name
+	}
+
+	// Create restic secrets
+	for _, bslSpec := range dpa.Spec.BackupLocations {
+
+		rsecret, err := r.createResticSecretsPerBSL(bslSpec, resticsecretname)
+
+		if err == nil {
+			//add an event accordingly
+			r.EventRecorder.Event(rsecret, corev1.EventTypeNormal, "CreatedResticSecret", "Restic Secret Created")
+
+		}
+
+	}
 	op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, dataMoverDeployment, func() error {
 
 		// Setting Deployment selector if a new object is created as it is immutable
@@ -159,4 +183,66 @@ func (r *DPAReconciler) getDataMoverLabels() map[string]string {
 	labels["app.kubernetes.io/component"] = common.DataMover
 	labels[oadpv1alpha1.DataMoverDeploymentLabel] = "True"
 	return labels
+}
+
+// Check if there is a valid user supplied restic secret
+func (r *DPAReconciler) validateDataMoverCredential(resticsecret *corev1.Secret) bool {
+	if resticsecret == nil {
+		return false
+	}
+	for key, val := range resticsecret.Data {
+		if key == ResticPassword {
+			if len(val) != 0 {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func (r *DPAReconciler) createResticSecretsPerBSL(bsl oadpv1alpha1.BackupLocation, resticsecretname string) (*corev1.Secret, error) {
+	secretName, secretKey := r.getSecretNameAndKeyforBackupLocation(bsl)
+	bslSecret, err := r.getProviderSecret(secretName)
+	if err != nil {
+		return nil, err
+	}
+
+	switch bsl.Velero.Provider {
+	case AWSProvider:
+		awsProfile := "default"
+
+		if value, exists := bsl.Velero.Config[Profile]; exists {
+			awsProfile = value
+		}
+
+		key, secret, err := r.parseAWSSecret(bslSecret, secretKey, awsProfile)
+		if err != nil {
+			r.Log.Info(fmt.Sprintf("Error parsing provider secret %s for backupstoragelocation", secretName))
+			return nil, err
+		}
+		rsecret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      fmt.Sprintf("%s-secret", <name>),
+				Namespace: ,
+				Labels: map[string]string{
+					label: name,
+				},
+			},
+			Type: corev1.SecretTypeOpaque,
+		}
+
+	}
+
+	rsecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s-secret"),
+			Namespace: namespace,
+			Labels: map[string]string{
+				label: name,
+			},
+		},
+		Type: corev1.SecretTypeOpaque,
+	}
+
+	return nil, nil
 }
