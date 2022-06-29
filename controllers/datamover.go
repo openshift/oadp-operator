@@ -3,10 +3,12 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/go-logr/logr"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	"github.com/openshift/oadp-operator/pkg/common"
+	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -21,6 +23,13 @@ import (
 const (
 	ResticPassword   = "RESTIC_PASSWORD"
 	ResticRepository = "RESTIC_REPOSITORY"
+
+	// AWS vars
+	AWSAccessKey     = "AWS_ACCESS_KEY_ID"
+	AWSSecretKey     = "AWS_SECRET_ACCESS_KEY"
+	AWSDefaultRegion = "AWS_DEFAULT_REGION"
+
+	// TODO: GCP and Azure
 )
 
 func (r *DPAReconciler) ReconcileDataMoverController(log logr.Logger) (bool, error) {
@@ -60,24 +69,6 @@ func (r *DPAReconciler) ReconcileDataMoverController(log logr.Logger) (bool, err
 		return true, nil
 	}
 
-	resticsecretname := "restic-secret"
-	cred := dpa.Spec.Features.DataMoverCredential
-	if cred != nil {
-		resticsecretname = cred.Name
-	}
-
-	// Create restic secrets
-	for _, bslSpec := range dpa.Spec.BackupLocations {
-
-		rsecret, err := r.createResticSecretsPerBSL(bslSpec, resticsecretname)
-
-		if err == nil {
-			//add an event accordingly
-			r.EventRecorder.Event(rsecret, corev1.EventTypeNormal, "CreatedResticSecret", "Restic Secret Created")
-
-		}
-
-	}
 	op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, dataMoverDeployment, func() error {
 
 		// Setting Deployment selector if a new object is created as it is immutable
@@ -126,6 +117,11 @@ func (r *DPAReconciler) ReconcileDataMoverController(log logr.Logger) (bool, err
 			"DataMoverDeploymentReconciled",
 			fmt.Sprintf("performed %s on datamover deployment %s/%s", op, dataMoverDeployment.Namespace, dataMoverDeployment.Name),
 		)
+	}
+
+	_, err = r.createResticSecret(&dpa)
+	if err != nil {
+		return false, err
 	}
 	return true, nil
 }
@@ -200,49 +196,133 @@ func (r *DPAReconciler) validateDataMoverCredential(resticsecret *corev1.Secret)
 	return true
 }
 
-func (r *DPAReconciler) createResticSecretsPerBSL(bsl oadpv1alpha1.BackupLocation, resticsecretname string) (*corev1.Secret, error) {
-	secretName, secretKey := r.getSecretNameAndKeyforBackupLocation(bsl)
-	bslSecret, err := r.getProviderSecret(secretName)
-	if err != nil {
-		return nil, err
-	}
+func (r *DPAReconciler) createResticSecretsPerBSL(bsl velerov1.BackupStorageLocation, resticsecretname string, pass []byte) (*corev1.Secret, error) {
 
-	switch bsl.Velero.Provider {
+	switch bsl.Spec.Provider {
 	case AWSProvider:
-		awsProfile := "default"
+		{
+			secretName, secretKey := r.getSecretNameAndKey(&bsl.Spec, oadpv1alpha1.DefaultPluginAWS)
+			bslSecret, err := r.getProviderSecret(secretName)
+			if err != nil {
+				return nil, err
+			}
 
-		if value, exists := bsl.Velero.Config[Profile]; exists {
-			awsProfile = value
-		}
+			awsProfile := "default"
 
-		key, secret, err := r.parseAWSSecret(bslSecret, secretKey, awsProfile)
-		if err != nil {
-			r.Log.Info(fmt.Sprintf("Error parsing provider secret %s for backupstoragelocation", secretName))
-			return nil, err
-		}
-		rsecret := &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      fmt.Sprintf("%s-secret", <name>),
-				Namespace: ,
-				Labels: map[string]string{
-					label: name,
+			if value, exists := bsl.Spec.Config[Profile]; exists {
+				awsProfile = value
+			}
+
+			key, secret, err := r.parseAWSSecret(bslSecret, secretKey, awsProfile)
+			if err != nil {
+				r.Log.Info(fmt.Sprintf("Error parsing provider secret %s for backupstoragelocation", secretName))
+				return nil, err
+			}
+
+			repo := "s3:s3.amazonaws.com/" + bsl.Spec.ObjectStorage.Bucket
+
+			rsecret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      fmt.Sprintf("%s-resticsecret", bsl.Name),
+					Namespace: bsl.Namespace,
+					Labels: map[string]string{
+						"openshift.io/oadp-bsl-name": bsl.Name,
+					},
 				},
-			},
-			Type: corev1.SecretTypeOpaque,
+			}
+
+			op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, rsecret, func() error {
+
+				if len(pass) == 0 {
+					return fmt.Errorf("restic password is empty")
+				}
+				rData := &corev1.Secret{
+					Data: map[string][]byte{
+						AWSAccessKey:     []byte(key),
+						AWSSecretKey:     []byte(secret),
+						AWSDefaultRegion: []byte(bsl.Spec.Config[Region]),
+						ResticPassword:   pass,
+						ResticRepository: []byte(repo),
+					},
+				}
+				rsecret.Data = rData.Data
+				return nil
+			})
+
+			if err != nil {
+				return nil, err
+			}
+			if op == controllerutil.OperationResultCreated || op == controllerutil.OperationResultUpdated {
+				r.EventRecorder.Event(rsecret,
+					corev1.EventTypeNormal,
+					"ResticSecretReconciled",
+					fmt.Sprintf("%s restic secret %s", op, rsecret.Name),
+				)
+			}
 		}
-
-	}
-
-	rsecret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-secret"),
-			Namespace: namespace,
-			Labels: map[string]string{
-				label: name,
-			},
-		},
-		Type: corev1.SecretTypeOpaque,
+		// TODO: Azure & GCP
 	}
 
 	return nil, nil
+}
+
+func (r *DPAReconciler) createResticSecret(dpa *oadpv1alpha1.DataProtectionApplication) (bool, error) {
+
+	// obtain restic secret name from the config
+	// if no name is mentioned in the config, ten assume default restic secret name
+	resticsecretname := "restic-secret"
+	cred := dpa.Spec.Features.DataMoverCredential
+	if cred != nil {
+		resticsecretname = cred.Name
+	}
+
+	// fetch restic secret from the cluster
+	resticSecret := corev1.Secret{}
+	if err := r.Get(r.Context, types.NamespacedName{Namespace: r.NamespacedName.Namespace, Name: resticsecretname}, &resticSecret); err != nil {
+		r.Log.Error(err, "unable to fetch Restic Secret")
+		return false, err
+	}
+
+	// validate restic secret
+	val := r.validateDataMoverCredential(&resticSecret)
+	if !val {
+		return false, fmt.Errorf("invalid restic credential")
+	}
+
+	// obtain the password from user supllied restic secret
+	var res_pass []byte
+	for key, val := range resticSecret.Data {
+		if key == ResticPassword {
+			res_pass = val
+		}
+	}
+
+	// Filter bsl based on the labels and dpa name
+	// For each bsl in the list, create a restic secret
+	// Label each restic secret with bsl name
+	bslLabels := map[string]string{
+		"app.kubernetes.io/name":       common.OADPOperatorVelero,
+		"app.kubernetes.io/managed-by": common.OADPOperator,
+		"app.kubernetes.io/component":  "bsl",
+		"openshift.io/oadp":            "True",
+	}
+	bslListOptions := client.MatchingLabels(bslLabels)
+	backupStorageLocationList := velerov1.BackupStorageLocationList{}
+
+	// Fetch the configured backupstoragelocations
+	if err := r.List(r.Context, &backupStorageLocationList, bslListOptions); err != nil {
+		return false, err
+	}
+
+	for _, bsl := range backupStorageLocationList.Items {
+		if strings.Contains(bsl.Name, dpa.Name) {
+			_, err := r.createResticSecretsPerBSL(bsl, resticsecretname, res_pass)
+
+			if err != nil {
+				return false, err
+			}
+		}
+	}
+
+	return true, nil
 }
