@@ -196,7 +196,7 @@ func (r *DPAReconciler) validateDataMoverCredential(resticsecret *corev1.Secret)
 	return true
 }
 
-func (r *DPAReconciler) createResticSecretsPerBSL(bsl velerov1.BackupStorageLocation, resticsecretname string, pass []byte) (*corev1.Secret, error) {
+func (r *DPAReconciler) createResticSecretsPerBSL(dpa *oadpv1alpha1.DataProtectionApplication, bsl velerov1.BackupStorageLocation, resticsecretname string, pass []byte) (*corev1.Secret, error) {
 
 	switch bsl.Spec.Provider {
 	case AWSProvider:
@@ -235,6 +235,10 @@ func (r *DPAReconciler) createResticSecretsPerBSL(bsl velerov1.BackupStorageLoca
 
 				if len(pass) == 0 {
 					return fmt.Errorf("restic password is empty")
+				}
+				err := controllerutil.SetControllerReference(dpa, rsecret, r.Scheme)
+				if err != nil {
+					return err
 				}
 				rData := &corev1.Secret{
 					Data: map[string][]byte{
@@ -316,7 +320,7 @@ func (r *DPAReconciler) createResticSecret(dpa *oadpv1alpha1.DataProtectionAppli
 
 	for _, bsl := range backupStorageLocationList.Items {
 		if strings.Contains(bsl.Name, dpa.Name) {
-			_, err := r.createResticSecretsPerBSL(bsl, resticsecretname, res_pass)
+			_, err := r.createResticSecretsPerBSL(dpa, bsl, resticsecretname, res_pass)
 
 			if err != nil {
 				return false, err
