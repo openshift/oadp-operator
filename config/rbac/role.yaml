@@ -35,6 +35,8 @@ rules:
   resources:
   - volumesnapshots
   - volumesnapshotcontents
+  - volumesnapshotclasses
+  - storageclasses
   verbs:
   - create
   - delete
