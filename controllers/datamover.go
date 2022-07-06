@@ -223,23 +223,21 @@ func (r *DPAReconciler) createResticSecretsPerBSL(dpa *oadpv1alpha1.DataProtecti
 
 			rsecret := &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      fmt.Sprintf("%s-resticsecret", bsl.Name),
+					Name:      fmt.Sprintf("%s-restic-secret", bsl.Name),
 					Namespace: bsl.Namespace,
 					Labels: map[string]string{
-						"openshift.io/oadp-bsl-name": bsl.Name,
+						oadpv1alpha1.OadpBSLnameLabel: bsl.Name,
 					},
 				},
 			}
 
 			op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, rsecret, func() error {
 
-				if len(pass) == 0 {
-					return fmt.Errorf("restic password is empty")
-				}
 				err := controllerutil.SetControllerReference(dpa, rsecret, r.Scheme)
 				if err != nil {
 					return err
 				}
+				// TODO: move to a separate fn & add gcp, azure support
 				rData := &corev1.Secret{
 					Data: map[string][]byte{
 						AWSAccessKey:     []byte(key),
