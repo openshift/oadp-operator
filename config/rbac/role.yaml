@@ -35,8 +35,6 @@ rules:
   resources:
   - volumesnapshots
   - volumesnapshotcontents
-  - volumesnapshotclasses
-  - storageclasses
   verbs:
   - create
   - delete
@@ -45,6 +43,18 @@ rules:
   - patch
   - update
   - watch
+- apiGroups:
+    - snapshot.storage.k8s.io
+  resources:
+    - volumesnapshotclasses
+    - storageclasses
+  verbs:
+    - create
+    - get
+    - list
+    - patch
+    - update
+    - watch
 - apiGroups:
   - coordination.k8s.io
   - corev1
