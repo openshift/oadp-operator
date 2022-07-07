@@ -200,10 +200,10 @@ func (r *DPAReconciler) ReconcileRegistries(log logr.Logger) (bool, error) {
 
 		deleteOptionPropagationForeground := metav1.DeletePropagationForeground
 		if err := r.Delete(deleteContext, registryDeployment, &client.DeleteOptions{PropagationPolicy: &deleteOptionPropagationForeground}); err != nil {
-			r.EventRecorder.Event(registryDeployment, corev1.EventTypeNormal, "DeleteRegistryDeploymentFailed", "Could not delete registry deployment:"+err.Error())
+			r.EventRecorder.Event(registryDeployment, corev1.EventTypeNormal, "DeleteRegistryDeploymentFailed", fmt.Sprint("Could not delete registry deployment %s from %s:"+err.Error(), registryDeployment.Name, registryDeployment.Namespace))
 			return false, err
 		}
-		r.EventRecorder.Event(registryDeployment, corev1.EventTypeNormal, "DeletedRegistryDeployment", "Registry Deployment deleted")
+		r.EventRecorder.Event(registryDeployment, corev1.EventTypeNormal, "DeletedRegistryDeployment", fmt.Sprintf("Registry Deployment %s deleted from %s", registryDeployment.Name, registryDeployment.Namespace))
 	}
 
 	return true, nil
@@ -510,10 +510,10 @@ func (r *DPAReconciler) ReconcileRegistrySVCs(log logr.Logger) (bool, error) {
 			}
 			deleteOptionPropagationForeground := metav1.DeletePropagationForeground
 			if err := r.Delete(deleteContext, &svc, &client.DeleteOptions{PropagationPolicy: &deleteOptionPropagationForeground}); err != nil {
-				r.EventRecorder.Event(&svc, corev1.EventTypeNormal, "DeleteRegistryServiceFailed", "Could not delete registry service:"+err.Error())
+				r.EventRecorder.Event(&svc, corev1.EventTypeNormal, "DeleteRegistryServiceFailed", fmt.Sprintf("Could not delete registry service %s from %s:"+err.Error(), svc.Name, svc.Namespace))
 				return false, err
 			}
-			r.EventRecorder.Event(&svc, corev1.EventTypeNormal, "DeletedRegistryService", "Registry service deleted")
+			r.EventRecorder.Event(&svc, corev1.EventTypeNormal, "DeletedRegistryService", fmt.Sprintf("Registry service %s deleted from %s", svc.Name, svc.Namespace))
 		}
 	}
 
@@ -566,10 +566,10 @@ func (r *DPAReconciler) ReconcileRegistryRoutes(log logr.Logger) (bool, error) {
 
 			deleteOptionPropagationForeground := metav1.DeletePropagationForeground
 			if err := r.Delete(deleteContext, &route, &client.DeleteOptions{PropagationPolicy: &deleteOptionPropagationForeground}); err != nil {
-				r.EventRecorder.Event(&route, corev1.EventTypeNormal, "DeleteRegistryRouteFailed", "Could not delete registry route:"+err.Error())
+				r.EventRecorder.Event(&route, corev1.EventTypeNormal, "DeleteRegistryRouteFailed", fmt.Sprintf("Could not delete registry route %s from %s:"+err.Error(), route.Name, route.Namespace))
 				return false, err
 			}
-			r.EventRecorder.Event(&route, corev1.EventTypeNormal, "DeletedRegistryRoute", "Registry route deleted")
+			r.EventRecorder.Event(&route, corev1.EventTypeNormal, "DeletedRegistryRoute", fmt.Sprintf("Registry route %s deleted from %s", route.Name, route.Namespace))
 		}
 	}
 
@@ -599,10 +599,10 @@ func (r *DPAReconciler) ReconcileRegistryRouteConfigs(log logr.Logger) (bool, er
 
 	deleteOptionPropagationForeground := metav1.DeletePropagationForeground
 	if err := r.Delete(deleteContext, &registryRouteCM, &client.DeleteOptions{PropagationPolicy: &deleteOptionPropagationForeground}); err != nil {
-		r.EventRecorder.Event(&registryRouteCM, corev1.EventTypeNormal, "DeleteRegistryConfigMapFailed", "Could not delete registry configmap:"+err.Error())
+		r.EventRecorder.Event(&registryRouteCM, corev1.EventTypeNormal, "DeleteRegistryConfigMapFailed", fmt.Sprintf("Could not delete registry configmap %s from %s:"+err.Error(), registryRouteCM.Name, registryRouteCM.Namespace))
 		return false, err
 	}
-	r.EventRecorder.Event(&registryRouteCM, corev1.EventTypeNormal, "DeletedRegistryConfigMap", "Registry configmap deleted")
+	r.EventRecorder.Event(&registryRouteCM, corev1.EventTypeNormal, "DeletedRegistryConfigMap", fmt.Sprintf("Registry configmap %s deleted from %s", registryRouteCM.Name, registryRouteCM.Namespace))
 
 	return true, nil
 }
@@ -655,10 +655,10 @@ func (r *DPAReconciler) ReconcileRegistrySecrets(log logr.Logger) (bool, error) 
 
 			deleteOptionPropagationForeground := metav1.DeletePropagationForeground
 			if err := r.Delete(deleteContext, &secret, &client.DeleteOptions{PropagationPolicy: &deleteOptionPropagationForeground}); err != nil {
-				r.EventRecorder.Event(&secret, corev1.EventTypeNormal, "DeleteRegistrySecretFailed", "Could not delete registry secret:"+err.Error())
+				r.EventRecorder.Event(&secret, corev1.EventTypeNormal, "DeleteRegistrySecretFailed", fmt.Sprintf("Could not delete registry secret %s from %s:"+err.Error(), secret.Name, secret.Namespace))
 				return false, err
 			}
-			r.EventRecorder.Event(&secret, corev1.EventTypeNormal, "DeletedRegistrySecret", "Registry secret deleted")
+			r.EventRecorder.Event(&secret, corev1.EventTypeNormal, "DeletedRegistrySecret", fmt.Sprintf("Registry secret %s deleted from %s", secret.Name, secret.Namespace))
 
 			return true, nil
 		}
