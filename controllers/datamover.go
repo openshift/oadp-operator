@@ -48,7 +48,7 @@ func (r *DPAReconciler) ReconcileDataMoverController(log logr.Logger) (bool, err
 		},
 	}
 
-	if (dpa.Spec.Features == nil) || (dpa.Spec.Features != nil && !dpa.Spec.Features.EnableDataMover) {
+	if (dpa.Spec.Features == nil) || (dpa.Spec.Features != nil && !dpa.Spec.Features.DataMover.Enable) {
 		deleteContext := context.Background()
 		if err := r.Get(deleteContext, types.NamespacedName{
 			Name:      dataMoverDeployment.Name,
@@ -228,7 +228,7 @@ func (r *DPAReconciler) createResticSecretsPerBSL(dpa *oadpv1alpha1.DataProtecti
 
 			rsecret := &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      fmt.Sprintf("%s-restic-secret", bsl.Name),
+					Name:      fmt.Sprintf("%s-volsync-restic", bsl.Name),
 					Namespace: bsl.Namespace,
 					Labels: map[string]string{
 						oadpv1alpha1.OadpBSLnameLabel: bsl.Name,
@@ -278,7 +278,7 @@ func (r *DPAReconciler) createResticSecret(dpa *oadpv1alpha1.DataProtectionAppli
 	// obtain restic secret name from the config
 	// if no name is mentioned in the config, then assume default restic secret name
 	dmresticsecretname := ResticsecretName
-	cred := dpa.Spec.Features.DataMoverCredential
+	cred := dpa.Spec.Features.DataMover.Credential
 	if cred != nil {
 		dmresticsecretname = cred.Name
 	}

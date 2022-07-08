@@ -104,7 +104,7 @@ func getCSIPluginImage(dpa *oadpv1alpha1.DataProtectionApplication) string {
 	if dpa.Spec.UnsupportedOverrides[oadpv1alpha1.CSIPluginImageKey] != "" {
 		return dpa.Spec.UnsupportedOverrides[oadpv1alpha1.CSIPluginImageKey]
 	}
-	if dpa.Spec.Features != nil && dpa.Spec.Features.EnableDataMover {
+	if dpa.Spec.Features != nil && dpa.Spec.Features.DataMover.Enable {
 		return common.CSIDataMoverPluginImage
 	}
 	if os.Getenv("VELERO_CSI_PLUGIN_REPO") == "" {

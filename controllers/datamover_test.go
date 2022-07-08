@@ -1,6 +1,9 @@
 package controllers
 
 import (
+	"reflect"
+	"testing"
+
 	"github.com/go-logr/logr"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	"github.com/openshift/oadp-operator/pkg/common"
@@ -13,10 +16,8 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/pointer"
-	"reflect"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
-	"testing"
 )
 
 func getSchemeForFakeClientForDatamover() (*runtime.Scheme, error) {
@@ -83,7 +84,9 @@ func TestDPAReconciler_buildDataMoverDeployment(t *testing.T) {
 						Velero: &oadpv1alpha1.VeleroConfig{},
 					},
 					Features: &oadpv1alpha1.Features{
-						EnableDataMover: true,
+						DataMover: &oadpv1alpha1.DataMover{
+							Enable: true,
+						},
 					},
 				},
 			},
