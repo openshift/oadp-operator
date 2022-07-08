@@ -12,6 +12,8 @@ const (
 	DataMoverController          = "data-mover-controller"
 	DataMoverControllerContainer = "data-mover-controller-container"
 	OADPOperatorServiceAccount   = "openshift-adp-controller-manager"
+	VolSyncDeploymentName        = "volsync-controller-manager"
+	VolSyncDeploymentNamespace   = "openshift-operators"
 )
 
 // Images
