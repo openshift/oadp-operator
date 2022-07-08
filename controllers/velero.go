@@ -586,7 +586,7 @@ func (r *DPAReconciler) customizeVeleroContainer(dpa *oadpv1alpha1.DataProtectio
 	veleroContainer.Env = append(veleroContainer.Env, proxy.ReadProxyVarsFromEnv()...)
 
 	// Check if data-mover is enabled and set the env var so that the csi data-mover code path is triggred
-	if dpa.Spec.Features != nil && dpa.Spec.Features.DataMover.Enable {
+	if dpa.Spec.Features != nil && dpa.Spec.Features.DataMover != nil && dpa.Spec.Features.DataMover.Enable {
 		veleroContainer.Env = append(veleroContainer.Env, corev1.EnvVar{
 			Name:  "VOLUME_SNAPSHOT_MOVER",
 			Value: "true",

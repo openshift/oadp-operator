@@ -48,7 +48,7 @@ func (r *DPAReconciler) ReconcileDataMoverController(log logr.Logger) (bool, err
 		},
 	}
 
-	if (dpa.Spec.Features == nil) || (dpa.Spec.Features != nil && !dpa.Spec.Features.DataMover.Enable) {
+	if (dpa.Spec.Features == nil) || (dpa.Spec.Features != nil && dpa.Spec.Features.DataMover != nil && !dpa.Spec.Features.DataMover.Enable) {
 		deleteContext := context.Background()
 		if err := r.Get(deleteContext, types.NamespacedName{
 			Name:      dataMoverDeployment.Name,

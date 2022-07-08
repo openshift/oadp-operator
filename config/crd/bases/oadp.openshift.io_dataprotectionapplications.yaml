@@ -220,11 +220,13 @@ spec:
                                 description: 'Limits describes the maximum amount
                                   of compute resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                                 type: object
+                                nullable: true
                               requests:
                                 additionalProperties:
                                   anyOf:
                                   - type: integer
                                   - type: string
+                                  nullable: true
                                   pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                   x-kubernetes-int-or-string: true
                                 description: 'Requests describes the minimum amount
@@ -233,6 +235,7 @@ spec:
                                   explicitly specified, otherwise to an implementation-defined
                                   value. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                                 type: object
+                                nullable: true
                             type: object
                           tolerations:
                             description: Tolerations defines the list of tolerations
@@ -330,6 +333,7 @@ spec:
                         - fatal
                         - panic
                         type: string
+                        nullable: true
                       noDefaultBackupLocation:
                         description: If you need to install Velero without a default
                           backup storage location NoDefaultBackupLocation flag is
@@ -364,11 +368,13 @@ spec:
                                 description: 'Limits describes the maximum amount
                                   of compute resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                                 type: object
+                                nullable: true
                               requests:
                                 additionalProperties:
                                   anyOf:
                                   - type: integer
                                   - type: string
+                                  nullable: true
                                   pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                   x-kubernetes-int-or-string: true
                                 description: 'Requests describes the minimum amount
@@ -377,6 +383,7 @@ spec:
                                   explicitly specified, otherwise to an implementation-defined
                                   value. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                                 type: object
+                                nullable: true
                             type: object
                           tolerations:
                             description: Tolerations defines the list of tolerations
