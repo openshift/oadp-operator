@@ -438,6 +438,7 @@ spec:
                   the OADP tech preview features
                 properties:
                   datamover:
+                    description: Contains data mover desired configurations
                     properties:
                       dataMoverCredential:
                         description: User supplied Restic Secret name
@@ -463,8 +464,6 @@ spec:
                           a modified csi datamover plugin
                         type: boolean
                     type: object
-                required:
-                - datamover
                 type: object
               podAnnotations:
                 additionalProperties:

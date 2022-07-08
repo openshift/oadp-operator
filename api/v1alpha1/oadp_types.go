@@ -161,6 +161,7 @@ type SnapshotLocation struct {
 	Velero *velero.VolumeSnapshotLocationSpec `json:"velero"`
 }
 
+// DataMover defines the various config for DPA data mover
 type DataMover struct {
 	// EnableDataMover is used to specify whether you want to deploy the volume snapshot mover controller and a modified csi datamover plugin
 	// +optional
@@ -172,6 +173,8 @@ type DataMover struct {
 
 // Features defines the configuration for the DPA to enable the tech preview features
 type Features struct {
+	// Contains data mover desired configurations
+	// +optional
 	DataMover *DataMover `json:"datamover"`
 }
 
