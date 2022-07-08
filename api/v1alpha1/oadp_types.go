@@ -173,7 +173,7 @@ type DataMover struct {
 
 // Features defines the configuration for the DPA to enable the tech preview features
 type Features struct {
-	// Contains data mover desired configurations
+	// Contains data mover specific configurations
 	// +optional
 	DataMover *DataMover `json:"datamover"`
 }
