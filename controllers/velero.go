@@ -585,6 +585,14 @@ func (r *DPAReconciler) customizeVeleroContainer(dpa *oadpv1alpha1.DataProtectio
 	// Append proxy settings to the container from environment variables
 	veleroContainer.Env = append(veleroContainer.Env, proxy.ReadProxyVarsFromEnv()...)
 
+	// Check if data-mover is enabled and set the env var so that the csi data-mover code path is triggred
+	if dpa.Spec.Features != nil && dpa.Spec.Features.EnableDataMover {
+		veleroContainer.Env = append(veleroContainer.Env, corev1.EnvVar{
+			Name:  "VOLUME_SNAPSHOT_MOVER",
+			Value: "true",
+		})
+	}
+
 	// Enable user to specify --restic-timeout (defaults to 1h)
 	resticTimeout := "1h"
 	if dpa.Spec.Configuration.Restic != nil && len(dpa.Spec.Configuration.Restic.Timeout) > 0 {
