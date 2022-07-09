@@ -251,7 +251,7 @@ func AreVeleroPodsRunning(namespace string) wait.ConditionFunc {
 }
 
 // Returns logs from velero container on velero pod
-func getVeleroContainerLogs(namespace string) (string, error) {
+func GetVeleroContainerLogs(namespace string) (string, error) {
 	podList, err := GetVeleroPods(namespace)
 	if err != nil {
 		return "", err
@@ -285,7 +285,7 @@ func getVeleroContainerLogs(namespace string) (string, error) {
 }
 
 func GetVeleroContainerFailureLogs(namespace string) []string {
-	containerLogs, err := getVeleroContainerLogs(namespace)
+	containerLogs, err := GetVeleroContainerLogs(namespace)
 	if err != nil {
 		log.Printf("cannot get velero container logs")
 		return nil

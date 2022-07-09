@@ -61,7 +61,12 @@ var _ = Describe("AWS backup restore tests", func() {
 	})
 
 	var _ = AfterEach(func() {
-		err := dpaCR.Delete()
+		GinkgoWriter.Println("Printing velero deployment pod logs")
+		logs, err := GetVeleroContainerLogs(namespace)
+		Expect(err).NotTo(HaveOccurred())
+		GinkgoWriter.Println(logs)
+		GinkgoWriter.Println("End of velero deployment pod logs")
+		err = dpaCR.Delete()
 		Expect(err).ToNot(HaveOccurred())
 
 	})
@@ -266,7 +271,7 @@ var _ = Describe("AWS backup restore tests", func() {
 			PreBackupVerify:      mongoready(true, CSI),
 			PostRestoreVerify:    mongoready(false, CSI),
 		}, nil),
-		Entry("Mongo application RESTIC", BackupRestoreCase{
+		FEntry("Mongo application RESTIC", BackupRestoreCase{
 			ApplicationTemplate:  "./sample-applications/mongo-persistent/mongo-persistent.yaml",
 			ApplicationNamespace: "mongo-persistent",
 			Name:                 "mongo-e2e",
