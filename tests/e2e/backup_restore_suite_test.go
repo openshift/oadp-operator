@@ -11,6 +11,7 @@ import (
 	. "github.com/onsi/gomega"
 	. "github.com/openshift/oadp-operator/tests/e2e/lib"
 	utils "github.com/openshift/oadp-operator/tests/e2e/utils"
+	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -262,7 +263,7 @@ var _ = Describe("AWS backup restore tests", func() {
 		Entry("MySQL application CSI", Label("ibmcloud", "aws", "gcp"), BackupRestoreCase{
 			ApplicationTemplate:  fmt.Sprintf("./sample-applications/mysql-persistent/mysql-persistent-csi-%s-template.yaml", provider),
 			ApplicationNamespace: "mysql-persistent",
-			Name:                 "mysql-e2e",
+			Name:                 "mysql-csi-e2e",
 			BackupRestoreType:    CSI,
 			PreBackupVerify:      mysqlReady(true, CSI),
 			PostRestoreVerify:    mysqlReady(false, CSI),
@@ -270,7 +271,7 @@ var _ = Describe("AWS backup restore tests", func() {
 		Entry("Mongo application CSI", Label("ibmcloud", "aws", "gcp"), BackupRestoreCase{
 			ApplicationTemplate:  fmt.Sprintf("./sample-applications/mongo-persistent/mongo-persistent-csi-%s-template.yaml", provider),
 			ApplicationNamespace: "mongo-persistent",
-			Name:                 "mongo-e2e",
+			Name:                 "mongo-csi-e2e",
 			BackupRestoreType:    CSI,
 			PreBackupVerify:      mongoready(true, CSI),
 			PostRestoreVerify:    mongoready(false, CSI),
@@ -278,7 +279,7 @@ var _ = Describe("AWS backup restore tests", func() {
 		Entry("Mongo application RESTIC", BackupRestoreCase{
 			ApplicationTemplate:  "./sample-applications/mongo-persistent/mongo-persistent.yaml",
 			ApplicationNamespace: "mongo-persistent",
-			Name:                 "mongo-e2e",
+			Name:                 "mongo-restic-e2e",
 			BackupRestoreType:    RESTIC,
 			PreBackupVerify:      mongoready(false, RESTIC),
 			PostRestoreVerify:    mongoready(false, RESTIC),
@@ -286,7 +287,7 @@ var _ = Describe("AWS backup restore tests", func() {
 		Entry("MySQL application RESTIC", BackupRestoreCase{
 			ApplicationTemplate:  "./sample-applications/mysql-persistent/mysql-persistent-template.yaml",
 			ApplicationNamespace: "mysql-persistent",
-			Name:                 "mysql-e2e",
+			Name:                 "mysql-restic-e2e",
 			BackupRestoreType:    RESTIC,
 			PreBackupVerify:      mysqlReady(false, RESTIC),
 			PostRestoreVerify:    mysqlReady(false, RESTIC),
