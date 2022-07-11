@@ -133,6 +133,7 @@ var errorIgnorePatterns = []string{
 	"Checking for AWS specific error information",
 	"awserr.Error contents",
 	"Error creating parent directories for blob-info-cache-v1.boltdb",
+	"blob unknown",
 }
 
 func BackupErrorLogs(ocClient client.Client, backup velero.Backup) []string {
