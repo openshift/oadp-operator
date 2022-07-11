@@ -271,7 +271,7 @@ var _ = Describe("AWS backup restore tests", func() {
 			PreBackupVerify:      mongoready(true, CSI),
 			PostRestoreVerify:    mongoready(false, CSI),
 		}, nil),
-		FEntry("Mongo application RESTIC", BackupRestoreCase{
+		Entry("Mongo application RESTIC", BackupRestoreCase{
 			ApplicationTemplate:  "./sample-applications/mongo-persistent/mongo-persistent.yaml",
 			ApplicationNamespace: "mongo-persistent",
 			Name:                 "mongo-e2e",
