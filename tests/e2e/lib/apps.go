@@ -266,7 +266,7 @@ func areAppBuildsReady(ocClient client.Client, namespace string) (bool, error) {
 				build.Status.Phase == buildv1.BuildPhasePending ||
 				build.Status.Phase == buildv1.BuildPhaseRunning {
 				log.Println("Build is not ready: " + build.Name)
-				log.Printf("%v" + build)
+				log.Printf("%v", build)
 				return false, nil
 			}
 			if build.Status.Phase == buildv1.BuildPhaseFailed || build.Status.Phase == buildv1.BuildPhaseError {
