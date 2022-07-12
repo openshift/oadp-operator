@@ -56,7 +56,6 @@ const GCPPluginImageKey UnsupportedImageKey = "gcpPluginImageFqin"
 const CSIPluginImageKey UnsupportedImageKey = "csiPluginImageFqin"
 const DataMoverImageKey UnsupportedImageKey = "dataMoverImageFqin"
 const ResticRestoreImageKey UnsupportedImageKey = "resticRestoreImageFqin"
-const RegistryImageKey UnsupportedImageKey = "registryImageFqin"
 const KubeVirtPluginImageKey UnsupportedImageKey = "kubevirtPluginImageFqin"
 const OperatorTypeKey UnsupportedImageKey = "operator-type"
 

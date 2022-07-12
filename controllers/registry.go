@@ -4,8 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
-	"reflect"
 	"regexp"
 	"strings"
 
@@ -23,10 +21,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8serror "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/utils/pointer"
 
-	"github.com/operator-framework/operator-lib/proxy"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
@@ -192,359 +187,30 @@ func (r *DPAReconciler) ReconcileRegistries(log logr.Logger) (bool, error) {
 				Namespace: bsl.Namespace,
 			},
 		}
-
-		if !dpa.BackupImages() {
-			deleteContext := context.Background()
-			if err := r.Get(deleteContext, types.NamespacedName{
-				Name:      registryDeployment.Name,
-				Namespace: r.NamespacedName.Namespace,
-			}, registryDeployment); err != nil {
-				if k8serror.IsNotFound(err) {
-					return true, nil
-				}
-				return false, err
+		deleteContext := context.Background()
+		if err := r.Get(deleteContext, types.NamespacedName{
+			Name:      registryDeployment.Name,
+			Namespace: r.NamespacedName.Namespace,
+		}, registryDeployment); err != nil {
+			if k8serror.IsNotFound(err) {
+				return true, nil
 			}
-
-			deleteOptionPropagationForeground := metav1.DeletePropagationForeground
-			if err := r.Delete(deleteContext, registryDeployment, &client.DeleteOptions{PropagationPolicy: &deleteOptionPropagationForeground}); err != nil {
-				r.EventRecorder.Event(registryDeployment, corev1.EventTypeNormal, "DeleteRegistryDeploymentFailed", "Could not delete registry deployment:"+err.Error())
-				return false, err
-			}
-			r.EventRecorder.Event(registryDeployment, corev1.EventTypeNormal, "DeletedRegistryDeployment", "Registry Deployment deleted")
-
-			return true, nil
-		}
-
-		op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, registryDeployment, func() error {
-
-			// Setting Registry Deployment selector if a new object is created as it is immutable
-			if registryDeployment.ObjectMeta.CreationTimestamp.IsZero() {
-				registryDeployment.Spec.Selector = &metav1.LabelSelector{
-					MatchLabels: map[string]string{
-						"component": registryName(&bsl),
-					},
-				}
-			}
-
-			err := controllerutil.SetControllerReference(&dpa, registryDeployment, r.Scheme)
-			if err != nil {
-				return err
-			}
-			// update the Registry Deployment template
-			err = r.buildRegistryDeployment(registryDeployment, &bsl, &dpa)
-			return err
-		})
-
-		if err != nil {
 			return false, err
 		}
 
-		//TODO: Review registry deployment status and report errors and conditions
-
-		if op == controllerutil.OperationResultCreated || op == controllerutil.OperationResultUpdated {
-			// Trigger event to indicate registry deployment was created or updated
-			r.EventRecorder.Event(registryDeployment,
-				corev1.EventTypeNormal,
-				"RegistryDeploymentReconciled",
-				fmt.Sprintf("performed %s on registry deployment %s/%s", op, registryDeployment.Namespace, registryDeployment.Name),
-			)
+		deleteOptionPropagationForeground := metav1.DeletePropagationForeground
+		if err := r.Delete(deleteContext, registryDeployment, &client.DeleteOptions{PropagationPolicy: &deleteOptionPropagationForeground}); err != nil {
+			r.EventRecorder.Event(registryDeployment, corev1.EventTypeNormal, "DeleteRegistryDeploymentFailed", fmt.Sprint("Could not delete registry deployment %s from %s:"+err.Error(), registryDeployment.Name, registryDeployment.Namespace))
+			return false, err
 		}
-
+		r.EventRecorder.Event(registryDeployment, corev1.EventTypeNormal, "DeletedRegistryDeployment", fmt.Sprintf("Registry Deployment %s deleted from %s", registryDeployment.Name, registryDeployment.Namespace))
 	}
 
 	return true, nil
 }
 
-// Construct and update the registry deployment for a bsl
-func (r *DPAReconciler) buildRegistryDeployment(registryDeployment *appsv1.Deployment, bsl *velerov1.BackupStorageLocation, dpa *oadpv1alpha1.DataProtectionApplication) error {
-
-	// Build registry container
-	registryContainer, err := r.buildRegistryContainer(bsl, dpa)
-	if err != nil {
-		return err
-	}
-	// Setting controller owner reference on the registry deployment
-	registryDeployment.Labels = r.getRegistryBSLLabels(bsl)
-
-	registryDeployment.Spec = appsv1.DeploymentSpec{
-		Selector: registryDeployment.Spec.Selector,
-		Replicas: pointer.Int32(1),
-		Template: corev1.PodTemplateSpec{
-			ObjectMeta: metav1.ObjectMeta{
-				Labels: map[string]string{
-					"component": registryName(bsl),
-				},
-				Annotations: dpa.Spec.PodAnnotations,
-			},
-			Spec: corev1.PodSpec{
-				RestartPolicy: corev1.RestartPolicyAlways,
-				Containers:    registryContainer,
-			},
-		},
-	}
-
-	// attach secret volume for cloud providers
-	if _, ok := bsl.Spec.Config["credentialsFile"]; ok {
-		if secretName, err := credentials.GetSecretNameFromCredentialsFileConfigString(bsl.Spec.Config["credentialsFile"]); err == nil {
-			registryDeployment.Spec.Template.Spec.Volumes = append(
-				registryDeployment.Spec.Template.Spec.Volumes,
-				corev1.Volume{
-					Name: secretName,
-					VolumeSource: corev1.VolumeSource{
-						Secret: &corev1.SecretVolumeSource{
-							SecretName: secretName,
-						},
-					},
-				},
-			)
-		}
-	} else if bsl.Spec.Provider == GCPProvider {
-		// check for secret name
-		secretName, _ := r.getSecretNameAndKey(&bsl.Spec, oadpv1alpha1.DefaultPluginGCP)
-		registryDeployment.Spec.Template.Spec.Volumes = []corev1.Volume{
-			{
-				Name: secretName,
-				VolumeSource: corev1.VolumeSource{
-					Secret: &corev1.SecretVolumeSource{
-						SecretName: secretName,
-					},
-				},
-			},
-		}
-	}
-
-	// attach DNS policy and config if enabled
-	registryDeployment.Spec.Template.Spec.DNSPolicy = dpa.Spec.PodDnsPolicy
-	if !reflect.DeepEqual(dpa.Spec.PodDnsConfig, corev1.PodDNSConfig{}) {
-		registryDeployment.Spec.Template.Spec.DNSConfig = &dpa.Spec.PodDnsConfig
-	}
-
-	return nil
-}
-
-func (r *DPAReconciler) getRegistryBSLLabels(bsl *velerov1.BackupStorageLocation) map[string]string {
-	labels := getAppLabels(registryName(bsl))
-	labels["app.kubernetes.io/name"] = common.OADPOperatorVelero
-	labels["app.kubernetes.io/component"] = Registry
-	labels[oadpv1alpha1.RegistryDeploymentLabel] = "True"
-	return labels
-}
-
 func registryName(bsl *velerov1.BackupStorageLocation) string {
 	return "oadp-" + bsl.Name + "-" + bsl.Spec.Provider + "-registry"
-}
-
-func getRegistryImage(dpa *oadpv1alpha1.DataProtectionApplication) string {
-	if dpa.Spec.UnsupportedOverrides[oadpv1alpha1.RegistryImageKey] != "" {
-		return dpa.Spec.UnsupportedOverrides[oadpv1alpha1.RegistryImageKey]
-	}
-	if os.Getenv("VELERO_REGISTRY_REPO") == "" {
-		return common.RegistryImage
-	}
-	return fmt.Sprintf("%v/%v/%v:%v", os.Getenv("REGISTRY"), os.Getenv("PROJECT"), os.Getenv("VELERO_REGISTRY_REPO"), os.Getenv("VELERO_REGISTRY_TAG"))
-}
-
-func (r *DPAReconciler) buildRegistryContainer(bsl *velerov1.BackupStorageLocation, dpa *oadpv1alpha1.DataProtectionApplication) ([]corev1.Container, error) {
-	envVars, err := r.getRegistryEnvVars(bsl)
-	if err != nil {
-		r.Log.Info(fmt.Sprintf("Error building registry container for backupstoragelocation %s/%s, could not fetch registry env vars", bsl.Namespace, bsl.Name))
-		return nil, err
-	}
-	containers := []corev1.Container{
-		{
-			Image: getRegistryImage(dpa),
-			Name:  registryName(bsl) + "-container",
-			Ports: []corev1.ContainerPort{
-				{
-					ContainerPort: 5000,
-					Protocol:      corev1.ProtocolTCP,
-				},
-			},
-			Env: envVars,
-			LivenessProbe: &corev1.Probe{
-				Handler: corev1.Handler{
-					HTTPGet: &corev1.HTTPGetAction{
-						Path: "/v2/_catalog?n=5",
-						Port: intstr.IntOrString{IntVal: 5000},
-					},
-				},
-				PeriodSeconds:       10,
-				TimeoutSeconds:      10,
-				InitialDelaySeconds: 15,
-			},
-			ReadinessProbe: &corev1.Probe{
-				Handler: corev1.Handler{
-					HTTPGet: &corev1.HTTPGetAction{
-						Path: "/v2/_catalog?n=5",
-						Port: intstr.IntOrString{IntVal: 5000},
-					},
-				},
-				PeriodSeconds:       10,
-				TimeoutSeconds:      10,
-				InitialDelaySeconds: 15,
-			},
-		},
-	}
-
-	// check for secret name
-	if _, ok := bsl.Spec.Config["credentialsFile"]; ok { // If credentialsFile config is used, then mount the bsl secret
-		if secretName, err := credentials.GetSecretNameFromCredentialsFileConfigString(bsl.Spec.Config["credentialsFile"]); err == nil {
-			if _, bslCredOk := credentials.PluginSpecificFields[oadpv1alpha1.DefaultPlugin(bsl.Spec.Provider)]; bslCredOk {
-				containers[0].VolumeMounts = []corev1.VolumeMount{
-					{
-						Name:      secretName,
-						MountPath: credentials.PluginSpecificFields[oadpv1alpha1.DefaultPlugin(bsl.Spec.Provider)].BslMountPath,
-					},
-				}
-			}
-		}
-	} else if bsl.Spec.Provider == GCPProvider { // append secret volumes if the BSL provider is GCP
-		secretName, _ := r.getSecretNameAndKey(&bsl.Spec, oadpv1alpha1.DefaultPluginGCP)
-		containers[0].VolumeMounts = []corev1.VolumeMount{
-			{
-				Name:      secretName,
-				MountPath: credentials.PluginSpecificFields[oadpv1alpha1.DefaultPluginGCP].MountPath,
-			},
-		}
-	}
-
-	return containers, nil
-}
-
-func (r *DPAReconciler) getRegistryEnvVars(bsl *velerov1.BackupStorageLocation) ([]corev1.EnvVar, error) {
-	envVar := []corev1.EnvVar{}
-	provider := bsl.Spec.Provider
-	var err error
-	switch provider {
-	case AWSProvider:
-		envVar, err = r.getAWSRegistryEnvVars(bsl, cloudProviderEnvVarMap[AWSProvider])
-
-	case AzureProvider:
-		envVar, err = r.getAzureRegistryEnvVars(bsl, cloudProviderEnvVarMap[AzureProvider])
-
-	case GCPProvider:
-		envVar, err = r.getGCPRegistryEnvVars(bsl, cloudProviderEnvVarMap[GCPProvider])
-	}
-	if err != nil {
-		return nil, err
-	}
-	// Appending proxy env vars
-	envVar = append(envVar, proxy.ReadProxyVarsFromEnv()...)
-	return envVar, nil
-}
-
-func (r *DPAReconciler) getAWSRegistryEnvVars(bsl *velerov1.BackupStorageLocation, awsEnvVars []corev1.EnvVar) ([]corev1.EnvVar, error) {
-
-	// create secret data and fill up the values and return from here
-	for i := range awsEnvVars {
-		if awsEnvVars[i].Name == RegistryStorageS3AccesskeyEnvVarKey {
-			awsEnvVars[i].ValueFrom = &corev1.EnvVarSource{
-				SecretKeyRef: &corev1.SecretKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{Name: "oadp-" + bsl.Name + "-" + bsl.Spec.Provider + "-registry-secret"},
-					Key:                  "access_key",
-				},
-			}
-		}
-
-		if awsEnvVars[i].Name == RegistryStorageS3BucketEnvVarKey {
-			awsEnvVars[i].Value = bsl.Spec.StorageType.ObjectStorage.Bucket
-		}
-
-		if awsEnvVars[i].Name == RegistryStorageS3RegionEnvVarKey {
-			bslSpecRegion, regionInConfig := bsl.Spec.Config[Region]
-			if regionInConfig {
-				awsEnvVars[i].Value = bslSpecRegion
-			} else {
-				r.Log.Info("region not found in backupstoragelocation spec")
-			}
-		}
-
-		if awsEnvVars[i].Name == RegistryStorageS3SecretkeyEnvVarKey {
-			awsEnvVars[i].ValueFrom = &corev1.EnvVarSource{
-				SecretKeyRef: &corev1.SecretKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{Name: "oadp-" + bsl.Name + "-" + bsl.Spec.Provider + "-registry-secret"},
-					Key:                  "secret_key",
-				},
-			}
-		}
-
-		if awsEnvVars[i].Name == RegistryStorageS3RegionendpointEnvVarKey {
-			awsEnvVars[i].Value = bsl.Spec.Config[S3URL]
-		}
-
-		if awsEnvVars[i].Name == RegistryStorageS3SkipverifyEnvVarKey {
-			awsEnvVars[i].Value = bsl.Spec.Config[InsecureSkipTLSVerify]
-		}
-
-	}
-	return awsEnvVars, nil
-}
-
-func (r *DPAReconciler) getAzureRegistryEnvVars(bsl *velerov1.BackupStorageLocation, azureEnvVars []corev1.EnvVar) ([]corev1.EnvVar, error) {
-
-	for i := range azureEnvVars {
-		if azureEnvVars[i].Name == RegistryStorageAzureContainerEnvVarKey {
-			azureEnvVars[i].Value = bsl.Spec.StorageType.ObjectStorage.Bucket
-		}
-
-		if azureEnvVars[i].Name == RegistryStorageAzureAccountnameEnvVarKey {
-			azureEnvVars[i].Value = bsl.Spec.Config[StorageAccount]
-		}
-
-		if azureEnvVars[i].Name == RegistryStorageAzureAccountkeyEnvVarKey {
-			azureEnvVars[i].ValueFrom = &corev1.EnvVarSource{
-				SecretKeyRef: &corev1.SecretKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{Name: "oadp-" + bsl.Name + "-" + bsl.Spec.Provider + "-registry-secret"},
-					Key:                  "storage_account_key",
-				},
-			}
-		}
-		if azureEnvVars[i].Name == RegistryStorageAzureSPNClientIDEnvVarKey {
-			azureEnvVars[i].ValueFrom = &corev1.EnvVarSource{
-				SecretKeyRef: &corev1.SecretKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{Name: "oadp-" + bsl.Name + "-" + bsl.Spec.Provider + "-registry-secret"},
-					Key:                  "client_id_key",
-				},
-			}
-		}
-
-		if azureEnvVars[i].Name == RegistryStorageAzureSPNClientSecretEnvVarKey {
-			azureEnvVars[i].ValueFrom = &corev1.EnvVarSource{
-				SecretKeyRef: &corev1.SecretKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{Name: "oadp-" + bsl.Name + "-" + bsl.Spec.Provider + "-registry-secret"},
-					Key:                  "client_secret_key",
-				},
-			}
-		}
-		if azureEnvVars[i].Name == RegistryStorageAzureSPNTenantIDEnvVarKey {
-			azureEnvVars[i].ValueFrom = &corev1.EnvVarSource{
-				SecretKeyRef: &corev1.SecretKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{Name: "oadp-" + bsl.Name + "-" + bsl.Spec.Provider + "-registry-secret"},
-					Key:                  "tenant_id_key",
-				},
-			}
-		}
-	}
-	return azureEnvVars, nil
-}
-
-func (r *DPAReconciler) getGCPRegistryEnvVars(bsl *velerov1.BackupStorageLocation, gcpEnvVars []corev1.EnvVar) ([]corev1.EnvVar, error) {
-	for i := range gcpEnvVars {
-		if gcpEnvVars[i].Name == RegistryStorageGCSBucket {
-			gcpEnvVars[i].Value = bsl.Spec.StorageType.ObjectStorage.Bucket
-		}
-
-		if gcpEnvVars[i].Name == RegistryStorageGCSKeyfile {
-			// check for secret name
-			_, secretKey := r.getSecretNameAndKey(&bsl.Spec, oadpv1alpha1.DefaultPluginGCP)
-			if _, ok := bsl.Spec.Config["credentialsFile"]; ok {
-				gcpEnvVars[i].Value = credentials.PluginSpecificFields[oadpv1alpha1.DefaultPluginGCP].BslMountPath + "/" + secretKey
-			} else {
-				gcpEnvVars[i].Value = credentials.PluginSpecificFields[oadpv1alpha1.DefaultPluginGCP].MountPath + "/" + secretKey
-			}
-		}
-	}
-	return gcpEnvVars, nil
 }
 
 func (r *DPAReconciler) getProviderSecret(secretName string) (corev1.Secret, error) {
@@ -823,7 +489,7 @@ func (r *DPAReconciler) ReconcileRegistrySVCs(log logr.Logger) (bool, error) {
 		return false, err
 	}
 
-	// Now for each of these bsl instances, create a service
+	// Now for each of these bsl instances, delete any existing service
 	if len(bslList.Items) > 0 {
 		for _, bsl := range bslList.Items {
 			svc := corev1.Service{
@@ -832,81 +498,26 @@ func (r *DPAReconciler) ReconcileRegistrySVCs(log logr.Logger) (bool, error) {
 					Namespace: r.NamespacedName.Namespace,
 				},
 			}
-
-			if !dpa.BackupImages() {
-				deleteContext := context.Background()
-				if err := r.Get(deleteContext, types.NamespacedName{
-					Name:      svc.Name,
-					Namespace: r.NamespacedName.Namespace,
-				}, &svc); err != nil {
-					if k8serror.IsNotFound(err) {
-						return true, nil
-					}
-					return false, err
+			deleteContext := context.Background()
+			if err := r.Get(deleteContext, types.NamespacedName{
+				Name:      svc.Name,
+				Namespace: r.NamespacedName.Namespace,
+			}, &svc); err != nil {
+				if k8serror.IsNotFound(err) {
+					return true, nil
 				}
-
-				deleteOptionPropagationForeground := metav1.DeletePropagationForeground
-				if err := r.Delete(deleteContext, &svc, &client.DeleteOptions{PropagationPolicy: &deleteOptionPropagationForeground}); err != nil {
-					r.EventRecorder.Event(&svc, corev1.EventTypeNormal, "DeleteRegistryServiceFailed", "Could not delete registry service:"+err.Error())
-					return false, err
-				}
-				r.EventRecorder.Event(&svc, corev1.EventTypeNormal, "DeletedRegistryService", "Registry service deleted")
-
-				return true, nil
-			}
-
-			// Create SVC
-			op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, &svc, func() error {
-				// TODO: check for svc status condition errors and respond here
-				err := r.updateRegistrySVC(&svc, &bsl, &dpa)
-
-				return err
-			})
-			if err != nil {
 				return false, err
 			}
-			if op == controllerutil.OperationResultCreated || op == controllerutil.OperationResultUpdated {
-				// Trigger event to indicate SVC was created or updated
-				r.EventRecorder.Event(&bsl,
-					corev1.EventTypeNormal,
-					"RegistryServicesReconciled",
-					fmt.Sprintf("performed %s on service %s/%s", op, svc.Namespace, svc.Name),
-				)
+			deleteOptionPropagationForeground := metav1.DeletePropagationForeground
+			if err := r.Delete(deleteContext, &svc, &client.DeleteOptions{PropagationPolicy: &deleteOptionPropagationForeground}); err != nil {
+				r.EventRecorder.Event(&svc, corev1.EventTypeNormal, "DeleteRegistryServiceFailed", fmt.Sprintf("Could not delete registry service %s from %s:"+err.Error(), svc.Name, svc.Namespace))
+				return false, err
 			}
+			r.EventRecorder.Event(&svc, corev1.EventTypeNormal, "DeletedRegistryService", fmt.Sprintf("Registry service %s deleted from %s", svc.Name, svc.Namespace))
 		}
 	}
 
 	return true, nil
-}
-
-func (r *DPAReconciler) updateRegistrySVC(svc *corev1.Service, bsl *velerov1.BackupStorageLocation, dpa *oadpv1alpha1.DataProtectionApplication) error {
-	// Setting controller owner reference on the registry svc
-	err := controllerutil.SetControllerReference(dpa, svc, r.Scheme)
-	if err != nil {
-		return err
-	}
-
-	// when updating the spec fields we update each field individually
-	// to get around the immutable fields
-	svc.Spec.Selector = map[string]string{
-		"component": "oadp-" + bsl.Name + "-" + bsl.Spec.Provider + "-registry",
-	}
-	svc.Spec.Type = corev1.ServiceTypeClusterIP
-	svc.Spec.Ports = []corev1.ServicePort{
-		{
-			Name: "5000-tcp",
-			Port: int32(5000),
-			TargetPort: intstr.IntOrString{
-				IntVal: int32(5000),
-			},
-			Protocol: corev1.ProtocolTCP,
-		},
-	}
-	svc.Labels = map[string]string{
-		oadpv1alpha1.OadpOperatorLabel: "True",
-		"component":                    "oadp-" + bsl.Name + "-" + bsl.Spec.Provider + "-registry",
-	}
-	return nil
 }
 
 func (r *DPAReconciler) ReconcileRegistryRoutes(log logr.Logger) (bool, error) {
@@ -942,161 +553,61 @@ func (r *DPAReconciler) ReconcileRegistryRoutes(log logr.Logger) (bool, error) {
 				},
 			}
 
-			if !dpa.BackupImages() {
-				deleteContext := context.Background()
-				if err := r.Get(deleteContext, types.NamespacedName{
-					Name:      route.Name,
-					Namespace: r.NamespacedName.Namespace,
-				}, &route); err != nil {
-					if k8serror.IsNotFound(err) {
-						return true, nil
-					}
-					return false, err
+			deleteContext := context.Background()
+			if err := r.Get(deleteContext, types.NamespacedName{
+				Name:      route.Name,
+				Namespace: r.NamespacedName.Namespace,
+			}, &route); err != nil {
+				if k8serror.IsNotFound(err) {
+					return true, nil
 				}
-
-				deleteOptionPropagationForeground := metav1.DeletePropagationForeground
-				if err := r.Delete(deleteContext, &route, &client.DeleteOptions{PropagationPolicy: &deleteOptionPropagationForeground}); err != nil {
-					r.EventRecorder.Event(&route, corev1.EventTypeNormal, "DeleteRegistryRouteFailed", "Could not delete registry route:"+err.Error())
-					return false, err
-				}
-				r.EventRecorder.Event(&route, corev1.EventTypeNormal, "DeletedRegistryRoute", "Registry route deleted")
-
-				return true, nil
-			}
-
-			// Create Route
-			op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, &route, func() error {
-
-				// TODO: check for svc status condition errors and respond here
-
-				err := r.updateRegistryRoute(&route, &bsl, &dpa)
-
-				return err
-			})
-			if err != nil {
 				return false, err
 			}
-			if op == controllerutil.OperationResultCreated || op == controllerutil.OperationResultUpdated {
-				// Trigger event to indicate route was created or updated
-				r.EventRecorder.Event(&bsl,
-					corev1.EventTypeNormal,
-					"RegistryroutesReconciled",
-					fmt.Sprintf("performed %s on route %s/%s", op, route.Namespace, route.Name),
-				)
+
+			deleteOptionPropagationForeground := metav1.DeletePropagationForeground
+			if err := r.Delete(deleteContext, &route, &client.DeleteOptions{PropagationPolicy: &deleteOptionPropagationForeground}); err != nil {
+				r.EventRecorder.Event(&route, corev1.EventTypeNormal, "DeleteRegistryRouteFailed", fmt.Sprintf("Could not delete registry route %s from %s:"+err.Error(), route.Name, route.Namespace))
+				return false, err
 			}
+			r.EventRecorder.Event(&route, corev1.EventTypeNormal, "DeletedRegistryRoute", fmt.Sprintf("Registry route %s deleted from %s", route.Name, route.Namespace))
 		}
 	}
 
 	return true, nil
-}
-
-func (r *DPAReconciler) updateRegistryRoute(route *routev1.Route, bsl *velerov1.BackupStorageLocation, dpa *oadpv1alpha1.DataProtectionApplication) error {
-	// Setting controller owner reference on the registry route
-	err := controllerutil.SetControllerReference(dpa, route, r.Scheme)
-	if err != nil {
-		return err
-	}
-
-	route.Labels = map[string]string{
-		oadpv1alpha1.OadpOperatorLabel: "True",
-		"component":                    "oadp-" + bsl.Name + "-" + bsl.Spec.Provider + "-registry",
-		"service":                      "oadp-" + bsl.Name + "-" + bsl.Spec.Provider + "-registry-svc",
-		"track":                        "registry-routes",
-	}
-
-	return nil
 }
 
 func (r *DPAReconciler) ReconcileRegistryRouteConfigs(log logr.Logger) (bool, error) {
-	dpa := oadpv1alpha1.DataProtectionApplication{}
-	if err := r.Get(r.Context, r.NamespacedName, &dpa); err != nil {
-		return false, err
-	}
-
-	// fetch the bsl instances
-	bslList := velerov1.BackupStorageLocationList{}
-	if err := r.List(r.Context, &bslList, &client.ListOptions{
-		Namespace: r.NamespacedName.Namespace,
-		LabelSelector: labels.SelectorFromSet(map[string]string{
-			"app.kubernetes.io/component": "bsl",
-		}),
-	}); err != nil {
-		return false, err
-	}
 
 	// Now for each of these bsl instances, create a registry route cm for each of them
-	if len(bslList.Items) > 0 {
-		for _, bsl := range bslList.Items {
-			registryRouteCM := corev1.ConfigMap{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "oadp-registry-config",
-					Namespace: r.NamespacedName.Namespace,
-				},
-			}
-
-			if !dpa.BackupImages() {
-				deleteContext := context.Background()
-				if err := r.Get(deleteContext, types.NamespacedName{
-					Name:      registryRouteCM.Name,
-					Namespace: r.NamespacedName.Namespace,
-				}, &registryRouteCM); err != nil {
-					if k8serror.IsNotFound(err) {
-						return true, nil
-					}
-					return false, err
-				}
-
-				deleteOptionPropagationForeground := metav1.DeletePropagationForeground
-				if err := r.Delete(deleteContext, &registryRouteCM, &client.DeleteOptions{PropagationPolicy: &deleteOptionPropagationForeground}); err != nil {
-					r.EventRecorder.Event(&registryRouteCM, corev1.EventTypeNormal, "DeleteRegistryConfigMapFailed", "Could not delete registry configmap:"+err.Error())
-					return false, err
-				}
-				r.EventRecorder.Event(&registryRouteCM, corev1.EventTypeNormal, "DeletedRegistryConfigMap", "Registry configmap deleted")
-
-				return true, nil
-			}
-
-			op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, &registryRouteCM, func() error {
-
-				// update the Config Map
-				err := r.updateRegistryConfigMap(&registryRouteCM, &bsl, &dpa)
-				return err
-			})
-
-			if err != nil {
-				return false, err
-			}
-
-			//TODO: Review Registry Route CM status and report errors and conditions
-
-			if op == controllerutil.OperationResultCreated || op == controllerutil.OperationResultUpdated {
-				// Trigger event to indicate Registry Route CM was created or updated
-				r.EventRecorder.Event(&registryRouteCM,
-					corev1.EventTypeNormal,
-					"ReconcileRegistryRouteConfigReconciled",
-					fmt.Sprintf("performed %s on registry route config map %s/%s", op, registryRouteCM.Namespace, registryRouteCM.Name),
-				)
-			}
-		}
+	registryRouteCM := corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "oadp-registry-config",
+			Namespace: r.NamespacedName.Namespace,
+		},
 	}
+
+	deleteContext := context.Background()
+	if err := r.Get(deleteContext, types.NamespacedName{
+		Name:      registryRouteCM.Name,
+		Namespace: r.NamespacedName.Namespace,
+	}, &registryRouteCM); err != nil {
+		if k8serror.IsNotFound(err) {
+			return true, nil
+		}
+		return false, err
+	}
+
+	deleteOptionPropagationForeground := metav1.DeletePropagationForeground
+	if err := r.Delete(deleteContext, &registryRouteCM, &client.DeleteOptions{PropagationPolicy: &deleteOptionPropagationForeground}); err != nil {
+		r.EventRecorder.Event(&registryRouteCM, corev1.EventTypeNormal, "DeleteRegistryConfigMapFailed", fmt.Sprintf("Could not delete registry configmap %s from %s:"+err.Error(), registryRouteCM.Name, registryRouteCM.Namespace))
+		return false, err
+	}
+	r.EventRecorder.Event(&registryRouteCM, corev1.EventTypeNormal, "DeletedRegistryConfigMap", fmt.Sprintf("Registry configmap %s deleted from %s", registryRouteCM.Name, registryRouteCM.Namespace))
+
 	return true, nil
 }
 
-func (r *DPAReconciler) updateRegistryConfigMap(registryRouteCM *corev1.ConfigMap, bsl *velerov1.BackupStorageLocation, dpa *oadpv1alpha1.DataProtectionApplication) error {
-
-	// Setting controller owner reference on the restic restore helper CM
-	err := controllerutil.SetControllerReference(dpa, registryRouteCM, r.Scheme)
-	if err != nil {
-		return err
-	}
-
-	registryRouteCM.Data = map[string]string{
-		bsl.Name: "oadp-" + bsl.Name + "-" + bsl.Spec.Provider + "-registry-route",
-	}
-
-	return nil
-}
-
+// Create secret for registry to be parsed by openshift-velero-plugin
 func (r *DPAReconciler) ReconcileRegistrySecrets(log logr.Logger) (bool, error) {
 	dpa := oadpv1alpha1.DataProtectionApplication{}
 	if err := r.Get(r.Context, r.NamespacedName, &dpa); err != nil {
@@ -1144,10 +655,10 @@ func (r *DPAReconciler) ReconcileRegistrySecrets(log logr.Logger) (bool, error) 
 
 			deleteOptionPropagationForeground := metav1.DeletePropagationForeground
 			if err := r.Delete(deleteContext, &secret, &client.DeleteOptions{PropagationPolicy: &deleteOptionPropagationForeground}); err != nil {
-				r.EventRecorder.Event(&secret, corev1.EventTypeNormal, "DeleteRegistrySecretFailed", "Could not delete registry secret:"+err.Error())
+				r.EventRecorder.Event(&secret, corev1.EventTypeNormal, "DeleteRegistrySecretFailed", fmt.Sprintf("Could not delete registry secret %s from %s:"+err.Error(), secret.Name, secret.Namespace))
 				return false, err
 			}
-			r.EventRecorder.Event(&secret, corev1.EventTypeNormal, "DeletedRegistrySecret", "Registry secret deleted")
+			r.EventRecorder.Event(&secret, corev1.EventTypeNormal, "DeletedRegistrySecret", fmt.Sprintf("Registry secret %s deleted from %s", secret.Name, secret.Namespace))
 
 			return true, nil
 		}

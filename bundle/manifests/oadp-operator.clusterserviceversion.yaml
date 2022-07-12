@@ -708,10 +708,6 @@ spec:
                         value: quay.io
                       - name: PROJECT
                         value: konveyor
-                      - name: VELERO_REGISTRY_REPO
-                        value: registry
-                      - name: VELERO_REGISTRY_TAG
-                        value: latest
                       - name: VELERO_REPO
                         value: velero
                       - name: VELERO_OPENSHIFT_PLUGIN_REPO
@@ -864,8 +860,6 @@ spec:
       name: gcp_plugin
     - image: quay.io/konveyor/velero-plugin-for-csi:konveyor-0.3
       name: csi_plugin
-    - image: quay.io/konveyor/registry:latest
-      name: registry
     - image: quay.io/konveyor/kubevirt-velero-plugin:v0.2.0
       name: kubevirt_plugin
   version: 99.0.0

@@ -75,22 +75,16 @@ var _ = Describe("Subscription Config Suite Test", func() {
 					log.Printf("Waiting for restic pods to be running")
 					Eventually(AreResticPodsRunning(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 				}
-				if velero.BackupImages() {
-					log.Printf("Waiting for registry pods to be running")
-					Eventually(AreRegistryDeploymentsAvailable(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
-				}
 				if s.Spec.Config != nil && s.Spec.Config.Env != nil {
 					// get pod env vars
 					log.Printf("Getting deployments")
 					vd, err := GetVeleroDeploymentList(namespace)
 					Expect(err).NotTo(HaveOccurred())
-					rd, err := GetRegistryDeploymentList(namespace)
-					Expect(err).NotTo(HaveOccurred())
 					log.Printf("Getting daemonsets")
 					rds, err := GetResticDaemonsetList(namespace)
 					Expect(err).NotTo(HaveOccurred())
 					for _, env := range s.Spec.Config.Env {
-						for _, deployment := range append(vd.Items, rd.Items...) {
+						for _, deployment := range vd.Items {
 							log.Printf("Checking env vars are passed to deployment " + deployment.Name)
 							for _, container := range deployment.Spec.Template.Spec.Containers {
 								log.Printf("Checking env vars are passed to container " + container.Name)
