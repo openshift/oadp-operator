@@ -188,22 +188,17 @@ func (r *DPAReconciler) validateDataMoverCredential(resticsecret *corev1.Secret)
 		return false
 	}
 	for key, val := range resticsecret.Data {
-		switch {
-		case key == ResticPassword:
-			if len(val) == 0 {
-				return false
-			}
-		case key == ResticRepository:
+
+		if key == ResticPassword {
 			if len(val) == 0 {
 				return false
 			}
 		}
-
 	}
 	return true
 }
 
-func (r *DPAReconciler) createResticSecretsPerBSL(dpa *oadpv1alpha1.DataProtectionApplication, bsl velerov1.BackupStorageLocation, dmresticsecretname string, pass []byte, repo []byte) (*corev1.Secret, error) {
+func (r *DPAReconciler) createResticSecretsPerBSL(dpa *oadpv1alpha1.DataProtectionApplication, bsl velerov1.BackupStorageLocation, dmresticsecretname string, pass []byte) (*corev1.Secret, error) {
 
 	switch bsl.Spec.Provider {
 	case AWSProvider:
@@ -225,7 +220,12 @@ func (r *DPAReconciler) createResticSecretsPerBSL(dpa *oadpv1alpha1.DataProtecti
 				r.Log.Info(fmt.Sprintf("Error parsing provider secret %s for backupstoragelocation", secretName))
 				return nil, err
 			}
+			repobase := "s3:s3.amazonaws.com/"
+			if bsl.Spec.Config["s3Url"] != "" {
+				repobase = bsl.Spec.Config["s3Url"]
+			}
 
+			repo := repobase + bsl.Spec.ObjectStorage.Bucket
 			rsecret := &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      fmt.Sprintf("%s-volsync-restic", bsl.Name),
@@ -249,7 +249,7 @@ func (r *DPAReconciler) createResticSecretsPerBSL(dpa *oadpv1alpha1.DataProtecti
 						AWSSecretKey:     []byte(secret),
 						AWSDefaultRegion: []byte(bsl.Spec.Config[Region]),
 						ResticPassword:   pass,
-						ResticRepository: repo,
+						ResticRepository: []byte(repo),
 					},
 				}
 				rsecret.Data = rData.Data
@@ -297,17 +297,13 @@ func (r *DPAReconciler) createResticSecret(dpa *oadpv1alpha1.DataProtectionAppli
 	}
 
 	// obtain the password from user supllied restic secret
-	var res_pass, repo []byte
+	var res_pass []byte
 	for key, val := range resticSecret.Data {
-		switch {
-		case key == ResticPassword:
+
+		if key == ResticPassword {
 			res_pass = val
-		case key == ResticRepository:
-			repo = val
 		}
-
 	}
-
 	// Filter bsl based on the labels and dpa name
 	// For each bsl in the list, create a restic secret
 	// Label each restic secret with bsl name
@@ -327,7 +323,7 @@ func (r *DPAReconciler) createResticSecret(dpa *oadpv1alpha1.DataProtectionAppli
 
 	for _, bsl := range backupStorageLocationList.Items {
 		if strings.Contains(bsl.Name, dpa.Name) {
-			_, err := r.createResticSecretsPerBSL(dpa, bsl, dmresticsecretname, res_pass, repo)
+			_, err := r.createResticSecretsPerBSL(dpa, bsl, dmresticsecretname, res_pass)
 
 			if err != nil {
 				return false, err
