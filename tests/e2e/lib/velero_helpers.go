@@ -128,6 +128,14 @@ func RestoreLogs(ocClient client.Client, restore velero.Restore) string {
 	return logs.String()
 }
 
+var errorIgnorePatterns = []string{
+	"received EOF, stopping recv loop",
+	"Checking for AWS specific error information",
+	"awserr.Error contents",
+	"Error creating parent directories for blob-info-cache-v1.boltdb",
+	"blob unknown",
+}
+
 func BackupErrorLogs(ocClient client.Client, backup velero.Backup) []string {
 	bl := BackupLogs(ocClient, backup)
 	errorRegex, err := regexp.Compile("error|Error")
@@ -137,7 +145,17 @@ func BackupErrorLogs(ocClient client.Client, backup velero.Backup) []string {
 	logLines := []string{}
 	for _, line := range strings.Split(bl, "\n") {
 		if errorRegex.MatchString(line) {
-			logLines = append(logLines, line)
+			// ignore some expected errors
+			ignoreLine := false
+			for _, ignore := range errorIgnorePatterns {
+				ignoreLine, _ = regexp.MatchString(ignore, line)
+				if ignoreLine {
+					break
+				}
+			}
+			if !ignoreLine {
+				logLines = append(logLines, line)
+			}
 		}
 	}
 	return logLines
@@ -152,7 +170,17 @@ func RestoreErrorLogs(ocClient client.Client, restore velero.Restore) []string {
 	logLines := []string{}
 	for _, line := range strings.Split(rl, "\n") {
 		if errorRegex.MatchString(line) {
-			logLines = append(logLines, line)
+			// ignore some expected errors
+			ignoreLine := false
+			for _, ignore := range errorIgnorePatterns {
+				ignoreLine, _ = regexp.MatchString(ignore, line)
+				if ignoreLine {
+					break
+				}
+			}
+			if !ignoreLine {
+				logLines = append(logLines, line)
+			}
 		}
 	}
 	return logLines

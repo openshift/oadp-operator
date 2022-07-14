@@ -584,6 +584,12 @@ func (r *DPAReconciler) customizeVeleroContainer(dpa *oadpv1alpha1.DataProtectio
 	}
 	// Append proxy settings to the container from environment variables
 	veleroContainer.Env = append(veleroContainer.Env, proxy.ReadProxyVarsFromEnv()...)
+	if dpa.BackupImages() {
+		veleroContainer.Env = append(veleroContainer.Env, corev1.EnvVar{
+			Name:  "OPENSHIFT_IMAGESTREAM_BACKUP",
+			Value: "true",
+		})
+	}
 
 	// Check if data-mover is enabled and set the env var so that the csi data-mover code path is triggred
 	if dpa.Spec.Features != nil && dpa.Spec.Features.DataMover != nil && dpa.Spec.Features.DataMover.Enable {

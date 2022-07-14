@@ -3,26 +3,20 @@ approvers:
   - sseago
   - jmontleon
   - shawn-hurley
-  - alaypatel07
-  - pranavgaikwad
   - dymurray
   - shubham-pampattiwar
-  - JaydipGabani
-  - kaovilai
-  - mperetzred
-reviewers:
-  - jwmatthews
-  - sseago
-  - jmontleon
-  - shawn-hurley
-  - rayfordj
-  - alaypatel07
-  - pranavgaikwad
-  - dymurray
-  - shubham-pampattiwar
-  - JaydipGabani
   - kaovilai
   - mperetzred
   - weshayutin
   - hhpatel14
-  - deepakraj1997
+  - rayfordj
+  - eemcmullan
+  - savitharaghunathan
+reviewers:
+  - sseago
+  - shubham-pampattiwar
+  - kaovilai
+  - weshayutin
+  - eemcmullan
+  - savitharaghunathan
+  - hhpatel14

@@ -355,8 +355,6 @@ spec:
     name: gcp_plugin
   - image: quay.io/konveyor/velero-plugin-for-csi:konveyor-0.3
     name: csi_plugin
-  - image: quay.io/konveyor/registry:latest
-    name: registry
   - image: quay.io/konveyor/kubevirt-velero-plugin:v0.2.0
     name: kubevirt_plugin
   version: 99.0.0

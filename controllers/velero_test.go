@@ -217,6 +217,10 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 											Name:  common.LDLibraryPathEnvKey,
 											Value: "/plugins",
 										},
+										{
+											Name:  "OPENSHIFT_IMAGESTREAM_BACKUP",
+											Value: "true",
+										},
 									},
 								},
 							},
@@ -404,6 +408,10 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 										{
 											Name:  common.LDLibraryPathEnvKey,
 											Value: "/plugins",
+										},
+										{
+											Name:  "OPENSHIFT_IMAGESTREAM_BACKUP",
+											Value: "true",
 										},
 										{
 											Name:  common.AWSSharedCredentialsFileEnvKey,
@@ -705,6 +713,10 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 											Name:  strings.ToLower(proxyEnvKey),
 											Value: proxyEnvValue,
 										},
+										{
+											Name:  "OPENSHIFT_IMAGESTREAM_BACKUP",
+											Value: "true",
+										},
 									},
 								},
 							},
@@ -880,6 +892,10 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 										{
 											Name:  common.LDLibraryPathEnvKey,
 											Value: "/plugins",
+										},
+										{
+											Name:  "OPENSHIFT_IMAGESTREAM_BACKUP",
+											Value: "true",
 										},
 									},
 								},
@@ -1094,6 +1110,10 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 										{
 											Name:  common.LDLibraryPathEnvKey,
 											Value: "/plugins",
+										},
+										{
+											Name:  "OPENSHIFT_IMAGESTREAM_BACKUP",
+											Value: "true",
 										},
 									},
 								},
@@ -1318,6 +1338,10 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 											Name:  common.LDLibraryPathEnvKey,
 											Value: "/plugins",
 										},
+										{
+											Name:  "OPENSHIFT_IMAGESTREAM_BACKUP",
+											Value: "true",
+										},
 									},
 								},
 							},
@@ -1498,6 +1522,10 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 										{
 											Name:  common.LDLibraryPathEnvKey,
 											Value: "/plugins",
+										},
+										{
+											Name:  "OPENSHIFT_IMAGESTREAM_BACKUP",
+											Value: "true",
 										},
 									},
 								},
@@ -1680,6 +1708,10 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 											Name:  common.LDLibraryPathEnvKey,
 											Value: "/plugins",
 										},
+										{
+											Name:  "OPENSHIFT_IMAGESTREAM_BACKUP",
+											Value: "true",
+										},
 									},
 								},
 							},
@@ -1861,6 +1893,10 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 											Name:  common.LDLibraryPathEnvKey,
 											Value: "/plugins",
 										},
+										{
+											Name:  "OPENSHIFT_IMAGESTREAM_BACKUP",
+											Value: "true",
+										},
 									},
 								},
 							},
@@ -2041,6 +2077,10 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 										{
 											Name:  common.LDLibraryPathEnvKey,
 											Value: "/plugins",
+										},
+										{
+											Name:  "OPENSHIFT_IMAGESTREAM_BACKUP",
+											Value: "true",
 										},
 									},
 								},
@@ -2244,6 +2284,10 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 											Name:  common.LDLibraryPathEnvKey,
 											Value: "/plugins",
 										},
+										{
+											Name:  "OPENSHIFT_IMAGESTREAM_BACKUP",
+											Value: "true",
+										},
 									},
 								},
 							},
@@ -2436,6 +2480,10 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 											Name:  common.LDLibraryPathEnvKey,
 											Value: "/plugins",
 										},
+										{
+											Name:  "OPENSHIFT_IMAGESTREAM_BACKUP",
+											Value: "true",
+										},
 									},
 								},
 							},
@@ -2612,6 +2660,10 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 										{
 											Name:  common.LDLibraryPathEnvKey,
 											Value: "/plugins",
+										},
+										{
+											Name:  "OPENSHIFT_IMAGESTREAM_BACKUP",
+											Value: "true",
 										},
 										{
 											Name:  common.AWSSharedCredentialsFileEnvKey,
@@ -2817,6 +2869,10 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 										{
 											Name:  common.LDLibraryPathEnvKey,
 											Value: "/plugins",
+										},
+										{
+											Name:  "OPENSHIFT_IMAGESTREAM_BACKUP",
+											Value: "true",
 										},
 										{
 											Name:  common.AWSSharedCredentialsFileEnvKey,
@@ -3039,6 +3095,10 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 										{
 											Name:  common.LDLibraryPathEnvKey,
 											Value: "/plugins",
+										},
+										{
+											Name:  "OPENSHIFT_IMAGESTREAM_BACKUP",
+											Value: "true",
 										},
 										{
 											Name:  common.AWSSharedCredentialsFileEnvKey,
@@ -3281,6 +3341,10 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 											Value: "/plugins",
 										},
 										{
+											Name:  "OPENSHIFT_IMAGESTREAM_BACKUP",
+											Value: "true",
+										},
+										{
 											Name:  common.AWSSharedCredentialsFileEnvKey,
 											Value: "/credentials/cloud",
 										},
@@ -3502,6 +3566,10 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 										{
 											Name:  common.LDLibraryPathEnvKey,
 											Value: "/plugins",
+										},
+										{
+											Name:  "OPENSHIFT_IMAGESTREAM_BACKUP",
+											Value: "true",
 										},
 									},
 								},
