@@ -23,7 +23,7 @@ const (
 	GCPPluginImage       = "quay.io/konveyor/velero-plugin-for-gcp:konveyor-1.5"
 	CSIPluginImage       = "quay.io/konveyor/velero-plugin-for-csi:konveyor-0.3"
 	// CSIDataMoverPluginImage is the modified version of the velero plugin for csi which facilitates movement of csi snapshots
-	CSIDataMoverPluginImage = "quay.io/konveyor/velero-plugin-for-csi:data-mover"
+	CSIDataMoverPluginImage = "quay.io/konveyor/velero-plugin-for-csi:main"
 	// DataMoverImage is the data mover controller for data mover CRs - VolumeSnapshotBackup and VolumeSnapshotRestore
 	DataMoverImage      = "quay.io/konveyor/volume-snapshot-mover:latest"
 	RegistryImage       = "quay.io/konveyor/registry:latest"
