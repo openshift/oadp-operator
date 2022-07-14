@@ -65,7 +65,13 @@ spec:
                       size:
                         description: size of the PersistentVolumeClaim
                         type: string
+                      storageClassName:
+                        description: name of the StorageClass
+                        type: string
                     type: object
+                  volumeSnapshotClassName:
+                    description: name of the VolumeSnapshotClass
+                    type: string
                 type: object
             type: object
           status:
