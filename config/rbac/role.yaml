@@ -43,6 +43,7 @@ rules:
   - patch
   - update
   - watch
+  - deletecollection
 - apiGroups:
     - snapshot.storage.k8s.io
   resources:
