@@ -476,6 +476,7 @@ spec:
                 - patch
                 - update
                 - watch
+                - deletecollection
             - apiGroups:
                 - coordination.k8s.io
                 - corev1
