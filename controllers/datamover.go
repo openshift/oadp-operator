@@ -43,8 +43,8 @@ func (r *DPAReconciler) ReconcileDataMoverController(log logr.Logger) (bool, err
 		if err != nil {
 
 			if k8serror.IsNotFound(err) {
-				log.Info("volSync operator not found. Please install")
-				return false, err
+
+				return false, fmt.Errorf("volSync operator not found. Please install")
 			}
 
 			return false, err
