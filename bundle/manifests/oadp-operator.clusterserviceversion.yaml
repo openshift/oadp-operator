@@ -863,4 +863,6 @@ spec:
       name: csi_plugin
     - image: quay.io/konveyor/kubevirt-velero-plugin:v0.2.0
       name: kubevirt_plugin
+    - image: quay.io/konveyor/volume-snapshot-mover:latest
+      name: volume-snapshot-mover
   version: 99.0.0
