@@ -17,9 +17,12 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	monitor "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 	"os"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
@@ -76,6 +79,13 @@ func main() {
 	if err != nil {
 		setupLog.Error(err, "unable to get WatchNamespace, "+
 			"the manager will watch and manage resources in all namespaces")
+	}
+
+	// setting privileged pod security labels to operator ns
+	err = addPodSecurityPriviledgedLabels(watchNamespace)
+	if err != nil {
+		setupLog.Error(err, "error setting privileged pod security labels to operator namespace")
+		os.Exit(1)
 	}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
@@ -170,4 +180,36 @@ func getWatchNamespace() (string, error) {
 		return "", fmt.Errorf("%s must be set", watchNamespaceEnvVar)
 	}
 	return ns, nil
+}
+
+// setting privileged pod security labels to OADP operator namespace
+func addPodSecurityPriviledgedLabels(watchNamespaceName string) error {
+	setupLog.Info("patching namespace with PSA labels")
+	kubeconf := ctrl.GetConfigOrDie()
+	clientset, err := kubernetes.NewForConfig(kubeconf)
+	if err != nil {
+		setupLog.Error(err, "problem getting client")
+		return err
+	}
+
+	operatorNamespace, err := clientset.CoreV1().Namespaces().Get(context.TODO(), watchNamespaceName, metav1.GetOptions{})
+	if err != nil {
+		setupLog.Error(err, "problem getting operator namespace")
+		return err
+	}
+
+	privilegedLabels := map[string]string{
+		"pod-security.kubernetes.io/enforce": "privileged",
+		"pod-security.kubernetes.io/audit":   "privileged",
+		"pod-security.kubernetes.io/warn":    "privileged",
+	}
+
+	operatorNamespace.SetLabels(privilegedLabels)
+
+	_, err = clientset.CoreV1().Namespaces().Update(context.TODO(), operatorNamespace, metav1.UpdateOptions{})
+	if err != nil {
+		setupLog.Error(err, "problem patching operator namespace for privileged pod security labels")
+		return err
+	}
+	return nil
 }
