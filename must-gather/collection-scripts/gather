@@ -3,7 +3,7 @@
 # Default to gathering 72h of logs unless specified as var
 logs_since="${logs_since:-72h}"
 request_timeout="${request_timeout:-0s}"
-insecure-skip-tls-verify="${skip_tls:-false}"
+skip_tls="${skip_tls:-false}"
 unset KUBECONFIG
 
 clusterID=$(oc get clusterversion -o jsonpath='{.items[].spec.clusterID}' | cut -c -8)
