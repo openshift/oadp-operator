@@ -15,8 +15,10 @@ import (
 	k8serror "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
@@ -39,6 +41,29 @@ func (r *DPAReconciler) ReconcileDataMoverController(log logr.Logger) (bool, err
 	dpa := oadpv1alpha1.DataProtectionApplication{}
 	if err := r.Get(r.Context, r.NamespacedName, &dpa); err != nil {
 		return false, err
+	}
+
+	// check volSync is installed/deployment exists to use data mover
+	if dpa.Spec.Features != nil && dpa.Spec.Features.DataMover.Enable {
+
+		// create new client for deployments outside of adp namespace
+		kubeConf := config.GetConfigOrDie()
+
+		clientset, err := kubernetes.NewForConfig(kubeConf)
+		if err != nil {
+			return false, err
+		}
+
+		_, err = clientset.AppsV1().Deployments(common.VolSyncDeploymentNamespace).Get(context.TODO(), common.VolSyncDeploymentName, metav1.GetOptions{})
+		if err != nil {
+
+			if k8serror.IsNotFound(err) {
+
+				return false, fmt.Errorf("volSync operator not found. Please install")
+			}
+
+			return false, err
+		}
 	}
 
 	dataMoverDeployment := &appsv1.Deployment{
