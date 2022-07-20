@@ -464,6 +464,7 @@ spec:
                 - patch
                 - update
                 - watch
+                - deletecollection
             - apiGroups:
                 - snapshot.storage.k8s.io
               resources:
@@ -476,7 +477,6 @@ spec:
                 - patch
                 - update
                 - watch
-                - deletecollection
             - apiGroups:
                 - coordination.k8s.io
                 - corev1
