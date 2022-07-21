@@ -44,7 +44,7 @@ func (r *DPAReconciler) ReconcileDataMoverController(log logr.Logger) (bool, err
 	}
 
 	// check volSync is installed/deployment exists to use data mover
-	if dpa.Spec.Features != nil && dpa.Spec.Features.DataMover.Enable {
+	if dpa.Spec.Features.DataMover != nil && dpa.Spec.Features.DataMover.Enable {
 
 		// create new client for deployments outside of adp namespace
 		kubeConf := config.GetConfigOrDie()
@@ -303,9 +303,12 @@ func (r *DPAReconciler) createResticSecret(dpa *oadpv1alpha1.DataProtectionAppli
 	// obtain restic secret name from the config
 	// if no name is mentioned in the config, then assume default restic secret name
 	dmresticsecretname := ResticsecretName
-	cred := dpa.Spec.Features.DataMover.Credential
-	if cred != nil {
-		dmresticsecretname = cred.Name
+	name := dpa.Spec.Features.DataMover.CredentialName
+	if name != "" {
+		if len(name) > 0 {
+			dmresticsecretname = name
+		}
+
 	}
 
 	// fetch restic secret from the cluster

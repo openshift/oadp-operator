@@ -445,28 +445,13 @@ spec:
                 description: Features defines the configuration for the DPA to enable
                   the OADP tech preview features
                 properties:
-                  datamover:
+                  dataMover:
                     description: Contains data mover specific configurations
                     properties:
-                      dataMoverCredential:
+                      credentialName:
                         description: User supplied Restic Secret name
-                        properties:
-                          key:
-                            description: The key of the secret to select from.  Must
-                              be a valid secret key.
-                            type: string
-                          name:
-                            description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                              TODO: Add other useful fields. apiVersion, kind, uid?'
-                            type: string
-                          optional:
-                            description: Specify whether the Secret or its key must
-                              be defined
-                            type: boolean
-                        required:
-                        - key
-                        type: object
-                      enableDataMover:
+                        type: string
+                      enable:
                         description: EnableDataMover is used to specify whether you
                           want to deploy the volume snapshot mover controller and
                           a modified csi datamover plugin
