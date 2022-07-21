@@ -25,7 +25,7 @@ import (
 const (
 	ResticPassword   = "RESTIC_PASSWORD"
 	ResticRepository = "RESTIC_REPOSITORY"
-	ResticsecretName = "dm-restic-secret"
+	ResticsecretName = "dm-credential"
 
 	// AWS vars
 	AWSAccessKey     = "AWS_ACCESS_KEY_ID"
