@@ -469,6 +469,16 @@ spec:
                 - snapshot.storage.k8s.io
               resources:
                 - volumesnapshotclasses
+              verbs:
+                - create
+                - get
+                - list
+                - patch
+                - update
+                - watch
+            - apiGroups:
+                - storage.k8s.io
+              resources:
                 - storageclasses
               verbs:
                 - create
