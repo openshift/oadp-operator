@@ -44,7 +44,7 @@ func (r *DPAReconciler) ReconcileDataMoverController(log logr.Logger) (bool, err
 	}
 
 	// check volSync is installed/deployment exists to use data mover
-	if dpa.Spec.Features.DataMover != nil && dpa.Spec.Features.DataMover.Enable {
+	if r.checkIfDataMoverIsEnabled(&dpa) {
 
 		// create new client for deployments outside of adp namespace
 		kubeConf := config.GetConfigOrDie()
@@ -312,7 +312,7 @@ func (r *DPAReconciler) ReconcileDataMoverResticSecret(log logr.Logger) (bool, e
 	}
 
 	// create secret only if data mover is enabled
-	if dpa.Spec.Features.DataMover != nil && dpa.Spec.Features.DataMover.Enable {
+	if r.checkIfDataMoverIsEnabled(&dpa) {
 		// obtain restic secret name from the config
 		// if no name is mentioned in the config, then assume default restic secret name
 		dmresticsecretname := ResticsecretName
@@ -375,4 +375,15 @@ func (r *DPAReconciler) ReconcileDataMoverResticSecret(log logr.Logger) (bool, e
 	}
 
 	return true, nil
+}
+
+//Check if Data Mover feature is enable in the DPA config or not
+func (r *DPAReconciler) checkIfDataMoverIsEnabled(dpa *oadpv1alpha1.DataProtectionApplication) bool {
+
+	if dpa.Spec.Features != nil && dpa.Spec.Features.DataMover != nil &&
+		dpa.Spec.Features.DataMover.Enable {
+		return true
+	}
+
+	return false
 }
