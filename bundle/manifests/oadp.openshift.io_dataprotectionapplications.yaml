@@ -1,3 +1,4 @@
+
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
@@ -451,9 +452,8 @@ spec:
                         description: User supplied Restic Secret name
                         type: string
                       enable:
-                        description: EnableDataMover is used to specify whether you
-                          want to deploy the volume snapshot mover controller and
-                          a modified csi datamover plugin
+                        description: Enable flag is used to specify whether you want
+                          to deploy the volume snapshot mover controller
                         type: boolean
                     type: object
                 type: object

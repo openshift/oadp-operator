@@ -162,7 +162,7 @@ type SnapshotLocation struct {
 
 // DataMover defines the various config for DPA data mover
 type DataMover struct {
-	// EnableDataMover is used to specify whether you want to deploy the volume snapshot mover controller and a modified csi datamover plugin
+	// Enable flag is used to specify whether you want to deploy the volume snapshot mover controller
 	// +optional
 	Enable bool `json:"enable,omitempty"`
 	// User supplied Restic Secret name
@@ -174,7 +174,7 @@ type DataMover struct {
 type Features struct {
 	// Contains data mover specific configurations
 	// +optional
-	DataMover *DataMover `json:"dataMover"`
+	DataMover *DataMover `json:"dataMover,omitempty"`
 }
 
 // DataProtectionApplicationSpec defines the desired state of Velero
