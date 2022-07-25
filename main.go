@@ -82,7 +82,7 @@ func main() {
 	}
 
 	// setting privileged pod security labels to operator ns
-	err = addPodSecurityPriviledgedLabels(watchNamespace)
+	err = addPodSecurityPrivilegedLabels(watchNamespace)
 	if err != nil {
 		setupLog.Error(err, "error setting privileged pod security labels to operator namespace")
 		os.Exit(1)
@@ -183,7 +183,7 @@ func getWatchNamespace() (string, error) {
 }
 
 // setting privileged pod security labels to OADP operator namespace
-func addPodSecurityPriviledgedLabels(watchNamespaceName string) error {
+func addPodSecurityPrivilegedLabels(watchNamespaceName string) error {
 	setupLog.Info("patching operator namespace with PSA labels")
 
 	if len(watchNamespaceName) == 0 {
