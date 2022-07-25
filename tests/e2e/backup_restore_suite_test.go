@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/hashicorp/go-version"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/openshift/oadp-operator/tests/e2e/lib"
@@ -104,6 +105,14 @@ var _ = Describe("AWS backup restore tests", func() {
 				Skip(reason)
 			}
 
+			if provider == "azure" && brCase.BackupRestoreType == CSI {
+				availability, _ := version.NewVersion("4.10")
+				version, _ := version.NewVersion(clusterVersion)
+				if version.LessThan(availability) {
+					Skip("Azure cluster version < 4.10 does not support CSI")
+				}
+			}
+
 			err := dpaCR.Build(brCase.BackupRestoreType)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -125,12 +134,13 @@ var _ = Describe("AWS backup restore tests", func() {
 				Eventually(AreResticPodsRunning(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 			}
 			if brCase.BackupRestoreType == CSI {
-				if provider == "aws" || provider == "ibmcloud" || provider == "gcp" {
+				if provider == "aws" || provider == "ibmcloud" || provider == "gcp" || provider == "azure" {
 					log.Printf("Creating VolumeSnapshotClass for CSI backuprestore of %s", brCase.Name)
 					snapshotClassPath := fmt.Sprintf("./sample-applications/snapclass-csi/%s.yaml", provider)
 					err = InstallApplication(dpaCR.Client, snapshotClassPath)
 					Expect(err).ToNot(HaveOccurred())
 				}
+
 			}
 
 			// TODO: check registry deployments are deleted
@@ -260,22 +270,6 @@ var _ = Describe("AWS backup restore tests", func() {
 			}
 
 		},
-		Entry("MySQL application CSI", Label("ibmcloud", "aws", "gcp"), BackupRestoreCase{
-			ApplicationTemplate:  fmt.Sprintf("./sample-applications/mysql-persistent/mysql-persistent-csi-%s-template.yaml", provider),
-			ApplicationNamespace: "mysql-persistent",
-			Name:                 "mysql-csi-e2e",
-			BackupRestoreType:    CSI,
-			PreBackupVerify:      mysqlReady(true, CSI),
-			PostRestoreVerify:    mysqlReady(false, CSI),
-		}, nil),
-		Entry("Mongo application CSI", Label("ibmcloud", "aws", "gcp"), BackupRestoreCase{
-			ApplicationTemplate:  fmt.Sprintf("./sample-applications/mongo-persistent/mongo-persistent-csi-%s-template.yaml", provider),
-			ApplicationNamespace: "mongo-persistent",
-			Name:                 "mongo-csi-e2e",
-			BackupRestoreType:    CSI,
-			PreBackupVerify:      mongoready(true, CSI),
-			PostRestoreVerify:    mongoready(false, CSI),
-		}, nil),
 		Entry("Mongo application RESTIC", BackupRestoreCase{
 			ApplicationTemplate:  "./sample-applications/mongo-persistent/mongo-persistent.yaml",
 			ApplicationNamespace: "mongo-persistent",
@@ -291,6 +285,22 @@ var _ = Describe("AWS backup restore tests", func() {
 			BackupRestoreType:    RESTIC,
 			PreBackupVerify:      mysqlReady(false, RESTIC),
 			PostRestoreVerify:    mysqlReady(false, RESTIC),
+		}, nil),
+		Entry("MySQL application CSI", Label("ibmcloud", "aws", "gcp", "azure"), BackupRestoreCase{
+			ApplicationTemplate:  fmt.Sprintf("./sample-applications/mysql-persistent/mysql-persistent-csi-%s-template.yaml", provider),
+			ApplicationNamespace: "mysql-persistent",
+			Name:                 "mysql-csi-e2e",
+			BackupRestoreType:    CSI,
+			PreBackupVerify:      mysqlReady(true, CSI),
+			PostRestoreVerify:    mysqlReady(false, CSI),
+		}, nil),
+		Entry("Mongo application CSI", Label("ibmcloud", "aws", "gcp", "azure"), BackupRestoreCase{
+			ApplicationTemplate:  fmt.Sprintf("./sample-applications/mongo-persistent/mongo-persistent-csi-%s-template.yaml", provider),
+			ApplicationNamespace: "mongo-persistent",
+			Name:                 "mongo-csi-e2e",
+			BackupRestoreType:    CSI,
+			PreBackupVerify:      mongoready(true, CSI),
+			PostRestoreVerify:    mongoready(false, CSI),
 		}, nil),
 	)
 })

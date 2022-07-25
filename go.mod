@@ -6,6 +6,7 @@ require (
 	github.com/aws/aws-sdk-go v1.34.11
 	github.com/go-logr/logr v0.4.0
 	github.com/google/uuid v1.2.0
+	github.com/hashicorp/go-version v1.6.0
 	github.com/kubernetes-csi/external-snapshotter/client/v4 v4.2.0
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/ginkgo/v2 v2.1.1
