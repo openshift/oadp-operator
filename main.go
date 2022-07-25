@@ -184,7 +184,12 @@ func getWatchNamespace() (string, error) {
 
 // setting privileged pod security labels to OADP operator namespace
 func addPodSecurityPriviledgedLabels(watchNamespaceName string) error {
-	setupLog.Info("patching namespace with PSA labels")
+	setupLog.Info("patching operator namespace with PSA labels")
+
+	if len(watchNamespaceName) == 0 {
+		return fmt.Errorf("cannot add privileged pod security labels, watchNamespaceName is empty")
+	}
+
 	kubeconf := ctrl.GetConfigOrDie()
 	clientset, err := kubernetes.NewForConfig(kubeconf)
 	if err != nil {
