@@ -5,13 +5,14 @@
 | Property             | Type                                                                        | Description                                                                                                     |
 |----------------------|-----------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------|
 | BackupLocations      | [] BackupLocation                                                           | BackupLocations defines the list of desired configuration to use for BackupStorageLocations                     |
-| SnapshotLocations      | [] SnapshotLocation                                                       | SnapshotLocations defines the list of desired configuration to use for VolumeSnapshotLocations                  |
+| SnapshotLocations    | [] SnapshotLocation                                                         | SnapshotLocations defines the list of desired configuration to use for VolumeSnapshotLocations                  |
 | UnsupportedOverrides | map [ UnsupportedImageKey ] string                                          | UnsupportedOverrides can be used to override the deployed dependent images for development                      |
 | PodAnnotations       | map [ string ] string                                                       | Used to add annotations to pods deployed by operator                                                            |
 | PodDnsPolicy         | [corev1.DNSPolicy] ( https://pkg.go.dev/k8s.io/api/core/v1#DNSPolicy)       | DNSPolicy defines how a pod's DNS will be configured.                                                           |
 | PodDnsConfig         | [corev1.PodDNSConfig] ( https://pkg.go.dev/k8s.io/api/core/v1#PodDNSConfig) | PodDNSConfig defines the DNS parameters of a pod in addition to those generated from DNSPolicy.                 |
 | BackupImages         | *bool                                                                       | BackupImages is used to specify whether you want to deploy a registry for enabling backup and restore of images |
 | Configuration        | *ApplicationConfig                                                          | Configuration is used to configure the data protection application's server config.                             |
+| Features             | *Features                                                                   | Features defines the configuration for the DPA to enable the tech preview features                           |
 
 ### BackupLocation
 
@@ -63,5 +64,15 @@
 | tolerations         | [[]corev1. Toleration](https://pkg.go.dev/k8s.io/api/core/v1#Toleration)                  | Tolerations defines the list of tolerations to be applied to Velero Deployment/Restic daemonset                                                             |
 | resourceAllocations | [corev1.ResourceRequirements](https://pkg.go.dev/k8s.io/api/core/v1#ResourceRequirements) | Set specific resource  `limits`  and  `requests`  for the Velero/Restic pods. For more information, go  [here] ( config/resource_req_limits.md). |
 
+### Features
+| Property  | Type      | Description                                                                                                                               |
+|-----------|-----------|-------------------------------------------------------------------------------------------------------------------------------------------|
+| DataMover | DataMover | DataMover defines the various config for DPA data mover                                                             |
+
+### DataMover
+| Property   | Type | Description                                                                                                                   |
+|------------|------|-------------------------------------------------------------------------------------------------------------------------------|
+| Enable     | bool | Enable is used to specify whether you want to deploy the volume snapshot mover controller and a modified csi datamover plugin |
+| Credential | *corev1.SecretKeySelector | User supplied Restic Secret name for DataMover |                                                                               |
 
 See also [![Go Reference](https://pkg.go.dev/badge/github.com/openshift/oadp-operator.svg)](https://pkg.go.dev/github.com/openshift/oadp-operator) for a deeper dive.
