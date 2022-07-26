@@ -74,6 +74,12 @@
 ### [Features](https://pkg.go.dev/github.com/openshift/oadp-operator@v0.0.0-20220722142130-a02487302a02/api/v1alpha1#Features)
 | Property  | Type      | Description                                                                                                                               |
 |-----------|-----------|-------------------------------------------------------------------------------------------------------------------------------------------|
-| enableDataMover | bool | EnableDataMover is used to specify whether you want to deploy the volume snapshot mover controller and a modified csi datamover plugin                                                             |                                                                         |
+| DataMover | DataMover | DataMover defines the various config for DPA data mover                                                             |
+
+### DataMover
+| Property   | Type | Description                                                                                                                   |
+|------------|------|-------------------------------------------------------------------------------------------------------------------------------|
+| Enable     | bool | Enable is used to specify whether you want to deploy the volume snapshot mover controller and a modified csi datamover plugin |
+| Credential | *corev1.SecretKeySelector | User supplied Restic Secret name for DataMover |                                                                               |
 
 See also [![Go Reference](https://pkg.go.dev/badge/github.com/openshift/oadp-operator.svg)](https://pkg.go.dev/github.com/openshift/oadp-operator) for a deeper dive.
