@@ -19,14 +19,14 @@
 | Property | Type                                                                                              | Description                                                                                    |
 |----------|---------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------|
 | name     | [metav1.ObjectMeta](https://pkg.go.dev/k8s.io/apimachinery/pkg/apis/meta/v1#ObjectMeta)                                                                                |                                                                                                |
-| velero   | [*velero.BackupStorageLocationSpec](https://velero.io/docs/v1.6/api-types/backupstoragelocation/) | Location to store volume snapshots. For further details, see  [here] ( config/bsl_and_vsl.md). |
+| velero   | [*velero.BackupStorageLocationSpec](https://velero.io/docs/v1.9/api-types/backupstoragelocation/) | Location to store volume snapshots. For further details, see  [here] ( config/bsl_and_vsl.md). |
 
 ### [SnapshotLocation](https://pkg.go.dev/github.com/openshift/oadp-operator@v0.0.0-20220722142130-a02487302a02/api/v1alpha1#SnapshotLocation)
 
 | Property | Type                                                                                                | Description                                                                                    |
 |----------|-----------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------|
 | name     | [metav1.ObjectMeta](https://pkg.go.dev/k8s.io/apimachinery/pkg/apis/meta/v1#ObjectMeta)                                                                                  |                                                                                                |
-| velero   | [*velero.VolumeSnapshotLocationSpec](https://velero.io/docs/v1.6/api-types/volumesnapshotlocation/) | Location to store volume snapshots. For further details, see  [here] ( config/bsl_and_vsl.md). |
+| velero   | [*velero.VolumeSnapshotLocationSpec](https://velero.io/docs/v1.9/api-types/volumesnapshotlocation/) | Location to store volume snapshots. For further details, see  [here] ( config/bsl_and_vsl.md). |
 
 ### [ApplicationConfig](https://pkg.go.dev/github.com/openshift/oadp-operator@v0.0.0-20220722142130-a02487302a02/api/v1alpha1#ApplicationConfig)
 
@@ -45,7 +45,7 @@
 | restoreResourcesVersionPriority | [string](https://pkg.go.dev/builtin#string)                  | RestoreResourceVersionPriority represents a configmap that will be created if defined for use in conjunction with `EnableAPIGroupVersions` feature flag. Defining this field automatically add EnableAPIGroupVersions to the velero server feature flag  |
 | noDefaultBackupLocation         | [bool](https://pkg.go.dev/builtin#bool)                    | If you need to install Velero without a default backup storage location NoDefaultBackupLocation flag is required for confirmation                                                                                                                        |
 | podConfig                       | *[PodConfig](https://pkg.go.dev/github.com/openshift/oadp-operator@v0.0.0-20220722142130-a02487302a02/api/v1alpha1#PodConfig)              | Velero Pod specific configuration                                                                                                                                                                                                                        |
-| logLevel                       | [string](https://pkg.go.dev/builtin#string)              | Velero server’s log level (default info, use debug for the most logging). Valid options are error, warn, warning, info, debug, trace                                                                                                                                                                                                                        |
+| logLevel                       | [string](https://pkg.go.dev/builtin#string)              | Velero server’s log level (default info, use debug for the most logging). Valid options are trace, debug, info, warning, error, fatal, or panic                                                                                                                                                                                                                        |
 
 ### [CustomPlugin](https://pkg.go.dev/github.com/openshift/oadp-operator@v0.0.0-20220722142130-a02487302a02/api/v1alpha1#CustomPlugin)
 
