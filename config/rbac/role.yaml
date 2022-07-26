@@ -171,6 +171,17 @@ rules:
   - update
   - watch
 - apiGroups:
+  - ""
+  resources:
+  - namespaces
+  verbs:
+  - list
+  - get
+  - create
+  - patch
+  - update
+  - watch
+- apiGroups:
   - apps
   resources:
   - deployments
