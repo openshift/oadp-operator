@@ -205,19 +205,27 @@ func (r *DPAReconciler) getDataMoverLabels() map[string]string {
 }
 
 // Check if there is a valid user supplied restic secret
-func (r *DPAReconciler) validateDataMoverCredential(resticsecret *corev1.Secret) bool {
+func (r *DPAReconciler) validateDataMoverCredential(resticsecret *corev1.Secret) (bool, error) {
 	if resticsecret == nil {
-		return false
+		return false, fmt.Errorf("restic secret not present")
 	}
+	if resticsecret.Data == nil {
+		return false, fmt.Errorf("restic secret data is empty")
+	}
+	found := false
 	for key, val := range resticsecret.Data {
 
 		if key == ResticPassword {
+			found = true
 			if len(val) == 0 {
-				return false
+				return false, fmt.Errorf("malformed restic secret password")
 			}
 		}
 	}
-	return true
+	if !found {
+		return false, fmt.Errorf("restic secret password key is missing")
+	}
+	return true, nil
 }
 
 func (r *DPAReconciler) createResticSecretsPerBSL(dpa *oadpv1alpha1.DataProtectionApplication, bsl velerov1.BackupStorageLocation, dmresticsecretname string, pass []byte) (*corev1.Secret, error) {
@@ -332,9 +340,9 @@ func (r *DPAReconciler) ReconcileDataMoverResticSecret(log logr.Logger) (bool, e
 		}
 
 		// validate restic secret
-		val := r.validateDataMoverCredential(&resticSecret)
+		val, err := r.validateDataMoverCredential(&resticSecret)
 		if !val {
-			return false, fmt.Errorf("no password supplied in the restic secret")
+			return false, err
 		}
 
 		// obtain the password from user supllied restic secret
