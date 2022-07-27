@@ -31,6 +31,7 @@ const ReconcileCompleteMessage = "Reconcile complete"
 const OadpOperatorLabel = "openshift.io/oadp"
 const RegistryDeploymentLabel = "openshift.io/oadp-registry"
 const DataMoverDeploymentLabel = "openshift.io/oadp-data-mover"
+const OadpBSLnameLabel = "openshift.io/oadp-bsl-name"
 
 type DefaultPlugin string
 
@@ -159,11 +160,21 @@ type SnapshotLocation struct {
 	Velero *velero.VolumeSnapshotLocationSpec `json:"velero"`
 }
 
+// DataMover defines the various config for DPA data mover
+type DataMover struct {
+	// Enable flag is used to specify whether you want to deploy the volume snapshot mover controller
+	// +optional
+	Enable bool `json:"enable,omitempty"`
+	// User supplied Restic Secret name
+	// +optional
+	CredentialName string `json:"credentialName,omitempty"`
+}
+
 // Features defines the configuration for the DPA to enable the tech preview features
 type Features struct {
-	// EnableDataMover is used to specify whether you want to deploy the volume snapshot mover controller and a modified csi datamover plugin
+	// Contains data mover specific configurations
 	// +optional
-	EnableDataMover bool `json:"enableDataMover,omitempty"`
+	DataMover *DataMover `json:"dataMover,omitempty"`
 }
 
 // DataProtectionApplicationSpec defines the desired state of Velero

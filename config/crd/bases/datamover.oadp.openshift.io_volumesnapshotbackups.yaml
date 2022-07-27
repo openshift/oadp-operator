@@ -40,6 +40,13 @@ spec:
               protectedNamespace:
                 description: Namespace where the Velero deployment is present
                 type: string
+              resticSecretRef:
+                description: Restic Secret reference for given BSL
+                properties:
+                  name:
+                    description: Name of the BSL specific restic secret
+                    type: string
+                type: object
               volumeSnapshotContent:
                 description: 'ObjectReference contains enough information to let you
                   inspect or modify the referred object. --- New uses of this type
