@@ -469,6 +469,16 @@ spec:
                 - snapshot.storage.k8s.io
               resources:
                 - volumesnapshotclasses
+              verbs:
+                - create
+                - get
+                - list
+                - patch
+                - update
+                - watch
+            - apiGroups:
+                - storage.k8s.io
+              resources:
                 - storageclasses
               verbs:
                 - create
@@ -578,6 +588,17 @@ spec:
                 - create
                 - delete
                 - deletecollection
+                - patch
+                - update
+                - watch
+            - apiGroups:
+                - ""
+              resources:
+                - namespaces
+              verbs:
+                - list
+                - get
+                - create
                 - patch
                 - update
                 - watch
@@ -864,5 +885,5 @@ spec:
     - image: quay.io/konveyor/kubevirt-velero-plugin:v0.2.0
       name: kubevirt_plugin
     - image: quay.io/konveyor/volume-snapshot-mover:latest
-      name: volume-snapshot-mover
+      name: volume_snapshot_mover
   version: 99.0.0

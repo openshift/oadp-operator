@@ -45,17 +45,27 @@ rules:
   - watch
   - deletecollection
 - apiGroups:
-    - snapshot.storage.k8s.io
+  - snapshot.storage.k8s.io
   resources:
-    - volumesnapshotclasses
-    - storageclasses
+  - volumesnapshotclasses
   verbs:
-    - create
-    - get
-    - list
-    - patch
-    - update
-    - watch
+  - create
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - storage.k8s.io
+  resources:
+  - storageclasses
+  verbs:
+  - create
+  - get
+  - list
+  - patch
+  - update
+  - watch
 - apiGroups:
   - coordination.k8s.io
   - corev1
@@ -157,6 +167,17 @@ rules:
   - create
   - delete
   - deletecollection
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - namespaces
+  verbs:
+  - list
+  - get
+  - create
   - patch
   - update
   - watch
