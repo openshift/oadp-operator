@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/hashicorp/go-version"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/openshift/oadp-operator/tests/e2e/lib"
@@ -106,10 +105,11 @@ var _ = Describe("AWS backup restore tests", func() {
 			}
 
 			if provider == "azure" && brCase.BackupRestoreType == CSI {
-				availability, _ := version.NewVersion("4.10")
-				version, _ := version.NewVersion(clusterVersion)
-				if version.LessThan(availability) {
-					Skip("Azure cluster version < 4.10 does not support CSI")
+				if brCase.MinK8SVersion == nil {
+					brCase.MinK8SVersion = &K8sVersion{Major: "1", Minor: "23"}
+				}
+				if notVersionTarget, reason := NotServerVersionTarget(brCase.MinK8SVersion, brCase.MaxK8SVersion); notVersionTarget {
+					Skip(reason)
 				}
 			}
 
@@ -270,22 +270,6 @@ var _ = Describe("AWS backup restore tests", func() {
 			}
 
 		},
-		Entry("Mongo application RESTIC", BackupRestoreCase{
-			ApplicationTemplate:  "./sample-applications/mongo-persistent/mongo-persistent.yaml",
-			ApplicationNamespace: "mongo-persistent",
-			Name:                 "mongo-restic-e2e",
-			BackupRestoreType:    RESTIC,
-			PreBackupVerify:      mongoready(false, RESTIC),
-			PostRestoreVerify:    mongoready(false, RESTIC),
-		}, nil),
-		Entry("MySQL application RESTIC", BackupRestoreCase{
-			ApplicationTemplate:  "./sample-applications/mysql-persistent/mysql-persistent-template.yaml",
-			ApplicationNamespace: "mysql-persistent",
-			Name:                 "mysql-restic-e2e",
-			BackupRestoreType:    RESTIC,
-			PreBackupVerify:      mysqlReady(false, RESTIC),
-			PostRestoreVerify:    mysqlReady(false, RESTIC),
-		}, nil),
 		Entry("MySQL application CSI", Label("ibmcloud", "aws", "gcp", "azure"), BackupRestoreCase{
 			ApplicationTemplate:  fmt.Sprintf("./sample-applications/mysql-persistent/mysql-persistent-csi-%s-template.yaml", provider),
 			ApplicationNamespace: "mysql-persistent",
@@ -301,6 +285,22 @@ var _ = Describe("AWS backup restore tests", func() {
 			BackupRestoreType:    CSI,
 			PreBackupVerify:      mongoready(true, CSI),
 			PostRestoreVerify:    mongoready(false, CSI),
+		}, nil),
+		Entry("Mongo application RESTIC", BackupRestoreCase{
+			ApplicationTemplate:  "./sample-applications/mongo-persistent/mongo-persistent.yaml",
+			ApplicationNamespace: "mongo-persistent",
+			Name:                 "mongo-restic-e2e",
+			BackupRestoreType:    RESTIC,
+			PreBackupVerify:      mongoready(false, RESTIC),
+			PostRestoreVerify:    mongoready(false, RESTIC),
+		}, nil),
+		Entry("MySQL application RESTIC", BackupRestoreCase{
+			ApplicationTemplate:  "./sample-applications/mysql-persistent/mysql-persistent-template.yaml",
+			ApplicationNamespace: "mysql-persistent",
+			Name:                 "mysql-restic-e2e",
+			BackupRestoreType:    RESTIC,
+			PreBackupVerify:      mysqlReady(false, RESTIC),
+			PostRestoreVerify:    mysqlReady(false, RESTIC),
 		}, nil),
 	)
 })

@@ -51,7 +51,6 @@ type DpaCustomResource struct {
 	Credentials       string
 	CredSecretRef     string
 	Provider          string
-	ClusterVersion    string
 }
 
 var VeleroPrefix = "velero-e2e-" + string(uuid.NewUUID())

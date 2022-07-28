@@ -38,7 +38,6 @@ ifdef CLI_DIR
 endif
 
 CLUSTER_TYPE ?= $(shell $(OC_CLI) get infrastructures cluster -o jsonpath='{.status.platform}' | awk '{print tolower($0)}')
-CLUSTER_VERSION ?= $(shell $(OC_CLI) get clusterversion -o jsonpath='{.items[].status.desired.version}{"\n"}')
 
 ifeq ($(CLUSTER_TYPE), gcp)
 	CI_CRED_FILE = ${CLUSTER_PROFILE_DIR}/gce.json
@@ -403,8 +402,7 @@ test-e2e: test-e2e-setup
 	-provider=$(CLUSTER_TYPE) \
 	-creds_secret_ref=$(CREDS_SECRET_REF) \
 	-artifact_dir=$(ARTIFACT_DIR) \
-	-oc_cli=$(OC_CLI) \
-	-clusterVersion=$(CLUSTER_VERSION)
+	-oc_cli=$(OC_CLI)
 
 test-e2e-cleanup:
 	rm -rf $(SETTINGS_TMP)

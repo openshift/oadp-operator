@@ -15,7 +15,7 @@ import (
 )
 
 // Common vars obtained from flags passed in ginkgo.
-var credFile, namespace, credSecretRef, instanceName, provider, ci_cred_file, settings, artifact_dir, oc_cli, clusterVersion string
+var credFile, namespace, credSecretRef, instanceName, provider, ci_cred_file, settings, artifact_dir, oc_cli string
 var timeoutMultiplier time.Duration
 
 func init() {
@@ -28,7 +28,6 @@ func init() {
 	flag.StringVar(&ci_cred_file, "ci_cred_file", credFile, "CI Cloud Cred File")
 	flag.StringVar(&artifact_dir, "artifact_dir", "/tmp", "Directory for storing must gather")
 	flag.StringVar(&oc_cli, "oc_cli", "oc", "OC CLI Client")
-	flag.StringVar(&clusterVersion, "clusterVersion", "", "Cluster version")
 
 	// helps with launching debug sessions from IDE
 	if os.Getenv("E2E_USE_ENV_FLAGS") == "true" {
@@ -61,9 +60,6 @@ func init() {
 		if os.Getenv("OC_CLI") != "" {
 			oc_cli = os.Getenv("OC_CLI")
 		}
-		if os.Getenv("CLUSTER_VERSION") != "" {
-			clusterVersion = os.Getenv("CLUSTER_VERSION")
-		}
 	}
 
 	timeoutMultiplierInput := flag.Int64("timeout_multiplier", 1, "Customize timeout multiplier from default (1)")
@@ -95,11 +91,10 @@ var _ = BeforeSuite(func() {
 	}
 
 	dpaCR = &DpaCustomResource{
-		Namespace:      namespace,
-		Credentials:    credFile,
-		CredSecretRef:  credSecretRef,
-		Provider:       provider,
-		ClusterVersion: clusterVersion,
+		Namespace:     namespace,
+		Credentials:   credFile,
+		CredSecretRef: credSecretRef,
+		Provider:      provider,
 	}
 	dpaCR.CustomResource = Dpa
 	testSuiteInstanceName := "ts-" + instanceName
