@@ -108,9 +108,9 @@ var _ = Describe("AWS backup restore tests", func() {
 				if brCase.MinK8SVersion == nil {
 					brCase.MinK8SVersion = &K8sVersion{Major: "1", Minor: "23"}
 				}
-				if notVersionTarget, reason := NotServerVersionTarget(brCase.MinK8SVersion, brCase.MaxK8SVersion); notVersionTarget {
-					Skip(reason)
-				}
+			}
+			if notVersionTarget, reason := NotServerVersionTarget(brCase.MinK8SVersion, brCase.MaxK8SVersion); notVersionTarget {
+				Skip(reason)
 			}
 
 			err := dpaCR.Build(brCase.BackupRestoreType)
