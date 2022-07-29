@@ -252,8 +252,9 @@ func (r *DPAReconciler) createResticSecretsPerBSL(dpa *oadpv1alpha1.DataProtecti
 			}
 			repobase := "s3:s3.amazonaws.com"
 			if bsl.Spec.Config["s3Url"] != "" {
-
 				repobase = bsl.Spec.Config["s3Url"]
+				repobase = strings.TrimPrefix(repobase, "s3:")
+				repobase = "s3:" + repobase
 			}
 			repobase = strings.TrimSuffix(repobase, "/")
 			repo := repobase + "/" + bsl.Spec.ObjectStorage.Bucket
