@@ -66,7 +66,7 @@ func (v *DpaCustomResource) Build(backupRestoreType BackupRestoreType) error {
 		Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 			Configuration: &oadpv1alpha1.ApplicationConfig{
 				Velero: &oadpv1alpha1.VeleroConfig{
-					LogLevel: "debug",
+					LogLevel:       "debug",
 					DefaultPlugins: v.CustomResource.Spec.Configuration.Velero.DefaultPlugins,
 				},
 				Restic: &oadpv1alpha1.ResticConfig{
