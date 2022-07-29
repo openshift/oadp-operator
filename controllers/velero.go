@@ -668,10 +668,6 @@ func (r *DPAReconciler) getVeleroResourceReqs(dpa *oadpv1alpha1.DataProtectionAp
 
 	// Set default values
 	ResourcesReqs := corev1.ResourceRequirements{
-		Limits: corev1.ResourceList{
-			corev1.ResourceCPU:    resource.MustParse("1"),
-			corev1.ResourceMemory: resource.MustParse("512Mi"),
-		},
 		Requests: corev1.ResourceList{
 			corev1.ResourceCPU:    resource.MustParse("500m"),
 			corev1.ResourceMemory: resource.MustParse("128Mi"),
@@ -697,6 +693,9 @@ func (r *DPAReconciler) getVeleroResourceReqs(dpa *oadpv1alpha1.DataProtectionAp
 		}
 
 		if dpa.Spec.Configuration.Velero.PodConfig.ResourceAllocations.Limits.Cpu() != nil && dpa.Spec.Configuration.Velero.PodConfig.ResourceAllocations.Limits.Cpu().Value() != 0 {
+			if ResourcesReqs.Limits == nil {
+				ResourcesReqs.Limits = corev1.ResourceList{}
+			}
 			parsedQuantity, err := resource.ParseQuantity(dpa.Spec.Configuration.Velero.PodConfig.ResourceAllocations.Limits.Cpu().String())
 			ResourcesReqs.Limits[corev1.ResourceCPU] = parsedQuantity
 			if err != nil {
@@ -705,6 +704,9 @@ func (r *DPAReconciler) getVeleroResourceReqs(dpa *oadpv1alpha1.DataProtectionAp
 		}
 
 		if dpa.Spec.Configuration.Velero.PodConfig.ResourceAllocations.Limits.Memory() != nil && dpa.Spec.Configuration.Velero.PodConfig.ResourceAllocations.Limits.Memory().Value() != 0 {
+			if ResourcesReqs.Limits == nil {
+				ResourcesReqs.Limits = corev1.ResourceList{}
+			}
 			parsedQuantiy, err := resource.ParseQuantity(dpa.Spec.Configuration.Velero.PodConfig.ResourceAllocations.Limits.Memory().String())
 			ResourcesReqs.Limits[corev1.ResourceMemory] = parsedQuantiy
 			if err != nil {
@@ -722,10 +724,6 @@ func (r *DPAReconciler) getResticResourceReqs(dpa *oadpv1alpha1.DataProtectionAp
 
 	// Set default values
 	ResourcesReqs := corev1.ResourceRequirements{
-		Limits: corev1.ResourceList{
-			corev1.ResourceCPU:    resource.MustParse("1"),
-			corev1.ResourceMemory: resource.MustParse("512Mi"),
-		},
 		Requests: corev1.ResourceList{
 			corev1.ResourceCPU:    resource.MustParse("500m"),
 			corev1.ResourceMemory: resource.MustParse("128Mi"),
@@ -751,6 +749,9 @@ func (r *DPAReconciler) getResticResourceReqs(dpa *oadpv1alpha1.DataProtectionAp
 		}
 
 		if dpa.Spec.Configuration.Restic.PodConfig.ResourceAllocations.Limits.Cpu() != nil && dpa.Spec.Configuration.Restic.PodConfig.ResourceAllocations.Limits.Cpu().Value() != 0 {
+			if ResourcesReqs.Limits == nil {
+				ResourcesReqs.Limits = corev1.ResourceList{}
+			}
 			parsedQuantity, err := resource.ParseQuantity(dpa.Spec.Configuration.Restic.PodConfig.ResourceAllocations.Limits.Cpu().String())
 			ResourcesReqs.Limits[corev1.ResourceCPU] = parsedQuantity
 			if err != nil {
@@ -759,6 +760,9 @@ func (r *DPAReconciler) getResticResourceReqs(dpa *oadpv1alpha1.DataProtectionAp
 		}
 
 		if dpa.Spec.Configuration.Restic.PodConfig.ResourceAllocations.Limits.Memory() != nil && dpa.Spec.Configuration.Restic.PodConfig.ResourceAllocations.Limits.Memory().Value() != 0 {
+			if ResourcesReqs.Limits == nil {
+				ResourcesReqs.Limits = corev1.ResourceList{}
+			}
 			parsedQuantiy, err := resource.ParseQuantity(dpa.Spec.Configuration.Restic.PodConfig.ResourceAllocations.Limits.Memory().String())
 			ResourcesReqs.Limits[corev1.ResourceMemory] = parsedQuantiy
 			if err != nil {

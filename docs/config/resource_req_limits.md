@@ -48,10 +48,9 @@ pod(s) is:
 
   ```
   resources:
-    limits:
-      cpu: "1"
-      memory: 256Mi
     requests:
       cpu: 500m
       memory: 128Mi
   ```
+
+This differs from upstream Velero/Restic pod(s) in that the default resources which [has resource limits as well as resource requests](https://velero.io/docs/v1.9/customize-installation/#customize-resource-requests-and-limits).
