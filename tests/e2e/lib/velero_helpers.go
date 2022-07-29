@@ -122,13 +122,8 @@ func BackupLogs(ocClient client.Client, backup velero.Backup) (backupLogs string
 	// if a backup failed, this function may panic. Recover from the panic and return container logs
 	defer func() {
 		if r := recover(); r != nil {
-			log.Printf("Recovered from panic in BackupLogs: %v\n", r)
-			log.Print("returning container logs instead")
-			var err error
-			backupLogs, err = getVeleroContainerLogs(backup.Namespace)
-			if err != nil {
-				log.Printf("error getting container logs: %v\n", err)
-			}
+			backupLogs = recoverFromPanicLogs(backup.Namespace, r, "BackupLogs")
+			
 		}
 	}()
 	downloadrequest.Stream(context.Background(), ocClient, backup.Namespace, backup.Name, velero.DownloadTargetKindBackupLog, logs, time.Minute, insecureSkipTLSVerify, caCertFile)
@@ -145,13 +140,7 @@ func RestoreLogs(ocClient client.Client, restore velero.Restore) (restoreLogs st
 	// if a backup failed, this function may panic. Recover from the panic and return container logs
 	defer func() {
 		if r := recover(); r != nil {
-			log.Printf("Recovered from panic in BackupLogs: %v\n", r)
-			log.Print("returning container logs instead")
-			var err error
-			restoreLogs, err = getVeleroContainerLogs(restore.Namespace)
-			if err != nil {
-				log.Printf("error getting container logs: %v\n", err)
-			}
+			restoreLogs = recoverFromPanicLogs(restore.Namespace, r, "RestoreLogs")
 		}
 	}()
 	downloadrequest.Stream(context.Background(), ocClient, restore.Namespace, restore.Name, velero.DownloadTargetKindRestoreLog, logs, time.Minute, insecureSkipTLSVerify, caCertFile)
@@ -165,6 +154,16 @@ var errorIgnorePatterns = []string{
 	"awserr.Error contents",
 	"Error creating parent directories for blob-info-cache-v1.boltdb",
 	"blob unknown",
+}
+
+func recoverFromPanicLogs(veleroNamespace string, panicReason interface{}, panicFrom string) string {
+	log.Printf("Recovered from panic in %s: %v\n", panicFrom, panicReason)
+	log.Print("returning container logs instead")
+	containerLogs, err := GetVeleroContainerLogs(veleroNamespace)
+	if err != nil {
+		log.Printf("error getting container logs: %v\n", err)
+	}
+	return containerLogs
 }
 
 func BackupErrorLogs(ocClient client.Client, backup velero.Backup) []string {
