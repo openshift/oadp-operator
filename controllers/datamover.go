@@ -250,14 +250,14 @@ func (r *DPAReconciler) createResticSecretsPerBSL(dpa *oadpv1alpha1.DataProtecti
 				r.Log.Info(fmt.Sprintf("Error parsing provider secret %s for backupstoragelocation", secretName))
 				return nil, err
 			}
-			repobase := "s3:s3.amazonaws.com"
+			repobase := "s3.amazonaws.com"
+
 			if bsl.Spec.Config["s3Url"] != "" {
 				repobase = bsl.Spec.Config["s3Url"]
 				repobase = strings.TrimPrefix(repobase, "s3:")
-				repobase = "s3:" + repobase
 			}
 			repobase = strings.TrimSuffix(repobase, "/")
-			repo := repobase + "/" + bsl.Spec.ObjectStorage.Bucket
+			repo := "s3:" + repobase + "/" + bsl.Spec.ObjectStorage.Bucket
 			rsecret := &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      fmt.Sprintf("%s-volsync-restic", bsl.Name),
