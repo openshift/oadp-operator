@@ -11,7 +11,6 @@ import (
 	. "github.com/onsi/gomega"
 	. "github.com/openshift/oadp-operator/tests/e2e/lib"
 	utils "github.com/openshift/oadp-operator/tests/e2e/utils"
-	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -117,10 +116,10 @@ var _ = Describe("AWS backup restore tests", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			updateLastInstallingNamespace(dpaCR.Namespace)
-			if provider == "gcp" {
-				// disable image backup for GCP before https://github.com/openshift/openshift-velero-plugin/pull/151 is merged
-				dpaCR.CustomResource.Spec.BackupImages = pointer.Bool(false)
-			}
+			// TODO: remove when https://github.com/openshift/openshift-velero-plugin/pull/151 is merged
+			// if provider == "gcp" {
+			// 	dpaCR.CustomResource.Spec.BackupImages = pointer.Bool(false)
+			// }
 			err = dpaCR.CreateOrUpdate(&dpaCR.CustomResource.Spec)
 			Expect(err).NotTo(HaveOccurred())
 

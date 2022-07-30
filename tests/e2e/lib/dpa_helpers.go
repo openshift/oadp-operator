@@ -64,6 +64,10 @@ func (v *DpaCustomResource) Build(backupRestoreType BackupRestoreType) error {
 			Namespace: v.Namespace,
 		},
 		Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+			// TODO: remove overrides when https://github.com/openshift/openshift-velero-plugin/pull/151 is merged
+			UnsupportedOverrides: map[oadpv1alpha1.UnsupportedImageKey]string{
+				oadpv1alpha1.OpenShiftPluginImageKey: "quay.io/tkaovila/openshift-velero-plugin:include_gcs",
+			},
 			Configuration: &oadpv1alpha1.ApplicationConfig{
 				Velero: &oadpv1alpha1.VeleroConfig{
 					LogLevel:       "debug",
