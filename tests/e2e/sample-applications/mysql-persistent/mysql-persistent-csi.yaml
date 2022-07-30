@@ -14,20 +14,6 @@ items:
       namespace: mysql-persistent
       labels:
         component: mysql-persistent
-  - apiVersion: v1
-    kind: PersistentVolumeClaim
-    metadata:
-      name: mysql
-      namespace: mysql-persistent
-      labels:
-        app: mysql
-    spec:
-      accessModes:
-      - ReadWriteOnce
-      storageClassName: standard-csi
-      resources:
-        requests:
-          storage: 1Gi
   - kind: SecurityContextConstraints
     apiVersion: security.openshift.io/v1
     metadata:
