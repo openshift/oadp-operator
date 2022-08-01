@@ -11,15 +11,15 @@ approvers:
   - "@shawn_hurley"
   - "@alaypatel07"
 creation-date: 2022-03-16
-status: provisional
+status: implementable
 ---
 
 # Data Mover CRD design
 
 ## Release Signoff Checklist
 
-- [ ] Enhancement is `implementable`
-- [ ] Design details are appropriately documented from clear requirements
+- [x] Enhancement is `implementable`
+- [x] Design details are appropriately documented from clear requirements
 - [ ] Test plan is defined
 - [ ] User-facing documentation is created
 
@@ -39,7 +39,7 @@ Create an extensible design to support various data movers that can be integrate
 ## Goals
 * Create an extensible data mover solution
 * Supply a default data mover option 
-* Supply APIs for DataMover CRs (eg: DataMoverBackup, DataMoverRestore, DataMoverClass)
+* Supply APIs for DataMover CRs (eg: VolumeSnapshotBackup, VolumeSnapshotRestore)
 * Supply a sample codebase for the Data Mover plugin and controller implementation
 
 
@@ -63,79 +63,68 @@ This design supports adding the data mover feature to the OADP operator and faci
 
 Note: We will be supporting VolSync as the default data mover. 
 
-The DataMoverBackup Controller will watch for DataMoverBackup CR. Likewise, DataMoverRestore Controller will watch for DataMoverRestore CR. Both of these CRs will have a reference to a DataMoverClass. 
+The VolumeSnapshotBackup Controller will watch for VolumeSnapshotBackup CR. Likewise, VolumeSnapshotRestore Controller will watch for VolumeSnapshotRestore CR. 
 
-`DataMoverClass` is a cluster scoped Custom Resource that will have details about the data mover. The specified mover will be registered in the system by creating the datamoverclass CR, addig a velero plugin that will create the appropriate resources for datamovement of a single datamoverclass and a controller that will reconcile the objects created by the plugin. The datamoverclass spec will also include a field (`selector`) to identify the PVCs that would be moved with the given data mover.
+### Volume Snapshot Backup
 
+Assuming that the `DataMover Enable (spec: feature.dataMover.enable)` flag is set to true in the DPA config, when a velero backup is created, it triggers the custom velero CSI plugin (velero BackupItemAction plugin) to create the `VolumeSnapshotBackup` CR in the app namespace. The extended plugin looks up for the PVCs in the user namespace mentioned in the velero backup and creates a `VolumeSnapshotBackup` CR for every `VolumeSnapshotContent` encountered during the backup process.
+
+`VolumeSnapshotBackup` CR supports a `volumesnapshotcontent` as the type of the backup object. Velero backup will wait for the `VolumeSnapshotBackup` to be complete. Once all the `VolumeSnapshotBackup` gets completed, Velero backup's status get updated accordingly.
 
 ```
-apiVersion: oadp.openshift.io/v1alpha1
-kind: DataMoverClass
+apiVersion: datamover.oadp.openshift.io/v1alpha1
+kind: VolumeSnapshotBackup
 metadata:
   annotations:
-    oadp.openshift.io/default: "true"
-  name: <name>
+    datamover.io/restic-repository: <restic_repo>
+    datamover.io/source-pvc-name: <src_pvc_name>
+    datamover.io/source-pvc-size: <src_pvc_size>
+    datamover.io/source-pvc-storageclass: <src_pvc_sc>
+    datamover.io/source-pvc-volumesnapshotclass: <src_vsc_class>
+  labels:
+    velero.io/backup-name: <backup_name>
+  name: <vsb_name>
+  namespace: <ns>
 spec:
-  mover: <VolSync>
-  selector: <tagname>
+  protectedNamespace: <oadp_ns>
+  resticSecretRef:
+    name: <bsl_restic_secret>
+  volumeSnapshotContent:
+    name: <vsc_name>
+status:
+  phase: <vsb_status>
+  resticrepository: <restic_repo>
+  sourcePVCData:
+    name: <src_pvc_name>
+    size: <src_pvc_size>
+    storageClassName: <sc_name>
+  volumeSnapshotClassName: <volumesnapshotclass_name>
+```
+### Volume Snapshot Restore
+When a velero restore is triggered, the custom Velero CSI plugin looks for `VolumeSnapshotBackup` CR in the backup resources. If it encounters a `VolumeSnapshotBackup` resource, then the extended plugin (velero RestoreItemAction plugin) will create a `VolumeSnapshotRestore` CR in the app namespace. It will populate the CR with the details obtained from the `VolumeSnapshotBackup` resource. 
+
+The velero CSI plugin waits for  `VolumeSnapshotRestore (VSR)` to complete, which is after the VSR controller waits for VolSync's `ReplicationDestination` CR to complete, before proceeding with the Velero restore process.
 
 ```
-
-The above `DataMoverClass` name will be referenced in `DataMoverBackup` & `DataMoverRestore` CRs. This will help in selecting the data mover implementation during runtime. If the `DataMoverClass` name is not defined, then the default `DataMoverClass` will be used, which in this case will be `VolSync`
-
-### Data Mover Backup
-
-Assuming that the `DataMover Enable` flag is set to true in the DPA config, when a velero backup is created, it triggers the custom velero CSI plugin plugin (velero BackupItemAction plugin) to create the `DataMoverBackup` CR in the app namespace. The extended plugin looks up for the PVCs in the user namespace mentioned in the velero backup and creates a `DataMoverBackup` CR for every PVC in that namespace that is filtered by the `datamoverclass.spec.selector`.
-
-`DataMoverBackup` CR supports either a volumesnapshot or a pvc as the type of the backup object. If the velero CSI plugin is used for backup, `VolumeSnapshot` is used as the type or else `PVC`
-is used.
-
-```
-apiVersion: oadp.openshift.io/v1alpha1
-kind: DataMoverBackup
+apiVersion: datamover.oadp.openshift.io/v1alpha1
+kind: VolumeSnapshotRestore
 metadata:
+  labels:
+    velero.io/restore-name: <restore_name>
   name: <name>
+  namespace: <namespace>
 spec:
-  dataMoverClass: <DataMoverClass name> 
-  dataSourceRef:
-    apiGroup: <APIGroup>
-    kind: <PVC|VolumeSnapshotContent>
-    name: <name>
-  config:  //optional based on the datamover impl
-
-```
-### Data Mover Restore
-When a velero restore is triggered, the custom Velero CSI plugin looks for `DataMoverBackup` in the backup resources. If it encounters a `DataMoverBackup` resource, then the extended plugin (velero RestoreItemAction plugin) will create a `DataMoverRestore` CR in the app namespace. It will populate the CR with the details obtained from the `DataMoverBackup` resource. 
-
-```
-apiVersion: oadp.openshift.io/v1alpha1
-kind: DataMoverRestore
-metadata:
-  name: <name>
-spec:
-  DataMoverClass: <DataMoverClass name>
-  destinationClaimRef:
-    name: <PVC_claim_name>
-    namespace: <namespace>
-  config:     //optional based on the datamover impl
-```
-Config section in the above CR is optional. It lets the user specify extra parameters needed by the data mover. For eg: VolSync data mover needs restic secret to perform backup & restore
-
-eg: 
-
-```
-apiVersion: oadp.openshift.io/v1alpha1
-kind: DataMoverRestore
-metadata:
-  name: <name>
-spec:
-  DataMoverClass: <DataMoverClass name>
-  destinationClaimRef:
-    name: <PVC_claim_name>
-    namespace: <namespace>
-  config:     //optional based on the datamover impl
-    resticSecret:
-      name: <secret_name>
+  protectedNamespace: <OADP namespace>
+  resticSecretRef:
+    name: <restic_secret_ref>
+  volumeSnapshotMoverBackupRef:
+    resticrepository: <restic_repo>
+    sourcePVCData:
+      name: <src_pvc_name>
+      size: <src_pvc_size>
+status:
+  phase: <vsr_phase>
+  snapshotHandle: <vsc_snaphandle>
 ```
 
 We will provide a sample codebase which the vendors will be able to extend and implement their own data movers. 
@@ -143,13 +132,17 @@ We will provide a sample codebase which the vendors will be able to extend and i
 
 ### Default OADP Data Mover controller
 
-VolSync will be used as the default Data Mover for OADP and `restic` will be the supported method for backup & restore of PVCs. When OADP operator gets installed, VolSync will be installed alongside. Method of installation is TBD (Waiting on VolSync operator to be available. If not, we will do a  helm install). Restic repository details are configured in a `secret` object which gets used by the VolSync's resources. This design takes advantage of VolSync's two resources - `ReplicationSource` & `ReplicationDestination`. `ReplicationSource` object helps with taking a backup of the PVCs and using restic to move it to the storage specified in the restic secret. `ReplicationDestination` object takes care of restoring the backup from the restic repository. There will be a 1:1 relationship between the replication src/dest CRs and PVCs.
+VolSync will be used as the default Data Mover for OADP and `restic` will be the supported method for backup & restore of PVCs. VolSync will be installed through operator hub. Restic repository details are configured in a `secret` object which gets used by the VolSync's resources. This design takes advantage of VolSync's two resources - `ReplicationSource` & `ReplicationDestination`. `ReplicationSource` object helps with taking a backup of the PVCs and using restic to move it to the storage specified in the restic secret. `ReplicationDestination` object takes care of restoring the backup from the restic repository. There will be a 1:1 relationship between the replication src/dest CRs and PVCs.
 
-We will follow a two phased approach for implementation of this controller. For phase 1, the user will create a restic secret. Using that secret as source, the controller will create on-demand secrets for every backup/restore request. For phase 2, the user will provide the restic repo details. This may be an encryption password and BSL reference, and the controller will create restic secret using BSL info, or they can supply their own backup target repo and access credentials. We will be focussing on phase 1 approach for this design.
-
+The user will provide the restic password in a secret and the controller will create restic secret using BSL config. During backup time, the secret corresponding to the given bsl will be added to the VSB/VSR CR by the CSI Plugin. Using that secret as source, the controller will create on-demand secrets for every backup/restore request.
 ```
 ...
-DataMoverEnable: True/False
+spec:
+  features:
+    dataMover: 
+      enable: true
+      credentialName: <dm-restic-secret-name>
+
 ...
 ```
 
@@ -161,34 +154,28 @@ metadata:
   name: restic-config
 type: Opaque
 stringData:
-  # The repository url
-  RESTIC_REPOSITORY: s3:s3.amazonaws.com/<bucket>
   # The repository encryption key
   RESTIC_PASSWORD: <password>
-  # ENV vars specific to the chosen back end
-  # https://restic.readthedocs.io/en/stable/030_preparing_a_new_repo.html
-  AWS_ACCESS_KEY_ID: <access_id>
-  AWS_SECRET_ACCESS_KEY: <access_key>
 ```
 *Note: More details for installing restic secret in [here](https://volsync.readthedocs.io/en/stable/usage/restic/index.html#specifying-a-repository)*
 
 
-Custom velero CSI plugin will be responsible for creating `DataMoverBackup` & `DataMoverRestore` CRs. 
+Custom velero CSI plugin will be responsible for creating `VolumeSnapshotBackup` & `VolumeSnapshotRestore` CRs. 
 
-Once a DataMoverBackup CR gets created, the controller will create the corresponding `ReplicationSource` CR in the protected namespace. VolSync watches for the creation of `ReplicationSource` CR and copies the PVC data to the restic repository mentioned in the `restic-secret`.  
+Once a VolumeSnapshotBackup CR gets created, the controller will create the corresponding `ReplicationSource` CR in the protected namespace. VolSync watches for the creation of `ReplicationSource` CR and copies the PVC data to the restic repository mentioned in the `restic-config`.  
 ```
 apiVersion: volsync.backube/v1alpha1
 kind: ReplicationSource
 metadata:
   name: database-source
-  namespace: openshift-adp
+  namespace: <protected_ns>
 spec:
   sourcePVC: <pvc_name>
   trigger:
     manual: <trigger_name>
   restic:
     pruneIntervalDays: 15
-    repository: restic-config
+    repository: <restic-config>
     retain:
       hourly: 1
       daily: 1
@@ -198,7 +185,7 @@ spec:
     copyMethod: None
 ```
 
-Similarly, when a DataMoverRestore CR gets created, controller will create a `ReplicationDestination` CR in the protected namespace. VolSync controller copies the PVC data from the restic repository to the protect namespace, which then gets transferred to the user namespace by the controller.
+Similarly, when a VolumeSnapshotRestore CR gets created, controller will create a `ReplicationDestination` CR in the protected namespace. VolSync controller copies the PVC data from the restic repository to the protected namespace. The `snaphandle` from the volumesnapshotcontent created by VolSync controller will be passed back to Velero CSI plugin. The plugin passes this `snaphandle` to the restore process and continues with the CSI restore operation. 
 
 ```
 apiVersion: volsync.backube/v1alpha1
@@ -214,12 +201,9 @@ spec:
     copyMethod: None
 ```
 
-A status controller is created to watch VolSync CRs. It watches the `ReplicationSource` and`ReplicationDestination` objects and updates VolumeSnapShot CR events. 
-
-*Note: Potential feature addition to Velero: A status watch controller for DataMover CRs. This can be used to update Velero Backup/Restore events with the DataMover CR results*
-
 Data mover controller will clean up all controller-created resources after the process is complete.
 
+## Alternate Design ideas
 
 ### Support for multiple data mover plugins
 `DataMoverClass` spec will support the following field,
@@ -227,12 +211,5 @@ Data mover controller will clean up all controller-created resources after the p
 PVC must be labelled with the `<tagname>`, to be moved by the specific `DataMoverClass`. User/Admin of the cluster must label the PVCs with the required `<tagname>` and map it to a `DataMoverClass`. If the PVCs are not labelled, it will be moved by the default datamover.
 
 #### Alternate options
-PVCs can be annotated with the `DataMoverClass`, and when a backup is created, the controller will look at the DataMoverClass and add it to the `DataMoverBackup` CR. 
+PVCs can be annotated with the `DataMoverClass`, and when a backup is created, the controller will look at the DataMoverClass and add it to the `VolumeSnapshotBackup` CR. 
 
- 
----
-
-## References
-Previous designs:
-* Alternate design - https://hackmd.io/uYrC2StuTT-zCSUSf4xlRw
-* Initial design - https://hackmd.io/8uEzXeD8TKCYF9uUdroDXA
