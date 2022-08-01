@@ -116,10 +116,7 @@ var _ = Describe("AWS backup restore tests", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			updateLastInstallingNamespace(dpaCR.Namespace)
-			// TODO: remove when https://github.com/openshift/openshift-velero-plugin/pull/151 is merged
-			// if provider == "gcp" {
-			// 	dpaCR.CustomResource.Spec.BackupImages = pointer.Bool(false)
-			// }
+
 			err = dpaCR.CreateOrUpdate(&dpaCR.CustomResource.Spec)
 			Expect(err).NotTo(HaveOccurred())
 
