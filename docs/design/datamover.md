@@ -67,7 +67,7 @@ The VolumeSnapshotBackup Controller will watch for VolumeSnapshotBackup CR. Like
 
 ### Volume Snapshot Backup
 
-Assuming that the `DataMover Enable` flag is set to true in the DPA config, when a velero backup is created, it triggers the custom velero CSI plugin plugin (velero BackupItemAction plugin) to create the `VolumeSnapshotBackup` CR in the app namespace. The extended plugin looks up for the PVCs in the user namespace mentioned in the velero backup and creates a `VolumeSnapshotBackup` CR for every PVC in that namespace.
+Assuming that the `DataMover Enable (spec: feature.dataMover.enable)` flag is set to true in the DPA config, when a velero backup is created, it triggers the custom velero CSI plugin (velero BackupItemAction plugin) to create the `VolumeSnapshotBackup` CR in the app namespace. The extended plugin looks up for the PVCs in the user namespace mentioned in the velero backup and creates a `VolumeSnapshotBackup` CR for every `VolumeSnapshotContent` encountered during the backup process.
 
 `VolumeSnapshotBackup` CR supports a `volumesnapshotcontent` as the type of the backup object. Velero backup will wait for the `VolumeSnapshotBackup` to be complete. Once all the `VolumeSnapshotBackup` gets completed, Velero backup's status get updated accordingly.
 
@@ -79,6 +79,8 @@ metadata:
     datamover.io/restic-repository: <restic_repo>
     datamover.io/source-pvc-name: <src_pvc_name>
     datamover.io/source-pvc-size: <src_pvc_size>
+    datamover.io/source-pvc-storageclass: <src_pvc_sc>
+    datamover.io/source-pvc-volumesnapshotclass: <src_vsc_class>
   labels:
     velero.io/backup-name: <backup_name>
   name: <vsb_name>
@@ -101,7 +103,7 @@ status:
 ### Volume Snapshot Restore
 When a velero restore is triggered, the custom Velero CSI plugin looks for `VolumeSnapshotBackup` CR in the backup resources. If it encounters a `VolumeSnapshotBackup` resource, then the extended plugin (velero RestoreItemAction plugin) will create a `VolumeSnapshotRestore` CR in the app namespace. It will populate the CR with the details obtained from the `VolumeSnapshotBackup` resource. 
 
-Velero restore process will wait for the snapshot to be restored by `VolumeSnapshotRestore` controller and then proceeds with rest of the restore process.
+The velero CSI plugin waits for  `VolumeSnapshotRestore (VSR)` to complete, which is after the VSR controller waits for VolSync's `ReplicationDestination` CR to complete, before proceeding with the Velero restore process.
 
 ```
 apiVersion: datamover.oadp.openshift.io/v1alpha1
@@ -130,10 +132,9 @@ We will provide a sample codebase which the vendors will be able to extend and i
 
 ### Default OADP Data Mover controller
 
-VolSync will be used as the default Data Mover for OADP and `restic` will be the supported method for backup & restore of PVCs. VolSync will be installed via helm chart. Restic repository details are configured in a `secret` object which gets used by the VolSync's resources. This design takes advantage of VolSync's two resources - `ReplicationSource` & `ReplicationDestination`. `ReplicationSource` object helps with taking a backup of the PVCs and using restic to move it to the storage specified in the restic secret. `ReplicationDestination` object takes care of restoring the backup from the restic repository. There will be a 1:1 relationship between the replication src/dest CRs and PVCs.
+VolSync will be used as the default Data Mover for OADP and `restic` will be the supported method for backup & restore of PVCs. VolSync will be installed through operator hub. Restic repository details are configured in a `secret` object which gets used by the VolSync's resources. This design takes advantage of VolSync's two resources - `ReplicationSource` & `ReplicationDestination`. `ReplicationSource` object helps with taking a backup of the PVCs and using restic to move it to the storage specified in the restic secret. `ReplicationDestination` object takes care of restoring the backup from the restic repository. There will be a 1:1 relationship between the replication src/dest CRs and PVCs.
 
-We will follow a two phased approach for implementation of this controller. For phase 1, the user will create the base restic secret. Using that secret as source, the controller will create on-demand secrets for every backup/restore request. For phase 2, the user will provide the restic repo details. This may be an encryption password and BSL reference, and the controller will create restic secret using BSL info, or they can supply their own backup target repo and access credentials. We will be focussing on phase 1 approach for this design.
-
+The user will provide the restic password in a secret and the controller will create restic secret using BSL config. During backup time, the secret corresponding to the given bsl will be added to the VSB/VSR CR by the CSI Plugin. Using that secret as source, the controller will create on-demand secrets for every backup/restore request.
 ```
 ...
 spec:
@@ -167,7 +168,7 @@ apiVersion: volsync.backube/v1alpha1
 kind: ReplicationSource
 metadata:
   name: database-source
-  namespace: openshift-adp
+  namespace: <protected_ns>
 spec:
   sourcePVC: <pvc_name>
   trigger:
@@ -184,7 +185,7 @@ spec:
     copyMethod: None
 ```
 
-Similarly, when a VolumeSnapshotRestore CR gets created, controller will create a `ReplicationDestination` CR in the protected namespace. VolSync controller copies the PVC data from the restic repository to the protect namespace, which then gets transferred to the user namespace by the controller.
+Similarly, when a VolumeSnapshotRestore CR gets created, controller will create a `ReplicationDestination` CR in the protected namespace. VolSync controller copies the PVC data from the restic repository to the protected namespace. The `snaphandle` from the volumesnapshotcontent created by VolSync controller will be passed back to Velero CSI plugin. The plugin passes this `snaphandle` to the restore process and continues with the CSI restore operation. 
 
 ```
 apiVersion: volsync.backube/v1alpha1
