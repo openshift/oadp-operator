@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -11,7 +12,6 @@ import (
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	k8serror "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -32,7 +32,10 @@ const (
 	AWSSecretKey     = "AWS_SECRET_ACCESS_KEY"
 	AWSDefaultRegion = "AWS_DEFAULT_REGION"
 
-	// TODO: GCP and Azure
+	// Azure vars
+	AzureAccountName = "AZURE_ACCOUNT_NAME"
+	AzureAccountKey  = "AZURE_ACCOUNT_KEY"
+	// TODO: GCP
 )
 
 func (r *DPAReconciler) ReconcileDataMoverController(log logr.Logger) (bool, error) {
@@ -118,8 +121,8 @@ func (r *DPAReconciler) ReconcileDataMoverController(log logr.Logger) (bool, err
 	})
 
 	if err != nil {
-		if errors.IsInvalid(err) {
-			cause, isStatusCause := errors.StatusCause(err, metav1.CauseTypeFieldValueInvalid)
+		if k8serror.IsInvalid(err) {
+			cause, isStatusCause := k8serror.StatusCause(err, metav1.CauseTypeFieldValueInvalid)
 			if isStatusCause && cause.Field == "spec.selector" {
 				// recreate deployment
 				// TODO: check for in-progress backup/restore to wait for it to finish
@@ -263,8 +266,9 @@ func (r *DPAReconciler) createResticSecretsPerBSL(dpa *oadpv1alpha1.DataProtecti
 					Name:      fmt.Sprintf("%s-volsync-restic", bsl.Name),
 					Namespace: bsl.Namespace,
 					Labels: map[string]string{
-						oadpv1alpha1.OadpBSLnameLabel:  bsl.Name,
-						oadpv1alpha1.OadpOperatorLabel: "True",
+						oadpv1alpha1.OadpBSLnameLabel:     bsl.Name,
+						oadpv1alpha1.OadpOperatorLabel:    "True",
+						oadpv1alpha1.OadpBSLProviderLabel: bsl.Spec.Provider,
 					},
 				},
 			}
@@ -276,7 +280,7 @@ func (r *DPAReconciler) createResticSecretsPerBSL(dpa *oadpv1alpha1.DataProtecti
 					return err
 				}
 
-				return r.buildDataMoverResticSecret(rsecret, key, secret, bsl.Spec.Config[Region], pass, repo)
+				return r.buildDataMoverResticSecretForAWS(rsecret, key, secret, bsl.Spec.Config[Region], pass, repo)
 			})
 
 			if err != nil {
@@ -290,14 +294,82 @@ func (r *DPAReconciler) createResticSecretsPerBSL(dpa *oadpv1alpha1.DataProtecti
 				)
 			}
 		}
-		// TODO: Azure & GCP
+	case AzureProvider:
+		{
+			secretName, secretKey := r.getSecretNameAndKey(&bsl.Spec, oadpv1alpha1.DefaultPluginMicrosoftAzure)
+			bslSecret, err := r.getProviderSecret(secretName)
+			if err != nil {
+				return nil, err
+			}
+
+			// parse the secret and get azure storage account key
+			azcreds, err := r.parseAzureSecret(bslSecret, secretKey)
+			if err != nil {
+				r.Log.Info(fmt.Sprintf("Error parsing provider secret %s for backupstoragelocation %s/%s", secretName, bsl.Namespace, bsl.Name))
+				return nil, err
+			}
+
+			// check for AZURE_ACCOUNT_NAME from BSL
+			if len(bsl.Spec.Config["storageAccount"]) == 0 {
+				return nil, errors.New("no storageAccount value present in backupstoragelocation config")
+			}
+
+			// check for AZURE_STORAGE_ACCOUNT_ACCESS_KEY value
+			if len(bsl.Spec.Config["storageAccountKeyEnvVar"]) != 0 {
+				if azcreds.strorageAccountKey == "" {
+					r.Log.Info("Expecting storageAccountKeyEnvVar value set present in the credentials")
+					return nil, errors.New("no strorageAccountKey value present in credentials file")
+				}
+			}
+
+			accountName := bsl.Spec.Config["storageAccount"]
+			accountKey := azcreds.strorageAccountKey
+
+			// lets construct the repo URL
+			repo := "azure:" + bsl.Spec.ObjectStorage.Bucket + ":"
+
+			// We are done with checks no lets create the azure dm secret
+			rsecret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      fmt.Sprintf("%s-volsync-restic", bsl.Name),
+					Namespace: bsl.Namespace,
+					Labels: map[string]string{
+						oadpv1alpha1.OadpBSLnameLabel:     bsl.Name,
+						oadpv1alpha1.OadpOperatorLabel:    "True",
+						oadpv1alpha1.OadpBSLProviderLabel: bsl.Spec.Provider,
+					},
+				},
+			}
+
+			op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, rsecret, func() error {
+
+				err := controllerutil.SetControllerReference(dpa, rsecret, r.Scheme)
+				if err != nil {
+					return err
+				}
+
+				return r.buildDataMoverResticSecretForAzure(rsecret, accountName, accountKey, pass, repo)
+			})
+
+			if err != nil {
+				return nil, err
+			}
+			if op == controllerutil.OperationResultCreated || op == controllerutil.OperationResultUpdated {
+				r.EventRecorder.Event(rsecret,
+					corev1.EventTypeNormal,
+					"ResticSecretReconciled",
+					fmt.Sprintf("%s restic secret %s", op, rsecret.Name),
+				)
+			}
+
+		}
 	}
 
 	return nil, nil
 }
 
-//build data mover restic secret for given bsl
-func (r *DPAReconciler) buildDataMoverResticSecret(rsecret *corev1.Secret, key string, secret string, region string, pass []byte, repo string) error {
+//build data mover restic secret for given aws bsl
+func (r *DPAReconciler) buildDataMoverResticSecretForAWS(rsecret *corev1.Secret, key string, secret string, region string, pass []byte, repo string) error {
 
 	// TODO: add gcp, azure support
 	rData := &corev1.Secret{
@@ -305,6 +377,21 @@ func (r *DPAReconciler) buildDataMoverResticSecret(rsecret *corev1.Secret, key s
 			AWSAccessKey:     []byte(key),
 			AWSSecretKey:     []byte(secret),
 			AWSDefaultRegion: []byte(region),
+			ResticPassword:   pass,
+			ResticRepository: []byte(repo),
+		},
+	}
+	rsecret.Data = rData.Data
+	return nil
+}
+
+//build data mover restic secret for given bsl
+func (r *DPAReconciler) buildDataMoverResticSecretForAzure(rsecret *corev1.Secret, accountName string, accountKey string, pass []byte, repo string) error {
+
+	rData := &corev1.Secret{
+		Data: map[string][]byte{
+			AzureAccountName: []byte(accountName),
+			AzureAccountKey:  []byte(accountKey),
 			ResticPassword:   pass,
 			ResticRepository: []byte(repo),
 		},

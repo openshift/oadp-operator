@@ -399,7 +399,6 @@ func (r *DPAReconciler) parseAzureSecret(secret corev1.Secret, secretKey string)
 	if err != nil {
 		return azcreds, errors.New("parseAzureSecret faulty regex: azureSubscriptionIdRegex")
 	}
-
 	for _, line := range splitString {
 		if line == "" {
 			continue
@@ -757,6 +756,7 @@ func (r *DPAReconciler) populateAzureRegistrySecret(bsl *velerov1.BackupStorageL
 		r.Log.Info(fmt.Sprintf("Error parsing provider secret %s for backupstoragelocation %s/%s", secretName, bsl.Namespace, bsl.Name))
 		return err
 	}
+
 	if len(bsl.Spec.Config["storageAccountKeyEnvVar"]) != 0 {
 		if azcreds.strorageAccountKey == "" {
 			r.Log.Info("Expecting storageAccountKeyEnvVar value set present in the credentials")
