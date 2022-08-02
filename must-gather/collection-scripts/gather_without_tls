@@ -1,0 +1,3 @@
+#!/bin/bash
+echo "insecure-skip-tls-verify: $1"
+skip_tls=$1 /usr/bin/gather

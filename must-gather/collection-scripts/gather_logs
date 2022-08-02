@@ -6,6 +6,8 @@ max_parallelism=10
 cluster=$1
 logs_since=$2
 timeout=$3
+skip_tls=$4
+shift
 shift
 shift
 shift
@@ -26,7 +28,7 @@ for ns in ${namespaces[@]}; do
         # Gather backup
         backup_path="${plan_path}/backup-${backup}"
         mkdir -p ${backup_path}
-        /usr/bin/gather_logs_backup ${cluster} ${ns} ${logs_since} ${max_parallelism} ${backup} ${backup_path} ${timeout} &
+        /usr/bin/gather_logs_backup ${cluster} ${ns} ${logs_since} ${max_parallelism} ${backup} ${backup_path} ${timeout} ${skip_tls} &
         pwait $max_parallelism
         for pvb in $(oc get podvolumebackup --namespace ${ns} -l "velero.io/backup-name"="${backup}" --no-headers | awk '{print $1}'); do
           # Gather PVB
@@ -41,7 +43,7 @@ for ns in ${namespaces[@]}; do
         # Gather restore
         restore_path="${plan_path}/restore-${restore}"
         mkdir -p ${restore_path}
-        /usr/bin/gather_logs_restore ${cluster} ${ns} ${logs_since} ${max_parallelism} ${restore} ${restore_path} ${timeout} &
+        /usr/bin/gather_logs_restore ${cluster} ${ns} ${logs_since} ${max_parallelism} ${restore} ${restore_path} ${timeout} ${skip_tls} &
         pwait $max_parallelism
         for pvr in $(oc get podvolumerestore --namespace ${ns} -l "velero.io/restore-name"="${restore}" --no-headers | awk '{print $1}'); do
           # Gather PVR
