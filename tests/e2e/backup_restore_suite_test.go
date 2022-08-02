@@ -156,6 +156,13 @@ var _ = Describe("AWS backup restore tests", func() {
 			log.Printf("Installing application for case %s", brCase.Name)
 			err = InstallApplication(dpaCR.Client, brCase.ApplicationTemplate)
 			Expect(err).ToNot(HaveOccurred())
+			if brCase.BackupRestoreType == CSI {
+				log.Printf("Creating pvc for case %s", brCase.Name)
+				pvcPath := fmt.Sprintf("./sample-applications/%s/pvc/%s.yaml", brCase.ApplicationNamespace, provider)
+				err = InstallApplication(dpaCR.Client, pvcPath)
+				Expect(err).ToNot(HaveOccurred())
+			}
+
 			// wait for pods to be running
 			Eventually(AreAppBuildsReady(dpaCR.Client, brCase.ApplicationNamespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 			Eventually(AreApplicationPodsRunning(brCase.ApplicationNamespace), timeoutMultiplier*time.Minute*9, time.Second*5).Should(BeTrue())
@@ -271,7 +278,7 @@ var _ = Describe("AWS backup restore tests", func() {
 
 		},
 		Entry("MySQL application CSI", Label("ibmcloud", "aws", "gcp", "azure"), BackupRestoreCase{
-			ApplicationTemplate:  fmt.Sprintf("./sample-applications/mysql-persistent/mysql-persistent-csi-%s-template.yaml", provider),
+			ApplicationTemplate:  fmt.Sprintf("./sample-applications/mysql-persistent/mysql-persistent-csi.yaml"),
 			ApplicationNamespace: "mysql-persistent",
 			Name:                 "mysql-csi-e2e",
 			BackupRestoreType:    CSI,
@@ -279,7 +286,7 @@ var _ = Describe("AWS backup restore tests", func() {
 			PostRestoreVerify:    mysqlReady(false, CSI),
 		}, nil),
 		Entry("Mongo application CSI", Label("ibmcloud", "aws", "gcp", "azure"), BackupRestoreCase{
-			ApplicationTemplate:  fmt.Sprintf("./sample-applications/mongo-persistent/mongo-persistent-csi-%s-template.yaml", provider),
+			ApplicationTemplate:  fmt.Sprintf("./sample-applications/mongo-persistent/mongo-persistent-csi.yaml"),
 			ApplicationNamespace: "mongo-persistent",
 			Name:                 "mongo-csi-e2e",
 			BackupRestoreType:    CSI,
@@ -295,7 +302,7 @@ var _ = Describe("AWS backup restore tests", func() {
 			PostRestoreVerify:    mongoready(false, RESTIC),
 		}, nil),
 		Entry("MySQL application RESTIC", BackupRestoreCase{
-			ApplicationTemplate:  "./sample-applications/mysql-persistent/mysql-persistent-template.yaml",
+			ApplicationTemplate:  "./sample-applications/mysql-persistent/mysql-persistent.yaml",
 			ApplicationNamespace: "mysql-persistent",
 			Name:                 "mysql-restic-e2e",
 			BackupRestoreType:    RESTIC,

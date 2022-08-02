@@ -33,20 +33,6 @@ items:
     users:
     - system:admin
     - system:serviceaccount:mongo-persistent:mongo-persistent-sa
-  - apiVersion: v1
-    kind: PersistentVolumeClaim
-    metadata:
-      name: mongo
-      namespace: mongo-persistent
-      labels:
-        app: mongo
-    spec:
-      accessModes:
-      - ReadWriteOnce
-      storageClassName: managed-csi
-      resources:
-        requests:
-          storage: 1Gi
   - kind: ImageStream
     apiVersion: image.openshift.io/v1
     metadata:
