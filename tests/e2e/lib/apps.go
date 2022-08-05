@@ -24,6 +24,7 @@ import (
 	routev1 "github.com/openshift/api/route/v1"
 	security "github.com/openshift/api/security/v1"
 	templatev1 "github.com/openshift/api/template/v1"
+	operatorsv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	"github.com/vmware-tanzu/velero/pkg/label"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -48,6 +49,10 @@ var (
 )
 
 func InstallApplication(ocClient client.Client, file string) error {
+	return InstallApplicationWithRetries(ocClient, file, 3)
+}
+
+func InstallApplicationWithRetries(ocClient client.Client, file string, retries int) error {
 	template, err := os.ReadFile(file)
 	if err != nil {
 		return err
@@ -66,47 +71,69 @@ func InstallApplication(ocClient client.Client, file string) error {
 		}
 		labels[e2eAppLabelKey] = "true"
 		resource.SetLabels(labels)
-		err = ocClient.Create(context.Background(), &resource)
-		if apierrors.IsAlreadyExists(err) {
-			// if spec has changed for following kinds, update the resource
-			clusterResource := unstructured.Unstructured{
-				Object: resource.Object,
-			}
-			err = ocClient.Get(context.Background(), types.NamespacedName{Name: resource.GetName(), Namespace: resource.GetNamespace()}, &clusterResource)
-			if err != nil {
-				return err
-			}
-			if _, metadataExists := clusterResource.Object["metadata"]; metadataExists {
-				// copy generation, resourceVersion, and annotations from the existing resource
-				resource.SetGeneration(clusterResource.GetGeneration())
-				resource.SetResourceVersion(clusterResource.GetResourceVersion())
-				resource.SetUID(clusterResource.GetUID())
-				resource.SetManagedFields(clusterResource.GetManagedFields())
-				resource.SetCreationTimestamp(clusterResource.GetCreationTimestamp())
-				resource.SetDeletionTimestamp(clusterResource.GetDeletionTimestamp())
-			}
-			needsUpdate := false
-			for key := range clusterResource.Object {
-				if key == "status" {
-					continue
+		resourceCreate := resource.DeepCopy()
+		for i := 0; i < retries; i++ {
+			err = ocClient.Create(context.Background(), resourceCreate)
+			if apierrors.IsAlreadyExists(err) {
+				// if spec has changed for following kinds, update the resource
+				clusterResource := unstructured.Unstructured{
+					Object: resource.Object,
 				}
-				if !reflect.DeepEqual(clusterResource.Object[key], resource.Object[key]) {
-					fmt.Println("diff found for key:", key)
-					ginkgo.GinkgoWriter.Println(cmp.Diff(clusterResource.Object[key], resource.Object[key]))
-					needsUpdate = true
-					clusterResource.Object[key] = resource.Object[key]
-				}
-			}
-			if needsUpdate {
-				fmt.Printf("updating resource: %s; name: %s\n", resource.GetKind(), resource.GetName())
-				err = ocClient.Update(context.Background(), &clusterResource)
+				err = ocClient.Get(context.Background(), types.NamespacedName{Name: resource.GetName(), Namespace: resource.GetNamespace()}, &clusterResource)
 				if err != nil {
 					return err
 				}
+				if _, metadataExists := clusterResource.Object["metadata"]; metadataExists {
+					// copy generation, resourceVersion, and annotations from the existing resource
+					resource.SetGeneration(clusterResource.GetGeneration())
+					resource.SetResourceVersion(clusterResource.GetResourceVersion())
+					resource.SetUID(clusterResource.GetUID())
+					resource.SetManagedFields(clusterResource.GetManagedFields())
+					resource.SetCreationTimestamp(clusterResource.GetCreationTimestamp())
+					resource.SetDeletionTimestamp(clusterResource.GetDeletionTimestamp())
+					resource.SetFinalizers(clusterResource.GetFinalizers())
+					// append cluster labels to existing labels if they don't already exist
+					labels := resource.GetLabels()
+					if labels == nil {
+						labels = make(map[string]string)
+					}
+					for k, v := range clusterResource.GetLabels() {
+						if _, exists := labels[k]; !exists {
+							labels[k] = v
+						}
+					}
+				}
+				needsUpdate := false
+				for key := range clusterResource.Object {
+					if key == "status" {
+						// check we aren't hitting pending deletion finalizers
+						ginkgo.GinkgoWriter.Printf("%s has status %v", clusterResource.GroupVersionKind(), clusterResource.Object[key])
+						continue
+					}
+					if !reflect.DeepEqual(clusterResource.Object[key], resource.Object[key]) {
+						fmt.Println("diff found for key:", key)
+						ginkgo.GinkgoWriter.Println(cmp.Diff(clusterResource.Object[key], resource.Object[key]))
+						needsUpdate = true
+						clusterResource.Object[key] = resource.Object[key]
+					}
+				}
+				if needsUpdate {
+					fmt.Printf("updating resource: %s; name: %s\n", resource.GroupVersionKind(), resource.GetName())
+					err = ocClient.Update(context.Background(), &clusterResource)
+				}
 			}
-		} else if err != nil {
+			// if no error, stop retrying
+			if err == nil {
+				break
+			}
+			// if error, retry
+			fmt.Printf("error creating or updating resource: %s; name: %s; error: %s; retrying for %d more times\n", resource.GroupVersionKind(), resource.GetName(), err, retries-i)
+		}
+		// if still error on this resource, return error
+		if err != nil {
 			return err
 		}
+		// next resource
 	}
 	return nil
 }
@@ -347,6 +374,25 @@ func AreApplicationPodsRunning(namespace string) wait.ConditionFunc {
 	}
 }
 
+func InstalledSubscriptionCSV(ocClient client.Client, namespace, subscriptionName string) func() (string, error) {
+	return func() (string, error) {
+		// get operator-sdk subscription
+		subscription := &operatorsv1alpha1.Subscription{}
+		err := ocClient.Get(context.Background(), client.ObjectKey{
+			Namespace: namespace,
+			Name:      subscriptionName,
+		}, subscription)
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				return "", nil
+			}
+			ginkgo.GinkgoWriter.Write([]byte(fmt.Sprintf("Error getting subscription: %v\n", err)))
+			return "", err
+		}
+		return subscription.Status.InstalledCSV, nil
+	}
+}
+
 func PrintNamespaceEventsAfterTime(namespace string, startTime time.Time) {
 	log.Println("Printing events for namespace: ", namespace)
 	clientset, err := setUpClient()
@@ -454,7 +500,7 @@ func VerifyBackupRestoreData(artifact_dir string, namespace string, routeName st
 		return err
 	}
 	//Verifying backup-restore data only for CSI as of now.
-	if backupRestoretype == CSI || backupRestoretype == RESTIC {
+	if backupRestoretype == CSI || backupRestoretype == CSIDataMover || backupRestoretype == RESTIC {
 		//check if backupfile exists. If true { compare data response with data from file} (post restore step)
 		//else write data to backup-data.txt (prebackup step)
 		if _, err := os.Stat(backupFile); err == nil {
