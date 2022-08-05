@@ -247,12 +247,43 @@ func GetPodContainerLogs(namespace, podname, container string) (string, error) {
 		return "", err
 	}
 	defer podLogs.Close()
-
 	buf := new(bytes.Buffer)
 	_, err = io.Copy(buf, podLogs)
 	if err != nil {
 		return "", err
 	}
-	str := buf.String()
-	return str, nil
+	return buf.String(), nil
+}
+
+func GetDeploymentPodContainerLogs(namespace, deploymentName, containerName string) (string, error) {
+	clientset, err := setUpClient()
+	if err != nil {
+		return "", err
+	}
+	// get replicasets owned by deployment
+	replicasets, err := clientset.AppsV1().ReplicaSets(namespace).List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		return "", err
+	}
+	pods, err := clientset.CoreV1().Pods(namespace).List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		return "", err
+	}
+	var podLogs string
+	for _, r := range replicasets.Items {
+		if r.OwnerReferences[0].Name == deploymentName {
+			// get pods owned by replicasets
+			for _, p := range pods.Items {
+				if p.OwnerReferences[0].Name == r.Name {
+					podLogs += "pod logs for " + p.Name + ":"
+					thisPodLogs, err := GetPodContainerLogs(namespace, p.Name, containerName)
+					if err != nil {
+						return podLogs, err
+					}
+					podLogs += thisPodLogs
+				}
+			}
+		}
+	}
+	return podLogs, nil
 }
