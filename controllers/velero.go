@@ -41,6 +41,7 @@ const (
 	VeleroAzureSecretName = "cloud-credentials-azure"
 	VeleroGCPSecretName   = "cloud-credentials-gcp"
 	enableCSIFeatureFlag  = "EnableCSI"
+	veleroIOPrefix        = "velero.io/"
 )
 
 var (
@@ -726,11 +727,11 @@ func (r DPAReconciler) noDefaultCredentials(dpa oadpv1alpha1.DataProtectionAppli
 	} else {
 		for _, bsl := range dpa.Spec.BackupLocations {
 			if bsl.Velero != nil && bsl.Velero.Credential == nil {
-				bslProvider := strings.TrimPrefix(bsl.Velero.Provider, "velero.io/")
+				bslProvider := strings.TrimPrefix(bsl.Velero.Provider, veleroIOPrefix)
 				providerNeedsDefaultCreds[bslProvider] = true
 			}
 			if bsl.Velero != nil && bsl.Velero.Credential != nil {
-				bslProvider := strings.TrimPrefix(bsl.Velero.Provider, "velero.io/")
+				bslProvider := strings.TrimPrefix(bsl.Velero.Provider, veleroIOPrefix)
 				if found := providerNeedsDefaultCreds[bslProvider]; !found {
 					providerNeedsDefaultCreds[bslProvider] = false
 				}
@@ -753,7 +754,7 @@ func (r DPAReconciler) noDefaultCredentials(dpa oadpv1alpha1.DataProtectionAppli
 		if vsl.Velero != nil {
 			// To handle the case where we want to manually hand the credentials for a cloud storage created
 			// Bucket credentials via configuration. Only AWS is supported
-			provider := strings.TrimPrefix(vsl.Velero.Provider, "velero.io")
+			provider := strings.TrimPrefix(vsl.Velero.Provider, veleroIOPrefix)
 			if vsl.Velero.Credential != nil || provider == string(oadpv1alpha1.AWSBucketProvider) && hasCloudStorage {
 				providerNeedsDefaultCreds[provider] = false
 			} else {
