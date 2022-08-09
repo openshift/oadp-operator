@@ -3,10 +3,13 @@ package controllers
 import (
 	"errors"
 	"fmt"
+	"strings"
+
+	"time"
+
 	"github.com/go-logr/logr"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	"github.com/openshift/oadp-operator/pkg/credentials"
-	"time"
 )
 
 func (r *DPAReconciler) ValidateDataProtectionCR(log logr.Logger) (bool, error) {
@@ -104,22 +107,42 @@ func (r *DPAReconciler) ValidateVeleroPlugins(log logr.Logger) (bool, error) {
 		return false, err
 	}
 
-	var defaultPlugin oadpv1alpha1.DefaultPlugin
-	for _, plugin := range dpa.Spec.Configuration.Velero.DefaultPlugins {
+	snapshotLocationsProviders := make(map[string]bool)
+	for _, location := range dpa.Spec.SnapshotLocations {
+		if location.Velero != nil {
+			provider := strings.TrimPrefix(location.Velero.Provider, veleroIOPrefix)
+			snapshotLocationsProviders[provider] = true
+		}
+	}
 
+	for _, plugin := range dpa.Spec.Configuration.Velero.DefaultPlugins {
 		pluginSpecificMap, ok := credentials.PluginSpecificFields[plugin]
 		pluginNeedsCheck, foundInBSLorVSL := providerNeedsDefaultCreds[string(plugin)]
 
 		if !foundInBSLorVSL && !hasCloudStorage {
 			pluginNeedsCheck = true
 		}
-
 		if ok && pluginSpecificMap.IsCloudProvider && pluginNeedsCheck && !dpa.Spec.Configuration.Velero.NoDefaultBackupLocation {
-			secretName := pluginSpecificMap.SecretName
-			_, err := r.getProviderSecret(secretName)
-			if err != nil {
-				r.Log.Info(fmt.Sprintf("error validating %s provider secret:  %s/%s", defaultPlugin, r.NamespacedName.Namespace, secretName))
-				return false, err
+			secretNamesToValidate := []string{}
+			// check specified credentials in backup locations exists in the cluster
+			for _, location := range dpa.Spec.BackupLocations {
+				if location.Velero != nil {
+					provider := strings.TrimPrefix(location.Velero.Provider, veleroIOPrefix)
+					if provider == string(plugin) && location.Velero != nil && location.Velero.Credential != nil {
+						secretNamesToValidate = append(secretNamesToValidate, location.Velero.Credential.Name)
+					}
+				}
+			}
+			// check for default secret name if dpa has snapshotLocations
+			if foundInVSL := snapshotLocationsProviders[string(plugin)]; foundInVSL {
+				secretNamesToValidate = append(secretNamesToValidate, pluginSpecificMap.SecretName)
+			}
+			for _, secretName := range secretNamesToValidate {
+				_, err := r.getProviderSecret(secretName)
+				if err != nil {
+					r.Log.Info(fmt.Sprintf("error validating %s provider secret:  %s/%s", string(plugin), r.NamespacedName.Namespace, secretName))
+					return false, err
+				}
 			}
 		}
 	}

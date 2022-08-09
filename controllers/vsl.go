@@ -54,7 +54,7 @@ func (r *DPAReconciler) LabelVSLSecrets(log logr.Logger) (bool, error) {
 	}
 
 	for _, vsl := range dpa.Spec.SnapshotLocations {
-		provider := strings.TrimPrefix(vsl.Velero.Provider, "velero.io")
+		provider := strings.TrimPrefix(vsl.Velero.Provider, veleroIOPrefix)
 		switch provider {
 		case "aws":
 			secretName := credentials.PluginSpecificFields[oadpv1alpha1.DefaultPluginAWS].SecretName
