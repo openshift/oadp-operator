@@ -1,8 +1,9 @@
 package controllers
 
 import (
-	"k8s.io/apimachinery/pkg/api/resource"
 	"testing"
+
+	"k8s.io/apimachinery/pkg/api/resource"
 
 	"github.com/go-logr/logr"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
@@ -515,8 +516,8 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 				},
 			},
 			objects: []client.Object{},
-			wantErr: true,
-			want:    false,
+			wantErr: false,
+			want:    true,
 		},
 		{
 			name: "given valid DPA CR VSL configured and GCP Default Plugin without secret",
@@ -622,7 +623,56 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 			want:    false,
 		},
 		{
-			name: "given valid DPA CR AWS Default Plugin with credentials and a VSL",
+			name: "given valid DPA CR AWS Default Plugin with credentials and a VSL, and default secret specified, passes",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-DPA-CR",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					BackupLocations: []oadpv1alpha1.BackupLocation{
+						{
+							Velero: &v1.BackupStorageLocationSpec{
+								Provider: "velero.io/aws",
+								Credential: &corev1.SecretKeySelector{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: "cloud-credentials",
+									},
+									Key:      "cloud",
+									Optional: new(bool),
+								},
+							},
+						},
+					},
+					SnapshotLocations: []oadpv1alpha1.SnapshotLocation{
+						{
+							Velero: &v1.VolumeSnapshotLocationSpec{
+								Provider: "velero.io/aws",
+							},
+						},
+					},
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+								oadpv1alpha1.DefaultPluginAWS,
+							},
+						},
+					},
+				},
+			},
+			objects: []client.Object{
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "cloud-credentials",
+						Namespace: "test-ns",
+					},
+				},
+			},
+			wantErr: false,
+			want:    true,
+		},
+		{
+			name: "given valid DPA CR AWS Default Plugin with credentials and a VSL, and without secret in cluster, fails",
 			dpa: &oadpv1alpha1.DataProtectionApplication{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-DPA-CR",
@@ -660,8 +710,8 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 				},
 			},
 			objects: []client.Object{},
-			wantErr: false,
-			want:    true,
+			wantErr: true,
+			want:    false,
 		},
 	}
 	for _, tt := range tests {
