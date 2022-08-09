@@ -4613,7 +4613,7 @@ func Test_validateVeleroPlugins(t *testing.T) {
 			want:    true,
 		},
 		{
-			name: "given invalid Velero secret, the validplugin check fails",
+			name: "given aws default plugin without bsl, the valid plugin check passes",
 			dpa: &oadpv1alpha1.DataProtectionApplication{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-Velero-CR",
@@ -4630,8 +4630,8 @@ func Test_validateVeleroPlugins(t *testing.T) {
 				},
 			},
 			secret:  &corev1.Secret{},
-			wantErr: true,
-			want:    false,
+			wantErr: false,
+			want:    true,
 		},
 	}
 	for _, tt := range tests {
