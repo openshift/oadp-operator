@@ -2153,7 +2153,7 @@ func TestDPAReconciler_updateResticRestoreHelperCM(t *testing.T) {
 					},
 				},
 				Data: map[string]string{
-					"image": os.Getenv("RELATED_IMAGE_VELERO-RESTIC-RESTORE-HELPER"),
+					"image": os.Getenv("RELATED_IMAGE_VELERO_RESTIC_RESTORE_HELPER"),
 				},
 			},
 		},

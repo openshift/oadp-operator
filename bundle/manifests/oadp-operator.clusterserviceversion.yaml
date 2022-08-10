@@ -728,21 +728,21 @@ spec:
                             fieldPath: metadata.annotations['olm.targetNamespaces']
                       - name: RELATED_IMAGE_VELERO
                         value: quay.io/konveyor/velero:konveyor-1.9
-                      - name: RELATED_IMAGE_VELERO-RESTIC-RESTORE-HELPER
+                      - name: RELATED_IMAGE_VELERO_RESTIC_RESTORE_HELPER
                         value: quay.io/konveyor/velero-restic-restore-helper:konveyor-1.9
-                      - name: RELATED_IMAGE_OPENSHIFT-VELERO-PLUGIN
+                      - name: RELATED_IMAGE_OPENSHIFT_VELERO_PLUGIN
                         value: quay.io/konveyor/openshift-velero-plugin:latest
-                      - name: RELATED_IMAGE_VELERO-PLUGIN-FOR-AWS
+                      - name: RELATED_IMAGE_VELERO_PLUGIN_FOR_AWS
                         value: quay.io/konveyor/velero-plugin-for-aws:konveyor-1.5
-                      - name: RELATED_IMAGE_VELERO-PLUGIN-FOR-MICROSOFT-AZURE
+                      - name: RELATED_IMAGE_VELERO_PLUGIN_FOR_MICROSOFT_AZURE
                         value: quay.io/konveyor/velero-plugin-for-microsoft-azure:konveyor-1.5
-                      - name: RELATED_IMAGE_VELERO-PLUGIN-FOR-GCP
+                      - name: RELATED_IMAGE_VELERO_PLUGIN_FOR_GCP
                         value: quay.io/konveyor/velero-plugin-for-gcp:konveyor-1.5
-                      - name: RELATED_IMAGE_VELERO-PLUGIN-FOR-CSI
+                      - name: RELATED_IMAGE_VELERO_PLUGIN_FOR_CSI
                         value: quay.io/konveyor/velero-plugin-for-csi:konveyor-0.3
-                      - name: RELATED_IMAGE_VOLUME-SNAPSHOT-MOVER
+                      - name: RELATED_IMAGE_VOLUME_SNAPSHOT_MOVER
                         value: quay.io/konveyor/volume-snapshot-mover:latest
-                      - name: RELATED_IMAGE_KUBEVIRT-VELERO-PLUGIN
+                      - name: RELATED_IMAGE_KUBEVIRT_VELERO_PLUGIN
                         value: quay.io/konveyor/kubevirt-velero-plugin:v0.2.0
                     image: quay.io/konveyor/oadp-operator:latest
                     imagePullPolicy: Always
