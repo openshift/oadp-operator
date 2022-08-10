@@ -18,7 +18,7 @@
 
 | Property | Type                                                                                              | Description                                                                                    |
 |----------|---------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------|
-| velero   | [*velero.BackupStorageLocationSpec](https://velero.io/docs/v1.9/api-types/backupstoragelocation/) | Location to store volume snapshots. For further details, see  [here](config/bsl_and_vsl.md). |
+| velero   | [*velero.BackupStorageLocationSpec](https://velero.io/docs/v1.9/api-types/backupstoragelocation/) | Location to store backup objects. For further details, see  [here](config/bsl_and_vsl.md). |
 | bucket   | [*CloudStorageLocation](https://pkg.go.dev/github.com/openshift/oadp-operator@master/api/v1alpha1#CloudStorageLocation) | [Tech Preview] Automates creation of bucket at some cloud storage providers for use as a backup storage location |
 
 
