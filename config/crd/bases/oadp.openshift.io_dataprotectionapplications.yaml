@@ -455,6 +455,11 @@ spec:
                         description: Enable flag is used to specify whether you want
                           to deploy the volume snapshot mover controller
                         type: boolean
+                      timeout:
+                        description: User supplied timeout in minutes to be used for
+                          VolumeSnapshotBackup and VolumeSnapshotRestore to complete,
+                          default value is 10
+                        type: string
                     type: object
                 type: object
               podAnnotations:

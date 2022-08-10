@@ -169,6 +169,9 @@ type DataMover struct {
 	// User supplied Restic Secret name
 	// +optional
 	CredentialName string `json:"credentialName,omitempty"`
+	// User supplied timeout in minutes to be used for VolumeSnapshotBackup and VolumeSnapshotRestore to complete, default value is 10
+	// +optional
+	Timeout string `json:"timeout,omitempty"`
 }
 
 // Features defines the configuration for the DPA to enable the tech preview features
