@@ -169,7 +169,7 @@ type DataMover struct {
 	// User supplied Restic Secret name
 	// +optional
 	CredentialName string `json:"credentialName,omitempty"`
-	// User supplied timeout in minutes to be used for VolumeSnapshotBackup and VolumeSnapshotRestore to complete, default value is 10
+	// User supplied timeout to be used for VolumeSnapshotBackup and VolumeSnapshotRestore to complete, default value is 10m
 	// +optional
 	Timeout string `json:"timeout,omitempty"`
 }

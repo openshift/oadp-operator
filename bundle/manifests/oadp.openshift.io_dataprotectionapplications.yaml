@@ -454,9 +454,9 @@ spec:
                           to deploy the volume snapshot mover controller
                         type: boolean
                       timeout:
-                        description: User supplied timeout in minutes to be used for
-                          VolumeSnapshotBackup and VolumeSnapshotRestore to complete,
-                          default value is 10
+                        description: User supplied timeout to be used for VolumeSnapshotBackup
+                          and VolumeSnapshotRestore to complete, default value is
+                          10m
                         type: string
                     type: object
                 type: object
