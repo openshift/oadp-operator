@@ -169,7 +169,7 @@ metadata:
     operatorframework.io/suggested-namespace: openshift-adp
     operators.openshift.io/infrastructure-features: '["Disconnected"]'
     operators.openshift.io/valid-subscription: '["OpenShift Container Platform", "OpenShift Platform Plus"]'
-    operators.operatorframework.io/builder: operator-sdk-v1.14.0
+    operators.operatorframework.io/builder: operator-sdk-v1.21.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
     repository: https://github.com/openshift/oadp-operator
     support: Red Hat
@@ -726,42 +726,24 @@ spec:
                         valueFrom:
                           fieldRef:
                             fieldPath: metadata.annotations['olm.targetNamespaces']
-                      - name: REGISTRY
-                        value: quay.io
-                      - name: PROJECT
-                        value: konveyor
-                      - name: VELERO_REPO
-                        value: velero
-                      - name: VELERO_OPENSHIFT_PLUGIN_REPO
-                        value: openshift-velero-plugin
-                      - name: VELERO_OPENSHIFT_PLUGIN_TAG
-                        value: latest
-                      - name: VELERO_RESTIC_RESTORE_HELPER_REPO
-                        value: velero-restic-restore-helper
-                      - name: VELERO_AWS_PLUGIN_REPO
-                        value: velero-plugin-for-aws
-                      - name: VELERO_GCP_PLUGIN_REPO
-                        value: velero-plugin-for-gcp
-                      - name: VELERO_AZURE_PLUGIN_REPO
-                        value: velero-plugin-for-microsoft-azure
-                      - name: VELERO_KUBEVIRT_PLUGIN_REPO
-                        value: kubevirt-velero-plugin
-                      - name: VELERO_CSI_PLUGIN_REPO
-                        value: velero-plugin-for-csi
-                      - name: VELERO_TAG
-                        value: konveyor-1.9
-                      - name: VELERO_RESTIC_RESTORE_HELPER_TAG
-                        value: konveyor-1.9
-                      - name: VELERO_AWS_PLUGIN_TAG
-                        value: konveyor-1.5
-                      - name: VELERO_GCP_PLUGIN_TAG
-                        value: konveyor-1.5
-                      - name: VELERO_AZURE_PLUGIN_TAG
-                        value: konveyor-1.5
-                      - name: VELERO_CSI_PLUGIN_TAG
-                        value: konveyor-0.3
-                      - name: VELERO_KUBEVIRT_PLUGIN_TAG
-                        value: v0.2.0
+                      - name: RELATED_IMAGE_VELERO
+                        value: quay.io/konveyor/velero:konveyor-1.9
+                      - name: RELATED_IMAGE_VELERO_RESTIC_RESTORE_HELPER
+                        value: quay.io/konveyor/velero-restic-restore-helper:konveyor-1.9
+                      - name: RELATED_IMAGE_OPENSHIFT_VELERO_PLUGIN
+                        value: quay.io/konveyor/openshift-velero-plugin:latest
+                      - name: RELATED_IMAGE_VELERO_PLUGIN_FOR_AWS
+                        value: quay.io/konveyor/velero-plugin-for-aws:konveyor-1.5
+                      - name: RELATED_IMAGE_VELERO_PLUGIN_FOR_MICROSOFT_AZURE
+                        value: quay.io/konveyor/velero-plugin-for-microsoft-azure:konveyor-1.5
+                      - name: RELATED_IMAGE_VELERO_PLUGIN_FOR_GCP
+                        value: quay.io/konveyor/velero-plugin-for-gcp:konveyor-1.5
+                      - name: RELATED_IMAGE_VELERO_PLUGIN_FOR_CSI
+                        value: quay.io/konveyor/velero-plugin-for-csi:konveyor-0.3
+                      - name: RELATED_IMAGE_VOLUME_SNAPSHOT_MOVER
+                        value: quay.io/konveyor/volume-snapshot-mover:latest
+                      - name: RELATED_IMAGE_KUBEVIRT_VELERO_PLUGIN
+                        value: quay.io/konveyor/kubevirt-velero-plugin:v0.2.0
                     image: quay.io/konveyor/oadp-operator:latest
                     imagePullPolicy: Always
                     livenessProbe:
@@ -871,19 +853,19 @@ spec:
     - image: quay.io/konveyor/velero:konveyor-1.9
       name: velero
     - image: quay.io/konveyor/velero-restic-restore-helper:konveyor-1.9
-      name: velero_restic_restore_helper
+      name: velero-restic-restore-helper
     - image: quay.io/konveyor/openshift-velero-plugin:latest
-      name: openshift_plugin
+      name: openshift-velero-plugin
     - image: quay.io/konveyor/velero-plugin-for-aws:konveyor-1.5
-      name: aws_plugin
+      name: velero-plugin-for-aws
     - image: quay.io/konveyor/velero-plugin-for-microsoft-azure:konveyor-1.5
-      name: azure_plugin
+      name: velero-plugin-for-microsoft-azure
     - image: quay.io/konveyor/velero-plugin-for-gcp:konveyor-1.5
-      name: gcp_plugin
+      name: velero-plugin-for-gcp
     - image: quay.io/konveyor/velero-plugin-for-csi:konveyor-0.3
-      name: csi_plugin
-    - image: quay.io/konveyor/kubevirt-velero-plugin:v0.2.0
-      name: kubevirt_plugin
+      name: velero-plugin-for-csi
     - image: quay.io/konveyor/volume-snapshot-mover:latest
-      name: volume_snapshot_mover
+      name: volume-snapshot-mover
+    - image: quay.io/konveyor/kubevirt-velero-plugin:v0.2.0
+      name: kubevirt-velero-plugin
   version: 99.0.0
