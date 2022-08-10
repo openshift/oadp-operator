@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/go-logr/logr"
@@ -196,7 +197,10 @@ func (r *DPAReconciler) getDataMoverImage(dpa *oadpv1alpha1.DataProtectionApplic
 	if dpa.Spec.UnsupportedOverrides[oadpv1alpha1.DataMoverImageKey] != "" {
 		return dpa.Spec.UnsupportedOverrides[oadpv1alpha1.DataMoverImageKey]
 	}
-	return common.DataMoverImage
+	if os.Getenv("RELATED_IMAGE_volume-snapshot-mover") == "" {
+		return common.DataMoverImage
+	}
+	return os.Getenv("RELATED_IMAGE_volume-snapshot-mover")
 }
 
 func (r *DPAReconciler) getDataMoverLabels() map[string]string {

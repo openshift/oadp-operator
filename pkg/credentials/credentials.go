@@ -2,7 +2,6 @@ package credentials
 
 import (
 	"errors"
-	"fmt"
 	"os"
 	"strings"
 
@@ -94,60 +93,60 @@ func getAWSPluginImage(dpa *oadpv1alpha1.DataProtectionApplication) string {
 	if dpa.Spec.UnsupportedOverrides[oadpv1alpha1.AWSPluginImageKey] != "" {
 		return dpa.Spec.UnsupportedOverrides[oadpv1alpha1.AWSPluginImageKey]
 	}
-	if os.Getenv("VELERO_AWS_PLUGIN_REPO") == "" {
+	if os.Getenv("RELATED_IMAGE_velero-plugin-for-aws") == "" {
 		return common.AWSPluginImage
 	}
-	return fmt.Sprintf("%v/%v/%v:%v", os.Getenv("REGISTRY"), os.Getenv("PROJECT"), os.Getenv("VELERO_AWS_PLUGIN_REPO"), os.Getenv("VELERO_AWS_PLUGIN_TAG"))
+	return os.Getenv("RELATED_IMAGE_velero-plugin-for-aws")
 }
 
 func getCSIPluginImage(dpa *oadpv1alpha1.DataProtectionApplication) string {
 	if dpa.Spec.UnsupportedOverrides[oadpv1alpha1.CSIPluginImageKey] != "" {
 		return dpa.Spec.UnsupportedOverrides[oadpv1alpha1.CSIPluginImageKey]
 	}
-	if os.Getenv("VELERO_CSI_PLUGIN_REPO") == "" {
+	if os.Getenv("RELATED_IMAGE_velero-plugin-for-csi") == "" {
 		return common.CSIPluginImage
 	}
-	return fmt.Sprintf("%v/%v/%v:%v", os.Getenv("REGISTRY"), os.Getenv("PROJECT"), os.Getenv("VELERO_CSI_PLUGIN_REPO"), os.Getenv("VELERO_CSI_PLUGIN_TAG"))
+	return os.Getenv("RELATED_IMAGE_velero-plugin-for-csi")
 }
 
 func getGCPPluginImage(dpa *oadpv1alpha1.DataProtectionApplication) string {
 	if dpa.Spec.UnsupportedOverrides[oadpv1alpha1.GCPPluginImageKey] != "" {
 		return dpa.Spec.UnsupportedOverrides[oadpv1alpha1.GCPPluginImageKey]
 	}
-	if os.Getenv("VELERO_GCP_PLUGIN_REPO") == "" {
+	if os.Getenv("RELATED_IMAGE_velero-plugin-for-gcp") == "" {
 		return common.GCPPluginImage
 	}
-	return fmt.Sprintf("%v/%v/%v:%v", os.Getenv("REGISTRY"), os.Getenv("PROJECT"), os.Getenv("VELERO_GCP_PLUGIN_REPO"), os.Getenv("VELERO_GCP_PLUGIN_TAG"))
+	return os.Getenv("RELATED_IMAGE_velero-plugin-for-gcp")
 }
 
 func getOpenshiftPluginImage(dpa *oadpv1alpha1.DataProtectionApplication) string {
 	if dpa.Spec.UnsupportedOverrides[oadpv1alpha1.OpenShiftPluginImageKey] != "" {
 		return dpa.Spec.UnsupportedOverrides[oadpv1alpha1.OpenShiftPluginImageKey]
 	}
-	if os.Getenv("VELERO_OPENSHIFT_PLUGIN_REPO") == "" {
+	if os.Getenv("RELATED_IMAGE_openshift-velero-plugin") == "" {
 		return common.OpenshiftPluginImage
 	}
-	return fmt.Sprintf("%v/%v/%v:%v", os.Getenv("REGISTRY"), os.Getenv("PROJECT"), os.Getenv("VELERO_OPENSHIFT_PLUGIN_REPO"), os.Getenv("VELERO_OPENSHIFT_PLUGIN_TAG"))
+	return os.Getenv("RELATED_IMAGE_openshift-velero-plugin")
 }
 
 func getAzurePluginImage(dpa *oadpv1alpha1.DataProtectionApplication) string {
 	if dpa.Spec.UnsupportedOverrides[oadpv1alpha1.AzurePluginImageKey] != "" {
 		return dpa.Spec.UnsupportedOverrides[oadpv1alpha1.AzurePluginImageKey]
 	}
-	if os.Getenv("VELERO_AZURE_PLUGIN_REPO") == "" {
+	if os.Getenv("RELATED_IMAGE_velero-plugin-for-microsoft-azure") == "" {
 		return common.AzurePluginImage
 	}
-	return fmt.Sprintf("%v/%v/%v:%v", os.Getenv("REGISTRY"), os.Getenv("PROJECT"), os.Getenv("VELERO_AZURE_PLUGIN_REPO"), os.Getenv("VELERO_AZURE_PLUGIN_TAG"))
+	return os.Getenv("RELATED_IMAGE_velero-plugin-for-microsoft-azure")
 }
 
 func getKubeVirtPluginImage(dpa *oadpv1alpha1.DataProtectionApplication) string {
 	if dpa.Spec.UnsupportedOverrides[oadpv1alpha1.KubeVirtPluginImageKey] != "" {
 		return dpa.Spec.UnsupportedOverrides[oadpv1alpha1.KubeVirtPluginImageKey]
 	}
-	if os.Getenv("VELERO_KUBEVIRT_PLUGIN_REPO") == "" {
+	if os.Getenv("RELATED_IMAGE_kubevirt-velero-plugin") == "" {
 		return common.KubeVirtPluginImage
 	}
-	return fmt.Sprintf("%v/%v/%v:%v", os.Getenv("REGISTRY"), os.Getenv("PROJECT"), os.Getenv("VELERO_KUBEVIRT_PLUGIN_REPO"), os.Getenv("VELERO_KUBEVIRT_PLUGIN_TAG"))
+	return os.Getenv("RELATED_IMAGE_kubevirt-velero-plugin")
 }
 
 func getPluginImage(pluginName string, dpa *oadpv1alpha1.DataProtectionApplication) string {

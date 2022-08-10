@@ -123,7 +123,6 @@ func BackupLogs(ocClient client.Client, backup velero.Backup) (backupLogs string
 	defer func() {
 		if r := recover(); r != nil {
 			backupLogs = recoverFromPanicLogs(backup.Namespace, r, "BackupLogs")
-			
 		}
 	}()
 	downloadrequest.Stream(context.Background(), ocClient, backup.Namespace, backup.Name, velero.DownloadTargetKindBackupLog, logs, time.Minute, insecureSkipTLSVerify, caCertFile)

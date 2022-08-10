@@ -636,10 +636,10 @@ func getVeleroImage(dpa *oadpv1alpha1.DataProtectionApplication) string {
 	if dpa.Spec.UnsupportedOverrides[oadpv1alpha1.VeleroImageKey] != "" {
 		return dpa.Spec.UnsupportedOverrides[oadpv1alpha1.VeleroImageKey]
 	}
-	if os.Getenv("VELERO_REPO") == "" {
+	if os.Getenv("RELATED_IMAGE_velero") == "" {
 		return common.VeleroImage
 	}
-	return fmt.Sprintf("%v/%v/%v:%v", os.Getenv("REGISTRY"), os.Getenv("PROJECT"), os.Getenv("VELERO_REPO"), os.Getenv("VELERO_TAG"))
+	return os.Getenv("RELATED_IMAGE_velero")
 }
 
 func (r *DPAReconciler) getDpaAppLabels(dpa *oadpv1alpha1.DataProtectionApplication) map[string]string {

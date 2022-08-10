@@ -334,7 +334,7 @@ func (r *DPAReconciler) updateResticRestoreHelperCM(resticRestoreHelperCM *corev
 	}
 
 	resticRestoreHelperCM.Data = map[string]string{
-		"image": fmt.Sprintf("%v/%v/%v:%v", os.Getenv("REGISTRY"), os.Getenv("PROJECT"), os.Getenv("VELERO_RESTIC_RESTORE_HELPER_REPO"), os.Getenv("VELERO_RESTIC_RESTORE_HELPER_TAG")),
+		"image": os.Getenv("RELATED_IMAGE_velero-restic-restore-helper"),
 	}
 
 	return nil
