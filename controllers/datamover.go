@@ -197,10 +197,10 @@ func (r *DPAReconciler) getDataMoverImage(dpa *oadpv1alpha1.DataProtectionApplic
 	if dpa.Spec.UnsupportedOverrides[oadpv1alpha1.DataMoverImageKey] != "" {
 		return dpa.Spec.UnsupportedOverrides[oadpv1alpha1.DataMoverImageKey]
 	}
-	if os.Getenv("RELATED_IMAGE_volume-snapshot-mover") == "" {
+	if os.Getenv("RELATED_IMAGE_VOLUME-SNAPSHOT-MOVER") == "" {
 		return common.DataMoverImage
 	}
-	return os.Getenv("RELATED_IMAGE_volume-snapshot-mover")
+	return os.Getenv("RELATED_IMAGE_VOLUME-SNAPSHOT-MOVER")
 }
 
 func (r *DPAReconciler) getDataMoverLabels() map[string]string {

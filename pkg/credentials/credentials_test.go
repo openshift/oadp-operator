@@ -422,7 +422,7 @@ func TestCredentials_getPluginImage(t *testing.T) {
 			pluginName: common.KubeVirtPlugin,
 			wantImage:  "quay.io/kubevirt/kubevirt-velero-plugin:latest",
 			setEnvVars: map[string]string{
-				"RELATED_IMAGE_kubevirt-velero-plugin": "quay.io/kubevirt/kubevirt-velero-plugin:latest",
+				"RELATED_IMAGE_KUBEVIRT-VELERO-PLUGIN": "quay.io/kubevirt/kubevirt-velero-plugin:latest",
 			},
 		},
 	}

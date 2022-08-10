@@ -726,23 +726,23 @@ spec:
                         valueFrom:
                           fieldRef:
                             fieldPath: metadata.annotations['olm.targetNamespaces']
-                      - name: RELATED_IMAGE_velero
+                      - name: RELATED_IMAGE_VELERO
                         value: quay.io/konveyor/velero:konveyor-1.9
-                      - name: RELATED_IMAGE_velero-restic-restore-helper
+                      - name: RELATED_IMAGE_VELERO-RESTIC-RESTORE-HELPER
                         value: quay.io/konveyor/velero-restic-restore-helper:konveyor-1.9
-                      - name: RELATED_IMAGE_openshift-velero-plugin
+                      - name: RELATED_IMAGE_OPENSHIFT-VELERO-PLUGIN
                         value: quay.io/konveyor/openshift-velero-plugin:latest
-                      - name: RELATED_IMAGE_velero-plugin-for-aws
+                      - name: RELATED_IMAGE_VELERO-PLUGIN-FOR-AWS
                         value: quay.io/konveyor/velero-plugin-for-aws:konveyor-1.5
-                      - name: RELATED_IMAGE_velero-plugin-for-microsoft-azure
+                      - name: RELATED_IMAGE_VELERO-PLUGIN-FOR-MICROSOFT-AZURE
                         value: quay.io/konveyor/velero-plugin-for-microsoft-azure:konveyor-1.5
-                      - name: RELATED_IMAGE_velero-plugin-for-gcp
+                      - name: RELATED_IMAGE_VELERO-PLUGIN-FOR-GCP
                         value: quay.io/konveyor/velero-plugin-for-gcp:konveyor-1.5
-                      - name: RELATED_IMAGE_velero-plugin-for-csi
+                      - name: RELATED_IMAGE_VELERO-PLUGIN-FOR-CSI
                         value: quay.io/konveyor/velero-plugin-for-csi:konveyor-0.3
-                      - name: RELATED_IMAGE_volume-snapshot-mover
+                      - name: RELATED_IMAGE_VOLUME-SNAPSHOT-MOVER
                         value: quay.io/konveyor/volume-snapshot-mover:latest
-                      - name: RELATED_IMAGE_kubevirt-velero-plugin
+                      - name: RELATED_IMAGE_KUBEVIRT-VELERO-PLUGIN
                         value: quay.io/konveyor/kubevirt-velero-plugin:v0.2.0
                     image: quay.io/konveyor/oadp-operator:latest
                     imagePullPolicy: Always
