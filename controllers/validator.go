@@ -3,10 +3,10 @@ package controllers
 import (
 	"errors"
 	"fmt"
-
 	"github.com/go-logr/logr"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	"github.com/openshift/oadp-operator/pkg/credentials"
+	"time"
 )
 
 func (r *DPAReconciler) ValidateDataProtectionCR(log logr.Logger) (bool, error) {
@@ -45,6 +45,16 @@ func (r *DPAReconciler) ValidateDataProtectionCR(log logr.Logger) (bool, error) 
 		for _, location := range dpa.Spec.SnapshotLocations {
 			if location.Velero == nil {
 				return false, errors.New("snapshotLocation velero configuration cannot be nil")
+			}
+		}
+	}
+	//
+	if r.checkIfDataMoverIsEnabled(&dpa) {
+		// parse for timeout if specified and see if there are no errors
+		if len(dpa.Spec.Features.DataMover.Timeout) > 0 {
+			_, err := time.ParseDuration(dpa.Spec.Features.DataMover.Timeout)
+			if err != nil {
+				return false, err
 			}
 		}
 	}

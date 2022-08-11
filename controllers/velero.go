@@ -597,6 +597,13 @@ func (r *DPAReconciler) customizeVeleroContainer(dpa *oadpv1alpha1.DataProtectio
 			Name:  "VOLUME_SNAPSHOT_MOVER",
 			Value: "true",
 		})
+
+		if len(dpa.Spec.Features.DataMover.Timeout) > 0 {
+			veleroContainer.Env = append(veleroContainer.Env, corev1.EnvVar{
+				Name:  "DATAMOVER_TIMEOUT",
+				Value: dpa.Spec.Features.DataMover.Timeout,
+			})
+		}
 	}
 
 	// Enable user to specify --restic-timeout (defaults to 1h)
