@@ -1,7 +1,5 @@
 # Build the manager binary
-# TODO! Find a real ubi8 image for golang 1.16
-# FROM quay.io/app-sre/boilerplate:image-v2.1.0 as builder
-FROM quay.io/konveyor/builder as builder
+FROM quay.io/konveyor/builder:v1.17.2 as builder
 
 WORKDIR /go/src/github.com/openshift/oadp-operator
 # Copy the Go Modules manifests
