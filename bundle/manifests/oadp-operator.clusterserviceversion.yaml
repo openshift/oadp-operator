@@ -178,7 +178,7 @@ metadata:
     operatorframework.io/arch.arm64: supported
     operatorframework.io/arch.ppc64le: supported
     operatorframework.io/arch.s390x: supported
-  name: oadp-operator.v99.0.0
+  name: oadp-operator.v1.1.0
   namespace: openshift-adp
 spec:
   apiservicedefinitions: {}
@@ -868,4 +868,4 @@ spec:
       name: volume-snapshot-mover
     - image: quay.io/konveyor/kubevirt-velero-plugin:v0.2.0
       name: kubevirt-velero-plugin
-  version: 99.0.0
+  version: 1.1.0
