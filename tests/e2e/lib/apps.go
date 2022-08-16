@@ -386,6 +386,10 @@ func VerifyBackupRestoreData(artifact_dir string, namespace string, routeName st
 	//if this is prebackstate = true, add items via makeRequest function. We only want to make request before backup
 	//and ignore post restore checks.
 	if prebackupState {
+		// delete backupFile if it exists
+		if _, err := os.Stat(backupFile); err == nil {
+			os.Remove(backupFile)
+		}
 		//data before curl request
 		dataBeforeCurl, err := getResponseData(appApi + "/todo-incomplete")
 		if err != nil {
@@ -412,7 +416,7 @@ func VerifyBackupRestoreData(artifact_dir string, namespace string, routeName st
 		return err
 	}
 	//Verifying backup-restore data only for CSI as of now.
-	if backupRestoretype == CSI {
+	if backupRestoretype == CSI || backupRestoretype == RESTIC {
 		//check if backupfile exists. If true { compare data response with data from file} (post restore step)
 		//else write data to backup-data.txt (prebackup step)
 		if _, err := os.Stat(backupFile); err == nil {
