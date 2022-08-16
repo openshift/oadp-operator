@@ -147,7 +147,7 @@ var _ = Describe("AWS backup restore tests", func() {
 			backupName := fmt.Sprintf("%s-%s", brCase.Name, backupUid.String())
 			restoreName := fmt.Sprintf("%s-%s", brCase.Name, restoreUid.String())
 			// trim restoreName by 15 chars to prevent exceeding 63 char limit for label for dc-restic-post-restore script.
-			restoreName = restoreName[:15]
+			restoreName = restoreName[:43]
 
 			// install app
 			updateLastInstallingNamespace(brCase.ApplicationNamespace)
