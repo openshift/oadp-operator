@@ -172,7 +172,7 @@ var _ = Describe("AWS backup restore tests", func() {
 			Expect(err).ToNot(HaveOccurred())
 			// create backup
 			log.Printf("Creating backup %s for case %s", backupName, brCase.Name)
-			backup, err := CreateBackupForNamespaces(dpaCR.Client, namespace, backupName, []string{brCase.ApplicationNamespace})
+			backup, err := CreateBackupForNamespaces(dpaCR.Client, namespace, backupName, []string{brCase.ApplicationNamespace}, brCase.BackupRestoreType == RESTIC)
 			Expect(err).ToNot(HaveOccurred())
 
 			// wait for backup to not be running
