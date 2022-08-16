@@ -300,15 +300,15 @@ var _ = Describe("AWS backup restore tests", func() {
 			ApplicationNamespace: "mongo-persistent",
 			Name:                 "mongo-restic-e2e",
 			BackupRestoreType:    RESTIC,
-			PreBackupVerify:      mongoready(false, RESTIC),
+			PreBackupVerify:      mongoready(true, RESTIC),
 			PostRestoreVerify:    mongoready(false, RESTIC),
 		}, nil),
-		Entry("MySQL application RESTIC", BackupRestoreCase{
+		PEntry("MySQL application RESTIC", BackupRestoreCase{
 			ApplicationTemplate:  "./sample-applications/mysql-persistent/mysql-persistent.yaml",
 			ApplicationNamespace: "mysql-persistent",
 			Name:                 "mysql-restic-e2e",
 			BackupRestoreType:    RESTIC,
-			PreBackupVerify:      mysqlReady(false, RESTIC),
+			PreBackupVerify:      mysqlReady(true, RESTIC),
 			PostRestoreVerify:    mysqlReady(false, RESTIC),
 		}, nil),
 	)

@@ -412,7 +412,7 @@ func VerifyBackupRestoreData(artifact_dir string, namespace string, routeName st
 		return err
 	}
 	//Verifying backup-restore data only for CSI as of now.
-	if backupRestoretype == CSI {
+	if backupRestoretype == CSI || backupRestoretype == RESTIC {
 		//check if backupfile exists. If true { compare data response with data from file} (post restore step)
 		//else write data to backup-data.txt (prebackup step)
 		if _, err := os.Stat(backupFile); err == nil {
