@@ -154,6 +154,7 @@ var errorIgnorePatterns = []string{
 	"awserr.Error contents",
 	"Error creating parent directories for blob-info-cache-v1.boltdb",
 	"blob unknown",
+	"num errors=0",
 }
 
 func recoverFromPanicLogs(veleroNamespace string, panicReason interface{}, panicFrom string) string {
