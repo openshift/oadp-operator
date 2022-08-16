@@ -868,4 +868,4 @@ spec:
       name: volume-snapshot-mover
     - image: quay.io/konveyor/kubevirt-velero-plugin:v0.2.0
       name: kubevirt-velero-plugin
-  version: 99.0.0
+  version: 1.1.0
