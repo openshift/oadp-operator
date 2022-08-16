@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os/exec"
 	"regexp"
 	"strings"
 	"time"
@@ -229,4 +230,8 @@ func GetVeleroDeploymentList(namespace string) (*appsv1.DeploymentList, error) {
 		return nil, err
 	}
 	return deploymentList, nil
+}
+
+func RunResticPostRestoreScript(dcRestoreName string) error {
+	return exec.Command("bash", "./docs/scripts/dc-restic-post-restore.sh", dcRestoreName).Run()
 }

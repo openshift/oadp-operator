@@ -146,6 +146,8 @@ var _ = Describe("AWS backup restore tests", func() {
 			restoreUid, _ := uuid.NewUUID()
 			backupName := fmt.Sprintf("%s-%s", brCase.Name, backupUid.String())
 			restoreName := fmt.Sprintf("%s-%s", brCase.Name, restoreUid.String())
+			// trim restoreName by 15 chars to prevent exceeding 63 char limit for label for dc-restic-post-restore script.
+			restoreName = restoreName[:15]
 
 			// install app
 			updateLastInstallingNamespace(brCase.ApplicationNamespace)
@@ -232,6 +234,10 @@ var _ = Describe("AWS backup restore tests", func() {
 				succeeded, err = IsRestoreCompletedSuccessfully(dpaCR.Client, namespace, withDcRestoreName)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(succeeded).To(Equal(true))
+				// run the restic post restore script if restore type is RESTIC
+				log.Printf("Running restic post restore script for case %s", brCase.Name)
+				err = RunResticPostRestoreScript(withDcRestoreName)
+				Expect(err).ToNot(HaveOccurred())
 
 			} else {
 				// run restore
