@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
 	"os/exec"
 	"regexp"
 	"strings"
@@ -234,5 +235,20 @@ func GetVeleroDeploymentList(namespace string) (*appsv1.DeploymentList, error) {
 }
 
 func RunResticPostRestoreScript(dcRestoreName string) error {
-	return exec.Command("bash", "./docs/scripts/dc-restic-post-restore.sh", dcRestoreName).Run()
+	logger := log.Default()
+	logger.Printf("Running post restore script for %s", dcRestoreName)
+	// get current directory
+	currentDir, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+	currentDir = strings.TrimRight(currentDir, "/tests/e2e")
+	command := exec.Command("bash", currentDir + "/docs/scripts/dc-restic-post-restore.sh", dcRestoreName)
+	stdOut, err := command.Output()
+	logger.Printf("command: %s", command.String())
+	logger.Printf("stdout: %s", stdOut)
+	logger.Printf("stderr: %s", command.Stderr)
+	logger.Printf("err: %s", err)
+	return err
+	// return exec.Command("bash", "./docs/scripts/dc-restic-post-restore.sh", dcRestoreName).Run()
 }
