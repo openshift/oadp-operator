@@ -172,7 +172,7 @@ var _ = Describe("AWS backup restore tests", func() {
 			Expect(err).ToNot(HaveOccurred())
 			// create backup
 			log.Printf("Creating backup %s for case %s", backupName, brCase.Name)
-			backup, err := CreateBackupForNamespaces(dpaCR.Client, namespace, backupName, []string{brCase.ApplicationNamespace})
+			backup, err := CreateBackupForNamespaces(dpaCR.Client, namespace, backupName, []string{brCase.ApplicationNamespace}, brCase.BackupRestoreType == RESTIC)
 			Expect(err).ToNot(HaveOccurred())
 
 			// wait for backup to not be running
@@ -294,7 +294,7 @@ var _ = Describe("AWS backup restore tests", func() {
 			ApplicationNamespace: "mongo-persistent",
 			Name:                 "mongo-restic-e2e",
 			BackupRestoreType:    RESTIC,
-			PreBackupVerify:      mongoready(false, RESTIC),
+			PreBackupVerify:      mongoready(true, RESTIC),
 			PostRestoreVerify:    mongoready(false, RESTIC),
 		}, nil),
 		Entry("MySQL application RESTIC", BackupRestoreCase{
@@ -302,7 +302,7 @@ var _ = Describe("AWS backup restore tests", func() {
 			ApplicationNamespace: "mysql-persistent",
 			Name:                 "mysql-restic-e2e",
 			BackupRestoreType:    RESTIC,
-			PreBackupVerify:      mysqlReady(false, RESTIC),
+			PreBackupVerify:      mysqlReady(true, RESTIC),
 			PostRestoreVerify:    mysqlReady(false, RESTIC),
 		}, nil),
 	)
