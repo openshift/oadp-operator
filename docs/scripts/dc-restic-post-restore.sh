@@ -1,12 +1,19 @@
 #!/bin/bash
 set -e
 
+# if sha256sum exists, use it to check the integrity of the file
+if command -v sha256sum >/dev/null 2>&1; then
+  checksum_cmd="sha256sum"
+else
+  checksum_cmd="shasum -a 256"
+fi
+
 label_name () {
     if [ "${#1}" -le "63" ]; then
 	echo $1
 	return
     fi
-    sha=$(echo -n $1|sha256sum)
+    sha=$(echo -n $1|checksum_cmd)
     echo "${1:0:57}${sha:0:6}"
 }
 
