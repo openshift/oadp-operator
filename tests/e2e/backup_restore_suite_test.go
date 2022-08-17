@@ -194,56 +194,24 @@ var _ = Describe("AWS backup restore tests", func() {
 			Eventually(IsNamespaceDeleted(brCase.ApplicationNamespace), timeoutMultiplier*time.Minute*2, time.Second*5).Should(BeTrue())
 
 			updateLastInstallingNamespace(brCase.ApplicationNamespace)
-			// Check if backup needs restic deploymentconfig workaround. https://github.com/openshift/oadp-operator/blob/master/docs/TROUBLESHOOTING.md#deployconfig
+			// run restore
+			log.Printf("Creating restore %s for case %s", restoreName, brCase.Name)
+			restore, err := CreateRestoreFromBackup(dpaCR.Client, namespace, backupName, restoreName)
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(IsRestoreDone(dpaCR.Client, namespace, restoreName), timeoutMultiplier*time.Minute*4, time.Second*10).Should(BeTrue())
+			GinkgoWriter.Println(DescribeRestore(dpaCR.Client, restore))
+			Expect(RestoreErrorLogs(dpaCR.Client, restore)).To(Equal([]string{}))
+
+			// Check if restore succeeded
+			succeeded, err = IsRestoreCompletedSuccessfully(dpaCR.Client, namespace, restoreName)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(succeeded).To(Equal(true))
+
 			if brCase.BackupRestoreType == RESTIC && nsRequiresResticDCWorkaround {
-				log.Printf("DC found in backup namespace, using DC restic workaround")
-				var dcWorkaroundResources = []string{"replicationcontroller", "deploymentconfig", "templateinstances.template.openshift.io"}
-				// run restore
-				noDcDrestoreName := fmt.Sprintf("%s-no-dc-workaround", restoreName)
-				log.Printf("Creating restore %s excluding DC workaround resources for case %s", noDcDrestoreName, brCase.Name)
-				restore, err := CreateRestoreFromBackup(dpaCR.Client, namespace, backupName, noDcDrestoreName, WithExcludedResources(dcWorkaroundResources))
-				Expect(err).ToNot(HaveOccurred())
-				Eventually(IsRestoreDone(dpaCR.Client, namespace, noDcDrestoreName), timeoutMultiplier*time.Minute*4, time.Second*10).Should(BeTrue())
-				GinkgoWriter.Println(DescribeRestore(dpaCR.Client, restore))
-				Expect(RestoreErrorLogs(dpaCR.Client, restore)).To(Equal([]string{}))
-
-				// Check if restore succeeded
-				succeeded, err = IsRestoreCompletedSuccessfully(dpaCR.Client, namespace, noDcDrestoreName)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(succeeded).To(Equal(true))
-				Eventually(AreAppBuildsReady(dpaCR.Client, brCase.ApplicationNamespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
-
-				// run restore
-				withDcRestoreName := fmt.Sprintf("%s-with-dc-workaround", restoreName)
-				log.Printf("Creating restore %s including DC workaround resources for case %s", withDcRestoreName, brCase.Name)
-				restore, err = CreateRestoreFromBackup(dpaCR.Client, namespace, backupName, withDcRestoreName, WithIncludedResources(dcWorkaroundResources))
-				Expect(err).ToNot(HaveOccurred())
-				Eventually(IsRestoreDone(dpaCR.Client, namespace, withDcRestoreName), timeoutMultiplier*time.Minute*4, time.Second*10).Should(BeTrue())
-				GinkgoWriter.Println(DescribeRestore(dpaCR.Client, restore))
-				Expect(RestoreErrorLogs(dpaCR.Client, restore)).To(Equal([]string{}))
-
-				// Check if restore succeeded
-				succeeded, err = IsRestoreCompletedSuccessfully(dpaCR.Client, namespace, withDcRestoreName)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(succeeded).To(Equal(true))
 				// run the restic post restore script if restore type is RESTIC
 				log.Printf("Running restic post restore script for case %s", brCase.Name)
-				err = RunResticPostRestoreScript(withDcRestoreName)
+				err = RunResticPostRestoreScript(restoreName)
 				Expect(err).ToNot(HaveOccurred())
-
-			} else {
-				// run restore
-				log.Printf("Creating restore %s for case %s", restoreName, brCase.Name)
-				restore, err := CreateRestoreFromBackup(dpaCR.Client, namespace, backupName, restoreName)
-				Expect(err).ToNot(HaveOccurred())
-				Eventually(IsRestoreDone(dpaCR.Client, namespace, restoreName), timeoutMultiplier*time.Minute*4, time.Second*10).Should(BeTrue())
-				GinkgoWriter.Println(DescribeRestore(dpaCR.Client, restore))
-				Expect(RestoreErrorLogs(dpaCR.Client, restore)).To(Equal([]string{}))
-
-				// Check if restore succeeded
-				succeeded, err = IsRestoreCompletedSuccessfully(dpaCR.Client, namespace, restoreName)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(succeeded).To(Equal(true))
 			}
 
 			// verify app is running
