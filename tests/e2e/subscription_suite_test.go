@@ -8,7 +8,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/openshift/oadp-operator/tests/e2e/lib"
-	utils "github.com/openshift/oadp-operator/tests/e2e/utils"
 	operators "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/utils/pointer"
@@ -28,12 +27,6 @@ var _ = Describe("Subscription Config Suite Test", func() {
 
 		testSuiteInstanceName := "ts-" + instanceName
 		dpaCR.Name = testSuiteInstanceName
-
-		credData, err := utils.ReadFile(credFile)
-		Expect(err).NotTo(HaveOccurred())
-
-		err = CreateCredentialsSecret(credData, namespace, GetSecretRef(credSecretRef))
-		Expect(err).NotTo(HaveOccurred())
 	})
 
 	var _ = AfterEach(func() {
