@@ -44,12 +44,9 @@ const (
 type DpaCustomResource struct {
 	Name              string
 	Namespace         string
-	SecretName        string
 	backupRestoreType BackupRestoreType
 	CustomResource    *oadpv1alpha1.DataProtectionApplication
 	Client            client.Client
-	Credentials       string
-	CredSecretRef     string
 	Provider          string
 }
 
@@ -77,10 +74,15 @@ func (v *DpaCustomResource) Build(backupRestoreType BackupRestoreType) error {
 			BackupLocations: []oadpv1alpha1.BackupLocation{
 				{
 					Velero: &velero.BackupStorageLocationSpec{
-						Provider:   v.CustomResource.Spec.BackupLocations[0].Velero.Provider,
-						Default:    true,
-						Config:     v.CustomResource.Spec.BackupLocations[0].Velero.Config,
-						Credential: v.CustomResource.Spec.BackupLocations[0].Velero.Credential,
+						Provider: v.CustomResource.Spec.BackupLocations[0].Velero.Provider,
+						Default:  true,
+						Config:   v.CustomResource.Spec.BackupLocations[0].Velero.Config,
+						Credential: &corev1.SecretKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: "bsl-cloud-credentials-" + v.Provider,
+							},
+							Key: "cloud",
+						},
 						StorageType: velero.StorageType{
 							ObjectStorage: &velero.ObjectStorageLocation{
 								Bucket: v.CustomResource.Spec.BackupLocations[0].Velero.ObjectStorage.Bucket,
@@ -91,9 +93,6 @@ func (v *DpaCustomResource) Build(backupRestoreType BackupRestoreType) error {
 				},
 			},
 		},
-	}
-	if dpaInstance.Spec.BackupLocations[0].Velero.Config != nil {
-		dpaInstance.Spec.BackupLocations[0].Velero.Config["credentialsFile"] = "bsl-cloud-credentials-" + v.Provider + "/cloud"
 	}
 	v.backupRestoreType = backupRestoreType
 	switch backupRestoreType {
@@ -422,12 +421,4 @@ func LoadDpaSettingsFromJson(settings string) string {
 		return fmt.Sprintf("Error getting settings json file: %v", err)
 	}
 	return ""
-}
-
-func GetSecretRef(credSecretRef string) string {
-	if Dpa.Spec.BackupLocations[0].Velero.Credential == nil {
-		return credSecretRef
-	} else {
-		return Dpa.Spec.BackupLocations[0].Velero.Credential.Name
-	}
 }

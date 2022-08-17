@@ -10,7 +10,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/openshift/oadp-operator/tests/e2e/lib"
-	utils "github.com/openshift/oadp-operator/tests/e2e/utils"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -53,11 +52,6 @@ var _ = Describe("AWS backup restore tests", func() {
 	var _ = BeforeEach(func() {
 		testSuiteInstanceName := "ts-" + instanceName
 		dpaCR.Name = testSuiteInstanceName
-
-		credData, err := utils.ReadFile(credFile)
-		Expect(err).NotTo(HaveOccurred())
-		err = CreateCredentialsSecret(credData, namespace, GetSecretRef(credSecretRef))
-		Expect(err).NotTo(HaveOccurred())
 	})
 
 	var _ = AfterEach(func() {
@@ -205,8 +199,8 @@ var _ = Describe("AWS backup restore tests", func() {
 				log.Printf("DC found in backup namespace, using DC restic workaround")
 				var dcWorkaroundResources = []string{"replicationcontroller", "deploymentconfig", "templateinstances.template.openshift.io"}
 				// run restore
-				log.Printf("Creating restore %s excluding DC workaround resources for case %s", restoreName, brCase.Name)
 				noDcDrestoreName := fmt.Sprintf("%s-no-dc-workaround", restoreName)
+				log.Printf("Creating restore %s excluding DC workaround resources for case %s", noDcDrestoreName, brCase.Name)
 				restore, err := CreateRestoreFromBackup(dpaCR.Client, namespace, backupName, noDcDrestoreName, WithExcludedResources(dcWorkaroundResources))
 				Expect(err).ToNot(HaveOccurred())
 				Eventually(IsRestoreDone(dpaCR.Client, namespace, noDcDrestoreName), timeoutMultiplier*time.Minute*4, time.Second*10).Should(BeTrue())
@@ -220,8 +214,8 @@ var _ = Describe("AWS backup restore tests", func() {
 				Eventually(AreAppBuildsReady(dpaCR.Client, brCase.ApplicationNamespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 
 				// run restore
-				log.Printf("Creating restore %s including DC workaround resources for case %s", restoreName, brCase.Name)
 				withDcRestoreName := fmt.Sprintf("%s-with-dc-workaround", restoreName)
+				log.Printf("Creating restore %s including DC workaround resources for case %s", withDcRestoreName, brCase.Name)
 				restore, err = CreateRestoreFromBackup(dpaCR.Client, namespace, backupName, withDcRestoreName, WithIncludedResources(dcWorkaroundResources))
 				Expect(err).ToNot(HaveOccurred())
 				Eventually(IsRestoreDone(dpaCR.Client, namespace, withDcRestoreName), timeoutMultiplier*time.Minute*4, time.Second*10).Should(BeTrue())
@@ -232,6 +226,10 @@ var _ = Describe("AWS backup restore tests", func() {
 				succeeded, err = IsRestoreCompletedSuccessfully(dpaCR.Client, namespace, withDcRestoreName)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(succeeded).To(Equal(true))
+				// run the restic post restore script if restore type is RESTIC
+				log.Printf("Running restic post restore script for case %s", brCase.Name)
+				err = RunResticPostRestoreScript(withDcRestoreName)
+				Expect(err).ToNot(HaveOccurred())
 
 			} else {
 				// run restore
