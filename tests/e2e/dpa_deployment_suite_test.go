@@ -588,13 +588,13 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 				log.Printf("Checking for bsl spec")
 				for _, bsl := range dpa.Spec.BackupLocations {
 					// Check if bsl matches the spec
-					Eventually(DoesBSLExist(namespace, *bsl.Velero, installCase.DpaSpec), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
+					Expect(DoesBSLSpecMatchesDpa(namespace, *bsl.Velero, installCase.DpaSpec)).To(BeTrue())
 				}
 			}
 			if len(dpa.Spec.SnapshotLocations) > 0 {
 				log.Printf("Checking for vsl spec")
 				for _, vsl := range dpa.Spec.SnapshotLocations {
-					Eventually(DoesVSLExist(namespace, *vsl.Velero, installCase.DpaSpec), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
+					Expect(DoesVSLSpecMatchesDpa(namespace, *vsl.Velero, installCase.DpaSpec)).To(BeTrue())
 				}
 			}
 

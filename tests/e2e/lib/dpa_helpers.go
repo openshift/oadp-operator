@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
 	. "github.com/onsi/ginkgo/v2"
 	buildv1 "github.com/openshift/api/build/v1"
 	"github.com/openshift/oadp-operator/pkg/common"
@@ -319,37 +320,45 @@ func (v *DpaCustomResource) IsDeleted() wait.ConditionFunc {
 }
 
 //check if bsl matches the spec
-func DoesBSLExist(namespace string, bsl velero.BackupStorageLocationSpec, spec *oadpv1alpha1.DataProtectionApplicationSpec) wait.ConditionFunc {
-	return func() (bool, error) {
-		if len(spec.BackupLocations) == 0 {
-			return false, errors.New("no backup storage location configured. Expected BSL to be configured")
-		}
-		for _, b := range spec.BackupLocations {
-			if b.Velero.Provider == bsl.Provider {
-				if !reflect.DeepEqual(bsl, *b.Velero) {
-					return false, errors.New("given Velero bsl does not match the deployed velero bsl")
-				}
+func DoesBSLSpecMatchesDpa(namespace string, bsl velero.BackupStorageLocationSpec, spec *oadpv1alpha1.DataProtectionApplicationSpec) (bool, error) {
+	if len(spec.BackupLocations) == 0 {
+		return false, errors.New("no backup storage location configured. Expected BSL to be configured")
+	}
+	for _, b := range spec.BackupLocations {
+		if b.Velero.Provider == bsl.Provider {
+			if b.Velero.Config == nil {
+				b.Velero.Config = make(map[string]string)
+			}
+			if bsl.Config == nil {
+				bsl.Config = make(map[string]string)
+			}
+			if !reflect.DeepEqual(bsl, *b.Velero) {
+				GinkgoWriter.Print(cmp.Diff(bsl, *b.Velero))
+				return false, errors.New("given Velero bsl does not match the deployed velero bsl")
 			}
 		}
-		return true, nil
 	}
+	return true, nil
 }
 
 //check if vsl matches the spec
-func DoesVSLExist(namespace string, vslspec velero.VolumeSnapshotLocationSpec, spec *oadpv1alpha1.DataProtectionApplicationSpec) wait.ConditionFunc {
-	return func() (bool, error) {
-
-		if len(spec.SnapshotLocations) == 0 {
-			return false, errors.New("no volume storage location configured. Expected VSL to be configured")
-		}
-		for _, v := range spec.SnapshotLocations {
-			if reflect.DeepEqual(vslspec, *v.Velero) {
-				return true, nil
-			}
-		}
-		return false, errors.New("did not find expected VSL")
-
+func DoesVSLSpecMatchesDpa(namespace string, vslspec velero.VolumeSnapshotLocationSpec, spec *oadpv1alpha1.DataProtectionApplicationSpec) (bool, error) {
+	if len(spec.SnapshotLocations) == 0 {
+		return false, errors.New("no volume storage location configured. Expected VSL to be configured")
 	}
+	for _, v := range spec.SnapshotLocations {
+		if v.Velero.Config == nil {
+			v.Velero.Config = make(map[string]string)
+		}
+		if vslspec.Config == nil {
+			vslspec.Config = make(map[string]string)
+		}
+		if reflect.DeepEqual(vslspec, *v.Velero) {
+			GinkgoWriter.Print(cmp.Diff(vslspec, *v.Velero))
+			return true, nil
+		}
+	}
+	return false, errors.New("did not find expected VSL")
 }
 
 //check velero tolerations
