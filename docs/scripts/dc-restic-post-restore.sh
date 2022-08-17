@@ -3,9 +3,9 @@ set -e
 
 # if sha256sum exists, use it to check the integrity of the file
 if command -v sha256sum >/dev/null 2>&1; then
-  checksum_cmd="sha256sum"
+  CHECKSUM_CMD="sha256sum"
 else
-  checksum_cmd="shasum -a 256"
+  CHECKSUM_CMD="shasum -a 256"
 fi
 
 label_name () {
@@ -13,7 +13,7 @@ label_name () {
 	echo $1
 	return
     fi
-    sha=$(echo -n $1|checksum_cmd)
+    sha=$(echo -n $1|$CHECKSUM_CMD)
     echo "${1:0:57}${sha:0:6}"
 }
 
