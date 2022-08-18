@@ -78,9 +78,10 @@
 | dataMover | [DataMover](https://pkg.go.dev/github.com/openshift/oadp-operator@master/api/v1alpha1#DataMover) | DataMover defines the various config for DPA data mover                                                             |
 
 ### DataMover
-| Property   | Type | Description                                                                                                                   |
-|------------|------|-------------------------------------------------------------------------------------------------------------------------------|
-| enable     | [bool](https://pkg.go.dev/builtin#bool) | Enable is used to specify whether you want to deploy the volume snapshot mover controller and a modified csi datamover plugin |
+| Property       | Type | Description                                                                                                                   |
+|----------------|------|-------------------------------------------------------------------------------------------------------------------------------|
+| enable         | [bool](https://pkg.go.dev/builtin#bool) | Enable is used to specify whether you want to deploy the volume snapshot mover controller and a modified csi datamover plugin |
 | credentialName | [string](https://pkg.go.dev/builtin#string) | User supplied Restic Secret name for DataMover |                                                                               |
+| timeout        | [string](https://pkg.go.dev/builtin#string) | User supplied timeout to be used for VolumeSnapshotBackup and VolumeSnapshotRestore to complete, default value is 10m |                                                                               |
 
 See also [![Go Reference](https://pkg.go.dev/badge/github.com/openshift/oadp-operator.svg)](https://pkg.go.dev/github.com/openshift/oadp-operator) for a deeper dive.
