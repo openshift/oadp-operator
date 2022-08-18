@@ -178,12 +178,18 @@ If the issue still persists, [create a new issue](https://github.com/openshift/o
 
 <hr style="height:1px;border:none;color:#333;"> 
 
-<h3 align="center">Issue with Backup/Restore of DeploymentConfig using Restic<a id="deployconfig"></a></h3>
+<h3 align="center">Issue with Backup/Restore of DeploymentConfig using Restic or restore hooks<a id="deployconfig"></a></h3>
 
--  **Error:** `Using Restic as backup method causes PartiallyFailed/Failed errors in the Restore/Backup`
+-  (OADP 1.1+) **Error:** `DeploymentConfigs restore with spec.Replicas==0 or DC pods fail to restart if they crash if using Restic or restore hooks`
 
     **Solution:**
     
+    This is expected behavior on restore if you are restoring DeploymentConfigs and are either using Restic for volume restore or you have post-restore hooks. The pod and DC plugins make these modifications to ensure that Restic and hooks work properly, and [dc-restic-post-restore.sh](../docs/scripts/dc-restic-post-restore.sh) should have been run immediately after a successful restore. Usage for this script is `dc-restic-post-restore.sh <restore-name>`
+
+-  (OADP 1.0.z) **Error:** `Using Restic as backup method causes PartiallyFailed/Failed errors in the Restore or post-restore hooks fail to execute`
+
+    **Solution:**
+
     The changes in the backup/restore process for mitigating this error would be a two step restore process where, in the first step we would perform a restore excluding the replicationcontroller and deploymentconfig resources, and the second step would involve a restore including these resources. The backup and restore commands are given below for more clarity. (The examples given below are a use case for backup/restore of a target namespace, for other cases a similar strategy can be followed).
 
     Please note that this is a temporary fix for this issue and there are ongoing discussions to solve it.
