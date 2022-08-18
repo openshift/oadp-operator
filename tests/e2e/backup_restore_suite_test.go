@@ -54,16 +54,6 @@ var _ = Describe("AWS backup restore tests", func() {
 		dpaCR.Name = testSuiteInstanceName
 	})
 
-	var _ = AfterEach(func() {
-		GinkgoWriter.Println("Printing velero deployment pod logs")
-		logs, err := GetVeleroContainerLogs(namespace)
-		Expect(err).NotTo(HaveOccurred())
-		GinkgoWriter.Println(logs)
-		GinkgoWriter.Println("End of velero deployment pod logs")
-		err = dpaCR.Delete()
-		Expect(err).ToNot(HaveOccurred())
-
-	})
 	var lastInstallingApplicationNamespace string
 	var lastInstallTime time.Time
 	var _ = ReportAfterEach(func(report SpecReport) {
@@ -72,7 +62,14 @@ var _ = Describe("AWS backup restore tests", func() {
 			if lastInstallingApplicationNamespace != "" {
 				PrintNamespaceEventsAfterTime(lastInstallingApplicationNamespace, lastInstallTime)
 			}
+			GinkgoWriter.Println("Printing velero deployment pod logs")
+			logs, err := GetVeleroContainerLogs(namespace)
+			Expect(err).NotTo(HaveOccurred())
+			GinkgoWriter.Println(logs)
+			GinkgoWriter.Println("End of velero deployment pod logs")
 		}
+		err := dpaCR.Delete()
+		Expect(err).ToNot(HaveOccurred())
 	})
 
 	type BackupRestoreCase struct {
