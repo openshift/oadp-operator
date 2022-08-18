@@ -515,7 +515,14 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 					},
 				},
 			},
-			objects: []client.Object{},
+			objects: []client.Object{
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "cloud-credentials-gcp",
+						Namespace: "test-ns",
+					},
+				},
+			},
 			wantErr: false,
 			want:    true,
 		},
