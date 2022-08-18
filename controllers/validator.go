@@ -93,6 +93,9 @@ func (r *DPAReconciler) ValidateDataProtectionCR(log logr.Logger) (bool, error) 
 	return true, nil
 }
 
+// empty struct to use as map value
+type empty struct{}
+
 // For later: Move this code into validator.go when more need for validation arises
 // TODO: if multiple default plugins exist, ensure we validate all of them.
 // Right now its sequential validation
@@ -123,21 +126,25 @@ func (r *DPAReconciler) ValidateVeleroPlugins(log logr.Logger) (bool, error) {
 			pluginNeedsCheck = true
 		}
 		if ok && pluginSpecificMap.IsCloudProvider && pluginNeedsCheck && !dpa.Spec.Configuration.Velero.NoDefaultBackupLocation {
-			secretNamesToValidate := []string{}
+			secretNamesToValidate := make(map[string]empty)
 			// check specified credentials in backup locations exists in the cluster
 			for _, location := range dpa.Spec.BackupLocations {
 				if location.Velero != nil {
 					provider := strings.TrimPrefix(location.Velero.Provider, veleroIOPrefix)
-					if provider == string(plugin) && location.Velero != nil && location.Velero.Credential != nil {
-						secretNamesToValidate = append(secretNamesToValidate, location.Velero.Credential.Name)
+					if provider == string(plugin) && location.Velero != nil {
+						if location.Velero.Credential != nil {
+							secretNamesToValidate[location.Velero.Credential.Name] = empty{}
+						} else {
+							secretNamesToValidate[pluginSpecificMap.SecretName] = empty{}
+						}
 					}
 				}
 			}
 			// check for default secret name if dpa has snapshotLocations
 			if foundInVSL := snapshotLocationsProviders[string(plugin)]; foundInVSL {
-				secretNamesToValidate = append(secretNamesToValidate, pluginSpecificMap.SecretName)
+				secretNamesToValidate[pluginSpecificMap.SecretName] = empty{}
 			}
-			for _, secretName := range secretNamesToValidate {
+			for secretName, _ := range secretNamesToValidate {
 				_, err := r.getProviderSecret(secretName)
 				if err != nil {
 					r.Log.Info(fmt.Sprintf("error validating %s provider secret:  %s/%s", string(plugin), r.NamespacedName.Namespace, secretName))
