@@ -15,24 +15,25 @@ import (
 )
 
 // Common vars obtained from flags passed in ginkgo.
-var credFile, namespace, credSecretRef, instanceName, provider, ci_cred_file, settings, artifact_dir, oc_cli string
+var bslCredFile, namespace, credSecretRef, instanceName, provider, vslCredFile, settings, artifact_dir, oc_cli string
 var timeoutMultiplier time.Duration
 
 func init() {
-	flag.StringVar(&credFile, "credentials", "", "Cloud Credentials file path location")
+	flag.StringVar(&bslCredFile, "credentials", "", "Credentials path for BackupStorageLocation")
 	flag.StringVar(&namespace, "velero_namespace", "velero", "Velero Namespace")
 	flag.StringVar(&settings, "settings", "./templates/default_settings.json", "Settings of the velero instance")
 	flag.StringVar(&instanceName, "velero_instance_name", "example-velero", "Velero Instance Name")
-	flag.StringVar(&credSecretRef, "creds_secret_ref", "cloud-credentials", "Credential secret ref for backup storage location")
+	flag.StringVar(&credSecretRef, "creds_secret_ref", "cloud-credentials", "Credential secret ref (name) for volume storage location")
 	flag.StringVar(&provider, "provider", "aws", "Cloud provider")
-	flag.StringVar(&ci_cred_file, "ci_cred_file", credFile, "CI Cloud Cred File")
+	// TODO: change flag in makefile to --vsl-credentials
+	flag.StringVar(&vslCredFile, "ci_cred_file", bslCredFile, "Credentials path for for VolumeSnapshotLocation, this credential would have access to cluster volume snapshots (for CI this is not OADP owned credential)")
 	flag.StringVar(&artifact_dir, "artifact_dir", "/tmp", "Directory for storing must gather")
 	flag.StringVar(&oc_cli, "oc_cli", "oc", "OC CLI Client")
 
 	// helps with launching debug sessions from IDE
 	if os.Getenv("E2E_USE_ENV_FLAGS") == "true" {
 		if os.Getenv("CLOUD_CREDENTIALS") != "" {
-			credFile = os.Getenv("CLOUD_CREDENTIALS")
+			bslCredFile = os.Getenv("CLOUD_CREDENTIALS")
 		}
 		if os.Getenv("VELERO_NAMESPACE") != "" {
 			namespace = os.Getenv("VELERO_NAMESPACE")
@@ -50,9 +51,9 @@ func init() {
 			provider = os.Getenv("PROVIDER")
 		}
 		if os.Getenv("CI_CRED_FILE") != "" {
-			ci_cred_file = os.Getenv("CI_CRED_FILE")
+			vslCredFile = os.Getenv("CI_CRED_FILE")
 		} else {
-			ci_cred_file = credFile
+			vslCredFile = bslCredFile
 		}
 		if os.Getenv("ARTIFACT_DIR") != "" {
 			artifact_dir = os.Getenv("ARTIFACT_DIR")
@@ -91,26 +92,23 @@ var _ = BeforeSuite(func() {
 	}
 
 	dpaCR = &DpaCustomResource{
-		Namespace:     namespace,
-		Credentials:   credFile,
-		CredSecretRef: credSecretRef,
-		Provider:      provider,
+		Namespace: namespace,
+		Provider:  provider,
 	}
 	dpaCR.CustomResource = Dpa
 	testSuiteInstanceName := "ts-" + instanceName
 	dpaCR.Name = testSuiteInstanceName
 
-	cloudCredData, err := utils.ReadFile(dpaCR.Credentials)
+	bslCredFileData, err := utils.ReadFile(bslCredFile)
 	Expect(err).NotTo(HaveOccurred())
-	err = CreateCredentialsSecret(cloudCredData, namespace, "bsl-cloud-credentials-"+provider)
+	err = CreateCredentialsSecret(bslCredFileData, namespace, "bsl-cloud-credentials-"+provider)
 	Expect(err).NotTo(HaveOccurred())
-	err = CreateCredentialsSecret(utils.ReplaceSecretDataNewLineWithCarriageReturn(cloudCredData), namespace, "bsl-cloud-credentials-"+provider+"-with-carriage-return")
+	err = CreateCredentialsSecret(utils.ReplaceSecretDataNewLineWithCarriageReturn(bslCredFileData), namespace, "bsl-cloud-credentials-"+provider+"-with-carriage-return")
 	Expect(err).NotTo(HaveOccurred())
-	dpaCR.Credentials = ci_cred_file
 
-	credData, err := utils.ReadFile(dpaCR.Credentials)
+	vslCredFileData, err := utils.ReadFile(vslCredFile)
 	Expect(err).NotTo(HaveOccurred())
-	err = CreateCredentialsSecret(credData, namespace, credSecretRef)
+	err = CreateCredentialsSecret(vslCredFileData, namespace, credSecretRef)
 	Expect(err).NotTo(HaveOccurred())
 	dpaCR.SetClient()
 	Expect(DoesNamespaceExist(namespace)).Should(BeTrue())
@@ -128,9 +126,13 @@ var _ = ReportAfterEach(func(report SpecReport) {
 
 var _ = AfterSuite(func() {
 	log.Printf("Deleting Velero CR")
-	errs := DeleteSecret(namespace, GetSecretRef(credSecretRef))
-	Expect(errs).ToNot(HaveOccurred())
-	err := dpaCR.Delete()
+	err := DeleteSecret(namespace, credSecretRef)
+	Expect(err).ToNot(HaveOccurred())
+	err = DeleteSecret(namespace, "bsl-cloud-credentials-"+provider)
+	Expect(err).ToNot(HaveOccurred())
+	err = DeleteSecret(namespace, "bsl-cloud-credentials-"+provider+"-with-carriage-return")
+	Expect(err).ToNot(HaveOccurred())
+	err = dpaCR.Delete()
 	Expect(err).ToNot(HaveOccurred())
 	Eventually(dpaCR.IsDeleted(), timeoutMultiplier*time.Minute*2, time.Second*5).Should(BeTrue())
 })
