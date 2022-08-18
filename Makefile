@@ -305,29 +305,33 @@ bundle: manifests kustomize ## Generate bundle manifests and metadata, then vali
 	operator-sdk bundle validate ./bundle
 
 .PHONY: nullable-crds-bundle
+nullable-crds-bundle: DPA_SPEC_CONFIG_PROP = .spec.versions.0.schema.openAPIV3Schema.properties.spec.properties.configuration.properties
+nullable-crds-bundle: PROP_RESOURCE_ALLOC = properties.podConfig.properties.resourceAllocations
+nullable-crds-bundle: VELERO_RESOURCE_ALLOC = $(DPA_SPEC_CONFIG_PROP).velero.$(PROP_RESOURCE_ALLOC)
+nullable-crds-bundle: RESTIC_RESOURCE_ALLOC = $(DPA_SPEC_CONFIG_PROP).restic.$(PROP_RESOURCE_ALLOC)
 nullable-crds-bundle: DPA_CRD_YAML ?= bundle/manifests/oadp.openshift.io_dataprotectionapplications.yaml
 nullable-crds-bundle: $(GOBIN)/yq
 # Velero CRD
-	@$(GOBIN)/yq '.spec.versions.0.schema.openAPIV3Schema.properties.spec.properties.configuration.properties.velero.properties.podConfig.properties.resourceAllocations.nullable = true' $(DPA_CRD_YAML) > $(DPA_CRD_YAML).yqresult
+	@$(GOBIN)/yq '$(VELERO_RESOURCE_ALLOC).nullable = true' $(DPA_CRD_YAML) > $(DPA_CRD_YAML).yqresult
 	@mv $(DPA_CRD_YAML).yqresult $(DPA_CRD_YAML)
-	@$(GOBIN)/yq '.spec.versions.0.schema.openAPIV3Schema.properties.spec.properties.configuration.properties.velero.properties.podConfig.properties.resourceAllocations.properties.limits.nullable = true' $(DPA_CRD_YAML) > $(DPA_CRD_YAML).yqresult
+	@$(GOBIN)/yq '$(VELERO_RESOURCE_ALLOC).properties.limits.nullable = true' $(DPA_CRD_YAML) > $(DPA_CRD_YAML).yqresult
 	@mv $(DPA_CRD_YAML).yqresult $(DPA_CRD_YAML)
-	@$(GOBIN)/yq '.spec.versions.0.schema.openAPIV3Schema.properties.spec.properties.configuration.properties.velero.properties.podConfig.properties.resourceAllocations.properties.limits.additionalProperties.nullable = true' $(DPA_CRD_YAML) > $(DPA_CRD_YAML).yqresult
+	@$(GOBIN)/yq '$(VELERO_RESOURCE_ALLOC).properties.limits.additionalProperties.nullable = true' $(DPA_CRD_YAML) > $(DPA_CRD_YAML).yqresult
 	@mv $(DPA_CRD_YAML).yqresult $(DPA_CRD_YAML)
-	@$(GOBIN)/yq '.spec.versions.0.schema.openAPIV3Schema.properties.spec.properties.configuration.properties.velero.properties.podConfig.properties.resourceAllocations.properties.requests.nullable = true' $(DPA_CRD_YAML) > $(DPA_CRD_YAML).yqresult
+	@$(GOBIN)/yq '$(VELERO_RESOURCE_ALLOC).properties.requests.nullable = true' $(DPA_CRD_YAML) > $(DPA_CRD_YAML).yqresult
 	@mv $(DPA_CRD_YAML).yqresult $(DPA_CRD_YAML)
-	@$(GOBIN)/yq '.spec.versions.0.schema.openAPIV3Schema.properties.spec.properties.configuration.properties.velero.properties.podConfig.properties.resourceAllocations.properties.requests.additionalProperties.nullable = true' $(DPA_CRD_YAML) > $(DPA_CRD_YAML).yqresult
+	@$(GOBIN)/yq '$(VELERO_RESOURCE_ALLOC).properties.requests.additionalProperties.nullable = true' $(DPA_CRD_YAML) > $(DPA_CRD_YAML).yqresult
 	@mv $(DPA_CRD_YAML).yqresult $(DPA_CRD_YAML)
 # Restic CRD
-	@$(GOBIN)/yq '.spec.versions.0.schema.openAPIV3Schema.properties.spec.properties.configuration.properties.restic.properties.podConfig.properties.resourceAllocations.nullable = true' $(DPA_CRD_YAML) > $(DPA_CRD_YAML).yqresult
+	@$(GOBIN)/yq '$(RESTIC_RESOURCE_ALLOC).nullable = true' $(DPA_CRD_YAML) > $(DPA_CRD_YAML).yqresult
 	@mv $(DPA_CRD_YAML).yqresult $(DPA_CRD_YAML)
-	@$(GOBIN)/yq '.spec.versions.0.schema.openAPIV3Schema.properties.spec.properties.configuration.properties.restic.properties.podConfig.properties.resourceAllocations.properties.limits.nullable = true' $(DPA_CRD_YAML) > $(DPA_CRD_YAML).yqresult
+	@$(GOBIN)/yq '$(RESTIC_RESOURCE_ALLOC).properties.limits.nullable = true' $(DPA_CRD_YAML) > $(DPA_CRD_YAML).yqresult
 	@mv $(DPA_CRD_YAML).yqresult $(DPA_CRD_YAML)
-	@$(GOBIN)/yq '.spec.versions.0.schema.openAPIV3Schema.properties.spec.properties.configuration.properties.restic.properties.podConfig.properties.resourceAllocations.properties.limits.additionalProperties.nullable = true' $(DPA_CRD_YAML) > $(DPA_CRD_YAML).yqresult
+	@$(GOBIN)/yq '$(RESTIC_RESOURCE_ALLOC).properties.limits.additionalProperties.nullable = true' $(DPA_CRD_YAML) > $(DPA_CRD_YAML).yqresult
 	@mv $(DPA_CRD_YAML).yqresult $(DPA_CRD_YAML)
-	@$(GOBIN)/yq '.spec.versions.0.schema.openAPIV3Schema.properties.spec.properties.configuration.properties.restic.properties.podConfig.properties.resourceAllocations.properties.requests.nullable = true' $(DPA_CRD_YAML) > $(DPA_CRD_YAML).yqresult
+	@$(GOBIN)/yq '$(RESTIC_RESOURCE_ALLOC).properties.requests.nullable = true' $(DPA_CRD_YAML) > $(DPA_CRD_YAML).yqresult
 	@mv $(DPA_CRD_YAML).yqresult $(DPA_CRD_YAML)
-	@$(GOBIN)/yq '.spec.versions.0.schema.openAPIV3Schema.properties.spec.properties.configuration.properties.restic.properties.podConfig.properties.resourceAllocations.properties.requests.additionalProperties.nullable = true' $(DPA_CRD_YAML) > $(DPA_CRD_YAML).yqresult
+	@$(GOBIN)/yq '$(RESTIC_RESOURCE_ALLOC).properties.requests.additionalProperties.nullable = true' $(DPA_CRD_YAML) > $(DPA_CRD_YAML).yqresult
 	@mv $(DPA_CRD_YAML).yqresult $(DPA_CRD_YAML)
 
 .PHONY: nullable-crds-config
