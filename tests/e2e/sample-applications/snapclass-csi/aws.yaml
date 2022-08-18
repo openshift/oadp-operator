@@ -7,7 +7,5 @@ items:
       name: oadp-example-snapclass
       labels:
         velero.io/csi-volumesnapshot-class: 'true'
-      annotations:
-        snapshot.storage.kubernetes.io/is-default-class: 'true'
     driver: ebs.csi.aws.com
     deletionPolicy: Retain
