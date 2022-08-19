@@ -31,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
 	"k8s.io/apimachinery/pkg/selection"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
@@ -65,7 +66,24 @@ func InstallApplication(ocClient client.Client, file string) error {
 		resource.SetLabels(labels)
 		err = ocClient.Create(context.Background(), &resource)
 		if apierrors.IsAlreadyExists(err) {
-			continue
+			// if spec has changed for following kinds, update the resource
+			clusterResource := unstructured.Unstructured{
+				Object: resource.Object,
+			}
+			err = ocClient.Get(context.Background(), types.NamespacedName{Name: resource.GetName(), Namespace: resource.GetNamespace()}, &clusterResource)
+			if err != nil {
+				return err
+			}
+			if resource.Object["kind"] == "VolumeSnapshotClass" {
+				clusterResource.Object["driver"] = resource.Object["driver"]
+				clusterResource.Object["parameters"] = resource.Object["parameters"]
+			} else {
+				clusterResource.Object["spec"] = resource.Object["spec"]
+			}
+			err = ocClient.Update(context.Background(), &clusterResource)
+			if err != nil {
+				return err
+			}
 		} else if err != nil {
 			return err
 		}
