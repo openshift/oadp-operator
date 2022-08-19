@@ -126,6 +126,10 @@ var _ = Describe("AWS backup restore tests", func() {
 					snapshotClassPath := fmt.Sprintf("./sample-applications/snapclass-csi/%s.yaml", provider)
 					err = InstallApplication(dpaCR.Client, snapshotClassPath)
 					Expect(err).ToNot(HaveOccurred())
+					log.Printf("Creating pvc for case %s", brCase.Name)
+					pvcPath := fmt.Sprintf("./sample-applications/%s/pvc/%s.yaml", brCase.ApplicationNamespace, provider)
+					err = InstallApplication(dpaCR.Client, pvcPath)
+					Expect(err).ToNot(HaveOccurred())
 				}
 
 			}
@@ -140,15 +144,10 @@ var _ = Describe("AWS backup restore tests", func() {
 
 			// install app
 			updateLastInstallingNamespace(brCase.ApplicationNamespace)
+
 			log.Printf("Installing application for case %s", brCase.Name)
 			err = InstallApplication(dpaCR.Client, brCase.ApplicationTemplate)
 			Expect(err).ToNot(HaveOccurred())
-			if brCase.BackupRestoreType == CSI {
-				log.Printf("Creating pvc for case %s", brCase.Name)
-				pvcPath := fmt.Sprintf("./sample-applications/%s/pvc/%s.yaml", brCase.ApplicationNamespace, provider)
-				err = InstallApplication(dpaCR.Client, pvcPath)
-				Expect(err).ToNot(HaveOccurred())
-			}
 
 			// wait for pods to be running
 			Eventually(AreAppBuildsReady(dpaCR.Client, brCase.ApplicationNamespace), timeoutMultiplier*time.Minute*5, time.Second*5).Should(BeTrue())
