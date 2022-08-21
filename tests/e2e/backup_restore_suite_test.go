@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
+	"github.com/onsi/ginkgo/v2/types"
 	. "github.com/onsi/gomega"
 	. "github.com/openshift/oadp-operator/tests/e2e/lib"
 	corev1 "k8s.io/api/core/v1"
@@ -61,6 +62,11 @@ var _ = Describe("AWS backup restore tests", func() {
 	var lastInstallingApplicationNamespace string
 	var lastInstallTime time.Time
 	var _ = ReportAfterEach(func(report SpecReport) {
+		if report.State == types.SpecStateSkipped {
+			// do not run if the test is skipped
+			return
+		}
+		GinkgoWriter.Println("Report after each: state: ", report.State.String())
 		if report.Failed() {
 			// print namespace error events for app namespace
 			if lastInstallingApplicationNamespace != "" {
