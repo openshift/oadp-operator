@@ -1,6 +1,7 @@
 package e2e_test
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log"
@@ -10,6 +11,9 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/openshift/oadp-operator/tests/e2e/lib"
+	corev1 "k8s.io/api/core/v1"
+	k8serror "k8s.io/apimachinery/pkg/api/errors"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -68,7 +72,16 @@ var _ = Describe("AWS backup restore tests", func() {
 			GinkgoWriter.Println(logs)
 			GinkgoWriter.Println("End of velero deployment pod logs")
 		}
-		err := dpaCR.Delete()
+		// remove app namespace if leftover (likely previously failed before reaching uninstall applications) to clear items such as PVCs which are immutable so that next test can create new ones
+		err := dpaCR.Client.Delete(context.Background(), &corev1.Namespace{ObjectMeta: v1.ObjectMeta{
+			Name: lastInstallingApplicationNamespace,
+			Namespace: lastInstallingApplicationNamespace,
+		}}, &client.DeleteOptions{})
+		if k8serror.IsNotFound(err) {
+			err = nil
+		}
+		Expect(err).ToNot(HaveOccurred())
+		err = dpaCR.Delete()
 		Expect(err).ToNot(HaveOccurred())
 	})
 
