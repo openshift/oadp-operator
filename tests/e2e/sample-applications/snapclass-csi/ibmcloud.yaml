@@ -7,8 +7,6 @@ items:
       name: oadp-example-snapclass
       labels:
         velero.io/csi-volumesnapshot-class: 'true'
-      annotations:
-        snapshot.storage.kubernetes.io/is-default-class: 'true'
     driver: openshift-storage.cephfs.csi.ceph.com
     deletionPolicy: Retain
     parameters:
