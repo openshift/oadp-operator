@@ -96,13 +96,33 @@ func (v *DpaCustomResource) Build(backupRestoreType BackupRestoreType) error {
 		},
 	}
 	v.backupRestoreType = backupRestoreType
+	type emptyStruct struct{}
+	// default plugins map
+	defaultPlugins := make(map[oadpv1alpha1.DefaultPlugin]emptyStruct)
+	for _, plugin := range dpaInstance.Spec.Configuration.Velero.DefaultPlugins {
+		defaultPlugins[plugin] = emptyStruct{}
+	}
+	featureFlags := make(map[string]emptyStruct)
+	for _, flag := range dpaInstance.Spec.Configuration.Velero.FeatureFlags {
+		featureFlags[flag] = emptyStruct{}
+	}
 	switch backupRestoreType {
 	case RESTIC:
 		dpaInstance.Spec.Configuration.Restic.Enable = pointer.Bool(true)
+		delete(defaultPlugins, oadpv1alpha1.DefaultPluginCSI)
+		delete(featureFlags, "EnableCSI")
 	case CSI:
 		dpaInstance.Spec.Configuration.Restic.Enable = pointer.Bool(false)
-		dpaInstance.Spec.Configuration.Velero.DefaultPlugins = append(dpaInstance.Spec.Configuration.Velero.DefaultPlugins, oadpv1alpha1.DefaultPluginCSI)
-		dpaInstance.Spec.Configuration.Velero.FeatureFlags = append(dpaInstance.Spec.Configuration.Velero.FeatureFlags, "EnableCSI")
+		defaultPlugins[oadpv1alpha1.DefaultPluginCSI] = emptyStruct{}
+		featureFlags["EnableCSI"] = emptyStruct{}
+	}
+	dpaInstance.Spec.Configuration.Velero.DefaultPlugins = make([]oadpv1alpha1.DefaultPlugin, 0)
+	for k := range defaultPlugins {
+		dpaInstance.Spec.Configuration.Velero.DefaultPlugins = append(dpaInstance.Spec.Configuration.Velero.DefaultPlugins, k)
+	}
+	dpaInstance.Spec.Configuration.Velero.FeatureFlags = make([]string, 0)
+	for k := range featureFlags {
+		dpaInstance.Spec.Configuration.Velero.FeatureFlags = append(dpaInstance.Spec.Configuration.Velero.FeatureFlags, k)
 	}
 	v.CustomResource = &dpaInstance
 	return nil
