@@ -11,10 +11,12 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
+	"reflect"
 	"sort"
 	"strings"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
 	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 	"github.com/onsi/ginkgo/v2"
 	ocpappsv1 "github.com/openshift/api/apps/v1"
@@ -74,15 +76,33 @@ func InstallApplication(ocClient client.Client, file string) error {
 			if err != nil {
 				return err
 			}
-			if resource.Object["kind"] == "VolumeSnapshotClass" {
-				clusterResource.Object["driver"] = resource.Object["driver"]
-				clusterResource.Object["parameters"] = resource.Object["parameters"]
-			} else {
-				clusterResource.Object["spec"] = resource.Object["spec"]
+			if _, metadataExists := clusterResource.Object["metadata"]; metadataExists {
+				// copy generation, resourceVersion, and annotations from the existing resource
+				resource.SetGeneration(clusterResource.GetGeneration())
+				resource.SetResourceVersion(clusterResource.GetResourceVersion())
+				resource.SetUID(clusterResource.GetUID())
+				resource.SetManagedFields(clusterResource.GetManagedFields())
+				resource.SetCreationTimestamp(clusterResource.GetCreationTimestamp())
+				resource.SetDeletionTimestamp(clusterResource.GetDeletionTimestamp())
 			}
-			err = ocClient.Update(context.Background(), &clusterResource)
-			if err != nil {
-				return err
+			needsUpdate := false
+			for key := range clusterResource.Object {
+				if key == "status" {
+					continue
+				}
+				if !reflect.DeepEqual(clusterResource.Object[key], resource.Object[key]) {
+					fmt.Println("diff found for key:", key)
+					ginkgo.GinkgoWriter.Println(cmp.Diff(clusterResource.Object[key], resource.Object[key]))
+					needsUpdate = true
+					clusterResource.Object[key] = resource.Object[key]
+				}
+			}
+			if needsUpdate {
+				fmt.Printf("updating resource: %s; name: %s\n", resource.GetKind(), resource.GetName())
+				err = ocClient.Update(context.Background(), &clusterResource)
+				if err != nil {
+					return err
+				}
 			}
 		} else if err != nil {
 			return err
