@@ -1,6 +1,7 @@
 package e2e_test
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log"
@@ -8,8 +9,12 @@ import (
 
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
+	"github.com/onsi/ginkgo/v2/types"
 	. "github.com/onsi/gomega"
 	. "github.com/openshift/oadp-operator/tests/e2e/lib"
+	corev1 "k8s.io/api/core/v1"
+	k8serror "k8s.io/apimachinery/pkg/api/errors"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -54,25 +59,36 @@ var _ = Describe("AWS backup restore tests", func() {
 		dpaCR.Name = testSuiteInstanceName
 	})
 
-	var _ = AfterEach(func() {
-		GinkgoWriter.Println("Printing velero deployment pod logs")
-		logs, err := GetVeleroContainerLogs(namespace)
-		Expect(err).NotTo(HaveOccurred())
-		GinkgoWriter.Println(logs)
-		GinkgoWriter.Println("End of velero deployment pod logs")
-		err = dpaCR.Delete()
-		Expect(err).ToNot(HaveOccurred())
-
-	})
 	var lastInstallingApplicationNamespace string
 	var lastInstallTime time.Time
 	var _ = ReportAfterEach(func(report SpecReport) {
+		if report.State == types.SpecStateSkipped {
+			// do not run if the test is skipped
+			return
+		}
+		GinkgoWriter.Println("Report after each: state: ", report.State.String())
 		if report.Failed() {
 			// print namespace error events for app namespace
 			if lastInstallingApplicationNamespace != "" {
 				PrintNamespaceEventsAfterTime(lastInstallingApplicationNamespace, lastInstallTime)
 			}
+			GinkgoWriter.Println("Printing velero deployment pod logs")
+			logs, err := GetVeleroContainerLogs(namespace)
+			Expect(err).NotTo(HaveOccurred())
+			GinkgoWriter.Println(logs)
+			GinkgoWriter.Println("End of velero deployment pod logs")
 		}
+		// remove app namespace if leftover (likely previously failed before reaching uninstall applications) to clear items such as PVCs which are immutable so that next test can create new ones
+		err := dpaCR.Client.Delete(context.Background(), &corev1.Namespace{ObjectMeta: v1.ObjectMeta{
+			Name: lastInstallingApplicationNamespace,
+			Namespace: lastInstallingApplicationNamespace,
+		}}, &client.DeleteOptions{})
+		if k8serror.IsNotFound(err) {
+			err = nil
+		}
+		Expect(err).ToNot(HaveOccurred())
+		err = dpaCR.Delete()
+		Expect(err).ToNot(HaveOccurred())
 	})
 
 	type BackupRestoreCase struct {
@@ -154,7 +170,7 @@ var _ = Describe("AWS backup restore tests", func() {
 			}
 
 			// wait for pods to be running
-			Eventually(AreAppBuildsReady(dpaCR.Client, brCase.ApplicationNamespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
+			Eventually(AreAppBuildsReady(dpaCR.Client, brCase.ApplicationNamespace), timeoutMultiplier*time.Minute*5, time.Second*5).Should(BeTrue())
 			Eventually(AreApplicationPodsRunning(brCase.ApplicationNamespace), timeoutMultiplier*time.Minute*9, time.Second*5).Should(BeTrue())
 
 			// Run optional custom verification
@@ -170,7 +186,7 @@ var _ = Describe("AWS backup restore tests", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			// wait for backup to not be running
-			Eventually(IsBackupDone(dpaCR.Client, namespace, backupName), timeoutMultiplier*time.Minute*4, time.Second*10).Should(BeTrue())
+			Eventually(IsBackupDone(dpaCR.Client, namespace, backupName), timeoutMultiplier*time.Minute*12, time.Second*10).Should(BeTrue())
 			GinkgoWriter.Println(DescribeBackup(dpaCR.Client, backup))
 			Expect(BackupErrorLogs(dpaCR.Client, backup)).To(Equal([]string{}))
 
