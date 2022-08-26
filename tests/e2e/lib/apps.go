@@ -11,10 +11,12 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
+	"reflect"
 	"sort"
 	"strings"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
 	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 	"github.com/onsi/ginkgo/v2"
 	ocpappsv1 "github.com/openshift/api/apps/v1"
@@ -31,6 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
 	"k8s.io/apimachinery/pkg/selection"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
@@ -65,7 +68,42 @@ func InstallApplication(ocClient client.Client, file string) error {
 		resource.SetLabels(labels)
 		err = ocClient.Create(context.Background(), &resource)
 		if apierrors.IsAlreadyExists(err) {
-			continue
+			// if spec has changed for following kinds, update the resource
+			clusterResource := unstructured.Unstructured{
+				Object: resource.Object,
+			}
+			err = ocClient.Get(context.Background(), types.NamespacedName{Name: resource.GetName(), Namespace: resource.GetNamespace()}, &clusterResource)
+			if err != nil {
+				return err
+			}
+			if _, metadataExists := clusterResource.Object["metadata"]; metadataExists {
+				// copy generation, resourceVersion, and annotations from the existing resource
+				resource.SetGeneration(clusterResource.GetGeneration())
+				resource.SetResourceVersion(clusterResource.GetResourceVersion())
+				resource.SetUID(clusterResource.GetUID())
+				resource.SetManagedFields(clusterResource.GetManagedFields())
+				resource.SetCreationTimestamp(clusterResource.GetCreationTimestamp())
+				resource.SetDeletionTimestamp(clusterResource.GetDeletionTimestamp())
+			}
+			needsUpdate := false
+			for key := range clusterResource.Object {
+				if key == "status" {
+					continue
+				}
+				if !reflect.DeepEqual(clusterResource.Object[key], resource.Object[key]) {
+					fmt.Println("diff found for key:", key)
+					ginkgo.GinkgoWriter.Println(cmp.Diff(clusterResource.Object[key], resource.Object[key]))
+					needsUpdate = true
+					clusterResource.Object[key] = resource.Object[key]
+				}
+			}
+			if needsUpdate {
+				fmt.Printf("updating resource: %s; name: %s\n", resource.GetKind(), resource.GetName())
+				err = ocClient.Update(context.Background(), &clusterResource)
+				if err != nil {
+					return err
+				}
+			}
 		} else if err != nil {
 			return err
 		}
@@ -386,6 +424,10 @@ func VerifyBackupRestoreData(artifact_dir string, namespace string, routeName st
 	//if this is prebackstate = true, add items via makeRequest function. We only want to make request before backup
 	//and ignore post restore checks.
 	if prebackupState {
+		// delete backupFile if it exists
+		if _, err := os.Stat(backupFile); err == nil {
+			os.Remove(backupFile)
+		}
 		//data before curl request
 		dataBeforeCurl, err := getResponseData(appApi + "/todo-incomplete")
 		if err != nil {
@@ -412,7 +454,7 @@ func VerifyBackupRestoreData(artifact_dir string, namespace string, routeName st
 		return err
 	}
 	//Verifying backup-restore data only for CSI as of now.
-	if backupRestoretype == CSI {
+	if backupRestoretype == CSI || backupRestoretype == RESTIC {
 		//check if backupfile exists. If true { compare data response with data from file} (post restore step)
 		//else write data to backup-data.txt (prebackup step)
 		if _, err := os.Stat(backupFile); err == nil {

@@ -1,6 +1,7 @@
 package e2e_test
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log"
@@ -8,9 +9,12 @@ import (
 
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
+	"github.com/onsi/ginkgo/v2/types"
 	. "github.com/onsi/gomega"
 	. "github.com/openshift/oadp-operator/tests/e2e/lib"
-	utils "github.com/openshift/oadp-operator/tests/e2e/utils"
+	corev1 "k8s.io/api/core/v1"
+	k8serror "k8s.io/apimachinery/pkg/api/errors"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -53,32 +57,38 @@ var _ = Describe("AWS backup restore tests", func() {
 	var _ = BeforeEach(func() {
 		testSuiteInstanceName := "ts-" + instanceName
 		dpaCR.Name = testSuiteInstanceName
-
-		credData, err := utils.ReadFile(credFile)
-		Expect(err).NotTo(HaveOccurred())
-		err = CreateCredentialsSecret(credData, namespace, GetSecretRef(credSecretRef))
-		Expect(err).NotTo(HaveOccurred())
 	})
 
-	var _ = AfterEach(func() {
-		GinkgoWriter.Println("Printing velero deployment pod logs")
-		logs, err := GetVeleroContainerLogs(namespace)
-		Expect(err).NotTo(HaveOccurred())
-		GinkgoWriter.Println(logs)
-		GinkgoWriter.Println("End of velero deployment pod logs")
-		err = dpaCR.Delete()
-		Expect(err).ToNot(HaveOccurred())
-
-	})
 	var lastInstallingApplicationNamespace string
 	var lastInstallTime time.Time
 	var _ = ReportAfterEach(func(report SpecReport) {
+		if report.State == types.SpecStateSkipped {
+			// do not run if the test is skipped
+			return
+		}
+		GinkgoWriter.Println("Report after each: state: ", report.State.String())
 		if report.Failed() {
 			// print namespace error events for app namespace
 			if lastInstallingApplicationNamespace != "" {
 				PrintNamespaceEventsAfterTime(lastInstallingApplicationNamespace, lastInstallTime)
 			}
+			GinkgoWriter.Println("Printing velero deployment pod logs")
+			logs, err := GetVeleroContainerLogs(namespace)
+			Expect(err).NotTo(HaveOccurred())
+			GinkgoWriter.Println(logs)
+			GinkgoWriter.Println("End of velero deployment pod logs")
 		}
+		// remove app namespace if leftover (likely previously failed before reaching uninstall applications) to clear items such as PVCs which are immutable so that next test can create new ones
+		err := dpaCR.Client.Delete(context.Background(), &corev1.Namespace{ObjectMeta: v1.ObjectMeta{
+			Name: lastInstallingApplicationNamespace,
+			Namespace: lastInstallingApplicationNamespace,
+		}}, &client.DeleteOptions{})
+		if k8serror.IsNotFound(err) {
+			err = nil
+		}
+		Expect(err).ToNot(HaveOccurred())
+		err = dpaCR.Delete()
+		Expect(err).ToNot(HaveOccurred())
 	})
 
 	type BackupRestoreCase struct {
@@ -160,7 +170,7 @@ var _ = Describe("AWS backup restore tests", func() {
 			}
 
 			// wait for pods to be running
-			Eventually(AreAppBuildsReady(dpaCR.Client, brCase.ApplicationNamespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
+			Eventually(AreAppBuildsReady(dpaCR.Client, brCase.ApplicationNamespace), timeoutMultiplier*time.Minute*5, time.Second*5).Should(BeTrue())
 			Eventually(AreApplicationPodsRunning(brCase.ApplicationNamespace), timeoutMultiplier*time.Minute*9, time.Second*5).Should(BeTrue())
 
 			// Run optional custom verification
@@ -172,11 +182,11 @@ var _ = Describe("AWS backup restore tests", func() {
 			Expect(err).ToNot(HaveOccurred())
 			// create backup
 			log.Printf("Creating backup %s for case %s", backupName, brCase.Name)
-			backup, err := CreateBackupForNamespaces(dpaCR.Client, namespace, backupName, []string{brCase.ApplicationNamespace})
+			backup, err := CreateBackupForNamespaces(dpaCR.Client, namespace, backupName, []string{brCase.ApplicationNamespace}, brCase.BackupRestoreType == RESTIC)
 			Expect(err).ToNot(HaveOccurred())
 
 			// wait for backup to not be running
-			Eventually(IsBackupDone(dpaCR.Client, namespace, backupName), timeoutMultiplier*time.Minute*4, time.Second*10).Should(BeTrue())
+			Eventually(IsBackupDone(dpaCR.Client, namespace, backupName), timeoutMultiplier*time.Minute*12, time.Second*10).Should(BeTrue())
 			GinkgoWriter.Println(DescribeBackup(dpaCR.Client, backup))
 			Expect(BackupErrorLogs(dpaCR.Client, backup)).To(Equal([]string{}))
 
@@ -200,52 +210,24 @@ var _ = Describe("AWS backup restore tests", func() {
 			Eventually(IsNamespaceDeleted(brCase.ApplicationNamespace), timeoutMultiplier*time.Minute*2, time.Second*5).Should(BeTrue())
 
 			updateLastInstallingNamespace(brCase.ApplicationNamespace)
-			// Check if backup needs restic deploymentconfig workaround. https://github.com/openshift/oadp-operator/blob/master/docs/TROUBLESHOOTING.md#deployconfig
+			// run restore
+			log.Printf("Creating restore %s for case %s", restoreName, brCase.Name)
+			restore, err := CreateRestoreFromBackup(dpaCR.Client, namespace, backupName, restoreName)
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(IsRestoreDone(dpaCR.Client, namespace, restoreName), timeoutMultiplier*time.Minute*4, time.Second*10).Should(BeTrue())
+			GinkgoWriter.Println(DescribeRestore(dpaCR.Client, restore))
+			Expect(RestoreErrorLogs(dpaCR.Client, restore)).To(Equal([]string{}))
+
+			// Check if restore succeeded
+			succeeded, err = IsRestoreCompletedSuccessfully(dpaCR.Client, namespace, restoreName)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(succeeded).To(Equal(true))
+
 			if brCase.BackupRestoreType == RESTIC && nsRequiresResticDCWorkaround {
-				log.Printf("DC found in backup namespace, using DC restic workaround")
-				var dcWorkaroundResources = []string{"replicationcontroller", "deploymentconfig", "templateinstances.template.openshift.io"}
-				// run restore
-				log.Printf("Creating restore %s excluding DC workaround resources for case %s", restoreName, brCase.Name)
-				noDcDrestoreName := fmt.Sprintf("%s-no-dc-workaround", restoreName)
-				restore, err := CreateRestoreFromBackup(dpaCR.Client, namespace, backupName, noDcDrestoreName, WithExcludedResources(dcWorkaroundResources))
+				// run the restic post restore script if restore type is RESTIC
+				log.Printf("Running restic post restore script for case %s", brCase.Name)
+				err = RunResticPostRestoreScript(restoreName)
 				Expect(err).ToNot(HaveOccurred())
-				Eventually(IsRestoreDone(dpaCR.Client, namespace, noDcDrestoreName), timeoutMultiplier*time.Minute*4, time.Second*10).Should(BeTrue())
-				GinkgoWriter.Println(DescribeRestore(dpaCR.Client, restore))
-				Expect(RestoreErrorLogs(dpaCR.Client, restore)).To(Equal([]string{}))
-
-				// Check if restore succeeded
-				succeeded, err = IsRestoreCompletedSuccessfully(dpaCR.Client, namespace, noDcDrestoreName)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(succeeded).To(Equal(true))
-				Eventually(AreAppBuildsReady(dpaCR.Client, brCase.ApplicationNamespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
-
-				// run restore
-				log.Printf("Creating restore %s including DC workaround resources for case %s", restoreName, brCase.Name)
-				withDcRestoreName := fmt.Sprintf("%s-with-dc-workaround", restoreName)
-				restore, err = CreateRestoreFromBackup(dpaCR.Client, namespace, backupName, withDcRestoreName, WithIncludedResources(dcWorkaroundResources))
-				Expect(err).ToNot(HaveOccurred())
-				Eventually(IsRestoreDone(dpaCR.Client, namespace, withDcRestoreName), timeoutMultiplier*time.Minute*4, time.Second*10).Should(BeTrue())
-				GinkgoWriter.Println(DescribeRestore(dpaCR.Client, restore))
-				Expect(RestoreErrorLogs(dpaCR.Client, restore)).To(Equal([]string{}))
-
-				// Check if restore succeeded
-				succeeded, err = IsRestoreCompletedSuccessfully(dpaCR.Client, namespace, withDcRestoreName)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(succeeded).To(Equal(true))
-
-			} else {
-				// run restore
-				log.Printf("Creating restore %s for case %s", restoreName, brCase.Name)
-				restore, err := CreateRestoreFromBackup(dpaCR.Client, namespace, backupName, restoreName)
-				Expect(err).ToNot(HaveOccurred())
-				Eventually(IsRestoreDone(dpaCR.Client, namespace, restoreName), timeoutMultiplier*time.Minute*4, time.Second*10).Should(BeTrue())
-				GinkgoWriter.Println(DescribeRestore(dpaCR.Client, restore))
-				Expect(RestoreErrorLogs(dpaCR.Client, restore)).To(Equal([]string{}))
-
-				// Check if restore succeeded
-				succeeded, err = IsRestoreCompletedSuccessfully(dpaCR.Client, namespace, restoreName)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(succeeded).To(Equal(true))
 			}
 
 			// verify app is running
@@ -294,7 +276,7 @@ var _ = Describe("AWS backup restore tests", func() {
 			ApplicationNamespace: "mongo-persistent",
 			Name:                 "mongo-restic-e2e",
 			BackupRestoreType:    RESTIC,
-			PreBackupVerify:      mongoready(false, RESTIC),
+			PreBackupVerify:      mongoready(true, RESTIC),
 			PostRestoreVerify:    mongoready(false, RESTIC),
 		}, nil),
 		Entry("MySQL application RESTIC", BackupRestoreCase{
@@ -302,7 +284,7 @@ var _ = Describe("AWS backup restore tests", func() {
 			ApplicationNamespace: "mysql-persistent",
 			Name:                 "mysql-restic-e2e",
 			BackupRestoreType:    RESTIC,
-			PreBackupVerify:      mysqlReady(false, RESTIC),
+			PreBackupVerify:      mysqlReady(true, RESTIC),
 			PostRestoreVerify:    mysqlReady(false, RESTIC),
 		}, nil),
 	)
