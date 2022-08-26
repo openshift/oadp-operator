@@ -112,15 +112,6 @@ metadata:
         },
         {
           "apiVersion": "velero.io/v1",
-          "kind": "ResticRepository",
-          "metadata": {
-            "name": "resticrepository",
-            "namespace": "openshift-adp"
-          },
-          "spec": {}
-        },
-        {
-          "apiVersion": "velero.io/v1",
           "kind": "Restore",
           "metadata": {
             "name": "restore",
@@ -185,6 +176,22 @@ spec:
   apiservicedefinitions: {}
   customresourcedefinitions:
     owned:
+    - description: A backup repository is an indicator of a connection from the restic/kopia
+        server to the backupstoragelocation.
+      displayName: BackupRepository
+      kind: BackupRepository
+      name: backuprepositories.velero.io
+      statusDescriptors:
+      - description: Phase is the current state of the BackupRepository.
+        displayName: Phase
+        path: phase
+      - description: Message is a message about the current status of the BackupRepository.
+        displayName: Message
+        path: message
+      - description: LastMaintenanceTime is the last time maintenance was run.
+        displayName: LastMaintenanceTime
+        path: lastMaintenanceTime
+      version: v1
     - description: Backup is a Velero resource that respresents the capture of Kubernetes
         cluster state at a point in time (API objects and associated volume state).
       displayName: Backup
@@ -361,22 +368,6 @@ spec:
           information about the restore operation.
         displayName: Progress
         path: progress
-      version: v1
-    - description: A restic repository is an indicator of a connection from the restic
-        server to the backupstoragelocation.
-      displayName: ResticRepository
-      kind: ResticRepository
-      name: resticrepositories.velero.io
-      statusDescriptors:
-      - description: Phase is the current state of the ResticRepository.
-        displayName: Phase
-        path: phase
-      - description: Message is a message about the current status of the ResticRepository.
-        displayName: Message
-        path: message
-      - description: LastMaintenanceTime is the last time maintenance was run.
-        displayName: LastMaintenanceTime
-        path: lastMaintenanceTime
       version: v1
     - description: Restore is a Velero resource that represents the application of
         resources from a Velero backup to a target Kubernetes cluster.
@@ -781,19 +772,19 @@ spec:
                     fieldRef:
                       fieldPath: metadata.annotations['olm.targetNamespaces']
                 - name: RELATED_IMAGE_VELERO
-                  value: quay.io/konveyor/velero:konveyor-1.9
+                  value: quay.io/konveyor/velero:latest
                 - name: RELATED_IMAGE_VELERO_RESTIC_RESTORE_HELPER
-                  value: quay.io/konveyor/velero-restic-restore-helper:konveyor-1.9
+                  value: quay.io/konveyor/velero-restic-restore-helper:latest
                 - name: RELATED_IMAGE_OPENSHIFT_VELERO_PLUGIN
                   value: quay.io/konveyor/openshift-velero-plugin:latest
                 - name: RELATED_IMAGE_VELERO_PLUGIN_FOR_AWS
-                  value: quay.io/konveyor/velero-plugin-for-aws:konveyor-1.5
+                  value: quay.io/konveyor/velero-plugin-for-aws:latest
                 - name: RELATED_IMAGE_VELERO_PLUGIN_FOR_MICROSOFT_AZURE
-                  value: quay.io/konveyor/velero-plugin-for-microsoft-azure:konveyor-1.5
+                  value: quay.io/konveyor/velero-plugin-for-microsoft-azure:latest
                 - name: RELATED_IMAGE_VELERO_PLUGIN_FOR_GCP
-                  value: quay.io/konveyor/velero-plugin-for-gcp:konveyor-1.5
+                  value: quay.io/konveyor/velero-plugin-for-gcp:latest
                 - name: RELATED_IMAGE_VELERO_PLUGIN_FOR_CSI
-                  value: quay.io/konveyor/velero-plugin-for-csi:konveyor-0.3
+                  value: quay.io/konveyor/velero-plugin-for-csi:latest
                 - name: RELATED_IMAGE_VOLUME_SNAPSHOT_MOVER
                   value: quay.io/konveyor/volume-snapshot-mover:latest
                 - name: RELATED_IMAGE_KUBEVIRT_VELERO_PLUGIN
@@ -904,22 +895,22 @@ spec:
   provider:
     name: Red Hat
   relatedImages:
-  - image: quay.io/konveyor/velero:konveyor-1.9
-    name: velero
-  - image: quay.io/konveyor/velero-restic-restore-helper:konveyor-1.9
-    name: velero-restic-restore-helper
-  - image: quay.io/konveyor/openshift-velero-plugin:latest
-    name: openshift-velero-plugin
-  - image: quay.io/konveyor/velero-plugin-for-aws:konveyor-1.5
-    name: velero-plugin-for-aws
-  - image: quay.io/konveyor/velero-plugin-for-microsoft-azure:konveyor-1.5
-    name: velero-plugin-for-microsoft-azure
-  - image: quay.io/konveyor/velero-plugin-for-gcp:konveyor-1.5
-    name: velero-plugin-for-gcp
-  - image: quay.io/konveyor/velero-plugin-for-csi:konveyor-0.3
-    name: velero-plugin-for-csi
   - image: quay.io/konveyor/volume-snapshot-mover:latest
     name: volume-snapshot-mover
+  - image: quay.io/konveyor/velero-restic-restore-helper:latest
+    name: velero-restic-restore-helper
+  - image: quay.io/konveyor/velero-plugin-for-microsoft-azure:latest
+    name: velero-plugin-for-microsoft-azure
+  - image: quay.io/konveyor/velero-plugin-for-gcp:latest
+    name: velero-plugin-for-gcp
+  - image: quay.io/konveyor/velero-plugin-for-csi:latest
+    name: velero-plugin-for-csi
+  - image: quay.io/konveyor/velero-plugin-for-aws:latest
+    name: velero-plugin-for-aws
+  - image: quay.io/konveyor/velero:latest
+    name: velero
+  - image: quay.io/konveyor/openshift-velero-plugin:latest
+    name: openshift-velero-plugin
   - image: quay.io/konveyor/kubevirt-velero-plugin:v0.2.0
     name: kubevirt-velero-plugin
   version: 99.0.0
