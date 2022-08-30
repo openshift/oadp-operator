@@ -109,7 +109,6 @@ var _ = Describe("Subscription Config Suite Test", func() {
 					},
 				},
 			},
-			stream: stream,
 		}),
 		Entry("NO_PROXY set", SubscriptionConfigTestCase{
 			SubscriptionConfig: operators.SubscriptionConfig{
@@ -120,7 +119,6 @@ var _ = Describe("Subscription Config Suite Test", func() {
 					},
 				},
 			},
-			stream: stream,
 		}),
 		Entry("HTTPS_PROXY set", SubscriptionConfigTestCase{
 			SubscriptionConfig: operators.SubscriptionConfig{
@@ -133,7 +131,6 @@ var _ = Describe("Subscription Config Suite Test", func() {
 			},
 			// Failure is expected because localhost is not a valid https proxy and manager container will fail setup
 			failureExpected: pointer.Bool(true),
-			stream: stream,
 		}),
 		// Leave this as last entry to reset config
 		Entry("Config unset", SubscriptionConfigTestCase{
