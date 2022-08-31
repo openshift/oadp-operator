@@ -16,13 +16,18 @@ type Subscription struct {
 	*operators.Subscription
 }
 
-func (d *DpaCustomResource) GetOperatorSubscription() (*Subscription, error) {
+func (d *DpaCustomResource) GetOperatorSubscription(stream string) (*Subscription, error) {
 	err := d.SetClient()
 	if err != nil {
 		return nil, err
 	}
 	sl := operators.SubscriptionList{}
-	err = d.Client.List(context.Background(), &sl, client.InNamespace(d.Namespace), client.MatchingLabels(map[string]string{"operators.coreos.com/oadp-operator." + d.Namespace: ""}))
+	if stream == "up"{
+		err = d.Client.List(context.Background(), &sl, client.InNamespace(d.Namespace), client.MatchingLabels(map[string]string{"operators.coreos.com/oadp-operator." + d.Namespace: ""}))
+	}
+	if stream == "down"{
+		err = d.Client.List(context.Background(), &sl, client.InNamespace(d.Namespace), client.MatchingLabels(map[string]string{"operators.coreos.com/redhat-oadp-operator." + d.Namespace: ""}))
+	}
 	if err != nil {
 		return nil, err
 	}

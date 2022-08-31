@@ -15,7 +15,7 @@ import (
 )
 
 // Common vars obtained from flags passed in ginkgo.
-var bslCredFile, namespace, credSecretRef, instanceName, provider, vslCredFile, settings, artifact_dir, oc_cli string
+var bslCredFile, namespace, credSecretRef, instanceName, provider, vslCredFile, settings, artifact_dir, oc_cli, stream string
 var timeoutMultiplier time.Duration
 
 func init() {
@@ -29,6 +29,7 @@ func init() {
 	flag.StringVar(&vslCredFile, "ci_cred_file", bslCredFile, "Credentials path for for VolumeSnapshotLocation, this credential would have access to cluster volume snapshots (for CI this is not OADP owned credential)")
 	flag.StringVar(&artifact_dir, "artifact_dir", "/tmp", "Directory for storing must gather")
 	flag.StringVar(&oc_cli, "oc_cli", "oc", "OC CLI Client")
+	flag.StringVar(&stream, "stream", "up", "[up, down] upstream or downstream")
 
 	// helps with launching debug sessions from IDE
 	if os.Getenv("E2E_USE_ENV_FLAGS") == "true" {
@@ -37,6 +38,9 @@ func init() {
 		}
 		if os.Getenv("VELERO_NAMESPACE") != "" {
 			namespace = os.Getenv("VELERO_NAMESPACE")
+		}
+		if os.Getenv("OADP_STREAM") != "" {
+			stream = os.Getenv("OADP_STREAM")
 		}
 		if os.Getenv("SETTINGS") != "" {
 			settings = os.Getenv("SETTINGS")
