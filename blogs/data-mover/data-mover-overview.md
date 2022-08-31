@@ -32,22 +32,26 @@ orchestration tools and storage systems such that users do not need to be
 informed on the differences between storage providers’ needs and requirements.
 It also provides point-in-time snapshotting of volumes.
 
-CSI volumes are now the standard, and back most Cloud Native applications. 
+CSI volumes are now the industry standard and are the storage backing for most 
+Cloud Native applications. 
 However issues concerning CSI volumes still remain. Some volumes have 
 vendor-specific requirements, and can prevent proper portability and durability. 
 VolumeSnapshotMover works to solve this case, which will be
 discussed more in the next section.
 
-You can read more about CSI [here](https://kubernetes.io/blog/2019/01/15/container-storage-interface-ga/). 
+You can read more about CSI [here](https://kubernetes-csi.github.io/docs/). 
 
 
 ## Why We Need VolumeSnapshotMover
 
-During backup using Velero with CSI, CSI snapshotting is performed. This 
+During a backup using Velero with CSI, CSI snapshotting is performed. This 
 snapshot is created on the storage provider where the snapshot was taken. 
 This means that for some providers, such as ODF, the snapshot lives on the 
 cluster. Due to this poor durability, in the case of a disaster scenario, the 
-snapshot is also subjected to disaster. 
+snapshot is also subjected to disaster.  
+
+With volumeSnapshotMover, snapshots are relocated off of the cluster to the 
+targeted backupStorageLocation, providing additional saftey. 
 
 
 ## Components 
@@ -94,6 +98,6 @@ as the data source for its associated PVC.
 
 ## VolumeSnapshotMover's Future
 
-The most impending plan for volumeSnapshotMover is to improve performance. 
+In the near future, we plan to improve the performance of volumeSnapshotMover. 
 A new Velero ItemAction plugin will be introduced to allow for asynchronous 
 operations during backup and restore. 
