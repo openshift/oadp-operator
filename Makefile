@@ -290,21 +290,54 @@ rm -rf $$TMP_DIR ;\
 }
 endef
 
-yq:
+$(GOBIN)/yq:
 	go install github.com/mikefarah/yq/v4@latest
 
 .PHONY: bundle
-bundle: manifests kustomize yq ## Generate bundle manifests and metadata, then validate generated files.
+bundle: manifests kustomize ## Generate bundle manifests and metadata, then validate generated files.
 	operator-sdk generate kustomize manifests -q
 	cd config/manager && $(KUSTOMIZE) edit set image controller=$(IMG)
-	$(KUSTOMIZE) build config/manifests | operator-sdk generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
-	# Removes placeholder velero deployment used so `operator-sdk generate bundle` adds velero service account and role to bundle CSV using yq. See https://github.com/mikefarah/yq/#install
-	$(GOBIN)/yq eval 'del(.spec.install.spec.deployments.1)' bundle/manifests/oadp-operator.clusterserviceversion.yaml > bundle/manifests/oadp-operator.clusterserviceversion.yaml.yqresult
-	mv bundle/manifests/oadp-operator.clusterserviceversion.yaml.yqresult bundle/manifests/oadp-operator.clusterserviceversion.yaml
+	$(KUSTOMIZE) build config/manifests | operator-sdk generate bundle -q --extra-service-accounts "velero" --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
+	@make nullable-crds-bundle nullable-crds-config # patch nullables in CRDs
 	# Copy updated bundle.Dockerfile to CI's Dockerfile.bundle
 	# TODO: update CI to use generated one
 	cp bundle.Dockerfile build/Dockerfile.bundle
 	operator-sdk bundle validate ./bundle
+
+.PHONY: nullable-crds-bundle
+nullable-crds-bundle: DPA_SPEC_CONFIG_PROP = .spec.versions.0.schema.openAPIV3Schema.properties.spec.properties.configuration.properties
+nullable-crds-bundle: PROP_RESOURCE_ALLOC = properties.podConfig.properties.resourceAllocations
+nullable-crds-bundle: VELERO_RESOURCE_ALLOC = $(DPA_SPEC_CONFIG_PROP).velero.$(PROP_RESOURCE_ALLOC)
+nullable-crds-bundle: RESTIC_RESOURCE_ALLOC = $(DPA_SPEC_CONFIG_PROP).restic.$(PROP_RESOURCE_ALLOC)
+nullable-crds-bundle: DPA_CRD_YAML ?= bundle/manifests/oadp.openshift.io_dataprotectionapplications.yaml
+nullable-crds-bundle: $(GOBIN)/yq
+# Velero CRD
+	@$(GOBIN)/yq '$(VELERO_RESOURCE_ALLOC).nullable = true' $(DPA_CRD_YAML) > $(DPA_CRD_YAML).yqresult
+	@mv $(DPA_CRD_YAML).yqresult $(DPA_CRD_YAML)
+	@$(GOBIN)/yq '$(VELERO_RESOURCE_ALLOC).properties.limits.nullable = true' $(DPA_CRD_YAML) > $(DPA_CRD_YAML).yqresult
+	@mv $(DPA_CRD_YAML).yqresult $(DPA_CRD_YAML)
+	@$(GOBIN)/yq '$(VELERO_RESOURCE_ALLOC).properties.limits.additionalProperties.nullable = true' $(DPA_CRD_YAML) > $(DPA_CRD_YAML).yqresult
+	@mv $(DPA_CRD_YAML).yqresult $(DPA_CRD_YAML)
+	@$(GOBIN)/yq '$(VELERO_RESOURCE_ALLOC).properties.requests.nullable = true' $(DPA_CRD_YAML) > $(DPA_CRD_YAML).yqresult
+	@mv $(DPA_CRD_YAML).yqresult $(DPA_CRD_YAML)
+	@$(GOBIN)/yq '$(VELERO_RESOURCE_ALLOC).properties.requests.additionalProperties.nullable = true' $(DPA_CRD_YAML) > $(DPA_CRD_YAML).yqresult
+	@mv $(DPA_CRD_YAML).yqresult $(DPA_CRD_YAML)
+# Restic CRD
+	@$(GOBIN)/yq '$(RESTIC_RESOURCE_ALLOC).nullable = true' $(DPA_CRD_YAML) > $(DPA_CRD_YAML).yqresult
+	@mv $(DPA_CRD_YAML).yqresult $(DPA_CRD_YAML)
+	@$(GOBIN)/yq '$(RESTIC_RESOURCE_ALLOC).properties.limits.nullable = true' $(DPA_CRD_YAML) > $(DPA_CRD_YAML).yqresult
+	@mv $(DPA_CRD_YAML).yqresult $(DPA_CRD_YAML)
+	@$(GOBIN)/yq '$(RESTIC_RESOURCE_ALLOC).properties.limits.additionalProperties.nullable = true' $(DPA_CRD_YAML) > $(DPA_CRD_YAML).yqresult
+	@mv $(DPA_CRD_YAML).yqresult $(DPA_CRD_YAML)
+	@$(GOBIN)/yq '$(RESTIC_RESOURCE_ALLOC).properties.requests.nullable = true' $(DPA_CRD_YAML) > $(DPA_CRD_YAML).yqresult
+	@mv $(DPA_CRD_YAML).yqresult $(DPA_CRD_YAML)
+	@$(GOBIN)/yq '$(RESTIC_RESOURCE_ALLOC).properties.requests.additionalProperties.nullable = true' $(DPA_CRD_YAML) > $(DPA_CRD_YAML).yqresult
+	@mv $(DPA_CRD_YAML).yqresult $(DPA_CRD_YAML)
+
+.PHONY: nullable-crds-config
+nullable-crds-config: DPA_CRD_YAML ?= config/crd/bases/oadp.openshift.io_dataprotectionapplications.yaml
+nullable-crds-config:
+	DPA_CRD_YAML=$(DPA_CRD_YAML) make nullable-crds-bundle
 
 .PHONY: bundle-build
 bundle-build: ## Build the bundle image.
