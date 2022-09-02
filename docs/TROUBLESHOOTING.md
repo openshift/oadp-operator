@@ -4,7 +4,8 @@
     1. [Debugging Failed Volume Backups](#volbackup)
 2. [Debugging Failed Restores](#restore)
     1. [Debugging Failed Volume Restores](#volrestore)
-3. Common Issues and Misconfigurations
+3. [Debugging Data Mover](https://github.com/migtools/volume-snapshot-mover/blob/master/docs/troubleshooting.md)
+4. Common Issues and Misconfigurations
     1. [Credentials Not Properly Formatted](#creds)
     2. [Errors in the Velero Pod](#velpod)
     3. [Errors in Backup Logs](#backuplogs)
