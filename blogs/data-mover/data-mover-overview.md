@@ -61,21 +61,21 @@ OADP is the OpenShift API for Data Protection operator. This open source operato
 We will be installing Velero alongside the CSI plugin (modified version).
 
 ### Modified CSI plugin (M-CSI):  
-The upstream Velero plugin for CSI is modified to facilitate CSI volumesnapshot data movement from OpenShift cluster to object storage and vice versa.
+The upstream Velero plugin for CSI is modified to facilitate CSI volumesnapshot data movement from an OpenShift cluster to object storage and vice versa.
 
 ### VolSync:
 VolSync is a Kubernetes operator that performs asynchronous replication of persistent volumes within, or across, clusters. The replication provided by VolSync is independent of the storage system. This allows replication to and from storage types that don’t normally support remote replication. 
 We will be using Volsync’s restic datamover.
 
 ### VolumeSnapshotMover (VSM) Controller:
-The VSM controller is the CSI data movement orchestrator, it gets deployed via OADP Operator when you enable the datamover feature. This controller has the following responsibilities:
+The VSM controller is the CSI data movement orchestrator, it is deployed via the OADP Operator once the datamover feature is enabled. This controller has the following responsibilities:
 - Validates the VolumeSnapshotBackup/VolumeSnapshotRestore Custom Resources.
 - Makes sure that the data movement workflow has the appropriate storage credentials
 - Performs the copy of VolumeSnapshotContent, CSI VolumeSnapshot and PersistentVolumeClaims from application namespace to OADP Operator namespace
 - Triggers the data movement process and subsequently performs the cleanup of extraneous resources created.
 
 ### VolumeSnapshotMover CustomResourceDefinitions (CRDs):
-The data mover process will be based on 2 Custom Resource Definitions:
+The data mover process will be based on two Custom Resource Definitions:
 - VolumeSnapshotBackup (VSB):
 ```
 Spec:
@@ -108,8 +108,8 @@ Status:
 - When the Velero Backup is triggered, the M-CSI plugin creates a VS for each PersistentVolumeClaim (PVC) to be backed up.
 - Now for the created VS, the M-CSI plugin fetches the associated VolumeSnapshotContent (VSC) and adds it as an additional item to be backed up.
 - Subsequently, the M-CSI plugin then checks whether there is a VolumeSnapshotBackup (VSB) instance associated with the VSC that was added as an additional item, if there isn't one then the M-CSI plugin creates a VSB for each VSC.
-- The creation of VSB triggers the data movement process, the VolumeSnapshotMover (VSM) controller reconciles on the VSB instance and begins the snapshot movement process.
-- VSM first Validates the VSB, then copies the VSC, followed by VS and finally the PVC into the namespace where OADP Operator resides. Once this is done the VSM controller uses the PVC as a datasource and creates a ReplicationSource CR.
+- The creation of a VSB triggers the data movement process as the VolumeSnapshotMover (VSM) controller begins to reconcile on this VSB instance.
+- VSM first validates the VSB, then copies the VSC, followed by VS and finally the PVC into the namespace where OADP Operator resides. Once this is done the VSM controller uses the PVC as a datasource and creates a Volsync ReplicationSource CR.
 - Volsync reconciles on ReplicationSource CR and then Volsync’s restic mover begins the transfer of data from cluster to the target object storage.
 - Since the time when VSB is created and data movement is started, Velero backup waits for Volsync to complete the data movement, once that's done VSB is marked complete and consequently the backup is marked complete by Velero.
 - One point to note is that, VSM controller deletes all the extraneous resources that were created during the data mover backup process.
