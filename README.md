@@ -46,7 +46,7 @@ Documentation in this repository are considered unofficial and for development p
 6. Examples
     1. [Stateless App Backup/Restore](docs/examples/stateless.md)
     2. [Stateful App Backup/Restore](docs/examples/stateful.md)
-    3. [CSI Backup/Restore](docs/examples/csi_example.md)
+    3. [CSI Backup/Restore](docs/examples/CSI)
 7. [Troubleshooting](docs/TROUBLESHOOTING.md)
 8. Contribute
     1. [Install & Build from Source](docs/developer/install_from_source.md)
