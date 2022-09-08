@@ -9,12 +9,8 @@ max_parallelism=$4
 pvr=$5
 object_collection_path=$6
 
-# Gather PVR describe and logs
+# Gather PVR describe
 mkdir -p ${object_collection_path}
 oc describe podvolumerestores.velero.io ${pvr} --namespace ${ns} &> "${object_collection_path}/pvr-describe-${pvr}.txt"
-echo "[cluster=${cluster}][ns=${ns}][pod=${pod}] Collecting Pod logs..."
-oc logs --all-containers --namespace ${ns} ${pod} --since ${logs_since} &> "${object_collection_path}/current.log" &
-echo "[cluster=${cluster}][ns=${ns}][pod=${pod}] Collecting previous Pod logs..."
-oc logs --previous --all-containers --namespace ${ns} ${pod} --since ${logs_since} &> "${object_collection_path}/previous.log" & 
-
+# logs covered by restic pod logs in gather_logs_pods
 wait
