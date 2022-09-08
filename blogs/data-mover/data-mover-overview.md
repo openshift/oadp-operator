@@ -20,7 +20,7 @@ VolumeSnapshotMover provides portability and durability of CSI volume snapshots
 by relocating snapshots into an object storage location during backup of a 
 stateful application. These snapshots are then available for restore during 
 instances of disaster scenarios. This blog will discuss the different 
-volumeSnapshotMover components and how they work together to complete this 
+VolumeSnapshotMover components and how they work together to complete this 
 process.
 
 
@@ -29,12 +29,12 @@ process.
 One of the more important components of VolumeSnapshotMover to understand is CSI, 
 or Container Storage Interface. CSI provides a layer of abstraction between container 
 orchestration tools and storage systems such that users do not need to be 
-informed on the differences between storage providers’ needs and requirements.
+informed on the differences between storage provider's needs and requirements.
 It also provides point-in-time snapshotting of volumes.
 
 CSI volumes are now the industry standard and are the storage backing for most 
 Cloud Native applications. 
-However issues concerning CSI volumes still remain. Some volumes have 
+However, issues concerning CSI volumes still remain. Some volumes have 
 vendor-specific requirements, and can prevent proper portability and durability. 
 VolumeSnapshotMover works to solve this case, which will be
 discussed more in the next section.
@@ -51,23 +51,69 @@ cluster. Due to this poor durability, in the case of a disaster scenario, the
 snapshot is also subjected to disaster.  
 
 With volumeSnapshotMover, snapshots are relocated off of the cluster to the 
-targeted backupStorageLocation, providing additional saftey. 
+targeted backupStorageLocation (generally object storage), providing additional safety. 
 
 
-## Components 
+## Components
 
-### VolSync
+### OADP Operator: 
+OADP is the OpenShift API for Data Protection operator. This open source operator sets up and installs Velero on the OpenShift platform, allowing users to backup and restore applications. 
+We will be installing Velero alongside the CSI plugin (modified version).
 
-### Velero
+### Modified CSI plugin (M-CSI):  
+The upstream Velero plugin for CSI is modified to facilitate CSI volumesnapshot data movement from an OpenShift cluster to object storage and vice versa.
 
-### VolumeSnapshotMover Controller
+### VolSync:
+VolSync is a Kubernetes operator that performs asynchronous replication of persistent volumes within, or across, clusters. The replication provided by VolSync is independent of the storage system. This allows replication to and from storage types that don’t normally support remote replication. 
+We will be using Volsync’s restic datamover.
 
-### VolumeSnapshotMover CustomResourceDefinitions
+### VolumeSnapshotMover (VSM) Controller:
+The VSM controller is the CSI data movement orchestrator, it is deployed via the OADP Operator once the datamover feature is enabled. This controller has the following responsibilities:
+- Validates the VolumeSnapshotBackup/VolumeSnapshotRestore Custom Resources.
+- Makes sure that the data movement workflow has the appropriate storage credentials
+- Performs the copy of VolumeSnapshotContent, CSI VolumeSnapshot and PersistentVolumeClaims from application namespace to OADP Operator namespace
+- Triggers the data movement process and subsequently performs the cleanup of extraneous resources created.
 
+### VolumeSnapshotMover CustomResourceDefinitions (CRDs):
+The data mover process will be based on two Custom Resource Definitions:
+- VolumeSnapshotBackup (VSB):
+```
+Spec:
+  Volumesnapshotcontent:
+  ProtectedNamespace:
+  ResticSecretRef:
+Status:
+  Completed:
+  SourcePVCData:
+  Conditions:
+  ResticRepository:
+  Phase:
+  VolumeSnapshotClassName:  
+```
+- VolumeSnapshotRestore (VSR):
+```
+Spec:
+  ResticSecretRef:
+  VolumeSnapshotMoverBackupRef:
+  ProtectedNamespace:
+Status:
+  Conditions:
+  Phase:
+  Snapshothandle:
+```
 
 ## Backup Process
 
-- (steps here)
+- The M-CSI plugin is extended to facilitate the data movement of CSI VolumeSnapshots(VS) from cluster to object storage.
+- When the Velero Backup is triggered, the M-CSI plugin creates a VS for each PersistentVolumeClaim (PVC) to be backed up.
+- Now for the created VS, the M-CSI plugin fetches the associated VolumeSnapshotContent (VSC) and adds it as an additional item to be backed up.
+- Subsequently, the M-CSI plugin then checks whether there is a VolumeSnapshotBackup (VSB) instance associated with the VSC that was added as an additional item, if there isn't one then the M-CSI plugin creates a VSB for each VSC.
+- The creation of a VSB triggers the data movement process as the VolumeSnapshotMover (VSM) controller begins to reconcile on this VSB instance.
+- VSM first validates the VSB, then copies the VSC, followed by VS and finally the PVC into the namespace where OADP Operator resides. Once this is done the VSM controller uses the PVC as a datasource and creates a Volsync ReplicationSource CR.
+- Volsync reconciles on ReplicationSource CR and then Volsync’s restic mover begins the transfer of data from cluster to the target object storage.
+- Since the time when VSB is created and data movement is started, Velero backup waits for Volsync to complete the data movement, once that's done VSB is marked complete and consequently the backup is marked complete by Velero.
+- One point to note is that, VSM controller deletes all the extraneous resources that were created during the data mover backup process.
+
 
 ![VSMBackup](dataMoverBackup.png)
 
@@ -75,20 +121,18 @@ targeted backupStorageLocation, providing additional saftey.
 
 ## Restore Process
 
-- During restore, the Velero CSI plugin is extended to support volumeSnapshotMover 
-functionality. As mentioned previously, during backup, a `volumeSnapshotBackup` custom 
+- During restore, the M-CSI plugin is extended to support volumeSnapshotMover 
+functionality. As mentioned previously, during backup, a VSB custom 
 resource is stored as a backup object. This CR contains details pertinent to 
 performing a volumeSnapshotMover restore. 
 
-- Once a `volumeSnapshotBackup` CR is encountered, a `volumeSnapshotRestore` CR 
-is created by the extended Velero CSI plugin. The volumeSnapshotMover controller 
-then begins to reconcile on the `volumeSnapshotRestore` CR. Here, a VolSync 
-`replicationDestination` is created by the volumeSnapshotMover controller in the 
-protected namespace. This CR will recover the `volumeSnapshot` that was 
+- Once a VSB CR is encountered, a VSR CR is created by the M-CSI plugin. The VSM controller 
+then begins to reconcile on the VSR CR. Here, a VolSync ReplicationDestination is created by the VSM controller in the 
+OADP Operator namespace. This CR will recover the VolumeSnapshot that was 
 stored in the object storage location during backup. 
 
 - After the VolSync restore step completes, the Velero restore continues as usual. 
-However, the extended CSI plugin uses the VolSync `volumeSnapshot` `snapHandle` 
+However, the M-CSI plugin uses the VolSync VolumeSnapshot's `snapHandle` 
 as the data source for its associated PVC.  
 
 - The stateful application data is then restored, and disaster is averted.
@@ -98,6 +142,7 @@ as the data source for its associated PVC.
 
 ## VolumeSnapshotMover's Future
 
-In the near future, we plan to improve the performance of volumeSnapshotMover. 
+In the near future, we plan to improve the performance of VolumeSnapshotMover. 
 A new Velero ItemAction plugin will be introduced to allow for asynchronous 
-operations during backup and restore. 
+operations during backup and restore. This will vastly improve the performance of 
+VolumeSnapshot data movement.
