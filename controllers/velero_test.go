@@ -3669,12 +3669,12 @@ func TestDPAReconciler_getVeleroImage(t *testing.T) {
 				},
 			},
 			pluginName: common.Velero,
-			wantImage:  "quay.io/konveyor/velero:konveyor-1.9",
+			wantImage:  "quay.io/konveyor/velero:latest",
 			setEnvVars: map[string]string{
 				"REGISTRY":    "quay.io",
 				"PROJECT":     "konveyor",
 				"VELERO_REPO": "velero",
-				"VELERO_TAG":  "konveyor-1.9",
+				"VELERO_TAG":  "latest",
 			},
 		},
 	}

@@ -40,6 +40,22 @@ spec:
         displayName: Conditions
         path: conditions
       version: v1alpha1
+    - description: A backup repository is an indicator of a connection from the restic/kopia
+        server to the backupstoragelocation.
+      displayName: BackupRepository
+      kind: BackupRepository
+      name: backuprepositories.velero.io
+      statusDescriptors:
+      - description: Phase is the current state of the BackupRepository.
+        displayName: Phase
+        path: phase
+      - description: Message is a message about the current status of the BackupRepository.
+        displayName: Message
+        path: message
+      - description: LastMaintenanceTime is the last time maintenance was run.
+        displayName: LastMaintenanceTime
+        path: lastMaintenanceTime
+      version: v1
     - description: BackupStorageLocation represents an object storage location (such
         as Amazon S3 Bucket) where Velero stores backup objects.
       displayName: BackupStorageLocation
@@ -202,22 +218,6 @@ spec:
           information about the restore operation.
         displayName: Progress
         path: progress
-      version: v1
-    - description: A restic repository is an indicator of a connection from the restic
-        server to the backupstoragelocation.
-      displayName: ResticRepository
-      kind: ResticRepository
-      name: resticrepositories.velero.io
-      statusDescriptors:
-      - description: Phase is the current state of the ResticRepository.
-        displayName: Phase
-        path: phase
-      - description: Message is a message about the current status of the ResticRepository.
-        displayName: Message
-        path: message
-      - description: LastMaintenanceTime is the last time maintenance was run.
-        displayName: LastMaintenanceTime
-        path: lastMaintenanceTime
       version: v1
     - description: Restore is a Velero resource that represents the application of
         resources from a Velero backup to a target Kubernetes cluster.
