@@ -66,6 +66,7 @@ endif
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
 ENVTEST_K8S_VERSION = 1.21
 
+
 .PHONY:ginkgo
 ginkgo: # Make sure ginkgo is in $GOPATH/bin
 	go get -d github.com/onsi/ginkgo/ginkgo
@@ -148,6 +149,9 @@ help: ## Display this help.
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_0-9-]+:.*?##/ { printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
 
 ##@ Development
+# golang version check
+golang_check: golang_check ## Ensure the golang version meets the requirements
+	./docs/developer/golang_version_check
 
 manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
 	# Commenting out default which overwrites scoped config/rbac/role.yaml
@@ -354,6 +358,7 @@ deploy-olm: THIS_OPERATOR_IMAGE?=ttl.sh/oadp-operator-$(GIT_REV):1h # Set target
 deploy-olm: THIS_BUNDLE_IMAGE?=ttl.sh/oadp-operator-bundle-$(GIT_REV):1h # Set target specific variable
 deploy-olm: DEPLOY_TMP:=$(shell mktemp -d)/ # Set target specific variable
 deploy-olm:
+	./docs/developer/golang_version_check
 	oc whoami # Check if logged in
 	oc create namespace $(OADP_TEST_NAMESPACE) # This should error out if namespace already exists, delete namespace (to clear current resources) before proceeding
 	@echo "DEPLOY_TMP: $(DEPLOY_TMP)"

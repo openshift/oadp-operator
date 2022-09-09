@@ -1,0 +1,31 @@
+#!/usr/bin/sh
+MINIMUM_GO_MAJOR_VERSION=1
+MINIMUM_GO_MINOR_VERSION=18
+MINIMUM_GO_RELEASE_VERSION=6
+
+GO_MAJOR_VERSION=`go version | cut -c 14- | cut -d' ' -f1 | cut -d'.' -f1`
+GO_MINOR_VERSION=`go version | cut -c 14- | cut -d' ' -f1 | cut -d'.' -f2`
+GO_RELEASE_VERSION=`go version | cut -c 14- | cut -d' ' -f1 | cut -d'.' -f3`
+
+printf "MINIMUM_ GOLANG Version:  %s.%s.%s\n" $MINIMUM_GO_MAJOR_VERSION $MINIMUM_GO_MINOR_VERSION $MINIMUM_GO_RELEASE_VERSION
+printf "Current GOLANG Version:  %s.%s.%s\n" $GO_MAJOR_VERSION $GO_MINOR_VERSION $GO_RELEASE_VERSION
+
+function check_version ()
+{
+  if [ $1 -ge $2 ]; then
+    printf "version pass\n"
+  else
+    printf "Please check your golang version\n";
+    exit 1 
+  fi
+
+}
+
+check_version $GO_MAJOR_VERSION $MINIMUM_GO_MAJOR_VERSION
+check_version $GO_MINOR_VERSION $MINIMUM_GO_MINOR_VERSION
+check_version $GO_RELEASE_VERSION $MINIMUM_GO_RELEASE_VERSION
+
+exit 0
+
+
+   
