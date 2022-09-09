@@ -225,16 +225,6 @@ unapply-velerosa-role: velero-role-tmp
 	kubectl delete -f $(VELERO_ROLE_TMP)/velero-role_binding.yaml
 	VELERO_ROLE_TMP=$(VELERO_ROLE_TMP) make velero-role-tmp-cleanup
 
-# Deprecated in favor of `deploy-olm`
-# deploy: manifests velero-role-tmp  ## Deploy controller to the K8s cluster specified in ~/.kube/config.
-# 	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
-# 	$(KUSTOMIZE) build config/default | kubectl apply -f -
-# 	VELERO_ROLE_TMP=$(VELERO_ROLE_TMP) make apply-velerosa-role
-
-# undeploy: velero-role-tmp ## Undeploy controller from the K8s cluster specified in ~/.kube/config.
-# 	VELERO_ROLE_TMP=$(VELERO_ROLE_TMP) make unapply-velerosa-role
-# 	$(KUSTOMIZE) build config/default | kubectl delete -f -
-
 build-deploy: THIS_IMAGE=ttl.sh/oadp-operator-$(shell git rev-parse --short HEAD):1h # Set target specific variable
 build-deploy: ## Build current branch image and deploy controller to the k8s cluster specified in ~/.kube/config.
 	IMG=$(THIS_IMAGE) make docker-build docker-push deploy
@@ -348,12 +338,11 @@ bundle-push: ## Push the bundle image.
 	$(MAKE) docker-push IMG=$(BUNDLE_IMG)
 
 GIT_REV:=$(shell git rev-parse --short HEAD)
-## Build current branch operator image, bundle image, push and install via OLM
 .PHONY: deploy-olm
 deploy-olm: THIS_OPERATOR_IMAGE?=ttl.sh/oadp-operator-$(GIT_REV):1h # Set target specific variable
 deploy-olm: THIS_BUNDLE_IMAGE?=ttl.sh/oadp-operator-bundle-$(GIT_REV):1h # Set target specific variable
 deploy-olm: DEPLOY_TMP:=$(shell mktemp -d)/ # Set target specific variable
-deploy-olm:
+deploy-olm: ## Build current branch operator image, bundle image, push and install via OLM
 	oc whoami # Check if logged in
 	oc create namespace $(OADP_TEST_NAMESPACE) # This should error out if namespace already exists, delete namespace (to clear current resources) before proceeding
 	@echo "DEPLOY_TMP: $(DEPLOY_TMP)"
@@ -417,14 +406,14 @@ sed -r "s/[&]* [!] $(CLUSTER_TYPE)|[!] $(CLUSTER_TYPE) [&]*//")) || $(CLUSTER_TY
 #TEST_FILTER := $(shell echo '! aws && ! gcp && ! azure' | sed -r "s/[&]* [!] $(CLUSTER_TYPE)|[!] $(CLUSTER_TYPE) [&]*//")
 SETTINGS_TMP=/tmp/test-settings
 
-test-e2e-setup:
+test-e2e-setup: 
 	mkdir -p $(SETTINGS_TMP)
 	TARGET_CI_CRED_FILE="$(CI_CRED_FILE)" AZURE_RESOURCE_FILE="$(AZURE_RESOURCE_FILE)" CI_JSON_CRED_FILE="$(AZURE_CI_JSON_CRED_FILE)" \
 	OADP_JSON_CRED_FILE="$(AZURE_OADP_JSON_CRED_FILE)" OADP_CRED_FILE="$(OADP_CRED_FILE)" OPENSHIFT_CI="$(OPENSHIFT_CI)" \
 	PROVIDER="$(VELERO_PLUGIN)" BUCKET="$(OADP_BUCKET)" BSL_REGION="$(BSL_REGION)" SECRET="$(CREDS_SECRET_REF)" TMP_DIR=$(SETTINGS_TMP) \
 	VSL_REGION="$(VSL_REGION)" BSL_AWS_PROFILE="$(BSL_AWS_PROFILE)" /bin/bash "tests/e2e/scripts/$(CLUSTER_TYPE)_settings.sh"
 
-test-e2e: test-e2e-setup
+test-e2e: test-e2e-setup ## execute the oadp integration tests
 	ginkgo run -mod=mod tests/e2e/ -- -credentials=$(OADP_CRED_FILE) \
 	-velero_namespace=$(OADP_TEST_NAMESPACE) \
 	-settings=$(SETTINGS_TMP)/oadpcreds \

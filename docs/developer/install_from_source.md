@@ -90,4 +90,4 @@ replicaset.apps/velero-588db7f655                              1         1      
 
 ### Uninstall Operator
 
-`$ make undeploy`
+`$ oc delete namespace openshift-adp`

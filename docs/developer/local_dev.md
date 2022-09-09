@@ -24,5 +24,5 @@
 3. Deploy OADP operator using your image:
 
     ```
-    IMG=quay.io/<CONTAINER_REGISTRY_USERNAME>/oadp-operator:<IMAGE_TAG> make deploy
+    IMG=quay.io/<CONTAINER_REGISTRY_USERNAME>/oadp-operator:<IMAGE_TAG> make docker-push
     ```
