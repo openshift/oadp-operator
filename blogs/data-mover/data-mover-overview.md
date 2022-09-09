@@ -56,25 +56,25 @@ targeted backupStorageLocation (generally object storage), providing additional 
 
 ## Components
 
-### OADP Operator: 
+### [OADP Operator](https://github.com/openshift/oadp-operator): 
 OADP is the OpenShift API for Data Protection operator. This open source operator sets up and installs Velero on the OpenShift platform, allowing users to backup and restore applications. 
 We will be installing Velero alongside the CSI plugin (modified version).
 
-### Modified CSI plugin (M-CSI):  
+### [Modified CSI plugin (M-CSI)](https://github.com/openshift/velero-plugin-for-csi/tree/data-mover):  
 The upstream Velero plugin for CSI is modified to facilitate CSI volumesnapshot data movement from an OpenShift cluster to object storage and vice versa.
 
-### VolSync:
+### [VolSync](https://volsync.readthedocs.io/en/stable/):
 VolSync is a Kubernetes operator that performs asynchronous replication of persistent volumes within, or across, clusters. The replication provided by VolSync is independent of the storage system. This allows replication to and from storage types that don’t normally support remote replication. 
 We will be using Volsync’s restic datamover.
 
-### VolumeSnapshotMover (VSM) Controller:
+### [VolumeSnapshotMover (VSM) Controller](https://github.com/migtools/volume-snapshot-mover):
 The VSM controller is the CSI data movement orchestrator, it is deployed via the OADP Operator once the datamover feature is enabled. This controller has the following responsibilities:
 - Validates the VolumeSnapshotBackup/VolumeSnapshotRestore Custom Resources.
 - Makes sure that the data movement workflow has the appropriate storage credentials
 - Performs the copy of VolumeSnapshotContent, CSI VolumeSnapshot and PersistentVolumeClaims from application namespace to OADP Operator namespace
 - Triggers the data movement process and subsequently performs the cleanup of extraneous resources created.
 
-### VolumeSnapshotMover CustomResourceDefinitions (CRDs):
+### [VolumeSnapshotMover CustomResourceDefinitions (CRDs)](https://github.com/migtools/volume-snapshot-mover/tree/master/config/crd/bases):
 The data mover process will be based on two Custom Resource Definitions:
 - VolumeSnapshotBackup (VSB):
 ```
@@ -115,7 +115,7 @@ Status:
 - One point to note is that, VSM controller deletes all the extraneous resources that were created during the data mover backup process.
 
 
-![VSMBackup](dataMoverBackup.png)
+![VSMBackup](data-mover-backup.png)
 
 
 
@@ -138,7 +138,7 @@ as the data source for its associated PVC.
 - The stateful application data is then restored, and disaster is averted.
 
 
-![VSMRestore](dataMoverRestore.png)
+![VSMRestore](data-mover-restore.png)
 
 ## VolumeSnapshotMover's Future
 
