@@ -182,7 +182,7 @@ spec:
 
 <hr style="height:1px;border:none;color:#333;">
 
-1. #### No `BackupStorageLocation` specified but the plugin for the provider exists:
+3. #### No `BackupStorageLocation` specified but the plugin for the provider exists:
 
 Specify .spec.configuration.noDefaultBackupLocation like so:
 ```yaml

@@ -7,40 +7,8 @@
 
 - Have a stateful application running in a separate namespace. 
 
-- Have an appropriate StorageClass and VolumeShapshotClass. **Make sure there is only one default of each.**
-  - Include the label `velero.io/csi-volumesnapshot-class: 'true'` in your `VolumeSnapshotClass` 
-  to let Velero know which to use.
-  - `deletionPolicy` must be set to `Retain`
-
-```
-apiVersion: snapshot.storage.k8s.io/v1
-kind: VolumeSnapshotClass
-metadata:
-  name: example-snapclass
-  labels:
-    velero.io/csi-volumesnapshot-class: 'true'
-  annotations:
-    snapshot.storage.kubernetes.io/is-default-class: 'true'
-driver: ebs.csi.aws.com
-deletionPolicy: Retain
-```
-
-```
-apiVersion: storage.k8s.io/v1
-kind: StorageClass
-metadata:
-  name: gp2-csi
-  annotations:
-    storageclass.kubernetes.io/is-default-class: 'true'
-provisioner: ebs.csi.aws.com
-parameters:
-  type: gp2
-reclaimPolicy: Delete
-volumeBindingMode: WaitForFirstConsumer
-allowVolumeExpansion: true
-```
-
-- Install the [OADP Operator](https://github.com/openshift/oadp-operator/blob/master/docs/install_olm.md) using OLM.
+- Follow instructions for installing the OADP operator and creating an 
+appropriate `volumeSnapshotClass` and `storageClass`found [here](/docs/examples/csi_example.md).
 
 - Install the [VolSync operator](https://volsync.readthedocs.io/en/stable/installation/index.html) using OLM.
 
