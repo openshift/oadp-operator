@@ -12,14 +12,14 @@ timeout=$7
 skip_tls=$8
 
 # Gather restore describe and logs
-mkdir -p "{object_collection_path}"
+mkdir -p "${object_collection_path}"
 echo "[cluster=${cluster}][ns=${ns}] Gathering 'velero restore describe ${restore}'"
 if [ "$timeout" = "0s" ]; then
-    oc -n ${ns} exec $(oc -n ${ns} get po -l component=velero -o custom-columns=name:.metadata.name --no-headers) -- /bin/bash -c "/velero describe restore ${restore} --insecure-skip-tls-verify=${skip_tls} --details" &> "${object_collection_path}/restore-describe-${restore}.txt" &
+    oc -n ${ns} exec $(oc -n ${ns} get po -l component=velero -o custom-columns=name:.metadata.name --no-headers) -- /bin/bash -c "timeout 30s /velero describe restore ${restore} --insecure-skip-tls-verify=${skip_tls} --details" &> "${object_collection_path}/restore-describe-${restore}.txt" &
 else
-    oc -n ${ns} exec --request-timeout=${timeout} $(oc -n ${ns} get po -l component=velero -o custom-columns=name:.metadata.name --no-headers) -- /bin/bash -c "/velero describe restore ${restore} --insecure-skip-tls-verify=${skip_tls} --details" &> "${object_collection_path}/restore-describe-${restore}.txt" &
+    oc -n ${ns} exec --request-timeout=${timeout} $(oc -n ${ns} get po -l component=velero -o custom-columns=name:.metadata.name --no-headers) -- /bin/bash -c "timeout ${timeout} /velero describe restore ${restore} --insecure-skip-tls-verify=${skip_tls} --details" &> "${object_collection_path}/restore-describe-${restore}.txt" &
 fi
 echo "[cluster=${cluster}][ns=${ns}] Gathering 'velero restore logs ${restore}'"
-oc -n ${ns} exec $(oc -n ${ns} get po -l component=velero -o custom-columns=name:.metadata.name --no-headers) -- /bin/bash -c "/velero restore logs ${restore} --insecure-skip-tls-verify=${skip_tls} --timeout=30s" &> "${object_collection_path}/restore-${restore}.log" &
+oc -n ${ns} exec $(oc -n ${ns} get po -l component=velero -o custom-columns=name:.metadata.name --no-headers) -- /bin/bash -c "timeout 30s /velero restore logs ${restore} --insecure-skip-tls-verify=${skip_tls} --timeout=30s" &> "${object_collection_path}/restore-${restore}.log" &
 
 wait

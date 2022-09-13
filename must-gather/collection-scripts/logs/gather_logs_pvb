@@ -13,12 +13,5 @@ object_collection_path=$6
 node=$(oc get podvolumebackup $pvb --namespace $ns -o jsonpath='{.spec.node}')
 mkdir -p ${object_collection_path}
 oc describe podvolumebackup ${pvb} --namespace ${ns} &> "${object_collection_path}/pvb-describe-${pvb}.txt" &
-for pod in $(oc get pods -o wide --field-selector spec.nodeName=${node} --selector name=restic --no-headers --namespace $ns | awk '{print $1}'); do
-    echo "[cluster=${cluster}][ns=${ns}][pod=${pod}] Collecting Pod logs..."
-    oc logs --all-containers --namespace ${ns} ${pod} --since ${logs_since} &> "${object_collection_path}/current.log" &
-    echo "[cluster=${cluster}][ns=${ns}][pod=${pod}] Collecting previous Pod logs..."
-    oc logs --previous --all-containers --namespace ${ns} ${pod} --since ${logs_since} &> "${object_collection_path}/previous.log" & 
-    pwait $max_parallelism
-done
-
+# logs covered by restic pod logs in gather_logs_pods
 wait

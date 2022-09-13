@@ -8,6 +8,13 @@ PROMETHEUS_DUMP_PATH ?= $(shell find ./must-gather.local* -name prom_data.tar.gz
 
 build: docker-build docker-push
 
+run: IMAGE_REGISTRY:=ttl.sh
+run: IMAGE_NAME:=oadp/must-gather-$(shell git rev-parse --short HEAD)-$(shell echo $$RANDOM)
+run: IMAGE_TAG:=1h
+run:
+	IMAGE_REGISTRY=$(IMAGE_REGISTRY) IMAGE_NAME=$(IMAGE_NAME) IMAGE_TAG=$(IMAGE_TAG) make build && \
+	oc adm must-gather --image ${IMAGE_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}
+
 docker-build:
 	docker build -t ${IMAGE_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG} .
 
