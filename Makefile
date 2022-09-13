@@ -37,7 +37,8 @@ ifdef CLI_DIR
 	OC_CLI = ${CLI_DIR}/oc
 endif
 
-CLUSTER_TYPE ?= $(shell $(OC_CLI) get infrastructures cluster -o jsonpath='{.status.platform}' | awk '{print tolower($0)}')
+CLUSTER_TYPE ?= $(shell $(OC_CLI) get infrastructures cluster -o jsonpath='{.status.platform}' | tr A-Z a-z)
+$(info $$CLUSTER_TYPE is [${CLUSTER_TYPE}])
 
 ifeq ($(CLUSTER_TYPE), gcp)
 	CI_CRED_FILE = ${CLUSTER_PROFILE_DIR}/gce.json
