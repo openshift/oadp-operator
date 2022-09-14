@@ -11,3 +11,4 @@ COPY ./ .
 
 RUN chmod -R 777 ./
 RUN go mod download
+RUN cd tests && go mod download

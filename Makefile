@@ -440,3 +440,7 @@ test-e2e: test-e2e-setup
 
 test-e2e-cleanup:
 	rm -rf $(SETTINGS_TMP)
+
+go-tidy:
+	go mod tidy -compat=1.17
+	cd tests && go mod tidy -compat=1.17
