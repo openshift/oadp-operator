@@ -482,8 +482,8 @@ github.com/kisielk/errcheck v1.5.0/go.mod h1:pFxgyoBC7bSaBwPgfKdkLd5X25qrDl4LWUI
 github.com/kisielk/gotool v1.0.0/go.mod h1:XhKaO+MFFWcvkIS/tQcRk01m1F5IRFswLeQ+oQHNcck=
 github.com/konsorten/go-windows-terminal-sequences v1.0.1/go.mod h1:T0+1ngSBFLxvqU3pZ+m/2kptfBszLMUkC4ZK/EgS/cQ=
 github.com/konsorten/go-windows-terminal-sequences v1.0.3/go.mod h1:T0+1ngSBFLxvqU3pZ+m/2kptfBszLMUkC4ZK/EgS/cQ=
-github.com/konveyor/velero v0.10.2-0.20220811171855-13e54ebbefce h1:y8iDat4ch+JKTgt5Vv4ig4wSYG6U7v3k8ySa0l7OSVk=
-github.com/konveyor/velero v0.10.2-0.20220811171855-13e54ebbefce/go.mod h1:PJMXrsf21l4sof7DQrtCem4Ktjua0Xhi+hZzXUHsLsc=
+github.com/konveyor/velero v0.10.2-0.20220915155627-5fc1e6615f62 h1:UY1A8za6/ZTuVfY3YplZLeqkNpDDtJgUU6he5sSP+Ow=
+github.com/konveyor/velero v0.10.2-0.20220915155627-5fc1e6615f62/go.mod h1:PJMXrsf21l4sof7DQrtCem4Ktjua0Xhi+hZzXUHsLsc=
 github.com/kr/fs v0.1.0/go.mod h1:FFnZGqtBN9Gxj7eW1uZ42v5BccTP0vu6NEaFoC2HwRg=
 github.com/kr/logfmt v0.0.0-20140226030751-b84e30acd515/go.mod h1:+0opPa2QZZtGFBFZlji/RkVcI2GknAs/DXo4wKdlNEc=
 github.com/kr/pretty v0.1.0/go.mod h1:dAy3ld7l9f0ibDNOQOHHMYYIIbhfbHSm3C4ZsoJORNo=

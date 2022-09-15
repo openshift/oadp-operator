@@ -24,6 +24,8 @@ require (
 	sigs.k8s.io/controller-runtime v0.11.0
 )
 
+require github.com/google/go-cmp v0.5.6
+
 require (
 	cloud.google.com/go v0.93.3 // indirect
 	github.com/Azure/azure-sdk-for-go v61.4.0+incompatible // indirect
@@ -52,7 +54,6 @@ require (
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
-	github.com/google/go-cmp v0.5.6 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/googleapis/gnostic v0.5.5 // indirect
 	github.com/hashicorp/go-hclog v0.14.1 // indirect
@@ -110,4 +111,4 @@ require (
 	sigs.k8s.io/yaml v1.3.0 // indirect
 )
 
-replace github.com/vmware-tanzu/velero => github.com/konveyor/velero v0.10.2-0.20220811171855-13e54ebbefce
+replace github.com/vmware-tanzu/velero => github.com/konveyor/velero v0.10.2-0.20220915155627-5fc1e6615f62
