@@ -1,5 +1,6 @@
 OADP_TEST_NAMESPACE ?= openshift-adp
 CLUSTER_TYPE ?= aws
+OADP_STREAM ?= up
 
 # CONFIGS FOR CLOUD
 # bsl / blob storage cred dir
@@ -353,6 +354,7 @@ test-e2e: test-e2e-setup
 	--ginkgo.label-filter="$(TEST_FILTER)" \
 	-ci_cred_file=$(CI_CRED_FILE) \
 	-provider=$(CLUSTER_TYPE) \
+	-stream=$(OADP_STREAM) \
 	-creds_secret_ref=$(CREDS_SECRET_REF)
 
 test-e2e-cleanup:

@@ -15,7 +15,7 @@ import (
 )
 
 // Common vars obtained from flags passed in ginkgo.
-var credFile, namespace, credSecretRef, instanceName, provider, ci_cred_file, settings, artifact_dir, oc_cli string
+var credFile, namespace, credSecretRef, instanceName, provider, ci_cred_file, settings, artifact_dir, oc_cli, stream string
 var timeoutMultiplier time.Duration
 
 func init() {
