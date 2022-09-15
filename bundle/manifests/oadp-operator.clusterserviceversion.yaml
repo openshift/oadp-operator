@@ -895,22 +895,22 @@ spec:
   provider:
     name: Red Hat
   relatedImages:
-  - image: quay.io/konveyor/volume-snapshot-mover:latest
-    name: volume-snapshot-mover
+  - image: quay.io/konveyor/velero:latest
+    name: velero
   - image: quay.io/konveyor/velero-restic-restore-helper:latest
     name: velero-restic-restore-helper
+  - image: quay.io/konveyor/openshift-velero-plugin:latest
+    name: openshift-velero-plugin
+  - image: quay.io/konveyor/velero-plugin-for-aws:latest
+    name: velero-plugin-for-aws
   - image: quay.io/konveyor/velero-plugin-for-microsoft-azure:latest
     name: velero-plugin-for-microsoft-azure
   - image: quay.io/konveyor/velero-plugin-for-gcp:latest
     name: velero-plugin-for-gcp
   - image: quay.io/konveyor/velero-plugin-for-csi:latest
     name: velero-plugin-for-csi
-  - image: quay.io/konveyor/velero-plugin-for-aws:latest
-    name: velero-plugin-for-aws
-  - image: quay.io/konveyor/velero:latest
-    name: velero
-  - image: quay.io/konveyor/openshift-velero-plugin:latest
-    name: openshift-velero-plugin
+  - image: quay.io/konveyor/volume-snapshot-mover:latest
+    name: volume-snapshot-mover
   - image: quay.io/konveyor/kubevirt-velero-plugin:v0.2.0
     name: kubevirt-velero-plugin
   version: 99.0.0
