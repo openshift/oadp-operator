@@ -15,7 +15,7 @@ require (
 	github.com/operator-framework/operator-lib v0.9.0
 	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.51.2
 	github.com/sirupsen/logrus v1.8.1
-	github.com/vmware-tanzu/velero v1.8.0 // TODO: Update this to a pinned version
+	github.com/vmware-tanzu/velero v1.9.2-rc.1 // TODO: Update this to a pinned version
 	k8s.io/api v0.23.0
 	k8s.io/apiextensions-apiserver v0.23.0
 	k8s.io/apimachinery v0.23.0
@@ -111,4 +111,5 @@ require (
 	sigs.k8s.io/yaml v1.3.0 // indirect
 )
 
-replace github.com/vmware-tanzu/velero => github.com/konveyor/velero v0.10.2-0.20220915155627-5fc1e6615f62
+// replace with https://github.com/openshift/velero/tree/oadp-1.1
+replace github.com/vmware-tanzu/velero => github.com/openshift/velero v0.10.2-0.20220915155627-5fc1e6615f62
