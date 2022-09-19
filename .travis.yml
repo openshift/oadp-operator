@@ -31,8 +31,10 @@ before_script:
 
 script:
 - docker build -t ${IMAGE}:${TAG}-${TRAVIS_ARCH} -f ${DOCKERFILE} .
+- docker build -t quay.io/konveyor/oadp-must-gather:${TAG}-${TRAVIS_ARCH} -f must-gather/Dockerfile must-gather/
 - if [ -n "${QUAY_ROBOT}" ]; then docker login quay.io -u "${QUAY_ROBOT}" -p ${QUAY_TOKEN}; fi
 - if [ -n "${QUAY_ROBOT}" ]; then docker push ${IMAGE}:${TAG}-${TRAVIS_ARCH}; fi
+- if [ -n "${QUAY_ROBOT}" ]; then docker push quay.io/konveyor/oadp-must-gather:${TAG}-${TRAVIS_ARCH}; fi
 
 jobs:
   include:
@@ -57,5 +59,12 @@ jobs:
           ${IMAGE}:${TAG}-ppc64le \
           ${IMAGE}:${TAG}-s390x \
           ${IMAGE}:${TAG}-aarch64
+        docker manifest create \
+          quay.io/konveyor/oadp-must-gather:${TAG} \
+          quay.io/konveyor/oadp-must-gather:${TAG}-amd64 \
+          quay.io/konveyor/oadp-must-gather:${TAG}-ppc64le \
+          quay.io/konveyor/oadp-must-gather:${TAG}-s390x \
+          quay.io/konveyor/oadp-must-gather:${TAG}-aarch64
         docker manifest push ${IMAGE}:${TAG}
+        docker manifest push quay.io/konveyor/oadp-must-gather:${TAG}
       fi
