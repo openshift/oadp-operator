@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"context"
+	"sync"
 
 	routev1 "github.com/openshift/api/route/v1"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
@@ -30,6 +31,7 @@ import (
 
 	"github.com/go-logr/logr"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
+	"github.com/openshift/oadp-operator/pkg/credentials"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
@@ -146,16 +148,53 @@ func (r *DPAReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&corev1.Service{}).
 		Owns(&routev1.Route{}).
 		Owns(&corev1.ConfigMap{}).
-		Watches(&source.Kind{Type: &corev1.Secret{}}, &labelHandler{}).
+		Watches(&source.Kind{Type: &corev1.Secret{}}, &secretHandler{}).
 		WithEventFilter(veleroPredicate(r.Scheme)).
 		Complete(r)
 }
 
-type labelHandler struct {
+type secretHandler struct {
+	defauldSecrets map[string]*struct{}
+	mu             sync.RWMutex
+	client         client.Client
 }
 
-func (l *labelHandler) Create(evt event.CreateEvent, q workqueue.RateLimitingInterface) {
+func createSecretHandler() *secretHandler {
+	defaultSecrets := map[string]*struct{}{}
+	for _, fields := range credentials.PluginSpecificFields {
+		if fields.IsCloudProvider {
+			defaultSecrets[fields.SecretName] = nil
+		}
+	}
+	return &secretHandler{
+		defauldSecrets: defaultSecrets,
+		mu:             sync.RWMutex{},
+	}
+}
+
+func (l *secretHandler) Create(evt event.CreateEvent, q workqueue.RateLimitingInterface) {
 	// check for the label & add it to the queue
+	l.mu.RLock()
+	_, ok := l.defauldSecrets[evt.Object.GetName()]
+	l.mu.RUnlock()
+	if ok {
+		list := &oadpv1alpha1.DataProtectionApplicationList{}
+		err := l.client.List(context.Background(), list)
+		if err != nil {
+			//TODO: There should be a log here, and we probaly want to somehow re-queue the secret
+			return
+		}
+		for _, dpa := range list.Items {
+			q.Add(reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Name:      dpa.GetName(),
+					Namespace: dpa.GetNamespace(),
+				},
+			})
+		}
+		// If this is a default secret, we already added all the DPA's
+		return
+	}
 	namespace := evt.Object.GetNamespace()
 	dpaname := evt.Object.GetLabels()[namespace+".dataprotectionapplication"]
 	if evt.Object.GetLabels()[oadpv1alpha1.OadpOperatorLabel] == "" || dpaname == "" {
@@ -168,8 +207,29 @@ func (l *labelHandler) Create(evt event.CreateEvent, q workqueue.RateLimitingInt
 	}})
 
 }
-func (l *labelHandler) Delete(evt event.DeleteEvent, q workqueue.RateLimitingInterface) {
+func (l *secretHandler) Delete(evt event.DeleteEvent, q workqueue.RateLimitingInterface) {
 
+	l.mu.RLock()
+	_, ok := l.defauldSecrets[evt.Object.GetName()]
+	l.mu.RUnlock()
+	if ok {
+		list := &oadpv1alpha1.DataProtectionApplicationList{}
+		err := l.client.List(context.Background(), list)
+		if err != nil {
+			//TODO: There should be a log here, and we probaly want to somehow re-queue the secret
+			return
+		}
+		for _, dpa := range list.Items {
+			q.Add(reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Name:      dpa.GetName(),
+					Namespace: dpa.GetNamespace(),
+				},
+			})
+		}
+		// If this is a default secret, we already added all the DPA's
+		return
+	}
 	namespace := evt.Object.GetNamespace()
 	dpaname := evt.Object.GetLabels()[namespace+".dataprotectionapplication"]
 	if evt.Object.GetLabels()[oadpv1alpha1.OadpOperatorLabel] == "" || dpaname == "" {
@@ -181,7 +241,28 @@ func (l *labelHandler) Delete(evt event.DeleteEvent, q workqueue.RateLimitingInt
 	}})
 
 }
-func (l *labelHandler) Update(evt event.UpdateEvent, q workqueue.RateLimitingInterface) {
+func (l *secretHandler) Update(evt event.UpdateEvent, q workqueue.RateLimitingInterface) {
+	l.mu.RLock()
+	_, ok := l.defauldSecrets[evt.ObjectNew.GetName()]
+	l.mu.RUnlock()
+	if ok {
+		list := &oadpv1alpha1.DataProtectionApplicationList{}
+		err := l.client.List(context.Background(), list)
+		if err != nil {
+			//TODO: There should be a log here, and we probaly want to somehow re-queue the secret
+			return
+		}
+		for _, dpa := range list.Items {
+			q.Add(reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Name:      dpa.GetName(),
+					Namespace: dpa.GetNamespace(),
+				},
+			})
+		}
+		// If this is a default secret, we already added all the DPA's
+		return
+	}
 	namespace := evt.ObjectNew.GetNamespace()
 	dpaname := evt.ObjectNew.GetLabels()[namespace+".dataprotectionapplication"]
 	if evt.ObjectNew.GetLabels()[oadpv1alpha1.OadpOperatorLabel] == "" || dpaname == "" {
@@ -193,8 +274,29 @@ func (l *labelHandler) Update(evt event.UpdateEvent, q workqueue.RateLimitingInt
 	}})
 
 }
-func (l *labelHandler) Generic(evt event.GenericEvent, q workqueue.RateLimitingInterface) {
+func (l *secretHandler) Generic(evt event.GenericEvent, q workqueue.RateLimitingInterface) {
 
+	l.mu.RLock()
+	_, ok := l.defauldSecrets[evt.Object.GetName()]
+	l.mu.RUnlock()
+	if ok {
+		list := &oadpv1alpha1.DataProtectionApplicationList{}
+		err := l.client.List(context.Background(), list)
+		if err != nil {
+			//TODO: There should be a log here, and we probaly want to somehow re-queue the secret
+			return
+		}
+		for _, dpa := range list.Items {
+			q.Add(reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Name:      dpa.GetName(),
+					Namespace: dpa.GetNamespace(),
+				},
+			})
+		}
+		// If this is a default secret, we already added all the DPA's
+		return
+	}
 	namespace := evt.Object.GetNamespace()
 	dpaname := evt.Object.GetLabels()[namespace+".dataprotectionapplication"]
 	if evt.Object.GetLabels()[oadpv1alpha1.OadpOperatorLabel] == "" || dpaname == "" {
