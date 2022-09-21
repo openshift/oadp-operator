@@ -21,7 +21,6 @@ import (
 	"github.com/vmware-tanzu/velero/pkg/features"
 	veleroClientset "github.com/vmware-tanzu/velero/pkg/generated/clientset/versioned"
 	"github.com/vmware-tanzu/velero/pkg/label"
-	"github.com/vmware-tanzu/velero/pkg/restic"
 	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -106,13 +105,21 @@ func DescribeRestore(ocClient client.Client, restore velero.Restore) string {
 	details := true
 	insecureSkipTLSVerify := true
 	caCertFile := ""
-	opts := restic.NewPodVolumeRestoreListOptions(restore.Name)
+	opts := newPodVolumeRestoreListOptions(restore.Name)
 	podvolumeRestoreList, err := veleroClient.VeleroV1().PodVolumeRestores(restore.Namespace).List(context.TODO(), opts)
 	if err != nil {
 		log.Printf("error getting PodVolumeRestores for restore %s: %v\n", restore.Name, err)
 	}
 
 	return output.DescribeRestore(context.Background(), ocClient, &restore, podvolumeRestoreList.Items, details, veleroClient, insecureSkipTLSVerify, caCertFile)
+}
+
+// newPodVolumeRestoreListOptions creates a ListOptions with a label selector configured to
+// find PodVolumeRestores for the restore identified by name.
+func newPodVolumeRestoreListOptions(name string) metav1.ListOptions {
+	return metav1.ListOptions{
+		LabelSelector: fmt.Sprintf("%s=%s", velero.RestoreNameLabel, label.GetValidName(name)),
+	}
 }
 
 func BackupLogs(ocClient client.Client, backup velero.Backup) (backupLogs string) {

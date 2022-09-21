@@ -311,6 +311,24 @@ func areAppBuildsReady(ocClient client.Client, namespace string) (bool, error) {
 				ginkgo.GinkgoWriter.Println(fmt.Sprintf("status: %v", build.Status))
 				return false, errors.New("found build failed or error")
 			}
+			if build.Status.Phase == buildv1.BuildPhaseComplete {
+				log.Println("Build is complete: " + build.Name + " patching build pod label to exclude from backup")
+				podName := build.GetAnnotations()["openshift.io/build.pod-name"]
+				pod := corev1.Pod{}
+				err := ocClient.Get(context.Background(), client.ObjectKey{
+					Namespace: namespace,
+					Name:      podName,
+				}, &pod)
+				if err != nil {
+					return false, err
+				}
+				pod.Labels["velero.io/exclude-from-backup"] = "true"
+				err = ocClient.Update(context.Background(), &pod)
+				if err != nil {
+					log.Println("Error patching build pod label to exclude from backup: " + err.Error())
+					return false, err
+				}
+			}
 		}
 	}
 	return true, nil
