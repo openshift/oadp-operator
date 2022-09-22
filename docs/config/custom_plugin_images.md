@@ -14,6 +14,7 @@ Details for supported plugins and their usage is given below, and please use the
  - GCP Plugin ImageKey  -> `gcpPluginImageFqin`
  - CSI Plugin ImageKey  -> `csiPluginImageFqin`
  - Restic Restore ImageKey -> `resticRestoreImageFqin`
+ - Data Mover Imagekey -> `dataMoverImageFqin`
 
 Below is an example DataProtectionApplication (DPA) CR with the unsupportedOverrides key added for reference. Please note that the `<IMAGE_PLACEHOLDER WITH TAG>` is to be replaced with the plugin image and tag.
 ```

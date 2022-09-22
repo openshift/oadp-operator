@@ -1,6 +1,18 @@
 <h1 align="center">Using Credentials with the OADP Operator</h1>
 
-### Creating a Secret
+
+1. [Creating a Secret: OADP](#creating-a-secret-for-oadp)
+    1. [Credentials for BackupStorageLocation](#credentials-for-backupstoragelocation)
+    2. [Credentials for VolumeSnapshotLocation](#credentials-for-volumesnapshotlocation)
+2. [Separate Credentials for BSL and VSL](#separate-credentials-for-bsl-and-vsl)
+3. [AWS Plugin Exception](#aws-plugin-exception)
+4. [Use Cases](#use-cases)
+    1. [BSL and VSL share credentials for one provider](#backupstoragelocation-and-volumesnapshotlocation-share-credentials-for-one-provider)
+    2. [BSL and VSL use the same provider but use different credentials](#backupstoragelocation-and-volumesnapshotlocation-use-the-same-provider-but-use-different-credentials)
+    3. [No BSL specified but the plugin for the provider exists](#no-backupstoragelocation-specified-but-the-plugin-for-the-provider-exists)
+5. [Creating a Secret: OADP with VolumeSnapshotMover](#creating-a-secret-for-volumesnapshotmover)
+
+### Creating a Secret for OADP
 
 - Use command `oc create secret generic <SECRET_NAME> --namespace openshift-adp --from-file cloud=<CREDENTIALS_FILE_PATH>`
 
@@ -9,6 +21,7 @@
   - AWS default secret name is `cloud-credentials`
   - GCP default secret name is `cloud-credentials-gcp`
   - Azure default secret name is `cloud-credentials-azure`
+
 
 ### Credentials for BackupStorageLocation:
 
@@ -35,7 +48,6 @@ spec:
           key: cloud
 ```
 
-    
 ### Credentials for VolumeSnapshotLocation:
 
 - `VolumeSnapshotLocation` will **always** expect the [default secret name](#defaultsecrets) 
@@ -87,7 +99,6 @@ your `BackupStorageLocation` must provide a custom secret name.
               region: us-west-2
               profile: "volumeSnapshot"
   ```
-
 
 ## Use Cases
 
@@ -171,7 +182,8 @@ spec:
 
 <hr style="height:1px;border:none;color:#333;">
 
-1. #### No `BackupStorageLocation` specified, but the plugin for the provider exists:
+3. #### No `BackupStorageLocation` specified but the plugin for the provider exists:
+
 Specify .spec.configuration.noDefaultBackupLocation like so:
 ```yaml
 apiVersion: oadp.openshift.io/v1alpha1
@@ -193,3 +205,22 @@ If you don't need volumesnapshotlocation, you will not need to create a VSL cred
 If you need `VolumeSnapshotLocation`, regardless of the `noDefaultBackupLocation` setting, you will need a to create VSL credentials.
 
 VSL credentials **must** be the [default secret name](#defaultsecrets)
+
+
+### Creating a Secret for volumeSnapshotMover
+
+VolumeSnapshotMover requires a restic secret. It can be configured as so:
+
+```
+apiVersion: v1
+kind: Secret
+metadata:
+  name: <secret-name>
+type: Opaque
+stringData:
+  # The repository encryption key
+  RESTIC_PASSWORD: my-secure-restic-password
+```
+
+- *Note:* `dpa.spec.features.dataMover.credentialName` must match the name of the secret. 
+  Otherwise it will default to the name `dm-credential`.
