@@ -154,6 +154,9 @@ manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and Cust
 	# Commenting out default which overwrites scoped config/rbac/role.yaml
 	# GOFLAGS="-mod=mod" $(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 	GOFLAGS="-mod=mod" $(CONTROLLER_GEN) $(CRD_OPTIONS) webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+	# run make nullables to generate nullable fields after all manifest changesin dependent targets.
+	# It's not included here because `test` and `bundle` target have different yaml styes.
+	# To keep dpa CRD the same, nullables have been added to test and bundle target separately.
 
 generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
 	GOFLAGS="-mod=mod" $(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
@@ -164,7 +167,7 @@ fmt: ## Run go fmt against code.
 vet: ## Run go vet against code.
 	go vet -mod=mod ./...
 
-test: manifests generate fmt vet envtest ## Run tests.
+test: manifests nullables generate fmt vet envtest ## Run tests.
 	KUBEBUILDER_ASSETS="$(ENVTESTPATH)" go test -mod=mod ./controllers/... ./pkg/... -coverprofile cover.out
 
 
@@ -292,18 +295,22 @@ rm -rf $$TMP_DIR ;\
 endef
 
 $(GOBIN)/yq:
-	go install github.com/mikefarah/yq/v4@latest
+	go install -mod=mod github.com/mikefarah/yq/v4@latest
 
 .PHONY: bundle
 bundle: manifests kustomize ## Generate bundle manifests and metadata, then validate generated files.
 	operator-sdk generate kustomize manifests -q
 	cd config/manager && $(KUSTOMIZE) edit set image controller=$(IMG)
 	$(KUSTOMIZE) build config/manifests | operator-sdk generate bundle -q --extra-service-accounts "velero" --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
-	@make nullable-crds-bundle nullable-crds-config # patch nullables in CRDs
+	@make nullables
 	# Copy updated bundle.Dockerfile to CI's Dockerfile.bundle
 	# TODO: update CI to use generated one
 	cp bundle.Dockerfile build/Dockerfile.bundle
 	operator-sdk bundle validate ./bundle
+
+.PHONY: nullables
+nullables:
+	@make nullable-crds-bundle nullable-crds-config # patch nullables in CRDs
 
 .PHONY: nullable-crds-bundle
 nullable-crds-bundle: DPA_SPEC_CONFIG_PROP = .spec.versions.0.schema.openAPIV3Schema.properties.spec.properties.configuration.properties
