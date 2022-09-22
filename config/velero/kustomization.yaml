@@ -3,6 +3,5 @@ resources:
 - velero-service_account.yaml
 - velero-role.yaml
 - velero-role_binding.yaml
-- velero.yaml
 - dpa_editor_role.yaml
 - dpa_viewer_role.yaml
