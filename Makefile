@@ -136,6 +136,9 @@ manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and Cust
 	# Commenting out default which overwrites scoped config/rbac/role.yaml
 	# GOFLAGS="-mod=mod" $(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 	GOFLAGS="-mod=mod" $(CONTROLLER_GEN) $(CRD_OPTIONS) webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+	# run make nullables to generate nullable fields after all manifest changesin dependent targets.
+	# It's not included here because `test` and `bundle` target have different yaml styes.
+	# To keep dpa CRD the same, nullables have been added to test and bundle target separately.
 
 generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
 	GOFLAGS="-mod=mod" $(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
@@ -146,13 +149,18 @@ fmt: ## Run go fmt against code.
 vet: ## Run go vet against code.
 	go vet -mod=mod ./...
 
-test: manifests generate fmt vet envtest ## Run tests.
-	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" go test -mod=mod ./controllers/... ./pkg/... -coverprofile cover.out
+test: manifests nullables generate fmt vet envtest ## Run tests.
+	KUBEBUILDER_ASSETS="$(ENVTESTPATH)" go test -mod=mod ./controllers/... ./pkg/... -coverprofile cover.out
 
 
 ENVTEST = $(shell pwd)/bin/setup-envtest
+ENVTESTPATH = $(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)
+# if there is no native arch available, attempt to use amd64
+ifeq ($(shell $(ENVTEST) list),)
+	ENVTESTPATH = $(shell $(ENVTEST) --arch=amd64 use $(ENVTEST_K8S_VERSION) -p path)
+endif
 ci-test: ## This assumes "manifests generate fmt vet envtest" ran.
-	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" go test -mod=mod ./controllers/... -coverprofile cover.out
+	KUBEBUILDER_ASSETS="$(ENVTESTPATH)" go test -mod=mod ./controllers/... -coverprofile cover.out
 
 
 ##@ Build
@@ -163,8 +171,15 @@ build: generate fmt vet ## Build manager binary.
 run: manifests generate fmt vet ## Run a controller from your host.
 	go run ./main.go
 
+# Development clusters require linux/amd64 OCI image
+# Set platform to linux/amd64 regardless of host platform.
+# If using podman machine, and host platform is not linux/amd64 run
+# - podman machine ssh sudo rpm-ostree install qemu-user-static && sudo systemctl reboot
+# from: https://github.com/containers/podman/issues/12144#issuecomment-955760527
+# related enhancements that may remove the need to manually install qemu-user-static https://bugzilla.redhat.com/show_bug.cgi?id=2061584
+DOCKER_BUILD_ARGS ?= --platform=linux/amd64
 docker-build: test ## Build docker image with the manager.
-	docker build -t ${IMG} .
+	docker build -t $(IMG) . $(DOCKER_BUILD_ARGS)
 
 docker-push: ## Push docker image with the manager.
 	docker push ${IMG}
@@ -272,11 +287,15 @@ bundle: manifests kustomize operator-sdk yq ## Generate bundle manifests and met
 	$(OPERATOR_SDK) generate kustomize manifests -q
 	cd config/manager && $(KUSTOMIZE) edit set image controller=$(IMG)
 	$(KUSTOMIZE) build config/manifests | $(OPERATOR_SDK) generate bundle -q --extra-service-accounts "velero" --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
-	@make nullable-crds-bundle nullable-crds-config # patch nullables in CRDs
+	@make nullables # patch nullables in CRDs
 	# Copy updated bundle.Dockerfile to CI's Dockerfile.bundle
 	# TODO: update CI to use generated one
 	cp bundle.Dockerfile build/Dockerfile.bundle
 	$(OPERATOR_SDK) bundle validate ./bundle
+
+.PHONY: nullables
+nullables:
+	@make nullable-crds-bundle nullable-crds-config # patch nullables in CRDs
 
 .PHONY: nullable-crds-bundle
 nullable-crds-bundle: DPA_SPEC_CONFIG_PROP = .spec.versions.0.schema.openAPIV3Schema.properties.spec.properties.configuration.properties
@@ -327,12 +346,18 @@ GIT_REV:=$(shell git rev-parse --short HEAD)
 .PHONY: deploy-olm
 deploy-olm: THIS_OPERATOR_IMAGE?=ttl.sh/oadp-operator-$(GIT_REV):1h # Set target specific variable
 deploy-olm: THIS_BUNDLE_IMAGE?=ttl.sh/oadp-operator-bundle-$(GIT_REV):1h # Set target specific variable
-deploy-olm: operator-sdk
+deploy-olm: DEPLOY_TMP:=$(shell mktemp -d)/ # Set target specific variable
+deploy-olm:
 	oc whoami # Check if logged in
 	oc create namespace $(OADP_TEST_NAMESPACE) # This should error out if namespace already exists, delete namespace (to clear current resources) before proceeding
+	@echo "DEPLOY_TMP: $(DEPLOY_TMP)"
+	# build and push operator and bundle image
+	# use $(OPERATOR_SDK) run bundle $(THIS_BUNDLE_IMAGE) --namespace $(OADP_TEST_NAMESPACE) to install bundle to authenticated cluster
+	cp -r . $(DEPLOY_TMP) && cd $(DEPLOY_TMP) && \
 	IMG=$(THIS_OPERATOR_IMAGE) BUNDLE_IMG=$(THIS_BUNDLE_IMAGE) \
-		make docker-build docker-push bundle bundle-build bundle-push # build and push operator and bundle image
-	$(OPERATOR_SDK) run bundle $(THIS_BUNDLE_IMAGE) --namespace $(OADP_TEST_NAMESPACE) # use $(OPERATOR_SDK) to install bundle to authenticated cluster
+		make docker-build docker-push bundle bundle-build bundle-push; \
+	rm -rf $(DEPLOY_TMP)
+	$(OPERATOR_SDK) run bundle $(THIS_BUNDLE_IMAGE) --namespace $(OADP_TEST_NAMESPACE)
 
 .PHONY: opm
 OPM = ./bin/opm
@@ -402,6 +427,8 @@ test-e2e: test-e2e-setup
 	-provider=$(CLUSTER_TYPE) \
 	-stream=$(OADP_STREAM) \
 	-creds_secret_ref=$(CREDS_SECRET_REF)
+	-artifact_dir=$(ARTIFACT_DIR) \
+	-oc_cli=$(OC_CLI)
 
 test-e2e-cleanup:
 	rm -rf $(SETTINGS_TMP)
