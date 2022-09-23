@@ -18,7 +18,7 @@ const (
 	AzurePluginImage     = "quay.io/konveyor/velero-plugin-for-microsoft-azure:oadp-1.0"
 	GCPPluginImage       = "quay.io/konveyor/velero-plugin-for-gcp:oadp-1.0"
 	CSIPluginImage       = "quay.io/konveyor/velero-plugin-for-csi:oadp-1.0"
-	RegistryImage        = "quay.io/konveyor/registry:oadp-0.3.0"
+	RegistryImage        = "quay.io/konveyor/registry:oadp-1.0"
 	KubeVirtPluginImage  = "quay.io/konveyor/kubevirt-velero-plugin:v0.2.0"
 )
 

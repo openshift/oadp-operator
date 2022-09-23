@@ -337,10 +337,10 @@ func getRegistryImage(dpa *oadpv1alpha1.DataProtectionApplication) string {
 	if dpa.Spec.UnsupportedOverrides[oadpv1alpha1.RegistryImageKey] != "" {
 		return dpa.Spec.UnsupportedOverrides[oadpv1alpha1.RegistryImageKey]
 	}
-	if os.Getenv("VELERO_REGISTRY_REPO") == "" {
+	if os.Getenv("RELATED_IMAGE_REGISTRY") == "" {
 		return common.RegistryImage
 	}
-	return fmt.Sprintf("%v/%v/%v:%v", os.Getenv("REGISTRY"), os.Getenv("PROJECT"), os.Getenv("VELERO_REGISTRY_REPO"), os.Getenv("VELERO_REGISTRY_TAG"))
+	return os.Getenv("RELATED_IMAGE_REGISTRY")
 }
 
 func (r *DPAReconciler) buildRegistryContainer(bsl *velerov1.BackupStorageLocation, dpa *oadpv1alpha1.DataProtectionApplication) ([]corev1.Container, error) {
