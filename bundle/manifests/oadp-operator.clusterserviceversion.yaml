@@ -178,7 +178,7 @@ metadata:
     operatorframework.io/arch.arm64: supported
     operatorframework.io/arch.ppc64le: supported
     operatorframework.io/arch.s390x: supported
-  name: oadp-operator.v1.0.2
+  name: oadp-operator.v1.0.4
   namespace: openshift-adp
 spec:
   apiservicedefinitions: {}
@@ -499,6 +499,8 @@ spec:
                         value: quay.io/konveyor/velero-restic-restore-helper:oadp-1.0
                       - name: RELATED_IMAGE_OPENSHIFT_VELERO_PLUGIN
                         value: quay.io/konveyor/openshift-velero-plugin:oadp-1.0
+                      - name: RELATED_IMAGE_REGISTRY
+                        value: quay.io/konveyor/registry:oadp-1.0
                       - name: RELATED_IMAGE_VELERO_PLUGIN_FOR_AWS
                         value: quay.io/konveyor/velero-plugin-for-aws:oadp-1.0
                       - name: RELATED_IMAGE_VELERO_PLUGIN_FOR_MICROSOFT_AZURE
@@ -621,6 +623,8 @@ spec:
       name: velero-restic-restore-helper
     - image: quay.io/konveyor/openshift-velero-plugin:oadp-1.0
       name: openshift-velero-plugin
+    - image: quay.io/konveyor/registry:oadp-1.0
+      name: registry
     - image: quay.io/konveyor/velero-plugin-for-aws:oadp-1.0
       name: velero-plugin-for-aws
     - image: quay.io/konveyor/velero-plugin-for-microsoft-azure:oadp-1.0
@@ -631,4 +635,4 @@ spec:
       name: velero-plugin-for-csi
     - image: quay.io/konveyor/kubevirt-velero-plugin:v0.2.0
       name: kubevirt-velero-plugin
-  version: 1.0.2
+  version: 1.0.4
