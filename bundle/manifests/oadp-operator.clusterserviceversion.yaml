@@ -635,4 +635,4 @@ spec:
       name: velero-plugin-for-csi
     - image: quay.io/konveyor/kubevirt-velero-plugin:v0.2.0
       name: kubevirt-velero-plugin
-  version: 1.0.4
+  version: 1.0.5
