@@ -26,7 +26,7 @@ spec:
       restartPolicy: Always
       initContainers:
         - name: openshift-velero-plugin
-          image: 'quay.io/konveyor/openshift-velero-plugin:latest'
+          image: 'quay.io/konveyor/openshift-velero-plugin:oadp-1.0'
           resources: {}
           volumeMounts:
             - name: plugins
@@ -35,7 +35,7 @@ spec:
           terminationMessagePolicy: File
           imagePullPolicy: Always
         - name: velero-plugin-for-aws
-          image: 'quay.io/konveyor/velero-plugin-for-aws:latest'
+          image: 'quay.io/konveyor/velero-plugin-for-aws:oadp-1.0'
           resources: {}
           volumeMounts:
             - name: plugins
@@ -44,7 +44,7 @@ spec:
           terminationMessagePolicy: File
           imagePullPolicy: Always
         - name: velero-plugin-for-csi
-          image: 'quay.io/konveyor/velero-plugin-for-csi:latest'
+          image: 'quay.io/konveyor/velero-plugin-for-csi:oadp-1.0'
           resources: {}
           volumeMounts:
             - name: plugins
@@ -95,7 +95,7 @@ spec:
             - name: cloud-credentials
               mountPath: /credentials
           terminationMessagePolicy: File
-          image: 'quay.io/konveyor/velero:latest'
+          image: 'quay.io/konveyor/velero:oadp-1.0'
           args:
             - server
       serviceAccount: velero

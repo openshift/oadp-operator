@@ -81,12 +81,12 @@ func TestCredentials_getPluginImage(t *testing.T) {
 				},
 			},
 			pluginName: common.VeleroPluginForAWS,
-			wantImage:  "quay.io/konveyor/velero-plugin-for-aws:latest",
+			wantImage:  "quay.io/konveyor/velero-plugin-for-aws:oadp-1.0",
 			setEnvVars: map[string]string{
 				"REGISTRY":               "quay.io",
 				"PROJECT":                "konveyor",
 				"VELERO_AWS_PLUGIN_REPO": "velero-plugin-for-aws",
-				"VELERO_AWS_PLUGIN_TAG":  "latest",
+				"VELERO_AWS_PLUGIN_TAG":  "oadp-1.0",
 			},
 		},
 
@@ -154,12 +154,12 @@ func TestCredentials_getPluginImage(t *testing.T) {
 				},
 			},
 			pluginName: common.VeleroPluginForOpenshift,
-			wantImage:  "quay.io/konveyor/openshift-velero-plugin:latest",
+			wantImage:  "quay.io/konveyor/openshift-velero-plugin:oadp-1.0",
 			setEnvVars: map[string]string{
 				"REGISTRY":                     "quay.io",
 				"PROJECT":                      "konveyor",
 				"VELERO_OPENSHIFT_PLUGIN_REPO": "openshift-velero-plugin",
-				"VELERO_OPENSHIFT_PLUGIN_TAG":  "latest",
+				"VELERO_OPENSHIFT_PLUGIN_TAG":  "oadp-1.0",
 			},
 		},
 
@@ -227,12 +227,12 @@ func TestCredentials_getPluginImage(t *testing.T) {
 				},
 			},
 			pluginName: common.VeleroPluginForGCP,
-			wantImage:  "quay.io/konveyor/velero-plugin-for-gcp:latest",
+			wantImage:  "quay.io/konveyor/velero-plugin-for-gcp:oadp-1.0",
 			setEnvVars: map[string]string{
 				"REGISTRY":               "quay.io",
 				"PROJECT":                "konveyor",
 				"VELERO_GCP_PLUGIN_REPO": "velero-plugin-for-gcp",
-				"VELERO_GCP_PLUGIN_TAG":  "latest",
+				"VELERO_GCP_PLUGIN_TAG":  "oadp-1.0",
 			},
 		},
 
@@ -300,12 +300,12 @@ func TestCredentials_getPluginImage(t *testing.T) {
 				},
 			},
 			pluginName: common.VeleroPluginForAzure,
-			wantImage:  "quay.io/konveyor/velero-plugin-for-microsoft-azure:latest",
+			wantImage:  "quay.io/konveyor/velero-plugin-for-microsoft-azure:oadp-1.0",
 			setEnvVars: map[string]string{
 				"REGISTRY":                 "quay.io",
 				"PROJECT":                  "konveyor",
 				"VELERO_AZURE_PLUGIN_REPO": "velero-plugin-for-microsoft-azure",
-				"VELERO_AZURE_PLUGIN_TAG":  "latest",
+				"VELERO_AZURE_PLUGIN_TAG":  "oadp-1.0",
 			},
 		},
 
@@ -373,12 +373,12 @@ func TestCredentials_getPluginImage(t *testing.T) {
 				},
 			},
 			pluginName: common.VeleroPluginForCSI,
-			wantImage:  "quay.io/konveyor/velero-plugin-for-csi:latest",
+			wantImage:  "quay.io/konveyor/velero-plugin-for-csi:oadp-1.0",
 			setEnvVars: map[string]string{
 				"REGISTRY":               "quay.io",
 				"PROJECT":                "konveyor",
 				"VELERO_CSI_PLUGIN_REPO": "velero-plugin-for-csi",
-				"VELERO_CSI_PLUGIN_TAG":  "latest",
+				"VELERO_CSI_PLUGIN_TAG":  "oadp-1.0",
 			},
 		},
 		// KubeVirt tests
@@ -422,10 +422,7 @@ func TestCredentials_getPluginImage(t *testing.T) {
 			pluginName: common.KubeVirtPlugin,
 			wantImage:  "quay.io/kubevirt/kubevirt-velero-plugin:latest",
 			setEnvVars: map[string]string{
-				"REGISTRY":                    "quay.io",
-				"PROJECT":                     "kubevirt",
-				"VELERO_KUBEVIRT_PLUGIN_REPO": "kubevirt-velero-plugin",
-				"VELERO_KUBEVIRT_PLUGIN_TAG":  "latest",
+				"RELATED_IMAGE_KUBEVIRT_VELERO_PLUGIN": "quay.io/kubevirt/kubevirt-velero-plugin:latest",
 			},
 		},
 	}
