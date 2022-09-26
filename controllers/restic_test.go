@@ -2,11 +2,11 @@ package controllers
 
 import (
 	"context"
-	"fmt"
-	"k8s.io/apimachinery/pkg/api/resource"
 	"os"
 	"reflect"
 	"testing"
+
+	"k8s.io/apimachinery/pkg/api/resource"
 
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 
@@ -2191,7 +2191,7 @@ func TestDPAReconciler_updateResticRestoreHelperCM(t *testing.T) {
 					},
 				},
 				Data: map[string]string{
-					"image": fmt.Sprintf("%v/%v/%v:%v", os.Getenv("REGISTRY"), os.Getenv("PROJECT"), os.Getenv("VELERO_RESTIC_RESTORE_HELPER_REPO"), os.Getenv("VELERO_RESTIC_RESTORE_HELPER_TAG")),
+					"image": os.Getenv("RELATED_IMAGE_VELERO_RESTIC_RESTORE_HELPER"),
 				},
 			},
 		},

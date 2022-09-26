@@ -12,13 +12,13 @@ const (
 
 // Images
 const (
-	VeleroImage          = "quay.io/konveyor/velero:konveyor-1.7.0"
-	OpenshiftPluginImage = "quay.io/konveyor/openshift-velero-plugin:oadp-0.3.0"
-	AWSPluginImage       = "quay.io/konveyor/velero-plugin-for-aws:konveyor-1.3.0"
-	AzurePluginImage     = "quay.io/konveyor/velero-plugin-for-microsoft-azure:konveyor-1.3.0"
-	GCPPluginImage       = "quay.io/konveyor/velero-plugin-for-gcp:konveyor-1.3.0"
-	CSIPluginImage       = "quay.io/konveyor/velero-plugin-for-csi:konveyor-0.2.0"
-	RegistryImage        = "quay.io/konveyor/registry:oadp-0.3.0"
+	VeleroImage          = "quay.io/konveyor/velero:oadp-1.0"
+	OpenshiftPluginImage = "quay.io/konveyor/openshift-velero-plugin:oadp-1.0"
+	AWSPluginImage       = "quay.io/konveyor/velero-plugin-for-aws:oadp-1.0"
+	AzurePluginImage     = "quay.io/konveyor/velero-plugin-for-microsoft-azure:oadp-1.0"
+	GCPPluginImage       = "quay.io/konveyor/velero-plugin-for-gcp:oadp-1.0"
+	CSIPluginImage       = "quay.io/konveyor/velero-plugin-for-csi:oadp-1.0"
+	RegistryImage        = "quay.io/konveyor/registry:oadp-1.0"
 	KubeVirtPluginImage  = "quay.io/konveyor/kubevirt-velero-plugin:v0.2.0"
 )
 

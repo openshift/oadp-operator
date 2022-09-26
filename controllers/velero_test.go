@@ -3651,12 +3651,9 @@ func TestDPAReconciler_getVeleroImage(t *testing.T) {
 				},
 			},
 			pluginName: common.Velero,
-			wantImage:  "quay.io/konveyor/velero:latest",
+			wantImage:  "notquay.io/someorg/velero:sometag",
 			setEnvVars: map[string]string{
-				"REGISTRY":    "quay.io",
-				"PROJECT":     "konveyor",
-				"VELERO_REPO": common.Velero,
-				"VELERO_TAG":  "latest",
+				"RELATED_IMAGE_VELERO": "notquay.io/someorg/velero:sometag",
 			},
 		},
 	}
