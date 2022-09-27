@@ -3,13 +3,16 @@ package lib
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"log"
+	"os"
+	"os/exec"
 	"regexp"
 	"strings"
 	"time"
 
 	snapshotv1beta1api "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1beta1"
-	snapshotv1beta1client "github.com/kubernetes-csi/external-snapshotter/client/v4/clientset/versioned"
+	snapshotv1client "github.com/kubernetes-csi/external-snapshotter/client/v4/clientset/versioned"
 	velero "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	pkgbackup "github.com/vmware-tanzu/velero/pkg/backup"
 	"github.com/vmware-tanzu/velero/pkg/cmd"
@@ -18,7 +21,8 @@ import (
 	"github.com/vmware-tanzu/velero/pkg/features"
 	veleroClientset "github.com/vmware-tanzu/velero/pkg/generated/clientset/versioned"
 	"github.com/vmware-tanzu/velero/pkg/label"
-	"github.com/vmware-tanzu/velero/pkg/restic"
+	appsv1 "k8s.io/api/apps/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -31,7 +35,7 @@ func GetVeleroClient() (veleroClientset.Interface, error) {
 }
 
 // https://github.com/vmware-tanzu/velero/blob/11bfe82342c9f54c63f40d3e97313ce763b446f2/pkg/cmd/cli/backup/describe.go#L77-L111
-func DescribeBackup(ocClient client.Client, backup velero.Backup) string {
+func DescribeBackup(ocClient client.Client, backup velero.Backup) (backupDescription string) {
 	err := ocClient.Get(context.Background(), client.ObjectKey{
 		Namespace: backup.Namespace,
 		Name:      backup.Name,
@@ -59,13 +63,13 @@ func DescribeBackup(ocClient client.Client, backup velero.Backup) string {
 		log.Printf("error getting PodVolumeBackups for backup %s: %v\n", backup.Name, err)
 	}
 
-	var csiClient *snapshotv1beta1client.Clientset
+	var csiClient *snapshotv1client.Clientset
 	// declare vscList up here since it may be empty and we'll pass the empty Items field into DescribeBackup
 	vscList := new(snapshotv1beta1api.VolumeSnapshotContentList)
 	if features.IsEnabled(velero.CSIFeatureFlag) {
 		clientConfig := getKubeConfig()
 
-		csiClient, err = snapshotv1beta1client.NewForConfig(clientConfig)
+		csiClient, err = snapshotv1client.NewForConfig(clientConfig)
 		cmd.CheckError(err)
 
 		vscList, err = csiClient.SnapshotV1beta1().VolumeSnapshotContents().List(context.TODO(), opts)
@@ -73,7 +77,15 @@ func DescribeBackup(ocClient client.Client, backup velero.Backup) string {
 			log.Printf("error getting VolumeSnapshotContent objects for backup %s: %v\n", backup.Name, err)
 		}
 	}
-
+	// output.DescribeBackup is a helper function from velero CLI that attempts to download logs for a backup.
+	// if a backup failed, this function may panic. Recover from the panic and return string of backup object
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("Recovered from panic in DescribeBackup: %v\n", r)
+			log.Print("returning backup object instead")
+			backupDescription = fmt.Sprint(backup)
+		}
+	}()
 	return output.DescribeBackup(context.Background(), ocClient, &backup, deleteRequestList.Items, podVolumeBackupList.Items, vscList.Items, details, veleroClient, insecureSkipTLSVerify, caCertFile)
 }
 
@@ -93,7 +105,7 @@ func DescribeRestore(ocClient client.Client, restore velero.Restore) string {
 	details := true
 	insecureSkipTLSVerify := true
 	caCertFile := ""
-	opts := restic.NewPodVolumeRestoreListOptions(restore.Name)
+	opts := newPodVolumeRestoreListOptions(restore.Name)
 	podvolumeRestoreList, err := veleroClient.VeleroV1().PodVolumeRestores(restore.Namespace).List(context.TODO(), opts)
 	if err != nil {
 		log.Printf("error getting PodVolumeRestores for restore %s: %v\n", restore.Name, err)
@@ -102,28 +114,65 @@ func DescribeRestore(ocClient client.Client, restore velero.Restore) string {
 	return output.DescribeRestore(context.Background(), ocClient, &restore, podvolumeRestoreList.Items, details, veleroClient, insecureSkipTLSVerify, caCertFile)
 }
 
-func BackupLogs(ocClient client.Client, backup velero.Backup) string {
+// newPodVolumeRestoreListOptions creates a ListOptions with a label selector configured to
+// find PodVolumeRestores for the restore identified by name.
+func newPodVolumeRestoreListOptions(name string) metav1.ListOptions {
+	return metav1.ListOptions{
+		LabelSelector: fmt.Sprintf("%s=%s", velero.RestoreNameLabel, label.GetValidName(name)),
+	}
+}
+
+func BackupLogs(ocClient client.Client, backup velero.Backup) (backupLogs string) {
 	insecureSkipTLSVerify := true
 	caCertFile := ""
 	// new io.Writer that store the logs in a string
 	logs := &bytes.Buffer{}
 	// new io.Writer that store the logs in a string
-
+	// if a backup failed, this function may panic. Recover from the panic and return container logs
+	defer func() {
+		if r := recover(); r != nil {
+			backupLogs = recoverFromPanicLogs(backup.Namespace, r, "BackupLogs")
+		}
+	}()
 	downloadrequest.Stream(context.Background(), ocClient, backup.Namespace, backup.Name, velero.DownloadTargetKindBackupLog, logs, time.Minute, insecureSkipTLSVerify, caCertFile)
 
 	return logs.String()
 }
 
-func RestoreLogs(ocClient client.Client, restore velero.Restore) string {
+func RestoreLogs(ocClient client.Client, restore velero.Restore) (restoreLogs string) {
 	insecureSkipTLSVerify := true
 	caCertFile := ""
 	// new io.Writer that store the logs in a string
 	logs := &bytes.Buffer{}
 	// new io.Writer that store the logs in a string
-
+	// if a backup failed, this function may panic. Recover from the panic and return container logs
+	defer func() {
+		if r := recover(); r != nil {
+			restoreLogs = recoverFromPanicLogs(restore.Namespace, r, "RestoreLogs")
+		}
+	}()
 	downloadrequest.Stream(context.Background(), ocClient, restore.Namespace, restore.Name, velero.DownloadTargetKindRestoreLog, logs, time.Minute, insecureSkipTLSVerify, caCertFile)
 
 	return logs.String()
+}
+
+var errorIgnorePatterns = []string{
+	"received EOF, stopping recv loop",
+	"Checking for AWS specific error information",
+	"awserr.Error contents",
+	"Error creating parent directories for blob-info-cache-v1.boltdb",
+	"blob unknown",
+	"num errors=0",
+}
+
+func recoverFromPanicLogs(veleroNamespace string, panicReason interface{}, panicFrom string) string {
+	log.Printf("Recovered from panic in %s: %v\n", panicFrom, panicReason)
+	log.Print("returning container logs instead")
+	containerLogs, err := GetVeleroContainerLogs(veleroNamespace)
+	if err != nil {
+		log.Printf("error getting container logs: %v\n", err)
+	}
+	return containerLogs
 }
 
 func BackupErrorLogs(ocClient client.Client, backup velero.Backup) []string {
@@ -135,7 +184,17 @@ func BackupErrorLogs(ocClient client.Client, backup velero.Backup) []string {
 	logLines := []string{}
 	for _, line := range strings.Split(bl, "\n") {
 		if errorRegex.MatchString(line) {
-			logLines = append(logLines, line)
+			// ignore some expected errors
+			ignoreLine := false
+			for _, ignore := range errorIgnorePatterns {
+				ignoreLine, _ = regexp.MatchString(ignore, line)
+				if ignoreLine {
+					break
+				}
+			}
+			if !ignoreLine {
+				logLines = append(logLines, line)
+			}
 		}
 	}
 	return logLines
@@ -150,8 +209,53 @@ func RestoreErrorLogs(ocClient client.Client, restore velero.Restore) []string {
 	logLines := []string{}
 	for _, line := range strings.Split(rl, "\n") {
 		if errorRegex.MatchString(line) {
-			logLines = append(logLines, line)
+			// ignore some expected errors
+			ignoreLine := false
+			for _, ignore := range errorIgnorePatterns {
+				ignoreLine, _ = regexp.MatchString(ignore, line)
+				if ignoreLine {
+					break
+				}
+			}
+			if !ignoreLine {
+				logLines = append(logLines, line)
+			}
 		}
 	}
 	return logLines
+}
+
+func GetVeleroDeploymentList(namespace string) (*appsv1.DeploymentList, error) {
+	client, err := setUpClient()
+	if err != nil {
+		return nil, err
+	}
+	registryListOptions := metav1.ListOptions{
+		LabelSelector: "component=velero",
+	}
+	// get pods in the oadp-operator-e2e namespace with label selector
+	deploymentList, err := client.AppsV1().Deployments(namespace).List(context.TODO(), registryListOptions)
+	if err != nil {
+		return nil, err
+	}
+	return deploymentList, nil
+}
+
+func RunResticPostRestoreScript(dcRestoreName string) error {
+	logger := log.Default()
+	logger.Printf("Running post restore script for %s", dcRestoreName)
+	// get current directory
+	currentDir, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+	currentDir = strings.TrimSuffix(currentDir, "/tests/e2e")
+	command := exec.Command("bash", currentDir+"/docs/scripts/dc-restic-post-restore.sh", dcRestoreName)
+	stdOut, err := command.Output()
+	logger.Printf("command: %s", command.String())
+	logger.Printf("stdout: %s", stdOut)
+	logger.Printf("stderr: %s", command.Stderr)
+	logger.Printf("err: %s", err)
+	return err
+	// return exec.Command("bash", "./docs/scripts/dc-restic-post-restore.sh", dcRestoreName).Run()
 }

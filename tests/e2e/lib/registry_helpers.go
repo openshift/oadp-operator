@@ -17,7 +17,7 @@ func AreRegistryDeploymentsAvailable(namespace string) wait.ConditionFunc {
 		// get pods in the oadp-operator-e2e namespace with label selector
 		deploymentList, err := GetRegistryDeploymentList(namespace)
 		if err != nil {
-			return false, nil
+			return false, err
 		}
 		if len(deploymentList.Items) == 0 {
 			return false, fmt.Errorf("registry deployment is not yet created")

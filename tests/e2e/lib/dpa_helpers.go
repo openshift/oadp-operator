@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
 	. "github.com/onsi/ginkgo/v2"
 	buildv1 "github.com/openshift/api/build/v1"
 	"github.com/openshift/oadp-operator/pkg/common"
@@ -44,12 +45,9 @@ const (
 type DpaCustomResource struct {
 	Name              string
 	Namespace         string
-	SecretName        string
 	backupRestoreType BackupRestoreType
 	CustomResource    *oadpv1alpha1.DataProtectionApplication
 	Client            client.Client
-	Credentials       string
-	CredSecretRef     string
 	Provider          string
 }
 
@@ -66,6 +64,7 @@ func (v *DpaCustomResource) Build(backupRestoreType BackupRestoreType) error {
 		Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 			Configuration: &oadpv1alpha1.ApplicationConfig{
 				Velero: &oadpv1alpha1.VeleroConfig{
+					LogLevel:       "debug",
 					DefaultPlugins: v.CustomResource.Spec.Configuration.Velero.DefaultPlugins,
 				},
 				Restic: &oadpv1alpha1.ResticConfig{
@@ -76,10 +75,15 @@ func (v *DpaCustomResource) Build(backupRestoreType BackupRestoreType) error {
 			BackupLocations: []oadpv1alpha1.BackupLocation{
 				{
 					Velero: &velero.BackupStorageLocationSpec{
-						Provider:   v.CustomResource.Spec.BackupLocations[0].Velero.Provider,
-						Default:    true,
-						Config:     v.CustomResource.Spec.BackupLocations[0].Velero.Config,
-						Credential: v.CustomResource.Spec.BackupLocations[0].Velero.Credential,
+						Provider: v.CustomResource.Spec.BackupLocations[0].Velero.Provider,
+						Default:  true,
+						Config:   v.CustomResource.Spec.BackupLocations[0].Velero.Config,
+						Credential: &corev1.SecretKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: "bsl-cloud-credentials-" + v.Provider,
+							},
+							Key: "cloud",
+						},
 						StorageType: velero.StorageType{
 							ObjectStorage: &velero.ObjectStorageLocation{
 								Bucket: v.CustomResource.Spec.BackupLocations[0].Velero.ObjectStorage.Bucket,
@@ -91,17 +95,34 @@ func (v *DpaCustomResource) Build(backupRestoreType BackupRestoreType) error {
 			},
 		},
 	}
-	if dpaInstance.Spec.BackupLocations[0].Velero.Config != nil {
-		dpaInstance.Spec.BackupLocations[0].Velero.Config["credentialsFile"] = "bsl-cloud-credentials-" + v.Provider + "/cloud"
-	}
 	v.backupRestoreType = backupRestoreType
+	type emptyStruct struct{}
+	// default plugins map
+	defaultPlugins := make(map[oadpv1alpha1.DefaultPlugin]emptyStruct)
+	for _, plugin := range dpaInstance.Spec.Configuration.Velero.DefaultPlugins {
+		defaultPlugins[plugin] = emptyStruct{}
+	}
+	featureFlags := make(map[string]emptyStruct)
+	for _, flag := range dpaInstance.Spec.Configuration.Velero.FeatureFlags {
+		featureFlags[flag] = emptyStruct{}
+	}
 	switch backupRestoreType {
 	case RESTIC:
 		dpaInstance.Spec.Configuration.Restic.Enable = pointer.Bool(true)
+		delete(defaultPlugins, oadpv1alpha1.DefaultPluginCSI)
+		delete(featureFlags, "EnableCSI")
 	case CSI:
 		dpaInstance.Spec.Configuration.Restic.Enable = pointer.Bool(false)
-		dpaInstance.Spec.Configuration.Velero.DefaultPlugins = append(dpaInstance.Spec.Configuration.Velero.DefaultPlugins, oadpv1alpha1.DefaultPluginCSI)
-		dpaInstance.Spec.Configuration.Velero.FeatureFlags = append(dpaInstance.Spec.Configuration.Velero.FeatureFlags, "EnableCSI")
+		defaultPlugins[oadpv1alpha1.DefaultPluginCSI] = emptyStruct{}
+		featureFlags["EnableCSI"] = emptyStruct{}
+	}
+	dpaInstance.Spec.Configuration.Velero.DefaultPlugins = make([]oadpv1alpha1.DefaultPlugin, 0)
+	for k := range defaultPlugins {
+		dpaInstance.Spec.Configuration.Velero.DefaultPlugins = append(dpaInstance.Spec.Configuration.Velero.DefaultPlugins, k)
+	}
+	dpaInstance.Spec.Configuration.Velero.FeatureFlags = make([]string, 0)
+	for k := range featureFlags {
+		dpaInstance.Spec.Configuration.Velero.FeatureFlags = append(dpaInstance.Spec.Configuration.Velero.FeatureFlags, k)
 	}
 	v.CustomResource = &dpaInstance
 	return nil
@@ -250,7 +271,7 @@ func AreVeleroPodsRunning(namespace string) wait.ConditionFunc {
 }
 
 // Returns logs from velero container on velero pod
-func getVeleroContainerLogs(namespace string) (string, error) {
+func GetVeleroContainerLogs(namespace string) (string, error) {
 	podList, err := GetVeleroPods(namespace)
 	if err != nil {
 		return "", err
@@ -284,7 +305,7 @@ func getVeleroContainerLogs(namespace string) (string, error) {
 }
 
 func GetVeleroContainerFailureLogs(namespace string) []string {
-	containerLogs, err := getVeleroContainerLogs(namespace)
+	containerLogs, err := GetVeleroContainerLogs(namespace)
 	if err != nil {
 		log.Printf("cannot get velero container logs")
 		return nil
@@ -319,37 +340,45 @@ func (v *DpaCustomResource) IsDeleted() wait.ConditionFunc {
 }
 
 //check if bsl matches the spec
-func DoesBSLExist(namespace string, bsl velero.BackupStorageLocationSpec, spec *oadpv1alpha1.DataProtectionApplicationSpec) wait.ConditionFunc {
-	return func() (bool, error) {
-		if len(spec.BackupLocations) == 0 {
-			return false, errors.New("no backup storage location configured. Expected BSL to be configured")
-		}
-		for _, b := range spec.BackupLocations {
-			if b.Velero.Provider == bsl.Provider {
-				if !reflect.DeepEqual(bsl, *b.Velero) {
-					return false, errors.New("given Velero bsl does not match the deployed velero bsl")
-				}
+func DoesBSLSpecMatchesDpa(namespace string, bsl velero.BackupStorageLocationSpec, spec *oadpv1alpha1.DataProtectionApplicationSpec) (bool, error) {
+	if len(spec.BackupLocations) == 0 {
+		return false, errors.New("no backup storage location configured. Expected BSL to be configured")
+	}
+	for _, b := range spec.BackupLocations {
+		if b.Velero.Provider == bsl.Provider {
+			if b.Velero.Config == nil {
+				b.Velero.Config = make(map[string]string)
+			}
+			if bsl.Config == nil {
+				bsl.Config = make(map[string]string)
+			}
+			if !reflect.DeepEqual(bsl, *b.Velero) {
+				GinkgoWriter.Print(cmp.Diff(bsl, *b.Velero))
+				return false, errors.New("given Velero bsl does not match the deployed velero bsl")
 			}
 		}
-		return true, nil
 	}
+	return true, nil
 }
 
 //check if vsl matches the spec
-func DoesVSLExist(namespace string, vslspec velero.VolumeSnapshotLocationSpec, spec *oadpv1alpha1.DataProtectionApplicationSpec) wait.ConditionFunc {
-	return func() (bool, error) {
-
-		if len(spec.SnapshotLocations) == 0 {
-			return false, errors.New("no volume storage location configured. Expected VSL to be configured")
-		}
-		for _, v := range spec.SnapshotLocations {
-			if reflect.DeepEqual(vslspec, *v.Velero) {
-				return true, nil
-			}
-		}
-		return false, errors.New("did not find expected VSL")
-
+func DoesVSLSpecMatchesDpa(namespace string, vslspec velero.VolumeSnapshotLocationSpec, spec *oadpv1alpha1.DataProtectionApplicationSpec) (bool, error) {
+	if len(spec.SnapshotLocations) == 0 {
+		return false, errors.New("no volume storage location configured. Expected VSL to be configured")
 	}
+	for _, v := range spec.SnapshotLocations {
+		if v.Velero.Config == nil {
+			v.Velero.Config = make(map[string]string)
+		}
+		if vslspec.Config == nil {
+			vslspec.Config = make(map[string]string)
+		}
+		if reflect.DeepEqual(vslspec, *v.Velero) {
+			GinkgoWriter.Print(cmp.Diff(vslspec, *v.Velero))
+			return true, nil
+		}
+	}
+	return false, errors.New("did not find expected VSL")
 }
 
 //check velero tolerations
@@ -421,12 +450,4 @@ func LoadDpaSettingsFromJson(settings string) string {
 		return fmt.Sprintf("Error getting settings json file: %v", err)
 	}
 	return ""
-}
-
-func GetSecretRef(credSecretRef string) string {
-	if Dpa.Spec.BackupLocations[0].Velero.Credential == nil {
-		return credSecretRef
-	} else {
-		return Dpa.Spec.BackupLocations[0].Velero.Credential.Name
-	}
 }

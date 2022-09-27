@@ -1,6 +1,7 @@
 package e2e_test
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log"
@@ -8,40 +9,86 @@ import (
 
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
+	"github.com/onsi/ginkgo/v2/types"
 	. "github.com/onsi/gomega"
 	. "github.com/openshift/oadp-operator/tests/e2e/lib"
-	utils "github.com/openshift/oadp-operator/tests/e2e/utils"
+	corev1 "k8s.io/api/core/v1"
+	k8serror "k8s.io/apimachinery/pkg/api/errors"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type VerificationFunction func(client.Client, string) error
+
+func mongoready(preBackupState bool, backupRestoreType BackupRestoreType) VerificationFunction {
+	return VerificationFunction(func(ocClient client.Client, namespace string) error {
+		Eventually(IsDCReady(ocClient, namespace, "todolist"), timeoutMultiplier*time.Minute*10, time.Second*10).Should(BeTrue())
+		exists, err := DoesSCCExist(ocClient, "mongo-persistent-scc")
+		if err != nil {
+			return err
+		}
+		if !exists {
+			return errors.New("did not find Mongo scc")
+		}
+		err = VerifyBackupRestoreData(artifact_dir, namespace, "todolist-route", "todolist", preBackupState, backupRestoreType) // TODO: VERIFY PARKS APP DATA
+		return err
+	})
+}
+func mysqlReady(preBackupState bool, backupRestoreType BackupRestoreType) VerificationFunction {
+	return VerificationFunction(func(ocClient client.Client, namespace string) error {
+		fmt.Printf("checking for the NAMESPACE: %s\n ", namespace)
+		// This test confirms that SCC restore logic in our plugin is working
+		//Eventually(IsDCReady(ocClient, "mssql-persistent", "mysql"), timeoutMultiplier*time.Minute*10, time.Second*10).Should(BeTrue())
+		Eventually(IsDeploymentReady(ocClient, namespace, "mysql"), timeoutMultiplier*time.Minute*10, time.Second*10).Should(BeTrue())
+		exists, err := DoesSCCExist(ocClient, "mysql-persistent-scc")
+		if err != nil {
+			return err
+		}
+		if !exists {
+			return errors.New("did not find MYSQL scc")
+		}
+		err = VerifyBackupRestoreData(artifact_dir, namespace, "todolist-route", "todolist", preBackupState, backupRestoreType)
+		return err
+	})
+}
 
 var _ = Describe("AWS backup restore tests", func() {
 
 	var _ = BeforeEach(func() {
 		testSuiteInstanceName := "ts-" + instanceName
 		dpaCR.Name = testSuiteInstanceName
-
-		credData, err := utils.ReadFile(credFile)
-		Expect(err).NotTo(HaveOccurred())
-		err = CreateCredentialsSecret(credData, namespace, GetSecretRef(credSecretRef))
-		Expect(err).NotTo(HaveOccurred())
 	})
 
-	var _ = AfterEach(func() {
-		err := dpaCR.Delete()
-		Expect(err).ToNot(HaveOccurred())
-
-	})
 	var lastInstallingApplicationNamespace string
 	var lastInstallTime time.Time
 	var _ = ReportAfterEach(func(report SpecReport) {
+		if report.State == types.SpecStateSkipped {
+			// do not run if the test is skipped
+			return
+		}
+		GinkgoWriter.Println("Report after each: state: ", report.State.String())
 		if report.Failed() {
 			// print namespace error events for app namespace
 			if lastInstallingApplicationNamespace != "" {
 				PrintNamespaceEventsAfterTime(lastInstallingApplicationNamespace, lastInstallTime)
 			}
+			GinkgoWriter.Println("Printing velero deployment pod logs")
+			logs, err := GetVeleroContainerLogs(namespace)
+			Expect(err).NotTo(HaveOccurred())
+			GinkgoWriter.Println(logs)
+			GinkgoWriter.Println("End of velero deployment pod logs")
 		}
+		// remove app namespace if leftover (likely previously failed before reaching uninstall applications) to clear items such as PVCs which are immutable so that next test can create new ones
+		err := dpaCR.Client.Delete(context.Background(), &corev1.Namespace{ObjectMeta: v1.ObjectMeta{
+			Name:      lastInstallingApplicationNamespace,
+			Namespace: lastInstallingApplicationNamespace,
+		}}, &client.DeleteOptions{})
+		if k8serror.IsNotFound(err) {
+			err = nil
+		}
+		Expect(err).ToNot(HaveOccurred())
+		err = dpaCR.Delete()
+		Expect(err).ToNot(HaveOccurred())
 	})
 
 	type BackupRestoreCase struct {
@@ -55,26 +102,6 @@ var _ = Describe("AWS backup restore tests", func() {
 		MinK8SVersion        *K8sVersion
 	}
 
-	mongoReady := VerificationFunction(func(ocClient client.Client, namespace string) error {
-		Eventually(IsDCReady(ocClient, "mongo-persistent", "todolist"), timeoutMultiplier*time.Minute*10, time.Second*10).Should(BeTrue())
-		// err := VerifyBackupRestoreData(artifact_dir, namespace, "restify", "parks-app") // TODO: VERIFY PARKS APP DATA
-		return nil
-	})
-	mysqlReady := VerificationFunction(func(ocClient client.Client, namespace string) error {
-		// This test confirms that SCC restore logic in our plugin is working
-		//Eventually(IsDCReady(ocClient, "mssql-persistent", "mysql"), timeoutMultiplier*time.Minute*10, time.Second*10).Should(BeTrue())
-		Eventually(IsDeploymentReady(ocClient, "mysql-persistent", "mysql"), timeoutMultiplier*time.Minute*10, time.Second*10).Should(BeTrue())
-		exists, err := DoesSCCExist(ocClient, "mysql-persistent-scc")
-		if err != nil {
-			return err
-		}
-		if !exists {
-			return errors.New("did not find MYSQL scc")
-		}
-		err = VerifyBackupRestoreData(artifact_dir, namespace, "todolist-route", "todolist")
-		return err
-	})
-
 	updateLastInstallingNamespace := func(namespace string) {
 		lastInstallingApplicationNamespace = namespace
 		lastInstallTime = time.Now()
@@ -86,12 +113,24 @@ var _ = Describe("AWS backup restore tests", func() {
 				Skip(reason)
 			}
 
+			if provider == "azure" && brCase.BackupRestoreType == CSI {
+				if brCase.MinK8SVersion == nil {
+					brCase.MinK8SVersion = &K8sVersion{Major: "1", Minor: "23"}
+				}
+			}
+			if notVersionTarget, reason := NotServerVersionTarget(brCase.MinK8SVersion, brCase.MaxK8SVersion); notVersionTarget {
+				Skip(reason)
+			}
+
 			err := dpaCR.Build(brCase.BackupRestoreType)
 			Expect(err).NotTo(HaveOccurred())
 
 			updateLastInstallingNamespace(dpaCR.Namespace)
+
 			err = dpaCR.CreateOrUpdate(&dpaCR.CustomResource.Spec)
 			Expect(err).NotTo(HaveOccurred())
+
+			fmt.Printf("Cluster type: %s \n", provider)
 
 			log.Printf("Waiting for velero pod to be running")
 			Eventually(AreVeleroPodsRunning(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
@@ -101,15 +140,17 @@ var _ = Describe("AWS backup restore tests", func() {
 				Eventually(AreResticPodsRunning(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 			}
 			if brCase.BackupRestoreType == CSI {
-				log.Printf("Creating VolumeSnapshotClass for CSI backuprestore of %s", brCase.Name)
-				err = InstallApplication(dpaCR.Client, "./sample-applications/gp2-csi/volumeSnapshotClass.yaml")
-				Expect(err).ToNot(HaveOccurred())
+				if provider == "aws" || provider == "ibmcloud" || provider == "gcp" || provider == "azure" {
+					log.Printf("Creating VolumeSnapshotClass for CSI backuprestore of %s", brCase.Name)
+					snapshotClassPath := fmt.Sprintf("./sample-applications/snapclass-csi/%s.yaml", provider)
+					err = InstallApplication(dpaCR.Client, snapshotClassPath)
+					Expect(err).ToNot(HaveOccurred())
+				}
+
 			}
 
-			if dpaCR.CustomResource.BackupImages() {
-				log.Printf("Waiting for registry pods to be running")
-				Eventually(AreRegistryDeploymentsAvailable(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
-			}
+			// TODO: check registry deployments are deleted
+			// TODO: check S3 for images
 
 			backupUid, _ := uuid.NewUUID()
 			restoreUid, _ := uuid.NewUUID()
@@ -121,8 +162,15 @@ var _ = Describe("AWS backup restore tests", func() {
 			log.Printf("Installing application for case %s", brCase.Name)
 			err = InstallApplication(dpaCR.Client, brCase.ApplicationTemplate)
 			Expect(err).ToNot(HaveOccurred())
+			if brCase.BackupRestoreType == CSI {
+				log.Printf("Creating pvc for case %s", brCase.Name)
+				pvcPath := fmt.Sprintf("./sample-applications/%s/pvc/%s.yaml", brCase.ApplicationNamespace, provider)
+				err = InstallApplication(dpaCR.Client, pvcPath)
+				Expect(err).ToNot(HaveOccurred())
+			}
+
 			// wait for pods to be running
-			Eventually(AreAppBuildsReady(dpaCR.Client, brCase.ApplicationNamespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
+			Eventually(AreAppBuildsReady(dpaCR.Client, brCase.ApplicationNamespace), timeoutMultiplier*time.Minute*5, time.Second*5).Should(BeTrue())
 			Eventually(AreApplicationPodsRunning(brCase.ApplicationNamespace), timeoutMultiplier*time.Minute*9, time.Second*5).Should(BeTrue())
 
 			// Run optional custom verification
@@ -134,11 +182,11 @@ var _ = Describe("AWS backup restore tests", func() {
 			Expect(err).ToNot(HaveOccurred())
 			// create backup
 			log.Printf("Creating backup %s for case %s", backupName, brCase.Name)
-			backup, err := CreateBackupForNamespaces(dpaCR.Client, namespace, backupName, []string{brCase.ApplicationNamespace})
+			backup, err := CreateBackupForNamespaces(dpaCR.Client, namespace, backupName, []string{brCase.ApplicationNamespace}, brCase.BackupRestoreType == RESTIC)
 			Expect(err).ToNot(HaveOccurred())
 
 			// wait for backup to not be running
-			Eventually(IsBackupDone(dpaCR.Client, namespace, backupName), timeoutMultiplier*time.Minute*4, time.Second*10).Should(BeTrue())
+			Eventually(IsBackupDone(dpaCR.Client, namespace, backupName), timeoutMultiplier*time.Minute*12, time.Second*10).Should(BeTrue())
 			GinkgoWriter.Println(DescribeBackup(dpaCR.Client, backup))
 			Expect(BackupErrorLogs(dpaCR.Client, backup)).To(Equal([]string{}))
 
@@ -229,34 +277,43 @@ var _ = Describe("AWS backup restore tests", func() {
 
 			if brCase.BackupRestoreType == CSI {
 				log.Printf("Deleting VolumeSnapshot for CSI backuprestore of %s", brCase.Name)
-				err = UninstallApplication(dpaCR.Client, "./sample-applications/gp2-csi/volumeSnapshotClass.yaml")
+				snapshotClassPath := fmt.Sprintf("./sample-applications/snapclass-csi/%s.yaml", provider)
+				err = UninstallApplication(dpaCR.Client, snapshotClassPath)
 				Expect(err).ToNot(HaveOccurred())
 			}
 
 		},
-		Entry("MySQL application CSI", Label("aws"), BackupRestoreCase{
-			ApplicationTemplate:  "./sample-applications/mysql-persistent/mysql-persistent-csi-template.yaml",
+		Entry("MySQL application CSI", Label("ibmcloud", "aws", "gcp", "azure"), BackupRestoreCase{
+			ApplicationTemplate:  fmt.Sprintf("./sample-applications/mysql-persistent/mysql-persistent-csi.yaml"),
 			ApplicationNamespace: "mysql-persistent",
-			Name:                 "mysql-e2e",
+			Name:                 "mysql-csi-e2e",
 			BackupRestoreType:    CSI,
-			PreBackupVerify:      mysqlReady,
-			PostRestoreVerify:    mysqlReady,
+			PreBackupVerify:      mysqlReady(true, CSI),
+			PostRestoreVerify:    mysqlReady(false, CSI),
 		}, nil),
-		Entry("Mongo application", BackupRestoreCase{
+		Entry("Mongo application CSI", Label("ibmcloud", "aws", "gcp", "azure"), BackupRestoreCase{
+			ApplicationTemplate:  fmt.Sprintf("./sample-applications/mongo-persistent/mongo-persistent-csi.yaml"),
+			ApplicationNamespace: "mongo-persistent",
+			Name:                 "mongo-csi-e2e",
+			BackupRestoreType:    CSI,
+			PreBackupVerify:      mongoready(true, CSI),
+			PostRestoreVerify:    mongoready(false, CSI),
+		}, nil),
+		Entry("Mongo application RESTIC", BackupRestoreCase{
 			ApplicationTemplate:  "./sample-applications/mongo-persistent/mongo-persistent.yaml",
 			ApplicationNamespace: "mongo-persistent",
-			Name:                 "mongo-e2e",
+			Name:                 "mongo-restic-e2e",
 			BackupRestoreType:    RESTIC,
-			PreBackupVerify:      mongoReady,
-			PostRestoreVerify:    mongoReady,
+			PreBackupVerify:      mongoready(true, RESTIC),
+			PostRestoreVerify:    mongoready(false, RESTIC),
 		}, nil),
-		Entry("MySQL application", BackupRestoreCase{
-			ApplicationTemplate:  "./sample-applications/mysql-persistent/mysql-persistent-template.yaml",
+		Entry("MySQL application RESTIC", BackupRestoreCase{
+			ApplicationTemplate:  "./sample-applications/mysql-persistent/mysql-persistent.yaml",
 			ApplicationNamespace: "mysql-persistent",
-			Name:                 "mysql-e2e",
+			Name:                 "mysql-restic-e2e",
 			BackupRestoreType:    RESTIC,
-			PreBackupVerify:      mysqlReady,
-			PostRestoreVerify:    mysqlReady,
+			PreBackupVerify:      mysqlReady(true, RESTIC),
+			PostRestoreVerify:    mysqlReady(false, RESTIC),
 		}, nil),
 	)
 })

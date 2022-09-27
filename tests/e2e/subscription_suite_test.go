@@ -2,14 +2,12 @@ package e2e_test
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/openshift/oadp-operator/tests/e2e/lib"
-	utils "github.com/openshift/oadp-operator/tests/e2e/utils"
 	operators "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/utils/pointer"
@@ -29,12 +27,6 @@ var _ = Describe("Subscription Config Suite Test", func() {
 
 		testSuiteInstanceName := "ts-" + instanceName
 		dpaCR.Name = testSuiteInstanceName
-
-		credData, err := utils.ReadFile(credFile)
-		Expect(err).NotTo(HaveOccurred())
-
-		err = CreateCredentialsSecret(credData, namespace, GetSecretRef(credSecretRef))
-		Expect(err).NotTo(HaveOccurred())
 	})
 
 	var _ = AfterEach(func() {
@@ -44,11 +36,12 @@ var _ = Describe("Subscription Config Suite Test", func() {
 	type SubscriptionConfigTestCase struct {
 		operators.SubscriptionConfig
 		failureExpected *bool
+		stream          string
 	}
 	DescribeTable("Proxy test table",
 		func(testCase SubscriptionConfigTestCase) {
 			log.Printf("Getting Operator Subscription")
-			s, err := dpaCR.GetOperatorSubscription()
+			s, err := dpaCR.GetOperatorSubscription(stream)
 			Expect(err).To(BeNil())
 			log.Printf("Setting test case subscription config")
 			s.Spec.Config = &testCase.SubscriptionConfig
@@ -76,28 +69,27 @@ var _ = Describe("Subscription Config Suite Test", func() {
 					log.Printf("Waiting for restic pods to be running")
 					Eventually(AreResticPodsRunning(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 				}
-				if velero.BackupImages() {
-					log.Printf("Waiting for registry pods to be running")
-					Eventually(AreRegistryDeploymentsAvailable(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
-				}
 				if s.Spec.Config != nil && s.Spec.Config.Env != nil {
 					// get pod env vars
-					log.Printf("Getting velero pods")
-					podList, err := GetVeleroPods(namespace)
+					log.Printf("Getting deployments")
+					vd, err := GetVeleroDeploymentList(namespace)
 					Expect(err).NotTo(HaveOccurred())
-					log.Printf("Getting pods containers env vars")
-					bl := dpaCR.CustomResource.Spec.BackupLocations[0]
-					for _, podInfo := range podList.Items {
-						// we care about pods that have labels control-plane=controller-manager, component=velero, "component": "oadp-" + bsl.Name + "-" + bsl.Spec.Provider + "-registry",
-						if podInfo.Labels["control-plane"] == "controller-manager" ||
-							podInfo.Labels["app.kubernetes.io/name"] == "velero" ||
-							podInfo.Labels["component"] == "oadp-"+fmt.Sprintf("%s-%d", dpaCR.Name, 1)+"-"+bl.Velero.Provider+"-registry" {
-							log.Printf("Checking env vars are passed to each container in " + podInfo.Name)
-							for _, container := range podInfo.Spec.Containers {
+					log.Printf("Getting daemonsets")
+					rds, err := GetResticDaemonsetList(namespace)
+					Expect(err).NotTo(HaveOccurred())
+					for _, env := range s.Spec.Config.Env {
+						for _, deployment := range vd.Items {
+							log.Printf("Checking env vars are passed to deployment " + deployment.Name)
+							for _, container := range deployment.Spec.Template.Spec.Containers {
 								log.Printf("Checking env vars are passed to container " + container.Name)
-								for _, env := range s.Spec.Config.Env {
-									Expect(container.Env).To(ContainElement(env))
-								}
+								Expect(container.Env).To(ContainElement(env))
+							}
+						}
+						for _, daemonset := range rds.Items {
+							log.Printf("Checking env vars are passed to daemonset " + daemonset.Name)
+							for _, container := range daemonset.Spec.Template.Spec.Containers {
+								log.Printf("Checking env vars are passed to container " + container.Name)
+								Expect(container.Env).To(ContainElement(env))
 							}
 						}
 					}

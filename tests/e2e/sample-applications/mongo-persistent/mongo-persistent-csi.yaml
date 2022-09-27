@@ -33,20 +33,6 @@ items:
     users:
     - system:admin
     - system:serviceaccount:mongo-persistent:mongo-persistent-sa
-  - apiVersion: v1
-    kind: PersistentVolumeClaim
-    metadata:
-      name: mongo
-      namespace: mongo-persistent
-      labels:
-        app: mongo
-    spec:
-      accessModes:
-      - ReadWriteOnce
-      storageClassName: gp2-csi
-      resources:
-        requests:
-          storage: 1Gi
   - kind: ImageStream
     apiVersion: image.openshift.io/v1
     metadata:
@@ -147,7 +133,7 @@ items:
       strategy:
         type: Docker
         dockerStrategy:
-          dockerfilePath: Dockerfile
+          dockerfilePath: apps/todolist-mongo-go/Dockerfile
       output:
         to:
           kind: ImageStreamTag

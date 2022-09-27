@@ -14,19 +14,6 @@ items:
       namespace: mysql-persistent
       labels:
         component: mysql-persistent
-  - apiVersion: v1
-    kind: PersistentVolumeClaim
-    metadata:
-      name: mysql
-      namespace: mysql-persistent
-      labels:
-        app: mysql
-    spec:
-      accessModes:
-      - ReadWriteOnce
-      resources:
-        requests:
-          storage: 1Gi
   - kind: SecurityContextConstraints
     apiVersion: security.openshift.io/v1
     metadata:
@@ -154,7 +141,7 @@ items:
         spec:
           containers:
           - name: todolist
-            image:  quay.io/rhn_engineering_whayutin/todolist-mariadb-go:latest
+            image: quay.io/mferrato/todolist-mariadb-go:v1
             env:
               - name: foo
                 value: bar

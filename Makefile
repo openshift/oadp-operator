@@ -1,5 +1,4 @@
 OADP_TEST_NAMESPACE ?= openshift-adp
-CLUSTER_TYPE ?= aws
 
 # CONFIGS FOR CLOUD
 # bsl / blob storage cred dir
@@ -31,18 +30,38 @@ AZURE_OADP_JSON_CRED_FILE ?= ${OADP_CRED_DIR}/azure-credentials
 OPENSHIFT_CI ?= true
 VELERO_INSTANCE_NAME ?= velero-test
 E2E_TIMEOUT_MULTIPLIER ?= 1
+ARTIFACT_DIR ?= /tmp
+OC_CLI = $(shell which oc)
+
+ifdef CLI_DIR
+	OC_CLI = ${CLI_DIR}/oc
+endif
+
+CLUSTER_TYPE ?= $(shell $(OC_CLI) get infrastructures cluster -o jsonpath='{.status.platform}' | tr A-Z a-z)
+$(info $$CLUSTER_TYPE is [${CLUSTER_TYPE}])
 
 ifeq ($(CLUSTER_TYPE), gcp)
 	CI_CRED_FILE = ${CLUSTER_PROFILE_DIR}/gce.json
 	OADP_CRED_FILE = ${OADP_CRED_DIR}/gcp-credentials
 	CREDS_SECRET_REF = cloud-credentials-gcp
 	OADP_BUCKET_FILE = ${OADP_CRED_DIR}/gcp-velero-bucket-name
-else ifeq ($(CLUSTER_TYPE), azure4)
+endif
+
+ifeq ($(CLUSTER_TYPE), azure4)
 	CLUSTER_TYPE = azure
+endif
+
+ifeq ($(CLUSTER_TYPE), azure)
 	CI_CRED_FILE = /tmp/ci-azure-credentials
 	OADP_CRED_FILE = /tmp/oadp-azure-credentials
 	CREDS_SECRET_REF = cloud-credentials-azure
 	OADP_BUCKET_FILE = ${OADP_CRED_DIR}/azure-velero-bucket-name
+endif
+
+VELERO_PLUGIN ?= ${CLUSTER_TYPE}
+
+ifeq ($(CLUSTER_TYPE), ibmcloud)
+	VELERO_PLUGIN ?= aws
 endif
 
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
@@ -146,12 +165,17 @@ vet: ## Run go vet against code.
 	go vet -mod=mod ./...
 
 test: manifests generate fmt vet envtest ## Run tests.
-	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" go test -mod=mod ./controllers/... ./pkg/... -coverprofile cover.out
+	KUBEBUILDER_ASSETS="$(ENVTESTPATH)" go test -mod=mod ./controllers/... ./pkg/... -coverprofile cover.out
 
 
 ENVTEST = $(shell pwd)/bin/setup-envtest
+ENVTESTPATH = $(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)
+# if there is no native arch available, attempt to use amd64
+ifeq ($(shell $(ENVTEST) list),)
+	ENVTESTPATH = $(shell $(ENVTEST) --arch=amd64 use $(ENVTEST_K8S_VERSION) -p path)
+endif
 ci-test: ## This assumes "manifests generate fmt vet envtest" ran.
-	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" go test -mod=mod ./controllers/... -coverprofile cover.out
+	KUBEBUILDER_ASSETS="$(ENVTESTPATH)" go test -mod=mod ./controllers/... -coverprofile cover.out
 
 
 ##@ Build
@@ -162,8 +186,15 @@ build: generate fmt vet ## Build manager binary.
 run: manifests generate fmt vet ## Run a controller from your host.
 	go run ./main.go
 
+# Development clusters require linux/amd64 OCI image
+# Set platform to linux/amd64 regardless of host platform.
+# If using podman machine, and host platform is not linux/amd64 run
+# - podman machine ssh sudo rpm-ostree install qemu-user-static && sudo systemctl reboot
+# from: https://github.com/containers/podman/issues/12144#issuecomment-955760527
+# related enhancements that may remove the need to manually install qemu-user-static https://bugzilla.redhat.com/show_bug.cgi?id=2061584
+DOCKER_BUILD_ARGS ?= --platform=linux/amd64
 docker-build: test ## Build docker image with the manager.
-	docker build -t ${IMG} .
+	docker build -t $(IMG) . $(DOCKER_BUILD_ARGS)
 
 docker-push: ## Push docker image with the manager.
 	docker push ${IMG}
@@ -176,28 +207,34 @@ install: manifests kustomize ## Install CRDs into the K8s cluster specified in ~
 uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified in ~/.kube/config.
 	$(KUSTOMIZE) build config/crd | kubectl delete -f -
 
-DEPLOY_TMP=/tmp/oadp-make-deploy
-deploy-tmp: kustomize
-	mkdir -p $(DEPLOY_TMP)
-	sed -e 's/namespace: system/namespace: $(OADP_TEST_NAMESPACE)/g' config/velero/velero-service_account.yaml > $(DEPLOY_TMP)/velero-service_account.yaml
-	sed -e 's/namespace: system/namespace: $(OADP_TEST_NAMESPACE)/g' config/velero/velero-role.yaml > $(DEPLOY_TMP)/velero-role.yaml
-	sed -e 's/namespace: system/namespace: $(OADP_TEST_NAMESPACE)/g' config/velero/velero-role_binding.yaml > $(DEPLOY_TMP)/velero-role_binding.yaml
-deploy-tmp-cleanup:
-	rm -rf $(DEPLOY_TMP)
-deploy: manifests deploy-tmp  ## Deploy controller to the K8s cluster specified in ~/.kube/config.
-	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
-	$(KUSTOMIZE) build config/default | kubectl apply -f -
-	kubectl apply -f $(DEPLOY_TMP)/velero-service_account.yaml
-	kubectl apply -f $(DEPLOY_TMP)/velero-role.yaml
-	kubectl apply -f $(DEPLOY_TMP)/velero-role_binding.yaml
-	make deploy-tmp-cleanup
+VELERO_ROLE_TMP?=/tmp/oadp-make-deploy
+velero-role-tmp: kustomize
+	mkdir -p $(VELERO_ROLE_TMP)
+	sed -e 's/namespace: system/namespace: $(OADP_TEST_NAMESPACE)/g' config/velero/velero-service_account.yaml > $(VELERO_ROLE_TMP)/velero-service_account.yaml
+	sed -e 's/namespace: system/namespace: $(OADP_TEST_NAMESPACE)/g' config/velero/velero-role.yaml > $(VELERO_ROLE_TMP)/velero-role.yaml
+	sed -e 's/namespace: system/namespace: $(OADP_TEST_NAMESPACE)/g' config/velero/velero-role_binding.yaml > $(VELERO_ROLE_TMP)/velero-role_binding.yaml
+velero-role-tmp-cleanup:
+	rm -rf $(VELERO_ROLE_TMP)
+apply-velerosa-role: velero-role-tmp
+	kubectl apply -f $(VELERO_ROLE_TMP)/velero-service_account.yaml
+	kubectl apply -f $(VELERO_ROLE_TMP)/velero-role.yaml
+	kubectl apply -f $(VELERO_ROLE_TMP)/velero-role_binding.yaml
+	VELERO_ROLE_TMP=$(VELERO_ROLE_TMP) make velero-role-tmp-cleanup
+unapply-velerosa-role: velero-role-tmp
+	kubectl delete -f $(VELERO_ROLE_TMP)/velero-service_account.yaml
+	kubectl delete -f $(VELERO_ROLE_TMP)/velero-role.yaml
+	kubectl delete -f $(VELERO_ROLE_TMP)/velero-role_binding.yaml
+	VELERO_ROLE_TMP=$(VELERO_ROLE_TMP) make velero-role-tmp-cleanup
 
-undeploy: deploy-tmp ## Undeploy controller from the K8s cluster specified in ~/.kube/config.
-	kubectl delete -f $(DEPLOY_TMP)/velero-service_account.yaml
-	kubectl delete -f $(DEPLOY_TMP)/velero-role.yaml
-	kubectl delete -f $(DEPLOY_TMP)/velero-role_binding.yaml
-	$(KUSTOMIZE) build config/default | kubectl delete -f -
-	make deploy-tmp-cleanup
+# Deprecated in favor of `deploy-olm`
+# deploy: manifests velero-role-tmp  ## Deploy controller to the K8s cluster specified in ~/.kube/config.
+# 	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
+# 	$(KUSTOMIZE) build config/default | kubectl apply -f -
+# 	VELERO_ROLE_TMP=$(VELERO_ROLE_TMP) make apply-velerosa-role
+
+# undeploy: velero-role-tmp ## Undeploy controller from the K8s cluster specified in ~/.kube/config.
+# 	VELERO_ROLE_TMP=$(VELERO_ROLE_TMP) make unapply-velerosa-role
+# 	$(KUSTOMIZE) build config/default | kubectl delete -f -
 
 build-deploy: THIS_IMAGE=ttl.sh/oadp-operator-$(shell git rev-parse --short HEAD):1h # Set target specific variable
 build-deploy: ## Build current branch image and deploy controller to the k8s cluster specified in ~/.kube/config.
@@ -205,15 +242,15 @@ build-deploy: ## Build current branch image and deploy controller to the k8s clu
 
 CONTROLLER_GEN = $(shell pwd)/bin/controller-gen
 controller-gen: ## Download controller-gen locally if necessary.
-	$(call go-get-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@v0.6.1)
+	$(call go-install-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@v0.6.1)
 
 KUSTOMIZE = $(shell pwd)/bin/kustomize
 kustomize: ## Download kustomize locally if necessary.
-	$(call go-get-tool,$(KUSTOMIZE),sigs.k8s.io/kustomize/kustomize/v3@v3.8.7)
+	$(call go-install-tool,$(KUSTOMIZE),sigs.k8s.io/kustomize/kustomize/v4@v4.5.5)
 
 ENVTEST = $(shell pwd)/bin/setup-envtest
 envtest: ## Download envtest-setup locally if necessary.
-	$(call go-get-tool,$(ENVTEST),sigs.k8s.io/controller-runtime/tools/setup-envtest@latest)
+	$(call go-install-tool,$(ENVTEST),sigs.k8s.io/controller-runtime/tools/setup-envtest@latest)
 
 # Codecov OS String for use in download url
 ifeq ($(OS),Windows_NT)
@@ -240,16 +277,16 @@ submit-coverage:
 	fi
 	rm -f codecov tmp.*
 
-# go-get-tool will 'go get' any package $2 and install it to $1.
+# go-install-tool will 'go install' any package $2 and install it to $1.
 PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
-define go-get-tool
+define go-install-tool
 @[ -f $(1) ] || { \
 set -e ;\
 TMP_DIR=$$(mktemp -d) ;\
 cd $$TMP_DIR ;\
 go mod init tmp ;\
 echo "Downloading $(2)" ;\
-GOBIN=$(PROJECT_DIR)/bin go get $(2) ;\
+GOBIN=$(PROJECT_DIR)/bin go install -mod=mod $(2) ;\
 rm -rf $$TMP_DIR ;\
 }
 endef
@@ -269,7 +306,7 @@ bundle: manifests kustomize ## Generate bundle manifests and metadata, then vali
 
 .PHONY: bundle-build
 bundle-build: ## Build the bundle image.
-	docker build -f bundle.Dockerfile -t $(BUNDLE_IMG) .
+	docker build -f bundle.Dockerfile -t $(BUNDLE_IMG) . $(DOCKER_BUILD_ARGS)
 
 .PHONY: bundle-push
 bundle-push: ## Push the bundle image.
@@ -280,12 +317,18 @@ GIT_REV:=$(shell git rev-parse --short HEAD)
 .PHONY: deploy-olm
 deploy-olm: THIS_OPERATOR_IMAGE?=ttl.sh/oadp-operator-$(GIT_REV):1h # Set target specific variable
 deploy-olm: THIS_BUNDLE_IMAGE?=ttl.sh/oadp-operator-bundle-$(GIT_REV):1h # Set target specific variable
+deploy-olm: DEPLOY_TMP:=$(shell mktemp -d)/ # Set target specific variable
 deploy-olm:
 	oc whoami # Check if logged in
 	oc create namespace $(OADP_TEST_NAMESPACE) # This should error out if namespace already exists, delete namespace (to clear current resources) before proceeding
+	@echo "DEPLOY_TMP: $(DEPLOY_TMP)"
+	# build and push operator and bundle image
+	# use operator-sdk to install bundle to authenticated cluster
+	cp -r . $(DEPLOY_TMP) && cd $(DEPLOY_TMP) && \
 	IMG=$(THIS_OPERATOR_IMAGE) BUNDLE_IMG=$(THIS_BUNDLE_IMAGE) \
-		make docker-build docker-push bundle bundle-build bundle-push # build and push operator and bundle image
-	operator-sdk run bundle $(THIS_BUNDLE_IMAGE) --namespace $(OADP_TEST_NAMESPACE) # use operator-sdk to install bundle to authenticated cluster
+		make docker-build docker-push bundle bundle-build bundle-push; \
+	rm -rf $(DEPLOY_TMP)
+	operator-sdk run bundle $(THIS_BUNDLE_IMAGE) --namespace $(OADP_TEST_NAMESPACE)
 
 .PHONY: opm
 OPM = ./bin/opm
@@ -333,16 +376,18 @@ catalog-build-replaces: opm ## Build a catalog image using replace mode
 catalog-push: ## Push a catalog image.
 	$(MAKE) docker-push IMG=$(CATALOG_IMG)
 
-OADP_BUCKET := $(shell cat $(OADP_BUCKET_FILE))
-TEST_FILTER := $(shell echo '! aws && ! gcp && ! azure' | sed -r "s/[&]* [!] $(CLUSTER_TYPE)|[!] $(CLUSTER_TYPE) [&]*//")
+OADP_BUCKET = $(shell cat $(OADP_BUCKET_FILE))
+TEST_FILTER := ($(shell echo '! aws && ! gcp && ! azure && ! ibmcloud' | \
+sed -r "s/[&]* [!] $(CLUSTER_TYPE)|[!] $(CLUSTER_TYPE) [&]*//")) || $(CLUSTER_TYPE)
+#TEST_FILTER := $(shell echo '! aws && ! gcp && ! azure' | sed -r "s/[&]* [!] $(CLUSTER_TYPE)|[!] $(CLUSTER_TYPE) [&]*//")
 SETTINGS_TMP=/tmp/test-settings
 
 test-e2e-setup:
 	mkdir -p $(SETTINGS_TMP)
 	TARGET_CI_CRED_FILE="$(CI_CRED_FILE)" AZURE_RESOURCE_FILE="$(AZURE_RESOURCE_FILE)" CI_JSON_CRED_FILE="$(AZURE_CI_JSON_CRED_FILE)" \
 	OADP_JSON_CRED_FILE="$(AZURE_OADP_JSON_CRED_FILE)" OADP_CRED_FILE="$(OADP_CRED_FILE)" OPENSHIFT_CI="$(OPENSHIFT_CI)" \
-	PROVIDER="$(CLUSTER_TYPE)" BUCKET="$(OADP_BUCKET)" BSL_REGION="$(BSL_REGION)" SECRET="$(CREDS_SECRET_REF)" TMP_DIR=$(SETTINGS_TMP) \
-	VSL_REGION="$(VSL_REGION)" BSL_AWS_PROFILE="$(BSL_AWS_PROFILE)" BSL_REGION="$(BSL_REGION)" /bin/bash "tests/e2e/scripts/$(CLUSTER_TYPE)_settings.sh"
+	PROVIDER="$(VELERO_PLUGIN)" BUCKET="$(OADP_BUCKET)" BSL_REGION="$(BSL_REGION)" SECRET="$(CREDS_SECRET_REF)" TMP_DIR=$(SETTINGS_TMP) \
+	VSL_REGION="$(VSL_REGION)" BSL_AWS_PROFILE="$(BSL_AWS_PROFILE)" /bin/bash "tests/e2e/scripts/$(CLUSTER_TYPE)_settings.sh"
 
 test-e2e: test-e2e-setup
 	ginkgo run -mod=mod tests/e2e/ -- -credentials=$(OADP_CRED_FILE) \
@@ -353,7 +398,9 @@ test-e2e: test-e2e-setup
 	--ginkgo.label-filter="$(TEST_FILTER)" \
 	-ci_cred_file=$(CI_CRED_FILE) \
 	-provider=$(CLUSTER_TYPE) \
-	-creds_secret_ref=$(CREDS_SECRET_REF)
+	-creds_secret_ref=$(CREDS_SECRET_REF) \
+	-artifact_dir=$(ARTIFACT_DIR) \
+	-oc_cli=$(OC_CLI)
 
 test-e2e-cleanup:
 	rm -rf $(SETTINGS_TMP)
