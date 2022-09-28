@@ -372,7 +372,7 @@ func (r *DPAReconciler) createResticSecretsPerBSL(dpa *oadpv1alpha1.DataProtecti
 	return nil, nil
 }
 
-//build data mover restic secret for given aws bsl
+// build data mover restic secret for given aws bsl
 func (r *DPAReconciler) buildDataMoverResticSecretForAWS(rsecret *corev1.Secret, key string, secret string, region string, pass []byte, repo string) error {
 
 	// TODO: add gcp, azure support
@@ -389,7 +389,7 @@ func (r *DPAReconciler) buildDataMoverResticSecretForAWS(rsecret *corev1.Secret,
 	return nil
 }
 
-//build data mover restic secret for given bsl
+// build data mover restic secret for given bsl
 func (r *DPAReconciler) buildDataMoverResticSecretForAzure(rsecret *corev1.Secret, accountName string, accountKey string, pass []byte, repo string) error {
 
 	rData := &corev1.Secret{
@@ -478,7 +478,7 @@ func (r *DPAReconciler) ReconcileDataMoverResticSecret(log logr.Logger) (bool, e
 	return true, nil
 }
 
-//Check if Data Mover feature is enable in the DPA config or not
+// Check if Data Mover feature is enable in the DPA config or not
 func (r *DPAReconciler) checkIfDataMoverIsEnabled(dpa *oadpv1alpha1.DataProtectionApplication) bool {
 
 	if dpa.Spec.Features != nil && dpa.Spec.Features.DataMover != nil &&
