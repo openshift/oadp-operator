@@ -35,8 +35,8 @@ jobs:
     - name: commit & push changes # push step 1, show missing format before vet and tidy starts to provide early feedback
       run: |
         git add .
-        git commit -m "Auto Format: 'go fmt ./...'"
-        git push
+        git commit -m "Auto Format: 'go fmt ./...'" && git push
+      continue-on-error: true
     - name: vet
       run: go vet ./...
     - name: tidy
@@ -44,5 +44,5 @@ jobs:
     - name: commit & push changes # push step 2, show missing tidy
       run: |
         git add .
-        git commit -m "Auto Format: 'go mod tidy'"
-        git push
+        git commit -m "Auto Format: 'go mod tidy'" && git push
+      continue-on-error: true
