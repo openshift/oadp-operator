@@ -64,18 +64,18 @@ const OperatorTypeKey UnsupportedImageKey = "operator-type"
 const OperatorTypeMTC = "mtc"
 
 type VeleroConfig struct {
-	// `featureFlags` defines the list of features to enable for Velero instance
+	// featureFlags defines the list of features to enable for Velero instance
 	// +optional
 	FeatureFlags   []string        `json:"featureFlags,omitempty"`
 	DefaultPlugins []DefaultPlugin `json:"defaultPlugins,omitempty"`
-	// `customPlugins` defines the custom plugin to be installed with Velero
+	// customPlugins defines the custom plugin to be installed with Velero
 	// +optional
 	CustomPlugins []CustomPlugin `json:"customPlugins,omitempty"`
-	// `restoreResourceVersionPriority` represents a configmap that will be created if defined for use in conjunction with `EnableAPIGroupVersions` feature flag
+	// restoreResourceVersionPriority represents a configmap that will be created if defined for use in conjunction with EnableAPIGroupVersions feature flag
 	// Defining this field automatically add EnableAPIGroupVersions to the velero server feature flag
 	// +optional
 	RestoreResourcesVersionPriority string `json:"restoreResourcesVersionPriority,omitempty"`
-	// If you need to install Velero without a default backup storage location `noDefaultBackupLocation` flag is required for confirmation
+	// If you need to install Velero without a default backup storage location noDefaultBackupLocation flag is required for confirmation
 	// +optional
 	NoDefaultBackupLocation bool `json:"noDefaultBackupLocation,omitempty"`
 	// Pod specific configuration
@@ -86,40 +86,40 @@ type VeleroConfig struct {
 	LogLevel string `json:"logLevel,omitempty"`
 }
 
-// `PodConfig` defines the pod configuration options
+// PodConfig defines the pod configuration options
 type PodConfig struct {
-	// `labels` to add to pods
+	// labels to add to pods
 	// +optional
 	Labels map[string]string `json:"labels,omitempty"`
-	// `nodeSelector` defines the nodeSelector to be supplied to Restic podSpec
+	// nodeSelector defines the nodeSelector to be supplied to Restic podSpec
 	// +optional
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
-	// `tolerations` defines the list of tolerations to be applied to Restic daemonset
+	// tolerations defines the list of tolerations to be applied to Restic daemonset
 	// +optional
 	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
-	// `resourceAllocations` defines the CPU and Memory resource allocations for the restic Pod
+	// resourceAllocations defines the CPU and Memory resource allocations for the restic Pod
 	// +optional
 	// +nullable
 	ResourceAllocations corev1.ResourceRequirements `json:"resourceAllocations,omitempty"`
 }
 
-// `ResticConfig` is the configuration for restic server
+// ResticConfig is the configuration for restic server
 type ResticConfig struct {
-	// `enable` defines a boolean pointer whether we want the daemonset to
+	// enable defines a boolean pointer whether we want the daemonset to
 	// exist or not
 	// +optional
 	Enable *bool `json:"enable,omitempty"`
-	// `supplementalGroups` defines the linux groups to be applied to the Restic Pod
+	// supplementalGroups defines the linux groups to be applied to the Restic Pod
 	// +optional
 	SupplementalGroups []int64 `json:"supplementalGroups,omitempty"`
-	// `timeout` defines the Restic timeout, default value is 1h
+	// timeout defines the Restic timeout, default value is 1h
 	// +optional
 	Timeout string `json:"timeout,omitempty"`
 	// Pod specific configuration
 	PodConfig *PodConfig `json:"podConfig,omitempty"`
 }
 
-// `ApplicationConfig` defines the configuration for the Data Protection Application
+// ApplicationConfig defines the configuration for the Data Protection Application
 type ApplicationConfig struct {
 	Velero *VeleroConfig `json:"velero,omitempty"`
 	Restic *ResticConfig `json:"restic,omitempty"`
@@ -128,25 +128,25 @@ type ApplicationConfig struct {
 type CloudStorageLocation struct {
 	CloudStorageRef corev1.LocalObjectReference `json:"cloudStorageRef"`
 
-	// `config` is for provider-specific configuration fields.
+	// config is for provider-specific configuration fields.
 	// +optional
 	Config map[string]string `json:"config,omitempty"`
 
-	// `credential` contains the credential information intended to be used with this location
+	// credential contains the credential information intended to be used with this location
 	// +optional
 	Credential *corev1.SecretKeySelector `json:"credential,omitempty"`
 
-	// `default` indicates this location is the default backup storage location.
+	// default indicates this location is the default backup storage location.
 	// +optional
 	Default bool `json:"default,omitempty"`
 
-	// `backupSyncPeriod` defines how frequently to sync backup API objects from object storage. A value of 0 disables sync.
+	// backupSyncPeriod defines how frequently to sync backup API objects from object storage. A value of 0 disables sync.
 	// +optional
 	// +nullable
 	BackupSyncPeriod *metav1.Duration `json:"backupSyncPeriod,omitempty"`
 }
 
-// `BackupLocation` defines the configuration for the DPA backup storage
+// BackupLocation defines the configuration for the DPA backup storage
 type BackupLocation struct {
 	// TODO: Add name/annotations/labels support
 
@@ -156,16 +156,16 @@ type BackupLocation struct {
 	CloudStorage *CloudStorageLocation `json:"bucket,omitempty"`
 }
 
-// `SnapshotLocation` defines the configuration for the DPA snapshot store
+// SnapshotLocation defines the configuration for the DPA snapshot store
 type SnapshotLocation struct {
 	// TODO: Add name/annotations/labels support
 
 	Velero *velero.VolumeSnapshotLocationSpec `json:"velero"`
 }
 
-// `DataMover` defines the various config for DPA data mover
+// DataMover defines the various config for DPA data mover
 type DataMover struct {
-	// `enable` flag is used to specify whether you want to deploy the volume snapshot mover controller
+	// enable flag is used to specify whether you want to deploy the volume snapshot mover controller
 	// +optional
 	Enable bool `json:"enable,omitempty"`
 	// User supplied Restic Secret name
@@ -176,22 +176,22 @@ type DataMover struct {
 	Timeout string `json:"timeout,omitempty"`
 }
 
-// `Features` defines the configuration for the DPA to enable the tech preview features
+// Features defines the configuration for the DPA to enable the tech preview features
 type Features struct {
 	// Contains data mover specific configurations
 	// +optional
 	DataMover *DataMover `json:"dataMover,omitempty"`
 }
 
-// `DataProtectionApplicationSpec` defines the desired state of Velero
+// DataProtectionApplicationSpec defines the desired state of Velero
 type DataProtectionApplicationSpec struct {
-	// `backupLocations` defines the list of desired configuration to use for BackupStorageLocations
+	// backupLocations defines the list of desired configuration to use for BackupStorageLocations
 	// +optional
 	BackupLocations []BackupLocation `json:"backupLocations"`
-	// `snapshotLocations` defines the list of desired configuration to use for VolumeSnapshotLocations
+	// snapshotLocations defines the list of desired configuration to use for VolumeSnapshotLocations
 	// +optional
 	SnapshotLocations []SnapshotLocation `json:"snapshotLocations"`
-	// `unsupportedOverrides` can be used to override images used in deployments.
+	// unsupportedOverrides can be used to override images used in deployments.
 	// Available keys are:
 	//   - veleroImageFqin
 	//   - awsPluginImageFqin
@@ -211,22 +211,22 @@ type DataProtectionApplicationSpec struct {
 	// https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy
 	// +optional
 	PodDnsPolicy corev1.DNSPolicy `json:"podDnsPolicy,omitempty"`
-	// `podDnsConfig` defines the DNS parameters of a pod in addition to
+	// podDnsConfig defines the DNS parameters of a pod in addition to
 	// those generated from DNSPolicy.
 	// https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-dns-config
 	// +optional
 	PodDnsConfig corev1.PodDNSConfig `json:"podDnsConfig,omitempty"`
-	// `backupImages` is used to specify whether you want to deploy a registry for enabling backup and restore of images
+	// backupImages is used to specify whether you want to deploy a registry for enabling backup and restore of images
 	// +optional
 	BackupImages *bool `json:"backupImages,omitempty"`
-	// `configuration` is used to configure the data protection application's server config
+	// configuration is used to configure the data protection application's server config
 	Configuration *ApplicationConfig `json:"configuration"`
-	// `features` defines the configuration for the DPA to enable the OADP tech preview features
+	// features defines the configuration for the DPA to enable the OADP tech preview features
 	// +optional
 	Features *Features `json:"features"`
 }
 
-// `DataProtectionApplicationStatus` defines the observed state of DataProtectionApplication
+// DataProtectionApplicationStatus defines the observed state of DataProtectionApplication
 type DataProtectionApplicationStatus struct {
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
@@ -235,7 +235,7 @@ type DataProtectionApplicationStatus struct {
 //+kubebuilder:subresource:status
 //+kubebuilder:resource:path=dataprotectionapplications,shortName=dpa
 
-// `DataProtectionApplication` is the Schema for the dpa API
+// DataProtectionApplication is the Schema for the dpa API
 type DataProtectionApplication struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -246,7 +246,7 @@ type DataProtectionApplication struct {
 
 //+kubebuilder:object:root=true
 
-// `DataProtectionApplicationList` contains a list of Velero
+// DataProtectionApplicationList contains a list of Velero
 type DataProtectionApplicationList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`

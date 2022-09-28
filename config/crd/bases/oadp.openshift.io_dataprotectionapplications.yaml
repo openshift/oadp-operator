@@ -19,7 +19,7 @@ spec:
     - name: v1alpha1
       schema:
         openAPIV3Schema:
-          description: '`DataProtectionApplication` is the Schema for the dpa API'
+          description: DataProtectionApplication is the Schema for the dpa API
           properties:
             apiVersion:
               description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
@@ -30,20 +30,20 @@ spec:
             metadata:
               type: object
             spec:
-              description: '`DataProtectionApplicationSpec` defines the desired state of Velero'
+              description: DataProtectionApplicationSpec defines the desired state of Velero
               properties:
                 backupImages:
-                  description: '`backupImages` is used to specify whether you want to deploy a registry for enabling backup and restore of images'
+                  description: backupImages is used to specify whether you want to deploy a registry for enabling backup and restore of images
                   type: boolean
                 backupLocations:
-                  description: '`backupLocations` defines the list of desired configuration to use for BackupStorageLocations'
+                  description: backupLocations defines the list of desired configuration to use for BackupStorageLocations
                   items:
-                    description: '`BackupLocation` defines the configuration for the DPA backup storage'
+                    description: BackupLocation defines the configuration for the DPA backup storage
                     properties:
                       bucket:
                         properties:
                           backupSyncPeriod:
-                            description: '`backupSyncPeriod` defines how frequently to sync backup API objects from object storage. A value of 0 disables sync.'
+                            description: backupSyncPeriod defines how frequently to sync backup API objects from object storage. A value of 0 disables sync.
                             nullable: true
                             type: string
                           cloudStorageRef:
@@ -56,10 +56,10 @@ spec:
                           config:
                             additionalProperties:
                               type: string
-                            description: '`config` is for provider-specific configuration fields.'
+                            description: config is for provider-specific configuration fields.
                             type: object
                           credential:
-                            description: '`credential` contains the credential information intended to be used with this location'
+                            description: credential contains the credential information intended to be used with this location
                             properties:
                               key:
                                 description: The key of the secret to select from.  Must be a valid secret key.
@@ -74,13 +74,13 @@ spec:
                               - key
                             type: object
                           default:
-                            description: '`default` indicates this location is the default backup storage location.'
+                            description: default indicates this location is the default backup storage location.
                             type: boolean
                         required:
                           - cloudStorageRef
                         type: object
                       velero:
-                        description: 'TODO: Add name/annotations/labels support'
+                        description: BackupStorageLocationSpec defines the desired state of a Velero BackupStorageLocation
                         properties:
                           accessMode:
                             description: AccessMode defines the permissions for the backup storage location.
@@ -145,13 +145,13 @@ spec:
                     type: object
                   type: array
                 configuration:
-                  description: '`configuration` is used to configure the data protection application''s server config'
+                  description: configuration is used to configure the data protection application's server config
                   properties:
                     restic:
-                      description: '`ResticConfig` is the configuration for restic server'
+                      description: ResticConfig is the configuration for restic server
                       properties:
                         enable:
-                          description: '`enable` defines a boolean pointer whether we want the daemonset to exist or not'
+                          description: enable defines a boolean pointer whether we want the daemonset to exist or not
                           type: boolean
                         podConfig:
                           description: Pod specific configuration
@@ -159,15 +159,15 @@ spec:
                             labels:
                               additionalProperties:
                                 type: string
-                              description: '`labels` to add to pods'
+                              description: labels to add to pods
                               type: object
                             nodeSelector:
                               additionalProperties:
                                 type: string
-                              description: '`nodeSelector` defines the nodeSelector to be supplied to Restic podSpec'
+                              description: nodeSelector defines the nodeSelector to be supplied to Restic podSpec
                               type: object
                             resourceAllocations:
-                              description: '`resourceAllocations` defines the CPU and Memory resource allocations for the restic Pod'
+                              description: resourceAllocations defines the CPU and Memory resource allocations for the restic Pod
                               nullable: true
                               properties:
                                 limits:
@@ -194,7 +194,7 @@ spec:
                                   nullable: true
                               type: object
                             tolerations:
-                              description: '`tolerations` defines the list of tolerations to be applied to Restic daemonset'
+                              description: tolerations defines the list of tolerations to be applied to Restic daemonset
                               items:
                                 description: The pod this Toleration is attached to tolerates any taint that matches the triple <key,value,effect> using the matching operator <operator>.
                                 properties:
@@ -218,19 +218,19 @@ spec:
                               type: array
                           type: object
                         supplementalGroups:
-                          description: '`supplementalGroups` defines the linux groups to be applied to the Restic Pod'
+                          description: supplementalGroups defines the linux groups to be applied to the Restic Pod
                           items:
                             format: int64
                             type: integer
                           type: array
                         timeout:
-                          description: '`timeout` defines the Restic timeout, default value is 1h'
+                          description: timeout defines the Restic timeout, default value is 1h
                           type: string
                       type: object
                     velero:
                       properties:
                         customPlugins:
-                          description: '`customPlugins` defines the custom plugin to be installed with Velero'
+                          description: customPlugins defines the custom plugin to be installed with Velero
                           items:
                             properties:
                               image:
@@ -247,7 +247,7 @@ spec:
                             type: string
                           type: array
                         featureFlags:
-                          description: '`featureFlags` defines the list of features to enable for Velero instance'
+                          description: featureFlags defines the list of features to enable for Velero instance
                           items:
                             type: string
                           type: array
@@ -263,7 +263,7 @@ spec:
                             - panic
                           type: string
                         noDefaultBackupLocation:
-                          description: If you need to install Velero without a default backup storage location `noDefaultBackupLocation` flag is required for confirmation
+                          description: If you need to install Velero without a default backup storage location noDefaultBackupLocation flag is required for confirmation
                           type: boolean
                         podConfig:
                           description: Pod specific configuration
@@ -271,15 +271,15 @@ spec:
                             labels:
                               additionalProperties:
                                 type: string
-                              description: '`labels` to add to pods'
+                              description: labels to add to pods
                               type: object
                             nodeSelector:
                               additionalProperties:
                                 type: string
-                              description: '`nodeSelector` defines the nodeSelector to be supplied to Restic podSpec'
+                              description: nodeSelector defines the nodeSelector to be supplied to Restic podSpec
                               type: object
                             resourceAllocations:
-                              description: '`resourceAllocations` defines the CPU and Memory resource allocations for the restic Pod'
+                              description: resourceAllocations defines the CPU and Memory resource allocations for the restic Pod
                               nullable: true
                               properties:
                                 limits:
@@ -306,7 +306,7 @@ spec:
                                   nullable: true
                               type: object
                             tolerations:
-                              description: '`tolerations` defines the list of tolerations to be applied to Restic daemonset'
+                              description: tolerations defines the list of tolerations to be applied to Restic daemonset
                               items:
                                 description: The pod this Toleration is attached to tolerates any taint that matches the triple <key,value,effect> using the matching operator <operator>.
                                 properties:
@@ -330,12 +330,12 @@ spec:
                               type: array
                           type: object
                         restoreResourcesVersionPriority:
-                          description: '`restoreResourceVersionPriority` represents a configmap that will be created if defined for use in conjunction with `EnableAPIGroupVersions` feature flag Defining this field automatically add EnableAPIGroupVersions to the velero server feature flag'
+                          description: restoreResourceVersionPriority represents a configmap that will be created if defined for use in conjunction with EnableAPIGroupVersions feature flag Defining this field automatically add EnableAPIGroupVersions to the velero server feature flag
                           type: string
                       type: object
                   type: object
                 features:
-                  description: '`features` defines the configuration for the DPA to enable the OADP tech preview features'
+                  description: features defines the configuration for the DPA to enable the OADP tech preview features
                   properties:
                     dataMover:
                       description: Contains data mover specific configurations
@@ -344,7 +344,7 @@ spec:
                           description: User supplied Restic Secret name
                           type: string
                         enable:
-                          description: '`enable` flag is used to specify whether you want to deploy the volume snapshot mover controller'
+                          description: enable flag is used to specify whether you want to deploy the volume snapshot mover controller
                           type: boolean
                         timeout:
                           description: User supplied timeout to be used for VolumeSnapshotBackup and VolumeSnapshotRestore to complete, default value is 10m
@@ -357,7 +357,7 @@ spec:
                   description: add annotations to pods deployed by operator
                   type: object
                 podDnsConfig:
-                  description: '`podDnsConfig` defines the DNS parameters of a pod in addition to those generated from DNSPolicy. https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-dns-config'
+                  description: podDnsConfig defines the DNS parameters of a pod in addition to those generated from DNSPolicy. https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-dns-config
                   properties:
                     nameservers:
                       description: A list of DNS name server IP addresses. This will be appended to the base nameservers generated from DNSPolicy. Duplicated nameservers will be removed.
@@ -386,12 +386,12 @@ spec:
                   description: podDnsPolicy defines how a pod's DNS will be configured. https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy
                   type: string
                 snapshotLocations:
-                  description: '`snapshotLocations` defines the list of desired configuration to use for VolumeSnapshotLocations'
+                  description: snapshotLocations defines the list of desired configuration to use for VolumeSnapshotLocations
                   items:
-                    description: '`SnapshotLocation` defines the configuration for the DPA snapshot store'
+                    description: SnapshotLocation defines the configuration for the DPA snapshot store
                     properties:
                       velero:
-                        description: 'TODO: Add name/annotations/labels support'
+                        description: VolumeSnapshotLocationSpec defines the specification for a Velero VolumeSnapshotLocation.
                         properties:
                           config:
                             additionalProperties:
@@ -426,13 +426,13 @@ spec:
                 unsupportedOverrides:
                   additionalProperties:
                     type: string
-                  description: '`unsupportedOverrides` can be used to override images used in deployments. Available keys are:   - veleroImageFqin   - awsPluginImageFqin   - openshiftPluginImageFqin   - azurePluginImageFqin   - gcpPluginImageFqin   - csiPluginImageFqin   - dataMoverImageFqin   - resticRestoreImageFqin   - kubevirtPluginImageFqin'
+                  description: 'unsupportedOverrides can be used to override images used in deployments. Available keys are:   - veleroImageFqin   - awsPluginImageFqin   - openshiftPluginImageFqin   - azurePluginImageFqin   - gcpPluginImageFqin   - csiPluginImageFqin   - dataMoverImageFqin   - resticRestoreImageFqin   - kubevirtPluginImageFqin'
                   type: object
               required:
                 - configuration
               type: object
             status:
-              description: '`DataProtectionApplicationStatus` defines the observed state of DataProtectionApplication'
+              description: DataProtectionApplicationStatus defines the observed state of DataProtectionApplication
               properties:
                 conditions:
                   items:
