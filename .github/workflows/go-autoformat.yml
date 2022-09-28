@@ -1,0 +1,32 @@
+name: go-format-tidy
+on:
+  push:
+    paths:
+      - '**/**.go'
+      - '**/go.mod'
+      - '.github/workflows/go-tests.yml'
+  pull_request:
+    paths:
+      - '**/**.go'
+      - '**/go.mod'
+      - '.github/workflows/go-tests.yml'
+jobs:
+  go-fmt-vet-tidy: #test and submit coverage to codecov on pushes
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - uses: actions/setup-go@v2
+      with:
+        go-version: '^1.18' # The Go version to download (if necessary) and use.
+    - name: format
+      run: go fmt ./...
+    - name: vet
+      run: go vet ./...
+    - name: tidy
+      run: go mod tidy
+    - name: commit changes
+      run: |
+        git config --global user.email "autoformat@oadp.io"
+        git config --global user.name "Auto Format Vet Tidy Action"
+        git add .
+        git commit -m "Auto Format Vet Tidy"

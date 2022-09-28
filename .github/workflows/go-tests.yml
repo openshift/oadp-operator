@@ -25,7 +25,8 @@ jobs:
       with:
         go-version: '^1.18' # The Go version to download (if necessary) and use.
     - run: go version
-    - run: make test submit-coverage
+    - name: submit test coverage
+      run: make test submit-coverage
   podman-build:
     runs-on: ubuntu-latest
     steps:
