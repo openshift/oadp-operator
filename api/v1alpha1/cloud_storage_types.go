@@ -31,10 +31,10 @@ type CloudStorageSpec struct {
 	CreationSecret corev1.SecretKeySelector `json:"creationSecret"`
 	// enableSharedConfig enable the use of shared config loading for AWS Buckets
 	EnableSharedConfig *bool `json:"enableSharedConfig,omitempty"`
-	// tags` for the bucket
+	// tags for the bucket
 	// +kubebuilder:validation:Optional
 	Tags map[string]string `json:"tags,omitempty"`
-	// region` for the bucket to be in, will be us-east-1 if not set.
+	// region for the bucket to be in, will be us-east-1 if not set.
 	Region string `json:"region,omitempty"`
 	// +kubebuilder:validation:Enum=aws
 	// provider is the provider of the cloud storage
