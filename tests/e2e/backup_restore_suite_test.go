@@ -80,7 +80,7 @@ var _ = Describe("AWS backup restore tests", func() {
 		}
 		// remove app namespace if leftover (likely previously failed before reaching uninstall applications) to clear items such as PVCs which are immutable so that next test can create new ones
 		err := dpaCR.Client.Delete(context.Background(), &corev1.Namespace{ObjectMeta: v1.ObjectMeta{
-			Name: lastInstallingApplicationNamespace,
+			Name:      lastInstallingApplicationNamespace,
 			Namespace: lastInstallingApplicationNamespace,
 		}}, &client.DeleteOptions{})
 		if k8serror.IsNotFound(err) {
