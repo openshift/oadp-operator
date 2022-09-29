@@ -318,7 +318,8 @@ func AppendPluginSpecificSpecs(dpa *oadpv1alpha1.DataProtectionApplication, vele
 					Name: secretName,
 					VolumeSource: corev1.VolumeSource{
 						Secret: &corev1.SecretVolumeSource{
-							SecretName: secretName,
+							SecretName:  secretName,
+							DefaultMode: common.DefaultModePtr(),
 						},
 					},
 				})
