@@ -154,7 +154,7 @@ func (r *DPAReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 type secretHandler struct {
-	defauldSecrets map[string]*struct{}
+	defaultSecrets map[string]*struct{}
 	mu             sync.RWMutex
 	client         client.Client
 }
@@ -167,7 +167,7 @@ func createSecretHandler() *secretHandler {
 		}
 	}
 	return &secretHandler{
-		defauldSecrets: defaultSecrets,
+		defaultSecrets: defaultSecrets,
 		mu:             sync.RWMutex{},
 	}
 }
@@ -175,7 +175,7 @@ func createSecretHandler() *secretHandler {
 func (l *secretHandler) Create(evt event.CreateEvent, q workqueue.RateLimitingInterface) {
 	// check for the label & add it to the queue
 	l.mu.RLock()
-	_, ok := l.defauldSecrets[evt.Object.GetName()]
+	_, ok := l.defaultSecrets[evt.Object.GetName()]
 	l.mu.RUnlock()
 	if ok {
 		list := &oadpv1alpha1.DataProtectionApplicationList{}
@@ -210,7 +210,7 @@ func (l *secretHandler) Create(evt event.CreateEvent, q workqueue.RateLimitingIn
 func (l *secretHandler) Delete(evt event.DeleteEvent, q workqueue.RateLimitingInterface) {
 
 	l.mu.RLock()
-	_, ok := l.defauldSecrets[evt.Object.GetName()]
+	_, ok := l.defaultSecrets[evt.Object.GetName()]
 	l.mu.RUnlock()
 	if ok {
 		list := &oadpv1alpha1.DataProtectionApplicationList{}
@@ -243,7 +243,7 @@ func (l *secretHandler) Delete(evt event.DeleteEvent, q workqueue.RateLimitingIn
 }
 func (l *secretHandler) Update(evt event.UpdateEvent, q workqueue.RateLimitingInterface) {
 	l.mu.RLock()
-	_, ok := l.defauldSecrets[evt.ObjectNew.GetName()]
+	_, ok := l.defaultSecrets[evt.ObjectNew.GetName()]
 	l.mu.RUnlock()
 	if ok {
 		list := &oadpv1alpha1.DataProtectionApplicationList{}
@@ -277,7 +277,7 @@ func (l *secretHandler) Update(evt event.UpdateEvent, q workqueue.RateLimitingIn
 func (l *secretHandler) Generic(evt event.GenericEvent, q workqueue.RateLimitingInterface) {
 
 	l.mu.RLock()
-	_, ok := l.defauldSecrets[evt.Object.GetName()]
+	_, ok := l.defaultSecrets[evt.Object.GetName()]
 	l.mu.RUnlock()
 	if ok {
 		list := &oadpv1alpha1.DataProtectionApplicationList{}
