@@ -1,7 +1,12 @@
 package controllers
 
 import (
+	"fmt"
+	"reflect"
+	"testing"
+
 	"github.com/go-logr/logr"
+	"github.com/google/go-cmp/cmp"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	"github.com/openshift/oadp-operator/pkg/common"
 	monitor "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
@@ -14,10 +19,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/record"
-	"reflect"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
-	"testing"
 )
 
 func getSchemeForFakeClientForMonitor() (*runtime.Scheme, error) {
@@ -266,8 +269,9 @@ func TestDPAReconciler_updateVeleroMetricsSVC(t *testing.T) {
 					Type: corev1.ServiceTypeClusterIP,
 					Ports: []corev1.ServicePort{
 						{
-							Name: "monitoring",
-							Port: int32(8085),
+							Name:     "monitoring",
+							Port:     int32(8085),
+							Protocol: corev1.ProtocolTCP,
 							TargetPort: intstr.IntOrString{
 								IntVal: int32(8085),
 							},
@@ -304,6 +308,7 @@ func TestDPAReconciler_updateVeleroMetricsSVC(t *testing.T) {
 				t.Errorf("expected velero metrics svc labels to be %#v, got %#v", tt.wantVeleroMtricsSVC.Labels, tt.svc.Labels)
 			}
 			if !reflect.DeepEqual(tt.wantVeleroMtricsSVC.Spec, tt.svc.Spec) {
+				fmt.Println(cmp.Diff(tt.wantVeleroMtricsSVC.Spec, tt.svc.Spec))
 				t.Errorf("expected velero metrics svc spec to be %#v, got %#v", tt.wantVeleroMtricsSVC.Spec, tt.svc.Spec)
 			}
 		})

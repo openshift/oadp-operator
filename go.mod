@@ -24,7 +24,7 @@ require (
 	sigs.k8s.io/controller-runtime v0.11.0
 )
 
-require github.com/google/go-cmp v0.5.6
+require github.com/google/go-cmp v0.5.9
 
 require (
 	cloud.google.com/go v0.93.3 // indirect

@@ -10,6 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 
 	"github.com/openshift/oadp-operator/pkg/credentials"
+	"github.com/openshift/oadp-operator/pkg/loglevel"
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/go-logr/logr"
@@ -225,9 +226,11 @@ func (r *DPAReconciler) getProviderSecret(secretName string) (corev1.Secret, err
 	if err != nil {
 		return secret, err
 	}
-	r.Log.Info(fmt.Sprintf("got provider secret name: %s", secret.Name))
+	r.Log.V(loglevel.Debug()).Info(fmt.Sprintf("got provider secret name: %s", secret.Name))
+	originalSecret := secret.DeepCopy()
 	// replace carriage return with new line
 	secret.Data = replaceCarriageReturn(secret.Data, r.Log)
+	r.Client.Patch(r.Context, &secret, client.MergeFrom(originalSecret))
 	return secret, nil
 }
 
