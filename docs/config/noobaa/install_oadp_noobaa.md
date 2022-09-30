@@ -2,6 +2,16 @@
 <h1 align="center">Noobaa + Self-Hosted S3 Providers</h1>
 <hr style="height:1px;border:none;color:#333;">
 
+
+1. [Overview](#overview)
+2. [Configure Noobaa or Minio Bucket](#configure-oadp-with-precreated-noobaa-or-minio-s3-bucket)
+3. [Get Noobaa Route and Credentials](#get-noobaa-s3-route-and-credentials)
+4. [Automatic Install](#oadp-operator-with-noobaa-automatic-install)
+5. [Disaster Scenarios](#noobaa-and-disaster-scenarios)
+
+
+## Overview
+
 Velero allows a user to configure the `BackupStorageLocation` object with any
 valid s3 provider. This can include tools like Noobaa & Minio. OADP Operator
 allows you to integrate with Noobaa in a couple of ways: 
@@ -27,7 +37,7 @@ namespace.
 The credentials file should follow this AWS credentials
 [template](https://github.com/konveyor/velero-examples/blob/master/velero-install/aws-credentials)
 
-### Get NooBaa s3 route + credentials
+### Get NooBaa s3 route and credentials
 To get the required information from NooBaa, you can use the NooBaa CLI to get
 the s3 route, bucket name, and credentials. Optionally, you can grab this
 information from OCP. To get the s3 route (assuming NooBaa/OCS is installed in
@@ -118,3 +128,11 @@ spec:
 ```
 oc create -f config/samples/oadp_v1alpha1_dpa.yaml
 ```
+
+
+## NooBaa and disaster scenarios:
+
+- If you are using cluster storage for your NooBaa bucket backupStorageLocation, 
+then backups will be subjected to disaster.
+- To avoid such case, you will need to configure Noobaa as an external object store: 
+  - [Configuring the backing store](https://access.redhat.com/documentation/en-us/red_hat_openshift_data_foundation/4.10/html/managing_hybrid_and_multicloud_resources/adding-storage-resources-for-hybrid-or-multicloud_rhodf)
