@@ -203,6 +203,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 						PodConfig: &oadpv1alpha1.PodConfig{},
 						DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
 							oadpv1alpha1.DefaultPluginCSI,
+							oadpv1alpha1.DefaultPluginAWS,
 						},
 					},
 					Restic: &oadpv1alpha1.ResticConfig{
