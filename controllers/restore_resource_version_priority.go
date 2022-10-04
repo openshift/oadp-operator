@@ -30,7 +30,7 @@ func (r *DPAReconciler) ReconcileRestoreResourcesVersionPriority(dpa *oadpv1alph
 		},
 	}
 	// Create ConfigMap
-	op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, &configMap, func() error {
+	op, err := controllerutil.CreateOrPatch(r.Context, r.Client, &configMap, func() error {
 		if err := controllerutil.SetControllerReference(dpa, &configMap, r.Scheme); err != nil {
 			return err
 		}
