@@ -26,7 +26,7 @@ func (r *DPAReconciler) ReconcileVeleroServiceMonitor(log logr.Logger) (bool, er
 		},
 	}
 
-	op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, serviceMonitor, func() error {
+	op, err := controllerutil.CreateOrPatch(r.Context, r.Client, serviceMonitor, func() error {
 
 		if serviceMonitor.ObjectMeta.CreationTimestamp.IsZero() {
 			serviceMonitor.Spec.Selector = metav1.LabelSelector{

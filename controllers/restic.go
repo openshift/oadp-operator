@@ -312,7 +312,7 @@ func (r *DPAReconciler) ReconcileResticRestoreHelperConfig(log logr.Logger) (boo
 		},
 	}
 
-	op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, &resticRestoreHelperCM, func() error {
+	op, err := controllerutil.CreateOrPatch(r.Context, r.Client, &resticRestoreHelperCM, func() error {
 
 		// update the Config Map
 		err := r.updateResticRestoreHelperCM(&resticRestoreHelperCM, &dpa)
