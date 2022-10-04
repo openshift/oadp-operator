@@ -18,7 +18,6 @@ package controllers
 
 import (
 	"context"
-	"strconv"
 
 	routev1 "github.com/openshift/api/route/v1"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
@@ -31,7 +30,6 @@ import (
 
 	"github.com/go-logr/logr"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
-	"github.com/openshift/oadp-operator/pkg/loglevel"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
@@ -84,14 +82,6 @@ func (r *DPAReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	if err := r.Get(ctx, req.NamespacedName, &dpa); err != nil {
 		log.Error(err, "unable to fetch DataProtectionApplication CR")
 		return result, nil
-	}
-
-	if dpa.Spec.UnsupportedOverrides != nil {
-		if logLevelVal, loglevelSpecified := dpa.Spec.UnsupportedOverrides[loglevel.UnsupportedOverridesKey]; loglevelSpecified {
-			// convert string to int
-			intLogLevel, _ := strconv.Atoi(logLevelVal)
-			loglevel.SetLogLevel(intLogLevel)
-		}
 	}
 
 	_, err := ReconcileBatch(r.Log,
