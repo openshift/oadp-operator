@@ -1,12 +1,10 @@
 package lib
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"log"
 	"reflect"
 	"strings"
@@ -249,42 +247,17 @@ func AreVeleroPodsRunning(namespace string) wait.ConditionFunc {
 	}
 }
 
+func GetOpenShiftADPLogs(namespace string) (string, error) {
+	return GetPodWithPrefixContainerLogs(namespace, "openshift-adp-controller-manager-", "manager")
+}
+
 // Returns logs from velero container on velero pod
-func getVeleroContainerLogs(namespace string) (string, error) {
-	podList, err := GetVeleroPods(namespace)
-	if err != nil {
-		return "", err
-	}
-	clientset, err := setUpClient()
-	if err != nil {
-		return "", err
-	}
-	var logs string
-	for _, podInfo := range (*podList).Items {
-		if !strings.HasPrefix(podInfo.ObjectMeta.Name, "velero-") {
-			continue
-		}
-		podLogOpts := corev1.PodLogOptions{
-			Container: "velero",
-		}
-		req := clientset.CoreV1().Pods(podInfo.Namespace).GetLogs(podInfo.Name, &podLogOpts)
-		podLogs, err := req.Stream(context.TODO())
-		if err != nil {
-			return "", err
-		}
-		defer podLogs.Close()
-		buf := new(bytes.Buffer)
-		_, err = io.Copy(buf, podLogs)
-		if err != nil {
-			return "", err
-		}
-		logs = buf.String()
-	}
-	return logs, nil
+func GetVeleroContainerLogs(namespace string) (string, error) {
+	return GetPodWithPrefixContainerLogs(namespace, "velero-", "velero")
 }
 
 func GetVeleroContainerFailureLogs(namespace string) []string {
-	containerLogs, err := getVeleroContainerLogs(namespace)
+	containerLogs, err := GetVeleroContainerLogs(namespace)
 	if err != nil {
 		log.Printf("cannot get velero container logs")
 		return nil
@@ -318,7 +291,7 @@ func (v *DpaCustomResource) IsDeleted() wait.ConditionFunc {
 	}
 }
 
-//check if bsl matches the spec
+// check if bsl matches the spec
 func DoesBSLExist(namespace string, bsl velero.BackupStorageLocationSpec, spec *oadpv1alpha1.DataProtectionApplicationSpec) wait.ConditionFunc {
 	return func() (bool, error) {
 		if len(spec.BackupLocations) == 0 {
@@ -335,7 +308,7 @@ func DoesBSLExist(namespace string, bsl velero.BackupStorageLocationSpec, spec *
 	}
 }
 
-//check if vsl matches the spec
+// check if vsl matches the spec
 func DoesVSLExist(namespace string, vslspec velero.VolumeSnapshotLocationSpec, spec *oadpv1alpha1.DataProtectionApplicationSpec) wait.ConditionFunc {
 	return func() (bool, error) {
 
@@ -352,7 +325,7 @@ func DoesVSLExist(namespace string, vslspec velero.VolumeSnapshotLocationSpec, s
 	}
 }
 
-//check velero tolerations
+// check velero tolerations
 func VerifyVeleroTolerations(namespace string, t []corev1.Toleration) wait.ConditionFunc {
 	return func() (bool, error) {
 		clientset, err := setUpClient()
