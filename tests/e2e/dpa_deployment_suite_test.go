@@ -8,6 +8,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/google/go-cmp/cmp"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
@@ -580,6 +581,11 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 				Eventually(dpaCR.GetNoErr().Status.Conditions[0].Message, timeoutMultiplier*time.Minute*3, time.Second*5).Should(Equal(expectedErr.Error()))
 				return
 			}
+			// Capture logs right after DPA is reconciled for diffing after one minute.
+			Eventually(dpaCR.GetNoErr().Status.Conditions[0].Type, timeoutMultiplier*time.Minute*3, time.Second*5).Should(Equal("Reconciled"))
+			timeReconciled := time.Now()
+			adpLogsAtReconciled, err := GetOpenShiftADPLogs(dpaCR.Namespace)
+			Expect(err).NotTo(HaveOccurred())
 			log.Printf("Waiting for velero pod to be running")
 			Eventually(AreVeleroPodsRunning(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 			dpa, err := dpaCR.Get()
@@ -647,6 +653,15 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 					Eventually(ResticDaemonSetHasNodeSelector(namespace, key, value), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 				}
 			}
+			// wait at least 1 minute after reconciled
+			Eventually(func() bool {
+				//has it been at least 1 minute since reconciled?
+				return time.Now().After(timeReconciled.Add(time.Minute))
+			}, timeoutMultiplier*time.Minute*1, time.Second*5).Should(BeTrue())
+			adpLogsAfterOneMinute, err := GetOpenShiftADPLogs(dpaCR.Namespace)
+			Expect(err).NotTo(HaveOccurred())
+			// We expect adp logs to be the same after 1 minute
+			Expect(cmp.Diff(adpLogsAtReconciled, adpLogsAfterOneMinute)).To(Equal(""))
 
 		}, genericTests,
 	)
