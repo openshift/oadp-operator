@@ -108,7 +108,7 @@ func (r *DPAReconciler) ReconcileBackupStorageLocations(log logr.Logger) (bool, 
 		}
 
 		// Create BSL
-		op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, &bsl, func() error {
+		op, err := controllerutil.CreateOrPatch(r.Context, r.Client, &bsl, func() error {
 			// TODO: Velero may be setting controllerReference as
 			// well and taking ownership. If so move this to
 			// SetOwnerReference instead

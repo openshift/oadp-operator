@@ -72,7 +72,7 @@ func (r *DPAReconciler) ReconcileVeleroServiceAccount(log logr.Logger) (bool, er
 			Namespace: dpa.Namespace,
 		},
 	}
-	op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, veleroSa, func() error {
+	op, err := controllerutil.CreateOrPatch(r.Context, r.Client, veleroSa, func() error {
 		// Setting controller owner reference on the velero SA
 		err := controllerutil.SetControllerReference(&dpa, veleroSa, r.Scheme)
 		if err != nil {
@@ -172,7 +172,7 @@ func (r *DPAReconciler) ReconcileVeleroClusterRoleBinding(log logr.Logger) (bool
 	if err != nil {
 		return false, err
 	}
-	op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, veleroCRB, func() error {
+	op, err := controllerutil.CreateOrPatch(r.Context, r.Client, veleroCRB, func() error {
 		// Setting controller owner reference on the velero CRB
 		// TODO: HOW DO I DO THIS?? ALAY HALP PLZ
 		/*err := controllerutil.SetControllerReference(&velero, veleroCRB, r.Scheme)
@@ -222,7 +222,7 @@ func (r *DPAReconciler) ReconcileVeleroSecurityContextConstraint(log logr.Logger
 			Name: "velero-privileged",
 		},
 	}
-	op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, veleroSCC, func() error {
+	op, err := controllerutil.CreateOrPatch(r.Context, r.Client, veleroSCC, func() error {
 		// Setting controller owner reference on the velero SCC
 		// TODO: HOW DO I DO THIS?? ALAY HALP PLZ
 		/*err := controllerutil.SetControllerReference(&velero, veleroSCC, r.Scheme)
