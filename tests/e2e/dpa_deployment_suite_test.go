@@ -3,6 +3,7 @@ package e2e_test
 import (
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -583,6 +584,8 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 				Eventually(dpaCR.GetNoErr().Status.Conditions[0].Message, timeoutMultiplier*time.Minute*3, time.Second*5).Should(Equal(expectedErr.Error()))
 				return
 			}
+			// sleep to accomodates throttled CI environment
+			time.Sleep(20 * time.Second)
 			// Capture logs right after DPA is reconciled for diffing after one minute.
 			Eventually(dpaCR.GetNoErr().Status.Conditions[0].Type, timeoutMultiplier*time.Minute*3, time.Second*5).Should(Equal("Reconciled"))
 			timeReconciled := time.Now()
@@ -659,11 +662,15 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 			Eventually(func() bool {
 				//has it been at least 1 minute since reconciled?
 				return time.Now().After(timeReconciled.Add(time.Minute))
-			}, timeoutMultiplier*time.Minute*1, time.Second*5).Should(BeTrue())
+			}, timeoutMultiplier*time.Minute*2, time.Second).Should(BeTrue())
 			adpLogsAfterOneMinute, err := GetOpenShiftADPLogs(dpaCR.Namespace)
 			Expect(err).NotTo(HaveOccurred())
 			// We expect adp logs to be the same after 1 minute
-			Expect(cmp.Diff(adpLogsAtReconciled, adpLogsAfterOneMinute)).To(Equal(""))
+			adpLogsDiff := cmp.Diff(adpLogsAtReconciled, adpLogsAfterOneMinute)
+			// If registry deployment were deleted after CR update, we expect to see a new log entry, ignore that.
+			if !strings.Contains(adpLogsDiff, "Registry Deployment deleted") {
+				Expect(adpLogsDiff).To(Equal(""))
+			}
 
 		}, genericTests,
 	)
