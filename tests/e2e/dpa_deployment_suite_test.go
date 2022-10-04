@@ -427,6 +427,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 						Enable:    pointer.Bool(true),
 					},
 				},
+				BackupImages: pointer.Bool(false),
 			},
 			WantError: false,
 		}, nil),
