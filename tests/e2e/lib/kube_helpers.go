@@ -1,8 +1,12 @@
 package lib
 
 import (
+	"bytes"
 	"context"
+	"fmt"
+	"io"
 	"log"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -207,4 +211,48 @@ func isCredentialsSecretDeleted(namespace string, credSecretRef string) wait.Con
 		log.Printf("Secret still exists in namespace")
 		return false, err
 	}
+}
+
+func GetPodWithPrefixContainerLogs(namespace string, podPrefix string, container string) (string, error) {
+	clientset, err := setUpClient()
+	if err != nil {
+		return "", err
+	}
+	podList, err := clientset.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		return "", err
+	}
+	for _, pod := range podList.Items {
+		if strings.HasPrefix(pod.Name, podPrefix) {
+			logs, err := GetPodContainerLogs(namespace, pod.Name, container)
+			if err != nil {
+				return "", err
+			}
+			return logs, nil
+		}
+	}
+	return "", fmt.Errorf("No pod found with prefix %s", podPrefix)
+}
+
+func GetPodContainerLogs(namespace, podname, container string) (string, error) {
+	clientset, err := setUpClient()
+	if err != nil {
+		return "", err
+	}
+	req := clientset.CoreV1().Pods(namespace).GetLogs(podname, &corev1.PodLogOptions{
+		Container: container,
+	})
+	podLogs, err := req.Stream(context.Background())
+	if err != nil {
+		return "", err
+	}
+	defer podLogs.Close()
+
+	buf := new(bytes.Buffer)
+	_, err = io.Copy(buf, podLogs)
+	if err != nil {
+		return "", err
+	}
+	str := buf.String()
+	return str, nil
 }
