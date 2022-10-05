@@ -1,6 +1,7 @@
 package e2e_test
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log"
@@ -11,6 +12,9 @@ import (
 	. "github.com/onsi/gomega"
 	. "github.com/openshift/oadp-operator/tests/e2e/lib"
 	utils "github.com/openshift/oadp-operator/tests/e2e/utils"
+	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -42,6 +46,17 @@ var _ = Describe("AWS backup restore tests", func() {
 				PrintNamespaceEventsAfterTime(lastInstallingApplicationNamespace, lastInstallTime)
 			}
 		}
+		// remove app namespace if leftover (likely previously failed before reaching uninstall applications) to clear items such as PVCs which are immutable so that next test can create new ones
+		err := dpaCR.Client.Delete(context.Background(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{
+			Name:      lastInstallingApplicationNamespace,
+			Namespace: lastInstallingApplicationNamespace,
+		}}, &client.DeleteOptions{})
+		if k8serrors.IsNotFound(err) {
+			err = nil
+		}
+		Expect(err).ToNot(HaveOccurred())
+		err = dpaCR.Delete()
+		Expect(err).ToNot(HaveOccurred())
 	})
 
 	type BackupRestoreCase struct {

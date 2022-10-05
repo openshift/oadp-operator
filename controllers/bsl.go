@@ -108,7 +108,7 @@ func (r *DPAReconciler) ReconcileBackupStorageLocations(log logr.Logger) (bool, 
 		}
 
 		// Create BSL
-		op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, &bsl, func() error {
+		op, err := controllerutil.CreateOrPatch(r.Context, r.Client, &bsl, func() error {
 			// TODO: Velero may be setting controllerReference as
 			// well and taking ownership. If so move this to
 			// SetOwnerReference instead
@@ -166,13 +166,27 @@ func (r *DPAReconciler) UpdateCredentialsSecretLabels(secretName string, namespa
 	if secret.Name == "" {
 		return false, errors.New("secret not found")
 	}
-	secret.SetLabels(map[string]string{oadpv1alpha1.OadpOperatorLabel: "True", namespace + ".dataprotectionapplication": dpaName})
-	err = r.Client.Update(r.Context, &secret, &client.UpdateOptions{})
-	if err != nil {
-		return false, err
+	needPatch := false
+	originalSecret := secret.DeepCopy()
+	if secret.Labels == nil {
+		secret.Labels = make(map[string]string)
 	}
+	if secret.Labels[oadpv1alpha1.OadpOperatorLabel] != "True" {
+		secret.Labels[oadpv1alpha1.OadpOperatorLabel] = "True"
+		needPatch = true
+	}
+	if secret.Labels[namespace+".dataprotectionapplication"] != dpaName {
+		secret.Labels[namespace+".dataprotectionapplication"] = dpaName
+		needPatch = true
+	}
+	if needPatch {
+		err = r.Client.Patch(r.Context, &secret, client.MergeFrom(originalSecret))
+		if err != nil {
+			return false, err
+		}
 
-	r.EventRecorder.Event(&secret, corev1.EventTypeNormal, "SecretLabelled", fmt.Sprintf("Secret %s has been labelled", secretName))
+		r.EventRecorder.Event(&secret, corev1.EventTypeNormal, "SecretLabelled", fmt.Sprintf("Secret %s has been labelled", secretName))
+	}
 	return true, nil
 }
 

@@ -17,6 +17,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -3596,6 +3597,27 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 				if tt.wantErr && tt.wantVeleroDeployment == nil {
 					// if we expect an error and we got one, and wantVeleroDeployment is not defined, we don't need to compare further.
 					t.Skip()
+				}
+			}
+			if tt.dpa != nil {
+				setPodTemplateSpecDefaults(&tt.wantVeleroDeployment.Spec.Template)
+				if len(tt.wantVeleroDeployment.Spec.Template.Spec.Containers) > 0 {
+					setContainerDefaults(&tt.wantVeleroDeployment.Spec.Template.Spec.Containers[0])
+				}
+				if tt.wantVeleroDeployment.Spec.Strategy.Type == "" {
+					tt.wantVeleroDeployment.Spec.Strategy.Type = appsv1.RollingUpdateDeploymentStrategyType
+				}
+				if tt.wantVeleroDeployment.Spec.Strategy.RollingUpdate == nil {
+					tt.wantVeleroDeployment.Spec.Strategy.RollingUpdate = &appsv1.RollingUpdateDeployment{
+						MaxUnavailable: &intstr.IntOrString{Type: intstr.String, StrVal: "25%"},
+						MaxSurge:       &intstr.IntOrString{Type: intstr.String, StrVal: "25%"},
+					}
+				}
+				if tt.wantVeleroDeployment.Spec.RevisionHistoryLimit == nil {
+					tt.wantVeleroDeployment.Spec.RevisionHistoryLimit = pointer.Int32(10)
+				}
+				if tt.wantVeleroDeployment.Spec.ProgressDeadlineSeconds == nil {
+					tt.wantVeleroDeployment.Spec.ProgressDeadlineSeconds = pointer.Int32(600)
 				}
 			}
 			if !reflect.DeepEqual(tt.wantVeleroDeployment, tt.veleroDeployment) {

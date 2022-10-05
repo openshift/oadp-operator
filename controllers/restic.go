@@ -18,6 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -97,7 +98,7 @@ func (r *DPAReconciler) ReconcileResticDaemonset(log logr.Logger) (bool, error) 
 		return true, nil
 	}
 
-	op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, ds, func() error {
+	op, err := controllerutil.CreateOrPatch(r.Context, r.Client, ds, func() error {
 		// Deployment selector is immutable so we set this value only if
 		// a new object is going to be created
 		if ds.ObjectMeta.CreationTimestamp.IsZero() {
@@ -183,9 +184,9 @@ func (r *DPAReconciler) buildResticDaemonset(dpa *oadpv1alpha1.DataProtectionApp
 	// Update Items in ObjectMeta
 	dsName := ds.Name
 	ds.TypeMeta = installDs.TypeMeta
+	ds.Labels, _ = common.AppendUniqueLabels(ds.Labels, installDs.Labels)
 	// Update Spec
 	ds.Spec = installDs.Spec
-	ds.ObjectMeta = installDs.ObjectMeta
 	ds.Name = dsName
 
 	return r.customizeResticDaemonset(dpa, ds)
@@ -262,6 +263,7 @@ func (r *DPAReconciler) customizeResticDaemonset(dpa *oadpv1alpha1.DataProtectio
 		}
 
 		resticContainer.ImagePullPolicy = corev1.PullAlways
+		setContainerDefaults(resticContainer)
 	}
 
 	// attach DNS policy and config if enabled
@@ -278,7 +280,22 @@ func (r *DPAReconciler) customizeResticDaemonset(dpa *oadpv1alpha1.DataProtectio
 	if err := credentials.AppendCloudProviderVolumes(dpa, ds, providerNeedsDefaultCreds, hasCloudStorage); err != nil {
 		return nil, err
 	}
-
+	setPodTemplateSpecDefaults(&ds.Spec.Template)
+	if ds.Spec.UpdateStrategy.Type == appsv1.RollingUpdateDaemonSetStrategyType {
+		ds.Spec.UpdateStrategy.RollingUpdate = &appsv1.RollingUpdateDaemonSet{
+			MaxUnavailable: &intstr.IntOrString{
+				Type:   intstr.Int,
+				IntVal: 1,
+			},
+			MaxSurge: &intstr.IntOrString{
+				Type:   intstr.Int,
+				IntVal: 0,
+			},
+		}
+	}
+	if ds.Spec.RevisionHistoryLimit == nil {
+		ds.Spec.RevisionHistoryLimit = pointer.Int32(10)
+	}
 	return ds, nil
 }
 
@@ -295,7 +312,7 @@ func (r *DPAReconciler) ReconcileResticRestoreHelperConfig(log logr.Logger) (boo
 		},
 	}
 
-	op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, &resticRestoreHelperCM, func() error {
+	op, err := controllerutil.CreateOrPatch(r.Context, r.Client, &resticRestoreHelperCM, func() error {
 
 		// update the Config Map
 		err := r.updateResticRestoreHelperCM(&resticRestoreHelperCM, &dpa)

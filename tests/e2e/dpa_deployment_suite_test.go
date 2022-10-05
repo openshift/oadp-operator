@@ -3,11 +3,13 @@ package e2e_test
 import (
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/google/go-cmp/cmp"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
@@ -183,7 +185,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 			},
 			WantError: false,
 		}, nil),
-		Entry("Adding AWS plugin", InstallCase{
+		Entry("Provider plugin", InstallCase{
 			Name:         "default-cr-aws-plugin",
 			BRestoreType: RESTIC,
 			DpaSpec: &oadpv1alpha1.DataProtectionApplicationSpec{
@@ -192,6 +194,16 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 						PodConfig: &oadpv1alpha1.PodConfig{},
 						DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
 							oadpv1alpha1.DefaultPluginCSI,
+							func () oadpv1alpha1.DefaultPlugin {
+								if provider == "aws" {
+									return oadpv1alpha1.DefaultPluginAWS
+								} else if provider == "azure" {
+									return oadpv1alpha1.DefaultPluginMicrosoftAzure
+								} else if provider == "gcp" {
+									return oadpv1alpha1.DefaultPluginGCP
+								}
+								return ""
+							}(),
 						},
 					},
 					Restic: &oadpv1alpha1.ResticConfig{
@@ -409,6 +421,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 						Enable:    pointer.Bool(true),
 					},
 				},
+				BackupImages: pointer.Bool(false),
 			},
 			WantError: false,
 		}, nil),
@@ -558,6 +571,13 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 				Eventually(dpaCR.GetNoErr().Status.Conditions[0].Message, timeoutMultiplier*time.Minute*3, time.Second*5).Should(Equal(expectedErr.Error()))
 				return
 			}
+			// sleep to accomodates throttled CI environment
+			time.Sleep(20 * time.Second)
+			// Capture logs right after DPA is reconciled for diffing after one minute.
+			Eventually(dpaCR.GetNoErr().Status.Conditions[0].Type, timeoutMultiplier*time.Minute*3, time.Second*5).Should(Equal("Reconciled"))
+			timeReconciled := time.Now()
+			adpLogsAtReconciled, err := GetOpenShiftADPLogs(dpaCR.Namespace)
+			Expect(err).NotTo(HaveOccurred())
 			log.Printf("Waiting for velero pod to be running")
 			Eventually(AreVeleroPodsRunning(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 			dpa, err := dpaCR.Get()
@@ -628,6 +648,19 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 			if dpa.BackupImages() {
 				log.Printf("Waiting for registry pods to be running")
 				Eventually(AreRegistryDeploymentsAvailable(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
+			}
+			// wait at least 1 minute after reconciled
+			Eventually(func() bool {
+				//has it been at least 1 minute since reconciled?
+				return time.Now().After(timeReconciled.Add(time.Minute))
+			}, timeoutMultiplier*time.Minute*2, time.Second).Should(BeTrue())
+			adpLogsAfterOneMinute, err := GetOpenShiftADPLogs(dpaCR.Namespace)
+			Expect(err).NotTo(HaveOccurred())
+			// We expect adp logs to be the same after 1 minute
+			adpLogsDiff := cmp.Diff(adpLogsAtReconciled, adpLogsAfterOneMinute)
+			// If registry deployment were deleted after CR update, we expect to see a new log entry, ignore that.
+			if !strings.Contains(adpLogsDiff, "Registry Deployment deleted") {
+				Expect(adpLogsDiff).To(Equal(""))
 			}
 
 		}, genericTests,
