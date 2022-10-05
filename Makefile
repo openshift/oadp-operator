@@ -272,7 +272,8 @@ endef
 
 YQ = $(shell pwd)/bin/yq
 yq: ## Download yq locally if necessary.
-	$(call go-install-tool,$(YQ),github.com/mikefarah/yq/v4@latest)
+	# 4.13.2 latest for go1.16
+	$(call go-install-tool,$(YQ),github.com/mikefarah/yq/v4@v4.13.2)
 
 OPERATOR_SDK = $(shell pwd)/bin/operator-sdk
 operator-sdk:
