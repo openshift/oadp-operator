@@ -57,7 +57,7 @@ spec:
             value: quay.io/konveyor/kubevirt-velero-plugin:v0.2.0
         args:
         - --leader-elect
-        image: controller:latest
+        image: controller:oadp-1.0
         imagePullPolicy: Always
         name: manager
         securityContext:
