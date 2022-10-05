@@ -272,8 +272,9 @@ endef
 
 YQ = $(shell pwd)/bin/yq
 yq: ## Download yq locally if necessary.
-	# 4.13.2 latest for go1.16
-	$(call go-install-tool,$(YQ),github.com/mikefarah/yq/v4@v4.13.2)
+	if [ ! -f $(YQ) ]; then \
+		curl -Lo $(YQ) https://github.com/mikefarah/yq/releases/download/v4.28.1/yq_$(shell go env GOOS)_$(shell go env GOARCH) && chmod +x $(YQ); \
+	fi
 
 OPERATOR_SDK = $(shell pwd)/bin/operator-sdk
 operator-sdk:
