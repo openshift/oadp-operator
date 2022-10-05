@@ -37,7 +37,6 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: metadata.namespace
-            value: quay.io/konveyor/registry:latest
           - name: RELATED_IMAGE_VELERO
             value: quay.io/konveyor/velero:oadp-1.0
           - name: RELATED_IMAGE_VELERO_RESTIC_RESTORE_HELPER

@@ -271,10 +271,8 @@ operator-sdk:
 bundle: manifests kustomize operator-sdk yq ## Generate bundle manifests and metadata, then validate generated files.
 	$(OPERATOR_SDK) generate kustomize manifests -q
 	cd config/manager && $(KUSTOMIZE) edit set image controller=$(IMG)
-	$(KUSTOMIZE) build config/manifests | $(OPERATOR_SDK) generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
-	# Removes placeholder velero deployment used so `$(OPERATOR_SDK) generate bundle` adds velero service account and role to bundle CSV using yq. See https://github.com/mikefarah/yq/#install
-	$(YQ) eval 'del(.spec.install.spec.deployments.1)' bundle/manifests/oadp-operator.clusterserviceversion.yaml > bundle/manifests/oadp-operator.clusterserviceversion.yaml.yqresult
-	mv bundle/manifests/oadp-operator.clusterserviceversion.yaml.yqresult bundle/manifests/oadp-operator.clusterserviceversion.yaml
+	$(KUSTOMIZE) build config/manifests | $(OPERATOR_SDK) generate bundle -q --extra-service-accounts "velero" --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
+	@make nullable-crds-bundle nullable-crds-config # patch nullables in CRDs
 	# Copy updated bundle.Dockerfile to CI's Dockerfile.bundle
 	# TODO: update CI to use generated one
 	cp bundle.Dockerfile build/Dockerfile.bundle
