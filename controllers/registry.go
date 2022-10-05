@@ -225,9 +225,10 @@ func (r *DPAReconciler) getProviderSecret(secretName string) (corev1.Secret, err
 	if err != nil {
 		return secret, err
 	}
-	r.Log.Info(fmt.Sprintf("got provider secret name: %s", secret.Name))
+	originalSecret := secret.DeepCopy()
 	// replace carriage return with new line
 	secret.Data = replaceCarriageReturn(secret.Data, r.Log)
+	r.Client.Patch(r.Context, &secret, client.MergeFrom(originalSecret))
 	return secret, nil
 }
 
@@ -663,9 +664,9 @@ func (r *DPAReconciler) ReconcileRegistrySecrets(log logr.Logger) (bool, error) 
 		}
 
 		// Create Secret
-		op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, &secret, func() error {
+		op, err := controllerutil.CreateOrPatch(r.Context, r.Client, &secret, func() error {
 			// TODO: check for secret status condition errors and respond here
-			err := r.updateRegistrySecret(&secret, &bsl, &dpa)
+			err := r.patchRegistrySecret(&secret, &bsl, &dpa)
 
 			return err
 		})
@@ -685,7 +686,7 @@ func (r *DPAReconciler) ReconcileRegistrySecrets(log logr.Logger) (bool, error) 
 	return true, nil
 }
 
-func (r *DPAReconciler) updateRegistrySecret(secret *corev1.Secret, bsl *velerov1.BackupStorageLocation, dpa *oadpv1alpha1.DataProtectionApplication) error {
+func (r *DPAReconciler) patchRegistrySecret(secret *corev1.Secret, bsl *velerov1.BackupStorageLocation, dpa *oadpv1alpha1.DataProtectionApplication) error {
 	// Setting controller owner reference on the registry secret
 	err := controllerutil.SetControllerReference(dpa, secret, r.Scheme)
 	if err != nil {
@@ -741,7 +742,6 @@ func (r *DPAReconciler) populateAWSRegistrySecret(bsl *velerov1.BackupStorageLoc
 func (r *DPAReconciler) populateAzureRegistrySecret(bsl *velerov1.BackupStorageLocation, registrySecret *corev1.Secret) error {
 	// Check for secret name
 	secretName, secretKey := r.getSecretNameAndKey(&bsl.Spec, oadpv1alpha1.DefaultPluginMicrosoftAzure)
-	r.Log.Info(fmt.Sprintf("Azure secret name: %s and secret key: %s", secretName, secretKey))
 
 	// fetch secret and error
 	secret, err := r.getProviderSecret(secretName)
@@ -763,7 +763,6 @@ func (r *DPAReconciler) populateAzureRegistrySecret(bsl *velerov1.BackupStorageL
 			return errors.New("no strorageAccountKey value present in credentials file")
 		}
 	} else {
-		r.Log.Info("Checking for service principal credentials")
 		if len(azcreds.subscriptionID) == 0 &&
 			len(azcreds.tenantID) == 0 &&
 			len(azcreds.clientID) == 0 &&

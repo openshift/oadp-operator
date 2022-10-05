@@ -36,7 +36,7 @@ var _ = Describe("Subscription Config Suite Test", func() {
 	type SubscriptionConfigTestCase struct {
 		operators.SubscriptionConfig
 		failureExpected *bool
-		stream string
+		stream          string
 	}
 	DescribeTable("Proxy test table",
 		func(testCase SubscriptionConfigTestCase) {

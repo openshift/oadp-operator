@@ -53,6 +53,13 @@ const (
 	NoProxyEnvVar                  = "NO_PROXY"
 )
 
+const defaultMode = int32(420)
+
+func DefaultModePtr() *int32 {
+	var mode int32 = defaultMode
+	return &mode
+}
+
 // append labels together
 func AppendUniqueLabels(userLabels ...map[string]string) (map[string]string, error) {
 	return AppendUniqueKeyStringOfStringMaps(userLabels...)

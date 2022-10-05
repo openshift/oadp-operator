@@ -22,10 +22,10 @@ func (d *DpaCustomResource) GetOperatorSubscription(stream string) (*Subscriptio
 		return nil, err
 	}
 	sl := operators.SubscriptionList{}
-	if stream == "up"{
+	if stream == "up" {
 		err = d.Client.List(context.Background(), &sl, client.InNamespace(d.Namespace), client.MatchingLabels(map[string]string{"operators.coreos.com/oadp-operator." + d.Namespace: ""}))
 	}
-	if stream == "down"{
+	if stream == "down" {
 		err = d.Client.List(context.Background(), &sl, client.InNamespace(d.Namespace), client.MatchingLabels(map[string]string{"operators.coreos.com/redhat-oadp-operator." + d.Namespace: ""}))
 	}
 	if err != nil {

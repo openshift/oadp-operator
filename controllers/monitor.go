@@ -26,7 +26,7 @@ func (r *DPAReconciler) ReconcileVeleroServiceMonitor(log logr.Logger) (bool, er
 		},
 	}
 
-	op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, serviceMonitor, func() error {
+	op, err := controllerutil.CreateOrPatch(r.Context, r.Client, serviceMonitor, func() error {
 
 		if serviceMonitor.ObjectMeta.CreationTimestamp.IsZero() {
 			serviceMonitor.Spec.Selector = metav1.LabelSelector{
@@ -118,10 +118,9 @@ func (r *DPAReconciler) ReconcileVeleroMetricsSVC(log logr.Logger) (bool, error)
 	}
 
 	// Create SVC
-	op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, &svc, func() error {
+	op, err := controllerutil.CreateOrPatch(r.Context, r.Client, &svc, func() error {
 		// TODO: check for svc status condition errors and respond here
 		err := r.updateVeleroMetricsSVC(&svc, &dpa)
-
 		return err
 	})
 	if err != nil {
@@ -153,8 +152,9 @@ func (r *DPAReconciler) updateVeleroMetricsSVC(svc *corev1.Service, dpa *oadpv1a
 	svc.Spec.Type = corev1.ServiceTypeClusterIP
 	svc.Spec.Ports = []corev1.ServicePort{
 		{
-			Name: "monitoring",
-			Port: int32(8085),
+			Protocol: corev1.ProtocolTCP,
+			Name:     "monitoring",
+			Port:     int32(8085),
 			TargetPort: intstr.IntOrString{
 				IntVal: int32(8085),
 			},

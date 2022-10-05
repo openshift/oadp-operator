@@ -12,6 +12,7 @@ import (
 	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/intstr"
 
 	//"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -71,7 +72,7 @@ func (r *DPAReconciler) ReconcileVeleroServiceAccount(log logr.Logger) (bool, er
 			Namespace: dpa.Namespace,
 		},
 	}
-	op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, veleroSa, func() error {
+	op, err := controllerutil.CreateOrPatch(r.Context, r.Client, veleroSa, func() error {
 		// Setting controller owner reference on the velero SA
 		err := controllerutil.SetControllerReference(&dpa, veleroSa, r.Scheme)
 		if err != nil {
@@ -171,7 +172,7 @@ func (r *DPAReconciler) ReconcileVeleroClusterRoleBinding(log logr.Logger) (bool
 	if err != nil {
 		return false, err
 	}
-	op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, veleroCRB, func() error {
+	op, err := controllerutil.CreateOrPatch(r.Context, r.Client, veleroCRB, func() error {
 		// Setting controller owner reference on the velero CRB
 		// TODO: HOW DO I DO THIS?? ALAY HALP PLZ
 		/*err := controllerutil.SetControllerReference(&velero, veleroCRB, r.Scheme)
@@ -221,7 +222,7 @@ func (r *DPAReconciler) ReconcileVeleroSecurityContextConstraint(log logr.Logger
 			Name: "velero-privileged",
 		},
 	}
-	op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, veleroSCC, func() error {
+	op, err := controllerutil.CreateOrPatch(r.Context, r.Client, veleroSCC, func() error {
 		// Setting controller owner reference on the velero SCC
 		// TODO: HOW DO I DO THIS?? ALAY HALP PLZ
 		/*err := controllerutil.SetControllerReference(&velero, veleroSCC, r.Scheme)
@@ -262,8 +263,7 @@ func (r *DPAReconciler) ReconcileVeleroDeployment(log logr.Logger) (bool, error)
 			Namespace: dpa.Namespace,
 		},
 	}
-
-	op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, veleroDeployment, func() error {
+	op, err := controllerutil.CreateOrPatch(r.Context, r.Client, veleroDeployment, func() error {
 
 		// Setting Deployment selector if a new object is created as it is immutable
 		if veleroDeployment.ObjectMeta.CreationTimestamp.IsZero() {
@@ -415,7 +415,7 @@ func (r *DPAReconciler) buildVeleroDeployment(veleroDeployment *appsv1.Deploymen
 	veleroDeploymentName := veleroDeployment.Name
 	veleroDeployment.TypeMeta = installDeployment.TypeMeta
 	veleroDeployment.Spec = installDeployment.Spec
-	veleroDeployment.ObjectMeta = installDeployment.ObjectMeta
+	veleroDeployment.Labels, _ = common.AppendUniqueLabels(veleroDeployment.Labels, installDeployment.Labels)
 	veleroDeployment.Name = veleroDeploymentName
 	return r.customizeVeleroDeployment(dpa, veleroDeployment)
 }
@@ -499,14 +499,13 @@ func (r *DPAReconciler) customizeVeleroDeployment(dpa *oadpv1alpha1.DataProtecti
 		})
 
 	if isSTSNeeded {
-		defaultMode := int32(420)
 		expirationSeconds := int64(3600)
 		veleroDeployment.Spec.Template.Spec.Volumes = append(veleroDeployment.Spec.Template.Spec.Volumes,
 			corev1.Volume{
 				Name: "bound-sa-token",
 				VolumeSource: corev1.VolumeSource{
 					Projected: &corev1.ProjectedVolumeSource{
-						DefaultMode: &defaultMode,
+						DefaultMode: common.DefaultModePtr(),
 						Sources: []corev1.VolumeProjection{
 							{
 								ServiceAccountToken: &corev1.ServiceAccountTokenProjection{
@@ -559,6 +558,23 @@ func (r *DPAReconciler) customizeVeleroDeployment(dpa *oadpv1alpha1.DataProtecti
 		veleroContainer.Args = append(veleroContainer.Args, "--log-level", logLevel.String())
 	}
 
+	// Set defaults to avoid update events
+	if veleroDeployment.Spec.Strategy.Type == "" {
+		veleroDeployment.Spec.Strategy.Type = appsv1.RollingUpdateDeploymentStrategyType
+	}
+	if veleroDeployment.Spec.Strategy.RollingUpdate == nil {
+		veleroDeployment.Spec.Strategy.RollingUpdate = &appsv1.RollingUpdateDeployment{
+			MaxUnavailable: &intstr.IntOrString{Type: intstr.String, StrVal: "25%"},
+			MaxSurge:       &intstr.IntOrString{Type: intstr.String, StrVal: "25%"},
+		}
+	}
+	if veleroDeployment.Spec.RevisionHistoryLimit == nil {
+		veleroDeployment.Spec.RevisionHistoryLimit = pointer.Int32(10)
+	}
+	if veleroDeployment.Spec.ProgressDeadlineSeconds == nil {
+		veleroDeployment.Spec.ProgressDeadlineSeconds = pointer.Int32(600)
+	}
+	setPodTemplateSpecDefaults(&veleroDeployment.Spec.Template)
 	return credentials.AppendPluginSpecificSpecs(dpa, veleroDeployment, veleroContainer, providerNeedsDefaultCreds, hasCloudStorage)
 }
 
@@ -614,6 +630,7 @@ func (r *DPAReconciler) customizeVeleroContainer(dpa *oadpv1alpha1.DataProtectio
 	// Append restic timeout option manually. Not configurable via install package, missing from podTemplateConfig struct. See: https://github.com/vmware-tanzu/velero/blob/8d57215ded1aa91cdea2cf091d60e072ce3f340f/pkg/install/deployment.go#L34-L45
 	veleroContainer.Args = append(veleroContainer.Args, fmt.Sprintf("--restic-timeout=%s", resticTimeout))
 
+	setContainerDefaults(veleroContainer)
 	return nil
 }
 

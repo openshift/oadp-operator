@@ -100,7 +100,7 @@ func (r *DPAReconciler) ReconcileDataMoverController(log logr.Logger) (bool, err
 		return true, nil
 	}
 
-	op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, dataMoverDeployment, func() error {
+	op, err := controllerutil.CreateOrPatch(r.Context, r.Client, dataMoverDeployment, func() error {
 
 		// Setting Deployment selector if a new object is created as it is immutable
 		if dataMoverDeployment.ObjectMeta.CreationTimestamp.IsZero() {
@@ -277,7 +277,7 @@ func (r *DPAReconciler) createResticSecretsPerBSL(dpa *oadpv1alpha1.DataProtecti
 				},
 			}
 
-			op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, rsecret, func() error {
+			op, err := controllerutil.CreateOrPatch(r.Context, r.Client, rsecret, func() error {
 
 				err := controllerutil.SetControllerReference(dpa, rsecret, r.Scheme)
 				if err != nil {
@@ -345,7 +345,7 @@ func (r *DPAReconciler) createResticSecretsPerBSL(dpa *oadpv1alpha1.DataProtecti
 				},
 			}
 
-			op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, rsecret, func() error {
+			op, err := controllerutil.CreateOrPatch(r.Context, r.Client, rsecret, func() error {
 
 				err := controllerutil.SetControllerReference(dpa, rsecret, r.Scheme)
 				if err != nil {
