@@ -205,7 +205,7 @@ func (r *DPAReconciler) ReconcileVolumeSnapshotLocations(log logr.Logger) (bool,
 			Spec: *vslSpec.Velero,
 		}
 		// Create VSL
-		op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, &vsl, func() error {
+		op, err := controllerutil.CreateOrPatch(r.Context, r.Client, &vsl, func() error {
 			// TODO: Velero may be setting controllerReference as
 			// well and taking ownership. If so move this to
 			// SetOwnerReference instead
