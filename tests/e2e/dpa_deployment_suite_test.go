@@ -185,7 +185,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 			},
 			WantError: false,
 		}, nil),
-		Entry("Adding AWS plugin", InstallCase{
+		Entry("Provider plugin", InstallCase{
 			Name:         "default-cr-aws-plugin",
 			BRestoreType: RESTIC,
 			DpaSpec: &oadpv1alpha1.DataProtectionApplicationSpec{
@@ -194,7 +194,16 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 						PodConfig: &oadpv1alpha1.PodConfig{},
 						DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
 							oadpv1alpha1.DefaultPluginCSI,
-							oadpv1alpha1.DefaultPluginAWS,
+							func () oadpv1alpha1.DefaultPlugin {
+								if provider == "aws" {
+									return oadpv1alpha1.DefaultPluginAWS
+								} else if provider == "azure" {
+									return oadpv1alpha1.DefaultPluginMicrosoftAzure
+								} else if provider == "gcp" {
+									return oadpv1alpha1.DefaultPluginGCP
+								}
+								return ""
+							}(),
 						},
 					},
 					Restic: &oadpv1alpha1.ResticConfig{
