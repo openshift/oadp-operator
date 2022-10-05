@@ -3,6 +3,9 @@ package controllers
 import (
 	"errors"
 	"fmt"
+	"k8s.io/apimachinery/pkg/version"
+	"k8s.io/client-go/kubernetes"
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
 
 	"github.com/go-logr/logr"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
@@ -100,6 +103,33 @@ func (r *DPAReconciler) ValidateVeleroPlugins(log logr.Logger) (bool, error) {
 				return false, err
 			}
 		}
+
+		// check csi compatibility with cluster version
+		// velero version <1.9 expects API group snapshot.storage.k8s.io/v1beta1, while OCP 4.11 (k8s 1.24) has only snapshot.storage.k8s.io/v1
+		for _, plugin := range dpa.Spec.Configuration.Velero.DefaultPlugins {
+			if plugin == oadpv1alpha1.DefaultPluginCSI {
+				clusterVersion, err := getClusterVersion()
+				if err != nil {
+					return false, err
+				}
+				r.Log.Info(fmt.Sprintf("clusterVersion is %v", clusterVersion))
+				r.Log.Info(fmt.Sprintf("clusterVersion major is %v", clusterVersion.Major))
+				r.Log.Info(fmt.Sprintf("clusterVersion minor is %v", clusterVersion.Minor))
+
+				if clusterVersion.Major == "1" && clusterVersion.Minor >= "24" {
+					return false, errors.New("when using csi, velero version <1.9 expects API group snapshot.storage.k8s.io/v1beta1, while OCP 4.11+ (k8s 1.24+) has only snapshot.storage.k8s.io/v1, please disable CSI support, or if CSI is needed, upgrade to OADP 1.1+")
+				}
+			}
+		}
 	}
 	return true, nil
+}
+
+func getClusterVersion() (*version.Info, error) {
+	kubeConf := config.GetConfigOrDie()
+	clientset, err := kubernetes.NewForConfig(kubeConf)
+	if err != nil {
+		return nil, err
+	}
+	return clientset.Discovery().ServerVersion()
 }
