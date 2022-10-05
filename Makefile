@@ -261,8 +261,11 @@ yq: ## Download yq locally if necessary.
 
 OPERATOR_SDK = $(shell pwd)/bin/operator-sdk
 operator-sdk:
-	curl -Lo $(OPERATOR_SDK) https://github.com/operator-framework/operator-sdk/releases/download/v1.23.0/operator-sdk_$(shell go env GOOS)_$(shell go env GOARCH)
-	chmod +x $(OPERATOR_SDK)
+	# Download operator-sdk locally if does not exist
+	if [ ! -f $(OPERATOR_SDK) ]; then \
+		curl -LO $(OPERATOR_SDK) https://github.com/operator-framework/operator-sdk/releases/download/v1.23.0/operator-sdk_$(shell go env GOOS)_$(shell go env GOARCH); \
+		chmod +x $(OPERATOR_SDK); \
+	fi
 
 .PHONY: bundle
 bundle: manifests kustomize operator-sdk yq ## Generate bundle manifests and metadata, then validate generated files.
