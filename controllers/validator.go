@@ -88,6 +88,19 @@ func (r *DPAReconciler) ValidateVeleroPlugins(log logr.Logger) (bool, error) {
 	var defaultPlugin oadpv1alpha1.DefaultPlugin
 	for _, plugin := range dpa.Spec.Configuration.Velero.DefaultPlugins {
 
+		// check csi compatibility with cluster version
+		// velero version <1.9 expects API group snapshot.storage.k8s.io/v1beta1, while OCP 4.11 (k8s 1.24) has only snapshot.storage.k8s.io/v1
+		if plugin == oadpv1alpha1.DefaultPluginCSI {
+			clusterVersion, err := getClusterVersion()
+			if err != nil {
+				return false, err
+			}
+
+			if clusterVersion.Major == "1" && clusterVersion.Minor >= "24" {
+				return false, errors.New("when using csi, velero version <1.9 expects API group snapshot.storage.k8s.io/v1beta1, while OCP 4.11+ (k8s 1.24+) has only snapshot.storage.k8s.io/v1, please disable CSI support, or if CSI is needed, upgrade to OADP 1.1+")
+			}
+		}
+
 		pluginSpecificMap, ok := credentials.PluginSpecificFields[plugin]
 		pluginNeedsCheck, foundInBSLorVSL := providerNeedsDefaultCreds[string(plugin)]
 
@@ -101,21 +114,6 @@ func (r *DPAReconciler) ValidateVeleroPlugins(log logr.Logger) (bool, error) {
 			if err != nil {
 				r.Log.Info(fmt.Sprintf("error validating %s provider secret:  %s/%s", defaultPlugin, r.NamespacedName.Namespace, secretName))
 				return false, err
-			}
-		}
-
-		// check csi compatibility with cluster version
-		// velero version <1.9 expects API group snapshot.storage.k8s.io/v1beta1, while OCP 4.11 (k8s 1.24) has only snapshot.storage.k8s.io/v1
-		for _, plugin := range dpa.Spec.Configuration.Velero.DefaultPlugins {
-			if plugin == oadpv1alpha1.DefaultPluginCSI {
-				clusterVersion, err := getClusterVersion()
-				if err != nil {
-					return false, err
-				}
-
-				if clusterVersion.Major == "1" && clusterVersion.Minor >= "24" {
-					return false, errors.New("when using csi, velero version <1.9 expects API group snapshot.storage.k8s.io/v1beta1, while OCP 4.11+ (k8s 1.24+) has only snapshot.storage.k8s.io/v1, please disable CSI support, or if CSI is needed, upgrade to OADP 1.1+")
-				}
 			}
 		}
 	}
