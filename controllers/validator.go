@@ -112,9 +112,6 @@ func (r *DPAReconciler) ValidateVeleroPlugins(log logr.Logger) (bool, error) {
 				if err != nil {
 					return false, err
 				}
-				r.Log.Info(fmt.Sprintf("clusterVersion is %v", clusterVersion))
-				r.Log.Info(fmt.Sprintf("clusterVersion major is %v", clusterVersion.Major))
-				r.Log.Info(fmt.Sprintf("clusterVersion minor is %v", clusterVersion.Minor))
 
 				if clusterVersion.Major == "1" && clusterVersion.Minor >= "24" {
 					return false, errors.New("when using csi, velero version <1.9 expects API group snapshot.storage.k8s.io/v1beta1, while OCP 4.11+ (k8s 1.24+) has only snapshot.storage.k8s.io/v1, please disable CSI support, or if CSI is needed, upgrade to OADP 1.1+")
