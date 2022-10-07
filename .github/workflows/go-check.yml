@@ -1,4 +1,4 @@
-name: go-check-format-tidy
+name: go-check
 on:
   push:
     paths:
@@ -11,7 +11,7 @@ on:
       - '**/go.mod'
       - '.github/workflows/go-autoformat.yml'
 jobs:
-  go-fmt-vet-tidy-verify: #test and submit coverage to codecov on pushes
+  go-check: #test and submit coverage to codecov on pushes
     runs-on: ubuntu-latest
     strategy:
       matrix:
