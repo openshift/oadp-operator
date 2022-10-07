@@ -4,12 +4,12 @@ on:
     paths:
       - '**/**.go'
       - '**/go.mod'
-      - '.github/workflows/go-autoformat.yml'
+      - '.github/workflows/go-check.yml'
   pull_request:
     paths:
       - '**/**.go'
       - '**/go.mod'
-      - '.github/workflows/go-autoformat.yml'
+      - '.github/workflows/go-check.yml'
 jobs:
   go-check: #test and submit coverage to codecov on pushes
     runs-on: ubuntu-latest
