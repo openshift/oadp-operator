@@ -26,9 +26,9 @@ jobs:
         path: |
           ~/.cache/go-build
           ~/go/pkg/mod
-        key: ${{ runner.os }}-go-autoformat-${{ hashFiles('**/go.sum') }}
+        key: ${{ runner.os }}-go-check-${{ hashFiles('**/go.sum') }}
         restore-keys: |
-          ${{ runner.os }}-go-autoformat-
+          ${{ runner.os }}-go-check-
     - name: execute go commands
       run: go ${{ matrix.goCmds }}
     - run: git diff --exit-code
