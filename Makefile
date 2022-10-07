@@ -164,6 +164,9 @@ fmt: ## Run go fmt against code.
 vet: ## Run go vet against code.
 	go vet -mod=mod ./...
 
+tidy: ## Run go mod tidy to clean up dependencies.
+	go mod tidy -compat=1.17
+
 test: manifests generate fmt vet envtest ## Run tests.
 	KUBEBUILDER_ASSETS="$(ENVTESTPATH)" go test -mod=mod ./controllers/... ./pkg/... -coverprofile cover.out
 
@@ -429,3 +432,16 @@ test-e2e: test-e2e-setup ## execute the oadp integration tests
 
 test-e2e-cleanup:
 	rm -rf $(SETTINGS_TMP)
+
+precommit: fmt vet tidy ## Run go fmt, go vet, and go mod tidy
+
+precommit-git-hooks-install: ## Install git hooks for precommit
+	@echo "Installing git hooks"
+	@echo '#!/bin/sh' > .git/hooks/pre-commit
+	@echo 'make precommit' >> .git/hooks/pre-commit
+	@echo 'git diff --exit-code go.mod go.sum &>/dev/null' >> .git/hooks/pre-commit
+	@echo 'if [ $$? -ne 0 ]; then' >> .git/hooks/pre-commit
+	@echo '  echo "go.mod and go.sum are out of sync. Please add it to your commit"' >> .git/hooks/pre-commit
+	@echo '  exit 1' >> .git/hooks/pre-commit
+	@echo 'fi' >> .git/hooks/pre-commit
+	@chmod +x .git/hooks/pre-commit
