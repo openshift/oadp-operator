@@ -1,0 +1,34 @@
+name: go-check-format-tidy
+on:
+  push:
+    paths:
+      - '**/**.go'
+      - '**/go.mod'
+      - '.github/workflows/go-autoformat.yml'
+  pull_request:
+    paths:
+      - '**/**.go'
+      - '**/go.mod'
+      - '.github/workflows/go-autoformat.yml'
+jobs:
+  go-fmt-vet-tidy-verify: #test and submit coverage to codecov on pushes
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        goCmds: [fmt ./..., vet ./..., mod tidy]
+    steps:
+    - uses: actions/checkout@v2
+    - uses: actions/setup-go@v2
+      with:
+        go-version: '^1.18' # The Go version to download (if necessary) and use.
+    - uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+        key: ${{ runner.os }}-go-autoformat-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-autoformat-
+    - name: execute go commands
+      run: go ${{ matrix.goCmds }}
+    - run: git diff --exit-code
