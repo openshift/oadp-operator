@@ -1,18 +1,26 @@
 package controllers
 
 import (
-	"k8s.io/apimachinery/pkg/api/resource"
+	"context"
 	"testing"
 
 	"github.com/go-logr/logr"
+	logrTesting "github.com/go-logr/logr/testing"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
+	oadpScheme "github.com/openshift/oadp-operator/pkg/scheme"
 	v1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/version"
+	discoverFake "k8s.io/client-go/discovery/fake"
+	clienttesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	clientFake "sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
 func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
@@ -703,6 +711,139 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 			}
 			if got != tt.want {
 				t.Errorf("ValidateDataProtectionCR() got = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+var namespacedName = types.NamespacedName{
+	Namespace: "test-ns",
+	Name:      "test-DPA-CR",
+}
+func TestDPAReconciler_ValidateVeleroPlugins(t *testing.T) {
+	type fields struct {
+		objects []runtime.Object
+		FakedServerVersion *version.Info
+		Scheme             *runtime.Scheme
+		NamespacedName     types.NamespacedName
+		EventRecorder      record.EventRecorder
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		want    bool
+		wantErr bool
+	}{
+		{
+			name: "given valid DPA CR with AWS, CSI Default Plugin and secret",
+			fields: fields{
+				objects: []runtime.Object{
+					&oadpv1alpha1.DataProtectionApplication{
+						TypeMeta: metav1.TypeMeta{
+							Kind:       "DataProtectionApplication",
+							APIVersion: "oadp.openshift.io/v1alpha1",
+						},
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "test-DPA-CR",
+							Namespace: "test-ns",
+						},
+						Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+							Configuration: &oadpv1alpha1.ApplicationConfig{
+								Velero: &oadpv1alpha1.VeleroConfig{
+									DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+										oadpv1alpha1.DefaultPluginAWS,
+										oadpv1alpha1.DefaultPluginCSI,
+									},
+								},
+							},
+						},
+					},
+					// secret
+					&corev1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "cloud-credentials",
+							Namespace: "test-ns",
+						},
+						Data: map[string][]byte{
+							"cloud": []byte("test"),
+						},
+					},
+				},
+			},
+			want:    true,
+			wantErr: false,
+		},
+		{
+			name: "Cluster version too high for CSI plugin",
+			fields: fields{
+				objects: []runtime.Object{
+					&oadpv1alpha1.DataProtectionApplication{
+						TypeMeta: metav1.TypeMeta{
+							Kind:       "DataProtectionApplication",
+							APIVersion: "oadp.openshift.io/v1alpha1",
+						},
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "test-DPA-CR",
+							Namespace: "test-ns",
+						},
+						Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+							Configuration: &oadpv1alpha1.ApplicationConfig{
+								Velero: &oadpv1alpha1.VeleroConfig{
+									DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+										oadpv1alpha1.DefaultPluginAWS,
+										oadpv1alpha1.DefaultPluginCSI,
+									},
+								},
+							},
+						},
+					},
+					// secret
+					&corev1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "cloud-credentials",
+							Namespace: "test-ns",
+						},
+						Data: map[string][]byte{
+							"cloud": []byte("test"),
+						},
+					},
+				},
+				FakedServerVersion: &version.Info{
+					Major: "1",
+					Minor: "24",
+				},
+			},
+			want:    false,
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.fields.FakedServerVersion == nil {
+				tt.fields.FakedServerVersion = &version.Info{
+					Major: "1",
+					Minor: "23",
+				}
+			}
+			log := logrTesting.TestLogger{T: t}
+			scheme := runtime.NewScheme()
+			oadpScheme.AddToScheme(scheme, log)
+			r := &DPAReconciler{
+				Client: clientFake.NewFakeClientWithScheme(scheme, tt.fields.objects...),
+				DiscoveryInterface: &discoverFake.FakeDiscovery{
+					Fake:               &clienttesting.Fake{},
+					FakedServerVersion: tt.fields.FakedServerVersion},
+				Log:     log,
+				NamespacedName: namespacedName,
+				Context: context.Background(),
+			}
+			got, err := r.ValidateVeleroPlugins(r.Log)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("DPAReconciler.ValidateVeleroPlugins() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("DPAReconciler.ValidateVeleroPlugins() = %v, want %v", got, tt.want)
 			}
 		})
 	}

@@ -32,6 +32,7 @@ import (
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -45,6 +46,7 @@ import (
 // DPAReconciler reconciles a Velero object
 type DPAReconciler struct {
 	client.Client
+	discovery.DiscoveryInterface
 	Scheme         *runtime.Scheme
 	Log            logr.Logger
 	Context        context.Context

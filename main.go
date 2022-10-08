@@ -19,19 +19,16 @@ package main
 import (
 	"flag"
 	"fmt"
-	monitor "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"os"
+
+	oadpScheme "github.com/openshift/oadp-operator/pkg/scheme"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
+	"k8s.io/client-go/discovery"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
-	routev1 "github.com/openshift/api/route/v1"
-	security "github.com/openshift/api/security/v1"
 	"github.com/openshift/oadp-operator/controllers"
-	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
-	appsv1 "k8s.io/api/apps/v1"
-	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -92,41 +89,13 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Setup scheme for OCP resources
-	if err := monitor.AddToScheme(mgr.GetScheme()); err != nil {
-		setupLog.Error(err, "unable to add OpenShift monitoring APIs to scheme")
-		os.Exit(1)
-	}
-
-	if err := security.AddToScheme(mgr.GetScheme()); err != nil {
-		setupLog.Error(err, "unable to add OpenShift security APIs to scheme")
-		os.Exit(1)
-	}
-
-	if err := routev1.AddToScheme(mgr.GetScheme()); err != nil {
-		setupLog.Error(err, "unable to add OpenShift route API to scheme")
-		os.Exit(1)
-	}
-
-	if err := velerov1.AddToScheme(mgr.GetScheme()); err != nil {
-		setupLog.Error(err, "unable to add Velero APIs to scheme")
-		os.Exit(1)
-	}
-
-	if err := appsv1.AddToScheme(mgr.GetScheme()); err != nil {
-		setupLog.Error(err, "unable to add Kubernetes APIs to scheme")
-		os.Exit(1)
-	}
-
-	if err := v1.AddToScheme(mgr.GetScheme()); err != nil {
-		setupLog.Error(err, "unable to add Kubernetes API extensions to scheme")
-		os.Exit(1)
-	}
+	oadpScheme.AddToScheme(mgr.GetScheme(), setupLog)
 
 	if err = (&controllers.DPAReconciler{
-		Client:        mgr.GetClient(),
-		Scheme:        mgr.GetScheme(),
-		EventRecorder: mgr.GetEventRecorderFor("DPA-controller"),
+		Client:             mgr.GetClient(),
+		DiscoveryInterface: discovery.NewDiscoveryClientForConfigOrDie(mgr.GetConfig()),
+		Scheme:             mgr.GetScheme(),
+		EventRecorder:      mgr.GetEventRecorderFor("DPA-controller"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "DataProtectionApplication")
 		os.Exit(1)
