@@ -36,8 +36,13 @@ const (
 	// Azure vars
 	AzureAccountName = "AZURE_ACCOUNT_NAME"
 	AzureAccountKey  = "AZURE_ACCOUNT_KEY"
-	// TODO: GCP
+	// GCP vars
+	GoogleApplicationCredentials = "GOOGLE_APPLICATION_CREDENTIALS"
 )
+
+type gcpCredentials struct {
+	googleApplicationCredentials string
+}
 
 func (r *DPAReconciler) ReconcileDataMoverController(log logr.Logger) (bool, error) {
 
@@ -367,6 +372,59 @@ func (r *DPAReconciler) createResticSecretsPerBSL(dpa *oadpv1alpha1.DataProtecti
 			}
 
 		}
+	case GCPProvider:
+		{
+			secretName, secretKey := r.getSecretNameAndKey(&bsl.Spec, oadpv1alpha1.DefaultPluginGCP)
+			bslSecret, err := r.getProviderSecret(secretName)
+			if err != nil {
+				return nil, err
+			}
+
+			// parse the secret and get google application credentials json
+			gcpcreds, err := r.parseGCPSecret(bslSecret, secretKey)
+			if err != nil {
+				r.Log.Info(fmt.Sprintf("Error parsing provider secret %s for backupstoragelocation %s/%s", secretName, bsl.Namespace, bsl.Name))
+				return nil, err
+			}
+
+			// let's construct the repo URL
+			repo := "gs:" + bsl.Spec.ObjectStorage.Bucket + ":"
+
+			// We are done with checks no lets create the gcp dm secret
+			rsecret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      fmt.Sprintf("%s-volsync-restic", bsl.Name),
+					Namespace: bsl.Namespace,
+					Labels: map[string]string{
+						oadpv1alpha1.OadpBSLnameLabel:     bsl.Name,
+						oadpv1alpha1.OadpOperatorLabel:    "True",
+						oadpv1alpha1.OadpBSLProviderLabel: bsl.Spec.Provider,
+					},
+				},
+			}
+
+			op, err := controllerutil.CreateOrPatch(r.Context, r.Client, rsecret, func() error {
+
+				err := controllerutil.SetControllerReference(dpa, rsecret, r.Scheme)
+				if err != nil {
+					return err
+				}
+
+				return r.buildDataMoverResticSecretForGCP(rsecret, gcpcreds.googleApplicationCredentials, pass, repo)
+			})
+
+			if err != nil {
+				return nil, err
+			}
+			if op == controllerutil.OperationResultCreated || op == controllerutil.OperationResultUpdated {
+				r.EventRecorder.Event(rsecret,
+					corev1.EventTypeNormal,
+					"ResticSecretReconciled",
+					fmt.Sprintf("%s restic secret %s", op, rsecret.Name),
+				)
+			}
+
+		}
 	}
 
 	return nil, nil
@@ -398,6 +456,20 @@ func (r *DPAReconciler) buildDataMoverResticSecretForAzure(rsecret *corev1.Secre
 			AzureAccountKey:  []byte(accountKey),
 			ResticPassword:   pass,
 			ResticRepository: []byte(repo),
+		},
+	}
+	rsecret.Data = rData.Data
+	return nil
+}
+
+//build data mover restic secret for given gcp bsl
+func (r *DPAReconciler) buildDataMoverResticSecretForGCP(rsecret *corev1.Secret, googleApplicationCredentials string, pass []byte, repo string) error {
+
+	rData := &corev1.Secret{
+		Data: map[string][]byte{
+			GoogleApplicationCredentials: []byte(googleApplicationCredentials),
+			ResticPassword:               pass,
+			ResticRepository:             []byte(repo),
 		},
 	}
 	rsecret.Data = rData.Data
@@ -487,4 +559,13 @@ func (r *DPAReconciler) checkIfDataMoverIsEnabled(dpa *oadpv1alpha1.DataProtecti
 	}
 
 	return false
+}
+
+func (r *DPAReconciler) parseGCPSecret(secret corev1.Secret, secretKey string) (gcpCredentials, error) {
+
+	gcpcreds := gcpCredentials{}
+
+	gcpcreds.googleApplicationCredentials = string(secret.Data[secretKey])
+
+	return gcpcreds, nil
 }
