@@ -2,13 +2,13 @@
 # TODO! Find a real ubi8 image for golang 1.16
 FROM quay.io/app-sre/boilerplate:image-v2.1.0 as builder
 
-RUN go get -u github.com/onsi/ginkgo/ginkgo && \
- go get -u github.com/onsi/ginkgo/v2/ginkgo
-RUN go get github.com/onsi/gomega/...
-
 WORKDIR /go/src/github.com/openshift/oadp-operator
 
 COPY ./ .
 
+RUN go get -d -u github.com/onsi/ginkgo/ginkgo && \
+ go get -d -u github.com/onsi/ginkgo/v2/ginkgo && \
+ go install -mod=mod github.com/onsi/ginkgo/v2/ginkgo@latest
+RUN go get github.com/onsi/gomega/...
 RUN chmod -R 777 ./
 RUN go mod download
