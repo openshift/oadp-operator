@@ -35,7 +35,7 @@ spec:
           spec:
             properties:
               creationSecret:
-                description: CreationSecret is the secret that is needed to be used
+                description: creationSecret is the secret that is needed to be used
                   while creating the bucket.
                 properties:
                   key:
@@ -53,25 +53,26 @@ spec:
                 - key
                 type: object
               enableSharedConfig:
-                description: EnableSharedConfig enable the use of shared config loading
+                description: enableSharedConfig enable the use of shared config loading
                   for AWS Buckets
                 type: boolean
               name:
-                description: Name is the name requested for the bucket (aws, gcp)
+                description: name is the name requested for the bucket (aws, gcp)
                   or container (azure)
                 type: string
               provider:
+                description: provider is the provider of the cloud storage
                 enum:
                 - aws
                 type: string
               region:
-                description: Region for the bucket to be in, will be us-east-1 if
+                description: region` for the bucket to be in, will be us-east-1 if
                   not set.
                 type: string
               tags:
                 additionalProperties:
                   type: string
-                description: Tags for the bucket
+                description: tags` for the bucket
                 type: object
             required:
             - creationSecret
