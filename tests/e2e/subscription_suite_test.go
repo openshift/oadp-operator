@@ -44,11 +44,13 @@ var _ = Describe("Subscription Config Suite Test", func() {
 	type SubscriptionConfigTestCase struct {
 		operators.SubscriptionConfig
 		failureExpected *bool
+		stream          string
 	}
 	DescribeTable("Proxy test table",
 		func(testCase SubscriptionConfigTestCase) {
 			log.Printf("Getting Operator Subscription")
-			s, err := dpaCR.GetOperatorSubscription()
+			log.Printf(stream)
+			s, err := dpaCR.GetOperatorSubscription(stream)
 			Expect(err).To(BeNil())
 			log.Printf("Setting test case subscription config")
 			s.Spec.Config = &testCase.SubscriptionConfig
