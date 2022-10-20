@@ -40,7 +40,7 @@ var (
 	resticLabelSelector             = &metav1.LabelSelector{
 		MatchLabels: map[string]string{
 			"component": common.Velero,
-			"name":      common.Restic,
+			"name":      common.NodeAgent,
 		},
 	}
 )
@@ -242,7 +242,7 @@ func (r *DPAReconciler) customizeResticDaemonset(dpa *oadpv1alpha1.DataProtectio
 	// fetch restic container in order to customize it
 	var resticContainer *corev1.Container
 	for i, container := range ds.Spec.Template.Spec.Containers {
-		if container.Name == Restic {
+		if container.Name == common.NodeAgent {
 			resticContainer = &ds.Spec.Template.Spec.Containers[i]
 			break
 		}
@@ -346,12 +346,12 @@ func (r *DPAReconciler) updateResticRestoreHelperCM(resticRestoreHelperCM *corev
 
 	resticRestoreHelperCM.Labels = map[string]string{
 		"velero.io/plugin-config":      "",
-		"velero.io/restic":             "RestoreItemAction",
+		"velero.io/pod-volume-restore": "RestoreItemAction",
 		oadpv1alpha1.OadpOperatorLabel: "True",
 	}
 
 	resticRestoreHelperCM.Data = map[string]string{
-		"image": os.Getenv("RELATED_IMAGE_VELERO_RESTIC_RESTORE_HELPER"),
+		"image": os.Getenv("RELATED_IMAGE_VELERO_RESTORE_HELPER"),
 	}
 
 	return nil

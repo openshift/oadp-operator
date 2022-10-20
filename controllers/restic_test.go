@@ -149,7 +149,7 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: map[string]string{
 								"component": common.Velero,
-								"name":      common.Restic,
+								"name":      common.NodeAgent,
 							},
 						},
 						Spec: v1.PodSpec{
@@ -185,7 +185,7 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 							Tolerations: dpa.Spec.Configuration.Restic.PodConfig.Tolerations,
 							Containers: []v1.Container{
 								{
-									Name: common.Restic,
+									Name: common.NodeAgent,
 									SecurityContext: &v1.SecurityContext{
 										Privileged: pointer.Bool(true),
 									},
@@ -195,7 +195,7 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 										"/velero",
 									},
 									Args: []string{
-										"restic",
+										common.NodeAgent,
 										"server",
 									},
 									VolumeMounts: []v1.VolumeMount{
@@ -290,7 +290,7 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: map[string]string{
 								"component":   common.Velero,
-								"name":        common.Restic,
+								"name":        common.NodeAgent,
 								"resticLabel": "this is a label",
 							},
 						},
@@ -327,7 +327,7 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 							Tolerations: dpa.Spec.Configuration.Restic.PodConfig.Tolerations,
 							Containers: []v1.Container{
 								{
-									Name: common.Restic,
+									Name: common.NodeAgent,
 									SecurityContext: &v1.SecurityContext{
 										Privileged: pointer.Bool(true),
 									},
@@ -337,7 +337,7 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 										"/velero",
 									},
 									Args: []string{
-										"restic",
+										common.NodeAgent,
 										"server",
 									},
 									VolumeMounts: []v1.VolumeMount{
@@ -460,7 +460,7 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: map[string]string{
 								"component": common.Velero,
-								"name":      common.Restic,
+								"name":      common.NodeAgent,
 							},
 						},
 						Spec: v1.PodSpec{
@@ -506,7 +506,7 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 							Tolerations: dpa.Spec.Configuration.Restic.PodConfig.Tolerations,
 							Containers: []v1.Container{
 								{
-									Name: common.Restic,
+									Name: common.NodeAgent,
 									SecurityContext: &v1.SecurityContext{
 										Privileged: pointer.Bool(true),
 									},
@@ -516,7 +516,7 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 										"/velero",
 									},
 									Args: []string{
-										"restic",
+										common.NodeAgent,
 										"server",
 									},
 									VolumeMounts: []v1.VolumeMount{
@@ -628,7 +628,7 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: map[string]string{
 								"component": common.Velero,
-								"name":      common.Restic,
+								"name":      common.NodeAgent,
 							},
 						},
 						Spec: v1.PodSpec{
@@ -674,7 +674,7 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 							Tolerations: dpa.Spec.Configuration.Restic.PodConfig.Tolerations,
 							Containers: []v1.Container{
 								{
-									Name: common.Restic,
+									Name: common.NodeAgent,
 									SecurityContext: &v1.SecurityContext{
 										Privileged: pointer.Bool(true),
 									},
@@ -684,7 +684,7 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 										"/velero",
 									},
 									Args: []string{
-										"restic",
+										common.NodeAgent,
 										"server",
 									},
 									VolumeMounts: []v1.VolumeMount{
@@ -795,7 +795,7 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: map[string]string{
 								"component": common.Velero,
-								"name":      common.Restic,
+								"name":      common.NodeAgent,
 							},
 						},
 						Spec: v1.PodSpec{
@@ -841,7 +841,7 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 							Tolerations: dpa.Spec.Configuration.Restic.PodConfig.Tolerations,
 							Containers: []v1.Container{
 								{
-									Name: common.Restic,
+									Name: common.NodeAgent,
 									SecurityContext: &v1.SecurityContext{
 										Privileged: pointer.Bool(true),
 									},
@@ -851,7 +851,7 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 										"/velero",
 									},
 									Args: []string{
-										"restic",
+										common.NodeAgent,
 										"server",
 									},
 									VolumeMounts: []v1.VolumeMount{
@@ -961,7 +961,7 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: map[string]string{
 								"component": common.Velero,
-								"name":      common.Restic,
+								"name":      common.NodeAgent,
 							},
 						},
 						Spec: v1.PodSpec{
@@ -1007,7 +1007,7 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 							Tolerations: dpa.Spec.Configuration.Restic.PodConfig.Tolerations,
 							Containers: []v1.Container{
 								{
-									Name: common.Restic,
+									Name: common.NodeAgent,
 									SecurityContext: &v1.SecurityContext{
 										Privileged: pointer.Bool(true),
 									},
@@ -1017,7 +1017,7 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 										"/velero",
 									},
 									Args: []string{
-										"restic",
+										common.NodeAgent,
 										"server",
 									},
 									VolumeMounts: []v1.VolumeMount{
@@ -1124,7 +1124,7 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: map[string]string{
 								"component": common.Velero,
-								"name":      common.Restic,
+								"name":      common.NodeAgent,
 							},
 						},
 						Spec: v1.PodSpec{
@@ -1170,7 +1170,7 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 							Tolerations: dpa.Spec.Configuration.Restic.PodConfig.Tolerations,
 							Containers: []v1.Container{
 								{
-									Name: common.Restic,
+									Name: common.NodeAgent,
 									SecurityContext: &v1.SecurityContext{
 										Privileged: pointer.Bool(true),
 									},
@@ -1180,7 +1180,7 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 										"/velero",
 									},
 									Args: []string{
-										"restic",
+										common.NodeAgent,
 										"server",
 									},
 									VolumeMounts: []v1.VolumeMount{
@@ -1290,7 +1290,7 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: map[string]string{
 								"component": common.Velero,
-								"name":      common.Restic,
+								"name":      common.NodeAgent,
 							},
 						},
 						Spec: v1.PodSpec{
@@ -1336,7 +1336,7 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 							Tolerations: dpa.Spec.Configuration.Restic.PodConfig.Tolerations,
 							Containers: []v1.Container{
 								{
-									Name: common.Restic,
+									Name: common.NodeAgent,
 									SecurityContext: &v1.SecurityContext{
 										Privileged: pointer.Bool(true),
 									},
@@ -1346,7 +1346,7 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 										"/velero",
 									},
 									Args: []string{
-										"restic",
+										common.NodeAgent,
 										"server",
 									},
 									VolumeMounts: []v1.VolumeMount{
@@ -1453,7 +1453,7 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: map[string]string{
 								"component": common.Velero,
-								"name":      common.Restic,
+								"name":      common.NodeAgent,
 							},
 						},
 						Spec: v1.PodSpec{
@@ -1503,7 +1503,7 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 							},
 							Containers: []v1.Container{
 								{
-									Name: common.Restic,
+									Name: common.NodeAgent,
 									SecurityContext: &v1.SecurityContext{
 										Privileged: pointer.Bool(true),
 									},
@@ -1513,7 +1513,7 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 										"/velero",
 									},
 									Args: []string{
-										"restic",
+										common.NodeAgent,
 										"server",
 									},
 									VolumeMounts: []v1.VolumeMount{
@@ -1611,7 +1611,7 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: map[string]string{
 								"component": common.Velero,
-								"name":      common.Restic,
+								"name":      common.NodeAgent,
 							},
 						},
 						Spec: v1.PodSpec{
@@ -1655,7 +1655,7 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 							Tolerations: dpa.Spec.Configuration.Restic.PodConfig.Tolerations,
 							Containers: []v1.Container{
 								{
-									Name: common.Restic,
+									Name: common.NodeAgent,
 									SecurityContext: &v1.SecurityContext{
 										Privileged: pointer.Bool(true),
 									},
@@ -1665,7 +1665,7 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 										"/velero",
 									},
 									Args: []string{
-										"restic",
+										common.NodeAgent,
 										"server",
 									},
 									VolumeMounts: []v1.VolumeMount{
@@ -1785,7 +1785,7 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: map[string]string{
 								"component": common.Velero,
-								"name":      common.Restic,
+								"name":      common.NodeAgent,
 							},
 							Annotations: map[string]string{
 								"test-annotation": "awesome annotation",
@@ -1824,7 +1824,7 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 							Tolerations: dpa.Spec.Configuration.Restic.PodConfig.Tolerations,
 							Containers: []v1.Container{
 								{
-									Name: common.Restic,
+									Name: common.NodeAgent,
 									SecurityContext: &v1.SecurityContext{
 										Privileged: pointer.Bool(true),
 									},
@@ -1834,7 +1834,7 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 										"/velero",
 									},
 									Args: []string{
-										"restic",
+										common.NodeAgent,
 										"server",
 									},
 									VolumeMounts: []v1.VolumeMount{
@@ -1957,7 +1957,7 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: map[string]string{
 								"component": common.Velero,
-								"name":      common.Restic,
+								"name":      common.NodeAgent,
 							},
 							Annotations: map[string]string{
 								"test-annotation": "awesome annotation",
@@ -2020,7 +2020,7 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 							Tolerations: dpa.Spec.Configuration.Restic.PodConfig.Tolerations,
 							Containers: []v1.Container{
 								{
-									Name: common.Restic,
+									Name: common.NodeAgent,
 									SecurityContext: &v1.SecurityContext{
 										Privileged: pointer.Bool(true),
 									},
@@ -2030,7 +2030,7 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 										"/velero",
 									},
 									Args: []string{
-										"restic",
+										common.NodeAgent,
 										"server",
 									},
 									VolumeMounts: []v1.VolumeMount{
@@ -2160,7 +2160,7 @@ func TestDPAReconciler_updateResticRestoreHelperCM(t *testing.T) {
 					Namespace: "test-ns",
 					Labels: map[string]string{
 						"velero.io/plugin-config":      "",
-						"velero.io/restic":             "RestoreItemAction",
+						"velero.io/pod-volume-restore": "RestoreItemAction",
 						oadpv1alpha1.OadpOperatorLabel: "True",
 					},
 					OwnerReferences: []metav1.OwnerReference{
@@ -2175,7 +2175,7 @@ func TestDPAReconciler_updateResticRestoreHelperCM(t *testing.T) {
 					},
 				},
 				Data: map[string]string{
-					"image": os.Getenv("RELATED_IMAGE_VELERO_RESTIC_RESTORE_HELPER"),
+					"image": os.Getenv("RELATED_IMAGE_VELERO_RESTORE_HELPER"),
 				},
 			},
 		},

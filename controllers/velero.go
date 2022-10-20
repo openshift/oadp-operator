@@ -622,13 +622,13 @@ func (r *DPAReconciler) customizeVeleroContainer(dpa *oadpv1alpha1.DataProtectio
 		}
 	}
 
-	// Enable user to specify --restic-timeout (defaults to 1h)
-	resticTimeout := "1h"
+	// Enable user to specify --fs-backup-timeout (defaults to 1h)
+	fsBackupTimeout := "1h"
 	if dpa.Spec.Configuration.Restic != nil && len(dpa.Spec.Configuration.Restic.Timeout) > 0 {
-		resticTimeout = dpa.Spec.Configuration.Restic.Timeout
+		fsBackupTimeout = dpa.Spec.Configuration.Restic.Timeout
 	}
 	// Append restic timeout option manually. Not configurable via install package, missing from podTemplateConfig struct. See: https://github.com/vmware-tanzu/velero/blob/8d57215ded1aa91cdea2cf091d60e072ce3f340f/pkg/install/deployment.go#L34-L45
-	veleroContainer.Args = append(veleroContainer.Args, fmt.Sprintf("--restic-timeout=%s", resticTimeout))
+	veleroContainer.Args = append(veleroContainer.Args, fmt.Sprintf("--fs-backup-timeout=%s", fsBackupTimeout))
 
 	setContainerDefaults(veleroContainer)
 	return nil
