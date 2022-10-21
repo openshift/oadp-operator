@@ -153,6 +153,9 @@ manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and Cust
 	# Commenting out default which overwrites scoped config/rbac/role.yaml
 	# GOFLAGS="-mod=mod" $(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 	GOFLAGS="-mod=mod" $(CONTROLLER_GEN) $(CRD_OPTIONS) webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+	# run make nullables to generate nullable fields after all manifest changesin dependent targets.
+	# It's not included here because `test` and `bundle` target have different yaml styes.
+	# To keep dpa CRD the same, nullables have been added to test and bundle target separately.
 
 generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
 	GOFLAGS="-mod=mod" $(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
@@ -163,7 +166,7 @@ fmt: ## Run go fmt against code.
 vet: ## Run go vet against code.
 	go vet -mod=mod ./...
 
-test: manifests generate fmt vet envtest ## Run tests.
+test: manifests nullables generate fmt vet envtest ## Run tests.
 	KUBEBUILDER_ASSETS="$(ENVTESTPATH)" go test -mod=mod ./controllers/... ./pkg/... -coverprofile cover.out
 
 
@@ -290,19 +293,33 @@ rm -rf $$TMP_DIR ;\
 }
 endef
 
-$(GOBIN)/yq:
-	go install github.com/mikefarah/yq/v4@latest
+YQ = $(shell pwd)/bin/yq
+yq: ## Download yq locally if necessary.
+	# 4.28.1 is latest with go 1.17 go.mod
+	$(call go-install-tool,$(YQ),github.com/mikefarah/yq/v4@v4.28.1)
+
+OPERATOR_SDK = $(shell pwd)/bin/operator-sdk
+operator-sdk:
+	# Download operator-sdk locally if does not exist
+	if [ ! -f $(OPERATOR_SDK) ]; then \
+		curl -Lo $(OPERATOR_SDK) https://github.com/operator-framework/operator-sdk/releases/download/v1.23.0/operator-sdk_$(shell go env GOOS)_$(shell go env GOARCH) ; \
+		chmod +x $(OPERATOR_SDK); \
+	fi
 
 .PHONY: bundle
-bundle: manifests kustomize ## Generate bundle manifests and metadata, then validate generated files.
-	operator-sdk generate kustomize manifests -q
+bundle: manifests kustomize operator-sdk ## Generate bundle manifests and metadata, then validate generated files.
+	$(OPERATOR_SDK) generate kustomize manifests -q
 	cd config/manager && $(KUSTOMIZE) edit set image controller=$(IMG)
-	$(KUSTOMIZE) build config/manifests | operator-sdk generate bundle -q --extra-service-accounts "velero" --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
-	@make nullable-crds-bundle nullable-crds-config # patch nullables in CRDs
+	$(KUSTOMIZE) build config/manifests | $(OPERATOR_SDK) generate bundle -q --extra-service-accounts "velero" --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
+	@make nullables
 	# Copy updated bundle.Dockerfile to CI's Dockerfile.bundle
 	# TODO: update CI to use generated one
 	cp bundle.Dockerfile build/Dockerfile.bundle
-	operator-sdk bundle validate ./bundle
+	$(OPERATOR_SDK) bundle validate ./bundle
+
+.PHONY: nullables
+nullables:
+	@make nullable-crds-bundle nullable-crds-config # patch nullables in CRDs
 
 .PHONY: nullable-crds-bundle
 nullable-crds-bundle: DPA_SPEC_CONFIG_PROP = .spec.versions.0.schema.openAPIV3Schema.properties.spec.properties.configuration.properties
@@ -310,28 +327,28 @@ nullable-crds-bundle: PROP_RESOURCE_ALLOC = properties.podConfig.properties.reso
 nullable-crds-bundle: VELERO_RESOURCE_ALLOC = $(DPA_SPEC_CONFIG_PROP).velero.$(PROP_RESOURCE_ALLOC)
 nullable-crds-bundle: RESTIC_RESOURCE_ALLOC = $(DPA_SPEC_CONFIG_PROP).restic.$(PROP_RESOURCE_ALLOC)
 nullable-crds-bundle: DPA_CRD_YAML ?= bundle/manifests/oadp.openshift.io_dataprotectionapplications.yaml
-nullable-crds-bundle: $(GOBIN)/yq
+nullable-crds-bundle: yq
 # Velero CRD
-	@$(GOBIN)/yq '$(VELERO_RESOURCE_ALLOC).nullable = true' $(DPA_CRD_YAML) > $(DPA_CRD_YAML).yqresult
+	@$(YQ) '$(VELERO_RESOURCE_ALLOC).nullable = true' $(DPA_CRD_YAML) > $(DPA_CRD_YAML).yqresult
 	@mv $(DPA_CRD_YAML).yqresult $(DPA_CRD_YAML)
-	@$(GOBIN)/yq '$(VELERO_RESOURCE_ALLOC).properties.limits.nullable = true' $(DPA_CRD_YAML) > $(DPA_CRD_YAML).yqresult
+	@$(YQ) '$(VELERO_RESOURCE_ALLOC).properties.limits.nullable = true' $(DPA_CRD_YAML) > $(DPA_CRD_YAML).yqresult
 	@mv $(DPA_CRD_YAML).yqresult $(DPA_CRD_YAML)
-	@$(GOBIN)/yq '$(VELERO_RESOURCE_ALLOC).properties.limits.additionalProperties.nullable = true' $(DPA_CRD_YAML) > $(DPA_CRD_YAML).yqresult
+	@$(YQ) '$(VELERO_RESOURCE_ALLOC).properties.limits.additionalProperties.nullable = true' $(DPA_CRD_YAML) > $(DPA_CRD_YAML).yqresult
 	@mv $(DPA_CRD_YAML).yqresult $(DPA_CRD_YAML)
-	@$(GOBIN)/yq '$(VELERO_RESOURCE_ALLOC).properties.requests.nullable = true' $(DPA_CRD_YAML) > $(DPA_CRD_YAML).yqresult
+	@$(YQ) '$(VELERO_RESOURCE_ALLOC).properties.requests.nullable = true' $(DPA_CRD_YAML) > $(DPA_CRD_YAML).yqresult
 	@mv $(DPA_CRD_YAML).yqresult $(DPA_CRD_YAML)
-	@$(GOBIN)/yq '$(VELERO_RESOURCE_ALLOC).properties.requests.additionalProperties.nullable = true' $(DPA_CRD_YAML) > $(DPA_CRD_YAML).yqresult
+	@$(YQ) '$(VELERO_RESOURCE_ALLOC).properties.requests.additionalProperties.nullable = true' $(DPA_CRD_YAML) > $(DPA_CRD_YAML).yqresult
 	@mv $(DPA_CRD_YAML).yqresult $(DPA_CRD_YAML)
 # Restic CRD
-	@$(GOBIN)/yq '$(RESTIC_RESOURCE_ALLOC).nullable = true' $(DPA_CRD_YAML) > $(DPA_CRD_YAML).yqresult
+	@$(YQ) '$(RESTIC_RESOURCE_ALLOC).nullable = true' $(DPA_CRD_YAML) > $(DPA_CRD_YAML).yqresult
 	@mv $(DPA_CRD_YAML).yqresult $(DPA_CRD_YAML)
-	@$(GOBIN)/yq '$(RESTIC_RESOURCE_ALLOC).properties.limits.nullable = true' $(DPA_CRD_YAML) > $(DPA_CRD_YAML).yqresult
+	@$(YQ) '$(RESTIC_RESOURCE_ALLOC).properties.limits.nullable = true' $(DPA_CRD_YAML) > $(DPA_CRD_YAML).yqresult
 	@mv $(DPA_CRD_YAML).yqresult $(DPA_CRD_YAML)
-	@$(GOBIN)/yq '$(RESTIC_RESOURCE_ALLOC).properties.limits.additionalProperties.nullable = true' $(DPA_CRD_YAML) > $(DPA_CRD_YAML).yqresult
+	@$(YQ) '$(RESTIC_RESOURCE_ALLOC).properties.limits.additionalProperties.nullable = true' $(DPA_CRD_YAML) > $(DPA_CRD_YAML).yqresult
 	@mv $(DPA_CRD_YAML).yqresult $(DPA_CRD_YAML)
-	@$(GOBIN)/yq '$(RESTIC_RESOURCE_ALLOC).properties.requests.nullable = true' $(DPA_CRD_YAML) > $(DPA_CRD_YAML).yqresult
+	@$(YQ) '$(RESTIC_RESOURCE_ALLOC).properties.requests.nullable = true' $(DPA_CRD_YAML) > $(DPA_CRD_YAML).yqresult
 	@mv $(DPA_CRD_YAML).yqresult $(DPA_CRD_YAML)
-	@$(GOBIN)/yq '$(RESTIC_RESOURCE_ALLOC).properties.requests.additionalProperties.nullable = true' $(DPA_CRD_YAML) > $(DPA_CRD_YAML).yqresult
+	@$(YQ) '$(RESTIC_RESOURCE_ALLOC).properties.requests.additionalProperties.nullable = true' $(DPA_CRD_YAML) > $(DPA_CRD_YAML).yqresult
 	@mv $(DPA_CRD_YAML).yqresult $(DPA_CRD_YAML)
 
 .PHONY: nullable-crds-config
@@ -353,17 +370,17 @@ GIT_REV:=$(shell git rev-parse --short HEAD)
 deploy-olm: THIS_OPERATOR_IMAGE?=ttl.sh/oadp-operator-$(GIT_REV):1h # Set target specific variable
 deploy-olm: THIS_BUNDLE_IMAGE?=ttl.sh/oadp-operator-bundle-$(GIT_REV):1h # Set target specific variable
 deploy-olm: DEPLOY_TMP:=$(shell mktemp -d)/ # Set target specific variable
-deploy-olm:
+deploy-olm: operator-sdk ## Build current branch operator image, bundle image, push and install via OLM
 	oc whoami # Check if logged in
 	oc create namespace $(OADP_TEST_NAMESPACE) # This should error out if namespace already exists, delete namespace (to clear current resources) before proceeding
 	@echo "DEPLOY_TMP: $(DEPLOY_TMP)"
 	# build and push operator and bundle image
-	# use operator-sdk to install bundle to authenticated cluster
+	# use $(OPERATOR_SDK) to install bundle to authenticated cluster
 	cp -r . $(DEPLOY_TMP) && cd $(DEPLOY_TMP) && \
 	IMG=$(THIS_OPERATOR_IMAGE) BUNDLE_IMG=$(THIS_BUNDLE_IMAGE) \
 		make docker-build docker-push bundle bundle-build bundle-push; \
 	rm -rf $(DEPLOY_TMP)
-	operator-sdk run bundle $(THIS_BUNDLE_IMAGE) --namespace $(OADP_TEST_NAMESPACE)
+	$(OPERATOR_SDK) run bundle $(THIS_BUNDLE_IMAGE) --namespace $(OADP_TEST_NAMESPACE)
 
 .PHONY: opm
 OPM = ./bin/opm

@@ -204,7 +204,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 						PodConfig: &oadpv1alpha1.PodConfig{},
 						DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
 							oadpv1alpha1.DefaultPluginCSI,
-							func () oadpv1alpha1.DefaultPlugin {
+							func() oadpv1alpha1.DefaultPlugin {
 								if provider == "aws" {
 									return oadpv1alpha1.DefaultPluginAWS
 								} else if provider == "azure" {
