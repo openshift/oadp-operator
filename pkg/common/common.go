@@ -4,7 +4,7 @@ import "fmt"
 
 const (
 	Velero                       = "velero"
-	Restic                       = "restic"
+	NodeAgent                    = "node-agent"
 	VeleroNamespace              = "oadp-operator"
 	OADPOperator                 = "oadp-operator"
 	OADPOperatorVelero           = "oadp-operator-velero"
