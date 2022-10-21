@@ -176,7 +176,7 @@ func AppendCloudProviderVolumes(dpa *oadpv1alpha1.DataProtectionApplication, ds 
 	var resticContainer *corev1.Container
 	// Find Velero container
 	for i, container := range ds.Spec.Template.Spec.Containers {
-		if container.Name == common.Restic {
+		if container.Name == common.NodeAgent {
 			resticContainer = &ds.Spec.Template.Spec.Containers[i]
 		}
 	}

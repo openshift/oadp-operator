@@ -183,7 +183,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 									Command: []string{"/velero"},
 									Args: []string{
 										"server",
-										"--restic-timeout=1h",
+										"--fs-backup-timeout=1h",
 									},
 									VolumeMounts: []corev1.VolumeMount{
 										{
@@ -359,7 +359,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 									Args: []string{
 										"server",
 										"--features=EnableCSI",
-										"--restic-timeout=1h",
+										"--fs-backup-timeout=1h",
 									},
 									VolumeMounts: []corev1.VolumeMount{
 										{
@@ -662,7 +662,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 									Command: []string{"/velero"},
 									Args: []string{
 										"server",
-										"--restic-timeout=1h",
+										"--fs-backup-timeout=1h",
 									},
 									VolumeMounts: []corev1.VolumeMount{
 										{
@@ -847,7 +847,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 									Command: []string{"/velero"},
 									Args: []string{
 										"server",
-										"--restic-timeout=1h",
+										"--fs-backup-timeout=1h",
 									},
 									VolumeMounts: []corev1.VolumeMount{
 										{
@@ -1059,7 +1059,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 									Command: []string{"/velero"},
 									Args: []string{
 										"server",
-										"--restic-timeout=1h",
+										"--fs-backup-timeout=1h",
 										"--log-level",
 										logrus.InfoLevel.String(),
 									},
@@ -1288,7 +1288,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 									Command: []string{"/velero"},
 									Args: []string{
 										"server",
-										"--restic-timeout=1h",
+										"--fs-backup-timeout=1h",
 									},
 									VolumeMounts: []corev1.VolumeMount{
 										{
@@ -1472,7 +1472,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 									Command: []string{"/velero"},
 									Args: []string{
 										"server",
-										"--restic-timeout=1h",
+										"--fs-backup-timeout=1h",
 									},
 									VolumeMounts: []corev1.VolumeMount{
 										{
@@ -1653,7 +1653,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 									Command: []string{"/velero"},
 									Args: []string{
 										"server",
-										"--restic-timeout=1h",
+										"--fs-backup-timeout=1h",
 									},
 									VolumeMounts: []corev1.VolumeMount{
 										{
@@ -1834,7 +1834,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 									Command: []string{"/velero"},
 									Args: []string{
 										"server",
-										"--restic-timeout=1h",
+										"--fs-backup-timeout=1h",
 									},
 									VolumeMounts: []corev1.VolumeMount{
 										{
@@ -2018,7 +2018,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 									Command: []string{"/velero"},
 									Args: []string{
 										"server",
-										"--restic-timeout=1h",
+										"--fs-backup-timeout=1h",
 									},
 									VolumeMounts: []corev1.VolumeMount{
 										{
@@ -2224,7 +2224,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 									Command: []string{"/velero"},
 									Args: []string{
 										"server",
-										"--restic-timeout=1h",
+										"--fs-backup-timeout=1h",
 									},
 									VolumeMounts: []corev1.VolumeMount{
 										{
@@ -2420,7 +2420,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 									Command: []string{"/velero"},
 									Args: []string{
 										"server",
-										"--restic-timeout=1h",
+										"--fs-backup-timeout=1h",
 									},
 									VolumeMounts: []corev1.VolumeMount{
 										{
@@ -2593,7 +2593,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 									Command: []string{"/velero"},
 									Args: []string{
 										"server",
-										"--restic-timeout=1h",
+										"--fs-backup-timeout=1h",
 									},
 									VolumeMounts: []corev1.VolumeMount{
 										{
@@ -2798,7 +2798,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 									Command: []string{"/velero"},
 									Args: []string{
 										"server",
-										"--restic-timeout=1h",
+										"--fs-backup-timeout=1h",
 									},
 									VolumeMounts: []corev1.VolumeMount{
 										{
@@ -3020,7 +3020,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 									Command: []string{"/velero"},
 									Args: []string{
 										"server",
-										"--restic-timeout=1h",
+										"--fs-backup-timeout=1h",
 									},
 									VolumeMounts: []corev1.VolumeMount{
 										{
@@ -3260,7 +3260,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 									Command: []string{"/velero"},
 									Args: []string{
 										"server",
-										"--restic-timeout=1h",
+										"--fs-backup-timeout=1h",
 									},
 									VolumeMounts: []corev1.VolumeMount{
 										{
@@ -3482,7 +3482,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 									Command: []string{"/velero"},
 									Args: []string{
 										"server",
-										"--restic-timeout=1h",
+										"--fs-backup-timeout=1h",
 									},
 									VolumeMounts: []corev1.VolumeMount{
 										{

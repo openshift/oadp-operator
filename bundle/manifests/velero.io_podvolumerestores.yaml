@@ -114,6 +114,10 @@ spec:
               snapshotID:
                 description: SnapshotID is the ID of the volume snapshot to be restored.
                 type: string
+              sourceNamespace:
+                description: SourceNamespace is the original namespace for namaspace
+                  mapping.
+                type: string
               uploaderType:
                 description: UploaderType is the type of the uploader to handle the
                   data transfer.
@@ -131,6 +135,7 @@ spec:
             - pod
             - repoIdentifier
             - snapshotID
+            - sourceNamespace
             - volume
             type: object
           status:
