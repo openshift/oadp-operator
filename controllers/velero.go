@@ -17,7 +17,6 @@ import (
 	//"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/go-logr/logr"
-	security "github.com/openshift/api/security/v1"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	"github.com/openshift/oadp-operator/pkg/common"
 	"github.com/vmware-tanzu/velero/pkg/install"
@@ -203,54 +202,6 @@ func (r *DPAReconciler) ReconcileVeleroClusterRoleBinding(log logr.Logger) (bool
 	return true, nil
 }
 
-func (r *DPAReconciler) ReconcileVeleroSecurityContextConstraint(log logr.Logger) (bool, error) {
-	dpa := oadpv1alpha1.DataProtectionApplication{}
-	if err := r.Get(r.Context, r.NamespacedName, &dpa); err != nil {
-		return false, err
-	}
-	sa := corev1.ServiceAccount{}
-	nsName := types.NamespacedName{
-		Namespace: dpa.Namespace,
-		Name:      common.Velero,
-	}
-	if err := r.Get(r.Context, nsName, &sa); err != nil {
-		return false, err
-	}
-
-	veleroSCC := &security.SecurityContextConstraints{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "velero-privileged",
-		},
-	}
-	op, err := controllerutil.CreateOrPatch(r.Context, r.Client, veleroSCC, func() error {
-		// Setting controller owner reference on the velero SCC
-		// TODO: HOW DO I DO THIS?? ALAY HALP PLZ
-		/*err := controllerutil.SetControllerReference(&velero, veleroSCC, r.Scheme)
-		if err != nil {
-			return err
-		}*/
-
-		// update the SCC template
-		return r.privilegedSecurityContextConstraints(veleroSCC, &dpa, &sa)
-	})
-
-	if err != nil {
-		return false, err
-	}
-
-	//TODO: Review velero SCC status and report errors and conditions
-
-	if op == controllerutil.OperationResultCreated || op == controllerutil.OperationResultUpdated {
-		// Trigger event to indicate velero SCC was created or updated
-		r.EventRecorder.Event(veleroSCC,
-			corev1.EventTypeNormal,
-			"VeleroSecurityContextConstraintsReconciled",
-			fmt.Sprintf("performed %s on velero scc %s", op, veleroSCC.Name),
-		)
-	}
-	return true, nil
-}
-
 func (r *DPAReconciler) ReconcileVeleroDeployment(log logr.Logger) (bool, error) {
 	dpa := oadpv1alpha1.DataProtectionApplication{}
 	if err := r.Get(r.Context, r.NamespacedName, &dpa); err != nil {
@@ -324,52 +275,6 @@ func (r *DPAReconciler) veleroClusterRoleBinding(dpa *oadpv1alpha1.DataProtectio
 	crb := install.ClusterRoleBinding(dpa.Namespace)
 	crb.Labels = r.getDpaAppLabels(dpa)
 	return crb, nil
-}
-
-func (r *DPAReconciler) privilegedSecurityContextConstraints(scc *security.SecurityContextConstraints, dpa *oadpv1alpha1.DataProtectionApplication, sa *corev1.ServiceAccount) error {
-	// ObjectMeta set from prior step.
-
-	scc.AllowHostDirVolumePlugin = true
-	scc.AllowHostIPC = true
-	scc.AllowHostNetwork = true
-	scc.AllowHostPID = true
-	scc.AllowHostPorts = true
-	scc.AllowPrivilegeEscalation = pointer.BoolPtr(true)
-	scc.AllowPrivilegedContainer = true
-	scc.AllowedCapabilities = []corev1.Capability{
-		security.AllowAllCapabilities,
-	}
-	scc.AllowedUnsafeSysctls = []string{
-		"*",
-	}
-	scc.DefaultAddCapabilities = nil
-	scc.FSGroup = security.FSGroupStrategyOptions{
-		Type: security.FSGroupStrategyRunAsAny,
-	}
-	scc.Priority = nil
-	scc.ReadOnlyRootFilesystem = false
-	scc.RequiredDropCapabilities = nil
-	scc.RunAsUser = security.RunAsUserStrategyOptions{
-		Type: security.RunAsUserStrategyRunAsAny,
-	}
-	scc.SELinuxContext = security.SELinuxContextStrategyOptions{
-		Type: security.SELinuxStrategyRunAsAny,
-	}
-	scc.SeccompProfiles = []string{
-		"*",
-	}
-	scc.SupplementalGroups = security.SupplementalGroupsStrategyOptions{
-		Type: security.SupplementalGroupsStrategyRunAsAny,
-	}
-	scc.Users = []string{
-		"system:admin",
-		fmt.Sprintf("system:serviceaccount:%s:%s", sa.Namespace, sa.Name),
-	}
-	scc.Volumes = []security.FSType{
-		security.FSTypeAll,
-	}
-
-	return nil
 }
 
 // Build VELERO Deployment
