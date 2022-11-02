@@ -8,6 +8,7 @@ COPY ./ .
 RUN go get -d -u github.com/onsi/ginkgo/ginkgo && \
  go get -d -u github.com/onsi/ginkgo/v2/ginkgo && \
  go install -mod=mod github.com/onsi/ginkgo/v2/ginkgo@latest
-RUN go get github.com/onsi/gomega/...
+# pin v1.22 as latest requires go 1.18
+RUN go get -d -u github.com/onsi/gomega@v1.22
 RUN chmod -R 777 ./
 RUN go mod download
