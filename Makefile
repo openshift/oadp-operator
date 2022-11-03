@@ -293,6 +293,7 @@ OPERATOR_SDK = $(shell pwd)/bin/operator-sdk
 operator-sdk:
 	# Download operator-sdk locally if does not exist
 	if [ ! -f $(OPERATOR_SDK) ]; then \
+		mkdir -p bin ;\
 		curl -Lo $(OPERATOR_SDK) https://github.com/operator-framework/operator-sdk/releases/download/v1.23.0/operator-sdk_$(shell go env GOOS)_$(shell go env GOARCH) ; \
 		chmod +x $(OPERATOR_SDK); \
 	fi
