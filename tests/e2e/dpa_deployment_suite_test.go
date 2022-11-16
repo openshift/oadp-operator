@@ -671,7 +671,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 			Eventually(func() bool {
 				//has it been at least 1 minute since reconciled?
 				return time.Now().After(timeReconciled.Add(time.Minute))
-			}, timeoutMultiplier*time.Minute*2, time.Second).Should(BeTrue())
+			}, timeoutMultiplier*time.Minute*3, time.Second).Should(BeTrue())
 			adpLogsAfterOneMinute, err := GetOpenShiftADPLogs(dpaCR.Namespace)
 			Expect(err).NotTo(HaveOccurred())
 			// We expect adp logs to be the same after 1 minute
