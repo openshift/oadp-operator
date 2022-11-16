@@ -370,7 +370,8 @@ var _ = Describe("AWS backup restore tests", func() {
 			PreBackupVerify:      dataMoverReady(true, mongoready),
 			PostRestoreVerify:    dataMoverReady(false, mongoready),
 		}, nil),
-		Entry("MySQL application DATAMOVER", BackupRestoreCase{
+		// TODO: fix this test
+		PEntry("MySQL application DATAMOVER", BackupRestoreCase{
 			ApplicationTemplate:  "./sample-applications/mysql-persistent/mysql-persistent-csi.yaml",
 			ApplicationNamespace: "mysql-persistent",
 			Name:                 "mysql-datamover-e2e",
