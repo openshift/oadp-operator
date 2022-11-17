@@ -35,12 +35,33 @@ func (d *DpaCustomResource) GetOperatorSubscription() (*Subscription, error) {
 	return &Subscription{&sl.Items[0]}, nil
 }
 
+func (s *Subscription) Refresh() error {
+	cfg, err := config.GetConfig()
+	if err != nil {
+		return err
+	}
+	c, err := client.New(cfg, client.Options{})
+	if err != nil {
+		return err
+	}
+	return c.Get(context.Background(), types.NamespacedName{Namespace: s.Namespace, Name: s.Name}, s.Subscription)
+}
+
 func (s *Subscription) getCSV() (*operators.ClusterServiceVersion, error) {
+	err := s.Refresh()
+	if err != nil {
+		return nil, err
+	}
+
 	client, err := client.New(config.GetConfigOrDie(), client.Options{})
 	if err != nil {
 		return nil, err
 	}
 	var installPlan operators.InstallPlan
+
+	if s.Status.InstallPlanRef == nil {
+		return nil, errors.New("no install plan found in subscription")
+	}
 	err = client.Get(context.Background(), types.NamespacedName{Namespace: s.Namespace, Name: s.Status.InstallPlanRef.Name}, &installPlan)
 	if err != nil {
 		return nil, err
@@ -59,6 +80,7 @@ func (s *Subscription) CsvIsReady() bool {
 		log.Printf("Error getting CSV: %v", err)
 		return false
 	}
+	log.Default().Printf("CSV status phase: %v", csv.Status.Phase)
 	return csv.Status.Phase == operators.CSVPhaseSucceeded
 }
 func (s *Subscription) CsvIsInstalling() bool {

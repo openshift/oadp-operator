@@ -437,7 +437,8 @@ test-e2e-ginkgo: test-e2e-setup
 	-provider=$(CLUSTER_TYPE) \
 	-creds_secret_ref=$(CREDS_SECRET_REF) \
 	-artifact_dir=$(ARTIFACT_DIR) \
-	-oc_cli=$(OC_CLI)
+	-oc_cli=$(OC_CLI) \
+	--ginkgo.timeout=2h
 
 .PHONY: test-e2e
 test-e2e: volsync-install test-e2e-ginkgo
