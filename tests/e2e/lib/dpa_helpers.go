@@ -128,7 +128,7 @@ func (v *DpaCustomResource) Build(backupRestoreType BackupRestoreType) error {
 		veleroFeatureFlags["EnableCSI"] = emptyStruct{}
 		dpaInstance.Spec.Features.DataMover.Enable = true
 		dpaInstance.Spec.Features.DataMover.CredentialName = controllers.ResticsecretName
-		dpaInstance.Spec.Features.DataMover.Timeout = "20m"
+		dpaInstance.Spec.Features.DataMover.Timeout = "40m"
 	}
 	dpaInstance.Spec.Configuration.Velero.DefaultPlugins = make([]oadpv1alpha1.DefaultPlugin, 0)
 	for k := range defaultPlugins {
