@@ -289,7 +289,7 @@ var _ = Describe("AWS backup restore tests", func() {
 			log.Printf("Creating restore %s for case %s", restoreName, brCase.Name)
 			restore, err := CreateRestoreFromBackup(dpaCR.Client, namespace, backupName, restoreName)
 			Expect(err).ToNot(HaveOccurred())
-			Eventually(IsRestoreDone(dpaCR.Client, namespace, restoreName), timeoutMultiplier*time.Minute*40, time.Second*10).Should(BeTrue())
+			Eventually(IsRestoreDone(dpaCR.Client, namespace, restoreName), timeoutMultiplier*time.Minute*60, time.Second*10).Should(BeTrue())
 			GinkgoWriter.Println(DescribeRestore(dpaCR.Client, restore))
 			Expect(RestoreErrorLogs(dpaCR.Client, restore)).To(Equal([]string{}))
 
@@ -371,7 +371,7 @@ var _ = Describe("AWS backup restore tests", func() {
 			PostRestoreVerify:    dataMoverReady(false, mongoready),
 		}, nil),
 		// TODO: fix this test
-		PEntry("MySQL application DATAMOVER", BackupRestoreCase{
+		Entry("MySQL application DATAMOVER", BackupRestoreCase{
 			ApplicationTemplate:  "./sample-applications/mysql-persistent/mysql-persistent-csi.yaml",
 			ApplicationNamespace: "mysql-persistent",
 			Name:                 "mysql-datamover-e2e",
