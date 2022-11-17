@@ -141,8 +141,8 @@ func (v *DpaCustomResource) Build(backupRestoreType BackupRestoreType) error {
 	// Uncomment to override plugin images to use
 	dpaInstance.Spec.UnsupportedOverrides = map[oadpv1alpha1.UnsupportedImageKey]string{
 		// oadpv1alpha1.VeleroImageKey: "quay.io/konveyor/velero:oadp-1.1",
-		oadpv1alpha1.DataMoverImageKey: "quay.io/emcmulla/data-mover:latest",
-		oadpv1alpha1.CSIPluginImageKey: "quay.io/emcmulla/csi-plugin:latest",
+		// oadpv1alpha1.DataMoverImageKey: "quay.io/emcmulla/data-mover:latest",
+		// oadpv1alpha1.CSIPluginImageKey: "quay.io/emcmulla/csi-plugin:latest",
 	}
 	v.CustomResource = &dpaInstance
 	return nil
