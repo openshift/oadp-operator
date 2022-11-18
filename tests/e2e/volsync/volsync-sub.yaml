@@ -1,0 +1,16 @@
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  labels:
+    operators.coreos.com/volsync-product.openshift-operators: ""
+  name: volsync-product
+  namespace: openshift-operators
+spec:
+  channel: stable
+  installPlanApproval: Automatic
+  name: volsync-product
+  source: redhat-operators
+  sourceNamespace: openshift-marketplace
+  # v0.4.1 was latest version of the operator. We comment this out so it always install the latest version.
+  # If it breaks in the future we can re-specify startingCSV to install a specific version.
+  # startingCSV: volsync-product.v0.4.1

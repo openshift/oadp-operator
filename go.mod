@@ -24,7 +24,11 @@ require (
 	sigs.k8s.io/controller-runtime v0.12.2
 )
 
-require github.com/google/go-cmp v0.5.9
+require (
+	github.com/backube/volsync v0.4.0
+	github.com/google/go-cmp v0.5.9
+	github.com/konveyor/volume-snapshot-mover v0.0.0-20220725191622-4b360b792c3e
+)
 
 require (
 	cloud.google.com/go v0.100.2 // indirect
