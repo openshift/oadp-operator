@@ -142,6 +142,8 @@ github.com/asaskevich/govalidator v0.0.0-20180720115003-f9ffefc3facf/go.mod h1:l
 github.com/asaskevich/govalidator v0.0.0-20190424111038-f61b66f89f4a/go.mod h1:lB+ZfQJz7igIIfQNfa7Ml4HSf2uFQQRzpGGRXenZAgY=
 github.com/aws/aws-sdk-go v1.43.31 h1:yJZIr8nMV1hXjAvvOLUFqZRJcHV7udPQBfhJqawDzI0=
 github.com/aws/aws-sdk-go v1.43.31/go.mod h1:y4AeaBuwd2Lk+GepC1E9v0qOiTws0MIWAX4oIKwKHZo=
+github.com/backube/volsync v0.4.0 h1:hyZgzCrDm0O40CeyU7cCZ3nzTvPZvN1lAyuHyUHRNNw=
+github.com/backube/volsync v0.4.0/go.mod h1:F5RD2AxYwORN2TdgylgDL2gOE4ra6vESWA30LTPHO+Q=
 github.com/benbjohnson/clock v1.0.3/go.mod h1:bGMdMPoPVvcYyt1gHDf4J2KE153Yf9BuiUKYMaxlTDM=
 github.com/benbjohnson/clock v1.1.0 h1:Q92kusRqC1XV2MjkWETPvjJVqKetz1OzxZB7mHJLju8=
 github.com/benbjohnson/clock v1.1.0/go.mod h1:J11/hYXuz8f4ySSvYwY0FKfm+ezbsZBKZxNJlLklBHA=
@@ -557,6 +559,8 @@ github.com/klauspost/pgzip v1.2.5 h1:qnWYvvKqedOF2ulHpMG72XQol4ILEJ8k2wwRl/Km8oE
 github.com/klauspost/pgzip v1.2.5/go.mod h1:Ch1tH69qFZu15pkjo5kYi6mth2Zzwzt50oCQKQE9RUs=
 github.com/konsorten/go-windows-terminal-sequences v1.0.1/go.mod h1:T0+1ngSBFLxvqU3pZ+m/2kptfBszLMUkC4ZK/EgS/cQ=
 github.com/konsorten/go-windows-terminal-sequences v1.0.3/go.mod h1:T0+1ngSBFLxvqU3pZ+m/2kptfBszLMUkC4ZK/EgS/cQ=
+github.com/konveyor/volume-snapshot-mover v0.0.0-20220725191622-4b360b792c3e h1:DGsRtnWzUM30smT5qBoglDGZAw4/A1GUm8cpvjrBwc4=
+github.com/konveyor/volume-snapshot-mover v0.0.0-20220725191622-4b360b792c3e/go.mod h1:ykj3RTgJyA5tsL2n4fRlk1LS2ln7wluHsryE+lMussY=
 github.com/kopia/kopia v0.10.7 h1:6s0ZIZW3Ge2ozzefddASy7CIUadp/5tF9yCDKQfAKKI=
 github.com/kopia/kopia v0.10.7/go.mod h1:0d9THPD+jwomPcXvPbCdmLyX6phQVP7AqcCcDEajfNA=
 github.com/kr/fs v0.1.0/go.mod h1:FFnZGqtBN9Gxj7eW1uZ42v5BccTP0vu6NEaFoC2HwRg=
