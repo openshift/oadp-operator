@@ -172,7 +172,7 @@ var _ = Describe("AWS backup restore tests", func() {
 	DescribeTable("backup and restore applications",
 		func(brCase BackupRestoreCase, expectedErr error) {
 			// Data Mover is only supported on aws and azure.
-			if brCase.BackupRestoreType == CSIDataMover && provider != "aws" && provider != "azure" {
+			if brCase.BackupRestoreType == CSIDataMover && provider != "aws" && provider != "azure" && provider != "gcp" {
 				Skip(provider + " unsupported data mover provider")
 			}
 			if provider == "azure" && (brCase.BackupRestoreType == CSI || brCase.BackupRestoreType == CSIDataMover) {
