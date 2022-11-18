@@ -53,7 +53,7 @@ var _ = Describe("Subscription Config Suite Test", func() {
 			if testCase.failureExpected != nil && *testCase.failureExpected {
 				Consistently(s.CsvIsReady, time.Minute*2).Should(BeFalse())
 			} else {
-				Eventually(s.CsvIsReady, time.Minute*9).Should(BeTrue())
+				Eventually(s.CsvIsReady, time.Minute*15).Should(BeTrue())
 
 				log.Printf("CreatingOrUpdate test Velero")
 				err = dpaCR.CreateOrUpdate(&dpaCR.CustomResource.Spec)

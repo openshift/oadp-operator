@@ -417,6 +417,7 @@ sed -r "s/[&]* [!] $(CLUSTER_TYPE)|[!] $(CLUSTER_TYPE) [&]*//")) || $(CLUSTER_TY
 #TEST_FILTER := $(shell echo '! aws && ! gcp && ! azure' | sed -r "s/[&]* [!] $(CLUSTER_TYPE)|[!] $(CLUSTER_TYPE) [&]*//")
 SETTINGS_TMP=/tmp/test-settings
 
+.PHONY: test-e2e-setup
 test-e2e-setup:
 	mkdir -p $(SETTINGS_TMP)
 	TARGET_CI_CRED_FILE="$(CI_CRED_FILE)" AZURE_RESOURCE_FILE="$(AZURE_RESOURCE_FILE)" CI_JSON_CRED_FILE="$(AZURE_CI_JSON_CRED_FILE)" \
@@ -424,7 +425,8 @@ test-e2e-setup:
 	PROVIDER="$(VELERO_PLUGIN)" BUCKET="$(OADP_BUCKET)" BSL_REGION="$(BSL_REGION)" SECRET="$(CREDS_SECRET_REF)" TMP_DIR=$(SETTINGS_TMP) \
 	VSL_REGION="$(VSL_REGION)" BSL_AWS_PROFILE="$(BSL_AWS_PROFILE)" /bin/bash "tests/e2e/scripts/$(CLUSTER_TYPE)_settings.sh"
 
-test-e2e: test-e2e-setup
+.PHONY: test-e2e-ginkgo
+test-e2e-ginkgo: test-e2e-setup
 	ginkgo run -mod=mod tests/e2e/ -- -credentials=$(OADP_CRED_FILE) \
 	-velero_namespace=$(OADP_TEST_NAMESPACE) \
 	-settings=$(SETTINGS_TMP)/oadpcreds \
@@ -435,7 +437,34 @@ test-e2e: test-e2e-setup
 	-provider=$(CLUSTER_TYPE) \
 	-creds_secret_ref=$(CREDS_SECRET_REF) \
 	-artifact_dir=$(ARTIFACT_DIR) \
-	-oc_cli=$(OC_CLI)
+	-oc_cli=$(OC_CLI) \
+	--ginkgo.timeout=2h
 
-test-e2e-cleanup:
+.PHONY: test-e2e
+test-e2e: volsync-install test-e2e-ginkgo
+
+.PHONY: test-e2e-cleanup
+test-e2e-cleanup: volsync-uninstall
 	rm -rf $(SETTINGS_TMP)
+
+.PHONY: volsync-install
+volsync-install:
+	$(eval VS_CURRENT_CSV:=$(shell oc get subscription volsync-product -n openshift-operators -ojsonpath='{.status.currentCSV}'))
+	# OperatorGroup not required, volsync is global operator which has operatorgroup already.
+	# Create subscription for operator if not installed.
+	@if [ "$(VS_CURRENT_CSV)" == "" ]; then \
+		$(OC_CLI) replace --force -f tests/e2e/volsync/volsync-sub.yaml; \
+	else \
+		echo $(VS_CURRENT_CSV) already installed; \
+	fi
+
+.PHONY: volsync-uninstall
+volsync-uninstall:
+	$(eval VS_CURRENT_CSV:=$(shell oc get subscription volsync-product -n openshift-operators -ojsonpath='{.status.currentCSV}'))
+	@if [ "$(VS_CURRENT_CSV)" != "" ]; then \
+		echo "Uninstalling $(VS_CURRENT_CSV)"; \
+		$(OC_CLI) delete subscription volsync-product -n openshift-operators && \
+		$(OC_CLI) delete csv $(VS_CURRENT_CSV) -n openshift-operators; \
+	else \
+		echo No subscription found, skipping uninstall; \
+	fi
