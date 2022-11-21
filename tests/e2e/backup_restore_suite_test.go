@@ -25,9 +25,7 @@ import (
 
 type VerificationFunction func(client.Client, string) error
 
-type appVerificationFunction func(bool, BackupRestoreType) VerificationFunction
-
-func dataMoverReady(preBackupState bool, appVerificationFunction appVerificationFunction) VerificationFunction {
+func dataMoverReady(veriFunc VerificationFunction) VerificationFunction {
 	return VerificationFunction(func(ocClient client.Client, appNamespace string) error {
 		// check volsync subscription exists
 		Eventually(InstalledSubscriptionCSV(ocClient, "openshift-operators", "volsync-product"), timeoutMultiplier*time.Minute*10, time.Second*10).ShouldNot(Equal(""))
@@ -35,7 +33,7 @@ func dataMoverReady(preBackupState bool, appVerificationFunction appVerification
 		fmt.Printf("waiting for volsync controller readiness")
 		Eventually(IsDeploymentReady(ocClient, common.VolSyncDeploymentNamespace, common.VolSyncDeploymentName), timeoutMultiplier*time.Minute*10, time.Second*10).Should(BeTrue())
 		Eventually(IsDeploymentReady(ocClient, namespace, common.DataMover), timeoutMultiplier*time.Minute*10, time.Second*10).Should(BeTrue())
-		return appVerificationFunction(preBackupState, CSIDataMover)(ocClient, appNamespace)
+		return veriFunc(ocClient, appNamespace)
 	})
 }
 
@@ -353,7 +351,7 @@ var _ = Describe("AWS backup restore tests", func() {
 			PostRestoreVerify:    mongoready(false, CSI),
 		}, nil),
 		Entry("MySQL application two Vol CSI", Label("ibmcloud", "aws", "gcp", "azure"), BackupRestoreCase{
-			ApplicationTemplate:  fmt.Sprintf("./sample-applications/mysql-persistent/mysql-persistent-twovol-csi.yaml"),
+			ApplicationTemplate:  "./sample-applications/mysql-persistent/mysql-persistent-twovol-csi.yaml",
 			ApplicationNamespace: "mysql-persistent",
 			Name:                 "mysql-twovol-csi-e2e",
 			BackupRestoreType:    CSI,
@@ -381,17 +379,17 @@ var _ = Describe("AWS backup restore tests", func() {
 			ApplicationNamespace: "mongo-persistent",
 			Name:                 "mongo-datamover-e2e",
 			BackupRestoreType:    CSIDataMover,
-			PreBackupVerify:      dataMoverReady(true, mongoready),
-			PostRestoreVerify:    dataMoverReady(false, mongoready),
+			PreBackupVerify:      dataMoverReady(mongoready(true, CSIDataMover)),
+			PostRestoreVerify:    dataMoverReady(mongoready(false, CSIDataMover)),
 		}, nil),
 		// TODO: fix this test
 		Entry("MySQL application DATAMOVER", BackupRestoreCase{
-			ApplicationTemplate:  "./sample-applications/mysql-persistent/mysql-persistent-csi.yaml",
+			ApplicationTemplate:  "./sample-applications/mysql-persistent/mysql-persistent-twovol-csi.yaml",
 			ApplicationNamespace: "mysql-persistent",
-			Name:                 "mysql-datamover-e2e",
+			Name:                 "mysql-twovol-datamover-e2e",
 			BackupRestoreType:    CSIDataMover,
-			PreBackupVerify:      dataMoverReady(true, mysqlReady),
-			PostRestoreVerify:    dataMoverReady(false, mysqlReady),
+			PreBackupVerify:      dataMoverReady(mysqlReady(true, true, CSIDataMover)),
+			PostRestoreVerify:    dataMoverReady(mysqlReady(false, true, CSIDataMover)),
 		}, nil),
 	)
 })
