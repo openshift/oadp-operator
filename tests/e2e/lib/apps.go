@@ -449,7 +449,7 @@ func makeRequest(request string, api string, todo string) {
 }
 
 // VerifyBackupRestoreData verifies if app ready before backup and after restore to compare data.
-func VerifyBackupRestoreData(artifact_dir string, namespace string, routeName string, app string, prebackupState bool, backupRestoretype BackupRestoreType) error {
+func VerifyBackupRestoreData(artifact_dir string, namespace string, routeName string, app string, prebackupState bool, twoVol bool, backupRestoretype BackupRestoreType) error {
 	log.Printf("Verifying backup/restore data of %s", app)
 	appRoute := &routev1.Route{}
 	clientv1, err := client.New(config.GetConfigOrDie(), client.Options{})
@@ -489,6 +489,8 @@ func VerifyBackupRestoreData(artifact_dir string, namespace string, routeName st
 			makeRequest("POST", appApi+"/todo", time.Now().Weekday().String())
 		}
 	}
+	volumeApi := appApi + "/log"
+
 	switch app {
 	case "todolist":
 		appApi += "/todo-incomplete"
@@ -499,6 +501,7 @@ func VerifyBackupRestoreData(artifact_dir string, namespace string, routeName st
 	if err != nil {
 		return err
 	}
+
 	//Verifying backup-restore data only for CSI as of now.
 	if backupRestoretype == CSI || backupRestoretype == CSIDataMover || backupRestoretype == RESTIC {
 		//check if backupfile exists. If true { compare data response with data from file} (post restore step)
@@ -531,6 +534,62 @@ func VerifyBackupRestoreData(artifact_dir string, namespace string, routeName st
 		} else if errors.Is(err, os.ErrNotExist) {
 			fmt.Printf("Writing data to backupFile (backup-data.txt): \n %s\n", respData)
 			err := os.WriteFile(backupFile, respData, 0644)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	if twoVol {
+		volumeFile := artifact_dir + "/volume-data.txt"
+		return verifyVolume(volumeFile, volumeApi, prebackupState, backupRestoretype)
+	}
+
+	return nil
+}
+
+//VerifyVolumeData for application with two volumes
+func verifyVolume(volumeFile string, volumeApi string, prebackupState bool, backupRestoretype BackupRestoreType) error {
+	if prebackupState {
+		// delete volumeFile if it exists
+		if _, err := os.Stat(volumeFile); err == nil {
+			os.Remove(volumeFile)
+		}
+	}
+	//get response Data if response status is 200
+	volData, err := getResponseData(volumeApi)
+	if err != nil {
+		return err
+	}
+	if backupRestoretype == CSI || backupRestoretype == RESTIC {
+		if _, err := os.Stat(volumeFile); err == nil {
+			volumeBackupData, err := os.ReadFile(volumeFile)
+			if err != nil {
+				return err
+			}
+			os.Remove(volumeFile)
+			fmt.Printf("Data came from volume-file\n %s\n", volumeBackupData)
+			fmt.Printf("Volume Data after restore\n %s\n", volData)
+			dataIsEqual := false
+			for i := 0; i < 5 && !dataIsEqual; i++ {
+				volData, err = getResponseData(volumeApi)
+				if err != nil {
+					return err
+				}
+				dataIsEqual = bytes.Contains(volData, volumeBackupData)
+				if dataIsEqual != true {
+					fmt.Printf("Backup-volume and Restore-volume Data are not equal, retry %d\n", i)
+					fmt.Printf("volume-Data from the response after restore\n %s\n", volData)
+					time.Sleep(10 * time.Second)
+				}
+			}
+			if dataIsEqual != true {
+				return errors.New("Backup and Restore Data are not the same")
+			}
+
+		} else if errors.Is(err, os.ErrNotExist) {
+			fmt.Printf("Writing data to volumeFile (volume-data.txt): \n %s\n", volData)
+			err := os.WriteFile(volumeFile, volData, 0644)
 			if err != nil {
 				return err
 			}
