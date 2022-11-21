@@ -10,6 +10,7 @@ import (
 	volsync "github.com/backube/volsync/api/v1alpha1"
 	"github.com/google/uuid"
 	vsmv1alpha1 "github.com/konveyor/volume-snapshot-mover/api/v1alpha1"
+	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 	. "github.com/onsi/ginkgo/v2"
 	"github.com/onsi/ginkgo/v2/types"
 	. "github.com/onsi/gomega"
@@ -108,8 +109,23 @@ var _ = Describe("AWS backup restore tests", func() {
 				GinkgoWriter.Println("Printing volsync namespace events")
 				PrintNamespaceEventsAfterTime(common.VolSyncDeploymentNamespace, lastInstallTime)
 
+				vsListAppNS := volumesnapshotv1.VolumeSnapshotList{}
+				err := dpaCR.Client.List(context.Background(), &vsListAppNS, &client.ListOptions{Namespace: lastBRCase.ApplicationNamespace})
+				Expect(err).NotTo(HaveOccurred())
+				GinkgoWriter.Printf("VSC list app-ns: %v\n", vsListAppNS)
+
+				vsListOadpNS := volumesnapshotv1.VolumeSnapshotList{}
+				err = dpaCR.Client.List(context.Background(), &vsListOadpNS, &client.ListOptions{Namespace: namespace})
+				Expect(err).NotTo(HaveOccurred())
+				GinkgoWriter.Printf("VSC list app-ns: %v\n", vsListOadpNS)
+
+				vscList := volumesnapshotv1.VolumeSnapshotContentList{}
+				err = dpaCR.Client.List(context.Background(), &vscList, &client.ListOptions{})
+				Expect(err).NotTo(HaveOccurred())
+				GinkgoWriter.Printf("VSC list %v\n", vscList)
+
 				pvcList := vsmv1alpha1.VolumeSnapshotBackupList{}
-				err := dpaCR.Client.List(context.Background(), &pvcList, &client.ListOptions{Namespace: lastBRCase.ApplicationNamespace})
+				err = dpaCR.Client.List(context.Background(), &pvcList, &client.ListOptions{Namespace: lastBRCase.ApplicationNamespace})
 				Expect(err).NotTo(HaveOccurred())
 				GinkgoWriter.Printf("PVC app ns list %v\n", pvcList)
 				err = dpaCR.Client.List(context.Background(), &pvcList, &client.ListOptions{Namespace: namespace})
