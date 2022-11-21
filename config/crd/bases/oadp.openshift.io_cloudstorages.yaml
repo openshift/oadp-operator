@@ -66,13 +66,13 @@ spec:
                 - aws
                 type: string
               region:
-                description: region` for the bucket to be in, will be us-east-1 if
+                description: region for the bucket to be in, will be us-east-1 if
                   not set.
                 type: string
               tags:
                 additionalProperties:
                   type: string
-                description: tags` for the bucket
+                description: tags for the bucket
                 type: object
             required:
             - creationSecret
