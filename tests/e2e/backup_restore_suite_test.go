@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -30,11 +31,11 @@ func mongoready(preBackupState bool, backupRestoreType BackupRestoreType) Verifi
 		if !exists {
 			return errors.New("did not find Mongo scc")
 		}
-		err = VerifyBackupRestoreData(artifact_dir, namespace, "todolist-route", "todolist", preBackupState, backupRestoreType) // TODO: VERIFY PARKS APP DATA
+		err = VerifyBackupRestoreData(artifact_dir, namespace, "todolist-route", "todolist", preBackupState, false, backupRestoreType) // TODO: VERIFY PARKS APP DATA
 		return err
 	})
 }
-func mysqlReady(preBackupState bool, backupRestoreType BackupRestoreType) VerificationFunction {
+func mysqlReady(preBackupState bool, twoVol bool, backupRestoreType BackupRestoreType) VerificationFunction {
 	return VerificationFunction(func(ocClient client.Client, namespace string) error {
 		fmt.Printf("checking for the NAMESPACE: %s\n ", namespace)
 		// This test confirms that SCC restore logic in our plugin is working
@@ -47,7 +48,7 @@ func mysqlReady(preBackupState bool, backupRestoreType BackupRestoreType) Verifi
 		if !exists {
 			return errors.New("did not find MYSQL scc")
 		}
-		err = VerifyBackupRestoreData(artifact_dir, namespace, "todolist-route", "todolist", preBackupState, backupRestoreType)
+		err = VerifyBackupRestoreData(artifact_dir, namespace, "todolist-route", "todolist", preBackupState, twoVol, backupRestoreType)
 		return err
 	})
 }
@@ -164,7 +165,12 @@ var _ = Describe("AWS backup restore tests", func() {
 			Expect(err).ToNot(HaveOccurred())
 			if brCase.BackupRestoreType == CSI {
 				log.Printf("Creating pvc for case %s", brCase.Name)
-				pvcPath := fmt.Sprintf("./sample-applications/%s/pvc/%s.yaml", brCase.ApplicationNamespace, provider)
+				var pvcPath string
+				if strings.Contains(brCase.Name, "twovol") {
+					pvcPath = fmt.Sprintf("./sample-applications/%s/pvc-twoVol/%s.yaml", brCase.ApplicationNamespace, provider)
+				} else {
+					pvcPath = fmt.Sprintf("./sample-applications/%s/pvc/%s.yaml", brCase.ApplicationNamespace, provider)
+				}
 				err = InstallApplication(dpaCR.Client, pvcPath)
 				Expect(err).ToNot(HaveOccurred())
 			}
@@ -260,8 +266,8 @@ var _ = Describe("AWS backup restore tests", func() {
 			ApplicationNamespace: "mysql-persistent",
 			Name:                 "mysql-csi-e2e",
 			BackupRestoreType:    CSI,
-			PreBackupVerify:      mysqlReady(true, CSI),
-			PostRestoreVerify:    mysqlReady(false, CSI),
+			PreBackupVerify:      mysqlReady(true, false, CSI),
+			PostRestoreVerify:    mysqlReady(false, false, CSI),
 		}, nil),
 		Entry("Mongo application CSI", Label("ibmcloud", "aws", "gcp", "azure"), BackupRestoreCase{
 			ApplicationTemplate:  fmt.Sprintf("./sample-applications/mongo-persistent/mongo-persistent-csi.yaml"),
@@ -270,6 +276,14 @@ var _ = Describe("AWS backup restore tests", func() {
 			BackupRestoreType:    CSI,
 			PreBackupVerify:      mongoready(true, CSI),
 			PostRestoreVerify:    mongoready(false, CSI),
+		}, nil),
+		Entry("MySQL application two Vol CSI", Label("ibmcloud", "aws", "gcp", "azure"), BackupRestoreCase{
+			ApplicationTemplate:  fmt.Sprintf("./sample-applications/mysql-persistent/mysql-persistent-twovol-csi.yaml"),
+			ApplicationNamespace: "mysql-persistent",
+			Name:                 "mysql-twovol-csi-e2e",
+			BackupRestoreType:    CSI,
+			PreBackupVerify:      mysqlReady(true, true, CSI),
+			PostRestoreVerify:    mysqlReady(false, true, CSI),
 		}, nil),
 		Entry("Mongo application RESTIC", BackupRestoreCase{
 			ApplicationTemplate:  "./sample-applications/mongo-persistent/mongo-persistent.yaml",
@@ -284,8 +298,8 @@ var _ = Describe("AWS backup restore tests", func() {
 			ApplicationNamespace: "mysql-persistent",
 			Name:                 "mysql-restic-e2e",
 			BackupRestoreType:    RESTIC,
-			PreBackupVerify:      mysqlReady(true, RESTIC),
-			PostRestoreVerify:    mysqlReady(false, RESTIC),
+			PreBackupVerify:      mysqlReady(true, false, RESTIC),
+			PostRestoreVerify:    mysqlReady(false, false, RESTIC),
 		}, nil),
 	)
 })
