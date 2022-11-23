@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	volsync "github.com/backube/volsync/api/v1alpha1"
@@ -24,9 +25,7 @@ import (
 
 type VerificationFunction func(client.Client, string) error
 
-type appVerificationFunction func(bool, BackupRestoreType) VerificationFunction
-
-func dataMoverReady(preBackupState bool, appVerificationFunction appVerificationFunction) VerificationFunction {
+func dataMoverReady(veriFunc VerificationFunction) VerificationFunction {
 	return VerificationFunction(func(ocClient client.Client, appNamespace string) error {
 		// check volsync subscription exists
 		Eventually(InstalledSubscriptionCSV(ocClient, "openshift-operators", "volsync-product"), timeoutMultiplier*time.Minute*10, time.Second*10).ShouldNot(Equal(""))
@@ -34,7 +33,7 @@ func dataMoverReady(preBackupState bool, appVerificationFunction appVerification
 		fmt.Printf("waiting for volsync controller readiness")
 		Eventually(IsDeploymentReady(ocClient, common.VolSyncDeploymentNamespace, common.VolSyncDeploymentName), timeoutMultiplier*time.Minute*10, time.Second*10).Should(BeTrue())
 		Eventually(IsDeploymentReady(ocClient, namespace, common.DataMover), timeoutMultiplier*time.Minute*10, time.Second*10).Should(BeTrue())
-		return appVerificationFunction(preBackupState, CSIDataMover)(ocClient, appNamespace)
+		return veriFunc(ocClient, appNamespace)
 	})
 }
 
@@ -48,11 +47,11 @@ func mongoready(preBackupState bool, backupRestoreType BackupRestoreType) Verifi
 		if !exists {
 			return errors.New("did not find Mongo scc")
 		}
-		err = VerifyBackupRestoreData(artifact_dir, namespace, "todolist-route", "todolist", preBackupState, backupRestoreType) // TODO: VERIFY PARKS APP DATA
+		err = VerifyBackupRestoreData(artifact_dir, namespace, "todolist-route", "todolist", preBackupState, false, backupRestoreType) // TODO: VERIFY PARKS APP DATA
 		return err
 	})
 }
-func mysqlReady(preBackupState bool, backupRestoreType BackupRestoreType) VerificationFunction {
+func mysqlReady(preBackupState bool, twoVol bool, backupRestoreType BackupRestoreType) VerificationFunction {
 	return VerificationFunction(func(ocClient client.Client, namespace string) error {
 		fmt.Printf("checking for the NAMESPACE: %s\n ", namespace)
 		// This test confirms that SCC restore logic in our plugin is working
@@ -65,7 +64,7 @@ func mysqlReady(preBackupState bool, backupRestoreType BackupRestoreType) Verifi
 		if !exists {
 			return errors.New("did not find MYSQL scc")
 		}
-		err = VerifyBackupRestoreData(artifact_dir, namespace, "todolist-route", "todolist", preBackupState, backupRestoreType)
+		err = VerifyBackupRestoreData(artifact_dir, namespace, "todolist-route", "todolist", preBackupState, twoVol, backupRestoreType)
 		return err
 	})
 }
@@ -237,7 +236,12 @@ var _ = Describe("AWS backup restore tests", func() {
 			dpaCR.Client.Create(context.Background(), &corev1.Namespace{ObjectMeta: v1.ObjectMeta{Name: brCase.ApplicationNamespace}}, &client.CreateOptions{})
 			if brCase.BackupRestoreType == CSI || brCase.BackupRestoreType == CSIDataMover {
 				log.Printf("Creating csi pvc for case %s", brCase.Name)
-				pvcPath := fmt.Sprintf("./sample-applications/%s/pvc/%s.yaml", brCase.ApplicationNamespace, provider)
+				var pvcPath string
+				if strings.Contains(brCase.Name, "twovol") {
+					pvcPath = fmt.Sprintf("./sample-applications/%s/pvc-twoVol/%s.yaml", brCase.ApplicationNamespace, provider)
+				} else {
+					pvcPath = fmt.Sprintf("./sample-applications/%s/pvc/%s.yaml", brCase.ApplicationNamespace, provider)
+				}
 				err = InstallApplication(dpaCR.Client, pvcPath)
 				Expect(err).ToNot(HaveOccurred())
 			}
@@ -335,8 +339,8 @@ var _ = Describe("AWS backup restore tests", func() {
 			ApplicationNamespace: "mysql-persistent",
 			Name:                 "mysql-csi-e2e",
 			BackupRestoreType:    CSI,
-			PreBackupVerify:      mysqlReady(true, CSI),
-			PostRestoreVerify:    mysqlReady(false, CSI),
+			PreBackupVerify:      mysqlReady(true, false, CSI),
+			PostRestoreVerify:    mysqlReady(false, false, CSI),
 		}, nil),
 		Entry("Mongo application CSI", Label("ibmcloud", "aws", "gcp", "azure"), BackupRestoreCase{
 			ApplicationTemplate:  "./sample-applications/mongo-persistent/mongo-persistent-csi.yaml",
@@ -345,6 +349,14 @@ var _ = Describe("AWS backup restore tests", func() {
 			BackupRestoreType:    CSI,
 			PreBackupVerify:      mongoready(true, CSI),
 			PostRestoreVerify:    mongoready(false, CSI),
+		}, nil),
+		Entry("MySQL application two Vol CSI", Label("ibmcloud", "aws", "gcp", "azure"), BackupRestoreCase{
+			ApplicationTemplate:  "./sample-applications/mysql-persistent/mysql-persistent-twovol-csi.yaml",
+			ApplicationNamespace: "mysql-persistent",
+			Name:                 "mysql-twovol-csi-e2e",
+			BackupRestoreType:    CSI,
+			PreBackupVerify:      mysqlReady(true, true, CSI),
+			PostRestoreVerify:    mysqlReady(false, true, CSI),
 		}, nil),
 		Entry("Mongo application RESTIC", BackupRestoreCase{
 			ApplicationTemplate:  "./sample-applications/mongo-persistent/mongo-persistent.yaml",
@@ -359,25 +371,25 @@ var _ = Describe("AWS backup restore tests", func() {
 			ApplicationNamespace: "mysql-persistent",
 			Name:                 "mysql-restic-e2e",
 			BackupRestoreType:    RESTIC,
-			PreBackupVerify:      mysqlReady(true, RESTIC),
-			PostRestoreVerify:    mysqlReady(false, RESTIC),
+			PreBackupVerify:      mysqlReady(true, false, RESTIC),
+			PostRestoreVerify:    mysqlReady(false, false, RESTIC),
 		}, nil),
 		Entry("Mongo application DATAMOVER", BackupRestoreCase{
 			ApplicationTemplate:  "./sample-applications/mongo-persistent/mongo-persistent-csi.yaml",
 			ApplicationNamespace: "mongo-persistent",
 			Name:                 "mongo-datamover-e2e",
 			BackupRestoreType:    CSIDataMover,
-			PreBackupVerify:      dataMoverReady(true, mongoready),
-			PostRestoreVerify:    dataMoverReady(false, mongoready),
+			PreBackupVerify:      dataMoverReady(mongoready(true, CSIDataMover)),
+			PostRestoreVerify:    dataMoverReady(mongoready(false, CSIDataMover)),
 		}, nil),
 		// TODO: fix this test
 		Entry("MySQL application DATAMOVER", BackupRestoreCase{
-			ApplicationTemplate:  "./sample-applications/mysql-persistent/mysql-persistent-csi.yaml",
+			ApplicationTemplate:  "./sample-applications/mysql-persistent/mysql-persistent-twovol-csi.yaml",
 			ApplicationNamespace: "mysql-persistent",
-			Name:                 "mysql-datamover-e2e",
+			Name:                 "mysql-twovol-datamover-e2e",
 			BackupRestoreType:    CSIDataMover,
-			PreBackupVerify:      dataMoverReady(true, mysqlReady),
-			PostRestoreVerify:    dataMoverReady(false, mysqlReady),
+			PreBackupVerify:      dataMoverReady(mysqlReady(true, true, CSIDataMover)),
+			PostRestoreVerify:    dataMoverReady(mysqlReady(false, true, CSIDataMover)),
 		}, nil),
 	)
 })
