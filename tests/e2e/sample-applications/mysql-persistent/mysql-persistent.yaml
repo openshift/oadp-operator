@@ -154,7 +154,7 @@ items:
         spec:
           containers:
           - name: todolist
-            image: quay.io/mferrato/todolist-mariadb-go:v1
+            image: quay.io/konveyor/todolist-mariadb-go:v2_4
             env:
               - name: foo
                 value: bar
