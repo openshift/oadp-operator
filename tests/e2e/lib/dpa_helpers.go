@@ -129,28 +129,20 @@ func (v *DpaCustomResource) Build(backupRestoreType BackupRestoreType, dpaCrOpts
 				},
 			},
 			SnapshotLocations: v.CustomResource.Spec.SnapshotLocations,
-			BackupLocations: []oadpv1alpha1.BackupLocation{
-				{
-					Velero: &velero.BackupStorageLocationSpec{
-						Provider: v.CustomResource.Spec.BackupLocations[0].Velero.Provider,
-						Default:  true,
-						Config:   v.CustomResource.Spec.BackupLocations[0].Velero.Config,
-						Credential: &corev1.SecretKeySelector{
-							LocalObjectReference: corev1.LocalObjectReference{
-								Name: "bsl-cloud-credentials-" + v.Provider,
-							},
-							Key: "cloud",
-						},
-						StorageType: velero.StorageType{
-							ObjectStorage: &velero.ObjectStorageLocation{
-								Bucket: v.CustomResource.Spec.BackupLocations[0].Velero.ObjectStorage.Bucket,
-								Prefix: VeleroPrefix,
-							},
-						},
-					},
-				},
-			},
+			BackupLocations: v.CustomResource.Spec.BackupLocations,
 		},
+	}
+	for i := range dpaInstance.Spec.BackupLocations {
+		if i == 0 {
+			dpaInstance.Spec.BackupLocations[i].Velero.Default = true
+		}
+		dpaInstance.Spec.BackupLocations[i].Velero.Credential = &corev1.SecretKeySelector{
+			LocalObjectReference: corev1.LocalObjectReference{
+				Name: "bsl-cloud-credentials-" + v.Provider,
+			},
+			Key: "cloud",
+		}
+		dpaInstance.Spec.BackupLocations[i].Velero.StorageType.ObjectStorage.Prefix = VeleroPrefix
 	}
 	v.backupRestoreType = backupRestoreType
 	type emptyStruct struct{}
