@@ -308,7 +308,7 @@ var _ = Describe("AWS backup restore tests", func() {
 			PostRestoreVerify:    mysqlReady(false, false, RESTIC),
 		}, nil),
 		Entry("MySQL application NoDefaultBackupStorageLocation", BackupRestoreCase{
-			ApplicationTemplate:  "./sample-applications/mysql-persistent/mysql-persistent-template.yaml",
+			ApplicationTemplate:  "./sample-applications/mysql-persistent/mysql-persistent.yaml",
 			ApplicationNamespace: "mysql-persistent",
 			Name:                 "mysql-e2e",
 			BackupRestoreType:    RESTIC,
