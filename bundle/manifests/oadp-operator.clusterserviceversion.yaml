@@ -620,7 +620,6 @@ spec:
           - security.openshift.io
           resourceNames:
           - privileged
-          - velero-privileged
           resources:
           - securitycontextconstraints
           verbs:

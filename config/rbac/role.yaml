@@ -149,7 +149,6 @@ rules:
   - use
   resourceNames:
   - privileged
-  - velero-privileged
 - apiGroups:
   - ""
   resources:
