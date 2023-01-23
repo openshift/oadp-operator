@@ -138,7 +138,7 @@ var _ = Describe("AWS backup restore tests", func() {
 
 			if brCase.BackupRestoreType == RESTIC {
 				log.Printf("Waiting for restic pods to be running")
-				Eventually(AreResticPodsRunning(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
+				Eventually(AreNodeAgentPodsRunning(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 			}
 			if brCase.BackupRestoreType == CSI {
 				if provider == "aws" || provider == "ibmcloud" || provider == "gcp" || provider == "azure" {
