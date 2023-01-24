@@ -1,5 +1,5 @@
 # Build the manager binary
-FROM quay.io/konveyor/builder:v1.17.2 as builder
+FROM quay.io/konveyor/builder:v1.18 as builder
 
 WORKDIR /go/src/github.com/openshift/oadp-operator
 # Copy the Go Modules manifests
