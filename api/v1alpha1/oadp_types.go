@@ -174,6 +174,12 @@ type DataMover struct {
 	// User supplied timeout to be used for VolumeSnapshotBackup and VolumeSnapshotRestore to complete, default value is 10m
 	// +optional
 	Timeout string `json:"timeout,omitempty"`
+	// the number of batched volumeSnapshotBackups that can be inProgress at once
+	// +optional
+	MaxConcurrentBackupVolumes *int64 `json:"maxConcurrentBackupVolumes,omitempty"`
+	// the number of batched volumeSnapshotRestores that can be inProgress at once
+	// +optional
+	MaxConcurrentRestoreVolumes *int64 `json:"maxConcurrentRestoreVolumes,omitempty"`
 }
 
 // Features defines the configuration for the DPA to enable the tech preview features
