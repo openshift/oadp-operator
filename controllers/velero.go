@@ -503,27 +503,31 @@ func (r *DPAReconciler) customizeVeleroContainer(dpa *oadpv1alpha1.DataProtectio
 				ReadOnly:  true,
 			})
 	}
+	// append velero PodConfig envs to container
+	if dpa.Spec.Configuration != nil && dpa.Spec.Configuration.Velero != nil && dpa.Spec.Configuration.Velero.PodConfig != nil && dpa.Spec.Configuration.Velero.PodConfig.Env != nil {
+		veleroContainer.Env = common.AppendUniqueEnvVars(veleroContainer.Env, dpa.Spec.Configuration.Velero.PodConfig.Env)
+	}
 	// Append proxy settings to the container from environment variables
-	veleroContainer.Env = append(veleroContainer.Env, proxy.ReadProxyVarsFromEnv()...)
+	veleroContainer.Env = common.AppendUniqueEnvVars(veleroContainer.Env, proxy.ReadProxyVarsFromEnv())
 	if dpa.BackupImages() {
-		veleroContainer.Env = append(veleroContainer.Env, corev1.EnvVar{
+		veleroContainer.Env = common.AppendUniqueEnvVars(veleroContainer.Env, []corev1.EnvVar{{
 			Name:  "OPENSHIFT_IMAGESTREAM_BACKUP",
 			Value: "true",
-		})
+		}})
 	}
 
 	// Check if data-mover is enabled and set the env var so that the csi data-mover code path is triggred
 	if r.checkIfDataMoverIsEnabled(dpa) {
-		veleroContainer.Env = append(veleroContainer.Env, corev1.EnvVar{
+		veleroContainer.Env = common.AppendUniqueEnvVars(veleroContainer.Env, []corev1.EnvVar{{
 			Name:  "VOLUME_SNAPSHOT_MOVER",
 			Value: "true",
-		})
+		}})
 
 		if len(dpa.Spec.Features.DataMover.Timeout) > 0 {
-			veleroContainer.Env = append(veleroContainer.Env, corev1.EnvVar{
+			veleroContainer.Env = common.AppendUniqueEnvVars(veleroContainer.Env, []corev1.EnvVar{{
 				Name:  "DATAMOVER_TIMEOUT",
 				Value: dpa.Spec.Features.DataMover.Timeout,
-			})
+			}})
 		}
 	}
 

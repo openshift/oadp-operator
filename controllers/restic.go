@@ -254,9 +254,12 @@ func (r *DPAReconciler) customizeResticDaemonset(dpa *oadpv1alpha1.DataProtectio
 			Name:      "certs",
 			MountPath: "/etc/ssl/certs",
 		})
-
+		// append restic PodConfig envs to container
+		if dpa.Spec.Configuration != nil && dpa.Spec.Configuration.Restic != nil && dpa.Spec.Configuration.Restic.PodConfig != nil && dpa.Spec.Configuration.Restic.PodConfig.Env != nil {
+			resticContainer.Env = common.AppendUniqueEnvVars(resticContainer.Env, dpa.Spec.Configuration.Restic.PodConfig.Env)
+		}
 		// append env vars to the restic container
-		resticContainer.Env = append(resticContainer.Env, proxy.ReadProxyVarsFromEnv()...)
+		resticContainer.Env = common.AppendUniqueEnvVars(resticContainer.Env, proxy.ReadProxyVarsFromEnv())
 
 		resticContainer.SecurityContext = &corev1.SecurityContext{
 			Privileged: pointer.Bool(true),
