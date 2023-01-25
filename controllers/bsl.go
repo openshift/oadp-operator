@@ -27,8 +27,7 @@ func (r *DPAReconciler) ValidateBackupStorageLocations(log logr.Logger) (bool, e
 		return false, errors.New("no backupstoragelocations configured, ensure a backupstoragelocation has been configured")
 	}
 
-	// Ensure BSL:Provider has a 1:1 mapping
-	if err := r.ensureBSLProviderMapping(&dpa); err != nil {
+	if err := r.ensureBackupLocationHasVeleroOrCloudStorage(&dpa); err != nil {
 		return false, err
 	}
 
@@ -336,27 +335,14 @@ func (r *DPAReconciler) validateProviderPluginAndSecret(bslSpec velerov1.BackupS
 	return nil
 }
 
-func (r *DPAReconciler) ensureBSLProviderMapping(dpa *oadpv1alpha1.DataProtectionApplication) error {
-
-	providerBSLMap := map[string]int{}
+func (r *DPAReconciler) ensureBackupLocationHasVeleroOrCloudStorage(dpa *oadpv1alpha1.DataProtectionApplication) error {
 	for _, bsl := range dpa.Spec.BackupLocations {
 		if bsl.CloudStorage == nil && bsl.Velero == nil {
-			return fmt.Errorf("no bucket or BSL provided for backupstoragelocations")
+			return fmt.Errorf("no bucket CloudStorage or velero BackupStorageLocation provided for backupLocations")
 		}
-		if bsl.Velero != nil {
-			// Only check the default providers here, if there are extra credentials passed then we can have more than one.
-			if bsl.Velero.Credential == nil {
-				provider := bsl.Velero.Provider
 
-				providerBSLMap[provider]++
-
-				if providerBSLMap[provider] > 1 {
-					return fmt.Errorf("more than one backupstoragelocations configured for provider %s ", provider)
-				}
-			}
-		}
 		if bsl.CloudStorage != nil && bsl.Velero != nil {
-			return fmt.Errorf("more than one of backupstoragelocations and bucket provided for a single StorageLocation")
+			return fmt.Errorf("cannot have both backupstoragelocations and bucket provided for a single StorageLocation")
 		}
 	}
 	return nil
