@@ -1,5 +1,5 @@
 # Build the manager binary
-FROM quay.io/konveyor/builder:v1.17.2 AS builder
+FROM quay.io/konveyor/builder:v1.18 AS builder
 
 WORKDIR /go/src/github.com/openshift/oadp-operator
 
@@ -11,4 +11,5 @@ RUN go get -d -u github.com/onsi/ginkgo/ginkgo && \
 # pin v1.22 as latest requires go 1.18
 RUN go get -d -u github.com/onsi/gomega@v1.22
 RUN chmod -R 777 ./
+RUN chmod -R 777 /go/
 RUN go mod download
