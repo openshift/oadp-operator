@@ -1,6 +1,10 @@
 package common
 
-import "fmt"
+import (
+	"fmt"
+
+	corev1 "k8s.io/api/core/v1"
+)
 
 const (
 	Velero                       = "velero"
@@ -80,4 +84,29 @@ func AppendUniqueKeyStringOfStringMaps(userLabels ...map[string]string) (map[str
 		}
 	}
 	return base, nil
+}
+
+// append env vars together where the first one wins
+func AppendUniqueEnvVars(userEnvVars ...[]corev1.EnvVar) []corev1.EnvVar {
+	base := []corev1.EnvVar{}
+	for _, envVars := range userEnvVars {
+		if envVars == nil {
+			continue
+		}
+		for _, envVar := range envVars {
+			if !containsEnvVar(base, envVar) {
+				base = append(base, envVar)
+			}
+		}
+	}
+	return base
+}
+
+func containsEnvVar(envVars []corev1.EnvVar, envVar corev1.EnvVar) bool {
+	for _, e := range envVars {
+		if e.Name == envVar.Name {
+			return true
+		}
+	}
+	return false
 }
