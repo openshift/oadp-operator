@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 
 	"github.com/go-logr/logr"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
@@ -1305,7 +1306,7 @@ func TestDPAReconciler_updateBSLFromSpec(t *testing.T) {
 	}
 }
 
-func TestDPAReconciler_ensureBSLProviderMapping(t *testing.T) {
+func TestDPAReconciler_ensureBackupLocationHasVeleroOrCloudStorage(t *testing.T) {
 	tests := []struct {
 		name    string
 		dpa     *oadpv1alpha1.DataProtectionApplication
@@ -1341,7 +1342,31 @@ func TestDPAReconciler_ensureBSLProviderMapping(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "two bsl configured for aws provider",
+			name: "wantErr: a bsl has both velero and cloudstorage configured",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					BackupLocations: []oadpv1alpha1.BackupLocation{
+						{
+							Velero: &velerov1.BackupStorageLocationSpec{
+								Provider: "aws",
+							},
+							CloudStorage: &oadpv1alpha1.CloudStorageLocation{
+								CloudStorageRef: v1.LocalObjectReference{
+									Name: "foo",
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "two bsl configured per provider",
 			dpa: &oadpv1alpha1.DataProtectionApplication{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "foo",
@@ -1366,18 +1391,23 @@ func TestDPAReconciler_ensureBSLProviderMapping(t *testing.T) {
 						},
 						{
 							Velero: &velerov1.BackupStorageLocationSpec{
+								Provider: "azure",
+							},
+						},
+						{
+							Velero: &velerov1.BackupStorageLocationSpec{
 								Provider: "gcp",
 							},
 						},
 						{
 							Velero: &velerov1.BackupStorageLocationSpec{
-								Provider: "thirdpary-objectstorage-provider",
+								Provider: "gcp",
 							},
 						},
 					},
 				},
 			},
-			wantErr: true,
+			wantErr: false,
 		},
 	}
 	for _, tt := range tests {
@@ -1389,7 +1419,7 @@ func TestDPAReconciler_ensureBSLProviderMapping(t *testing.T) {
 			r := &DPAReconciler{
 				Scheme: scheme,
 			}
-			if err := r.ensureBSLProviderMapping(tt.dpa); (err != nil) != tt.wantErr {
+			if err := r.ensureBackupLocationHasVeleroOrCloudStorage(tt.dpa); (err != nil) != tt.wantErr {
 				t.Errorf("ensureBSLProviderMapping() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
