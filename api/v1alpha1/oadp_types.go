@@ -174,10 +174,10 @@ type DataMover struct {
 	// User supplied timeout to be used for VolumeSnapshotBackup and VolumeSnapshotRestore to complete, default value is 10m
 	// +optional
 	Timeout string `json:"timeout,omitempty"`
-	// the number of batched volumeSnapshotBackups that can be inProgress at once
+	// the number of batched volumeSnapshotBackups that can be inProgress at once, default value is 10
 	// +optional
 	MaxConcurrentBackupVolumes *int64 `json:"maxConcurrentBackupVolumes,omitempty"`
-	// the number of batched volumeSnapshotRestores that can be inProgress at once
+	// the number of batched volumeSnapshotRestores that can be inProgress at once, default value is 10
 	// +optional
 	MaxConcurrentRestoreVolumes *int64 `json:"maxConcurrentRestoreVolumes,omitempty"`
 }
