@@ -346,6 +346,14 @@ spec:
                         enable:
                           description: enable flag is used to specify whether you want to deploy the volume snapshot mover controller
                           type: boolean
+                        maxConcurrentBackupVolumes:
+                          description: the number of batched volumeSnapshotBackups that can be inProgress at once, default value is 10
+                          format: int64
+                          type: integer
+                        maxConcurrentRestoreVolumes:
+                          description: the number of batched volumeSnapshotRestores that can be inProgress at once, default value is 10
+                          format: int64
+                          type: integer
                         timeout:
                           description: User supplied timeout to be used for VolumeSnapshotBackup and VolumeSnapshotRestore to complete, default value is 10m
                           type: string
