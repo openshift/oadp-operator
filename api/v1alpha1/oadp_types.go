@@ -101,6 +101,9 @@ type PodConfig struct {
 	// +optional
 	// +nullable
 	ResourceAllocations corev1.ResourceRequirements `json:"resourceAllocations,omitempty"`
+	// env defines the list of environment variables to be supplied to podSpec
+	// +optional
+	Env []corev1.EnvVar `json:"env,omitempty"`
 }
 
 // ResticConfig is the configuration for restic server
