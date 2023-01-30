@@ -193,9 +193,25 @@ spec:
               phase:
                 description: volumesnapshot backup phase status
                 type: string
-              replicationSourceName:
-                description: name of the ReplicationSource associated with the volumesnapshotbackup
-                type: string
+              replicationSourceData:
+                description: Includes information pertaining to Volsync ReplicationSource
+                  CR
+                properties:
+                  completionTimestamp:
+                    description: CompletionTimestamp records the time a ReplicationSource
+                      reached a terminal state.
+                    format: date-time
+                    type: string
+                  name:
+                    description: name of the ReplicationSource associated with the
+                      volumesnapshotbackup
+                    type: string
+                  startTimestamp:
+                    description: StartTimestamp records the time a ReplicationSource
+                      was started.
+                    format: date-time
+                    type: string
+                type: object
               resticrepository:
                 description: Includes restic repository path
                 type: string
