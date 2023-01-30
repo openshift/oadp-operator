@@ -28,6 +28,12 @@ const (
 	ResticRepository = "RESTIC_REPOSITORY"
 	ResticsecretName = "dm-credential"
 
+	// batchNumbers vars
+	DefaultConcurrentBackupVolumes  = "10"
+	DefaultConcurrentRestoreVolumes = "10"
+	DataMoverConcurrentBackup       = "DATAMOVER_CONCURRENT_BACKUP"
+	DataMoverConcurrentRestore      = "DATAMOVER_CONCURRENT_RESTORE"
+
 	// AWS vars
 	AWSAccessKey     = "AWS_ACCESS_KEY_ID"
 	AWSSecretKey     = "AWS_SECRET_ACCESS_KEY"
@@ -105,7 +111,7 @@ func (r *DPAReconciler) ReconcileDataMoverController(log logr.Logger) (bool, err
 		return true, nil
 	}
 
-	op, err := controllerutil.CreateOrPatch(r.Context, r.Client, dataMoverDeployment, func() error {
+	op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, dataMoverDeployment, func() error {
 
 		// Setting Deployment selector if a new object is created as it is immutable
 		if dataMoverDeployment.ObjectMeta.CreationTimestamp.IsZero() {
@@ -193,6 +199,51 @@ func (r *DPAReconciler) buildDataMoverDeployment(dataMoverDeployment *appsv1.Dep
 				ServiceAccountName: common.OADPOperatorServiceAccount,
 			},
 		},
+	}
+
+	var dataMoverContainer *corev1.Container
+	for i, container := range datamoverContainer {
+		if container.Name == common.DataMoverControllerContainer {
+			dataMoverContainer = &datamoverContainer[i]
+			break
+		}
+	}
+
+	if err := r.customizeDataMoverContainer(dpa, dataMoverContainer); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (r *DPAReconciler) customizeDataMoverContainer(dpa *oadpv1alpha1.DataProtectionApplication, dataMoverContainer *corev1.Container) error {
+
+	if dataMoverContainer == nil {
+		return fmt.Errorf("could not find dataMover container in Deployment")
+	}
+
+	if len(dpa.Spec.Features.DataMover.MaxConcurrentBackupVolumes) > 0 {
+		dataMoverContainer.Env = append(dataMoverContainer.Env, corev1.EnvVar{
+			Name:  DataMoverConcurrentBackup,
+			Value: dpa.Spec.Features.DataMover.MaxConcurrentBackupVolumes,
+		})
+	} else {
+		dataMoverContainer.Env = append(dataMoverContainer.Env, corev1.EnvVar{
+			Name:  DataMoverConcurrentBackup,
+			Value: DefaultConcurrentBackupVolumes,
+		})
+	}
+
+	if len(dpa.Spec.Features.DataMover.MaxConcurrentRestoreVolumes) > 0 {
+		dataMoverContainer.Env = append(dataMoverContainer.Env, corev1.EnvVar{
+			Name:  DataMoverConcurrentRestore,
+			Value: dpa.Spec.Features.DataMover.MaxConcurrentRestoreVolumes,
+		})
+	} else {
+		dataMoverContainer.Env = append(dataMoverContainer.Env, corev1.EnvVar{
+			Name:  DataMoverConcurrentRestore,
+			Value: DefaultConcurrentRestoreVolumes,
+		})
 	}
 
 	return nil
