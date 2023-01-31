@@ -1,5 +1,5 @@
 ---
-title: velero-openshiftkrm-plugin design
+title: TODO: velero-openshiftkrm-plugin design
 authors:
   - "@ChaitanyaBhangale"
 reviewers:
@@ -25,7 +25,7 @@ superseded-by:
   - "N/A"
 ---
 
-# Velero KRM Plugin Design
+# TODO: Velero KRM Plugin Design
 
 ### Release Signoff Checklist
 
