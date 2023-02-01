@@ -158,6 +158,46 @@ func (r *DPAReconciler) ReconcileDataMoverController(log logr.Logger) (bool, err
 	return true, nil
 }
 
+func (r *DPAReconciler) ReconcileDataMoverConfigs(log logr.Logger) (bool, error) {
+
+	// fetch latest DPA instance
+	dpa := oadpv1alpha1.DataProtectionApplication{}
+	if err := r.Get(r.Context, r.NamespacedName, &dpa); err != nil {
+		return false, err
+	}
+
+	// create configmap only if data mover is enabled and has config values
+	if r.checkIfDataMoverIsEnabled(&dpa) && r.checkDataMoverConfigs(&dpa) {
+
+		// create configmap to pass values to data mover CRs
+		cm := corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "datamover-config",
+				Namespace: dpa.Namespace,
+			},
+		}
+
+		op, err := controllerutil.CreateOrPatch(r.Context, r.Client, &cm, func() error {
+			cm.Data = r.makeConfigMapData(&dpa)
+			return nil
+		})
+		if err != nil {
+			return false, err
+		}
+
+		if op == controllerutil.OperationResultCreated || op == controllerutil.OperationResultUpdated {
+
+			r.EventRecorder.Event(&cm,
+				corev1.EventTypeNormal,
+				"ConfigMapReconciled",
+				fmt.Sprintf("performed %v on configmap %v", op, cm.Name),
+			)
+		}
+	}
+
+	return true, nil
+}
+
 // Build DataMover Deployment
 func (r *DPAReconciler) buildDataMoverDeployment(dataMoverDeployment *appsv1.Deployment, dpa *oadpv1alpha1.DataProtectionApplication) error {
 
@@ -559,6 +599,38 @@ func (r *DPAReconciler) checkIfDataMoverIsEnabled(dpa *oadpv1alpha1.DataProtecti
 	}
 
 	return false
+}
+
+func (r *DPAReconciler) checkDataMoverConfigs(dpa *oadpv1alpha1.DataProtectionApplication) bool {
+
+	if dpa.Spec.Features != nil && dpa.Spec.Features.DataMover != nil &&
+		dpa.Spec.Features.DataMover.MoverConfig != nil {
+		return true
+	}
+
+	return false
+}
+
+func (r *DPAReconciler) makeConfigMapData(dpa *oadpv1alpha1.DataProtectionApplication) map[string]string {
+
+	if len(dpa.Spec.Features.DataMover.MoverConfig.StorageClassName) > 0 &&
+		len(dpa.Spec.Features.DataMover.MoverConfig.AccessMode) > 0 {
+		return map[string]string{
+			"StorageClassName": dpa.Spec.Features.DataMover.MoverConfig.StorageClassName,
+			"AccessMode":       dpa.Spec.Features.DataMover.MoverConfig.AccessMode,
+		}
+
+	} else if len(dpa.Spec.Features.DataMover.MoverConfig.StorageClassName) > 0 &&
+		len(dpa.Spec.Features.DataMover.MoverConfig.AccessMode) == 0 {
+		return map[string]string{
+			"StorageClassName": dpa.Spec.Features.DataMover.MoverConfig.StorageClassName,
+		}
+
+	} else {
+		return map[string]string{
+			"AccessMode": dpa.Spec.Features.DataMover.MoverConfig.AccessMode,
+		}
+	}
 }
 
 func (r *DPAReconciler) parseGCPSecret(secret corev1.Secret, secretKey string) (gcpCredentials, error) {

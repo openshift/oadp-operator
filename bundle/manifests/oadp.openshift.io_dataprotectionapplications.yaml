@@ -354,6 +354,16 @@ spec:
                           description: the number of batched volumeSnapshotRestores that can be inProgress at once, default value is 10
                           format: int64
                           type: integer
+                        moverConfig:
+                          description: defines configurations for VolSync options
+                          properties:
+                            accessMode:
+                              description: accessMode can be used to override the accessMode of the source PVC
+                              type: string
+                            storageClassName:
+                              description: storageClassName can be used to override the StorageClass of the source PVC
+                              type: string
+                          type: object
                         timeout:
                           description: User supplied timeout to be used for VolumeSnapshotBackup and VolumeSnapshotRestore to complete, default value is 10m
                           type: string
