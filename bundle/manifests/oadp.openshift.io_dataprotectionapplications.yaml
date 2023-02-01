@@ -348,12 +348,10 @@ spec:
                           type: boolean
                         maxConcurrentBackupVolumes:
                           description: the number of batched volumeSnapshotBackups that can be inProgress at once, default value is 10
-                          format: int64
-                          type: integer
+                          type: string
                         maxConcurrentRestoreVolumes:
                           description: the number of batched volumeSnapshotRestores that can be inProgress at once, default value is 10
-                          format: int64
-                          type: integer
+                          type: string
                         moverConfig:
                           description: defines configurations for VolSync options
                           properties:

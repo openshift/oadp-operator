@@ -176,10 +176,10 @@ type DataMover struct {
 	Timeout string `json:"timeout,omitempty"`
 	// the number of batched volumeSnapshotBackups that can be inProgress at once, default value is 10
 	// +optional
-	MaxConcurrentBackupVolumes *int64 `json:"maxConcurrentBackupVolumes,omitempty"`
+	MaxConcurrentBackupVolumes string `json:"maxConcurrentBackupVolumes,omitempty"`
 	// the number of batched volumeSnapshotRestores that can be inProgress at once, default value is 10
 	// +optional
-	MaxConcurrentRestoreVolumes *int64 `json:"maxConcurrentRestoreVolumes,omitempty"`
+	MaxConcurrentRestoreVolumes string `json:"maxConcurrentRestoreVolumes,omitempty"`
 	// defines configurations for VolSync options
 	// +optional
 	MoverConfig *MoverConfig `json:"moverConfig,omitempty"`
