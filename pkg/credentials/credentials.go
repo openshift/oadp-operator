@@ -254,6 +254,17 @@ func AppendCloudProviderVolumes(dpa *oadpv1alpha1.DataProtectionApplication, ds 
 
 // add plugin specific specs to velero deployment
 func AppendPluginSpecificSpecs(dpa *oadpv1alpha1.DataProtectionApplication, veleroDeployment *appsv1.Deployment, veleroContainer *corev1.Container, providerNeedsDefaultCreds map[string]bool, hasCloudStorage bool) error {
+
+	init_container_resources := corev1.ResourceRequirements{}
+	if len(veleroDeployment.Spec.Template.Spec.Containers) > 0 {
+		for _, container := range veleroDeployment.Spec.Template.Spec.Containers {
+			if container.Name == "velero" {
+				init_container_resources = container.Resources
+				break
+			}
+		}
+	}
+
 	for _, plugin := range dpa.Spec.Configuration.Velero.DefaultPlugins {
 		if pluginSpecificMap, ok := PluginSpecificFields[plugin]; ok {
 			veleroDeployment.Spec.Template.Spec.InitContainers = append(
@@ -262,7 +273,7 @@ func AppendPluginSpecificSpecs(dpa *oadpv1alpha1.DataProtectionApplication, vele
 					Image:                    getPluginImage(pluginSpecificMap.PluginName, dpa),
 					Name:                     pluginSpecificMap.PluginName,
 					ImagePullPolicy:          corev1.PullAlways,
-					Resources:                corev1.ResourceRequirements{},
+					Resources:                init_container_resources,
 					TerminationMessagePath:   "/dev/termination-log",
 					TerminationMessagePolicy: "File",
 					VolumeMounts: []corev1.VolumeMount{
@@ -330,7 +341,7 @@ func AppendPluginSpecificSpecs(dpa *oadpv1alpha1.DataProtectionApplication, vele
 					Image:                    plugin.Image,
 					Name:                     plugin.Name,
 					ImagePullPolicy:          corev1.PullAlways,
-					Resources:                corev1.ResourceRequirements{},
+					Resources:                init_container_resources,
 					TerminationMessagePath:   "/dev/termination-log",
 					TerminationMessagePolicy: "File",
 					VolumeMounts: []corev1.VolumeMount{

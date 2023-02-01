@@ -469,10 +469,15 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							},
 							InitContainers: []corev1.Container{
 								{
-									Image:                    common.AWSPluginImage,
-									Name:                     common.VeleroPluginForAWS,
-									ImagePullPolicy:          corev1.PullAlways,
-									Resources:                corev1.ResourceRequirements{},
+									Image:           common.AWSPluginImage,
+									Name:            common.VeleroPluginForAWS,
+									ImagePullPolicy: corev1.PullAlways,
+									Resources: corev1.ResourceRequirements{
+										Requests: corev1.ResourceList{
+											corev1.ResourceCPU:    resource.MustParse("500m"),
+											corev1.ResourceMemory: resource.MustParse("128Mi"),
+										},
+									},
 									TerminationMessagePath:   "/dev/termination-log",
 									TerminationMessagePolicy: "File",
 									VolumeMounts: []corev1.VolumeMount{
@@ -483,10 +488,15 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 									},
 								},
 								{
-									Image:                    common.GCPPluginImage,
-									Name:                     common.VeleroPluginForGCP,
-									ImagePullPolicy:          corev1.PullAlways,
-									Resources:                corev1.ResourceRequirements{},
+									Image:           common.GCPPluginImage,
+									Name:            common.VeleroPluginForGCP,
+									ImagePullPolicy: corev1.PullAlways,
+									Resources: corev1.ResourceRequirements{
+										Requests: corev1.ResourceList{
+											corev1.ResourceCPU:    resource.MustParse("500m"),
+											corev1.ResourceMemory: resource.MustParse("128Mi"),
+										},
+									},
 									TerminationMessagePath:   "/dev/termination-log",
 									TerminationMessagePolicy: "File",
 									VolumeMounts: []corev1.VolumeMount{
@@ -497,10 +507,15 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 									},
 								},
 								{
-									Image:                    common.AzurePluginImage,
-									Name:                     common.VeleroPluginForAzure,
-									ImagePullPolicy:          corev1.PullAlways,
-									Resources:                corev1.ResourceRequirements{},
+									Image:           common.AzurePluginImage,
+									Name:            common.VeleroPluginForAzure,
+									ImagePullPolicy: corev1.PullAlways,
+									Resources: corev1.ResourceRequirements{
+										Requests: corev1.ResourceList{
+											corev1.ResourceCPU:    resource.MustParse("500m"),
+											corev1.ResourceMemory: resource.MustParse("128Mi"),
+										},
+									},
 									TerminationMessagePath:   "/dev/termination-log",
 									TerminationMessagePolicy: "File",
 									VolumeMounts: []corev1.VolumeMount{
@@ -511,10 +526,15 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 									},
 								},
 								{
-									Image:                    common.KubeVirtPluginImage,
-									Name:                     common.KubeVirtPlugin,
-									ImagePullPolicy:          corev1.PullAlways,
-									Resources:                corev1.ResourceRequirements{},
+									Image:           common.KubeVirtPluginImage,
+									Name:            common.KubeVirtPlugin,
+									ImagePullPolicy: corev1.PullAlways,
+									Resources: corev1.ResourceRequirements{
+										Requests: corev1.ResourceList{
+											corev1.ResourceCPU:    resource.MustParse("500m"),
+											corev1.ResourceMemory: resource.MustParse("128Mi"),
+										},
+									},
 									TerminationMessagePath:   "/dev/termination-log",
 									TerminationMessagePolicy: "File",
 									VolumeMounts: []corev1.VolumeMount{
@@ -525,10 +545,15 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 									},
 								},
 								{
-									Image:                    common.OpenshiftPluginImage,
-									Name:                     common.VeleroPluginForOpenshift,
-									ImagePullPolicy:          corev1.PullAlways,
-									Resources:                corev1.ResourceRequirements{},
+									Image:           common.OpenshiftPluginImage,
+									Name:            common.VeleroPluginForOpenshift,
+									ImagePullPolicy: corev1.PullAlways,
+									Resources: corev1.ResourceRequirements{
+										Requests: corev1.ResourceList{
+											corev1.ResourceCPU:    resource.MustParse("500m"),
+											corev1.ResourceMemory: resource.MustParse("128Mi"),
+										},
+									},
 									TerminationMessagePath:   "/dev/termination-log",
 									TerminationMessagePolicy: "File",
 									VolumeMounts: []corev1.VolumeMount{
@@ -539,10 +564,15 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 									},
 								},
 								{
-									Image:                    common.CSIPluginImage,
-									Name:                     common.VeleroPluginForCSI,
-									ImagePullPolicy:          corev1.PullAlways,
-									Resources:                corev1.ResourceRequirements{},
+									Image:           common.CSIPluginImage,
+									Name:            common.VeleroPluginForCSI,
+									ImagePullPolicy: corev1.PullAlways,
+									Resources: corev1.ResourceRequirements{
+										Requests: corev1.ResourceList{
+											corev1.ResourceCPU:    resource.MustParse("500m"),
+											corev1.ResourceMemory: resource.MustParse("128Mi"),
+										},
+									},
 									TerminationMessagePath:   "/dev/termination-log",
 									TerminationMessagePolicy: "File",
 									VolumeMounts: []corev1.VolumeMount{
@@ -2671,10 +2701,15 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							},
 							InitContainers: []corev1.Container{
 								{
-									Image:                    common.AWSPluginImage,
-									Name:                     common.VeleroPluginForAWS,
-									ImagePullPolicy:          corev1.PullAlways,
-									Resources:                corev1.ResourceRequirements{},
+									Image:           common.AWSPluginImage,
+									Name:            common.VeleroPluginForAWS,
+									ImagePullPolicy: corev1.PullAlways,
+									Resources: corev1.ResourceRequirements{
+										Requests: corev1.ResourceList{
+											corev1.ResourceCPU:    resource.MustParse("500m"),
+											corev1.ResourceMemory: resource.MustParse("128Mi"),
+										},
+									},
 									TerminationMessagePath:   "/dev/termination-log",
 									TerminationMessagePolicy: "File",
 									VolumeMounts: []corev1.VolumeMount{
@@ -2876,10 +2911,15 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							},
 							InitContainers: []corev1.Container{
 								{
-									Image:                    common.AWSPluginImage,
-									Name:                     common.VeleroPluginForAWS,
-									ImagePullPolicy:          corev1.PullAlways,
-									Resources:                corev1.ResourceRequirements{},
+									Image:           common.AWSPluginImage,
+									Name:            common.VeleroPluginForAWS,
+									ImagePullPolicy: corev1.PullAlways,
+									Resources: corev1.ResourceRequirements{
+										Requests: corev1.ResourceList{
+											corev1.ResourceCPU:    resource.MustParse("500m"),
+											corev1.ResourceMemory: resource.MustParse("128Mi"),
+										},
+									},
 									TerminationMessagePath:   "/dev/termination-log",
 									TerminationMessagePolicy: "File",
 									VolumeMounts: []corev1.VolumeMount{
@@ -2890,10 +2930,15 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 									},
 								},
 								{
-									Image:                    common.KubeVirtPluginImage,
-									Name:                     common.KubeVirtPlugin,
-									ImagePullPolicy:          corev1.PullAlways,
-									Resources:                corev1.ResourceRequirements{},
+									Image:           common.KubeVirtPluginImage,
+									Name:            common.KubeVirtPlugin,
+									ImagePullPolicy: corev1.PullAlways,
+									Resources: corev1.ResourceRequirements{
+										Requests: corev1.ResourceList{
+											corev1.ResourceCPU:    resource.MustParse("500m"),
+											corev1.ResourceMemory: resource.MustParse("128Mi"),
+										},
+									},
 									TerminationMessagePath:   "/dev/termination-log",
 									TerminationMessagePolicy: "File",
 									VolumeMounts: []corev1.VolumeMount{
@@ -3098,10 +3143,15 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							},
 							InitContainers: []corev1.Container{
 								{
-									Image:                    common.AWSPluginImage,
-									Name:                     common.VeleroPluginForAWS,
-									ImagePullPolicy:          corev1.PullAlways,
-									Resources:                corev1.ResourceRequirements{},
+									Image:           common.AWSPluginImage,
+									Name:            common.VeleroPluginForAWS,
+									ImagePullPolicy: corev1.PullAlways,
+									Resources: corev1.ResourceRequirements{
+										Requests: corev1.ResourceList{
+											corev1.ResourceCPU:    resource.MustParse("500m"),
+											corev1.ResourceMemory: resource.MustParse("128Mi"),
+										},
+									},
 									TerminationMessagePath:   "/dev/termination-log",
 									TerminationMessagePolicy: "File",
 									VolumeMounts: []corev1.VolumeMount{
@@ -3338,10 +3388,15 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							},
 							InitContainers: []corev1.Container{
 								{
-									Image:                    common.AWSPluginImage,
-									Name:                     common.VeleroPluginForAWS,
-									ImagePullPolicy:          corev1.PullAlways,
-									Resources:                corev1.ResourceRequirements{},
+									Image:           common.AWSPluginImage,
+									Name:            common.VeleroPluginForAWS,
+									ImagePullPolicy: corev1.PullAlways,
+									Resources: corev1.ResourceRequirements{
+										Requests: corev1.ResourceList{
+											corev1.ResourceCPU:    resource.MustParse("500m"),
+											corev1.ResourceMemory: resource.MustParse("128Mi"),
+										},
+									},
 									TerminationMessagePath:   "/dev/termination-log",
 									TerminationMessagePolicy: "File",
 									VolumeMounts: []corev1.VolumeMount{
@@ -3566,10 +3621,15 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							},
 							InitContainers: []corev1.Container{
 								{
-									Image:                    common.AWSPluginImage,
-									Name:                     common.VeleroPluginForAWS,
-									ImagePullPolicy:          corev1.PullAlways,
-									Resources:                corev1.ResourceRequirements{},
+									Image:           common.AWSPluginImage,
+									Name:            common.VeleroPluginForAWS,
+									ImagePullPolicy: corev1.PullAlways,
+									Resources: corev1.ResourceRequirements{
+										Requests: corev1.ResourceList{
+											corev1.ResourceCPU:    resource.MustParse("500m"),
+											corev1.ResourceMemory: resource.MustParse("128Mi"),
+										},
+									},
 									TerminationMessagePath:   "/dev/termination-log",
 									TerminationMessagePolicy: "File",
 									VolumeMounts: []corev1.VolumeMount{
