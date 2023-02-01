@@ -134,6 +134,16 @@ func TestDPAReconciler_buildDataMoverDeployment(t *testing.T) {
 									Image:           common.DataMoverImage,
 									Name:            common.DataMoverControllerContainer,
 									ImagePullPolicy: corev1.PullAlways,
+									Env: []corev1.EnvVar{
+										{
+											Name:  DataMoverConcurrentBackup,
+											Value: DefaultConcurrentBackupVolumes,
+										},
+										{
+											Name:  DataMoverConcurrentRestore,
+											Value: DefaultConcurrentRestoreVolumes,
+										},
+									},
 								},
 							},
 							ServiceAccountName: "openshift-adp-controller-manager",
