@@ -44,6 +44,8 @@ const (
 	AzureAccountKey  = "AZURE_ACCOUNT_KEY"
 	// GCP vars
 	GoogleApplicationCredentials = "GOOGLE_APPLICATION_CREDENTIALS"
+
+	DataMoverConfigMapName = "datamover-config"
 )
 
 type gcpCredentials struct {
@@ -172,13 +174,28 @@ func (r *DPAReconciler) ReconcileDataMoverConfigs(log logr.Logger) (bool, error)
 		return false, err
 	}
 
+	// check configMap already exists
+	confMap, confMapExists, err := r.checkConfigMapExists()
+	if err != nil {
+		return false, err
+	}
+
+	// check for existing configMap but no data mover configs set
+	if !r.checkDataMoverConfigs(&dpa) && confMapExists {
+
+		err := r.Delete(context.Background(), confMap, &client.DeleteOptions{})
+		if err != nil {
+			return false, err
+		}
+	}
+
 	// create configmap only if data mover is enabled and has config values
 	if r.checkIfDataMoverIsEnabled(&dpa) && r.checkDataMoverConfigs(&dpa) {
 
 		// create configmap to pass values to data mover CRs
 		cm := corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "datamover-config",
+				Name:      DataMoverConfigMapName,
 				Namespace: dpa.Namespace,
 			},
 		}
@@ -655,7 +672,7 @@ func (r *DPAReconciler) checkIfDataMoverIsEnabled(dpa *oadpv1alpha1.DataProtecti
 func (r *DPAReconciler) checkDataMoverConfigs(dpa *oadpv1alpha1.DataProtectionApplication) bool {
 
 	if dpa.Spec.Features != nil && dpa.Spec.Features.DataMover != nil &&
-		dpa.Spec.Features.DataMover.MoverConfig != nil {
+		dpa.Spec.Features.DataMover.VolumeOptions != nil {
 		return true
 	}
 
@@ -664,24 +681,40 @@ func (r *DPAReconciler) checkDataMoverConfigs(dpa *oadpv1alpha1.DataProtectionAp
 
 func (r *DPAReconciler) makeConfigMapData(dpa *oadpv1alpha1.DataProtectionApplication) map[string]string {
 
-	if len(dpa.Spec.Features.DataMover.MoverConfig.StorageClassName) > 0 &&
-		len(dpa.Spec.Features.DataMover.MoverConfig.AccessMode) > 0 {
+	if len(dpa.Spec.Features.DataMover.VolumeOptions.StorageClassName) > 0 &&
+		len(dpa.Spec.Features.DataMover.VolumeOptions.AccessMode) > 0 {
 		return map[string]string{
-			"StorageClassName": dpa.Spec.Features.DataMover.MoverConfig.StorageClassName,
-			"AccessMode":       dpa.Spec.Features.DataMover.MoverConfig.AccessMode,
+			"StorageClassName": dpa.Spec.Features.DataMover.VolumeOptions.StorageClassName,
+			"AccessMode":       dpa.Spec.Features.DataMover.VolumeOptions.AccessMode,
 		}
 
-	} else if len(dpa.Spec.Features.DataMover.MoverConfig.StorageClassName) > 0 &&
-		len(dpa.Spec.Features.DataMover.MoverConfig.AccessMode) == 0 {
+	} else if len(dpa.Spec.Features.DataMover.VolumeOptions.StorageClassName) > 0 &&
+		len(dpa.Spec.Features.DataMover.VolumeOptions.AccessMode) == 0 {
 		return map[string]string{
-			"StorageClassName": dpa.Spec.Features.DataMover.MoverConfig.StorageClassName,
+			"StorageClassName": dpa.Spec.Features.DataMover.VolumeOptions.StorageClassName,
 		}
 
 	} else {
 		return map[string]string{
-			"AccessMode": dpa.Spec.Features.DataMover.MoverConfig.AccessMode,
+			"AccessMode": dpa.Spec.Features.DataMover.VolumeOptions.AccessMode,
 		}
 	}
+}
+
+func (r *DPAReconciler) checkConfigMapExists() (*corev1.ConfigMap, bool, error) {
+
+	// check configMap already exists
+	confmap := corev1.ConfigMap{}
+	err := r.Get(context.Background(), types.NamespacedName{Name: DataMoverConfigMapName, Namespace: r.NamespacedName.Namespace}, &confmap)
+	if err != nil {
+		if k8serror.IsNotFound(err) {
+			return nil, false, nil
+		}
+
+		return nil, false, err
+	}
+
+	return &confmap, true, nil
 }
 
 func (r *DPAReconciler) parseGCPSecret(secret corev1.Secret, secretKey string) (gcpCredentials, error) {

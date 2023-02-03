@@ -180,13 +180,13 @@ type DataMover struct {
 	// the number of batched volumeSnapshotRestores that can be inProgress at once, default value is 10
 	// +optional
 	MaxConcurrentRestoreVolumes string `json:"maxConcurrentRestoreVolumes,omitempty"`
-	// defines configurations for VolSync options
+	// defines configurations for data mover volume options
 	// +optional
-	MoverConfig *MoverConfig `json:"moverConfig,omitempty"`
+	VolumeOptions *VolumeOptions `json:"volumeOptions,omitempty"`
 }
 
 // MoverConfig defines configurations for VolSync options
-type MoverConfig struct {
+type VolumeOptions struct {
 	// storageClassName can be used to override the StorageClass of the source PVC
 	//+optional
 	StorageClassName string `json:"storageClassName,omitempty"`
