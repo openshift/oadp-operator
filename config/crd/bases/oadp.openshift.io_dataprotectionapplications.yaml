@@ -352,6 +352,9 @@ spec:
                         maxConcurrentRestoreVolumes:
                           description: the number of batched volumeSnapshotRestores that can be inProgress at once, default value is 10
                           type: string
+                        pruneInterval:
+                          description: defines how often (in days) to prune the datamover snapshots from the repository
+                          type: string
                         timeout:
                           description: User supplied timeout to be used for VolumeSnapshotBackup and VolumeSnapshotRestore to complete, default value is 10m
                           type: string
