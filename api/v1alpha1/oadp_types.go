@@ -180,6 +180,9 @@ type DataMover struct {
 	// the number of batched volumeSnapshotRestores that can be inProgress at once, default value is 10
 	// +optional
 	MaxConcurrentRestoreVolumes string `json:"maxConcurrentRestoreVolumes,omitempty"`
+	// defines how often (in days) to prune the datamover snapshots from the repository
+	// +optional
+	PruneInterval string `json:"pruneInterval,omitempty"`
 }
 
 // Features defines the configuration for the DPA to enable the tech preview features
