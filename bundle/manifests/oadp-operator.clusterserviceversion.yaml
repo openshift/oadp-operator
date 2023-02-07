@@ -24,7 +24,7 @@ metadata:
                   },
                   "default": true,
                   "objectStorage": {
-                    "bucket": "my-bucket-name",
+                    "bucket": "shubbam-6109f5e9711c8c58131acdd2f490f451",
                     "prefix": "velero"
                   },
                   "provider": "aws"
@@ -32,28 +32,26 @@ metadata:
               }
             ],
             "configuration": {
-              "restic": {
-                "enable": true
-              },
               "velero": {
                 "defaultPlugins": [
                   "openshift",
                   "aws",
-                  "kubevirt"
+                  "csi"
                 ]
               }
             },
-            "snapshotLocations": [
-              {
-                "velero": {
-                  "config": {
-                    "profile": "default",
-                    "region": "us-west-2"
-                  },
-                  "provider": "aws"
-                }
+            "features": {
+              "dataMover": {
+                "credentialName": "dm-repo-password",
+                "enable": true,
+                "pruneInterval": "14"
               }
-            ]
+            },
+            "unsupportedOverrides": {
+              "csiPluginImageFqin": "quay.io/konveyor/velero-plugin-for-csi:oadp-1.1",
+              "dataMoverImageFqin": "quay.io/spampatt/volume-snapshot-mover:latest",
+              "veleroImageFqin": "docker.io/dymurray/velero:nodelete"
+            }
           }
         },
         {
@@ -784,6 +782,8 @@ spec:
                   value: quay.io/konveyor/velero-plugin-for-gcp:latest
                 - name: RELATED_IMAGE_VELERO_PLUGIN_FOR_CSI
                   value: quay.io/konveyor/velero-plugin-for-csi:latest
+                - name: RELATED_IMAGE_VELERO_PLUGIN_FOR_VSM
+                  value: quay.io/konveyor/velero-plugin-for-vsm:latest
                 - name: RELATED_IMAGE_VOLUME_SNAPSHOT_MOVER
                   value: quay.io/konveyor/volume-snapshot-mover:latest
                 - name: RELATED_IMAGE_KUBEVIRT_VELERO_PLUGIN
@@ -908,6 +908,8 @@ spec:
     name: velero-plugin-for-gcp
   - image: quay.io/konveyor/velero-plugin-for-csi:latest
     name: velero-plugin-for-csi
+  - image: quay.io/konveyor/velero-plugin-for-vsm:latest
+    name: velero-plugin-for-vsm
   - image: quay.io/konveyor/volume-snapshot-mover:latest
     name: volume-snapshot-mover
   - image: quay.io/konveyor/kubevirt-velero-plugin:v0.2.0
