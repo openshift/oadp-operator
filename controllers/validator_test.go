@@ -492,7 +492,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 			want:    true,
 		},
 		{
-			name: "given valid DPA CR BSL configured and GCP Default Plugin without secret",
+			name: "given valid DPA CR BSL configured and GCP Default Plugin with secret",
 			dpa: &oadpv1alpha1.DataProtectionApplication{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-DPA-CR",
@@ -525,6 +525,64 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 			},
 			wantErr: false,
 			want:    true,
+		},
+		{
+			name: "given valid DPA CR BSL configured and GCP Default Plugin without secret with no-secret feature flag",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-DPA-CR",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					BackupLocations: []oadpv1alpha1.BackupLocation{
+						{
+							Velero: &v1.BackupStorageLocationSpec{
+								Provider: "velero.io/gcp",
+							},
+						},
+					},
+
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+								oadpv1alpha1.DefaultPluginGCP,
+							},
+							FeatureFlags: []string{"no-secret"},
+						},
+					},
+				},
+			},
+			objects: []client.Object{},
+			wantErr: false,
+			want:    true,
+		},
+		{
+			name: "should error: given valid DPA CR BSL configured and GCP Default Plugin without secret without no-secret feature flag",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-DPA-CR",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					BackupLocations: []oadpv1alpha1.BackupLocation{
+						{
+							Velero: &v1.BackupStorageLocationSpec{
+								Provider: "velero.io/gcp",
+							},
+						},
+					},
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+								oadpv1alpha1.DefaultPluginGCP,
+							},
+						},
+					},
+				},
+			},
+			objects: []client.Object{},
+			wantErr: true,
+			want:    false,
 		},
 		{
 			name: "given valid DPA CR VSL configured and GCP Default Plugin without secret",
