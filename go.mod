@@ -31,6 +31,11 @@ require (
 )
 
 require (
+	github.com/deckarep/golang-set/v2 v2.1.0
+	github.com/google/go-cmp v0.5.9
+)
+
+require (
 	cloud.google.com/go v0.100.2 // indirect
 	cloud.google.com/go/compute v1.5.0 // indirect
 	cloud.google.com/go/iam v0.1.1 // indirect
