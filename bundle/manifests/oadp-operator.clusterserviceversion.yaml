@@ -24,7 +24,7 @@ metadata:
                   },
                   "default": true,
                   "objectStorage": {
-                    "bucket": "shubbam-6109f5e9711c8c58131acdd2f490f451",
+                    "bucket": "my-bucket-name",
                     "prefix": "velero"
                   },
                   "provider": "aws"
@@ -32,26 +32,28 @@ metadata:
               }
             ],
             "configuration": {
+              "restic": {
+                "enable": true
+              },
               "velero": {
                 "defaultPlugins": [
                   "openshift",
                   "aws",
-                  "csi"
+                  "kubevirt"
                 ]
               }
             },
-            "features": {
-              "dataMover": {
-                "credentialName": "dm-repo-password",
-                "enable": true,
-                "pruneInterval": "14"
+            "snapshotLocations": [
+              {
+                "velero": {
+                  "config": {
+                    "profile": "default",
+                    "region": "us-west-2"
+                  },
+                  "provider": "aws"
+                }
               }
-            },
-            "unsupportedOverrides": {
-              "csiPluginImageFqin": "quay.io/konveyor/velero-plugin-for-csi:oadp-1.1",
-              "dataMoverImageFqin": "quay.io/spampatt/volume-snapshot-mover:latest",
-              "veleroImageFqin": "docker.io/dymurray/velero:nodelete"
-            }
+            ]
           }
         },
         {
