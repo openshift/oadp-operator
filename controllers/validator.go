@@ -7,6 +7,7 @@ import (
 
 	"time"
 
+	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/go-logr/logr"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	"github.com/openshift/oadp-operator/pkg/credentials"
@@ -114,25 +115,25 @@ func (r *DPAReconciler) ValidateVeleroPlugins(log logr.Logger) (bool, error) {
 			pluginNeedsCheck = true
 		}
 		if ok && pluginSpecificMap.IsCloudProvider && pluginNeedsCheck && !dpa.Spec.Configuration.Velero.NoDefaultBackupLocation && !dpa.Spec.Configuration.Velero.HasFeatureFlag("no-secret") {
-			secretNamesToValidate := make(map[string]empty)
+			secretNamesToValidate := mapset.NewSet[string]()
 			// check specified credentials in backup locations exists in the cluster
 			for _, location := range dpa.Spec.BackupLocations {
 				if location.Velero != nil {
 					provider := strings.TrimPrefix(location.Velero.Provider, veleroIOPrefix)
 					if provider == string(plugin) && location.Velero != nil {
 						if location.Velero.Credential != nil {
-							secretNamesToValidate[location.Velero.Credential.Name] = empty{}
+							secretNamesToValidate.Add(location.Velero.Credential.Name)
 						} else {
-							secretNamesToValidate[pluginSpecificMap.SecretName] = empty{}
+							secretNamesToValidate.Add(pluginSpecificMap.SecretName)
 						}
 					}
 				}
 			}
 			// check for default secret name if dpa has snapshotLocations
 			if foundInVSL := snapshotLocationsProviders[string(plugin)]; foundInVSL {
-				secretNamesToValidate[pluginSpecificMap.SecretName] = empty{}
+				secretNamesToValidate.Add(pluginSpecificMap.SecretName)
 			}
-			for secretName, _ := range secretNamesToValidate {
+			for _, secretName := range secretNamesToValidate.ToSlice() {
 				_, err := r.getProviderSecret(secretName)
 				if err != nil {
 					r.Log.Info(fmt.Sprintf("error validating %s provider secret:  %s/%s", string(plugin), r.NamespacedName.Namespace, secretName))
