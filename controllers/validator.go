@@ -125,7 +125,7 @@ func (r *DPAReconciler) ValidateVeleroPlugins(log logr.Logger) (bool, error) {
 		if !foundInBSLorVSL && !hasCloudStorage {
 			pluginNeedsCheck = true
 		}
-		if ok && pluginSpecificMap.IsCloudProvider && pluginNeedsCheck && !dpa.Spec.Configuration.Velero.NoDefaultBackupLocation {
+		if ok && pluginSpecificMap.IsCloudProvider && pluginNeedsCheck && !dpa.Spec.Configuration.Velero.NoDefaultBackupLocation && !dpa.Spec.Configuration.Velero.HasFeatureFlag("no-secret") {
 			secretNamesToValidate := make(map[string]empty)
 			// check specified credentials in backup locations exists in the cluster
 			for _, location := range dpa.Spec.BackupLocations {

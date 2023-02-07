@@ -317,6 +317,15 @@ func (dpa *DataProtectionApplication) BackupImages() bool {
 	return dpa.Spec.BackupImages == nil || *dpa.Spec.BackupImages
 }
 
+func (veleroConfig *VeleroConfig) HasFeatureFlag(flag string) bool {
+	for _, featureFlag := range veleroConfig.FeatureFlags {
+		if featureFlag == flag {
+			return true
+		}
+	}
+	return false
+}
+
 func init() {
 	SchemeBuilder.Register(&DataProtectionApplication{}, &DataProtectionApplicationList{}, &CloudStorage{}, &CloudStorageList{})
 }
