@@ -25,7 +25,6 @@ import (
 )
 
 const (
-	Restic                = "restic"
 	ResticRestoreHelperCM = "restic-restore-action-config"
 	HostPods              = "host-pods"
 )
@@ -37,11 +36,12 @@ var (
 	// we need to declare mountPropagationToHostContainer so that we have an address to point to
 	// for ds.Spec.Template.Spec.Volumes[].Containers[].VolumeMounts[].MountPropagation
 	mountPropagationToHostContainer = corev1.MountPropagationHostToContainer
-	resticLabelSelector             = &metav1.LabelSelector{
-		MatchLabels: map[string]string{
-			"component": common.Velero,
-			"name":      common.NodeAgent,
-		},
+	nodeAgentMatchLabels            = map[string]string{
+		"component": common.Velero,
+		"name":      common.NodeAgent,
+	}
+	nodeAgentLabelSelector = &metav1.LabelSelector{
+		MatchLabels: nodeAgentMatchLabels,
 	}
 )
 
@@ -53,13 +53,11 @@ func getResticPvHostPath() string {
 	return env
 }
 
-func getResticObjectMeta(r *DPAReconciler) metav1.ObjectMeta {
+func getNodeAgentObjectMeta(r *DPAReconciler) metav1.ObjectMeta {
 	return metav1.ObjectMeta{
-		Name:      Restic,
+		Name:      common.NodeAgent,
 		Namespace: r.NamespacedName.Namespace,
-		Labels: map[string]string{
-			"component": "velero",
-		},
+		Labels:    nodeAgentMatchLabels,
 	}
 }
 
@@ -71,7 +69,7 @@ func (r *DPAReconciler) ReconcileResticDaemonset(log logr.Logger) (bool, error) 
 
 	// Define "static" portion of daemonset
 	ds := &appsv1.DaemonSet{
-		ObjectMeta: getResticObjectMeta(r),
+		ObjectMeta: getNodeAgentObjectMeta(r),
 	}
 	if dpa.Spec.Configuration.Restic == nil || dpa.Spec.Configuration.Restic != nil && (dpa.Spec.Configuration.Restic.Enable == nil || !*dpa.Spec.Configuration.Restic.Enable) {
 		deleteContext := context.Background()
@@ -114,7 +112,7 @@ func (r *DPAReconciler) ReconcileResticDaemonset(log logr.Logger) (bool, error) 
 			if ds.Spec.Selector.MatchLabels == nil {
 				ds.Spec.Selector.MatchLabels = make(map[string]string)
 			}
-			ds.Spec.Selector.MatchLabels, err = common.AppendUniqueLabels(ds.Spec.Selector.MatchLabels, resticLabelSelector.MatchLabels)
+			ds.Spec.Selector.MatchLabels, err = common.AppendUniqueLabels(ds.Spec.Selector.MatchLabels, nodeAgentLabelSelector.MatchLabels)
 			if err != nil {
 				return fmt.Errorf("failed to append labels to selector: %s", err)
 			}
@@ -206,7 +204,7 @@ func (r *DPAReconciler) customizeResticDaemonset(dpa *oadpv1alpha1.DataProtectio
 		}
 	}
 	// customize specs
-	ds.Spec.Selector = resticLabelSelector
+	ds.Spec.Selector = nodeAgentLabelSelector
 	ds.Spec.UpdateStrategy = appsv1.DaemonSetUpdateStrategy{
 		Type: appsv1.RollingUpdateDaemonSetStrategyType,
 	}
