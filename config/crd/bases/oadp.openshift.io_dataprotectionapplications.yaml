@@ -352,6 +352,9 @@ spec:
                         maxConcurrentRestoreVolumes:
                           description: the number of batched volumeSnapshotRestores that can be inProgress at once, default value is 10
                           type: string
+                        pruneInterval:
+                          description: defines how often (in days) to prune the datamover snapshots from the repository
+                          type: string
                         timeout:
                           description: User supplied timeout to be used for VolumeSnapshotBackup and VolumeSnapshotRestore to complete, default value is 10m
                           type: string
@@ -360,6 +363,15 @@ spec:
                           properties:
                             accessMode:
                               description: accessMode can be used to override the accessMode of the source PVC
+                              type: string
+                            cacheAccessMode:
+                              description: cacheAccessMode is the access mode to be used to provision the cache volume
+                              type: string
+                            cacheCapacity:
+                              description: cacheCapacity determines the size of the restic metadata cache volume
+                              type: string
+                            cacheStorageClassName:
+                              description: cacheStorageClassName is the storageClass that should be used when provisioning the data mover cache volume
                               type: string
                             storageClassName:
                               description: storageClassName can be used to override the StorageClass of the source PVC

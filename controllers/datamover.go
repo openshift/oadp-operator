@@ -24,9 +24,10 @@ import (
 )
 
 const (
-	ResticPassword   = "RESTIC_PASSWORD"
-	ResticRepository = "RESTIC_REPOSITORY"
-	ResticsecretName = "dm-credential"
+	ResticPassword      = "RESTIC_PASSWORD"
+	ResticRepository    = "RESTIC_REPOSITORY"
+	ResticsecretName    = "dm-credential"
+	ResticPruneInterval = "restic-prune-interval"
 
 	// batchNumbers vars
 	DefaultConcurrentBackupVolumes  = "10"
@@ -166,7 +167,7 @@ func (r *DPAReconciler) ReconcileDataMoverController(log logr.Logger) (bool, err
 	return true, nil
 }
 
-func (r *DPAReconciler) ReconcileDataMoverConfigs(log logr.Logger) (bool, error) {
+func (r *DPAReconciler) ReconcileDataMoverVolumeOptions(log logr.Logger) (bool, error) {
 
 	// fetch latest DPA instance
 	dpa := oadpv1alpha1.DataProtectionApplication{}
@@ -181,7 +182,7 @@ func (r *DPAReconciler) ReconcileDataMoverConfigs(log logr.Logger) (bool, error)
 	}
 
 	// check for existing configMap but no data mover configs set
-	if !r.checkDataMoverConfigs(&dpa) && confMapExists {
+	if !r.checkDataMoverVolumeOptions(&dpa) && confMapExists {
 
 		err := r.Delete(context.Background(), confMap, &client.DeleteOptions{})
 		if err != nil {
@@ -190,7 +191,7 @@ func (r *DPAReconciler) ReconcileDataMoverConfigs(log logr.Logger) (bool, error)
 	}
 
 	// create configmap only if data mover is enabled and has config values
-	if r.checkIfDataMoverIsEnabled(&dpa) && r.checkDataMoverConfigs(&dpa) {
+	if r.checkIfDataMoverIsEnabled(&dpa) && r.checkDataMoverVolumeOptions(&dpa) {
 
 		// create configmap to pass values to data mover CRs
 		cm := corev1.ConfigMap{
@@ -201,8 +202,12 @@ func (r *DPAReconciler) ReconcileDataMoverConfigs(log logr.Logger) (bool, error)
 		}
 
 		op, err := controllerutil.CreateOrPatch(r.Context, r.Client, &cm, func() error {
-			cm.Data = r.makeConfigMapData(&dpa)
+			err := r.buildDataMoverConfigMap(&dpa, &cm)
+			if err != nil {
+				return err
+			}
 			return nil
+
 		})
 		if err != nil {
 			return false, err
@@ -378,6 +383,12 @@ func (r *DPAReconciler) createResticSecretsPerBSL(dpa *oadpv1alpha1.DataProtecti
 			}
 			repobase = strings.TrimSuffix(repobase, "/")
 			repo := "s3:" + repobase + "/" + bsl.Spec.ObjectStorage.Bucket
+			pruneInterval := ""
+			if len(dpa.Spec.Features.DataMover.PruneInterval) > 0 {
+				pruneInterval = dpa.Spec.Features.DataMover.PruneInterval
+				pruneInterval = strings.ReplaceAll(pruneInterval, `"`, "")
+				pruneInterval = strings.ReplaceAll(pruneInterval, `'`, "")
+			}
 			rsecret := &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      fmt.Sprintf("%s-volsync-restic", bsl.Name),
@@ -397,7 +408,7 @@ func (r *DPAReconciler) createResticSecretsPerBSL(dpa *oadpv1alpha1.DataProtecti
 					return err
 				}
 
-				return r.buildDataMoverResticSecretForAWS(rsecret, key, secret, bsl.Spec.Config[Region], pass, repo)
+				return r.buildDataMoverResticSecretForAWS(rsecret, key, secret, bsl.Spec.Config[Region], pass, repo, pruneInterval)
 			})
 
 			if err != nil {
@@ -444,7 +455,10 @@ func (r *DPAReconciler) createResticSecretsPerBSL(dpa *oadpv1alpha1.DataProtecti
 
 			// lets construct the repo URL
 			repo := "azure:" + bsl.Spec.ObjectStorage.Bucket + ":"
-
+			pruneInterval := ""
+			if len(dpa.Spec.Features.DataMover.PruneInterval) > 0 {
+				pruneInterval = dpa.Spec.Features.DataMover.PruneInterval
+			}
 			// We are done with checks no lets create the azure dm secret
 			rsecret := &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
@@ -465,7 +479,7 @@ func (r *DPAReconciler) createResticSecretsPerBSL(dpa *oadpv1alpha1.DataProtecti
 					return err
 				}
 
-				return r.buildDataMoverResticSecretForAzure(rsecret, accountName, accountKey, pass, repo)
+				return r.buildDataMoverResticSecretForAzure(rsecret, accountName, accountKey, pass, repo, pruneInterval)
 			})
 
 			if err != nil {
@@ -497,7 +511,10 @@ func (r *DPAReconciler) createResticSecretsPerBSL(dpa *oadpv1alpha1.DataProtecti
 
 			// let's construct the repo URL
 			repo := "gs:" + bsl.Spec.ObjectStorage.Bucket + ":"
-
+			pruneInterval := ""
+			if len(dpa.Spec.Features.DataMover.PruneInterval) > 0 {
+				pruneInterval = dpa.Spec.Features.DataMover.PruneInterval
+			}
 			// We are done with checks no lets create the gcp dm secret
 			rsecret := &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
@@ -518,7 +535,7 @@ func (r *DPAReconciler) createResticSecretsPerBSL(dpa *oadpv1alpha1.DataProtecti
 					return err
 				}
 
-				return r.buildDataMoverResticSecretForGCP(rsecret, gcpcreds.googleApplicationCredentials, pass, repo)
+				return r.buildDataMoverResticSecretForGCP(rsecret, gcpcreds.googleApplicationCredentials, pass, repo, pruneInterval)
 			})
 
 			if err != nil {
@@ -539,16 +556,17 @@ func (r *DPAReconciler) createResticSecretsPerBSL(dpa *oadpv1alpha1.DataProtecti
 }
 
 //build data mover restic secret for given aws bsl
-func (r *DPAReconciler) buildDataMoverResticSecretForAWS(rsecret *corev1.Secret, key string, secret string, region string, pass []byte, repo string) error {
+func (r *DPAReconciler) buildDataMoverResticSecretForAWS(rsecret *corev1.Secret, key string, secret string, region string, pass []byte, repo string, pruneInterval string) error {
 
 	// TODO: add gcp, azure support
 	rData := &corev1.Secret{
 		Data: map[string][]byte{
-			AWSAccessKey:     []byte(key),
-			AWSSecretKey:     []byte(secret),
-			AWSDefaultRegion: []byte(region),
-			ResticPassword:   pass,
-			ResticRepository: []byte(repo),
+			AWSAccessKey:        []byte(key),
+			AWSSecretKey:        []byte(secret),
+			AWSDefaultRegion:    []byte(region),
+			ResticPassword:      pass,
+			ResticRepository:    []byte(repo),
+			ResticPruneInterval: []byte(pruneInterval),
 		},
 	}
 	rsecret.Data = rData.Data
@@ -556,14 +574,15 @@ func (r *DPAReconciler) buildDataMoverResticSecretForAWS(rsecret *corev1.Secret,
 }
 
 //build data mover restic secret for given bsl
-func (r *DPAReconciler) buildDataMoverResticSecretForAzure(rsecret *corev1.Secret, accountName string, accountKey string, pass []byte, repo string) error {
+func (r *DPAReconciler) buildDataMoverResticSecretForAzure(rsecret *corev1.Secret, accountName string, accountKey string, pass []byte, repo string, pruneInterval string) error {
 
 	rData := &corev1.Secret{
 		Data: map[string][]byte{
-			AzureAccountName: []byte(accountName),
-			AzureAccountKey:  []byte(accountKey),
-			ResticPassword:   pass,
-			ResticRepository: []byte(repo),
+			AzureAccountName:    []byte(accountName),
+			AzureAccountKey:     []byte(accountKey),
+			ResticPassword:      pass,
+			ResticRepository:    []byte(repo),
+			ResticPruneInterval: []byte(pruneInterval),
 		},
 	}
 	rsecret.Data = rData.Data
@@ -571,13 +590,14 @@ func (r *DPAReconciler) buildDataMoverResticSecretForAzure(rsecret *corev1.Secre
 }
 
 //build data mover restic secret for given gcp bsl
-func (r *DPAReconciler) buildDataMoverResticSecretForGCP(rsecret *corev1.Secret, googleApplicationCredentials string, pass []byte, repo string) error {
+func (r *DPAReconciler) buildDataMoverResticSecretForGCP(rsecret *corev1.Secret, googleApplicationCredentials string, pass []byte, repo string, pruneInterval string) error {
 
 	rData := &corev1.Secret{
 		Data: map[string][]byte{
 			GoogleApplicationCredentials: []byte(googleApplicationCredentials),
 			ResticPassword:               pass,
 			ResticRepository:             []byte(repo),
+			ResticPruneInterval:          []byte(pruneInterval),
 		},
 	}
 	rsecret.Data = rData.Data
@@ -669,7 +689,7 @@ func (r *DPAReconciler) checkIfDataMoverIsEnabled(dpa *oadpv1alpha1.DataProtecti
 	return false
 }
 
-func (r *DPAReconciler) checkDataMoverConfigs(dpa *oadpv1alpha1.DataProtectionApplication) bool {
+func (r *DPAReconciler) checkDataMoverVolumeOptions(dpa *oadpv1alpha1.DataProtectionApplication) bool {
 
 	if dpa.Spec.Features != nil && dpa.Spec.Features.DataMover != nil &&
 		dpa.Spec.Features.DataMover.VolumeOptions != nil {
@@ -679,26 +699,40 @@ func (r *DPAReconciler) checkDataMoverConfigs(dpa *oadpv1alpha1.DataProtectionAp
 	return false
 }
 
-func (r *DPAReconciler) makeConfigMapData(dpa *oadpv1alpha1.DataProtectionApplication) map[string]string {
+func (r *DPAReconciler) buildDataMoverConfigMap(dpa *oadpv1alpha1.DataProtectionApplication, cm *corev1.ConfigMap) error {
 
-	if len(dpa.Spec.Features.DataMover.VolumeOptions.StorageClassName) > 0 &&
-		len(dpa.Spec.Features.DataMover.VolumeOptions.AccessMode) > 0 {
-		return map[string]string{
-			"StorageClassName": dpa.Spec.Features.DataMover.VolumeOptions.StorageClassName,
-			"AccessMode":       dpa.Spec.Features.DataMover.VolumeOptions.AccessMode,
-		}
-
-	} else if len(dpa.Spec.Features.DataMover.VolumeOptions.StorageClassName) > 0 &&
-		len(dpa.Spec.Features.DataMover.VolumeOptions.AccessMode) == 0 {
-		return map[string]string{
-			"StorageClassName": dpa.Spec.Features.DataMover.VolumeOptions.StorageClassName,
-		}
-
-	} else {
-		return map[string]string{
-			"AccessMode": dpa.Spec.Features.DataMover.VolumeOptions.AccessMode,
-		}
+	if dpa == nil {
+		return fmt.Errorf("DPA CR cannot be nil")
 	}
+	if cm == nil {
+		return fmt.Errorf("datamover deployment cannot be nil")
+	}
+
+	cmMap := map[string]string{}
+
+	if len(dpa.Spec.Features.DataMover.VolumeOptions.StorageClassName) > 0 {
+		cmMap["StorageClassName"] = dpa.Spec.Features.DataMover.VolumeOptions.StorageClassName
+	}
+
+	if len(dpa.Spec.Features.DataMover.VolumeOptions.AccessMode) > 0 {
+		cmMap["AccessMode"] = dpa.Spec.Features.DataMover.VolumeOptions.AccessMode
+	}
+
+	if len(dpa.Spec.Features.DataMover.VolumeOptions.CacheStorageClassName) > 0 {
+		cmMap["CacheStorageClassName"] = dpa.Spec.Features.DataMover.VolumeOptions.CacheStorageClassName
+	}
+
+	if len(dpa.Spec.Features.DataMover.VolumeOptions.CacheAccessMode) > 0 {
+		cmMap["CacheAccessMode"] = dpa.Spec.Features.DataMover.VolumeOptions.CacheAccessMode
+	}
+
+	if len(dpa.Spec.Features.DataMover.VolumeOptions.CacheCapacity) > 0 {
+		cmMap["CacheCapacity"] = dpa.Spec.Features.DataMover.VolumeOptions.CacheCapacity
+	}
+
+	cm.Data = cmMap
+
+	return nil
 }
 
 func (r *DPAReconciler) checkConfigMapExists() (*corev1.ConfigMap, bool, error) {

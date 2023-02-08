@@ -180,6 +180,9 @@ type DataMover struct {
 	// the number of batched volumeSnapshotRestores that can be inProgress at once, default value is 10
 	// +optional
 	MaxConcurrentRestoreVolumes string `json:"maxConcurrentRestoreVolumes,omitempty"`
+	// defines how often (in days) to prune the datamover snapshots from the repository
+	// +optional
+	PruneInterval string `json:"pruneInterval,omitempty"`
 	// defines configurations for data mover volume options
 	// +optional
 	VolumeOptions *VolumeOptions `json:"volumeOptions,omitempty"`
@@ -193,6 +196,16 @@ type VolumeOptions struct {
 	// accessMode can be used to override the accessMode of the source PVC
 	//+optional
 	AccessMode string `json:"accessMode,omitempty"`
+	// cacheStorageClassName is the storageClass that should be used when provisioning
+	// the data mover cache volume
+	//+optional
+	CacheStorageClassName string `json:"cacheStorageClassName,omitempty"`
+	// cacheCapacity determines the size of the restic metadata cache volume
+	//+optional
+	CacheCapacity string `json:"cacheCapacity,omitempty"`
+	// cacheAccessMode is the access mode to be used to provision the cache volume
+	//+optional
+	CacheAccessMode string `json:"cacheAccessMode,omitempty"`
 }
 
 // Features defines the configuration for the DPA to enable the tech preview features
