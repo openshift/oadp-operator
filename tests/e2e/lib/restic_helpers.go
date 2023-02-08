@@ -6,6 +6,7 @@ import (
 	"time"
 
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
+	"github.com/openshift/oadp-operator/pkg/common"
 	appsv1 "k8s.io/api/apps/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -21,7 +22,7 @@ func HasCorrectNumResticPods(namespace string) wait.ConditionFunc {
 			return false, err
 		}
 		resticOptions := metav1.ListOptions{
-			FieldSelector: "metadata.name=restic",
+			FieldSelector: "metadata.name=" + common.NodeAgent,
 		}
 		resticDaemeonSet, err := client.AppsV1().DaemonSets(namespace).List(context.TODO(), resticOptions)
 		if err != nil {
@@ -51,7 +52,7 @@ func waitForDesiredResticPods(namespace string) error {
 	return wait.PollImmediate(time.Second*5, time.Minute*2, HasCorrectNumResticPods(namespace))
 }
 
-func AreResticPodsRunning(namespace string) wait.ConditionFunc {
+func AreNodeAgentPodsRunning(namespace string) wait.ConditionFunc {
 	log.Printf("Checking for correct number of running Restic pods...")
 	return func() (bool, error) {
 		err := waitForDesiredResticPods(namespace)
@@ -63,7 +64,7 @@ func AreResticPodsRunning(namespace string) wait.ConditionFunc {
 			return false, err
 		}
 		resticPodOptions := metav1.ListOptions{
-			LabelSelector: "name=restic",
+			LabelSelector: "name=" + common.NodeAgent,
 		}
 		// get pods in the oadp-operator-e2e namespace with label selector
 		podList, err := client.CoreV1().Pods(namespace).List(context.TODO(), resticPodOptions)
@@ -80,21 +81,6 @@ func AreResticPodsRunning(namespace string) wait.ConditionFunc {
 	}
 }
 
-func DoesDaemonSetExists(namespace string, resticName string) wait.ConditionFunc {
-	log.Printf("Checking if restic daemonset exists...")
-	return func() (bool, error) {
-		clientset, err := setUpClient()
-		if err != nil {
-			return false, err
-		}
-		_, err = clientset.AppsV1().DaemonSets(namespace).Get(context.Background(), resticName, metav1.GetOptions{})
-		if err != nil {
-			return false, err
-		}
-		return true, nil
-	}
-}
-
 // keep for now
 func IsResticDaemonsetDeleted(namespace string) wait.ConditionFunc {
 	log.Printf("Checking if Restic daemonset has been deleted...")
@@ -104,7 +90,7 @@ func IsResticDaemonsetDeleted(namespace string) wait.ConditionFunc {
 			return false, nil
 		}
 		// Check for daemonSet
-		_, err = client.AppsV1().DaemonSets(namespace).Get(context.Background(), "restic", metav1.GetOptions{})
+		_, err = client.AppsV1().DaemonSets(namespace).Get(context.Background(), common.NodeAgent, metav1.GetOptions{})
 		if apierrors.IsNotFound(err) {
 			return true, nil
 		}
@@ -165,7 +151,7 @@ func ResticDaemonSetHasNodeSelector(namespace, key, value string) wait.Condition
 		if err != nil {
 			return false, nil
 		}
-		ds, err := client.AppsV1().DaemonSets(namespace).Get(context.TODO(), "restic", metav1.GetOptions{})
+		ds, err := client.AppsV1().DaemonSets(namespace).Get(context.TODO(), common.NodeAgent, metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}

@@ -944,7 +944,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 						Velero: &oadpv1alpha1.VeleroConfig{
 							PodConfig: &oadpv1alpha1.PodConfig{
 								Labels: map[string]string{
-									"component": "restic",
+									"component": common.NodeAgent,
 								},
 							},
 						},
