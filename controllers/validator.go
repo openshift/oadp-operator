@@ -57,6 +57,18 @@ func (r *DPAReconciler) ValidateDataProtectionCR(log logr.Logger) (bool, error) 
 				return false, err
 			}
 		}
+
+		// Also check if the VSM plugin is specified or not
+		VSMPluginPresent := false
+		for _, plugin := range dpa.Spec.Configuration.Velero.DefaultPlugins {
+			if plugin == oadpv1alpha1.DefaultPluginVSM {
+				VSMPluginPresent = true
+			}
+		}
+
+		if !VSMPluginPresent {
+			return false, errors.New("datamover feature is enabled, need to specify vsm as a default plugin in DataProtectionApplication CR")
+		}
 	}
 
 	if val, found := dpa.Spec.UnsupportedOverrides[oadpv1alpha1.OperatorTypeKey]; found && val != oadpv1alpha1.OperatorTypeMTC {
