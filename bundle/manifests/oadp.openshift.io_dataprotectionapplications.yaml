@@ -362,7 +362,7 @@ spec:
                           description: defines configurations for data mover volume options
                           properties:
                             accessMode:
-                              description: accessMode can be used to override the accessMode of the source PVC
+                              description: accessMode can be used to override the accessMode of the source or destination PVC
                               type: string
                             cacheAccessMode:
                               description: cacheAccessMode is the access mode to be used to provision the cache volume
@@ -374,7 +374,7 @@ spec:
                               description: cacheStorageClassName is the storageClass that should be used when provisioning the data mover cache volume
                               type: string
                             storageClassName:
-                              description: storageClassName can be used to override the StorageClass of the source PVC
+                              description: storageClassName can be used to override the StorageClass of the source or destination PVC
                               type: string
                           type: object
                       type: object

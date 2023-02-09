@@ -190,10 +190,12 @@ type DataMover struct {
 
 // MoverConfig defines configurations for VolSync options
 type VolumeOptions struct {
-	// storageClassName can be used to override the StorageClass of the source PVC
+	// storageClassName can be used to override the StorageClass of the source
+	// or destination PVC
 	//+optional
 	StorageClassName string `json:"storageClassName,omitempty"`
-	// accessMode can be used to override the accessMode of the source PVC
+	// accessMode can be used to override the accessMode of the source or
+	// destination PVC
 	//+optional
 	AccessMode string `json:"accessMode,omitempty"`
 	// cacheStorageClassName is the storageClass that should be used when provisioning
