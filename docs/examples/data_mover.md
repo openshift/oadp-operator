@@ -31,7 +31,7 @@ stringData:
   - Add the restic secret name from the previous step to your DPA CR in `spec.features.dataMover.credentialName`.  
     If this step is not completed then it will default to the secret name `dm-credential`.
 
-  - Note the CSI `defaultPlugin` and `dataMover.enable` flag.
+  - Note the CSI and VSM as `defaultPlugins` and `dataMover.enable` flag.
 
 
 ```
@@ -66,6 +66,7 @@ spec:
         - openshift
         - aws
         - csi
+        - vsm
 ```
 
 <hr style="height:1px;border:none;color:#333;">
