@@ -185,7 +185,12 @@ type DataMover struct {
 	PruneInterval string `json:"pruneInterval,omitempty"`
 	// defines configurations for data mover volume options
 	// +optional
-	VolumeOptions *VolumeOptions `json:"volumeOptions,omitempty"`
+	DataMoverVolumeOptions *DataMoverVolumeOptions `json:"volumeOptions,omitempty"`
+}
+
+type DataMoverVolumeOptions struct {
+	SourceVolumeOptions      *VolumeOptions `json:"sourceVolumeOptions,omitempty"`
+	DestinationVolumeOptions *VolumeOptions `json:"destinationVolumeOptions,omitempty"`
 }
 
 // MoverConfig defines configurations for VolSync options

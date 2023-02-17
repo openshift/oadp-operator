@@ -692,7 +692,7 @@ func (r *DPAReconciler) checkIfDataMoverIsEnabled(dpa *oadpv1alpha1.DataProtecti
 func (r *DPAReconciler) checkDataMoverVolumeOptions(dpa *oadpv1alpha1.DataProtectionApplication) bool {
 
 	if dpa.Spec.Features != nil && dpa.Spec.Features.DataMover != nil &&
-		dpa.Spec.Features.DataMover.VolumeOptions != nil {
+		dpa.Spec.Features.DataMover.DataMoverVolumeOptions != nil {
 		return true
 	}
 
@@ -710,24 +710,54 @@ func (r *DPAReconciler) buildDataMoverConfigMap(dpa *oadpv1alpha1.DataProtection
 
 	cmMap := map[string]string{}
 
-	if len(dpa.Spec.Features.DataMover.VolumeOptions.StorageClassName) > 0 {
-		cmMap["StorageClassName"] = dpa.Spec.Features.DataMover.VolumeOptions.StorageClassName
+	// check for source volume options
+	if dpa.Spec.Features.DataMover.DataMoverVolumeOptions.SourceVolumeOptions != nil {
+		sourceOptions := dpa.Spec.Features.DataMover.DataMoverVolumeOptions.SourceVolumeOptions
+
+		if len(sourceOptions.StorageClassName) > 0 {
+			cmMap["SourceStorageClassName"] = sourceOptions.StorageClassName
+		}
+
+		if len(sourceOptions.AccessMode) > 0 {
+			cmMap["SourceAccessMode"] = sourceOptions.AccessMode
+		}
+
+		if len(sourceOptions.CacheStorageClassName) > 0 {
+			cmMap["SourceCacheStorageClassName"] = sourceOptions.CacheStorageClassName
+		}
+
+		if len(sourceOptions.CacheAccessMode) > 0 {
+			cmMap["SourceCacheAccessMode"] = sourceOptions.CacheAccessMode
+		}
+
+		if len(sourceOptions.CacheCapacity) > 0 {
+			cmMap["SourceCacheCapacity"] = sourceOptions.CacheCapacity
+		}
 	}
 
-	if len(dpa.Spec.Features.DataMover.VolumeOptions.AccessMode) > 0 {
-		cmMap["AccessMode"] = dpa.Spec.Features.DataMover.VolumeOptions.AccessMode
-	}
+	// check for destination volume options
+	if dpa.Spec.Features.DataMover.DataMoverVolumeOptions.DestinationVolumeOptions != nil {
+		destinationOptions := dpa.Spec.Features.DataMover.DataMoverVolumeOptions.DestinationVolumeOptions
 
-	if len(dpa.Spec.Features.DataMover.VolumeOptions.CacheStorageClassName) > 0 {
-		cmMap["CacheStorageClassName"] = dpa.Spec.Features.DataMover.VolumeOptions.CacheStorageClassName
-	}
+		if len(destinationOptions.StorageClassName) > 0 {
+			cmMap["DestinationStorageClassName"] = destinationOptions.StorageClassName
+		}
 
-	if len(dpa.Spec.Features.DataMover.VolumeOptions.CacheAccessMode) > 0 {
-		cmMap["CacheAccessMode"] = dpa.Spec.Features.DataMover.VolumeOptions.CacheAccessMode
-	}
+		if len(destinationOptions.AccessMode) > 0 {
+			cmMap["DestinationAccessMode"] = destinationOptions.AccessMode
+		}
 
-	if len(dpa.Spec.Features.DataMover.VolumeOptions.CacheCapacity) > 0 {
-		cmMap["CacheCapacity"] = dpa.Spec.Features.DataMover.VolumeOptions.CacheCapacity
+		if len(destinationOptions.CacheStorageClassName) > 0 {
+			cmMap["DestinationCacheStorageClassName"] = destinationOptions.CacheStorageClassName
+		}
+
+		if len(destinationOptions.CacheAccessMode) > 0 {
+			cmMap["DestinationCacheAccessMode"] = destinationOptions.CacheAccessMode
+		}
+
+		if len(destinationOptions.CacheCapacity) > 0 {
+			cmMap["DestinationCacheCapacity"] = destinationOptions.CacheCapacity
+		}
 	}
 
 	cm.Data = cmMap
