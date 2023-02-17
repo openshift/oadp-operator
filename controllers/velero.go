@@ -34,13 +34,9 @@ import (
 )
 
 const (
-	Server   = "server"
-	Registry = "Registry"
+	Server = "server"
 	//TODO: Check for default secret names
-	VeleroAWSSecretName   = "cloud-credentials"
-	VeleroAzureSecretName = "cloud-credentials-azure"
-	VeleroGCPSecretName   = "cloud-credentials-gcp"
-	enableCSIFeatureFlag  = "EnableCSI"
+	enableCSIFeatureFlag = "EnableCSI"
 )
 
 var (
@@ -707,10 +703,12 @@ func (r *DPAReconciler) getResticResourceReqs(dpa *oadpv1alpha1.DataProtectionAp
 // noDefaultCredentials determines if a provider needs the default credentials.
 // This returns a map of providers found to if they need a default credential,
 // a boolean if Cloud Storage backup storage location was used and an error if any occured.
+// When dpa.Spec.Configuration.Velero.NoSecret is set, we do not need to check for default credentials.
+// map[string]bool is a map of provider to if it needs a default credential. Where string is "aws", "azure", "gcp", etc.
 func (r DPAReconciler) noDefaultCredentials(dpa oadpv1alpha1.DataProtectionApplication) (map[string]bool, bool, error) {
 	providerNeedsDefaultCreds := map[string]bool{}
 	hasCloudStorage := false
-	if dpa.Spec.Configuration.Velero.NoDefaultBackupLocation {
+	if dpa.Spec.Configuration.Velero.NoDefaultBackupLocation || dpa.Spec.Configuration.Velero.NoSecret {
 		needDefaultCred := false
 
 		if dpa.Spec.UnsupportedOverrides[oadpv1alpha1.OperatorTypeKey] == oadpv1alpha1.OperatorTypeMTC {
@@ -720,7 +718,7 @@ func (r DPAReconciler) noDefaultCredentials(dpa oadpv1alpha1.DataProtectionAppli
 		// go through cloudprovider plugins and mark providerNeedsDefaultCreds to false
 		for _, provider := range dpa.Spec.Configuration.Velero.DefaultPlugins {
 			if psf, ok := credentials.PluginSpecificFields[provider]; ok && psf.IsCloudProvider {
-				providerNeedsDefaultCreds[psf.PluginName] = needDefaultCred
+				providerNeedsDefaultCreds[string(provider)] = needDefaultCred
 			}
 		}
 	} else {

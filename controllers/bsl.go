@@ -99,11 +99,12 @@ func (r *DPAReconciler) ReconcileBackupStorageLocations(log logr.Logger) (bool, 
 		//	 1. oadpApi.OadpOperatorLabel: "True"
 		// 	 2. <namespace>.dataprotectionapplication: <name>
 		// which in turn will be used in th elabel handler to trigger the reconciliation loop
-
-		secretName, _ := r.getSecretNameAndKeyforBackupLocation(bslSpec)
-		_, err := r.UpdateCredentialsSecretLabels(secretName, dpa.Namespace, dpa.Name)
-		if err != nil {
-			return false, err
+		if !dpa.Spec.Configuration.Velero.NoSecret {
+			secretName, _ := r.getSecretNameAndKeyforBackupLocation(bslSpec)
+			_, err := r.UpdateCredentialsSecretLabels(secretName, dpa.Namespace, dpa.Name)
+			if err != nil {
+				return false, err
+			}
 		}
 
 		// Create BSL
@@ -324,13 +325,15 @@ func (r *DPAReconciler) validateProviderPluginAndSecret(bslSpec velerov1.BackupS
 		r.Log.Info(fmt.Sprintf("%s backupstoragelocation is configured but velero plugin for %s is not present", bslSpec.Provider, bslSpec.Provider))
 		//TODO: set warning condition on Velero CR
 	}
-	secretName, _ := r.getSecretNameAndKey(&bslSpec, oadpv1alpha1.DefaultPlugin(bslSpec.Provider))
+	if !dpa.Spec.Configuration.Velero.NoSecret {
+		secretName, _ := r.getSecretNameAndKey(&bslSpec, oadpv1alpha1.DefaultPlugin(bslSpec.Provider))
 
-	_, err := r.getProviderSecret(secretName)
+		_, err := r.getProviderSecret(secretName)
 
-	if err != nil {
-		r.Log.Info(fmt.Sprintf("error validating %s provider secret:  %s/%s", bslSpec.Provider, r.NamespacedName.Namespace, secretName))
-		return err
+		if err != nil {
+			r.Log.Info(fmt.Sprintf("error validating %s provider secret:  %s/%s", bslSpec.Provider, r.NamespacedName.Namespace, secretName))
+			return err
+		}
 	}
 	return nil
 }

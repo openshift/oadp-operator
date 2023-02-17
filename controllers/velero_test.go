@@ -3932,9 +3932,9 @@ func TestDPAReconciler_noDefaultCredentials(t *testing.T) {
 				},
 			},
 			want: map[string]bool{
-				"velero-plugin-for-aws":             false,
-				"velero-plugin-for-gcp":             false,
-				"velero-plugin-for-microsoft-azure": false,
+				"aws":   false,
+				"gcp":   false,
+				"azure": false,
 			},
 			wantHasCloudStorage: false,
 			wantErr:             false,

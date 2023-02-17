@@ -1,8 +1,9 @@
 package controllers
 
 import (
-	"k8s.io/apimachinery/pkg/api/resource"
 	"testing"
+
+	"k8s.io/apimachinery/pkg/api/resource"
 
 	"github.com/go-logr/logr"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
@@ -37,6 +38,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 								oadpv1alpha1.DefaultPluginAWS,
 							},
 							NoDefaultBackupLocation: true,
+							NoSecret:                true,
 						},
 					},
 					BackupImages: pointer.Bool(false),
@@ -68,7 +70,14 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 					},
 				},
 			},
-			objects: []client.Object{},
+			objects: []client.Object{
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "cloud-credentials",
+						Namespace: "test-ns",
+					},
+				},
+			},
 			wantErr: false,
 			want:    true,
 		},

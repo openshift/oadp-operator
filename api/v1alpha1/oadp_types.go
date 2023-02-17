@@ -80,6 +80,10 @@ type VeleroConfig struct {
 	// If you need to install Velero without a default backup storage location noDefaultBackupLocation flag is required for confirmation
 	// +optional
 	NoDefaultBackupLocation bool `json:"noDefaultBackupLocation,omitempty"`
+	// If you need to install Velero without a secret, this flag is required for confirmation
+	// +optional
+	// +kubebuilder:default=false
+	NoSecret bool `json:"noSecret,omitempty"`
 	// Pod specific configuration
 	PodConfig *PodConfig `json:"podConfig,omitempty"`
 	// Velero server’s log level (use debug for the most logging, leave unset for velero default)

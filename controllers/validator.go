@@ -3,10 +3,11 @@ package controllers
 import (
 	"errors"
 	"fmt"
+	"time"
+
 	"github.com/go-logr/logr"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	"github.com/openshift/oadp-operator/pkg/credentials"
-	"time"
 )
 
 func (r *DPAReconciler) ValidateDataProtectionCR(log logr.Logger) (bool, error) {
@@ -28,8 +29,8 @@ func (r *DPAReconciler) ValidateDataProtectionCR(log logr.Logger) (bool, error) 
 		}
 	}
 
-	if dpa.Spec.Configuration.Velero.NoDefaultBackupLocation && dpa.BackupImages() {
-		return false, errors.New("backupImages needs to be set to false when noDefaultBackupLocation is set")
+	if (dpa.Spec.Configuration.Velero.NoDefaultBackupLocation || dpa.Spec.Configuration.Velero.NoSecret) && dpa.BackupImages() {
+		return false, errors.New("backupImages needs to be set to false when noDefaultBackupLocation or noSecret is true")
 	}
 
 	if len(dpa.Spec.BackupLocations) > 0 {
@@ -99,6 +100,7 @@ func (r *DPAReconciler) ValidateVeleroPlugins(log logr.Logger) (bool, error) {
 		return false, err
 	}
 
+	// Get map of cloud providers that need default credentials based on DPA CR
 	providerNeedsDefaultCreds, hasCloudStorage, err := r.noDefaultCredentials(dpa)
 	if err != nil {
 		return false, err
@@ -114,7 +116,7 @@ func (r *DPAReconciler) ValidateVeleroPlugins(log logr.Logger) (bool, error) {
 			pluginNeedsCheck = true
 		}
 
-		if ok && pluginSpecificMap.IsCloudProvider && pluginNeedsCheck && !dpa.Spec.Configuration.Velero.NoDefaultBackupLocation {
+		if ok && pluginSpecificMap.IsCloudProvider && pluginNeedsCheck {
 			secretName := pluginSpecificMap.SecretName
 			_, err := r.getProviderSecret(secretName)
 			if err != nil {

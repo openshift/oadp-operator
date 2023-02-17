@@ -265,6 +265,10 @@ spec:
                         noDefaultBackupLocation:
                           description: If you need to install Velero without a default backup storage location noDefaultBackupLocation flag is required for confirmation
                           type: boolean
+                        noSecret:
+                          default: false
+                          description: If you need to install Velero without a secret, this flag is required for confirmation
+                          type: boolean
                         podConfig:
                           description: Pod specific configuration
                           properties:

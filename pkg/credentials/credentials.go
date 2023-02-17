@@ -296,6 +296,7 @@ func AppendPluginSpecificSpecs(dpa *oadpv1alpha1.DataProtectionApplication, vele
 				pluginNeedsCheck = true
 			}
 
+			// if plugin is a cloud provider
 			if !pluginSpecificMap.IsCloudProvider || !pluginNeedsCheck {
 				continue
 			}
@@ -306,7 +307,7 @@ func AppendPluginSpecificSpecs(dpa *oadpv1alpha1.DataProtectionApplication, vele
 			}
 			// set default secret name to use
 			secretName := pluginSpecificMap.SecretName
-			// append plugin specific volume mounts
+			// append plugin specific secret volume mounts
 			if veleroContainer != nil {
 				veleroContainer.VolumeMounts = append(
 					veleroContainer.VolumeMounts,
@@ -324,7 +325,7 @@ func AppendPluginSpecificSpecs(dpa *oadpv1alpha1.DataProtectionApplication, vele
 					})
 			}
 
-			// append plugin specific volumes
+			// append plugin specific secret volumes
 			veleroDeployment.Spec.Template.Spec.Volumes = append(
 				veleroDeployment.Spec.Template.Spec.Volumes,
 				corev1.Volume{
