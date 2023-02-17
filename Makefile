@@ -356,14 +356,20 @@ bundle-build: ## Build the bundle image.
 bundle-push: ## Push the bundle image.
 	$(MAKE) docker-push IMG=$(BUNDLE_IMG)
 
-GIT_REV:=$(shell git rev-parse --short HEAD)
+# produce consistently 7 char git rev
+GIT_REV:=$(shell git rev-parse --short=7 HEAD)
+THIS_OPERATOR_IMAGE?=ttl.sh/oadp-operator-$(GIT_REV):1h
+THIS_BUNDLE_IMAGE?=ttl.sh/oadp-operator-bundle-$(GIT_REV):1h
 .PHONY: deploy-olm
-deploy-olm: THIS_OPERATOR_IMAGE?=ttl.sh/oadp-operator-$(GIT_REV):1h # Set target specific variable
-deploy-olm: THIS_BUNDLE_IMAGE?=ttl.sh/oadp-operator-bundle-$(GIT_REV):1h # Set target specific variable
-deploy-olm: DEPLOY_TMP:=$(shell mktemp -d)/ # Set target specific variable
-deploy-olm: operator-sdk ## Build current branch operator image, bundle image, push and install via OLM
+deploy-olm: ## Build current branch operator image, bundle image, push and install via OLM
 	oc whoami # Check if logged in
 	oc create namespace $(OADP_TEST_NAMESPACE) # This should error out if namespace already exists, delete namespace (to clear current resources) before proceeding
+	THIS_OPERATOR_IMAGE=$(THIS_OPERATOR_IMAGE) THIS_BUNDLE_IMAGE=$(THIS_BUNDLE_IMAGE) \
+		DEPLOY_TMP=$(DEPLOY_TMP) make build-olm run-olm
+	
+.PHONY: build-olm
+build-olm: DEPLOY_TMP:=$(shell mktemp -d)/
+build-olm: operator-sdk  ## Build current branch operator image, bundle image, push
 	@echo "DEPLOY_TMP: $(DEPLOY_TMP)"
 	# build and push operator and bundle image
 	# use $(OPERATOR_SDK) to install bundle to authenticated cluster
@@ -371,6 +377,9 @@ deploy-olm: operator-sdk ## Build current branch operator image, bundle image, p
 	IMG=$(THIS_OPERATOR_IMAGE) BUNDLE_IMG=$(THIS_BUNDLE_IMAGE) \
 		make docker-build docker-push bundle bundle-build bundle-push; \
 	rm -rf $(DEPLOY_TMP)
+
+.PHONY: run-olm
+run-olm: ## run built bundle image via OLM
 	$(OPERATOR_SDK) run bundle $(THIS_BUNDLE_IMAGE) --namespace $(OADP_TEST_NAMESPACE)
 
 .PHONY: opm
