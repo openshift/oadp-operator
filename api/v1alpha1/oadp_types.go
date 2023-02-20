@@ -193,7 +193,7 @@ type DataMoverVolumeOptions struct {
 	DestinationVolumeOptions *VolumeOptions `json:"destinationVolumeOptions,omitempty"`
 }
 
-// MoverConfig defines configurations for VolSync options
+// VolumeOptions defines configurations for VolSync options
 type VolumeOptions struct {
 	// storageClassName can be used to override the StorageClass of the source
 	// or destination PVC

@@ -198,6 +198,9 @@ func (r *DPAReconciler) ReconcileDataMoverVolumeOptions(log logr.Logger) (bool, 
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      DataMoverConfigMapName,
 				Namespace: dpa.Namespace,
+				Labels: map[string]string{
+					oadpv1alpha1.OadpOperatorLabel: "True",
+				},
 			},
 		}
 
