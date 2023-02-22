@@ -16,6 +16,7 @@ installing Velero:
    - `OpenShift` [OpenShift Velero Plugin](https://github.com/openshift/openshift-velero-plugin)
    - `CSI` [Plugins for CSI](https://github.com/vmware-tanzu/velero-plugin-for-csi)
    - `kubevirt` [Plugins for Kubevirt](https://github.com/kubevirt/kubevirt-velero-plugin)
+   - `VSM` [Plugin for Volume-Snapshot-Mover](https://github.com/migtools/velero-plugin-for-vsm)
 
    For installation, 
    you need to specify them in the `oadp_v1alpha1_dpa.yaml` file 

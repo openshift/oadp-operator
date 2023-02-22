@@ -663,6 +663,34 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 			wantErr: false,
 			want:    true,
 		},
+		{
+			name: "given valid DPA CR, datamover enabled, vsm plugin not specified, error case",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-DPA-CR",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+								oadpv1alpha1.DefaultPluginAWS,
+							},
+							NoDefaultBackupLocation: true,
+						},
+					},
+					BackupImages: pointer.Bool(false),
+					Features: &oadpv1alpha1.Features{
+						DataMover: &oadpv1alpha1.DataMover{
+							Enable: true,
+						},
+					},
+				},
+			},
+			objects: []client.Object{},
+			wantErr: true,
+			want:    false,
+		},
 	}
 	for _, tt := range tests {
 		tt.objects = append(tt.objects, tt.dpa)
