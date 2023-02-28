@@ -255,15 +255,7 @@ func AppendCloudProviderVolumes(dpa *oadpv1alpha1.DataProtectionApplication, ds 
 // add plugin specific specs to velero deployment
 func AppendPluginSpecificSpecs(dpa *oadpv1alpha1.DataProtectionApplication, veleroDeployment *appsv1.Deployment, veleroContainer *corev1.Container, providerNeedsDefaultCreds map[string]bool, hasCloudStorage bool) error {
 
-	init_container_resources := corev1.ResourceRequirements{}
-	if len(veleroDeployment.Spec.Template.Spec.Containers) > 0 {
-		for _, container := range veleroDeployment.Spec.Template.Spec.Containers {
-			if container.Name == "velero" {
-				init_container_resources = container.Resources
-				break
-			}
-		}
-	}
+	init_container_resources := veleroContainer.Resources
 
 	for _, plugin := range dpa.Spec.Configuration.Velero.DefaultPlugins {
 		if pluginSpecificMap, ok := PluginSpecificFields[plugin]; ok {
