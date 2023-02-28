@@ -176,7 +176,7 @@ func (r *DPAReconciler) ReconcileDataMoverVolumeOptions(log logr.Logger) (bool, 
 	}
 
 	// check configMap already exists
-	confMap, confMapExists, err := r.checkConfigMapExists()
+	confMap, confMapExists, err := r.checkDataMoverConfigMapExists()
 	if err != nil {
 		return false, err
 	}
@@ -768,7 +768,7 @@ func (r *DPAReconciler) buildDataMoverConfigMap(dpa *oadpv1alpha1.DataProtection
 	return nil
 }
 
-func (r *DPAReconciler) checkConfigMapExists() (*corev1.ConfigMap, bool, error) {
+func (r *DPAReconciler) checkDataMoverConfigMapExists() (*corev1.ConfigMap, bool, error) {
 
 	// check configMap already exists
 	confmap := corev1.ConfigMap{}
