@@ -335,6 +335,9 @@ spec:
                                 type: object
                               type: array
                           type: object
+                        resourceTimeout:
+                          description: resourceTimeout defines how long to wait for several Velero resources before timeout occurs, such as Velero CRD availability, volumeSnapshot deletion, and repo availability. Default is 10m
+                          type: string
                         restoreResourcesVersionPriority:
                           description: restoreResourceVersionPriority represents a configmap that will be created if defined for use in conjunction with EnableAPIGroupVersions feature flag Defining this field automatically add EnableAPIGroupVersions to the velero server feature flag
                           type: string
