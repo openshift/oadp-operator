@@ -45,6 +45,8 @@ const (
 	AzureAccountKey  = "AZURE_ACCOUNT_KEY"
 	// GCP vars
 	GoogleApplicationCredentials = "GOOGLE_APPLICATION_CREDENTIALS"
+
+	DataMoverConfigMapName = "datamover-config"
 )
 
 type gcpCredentials struct {
@@ -160,6 +162,68 @@ func (r *DPAReconciler) ReconcileDataMoverController(log logr.Logger) (bool, err
 			"DataMoverDeploymentReconciled",
 			fmt.Sprintf("performed %s on datamover deployment %s/%s", op, dataMoverDeployment.Namespace, dataMoverDeployment.Name),
 		)
+	}
+
+	return true, nil
+}
+
+func (r *DPAReconciler) ReconcileDataMoverVolumeOptions(log logr.Logger) (bool, error) {
+
+	// fetch latest DPA instance
+	dpa := oadpv1alpha1.DataProtectionApplication{}
+	if err := r.Get(r.Context, r.NamespacedName, &dpa); err != nil {
+		return false, err
+	}
+
+	// check configMap already exists
+	confMap, confMapExists, err := r.checkDataMoverConfigMapExists()
+	if err != nil {
+		return false, err
+	}
+
+	// check for existing configMap but no data mover configs set
+	if !r.checkDataMoverVolumeOptions(&dpa) && confMapExists {
+
+		err := r.Delete(context.Background(), confMap, &client.DeleteOptions{})
+		if err != nil {
+			return false, err
+		}
+	}
+
+	// create configmap only if data mover is enabled and has config values
+	if r.checkIfDataMoverIsEnabled(&dpa) && r.checkDataMoverVolumeOptions(&dpa) {
+
+		// create configmap to pass values to data mover CRs
+		cm := corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      DataMoverConfigMapName,
+				Namespace: dpa.Namespace,
+				Labels: map[string]string{
+					oadpv1alpha1.OadpOperatorLabel: "True",
+				},
+			},
+		}
+
+		op, err := controllerutil.CreateOrPatch(r.Context, r.Client, &cm, func() error {
+			err := r.buildDataMoverConfigMap(&dpa, &cm)
+			if err != nil {
+				return err
+			}
+			return nil
+
+		})
+		if err != nil {
+			return false, err
+		}
+
+		if op == controllerutil.OperationResultCreated || op == controllerutil.OperationResultUpdated {
+
+			r.EventRecorder.Event(&cm,
+				corev1.EventTypeNormal,
+				"ConfigMapReconciled",
+				fmt.Sprintf("performed %v on configmap %v", op, cm.Name),
+			)
+		}
 	}
 
 	return true, nil
@@ -325,8 +389,8 @@ func (r *DPAReconciler) createResticSecretsPerBSL(dpa *oadpv1alpha1.DataProtecti
 			pruneInterval := ""
 			if len(dpa.Spec.Features.DataMover.PruneInterval) > 0 {
 				pruneInterval = dpa.Spec.Features.DataMover.PruneInterval
-				pruneInterval = strings.ReplaceAll(pruneInterval, `"`,"")
-				pruneInterval = strings.ReplaceAll(pruneInterval, `'`,"")
+				pruneInterval = strings.ReplaceAll(pruneInterval, `"`, "")
+				pruneInterval = strings.ReplaceAll(pruneInterval, `'`, "")
 			}
 			rsecret := &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
@@ -626,6 +690,98 @@ func (r *DPAReconciler) checkIfDataMoverIsEnabled(dpa *oadpv1alpha1.DataProtecti
 	}
 
 	return false
+}
+
+func (r *DPAReconciler) checkDataMoverVolumeOptions(dpa *oadpv1alpha1.DataProtectionApplication) bool {
+
+	if dpa.Spec.Features != nil && dpa.Spec.Features.DataMover != nil &&
+		dpa.Spec.Features.DataMover.DataMoverVolumeOptions != nil {
+		return true
+	}
+
+	return false
+}
+
+func (r *DPAReconciler) buildDataMoverConfigMap(dpa *oadpv1alpha1.DataProtectionApplication, cm *corev1.ConfigMap) error {
+
+	if dpa == nil {
+		return fmt.Errorf("DPA CR cannot be nil")
+	}
+	if cm == nil {
+		return fmt.Errorf("datamover deployment cannot be nil")
+	}
+
+	cmMap := map[string]string{}
+
+	// check for source volume options
+	if dpa.Spec.Features.DataMover.DataMoverVolumeOptions.SourceVolumeOptions != nil {
+		sourceOptions := dpa.Spec.Features.DataMover.DataMoverVolumeOptions.SourceVolumeOptions
+
+		if len(sourceOptions.StorageClassName) > 0 {
+			cmMap["SourceStorageClassName"] = sourceOptions.StorageClassName
+		}
+
+		if len(sourceOptions.AccessMode) > 0 {
+			cmMap["SourceAccessMode"] = sourceOptions.AccessMode
+		}
+
+		if len(sourceOptions.CacheStorageClassName) > 0 {
+			cmMap["SourceCacheStorageClassName"] = sourceOptions.CacheStorageClassName
+		}
+
+		if len(sourceOptions.CacheAccessMode) > 0 {
+			cmMap["SourceCacheAccessMode"] = sourceOptions.CacheAccessMode
+		}
+
+		if len(sourceOptions.CacheCapacity) > 0 {
+			cmMap["SourceCacheCapacity"] = sourceOptions.CacheCapacity
+		}
+	}
+
+	// check for destination volume options
+	if dpa.Spec.Features.DataMover.DataMoverVolumeOptions.DestinationVolumeOptions != nil {
+		destinationOptions := dpa.Spec.Features.DataMover.DataMoverVolumeOptions.DestinationVolumeOptions
+
+		if len(destinationOptions.StorageClassName) > 0 {
+			cmMap["DestinationStorageClassName"] = destinationOptions.StorageClassName
+		}
+
+		if len(destinationOptions.AccessMode) > 0 {
+			cmMap["DestinationAccessMode"] = destinationOptions.AccessMode
+		}
+
+		if len(destinationOptions.CacheStorageClassName) > 0 {
+			cmMap["DestinationCacheStorageClassName"] = destinationOptions.CacheStorageClassName
+		}
+
+		if len(destinationOptions.CacheAccessMode) > 0 {
+			cmMap["DestinationCacheAccessMode"] = destinationOptions.CacheAccessMode
+		}
+
+		if len(destinationOptions.CacheCapacity) > 0 {
+			cmMap["DestinationCacheCapacity"] = destinationOptions.CacheCapacity
+		}
+	}
+
+	cm.Data = cmMap
+
+	return nil
+}
+
+func (r *DPAReconciler) checkDataMoverConfigMapExists() (*corev1.ConfigMap, bool, error) {
+
+	// check configMap already exists
+	confmap := corev1.ConfigMap{}
+	err := r.Get(context.Background(), types.NamespacedName{Name: DataMoverConfigMapName, Namespace: r.NamespacedName.Namespace}, &confmap)
+	if err != nil {
+		if k8serror.IsNotFound(err) {
+			return nil, false, nil
+		}
+
+		return nil, false, err
+	}
+
+	return &confmap, true, nil
 }
 
 func (r *DPAReconciler) parseGCPSecret(secret corev1.Secret, secretKey string) (gcpCredentials, error) {

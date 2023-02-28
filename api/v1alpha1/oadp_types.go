@@ -185,6 +185,36 @@ type DataMover struct {
 	// defines how often (in days) to prune the datamover snapshots from the repository
 	// +optional
 	PruneInterval string `json:"pruneInterval,omitempty"`
+	// defines configurations for data mover volume options
+	// +optional
+	DataMoverVolumeOptions *DataMoverVolumeOptions `json:"volumeOptions,omitempty"`
+}
+
+type DataMoverVolumeOptions struct {
+	SourceVolumeOptions      *VolumeOptions `json:"sourceVolumeOptions,omitempty"`
+	DestinationVolumeOptions *VolumeOptions `json:"destinationVolumeOptions,omitempty"`
+}
+
+// VolumeOptions defines configurations for VolSync options
+type VolumeOptions struct {
+	// storageClassName can be used to override the StorageClass of the source
+	// or destination PVC
+	//+optional
+	StorageClassName string `json:"storageClassName,omitempty"`
+	// accessMode can be used to override the accessMode of the source or
+	// destination PVC
+	//+optional
+	AccessMode string `json:"accessMode,omitempty"`
+	// cacheStorageClassName is the storageClass that should be used when provisioning
+	// the data mover cache volume
+	//+optional
+	CacheStorageClassName string `json:"cacheStorageClassName,omitempty"`
+	// cacheCapacity determines the size of the restic metadata cache volume
+	//+optional
+	CacheCapacity string `json:"cacheCapacity,omitempty"`
+	// cacheAccessMode is the access mode to be used to provision the cache volume
+	//+optional
+	CacheAccessMode string `json:"cacheAccessMode,omitempty"`
 }
 
 // Features defines the configuration for the DPA to enable the tech preview features
