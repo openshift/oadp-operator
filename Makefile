@@ -168,16 +168,16 @@ fmt: ## Run go fmt against code.
 vet: ## Run go vet against code.
 	go vet -mod=mod ./...
 
+ENVTEST := $(shell pwd)/bin/setup-envtest
+ENVTESTPATH = $(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)
+ifeq ($(shell $(ENVTEST) list | grep $(ENVTEST_K8S_VERSION)),)
+	ENVTESTPATH = $(shell $(ENVTEST) --arch=amd64 use $(ENVTEST_K8S_VERSION) -p path)
+endif
+
 test: manifests nullables generate fmt vet envtest ginkgo-build ## Run tests.
 	KUBEBUILDER_ASSETS="$(ENVTESTPATH)" go test -mod=mod ./controllers/... ./pkg/... -coverprofile cover.out
 
-
-ENVTEST = $(shell pwd)/bin/setup-envtest
-ENVTESTPATH = $(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)
 # if there is no native arch available, attempt to use amd64
-ifeq ($(shell $(ENVTEST) list),)
-	ENVTESTPATH = $(shell $(ENVTEST) --arch=amd64 use $(ENVTEST_K8S_VERSION) -p path)
-endif
 ci-test: ## This assumes "manifests generate fmt vet envtest" ran.
 	KUBEBUILDER_ASSETS="$(ENVTESTPATH)" go test -mod=mod ./controllers/... -coverprofile cover.out
 
@@ -374,7 +374,8 @@ deploy-olm: THIS_BUNDLE_IMAGE?=ttl.sh/oadp-operator-bundle-$(GIT_REV):1h # Set t
 deploy-olm: DEPLOY_TMP:=$(shell mktemp -d)/ # Set target specific variable
 deploy-olm: operator-sdk ## Build current branch operator image, bundle image, push and install via OLM
 	oc whoami # Check if logged in
-	oc create namespace $(OADP_TEST_NAMESPACE) # This should error out if namespace already exists, delete namespace (to clear current resources) before proceeding
+	oc create namespace $(OADP_TEST_NAMESPACE) || true
+	$(OPERATOR_SDK) cleanup oadp-operator --namespace $(OADP_TEST_NAMESPACE)
 	@echo "DEPLOY_TMP: $(DEPLOY_TMP)"
 	# build and push operator and bundle image
 	# use $(OPERATOR_SDK) to install bundle to authenticated cluster
