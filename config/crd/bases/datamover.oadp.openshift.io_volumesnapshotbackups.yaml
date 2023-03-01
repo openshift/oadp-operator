@@ -113,6 +113,9 @@ spec:
             description: VolumeSnapshotBackupStatus defines the observed state of
               VolumeSnapshotBackup
             properties:
+              batchingStatus:
+                description: volumesnapshotbackup batching status
+                type: string
               completed:
                 type: boolean
               completionTimestamp:

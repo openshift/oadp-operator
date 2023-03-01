@@ -362,7 +362,7 @@ spec:
                           description: defines configurations for data mover volume options
                           properties:
                             destinationVolumeOptions:
-                              description: MoverConfig defines configurations for VolSync options
+                              description: VolumeOptions defines configurations for VolSync options
                               properties:
                                 accessMode:
                                   description: accessMode can be used to override the accessMode of the source or destination PVC
@@ -381,7 +381,7 @@ spec:
                                   type: string
                               type: object
                             sourceVolumeOptions:
-                              description: MoverConfig defines configurations for VolSync options
+                              description: VolumeOptions defines configurations for VolSync options
                               properties:
                                 accessMode:
                                   description: accessMode can be used to override the accessMode of the source or destination PVC

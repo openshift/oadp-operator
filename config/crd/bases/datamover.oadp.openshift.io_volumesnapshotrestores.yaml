@@ -78,6 +78,9 @@ spec:
             description: VolumeSnapshotRestoreStatus defines the observed state of
               VolumeSnapshotRestore
             properties:
+              batchingStatus:
+                description: volumesnapshotrestore batching status
+                type: string
               completionTimestamp:
                 description: CompletionTimestamp records the time a volumesnapshotrestore
                   reached a terminal state.
