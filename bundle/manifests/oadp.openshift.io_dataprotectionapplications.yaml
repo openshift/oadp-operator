@@ -242,6 +242,9 @@ spec:
                               - name
                             type: object
                           type: array
+                        defaultItemOperationTimeout:
+                          description: How long to wait on asynchronous BackupItemActions and RestoreItemActions to complete before timing out. Default value is 1h.
+                          type: string
                         defaultPlugins:
                           items:
                             type: string
@@ -251,6 +254,9 @@ spec:
                           items:
                             type: string
                           type: array
+                        itemOperationSyncFrequency:
+                          description: How often to check status on async backup/restore operations after backup processing. Default value is 2m.
+                          type: string
                         logLevel:
                           description: Velero server’s log level (use debug for the most logging, leave unset for velero default)
                           enum:
@@ -362,7 +368,7 @@ spec:
                           description: defines configurations for data mover volume options
                           properties:
                             destinationVolumeOptions:
-                              description: MoverConfig defines configurations for VolSync options
+                              description: VolumeOptions defines configurations for VolSync options
                               properties:
                                 accessMode:
                                   description: accessMode can be used to override the accessMode of the source or destination PVC
@@ -381,7 +387,7 @@ spec:
                                   type: string
                               type: object
                             sourceVolumeOptions:
-                              description: MoverConfig defines configurations for VolSync options
+                              description: VolumeOptions defines configurations for VolSync options
                               properties:
                                 accessMode:
                                   description: accessMode can be used to override the accessMode of the source or destination PVC
