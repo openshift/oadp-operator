@@ -2,10 +2,6 @@ package controllers
 
 import (
 	"fmt"
-	"os"
-	"reflect"
-	"strings"
-
 	"github.com/openshift/oadp-operator/pkg/credentials"
 	"github.com/operator-framework/operator-lib/proxy"
 	"github.com/sirupsen/logrus"
@@ -13,6 +9,9 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"os"
+	"reflect"
+	"strings"
 
 	//"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -461,6 +460,24 @@ func (r *DPAReconciler) customizeVeleroDeployment(dpa *oadpv1alpha1.DataProtecti
 			return fmt.Errorf("invalid log level %s, use: %s", dpa.Spec.Configuration.Velero.LogLevel, "trace, debug, info, warning, error, fatal, or panic")
 		}
 		veleroContainer.Args = append(veleroContainer.Args, "--log-level", logLevel.String())
+	}
+
+	// Setting async operations server parameter ItemOperationSyncFrequency
+	if dpa.Spec.Configuration.Velero.ItemOperationSyncFrequency != "" {
+		ItemOperationSyncFrequencyString := dpa.Spec.Configuration.Velero.ItemOperationSyncFrequency
+		if err != nil {
+			return err
+		}
+		veleroContainer.Args = append(veleroContainer.Args, fmt.Sprintf("--item-operation-sync-frequency=%v", ItemOperationSyncFrequencyString))
+	}
+
+	// Setting async operations server parameter DefaultItemOperationTimeout
+	if dpa.Spec.Configuration.Velero.DefaultItemOperationTimeout != "" {
+		DefaultItemOperationTimeoutString := dpa.Spec.Configuration.Velero.DefaultItemOperationTimeout
+		if err != nil {
+			return err
+		}
+		veleroContainer.Args = append(veleroContainer.Args, fmt.Sprintf("--default-item-operation-timeout=%v", DefaultItemOperationTimeoutString))
 	}
 
 	// Set defaults to avoid update events

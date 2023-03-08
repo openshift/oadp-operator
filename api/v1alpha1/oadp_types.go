@@ -86,6 +86,12 @@ type VeleroConfig struct {
 	// +optional
 	// +kubebuilder:validation:Enum=trace;debug;info;warning;error;fatal;panic
 	LogLevel string `json:"logLevel,omitempty"`
+	// How often to check status on async backup/restore operations after backup processing. Default value is 2m.
+	// +optional
+	ItemOperationSyncFrequency string `json:"itemOperationSyncFrequency,omitempty"`
+	// How long to wait on asynchronous BackupItemActions and RestoreItemActions to complete before timing out. Default value is 1h.
+	// +optional
+	DefaultItemOperationTimeout string `json:"defaultItemOperationTimeout,omitempty"`
 }
 
 // PodConfig defines the pod configuration options
