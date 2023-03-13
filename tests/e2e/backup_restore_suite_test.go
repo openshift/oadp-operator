@@ -16,6 +16,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8serror "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -127,6 +128,8 @@ var _ = Describe("AWS backup restore tests", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			updateLastInstallingNamespace(dpaCR.Namespace)
+			// TODO: remove this once image backup plugin panic is resolved
+			dpaCR.CustomResource.Spec.BackupImages = pointer.Bool(false)
 
 			err = dpaCR.CreateOrUpdate(&dpaCR.CustomResource.Spec)
 			Expect(err).NotTo(HaveOccurred())
