@@ -37,9 +37,6 @@ spec:
         set -ex
         cd /workspace/debug 
         ls -la
-    - name: update backup custom resource
-      image: ubi9/toolbox
-      
 ---
 kind: Pipeline
 apiVersion: tekton.dev/v1beta1
