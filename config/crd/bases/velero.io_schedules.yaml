@@ -308,6 +308,11 @@ spec:
                       type: string
                     nullable: true
                     type: array
+                  itemOperationTimeout:
+                    description: ItemOperationTimeout specifies the time used to wait
+                      for asynchronous BackupItemAction operations The default value
+                      is 1 hour.
+                    type: string
                   labelSelector:
                     description: LabelSelector is a metav1.LabelSelector to filter
                       with when adding individual objects to the backup. If empty
@@ -428,7 +433,7 @@ spec:
                     nullable: true
                     type: object
                   snapshotVolumes:
-                    description: SnapshotVolumes specifies whether to take cloud snapshots
+                    description: SnapshotVolumes specifies whether to take snapshots
                       of any PV's referenced in the set of objects included in the
                       Backup.
                     nullable: true

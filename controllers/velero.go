@@ -315,6 +315,7 @@ func (r *DPAReconciler) buildVeleroDeployment(veleroDeployment *appsv1.Deploymen
 		// see: https://github.com/vmware-tanzu/velero/blob/ed5809b7fc22f3661eeef10bdcb63f0d74472b76/pkg/install/deployment.go#L223-L261
 		// our secrets are appended to containers/volumeMounts in credentials.AppendPluginSpecificSpecs function
 		install.WithSecret(false),
+		install.WithServiceAccountName(common.Velero),
 	)
 	veleroDeploymentName := veleroDeployment.Name
 	veleroDeployment.TypeMeta = installDeployment.TypeMeta

@@ -355,7 +355,7 @@ spec:
                 type: boolean
               restorePVs:
                 description: RestorePVs specifies whether to restore all included
-                  PVs from snapshot (via the cloudprovider).
+                  PVs from snapshot
                 nullable: true
                 type: boolean
               restoreStatus:
@@ -412,6 +412,8 @@ spec:
                 - New
                 - FailedValidation
                 - InProgress
+                - WaitingForPluginOperations
+                - WaitingForPluginOperationsPartiallyFailed
                 - Completed
                 - PartiallyFailed
                 - Failed
