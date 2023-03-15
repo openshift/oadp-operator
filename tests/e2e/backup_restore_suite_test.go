@@ -99,6 +99,7 @@ var _ = Describe("AWS backup restore tests", func() {
 		BackupRestoreType    BackupRestoreType
 		PreBackupVerify      VerificationFunction
 		PostRestoreVerify    VerificationFunction
+		AppReadyDelay        time.Duration
 		MaxK8SVersion        *K8sVersion
 		MinK8SVersion        *K8sVersion
 	}
@@ -127,7 +128,6 @@ var _ = Describe("AWS backup restore tests", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			updateLastInstallingNamespace(dpaCR.Namespace)
-
 			err = dpaCR.CreateOrUpdate(&dpaCR.CustomResource.Spec)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -186,6 +186,9 @@ var _ = Describe("AWS backup restore tests", func() {
 
 			nsRequiresResticDCWorkaround, err := NamespaceRequiresResticDCWorkaround(dpaCR.Client, brCase.ApplicationNamespace)
 			Expect(err).ToNot(HaveOccurred())
+
+			log.Printf("Sleeping for %v to allow application to be ready for case %s", brCase.AppReadyDelay, brCase.Name)
+			time.Sleep(brCase.AppReadyDelay)
 			// create backup
 			log.Printf("Creating backup %s for case %s", backupName, brCase.Name)
 			backup, err := CreateBackupForNamespaces(dpaCR.Client, namespace, backupName, []string{brCase.ApplicationNamespace}, brCase.BackupRestoreType == RESTIC)
@@ -282,6 +285,7 @@ var _ = Describe("AWS backup restore tests", func() {
 			ApplicationNamespace: "mysql-persistent",
 			Name:                 "mysql-twovol-csi-e2e",
 			BackupRestoreType:    CSI,
+			AppReadyDelay:        30 * time.Second,
 			PreBackupVerify:      mysqlReady(true, true, CSI),
 			PostRestoreVerify:    mysqlReady(false, true, CSI),
 		}, nil),

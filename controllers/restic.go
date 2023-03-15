@@ -178,7 +178,9 @@ func (r *DPAReconciler) buildResticDaemonset(dpa *oadpv1alpha1.DataProtectionApp
 		install.WithResources(resticResourceReqs),
 		install.WithImage(getVeleroImage(dpa)),
 		install.WithAnnotations(dpa.Spec.PodAnnotations),
-		install.WithSecret(false))
+		install.WithSecret(false),
+		install.WithServiceAccountName(common.Velero),
+	)
 	// Update Items in ObjectMeta
 	dsName := ds.Name
 	ds.TypeMeta = installDs.TypeMeta
