@@ -121,6 +121,7 @@ items:
       name: todolist
       namespace: mysql-persistent
       labels:
+        e2e-app: "true"
         app: todolist
         service: todolist
     spec:
@@ -133,6 +134,7 @@ items:
       template:
         metadata:
           labels:
+            e2e-app: "true"
             app: todolist
             service: todolist
         spec:
