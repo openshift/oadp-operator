@@ -285,7 +285,7 @@ var _ = Describe("AWS backup restore tests", func() {
 			ApplicationNamespace: "mysql-persistent",
 			Name:                 "mysql-twovol-csi-e2e",
 			BackupRestoreType:    CSI,
-			AppReadyDelay:        20 * time.Second,
+			AppReadyDelay:        30 * time.Second,
 			PreBackupVerify:      mysqlReady(true, true, CSI),
 			PostRestoreVerify:    mysqlReady(false, true, CSI),
 		}, nil),
