@@ -41,7 +41,7 @@ objects:
         image: ubi9/toolbox
         script: |
           set -ex
-          cd /workspace/debug 
+          cd /workspace/debug/docs/tekton-oadp-nonadmin/backup_cr/
           ls -la
 
 - kind: Pipeline
