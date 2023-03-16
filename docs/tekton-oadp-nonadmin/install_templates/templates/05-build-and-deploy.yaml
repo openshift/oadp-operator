@@ -124,6 +124,44 @@ objects:
       workspaces:
       - name: manifest-dir
         workspace: repo
+    - name: checkbackupstatus
+      params:
+      - name: SCRIPT
+        value: |
+          printf "echo the BACKUP_NAME parameter \n"
+          echo $(params.BACKUP_NAME)
+          printf "\n"
+          oc get backup -n openshift-adp $(params.BACKUP_NAME) -o jsonpath='{.status.phase}'
+          status=foo && while [[ $status != "Completed" ]]; do status=`oc get backup -n openshift-adp $(params.BACKUP_NAME) -o jsonpath='{.status.phase}'`; echo $status; sleep 5; done
+      - name: VERSION
+        value: latest
+      runAfter:
+      - triggerbackup
+      timeout: 5m
+      retries: 3
+      taskRef:
+        kind: ClusterTask
+        name: openshift-client
+      workspaces:
+      - name: manifest-dir
+        workspace: repo
+    finally:
+      - name: finalstatus
+        params:
+          - name: SCRIPT
+            value: |
+              printf "echo the BACKUP_NAME parameter \n"
+              echo $(params.BACKUP_NAME)
+              printf "\n"
+              oc get backup -n openshift-adp $(params.BACKUP_NAME) -o yaml
+          - name: VERSION
+            value: latest
+        taskRef:
+          kind: ClusterTask
+          name: openshift-client
+        workspaces:
+          - name: manifest-dir
+            workspace: repo  
     workspaces:
     - name: repo
 
