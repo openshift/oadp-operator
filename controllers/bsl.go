@@ -60,6 +60,11 @@ func (r *DPAReconciler) ValidateBackupStorageLocations(log logr.Logger) (bool, e
 			default:
 				return false, fmt.Errorf("invalid provider")
 			}
+
+			_, err := r.resticCustomCAEnabled(*bslSpec.Velero, &dpa)
+			if err != nil {
+				return false, err
+			}
 		}
 		if bslSpec.CloudStorage != nil {
 			// Make sure credentials are specified.
@@ -346,4 +351,16 @@ func (r *DPAReconciler) ensureBackupLocationHasVeleroOrCloudStorage(dpa *oadpv1a
 		}
 	}
 	return nil
+}
+
+func (r *DPAReconciler) resticCustomCAEnabled(bslSpec velerov1.BackupStorageLocationSpec, dpa *oadpv1alpha1.DataProtectionApplication) (bool, error) {
+	insecureSkipTLSVerify, skipPresent := bslSpec.Config["insecureSkipTLSVerify"]
+	if !skipPresent || insecureSkipTLSVerify != "false" {
+		return false, nil
+	}
+	if bslSpec.ObjectStorage.CACert == nil {
+		return false, errors.New("insecureSkipTLSVerify set to false with no caCert specified")
+	}
+
+	return true, nil
 }

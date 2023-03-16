@@ -839,12 +839,8 @@ func (r *DPAReconciler) ReconcileDataMoverResticCustomCA(log logr.Logger) (bool,
 }
 
 func (r *DPAReconciler) createResticCustomCASecret(dpa *oadpv1alpha1.DataProtectionApplication, bsl velerov1.BackupStorageLocation) (*corev1.Secret, error) {
-	insecureSkipTLSVerify, skipPresent := bsl.Spec.Config["insecureSkipTLSVerify"]
-	if !skipPresent || insecureSkipTLSVerify != "false" {
+	if enabled, _ := r.resticCustomCAEnabled(bsl.Spec, dpa); !enabled {
 		return nil, nil
-	}
-	if bsl.Spec.ObjectStorage.CACert == nil {
-		return nil, errors.New("insecureSkipTLSVerify set to false with no caCert specified")
 	}
 
 	secret := &corev1.Secret{
