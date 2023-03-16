@@ -1,0 +1,132 @@
+apiVersion: template.openshift.io/v1
+kind: Template
+metadata:
+  name: project-template
+  annotations:
+    description: "Create the project and namespace"
+parameters:
+  - name: PROJECT
+    description: The name of the project
+  - name: USER
+    description: user with rights to launch b/r pipelines
+objects:
+- kind: PersistentVolumeClaim
+  apiVersion: v1
+  metadata:
+    name: ${PROJECT}-oadp-non-admin
+    namespace: ${PROJECT}
+  spec:
+    accessModes: [ReadWriteOnce]
+    resources:
+      requests:
+        storage: 500Mi
+
+- kind: Task
+  apiVersion: tekton.dev/v1beta1
+  metadata:
+    name: debug
+    namespace: ${PROJECT}
+    description: collect git repo debug information 
+  spec:
+    # notes: each task specifies the workspace name
+    # the same pvc is used, only the mounted directory changes based on the name
+    # in this case "debug"
+    workspaces:
+      - name: debug
+    results: 
+      - name: list-files
+        description: lists the repos files
+    steps:
+      - name: list-workspace-files
+        image: ubi9/toolbox
+        script: |
+          set -ex
+          cd /workspace/debug 
+          ls -la
+
+- kind: Pipeline
+  apiVersion: tekton.dev/v1beta1
+  metadata:
+    name: backup-pipeline
+    namespace: ${PROJECT}
+  spec:
+    params:
+    - name: GIT_URL
+      default: https://github.com/weshayutin/oadp-operator.git
+      type: string
+    - name: GIT_BRANCH
+      default: tekton-non-admin
+      type: string
+    - name: BACKUP_NAME
+      type: string
+    tasks:
+    - name: import-images
+      params:
+      - name: SCRIPT
+        value: |
+          oc import-image toolbox --from=registry.access.redhat.com/ubi9/toolbox:latest --confirm -n oadp-non-admin
+      taskRef:
+        kind: ClusterTask
+        name: openshift-client
+    - name: checkout
+      params:
+      - name: url
+        value: $(params.GIT_URL)
+      - name: revision
+        value: $(params.GIT_BRANCH)
+      runAfter:
+      - import-images
+      taskRef:
+        kind: ClusterTask
+        name: git-clone
+      timeout: 1m0s
+      workspaces:
+      - name: output
+        workspace: repo
+    - name: listfiles
+      runAfter:
+      - checkout
+      taskRef:
+        kind: Task
+        name: debug
+      workspaces:
+      - name: debug
+        workspace: repo
+    - name: triggerbackup
+      params:
+      - name: SCRIPT
+        value: |
+          printf "echo the BACKUP_NAME parameter \n"
+          echo $(params.BACKUP_NAME)
+          printf "\n"
+          printf "cat the original backup cr \n"
+          cat /workspace/manifest-dir/docs/tekton-oadp-nonadmin/backup_cr/backup.yaml
+          printf "\n"
+          printf "Update the backup cr's name\n"
+          sed -i 's/BACKUP_NAME/$(params.BACKUP_NAME)/' /workspace/manifest-dir/docs/tekton-oadp-nonadmin/backup_cr/backup.yaml
+          printf "\n"
+          printf "cat the updated backup cr \n"
+          cat /workspace/manifest-dir/docs/tekton-oadp-nonadmin/backup_cr/backup.yaml
+          printf "\n"
+          printf "Finally create the backup\n"
+          oc create -f /workspace/manifest-dir/docs/tekton-oadp-nonadmin/backup_cr/backup.yaml
+          printf "\n"
+          printf "Get the details and status of the backup\n"
+          oc get backup $(params.BACKUP_NAME) -n openshift-adp -o yaml
+          printf "\n"
+      - name: VERSION
+        value: latest
+      runAfter:
+      - listfiles
+      taskRef:
+        kind: ClusterTask
+        name: openshift-client
+      workspaces:
+      - name: manifest-dir
+        workspace: repo
+    workspaces:
+    - name: repo
+
+  
+        
+              
