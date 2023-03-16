@@ -64,7 +64,7 @@ objects:
       params:
       - name: SCRIPT
         value: |
-          oc import-image toolbox --from=registry.access.redhat.com/ubi9/toolbox:latest --confirm -n oadp-non-admin
+          oc import-image toolbox --from=registry.access.redhat.com/ubi9/toolbox:latest --confirm -n ${PROJECT}
       taskRef:
         kind: ClusterTask
         name: openshift-client
