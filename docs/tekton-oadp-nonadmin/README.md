@@ -16,9 +16,9 @@ Example:
 ```
 This will create two new users in openshift called buzz1 and buzz2 with a default password of `passw0rd`.
 
-Please first confirm that you can log in as the demo user.  **NOTE:** It may take a few moments for the OCP oauth settings to reconcile. 
+* Please first confirm that you can log in as the demo user.  **NOTE:** It may take a few moments for the OCP oauth settings to reconcile. 
 
-If you are logged in as the admin, please log into OCP with the buzz user in another browser.
+* If you are logged in as the admin, please log into OCP with the buzz user in another browser.
   * Please note your permissions once logged in.
   * Also note there are no pipelines created.
 
@@ -28,10 +28,16 @@ If you are logged in as the admin, please log into OCP with the buzz user in ano
 
 Using an example with a user called buzz1 in a project call test05
 ```
+./install.sh -h
 ./install.sh -p buzz1 -u buzz1 -d /tmp/buzz1
 ```
 
 The project will be created and the user updated.
+
+* Navigate to the pipelines menu as the buzz1 user
+
+![Screenshot from 2023-03-17 10-36-42](https://user-images.githubusercontent.com/138787/225965236-3f78ea35-ef11-40ce-8c31-349c32cc3e56.png)
+
 
 * You should now see a new tekton pipeline created call `backup-pipeline`
   * Click `Actions`
@@ -45,13 +51,18 @@ The project will be created and the user updated.
       * A PersistentVolumeClaim
       * Choose the $name-oadp-non-admin PVC
 
+![Screenshot from 2023-03-17 10-38-06](https://user-images.githubusercontent.com/138787/225965457-bd7fca53-9b71-45e8-a4a9-96739769b356.png)
 
 
-![Screenshot from 2023-03-16 14-29-23](https://user-images.githubusercontent.com/138787/225745231-b056152c-b115-4e89-809a-ac36613bb886.png)
+* Watch and wait for the backup to complete
+
+![Screenshot from 2023-03-17 10-39-19](https://user-images.githubusercontent.com/138787/225965741-71d82e2d-95a5-4f00-8ae1-ec5ffb83626b.png)
 
 
+* Check the logs of the Tekton tasks, below is an example of a previous execution.
 
-## Logs from all runs 
+
+### Logs from all runs 
 ```
 ﻿import-images
 
@@ -60,11 +71,11 @@ step-oc
 imagestream.image.openshift.io/toolbox imported
 
 Name:			toolbox
-Namespace:		test06
+Namespace:		buzz1
 Created:		Less than a second ago
 Labels:			<none>
-Annotations:		openshift.io/image.dockerRepositoryCheck=2023-03-16T20:26:17Z
-Image Repository:	image-registry.openshift-image-registry.svc:5000/test06/toolbox
+Annotations:		openshift.io/image.dockerRepositoryCheck=2023-03-17T16:21:54Z
+Image Repository:	image-registry.openshift-image-registry.svc:5000/buzz1/toolbox
 Image Lookup:		local=false
 Unique Images:		1
 Tags:			1
@@ -138,14 +149,14 @@ step-clone
 + test -z ''
 + test -z ''
 + /ko-app/git-init -url=https://github.com/weshayutin/oadp-operator.git -revision=tekton-non-admin -refspec= -path=/workspace/output/ -sslVerify=true -submodules=true -depth=1 -sparseCheckoutDirectories=
-{"level":"info","ts":1678998395.5686452,"caller":"git/git.go:176","msg":"Successfully cloned https://github.com/weshayutin/oadp-operator.git @ 7d669c4b360714ea24df4a942721b5b4ef7fa343 (grafted, HEAD, origin/tekton-non-admin) in path /workspace/output/"}
-{"level":"info","ts":1678998395.6642838,"caller":"git/git.go:215","msg":"Successfully initialized and updated submodules in path /workspace/output/"}
+{"level":"info","ts":1679070132.658233,"caller":"git/git.go:176","msg":"Successfully cloned https://github.com/weshayutin/oadp-operator.git @ 92a7a898baffd77e65ddbf0a1454eb2f080e2687 (grafted, HEAD, origin/tekton-non-admin) in path /workspace/output/"}
+{"level":"info","ts":1679070132.744676,"caller":"git/git.go:215","msg":"Successfully initialized and updated submodules in path /workspace/output/"}
 + cd /workspace/output/
 ++ git rev-parse HEAD
-+ RESULT_SHA=7d669c4b360714ea24df4a942721b5b4ef7fa343
++ RESULT_SHA=92a7a898baffd77e65ddbf0a1454eb2f080e2687
 + EXIT_CODE=0
 + '[' 0 '!=' 0 ']'
-+ printf %s 7d669c4b360714ea24df4a942721b5b4ef7fa343
++ printf %s 92a7a898baffd77e65ddbf0a1454eb2f080e2687
 + printf %s https://github.com/weshayutin/oadp-operator.git
 
 
@@ -153,40 +164,12 @@ listfiles
 
 step-list-workspace-files
 
-+ cd /workspace/debug
++ cd /workspace/debug/docs/tekton-oadp-nonadmin/backup_cr/
 + ls -la
-total 312
-drwxrwsr-x. 16 root  1000890000   4096 Mar 16 20:26 .
-drwxrwsrwx.  3 root  1000890000     19 Mar 16 20:26 ..
--rw-rw-r--.  1 65532 1000890000    105 Mar 16 20:26 .ci-operator.yaml
-drwxrwsr-x.  8 65532 1000890000   4096 Mar 16 20:26 .git
-drwxrwsr-x.  4 65532 1000890000   4096 Mar 16 20:26 .github
--rw-rw-r--.  1 65532 1000890000    153 Mar 16 20:26 .gitignore
--rw-rw-r--.  1 65532 1000890000   2355 Mar 16 20:26 .travis.yml
--rw-rw-r--.  1 65532 1000890000    849 Mar 16 20:26 Dockerfile
--rw-rw-r--.  1 65532 1000890000  10759 Mar 16 20:26 LICENSE
--rw-rw-r--.  1 65532 1000890000  20735 Mar 16 20:26 Makefile
--rw-rw-r--.  1 65532 1000890000    266 Mar 16 20:26 OWNERS
--rw-rw-r--.  1 65532 1000890000    190 Mar 16 20:26 OWNERS_ALIASES
--rw-rw-r--.  1 65532 1000890000    225 Mar 16 20:26 PROJECT
--rw-rw-r--.  1 65532 1000890000   7050 Mar 16 20:26 README.md
-drwxrwsr-x.  3 65532 1000890000   4096 Mar 16 20:26 api
-drwxrwsr-x.  4 65532 1000890000   4096 Mar 16 20:26 blogs
-drwxrwsr-x.  2 65532 1000890000   4096 Mar 16 20:26 build
-drwxrwsr-x.  5 65532 1000890000   4096 Mar 16 20:26 bundle
--rw-rw-r--.  1 65532 1000890000    985 Mar 16 20:26 bundle.Dockerfile
--rw-rw-r--.  1 65532 1000890000    111 Mar 16 20:26 codecov.yml
-drwxrwsr-x. 11 65532 1000890000   4096 Mar 16 20:26 config
-drwxrwsr-x.  2 65532 1000890000   4096 Mar 16 20:26 controllers
-drwxrwsr-x.  2 65532 1000890000   4096 Mar 16 20:26 deploy
-drwxrwsr-x.  9 65532 1000890000   4096 Mar 16 20:26 docs
--rw-rw-r--.  1 65532 1000890000   7147 Mar 16 20:26 go.mod
--rw-rw-r--.  1 65532 1000890000 157055 Mar 16 20:26 go.sum
-drwxrwsr-x.  2 65532 1000890000   4096 Mar 16 20:26 hack
--rw-rw-r--.  1 65532 1000890000   7135 Mar 16 20:26 main.go
-drwxrwsr-x.  3 65532 1000890000   4096 Mar 16 20:26 must-gather
-drwxrwsr-x.  5 65532 1000890000   4096 Mar 16 20:26 pkg
-drwxrwsr-x.  3 65532 1000890000   4096 Mar 16 20:26 tests
+total 12
+drwxrwsr-x. 2 65532 1000740000 4096 Mar 17 16:22 .
+drwxrwsr-x. 4 65532 1000740000 4096 Mar 17 16:22 ..
+-rw-rw-r--. 1 65532 1000740000  189 Mar 17 16:22 backup.yaml
 
 
 triggerbackup
@@ -194,7 +177,7 @@ triggerbackup
 step-oc
 
 echo the BACKUP_NAME parameter
-asdfasdfasf
+buzz1backup1
 
 cat the original backup cr
 apiVersion: velero.io/v1
@@ -214,7 +197,7 @@ cat the updated backup cr
 apiVersion: velero.io/v1
 kind: Backup
 metadata:
-  name: asdfasdfasf
+  name: buzz1backup1
   namespace: openshift-adp
 spec:
   includedNamespaces:
@@ -223,7 +206,7 @@ spec:
   ttl: 720h0m0s
 
 Finally create the backup
-backup.velero.io/asdfasdfasf created
+backup.velero.io/buzz1backup1 created
 
 Get the details and status of the backup
 apiVersion: velero.io/v1
@@ -233,14 +216,14 @@ metadata:
     velero.io/source-cluster-k8s-gitversion: v1.25.4+a34b9e9
     velero.io/source-cluster-k8s-major-version: "1"
     velero.io/source-cluster-k8s-minor-version: "25"
-  creationTimestamp: "2023-03-16T20:26:49Z"
+  creationTimestamp: "2023-03-17T16:22:27Z"
   generation: 2
   labels:
     velero.io/storage-location: dpa-sample-1
-  name: asdfasdfasf
+  name: buzz1backup1
   namespace: openshift-adp
-  resourceVersion: "22244019"
-  uid: 694e2c70-e7f7-45a5-8ad0-4eaf6b8059bd
+  resourceVersion: "23218594"
+  uid: 451756d7-721a-4a07-be88-e6e255cea58c
 spec:
   csiSnapshotTimeout: 10m0s
   defaultVolumesToRestic: false
@@ -251,10 +234,73 @@ spec:
   volumeSnapshotLocations:
   - dpa-sample-1
 status:
-  expiration: "2023-04-15T20:26:49Z"
+  expiration: "2023-04-16T16:22:27Z"
   formatVersion: 1.1.0
   phase: InProgress
-  startTimestamp: "2023-03-16T20:26:49Z"
+  startTimestamp: "2023-03-17T16:22:27Z"
   version: 1
+
+
+
+checkbackupstatus
+
+step-oc
+
+echo the BACKUP_NAME parameter
+buzz1backup1
+
+InProgressInProgress
+InProgress
+InProgress
+InProgress
+InProgress
+InProgress
+InProgress
+InProgress
+Completed
+
+
+finalstatus
+
+step-oc
+
+echo the BACKUP_NAME parameter
+buzz1backup1
+
+apiVersion: velero.io/v1
+kind: Backup
+metadata:
+  annotations:
+    velero.io/source-cluster-k8s-gitversion: v1.25.4+a34b9e9
+    velero.io/source-cluster-k8s-major-version: "1"
+    velero.io/source-cluster-k8s-minor-version: "25"
+  creationTimestamp: "2023-03-17T16:22:27Z"
+  generation: 5
+  labels:
+    velero.io/storage-location: dpa-sample-1
+  name: buzz1backup1
+  namespace: openshift-adp
+  resourceVersion: "23219258"
+  uid: 451756d7-721a-4a07-be88-e6e255cea58c
+spec:
+  csiSnapshotTimeout: 10m0s
+  defaultVolumesToRestic: false
+  includedNamespaces:
+  - nginx-example
+  storageLocation: dpa-sample-1
+  ttl: 720h0m0s
+  volumeSnapshotLocations:
+  - dpa-sample-1
+status:
+  completionTimestamp: "2023-03-17T16:23:11Z"
+  expiration: "2023-04-16T16:22:27Z"
+  formatVersion: 1.1.0
+  phase: Completed
+  progress:
+    itemsBackedUp: 42
+    totalItems: 42
+  startTimestamp: "2023-03-17T16:22:27Z"
+  version: 1
+
 
 ```
