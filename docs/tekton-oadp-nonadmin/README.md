@@ -1,5 +1,18 @@
 # Create a project and user with non-admin access that can execute an OADP backup
 
+## Background
+The purpose of this demonstration is to provide an example for OpenShift administrators and users how an admistrator may configure OADP and OpenShift Pipelines to provide non-adminstrators access to trigger an OADP backup and restore workflow.
+
+This example uses [OpenShift Pipelines](https://cloud.redhat.com/blog/introducing-openshift-pipelines) and configures a tekton pipeline for a non-admin user that has access to OADP resources to trigger a backup.  The non-admin user can execute the pipeline but can not edit the pipeline.  The administrator is allowed to configure OADP for their users, and users can execute a backup or restore as needed with out the administrator intervention.
+
+An OpenShift administrator would want to ensure that an application developer or namespace administrator could not backup or restore applications where they do not have the proper rights or access.  In this demo, the administrator has only given the user rights to backup a namespace called `nginx-example`.  The administrator has also specificied the DPA for this backup to `dpa-sample`.  An OpenShift administrator should configure different DPA per non-admin owner.  This provides the administrator the oversight where and how backups are taken, and the users the convienence of executing backups and restores as they wish.
+
+Future examples will include the directions and templates required for an OpenShift administrator that would:
+ * setup multiple users as namespace owners
+   * multiple tekton pipelines per owner
+ * multiple applications
+ * multiple DPA configurations
+
 ## Steps
 
 ### Prerequisites
