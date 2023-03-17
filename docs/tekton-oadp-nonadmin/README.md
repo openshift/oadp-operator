@@ -7,6 +7,10 @@ This example uses [OpenShift Pipelines](https://cloud.redhat.com/blog/introducin
 
 An OpenShift administrator would want to ensure that an application developer or namespace administrator could not backup or restore applications where they do not have the proper rights or access.  In this demo, the administrator has only given the user rights to backup a namespace called `nginx-example`.  The administrator has also specificied the DPA for this backup to `dpa-sample`.  An OpenShift administrator should configure different DPA per non-admin owner.  This provides the administrator the oversight where and how backups are taken, and the users the convienence of executing backups and restores as they wish.
 
+## Alternatives
+It is possible to install the OADP Operator into multiple OpenShift namespaces and give namespace ownwers and project admins the ability to configure their own OADP settings, configuration and of course the ability to execute backups and restores.   The OADP team has [FAQ page](https://access.redhat.com/articles/5456281#can-i-install-oadp-into-multiple-openshift-projects-to-enable-project-owners-26) that covers this scenario and will be building out documentation for it soon.  There are advantages and disadvantages to either workflow. In this case using OpenShift Pipelines better constrains what OpenShift non-admin users can execute with cluste level access.
+
+
 ## Technical Details of this demonstration
 
 A user may want to change the backup custom resource, or other aspects of this demo. Simply fork this git repository and update the settings and configuration. The following provides a more in depth technical specification.
