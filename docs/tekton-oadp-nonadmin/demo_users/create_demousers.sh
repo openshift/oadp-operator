@@ -74,7 +74,8 @@ oc create secret generic htpass-secret-$BASENAME --from-file=htpasswd=htpasswd -
 oc get secret/htpass-secret-$BASENAME -n openshift-config -oyaml
 
 printf "Create the OCP oauth entry"
-sed -i "s/REPLACEME/$BASENAME/" oauth.yaml
+sed -e "s/REPLACEME/$BASENAME/" oauth.yaml > oauth.yaml.tmp
+mv oauth.yaml.tmp oauth.yaml
 cat oauth.yaml
 oc apply  -f oauth.yaml
 
