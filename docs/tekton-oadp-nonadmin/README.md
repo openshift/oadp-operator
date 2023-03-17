@@ -26,7 +26,7 @@ This will create two new users in openshift called buzz1 and buzz2 with a defaul
 
 * logged in as the kubeadmin user, execute the following:
 
-Using an example with a user called buzz1 in a project call test05
+Using an example with a user called buzz1 in a project called buzz1
 ```
 ./install.sh -h
 ./install.sh -p buzz1 -u buzz1 -d /tmp/buzz1
