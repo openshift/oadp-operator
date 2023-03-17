@@ -9,7 +9,7 @@ Help()
    # Display Help
    echo "Create the OADP non-admin templates"
    echo
-   echo "Syntax: scriptTemplate [-h|-p|-u]"
+   echo "Syntax: scriptTemplate [-h|-p|-u|-d]"
    echo "options:"
    echo "h     Print this Help."
    echo "p     Name of the Project or Namespace"

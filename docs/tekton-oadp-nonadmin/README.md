@@ -2,25 +2,49 @@
 
 ## steps
 
-Using an example with a user called test05 in a project call test05
-```
-./install.sh -p test05 -u test05 -d /tmp/test05
-```
+### First create non-admin users 
 
-The user and project will be created, however the user needs a password.
-
-* follow the documented steps here: https://www.redhat.com/sysadmin/openshift-htpasswd-oauth
-
+* logged in as the kubeadmin user, execute the following:
 ```
-htpasswd  -B -b ~/OADP/passwd_file test05 passw0rd
+cd demo_users
+./create_demousers.sh -h
 ```
 
-* Typically I destroy the old htpasswd config in OCP and recreate
-* Upload the file or paste creds
+Example:
+```
+./create_demousers.sh -n buzz -c 2
+```
+This will create two new users in openshift called buzz1 and buzz2 with a default password of `passw0rd`.
 
+Please first confirm that you can log in as the demo user.  **NOTE:** It may take a few moments for the OCP oauth settings to reconcile. 
 
-## In another browser
-* log in as the new user and kick off the pipeline 
+If you are logged in as the admin, please log into OCP with the buzz user in another browser.
+  * Please note your permissions once logged in.
+  * Also note there are no pipelines created.
+
+### Setup the Tekton pipelines 
+
+* logged in as the kubeadmin user, execute the following:
+
+Using an example with a user called buzz1 in a project call test05
+```
+./install.sh -p buzz1 -u buzz1 -d /tmp/buzz1
+```
+
+The project will be created and the user updated.
+
+* You should now see a new tekton pipeline created call `backup-pipeline`
+  * Click `Actions`
+    * **NOTE** you should see the user only has permissions to `Start` the pipeline
+  * Click `Start`
+    * Update the GIT_URL and GIT_BRANCH 
+      * This is for demonstration purposes only and will later be removed.
+      * The git repo should be a clone of oadp-operator and contain the directory `docs/tekton-oadp-nonadmin`
+    * Give your backup an unique name
+    * The `workspace` should be:
+      * A PersistentVolumeClaim
+      * Choose the $name-oadp-non-admin PVC
+
 
 
 ![Screenshot from 2023-03-16 14-29-23](https://user-images.githubusercontent.com/138787/225745231-b056152c-b115-4e89-809a-ac36613bb886.png)
