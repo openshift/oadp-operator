@@ -1,6 +1,21 @@
 # Create a project and user with non-admin access that can execute an OADP backup
 
-## steps
+## Steps
+
+### Prerequisites
+* Check that OADP is installed and configured with a DPA named dpa-sample
+* Check that the nginx-example sample application is installed
+
+```
+./check_prerequisites.sh -h
+Check the prerequisites [-h|-i]
+options:
+h     Print this Help.
+i     Install nginx-example
+
+[whayutin@thinkdoe tekton-oadp-nonadmin]$
+```
+
 
 ### First create non-admin users 
 
@@ -8,6 +23,16 @@
 ```
 cd demo_users
 ./create_demousers.sh -h
+Create the OADP non-admin users
+
+Syntax: scriptTemplate [-h|-n|-c|-p|-d]
+options:
+h     Print this Help.
+n     demouser base name
+c     the number of users to be created
+p     the common password
+d     The directory where the htpasswd file will be saved
+
 ```
 
 Example:
@@ -29,6 +54,16 @@ This will create two new users in openshift called buzz1 and buzz2 with a defaul
 Using an example with a user called buzz1 in a project called buzz1
 ```
 ./install.sh -h
+Create the OADP non-admin templates
+
+Syntax: scriptTemplate [-h|-p|-u|-d]
+options:
+h     Print this Help.
+p     Name of the Project or Namespace
+u     Name of the non-admin user
+d     The directory where the templates will be saved
+
+
 ./install.sh -p buzz1 -u buzz1 -d /tmp/buzz1
 ```
 
