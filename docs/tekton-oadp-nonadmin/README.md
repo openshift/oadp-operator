@@ -3,8 +3,8 @@
 ## Steps
 
 ### Prerequisites
-* Check that OADP is installed and configured with a DPA named dpa-sample
-* Check that the nginx-example sample application is installed
+* Check that [OADP is installed](https://docs.openshift.com/container-platform/4.12/backup_and_restore/application_backup_and_restore/installing/about-installing-oadp.html) and [configured with a DPA named dpa-sample](https://github.com/openshift/oadp-operator/blob/master/docs/install_olm.md#create-the-dataprotectionapplication-custom-resource)
+* Check that the [nginx-example sample application](https://github.com/openshift/oadp-operator/blob/master/docs/examples/stateless.md) is installed
 
 ```
 ./check_prerequisites.sh -h
