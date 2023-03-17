@@ -7,7 +7,24 @@ This example uses [OpenShift Pipelines](https://cloud.redhat.com/blog/introducin
 
 An OpenShift administrator would want to ensure that an application developer or namespace administrator could not backup or restore applications where they do not have the proper rights or access.  In this demo, the administrator has only given the user rights to backup a namespace called `nginx-example`.  The administrator has also specificied the DPA for this backup to `dpa-sample`.  An OpenShift administrator should configure different DPA per non-admin owner.  This provides the administrator the oversight where and how backups are taken, and the users the convienence of executing backups and restores as they wish.
 
+## Technical Details of this demonstration
+
+A user may want to change the backup custom resource, or other aspects of this demo. Simply fork this git repository and update the settings and configuration. The following provides a more in depth technical specification.
+
+* To change the backup customer resource, update the [backup cr](backup_cr/backup.yaml)
+* The oauth and some of the user settings can be found in the [demo_users](demo_users) directory
+* Some of the templates used in this demonstration are templated and found in [install_templates/templates](install_templates). The [install.sh](install.sh) script executes `oc process` to substitute variables and renders to the directory of the users choice or by default to `/tmp/oadp_non_admin` 
+* Once the manifects have been rendered the install.sh script also apply's the templates.
+* The install.sh script will also execute `oc adm policy add-role-to-user view $USER` to give the non-admin rights to view all the resources in the created namespace.
+* The parameters that users are allowed to set in the tekton pipeline are defined in [05-build-and-deploy.yaml](install_templates/templates/05-build-and-deploy.yaml). Currently the non-admin user can set the following details
+  * The git url to the source of the backup_cr file
+  * The git branch of the git url
+  * The backup name that will be added to the backup cr and executed.
+  * Additional paramaters can be added based on your needs.
+
 Future examples will include the directions and templates required for an OpenShift administrator that would:
+ * A custom built tekton compatible container with backup and restore customer resource templates.
+   *  A custom built container would reduce the number of steps required in the pipeline.
  * setup multiple users as namespace owners
    * multiple tekton pipelines per owner
  * multiple applications
@@ -31,7 +48,8 @@ i     Install nginx-example
 
 
 ### First create non-admin users 
-
+* **NOTE** Be careful as to not overwrite or delete your existing authentication. 
+  *  This step can easily be done manually and the script skipped by executing the steps documented [here](https://www.redhat.com/sysadmin/openshift-htpasswd-oauth)  
 * logged in as the kubeadmin user, execute the following:
 ```
 cd demo_users
