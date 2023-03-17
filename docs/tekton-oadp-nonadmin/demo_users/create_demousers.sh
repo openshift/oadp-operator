@@ -74,6 +74,17 @@ oc create secret generic htpass-secret-$BASENAME --from-file=htpasswd=htpasswd -
 oc get secret/htpass-secret-$BASENAME -n openshift-config -oyaml
 
 printf "Create the OCP oauth entry"
+found_previous=`oc get oauth cluster -o yaml | grep htpasswd`
+echo $found_previous
+if [ ! -z "$found_previous" ]; then
+  printf "Bailing out, another htpasswd configuration found"
+  oc get oauth cluster -o yaml
+  printf "\n"
+  printf "We don't want to kill your auth, exiting for now\n"
+  printf "FAILED\n"
+  exit 1
+fi
+
 sed -e "s/REPLACEME/$BASENAME/g" oauth.yaml > oauth.yaml.tmp
 mv oauth.yaml.tmp oauth.yaml
 cat oauth.yaml
