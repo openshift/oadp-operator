@@ -5,7 +5,6 @@ import (
 	"os"
 	"reflect"
 	"strings"
-	"time"
 
 	"github.com/openshift/oadp-operator/pkg/credentials"
 	"github.com/operator-framework/operator-lib/proxy"
@@ -484,11 +483,10 @@ func (r *DPAReconciler) customizeVeleroDeployment(dpa *oadpv1alpha1.DataProtecti
 
 	if dpa.Spec.Configuration.Velero.ResourceTimeout != "" {
 		resourceTimeoutString := dpa.Spec.Configuration.Velero.ResourceTimeout
-		resourceTimeout, err := time.ParseDuration(resourceTimeoutString)
 		if err != nil {
 			return err
 		}
-		veleroContainer.Args = append(veleroContainer.Args, fmt.Sprintf("--resource-timeout=%v", resourceTimeout.String()))
+		veleroContainer.Args = append(veleroContainer.Args, fmt.Sprintf("--resource-timeout=%v", resourceTimeoutString))
 	}
 
 	// Set defaults to avoid update events
