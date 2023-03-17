@@ -26,7 +26,7 @@ A user may want to change the backup custom resource, or other aspects of this d
   * The backup name that will be added to the backup cr and executed.
   * Additional paramaters can be added based on your needs.
 
-Future examples will include the directions and templates required for an OpenShift administrator that would:
+Future examples or updates to this documentation could include the following:
  * A custom built tekton compatible container with backup and restore customer resource templates.
    *  A custom built container would reduce the number of steps required in the pipeline.
  * setup multiple users as namespace owners
