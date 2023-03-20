@@ -9,4 +9,12 @@ body:
         Thank you for taking the time to document a bug in the OADP project. 
         Please open any customer or partner issues 
         directly in [jira](https://issues.redhat.com/projects/OADP).
+   - type: dropdown
+    id: oadp-version
+    attributes:
+      label: OADP Version
+      description: What version of our software are you running?
+      options:
+        - none
+       
 
