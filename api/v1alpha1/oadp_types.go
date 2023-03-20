@@ -221,6 +221,10 @@ type VolumeOptions struct {
 	// cacheAccessMode is the access mode to be used to provision the cache volume
 	//+optional
 	CacheAccessMode string `json:"cacheAccessMode,omitempty"`
+	// moverSecurityContext allows enabling the PodSecurityContext used in
+	// the application pod(s)
+	//+optional
+	MoverSecurityContext *bool `json:"moverSecurityContext,omitempty"`
 }
 
 // Features defines the configuration for the DPA to enable the tech preview features
