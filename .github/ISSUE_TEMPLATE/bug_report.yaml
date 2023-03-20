@@ -5,7 +5,7 @@ labels: ["kind/bug"]
 body:
   - type: markdown
     attributes:
-      value: |
+      value: >
         Thank you for taking the time to document a bug in the OADP project. 
         Please open any customer or partner issues 
         directly in [jira](https://issues.redhat.com/projects/OADP).
