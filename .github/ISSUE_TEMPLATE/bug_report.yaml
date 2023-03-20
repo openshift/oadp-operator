@@ -6,9 +6,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thank you for taking the time to document a bug in the OADP project. 
-        Please open any customer or partner issues 
-        directly in [jira](https://issues.redhat.com/projects/OADP).
+        Thank you for taking the time to document a bug in the OADP project. Please open any customer or partner issues directly in [jira](https://issues.redhat.com/projects/OADP).
    - type: dropdown
     id: oadp-version
     attributes:
