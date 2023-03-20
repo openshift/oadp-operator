@@ -6,15 +6,14 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thank you for taking the time to document a bug in the OADP project. Please open any customer or partner issues directly in [jira](https://issues.redhat.com/projects/OADP).
-  - type: dropdown
-    id: oadp-version
+        Thanks for taking the time to fill out this bug report!
+  - type: input
+    id: contact
     attributes:
-      label: OADP Version
-      description: What version of our software are you running?
-      options:
-        - none
-  validations:
-    required: true 
+      label: Contact Details
+      description: How can we get in touch with you if we need more info?
+      placeholder: ex. email@example.com
+    validations:
+      required: false
        
 
