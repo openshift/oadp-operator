@@ -6,7 +6,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for taking the time to fill out this bug report!
+        Thank you for opening a bug with OADP, our bug tracking has moved to [jira](https://issues.redhat.com/projects/OADP/issues)
   - type: input
     id: contact
     attributes:
