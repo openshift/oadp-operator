@@ -14,5 +14,7 @@ body:
       description: What version of our software are you running?
       options:
         - none
+   validations:
+      required: true 
        
 
