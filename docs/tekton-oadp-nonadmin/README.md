@@ -13,11 +13,9 @@ It is possible to install the OADP Operator into multiple OpenShift namespaces a
 ## Project Architecture
 OpenShift Administrators can utilize OpenShift pipelines and OADP to best fit their own needs.  An example architecture is show below that provides OpenShift pipelines for backing up and restoring projects with limited roles for non-admins.  The non-admin in this case Joe or Sarah are allowed to trigger OADP backup and an OADP restore but neither Joe or Sarah can edit the OpenShift pipelines or accidently restore a backup to the wrong namespace.  Joe and Sarah will have a full history of all the executions of the backups and restores in the pipeline-runs section of the pipeline.  The OpenShift administrator may also create tekton [pipeline triggers](https://cloud.redhat.com/blog/guide-to-openshift-pipelines-part-6-triggering-pipeline-execution-from-github) to schedule a backup of a namespace based on a specific event.
 
-![oadp-non-admin-diagram1](https://user-images.githubusercontent.com/138787/226426178-c8df6589-6bdf-4b36-a541-66b4d87aa590.png)
-
+![oadp-non-admin-diagram1](https://user-images.githubusercontent.com/138787/226427368-6c2e704c-9b8f-4c89-bac2-5b973ce8bbd9.png)
 
 ## Technical Details of this demonstration
-
 A user may want to change the backup custom resource, or other aspects of this demo. Simply fork this git repository and update the settings and configuration. The following provides a more in depth technical specification.
 
 * To change the backup customer resource, update the [backup cr](backup_cr/backup.yaml)
