@@ -217,7 +217,7 @@ objects:
       workspaces:
       - name: debug
         workspace: repo
-    - name: triggerbackup
+    - name: restore
       params:
       - name: SCRIPT
         value: |
@@ -256,6 +256,7 @@ objects:
           printf "echo the BACKUP_NAME parameter \n"
           echo $(params.BACKUP_NAME)
           printf "\n"
+          printf "Getting the status of the restore workflow\n"
           oc get restore -n openshift-adp $(params.BACKUP_NAME) -o jsonpath='{.status.phase}'
           status=foo && while [[ $status != "Completed" ]]; do status=`oc get restore -n openshift-adp $(params.BACKUP_NAME) -o jsonpath='{.status.phase}'`; echo $status; sleep 5; done
       - name: VERSION
@@ -280,7 +281,7 @@ objects:
           printf "echo the BACKUP_NAME parameter \n"
           echo $(params.BACKUP_NAME)
           printf "\n"
-          oc get backup -n openshift-adp $(params.BACKUP_NAME) -o yaml
+          oc get restore -n openshift-adp $(params.BACKUP_NAME) -o yaml
       - name: VERSION
         value: latest
       taskRef:
