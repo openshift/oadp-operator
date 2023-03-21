@@ -112,6 +112,9 @@ The project will be created and the user updated.
 ![Screenshot from 2023-03-17 10-36-42](https://user-images.githubusercontent.com/138787/225965236-3f78ea35-ef11-40ce-8c31-349c32cc3e56.png)
 
 
+### Trigger a backup as a non-admin user
+Log into Openshift as the non-admin user buzz1, and click `Pipelines`
+
 * You should now see a new tekton pipeline created call `backup-pipeline`
   * Click `Actions`
     * **NOTE** you should see the user only has permissions to `Start` the pipeline
@@ -119,7 +122,7 @@ The project will be created and the user updated.
     * Update the GIT_URL and GIT_BRANCH 
       * This is for demonstration purposes only and will later be removed.
       * The git repo should be a clone of oadp-operator and contain the directory `docs/tekton-oadp-nonadmin`
-    * Give your backup an unique name
+    * Give your backup an unique name, e.g. mybackuptest1
     * The `workspace` should be:
       * A PersistentVolumeClaim
       * Choose the $name-oadp-non-admin PVC
@@ -135,7 +138,53 @@ The project will be created and the user updated.
 * Check the logs of the Tekton tasks, below is an example of a previous execution.
 
 
-### Logs from all runs 
+### Delete the application
+Now that you have backed up an application, delete the application's namespace and we'll proceed to the restore pipeline.
+**NOTE:** Deleting the namespace may require admin access
+```
+oc delete namespace nginx-example
+```
+
+### Restore the application
+In the buzz1 project, click on `Pipelines` and the `restore-pipeline`
+
+![Screenshot from 2023-03-21 08-38-26](https://user-images.githubusercontent.com/138787/226641215-40e03147-3690-47f2-89e1-9e8e171ba7bd.png)
+
+
+Follow the same steps and the same `backup name` used in the backup pipeline.
+* The backup name in the example was `mybackuptest1`
+
+![Screenshot from 2023-03-21 08-39-47](https://user-images.githubusercontent.com/138787/226641262-7c97cfb3-ffa6-4bf3-893f-854cd3f70ec2.png)
+
+The restore should run to completion.
+![Screenshot from 2023-03-21 08-49-48](https://user-images.githubusercontent.com/138787/226644387-2320656a-fd6e-47c3-9a4e-fad71f2bf430.png)
+
+
+The nginx-example application should be created and running:
+```
+[whayutin@thinkdoe docs]$ oc get all -n nginx-example
+NAME                                    READY   STATUS    RESTARTS   AGE
+pod/nginx-deployment-7754cc8446-pf4rd   1/1     Running   0          30m
+pod/nginx-deployment-7754cc8446-tm2hg   1/1     Running   0          30m
+
+NAME               TYPE           CLUSTER-IP       EXTERNAL-IP                                                               PORT(S)          AGE
+service/my-nginx   LoadBalancer   172.30.196.113   a9640ce3a586744148859f932b41e851-1614434757.us-west-2.elb.amazonaws.com   8080:31746/TCP   30m
+
+NAME                               READY   UP-TO-DATE   AVAILABLE   AGE
+deployment.apps/nginx-deployment   2/2     2            2           30m
+
+NAME                                          DESIRED   CURRENT   READY   AGE
+replicaset.apps/nginx-deployment-7754cc8446   2         2         2       30m
+
+NAME                                HOST/PORT                                                                       PATH   SERVICES   PORT   TERMINATION   WILDCARD
+route.route.openshift.io/my-nginx   my-nginx-nginx-example.apps.cluster-wdh02152023a.wdh02152023a.mg.dog8code.com          my-nginx   8080                 None
+
+```
+
+#### Complete
+Thank you for walking through this OADP demonstration.
+
+### Logs from the backup execution 
 ```
 ﻿import-images
 
