@@ -228,7 +228,7 @@ objects:
           cat /workspace/manifest-dir/docs/tekton-oadp-nonadmin/restore_cr/restore.yaml
           printf "\n"
           printf "Update the restore cr's name\n"
-          sed -i 's/BACKUP_NAME/$(params.BACKUP_NAME)/' /workspace/manifest-dir/docs/tekton-oadp-nonadmin/restore_cr/restore.yaml
+          sed -i 's/BACKUP_NAME/$(params.BACKUP_NAME)/g' /workspace/manifest-dir/docs/tekton-oadp-nonadmin/restore_cr/restore.yaml
           printf "\n"
           printf "cat the updated restore cr \n"
           cat /workspace/manifest-dir/docs/tekton-oadp-nonadmin/restore_cr/restore.yaml
