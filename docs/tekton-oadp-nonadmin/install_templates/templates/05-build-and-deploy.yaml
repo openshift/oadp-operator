@@ -43,6 +43,10 @@ objects:
           set -ex
           cd /workspace/debug/docs/tekton-oadp-nonadmin/backup_cr/
           ls -la
+          cat backup.yaml
+          cd /workspace/debug/docs/tekton-oadp-nonadmin/restore_cr/
+          ls -la
+          cat restore.yaml
 
 - kind: Pipeline
   apiVersion: tekton.dev/v1beta1
@@ -164,6 +168,127 @@ objects:
             workspace: repo  
     workspaces:
     - name: repo
+
+- kind: Pipeline
+  apiVersion: tekton.dev/v1beta1
+  metadata:
+    name: restore-pipeline
+    namespace: ${PROJECT}
+  spec:
+    params:
+    - default: https://github.com/weshayutin/oadp-operator.git
+      name: GIT_URL
+      type: string
+    - default: tekton-non-admin
+      name: GIT_BRANCH
+      type: string
+    - name: BACKUP_NAME
+      type: string
+    tasks:
+    - name: import-images
+      params:
+      - name: SCRIPT
+        value: |
+          oc import-image toolbox --from=registry.access.redhat.com/ubi9/toolbox:latest --confirm -n ${PROJECT}
+      taskRef:
+        kind: ClusterTask
+        name: openshift-client
+    - name: checkout
+      params:
+      - name: url
+        value: $(params.GIT_URL)
+      - name: revision
+        value: $(params.GIT_BRANCH)
+      runAfter:
+      - import-images
+      taskRef:
+        kind: ClusterTask
+        name: git-clone
+      timeout: 1m0s
+      workspaces:
+      - name: output
+        workspace: repo
+    - name: listfiles
+      runAfter:
+      - checkout
+      taskRef:
+        kind: Task
+        name: debug
+      workspaces:
+      - name: debug
+        workspace: repo
+    - name: triggerbackup
+      params:
+      - name: SCRIPT
+        value: |
+          printf "echo the BACKUP_NAME parameter \n"
+          echo $(params.BACKUP_NAME)
+          printf "\n"
+          printf "cat the original backup cr \n"
+          cat /workspace/manifest-dir/docs/tekton-oadp-nonadmin/restore_cr/restore.yaml
+          printf "\n"
+          printf "Update the restore cr's name\n"
+          sed -i 's/BACKUP_NAME/$(params.BACKUP_NAME)/' /workspace/manifest-dir/docs/tekton-oadp-nonadmin/restore_cr/restore.yaml
+          printf "\n"
+          printf "cat the updated restore cr \n"
+          cat /workspace/manifest-dir/docs/tekton-oadp-nonadmin/restore_cr/restore.yaml
+          printf "\n"
+          printf "Finally create the restore workflow\n"
+          oc create -f /workspace/manifest-dir/docs/tekton-oadp-nonadmin/restore_cr/restore.yaml
+          printf "\n"
+          printf "Get the details and status of the restore\n"
+          oc get restore $(params.BACKUP_NAME) -n openshift-adp -o yaml
+          printf "\n"
+      - name: VERSION
+        value: latest
+      runAfter:
+      - listfiles
+      taskRef:
+        kind: ClusterTask
+        name: openshift-client
+      workspaces:
+      - name: manifest-dir
+        workspace: repo
+    - name: checkbackupstatus
+      params:
+      - name: SCRIPT
+        value: |
+          printf "echo the BACKUP_NAME parameter \n"
+          echo $(params.BACKUP_NAME)
+          printf "\n"
+          oc get restore -n openshift-adp $(params.BACKUP_NAME) -o jsonpath='{.status.phase}'
+          status=foo && while [[ $status != "Completed" ]]; do status=`oc get restore -n openshift-adp $(params.BACKUP_NAME) -o jsonpath='{.status.phase}'`; echo $status; sleep 5; done
+      - name: VERSION
+        value: latest
+      retries: 3
+      runAfter:
+      - triggerbackup
+      taskRef:
+        kind: ClusterTask
+        name: openshift-client
+      timeout: 5m0s
+      workspaces:
+      - name: manifest-dir
+        workspace: repo
+    workspaces:
+    - name: repo
+  finally:
+    - name: finalstatus
+      params:
+      - name: SCRIPT
+        value: |
+          printf "echo the BACKUP_NAME parameter \n"
+          echo $(params.BACKUP_NAME)
+          printf "\n"
+          oc get backup -n openshift-adp $(params.BACKUP_NAME) -o yaml
+      - name: VERSION
+        value: latest
+      taskRef:
+        kind: ClusterTask
+        name: openshift-client
+      workspaces:
+      - name: manifest-dir
+        workspace: repo
 
   
         
