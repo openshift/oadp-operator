@@ -15,6 +15,9 @@ OpenShift Administrators can utilize OpenShift pipelines and OADP to best fit th
 
 ![oadp-non-admin-diagram1](https://user-images.githubusercontent.com/138787/226448245-68712098-38c7-4b46-aaae-bba910f8dfc0.png)
 
+An example with just one application
+![Screenshot from 2023-03-21 09-15-02](https://user-images.githubusercontent.com/138787/226651959-b698bf0a-998f-4bfa-b2e1-46e012aa4442.png)
+
 ## Technical Details of this demonstration
 A user may want to change the backup custom resource, or other aspects of this demo. Simply fork this git repository and update the settings and configuration. The following provides a more in depth technical specification.
 
