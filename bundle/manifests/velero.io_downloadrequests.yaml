@@ -46,6 +46,7 @@ spec:
                     - BackupVolumeSnapshots
                     - BackupItemOperations
                     - BackupResourceList
+                    - BackupResults
                     - RestoreLog
                     - RestoreResults
                     - RestoreResourceList
