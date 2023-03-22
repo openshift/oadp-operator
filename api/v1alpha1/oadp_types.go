@@ -92,6 +92,11 @@ type VeleroConfig struct {
 	// How long to wait on asynchronous BackupItemActions and RestoreItemActions to complete before timing out. Default value is 1h.
 	// +optional
 	DefaultItemOperationTimeout string `json:"defaultItemOperationTimeout,omitempty"`
+	// resourceTimeout defines how long to wait for several Velero resources before timeout occurs,
+	// such as Velero CRD availability, volumeSnapshot deletion, and repo availability.
+	// Default is 10m
+	// +optional
+	ResourceTimeout string `json:"resourceTimeout,omitempty"`
 }
 
 // PodConfig defines the pod configuration options
