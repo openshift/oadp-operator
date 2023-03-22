@@ -2,6 +2,10 @@ package controllers
 
 import (
 	"fmt"
+	"os"
+	"reflect"
+	"strings"
+
 	"github.com/openshift/oadp-operator/pkg/credentials"
 	"github.com/operator-framework/operator-lib/proxy"
 	"github.com/sirupsen/logrus"
@@ -9,9 +13,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"os"
-	"reflect"
-	"strings"
 
 	//"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -479,6 +480,14 @@ func (r *DPAReconciler) customizeVeleroDeployment(dpa *oadpv1alpha1.DataProtecti
 			return err
 		}
 		veleroContainer.Args = append(veleroContainer.Args, fmt.Sprintf("--default-item-operation-timeout=%v", DefaultItemOperationTimeoutString))
+	}
+
+	if dpa.Spec.Configuration.Velero.ResourceTimeout != "" {
+		resourceTimeoutString := dpa.Spec.Configuration.Velero.ResourceTimeout
+		if err != nil {
+			return err
+		}
+		veleroContainer.Args = append(veleroContainer.Args, fmt.Sprintf("--resource-timeout=%v", resourceTimeoutString))
 	}
 
 	// Set defaults to avoid update events
