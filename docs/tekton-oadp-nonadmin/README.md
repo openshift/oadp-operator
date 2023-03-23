@@ -40,6 +40,9 @@ Future examples or updates to this documentation could include the following:
  * multiple applications
  * multiple DPA configurations
 
+## Known Issues
+* The OpenShift Pipeline execution may fail due to the PVC after some relatively short amount of time, roughly 24-48 hours.  Adjust your PVC configuration or delete and recreate the PVC to work around the issue.
+
 ## Steps
 
 ### Prerequisites
