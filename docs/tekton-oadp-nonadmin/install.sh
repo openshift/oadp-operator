@@ -53,20 +53,35 @@ printf "Saved to: $OUTPUT_DIR\n\n"
 # create the templates
 mkdir -p $OUTPUT_DIR || true
 pushd install_templates
-cp -Rv *.yaml $OUTPUT_DIR/
+pwd
+cp -v *.yaml $OUTPUT_DIR/
 pushd templates
-for i in `ls`;do
+pwd
+
+FILES="03-rbac-pipeline-role.yaml
+04-service-account_template.yaml
+05-build-and-deploy.yaml"
+
+for i in $FILES; do
   oc process -f $i -p PROJECT=$PROJECT -p USER=$USER -o yaml > $OUTPUT_DIR/$i
 done
 popd
 
+exit
+
+FILES="02-tekton-operator.yaml
+03-rbac-pipeline-role.yaml
+04-service-account_template.yaml
+05-build-and-deploy.yaml"
+
 # apply the templates
 pushd $OUTPUT_DIR
-for i in `ls`;do
+for i in $FILES; do
+  printf "\nExecuting oc create -f $i\n"
   oc create -f $i
 done
 
-oc adm policy add-role-to-user view $USER -n $PROJECT
+# oc adm policy add-role-to-user view $USER -n $PROJECT
 
 
 printf "done"

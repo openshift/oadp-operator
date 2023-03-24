@@ -26,7 +26,6 @@ objects:
   metadata:
     name: debug
     namespace: ${PROJECT}
-    description: collect git repo debug information 
   spec:
     # notes: each task specifies the workspace name
     # the same pvc is used, only the mounted directory changes based on the name
@@ -168,7 +167,7 @@ objects:
             workspace: repo  
     workspaces:
     - name: repo
-
+      
 - kind: Pipeline
   apiVersion: tekton.dev/v1beta1
   metadata:
@@ -263,7 +262,7 @@ objects:
         value: latest
       retries: 3
       runAfter:
-      - triggerbackup
+      - restore
       taskRef:
         kind: ClusterTask
         name: openshift-client
@@ -273,23 +272,23 @@ objects:
         workspace: repo
     workspaces:
     - name: repo
-  finally:
-    - name: finalstatus
-      params:
-      - name: SCRIPT
-        value: |
-          printf "echo the BACKUP_NAME parameter \n"
-          echo $(params.BACKUP_NAME)
-          printf "\n"
-          oc get restore -n openshift-adp $(params.BACKUP_NAME) -o yaml
-      - name: VERSION
-        value: latest
-      taskRef:
-        kind: ClusterTask
-        name: openshift-client
-      workspaces:
-      - name: manifest-dir
-        workspace: repo
+    finally:
+      - name: finalstatus
+        params:
+        - name: SCRIPT
+          value: |
+            printf "echo the BACKUP_NAME parameter \n"
+            echo $(params.BACKUP_NAME)
+            printf "\n"
+            oc get restore -n openshift-adp $(params.BACKUP_NAME) -o yaml
+        - name: VERSION
+          value: latest
+        taskRef:
+          kind: ClusterTask
+          name: openshift-client
+        workspaces:
+        - name: manifest-dir
+          workspace: repo
 
   
         

@@ -74,27 +74,56 @@ oc create secret generic htpass-secret-$BASENAME --from-file=htpasswd=htpasswd -
 oc get secret/htpass-secret-$BASENAME -n openshift-config -oyaml
 
 printf "Create the OCP oauth entry"
-found_previous=`oc get oauth cluster -o yaml | grep htpasswd`
-echo $found_previous
-if [ ! -z "$found_previous" ]; then
-  printf "Bailing out, another htpasswd configuration found"
-  oc get oauth cluster -o yaml
-  printf "\n"
-  printf "We don't want to kill your auth, exiting for now\n"
-  printf "FAILED\n"
-  exit 1
-fi
-
 sed -e "s/REPLACEME/$BASENAME/g" oauth.yaml > oauth.yaml.tmp
 mv oauth.yaml.tmp oauth.yaml
+
+
+# oc get oauth cluster -o jsonpath='{.spec.identityProviders}' | yq -P
+# oc patch oauth cluster  --type merge --patch-file oauth.yaml
+
+# get the currently configured identity providers
+oc get oauth cluster -o jsonpath='{.spec.identityProviders}' | yq -P > current_ident.yaml
+# add two spaces
+sed -i 's/^/  /' current_ident.yaml
+cat current_ident.yaml >> oauth.yaml
+printf "\n\n"
 cat oauth.yaml
-oc apply  -f oauth.yaml
+printf "This script will merge this oauth.yaml file in 10 seconds\n"
+printf "ctl-c to cancel"
+sleep 10
+oc patch oauth cluster  --type merge --patch-file oauth.yaml
 
+printf "\n\n"
 printf "WARNING: it may take a few minutes for the oauth settings to reconcile\n"
-printf "Once the oauth settings have reconciled you may login w/ the following users:\n"
-cat htpasswd
+printf "Once the oauth settings have reconciled you may login w/ the following users:\n\n"
+printf "oc get clusteroperator authentication  -n openshift-authentication -o=custom-columns=STATUS:.status.conditions[2]\n" 
 
+printf "\n The following is the htpasswd file\n"
+cat htpasswd
+printf "sleeping for 60 seconds\n"
+sleep 60
+
+authready=1
+while [ $authready -ne 0 ]; do
+  authready=`oc get clusteroperator authentication  -n openshift-authentication -o=custom-columns=STATUS:.status.conditions[2].status | grep -c True` || echo 0
+  printf "\n waiting"
+  sleep 10
+done
 popd
+
+pwd
+# create the user templates
+COUNTER=1
+while [[ $COUNTER -le $COUNT ]]; do
+  oc process -f user.yaml -p BASENAME=$BASENAME -p USER=$BASENAME$COUNTER -o yaml > "${OUTPUT_DIR}/user${COUNTER}.yaml"
+  oc process -f 01-new-project-request_template.yaml -p USER=$BASENAME$COUNTER -p PROJECT=$BASENAME -o yaml > "${OUTPUT_DIR}/01-new-project-request_template.yaml"
+  ((COUNTER++))
+done
+
+
+printf "\nDONE!\n"
+
+
 
 
 

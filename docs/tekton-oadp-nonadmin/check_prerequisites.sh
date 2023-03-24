@@ -39,6 +39,16 @@ while getopts "h:i" option; do
 done
 
 printf "\n"
+printf "Checking if the Openshift Pipelines operator is installed....\n"
+prc=`oc get operator | grep -c openshift-pipelines-operator-rh.openshift-operators` 
+if [ $prc -eq 1 ]; then
+  printf "The Openshift Pipelines operator is installed\n"
+else
+  printf "Please install the Openshift Pipelines operator\n"
+  exit
+fi
+
+printf "\n"
 printf "Checking if OADP is installed and configured....\n"
 orc=`oc get operator | grep -c oadp-operator.openshift-adp`
 if [ $orc -eq 1 ]; then
