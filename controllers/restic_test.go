@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"reflect"
 	"testing"
@@ -9,6 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
+	"github.com/google/go-cmp/cmp"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 
 	"github.com/go-logr/logr"
@@ -239,6 +241,150 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 										{
 											Name:  "VELERO_SCRATCH_DIR",
 											Value: "/scratch",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "Valid velero with Env PodConfig and daemonset",
+			args: args{
+				&oadpv1alpha1.DataProtectionApplication{
+					Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+						Configuration: &oadpv1alpha1.ApplicationConfig{
+							Restic: &oadpv1alpha1.ResticConfig{
+								PodConfig: &oadpv1alpha1.PodConfig{
+									Env: []corev1.EnvVar{
+										{
+											Name:  "TEST_ENV",
+											Value: "TEST_VALUE",
+										},
+									},
+								},
+							},
+							Velero: &oadpv1alpha1.VeleroConfig{
+								PodConfig: &oadpv1alpha1.PodConfig{},
+							},
+						},
+					},
+				}, &appsv1.DaemonSet{
+					ObjectMeta: getResticObjectMeta(r),
+				},
+			},
+			wantErr: false,
+			want: &appsv1.DaemonSet{
+				ObjectMeta: getResticObjectMeta(r),
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "DaemonSet",
+					APIVersion: appsv1.SchemeGroupVersion.String(),
+				},
+				Spec: appsv1.DaemonSetSpec{
+					UpdateStrategy: appsv1.DaemonSetUpdateStrategy{
+						Type: appsv1.RollingUpdateDaemonSetStrategyType,
+					},
+					Selector: resticLabelSelector,
+					Template: v1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Labels: map[string]string{
+								"component": common.Velero,
+								"name":      common.NodeAgent,
+							},
+						},
+						Spec: v1.PodSpec{
+							NodeSelector:       dpa.Spec.Configuration.Restic.PodConfig.NodeSelector,
+							ServiceAccountName: common.Velero,
+							SecurityContext: &v1.PodSecurityContext{
+								RunAsUser:          pointer.Int64(0),
+								SupplementalGroups: dpa.Spec.Configuration.Restic.SupplementalGroups,
+							},
+							Volumes: []v1.Volume{
+								// Cloud Provider volumes are dynamically added in the for loop below
+								{
+									Name: HostPods,
+									VolumeSource: v1.VolumeSource{
+										HostPath: &v1.HostPathVolumeSource{
+											Path: resticPvHostPath,
+										},
+									},
+								},
+								{
+									Name: "scratch",
+									VolumeSource: v1.VolumeSource{
+										EmptyDir: &v1.EmptyDirVolumeSource{},
+									},
+								},
+								{
+									Name: "certs",
+									VolumeSource: v1.VolumeSource{
+										EmptyDir: &v1.EmptyDirVolumeSource{},
+									},
+								},
+							},
+							Tolerations: dpa.Spec.Configuration.Restic.PodConfig.Tolerations,
+							Containers: []v1.Container{
+								{
+									Name: common.NodeAgent,
+									SecurityContext: &v1.SecurityContext{
+										Privileged: pointer.Bool(true),
+									},
+									Image:           getVeleroImage(&dpa),
+									ImagePullPolicy: v1.PullAlways,
+									Command: []string{
+										"/velero",
+									},
+									Args: []string{
+										"node-agent",
+										"server",
+									},
+									VolumeMounts: []v1.VolumeMount{
+										{
+											Name:             "host-pods",
+											MountPath:        "/host_pods",
+											MountPropagation: &mountPropagationToHostContainer,
+										},
+										{
+											Name:      "scratch",
+											MountPath: "/scratch",
+										},
+										{
+											Name:      "certs",
+											MountPath: "/etc/ssl/certs",
+										},
+									},
+									Resources: corev1.ResourceRequirements{
+										Requests: corev1.ResourceList{
+											corev1.ResourceCPU:    resource.MustParse("500m"),
+											corev1.ResourceMemory: resource.MustParse("128Mi"),
+										},
+									},
+									Env: []v1.EnvVar{
+										{
+											Name: "NODE_NAME",
+											ValueFrom: &v1.EnvVarSource{
+												FieldRef: &v1.ObjectFieldSelector{
+													FieldPath: "spec.nodeName",
+												},
+											},
+										},
+										{
+											Name: "VELERO_NAMESPACE",
+											ValueFrom: &v1.EnvVarSource{
+												FieldRef: &v1.ObjectFieldSelector{
+													FieldPath: "metadata.namespace",
+												},
+											},
+										},
+										{
+											Name:  "VELERO_SCRATCH_DIR",
+											Value: "/scratch",
+										},
+										{
+											Name:  "TEST_ENV",
+											Value: "TEST_VALUE",
 										},
 									},
 								},
@@ -2129,6 +2275,7 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 				}
 			}
 			if !reflect.DeepEqual(got, tt.want) {
+				fmt.Printf(cmp.Diff(got, tt.want))
 				t.Errorf("DPAReconciler.buildResticDaemonset() got = %v, want %v", got, tt.want)
 			}
 		})
