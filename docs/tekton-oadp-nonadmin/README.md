@@ -42,6 +42,7 @@ Future examples or updates to this documentation could include the following:
 ## Known Issues
 * The OpenShift Pipeline execution may fail due to the PVC after some relatively short amount of time, roughly 24-48 hours.  Adjust your PVC configuration or delete and recreate the PVC to work around the issue.
 * The create_demousers.sh script is not for production use, and has known issues.  This step can be skipped by following the manual setup to create a user, htpasswd and access rights.
+* OpenShift >= 4.12 has two default storage classes by default.  This will cause an error when creating pvc's.  Either ensure there is just one default storage class or manually create the failed pvc w/ the expected name.
 
 ## Steps
 
