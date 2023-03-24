@@ -29,7 +29,6 @@ const (
 	ResticRepository    = "RESTIC_REPOSITORY"
 	ResticsecretName    = "dm-credential"
 	ResticPruneInterval = "restic-prune-interval"
-	ResticCustomCAKey   = "CUSTOM_CA"
 
 	// batchNumbers vars
 	DefaultConcurrentBackupVolumes  = "10"
@@ -560,59 +559,6 @@ func (r *DPAReconciler) createResticSecretsPerBSL(dpa *oadpv1alpha1.DataProtecti
 	return nil, nil
 }
 
-func (r *DPAReconciler) createResticCustomCASecret(dpa *oadpv1alpha1.DataProtectionApplication, bsl velerov1.BackupStorageLocation) (*corev1.Secret, error) {
-	insecureSkipTLSVerify, skipPresent := bsl.Spec.Config["insecureSkipTLSVerify"]
-	if !skipPresent || insecureSkipTLSVerify != "false" {
-		return nil, nil
-	}
-	if bsl.Spec.ObjectStorage.CACert == nil {
-		return nil, errors.New("insecureSkipTLSVerify set to false with no caCert specified")
-	}
-
-	secret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-volsync-restic-customca", bsl.Name),
-			Namespace: bsl.Namespace,
-			Labels: map[string]string{
-				oadpv1alpha1.OadpBSLnameLabel:     bsl.Name,
-				oadpv1alpha1.OadpBSLProviderLabel: bsl.Spec.Provider,
-				oadpv1alpha1.OadpOperatorLabel:    "True",
-			},
-		},
-	}
-
-	mutateSecret := func() error {
-		err := controllerutil.SetControllerReference(dpa, secret, r.Scheme)
-		if err != nil {
-			return err
-		}
-
-		rData := &corev1.Secret{
-			Data: map[string][]byte{
-				ResticCustomCAKey: []byte(bsl.Spec.ObjectStorage.CACert),
-			},
-		}
-		secret.Data = rData.Data
-
-		return nil
-	}
-
-	op, err := controllerutil.CreateOrPatch(r.Context, r.Client, secret, mutateSecret)
-	if err != nil {
-		return nil, err
-	}
-
-	if op == controllerutil.OperationResultCreated || op == controllerutil.OperationResultUpdated {
-		r.EventRecorder.Event(secret,
-			corev1.EventTypeNormal,
-			"ResticCustomCASecretReconciled",
-			fmt.Sprintf("%s restic custom CA secret %s", op, secret.Name),
-		)
-	}
-
-	return nil, nil
-}
-
 //build data mover restic secret for given aws bsl
 func (r *DPAReconciler) buildDataMoverResticSecretForAWS(rsecret *corev1.Secret, key string, secret string, region string, pass []byte, repo string, pruneInterval string) error {
 
@@ -724,12 +670,6 @@ func (r *DPAReconciler) ReconcileDataMoverResticSecret(log logr.Logger) (bool, e
 		for _, bsl := range backupStorageLocationList.Items {
 			if strings.Contains(bsl.Name, dpa.Name) {
 				_, err := r.createResticSecretsPerBSL(&dpa, bsl, dmresticsecretname, res_pass)
-
-				if err != nil {
-					return false, err
-				}
-
-				_, err = r.createResticCustomCASecret(&dpa, bsl)
 
 				if err != nil {
 					return false, err
