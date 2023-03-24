@@ -25,7 +25,6 @@ A user may want to change the backup custom resource, or other aspects of this d
 * The oauth and some of the user settings can be found in the [demo_users](demo_users) directory
 * Some of the templates used in this demonstration are templated and found in [install_templates/templates](install_templates). The [install.sh](install.sh) script executes `oc process` to substitute variables and renders to the directory of the users choice or by default to `/tmp/oadp_non_admin` 
 * Once the manifects have been rendered the install.sh script also apply's the templates.
-* The install.sh script will also execute `oc adm policy add-role-to-user view $USER` to give the non-admin rights to view all the resources in the created namespace.
 * The parameters that users are allowed to set in the tekton pipeline are defined in [05-build-and-deploy.yaml](install_templates/templates/05-build-and-deploy.yaml). Currently the non-admin user can set the following details
   * The git url to the source of the backup_cr file
   * The git branch of the git url
@@ -42,10 +41,12 @@ Future examples or updates to this documentation could include the following:
 
 ## Known Issues
 * The OpenShift Pipeline execution may fail due to the PVC after some relatively short amount of time, roughly 24-48 hours.  Adjust your PVC configuration or delete and recreate the PVC to work around the issue.
+* The create_demousers.sh script is not for production use, and has known issues.  This step can be skipped by following the manual setup to create a user, htpasswd and access rights.
 
 ## Steps
 
 ### Prerequisites
+* Install [OpenShift Pipelines](https://docs.openshift.com/container-platform/4.12/cicd/pipelines/installing-pipelines.html) 
 * Check that [OADP is installed](https://docs.openshift.com/container-platform/4.12/backup_and_restore/application_backup_and_restore/installing/about-installing-oadp.html) and [configured with a DPA named dpa-sample](https://github.com/openshift/oadp-operator/blob/master/docs/install_olm.md#create-the-dataprotectionapplication-custom-resource)
 * Check that the [nginx-example sample application](https://github.com/openshift/oadp-operator/blob/master/docs/examples/stateless.md) is installed
 
@@ -61,22 +62,27 @@ i     Install nginx-example
 
 
 ### First create non-admin users 
-* **NOTE** Be careful as to not overwrite or delete your existing authentication. 
-  *  This step can easily be done manually and the script skipped by executing the steps documented [here](https://www.redhat.com/sysadmin/openshift-htpasswd-oauth)  
+* **NOTE** Note this script is for demo purposes only, there has been very limited validation of this script. 
+  *  This step can easily be done manually and the script skipped by executing the steps documented [here](https://www.redhat.com/sysadmin/openshift-htpasswd-oauth)
+  *  If a user has been created manually, the created user requires the view role 
+  ```
+  oc create namespace $PROJECT
+  oc adm policy add-role-to-user view $USER -n $PROJECT
+  ```
 * logged in as the kubeadmin user, execute the following:
 ```
 cd demo_users
 ./create_demousers.sh -h
 Create the OADP non-admin users
 
-Syntax: scriptTemplate [-h|-n|-c|-p|-d]
+Syntax: scriptTemplate [-h|-n|-c|-p|-x|-d]
 options:
 h     Print this Help.
 n     demouser base name
+x     the project name
 c     the number of users to be created
 p     the common password
 d     The directory where the htpasswd file will be saved
-
 ```
 
 Example:
@@ -90,6 +96,10 @@ This will create two new users in openshift called buzz1 and buzz2 with a defaul
 * If you are logged in as the admin, please log into OCP with the buzz user in another browser.
   * Please note your permissions once logged in.
   * Also note there are no pipelines created.
+
+### Login as the non-admin user
+* Test the non-admin user first before moving on.
+* The user should be able to be logged in, and have view access to the created project/namespace.
 
 ### Setup the Tekton pipelines 
 
