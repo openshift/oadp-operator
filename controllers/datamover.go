@@ -27,6 +27,7 @@ import (
 const (
 	ResticPassword      = "RESTIC_PASSWORD"
 	ResticRepository    = "RESTIC_REPOSITORY"
+	ResticCustomCAKey   = "RESTIC_CUSTOM_CA"
 	ResticsecretName    = "dm-credential"
 	ResticPruneInterval = "restic-prune-interval"
 
@@ -393,6 +394,7 @@ func (r *DPAReconciler) createResticSecretsPerBSL(dpa *oadpv1alpha1.DataProtecti
 				pruneInterval = strings.ReplaceAll(pruneInterval, `"`, "")
 				pruneInterval = strings.ReplaceAll(pruneInterval, `'`, "")
 			}
+			resticCustomCA := bsl.Spec.ObjectStorage.CACert
 			rsecret := &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      fmt.Sprintf("%s-volsync-restic", bsl.Name),
@@ -412,7 +414,7 @@ func (r *DPAReconciler) createResticSecretsPerBSL(dpa *oadpv1alpha1.DataProtecti
 					return err
 				}
 
-				return r.buildDataMoverResticSecretForAWS(rsecret, key, secret, bsl.Spec.Config[Region], pass, repo, pruneInterval)
+				return r.buildDataMoverResticSecretForAWS(rsecret, key, secret, bsl.Spec.Config[Region], pass, repo, pruneInterval, resticCustomCA)
 			})
 
 			if err != nil {
@@ -463,6 +465,7 @@ func (r *DPAReconciler) createResticSecretsPerBSL(dpa *oadpv1alpha1.DataProtecti
 			if len(dpa.Spec.Features.DataMover.PruneInterval) > 0 {
 				pruneInterval = dpa.Spec.Features.DataMover.PruneInterval
 			}
+			resticCustomCA := bsl.Spec.ObjectStorage.CACert
 			// We are done with checks no lets create the azure dm secret
 			rsecret := &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
@@ -483,7 +486,7 @@ func (r *DPAReconciler) createResticSecretsPerBSL(dpa *oadpv1alpha1.DataProtecti
 					return err
 				}
 
-				return r.buildDataMoverResticSecretForAzure(rsecret, accountName, accountKey, pass, repo, pruneInterval)
+				return r.buildDataMoverResticSecretForAzure(rsecret, accountName, accountKey, pass, repo, pruneInterval, resticCustomCA)
 			})
 
 			if err != nil {
@@ -519,6 +522,7 @@ func (r *DPAReconciler) createResticSecretsPerBSL(dpa *oadpv1alpha1.DataProtecti
 			if len(dpa.Spec.Features.DataMover.PruneInterval) > 0 {
 				pruneInterval = dpa.Spec.Features.DataMover.PruneInterval
 			}
+			resticCustomCA := bsl.Spec.ObjectStorage.CACert
 			// We are done with checks no lets create the gcp dm secret
 			rsecret := &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
@@ -539,7 +543,7 @@ func (r *DPAReconciler) createResticSecretsPerBSL(dpa *oadpv1alpha1.DataProtecti
 					return err
 				}
 
-				return r.buildDataMoverResticSecretForGCP(rsecret, gcpcreds.googleApplicationCredentials, pass, repo, pruneInterval)
+				return r.buildDataMoverResticSecretForGCP(rsecret, gcpcreds.googleApplicationCredentials, pass, repo, pruneInterval, resticCustomCA)
 			})
 
 			if err != nil {
@@ -560,7 +564,7 @@ func (r *DPAReconciler) createResticSecretsPerBSL(dpa *oadpv1alpha1.DataProtecti
 }
 
 //build data mover restic secret for given aws bsl
-func (r *DPAReconciler) buildDataMoverResticSecretForAWS(rsecret *corev1.Secret, key string, secret string, region string, pass []byte, repo string, pruneInterval string) error {
+func (r *DPAReconciler) buildDataMoverResticSecretForAWS(rsecret *corev1.Secret, key string, secret string, region string, pass []byte, repo string, pruneInterval string, resticCustomCA []byte) error {
 
 	// TODO: add gcp, azure support
 	rData := &corev1.Secret{
@@ -573,12 +577,15 @@ func (r *DPAReconciler) buildDataMoverResticSecretForAWS(rsecret *corev1.Secret,
 			ResticPruneInterval: []byte(pruneInterval),
 		},
 	}
+	if resticCustomCA != nil {
+		rData.Data[ResticCustomCAKey] = resticCustomCA
+	}
 	rsecret.Data = rData.Data
 	return nil
 }
 
 //build data mover restic secret for given bsl
-func (r *DPAReconciler) buildDataMoverResticSecretForAzure(rsecret *corev1.Secret, accountName string, accountKey string, pass []byte, repo string, pruneInterval string) error {
+func (r *DPAReconciler) buildDataMoverResticSecretForAzure(rsecret *corev1.Secret, accountName string, accountKey string, pass []byte, repo string, pruneInterval string, resticCustomCA []byte) error {
 
 	rData := &corev1.Secret{
 		Data: map[string][]byte{
@@ -589,12 +596,15 @@ func (r *DPAReconciler) buildDataMoverResticSecretForAzure(rsecret *corev1.Secre
 			ResticPruneInterval: []byte(pruneInterval),
 		},
 	}
+	if resticCustomCA != nil {
+		rData.Data[ResticCustomCAKey] = resticCustomCA
+	}
 	rsecret.Data = rData.Data
 	return nil
 }
 
 //build data mover restic secret for given gcp bsl
-func (r *DPAReconciler) buildDataMoverResticSecretForGCP(rsecret *corev1.Secret, googleApplicationCredentials string, pass []byte, repo string, pruneInterval string) error {
+func (r *DPAReconciler) buildDataMoverResticSecretForGCP(rsecret *corev1.Secret, googleApplicationCredentials string, pass []byte, repo string, pruneInterval string, resticCustomCA []byte) error {
 
 	rData := &corev1.Secret{
 		Data: map[string][]byte{
@@ -603,6 +613,9 @@ func (r *DPAReconciler) buildDataMoverResticSecretForGCP(rsecret *corev1.Secret,
 			ResticRepository:             []byte(repo),
 			ResticPruneInterval:          []byte(pruneInterval),
 		},
+	}
+	if resticCustomCA != nil {
+		rData.Data[ResticCustomCAKey] = resticCustomCA
 	}
 	rsecret.Data = rData.Data
 	return nil
