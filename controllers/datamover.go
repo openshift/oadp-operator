@@ -575,10 +575,8 @@ func (r *DPAReconciler) buildDataMoverResticSecretForAWS(rsecret *corev1.Secret,
 			ResticPassword:      pass,
 			ResticRepository:    []byte(repo),
 			ResticPruneInterval: []byte(pruneInterval),
+			ResticCustomCAKey:   resticCustomCA,
 		},
-	}
-	if resticCustomCA != nil {
-		rData.Data[ResticCustomCAKey] = resticCustomCA
 	}
 	rsecret.Data = rData.Data
 	return nil
@@ -594,10 +592,8 @@ func (r *DPAReconciler) buildDataMoverResticSecretForAzure(rsecret *corev1.Secre
 			ResticPassword:      pass,
 			ResticRepository:    []byte(repo),
 			ResticPruneInterval: []byte(pruneInterval),
+			ResticCustomCAKey:   resticCustomCA,
 		},
-	}
-	if resticCustomCA != nil {
-		rData.Data[ResticCustomCAKey] = resticCustomCA
 	}
 	rsecret.Data = rData.Data
 	return nil
@@ -612,10 +608,8 @@ func (r *DPAReconciler) buildDataMoverResticSecretForGCP(rsecret *corev1.Secret,
 			ResticPassword:               pass,
 			ResticRepository:             []byte(repo),
 			ResticPruneInterval:          []byte(pruneInterval),
+			ResticCustomCAKey:            resticCustomCA,
 		},
-	}
-	if resticCustomCA != nil {
-		rData.Data[ResticCustomCAKey] = resticCustomCA
 	}
 	rsecret.Data = rData.Data
 	return nil
