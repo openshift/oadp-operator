@@ -2,7 +2,7 @@ spec:
   identityProviders:
   - htpasswd:
       fileData:
-        name: htpass-secret-REPLACEME
+        name: oadp-nonadmin-REPLACEME
     name: REPLACEME 
     mappingMethod: claim 
     type: HTPasswd

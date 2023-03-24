@@ -67,10 +67,7 @@ for i in $FILES; do
 done
 popd
 
-exit
-
-FILES="02-tekton-operator.yaml
-03-rbac-pipeline-role.yaml
+FILES="03-rbac-pipeline-role.yaml
 04-service-account_template.yaml
 05-build-and-deploy.yaml"
 
