@@ -272,12 +272,12 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 						},
 					},
 				}, &appsv1.DaemonSet{
-					ObjectMeta: getResticObjectMeta(r),
+					ObjectMeta: getNodeAgentObjectMeta(r),
 				},
 			},
 			wantErr: false,
 			want: &appsv1.DaemonSet{
-				ObjectMeta: getResticObjectMeta(r),
+				ObjectMeta: getNodeAgentObjectMeta(r),
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "DaemonSet",
 					APIVersion: appsv1.SchemeGroupVersion.String(),
@@ -286,7 +286,7 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 					UpdateStrategy: appsv1.DaemonSetUpdateStrategy{
 						Type: appsv1.RollingUpdateDaemonSetStrategyType,
 					},
-					Selector: resticLabelSelector,
+					Selector: nodeAgentLabelSelector,
 					Template: v1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: map[string]string{
