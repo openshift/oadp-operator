@@ -682,8 +682,8 @@ github.com/onsi/gomega v1.22.1/go.mod h1:x6n7VNe4hw0vkyYUM4mjIXx3JbLiPaBPNgB7PRQ
 github.com/openshift/api v0.0.0-20210805075156-d8fab4513288 h1:Yw96Z8gygCXxjeMTm55gGsTNxwnJkr6L2Baf3NsUQFU=
 github.com/openshift/api v0.0.0-20210805075156-d8fab4513288/go.mod h1:x81TFA31x1OMT9SYWukQqJ/KbmeveRN6fo+XeGRK8g0=
 github.com/openshift/build-machinery-go v0.0.0-20210712174854-1bb7fd1518d3/go.mod h1:b1BuldmJlbA/xYtdZvKi+7j5YGB44qJUJDZ9zwiNCfE=
-github.com/openshift/velero v0.10.2-0.20230320194820-cd848ef1a58f h1:/KvAZotcoxPPEkeW6We69keZRJ+nGQnHxrI46d6GSZw=
-github.com/openshift/velero v0.10.2-0.20230320194820-cd848ef1a58f/go.mod h1:CV8tLTWG/Mwz1/B73YMWrY1vWcy9RJdr7IWAGGK4F5E=
+github.com/openshift/velero v0.10.2-0.20230327185451-e5aba23d1951 h1:JL3hz2BbHfrDerSMvbKkArlgo/uSm2UW1AM0t7Ge3+g=
+github.com/openshift/velero v0.10.2-0.20230327185451-e5aba23d1951/go.mod h1:j5+xxWWmYfLeJ7IjYCLuC+P1ZeSVKRyjYep3SFknRRw=
 github.com/opentracing/opentracing-go v1.1.0/go.mod h1:UkNAQd3GIcIGf0SeVgPpRdFStlNbqXla1AfSYxPUl2o=
 github.com/operator-framework/api v0.10.0/go.mod h1:tV0BUNvly7szq28ZPBXhjp1Sqg5yHCOeX19ui9K4vjI=
 github.com/operator-framework/api v0.10.7 h1:GlZJ6m+0WSVdSsSjTbhKKAvHXamWJXhwXHUhVwL8LBE=
