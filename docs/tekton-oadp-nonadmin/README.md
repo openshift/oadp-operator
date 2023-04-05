@@ -40,7 +40,8 @@ Future examples or updates to this documentation could include the following:
  * multiple DPA configurations
 
 ## Known Issues
-* The OpenShift Pipeline execution may fail due to the PVC after some relatively short amount of time, roughly 24-48 hours.  Adjust your PVC configuration or delete and recreate the PVC to work around the issue.
+* ~~The OpenShift Pipeline execution may fail due to the PVC after some relatively short amount of time, roughly 24-48 hours.  Adjust your PVC configuration or delete and recreate the PVC to work around the issue.~~
+  * Use a VolumeClaimTemplate instead of the precreated PV and PVC
 * The create_demousers.sh script is not for production use, and has known issues.  This step can be skipped by following the manual setup to create a user, htpasswd and access rights.
 * OpenShift >= 4.12 has two default storage classes by default.  This will cause an error when creating pvc's.  Either ensure there is just one default storage class or manually create the failed pvc w/ the expected name.
 
@@ -141,8 +142,8 @@ Log into Openshift as the non-admin user buzz1, and click `Pipelines`
       * The git repo should be a clone of oadp-operator and contain the directory `docs/tekton-oadp-nonadmin`
     * Give your backup an unique name, e.g. mybackuptest1
     * The `workspace` should be:
-      * A PersistentVolumeClaim
-      * Choose the $name-oadp-non-admin PVC
+      * A VolumeClaimTemplate
+      * In this demo a volume claim using the gp2-csi storage class was created.
 
 ![Screenshot from 2023-03-17 10-38-06](https://user-images.githubusercontent.com/138787/225965457-bd7fca53-9b71-45e8-a4a9-96739769b356.png)
 
