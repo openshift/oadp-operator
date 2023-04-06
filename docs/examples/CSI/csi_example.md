@@ -66,19 +66,16 @@ Velero know which to use, and set `deletionPolicy` to  `Retain` in order for
 `oc create -f docs/examples/manifests/mysql/VolumeSnapshotClass.yaml`
 
 ```
-apiVersion: v1
-kind: List
-items:
-  - apiVersion: snapshot.storage.k8s.io/v1
-    kind: VolumeSnapshotClass
-    metadata:
-      name: example-snapclass
-      labels:
-        velero.io/csi-volumesnapshot-class: 'true'
-      annotations:
-        snapshot.storage.kubernetes.io/is-default-class: 'true'
-    driver: ebs.csi.aws.com
-    deletionPolicy: Retain
+apiVersion: snapshot.storage.k8s.io/v1
+kind: VolumeSnapshotClass
+metadata:
+  name: example-snapclass
+  labels:
+    velero.io/csi-volumesnapshot-class: 'true'
+  annotations:
+    snapshot.storage.kubernetes.io/is-default-class: 'true'
+driver: ebs.csi.aws.com
+deletionPolicy: Retain
 ```
 
 `gp2-csi` comes as a default `StorageClass` with OpenShift clusters.

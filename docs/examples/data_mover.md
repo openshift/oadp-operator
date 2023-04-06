@@ -8,9 +8,9 @@
 - Have a stateful application running in a separate namespace. 
 
 - Follow instructions for installing the OADP operator and creating an 
-appropriate `volumeSnapshotClass` and `storageClass`found [here](/docs/examples/csi_example.md).
+appropriate `volumeSnapshotClass` and `storageClass`found [here](/docs/examples/CSI/csi_example.md).
 
-- Install the [VolSync operator](https://volsync.readthedocs.io/en/stable/installation/index.html) using OLM.
+- Install the VolSync operator using OLM.
 
 ![Volsync_install](/docs/images/volsync_install.png)
 
