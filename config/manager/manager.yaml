@@ -38,23 +38,23 @@ spec:
               fieldRef:
                 fieldPath: metadata.namespace
           - name: RELATED_IMAGE_VELERO
-            value: quay.io/konveyor/velero:latest
+            value: quay.io/konveyor/velero:oadp-1.2
           - name: RELATED_IMAGE_VELERO_RESTORE_HELPER
-            value: quay.io/konveyor/velero-restore-helper:latest
+            value: quay.io/konveyor/velero-restore-helper:oadp-1.2
           - name: RELATED_IMAGE_OPENSHIFT_VELERO_PLUGIN
-            value: quay.io/konveyor/openshift-velero-plugin:latest
+            value: quay.io/konveyor/openshift-velero-plugin:oadp-1.2
           - name: RELATED_IMAGE_VELERO_PLUGIN_FOR_AWS
-            value: quay.io/konveyor/velero-plugin-for-aws:latest
+            value: quay.io/konveyor/velero-plugin-for-aws:oadp-1.2
           - name: RELATED_IMAGE_VELERO_PLUGIN_FOR_MICROSOFT_AZURE
-            value: quay.io/konveyor/velero-plugin-for-microsoft-azure:latest
+            value: quay.io/konveyor/velero-plugin-for-microsoft-azure:oadp-1.2
           - name: RELATED_IMAGE_VELERO_PLUGIN_FOR_GCP
-            value: quay.io/konveyor/velero-plugin-for-gcp:latest
+            value: quay.io/konveyor/velero-plugin-for-gcp:oadp-1.2
           - name: RELATED_IMAGE_VELERO_PLUGIN_FOR_CSI
-            value: quay.io/konveyor/velero-plugin-for-csi:latest
+            value: quay.io/konveyor/velero-plugin-for-csi:oadp-1.2
           - name: RELATED_IMAGE_VELERO_PLUGIN_FOR_VSM
-            value: quay.io/konveyor/velero-plugin-for-vsm:latest
+            value: quay.io/konveyor/velero-plugin-for-vsm:oadp-1.2
           - name: RELATED_IMAGE_VOLUME_SNAPSHOT_MOVER
-            value: quay.io/konveyor/volume-snapshot-mover:latest
+            value: quay.io/konveyor/volume-snapshot-mover:oadp-1.2
           - name: RELATED_IMAGE_KUBEVIRT_VELERO_PLUGIN
             value: quay.io/konveyor/kubevirt-velero-plugin:v0.2.0
         args:
