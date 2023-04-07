@@ -22,15 +22,15 @@ const (
 
 // Images
 const (
-	VeleroImage          = "quay.io/konveyor/velero:latest"
-	OpenshiftPluginImage = "quay.io/konveyor/openshift-velero-plugin:latest"
-	AWSPluginImage       = "quay.io/konveyor/velero-plugin-for-aws:latest"
-	AzurePluginImage     = "quay.io/konveyor/velero-plugin-for-microsoft-azure:latest"
-	GCPPluginImage       = "quay.io/konveyor/velero-plugin-for-gcp:latest"
-	CSIPluginImage       = "quay.io/konveyor/velero-plugin-for-csi:latest"
-	VSMPluginImage       = "quay.io/konveyor/velero-plugin-for-vsm:latest"
+	VeleroImage          = "quay.io/konveyor/velero:oadp-1.2"
+	OpenshiftPluginImage = "quay.io/konveyor/openshift-velero-plugin:oadp-1.2"
+	AWSPluginImage       = "quay.io/konveyor/velero-plugin-for-aws:oadp-1.2"
+	AzurePluginImage     = "quay.io/konveyor/velero-plugin-for-microsoft-azure:oadp-1.2"
+	GCPPluginImage       = "quay.io/konveyor/velero-plugin-for-gcp:oadp-1.2"
+	CSIPluginImage       = "quay.io/konveyor/velero-plugin-for-csi:oadp-1.2"
+	VSMPluginImage       = "quay.io/konveyor/velero-plugin-for-vsm:oadp-1.2"
 	// DataMoverImage is the data mover controller for data mover CRs - VolumeSnapshotBackup and VolumeSnapshotRestore
-	DataMoverImage      = "quay.io/konveyor/volume-snapshot-mover:latest"
+	DataMoverImage      = "quay.io/konveyor/volume-snapshot-mover:oadp-1.2"
 	RegistryImage       = "quay.io/konveyor/registry:latest"
 	KubeVirtPluginImage = "quay.io/konveyor/kubevirt-velero-plugin:v0.2.0"
 )
