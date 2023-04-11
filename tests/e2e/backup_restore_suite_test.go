@@ -334,7 +334,7 @@ var _ = Describe("AWS backup restore tests", func() {
 			// Wait for namespace to be deleted
 			Eventually(IsNamespaceDeleted(brCase.ApplicationNamespace), timeoutMultiplier*time.Minute*2, time.Second*5).Should(BeTrue())
 
-			if brCase.BackupRestoreType == CSI {
+			if brCase.BackupRestoreType == CSI || brCase.BackupRestoreType == CSIDataMover {
 				log.Printf("Deleting VolumeSnapshot for CSI backuprestore of %s", brCase.Name)
 				snapshotClassPath := fmt.Sprintf("./sample-applications/snapclass-csi/%s.yaml", provider)
 				err = UninstallApplication(dpaCR.Client, snapshotClassPath)
