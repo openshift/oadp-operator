@@ -117,11 +117,15 @@ func (v *DpaCustomResource) Build(backupRestoreType BackupRestoreType) error {
 	case RESTIC:
 		dpaInstance.Spec.Configuration.Restic.Enable = pointer.Bool(true)
 		delete(defaultPlugins, oadpv1alpha1.DefaultPluginCSI)
+		delete(defaultPlugins, oadpv1alpha1.DefaultPluginVSM)
+		dpaInstance.Spec.SnapshotLocations = nil
 		delete(veleroFeatureFlags, "EnableCSI")
 	case CSI:
 		dpaInstance.Spec.Configuration.Restic.Enable = pointer.Bool(false)
 		defaultPlugins[oadpv1alpha1.DefaultPluginCSI] = emptyStruct{}
 		veleroFeatureFlags["EnableCSI"] = emptyStruct{}
+		dpaInstance.Spec.SnapshotLocations = nil
+		delete(defaultPlugins, oadpv1alpha1.DefaultPluginVSM)
 	case CSIDataMover:
 		dpaInstance.Spec.Configuration.Restic.Enable = pointer.Bool(false)
 		defaultPlugins[oadpv1alpha1.DefaultPluginCSI] = emptyStruct{}
@@ -129,6 +133,8 @@ func (v *DpaCustomResource) Build(backupRestoreType BackupRestoreType) error {
 		dpaInstance.Spec.Features.DataMover.Enable = true
 		dpaInstance.Spec.Features.DataMover.CredentialName = controllers.ResticsecretName
 		dpaInstance.Spec.Features.DataMover.Timeout = "40m"
+		defaultPlugins[oadpv1alpha1.DefaultPluginVSM] = emptyStruct{}
+		dpaInstance.Spec.SnapshotLocations = nil
 	}
 	dpaInstance.Spec.Configuration.Velero.DefaultPlugins = make([]oadpv1alpha1.DefaultPlugin, 0)
 	for k := range defaultPlugins {
