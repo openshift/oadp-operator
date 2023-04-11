@@ -40,10 +40,21 @@ func IsBackupDone(ocClient client.Client, veleroNamespace, name string) wait.Con
 		if len(backup.Status.Phase) > 0 {
 			ginkgo.GinkgoWriter.Write([]byte(fmt.Sprintf("backup phase: %s\n", backup.Status.Phase)))
 		}
-		if backup.Status.Phase != "" && backup.Status.Phase != velero.BackupPhaseNew && backup.Status.Phase != velero.BackupPhaseInProgress {
-			return true, nil
+		var phasesNotDone = []velero.BackupPhase{
+			velero.BackupPhaseNew,
+			velero.BackupPhaseInProgress,
+			velero.BackupPhaseWaitingForPluginOperations,
+			velero.BackupPhaseWaitingForPluginOperationsPartiallyFailed,
+			velero.BackupPhaseFinalizing,
+			velero.BackupPhaseFinalizingPartiallyFailed,
+			"",
 		}
-		return false, nil
+		for _, notDonePhase := range phasesNotDone {
+			if backup.Status.Phase == notDonePhase {
+				return false, nil
+			}
+		}
+		return true, nil
 	}
 }
 
