@@ -133,6 +133,14 @@ func (v *DpaCustomResource) Build(backupRestoreType BackupRestoreType) error {
 		dpaInstance.Spec.Features.DataMover.Enable = true
 		dpaInstance.Spec.Features.DataMover.CredentialName = controllers.ResticsecretName
 		dpaInstance.Spec.Features.DataMover.Timeout = "40m"
+		volumeOptionsUsePodSecurityContext := oadpv1alpha1.VolumeOptions{
+			MoverSecurityContext: pointer.Bool(true),
+		}
+		dataMoverVolumeOptions := oadpv1alpha1.DataMoverVolumeOptions{
+			SourceVolumeOptions: &volumeOptionsUsePodSecurityContext,
+			DestinationVolumeOptions: &volumeOptionsUsePodSecurityContext,
+		}
+		dpaInstance.Spec.Features.DataMover.DataMoverVolumeOptions = &dataMoverVolumeOptions
 		defaultPlugins[oadpv1alpha1.DefaultPluginVSM] = emptyStruct{}
 		dpaInstance.Spec.SnapshotLocations = nil
 	}
