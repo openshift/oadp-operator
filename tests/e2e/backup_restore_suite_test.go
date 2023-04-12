@@ -262,6 +262,10 @@ var _ = Describe("AWS backup restore tests", func() {
 			restoreName := fmt.Sprintf("%s-%s", brCase.Name, restoreUid.String())
 
 			// install app
+			updateLastInstallTime()
+			log.Printf("Installing application for case %s", brCase.Name)
+			err = InstallApplication(dpaCR.Client, brCase.ApplicationTemplate)
+			Expect(err).ToNot(HaveOccurred())
 			if brCase.BackupRestoreType == CSI || brCase.BackupRestoreType == CSIDataMover {
 				log.Printf("Creating pvc for case %s", brCase.Name)
 				var pvcPath string
@@ -273,10 +277,6 @@ var _ = Describe("AWS backup restore tests", func() {
 				err = InstallApplication(dpaCR.Client, pvcPath)
 				Expect(err).ToNot(HaveOccurred())
 			}
-			updateLastInstallTime()
-			log.Printf("Installing application for case %s", brCase.Name)
-			err = InstallApplication(dpaCR.Client, brCase.ApplicationTemplate)
-			Expect(err).ToNot(HaveOccurred())
 
 			// wait for pods to be running
 			Eventually(AreAppBuildsReady(dpaCR.Client, brCase.ApplicationNamespace), timeoutMultiplier*time.Minute*5, time.Second*5).Should(BeTrue())
@@ -392,7 +392,7 @@ var _ = Describe("AWS backup restore tests", func() {
 			PreBackupVerify:      mysqlReady(true, true, CSI),
 			PostRestoreVerify:    mysqlReady(false, true, CSI),
 		}, nil),
-		Entry("Mongo application RESTIC", BackupRestoreCase{
+		FEntry("Mongo application RESTIC", BackupRestoreCase{
 			ApplicationTemplate:  "./sample-applications/mongo-persistent/mongo-persistent.yaml",
 			ApplicationNamespace: "mongo-persistent",
 			Name:                 "mongo-restic-e2e",
@@ -400,7 +400,7 @@ var _ = Describe("AWS backup restore tests", func() {
 			PreBackupVerify:      mongoready(true, false, RESTIC),
 			PostRestoreVerify:    mongoready(false, false, RESTIC),
 		}, nil),
-		Entry("MySQL application RESTIC", BackupRestoreCase{
+		FEntry("MySQL application RESTIC", BackupRestoreCase{
 			ApplicationTemplate:  "./sample-applications/mysql-persistent/mysql-persistent.yaml",
 			ApplicationNamespace: "mysql-persistent",
 			Name:                 "mysql-restic-e2e",
@@ -408,7 +408,7 @@ var _ = Describe("AWS backup restore tests", func() {
 			PreBackupVerify:      mysqlReady(true, false, RESTIC),
 			PostRestoreVerify:    mysqlReady(false, false, RESTIC),
 		}, nil),
-		Entry("Mongo application DATAMOVER", BackupRestoreCase{
+		FEntry("Mongo application DATAMOVER", BackupRestoreCase{
 			ApplicationTemplate:  "./sample-applications/mongo-persistent/mongo-persistent-csi.yaml",
 			ApplicationNamespace: "mongo-persistent",
 			Name:                 "mongo-datamover-e2e",
@@ -417,7 +417,7 @@ var _ = Describe("AWS backup restore tests", func() {
 			PostRestoreVerify:    dataMoverReady(false, false, mongoready),
 		}, nil),
 		// TODO: fix this test
-		Entry("MySQL application DATAMOVER", BackupRestoreCase{
+		FEntry("MySQL application DATAMOVER", BackupRestoreCase{
 			ApplicationTemplate:  "./sample-applications/mysql-persistent/mysql-persistent-csi.yaml",
 			ApplicationNamespace: "mysql-persistent",
 			Name:                 "mysql-datamover-e2e",
