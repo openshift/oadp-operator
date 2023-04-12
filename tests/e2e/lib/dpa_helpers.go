@@ -297,7 +297,7 @@ func AreVeleroPodsRunning(namespace string) wait.ConditionFunc {
 			return false, err
 		}
 		if podList.Items == nil || len(podList.Items) == 0 {
-			GinkgoWriter.Println("velero pods not found")
+			GinkgoWriter.Println(time.Now().String() + ": velero pods not found")
 			return false, nil
 		}
 		for _, podInfo := range (*podList).Items {
@@ -306,6 +306,7 @@ func AreVeleroPodsRunning(namespace string) wait.ConditionFunc {
 				return false, nil
 			}
 		}
+		GinkgoWriter.Println(time.Now().String() + ": velero pods are running")
 		return true, nil
 	}
 }

@@ -6,7 +6,7 @@ metadata:
   name: volsync-product
   namespace: openshift-operators
 spec:
-  channel: stable
+  channel: stable-0.7
   installPlanApproval: Automatic
   name: volsync-product
   source: redhat-operators

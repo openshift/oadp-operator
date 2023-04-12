@@ -72,34 +72,11 @@ func InstallApplicationWithRetries(ocClient client.Client, file string, retries 
 		labels[e2eAppLabelKey] = "true"
 		resource.SetLabels(labels)
 		resourceCreate := resource.DeepCopy()
+		err = nil // reset error for each resource
 		for i := 0; i < retries; i++ {
+			err = nil // reset error for each retry
 			err = ocClient.Create(context.Background(), resourceCreate)
 			if apierrors.IsAlreadyExists(err) {
-				if resource.GetObjectKind().GroupVersionKind().Kind == "PersistentVolumeClaim" {
-					// not sure how we got here, but we don't want to update PVCs
-					// delete the existing PVC and try again
-					err = ocClient.Delete(context.Background(), &resource)
-					if err != nil {
-						return err
-					}
-					// wait for the PVC to be deleted
-					err = wait.PollImmediate(1*time.Second, 5*time.Minute, func() (bool, error) {
-						err = ocClient.Get(context.Background(), types.NamespacedName{Name: resource.GetName(), Namespace: resource.GetNamespace()}, &resource)
-						if apierrors.IsNotFound(err) {
-							return true, nil
-						}
-						return false, err
-					})
-					if err != nil {
-						return err
-					}
-					// try again
-					err = ocClient.Create(context.Background(), resourceCreate)
-					if err != nil {
-						return err
-					}
-					break
-				}
 				// if spec has changed for following kinds, update the resource
 				clusterResource := unstructured.Unstructured{
 					Object: resource.Object,

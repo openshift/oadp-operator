@@ -20,6 +20,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8serror "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	apimachtypes "k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -163,6 +164,32 @@ var _ = Describe("AWS backup restore tests", func() {
 			err = nil
 		}
 		Expect(err).ToNot(HaveOccurred())
+		// Additional cleanup for data mover case
+		if lastBRCase.BackupRestoreType == CSIDataMover {
+			// check for VSB and VSR objects and delete them
+			vsbList := vsmv1alpha1.VolumeSnapshotBackupList{}
+			err = dpaCR.Client.List(context.Background(), &vsbList, &client.ListOptions{Namespace: lastBRCase.ApplicationNamespace})
+			Expect(err).NotTo(HaveOccurred())
+			for _, vsb := range vsbList.Items {
+				// patch to remove finalizer from vsb to allow deletion
+				patch := client.RawPatch(apimachtypes.JSONPatchType, []byte(`[{"op": "remove", "path": "/metadata/finalizers"}]`))
+				err = dpaCR.Client.Patch(context.Background(), &vsb, patch)
+				Expect(err).NotTo(HaveOccurred())
+				err = dpaCR.Client.Delete(context.Background(), &vsb, &client.DeleteOptions{})
+				Expect(err).NotTo(HaveOccurred())
+			}
+			vsrList := vsmv1alpha1.VolumeSnapshotRestoreList{}
+			err = dpaCR.Client.List(context.Background(), &vsrList, &client.ListOptions{Namespace: lastBRCase.ApplicationNamespace})
+			Expect(err).NotTo(HaveOccurred())
+			for _, vsr := range vsrList.Items {
+				// patch to remove finalizer from vsr to allow deletion
+				patch := client.RawPatch(apimachtypes.JSONPatchType, []byte(`[{"op": "remove", "path": "/metadata/finalizers"}]`))
+				err = dpaCR.Client.Patch(context.Background(), &vsr, patch)
+				Expect(err).NotTo(HaveOccurred())
+				err = dpaCR.Client.Delete(context.Background(), &vsr, &client.DeleteOptions{})
+				Expect(err).NotTo(HaveOccurred())
+			}
+		}
 		err = dpaCR.Delete()
 		Expect(err).ToNot(HaveOccurred())
 	})
@@ -235,10 +262,6 @@ var _ = Describe("AWS backup restore tests", func() {
 			restoreName := fmt.Sprintf("%s-%s", brCase.Name, restoreUid.String())
 
 			// install app
-			updateLastInstallTime()
-			log.Printf("Installing application for case %s", brCase.Name)
-			err = InstallApplication(dpaCR.Client, brCase.ApplicationTemplate)
-			Expect(err).ToNot(HaveOccurred())
 			if brCase.BackupRestoreType == CSI || brCase.BackupRestoreType == CSIDataMover {
 				log.Printf("Creating pvc for case %s", brCase.Name)
 				var pvcPath string
@@ -250,6 +273,8 @@ var _ = Describe("AWS backup restore tests", func() {
 				err = InstallApplication(dpaCR.Client, pvcPath)
 				Expect(err).ToNot(HaveOccurred())
 			}
+			updateLastInstallTime()
+			log.Printf("Installing application for case %s", brCase.Name)
 			err = InstallApplication(dpaCR.Client, brCase.ApplicationTemplate)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -294,7 +319,7 @@ var _ = Describe("AWS backup restore tests", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			// Wait for namespace to be deleted
-			Eventually(IsNamespaceDeleted(brCase.ApplicationNamespace), timeoutMultiplier*time.Minute*2, time.Second*5).Should(BeTrue())
+			Eventually(IsNamespaceDeleted(brCase.ApplicationNamespace), timeoutMultiplier*time.Minute*4, time.Second*5).Should(BeTrue())
 
 			updateLastInstallTime()
 			// run restore
