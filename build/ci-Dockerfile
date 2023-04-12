@@ -10,4 +10,5 @@ RUN go get -d -u github.com/onsi/ginkgo/ginkgo && \
  go install -mod=mod github.com/onsi/ginkgo/v2/ginkgo@latest
 RUN go get github.com/onsi/gomega/...
 RUN chmod -R 777 ./
+RUN chmod -R 777 /go/
 RUN go mod download
