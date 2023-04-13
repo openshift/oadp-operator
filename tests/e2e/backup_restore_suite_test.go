@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
+	"github.com/onsi/ginkgo/v2/types"
 	. "github.com/onsi/gomega"
 	. "github.com/openshift/oadp-operator/tests/e2e/lib"
 	utils "github.com/openshift/oadp-operator/tests/e2e/utils"
@@ -40,6 +41,10 @@ var _ = Describe("AWS backup restore tests", func() {
 	var lastInstallingApplicationNamespace string
 	var lastInstallTime time.Time
 	var _ = ReportAfterEach(func(report SpecReport) {
+		if report.State == types.SpecStateSkipped || report.State == types.SpecStatePending {
+			// do not run if the test is skipped
+			return
+		}
 		if report.Failed() {
 			// print namespace error events for app namespace
 			if lastInstallingApplicationNamespace != "" {
@@ -47,15 +52,20 @@ var _ = Describe("AWS backup restore tests", func() {
 			}
 		}
 		// remove app namespace if leftover (likely previously failed before reaching uninstall applications) to clear items such as PVCs which are immutable so that next test can create new ones
-		err := dpaCR.Client.Delete(context.Background(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{
-			Name:      lastInstallingApplicationNamespace,
-			Namespace: lastInstallingApplicationNamespace,
-		}}, &client.DeleteOptions{})
+		if lastInstallingApplicationNamespace != "" {
+			err := dpaCR.Client.Delete(context.Background(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{
+				Name:      lastInstallingApplicationNamespace,
+				Namespace: lastInstallingApplicationNamespace,
+			}}, &client.DeleteOptions{})
+			if k8serrors.IsNotFound(err) {
+				err = nil
+			}
+			Expect(err).ToNot(HaveOccurred())
+		}
+		err := dpaCR.Delete()
 		if k8serrors.IsNotFound(err) {
 			err = nil
 		}
-		Expect(err).ToNot(HaveOccurred())
-		err = dpaCR.Delete()
 		Expect(err).ToNot(HaveOccurred())
 	})
 
