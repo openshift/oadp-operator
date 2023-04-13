@@ -124,6 +124,10 @@ func (r *DPAReconciler) ReconcileBackupStorageLocations(log logr.Logger) (bool, 
 				if err != nil {
 					return err
 				}
+				err = controllerutil.SetControllerReference(&dpa, &bsl, r.Scheme)
+				if err != nil {
+					return err
+				}
 				bsl.Spec.BackupSyncPeriod = bslSpec.CloudStorage.BackupSyncPeriod
 				bsl.Spec.Config = bslSpec.CloudStorage.Config
 				if bucket.Spec.EnableSharedConfig != nil && *bucket.Spec.EnableSharedConfig {
