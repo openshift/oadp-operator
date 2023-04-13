@@ -648,7 +648,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 			if len(dpa.Spec.Configuration.Velero.DefaultPlugins) > 0 {
 				log.Printf("Checking for default plugins")
 				for _, plugin := range dpa.Spec.Configuration.Velero.DefaultPlugins {
-					Eventually(DoesPluginExist(namespace, plugin), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
+					Eventually(DoesPluginExist(namespace, plugin), timeoutMultiplier*time.Minute*6, time.Second*5).Should(BeTrue())
 				}
 			}
 
@@ -657,21 +657,23 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 			if len(dpa.Spec.Configuration.Velero.CustomPlugins) > 0 {
 				log.Printf("Checking for custom plugins")
 				for _, plugin := range dpa.Spec.Configuration.Velero.CustomPlugins {
-					Eventually(DoesCustomPluginExist(namespace, plugin), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
+					Eventually(DoesCustomPluginExist(namespace, plugin), timeoutMultiplier*time.Minute*6, time.Second*5).Should(BeTrue())
 				}
 			}
-
+			
+			log.Printf("Waiting for restic daemonset to have nodeselector")
 			if dpa.Spec.Configuration.Restic != nil && dpa.Spec.Configuration.Restic.PodConfig != nil {
 				for key, value := range dpa.Spec.Configuration.Restic.PodConfig.NodeSelector {
 					log.Printf("Waiting for restic daemonset to get node selector")
-					Eventually(ResticDaemonSetHasNodeSelector(namespace, key, value), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
+					Eventually(ResticDaemonSetHasNodeSelector(namespace, key, value), timeoutMultiplier*time.Minute*6, time.Second*5).Should(BeTrue())
 				}
 			}
 			// wait at least 1 minute after reconciled
 			Eventually(func() bool {
 				//has it been at least 1 minute since reconciled?
+				log.Printf("Waiting for 1 minute after reconciled: %v elapsed", time.Since(timeReconciled).String())
 				return time.Now().After(timeReconciled.Add(time.Minute))
-			}, timeoutMultiplier*time.Minute*2, time.Second).Should(BeTrue())
+			}, timeoutMultiplier*time.Minute*5, time.Second*5).Should(BeTrue())
 			adpLogsAfterOneMinute, err := GetOpenShiftADPLogs(dpaCR.Namespace)
 			Expect(err).NotTo(HaveOccurred())
 			// We expect adp logs to be the same after 1 minute

@@ -71,11 +71,19 @@ items:
             e2e-app: "true"
             app: mysql
         spec:
+          securityContext:
+            runAsGroup: 27
+            runAsUser: 27
+            fsGroup: 27
+            privileged: true
           serviceAccountName: mysql-persistent-sa
           containers:
           - image: registry.redhat.io/rhel8/mariadb-105:latest
             name: mysql
             securityContext:
+              runAsGroup: 27
+              runAsUser: 27
+              fsGroup: 27
               privileged: true
             env:
               - name: MYSQL_USER
