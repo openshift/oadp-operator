@@ -1425,3 +1425,144 @@ func TestDPAReconciler_ensureBackupLocationHasVeleroOrCloudStorage(t *testing.T)
 		})
 	}
 }
+
+func TestDPAReconciler_ReconcileBackupStorageLocations(t *testing.T) {
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "cloud-credentials",
+			Namespace: "test-ns",
+		},
+	}
+	cs := &oadpv1alpha1.CloudStorage{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-cs",
+			Namespace: "test-ns",
+		},
+		Spec: oadpv1alpha1.CloudStorageSpec{
+			CreationSecret: v1.SecretKeySelector{
+				LocalObjectReference: v1.LocalObjectReference{
+					Name: "cloud-credentials",
+				},
+				Key: "credentials",
+			},
+			Name:     "test-cs",
+			Provider: "aws",
+		},
+	}
+
+	tests := []struct {
+		name    string
+		dpa     *oadpv1alpha1.DataProtectionApplication
+		secret  *corev1.Secret
+		cs      *oadpv1alpha1.CloudStorage
+		want    bool
+		wantErr bool
+	}{
+		{
+			name: "check owner references on Velero BSL",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-dpa",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					BackupLocations: []oadpv1alpha1.BackupLocation{
+						{
+							Velero: &velerov1.BackupStorageLocationSpec{
+								Provider: "aws",
+							},
+						},
+					},
+				},
+			},
+			cs:      cs,
+			secret:  secret,
+			want:    true,
+			wantErr: false,
+		},
+		{
+			name: "check owner references on CloudStorage BSL",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-dpa",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					BackupLocations: []oadpv1alpha1.BackupLocation{
+						{
+							CloudStorage: &oadpv1alpha1.CloudStorageLocation{
+								CloudStorageRef: v1.LocalObjectReference{
+									Name: "test-cs",
+								},
+								Credential: &v1.SecretKeySelector{
+									LocalObjectReference: v1.LocalObjectReference{
+										Name: "cloud-credentials",
+									},
+									Key: "credentials",
+								},
+							},
+						},
+					},
+				},
+			},
+			cs:      cs,
+			secret:  secret,
+			want:    true,
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fakeClient, err := getFakeClientFromObjects(tt.dpa, tt.secret, tt.cs)
+			if err != nil {
+				t.Errorf("error in creating fake client, likely programmer error")
+			}
+			r := &DPAReconciler{
+				Client:  fakeClient,
+				Scheme:  fakeClient.Scheme(),
+				Log:     logr.Discard(),
+				Context: newContextForTest(tt.name),
+				NamespacedName: types.NamespacedName{
+					Namespace: tt.dpa.Namespace,
+					Name:      tt.dpa.Name,
+				},
+				EventRecorder: record.NewFakeRecorder(10),
+			}
+			wantBSL := &velerov1.BackupStorageLocation{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-dpa-1",
+					Namespace: "test-ns",
+					OwnerReferences: []metav1.OwnerReference{{
+						APIVersion:         oadpv1alpha1.SchemeBuilder.GroupVersion.String(),
+						Kind:               "DataProtectionApplication",
+						Name:               tt.dpa.Name,
+						UID:                tt.dpa.UID,
+						Controller:         pointer.BoolPtr(true),
+						BlockOwnerDeletion: pointer.BoolPtr(true),
+					}},
+				},
+			}
+			got, err := r.ReconcileBackupStorageLocations(r.Log)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ReconcileBackupStorageLocations() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("ReconcileBackupStorageLocations() got = %v, want %v", got, tt.want)
+			}
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ReconcileBackupStorageLocations() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			bsl := &velerov1.BackupStorageLocation{}
+			err = r.Get(r.Context, client.ObjectKey{Namespace: "test-ns", Name: "test-dpa-1"}, bsl)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ReconcileBackupStorageLocations() error =%v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(bsl.OwnerReferences, wantBSL.OwnerReferences) {
+				t.Errorf("ReconcileBackupStorageLocations() expected BSL owner references to be %#v, got %#v", wantBSL.OwnerReferences, bsl.OwnerReferences)
+			}
+		})
+	}
+}
