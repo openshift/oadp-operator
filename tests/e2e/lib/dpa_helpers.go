@@ -129,6 +129,21 @@ func (v *DpaCustomResource) Build(backupRestoreType BackupRestoreType) error {
 		dpaInstance.Spec.Features.DataMover.Enable = true
 		dpaInstance.Spec.Features.DataMover.CredentialName = controllers.ResticsecretName
 		dpaInstance.Spec.Features.DataMover.Timeout = "40m"
+		// annotate namespace for volsync privileged movers
+		if err := v.Client.Patch(context.Background(), &corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: v.Namespace,
+			},
+		}, client.StrategicMergeFrom(&corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: v.Namespace,
+				Annotations: map[string]string{
+					volsync.PrivilegedMoversNamespaceAnnotation: "true",
+				},
+			},
+		})); err != nil {
+			return err
+		}
 	}
 	dpaInstance.Spec.Configuration.Velero.DefaultPlugins = make([]oadpv1alpha1.DefaultPlugin, 0)
 	for k := range defaultPlugins {
@@ -348,7 +363,7 @@ func (v *DpaCustomResource) IsDeleted() wait.ConditionFunc {
 	}
 }
 
-//check if bsl matches the spec
+// check if bsl matches the spec
 func DoesBSLSpecMatchesDpa(namespace string, bsl velero.BackupStorageLocationSpec, spec *oadpv1alpha1.DataProtectionApplicationSpec) (bool, error) {
 	if len(spec.BackupLocations) == 0 {
 		return false, errors.New("no backup storage location configured. Expected BSL to be configured")
@@ -370,7 +385,7 @@ func DoesBSLSpecMatchesDpa(namespace string, bsl velero.BackupStorageLocationSpe
 	return true, nil
 }
 
-//check if vsl matches the spec
+// check if vsl matches the spec
 func DoesVSLSpecMatchesDpa(namespace string, vslspec velero.VolumeSnapshotLocationSpec, spec *oadpv1alpha1.DataProtectionApplicationSpec) (bool, error) {
 	if len(spec.SnapshotLocations) == 0 {
 		return false, errors.New("no volume storage location configured. Expected VSL to be configured")
@@ -390,7 +405,7 @@ func DoesVSLSpecMatchesDpa(namespace string, vslspec velero.VolumeSnapshotLocati
 	return false, errors.New("did not find expected VSL")
 }
 
-//check velero tolerations
+// check velero tolerations
 func VerifyVeleroTolerations(namespace string, t []corev1.Toleration) wait.ConditionFunc {
 	return func() (bool, error) {
 		clientset, err := setUpClient()
