@@ -146,11 +146,16 @@ fmt: ## Run go fmt against code.
 vet: ## Run go vet against code.
 	go vet -mod=mod ./...
 
+ENVTEST := $(shell pwd)/bin/setup-envtest
+ENVTESTPATH = $(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)
+ifeq ($(shell $(ENVTEST) list | grep $(ENVTEST_K8S_VERSION)),)
+	ENVTESTPATH = $(shell $(ENVTEST) --arch=amd64 use $(ENVTEST_K8S_VERSION) -p path)
+endif
+
 test: manifests generate fmt vet envtest ## Run tests.
-	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" go test -mod=mod ./controllers/... ./pkg/... -coverprofile cover.out
+	KUBEBUILDER_ASSETS="$(ENVTESTPATH)" go test -mod=mod ./controllers/... ./pkg/... -coverprofile cover.out
 
-
-ENVTEST = $(shell pwd)/bin/setup-envtest
+# if there is no native arch available, attempt to use amd64
 ci-test: ## This assumes "manifests generate fmt vet envtest" ran.
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" go test -mod=mod ./controllers/... -coverprofile cover.out
 
@@ -255,18 +260,28 @@ rm -rf $$TMP_DIR ;\
 }
 endef
 
+OPERATOR_SDK = $(shell pwd)/bin/operator-sdk
+.PHONY: operator-sdk
+operator-sdk:
+	# Download operator-sdk locally if does not exist
+	if [ ! -f $(OPERATOR_SDK) ]; then \
+		mkdir -p bin ;\
+		curl -Lo $(OPERATOR_SDK) https://github.com/operator-framework/operator-sdk/releases/download/v1.23.0/operator-sdk_$(shell go env GOOS)_$(shell go env GOARCH) ; \
+		chmod +x $(OPERATOR_SDK); \
+	fi
+
 .PHONY: bundle
-bundle: manifests kustomize ## Generate bundle manifests and metadata, then validate generated files.
-	operator-sdk generate kustomize manifests -q
+bundle: manifests kustomize operator-sdk ## Generate bundle manifests and metadata, then validate generated files.
+	$(OPERATOR_SDK) generate kustomize manifests -q
 	cd config/manager && $(KUSTOMIZE) edit set image controller=$(IMG)
-	$(KUSTOMIZE) build config/manifests | operator-sdk generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
-	# Removes placeholder velero deployment used so `operator-sdk generate bundle` adds velero service account and role to bundle CSV using yq. See https://github.com/mikefarah/yq/#install
+	$(KUSTOMIZE) build config/manifests | $(OPERATOR_SDK) generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
+	# Removes placeholder velero deployment used so `$(OPERATOR_SDK) generate bundle` adds velero service account and role to bundle CSV using yq. See https://github.com/mikefarah/yq/#install
 	yq eval 'del(.spec.install.spec.deployments.1)' bundle/manifests/oadp-operator.clusterserviceversion.yaml > bundle/manifests/oadp-operator.clusterserviceversion.yaml.yqresult
 	mv bundle/manifests/oadp-operator.clusterserviceversion.yaml.yqresult bundle/manifests/oadp-operator.clusterserviceversion.yaml
 	# Copy updated bundle.Dockerfile to CI's Dockerfile.bundle
 	# TODO: update CI to use generated one
 	cp bundle.Dockerfile build/Dockerfile.bundle
-	operator-sdk bundle validate ./bundle
+	$(OPERATOR_SDK) bundle validate ./bundle
 
 .PHONY: bundle-build
 bundle-build: ## Build the bundle image.
@@ -281,12 +296,17 @@ GIT_REV:=$(shell git rev-parse --short HEAD)
 .PHONY: deploy-olm
 deploy-olm: THIS_OPERATOR_IMAGE?=ttl.sh/oadp-operator-$(GIT_REV):1h # Set target specific variable
 deploy-olm: THIS_BUNDLE_IMAGE?=ttl.sh/oadp-operator-bundle-$(GIT_REV):1h # Set target specific variable
-deploy-olm:
+deploy-olm: operator-sdk
 	oc whoami # Check if logged in
-	oc create namespace $(OADP_TEST_NAMESPACE) # This should error out if namespace already exists, delete namespace (to clear current resources) before proceeding
+	oc create namespace $(OADP_TEST_NAMESPACE) || true
+	$(OPERATOR_SDK) cleanup oadp-operator --namespace $(OADP_TEST_NAMESPACE)
+	@echo "DEPLOY_TMP: $(DEPLOY_TMP)"
+	# build and push operator and bundle image
+	# use $(OPERATOR_SDK) to install bundle to authenticated cluster
+	cp -r . $(DEPLOY_TMP) && cd $(DEPLOY_TMP) && \
 	IMG=$(THIS_OPERATOR_IMAGE) BUNDLE_IMG=$(THIS_BUNDLE_IMAGE) \
 		make docker-build docker-push bundle bundle-build bundle-push # build and push operator and bundle image
-	operator-sdk run bundle $(THIS_BUNDLE_IMAGE) --namespace $(OADP_TEST_NAMESPACE) # use operator-sdk to install bundle to authenticated cluster
+	$(OPERATOR_SDK) run bundle $(THIS_BUNDLE_IMAGE) --namespace $(OADP_TEST_NAMESPACE) # use $(OPERATOR_SDK) to install bundle to authenticated cluster
 
 .PHONY: opm
 OPM = ./bin/opm
