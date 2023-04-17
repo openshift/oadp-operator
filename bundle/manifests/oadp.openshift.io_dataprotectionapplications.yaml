@@ -79,6 +79,8 @@ spec:
                         required:
                           - cloudStorageRef
                         type: object
+                      name:
+                        type: string
                       velero:
                         description: BackupStorageLocationSpec defines the desired state of a Velero BackupStorageLocation
                         properties:

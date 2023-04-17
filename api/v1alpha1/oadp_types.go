@@ -167,6 +167,8 @@ type BackupLocation struct {
 	// TODO: Add name/annotations/labels support
 
 	// +optional
+	Name string `json:"name,omitempty"`
+	// +optional
 	Velero *velero.BackupStorageLocationSpec `json:"velero,omitempty"`
 	// +optional
 	CloudStorage *CloudStorageLocation `json:"bucket,omitempty"`
