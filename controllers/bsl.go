@@ -88,12 +88,20 @@ func (r *DPAReconciler) ReconcileBackupStorageLocations(log logr.Logger) (bool, 
 	for i, bslSpec := range dpa.Spec.BackupLocations {
 		// Create BSL as is, we can safely assume they are valid from
 		// ValidateBackupStorageLocations
+
+		// check if BSL name is specified in DPA spec
+		bslName := bslSpec.Name
+		bslMeta := metav1.ObjectMeta{}
+		if len(bslName) > 0 {
+			bslMeta.Name = bslName
+			bslMeta.Namespace = r.NamespacedName.Namespace
+		} else {
+			bslMeta.Name = fmt.Sprintf("%s-%d", r.NamespacedName.Name, i+1)
+			bslMeta.Namespace = r.NamespacedName.Namespace
+		}
+
 		bsl := velerov1.BackupStorageLocation{
-			ObjectMeta: metav1.ObjectMeta{
-				// TODO: Use a hash instead of i
-				Name:      fmt.Sprintf("%s-%d", r.NamespacedName.Name, i+1),
-				Namespace: r.NamespacedName.Namespace,
-			},
+			ObjectMeta: bslMeta,
 		}
 		// Add the following labels to the bsl secret,
 		//	 1. oadpApi.OadpOperatorLabel: "True"
