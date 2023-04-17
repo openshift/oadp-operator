@@ -29,6 +29,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/uuid"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/utils/pointer"
@@ -130,19 +131,26 @@ func (v *DpaCustomResource) Build(backupRestoreType BackupRestoreType) error {
 		dpaInstance.Spec.Features.DataMover.CredentialName = controllers.ResticsecretName
 		dpaInstance.Spec.Features.DataMover.Timeout = "40m"
 		// annotate namespace for volsync privileged movers
-		if err := v.Client.Patch(context.Background(), &corev1.Namespace{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: v.Namespace,
-			},
-		}, client.StrategicMergeFrom(&corev1.Namespace{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: v.Namespace,
-				Annotations: map[string]string{
-					volsync.PrivilegedMoversNamespaceAnnotation: "true",
-				},
-			},
-		})); err != nil {
+		ns := &corev1.Namespace{}
+		if err := v.Client.Get(context.Background(), types.NamespacedName{Name: v.Namespace}, ns); err != nil {
 			return err
+		}
+		if ns.Annotations == nil {
+			ns.Annotations = make(map[string]string)
+		}
+		ns.Annotations[volsync.PrivilegedMoversNamespaceAnnotation] = "true"
+		if err := v.Client.Patch(context.Background(), ns, client.StrategicMergeFrom(ns)); err != nil {
+			fmt.Printf("failed to annotate namespace: %s for volsync privileged movers\n", v.Namespace)
+			return err
+		}
+		// validate cluster annotation
+		if err := v.Client.Get(context.Background(), types.NamespacedName{Name: v.Namespace}, ns); err != nil {
+			return err
+		}
+		if ns.Annotations[volsync.PrivilegedMoversNamespaceAnnotation] != "true" {
+			return errors.New("failed to annotate namespace for volsync privileged movers")
+		} else {
+			fmt.Printf("successfully validated annotated namespace: %s for volsync privileged movers\n", v.Namespace)
 		}
 	}
 	dpaInstance.Spec.Configuration.Velero.DefaultPlugins = make([]oadpv1alpha1.DefaultPlugin, 0)

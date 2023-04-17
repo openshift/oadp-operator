@@ -6,3 +6,4 @@ cover.out
 .DS_Store
 tests/e2e/templates/*.yaml
 cache/ # `operator-sdk run bundle` caches files in this directory
+*.test

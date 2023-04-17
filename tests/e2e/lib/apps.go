@@ -548,7 +548,7 @@ func VerifyBackupRestoreData(artifact_dir string, namespace string, routeName st
 	return nil
 }
 
-//VerifyVolumeData for application with two volumes
+// VerifyVolumeData for application with two volumes
 func verifyVolume(volumeFile string, volumeApi string, prebackupState bool, backupRestoretype BackupRestoreType) error {
 	if prebackupState {
 		// delete volumeFile if it exists
