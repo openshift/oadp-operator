@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	. "github.com/onsi/ginkgo/v2"
+	"github.com/onsi/gomega"
 	buildv1 "github.com/openshift/api/build/v1"
 	"github.com/openshift/oadp-operator/controllers"
 	"github.com/openshift/oadp-operator/pkg/common"
@@ -135,23 +136,25 @@ func (v *DpaCustomResource) Build(backupRestoreType BackupRestoreType) error {
 		if err := v.Client.Get(context.Background(), types.NamespacedName{Name: v.Namespace}, ns); err != nil {
 			return err
 		}
+		nsOriginal := ns.DeepCopy()
 		if ns.Annotations == nil {
 			ns.Annotations = make(map[string]string)
 		}
 		ns.Annotations[volsync.PrivilegedMoversNamespaceAnnotation] = "true"
-		if err := v.Client.Patch(context.Background(), ns, client.StrategicMergeFrom(ns)); err != nil {
+		if err := v.Client.Patch(context.Background(), ns, client.StrategicMergeFrom(nsOriginal)); err != nil {
 			fmt.Printf("failed to annotate namespace: %s for volsync privileged movers\n", v.Namespace)
 			return err
 		}
-		// validate cluster annotation
-		if err := v.Client.Get(context.Background(), types.NamespacedName{Name: v.Namespace}, ns); err != nil {
-			return err
-		}
-		if ns.Annotations[volsync.PrivilegedMoversNamespaceAnnotation] != "true" {
-			return errors.New("failed to annotate namespace for volsync privileged movers")
-		} else {
-			fmt.Printf("successfully validated annotated namespace: %s for volsync privileged movers\n", v.Namespace)
-		}
+		gomega.Eventually(func() error {
+			if err := v.Client.Get(context.Background(), types.NamespacedName{Name: v.Namespace}, ns); err != nil {
+				return err
+			}
+			if ns.Annotations[volsync.PrivilegedMoversNamespaceAnnotation] != "true" {
+				return errors.New("failed to annotate namespace for volsync privileged movers")
+			}
+			return nil
+		}, 5*time.Minute, 1*time.Second).Should(gomega.Succeed())
+		fmt.Printf("successfully validated annotated namespace: %s for volsync privileged movers\n", v.Namespace)
 	}
 	dpaInstance.Spec.Configuration.Velero.DefaultPlugins = make([]oadpv1alpha1.DefaultPlugin, 0)
 	for k := range defaultPlugins {
