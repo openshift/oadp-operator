@@ -3,10 +3,11 @@ package controllers
 import (
 	"errors"
 	"fmt"
+	"time"
+
 	"github.com/go-logr/logr"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	"github.com/openshift/oadp-operator/pkg/credentials"
-	"time"
 )
 
 func (r *DPAReconciler) ValidateDataProtectionCR(log logr.Logger) (bool, error) {
@@ -71,7 +72,7 @@ func (r *DPAReconciler) ValidateDataProtectionCR(log logr.Logger) (bool, error) 
 		return false, err
 	}
 
-	if _, err := r.getResticResourceReqs(&dpa); err != nil {
+	if _, err := getResticResourceReqs(&dpa); err != nil {
 		return false, err
 	}
 
