@@ -102,7 +102,7 @@ func (r *DPAReconciler) ReconcileVeleroServiceAccount(log logr.Logger) (bool, er
 }
 
 // TODO: Remove this function as it's no longer being used
-//TODO: Temporary solution for Non-OLM Operator install
+// TODO: Temporary solution for Non-OLM Operator install
 func (r *DPAReconciler) ReconcileVeleroCRDs(log logr.Logger) (bool, error) {
 	dpa := oadpv1alpha1.DataProtectionApplication{}
 	if err := r.Get(r.Context, r.NamespacedName, &dpa); err != nil {

@@ -138,7 +138,7 @@ func (v *DpaCustomResource) Build(backupRestoreType BackupRestoreType) error {
 			MoverSecurityContext: pointer.Bool(true),
 		}
 		dataMoverVolumeOptions := oadpv1alpha1.DataMoverVolumeOptions{
-			SourceVolumeOptions: &volumeOptionsUsePodSecurityContext,
+			SourceVolumeOptions:      &volumeOptionsUsePodSecurityContext,
 			DestinationVolumeOptions: &volumeOptionsUsePodSecurityContext,
 		}
 		dpaInstance.Spec.Features.DataMover.DataMoverVolumeOptions = &dataMoverVolumeOptions

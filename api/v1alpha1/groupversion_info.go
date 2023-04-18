@@ -15,8 +15,8 @@ limitations under the License.
 */
 
 // Package v1alpha1 contains API Schema definitions for the oadp v1alpha1 API group
-//+kubebuilder:object:generate=true
-//+groupName=oadp.openshift.io
+// +kubebuilder:object:generate=true
+// +groupName=oadp.openshift.io
 package v1alpha1
 
 import (
