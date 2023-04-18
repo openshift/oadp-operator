@@ -5,10 +5,7 @@ WORKDIR /go/src/github.com/openshift/oadp-operator
 
 COPY ./ .
 
-RUN go get -d -u github.com/onsi/ginkgo/ginkgo && \
- go get -d -u github.com/onsi/ginkgo/v2/ginkgo && \
- go install -mod=mod github.com/onsi/ginkgo/v2/ginkgo@latest
-RUN go get github.com/onsi/gomega@v1.22.1
+RUN go install -mod=mod github.com/onsi/ginkgo/v2/ginkgo@v2.9.2
 RUN chmod -R 777 ./
 RUN chmod -R 777 /go/
 RUN go mod download

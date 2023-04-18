@@ -660,7 +660,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 					Eventually(DoesCustomPluginExist(namespace, plugin), timeoutMultiplier*time.Minute*6, time.Second*5).Should(BeTrue())
 				}
 			}
-			
+
 			log.Printf("Waiting for restic daemonset to have nodeselector")
 			if dpa.Spec.Configuration.Restic != nil && dpa.Spec.Configuration.Restic.PodConfig != nil {
 				for key, value := range dpa.Spec.Configuration.Restic.PodConfig.NodeSelector {

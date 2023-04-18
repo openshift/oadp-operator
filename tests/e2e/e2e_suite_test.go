@@ -20,7 +20,7 @@ var timeoutMultiplier time.Duration
 
 func init() {
 	flag.StringVar(&bslCredFile, "credentials", "", "Credentials path for BackupStorageLocation")
-	flag.StringVar(&namespace, "velero_namespace", "velero", "Velero Namespace")
+	flag.StringVar(&namespace, "velero_namespace", "openshift-adp", "Velero Namespace")
 	flag.StringVar(&settings, "settings", "./templates/default_settings.json", "Settings of the velero instance")
 	flag.StringVar(&instanceName, "velero_instance_name", "example-velero", "Velero Instance Name")
 	flag.StringVar(&credSecretRef, "creds_secret_ref", "cloud-credentials", "Credential secret ref (name) for volume storage location")
