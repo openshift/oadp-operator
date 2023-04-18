@@ -124,4 +124,4 @@ require (
 )
 
 // replace with https://github.com/openshift/velero/tree/oadp-1.1
-replace github.com/vmware-tanzu/velero => github.com/openshift/velero v0.10.2-0.20230124191620-7c2f85743d78
+replace github.com/vmware-tanzu/velero => github.com/openshift/velero v0.10.2-0.20230417160533-575081fd1b1a
