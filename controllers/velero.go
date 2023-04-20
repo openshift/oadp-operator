@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"strconv"
 	"strings"
 
 	"github.com/openshift/oadp-operator/pkg/credentials"
@@ -32,13 +33,11 @@ import (
 )
 
 const (
-	Server   = "server"
-	Registry = "Registry"
+	Server = "server"
 	//TODO: Check for default secret names
 	VeleroAWSSecretName   = "cloud-credentials"
 	VeleroAzureSecretName = "cloud-credentials-azure"
 	VeleroGCPSecretName   = "cloud-credentials-gcp"
-	enableCSIFeatureFlag  = "EnableCSI"
 )
 
 var (
@@ -69,8 +68,9 @@ func (r *DPAReconciler) ReconcileVeleroDeployment(log logr.Logger) (bool, error)
 			Namespace: dpa.Namespace,
 		},
 	}
+	// var orig *appsv1.Deployment // for debugging purposes
 	op, err := controllerutil.CreateOrPatch(r.Context, r.Client, veleroDeployment, func() error {
-
+		// orig = veleroDeployment.DeepCopy() // for debugging purposes
 		// Setting Deployment selector if a new object is created as it is immutable
 		if veleroDeployment.ObjectMeta.CreationTimestamp.IsZero() {
 			veleroDeployment.Spec.Selector = &metav1.LabelSelector{
@@ -87,6 +87,9 @@ func (r *DPAReconciler) ReconcileVeleroDeployment(log logr.Logger) (bool, error)
 		// Setting controller owner reference on the velero deployment
 		return controllerutil.SetControllerReference(&dpa, veleroDeployment, r.Scheme)
 	})
+	// if op != controllerutil.OperationResultNone {  // for debugging purposes
+	// 	fmt.Println(cmp.Diff(orig, veleroDeployment))
+	// }
 
 	if err != nil {
 		if errors.IsInvalid(err) {
@@ -141,31 +144,25 @@ func (r *DPAReconciler) buildVeleroDeployment(veleroDeployment *appsv1.Deploymen
 	if veleroDeployment == nil {
 		return fmt.Errorf("velero deployment cannot be nil")
 	}
+	// Auto corrects DPA
+	dpa.AutoCorrect()
 
-	//check if CSI plugin is added in spec
-	for _, plugin := range dpa.Spec.Configuration.Velero.DefaultPlugins {
-		if plugin == oadpv1alpha1.DefaultPluginCSI {
-			// CSI plugin is added so ensure that CSI feature flags is set
-			dpa.Spec.Configuration.Velero.FeatureFlags = append(dpa.Spec.Configuration.Velero.FeatureFlags, enableCSIFeatureFlag)
-			break
-		}
-	}
 	_, err := r.ReconcileRestoreResourcesVersionPriority(dpa)
 	if err != nil {
 		return fmt.Errorf("error creating configmap for restore resource version priority:" + err.Error())
 	}
-
+	// orig := veleroDeployment.DeepCopy()
 	// get resource requirements for velero deployment
 	// ignoring err here as it is checked in validator.go
 	veleroResourceReqs, _ := r.getVeleroResourceReqs(dpa)
-
-	// TODO! Reuse removeDuplicateValues with interface type
-	dpa.Spec.Configuration.Velero.DefaultPlugins = removeDuplicatePluginValues(dpa.Spec.Configuration.Velero.DefaultPlugins)
-	dpa.Spec.Configuration.Velero.FeatureFlags = removeDuplicateValues(dpa.Spec.Configuration.Velero.FeatureFlags)
+	podAnnotations, err := common.AppendUniqueKeyTOfTMaps(dpa.Spec.PodAnnotations, veleroDeployment.Annotations)
+	if err != nil {
+		return fmt.Errorf("error appending pod annotations: %v", err)
+	}
 	installDeployment := install.Deployment(veleroDeployment.Namespace,
 		install.WithResources(veleroResourceReqs),
 		install.WithImage(getVeleroImage(dpa)),
-		install.WithAnnotations(veleroDeployment.Annotations),
+		install.WithAnnotations(podAnnotations),
 		install.WithFeatures(dpa.Spec.Configuration.Velero.FeatureFlags),
 		// last label overrides previous ones
 		install.WithLabels(veleroDeployment.Labels),
@@ -178,46 +175,21 @@ func (r *DPAReconciler) buildVeleroDeployment(veleroDeployment *appsv1.Deploymen
 	veleroDeployment.TypeMeta = installDeployment.TypeMeta
 	veleroDeployment.Spec = installDeployment.Spec
 	veleroDeployment.Name = veleroDeploymentName
-	veleroDeployment.Labels = installDeployment.Labels
-	veleroDeployment.Annotations = installDeployment.Annotations
+	labels, err := common.AppendUniqueKeyTOfTMaps(veleroDeployment.Labels, installDeployment.Labels)
+	if err != nil {
+		return fmt.Errorf("velero deployment label: %v", err)
+	}
+	veleroDeployment.Labels = labels
+	annotations, err := common.AppendUniqueKeyTOfTMaps(veleroDeployment.Annotations, installDeployment.Annotations)
+	veleroDeployment.Annotations = annotations
+	// fmt.Println(cmp.Diff(orig, veleroDeployment))
 	return r.customizeVeleroDeployment(dpa, veleroDeployment)
-}
-
-func removeDuplicatePluginValues(slice []oadpv1alpha1.DefaultPlugin) []oadpv1alpha1.DefaultPlugin {
-	if slice == nil {
-		return nil
-	}
-	keys := make(map[oadpv1alpha1.DefaultPlugin]bool)
-	list := []oadpv1alpha1.DefaultPlugin{}
-	for _, entry := range slice {
-		if _, found := keys[entry]; !found { //add entry to list if not found in keys already
-			keys[entry] = true
-			list = append(list, entry)
-		}
-	}
-	return list // return the result through the passed in argument
-}
-
-// remove duplicate entry in string slice
-func removeDuplicateValues(slice []string) []string {
-	if slice == nil {
-		return nil
-	}
-	keys := make(map[string]bool)
-	list := []string{}
-	for _, entry := range slice {
-		if _, found := keys[entry]; !found { //add entry to list if not found in keys already
-			keys[entry] = true
-			list = append(list, entry)
-		}
-	}
-	return list // return the result through the passed in argument
 }
 
 func (r *DPAReconciler) customizeVeleroDeployment(dpa *oadpv1alpha1.DataProtectionApplication, veleroDeployment *appsv1.Deployment) error {
 	//append dpa labels
 	var err error
-	veleroDeployment.Labels, err = common.AppendUniqueLabels(veleroDeployment.Labels, getDpaAppLabels(dpa))
+	veleroDeployment.Labels, err = common.AppendUniqueKeyTOfTMaps(veleroDeployment.Labels, getDpaAppLabels(dpa))
 	if err != nil {
 		return fmt.Errorf("velero deployment label: %v", err)
 	}
@@ -229,17 +201,17 @@ func (r *DPAReconciler) customizeVeleroDeployment(dpa *oadpv1alpha1.DataProtecti
 	if veleroDeployment.Spec.Selector.MatchLabels == nil {
 		veleroDeployment.Spec.Selector.MatchLabels = make(map[string]string)
 	}
-	veleroDeployment.Spec.Selector.MatchLabels, err = common.AppendUniqueLabels(veleroDeployment.Spec.Selector.MatchLabels, veleroDeployment.Labels, getDpaAppLabels(dpa))
+	veleroDeployment.Spec.Selector.MatchLabels, err = common.AppendUniqueKeyTOfTMaps(veleroDeployment.Spec.Selector.MatchLabels, veleroDeployment.Labels, getDpaAppLabels(dpa))
 	if err != nil {
 		return fmt.Errorf("velero deployment selector label: %v", err)
 	}
-	veleroDeployment.Spec.Template.Labels, err = common.AppendUniqueLabels(veleroDeployment.Spec.Template.Labels, veleroDeployment.Labels)
+	veleroDeployment.Spec.Template.Labels, err = common.AppendUniqueKeyTOfTMaps(veleroDeployment.Spec.Template.Labels, veleroDeployment.Labels)
 	if err != nil {
 		return fmt.Errorf("velero deployment template label: %v", err)
 	}
 	// add custom pod labels
 	if dpa.Spec.Configuration.Velero != nil && dpa.Spec.Configuration.Velero.PodConfig != nil && dpa.Spec.Configuration.Velero.PodConfig.Labels != nil {
-		veleroDeployment.Spec.Template.Labels, err = common.AppendUniqueLabels(veleroDeployment.Spec.Template.Labels, dpa.Spec.Configuration.Velero.PodConfig.Labels)
+		veleroDeployment.Spec.Template.Labels, err = common.AppendUniqueKeyTOfTMaps(veleroDeployment.Spec.Template.Labels, dpa.Spec.Configuration.Velero.PodConfig.Labels)
 		if err != nil {
 			return fmt.Errorf("velero deployment template custom label: %v", err)
 		}
@@ -297,14 +269,28 @@ func (r *DPAReconciler) customizeVeleroDeployment(dpa *oadpv1alpha1.DataProtecti
 		veleroDeployment.Spec.Template.Spec.DNSConfig = &dpa.Spec.PodDnsConfig
 	}
 
+	// if metrics address is set, change annotation and ports
+	var prometheusPort *int
+	if dpa.Spec.Configuration.Velero.Args != nil &&
+		dpa.Spec.Configuration.Velero.Args.MetricsAddress != "" {
+		address := strings.Split(dpa.Spec.Configuration.Velero.Args.MetricsAddress, ":")
+		if len(address) == 2 {
+			veleroDeployment.Spec.Template.Annotations["prometheus.io/port"] = address[1]
+			if prometheusPort == nil {
+				prometheusPort = new(int)
+			}
+			*prometheusPort, err = strconv.Atoi(address[1])
+		}
+	}
+
 	var veleroContainer *corev1.Container
-	for i, container := range veleroDeployment.Spec.Template.Spec.Containers {
+	for _, container := range veleroDeployment.Spec.Template.Spec.Containers {
 		if container.Name == common.Velero {
-			veleroContainer = &veleroDeployment.Spec.Template.Spec.Containers[i]
+			veleroContainer = &veleroDeployment.Spec.Template.Spec.Containers[0]
 			break
 		}
 	}
-	if err := r.customizeVeleroContainer(dpa, veleroDeployment, veleroContainer, isSTSNeeded); err != nil {
+	if err := r.customizeVeleroContainer(dpa, veleroDeployment, veleroContainer, isSTSNeeded, prometheusPort); err != nil {
 		return err
 	}
 
@@ -341,9 +327,17 @@ func (r *DPAReconciler) customizeVeleroDeployment(dpa *oadpv1alpha1.DataProtecti
 	return credentials.AppendPluginSpecificSpecs(dpa, veleroDeployment, veleroContainer, providerNeedsDefaultCreds, hasCloudStorage)
 }
 
-func (r *DPAReconciler) customizeVeleroContainer(dpa *oadpv1alpha1.DataProtectionApplication, veleroDeployment *appsv1.Deployment, veleroContainer *corev1.Container, isSTSNeeded bool) error {
+func (r *DPAReconciler) customizeVeleroContainer(dpa *oadpv1alpha1.DataProtectionApplication, veleroDeployment *appsv1.Deployment, veleroContainer *corev1.Container, isSTSNeeded bool, prometheusPort *int) error {
 	if veleroContainer == nil {
 		return fmt.Errorf("could not find velero container in Deployment")
+	}
+	if prometheusPort != nil {
+		for i := range veleroContainer.Ports {
+			if veleroContainer.Ports[i].Name == "metrics" {
+				veleroContainer.Ports[i].ContainerPort = int32(*prometheusPort)
+				break
+			}
+		}
 	}
 	veleroContainer.ImagePullPolicy = corev1.PullAlways
 	veleroContainer.VolumeMounts = append(veleroContainer.VolumeMounts,
@@ -391,13 +385,22 @@ func (r *DPAReconciler) customizeVeleroContainer(dpa *oadpv1alpha1.DataProtectio
 
 	// Enable user to specify --restic-timeout (defaults to 1h)
 	resticTimeout := "1h"
-	if dpa.Spec.Configuration.Restic != nil && len(dpa.Spec.Configuration.Restic.Timeout) > 0 {
+	if dpa.Spec.Configuration != nil && dpa.Spec.Configuration.Restic != nil && len(dpa.Spec.Configuration.Restic.Timeout) > 0 {
 		resticTimeout = dpa.Spec.Configuration.Restic.Timeout
 	}
 	// Append restic timeout option manually. Not configurable via install package, missing from podTemplateConfig struct. See: https://github.com/vmware-tanzu/velero/blob/8d57215ded1aa91cdea2cf091d60e072ce3f340f/pkg/install/deployment.go#L34-L45
 	veleroContainer.Args = append(veleroContainer.Args, fmt.Sprintf("--restic-timeout=%s", resticTimeout))
-
 	setContainerDefaults(veleroContainer)
+	// if server args is set, override the default server args
+	if dpa.Spec.Configuration.Velero.Args != nil {
+		var err error
+		veleroContainer.Args, err = dpa.Spec.Configuration.Velero.Args.StringArr(
+			dpa.Spec.Configuration.Velero.FeatureFlags,
+			dpa.Spec.Configuration.Velero.LogLevel)
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 

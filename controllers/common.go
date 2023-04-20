@@ -28,6 +28,10 @@ func setContainerDefaults(container *corev1.Container) {
 }
 
 func setPodTemplateSpecDefaults(template *corev1.PodTemplateSpec) {
+	if template.Annotations["deployment.kubernetes.io/revision"] != "" {
+		// unset the revision annotation to avoid emitting update events
+		delete(template.Annotations, "deployment.kubernetes.io/revision")
+	}
 	if template.Spec.RestartPolicy == "" {
 		template.Spec.RestartPolicy = corev1.RestartPolicyAlways
 	}
