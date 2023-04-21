@@ -123,6 +123,9 @@ func (r *DPAReconciler) ValidateVeleroPlugins(log logr.Logger) (bool, error) {
 		pluginSpecificMap, ok := credentials.PluginSpecificFields[plugin]
 		pluginNeedsCheck, foundInBSLorVSL := providerNeedsDefaultCreds[string(plugin)]
 
+		if foundInVSL := snapshotLocationsProviders[string(plugin)]; foundInVSL {
+			pluginNeedsCheck = true
+		}
 		if !foundInBSLorVSL && !hasCloudStorage {
 			pluginNeedsCheck = true
 		}
@@ -141,9 +144,18 @@ func (r *DPAReconciler) ValidateVeleroPlugins(log logr.Logger) (bool, error) {
 					}
 				}
 			}
-			// check for default secret name if dpa has snapshotLocations
-			if foundInVSL := snapshotLocationsProviders[string(plugin)]; foundInVSL {
-				secretNamesToValidate.Add(pluginSpecificMap.SecretName)
+			// check specified credentials in snapshot locations exists in the cluster
+			for _, location := range dpa.Spec.SnapshotLocations {
+				if location.Velero != nil {
+					provider := strings.TrimPrefix(location.Velero.Provider, veleroIOPrefix)
+					if provider == string(plugin) && location.Velero != nil {
+						if location.Velero.Credential != nil {
+							secretNamesToValidate.Add(location.Velero.Credential.Name)
+						} else {
+							secretNamesToValidate.Add(pluginSpecificMap.SecretName)
+						}
+					}
+				}
 			}
 			for _, secretName := range secretNamesToValidate.ToSlice() {
 				_, err := r.getProviderSecret(secretName)
