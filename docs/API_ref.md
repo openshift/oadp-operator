@@ -1,6 +1,6 @@
 <h1>API References</h1>
 
-OADP install CRDs for the following resources
+Pre-requisites: Install OADP to your cluster. before proceeding to the next steps.
 ```
 ❯ ls  bundle/manifests/*oadp.openshift.io* bundle/manifests/velero.io* | xargs -I {} sh -c 'export FILE={} && yq .metadata.name $FILE && echo kind: $(yq .spec.names.kind $FILE) shortName: $(yq .spec.names.shortNames $FILE )'
 volumesnapshotbackups.datamover.oadp.openshift.io
