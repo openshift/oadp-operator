@@ -2,40 +2,40 @@
 
 OADP install CRDs for the following resources
 ```
-❯ ls  bundle/manifests/*oadp.openshift.io* bundle/manifests/velero.io* | xargs -I {} sh -c 'yq ".metadata.name" {} && echo "shortName: $(yq .spec.names.shortNames {})"'
+❯ ls  bundle/manifests/*oadp.openshift.io* bundle/manifests/velero.io* | xargs -I {} sh -c 'export FILE={} && yq .metadata.name $FILE && echo kind: $(yq .spec.names.kind $FILE) shortName: $(yq .spec.names.shortNames $FILE )'
 volumesnapshotbackups.datamover.oadp.openshift.io
-shortName: - vsb
+kind: VolumeSnapshotBackup shortName: - vsb
 volumesnapshotrestores.datamover.oadp.openshift.io
-shortName: - vsr
+kind: VolumeSnapshotRestore shortName: - vsr
 cloudstorages.oadp.openshift.io
-shortName: null
+kind: CloudStorage shortName: null
 dataprotectionapplications.oadp.openshift.io
-shortName: - dpa
+kind: DataProtectionApplication shortName: - dpa
 backuprepositories.velero.io
-shortName: null
+kind: BackupRepository shortName: null
 backups.velero.io
-shortName: null
+kind: Backup shortName: null
 backupstoragelocations.velero.io
-shortName: - bsl
+kind: BackupStorageLocation shortName: - bsl
 deletebackuprequests.velero.io
-shortName: null
+kind: DeleteBackupRequest shortName: null
 downloadrequests.velero.io
-shortName: null
+kind: DownloadRequest shortName: null
 podvolumebackups.velero.io
-shortName: null
+kind: PodVolumeBackup shortName: null
 podvolumerestores.velero.io
-shortName: null
+kind: PodVolumeRestore shortName: null
 restores.velero.io
-shortName: null
+kind: Restore shortName: null
 schedules.velero.io
-shortName: null
+kind: Schedule shortName: null
 serverstatusrequests.velero.io
-shortName: - ssr
+kind: ServerStatusRequest shortName: - ssr
 volumesnapshotlocations.velero.io
-shortName: - vsl
+kind: VolumeSnapshotLocation shortName: - vsl
 ```
 
-You can use `oc explain <full-name|short-name>.<fields>` to explore available APIs
+You can use `oc explain <full-name|kind|short-name>.<fields>` to explore available APIs
 
 eg.
 ```
