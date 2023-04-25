@@ -113,9 +113,7 @@ func AppendUniqueValues[T comparable](slice []T, values ...T) []T {
 	if values == nil || len(values) == 0 {
 		return slice
 	}
-	for _, value := range values {
-		slice = append(slice, value)
-	}
+	slice = append(slice, values...)
 	return RemoveDuplicateValues(slice)
 }
 

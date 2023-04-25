@@ -30,6 +30,8 @@ require (
 )
 
 require (
+	cloud.google.com/go/compute v1.13.0 // indirect
+	cloud.google.com/go/compute/metadata v0.2.1 // indirect
 	github.com/Azure/azure-sdk-for-go v61.4.0+incompatible // indirect
 	github.com/Azure/go-autorest v14.2.0+incompatible // indirect
 	github.com/Azure/go-autorest/autorest v0.11.21 // indirect
@@ -50,7 +52,6 @@ require (
 	github.com/dimchansky/utfbom v1.1.1 // indirect
 	github.com/emicklei/go-restful/v3 v3.10.1 // indirect
 	github.com/evanphx/json-patch v5.6.0+incompatible // indirect
-	github.com/evanphx/json-patch/v5 v5.6.0 // indirect
 	github.com/fatih/color v1.13.0 // indirect
 	github.com/form3tech-oss/jwt-go v3.2.3+incompatible // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
@@ -129,7 +130,11 @@ require (
 
 // replace with https://github.com/openshift/velero/tree/oadp-1.1
 // TODO: revert to upstream
-// replace github.com/vmware-tanzu/velero => github.com/openshift/velero v0.10.2-0.20230417160533-575081fd1b1a
-replace github.com/vmware-tanzu/velero => github.com/kaovilai/velero v1.6.1-0.20230420175411-6a796a1a42a3
+replace github.com/vmware-tanzu/velero => github.com/openshift/velero v0.10.2-0.20230417160533-575081fd1b1a
 
-replace k8s.io/apimachinery/pkg/util/clock => k8s.io/utils/clock v0.0.0-20220210201930-3a6ce19ff2f9
+// needed for util/clock without bumping replacing clock in velero
+replace (
+	k8s.io/apimachinery => k8s.io/apimachinery v0.24.13
+	k8s.io/client-go => k8s.io/client-go v0.24.13
+	sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.12.3
+)
