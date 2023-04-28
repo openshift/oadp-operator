@@ -129,7 +129,6 @@ require (
 )
 
 // replace with https://github.com/openshift/velero/tree/oadp-1.1
-// TODO: revert to upstream
 replace github.com/vmware-tanzu/velero => github.com/openshift/velero v0.10.2-0.20230417160533-575081fd1b1a
 
 // needed for util/clock without bumping replacing clock in velero
