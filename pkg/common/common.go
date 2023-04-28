@@ -65,13 +65,13 @@ func DefaultModePtr() *int32 {
 }
 
 func AppendUniqueKeyTOfTMaps[T comparable](userLabels ...map[T]T) (map[T]T, error) {
-	if len(userLabels) == 0 {
-		return nil, nil
-	}
-	base := make(map[T]T)
+	var base map[T]T
 	for _, labels := range userLabels {
 		if labels == nil {
 			continue
+		}
+		if base == nil {
+			base = make(map[T]T)
 		}
 		for k, v := range labels {
 			if _, found := base[k]; !found {
