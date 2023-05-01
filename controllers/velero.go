@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/openshift/oadp-operator/pkg/credentials"
 	"github.com/operator-framework/operator-lib/proxy"
 	"github.com/sirupsen/logrus"
@@ -68,9 +69,11 @@ func (r *DPAReconciler) ReconcileVeleroDeployment(log logr.Logger) (bool, error)
 			Namespace: dpa.Namespace,
 		},
 	}
-	// var orig *appsv1.Deployment // for debugging purposes
+	var orig *appsv1.Deployment // for debugging purposes
 	op, err := controllerutil.CreateOrPatch(r.Context, r.Client, veleroDeployment, func() error {
-		// orig = veleroDeployment.DeepCopy() // for debugging purposes
+		if debugMode {
+			orig = veleroDeployment.DeepCopy() // for debugging purposes
+		}
 		// Setting Deployment selector if a new object is created as it is immutable
 		if veleroDeployment.ObjectMeta.CreationTimestamp.IsZero() {
 			veleroDeployment.Spec.Selector = &metav1.LabelSelector{
@@ -87,9 +90,9 @@ func (r *DPAReconciler) ReconcileVeleroDeployment(log logr.Logger) (bool, error)
 		// Setting controller owner reference on the velero deployment
 		return controllerutil.SetControllerReference(&dpa, veleroDeployment, r.Scheme)
 	})
-	// if op != controllerutil.OperationResultNone {  // for debugging purposes
-	// 	fmt.Println(cmp.Diff(orig, veleroDeployment))
-	// }
+	if debugMode && op != controllerutil.OperationResultNone { // for debugging purposes
+		fmt.Printf("DEBUG: There was a diff which resulted in an operation on Velero Deployment: %s\n", cmp.Diff(orig, veleroDeployment))
+	}
 
 	if err != nil {
 		if errors.IsInvalid(err) {
