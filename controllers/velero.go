@@ -283,6 +283,9 @@ func (r *DPAReconciler) customizeVeleroDeployment(dpa *oadpv1alpha1.DataProtecti
 				prometheusPort = new(int)
 			}
 			*prometheusPort, err = strconv.Atoi(address[1])
+			if err != nil {
+				return fmt.Errorf("error parsing metrics address port: %v", err)
+			}
 		}
 	}
 
