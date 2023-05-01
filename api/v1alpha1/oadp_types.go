@@ -278,7 +278,7 @@ func init() {
 func (dpa *DataProtectionApplication) AutoCorrect() {
 	//check if CSI plugin is added in spec
 	if hasCSIPlugin(dpa.Spec.Configuration.Velero.DefaultPlugins) {
-		dpa.Spec.Configuration.Velero.FeatureFlags = common.AppendUniqueValues(dpa.Spec.Configuration.Velero.FeatureFlags, velero.CSIFeatureFlag)
+		dpa.Spec.Configuration.Velero.FeatureFlags = append(dpa.Spec.Configuration.Velero.FeatureFlags, velero.CSIFeatureFlag)
 	}
 	if dpa.Spec.Configuration.Velero.RestoreResourcesVersionPriority != "" {
 		// if the RestoreResourcesVersionPriority is specified then ensure feature flag is enabled for enableApiGroupVersions
