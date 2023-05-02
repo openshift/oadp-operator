@@ -526,6 +526,28 @@ spec:
                         pruneInterval:
                           description: defines how often (in days) to prune the datamover snapshots from the repository
                           type: string
+                        snapshotRetainPolicy:
+                          description: defines the parameters that can be specified for retention of datamover snapshots
+                          properties:
+                            daily:
+                              description: Daily defines the number of snapshots to be kept daily
+                              type: string
+                            hourly:
+                              description: Hourly defines the number of snapshots to be kept hourly
+                              type: string
+                            monthly:
+                              description: Monthly defines the number of snapshots to be kept monthly
+                              type: string
+                            weekly:
+                              description: Weekly defines the number of snapshots to be kept weekly
+                              type: string
+                            within:
+                              description: Within defines the number of snapshots to be kept Within the given time period
+                              type: string
+                            yearly:
+                              description: Yearly defines the number of snapshots to be kept yearly
+                              type: string
+                          type: object
                         timeout:
                           description: User supplied timeout to be used for VolumeSnapshotBackup and VolumeSnapshotRestore to complete, default value is 10m
                           type: string
