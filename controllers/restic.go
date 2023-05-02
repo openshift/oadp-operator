@@ -184,7 +184,11 @@ func (r *DPAReconciler) buildResticDaemonset(dpa *oadpv1alpha1.DataProtectionApp
 	// Update Items in ObjectMeta
 	dsName := ds.Name
 	ds.TypeMeta = installDs.TypeMeta
-	ds.Labels, _ = common.AppendUniqueKeyTOfTMaps(ds.Labels, installDs.Labels)
+	var err error
+	ds.Labels, err = common.AppendUniqueKeyTOfTMaps(ds.Labels, installDs.Labels)
+	if err != nil {
+		return nil, fmt.Errorf("restic daemonset label: %s", err)
+	}
 	// Update Spec
 	ds.Spec = installDs.Spec
 	ds.Name = dsName

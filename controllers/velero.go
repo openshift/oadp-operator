@@ -154,7 +154,6 @@ func (r *DPAReconciler) buildVeleroDeployment(veleroDeployment *appsv1.Deploymen
 	if err != nil {
 		return fmt.Errorf("error creating configmap for restore resource version priority:" + err.Error())
 	}
-	// orig := veleroDeployment.DeepCopy()
 	// get resource requirements for velero deployment
 	// ignoring err here as it is checked in validator.go
 	veleroResourceReqs, _ := r.getVeleroResourceReqs(dpa)
@@ -185,7 +184,6 @@ func (r *DPAReconciler) buildVeleroDeployment(veleroDeployment *appsv1.Deploymen
 	veleroDeployment.Labels = labels
 	annotations, err := common.AppendUniqueKeyTOfTMaps(veleroDeployment.Annotations, installDeployment.Annotations)
 	veleroDeployment.Annotations = annotations
-	// fmt.Println(cmp.Diff(orig, veleroDeployment))
 	return r.customizeVeleroDeployment(dpa, veleroDeployment)
 }
 
