@@ -22,6 +22,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"github.com/openshift/oadp-operator/pkg/velero/server"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -522,6 +523,11 @@ func (in *VeleroConfig) DeepCopyInto(out *VeleroConfig) {
 	if in.PodConfig != nil {
 		in, out := &in.PodConfig, &out.PodConfig
 		*out = new(PodConfig)
+		(*in).DeepCopyInto(*out)
+	}
+	if in.Args != nil {
+		in, out := &in.Args, &out.Args
+		*out = new(server.Args)
 		(*in).DeepCopyInto(*out)
 	}
 }

@@ -64,22 +64,20 @@ func DefaultModePtr() *int32 {
 	return &mode
 }
 
-// append labels together
-func AppendUniqueLabels(userLabels ...map[string]string) (map[string]string, error) {
-	return AppendUniqueKeyStringOfStringMaps(userLabels...)
-}
-
-func AppendUniqueKeyStringOfStringMaps(userLabels ...map[string]string) (map[string]string, error) {
-	base := map[string]string{}
+func AppendUniqueKeyTOfTMaps[T comparable](userLabels ...map[T]T) (map[T]T, error) {
+	var base map[T]T
 	for _, labels := range userLabels {
 		if labels == nil {
 			continue
 		}
+		if base == nil {
+			base = make(map[T]T)
+		}
 		for k, v := range labels {
-			if base[k] == "" {
+			if _, found := base[k]; !found {
 				base[k] = v
 			} else if base[k] != v {
-				return nil, fmt.Errorf("conflicting key %s with value %s may not override %s", k, v, base[k])
+				return nil, fmt.Errorf("conflicting key %v with value %v may not override %v", k, v, base[k])
 			}
 		}
 	}
@@ -109,4 +107,48 @@ func containsEnvVar(envVars []corev1.EnvVar, envVar corev1.EnvVar) bool {
 		}
 	}
 	return false
+}
+
+func AppendUniqueValues[T comparable](slice []T, values ...T) []T {
+	if values == nil || len(values) == 0 {
+		return slice
+	}
+	slice = append(slice, values...)
+	return RemoveDuplicateValues(slice)
+}
+
+type e struct{} // empty struct
+
+func RemoveDuplicateValues[T comparable](slice []T) []T {
+	if slice == nil {
+		return nil
+	}
+	keys := make(map[T]e)
+	list := []T{}
+	for _, entry := range slice {
+		if _, found := keys[entry]; !found { //add entry to list if not found in keys already
+			keys[entry] = e{}
+			list = append(list, entry)
+		}
+	}
+	return list // return the result through the passed in argument
+}
+
+func AppendTTMapAsCopy[T comparable](add ...map[T]T) map[T]T {
+	if add == nil || len(add) == 0 {
+		return nil
+	}
+	base := map[T]T{}
+	for k, v := range add[0] {
+		base[k] = v
+	}
+	if len(add) == 1 {
+		return base
+	}
+	for i := 1; i < len(add); i++ {
+		for k, v := range add[i] {
+			base[k] = v
+		}
+	}
+	return base
 }

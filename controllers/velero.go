@@ -4,14 +4,14 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"strconv"
 	"strings"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/openshift/oadp-operator/pkg/credentials"
 	"github.com/operator-framework/operator-lib/proxy"
 	"github.com/sirupsen/logrus"
-	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	//"sigs.k8s.io/controller-runtime/pkg/client"
@@ -34,13 +34,11 @@ import (
 )
 
 const (
-	Server   = "server"
-	Registry = "Registry"
+	Server = "server"
 	//TODO: Check for default secret names
 	VeleroAWSSecretName   = "cloud-credentials"
 	VeleroAzureSecretName = "cloud-credentials-azure"
 	VeleroGCPSecretName   = "cloud-credentials-gcp"
-	enableCSIFeatureFlag  = "EnableCSI"
 )
 
 var (
@@ -59,149 +57,6 @@ var (
 	}
 )
 
-// TODO: Remove this function as it's no longer being used
-func (r *DPAReconciler) ReconcileVeleroServiceAccount(log logr.Logger) (bool, error) {
-	dpa := oadpv1alpha1.DataProtectionApplication{}
-	if err := r.Get(r.Context, r.NamespacedName, &dpa); err != nil {
-		return false, err
-	}
-	veleroSa := &corev1.ServiceAccount{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      common.Velero,
-			Namespace: dpa.Namespace,
-		},
-	}
-	op, err := controllerutil.CreateOrPatch(r.Context, r.Client, veleroSa, func() error {
-		// Setting controller owner reference on the velero SA
-		err := controllerutil.SetControllerReference(&dpa, veleroSa, r.Scheme)
-		if err != nil {
-			return err
-		}
-
-		// update the SA template
-		veleroSaUpdate, err := r.veleroServiceAccount(&dpa)
-		veleroSa = veleroSaUpdate
-		return err
-	})
-
-	if err != nil {
-		return false, err
-	}
-
-	//TODO: Review velero SA status and report errors and conditions
-
-	if op == controllerutil.OperationResultCreated || op == controllerutil.OperationResultUpdated {
-		// Trigger event to indicate velero SA was created or updated
-		r.EventRecorder.Event(veleroSa,
-			corev1.EventTypeNormal,
-			"VeleroServiceAccountReconciled",
-			fmt.Sprintf("performed %s on velero service account %s/%s", op, veleroSa.Namespace, veleroSa.Name),
-		)
-	}
-	return true, nil
-}
-
-// TODO: Remove this function as it's no longer being used
-// TODO: Temporary solution for Non-OLM Operator install
-func (r *DPAReconciler) ReconcileVeleroCRDs(log logr.Logger) (bool, error) {
-	dpa := oadpv1alpha1.DataProtectionApplication{}
-	if err := r.Get(r.Context, r.NamespacedName, &dpa); err != nil {
-		return false, err
-	}
-
-	// check for Non-OLM install and proceed with Velero supporting CRD installation
-	/*if velero.Spec.OlmManaged != nil && !*velero.Spec.OlmManaged {
-		err := r.InstallVeleroCRDs(log)
-		if err != nil {
-			return false, err
-		}
-	}*/
-
-	return true, nil
-}
-
-// TODO: Remove this function as it's no longer being used
-func (r *DPAReconciler) InstallVeleroCRDs(log logr.Logger) error {
-	var err error
-	// Install CRDs
-	for _, unstructuredCrd := range install.AllCRDs().Items {
-		foundCrd := &v1.CustomResourceDefinition{}
-		crd := &v1.CustomResourceDefinition{}
-		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(unstructuredCrd.Object, crd); err != nil {
-			return err
-		}
-		// Add Conversion to the spec, as this will be returned in the foundCrd
-		crd.Spec.Conversion = &v1.CustomResourceConversion{
-			Strategy: v1.NoneConverter,
-		}
-		if err = r.Client.Get(r.Context, types.NamespacedName{Name: crd.ObjectMeta.Name}, foundCrd); err != nil {
-			if errors.IsNotFound(err) {
-				// Didn't find CRD, we should create it.
-				log.Info("Creating CRD", "CRD.Name", crd.ObjectMeta.Name)
-				if err = r.Client.Create(r.Context, crd); err != nil {
-					return err
-				}
-			} else {
-				// Return other errors
-				return err
-			}
-		} else {
-			// CRD exists, check if it's updated.
-			if !reflect.DeepEqual(foundCrd.Spec, crd.Spec) {
-				// Specs aren't equal, update and fix.
-				log.Info("Updating CRD", "CRD.Name", crd.ObjectMeta.Name, "foundCrd.Spec", foundCrd.Spec, "crd.Spec", crd.Spec)
-				foundCrd.Spec = *crd.Spec.DeepCopy()
-				if err = r.Client.Update(r.Context, foundCrd); err != nil {
-					return err
-				}
-			}
-		}
-	}
-
-	return nil
-}
-
-// TODO: Remove this function as it's no longer being used
-func (r *DPAReconciler) ReconcileVeleroClusterRoleBinding(log logr.Logger) (bool, error) {
-	dpa := oadpv1alpha1.DataProtectionApplication{}
-	if err := r.Get(r.Context, r.NamespacedName, &dpa); err != nil {
-		return false, err
-	}
-	veleroCRB, err := r.veleroClusterRoleBinding(&dpa)
-	if err != nil {
-		return false, err
-	}
-	op, err := controllerutil.CreateOrPatch(r.Context, r.Client, veleroCRB, func() error {
-		// Setting controller owner reference on the velero CRB
-		// TODO: HOW DO I DO THIS?? ALAY HALP PLZ
-		/*err := controllerutil.SetControllerReference(&velero, veleroCRB, r.Scheme)
-		if err != nil {
-			return err
-		}*/
-
-		// update the CRB template
-		veleroCRBUpdate, err := r.veleroClusterRoleBinding(&dpa)
-		veleroCRB = veleroCRBUpdate
-		return err
-	})
-
-	if err != nil {
-		return false, err
-	}
-
-	//TODO: Review velero CRB status and report errors and conditions
-
-	if op == controllerutil.OperationResultCreated || op == controllerutil.OperationResultUpdated {
-		// Trigger event to indicate velero SA was created or updated
-		r.EventRecorder.Event(veleroCRB,
-			corev1.EventTypeNormal,
-			"VeleroClusterRoleBindingReconciled",
-			fmt.Sprintf("performed %s on velero clusterrolebinding %s", op, veleroCRB.Name),
-		)
-	}
-	return true, nil
-}
-
 func (r *DPAReconciler) ReconcileVeleroDeployment(log logr.Logger) (bool, error) {
 	dpa := oadpv1alpha1.DataProtectionApplication{}
 	if err := r.Get(r.Context, r.NamespacedName, &dpa); err != nil {
@@ -214,12 +69,15 @@ func (r *DPAReconciler) ReconcileVeleroDeployment(log logr.Logger) (bool, error)
 			Namespace: dpa.Namespace,
 		},
 	}
+	var orig *appsv1.Deployment // for debugging purposes
 	op, err := controllerutil.CreateOrPatch(r.Context, r.Client, veleroDeployment, func() error {
-
+		if debugMode {
+			orig = veleroDeployment.DeepCopy() // for debugging purposes
+		}
 		// Setting Deployment selector if a new object is created as it is immutable
 		if veleroDeployment.ObjectMeta.CreationTimestamp.IsZero() {
 			veleroDeployment.Spec.Selector = &metav1.LabelSelector{
-				MatchLabels: r.getDpaAppLabels(&dpa),
+				MatchLabels: getDpaAppLabels(&dpa),
 			}
 		}
 
@@ -232,6 +90,9 @@ func (r *DPAReconciler) ReconcileVeleroDeployment(log logr.Logger) (bool, error)
 		// Setting controller owner reference on the velero deployment
 		return controllerutil.SetControllerReference(&dpa, veleroDeployment, r.Scheme)
 	})
+	if debugMode && op != controllerutil.OperationResultNone { // for debugging purposes
+		fmt.Printf("DEBUG: There was a diff which resulted in an operation on Velero Deployment: %s\n", cmp.Diff(orig, veleroDeployment))
+	}
 
 	if err != nil {
 		if errors.IsInvalid(err) {
@@ -267,13 +128,13 @@ func (r *DPAReconciler) ReconcileVeleroDeployment(log logr.Logger) (bool, error)
 func (r *DPAReconciler) veleroServiceAccount(dpa *oadpv1alpha1.DataProtectionApplication) (*corev1.ServiceAccount, error) {
 	annotations := make(map[string]string)
 	sa := install.ServiceAccount(dpa.Namespace, annotations)
-	sa.Labels = r.getDpaAppLabels(dpa)
+	sa.Labels = getDpaAppLabels(dpa)
 	return sa, nil
 }
 
 func (r *DPAReconciler) veleroClusterRoleBinding(dpa *oadpv1alpha1.DataProtectionApplication) (*rbacv1.ClusterRoleBinding, error) {
 	crb := install.ClusterRoleBinding(dpa.Namespace)
-	crb.Labels = r.getDpaAppLabels(dpa)
+	crb.Labels = getDpaAppLabels(dpa)
 	return crb, nil
 }
 
@@ -286,32 +147,27 @@ func (r *DPAReconciler) buildVeleroDeployment(veleroDeployment *appsv1.Deploymen
 	if veleroDeployment == nil {
 		return fmt.Errorf("velero deployment cannot be nil")
 	}
+	// Auto corrects DPA
+	dpa.AutoCorrect()
 
-	//check if CSI plugin is added in spec
-	for _, plugin := range dpa.Spec.Configuration.Velero.DefaultPlugins {
-		if plugin == oadpv1alpha1.DefaultPluginCSI {
-			// CSI plugin is added so ensure that CSI feature flags is set
-			dpa.Spec.Configuration.Velero.FeatureFlags = append(dpa.Spec.Configuration.Velero.FeatureFlags, enableCSIFeatureFlag)
-			break
-		}
-	}
 	_, err := r.ReconcileRestoreResourcesVersionPriority(dpa)
 	if err != nil {
 		return fmt.Errorf("error creating configmap for restore resource version priority:" + err.Error())
 	}
-
 	// get resource requirements for velero deployment
 	// ignoring err here as it is checked in validator.go
 	veleroResourceReqs, _ := r.getVeleroResourceReqs(dpa)
-
-	// TODO! Reuse removeDuplicateValues with interface type
-	dpa.Spec.Configuration.Velero.DefaultPlugins = removeDuplicatePluginValues(dpa.Spec.Configuration.Velero.DefaultPlugins)
-	dpa.Spec.Configuration.Velero.FeatureFlags = removeDuplicateValues(dpa.Spec.Configuration.Velero.FeatureFlags)
+	podAnnotations, err := common.AppendUniqueKeyTOfTMaps(dpa.Spec.PodAnnotations, veleroDeployment.Annotations)
+	if err != nil {
+		return fmt.Errorf("error appending pod annotations: %v", err)
+	}
 	installDeployment := install.Deployment(veleroDeployment.Namespace,
 		install.WithResources(veleroResourceReqs),
 		install.WithImage(getVeleroImage(dpa)),
+		install.WithAnnotations(podAnnotations),
 		install.WithFeatures(dpa.Spec.Configuration.Velero.FeatureFlags),
-		install.WithAnnotations(dpa.Spec.PodAnnotations),
+		// last label overrides previous ones
+		install.WithLabels(veleroDeployment.Labels),
 		// use WithSecret false even if we have secret because we use a different VolumeMounts and EnvVars
 		// see: https://github.com/vmware-tanzu/velero/blob/ed5809b7fc22f3661eeef10bdcb63f0d74472b76/pkg/install/deployment.go#L223-L261
 		// our secrets are appended to containers/volumeMounts in credentials.AppendPluginSpecificSpecs function
@@ -320,46 +176,21 @@ func (r *DPAReconciler) buildVeleroDeployment(veleroDeployment *appsv1.Deploymen
 	veleroDeploymentName := veleroDeployment.Name
 	veleroDeployment.TypeMeta = installDeployment.TypeMeta
 	veleroDeployment.Spec = installDeployment.Spec
-	veleroDeployment.Labels, _ = common.AppendUniqueLabels(veleroDeployment.Labels, installDeployment.Labels)
 	veleroDeployment.Name = veleroDeploymentName
+	labels, err := common.AppendUniqueKeyTOfTMaps(veleroDeployment.Labels, installDeployment.Labels)
+	if err != nil {
+		return fmt.Errorf("velero deployment label: %v", err)
+	}
+	veleroDeployment.Labels = labels
+	annotations, err := common.AppendUniqueKeyTOfTMaps(veleroDeployment.Annotations, installDeployment.Annotations)
+	veleroDeployment.Annotations = annotations
 	return r.customizeVeleroDeployment(dpa, veleroDeployment)
-}
-
-func removeDuplicatePluginValues(slice []oadpv1alpha1.DefaultPlugin) []oadpv1alpha1.DefaultPlugin {
-	if slice == nil {
-		return nil
-	}
-	keys := make(map[oadpv1alpha1.DefaultPlugin]bool)
-	list := []oadpv1alpha1.DefaultPlugin{}
-	for _, entry := range slice {
-		if _, found := keys[entry]; !found { //add entry to list if not found in keys already
-			keys[entry] = true
-			list = append(list, entry)
-		}
-	}
-	return list // return the result through the passed in argument
-}
-
-// remove duplicate entry in string slice
-func removeDuplicateValues(slice []string) []string {
-	if slice == nil {
-		return nil
-	}
-	keys := make(map[string]bool)
-	list := []string{}
-	for _, entry := range slice {
-		if _, found := keys[entry]; !found { //add entry to list if not found in keys already
-			keys[entry] = true
-			list = append(list, entry)
-		}
-	}
-	return list // return the result through the passed in argument
 }
 
 func (r *DPAReconciler) customizeVeleroDeployment(dpa *oadpv1alpha1.DataProtectionApplication, veleroDeployment *appsv1.Deployment) error {
 	//append dpa labels
 	var err error
-	veleroDeployment.Labels, err = common.AppendUniqueLabels(veleroDeployment.Labels, r.getDpaAppLabels(dpa))
+	veleroDeployment.Labels, err = common.AppendUniqueKeyTOfTMaps(veleroDeployment.Labels, getDpaAppLabels(dpa))
 	if err != nil {
 		return fmt.Errorf("velero deployment label: %v", err)
 	}
@@ -371,17 +202,17 @@ func (r *DPAReconciler) customizeVeleroDeployment(dpa *oadpv1alpha1.DataProtecti
 	if veleroDeployment.Spec.Selector.MatchLabels == nil {
 		veleroDeployment.Spec.Selector.MatchLabels = make(map[string]string)
 	}
-	veleroDeployment.Spec.Selector.MatchLabels, err = common.AppendUniqueLabels(veleroDeployment.Spec.Selector.MatchLabels, veleroDeployment.Labels, r.getDpaAppLabels(dpa))
+	veleroDeployment.Spec.Selector.MatchLabels, err = common.AppendUniqueKeyTOfTMaps(veleroDeployment.Spec.Selector.MatchLabels, veleroDeployment.Labels, getDpaAppLabels(dpa))
 	if err != nil {
 		return fmt.Errorf("velero deployment selector label: %v", err)
 	}
-	veleroDeployment.Spec.Template.Labels, err = common.AppendUniqueLabels(veleroDeployment.Spec.Template.Labels, veleroDeployment.Labels)
+	veleroDeployment.Spec.Template.Labels, err = common.AppendUniqueKeyTOfTMaps(veleroDeployment.Spec.Template.Labels, veleroDeployment.Labels)
 	if err != nil {
 		return fmt.Errorf("velero deployment template label: %v", err)
 	}
 	// add custom pod labels
 	if dpa.Spec.Configuration.Velero != nil && dpa.Spec.Configuration.Velero.PodConfig != nil && dpa.Spec.Configuration.Velero.PodConfig.Labels != nil {
-		veleroDeployment.Spec.Template.Labels, err = common.AppendUniqueLabels(veleroDeployment.Spec.Template.Labels, dpa.Spec.Configuration.Velero.PodConfig.Labels)
+		veleroDeployment.Spec.Template.Labels, err = common.AppendUniqueKeyTOfTMaps(veleroDeployment.Spec.Template.Labels, dpa.Spec.Configuration.Velero.PodConfig.Labels)
 		if err != nil {
 			return fmt.Errorf("velero deployment template custom label: %v", err)
 		}
@@ -439,14 +270,31 @@ func (r *DPAReconciler) customizeVeleroDeployment(dpa *oadpv1alpha1.DataProtecti
 		veleroDeployment.Spec.Template.Spec.DNSConfig = &dpa.Spec.PodDnsConfig
 	}
 
+	// if metrics address is set, change annotation and ports
+	var prometheusPort *int
+	if dpa.Spec.Configuration.Velero.Args != nil &&
+		dpa.Spec.Configuration.Velero.Args.MetricsAddress != "" {
+		address := strings.Split(dpa.Spec.Configuration.Velero.Args.MetricsAddress, ":")
+		if len(address) == 2 {
+			veleroDeployment.Spec.Template.Annotations["prometheus.io/port"] = address[1]
+			if prometheusPort == nil {
+				prometheusPort = new(int)
+			}
+			*prometheusPort, err = strconv.Atoi(address[1])
+			if err != nil {
+				return fmt.Errorf("error parsing metrics address port: %v", err)
+			}
+		}
+	}
+
 	var veleroContainer *corev1.Container
-	for i, container := range veleroDeployment.Spec.Template.Spec.Containers {
+	for _, container := range veleroDeployment.Spec.Template.Spec.Containers {
 		if container.Name == common.Velero {
-			veleroContainer = &veleroDeployment.Spec.Template.Spec.Containers[i]
+			veleroContainer = &veleroDeployment.Spec.Template.Spec.Containers[0]
 			break
 		}
 	}
-	if err := r.customizeVeleroContainer(dpa, veleroDeployment, veleroContainer, isSTSNeeded); err != nil {
+	if err := r.customizeVeleroContainer(dpa, veleroDeployment, veleroContainer, isSTSNeeded, prometheusPort); err != nil {
 		return err
 	}
 
@@ -483,9 +331,17 @@ func (r *DPAReconciler) customizeVeleroDeployment(dpa *oadpv1alpha1.DataProtecti
 	return credentials.AppendPluginSpecificSpecs(dpa, veleroDeployment, veleroContainer, providerNeedsDefaultCreds, hasCloudStorage)
 }
 
-func (r *DPAReconciler) customizeVeleroContainer(dpa *oadpv1alpha1.DataProtectionApplication, veleroDeployment *appsv1.Deployment, veleroContainer *corev1.Container, isSTSNeeded bool) error {
+func (r *DPAReconciler) customizeVeleroContainer(dpa *oadpv1alpha1.DataProtectionApplication, veleroDeployment *appsv1.Deployment, veleroContainer *corev1.Container, isSTSNeeded bool, prometheusPort *int) error {
 	if veleroContainer == nil {
 		return fmt.Errorf("could not find velero container in Deployment")
+	}
+	if prometheusPort != nil {
+		for i := range veleroContainer.Ports {
+			if veleroContainer.Ports[i].Name == "metrics" {
+				veleroContainer.Ports[i].ContainerPort = int32(*prometheusPort)
+				break
+			}
+		}
 	}
 	veleroContainer.ImagePullPolicy = corev1.PullAlways
 	veleroContainer.VolumeMounts = append(veleroContainer.VolumeMounts,
@@ -533,13 +389,22 @@ func (r *DPAReconciler) customizeVeleroContainer(dpa *oadpv1alpha1.DataProtectio
 
 	// Enable user to specify --restic-timeout (defaults to 1h)
 	resticTimeout := "1h"
-	if dpa.Spec.Configuration.Restic != nil && len(dpa.Spec.Configuration.Restic.Timeout) > 0 {
+	if dpa.Spec.Configuration != nil && dpa.Spec.Configuration.Restic != nil && len(dpa.Spec.Configuration.Restic.Timeout) > 0 {
 		resticTimeout = dpa.Spec.Configuration.Restic.Timeout
 	}
 	// Append restic timeout option manually. Not configurable via install package, missing from podTemplateConfig struct. See: https://github.com/vmware-tanzu/velero/blob/8d57215ded1aa91cdea2cf091d60e072ce3f340f/pkg/install/deployment.go#L34-L45
 	veleroContainer.Args = append(veleroContainer.Args, fmt.Sprintf("--restic-timeout=%s", resticTimeout))
-
 	setContainerDefaults(veleroContainer)
+	// if server args is set, override the default server args
+	if dpa.Spec.Configuration.Velero.Args != nil {
+		var err error
+		veleroContainer.Args, err = dpa.Spec.Configuration.Velero.Args.StringArr(
+			dpa.Spec.Configuration.Velero.FeatureFlags,
+			dpa.Spec.Configuration.Velero.LogLevel)
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -575,7 +440,7 @@ func getVeleroImage(dpa *oadpv1alpha1.DataProtectionApplication) string {
 	return os.Getenv("RELATED_IMAGE_VELERO")
 }
 
-func (r *DPAReconciler) getDpaAppLabels(dpa *oadpv1alpha1.DataProtectionApplication) map[string]string {
+func getDpaAppLabels(dpa *oadpv1alpha1.DataProtectionApplication) map[string]string {
 	//append dpa name
 	if dpa != nil {
 		return getAppLabels(dpa.Name)
@@ -653,7 +518,7 @@ func (r *DPAReconciler) getVeleroResourceReqs(dpa *oadpv1alpha1.DataProtectionAp
 }
 
 // Get Restic Resource Requirements
-func (r *DPAReconciler) getResticResourceReqs(dpa *oadpv1alpha1.DataProtectionApplication) (corev1.ResourceRequirements, error) {
+func getResticResourceReqs(dpa *oadpv1alpha1.DataProtectionApplication) (corev1.ResourceRequirements, error) {
 
 	// Set default values
 	ResourcesReqs := corev1.ResourceRequirements{
