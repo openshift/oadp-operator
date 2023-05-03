@@ -17,6 +17,10 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"time"
+
+	"github.com/openshift/oadp-operator/pkg/common"
+	"github.com/openshift/oadp-operator/pkg/velero/server"
 	velero "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -97,6 +101,9 @@ type VeleroConfig struct {
 	// Default is 10m
 	// +optional
 	ResourceTimeout string `json:"resourceTimeout,omitempty"`
+	// Velero args are settings to customize velero server arguments. Overrides values in other fields.
+	// +optional
+	Args *server.Args `json:"args,omitempty"`
 }
 
 // PodConfig defines the pod configuration options
@@ -355,4 +362,42 @@ func (veleroConfig *VeleroConfig) HasFeatureFlag(flag string) bool {
 
 func init() {
 	SchemeBuilder.Register(&DataProtectionApplication{}, &DataProtectionApplicationList{}, &CloudStorage{}, &CloudStorageList{})
+}
+
+// AutoCorrect is a collection of auto-correction functions for the DPA CR
+// These auto corrects are in-memory only and do not persist to the CR
+// There should not be another place where these auto-corrects are done
+func (dpa *DataProtectionApplication) AutoCorrect() {
+	//check if CSI plugin is added in spec
+	if hasCSIPlugin(dpa.Spec.Configuration.Velero.DefaultPlugins) {
+		dpa.Spec.Configuration.Velero.FeatureFlags = append(dpa.Spec.Configuration.Velero.FeatureFlags, velero.CSIFeatureFlag)
+	}
+	if dpa.Spec.Configuration.Velero.RestoreResourcesVersionPriority != "" {
+		// if the RestoreResourcesVersionPriority is specified then ensure feature flag is enabled for enableApiGroupVersions
+		// duplicate feature flag checks are done in ReconcileVeleroDeployment
+		dpa.Spec.Configuration.Velero.FeatureFlags = append(dpa.Spec.Configuration.Velero.FeatureFlags, velero.APIGroupVersionsFeatureFlag)
+	}
+	if dpa.Spec.Configuration.Velero.Args != nil {
+		// if args is not nil, we take care of some fields that will be overridden from dpa if not specified in args
+		// Enable user to specify --restic-timeout (defaults to 1h)
+		resticTimeout := "1h"
+		if dpa.Spec.Configuration != nil && dpa.Spec.Configuration.Restic != nil && len(dpa.Spec.Configuration.Restic.Timeout) > 0 {
+			resticTimeout = dpa.Spec.Configuration.Restic.Timeout
+		}
+		if pvOperationTimeout, err := time.ParseDuration(resticTimeout); err == nil && dpa.Spec.Configuration.Velero.Args.PodVolumeOperationTimeout == nil {
+			dpa.Spec.Configuration.Velero.Args.PodVolumeOperationTimeout = &pvOperationTimeout
+		}
+	}
+	dpa.Spec.Configuration.Velero.DefaultPlugins = common.RemoveDuplicateValues(dpa.Spec.Configuration.Velero.DefaultPlugins)
+	dpa.Spec.Configuration.Velero.FeatureFlags = common.RemoveDuplicateValues(dpa.Spec.Configuration.Velero.FeatureFlags)
+}
+
+func hasCSIPlugin(plugins []DefaultPlugin) bool {
+	for _, plugin := range plugins {
+		if plugin == DefaultPluginCSI {
+			// CSI plugin is added so ensure that CSI feature flags is set
+			return true
+		}
+	}
+	return false
 }

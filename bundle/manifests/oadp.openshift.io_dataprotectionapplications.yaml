@@ -311,6 +311,126 @@ spec:
                       type: object
                     velero:
                       properties:
+                        args:
+                          description: Velero args are settings to customize velero server arguments. Overrides values in other fields.
+                          properties:
+                            add_dir_header:
+                              description: If true, add the file directory to the header
+                              type: boolean
+                            alsologtostderr:
+                              type: boolean
+                            backup-sync-period:
+                              description: How often to ensure all Velero backups in object storage exist as Backup API objects in the cluster. This is the default sync period if none is explicitly specified for a backup storage location.
+                              format: int64
+                              type: integer
+                            client-burst:
+                              description: Maximum number of requests by the server to the Kubernetes API in a short period of time.
+                              type: integer
+                            client-page-size:
+                              description: Page size of requests by the server to the Kubernetes API when listing objects during a backup. Set to 0 to disable paging.
+                              type: integer
+                            client-qps:
+                              description: Maximum number of requests per second by the server to the Kubernetes API once the burst limit has been reached. this will be validated as a valid float32
+                              type: string
+                            colorized:
+                              description: Show colored output in TTY
+                              type: boolean
+                            default-backup-ttl:
+                              description: default 720h0m0s
+                              format: int64
+                              type: integer
+                            default-restic-prune-frequency:
+                              description: default 168h0m0s
+                              format: int64
+                              type: integer
+                            default-volumes-to-restic:
+                              description: Backup all volumes with restic by default.
+                              type: boolean
+                            disabled-controllers:
+                              description: List of controllers to disable on startup. Valid values are backup,backup-deletion,backup-sync,download-request,gc,restic-repo,restore,schedule,server-status-request
+                              enum:
+                                - backup
+                                - backup-deletion
+                                - backup-storage-location
+                                - backup-sync
+                                - download-request
+                                - gc
+                                - pod-volume-backup
+                                - pod-volume-restore
+                                - restic-repo
+                                - restore
+                                - schedule
+                                - server-status-request
+                              items:
+                                type: string
+                              type: array
+                            garbage-collection-frequency:
+                              description: How long to wait by default before backups can be garbage collected. (default 720h0m0s)
+                              format: int64
+                              type: integer
+                            log-format:
+                              description: The format for log output. Valid values are text, json. (default text)
+                              enum:
+                                - text
+                                - json
+                              type: string
+                            log_backtrace_at:
+                              description: when logging hits line file:N, emit a stack trace
+                              type: string
+                            log_dir:
+                              description: If non-empty, overrides the choice of directory in which to write logs. See createLogDirs for the full list of possible destinations.
+                              type: string
+                            log_file:
+                              description: If non-empty, specifies the path of the file to write logs. mutually exclusive with the log_dir option.
+                              type: string
+                            log_file_max_size:
+                              description: When logFile is specified, this limiter makes sure the logFile won't exceeds a certain size. When exceeds, the logFile will be cleaned up. If this value is 0, no size limitation will be applied to logFile.
+                              format: int64
+                              minimum: 0
+                              type: integer
+                            logtostderr:
+                              description: 'Boolean flags. Not handled atomically because the flag.Value interface does not let us avoid the =true, and that shorthand is necessary for compatibility. TODO: does this matter enough to fix? Seems unlikely.'
+                              type: boolean
+                            metrics-address:
+                              description: The address to expose prometheus metrics
+                              type: string
+                            one_output:
+                              description: If true, messages will not be propagated to lower severity log levels
+                              type: boolean
+                            profiler-address:
+                              description: The address to expose the pprof profiler.
+                              type: string
+                            restic-timeout:
+                              description: How long backups/restores of pod volumes should be allowed to run before timing out.
+                              format: int64
+                              type: integer
+                            restore-resource-priorities:
+                              description: Desired order of resource restores, the priority list contains two parts which are split by "-" element. The resources before "-" element are restored first as high priorities, the resources after "-" element are restored last as low priorities, and any resource not in the list will be restored alphabetically between the high and low priorities. (default customresourcedefinitions,namespaces,storageclasses,volumesnapshotbackups.datamover.oadp.openshift.io,volumesnapshotclass.snapshot.storage.k8s.io,volumesnapshotcontents.snapshot.storage.k8s.io,volumesnapshots.snapshot.storage.k8s.io,persistentvolumes,persistentvolumeclaims,secrets,configmaps,serviceaccounts,limitranges,pods,replicasets.apps,clusterclasses.cluster.x-k8s.io,-,clusterbootstraps.run.tanzu.vmware.com,clusters.cluster.x-k8s.io,clusterresourcesets.addons.cluster.x-k8s.io)
+                              type: string
+                            skip_headers:
+                              description: If true, do not add the prefix headers, useful when used with SetOutput
+                              type: boolean
+                            skip_log_headers:
+                              description: If true, do not add the headers to log files
+                              type: boolean
+                            stderrthreshold:
+                              description: Level flag. Handled atomically.
+                              type: integer
+                            store-validation-frequency:
+                              description: How often to verify if the storage is valid. Optional. Set this to `0s` to disable sync. Default 1 minute.
+                              format: int64
+                              type: integer
+                            terminating-resource-timeout:
+                              description: How long to wait on persistent volumes and namespaces to terminate during a restore before timing out.
+                              format: int64
+                              type: integer
+                            v:
+                              description: number for the log level verbosity
+                              type: integer
+                            vmodule:
+                              description: comma-separated list of pattern=N settings for file-filtered logging
+                              type: string
+                          type: object
                         customPlugins:
                           description: customPlugins defines the custom plugin to be installed with Velero
                           items:
