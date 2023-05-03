@@ -202,6 +202,31 @@ type DataMover struct {
 	// defines configurations for data mover volume options
 	// +optional
 	DataMoverVolumeOptions *DataMoverVolumeOptions `json:"volumeOptions,omitempty"`
+	// defines the parameters that can be specified for retention of datamover snapshots
+	// +optional
+	SnapshotRetainPolicy *RetainPolicy `json:"snapshotRetainPolicy,omitempty"`
+}
+
+// RetainPolicy defines the fields for retention of datamover snapshots
+type RetainPolicy struct {
+	// Hourly defines the number of snapshots to be kept hourly
+	//+optional
+	Hourly string `json:"hourly,omitempty"`
+	// Daily defines the number of snapshots to be kept daily
+	//+optional
+	Daily string `json:"daily,omitempty"`
+	// Weekly defines the number of snapshots to be kept weekly
+	//+optional
+	Weekly string `json:"weekly,omitempty"`
+	// Monthly defines the number of snapshots to be kept monthly
+	//+optional
+	Monthly string `json:"monthly,omitempty"`
+	// Yearly defines the number of snapshots to be kept yearly
+	//+optional
+	Yearly string `json:"yearly,omitempty"`
+	// Within defines the number of snapshots to be kept Within the given time period
+	//+optional
+	Within string `json:"within,omitempty"`
 }
 
 type DataMoverVolumeOptions struct {
