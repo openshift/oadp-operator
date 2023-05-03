@@ -19,14 +19,14 @@ function log_operator() {
     operator_name=$2
 
     # Find all operators with matching name in all namespaces
-    namespaces=$(oc get subscriptions.operators.coreos.com --all-namespaces \
+    namespaces=$(oc get subscriptions.operators.coreos.com --all-namespaces --insecure-skip-tls-verify=${skip_tls} \
                 -o jsonpath='{.items[?(.metadata.name=="'"${operator_name}"'")].metadata.namespace}')
     if [ -z "${namespaces}" ]; then # No matches, mark as not found
         log_command "${display_name} information" "echo ${operator_name} operator not found"
     else # Loop through matching operators and save information to debug file
         for namespace in ${namespaces}; do
             log_command "${display_name} version information in namespace ${namespace}" \
-                        "oc get subscriptions.operators.coreos.com ${operator_name} -n ${namespace} -o yaml"
+                        "oc get subscriptions.operators.coreos.com ${operator_name} -n ${namespace} --insecure-skip-tls-verify=${skip_tls} -o yaml"
         done
     fi
 }
