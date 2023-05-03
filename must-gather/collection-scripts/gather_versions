@@ -31,6 +31,23 @@ function log_operator() {
     fi
 }
 
+# Search for named deployments in all namespaces
+function log_deployment() {
+    display_name=$1
+    deployment_name=$2
+
+    namespaces=$(oc get deployment --all-namespaces --insecure-skip-tls-verify=${skip_tls} \
+                 -o jsonpath='{.items[?(.metadata.name=="'"${deployment_name}"'")].metadata.namespace}')
+    if [ -z "${namespaces}" ]; then
+        log_command "${display_name} information" "echo ${deployment_name} deployment not found"
+    else
+        for namespace in ${namespaces}; do
+            log_command "${display_name} deployment information in namespace ${namespace}" \
+                        "oc get deployment ${deployment_name} -n ${namespace} --insecure-skip-tls-verify=${skip_tls} -o yaml"
+        done
+    fi
+}
+
 # OpenShift version
 log_command "OpenShift version information"\
             "oc version --insecure-skip-tls-verify=${skip_tls} -o yaml"
@@ -50,3 +67,7 @@ if [ -z "${skip_tls}" ]; then
 else
     log_command "Restic version" "restic version --insecure-tls"
 fi
+
+# Velero versions
+log_command "Velero client version" "velero version --client-only"
+log_deployment "Velero" "velero"
