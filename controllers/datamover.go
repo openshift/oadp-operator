@@ -839,7 +839,7 @@ func (r *DPAReconciler) buildDataMoverConfigMap(dpa *oadpv1alpha1.DataProtection
 		if len(snapshotRetainPolicy.Within) > 0 {
 			snapshotRetainPolicy.Within = strings.ReplaceAll(snapshotRetainPolicy.Within, `"`, "")
 			snapshotRetainPolicy.Within = strings.ReplaceAll(snapshotRetainPolicy.Within, `''`, "")
-			cmMap[SnapshotRetainPolicyYearly] = snapshotRetainPolicy.Yearly
+			cmMap[SnapshotRetainPolicyWithin] = snapshotRetainPolicy.Within
 		}
 	}
 
