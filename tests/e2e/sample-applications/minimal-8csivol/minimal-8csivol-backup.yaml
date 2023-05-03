@@ -1,0 +1,10 @@
+apiVersion: velero.io/v1
+kind: Backup
+metadata:
+  name: minimal-8csivol-1
+  namespace: openshift-adp
+spec:
+  includedNamespaces:
+  - minimal-8csivol
+  storageLocation: dpa-sample-1
+  ttl: 720h0m0s

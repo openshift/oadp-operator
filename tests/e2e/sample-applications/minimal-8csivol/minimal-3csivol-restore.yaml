@@ -1,0 +1,8 @@
+apiVersion: velero.io/v1
+kind: Restore
+metadata:
+  name: minimal-3csivol-restore-1
+  namespace: openshift-adp
+spec:
+  backupName: minimal-3csivol-1
+  restorePVs: true
