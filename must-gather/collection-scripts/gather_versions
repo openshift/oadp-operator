@@ -43,3 +43,10 @@ log_operator "Community OADP operator" "oadp-operator"
 
 # Volsync operator information
 log_operator "Volsync" "volsync-product"
+
+# Restic version
+if [ -z "${skip_tls}" ]; then
+    log_command "Restic version" "restic version"
+else
+    log_command "Restic version" "restic version --insecure-tls"
+fi
