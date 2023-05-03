@@ -49,6 +49,14 @@ const (
 	GoogleApplicationCredentials = "GOOGLE_APPLICATION_CREDENTIALS"
 
 	DataMoverConfigMapName = "datamover-config"
+
+	// RetainPolicy parameters
+	SnapshotRetainPolicyHourly  = "SnapshotRetainPolicyHourly"
+	SnapshotRetainPolicyDaily   = "SnapshotRetainPolicyDaily"
+	SnapshotRetainPolicyWeekly  = "SnapshotRetainPolicyWeekly"
+	SnapshotRetainPolicyMonthly = "SnapshotRetainPolicyMonthly"
+	SnapshotRetainPolicyYearly  = "SnapshotRetainPolicyYearly"
+	SnapshotRetainPolicyWithin  = "SnapshotRetainPolicyWithin"
 )
 
 type gcpCredentials struct {
@@ -184,7 +192,7 @@ func (r *DPAReconciler) ReconcileDataMoverVolumeOptions(log logr.Logger) (bool, 
 	}
 
 	// check for existing configMap but no data mover configs set
-	if !r.checkDataMoverVolumeOptions(&dpa) && confMapExists {
+	if !r.checkDataMoverVolumeOptions(&dpa) && confMapExists || !r.checkDataMoverSnapshotRetainPolicy(&dpa) && confMapExists {
 
 		err := r.Delete(context.Background(), confMap, &client.DeleteOptions{})
 		if err != nil {
@@ -193,7 +201,7 @@ func (r *DPAReconciler) ReconcileDataMoverVolumeOptions(log logr.Logger) (bool, 
 	}
 
 	// create configmap only if data mover is enabled and has config values
-	if r.checkIfDataMoverIsEnabled(&dpa) && r.checkDataMoverVolumeOptions(&dpa) {
+	if r.checkIfDataMoverIsEnabled(&dpa) && (r.checkDataMoverVolumeOptions(&dpa) || r.checkDataMoverSnapshotRetainPolicy(&dpa)) {
 
 		// create configmap to pass values to data mover CRs
 		cm := corev1.ConfigMap{
@@ -716,6 +724,16 @@ func (r *DPAReconciler) checkDataMoverVolumeOptions(dpa *oadpv1alpha1.DataProtec
 	return false
 }
 
+func (r *DPAReconciler) checkDataMoverSnapshotRetainPolicy(dpa *oadpv1alpha1.DataProtectionApplication) bool {
+
+	if dpa.Spec.Features != nil && dpa.Spec.Features.DataMover != nil &&
+		dpa.Spec.Features.DataMover.SnapshotRetainPolicy != nil {
+		return true
+	}
+
+	return false
+}
+
 func (r *DPAReconciler) buildDataMoverConfigMap(dpa *oadpv1alpha1.DataProtectionApplication, cm *corev1.ConfigMap) error {
 
 	if dpa == nil {
@@ -781,6 +799,47 @@ func (r *DPAReconciler) buildDataMoverConfigMap(dpa *oadpv1alpha1.DataProtection
 
 		if destinationOptions.MoverSecurityContext != nil {
 			cmMap["DestinationMoverSecurityContext"] = strconv.FormatBool(*destinationOptions.MoverSecurityContext)
+		}
+	}
+
+	// check for SnapshotRetainPolicy parameters
+	if dpa.Spec.Features.DataMover.SnapshotRetainPolicy != nil {
+		snapshotRetainPolicy := dpa.Spec.Features.DataMover.SnapshotRetainPolicy
+
+		if len(snapshotRetainPolicy.Hourly) > 0 {
+			snapshotRetainPolicy.Hourly = strings.ReplaceAll(snapshotRetainPolicy.Hourly, `"`, "")
+			snapshotRetainPolicy.Hourly = strings.ReplaceAll(snapshotRetainPolicy.Hourly, `''`, "")
+			cmMap[SnapshotRetainPolicyHourly] = snapshotRetainPolicy.Hourly
+		}
+
+		if len(snapshotRetainPolicy.Daily) > 0 {
+			snapshotRetainPolicy.Daily = strings.ReplaceAll(snapshotRetainPolicy.Daily, `"`, "")
+			snapshotRetainPolicy.Daily = strings.ReplaceAll(snapshotRetainPolicy.Daily, `''`, "")
+			cmMap[SnapshotRetainPolicyDaily] = snapshotRetainPolicy.Daily
+		}
+
+		if len(snapshotRetainPolicy.Weekly) > 0 {
+			snapshotRetainPolicy.Weekly = strings.ReplaceAll(snapshotRetainPolicy.Weekly, `"`, "")
+			snapshotRetainPolicy.Weekly = strings.ReplaceAll(snapshotRetainPolicy.Weekly, `''`, "")
+			cmMap[SnapshotRetainPolicyWeekly] = snapshotRetainPolicy.Weekly
+		}
+
+		if len(snapshotRetainPolicy.Monthly) > 0 {
+			snapshotRetainPolicy.Monthly = strings.ReplaceAll(snapshotRetainPolicy.Monthly, `"`, "")
+			snapshotRetainPolicy.Monthly = strings.ReplaceAll(snapshotRetainPolicy.Monthly, `''`, "")
+			cmMap[SnapshotRetainPolicyMonthly] = snapshotRetainPolicy.Monthly
+		}
+
+		if len(snapshotRetainPolicy.Yearly) > 0 {
+			snapshotRetainPolicy.Yearly = strings.ReplaceAll(snapshotRetainPolicy.Yearly, `"`, "")
+			snapshotRetainPolicy.Yearly = strings.ReplaceAll(snapshotRetainPolicy.Yearly, `''`, "")
+			cmMap[SnapshotRetainPolicyYearly] = snapshotRetainPolicy.Yearly
+		}
+
+		if len(snapshotRetainPolicy.Within) > 0 {
+			snapshotRetainPolicy.Within = strings.ReplaceAll(snapshotRetainPolicy.Within, `"`, "")
+			snapshotRetainPolicy.Within = strings.ReplaceAll(snapshotRetainPolicy.Within, `''`, "")
+			cmMap[SnapshotRetainPolicyWithin] = snapshotRetainPolicy.Within
 		}
 	}
 
