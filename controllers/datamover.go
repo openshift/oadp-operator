@@ -728,7 +728,7 @@ func (r *DPAReconciler) buildDataMoverConfigMap(dpa *oadpv1alpha1.DataProtection
 	cmMap := map[string]string{}
 
 	// check for source volume options
-	if dpa.Spec.Features.DataMover.DataMoverVolumeOptions.SourceVolumeOptions != nil {
+	if dpa.Spec.Features.DataMover.DataMoverVolumeOptions != nil && dpa.Spec.Features.DataMover.DataMoverVolumeOptions.SourceVolumeOptions != nil {
 		sourceOptions := dpa.Spec.Features.DataMover.DataMoverVolumeOptions.SourceVolumeOptions
 
 		if len(sourceOptions.StorageClassName) > 0 {
@@ -756,7 +756,7 @@ func (r *DPAReconciler) buildDataMoverConfigMap(dpa *oadpv1alpha1.DataProtection
 	}
 
 	// check for destination volume options
-	if dpa.Spec.Features.DataMover.DataMoverVolumeOptions.DestinationVolumeOptions != nil {
+	if dpa.Spec.Features.DataMover.DataMoverVolumeOptions != nil && dpa.Spec.Features.DataMover.DataMoverVolumeOptions.DestinationVolumeOptions != nil {
 		destinationOptions := dpa.Spec.Features.DataMover.DataMoverVolumeOptions.DestinationVolumeOptions
 
 		if len(destinationOptions.StorageClassName) > 0 {
