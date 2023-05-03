@@ -1,0 +1,45 @@
+#!/bin/bash
+
+debug_info=$1
+skip_tls=$2
+
+# Write information section to debug file, and fill with output of given command
+function log_command() {
+    heading=$1
+    command=$2
+    echo "***" >> ${debug_info}
+    echo "* $heading" >> ${debug_info}
+    $command 2>&1 >> ${debug_info}
+    echo -e "\n\n" >> ${debug_info}
+}
+
+# Search for given operator in all available namespaces, and save information
+function log_operator() {
+    display_name=$1
+    operator_name=$2
+
+    # Find all operators with matching name in all namespaces
+    namespaces=$(oc get subscriptions.operators.coreos.com --all-namespaces \
+                -o jsonpath='{.items[?(.metadata.name=="'"${operator_name}"'")].metadata.namespace}')
+    if [ -z "${namespaces}" ]; then # No matches, mark as not found
+        log_command "${display_name} information" "echo ${operator_name} operator not found"
+    else # Loop through matching operators and save information to debug file
+        for namespace in ${namespaces}; do
+            log_command "${display_name} version information in namespace ${namespace}" \
+                        "oc get subscriptions.operators.coreos.com ${operator_name} -n ${namespace} -o yaml"
+        done
+    fi
+}
+
+# OpenShift version
+log_command "OpenShift version information"\
+            "oc version --insecure-skip-tls-verify=${skip_tls} -o yaml"
+
+# Red Hat OADP operator information
+log_operator "OADP" "redhat-oadp-operator"
+
+# Community OADP operator
+log_operator "Community OADP operator" "oadp-operator"
+
+# Volsync operator information
+log_operator "Volsync" "volsync-product"
