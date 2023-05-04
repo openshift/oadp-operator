@@ -1,0 +1,8 @@
+#!/bin/bash
+
+for pod in $(oc get pods -n openshift-adp -o jsonpath='{.items[?(.status.containerStatuses[0].lastState.terminated.reason=="Error")].metadata.name}'); do
+    echo "***"
+    echo "* Last logs from failed pod openshift-adp/${pod}:"
+    oc logs -n openshift-adp $pod --tail=10
+    echo -e "\n\n\n"
+done
