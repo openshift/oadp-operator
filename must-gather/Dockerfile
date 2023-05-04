@@ -27,6 +27,7 @@ COPY --from=konveyor-builder /velero /usr/bin/velero
 COPY --from=konveyor-builder /restic /usr/bin/restic
 
 COPY collection-scripts/* /usr/bin/
+COPY collection-scripts/debug/* /usr/bin/
 COPY collection-scripts/logs/* /usr/bin/
 COPY collection-scripts/time_window_gather /usr/bin/
 
