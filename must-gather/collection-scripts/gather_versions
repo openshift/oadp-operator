@@ -3,6 +3,8 @@
 debug_info=$1
 skip_tls=$2
 
+mkdir -p $(dirname ${debug_info})
+
 # Write information section to debug file, and fill with output of given command
 function log_command() {
     heading=$1
@@ -76,11 +78,4 @@ log_deployment "Velero" "velero"
 log_command "Storage classes" "oc get storageclass --all-namespaces --insecure-skip-tls-verify=${skip_tls}"
 
 # DataProtectionApplications
-dpas=$(oc get dpa --all-namespaces --insecure-skip-tls-verify=${skip_tls} -o jsonpath='{range .items[*]}{.metadata.name}{" "}{.metadata.namespace}')
-if [ -z "${dpas}" -o "${dpas}" == " " ]; then
-    log_command "DataProtectionApplication CRs" "echo No DPAs found in cluster"
-else
-    while read dpa namespace; do
-        log_command "DataProtectionApplication ${namespace}/${dpa}" "oc get dpa -n ${namespace} ${dpa} -o yaml"
-    done <<< "${dpas}"
-fi
+log_command "DataProtectionApplication CRs" "oc get dpa --all-namespaces --insecure-skip-tls-verify=${skip_tls}"
