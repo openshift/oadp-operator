@@ -71,3 +71,16 @@ fi
 # Velero versions
 log_command "Velero client version" "velero version --client-only"
 log_deployment "Velero" "velero"
+
+# Storage classes
+log_command "Storage classes" "oc get storageclass --all-namespaces --insecure-skip-tls-verify=${skip_tls}"
+
+# DataProtectionApplications
+dpas=$(oc get dpa --all-namespaces --insecure-skip-tls-verify=${skip_tls} -o jsonpath='{range .items[*]}{.metadata.name}{" "}{.metadata.namespace}')
+if [ -z "${dpas}" -o "${dpas}" == " " ]; then
+    log_command "DataProtectionApplication CRs" "echo No DPAs found in cluster"
+else
+    while read dpa namespace; do
+        log_command "DataProtectionApplication ${namespace}/${dpa}" "oc get dpa -n ${namespace} ${dpa} -o yaml"
+    done <<< "${dpas}"
+fi
