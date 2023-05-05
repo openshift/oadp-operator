@@ -74,22 +74,22 @@ fi
 log_command "Velero client version" "velero version --client-only"
 log_deployment "Velero" "velero"
 
-# Default storage classes
-storageclasses=$(oc get storageclass --insecure-skip-tls-verify=${skip_tls} -o jsonpath='{range .items[?(.metadata.annotations.storageclass\.kubernetes\.io/is-default-class == "true")]}{.metadata.name}{" "}')
-if [ -z "${storageclasses}" -o "${storageclasses}" == " " ]; then
-    log_command "Default StorageClass" "echo No default StorageClasses found in cluster"
-else
-    while read storageclass; do
-        log_command "Default StorageClass ${storageclass}" "oc get storageclass ${storageclass} -o yaml"
-    done <<< "${storageclasses}"
-fi
-
 # All storage classes
 storageclasses=$(oc get storageclass --insecure-skip-tls-verify=${skip_tls} -o jsonpath='{range .items[*]}{.metadata.name}{" "}')
 if [ -z "${storageclasses}" -o "${storageclasses}" == " " ]; then
     log_command "StorageClass" "echo No StorageClasses found in cluster"
 else
     log_command "StorageClasses" "oc get storageclasses -o yaml"
+fi
+
+# CSI volume snapshot classes
+volumesnapshotclasses=$(oc get volumesnapshotclass --insecure-skip-tls-verify=${skip_tls} -o jsonpath='{range .items[?(.metadata.annotations.velero\.io/csi-volumesnapshot-class == "true")]}{.metadata.name}{" "}')
+if [ -z "${volumesnapshotclasses}" -o "${volumesnapshotclasses}" == " " ]; then
+    log_command "CSI VolumeSnapshotClasses" "echo No CSI VolumeSnapshotClasses found in cluster"
+else
+    while read volumesnapshotclass; do
+        log_command "VolumeSnapshotClass ${volumesnapshotclass}" "oc get volumesnapshotclass ${volumesnapshotclass} -o yaml"
+    done <<< "${volumesnapshotclasses}"
 fi
 
 
