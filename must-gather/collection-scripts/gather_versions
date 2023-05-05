@@ -79,7 +79,7 @@ storageclasses=$(oc get storageclass --insecure-skip-tls-verify=${skip_tls} -o j
 if [ -z "${storageclasses}" -o "${storageclasses}" == " " ]; then
     log_command "StorageClass" "echo No StorageClasses found in cluster"
 else
-    log_command "StorageClasses" "oc get storageclasses -o yaml"
+    log_command "StorageClasses" "oc get storageclasses --insecure-skip-tls-verify=${skip_tls} -o yaml"
 fi
 
 # CSI volume snapshot classes
@@ -88,7 +88,7 @@ if [ -z "${volumesnapshotclasses}" -o "${volumesnapshotclasses}" == " " ]; then
     log_command "CSI VolumeSnapshotClasses" "echo No CSI VolumeSnapshotClasses found in cluster"
 else
     while read volumesnapshotclass; do
-        log_command "VolumeSnapshotClass ${volumesnapshotclass}" "oc get volumesnapshotclass ${volumesnapshotclass} -o yaml"
+        log_command "VolumeSnapshotClass ${volumesnapshotclass}" "oc get volumesnapshotclass --insecure-skip-tls-verify=${skip_tls} ${volumesnapshotclass} -o yaml"
     done <<< "${volumesnapshotclasses}"
 fi
 
@@ -99,6 +99,6 @@ if [ -z "${dpas}" -o "${dpas}" == " " ]; then
     log_command "DataProtectionApplication CRs" "echo No DPAs found in cluster"
 else
     while read dpa namespace; do
-        log_command "DataProtectionApplication ${namespace}/${dpa}" "oc get dpa -n ${namespace} ${dpa} -o yaml"
+        log_command "DataProtectionApplication ${namespace}/${dpa}" "oc get dpa --insecure-skip-tls-verify=${skip_tls} -n ${namespace} ${dpa} -o yaml"
     done <<< "${dpas}"
 fi
