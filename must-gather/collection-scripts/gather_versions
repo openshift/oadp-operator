@@ -74,8 +74,31 @@ fi
 log_command "Velero client version" "velero version --client-only"
 log_deployment "Velero" "velero"
 
-# Storage classes
-log_command "Storage classes" "oc get storageclass --all-namespaces --insecure-skip-tls-verify=${skip_tls}"
+# Default storage classes
+storageclasses=$(oc get storageclass --insecure-skip-tls-verify=${skip_tls} -o jsonpath='{range .items[?(.metadata.annotations.storageclass\.kubernetes\.io/is-default-class == "true")]}{.metadata.name}{" "}')
+if [ -z "${storageclasses}" -o "${storageclasses}" == " " ]; then
+    log_command "Default StorageClass" "echo No default StorageClasses found in cluster"
+else
+    while read storageclass; do
+        log_command "Default StorageClass ${storageclass}" "oc get storageclass ${storageclass} -o yaml"
+    done <<< "${storageclasses}"
+fi
+
+# All storage classes
+storageclasses=$(oc get storageclass --insecure-skip-tls-verify=${skip_tls} -o jsonpath='{range .items[*]}{.metadata.name}{" "}')
+if [ -z "${storageclasses}" -o "${storageclasses}" == " " ]; then
+    log_command "StorageClass" "echo No StorageClasses found in cluster"
+else
+    log_command "StorageClasses" "oc get storageclasses -o yaml"
+fi
+
 
 # DataProtectionApplications
-log_command "DataProtectionApplication CRs" "oc get dpa --all-namespaces --insecure-skip-tls-verify=${skip_tls}"
+dpas=$(oc get dpa --all-namespaces --insecure-skip-tls-verify=${skip_tls} -o jsonpath='{range .items[*]}{.metadata.name}{" "}{.metadata.namespace}')
+if [ -z "${dpas}" -o "${dpas}" == " " ]; then
+    log_command "DataProtectionApplication CRs" "echo No DPAs found in cluster"
+else
+    while read dpa namespace; do
+        log_command "DataProtectionApplication ${namespace}/${dpa}" "oc get dpa -n ${namespace} ${dpa} -o yaml"
+    done <<< "${dpas}"
+fi
