@@ -1,0 +1,104 @@
+#!/bin/bash
+
+debug_info="${1:-oadp-debug-info}"
+skip_tls="${2:-false}"
+
+mkdir -p $(dirname ${debug_info})
+
+# Write information section to debug file, and fill with output of given command
+function log_command() {
+    heading=$1
+    command=$2
+    echo "***" >> ${debug_info}
+    echo "* $heading" >> ${debug_info}
+    $command 2>&1 >> ${debug_info}
+    echo -e "\n\n" >> ${debug_info}
+}
+
+# Search for given operator in all available namespaces, and save information
+function log_operator() {
+    display_name=$1
+    operator_name=$2
+
+    # Find all operators with matching name in all namespaces
+    namespaces=$(oc get subscriptions.operators.coreos.com --all-namespaces --insecure-skip-tls-verify=${skip_tls} \
+                -o jsonpath='{.items[?(.metadata.name=="'"${operator_name}"'")].metadata.namespace}')
+    if [ -z "${namespaces}" ]; then # No matches, mark as not found
+        log_command "${display_name} information" "echo ${operator_name} operator not found"
+    else # Loop through matching operators and save information to debug file
+        for namespace in ${namespaces}; do
+            log_command "${display_name} version information in namespace ${namespace}" \
+                        "oc get subscriptions.operators.coreos.com ${operator_name} -n ${namespace} --insecure-skip-tls-verify=${skip_tls} -o yaml"
+        done
+    fi
+}
+
+# Search for named deployments in all namespaces
+function log_deployment() {
+    display_name=$1
+    deployment_name=$2
+
+    namespaces=$(oc get deployment --all-namespaces --insecure-skip-tls-verify=${skip_tls} \
+                 -o jsonpath='{.items[?(.metadata.name=="'"${deployment_name}"'")].metadata.namespace}')
+    if [ -z "${namespaces}" ]; then
+        log_command "${display_name} information" "echo ${deployment_name} deployment not found"
+    else
+        for namespace in ${namespaces}; do
+            log_command "${display_name} deployment information in namespace ${namespace}" \
+                        "oc get deployment ${deployment_name} -n ${namespace} --insecure-skip-tls-verify=${skip_tls} -o yaml"
+        done
+    fi
+}
+
+# OpenShift version
+log_command "OpenShift version information"\
+            "oc version --insecure-skip-tls-verify=${skip_tls} -o yaml"
+
+# Red Hat OADP operator information
+log_operator "OADP" "redhat-oadp-operator"
+
+# Community OADP operator
+log_operator "Community OADP operator" "oadp-operator"
+
+# Volsync operator information
+log_operator "Volsync" "volsync-product"
+
+# Restic version
+if [ -z "${skip_tls}" ]; then
+    log_command "Restic version" "restic version"
+else
+    log_command "Restic version" "restic version --insecure-tls"
+fi
+
+# Velero versions
+log_command "Velero client version" "velero version --client-only"
+log_deployment "Velero" "velero"
+
+# All storage classes
+storageclasses=$(oc get storageclass --insecure-skip-tls-verify=${skip_tls} -o jsonpath='{range .items[*]}{.metadata.name}{" "}')
+if [ -z "${storageclasses}" -o "${storageclasses}" == " " ]; then
+    log_command "StorageClass" "echo No StorageClasses found in cluster"
+else
+    log_command "StorageClasses" "oc get storageclasses --insecure-skip-tls-verify=${skip_tls} -o yaml"
+fi
+
+# CSI volume snapshot classes
+volumesnapshotclasses=$(oc get volumesnapshotclass --insecure-skip-tls-verify=${skip_tls} -o jsonpath='{range .items[?(.metadata.annotations.velero\.io/csi-volumesnapshot-class == "true")]}{.metadata.name}{" "}')
+if [ -z "${volumesnapshotclasses}" -o "${volumesnapshotclasses}" == " " ]; then
+    log_command "CSI VolumeSnapshotClasses" "echo No CSI VolumeSnapshotClasses found in cluster"
+else
+    while read volumesnapshotclass; do
+        log_command "VolumeSnapshotClass ${volumesnapshotclass}" "oc get volumesnapshotclass --insecure-skip-tls-verify=${skip_tls} ${volumesnapshotclass} -o yaml"
+    done <<< "${volumesnapshotclasses}"
+fi
+
+
+# DataProtectionApplications
+dpas=$(oc get dpa --all-namespaces --insecure-skip-tls-verify=${skip_tls} -o jsonpath='{range .items[*]}{.metadata.name}{" "}{.metadata.namespace}')
+if [ -z "${dpas}" -o "${dpas}" == " " ]; then
+    log_command "DataProtectionApplication CRs" "echo No DPAs found in cluster"
+else
+    while read dpa namespace; do
+        log_command "DataProtectionApplication ${namespace}/${dpa}" "oc get dpa --insecure-skip-tls-verify=${skip_tls} -n ${namespace} ${dpa} -o yaml"
+    done <<< "${dpas}"
+fi
