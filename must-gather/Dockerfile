@@ -4,7 +4,8 @@ ARG VELERO_BRANCH=konveyor-dev
 WORKDIR /build
 RUN curl --location --output velero.tgz https://github.com/openshift/velero/archive/refs/heads/${VELERO_BRANCH}.tar.gz && \
     tar -xzvf velero.tgz && cd velero-${VELERO_BRANCH} && \
-    CGO_ENABLED=0 GOOS=linux go build -a -mod=mod -ldflags '-extldflags "-static" -X github.com/vmware-tanzu/velero/pkg/buildinfo.Version=${VELERO_BRANCH}' -o /velero github.com/vmware-tanzu/velero/cmd/velero && \
+    VELERO_COMMIT=$(git ls-remote https://github.com/openshift/velero HEAD | awk '{printf $1}') && \
+    CGO_ENABLED=0 GOOS=linux go build -a -mod=mod -ldflags '-extldflags "-static" -X github.com/vmware-tanzu/velero/pkg/buildinfo.Version='"${VELERO_BRANCH}"' -X github.com/vmware-tanzu/velero/pkg/buildinfo.GitSHA='"${VELERO_COMMIT}" -o /velero github.com/vmware-tanzu/velero/cmd/velero && \
     cd .. && rm -rf velero.tgz velero-${VELERO_BRANCH} && \
     curl --location --output restic.tgz https://github.com/openshift/restic/archive/refs/heads/${RESTIC_BRANCH}.tar.gz && \
     tar -xzvf restic.tgz && cd restic-${RESTIC_BRANCH} && \

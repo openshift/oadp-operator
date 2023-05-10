@@ -12,7 +12,7 @@ timeout=$7
 skip_tls=$8
 
 # Gather backup logs and description
-mkdir -p "{object_collection_path}"
+mkdir -p "${object_collection_path}"
 echo "[cluster=${cluster}][ns=${ns}] Gathering 'velero backup describe ${backup}'"
 if [ "$timeout" = "0s" ]; then
     timeout 30s velero describe backup ${backup} --insecure-skip-tls-verify=${skip_tls} --details &> "${object_collection_path}/backup-describe-${backup}.txt" &
