@@ -94,8 +94,8 @@ fi
 
 
 # DataProtectionApplications
-dpas=$(oc get dpa --all-namespaces --insecure-skip-tls-verify=${skip_tls} -o jsonpath='{range .items[*]}{.metadata.name}{" "}{.metadata.namespace}')
-if [ -z "${dpas}" -o "${dpas}" == " " ]; then
+dpas=$(oc get dpa --all-namespaces --insecure-skip-tls-verify=${skip_tls} -o custom-columns=NAME:.metadata.name,NAMESPACE:.metadata.namespace --no-headers)
+if [ -z "${dpas}" ]; then
     log_command "DataProtectionApplication CRs" "echo No DPAs found in cluster"
 else
     while read dpa namespace; do
