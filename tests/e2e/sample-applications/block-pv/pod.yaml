@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-with-block-volume
+spec:
+  containers:
+    - name: fc-container
+      image: quay.io/rhn_engineering_whayutin/fedorablock
+      command: ["/bin/sh", "-c"]
+      args: [ "tail -f /dev/null" ]
+      volumeDevices:  
+        - name: data
+          devicePath: /dev/xvda 
+  volumes:
+    - name: data
+      persistentVolumeClaim:
+        claimName: block-pvc 
