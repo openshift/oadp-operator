@@ -14,8 +14,10 @@ import (
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	storagev1api "k8s.io/api/storage/v1"
 	k8serror "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/utils/pointer"
@@ -186,8 +188,15 @@ func (r *DPAReconciler) ReconcileDataMoverVolumeOptions(log logr.Logger) (bool, 
 		dpa.Spec.Features.DataMover.StorageClass != nil {
 
 		for sc, v := range dpa.Spec.Features.DataMover.StorageClass {
+
 			// check if configMap exists but not configured
-			err := r.checkDeleteDataMoverConfigMap(&dpa)
+			err := r.validateDataMoverConfigMap(&dpa)
+			if err != nil {
+				return false, err
+			}
+
+			// check for storageClass on DPA existing in cluster
+			err = r.validateDataMoverStorageClass(sc)
 			if err != nil {
 				return false, err
 			}
@@ -721,7 +730,6 @@ func (r *DPAReconciler) checkDataMoverConfigMapStorageClass(dpa *oadpv1alpha1.Da
 			scFound = true
 		}
 	}
-	r.Log.Info(fmt.Sprintf("scFound: %v", scFound))
 	return scFound
 }
 
@@ -848,7 +856,7 @@ func (r *DPAReconciler) buildDataMoverConfigMap(dpa *oadpv1alpha1.DataProtection
 	return nil
 }
 
-func (r *DPAReconciler) checkDeleteDataMoverConfigMap(dpa *oadpv1alpha1.DataProtectionApplication) error {
+func (r *DPAReconciler) validateDataMoverConfigMap(dpa *oadpv1alpha1.DataProtectionApplication) error {
 
 	cmLabels := map[string]string{
 		oadpv1alpha1.OadpOperatorLabel: "True",
@@ -870,6 +878,26 @@ func (r *DPAReconciler) checkDeleteDataMoverConfigMap(dpa *oadpv1alpha1.DataProt
 		}
 	}
 
+	return nil
+}
+
+func (r *DPAReconciler) validateDataMoverStorageClass(sc string) error {
+
+	scList := storagev1api.StorageClassList{}
+	if err := r.List(r.Context, &scList, &client.ListOptions{}); err != nil {
+		return err
+	}
+
+	scFound := false
+	for _, scinCluster := range scList.Items {
+		if scinCluster.Name == sc {
+			scFound = true
+		}
+	}
+
+	if !scFound {
+		return fmt.Errorf("storageClass %v not found in cluster", sc)
+	}
 	return nil
 }
 
