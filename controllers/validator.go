@@ -71,12 +71,12 @@ func (r *DPAReconciler) ValidateDataProtectionCR(log logr.Logger) (bool, error) 
 		}
 
 		if !VSMPluginPresent {
-			return false, errors.New("datamover feature is enabled, need to specify vsm as a default plugin in DataProtectionApplication CR")
+			return false, errors.New("datamover is enabled, specify vsm as a default plugin")
 		}
 	}
 
 	if !r.checkIfDataMoverIsEnabled(&dpa) && VSMPluginPresent {
-		return false, errors.New("datamover feature is disabled, need to remove vsm as a default plugin in DataProtectionApplication CR")
+		return false, errors.New("datamover is disabled, remove vsm as a default plugin")
 	}
 
 	if val, found := dpa.Spec.UnsupportedOverrides[oadpv1alpha1.OperatorTypeKey]; found && val != oadpv1alpha1.OperatorTypeMTC {
