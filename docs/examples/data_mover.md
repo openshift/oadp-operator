@@ -1,6 +1,18 @@
 <h1 align="center">Stateful Application Backup/Restore - VolumeSnapshotMover</h1>
 <h2 align="center">Relocate Snapshots into your Object Storage Location</h2>
 
+<h2>Background Information:<a id="pre-reqs"></a></h2>
+<hr style="height:1px;border:none;color:#333;">
+
+OADP Data Mover enables customers to back up container storage interface (CSI) volume snapshots to a remote object store. When Data Mover is enabled, you can restore stateful applications from the store if a failure, accidental deletion, or corruption of the cluster occurs. OADP Data Mover solution uses the Restic option of VolSync.<br><br>
+
+- The official OpenShift OADP Data Mover documentation can be found [here](https://docs.openshift.com/container-platform/4.12/backup_and_restore/application_backup_and_restore/backing_up_and_restoring/backing-up-applications.html#oadp-using-data-mover-for-csi-snapshots_backing-up-applications)
+- We maintain an up to date FAQ page [here](https://access.redhat.com/articles/5456281)
+- <b>Note:</b> Data Mover is a tech preview feature in OADP 1.1.x.  Data Mover is planned to be fully supported by Red Hat in the OADP 1.2.0 release.
+- <b>Note:</b> We recommend customers using OADP 1.2.x Data Mover to backup and restore ODF CephFS volumes, upgrade or install OCP 4.12 for improved performance.  OADP Data Mover can leverage CephFS shallow volumes in OCP 4.12+ which based on our testing improves the performance of backup and restore times.
+  - [CephFS ROX details](https://issues.redhat.com/browse/RHSTOR-4287)
+  - [Provisioning and mounting CephFS snapshot-backed volumes](https://github.com/ceph/ceph-csi/blob/devel/docs/cephfs-snapshot-backed-volumes.md)
+
 <h2>Prerequisites:<a id="pre-reqs"></a></h2>
 
 <hr style="height:1px;border:none;color:#333;">

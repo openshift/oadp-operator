@@ -59,6 +59,9 @@ OADP is the OpenShift API for Data Protection operator. This open source operato
 sets up and installs <a href="https://velero.io/">Velero</a> on the OpenShift
 platform, allowing users to backup and restore applications. [See video demo!](https://www.youtube.com/watch?v=iyoxuP2xb2E)
 
+- The official OpenShift OADP documentation can be found [here](https://docs.openshift.com/container-platform/4.12/backup_and_restore/application_backup_and_restore/backing_up_and_restoring/backing-up-applications.html)
+- We maintain an up to date FAQ page [here](https://access.redhat.com/articles/5456281)
+
 <hr style="height:1px;border:none;color:#333;">
 <h1 align="center">Velero Version Relationship<a id="version"></a></h1>
 
