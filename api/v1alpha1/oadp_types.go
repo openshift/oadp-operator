@@ -257,7 +257,7 @@ type VolumeOptions struct {
 	//+optional
 	CacheAccessMode string `json:"cacheAccessMode,omitempty"`
 	// moverSecurityContext allows enabling the PodSecurityContext used in
-	// the application pod(s)
+	// the application pod(s); default value is true
 	//+optional
 	MoverSecurityContext *bool `json:"moverSecurityContext,omitempty"`
 }

@@ -770,6 +770,10 @@ func (r *DPAReconciler) buildDataMoverConfigMap(dpa *oadpv1alpha1.DataProtection
 		}
 		if sourceOptions.MoverSecurityContext != nil {
 			cmMap["SourceMoverSecurityContext"] = strconv.FormatBool(*sourceOptions.MoverSecurityContext)
+
+			// default to true
+		} else {
+			cmMap["SourceMoverSecurityContext"] = "true"
 		}
 	}
 
@@ -799,6 +803,10 @@ func (r *DPAReconciler) buildDataMoverConfigMap(dpa *oadpv1alpha1.DataProtection
 
 		if destinationOptions.MoverSecurityContext != nil {
 			cmMap["DestinationMoverSecurityContext"] = strconv.FormatBool(*destinationOptions.MoverSecurityContext)
+
+			// default to true
+		} else {
+			cmMap["DestinationMoverSecurityContext"] = "true"
 		}
 	}
 
