@@ -9,7 +9,7 @@ OADP Data Mover enables customers to back up container storage interface (CSI) v
 - The official OpenShift OADP Data Mover documentation can be found [here](https://docs.openshift.com/container-platform/4.12/backup_and_restore/application_backup_and_restore/backing_up_and_restoring/backing-up-applications.html#oadp-using-data-mover-for-csi-snapshots_backing-up-applications)
 - We maintain an up to date FAQ page [here](https://access.redhat.com/articles/5456281)
 - <b>Note:</b> Data Mover is a tech preview feature in OADP 1.1.x.  Data Mover is planned to be fully supported by Red Hat in the OADP 1.2.0 release.
-- <b>Note:</b> We recommend customers using OADP 1.2.x Data Mover to backup and restore ODF CephFS volumes, upgrade or install OCP 4.12 for improved performance.  OADP Data Mover can leverage CephFS shallow volumes in OCP 4.12+ which based on our testing improves the performance of backup and restore times.
+- <b>Note:</b> We recommend customers using OADP 1.2.x Data Mover to backup and restore ODF CephFS volumes, upgrade or install OCP 4.12 for improved performance.  OADP Data Mover can leverage CephFS shallow volumes in OCP 4.12+ which based on our testing improves the performance of backup times.
   - [CephFS ROX details](https://issues.redhat.com/browse/RHSTOR-4287)
   - [Provisioning and mounting CephFS snapshot-backed volumes](https://github.com/ceph/ceph-csi/blob/devel/docs/cephfs-snapshot-backed-volumes.md)
 
