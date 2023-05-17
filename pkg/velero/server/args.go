@@ -34,10 +34,10 @@ func (a Args) StringArr(dpaFeatureFlags []string, logLevel string) ([]string, er
 	if len(dpaFeatureFlags) > 0 {
 		args = append(args, fmt.Sprintf("--features=%s", strings.Join(dpaFeatureFlags, ",")))
 	}
-	if boolptr.IsSetToTrue(a.DefaultVolumesToRestic) {
-		args = append(args, "--default-volumes-to-restic=true")
-	} else if boolptr.IsSetToFalse(a.DefaultVolumesToRestic) {
-		args = append(args, "--default-volumes-to-restic=false")
+	if boolptr.IsSetToTrue(a.DefaultVolumesToFsBackup) {
+		args = append(args, "--default-volumes-to-fs-backup=true")
+	} else if boolptr.IsSetToFalse(a.DefaultVolumesToFsBackup) {
+		args = append(args, "--default-volumes-to-fs-backup=false")
 	}
 	if logLevel != "" {
 		logrusLevel, err := logrus.ParseLevel(logLevel)
@@ -65,8 +65,14 @@ func (a Args) StringArr(dpaFeatureFlags []string, logLevel string) ([]string, er
 	if a.DefaultBackupTTL != nil {
 		args = append(args, fmt.Sprintf("--default-backup-ttl=%s", a.DefaultBackupTTL.String())) // duration
 	}
-	if a.DefaultResticMaintenanceFrequency != nil {
-		args = append(args, fmt.Sprintf("--default-restic-prune-frequency=%s", a.DefaultResticMaintenanceFrequency.String())) // duration
+	if a.DefaultItemOperationTimeout != nil {
+		args = append(args, fmt.Sprintf("--default-item-operation-timeout=%s", a.DefaultItemOperationTimeout.String())) // duration
+	}
+	if a.ResourceTimeout != nil {
+		args = append(args, fmt.Sprintf("--resource-timeout=%s", a.ResourceTimeout.String())) // duration
+	}
+	if a.RepoMaintenanceFrequency != nil {
+		args = append(args, fmt.Sprintf("--default-repo-maintain-frequency=%s", a.RepoMaintenanceFrequency.String())) // duration
 	}
 	// default-volume-snapshot-locations set outside Args
 	if a.DisabledControllers != nil {
@@ -86,7 +92,13 @@ func (a Args) StringArr(dpaFeatureFlags []string, logLevel string) ([]string, er
 		args = append(args, fmt.Sprintf("--profiler-address=%s", a.ProfilerAddress)) // string
 	}
 	if a.PodVolumeOperationTimeout != nil {
-		args = append(args, fmt.Sprintf("--restic-timeout=%s", a.PodVolumeOperationTimeout.String())) // duration
+		args = append(args, fmt.Sprintf("--fs-backup-timeout=%s", a.PodVolumeOperationTimeout.String())) // duration
+	}
+	if a.ItemOperationSyncFrequency != nil {
+		args = append(args, fmt.Sprintf("--item-operation-sync-frequency=%s", a.ItemOperationSyncFrequency.String())) // duration
+	}
+	if a.MaxConcurrentK8SConnections != nil {
+		args = append(args, fmt.Sprintf("--max-concurrent-k8s-connections=%d", *a.MaxConcurrentK8SConnections)) // uint
 	}
 	// restore-only is being deprecated, set in bsl
 	// RestoreResourcePriorities are set in DPA which creates a configmap

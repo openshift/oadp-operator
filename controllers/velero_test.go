@@ -89,7 +89,12 @@ var (
 		Image:                    common.AWSPluginImage,
 		Name:                     common.VeleroPluginForAWS,
 		ImagePullPolicy:          corev1.PullAlways,
-		Resources:                corev1.ResourceRequirements{},
+		Resources:                corev1.ResourceRequirements{
+			Requests: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("500m"),
+				corev1.ResourceMemory: resource.MustParse("128Mi"),
+			},
+		},
 		TerminationMessagePath:   "/dev/termination-log",
 		TerminationMessagePolicy: "File",
 		VolumeMounts: []corev1.VolumeMount{
@@ -2430,7 +2435,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 									Args: []string{
 										"server",
 										"--metrics-address=:" + strconv.Itoa(int(argsMetricsPortTest)),
-										"--restic-timeout=1h0m0s",
+										"--fs-backup-timeout=1h0m0s",
 									},
 									VolumeMounts: baseVolumeMounts,
 									Env:          baseEnvVars,

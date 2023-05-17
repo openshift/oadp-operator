@@ -9,10 +9,11 @@ type LoggingT struct {
 	// compatibility. TODO: does this matter enough to fix? Seems unlikely.
 	// +optional
 	ToStderr *bool `json:"logtostderr,omitempty"` // The -logtostderr flag.
+	// log to standard error as well as files (no effect when -logtostderr=true)
 	// +optional
 	AlsoToStderr *bool `json:"alsologtostderr,omitempty"` // The -alsologtostderr flag.
 
-	// Level flag. Handled atomically.
+	// logs at or above this threshold go to stderr when writing to files and stderr (no effect when -logtostderr=true or -alsologtostderr=false) (default 2)
 	// +optional
 	StderrThreshold *int `json:"stderrthreshold,omitempty"` // The -stderrthreshold flag.
 
@@ -55,35 +56,32 @@ type LoggingT struct {
 	// +optional
 	Verbosity *int `json:"v,omitempty"` // V logging level, the value of the -v flag/
 
-	// If non-empty, overrides the choice of directory in which to write logs.
-	// See createLogDirs for the full list of possible destinations.
+	// If non-empty, write log files in this directory (no effect when -logtostderr=true)
 	// +optional
 	LogDir string `json:"log_dir,omitempty"`
 
-	// If non-empty, specifies the path of the file to write logs. mutually exclusive
-	// with the log_dir option.
+	// If non-empty, use this log file (no effect when -logtostderr=true)
 	// +optional
 	LogFile string `json:"log_file,omitempty"`
 
-	// When logFile is specified, this limiter makes sure the logFile won't exceeds a certain size. When exceeds, the
-	// logFile will be cleaned up. If this value is 0, no size limitation will be applied to logFile.
+	// Defines the maximum size a log file can grow to (no effect when -logtostderr=true). Unit is megabytes. If the value is 0, the maximum file size is unlimited. (default 1800)
 	// +kubebuilder:validation:Minimum=0
 	// +optional
 	LogFileMaxSizeMB *int64 `json:"log_file_max_size,omitempty"`
 
-	// If true, do not add the prefix headers, useful when used with SetOutput
+	// If true, avoid header prefixes in the log messages
 	// +optional
 	SkipHeaders *bool `json:"skip_headers,omitempty"`
 
-	// If true, do not add the headers to log files
+	// If true, avoid headers when opening log files (no effect when -logtostderr=true)
 	// +optional
 	SkipLogHeaders *bool `json:"skip_log_headers,omitempty"`
 
-	// If true, add the file directory to the header
+	// If true, adds the file directory to the header of the log messages
 	// +optional
 	AddDirHeader *bool `json:"add_dir_header,omitempty"`
 
-	// If true, messages will not be propagated to lower severity log levels
+	// If true, only write logs to their native severity level (vs also writing to each lower severity level; no effect when -logtostderr=true)
 	// +optional
 	OneOutput *bool `json:"one_output,omitempty"`
 

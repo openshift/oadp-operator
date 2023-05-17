@@ -107,8 +107,13 @@ func (in *ServerConfig) DeepCopyInto(out *ServerConfig) {
 		*out = new(int)
 		**out = **in
 	}
-	if in.DefaultResticMaintenanceFrequency != nil {
-		in, out := &in.DefaultResticMaintenanceFrequency, &out.DefaultResticMaintenanceFrequency
+	if in.ItemOperationSyncFrequency != nil {
+		in, out := &in.ItemOperationSyncFrequency, &out.ItemOperationSyncFrequency
+		*out = new(timex.Duration)
+		**out = **in
+	}
+	if in.RepoMaintenanceFrequency != nil {
+		in, out := &in.RepoMaintenanceFrequency, &out.RepoMaintenanceFrequency
 		*out = new(timex.Duration)
 		**out = **in
 	}
@@ -117,9 +122,24 @@ func (in *ServerConfig) DeepCopyInto(out *ServerConfig) {
 		*out = new(timex.Duration)
 		**out = **in
 	}
-	if in.DefaultVolumesToRestic != nil {
-		in, out := &in.DefaultVolumesToRestic, &out.DefaultVolumesToRestic
+	if in.DefaultVolumesToFsBackup != nil {
+		in, out := &in.DefaultVolumesToFsBackup, &out.DefaultVolumesToFsBackup
 		*out = new(bool)
+		**out = **in
+	}
+	if in.DefaultItemOperationTimeout != nil {
+		in, out := &in.DefaultItemOperationTimeout, &out.DefaultItemOperationTimeout
+		*out = new(timex.Duration)
+		**out = **in
+	}
+	if in.ResourceTimeout != nil {
+		in, out := &in.ResourceTimeout, &out.ResourceTimeout
+		*out = new(timex.Duration)
+		**out = **in
+	}
+	if in.MaxConcurrentK8SConnections != nil {
+		in, out := &in.MaxConcurrentK8SConnections, &out.MaxConcurrentK8SConnections
+		*out = new(int)
 		**out = **in
 	}
 }

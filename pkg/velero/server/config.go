@@ -26,9 +26,9 @@ type ServerConfig struct {
 	// How often to ensure all Velero backups in object storage exist as Backup API objects in the cluster. This is the default sync period if none is explicitly specified for a backup storage location.
 	// +optional
 	BackupSyncPeriod *time.Duration `json:"backup-sync-period,omitempty"`
-	// How long backups/restores of pod volumes should be allowed to run before timing out.
+	// How long pod volume file system backups/restores should be allowed to run before timing out. (default 4h0m0s)
 	// +optional
-	PodVolumeOperationTimeout *time.Duration `json:"restic-timeout,omitempty"`
+	PodVolumeOperationTimeout *time.Duration `json:"fs-backup-timeout,omitempty"`
 	// How long to wait on persistent volumes and namespaces to terminate during a restore before timing out.
 	// +optional
 	ResourceTerminatingTimeout *time.Duration `json:"terminating-resource-timeout,omitempty"`
@@ -38,7 +38,7 @@ type ServerConfig struct {
 	// How often to verify if the storage is valid. Optional. Set this to `0s` to disable sync. Default 1 minute.
 	// +optional
 	StoreValidationFrequency *time.Duration `json:"store-validation-frequency,omitempty"`
-	// Desired order of resource restores, the priority list contains two parts which are split by "-" element. The resources before "-" element are restored first as high priorities, the resources after "-" element are restored last as low priorities, and any resource not in the list will be restored alphabetically between the high and low priorities. (default customresourcedefinitions,namespaces,storageclasses,volumesnapshotbackups.datamover.oadp.openshift.io,volumesnapshotclass.snapshot.storage.k8s.io,volumesnapshotcontents.snapshot.storage.k8s.io,volumesnapshots.snapshot.storage.k8s.io,persistentvolumes,persistentvolumeclaims,secrets,configmaps,serviceaccounts,limitranges,pods,replicasets.apps,clusterclasses.cluster.x-k8s.io,-,clusterbootstraps.run.tanzu.vmware.com,clusters.cluster.x-k8s.io,clusterresourcesets.addons.cluster.x-k8s.io)
+	// Desired order of resource restores, the priority list contains two parts which are split by "-" element. The resources before "-" element are restored first as high priorities, the resources after "-" element are restored last as low priorities, and any resource not in the list will be restored alphabetically between the high and low priorities. (default customresourcedefinitions,namespaces,storageclasses,volumesnapshotbackups.datamover.oadp.openshift.io,volumesnapshotclass.snapshot.storage.k8s.io,volumesnapshotcontents.snapshot.storage.k8s.io,volumesnapshots.snapshot.storage.k8s.io,persistentvolumes,persistentvolumeclaims,serviceaccounts,secrets,configmaps,limitranges,pods,replicasets.apps,clusterclasses.cluster.x-k8s.io,services,-,clusterbootstraps.run.tanzu.vmware.com,clusters.cluster.x-k8s.io,clusterresourcesets.addons.cluster.x-k8s.io)
 	// +optional
 	RestoreResourcePriorities string `json:"restore-resource-priorities,omitempty"`
 	// defaultVolumeSnapshotLocations will be defined outside of server config in DataProtectionApplication
@@ -48,8 +48,8 @@ type ServerConfig struct {
 	// +optional
 	// RestoreOnly *bool `json:"restore-only,omitempty"`
 
-	// List of controllers to disable on startup. Valid values are backup,backup-deletion,backup-sync,download-request,gc,restic-repo,restore,schedule,server-status-request
-	// +kubebuilder:validation:Enum=backup;backup-deletion;backup-storage-location;backup-sync;download-request;gc;pod-volume-backup;pod-volume-restore;restic-repo;restore;schedule;server-status-request
+	// List of controllers to disable on startup. Valid values are backup,backup-operations,backup-deletion,backup-finalizer,backup-sync,download-request,gc,backup-repo,restore,restore-operations,schedule,server-status-request
+	// +kubebuilder:validation:Enum=backup;backup-operations;backup-deletion;backup-finalizer;backup-sync;download-request;gc;backup-repo;restore;restore-operations;schedule;server-status-request
 	// +optional
 	DisabledControllers []string `json:"disabled-controllers,omitempty"`
 	// Maximum number of requests per second by the server to the Kubernetes API once the burst limit has been reached.
@@ -65,19 +65,30 @@ type ServerConfig struct {
 	// The address to expose the pprof profiler.
 	// +optional
 	ProfilerAddress string `json:"profiler-address,omitempty"`
+	// How often to check status on backup/restore operations after backup/restore processing.
+	// +optional
+	ItemOperationSyncFrequency *time.Duration `json:"item-operation-sync-frequency,omitempty"`
 	// The format for log output. Valid values are text, json. (default text)
 	// +kubebuilder:validation:Enum=text;json
 	// +optional
 	FormatFlag string `json:"log-format,omitempty"`
-	// default 168h0m0s
+	// How often 'maintain' is run for backup repositories by default.
 	// +optional
-	DefaultResticMaintenanceFrequency *time.Duration `json:"default-restic-prune-frequency,omitempty"`
+	RepoMaintenanceFrequency *time.Duration `json:"default-repo-maintain-frequency,omitempty"`
 	// How long to wait by default before backups can be garbage collected. (default 720h0m0s)
 	// +optional
 	GarbageCollectionFrequency *time.Duration `json:"garbage-collection-frequency,omitempty"`
-	// Backup all volumes with restic by default.
+	// Backup all volumes with pod volume file system backup by default.
 	// +optional
-	DefaultVolumesToRestic *bool `json:"default-volumes-to-restic,omitempty"`
+	DefaultVolumesToFsBackup *bool `json:"default-volumes-to-fs-backup,omitempty"`
+	// uploaderType, oadp only support restic at the moment
+
+	// How long to wait on asynchronous BackupItemActions and RestoreItemActions to complete before timing out. (default 1h0m0s)
+	DefaultItemOperationTimeout *time.Duration `json:"default-item-operation-timeout,omitempty"`
+	// How long to wait for resource processes which are not covered by other specific timeout parameters. Default is 10 minutes. (default 10m0s)
+	ResourceTimeout *time.Duration `json:"resource-timeout,omitempty"`
+	// Max concurrent connections number that Velero can create with kube-apiserver. Default is 30. (default 30)
+	MaxConcurrentK8SConnections *int `json:"max-concurrent-k8s-connections,omitempty"`
 }
 
 var VeleroServerCommand = vServer.NewCommand(client.NewFactory("velero-server", client.VeleroConfig{})).Flags()
