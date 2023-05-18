@@ -207,7 +207,7 @@ type DataMover struct {
 	PruneInterval string `json:"pruneInterval,omitempty"`
 	// defines configurations for data mover volume options for a storageClass
 	// +optional
-	StorageClass map[string]DataMoverVolumeOptions `json:"storageClass,omitempty"`
+	VolumeOptionsForStorageClasses map[string]DataMoverVolumeOptions `json:"volumeOptionsForStorageClasses,omitempty"`
 	// defines the parameters that can be specified for retention of datamover snapshots
 	// +optional
 	SnapshotRetainPolicy *RetainPolicy `json:"snapshotRetainPolicy,omitempty"`

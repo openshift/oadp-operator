@@ -185,9 +185,9 @@ func (r *DPAReconciler) ReconcileDataMoverVolumeOptions(log logr.Logger) (bool, 
 	}
 
 	if dpa.Spec.Features != nil && dpa.Spec.Features.DataMover != nil &&
-		dpa.Spec.Features.DataMover.StorageClass != nil {
+		dpa.Spec.Features.DataMover.VolumeOptionsForStorageClasses != nil {
 
-		for sc, v := range dpa.Spec.Features.DataMover.StorageClass {
+		for sc, v := range dpa.Spec.Features.DataMover.VolumeOptionsForStorageClasses {
 
 			// check if configMap exists but not configured
 			err := r.validateDataMoverConfigMap(&dpa)
@@ -725,7 +725,7 @@ func (r *DPAReconciler) checkDataMoverConfigMapStorageClass(dpa *oadpv1alpha1.Da
 	scName := strings.TrimSuffix(cfName, "-config")
 	scFound := false
 
-	for sc := range dpa.Spec.Features.DataMover.StorageClass {
+	for sc := range dpa.Spec.Features.DataMover.VolumeOptionsForStorageClasses {
 		if scName == sc {
 			scFound = true
 		}
