@@ -548,7 +548,10 @@ spec:
                               description: Yearly defines the number of snapshots to be kept yearly
                               type: string
                           type: object
-                        storageClass:
+                        timeout:
+                          description: User supplied timeout to be used for VolumeSnapshotBackup and VolumeSnapshotRestore to complete, default value is 10m
+                          type: string
+                        volumeOptionsForStorageClasses:
                           additionalProperties:
                             properties:
                               destinationVolumeOptions:
@@ -598,9 +601,6 @@ spec:
                             type: object
                           description: defines configurations for data mover volume options for a storageClass
                           type: object
-                        timeout:
-                          description: User supplied timeout to be used for VolumeSnapshotBackup and VolumeSnapshotRestore to complete, default value is 10m
-                          type: string
                       type: object
                   type: object
                 podAnnotations:
