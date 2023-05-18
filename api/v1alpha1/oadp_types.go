@@ -249,7 +249,7 @@ type VolumeOptions struct {
 	// accessMode can be used to override the accessMode of the source or
 	// destination PVC
 	//+optional
-	AccessMode string `json:"accessMode,omitempty"`
+	AccessMode corev1.PersistentVolumeAccessMode `json:"accessMode,omitempty"`
 	// cacheStorageClassName is the storageClass that should be used when provisioning
 	// the data mover cache volume
 	//+optional
