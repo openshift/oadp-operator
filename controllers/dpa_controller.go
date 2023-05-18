@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"context"
+	"os"
 
 	routev1 "github.com/openshift/api/route/v1"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
@@ -51,6 +52,8 @@ type DPAReconciler struct {
 	NamespacedName types.NamespacedName
 	EventRecorder  record.EventRecorder
 }
+
+var debugMode = os.Getenv("DEBUG") == "true"
 
 //TODO!!! FIX THIS!!!!
 

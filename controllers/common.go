@@ -15,12 +15,12 @@ func setContainerDefaults(container *corev1.Container) {
 	if container.TerminationMessagePolicy == "" {
 		container.TerminationMessagePolicy = corev1.TerminationMessageReadFile
 	}
-	for i, _ := range container.Ports {
+	for i := range container.Ports {
 		if container.Ports[i].Protocol == "" {
 			container.Ports[i].Protocol = corev1.ProtocolTCP
 		}
 	}
-	for i, _ := range container.Env {
+	for i := range container.Env {
 		if container.Env[i].ValueFrom != nil && container.Env[i].ValueFrom.FieldRef != nil && container.Env[i].ValueFrom.FieldRef.APIVersion == "" {
 			container.Env[i].ValueFrom.FieldRef.APIVersion = "v1"
 		}
@@ -28,6 +28,10 @@ func setContainerDefaults(container *corev1.Container) {
 }
 
 func setPodTemplateSpecDefaults(template *corev1.PodTemplateSpec) {
+	if template.Annotations["deployment.kubernetes.io/revision"] != "" {
+		// unset the revision annotation to avoid emitting update events
+		delete(template.Annotations, "deployment.kubernetes.io/revision")
+	}
 	if template.Spec.RestartPolicy == "" {
 		template.Spec.RestartPolicy = corev1.RestartPolicyAlways
 	}
@@ -47,7 +51,7 @@ func setPodTemplateSpecDefaults(template *corev1.PodTemplateSpec) {
 		template.Spec.SchedulerName = "default-scheduler"
 	}
 	// for each volumes, if volumeSource is Projected or SecretVolumeSource, set default mode
-	for i, _ := range template.Spec.Volumes {
+	for i := range template.Spec.Volumes {
 		if template.Spec.Volumes[i].Projected != nil {
 			if template.Spec.Volumes[i].Projected != nil {
 				template.Spec.Volumes[i].Projected.DefaultMode = common.DefaultModePtr()
