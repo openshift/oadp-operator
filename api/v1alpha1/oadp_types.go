@@ -380,7 +380,7 @@ func (dpa *DataProtectionApplication) AutoCorrect() {
 	if dpa.Spec.Configuration.Velero.Args != nil {
 		// if args is not nil, we take care of some fields that will be overridden from dpa if not specified in args
 		// Enable user to specify --restic-timeout (defaults to 1h)
-		resticTimeout := "1h"
+		resticTimeout := "4h"
 		if dpa.Spec.Configuration != nil && dpa.Spec.Configuration.Restic != nil && len(dpa.Spec.Configuration.Restic.Timeout) > 0 {
 			resticTimeout = dpa.Spec.Configuration.Restic.Timeout
 		}
