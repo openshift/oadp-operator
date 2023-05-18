@@ -762,7 +762,7 @@ func (r *DPAReconciler) buildDataMoverConfigMap(dpa *oadpv1alpha1.DataProtection
 		}
 
 		if len(sourceOptions.AccessMode) > 0 {
-			cmMap["SourceAccessMode"] = sourceOptions.AccessMode
+			cmMap["SourceAccessMode"] = string(sourceOptions.AccessMode)
 		}
 
 		if len(sourceOptions.CacheStorageClassName) > 0 {
@@ -794,7 +794,7 @@ func (r *DPAReconciler) buildDataMoverConfigMap(dpa *oadpv1alpha1.DataProtection
 		}
 
 		if len(destinationOptions.AccessMode) > 0 {
-			cmMap["DestinationAccessMode"] = destinationOptions.AccessMode
+			cmMap["DestinationAccessMode"] = string(destinationOptions.AccessMode)
 		}
 
 		if len(destinationOptions.CacheStorageClassName) > 0 {

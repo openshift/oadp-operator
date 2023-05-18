@@ -35,6 +35,7 @@ import (
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
+	"sigs.k8s.io/yaml"
 )
 
 type BackupRestoreType string
@@ -134,14 +135,17 @@ func (v *DpaCustomResource) Build(backupRestoreType BackupRestoreType) error {
 		dpaInstance.Spec.Features.DataMover.Enable = true
 		dpaInstance.Spec.Features.DataMover.CredentialName = controllers.ResticsecretName
 		dpaInstance.Spec.Features.DataMover.Timeout = "40m"
-		// volumeOptionsUsePodSecurityContext := oadpv1alpha1.VolumeOptions{
-		// 	MoverSecurityContext: pointer.Bool(true),
-		// }
-		// dataMoverVolumeOptions := oadpv1alpha1.DataMoverVolumeOptions{
-		// 	SourceVolumeOptions: &volumeOptionsUsePodSecurityContext,
-		// 	DestinationVolumeOptions: &volumeOptionsUsePodSecurityContext,
-		// }
-		// dpaInstance.Spec.Features.DataMover.DataMoverVolumeOptions = &dataMoverVolumeOptions
+		scName, err := v.ProviderStorageClassName()
+		if err != nil {
+			return err
+		}
+		dpaInstance.Spec.Features.DataMover.StorageClass = map[string]oadpv1alpha1.DataMoverVolumeOptions{
+			scName: {
+				SourceVolumeOptions: &oadpv1alpha1.VolumeOptions{
+					AccessMode: corev1.ReadOnlyMany,
+				},
+			},
+		}
 		defaultPlugins[oadpv1alpha1.DefaultPluginVSM] = emptyStruct{}
 		dpaInstance.Spec.SnapshotLocations = nil
 	}
@@ -161,6 +165,26 @@ func (v *DpaCustomResource) Build(backupRestoreType BackupRestoreType) error {
 	}
 	v.CustomResource = &dpaInstance
 	return nil
+}
+
+func (v *DpaCustomResource) ProviderStorageClassName() (string, error) {
+	pvcFile := fmt.Sprintf("../sample-applications/%s/pvc/%s.yaml", "mongo-persistent", v.Provider)
+	pvcList := corev1.PersistentVolumeClaimList{}
+	pvcBytes, err := utils.ReadFile(pvcFile)
+	if err != nil {
+		return "", err
+	}
+	err = yaml.Unmarshal(pvcBytes, &pvcList)
+	if err != nil {
+		return "", err
+	}
+	if pvcList.Items == nil || len(pvcList.Items) == 0 {
+		return "", errors.New("pvc not found")
+	}
+	if pvcList.Items[0].Spec.StorageClassName == nil {
+		return "", errors.New("storage class name not found in pvc")
+	}
+	return *pvcList.Items[0].Spec.StorageClassName, nil
 }
 
 func (v *DpaCustomResource) Create() error {
