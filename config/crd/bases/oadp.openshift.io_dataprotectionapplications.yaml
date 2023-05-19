@@ -687,53 +687,55 @@ spec:
                         timeout:
                           description: User supplied timeout to be used for VolumeSnapshotBackup and VolumeSnapshotRestore to complete, default value is 10m
                           type: string
-                        volumeOptions:
-                          description: defines configurations for data mover volume options
-                          properties:
-                            destinationVolumeOptions:
-                              description: VolumeOptions defines configurations for VolSync options
-                              properties:
-                                accessMode:
-                                  description: accessMode can be used to override the accessMode of the source or destination PVC
-                                  type: string
-                                cacheAccessMode:
-                                  description: cacheAccessMode is the access mode to be used to provision the cache volume
-                                  type: string
-                                cacheCapacity:
-                                  description: cacheCapacity determines the size of the restic metadata cache volume
-                                  type: string
-                                cacheStorageClassName:
-                                  description: cacheStorageClassName is the storageClass that should be used when provisioning the data mover cache volume
-                                  type: string
-                                moverSecurityContext:
-                                  description: moverSecurityContext allows enabling the PodSecurityContext used in the application pod(s)
-                                  type: boolean
-                                storageClassName:
-                                  description: storageClassName can be used to override the StorageClass of the source or destination PVC
-                                  type: string
-                              type: object
-                            sourceVolumeOptions:
-                              description: VolumeOptions defines configurations for VolSync options
-                              properties:
-                                accessMode:
-                                  description: accessMode can be used to override the accessMode of the source or destination PVC
-                                  type: string
-                                cacheAccessMode:
-                                  description: cacheAccessMode is the access mode to be used to provision the cache volume
-                                  type: string
-                                cacheCapacity:
-                                  description: cacheCapacity determines the size of the restic metadata cache volume
-                                  type: string
-                                cacheStorageClassName:
-                                  description: cacheStorageClassName is the storageClass that should be used when provisioning the data mover cache volume
-                                  type: string
-                                moverSecurityContext:
-                                  description: moverSecurityContext allows enabling the PodSecurityContext used in the application pod(s)
-                                  type: boolean
-                                storageClassName:
-                                  description: storageClassName can be used to override the StorageClass of the source or destination PVC
-                                  type: string
-                              type: object
+                        volumeOptionsForStorageClasses:
+                          additionalProperties:
+                            properties:
+                              destinationVolumeOptions:
+                                description: VolumeOptions defines configurations for VolSync options
+                                properties:
+                                  accessMode:
+                                    description: accessMode can be used to override the accessMode of the source or destination PVC
+                                    type: string
+                                  cacheAccessMode:
+                                    description: cacheAccessMode is the access mode to be used to provision the cache volume
+                                    type: string
+                                  cacheCapacity:
+                                    description: cacheCapacity determines the size of the restic metadata cache volume
+                                    type: string
+                                  cacheStorageClassName:
+                                    description: cacheStorageClassName is the storageClass that should be used when provisioning the data mover cache volume
+                                    type: string
+                                  moverSecurityContext:
+                                    description: moverSecurityContext allows enabling the PodSecurityContext used in the application pod(s); default value is true
+                                    type: boolean
+                                  storageClassName:
+                                    description: storageClassName can be used to override the StorageClass of the source or destination PVC
+                                    type: string
+                                type: object
+                              sourceVolumeOptions:
+                                description: VolumeOptions defines configurations for VolSync options
+                                properties:
+                                  accessMode:
+                                    description: accessMode can be used to override the accessMode of the source or destination PVC
+                                    type: string
+                                  cacheAccessMode:
+                                    description: cacheAccessMode is the access mode to be used to provision the cache volume
+                                    type: string
+                                  cacheCapacity:
+                                    description: cacheCapacity determines the size of the restic metadata cache volume
+                                    type: string
+                                  cacheStorageClassName:
+                                    description: cacheStorageClassName is the storageClass that should be used when provisioning the data mover cache volume
+                                    type: string
+                                  moverSecurityContext:
+                                    description: moverSecurityContext allows enabling the PodSecurityContext used in the application pod(s); default value is true
+                                    type: boolean
+                                  storageClassName:
+                                    description: storageClassName can be used to override the StorageClass of the source or destination PVC
+                                    type: string
+                                type: object
+                            type: object
+                          description: defines configurations for data mover volume options for a storageClass
                           type: object
                       type: object
                   type: object

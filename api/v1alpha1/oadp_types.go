@@ -38,6 +38,10 @@ const DataMoverDeploymentLabel = "openshift.io/oadp-data-mover"
 const OadpBSLnameLabel = "openshift.io/oadp-bsl-name"
 const OadpBSLProviderLabel = "openshift.io/oadp-bsl-provider"
 
+// datamover labels
+const DataMoverLabel = "openshift.io/volume-snapshot-mover"
+const StorageClassLabel = "openshift.io/vsm-storageclass"
+
 type DefaultPlugin string
 
 const DefaultPluginAWS DefaultPlugin = "aws"
@@ -208,9 +212,9 @@ type DataMover struct {
 	// defines how often (in days) to prune the datamover snapshots from the repository
 	// +optional
 	PruneInterval string `json:"pruneInterval,omitempty"`
-	// defines configurations for data mover volume options
+	// defines configurations for data mover volume options for a storageClass
 	// +optional
-	DataMoverVolumeOptions *DataMoverVolumeOptions `json:"volumeOptions,omitempty"`
+	VolumeOptionsForStorageClasses map[string]DataMoverVolumeOptions `json:"volumeOptionsForStorageClasses,omitempty"`
 	// defines the parameters that can be specified for retention of datamover snapshots
 	// +optional
 	SnapshotRetainPolicy *RetainPolicy `json:"snapshotRetainPolicy,omitempty"`
@@ -252,7 +256,7 @@ type VolumeOptions struct {
 	// accessMode can be used to override the accessMode of the source or
 	// destination PVC
 	//+optional
-	AccessMode string `json:"accessMode,omitempty"`
+	AccessMode corev1.PersistentVolumeAccessMode `json:"accessMode,omitempty"`
 	// cacheStorageClassName is the storageClass that should be used when provisioning
 	// the data mover cache volume
 	//+optional
