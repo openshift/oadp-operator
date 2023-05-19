@@ -250,6 +250,21 @@ spec:
                               description: resourceAllocations defines the CPU and Memory resource allocations for the restic Pod
                               nullable: true
                               properties:
+                                claims:
+                                  description: "Claims lists the names of resources, defined in spec.resourceClaims, that are used by this container. \n This is an alpha field and requires enabling the DynamicResourceAllocation feature gate. \n This field is immutable."
+                                  items:
+                                    description: ResourceClaim references one entry in PodSpec.ResourceClaims.
+                                    properties:
+                                      name:
+                                        description: Name must match the name of one entry in pod.spec.resourceClaims of the Pod where this field is used. It makes that resource available inside a container.
+                                        type: string
+                                    required:
+                                      - name
+                                    type: object
+                                  type: array
+                                  x-kubernetes-list-map-keys:
+                                    - name
+                                  x-kubernetes-list-type: map
                                 limits:
                                   additionalProperties:
                                     anyOf:
@@ -584,6 +599,21 @@ spec:
                               description: resourceAllocations defines the CPU and Memory resource allocations for the restic Pod
                               nullable: true
                               properties:
+                                claims:
+                                  description: "Claims lists the names of resources, defined in spec.resourceClaims, that are used by this container. \n This is an alpha field and requires enabling the DynamicResourceAllocation feature gate. \n This field is immutable."
+                                  items:
+                                    description: ResourceClaim references one entry in PodSpec.ResourceClaims.
+                                    properties:
+                                      name:
+                                        description: Name must match the name of one entry in pod.spec.resourceClaims of the Pod where this field is used. It makes that resource available inside a container.
+                                        type: string
+                                    required:
+                                      - name
+                                    type: object
+                                  type: array
+                                  x-kubernetes-list-map-keys:
+                                    - name
+                                  x-kubernetes-list-type: map
                                 limits:
                                   additionalProperties:
                                     anyOf:
@@ -685,53 +715,55 @@ spec:
                         timeout:
                           description: User supplied timeout to be used for VolumeSnapshotBackup and VolumeSnapshotRestore to complete, default value is 10m
                           type: string
-                        volumeOptions:
-                          description: defines configurations for data mover volume options
-                          properties:
-                            destinationVolumeOptions:
-                              description: VolumeOptions defines configurations for VolSync options
-                              properties:
-                                accessMode:
-                                  description: accessMode can be used to override the accessMode of the source or destination PVC
-                                  type: string
-                                cacheAccessMode:
-                                  description: cacheAccessMode is the access mode to be used to provision the cache volume
-                                  type: string
-                                cacheCapacity:
-                                  description: cacheCapacity determines the size of the restic metadata cache volume
-                                  type: string
-                                cacheStorageClassName:
-                                  description: cacheStorageClassName is the storageClass that should be used when provisioning the data mover cache volume
-                                  type: string
-                                moverSecurityContext:
-                                  description: moverSecurityContext allows enabling the PodSecurityContext used in the application pod(s)
-                                  type: boolean
-                                storageClassName:
-                                  description: storageClassName can be used to override the StorageClass of the source or destination PVC
-                                  type: string
-                              type: object
-                            sourceVolumeOptions:
-                              description: VolumeOptions defines configurations for VolSync options
-                              properties:
-                                accessMode:
-                                  description: accessMode can be used to override the accessMode of the source or destination PVC
-                                  type: string
-                                cacheAccessMode:
-                                  description: cacheAccessMode is the access mode to be used to provision the cache volume
-                                  type: string
-                                cacheCapacity:
-                                  description: cacheCapacity determines the size of the restic metadata cache volume
-                                  type: string
-                                cacheStorageClassName:
-                                  description: cacheStorageClassName is the storageClass that should be used when provisioning the data mover cache volume
-                                  type: string
-                                moverSecurityContext:
-                                  description: moverSecurityContext allows enabling the PodSecurityContext used in the application pod(s)
-                                  type: boolean
-                                storageClassName:
-                                  description: storageClassName can be used to override the StorageClass of the source or destination PVC
-                                  type: string
-                              type: object
+                        volumeOptionsForStorageClasses:
+                          additionalProperties:
+                            properties:
+                              destinationVolumeOptions:
+                                description: VolumeOptions defines configurations for VolSync options
+                                properties:
+                                  accessMode:
+                                    description: accessMode can be used to override the accessMode of the source or destination PVC
+                                    type: string
+                                  cacheAccessMode:
+                                    description: cacheAccessMode is the access mode to be used to provision the cache volume
+                                    type: string
+                                  cacheCapacity:
+                                    description: cacheCapacity determines the size of the restic metadata cache volume
+                                    type: string
+                                  cacheStorageClassName:
+                                    description: cacheStorageClassName is the storageClass that should be used when provisioning the data mover cache volume
+                                    type: string
+                                  moverSecurityContext:
+                                    description: moverSecurityContext allows enabling the PodSecurityContext used in the application pod(s); default value is true
+                                    type: boolean
+                                  storageClassName:
+                                    description: storageClassName can be used to override the StorageClass of the source or destination PVC
+                                    type: string
+                                type: object
+                              sourceVolumeOptions:
+                                description: VolumeOptions defines configurations for VolSync options
+                                properties:
+                                  accessMode:
+                                    description: accessMode can be used to override the accessMode of the source or destination PVC
+                                    type: string
+                                  cacheAccessMode:
+                                    description: cacheAccessMode is the access mode to be used to provision the cache volume
+                                    type: string
+                                  cacheCapacity:
+                                    description: cacheCapacity determines the size of the restic metadata cache volume
+                                    type: string
+                                  cacheStorageClassName:
+                                    description: cacheStorageClassName is the storageClass that should be used when provisioning the data mover cache volume
+                                    type: string
+                                  moverSecurityContext:
+                                    description: moverSecurityContext allows enabling the PodSecurityContext used in the application pod(s); default value is true
+                                    type: boolean
+                                  storageClassName:
+                                    description: storageClassName can be used to override the StorageClass of the source or destination PVC
+                                    type: string
+                                type: object
+                            type: object
+                          description: defines configurations for data mover volume options for a storageClass
                           type: object
                       type: object
                   type: object
