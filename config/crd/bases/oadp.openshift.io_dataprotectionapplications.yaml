@@ -250,6 +250,21 @@ spec:
                               description: resourceAllocations defines the CPU and Memory resource allocations for the restic Pod
                               nullable: true
                               properties:
+                                claims:
+                                  description: "Claims lists the names of resources, defined in spec.resourceClaims, that are used by this container. \n This is an alpha field and requires enabling the DynamicResourceAllocation feature gate. \n This field is immutable."
+                                  items:
+                                    description: ResourceClaim references one entry in PodSpec.ResourceClaims.
+                                    properties:
+                                      name:
+                                        description: Name must match the name of one entry in pod.spec.resourceClaims of the Pod where this field is used. It makes that resource available inside a container.
+                                        type: string
+                                    required:
+                                      - name
+                                    type: object
+                                  type: array
+                                  x-kubernetes-list-map-keys:
+                                    - name
+                                  x-kubernetes-list-type: map
                                 limits:
                                   additionalProperties:
                                     anyOf:
@@ -309,6 +324,142 @@ spec:
                       type: object
                     velero:
                       properties:
+                        args:
+                          description: Velero args are settings to customize velero server arguments. Overrides values in other fields.
+                          properties:
+                            add_dir_header:
+                              description: If true, adds the file directory to the header of the log messages
+                              type: boolean
+                            alsologtostderr:
+                              description: log to standard error as well as files (no effect when -logtostderr=true)
+                              type: boolean
+                            backup-sync-period:
+                              description: How often to ensure all Velero backups in object storage exist as Backup API objects in the cluster. This is the default sync period if none is explicitly specified for a backup storage location.
+                              format: int64
+                              type: integer
+                            client-burst:
+                              description: Maximum number of requests by the server to the Kubernetes API in a short period of time.
+                              type: integer
+                            client-page-size:
+                              description: Page size of requests by the server to the Kubernetes API when listing objects during a backup. Set to 0 to disable paging.
+                              type: integer
+                            client-qps:
+                              description: Maximum number of requests per second by the server to the Kubernetes API once the burst limit has been reached. this will be validated as a valid float32
+                              type: string
+                            colorized:
+                              description: Show colored output in TTY
+                              type: boolean
+                            default-backup-ttl:
+                              description: default 720h0m0s
+                              format: int64
+                              type: integer
+                            default-item-operation-timeout:
+                              description: How long to wait on asynchronous BackupItemActions and RestoreItemActions to complete before timing out. (default 1h0m0s)
+                              format: int64
+                              type: integer
+                            default-repo-maintain-frequency:
+                              description: How often 'maintain' is run for backup repositories by default.
+                              format: int64
+                              type: integer
+                            default-volumes-to-fs-backup:
+                              description: Backup all volumes with pod volume file system backup by default.
+                              type: boolean
+                            disabled-controllers:
+                              description: List of controllers to disable on startup. Valid values are backup,backup-operations,backup-deletion,backup-finalizer,backup-sync,download-request,gc,backup-repo,restore,restore-operations,schedule,server-status-request
+                              enum:
+                                - backup
+                                - backup-operations
+                                - backup-deletion
+                                - backup-finalizer
+                                - backup-sync
+                                - download-request
+                                - gc
+                                - backup-repo
+                                - restore
+                                - restore-operations
+                                - schedule
+                                - server-status-request
+                              items:
+                                type: string
+                              type: array
+                            fs-backup-timeout:
+                              description: How long pod volume file system backups/restores should be allowed to run before timing out. (default 4h0m0s)
+                              format: int64
+                              type: integer
+                            garbage-collection-frequency:
+                              description: How long to wait by default before backups can be garbage collected. (default 720h0m0s)
+                              format: int64
+                              type: integer
+                            item-operation-sync-frequency:
+                              description: How often to check status on backup/restore operations after backup/restore processing.
+                              format: int64
+                              type: integer
+                            log-format:
+                              description: The format for log output. Valid values are text, json. (default text)
+                              enum:
+                                - text
+                                - json
+                              type: string
+                            log_backtrace_at:
+                              description: when logging hits line file:N, emit a stack trace
+                              type: string
+                            log_dir:
+                              description: If non-empty, write log files in this directory (no effect when -logtostderr=true)
+                              type: string
+                            log_file:
+                              description: If non-empty, use this log file (no effect when -logtostderr=true)
+                              type: string
+                            log_file_max_size:
+                              description: Defines the maximum size a log file can grow to (no effect when -logtostderr=true). Unit is megabytes. If the value is 0, the maximum file size is unlimited. (default 1800)
+                              format: int64
+                              minimum: 0
+                              type: integer
+                            logtostderr:
+                              description: 'Boolean flags. Not handled atomically because the flag.Value interface does not let us avoid the =true, and that shorthand is necessary for compatibility. TODO: does this matter enough to fix? Seems unlikely.'
+                              type: boolean
+                            max-concurrent-k8s-connections:
+                              description: Max concurrent connections number that Velero can create with kube-apiserver. Default is 30. (default 30)
+                              type: integer
+                            metrics-address:
+                              description: The address to expose prometheus metrics
+                              type: string
+                            one_output:
+                              description: If true, only write logs to their native severity level (vs also writing to each lower severity level; no effect when -logtostderr=true)
+                              type: boolean
+                            profiler-address:
+                              description: The address to expose the pprof profiler.
+                              type: string
+                            resource-timeout:
+                              description: How long to wait for resource processes which are not covered by other specific timeout parameters. Default is 10 minutes. (default 10m0s)
+                              format: int64
+                              type: integer
+                            restore-resource-priorities:
+                              description: Desired order of resource restores, the priority list contains two parts which are split by "-" element. The resources before "-" element are restored first as high priorities, the resources after "-" element are restored last as low priorities, and any resource not in the list will be restored alphabetically between the high and low priorities. (default customresourcedefinitions,namespaces,storageclasses,volumesnapshotbackups.datamover.oadp.openshift.io,volumesnapshotclass.snapshot.storage.k8s.io,volumesnapshotcontents.snapshot.storage.k8s.io,volumesnapshots.snapshot.storage.k8s.io,persistentvolumes,persistentvolumeclaims,serviceaccounts,secrets,configmaps,limitranges,pods,replicasets.apps,clusterclasses.cluster.x-k8s.io,services,-,clusterbootstraps.run.tanzu.vmware.com,clusters.cluster.x-k8s.io,clusterresourcesets.addons.cluster.x-k8s.io)
+                              type: string
+                            skip_headers:
+                              description: If true, avoid header prefixes in the log messages
+                              type: boolean
+                            skip_log_headers:
+                              description: If true, avoid headers when opening log files (no effect when -logtostderr=true)
+                              type: boolean
+                            stderrthreshold:
+                              description: logs at or above this threshold go to stderr when writing to files and stderr (no effect when -logtostderr=true or -alsologtostderr=false) (default 2)
+                              type: integer
+                            store-validation-frequency:
+                              description: How often to verify if the storage is valid. Optional. Set this to `0s` to disable sync. Default 1 minute.
+                              format: int64
+                              type: integer
+                            terminating-resource-timeout:
+                              description: How long to wait on persistent volumes and namespaces to terminate during a restore before timing out.
+                              format: int64
+                              type: integer
+                            v:
+                              description: number for the log level verbosity
+                              type: integer
+                            vmodule:
+                              description: comma-separated list of pattern=N settings for file-filtered logging
+                              type: string
+                          type: object
                         customPlugins:
                           description: customPlugins defines the custom plugin to be installed with Velero
                           items:
@@ -448,6 +599,21 @@ spec:
                               description: resourceAllocations defines the CPU and Memory resource allocations for the restic Pod
                               nullable: true
                               properties:
+                                claims:
+                                  description: "Claims lists the names of resources, defined in spec.resourceClaims, that are used by this container. \n This is an alpha field and requires enabling the DynamicResourceAllocation feature gate. \n This field is immutable."
+                                  items:
+                                    description: ResourceClaim references one entry in PodSpec.ResourceClaims.
+                                    properties:
+                                      name:
+                                        description: Name must match the name of one entry in pod.spec.resourceClaims of the Pod where this field is used. It makes that resource available inside a container.
+                                        type: string
+                                    required:
+                                      - name
+                                    type: object
+                                  type: array
+                                  x-kubernetes-list-map-keys:
+                                    - name
+                                  x-kubernetes-list-type: map
                                 limits:
                                   additionalProperties:
                                     anyOf:
@@ -568,7 +734,7 @@ spec:
                                   description: cacheStorageClassName is the storageClass that should be used when provisioning the data mover cache volume
                                   type: string
                                 moverSecurityContext:
-                                  description: moverSecurityContext allows enabling the PodSecurityContext used in the application pod(s)
+                                  description: moverSecurityContext allows enabling the PodSecurityContext used in the application pod(s); default value is true
                                   type: boolean
                                 storageClassName:
                                   description: storageClassName can be used to override the StorageClass of the source or destination PVC
@@ -590,7 +756,7 @@ spec:
                                   description: cacheStorageClassName is the storageClass that should be used when provisioning the data mover cache volume
                                   type: string
                                 moverSecurityContext:
-                                  description: moverSecurityContext allows enabling the PodSecurityContext used in the application pod(s)
+                                  description: moverSecurityContext allows enabling the PodSecurityContext used in the application pod(s); default value is true
                                   type: boolean
                                 storageClassName:
                                   description: storageClassName can be used to override the StorageClass of the source or destination PVC
