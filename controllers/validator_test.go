@@ -906,6 +906,68 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 			wantErr: true,
 			want:    false,
 		},
+		{
+			name: "given valid DPA CR AWS with BSL and VSL credentials referencing to a custom secret",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-DPA-CR",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					BackupLocations: []oadpv1alpha1.BackupLocation{
+						{
+							Velero: &v1.BackupStorageLocationSpec{
+								Provider: "velero.io/aws",
+								Credential: &corev1.SecretKeySelector{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: "custom-bsl-credentials",
+									},
+									Key:      "cloud",
+									Optional: new(bool),
+								},
+							},
+						},
+					},
+					SnapshotLocations: []oadpv1alpha1.SnapshotLocation{
+						{
+							Velero: &v1.VolumeSnapshotLocationSpec{
+								Provider: "velero.io/aws",
+								Credential: &corev1.SecretKeySelector{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: "custom-vsl-credentials",
+									},
+									Key:      "cloud",
+									Optional: new(bool),
+								},
+							},
+						},
+					},
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+								oadpv1alpha1.DefaultPluginAWS,
+							},
+						},
+					},
+				},
+			},
+			objects: []client.Object{
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "custom-bsl-credentials",
+						Namespace: "test-ns",
+					},
+				},
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "custom-vsl-credentials",
+						Namespace: "test-ns",
+					},
+				},
+			},
+			wantErr: false,
+			want:    true,
+		},
 	}
 	for _, tt := range tests {
 		tt.objects = append(tt.objects, tt.dpa)
