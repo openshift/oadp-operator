@@ -86,10 +86,10 @@ var (
 		},
 	}
 	baseContainer = corev1.Container{
-		Image:                    common.AWSPluginImage,
-		Name:                     common.VeleroPluginForAWS,
-		ImagePullPolicy:          corev1.PullAlways,
-		Resources:                corev1.ResourceRequirements{
+		Image:           common.AWSPluginImage,
+		Name:            common.VeleroPluginForAWS,
+		ImagePullPolicy: corev1.PullAlways,
+		Resources: corev1.ResourceRequirements{
 			Requests: corev1.ResourceList{
 				corev1.ResourceCPU:    resource.MustParse("500m"),
 				corev1.ResourceMemory: resource.MustParse("128Mi"),

@@ -80,7 +80,7 @@ func IsRestoreDone(ocClient client.Client, veleroNamespace, name string) wait.Co
 			}
 		}
 		return true, nil
-		
+
 	}
 }
 
