@@ -135,7 +135,7 @@ func (v *DpaCustomResource) Build(backupRestoreType BackupRestoreType) error {
 		dpaInstance.Spec.Features.DataMover.Enable = true
 		dpaInstance.Spec.Features.DataMover.CredentialName = controllers.ResticsecretName
 		dpaInstance.Spec.Features.DataMover.Timeout = "40m"
-		scName, err := v.ProviderStorageClassName()
+		scName, err := v.ProviderStorageClassName(".")
 		if err != nil {
 			return err
 		}
@@ -167,8 +167,10 @@ func (v *DpaCustomResource) Build(backupRestoreType BackupRestoreType) error {
 	return nil
 }
 
-func (v *DpaCustomResource) ProviderStorageClassName() (string, error) {
-	pvcFile := fmt.Sprintf("../sample-applications/%s/pvc/%s.yaml", "mongo-persistent", v.Provider)
+// if e2e, test/e2e is "." since context is tests/e2e/
+// for unit-test, test/e2e is ".." since context is tests/e2e/lib/
+func (v *DpaCustomResource) ProviderStorageClassName(e2eRoot string) (string, error) {
+	pvcFile := fmt.Sprintf("%s/sample-applications/%s/pvc/%s.yaml", e2eRoot, "mongo-persistent", v.Provider)
 	pvcList := corev1.PersistentVolumeClaimList{}
 	pvcBytes, err := utils.ReadFile(pvcFile)
 	if err != nil {

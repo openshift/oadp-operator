@@ -29,6 +29,7 @@ require (
 	github.com/deckarep/golang-set/v2 v2.3.0
 	github.com/google/go-cmp v0.5.9
 	github.com/konveyor/volume-snapshot-mover v0.0.0-20220725191622-4b360b792c3e
+	sigs.k8s.io/yaml v1.3.0
 )
 
 require (
@@ -152,7 +153,6 @@ require (
 	k8s.io/kube-openapi v0.0.0-20220803162953-67bda5d908f1 // indirect
 	sigs.k8s.io/json v0.0.0-20220713155537-f223a00ba0e2 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.3 // indirect
-	sigs.k8s.io/yaml v1.3.0 // indirect
 )
 
 replace github.com/vmware-tanzu/velero => github.com/openshift/velero v0.10.2-0.20230411180851-203d5bb613eb

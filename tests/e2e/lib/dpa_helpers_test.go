@@ -6,7 +6,7 @@ import (
 
 func TestDpaCustomResource_ProviderStorageClassName(t *testing.T) {
 	type fields struct {
-		Provider          string
+		Provider string
 	}
 	tests := []struct {
 		name    string
@@ -26,9 +26,9 @@ func TestDpaCustomResource_ProviderStorageClassName(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			v := &DpaCustomResource{
-				Provider:          tt.fields.Provider,
+				Provider: tt.fields.Provider,
 			}
-			got, err := v.ProviderStorageClassName()
+			got, err := v.ProviderStorageClassName("..")
 			if (err != nil) != tt.wantErr {
 				t.Errorf("DpaCustomResource.ProviderStorageClassName() error = %v, wantErr %v", err, tt.wantErr)
 				return
