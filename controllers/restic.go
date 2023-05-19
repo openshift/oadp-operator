@@ -112,7 +112,7 @@ func (r *DPAReconciler) ReconcileResticDaemonset(log logr.Logger) (bool, error) 
 			if ds.Spec.Selector.MatchLabels == nil {
 				ds.Spec.Selector.MatchLabels = make(map[string]string)
 			}
-			ds.Spec.Selector.MatchLabels, err = common.AppendUniqueLabels(ds.Spec.Selector.MatchLabels, nodeAgentLabelSelector.MatchLabels)
+			ds.Spec.Selector.MatchLabels, err = common.AppendUniqueKeyTOfTMaps(ds.Spec.Selector.MatchLabels, nodeAgentLabelSelector.MatchLabels)
 			if err != nil {
 				return fmt.Errorf("failed to append labels to selector: %s", err)
 			}
@@ -172,7 +172,7 @@ func (r *DPAReconciler) buildResticDaemonset(dpa *oadpv1alpha1.DataProtectionApp
 
 	// get resource requirements for restic ds
 	// ignoring err here as it is checked in validator.go
-	resticResourceReqs, _ := r.getResticResourceReqs(dpa)
+	resticResourceReqs, _ := getResticResourceReqs(dpa)
 
 	installDs := install.DaemonSet(ds.Namespace,
 		install.WithResources(resticResourceReqs),
@@ -184,7 +184,11 @@ func (r *DPAReconciler) buildResticDaemonset(dpa *oadpv1alpha1.DataProtectionApp
 	// Update Items in ObjectMeta
 	dsName := ds.Name
 	ds.TypeMeta = installDs.TypeMeta
-	ds.Labels, _ = common.AppendUniqueLabels(ds.Labels, installDs.Labels)
+	var err error
+	ds.Labels, err = common.AppendUniqueKeyTOfTMaps(ds.Labels, installDs.Labels)
+	if err != nil {
+		return nil, fmt.Errorf("restic daemonset label: %s", err)
+	}
 	// Update Spec
 	ds.Spec = installDs.Spec
 	ds.Name = dsName
@@ -200,7 +204,7 @@ func (r *DPAReconciler) customizeResticDaemonset(dpa *oadpv1alpha1.DataProtectio
 	// add custom pod labels
 	if dpa.Spec.Configuration.Restic.PodConfig != nil && dpa.Spec.Configuration.Restic.PodConfig.Labels != nil {
 		var err error
-		ds.Spec.Template.Labels, err = common.AppendUniqueLabels(ds.Spec.Template.Labels, dpa.Spec.Configuration.Restic.PodConfig.Labels)
+		ds.Spec.Template.Labels, err = common.AppendUniqueKeyTOfTMaps(ds.Spec.Template.Labels, dpa.Spec.Configuration.Restic.PodConfig.Labels)
 		if err != nil {
 			return nil, fmt.Errorf("restic daemonset template custom label: %s", err)
 		}

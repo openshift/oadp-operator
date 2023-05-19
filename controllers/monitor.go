@@ -30,7 +30,7 @@ func (r *DPAReconciler) ReconcileVeleroServiceMonitor(log logr.Logger) (bool, er
 
 		if serviceMonitor.ObjectMeta.CreationTimestamp.IsZero() {
 			serviceMonitor.Spec.Selector = metav1.LabelSelector{
-				MatchLabels: r.getDpaAppLabels(&dpa),
+				MatchLabels: getDpaAppLabels(&dpa),
 			}
 		}
 
@@ -72,10 +72,10 @@ func (r *DPAReconciler) buildVeleroServiceMonitor(serviceMonitor *monitor.Servic
 	}
 
 	serviceMonitor.Spec.Selector = metav1.LabelSelector{
-		MatchLabels: r.getDpaAppLabels(dpa),
+		MatchLabels: getDpaAppLabels(dpa),
 	}
 
-	serviceMonitor.Labels = r.getDpaAppLabels(dpa)
+	serviceMonitor.Labels = getDpaAppLabels(dpa)
 
 	serviceMonitor.Spec.Endpoints = []monitor.Endpoint{
 		{
@@ -147,7 +147,7 @@ func (r *DPAReconciler) updateVeleroMetricsSVC(svc *corev1.Service, dpa *oadpv1a
 
 	// when updating the spec fields we update each field individually
 	// to get around the immutable fields
-	svc.Spec.Selector = r.getDpaAppLabels(dpa)
+	svc.Spec.Selector = getDpaAppLabels(dpa)
 
 	svc.Spec.Type = corev1.ServiceTypeClusterIP
 	svc.Spec.Ports = []corev1.ServicePort{
@@ -161,6 +161,6 @@ func (r *DPAReconciler) updateVeleroMetricsSVC(svc *corev1.Service, dpa *oadpv1a
 		},
 	}
 
-	svc.Labels = r.getDpaAppLabels(dpa)
+	svc.Labels = getDpaAppLabels(dpa)
 	return nil
 }
