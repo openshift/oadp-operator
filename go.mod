@@ -160,3 +160,5 @@ require (
 )
 
 replace github.com/vmware-tanzu/velero => github.com/openshift/velero v0.10.2-0.20230518025540-34ab2a01f0e3
+
+replace github.com/openshift/api => github.com/openshift/api v0.0.0-20230414143018-3367bc7e6ac7 // release-4.13
