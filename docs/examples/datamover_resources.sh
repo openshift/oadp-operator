@@ -15,6 +15,7 @@ Help()
    echo "h     Print this Help."
    echo "b     Check a backup"
    echo "r     Check a restore"
+   echo "d     Print a list of the relevant backup/restore cr's"
 }
 
 ############################################################
@@ -25,7 +26,7 @@ Help()
 # Process the input options. Add options as needed.        #
 ############################################################
 # Get the options
-while getopts ":h:brd" option; do
+while getopts ":hbrd" option; do
    case $option in
       h) # display Help
          Help
@@ -34,7 +35,7 @@ while getopts ":h:brd" option; do
 	     BACKUP="true";;
       r) # Check restore resources 
 	     RESTORE="true";;
-      d) # Check restore resources 
+      d) # Print a list of the relevant backup/restore cr's 
 	     DETAILS="true";;
      \?) # Invalid option
          echo "Error: Invalid option"
@@ -42,6 +43,10 @@ while getopts ":h:brd" option; do
          exit;;
    esac
 done
+
+if [ "$BACKUP" = "false" ] && [ "$RESTORE" = "false" ]; then
+  Help
+fi 
 
 function backup_summary () {
     echo -e "Get Backups:\n"
