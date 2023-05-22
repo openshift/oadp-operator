@@ -76,7 +76,7 @@ items:
           - image: registry.redhat.io/rhel8/mariadb-105:latest
             name: mysql
             securityContext:
-              privileged: true
+              privileged: false
             env:
               - name: MYSQL_USER
                 value: changeme
