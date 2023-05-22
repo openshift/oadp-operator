@@ -142,7 +142,7 @@ func (v *DpaCustomResource) Build(backupRestoreType BackupRestoreType) error {
 		dpaInstance.Spec.Features.DataMover.VolumeOptionsForStorageClasses = map[string]oadpv1alpha1.DataMoverVolumeOptions{
 			scName: {
 				SourceVolumeOptions: &oadpv1alpha1.VolumeOptions{
-					AccessMode: corev1.ReadOnlyMany,
+					AccessMode: corev1.ReadWriteOnce,
 				},
 			},
 		}
