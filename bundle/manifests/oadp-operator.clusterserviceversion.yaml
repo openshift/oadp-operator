@@ -152,27 +152,8 @@ metadata:
     certified: "false"
     containerImage: quay.io/konveyor/oadp-operator:latest
     createdAt: "2020-09-08T12:21:00Z"
-    description: |
-      **OpenShift API for Data Protection (OADP)** operator sets up and installs
-      Velero on the OpenShift platform, allowing users to backup and restore
-      applications.
-
-      Backup and restore Kubernetes resources and internal images, at the
-      granularity of a namespace, using a version of Velero appropriate for
-      the installed version of OADP.
-
-      OADP backs up Kubernetes objects and internal images by saving them as
-      an archive file on object storage. OADP backs up persistent volumes
-      (PVs) by creating snapshots with the native cloud snapshot API or with
-      the Container Storage Interface (CSI). For cloud providers that do not
-      support snapshots, OADP backs up resources and PV data with Restic.
-
-      * [Installing OADP for application backup and restore][install-doc]
-
-      * [Frequently Asked Questions][faq-doc]
-
-      [install-doc]: https://docs.openshift.com/container-platform/latest/backup_and_restore/application_backup_and_restore/installing/about-installing-oadp.html
-      [faq-doc]: https://access.redhat.com/articles/5456281
+    description: OADP (OpenShift API for Data Protection) operator sets up and installs
+      Data Protection Applications on the OpenShift platform.
     olm.skipRange: '>=0.0.0 <99.0.0'
     operatorframework.io/cluster-monitoring: "true"
     operatorframework.io/suggested-namespace: openshift-adp
