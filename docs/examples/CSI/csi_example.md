@@ -104,6 +104,7 @@ allowVolumeExpansion: true
 ### Create the Mssql deployment config:
 
 `oc create -f docs/examples/manifests/mysql/mysql-persistent-csi-template.yaml`
+`oc create -f docs/examples/manifests/mysql/pvc/aws.yaml`
 
 This example will create the following resources:
 * **Namespace**
