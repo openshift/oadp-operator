@@ -172,11 +172,15 @@ ENVTESTPATH = $(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)
 ifeq ($(shell $(ENVTEST) list | grep $(ENVTEST_K8S_VERSION)),)
 	ENVTESTPATH = $(shell $(ENVTEST) --arch=amd64 use $(ENVTEST_K8S_VERSION) -p path)
 endif
+$(ENVTEST): ## Download envtest-setup locally if necessary.
+	$(call go-install-tool,$(ENVTEST),sigs.k8s.io/controller-runtime/tools/setup-envtest@latest)
+
+.PHONY: envtest
+envtest: $(ENVTEST)
 
 test: manifests nullables generate fmt vet envtest ## Run tests.
 	KUBEBUILDER_ASSETS="$(ENVTESTPATH)" go test -mod=mod ./controllers/... ./pkg/... -coverprofile cover.out
 
-# if there is no native arch available, attempt to use amd64
 ci-test: ## This assumes "manifests generate fmt vet envtest" ran.
 	KUBEBUILDER_ASSETS="$(ENVTESTPATH)" go test -mod=mod ./controllers/... -coverprofile cover.out
 
@@ -240,10 +244,6 @@ controller-gen: ## Download controller-gen locally if necessary.
 KUSTOMIZE = $(shell pwd)/bin/kustomize
 kustomize: ## Download kustomize locally if necessary.
 	$(call go-install-tool,$(KUSTOMIZE),sigs.k8s.io/kustomize/kustomize/v4@v4.5.5)
-
-ENVTEST = $(shell pwd)/bin/setup-envtest
-envtest: ## Download envtest-setup locally if necessary.
-	$(call go-install-tool,$(ENVTEST),sigs.k8s.io/controller-runtime/tools/setup-envtest@latest)
 
 # Codecov OS String for use in download url
 ifeq ($(OS),Windows_NT)
