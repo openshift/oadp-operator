@@ -15,6 +15,7 @@ parameters:
   csi.storage.k8s.io/provisioner-secret-name: rook-csi-cephfs-provisioner
   csi.storage.k8s.io/provisioner-secret-namespace: openshift-storage
   fsName: ocs-storagecluster-cephfilesystem
+  backingSnapshot: “true”
 reclaimPolicy: Delete
 allowVolumeExpansion: true
 volumeBindingMode: Immediate
