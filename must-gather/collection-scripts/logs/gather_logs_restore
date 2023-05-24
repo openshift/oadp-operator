@@ -15,11 +15,11 @@ skip_tls=$8
 mkdir -p "${object_collection_path}"
 echo "[cluster=${cluster}][ns=${ns}] Gathering 'velero restore describe ${restore}'"
 if [ "$timeout" = "0s" ]; then
-    timeout 30s velero describe restore ${restore} --insecure-skip-tls-verify=${skip_tls} --details &> "${object_collection_path}/restore-describe-${restore}.txt" &
+    timeout 30s velero describe restore ${restore} --namespace ${ns} --insecure-skip-tls-verify=${skip_tls} --details &> "${object_collection_path}/restore-describe-${restore}.txt" &
 else
-    timeout ${timeout} velero describe restore ${restore} --insecure-skip-tls-verify=${skip_tls} --details &> "${object_collection_path}/restore-describe-${restore}.txt" &
+    timeout ${timeout} velero describe restore ${restore} --namespace ${ns} --insecure-skip-tls-verify=${skip_tls} --details &> "${object_collection_path}/restore-describe-${restore}.txt" &
 fi
 echo "[cluster=${cluster}][ns=${ns}] Gathering 'velero restore logs ${restore}'"
-timeout 30s velero restore logs ${restore} --insecure-skip-tls-verify=${skip_tls} --timeout=30s &> "${object_collection_path}/restore-${restore}.log" &
+timeout 30s velero restore logs ${restore} --namespace ${ns} --insecure-skip-tls-verify=${skip_tls} --timeout=30s &> "${object_collection_path}/restore-${restore}.log" &
 
 wait
