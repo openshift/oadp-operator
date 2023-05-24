@@ -1,0 +1,4 @@
+Name: csi-aws-vsc  labels: 
+Name: csi-aws-vsc-test  labels: {"velero.io/csi-volumesnapshot-class":"true"}
+Name: ocs-storagecluster-cephfsplugin-snapclass  labels: {"velero.io/csi-volumesnapshot-class":"true"}
+Name: ocs-storagecluster-rbdplugin-snapclass  labels: {"velero.io/csi-volumesnapshot-class":"true"}

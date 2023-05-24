@@ -1,0 +1,183 @@
+apiVersion: v1
+items:
+- apiVersion: velero.io/v1
+  kind: Backup
+  metadata:
+    annotations:
+      velero.io/source-cluster-k8s-gitversion: v1.25.8+27e744f
+      velero.io/source-cluster-k8s-major-version: "1"
+      velero.io/source-cluster-k8s-minor-version: "25"
+    creationTimestamp: "2023-05-24T21:06:14Z"
+    generation: 6
+    labels:
+      velero.io/storage-location: dpa-sample-1
+    name: mysql-persistent-aws
+    namespace: openshift-adp
+    resourceVersion: "4772074"
+    uid: 29307557-7235-49af-9e8a-e8715c55cc87
+  spec:
+    csiSnapshotTimeout: 10m0s
+    defaultVolumesToFsBackup: false
+    includedNamespaces:
+    - mysql-persistent-aws
+    itemOperationTimeout: 1h0m0s
+    storageLocation: dpa-sample-1
+    ttl: 720h0m0s
+    volumeSnapshotLocations:
+    - dpa-sample-1
+  status:
+    backupItemOperationsAttempted: 2
+    backupItemOperationsCompleted: 2
+    completionTimestamp: "2023-05-24T21:08:53Z"
+    csiVolumeSnapshotsAttempted: 2
+    csiVolumeSnapshotsCompleted: 2
+    expiration: "2023-06-23T21:06:14Z"
+    formatVersion: 1.1.0
+    phase: Completed
+    startTimestamp: "2023-05-24T21:06:14Z"
+    version: 1
+- apiVersion: velero.io/v1
+  kind: Backup
+  metadata:
+    annotations:
+      velero.io/source-cluster-k8s-gitversion: v1.25.8+27e744f
+      velero.io/source-cluster-k8s-major-version: "1"
+      velero.io/source-cluster-k8s-minor-version: "25"
+    creationTimestamp: "2023-05-24T21:11:35Z"
+    generation: 4
+    labels:
+      velero.io/storage-location: dpa-sample-1
+    name: mysql-persistent-cephfs
+    namespace: openshift-adp
+    resourceVersion: "4774018"
+    uid: 692f40da-87f6-44a7-b704-bdaeca1ef30e
+  spec:
+    csiSnapshotTimeout: 10m0s
+    defaultVolumesToFsBackup: false
+    includedNamespaces:
+    - mysql-persistent-cephfs-aws
+    itemOperationTimeout: 1h0m0s
+    storageLocation: dpa-sample-1
+    ttl: 720h0m0s
+    volumeSnapshotLocations:
+    - dpa-sample-1
+  status:
+    completionTimestamp: "2023-05-24T21:11:42Z"
+    errors: 1
+    expiration: "2023-06-23T21:11:35Z"
+    formatVersion: 1.1.0
+    phase: PartiallyFailed
+    startTimestamp: "2023-05-24T21:11:35Z"
+    version: 1
+- apiVersion: velero.io/v1
+  kind: Backup
+  metadata:
+    annotations:
+      velero.io/source-cluster-k8s-gitversion: v1.25.8+27e744f
+      velero.io/source-cluster-k8s-major-version: "1"
+      velero.io/source-cluster-k8s-minor-version: "25"
+    creationTimestamp: "2023-05-24T21:21:09Z"
+    generation: 6
+    labels:
+      velero.io/storage-location: dpa-sample-1
+    name: mysql-persistent-cephfs-1
+    namespace: openshift-adp
+    resourceVersion: "4780854"
+    uid: 4edd4f4b-c9b4-4b72-b6ad-26b5df1e1204
+  spec:
+    csiSnapshotTimeout: 10m0s
+    defaultVolumesToFsBackup: false
+    includedNamespaces:
+    - mysql-persistent-cephfs
+    itemOperationTimeout: 1h0m0s
+    storageLocation: dpa-sample-1
+    ttl: 720h0m0s
+    volumeSnapshotLocations:
+    - dpa-sample-1
+  status:
+    backupItemOperationsAttempted: 2
+    backupItemOperationsCompleted: 2
+    completionTimestamp: "2023-05-24T21:22:43Z"
+    csiVolumeSnapshotsAttempted: 2
+    csiVolumeSnapshotsCompleted: 2
+    expiration: "2023-06-23T21:21:09Z"
+    formatVersion: 1.1.0
+    phase: Completed
+    startTimestamp: "2023-05-24T21:21:09Z"
+    version: 1
+- apiVersion: velero.io/v1
+  kind: Backup
+  metadata:
+    annotations:
+      velero.io/source-cluster-k8s-gitversion: v1.25.8+27e744f
+      velero.io/source-cluster-k8s-major-version: "1"
+      velero.io/source-cluster-k8s-minor-version: "25"
+    creationTimestamp: "2023-05-24T21:09:19Z"
+    generation: 5
+    labels:
+      velero.io/storage-location: dpa-sample-1
+    name: mysql-persistent-cephrbd
+    namespace: openshift-adp
+    resourceVersion: "4773474"
+    uid: 4295a06f-5f19-4726-89f1-a9507c2beca2
+  spec:
+    csiSnapshotTimeout: 10m0s
+    defaultVolumesToFsBackup: false
+    includedNamespaces:
+    - mysql-persistent-cephrbd
+    itemOperationTimeout: 1h0m0s
+    storageLocation: dpa-sample-1
+    ttl: 720h0m0s
+    volumeSnapshotLocations:
+    - dpa-sample-1
+  status:
+    backupItemOperationsAttempted: 2
+    backupItemOperationsCompleted: 2
+    completionTimestamp: "2023-05-24T21:10:46Z"
+    csiVolumeSnapshotsAttempted: 2
+    csiVolumeSnapshotsCompleted: 2
+    expiration: "2023-06-23T21:09:19Z"
+    formatVersion: 1.1.0
+    phase: Completed
+    startTimestamp: "2023-05-24T21:09:19Z"
+    version: 1
+- apiVersion: velero.io/v1
+  kind: Backup
+  metadata:
+    annotations:
+      velero.io/source-cluster-k8s-gitversion: v1.23.5+b0357ed
+      velero.io/source-cluster-k8s-major-version: "1"
+      velero.io/source-cluster-k8s-minor-version: "23"
+    creationTimestamp: "2023-05-24T21:24:16Z"
+    generation: 1
+    labels:
+      velero.io/storage-location: dpa-sample-1
+    name: nginx-stateless-1451746
+    namespace: openshift-adp
+    resourceVersion: "4781684"
+    uid: f897c727-1eaf-4696-9a60-7f28f5e63949
+  spec:
+    csiSnapshotTimeout: 10m0s
+    defaultVolumesToRestic: false
+    hooks: {}
+    includedNamespaces:
+    - nginx-example
+    itemOperationTimeout: 0s
+    metadata: {}
+    storageLocation: dpa-sample-1
+    ttl: 720h0m0s
+    volumeSnapshotLocations:
+    - dpa-sample-1
+  status:
+    completionTimestamp: "2023-05-24T21:22:35Z"
+    expiration: "2023-06-23T21:22:01Z"
+    formatVersion: 1.1.0
+    phase: Completed
+    progress:
+      itemsBackedUp: 49
+      totalItems: 49
+    startTimestamp: "2023-05-24T21:22:01Z"
+    version: 1
+kind: List
+metadata:
+  resourceVersion: ""

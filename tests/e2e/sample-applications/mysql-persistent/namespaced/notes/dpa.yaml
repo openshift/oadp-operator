@@ -1,0 +1,66 @@
+apiVersion: v1
+items:
+- apiVersion: oadp.openshift.io/v1alpha1
+  kind: DataProtectionApplication
+  metadata:
+    creationTimestamp: "2023-05-23T14:23:30Z"
+    generation: 4
+    name: dpa-sample
+    namespace: openshift-adp
+    resourceVersion: "4649326"
+    uid: 81d7d5eb-b805-4868-a895-00b1ade4dc7d
+  spec:
+    backupLocations:
+    - velero:
+        config:
+          profile: default
+          region: us-east-1
+        credential:
+          key: cloud
+          name: cloud-credentials
+        default: true
+        objectStorage:
+          bucket: cvpbucket
+          prefix: velero
+        provider: aws
+    configuration:
+      restic:
+        enable: false
+      velero:
+        defaultPlugins:
+        - openshift
+        - aws
+        - csi
+        - vsm
+        featureFlags:
+        - EnableCSI
+    features:
+      dataMover:
+        credentialName: restic-secret
+        enable: true
+        volumeOptionsForStorageClasses:
+          cephfs-shallow:
+            destinationVolumeOptions:
+              moverSecurityContext: true
+            sourceVolumeOptions:
+              accessMode: ReadOnlyMany
+              cacheAccessMode: ReadWriteMany
+              cacheStorageClassName: cephfs
+              moverSecurityContext: true
+              storageClassName: cephfs
+    snapshotLocations:
+    - velero:
+        config:
+          profile: default
+          region: us-east-1
+        provider: aws
+  status:
+    conditions:
+    - lastTransitionTime: "2023-05-23T14:23:31Z"
+      message: Reconcile complete
+      reason: Complete
+      status: "True"
+      type: Reconciled
+kind: List
+metadata:
+  resourceVersion: ""

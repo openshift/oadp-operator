@@ -1,0 +1,104 @@
+apiVersion: v1
+items:
+- apiVersion: velero.io/v1
+  kind: Restore
+  metadata:
+    creationTimestamp: "2023-05-24T21:41:32Z"
+    generation: 10
+    name: mysql-persistent-aws-withdata
+    namespace: openshift-adp
+    resourceVersion: "4795233"
+    uid: 71e1c346-4407-4384-b25d-b0e5fde8534c
+  spec:
+    backupName: mysql-persistent-aws-withdata
+    excludedResources:
+    - nodes
+    - events
+    - events.events.k8s.io
+    - backups.velero.io
+    - restores.velero.io
+    - resticrepositories.velero.io
+    - csinodes.storage.k8s.io
+    - volumeattachments.storage.k8s.io
+    - backuprepositories.velero.io
+    itemOperationTimeout: 1h0m0s
+    restorePVs: true
+  status:
+    completionTimestamp: "2023-05-24T21:43:54Z"
+    phase: Completed
+    progress:
+      itemsRestored: 48
+      totalItems: 48
+    restoreItemOperationsAttempted: 2
+    restoreItemOperationsCompleted: 2
+    startTimestamp: "2023-05-24T21:41:32Z"
+    warnings: 12
+- apiVersion: velero.io/v1
+  kind: Restore
+  metadata:
+    creationTimestamp: "2023-05-24T21:48:11Z"
+    generation: 10
+    name: mysql-persistent-cephfs-withdata
+    namespace: openshift-adp
+    resourceVersion: "4799379"
+    uid: 907eeeb9-2397-4310-aeb9-03ec16c37fc1
+  spec:
+    backupName: mysql-persistent-cephfs-withdata
+    excludedResources:
+    - nodes
+    - events
+    - events.events.k8s.io
+    - backups.velero.io
+    - restores.velero.io
+    - resticrepositories.velero.io
+    - csinodes.storage.k8s.io
+    - volumeattachments.storage.k8s.io
+    - backuprepositories.velero.io
+    itemOperationTimeout: 1h0m0s
+    restorePVs: true
+  status:
+    completionTimestamp: "2023-05-24T21:49:26Z"
+    phase: Completed
+    progress:
+      itemsRestored: 48
+      totalItems: 48
+    restoreItemOperationsAttempted: 2
+    restoreItemOperationsCompleted: 2
+    startTimestamp: "2023-05-24T21:48:11Z"
+    warnings: 12
+- apiVersion: velero.io/v1
+  kind: Restore
+  metadata:
+    creationTimestamp: "2023-05-24T21:45:28Z"
+    generation: 10
+    name: mysql-persistent-cephrbd-withdata
+    namespace: openshift-adp
+    resourceVersion: "4797322"
+    uid: eb24ffb7-48c7-4d65-80ed-da6c79388f0a
+  spec:
+    backupName: mysql-persistent-cephrbd-withdata
+    excludedResources:
+    - nodes
+    - events
+    - events.events.k8s.io
+    - backups.velero.io
+    - restores.velero.io
+    - resticrepositories.velero.io
+    - csinodes.storage.k8s.io
+    - volumeattachments.storage.k8s.io
+    - backuprepositories.velero.io
+    itemOperationTimeout: 1h0m0s
+    restorePVs: true
+  status:
+    completionTimestamp: "2023-05-24T21:46:41Z"
+    phase: Completed
+    progress:
+      itemsRestored: 48
+      totalItems: 48
+    restoreItemOperationsAttempted: 2
+    restoreItemOperationsCompleted: 2
+    startTimestamp: "2023-05-24T21:45:28Z"
+    warnings: 12
+kind: List
+metadata:
+  resourceVersion: ""

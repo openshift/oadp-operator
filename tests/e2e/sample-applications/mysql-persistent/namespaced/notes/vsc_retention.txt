@@ -1,0 +1,4 @@
+Name: csi-aws-vsc  Retention Policy: Delete
+Name: csi-aws-vsc-test  Retention Policy: Retain
+Name: ocs-storagecluster-cephfsplugin-snapclass  Retention Policy: Retain
+Name: ocs-storagecluster-rbdplugin-snapclass  Retention Policy: Retain

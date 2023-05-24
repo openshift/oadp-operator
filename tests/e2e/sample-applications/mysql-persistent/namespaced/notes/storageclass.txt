@@ -1,0 +1,125 @@
+apiVersion: v1
+items:
+- allowVolumeExpansion: true
+  apiVersion: storage.k8s.io/v1
+  kind: StorageClass
+  metadata:
+    annotations:
+      description: sample cephfs storage class for oadp datamover
+      storageclass.kubernetes.io/is-default-class: "false"
+    creationTimestamp: "2023-05-24T17:15:42Z"
+    name: cephfs-shallow
+    resourceVersion: "4627727"
+    uid: 4080992f-1951-4f7e-97e3-40f834761d50
+  parameters:
+    backingSnapshot: “true”
+    clusterID: openshift-storage
+    csi.storage.k8s.io/controller-expand-secret-name: rook-csi-cephfs-provisioner
+    csi.storage.k8s.io/controller-expand-secret-namespace: openshift-storage
+    csi.storage.k8s.io/node-stage-secret-name: rook-csi-cephfs-node
+    csi.storage.k8s.io/node-stage-secret-namespace: openshift-storage
+    csi.storage.k8s.io/provisioner-secret-name: rook-csi-cephfs-provisioner
+    csi.storage.k8s.io/provisioner-secret-namespace: openshift-storage
+    fsName: ocs-storagecluster-cephfilesystem
+  provisioner: openshift-storage.cephfs.csi.ceph.com
+  reclaimPolicy: Delete
+  volumeBindingMode: Immediate
+- allowVolumeExpansion: true
+  apiVersion: storage.k8s.io/v1
+  kind: StorageClass
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"allowVolumeExpansion":true,"apiVersion":"storage.k8s.io/v1","kind":"StorageClass","metadata":{"annotations":{"storageclass.kubernetes.io/is-default-class":"true"},"name":"gp2-csi"},"parameters":{"type":"gp2"},"provisioner":"ebs.csi.aws.com","reclaimPolicy":"Delete","volumeBindingMode":"WaitForFirstConsumer"}
+      storageclass.kubernetes.io/is-default-class: "false"
+    creationTimestamp: "2023-05-19T00:18:16Z"
+    name: gp2-csi
+    resourceVersion: "3696827"
+    uid: 56ff05a4-8876-4ff4-8191-516138bfad57
+  parameters:
+    encrypted: "true"
+    type: gp2
+  provisioner: ebs.csi.aws.com
+  reclaimPolicy: Delete
+  volumeBindingMode: WaitForFirstConsumer
+- allowVolumeExpansion: true
+  apiVersion: storage.k8s.io/v1
+  kind: StorageClass
+  metadata:
+    annotations:
+      storageclass.kubernetes.io/is-default-class: "false"
+    creationTimestamp: "2023-05-19T00:18:16Z"
+    name: gp3-csi
+    resourceVersion: "309367"
+    uid: 5e9c5cce-6918-4a82-b7c2-4e79f17dc1fd
+  parameters:
+    encrypted: "true"
+    type: gp3
+  provisioner: ebs.csi.aws.com
+  reclaimPolicy: Delete
+  volumeBindingMode: WaitForFirstConsumer
+- allowVolumeExpansion: true
+  apiVersion: storage.k8s.io/v1
+  kind: StorageClass
+  metadata:
+    annotations:
+      description: Provides RWO Filesystem volumes, and RWO and RWX Block volumes
+    creationTimestamp: "2023-05-19T13:11:34Z"
+    name: ocs-storagecluster-ceph-rbd
+    resourceVersion: "300605"
+    uid: d87b01b8-35d6-4b37-884a-09a419406010
+  parameters:
+    clusterID: openshift-storage
+    csi.storage.k8s.io/controller-expand-secret-name: rook-csi-rbd-provisioner
+    csi.storage.k8s.io/controller-expand-secret-namespace: openshift-storage
+    csi.storage.k8s.io/fstype: ext4
+    csi.storage.k8s.io/node-stage-secret-name: rook-csi-rbd-node
+    csi.storage.k8s.io/node-stage-secret-namespace: openshift-storage
+    csi.storage.k8s.io/provisioner-secret-name: rook-csi-rbd-provisioner
+    csi.storage.k8s.io/provisioner-secret-namespace: openshift-storage
+    imageFeatures: layering,deep-flatten,exclusive-lock,object-map,fast-diff
+    imageFormat: "2"
+    pool: ocs-storagecluster-cephblockpool
+  provisioner: openshift-storage.rbd.csi.ceph.com
+  reclaimPolicy: Delete
+  volumeBindingMode: Immediate
+- allowVolumeExpansion: true
+  apiVersion: storage.k8s.io/v1
+  kind: StorageClass
+  metadata:
+    annotations:
+      description: Provides RWO and RWX Filesystem volumes
+      storageclass.kubernetes.io/is-default-class: "false"
+    creationTimestamp: "2023-05-19T13:11:34Z"
+    name: ocs-storagecluster-cephfs
+    resourceVersion: "3716945"
+    uid: c9800443-99f7-4c15-8665-aa0e33764f2e
+  parameters:
+    clusterID: openshift-storage
+    csi.storage.k8s.io/controller-expand-secret-name: rook-csi-cephfs-provisioner
+    csi.storage.k8s.io/controller-expand-secret-namespace: openshift-storage
+    csi.storage.k8s.io/node-stage-secret-name: rook-csi-cephfs-node
+    csi.storage.k8s.io/node-stage-secret-namespace: openshift-storage
+    csi.storage.k8s.io/provisioner-secret-name: rook-csi-cephfs-provisioner
+    csi.storage.k8s.io/provisioner-secret-namespace: openshift-storage
+    fsName: ocs-storagecluster-cephfilesystem
+  provisioner: openshift-storage.cephfs.csi.ceph.com
+  reclaimPolicy: Delete
+  volumeBindingMode: Immediate
+- apiVersion: storage.k8s.io/v1
+  kind: StorageClass
+  metadata:
+    annotations:
+      description: Provides Object Bucket Claims (OBCs)
+    creationTimestamp: "2023-05-19T13:13:19Z"
+    name: openshift-storage.noobaa.io
+    resourceVersion: "301731"
+    uid: f815a1a9-f86d-47d8-b4d1-ca0d6b150be9
+  parameters:
+    bucketclass: noobaa-default-bucket-class
+  provisioner: openshift-storage.noobaa.io/obc
+  reclaimPolicy: Delete
+  volumeBindingMode: Immediate
+kind: List
+metadata:
+  resourceVersion: ""

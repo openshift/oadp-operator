@@ -1,0 +1,67 @@
+apiVersion: v1
+items:
+- apiVersion: snapshot.storage.k8s.io/v1
+  deletionPolicy: Delete
+  driver: ebs.csi.aws.com
+  kind: VolumeSnapshotClass
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"snapshot.storage.k8s.io/v1","deletionPolicy":"Delete","driver":"ebs.csi.aws.com","kind":"VolumeSnapshotClass","metadata":{"annotations":{"snapshot.storage.kubernetes.io/is-default-class":"false"},"name":"csi-aws-vsc"}}
+      snapshot.storage.kubernetes.io/is-default-class: "false"
+    creationTimestamp: "2023-05-23T14:21:01Z"
+    generation: 1
+    name: csi-aws-vsc
+    resourceVersion: "3672787"
+    uid: fe55d724-0f89-43ca-8f96-e27e1790f123
+- apiVersion: snapshot.storage.k8s.io/v1
+  deletionPolicy: Retain
+  driver: ebs.csi.aws.com
+  kind: VolumeSnapshotClass
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"snapshot.storage.k8s.io/v1","deletionPolicy":"Retain","driver":"ebs.csi.aws.com","kind":"VolumeSnapshotClass","metadata":{"annotations":{"snapshot.storage.kubernetes.io/is-default-class":"true"},"labels":{"velero.io/csi-volumesnapshot-class":"true"},"name":"csi-aws-vsc-test"}}
+      snapshot.storage.kubernetes.io/is-default-class: "true"
+    creationTimestamp: "2023-05-23T14:21:01Z"
+    generation: 1
+    labels:
+      velero.io/csi-volumesnapshot-class: "true"
+    name: csi-aws-vsc-test
+    resourceVersion: "3672782"
+    uid: 6d43d26f-bef3-4998-99ee-d79de3645a55
+- apiVersion: snapshot.storage.k8s.io/v1
+  deletionPolicy: Retain
+  driver: openshift-storage.cephfs.csi.ceph.com
+  kind: VolumeSnapshotClass
+  metadata:
+    creationTimestamp: "2023-05-23T14:21:01Z"
+    generation: 6
+    labels:
+      velero.io/csi-volumesnapshot-class: "true"
+    name: ocs-storagecluster-cephfsplugin-snapclass
+    resourceVersion: "4664282"
+    uid: 39d290e1-f376-41e0-a8db-4314fc273f1c
+  parameters:
+    clusterID: openshift-storage
+    csi.storage.k8s.io/snapshotter-secret-name: rook-csi-cephfs-provisioner
+    csi.storage.k8s.io/snapshotter-secret-namespace: openshift-storage
+- apiVersion: snapshot.storage.k8s.io/v1
+  deletionPolicy: Retain
+  driver: openshift-storage.rbd.csi.ceph.com
+  kind: VolumeSnapshotClass
+  metadata:
+    creationTimestamp: "2023-05-23T14:21:01Z"
+    generation: 4
+    labels:
+      velero.io/csi-volumesnapshot-class: "true"
+    name: ocs-storagecluster-rbdplugin-snapclass
+    resourceVersion: "4671972"
+    uid: 4c428e3d-07f4-4f8f-af43-94bd81a822b7
+  parameters:
+    clusterID: openshift-storage
+    csi.storage.k8s.io/snapshotter-secret-name: rook-csi-rbd-provisioner
+    csi.storage.k8s.io/snapshotter-secret-namespace: openshift-storage
+kind: List
+metadata:
+  resourceVersion: ""

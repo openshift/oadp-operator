@@ -1,0 +1,12 @@
+                          DIR  s3://cvpbucket/openshift-adp/snapcontent-0c543b3d-584e-4678-85e0-25e9ecde8fef-pvc/
+                          DIR  s3://cvpbucket/openshift-adp/snapcontent-4de572e9-0d1b-4105-8199-43382b9ee157-pvc/
+                          DIR  s3://cvpbucket/openshift-adp/snapcontent-4eb08e76-b6ca-4385-9b52-28fb71d62f12-pvc/
+                          DIR  s3://cvpbucket/openshift-adp/snapcontent-5edc57c0-6cdd-4baf-98fa-0ba0166b4472-pvc/
+                          DIR  s3://cvpbucket/openshift-adp/snapcontent-69238ff4-8d30-4510-a39e-3ee228700073-pvc/
+                          DIR  s3://cvpbucket/openshift-adp/snapcontent-749921c9-222b-43fd-a858-d7491216c1bb-pvc/
+                          DIR  s3://cvpbucket/openshift-adp/snapcontent-9dba300e-da83-4663-a86e-cbf3ecc937a9-pvc/
+                          DIR  s3://cvpbucket/openshift-adp/snapcontent-a37fb449-b4e5-45e5-8ceb-4486865a24cd-pvc/
+                          DIR  s3://cvpbucket/openshift-adp/snapcontent-aa9fe81f-1c93-4f79-8de7-fe7b2b9da732-pvc/
+                          DIR  s3://cvpbucket/openshift-adp/snapcontent-bc77d25c-297e-4018-83ba-006a1a509991-pvc/
+                          DIR  s3://cvpbucket/openshift-adp/snapcontent-d515aefb-c4b2-4f85-847f-fd3ba96bf303-pvc/
+                          DIR  s3://cvpbucket/openshift-adp/snapcontent-fce75180-eedb-4e13-a121-6c633a6e1d38-pvc/

@@ -1,0 +1,8 @@
+apiVersion: velero.io/v1
+kind: Restore
+metadata:
+  name: mysql-persistent-cephfs-withdata
+  namespace: openshift-adp
+spec:
+  backupName: mysql-persistent-cephfs-withdata
+  restorePVs: true

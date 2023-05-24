@@ -1,0 +1,8 @@
+apiVersion: velero.io/v1
+kind: Restore
+metadata:
+  name: mysql-persistent-aws-withdata
+  namespace: openshift-adp
+spec:
+  backupName: mysql-persistent-aws-withdata
+  restorePVs: true
