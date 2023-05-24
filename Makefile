@@ -36,8 +36,9 @@ OC_CLI = $(shell which oc)
 ifdef CLI_DIR
 	OC_CLI = ${CLI_DIR}/oc
 endif
-
-CLUSTER_TYPE ?= $(shell $(OC_CLI) get infrastructures cluster -o jsonpath='{.status.platform}' | tr A-Z a-z)
+# makes CLUSTER_TYPE quieter when unauthenticated
+CLUSTER_TYPE_SHELL := $(shell $(OC_CLI) get infrastructures cluster -o jsonpath='{.status.platform}' | tr A-Z a-z)
+CLUSTER_TYPE ?= $(CLUSTER_TYPE_SHELL)
 $(info $$CLUSTER_TYPE is [${CLUSTER_TYPE}])
 
 ifeq ($(CLUSTER_TYPE), gcp)
@@ -78,7 +79,8 @@ ginkgo: # Make sure ginkgo is in $GOPATH/bin
 # To re-generate a bundle for another specific version without changing the standard setup, you can:
 # - use the VERSION as arg of the bundle target (e.g make bundle VERSION=0.0.2)
 # - use environment variables to overwrite this value (e.g export VERSION=0.0.2)
-VERSION ?= 99.0.0
+DEFAULT_VERSION := 99.0.0
+VERSION ?= $(DEFAULT_VERSION)
 
 # CHANNELS define the bundle channels used in the bundle.
 # Add a new line here if you would like to change its default config. (E.g CHANNELS = "candidate,fast,stable")
@@ -178,8 +180,17 @@ $(ENVTEST): ## Download envtest-setup locally if necessary.
 .PHONY: envtest
 envtest: $(ENVTEST)
 
+.PHONY: test
 test: manifests nullables generate fmt vet envtest ## Run tests.
 	KUBEBUILDER_ASSETS="$(ENVTESTPATH)" go test -mod=mod ./controllers/... ./pkg/... -coverprofile cover.out
+	@make bundle-isupdated GOFLAGS="-mod=mod"
+
+.PHONY: bundle-isupdated
+bundle-isupdated: TEMP:= $(shell mktemp -d)
+bundle-isupdated: VERSION:= $(DEFAULT_VERSION) #prevent VERSION overrides from https://github.com/openshift/release/blob/f1a388ab05d493b6d95b8908e28687b4c0679498/clusters/build-clusters/01_cluster/ci/_origin-release-build/golang-1.19/Dockerfile#LL9C1-L9C1
+bundle-isupdated:
+	@cp -r ./ $(TEMP) && cd $(TEMP) && make bundle && git diff --exit-code bundle && echo "bundle is up to date" || (echo "bundle is out of date, run 'make bundle' to update" && exit 1)
+	@chmod -R 777 $(TEMP) && rm -rf $(TEMP)
 
 ci-test: ## This assumes "manifests generate fmt vet envtest" ran.
 	KUBEBUILDER_ASSETS="$(ENVTESTPATH)" go test -mod=mod ./controllers/... -coverprofile cover.out
@@ -346,7 +357,7 @@ nullable-crds-bundle: yq
 .PHONY: nullable-crds-config
 nullable-crds-config: DPA_CRD_YAML ?= config/crd/bases/oadp.openshift.io_dataprotectionapplications.yaml
 nullable-crds-config:
-	DPA_CRD_YAML=$(DPA_CRD_YAML) make nullable-crds-bundle
+	@ DPA_CRD_YAML=$(DPA_CRD_YAML) make nullable-crds-bundle
 
 .PHONY: bundle-build
 bundle-build: ## Build the bundle image.
