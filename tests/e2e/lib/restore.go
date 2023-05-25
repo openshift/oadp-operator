@@ -67,10 +67,20 @@ func IsRestoreDone(ocClient client.Client, veleroNamespace, name string) wait.Co
 		if len(restore.Status.Phase) > 0 {
 			ginkgo.GinkgoWriter.Write([]byte(fmt.Sprintf("restore phase: %s\n", restore.Status.Phase)))
 		}
-		if restore.Status.Phase != "" && restore.Status.Phase != velero.RestorePhaseNew && restore.Status.Phase != velero.RestorePhaseInProgress {
-			return true, nil
+		var phasesNotDone = []velero.RestorePhase{
+			velero.RestorePhaseNew,
+			velero.RestorePhaseInProgress,
+			velero.RestorePhaseWaitingForPluginOperations,
+			velero.RestorePhaseWaitingForPluginOperationsPartiallyFailed,
+			"",
 		}
-		return false, nil
+		for _, notDonePhase := range phasesNotDone {
+			if restore.Status.Phase == notDonePhase {
+				return false, nil
+			}
+		}
+		return true, nil
+
 	}
 }
 

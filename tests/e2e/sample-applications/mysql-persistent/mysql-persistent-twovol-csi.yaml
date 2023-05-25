@@ -76,7 +76,7 @@ items:
           - image: registry.redhat.io/rhel8/mariadb-105:latest
             name: mysql
             securityContext:
-              privileged: true
+              privileged: false
             env:
               - name: MYSQL_USER
                 value: changeme
@@ -121,6 +121,7 @@ items:
       name: todolist
       namespace: mysql-persistent
       labels:
+        e2e-app: "true"
         app: todolist
         service: todolist
     spec:
@@ -133,6 +134,7 @@ items:
       template:
         metadata:
           labels:
+            e2e-app: "true"
             app: todolist
             service: todolist
         spec:

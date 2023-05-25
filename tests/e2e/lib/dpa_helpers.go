@@ -13,8 +13,11 @@ import (
 	"github.com/google/go-cmp/cmp"
 	. "github.com/onsi/ginkgo/v2"
 	buildv1 "github.com/openshift/api/build/v1"
+	"github.com/openshift/oadp-operator/controllers"
 	"github.com/openshift/oadp-operator/pkg/common"
 
+	volsync "github.com/backube/volsync/api/v1alpha1"
+	vsmv1alpha1 "github.com/konveyor/volume-snapshot-mover/api/v1alpha1"
 	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 	appsv1 "github.com/openshift/api/apps/v1"
 	security "github.com/openshift/api/security/v1"
@@ -22,6 +25,7 @@ import (
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	utils "github.com/openshift/oadp-operator/tests/e2e/utils"
 	operators "github.com/operator-framework/api/pkg/operators/v1alpha1"
+	operatorsv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	velero "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -31,13 +35,15 @@ import (
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
+	"sigs.k8s.io/yaml"
 )
 
 type BackupRestoreType string
 
 const (
-	CSI    BackupRestoreType = "csi"
-	RESTIC BackupRestoreType = "restic"
+	CSI          BackupRestoreType = "csi"
+	CSIDataMover BackupRestoreType = "csi-datamover"
+	RESTIC       BackupRestoreType = "restic"
 )
 
 type DpaCustomResource struct {
@@ -55,6 +61,10 @@ var Dpa *oadpv1alpha1.DataProtectionApplication
 func (v *DpaCustomResource) Build(backupRestoreType BackupRestoreType) error {
 	// Velero Instance creation spec with backupstorage location default to AWS. Would need to parameterize this later on to support multiple plugins.
 	dpaInstance := oadpv1alpha1.DataProtectionApplication{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "DataProtectionApplication",
+			APIVersion: "oadp.openshift.io/v1alpha1",
+		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      v.Name,
 			Namespace: v.Namespace,
@@ -100,30 +110,83 @@ func (v *DpaCustomResource) Build(backupRestoreType BackupRestoreType) error {
 	for _, plugin := range dpaInstance.Spec.Configuration.Velero.DefaultPlugins {
 		defaultPlugins[plugin] = emptyStruct{}
 	}
-	featureFlags := make(map[string]emptyStruct)
+	veleroFeatureFlags := make(map[string]emptyStruct)
 	for _, flag := range dpaInstance.Spec.Configuration.Velero.FeatureFlags {
-		featureFlags[flag] = emptyStruct{}
+		veleroFeatureFlags[flag] = emptyStruct{}
 	}
+	dpaInstance.Spec.Features = &oadpv1alpha1.Features{DataMover: &oadpv1alpha1.DataMover{Enable: false}}
 	switch backupRestoreType {
 	case RESTIC:
 		dpaInstance.Spec.Configuration.Restic.Enable = pointer.Bool(true)
 		delete(defaultPlugins, oadpv1alpha1.DefaultPluginCSI)
-		delete(featureFlags, "EnableCSI")
+		delete(defaultPlugins, oadpv1alpha1.DefaultPluginVSM)
+		dpaInstance.Spec.SnapshotLocations = nil
+		delete(veleroFeatureFlags, "EnableCSI")
 	case CSI:
 		dpaInstance.Spec.Configuration.Restic.Enable = pointer.Bool(false)
 		defaultPlugins[oadpv1alpha1.DefaultPluginCSI] = emptyStruct{}
-		featureFlags["EnableCSI"] = emptyStruct{}
+		veleroFeatureFlags["EnableCSI"] = emptyStruct{}
+		dpaInstance.Spec.SnapshotLocations = nil
+		delete(defaultPlugins, oadpv1alpha1.DefaultPluginVSM)
+	case CSIDataMover:
+		dpaInstance.Spec.Configuration.Restic.Enable = pointer.Bool(false)
+		defaultPlugins[oadpv1alpha1.DefaultPluginCSI] = emptyStruct{}
+		veleroFeatureFlags["EnableCSI"] = emptyStruct{}
+		dpaInstance.Spec.Features.DataMover.Enable = true
+		dpaInstance.Spec.Features.DataMover.CredentialName = controllers.ResticsecretName
+		dpaInstance.Spec.Features.DataMover.Timeout = "40m"
+		scName, err := v.ProviderStorageClassName(".")
+		if err != nil {
+			return err
+		}
+		dpaInstance.Spec.Features.DataMover.VolumeOptionsForStorageClasses = map[string]oadpv1alpha1.DataMoverVolumeOptions{
+			scName: {
+				SourceVolumeOptions: &oadpv1alpha1.VolumeOptions{
+					AccessMode: corev1.ReadWriteOnce,
+				},
+			},
+		}
+		defaultPlugins[oadpv1alpha1.DefaultPluginVSM] = emptyStruct{}
+		dpaInstance.Spec.SnapshotLocations = nil
 	}
 	dpaInstance.Spec.Configuration.Velero.DefaultPlugins = make([]oadpv1alpha1.DefaultPlugin, 0)
 	for k := range defaultPlugins {
 		dpaInstance.Spec.Configuration.Velero.DefaultPlugins = append(dpaInstance.Spec.Configuration.Velero.DefaultPlugins, k)
 	}
 	dpaInstance.Spec.Configuration.Velero.FeatureFlags = make([]string, 0)
-	for k := range featureFlags {
+	for k := range veleroFeatureFlags {
 		dpaInstance.Spec.Configuration.Velero.FeatureFlags = append(dpaInstance.Spec.Configuration.Velero.FeatureFlags, k)
+	}
+	// Uncomment to override plugin images to use
+	dpaInstance.Spec.UnsupportedOverrides = map[oadpv1alpha1.UnsupportedImageKey]string{
+		// oadpv1alpha1.VeleroImageKey: "quay.io/konveyor/velero:oadp-1.1",
+		// oadpv1alpha1.DataMoverImageKey: "quay.io/emcmulla/data-mover:latest",
+		// oadpv1alpha1.CSIPluginImageKey: "quay.io/emcmulla/csi-plugin:latest",
 	}
 	v.CustomResource = &dpaInstance
 	return nil
+}
+
+// if e2e, test/e2e is "." since context is tests/e2e/
+// for unit-test, test/e2e is ".." since context is tests/e2e/lib/
+func (v *DpaCustomResource) ProviderStorageClassName(e2eRoot string) (string, error) {
+	pvcFile := fmt.Sprintf("%s/sample-applications/%s/pvc/%s.yaml", e2eRoot, "mongo-persistent", v.Provider)
+	pvcList := corev1.PersistentVolumeClaimList{}
+	pvcBytes, err := utils.ReadFile(pvcFile)
+	if err != nil {
+		return "", err
+	}
+	err = yaml.Unmarshal(pvcBytes, &pvcList)
+	if err != nil {
+		return "", err
+	}
+	if pvcList.Items == nil || len(pvcList.Items) == 0 {
+		return "", errors.New("pvc not found")
+	}
+	if pvcList.Items[0].Spec.StorageClassName == nil {
+		return "", errors.New("storage class name not found in pvc")
+	}
+	return *pvcList.Items[0].Spec.StorageClassName, nil
 }
 
 func (v *DpaCustomResource) Create() error {
@@ -171,14 +234,26 @@ func (v *DpaCustomResource) CreateOrUpdateWithRetries(spec *oadpv1alpha1.DataPro
 	)
 	for i := 0; i < retries; i++ {
 		if cr, err = v.Get(); apierrors.IsNotFound(err) {
-			v.Build(v.backupRestoreType)
-			v.CustomResource.Spec = *spec
+			v.CustomResource = &oadpv1alpha1.DataProtectionApplication{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "DataProtectionApplication",
+					APIVersion: "oadp.openshift.io/v1alpha1",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      v.Name,
+					Namespace: v.Namespace,
+				},
+				Spec: *spec.DeepCopy(),
+			}
 			return v.Create()
 		} else if err != nil {
 			return err
 		}
-		cr.Spec = *spec
-		if err = v.Client.Update(context.Background(), cr); err != nil {
+		crPatch := cr.DeepCopy()
+		spec.DeepCopyInto(&crPatch.Spec)
+		crPatch.ObjectMeta.ManagedFields = nil
+		if err = v.Client.Patch(context.Background(), crPatch, client.MergeFrom(cr), &client.PatchOptions{}); err != nil {
+			log.Println("error patching velero cr", err)
 			if apierrors.IsConflict(err) && i < retries-1 {
 				log.Println("conflict detected during DPA CreateOrUpdate, retrying for ", retries-i-1, " more times")
 				time.Sleep(time.Second * 2)
@@ -217,6 +292,9 @@ func (v *DpaCustomResource) SetClient() error {
 	operators.AddToScheme(client.Scheme())
 	volumesnapshotv1.AddToScheme(client.Scheme())
 	buildv1.AddToScheme(client.Scheme())
+	operatorsv1alpha1.AddToScheme(client.Scheme())
+	volsync.AddToScheme(client.Scheme())
+	vsmv1alpha1.AddToScheme(client.Scheme())
 
 	v.Client = client
 	return nil
@@ -255,7 +333,7 @@ func AreVeleroPodsRunning(namespace string) wait.ConditionFunc {
 			return false, err
 		}
 		if podList.Items == nil || len(podList.Items) == 0 {
-			GinkgoWriter.Println("velero pods not found")
+			GinkgoWriter.Println(time.Now().String() + ": velero pods not found")
 			return false, nil
 		}
 		for _, podInfo := range (*podList).Items {
@@ -264,6 +342,7 @@ func AreVeleroPodsRunning(namespace string) wait.ConditionFunc {
 				return false, nil
 			}
 		}
+		GinkgoWriter.Println(time.Now().String() + ": velero pods are running")
 		return true, nil
 	}
 }

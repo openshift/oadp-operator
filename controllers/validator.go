@@ -3,10 +3,15 @@ package controllers
 import (
 	"errors"
 	"fmt"
+	"strings"
+
+	"time"
+
+	mapset "github.com/deckarep/golang-set/v2"
+
 	"github.com/go-logr/logr"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	"github.com/openshift/oadp-operator/pkg/credentials"
-	"time"
 )
 
 func (r *DPAReconciler) ValidateDataProtectionCR(log logr.Logger) (bool, error) {
@@ -48,7 +53,15 @@ func (r *DPAReconciler) ValidateDataProtectionCR(log logr.Logger) (bool, error) 
 			}
 		}
 	}
-	//
+
+	// check if the VSM plugin is specified or not
+	VSMPluginPresent := false
+	for _, plugin := range dpa.Spec.Configuration.Velero.DefaultPlugins {
+		if plugin == oadpv1alpha1.DefaultPluginVSM {
+			VSMPluginPresent = true
+		}
+	}
+
 	if r.checkIfDataMoverIsEnabled(&dpa) {
 		// parse for timeout if specified and see if there are no errors
 		if len(dpa.Spec.Features.DataMover.Timeout) > 0 {
@@ -58,17 +71,13 @@ func (r *DPAReconciler) ValidateDataProtectionCR(log logr.Logger) (bool, error) 
 			}
 		}
 
-		// Also check if the VSM plugin is specified or not
-		VSMPluginPresent := false
-		for _, plugin := range dpa.Spec.Configuration.Velero.DefaultPlugins {
-			if plugin == oadpv1alpha1.DefaultPluginVSM {
-				VSMPluginPresent = true
-			}
-		}
-
 		if !VSMPluginPresent {
-			return false, errors.New("datamover feature is enabled, need to specify vsm as a default plugin in DataProtectionApplication CR")
+			return false, errors.New("datamover is enabled, specify vsm as a default plugin")
 		}
+	}
+
+	if !r.checkIfDataMoverIsEnabled(&dpa) && VSMPluginPresent {
+		return false, errors.New("datamover is disabled, remove vsm as a default plugin")
 	}
 
 	if val, found := dpa.Spec.UnsupportedOverrides[oadpv1alpha1.OperatorTypeKey]; found && val != oadpv1alpha1.OperatorTypeMTC {
@@ -83,12 +92,15 @@ func (r *DPAReconciler) ValidateDataProtectionCR(log logr.Logger) (bool, error) 
 		return false, err
 	}
 
-	if _, err := r.getResticResourceReqs(&dpa); err != nil {
+	if _, err := getResticResourceReqs(&dpa); err != nil {
 		return false, err
 	}
 
 	return true, nil
 }
+
+// empty struct to use as map value
+type empty struct{}
 
 // For later: Move this code into validator.go when more need for validation arises
 // TODO: if multiple default plugins exist, ensure we validate all of them.
@@ -104,22 +116,58 @@ func (r *DPAReconciler) ValidateVeleroPlugins(log logr.Logger) (bool, error) {
 		return false, err
 	}
 
-	var defaultPlugin oadpv1alpha1.DefaultPlugin
-	for _, plugin := range dpa.Spec.Configuration.Velero.DefaultPlugins {
+	snapshotLocationsProviders := make(map[string]bool)
+	for _, location := range dpa.Spec.SnapshotLocations {
+		if location.Velero != nil {
+			provider := strings.TrimPrefix(location.Velero.Provider, veleroIOPrefix)
+			snapshotLocationsProviders[provider] = true
+		}
+	}
 
+	for _, plugin := range dpa.Spec.Configuration.Velero.DefaultPlugins {
 		pluginSpecificMap, ok := credentials.PluginSpecificFields[plugin]
 		pluginNeedsCheck, foundInBSLorVSL := providerNeedsDefaultCreds[string(plugin)]
 
+		if foundInVSL := snapshotLocationsProviders[string(plugin)]; foundInVSL {
+			pluginNeedsCheck = true
+		}
 		if !foundInBSLorVSL && !hasCloudStorage {
 			pluginNeedsCheck = true
 		}
-
-		if ok && pluginSpecificMap.IsCloudProvider && pluginNeedsCheck && !dpa.Spec.Configuration.Velero.NoDefaultBackupLocation {
-			secretName := pluginSpecificMap.SecretName
-			_, err := r.getProviderSecret(secretName)
-			if err != nil {
-				r.Log.Info(fmt.Sprintf("error validating %s provider secret:  %s/%s", defaultPlugin, r.NamespacedName.Namespace, secretName))
-				return false, err
+		if ok && pluginSpecificMap.IsCloudProvider && pluginNeedsCheck && !dpa.Spec.Configuration.Velero.NoDefaultBackupLocation && !dpa.Spec.Configuration.Velero.HasFeatureFlag("no-secret") {
+			secretNamesToValidate := mapset.NewSet[string]()
+			// check specified credentials in backup locations exists in the cluster
+			for _, location := range dpa.Spec.BackupLocations {
+				if location.Velero != nil {
+					provider := strings.TrimPrefix(location.Velero.Provider, veleroIOPrefix)
+					if provider == string(plugin) && location.Velero != nil {
+						if location.Velero.Credential != nil {
+							secretNamesToValidate.Add(location.Velero.Credential.Name)
+						} else {
+							secretNamesToValidate.Add(pluginSpecificMap.SecretName)
+						}
+					}
+				}
+			}
+			// check specified credentials in snapshot locations exists in the cluster
+			for _, location := range dpa.Spec.SnapshotLocations {
+				if location.Velero != nil {
+					provider := strings.TrimPrefix(location.Velero.Provider, veleroIOPrefix)
+					if provider == string(plugin) && location.Velero != nil {
+						if location.Velero.Credential != nil {
+							secretNamesToValidate.Add(location.Velero.Credential.Name)
+						} else {
+							secretNamesToValidate.Add(pluginSpecificMap.SecretName)
+						}
+					}
+				}
+			}
+			for _, secretName := range secretNamesToValidate.ToSlice() {
+				_, err := r.getProviderSecret(secretName)
+				if err != nil {
+					r.Log.Info(fmt.Sprintf("error validating %s provider secret:  %s/%s", string(plugin), r.NamespacedName.Namespace, secretName))
+					return false, err
+				}
 			}
 		}
 	}

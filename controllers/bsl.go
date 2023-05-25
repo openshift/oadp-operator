@@ -88,10 +88,16 @@ func (r *DPAReconciler) ReconcileBackupStorageLocations(log logr.Logger) (bool, 
 	for i, bslSpec := range dpa.Spec.BackupLocations {
 		// Create BSL as is, we can safely assume they are valid from
 		// ValidateBackupStorageLocations
+
+		// check if BSL name is specified in DPA spec
+		bslName := fmt.Sprintf("%s-%d", r.NamespacedName.Name, i+1)
+		if bslSpec.Name != "" {
+			bslName = bslSpec.Name
+		}
+
 		bsl := velerov1.BackupStorageLocation{
 			ObjectMeta: metav1.ObjectMeta{
-				// TODO: Use a hash instead of i
-				Name:      fmt.Sprintf("%s-%d", r.NamespacedName.Name, i+1),
+				Name:      bslName,
 				Namespace: r.NamespacedName.Namespace,
 			},
 		}
@@ -121,6 +127,10 @@ func (r *DPAReconciler) ReconcileBackupStorageLocations(log logr.Logger) (bool, 
 			if bslSpec.CloudStorage != nil {
 				bucket := &oadpv1alpha1.CloudStorage{}
 				err := r.Get(r.Context, client.ObjectKey{Namespace: dpa.Namespace, Name: bslSpec.CloudStorage.CloudStorageRef.Name}, bucket)
+				if err != nil {
+					return err
+				}
+				err = controllerutil.SetControllerReference(&dpa, &bsl, r.Scheme)
 				if err != nil {
 					return err
 				}

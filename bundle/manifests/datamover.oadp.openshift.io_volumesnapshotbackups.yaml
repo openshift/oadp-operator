@@ -16,7 +16,23 @@ spec:
     singular: volumesnapshotbackup
   scope: Namespaced
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - jsonPath: .status.sourcePVCData.name
+      name: PVC Name
+      type: string
+    - jsonPath: .spec.volumeSnapshotContent.name
+      name: VolumeSnapshotContent
+      type: string
+    - jsonPath: .status.phase
+      name: Phase
+      type: string
+    - jsonPath: .status.batchingStatus
+      name: BatchingStatus
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         description: VolumeSnapshotBackup is the Schema for the volumesnapshotbackups
@@ -112,6 +128,9 @@ spec:
             description: VolumeSnapshotBackupStatus defines the observed state of
               VolumeSnapshotBackup
             properties:
+              batchingStatus:
+                description: volumesnapshotbackup batching status
+                type: string
               completed:
                 type: boolean
               completionTimestamp:

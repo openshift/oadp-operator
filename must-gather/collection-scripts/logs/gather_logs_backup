@@ -12,14 +12,14 @@ timeout=$7
 skip_tls=$8
 
 # Gather backup logs and description
-mkdir -p "{object_collection_path}"
+mkdir -p "${object_collection_path}"
 echo "[cluster=${cluster}][ns=${ns}] Gathering 'velero backup describe ${backup}'"
 if [ "$timeout" = "0s" ]; then
-    oc -n ${ns} exec $(oc -n ${ns} get po -l component=velero -o custom-columns=name:.metadata.name --no-headers) -- /bin/bash -c "timeout 30s /velero describe backup ${backup} --insecure-skip-tls-verify=${skip_tls} --details" &> "${object_collection_path}/backup-describe-${backup}.txt" &
+    timeout 30s velero describe backup ${backup} --namespace ${ns} --insecure-skip-tls-verify=${skip_tls} --details &> "${object_collection_path}/backup-describe-${backup}.txt" &
 else
-    oc -n ${ns} exec --request-timeout=${timeout} $(oc -n ${ns} get po -l component=velero -o custom-columns=name:.metadata.name --no-headers) -- /bin/bash -c "timeout ${timeout} /velero describe backup ${backup} --insecure-skip-tls-verify=${skip_tls} --details" &> "${object_collection_path}/backup-describe-${backup}.txt" &
+    timeout ${timeout} velero describe backup ${backup} --namespace ${ns} --insecure-skip-tls-verify=${skip_tls} --details &> "${object_collection_path}/backup-describe-${backup}.txt" &
 fi
 echo "[cluster=${cluster}][ns=${ns}] Gathering 'velero backup logs ${backup}'"
-oc -n ${ns} exec $(oc -n ${ns} get po -l component=velero -o custom-columns=name:.metadata.name --no-headers) -- /bin/bash -c "timeout 30s /velero backup logs ${backup} --insecure-skip-tls-verify=${skip_tls} --timeout=30s" &> "${object_collection_path}/backup-${backup}.log" &
+timeout 30s velero backup logs ${backup} --namespace ${ns} --insecure-skip-tls-verify=${skip_tls} --timeout=30s &> "${object_collection_path}/backup-${backup}.log" &
 
 wait

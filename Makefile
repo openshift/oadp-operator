@@ -36,8 +36,9 @@ OC_CLI = $(shell which oc)
 ifdef CLI_DIR
 	OC_CLI = ${CLI_DIR}/oc
 endif
-
-CLUSTER_TYPE ?= $(shell $(OC_CLI) get infrastructures cluster -o jsonpath='{.status.platform}' | tr A-Z a-z)
+# makes CLUSTER_TYPE quieter when unauthenticated
+CLUSTER_TYPE_SHELL := $(shell $(OC_CLI) get infrastructures cluster -o jsonpath='{.status.platform}' | tr A-Z a-z)
+CLUSTER_TYPE ?= $(CLUSTER_TYPE_SHELL)
 $(info $$CLUSTER_TYPE is [${CLUSTER_TYPE}])
 
 ifeq ($(CLUSTER_TYPE), gcp)
@@ -78,7 +79,8 @@ ginkgo: # Make sure ginkgo is in $GOPATH/bin
 # To re-generate a bundle for another specific version without changing the standard setup, you can:
 # - use the VERSION as arg of the bundle target (e.g make bundle VERSION=0.0.2)
 # - use environment variables to overwrite this value (e.g export VERSION=0.0.2)
-VERSION ?= 99.0.0
+DEFAULT_VERSION := 99.0.0
+VERSION ?= $(DEFAULT_VERSION)
 
 # CHANNELS define the bundle channels used in the bundle.
 # Add a new line here if you would like to change its default config. (E.g CHANNELS = "candidate,fast,stable")
@@ -167,16 +169,29 @@ fmt: ## Run go fmt against code.
 vet: ## Run go vet against code.
 	go vet -mod=mod ./...
 
-test: manifests nullables generate fmt vet envtest ## Run tests.
-	KUBEBUILDER_ASSETS="$(ENVTESTPATH)" go test -mod=mod ./controllers/... ./pkg/... -coverprofile cover.out
-
-
-ENVTEST = $(shell pwd)/bin/setup-envtest
+ENVTEST := $(shell pwd)/bin/setup-envtest
 ENVTESTPATH = $(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)
-# if there is no native arch available, attempt to use amd64
-ifeq ($(shell $(ENVTEST) list),)
+ifeq ($(shell $(ENVTEST) list | grep $(ENVTEST_K8S_VERSION)),)
 	ENVTESTPATH = $(shell $(ENVTEST) --arch=amd64 use $(ENVTEST_K8S_VERSION) -p path)
 endif
+$(ENVTEST): ## Download envtest-setup locally if necessary.
+	$(call go-install-tool,$(ENVTEST),sigs.k8s.io/controller-runtime/tools/setup-envtest@latest)
+
+.PHONY: envtest
+envtest: $(ENVTEST)
+
+.PHONY: test
+test: manifests nullables generate fmt vet envtest ## Run tests.
+	KUBEBUILDER_ASSETS="$(ENVTESTPATH)" go test -mod=mod ./controllers/... ./pkg/... -coverprofile cover.out
+	@make bundle-isupdated GOFLAGS="-mod=mod"
+
+.PHONY: bundle-isupdated
+bundle-isupdated: TEMP:= $(shell mktemp -d)
+bundle-isupdated: VERSION:= $(DEFAULT_VERSION) #prevent VERSION overrides from https://github.com/openshift/release/blob/f1a388ab05d493b6d95b8908e28687b4c0679498/clusters/build-clusters/01_cluster/ci/_origin-release-build/golang-1.19/Dockerfile#LL9C1-L9C1
+bundle-isupdated:
+	@cp -r ./ $(TEMP) && cd $(TEMP) && make bundle && git diff --exit-code bundle && echo "bundle is up to date" || (echo "bundle is out of date, run 'make bundle' to update" && exit 1)
+	@chmod -R 777 $(TEMP) && rm -rf $(TEMP)
+
 ci-test: ## This assumes "manifests generate fmt vet envtest" ran.
 	KUBEBUILDER_ASSETS="$(ENVTESTPATH)" go test -mod=mod ./controllers/... -coverprofile cover.out
 
@@ -240,10 +255,6 @@ controller-gen: ## Download controller-gen locally if necessary.
 KUSTOMIZE = $(shell pwd)/bin/kustomize
 kustomize: ## Download kustomize locally if necessary.
 	$(call go-install-tool,$(KUSTOMIZE),sigs.k8s.io/kustomize/kustomize/v4@v4.5.5)
-
-ENVTEST = $(shell pwd)/bin/setup-envtest
-envtest: ## Download envtest-setup locally if necessary.
-	$(call go-install-tool,$(ENVTEST),sigs.k8s.io/controller-runtime/tools/setup-envtest@latest)
 
 # Codecov OS String for use in download url
 ifeq ($(OS),Windows_NT)
@@ -346,7 +357,7 @@ nullable-crds-bundle: yq
 .PHONY: nullable-crds-config
 nullable-crds-config: DPA_CRD_YAML ?= config/crd/bases/oadp.openshift.io_dataprotectionapplications.yaml
 nullable-crds-config:
-	DPA_CRD_YAML=$(DPA_CRD_YAML) make nullable-crds-bundle
+	@ DPA_CRD_YAML=$(DPA_CRD_YAML) make nullable-crds-bundle
 
 .PHONY: bundle-build
 bundle-build: ## Build the bundle image.
@@ -363,7 +374,8 @@ deploy-olm: THIS_BUNDLE_IMAGE?=ttl.sh/oadp-operator-bundle-$(GIT_REV):1h # Set t
 deploy-olm: DEPLOY_TMP:=$(shell mktemp -d)/ # Set target specific variable
 deploy-olm: operator-sdk ## Build current branch operator image, bundle image, push and install via OLM
 	oc whoami # Check if logged in
-	oc create namespace $(OADP_TEST_NAMESPACE) # This should error out if namespace already exists, delete namespace (to clear current resources) before proceeding
+	oc create namespace $(OADP_TEST_NAMESPACE) || true
+	$(OPERATOR_SDK) cleanup oadp-operator --namespace $(OADP_TEST_NAMESPACE)
 	@echo "DEPLOY_TMP: $(DEPLOY_TMP)"
 	# build and push operator and bundle image
 	# use $(OPERATOR_SDK) to install bundle to authenticated cluster
@@ -425,6 +437,7 @@ sed -r "s/[&]* [!] $(CLUSTER_TYPE)|[!] $(CLUSTER_TYPE) [&]*//")) || $(CLUSTER_TY
 #TEST_FILTER := $(shell echo '! aws && ! gcp && ! azure' | sed -r "s/[&]* [!] $(CLUSTER_TYPE)|[!] $(CLUSTER_TYPE) [&]*//")
 SETTINGS_TMP=/tmp/test-settings
 
+.PHONY: test-e2e-setup
 test-e2e-setup:
 	mkdir -p $(SETTINGS_TMP)
 	TARGET_CI_CRED_FILE="$(CI_CRED_FILE)" AZURE_RESOURCE_FILE="$(AZURE_RESOURCE_FILE)" CI_JSON_CRED_FILE="$(AZURE_CI_JSON_CRED_FILE)" \
@@ -432,7 +445,8 @@ test-e2e-setup:
 	PROVIDER="$(VELERO_PLUGIN)" BUCKET="$(OADP_BUCKET)" BSL_REGION="$(BSL_REGION)" SECRET="$(CREDS_SECRET_REF)" TMP_DIR=$(SETTINGS_TMP) \
 	VSL_REGION="$(VSL_REGION)" BSL_AWS_PROFILE="$(BSL_AWS_PROFILE)" /bin/bash "tests/e2e/scripts/$(CLUSTER_TYPE)_settings.sh"
 
-test-e2e: test-e2e-setup ## execute the oadp integration tests
+.PHONY: test-e2e-ginkgo
+test-e2e-ginkgo: test-e2e-setup
 	ginkgo run -mod=mod tests/e2e/ -- -credentials=$(OADP_CRED_FILE) \
 	-velero_namespace=$(OADP_TEST_NAMESPACE) \
 	-settings=$(SETTINGS_TMP)/oadpcreds \
@@ -443,7 +457,34 @@ test-e2e: test-e2e-setup ## execute the oadp integration tests
 	-provider=$(CLUSTER_TYPE) \
 	-creds_secret_ref=$(CREDS_SECRET_REF) \
 	-artifact_dir=$(ARTIFACT_DIR) \
-	-oc_cli=$(OC_CLI)
+	-oc_cli=$(OC_CLI) \
+	--ginkgo.timeout=2h
 
-test-e2e-cleanup:
+.PHONY: test-e2e
+test-e2e: volsync-install test-e2e-ginkgo
+
+.PHONY: test-e2e-cleanup
+test-e2e-cleanup: volsync-uninstall
 	rm -rf $(SETTINGS_TMP)
+
+.PHONY: volsync-install
+volsync-install:
+	$(eval VS_CURRENT_CSV:=$(shell oc get subscription volsync-product -n openshift-operators -ojsonpath='{.status.currentCSV}'))
+	# OperatorGroup not required, volsync is global operator which has operatorgroup already.
+	# Create subscription for operator if not installed.
+	@if [ "$(VS_CURRENT_CSV)" == "" ]; then \
+		$(OC_CLI) replace --force -f tests/e2e/volsync/volsync-sub.yaml; \
+	else \
+		echo $(VS_CURRENT_CSV) already installed; \
+	fi
+
+.PHONY: volsync-uninstall
+volsync-uninstall:
+	$(eval VS_CURRENT_CSV:=$(shell oc get subscription volsync-product -n openshift-operators -ojsonpath='{.status.currentCSV}'))
+	@if [ "$(VS_CURRENT_CSV)" != "" ]; then \
+		echo "Uninstalling $(VS_CURRENT_CSV)"; \
+		$(OC_CLI) delete subscription volsync-product -n openshift-operators && \
+		$(OC_CLI) delete csv $(VS_CURRENT_CSV) -n openshift-operators; \
+	else \
+		echo No subscription found, skipping uninstall; \
+	fi

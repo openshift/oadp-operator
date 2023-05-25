@@ -36,6 +36,10 @@ else
   echo "Essential-only must-gather was requested. Skipping prometheus metrics collection"
 fi
 
+# Gather version information
+echo "Gathering version information for top-level debug file"
+/usr/bin/gather_versions "/must-gather/clusters/${clusterID}/oadp-debug-info" ${skip_tls} &
+
 # Waits for gather_crs, gather_logs, gather_metrics running in background
 echo "Waiting for background gather tasks to finish"
 wait

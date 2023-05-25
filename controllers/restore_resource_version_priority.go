@@ -10,7 +10,6 @@ import (
 )
 
 const (
-	enableApiGroupVersionsFeatureFlag      = "EnableAPIGroupVersions"
 	enableApiGroupVersionsConfigMapName    = "enableapigroupversions"
 	restoreResourcesVersionPriorityDataKey = "restoreResourcesVersionPriority"
 )
@@ -20,9 +19,6 @@ func (r *DPAReconciler) ReconcileRestoreResourcesVersionPriority(dpa *oadpv1alph
 	if len(dpa.Spec.Configuration.Velero.RestoreResourcesVersionPriority) == 0 {
 		return true, nil
 	}
-	// if the RestoreResourcesVersionPriority is specified then ensure feature flag is enabled for enableApiGroupVersions
-	// duplicate feature flag checks are done in ReconcileVeleroDeployment
-	dpa.Spec.Configuration.Velero.FeatureFlags = append(dpa.Spec.Configuration.Velero.FeatureFlags, enableApiGroupVersionsFeatureFlag)
 	configMap := corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      enableApiGroupVersionsConfigMapName,

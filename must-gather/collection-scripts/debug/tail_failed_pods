@@ -1,0 +1,11 @@
+#!/bin/bash
+
+namespace="${1:-openshift-adp}"
+skip_tls="${2:-false}"
+
+for pod in $(oc get pods --insecure-skip-tls-verify=${skip_tls} -n ${namespace} -o jsonpath='{.items[?(.status.containerStatuses[0].lastState.terminated.reason=="Error")].metadata.name}'); do
+    echo "***"
+    echo "* Last logs from failed pod ${namespace}/${pod}:"
+    oc logs -n ${namespace} --insecure-skip-tls-verify=${skip_tls} $pod --tail=10
+    echo -e "\n\n\n"
+done
