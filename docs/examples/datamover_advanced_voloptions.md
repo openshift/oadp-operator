@@ -1,10 +1,10 @@
-<h2 align="center">OADP Data Mover 1.2 Advanced Volume Options</h2>
+# <h2 align="center">OADP Data Mover 1.2 Advanced Volume Options</h2>
 
-- The official OpenShift OADP Data Mover documentation can be found [here](https://docs.openshift.com/container-platform/4.12/backup_and_restore/application_backup_and_restore/backing_up_and_restoring/backing-up-applications.html#oadp-using-data-mover-for-csi-snapshots_backing-up-applications)
+
+- The official OpenShift OADP Data Mover documentation can be found [here](https://docs.openshift.com/container-platform/4.13/backup_and_restore/application_backup_and_restore/backing_up_and_restoring/backing-up-applications.html#oadp-using-data-mover-for-csi-snapshots_backing-up-applications)
 - We maintain an up to date FAQ page [here](https://access.redhat.com/articles/5456281)
 
 <h2>Background Information:<a id="pre-reqs"></a></h2>
-<hr style="height:1px;border:none;color:#333;">
 
 
 OADP Data Mover 1.2 leverages some of the recently added features of Ceph to be 
@@ -20,8 +20,6 @@ used other than what is found on the source PVC.
 
 <h2>Prerequisites:<a id="pre-reqs"></a></h2>
 
-<hr style="height:1px;border:none;color:#333;">
-
 - OCP > 4.11
 
 - OADP operator and a credentials secret are created. Follow 
@@ -30,18 +28,20 @@ used other than what is found on the source PVC.
 - A CephFS and a CephRBD `StorageClass` and a `VolumeSnapshotClass` 
     - Installing ODF will create these in your cluster:
 
-### CephFS volumeSnapshotClass and storageClass:    
+### CephFS VolumeSnapshotClass and StorageClass:
 
-```
+**Note:** The deletionPolicy, annotations, and labels
+
+```yml
 apiVersion: snapshot.storage.k8s.io/v1
-deletionPolicy: Retain
+deletionPolicy: Retain # <--- Note the Retain Policy
 driver: openshift-storage.cephfs.csi.ceph.com
 kind: VolumeSnapshotClass
 metadata:
   annotations:
-    snapshot.storage.kubernetes.io/is-default-class: 'true'
+    snapshot.storage.kubernetes.io/is-default-class: 'true' # <--- Note the default
   labels:
-    velero.io/csi-volumesnapshot-class: 'true'
+    velero.io/csi-volumesnapshot-class: 'true'   # <--- Note the velero label 
   name: ocs-storagecluster-cephfsplugin-snapclass
 parameters:
   clusterID: openshift-storage
@@ -49,14 +49,15 @@ parameters:
   csi.storage.k8s.io/snapshotter-secret-namespace: openshift-storage
 ```
 
-```
+**Note:** The annotations
+```yml
 kind: StorageClass
 apiVersion: storage.k8s.io/v1
 metadata:
   name: ocs-storagecluster-cephfs
   annotations:
     description: Provides RWO and RWX Filesystem volumes
-    storageclass.kubernetes.io/is-default-class: 'true'
+    storageclass.kubernetes.io/is-default-class: 'true'  # <--- Note the default
 provisioner: openshift-storage.cephfs.csi.ceph.com
 parameters:
   clusterID: openshift-storage
@@ -72,16 +73,17 @@ allowVolumeExpansion: true
 volumeBindingMode: Immediate
 ```
 
-### CephRBD volumeSnapshotClass and storageClass: 
+### CephRBD VolumeSnapshotClass and StorageClass: 
 
-```
+**Note:** The deletionPolicy, and labels
+```yml
 apiVersion: snapshot.storage.k8s.io/v1
-deletionPolicy: Retain
+deletionPolicy: Retain # <--- Note: the Retain Policy
 driver: openshift-storage.rbd.csi.ceph.com
 kind: VolumeSnapshotClass
 metadata:
   labels:
-    velero.io/csi-volumesnapshot-class: 'true'
+    velero.io/csi-volumesnapshot-class: 'true' # <--- Note velero 
   name: ocs-storagecluster-rbdplugin-snapclass
 parameters:
   clusterID: openshift-storage
@@ -89,7 +91,7 @@ parameters:
   csi.storage.k8s.io/snapshotter-secret-namespace: openshift-storage
 ```
 
-```
+```yml
 kind: StorageClass
 apiVersion: storage.k8s.io/v1
 metadata:
@@ -114,9 +116,9 @@ allowVolumeExpansion: true
 volumeBindingMode: Immediate
 ```
 
-- Create an additional CephFS `storageClass` to make use of the `shallowCopy` feature:
+- Create an additional CephFS `StorageClass` to make use of the `shallowCopy` feature:
 
-```
+```yml
 kind: StorageClass
 apiVersion: storage.k8s.io/v1
 metadata:
@@ -133,7 +135,7 @@ parameters:
   clusterID: openshift-storage
   fsName: ocs-storagecluster-cephfilesystem
   csi.storage.k8s.io/controller-expand-secret-namespace: openshift-storage
-  backingSnapshot: 'true'     # <------ shallowCopy
+  backingSnapshot: 'true'     # <--- shallowCopy
   csi.storage.k8s.io/node-stage-secret-namespace: openshift-storage
 reclaimPolicy: Delete
 allowVolumeExpansion: true
@@ -141,17 +143,17 @@ volumeBindingMode: Immediate
 ```
 
 - **Notes**: 
-    - Make sure the default `volumeSnapshotClass` and `storageClass` are the same provisioner
-    - The `volumeSnapshotClass` must have the `deletionPloicy` set to Retain
-    - The `volumeSnapshotClasses` must have the label `velero.io/csi-volumesnapshot-class: 'true'`
+    - Make sure the default `VolumeSnapshotClass` and `StorageClass` are the same provisioner
+    - The `VolumeSnapshotClass` must have the `deletionPloicy` set to Retain
+    - The `VolumeSnapshotClasses` must have the label `velero.io/csi-volumesnapshot-class: 'true'`
 
-- Install the VolSync operator using OLM.
+- Install the latest VolSync operator using OLM.
 
 ![Volsync_install](/docs/images/volsync_install.png)
 
 - We will be using VolSync's Restic option, hence configure a restic secret:
 
-```
+```yml
 apiVersion: v1
 kind: Secret
 metadata:
@@ -164,11 +166,26 @@ stringData:
 
 <h1 align="center">Backup/Restore with CephFS ShallowCopy<a id="shallowcopy"></a></h1>
 
-- Have a stateful application running in a separate namespace with PVCs using 
+- Please ensure that a stateful application is running in a separate namespace with PVCs using 
   CephFS as the provisioner
 
-- Have the default `storageClass` and `volumeSnapshotClass` as cephFS, as shown
+- Please ensure the default `StorageClass` and `VolumeSnapshotClass` as cephFS, as shown
     in the [prerequisites](#pre-reqs)
+
+- **Helpful Commands**:
+    
+    Check the VolumeSnapshotClass retain policy:
+    ```
+    oc get volumesnapshotclass -A  -o jsonpath='{range .items[*]}{"Name: "}{.metadata.name}{"  "}{"Retention Policy: "}{.deletionPolicy}{"\n"}{end}'
+    ```
+    Check the VolumeSnapShotClass lables:
+    ```
+    oc get volumesnapshotclass -A  -o jsonpath='{range .items[*]}{"Name: "}{.metadata.name}{"  "}{"labels: "}{.metadata.labels}{"\n"}{end}' 
+    ```
+    Check the StorageClass annotations:
+    ```
+    oc get storageClass -A  -o jsonpath='{range .items[*]}{"Name: "}{.metadata.name}{"  "}{"annotations: "}{.metadata.annotations}{"\n"}{end}' 
+    ```
 
 - Create a DPA similar to below:
   - Add the restic secret name from the previous step to your DPA CR 
@@ -176,7 +193,7 @@ stringData:
     then it will default to the secret name `dm-credential`.
 
 
-```
+```yml
 apiVersion: oadp.openshift.io/v1alpha1
 kind: DataProtectionApplication
 metadata:
@@ -198,7 +215,7 @@ spec:
         provider: aws
   configuration:
     restic:
-      enable: false
+      enable: false # [true, false]
     velero:
       defaultPlugins:
         - openshift
@@ -227,7 +244,7 @@ spec:
 
 - Create a backup CR:
 
-```
+```yml
 apiVersion: velero.io/v1
 kind: Backup
 metadata:
@@ -239,11 +256,17 @@ spec:
   storageLocation: velero-sample-1
 ```
 
+- Monitor the datamover backup and artifacts via [a debug script](/docs/examples/debug.md)
+
+OR
+- Check the progress of the `volumeSnapshotBackup`(s):
+
+```
+oc get vsb -n <app-ns>
+oc get vsb <vsb-name> -n <app-ns> -ojsonpath="{.status.phase}` 
+```
+
 - Wait several minutes and check the VolumeSnapshotBackup CR status for `completed`: 
-
-`oc get vsb -n <app-ns>`
-
-`oc get vsb <vsb-name> -n <app-ns> -ojsonpath="{.status.phase}` 
 
 - There should now be a snapshot(s) in the object store that was given in the restic secret.
 - You can check for this snapshot in your targeted `backupStorageLocation` with a
@@ -256,7 +279,7 @@ prefix of `/<OADP-namespace>`
 
 - Create a restore CR:
 
-```
+```yml
 apiVersion: velero.io/v1
 kind: Restore
 metadata:
@@ -265,12 +288,14 @@ metadata:
 spec:
   backupName: <previous-backup-name>
 ```
+- Monitor the datamover backup and artifacts via [a debug script](/docs/examples/debug.md)
+OR
+- Check the `VolumeSnapshotRestore`(s) progress: 
 
-- Wait several minutes and check the VolumeSnapshotRestore CR status for `completed`: 
-
-`oc get vsr -n <app-ns>`
-
-`oc get vsr <vsr-name> -n <app-ns> -ojsonpath="{.status.phase}` 
+```
+oc get vsr -n <app-ns>
+oc get vsr <vsr-name> -n <app-ns> -ojsonpath="{.status.phase}
+```
 
 - Check that your application data has been restored:
 
@@ -279,11 +304,11 @@ spec:
 
 <h1 align="center">Backup/Restore with Split Volumes: CephFS and CephRBD<a id="fsrbd"></a></h1>
 
-- Have a stateful application running in a separate namespace with PVCs provisioned
+- Ensure a stateful application is running in a separate namespace with PVCs provisioned
   by both CephFS and CephRBD
 
-- This assumes cephFS is being used as the default `storageClass` and 
-    `volumeSnapshotClass`
+- This assumes cephFS is being used as the default `StorageClass` and 
+    `VolumeSnapshotClass`
 
 - Create a DPA similar to below:
   - Add the restic secret name from the prerequisites to your DPA CR in 
@@ -292,7 +317,7 @@ spec:
   - Note: `volumeOptionsForStorageClass` can be defined for multiple storageClasses,
     thus allowing a backup to complete with volumes with different providers.
 
-```
+```yml
 apiVersion: oadp.openshift.io/v1alpha1
 kind: DataProtectionApplication
 metadata:
