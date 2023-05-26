@@ -40,9 +40,7 @@ objects:
         image: 'quay.io/rhn_engineering_whayutin/oadp-tekton:latest'
         script: |
           set -ex
-          ls -la /workspace/debug
-          ls -la backup.yaml
-          ls -la restore.yaml
+          ls -la /workspace/debug/
           cat backup.yaml
           cat restore.yaml
           # copy cr's to pv
@@ -113,11 +111,7 @@ objects:
       params:
       - name: SCRIPT
         value: |
-          printf "echo the BACKUP_NAME parameter \n"
-          echo $(params.BACKUP_NAME)
-          printf "\n"
-          oc get backup -n openshift-adp $(params.BACKUP_NAME) -o jsonpath='{.status.phase}'
-          status=foo && while [[ $status != "Completed" ]]; do status=`oc get backup -n openshift-adp $(params.BACKUP_NAME) -o jsonpath='{.status.phase}'`; echo $status; sleep 5; done
+          status=foo && while [[ $status != "Completed" ]]; do status=`oc get backup -n openshift-adp $(params.BACKUP_NAME) -o jsonpath='{.status.phase}'`; echo -e "Backup: $(params.BACKUP_NAME) Status: $status \n"; sleep 5; done
       - name: VERSION
         value: latest
       runAfter:
@@ -157,6 +151,8 @@ objects:
     namespace: ${PROJECT}
   spec:
     params:
+    - name: RESTORE_NAME
+      type: string
     - name: BACKUP_NAME
       type: string
     tasks:
@@ -181,23 +177,26 @@ objects:
       params:
       - name: SCRIPT
         value: |
+          printf "echo the RESTORE_NAME parameter \n"
+          echo $(params.RESTORE_NAME)
           printf "echo the BACKUP_NAME parameter \n"
           echo $(params.BACKUP_NAME)
           printf "\n"
           printf "cat the original backup cr \n"
-          cat /workspace/manifest-dir/docs/tekton-oadp-nonadmin/restore_cr/restore.yaml
+          cat /workspace/manifest-dir/restore.yaml
           printf "\n"
           printf "Update the restore cr's name\n"
-          sed -i 's/BACKUP_NAME/$(params.BACKUP_NAME)/g' /workspace/manifest-dir/docs/tekton-oadp-nonadmin/restore_cr/restore.yaml
+          sed -i 's/RESTORE_NAME/$(params.RESTORE_NAME)/g' /workspace/manifest-dir/restore.yaml
+          sed -i 's/BACKUP_NAME/$(params.BACKUP_NAME)/g' /workspace/manifest-dir/restore.yaml
           printf "\n"
           printf "cat the updated restore cr \n"
-          cat /workspace/manifest-dir/docs/tekton-oadp-nonadmin/restore_cr/restore.yaml
+          cat /workspace/manifest-dir/restore.yaml
           printf "\n"
           printf "Finally create the restore workflow\n"
-          oc create -f /workspace/manifest-dir/docs/tekton-oadp-nonadmin/restore_cr/restore.yaml
+          oc create -f /workspace/manifest-dir/restore.yaml
           printf "\n"
           printf "Get the details and status of the restore\n"
-          oc get restore $(params.BACKUP_NAME) -n openshift-adp -o yaml
+          oc get restore $(params.RESTORE_NAME) -n openshift-adp -o yaml
           printf "\n"
       - name: VERSION
         value: latest
@@ -209,16 +208,11 @@ objects:
       workspaces:
       - name: manifest-dir
         workspace: repo
-    - name: checkbackupstatus
+    - name: checkrestorestatus
       params:
       - name: SCRIPT
         value: |
-          printf "echo the BACKUP_NAME parameter \n"
-          echo $(params.BACKUP_NAME)
-          printf "\n"
-          printf "Getting the status of the restore workflow\n"
-          oc get restore -n openshift-adp $(params.BACKUP_NAME) -o jsonpath='{.status.phase}'
-          status=foo && while [[ $status != "Completed" ]]; do status=`oc get restore -n openshift-adp $(params.BACKUP_NAME) -o jsonpath='{.status.phase}'`; echo $status; sleep 5; done
+          status=foo && while [[ $status != "Completed" ]]; do status=`oc get restore -n openshift-adp $(params.RESTORE_NAME) -o jsonpath='{.status.phase}'`; echo -e "Restore: $(params.RESTORE_NAME) Status: $status \n"; sleep 5; done
       - name: VERSION
         value: latest
       retries: 3
@@ -238,10 +232,10 @@ objects:
         params:
         - name: SCRIPT
           value: |
-            printf "echo the BACKUP_NAME parameter \n"
-            echo $(params.BACKUP_NAME)
+            printf "echo the RESTORE_NAME parameter \n"
+            echo $(params.RESTORE_NAME)
             printf "\n"
-            oc get restore -n openshift-adp $(params.BACKUP_NAME) -o yaml
+            oc get restore -n openshift-adp $(params.RESTORE_NAME) -o yaml
         - name: VERSION
           value: latest
         taskRef:
