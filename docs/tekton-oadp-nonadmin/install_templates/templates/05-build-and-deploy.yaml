@@ -44,7 +44,7 @@ objects:
       - name: list-workspace-files
         image: 'quay.io/rhn_engineering_whayutin/oadp-tekton:latest'
         script: |
-          set -ex
+          set -e
           ls -la /workspace/debug/
           cat backup.yaml
           cat restore.yaml
@@ -79,15 +79,16 @@ objects:
       - name: check-user-perm-restore
         image: 'quay.io/rhn_engineering_whayutin/oadp-tekton:latest'
         script: |
-          set -ex
+          set -e
           # copy cr's to pv
           cp restore.yaml /workspace/debug/
           cat /workspace/debug/restore.yaml
 
           # check the namespace of the backup to ensure user has access to the restore namespace
           echo -e "\n\n ***** CHECK IF NAMESPACE ALLOWED *****\n"
-          echo -e "The allowed namespaces for user are ${ALLOWED_NAMESPACES}\n"
-          echo -e "Checking if the user has permissions to restore\n"
+          echo -e "The allowed namespaces for user are ${ALLOWED_NAMESPACES}\n\n"
+          echo -e "Checking if the user has permissions to restore...."
+          echo -e "get_restore_namespace.sh BACKUP_NAME ALLOWED_NAMESPACES"
           get_restore_namespace.sh $(params.BACKUP_NAME) ${ALLOWED_NAMESPACES}
           
 - kind: Pipeline
