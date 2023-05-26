@@ -26,7 +26,7 @@ objects:
 - kind: Task
   apiVersion: tekton.dev/v1beta1
   metadata:
-    name: debug
+    name: checkbackup
     namespace: ${PROJECT}
   spec:
     # notes: each task specifies the workspace name
@@ -56,7 +56,39 @@ objects:
           echo -e "\n\n ***** CHECK IF NAMESPACE ALLOWED *****\n"
           echo -e "The allowed namespaces for user are ${ALLOWED_NAMESPACES}\n"
           echo -e "Checking if the user has permissions to backup $(params.NAMESPACE) \n"
-          check_namespace.sh $(params.NAMESPACE) ${ALLOWED_NAMESPACES}
+          check_backup_namespace.sh $(params.NAMESPACE) ${ALLOWED_NAMESPACES}
+
+- kind: Task
+  apiVersion: tekton.dev/v1beta1
+  metadata:
+    name: checkrestore
+    namespace: ${PROJECT}
+  spec:
+    # notes: each task specifies the workspace name
+    # the same pvc is used, only the mounted directory changes based on the name
+    # in this case "debug"
+    params:
+      - name: BACKUP_NAME
+        type: string
+    workspaces:
+      - name: debug
+    results: 
+      - name: list-files
+        description: lists the repos files
+    steps:
+      - name: check-user-perm-restore
+        image: 'quay.io/rhn_engineering_whayutin/oadp-tekton:latest'
+        script: |
+          set -ex
+          # copy cr's to pv
+          cp restore.yaml /workspace/debug/
+          cat /workspace/debug/restore.yaml
+
+          # check the namespace of the backup to ensure user has access to the restore namespace
+          echo -e "\n\n ***** CHECK IF NAMESPACE ALLOWED *****\n"
+          echo -e "The allowed namespaces for user are ${ALLOWED_NAMESPACES}\n"
+          echo -e "Checking if the user has permissions to restore\n"
+          get_restore_namespace.sh $(params.BACKUP_NAME) ${ALLOWED_NAMESPACES}
           
 - kind: Pipeline
   apiVersion: tekton.dev/v1beta1
@@ -83,7 +115,7 @@ objects:
       - import-images
       taskRef:
         kind: Task
-        name: debug
+        name: checkbackup
       params:
         - name: NAMESPACE
           value: $(params.NAMESPACE)
@@ -179,12 +211,15 @@ objects:
       taskRef:
         kind: ClusterTask
         name: openshift-client
-    - name: listfiles
+    - name: precheckrestore
       runAfter:
       - import-images
       taskRef:
         kind: Task
-        name: debug
+        name: checkrestore
+      params:
+        - name: BACKUP_NAME
+          value: $(params.BACKUP_NAME)
       workspaces:
       - name: debug
         workspace: repo
@@ -216,7 +251,7 @@ objects:
       - name: VERSION
         value: latest
       runAfter:
-      - listfiles
+      - precheckrestore
       taskRef:
         kind: ClusterTask
         name: openshift-client
