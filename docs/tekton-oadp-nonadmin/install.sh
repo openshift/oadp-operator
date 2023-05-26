@@ -59,13 +59,20 @@ pushd templates
 pwd
 
 FILES="03-rbac-pipeline-role.yaml
-04-service-account_template.yaml
-05-build-and-deploy.yaml"
+04-service-account_template.yaml"
 
 for i in $FILES; do
   oc process -f $i -p PROJECT=$PROJECT -p USER=$USER -o yaml > $OUTPUT_DIR/$i
 done
+
+ALLOWED_NAMESPACES=`oc --as buzz1 get projects -o jsonpath='{range .items[*]}{.metadata.name}{","}{end}'`
+
+FILES="05-build-and-deploy.yaml"
+for i in $FILES; do
+  oc process -f $i -p PROJECT=$PROJECT -p USER=$USER -p ALLOWED_NAMESPACES=$ALLOWED_NAMESPACES -o yaml > $OUTPUT_DIR/$i
+done
 popd
+
 
 FILES="03-rbac-pipeline-role.yaml
 04-service-account_template.yaml

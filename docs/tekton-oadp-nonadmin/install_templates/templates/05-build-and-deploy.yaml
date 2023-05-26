@@ -9,6 +9,8 @@ parameters:
     description: The name of the project
   - name: USER
     description: user with rights to launch b/r pipelines
+  - name: ALLOWED_NAMESPACES
+    description: A generated list of namespaces the user has permission for
 objects:
 - kind: PersistentVolumeClaim
   apiVersion: v1
@@ -30,6 +32,9 @@ objects:
     # notes: each task specifies the workspace name
     # the same pvc is used, only the mounted directory changes based on the name
     # in this case "debug"
+    params:
+      - name: NAMESPACE
+        type: string
     workspaces:
       - name: debug
     results: 
@@ -47,7 +52,12 @@ objects:
           cp backup.yaml /workspace/debug/
           cp restore.yaml /workspace/debug/
           ls -la /workspace/debug/
-
+          # check the namespace
+          echo -e "\n\n ***** CHECK IF NAMESPACE ALLOWED *****\n"
+          echo -e "The allowed namespaces for user are ${ALLOWED_NAMESPACES}\n"
+          echo -e "Checking if the user has permissions to backup $(params.NAMESPACE) \n"
+          check_namespace.sh $(params.NAMESPACE) ${ALLOWED_NAMESPACES}
+          
 - kind: Pipeline
   apiVersion: tekton.dev/v1beta1
   metadata:
@@ -56,6 +66,8 @@ objects:
   spec:
     params:
     - name: BACKUP_NAME
+      type: string
+    - name: NAMESPACE
       type: string
     tasks:
     - name: import-images
@@ -66,12 +78,15 @@ objects:
       taskRef:
         kind: ClusterTask
         name: openshift-client
-    - name: listfiles
+    - name: systemcheck
       runAfter:
       - import-images
       taskRef:
         kind: Task
         name: debug
+      params:
+        - name: NAMESPACE
+          value: $(params.NAMESPACE)
       workspaces:
       - name: debug
         workspace: repo
@@ -100,7 +115,7 @@ objects:
       - name: VERSION
         value: latest
       runAfter:
-      - listfiles
+      - systemcheck
       taskRef:
         kind: ClusterTask
         name: openshift-client
