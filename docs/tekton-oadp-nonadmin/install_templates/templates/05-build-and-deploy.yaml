@@ -143,6 +143,9 @@ objects:
           printf "Update the backup cr's name\n"
           sed -i 's/BACKUP_NAME/$(params.BACKUP_NAME)/g' /workspace/manifest-dir/backup.yaml
           printf "\n"
+          printf "Update the backup cr's namespace setting\n"
+          sed -i 's/NAMESPACE/$(params.NAMESPACE)/g' /workspace/manifest-dir/backup.yaml
+          printf "\n"
           printf "cat the updated backup cr \n"
           cat /workspace/manifest-dir/backup.yaml
           printf "\n"
