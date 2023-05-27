@@ -90,7 +90,24 @@ objects:
           echo -e "Checking if the user has permissions to restore...."
           echo -e "get_restore_namespace.sh BACKUP_NAME ALLOWED_NAMESPACES"
           get_restore_namespace.sh $(params.BACKUP_NAME) ${ALLOWED_NAMESPACES}
-          
+- kind: Pipeline
+  apiVersion: tekton.dev/v1beta1
+  metadata:
+    name: import-required-images
+    namespace: ${PROJECT}
+  spec:
+    tasks:
+    - name: import-images
+      params:
+      - name: SCRIPT
+        value: |
+          oc import-image toolbox --from=registry.access.redhat.com/ubi9/toolbox:latest --confirm -n ${PROJECT}
+          oc import-image oadp-tekton --from=quay.io/rhn_engineering_whayutin/oadp-tekton:latest --confirm -n ${PROJECT}
+      taskRef:
+        kind: ClusterTask
+        name: openshift-client
+
+
 - kind: Pipeline
   apiVersion: tekton.dev/v1beta1
   metadata:
@@ -103,17 +120,7 @@ objects:
     - name: NAMESPACE
       type: string
     tasks:
-    - name: import-images
-      params:
-      - name: SCRIPT
-        value: |
-          oc import-image toolbox --from=registry.access.redhat.com/ubi9/toolbox:latest --confirm -n ${PROJECT}
-      taskRef:
-        kind: ClusterTask
-        name: openshift-client
     - name: systemcheck
-      runAfter:
-      - import-images
       taskRef:
         kind: Task
         name: checkbackup
@@ -204,17 +211,7 @@ objects:
     - name: BACKUP_NAME
       type: string
     tasks:
-    - name: import-images
-      params:
-      - name: SCRIPT
-        value: |
-          oc import-image oadp-tekton --from=quay.io/rhn_engineering_whayutin/oadp-tekton:latest --confirm -n ${PROJECT}
-      taskRef:
-        kind: ClusterTask
-        name: openshift-client
     - name: precheckrestore
-      runAfter:
-      - import-images
       taskRef:
         kind: Task
         name: checkrestore
