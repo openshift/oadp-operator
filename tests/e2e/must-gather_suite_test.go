@@ -44,6 +44,7 @@ var _ = Describe("Must-gather backup restore tests", func() {
 		MaxK8SVersion        *K8sVersion
 		MinK8SVersion        *K8sVersion
 		MustGatherFiles      []string // list of files expected in must-gather under quay.io.../clusters/clustername/... ie. "namespaces/openshift-adp/oadp.openshift.io/dpa-ts-example-velero/ts-example-velero.yml"
+		MustGatherValidationFunction *func(string) error // validation function for must-gather where string parameter is the path to "quay.io.../clusters/clustername/"
 	}
 
 	var lastBRCase BackupRestoreCase
@@ -149,8 +150,6 @@ var _ = Describe("Must-gather backup restore tests", func() {
 		err = dpaCR.Delete()
 		Expect(err).ToNot(HaveOccurred())
 		Eventually(IsNamespaceDeleted(lastBRCase.ApplicationNamespace), timeoutMultiplier*time.Minute*2, time.Second*5).Should(BeTrue())
-
-		// TODO: add must gather test suite assertions on files that should be present
 	})
 
 	updateLastInstallTime := func() {
@@ -324,30 +323,35 @@ var _ = Describe("Must-gather backup restore tests", func() {
 				log.Printf("Failed to run must gather: " + err.Error())
 			}
 			Expect(err).ToNot(HaveOccurred())
-			if len(brCase.MustGatherFiles) > 0 {
-				// get dirs in must-gather dir
-				dirEntries, err := os.ReadDir(baseReportDir + "/must-gather")
-				Expect(err).ToNot(HaveOccurred())
-				for _, dirEntry := range dirEntries {
-					if dirEntry.IsDir() && strings.HasPrefix(dirEntry.Name(), "quay-io") {
-						mustGatherImageDir := baseReportDir + "/must-gather/" + dirEntry.Name()
-						// extract must-gather.tar.gz
-						err = utils.ExtractTarGz(mustGatherImageDir, "must-gather.tar.gz")
-						Expect(err).ToNot(HaveOccurred())
-						mustGatherDir := mustGatherImageDir + "/must-gather"
-						clusters, err := os.ReadDir(mustGatherDir + "/clusters")
-						Expect(err).ToNot(HaveOccurred())
-						for _, cluster := range clusters {
-							if cluster.IsDir() {
-								clusterDir := mustGatherDir + "/clusters/" + cluster.Name()
-								for _, file := range brCase.MustGatherFiles {
-									_, err := os.Stat(clusterDir + "/" + file)
-									Expect(err).ToNot(HaveOccurred())
-								}
-							}
+			// get dirs in must-gather dir
+			dirEntries, err := os.ReadDir(baseReportDir + "/must-gather")
+			Expect(err).ToNot(HaveOccurred())
+			clusterDir := ""
+			for _, dirEntry := range dirEntries {
+				if dirEntry.IsDir() && strings.HasPrefix(dirEntry.Name(), "quay-io") {
+					mustGatherImageDir := baseReportDir + "/must-gather/" + dirEntry.Name()
+					// extract must-gather.tar.gz
+					err = utils.ExtractTarGz(mustGatherImageDir, "must-gather.tar.gz")
+					Expect(err).ToNot(HaveOccurred())
+					mustGatherDir := mustGatherImageDir + "/must-gather"
+					clusters, err := os.ReadDir(mustGatherDir + "/clusters")
+					Expect(err).ToNot(HaveOccurred())
+					for _, cluster := range clusters {
+						if cluster.IsDir() {
+							clusterDir = mustGatherDir + "/clusters/" + cluster.Name()
 						}
 					}
 				}
+			}
+			if len(brCase.MustGatherFiles) > 0 && clusterDir != "" {
+				for _, file := range brCase.MustGatherFiles {
+					_, err := os.Stat(clusterDir + "/" + file)
+					Expect(err).ToNot(HaveOccurred())
+				}
+			}
+			if brCase.MustGatherValidationFunction != nil  && clusterDir != "" {
+				err = (*brCase.MustGatherValidationFunction)(clusterDir)
+				Expect(err).ToNot(HaveOccurred())
 			}
 		},
 		Entry("Mongo application DATAMOVER", BackupRestoreCase{
