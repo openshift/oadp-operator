@@ -362,8 +362,8 @@ var _ = Describe("Must-gather backup restore tests", func() {
 			PreBackupVerify:      dataMoverReady(true, false, mongoready),
 			PostRestoreVerify:    dataMoverReady(false, false, mongoready),
 			MustGatherFiles: 	[]string{
-				"namespaces/openshift-adp/oadp.openshift.io/dpa-ts-example-velero/ts-example-velero.yml",
-				"namespaces/openshift-adp/velero.io/backupstoragelocations.velero.io/ts-example-velero-1.yaml",
+				"namespaces/openshift-adp/oadp.openshift.io/dpa-ts-" + instanceName + "/ts-" + instanceName + ".yml",
+				"namespaces/openshift-adp/velero.io/backupstoragelocations.velero.io/ts-" + instanceName + "-1.yaml",
 			},
 		}, nil),
 	)
