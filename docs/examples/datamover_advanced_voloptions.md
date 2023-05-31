@@ -370,5 +370,6 @@ spec:
             cacheStorageClassName: ocs-storagecluster-ceph-rbd
             moverSecurityContext: true
 ```
+Note: The CephFS ShallowCopy feature can only be used for datamover backup operation, the ShallowCopy volume options are not supported for restore.
 
 - Now follow the backup and restore steps from the previous example
