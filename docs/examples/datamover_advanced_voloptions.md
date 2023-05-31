@@ -360,6 +360,10 @@ spec:
             storageClassName: ocs-storagecluster-cephfs-shallow
           destinationVolumeOptions:
             moverSecurityContext: true
+            accessMode: ReadOnlyMany
+            cacheAccessMode: ReadWriteMany
+            cacheStorageClassName: ocs-storagecluster-cephfs
+            storageClassName: ocs-storagecluster-cephfs-shallow
         ocs-storagecluster-ceph-rbd:
           sourceVolumeOptions:
             storageClassName: ocs-storagecluster-ceph-rbd
