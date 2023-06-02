@@ -2,6 +2,7 @@ package utils
 
 import (
 	"io/ioutil"
+	"os/exec"
 	"strings"
 )
 
@@ -20,4 +21,9 @@ func ReplaceSecretDataNewLineWithCarriageReturn(data []byte) []byte {
 	// Replace new line with carriage return
 	data = []byte(strings.ReplaceAll(string(data), "\n", "\r\n"))
 	return data
+}
+
+// Extract tar.gz file to a directory of the same name in the same directory
+func ExtractTarGz(pathToDir, tarGzFileName string) error {
+	return exec.Command("tar", "-xzf", pathToDir + "/" + tarGzFileName, "-C", pathToDir).Run()
 }

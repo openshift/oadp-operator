@@ -2,7 +2,6 @@ package e2e_test
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -18,6 +17,7 @@ import (
 	"github.com/openshift/oadp-operator/controllers"
 	"github.com/openshift/oadp-operator/pkg/common"
 	. "github.com/openshift/oadp-operator/tests/e2e/lib"
+	"github.com/openshift/oadp-operator/tests/e2e/utils"
 	corev1 "k8s.io/api/core/v1"
 	k8serror "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -25,55 +25,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type VerificationFunction func(client.Client, string) error
 
-type appVerificationFunction func(bool, bool, BackupRestoreType) VerificationFunction
-
-func dataMoverReady(preBackupState, twoVol bool, appVerificationFunction appVerificationFunction) VerificationFunction {
-	return VerificationFunction(func(ocClient client.Client, appNamespace string) error {
-		// check volsync subscription exists
-		Eventually(InstalledSubscriptionCSV(ocClient, "openshift-operators", "volsync-product"), timeoutMultiplier*time.Minute*10, time.Second*10).ShouldNot(Equal(""))
-		// check volsync controller is ready
-		fmt.Printf("waiting for volsync controller readiness")
-		Eventually(IsDeploymentReady(ocClient, common.VolSyncDeploymentNamespace, common.VolSyncDeploymentName), timeoutMultiplier*time.Minute*10, time.Second*10).Should(BeTrue())
-		Eventually(IsDeploymentReady(ocClient, namespace, common.DataMover), timeoutMultiplier*time.Minute*10, time.Second*10).Should(BeTrue())
-		return appVerificationFunction(preBackupState, twoVol, CSIDataMover)(ocClient, appNamespace)
-	})
-}
-
-func mongoready(preBackupState bool, twoVol bool, backupRestoreType BackupRestoreType) VerificationFunction {
-	return VerificationFunction(func(ocClient client.Client, namespace string) error {
-		Eventually(IsDCReady(ocClient, namespace, "todolist"), timeoutMultiplier*time.Minute*10, time.Second*10).Should(BeTrue())
-		exists, err := DoesSCCExist(ocClient, "mongo-persistent-scc")
-		if err != nil {
-			return err
-		}
-		if !exists {
-			return errors.New("did not find Mongo scc")
-		}
-		err = VerifyBackupRestoreData(artifact_dir, namespace, "todolist-route", "todolist", preBackupState, false, backupRestoreType) // TODO: VERIFY PARKS APP DATA
-		return err
-	})
-}
-func mysqlReady(preBackupState bool, twoVol bool, backupRestoreType BackupRestoreType) VerificationFunction {
-	return VerificationFunction(func(ocClient client.Client, namespace string) error {
-		fmt.Printf("checking for the NAMESPACE: %s\n ", namespace)
-		// This test confirms that SCC restore logic in our plugin is working
-		//Eventually(IsDCReady(ocClient, "mssql-persistent", "mysql"), timeoutMultiplier*time.Minute*10, time.Second*10).Should(BeTrue())
-		Eventually(IsDeploymentReady(ocClient, namespace, "mysql"), timeoutMultiplier*time.Minute*10, time.Second*10).Should(BeTrue())
-		exists, err := DoesSCCExist(ocClient, "mysql-persistent-scc")
-		if err != nil {
-			return err
-		}
-		if !exists {
-			return errors.New("did not find MYSQL scc")
-		}
-		err = VerifyBackupRestoreData(artifact_dir, namespace, "todolist-route", "todolist", preBackupState, twoVol, backupRestoreType)
-		return err
-	})
-}
-
-var _ = Describe("AWS backup restore tests", func() {
+var _ = Describe("Must-gather backup restore tests", func() {
 
 	var _ = BeforeEach(func() {
 		testSuiteInstanceName := "ts-" + instanceName
@@ -90,6 +43,8 @@ var _ = Describe("AWS backup restore tests", func() {
 		AppReadyDelay        time.Duration
 		MaxK8SVersion        *K8sVersion
 		MinK8SVersion        *K8sVersion
+		MustGatherFiles      []string // list of files expected in must-gather under quay.io.../clusters/clustername/... ie. "namespaces/openshift-adp/oadp.openshift.io/dpa-ts-example-velero/ts-example-velero.yml"
+		MustGatherValidationFunction *func(string) error // validation function for must-gather where string parameter is the path to "quay.io.../clusters/clustername/"
 	}
 
 	var lastBRCase BackupRestoreCase
@@ -100,9 +55,6 @@ var _ = Describe("AWS backup restore tests", func() {
 			return
 		}
 		GinkgoWriter.Println("Report after each: state: ", report.State.String())
-		baseReportDir := artifact_dir + "/" + report.LeafNodeText
-		err := os.MkdirAll(baseReportDir, 0755)
-		Expect(err).NotTo(HaveOccurred())
 		if report.Failed() {
 			// print namespace error events for app namespace
 			if lastBRCase.ApplicationNamespace != "" {
@@ -152,13 +104,16 @@ var _ = Describe("AWS backup restore tests", func() {
 				GinkgoWriter.Println("Printing volume-snapshot-mover deployment pod logs")
 				GinkgoWriter.Print(GetDeploymentPodContainerLogs(namespace, common.DataMover, common.DataMoverControllerContainer))
 			}
+			baseReportDir := artifact_dir + "/" + report.LeafNodeText
+			err := os.MkdirAll(baseReportDir, 0755)
+			Expect(err).NotTo(HaveOccurred())
 			err = SavePodLogs(namespace, baseReportDir)
 			Expect(err).NotTo(HaveOccurred())
 			err = SavePodLogs(lastBRCase.ApplicationNamespace, baseReportDir)
 			Expect(err).NotTo(HaveOccurred())
 		}
-
-		err = dpaCR.Client.Delete(context.Background(), &corev1.Namespace{ObjectMeta: v1.ObjectMeta{
+		// remove app namespace if leftover (likely previously failed before reaching uninstall applications) to clear items such as PVCs which are immutable so that next test can create new ones
+		err := dpaCR.Client.Delete(context.Background(), &corev1.Namespace{ObjectMeta: v1.ObjectMeta{
 			Name:      lastBRCase.ApplicationNamespace,
 			Namespace: lastBRCase.ApplicationNamespace,
 		}}, &client.DeleteOptions{})
@@ -201,7 +156,7 @@ var _ = Describe("AWS backup restore tests", func() {
 		lastInstallTime = time.Now()
 	}
 
-	DescribeTable("backup and restore applications",
+	DescribeTable("backup, restore applications, and must gather",
 		func(brCase BackupRestoreCase, expectedErr error) {
 			// Data Mover is only supported on aws, azure, and gcp.
 			if brCase.BackupRestoreType == CSIDataMover && provider != "aws" && provider != "azure" && provider != "gcp" {
@@ -360,49 +315,45 @@ var _ = Describe("AWS backup restore tests", func() {
 				err = UninstallApplication(dpaCR.Client, snapshotClassPath)
 				Expect(err).ToNot(HaveOccurred())
 			}
-
+			baseReportDir := artifact_dir + "/" + brCase.Name
+			err = os.MkdirAll(baseReportDir, 0755)
+			log.Printf("Running must gather for backup/restore test - " + "")
+			err = RunMustGather(oc_cli, baseReportDir+"/must-gather")
+			if err != nil {
+				log.Printf("Failed to run must gather: " + err.Error())
+			}
+			Expect(err).ToNot(HaveOccurred())
+			// get dirs in must-gather dir
+			dirEntries, err := os.ReadDir(baseReportDir + "/must-gather")
+			Expect(err).ToNot(HaveOccurred())
+			clusterDir := ""
+			for _, dirEntry := range dirEntries {
+				if dirEntry.IsDir() && strings.HasPrefix(dirEntry.Name(), "quay-io") {
+					mustGatherImageDir := baseReportDir + "/must-gather/" + dirEntry.Name()
+					// extract must-gather.tar.gz
+					err = utils.ExtractTarGz(mustGatherImageDir, "must-gather.tar.gz")
+					Expect(err).ToNot(HaveOccurred())
+					mustGatherDir := mustGatherImageDir + "/must-gather"
+					clusters, err := os.ReadDir(mustGatherDir + "/clusters")
+					Expect(err).ToNot(HaveOccurred())
+					for _, cluster := range clusters {
+						if cluster.IsDir() {
+							clusterDir = mustGatherDir + "/clusters/" + cluster.Name()
+						}
+					}
+				}
+			}
+			if len(brCase.MustGatherFiles) > 0 && clusterDir != "" {
+				for _, file := range brCase.MustGatherFiles {
+					_, err := os.Stat(clusterDir + "/" + file)
+					Expect(err).ToNot(HaveOccurred())
+				}
+			}
+			if brCase.MustGatherValidationFunction != nil  && clusterDir != "" {
+				err = (*brCase.MustGatherValidationFunction)(clusterDir)
+				Expect(err).ToNot(HaveOccurred())
+			}
 		},
-		Entry("MySQL application CSI", Label("ibmcloud", "aws", "gcp", "azure"), BackupRestoreCase{
-			ApplicationTemplate:  "./sample-applications/mysql-persistent/mysql-persistent-csi.yaml",
-			ApplicationNamespace: "mysql-persistent",
-			Name:                 "mysql-csi-e2e",
-			BackupRestoreType:    CSI,
-			PreBackupVerify:      mysqlReady(true, false, CSI),
-			PostRestoreVerify:    mysqlReady(false, false, CSI),
-		}, nil),
-		Entry("Mongo application CSI", Label("ibmcloud", "aws", "gcp", "azure"), BackupRestoreCase{
-			ApplicationTemplate:  "./sample-applications/mongo-persistent/mongo-persistent-csi.yaml",
-			ApplicationNamespace: "mongo-persistent",
-			Name:                 "mongo-csi-e2e",
-			BackupRestoreType:    CSI,
-			PreBackupVerify:      mongoready(true, false, CSI),
-			PostRestoreVerify:    mongoready(false, false, CSI),
-		}, nil),
-		Entry("MySQL application two Vol CSI", Label("ibmcloud", "aws", "gcp", "azure"), BackupRestoreCase{
-			ApplicationTemplate:  fmt.Sprintf("./sample-applications/mysql-persistent/mysql-persistent-twovol-csi.yaml"),
-			ApplicationNamespace: "mysql-persistent",
-			Name:                 "mysql-twovol-csi-e2e",
-			BackupRestoreType:    CSI,
-			AppReadyDelay:        30 * time.Second,
-			PreBackupVerify:      mysqlReady(true, true, CSI),
-			PostRestoreVerify:    mysqlReady(false, true, CSI),
-		}, nil),
-		Entry("Mongo application RESTIC", BackupRestoreCase{
-			ApplicationTemplate:  "./sample-applications/mongo-persistent/mongo-persistent.yaml",
-			ApplicationNamespace: "mongo-persistent",
-			Name:                 "mongo-restic-e2e",
-			BackupRestoreType:    RESTIC,
-			PreBackupVerify:      mongoready(true, false, RESTIC),
-			PostRestoreVerify:    mongoready(false, false, RESTIC),
-		}, nil),
-		Entry("MySQL application RESTIC", BackupRestoreCase{
-			ApplicationTemplate:  "./sample-applications/mysql-persistent/mysql-persistent.yaml",
-			ApplicationNamespace: "mysql-persistent",
-			Name:                 "mysql-restic-e2e",
-			BackupRestoreType:    RESTIC,
-			PreBackupVerify:      mysqlReady(true, false, RESTIC),
-			PostRestoreVerify:    mysqlReady(false, false, RESTIC),
-		}, nil),
 		Entry("Mongo application DATAMOVER", BackupRestoreCase{
 			ApplicationTemplate:  "./sample-applications/mongo-persistent/mongo-persistent-csi.yaml",
 			ApplicationNamespace: "mongo-persistent",
@@ -410,15 +361,10 @@ var _ = Describe("AWS backup restore tests", func() {
 			BackupRestoreType:    CSIDataMover,
 			PreBackupVerify:      dataMoverReady(true, false, mongoready),
 			PostRestoreVerify:    dataMoverReady(false, false, mongoready),
-		}, nil),
-		// TODO: fix this test
-		Entry("MySQL application DATAMOVER", BackupRestoreCase{
-			ApplicationTemplate:  "./sample-applications/mysql-persistent/mysql-persistent-csi.yaml",
-			ApplicationNamespace: "mysql-persistent",
-			Name:                 "mysql-datamover-e2e",
-			BackupRestoreType:    CSIDataMover,
-			PreBackupVerify:      dataMoverReady(true, false, mysqlReady),
-			PostRestoreVerify:    dataMoverReady(false, false, mysqlReady),
+			MustGatherFiles: 	[]string{
+				"namespaces/openshift-adp/oadp.openshift.io/dpa-ts-" + instanceName + "/ts-" + instanceName + ".yml",
+				"namespaces/openshift-adp/velero.io/backupstoragelocations.velero.io/ts-" + instanceName + "-1.yaml",
+			},
 		}, nil),
 	)
 })

@@ -118,16 +118,6 @@ var _ = BeforeSuite(func() {
 	Expect(DoesNamespaceExist(namespace)).Should(BeTrue())
 })
 
-var _ = ReportAfterEach(func(report SpecReport) {
-	if report.Failed() {
-		log.Printf("Running must gather for failed test - " + report.LeafNodeText)
-		err := RunMustGather(oc_cli, artifact_dir+"/must-gather-"+report.LeafNodeText)
-		if err != nil {
-			log.Printf("Failed to run must gather: " + err.Error())
-		}
-	}
-})
-
 var _ = AfterSuite(func() {
 	log.Printf("Deleting Velero CR")
 	err := DeleteSecret(namespace, credSecretRef)
