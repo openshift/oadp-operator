@@ -1,10 +1,12 @@
 package controllers
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 
 	"github.com/go-logr/logr"
+	"github.com/google/go-cmp/cmp"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	"github.com/openshift/oadp-operator/pkg/common"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
@@ -143,6 +145,10 @@ func TestDPAReconciler_buildDataMoverDeployment(t *testing.T) {
 											Name:  DataMoverConcurrentRestore,
 											Value: DefaultConcurrentRestoreVolumes,
 										},
+										{
+											Name:  DataMoverDummyPodImageEnvVar,
+											Value: common.DummyPodImage,
+										},
 									},
 								},
 							},
@@ -177,6 +183,7 @@ func TestDPAReconciler_buildDataMoverDeployment(t *testing.T) {
 				t.Errorf("expected dataMoverDeployment labels to be %#v, got %#v", tt.wantDataMoverDeployment.Labels, tt.dataMoverDeployment.Labels)
 			}
 			if !reflect.DeepEqual(tt.wantDataMoverDeployment.Spec, tt.dataMoverDeployment.Spec) {
+				fmt.Println(cmp.Diff(tt.wantDataMoverDeployment.Spec, tt.dataMoverDeployment.Spec))
 				t.Errorf("expected dataMoverDeployment spec to be %#v, got %#v", tt.wantDataMoverDeployment, tt.dataMoverDeployment)
 			}
 		})
