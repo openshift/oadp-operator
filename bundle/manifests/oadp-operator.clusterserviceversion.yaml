@@ -808,6 +808,8 @@ spec:
                   value: quay.io/konveyor/volume-snapshot-mover:oadp-1.2
                 - name: RELATED_IMAGE_KUBEVIRT_VELERO_PLUGIN
                   value: quay.io/konveyor/kubevirt-velero-plugin:v0.2.0
+                - name: RELATED_IMAGE_DATA_MOVER_DUMMY_POD
+                  value: quay.io/konveyor/rsync-transfer:latest
                 image: quay.io/konveyor/oadp-operator:oadp-1.2
                 imagePullPolicy: Always
                 livenessProbe:
@@ -934,4 +936,6 @@ spec:
     name: volume-snapshot-mover
   - image: quay.io/konveyor/kubevirt-velero-plugin:v0.2.0
     name: kubevirt-velero-plugin
+  - image: quay.io/konveyor/rsync-transfer:latest
+    name: data-mover-dummy-pod
   version: 99.0.0

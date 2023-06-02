@@ -33,6 +33,8 @@ const (
 	ResticsecretName    = "dm-credential"
 	ResticPruneInterval = "restic-prune-interval"
 
+	DataMoverDummyPodImageEnvVar = "DATA_MOVER_DUMMY_POD_IMAGE"
+
 	// batchNumbers vars
 	DefaultConcurrentBackupVolumes  = "10"
 	DefaultConcurrentRestoreVolumes = "10"
@@ -326,8 +328,19 @@ func (r *DPAReconciler) customizeDataMoverContainer(dpa *oadpv1alpha1.DataProtec
 			Value: DefaultConcurrentRestoreVolumes,
 		})
 	}
+	dataMoverContainer.Env = append(dataMoverContainer.Env, corev1.EnvVar{
+		Name:  DataMoverDummyPodImageEnvVar,
+		Value: getDataMoverDummyPodImage(),
+	})
 
 	return nil
+}
+
+func getDataMoverDummyPodImage() string {
+	if os.Getenv("RELATED_IMAGE_DATA_MOVER_DUMMY_POD") == "" {
+		return common.DummyPodImage
+	}
+	return os.Getenv("RELATED_IMAGE_DATA_MOVER_DUMMY_POD")
 }
 
 func (r *DPAReconciler) getDataMoverImage(dpa *oadpv1alpha1.DataProtectionApplication) string {
