@@ -15,8 +15,9 @@ run:
 	IMAGE_REGISTRY=$(IMAGE_REGISTRY) IMAGE_NAME=$(IMAGE_NAME) IMAGE_TAG=$(IMAGE_TAG) make build && \
 	oc adm must-gather --image ${IMAGE_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}
 
+PLATFORM ?= linux/amd64
 docker-build:
-	docker build -t ${IMAGE_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG} .
+	docker build --platform=${PLATFORM} -t ${IMAGE_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG} .
 
 docker-push:
 	docker push ${IMAGE_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}

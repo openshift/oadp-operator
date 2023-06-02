@@ -356,6 +356,10 @@ func GetVeleroContainerLogs(namespace string) (string, error) {
 	return GetPodWithPrefixContainerLogs(namespace, "velero-", "velero")
 }
 
+func GetVolumeSnapshotMoverLogs(namespace string) (string, error) {
+	return GetPodWithPrefixContainerLogs(namespace, common.DataMover+"-", common.DataMoverControllerContainer)
+}
+
 func GetVeleroContainerFailureLogs(namespace string) []string {
 	containerLogs, err := GetVeleroContainerLogs(namespace)
 	if err != nil {

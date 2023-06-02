@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"os"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -232,6 +233,35 @@ func GetPodWithPrefixContainerLogs(namespace string, podPrefix string, container
 		}
 	}
 	return "", fmt.Errorf("No pod found with prefix %s", podPrefix)
+}
+
+func SavePodLogs(namespace, dir string) error {
+	clientset, err := setUpClient()
+	if err != nil {
+		return nil
+	}
+	podList, err := clientset.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		return nil
+	}
+	for _, pod := range podList.Items {
+		podDir := fmt.Sprintf("%s/%s/%s", dir, namespace, pod.Name)
+		err = os.MkdirAll(podDir, 0755)
+		if err != nil {
+			log.Printf("Error creating pod directory: %v", err)
+		}
+		for _, container := range pod.Spec.Containers {
+			logs, err := GetPodContainerLogs(namespace, pod.Name, container.Name)
+			if err != nil {
+				return nil
+			}
+			err = os.WriteFile(podDir+"/"+container.Name+".log", []byte(logs), 0644)
+			if err != nil {
+				log.Printf("Error writing pod logs: %v", err)
+			}
+		}
+	}
+	return nil
 }
 
 func GetPodContainerLogs(namespace, podname, container string) (string, error) {
