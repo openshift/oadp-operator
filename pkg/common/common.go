@@ -18,6 +18,7 @@ const (
 	OADPOperatorServiceAccount   = "openshift-adp-controller-manager"
 	VolSyncDeploymentName        = "volsync-controller-manager"
 	VolSyncDeploymentNamespace   = "openshift-operators"
+	VolsyncPrivilegedAnnotation  = "volsync.backube/privileged-movers"
 )
 
 // Images
