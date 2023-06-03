@@ -31,6 +31,7 @@ const (
 	VSMPluginImage       = "quay.io/konveyor/velero-plugin-for-vsm:oadp-1.2"
 	// DataMoverImage is the data mover controller for data mover CRs - VolumeSnapshotBackup and VolumeSnapshotRestore
 	DataMoverImage      = "quay.io/konveyor/volume-snapshot-mover:oadp-1.2"
+	DummyPodImage       = "quay.io/konveyor/rsync-transfer:latest"
 	RegistryImage       = "quay.io/konveyor/registry:latest"
 	KubeVirtPluginImage = "quay.io/konveyor/kubevirt-velero-plugin:v0.2.0"
 )
