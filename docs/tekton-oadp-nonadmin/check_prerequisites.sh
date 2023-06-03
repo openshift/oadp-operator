@@ -51,20 +51,16 @@ fi
 printf "\n"
 printf "Checking if OADP is installed and configured....\n"
 orc=`oc get operator | grep -c oadp-operator.openshift-adp`
-if [ $orc -eq 1 ]; then
-   drc=`oc get dpa -n openshift-adp | grep -c dpa-sample`
-   dparc=`oc get dpa dpa-sample -n openshift-adp -o jsonpath='{.metadata.name}'` || true
-   if [ $drc -eq 1 ] && [ $dparc == "dpa-sample" ]; then 
-   printf "OADP is installed and configured correctly\n" 
-   elif [ $drc -ne 1 ]; then
-   printf "OADP is not configured with a DPA\n"
-   printf "Please configure a DPA named dpa-sample\n"
-   printf "https://github.com/openshift/oadp-operator/blob/master/docs/install_olm.md#create-the-dataprotectionapplication-custom-resource"
-   printf "\n"
-   exit 1
-   elif [ $dparc != "dpa-sample" ]; then
-   printf "At this time the DPA name must be configured to be dpa-sample"
-   exit 1
+if [ $orc -eq 2 ]; then
+   drc=`oc get dpa -n openshift-adp -o jsonpath={.items} | jq '. | length'`
+   if [ $drc -lt 1 ]; then 
+      printf "OADP is not configured with a DPA\n"
+      printf "Please configure a DPA named dpa-sample\n"
+      printf "https://github.com/openshift/oadp-operator/blob/master/docs/install_olm.md#create-the-dataprotectionapplication-custom-resource"
+      printf "\n"
+      exit 1
+   else
+      printf "An OADP DPA was found.\n"
    fi
 else 
    printf "OADP is NOT installed, please install OADP\n"
@@ -72,26 +68,5 @@ else
    printf "\n"
    exit 1
 fi
-printf "\n\n"
+printf "\nDone!\n"
 
-printf "Checking for a sample application nginx-example\n"
-nrc=`oc get namespace | grep -c nginx-example`
-ndrc=`oc get deployment -n nginx-example | grep -c "2\/2"` || true
-
-if [ $nrc -eq 1 ]; then
-  printf "The nginx-example namespace found\n"
-   if [ $ndrc -eq 1 ]; then
-      printf "The nginx-example deployment was found\n"
-   fi
-fi
-if [ $INSTALLSAMPLE == "true" ] && [ $nrc -eq 0 ]; then
-  printf "Installing the nginx sample application\n"
-  oc create -f ../examples/manifests/nginx/nginx-deployment.yaml 
-elif [ $INSTALLSAMPLE == "false" ] && [ $nrc -eq 0 ]; then
-  printf "Please set the flag to install the sample application or\n"
-  printf "alternatively follow the instructions:\n"
-  printf "https://github.com/openshift/oadp-operator/blob/master/docs/examples/stateless.md\n"
-fi
-
-
-printf "done"

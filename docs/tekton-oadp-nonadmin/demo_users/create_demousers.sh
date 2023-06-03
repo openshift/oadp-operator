@@ -8,7 +8,7 @@ PASSWORD="${PASSWORD:-passw0rd}" #CHANGEME?
 Help()
 {
    # Display Help
-   echo "Create the OADP non-admin users"
+   echo "Create the OADP non-admin users for demonstrations only"
    echo
    echo "Syntax: scriptTemplate [-h|-n|-c|-p|-x|-d]"
    echo "options:"
@@ -23,7 +23,7 @@ Help()
 
 ############################################################
 ############################################################
-# Main program                                             #
+# This script is for demonstration purposes only           #
 ############################################################
 ############################################################
 # Process the input options. Add options as needed.        #
@@ -54,10 +54,6 @@ done
 if [ -z "$BASENAME" ];then Help; exit; fi
 if [ -z "$COUNT" ];then Help; exit; fi
 if [ -z "$PROJECT" ];then Help; exit; fi
-
-printf "Creating the users based on the input BASENAME: $BASENAME and COUNT: $COUNT\n"
-printf "Common PASSWORD: $PASSWORD\n"
-printf "htpasswd file saved to: $OUTPUT_DIR\n\n"
 
 # create the templates
 mkdir -p $OUTPUT_DIR || true
@@ -95,14 +91,12 @@ cat oauth.yaml
 printf "This script will merge this oauth.yaml file in 10 seconds\n"
 printf "ctl-c to cancel"
 sleep 10
-oc patch oauth cluster  --type merge --patch-file oauth.yaml
+oc patch oauth cluster  --type merge --patch-file oauth.yaml || exit 1
 
 printf "\n\n"
 printf "WARNING: it may take a few minutes for the oauth settings to reconcile\n"
-printf "Once the oauth settings have reconciled you may login w/ the following users:\n\n"
-printf "oc get clusteroperator authentication  -n openshift-authentication -o=custom-columns=STATUS:.status.conditions[2]\n" 
 
-printf "\n The following is the htpasswd file\n"
+printf "\nThe following is the htpasswd file\n"
 cat htpasswd
 printf "sleeping for 60 seconds\n"
 
@@ -112,14 +106,7 @@ printf "\n !!! Please check the following for details !!!\n"
 printf "https://${console}/${auth_window}\n\n"
 sleep 60
 
-authready=1
-while [ $authready -ne 1 ]; do
-  authready=`oc get clusteroperator authentication  -n openshift-authentication -o=custom-columns=STATUS:.status.conditions[2].status | grep -c True` || echo 0
-  printf "\n waiting"
-  sleep 10
-done
 popd
-
 pwd
 # create the project template
 printf "PROJECT = $PROJECT\n"
@@ -142,8 +129,15 @@ for i in `ls user*.yaml`; do
 done
 popd
 
-printf "If there was an error, it is possible to rerun this script multiple times with the same settings"
-printf "\nDONE!\n"
+printf "\n **** DONE! ****\n\n"
+printf "Created users based on the input BASENAME: $BASENAME and COUNT: $COUNT\n"
+printf "Common PASSWORD: $PASSWORD\n"
+printf "htpasswd file saved to: $OUTPUT_DIR\n\n"
+printf "The following manifests in ${OUTPUT_DIR} have been applied...\n"
+ls -la ${OUTPUT_DIR}
+
+printf "\n\nPlease ensure the OAuth Server has reconciled...\n"
+printf "https://${console}/${auth_window}\n\n"
 
 
 

@@ -5,11 +5,6 @@ The purpose of this demonstration is to provide an example for OpenShift adminis
 
 This example uses [OpenShift Pipelines](https://cloud.redhat.com/blog/introducing-openshift-pipelines) and configures a tekton pipeline for a non-admin user that has access to OADP resources to trigger a backup.  The non-admin user can execute the pipeline but can not edit the pipeline.  The administrator is allowed to configure OADP for their users, and users can execute a backup or restore as needed with out the administrator intervention.
 
-An OpenShift administrator would want to ensure that an application developer or namespace administrator could not backup or restore applications where they do not have the proper rights or access.  In this demo, the administrator has only given the user rights to backup a namespace called `nginx-example`.  The administrator has also specificied the DPA for this backup to `dpa-sample`.  An OpenShift administrator should configure different DPA per non-admin owner.  This provides the administrator the oversight where and how backups are taken, and the users the convienence of executing backups and restores as they wish.
-
-## Alternatives
-It is possible to install the OADP Operator into multiple OpenShift namespaces and give namespace ownwers and project admins the ability to configure their own OADP settings, configuration and of course the ability to execute backups and restores.   The OADP team has [FAQ page](https://access.redhat.com/articles/5456281#can-i-install-oadp-into-multiple-openshift-projects-to-enable-project-owners-26) that covers this scenario and will be building out documentation for it soon.  There are advantages and disadvantages to either workflow. In this case using OpenShift Pipelines better constrains what OpenShift non-admin users can execute with cluster level access. In other words it can prevent non-admins from accidently destroying the wrong namespace.
-
 ## Project Architecture
 OpenShift Administrators can utilize OpenShift pipelines and OADP to best fit their own needs.  An example architecture is show below that provides OpenShift pipelines for backing up and restoring projects with limited roles for non-admins.  The non-admin in this case Joe or Sarah are allowed to trigger OADP backup and an OADP restore but neither Joe or Sarah can edit the OpenShift pipelines or accidently restore a backup to the wrong namespace.  Joe and Sarah will have a full history of all the executions of the backups and restores in the pipeline-runs section of the pipeline.  The OpenShift administrator may also create tekton [pipeline triggers](https://cloud.redhat.com/blog/guide-to-openshift-pipelines-part-6-triggering-pipeline-execution-from-github) to schedule a backup of a namespace based on a specific event.
 
@@ -21,29 +16,16 @@ An example with just one application
 ## Technical Details of this demonstration
 A user may want to change the backup custom resource, or other aspects of this demo. Simply fork this git repository and update the settings and configuration. The following provides a more in depth technical specification.
 
-* To change the backup customer resource, update the [backup cr](backup_cr/backup.yaml)
+* To change the backup or restore custom resource, update the [crd's in](oadp-tekton-container/)
 * The oauth and some of the user settings can be found in the [demo_users](demo_users) directory
 * Some of the templates used in this demonstration are templated and found in [install_templates/templates](install_templates). The [install.sh](install.sh) script executes `oc process` to substitute variables and renders to the directory of the users choice or by default to `/tmp/oadp_non_admin` 
-* Once the manifects have been rendered the install.sh script also apply's the templates.
-* The parameters that users are allowed to set in the tekton pipeline are defined in [05-build-and-deploy.yaml](install_templates/templates/05-build-and-deploy.yaml). Currently the non-admin user can set the following details
-  * The git url to the source of the backup_cr file
-  * The git branch of the git url
-  * The backup name that will be added to the backup cr and executed.
-  * Additional paramaters can be added based on your needs.
 
-Future examples or updates to this documentation could include the following:
- * A custom built tekton compatible container with backup and restore customer resource templates.
-   *  A custom built container would reduce the number of steps required in the pipeline.
- * setup multiple users as namespace owners
-   * multiple tekton pipelines per owner
- * multiple applications
- * multiple DPA configurations
+* The parameters that users are allowed to set in the tekton pipeline are defined in [05-build-and-deploy.yaml](install_templates/templates/05-build-and-deploy.yaml).
+
+
 
 ## Known Issues
-* ~~The OpenShift Pipeline execution may fail due to the PVC after some relatively short amount of time, roughly 24-48 hours.  Adjust your PVC configuration or delete and recreate the PVC to work around the issue.~~
-  * Use a VolumeClaimTemplate instead of the precreated PV and PVC
-* The create_demousers.sh script is not for production use, and has known issues.  This step can be skipped by following the manual setup to create a user, htpasswd and access rights.
-* OpenShift >= 4.12 has two default storage classes by default.  This will cause an error when creating pvc's.  Either ensure there is just one default storage class or manually create the failed pvc w/ the expected name.
+* Advanced backup and restore options are not included in the templates.
 
 ## Steps
 
