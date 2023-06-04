@@ -19,10 +19,12 @@ A user may want to change the backup custom resource, or other aspects of this d
 * To change the backup or restore custom resource, update the [crd's in the oadp-tekton-container directory](oadp-tekton-container/)
 * The oauth and some of the user settings can be found in the [demo_users](demo_users) directory
 * Some of the templates used in this demonstration are templated and found in [install_templates/templates](install_templates). The [install.sh](install.sh) script executes `oc process` to substitute variables and renders to the directory of the users choice or by default to `/tmp/oadp_non_admin` 
-
 * The parameters that users are allowed to set in the tekton pipeline are defined in [05-build-and-deploy.yaml](install_templates/templates/05-build-and-deploy.yaml).
 
-
+## Sample Applications
+If you require a sample application while working through the instructions, you can find viable sample applications via the following links:
+  * https://github.com/openshift/oadp-operator/tree/master/tests/e2e/sample-applications/nginx
+  * https://github.com/openshift/oadp-operator/tree/master/tests/e2e/sample-applications/mysql-persistent
 
 ## Known Issues
 * Advanced backup and restore options are not included in the templates.
@@ -48,7 +50,7 @@ h     Print this Help.
 A cluster with non-admin users that also have applications deployed as any non-admin user can potentially skip these steps. 
 
   *  This step can easily be done manually and the script skipped by executing the steps documented [here](https://www.redhat.com/sysadmin/openshift-htpasswd-oauth)
-  *  If a user has been created manually, the created user requires the view role as demonstrated here:
+  *  If a user has been created manually, the created user requires the `view` role as demonstrated here:
   ```
   oc create namespace $PROJECT
   oc adm policy add-role-to-user view $USER -n $PROJECT
@@ -85,6 +87,7 @@ For example if user buzz1 is meant backup the namespace mysql-persistent:
 ```
 oc adm policy add-role-to-user edit buzz1 -n mysql-persistent
 ```
+**Note** The non-admin user should have `view` access to the namespace that provides the tekton pipelines, and view or higher access like `edit` to the namespaces the user is intended to backup and restore.
 
 Outside of this demo users and namespaces that are required to be backed up would have already been setup.  This step should only be required for demonstration purposes.
 
@@ -137,10 +140,9 @@ The project buzz will be created and the user buzz1 updated.
 
 * Watch and wait for the backup to complete
 
-![Screenshot from 2023-03-17 10-39-19](https://user-images.githubusercontent.com/138787/225965741-71d82e2d-95a5-4f00-8ae1-ec5ffb83626b.png)
+![Screenshot from 2023-06-04 08-05-57](https://github.com/weshayutin/oadp-operator/assets/138787/0969341f-7c16-4889-8bfc-9adf352b1abe)
 
-
-* Check the logs of the Tekton tasks, below is an example of a previous execution.
+![Screenshot from 2023-06-04 08-06-59](https://github.com/weshayutin/oadp-operator/assets/138787/e05a1f91-a0f4-4e6e-a0a7-38bcb54ec12a)
 
 
 ### Delete the application
@@ -154,17 +156,18 @@ oc delete namespace mysql-persistent
 ### Restore the application
 In the buzz1 project, click on `Pipelines` and the `restore-pipeline`
 
-![Screenshot from 2023-03-21 08-38-26](https://user-images.githubusercontent.com/138787/226641215-40e03147-3690-47f2-89e1-9e8e171ba7bd.png)
+![Screenshot from 2023-06-04 08-09-04](https://github.com/weshayutin/oadp-operator/assets/138787/3fd382c0-8658-4e62-aaef-af1987280f48)
 
 
 Follow the same steps and the same `backup name` used in the backup pipeline.
 * Provide a restore name e.g. `restoremysql1`
 * The backup name in the example was `backupmysql1`
+![Screenshot from 2023-06-04 08-10-08](https://github.com/weshayutin/oadp-operator/assets/138787/e0948c66-5305-413a-83e8-07b61e60a51a)
 
-![Screenshot from 2023-03-21 08-39-47](https://user-images.githubusercontent.com/138787/226641262-7c97cfb3-ffa6-4bf3-893f-854cd3f70ec2.png)
 
 The restore should run to completion.
-![Screenshot from 2023-03-21 08-49-48](https://user-images.githubusercontent.com/138787/226644387-2320656a-fd6e-47c3-9a4e-fad71f2bf430.png)
+![Screenshot from 2023-06-04 08-14-42](https://github.com/weshayutin/oadp-operator/assets/138787/85c2fe1e-8b80-4ca5-8c45-6c064e36be73)
+![Screenshot from 2023-06-04 08-15-06](https://github.com/weshayutin/oadp-operator/assets/138787/19598645-1e3c-4962-abab-23f4dbe63e20)
 
 
 The mysql-persistent application should be created and up running!
@@ -172,5 +175,7 @@ The mysql-persistent application should be created and up running!
 
 #### Complete
 Thank you for walking through this OADP demonstration.
+
+
 
 
