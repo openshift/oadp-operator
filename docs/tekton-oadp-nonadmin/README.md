@@ -10,8 +10,8 @@ OpenShift Administrators can utilize OpenShift pipelines and OADP to best fit th
 
 ![oadp-non-admin-diagram1](https://user-images.githubusercontent.com/138787/226448245-68712098-38c7-4b46-aaae-bba910f8dfc0.png)
 
-An example with just one application
-![Screenshot from 2023-03-21 09-15-02](https://user-images.githubusercontent.com/138787/226651959-b698bf0a-998f-4bfa-b2e1-46e012aa4442.png)
+![Screenshot from 2023-06-03 19-06-29](https://github.com/weshayutin/oadp-operator/assets/138787/3416d804-cb2a-4e9e-aa6d-9e12a8baa99a)
+
 
 ## Technical Details of this demonstration
 A user may want to change the backup custom resource, or other aspects of this demo. Simply fork this git repository and update the settings and configuration. The following provides a more in depth technical specification.
@@ -113,26 +113,27 @@ The project buzz will be created and the user buzz1 updated.
 
 * Navigate to the pipelines menu as the buzz1 user
 
-![Screenshot from 2023-03-17 10-36-42](https://user-images.githubusercontent.com/138787/225965236-3f78ea35-ef11-40ce-8c31-349c32cc3e56.png)
+![Screenshot from 2023-06-03 19-06-29](https://github.com/weshayutin/oadp-operator/assets/138787/e0434a17-06bc-4ab0-87ba-54eb71e10a20)
+
 
 ### Import the required Tekton images
 
 * Click the `import-required-images` pipeline.
 * Select `Actions`, and `Start`
 
+![Screenshot from 2023-06-03 19-07-53](https://github.com/weshayutin/oadp-operator/assets/138787/5e596ba7-1dbb-4d70-ad8b-d8522f681dc4)
+
 ### Trigger a backup as a non-admin user
-Log into Openshift as the non-admin user buzz1, and click `Pipelines`
 
 * You should now see a new tekton pipeline created call `backup-pipeline`
   * Select `Actions`, and `Start`
-    * Type out a name for the backup e.g. `backup_mysql-1`
+    * Type out a name for the backup e.g. `backupmysql1`
     * Type out the namespace to be backed up e.g. `mysql-persistent`
     * Select `workspace` should be:
       * A VolumeClaimTemplate
       * In this demo a volume claim using the gp2-csi storage class was created.
 
-![Screenshot from 2023-03-17 10-38-06](https://user-images.githubusercontent.com/138787/225965457-bd7fca53-9b71-45e8-a4a9-96739769b356.png)
-
+![Screenshot from 2023-06-03 19-10-04](https://github.com/weshayutin/oadp-operator/assets/138787/d6c939be-3ddb-45cf-ad46-94556d4b537e)
 
 * Watch and wait for the backup to complete
 
@@ -157,8 +158,8 @@ In the buzz1 project, click on `Pipelines` and the `restore-pipeline`
 
 
 Follow the same steps and the same `backup name` used in the backup pipeline.
-* Provide a restore name e.g. `restore_mysql-1`
-* The backup name in the example was `backup_mysql-1`
+* Provide a restore name e.g. `restoremysql1`
+* The backup name in the example was `backupmysql1`
 
 ![Screenshot from 2023-03-21 08-39-47](https://user-images.githubusercontent.com/138787/226641262-7c97cfb3-ffa6-4bf3-893f-854cd3f70ec2.png)
 
