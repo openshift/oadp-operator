@@ -733,9 +733,6 @@ spec:
                                   cacheStorageClassName:
                                     description: cacheStorageClassName is the storageClass that should be used when provisioning the data mover cache volume
                                     type: string
-                                  moverSecurityContext:
-                                    description: moverSecurityContext allows enabling the PodSecurityContext used in the application pod(s); default value is true
-                                    type: boolean
                                   storageClassName:
                                     description: storageClassName can be used to override the StorageClass of the source or destination PVC
                                     type: string
@@ -755,9 +752,6 @@ spec:
                                   cacheStorageClassName:
                                     description: cacheStorageClassName is the storageClass that should be used when provisioning the data mover cache volume
                                     type: string
-                                  moverSecurityContext:
-                                    description: moverSecurityContext allows enabling the PodSecurityContext used in the application pod(s); default value is true
-                                    type: boolean
                                   storageClassName:
                                     description: storageClassName can be used to override the StorageClass of the source or destination PVC
                                     type: string
