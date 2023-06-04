@@ -12,7 +12,6 @@ Help()
    echo "Check the prerequisites [-h|-i]"
    echo "options:"
    echo "h     Print this Help."
-   echo "i     Install nginx-example"
    echo
 }
 

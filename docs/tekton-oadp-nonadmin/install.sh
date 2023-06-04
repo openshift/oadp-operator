@@ -12,7 +12,7 @@ Help()
    echo "Syntax: scriptTemplate [-h|-p|-u|-d]"
    echo "options:"
    echo "h     Print this Help."
-   echo "p     Name of the Project or Namespace"
+   echo "p     Project or Namespace for the tekton pipeline"
    echo "u     Name of the non-admin user"
    echo "d     The directory where the templates will be saved"
    echo
