@@ -74,8 +74,7 @@ oc create secret generic oadp-nonadmin-$BASENAME --from-file=htpasswd=htpasswd -
 oc get secret/oadp-nonadmin-$BASENAME -n openshift-config -oyaml
 
 printf "Create the OCP oauth entry"
-sed -e "s/REPLACEME/$BASENAME/g" oauth.yaml > oauth.yaml.tmp
-mv oauth.yaml.tmp oauth.yaml
+sed -i '' -e "s/REPLACEME/$BASENAME/g" oauth.yaml
 
 
 # oc get oauth cluster -o jsonpath='{.spec.identityProviders}' | yq -P
@@ -84,7 +83,7 @@ mv oauth.yaml.tmp oauth.yaml
 # get the currently configured identity providers
 oc get oauth cluster -o jsonpath='{.spec.identityProviders}' | yq -P > current_ident.yaml
 # add two spaces
-sed -i 's/^/  /' current_ident.yaml
+sed -i '' 's/^/  /' current_ident.yaml
 cat current_ident.yaml >> oauth.yaml
 printf "\n\n"
 cat oauth.yaml
