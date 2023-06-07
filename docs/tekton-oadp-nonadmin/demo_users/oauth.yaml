@@ -6,4 +6,3 @@ spec:
     name: REPLACEME 
     mappingMethod: claim 
     type: HTPasswd
-     
