@@ -5,7 +5,7 @@ Traditionaly Red Hat OpenShift API for Data Protection ( OADP ) has been utilize
 
 The purpose of this demonstration is to provide a comprehensive example for OpenShift administrators on how OADP and OpenShift Pipelines may be configured to provide users that are non-administrators access to trigger an OADP backup and restore workflow.
 
-This example uses [OpenShift Pipelines](https://cloud.redhat.com/blog/introducing-openshift-pipelines) and configures a Tekton pipeline for a non-admin user that has access to OADP resources to trigger a backup.  The non-admin user **can execute** the pipeline but **can not** edit the pipeline.  The administrator is allowed to configure OADP for their users, and users can execute a backup or restore as needed without the administrator intervention.
+This example uses [OpenShift Pipelines](https://cloud.redhat.com/blog/introducing-openshift-pipelines) and configures a Tekton pipeline for a non-admin user that has access to OADP resources to trigger a backup.  The non-admin user **can execute** the pipeline but **can not** edit the pipeline, additionally the non-admin user can only backup and restore namespaces to which they have access.  The administrator is allowed to configure OADP for their users, and users can execute a backup or restore as needed without the administrator intervention.
 
 ## Project Architecture
 OpenShift administrators can utilize OpenShift pipelines and OADP to best fit their own needs.  An example architecture is show below that provides OpenShift pipelines for backing up and restoring projects with limited roles for non-admins.  The non-admin in this case Joe or Sarah are allowed to trigger OADP backup and an OADP restore but neither Joe or Sarah can edit the OpenShift pipelines or accidently restore a backup to the wrong namespace.  Joe and Sarah will have a full history of all the executions of the backups and restores in the pipeline-runs section of the pipeline.  The OpenShift administrator may also create tekton [pipeline triggers](https://cloud.redhat.com/blog/guide-to-openshift-pipelines-part-6-triggering-pipeline-execution-from-github) to schedule a backup of a namespace based on a specific event.
@@ -22,6 +22,7 @@ A user may want to change the backup custom resource, or other aspects of this d
 * The oauth and some of the user settings can be found in the [demo_users](demo_users) directory
 * Some of the templates used in this demonstration are templated and found in [install_templates/templates](install_templates). The [install.sh](install.sh) script executes `oc process` to substitute variables and renders to the directory of the users choice or by default to `/tmp/oadp_non_admin` 
 * The parameters that users are allowed to set in the tekton pipeline are defined in [05-build-and-deploy.yaml](install_templates/templates/05-build-and-deploy.yaml).
+* A more [advanced velero backup custom resource](oadp-tekton-container/advanced_backup.yaml) is provided as an example but not used in this demo
 
 ## Sample Applications
 If you require a sample application while working through the instructions, you can find viable sample applications via the following links:
@@ -29,7 +30,7 @@ If you require a sample application while working through the instructions, you 
   * https://github.com/openshift/oadp-operator/tree/master/tests/e2e/sample-applications/mysql-persistent
 
 ## Known Issues
-* Advanced backup and restore options are not included in the templates.
+* Advanced backup and restore options are not included in this demo.
 
 ## Steps
 
@@ -37,6 +38,7 @@ If you require a sample application while working through the instructions, you 
 * Install [OpenShift Pipelines (Tekton)](https://docs.openshift.com/container-platform/latest/cicd/pipelines/installing-pipelines.html)
 * Check that [OADP is installed](https://docs.openshift.com/container-platform/latest/backup_and_restore/application_backup_and_restore/installing/about-installing-oadp.html)
 * Check OADP configuration which must have at least one [DPA CRD](https://github.com/openshift/oadp-operator/blob/master/docs/install_olm.md#create-the-dataprotectionapplication-custom-resource)
+* It is recommended to the user to ensure backup and restore operations are working prior to running this demonstration.
 
 There is a shell script to check those Prerequisites:
 ```shell
@@ -98,7 +100,7 @@ $ oc adm policy add-role-to-user edit buzz1 -n mysql-persistent
 ```
 **Note** The non-admin user should have `view` access to the namespace that provides the tekton pipelines, and view or higher access like `edit` to the namespaces the user is intended to backup and restore.
 
-Outside of this demo users and namespaces that are required to be backed up would have already been setup.  This step should only be required for demonstration purposes.
+Outside of this demonstration users and namespaces that are required to be backed up would have already been setup.  This step should only be required for demonstration purposes.
 
 
 ### Setup the Tekton pipelines 
