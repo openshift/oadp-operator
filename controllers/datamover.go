@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/go-logr/logr"
@@ -19,7 +20,6 @@ import (
 
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -276,10 +276,17 @@ func (r *DPAReconciler) buildDataMoverDeployment(dataMoverDeployment *appsv1.Dep
 		},
 	}
 
+	replicas := int32(1)
+	if value, present := os.LookupEnv("DATAMOVER_DEBUG_REPLICAS_OVERRIDE"); present {
+		if converted, err := strconv.Atoi(value); err == nil {
+			replicas = int32(converted)
+		}
+	}
+
 	dataMoverDeployment.Labels = r.getDataMoverLabels()
 	dataMoverDeployment.Spec = appsv1.DeploymentSpec{
 		Selector: dataMoverDeployment.Spec.Selector,
-		Replicas: pointer.Int32(1),
+		Replicas: &replicas,
 		Template: corev1.PodTemplateSpec{
 			ObjectMeta: metav1.ObjectMeta{
 				Labels: map[string]string{
