@@ -24,6 +24,9 @@ appropriate `volumeSnapshotClass` and `storageClass`found [here](/docs/examples/
 
 - Install the VolSync operator using OLM.
 
+Note: For OADP 1.2 you are not required to annotate the openshift-adp namespace (OADP Operator install namespace) with `volsync.backube/privileged-movers='true'`. This action
+will be automatically performed by the Operator when the datamover feature is enabled.
+
 ![Volsync_install](/docs/images/volsync_install.png)
 
 - We will be using VolSync's Restic option, hence configure a restic secret:

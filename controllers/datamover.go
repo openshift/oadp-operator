@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"strconv"
 	"strings"
 
 	"github.com/go-logr/logr"
@@ -32,6 +31,8 @@ const (
 	ResticCustomCAKey   = "RESTIC_CUSTOM_CA"
 	ResticsecretName    = "dm-credential"
 	ResticPruneInterval = "restic-prune-interval"
+
+	DataMoverDummyPodImageEnvVar = "DATA_MOVER_DUMMY_POD_IMAGE"
 
 	// batchNumbers vars
 	DefaultConcurrentBackupVolumes  = "10"
@@ -89,6 +90,17 @@ func (r *DPAReconciler) ReconcileDataMoverController(log logr.Logger) (bool, err
 				return false, fmt.Errorf("volSync operator not found. Please install")
 			}
 
+			return false, err
+		}
+
+		adpNS := corev1.Namespace{}
+		if err := r.Get(r.Context, types.NamespacedName{Name: r.NamespacedName.Namespace}, &adpNS); err != nil {
+			return false, err
+		}
+
+		// add volsync privileged mover annotation
+		err = r.addAnnotations(&adpNS, r.Log)
+		if err != nil {
 			return false, err
 		}
 	}
@@ -326,8 +338,19 @@ func (r *DPAReconciler) customizeDataMoverContainer(dpa *oadpv1alpha1.DataProtec
 			Value: DefaultConcurrentRestoreVolumes,
 		})
 	}
+	dataMoverContainer.Env = append(dataMoverContainer.Env, corev1.EnvVar{
+		Name:  DataMoverDummyPodImageEnvVar,
+		Value: getDataMoverDummyPodImage(),
+	})
 
 	return nil
+}
+
+func getDataMoverDummyPodImage() string {
+	if os.Getenv("RELATED_IMAGE_DATA_MOVER_DUMMY_POD") == "" {
+		return common.DummyPodImage
+	}
+	return os.Getenv("RELATED_IMAGE_DATA_MOVER_DUMMY_POD")
 }
 
 func (r *DPAReconciler) getDataMoverImage(dpa *oadpv1alpha1.DataProtectionApplication) string {
@@ -749,7 +772,7 @@ func (r *DPAReconciler) buildDataMoverConfigMap(dpa *oadpv1alpha1.DataProtection
 		return fmt.Errorf("DPA CR cannot be nil")
 	}
 	if cm == nil {
-		return fmt.Errorf("datamover deployment cannot be nil")
+		return fmt.Errorf("datamover configmap cannot be nil")
 	}
 
 	cmMap := map[string]string{}
@@ -776,13 +799,7 @@ func (r *DPAReconciler) buildDataMoverConfigMap(dpa *oadpv1alpha1.DataProtection
 		if len(sourceOptions.CacheCapacity) > 0 {
 			cmMap["SourceCacheCapacity"] = sourceOptions.CacheCapacity
 		}
-		if sourceOptions.MoverSecurityContext != nil {
-			cmMap["SourceMoverSecurityContext"] = strconv.FormatBool(*sourceOptions.MoverSecurityContext)
 
-			// default to true
-		} else {
-			cmMap["SourceMoverSecurityContext"] = "true"
-		}
 	}
 
 	// check for destination volume options
@@ -807,14 +824,6 @@ func (r *DPAReconciler) buildDataMoverConfigMap(dpa *oadpv1alpha1.DataProtection
 
 		if len(destinationOptions.CacheCapacity) > 0 {
 			cmMap["DestinationCacheCapacity"] = destinationOptions.CacheCapacity
-		}
-
-		if destinationOptions.MoverSecurityContext != nil {
-			cmMap["DestinationMoverSecurityContext"] = strconv.FormatBool(*destinationOptions.MoverSecurityContext)
-
-			// default to true
-		} else {
-			cmMap["DestinationMoverSecurityContext"] = "true"
 		}
 	}
 
@@ -916,4 +925,22 @@ func (r *DPAReconciler) parseGCPSecret(secret corev1.Secret, secretKey string) (
 	gcpcreds.googleApplicationCredentials = string(secret.Data[secretKey])
 
 	return gcpcreds, nil
+}
+
+func (r *DPAReconciler) addAnnotations(ns *corev1.Namespace, log logr.Logger) error {
+
+	annotations := ns.ObjectMeta.GetAnnotations()
+	if ns.ObjectMeta.Annotations == nil {
+		annotations = map[string]string{}
+	}
+
+	annotations[common.VolsyncPrivilegedAnnotation] = "true"
+	ns.ObjectMeta.SetAnnotations(annotations)
+
+	err := r.Update(r.Context, ns, &client.UpdateOptions{})
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

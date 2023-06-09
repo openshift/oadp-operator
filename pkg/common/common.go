@@ -18,6 +18,7 @@ const (
 	OADPOperatorServiceAccount   = "openshift-adp-controller-manager"
 	VolSyncDeploymentName        = "volsync-controller-manager"
 	VolSyncDeploymentNamespace   = "openshift-operators"
+	VolsyncPrivilegedAnnotation  = "volsync.backube/privileged-movers"
 )
 
 // Images
@@ -31,6 +32,7 @@ const (
 	VSMPluginImage       = "quay.io/konveyor/velero-plugin-for-vsm:latest"
 	// DataMoverImage is the data mover controller for data mover CRs - VolumeSnapshotBackup and VolumeSnapshotRestore
 	DataMoverImage      = "quay.io/konveyor/volume-snapshot-mover:latest"
+	DummyPodImage       = "quay.io/konveyor/rsync-transfer:latest"
 	RegistryImage       = "quay.io/konveyor/registry:latest"
 	KubeVirtPluginImage = "quay.io/konveyor/kubevirt-velero-plugin:v0.2.0"
 )

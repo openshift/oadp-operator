@@ -3,6 +3,7 @@ package e2e_test
 import (
 	"fmt"
 	"log"
+	"os"
 	"strings"
 	"time"
 
@@ -11,6 +12,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	. "github.com/onsi/ginkgo/v2"
+	"github.com/onsi/ginkgo/v2/types"
 	. "github.com/onsi/gomega"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	. "github.com/openshift/oadp-operator/tests/e2e/lib"
@@ -552,10 +554,24 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 	var lastInstallingApplicationNamespace string
 	var lastInstallTime time.Time
 	var _ = ReportAfterEach(func(report SpecReport) {
+		if report.State == types.SpecStateSkipped || report.State == types.SpecStatePending {
+			// do not run if the test is skipped
+			return
+		}
 		if report.Failed() {
+			baseReportDir := artifact_dir + "/" + report.LeafNodeText
+			err := os.MkdirAll(baseReportDir, 0755)
+			Expect(err).NotTo(HaveOccurred())
 			// print namespace error events for app namespace
 			if lastInstallingApplicationNamespace != "" {
 				PrintNamespaceEventsAfterTime(lastInstallingApplicationNamespace, lastInstallTime)
+			}
+			err = SavePodLogs(lastInstallingApplicationNamespace, baseReportDir)
+			Expect(err).NotTo(HaveOccurred())
+			log.Printf("Running must gather for failed deployment test - " + report.LeafNodeText)
+			err = RunMustGather(oc_cli, baseReportDir+"/must-gather")
+			if err != nil {
+				log.Printf("Failed to run must gather: " + err.Error())
 			}
 		}
 	})
