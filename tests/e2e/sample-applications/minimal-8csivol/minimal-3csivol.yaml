@@ -13,6 +13,22 @@ metadata:
 # Appends current time to each volume ./$(date +%s).txt once if does not exists.
 # Continuously cat each file in volume to stdout.
 # container echoes the contents of each volume to stdout.
+# Note: If you see deployment stuck with this error: pods "minimal-3csivol-59f59dd6fc-lhc5k" is forbidden: unable to validate
+#        against any security context constraint:
+#        [pod.metadata.annotations.container.seccomp.security.alpha.kubernetes.io/alpine:
+#        Forbidden: seccomp may not be set provider "anyuid": Forbidden: not
+#        usable by user or serviceaccount provider "nonroot": Forbidden: not
+#        usable by user or serviceaccount provider "hostmount-anyuid": Forbidden:
+#        not usable by user or serviceaccount provider
+#        "machine-api-termination-handler": Forbidden: not usable by user or
+#        serviceaccount provider "hostnetwork": Forbidden: not usable by user or
+#        serviceaccount provider "hostaccess": Forbidden: not usable by user or
+#        serviceaccount provider "mssql-persistent-scc": Forbidden: not usable by
+#        user or serviceaccount provider "mysql-persistent-scc": Forbidden: not
+#        usable by user or serviceaccount provider "node-exporter": Forbidden:
+#        not usable by user or serviceaccount provider "privileged": Forbidden:
+#        not usable by user or serviceaccount]
+# Resolve this issue by executing the command `oc adm policy add-scc-to-user privileged -z default -n minimal-3csivol`
 apiVersion: apps/v1
 kind: Deployment
 metadata:
