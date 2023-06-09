@@ -224,7 +224,13 @@ func (r *DPAReconciler) customizeVeleroDeployment(dpa *oadpv1alpha1.DataProtecti
 	isSTSNeeded := r.isSTSTokenNeeded(dpa.Spec.BackupLocations, dpa.Namespace)
 
 	// Selector: veleroDeployment.Spec.Selector,
-	veleroDeployment.Spec.Replicas = pointer.Int32(1)
+	replicas := int32(1)
+	if value, present := os.LookupEnv("VELERO_DEBUG_REPLICAS_OVERRIDE"); present {
+		if converted, err := strconv.Atoi(value); err == nil {
+			replicas = int32(converted)
+		}
+	}
+	veleroDeployment.Spec.Replicas = &replicas
 	if dpa.Spec.Configuration.Velero.PodConfig != nil {
 		veleroDeployment.Spec.Template.Spec.Tolerations = dpa.Spec.Configuration.Velero.PodConfig.Tolerations
 		veleroDeployment.Spec.Template.Spec.NodeSelector = dpa.Spec.Configuration.Velero.PodConfig.NodeSelector
