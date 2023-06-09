@@ -1,16 +1,16 @@
 # Create a project and user with non-admin access that can execute an OADP backup
 
 ## Background
-The purpose of this demonstration is to provide an example for OpenShift administrators and users how an admistrator may configure OADP and OpenShift Pipelines to provide non-adminstrators access to trigger an OADP backup and restore workflow.
+The purpose of this demonstration is to provide a comprehensive example for OpenShift administrators on how OADP and OpenShift Pipelines may be configured to provide users that are non-administrators access to trigger an OADP backup and restore workflow.
 
-This example uses [OpenShift Pipelines](https://cloud.redhat.com/blog/introducing-openshift-pipelines) and configures a tekton pipeline for a non-admin user that has access to OADP resources to trigger a backup.  The non-admin user can execute the pipeline but can not edit the pipeline.  The administrator is allowed to configure OADP for their users, and users can execute a backup or restore as needed with out the administrator intervention.
+This example uses [OpenShift Pipelines](https://cloud.redhat.com/blog/introducing-openshift-pipelines) and configures a Tekton pipeline for a non-admin user that has access to OADP resources to trigger a backup.  The non-admin user **can execute** the pipeline but **can not** edit the pipeline.  The administrator is allowed to configure OADP for their users, and users can execute a backup or restore as needed without the administrator intervention.
 
 ## Project Architecture
-OpenShift Administrators can utilize OpenShift pipelines and OADP to best fit their own needs.  An example architecture is show below that provides OpenShift pipelines for backing up and restoring projects with limited roles for non-admins.  The non-admin in this case Joe or Sarah are allowed to trigger OADP backup and an OADP restore but neither Joe or Sarah can edit the OpenShift pipelines or accidently restore a backup to the wrong namespace.  Joe and Sarah will have a full history of all the executions of the backups and restores in the pipeline-runs section of the pipeline.  The OpenShift administrator may also create tekton [pipeline triggers](https://cloud.redhat.com/blog/guide-to-openshift-pipelines-part-6-triggering-pipeline-execution-from-github) to schedule a backup of a namespace based on a specific event.
+OpenShift administrators can utilize OpenShift pipelines and OADP to best fit their own needs.  An example architecture is show below that provides OpenShift pipelines for backing up and restoring projects with limited roles for non-admins.  The non-admin in this case Joe or Sarah are allowed to trigger OADP backup and an OADP restore but neither Joe or Sarah can edit the OpenShift pipelines or accidently restore a backup to the wrong namespace.  Joe and Sarah will have a full history of all the executions of the backups and restores in the pipeline-runs section of the pipeline.  The OpenShift administrator may also create tekton [pipeline triggers](https://cloud.redhat.com/blog/guide-to-openshift-pipelines-part-6-triggering-pipeline-execution-from-github) to schedule a backup of a namespace based on a specific event.
 
-![oadp-non-admin-diagram1](https://user-images.githubusercontent.com/138787/226448245-68712098-38c7-4b46-aaae-bba910f8dfc0.png)
+![oadp-non-admin-diagram1](./readme_img/oadp_non_admin_arch.png)
 
-![Screenshot from 2023-06-03 19-06-29](https://github.com/weshayutin/oadp-operator/assets/138787/3416d804-cb2a-4e9e-aa6d-9e12a8baa99a)
+![Screenshot from 2023-06-03 19-06-29](./readme_img/openshift_pipelines.png)
 
 
 ## Technical Details of this demonstration
@@ -32,17 +32,22 @@ If you require a sample application while working through the instructions, you 
 ## Steps
 
 ### Prerequisites
-* Install [OpenShift Pipelines](https://docs.openshift.com/container-platform/4.13/cicd/pipelines/installing-pipelines.html) 
-* Check that [OADP is installed](https://docs.openshift.com/container-platform/4.13/backup_and_restore/application_backup_and_restore/installing/about-installing-oadp.html) 
+* Install [OpenShift Pipelines (Tekton)](https://docs.openshift.com/container-platform/latest/cicd/pipelines/installing-pipelines.html)
+* Check that [OADP is installed](https://docs.openshift.com/container-platform/latest/backup_and_restore/application_backup_and_restore/installing/about-installing-oadp.html)
+* Check OADP configuration which must have at least one [DPA CRD](https://github.com/openshift/oadp-operator/blob/master/docs/install_olm.md#create-the-dataprotectionapplication-custom-resource)
 
+There is a shell script to check those Prerequisites:
+```shell
+$ ./check_prerequisites.sh
+[...]
+######################
+Summary:
+	 Tekton installed:	True
+	 OADP installed:	True
+	 OADP configured:	True
+######################
 
 ```
-./check_prerequisites.sh -h
-Check the prerequisites [-h|-i]
-options:
-h     Print this Help.
-```
-
 
 ### First create non-admin users 
 * **NOTE** The script [demo_users/create_demousers.sh](demo_users/create_demousers.sh) is for demo purposes only.
@@ -51,14 +56,16 @@ A cluster with non-admin users that also have applications deployed as any non-a
 
   *  This step can easily be done manually and the script skipped by executing the steps documented [here](https://www.redhat.com/sysadmin/openshift-htpasswd-oauth)
   *  If a user has been created manually, the created user requires the `view` role as demonstrated here:
-  ```
-  oc create namespace $PROJECT
-  oc adm policy add-role-to-user view $USER -n $PROJECT
+  ```shell
+  $ USER=buzz1
+  $ PROJECT=buzz
+  $ oc create namespace $PROJECT
+  $ oc adm policy add-role-to-user view $USER -n $PROJECT
   ```
 * While logged in as the kubeadmin user, execute the following:
 ```
-cd demo_users
-./create_demousers.sh -h
+$ cd demo_users
+$ ./create_demousers.sh -h
 Create the OADP non-admin users
 
 Syntax: scriptTemplate [-h|-n|-c|-p|-x|-d]
@@ -73,7 +80,7 @@ d     The directory where the htpasswd file will be saved
 
 Example:
 ```
-./create_demousers.sh -n buzz -c 2 -p passw0rd -x buzz
+$ ./create_demousers.sh -n buzz -c 2 -p passw0rd -x buzz
 ```
 This will create two new users in openshift called buzz1 and buzz2 with a default password of `passw0rd`.
 
@@ -85,7 +92,7 @@ This will create two new users in openshift called buzz1 and buzz2 with a defaul
 
 For example if user buzz1 is meant backup the namespace mysql-persistent:
 ```
-oc adm policy add-role-to-user edit buzz1 -n mysql-persistent
+$ oc adm policy add-role-to-user edit buzz1 -n mysql-persistent
 ```
 **Note** The non-admin user should have `view` access to the namespace that provides the tekton pipelines, and view or higher access like `edit` to the namespaces the user is intended to backup and restore.
 
@@ -98,7 +105,7 @@ Outside of this demo users and namespaces that are required to be backed up woul
 
 Using an example with a user called buzz1 in a project called buzz1
 ```
-./install.sh -h
+$ ./install.sh -h
 Create the OADP non-admin templates
 
 Syntax: scriptTemplate [-h|-p|-u|-d]
@@ -109,14 +116,14 @@ u     Name of the non-admin user
 d     The directory where the templates will be saved
 
 
-./install.sh -p buzz -u buzz1 -d /tmp/buzz1
+$ ./install.sh -p buzz -u buzz1 -d /tmp/buzz1
 ```
 
 The project buzz will be created and the user buzz1 updated.
 
 * Navigate to the pipelines menu as the buzz1 user
 
-![Screenshot from 2023-06-03 19-06-29](https://github.com/weshayutin/oadp-operator/assets/138787/e0434a17-06bc-4ab0-87ba-54eb71e10a20)
+![Screenshot from 2023-06-03 19-06-29](./readme_img/openshift_pipelines.png)
 
 
 ### Import the required Tekton images
@@ -124,7 +131,7 @@ The project buzz will be created and the user buzz1 updated.
 * Click the `import-required-images` pipeline.
 * Select `Actions`, and `Start`
 
-![Screenshot from 2023-06-03 19-07-53](https://github.com/weshayutin/oadp-operator/assets/138787/5e596ba7-1dbb-4d70-ad8b-d8522f681dc4)
+![Screenshot from 2023-06-03 19-07-53](./readme_img/pipeline_actions.png)
 
 ### Trigger a backup as a non-admin user
 
@@ -136,38 +143,38 @@ The project buzz will be created and the user buzz1 updated.
       * A VolumeClaimTemplate
       * In this demo a volume claim using the gp2-csi storage class was created.
 
-![Screenshot from 2023-06-03 19-10-04](https://github.com/weshayutin/oadp-operator/assets/138787/d6c939be-3ddb-45cf-ad46-94556d4b537e)
+![Backup OpenShift Pipeline trigger](./readme_img/trigger_backup.png)
 
 * Watch and wait for the backup to complete
 
-![Screenshot from 2023-06-04 08-05-57](https://github.com/weshayutin/oadp-operator/assets/138787/0969341f-7c16-4889-8bfc-9adf352b1abe)
+![Backup OpenShift Pipeline run](./readme_img/backup_pipeline_run.png)
 
-![Screenshot from 2023-06-04 08-06-59](https://github.com/weshayutin/oadp-operator/assets/138787/e05a1f91-a0f4-4e6e-a0a7-38bcb54ec12a)
+![Backup OpenShift Pipeline done](./readme_img/backup_pipeline_done.png)
 
 
 ### Delete the application
 Now that you have backed up an application, delete the application's namespace and we'll proceed to the restore pipeline.
 
-```
-oc delete namespace <namespace>
-oc delete namespace mysql-persistent
+```shell
+# oc delete namespace <namespace>
+$ oc delete namespace mysql-persistent
 ```
 
 ### Restore the application
 In the buzz1 project, click on `Pipelines` and the `restore-pipeline`
 
-![Screenshot from 2023-06-04 08-09-04](https://github.com/weshayutin/oadp-operator/assets/138787/3fd382c0-8658-4e62-aaef-af1987280f48)
+![Screenshot from 2023-06-04 08-09-04](./readme_img/restore_pipeline.png)
 
 
 Follow the same steps and the same `backup name` used in the backup pipeline.
 * Provide a restore name e.g. `restoremysql1`
 * The backup name in the example was `backupmysql1`
-![Screenshot from 2023-06-04 08-10-08](https://github.com/weshayutin/oadp-operator/assets/138787/e0948c66-5305-413a-83e8-07b61e60a51a)
+![Screenshot from 2023-06-04 08-10-08](./readme_img/restore_pipeline_run.png)
 
 
 The restore should run to completion.
-![Screenshot from 2023-06-04 08-14-42](https://github.com/weshayutin/oadp-operator/assets/138787/85c2fe1e-8b80-4ca5-8c45-6c064e36be73)
-![Screenshot from 2023-06-04 08-15-06](https://github.com/weshayutin/oadp-operator/assets/138787/19598645-1e3c-4962-abab-23f4dbe63e20)
+![Screenshot from 2023-06-04 08-14-42](./readme_img/restore_pipeline_in_progress.png)
+![Screenshot from 2023-06-04 08-15-06](./readme_img/restore_pipeline_done.png)
 
 
 The mysql-persistent application should be created and up running!
