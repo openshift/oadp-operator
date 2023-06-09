@@ -12,7 +12,7 @@ OpenShift administrators can utilize OpenShift pipelines and OADP to best fit th
 
 ![oadp-non-admin-diagram1](./readme_img/oadp_non_admin_arch.png)
 
-![oadp-non-admin-diagram2](../images/OADP_Non_Admin.png)
+![oadp-non-admin-diagram2](./readme_img/OADP_Non_Admin.png)
 
 ![Screenshot from 2023-06-03 19-06-29](./readme_img/openshift_pipelines.png)
 
