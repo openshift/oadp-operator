@@ -37,35 +37,67 @@ while getopts "h:i" option; do
    esac
 done
 
-printf "\n"
-printf "Checking if the Openshift Pipelines operator is installed....\n"
-prc=`oc get operator | grep -c openshift-pipelines-operator-rh.openshift-operators` 
-if [ $prc -eq 1 ]; then
-  printf "The Openshift Pipelines operator is installed\n"
-else
-  printf "Please install the Openshift Pipelines operator\n"
-  exit
+TKN_INSTALLED=0
+OADP_INSTALLED=0
+OADP_CONFIGURED=0
+
+if ! type oc > /dev/null 2>&1; then
+    echo "oc command not found, please install it in your PATH and log in to the OpenShift cluster to continue..."
+    exit 1
 fi
 
-printf "\n"
+if ! type jq > /dev/null 2>&1; then
+    echo "jq command not found, please install it in your PATH to continue..."
+    exit 1
+fi
+
+if ! oc auth can-i '*' '*' --all-namespaces >/dev/null 2>&1; then
+    echo "You must be logged in to a OpenShift cluster as a user with cluster-admin to continue..."
+    exit 1
+fi
+
+printf "Checking if the Openshift Pipelines operator is installed...\n"
+printf "$ oc get crds tektonpipelines.operator.tekton.dev\n"
+oc get crds tektonpipelines.operator.tekton.dev && TKN_INSTALLED=1
+
 printf "Checking if OADP is installed and configured....\n"
-orc=`oc get operator | grep -c oadp-operator.openshift-adp`
-if [ $orc -eq 2 ]; then
-   drc=`oc get dpa -n openshift-adp -o jsonpath={.items} | jq '. | length'`
-   if [ $drc -lt 1 ]; then 
-      printf "OADP is not configured with a DPA\n"
-      printf "Please configure a DPA named dpa-sample\n"
-      printf "https://github.com/openshift/oadp-operator/blob/master/docs/install_olm.md#create-the-dataprotectionapplication-custom-resource"
-      printf "\n"
-      exit 1
-   else
-      printf "An OADP DPA was found.\n"
-   fi
-else 
-   printf "OADP is NOT installed, please install OADP\n"
-   printf "https://docs.openshift.com/container-platform/4.12/backup_and_restore/application_backup_and_restore/installing/about-installing-oadp.html\n"
-   printf "\n"
-   exit 1
+printf "$ oc get operator oadp-operator.openshift-adp\n"
+if oc get operator  | grep -q oadp-operator.openshift-adp; then
+  OADP_INSTALLED=1
+  printf "Checking if there is configured at least one DataProtectionApplication Custom Resource...\n"
+  printf "$ oc get dpa -n openshift-adp -o jsonpath={.items} | jq '. | length'\n"
+  drc=$(oc get dpa -n openshift-adp -o jsonpath={.items} | jq '. | length')
+  if [ $drc -ge 1 ]; then
+     OADP_CONFIGURED=1
+  fi
 fi
-printf "\nDone!\n"
 
+function print_tkn_not_installed() {
+   printf "\n\t* Install OpenShift Pipelines (Tekton):\n"
+   printf "\n\t  https://docs.openshift.com/container-platform/latest/cicd/pipelines/installing-pipelines.html\n"
+}
+
+function print_oadp_not_installed() {
+   printf "\n\t* Install OADP Operator:\n"
+   printf "\n\t  https://docs.openshift.com/container-platform/4.12/backup_and_restore/application_backup_and_restore/installing/about-installing-oadp.html\n"
+}
+
+function print_oadp_not_configured() {
+     printf "\n\t* Configure OADP DataProtectionApplication Custom Resource named 'dpa-sample':\n"
+     printf "\n\t  https://github.com/openshift/oadp-operator/blob/master/docs/install_olm.md#create-the-dataprotectionapplication-custom-resource"
+}
+
+printf "\n######################"
+printf "\nSummary:"
+printf "\n\t Tekton installed:\t%s" "$([ "$TKN_INSTALLED" -eq 1 ] && echo "True" || echo "False")"
+printf "\n\t OADP installed:\t%s" "$([ "$OADP_INSTALLED" -eq 1 ] && echo "True" || echo "False")"
+printf "\n\t OADP configured:\t%s" "$([ "$OADP_CONFIGURED" -eq 1 ] && echo "True" || echo "False")"
+[ "$TKN_INSTALLED" -eq 1 ] && [ "$OADP_INSTALLED" -eq 1 ] && [ "$OADP_CONFIGURED" -eq 1 ] || printf "\n\nActions needed:"
+[ "$TKN_INSTALLED" -eq 1 ] || print_tkn_not_installed
+[ "$OADP_INSTALLED" -eq 1 ] || print_oadp_not_installed
+[ "$OADP_CONFIGURED" -eq 1 ] || print_oadp_not_configured
+
+printf "\n######################\n"
+
+[ "$TKN_INSTALLED" -eq 1 ] && [ "$OADP_INSTALLED" -eq 1 ] && [ "$OADP_CONFIGURED" -eq 1 ]
+exit $?
