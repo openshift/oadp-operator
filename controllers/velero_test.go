@@ -2838,7 +2838,7 @@ func TestDPAReconciler_noDefaultCredentials(t *testing.T) {
 	}
 }
 
-func TestDPAReconciler_DebugEnvironment(t *testing.T) {
+func TestDPAReconciler_VeleroDebugEnvironment(t *testing.T) {
 	tests := []struct {
 		name     string
 		replicas *int
@@ -2868,7 +2868,7 @@ func TestDPAReconciler_DebugEnvironment(t *testing.T) {
 			err = os.Unsetenv(VeleroReplicaOverride)
 		}
 		if err != nil {
-			t.Errorf("DPAReconciler.DebugEnvironment failed to set debug override: %v", err)
+			t.Errorf("DPAReconciler.VeleroDebugEnvironment failed to set debug override: %v", err)
 			return
 		}
 
@@ -2904,7 +2904,7 @@ func TestDPAReconciler_DebugEnvironment(t *testing.T) {
 			}
 			err = r.buildVeleroDeployment(deployment, dpa)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("DPAReconciler.DebugEnvironment error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("DPAReconciler.VeleroDebugEnvironment error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if deployment.Spec.Replicas == nil {

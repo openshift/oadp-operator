@@ -58,6 +58,8 @@ const (
 	SnapshotRetainPolicyMonthly = "SnapshotRetainPolicyMonthly"
 	SnapshotRetainPolicyYearly  = "SnapshotRetainPolicyYearly"
 	SnapshotRetainPolicyWithin  = "SnapshotRetainPolicyWithin"
+
+	DataMoverReplicaOverride = "DATAMOVER_DEBUG_REPLICAS_OVERRIDE"
 )
 
 type gcpCredentials struct {
@@ -277,7 +279,7 @@ func (r *DPAReconciler) buildDataMoverDeployment(dataMoverDeployment *appsv1.Dep
 	}
 
 	replicas := int32(1)
-	if value, present := os.LookupEnv("DATAMOVER_DEBUG_REPLICAS_OVERRIDE"); present {
+	if value, present := os.LookupEnv(DataMoverReplicaOverride); present {
 		if converted, err := strconv.Atoi(value); err == nil {
 			replicas = int32(converted)
 		}

@@ -2,7 +2,9 @@ package controllers
 
 import (
 	"fmt"
+	"os"
 	"reflect"
+	"strconv"
 	"testing"
 
 	"github.com/go-logr/logr"
@@ -185,6 +187,103 @@ func TestDPAReconciler_buildDataMoverDeployment(t *testing.T) {
 			if !reflect.DeepEqual(tt.wantDataMoverDeployment.Spec, tt.dataMoverDeployment.Spec) {
 				fmt.Println(cmp.Diff(tt.wantDataMoverDeployment.Spec, tt.dataMoverDeployment.Spec))
 				t.Errorf("expected dataMoverDeployment spec to be %#v, got %#v", tt.wantDataMoverDeployment, tt.dataMoverDeployment)
+			}
+		})
+	}
+}
+
+func TestDPAReconciler_DataMoverDebugEnvironment(t *testing.T) {
+	tests := []struct {
+		name     string
+		replicas *int
+		wantErr  bool
+	}{
+		{
+			name:     "debug replica override not set",
+			replicas: nil,
+			wantErr:  false,
+		},
+		{
+			name:     "debug replica override set to 1",
+			replicas: pointer.Int(1),
+			wantErr:  false,
+		},
+		{
+			name:     "debug replica override set to 0",
+			replicas: pointer.Int(0),
+			wantErr:  false,
+		},
+	}
+	for _, tt := range tests {
+		var err error
+		if tt.replicas != nil {
+			err = os.Setenv(DataMoverReplicaOverride, strconv.Itoa(*tt.replicas))
+		} else {
+			err = os.Unsetenv(DataMoverReplicaOverride)
+		}
+		if err != nil {
+			t.Errorf("DPAReconciler.DataMoverDebugEnvironment failed to set debug override: %v", err)
+			return
+		}
+
+		deployment := &appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      common.DataMover,
+				Namespace: "test-ns",
+			},
+			Spec: appsv1.DeploymentSpec{
+				Selector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{
+						"component": common.DataMoverController,
+					},
+				},
+			},
+		}
+
+		dpa := &oadpv1alpha1.DataProtectionApplication{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-Velero-CR",
+				Namespace: "test-ns",
+			},
+			Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+				Configuration: &oadpv1alpha1.ApplicationConfig{
+					Velero: &oadpv1alpha1.VeleroConfig{},
+				},
+				Features: &oadpv1alpha1.Features{
+					DataMover: &oadpv1alpha1.DataMover{
+						Enable: true,
+					},
+				},
+			},
+		}
+
+		t.Run(tt.name, func(t *testing.T) {
+			fakeClient, err := getFakeClientFromObjects(dpa)
+			if err != nil {
+				t.Errorf("error in creating fake client, likely programmer error")
+			}
+			r := DPAReconciler{
+				Client: fakeClient,
+			}
+			err = r.buildDataMoverDeployment(deployment, dpa)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("DPAReconciler.DataMoverDebugEnvironment error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if deployment.Spec.Replicas == nil {
+				t.Error("deployment replicas not set")
+				return
+			}
+			if tt.replicas == nil {
+				if *deployment.Spec.Replicas != 1 {
+					t.Errorf("unexpected deployment replica count: %d", *deployment.Spec.Replicas)
+					return
+				}
+			} else {
+				if *deployment.Spec.Replicas != int32(*tt.replicas) {
+					t.Error("debug replica override did not apply")
+					return
+				}
 			}
 		})
 	}
