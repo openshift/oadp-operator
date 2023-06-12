@@ -41,6 +41,8 @@ const (
 	VeleroGCPSecretName   = "cloud-credentials-gcp"
 	enableCSIFeatureFlag  = "EnableCSI"
 	veleroIOPrefix        = "velero.io/"
+
+	VeleroReplicaOverride = "VELERO_DEBUG_REPLICAS_OVERRIDE"
 )
 
 var (
@@ -225,7 +227,7 @@ func (r *DPAReconciler) customizeVeleroDeployment(dpa *oadpv1alpha1.DataProtecti
 
 	// Selector: veleroDeployment.Spec.Selector,
 	replicas := int32(1)
-	if value, present := os.LookupEnv("VELERO_DEBUG_REPLICAS_OVERRIDE"); present {
+	if value, present := os.LookupEnv(VeleroReplicaOverride); present {
 		if converted, err := strconv.Atoi(value); err == nil {
 			replicas = int32(converted)
 		}
