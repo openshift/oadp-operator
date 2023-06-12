@@ -2837,3 +2837,91 @@ func TestDPAReconciler_noDefaultCredentials(t *testing.T) {
 		})
 	}
 }
+
+func TestDPAReconciler_VeleroDebugEnvironment(t *testing.T) {
+	tests := []struct {
+		name     string
+		replicas *int
+		wantErr  bool
+	}{
+		{
+			name:     "debug replica override not set",
+			replicas: nil,
+			wantErr:  false,
+		},
+		{
+			name:     "debug replica override set to 1",
+			replicas: pointer.Int(1),
+			wantErr:  false,
+		},
+		{
+			name:     "debug replica override set to 0",
+			replicas: pointer.Int(0),
+			wantErr:  false,
+		},
+	}
+	for _, tt := range tests {
+		var err error
+		if tt.replicas != nil {
+			err = os.Setenv(VeleroReplicaOverride, strconv.Itoa(*tt.replicas))
+		} else {
+			err = os.Unsetenv(VeleroReplicaOverride)
+		}
+		if err != nil {
+			t.Errorf("DPAReconciler.VeleroDebugEnvironment failed to set debug override: %v", err)
+			return
+		}
+
+		dpa := &oadpv1alpha1.DataProtectionApplication{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-Velero-CR",
+				Namespace: "test-ns",
+			},
+			Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+				Configuration: &oadpv1alpha1.ApplicationConfig{
+					Velero: &oadpv1alpha1.VeleroConfig{
+						DefaultPlugins:          allDefaultPluginsList,
+						NoDefaultBackupLocation: true,
+					},
+				},
+			},
+		}
+
+		deployment := &appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      common.Velero,
+				Namespace: dpa.Namespace,
+			},
+		}
+
+		t.Run(tt.name, func(t *testing.T) {
+			fakeClient, err := getFakeClientFromObjects(dpa)
+			if err != nil {
+				t.Errorf("error in creating fake client, likely programmer error")
+			}
+			r := DPAReconciler{
+				Client: fakeClient,
+			}
+			err = r.buildVeleroDeployment(deployment, dpa)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("DPAReconciler.VeleroDebugEnvironment error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if deployment.Spec.Replicas == nil {
+				t.Error("deployment replicas not set")
+				return
+			}
+			if tt.replicas == nil {
+				if *deployment.Spec.Replicas != 1 {
+					t.Errorf("unexpected deployment replica count: %d", *deployment.Spec.Replicas)
+					return
+				}
+			} else {
+				if *deployment.Spec.Replicas != int32(*tt.replicas) {
+					t.Error("debug replica override did not apply")
+					return
+				}
+			}
+		})
+	}
+}
