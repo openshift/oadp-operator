@@ -20,7 +20,7 @@ OpenShift administrators can utilize OpenShift pipelines and OADP to best fit th
 ## Technical Details of this demonstration
 A user may want to change the backup custom resource, or other aspects of this demo. Simply fork this git repository and update the settings and configuration. The following provides a more in depth technical specification.
 
-* To change the backup or restore custom resource, update the [crd's in the oadp-tekton-container directory](oadp-tekton-container/)
+* To change the backup or restore custom resource, update the [cr's in the oadp-tekton-container directory](oadp-tekton-container/)
 * The oauth and some of the user settings can be found in the [demo_users](demo_users) directory
 * Some of the templates used in this demonstration are templated and found in [install_templates/templates](install_templates). The [install.sh](install.sh) script executes `oc process` to substitute variables and renders to the directory of the users choice or by default to `/tmp/oadp_non_admin` 
 * The parameters that users are allowed to set in the tekton pipeline are defined in [05-build-and-deploy.yaml](install_templates/templates/05-build-and-deploy.yaml).
@@ -39,7 +39,7 @@ If you require a sample application while working through the instructions, you 
 ### Prerequisites
 * Install [OpenShift Pipelines (Tekton)](https://docs.openshift.com/container-platform/latest/cicd/pipelines/installing-pipelines.html)
 * Check that [OADP is installed](https://docs.openshift.com/container-platform/latest/backup_and_restore/application_backup_and_restore/installing/about-installing-oadp.html)
-* Check OADP configuration which must have at least one [DPA CRD](https://github.com/openshift/oadp-operator/blob/master/docs/install_olm.md#create-the-dataprotectionapplication-custom-resource)
+* Check OADP configuration which must have at least one [DPA CR](https://github.com/openshift/oadp-operator/blob/master/docs/install_olm.md#create-the-dataprotectionapplication-custom-resource)
 * It is recommended to the user to ensure backup and restore operations are working prior to running this demonstration.
 
 There is a shell script to check those Prerequisites:
