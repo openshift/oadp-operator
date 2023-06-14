@@ -43,41 +43,67 @@
 
 <h3><a href="https://github.com/migtools/volume-snapshot-mover/tree/master/config/crd/bases">VOLUMESNAPSHOTMOVER CUSTOMRESOURCEDEFINITIONS (CRDS)</a>:</h3>
 
-<p dir="auto">The data mover process will be based on two Custom Resource Definitions:</p>
+<h1>VSB and VSR</h1>
+<p>
+VSB and VSR are Kubernetes custom resources (CRs) that can be used to create backups and restore PersistentVolumeClaims (PVCs).
+</p>
+<h2>VolumeSnapshotBackup (VSB)</h2>
+<p>
+A VSB represents a snapshot of a PVC. It can be used to create a VSR, which can be used to restore the PVC from the snapshot.
+</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>VolumeSnapshotContent</td>
+<td>The name of the VolumeSnapshotContent CR that represents the snapshot.</td>
+</tr>
+<tr>
+<td>ProtectedNamespace</td>
+<td>The namespace where the PVC is located.</td>
+</tr>
+<tr>
+<td>ResticSecretRef</td>
+<td>A reference to a Secret CR that contains the credentials for accessing the restic repository.</td>
+</tr>
+</tbody>
+</table>
+<h2>VolumeSnapshotRestore (VSR)</h2>
+<p>
+A VSR represents a restore of a PVC from a snapshot. It can be used to restore a PVC from a VSB.
+</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ResticSecretRef</td>
+<td>A reference to a Secret CR that contains the credentials for accessing the restic repository.</td>
+</tr>
+<tr>
+<td>VolumeSnapshotMoverBackupRef</td>
+<td>A reference to a VolumeSnapshotBackup CR that represents the snapshot that will be used to restore the PVC.</td>
+</tr>
+<tr>
+<td>ProtectedNamespace</td>
+<td>The namespace where the PVC is located.</td>
+</tr>
+</tbody>
+</table>
 
-<ul dir="auto">
-	<li>VolumeSnapshotBackup (VSB):
-	<div>
-	<pre>
-Spec:
-  Volumesnapshotcontent:
-  ProtectedNamespace:
-  ResticSecretRef:
-Status:
-  Completed:
-  SourcePVCData:
-  Conditions:
-  ResticRepository:
-  Phase:
-  VolumeSnapshotClassName:  </pre>
-	</div>
-	</li>
-	<li>VolumeSnapshotRestore (VSR):</li>
-	<li>
-	<div>
-	<pre>
-Spec:
-  ResticSecretRef:
-  VolumeSnapshotMoverBackupRef:
-  ProtectedNamespace:
-Status:
-  Conditions:
-  Phase:
-  Snapshothandle:</pre>
-	</div>
 
-	<h2>Backup Process</h2>
-	</li>
+<h2>Backup Process</h2>
+<div>
+<ul>
 	<li>The CSI plugin is extended to facilitate the data movement of CSI VolumeSnapshots(VS) from cluster to object storage.</li>
 	<li>When the Velero Backup is triggered, the CSI plugin creates a VS for each PersistentVolumeClaim (PVC) to be backed up.</li>
 	<li>Now for the created VS, the CSI plugin fetches the associated VolumeSnapshotContent (VSC) and adds it as an additional item to be backed up.</li>
@@ -88,10 +114,12 @@ Status:
 	<li>Since the time when VSB is created and data movement is started, Velero backup waits for Volsync to complete the data movement, once that's done VSB is marked complete and consequently the backup is marked complete by Velero.</li>
 	<li>One point to note is that, VSM controller deletes all the extraneous resources that were created during the data mover backup process.</li>
 	<li>
+	</ul>
 	<p dir="auto"><img alt="data-mover-backup" src="https://content.cloud.redhat.com/hs-fs/hubfs/data-mover-backup.png?width=750&amp;name=data-mover-backup.png" width="750" /></p>
 
-	<h2>Restore Process</h2>
-	</li>
+
+<h2>Restore Process</h2>
+<ul>
 	<li>
 	<p dir="auto">During restore, the M-CSI plugin is extended to support volumeSnapshotMover functionality. As mentioned previously, during backup, a VSB custom resource is stored as a backup object. This CR contains details pertinent to performing a volumeSnapshotMover restore.</p>
 	</li>
@@ -105,11 +133,12 @@ Status:
 	<p dir="auto">The stateful application data is then restored, and disaster is averted.</p>
 	</li>
 	<li>
+	</ul>
 	<p dir="auto"><img alt="data-mover-restore (1)" src="https://content.cloud.redhat.com/hs-fs/hubfs/data-mover-restore%20(1).png?width=750&amp;name=data-mover-restore%20(1).png" width="750" /></p>
 
-	<h2>VolumeSnapshotMover's Future</h2>
+<h2>VolumeSnapshotMover's Future</h2>
 
-	<p>In the near future, we plan to improve the performance of VolumeSnapshotMover. A new Velero ItemAction plugin will be introduced to allow for asynchronous operations during backup and restore. This will vastly improve the performance of VolumeSnapshot data movement.</p>
-	</li>
-</ul>
+<p>In the near future, we plan to improve the performance of VolumeSnapshotMover. A new Velero ItemAction plugin will be introduced to allow for asynchronous operations during backup and restore. This will vastly improve the performance of VolumeSnapshot data movement.</p>
+
+
 
