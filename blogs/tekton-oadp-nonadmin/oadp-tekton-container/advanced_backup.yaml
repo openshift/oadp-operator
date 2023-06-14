@@ -1,0 +1,113 @@
+## THIS IS JUST AN EXAMPLE
+# https://velero.io/docs/v1.11/api-types/backup/
+
+apiVersion: velero.io/v1
+kind: Backup
+metadata:
+  name: BACKUP_NAME
+  namespace: openshift-adp
+# spec:
+#   includedNamespaces:
+#   - NAMESPACE
+#   storageLocation: dpa-sample-1
+#   ttl: 720h0m0s
+spec:
+  # CSISnapshotTimeout specifies the time used to wait for
+  # CSI VolumeSnapshot status turns to ReadyToUse during creation, before
+  # returning error as timeout. The default value is 10 minute.
+  # csiSnapshotTimeout: 10m
+  csiSnapshotTimeout: PROVIDED_CSI_SNAPSHOT_TIMEOUT
+  # ItemOperationTimeout specifies the time used to wait for
+  # asynchronous BackupItemAction operations
+  # The default value is 1 hour.
+  #itemOperationTimeout: 1h
+  itemOperationTimeout: PROVIDED_ITEM_OPERATION_TIMEOUT
+  # resourcePolicy specifies the referenced resource policies that backup should follow
+  # optional
+  # resourcePolicy:
+  #   kind: configmap
+  #   name: resource-policy-configmap
+  resourcePolicy:
+    kind: PROVIDED_RESOURCE_POLICY_KIND
+    name: PROVIDED_RESOURCE_POLICY_NAME
+  # Array of namespaces to include in the backup. If unspecified, all namespaces are included.
+  # Optional.
+  includedNamespaces:
+  - NAMESPACE
+  # Array of namespaces to exclude from the backup. Optional.
+  excludedNamespaces:
+  #- some-namespace
+  - PROVIDED_EXCLUDED_NAMESPACE
+  # Array of resources to include in the backup. Resources may be shortcuts (for example 'po' for 'pods')
+  # or fully-qualified. If unspecified, all resources are included. Optional.
+  # includedResources:
+  # - '*'
+  - PROVIDED_INCLUDED_RESOURCES
+  # Array of resources to exclude from the backup. Resources may be shortcuts (for example 'po' for 'pods')
+  # or fully-qualified. Optional.
+  # excludedResources:
+  # - storageclasses.storage.k8s.io
+  excludedResources:
+  - PROVIDED_EXCLUDED_RESOURCES
+  # Order of the resources to be collected during the backup process.  It's a map with key being the plural resource
+  # name, and the value being a list of object names separated by comma.  Each resource name has format "namespace/objectname".
+  # For cluster resources, simply use "objectname". Optional
+  # orderedResources:
+  #   pods: mysql/mysql-cluster-replica-0,mysql/mysql-cluster-replica-1,mysql/mysql-cluster-source-0
+  #   persistentvolumes: pvc-87ae0832-18fd-4f40-a2a4-5ed4242680c4,pvc-63be1bb0-90f5-4629-a7db-b8ce61ee29b3
+  orderedResources:
+    pods: PROVIDED_ORDERED_RESOURCE_PODS
+    persistentvolumes: PROVIDED_ORDERED_RESOURCE_PERSISTENT_VOLUMES
+
+  # Array of namespace-scoped resources to include from the backup. Resources may be shortcuts 
+  # (for example 'cm' for 'configmaps'), or fully-qualified. If unspecified, 
+  # all namespace-scoped resources are included. Optional.
+  # Cannot work with include-resources, exclude-resources and include-cluster-resources.
+  # includedNamespaceScopedResources: {}
+  includedNamespaceScopedResources: PROVIDED_INCLUDED_NAMESPACE_SCOPED_RESOURCES
+
+  # Individual objects must match this label selector to be included in the backup. Optional.
+  # labelSelector:
+  #   matchLabels:
+  #     app: velero
+  #     component: server
+ labelSelector:
+    matchLabels:
+      app: PROVIDED_LABEL_SELECTOR_MATCHLABELS_APP
+      component: PROVIDED_LABEL_SELECTOR_MATCHLABELS_COMPONENT
+  # Individual object when matched with any of the label selector specified in the set are to be included in the backup. Optional.
+  # orLabelSelectors as well as labelSelector cannot co-exist, only one of them can be specified in the backup request
+  # orLabelSelectors:
+  # - matchLabels:
+  #     app: velero
+  # - matchLabels:
+  #     app: data-protection
+  orLabelSelectors:
+  - matchLabels:
+      app: PROVIDED_ORLABEL_SELECTORS_MATCHLABELS_APP1
+  - matchLabels:
+      app: PROVIDED_ORLABEL_SELECTORS_MATCHLABELS_APP2
+  # Whether or not to snapshot volumes. Valid values are true, false, and null/unset. If unset, Velero performs snapshots as long as
+  # a persistent volume provider is configured for Velero.
+  #snapshotVolumes: null
+  snapshotVolumes: PROVIDED_SNAPSHOT_VOLUMES
+
+  # Where to store the tarball and logs.
+  #storageLocation: aws-primary
+  storageLocation: PROVIDED_STORAGE_LOCATION
+
+  # The list of locations in which to store volume snapshots created for this backup.
+  # volumeSnapshotLocations:
+  #   - aws-primary
+  #   - gcp-primary
+  volumeSnapshotLocations:
+    - PROVIDED_VOLUME_SNAPSHOT_LOCATIONS1
+    - PROVIDED_VOLUME_SNAPSHOT_LOCATIONS2
+  # The amount of time before this backup is eligible for garbage collection. If not specified,
+  # a default value of 30 days will be used. The default can be configured on the velero server
+  # by passing the flag --default-backup-ttl.
+  #ttl: 24h0m0s
+  ttl: PROVIDED_TTL
+  # whether pod volume file system backup should be used for all volumes by default.
+  #defaultVolumesToFsBackup: true
+  defaultVolumesToFsBackup: PROVIDED_DEFAULT_VOLUMES_TO_FSBACKUP

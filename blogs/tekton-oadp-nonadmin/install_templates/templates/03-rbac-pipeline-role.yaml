@@ -1,0 +1,56 @@
+apiVersion: template.openshift.io/v1
+kind: Template
+metadata:
+  name: project-template
+  annotations:
+    description: "Create the project and namespace"
+parameters:
+  - name: PROJECT
+    description: The name of the project
+  - name: USER
+    description: user with rights to launch b/r pipelines
+objects:
+  # This manifest gives tekton the permission to execute velero backups and restore 
+- apiVersion: rbac.authorization.k8s.io/v1
+  kind: ClusterRole
+  metadata:
+    name: oadp-nonadmin-role
+  rules:
+  - apiGroups:
+    - velero.io
+    resources:
+    - '*'
+    verbs:
+    - create
+    - delete
+    - get
+    - list
+    - patch
+    - update
+    - watch
+  - apiGroups:
+    - image.openshift.io
+    resources:
+    - "images"
+    verbs:
+    - "get"
+    - "patch"
+  - apiGroups:
+    - image.openshift.io
+    resources:
+    - "imagesteams"
+    verbs:
+    - "get"
+    - "patch"
+  
+    # This role gives a non-admin user permission to execute tekton pipelines, but
+    # not to edit the pipeline.
+- kind: Role
+  apiVersion: rbac.authorization.k8s.io/v1
+  metadata:
+    name: oadp-pipeline-runner
+    namespace: ${PROJECT}
+  rules:
+  - apiGroups: ["tekton.dev"]
+    resources: ["pipelineruns"]
+    verbs: ["*"]

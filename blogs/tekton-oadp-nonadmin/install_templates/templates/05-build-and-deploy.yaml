@@ -1,0 +1,301 @@
+apiVersion: template.openshift.io/v1
+kind: Template
+metadata:
+  name: project-template
+  annotations:
+    description: "Create the project and namespace"
+parameters:
+  - name: PROJECT
+    description: The name of the project
+  - name: USER
+    description: user with rights to launch b/r pipelines
+  - name: ALLOWED_NAMESPACES
+    description: A generated list of namespaces the user has permission for
+objects:
+- kind: PersistentVolumeClaim
+  apiVersion: v1
+  metadata:
+    name: ${PROJECT}-oadp-non-admin
+    namespace: ${PROJECT}
+  spec:
+    accessModes: [ReadWriteOnce]
+    resources:
+      requests:
+        storage: 500Mi
+
+- kind: Task
+  apiVersion: tekton.dev/v1beta1
+  metadata:
+    name: checkbackup
+    namespace: ${PROJECT}
+  spec:
+    # notes: each task specifies the workspace name
+    # the same pvc is used, only the mounted directory changes based on the name
+    # in this case "debug"
+    params:
+      - name: NAMESPACE
+        type: string
+    workspaces:
+      - name: debug
+    results: 
+      - name: list-files
+        description: lists the repos files
+    steps:
+      - name: list-workspace-files
+        image: 'quay.io/rhn_engineering_whayutin/oadp-tekton:latest'
+        script: |
+          set -e
+          ls -la /workspace/debug/
+          cat backup.yaml
+          cat restore.yaml
+          # copy cr's to pv
+          cp backup.yaml /workspace/debug/
+          cp restore.yaml /workspace/debug/
+          ls -la /workspace/debug/
+          # check the namespace
+          echo -e "\n\n ***** CHECK IF NAMESPACE ALLOWED *****\n"
+          echo -e "The allowed namespaces for user are ${ALLOWED_NAMESPACES}\n"
+          echo -e "Checking if the user has permissions to backup $(params.NAMESPACE) \n"
+          check_backup_namespace.sh $(params.NAMESPACE) ${ALLOWED_NAMESPACES}
+
+- kind: Task
+  apiVersion: tekton.dev/v1beta1
+  metadata:
+    name: checkrestore
+    namespace: ${PROJECT}
+  spec:
+    # notes: each task specifies the workspace name
+    # the same pvc is used, only the mounted directory changes based on the name
+    # in this case "debug"
+    params:
+      - name: BACKUP_NAME
+        type: string
+    workspaces:
+      - name: debug
+    results: 
+      - name: list-files
+        description: lists the repos files
+    steps:
+      - name: check-user-perm-restore
+        image: 'quay.io/rhn_engineering_whayutin/oadp-tekton:latest'
+        script: |
+          set -e
+          # copy cr's to pv
+          cp restore.yaml /workspace/debug/
+          cat /workspace/debug/restore.yaml
+
+          # check the namespace of the backup to ensure user has access to the restore namespace
+          echo -e "\n\n ***** CHECK IF NAMESPACE ALLOWED *****\n"
+          echo -e "The allowed namespaces for user are ${ALLOWED_NAMESPACES}\n\n"
+          echo -e "Checking if the user has permissions to restore...."
+          echo -e "get_restore_namespace.sh BACKUP_NAME ALLOWED_NAMESPACES"
+          get_restore_namespace.sh $(params.BACKUP_NAME) ${ALLOWED_NAMESPACES}
+- kind: Pipeline
+  apiVersion: tekton.dev/v1beta1
+  metadata:
+    name: import-required-images
+    namespace: ${PROJECT}
+  spec:
+    tasks:
+    - name: import-images
+      params:
+      - name: SCRIPT
+        value: |
+          oc import-image toolbox --from=registry.access.redhat.com/ubi9/toolbox:latest --confirm -n ${PROJECT}
+          oc import-image oadp-tekton --from=quay.io/rhn_engineering_whayutin/oadp-tekton:latest --confirm -n ${PROJECT}
+      taskRef:
+        kind: ClusterTask
+        name: openshift-client
+
+
+- kind: Pipeline
+  apiVersion: tekton.dev/v1beta1
+  metadata:
+    name: backup-pipeline
+    namespace: ${PROJECT}
+  spec:
+    params:
+    - name: BACKUP_NAME
+      type: string
+    - name: NAMESPACE
+      type: string
+    tasks:
+    - name: systemcheck
+      taskRef:
+        kind: Task
+        name: checkbackup
+      params:
+        - name: NAMESPACE
+          value: $(params.NAMESPACE)
+      workspaces:
+      - name: debug
+        workspace: repo
+    - name: triggerbackup
+      params:
+      - name: SCRIPT
+        value: |
+          printf "echo the BACKUP_NAME parameter \n"
+          echo $(params.BACKUP_NAME)
+          printf "\n"
+          printf "cat the original backup cr \n"
+          cat /workspace/manifest-dir/backup.yaml
+          printf "\n"
+          printf "Update the backup cr's name\n"
+          sed -i 's/BACKUP_NAME/$(params.BACKUP_NAME)/g' /workspace/manifest-dir/backup.yaml
+          printf "\n"
+          printf "Update the backup cr's namespace setting\n"
+          sed -i 's/NAMESPACE/$(params.NAMESPACE)/g' /workspace/manifest-dir/backup.yaml
+          printf "\n"
+          printf "cat the updated backup cr \n"
+          cat /workspace/manifest-dir/backup.yaml
+          printf "\n"
+          printf "Finally create the backup\n"
+          oc create -f /workspace/manifest-dir/backup.yaml
+          printf "\n"
+          printf "Get the details and status of the backup\n"
+          oc get backup $(params.BACKUP_NAME) -n openshift-adp -o yaml
+          printf "\n"
+      - name: VERSION
+        value: latest
+      runAfter:
+      - systemcheck
+      taskRef:
+        kind: ClusterTask
+        name: openshift-client
+      workspaces:
+      - name: manifest-dir
+        workspace: repo
+    - name: checkbackupstatus
+      params:
+      - name: SCRIPT
+        value: |
+          status=foo && while [[ $status != "Completed" ]]; do status=`oc get backup -n openshift-adp $(params.BACKUP_NAME) -o jsonpath='{.status.phase}'`; echo -e "Backup: $(params.BACKUP_NAME) Status: $status \n"; sleep 5; done
+      - name: VERSION
+        value: latest
+      runAfter:
+      - triggerbackup
+      timeout: 5m
+      retries: 3
+      taskRef:
+        kind: ClusterTask
+        name: openshift-client
+      workspaces:
+      - name: manifest-dir
+        workspace: repo
+    finally:
+      - name: finalstatus
+        params:
+          - name: SCRIPT
+            value: |
+              printf "echo the BACKUP_NAME parameter \n"
+              echo $(params.BACKUP_NAME)
+              printf "\n"
+              oc get backup -n openshift-adp $(params.BACKUP_NAME) -o yaml
+          - name: VERSION
+            value: latest
+        taskRef:
+          kind: ClusterTask
+          name: openshift-client
+        workspaces:
+          - name: manifest-dir
+            workspace: repo  
+    workspaces:
+    - name: repo
+      
+- kind: Pipeline
+  apiVersion: tekton.dev/v1beta1
+  metadata:
+    name: restore-pipeline
+    namespace: ${PROJECT}
+  spec:
+    params:
+    - name: RESTORE_NAME
+      type: string
+    - name: BACKUP_NAME
+      type: string
+    tasks:
+    - name: precheckrestore
+      taskRef:
+        kind: Task
+        name: checkrestore
+      params:
+        - name: BACKUP_NAME
+          value: $(params.BACKUP_NAME)
+      workspaces:
+      - name: debug
+        workspace: repo
+    - name: restore
+      params:
+      - name: SCRIPT
+        value: |
+          printf "echo the RESTORE_NAME parameter \n"
+          echo $(params.RESTORE_NAME)
+          printf "echo the BACKUP_NAME parameter \n"
+          echo $(params.BACKUP_NAME)
+          printf "\n"
+          printf "cat the original backup cr \n"
+          cat /workspace/manifest-dir/restore.yaml
+          printf "\n"
+          printf "Update the restore cr's name\n"
+          sed -i 's/RESTORE_NAME/$(params.RESTORE_NAME)/g' /workspace/manifest-dir/restore.yaml
+          sed -i 's/BACKUP_NAME/$(params.BACKUP_NAME)/g' /workspace/manifest-dir/restore.yaml
+          printf "\n"
+          printf "cat the updated restore cr \n"
+          cat /workspace/manifest-dir/restore.yaml
+          printf "\n"
+          printf "Finally create the restore workflow\n"
+          oc create -f /workspace/manifest-dir/restore.yaml
+          printf "\n"
+          printf "Get the details and status of the restore\n"
+          oc get restore $(params.RESTORE_NAME) -n openshift-adp -o yaml
+          printf "\n"
+      - name: VERSION
+        value: latest
+      runAfter:
+      - precheckrestore
+      taskRef:
+        kind: ClusterTask
+        name: openshift-client
+      workspaces:
+      - name: manifest-dir
+        workspace: repo
+    - name: checkrestorestatus
+      params:
+      - name: SCRIPT
+        value: |
+          status=foo && while [[ $status != "Completed" ]]; do status=`oc get restore -n openshift-adp $(params.RESTORE_NAME) -o jsonpath='{.status.phase}'`; echo -e "Restore: $(params.RESTORE_NAME) Status: $status \n"; sleep 5; done
+      - name: VERSION
+        value: latest
+      retries: 3
+      runAfter:
+      - restore
+      taskRef:
+        kind: ClusterTask
+        name: openshift-client
+      timeout: 5m0s
+      workspaces:
+      - name: manifest-dir
+        workspace: repo
+    workspaces:
+    - name: repo
+    finally:
+      - name: finalstatus
+        params:
+        - name: SCRIPT
+          value: |
+            printf "echo the RESTORE_NAME parameter \n"
+            echo $(params.RESTORE_NAME)
+            printf "\n"
+            oc get restore -n openshift-adp $(params.RESTORE_NAME) -o yaml
+        - name: VERSION
+          value: latest
+        taskRef:
+          kind: ClusterTask
+          name: openshift-client
+        workspaces:
+        - name: manifest-dir
+          workspace: repo
+
+  
+        
+              

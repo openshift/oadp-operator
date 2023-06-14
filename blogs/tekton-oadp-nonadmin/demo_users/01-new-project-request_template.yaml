@@ -1,0 +1,14 @@
+apiVersion: template.openshift.io/v1
+kind: Template
+metadata:
+  name: project-template
+  annotations:
+    description: "Create the project and namespace"
+parameters:
+  - name: PROJECT
+    description: The name of the project
+objects:
+- apiVersion: project.openshift.io/v1
+  kind: Project
+  metadata:
+    name: ${PROJECT}
