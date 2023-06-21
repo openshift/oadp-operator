@@ -41,7 +41,7 @@
 	<li>Triggers the data movement process and subsequently performs the cleanup of extraneous resources created.</li>
 </ul>
 
-<h3><a href="https://github.com/migtools/volume-snapshot-mover/tree/master/config/crd/bases">VOLUMESNAPSHOTMOVER CUSTOMRESOURCEDEFINITIONS (CRDS)</a>:</h3>
+<h3><a href="https://github.com/migtools/volume-snapshot-mover/tree/master/config/crd/bases">VOLUMESNAPSHOTMOVER CUSTOM RESOURCE DEFINITIONS (CRDS)</a>:</h3>
 
 <h1>VSB and VSR</h1>
 <p>
@@ -103,42 +103,29 @@ A VSR represents a restore of a PVC from a snapshot. It can be used to restore a
 
 <h2>Backup Process</h2>
 <div>
-<ul>
-	<li>The CSI plugin is extended to facilitate the data movement of CSI VolumeSnapshots(VS) from cluster to object storage.</li>
-	<li>When the Velero Backup is triggered, the CSI plugin creates a VS for each PersistentVolumeClaim (PVC) to be backed up.</li>
-	<li>Now for the created VS, the CSI plugin fetches the associated VolumeSnapshotContent (VSC) and adds it as an additional item to be backed up.</li>
-	<li>Subsequently, the CSI plugin then checks whether there is a VolumeSnapshotBackup (VSB) instance associated with the VSC that was added as an additional item, if there isn't one then the CSI plugin creates a VSB for each VSC.</li>
-	<li>The creation of a VSB triggers the data movement process as the VolumeSnapshotMover (VSM) controller begins to reconcile on this VSB instance.</li>
-	<li>VSM first validates the VSB, then copies the VSC, followed by VS and finally the PVC into the namespace where OADP Operator resides. Once this is done the VSM controller uses the PVC as a datasource and creates a Volsync ReplicationSource CR.</li>
-	<li>Volsync reconciles on ReplicationSource CR and then Volsync’s restic mover begins the transfer of data from cluster to the target object storage.</li>
-	<li>Since the time when VSB is created and data movement is started, Velero backup waits for Volsync to complete the data movement, once that's done VSB is marked complete and consequently the backup is marked complete by Velero.</li>
-	<li>One point to note is that, VSM controller deletes all the extraneous resources that were created during the data mover backup process.</li>
-	<li>
-	</ul>
-	<p dir="auto"><img alt="data-mover-backup" src="https://content.cloud.redhat.com/hs-fs/hubfs/data-mover-backup.png?width=750&amp;name=data-mover-backup.png" width="750" /></p>
+	
+The CSI plugin is extended to facilitate the data movement of CSI VolumeSnapshots(VS) from the cluster to object storage. When Velero backup is triggered, a snapshot of the application volume is created, followed by the associated VolumeSnapshotContent(VSC). This leads to the creation of a VolumeSnapshotBackup(VSB), which triggers the dataMover process as the VolumeSnapshotMover(VSM) controller begins reconciliation on these VSB instances.<br><br>
+
+During the dataMover process, the VolumeSnapshotMover first validates the VSB and then copies the VSC, VS, and PVC to the protected namespace (default: openshift-adp). The VSM controller uses the cloned PVC as the dataSource and creates a VolSync ReplicationSource CR. VolSync then performs reconciliation on the ReplicationSource CR.<br><br>
+
+Subsequently, VolSync initiates the transfer of data from the cluster to the target Remote Storage. In this live demonstration, you will monitor the creation of both VolumeSnapshotBackup and VolumeSnapshotContent. Once the backup is completed, the VSB and VSC are transferred to S3 for the restore process. Finally, the VSM controller deletes all the extraneous resources that were created during the data mover backup process.
+</div>
+
+
+<p dir="auto"><img alt="data-mover-backup" src="https://content.cloud.redhat.com/hs-fs/hubfs/data-mover-backup.png?width=750&amp;name=data-mover-backup.png" width="750" /></p>
 
 
 <h2>Restore Process</h2>
-<ul>
-	<li>
-	<p dir="auto">During restore, the M-CSI plugin is extended to support volumeSnapshotMover functionality. As mentioned previously, during backup, a VSB custom resource is stored as a backup object. This CR contains details pertinent to performing a volumeSnapshotMover restore.</p>
-	</li>
-	<li>
-	<p dir="auto">Once a VSB CR is encountered, a VSR CR is created by the M-CSI plugin. The VSM controller then begins to reconcile on the VSR CR. Here, a VolSync ReplicationDestination is created by the VSM controller in the OADP Operator namespace. This CR will recover the VolumeSnapshot that was stored in the object storage location during backup.</p>
-	</li>
-	<li>
-	<p dir="auto">After the VolSync restore step completes, the Velero restore continues as usual. However, the M-CSI plugin uses the VolSync VolumeSnapshot's<span>&nbsp;</span><code>snapHandle</code><span>&nbsp;</span>as the data source for its associated PVC.</p>
-	</li>
-	<li>
-	<p dir="auto">The stateful application data is then restored, and disaster is averted.</p>
-	</li>
-	<li>
-	</ul>
-	<p dir="auto"><img alt="data-mover-restore (1)" src="https://content.cloud.redhat.com/hs-fs/hubfs/data-mover-restore%20(1).png?width=750&amp;name=data-mover-restore%20(1).png" width="750" /></p>
+<div>
+Previously mentioned, during the backup process, a VSB custom resource is stored as a backup object that contains essential details for performing a volumeSnapshotMover restore.  When a VSB CR is encountered, the CSI plugin generates a VSR CR. The VSM controller then begins to reconcile on the VSR CR. Furthermore, the VSM controller creates a VolSync ReplicationDestination CR in the OADP Operator namespace, which facilitates the recovery of the VolumeSnapshot stored in the object storage location during the backup.<br><br>
 
-<h2>VolumeSnapshotMover's Future</h2>
+After the completion of the VolSync restore step, the Velero restore process continues as usual. However, the CSI plugin utilizes the snapHandle of the VolSync VolumeSnapshot as the data source for its corresponding PVC
 
-<p>In the near future, we plan to improve the performance of VolumeSnapshotMover. A new Velero ItemAction plugin will be introduced to allow for asynchronous operations during backup and restore. This will vastly improve the performance of VolumeSnapshot data movement.</p>
+</div>
+
+<p dir="auto"><img alt="data-mover-restore (1)" src="https://content.cloud.redhat.com/hs-fs/hubfs/data-mover-restore%20(1).png?width=750&amp;name=data-mover-restore%20(1).png" width="750" /></p>
+
+
 
 
 
