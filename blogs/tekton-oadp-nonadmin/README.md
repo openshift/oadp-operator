@@ -8,7 +8,7 @@ The purpose of this demonstration is to provide a comprehensive example for Open
 This example uses [OpenShift Pipelines](https://cloud.redhat.com/blog/introducing-openshift-pipelines) and configures a Tekton pipeline for a non-admin user that has access to OADP resources to trigger a backup.  The non-admin user **can execute** the pipeline but **can not** edit the pipeline, additionally the non-admin user can only backup and restore namespaces to which they have access.  The administrator is allowed to configure OADP for their users, and users can execute a backup or restore as needed without the administrator intervention.
 
 ## Project Architecture
-OpenShift administrators can utilize OpenShift pipelines and OADP to best fit their own needs.  An example architecture is shown below that provides OpenShift pipelines for backing up and restoring projects with limited roles for non-admins.  The non-admin in this case Joe or Sarah are allowed to trigger OADP backup and an OADP restore but neither Joe or Sarah can edit the OpenShift pipelines or accidently restore a backup to the wrong namespace.  Joe and Sarah will have a full history of all the executions of the backups and restores in the pipeline-runs section of the pipeline.  The OpenShift administrator may also create tekton [pipeline triggers](https://cloud.redhat.com/blog/guide-to-openshift-pipelines-part-6-triggering-pipeline-execution-from-github) to schedule a backup of a namespace based on a specific event.
+OpenShift administrators can utilize OpenShift pipelines and OADP to best fit their own needs.  An example architecture is shown below that provides OpenShift pipelines for backing up and restoring projects with limited roles for non-admins.  The non-admin in this case Joe or Sarah are allowed to trigger OADP backup and an OADP restore but neither Joe or Sarah can edit the OpenShift pipelines or accidently restore a backup to the wrong namespace.  Joe and Sarah will have a full history of all the executions of the backups and restores in the pipeline-runs section of the pipeline.  The OpenShift administrator may also create Tekton [pipeline triggers](https://cloud.redhat.com/blog/guide-to-openshift-pipelines-part-6-triggering-pipeline-execution-from-github) to schedule a backup of a namespace based on a specific event.
 
 ![oadp-non-admin-diagram1](./readme_img/oadp_non_admin_arch.png)
 
@@ -23,7 +23,7 @@ A user may want to change the backup custom resource, or other aspects of this d
 * To change the backup or restore custom resource, update the [cr's in the oadp-tekton-container directory](oadp-tekton-container/)
 * The oauth and some of the user settings can be found in the [demo_users](demo_users) directory
 * Some of the templates used in this demonstration are templated and found in [install_templates/templates](install_templates). The [install.sh](install.sh) script executes `oc process` to substitute variables and renders to the directory of the users choice or by default to `/tmp/oadp_non_admin` 
-* The parameters that users are allowed to set in the tekton pipeline are defined in [05-build-and-deploy.yaml](install_templates/templates/05-build-and-deploy.yaml).
+* The parameters that users are allowed to set in the Tekton pipeline are defined in [05-build-and-deploy.yaml](install_templates/templates/05-build-and-deploy.yaml).
 * A more [advanced velero backup custom resource](oadp-tekton-container/advanced_backup.yaml) is provided as an example but not used in this demo
 
 ## Sample Applications
@@ -100,7 +100,7 @@ For example if user buzz1 is meant backup the namespace mysql-persistent:
 ```
 $ oc adm policy add-role-to-user edit buzz1 -n mysql-persistent
 ```
-**Note** The non-admin user should have `view` access to the namespace that provides the tekton pipelines, and view or higher access like `edit` to the namespaces the user is intended to backup and restore.
+**Note** The non-admin user should have `view` access to the namespace that provides the Tekton pipelines, and view or higher access like `edit` to the namespaces the user is intended to backup and restore.
 
 Outside of this demonstration users and namespaces that are required to be backed up would have already been setup.  This step should only be required for demonstration purposes.
 
@@ -141,7 +141,7 @@ The project buzz will be created and the user buzz1 updated.
 
 ### Trigger a backup as a non-admin user
 
-* You should now see a new tekton pipeline created call `backup-pipeline`
+* You should now see a new Tekton pipeline created call `backup-pipeline`
   * Select `Actions`, and `Start`
     * Type out a name for the backup e.g. `backupmysql1`
     * Type out the namespace to be backed up e.g. `mysql-persistent`
