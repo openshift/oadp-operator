@@ -53,7 +53,8 @@
 
 ### Create the MySQL deployment config:
 
-`oc create -f docs/examples/manifests/mysql/mysql-persistent-template.yaml`
+This is an example only, please use the appropriate storage class for your PVC.
+`oc create -f docs/examples/manifests/mysql/mysql-persistent-template.yaml -f pvc/[aws.yaml,  azure.yaml, gcp.yaml, ibmcloud.yaml]`
 
 This example will create the following resources:
 * **Namespace**
@@ -100,6 +101,23 @@ Visit the route location provided in the `HOST/PORT` section following this comm
 
 Here you will see a table of data. Enter additional data and save.
 Once completed, it's time to begin a backup.
+
+### Check the data 
+It is good practice to check the data in the database prior to taking the backup.
+```
+export TODOHOST=`oc get route -n mysql-persistent  -o jsonpath='{range .items[*]}{.spec.host}'`
+curl $TODOHOST/todo-incomplete
+curl $TODOHOST/todo-completed
+```
+
+output:
+```
+curl $TODOHOST/todo-incomplete
+[{"Id":1,"Description":"time to make the donuts","Completed":false},{"Id":3,"Description":"westest1","Completed":false},{"Id":4,"Description":"westest2","Completed":false}]
+
+curl $TODOHOST/todo-completed
+[{"Id":2,"Description":"prepopulate the db","Completed":true}]
+```
 
 ### Create application backup
 
@@ -162,3 +180,13 @@ deploymentconfig.apps.openshift.io/todolist   1          1         1         con
 `oc get routes -n mysql-persistent`
 
 Check the data in the table previously entered is present.
+
+### Once again check the data after the restore
+
+output:
+```
+curl $TODOHOST/todo-incomplete
+[{"Id":1,"Description":"time to make the donuts","Completed":false},{"Id":3,"Description":"westest1","Completed":false},{"Id":4,"Description":"westest2","Completed":false}]
+
+curl $TODOHOST/todo-completed
+[{"Id":2,"Description":"prepopulate the db","Completed":true}]
