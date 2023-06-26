@@ -57,7 +57,7 @@ spec:
   backupStorageLocation: dpa-sample-1
   maintenanceFrequency: 168h0m0s
   repositoryType: restic
-  resticIdentifier: s3:s3-us-west-2.amazonaws.com/cvpbucketuswest2/velero/restic/mysql-persistent
+  resticIdentifier: s3:<REPOSITORY-URL>/<BUCKET>/velero/restic/mysql-persistent
   volumeNamespace: mysql-persistent
 status:
   lastMaintenanceTime: "2023-06-19T19:35:40Z"
@@ -92,7 +92,7 @@ static-passw0rd[whayutin@thinkdoe SETUP]$
 
 #### stats
 ``` 
-restic stats  --cache-dir /tmp/.cache   -r s3:s3-us-west-2.amazonaws.com/cvpbucketuswest2/velero/restic/mysql-persistent
+restic stats  --cache-dir /tmp/.cache   -r s3:<REPOSITORY-URL>/<BUCKET>/velero/restic/mysql-persistent
 enter password for repository: 
 repository 2464cd5d opened (version 2, compression level auto)
 scanning...
@@ -104,7 +104,7 @@ Stats in restore-size mode:
 
 #### list locks
 ```
-restic  --cache-dir /tmp/.cache -r s3:s3-us-west-2.amazonaws.com/cvpbucketuswest2/velero/restic/mysql-persistent list locks
+restic  --cache-dir /tmp/.cache -r s3:<REPOSITORY-URL>/<BUCKET>/velero/restic/mysql-persistent list locks
 enter password for repository: 
 repository 2464cd5d opened (version 2, compression level auto)
 
@@ -112,7 +112,7 @@ repository 2464cd5d opened (version 2, compression level auto)
 
 #### unlock
 ```
-sh-4.4$ restic  --cache-dir /tmp/.cache   -r s3:s3-us-west-2.amazonaws.com/cvpbucketuswest2/velero/restic/mysql-persistent unlock    
+sh-4.4$ restic  --cache-dir /tmp/.cache   -r s3:<REPOSITORY-URL>/<BUCKET>/velero/restic/mysql-persistent unlock    
 enter password for repository: 
 repository 2464cd5d opened (version 2, compression level auto)
 sh-4.4$ 
@@ -120,7 +120,7 @@ sh-4.4$
 
 #### list blobs
 ```
-sh-4.4$ restic  --cache-dir /tmp/.cache   -r s3:s3-us-west-2.amazonaws.com/cvpbucketuswest2/velero/restic/mysql-persistent list blobs
+sh-4.4$ restic  --cache-dir /tmp/.cache   -r s3:<REPOSITORY-URL>/<BUCKET>/velero/restic/mysql-persistent list blobs
 enter password for repository: 
 repository 2464cd5d opened (version 2, compression level auto)
 data c2017654d859475a2ee546d693a2bb12886eec94edb5cac737ea573f3ef8d0ae
@@ -132,7 +132,7 @@ data 369b06f024be1a9f192efaeff32612bd0f89d280743fcb0df60216fbd097f943
 
 #### prune
 ```
-restic  --cache-dir /tmp/.cache   -r s3:s3-us-west-2.amazonaws.com/cvpbucketuswest2/velero/restic/mysql-persistent prune  
+restic  --cache-dir /tmp/.cache   -r s3:<REPOSITORY-URL>/<BUCKET>/velero/restic/mysql-persistent prune  
 enter password for repository: 
 repository 2464cd5d opened (version 2, compression level auto)
 loading indexes...
@@ -154,7 +154,7 @@ done
 
 #### retain policy - keep
 ```
-restic  --cache-dir /tmp/.cache   -r s3:s3-us-west-2.amazonaws.com/cvpbucketuswest2/velero/restic/mysql-persistent forget --keep-last 1 --prune
+restic  --cache-dir /tmp/.cache   -r s3:<REPOSITORY-URL>/<BUCKET>/velero/restic/mysql-persistent forget --keep-last 1 --prune
 enter password for repository: 
 repository 2464cd5d opened (version 2, compression level auto)
 Applying Policy: keep 1 latest snapshots
@@ -304,7 +304,7 @@ spec:
 #### list snapshots for DataMover restic snapshot
 
 ```
-restic  --cache-dir /tmp/.cache -r s3:s3-us-west-2.amazonaws.com/cvpbucketuswest2/openshift-adp/snapcontent-993aabe2-8170-4661-984e-00a560f486cd-pvc snapshots
+restic  --cache-dir /tmp/.cache -r s3:<REPOSITORY-URL>/<BUCKET>/openshift-adp/snapcontent-993aabe2-8170-4661-984e-00a560f486cd-pvc snapshots
 enter password for repository: 
 repository 85c55159 opened (version 2, compression level auto)
 created new cache in /tmp/.cache
@@ -354,7 +354,7 @@ spec:
 
 #### get snapshots
 ```
-restic  --cache-dir /tmp/.cache -r s3:s3-us-west-2.amazonaws.com/cvpbucketuswest2/openshift-adp/snapcontent-2044fb64-253d-461b-93f3-1ce8d6b67ebe-pvc snapshots
+restic  --cache-dir /tmp/.cache -r s3:<REPOSITORY-URL>/<BUCKET>/openshift-adp/snapcontent-2044fb64-253d-461b-93f3-1ce8d6b67ebe-pvc snapshots
 enter password for repository: 
 repository 83b7f53a opened (version 2, compression level auto)
 ID        Time                 Host        Tags        Paths
