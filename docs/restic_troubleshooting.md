@@ -1,4 +1,4 @@
-# velero restic
+# velero restic troubleshooting tips
 
 ## setup cli clients
 ```
@@ -7,13 +7,7 @@ alias velero='oc -n openshift-adp exec deployment/velero -c velero -it -- ./vele
 alias restic='oc -n openshift-adp exec deployment/velero -c velero -it -- /usr/bin/restic'
 ```
 
-```
-velero backup create hay1 --include-namespaces mysql-persistent --default-volumes-to-fs-backup
-
-velero backup describe hay1 --details
-```
-
-## info
+## restic repository info
 ```
 sh-4.4$ ./velero repo get
 NAME                                         STATUS   LAST MAINTENANCE
@@ -69,9 +63,7 @@ spec:
 status:
   lastMaintenanceTime: "2023-06-19T19:35:40Z"
   phase: Ready
-
 ```
-
 
 ## retic repo password 
 ```
@@ -90,15 +82,11 @@ metadata:
   resourceVersion: "22449264"
   uid: b75d5f8c-9263-445e-b1a3-167a95c07cdf
 type: Opaque
-[whayutin@thinkdoe SETUP]$ echo "c3RhdGljLXBhc3N3MHJk" | bas
-base32      base64      basename    basenc      bash        bashate     bashbug     bashbug-64  
-[whayutin@thinkdoe SETUP]$ echo "c3RhdGljLXBhc3N3MHJk" | base
-base32    base64    basename  basenc    
+
 [whayutin@thinkdoe SETUP]$ echo "c3RhdGljLXBhc3N3MHJk" | base64 
 YzNSaGRHbGpMWEJoYzNOM01ISmsK
 [whayutin@thinkdoe SETUP]$ echo "c3RhdGljLXBhc3N3MHJk" | base64 -d
 static-passw0rd[whayutin@thinkdoe SETUP]$ 
-
 ```
 
 ## restic commands:
@@ -163,7 +151,6 @@ remaining:           100 blobs / 405.382 KiB
 unused size after prune: 0 B (0.00% of remaining size)
 
 done
-
 ```
 
 #### retain policy - keep
@@ -185,7 +172,6 @@ ID        Time                 Host        Tags                                 
 af9a6651  2023-06-19 19:35:43  velero      pod=mysql-7bc95589b4-zr7c4,pod-uid=87dda243-6e5e-4030-a1e1-60cc394677e8,pvc-uid=966cca8f-9648-40ab-812e-a711500acf57,volume=mysql-data,backup=hay1,backup-uid=ad20f725-6f83-4290-ae79-fe6d0b85cd9c,ns=mysql-persistent  last snapshot  /host_pods/87dda243-6e5e-4030-a1e1-60cc394677e8/volumes/kubernetes.io~csi/pvc-966cca8f-9648-40ab-812e-a711500acf57/mount
 ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 1 snapshots
-
 ```
 
 #### In case of restic backup failure 
@@ -199,7 +185,7 @@ oc logs -n openshift-adp <restic-pod>
 
 ## Data Mover + Restic
 
-#### get info
+#### get replicationsource info
 ```
 oc get replicationsource -A
 NAMESPACE       NAME                SOURCE                                                 LAST SYNC              DURATION        NEXT SYNC
@@ -255,7 +241,6 @@ status:
   restic: {}
 ```
 
-
 #### get restic repo information for data mover
 ```
 oc get secret dpa-sample-1-volsync-restic -n openshift-adp -o yaml
@@ -286,7 +271,6 @@ metadata:
   resourceVersion: "28139203"
   uid: 192bc903-e754-4cd3-9173-2af805c2b0d0
 type: Opaque
-
 ```
 
 #### decode the restic passwd 
@@ -330,7 +314,6 @@ ID        Time                 Host        Tags        Paths
 dcec01b1  2023-06-20 20:16:46  volsync                 /data
 ------------------------------------------------------------
 1 snapshots
-
 ```
 
 ##  Update DPA for retain policy - restic forget
@@ -342,7 +325,6 @@ dcec01b1  2023-06-20 20:16:46  volsync                 /data
       pruneInterval: "1"
       snapshotRetainPolicy:
         hourly: "1"
-
 ```
 
 ## Run a new backup and check replicationsource
@@ -369,9 +351,7 @@ spec:
     moverServiceAccount: velero
     pruneIntervalDays: 1
     repository: vsb-zg6gg-secret
-
 ```
-
 
 #### get snapshots
 ```
