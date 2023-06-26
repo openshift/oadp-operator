@@ -2,7 +2,6 @@
 
 ## setup cli clients
 ```
-# VELERO
 alias velero='oc -n openshift-adp exec deployment/velero -c velero -it -- ./velero'
 alias restic='oc -n openshift-adp exec deployment/velero -c velero -it -- /usr/bin/restic'
 ```
