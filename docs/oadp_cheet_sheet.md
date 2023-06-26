@@ -1,3 +1,4 @@
+[![hackmd-github-sync-badge](https://hackmd.io/6-i34q7uR_2um-yH1trmbA/badge)](https://hackmd.io/6-i34q7uR_2um-yH1trmbA)
 ## GOAL
 use as needed, publish to https://developers.redhat.com/cheat-sheets/
 
@@ -15,7 +16,7 @@ oc get dpa dpaname -n openshift-adp -o yaml
 
 #### Create a backup
 Update the following backup.yaml CR
-```
+```yaml
 apiVersion: velero.io/v1
 kind: Backup
 metadata:
@@ -35,7 +36,7 @@ oc create -f backup.yaml
 
 #### Create a restore
 Update the following restore.yaml CR
-```
+```yaml
 apiVersion: velero.io/v1
 kind: Restore
 metadata:
@@ -92,7 +93,7 @@ velero backup get
 velero backup create backup $backup_name --include-namespaces $namespace
 ```
 
-#### Backup with [Restic, Kopia]
+#### Backup filesystem only
 ```
 velero backup create backup $backup_name --include-namespaces $namespace --default-volumes-to-fs-backup
 ```
