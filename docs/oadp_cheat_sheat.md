@@ -129,7 +129,7 @@ Two simple steps should provide the information required
 
 #### Logs
 ```
-velero backup logs $backup
+velero backup logs $backup_name
 ```
 
 #### Describe
@@ -145,7 +145,7 @@ Annotations:  velero.io/source-cluster-k8s-gitversion=v1.23.5+b0357ed
               velero.io/source-cluster-k8s-major-version=1
               velero.io/source-cluster-k8s-minor-version=23
 
-Phase:  [31mPartiallyFailed[0m (run `velero backup logs mssql-persistent` for more information)
+Phase:  (run `velero backup logs mssql-persistent` for more information)
 
 Errors:    2
 Warnings:  0
