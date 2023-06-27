@@ -112,7 +112,7 @@ Subsequently, VolSync initiates the transfer of data from the cluster to the tar
 </div>
 
 
-<p dir="auto"><img alt="data-mover-backup" src="https://content.cloud.redhat.com/hs-fs/hubfs/data-mover-backup.png?width=750&amp;name=data-mover-backup.png" width="750" /></p>
+<p dir="auto"><img alt="data-mover-backup" src="data-mover-backup.png" width="850" /></p>
 
 
 <h2>Restore Process</h2>
@@ -123,9 +123,6 @@ After the completion of the VolSync restore step, the Velero restore process con
 
 </div>
 
-<p dir="auto"><img alt="data-mover-restore (1)" src="https://content.cloud.redhat.com/hs-fs/hubfs/data-mover-restore%20(1).png?width=750&amp;name=data-mover-restore%20(1).png" width="750" /></p>
-
-
-
+<p dir="auto"><img alt="data-mover-restore" src="data-mover-restore.png" width="850" /></p>
 
 
