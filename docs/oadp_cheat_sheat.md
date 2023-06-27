@@ -196,9 +196,29 @@ Velero-Native Snapshots: <none included>
 ## Data Mover Specific commands
 
 #### Clean up datamover related objects
+**WARNING** Do not run this command on production systems.  This is a remove *ALL* command.
 ```
 oc delete vsb -A --all; oc delete vsr -A --all; oc delete vsc -A --all; oc delete vs -A --all; oc delete replicationsources.volsync.backube -A --all; oc delete replicationdestination.volsync.backube -A --all
 ```
+Details:
+```
+--all=false:
+	Delete all resources, in the namespace of the specified resource types.
+```
+```
+-A, --all-namespaces=false:
+	If present, list the requested object(s) across all namespaces. Namespace in current context is ignored even
+	if specified with --namespace.
+```
+A safer to execute a cleanup is to limit the delete to a namespace or a specific object.
+* namespaced objecs: VSB, VSR, VSC, VS
+* protected namespace (openshift-adp): eplicationsources.volsync.backube, replicationdestination.volsync.backube
+
+```
+oc delete vsb -n <namespace> --all
+```
+
+
 
 #### Remove finalizers
 ```
