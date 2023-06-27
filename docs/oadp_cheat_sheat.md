@@ -212,7 +212,7 @@ Details:
 ```
 A safer to execute a cleanup is to limit the delete to a namespace or a specific object.
 * namespaced objecs: VSB, VSR, VSC, VS
-* protected namespace (openshift-adp): eplicationsources.volsync.backube, replicationdestination.volsync.backube
+* protected namespace (openshift-adp): replicationsources.volsync.backube, replicationdestination.volsync.backube
 
 ```
 oc delete vsb -n <namespace> --all
