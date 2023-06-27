@@ -1,7 +1,8 @@
 ## Cheat sheet
 # OADP commands
 This cheat sheet presents a list of command-line executables that are frequently used by OpenShift Administrators using OADP. The commands are organized by category.
-The OpenShift cheat sheet can be found [here](https://access.cdn.redhat.com/content/origin/files/sha256/e1/e1410185092472c9a943b85cd6b60196f3938ffa8d650026818d5456e66e01c1/openshift_cheat_sheet_r5v1.pdf?_auth_=1687811315_27797f50bfbfc2691c084156de530f76)
+
+You may also find OpenShift cheat [here](https://access.cdn.redhat.com/content/origin/files/sha256/e1/e1410185092472c9a943b85cd6b60196f3938ffa8d650026818d5456e66e01c1/openshift_cheat_sheet_r5v1.pdf?_auth_=1687811315_27797f50bfbfc2691c084156de530f76) helpful.
 
 ## OpenShift commands:
 
