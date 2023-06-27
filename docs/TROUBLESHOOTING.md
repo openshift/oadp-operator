@@ -86,7 +86,7 @@ This section includes how to debug a failed restore. For more specific issues re
     ```
     alias velero='oc -n openshift-adp exec deployment/velero -c velero -it -- ./velero'
     ```
-    2. Get the backup details: 
+    2. Get the restore details: 
     ```
     velero restore describe <restoreName> --details
     ```
@@ -162,11 +162,11 @@ This section includes how to debug a failed restore. For more specific issues re
 
   - For further details on your backup, run the command:
   ```
-  velero backup describe <backup-name>
+  velero backup describe <backup-name> --details  # --details is optional
   ```
   - For more details on your restore, run:
   ```
-  velero restore describe <backup-name> --details
+  velero restore describe <backup-name> --details  # --details is optional
   ```
 
   - You can delete the backup with the command: 
