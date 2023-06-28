@@ -30,7 +30,7 @@ This section includes steps to debug a failed backup. For more specific issues r
     ```
     2. Check the Velero logs
     ```
-    oc logs -f deployment.apps/velero -n openshift-adp
+    oc logs -f deploy/velero -n openshift-adp
     ```
     If dataMover is enabled, check the volume-snapshot-logs
     ```
