@@ -64,7 +64,7 @@ status:
   phase: Ready
 ```
 
-## retic repo password 
+## restic repo password 
 ```
 [whayutin@thinkdoe SETUP]$ oc get  secret  velero-repo-credentials -n openshift-adp 
 NAME                      TYPE     DATA   AGE
@@ -82,10 +82,8 @@ metadata:
   uid: b75d5f8c-9263-445e-b1a3-167a95c07cdf
 type: Opaque
 
-[whayutin@thinkdoe SETUP]$ echo "c3RhdGljLXBhc3N3MHJk" | base64 
-YzNSaGRHbGpMWEJoYzNOM01ISmsK
-[whayutin@thinkdoe SETUP]$ echo "c3RhdGljLXBhc3N3MHJk" | base64 -d
-static-passw0rd[whayutin@thinkdoe SETUP]$ 
+echo "c3RhdGljLXBhc3N3MHJk" | base64 -d
+static-passw0rd
 ```
 
 ## restic commands:
