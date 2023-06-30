@@ -1,4 +1,5 @@
-# velero restic troubleshooting tips
+# Velero Restic Troubleshooting Tips
+This document contains commands for both Velero Restic Filesystem copy and for OADP's datamover feature.
 
 ## setup cli clients
 ```
@@ -84,6 +85,10 @@ type: Opaque
 
 echo "c3RhdGljLXBhc3N3MHJk" | base64 -d
 static-passw0rd
+```
+Alternatively:
+```
+oc get  secret  velero-repo-credentials -n openshift-adp -o jsonpath='{.data.repository-password}'|base64 -d
 ```
 
 ## restic commands:
