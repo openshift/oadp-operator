@@ -93,7 +93,7 @@ velero backup get
 velero backup create backup $backup_name --include-namespaces $namespace
 ```
 
-#### Backup filesystem only
+#### Backup using restic for PV data
 ```
 velero backup create backup $backup_name --include-namespaces $namespace --default-volumes-to-fs-backup
 ```
