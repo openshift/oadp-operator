@@ -64,6 +64,15 @@ type gcpCredentials struct {
 	googleApplicationCredentials string
 }
 
+type retainPolicy struct {
+	daily   string
+	weekly  string
+	hourly  string
+	monthly string
+	yearly  string
+	within  string
+}
+
 func (r *DPAReconciler) ReconcileDataMoverController(log logr.Logger) (bool, error) {
 
 	// fetch latest DPA instance
@@ -431,6 +440,10 @@ func (r *DPAReconciler) createResticSecretsPerBSL(dpa *oadpv1alpha1.DataProtecti
 				pruneInterval = strings.ReplaceAll(pruneInterval, `"`, "")
 				pruneInterval = strings.ReplaceAll(pruneInterval, `'`, "")
 			}
+
+			// check for SnapshotRetainPolicy parameters
+			rpolicy := r.fetchRetainPolicyFromDPA(dpa)
+
 			resticCustomCA := bsl.Spec.ObjectStorage.CACert
 			rsecret := &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
@@ -451,7 +464,7 @@ func (r *DPAReconciler) createResticSecretsPerBSL(dpa *oadpv1alpha1.DataProtecti
 					return err
 				}
 
-				return r.buildDataMoverResticSecretForAWS(rsecret, key, secret, bsl.Spec.Config[Region], pass, repo, pruneInterval, resticCustomCA)
+				return r.buildDataMoverResticSecretForAWS(rsecret, key, secret, bsl.Spec.Config[Region], pass, repo, pruneInterval, resticCustomCA, rpolicy)
 			})
 
 			if err != nil {
@@ -503,6 +516,10 @@ func (r *DPAReconciler) createResticSecretsPerBSL(dpa *oadpv1alpha1.DataProtecti
 				pruneInterval = dpa.Spec.Features.DataMover.PruneInterval
 			}
 			resticCustomCA := bsl.Spec.ObjectStorage.CACert
+
+			// check for SnapshotRetainPolicy parameters
+			rpolicy := r.fetchRetainPolicyFromDPA(dpa)
+
 			// We are done with checks no lets create the azure dm secret
 			rsecret := &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
@@ -523,7 +540,7 @@ func (r *DPAReconciler) createResticSecretsPerBSL(dpa *oadpv1alpha1.DataProtecti
 					return err
 				}
 
-				return r.buildDataMoverResticSecretForAzure(rsecret, accountName, accountKey, pass, repo, pruneInterval, resticCustomCA)
+				return r.buildDataMoverResticSecretForAzure(rsecret, accountName, accountKey, pass, repo, pruneInterval, resticCustomCA, rpolicy)
 			})
 
 			if err != nil {
@@ -561,6 +578,10 @@ func (r *DPAReconciler) createResticSecretsPerBSL(dpa *oadpv1alpha1.DataProtecti
 			}
 			resticCustomCA := bsl.Spec.ObjectStorage.CACert
 			// We are done with checks no lets create the gcp dm secret
+
+			// check for SnapshotRetainPolicy parameters
+			rpolicy := r.fetchRetainPolicyFromDPA(dpa)
+
 			rsecret := &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      fmt.Sprintf("%s-volsync-restic", bsl.Name),
@@ -580,7 +601,7 @@ func (r *DPAReconciler) createResticSecretsPerBSL(dpa *oadpv1alpha1.DataProtecti
 					return err
 				}
 
-				return r.buildDataMoverResticSecretForGCP(rsecret, gcpcreds.googleApplicationCredentials, pass, repo, pruneInterval, resticCustomCA)
+				return r.buildDataMoverResticSecretForGCP(rsecret, gcpcreds.googleApplicationCredentials, pass, repo, pruneInterval, resticCustomCA, rpolicy)
 			})
 
 			if err != nil {
@@ -601,17 +622,23 @@ func (r *DPAReconciler) createResticSecretsPerBSL(dpa *oadpv1alpha1.DataProtecti
 }
 
 // build data mover restic secret for given aws bsl
-func (r *DPAReconciler) buildDataMoverResticSecretForAWS(rsecret *corev1.Secret, key string, secret string, region string, pass []byte, repo string, pruneInterval string, resticCustomCA []byte) error {
+func (r *DPAReconciler) buildDataMoverResticSecretForAWS(rsecret *corev1.Secret, key string, secret string, region string, pass []byte, repo string, pruneInterval string, resticCustomCA []byte, rpolicy retainPolicy) error {
 
 	// TODO: add gcp, azure support
 	rData := &corev1.Secret{
 		Data: map[string][]byte{
-			AWSAccessKey:        []byte(key),
-			AWSSecretKey:        []byte(secret),
-			AWSDefaultRegion:    []byte(region),
-			ResticPassword:      pass,
-			ResticRepository:    []byte(repo),
-			ResticPruneInterval: []byte(pruneInterval),
+			AWSAccessKey:                []byte(key),
+			AWSSecretKey:                []byte(secret),
+			AWSDefaultRegion:            []byte(region),
+			ResticPassword:              pass,
+			ResticRepository:            []byte(repo),
+			ResticPruneInterval:         []byte(pruneInterval),
+			SnapshotRetainPolicyHourly:  []byte(rpolicy.hourly),
+			SnapshotRetainPolicyDaily:   []byte(rpolicy.daily),
+			SnapshotRetainPolicyWeekly:  []byte(rpolicy.weekly),
+			SnapshotRetainPolicyMonthly: []byte(rpolicy.monthly),
+			SnapshotRetainPolicyYearly:  []byte(rpolicy.yearly),
+			SnapshotRetainPolicyWithin:  []byte(rpolicy.within),
 		},
 	}
 	if len(resticCustomCA) > 0 {
@@ -622,15 +649,21 @@ func (r *DPAReconciler) buildDataMoverResticSecretForAWS(rsecret *corev1.Secret,
 }
 
 // build data mover restic secret for given bsl
-func (r *DPAReconciler) buildDataMoverResticSecretForAzure(rsecret *corev1.Secret, accountName string, accountKey string, pass []byte, repo string, pruneInterval string, resticCustomCA []byte) error {
+func (r *DPAReconciler) buildDataMoverResticSecretForAzure(rsecret *corev1.Secret, accountName string, accountKey string, pass []byte, repo string, pruneInterval string, resticCustomCA []byte, rpolicy retainPolicy) error {
 
 	rData := &corev1.Secret{
 		Data: map[string][]byte{
-			AzureAccountName:    []byte(accountName),
-			AzureAccountKey:     []byte(accountKey),
-			ResticPassword:      pass,
-			ResticRepository:    []byte(repo),
-			ResticPruneInterval: []byte(pruneInterval),
+			AzureAccountName:            []byte(accountName),
+			AzureAccountKey:             []byte(accountKey),
+			ResticPassword:              pass,
+			ResticRepository:            []byte(repo),
+			ResticPruneInterval:         []byte(pruneInterval),
+			SnapshotRetainPolicyHourly:  []byte(rpolicy.hourly),
+			SnapshotRetainPolicyDaily:   []byte(rpolicy.daily),
+			SnapshotRetainPolicyWeekly:  []byte(rpolicy.weekly),
+			SnapshotRetainPolicyMonthly: []byte(rpolicy.monthly),
+			SnapshotRetainPolicyYearly:  []byte(rpolicy.yearly),
+			SnapshotRetainPolicyWithin:  []byte(rpolicy.within),
 		},
 	}
 	if len(resticCustomCA) > 0 {
@@ -641,7 +674,7 @@ func (r *DPAReconciler) buildDataMoverResticSecretForAzure(rsecret *corev1.Secre
 }
 
 // build data mover restic secret for given gcp bsl
-func (r *DPAReconciler) buildDataMoverResticSecretForGCP(rsecret *corev1.Secret, googleApplicationCredentials string, pass []byte, repo string, pruneInterval string, resticCustomCA []byte) error {
+func (r *DPAReconciler) buildDataMoverResticSecretForGCP(rsecret *corev1.Secret, googleApplicationCredentials string, pass []byte, repo string, pruneInterval string, resticCustomCA []byte, rpolicy retainPolicy) error {
 
 	rData := &corev1.Secret{
 		Data: map[string][]byte{
@@ -649,6 +682,12 @@ func (r *DPAReconciler) buildDataMoverResticSecretForGCP(rsecret *corev1.Secret,
 			ResticPassword:               pass,
 			ResticRepository:             []byte(repo),
 			ResticPruneInterval:          []byte(pruneInterval),
+			SnapshotRetainPolicyHourly:   []byte(rpolicy.hourly),
+			SnapshotRetainPolicyDaily:    []byte(rpolicy.daily),
+			SnapshotRetainPolicyWeekly:   []byte(rpolicy.weekly),
+			SnapshotRetainPolicyMonthly:  []byte(rpolicy.monthly),
+			SnapshotRetainPolicyYearly:   []byte(rpolicy.yearly),
+			SnapshotRetainPolicyWithin:   []byte(rpolicy.within),
 		},
 	}
 	if len(resticCustomCA) > 0 {
@@ -943,4 +982,47 @@ func (r *DPAReconciler) addAnnotations(ns *corev1.Namespace, log logr.Logger) er
 	}
 
 	return nil
+}
+
+func (r *DPAReconciler) fetchRetainPolicyFromDPA(dpa *oadpv1alpha1.DataProtectionApplication) retainPolicy {
+	rpolicy := retainPolicy{}
+	if dpa.Spec.Features.DataMover.SnapshotRetainPolicy != nil {
+		snapshotRetainPolicy := dpa.Spec.Features.DataMover.SnapshotRetainPolicy
+		if len(snapshotRetainPolicy.Hourly) > 0 {
+			snapshotRetainPolicy.Hourly = strings.ReplaceAll(snapshotRetainPolicy.Hourly, `"`, "")
+			snapshotRetainPolicy.Hourly = strings.ReplaceAll(snapshotRetainPolicy.Hourly, `''`, "")
+			rpolicy.hourly = snapshotRetainPolicy.Hourly
+		}
+
+		if len(snapshotRetainPolicy.Daily) > 0 {
+			snapshotRetainPolicy.Daily = strings.ReplaceAll(snapshotRetainPolicy.Daily, `"`, "")
+			snapshotRetainPolicy.Daily = strings.ReplaceAll(snapshotRetainPolicy.Daily, `''`, "")
+			rpolicy.daily = snapshotRetainPolicy.Daily
+		}
+
+		if len(snapshotRetainPolicy.Weekly) > 0 {
+			snapshotRetainPolicy.Weekly = strings.ReplaceAll(snapshotRetainPolicy.Weekly, `"`, "")
+			snapshotRetainPolicy.Weekly = strings.ReplaceAll(snapshotRetainPolicy.Weekly, `''`, "")
+			rpolicy.weekly = snapshotRetainPolicy.Weekly
+		}
+
+		if len(snapshotRetainPolicy.Monthly) > 0 {
+			snapshotRetainPolicy.Monthly = strings.ReplaceAll(snapshotRetainPolicy.Monthly, `"`, "")
+			snapshotRetainPolicy.Monthly = strings.ReplaceAll(snapshotRetainPolicy.Monthly, `''`, "")
+			rpolicy.monthly = snapshotRetainPolicy.Monthly
+		}
+
+		if len(snapshotRetainPolicy.Yearly) > 0 {
+			snapshotRetainPolicy.Yearly = strings.ReplaceAll(snapshotRetainPolicy.Yearly, `"`, "")
+			snapshotRetainPolicy.Yearly = strings.ReplaceAll(snapshotRetainPolicy.Yearly, `''`, "")
+			rpolicy.yearly = snapshotRetainPolicy.Yearly
+		}
+
+		if len(snapshotRetainPolicy.Within) > 0 {
+			snapshotRetainPolicy.Within = strings.ReplaceAll(snapshotRetainPolicy.Within, `"`, "")
+			snapshotRetainPolicy.Within = strings.ReplaceAll(snapshotRetainPolicy.Within, `''`, "")
+			rpolicy.within = snapshotRetainPolicy.Within
+		}
+	}
+	return rpolicy
 }
