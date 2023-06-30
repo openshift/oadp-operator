@@ -1,11 +1,13 @@
 <h1 align="center">Troubleshooting<a id="troubleshooting"></a></h1>
 
-1. [Debugging Failed Backups](#backup)
-    1. [Debugging Failed Volume Backups](#volbackup)
-2. [Debugging Failed Restores](#restore)
-    1. [Debugging Failed Volume Restores](#volrestore)
-3. [Debugging Data Mover](https://github.com/migtools/volume-snapshot-mover/blob/master/docs/troubleshooting.md)
-4. Common Issues and Misconfigurations
+If you need help, first search if there is [already an issue filed](https://issues.redhat.com/issues/?jql=project%20%3D%20OADP) 
+  or please log into jira and create a new issue in the `OADP` project.
+
+1. [OADP Cheat Sheet](oadp_cheet_sheet.md)
+2. [Debugging Failed Backups](#backup)
+3. [Debugging Failed Restores](#restore)
+4. [Debugging Data Mover](https://github.com/migtools/volume-snapshot-mover/blob/master/docs/troubleshooting.md)
+5. [Common Issues and Misconfigurations](#misconfig)
     1. [Credentials Not Properly Formatted](#creds)
     2. [Errors in the Velero Pod](#velpod)
     3. [Errors in Backup Logs](#backuplogs)
@@ -13,79 +15,94 @@
     5. [Restic - NFS Volumes and rootSquash](#rootsquash)
     6. [Issue with Backup/Restore of DeploymentConfig using Restic](#deployconfig)
     7. [New Restic Backup Partially Failing After Clearing Bucket](#resbackup)
-
-
-If you need help, first search if there is [already an issue filed](https://github.com/openshift/oadp-operator/issues) 
-  or [create a new issue](https://github.com/openshift/oadp-operator/issues/new).
+6. [OADP FAQ](#faq)
 
 
 <hr style="height:1px;border:none;color:#333;">
 
 <h1 align="center">Debugging Failed Backups<a id="backup"></a></h1>
 
-This section includes steps to debug a failed backup. For more specific issues related to Restic/CSI/volume snapshots check out the following section. 
+This section includes steps to debug a failed backup. For more specific issues related to Restic/CSI/volume snapshots check out the following section. Both the OpenShift commands and native Velero commands are useful in troubleshooting.
+1. OpenShift commands
+    1. Check for validation errors in the backup by running the following command,
+    ```
+    oc describe backup <backupName> -n openshift-adp
+    ```
+    2. Check the Velero logs
+    ```
+    oc logs -f deploy/velero -n openshift-adp
+    ```
+    If dataMover is enabled, check the volume-snapshot-logs
+    ```
+    oc logs -f deployment.apps/volume-snapshot-mover -n openshift-adp
+    ```
+    
+2. Velero commands
+    1. Alias the velero command: 
+    ```
+    alias velero='oc -n openshift-adp exec deployment/velero -c velero -it -- ./velero'
+    ```
+    2. Get the backup details: 
+    ```
+    velero backup describe <backupName> --details
+    ```
+    3. Get the backup logs: 
+    ```
+    velero backup logs <backupName>
+    ```
+3. Restic backup debug
+    1. Please refer to the [restic troubleshooting tips page](restic_troubleshooting.md)
 
-1. Check for validation errors in the backup by running the following command,
-`oc describe backup <backupName>`
-Alternatively, if you have a local Velero installation, you can also run `velero describe backup <backupName> -n <namespace>` and `velero backup logs <backupName> -n <namespace>`.
+4. Volume Snapshots debug
+    1. This guide has not yet been published
 
-2. Run `oc logs pod/<veleroPodName>` to check if there are any errors.
-
-3. Fix errors if any. 
-
-If the issue still persists, [create a new issue](https://github.com/openshift/oadp-operator/issues/new) if [an issue doesnt exist already](https://github.com/openshift/oadp-operator/issues)
-
-
-<h3 align="center">Debugging Failed Volume Backups<a id="volbackup"></a></h3>
-
-  - Restic: 
-    1. Obtain the Restic pod logs by running the following command,
-  `oc logs -l name=restic`. Check for errors.  
-
-  - Cloud Snapshots:
-  
-
-  - CSI Snapshots:
+5. CSI Snapshots debug
+    1. This guide has not yet been published
+    
+    
 
 <hr style="height:1px;border:none;color:#333;">
-
 
 <h1 align="center">Debugging Failed Restores<a id="restore"></a></h1>
 
 This section includes how to debug a failed restore. For more specific issues related to restic/CSI/Volume snapshots check out the following section.
 
-1. Check for validation errors in the restore by running the following command,
-`oc describe restore <restoreName>`
-Alternatively, if you have a local velero installation, you can also run `velero describe restore <restoreName> -n <namespace>` and `velero restore logs <restoreName> -n <namespace>`.
-
-2. Run `oc logs pod/<veleroPodName>` to check if there are any errors.
-
-3. Fix errors if any. 
-
-
-If the issue still persists, [create a new issue](https://github.com/openshift/oadp-operator/issues/new) if [an issue doesnt exist already](https://github.com/openshift/oadp-operator/issues)
-
-<h3 align="center">Debugging Failed Volume Restores<a id="volrestore"></a></h3>
-
-  - Restic:
-    1. Obtain the Restic pod logs by running the following command,
-    `oc logs -l name=restic`. Check for errors.  
-
-  - Cloud Snapshots:
-
-
-  - CSI Snapshots:
-
-
-
+1. OpenShift commands
+    1. Check for validation errors in the backup by running the following command,
+    ```
+    oc describe restore <restoreName> -n openshift-adp
+    ```
+    2. Check the Velero logs
+    ```
+    oc logs -f deployment.apps/velero -n openshift-adp
+    ```
+    If dataMover is enabled, check the volume-snapshot-logs
+    ```
+    oc logs -f deployment.apps/volume-snapshot-mover -n openshift-adp
+    ```
+    
+2. Velero commands
+    1. Alias the velero command: 
+    ```
+    alias velero='oc -n openshift-adp exec deployment/velero -c velero -it -- ./velero'
+    ```
+    2. Get the restore details: 
+    ```
+    velero restore describe <restoreName> --details
+    ```
+    3. Get the backup logs: 
+    ```
+    velero backup logs <restoreName>
+    ```
+ 
 <hr style="height:1px;border:none;color:#333;">
 
 <h1 align="center">Common Issues and Misconfigurations<a id="misconfig"></a></h1>
 
 <h3 align="center">Credentials Secret Not Properly Formatted<a id="creds"></a></h3>
 
-  - AWS:
-    - An example of correct AWS credentials:
+  - Credentials:
+    An example of correct AWS credentials:
 
     ```
     [<INSERT_PROFILE_NAME>]
@@ -106,12 +123,16 @@ If the issue still persists, [create a new issue](https://github.com/openshift/o
     from velero's [approved list](https://github.com/vmware-tanzu/velero/blob/6f64052e94ef71c9d360863f341fe3c11e319f08/pkg/persistence/object_store_layout.go#L37-L43)
 
     **Solutions:**
-    1. Define prefix directory inside a storage bucket where backups are to be uploaded instead of object storage root. In your Velero CR set a prefix for velero to use in `Velero.spec.backupStorageLocations[*].objectStorage.prefix`
+    1. Define prefix directory inside a storage bucket where backups are to be uploaded instead of object storage root. In your Velero CR set a prefix for velero to use in:
 
     ```
-        objectStorage:
-          bucket: your-bucket-name
-          prefix: <DirName>
+    oc explain backupstoragelocations.velero.io.spec.objectStorage
+    ```
+    Example:
+    ```
+    objectStorage:
+      bucket: your-bucket-name
+      prefix: <DirName>
     ```
 
     2. Delete the offending directories from your object storage location.
@@ -139,12 +160,23 @@ If the issue still persists, [create a new issue](https://github.com/openshift/o
   - If a backup or restore is stuck as "In Progress," then it is likely that the backup 
   or restore was interrupted. If this is the case, it cannot resume. 
 
-  - For further details on your backup, run the command `velero backup describe <backup-name>`.
-  And for more details on your restore, run `velero restore describe <backup-name>`.
+  - For further details on your backup, run the command:
+  ```
+  velero backup describe <backup-name> --details  # --details is optional
+  ```
+  - For more details on your restore, run:
+  ```
+  velero restore describe <backup-name> --details  # --details is optional
+  ```
 
-  - You can delete the backup with the command `oc delete backup <backup-name> -n openshift-adp`,
-  and delete the restore with the command `oc delete restore <restore-name> -n openshift-adp`
-
+  - You can delete the backup with the command: 
+  ```
+  velero backup delete <backupName>
+  ```
+  - You can delete the restore with the command: 
+  ```
+  velero delete restore <restoreName> 
+  ```
 
 
 <hr style="height:1px;border:none;color:#333;">
@@ -226,9 +258,11 @@ If the issue still persists, [create a new issue](https://github.com/openshift/o
   level=error msg="Error checking repository for stale locks" controller=restic-repo error="error running command=restic unlock --repo=s3:s3-us-east-1.amazonaws.com/<bucketname>/<prefix>/restic/mssql-persistent --password-file=/tmp/credentials/openshift-adp/velero-restic-credentials-repository-password --cache-dir=/scratch/.cache/restic, stdout=, stderr=Fatal: unable to open config file: Stat: The specified key does not exist.\nIs there a repository at the following location?\ns3:s3-us-east-1.amazonaws.com/<bucketname>/<prefix>/restic/mssql-persistent\n: exit status 1" error.file="/go/src/github.com/vmware-tanzu/velero/pkg/restic/repository_manager.go:293" error.function="github.com/vmware-tanzu/velero/pkg/restic.(*repositoryManager).exec" logSource="pkg/controller/restic_repository_controller.go:144" name=mssql-persistent-velero-sample-1-ckcj4 namespace=openshift-adp
   ```
 
-  - Running the command `velero backup describe <backup-name> --details -n openshift-adp` 
+  - Running the command:
+  ```
+  velero backup describe <backup-name> --details 
+  ```
   results in:
-
   ```
   Restic Backups:
   Failed:
@@ -237,3 +271,10 @@ If the issue still persists, [create a new issue](https://github.com/openshift/o
 
   This is a known Velero [issue](https://github.com/vmware-tanzu/velero/issues/4421) 
   which appears to be in the process of deciding expected behavior. 
+
+
+<hr style="height:1px;border:none;color:#333;">
+
+<h1 align="center">OADP FAQ<a id="faq"></a></h1>
+
+The OADP team maintains a [FAQ page](https://access.redhat.com/articles/5456281)
