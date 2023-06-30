@@ -105,7 +105,7 @@ velero backup create $backup_name --exclude-namespaces velero,default
 
 #### Create a backup based on a schedule named daily-backup.
 ```
-velero backup create --from-schedule $backup_name
+velero backup create --from-schedule daily-backup
 ```
 
 #### View the YAML for a backup that doesn't snapshot volumes, without sending it to the server.
