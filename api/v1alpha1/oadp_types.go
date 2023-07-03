@@ -218,6 +218,12 @@ type DataMover struct {
 	// defines the parameters that can be specified for retention of datamover snapshots
 	// +optional
 	SnapshotRetainPolicy *RetainPolicy `json:"snapshotRetainPolicy,omitempty"`
+	// schedule is a cronspec (https://en.wikipedia.org/wiki/Cron#Overview) that
+	// can be used to schedule replication to occur at regular, time-based
+	// intervals.
+	//+kubebuilder:validation:Pattern=`^(\d+|\*)(/\d+)?(\s+(\d+|\*)(/\d+)?){4}$`
+	//+optional
+	Schedule string `json:"schedule,omitempty"`
 }
 
 // RetainPolicy defines the fields for retention of datamover snapshots

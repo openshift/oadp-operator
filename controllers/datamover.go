@@ -59,6 +59,9 @@ const (
 	SnapshotRetainPolicyYearly  = "SnapshotRetainPolicyYearly"
 	SnapshotRetainPolicyWithin  = "SnapshotRetainPolicyWithin"
 
+	// Snapshot retain schedule trigger value
+	SnapshotScheduleCron = "SnapshotScheduleCron"
+
 	DataMoverReplicaOverride = "DATAMOVER_DEBUG_REPLICAS_OVERRIDE"
 )
 
@@ -453,6 +456,14 @@ func (r *DPAReconciler) createResticSecretsPerBSL(dpa *oadpv1alpha1.DataProtecti
 			// check for SnapshotRetainPolicy parameters
 			rpolicy := r.fetchRetainPolicyFromDPA(dpa)
 
+			// check if datamover cron expression is specified by the user
+			scheduleCronExpr := ""
+			if len(dpa.Spec.Features.DataMover.Schedule) > 0 {
+				scheduleCronExpr = dpa.Spec.Features.DataMover.Schedule
+				scheduleCronExpr = strings.ReplaceAll(scheduleCronExpr, `"`, "")
+				scheduleCronExpr = strings.ReplaceAll(scheduleCronExpr, `'`, "")
+			}
+
 			resticCustomCA := bsl.Spec.ObjectStorage.CACert
 			rsecret := &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
@@ -473,7 +484,7 @@ func (r *DPAReconciler) createResticSecretsPerBSL(dpa *oadpv1alpha1.DataProtecti
 					return err
 				}
 
-				return r.buildDataMoverResticSecretForAWS(rsecret, key, secret, bsl.Spec.Config[Region], pass, repo, pruneInterval, resticCustomCA, rpolicy)
+				return r.buildDataMoverResticSecretForAWS(rsecret, key, secret, bsl.Spec.Config[Region], pass, repo, pruneInterval, resticCustomCA, rpolicy, scheduleCronExpr)
 			})
 
 			if err != nil {
@@ -529,6 +540,14 @@ func (r *DPAReconciler) createResticSecretsPerBSL(dpa *oadpv1alpha1.DataProtecti
 			// check for SnapshotRetainPolicy parameters
 			rpolicy := r.fetchRetainPolicyFromDPA(dpa)
 
+			// check if datamover cron expression is specified by the user
+			scheduleCronExpr := ""
+			if len(dpa.Spec.Features.DataMover.Schedule) > 0 {
+				scheduleCronExpr = dpa.Spec.Features.DataMover.Schedule
+				scheduleCronExpr = strings.ReplaceAll(scheduleCronExpr, `"`, "")
+				scheduleCronExpr = strings.ReplaceAll(scheduleCronExpr, `'`, "")
+			}
+
 			// We are done with checks no lets create the azure dm secret
 			rsecret := &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
@@ -549,7 +568,7 @@ func (r *DPAReconciler) createResticSecretsPerBSL(dpa *oadpv1alpha1.DataProtecti
 					return err
 				}
 
-				return r.buildDataMoverResticSecretForAzure(rsecret, accountName, accountKey, pass, repo, pruneInterval, resticCustomCA, rpolicy)
+				return r.buildDataMoverResticSecretForAzure(rsecret, accountName, accountKey, pass, repo, pruneInterval, resticCustomCA, rpolicy, scheduleCronExpr)
 			})
 
 			if err != nil {
@@ -591,6 +610,14 @@ func (r *DPAReconciler) createResticSecretsPerBSL(dpa *oadpv1alpha1.DataProtecti
 			// check for SnapshotRetainPolicy parameters
 			rpolicy := r.fetchRetainPolicyFromDPA(dpa)
 
+			// check if datamover cron expression is specified by the user
+			scheduleCronExpr := ""
+			if len(dpa.Spec.Features.DataMover.Schedule) > 0 {
+				scheduleCronExpr = dpa.Spec.Features.DataMover.Schedule
+				scheduleCronExpr = strings.ReplaceAll(scheduleCronExpr, `"`, "")
+				scheduleCronExpr = strings.ReplaceAll(scheduleCronExpr, `'`, "")
+			}
+
 			rsecret := &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      fmt.Sprintf("%s-volsync-restic", bsl.Name),
@@ -610,7 +637,7 @@ func (r *DPAReconciler) createResticSecretsPerBSL(dpa *oadpv1alpha1.DataProtecti
 					return err
 				}
 
-				return r.buildDataMoverResticSecretForGCP(rsecret, gcpcreds.googleApplicationCredentials, pass, repo, pruneInterval, resticCustomCA, rpolicy)
+				return r.buildDataMoverResticSecretForGCP(rsecret, gcpcreds.googleApplicationCredentials, pass, repo, pruneInterval, resticCustomCA, rpolicy, scheduleCronExpr)
 			})
 
 			if err != nil {
@@ -631,7 +658,7 @@ func (r *DPAReconciler) createResticSecretsPerBSL(dpa *oadpv1alpha1.DataProtecti
 }
 
 // build data mover restic secret for given aws bsl
-func (r *DPAReconciler) buildDataMoverResticSecretForAWS(rsecret *corev1.Secret, key string, secret string, region string, pass []byte, repo string, pruneInterval string, resticCustomCA []byte, rpolicy retainPolicy) error {
+func (r *DPAReconciler) buildDataMoverResticSecretForAWS(rsecret *corev1.Secret, key string, secret string, region string, pass []byte, repo string, pruneInterval string, resticCustomCA []byte, rpolicy retainPolicy, scheduleCronExpr string) error {
 
 	// TODO: add gcp, azure support
 	rData := &corev1.Secret{
@@ -653,12 +680,15 @@ func (r *DPAReconciler) buildDataMoverResticSecretForAWS(rsecret *corev1.Secret,
 	if len(resticCustomCA) > 0 {
 		rData.Data[ResticCustomCAKey] = resticCustomCA
 	}
+	if len(scheduleCronExpr) > 0 {
+		rData.Data[SnapshotScheduleCron] = []byte(scheduleCronExpr)
+	}
 	rsecret.Data = rData.Data
 	return nil
 }
 
 // build data mover restic secret for given bsl
-func (r *DPAReconciler) buildDataMoverResticSecretForAzure(rsecret *corev1.Secret, accountName string, accountKey string, pass []byte, repo string, pruneInterval string, resticCustomCA []byte, rpolicy retainPolicy) error {
+func (r *DPAReconciler) buildDataMoverResticSecretForAzure(rsecret *corev1.Secret, accountName string, accountKey string, pass []byte, repo string, pruneInterval string, resticCustomCA []byte, rpolicy retainPolicy, scheduleCronExpr string) error {
 
 	rData := &corev1.Secret{
 		Data: map[string][]byte{
@@ -678,12 +708,15 @@ func (r *DPAReconciler) buildDataMoverResticSecretForAzure(rsecret *corev1.Secre
 	if len(resticCustomCA) > 0 {
 		rData.Data[ResticCustomCAKey] = resticCustomCA
 	}
+	if len(scheduleCronExpr) > 0 {
+		rData.Data[SnapshotScheduleCron] = []byte(scheduleCronExpr)
+	}
 	rsecret.Data = rData.Data
 	return nil
 }
 
 // build data mover restic secret for given gcp bsl
-func (r *DPAReconciler) buildDataMoverResticSecretForGCP(rsecret *corev1.Secret, googleApplicationCredentials string, pass []byte, repo string, pruneInterval string, resticCustomCA []byte, rpolicy retainPolicy) error {
+func (r *DPAReconciler) buildDataMoverResticSecretForGCP(rsecret *corev1.Secret, googleApplicationCredentials string, pass []byte, repo string, pruneInterval string, resticCustomCA []byte, rpolicy retainPolicy, scheduleCronExpr string) error {
 
 	rData := &corev1.Secret{
 		Data: map[string][]byte{
@@ -701,6 +734,9 @@ func (r *DPAReconciler) buildDataMoverResticSecretForGCP(rsecret *corev1.Secret,
 	}
 	if len(resticCustomCA) > 0 {
 		rData.Data[ResticCustomCAKey] = resticCustomCA
+	}
+	if len(scheduleCronExpr) > 0 {
+		rData.Data[SnapshotScheduleCron] = []byte(scheduleCronExpr)
 	}
 	rsecret.Data = rData.Data
 	return nil
