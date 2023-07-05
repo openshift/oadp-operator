@@ -101,7 +101,4 @@ for f in bundle/manifests/oadp-operator.clusterserviceversion.yaml
 if [[ "$f" =~ .*clusterserviceversion.* ]] && ! grep -q infrastructure-features ${f}; then
   sed -i '/^spec:/i\ \ \ \ operators.openshift.io/infrastructure-features: \x27[\"Disconnected\"]\x27'                                                               ${f}
 fi
-if [[ "$f" =~ .*clusterserviceversion.* ]] && ! grep -q cluster-monitoring ${f}; then
-  sed -i '/^spec:/i\ \ \ \ operatorframework.io/cluster-monitoring: "true"'                                                                                          ${f}
-fi
 done
