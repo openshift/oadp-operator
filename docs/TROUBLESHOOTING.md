@@ -16,6 +16,7 @@ If you need help, first search if there is [already an issue filed](https://issu
     6. [Issue with Backup/Restore of DeploymentConfig using Restic](#deployconfig)
     7. [New Restic Backup Partially Failing After Clearing Bucket](#resbackup)
 6. [OADP FAQ](#faq)
+7. [OpenShift ROSA STS and OADP installation](https://github.com/rh-mobb/documentation/blob/main/content/docs/misc/oadp/rosa-sts/_index.md)
 
 
 <hr style="height:1px;border:none;color:#333;">
