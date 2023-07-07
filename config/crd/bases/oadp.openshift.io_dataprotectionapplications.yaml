@@ -692,6 +692,10 @@ spec:
                         pruneInterval:
                           description: defines how often (in days) to prune the datamover snapshots from the repository
                           type: string
+                        schedule:
+                          description: 'schedule is a cronspec (https://en.wikipedia.org/wiki/Cron#Overview) that can be used to schedule datamover(volsync) synchronization to occur at regular, time-based intervals. For example, in order to enforce datamover SnapshotRetainPolicy at a regular interval you need to specify this Schedule trigger as a cron expression, by default the trigger is a manual trigger. For more details on Volsync triggers, refer: https://volsync.readthedocs.io/en/stable/usage/triggers.html'
+                          pattern: ^(\d+|\*)(/\d+)?(\s+(\d+|\*)(/\d+)?){4}$
+                          type: string
                         snapshotRetainPolicy:
                           description: defines the parameters that can be specified for retention of datamover snapshots
                           properties:
