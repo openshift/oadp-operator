@@ -3,7 +3,7 @@
 If you need help, first search if there is [already an issue filed](https://issues.redhat.com/issues/?jql=project%20%3D%20OADP) 
   or please log into jira and create a new issue in the `OADP` project.
 
-1. [OADP Cheat Sheet](oadp_cheet_sheet.md)
+1. [OADP Cheat Sheet](oadp_cheat_sheet.md)
 2. [Debugging Failed Backups](#backup)
 3. [Debugging Failed Restores](#restore)
 4. [Debugging Data Mover](https://github.com/migtools/volume-snapshot-mover/blob/master/docs/troubleshooting.md)
