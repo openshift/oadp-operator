@@ -1,0 +1,18 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: sample-oadp-alert
+  namespace: openshift-adp
+spec:
+  groups:
+  - name: sample-oadp-backup-alert
+    rules:
+    - alert: OADPBackupFailing
+      annotations:
+        description: 'OADP had {{$value | humanize}} backup failures over the last 2 hours.'
+        summary: OADP has issues creating backups
+      expr: |
+        increase(velero_backup_failure_total{job="openshift-adp-velero-metrics-svc"}[2h]) > 0
+      for: 5m
+      labels:
+        severity: warning
