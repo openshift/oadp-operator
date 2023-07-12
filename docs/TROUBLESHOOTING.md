@@ -203,8 +203,9 @@ This section includes how to debug a failed restore. For more specific issues re
         velero:
           defaultPlugins:
           - openshift
-        restic:
+        nodeAgent:
           enable: true
+          uploaderType: restic
           supplementalGroups:
             - 1234
 ```

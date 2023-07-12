@@ -81,8 +81,6 @@ type ServerConfig struct {
 	// Backup all volumes with pod volume file system backup by default.
 	// +optional
 	DefaultVolumesToFsBackup *bool `json:"default-volumes-to-fs-backup,omitempty"`
-	// uploaderType, oadp only support restic at the moment
-
 	// How long to wait on asynchronous BackupItemActions and RestoreItemActions to complete before timing out. (default 1h0m0s)
 	DefaultItemOperationTimeout *time.Duration `json:"default-item-operation-timeout,omitempty"`
 	// How long to wait for resource processes which are not covered by other specific timeout parameters. Default is 10 minutes. (default 10m0s)

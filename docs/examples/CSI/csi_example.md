@@ -23,8 +23,9 @@
           - openshift
           - aws
           - csi
-        restic:
+        nodeAgent:
           enable: false
+          uploaderType: restic
         featureFlags:
           - EnableCSI
       backupLocations:

@@ -26,11 +26,12 @@ import (
 
 const (
 	ResticRestoreHelperCM = "restic-restore-action-config"
+	FsRestoreHelperCM     = "fs-restore-action-config"
 	HostPods              = "host-pods"
 )
 
 var (
-	resticPvHostPath string = getResticPvHostPath()
+	fsPvHostPath string = getFsPvHostPath()
 
 	// v1.MountPropagationHostToContainer is a const. Const cannot be pointed to.
 	// we need to declare mountPropagationToHostContainer so that we have an address to point to
@@ -45,12 +46,19 @@ var (
 	}
 )
 
-func getResticPvHostPath() string {
+func getFsPvHostPath() string {
 	env := os.Getenv("RESTIC_PV_HOSTPATH")
-	if env == "" {
-		return "/var/lib/kubelet/pods"
+	envFs := os.Getenv("FS_PV_HOSTPATH")
+
+	if env != "" {
+		return env
 	}
-	return env
+
+	if envFs != "" {
+		return envFs
+	}
+
+	return "/var/lib/kubelet/pods"
 }
 
 func getNodeAgentObjectMeta(r *DPAReconciler) metav1.ObjectMeta {
@@ -61,17 +69,32 @@ func getNodeAgentObjectMeta(r *DPAReconciler) metav1.ObjectMeta {
 	}
 }
 
-func (r *DPAReconciler) ReconcileResticDaemonset(log logr.Logger) (bool, error) {
+func (r *DPAReconciler) ReconcileNodeAgentDaemonset(log logr.Logger) (bool, error) {
 	dpa := oadpv1alpha1.DataProtectionApplication{}
+	var deleteDaemonSet bool = true
+
 	if err := r.Get(r.Context, r.NamespacedName, &dpa); err != nil {
 		return false, err
 	}
-
 	// Define "static" portion of daemonset
 	ds := &appsv1.DaemonSet{
 		ObjectMeta: getNodeAgentObjectMeta(r),
 	}
-	if dpa.Spec.Configuration.Restic == nil || dpa.Spec.Configuration.Restic != nil && (dpa.Spec.Configuration.Restic.Enable == nil || !*dpa.Spec.Configuration.Restic.Enable) {
+
+	if dpa.Spec.Configuration.Restic != nil {
+		// V(-1) corresponds to the warn level
+		var deprecationMsg string = "(Deprecation Warning) Use nodeAgent instead of restic, which is deprecated and will be removed with the OADP 1.4"
+		log.V(-1).Info(deprecationMsg)
+		r.EventRecorder.Event(&dpa, corev1.EventTypeWarning, "DeprecationResticConfig", deprecationMsg)
+	}
+
+	if dpa.Spec.Configuration.Restic != nil && dpa.Spec.Configuration.Restic.Enable != nil && *dpa.Spec.Configuration.Restic.Enable {
+		deleteDaemonSet = false
+	} else if dpa.Spec.Configuration.NodeAgent != nil && dpa.Spec.Configuration.NodeAgent.Enable != nil && *dpa.Spec.Configuration.NodeAgent.Enable {
+		deleteDaemonSet = false
+	}
+
+	if deleteDaemonSet {
 		deleteContext := context.Background()
 		if err := r.Get(deleteContext, types.NamespacedName{
 			Name:      ds.Name,
@@ -83,8 +106,8 @@ func (r *DPAReconciler) ReconcileResticDaemonset(log logr.Logger) (bool, error) 
 			return false, err
 		}
 		// no errors means there already is an existing DaeMonset.
-		// TODO: Check if restic is in use, a backup is running, so don't blindly delete restic.
-		// If dpa.Spec enableRestic exists and is false, attempt to delete.
+		// TODO: Check if NodeAgent is in use, a backup is running, so don't blindly delete NodeAgent.
+		// If dpa.Spec.Configuration.NodeAgent enable exists and is false, attempt to delete.
 		deleteOptionPropagationForeground := metav1.DeletePropagationForeground
 		if err := r.Delete(deleteContext, ds, &client.DeleteOptions{PropagationPolicy: &deleteOptionPropagationForeground}); err != nil {
 			// TODO: Come back and fix event recording to be consistent
@@ -118,7 +141,7 @@ func (r *DPAReconciler) ReconcileResticDaemonset(log logr.Logger) (bool, error) 
 			}
 		}
 
-		if _, err := r.buildResticDaemonset(&dpa, ds); err != nil {
+		if _, err := r.buildNodeAgentDaemonset(&dpa, ds); err != nil {
 			return err
 		}
 		if err := controllerutil.SetControllerReference(&dpa, ds, r.Scheme); err != nil {
@@ -133,23 +156,23 @@ func (r *DPAReconciler) ReconcileResticDaemonset(log logr.Logger) (bool, error) 
 			if isStatusCause && cause.Field == "spec.selector" {
 				// recreate deployment
 				// TODO: check for in-progress backup/restore to wait for it to finish
-				log.Info("Found immutable selector from previous daemonset, recreating restic daemonset")
+				log.Info("Found immutable selector from previous daemonset, recreating NodeAgent daemonset")
 				err := r.Delete(r.Context, ds)
 				if err != nil {
 					return false, err
 				}
-				return r.ReconcileResticDaemonset(log)
+				return r.ReconcileNodeAgentDaemonset(log)
 			}
 		}
 		return false, err
 	}
 
 	if op == controllerutil.OperationResultCreated || op == controllerutil.OperationResultUpdated {
-		// Trigger event to indicate restic was created or updated
+		// Trigger event to indicate NodeAgent was created or updated
 		r.EventRecorder.Event(ds,
 			corev1.EventTypeNormal,
-			"ResticDaemonsetReconciled",
-			fmt.Sprintf("performed %s on restic deployment %s/%s", op, ds.Namespace, ds.Name),
+			"NodeAgentDaemonsetReconciled",
+			fmt.Sprintf("performed %s on NodeAgent deployment %s/%s", op, ds.Namespace, ds.Name),
 		)
 	}
 
@@ -157,12 +180,12 @@ func (r *DPAReconciler) ReconcileResticDaemonset(log logr.Logger) (bool, error) 
 }
 
 /**
- * This function builds restic Daemonset. It calls /pkg/credentials function AppendCloudProviderVolumes
+ * This function builds NodeAgent Daemonset. It calls /pkg/credentials function AppendCloudProviderVolumes
  * args: velero - the velero object pointer
  * 		 ds		- pointer to daemonset with objectMeta defined
  * returns: (pointer to daemonset, nil) if successful
  */
-func (r *DPAReconciler) buildResticDaemonset(dpa *oadpv1alpha1.DataProtectionApplication, ds *appsv1.DaemonSet) (*appsv1.DaemonSet, error) {
+func (r *DPAReconciler) buildNodeAgentDaemonset(dpa *oadpv1alpha1.DataProtectionApplication, ds *appsv1.DaemonSet) (*appsv1.DaemonSet, error) {
 	if dpa == nil {
 		return nil, fmt.Errorf("dpa cannot be nil")
 	}
@@ -170,12 +193,20 @@ func (r *DPAReconciler) buildResticDaemonset(dpa *oadpv1alpha1.DataProtectionApp
 		return nil, fmt.Errorf("ds cannot be nil")
 	}
 
-	// get resource requirements for restic ds
+	var nodeAgentResourceReqs corev1.ResourceRequirements
+
+	// get resource requirements for nodeAgent ds
 	// ignoring err here as it is checked in validator.go
-	resticResourceReqs, _ := getResticResourceReqs(dpa)
+	if dpa.Spec.Configuration.Restic != nil {
+		nodeAgentResourceReqs, _ = getResticResourceReqs(dpa)
+	} else if dpa.Spec.Configuration.NodeAgent != nil {
+		nodeAgentResourceReqs, _ = getNodeAgentResourceReqs(dpa)
+	} else {
+		return nil, fmt.Errorf("NodeAgent or Restic configuration cannot be nil")
+	}
 
 	installDs := install.DaemonSet(ds.Namespace,
-		install.WithResources(resticResourceReqs),
+		install.WithResources(nodeAgentResourceReqs),
 		install.WithImage(getVeleroImage(dpa)),
 		install.WithAnnotations(dpa.Spec.PodAnnotations),
 		install.WithSecret(false),
@@ -187,28 +218,40 @@ func (r *DPAReconciler) buildResticDaemonset(dpa *oadpv1alpha1.DataProtectionApp
 	var err error
 	ds.Labels, err = common.AppendUniqueKeyTOfTMaps(ds.Labels, installDs.Labels)
 	if err != nil {
-		return nil, fmt.Errorf("restic daemonset label: %s", err)
+		return nil, fmt.Errorf("NodeAgent daemonset label: %s", err)
 	}
 	// Update Spec
 	ds.Spec = installDs.Spec
 	ds.Name = dsName
 
-	return r.customizeResticDaemonset(dpa, ds)
+	return r.customizeNodeAgentDaemonset(dpa, ds)
 }
 
-func (r *DPAReconciler) customizeResticDaemonset(dpa *oadpv1alpha1.DataProtectionApplication, ds *appsv1.DaemonSet) (*appsv1.DaemonSet, error) {
-	if dpa.Spec.Configuration.Restic == nil {
-		// if restic is not configured, therefore not enabled, return early.
+func (r *DPAReconciler) customizeNodeAgentDaemonset(dpa *oadpv1alpha1.DataProtectionApplication, ds *appsv1.DaemonSet) (*appsv1.DaemonSet, error) {
+	if dpa.Spec.Configuration == nil || (dpa.Spec.Configuration.Restic == nil && dpa.Spec.Configuration.NodeAgent == nil) {
+		// if restic and nodeAgent are not configured, therefore not enabled, return early.
 		return nil, nil
 	}
-	// add custom pod labels
-	if dpa.Spec.Configuration.Restic.PodConfig != nil && dpa.Spec.Configuration.Restic.PodConfig.Labels != nil {
-		var err error
-		ds.Spec.Template.Labels, err = common.AppendUniqueKeyTOfTMaps(ds.Spec.Template.Labels, dpa.Spec.Configuration.Restic.PodConfig.Labels)
-		if err != nil {
-			return nil, fmt.Errorf("restic daemonset template custom label: %s", err)
-		}
+
+	var useResticConf bool = true
+
+	if dpa.Spec.Configuration.NodeAgent != nil {
+		useResticConf = false
 	}
+
+	// add custom pod labels
+	var err error
+	if useResticConf {
+		if dpa.Spec.Configuration.Restic.PodConfig != nil && dpa.Spec.Configuration.Restic.PodConfig.Labels != nil {
+			ds.Spec.Template.Labels, err = common.AppendUniqueKeyTOfTMaps(ds.Spec.Template.Labels, dpa.Spec.Configuration.Restic.PodConfig.Labels)
+		}
+	} else if dpa.Spec.Configuration.NodeAgent.PodConfig != nil && dpa.Spec.Configuration.NodeAgent.PodConfig.Labels != nil {
+		ds.Spec.Template.Labels, err = common.AppendUniqueKeyTOfTMaps(ds.Spec.Template.Labels, dpa.Spec.Configuration.NodeAgent.PodConfig.Labels)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("NodeAgent daemonset template custom label: %s", err)
+	}
+
 	// customize specs
 	ds.Spec.Selector = nodeAgentLabelSelector
 	ds.Spec.UpdateStrategy = appsv1.DaemonSetUpdateStrategy{
@@ -216,9 +259,16 @@ func (r *DPAReconciler) customizeResticDaemonset(dpa *oadpv1alpha1.DataProtectio
 	}
 
 	// customize template specs
-	ds.Spec.Template.Spec.SecurityContext = &corev1.PodSecurityContext{
-		RunAsUser:          pointer.Int64(0),
-		SupplementalGroups: dpa.Spec.Configuration.Restic.SupplementalGroups,
+	if useResticConf {
+		ds.Spec.Template.Spec.SecurityContext = &corev1.PodSecurityContext{
+			RunAsUser:          pointer.Int64(0),
+			SupplementalGroups: dpa.Spec.Configuration.Restic.SupplementalGroups,
+		}
+	} else {
+		ds.Spec.Template.Spec.SecurityContext = &corev1.PodSecurityContext{
+			RunAsUser:          pointer.Int64(0),
+			SupplementalGroups: dpa.Spec.Configuration.NodeAgent.SupplementalGroups,
+		}
 	}
 
 	// append certs volume
@@ -230,47 +280,57 @@ func (r *DPAReconciler) customizeResticDaemonset(dpa *oadpv1alpha1.DataProtectio
 			},
 		})
 
-	// update restic host PV path
+	// update nodeAgent host PV path
 	for i, vol := range ds.Spec.Template.Spec.Volumes {
 		if vol.Name == HostPods {
-			ds.Spec.Template.Spec.Volumes[i].HostPath.Path = getResticPvHostPath()
+			ds.Spec.Template.Spec.Volumes[i].HostPath.Path = getFsPvHostPath()
 		}
 	}
 
 	// Update with any pod config values
-	if dpa.Spec.Configuration.Restic.PodConfig != nil {
-		ds.Spec.Template.Spec.Tolerations = dpa.Spec.Configuration.Restic.PodConfig.Tolerations
-		ds.Spec.Template.Spec.NodeSelector = dpa.Spec.Configuration.Restic.PodConfig.NodeSelector
+	if useResticConf {
+		if dpa.Spec.Configuration.Restic.PodConfig != nil {
+			ds.Spec.Template.Spec.Tolerations = dpa.Spec.Configuration.Restic.PodConfig.Tolerations
+			ds.Spec.Template.Spec.NodeSelector = dpa.Spec.Configuration.Restic.PodConfig.NodeSelector
+		}
+	} else if dpa.Spec.Configuration.NodeAgent.PodConfig != nil {
+		ds.Spec.Template.Spec.Tolerations = dpa.Spec.Configuration.NodeAgent.PodConfig.Tolerations
+		ds.Spec.Template.Spec.NodeSelector = dpa.Spec.Configuration.NodeAgent.PodConfig.NodeSelector
 	}
 
-	// fetch restic container in order to customize it
-	var resticContainer *corev1.Container
+	// fetch nodeAgent container in order to customize it
+	var nodeAgentContainer *corev1.Container
 	for i, container := range ds.Spec.Template.Spec.Containers {
 		if container.Name == common.NodeAgent {
-			resticContainer = &ds.Spec.Template.Spec.Containers[i]
+			nodeAgentContainer = &ds.Spec.Template.Spec.Containers[i]
 			break
 		}
 	}
 
-	if resticContainer != nil {
+	if nodeAgentContainer != nil {
 		// append certs volume mount
-		resticContainer.VolumeMounts = append(resticContainer.VolumeMounts, corev1.VolumeMount{
+		nodeAgentContainer.VolumeMounts = append(nodeAgentContainer.VolumeMounts, corev1.VolumeMount{
 			Name:      "certs",
 			MountPath: "/etc/ssl/certs",
 		})
-		// append restic PodConfig envs to container
-		if dpa.Spec.Configuration != nil && dpa.Spec.Configuration.Restic != nil && dpa.Spec.Configuration.Restic.PodConfig != nil && dpa.Spec.Configuration.Restic.PodConfig.Env != nil {
-			resticContainer.Env = common.AppendUniqueEnvVars(resticContainer.Env, dpa.Spec.Configuration.Restic.PodConfig.Env)
+		// append PodConfig envs to nodeAgent container
+		if useResticConf {
+			if dpa.Spec.Configuration.Restic.PodConfig != nil && dpa.Spec.Configuration.Restic.PodConfig.Env != nil {
+				nodeAgentContainer.Env = common.AppendUniqueEnvVars(nodeAgentContainer.Env, dpa.Spec.Configuration.Restic.PodConfig.Env)
+			}
+		} else if dpa.Spec.Configuration.NodeAgent.PodConfig != nil && dpa.Spec.Configuration.NodeAgent.PodConfig.Env != nil {
+			nodeAgentContainer.Env = common.AppendUniqueEnvVars(nodeAgentContainer.Env, dpa.Spec.Configuration.NodeAgent.PodConfig.Env)
 		}
-		// append env vars to the restic container
-		resticContainer.Env = common.AppendUniqueEnvVars(resticContainer.Env, proxy.ReadProxyVarsFromEnv())
 
-		resticContainer.SecurityContext = &corev1.SecurityContext{
+		// append env vars to the nodeAgent container
+		nodeAgentContainer.Env = common.AppendUniqueEnvVars(nodeAgentContainer.Env, proxy.ReadProxyVarsFromEnv())
+
+		nodeAgentContainer.SecurityContext = &corev1.SecurityContext{
 			Privileged: pointer.Bool(true),
 		}
 
-		resticContainer.ImagePullPolicy = corev1.PullAlways
-		setContainerDefaults(resticContainer)
+		nodeAgentContainer.ImagePullPolicy = corev1.PullAlways
+		setContainerDefaults(nodeAgentContainer)
 	}
 
 	// attach DNS policy and config if enabled
@@ -306,23 +366,34 @@ func (r *DPAReconciler) customizeResticDaemonset(dpa *oadpv1alpha1.DataProtectio
 	return ds, nil
 }
 
-func (r *DPAReconciler) ReconcileResticRestoreHelperConfig(log logr.Logger) (bool, error) {
+func (r *DPAReconciler) ReconcileFsRestoreHelperConfig(log logr.Logger) (bool, error) {
 	dpa := oadpv1alpha1.DataProtectionApplication{}
 	if err := r.Get(r.Context, r.NamespacedName, &dpa); err != nil {
 		return false, err
 	}
 
-	resticRestoreHelperCM := corev1.ConfigMap{
+	fsRestoreHelperCM := corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      ResticRestoreHelperCM,
+			Name:      FsRestoreHelperCM,
 			Namespace: r.NamespacedName.Namespace,
 		},
 	}
 
-	op, err := controllerutil.CreateOrPatch(r.Context, r.Client, &resticRestoreHelperCM, func() error {
+	// Delete renamed CM restic-restore-action-config
+	// Velero uses labels to identify the CM. For consistency we have the
+	// same name as upstream, whch is `fs-restore-action-config`
+	resticRestoreHelperCM := corev1.ConfigMap{}
+	if err := r.Get(r.Context, types.NamespacedName{Namespace: r.NamespacedName.Namespace, Name: ResticRestoreHelperCM}, &resticRestoreHelperCM); err == nil {
+		r.Log.Info("Deleting deprecated ConfigMap restic-restore-action-config.")
+		if err := r.Delete(r.Context, &resticRestoreHelperCM); err != nil {
+			return false, err
+		}
+	}
+
+	op, err := controllerutil.CreateOrPatch(r.Context, r.Client, &fsRestoreHelperCM, func() error {
 
 		// update the Config Map
-		err := r.updateResticRestoreHelperCM(&resticRestoreHelperCM, &dpa)
+		err := r.updateFsRestoreHelperCM(&fsRestoreHelperCM, &dpa)
 		return err
 	})
 
@@ -330,34 +401,34 @@ func (r *DPAReconciler) ReconcileResticRestoreHelperConfig(log logr.Logger) (boo
 		return false, err
 	}
 
-	//TODO: Review Restic Restore Helper CM status and report errors and conditions
+	//TODO: Review FS Restore Helper CM status and report errors and conditions
 
 	if op == controllerutil.OperationResultCreated || op == controllerutil.OperationResultUpdated {
-		// Trigger event to indicate Restic Restore Helper CM was created or updated
-		r.EventRecorder.Event(&resticRestoreHelperCM,
+		// Trigger event to indicate FS Restore Helper CM was created or updated
+		r.EventRecorder.Event(&fsRestoreHelperCM,
 			corev1.EventTypeNormal,
-			"ReconcileResticRestoreHelperConfigReconciled",
-			fmt.Sprintf("performed %s on restic restore Helper config map %s/%s", op, resticRestoreHelperCM.Namespace, resticRestoreHelperCM.Name),
+			"ReconcileFsRestoreHelperConfigReconciled",
+			fmt.Sprintf("performed %s on FS restore Helper config map %s/%s", op, fsRestoreHelperCM.Namespace, fsRestoreHelperCM.Name),
 		)
 	}
 	return true, nil
 }
 
-func (r *DPAReconciler) updateResticRestoreHelperCM(resticRestoreHelperCM *corev1.ConfigMap, dpa *oadpv1alpha1.DataProtectionApplication) error {
+func (r *DPAReconciler) updateFsRestoreHelperCM(fsRestoreHelperCM *corev1.ConfigMap, dpa *oadpv1alpha1.DataProtectionApplication) error {
 
-	// Setting controller owner reference on the restic restore helper CM
-	err := controllerutil.SetControllerReference(dpa, resticRestoreHelperCM, r.Scheme)
+	// Setting controller owner reference on the FS restore helper CM
+	err := controllerutil.SetControllerReference(dpa, fsRestoreHelperCM, r.Scheme)
 	if err != nil {
 		return err
 	}
 
-	resticRestoreHelperCM.Labels = map[string]string{
+	fsRestoreHelperCM.Labels = map[string]string{
 		"velero.io/plugin-config":      "",
 		"velero.io/pod-volume-restore": "RestoreItemAction",
 		oadpv1alpha1.OadpOperatorLabel: "True",
 	}
 
-	resticRestoreHelperCM.Data = map[string]string{
+	fsRestoreHelperCM.Data = map[string]string{
 		"image": os.Getenv("RELATED_IMAGE_VELERO_RESTORE_HELPER"),
 	}
 

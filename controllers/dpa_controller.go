@@ -89,7 +89,7 @@ func (r *DPAReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 
 	_, err := ReconcileBatch(r.Log,
 		r.ValidateDataProtectionCR,
-		r.ReconcileResticRestoreHelperConfig,
+		r.ReconcileFsRestoreHelperConfig,
 		r.ReconcileBackupStorageLocations,
 		r.ReconcileRegistrySecrets,
 		r.ReconcileRegistries,
@@ -99,7 +99,7 @@ func (r *DPAReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		r.LabelVSLSecrets,
 		r.ReconcileVolumeSnapshotLocations,
 		r.ReconcileVeleroDeployment,
-		r.ReconcileResticDaemonset,
+		r.ReconcileNodeAgentDaemonset,
 		r.ReconcileVeleroMetricsSVC,
 		r.ReconcileDataMoverController,
 		r.ReconcileDataMoverResticSecret,

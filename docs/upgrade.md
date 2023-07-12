@@ -102,7 +102,7 @@ spec:
   enableRestic: true
 ```
 
-And a sample DataProtectionApplication (previously Velero) for version 0.5 or later:
+A sample DataProtectionApplication (previously Velero) for version 0.5 or later:
 
 ```
 apiVersion: oadp.openshift.io/v1alpha1
@@ -117,6 +117,45 @@ spec:
       - aws
     restic:
       enable: true
+  backupLocations:
+    - name: default
+      velero:
+        provider: aws
+        default: true
+        objectStorage:
+          bucket: my-bucket-name
+          prefix: my-prefix
+        config:
+          region: us-east-1
+          profile: "default"
+        credential:
+          name: cloud-credentials
+          key: cloud
+  snapshotLocations:
+    - name: default
+      velero:
+        provider: aws
+        config:
+          region: us-west-2
+          profile: "default"
+```
+
+Sample DataProtectionApplication (deprecated `restic` and replaced by `nodeAgent`) for version 1.3 or later:
+
+```
+apiVersion: oadp.openshift.io/v1alpha1
+kind: DataProtectionApplication
+metadata:
+  name: velero-sample
+spec:
+  configuration:
+    velero:
+      defaultPlugins:
+      - openshift
+      - aws
+    nodeAgent:
+      enable: true
+      uploaderType: restic
   backupLocations:
     - name: default
       velero:

@@ -74,8 +74,9 @@ spec:
           prefix: <bucket-prefix>
         provider: aws
   configuration:
-    restic:
+    nodeAgent:
       enable: false
+      uploaderType: restic
     velero:
       defaultPlugins:
         - openshift

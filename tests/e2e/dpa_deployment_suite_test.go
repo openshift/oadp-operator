@@ -51,8 +51,10 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 						PodConfig:      &oadpv1alpha1.PodConfig{},
 					},
 					Restic: &oadpv1alpha1.ResticConfig{
-						PodConfig: &oadpv1alpha1.PodConfig{},
-						Enable:    pointer.Bool(true),
+						NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
+							PodConfig: &oadpv1alpha1.PodConfig{},
+							Enable:    pointer.Bool(true),
+						},
 					},
 				},
 				BackupLocations: []oadpv1alpha1.BackupLocation{
@@ -85,8 +87,10 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 						PodConfig:      &oadpv1alpha1.PodConfig{},
 					},
 					Restic: &oadpv1alpha1.ResticConfig{
-						PodConfig: &oadpv1alpha1.PodConfig{},
-						Enable:    pointer.Bool(true),
+						NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
+							PodConfig: &oadpv1alpha1.PodConfig{},
+							Enable:    pointer.Bool(true),
+						},
 					},
 				},
 				BackupLocations: []oadpv1alpha1.BackupLocation{
@@ -126,8 +130,10 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 						},
 					},
 					Restic: &oadpv1alpha1.ResticConfig{
-						PodConfig: &oadpv1alpha1.PodConfig{},
-						Enable:    pointer.Bool(false),
+						NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
+							PodConfig: &oadpv1alpha1.PodConfig{},
+							Enable:    pointer.Bool(false),
+						},
 					},
 				},
 				BackupImages: pointer.Bool(false),
@@ -173,8 +179,10 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 						}, Dpa.Spec.Configuration.Velero.DefaultPlugins...),
 					},
 					Restic: &oadpv1alpha1.ResticConfig{
-						PodConfig: &oadpv1alpha1.PodConfig{},
-						Enable:    pointer.Bool(false),
+						NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
+							PodConfig: &oadpv1alpha1.PodConfig{},
+							Enable:    pointer.Bool(false),
+						},
 					},
 				},
 				BackupImages: pointer.Bool(false),
@@ -219,8 +227,10 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 						},
 					},
 					Restic: &oadpv1alpha1.ResticConfig{
-						PodConfig: &oadpv1alpha1.PodConfig{},
-						Enable:    pointer.Bool(false),
+						NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
+							PodConfig: &oadpv1alpha1.PodConfig{},
+							Enable:    pointer.Bool(false),
+						},
 					},
 				},
 				BackupImages: pointer.Bool(false),
@@ -253,8 +263,10 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 						DefaultPlugins: Dpa.Spec.Configuration.Velero.DefaultPlugins,
 					},
 					Restic: &oadpv1alpha1.ResticConfig{
-						PodConfig: &oadpv1alpha1.PodConfig{},
-						Enable:    pointer.Bool(true),
+						NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
+							PodConfig: &oadpv1alpha1.PodConfig{},
+							Enable:    pointer.Bool(true),
+						},
 					},
 				},
 				SnapshotLocations: Dpa.Spec.SnapshotLocations,
@@ -287,8 +299,10 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 						DefaultPlugins: Dpa.Spec.Configuration.Velero.DefaultPlugins,
 					},
 					Restic: &oadpv1alpha1.ResticConfig{
-						PodConfig: &oadpv1alpha1.PodConfig{},
-						Enable:    pointer.Bool(false),
+						NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
+							PodConfig: &oadpv1alpha1.PodConfig{},
+							Enable:    pointer.Bool(false),
+						},
 					},
 				},
 				BackupLocations: []oadpv1alpha1.BackupLocation{
@@ -322,8 +336,10 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 						}, Dpa.Spec.Configuration.Velero.DefaultPlugins...),
 					},
 					Restic: &oadpv1alpha1.ResticConfig{
-						PodConfig: &oadpv1alpha1.PodConfig{},
-						Enable:    pointer.Bool(false),
+						NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
+							PodConfig: &oadpv1alpha1.PodConfig{},
+							Enable:    pointer.Bool(false),
+						},
 					},
 				},
 				BackupLocations: []oadpv1alpha1.BackupLocation{
@@ -371,12 +387,14 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 						DefaultPlugins: Dpa.Spec.Configuration.Velero.DefaultPlugins,
 					},
 					Restic: &oadpv1alpha1.ResticConfig{
-						PodConfig: &oadpv1alpha1.PodConfig{
-							NodeSelector: map[string]string{
-								"foo": "bar",
+						NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
+							PodConfig: &oadpv1alpha1.PodConfig{
+								NodeSelector: map[string]string{
+									"foo": "bar",
+								},
 							},
+							Enable: pointer.Bool(true),
 						},
-						Enable: pointer.Bool(true),
 					},
 				},
 			},
@@ -408,17 +426,19 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 						DefaultPlugins: Dpa.Spec.Configuration.Velero.DefaultPlugins,
 					},
 					Restic: &oadpv1alpha1.ResticConfig{
-						PodConfig: &oadpv1alpha1.PodConfig{
-							Tolerations: []corev1.Toleration{
-								{
-									Key:               "node.kubernetes.io/unreachable",
-									Operator:          "Exists",
-									Effect:            "NoExecute",
-									TolerationSeconds: func(i int64) *int64 { return &i }(6000),
+						NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
+							PodConfig: &oadpv1alpha1.PodConfig{
+								Tolerations: []corev1.Toleration{
+									{
+										Key:               "node.kubernetes.io/unreachable",
+										Operator:          "Exists",
+										Effect:            "NoExecute",
+										TolerationSeconds: func(i int64) *int64 { return &i }(6000),
+									},
 								},
 							},
+							Enable: pointer.Bool(true),
 						},
-						Enable: pointer.Bool(true),
 					},
 				},
 			},
@@ -435,8 +455,10 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 						DefaultPlugins:          Dpa.Spec.Configuration.Velero.DefaultPlugins,
 					},
 					Restic: &oadpv1alpha1.ResticConfig{
-						PodConfig: &oadpv1alpha1.PodConfig{},
-						Enable:    pointer.Bool(true),
+						NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
+							PodConfig: &oadpv1alpha1.PodConfig{},
+							Enable:    pointer.Bool(true),
+						},
 					},
 				},
 				BackupImages: pointer.Bool(false),
@@ -695,7 +717,8 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 			// We expect adp logs to be the same after 1 minute
 			adpLogsDiff := cmp.Diff(adpLogsAtReconciled, adpLogsAfterOneMinute)
 			// If registry deployment were deleted after CR update, we expect to see a new log entry, ignore that.
-			if !strings.Contains(adpLogsDiff, "Registry Deployment deleted") {
+			// We also ignore case where deprecated restic entry was used
+			if !strings.Contains(adpLogsDiff, "Registry Deployment deleted") && !strings.Contains(adpLogsDiff, "(Deprecation Warning) Use nodeAgent instead of restic, which is deprecated and will be removed with the OADP 1.4") {
 				Expect(adpLogsDiff).To(Equal(""))
 			}
 
