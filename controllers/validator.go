@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"strings"
 
-	"time"
-
 	mapset "github.com/deckarep/golang-set/v2"
 
 	"github.com/go-logr/logr"
@@ -63,13 +61,6 @@ func (r *DPAReconciler) ValidateDataProtectionCR(log logr.Logger) (bool, error) 
 	}
 
 	if r.checkIfDataMoverIsEnabled(&dpa) {
-		// parse for timeout if specified and see if there are no errors
-		if len(dpa.Spec.Features.DataMover.Timeout) > 0 {
-			_, err := time.ParseDuration(dpa.Spec.Features.DataMover.Timeout)
-			if err != nil {
-				return false, err
-			}
-		}
 
 		if !VSMPluginPresent {
 			return false, errors.New("datamover is enabled, specify vsm as a default plugin")

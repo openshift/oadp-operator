@@ -416,12 +416,6 @@ func (r *DPAReconciler) customizeVeleroContainer(dpa *oadpv1alpha1.DataProtectio
 			Value: "true",
 		}})
 
-		if len(dpa.Spec.Features.DataMover.Timeout) > 0 {
-			veleroContainer.Env = common.AppendUniqueEnvVars(veleroContainer.Env, []corev1.EnvVar{{
-				Name:  "DATAMOVER_TIMEOUT",
-				Value: dpa.Spec.Features.DataMover.Timeout,
-			}})
-		}
 	}
 
 	// Enable user to specify --fs-backup-timeout (defaults to 1h)
