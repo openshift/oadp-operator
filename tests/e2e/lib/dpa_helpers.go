@@ -134,7 +134,6 @@ func (v *DpaCustomResource) Build(backupRestoreType BackupRestoreType) error {
 		veleroFeatureFlags["EnableCSI"] = emptyStruct{}
 		dpaInstance.Spec.Features.DataMover.Enable = true
 		dpaInstance.Spec.Features.DataMover.CredentialName = controllers.ResticsecretName
-		dpaInstance.Spec.Features.DataMover.Timeout = "40m"
 		scName, err := v.ProviderStorageClassName(".")
 		if err != nil {
 			return err
