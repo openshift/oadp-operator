@@ -65,11 +65,11 @@ A VSB represents a snapshot of a PVC. It can be used to create a VSR, which can 
 </tr>
 <tr>
 <td>ProtectedNamespace</td>
-<td>The namespace where the PVC is located.</td>
+<td>The namespace where the Velero deployment is located, and PVC is copied to.</td>
 </tr>
 <tr>
 <td>ResticSecretRef</td>
-<td>A reference to a Secret CR that contains the credentials for accessing the restic repository.</td>
+<td>A reference to a Secret CR that contains the credentials for accessing the restic repository, as well as a reference for the given BSL.</td>
 </tr>
 </tbody>
 </table>
@@ -87,7 +87,7 @@ A VSR represents a restore of a PVC from a snapshot. It can be used to restore a
 <tbody>
 <tr>
 <td>ResticSecretRef</td>
-<td>A reference to a Secret CR that contains the credentials for accessing the restic repository.</td>
+<td>A reference to a Secret CR that contains the credentials for accessing the restic repository, as well as a reference for the given BSL.</td>
 </tr>
 <tr>
 <td>VolumeSnapshotMoverBackupRef</td>
@@ -95,7 +95,7 @@ A VSR represents a restore of a PVC from a snapshot. It can be used to restore a
 </tr>
 <tr>
 <td>ProtectedNamespace</td>
-<td>The namespace where the PVC is located.</td>
+<td>The namespace where the Velero deployment is located, and PVC is copied to.</td>
 </tr>
 </tbody>
 </table>
@@ -106,7 +106,7 @@ A VSR represents a restore of a PVC from a snapshot. It can be used to restore a
 	
 The CSI plugin is extended to facilitate the data movement of CSI VolumeSnapshots(VS) from the cluster to object storage. When Velero backup is triggered, a snapshot of the application volume is created, followed by the associated VolumeSnapshotContent(VSC). This leads to the creation of a VolumeSnapshotBackup(VSB), which triggers the dataMover process as the VolumeSnapshotMover(VSM) controller begins reconciliation on these VSB instances.<br><br>
 
-During the dataMover process, the VolumeSnapshotMover first validates the VSB and then copies the VSC, VS, and PVC to the protected namespace (default: openshift-adp). The VSM controller uses the cloned PVC as the dataSource and creates a VolSync ReplicationSource CR. VolSync then performs reconciliation on the ReplicationSource CR.<br><br>
+During the dataMover process, the VolumeSnapshotMover first validates the VSB and then clones the VSC, followed by VS, and PVC to the protected namespace (default: openshift-adp). The VSM controller uses the cloned PVC as the dataSource and creates a VolSync ReplicationSource CR. VolSync then performs reconciliation on the ReplicationSource CR.<br><br>
 
 Subsequently, VolSync initiates the transfer of data from the cluster to the target Remote Storage. In this live demonstration, you will monitor the creation of both VolumeSnapshotBackup and VolumeSnapshotContent. Once the backup is completed, the VSB and VSC are transferred to S3 for the restore process. Finally, the VSM controller deletes all the extraneous resources that were created during the data mover backup process.
 </div>
@@ -117,10 +117,9 @@ Subsequently, VolSync initiates the transfer of data from the cluster to the tar
 
 <h2>Restore Process</h2>
 <div>
-Previously mentioned, during the backup process, a VSB custom resource is stored as a backup object that contains essential details for performing a volumeSnapshotMover restore.  When a VSB CR is encountered, the CSI plugin generates a VSR CR. The VSM controller then begins to reconcile on the VSR CR. Furthermore, the VSM controller creates a VolSync ReplicationDestination CR in the OADP Operator namespace, which facilitates the recovery of the VolumeSnapshot stored in the object storage location during the backup.<br><br>
+Previously mentioned, during the backup process, a VSB custom resource is stored as a backup object that contains essential details for performing a volumeSnapshotMover restore. When a VSB CR is encountered, the VSM plugin generates a VSR CR. The VSM controller then begins to reconcile on the VSR CR. Furthermore, the VSM controller creates a VolSync ReplicationDestination CR in the OADP Operator namespace, which facilitates the recovery of the VolumeSnapshot stored in the object storage location during the backup.<br><br>
 
-After the completion of the VolSync restore step, the Velero restore process continues as usual. However, the CSI plugin utilizes the snapHandle of the VolSync VolumeSnapshot as the data source for its corresponding PVC
-
+After the completion of the VolSync restore step, the Velero restore process continues as usual. However, the CSI plugin utilizes the snapHandle of the VolSync VolumeSnapshot as the data source for its corresponding PVC.
 </div>
 
 <p dir="auto"><img alt="data-mover-restore" src="data-mover-restore.png" width="850" /></p>
