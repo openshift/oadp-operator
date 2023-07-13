@@ -7,5 +7,5 @@ COPY ./ .
 
 RUN go install -mod=mod github.com/onsi/ginkgo/v2/ginkgo
 RUN chmod -R 777 ./
-RUN chmod -R 777 /go/
+RUN chmod -R 777 $(go env GOPATH)
 RUN go mod download
