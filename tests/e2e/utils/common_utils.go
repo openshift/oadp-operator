@@ -25,5 +25,5 @@ func ReplaceSecretDataNewLineWithCarriageReturn(data []byte) []byte {
 
 // Extract tar.gz file to a directory of the same name in the same directory
 func ExtractTarGz(pathToDir, tarGzFileName string) error {
-	return exec.Command("tar", "-xzf", pathToDir + "/" + tarGzFileName, "-C", pathToDir).Run()
+	return exec.Command("tar", "-xzf", pathToDir+"/"+tarGzFileName, "-C", pathToDir).Run()
 }

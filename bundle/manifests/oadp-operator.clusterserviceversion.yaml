@@ -265,6 +265,9 @@ spec:
     - kind: CloudStorage
       name: cloudstorages.oadp.openshift.io
       version: v1alpha1
+    - kind: DataDownload
+      name: datadownloads.velero.io
+      version: v2alpha1
     - description: DataProtectionApplication represents configuration to install a
         data protection application to safely backup and restore, perform disaster
         recovery and migrate Kubernetes cluster resources and persistent volumes.
@@ -276,6 +279,9 @@ spec:
         displayName: Conditions
         path: conditions
       version: v1alpha1
+    - kind: DataUpload
+      name: datauploads.velero.io
+      version: v2alpha1
     - description: DeleteBackupRequest is a request to delete one or more backups.
       displayName: DeleteBackupRequest
       kind: DeleteBackupRequest
