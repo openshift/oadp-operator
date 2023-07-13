@@ -7,6 +7,8 @@ resources:
 - bases/velero.io_backuprepositories.yaml
 - bases/velero.io_backups.yaml
 - bases/velero.io_backupstoragelocations.yaml
+- bases/velero.io_datadownloads.yaml
+- bases/velero.io_datauploads.yaml
 - bases/velero.io_deletebackuprequests.yaml
 - bases/velero.io_downloadrequests.yaml
 - bases/velero.io_podvolumebackups.yaml
