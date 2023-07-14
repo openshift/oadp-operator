@@ -50,13 +50,23 @@ spec:
 
 ### Credentials for VolumeSnapshotLocation:
 
-- `VolumeSnapshotLocation` will **always** expect the [default secret name](#defaultsecrets) 
-to exist, as described above.
+- If the secret name is not specified, OADP will use the default value.
+- If the `credential` spec has a custom name, this name will be used by the
+  registry, and the default name will not be expected. Example:
 
-### Separate Credentials for BSL and VSL:
-
-- To use separate credentials for `BackupStorageLocation` and `VolumeSnapshotLocation`, 
-your `BackupStorageLocation` must provide a custom secret name.
+```
+spec:
+  ...
+  snapshotLocations:
+    - velero:
+        config:
+          profile: default
+          region: us-east-1
+        provider: aws
+        credential:
+          name: my-custom-name
+          key: cloud
+```
 
 #### AWS Plugin Exception:
 
@@ -92,8 +102,7 @@ your `BackupStorageLocation` must provide a custom secret name.
               name: cloud-credentials
               key: cloud
       snapshotLocations:
-        - name: default
-          velero:
+        - velero:
             provider: aws
             config:
               region: us-west-2
@@ -127,12 +136,14 @@ spec:
           name: cloud-credentials
           key: cloud
   snapshotLocations:
-    - name: default
-      velero:
+    - velero:
         provider: aws
         config:
           region: us-west-2
           profile: "default"
+        credential:
+          name: cloud-credentials
+          key: cloud
 ```
 
 <hr style="height:1px;border:none;color:#333;">
@@ -145,9 +156,6 @@ spec:
     - As mentioned previously, if you are using the AWS plugin, you can use one
       secret with separate credentials. Further information [here](#separatecreds).
                 
-    - Otherwise, the VSL credentials **must** be the [default secret name](#defaultsecrets) and 
-    BSL credentials must have a custom secret name, and be provided in the `credential` spec field.
-
     - Example:
 
     `oc create secret generic <CUSTOM_NAME> --namespace openshift-adp --from-file cloud=<CREDENTIALS_FILE_PATH>`
@@ -172,12 +180,14 @@ spec:
           name: my-custom-name
           key: cloud
   snapshotLocations:
-    - name: default
-      velero:
+    - velero:
         provider: aws
         config:
           region: us-west-2
           profile: "default"
+        credential:
+          name: my-custom-name2
+          key: cloud
 ```
 
 <hr style="height:1px;border:none;color:#333;">
@@ -203,8 +213,6 @@ spec:
 If you don't need volumesnapshotlocation, you will not need to create a VSL credentials.
 
 If you need `VolumeSnapshotLocation`, regardless of the `noDefaultBackupLocation` setting, you will need a to create VSL credentials.
-
-VSL credentials **must** be the [default secret name](#defaultsecrets)
 
 
 ### Creating a Secret for volumeSnapshotMover
