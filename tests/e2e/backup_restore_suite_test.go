@@ -406,7 +406,7 @@ var _ = Describe("AWS backup restore tests", func() {
 			PreBackupVerify:      mysqlReady(true, false, RESTIC),
 			PostRestoreVerify:    mysqlReady(false, false, RESTIC),
 		}, nil),
-		Entry("Mongo application DATAMOVER", BackupRestoreCase{
+		PEntry("Mongo application DATAMOVER", BackupRestoreCase{
 			ApplicationTemplate:  "./sample-applications/mongo-persistent/mongo-persistent-csi.yaml",
 			ApplicationNamespace: "mongo-persistent",
 			Name:                 "mongo-datamover-e2e",
@@ -414,8 +414,8 @@ var _ = Describe("AWS backup restore tests", func() {
 			PreBackupVerify:      dataMoverReady(true, false, mongoready),
 			PostRestoreVerify:    dataMoverReady(false, false, mongoready),
 		}, nil),
-		// TODO: fix this test
-		Entry("MySQL application DATAMOVER", BackupRestoreCase{
+		// TODO: Re-implement this test to upstream data mover
+		PEntry("MySQL application DATAMOVER", BackupRestoreCase{
 			ApplicationTemplate:  "./sample-applications/mysql-persistent/mysql-persistent-csi.yaml",
 			ApplicationNamespace: "mysql-persistent",
 			Name:                 "mysql-datamover-e2e",
