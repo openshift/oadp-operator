@@ -4,7 +4,7 @@
 
 <h2>What Is CSI?</h2>
 
-<p dir="auto">One of the more important components of Data Mover to understand is CSI, or Container Storage Interface. CSI provides a layer of abstraction between container orchestration tools and storage systems such that users do not need to be informed on the differences between storage provider's needs and requirements. It also provides point-in-time snapshotting of volumes.</p>
+<p dir="auto">One of the more important components of Data Mover to understand is CSI, or Container Storage Interface. CSI provides a layer of abstraction between container orchestration tools and storage systems such that storage vendors can develop a plugin once and have it work across a number of container orchestration systems. CSI defines an API for storage plugins to enable creation of a snapshot to provides point-in-time snapshotting of volumes.</p>
 
 <p dir="auto">CSI volumes are now the industry standard and are the storage backing for most Cloud Native applications. However, issues concerning CSI volumes still remain. Some volumes have vendor-specific requirements, and can prevent proper portability and durability. Data Mover works to solve this case, which will be discussed more in the next section.</p>
 
