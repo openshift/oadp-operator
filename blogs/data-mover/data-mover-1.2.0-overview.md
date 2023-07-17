@@ -12,9 +12,9 @@
 
 <h2>Why We Need Data Mover</h2>
 
-<p dir="auto">During a backup using Velero with CSI, CSI snapshotting is performed. This snapshot is created on the storage provider where the snapshot was taken. This means that for some providers, such as ODF, the snapshot lives on the cluster. Due to this poor durability, in the case of a disaster scenario, the snapshot is also subjected to disaster.</p>
+<p dir="auto">During a backup using Velero with CSI, CSI snapshotting is performed. This snapshot is created on the storage provider where the snapshot was taken. This means that for some providers, such as ODF (OpenShift Data Foundation), the snapshot lives on the cluster. Due to this poor durability, in the case of a disaster scenario, the snapshot is also subjected to disaster.</p>
 
-<p dir="auto">With volumeSnapshotMover controller, snapshots are relocated off of the cluster to the targeted backupStorageLocation (generally object storage), providing additional safety.</p>
+<p dir="auto">With VolumeSnapshotMover controller, snapshots are relocated off of the cluster to the targeted backupStorageLocation (generally object storage), providing additional safety.</p>
 
 <h2>OADP's Data Mover Roadmap</h2>
 <p dir="auto">The OADP team introduced the Data Mover feature in OADP-1.1.0 as a tech preview feature.  During the course of OADP-1.1 and OADP-1.2 development we have also been actively contributing to the upstream Velero project.  Our work in the upstream has focused on providing the foundation for the Data Mover feature directly in Velero.  We are pleased to see the upstream Velero project has officially adopted the feature and will release a <a href="https://github.com/vmware-tanzu/velero/wiki/1.12-Roadmap">built in Data Mover</a> in Velero 1.12. 
@@ -27,7 +27,7 @@ The Data Mover feature in OADP-1.2 will remain in tech preview as we continue to
 
 <h3><a href="https://github.com/vmware-tanzu/velero-plugin-for-csi">CSI PLUGIN</a>:</h3>
 
-<p dir="auto">The collection of Velero plugins for snapshotting CSI backed PVCs using the CSI beta snapshot APIs.</p>
+<p dir="auto">The collection of Velero plugins for snapshotting CSI backed PVCs using the <a href="https://kubernetes.io/docs/concepts/storage/volume-snapshots/">CSI snapshot APIs</a>.</p>
 
 <h3><a href="https://github.com/backube/volsync">VOLSYNC</a>:</h3>
 
@@ -46,7 +46,7 @@ The Data Mover feature in OADP-1.2 will remain in tech preview as we continue to
 
 <h3><a href="https://github.com/migtools/velero-plugin-for-vsm">VSM PLUGIN</a>:</h3>
 
-<p dir="auto">The upstream Velero plugin for the VolumeSnapshotMover(VSM) controller is to facilitate CSI volumesnapshot data movement from an OpenShift cluster to object storage, and vice versa.</p>
+<p dir="auto">The Velero plugin for the VolumeSnapshotMover(VSM) controller is to facilitate CSI volumesnapshot data movement from an OpenShift cluster to object storage, and vice versa.</p>
 
 <h3><a href="https://github.com/migtools/volume-snapshot-mover/tree/master/config/crd/bases">VOLUMESNAPSHOTMOVER CUSTOM RESOURCE DEFINITIONS (CRDS)</a>:</h3>
 
@@ -111,9 +111,9 @@ A VSR represents a restore of a PVC from a snapshot. It can be used to restore a
 <h2>Backup Process</h2>
 <div>
 	
-The CSI plugin is extended to facilitate the data movement of CSI VolumeSnapshots(VS) from the cluster to object storage. When Velero backup is triggered, a snapshot of the application volume is created, followed by the associated VolumeSnapshotContent(VSC). This leads to the creation of a VolumeSnapshotBackup(VSB), which triggers the Data Mover process as the VolumeSnapshotMover(VSM) controller begins reconciliation on these VSB instances.<br><br>
+The CSI plugin is extended to facilitate the data movement of CSI VolumeSnapshots(VS) from the cluster to object storage. When Velero backup is triggered, a snapshot of the application volume is created, followed by the associated VolumeSnapshotContent(VSC). This leads to the creation of a VolumeSnapshotBackup(VSB) per VSC, which triggers the Data Mover process as the VolumeSnapshotMover(VSM) controller begins reconciliation on these VSB instances.<br><br>
 
-During the Data Mover process, the VolumeSnapshotMover first validates the VSB and then clones the VSC, followed by VS, and PVC to the protected namespace (default: openshift-adp). The VSM controller uses the cloned PVC as the dataSource and creates a VolSync ReplicationSource CR. VolSync then performs reconciliation on the ReplicationSource CR.<br><br>
+During the Data Mover process, the VolumeSnapshotMover first validates the VSB and then clones the VSC, followed by VS, and PVC to the protected namespace (default: openshift-adp). The VSM controller uses the cloned PVC as the source PVC and creates a VolSync ReplicationSource CR. VolSync then performs reconciliation on the ReplicationSource CR.<br><br>
 
 Subsequently, VolSync initiates the transfer of data from the cluster to the target Remote Storage. In this live demonstration, you will monitor the creation of both VolumeSnapshotBackup and VolumeSnapshotContent. Once the backup is completed, the VSB and VSC are transferred to S3 for the restore process. Finally, the VSM controller deletes all the extraneous resources that were created during the data mover backup process.
 </div>
@@ -132,3 +132,5 @@ After the completion of the VolSync restore step, the Velero restore process con
 <p dir="auto"><img alt="data-mover-restore" src="data-mover-restore.png" width="850" /></p>
 
 
+<h2>Thank you!</h2>
+The source of this blog post can be found in the <a href="https://github.com/openshift/oadp-operator/tree/master/blogs/data-mover">oadp-operator repository</a>
