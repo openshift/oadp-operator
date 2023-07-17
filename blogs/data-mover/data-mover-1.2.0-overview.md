@@ -16,6 +16,9 @@
 
 <p dir="auto">With volumeSnapshotMover controller, snapshots are relocated off of the cluster to the targeted backupStorageLocation (generally object storage), providing additional safety.</p>
 
+<h2>OADP's Data Mover Roadmap</h2>
+<p dir="auto">The OADP team introduced the Data Mover feature in OADP-1.1.0 as a tech preview feature.  During the course of OADP-1.1 and OADP-1.2 development we have also been actively contributing to the upstream Velero project.  Our work in the upstream has focused on providing the foundation for the Data Mover feature directly in Velero.  We are pleased to see the upstream Velero project has officially adopted the feature and will release a <a href="https://github.com/vmware-tanzu/velero/wiki/1.12-Roadmap">built in Data Mover</a> in Velero 1.12. 
+The Data Mover feature in OADP-1.2 will remain in tech preview as we continue to contribute to and evalute Velero's built in Data Mover for our customers.
 <h2>Components</h2>
 
 <h3><a href="https://github.com/openshift/oadp-operator">OADP OPERATOR</a>:</h3>
