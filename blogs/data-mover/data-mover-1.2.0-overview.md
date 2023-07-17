@@ -26,7 +26,7 @@
 
 <p dir="auto">The collection of Velero plugins for snapshotting CSI backed PVCs using the CSI beta snapshot APIs.</p>
 
-<h3><a href="https://volsync.readthedocs.io/en/stable/">VOLSYNC</a>:</h3>
+<h3><a href="https://github.com/backube/volsync">VOLSYNC</a>:</h3>
 
 <p>VolSync is a Kubernetes operator that performs asynchronous replication of persistent volumes within, or across, clusters. The replication provided by VolSync is independent of the storage system. This allows replication to and from storage types that don’t normally support remote replication. We will be using Volsync’s restic datamover.</p>
 
@@ -64,16 +64,16 @@ A VSB represents a snapshot of a PVC. It can be used to create a VSR, which can 
 </thead>
 <tbody>
 <tr>
-<td>VolumeSnapshotContent</td>
-<td>The name of the VolumeSnapshotContent CR that represents the snapshot.</td>
-</tr>
-<tr>
 <td>ProtectedNamespace</td>
 <td>The namespace where the Velero deployment is located, and PVC is copied to.</td>
 </tr>
 <tr>
 <td>ResticSecretRef</td>
 <td>A reference to a Secret CR that contains the credentials for accessing the restic repository, as well as a reference for the given BSL.</td>
+</tr>
+<tr>
+<td>VolumeSnapshotContent</td>
+<td>The name of the VolumeSnapshotContent CR that represents the snapshot.</td>
 </tr>
 </tbody>
 </table>
@@ -90,16 +90,16 @@ A VSR represents a restore of a PVC from a snapshot. It can be used to restore a
 </thead>
 <tbody>
 <tr>
+<td>ProtectedNamespace</td>
+<td>The namespace where the Velero deployment is located, and PVC is copied from.</td>
+</tr>
+<tr>
 <td>ResticSecretRef</td>
 <td>A reference to a Secret CR that contains the credentials for accessing the restic repository, as well as a reference for the given BSL.</td>
 </tr>
 <tr>
 <td>VolumeSnapshotMoverBackupRef</td>
 <td>A reference to a VolumeSnapshotBackup CR that represents the snapshot that will be used to restore the PVC.</td>
-</tr>
-<tr>
-<td>ProtectedNamespace</td>
-<td>The namespace where the Velero deployment is located, and PVC is copied from.</td>
 </tr>
 </tbody>
 </table>
