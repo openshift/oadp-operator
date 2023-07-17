@@ -390,7 +390,7 @@ var _ = Describe("AWS backup restore tests", func() {
 			PreBackupVerify:      mysqlReady(true, true, CSI),
 			PostRestoreVerify:    mysqlReady(false, true, CSI),
 		}, nil),
-		Entry("Mongo application RESTIC", BackupRestoreCase{
+		PEntry("Mongo application RESTIC", BackupRestoreCase{
 			ApplicationTemplate:  "./sample-applications/mongo-persistent/mongo-persistent.yaml",
 			ApplicationNamespace: "mongo-persistent",
 			Name:                 "mongo-restic-e2e",
@@ -398,7 +398,7 @@ var _ = Describe("AWS backup restore tests", func() {
 			PreBackupVerify:      mongoready(true, false, RESTIC),
 			PostRestoreVerify:    mongoready(false, false, RESTIC),
 		}, nil),
-		Entry("MySQL application RESTIC", BackupRestoreCase{
+		PEntry("MySQL application RESTIC", BackupRestoreCase{
 			ApplicationTemplate:  "./sample-applications/mysql-persistent/mysql-persistent.yaml",
 			ApplicationNamespace: "mysql-persistent",
 			Name:                 "mysql-restic-e2e",
