@@ -269,10 +269,7 @@ var _ = Describe("Must-gather backup restore tests", func() {
 				// wait for volume snapshot to be Ready
 				Eventually(AreVolumeSnapshotsReady(dpaCR.Client, backupName), timeoutMultiplier*time.Minute*4, time.Second*10).Should(BeTrue())
 			}
-			// if Data Mover case, wait for VSB to be gone from app namespace
-			if brCase.BackupRestoreType == CSIDataMover {
-				Eventually(ThereAreNoVolumeSnapshotBackups(dpaCR.Client, brCase.ApplicationNamespace), timeoutMultiplier*time.Minute*4, time.Second*10).Should(BeTrue())
-			}
+
 			// uninstall app
 			log.Printf("Uninstalling app for case %s", brCase.Name)
 			err = UninstallApplication(dpaCR.Client, brCase.ApplicationTemplate)

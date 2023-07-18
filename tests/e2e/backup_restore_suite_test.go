@@ -315,10 +315,7 @@ var _ = Describe("AWS backup restore tests", func() {
 				// wait for volume snapshot to be Ready
 				Eventually(AreVolumeSnapshotsReady(dpaCR.Client, backupName), timeoutMultiplier*time.Minute*4, time.Second*10).Should(BeTrue())
 			}
-			// if Data Mover case, wait for VSB to be gone from app namespace
-			if brCase.BackupRestoreType == CSIDataMover {
-				Eventually(ThereAreNoVolumeSnapshotBackups(dpaCR.Client, brCase.ApplicationNamespace), timeoutMultiplier*time.Minute*4, time.Second*10).Should(BeTrue())
-			}
+
 			// uninstall app
 			log.Printf("Uninstalling app for case %s", brCase.Name)
 			err = UninstallApplication(dpaCR.Client, brCase.ApplicationTemplate)
@@ -406,22 +403,22 @@ var _ = Describe("AWS backup restore tests", func() {
 			PreBackupVerify:      mysqlReady(true, false, RESTIC),
 			PostRestoreVerify:    mysqlReady(false, false, RESTIC),
 		}, nil),
-		PEntry("Mongo application DATAMOVER", BackupRestoreCase{
-			ApplicationTemplate:  "./sample-applications/mongo-persistent/mongo-persistent-csi.yaml",
-			ApplicationNamespace: "mongo-persistent",
-			Name:                 "mongo-datamover-e2e",
-			BackupRestoreType:    CSIDataMover,
-			PreBackupVerify:      dataMoverReady(true, false, mongoready),
-			PostRestoreVerify:    dataMoverReady(false, false, mongoready),
-		}, nil),
+		//PEntry("Mongo application DATAMOVER", BackupRestoreCase{
+		//	ApplicationTemplate:  "./sample-applications/mongo-persistent/mongo-persistent-csi.yaml",
+		//	ApplicationNamespace: "mongo-persistent",
+		//	Name:                 "mongo-datamover-e2e",
+		//	BackupRestoreType:    CSIDataMover,
+		//	PreBackupVerify:      dataMoverReady(true, false, mongoready),
+		//	PostRestoreVerify:    dataMoverReady(false, false, mongoready),
+		//}, nil),
 		// TODO: Re-implement this test to upstream data mover
-		PEntry("MySQL application DATAMOVER", BackupRestoreCase{
-			ApplicationTemplate:  "./sample-applications/mysql-persistent/mysql-persistent-csi.yaml",
-			ApplicationNamespace: "mysql-persistent",
-			Name:                 "mysql-datamover-e2e",
-			BackupRestoreType:    CSIDataMover,
-			PreBackupVerify:      dataMoverReady(true, false, mysqlReady),
-			PostRestoreVerify:    dataMoverReady(false, false, mysqlReady),
-		}, nil),
+		//PEntry("MySQL application DATAMOVER", BackupRestoreCase{
+		//	ApplicationTemplate:  "./sample-applications/mysql-persistent/mysql-persistent-csi.yaml",
+		//	ApplicationNamespace: "mysql-persistent",
+		//	Name:                 "mysql-datamover-e2e",
+		//	BackupRestoreType:    CSIDataMover,
+		//	PreBackupVerify:      dataMoverReady(true, false, mysqlReady),
+		//	PostRestoreVerify:    dataMoverReady(false, false, mysqlReady),
+		//}, nil),
 	)
 })

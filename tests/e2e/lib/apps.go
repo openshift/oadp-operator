@@ -17,7 +17,6 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	vsmv1alpha1 "github.com/konveyor/volume-snapshot-mover/api/v1alpha1"
 	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 	"github.com/onsi/ginkgo/v2"
 	ocpappsv1 "github.com/openshift/api/apps/v1"
@@ -253,20 +252,6 @@ func AreVolumeSnapshotsReady(ocClient client.Client, backupName string) wait.Con
 			}
 		}
 		return true, nil
-	}
-}
-
-func ThereAreNoVolumeSnapshotBackups(ocClient client.Client, workloadNamespace string) wait.ConditionFunc {
-	return func() (bool, error) {
-		vList := &vsmv1alpha1.VolumeSnapshotBackupList{}
-		err := ocClient.List(context.Background(), vList, &client.ListOptions{Namespace: workloadNamespace})
-		if err != nil {
-			return false, err
-		}
-		if len(vList.Items) == 0 {
-			return true, nil
-		}
-		return false, nil
 	}
 }
 
