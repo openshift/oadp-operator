@@ -25,7 +25,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-
 var _ = Describe("Must-gather backup restore tests", func() {
 
 	var _ = BeforeEach(func() {
@@ -34,16 +33,16 @@ var _ = Describe("Must-gather backup restore tests", func() {
 	})
 
 	type BackupRestoreCase struct {
-		ApplicationTemplate  string
-		ApplicationNamespace string
-		Name                 string
-		BackupRestoreType    BackupRestoreType
-		PreBackupVerify      VerificationFunction
-		PostRestoreVerify    VerificationFunction
-		AppReadyDelay        time.Duration
-		MaxK8SVersion        *K8sVersion
-		MinK8SVersion        *K8sVersion
-		MustGatherFiles      []string // list of files expected in must-gather under quay.io.../clusters/clustername/... ie. "namespaces/openshift-adp/oadp.openshift.io/dpa-ts-example-velero/ts-example-velero.yml"
+		ApplicationTemplate          string
+		ApplicationNamespace         string
+		Name                         string
+		BackupRestoreType            BackupRestoreType
+		PreBackupVerify              VerificationFunction
+		PostRestoreVerify            VerificationFunction
+		AppReadyDelay                time.Duration
+		MaxK8SVersion                *K8sVersion
+		MinK8SVersion                *K8sVersion
+		MustGatherFiles              []string            // list of files expected in must-gather under quay.io.../clusters/clustername/... ie. "namespaces/openshift-adp/oadp.openshift.io/dpa-ts-example-velero/ts-example-velero.yml"
 		MustGatherValidationFunction *func(string) error // validation function for must-gather where string parameter is the path to "quay.io.../clusters/clustername/"
 	}
 
@@ -349,7 +348,7 @@ var _ = Describe("Must-gather backup restore tests", func() {
 					Expect(err).ToNot(HaveOccurred())
 				}
 			}
-			if brCase.MustGatherValidationFunction != nil  && clusterDir != "" {
+			if brCase.MustGatherValidationFunction != nil && clusterDir != "" {
 				err = (*brCase.MustGatherValidationFunction)(clusterDir)
 				Expect(err).ToNot(HaveOccurred())
 			}
@@ -361,7 +360,7 @@ var _ = Describe("Must-gather backup restore tests", func() {
 			BackupRestoreType:    CSIDataMover,
 			PreBackupVerify:      dataMoverReady(true, false, mongoready),
 			PostRestoreVerify:    dataMoverReady(false, false, mongoready),
-			MustGatherFiles: 	[]string{
+			MustGatherFiles: []string{
 				"namespaces/openshift-adp/oadp.openshift.io/dpa-ts-" + instanceName + "/ts-" + instanceName + ".yml",
 				"namespaces/openshift-adp/velero.io/backupstoragelocations.velero.io/ts-" + instanceName + "-1.yaml",
 			},

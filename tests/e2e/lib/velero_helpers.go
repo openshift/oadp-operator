@@ -163,6 +163,7 @@ var errorIgnorePatterns = []string{
 	"Error creating parent directories for blob-info-cache-v1.boltdb",
 	"blob unknown",
 	"num errors=0",
+	"level=debug", // debug logs may contain the text error about recoverable errors so ignore them
 }
 
 func recoverFromPanicLogs(veleroNamespace string, panicReason interface{}, panicFrom string) string {
