@@ -9,6 +9,4 @@ RUN go install -mod=mod github.com/onsi/ginkgo/v2/ginkgo
 RUN go mod download
 RUN chmod -R 777 ./
 RUN chmod -R 777 $(go env GOPATH)
-
-# TODO: remove after move to quay.io/konveyor/builder:latest
-ENV PATH=$PATH:/opt/app-root/src/go/bin
+RUN mkdir -p $(go env GOCACHE) && chmod -R 777 $(go env GOCACHE)

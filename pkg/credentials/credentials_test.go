@@ -445,12 +445,12 @@ func TestCredentials_getPluginImage(t *testing.T) {
 				},
 			},
 			pluginName: common.VeleroPluginForCSI,
-			wantImage:  "quay.io/konveyor/velero-plugin-for-csi:oadp-1.2",
+			wantImage:  "quay.io/konveyor/velero-plugin-for-csi:latest",
 			setEnvVars: map[string]string{
 				"REGISTRY":               "quay.io",
 				"PROJECT":                "konveyor",
 				"VELERO_CSI_PLUGIN_REPO": "velero-plugin-for-csi",
-				"VELERO_CSI_PLUGIN_TAG":  "oadp-1.2",
+				"VELERO_CSI_PLUGIN_TAG":  "latest",
 			},
 		},
 		// KubeVirt tests

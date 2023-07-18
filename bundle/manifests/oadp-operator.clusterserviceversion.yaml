@@ -789,7 +789,7 @@ spec:
                     fieldRef:
                       fieldPath: metadata.annotations['olm.targetNamespaces']
                 - name: RELATED_IMAGE_VELERO
-                  value: quay.io/konveyor/velero:oadp-1.2
+                  value: quay.io/konveyor/velero:latest
                 - name: RELATED_IMAGE_VELERO_RESTORE_HELPER
                   value: quay.io/konveyor/velero-restore-helper:latest
                 - name: RELATED_IMAGE_OPENSHIFT_VELERO_PLUGIN
@@ -801,7 +801,7 @@ spec:
                 - name: RELATED_IMAGE_VELERO_PLUGIN_FOR_GCP
                   value: quay.io/konveyor/velero-plugin-for-gcp:latest
                 - name: RELATED_IMAGE_VELERO_PLUGIN_FOR_CSI
-                  value: quay.io/konveyor/velero-plugin-for-csi:oadp-1.2
+                  value: quay.io/konveyor/velero-plugin-for-csi:latest
                 - name: RELATED_IMAGE_VELERO_PLUGIN_FOR_VSM
                   value: quay.io/konveyor/velero-plugin-for-vsm:latest
                 - name: RELATED_IMAGE_VOLUME_SNAPSHOT_MOVER
@@ -916,7 +916,7 @@ spec:
   provider:
     name: Red Hat
   relatedImages:
-  - image: quay.io/konveyor/velero:oadp-1.2
+  - image: quay.io/konveyor/velero:latest
     name: velero
   - image: quay.io/konveyor/velero-restore-helper:latest
     name: velero-restore-helper
@@ -928,7 +928,7 @@ spec:
     name: velero-plugin-for-microsoft-azure
   - image: quay.io/konveyor/velero-plugin-for-gcp:latest
     name: velero-plugin-for-gcp
-  - image: quay.io/konveyor/velero-plugin-for-csi:oadp-1.2
+  - image: quay.io/konveyor/velero-plugin-for-csi:latest
     name: velero-plugin-for-csi
   - image: quay.io/konveyor/velero-plugin-for-vsm:latest
     name: velero-plugin-for-vsm
