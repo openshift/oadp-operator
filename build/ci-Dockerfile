@@ -6,9 +6,12 @@ WORKDIR /go/src/github.com/openshift/oadp-operator
 COPY ./ .
 
 RUN go install -mod=mod github.com/onsi/ginkgo/v2/ginkgo
+RUN go mod download
+
+FROM builder AS test
 RUN chmod -R 777 ./
 RUN chmod -R 777 $(go env GOPATH)
-RUN go mod download
+RUN mkdir -p $(go env GOCACHE) && chmod -R 777 $(go env GOCACHE)
 
 # TODO: remove after move to quay.io/konveyor/builder:latest
 ENV PATH=$PATH:/opt/app-root/src/go/bin
