@@ -9,6 +9,7 @@ RUN go install -mod=mod github.com/onsi/ginkgo/v2/ginkgo
 RUN go mod download
 
 FROM builder AS test
+RUN git config core.fileMode false
 RUN chmod -R 777 ./
 RUN chmod -R 777 $(go env GOPATH)
 RUN mkdir -p $(go env GOCACHE) && chmod -R 777 $(go env GOCACHE)
