@@ -36,8 +36,8 @@ type CloudStorageSpec struct {
 	Tags map[string]string `json:"tags,omitempty"`
 	// region for the bucket to be in, will be us-east-1 if not set.
 	Region string `json:"region,omitempty"`
-	// +kubebuilder:validation:Enum=aws
 	// provider is the provider of the cloud storage
+	// +kubebuilder:validation:Enum=aws;azure;gcp
 	Provider CloudStorageProvider `json:"provider"`
 
 	// https://pkg.go.dev/github.com/Azure/azure-sdk-for-go/sdk/storage/azblob@v0.2.0#section-readme
