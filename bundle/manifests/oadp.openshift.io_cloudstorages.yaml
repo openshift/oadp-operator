@@ -62,8 +62,6 @@ spec:
                 description: provider is the provider of the cloud storage
                 enum:
                 - aws
-                - azure
-                - gcp
                 type: string
               region:
                 description: region for the bucket to be in, will be us-east-1 if

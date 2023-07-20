@@ -305,7 +305,6 @@ type DataProtectionApplicationSpec struct {
 	//   - resticRestoreImageFqin
 	//   - kubevirtPluginImageFqin
 	// +optional
-	// +kubebuilder:validation:MinProperties: 1
 	UnsupportedOverrides map[UnsupportedImageKey]string `json:"unsupportedOverrides,omitempty"`
 	// add annotations to pods deployed by operator
 	// +optional
