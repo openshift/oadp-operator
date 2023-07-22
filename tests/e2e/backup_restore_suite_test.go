@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
-	volsync "github.com/backube/volsync/api/v1alpha1"
+	//volsync "github.com/backube/volsync/api/v1alpha1"
 	"github.com/google/uuid"
-	vsmv1alpha1 "github.com/konveyor/volume-snapshot-mover/api/v1alpha1"
+	//vsmv1alpha1 "github.com/konveyor/volume-snapshot-mover/api/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
 	"github.com/onsi/ginkgo/v2/types"
 	. "github.com/onsi/gomega"
@@ -21,7 +21,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8serror "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	apimachtypes "k8s.io/apimachinery/pkg/types"
+	//apimachtypes "k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -111,47 +111,47 @@ var _ = Describe("AWS backup restore tests", func() {
 			}
 			GinkgoWriter.Println("Printing oadp namespace events")
 			PrintNamespaceEventsAfterTime(namespace, lastInstallTime)
-			if lastBRCase.BackupRestoreType == CSIDataMover {
-				GinkgoWriter.Println("Printing volsync namespace events")
-				PrintNamespaceEventsAfterTime(common.VolSyncDeploymentNamespace, lastInstallTime)
+			/*			if lastBRCase.BackupRestoreType == CSIDataMover {
+						GinkgoWriter.Println("Printing volsync namespace events")
+						PrintNamespaceEventsAfterTime(common.VolSyncDeploymentNamespace, lastInstallTime)
 
-				pvcList := vsmv1alpha1.VolumeSnapshotBackupList{}
-				err := dpaCR.Client.List(context.Background(), &pvcList, &client.ListOptions{Namespace: lastBRCase.ApplicationNamespace})
-				Expect(err).NotTo(HaveOccurred())
-				GinkgoWriter.Printf("PVC app ns list %v\n", pvcList)
-				err = dpaCR.Client.List(context.Background(), &pvcList, &client.ListOptions{Namespace: namespace})
-				Expect(err).NotTo(HaveOccurred())
-				GinkgoWriter.Printf("PVC oadp ns list %v\n", pvcList)
+						pvcList := vsmv1alpha1.VolumeSnapshotBackupList{}
+						err := dpaCR.Client.List(context.Background(), &pvcList, &client.ListOptions{Namespace: lastBRCase.ApplicationNamespace})
+						Expect(err).NotTo(HaveOccurred())
+						GinkgoWriter.Printf("PVC app ns list %v\n", pvcList)
+						err = dpaCR.Client.List(context.Background(), &pvcList, &client.ListOptions{Namespace: namespace})
+						Expect(err).NotTo(HaveOccurred())
+						GinkgoWriter.Printf("PVC oadp ns list %v\n", pvcList)
 
-				vsbList := vsmv1alpha1.VolumeSnapshotBackupList{}
-				err = dpaCR.Client.List(context.Background(), &vsbList, &client.ListOptions{Namespace: lastBRCase.ApplicationNamespace})
-				Expect(err).NotTo(HaveOccurred())
-				GinkgoWriter.Printf("VSB list %v\n", vsbList)
+						vsbList := vsmv1alpha1.VolumeSnapshotBackupList{}
+						err = dpaCR.Client.List(context.Background(), &vsbList, &client.ListOptions{Namespace: lastBRCase.ApplicationNamespace})
+						Expect(err).NotTo(HaveOccurred())
+						GinkgoWriter.Printf("VSB list %v\n", vsbList)
 
-				vsrList := vsmv1alpha1.VolumeSnapshotRestoreList{}
-				err = dpaCR.Client.List(context.Background(), &vsrList, &client.ListOptions{Namespace: namespace})
-				Expect(err).NotTo(HaveOccurred())
-				GinkgoWriter.Printf("VSR list %v\n", vsrList)
+						vsrList := vsmv1alpha1.VolumeSnapshotRestoreList{}
+						err = dpaCR.Client.List(context.Background(), &vsrList, &client.ListOptions{Namespace: namespace})
+						Expect(err).NotTo(HaveOccurred())
+						GinkgoWriter.Printf("VSR list %v\n", vsrList)
 
-				replicationSource := volsync.ReplicationSourceList{}
-				err = dpaCR.Client.List(context.Background(), &replicationSource, &client.ListOptions{Namespace: namespace})
-				Expect(err).NotTo(HaveOccurred())
-				GinkgoWriter.Printf("ReplicationSource list %v", replicationSource)
+						replicationSource := volsync.ReplicationSourceList{}
+						err = dpaCR.Client.List(context.Background(), &replicationSource, &client.ListOptions{Namespace: namespace})
+						Expect(err).NotTo(HaveOccurred())
+						GinkgoWriter.Printf("ReplicationSource list %v", replicationSource)
 
-				replicationDestination := volsync.ReplicationDestinationList{}
-				err = dpaCR.Client.List(context.Background(), &replicationDestination, &client.ListOptions{Namespace: namespace})
-				Expect(err).NotTo(HaveOccurred())
-				GinkgoWriter.Printf("ReplicationDestination list %v", replicationDestination)
+						replicationDestination := volsync.ReplicationDestinationList{}
+						err = dpaCR.Client.List(context.Background(), &replicationDestination, &client.ListOptions{Namespace: namespace})
+						Expect(err).NotTo(HaveOccurred())
+						GinkgoWriter.Printf("ReplicationDestination list %v", replicationDestination)
 
-				volsyncIsReady, _ := IsDeploymentReady(dpaCR.Client, common.VolSyncDeploymentNamespace, common.VolSyncDeploymentName)()
-				fmt.Printf("volsync controller is ready: %v", volsyncIsReady)
+						volsyncIsReady, _ := IsDeploymentReady(dpaCR.Client, common.VolSyncDeploymentNamespace, common.VolSyncDeploymentName)()
+						fmt.Printf("volsync controller is ready: %v", volsyncIsReady)
 
-				vsmIsReady, _ := IsDeploymentReady(dpaCR.Client, namespace, common.DataMover)()
-				fmt.Printf("volume-snapshot-mover is ready: %v", vsmIsReady)
+						vsmIsReady, _ := IsDeploymentReady(dpaCR.Client, namespace, common.DataMover)()
+						fmt.Printf("volume-snapshot-mover is ready: %v", vsmIsReady)
 
-				GinkgoWriter.Println("Printing volume-snapshot-mover deployment pod logs")
-				GinkgoWriter.Print(GetDeploymentPodContainerLogs(namespace, common.DataMover, common.DataMoverControllerContainer))
-			}
+						GinkgoWriter.Println("Printing volume-snapshot-mover deployment pod logs")
+						GinkgoWriter.Print(GetDeploymentPodContainerLogs(namespace, common.DataMover, common.DataMoverControllerContainer))
+					}*/
 			err = SavePodLogs(namespace, baseReportDir)
 			Expect(err).NotTo(HaveOccurred())
 			err = SavePodLogs(lastBRCase.ApplicationNamespace, baseReportDir)
@@ -167,31 +167,31 @@ var _ = Describe("AWS backup restore tests", func() {
 		}
 		Expect(err).ToNot(HaveOccurred())
 		// Additional cleanup for data mover case
-		if lastBRCase.BackupRestoreType == CSIDataMover {
-			// check for VSB and VSR objects and delete them
-			vsbList := vsmv1alpha1.VolumeSnapshotBackupList{}
-			err = dpaCR.Client.List(context.Background(), &vsbList, &client.ListOptions{Namespace: lastBRCase.ApplicationNamespace})
-			Expect(err).NotTo(HaveOccurred())
-			for _, vsb := range vsbList.Items {
-				// patch to remove finalizer from vsb to allow deletion
-				patch := client.RawPatch(apimachtypes.JSONPatchType, []byte(`[{"op": "remove", "path": "/metadata/finalizers"}]`))
-				err = dpaCR.Client.Patch(context.Background(), &vsb, patch)
+		/*		if lastBRCase.BackupRestoreType == CSIDataMover {
+				// check for VSB and VSR objects and delete them
+				vsbList := vsmv1alpha1.VolumeSnapshotBackupList{}
+				err = dpaCR.Client.List(context.Background(), &vsbList, &client.ListOptions{Namespace: lastBRCase.ApplicationNamespace})
 				Expect(err).NotTo(HaveOccurred())
-				err = dpaCR.Client.Delete(context.Background(), &vsb, &client.DeleteOptions{})
+				for _, vsb := range vsbList.Items {
+					// patch to remove finalizer from vsb to allow deletion
+					patch := client.RawPatch(apimachtypes.JSONPatchType, []byte(`[{"op": "remove", "path": "/metadata/finalizers"}]`))
+					err = dpaCR.Client.Patch(context.Background(), &vsb, patch)
+					Expect(err).NotTo(HaveOccurred())
+					err = dpaCR.Client.Delete(context.Background(), &vsb, &client.DeleteOptions{})
+					Expect(err).NotTo(HaveOccurred())
+				}
+				vsrList := vsmv1alpha1.VolumeSnapshotRestoreList{}
+				err = dpaCR.Client.List(context.Background(), &vsrList, &client.ListOptions{Namespace: lastBRCase.ApplicationNamespace})
 				Expect(err).NotTo(HaveOccurred())
-			}
-			vsrList := vsmv1alpha1.VolumeSnapshotRestoreList{}
-			err = dpaCR.Client.List(context.Background(), &vsrList, &client.ListOptions{Namespace: lastBRCase.ApplicationNamespace})
-			Expect(err).NotTo(HaveOccurred())
-			for _, vsr := range vsrList.Items {
-				// patch to remove finalizer from vsr to allow deletion
-				patch := client.RawPatch(apimachtypes.JSONPatchType, []byte(`[{"op": "remove", "path": "/metadata/finalizers"}]`))
-				err = dpaCR.Client.Patch(context.Background(), &vsr, patch)
-				Expect(err).NotTo(HaveOccurred())
-				err = dpaCR.Client.Delete(context.Background(), &vsr, &client.DeleteOptions{})
-				Expect(err).NotTo(HaveOccurred())
-			}
-		}
+				for _, vsr := range vsrList.Items {
+					// patch to remove finalizer from vsr to allow deletion
+					patch := client.RawPatch(apimachtypes.JSONPatchType, []byte(`[{"op": "remove", "path": "/metadata/finalizers"}]`))
+					err = dpaCR.Client.Patch(context.Background(), &vsr, patch)
+					Expect(err).NotTo(HaveOccurred())
+					err = dpaCR.Client.Delete(context.Background(), &vsr, &client.DeleteOptions{})
+					Expect(err).NotTo(HaveOccurred())
+				}
+			}*/
 		err = dpaCR.Delete()
 		Expect(err).ToNot(HaveOccurred())
 		Eventually(IsNamespaceDeleted(lastBRCase.ApplicationNamespace), timeoutMultiplier*time.Minute*2, time.Second*5).Should(BeTrue())
@@ -403,22 +403,22 @@ var _ = Describe("AWS backup restore tests", func() {
 			PreBackupVerify:      mysqlReady(true, false, RESTIC),
 			PostRestoreVerify:    mysqlReady(false, false, RESTIC),
 		}, nil),
-		Entry("Mongo application DATAMOVER", BackupRestoreCase{
-			ApplicationTemplate:  "./sample-applications/mongo-persistent/mongo-persistent-csi.yaml",
-			ApplicationNamespace: "mongo-persistent",
-			Name:                 "mongo-datamover-e2e",
-			BackupRestoreType:    CSIDataMover,
-			PreBackupVerify:      dataMoverReady(true, false, mongoready),
-			PostRestoreVerify:    dataMoverReady(false, false, mongoready),
-		}, nil),
-		// TODO: fix this test
-		Entry("MySQL application DATAMOVER", BackupRestoreCase{
-			ApplicationTemplate:  "./sample-applications/mysql-persistent/mysql-persistent-csi.yaml",
-			ApplicationNamespace: "mysql-persistent",
-			Name:                 "mysql-datamover-e2e",
-			BackupRestoreType:    CSIDataMover,
-			PreBackupVerify:      dataMoverReady(true, false, mysqlReady),
-			PostRestoreVerify:    dataMoverReady(false, false, mysqlReady),
-		}, nil),
+		//PEntry("Mongo application DATAMOVER", BackupRestoreCase{
+		//	ApplicationTemplate:  "./sample-applications/mongo-persistent/mongo-persistent-csi.yaml",
+		//	ApplicationNamespace: "mongo-persistent",
+		//	Name:                 "mongo-datamover-e2e",
+		//	BackupRestoreType:    CSIDataMover,
+		//	PreBackupVerify:      dataMoverReady(true, false, mongoready),
+		//	PostRestoreVerify:    dataMoverReady(false, false, mongoready),
+		//}, nil),
+		// TODO: Re-implement this test to upstream data mover
+		//PEntry("MySQL application DATAMOVER", BackupRestoreCase{
+		//	ApplicationTemplate:  "./sample-applications/mysql-persistent/mysql-persistent-csi.yaml",
+		//	ApplicationNamespace: "mysql-persistent",
+		//	Name:                 "mysql-datamover-e2e",
+		//	BackupRestoreType:    CSIDataMover,
+		//	PreBackupVerify:      dataMoverReady(true, false, mysqlReady),
+		//	PostRestoreVerify:    dataMoverReady(false, false, mysqlReady),
+		//}, nil),
 	)
 })
