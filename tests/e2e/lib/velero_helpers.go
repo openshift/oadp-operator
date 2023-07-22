@@ -86,7 +86,7 @@ func DescribeBackup(ocClient client.Client, backup velero.Backup) (backupDescrip
 			backupDescription = fmt.Sprint(backup)
 		}
 	}()
-	return output.DescribeBackup(context.Background(), ocClient, &backup, deleteRequestList.Items, podVolumeBackupList.Items, vscList.Items, details, veleroClient, insecureSkipTLSVerify, caCertFile)
+	return output.DescribeBackup(context.Background(), ocClient, &backup, deleteRequestList.Items, podVolumeBackupList.Items, vscList.Items, details, insecureSkipTLSVerify, caCertFile)
 }
 
 // https://github.com/vmware-tanzu/velero/blob/11bfe82342c9f54c63f40d3e97313ce763b446f2/pkg/cmd/cli/restore/describe.go#L72-L78
@@ -111,7 +111,7 @@ func DescribeRestore(ocClient client.Client, restore velero.Restore) string {
 		log.Printf("error getting PodVolumeRestores for restore %s: %v\n", restore.Name, err)
 	}
 
-	return output.DescribeRestore(context.Background(), ocClient, &restore, podvolumeRestoreList.Items, details, veleroClient, insecureSkipTLSVerify, caCertFile)
+	return output.DescribeRestore(context.Background(), ocClient, &restore, podvolumeRestoreList.Items, details, insecureSkipTLSVerify, caCertFile)
 }
 
 // newPodVolumeRestoreListOptions creates a ListOptions with a label selector configured to

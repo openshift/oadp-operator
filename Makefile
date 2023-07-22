@@ -464,7 +464,7 @@ test-e2e-ginkgo: test-e2e-setup
 	--ginkgo.timeout=2h
 
 .PHONY: test-e2e
-test-e2e: volsync-install test-e2e-ginkgo
+test-e2e: test-e2e-ginkgo
 
 .PHONY: test-e2e-cleanup
 test-e2e-cleanup: volsync-uninstall
