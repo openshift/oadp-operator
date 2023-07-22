@@ -16,8 +16,8 @@ import (
 	"github.com/openshift/oadp-operator/controllers"
 	"github.com/openshift/oadp-operator/pkg/common"
 
-	volsync "github.com/backube/volsync/api/v1alpha1"
-	vsmv1alpha1 "github.com/konveyor/volume-snapshot-mover/api/v1alpha1"
+	//volsync "github.com/backube/volsync/api/v1alpha1"
+	//vsmv1alpha1 "github.com/konveyor/volume-snapshot-mover/api/v1alpha1"
 	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 	appsv1 "github.com/openshift/api/apps/v1"
 	security "github.com/openshift/api/security/v1"
@@ -295,8 +295,8 @@ func (v *DpaCustomResource) SetClient() error {
 	volumesnapshotv1.AddToScheme(client.Scheme())
 	buildv1.AddToScheme(client.Scheme())
 	operatorsv1alpha1.AddToScheme(client.Scheme())
-	volsync.AddToScheme(client.Scheme())
-	vsmv1alpha1.AddToScheme(client.Scheme())
+	//volsync.AddToScheme(client.Scheme())
+	//vsmv1alpha1.AddToScheme(client.Scheme())
 
 	v.Client = client
 	return nil
