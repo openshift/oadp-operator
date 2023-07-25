@@ -227,15 +227,16 @@ for i in `oc get vsc -A -o custom-columns=NAME:.metadata.name`; do echo $i; oc p
 
 #### Watch datamover resources while backup in progress
 ```
-curl -o ~/.local/bin/datamover_resources.sh https://raw.githubusercontent.com/openshift/oadp-operator/master/docs/examples/datamover_resources.sh
+git clone --depth=1 git@github.com:openshift/oadp-operator.git && \
+cd oadp-operator
 ```
 ###### Backups
 ```
-watch -n 5 datamover_resources.sh -b -d
+watch -n 5 go run docs/examples/getDataMoverResources.go -b -d
 ```
 ###### Restore
 ```
-watch -n 5 datamover_resources.sh -r -d
+watch -n 5 go run docs/examples/getDataMoverResources.go -r -d
 ```
 
 #### Watch the VSM plugin logs

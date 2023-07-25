@@ -1,11 +1,11 @@
 # Potentially helpful debug commands
 
-## watch datamover backup resources live
+## watch DataMover backup resources live
 ```
-watch -n 10 ./datamover_resources.sh -b -d 
+watch -n 10 go run getDataMoverResources.go -b -d
 ```
 
-## watch datamover restore resources live
+## watch DataMover restore resources live
 ```
-watch -n 10 ./datamover_resources.sh -r -d 
+watch -n 10 go run getDataMoverResources.go -r -d
 ```
