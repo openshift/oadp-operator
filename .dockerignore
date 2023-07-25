@@ -1,0 +1,18 @@
+*.md
+docs
+blogs
+bin
+.vscode
+.github
+.devcontainer
+build
+cache
+.ci-operator.yaml
+.gitignore
+./*.yml
+./*.yaml
+OWNERS*
+PROJECT
+LICENSE
+Dockerfile
+!/docs/scripts/dc-restic-post-restore.sh # needed for `func RunResticPostRestoreScript` in tests/e2e/lib/velero_helpers.go
