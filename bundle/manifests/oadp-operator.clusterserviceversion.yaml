@@ -2,6 +2,7 @@ apiVersion: operators.coreos.com/v1alpha1
 kind: ClusterServiceVersion
 metadata:
   annotations:
+    features.operators.openshift.io/token-auth-aws: "true"
     alm-examples: |-
       [
         {
@@ -496,6 +497,18 @@ spec:
     spec:
       clusterPermissions:
       - rules:
+        - apiGroups:
+          - apiextensions.k8s.io
+          resources:
+          - customresourcedefinitions
+          verbs:
+          - '*'
+        - apiGroups:
+          - cloudcredential.openshift.io
+          resources:
+          - '*'
+          verbs:
+          - '*'
         - apiGroups:
           - oadp.openshift.io
           resources:

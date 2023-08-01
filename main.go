@@ -21,9 +21,15 @@ import (
 	"flag"
 	"fmt"
 	monitor "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"os"
+	client2 "sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -50,6 +56,9 @@ var (
 	scheme   = runtime.NewScheme()
 	setupLog = ctrl.Log.WithName("setup")
 )
+
+// WebIdentityTokenPath mount present on operator CSV
+const WebIdentityTokenPath = "/var/run/secrets/openshift/serviceaccount/token"
 
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
@@ -86,6 +95,28 @@ func main() {
 	if err != nil {
 		setupLog.Error(err, "error setting privileged pod security labels to operator namespace")
 		os.Exit(1)
+	}
+
+	// Get STS vars
+	// ROLEARN env var is set via operator subscription
+	roleARN := os.Getenv("ROLEARN")
+	setupLog.Info("getting role ARN", "role ARN =", roleARN)
+
+	// check if cred request API exists in the cluster before creating a cred request
+	credReqCRDExists, err := DoesCRDExist("credentialsrequests.cloudcredential.openshift.io")
+	if err != nil {
+		setupLog.Error(err, "problem checking the existence of CredentialRequests CRD")
+		os.Exit(1)
+	}
+
+	if credReqCRDExists {
+		// create cred request
+		if err := CreateCredRequest(roleARN, WebIdentityTokenPath, watchNamespace); err != nil {
+			if !errors.IsAlreadyExists(err) {
+				setupLog.Error(err, "unable to create credRequest")
+				os.Exit(1)
+			}
+		}
 	}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
@@ -216,5 +247,87 @@ func addPodSecurityPrivilegedLabels(watchNamespaceName string) error {
 		setupLog.Error(err, "problem patching operator namespace for privileged pod security labels")
 		return err
 	}
+	return nil
+}
+
+func DoesCRDExist(CRDName string) (bool, error) {
+	kubeconf := ctrl.GetConfigOrDie()
+
+	dynamicClient, err := dynamic.NewForConfig(kubeconf)
+
+	if err != nil {
+		return false, err
+	}
+
+	gvr := schema.GroupVersionResource{
+		Group:    "apiextensions.k8s.io",
+		Version:  "v1",
+		Resource: "customresourcedefinitions",
+	}
+
+	crd, err := dynamicClient.Resource(gvr).Get(context.Background(), CRDName, metav1.GetOptions{})
+	if err != nil {
+		setupLog.Error(err, "error checking for CRDs existence")
+		return false, err
+	}
+
+	// Check if the CRD is found and has a non-empty UID
+	if crd != nil && crd.GetUID() != "" {
+		setupLog.Info(fmt.Sprintf("crd exists with UID: %s", crd.GetUID()))
+		return true, nil
+	}
+
+	return false, nil
+
+}
+
+// CreateCredRequest WITP : WebIdentityTokenPath
+func CreateCredRequest(roleARN string, WITP string, secretNS string) error {
+	cfg := config.GetConfigOrDie()
+	client, err := client2.New(cfg, client2.Options{})
+	if err != nil {
+		setupLog.Error(err, "unable to create client")
+	}
+
+	credRequest := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "cloudcredential.openshift.io/v1",
+			"kind":       "CredentialsRequest",
+			"metadata": map[string]interface{}{
+				"name":      "oadp-aws-credentials-request",
+				"namespace": "openshift-cloud-credential-operator",
+			},
+			"spec": map[string]interface{}{
+				"secretRef": map[string]interface{}{
+					"name":      "cloud-credentials",
+					"namespace": secretNS,
+				},
+				"serviceAccountNames": []interface{}{
+					"openshift-adp-controller-manager",
+				},
+				"providerSpec": map[string]interface{}{
+					"apiVersion": "cloudcredential.openshift.io/v1",
+					"kind":       "AWSProviderSpec",
+					"statementEntries": []interface{}{
+						map[string]interface{}{
+							"effect": "Allow",
+							"action": []interface{}{
+								"s3:*",
+							},
+							"resource": "arn:aws:s3:*:*:*",
+						},
+					},
+					"stsIAMRoleARN": roleARN,
+				},
+				"cloudTokenPath": WITP,
+			},
+		},
+	}
+
+	if err := client.Create(context.Background(), credRequest); err != nil {
+		setupLog.Error(err, "unable to create credentials request resource")
+	}
+
+	setupLog.Info("Custom resource credentialsrequest created successfully")
 	return nil
 }
