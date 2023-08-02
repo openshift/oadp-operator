@@ -108,3 +108,10 @@ The next steps for implementation will be the OADP DPA and other CRD changes and
 The final implementation task will be updating the OADP e2e tests.
 
 ## Open Issues
+- Given that supporting restore of OADP 1.1/1.2 datamover backups in 1.3 is explicitly called out as *not* supported here, we need a plan around what to tell users so that they can navigate the 1.2->1.3 upgrade without having no valid backups. There are a few things to consider (some more feasible than others):
+  - Inform users that if they want to have easily-restorable backups immediately upon upgrade, they should do a final backup of all of their workloads with restic prior to upgrading. Restic backups from 1.2 will continue to be fully supported in 1.3.
+  - If data is needed from a prior backup after upgrade (for some reason the restic backup taken above is unusable, or was not taken in the first place), things get more difficult.
+    - One possibility would be to downgrade to 1.2 and restore -- any new-in-1.3 DPA fields would need to be removed prior to downgrade
+    - Another possiblity would be to install OADP 1.2 in a different cluster, restore here, and then back up again via restic. This backup could then be used in the original cluster.
+    - It may be possible to manually pull volume data from the BSL with Volsync directly, but the user would have to do a lot of manual steps, including creating volumes to receive this data. This may not be a feasible solution at all.
+- Is this functionality to be considered tech preview or GA for OADP 1.3? With the current design, I don't believe that  this decision will have any material impact on the implementation, since the only OADP DPA configuration needed to enable VBDM (enabling CSI plugin and restic/node-agent) is already available as GA in OADP.
