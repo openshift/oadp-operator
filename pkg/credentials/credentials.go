@@ -1,14 +1,20 @@
 package credentials
 
 import (
+	"context"
 	"errors"
 	"os"
 	"strings"
 
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
+
+	"github.com/openshift/oadp-operator/pkg/client"
 	"github.com/openshift/oadp-operator/pkg/common"
+	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 type DefaultPluginFields struct {
@@ -363,4 +369,151 @@ func AppendPluginSpecificSpecs(dpa *oadpv1alpha1.DataProtectionApplication, vele
 		}
 	}
 	return nil
+}
+
+// TODO: remove duplicate func in registry.go - refactoring away registry.go later
+func GetSecretNameAndKey(bslSpec *velerov1.BackupStorageLocationSpec, plugin oadpv1alpha1.DefaultPlugin) (string, string) {
+	// Assume default values unless user has overriden them
+	secretName := PluginSpecificFields[plugin].SecretName
+	secretKey := PluginSpecificFields[plugin].PluginSecretKey
+	if _, ok := bslSpec.Config["credentialsFile"]; ok {
+		if secretName, secretKey, err :=
+			GetSecretNameKeyFromCredentialsFileConfigString(bslSpec.Config["credentialsFile"]); err == nil {
+			return secretName, secretKey
+		}
+	}
+	// check if user specified the Credential Name and Key
+	credential := bslSpec.Credential
+	if credential != nil {
+		if len(credential.Name) > 0 {
+			secretName = credential.Name
+		}
+		if len(credential.Key) > 0 {
+			secretKey = credential.Key
+		}
+	}
+
+	return secretName, secretKey
+}
+
+// TODO: remove duplicate func in registry.go - refactoring away registry.go later
+// Get for a given backup location
+// - secret name
+// - key
+// - bsl config
+// - provider
+// - error
+func GetSecretNameKeyConfigProviderForBackupLocation(blspec oadpv1alpha1.BackupLocation, namespace string) (string, string, string, map[string]string, error) {
+	if blspec.Velero != nil {
+		name, key := GetSecretNameAndKey(blspec.Velero, oadpv1alpha1.DefaultPlugin(blspec.Velero.Provider))
+		return name, key, blspec.Velero.Provider, blspec.Velero.Config, nil
+	}
+	if blspec.CloudStorage != nil {
+		if blspec.CloudStorage.Credential != nil {
+			// Get CloudStorageRef provider
+			cs := oadpv1alpha1.CloudStorage{
+				ObjectMeta: v1.ObjectMeta{
+					Name:      blspec.CloudStorage.CloudStorageRef.Name,
+					Namespace: namespace,
+				},
+			}
+			err := client.GetClient().Get(context.Background(), types.NamespacedName{Namespace: namespace, Name: blspec.CloudStorage.CloudStorageRef.Name}, &cs)
+			if err != nil {
+				return "", "", "", nil, err
+			}
+			return blspec.CloudStorage.Credential.Name, blspec.CloudStorage.Credential.Key, string(cs.Spec.Provider), blspec.CloudStorage.Config, nil
+		}
+	}
+	return "", "", "", nil, nil
+}
+
+// Iterate through all backup locations and return true if any of them use short lived credentials
+func BlsUsesShortLivedCredential(bls []oadpv1alpha1.BackupLocation, namespace string) (ret bool, err error) {
+	for _, blspec := range bls {
+		if blspec.CloudStorage != nil && blspec.CloudStorage.Credential != nil {
+			// Get CloudStorageRef provider
+			cs := oadpv1alpha1.CloudStorage{
+				ObjectMeta: v1.ObjectMeta{
+					Name:      blspec.CloudStorage.CloudStorageRef.Name,
+					Namespace: namespace,
+				},
+			}
+			err = client.GetClient().Get(context.Background(), types.NamespacedName{Namespace: namespace, Name: blspec.CloudStorage.CloudStorageRef.Name}, &cs)
+			if err != nil {
+				return false, err
+			}
+			if cs.Spec.EnableSharedConfig != nil && *cs.Spec.EnableSharedConfig {
+				return true, nil
+			}
+		}
+		secretName, secretKey, provider, config, err := GetSecretNameKeyConfigProviderForBackupLocation(blspec, namespace)
+		if err != nil {
+			return false, err
+		}
+		ret, err = SecretContainsShortLivedCredential(secretName, secretKey, provider, namespace, config)
+		if err != nil {
+			return false, err
+		}
+		if ret {
+			return true, nil
+		}
+	}
+	return ret, err
+}
+
+func SecretContainsShortLivedCredential(secretName, secretKey, provider, namespace string, config map[string]string) (bool, error) {
+	switch provider {
+	case "aws":
+		// AWS credentials short lived are determined by enableSharedConfig
+		// if enableSharedConfig is not set, then we assume it is not short lived
+		// if enableSharedConfig is set, then we assume it is short lived
+		// Alternatively, we can check if the secret contains a session token
+		// TODO: check if secret contains session token
+		return false, nil
+	case "gcp":
+		return gcpSecretAccountTypeIsShortLived(secretName, secretKey, namespace)
+	case "azure":
+		// TODO: check if secret contains session token
+		return false, nil
+	}
+	return false, nil
+}
+
+const secretFilesDirRoot = "/tmp/oadp-operator/secret-files"
+
+func GetSecretAsFilePath(secretName, secretKey, namespace string) (string, error) {
+	decodedSecret, err := GetDecodedSecret(secretName, secretKey, namespace)
+	if err != nil {
+		return "", err
+	}
+	// write the decoded secret to a file
+	err = os.MkdirAll(secretFilesDirRoot, 0755)
+	if err != nil {
+		return "", errors.Join(errors.New("error creating secret files directory"), err)
+	}
+	secretFilePath := secretFilesDirRoot + "/" + secretName + "-" + secretKey
+	err = os.WriteFile(secretFilePath, []byte(decodedSecret), 0644)
+	if err != nil {
+		return "", errors.Join(errors.New("error writing secret file"), err)
+	}
+	return secretFilePath, nil
+}
+
+func GetDecodedSecret(secretName, secretKey, namespace string) (s string, err error) {
+	bytes, err := GetDecodedSecretAsByte(secretName, secretKey, namespace)
+	return string(bytes), err
+}
+
+func GetDecodedSecretAsByte(secretName, secretKey, namespace string) ([]byte, error) {
+	if secretName != "" && secretKey != "" {
+		var secret corev1.Secret
+		err := client.GetClient().Get(context.Background(), types.NamespacedName{Namespace: namespace, Name: secretName}, &secret)
+		if err != nil {
+			return []byte{}, errors.Join(errors.New("error getting provider secret"+secretName), err)
+		}
+		if secret.Data[secretKey] != nil {
+			return secret.Data[secretKey], nil
+		}
+	}
+	return []byte{}, nil
 }

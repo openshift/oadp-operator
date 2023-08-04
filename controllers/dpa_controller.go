@@ -31,6 +31,7 @@ import (
 
 	"github.com/go-logr/logr"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
+	oadpClient "github.com/openshift/oadp-operator/pkg/client"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
@@ -86,6 +87,9 @@ func (r *DPAReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		log.Error(err, "unable to fetch DataProtectionApplication CR")
 		return result, nil
 	}
+
+	// set client to pkg/client for use in non-reconcile functions
+	oadpClient.SetClient(r.Client)
 
 	_, err := ReconcileBatch(r.Log,
 		r.ValidateDataProtectionCR,
