@@ -2,7 +2,7 @@
 <h1 align="center">OLM Integration</h1>
 
 # Creating your own CatalogSource
-If you just want to use latest code without making your own catalogsource, you can use `make deploy-olm` as described in [install_olm.md](install_olm.md)
+If you just want to use latest code without making your own catalogsource, you can follow steps from  [Installing the Operator](install_from_source.md#installing-the-operator).
 
 Create `oadp-operator-source.yaml` file like below in the oadp-operator directory:
 

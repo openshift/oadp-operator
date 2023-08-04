@@ -372,10 +372,7 @@ GIT_REV:=$(shell git rev-parse --short HEAD)
 deploy-olm: THIS_OPERATOR_IMAGE?=ttl.sh/oadp-operator-$(GIT_REV):1h # Set target specific variable
 deploy-olm: THIS_BUNDLE_IMAGE?=ttl.sh/oadp-operator-bundle-$(GIT_REV):1h # Set target specific variable
 deploy-olm: DEPLOY_TMP:=$(shell mktemp -d)/ # Set target specific variable
-deploy-olm: operator-sdk ## Build current branch operator image, bundle image, push and install via OLM
-	oc whoami # Check if logged in
-	oc create namespace $(OADP_TEST_NAMESPACE) || true
-	$(OPERATOR_SDK) cleanup oadp-operator --namespace $(OADP_TEST_NAMESPACE)
+deploy-olm: operator-sdk undeploy-olm ## Build current branch operator image, bundle image, push and install via OLM
 	@echo "DEPLOY_TMP: $(DEPLOY_TMP)"
 	# build and push operator and bundle image
 	# use $(OPERATOR_SDK) to install bundle to authenticated cluster
@@ -384,6 +381,12 @@ deploy-olm: operator-sdk ## Build current branch operator image, bundle image, p
 		make docker-build docker-push bundle bundle-build bundle-push; \
 	rm -rf $(DEPLOY_TMP)
 	$(OPERATOR_SDK) run bundle $(THIS_BUNDLE_IMAGE) --namespace $(OADP_TEST_NAMESPACE)
+
+.PHONY: undeploy-olm
+undeploy-olm: ## Uninstall current branch operator via OLM
+	oc whoami # Check if logged in
+	oc create namespace $(OADP_TEST_NAMESPACE) || true
+	$(OPERATOR_SDK) cleanup oadp-operator --namespace $(OADP_TEST_NAMESPACE)
 
 .PHONY: opm
 OPM = ./bin/opm
