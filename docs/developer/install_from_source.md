@@ -24,6 +24,11 @@ To install CRDs and deploy the OADP operator to the `openshift-adp`
 $ make deploy-olm
 ```
 
+After testing, uninstall CRDs and undeploy the OADP operator from `openshift-adp` namespace, running
+```
+$ make undeploy-olm
+```
+
 ### Installing Velero + Restic
 
 #### Creating credentials secret
