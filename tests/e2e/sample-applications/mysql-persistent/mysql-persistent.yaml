@@ -97,7 +97,7 @@ items:
               runAsGroup: 27
               runAsUser: 27
               fsGroup: 27
-              privileged: false
+              privileged: true
             env:
               - name: MYSQL_USER
                 value: changeme
