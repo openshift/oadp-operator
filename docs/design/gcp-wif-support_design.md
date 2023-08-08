@@ -1,4 +1,4 @@
-# Design proposal template `<replace with your proposal's title>`
+# GCP WIF Support for OADP
 
 <!-- _Note_: The preferred style for design documents is one sentence per line.
 *Do not wrap lines*.
@@ -18,9 +18,9 @@ This proposal aims to add support for WIF to OADP.
 ## Goals
 - GCP WIF support for OADP and Velero for backup and restore of applications backed by GCP resources.
 - Using OpenShift's Cloud Credentials Operator to generate a short-lived token for authentication to GCP.
+- ImageStreamTag backup and restore
 
 ## Non Goals
-- ImageStreamTag backup and restore (follow up design/implementation)
 - [Standardized update flow for OLM-managed operators leveraging short-lived token authentication](https://issues.redhat.com/browse/OCPSTRAT-95) (follow up design/implementation)
 - Allowing customers to use another long lived tokens separate from the one used by the Cloud Credentials Operator to generate short-lived tokens.
 
