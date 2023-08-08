@@ -85,19 +85,19 @@ items:
             app: mysql
         spec:
           securityContext:
-            runAsGroup: 27
-            runAsUser: 27
-            fsGroup: 27
-            privileged: true
+            runAsNonRoot: true
           serviceAccountName: mysql-persistent-sa
           containers:
           - image: registry.redhat.io/rhel8/mariadb-105:latest
             name: mysql
             securityContext:
-              runAsGroup: 27
-              runAsUser: 27
-              fsGroup: 27
-              privileged: true
+              privileged: false
+              allowPrivilegeEscalation: false
+              capabilities:
+                drop:
+                - ALL
+            seccompProfile:
+              type: RuntimeDefault
             env:
               - name: MYSQL_USER
                 value: changeme
