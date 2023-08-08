@@ -103,6 +103,11 @@ oc apply -f manifests/openshift-adp-cloud-credentials-gcp-credentials.yaml
       name: <dpa_sample>
       namespace: openshift-adp
     spec:
+      configuration:
+        velero:
+          defaultPlugins:
+          - openshift
+          - gcp
       backupLocations:
         - velero:
             provider: gcp
