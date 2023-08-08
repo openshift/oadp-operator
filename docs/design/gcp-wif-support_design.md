@@ -149,11 +149,6 @@ OADP Operator will be updated to bind openshift service account token when WIF c
 				MountPath: "/var/run/secrets/openshift/serviceaccount",
 				ReadOnly:  true,
 			}),
-			corev1.VolumeMount{
-				Name:      "gcp-credentialsrequest-credentials-vol",
-				MountPath: "/var/run/secrets/google",
-				ReadOnly:  true,
-			})
 ```
 
 <!-- ## Open Issues
