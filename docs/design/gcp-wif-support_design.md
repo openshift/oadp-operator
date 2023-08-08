@@ -11,8 +11,8 @@ _Note_: The name of the file should follow the name pattern `<short meaningful w
 Support Google Cloud's WIF (Workload Identity Federation) for OADP.
 
 ## Background
-In currently released versions of OADP, the only way to authenticate to GCP is via a service account.
-This is not ideal for customers who are using GCP's WIF feature to authenticate to GCP.
+In currently released versions of OADP, the only way to authenticate to GCP is via a long lived service account credentials.
+This is not ideal for customers who are using GCP's WIF ([Workload Identity](https://cloud.google.com/kubernetes-engine/docs/concepts/workload-identity)) feature to authenticate to GCP.
 This proposal aims to add support for WIF to OADP.
 
 ## Goals
@@ -69,7 +69,7 @@ A wiki will be made available to customers to follow the steps to configure GCP 
         skipServiceCheck: true
       secretRef:
         name: cloud-credentials-gcp
-        namespace: openshift-adp
+        namespace: <OPERATOR_INSTALL_NS>
       serviceAccountNames:
       - velero
     ' > oadp-credrequest/credrequest.yaml
@@ -151,5 +151,7 @@ OADP Operator will be updated to bind openshift service account token when WIF c
 			}),
 ```
 
-<!-- ## Open Issues
-A discussion of issues relating to this proposal for which the author does not know the solution. This section may be omitted if there are none. -->
+## Open Issues
+<!-- A discussion of issues relating to this proposal for which the author does not know the solution. This section may be omitted if there are none. -->
+- [Standardized update flow for OLM-managed operators leveraging short-lived token authentication](https://issues.redhat.com/browse/OCPSTRAT-95) do not yet have support for WIF. We will have to follow up with this work later.
+
