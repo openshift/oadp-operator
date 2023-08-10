@@ -244,10 +244,10 @@ spec:
                             nodeSelector:
                               additionalProperties:
                                 type: string
-                              description: nodeSelector defines the nodeSelector to be supplied to Restic podSpec
+                              description: nodeSelector defines the nodeSelector to be supplied to podSpec
                               type: object
                             resourceAllocations:
-                              description: resourceAllocations defines the CPU and Memory resource allocations for the restic Pod
+                              description: resourceAllocations defines the CPU and Memory resource allocations for the Pod
                               nullable: true
                               properties:
                                 claims:
@@ -289,7 +289,7 @@ spec:
                                   nullable: true
                               type: object
                             tolerations:
-                              description: tolerations defines the list of tolerations to be applied to Restic daemonset
+                              description: tolerations defines the list of tolerations to be applied
                               items:
                                 description: The pod this Toleration is attached to tolerates any taint that matches the triple <key,value,effect> using the matching operator <operator>.
                                 properties:
@@ -593,10 +593,10 @@ spec:
                             nodeSelector:
                               additionalProperties:
                                 type: string
-                              description: nodeSelector defines the nodeSelector to be supplied to Restic podSpec
+                              description: nodeSelector defines the nodeSelector to be supplied to podSpec
                               type: object
                             resourceAllocations:
-                              description: resourceAllocations defines the CPU and Memory resource allocations for the restic Pod
+                              description: resourceAllocations defines the CPU and Memory resource allocations for the Pod
                               nullable: true
                               properties:
                                 claims:
@@ -638,7 +638,7 @@ spec:
                                   nullable: true
                               type: object
                             tolerations:
-                              description: tolerations defines the list of tolerations to be applied to Restic daemonset
+                              description: tolerations defines the list of tolerations to be applied
                               items:
                                 description: The pod this Toleration is attached to tolerates any taint that matches the triple <key,value,effect> using the matching operator <operator>.
                                 properties:

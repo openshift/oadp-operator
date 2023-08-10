@@ -115,13 +115,13 @@ type PodConfig struct {
 	// labels to add to pods
 	// +optional
 	Labels map[string]string `json:"labels,omitempty"`
-	// nodeSelector defines the nodeSelector to be supplied to Restic podSpec
+	// nodeSelector defines the nodeSelector to be supplied to podSpec
 	// +optional
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
-	// tolerations defines the list of tolerations to be applied to Restic daemonset
+	// tolerations defines the list of tolerations to be applied
 	// +optional
 	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
-	// resourceAllocations defines the CPU and Memory resource allocations for the restic Pod
+	// resourceAllocations defines the CPU and Memory resource allocations for the Pod
 	// +optional
 	// +nullable
 	ResourceAllocations corev1.ResourceRequirements `json:"resourceAllocations,omitempty"`
