@@ -50,7 +50,7 @@ func (r *DPAReconciler) ValidateDataProtectionCR(log logr.Logger) (bool, error) 
 		}
 		if location.CloudStorage != nil {
 			if location.CloudStorage.Prefix == "" && dpa.BackupImages() {
-				return false, errors.New("BackupLocation must have cloud storage prefix when backupImages is set to true")
+				return false, errors.New("BackupLocation must have cloud storage prefix when backupImages is not set to false")
 			}
 		}
 	}

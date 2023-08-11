@@ -1804,7 +1804,7 @@ func TestDPAReconciler_ReconcileBackupStorageLocations(t *testing.T) {
 							Key: "credentials",
 						},
 						Region: "test-region",
-						Name:  "test-bucket",
+						Name:   "test-bucket",
 					},
 				},
 			},
@@ -1830,7 +1830,6 @@ func TestDPAReconciler_ReconcileBackupStorageLocations(t *testing.T) {
 						},
 						Key: "credentials",
 					},
-
 				},
 			},
 		},
