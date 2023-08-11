@@ -48,10 +48,8 @@ func (r *DPAReconciler) ValidateDataProtectionCR(log logr.Logger) (bool, error) 
 		if location.Velero != nil && location.Velero.ObjectStorage != nil && location.Velero.ObjectStorage.Prefix == "" && dpa.BackupImages() {
 			return false, errors.New("BackupLocation must have velero prefix when backupImages is set to true")
 		}
-		if location.CloudStorage != nil {
-			if location.CloudStorage.Prefix == "" && dpa.BackupImages() {
-				return false, errors.New("BackupLocation must have cloud storage prefix when backupImages is not set to false")
-			}
+		if location.CloudStorage != nil && location.CloudStorage.Prefix == "" && dpa.BackupImages() {
+			return false, errors.New("BackupLocation must have cloud storage prefix when backupImages is not set to false")
 		}
 	}
 
