@@ -1,11 +1,12 @@
 # Build the manager binary
-FROM quay.io/konveyor/builder:v1.19 AS builder
+FROM quay.io/konveyor/builder AS builder
 
 WORKDIR /go/src/github.com/openshift/oadp-operator
 
 COPY ./ .
 
 RUN go install -mod=mod github.com/onsi/ginkgo/v2/ginkgo
-RUN chmod -R 777 ./
-RUN chmod -R 777 /go/
 RUN go mod download
+RUN chmod -R 777 ./
+RUN chmod -R 777 $(go env GOPATH)
+RUN mkdir -p $(go env GOCACHE) && chmod -R 777 $(go env GOCACHE)
