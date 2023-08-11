@@ -142,6 +142,8 @@ func (r *DPAReconciler) ReconcileBackupStorageLocations(log logr.Logger) (bool, 
 				bsl.Spec.Default = bslSpec.CloudStorage.Default
 				bsl.Spec.ObjectStorage = &velerov1.ObjectStorageLocation{
 					Bucket: bucket.Spec.Name,
+					Prefix: bslSpec.CloudStorage.Prefix,
+					CACert: bslSpec.CloudStorage.CACert,
 				}
 				switch bucket.Spec.Provider {
 				case oadpv1alpha1.AWSBucketProvider:

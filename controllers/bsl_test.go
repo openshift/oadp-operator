@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 	"testing"
 
@@ -9,6 +10,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 
 	"github.com/go-logr/logr"
+	"github.com/google/go-cmp/cmp"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -1450,7 +1452,7 @@ func TestDPAReconciler_ReconcileBackupStorageLocations(t *testing.T) {
 		},
 	}
 
-	tests := []struct {
+	ownerReferenceTests := []struct {
 		name    string
 		dpa     *oadpv1alpha1.DataProtectionApplication
 		secret  *corev1.Secret
@@ -1511,7 +1513,7 @@ func TestDPAReconciler_ReconcileBackupStorageLocations(t *testing.T) {
 			wantErr: false,
 		},
 	}
-	for _, tt := range tests {
+	for _, tt := range ownerReferenceTests {
 		t.Run(tt.name, func(t *testing.T) {
 			fakeClient, err := getFakeClientFromObjects(tt.dpa, tt.secret, tt.cs)
 			if err != nil {
@@ -1537,8 +1539,8 @@ func TestDPAReconciler_ReconcileBackupStorageLocations(t *testing.T) {
 						Kind:               "DataProtectionApplication",
 						Name:               tt.dpa.Name,
 						UID:                tt.dpa.UID,
-						Controller:         pointer.BoolPtr(true),
-						BlockOwnerDeletion: pointer.BoolPtr(true),
+						Controller:         pointer.Bool(true),
+						BlockOwnerDeletion: pointer.Bool(true),
 					}},
 				},
 			}
@@ -1562,6 +1564,311 @@ func TestDPAReconciler_ReconcileBackupStorageLocations(t *testing.T) {
 			}
 			if !reflect.DeepEqual(bsl.OwnerReferences, wantBSL.OwnerReferences) {
 				t.Errorf("ReconcileBackupStorageLocations() expected BSL owner references to be %#v, got %#v", wantBSL.OwnerReferences, bsl.OwnerReferences)
+			}
+		})
+	}
+	bslPrefixCATests := []struct {
+		name    string
+		objects []client.Object
+		want    bool
+		wantErr bool
+		wantBSL velerov1.BackupStorageLocation
+	}{
+		{
+			name: "dpa.spec.backupLocation.Velero has Prefix set",
+			objects: []client.Object{
+				&oadpv1alpha1.DataProtectionApplication{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-dpa",
+						Namespace: "test-ns",
+					},
+					Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+						BackupLocations: []oadpv1alpha1.BackupLocation{
+							{
+								Velero: &velerov1.BackupStorageLocationSpec{
+									Provider: "aws",
+									StorageType: velerov1.StorageType{
+										ObjectStorage: &velerov1.ObjectStorageLocation{
+											Prefix: "test-prefix",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "cloud-credentials",
+						Namespace: "test-ns",
+					},
+				},
+			},
+			want:    true,
+			wantErr: false,
+			wantBSL: velerov1.BackupStorageLocation{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-dpa-1",
+					Namespace: "test-ns",
+				},
+				Spec: velerov1.BackupStorageLocationSpec{
+					Provider: "aws",
+					StorageType: velerov1.StorageType{
+						ObjectStorage: &velerov1.ObjectStorageLocation{
+							Prefix: "test-prefix",
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "dpa.spec.backupLocation.CloudStorage has Prefix set",
+			objects: []client.Object{
+				&oadpv1alpha1.DataProtectionApplication{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-dpa",
+						Namespace: "test-ns",
+					},
+					Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+						BackupLocations: []oadpv1alpha1.BackupLocation{
+							{
+								CloudStorage: &oadpv1alpha1.CloudStorageLocation{
+									CloudStorageRef: v1.LocalObjectReference{
+										Name: "test-cs",
+									},
+									Credential: &v1.SecretKeySelector{
+										LocalObjectReference: v1.LocalObjectReference{
+											Name: "cloud-credentials",
+										},
+										Key: "credentials",
+									},
+									Prefix: "test-prefix",
+								},
+							},
+						},
+					},
+				},
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "cloud-credentials",
+						Namespace: "test-ns",
+					},
+				},
+				&oadpv1alpha1.CloudStorage{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-cs",
+						Namespace: "test-ns",
+					},
+					Spec: oadpv1alpha1.CloudStorageSpec{
+						Provider: "aws",
+						CreationSecret: v1.SecretKeySelector{
+							LocalObjectReference: v1.LocalObjectReference{
+								Name: "cloud-credentials",
+							},
+							Key: "credentials",
+						},
+					},
+				},
+			},
+			want:    true,
+			wantErr: false,
+			wantBSL: velerov1.BackupStorageLocation{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-dpa-1",
+					Namespace: "test-ns",
+				},
+				Spec: velerov1.BackupStorageLocationSpec{
+					Provider: "aws",
+					StorageType: velerov1.StorageType{
+						ObjectStorage: &velerov1.ObjectStorageLocation{
+							Prefix: "test-prefix",
+						},
+					},
+					Credential: &corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: "cloud-credentials",
+						},
+						Key: "credentials",
+					},
+				},
+			},
+		},
+		{
+			name: "dpa.spec.backupLocation.Velero has Prefix set and CA set",
+			objects: []client.Object{
+				&oadpv1alpha1.DataProtectionApplication{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-dpa",
+						Namespace: "test-ns",
+					},
+					Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+						BackupLocations: []oadpv1alpha1.BackupLocation{
+							{
+								Velero: &velerov1.BackupStorageLocationSpec{
+									Provider: "aws",
+									StorageType: velerov1.StorageType{
+										ObjectStorage: &velerov1.ObjectStorageLocation{
+											Bucket: "test-bucket",
+											Prefix: "test-prefix",
+											CACert: []byte("test-ca"),
+										},
+									},
+									Credential: &corev1.SecretKeySelector{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "cloud-credentials",
+										},
+										Key: "credentials",
+									},
+								},
+							},
+						},
+					},
+				},
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "cloud-credentials",
+						Namespace: "test-ns",
+					},
+				},
+			},
+			want:    true,
+			wantErr: false,
+			wantBSL: velerov1.BackupStorageLocation{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-dpa-1",
+					Namespace: "test-ns",
+				},
+				Spec: velerov1.BackupStorageLocationSpec{
+					Provider: "aws",
+					StorageType: velerov1.StorageType{
+						ObjectStorage: &velerov1.ObjectStorageLocation{
+							Prefix: "test-prefix",
+							Bucket: "test-bucket",
+							CACert: []byte("test-ca"),
+						},
+					},
+					Credential: &corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: "cloud-credentials",
+						},
+						Key: "credentials",
+					},
+				},
+			},
+		},
+		{
+			name: "dpa.spec.backupLocation.CloudStorage has Prefix set and CA set",
+			objects: []client.Object{
+				&oadpv1alpha1.DataProtectionApplication{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-dpa",
+						Namespace: "test-ns",
+					},
+					Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+						BackupLocations: []oadpv1alpha1.BackupLocation{
+							{
+								CloudStorage: &oadpv1alpha1.CloudStorageLocation{
+									CloudStorageRef: v1.LocalObjectReference{
+										Name: "test-cs",
+									},
+									Credential: &v1.SecretKeySelector{
+										LocalObjectReference: v1.LocalObjectReference{
+											Name: "cloud-credentials",
+										},
+										Key: "credentials",
+									},
+									Prefix: "test-prefix",
+									CACert: []byte("test-ca"),
+								},
+							},
+						},
+					},
+				},
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "cloud-credentials",
+						Namespace: "test-ns",
+					},
+				},
+				&oadpv1alpha1.CloudStorage{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-cs",
+						Namespace: "test-ns",
+					},
+					Spec: oadpv1alpha1.CloudStorageSpec{
+						Provider: "aws",
+						CreationSecret: v1.SecretKeySelector{
+							LocalObjectReference: v1.LocalObjectReference{
+								Name: "cloud-credentials",
+							},
+							Key: "credentials",
+						},
+						Region: "test-region",
+						Name:  "test-bucket",
+					},
+				},
+			},
+			want:    true,
+			wantErr: false,
+			wantBSL: velerov1.BackupStorageLocation{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-dpa-1",
+					Namespace: "test-ns",
+				},
+				Spec: velerov1.BackupStorageLocationSpec{
+					Provider: "aws",
+					StorageType: velerov1.StorageType{
+						ObjectStorage: &velerov1.ObjectStorageLocation{
+							Bucket: "test-bucket",
+							Prefix: "test-prefix",
+							CACert: []byte("test-ca"),
+						},
+					},
+					Credential: &corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: "cloud-credentials",
+						},
+						Key: "credentials",
+					},
+
+				},
+			},
+		},
+	}
+	for _, tt := range bslPrefixCATests {
+		t.Run(tt.name, func(t *testing.T) {
+			fakeClient, err := getFakeClientFromObjects(tt.objects...)
+			if err != nil {
+				t.Errorf("error in creating fake client, likely programmer error")
+			}
+			r := &DPAReconciler{
+				Client:  fakeClient,
+				Scheme:  fakeClient.Scheme(),
+				Log:     logr.Discard(),
+				Context: newContextForTest(tt.name),
+				NamespacedName: types.NamespacedName{
+					Namespace: tt.objects[0].GetNamespace(),
+					Name:      tt.objects[0].GetName(),
+				},
+				EventRecorder: record.NewFakeRecorder(10),
+			}
+			got, err := r.ReconcileBackupStorageLocations(r.Log)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ReconcileBackupStorageLocations() error =%v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("ReconcileBackupStorageLocations() got = %v, want %v", got, tt.want)
+			}
+			bsl := &velerov1.BackupStorageLocation{}
+			err = r.Get(r.Context, client.ObjectKey{Namespace: tt.objects[0].GetNamespace(), Name: "test-dpa-1"}, bsl)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ReconcileBackupStorageLocations() error =%v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(bsl.Spec, tt.wantBSL.Spec) {
+				fmt.Println(cmp.Diff(bsl.Spec, tt.wantBSL.Spec))
+				t.Errorf("ReconcileBackupStorageLocations() expected BSL spec to be %#v, got %#v", tt.wantBSL.Spec, bsl.Spec)
 			}
 		})
 	}
