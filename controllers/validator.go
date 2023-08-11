@@ -37,20 +37,24 @@ func (r *DPAReconciler) ValidateDataProtectionCR(log logr.Logger) (bool, error) 
 		return false, errors.New("backupImages needs to be set to false when noDefaultBackupLocation is set")
 	}
 
-	if len(dpa.Spec.BackupLocations) > 0 {
-		for _, location := range dpa.Spec.BackupLocations {
-			// check for velero BSL config or cloud storage config
-			if location.Velero == nil && location.CloudStorage == nil {
-				return false, errors.New("BackupLocation must have velero or bucket configuration")
+	for _, location := range dpa.Spec.BackupLocations {
+		// check for velero BSL config or cloud storage config
+		if location.Velero == nil && location.CloudStorage == nil {
+			return false, errors.New("BackupLocation must have velero or bucket configuration")
+		}
+		if location.Velero != nil && location.Velero.ObjectStorage != nil && location.Velero.ObjectStorage.Prefix == "" && dpa.BackupImages() {
+			return false, errors.New("BackupLocation must have velero prefix when backupImages is set to true")
+		}
+		if location.CloudStorage != nil {
+			if location.CloudStorage.Prefix == "" && dpa.BackupImages() {
+				return false, errors.New("BackupLocation must have cloud storage prefix when backupImages is set to true")
 			}
 		}
 	}
 
-	if len(dpa.Spec.SnapshotLocations) > 0 {
-		for _, location := range dpa.Spec.SnapshotLocations {
-			if location.Velero == nil {
-				return false, errors.New("snapshotLocation velero configuration cannot be nil")
-			}
+	for _, location := range dpa.Spec.SnapshotLocations {
+		if location.Velero == nil {
+			return false, errors.New("snapshotLocation velero configuration cannot be nil")
 		}
 	}
 

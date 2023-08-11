@@ -226,6 +226,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 							},
 						},
 					},
+					BackupImages: pointer.Bool(false),
 				},
 			},
 			objects: []client.Object{
@@ -276,6 +277,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 							},
 						},
 					},
+					BackupImages: pointer.Bool(false),
 				},
 			},
 			objects: []client.Object{
@@ -335,6 +337,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 							},
 						},
 					},
+					BackupImages: pointer.Bool(false),
 				},
 			},
 			objects: []client.Object{
@@ -385,6 +388,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 							},
 						},
 					},
+					BackupImages: pointer.Bool(false),
 				},
 			},
 			objects: []client.Object{},
@@ -429,6 +433,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 							},
 						},
 					},
+					BackupImages: pointer.Bool(false),
 				},
 			},
 			objects: []client.Object{},
@@ -466,6 +471,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 							},
 						},
 					},
+					BackupImages: pointer.Bool(false),
 				},
 			},
 			objects: []client.Object{
@@ -513,6 +519,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 							},
 						},
 					},
+					BackupImages: pointer.Bool(false),
 				},
 			},
 			objects: []client.Object{
@@ -961,6 +968,76 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 				&corev1.Secret{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "custom-vsl-credentials",
+						Namespace: "test-ns",
+					},
+				},
+			},
+			wantErr: false,
+			want:    true,
+		},
+		{
+			name: "If DPA CR has CloudStorageLocation without Prefix defined with backupImages enabled, error case",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-DPA-CR",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					BackupLocations: []oadpv1alpha1.BackupLocation{
+						{
+							CloudStorage: &oadpv1alpha1.CloudStorageLocation{
+								CloudStorageRef: corev1.LocalObjectReference{
+									Name: "testing",
+								},
+								Prefix: "",
+							},
+						},
+					},
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+							},
+						},
+					},
+					BackupImages: pointer.Bool(true),
+				},
+			},
+			objects: []client.Object{
+			},
+			wantErr: true,
+			want:    false,
+		},
+		{
+			name: "If DPA CR has CloudStorageLocation with Prefix defined with backupImages enabled, no error case",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-DPA-CR",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					BackupLocations: []oadpv1alpha1.BackupLocation{
+						{
+							CloudStorage: &oadpv1alpha1.CloudStorageLocation{
+								CloudStorageRef: corev1.LocalObjectReference{
+									Name: "testing",
+								},
+								Prefix: "some-prefix",
+							},
+						},
+					},
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+							},
+						},
+					},
+					BackupImages: pointer.Bool(true),
+				},
+			},
+			objects: []client.Object{
+				&oadpv1alpha1.CloudStorage{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "testing",
 						Namespace: "test-ns",
 					},
 				},
