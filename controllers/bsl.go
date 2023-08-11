@@ -327,6 +327,9 @@ func pluginExistsInVeleroCR(configuredPlugins []oadpv1alpha1.DefaultPlugin, expe
 }
 
 func (r *DPAReconciler) validateProviderPluginAndSecret(bslSpec velerov1.BackupStorageLocationSpec, dpa *oadpv1alpha1.DataProtectionApplication) error {
+	if dpa.Spec.Configuration.Velero.HasFeatureFlag("no-secret") {
+		return nil
+	}
 	// check for existence of provider plugin and warn if the plugin is absent
 	if !pluginExistsInVeleroCR(dpa.Spec.Configuration.Velero.DefaultPlugins, oadpv1alpha1.DefaultPlugin(bslSpec.Provider)) {
 		r.Log.Info(fmt.Sprintf("%s backupstoragelocation is configured but velero plugin for %s is not present", bslSpec.Provider, bslSpec.Provider))

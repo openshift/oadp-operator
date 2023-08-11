@@ -102,7 +102,7 @@ func (r *DPAReconciler) ValidateDataProtectionCR(log logr.Logger) (bool, error) 
 	if _, err := getResticResourceReqs(&dpa); err != nil {
 		return false, err
 	}
-	if validBsl, err := r.ValidateBackupStorageLocations(dpa); !validBsl  || err != nil {
+	if validBsl, err := r.ValidateBackupStorageLocations(dpa); !validBsl || err != nil {
 		return validBsl, err
 	}
 	if validVsl, err := r.ValidateVolumeSnapshotLocations(dpa); !validVsl || err != nil {
