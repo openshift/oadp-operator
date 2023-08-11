@@ -96,8 +96,8 @@ items:
               capabilities:
                 drop:
                 - ALL
-            seccompProfile:
-              type: RuntimeDefault
+              seccompProfile:
+                type: RuntimeDefault
             env:
               - name: MYSQL_USER
                 value: changeme
