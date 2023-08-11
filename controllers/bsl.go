@@ -14,11 +14,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-func (r *DPAReconciler) ValidateBackupStorageLocations(log logr.Logger) (bool, error) {
-	dpa := oadpv1alpha1.DataProtectionApplication{}
-	if err := r.Get(r.Context, r.NamespacedName, &dpa); err != nil {
-		return false, err
-	}
+func (r *DPAReconciler) ValidateBackupStorageLocations(dpa oadpv1alpha1.DataProtectionApplication) (bool, error) {
 	if dpa.Spec.Configuration == nil || dpa.Spec.Configuration.Velero == nil {
 		return false, errors.New("DPA CR Velero configuration cannot be nil")
 	}

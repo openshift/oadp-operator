@@ -995,15 +995,13 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 					},
 					Configuration: &oadpv1alpha1.ApplicationConfig{
 						Velero: &oadpv1alpha1.VeleroConfig{
-							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
-							},
+							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{},
 						},
 					},
 					BackupImages: pointer.Bool(true),
 				},
 			},
-			objects: []client.Object{
-			},
+			objects: []client.Object{},
 			wantErr: true,
 			want:    false,
 		},
@@ -1027,8 +1025,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 					},
 					Configuration: &oadpv1alpha1.ApplicationConfig{
 						Velero: &oadpv1alpha1.VeleroConfig{
-							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
-							},
+							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{},
 						},
 					},
 					BackupImages: pointer.Bool(true),

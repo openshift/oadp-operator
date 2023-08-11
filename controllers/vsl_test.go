@@ -510,7 +510,7 @@ func TestDPAReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 				},
 				EventRecorder: record.NewFakeRecorder(10),
 			}
-			got, err := r.ValidateVolumeSnapshotLocations(r.Log)
+			got, err := r.ValidateVolumeSnapshotLocations(*tt.dpa)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ValidateVolumeSnapshotLocations() error = %v, wantErr %v", err, tt.wantErr)
 				return

@@ -14,6 +14,9 @@ import (
 	"github.com/openshift/oadp-operator/pkg/credentials"
 )
 
+// ValidateDataProtectionCR function validates the DPA CR, returns true if valid, false otherwise
+// it calls other validation functions to validate the DPA CR
+// TODO: #1129 Clean up duplicate logic for validating backupstoragelocations and volumesnapshotlocations in dpa
 func (r *DPAReconciler) ValidateDataProtectionCR(log logr.Logger) (bool, error) {
 	dpa := oadpv1alpha1.DataProtectionApplication{}
 	if err := r.Get(r.Context, r.NamespacedName, &dpa); err != nil {
@@ -99,7 +102,8 @@ func (r *DPAReconciler) ValidateDataProtectionCR(log logr.Logger) (bool, error) 
 	if _, err := getResticResourceReqs(&dpa); err != nil {
 		return false, err
 	}
-
+	r.ValidateBackupStorageLocations(dpa)
+	r.ValidateVolumeSnapshotLocations(dpa)
 	return true, nil
 }
 

@@ -1218,7 +1218,7 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 				},
 				EventRecorder: record.NewFakeRecorder(10),
 			}
-			got, err := r.ValidateBackupStorageLocations(r.Log)
+			got, err := r.ValidateBackupStorageLocations(*tt.dpa)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ValidateBackupStorageLocations() error = %v, wantErr %v", err, tt.wantErr)
 				return
