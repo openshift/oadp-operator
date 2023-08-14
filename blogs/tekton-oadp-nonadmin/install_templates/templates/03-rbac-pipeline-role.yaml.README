@@ -1,5 +1,5 @@
 #
-# This Template provides fill access to all velero.io resources.
+# This Template provides full access to all velero.io resources.
 # It is NOT recommended to give restore access rights to non-admin users.
 # For security purposes the default template will ONLY provide backup rights.
 #
@@ -23,21 +23,9 @@ objects:
     name: oadp-nonadmin-role
   rules:
   - apiGroups:
-    # By default restore resources will NOT be provided by this template.
-    # It is recommended that restores are executed by OpenShift Admin's in production environments.
-    # For demonstration purposes only you may uncomment the restore resources.
     - velero.io
     resources:
-    - 'backuprepositories'
-    - 'backups'
-    - 'deletebackuprequests'
-    # - 'downloadrequests'
-    - 'podvolumebackups'
-    - 'podvolumerestores'
-    # - 'restores'
-    # - 'schedules'
-    - 'serverstatusrequests'
-    - 'volumesnapshotlocations'
+    - '*'
     verbs:
     - create
     - delete
@@ -45,16 +33,6 @@ objects:
     - list
     - patch
     - update
-    - watch
-    # Non-Admin users should NOT be able to create a backupstoragelocation (BSL).
-    # Only OpenShift Administrators should create a BSL.
-  - apiGroups:
-    - velero.io
-    resources:
-    - 'backupstoragelocations'
-    verbs:
-    - get
-    - list
     - watch
   - apiGroups:
     - image.openshift.io
