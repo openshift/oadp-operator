@@ -30,14 +30,13 @@ objects:
     resources:
     - 'backuprepositories'
     - 'backups'
-    - 'deletebackuprequests'
+    # - 'deletebackuprequests'
     # - 'downloadrequests'
     - 'podvolumebackups'
-    - 'podvolumerestores'
+    # - 'podvolumerestores'
     # - 'restores'
     # - 'schedules'
     - 'serverstatusrequests'
-    - 'volumesnapshotlocations'
     verbs:
     - create
     - delete
@@ -46,12 +45,13 @@ objects:
     - patch
     - update
     - watch
-    # Non-Admin users should NOT be able to create a backupstoragelocation (BSL).
-    # Only OpenShift Administrators should create a BSL.
+    # Non-Admin users should NOT be able to create a backupstoragelocation (BSL) or volumesnapshotlocation (VSL).
+    # Only OpenShift Administrators should create a BSL or VSL.
   - apiGroups:
     - velero.io
     resources:
     - 'backupstoragelocations'
+    - 'volumesnapshotlocations'
     verbs:
     - get
     - list
