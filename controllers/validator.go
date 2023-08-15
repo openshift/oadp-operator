@@ -23,6 +23,9 @@ func (r *DPAReconciler) ValidateDataProtectionCR(log logr.Logger) (bool, error) 
 		return false, errors.New("DPA CR Velero configuration cannot be nil")
 	}
 
+	if dpa.Spec.Configuration.Restic.Enable != nil && *dpa.Spec.Configuration.Restic.Enable {
+		dpa.Spec.Configuration.Velero.Args.RestoreResourcePriorities = "ServiceAccount,SecurityContextConstraints"
+	}
 	if dpa.Spec.Configuration.Velero.NoDefaultBackupLocation {
 		if len(dpa.Spec.BackupLocations) != 0 {
 			return false, errors.New("DPA CR Velero configuration cannot have backup locations if noDefaultBackupLocation is set")
