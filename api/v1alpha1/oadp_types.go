@@ -152,6 +152,7 @@ type ApplicationConfig struct {
 	Restic *ResticConfig `json:"restic,omitempty"`
 }
 
+// CloudStorageLocation defines BackupStorageLocation using bucket referenced by CloudStorage CR.
 type CloudStorageLocation struct {
 	CloudStorageRef corev1.LocalObjectReference `json:"cloudStorageRef"`
 
@@ -171,6 +172,16 @@ type CloudStorageLocation struct {
 	// +optional
 	// +nullable
 	BackupSyncPeriod *metav1.Duration `json:"backupSyncPeriod,omitempty"`
+
+	// Prefix and CACert are copied from velero/pkg/apis/v1/backupstoragelocation_types.go under ObjectStorageLocation
+
+	// Prefix is the path inside a bucket to use for Velero storage. Optional.
+	// +optional
+	Prefix string `json:"prefix,omitempty"`
+
+	// CACert defines a CA bundle to use when verifying TLS connections to the provider.
+	// +optional
+	CACert []byte `json:"caCert,omitempty"`
 }
 
 // BackupLocation defines the configuration for the DPA backup storage

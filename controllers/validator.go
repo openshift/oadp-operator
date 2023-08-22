@@ -14,6 +14,9 @@ import (
 	"github.com/openshift/oadp-operator/pkg/credentials"
 )
 
+// ValidateDataProtectionCR function validates the DPA CR, returns true if valid, false otherwise
+// it calls other validation functions to validate the DPA CR
+// TODO: #1129 Clean up duplicate logic for validating backupstoragelocations and volumesnapshotlocations in dpa
 func (r *DPAReconciler) ValidateDataProtectionCR(log logr.Logger) (bool, error) {
 	dpa := oadpv1alpha1.DataProtectionApplication{}
 	if err := r.Get(r.Context, r.NamespacedName, &dpa); err != nil {
@@ -37,20 +40,22 @@ func (r *DPAReconciler) ValidateDataProtectionCR(log logr.Logger) (bool, error) 
 		return false, errors.New("backupImages needs to be set to false when noDefaultBackupLocation is set")
 	}
 
-	if len(dpa.Spec.BackupLocations) > 0 {
-		for _, location := range dpa.Spec.BackupLocations {
-			// check for velero BSL config or cloud storage config
-			if location.Velero == nil && location.CloudStorage == nil {
-				return false, errors.New("BackupLocation must have velero or bucket configuration")
-			}
+	for _, location := range dpa.Spec.BackupLocations {
+		// check for velero BSL config or cloud storage config
+		if location.Velero == nil && location.CloudStorage == nil {
+			return false, errors.New("BackupLocation must have velero or bucket configuration")
+		}
+		if location.Velero != nil && location.Velero.ObjectStorage != nil && location.Velero.ObjectStorage.Prefix == "" && dpa.BackupImages() {
+			return false, errors.New("BackupLocation must have velero prefix when backupImages is not set to false")
+		}
+		if location.CloudStorage != nil && location.CloudStorage.Prefix == "" && dpa.BackupImages() {
+			return false, errors.New("BackupLocation must have cloud storage prefix when backupImages is not set to false")
 		}
 	}
 
-	if len(dpa.Spec.SnapshotLocations) > 0 {
-		for _, location := range dpa.Spec.SnapshotLocations {
-			if location.Velero == nil {
-				return false, errors.New("snapshotLocation velero configuration cannot be nil")
-			}
+	for _, location := range dpa.Spec.SnapshotLocations {
+		if location.Velero == nil {
+			return false, errors.New("snapshotLocation velero configuration cannot be nil")
 		}
 	}
 
@@ -95,7 +100,12 @@ func (r *DPAReconciler) ValidateDataProtectionCR(log logr.Logger) (bool, error) 
 	if _, err := getResticResourceReqs(&dpa); err != nil {
 		return false, err
 	}
-
+	if validBsl, err := r.ValidateBackupStorageLocations(dpa); !validBsl || err != nil {
+		return validBsl, err
+	}
+	if validVsl, err := r.ValidateVolumeSnapshotLocations(dpa); !validVsl || err != nil {
+		return validVsl, err
+	}
 	return true, nil
 }
 

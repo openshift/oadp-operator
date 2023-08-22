@@ -104,11 +104,7 @@ func (r *DPAReconciler) LabelVSLSecrets(log logr.Logger) (bool, error) {
 	return true, nil
 }
 
-func (r *DPAReconciler) ValidateVolumeSnapshotLocations(log logr.Logger) (bool, error) {
-	dpa := oadpv1alpha1.DataProtectionApplication{}
-	if err := r.Get(r.Context, r.NamespacedName, &dpa); err != nil {
-		return false, err
-	}
+func (r *DPAReconciler) ValidateVolumeSnapshotLocations(dpa oadpv1alpha1.DataProtectionApplication) (bool, error) {
 	if dpa.Spec.Configuration == nil {
 		return false, errors.New("application configuration not found")
 	}

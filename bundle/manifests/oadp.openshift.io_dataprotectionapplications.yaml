@@ -41,10 +41,15 @@ spec:
                     description: BackupLocation defines the configuration for the DPA backup storage
                     properties:
                       bucket:
+                        description: CloudStorageLocation defines BackupStorageLocation using bucket referenced by CloudStorage CR.
                         properties:
                           backupSyncPeriod:
                             description: backupSyncPeriod defines how frequently to sync backup API objects from object storage. A value of 0 disables sync.
                             nullable: true
+                            type: string
+                          caCert:
+                            description: CACert defines a CA bundle to use when verifying TLS connections to the provider.
+                            format: byte
                             type: string
                           cloudStorageRef:
                             description: LocalObjectReference contains enough information to let you locate the referenced object inside the same namespace.
@@ -76,6 +81,9 @@ spec:
                           default:
                             description: default indicates this location is the default backup storage location.
                             type: boolean
+                          prefix:
+                            description: Prefix is the path inside a bucket to use for Velero storage. Optional.
+                            type: string
                         required:
                           - cloudStorageRef
                         type: object
