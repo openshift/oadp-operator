@@ -3,12 +3,11 @@ package controllers
 import (
 	"testing"
 
-	"k8s.io/apimachinery/pkg/api/resource"
-
 	"github.com/go-logr/logr"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	v1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
@@ -226,6 +225,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 							},
 						},
 					},
+					BackupImages: pointer.Bool(false),
 				},
 			},
 			objects: []client.Object{
@@ -276,6 +276,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 							},
 						},
 					},
+					BackupImages: pointer.Bool(false),
 				},
 			},
 			objects: []client.Object{
@@ -335,6 +336,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 							},
 						},
 					},
+					BackupImages: pointer.Bool(false),
 				},
 			},
 			objects: []client.Object{
@@ -375,6 +377,9 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 						{
 							Velero: &v1.VolumeSnapshotLocationSpec{
 								Provider: "aws",
+								Config: map[string]string{
+									AWSRegion: "us-east-1",
+								},
 							},
 						},
 					},
@@ -385,6 +390,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 							},
 						},
 					},
+					BackupImages: pointer.Bool(false),
 				},
 			},
 			objects: []client.Object{},
@@ -418,6 +424,9 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 						{
 							Velero: &v1.VolumeSnapshotLocationSpec{
 								Provider: "aws",
+								Config: map[string]string{
+									AWSRegion: "us-east-1",
+								},
 							},
 						},
 					},
@@ -429,6 +438,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 							},
 						},
 					},
+					BackupImages: pointer.Bool(false),
 				},
 			},
 			objects: []client.Object{},
@@ -456,6 +466,9 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 						{
 							Velero: &v1.VolumeSnapshotLocationSpec{
 								Provider: "aws",
+								Config: map[string]string{
+									AWSRegion: "us-east-1",
+								},
 							},
 						},
 					},
@@ -466,6 +479,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 							},
 						},
 					},
+					BackupImages: pointer.Bool(false),
 				},
 			},
 			objects: []client.Object{
@@ -496,6 +510,11 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 								CloudStorageRef: corev1.LocalObjectReference{
 									Name: "testing",
 								},
+								Credential: &corev1.SecretKeySelector{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: "cloud-credentials",
+									},
+								},
 							},
 						},
 					},
@@ -503,6 +522,9 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 						{
 							Velero: &v1.VolumeSnapshotLocationSpec{
 								Provider: "aws",
+								Config: map[string]string{
+									AWSRegion: "us-east-1",
+								},
 							},
 						},
 					},
@@ -513,6 +535,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 							},
 						},
 					},
+					BackupImages: pointer.Bool(false),
 				},
 			},
 			objects: []client.Object{
@@ -546,7 +569,19 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 					BackupLocations: []oadpv1alpha1.BackupLocation{
 						{
 							Velero: &v1.BackupStorageLocationSpec{
+								StorageType: v1.StorageType{
+									ObjectStorage: &v1.ObjectStorageLocation{
+										Bucket: "test-bucket",
+										Prefix: "test-prefix",
+									},
+								},
 								Provider: "velero.io/gcp",
+								Credential: &corev1.SecretKeySelector{
+									Key: "credentials",
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: "cloud-credentials-gcp",
+									},
+								},
 							},
 						},
 					},
@@ -581,6 +616,12 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 					BackupLocations: []oadpv1alpha1.BackupLocation{
 						{
 							Velero: &v1.BackupStorageLocationSpec{
+								StorageType: v1.StorageType{
+									ObjectStorage: &v1.ObjectStorageLocation{
+										Bucket: "test-bucket",
+										Prefix: "test-prefix",
+									},
+								},
 								Provider: "velero.io/gcp",
 							},
 						},
@@ -611,6 +652,12 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 					BackupLocations: []oadpv1alpha1.BackupLocation{
 						{
 							Velero: &v1.BackupStorageLocationSpec{
+								StorageType: v1.StorageType{
+									ObjectStorage: &v1.ObjectStorageLocation{
+										Bucket: "test-bucket",
+										Prefix: "test-prefix",
+									},
+								},
 								Provider: "velero.io/gcp",
 							},
 						},
@@ -667,6 +714,12 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 					BackupLocations: []oadpv1alpha1.BackupLocation{
 						{
 							Velero: &v1.BackupStorageLocationSpec{
+								StorageType: v1.StorageType{
+									ObjectStorage: &v1.ObjectStorageLocation{
+										Bucket: "test-bucket",
+										Prefix: "test-prefix",
+									},
+								},
 								Provider: "velero.io/aws",
 								Credential: &corev1.SecretKeySelector{
 									LocalObjectReference: corev1.LocalObjectReference{
@@ -674,6 +727,9 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 									},
 									Key:      "Creds",
 									Optional: new(bool),
+								},
+								Config: map[string]string{
+									"region": "us-east-1",
 								},
 							},
 						},
@@ -687,7 +743,14 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 					},
 				},
 			},
-			objects: []client.Object{},
+			objects: []client.Object{
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "Test",
+						Namespace: "test-ns",
+					},
+				},
+			},
 			wantErr: false,
 			want:    true,
 		},
@@ -702,6 +765,12 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 					BackupLocations: []oadpv1alpha1.BackupLocation{
 						{
 							Velero: &v1.BackupStorageLocationSpec{
+								StorageType: v1.StorageType{
+									ObjectStorage: &v1.ObjectStorageLocation{
+										Bucket: "test-bucket",
+										Prefix: "test-prefix",
+									},
+								},
 								Provider: "velero.io/aws",
 								Credential: &corev1.SecretKeySelector{
 									LocalObjectReference: corev1.LocalObjectReference{
@@ -710,10 +779,19 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 									Key:      "Creds",
 									Optional: new(bool),
 								},
+								Config: map[string]string{
+									"region": "us-east-1",
+								},
 							},
 						},
 						{
 							Velero: &v1.BackupStorageLocationSpec{
+								StorageType: v1.StorageType{
+									ObjectStorage: &v1.ObjectStorageLocation{
+										Bucket: "test-bucket",
+										Prefix: "test-prefix",
+									},
+								},
 								Provider: "velero.io/aws",
 							},
 						},
@@ -727,7 +805,14 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 					},
 				},
 			},
-			objects: []client.Object{},
+			objects: []client.Object{
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "Test",
+						Namespace: "test-ns",
+					},
+				},
+			},
 			wantErr: true,
 			want:    false,
 		},
@@ -742,6 +827,12 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 					BackupLocations: []oadpv1alpha1.BackupLocation{
 						{
 							Velero: &v1.BackupStorageLocationSpec{
+								StorageType: v1.StorageType{
+									ObjectStorage: &v1.ObjectStorageLocation{
+										Bucket: "test-bucket",
+										Prefix: "test-prefix",
+									},
+								},
 								Provider: "velero.io/aws",
 								Credential: &corev1.SecretKeySelector{
 									LocalObjectReference: corev1.LocalObjectReference{
@@ -749,6 +840,9 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 									},
 									Key:      "cloud",
 									Optional: new(bool),
+								},
+								Config: map[string]string{
+									"region": "us-east-1",
 								},
 							},
 						},
@@ -791,6 +885,12 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 					BackupLocations: []oadpv1alpha1.BackupLocation{
 						{
 							Velero: &v1.BackupStorageLocationSpec{
+								StorageType: v1.StorageType{
+									ObjectStorage: &v1.ObjectStorageLocation{
+										Bucket: "test-bucket",
+										Prefix: "test-prefix",
+									},
+								},
 								Provider: "velero.io/aws",
 								Credential: &corev1.SecretKeySelector{
 									LocalObjectReference: corev1.LocalObjectReference{
@@ -798,6 +898,9 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 									},
 									Key:      "cloud",
 									Optional: new(bool),
+								},
+								Config: map[string]string{
+									"region": "us-east-1",
 								},
 							},
 						},
@@ -861,6 +964,12 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 					BackupLocations: []oadpv1alpha1.BackupLocation{
 						{
 							Velero: &v1.BackupStorageLocationSpec{
+								StorageType: v1.StorageType{
+									ObjectStorage: &v1.ObjectStorageLocation{
+										Bucket: "test-bucket",
+										Prefix: "test-prefix",
+									},
+								},
 								Provider: "velero.io/aws",
 								Credential: &corev1.SecretKeySelector{
 									LocalObjectReference: corev1.LocalObjectReference{
@@ -868,6 +977,9 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 									},
 									Key:      "cloud",
 									Optional: new(bool),
+								},
+								Config: map[string]string{
+									"region": "us-east-1",
 								},
 							},
 						},
@@ -917,6 +1029,12 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 					BackupLocations: []oadpv1alpha1.BackupLocation{
 						{
 							Velero: &v1.BackupStorageLocationSpec{
+								StorageType: v1.StorageType{
+									ObjectStorage: &v1.ObjectStorageLocation{
+										Bucket: "test-bucket",
+										Prefix: "test-prefix",
+									},
+								},
 								Provider: "velero.io/aws",
 								Credential: &corev1.SecretKeySelector{
 									LocalObjectReference: corev1.LocalObjectReference{
@@ -924,6 +1042,9 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 									},
 									Key:      "cloud",
 									Optional: new(bool),
+								},
+								Config: map[string]string{
+									"region": "us-east-1",
 								},
 							},
 						},
@@ -961,6 +1082,78 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 				&corev1.Secret{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "custom-vsl-credentials",
+						Namespace: "test-ns",
+					},
+				},
+			},
+			wantErr: false,
+			want:    true,
+		},
+		{
+			name: "If DPA CR has CloudStorageLocation without Prefix defined with backupImages enabled, error case",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-DPA-CR",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					BackupLocations: []oadpv1alpha1.BackupLocation{
+						{
+							CloudStorage: &oadpv1alpha1.CloudStorageLocation{
+								CloudStorageRef: corev1.LocalObjectReference{
+									Name: "testing",
+								},
+								Prefix: "",
+							},
+						},
+					},
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{},
+						},
+					},
+					BackupImages: pointer.Bool(true),
+				},
+			},
+			objects: []client.Object{},
+			wantErr: true,
+			want:    false,
+		},
+		{
+			name: "If DPA CR has CloudStorageLocation with Prefix defined with backupImages enabled, no error case",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-DPA-CR",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					BackupLocations: []oadpv1alpha1.BackupLocation{
+						{
+							CloudStorage: &oadpv1alpha1.CloudStorageLocation{
+								CloudStorageRef: corev1.LocalObjectReference{
+									Name: "testing",
+								},
+								Prefix: "some-prefix",
+								Credential: &corev1.SecretKeySelector{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: "cloud-credentials",
+									},
+								},
+							},
+						},
+					},
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{},
+						},
+					},
+					BackupImages: pointer.Bool(true),
+				},
+			},
+			objects: []client.Object{
+				&oadpv1alpha1.CloudStorage{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "testing",
 						Namespace: "test-ns",
 					},
 				},

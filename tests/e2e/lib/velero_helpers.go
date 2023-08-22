@@ -163,6 +163,11 @@ var errorIgnorePatterns = []string{
 	"Error creating parent directories for blob-info-cache-v1.boltdb",
 	"blob unknown",
 	"num errors=0",
+	"level=debug", // debug logs may contain the text error about recoverable errors so ignore them
+
+	// Ignore managed fields errors per https://github.com/vmware-tanzu/velero/pull/6110 and avoid e2e failure.
+	// https://prow.ci.openshift.org/view/gs/origin-ci-test/pr-logs/pull/openshift_oadp-operator/1126/pull-ci-openshift-oadp-operator-master-4.10-operator-e2e-aws/1690109468546699264#1:build-log.txt%3A686
+	"level=error msg=\"error patch for managed fields ",
 }
 
 func recoverFromPanicLogs(veleroNamespace string, panicReason interface{}, panicFrom string) string {
@@ -177,37 +182,21 @@ func recoverFromPanicLogs(veleroNamespace string, panicReason interface{}, panic
 
 func BackupErrorLogs(ocClient client.Client, backup velero.Backup) []string {
 	bl := BackupLogs(ocClient, backup)
-	errorRegex, err := regexp.Compile("error|Error")
-	if err != nil {
-		return []string{"could not compile regex: ", err.Error()}
-	}
-	logLines := []string{}
-	for _, line := range strings.Split(bl, "\n") {
-		if errorRegex.MatchString(line) {
-			// ignore some expected errors
-			ignoreLine := false
-			for _, ignore := range errorIgnorePatterns {
-				ignoreLine, _ = regexp.MatchString(ignore, line)
-				if ignoreLine {
-					break
-				}
-			}
-			if !ignoreLine {
-				logLines = append(logLines, line)
-			}
-		}
-	}
-	return logLines
+	return errorLogsExcludingIgnored(bl)
 }
 
 func RestoreErrorLogs(ocClient client.Client, restore velero.Restore) []string {
 	rl := RestoreLogs(ocClient, restore)
+	return errorLogsExcludingIgnored(rl)
+}
+
+func errorLogsExcludingIgnored(logs string) []string {
 	errorRegex, err := regexp.Compile("error|Error")
 	if err != nil {
 		return []string{"could not compile regex: ", err.Error()}
 	}
 	logLines := []string{}
-	for _, line := range strings.Split(rl, "\n") {
+	for _, line := range strings.Split(logs, "\n") {
 		if errorRegex.MatchString(line) {
 			// ignore some expected errors
 			ignoreLine := false

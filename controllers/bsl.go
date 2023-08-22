@@ -14,11 +14,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-func (r *DPAReconciler) ValidateBackupStorageLocations(log logr.Logger) (bool, error) {
-	dpa := oadpv1alpha1.DataProtectionApplication{}
-	if err := r.Get(r.Context, r.NamespacedName, &dpa); err != nil {
-		return false, err
-	}
+func (r *DPAReconciler) ValidateBackupStorageLocations(dpa oadpv1alpha1.DataProtectionApplication) (bool, error) {
 	if dpa.Spec.Configuration == nil || dpa.Spec.Configuration.Velero == nil {
 		return false, errors.New("DPA CR Velero configuration cannot be nil")
 	}
@@ -140,6 +136,8 @@ func (r *DPAReconciler) ReconcileBackupStorageLocations(log logr.Logger) (bool, 
 				bsl.Spec.Default = bslSpec.CloudStorage.Default
 				bsl.Spec.ObjectStorage = &velerov1.ObjectStorageLocation{
 					Bucket: bucket.Spec.Name,
+					Prefix: bslSpec.CloudStorage.Prefix,
+					CACert: bslSpec.CloudStorage.CACert,
 				}
 				switch bucket.Spec.Provider {
 				case oadpv1alpha1.AWSBucketProvider:
@@ -250,7 +248,7 @@ func (r *DPAReconciler) validateAWSBackupStorageLocation(bslSpec velerov1.Backup
 	if len(bslSpec.StorageType.ObjectStorage.Prefix) == 0 && dpa.BackupImages() {
 		return fmt.Errorf("prefix for AWS backupstoragelocation object storage cannot be empty. It is required for backing up images")
 	}
-	// BSL region is required when s3ForcePathStyle is true AND BackupImages is false
+	// BSL region is required when s3ForcePathStyle is true AND BackupImages is true
 	if (bslSpec.Config == nil || len(bslSpec.Config[Region]) == 0 && bslSpec.Config[S3ForcePathStyle] == "true") && dpa.BackupImages() {
 		return fmt.Errorf("region for AWS backupstoragelocation cannot be empty when s3ForcePathStyle is true or when backing up images")
 	}
@@ -323,6 +321,9 @@ func pluginExistsInVeleroCR(configuredPlugins []oadpv1alpha1.DefaultPlugin, expe
 }
 
 func (r *DPAReconciler) validateProviderPluginAndSecret(bslSpec velerov1.BackupStorageLocationSpec, dpa *oadpv1alpha1.DataProtectionApplication) error {
+	if dpa.Spec.Configuration.Velero.HasFeatureFlag("no-secret") {
+		return nil
+	}
 	// check for existence of provider plugin and warn if the plugin is absent
 	if !pluginExistsInVeleroCR(dpa.Spec.Configuration.Velero.DefaultPlugins, oadpv1alpha1.DefaultPlugin(bslSpec.Provider)) {
 		r.Log.Info(fmt.Sprintf("%s backupstoragelocation is configured but velero plugin for %s is not present", bslSpec.Provider, bslSpec.Provider))
