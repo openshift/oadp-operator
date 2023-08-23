@@ -64,10 +64,10 @@ var debugMode = os.Getenv("DEBUG") == "true"
 //+kubebuilder:rbac:groups=oadp.openshift.io,resources=dataprotectionapplications/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=oadp.openshift.io,resources=dataprotectionapplications/finalizers,verbs=update
 
-// Reconcile is part of the main kubernetes reconciliation loop which aims to
+// Reconcile is part of the main Kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
 // TODO(user): Modify the Reconcile function to compare the state specified by
-// the DataProtectionApplciation object against the actual cluster state, and then
+// the DataProtectionApplication object against the actual cluster state, and then
 // perform operations to make the cluster state reflect the state specified by
 // the user.
 //
@@ -88,6 +88,7 @@ func (r *DPAReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	}
 
 	_, err := ReconcileBatch(r.Log,
+		// TODO create updateOadpVersion.go and create function there?
 		r.ValidateDataProtectionCR,
 		r.ReconcileResticRestoreHelperConfig,
 		r.ValidateBackupStorageLocations,
