@@ -1904,6 +1904,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 										"server",
 										"--metrics-address=:" + strconv.Itoa(int(argsMetricsPortTest)),
 										"--restic-timeout=1h0m0s",
+										"--restore-resource-priorities=securitycontextconstraints,customresourcedefinitions,namespaces,storageclasses,volumesnapshotclass.snapshot.storage.k8s.io,volumesnapshotcontents.snapshot.storage.k8s.io,volumesnapshots.snapshot.storage.k8s.io,datauploads.velero.io,persistentvolumes,persistentvolumeclaims,serviceaccounts,secrets,configmaps,limitranges,pods,replicasets.apps,clusterclasses.cluster.x-k8s.io,endpoints,services,-,clusterbootstraps.run.tanzu.vmware.com,clusters.cluster.x-k8s.io,clusterresourcesets.addons.cluster.x-k8s.io",
 									},
 									VolumeMounts: baseVolumeMounts,
 									Env:          baseEnvVars,
