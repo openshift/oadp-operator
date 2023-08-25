@@ -302,8 +302,8 @@ This section includes how to debug a failed restore. For more specific issues re
         - gcp
         - openshift
   ```
-  Please note that this is a temporary fix for this issue, and ongoing discussions are in progress to address it.
-
+  Please note that this is a temporary fix for this issue, and ongoing discussions are in progress to address it. Also, note that if have an existing restore resource priority list, make sure you combine that existing list with the complete list presented in the example above.
+  
   - This error can occur regardless of the SCC if the application is not aligned with the security standards. Please ensure that the security standards for the application pods are aligned, as provided in the link below, to prevent deployment warnings.  
   https://access.redhat.com/solutions/7002730
 
