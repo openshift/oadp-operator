@@ -15,6 +15,7 @@ If you need help, first search if there is [already an issue filed](https://issu
     5. [Restic - NFS Volumes and rootSquash](#rootsquash)
     6. [Issue with Backup/Restore of DeploymentConfig using Restic](#deployconfig)
     7. [New Restic Backup Partially Failing After Clearing Bucket](#resbackup)
+    8. [Restic Restore Partially Failing on OCP 4.14 Due to Changed PSA Policy](#psapolicy)
 6. [OADP FAQ](#faq)
 7. [OpenShift ROSA STS and OADP installation](https://github.com/rh-mobb/documentation/blob/main/content/docs/misc/oadp/rosa-sts/_index.md)
 
@@ -276,6 +277,37 @@ This section includes how to debug a failed restore. For more specific issues re
 
 <hr style="height:1px;border:none;color:#333;">
 
+<h3 align="center">Restic Restore Partially Failing on OCP 4.14 Due to Changed PSA Policy<a id="psapolicy"></a></h3>
+
+ **Issue:** 
+ OCP 4.14 enforces a Pod Security Admission (PSA) policy that can hinder the readiness of pods during a Restic restore process. If a Security Context Constraints (SCC) resource is not found during the creation of a pod, and the PSA policy on the pod is not aligned with the required standards, pod admission is denied. This issue arises due to the resource restore order of Velero.  
+  - Sample error: 
+  ```
+  \"level=error\" in line#2273: time=\"2023-06-12T06:50:04Z\" level=error msg=\"error restoring mysql-869f9f44f6-tp5lv: pods \\\"mysql-869f9f44f6-tp5lv\\\" is forbidden: violates PodSecurity \\\"restricted:v1.24\\\": privileged (container \\\"mysql\\\" must not set securityContext.privileged=true), allowPrivilegeEscalation != false (containers \\\"restic-wait\\\", \\\"mysql\\\" must set securityContext.allowPrivilegeEscalation=false), unrestricted capabilities (containers \\\"restic-wait\\\", \\\"mysql\\\" must set securityContext.capabilities.drop=[\\\"ALL\\\"]), seccompProfile (pod or containers \\\"restic-wait\\\", \\\"mysql\\\" must set securityContext.seccompProfile.type to \\\"RuntimeDefault\\\" or \\\"Localhost\\\")\" logSource=\"/remote-source/velero/app/pkg/restore/restore.go:1388\" restore=openshift-adp/todolist-backup-0780518c-08ed-11ee-805c-0a580a80e92c\n velero container contains \"level=error\" in line#2447: time=\"2023-06-12T06:50:05Z\" level=error msg=\"Namespace todolist-mariadb, resource restore error: error restoring pods/todolist-mariadb/mysql-869f9f44f6-tp5lv: pods \\\"mysql-869f9f44f6-tp5lv\\\" is forbidden: violates PodSecurity \\\"restricted:v1.24\\\": privileged (container \\\"mysql\\\" must not set securityContext.privileged=true), allowPrivilegeEscalation != false (containers \\\"restic-wait\\\", \\\"mysql\\\" must set securityContext.allowPrivilegeEscalation=false), unrestricted capabilities (containers \\\"restic-wait\\\", \\\"mysql\\\" must set securityContext.capabilities.drop=[\\\"ALL\\\"]), seccompProfile (pod or containers \\\"restic-wait\\\", \\\"mysql\\\" must set securityContext.seccompProfile.type to \\\"RuntimeDefault\\\" or \\\"Localhost\\\")\" logSource=\"/remote-source/velero/app/pkg/controller/restore_controller.go:510\" restore=openshift-adp/todolist-backup-0780518c-08ed-11ee-805c-0a580a80e92c\n]", 
+  ```
+
+ **Solution:**
+ Restore SCC before Pod. Set restore priority field on velero server to restore SCC before Pod.
+
+  - Example DPA setting:
+  ```
+  $ oc get dpa -o yaml
+   configuration:
+      restic:
+        enable: true
+      velero:
+        args:
+          restore-resource-priorities: 'securitycontextconstraints,customresourcedefinitions,namespaces,storageclasses,volumesnapshotclass.snapshot.storage.k8s.io,volumesnapshotcontents.snapshot.storage.k8s.io,volumesnapshots.snapshot.storage.k8s.io,datauploads.velero.io,persistentvolumes,persistentvolumeclaims,serviceaccounts,secrets,configmaps,limitranges,pods,replicasets.apps,clusterclasses.cluster.x-k8s.io,endpoints,services,-,clusterbootstraps.run.tanzu.vmware.com,clusters.cluster.x-k8s.io,clusterresourcesets.addons.cluster.x-k8s.io'
+        defaultPlugins:
+        - gcp
+        - openshift
+  ```
+  Please note that this is a temporary fix for this issue, and ongoing discussions are in progress to address it. Also, note that if have an existing restore resource priority list, make sure you combine that existing list with the complete list presented in the example above.
+  
+  - This error can occur regardless of the SCC if the application is not aligned with the security standards. Please ensure that the security standards for the application pods are aligned, as provided in the link below, to prevent deployment warnings.  
+  https://access.redhat.com/solutions/7002730
+
+<hr style="height:1px;border:none;color:#333;"> 
 <h1 align="center">OADP FAQ<a id="faq"></a></h1>
 
 The OADP team maintains a [FAQ page](https://access.redhat.com/articles/5456281)
