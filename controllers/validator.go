@@ -14,6 +14,7 @@ import (
 	"github.com/openshift/oadp-operator/pkg/credentials"
 
 	appsV1 "k8s.io/api/apps/v1"
+	apiErrors "k8s.io/apimachinery/pkg/api/errors"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -23,28 +24,21 @@ func (r *DPAReconciler) ValidateDataProtectionCR(log logr.Logger) (bool, error) 
 	// When updating from OADP version 1.1.x to 1.2.x, delete
 	// daemonset.apps/restic (it was renamed to daemonset.apps/node-agent)
 	// resticrepositories.velero.io CRD (it was renamed to backuprepositories.velero.io)
-	// TODO ignore errors as if resource may not exist?
-	r.Delete(r.Context, &appsV1.DaemonSet{ObjectMeta: metaV1.ObjectMeta{
+	if err := r.Delete(r.Context, &appsV1.DaemonSet{ObjectMeta: metaV1.ObjectMeta{
 		Name: "restic", Namespace: r.NamespacedName.Namespace,
-	}})
+	}}); err != nil && !apiErrors.IsNotFound(err) {
+		return false, err
+	}
 	resticRepositoriesResource := &unstructured.Unstructured{}
 	resticRepositoriesResource.SetGroupVersionKind(schema.GroupVersionKind{
-		Group:   "velero.io",
+		Group:   "apiextensions.k8s.io",
 		Version: "v1",
 		Kind:    "CustomResourceDefinition",
 	})
 	resticRepositoriesResource.SetName("resticrepositories.velero.io")
-	r.Delete(r.Context, resticRepositoriesResource)
-	// NAME                                                    READY   STATUS    RESTARTS   AGE
-	// pod/restic-s2tcr                                        1/1     Running   0          10m
-	// pod/restic-wsm7f                                        1/1     Running   0          10m
-	// pod/restic-xfrdn                                        1/1     Running   0          10m
-
-	// NAME                    DESIRED   CURRENT   READY   UP-TO-DATE   AVAILABLE   NODE SELECTOR   AGE
-	// daemonset.apps/restic   3         3         3       3            3           <none>          10m
-
-	// NAME                           CREATED AT
-	// resticrepositories.velero.io   2023-08-23T12:26:47Z
+	if err := r.Delete(r.Context, resticRepositoriesResource); err != nil && !apiErrors.IsNotFound(err) {
+		return false, err
+	}
 
 	dpa := oadpv1alpha1.DataProtectionApplication{}
 	if err := r.Get(r.Context, r.NamespacedName, &dpa); err != nil {
