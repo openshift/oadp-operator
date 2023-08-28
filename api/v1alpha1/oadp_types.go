@@ -42,6 +42,7 @@ const OadpBSLProviderLabel = "openshift.io/oadp-bsl-provider"
 const DataMoverLabel = "openshift.io/volume-snapshot-mover"
 const StorageClassLabel = "openshift.io/vsm-storageclass"
 
+// +kubebuilder:validation:Enum=aws;gcp;azure;csi;vsm;openshift;kubevirt
 type DefaultPlugin string
 
 const DefaultPluginAWS DefaultPlugin = "aws"

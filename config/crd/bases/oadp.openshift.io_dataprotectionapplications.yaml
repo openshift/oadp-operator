@@ -488,6 +488,14 @@ spec:
                           type: string
                         defaultPlugins:
                           items:
+                            enum:
+                              - aws
+                              - gcp
+                              - azure
+                              - csi
+                              - vsm
+                              - openshift
+                              - kubevirt
                             type: string
                           type: array
                         featureFlags:
