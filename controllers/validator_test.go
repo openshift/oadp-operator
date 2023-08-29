@@ -327,10 +327,12 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 							},
 						},
 						Restic: &oadpv1alpha1.ResticConfig{
-							PodConfig: &oadpv1alpha1.PodConfig{
-								ResourceAllocations: corev1.ResourceRequirements{
-									Requests: corev1.ResourceList{
-										corev1.ResourceCPU: resource.MustParse("2"),
+							NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
+								PodConfig: &oadpv1alpha1.PodConfig{
+									ResourceAllocations: corev1.ResourceRequirements{
+										Requests: corev1.ResourceList{
+											corev1.ResourceCPU: resource.MustParse("2"),
+										},
 									},
 								},
 							},

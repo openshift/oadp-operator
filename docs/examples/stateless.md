@@ -21,8 +21,9 @@ spec:
       defaultPlugins:
       - openshift
       - aws
-    restic:
+    nodeAgent:
       enable: true
+      uploaderType: restic
   backupLocations:
     - name: default
       velero:

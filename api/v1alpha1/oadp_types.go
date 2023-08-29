@@ -119,7 +119,7 @@ type PodConfig struct {
 	// nodeSelector defines the nodeSelector to be supplied to podSpec
 	// +optional
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
-	// tolerations defines the list of tolerations to be applied
+	// tolerations defines the list of tolerations to be applied to daemonset
 	// +optional
 	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
 	// resourceAllocations defines the CPU and Memory resource allocations for the Pod
@@ -131,26 +131,53 @@ type PodConfig struct {
 	Env []corev1.EnvVar `json:"env,omitempty"`
 }
 
-// ResticConfig is the configuration for restic server
-type ResticConfig struct {
+type NodeAgentCommonFields struct {
 	// enable defines a boolean pointer whether we want the daemonset to
 	// exist or not
 	// +optional
 	Enable *bool `json:"enable,omitempty"`
-	// supplementalGroups defines the linux groups to be applied to the Restic Pod
+	// supplementalGroups defines the linux groups to be applied to the NodeAgent Pod
 	// +optional
 	SupplementalGroups []int64 `json:"supplementalGroups,omitempty"`
-	// timeout defines the Restic timeout, default value is 1h
+	// timeout defines the NodeAgent timeout, default value is 1h
 	// +optional
 	Timeout string `json:"timeout,omitempty"`
 	// Pod specific configuration
 	PodConfig *PodConfig `json:"podConfig,omitempty"`
 }
 
+// NodeAgentConfig is the configuration for node server
+type NodeAgentConfig struct {
+	// Embedding NodeAgentCommonFields
+	// +optional
+	NodeAgentCommonFields `json:",inline"`
+
+	// The type of uploader to transfer the data of pod volumes, the supported values are 'restic' or 'kopia'
+	// +kubebuilder:validation:Enum=restic;kopia
+	// +kubebuilder:validation:Required
+	UploaderType string `json:"uploaderType"`
+}
+
+// ResticConfig is the configuration for restic server
+type ResticConfig struct {
+	// Embedding NodeAgentCommonFields
+	// +optional
+	NodeAgentCommonFields `json:",inline"`
+}
+
 // ApplicationConfig defines the configuration for the Data Protection Application
 type ApplicationConfig struct {
 	Velero *VeleroConfig `json:"velero,omitempty"`
+	// (deprecation warning) ResticConfig is the configuration for restic DaemonSet.
+	// restic is for backwards compatibility and is replaced by the nodeAgent
+	// restic will be removed with the OADP 1.4
+	// +kubebuilder:deprecatedversion:warning=1.3
+	// +optional
 	Restic *ResticConfig `json:"restic,omitempty"`
+
+	// NodeAgent is needed to allow selection between kopia or restic
+	// +optional
+	NodeAgent *NodeAgentConfig `json:"nodeAgent,omitempty"`
 }
 
 // CloudStorageLocation defines BackupStorageLocation using bucket referenced by CloudStorage CR.
@@ -400,11 +427,15 @@ func (dpa *DataProtectionApplication) AutoCorrect() {
 	if dpa.Spec.Configuration.Velero.Args != nil {
 		// if args is not nil, we take care of some fields that will be overridden from dpa if not specified in args
 		// Enable user to specify --fs-backup-timeout duration (OADP default 1h0m0s)
-		resticTimeout := "1h"
-		if dpa.Spec.Configuration != nil && dpa.Spec.Configuration.Restic != nil && len(dpa.Spec.Configuration.Restic.Timeout) > 0 {
-			resticTimeout = dpa.Spec.Configuration.Restic.Timeout
+		fsBackupTimeout := "1h"
+		if dpa.Spec.Configuration != nil {
+			if dpa.Spec.Configuration.NodeAgent != nil && len(dpa.Spec.Configuration.NodeAgent.Timeout) > 0 {
+				fsBackupTimeout = dpa.Spec.Configuration.NodeAgent.Timeout
+			} else if dpa.Spec.Configuration.Restic != nil && len(dpa.Spec.Configuration.Restic.Timeout) > 0 {
+				fsBackupTimeout = dpa.Spec.Configuration.Restic.Timeout
+			}
 		}
-		if pvOperationTimeout, err := time.ParseDuration(resticTimeout); err == nil && dpa.Spec.Configuration.Velero.Args.PodVolumeOperationTimeout == nil {
+		if pvOperationTimeout, err := time.ParseDuration(fsBackupTimeout); err == nil && dpa.Spec.Configuration.Velero.Args.PodVolumeOperationTimeout == nil {
 			dpa.Spec.Configuration.Velero.Args.PodVolumeOperationTimeout = &pvOperationTimeout
 		}
 	}

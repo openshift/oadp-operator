@@ -2,7 +2,7 @@
 <h1 align="center">Resource Requests and Limits Customization</h1>
 <hr style="height:1px;border:none;color:#333;">
 
-### Setting resource limits and requests for Velero and Restic Pods
+### Setting resource limits and requests for Velero and Node Agent Pods
 
 In order to set specific resource(cpu, memory) `limits` and `requests` for the 
 Velero pod, you need use the `configuration.velero.podConfig.resourceAllocations` specification field in 
@@ -23,12 +23,13 @@ For instance, the `configuration.velero.podConfig.resourceAllocations` can look 
             memory: 256Mi
 ```
 
-Similarly, you can use the `configuration.restic.podConfig.resourceAllocations` specification field for 
-setting specific resource `limits` and `requests` for the Restic pods.
+Similarly, you can use the `configuration.nodeAgent.podConfig.resourceAllocations` specification field for 
+setting specific resource `limits` and `requests` for the Node Agent pods.
 
 ```
   configuration:
-    restic:
+    nodeAgent:
+    [...]
       podConfig:
         resourceAllocations:
           limits:
@@ -42,8 +43,8 @@ setting specific resource `limits` and `requests` for the Restic pods.
 <b>Note:</b> 
 - The values for the resource requests and limits flags follow the same format 
 as [Kubernetes resource requirements](https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/)
-- Also, if the `configuration.velero.podConfig.resourceAllocations` / `configuration.restic.podConfig.resourceAllocations` is not 
-defined by the user, then the default resources specification for Velero/Restic 
+- Also, if the `configuration.velero.podConfig.resourceAllocations` / `configuration.nodeAgent.podConfig.resourceAllocations` is not 
+defined by the user, then the default resources specification for Velero/Node Agent 
 pod(s) is:
 
   ```
@@ -53,4 +54,4 @@ pod(s) is:
       memory: 128Mi
   ```
 
-This differs from upstream Velero/Restic pod(s) in that the default resources which [has resource limits as well as resource requests](https://velero.io/docs/v1.9/customize-installation/#customize-resource-requests-and-limits).
+This differs from upstream Velero/Node Agent pod(s) in that the default resources which [has resource limits as well as resource requests](https://velero.io/docs/v1.9/customize-installation/#customize-resource-requests-and-limits).

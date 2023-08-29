@@ -76,7 +76,9 @@ func (v *DpaCustomResource) Build(backupRestoreType BackupRestoreType) error {
 					DefaultPlugins: v.CustomResource.Spec.Configuration.Velero.DefaultPlugins,
 				},
 				Restic: &oadpv1alpha1.ResticConfig{
-					PodConfig: &oadpv1alpha1.PodConfig{},
+					NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
+						PodConfig: &oadpv1alpha1.PodConfig{},
+					},
 				},
 			},
 			SnapshotLocations: v.CustomResource.Spec.SnapshotLocations,

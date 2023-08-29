@@ -15,7 +15,7 @@ Upstream [kopia](https://github.com/kopia/kopia) project which is used by Velero
 
 ## Goals
 
-- A new option `nodeAgentConfig` to allow configuration of restic or kopia uploader
+- A new option `nodeAgent` under `configuration` section to allow configuration of restic or kopia uploader
 - Backwards compatibility with the current OADP configuration schema options, namely `restic`
 - Preparation for the future deprecation of the current `restic` configuration option (from OADP 1.4+)
 - Allow new schema(s) to be used by the datamover node agent
@@ -32,9 +32,9 @@ Upstream [kopia](https://github.com/kopia/kopia) project which is used by Velero
 
 ## High-Level Design
 
-Since new `nodeAgentConfig` configuration option is a sibling of the `restic` one, the new common structure `NodeAgentCommonFields` will be created which will be exactly the same data structure as current `ResticConfig` and will be used by both `Restic` and the new `NodeAgentConfig`. The only difference between `NodeAgentConfig` and `Restic` is an addition of one `UploaderType` option to the `NodeAgentConfig` that will be either `kopia` or `restic`.
+Since new `nodeAgent` configuration option is a sibling of the `restic` one, the new common structure `NodeAgentCommonFields` will be created which will be exactly the same data structure as current `ResticConfig` and will be used by both `Restic` and the new `NodeAgentConfig` structure. The only difference between `NodeAgentConfig` and `Restic` is an addition of one `UploaderType` option to the `NodeAgentConfig` that will be either `kopia` or `restic`.
 
-When `nodeAgentConfig` is used, the `UploaderType` option is a required one, so the user have to select either `kopia` or `restic`.
+When `nodeAgent` is used, the `UploaderType` option is a required one, so the user have to select either `kopia` or `restic`.
 
 ## Detailed Design
 
@@ -83,8 +83,8 @@ The above `NodeAgentConfig` is a member of `ApplicationConfig`, which already in
 // ApplicationConfig defines the configuration for the Data Protection Application
 type ApplicationConfig struct {
 	Velero *VeleroConfig `json:"velero,omitempty"`
-	// (deprecation warning) ResticConfig is the configuration for restic server.
-	// Restic is for backwards compatibility and is replaced by the nodeAgentConfig
+	// (deprecation warning) ResticConfig is the configuration for restic DaemonSet.
+	// Restic is for backwards compatibility and is replaced by the nodeAgent
 	// Restic will be removed with the OADP 1.4
 	// +kubebuilder:deprecatedversion:warning=1.3
 	// +optional
@@ -92,20 +92,20 @@ type ApplicationConfig struct {
 
 	// NodeAgentConfig is needed to allow selection between kopia or restic
 	// +kubebuilder:validation:Optional
-	NodeAgent *NodeAgentConfig `json:"nodeAgentConfig,omitempty"`
+	NodeAgent *NodeAgentConfig `json:"nodeAgent,omitempty"`
 }
 ```
 
 ### Configuration YAML options
 
-The `nodeAgentConfig` configuration options and `restic` configuration options will be exactly the same and will contain same options as the current `restic` schema with additional `uploaderType` field under `nodeAgentConfig`. The part of YAML that presents the additions:
+The `nodeAgent` configuration options and `restic` configuration options will be exactly the same and will contain same options as the current `restic` schema with additional `uploaderType` field under `nodeAgent`. The part of YAML that presents the additions:
 
 ```yaml
 configuration:
 	description: configuration is used to configure the data protection application's server config
 	properties:
 
-	nodeAgentConfig:
+	nodeAgent:
 		description: NodeAgent is needed to allow selection between kopia or restic
 		properties:
 
@@ -120,7 +120,7 @@ configuration:
 		type: object
 
 	restic:
-		description: (deprecation warning) Restic is for backwards compatibility and will be removed with the OADP 1.4+. Use nodeAgentConfig instead.
+		description: (Deprecation Warning) Use nodeAgent instead of restic, which is deprecated and will be removed with the OADP 1.4
 		properties:
 
 		[...] // <Same as all current restic configuration options>
@@ -129,17 +129,17 @@ configuration:
 
 ### Validations
 
-It is important to disallow user from using both options `restic` and `nodeAgentConfig` in OADP 1.3 together (error state).
+It is important to disallow user from using both options `restic` and `nodeAgent` in OADP 1.3 together (error state).
 
 ### Deprecation of the `restic` coiguration option in OADP 1.3 and it's future removal
 
-The `restic` configuration option will be deprecated in OADP 1.3. It will be removed in a future OADP release. However, restic backup functionality is still fully-supported, but restic users are encouraged to use the new `nodeAgentConfig` struct instead so that they won't be impacted on upgrade when the legacy struct is removed in a future release.
+The `restic` configuration option will be deprecated in OADP 1.3. It will be removed in a future OADP release. However, restic backup functionality is still fully-supported, but restic users are encouraged to use the new `nodeAgent` configuration option instead, so that they won't be impacted on upgrade when the legacy struct is removed in a future release.
 
 There were few alternatices considered (see [Alternatives Considered](#alternatives-considered)). We will have three places where the deprecation information will be presented to the user:
 1. Description of the `resic` property will have the deprecation warning
 2. If the `restic` is used, the DPA event will contain a `warning` message to inform user that the `restic` is deprecated, that will appear in the DPA `Events`.
 3. If the `restic` is used, the application log will have `warning` message to inform user that the `restic` is deprecated
-4. Release notes for OADP 1.3 will contain information about new configuration option `nodeAgentConfig` that should be used instead of `restic`
+4. Release notes for OADP 1.3 will contain information about new configuration option `nodeAgent` that should be used instead of `restic`
 
 
 ## Alternatives Considered

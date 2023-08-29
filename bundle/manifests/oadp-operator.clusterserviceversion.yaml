@@ -32,8 +32,9 @@ metadata:
               }
             ],
             "configuration": {
-              "restic": {
-                "enable": true
+              "nodeAgent": {
+                "enable": true,
+                "uploaderType": "restic"
               },
               "velero": {
                 "defaultPlugins": [

@@ -9,8 +9,9 @@ spec:
       - openshift
       - aws
       - kubevirt
-    restic:
+    nodeAgent:
       enable: true
+      uploaderType: restic
   backupLocations:
     - velero:
         provider: aws

@@ -207,8 +207,9 @@ spec:
       - openshift
       - aws
       noDefaultBackupLocation: true
-    restic:
+    nodeAgent:
       enable: true
+      uploaderType: restic
 ```
 If you don't need volumesnapshotlocation, you will not need to create a VSL credentials.
 

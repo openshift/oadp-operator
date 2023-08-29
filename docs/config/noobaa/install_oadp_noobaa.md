@@ -102,7 +102,8 @@ OperatorHub in the `openshift-storage` namespace, so that the requisite NooBaa
 CRDs get deployed on the cluster, and wait untill the OCS operator pods are in 
 running state.
 4. Make sure the Velero CR file specifically has the following:
-   - `configuration.restic.enable: true`
+   - `configuration.nodeAgent.enable: true`
+   - `configuration.nodeAgent.uploaderType` is set to `restic` or `kopia`
    - `defaultPlugins` list should only consist of `aws` plugin
    - No data pertaining to Volume Snapshot Locations and Backup Storage Locations.
  
@@ -119,8 +120,9 @@ spec:
       defaultPlugins:
       - openshift
       - aws
-    restic:
+    nodeAgent:
       enable: true
+      uploaderType: restic
   ```
   
 5. Now for deployment of Velero use the following:

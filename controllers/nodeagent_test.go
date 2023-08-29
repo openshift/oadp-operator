@@ -27,7 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func TestDPAReconciler_ReconcileResticDaemonset(t *testing.T) {
+func TestDPAReconciler_ReconcileNodeAgentDaemonset(t *testing.T) {
 	type fields struct {
 		Client         client.Client
 		Scheme         *runtime.Scheme
@@ -58,19 +58,19 @@ func TestDPAReconciler_ReconcileResticDaemonset(t *testing.T) {
 				NamespacedName: tt.fields.NamespacedName,
 				EventRecorder:  tt.fields.EventRecorder,
 			}
-			got, err := r.ReconcileResticDaemonset(tt.args.log)
+			got, err := r.ReconcileNodeAgentDaemonset(tt.args.log)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("DPAReconciler.ReconcileResticDaemonset() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("DPAReconciler.ReconcileNodeAgentDaemonset() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if got != tt.want {
-				t.Errorf("DPAReconciler.ReconcileResticDaemonset() = %v, want %v", got, tt.want)
+				t.Errorf("DPAReconciler.ReconcileNodeAgentDaemonset() = %v, want %v", got, tt.want)
 			}
 		})
 	}
 }
 
-func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
+func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 	type fields struct {
 		Client         client.Client
 		Scheme         *runtime.Scheme
@@ -87,8 +87,11 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 	dpa := oadpv1alpha1.DataProtectionApplication{
 		Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 			Configuration: &oadpv1alpha1.ApplicationConfig{
-				Restic: &oadpv1alpha1.ResticConfig{
-					PodConfig: &oadpv1alpha1.PodConfig{},
+				NodeAgent: &oadpv1alpha1.NodeAgentConfig{
+					NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
+						PodConfig: &oadpv1alpha1.PodConfig{},
+					},
+					UploaderType: "",
 				},
 			},
 		},
@@ -123,8 +126,9 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 				&oadpv1alpha1.DataProtectionApplication{
 					Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 						Configuration: &oadpv1alpha1.ApplicationConfig{
-							Restic: &oadpv1alpha1.ResticConfig{
-								PodConfig: &oadpv1alpha1.PodConfig{},
+							NodeAgent: &oadpv1alpha1.NodeAgentConfig{
+								NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{},
+								UploaderType:          "",
 							},
 							Velero: &oadpv1alpha1.VeleroConfig{
 								PodConfig: &oadpv1alpha1.PodConfig{},
@@ -155,11 +159,11 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 							},
 						},
 						Spec: v1.PodSpec{
-							NodeSelector:       dpa.Spec.Configuration.Restic.PodConfig.NodeSelector,
+							NodeSelector:       dpa.Spec.Configuration.NodeAgent.PodConfig.NodeSelector,
 							ServiceAccountName: common.Velero,
 							SecurityContext: &v1.PodSecurityContext{
 								RunAsUser:          pointer.Int64(0),
-								SupplementalGroups: dpa.Spec.Configuration.Restic.SupplementalGroups,
+								SupplementalGroups: dpa.Spec.Configuration.NodeAgent.SupplementalGroups,
 							},
 							Volumes: []v1.Volume{
 								// Cloud Provider volumes are dynamically added in the for loop below
@@ -167,7 +171,7 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 									Name: HostPods,
 									VolumeSource: v1.VolumeSource{
 										HostPath: &v1.HostPathVolumeSource{
-											Path: resticPvHostPath,
+											Path: fsPvHostPath,
 										},
 									},
 								},
@@ -184,7 +188,7 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 									},
 								},
 							},
-							Tolerations: dpa.Spec.Configuration.Restic.PodConfig.Tolerations,
+							Tolerations: dpa.Spec.Configuration.NodeAgent.PodConfig.Tolerations,
 							Containers: []v1.Container{
 								{
 									Name: common.NodeAgent,
@@ -256,15 +260,18 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 				&oadpv1alpha1.DataProtectionApplication{
 					Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 						Configuration: &oadpv1alpha1.ApplicationConfig{
-							Restic: &oadpv1alpha1.ResticConfig{
-								PodConfig: &oadpv1alpha1.PodConfig{
-									Env: []corev1.EnvVar{
-										{
-											Name:  "TEST_ENV",
-											Value: "TEST_VALUE",
+							NodeAgent: &oadpv1alpha1.NodeAgentConfig{
+								NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
+									PodConfig: &oadpv1alpha1.PodConfig{
+										Env: []corev1.EnvVar{
+											{
+												Name:  "TEST_ENV",
+												Value: "TEST_VALUE",
+											},
 										},
 									},
 								},
+								UploaderType: "",
 							},
 							Velero: &oadpv1alpha1.VeleroConfig{
 								PodConfig: &oadpv1alpha1.PodConfig{},
@@ -295,11 +302,11 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 							},
 						},
 						Spec: v1.PodSpec{
-							NodeSelector:       dpa.Spec.Configuration.Restic.PodConfig.NodeSelector,
+							NodeSelector:       dpa.Spec.Configuration.NodeAgent.PodConfig.NodeSelector,
 							ServiceAccountName: common.Velero,
 							SecurityContext: &v1.PodSecurityContext{
 								RunAsUser:          pointer.Int64(0),
-								SupplementalGroups: dpa.Spec.Configuration.Restic.SupplementalGroups,
+								SupplementalGroups: dpa.Spec.Configuration.NodeAgent.SupplementalGroups,
 							},
 							Volumes: []v1.Volume{
 								// Cloud Provider volumes are dynamically added in the for loop below
@@ -307,7 +314,7 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 									Name: HostPods,
 									VolumeSource: v1.VolumeSource{
 										HostPath: &v1.HostPathVolumeSource{
-											Path: resticPvHostPath,
+											Path: fsPvHostPath,
 										},
 									},
 								},
@@ -324,7 +331,7 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 									},
 								},
 							},
-							Tolerations: dpa.Spec.Configuration.Restic.PodConfig.Tolerations,
+							Tolerations: dpa.Spec.Configuration.NodeAgent.PodConfig.Tolerations,
 							Containers: []v1.Container{
 								{
 									Name: common.NodeAgent,
@@ -395,17 +402,20 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 			},
 		},
 		{
-			name: "podConfig label for velero and restic",
+			name: "podConfig label for velero and NodeAgent",
 			args: args{
 				&oadpv1alpha1.DataProtectionApplication{
 					Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 						Configuration: &oadpv1alpha1.ApplicationConfig{
-							Restic: &oadpv1alpha1.ResticConfig{
-								PodConfig: &oadpv1alpha1.PodConfig{
-									Labels: map[string]string{
-										"resticLabel": "this is a label",
+							NodeAgent: &oadpv1alpha1.NodeAgentConfig{
+								NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
+									PodConfig: &oadpv1alpha1.PodConfig{
+										Labels: map[string]string{
+											"nodeAgentLabel": "this is a label",
+										},
 									},
 								},
+								UploaderType: "",
 							},
 							Velero: &oadpv1alpha1.VeleroConfig{
 								PodConfig: &oadpv1alpha1.PodConfig{
@@ -435,17 +445,17 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 					Template: v1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: map[string]string{
-								"component":   common.Velero,
-								"name":        common.NodeAgent,
-								"resticLabel": "this is a label",
+								"component":      common.Velero,
+								"name":           common.NodeAgent,
+								"nodeAgentLabel": "this is a label",
 							},
 						},
 						Spec: v1.PodSpec{
-							NodeSelector:       dpa.Spec.Configuration.Restic.PodConfig.NodeSelector,
+							NodeSelector:       dpa.Spec.Configuration.NodeAgent.PodConfig.NodeSelector,
 							ServiceAccountName: common.Velero,
 							SecurityContext: &v1.PodSecurityContext{
 								RunAsUser:          pointer.Int64(0),
-								SupplementalGroups: dpa.Spec.Configuration.Restic.SupplementalGroups,
+								SupplementalGroups: dpa.Spec.Configuration.NodeAgent.SupplementalGroups,
 							},
 							Volumes: []v1.Volume{
 								// Cloud Provider volumes are dynamically added in the for loop below
@@ -453,7 +463,7 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 									Name: HostPods,
 									VolumeSource: v1.VolumeSource{
 										HostPath: &v1.HostPathVolumeSource{
-											Path: resticPvHostPath,
+											Path: fsPvHostPath,
 										},
 									},
 								},
@@ -470,7 +480,7 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 									},
 								},
 							},
-							Tolerations: dpa.Spec.Configuration.Restic.PodConfig.Tolerations,
+							Tolerations: dpa.Spec.Configuration.NodeAgent.PodConfig.Tolerations,
 							Containers: []v1.Container{
 								{
 									Name: common.NodeAgent,
@@ -537,17 +547,20 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 			},
 		},
 		{
-			name: "Invalid podConfig label for velero and restic",
+			name: "Invalid podConfig label for velero and NodeAgent",
 			args: args{
 				&oadpv1alpha1.DataProtectionApplication{
 					Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 						Configuration: &oadpv1alpha1.ApplicationConfig{
-							Restic: &oadpv1alpha1.ResticConfig{
-								PodConfig: &oadpv1alpha1.PodConfig{
-									Labels: map[string]string{
-										"name": "not-restic", // this label is already defined by https://github.com/openshift/velero/blob/198ea57407d5271dc4ae00068123754ecff306ea/pkg/install/daemonset.go#L72
+							NodeAgent: &oadpv1alpha1.NodeAgentConfig{
+								NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
+									PodConfig: &oadpv1alpha1.PodConfig{
+										Labels: map[string]string{
+											"name": "not-node-agent", // this label is already defined by https://github.com/openshift/velero/blob/8b2f7dbdb510434b9c05180bae7a3fb2a8081e2f/pkg/install/daemonset.go#L71
+										},
 									},
 								},
+								UploaderType: "",
 							},
 							Velero: &oadpv1alpha1.VeleroConfig{
 								PodConfig: &oadpv1alpha1.PodConfig{
@@ -566,17 +579,20 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 			want:    nil,
 		},
 		{
-			name: "test restic nodeselector customization via dpa",
+			name: "test NodeAgent nodeselector customization via dpa",
 			args: args{
 				&oadpv1alpha1.DataProtectionApplication{
 					Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 						Configuration: &oadpv1alpha1.ApplicationConfig{
-							Restic: &oadpv1alpha1.ResticConfig{
-								PodConfig: &oadpv1alpha1.PodConfig{
-									NodeSelector: map[string]string{
-										"foo": "bar",
+							NodeAgent: &oadpv1alpha1.NodeAgentConfig{
+								NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
+									PodConfig: &oadpv1alpha1.PodConfig{
+										NodeSelector: map[string]string{
+											"foo": "bar",
+										},
 									},
 								},
+								UploaderType: "",
 							},
 							Velero: &oadpv1alpha1.VeleroConfig{
 								PodConfig: &oadpv1alpha1.PodConfig{},
@@ -616,7 +632,7 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 							ServiceAccountName: common.Velero,
 							SecurityContext: &v1.PodSecurityContext{
 								RunAsUser:          pointer.Int64(0),
-								SupplementalGroups: dpa.Spec.Configuration.Restic.SupplementalGroups,
+								SupplementalGroups: dpa.Spec.Configuration.NodeAgent.SupplementalGroups,
 							},
 							Volumes: []v1.Volume{
 								// Cloud Provider volumes are dynamically added in the for loop below
@@ -624,7 +640,7 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 									Name: "host-pods",
 									VolumeSource: v1.VolumeSource{
 										HostPath: &v1.HostPathVolumeSource{
-											Path: resticPvHostPath,
+											Path: fsPvHostPath,
 										},
 									},
 								},
@@ -649,7 +665,7 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 									},
 								},
 							},
-							Tolerations: dpa.Spec.Configuration.Restic.PodConfig.Tolerations,
+							Tolerations: dpa.Spec.Configuration.NodeAgent.PodConfig.Tolerations,
 							Containers: []v1.Container{
 								{
 									Name: common.NodeAgent,
@@ -724,17 +740,138 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 			},
 		},
 		{
-			name: "test restic resource reqs customization via dpa",
+			name: "test NodeAgent resource reqs customization via dpa",
 			args: args{
 				&oadpv1alpha1.DataProtectionApplication{
 					Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 						Configuration: &oadpv1alpha1.ApplicationConfig{
-							Restic: &oadpv1alpha1.ResticConfig{
-								PodConfig: &oadpv1alpha1.PodConfig{
-									NodeSelector: map[string]string{
-										"foo": "bar",
+							NodeAgent: &oadpv1alpha1.NodeAgentConfig{
+								NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
+									PodConfig: &oadpv1alpha1.PodConfig{
+										NodeSelector: map[string]string{
+											"foo": "bar",
+										},
+										ResourceAllocations: corev1.ResourceRequirements{
+											Limits: corev1.ResourceList{
+												corev1.ResourceCPU:    resource.MustParse("2"),
+												corev1.ResourceMemory: resource.MustParse("128Mi"),
+											},
+											Requests: corev1.ResourceList{
+												corev1.ResourceCPU:    resource.MustParse("1"),
+												corev1.ResourceMemory: resource.MustParse("256Mi"),
+											},
+										},
 									},
-									ResourceAllocations: corev1.ResourceRequirements{
+								},
+								UploaderType: "",
+							},
+							Velero: &oadpv1alpha1.VeleroConfig{
+								PodConfig: &oadpv1alpha1.PodConfig{},
+								DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+									oadpv1alpha1.DefaultPluginAWS,
+								},
+							},
+						},
+					},
+				}, &appsv1.DaemonSet{
+					ObjectMeta: getNodeAgentObjectMeta(r),
+				},
+			},
+			wantErr: false,
+			want: &appsv1.DaemonSet{
+				ObjectMeta: getNodeAgentObjectMeta(r),
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "DaemonSet",
+					APIVersion: appsv1.SchemeGroupVersion.String(),
+				},
+				Spec: appsv1.DaemonSetSpec{
+					UpdateStrategy: appsv1.DaemonSetUpdateStrategy{
+						Type: appsv1.RollingUpdateDaemonSetStrategyType,
+					},
+					Selector: nodeAgentLabelSelector,
+					Template: v1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Labels: map[string]string{
+								"component": common.Velero,
+								"name":      common.NodeAgent,
+							},
+						},
+						Spec: v1.PodSpec{
+							NodeSelector: map[string]string{
+								"foo": "bar",
+							},
+							ServiceAccountName: common.Velero,
+							SecurityContext: &v1.PodSecurityContext{
+								RunAsUser:          pointer.Int64(0),
+								SupplementalGroups: dpa.Spec.Configuration.NodeAgent.SupplementalGroups,
+							},
+							Volumes: []v1.Volume{
+								// Cloud Provider volumes are dynamically added in the for loop below
+								{
+									Name: "host-pods",
+									VolumeSource: v1.VolumeSource{
+										HostPath: &v1.HostPathVolumeSource{
+											Path: fsPvHostPath,
+										},
+									},
+								},
+								{
+									Name: "scratch",
+									VolumeSource: v1.VolumeSource{
+										EmptyDir: &v1.EmptyDirVolumeSource{},
+									},
+								},
+								{
+									Name: "certs",
+									VolumeSource: v1.VolumeSource{
+										EmptyDir: &v1.EmptyDirVolumeSource{},
+									},
+								},
+								{
+									Name: "cloud-credentials",
+									VolumeSource: v1.VolumeSource{
+										Secret: &v1.SecretVolumeSource{
+											SecretName: "cloud-credentials",
+										},
+									},
+								},
+							},
+							Tolerations: dpa.Spec.Configuration.NodeAgent.PodConfig.Tolerations,
+							Containers: []v1.Container{
+								{
+									Name: common.NodeAgent,
+									SecurityContext: &v1.SecurityContext{
+										Privileged: pointer.Bool(true),
+									},
+									Image:           getVeleroImage(&dpa),
+									ImagePullPolicy: v1.PullAlways,
+									Command: []string{
+										"/velero",
+									},
+									Args: []string{
+										common.NodeAgent,
+										"server",
+									},
+									VolumeMounts: []v1.VolumeMount{
+										{
+											Name:             "host-pods",
+											MountPath:        "/host_pods",
+											MountPropagation: &mountPropagationToHostContainer,
+										},
+										{
+											Name:      "scratch",
+											MountPath: "/scratch",
+										},
+										{
+											Name:      "certs",
+											MountPath: "/etc/ssl/certs",
+										},
+										{
+											Name:      "cloud-credentials",
+											MountPath: "/credentials",
+										},
+									},
+									Resources: corev1.ResourceRequirements{
 										Limits: corev1.ResourceList{
 											corev1.ResourceCPU:    resource.MustParse("2"),
 											corev1.ResourceMemory: resource.MustParse("128Mi"),
@@ -744,124 +881,6 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 											corev1.ResourceMemory: resource.MustParse("256Mi"),
 										},
 									},
-								},
-							},
-							Velero: &oadpv1alpha1.VeleroConfig{
-								PodConfig: &oadpv1alpha1.PodConfig{},
-								DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
-									oadpv1alpha1.DefaultPluginAWS,
-								},
-							},
-						},
-					},
-				}, &appsv1.DaemonSet{
-					ObjectMeta: getNodeAgentObjectMeta(r),
-				},
-			},
-			wantErr: false,
-			want: &appsv1.DaemonSet{
-				ObjectMeta: getNodeAgentObjectMeta(r),
-				TypeMeta: metav1.TypeMeta{
-					Kind:       "DaemonSet",
-					APIVersion: appsv1.SchemeGroupVersion.String(),
-				},
-				Spec: appsv1.DaemonSetSpec{
-					UpdateStrategy: appsv1.DaemonSetUpdateStrategy{
-						Type: appsv1.RollingUpdateDaemonSetStrategyType,
-					},
-					Selector: nodeAgentLabelSelector,
-					Template: v1.PodTemplateSpec{
-						ObjectMeta: metav1.ObjectMeta{
-							Labels: map[string]string{
-								"component": common.Velero,
-								"name":      common.NodeAgent,
-							},
-						},
-						Spec: v1.PodSpec{
-							NodeSelector: map[string]string{
-								"foo": "bar",
-							},
-							ServiceAccountName: common.Velero,
-							SecurityContext: &v1.PodSecurityContext{
-								RunAsUser:          pointer.Int64(0),
-								SupplementalGroups: dpa.Spec.Configuration.Restic.SupplementalGroups,
-							},
-							Volumes: []v1.Volume{
-								// Cloud Provider volumes are dynamically added in the for loop below
-								{
-									Name: "host-pods",
-									VolumeSource: v1.VolumeSource{
-										HostPath: &v1.HostPathVolumeSource{
-											Path: resticPvHostPath,
-										},
-									},
-								},
-								{
-									Name: "scratch",
-									VolumeSource: v1.VolumeSource{
-										EmptyDir: &v1.EmptyDirVolumeSource{},
-									},
-								},
-								{
-									Name: "certs",
-									VolumeSource: v1.VolumeSource{
-										EmptyDir: &v1.EmptyDirVolumeSource{},
-									},
-								},
-								{
-									Name: "cloud-credentials",
-									VolumeSource: v1.VolumeSource{
-										Secret: &v1.SecretVolumeSource{
-											SecretName: "cloud-credentials",
-										},
-									},
-								},
-							},
-							Tolerations: dpa.Spec.Configuration.Restic.PodConfig.Tolerations,
-							Containers: []v1.Container{
-								{
-									Name: common.NodeAgent,
-									SecurityContext: &v1.SecurityContext{
-										Privileged: pointer.Bool(true),
-									},
-									Image:           getVeleroImage(&dpa),
-									ImagePullPolicy: v1.PullAlways,
-									Command: []string{
-										"/velero",
-									},
-									Args: []string{
-										common.NodeAgent,
-										"server",
-									},
-									VolumeMounts: []v1.VolumeMount{
-										{
-											Name:             "host-pods",
-											MountPath:        "/host_pods",
-											MountPropagation: &mountPropagationToHostContainer,
-										},
-										{
-											Name:      "scratch",
-											MountPath: "/scratch",
-										},
-										{
-											Name:      "certs",
-											MountPath: "/etc/ssl/certs",
-										},
-										{
-											Name:      "cloud-credentials",
-											MountPath: "/credentials",
-										},
-									},
-									Resources: corev1.ResourceRequirements{
-										Limits: corev1.ResourceList{
-											corev1.ResourceCPU:    resource.MustParse("2"),
-											corev1.ResourceMemory: resource.MustParse("128Mi"),
-										},
-										Requests: corev1.ResourceList{
-											corev1.ResourceCPU:    resource.MustParse("1"),
-											corev1.ResourceMemory: resource.MustParse("256Mi"),
-										},
-									},
 									Env: []v1.EnvVar{
 										{
 											Name: "NODE_NAME",
@@ -896,22 +915,25 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 			},
 		},
 		{
-			name: "test restic resource reqs only restic cpu limit customization via dpa",
+			name: "test NodeAgent resource reqs only NodeAgent cpu limit customization via dpa",
 			args: args{
 				&oadpv1alpha1.DataProtectionApplication{
 					Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 						Configuration: &oadpv1alpha1.ApplicationConfig{
-							Restic: &oadpv1alpha1.ResticConfig{
-								PodConfig: &oadpv1alpha1.PodConfig{
-									NodeSelector: map[string]string{
-										"foo": "bar",
-									},
-									ResourceAllocations: corev1.ResourceRequirements{
-										Limits: corev1.ResourceList{
-											corev1.ResourceCPU: resource.MustParse("2"),
+							NodeAgent: &oadpv1alpha1.NodeAgentConfig{
+								NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
+									PodConfig: &oadpv1alpha1.PodConfig{
+										NodeSelector: map[string]string{
+											"foo": "bar",
+										},
+										ResourceAllocations: corev1.ResourceRequirements{
+											Limits: corev1.ResourceList{
+												corev1.ResourceCPU: resource.MustParse("2"),
+											},
 										},
 									},
 								},
+								UploaderType: "",
 							},
 							Velero: &oadpv1alpha1.VeleroConfig{
 								PodConfig: &oadpv1alpha1.PodConfig{},
@@ -951,7 +973,7 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 							ServiceAccountName: common.Velero,
 							SecurityContext: &v1.PodSecurityContext{
 								RunAsUser:          pointer.Int64(0),
-								SupplementalGroups: dpa.Spec.Configuration.Restic.SupplementalGroups,
+								SupplementalGroups: dpa.Spec.Configuration.NodeAgent.SupplementalGroups,
 							},
 							Volumes: []v1.Volume{
 								// Cloud Provider volumes are dynamically added in the for loop below
@@ -959,7 +981,7 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 									Name: "host-pods",
 									VolumeSource: v1.VolumeSource{
 										HostPath: &v1.HostPathVolumeSource{
-											Path: resticPvHostPath,
+											Path: fsPvHostPath,
 										},
 									},
 								},
@@ -984,7 +1006,7 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 									},
 								},
 							},
-							Tolerations: dpa.Spec.Configuration.Restic.PodConfig.Tolerations,
+							Tolerations: dpa.Spec.Configuration.NodeAgent.PodConfig.Tolerations,
 							Containers: []v1.Container{
 								{
 									Name: common.NodeAgent,
@@ -1062,22 +1084,25 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 			},
 		},
 		{
-			name: "test restic resource reqs only restic cpu request customization via dpa",
+			name: "test NodeAgent resource reqs only NodeAgent cpu request customization via dpa",
 			args: args{
 				&oadpv1alpha1.DataProtectionApplication{
 					Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 						Configuration: &oadpv1alpha1.ApplicationConfig{
-							Restic: &oadpv1alpha1.ResticConfig{
-								PodConfig: &oadpv1alpha1.PodConfig{
-									NodeSelector: map[string]string{
-										"foo": "bar",
-									},
-									ResourceAllocations: corev1.ResourceRequirements{
-										Requests: corev1.ResourceList{
-											corev1.ResourceCPU: resource.MustParse("2"),
+							NodeAgent: &oadpv1alpha1.NodeAgentConfig{
+								NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
+									PodConfig: &oadpv1alpha1.PodConfig{
+										NodeSelector: map[string]string{
+											"foo": "bar",
+										},
+										ResourceAllocations: corev1.ResourceRequirements{
+											Requests: corev1.ResourceList{
+												corev1.ResourceCPU: resource.MustParse("2"),
+											},
 										},
 									},
 								},
+								UploaderType: "",
 							},
 							Velero: &oadpv1alpha1.VeleroConfig{
 								PodConfig: &oadpv1alpha1.PodConfig{},
@@ -1117,7 +1142,7 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 							ServiceAccountName: common.Velero,
 							SecurityContext: &v1.PodSecurityContext{
 								RunAsUser:          pointer.Int64(0),
-								SupplementalGroups: dpa.Spec.Configuration.Restic.SupplementalGroups,
+								SupplementalGroups: dpa.Spec.Configuration.NodeAgent.SupplementalGroups,
 							},
 							Volumes: []v1.Volume{
 								// Cloud Provider volumes are dynamically added in the for loop below
@@ -1125,7 +1150,7 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 									Name: "host-pods",
 									VolumeSource: v1.VolumeSource{
 										HostPath: &v1.HostPathVolumeSource{
-											Path: resticPvHostPath,
+											Path: fsPvHostPath,
 										},
 									},
 								},
@@ -1150,7 +1175,7 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 									},
 								},
 							},
-							Tolerations: dpa.Spec.Configuration.Restic.PodConfig.Tolerations,
+							Tolerations: dpa.Spec.Configuration.NodeAgent.PodConfig.Tolerations,
 							Containers: []v1.Container{
 								{
 									Name: common.NodeAgent,
@@ -1225,22 +1250,25 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 			},
 		},
 		{
-			name: "test restic resource reqs only restic memory limit customization via dpa",
+			name: "test NodeAgent resource reqs only NodeAgent memory limit customization via dpa",
 			args: args{
 				&oadpv1alpha1.DataProtectionApplication{
 					Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 						Configuration: &oadpv1alpha1.ApplicationConfig{
-							Restic: &oadpv1alpha1.ResticConfig{
-								PodConfig: &oadpv1alpha1.PodConfig{
-									NodeSelector: map[string]string{
-										"foo": "bar",
-									},
-									ResourceAllocations: corev1.ResourceRequirements{
-										Limits: corev1.ResourceList{
-											corev1.ResourceMemory: resource.MustParse("256Mi"),
+							NodeAgent: &oadpv1alpha1.NodeAgentConfig{
+								NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
+									PodConfig: &oadpv1alpha1.PodConfig{
+										NodeSelector: map[string]string{
+											"foo": "bar",
+										},
+										ResourceAllocations: corev1.ResourceRequirements{
+											Limits: corev1.ResourceList{
+												corev1.ResourceMemory: resource.MustParse("256Mi"),
+											},
 										},
 									},
 								},
+								UploaderType: "",
 							},
 							Velero: &oadpv1alpha1.VeleroConfig{
 								PodConfig: &oadpv1alpha1.PodConfig{},
@@ -1280,7 +1308,7 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 							ServiceAccountName: common.Velero,
 							SecurityContext: &v1.PodSecurityContext{
 								RunAsUser:          pointer.Int64(0),
-								SupplementalGroups: dpa.Spec.Configuration.Restic.SupplementalGroups,
+								SupplementalGroups: dpa.Spec.Configuration.NodeAgent.SupplementalGroups,
 							},
 							Volumes: []v1.Volume{
 								// Cloud Provider volumes are dynamically added in the for loop below
@@ -1288,7 +1316,7 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 									Name: "host-pods",
 									VolumeSource: v1.VolumeSource{
 										HostPath: &v1.HostPathVolumeSource{
-											Path: resticPvHostPath,
+											Path: fsPvHostPath,
 										},
 									},
 								},
@@ -1313,7 +1341,7 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 									},
 								},
 							},
-							Tolerations: dpa.Spec.Configuration.Restic.PodConfig.Tolerations,
+							Tolerations: dpa.Spec.Configuration.NodeAgent.PodConfig.Tolerations,
 							Containers: []v1.Container{
 								{
 									Name: common.NodeAgent,
@@ -1391,22 +1419,25 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 			},
 		},
 		{
-			name: "test restic resource reqs only restic memory request customization via dpa",
+			name: "test NodeAgent resource reqs only NodeAgent memory request customization via dpa",
 			args: args{
 				&oadpv1alpha1.DataProtectionApplication{
 					Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 						Configuration: &oadpv1alpha1.ApplicationConfig{
-							Restic: &oadpv1alpha1.ResticConfig{
-								PodConfig: &oadpv1alpha1.PodConfig{
-									NodeSelector: map[string]string{
-										"foo": "bar",
-									},
-									ResourceAllocations: corev1.ResourceRequirements{
-										Requests: corev1.ResourceList{
-											corev1.ResourceMemory: resource.MustParse("256Mi"),
+							NodeAgent: &oadpv1alpha1.NodeAgentConfig{
+								NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
+									PodConfig: &oadpv1alpha1.PodConfig{
+										NodeSelector: map[string]string{
+											"foo": "bar",
+										},
+										ResourceAllocations: corev1.ResourceRequirements{
+											Requests: corev1.ResourceList{
+												corev1.ResourceMemory: resource.MustParse("256Mi"),
+											},
 										},
 									},
 								},
+								UploaderType: "",
 							},
 							Velero: &oadpv1alpha1.VeleroConfig{
 								PodConfig: &oadpv1alpha1.PodConfig{},
@@ -1446,7 +1477,7 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 							ServiceAccountName: common.Velero,
 							SecurityContext: &v1.PodSecurityContext{
 								RunAsUser:          pointer.Int64(0),
-								SupplementalGroups: dpa.Spec.Configuration.Restic.SupplementalGroups,
+								SupplementalGroups: dpa.Spec.Configuration.NodeAgent.SupplementalGroups,
 							},
 							Volumes: []v1.Volume{
 								// Cloud Provider volumes are dynamically added in the for loop below
@@ -1454,7 +1485,7 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 									Name: "host-pods",
 									VolumeSource: v1.VolumeSource{
 										HostPath: &v1.HostPathVolumeSource{
-											Path: resticPvHostPath,
+											Path: fsPvHostPath,
 										},
 									},
 								},
@@ -1479,7 +1510,7 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 									},
 								},
 							},
-							Tolerations: dpa.Spec.Configuration.Restic.PodConfig.Tolerations,
+							Tolerations: dpa.Spec.Configuration.NodeAgent.PodConfig.Tolerations,
 							Containers: []v1.Container{
 								{
 									Name: common.NodeAgent,
@@ -1554,22 +1585,25 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 			},
 		},
 		{
-			name: "test restic tolerations customization via dpa",
+			name: "test NodeAgent tolerations customization via dpa",
 			args: args{
 				&oadpv1alpha1.DataProtectionApplication{
 					Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 						Configuration: &oadpv1alpha1.ApplicationConfig{
-							Restic: &oadpv1alpha1.ResticConfig{
-								PodConfig: &oadpv1alpha1.PodConfig{
-									Tolerations: []v1.Toleration{
-										{
-											Key:      "key1",
-											Operator: "Equal",
-											Value:    "value1",
-											Effect:   "NoSchedule",
+							NodeAgent: &oadpv1alpha1.NodeAgentConfig{
+								NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
+									PodConfig: &oadpv1alpha1.PodConfig{
+										Tolerations: []v1.Toleration{
+											{
+												Key:      "key1",
+												Operator: "Equal",
+												Value:    "value1",
+												Effect:   "NoSchedule",
+											},
 										},
 									},
 								},
+								UploaderType: "",
 							},
 							Velero: &oadpv1alpha1.VeleroConfig{
 								PodConfig: &oadpv1alpha1.PodConfig{},
@@ -1606,7 +1640,7 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 							ServiceAccountName: common.Velero,
 							SecurityContext: &v1.PodSecurityContext{
 								RunAsUser:          pointer.Int64(0),
-								SupplementalGroups: dpa.Spec.Configuration.Restic.SupplementalGroups,
+								SupplementalGroups: dpa.Spec.Configuration.NodeAgent.SupplementalGroups,
 							},
 							Volumes: []v1.Volume{
 								// Cloud Provider volumes are dynamically added in the for loop below
@@ -1614,7 +1648,7 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 									Name: "host-pods",
 									VolumeSource: v1.VolumeSource{
 										HostPath: &v1.HostPathVolumeSource{
-											Path: resticPvHostPath,
+											Path: fsPvHostPath,
 										},
 									},
 								},
@@ -1726,8 +1760,11 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 				&oadpv1alpha1.DataProtectionApplication{
 					Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 						Configuration: &oadpv1alpha1.ApplicationConfig{
-							Restic: &oadpv1alpha1.ResticConfig{
-								PodConfig: &oadpv1alpha1.PodConfig{},
+							NodeAgent: &oadpv1alpha1.NodeAgentConfig{
+								NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
+									PodConfig: &oadpv1alpha1.PodConfig{},
+								},
+								UploaderType: "",
 							},
 							Velero: &oadpv1alpha1.VeleroConfig{
 								PodConfig: &oadpv1alpha1.PodConfig{},
@@ -1761,11 +1798,11 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 							},
 						},
 						Spec: v1.PodSpec{
-							NodeSelector:       dpa.Spec.Configuration.Restic.PodConfig.NodeSelector,
+							NodeSelector:       dpa.Spec.Configuration.NodeAgent.PodConfig.NodeSelector,
 							ServiceAccountName: common.Velero,
 							SecurityContext: &v1.PodSecurityContext{
 								RunAsUser:          pointer.Int64(0),
-								SupplementalGroups: dpa.Spec.Configuration.Restic.SupplementalGroups,
+								SupplementalGroups: dpa.Spec.Configuration.NodeAgent.SupplementalGroups,
 							},
 							Volumes: []v1.Volume{
 								// Cloud Provider volumes are dynamically added in the for loop below
@@ -1773,7 +1810,7 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 									Name: "host-pods",
 									VolumeSource: v1.VolumeSource{
 										HostPath: &v1.HostPathVolumeSource{
-											Path: resticPvHostPath,
+											Path: fsPvHostPath,
 										},
 									},
 								},
@@ -1798,7 +1835,7 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 									},
 								},
 							},
-							Tolerations: dpa.Spec.Configuration.Restic.PodConfig.Tolerations,
+							Tolerations: dpa.Spec.Configuration.NodeAgent.PodConfig.Tolerations,
 							Containers: []v1.Container{
 								{
 									Name: common.NodeAgent,
@@ -1883,7 +1920,7 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 									oadpv1alpha1.DefaultPluginAWS,
 								},
 							},
-							Restic: &oadpv1alpha1.ResticConfig{},
+							NodeAgent: &oadpv1alpha1.NodeAgentConfig{},
 						},
 						BackupLocations: []oadpv1alpha1.BackupLocation{
 							{
@@ -1938,11 +1975,11 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 							},
 						},
 						Spec: v1.PodSpec{
-							NodeSelector:       dpa.Spec.Configuration.Restic.PodConfig.NodeSelector,
+							NodeSelector:       dpa.Spec.Configuration.NodeAgent.PodConfig.NodeSelector,
 							ServiceAccountName: common.Velero,
 							SecurityContext: &v1.PodSecurityContext{
 								RunAsUser:          pointer.Int64(0),
-								SupplementalGroups: dpa.Spec.Configuration.Restic.SupplementalGroups,
+								SupplementalGroups: dpa.Spec.Configuration.NodeAgent.SupplementalGroups,
 							},
 							Volumes: []v1.Volume{
 								// Cloud Provider volumes are dynamically added in the for loop below
@@ -1950,7 +1987,7 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 									Name: HostPods,
 									VolumeSource: v1.VolumeSource{
 										HostPath: &v1.HostPathVolumeSource{
-											Path: resticPvHostPath,
+											Path: fsPvHostPath,
 										},
 									},
 								},
@@ -1967,7 +2004,7 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 									},
 								},
 							},
-							Tolerations: dpa.Spec.Configuration.Restic.PodConfig.Tolerations,
+							Tolerations: dpa.Spec.Configuration.NodeAgent.PodConfig.Tolerations,
 							Containers: []v1.Container{
 								{
 									Name: common.NodeAgent,
@@ -2044,7 +2081,7 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 									oadpv1alpha1.DefaultPluginAWS,
 								},
 							},
-							Restic: &oadpv1alpha1.ResticConfig{},
+							NodeAgent: &oadpv1alpha1.NodeAgentConfig{},
 						},
 						BackupLocations: []oadpv1alpha1.BackupLocation{
 							{
@@ -2110,11 +2147,11 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 							},
 						},
 						Spec: v1.PodSpec{
-							NodeSelector:       dpa.Spec.Configuration.Restic.PodConfig.NodeSelector,
+							NodeSelector:       dpa.Spec.Configuration.NodeAgent.PodConfig.NodeSelector,
 							ServiceAccountName: common.Velero,
 							SecurityContext: &v1.PodSecurityContext{
 								RunAsUser:          pointer.Int64(0),
-								SupplementalGroups: dpa.Spec.Configuration.Restic.SupplementalGroups,
+								SupplementalGroups: dpa.Spec.Configuration.NodeAgent.SupplementalGroups,
 							},
 							DNSPolicy: "None",
 							DNSConfig: &v1.PodDNSConfig{
@@ -2138,7 +2175,7 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 									Name: HostPods,
 									VolumeSource: v1.VolumeSource{
 										HostPath: &v1.HostPathVolumeSource{
-											Path: resticPvHostPath,
+											Path: fsPvHostPath,
 										},
 									},
 								},
@@ -2163,7 +2200,7 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 									},
 								},
 							},
-							Tolerations: dpa.Spec.Configuration.Restic.PodConfig.Tolerations,
+							Tolerations: dpa.Spec.Configuration.NodeAgent.PodConfig.Tolerations,
 							Containers: []v1.Container{
 								{
 									Name: common.NodeAgent,
@@ -2248,9 +2285,9 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 				NamespacedName: tt.fields.NamespacedName,
 				EventRecorder:  tt.fields.EventRecorder,
 			}
-			got, err := r.buildResticDaemonset(tt.args.dpa, tt.args.ds)
+			got, err := r.buildNodeAgentDaemonset(tt.args.dpa, tt.args.ds)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("DPAReconciler.buildResticDaemonset() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("DPAReconciler.buildNodeAgentDaemonset() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if tt.args.dpa != nil && tt.want != nil {
@@ -2276,34 +2313,34 @@ func TestDPAReconciler_buildResticDaemonset(t *testing.T) {
 			}
 			if !reflect.DeepEqual(got, tt.want) {
 				fmt.Printf(cmp.Diff(got, tt.want))
-				t.Errorf("DPAReconciler.buildResticDaemonset() got = %v, want %v", got, tt.want)
+				t.Errorf("DPAReconciler.buildNodeAgentDaemonset() got = %v, want %v", got, tt.want)
 			}
 		})
 	}
 }
 
-func TestDPAReconciler_updateResticRestoreHelperCM(t *testing.T) {
+func TestDPAReconciler_updateFsRestoreHelperCM(t *testing.T) {
 
 	tests := []struct {
-		name                      string
-		resticRestoreHelperCM     *v1.ConfigMap
-		dpa                       *oadpv1alpha1.DataProtectionApplication
-		wantErr                   bool
-		wantResticRestoreHelperCM *v1.ConfigMap
+		name                  string
+		fsRestoreHelperCM     *v1.ConfigMap
+		dpa                   *oadpv1alpha1.DataProtectionApplication
+		wantErr               bool
+		wantFsRestoreHelperCM *v1.ConfigMap
 	}{
 		{
-			name: "Given DPA CR instance, appropriate restic restore helper cm is created",
-			resticRestoreHelperCM: &v1.ConfigMap{
+			name: "Given DPA CR instance, appropriate NodeAgent restore helper cm is created",
+			fsRestoreHelperCM: &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      ResticRestoreHelperCM,
+					Name:      FsRestoreHelperCM,
 					Namespace: "test-ns",
 				},
 			},
 			dpa:     &oadpv1alpha1.DataProtectionApplication{},
 			wantErr: false,
-			wantResticRestoreHelperCM: &v1.ConfigMap{
+			wantFsRestoreHelperCM: &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      ResticRestoreHelperCM,
+					Name:      FsRestoreHelperCM,
 					Namespace: "test-ns",
 					Labels: map[string]string{
 						"velero.io/plugin-config":      "",
@@ -2344,11 +2381,11 @@ func TestDPAReconciler_updateResticRestoreHelperCM(t *testing.T) {
 				},
 				EventRecorder: record.NewFakeRecorder(10),
 			}
-			if err := r.updateResticRestoreHelperCM(tt.resticRestoreHelperCM, tt.dpa); (err != nil) != tt.wantErr {
-				t.Errorf("updateResticRestoreHelperCM() error = %v, wantErr %v", err, tt.wantErr)
+			if err := r.updateFsRestoreHelperCM(tt.fsRestoreHelperCM, tt.dpa); (err != nil) != tt.wantErr {
+				t.Errorf("updateFsRestoreHelperCM() error = %v, wantErr %v", err, tt.wantErr)
 			}
-			if !reflect.DeepEqual(tt.resticRestoreHelperCM, tt.wantResticRestoreHelperCM) {
-				t.Errorf("updateResticRestoreHelperCM() got CM = %v, want CM %v", tt.resticRestoreHelperCM, tt.wantResticRestoreHelperCM)
+			if !reflect.DeepEqual(tt.fsRestoreHelperCM, tt.wantFsRestoreHelperCM) {
+				t.Errorf("updateFsRestoreHelperCM() got CM = %v, want CM %v", tt.fsRestoreHelperCM, tt.wantFsRestoreHelperCM)
 			}
 		})
 	}

@@ -214,8 +214,9 @@ spec:
           prefix: velero
         provider: aws
   configuration:
-    restic:
+    nodeAgent:
       enable: false # [true, false]
+      uploaderType: restic # [restic, kopia]
     velero:
       defaultPlugins:
         - openshift
@@ -335,8 +336,9 @@ spec:
           prefix: velero
         provider: aws
   configuration:
-    restic:
+    nodeAgent:
       enable: false
+      uploaderType: restic
     velero:
       defaultPlugins:
         - openshift

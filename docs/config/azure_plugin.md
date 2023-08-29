@@ -57,8 +57,9 @@ spec:
           prefix: velero
         provider: azure
   configuration:
-    restic:
+    nodeAgent:
       enable: true
+      uploaderType: restic
     velero:
       defaultPlugins:
         - openshift
@@ -110,8 +111,9 @@ spec:
           prefix: velero
         provider: azure
   configuration:
-    restic:
+    nodeAgent:
       enable: true
+      uploaderType: restic
     velero:
       defaultPlugins:
         - openshift
