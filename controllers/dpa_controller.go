@@ -90,14 +90,12 @@ func (r *DPAReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	_, err := ReconcileBatch(r.Log,
 		r.ValidateDataProtectionCR,
 		r.ReconcileResticRestoreHelperConfig,
-		r.ValidateBackupStorageLocations,
 		r.ReconcileBackupStorageLocations,
 		r.ReconcileRegistrySecrets,
 		r.ReconcileRegistries,
 		r.ReconcileRegistrySVCs,
 		r.ReconcileRegistryRoutes,
 		r.ReconcileRegistryRouteConfigs,
-		r.ValidateVolumeSnapshotLocations,
 		r.LabelVSLSecrets,
 		r.ReconcileVolumeSnapshotLocations,
 		r.ReconcileVeleroDeployment,
@@ -214,6 +212,8 @@ type ReconcileFunc func(logr.Logger) (bool, error)
 // reconcileBatch steps through a list of reconcile functions until one returns
 // false or an error.
 func ReconcileBatch(l logr.Logger, reconcileFuncs ...ReconcileFunc) (bool, error) {
+	// TODO: #1127 DPAReconciler already have a logger, use it instead of passing to each reconcile functions
+	// TODO: #1128 Right now each reconcile functions call get for DPA, we can do it once and pass it to each function
 	for _, f := range reconcileFuncs {
 		if cont, err := f(l); !cont || err != nil {
 			return cont, err

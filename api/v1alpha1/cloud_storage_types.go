@@ -5,6 +5,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// CloudStorage types are APIs for automatic bucket creation at cloud providers if defined name do not exists.
+
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 
@@ -19,9 +21,9 @@ type CloudStorage struct {
 type CloudStorageProvider string
 
 const (
-	AWSBucketProvider   CloudStorageProvider = "aws"
-	AzureBucketProvider CloudStorageProvider = "azure"
-	GCPBucketProvider   CloudStorageProvider = "gcp"
+	AWSBucketProvider   CloudStorageProvider = CloudStorageProvider(DefaultPluginAWS)
+	AzureBucketProvider CloudStorageProvider = CloudStorageProvider(DefaultPluginMicrosoftAzure)
+	GCPBucketProvider   CloudStorageProvider = CloudStorageProvider(DefaultPluginGCP)
 )
 
 type CloudStorageSpec struct {
