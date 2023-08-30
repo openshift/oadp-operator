@@ -7,18 +7,19 @@ import (
 )
 
 const (
-	Velero                       = "velero"
-	NodeAgent                    = "node-agent"
-	VeleroNamespace              = "oadp-operator"
-	OADPOperator                 = "oadp-operator"
-	OADPOperatorVelero           = "oadp-operator-velero"
-	DataMover                    = "volume-snapshot-mover"
-	DataMoverController          = "data-mover-controller"
-	DataMoverControllerContainer = "data-mover-controller-container"
-	OADPOperatorServiceAccount   = "openshift-adp-controller-manager"
-	VolSyncDeploymentName        = "volsync-controller-manager"
-	VolSyncDeploymentNamespace   = "openshift-operators"
-	VolsyncPrivilegedAnnotation  = "volsync.backube/privileged-movers"
+	Velero                           = "velero"
+	NodeAgent                        = "node-agent"
+	VeleroNamespace                  = "oadp-operator"
+	OADPOperator                     = "oadp-operator"
+	OADPOperatorVelero               = "oadp-operator-velero"
+	DataMover                        = "volume-snapshot-mover"
+	DataMoverController              = "data-mover-controller"
+	DataMoverControllerContainer     = "data-mover-controller-container"
+	OADPOperatorServiceAccount       = "openshift-adp-controller-manager"
+	VolSyncDeploymentName            = "volsync-controller-manager"
+	VolSyncDeploymentNamespace       = "openshift-operators"
+	VolsyncPrivilegedAnnotation      = "volsync.backube/privileged-movers"
+	DefaultRestoreResourcePriorities = "securitycontextconstraints,customresourcedefinitions,namespaces,storageclasses,volumesnapshotbackups.datamover.oadp.openshift.io,volumesnapshotclass.snapshot.storage.k8s.io,volumesnapshotcontents.snapshot.storage.k8s.io,volumesnapshots.snapshot.storage.k8s.io,datauploads.velero.io,persistentvolumes,persistentvolumeclaims,serviceaccounts,secrets,configmaps,limitranges,pods,replicasets.apps,clusterclasses.cluster.x-k8s.io,endpoints,services,-,clusterbootstraps.run.tanzu.vmware.com,clusters.cluster.x-k8s.io,clusterresourcesets.addons.cluster.x-k8s.io"
 )
 
 // Images
