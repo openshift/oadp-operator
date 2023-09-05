@@ -2,7 +2,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.7.0
+    controller-gen.kubebuilder.io/version: v0.12.0
   creationTimestamp: null
   name: restores.velero.io
 spec:
@@ -55,7 +55,7 @@ spec:
                 type: array
               existingResourcePolicy:
                 description: ExistingResourcePolicy specifies the restore behavior
-                  for the kubernetes resource to be restored
+                  for the Kubernetes resource to be restored
                 nullable: true
                 type: string
               hooks:
@@ -145,6 +145,7 @@ spec:
                                 contains only "value". The requirements are ANDed.
                               type: object
                           type: object
+                          x-kubernetes-map-type: atomic
                         name:
                           description: Name is the name of this hook.
                           type: string
@@ -201,6 +202,7 @@ spec:
                                       to be added to a pod during its restore.
                                     items:
                                       type: object
+                                      x-kubernetes-preserve-unknown-fields: true
                                     type: array
                                     x-kubernetes-preserve-unknown-fields: true
                                   timeout:
@@ -287,6 +289,7 @@ spec:
                       are ANDed.
                     type: object
                 type: object
+                x-kubernetes-map-type: atomic
               namespaceMapping:
                 additionalProperties:
                   type: string
@@ -348,6 +351,7 @@ spec:
                         are ANDed.
                       type: object
                   type: object
+                  x-kubernetes-map-type: atomic
                 nullable: true
                 type: array
               preserveNodePorts:
@@ -355,6 +359,28 @@ spec:
                   from backup.
                 nullable: true
                 type: boolean
+              resourceModifier:
+                description: ResourceModifier specifies the reference to JSON resource
+                  patches that should be applied to resources before restoration.
+                nullable: true
+                properties:
+                  apiGroup:
+                    description: APIGroup is the group for the resource being referenced.
+                      If APIGroup is not specified, the specified Kind must be in
+                      the core API group. For any other third-party types, APIGroup
+                      is required.
+                    type: string
+                  kind:
+                    description: Kind is the type of resource being referenced
+                    type: string
+                  name:
+                    description: Name is the name of resource being referenced
+                    type: string
+                required:
+                - kind
+                - name
+                type: object
+                x-kubernetes-map-type: atomic
               restorePVs:
                 description: RestorePVs specifies whether to restore all included
                   PVs from snapshot
@@ -476,5 +502,5 @@ status:
   acceptedNames:
     kind: ""
     plural: ""
-  conditions: []
-  storedVersions: []
+  conditions: null
+  storedVersions: null
