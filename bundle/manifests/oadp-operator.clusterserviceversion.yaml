@@ -484,10 +484,13 @@ spec:
     support snapshots, OADP backs up resources and PV data with Restic.
 
     * [Installing OADP for application backup and restore][install-doc]
+    
+    * [Installing OADP on a ROSA cluster and using STS, please follow the Getting Started Steps 1-3 in order to obtain the role ARN needed for using the standardized STS configuration flow via OLM][rosa-sts-doc]
 
     * [Frequently Asked Questions][faq-doc]
 
     [install-doc]: https://docs.openshift.com/container-platform/latest/backup_and_restore/application_backup_and_restore/installing/about-installing-oadp.html
+    [rosa-sts-doc]: https://mobb.ninja/docs/misc/oadp/rosa-sts/
     [faq-doc]: https://access.redhat.com/articles/5456281
   displayName: OADP Operator
   icon:

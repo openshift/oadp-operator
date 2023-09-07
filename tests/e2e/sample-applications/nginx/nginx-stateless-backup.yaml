@@ -6,5 +6,5 @@ metadata:
 spec:
   includedNamespaces:
   - nginx-example
-  storageLocation: dpa-sample-1
+  storageLocation: ts-dpa-1
   ttl: 720h0m0s
