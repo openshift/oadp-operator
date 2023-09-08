@@ -20,6 +20,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"github.com/openshift/oadp-operator/pkg/common"
 	monitor "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -28,7 +29,7 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"os"
-	client2 "sigs.k8s.io/controller-runtime/pkg/client"
+	client "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
@@ -99,8 +100,11 @@ func main() {
 
 	// Get STS vars
 	// ROLEARN env var is set via operator subscription
-	roleARN := os.Getenv("ROLEARN")
-	setupLog.Info("getting role ARN", "role ARN =", roleARN)
+	var roleARN string
+	if common.CCOWorkflow() {
+		roleARN = os.Getenv("ROLEARN")
+		setupLog.Info("getting role ARN", "role ARN =", roleARN)
+	}
 
 	// check if cred request API exists in the cluster before creating a cred request
 	credReqCRDExists, err := DoesCRDExist("credentialsrequests.cloudcredential.openshift.io")
@@ -284,7 +288,7 @@ func DoesCRDExist(CRDName string) (bool, error) {
 // CreateCredRequest WITP : WebIdentityTokenPath
 func CreateCredRequest(roleARN string, WITP string, secretNS string) error {
 	cfg := config.GetConfigOrDie()
-	client, err := client2.New(cfg, client2.Options{})
+	client, err := client.New(cfg, client.Options{})
 	if err != nil {
 		setupLog.Error(err, "unable to create client")
 	}
