@@ -1,5 +1,4 @@
 *.md
-docs
 blogs
 bin
 .vscode
@@ -15,4 +14,3 @@ OWNERS*
 PROJECT
 LICENSE
 Dockerfile
-!/docs/scripts/dc-restic-post-restore.sh # needed for `func RunResticPostRestoreScript` in tests/e2e/lib/velero_helpers.go
