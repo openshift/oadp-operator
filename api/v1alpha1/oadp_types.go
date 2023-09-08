@@ -405,7 +405,7 @@ func (dpa *DataProtectionApplication) AutoCorrect() {
 			dpa.Spec.Configuration.Velero.Args.PodVolumeOperationTimeout = &pvOperationTimeout
 		}
 		if dpa.Spec.Configuration.Velero.Args.RestoreResourcePriorities == "" {
-			dpa.Spec.Configuration.Velero.Args.RestoreResourcePriorities = common.DefaultRestoreResourcePriorities
+			dpa.Spec.Configuration.Velero.Args.RestoreResourcePriorities = common.DefaultRestoreResourcePriorities.String()
 		}
 	}
 
