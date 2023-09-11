@@ -3,6 +3,7 @@ package common
 import (
 	"fmt"
 
+	"github.com/vmware-tanzu/velero/pkg/restore"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -20,6 +21,35 @@ const (
 	VolSyncDeploymentNamespace   = "openshift-operators"
 	VolsyncPrivilegedAnnotation  = "volsync.backube/privileged-movers"
 )
+
+var DefaultRestoreResourcePriorities = restore.Priorities{
+	HighPriorities: []string{
+		"securitycontextconstraints",
+		"customresourcedefinitions",
+		"namespaces",
+		"storageclasses",
+		"volumesnapshotclass.snapshot.storage.k8s.io",
+		"volumesnapshotcontents.snapshot.storage.k8s.io",
+		"volumesnapshots.snapshot.storage.k8s.io",
+		"datauploads.velero.io",
+		"persistentvolumes",
+		"persistentvolumeclaims",
+		"serviceaccounts",
+		"secrets",
+		"configmaps",
+		"limitranges",
+		"pods",
+		"replicasets.apps",
+		"clusterclasses.cluster.x-k8s.io",
+		"endpoints",
+		"services",
+	},
+	LowPriorities: []string{
+		"clusterbootstraps.run.tanzu.vmware.com",
+		"clusters.cluster.x-k8s.io",
+		"clusterresourcesets.addons.cluster.x-k8s.io",
+	},
+}
 
 // Images
 const (

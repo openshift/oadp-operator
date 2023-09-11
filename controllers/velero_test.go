@@ -2,7 +2,6 @@ package controllers
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"reflect"
 	"strconv"
@@ -28,9 +27,11 @@ import (
 )
 
 const (
-	proxyEnvKey               = "HTTP_PROXY"
-	proxyEnvValue             = "http://proxy.example.com:8080"
-	argsMetricsPortTest int32 = 69420
+	proxyEnvKey                            = "HTTP_PROXY"
+	proxyEnvValue                          = "http://proxy.example.com:8080"
+	argsMetricsPortTest              int32 = 69420
+	defaultFileSystemBackupTimeout         = "--fs-backup-timeout=1h"
+	defaultRestoreResourcePriorities       = "--restore-resource-priorities=securitycontextconstraints,customresourcedefinitions,namespaces,storageclasses,volumesnapshotclass.snapshot.storage.k8s.io,volumesnapshotcontents.snapshot.storage.k8s.io,volumesnapshots.snapshot.storage.k8s.io,datauploads.velero.io,persistentvolumes,persistentvolumeclaims,serviceaccounts,secrets,configmaps,limitranges,pods,replicasets.apps,clusterclasses.cluster.x-k8s.io,endpoints,services,-,clusterbootstraps.run.tanzu.vmware.com,clusters.cluster.x-k8s.io,clusterresourcesets.addons.cluster.x-k8s.io"
 )
 
 var (
@@ -212,7 +213,8 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 									Command:         []string{"/velero"},
 									Args: []string{
 										"server",
-										"--fs-backup-timeout=1h",
+										defaultFileSystemBackupTimeout,
+										defaultRestoreResourcePriorities,
 									},
 									VolumeMounts: baseVolumeMounts,
 									Env:          baseEnvVars,
@@ -282,7 +284,8 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 									Command:         []string{"/velero"},
 									Args: []string{
 										"server",
-										"--fs-backup-timeout=1h",
+										defaultFileSystemBackupTimeout,
+										defaultRestoreResourcePriorities,
 									},
 									VolumeMounts: baseVolumeMounts,
 									Env: []corev1.EnvVar{
@@ -366,7 +369,8 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 									Args: []string{
 										"server",
 										"--features=EnableCSI",
-										"--fs-backup-timeout=1h",
+										defaultFileSystemBackupTimeout,
+										defaultRestoreResourcePriorities,
 									},
 									VolumeMounts: append(baseVolumeMounts, []corev1.VolumeMount{
 										{Name: "cloud-credentials", MountPath: "/credentials"},
@@ -471,7 +475,8 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 									Command:         []string{"/velero"},
 									Args: []string{
 										"server",
-										"--fs-backup-timeout=1h",
+										defaultFileSystemBackupTimeout,
+										defaultRestoreResourcePriorities,
 									},
 									VolumeMounts: baseVolumeMounts,
 
@@ -562,7 +567,8 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 									Command:         []string{"/velero"},
 									Args: []string{
 										"server",
-										"--fs-backup-timeout=1h",
+										defaultFileSystemBackupTimeout,
+										defaultRestoreResourcePriorities,
 									},
 									VolumeMounts: baseVolumeMounts,
 									Env:          baseEnvVars,
@@ -712,7 +718,8 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 									Command: []string{"/velero"},
 									Args: []string{
 										"server",
-										"--fs-backup-timeout=1h",
+										defaultFileSystemBackupTimeout,
+										defaultRestoreResourcePriorities,
 										"--log-level",
 										logrus.InfoLevel.String(),
 										"--item-operation-sync-frequency=5m",
@@ -888,7 +895,8 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 									Command: []string{"/velero"},
 									Args: []string{
 										"server",
-										"--fs-backup-timeout=1h",
+										defaultFileSystemBackupTimeout,
+										defaultRestoreResourcePriorities,
 										"--log-level",
 										logrus.InfoLevel.String(),
 										"--item-operation-sync-frequency=5m",
@@ -1011,7 +1019,8 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 									Command:         []string{"/velero"},
 									Args: []string{
 										"server",
-										"--fs-backup-timeout=1h",
+										defaultFileSystemBackupTimeout,
+										defaultRestoreResourcePriorities,
 										"--log-level",
 										logrus.InfoLevel.String(),
 									},
@@ -1132,7 +1141,8 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 									Command: []string{"/velero"},
 									Args: []string{
 										"server",
-										"--fs-backup-timeout=1h",
+										defaultFileSystemBackupTimeout,
+										defaultRestoreResourcePriorities,
 										"--log-level",
 										logrus.InfoLevel.String(),
 										"--resource-timeout=5m",
@@ -1305,7 +1315,8 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 									Command: []string{"/velero"},
 									Args: []string{
 										"server",
-										"--fs-backup-timeout=1h",
+										defaultFileSystemBackupTimeout,
+										defaultRestoreResourcePriorities,
 									},
 									VolumeMounts: baseVolumeMounts,
 									Env:          baseEnvVars,
@@ -1389,7 +1400,8 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 									Command: []string{"/velero"},
 									Args: []string{
 										"server",
-										"--fs-backup-timeout=1h",
+										defaultFileSystemBackupTimeout,
+										defaultRestoreResourcePriorities,
 									},
 									VolumeMounts: baseVolumeMounts,
 									Env:          baseEnvVars,
@@ -1470,7 +1482,8 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 									Command: []string{"/velero"},
 									Args: []string{
 										"server",
-										"--fs-backup-timeout=1h",
+										defaultFileSystemBackupTimeout,
+										defaultRestoreResourcePriorities,
 									},
 									VolumeMounts: baseVolumeMounts,
 									Env:          baseEnvVars,
@@ -1551,7 +1564,8 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 									Command: []string{"/velero"},
 									Args: []string{
 										"server",
-										"--fs-backup-timeout=1h",
+										defaultFileSystemBackupTimeout,
+										defaultRestoreResourcePriorities,
 									},
 									VolumeMounts: baseVolumeMounts,
 									Env:          baseEnvVars,
@@ -1635,7 +1649,8 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 									Command: []string{"/velero"},
 									Args: []string{
 										"server",
-										"--fs-backup-timeout=1h",
+										defaultFileSystemBackupTimeout,
+										defaultRestoreResourcePriorities,
 									},
 									VolumeMounts: baseVolumeMounts,
 									Env:          baseEnvVars,
@@ -1751,7 +1766,8 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 									Command: []string{"/velero"},
 									Args: []string{
 										"server",
-										"--fs-backup-timeout=1h",
+										defaultFileSystemBackupTimeout,
+										defaultRestoreResourcePriorities,
 									},
 									VolumeMounts: baseVolumeMounts,
 									Env:          baseEnvVars,
@@ -1857,7 +1873,8 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 									Command: []string{"/velero"},
 									Args: []string{
 										"server",
-										"--fs-backup-timeout=1h",
+										defaultFileSystemBackupTimeout,
+										defaultRestoreResourcePriorities,
 									},
 									VolumeMounts: baseVolumeMounts,
 									Env:          baseEnvVars,
@@ -1925,7 +1942,8 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 									Command:         []string{"/velero"},
 									Args: []string{
 										"server",
-										"--fs-backup-timeout=1h",
+										defaultFileSystemBackupTimeout,
+										defaultRestoreResourcePriorities,
 									},
 									VolumeMounts: append(baseVolumeMounts, []corev1.VolumeMount{
 										{Name: "cloud-credentials", MountPath: "/credentials"},
@@ -2007,7 +2025,8 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 									Command:         []string{"/velero"},
 									Args: []string{
 										"server",
-										"--fs-backup-timeout=1h",
+										defaultFileSystemBackupTimeout,
+										defaultRestoreResourcePriorities,
 									},
 									VolumeMounts: []corev1.VolumeMount{
 										{Name: "plugins", MountPath: "/plugins"},
@@ -2102,7 +2121,8 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 									Command:         []string{"/velero"},
 									Args: []string{
 										"server",
-										"--fs-backup-timeout=1h",
+										defaultFileSystemBackupTimeout,
+										defaultRestoreResourcePriorities,
 									},
 									VolumeMounts: []corev1.VolumeMount{
 										{Name: "plugins", MountPath: "/plugins"},
@@ -2219,7 +2239,8 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 									Command:         []string{"/velero"},
 									Args: []string{
 										"server",
-										"--fs-backup-timeout=1h",
+										defaultFileSystemBackupTimeout,
+										defaultRestoreResourcePriorities,
 									},
 									VolumeMounts: []corev1.VolumeMount{
 										{Name: "plugins", MountPath: "/plugins"},
@@ -2321,7 +2342,8 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 									Command:         []string{"/velero"},
 									Args: []string{
 										"server",
-										"--fs-backup-timeout=1h",
+										defaultFileSystemBackupTimeout,
+										defaultRestoreResourcePriorities,
 									},
 									VolumeMounts: []corev1.VolumeMount{
 										{Name: "plugins", MountPath: "/plugins"},
@@ -2436,7 +2458,77 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 										"server",
 										"--metrics-address=:" + strconv.Itoa(int(argsMetricsPortTest)),
 										"--fs-backup-timeout=1h0m0s",
-										"--restore-resource-priorities=securitycontextconstraints,customresourcedefinitions,namespaces,storageclasses,volumesnapshotclass.snapshot.storage.k8s.io,volumesnapshotcontents.snapshot.storage.k8s.io,volumesnapshots.snapshot.storage.k8s.io,datauploads.velero.io,persistentvolumes,persistentvolumeclaims,serviceaccounts,secrets,configmaps,limitranges,pods,replicasets.apps,clusterclasses.cluster.x-k8s.io,endpoints,services,-,clusterbootstraps.run.tanzu.vmware.com,clusters.cluster.x-k8s.io,clusterresourcesets.addons.cluster.x-k8s.io",
+										defaultRestoreResourcePriorities,
+									},
+									VolumeMounts: baseVolumeMounts,
+									Env:          baseEnvVars,
+								},
+							},
+							Volumes:        baseVolumes,
+							InitContainers: []corev1.Container{},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "Override restore resource priorities",
+			veleroDeployment: &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-velero-deployment",
+					Namespace: "test-ns",
+				},
+				Spec: appsv1.DeploymentSpec{
+					Selector: &metav1.LabelSelector{MatchLabels: veleroDeploymentMatchLabels},
+				},
+			},
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-Velero-CR",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							Args: &server.Args{
+								ServerConfig: server.ServerConfig{
+									RestoreResourcePriorities: "securitycontextconstraints,test",
+								},
+							},
+						},
+					},
+				},
+			},
+			wantVeleroDeployment: &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-velero-deployment",
+					Namespace: "test-ns",
+					Labels:    veleroDeploymentLabel,
+				},
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "Deployment",
+					APIVersion: appsv1.SchemeGroupVersion.String(),
+				},
+				Spec: appsv1.DeploymentSpec{
+					Selector: &metav1.LabelSelector{MatchLabels: veleroDeploymentMatchLabels},
+					Replicas: pointer.Int32(1),
+					Template: corev1.PodTemplateSpec{
+						ObjectMeta: veleroPodObjectMeta,
+						Spec: corev1.PodSpec{
+							RestartPolicy:      corev1.RestartPolicyAlways,
+							ServiceAccountName: common.Velero,
+							Containers: []corev1.Container{
+								{
+									Name:            common.Velero,
+									Image:           common.VeleroImage,
+									ImagePullPolicy: corev1.PullAlways,
+									Ports:           []corev1.ContainerPort{{Name: "metrics", ContainerPort: 8085}},
+									Resources:       corev1.ResourceRequirements{Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("500m"), corev1.ResourceMemory: resource.MustParse("128Mi")}},
+									Command:         []string{"/velero"},
+									Args: []string{
+										"server",
+										"--fs-backup-timeout=1h0m0s",
+										"--restore-resource-priorities=securitycontextconstraints,test",
 									},
 									VolumeMounts: baseVolumeMounts,
 									Env:          baseEnvVars,
@@ -2494,8 +2586,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 				}
 			}
 			if !reflect.DeepEqual(tt.wantVeleroDeployment, tt.veleroDeployment) {
-				fmt.Println(cmp.Diff(tt.wantVeleroDeployment, tt.veleroDeployment))
-				t.Errorf("expected velero deployment spec to be \n%#v, got \n%#v", tt.wantVeleroDeployment, tt.veleroDeployment)
+				t.Errorf("expected velero deployment spec to be \n%#v, got \n%#v\nDIFF:%v", tt.wantVeleroDeployment, tt.veleroDeployment, cmp.Diff(tt.wantVeleroDeployment, tt.veleroDeployment))
 			}
 		})
 	}
