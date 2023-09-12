@@ -62,12 +62,13 @@ endif
 VELERO_PLUGIN ?= ${CLUSTER_TYPE}
 
 ifeq ($(CLUSTER_TYPE), ibmcloud)
-	VELERO_PLUGIN ?= aws
+	VELERO_PLUGIN = aws
 endif
 
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
 ENVTEST_K8S_VERSION = 1.21
 
+# update https://onsi.github.io/ginkgo/#installing-ginkgo
 .PHONY:ginkgo
 ginkgo: # Make sure ginkgo is in $GOPATH/bin
 	go get -d github.com/onsi/ginkgo/ginkgo
