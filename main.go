@@ -103,11 +103,13 @@ func main() {
 
 	// check if this is standardized STS workflow via OLM and CCO
 	if common.CCOWorkflow() {
+		setupLog.Info("AWS Role ARN specified by the user, following standardized STS workflow")
 		// ROLEARN env var is set via operator subscription
 		roleARN := os.Getenv("ROLEARN")
 		setupLog.Info("getting role ARN", "role ARN =", roleARN)
 
 		// check if cred request API exists in the cluster before creating a cred request
+		setupLog.Info("Checking if credentialsrequest CRD exists in the cluster")
 		credReqCRDExists, err := DoesCRDExist(CloudCredentialGroupVersion, CloudCredentialsCRDName)
 		if err != nil {
 			setupLog.Error(err, "problem checking the existence of CredentialRequests CRD")
@@ -116,6 +118,7 @@ func main() {
 
 		if credReqCRDExists {
 			// create cred request
+			setupLog.Info(fmt.Sprintf("Creating credentials request for role: %s, and WebIdentityTokenPath: %s", roleARN, WebIdentityTokenPath))
 			if err := CreateCredRequest(roleARN, WebIdentityTokenPath, watchNamespace); err != nil {
 				if !errors.IsAlreadyExists(err) {
 					setupLog.Error(err, "unable to create credRequest")
