@@ -101,11 +101,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Get STS vars
-	// ROLEARN env var is set via operator subscription
-	var roleARN string
+	// check if this is standardized STS workflow via OLM and CCO
 	if common.CCOWorkflow() {
-		roleARN = os.Getenv("ROLEARN")
+		// ROLEARN env var is set via operator subscription
+		roleARN := os.Getenv("ROLEARN")
 		setupLog.Info("getting role ARN", "role ARN =", roleARN)
 
 		// check if cred request API exists in the cluster before creating a cred request
