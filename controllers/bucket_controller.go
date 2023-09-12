@@ -119,7 +119,7 @@ func (b BucketReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	if common.CCOWorkflow() {
 		// wait for the credential request to be processed and the secret to be created
 		installNS := os.Getenv("WATCH_NAMESPACE")
-		_, err := b.WaitForSecret(installNS, "cloud-credentials")
+		_, err := b.WaitForSecret(installNS, VeleroAWSSecretName)
 		if err != nil {
 			log.Error(err, "unable to fetch secert created by CCO")
 			return result, err

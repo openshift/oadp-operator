@@ -25,8 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/kubernetes"
 	"os"
 	client "sigs.k8s.io/controller-runtime/pkg/client"
@@ -60,6 +59,10 @@ var (
 
 // WebIdentityTokenPath mount present on operator CSV
 const WebIdentityTokenPath = "/var/run/secrets/openshift/serviceaccount/token"
+
+// CloudCredentials API constants
+const CloudCredentialGroupVersion = "cloudcredential.openshift.io/v1"
+const CloudCredentialsCRDName = "credentialsrequests"
 
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
@@ -104,21 +107,21 @@ func main() {
 	if common.CCOWorkflow() {
 		roleARN = os.Getenv("ROLEARN")
 		setupLog.Info("getting role ARN", "role ARN =", roleARN)
-	}
 
-	// check if cred request API exists in the cluster before creating a cred request
-	credReqCRDExists, err := DoesCRDExist("credentialsrequests.cloudcredential.openshift.io")
-	if err != nil {
-		setupLog.Error(err, "problem checking the existence of CredentialRequests CRD")
-		os.Exit(1)
-	}
+		// check if cred request API exists in the cluster before creating a cred request
+		credReqCRDExists, err := DoesCRDExist(CloudCredentialGroupVersion, CloudCredentialsCRDName)
+		if err != nil {
+			setupLog.Error(err, "problem checking the existence of CredentialRequests CRD")
+			os.Exit(1)
+		}
 
-	if credReqCRDExists {
-		// create cred request
-		if err := CreateCredRequest(roleARN, WebIdentityTokenPath, watchNamespace); err != nil {
-			if !errors.IsAlreadyExists(err) {
-				setupLog.Error(err, "unable to create credRequest")
-				os.Exit(1)
+		if credReqCRDExists {
+			// create cred request
+			if err := CreateCredRequest(roleARN, WebIdentityTokenPath, watchNamespace); err != nil {
+				if !errors.IsAlreadyExists(err) {
+					setupLog.Error(err, "unable to create credRequest")
+					os.Exit(1)
+				}
 			}
 		}
 	}
@@ -254,34 +257,30 @@ func addPodSecurityPrivilegedLabels(watchNamespaceName string) error {
 	return nil
 }
 
-func DoesCRDExist(CRDName string) (bool, error) {
+func DoesCRDExist(CRDGroupVersion, CRDName string) (bool, error) {
 	kubeconf := ctrl.GetConfigOrDie()
 
-	dynamicClient, err := dynamic.NewForConfig(kubeconf)
-
+	discoveryClient, err := discovery.NewDiscoveryClientForConfig(kubeconf)
 	if err != nil {
 		return false, err
 	}
 
-	gvr := schema.GroupVersionResource{
-		Group:    "apiextensions.k8s.io",
-		Version:  "v1",
-		Resource: "customresourcedefinitions",
-	}
-
-	crd, err := dynamicClient.Resource(gvr).Get(context.Background(), CRDName, metav1.GetOptions{})
+	resources, err := discoveryClient.ServerPreferredResources()
 	if err != nil {
-		setupLog.Error(err, "error checking for CRDs existence")
 		return false, err
 	}
-
-	// Check if the CRD is found and has a non-empty UID
-	if crd != nil && crd.GetUID() != "" {
-		setupLog.Info(fmt.Sprintf("crd exists with UID: %s", crd.GetUID()))
-		return true, nil
+	discoveryResult := false
+	for _, resource := range resources {
+		if resource.GroupVersion == CRDGroupVersion {
+			for _, crd := range resource.APIResources {
+				if crd.Name == CRDName {
+					discoveryResult = true
+					break
+				}
+			}
+		}
 	}
-
-	return false, nil
+	return discoveryResult, nil
 
 }
 
@@ -293,6 +292,9 @@ func CreateCredRequest(roleARN string, WITP string, secretNS string) error {
 		setupLog.Error(err, "unable to create client")
 	}
 
+	// Extra deps were getting added and existing ones were getting upgraded when the CloudCredentials API was imported
+	// This caused updates to go.mod and started resulting in operator build failures due to incompatibility with the existing velero deps
+	// Hence for now going via the unstructured route
 	credRequest := &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "cloudcredential.openshift.io/v1",
