@@ -119,7 +119,7 @@ func (b BucketReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	if common.CCOWorkflow() {
 		// wait for the credential request to be processed and the secret to be created
 		installNS := os.Getenv("WATCH_NAMESPACE")
-		_, err := b.WaitForSecret(installNS, VeleroAWSSecretName)
+		_, err = b.WaitForSecret(installNS, VeleroAWSSecretName)
 		if err != nil {
 			log.Error(err, "unable to fetch secert created by CCO")
 			return result, err
@@ -209,11 +209,12 @@ func (b *BucketReconciler) WaitForSecret(namespace, name string) (*corev1.Secret
 	timeout := 10 * time.Minute
 
 	secret := corev1.Secret{}
-	wait.PollImmediate(5*time.Second, timeout, func() (bool, error) {
-		key := types.NamespacedName{
-			Name:      name,
-			Namespace: namespace,
-		}
+	key := types.NamespacedName{
+		Name:      name,
+		Namespace: namespace,
+	}
+
+	err := wait.PollImmediate(5*time.Second, timeout, func() (bool, error) {
 
 		err := b.Client.Get(context.Background(), key, &secret)
 		if err != nil {
@@ -223,6 +224,10 @@ func (b *BucketReconciler) WaitForSecret(namespace, name string) (*corev1.Secret
 		}
 		return true, nil
 	})
+
+	if err != nil {
+		return nil, err
+	}
 
 	return &secret, nil
 }
