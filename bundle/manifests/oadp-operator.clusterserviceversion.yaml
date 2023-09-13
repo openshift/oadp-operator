@@ -155,25 +155,25 @@ metadata:
     createdAt: "2020-09-08T12:21:00Z"
     description: OADP (OpenShift API for Data Protection) operator sets up and installs
       Data Protection Applications on the OpenShift platform.
+    features.operators.openshift.io/cnf: "false"
+    features.operators.openshift.io/cni: "false"
+    features.operators.openshift.io/csi: "false"
+    features.operators.openshift.io/disconnected: "true"
+    features.operators.openshift.io/fips-compliant: "false"
+    features.operators.openshift.io/proxy-aware: "true"
+    features.operators.openshift.io/tls-profiles: "false"
+    features.operators.openshift.io/token-auth-aws: "true"
+    features.operators.openshift.io/token-auth-azure: "false"
+    features.operators.openshift.io/token-auth-gcp: "false"
     olm.skipRange: '>=0.0.0 <99.0.0'
     operatorframework.io/suggested-namespace: openshift-adp
+    operators.openshift.io/infrastructure-features: '["Disconnected"]'
     operators.openshift.io/valid-subscription: '["OpenShift Container Platform", "OpenShift
       Platform Plus"]'
     operators.operatorframework.io/builder: operator-sdk-v1.23.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
     repository: https://github.com/openshift/oadp-operator
     support: Red Hat
-    operators.openshift.io/infrastructure-features: '["Disconnected"]'
-    features.operators.openshift.io/disconnected: "true"
-    features.operators.openshift.io/fips-compliant: "false"
-    features.operators.openshift.io/proxy-aware: "true"
-    features.operators.openshift.io/cnf: "false"
-    features.operators.openshift.io/cni: "false"
-    features.operators.openshift.io/csi: "false"
-    features.operators.openshift.io/tls-profiles: "false"
-    features.operators.openshift.io/token-auth-aws: "true"
-    features.operators.openshift.io/token-auth-azure: "false"
-    features.operators.openshift.io/token-auth-gcp: "false"
   labels:
     operatorframework.io/arch.amd64: supported
     operatorframework.io/arch.arm64: supported
