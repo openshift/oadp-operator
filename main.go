@@ -20,10 +20,16 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"github.com/openshift/oadp-operator/pkg/common"
 	monitor "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/kubernetes"
 	"os"
+	client "sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -50,6 +56,13 @@ var (
 	scheme   = runtime.NewScheme()
 	setupLog = ctrl.Log.WithName("setup")
 )
+
+// WebIdentityTokenPath mount present on operator CSV
+const WebIdentityTokenPath = "/var/run/secrets/openshift/serviceaccount/token"
+
+// CloudCredentials API constants
+const CloudCredentialGroupVersion = "cloudcredential.openshift.io/v1"
+const CloudCredentialsCRDName = "credentialsrequests"
 
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
@@ -86,6 +99,33 @@ func main() {
 	if err != nil {
 		setupLog.Error(err, "error setting privileged pod security labels to operator namespace")
 		os.Exit(1)
+	}
+
+	// check if this is standardized STS workflow via OLM and CCO
+	if common.CCOWorkflow() {
+		setupLog.Info("AWS Role ARN specified by the user, following standardized STS workflow")
+		// ROLEARN env var is set via operator subscription
+		roleARN := os.Getenv("ROLEARN")
+		setupLog.Info("getting role ARN", "role ARN =", roleARN)
+
+		// check if cred request API exists in the cluster before creating a cred request
+		setupLog.Info("Checking if credentialsrequest CRD exists in the cluster")
+		credReqCRDExists, err := DoesCRDExist(CloudCredentialGroupVersion, CloudCredentialsCRDName)
+		if err != nil {
+			setupLog.Error(err, "problem checking the existence of CredentialRequests CRD")
+			os.Exit(1)
+		}
+
+		if credReqCRDExists {
+			// create cred request
+			setupLog.Info(fmt.Sprintf("Creating credentials request for role: %s, and WebIdentityTokenPath: %s", roleARN, WebIdentityTokenPath))
+			if err := CreateCredRequest(roleARN, WebIdentityTokenPath, watchNamespace); err != nil {
+				if !errors.IsAlreadyExists(err) {
+					setupLog.Error(err, "unable to create credRequest")
+					os.Exit(1)
+				}
+			}
+		}
 	}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
@@ -216,5 +256,86 @@ func addPodSecurityPrivilegedLabels(watchNamespaceName string) error {
 		setupLog.Error(err, "problem patching operator namespace for privileged pod security labels")
 		return err
 	}
+	return nil
+}
+
+func DoesCRDExist(CRDGroupVersion, CRDName string) (bool, error) {
+	kubeconf := ctrl.GetConfigOrDie()
+
+	discoveryClient, err := discovery.NewDiscoveryClientForConfig(kubeconf)
+	if err != nil {
+		return false, err
+	}
+
+	resources, err := discoveryClient.ServerPreferredResources()
+	if err != nil {
+		return false, err
+	}
+	discoveryResult := false
+	for _, resource := range resources {
+		if resource.GroupVersion == CRDGroupVersion {
+			for _, crd := range resource.APIResources {
+				if crd.Name == CRDName {
+					discoveryResult = true
+					break
+				}
+			}
+		}
+	}
+	return discoveryResult, nil
+
+}
+
+// CreateCredRequest WITP : WebIdentityTokenPath
+func CreateCredRequest(roleARN string, WITP string, secretNS string) error {
+	cfg := config.GetConfigOrDie()
+	client, err := client.New(cfg, client.Options{})
+	if err != nil {
+		setupLog.Error(err, "unable to create client")
+	}
+
+	// Extra deps were getting added and existing ones were getting upgraded when the CloudCredentials API was imported
+	// This caused updates to go.mod and started resulting in operator build failures due to incompatibility with the existing velero deps
+	// Hence for now going via the unstructured route
+	credRequest := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "cloudcredential.openshift.io/v1",
+			"kind":       "CredentialsRequest",
+			"metadata": map[string]interface{}{
+				"name":      "oadp-aws-credentials-request",
+				"namespace": "openshift-cloud-credential-operator",
+			},
+			"spec": map[string]interface{}{
+				"secretRef": map[string]interface{}{
+					"name":      "cloud-credentials",
+					"namespace": secretNS,
+				},
+				"serviceAccountNames": []interface{}{
+					"openshift-adp-controller-manager",
+				},
+				"providerSpec": map[string]interface{}{
+					"apiVersion": "cloudcredential.openshift.io/v1",
+					"kind":       "AWSProviderSpec",
+					"statementEntries": []interface{}{
+						map[string]interface{}{
+							"effect": "Allow",
+							"action": []interface{}{
+								"s3:*",
+							},
+							"resource": "arn:aws:s3:*:*:*",
+						},
+					},
+					"stsIAMRoleARN": roleARN,
+				},
+				"cloudTokenPath": WITP,
+			},
+		},
+	}
+
+	if err := client.Create(context.Background(), credRequest); err != nil {
+		setupLog.Error(err, "unable to create credentials request resource")
+	}
+
+	setupLog.Info("Custom resource credentialsrequest created successfully")
 	return nil
 }

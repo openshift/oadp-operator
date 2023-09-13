@@ -3,6 +3,11 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"github.com/openshift/oadp-operator/pkg/common"
+	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"os"
 	"strconv"
 	"time"
 
@@ -111,6 +116,17 @@ func (b BucketReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		}
 	}
 	var ok bool
+	if common.CCOWorkflow() {
+		// wait for the credential request to be processed and the secret to be created
+		log.Info(fmt.Sprintf("Following standardized STS workflow, waiting for for the credential request to be processed and provision the secret"))
+		installNS := os.Getenv("WATCH_NAMESPACE")
+		_, err = b.WaitForSecret(installNS, VeleroAWSSecretName)
+		if err != nil {
+			log.Error(err, "unable to fetch secert created by CCO")
+			return result, err
+		}
+	}
+	// Now continue with bucket creation as secret exists and we are good to go !!!
 	if ok, err = clnt.Exists(); !ok && err == nil {
 		// Handle Creation if not exist.
 		created, err := clnt.Create()
@@ -187,4 +203,32 @@ func removeKey(slice []string, s string) []string {
 		}
 	}
 	return slice
+}
+
+func (b *BucketReconciler) WaitForSecret(namespace, name string) (*corev1.Secret, error) {
+	// set a timeout of 10 minutes
+	timeout := 10 * time.Minute
+
+	secret := corev1.Secret{}
+	key := types.NamespacedName{
+		Name:      name,
+		Namespace: namespace,
+	}
+
+	err := wait.PollImmediate(5*time.Second, timeout, func() (bool, error) {
+
+		err := b.Client.Get(context.Background(), key, &secret)
+		if err != nil {
+			if errors.IsNotFound(err) {
+				return false, nil
+			}
+		}
+		return true, nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &secret, nil
 }
