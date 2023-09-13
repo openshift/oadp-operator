@@ -163,16 +163,13 @@ metadata:
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
     repository: https://github.com/openshift/oadp-operator
     support: Red Hat
-    # DEPRECATED but still functional starting with OCP v4.14
     operators.openshift.io/infrastructure-features: '["Disconnected"]'
-    # New infrastructure annotation format
-    # MUST provide either the string value (not boolean) "true" or "false" for each
     features.operators.openshift.io/disconnected: "true"
     features.operators.openshift.io/fips-compliant: "true"
     features.operators.openshift.io/proxy-aware: "true"
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
-    features.operators.openshift.io/csi: "true"
+    features.operators.openshift.io/csi: "false"
     features.operators.openshift.io/tls-profiles: "false"
     features.operators.openshift.io/token-auth-aws: "true"
     features.operators.openshift.io/token-auth-azure: "false"
