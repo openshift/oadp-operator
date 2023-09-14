@@ -232,7 +232,7 @@ func (r *DPAReconciler) customizeVeleroDeployment(dpa *oadpv1alpha1.DataProtecti
 		}
 	}
 
-	hasShortLivedCredentials, err := credentials.BlsUsesShortLivedCredential(dpa.Spec.BackupLocations, dpa.Namespace)
+	hasShortLivedCredentials, err := credentials.BslUsesShortLivedCredential(dpa.Spec.BackupLocations, dpa.Namespace)
 
 	// Selector: veleroDeployment.Spec.Selector,
 	replicas := int32(1)

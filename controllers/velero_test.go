@@ -12,6 +12,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
+	oadpClient "github.com/openshift/oadp-operator/pkg/client"
 	"github.com/openshift/oadp-operator/pkg/common"
 	"github.com/openshift/oadp-operator/pkg/velero/server"
 	"github.com/sirupsen/logrus"
@@ -2459,6 +2460,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 			r := DPAReconciler{
 				Client: fakeClient,
 			}
+			oadpClient.SetClient(fakeClient)
 			if tt.testProxy {
 				os.Setenv(proxyEnvKey, proxyEnvValue)
 				defer os.Unsetenv(proxyEnvKey)

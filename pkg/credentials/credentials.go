@@ -428,7 +428,7 @@ func GetSecretNameKeyConfigProviderForBackupLocation(blspec oadpv1alpha1.BackupL
 }
 
 // Iterate through all backup locations and return true if any of them use short lived credentials
-func BlsUsesShortLivedCredential(bls []oadpv1alpha1.BackupLocation, namespace string) (ret bool, err error) {
+func BslUsesShortLivedCredential(bls []oadpv1alpha1.BackupLocation, namespace string) (ret bool, err error) {
 	for _, blspec := range bls {
 		if blspec.CloudStorage != nil && blspec.CloudStorage.Credential != nil {
 			// Get CloudStorageRef provider
