@@ -55,6 +55,16 @@ oc adm must-gather --image=quay.io/konveyor/oadp-must-gather:latest -- /usr/bin/
 ```
 Note: By default the flag value is set to `false`
 
+### Combining Options
+
+It is not currently possible to combine multiple gather scripts, for example specifying a timeout value at the same time as allowing insecure TLS. However, it is possible in some cases to work around this limitation by setting internal variables on the must-gather command line, like this:
+
+```sh
+oc adm must-gather --image=quay.io/konveyor/oadp-must-gather:latest -- skip_tls=true /usr/bin/gather_with_timeout <timeout_value_in_seconds>
+```
+
+In this case, the `skip_tls` variable is set before running the gather_with_timeout script, and the net effect is a combination of gather_with_timeout and gather_without_tls. The only other variables that can be specified this way are `logs_since`, with a default value of `72h`, and `request_timeout`, with a default value of `0s`.
+
 ### Development
 You can build the image locally using the Dockerfile included.
 
