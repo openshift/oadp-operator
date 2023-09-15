@@ -435,7 +435,7 @@ catalog-build-replaces: opm ## Build a catalog image using replace mode
 catalog-push: ## Push a catalog image.
 	$(MAKE) docker-push IMG=$(CATALOG_IMG)
 
-OADP_BUCKET = $(shell cat $(OADP_BUCKET_FILE))
+OADP_BUCKET ?= $(shell cat $(OADP_BUCKET_FILE))
 TEST_FILTER := ($(shell echo '! aws && ! gcp && ! azure && ! ibmcloud' | \
 sed -r "s/[&]* [!] $(CLUSTER_TYPE)|[!] $(CLUSTER_TYPE) [&]*//")) || $(CLUSTER_TYPE)
 #TEST_FILTER := $(shell echo '! aws && ! gcp && ! azure' | sed -r "s/[&]* [!] $(CLUSTER_TYPE)|[!] $(CLUSTER_TYPE) [&]*//")
@@ -444,10 +444,20 @@ SETTINGS_TMP=/tmp/test-settings
 .PHONY: test-e2e-setup
 test-e2e-setup:
 	mkdir -p $(SETTINGS_TMP)
-	TARGET_CI_CRED_FILE="$(CI_CRED_FILE)" AZURE_RESOURCE_FILE="$(AZURE_RESOURCE_FILE)" CI_JSON_CRED_FILE="$(AZURE_CI_JSON_CRED_FILE)" \
-	OADP_JSON_CRED_FILE="$(AZURE_OADP_JSON_CRED_FILE)" OADP_CRED_FILE="$(OADP_CRED_FILE)" OPENSHIFT_CI="$(OPENSHIFT_CI)" \
-	PROVIDER="$(VELERO_PLUGIN)" BUCKET="$(OADP_BUCKET)" BSL_REGION="$(BSL_REGION)" SECRET="$(CREDS_SECRET_REF)" TMP_DIR=$(SETTINGS_TMP) \
-	VSL_REGION="$(VSL_REGION)" BSL_AWS_PROFILE="$(BSL_AWS_PROFILE)" /bin/bash "tests/e2e/scripts/$(CLUSTER_TYPE)_settings.sh"
+	TMP_DIR=$(SETTINGS_TMP) \
+	OPENSHIFT_CI="$(OPENSHIFT_CI)" \
+	PROVIDER="$(VELERO_PLUGIN)" \
+	SECRET="$(CREDS_SECRET_REF)" \
+	AZURE_RESOURCE_FILE="$(AZURE_RESOURCE_FILE)" \
+	CI_JSON_CRED_FILE="$(AZURE_CI_JSON_CRED_FILE)" \
+	OADP_JSON_CRED_FILE="$(AZURE_OADP_JSON_CRED_FILE)" \
+	OADP_CRED_FILE="$(OADP_CRED_FILE)" \
+	BUCKET="$(OADP_BUCKET)" \
+	TARGET_CI_CRED_FILE="$(CI_CRED_FILE)" \
+	VSL_REGION="$(VSL_REGION)" \
+	BSL_REGION="$(BSL_REGION)" \
+	BSL_AWS_PROFILE="$(BSL_AWS_PROFILE)" \
+	/bin/bash "tests/e2e/scripts/$(CLUSTER_TYPE)_settings.sh"
 
 .PHONY: test-e2e-ginkgo
 test-e2e-ginkgo: test-e2e-setup
