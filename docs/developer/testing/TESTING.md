@@ -2,12 +2,9 @@
 
 ## Prerequisites
 
-### Install Ginkgo
+### OADP operator installed
 
-<!-- Can we add this as pre run for make test-e2e? -->
-```bash
-go install -v -mod=mod github.com/onsi/ginkgo/v2/ginkgo
-```
+You need to have OADP operator already installed in your cluster to run E2E tests. For testing PRs, use `make deploy-olm` to install it with the code changes introduced by them. [More info](../install_from_source.md).
 
 ### AWS setup
 
@@ -22,7 +19,7 @@ To get started, you need to provide the following **required** environment varia
 | `CI_CRED_FILE` | The path to credentials file for snapshotLocations | `/Users/drajds/.aws/.awscred` | true |
 | `VSL_REGION` | The region of snapshotLocations | - | true |
 | `BSL_REGION` | The region of backupLocations | `us-east-1` | false |
-| `OADP_TEST_NAMESPACE` | The namespace were OADP will be installed (it must exist prior to run) | `openshift-adp` | false |
+| `OADP_TEST_NAMESPACE` | The namespace where OADP operator is installed | `openshift-adp` | false |
 
 The expected format for `OADP_CRED_FILE` and `CI_CRED_FILE` files is:
 ```
@@ -43,6 +40,17 @@ export BSL_REGION=<backupLocations_region>
 export OADP_TEST_NAMESPACE=<test_namespace>
 ```
 
+It is also possible to set the environment variables during make command call. Example
+```sh
+OADP_CRED_FILE=<path_to_backupLocations_credentials_file> \
+OADP_BUCKET=<bucket_name> \
+CI_CRED_FILE=<path_to_snapshotLocations_credentials_file> \
+VSL_REGION=<snapshotLocations_region> \
+BSL_REGION=<backupLocations_region> \
+OADP_TEST_NAMESPACE=<test_namespace> \
+make test-e2e
+```
+
 ### Azure setup
 
 TODO
@@ -54,9 +62,7 @@ TODO
 ## Run tests
 
 To run all E2E tests for your provider, run
-<!-- How this is run in CI? Can we add this as pre run for make test-e2e? -->
 ```bash
-make deploy-olm
 make test-e2e
 ```
 ### Run selected test
@@ -70,17 +76,20 @@ FIt("the assertion", func() { ... })
 ...
 ```
 
-These need to be removed to run all specs.
+These need to be removed to run all specs. Checks [Ginkgo docs](https://onsi.github.io/ginkgo/) for more info.
 
 ## Clean up
 
 To clean environment after running E2E tests, run
 ```bash
-# Delete leftover objects from tests (like backups and restores)
-make undeploy-olm
+oc delete backup -n $OADP_TEST_NAMESPACE --all
+oc delete backuprepository -n $OADP_TEST_NAMESPACE --all
+oc delete downloadrequest -n $OADP_TEST_NAMESPACE --all
+oc delete podvolumerestore -n $OADP_TEST_NAMESPACE --all
+oc delete restore -n $OADP_TEST_NAMESPACE --all # This fails because of finalizer :(
 oc delete namespace $OADP_TEST_NAMESPACE
-# And clean bucket in your provider
 ```
+And clean the bucket in your provider.
 
 ## CI jobs
 
@@ -88,6 +97,13 @@ TODO
 
 ## Debugging
 
+To get tests help, run
+```sh
+ginkgo run -mod=mod tests/e2e/ -- --help
+```
+Some of the flags are defined in `tests/e2e/e2e_suite_test.go` file.
+
+To check DPA spec that is being used for tests run, run
 ```bash
 make test-e2e-setup
 cat /tmp/test-settings/oadpcreds
@@ -126,7 +142,7 @@ Example Configuration: **launch.json**
 ```
 
 * The [e2e_suite_test.go](https://github.com/openshift/oadp-operator/blob/master/tests/e2e/e2e_suite_test.go) file must be overridden with parameters specific to your environment and aws buckets.
-    * The critical paramaters to change are under `func init()`:
+    * The critical parameters to change are under `func init()`:
         * cloud
         * settings
         * namespace
@@ -148,7 +164,7 @@ func init() {
 }
 
 ```
-Example settings file could be found under oadp-operator/tests/e2e/templates/default_settings.json, and can be overriden used with different providers with similar structure.
+Example settings file could be found under oadp-operator/tests/e2e/templates/default_settings.json, and can be overridden used with different providers with similar structure.
 
 
 * Note that your shell overrides documented [here](https://github.com/openshift/oadp-operator/blob/master/docs/developer/TESTING.md) are not accessible to Visual Studio Code.

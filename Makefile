@@ -68,13 +68,6 @@ endif
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
 ENVTEST_K8S_VERSION = 1.21
 
-# update https://onsi.github.io/ginkgo/#installing-ginkgo
-.PHONY:ginkgo
-ginkgo: # Make sure ginkgo is in $GOPATH/bin
-	go get -d github.com/onsi/ginkgo/ginkgo
-	go get -d github.com/onsi/ginkgo/v2/ginkgo
-	go get -d github.com/onsi/gomega/...
-
 # VERSION defines the project version for the bundle.
 # Update this value when you upgrade the version of your project.
 # To re-generate a bundle for another specific version without changing the standard setup, you can:
@@ -435,6 +428,10 @@ catalog-build-replaces: opm ## Build a catalog image using replace mode
 catalog-push: ## Push a catalog image.
 	$(MAKE) docker-push IMG=$(CATALOG_IMG)
 
+.PHONY: install-ginkgo
+install-ginkgo: # Make sure ginkgo is in $GOPATH/bin
+	go install -v -mod=mod github.com/onsi/ginkgo/v2/ginkgo
+
 OADP_BUCKET ?= $(shell cat $(OADP_BUCKET_FILE))
 TEST_FILTER := ($(shell echo '! aws && ! gcp && ! azure && ! ibmcloud' | \
 sed -r "s/[&]* [!] $(CLUSTER_TYPE)|[!] $(CLUSTER_TYPE) [&]*//")) || $(CLUSTER_TYPE)
@@ -459,24 +456,29 @@ test-e2e-setup:
 	BSL_AWS_PROFILE="$(BSL_AWS_PROFILE)" \
 	/bin/bash "tests/e2e/scripts/$(CLUSTER_TYPE)_settings.sh"
 
+# TODO someone uses this directly?
 .PHONY: test-e2e-ginkgo
-test-e2e-ginkgo: test-e2e-setup
-	ginkgo run -mod=mod tests/e2e/ -- -credentials=$(OADP_CRED_FILE) \
-	-velero_namespace=$(OADP_TEST_NAMESPACE) \
+test-e2e-ginkgo: test-e2e-setup install-ginkgo
+	ginkgo run -mod=mod tests/e2e/ -- \
 	-settings=$(SETTINGS_TMP)/oadpcreds \
-	-velero_instance_name=$(VELERO_INSTANCE_NAME) \
-	-timeout_multiplier=$(E2E_TIMEOUT_MULTIPLIER) \
-	--ginkgo.label-filter="$(TEST_FILTER)" \
-	-ci_cred_file=$(CI_CRED_FILE) \
 	-provider=$(CLUSTER_TYPE) \
 	-creds_secret_ref=$(CREDS_SECRET_REF) \
+	-credentials=$(OADP_CRED_FILE) \
+	-ci_cred_file=$(CI_CRED_FILE) \
+	-velero_namespace=$(OADP_TEST_NAMESPACE) \
+	-velero_instance_name=$(VELERO_INSTANCE_NAME) \
+	-timeout_multiplier=$(E2E_TIMEOUT_MULTIPLIER) \
 	-artifact_dir=$(ARTIFACT_DIR) \
 	-oc_cli=$(OC_CLI) \
+	--ginkgo.label-filter="$(TEST_FILTER)" \
 	--ginkgo.timeout=2h
 
 .PHONY: test-e2e
 test-e2e: test-e2e-ginkgo
 
+# TODO remove backuprepository, backups, restores, downloadrequets, etc
+# oc delete namespace $OADP_TEST_NAMESPACE
+# tell user to delte files in provider's bucket
 .PHONY: test-e2e-cleanup
 test-e2e-cleanup: volsync-uninstall
 	rm -rf $(SETTINGS_TMP)
