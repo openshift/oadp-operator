@@ -631,7 +631,7 @@ func (r DPAReconciler) noDefaultCredentials(dpa oadpv1alpha1.DataProtectionAppli
 			}
 			if bsl.Velero != nil && bsl.Velero.Credential != nil {
 				bslProvider := strings.TrimPrefix(bsl.Velero.Provider, veleroIOPrefix)
-				if found := providerNeedsDefaultCreds[bslProvider]; !found {
+				if _, found := providerNeedsDefaultCreds[bslProvider]; !found {
 					providerNeedsDefaultCreds[bslProvider] = false
 				}
 			}
@@ -655,7 +655,9 @@ func (r DPAReconciler) noDefaultCredentials(dpa oadpv1alpha1.DataProtectionAppli
 			// Bucket credentials via configuration. Only AWS is supported
 			provider := strings.TrimPrefix(vsl.Velero.Provider, veleroIOPrefix)
 			if vsl.Velero.Credential != nil || provider == string(oadpv1alpha1.AWSBucketProvider) && hasCloudStorage {
-				providerNeedsDefaultCreds[provider] = false
+				if _, found := providerNeedsDefaultCreds[provider]; !found {
+					providerNeedsDefaultCreds[provider] = false
+				}
 			} else {
 				providerNeedsDefaultCreds[provider] = true
 			}
