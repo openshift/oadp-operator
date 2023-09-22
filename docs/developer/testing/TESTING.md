@@ -82,12 +82,13 @@ These need to be removed to run all specs. Checks [Ginkgo docs](https://onsi.git
 
 To clean environment after running E2E tests, run
 ```bash
+oc delete volumesnapshotclass oadp-example-snapclass
 oc delete backup -n $OADP_TEST_NAMESPACE --all
 oc delete backuprepository -n $OADP_TEST_NAMESPACE --all
 oc delete downloadrequest -n $OADP_TEST_NAMESPACE --all
 oc delete podvolumerestore -n $OADP_TEST_NAMESPACE --all
-oc delete restore -n $OADP_TEST_NAMESPACE --all # This fails because of finalizer :(
-oc delete namespace $OADP_TEST_NAMESPACE
+oc delete restore -n $OADP_TEST_NAMESPACE --all &
+for restore_name in $(oc get restore -n $OADP_TEST_NAMESPACE -o name);do oc patch "$restore_name" -n $OADP_TEST_NAMESPACE -p '{"metadata":{"finalizers":null}}' --type=merge;done
 ```
 And clean the bucket in your provider.
 
