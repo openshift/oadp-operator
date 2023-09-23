@@ -474,6 +474,7 @@ test-e2e: test-e2e-setup install-ginkgo
 
 .PHONY: test-e2e-cleanup
 test-e2e-cleanup:
+	oc delete volumesnapshotcontent --all
 	oc delete volumesnapshotclass oadp-example-snapclass --ignore-not-found=true
 	oc delete backup -n $(OADP_TEST_NAMESPACE) --all
 	oc delete backuprepository -n $(OADP_TEST_NAMESPACE) --all
@@ -481,4 +482,4 @@ test-e2e-cleanup:
 	oc delete podvolumerestore -n $(OADP_TEST_NAMESPACE) --all
 	oc delete restore -n $(OADP_TEST_NAMESPACE) --all --wait=false
 	for restore_name in $(shell oc get restore -n $(OADP_TEST_NAMESPACE) -o name);do oc patch "$$restore_name" -n $(OADP_TEST_NAMESPACE) -p '{"metadata":{"finalizers":null}}' --type=merge;done
-    rm -rf $(SETTINGS_TMP)
+	rm -rf $(SETTINGS_TMP)
