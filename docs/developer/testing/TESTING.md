@@ -27,7 +27,7 @@ The expected format for `OADP_CRED_FILE` and `CI_CRED_FILE` files is:
 aws_access_key_id=<access_key>
 aws_secret_access_key=<secret_key>
 ```
-> **Note:** If you use one profile name different from `default` for backupLocations, also change `BSL_AWS_PROFILE` environment variable. snapshotLocations must use `default` profile name.
+> **Note:** If you use one profile name different from `default` for backupLocations, also change `BSL_AWS_PROFILE` environment variable. snapshotLocations hardcodes to `default` profile name in e2e code.
 
 To set the environment variables, run
 ```sh
@@ -65,6 +65,8 @@ To run all E2E tests for your provider, run
 ```bash
 make test-e2e
 ```
+Check [Debugging section](#debugging) for detailed explanation of the command.
+
 ### Run selected test
 
 You can run a particular e2e test(s) by placing an `F` at the beginning of Ginkgo objects. Example
@@ -82,36 +84,48 @@ These need to be removed to run all specs. Checks [Ginkgo docs](https://onsi.git
 
 To clean environment after running E2E tests, run
 ```bash
-oc delete volumesnapshotclass oadp-example-snapclass
-oc delete backup -n $OADP_TEST_NAMESPACE --all
-oc delete backuprepository -n $OADP_TEST_NAMESPACE --all
-oc delete downloadrequest -n $OADP_TEST_NAMESPACE --all
-oc delete podvolumerestore -n $OADP_TEST_NAMESPACE --all
-oc delete restore -n $OADP_TEST_NAMESPACE --all &
-for restore_name in $(oc get restore -n $OADP_TEST_NAMESPACE -o name);do oc patch "$restore_name" -n $OADP_TEST_NAMESPACE -p '{"metadata":{"finalizers":null}}' --type=merge;done
+make test-e2e-cleanup
 ```
 And clean the bucket in your provider.
 
 ## CI jobs
 
-TODO
+The CI jobs are defined in the following folders
+- https://github.com/openshift/release/tree/master/core-services/prow/02_config/openshift/oadp-operator
+- https://github.com/openshift/release/tree/master/ci-operator/config/openshift/oadp-operator
+- https://github.com/openshift/release/tree/master/ci-operator/jobs/openshift/oadp-operator
 
 ## Debugging
 
-To get tests help, run
-```sh
-ginkgo run -mod=mod tests/e2e/ -- --help
-```
-Some of the flags are defined in `tests/e2e/e2e_suite_test.go` file.
+When you run `make test-e2e`, the following steps are executed
+- `make test-e2e-setup` runs creating base DPA used for tests run
+- `make install-ginkgo` installs Ginkgo
+- Ginkgo executes the tests
 
-To check DPA spec that is being used for tests run, run
+To check DPA spec that is being used as base for tests run, run
 ```bash
 make test-e2e-setup
 cat /tmp/test-settings/oadpcreds
 ```
 Check if format looks as expected.
+> **Note:** DPA spec used for tests may not be the same as the result, because different tests case (CSI, DataMover, etc) use different plugins, feature flags, etc.
+
+To get tests help, run
+```sh
+make install-ginkgo
+ginkgo run -mod=mod tests/e2e/ -- --help
+```
+Some of the flags are defined in `tests/e2e/e2e_suite_test.go` file.
+
+E2E tests are defined to run in the CI, so to run the locally, you may need to change some parameters. For example, to run CSI tests with different drives and storage classes, you need to edit
+- the related VolumeSnapshotClass to your provider in `tests/e2e/sample-applications/snapclass-csi/` folder with your driver (to list cluster drivers, run `oc get csidrivers`)
+- the related PersistentVolumeClaims to your provider in `tests/e2e/sample-applications/mysql-persistent/pvc-twoVol/`, `tests/e2e/sample-applications/mysql-persistent/pvc/` and `tests/e2e/sample-applications/mongo-persistent/pvc/` folders with your storage classes (to list cluster drivers, run `oc get storageclasses`)
+
+If running E2E tests against operator created from `make deploy-olm`, remember its image expires, which may cause **Subscription Config Suite Test** to fail.
 
 ### With Visual Studio
+
+TODO update
 
 Optionally developers can debug the Ginkgo tests in tests/e2e with [Visual Studio Code](https://code.visualstudio.com/docs/editor/debugging).
 

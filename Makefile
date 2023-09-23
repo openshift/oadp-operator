@@ -456,9 +456,8 @@ test-e2e-setup:
 	BSL_AWS_PROFILE="$(BSL_AWS_PROFILE)" \
 	/bin/bash "tests/e2e/scripts/$(CLUSTER_TYPE)_settings.sh"
 
-# TODO someone uses this directly?
-.PHONY: test-e2e-ginkgo
-test-e2e-ginkgo: test-e2e-setup install-ginkgo
+.PHONY: test-e2e
+test-e2e: test-e2e-setup install-ginkgo
 	ginkgo run -mod=mod tests/e2e/ -- \
 	-settings=$(SETTINGS_TMP)/oadpcreds \
 	-provider=$(CLUSTER_TYPE) \
@@ -473,34 +472,13 @@ test-e2e-ginkgo: test-e2e-setup install-ginkgo
 	--ginkgo.label-filter="$(TEST_FILTER)" \
 	--ginkgo.timeout=2h
 
-.PHONY: test-e2e
-test-e2e: test-e2e-ginkgo
-
-# TODO remove backuprepository, backups, restores, downloadrequets, etc
-# oc delete namespace $OADP_TEST_NAMESPACE
-# tell user to delte files in provider's bucket
 .PHONY: test-e2e-cleanup
-test-e2e-cleanup: volsync-uninstall
-	rm -rf $(SETTINGS_TMP)
-
-.PHONY: volsync-install
-volsync-install:
-	$(eval VS_CURRENT_CSV:=$(shell oc get subscription volsync-product -n openshift-operators -ojsonpath='{.status.currentCSV}'))
-	# OperatorGroup not required, volsync is global operator which has operatorgroup already.
-	# Create subscription for operator if not installed.
-	@if [ "$(VS_CURRENT_CSV)" == "" ]; then \
-		$(OC_CLI) replace --force -f tests/e2e/volsync/volsync-sub.yaml; \
-	else \
-		echo $(VS_CURRENT_CSV) already installed; \
-	fi
-
-.PHONY: volsync-uninstall
-volsync-uninstall:
-	$(eval VS_CURRENT_CSV:=$(shell oc get subscription volsync-product -n openshift-operators -ojsonpath='{.status.currentCSV}'))
-	@if [ "$(VS_CURRENT_CSV)" != "" ]; then \
-		echo "Uninstalling $(VS_CURRENT_CSV)"; \
-		$(OC_CLI) delete subscription volsync-product -n openshift-operators && \
-		$(OC_CLI) delete csv $(VS_CURRENT_CSV) -n openshift-operators; \
-	else \
-		echo No subscription found, skipping uninstall; \
-	fi
+test-e2e-cleanup:
+	oc delete volumesnapshotclass oadp-example-snapclass --ignore-not-found=true
+	oc delete backup -n $(OADP_TEST_NAMESPACE) --all
+	oc delete backuprepository -n $(OADP_TEST_NAMESPACE) --all
+	oc delete downloadrequest -n $(OADP_TEST_NAMESPACE) --all
+	oc delete podvolumerestore -n $(OADP_TEST_NAMESPACE) --all
+	oc delete restore -n $(OADP_TEST_NAMESPACE) --all --wait=false
+	for restore_name in $(shell oc get restore -n $(OADP_TEST_NAMESPACE) -o name);do oc patch "$$restore_name" -n $(OADP_TEST_NAMESPACE) -p '{"metadata":{"finalizers":null}}' --type=merge;done
+    rm -rf $(SETTINGS_TMP)
