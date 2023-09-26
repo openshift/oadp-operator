@@ -16,7 +16,7 @@
 
 - `restic` DaemonSet was renamed to `node-agent` (no changes required, OADP code handles this change)
 
-- `resticrepositories.velero.io` CustomResourceDefinition was renamed to `backuprepositories.velero.io` (no changes required, OADP code handles this change)
+- `resticrepositories.velero.io` CustomResourceDefinition was renamed to `backuprepositories.velero.io` (you can delete `resticrepositories.velero.io` CRD from your cluster, if you want)
 
 ## Upgrade steps
 
@@ -46,12 +46,6 @@ Use the web console to uninstall the OADP operator by clicking on `Install Opera
 
 After clicking on `OADP Operator` under `Installed Operators`, navigate to the right side of the page, where the `Actions` drop-down menu is. Click on that, and select `Uninstall Operator`.
 
-TODO add images?
-
-TODO CLI commands?
-
 ### Install OADP Operator 1.2.x
 
 Follow theses [basic install](../docs/install_olm.md) instructions to install the new OADP operator version, create DPA, and verify correct installation.
-
-TODO tell about update channel strategy? Ex.: update subscription stable-1.1 to stable-1.2
