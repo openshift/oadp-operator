@@ -22,6 +22,10 @@ import (
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+
+	appsV1 "k8s.io/api/apps/v1"
+	apiErrors "k8s.io/apimachinery/pkg/api/errors"
+	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
@@ -62,6 +66,14 @@ func getNodeAgentObjectMeta(r *DPAReconciler) metav1.ObjectMeta {
 }
 
 func (r *DPAReconciler) ReconcileResticDaemonset(log logr.Logger) (bool, error) {
+	// When updating from OADP version 1.1.x to 1.2.x, delete
+	// daemonset.apps/restic (it was renamed to daemonset.apps/node-agent)
+	if err := r.Delete(r.Context, &appsV1.DaemonSet{ObjectMeta: metaV1.ObjectMeta{
+		Name: "restic", Namespace: r.NamespacedName.Namespace,
+	}}); err != nil && !apiErrors.IsNotFound(err) {
+		return false, err
+	}
+
 	dpa := oadpv1alpha1.DataProtectionApplication{}
 	if err := r.Get(r.Context, r.NamespacedName, &dpa); err != nil {
 		return false, err
