@@ -16,9 +16,11 @@ import (
 
 // Common vars obtained from flags passed in ginkgo.
 var bslCredFile, namespace, credSecretRef, instanceName, provider, vslCredFile, settings, artifact_dir, oc_cli, stream string
+var timeoutMultiplierInput int64
 var timeoutMultiplier time.Duration
 
 func init() {
+	// TODO better descriptions to flags
 	flag.StringVar(&bslCredFile, "credentials", "", "Credentials path for BackupStorageLocation")
 	flag.StringVar(&namespace, "velero_namespace", "velero", "Velero Namespace")
 	flag.StringVar(&settings, "settings", "./templates/default_settings.json", "Settings of the velero instance")
@@ -30,6 +32,8 @@ func init() {
 	flag.StringVar(&artifact_dir, "artifact_dir", "/tmp", "Directory for storing must gather")
 	flag.StringVar(&oc_cli, "oc_cli", "oc", "OC CLI Client")
 	flag.StringVar(&stream, "stream", "up", "[up, down] upstream or downstream")
+	flag.Int64Var(&timeoutMultiplierInput, "timeout_multiplier", 1, "Customize timeout multiplier from default (1)")
+	timeoutMultiplier = time.Duration(timeoutMultiplierInput)
 
 	// helps with launching debug sessions from IDE
 	if os.Getenv("E2E_USE_ENV_FLAGS") == "true" {
@@ -65,12 +69,6 @@ func init() {
 		if os.Getenv("OC_CLI") != "" {
 			oc_cli = os.Getenv("OC_CLI")
 		}
-	}
-
-	timeoutMultiplierInput := flag.Int64("timeout_multiplier", 1, "Customize timeout multiplier from default (1)")
-	timeoutMultiplier = 1
-	if timeoutMultiplierInput != nil && *timeoutMultiplierInput >= 1 {
-		timeoutMultiplier = time.Duration(*timeoutMultiplierInput)
 	}
 }
 

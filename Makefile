@@ -62,17 +62,11 @@ endif
 VELERO_PLUGIN ?= ${CLUSTER_TYPE}
 
 ifeq ($(CLUSTER_TYPE), ibmcloud)
-	VELERO_PLUGIN ?= aws
+	VELERO_PLUGIN = aws
 endif
 
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
 ENVTEST_K8S_VERSION = 1.21
-
-.PHONY:ginkgo
-ginkgo: # Make sure ginkgo is in $GOPATH/bin
-	go get -d github.com/onsi/ginkgo/ginkgo
-	go get -d github.com/onsi/ginkgo/v2/ginkgo
-	go get -d github.com/onsi/gomega/...
 
 # VERSION defines the project version for the bundle.
 # Update this value when you upgrade the version of your project.
@@ -434,7 +428,11 @@ catalog-build-replaces: opm ## Build a catalog image using replace mode
 catalog-push: ## Push a catalog image.
 	$(MAKE) docker-push IMG=$(CATALOG_IMG)
 
-OADP_BUCKET = $(shell cat $(OADP_BUCKET_FILE))
+.PHONY: install-ginkgo
+install-ginkgo: # Make sure ginkgo is in $GOPATH/bin
+	go install -v -mod=mod github.com/onsi/ginkgo/v2/ginkgo
+
+OADP_BUCKET ?= $(shell cat $(OADP_BUCKET_FILE))
 TEST_FILTER := ($(shell echo '! aws && ! gcp && ! azure && ! ibmcloud' | \
 sed -r "s/[&]* [!] $(CLUSTER_TYPE)|[!] $(CLUSTER_TYPE) [&]*//")) || $(CLUSTER_TYPE)
 #TEST_FILTER := $(shell echo '! aws && ! gcp && ! azure' | sed -r "s/[&]* [!] $(CLUSTER_TYPE)|[!] $(CLUSTER_TYPE) [&]*//")
@@ -443,51 +441,45 @@ SETTINGS_TMP=/tmp/test-settings
 .PHONY: test-e2e-setup
 test-e2e-setup:
 	mkdir -p $(SETTINGS_TMP)
-	TARGET_CI_CRED_FILE="$(CI_CRED_FILE)" AZURE_RESOURCE_FILE="$(AZURE_RESOURCE_FILE)" CI_JSON_CRED_FILE="$(AZURE_CI_JSON_CRED_FILE)" \
-	OADP_JSON_CRED_FILE="$(AZURE_OADP_JSON_CRED_FILE)" OADP_CRED_FILE="$(OADP_CRED_FILE)" OPENSHIFT_CI="$(OPENSHIFT_CI)" \
-	PROVIDER="$(VELERO_PLUGIN)" BUCKET="$(OADP_BUCKET)" BSL_REGION="$(BSL_REGION)" SECRET="$(CREDS_SECRET_REF)" TMP_DIR=$(SETTINGS_TMP) \
-	VSL_REGION="$(VSL_REGION)" BSL_AWS_PROFILE="$(BSL_AWS_PROFILE)" /bin/bash "tests/e2e/scripts/$(CLUSTER_TYPE)_settings.sh"
-
-.PHONY: test-e2e-ginkgo
-test-e2e-ginkgo: test-e2e-setup
-	ginkgo run -mod=mod tests/e2e/ -- -credentials=$(OADP_CRED_FILE) \
-	-velero_namespace=$(OADP_TEST_NAMESPACE) \
-	-settings=$(SETTINGS_TMP)/oadpcreds \
-	-velero_instance_name=$(VELERO_INSTANCE_NAME) \
-	-timeout_multiplier=$(E2E_TIMEOUT_MULTIPLIER) \
-	--ginkgo.label-filter="$(TEST_FILTER)" \
-	-ci_cred_file=$(CI_CRED_FILE) \
-	-provider=$(CLUSTER_TYPE) \
-	-creds_secret_ref=$(CREDS_SECRET_REF) \
-	-artifact_dir=$(ARTIFACT_DIR) \
-	-oc_cli=$(OC_CLI) \
-	--ginkgo.timeout=2h
+	TMP_DIR=$(SETTINGS_TMP) \
+	OPENSHIFT_CI="$(OPENSHIFT_CI)" \
+	PROVIDER="$(VELERO_PLUGIN)" \
+	SECRET="$(CREDS_SECRET_REF)" \
+	AZURE_RESOURCE_FILE="$(AZURE_RESOURCE_FILE)" \
+	CI_JSON_CRED_FILE="$(AZURE_CI_JSON_CRED_FILE)" \
+	OADP_JSON_CRED_FILE="$(AZURE_OADP_JSON_CRED_FILE)" \
+	OADP_CRED_FILE="$(OADP_CRED_FILE)" \
+	BUCKET="$(OADP_BUCKET)" \
+	TARGET_CI_CRED_FILE="$(CI_CRED_FILE)" \
+	VSL_REGION="$(VSL_REGION)" \
+	BSL_REGION="$(BSL_REGION)" \
+	BSL_AWS_PROFILE="$(BSL_AWS_PROFILE)" \
+	/bin/bash "tests/e2e/scripts/$(CLUSTER_TYPE)_settings.sh"
 
 .PHONY: test-e2e
-test-e2e: test-e2e-ginkgo
+test-e2e: test-e2e-setup install-ginkgo
+	ginkgo run -mod=mod tests/e2e/ -- \
+	-settings=$(SETTINGS_TMP)/oadpcreds \
+	-provider=$(CLUSTER_TYPE) \
+	-creds_secret_ref=$(CREDS_SECRET_REF) \
+	-credentials=$(OADP_CRED_FILE) \
+	-ci_cred_file=$(CI_CRED_FILE) \
+	-velero_namespace=$(OADP_TEST_NAMESPACE) \
+	-velero_instance_name=$(VELERO_INSTANCE_NAME) \
+	-timeout_multiplier=$(E2E_TIMEOUT_MULTIPLIER) \
+	-artifact_dir=$(ARTIFACT_DIR) \
+	-oc_cli=$(OC_CLI) \
+	--ginkgo.label-filter="$(TEST_FILTER)" \
+	--ginkgo.timeout=2h
 
 .PHONY: test-e2e-cleanup
-test-e2e-cleanup: volsync-uninstall
+test-e2e-cleanup:
+	oc delete volumesnapshotcontent --all
+	oc delete volumesnapshotclass oadp-example-snapclass --ignore-not-found=true
+	oc delete backup -n $(OADP_TEST_NAMESPACE) --all
+	oc delete backuprepository -n $(OADP_TEST_NAMESPACE) --all
+	oc delete downloadrequest -n $(OADP_TEST_NAMESPACE) --all
+	oc delete podvolumerestore -n $(OADP_TEST_NAMESPACE) --all
+	oc delete restore -n $(OADP_TEST_NAMESPACE) --all --wait=false
+	for restore_name in $(shell oc get restore -n $(OADP_TEST_NAMESPACE) -o name);do oc patch "$$restore_name" -n $(OADP_TEST_NAMESPACE) -p '{"metadata":{"finalizers":null}}' --type=merge;done
 	rm -rf $(SETTINGS_TMP)
-
-.PHONY: volsync-install
-volsync-install:
-	$(eval VS_CURRENT_CSV:=$(shell oc get subscription volsync-product -n openshift-operators -ojsonpath='{.status.currentCSV}'))
-	# OperatorGroup not required, volsync is global operator which has operatorgroup already.
-	# Create subscription for operator if not installed.
-	@if [ "$(VS_CURRENT_CSV)" == "" ]; then \
-		$(OC_CLI) replace --force -f tests/e2e/volsync/volsync-sub.yaml; \
-	else \
-		echo $(VS_CURRENT_CSV) already installed; \
-	fi
-
-.PHONY: volsync-uninstall
-volsync-uninstall:
-	$(eval VS_CURRENT_CSV:=$(shell oc get subscription volsync-product -n openshift-operators -ojsonpath='{.status.currentCSV}'))
-	@if [ "$(VS_CURRENT_CSV)" != "" ]; then \
-		echo "Uninstalling $(VS_CURRENT_CSV)"; \
-		$(OC_CLI) delete subscription volsync-product -n openshift-operators && \
-		$(OC_CLI) delete csv $(VS_CURRENT_CSV) -n openshift-operators; \
-	else \
-		echo No subscription found, skipping uninstall; \
-	fi
