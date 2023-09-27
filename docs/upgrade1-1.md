@@ -16,7 +16,7 @@
 
 - `restic` DaemonSet was renamed to `node-agent` (no changes required, OADP code handles this change)
 
-- `resticrepositories.velero.io` CustomResourceDefinition was renamed to `backuprepositories.velero.io` (you can delete `resticrepositories.velero.io` CRD from your cluster, if you want)
+- `resticrepositories.velero.io` CustomResourceDefinition was renamed to `backuprepositories.velero.io` (no changes required, OADP code handles this change)
 
 ## Upgrade steps
 

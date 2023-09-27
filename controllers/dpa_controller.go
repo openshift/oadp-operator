@@ -88,7 +88,6 @@ func (r *DPAReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	}
 
 	_, err := ReconcileBatch(r.Log,
-		// TODO create updateOadpVersion.go and create function there?
 		r.ValidateDataProtectionCR,
 		r.ReconcileResticRestoreHelperConfig,
 		r.ReconcileBackupStorageLocations,

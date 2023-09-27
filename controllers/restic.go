@@ -17,6 +17,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/pointer"
@@ -68,9 +70,20 @@ func getNodeAgentObjectMeta(r *DPAReconciler) metav1.ObjectMeta {
 func (r *DPAReconciler) ReconcileResticDaemonset(log logr.Logger) (bool, error) {
 	// When updating from OADP version 1.1.x to 1.2.x, delete
 	// daemonset.apps/restic (it was renamed to daemonset.apps/node-agent)
+	// resticrepositories.velero.io CRD (it was renamed to backuprepositories.velero.io)
 	if err := r.Delete(r.Context, &appsV1.DaemonSet{ObjectMeta: metaV1.ObjectMeta{
 		Name: "restic", Namespace: r.NamespacedName.Namespace,
 	}}); err != nil && !apiErrors.IsNotFound(err) {
+		return false, err
+	}
+	resticRepositoriesResource := &unstructured.Unstructured{}
+	resticRepositoriesResource.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "apiextensions.k8s.io",
+		Version: "v1",
+		Kind:    "CustomResourceDefinition",
+	})
+	resticRepositoriesResource.SetName("resticrepositories.velero.io")
+	if err := r.Delete(r.Context, resticRepositoriesResource); err != nil && !apiErrors.IsNotFound(err) {
 		return false, err
 	}
 
