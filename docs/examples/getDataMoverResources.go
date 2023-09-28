@@ -36,7 +36,7 @@ var (
 
 	ClusterConfig    *rest.Config
 	KubernetesClient *kubernetes.Clientset
-	DynamicClient    *dynamic.DynamicClient
+	DynamicClient    dynamic.Interface
 
 	VolumeSnapshotResource = schema.GroupVersionResource{
 		Group:    "snapshot.storage.k8s.io",
@@ -167,7 +167,7 @@ func execCommandInVeleroPod(command string) io.Reader {
 	output := &bytes.Buffer{}
 	errOutput := &bytes.Buffer{}
 
-	err = exec.StreamWithContext(context.Background(), remotecommand.StreamOptions{Stdout: output, Stderr: errOutput})
+	err = exec.Stream(remotecommand.StreamOptions{Stdout: output, Stderr: errOutput})
 	if err != nil {
 		fmt.Println(output)
 		fmt.Println(errOutput)
@@ -202,7 +202,6 @@ func backupSummary() {
 		"Queued":     func() { batchingQueued += 1 },
 	}
 	for _, volumeSnapshotBackup := range volumeSnapshotBackups {
-		// TODO there is an easier way to access the properties?
 		status := volumeSnapshotBackup.Object["status"].(map[string]interface{})
 		if status["phase"] == "Completed" {
 			phaseCompleted += 1
