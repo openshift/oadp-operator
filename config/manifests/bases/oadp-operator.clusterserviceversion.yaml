@@ -24,7 +24,6 @@ metadata:
     operators.openshift.io/infrastructure-features: '["Disconnected"]'
     operators.openshift.io/valid-subscription: '["OpenShift Container Platform", "OpenShift
       Platform Plus"]'
-    replaces: oadp-operator.v1.2.1
     repository: https://github.com/openshift/oadp-operator
     support: Red Hat
   labels:
@@ -371,4 +370,5 @@ spec:
   maturity: stable
   provider:
     name: Red Hat
-  version: 99.0.0
+  replaces: oadp-operator.v1.2.1
+  version: 1.2.2
