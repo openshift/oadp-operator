@@ -70,6 +70,15 @@ func getNodeAgentObjectMeta(r *DPAReconciler) metav1.ObjectMeta {
 }
 
 func (r *DPAReconciler) ReconcileNodeAgentDaemonset(log logr.Logger) (bool, error) {
+	// When updating from OADP version 1.1.x to 1.2.x, delete
+	// daemonset.apps/restic (it was renamed to daemonset.apps/node-agent)
+	// Needed if user upgraded to version < 1.2.2
+	if err := r.Delete(r.Context, &appsv1.DaemonSet{ObjectMeta: metav1.ObjectMeta{
+		Name: "restic", Namespace: r.NamespacedName.Namespace,
+	}}); err != nil && !errors.IsNotFound(err) {
+		return false, err
+	}
+
 	dpa := oadpv1alpha1.DataProtectionApplication{}
 	var deleteDaemonSet bool = true
 
