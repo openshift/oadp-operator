@@ -178,7 +178,7 @@ metadata:
     operatorframework.io/arch.arm64: supported
     operatorframework.io/arch.ppc64le: supported
     operatorframework.io/arch.s390x: supported
-  name: oadp-operator.v1.2.0
+  name: oadp-operator.v1.2.2
   namespace: openshift-adp
 spec:
   apiservicedefinitions: {}
@@ -960,4 +960,4 @@ spec:
     name: data-mover-dummy-pod
   - image: registry.redhat.io/oadp/oadp-mustgather-rhel8:v1.2
     name: mustgather
-  version: 1.2.0
+  version: 1.2.2
