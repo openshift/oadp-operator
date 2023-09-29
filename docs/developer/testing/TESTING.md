@@ -120,6 +120,7 @@ Some of the flags are defined in `tests/e2e/e2e_suite_test.go` file.
 E2E tests are defined to run in the CI, so to run the locally, you may need to change some parameters. For example, to run CSI tests with different drives and storage classes, you need to edit
 - the related VolumeSnapshotClass to your provider in `tests/e2e/sample-applications/snapclass-csi/` folder with your driver (to list cluster drivers, run `oc get csidrivers`)
 - the related PersistentVolumeClaims to your provider in `tests/e2e/sample-applications/mysql-persistent/pvc-twoVol/`, `tests/e2e/sample-applications/mysql-persistent/pvc/` and `tests/e2e/sample-applications/mongo-persistent/pvc/` folders with your storage classes (to list cluster drivers, run `oc get storageclasses`)
+- Optionally, the user can use the default storage class by choosing the pvc/default_sc.yaml files.
 
 If running E2E tests against operator created from `make deploy-olm`, remember its image expires, which may cause **Subscription Config Suite Test** to fail.
 
