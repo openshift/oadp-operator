@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-logr/logr"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
+	"github.com/openshift/oadp-operator/pkg/bucket"
 	"github.com/openshift/oadp-operator/pkg/common"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -219,6 +220,18 @@ func (r *DPAReconciler) updateBSLFromSpec(bsl *velerov1.BackupStorageLocation, d
 	if bslSpec.Provider == "azure" {
 		if len(bslSpec.Config["storageAccountKeyEnvVar"]) == 0 {
 			registryDeployment = "False"
+		}
+	}
+	// The AWS SDK expects the server providing S3 blobs to remove default ports
+	// (80 for HTTP and 443 for HTTPS) before calculating a signature, and not
+	// all S3-compatible services do this. Remove the ports here to avoid 403
+	// errors from mismatched signatures.
+	if bslSpec.Provider == "aws" {
+		s3Url := bslSpec.Config["s3Url"]
+		if len(s3Url) > 0 {
+			if s3Url, err = bucket.StripDefaultPorts(s3Url); err == nil {
+				bslSpec.Config["s3Url"] = s3Url
+			}
 		}
 	}
 	bsl.Labels = map[string]string{
