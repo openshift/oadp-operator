@@ -11,18 +11,14 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	. "github.com/onsi/ginkgo/v2"
-	buildv1 "github.com/openshift/api/build/v1"
-	"github.com/openshift/oadp-operator/controllers"
-	"github.com/openshift/oadp-operator/pkg/common"
-
-	//volsync "github.com/backube/volsync/api/v1alpha1"
-	//vsmv1alpha1 "github.com/konveyor/volume-snapshot-mover/api/v1alpha1"
 	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
+	. "github.com/onsi/ginkgo/v2"
 	appsv1 "github.com/openshift/api/apps/v1"
+	buildv1 "github.com/openshift/api/build/v1"
 	security "github.com/openshift/api/security/v1"
 	templatev1 "github.com/openshift/api/template/v1"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
+	"github.com/openshift/oadp-operator/pkg/common"
 	utils "github.com/openshift/oadp-operator/tests/e2e/utils"
 	operators "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	operatorsv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
@@ -75,7 +71,7 @@ func (v *DpaCustomResource) Build(backupRestoreType BackupRestoreType) error {
 					LogLevel:       "debug",
 					DefaultPlugins: v.CustomResource.Spec.Configuration.Velero.DefaultPlugins,
 				},
-				Restic: &oadpv1alpha1.ResticConfig{
+				NodeAgent: &oadpv1alpha1.NodeAgentConfig{
 					NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
 						PodConfig: &oadpv1alpha1.PodConfig{},
 					},
@@ -116,39 +112,23 @@ func (v *DpaCustomResource) Build(backupRestoreType BackupRestoreType) error {
 	for _, flag := range dpaInstance.Spec.Configuration.Velero.FeatureFlags {
 		veleroFeatureFlags[flag] = emptyStruct{}
 	}
-	dpaInstance.Spec.Features = &oadpv1alpha1.Features{DataMover: &oadpv1alpha1.DataMover{Enable: false}}
 	switch backupRestoreType {
 	case RESTIC:
-		dpaInstance.Spec.Configuration.Restic.Enable = pointer.Bool(true)
+		dpaInstance.Spec.Configuration.NodeAgent.Enable = pointer.Bool(true)
+		dpaInstance.Spec.Configuration.NodeAgent.UploaderType = "restic"
 		delete(defaultPlugins, oadpv1alpha1.DefaultPluginCSI)
-		delete(defaultPlugins, oadpv1alpha1.DefaultPluginVSM)
-		dpaInstance.Spec.SnapshotLocations = nil
 		delete(veleroFeatureFlags, "EnableCSI")
+		dpaInstance.Spec.SnapshotLocations = nil
 	case CSI:
-		dpaInstance.Spec.Configuration.Restic.Enable = pointer.Bool(false)
+		dpaInstance.Spec.Configuration.NodeAgent.Enable = pointer.Bool(false)
 		defaultPlugins[oadpv1alpha1.DefaultPluginCSI] = emptyStruct{}
 		veleroFeatureFlags["EnableCSI"] = emptyStruct{}
 		dpaInstance.Spec.SnapshotLocations = nil
-		delete(defaultPlugins, oadpv1alpha1.DefaultPluginVSM)
 	case CSIDataMover:
-		dpaInstance.Spec.Configuration.Restic.Enable = pointer.Bool(false)
+		dpaInstance.Spec.Configuration.NodeAgent.Enable = pointer.Bool(true)
+		dpaInstance.Spec.Configuration.NodeAgent.UploaderType = "kopia"
 		defaultPlugins[oadpv1alpha1.DefaultPluginCSI] = emptyStruct{}
 		veleroFeatureFlags["EnableCSI"] = emptyStruct{}
-		dpaInstance.Spec.Features.DataMover.Enable = true
-		dpaInstance.Spec.Features.DataMover.CredentialName = controllers.ResticsecretName
-		dpaInstance.Spec.Features.DataMover.Timeout = "40m"
-		scName, err := v.ProviderStorageClassName(".")
-		if err != nil {
-			return err
-		}
-		dpaInstance.Spec.Features.DataMover.VolumeOptionsForStorageClasses = map[string]oadpv1alpha1.DataMoverVolumeOptions{
-			scName: {
-				SourceVolumeOptions: &oadpv1alpha1.VolumeOptions{
-					AccessMode: corev1.ReadWriteOnce,
-				},
-			},
-		}
-		defaultPlugins[oadpv1alpha1.DefaultPluginVSM] = emptyStruct{}
 		dpaInstance.Spec.SnapshotLocations = nil
 	}
 	dpaInstance.Spec.Configuration.Velero.DefaultPlugins = make([]oadpv1alpha1.DefaultPlugin, 0)
@@ -295,8 +275,6 @@ func (v *DpaCustomResource) SetClient() error {
 	volumesnapshotv1.AddToScheme(client.Scheme())
 	buildv1.AddToScheme(client.Scheme())
 	operatorsv1alpha1.AddToScheme(client.Scheme())
-	//volsync.AddToScheme(client.Scheme())
-	//vsmv1alpha1.AddToScheme(client.Scheme())
 
 	v.Client = client
 	return nil
@@ -356,10 +334,6 @@ func GetOpenShiftADPLogs(namespace string) (string, error) {
 // Returns logs from velero container on velero pod
 func GetVeleroContainerLogs(namespace string) (string, error) {
 	return GetPodWithPrefixContainerLogs(namespace, "velero-", "velero")
-}
-
-func GetVolumeSnapshotMoverLogs(namespace string) (string, error) {
-	return GetPodWithPrefixContainerLogs(namespace, common.DataMover+"-", common.DataMoverControllerContainer)
 }
 
 func GetVeleroContainerFailureLogs(namespace string) []string {

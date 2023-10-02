@@ -8,20 +8,15 @@ import (
 	"strings"
 	"time"
 
-	//volsync "github.com/backube/volsync/api/v1alpha1"
 	"github.com/google/uuid"
-	//vsmv1alpha1 "github.com/konveyor/volume-snapshot-mover/api/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
 	"github.com/onsi/ginkgo/v2/types"
 	. "github.com/onsi/gomega"
-	"github.com/openshift/oadp-operator/controllers"
-	//"github.com/openshift/oadp-operator/pkg/common"
 	. "github.com/openshift/oadp-operator/tests/e2e/lib"
 	"github.com/openshift/oadp-operator/tests/e2e/utils"
 	corev1 "k8s.io/api/core/v1"
 	k8serror "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	//apimachtypes "k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -62,47 +57,6 @@ var _ = Describe("Must-gather backup restore tests", func() {
 			}
 			GinkgoWriter.Println("Printing oadp namespace events")
 			PrintNamespaceEventsAfterTime(namespace, lastInstallTime)
-			/*			if lastBRCase.BackupRestoreType == CSIDataMover {
-						GinkgoWriter.Println("Printing volsync namespace events")
-						PrintNamespaceEventsAfterTime(common.VolSyncDeploymentNamespace, lastInstallTime)
-
-						pvcList := vsmv1alpha1.VolumeSnapshotBackupList{}
-						err := dpaCR.Client.List(context.Background(), &pvcList, &client.ListOptions{Namespace: lastBRCase.ApplicationNamespace})
-						Expect(err).NotTo(HaveOccurred())
-						GinkgoWriter.Printf("PVC app ns list %v\n", pvcList)
-						err = dpaCR.Client.List(context.Background(), &pvcList, &client.ListOptions{Namespace: namespace})
-						Expect(err).NotTo(HaveOccurred())
-						GinkgoWriter.Printf("PVC oadp ns list %v\n", pvcList)
-
-						vsbList := vsmv1alpha1.VolumeSnapshotBackupList{}
-						err = dpaCR.Client.List(context.Background(), &vsbList, &client.ListOptions{Namespace: lastBRCase.ApplicationNamespace})
-						Expect(err).NotTo(HaveOccurred())
-						GinkgoWriter.Printf("VSB list %v\n", vsbList)
-
-						vsrList := vsmv1alpha1.VolumeSnapshotRestoreList{}
-						err = dpaCR.Client.List(context.Background(), &vsrList, &client.ListOptions{Namespace: namespace})
-						Expect(err).NotTo(HaveOccurred())
-						GinkgoWriter.Printf("VSR list %v\n", vsrList)
-
-						replicationSource := volsync.ReplicationSourceList{}
-						err = dpaCR.Client.List(context.Background(), &replicationSource, &client.ListOptions{Namespace: namespace})
-						Expect(err).NotTo(HaveOccurred())
-						GinkgoWriter.Printf("ReplicationSource list %v", replicationSource)
-
-						replicationDestination := volsync.ReplicationDestinationList{}
-						err = dpaCR.Client.List(context.Background(), &replicationDestination, &client.ListOptions{Namespace: namespace})
-						Expect(err).NotTo(HaveOccurred())
-						GinkgoWriter.Printf("ReplicationDestination list %v", replicationDestination)
-
-						volsyncIsReady, _ := IsDeploymentReady(dpaCR.Client, common.VolSyncDeploymentNamespace, common.VolSyncDeploymentName)()
-						fmt.Printf("volsync controller is ready: %v", volsyncIsReady)
-
-						vsmIsReady, _ := IsDeploymentReady(dpaCR.Client, namespace, common.DataMover)()
-						fmt.Printf("volume-snapshot-mover is ready: %v", vsmIsReady)
-
-						GinkgoWriter.Println("Printing volume-snapshot-mover deployment pod logs")
-						GinkgoWriter.Print(GetDeploymentPodContainerLogs(namespace, common.DataMover, common.DataMoverControllerContainer))
-					}*/
 			baseReportDir := artifact_dir + "/" + report.LeafNodeText
 			err := os.MkdirAll(baseReportDir, 0755)
 			Expect(err).NotTo(HaveOccurred())
@@ -120,32 +74,7 @@ var _ = Describe("Must-gather backup restore tests", func() {
 			err = nil
 		}
 		Expect(err).ToNot(HaveOccurred())
-		// Additional cleanup for data mover case
-		/*		if lastBRCase.BackupRestoreType == CSIDataMover {
-				// check for VSB and VSR objects and delete them
-				vsbList := vsmv1alpha1.VolumeSnapshotBackupList{}
-				err = dpaCR.Client.List(context.Background(), &vsbList, &client.ListOptions{Namespace: lastBRCase.ApplicationNamespace})
-				Expect(err).NotTo(HaveOccurred())
-				for _, vsb := range vsbList.Items {
-					// patch to remove finalizer from vsb to allow deletion
-					patch := client.RawPatch(apimachtypes.JSONPatchType, []byte(`[{"op": "remove", "path": "/metadata/finalizers"}]`))
-					err = dpaCR.Client.Patch(context.Background(), &vsb, patch)
-					Expect(err).NotTo(HaveOccurred())
-					err = dpaCR.Client.Delete(context.Background(), &vsb, &client.DeleteOptions{})
-					Expect(err).NotTo(HaveOccurred())
-				}
-				vsrList := vsmv1alpha1.VolumeSnapshotRestoreList{}
-				err = dpaCR.Client.List(context.Background(), &vsrList, &client.ListOptions{Namespace: lastBRCase.ApplicationNamespace})
-				Expect(err).NotTo(HaveOccurred())
-				for _, vsr := range vsrList.Items {
-					// patch to remove finalizer from vsr to allow deletion
-					patch := client.RawPatch(apimachtypes.JSONPatchType, []byte(`[{"op": "remove", "path": "/metadata/finalizers"}]`))
-					err = dpaCR.Client.Patch(context.Background(), &vsr, patch)
-					Expect(err).NotTo(HaveOccurred())
-					err = dpaCR.Client.Delete(context.Background(), &vsr, &client.DeleteOptions{})
-					Expect(err).NotTo(HaveOccurred())
-				}
-			}*/
+
 		err = dpaCR.Delete()
 		Expect(err).ToNot(HaveOccurred())
 		Eventually(IsNamespaceDeleted(lastBRCase.ApplicationNamespace), timeoutMultiplier*time.Minute*2, time.Second*5).Should(BeTrue())
@@ -156,11 +85,8 @@ var _ = Describe("Must-gather backup restore tests", func() {
 	}
 
 	DescribeTable("backup, restore applications, and must gather",
+		// TODO this function has a lot of duplications with tests/e2e/backup_restore_suite_test.go
 		func(brCase BackupRestoreCase, expectedErr error) {
-			// Data Mover is only supported on aws, azure, and gcp.
-			if brCase.BackupRestoreType == CSIDataMover && provider != "aws" && provider != "azure" && provider != "gcp" {
-				Skip(provider + " unsupported data mover provider")
-			}
 			if provider == "azure" && (brCase.BackupRestoreType == CSI || brCase.BackupRestoreType == CSIDataMover) {
 				if brCase.MinK8SVersion == nil {
 					brCase.MinK8SVersion = &K8sVersion{Major: "1", Minor: "23"}
@@ -186,8 +112,8 @@ var _ = Describe("Must-gather backup restore tests", func() {
 			log.Printf("Waiting for velero pod to be running")
 			Eventually(AreVeleroPodsRunning(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 
-			if brCase.BackupRestoreType == RESTIC {
-				log.Printf("Waiting for restic pods to be running")
+			if brCase.BackupRestoreType == RESTIC || brCase.BackupRestoreType == CSIDataMover {
+				log.Printf("Waiting for Node Agent pods to be running")
 				Eventually(AreNodeAgentPodsRunning(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 			}
 			if brCase.BackupRestoreType == CSI || brCase.BackupRestoreType == CSIDataMover {
@@ -196,17 +122,6 @@ var _ = Describe("Must-gather backup restore tests", func() {
 					snapshotClassPath := fmt.Sprintf("./sample-applications/snapclass-csi/%s.yaml", provider)
 					err = InstallApplication(dpaCR.Client, snapshotClassPath)
 					Expect(err).ToNot(HaveOccurred())
-				}
-				if brCase.BackupRestoreType == CSIDataMover {
-					dpaCR.Client.Create(context.Background(), &corev1.Secret{
-						ObjectMeta: v1.ObjectMeta{
-							Name:      controllers.ResticsecretName,
-							Namespace: dpaCR.Namespace,
-						},
-						StringData: map[string]string{
-							controllers.ResticPassword: "e2e-restic-password",
-						},
-					}, &client.CreateOptions{})
 				}
 			}
 
@@ -251,7 +166,7 @@ var _ = Describe("Must-gather backup restore tests", func() {
 			time.Sleep(brCase.AppReadyDelay)
 			// create backup
 			log.Printf("Creating backup %s for case %s", backupName, brCase.Name)
-			backup, err := CreateBackupForNamespaces(dpaCR.Client, namespace, backupName, []string{brCase.ApplicationNamespace}, brCase.BackupRestoreType == RESTIC)
+			backup, err := CreateBackupForNamespaces(dpaCR.Client, namespace, backupName, []string{brCase.ApplicationNamespace}, brCase.BackupRestoreType == RESTIC, brCase.BackupRestoreType == CSIDataMover)
 			Expect(err).ToNot(HaveOccurred())
 
 			// wait for backup to not be running
@@ -314,6 +229,7 @@ var _ = Describe("Must-gather backup restore tests", func() {
 				err = UninstallApplication(dpaCR.Client, snapshotClassPath)
 				Expect(err).ToNot(HaveOccurred())
 			}
+
 			baseReportDir := artifact_dir + "/" + brCase.Name
 			err = os.MkdirAll(baseReportDir, 0755)
 			log.Printf("Running must gather for backup/restore test - " + "")
@@ -353,17 +269,16 @@ var _ = Describe("Must-gather backup restore tests", func() {
 				Expect(err).ToNot(HaveOccurred())
 			}
 		},
-		// TODO: Re-implement this test to upstream data mover
-		PEntry("Mongo application DATAMOVER", BackupRestoreCase{
+		FEntry("Mongo application DATAMOVER", BackupRestoreCase{
 			ApplicationTemplate:  "./sample-applications/mongo-persistent/mongo-persistent-csi.yaml",
 			ApplicationNamespace: "mongo-persistent",
 			Name:                 "mongo-datamover-e2e",
 			BackupRestoreType:    CSIDataMover,
-			PreBackupVerify:      dataMoverReady(true, false, mongoready),
-			PostRestoreVerify:    dataMoverReady(false, false, mongoready),
+			PreBackupVerify:      mongoready(true, false, CSIDataMover),
+			PostRestoreVerify:    mongoready(false, false, CSIDataMover),
 			MustGatherFiles: []string{
-				"namespaces/openshift-adp/oadp.openshift.io/dpa-ts-" + instanceName + "/ts-" + instanceName + ".yml",
-				"namespaces/openshift-adp/velero.io/backupstoragelocations.velero.io/ts-" + instanceName + "-1.yaml",
+				"namespaces/" + namespace + "/oadp.openshift.io/dpa-ts-" + instanceName + "/ts-" + instanceName + ".yml",
+				"namespaces/" + namespace + "/velero.io/backupstoragelocations.velero.io/ts-" + instanceName + "-1.yaml",
 			},
 		}, nil),
 	)

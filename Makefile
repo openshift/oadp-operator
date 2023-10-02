@@ -37,9 +37,8 @@ ifdef CLI_DIR
 	OC_CLI = ${CLI_DIR}/oc
 endif
 # makes CLUSTER_TYPE quieter when unauthenticated
-CLUSTER_TYPE_SHELL := $(shell $(OC_CLI) get infrastructures cluster -o jsonpath='{.status.platform}' | tr A-Z a-z)
+CLUSTER_TYPE_SHELL := $(shell $(OC_CLI) get infrastructures cluster -o jsonpath='{.status.platform}' 2> /dev/null | tr A-Z a-z)
 CLUSTER_TYPE ?= $(CLUSTER_TYPE_SHELL)
-$(info $$CLUSTER_TYPE is [${CLUSTER_TYPE}])
 
 ifeq ($(CLUSTER_TYPE), gcp)
 	CI_CRED_FILE = ${CLUSTER_PROFILE_DIR}/gce.json
@@ -185,10 +184,6 @@ bundle-isupdated: VERSION:= $(DEFAULT_VERSION) #prevent VERSION overrides from h
 bundle-isupdated:
 	@cp -r ./ $(TEMP) && cd $(TEMP) && make bundle && git diff --exit-code bundle && echo "bundle is up to date" || (echo "bundle is out of date, run 'make bundle' to update" && exit 1)
 	@chmod -R 777 $(TEMP) && rm -rf $(TEMP)
-
-ci-test: ## This assumes "manifests generate fmt vet envtest" ran.
-	KUBEBUILDER_ASSETS="$(ENVTESTPATH)" go test -mod=mod ./controllers/... -coverprofile cover.out
-
 
 ##@ Build
 
@@ -377,9 +372,9 @@ deploy-olm: operator-sdk undeploy-olm ## Build current branch operator image, bu
 	$(OPERATOR_SDK) run bundle $(THIS_BUNDLE_IMAGE) --namespace $(OADP_TEST_NAMESPACE)
 
 .PHONY: undeploy-olm
-undeploy-olm: ## Uninstall current branch operator via OLM
-	oc whoami # Check if logged in
-	oc create namespace $(OADP_TEST_NAMESPACE) || true
+undeploy-olm: login-required ## Uninstall current branch operator via OLM
+	$(OC_CLI) whoami # Check if logged in
+	$(OC_CLI) create namespace $(OADP_TEST_NAMESPACE) || true
 	$(OPERATOR_SDK) cleanup oadp-operator --namespace $(OADP_TEST_NAMESPACE)
 
 .PHONY: opm
@@ -428,6 +423,14 @@ catalog-build-replaces: opm ## Build a catalog image using replace mode
 catalog-push: ## Push a catalog image.
 	$(MAKE) docker-push IMG=$(CATALOG_IMG)
 
+.PHONY: login-required
+login-required:
+ifeq ($(CLUSTER_TYPE),)
+	$(error You must be logged in to a cluster to run this command)
+else
+	$(info $$CLUSTER_TYPE is [${CLUSTER_TYPE}])
+endif
+
 .PHONY: install-ginkgo
 install-ginkgo: # Make sure ginkgo is in $GOPATH/bin
 	go install -v -mod=mod github.com/onsi/ginkgo/v2/ginkgo
@@ -439,7 +442,7 @@ sed -r "s/[&]* [!] $(CLUSTER_TYPE)|[!] $(CLUSTER_TYPE) [&]*//")) || $(CLUSTER_TY
 SETTINGS_TMP=/tmp/test-settings
 
 .PHONY: test-e2e-setup
-test-e2e-setup:
+test-e2e-setup: login-required
 	mkdir -p $(SETTINGS_TMP)
 	TMP_DIR=$(SETTINGS_TMP) \
 	OPENSHIFT_CI="$(OPENSHIFT_CI)" \
@@ -474,12 +477,14 @@ test-e2e: test-e2e-setup install-ginkgo
 
 .PHONY: test-e2e-cleanup
 test-e2e-cleanup:
-	oc delete volumesnapshotcontent --all
-	oc delete volumesnapshotclass oadp-example-snapclass --ignore-not-found=true
-	oc delete backup -n $(OADP_TEST_NAMESPACE) --all
-	oc delete backuprepository -n $(OADP_TEST_NAMESPACE) --all
-	oc delete downloadrequest -n $(OADP_TEST_NAMESPACE) --all
-	oc delete podvolumerestore -n $(OADP_TEST_NAMESPACE) --all
-	oc delete restore -n $(OADP_TEST_NAMESPACE) --all --wait=false
-	for restore_name in $(shell oc get restore -n $(OADP_TEST_NAMESPACE) -o name);do oc patch "$$restore_name" -n $(OADP_TEST_NAMESPACE) -p '{"metadata":{"finalizers":null}}' --type=merge;done
+	$(OC_CLI) delete volumesnapshotcontent --all
+	$(OC_CLI) delete volumesnapshotclass oadp-example-snapclass --ignore-not-found=true
+	$(OC_CLI) delete backup -n $(OADP_TEST_NAMESPACE) --all
+	$(OC_CLI) delete backuprepository -n $(OADP_TEST_NAMESPACE) --all
+	$(OC_CLI) delete downloadrequest -n $(OADP_TEST_NAMESPACE) --all
+	$(OC_CLI) delete podvolumerestore -n $(OADP_TEST_NAMESPACE) --all
+	$(OC_CLI) delete dataupload -n $(OADP_TEST_NAMESPACE) --all
+	$(OC_CLI) delete datadownload -n $(OADP_TEST_NAMESPACE) --all
+	$(OC_CLI) delete restore -n $(OADP_TEST_NAMESPACE) --all --wait=false
+	for restore_name in $(shell $(OC_CLI) get restore -n $(OADP_TEST_NAMESPACE) -o name);do $(OC_CLI) patch "$$restore_name" -n $(OADP_TEST_NAMESPACE) -p '{"metadata":{"finalizers":null}}' --type=merge;done
 	rm -rf $(SETTINGS_TMP)

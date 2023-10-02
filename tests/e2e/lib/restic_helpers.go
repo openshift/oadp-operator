@@ -53,7 +53,7 @@ func waitForDesiredResticPods(namespace string) error {
 }
 
 func AreNodeAgentPodsRunning(namespace string) wait.ConditionFunc {
-	log.Printf("Checking for correct number of running Restic pods...")
+	log.Printf("Checking for correct number of running Node Agent pods...")
 	return func() (bool, error) {
 		err := waitForDesiredResticPods(namespace)
 		if err != nil {

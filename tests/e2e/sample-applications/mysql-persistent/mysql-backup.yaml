@@ -6,5 +6,8 @@ metadata:
 spec:
   includedNamespaces:
   - mysql-persistent
+  # snapshotMoveData: true
+  # What is the goal of this file? Is it documented?
+  # Feel it is just trouble, would delete it (along with restore). anyone against?
   storageLocation: dpa-sample-1
   ttl: 720h0m0s
