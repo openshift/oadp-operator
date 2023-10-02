@@ -306,7 +306,7 @@ var _ = Describe("AWS backup restore tests", func() {
 			PreBackupVerify:      mysqlReady(true, false, RESTIC),
 			PostRestoreVerify:    mysqlReady(false, false, RESTIC),
 		}, nil),
-		FEntry("Mongo application DATAMOVER", BackupRestoreCase{
+		Entry("Mongo application DATAMOVER", BackupRestoreCase{
 			ApplicationTemplate:  "./sample-applications/mongo-persistent/mongo-persistent-csi.yaml",
 			ApplicationNamespace: "mongo-persistent",
 			Name:                 "mongo-datamover-e2e",
@@ -314,7 +314,7 @@ var _ = Describe("AWS backup restore tests", func() {
 			PreBackupVerify:      mongoready(true, false, CSIDataMover),
 			PostRestoreVerify:    mongoready(false, false, CSIDataMover),
 		}, nil),
-		FEntry("MySQL application DATAMOVER", BackupRestoreCase{
+		Entry("MySQL application DATAMOVER", BackupRestoreCase{
 			ApplicationTemplate:  "./sample-applications/mysql-persistent/mysql-persistent-csi.yaml",
 			ApplicationNamespace: "mysql-persistent",
 			Name:                 "mysql-datamover-e2e",

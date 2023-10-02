@@ -476,7 +476,7 @@ test-e2e: test-e2e-setup install-ginkgo
 	--ginkgo.timeout=2h
 
 .PHONY: test-e2e-cleanup
-test-e2e-cleanup:
+test-e2e-cleanup: login-required
 	$(OC_CLI) delete volumesnapshotcontent --all
 	$(OC_CLI) delete volumesnapshotclass oadp-example-snapclass --ignore-not-found=true
 	$(OC_CLI) delete backup -n $(OADP_TEST_NAMESPACE) --all

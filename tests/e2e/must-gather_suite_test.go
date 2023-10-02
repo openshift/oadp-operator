@@ -269,7 +269,7 @@ var _ = Describe("Must-gather backup restore tests", func() {
 				Expect(err).ToNot(HaveOccurred())
 			}
 		},
-		FEntry("Mongo application DATAMOVER", BackupRestoreCase{
+		Entry("Mongo application DATAMOVER", BackupRestoreCase{
 			ApplicationTemplate:  "./sample-applications/mongo-persistent/mongo-persistent-csi.yaml",
 			ApplicationNamespace: "mongo-persistent",
 			Name:                 "mongo-datamover-e2e",
