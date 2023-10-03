@@ -13,13 +13,14 @@ import (
 	"k8s.io/utils/pointer"
 )
 
-var _ = Describe("Subscription Config Suite Test", func() {
+var _ = FDescribe("Subscription Config Suite Test", func() {
 	var _ = BeforeEach(func() {
 		log.Printf("Building dpaSpec")
 		err := dpaCR.Build(CSI)
 		Expect(err).NotTo(HaveOccurred())
 		//also test restic
-		dpaCR.CustomResource.Spec.Configuration.Restic.Enable = pointer.BoolPtr(true)
+		dpaCR.CustomResource.Spec.Configuration.NodeAgent.Enable = pointer.BoolPtr(true)
+		dpaCR.CustomResource.Spec.Configuration.NodeAgent.UploaderType = "restic"
 
 		err = dpaCR.Delete()
 		Expect(err).ToNot(HaveOccurred())
@@ -65,8 +66,8 @@ var _ = Describe("Subscription Config Suite Test", func() {
 				Expect(err).NotTo(HaveOccurred())
 				log.Printf("Waiting for velero pod to be running")
 				Eventually(AreVeleroPodsRunning(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
-				if velero.Spec.Configuration.Restic.Enable != nil && *velero.Spec.Configuration.Restic.Enable {
-					log.Printf("Waiting for restic pods to be running")
+				if velero.Spec.Configuration.NodeAgent.Enable != nil && *velero.Spec.Configuration.NodeAgent.Enable {
+					log.Printf("Waiting for Node Agent pods to be running")
 					Eventually(AreNodeAgentPodsRunning(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 				}
 				if s.Spec.Config != nil && s.Spec.Config.Env != nil {

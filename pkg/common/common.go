@@ -9,16 +9,15 @@ import (
 )
 
 const (
-	Velero                     = "velero"
-	NodeAgent                  = "node-agent"
-	VeleroNamespace            = "oadp-operator"
-	OADPOperator               = "oadp-operator"
-	OADPOperatorVelero         = "oadp-operator-velero"
-	OADPOperatorServiceAccount = "openshift-adp-controller-manager"
-	// TODO remove
+	Velero                       = "velero"
+	NodeAgent                    = "node-agent"
+	VeleroNamespace              = "oadp-operator"
+	OADPOperator                 = "oadp-operator"
+	OADPOperatorVelero           = "oadp-operator-velero"
 	DataMover                    = "volume-snapshot-mover"
 	DataMoverController          = "data-mover-controller"
 	DataMoverControllerContainer = "data-mover-controller-container"
+	OADPOperatorServiceAccount   = "openshift-adp-controller-manager"
 	VolSyncDeploymentName        = "volsync-controller-manager"
 	VolSyncDeploymentNamespace   = "openshift-operators"
 	VolsyncPrivilegedAnnotation  = "volsync.backube/privileged-movers"
