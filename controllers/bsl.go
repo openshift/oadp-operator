@@ -6,7 +6,6 @@ import (
 
 	"github.com/go-logr/logr"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
-	"github.com/openshift/oadp-operator/pkg/bucket"
 	"github.com/openshift/oadp-operator/pkg/common"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -229,7 +228,7 @@ func (r *DPAReconciler) updateBSLFromSpec(bsl *velerov1.BackupStorageLocation, d
 	if bslSpec.Provider == "aws" {
 		s3Url := bslSpec.Config["s3Url"]
 		if len(s3Url) > 0 {
-			if s3Url, err = bucket.StripDefaultPorts(s3Url); err == nil {
+			if s3Url, err = common.StripDefaultPorts(s3Url); err == nil {
 				bslSpec.Config["s3Url"] = s3Url
 			}
 		}
