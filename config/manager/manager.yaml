@@ -50,10 +50,6 @@ spec:
             value: quay.io/konveyor/velero-plugin-for-gcp:latest
           - name: RELATED_IMAGE_VELERO_PLUGIN_FOR_CSI
             value: quay.io/konveyor/velero-plugin-for-csi:latest
-          - name: RELATED_IMAGE_VELERO_PLUGIN_FOR_VSM
-            value: quay.io/konveyor/velero-plugin-for-vsm:latest
-          - name: RELATED_IMAGE_VOLUME_SNAPSHOT_MOVER
-            value: quay.io/konveyor/volume-snapshot-mover:latest
           - name: RELATED_IMAGE_KUBEVIRT_VELERO_PLUGIN
             value: quay.io/konveyor/kubevirt-velero-plugin:v0.2.0
           - name: RELATED_IMAGE_DATA_MOVER_DUMMY_POD

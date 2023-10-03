@@ -461,9 +461,6 @@ spec:
         displayName: Plugins
         path: plugins
       version: v1
-    - kind: VolumeSnapshotBackup
-      name: volumesnapshotbackups.datamover.oadp.openshift.io
-      version: v1alpha1
     - description: VolumeSnapshotLocation is a location where Velero stores volume
         snapshots.
       displayName: VolumeSnapshotLocation
@@ -474,9 +471,6 @@ spec:
         displayName: Phase
         path: phase
       version: v1
-    - kind: VolumeSnapshotRestore
-      name: volumesnapshotrestores.datamover.oadp.openshift.io
-      version: v1alpha1
   description: |
     **OpenShift API for Data Protection (OADP)** operator sets up and installs
     Velero on the OpenShift platform, allowing users to backup and restore
@@ -527,18 +521,6 @@ spec:
           - patch
           - update
           - watch
-        - apiGroups:
-          - datamover.oadp.openshift.io
-          resources:
-          - '*'
-          verbs:
-          - '*'
-        - apiGroups:
-          - volsync.backube
-          resources:
-          - '*'
-          verbs:
-          - '*'
         - apiGroups:
           - snapshot.storage.k8s.io
           resources:
@@ -827,10 +809,6 @@ spec:
                   value: quay.io/konveyor/velero-plugin-for-gcp:latest
                 - name: RELATED_IMAGE_VELERO_PLUGIN_FOR_CSI
                   value: quay.io/konveyor/velero-plugin-for-csi:latest
-                - name: RELATED_IMAGE_VELERO_PLUGIN_FOR_VSM
-                  value: quay.io/konveyor/velero-plugin-for-vsm:latest
-                - name: RELATED_IMAGE_VOLUME_SNAPSHOT_MOVER
-                  value: quay.io/konveyor/volume-snapshot-mover:latest
                 - name: RELATED_IMAGE_KUBEVIRT_VELERO_PLUGIN
                   value: quay.io/konveyor/kubevirt-velero-plugin:v0.2.0
                 - name: RELATED_IMAGE_DATA_MOVER_DUMMY_POD
@@ -957,10 +935,6 @@ spec:
     name: velero-plugin-for-gcp
   - image: quay.io/konveyor/velero-plugin-for-csi:latest
     name: velero-plugin-for-csi
-  - image: quay.io/konveyor/velero-plugin-for-vsm:latest
-    name: velero-plugin-for-vsm
-  - image: quay.io/konveyor/volume-snapshot-mover:latest
-    name: volume-snapshot-mover
   - image: quay.io/konveyor/kubevirt-velero-plugin:v0.2.0
     name: kubevirt-velero-plugin
   - image: quay.io/konveyor/rsync-transfer:latest

@@ -642,7 +642,6 @@ spec:
                               - gcp
                               - azure
                               - csi
-                              - vsm
                               - openshift
                               - kubevirt
                             type: string
@@ -823,99 +822,6 @@ spec:
                   type: object
                 features:
                   description: features defines the configuration for the DPA to enable the OADP tech preview features
-                  properties:
-                    dataMover:
-                      description: Contains data mover specific configurations
-                      properties:
-                        credentialName:
-                          description: User supplied Restic Secret name
-                          type: string
-                        enable:
-                          description: enable flag is used to specify whether you want to deploy the volume snapshot mover controller
-                          type: boolean
-                        maxConcurrentBackupVolumes:
-                          description: the number of batched volumeSnapshotBackups that can be inProgress at once, default value is 10
-                          type: string
-                        maxConcurrentRestoreVolumes:
-                          description: the number of batched volumeSnapshotRestores that can be inProgress at once, default value is 10
-                          type: string
-                        pruneInterval:
-                          description: defines how often (in days) to prune the datamover snapshots from the repository
-                          type: string
-                        schedule:
-                          description: 'schedule is a cronspec (https://en.wikipedia.org/wiki/Cron#Overview) that can be used to schedule datamover(volsync) synchronization to occur at regular, time-based intervals. For example, in order to enforce datamover SnapshotRetainPolicy at a regular interval you need to specify this Schedule trigger as a cron expression, by default the trigger is a manual trigger. For more details on Volsync triggers, refer: https://volsync.readthedocs.io/en/stable/usage/triggers.html'
-                          pattern: ^(\d+|\*)(/\d+)?(\s+(\d+|\*)(/\d+)?){4}$
-                          type: string
-                        snapshotRetainPolicy:
-                          description: defines the parameters that can be specified for retention of datamover snapshots
-                          properties:
-                            daily:
-                              description: Daily defines the number of snapshots to be kept daily
-                              type: string
-                            hourly:
-                              description: Hourly defines the number of snapshots to be kept hourly
-                              type: string
-                            monthly:
-                              description: Monthly defines the number of snapshots to be kept monthly
-                              type: string
-                            weekly:
-                              description: Weekly defines the number of snapshots to be kept weekly
-                              type: string
-                            within:
-                              description: Within defines the number of snapshots to be kept Within the given time period
-                              type: string
-                            yearly:
-                              description: Yearly defines the number of snapshots to be kept yearly
-                              type: string
-                          type: object
-                        timeout:
-                          description: User supplied timeout to be used for VolumeSnapshotBackup and VolumeSnapshotRestore to complete, default value is 10m
-                          type: string
-                        volumeOptionsForStorageClasses:
-                          additionalProperties:
-                            properties:
-                              destinationVolumeOptions:
-                                description: VolumeOptions defines configurations for VolSync options
-                                properties:
-                                  accessMode:
-                                    description: accessMode can be used to override the accessMode of the source or destination PVC
-                                    type: string
-                                  cacheAccessMode:
-                                    description: cacheAccessMode is the access mode to be used to provision the cache volume
-                                    type: string
-                                  cacheCapacity:
-                                    description: cacheCapacity determines the size of the restic metadata cache volume
-                                    type: string
-                                  cacheStorageClassName:
-                                    description: cacheStorageClassName is the storageClass that should be used when provisioning the data mover cache volume
-                                    type: string
-                                  storageClassName:
-                                    description: storageClassName can be used to override the StorageClass of the source or destination PVC
-                                    type: string
-                                type: object
-                              sourceVolumeOptions:
-                                description: VolumeOptions defines configurations for VolSync options
-                                properties:
-                                  accessMode:
-                                    description: accessMode can be used to override the accessMode of the source or destination PVC
-                                    type: string
-                                  cacheAccessMode:
-                                    description: cacheAccessMode is the access mode to be used to provision the cache volume
-                                    type: string
-                                  cacheCapacity:
-                                    description: cacheCapacity determines the size of the restic metadata cache volume
-                                    type: string
-                                  cacheStorageClassName:
-                                    description: cacheStorageClassName is the storageClass that should be used when provisioning the data mover cache volume
-                                    type: string
-                                  storageClassName:
-                                    description: storageClassName can be used to override the StorageClass of the source or destination PVC
-                                    type: string
-                                type: object
-                            type: object
-                          description: defines configurations for data mover volume options for a storageClass
-                          type: object
-                      type: object
                   type: object
                 podAnnotations:
                   additionalProperties:
@@ -992,7 +898,17 @@ spec:
                 unsupportedOverrides:
                   additionalProperties:
                     type: string
-                  description: 'unsupportedOverrides can be used to override images used in deployments. Available keys are:   - veleroImageFqin   - awsPluginImageFqin   - openshiftPluginImageFqin   - azurePluginImageFqin   - gcpPluginImageFqin   - csiPluginImageFqin   - dataMoverImageFqin   - resticRestoreImageFqin   - kubevirtPluginImageFqin'
+                  description: 'unsupportedOverrides can be used to override images used in deployments. Available keys are:   - veleroImageFqin   - awsPluginImageFqin   - openshiftPluginImageFqin   - azurePluginImageFqin   - gcpPluginImageFqin   - csiPluginImageFqin   - resticRestoreImageFqin   - kubevirtPluginImageFqin   - operator-type'
+                  enum:
+                    - veleroImageFqin
+                    - awsPluginImageFqin
+                    - openshiftPluginImageFqin
+                    - azurePluginImageFqin
+                    - gcpPluginImageFqin
+                    - csiPluginImageFqin
+                    - resticRestoreImageFqin
+                    - kubevirtPluginImageFqin
+                    - operator-type
                   type: object
               required:
                 - configuration

@@ -25,18 +25,6 @@ rules:
   - update
   - watch
 - apiGroups:
-  - datamover.oadp.openshift.io
-  resources:
-  - '*'
-  verbs:
-  - '*'
-- apiGroups:
-  - volsync.backube
-  resources:
-  - '*'
-  verbs:
-  - '*'
-- apiGroups:
   - snapshot.storage.k8s.io
   resources:
   - volumesnapshots

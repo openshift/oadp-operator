@@ -12,18 +12,12 @@ import (
 )
 
 const (
-	Velero                       = "velero"
-	NodeAgent                    = "node-agent"
-	VeleroNamespace              = "oadp-operator"
-	OADPOperator                 = "oadp-operator"
-	OADPOperatorVelero           = "oadp-operator-velero"
-	DataMover                    = "volume-snapshot-mover"
-	DataMoverController          = "data-mover-controller"
-	DataMoverControllerContainer = "data-mover-controller-container"
-	OADPOperatorServiceAccount   = "openshift-adp-controller-manager"
-	VolSyncDeploymentName        = "volsync-controller-manager"
-	VolSyncDeploymentNamespace   = "openshift-operators"
-	VolsyncPrivilegedAnnotation  = "volsync.backube/privileged-movers"
+	Velero                     = "velero"
+	NodeAgent                  = "node-agent"
+	VeleroNamespace            = "oadp-operator"
+	OADPOperator               = "oadp-operator"
+	OADPOperatorVelero         = "oadp-operator-velero"
+	OADPOperatorServiceAccount = "openshift-adp-controller-manager"
 )
 
 var DefaultRestoreResourcePriorities = restore.Priorities{
@@ -67,12 +61,9 @@ const (
 	AzurePluginImage     = "quay.io/konveyor/velero-plugin-for-microsoft-azure:latest"
 	GCPPluginImage       = "quay.io/konveyor/velero-plugin-for-gcp:latest"
 	CSIPluginImage       = "quay.io/konveyor/velero-plugin-for-csi:latest"
-	VSMPluginImage       = "quay.io/konveyor/velero-plugin-for-vsm:latest"
-	// DataMoverImage is the data mover controller for data mover CRs - VolumeSnapshotBackup and VolumeSnapshotRestore
-	DataMoverImage      = "quay.io/konveyor/volume-snapshot-mover:latest"
-	DummyPodImage       = "quay.io/konveyor/rsync-transfer:latest"
-	RegistryImage       = "quay.io/konveyor/registry:latest"
-	KubeVirtPluginImage = "quay.io/konveyor/kubevirt-velero-plugin:v0.2.0"
+	DummyPodImage        = "quay.io/konveyor/rsync-transfer:latest"
+	RegistryImage        = "quay.io/konveyor/registry:latest"
+	KubeVirtPluginImage  = "quay.io/konveyor/kubevirt-velero-plugin:v0.2.0"
 )
 
 // Plugin names
@@ -81,7 +72,6 @@ const (
 	VeleroPluginForAzure     = "velero-plugin-for-microsoft-azure"
 	VeleroPluginForGCP       = "velero-plugin-for-gcp"
 	VeleroPluginForCSI       = "velero-plugin-for-csi"
-	VeleroPluginForVSM       = "velero-plugin-for-vsm"
 	VeleroPluginForOpenshift = "openshift-velero-plugin"
 	KubeVirtPlugin           = "kubevirt-velero-plugin"
 )
