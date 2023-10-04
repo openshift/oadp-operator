@@ -811,8 +811,6 @@ spec:
                   value: quay.io/konveyor/velero-plugin-for-csi:latest
                 - name: RELATED_IMAGE_KUBEVIRT_VELERO_PLUGIN
                   value: quay.io/konveyor/kubevirt-velero-plugin:v0.2.0
-                - name: RELATED_IMAGE_DATA_MOVER_DUMMY_POD
-                  value: quay.io/konveyor/rsync-transfer:latest
                 - name: RELATED_IMAGE_MUSTGATHER
                   value: registry.redhat.io/oadp/oadp-mustgather-rhel8:v1.2
                 image: quay.io/konveyor/oadp-operator:latest
@@ -937,8 +935,6 @@ spec:
     name: velero-plugin-for-csi
   - image: quay.io/konveyor/kubevirt-velero-plugin:v0.2.0
     name: kubevirt-velero-plugin
-  - image: quay.io/konveyor/rsync-transfer:latest
-    name: data-mover-dummy-pod
   - image: registry.redhat.io/oadp/oadp-mustgather-rhel8:v1.2
     name: mustgather
   version: 99.0.0

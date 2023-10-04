@@ -1,3 +1,5 @@
+> **Note:** This DataMover was removed in OADP 1.3. Check [notes about Velero native DataMover](../upgrade_1-2_to_1-3.md) for more information.
+
 # <h2 align="center">OADP Data Mover 1.2 Advanced Volume Options</h2>
 
 

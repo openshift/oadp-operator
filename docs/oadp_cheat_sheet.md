@@ -193,7 +193,7 @@ Velero-Native Snapshots: <none included>
 
 
 
-## Data Mover Specific commands
+## Data Mover Specific commands (REMOVED FROM OADP 1.3)
 
 #### Clean up datamover related objects
 **WARNING** Do not run this command on production systems.  This is a remove *ALL* command.
