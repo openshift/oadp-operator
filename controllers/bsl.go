@@ -221,6 +221,18 @@ func (r *DPAReconciler) updateBSLFromSpec(bsl *velerov1.BackupStorageLocation, d
 			registryDeployment = "False"
 		}
 	}
+	// The AWS SDK expects the server providing S3 blobs to remove default ports
+	// (80 for HTTP and 443 for HTTPS) before calculating a signature, and not
+	// all S3-compatible services do this. Remove the ports here to avoid 403
+	// errors from mismatched signatures.
+	if bslSpec.Provider == "aws" {
+		s3Url := bslSpec.Config["s3Url"]
+		if len(s3Url) > 0 {
+			if s3Url, err = common.StripDefaultPorts(s3Url); err == nil {
+				bslSpec.Config["s3Url"] = s3Url
+			}
+		}
+	}
 	bsl.Labels = map[string]string{
 		"app.kubernetes.io/name":     common.OADPOperatorVelero,
 		"app.kubernetes.io/instance": bsl.Name,
