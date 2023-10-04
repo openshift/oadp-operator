@@ -176,6 +176,14 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 									},
 								},
 								{
+									Name: HostPlugins,
+									VolumeSource: v1.VolumeSource{
+										HostPath: &v1.HostPathVolumeSource{
+											Path: "/var/lib/kubelet/plugins",
+										},
+									},
+								},
+								{
 									Name: "scratch",
 									VolumeSource: v1.VolumeSource{
 										EmptyDir: &v1.EmptyDirVolumeSource{},
@@ -206,8 +214,13 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 									},
 									VolumeMounts: []v1.VolumeMount{
 										{
-											Name:             "host-pods",
+											Name:             HostPods,
 											MountPath:        "/host_pods",
+											MountPropagation: &mountPropagationToHostContainer,
+										},
+										{
+											Name:             HostPlugins,
+											MountPath:        "/var/lib/kubelet/plugins",
 											MountPropagation: &mountPropagationToHostContainer,
 										},
 										{
@@ -319,6 +332,14 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 									},
 								},
 								{
+									Name: HostPlugins,
+									VolumeSource: v1.VolumeSource{
+										HostPath: &v1.HostPathVolumeSource{
+											Path: "/var/lib/kubelet/plugins",
+										},
+									},
+								},
+								{
 									Name: "scratch",
 									VolumeSource: v1.VolumeSource{
 										EmptyDir: &v1.EmptyDirVolumeSource{},
@@ -349,8 +370,13 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 									},
 									VolumeMounts: []v1.VolumeMount{
 										{
-											Name:             "host-pods",
+											Name:             HostPods,
 											MountPath:        "/host_pods",
+											MountPropagation: &mountPropagationToHostContainer,
+										},
+										{
+											Name:             HostPlugins,
+											MountPath:        "/var/lib/kubelet/plugins",
 											MountPropagation: &mountPropagationToHostContainer,
 										},
 										{
@@ -468,6 +494,14 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 									},
 								},
 								{
+									Name: HostPlugins,
+									VolumeSource: v1.VolumeSource{
+										HostPath: &v1.HostPathVolumeSource{
+											Path: "/var/lib/kubelet/plugins",
+										},
+									},
+								},
+								{
 									Name: "scratch",
 									VolumeSource: v1.VolumeSource{
 										EmptyDir: &v1.EmptyDirVolumeSource{},
@@ -498,8 +532,13 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 									},
 									VolumeMounts: []v1.VolumeMount{
 										{
-											Name:             "host-pods",
+											Name:             HostPods,
 											MountPath:        "/host_pods",
+											MountPropagation: &mountPropagationToHostContainer,
+										},
+										{
+											Name:             HostPlugins,
+											MountPath:        "/var/lib/kubelet/plugins",
 											MountPropagation: &mountPropagationToHostContainer,
 										},
 										{
@@ -637,10 +676,18 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 							Volumes: []v1.Volume{
 								// Cloud Provider volumes are dynamically added in the for loop below
 								{
-									Name: "host-pods",
+									Name: HostPods,
 									VolumeSource: v1.VolumeSource{
 										HostPath: &v1.HostPathVolumeSource{
 											Path: fsPvHostPath,
+										},
+									},
+								},
+								{
+									Name: HostPlugins,
+									VolumeSource: v1.VolumeSource{
+										HostPath: &v1.HostPathVolumeSource{
+											Path: "/var/lib/kubelet/plugins",
 										},
 									},
 								},
@@ -683,8 +730,13 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 									},
 									VolumeMounts: []v1.VolumeMount{
 										{
-											Name:             "host-pods",
+											Name:             HostPods,
 											MountPath:        "/host_pods",
+											MountPropagation: &mountPropagationToHostContainer,
+										},
+										{
+											Name:             HostPlugins,
+											MountPath:        "/var/lib/kubelet/plugins",
 											MountPropagation: &mountPropagationToHostContainer,
 										},
 										{
@@ -808,10 +860,18 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 							Volumes: []v1.Volume{
 								// Cloud Provider volumes are dynamically added in the for loop below
 								{
-									Name: "host-pods",
+									Name: HostPods,
 									VolumeSource: v1.VolumeSource{
 										HostPath: &v1.HostPathVolumeSource{
 											Path: fsPvHostPath,
+										},
+									},
+								},
+								{
+									Name: HostPlugins,
+									VolumeSource: v1.VolumeSource{
+										HostPath: &v1.HostPathVolumeSource{
+											Path: "/var/lib/kubelet/plugins",
 										},
 									},
 								},
@@ -854,8 +914,13 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 									},
 									VolumeMounts: []v1.VolumeMount{
 										{
-											Name:             "host-pods",
+											Name:             HostPods,
 											MountPath:        "/host_pods",
+											MountPropagation: &mountPropagationToHostContainer,
+										},
+										{
+											Name:             HostPlugins,
+											MountPath:        "/var/lib/kubelet/plugins",
 											MountPropagation: &mountPropagationToHostContainer,
 										},
 										{
@@ -978,10 +1043,18 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 							Volumes: []v1.Volume{
 								// Cloud Provider volumes are dynamically added in the for loop below
 								{
-									Name: "host-pods",
+									Name: HostPods,
 									VolumeSource: v1.VolumeSource{
 										HostPath: &v1.HostPathVolumeSource{
 											Path: fsPvHostPath,
+										},
+									},
+								},
+								{
+									Name: HostPlugins,
+									VolumeSource: v1.VolumeSource{
+										HostPath: &v1.HostPathVolumeSource{
+											Path: "/var/lib/kubelet/plugins",
 										},
 									},
 								},
@@ -1024,8 +1097,13 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 									},
 									VolumeMounts: []v1.VolumeMount{
 										{
-											Name:             "host-pods",
+											Name:             HostPods,
 											MountPath:        "/host_pods",
+											MountPropagation: &mountPropagationToHostContainer,
+										},
+										{
+											Name:             HostPlugins,
+											MountPath:        "/var/lib/kubelet/plugins",
 											MountPropagation: &mountPropagationToHostContainer,
 										},
 										{
@@ -1147,10 +1225,18 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 							Volumes: []v1.Volume{
 								// Cloud Provider volumes are dynamically added in the for loop below
 								{
-									Name: "host-pods",
+									Name: HostPods,
 									VolumeSource: v1.VolumeSource{
 										HostPath: &v1.HostPathVolumeSource{
 											Path: fsPvHostPath,
+										},
+									},
+								},
+								{
+									Name: HostPlugins,
+									VolumeSource: v1.VolumeSource{
+										HostPath: &v1.HostPathVolumeSource{
+											Path: "/var/lib/kubelet/plugins",
 										},
 									},
 								},
@@ -1193,8 +1279,13 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 									},
 									VolumeMounts: []v1.VolumeMount{
 										{
-											Name:             "host-pods",
+											Name:             HostPods,
 											MountPath:        "/host_pods",
+											MountPropagation: &mountPropagationToHostContainer,
+										},
+										{
+											Name:             HostPlugins,
+											MountPath:        "/var/lib/kubelet/plugins",
 											MountPropagation: &mountPropagationToHostContainer,
 										},
 										{
@@ -1313,10 +1404,18 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 							Volumes: []v1.Volume{
 								// Cloud Provider volumes are dynamically added in the for loop below
 								{
-									Name: "host-pods",
+									Name: HostPods,
 									VolumeSource: v1.VolumeSource{
 										HostPath: &v1.HostPathVolumeSource{
 											Path: fsPvHostPath,
+										},
+									},
+								},
+								{
+									Name: HostPlugins,
+									VolumeSource: v1.VolumeSource{
+										HostPath: &v1.HostPathVolumeSource{
+											Path: "/var/lib/kubelet/plugins",
 										},
 									},
 								},
@@ -1359,8 +1458,13 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 									},
 									VolumeMounts: []v1.VolumeMount{
 										{
-											Name:             "host-pods",
+											Name:             HostPods,
 											MountPath:        "/host_pods",
+											MountPropagation: &mountPropagationToHostContainer,
+										},
+										{
+											Name:             HostPlugins,
+											MountPath:        "/var/lib/kubelet/plugins",
 											MountPropagation: &mountPropagationToHostContainer,
 										},
 										{
@@ -1482,10 +1586,18 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 							Volumes: []v1.Volume{
 								// Cloud Provider volumes are dynamically added in the for loop below
 								{
-									Name: "host-pods",
+									Name: HostPods,
 									VolumeSource: v1.VolumeSource{
 										HostPath: &v1.HostPathVolumeSource{
 											Path: fsPvHostPath,
+										},
+									},
+								},
+								{
+									Name: HostPlugins,
+									VolumeSource: v1.VolumeSource{
+										HostPath: &v1.HostPathVolumeSource{
+											Path: "/var/lib/kubelet/plugins",
 										},
 									},
 								},
@@ -1528,8 +1640,13 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 									},
 									VolumeMounts: []v1.VolumeMount{
 										{
-											Name:             "host-pods",
+											Name:             HostPods,
 											MountPath:        "/host_pods",
+											MountPropagation: &mountPropagationToHostContainer,
+										},
+										{
+											Name:             HostPlugins,
+											MountPath:        "/var/lib/kubelet/plugins",
 											MountPropagation: &mountPropagationToHostContainer,
 										},
 										{
@@ -1645,10 +1762,18 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 							Volumes: []v1.Volume{
 								// Cloud Provider volumes are dynamically added in the for loop below
 								{
-									Name: "host-pods",
+									Name: HostPods,
 									VolumeSource: v1.VolumeSource{
 										HostPath: &v1.HostPathVolumeSource{
 											Path: fsPvHostPath,
+										},
+									},
+								},
+								{
+									Name: HostPlugins,
+									VolumeSource: v1.VolumeSource{
+										HostPath: &v1.HostPathVolumeSource{
+											Path: "/var/lib/kubelet/plugins",
 										},
 									},
 								},
@@ -1698,8 +1823,13 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 									},
 									VolumeMounts: []v1.VolumeMount{
 										{
-											Name:             "host-pods",
+											Name:             HostPods,
 											MountPath:        "/host_pods",
+											MountPropagation: &mountPropagationToHostContainer,
+										},
+										{
+											Name:             HostPlugins,
+											MountPath:        "/var/lib/kubelet/plugins",
 											MountPropagation: &mountPropagationToHostContainer,
 										},
 										{
@@ -1807,10 +1937,18 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 							Volumes: []v1.Volume{
 								// Cloud Provider volumes are dynamically added in the for loop below
 								{
-									Name: "host-pods",
+									Name: HostPods,
 									VolumeSource: v1.VolumeSource{
 										HostPath: &v1.HostPathVolumeSource{
 											Path: fsPvHostPath,
+										},
+									},
+								},
+								{
+									Name: HostPlugins,
+									VolumeSource: v1.VolumeSource{
+										HostPath: &v1.HostPathVolumeSource{
+											Path: "/var/lib/kubelet/plugins",
 										},
 									},
 								},
@@ -1853,8 +1991,13 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 									},
 									VolumeMounts: []v1.VolumeMount{
 										{
-											Name:             "host-pods",
+											Name:             HostPods,
 											MountPath:        "/host_pods",
+											MountPropagation: &mountPropagationToHostContainer,
+										},
+										{
+											Name:             HostPlugins,
+											MountPath:        "/var/lib/kubelet/plugins",
 											MountPropagation: &mountPropagationToHostContainer,
 										},
 										{
@@ -1992,6 +2135,14 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 									},
 								},
 								{
+									Name: HostPlugins,
+									VolumeSource: v1.VolumeSource{
+										HostPath: &v1.HostPathVolumeSource{
+											Path: "/var/lib/kubelet/plugins",
+										},
+									},
+								},
+								{
 									Name: "scratch",
 									VolumeSource: v1.VolumeSource{
 										EmptyDir: &v1.EmptyDirVolumeSource{},
@@ -2022,8 +2173,13 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 									},
 									VolumeMounts: []v1.VolumeMount{
 										{
-											Name:             "host-pods",
+											Name:             HostPods,
 											MountPath:        "/host_pods",
+											MountPropagation: &mountPropagationToHostContainer,
+										},
+										{
+											Name:             HostPlugins,
+											MountPath:        "/var/lib/kubelet/plugins",
 											MountPropagation: &mountPropagationToHostContainer,
 										},
 										{
@@ -2180,6 +2336,14 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 									},
 								},
 								{
+									Name: HostPlugins,
+									VolumeSource: v1.VolumeSource{
+										HostPath: &v1.HostPathVolumeSource{
+											Path: "/var/lib/kubelet/plugins",
+										},
+									},
+								},
+								{
 									Name: "scratch",
 									VolumeSource: v1.VolumeSource{
 										EmptyDir: &v1.EmptyDirVolumeSource{},
@@ -2218,8 +2382,13 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 									},
 									VolumeMounts: []v1.VolumeMount{
 										{
-											Name:             "host-pods",
+											Name:             HostPods,
 											MountPath:        "/host_pods",
+											MountPropagation: &mountPropagationToHostContainer,
+										},
+										{
+											Name:             HostPlugins,
+											MountPath:        "/var/lib/kubelet/plugins",
 											MountPropagation: &mountPropagationToHostContainer,
 										},
 										{
