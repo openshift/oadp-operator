@@ -28,6 +28,7 @@ const (
 	ResticRestoreHelperCM = "restic-restore-action-config"
 	FsRestoreHelperCM     = "fs-restore-action-config"
 	HostPods              = "host-pods"
+	HostPlugins           = "host-plugins"
 )
 
 var (
