@@ -213,7 +213,6 @@ var _ = Describe("AWS backup restore tests", func() {
 			Expect(succeeded).To(Equal(true))
 			log.Printf("Backup for case %s succeeded", brCase.Name)
 
-			// TODO DataMover as well?
 			if brCase.BackupRestoreType == CSI {
 				// wait for volume snapshot to be Ready
 				Eventually(AreVolumeSnapshotsReady(dpaCR.Client, backupName), timeoutMultiplier*time.Minute*4, time.Second*10).Should(BeTrue())
