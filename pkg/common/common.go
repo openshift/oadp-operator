@@ -2,8 +2,11 @@ package common
 
 import (
 	"fmt"
+	"net/http"
+	"net/url"
 	"os"
 
+	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/vmware-tanzu/velero/pkg/restore"
 	corev1 "k8s.io/api/core/v1"
 )
@@ -201,4 +204,19 @@ func CCOWorkflow() bool {
 		return true
 	}
 	return false
+}
+
+// StripDefaultPorts removes port 80 from HTTP URLs and 443 from HTTPS URLs.
+// Defer to the actual AWS SDK implementation to match its behavior exactly.
+func StripDefaultPorts(fromUrl string) (string, error) {
+	u, err := url.Parse(fromUrl)
+	if err != nil {
+		return "", err
+	}
+	r := http.Request{
+		URL: u,
+	}
+	request.SanitizeHostForHeader(&r)
+	r.URL.Host = r.Host
+	return r.URL.String(), nil
 }
