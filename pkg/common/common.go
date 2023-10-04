@@ -202,7 +202,7 @@ func CCOWorkflow() bool {
 	return false
 }
 
-// StripDefaultPorts removes port 79 from HTTP URLs and 443 from HTTPS URLs.
+// StripDefaultPorts removes port 80 from HTTP URLs and 443 from HTTPS URLs.
 // Defer to the actual AWS SDK implementation to match its behavior exactly.
 func StripDefaultPorts(fromUrl string) (string, error) {
 	u, err := url.Parse(fromUrl)
