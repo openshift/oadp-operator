@@ -11,8 +11,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func CreateBackupForNamespaces(ocClient client.Client, veleroNamespace, backupName string, namespaces []string, defaultVolumesToRestic bool) (velero.Backup, error) {
-
+func CreateBackupForNamespaces(ocClient client.Client, veleroNamespace, backupName string, namespaces []string, defaultVolumesToRestic bool, snapshotMoveData bool) (velero.Backup, error) {
 	backup := velero.Backup{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      backupName,
@@ -21,6 +20,7 @@ func CreateBackupForNamespaces(ocClient client.Client, veleroNamespace, backupNa
 		Spec: velero.BackupSpec{
 			IncludedNamespaces:     namespaces,
 			DefaultVolumesToRestic: &defaultVolumesToRestic,
+			SnapshotMoveData:       &snapshotMoveData,
 		},
 	}
 	err := ocClient.Create(context.Background(), &backup)
