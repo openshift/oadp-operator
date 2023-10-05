@@ -112,7 +112,7 @@ var _ = Describe("Must-gather backup restore tests", func() {
 			log.Printf("Waiting for velero pod to be running")
 			Eventually(AreVeleroPodsRunning(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 
-			if brCase.BackupRestoreType == RESTIC || brCase.BackupRestoreType == CSIDataMover {
+			if brCase.BackupRestoreType == RESTIC || brCase.BackupRestoreType == KOPIA || brCase.BackupRestoreType == CSIDataMover {
 				log.Printf("Waiting for Node Agent pods to be running")
 				Eventually(AreNodeAgentPodsRunning(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 			}
@@ -166,7 +166,7 @@ var _ = Describe("Must-gather backup restore tests", func() {
 			time.Sleep(brCase.AppReadyDelay)
 			// create backup
 			log.Printf("Creating backup %s for case %s", backupName, brCase.Name)
-			backup, err := CreateBackupForNamespaces(dpaCR.Client, namespace, backupName, []string{brCase.ApplicationNamespace}, brCase.BackupRestoreType == RESTIC, brCase.BackupRestoreType == CSIDataMover)
+			backup, err := CreateBackupForNamespaces(dpaCR.Client, namespace, backupName, []string{brCase.ApplicationNamespace}, brCase.BackupRestoreType == RESTIC || brCase.BackupRestoreType == KOPIA, brCase.BackupRestoreType == CSIDataMover)
 			Expect(err).ToNot(HaveOccurred())
 
 			// wait for backup to not be running
@@ -207,10 +207,14 @@ var _ = Describe("Must-gather backup restore tests", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(succeeded).To(Equal(true))
 
-			if brCase.BackupRestoreType == RESTIC && nsRequiresResticDCWorkaround {
-				// run the restic post restore script if restore type is RESTIC
-				log.Printf("Running restic post restore script for case %s", brCase.Name)
-				err = RunResticPostRestoreScript(restoreName)
+			if nsRequiresResticDCWorkaround {
+				// We run the dc-post-restore.sh script for both restic and
+				// kopia backups and for any DCs with attached volumes,
+				// regardless of whether it was restic or kopia backup.
+				// The script is designed to work with labels set by the
+				// openshift-velero-plugin and can be run without pre-conditions.
+				log.Printf("Running dc-post-restore.sh script.")
+				err = RunDcPostRestoreScript(restoreName)
 				Expect(err).ToNot(HaveOccurred())
 			}
 

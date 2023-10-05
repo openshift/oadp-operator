@@ -5,37 +5,34 @@ import (
 	"log"
 	"time"
 
-	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	"github.com/openshift/oadp-operator/pkg/common"
 	appsv1 "k8s.io/api/apps/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/utils/pointer"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func HasCorrectNumResticPods(namespace string) wait.ConditionFunc {
+func HasCorrectNumNodeAgentPods(namespace string) wait.ConditionFunc {
 	return func() (bool, error) {
 		client, err := setUpClient()
 		if err != nil {
 			return false, err
 		}
-		resticOptions := metav1.ListOptions{
+		nodeAgentOptions := metav1.ListOptions{
 			FieldSelector: "metadata.name=" + common.NodeAgent,
 		}
-		resticDaemeonSet, err := client.AppsV1().DaemonSets(namespace).List(context.TODO(), resticOptions)
+		nodeAgentDaemeonSet, err := client.AppsV1().DaemonSets(namespace).List(context.TODO(), nodeAgentOptions)
 		if err != nil {
 			return false, err
 		}
 		var numScheduled int32
 		var numDesired int32
 
-		for _, daemonSetInfo := range (*resticDaemeonSet).Items {
+		for _, daemonSetInfo := range (*nodeAgentDaemeonSet).Items {
 			numScheduled = daemonSetInfo.Status.CurrentNumberScheduled
 			numDesired = daemonSetInfo.Status.DesiredNumberScheduled
 		}
-		// check correct num of Restic pods are initialized
+		// check correct num of NodeAgent pods are initialized
 		if numScheduled != 0 && numDesired != 0 {
 			if numScheduled == numDesired {
 				return true, nil
@@ -48,14 +45,14 @@ func HasCorrectNumResticPods(namespace string) wait.ConditionFunc {
 	}
 }
 
-func waitForDesiredResticPods(namespace string) error {
-	return wait.PollImmediate(time.Second*5, time.Minute*2, HasCorrectNumResticPods(namespace))
+func waitForDesiredNodeAgentPods(namespace string) error {
+	return wait.PollImmediate(time.Second*5, time.Minute*2, HasCorrectNumNodeAgentPods(namespace))
 }
 
 func AreNodeAgentPodsRunning(namespace string) wait.ConditionFunc {
 	log.Printf("Checking for correct number of running Node Agent pods...")
 	return func() (bool, error) {
-		err := waitForDesiredResticPods(namespace)
+		err := waitForDesiredNodeAgentPods(namespace)
 		if err != nil {
 			return false, err
 		}
@@ -63,11 +60,11 @@ func AreNodeAgentPodsRunning(namespace string) wait.ConditionFunc {
 		if err != nil {
 			return false, err
 		}
-		resticPodOptions := metav1.ListOptions{
+		nodeAgentOptions := metav1.ListOptions{
 			LabelSelector: "name=" + common.NodeAgent,
 		}
 		// get pods in the oadp-operator-e2e namespace with label selector
-		podList, err := client.CoreV1().Pods(namespace).List(context.TODO(), resticPodOptions)
+		podList, err := client.CoreV1().Pods(namespace).List(context.TODO(), nodeAgentOptions)
 		if err != nil {
 			return false, nil
 		}
@@ -82,8 +79,8 @@ func AreNodeAgentPodsRunning(namespace string) wait.ConditionFunc {
 }
 
 // keep for now
-func IsResticDaemonsetDeleted(namespace string) wait.ConditionFunc {
-	log.Printf("Checking if Restic daemonset has been deleted...")
+func IsNodeAgentDaemonsetDeleted(namespace string) wait.ConditionFunc {
+	log.Printf("Checking if NodeAgent daemonset has been deleted...")
 	return func() (bool, error) {
 		client, err := setUpClient()
 		if err != nil {
@@ -98,54 +95,7 @@ func IsResticDaemonsetDeleted(namespace string) wait.ConditionFunc {
 	}
 }
 
-func (v *DpaCustomResource) DisableRestic(namespace string, instanceName string) error {
-	err := v.SetClient()
-	if err != nil {
-		return err
-	}
-	dpa := &oadpv1alpha1.DataProtectionApplication{}
-	err = v.Client.Get(context.Background(), client.ObjectKey{
-		Namespace: v.Namespace,
-		Name:      v.Name,
-	}, dpa)
-	if err != nil {
-		return err
-	}
-	dpa.Spec.Configuration.Restic.Enable = pointer.Bool(false)
-
-	err = v.Client.Update(context.Background(), dpa)
-	if err != nil {
-		return err
-	}
-	log.Printf("spec 'enable_restic' has been updated to false")
-	return nil
-}
-
-func (v *DpaCustomResource) EnableResticNodeSelector(namespace string, s3Bucket string, credSecretRef string, instanceName string) error {
-	err := v.SetClient()
-	if err != nil {
-		return err
-	}
-	dpa := &oadpv1alpha1.DataProtectionApplication{}
-	err = v.Client.Get(context.Background(), client.ObjectKey{
-		Namespace: v.Namespace,
-		Name:      v.Name,
-	}, dpa)
-	if err != nil {
-		return err
-	}
-	nodeSelector := map[string]string{"foo": "bar"}
-	dpa.Spec.Configuration.Restic.PodConfig.NodeSelector = nodeSelector
-
-	err = v.Client.Update(context.Background(), dpa)
-	if err != nil {
-		return err
-	}
-	log.Printf("spec 'restic_node_selector' has been updated")
-	return nil
-}
-
-func ResticDaemonSetHasNodeSelector(namespace, key, value string) wait.ConditionFunc {
+func NodeAgentDaemonSetHasNodeSelector(namespace, key, value string) wait.ConditionFunc {
 	return func() (bool, error) {
 		client, err := setUpClient()
 		if err != nil {
@@ -165,7 +115,7 @@ func ResticDaemonSetHasNodeSelector(namespace, key, value string) wait.Condition
 	}
 }
 
-func GetResticDaemonsetList(namespace string) (*appsv1.DaemonSetList, error) {
+func GetNodeAgentDaemonsetList(namespace string) (*appsv1.DaemonSetList, error) {
 	client, err := setUpClient()
 	if err != nil {
 		return nil, err
