@@ -484,7 +484,7 @@ spec:
     an archive file on object storage. OADP backs up persistent volumes
     (PVs) by creating snapshots with the native cloud snapshot API or with
     the Container Storage Interface (CSI). For cloud providers that do not
-    support snapshots, OADP backs up resources and PV data with Restic.
+    support snapshots, OADP backs up resources and PV data with Restic or Kopia.
 
     * [Installing OADP for application backup and restore][install-doc]
 

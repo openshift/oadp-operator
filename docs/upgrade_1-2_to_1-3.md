@@ -13,9 +13,38 @@
 
     - `volsync` operator is not necessary anymore (you can uninstall it from your cluster, if you want)
 
-    - `volumesnapshotbackups.datamover.oadp.openshift.io` and `volumesnapshotrestores.datamover.oadp.openshift.io` CustomResourceDefinitions are not necessary anymore (you can delete `volumesnapshotbackups.datamover.oadp.openshift.io` and `volumesnapshotrestores.datamover.oadp.openshift.io` CRD from your cluster, if you want)
+    - `volumesnapshotbackups.datamover.oadp.openshift.io` and `volumesnapshotrestores.datamover.oadp.openshift.io` CustomResourceDefinitions are not necessary anymore (you can delete `volumesnapshotbackups.datamover.oadp.openshift.io` and `volumesnapshotrestores.datamover.oadp.openshift.io` CRDs from your cluster, if you want)
+
+    Also, OADP now supports a new file system backup software: Kopia.
+
+    - To use it, use the new `spec.configuration.nodeAgent` field. Example
+
+        ```yaml
+        spec:
+          configuration:
+            nodeAgent:
+              enable: true
+              uploaderType: kopia
+        ```
+
+`spec.configuration.restic` field is being deprecated in OADP 1.3, and will be removed in OADP 1.4. To avoid seeing deprecating warnings about it, use the new syntax:
+```diff
+ spec:
+   configuration:
+-    restic:
+-      enable: true
++    nodeAgent:
++      enable: true
++      uploaderType: restic
+```
+
+> **Note:** OADP will be favoring Kopia over Restic in the near future.
 
 ## Upgrade steps
+
+### Create new backup
+
+If you are using DataMover, you need to create backup before upgrade, because they 1.2 DataMover backups will not work after upgrade. We suggest to create Restic backups.
 
 ### Copy old DPA
 
