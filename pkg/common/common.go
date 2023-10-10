@@ -213,6 +213,8 @@ func StripDefaultPorts(fromUrl string) (string, error) {
 		URL: u,
 	}
 	request.SanitizeHostForHeader(&r)
-	r.URL.Host = r.Host
+	if r.Host != "" {
+		r.URL.Host = r.Host
+	}
 	return r.URL.String(), nil
 }
