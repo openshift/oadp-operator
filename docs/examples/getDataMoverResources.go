@@ -27,10 +27,11 @@ import (
 )
 
 var (
-	backup    bool
-	restore   bool
-	details   bool
-	namespace string
+	backup           bool
+	restore          bool
+	details          bool
+	namespace        string
+	builtInDataMover bool
 
 	err error
 
@@ -48,6 +49,7 @@ var (
 		Version:  "v1",
 		Resource: "volumesnapshotcontents",
 	}
+	// Old VSM/Volsync DataMover
 	VolumeSnapshotBackupResource = schema.GroupVersionResource{
 		Group:    "datamover.oadp.openshift.io",
 		Version:  "v1alpha1",
@@ -68,27 +70,51 @@ var (
 		Version:  "v1alpha1",
 		Resource: "replicationdestinations",
 	}
+	// New Velero Built-in DataMover
+	dataUploadResource = schema.GroupVersionResource{
+		Group:    "velero.io",
+		Version:  "v2alpha1",
+		Resource: "datauploads",
+	}
+	dataDownloadResource = schema.GroupVersionResource{
+		Group:    "velero.io",
+		Version:  "v2alpha1",
+		Resource: "datadownloads",
+	}
 )
 
-// TODO Does this work with built in DataMover?
 var cli = &cobra.Command{
 	Use: "go run docs/examples/getDataMoverResources.go",
-	Long: `Check the OADP DataMover Custom Resources in real time.
+	Long: `Check the OADP DataMovers Custom Resources in real time.
+
+Select either Velero Built-in DataMover or VSM/Volsync DataMover Resources.
 
 You need to log in to your cluster and deploy OADP with DataMover prior to run this script`,
 	Args: cobra.NoArgs,
-	Example: `  # Check the OADP DataMover Backup Resources
+	Example: `  # Check the Velero Built-in DataMover Backup Resources
   go run docs/examples/getDataMoverResources.go -b
 
-  # Check the OADP DataMover Restore Resources with details
+  # Check the VSM/Volsync DataMover Backup Resources
+  go run docs/examples/getDataMoverResources.go -b -v=false
+
+  # Check the Velero Built-in DataMover Resources with details
   go run docs/examples/getDataMoverResources.go -r -d`,
 	Run: func(cmd *cobra.Command, args []string) {
 		getClients()
-		if backup {
-			backupSummary()
-		}
-		if restore {
-			restoreSummary()
+		if builtInDataMover {
+			if backup {
+				newBackupSummary()
+			}
+			if restore {
+				newRestoreSummary()
+			}
+		} else {
+			if backup {
+				oldBackupSummary()
+			}
+			if restore {
+				oldRestoreSummary()
+			}
 		}
 	},
 }
@@ -101,6 +127,7 @@ func init() {
 	// cli.MarkFlagsOneRequired("backup", "restore")
 	cli.Flags().BoolVarP(&details, "details", "d", false, "Print a list of the relevant backup/restore CR's")
 	cli.Flags().StringVarP(&namespace, "namespace", "n", "openshift-adp", "Namespace OADP was deployed")
+	cli.Flags().BoolVarP(&builtInDataMover, "velero", "v", true, "Check for Velero Built-in DataMover Resources, if true, otherwise, check for VSM/Volsync DataMover Resources")
 
 	cli.SetHelpCommand(&cobra.Command{Hidden: true})
 }
@@ -177,7 +204,40 @@ func execCommandInVeleroPod(command string) io.Reader {
 	return output
 }
 
-func backupSummary() {
+func newBackupSummary() {
+	backups := execCommandInVeleroPod("./velero get backup")
+	fmt.Printf("Get Backups:\n%v\n", backups)
+
+	volumeSnapshots := getClusterResourceItems(VolumeSnapshotResource, "")
+	fmt.Printf("Total Snapshots: %v\n", len(volumeSnapshots))
+	namespaceVolumeSnapshots := getClusterResourceItems(VolumeSnapshotResource, namespace)
+	fmt.Printf("Total OADP Snapshots: %v\n", len(namespaceVolumeSnapshots))
+	volumeSnapshotContents := getClusterResourceItems(VolumeSnapshotContentResource, "")
+	fmt.Printf("Total SnapshotContents: %v\n\n", len(volumeSnapshotContents))
+
+	dataUploads := getClusterResourceItems(dataUploadResource, "")
+	phaseCompleted := 0
+	phaseInProgress := 0
+
+	for _, dataUpload := range dataUploads {
+		status := dataUpload.Object["status"].(map[string]interface{})
+		if status["phase"] == "Completed" {
+			phaseCompleted += 1
+		}
+		if status["phase"] == "InProgress" {
+			phaseInProgress += 1
+		}
+	}
+	fmt.Printf("Total DataUploads: %v\n", len(dataUploads))
+	fmt.Printf("  Completed: %v\n", phaseCompleted)
+	fmt.Printf("  InProgress: %v\n", phaseInProgress)
+
+	if details {
+		volumeSnapshotContentDetails()
+	}
+}
+
+func oldBackupSummary() {
 	backups := execCommandInVeleroPod("./velero get backup")
 	fmt.Printf("Get Backups:\n%v\n", backups)
 
@@ -231,7 +291,29 @@ func backupSummary() {
 	}
 }
 
-func restoreSummary() {
+func newRestoreSummary() {
+	restores := execCommandInVeleroPod("./velero get restore")
+	fmt.Printf("Get Restores:\n%v\n", restores)
+
+	dataDownloads := getClusterResourceItems(dataDownloadResource, "")
+	phaseCompleted := 0
+	phaseInProgress := 0
+
+	for _, dataDownload := range dataDownloads {
+		status := dataDownload.Object["status"].(map[string]interface{})
+		if status["phase"] == "Completed" {
+			phaseCompleted += 1
+		}
+		if status["phase"] == "InProgress" {
+			phaseInProgress += 1
+		}
+	}
+	fmt.Printf("Total DataDownloads: %v\n", len(dataDownloads))
+	fmt.Printf("  Completed: %v\n", phaseCompleted)
+	fmt.Printf("  InProgress: %v\n", phaseInProgress)
+}
+
+func oldRestoreSummary() {
 	restores := execCommandInVeleroPod("./velero get restore")
 	fmt.Printf("Get Restores:\n%v\n", restores)
 
@@ -278,6 +360,13 @@ func restoreSummary() {
 	}
 }
 
+func getVolumeSnapshotContentStatus(volumeSnapshotContent unstructured.Unstructured) bool {
+	if volumeSnapshotContent.Object["status"] == nil {
+		return false
+	}
+	return volumeSnapshotContent.Object["status"].(map[string]interface{})["readyToUse"].(bool)
+}
+
 func volumeSnapshotContentDetails() {
 	fmt.Println("\n***** VOLUME SNAPSHOT CONTENT ******")
 	volumeSnapshotContents := getClusterResourceItems(VolumeSnapshotContentResource, "")
@@ -285,7 +374,7 @@ func volumeSnapshotContentDetails() {
 		fmt.Printf(
 			"Name:  %v  ReadyToUse:  %v  creationTime:  %v\n",
 			volumeSnapshotContent.GetName(),
-			volumeSnapshotContent.Object["status"].(map[string]interface{})["readyToUse"],
+			getVolumeSnapshotContentStatus(volumeSnapshotContent),
 			volumeSnapshotContent.GetCreationTimestamp().UTC(),
 		)
 	}
