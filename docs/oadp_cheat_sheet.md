@@ -225,21 +225,30 @@ oc delete vsb -n <namespace> --all
 for i in `oc get vsc -A -o custom-columns=NAME:.metadata.name`; do echo $i; oc patch vsc $i -p '{"metadata":{"finalizers":null}}' --type=merge; done
 ```
 
-#### Watch datamover resources while backup in progress
-```
+#### Watch DataMover resources while backup/restore is in progress
+
+Download and compile `getDataMoverResources` script
+```sh
 git clone --depth=1 git@github.com:openshift/oadp-operator.git && \
-cd oadp-operator
-```
-###### Backups
-```
-watch -n 5 go run docs/examples/getDataMoverResources.go -b -d
-```
-###### Restore
-```
-watch -n 5 go run docs/examples/getDataMoverResources.go -r -d
+cd oadp-operator && \
+go build docs/examples/getDataMoverResources.go
 ```
 
-#### Watch the VSM plugin logs
+> **Note:** if you are using VSM/Volsync DataMover (OADP 1.2 or lower), pass the flag `-v=false` to the backup and restore commands.
+
+###### Backup
+
+```
+watch -n 5 ./getDataMoverResources -b -d
+```
+###### Restore
+
+```
+watch -n 5 ./getDataMoverResources -r -d
+```
+
+#### Watch the VSM plugin logs (OADP 1.2 or lower)
+
 ```
 oc logs -f deployment.apps/volume-snapshot-mover -n openshift-adp
 ```
