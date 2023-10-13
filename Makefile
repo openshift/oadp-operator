@@ -174,7 +174,7 @@ $(ENVTEST): ## Download envtest-setup locally if necessary.
 envtest: $(ENVTEST)
 
 .PHONY: test
-test: vet ## Run Go linter and unit tests and check Go code format and if api and bundle folders are up to date.
+test: vet envtest ## Run Go linter and unit tests and check Go code format and if api and bundle folders are up to date.
 	KUBEBUILDER_ASSETS="$(ENVTESTPATH)" go test -mod=mod ./controllers/... ./pkg/... -coverprofile cover.out
 	@make fmt-isupdated
 	@make api-isupdated
