@@ -8,7 +8,7 @@ metadata:
     containerImage: quay.io/konveyor/oadp-operator:latest
     createdAt: "2020-09-08T12:21:00Z"
     description: OADP (OpenShift API for Data Protection) operator sets up and installs
-      Data Protection Applications on the OpenShift platform. Fake edit :)
+      Data Protection Applications on the OpenShift platform.
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
     features.operators.openshift.io/csi: "false"
