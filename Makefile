@@ -174,15 +174,29 @@ $(ENVTEST): ## Download envtest-setup locally if necessary.
 envtest: $(ENVTEST)
 
 .PHONY: test
-test: manifests nullables generate fmt vet envtest ## Run tests.
+test: vet ## Run Go linter and unit tests and check Go code format and if api and bundle folders are up to date.
 	KUBEBUILDER_ASSETS="$(ENVTESTPATH)" go test -mod=mod ./controllers/... ./pkg/... -coverprofile cover.out
-	@make bundle-isupdated GOFLAGS="-mod=mod"
+	@make fmt-isupdated
+	@make api-isupdated
+	@make bundle-isupdated
+
+.PHONY: fmt-isupdated
+fmt-isupdated: TEMP:= $(shell mktemp -d)
+fmt-isupdated:
+	@cp -r ./ $(TEMP) && cd $(TEMP) && make fmt && cd - && diff -ruN . $(TEMP)/ && echo "Go code is formatted" || (echo "Go code is not formatted, run 'make fmt' to format" && exit 1)
+	@chmod -R 777 $(TEMP) && rm -rf $(TEMP)
+
+.PHONY: api-isupdated
+api-isupdated: TEMP:= $(shell mktemp -d)
+api-isupdated:
+	@cp -r ./ $(TEMP) && cd $(TEMP) && make generate && cd - && diff -ruN api/ $(TEMP)/api/ && echo "api is up to date" || (echo "api is out of date, run 'make generate' to update" && exit 1)
+	@chmod -R 777 $(TEMP) && rm -rf $(TEMP)
 
 .PHONY: bundle-isupdated
 bundle-isupdated: TEMP:= $(shell mktemp -d)
 bundle-isupdated: VERSION:= $(DEFAULT_VERSION) #prevent VERSION overrides from https://github.com/openshift/release/blob/f1a388ab05d493b6d95b8908e28687b4c0679498/clusters/build-clusters/01_cluster/ci/_origin-release-build/golang-1.19/Dockerfile#LL9C1-L9C1
 bundle-isupdated:
-	@cp -r ./ $(TEMP) && cd $(TEMP) && make bundle && git diff --exit-code bundle && echo "bundle is up to date" || (echo "bundle is out of date, run 'make bundle' to update" && exit 1)
+	@cp -r ./ $(TEMP) && cd $(TEMP) && make bundle && cd - && diff -ruN bundle/ $(TEMP)/bundle/ && echo "bundle is up to date" || (echo "bundle is out of date, run 'make bundle' to update" && exit 1)
 	@chmod -R 777 $(TEMP) && rm -rf $(TEMP)
 
 ##@ Build
