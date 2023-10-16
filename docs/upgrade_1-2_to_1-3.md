@@ -44,7 +44,7 @@
 
 ### Create new backup
 
-If you are using DataMover, you need to create backup before upgrade, because they 1.2 DataMover backups will not work after upgrade. We suggest to create Restic backups.
+If you are using DataMover, you need to create new backups before upgrade, because the 1.2 DataMover backups will not work after upgrade. We suggest to create Restic backups.
 
 ### Copy old DPA
 
