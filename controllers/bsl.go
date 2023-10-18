@@ -27,7 +27,7 @@ func (r *DPAReconciler) ValidateBackupStorageLocations(dpa oadpv1alpha1.DataProt
 		return false, err
 	}
 
-	// Ensure BSL is a valid configuration
+	// Ensure BSL is a valid configuration.
 	// First, check for provider and then call functions based on the cloud provider for each backupstoragelocation configured
 	for _, bslSpec := range dpa.Spec.BackupLocations {
 		if bslSpec.Velero != nil {
