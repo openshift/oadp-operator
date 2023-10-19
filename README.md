@@ -41,7 +41,7 @@ Documentation in this repository are considered unofficial and for development p
     1. [Stateless App Backup/Restore](docs/examples/stateless.md)
     2. [Stateful App Backup/Restore](docs/examples/stateful.md)
     3. [CSI Backup/Restore](docs/examples/CSI)
-    4. [Data Mover (REMOVED FROM OADP 1.3)](/docs/examples/data_mover.md)
+    4. [Data Mover (OADP 1.2 or below)](/docs/examples/data_mover.md)
 7. [Troubleshooting](/docs/TROUBLESHOOTING.md)
 8. Contribute
     1. [Install & Build from Source](docs/developer/install_from_source.md)

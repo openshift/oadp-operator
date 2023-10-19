@@ -1,4 +1,4 @@
-> **Note:** This DataMover was removed in OADP 1.3. Check [notes about Velero native DataMover](../../docs/upgrade_1-2_to_1-3.md) for more information.
+Data Mover (OADP 1.2 or below)
 
 # A Technical Overview of VolumeSnapshotMover
 

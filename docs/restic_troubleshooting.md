@@ -185,7 +185,7 @@ oc -n openshift-adp get podvolumerestore -l velero.io/restore-name=<restore-name
 oc logs -n openshift-adp <restic-pod>
 ```
 
-## Data Mover (REMOVED FROM OADP 1.3) + Restic
+## Data Mover (OADP 1.2 or below) + Restic
 
 #### get replicationsource info
 ```

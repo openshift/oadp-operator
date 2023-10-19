@@ -6,7 +6,7 @@ If you need help, first search if there is [already an issue filed](https://issu
 1. [OADP Cheat Sheet](oadp_cheat_sheet.md)
 2. [Debugging Failed Backups](#backup)
 3. [Debugging Failed Restores](#restore)
-4. [Debugging Data Mover (REMOVED FROM OADP 1.3)](https://github.com/migtools/volume-snapshot-mover/blob/master/docs/troubleshooting.md)
+4. [Debugging Data Mover (OADP 1.2 or below)](https://github.com/migtools/volume-snapshot-mover/blob/master/docs/troubleshooting.md)
 5. [Common Issues and Misconfigurations](#misconfig)
     1. [Credentials Not Properly Formatted](#creds)
     2. [Errors in the Velero Pod](#velpod)
@@ -34,7 +34,7 @@ This section includes steps to debug a failed backup. For more specific issues r
     ```
     oc logs -f deploy/velero -n openshift-adp
     ```
-    If dataMover is enabled, check the volume-snapshot-logs (REMOVED FROM OADP 1.3)
+    If Data Mover (OADP 1.2 or below) is enabled, check the volume-snapshot-logs
     ```
     oc logs -f deployment.apps/volume-snapshot-mover -n openshift-adp
     ```
@@ -78,7 +78,7 @@ This section includes how to debug a failed restore. For more specific issues re
     ```
     oc logs -f deployment.apps/velero -n openshift-adp
     ```
-    If dataMover is enabled, check the volume-snapshot-logs (REMOVED FROM OADP 1.3)
+    If Data Mover (OADP 1.2 or below) is enabled, check the volume-snapshot-logs
     ```
     oc logs -f deployment.apps/volume-snapshot-mover -n openshift-adp
     ```

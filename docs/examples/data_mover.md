@@ -1,6 +1,4 @@
-> **Note:** This DataMover was removed in OADP 1.3. Check [notes about Velero native DataMover](../upgrade_1-2_to_1-3.md) for more information.
-
-<h1 align="center">Stateful Application Backup/Restore - VolumeSnapshotMover</h1>
+<h1 align="center">Stateful Application Backup/Restore - VolumeSnapshotMover (OADP 1.2 or below)</h1>
 <h2 align="center">Relocate Snapshots into your Object Storage Location</h2>
 
 <h2>Background Information:<a id="pre-reqs"></a></h2>

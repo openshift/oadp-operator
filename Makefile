@@ -433,14 +433,14 @@ catalog-test-upgrade: PREVIOUS_BUNDLE_IMAGE?=ttl.sh/oadp-operator-previous-bundl
 catalog-test-upgrade: THIS_OPERATOR_IMAGE?=ttl.sh/oadp-operator-$(GIT_REV):1h
 catalog-test-upgrade: THIS_BUNDLE_IMAGE?=ttl.sh/oadp-operator-bundle-$(GIT_REV):1h
 catalog-test-upgrade: CATALOG_IMAGE?=ttl.sh/oadp-operator-catalog-$(GIT_REV):1h
-catalog-test-upgrade: opm login-required ## Prepare a catalog image with two channels: PREVIOUS_CHANNEL and from current branch
+catalog-test-upgrade: opm ## Prepare a catalog image with two channels: PREVIOUS_CHANNEL and from current branch
 	cp -r ./ $(TEMP)/current
 	git clone --depth=1 git@github.com:openshift/oadp-operator.git -b $(PREVIOUS_CHANNEL) $(TEMP)/$(PREVIOUS_CHANNEL)
-	cd $(TEMP)/$(PREVIOUS_CHANNEL) && make bundle && \
+	cd $(TEMP)/$(PREVIOUS_CHANNEL) && IMG=$(PREVIOUS_OPERATOR_IMAGE) BUNDLE_IMG=$(PREVIOUS_BUNDLE_IMAGE) make bundle && \
 		sed -i '/replaces:/d' ./bundle/manifests/oadp-operator.clusterserviceversion.yaml && \
 		IMG=$(PREVIOUS_OPERATOR_IMAGE) BUNDLE_IMG=$(PREVIOUS_BUNDLE_IMAGE) \
 		make docker-build docker-push bundle-build bundle-push && cd -
-	cd $(TEMP)/current && make bundle && \
+	cd $(TEMP)/current && IMG=$(THIS_OPERATOR_IMAGE) BUNDLE_IMG=$(THIS_BUNDLE_IMAGE) make bundle && \
 		sed -i '/replaces:/d' ./bundle/manifests/oadp-operator.clusterserviceversion.yaml && \
 		IMG=$(THIS_OPERATOR_IMAGE) BUNDLE_IMG=$(THIS_BUNDLE_IMAGE) \
 		make docker-build docker-push bundle-build bundle-push && cd -
@@ -457,7 +457,7 @@ catalog-test-upgrade: opm login-required ## Prepare a catalog image with two cha
 	#  sourceType: grpc
 	#  image: $(CATALOG_IMAGE)
 	#EOF
-	# To delete it afterwards, run `oc delete catalogsource oadp-operator-test-catalog -n openshift-marketplace`
+	# To delete it afterwards, run `$(OC_CLI) delete catalogsource oadp-operator-test-catalog -n openshift-marketplace`
 	# or `make undeploy-olm`
 	chmod -R 777 $(TEMP) && rm -rf $(TEMP)
 

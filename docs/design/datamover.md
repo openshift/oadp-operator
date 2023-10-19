@@ -14,8 +14,6 @@ creation-date: 2022-03-16
 status: implementable
 ---
 
-> **Note:** This DataMover was removed in OADP 1.3. Check [notes about Velero native DataMover](../upgrade_1-2_to_1-3.md) for more information.
-
 # Data Mover CRD design
 
 ## Release Signoff Checklist

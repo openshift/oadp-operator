@@ -7,9 +7,7 @@
 
     From this update, OADP now uses Velero Built-in DataMover instead of VSM/Volsync DataMover. This change the following:
 
-    - `spec.features.dataMover` was removed (you can delete secret for `spec.features.dataMover.credentialName` from your cluster, if you want)
-
-    - `vsm` plugin was removed
+    - `spec.features.dataMover` (you can delete secret for `spec.features.dataMover.credentialName` from your cluster, if you want) and `vsm` plugin are not necessary anymore and you need to remove them from your DPA
 
     - `volsync` operator is not necessary anymore (you can uninstall it from your cluster, if you want)
 
