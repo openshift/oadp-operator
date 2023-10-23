@@ -65,6 +65,7 @@ var _ = Describe("AWS backup restore tests", func() {
 
 	type BackupRestoreCase struct {
 		ApplicationTemplate  string
+		PvcSuffixName        string
 		ApplicationNamespace string
 		Name                 string
 		BackupRestoreType    BackupRestoreType
@@ -173,12 +174,21 @@ var _ = Describe("AWS backup restore tests", func() {
 			Expect(err).ToNot(HaveOccurred())
 			if brCase.BackupRestoreType == CSI || brCase.BackupRestoreType == CSIDataMover {
 				log.Printf("Creating pvc for case %s", brCase.Name)
+				var pvcName string
 				var pvcPath string
-				if strings.Contains(brCase.Name, "twovol") {
-					pvcPath = fmt.Sprintf("./sample-applications/%s/pvc-twoVol/%s.yaml", brCase.ApplicationNamespace, provider)
-				} else {
-					pvcPath = fmt.Sprintf("./sample-applications/%s/pvc/%s.yaml", brCase.ApplicationNamespace, provider)
+
+				pvcName = provider
+				if brCase.PvcSuffixName != "" {
+					pvcName += brCase.PvcSuffixName
 				}
+
+				pvcPathFormat := "./sample-applications/%s/pvc/%s.yaml"
+				if strings.Contains(brCase.Name, "twovol") {
+					pvcPathFormat = "./sample-applications/%s/pvc-twoVol/%s.yaml"
+				}
+
+				pvcPath = fmt.Sprintf(pvcPathFormat, brCase.ApplicationNamespace, pvcName)
+
 				err = InstallApplication(dpaCR.Client, pvcPath)
 				Expect(err).ToNot(HaveOccurred())
 			}
@@ -320,6 +330,15 @@ var _ = Describe("AWS backup restore tests", func() {
 			BackupRestoreType:    CSIDataMover,
 			PreBackupVerify:      mysqlReady(true, false, CSIDataMover),
 			PostRestoreVerify:    mysqlReady(false, false, CSIDataMover),
+		}, nil),
+		Entry("Mongo application BlockDevice DATAMOVER", BackupRestoreCase{
+			ApplicationTemplate:  "./sample-applications/mongo-persistent/mongo-persistent-block.yaml",
+			PvcSuffixName:        "-block-mode",
+			ApplicationNamespace: "mongo-persistent",
+			Name:                 "mongo-blockdevice-e2e",
+			BackupRestoreType:    CSIDataMover,
+			PreBackupVerify:      mongoready(true, false, CSIDataMover),
+			PostRestoreVerify:    mongoready(false, false, CSIDataMover),
 		}, nil),
 	)
 })
