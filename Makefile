@@ -446,19 +446,11 @@ catalog-test-upgrade: opm ## Prepare a catalog image with two channels: PREVIOUS
 		make docker-build docker-push bundle-build bundle-push && cd -
 	$(OPM) index add --container-tool docker --bundles $(PREVIOUS_BUNDLE_IMAGE),$(THIS_BUNDLE_IMAGE) --tag $(CATALOG_IMAGE)
 	docker push $(CATALOG_IMAGE)
-	# Run the following command to create the catalog
-	#$(OC_CLI) create -f - <<EOF
-	#apiVersion: operators.coreos.com/v1alpha1
-	#kind: CatalogSource
-	#metadata:
-	#  name: oadp-operator-test-catalog
-	#  namespace: openshift-marketplace
-	#spec:
-	#  sourceType: grpc
-	#  image: $(CATALOG_IMAGE)
-	#EOF
-	# To delete it afterwards, run `$(OC_CLI) delete catalogsource oadp-operator-test-catalog -n openshift-marketplace`
+	echo -e "apiVersion: operators.coreos.com/v1alpha1\nkind: CatalogSource\nmetadata:\n  name: oadp-operator-catalog-test-upgrade\n  namespace: openshift-marketplace\nspec:\n  sourceType: grpc\n  image: $(CATALOG_IMAGE)" > catalog-test-upgrade.yaml
+	$(OC_CLI) create -f catalog-test-upgrade.yaml
+	# To delete it afterwards, run `$(OC_CLI) delete catalogsource oadp-operator-catalog-test-upgrade -n openshift-marketplace`
 	# or `make undeploy-olm`
+	rm -rf catalog-test-upgrade.yaml
 	chmod -R 777 $(TEMP) && rm -rf $(TEMP)
 
 .PHONY: login-required
