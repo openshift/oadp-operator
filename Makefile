@@ -433,7 +433,7 @@ catalog-test-upgrade: PREVIOUS_BUNDLE_IMAGE?=ttl.sh/oadp-operator-previous-bundl
 catalog-test-upgrade: THIS_OPERATOR_IMAGE?=ttl.sh/oadp-operator-$(GIT_REV):1h
 catalog-test-upgrade: THIS_BUNDLE_IMAGE?=ttl.sh/oadp-operator-bundle-$(GIT_REV):1h
 catalog-test-upgrade: CATALOG_IMAGE?=ttl.sh/oadp-operator-catalog-$(GIT_REV):1h
-catalog-test-upgrade: opm ## Prepare a catalog image with two channels: PREVIOUS_CHANNEL and from current branch
+catalog-test-upgrade: opm login-required ## Prepare a catalog image with two channels: PREVIOUS_CHANNEL and from current branch
 	cp -r ./ $(TEMP)/current
 	git clone --depth=1 git@github.com:openshift/oadp-operator.git -b $(PREVIOUS_CHANNEL) $(TEMP)/$(PREVIOUS_CHANNEL)
 	cd $(TEMP)/$(PREVIOUS_CHANNEL) && IMG=$(PREVIOUS_OPERATOR_IMAGE) BUNDLE_IMG=$(PREVIOUS_BUNDLE_IMAGE) make bundle && \
@@ -446,11 +446,9 @@ catalog-test-upgrade: opm ## Prepare a catalog image with two channels: PREVIOUS
 		make docker-build docker-push bundle-build bundle-push && cd -
 	$(OPM) index add --container-tool docker --bundles $(PREVIOUS_BUNDLE_IMAGE),$(THIS_BUNDLE_IMAGE) --tag $(CATALOG_IMAGE)
 	docker push $(CATALOG_IMAGE)
-	echo -e "apiVersion: operators.coreos.com/v1alpha1\nkind: CatalogSource\nmetadata:\n  name: oadp-operator-catalog-test-upgrade\n  namespace: openshift-marketplace\nspec:\n  sourceType: grpc\n  image: $(CATALOG_IMAGE)" > catalog-test-upgrade.yaml
-	$(OC_CLI) create -f catalog-test-upgrade.yaml
+	echo -e "apiVersion: operators.coreos.com/v1alpha1\nkind: CatalogSource\nmetadata:\n  name: oadp-operator-catalog-test-upgrade\n  namespace: openshift-marketplace\nspec:\n  sourceType: grpc\n  image: $(CATALOG_IMAGE)" | $(OC_CLI) create -f -
 	# To delete it afterwards, run `$(OC_CLI) delete catalogsource oadp-operator-catalog-test-upgrade -n openshift-marketplace`
 	# or `make undeploy-olm`
-	rm -rf catalog-test-upgrade.yaml
 	chmod -R 777 $(TEMP) && rm -rf $(TEMP)
 
 .PHONY: login-required
