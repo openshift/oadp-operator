@@ -1434,6 +1434,7 @@ func TestDPAReconciler_ReconcileBackupStorageLocations(t *testing.T) {
 			Name:      "cloud-credentials",
 			Namespace: "test-ns",
 		},
+		Data: map[string][]byte{"credentials": {} },
 	}
 	cs := &oadpv1alpha1.CloudStorage{
 		ObjectMeta: metav1.ObjectMeta{
@@ -1592,6 +1593,12 @@ func TestDPAReconciler_ReconcileBackupStorageLocations(t *testing.T) {
 											Prefix: "test-prefix",
 										},
 									},
+									Credential: &v1.SecretKeySelector{
+										LocalObjectReference: v1.LocalObjectReference{
+											Name: "cloud-credentials",
+										},
+										Key: "credentials",
+									},
 								},
 							},
 						},
@@ -1602,6 +1609,7 @@ func TestDPAReconciler_ReconcileBackupStorageLocations(t *testing.T) {
 						Name:      "cloud-credentials",
 						Namespace: "test-ns",
 					},
+					Data: map[string][]byte{"credentials": {} },
 				},
 			},
 			want:    true,
@@ -1617,6 +1625,12 @@ func TestDPAReconciler_ReconcileBackupStorageLocations(t *testing.T) {
 						ObjectStorage: &velerov1.ObjectStorageLocation{
 							Prefix: "test-prefix",
 						},
+					},
+					Credential: &v1.SecretKeySelector{
+						LocalObjectReference: v1.LocalObjectReference{
+							Name: "cloud-credentials",
+						},
+						Key: "credentials",
 					},
 				},
 			},
@@ -1653,6 +1667,7 @@ func TestDPAReconciler_ReconcileBackupStorageLocations(t *testing.T) {
 						Name:      "cloud-credentials",
 						Namespace: "test-ns",
 					},
+					Data: map[string][]byte{"credentials": {} },
 				},
 				&oadpv1alpha1.CloudStorage{
 					ObjectMeta: metav1.ObjectMeta{
@@ -1729,6 +1744,7 @@ func TestDPAReconciler_ReconcileBackupStorageLocations(t *testing.T) {
 						Name:      "cloud-credentials",
 						Namespace: "test-ns",
 					},
+					Data: map[string][]byte{"credentials": {} },
 				},
 			},
 			want:    true,
@@ -1789,6 +1805,7 @@ func TestDPAReconciler_ReconcileBackupStorageLocations(t *testing.T) {
 						Name:      "cloud-credentials",
 						Namespace: "test-ns",
 					},
+					Data: map[string][]byte{"credentials": {} },
 				},
 				&oadpv1alpha1.CloudStorage{
 					ObjectMeta: metav1.ObjectMeta{
