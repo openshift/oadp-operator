@@ -16,11 +16,11 @@ require (
 	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.51.2
 	github.com/sirupsen/logrus v1.9.0
 	k8s.io/api v0.25.6
-	k8s.io/apiextensions-apiserver v0.24.2
+	k8s.io/apiextensions-apiserver v0.25.0
 	k8s.io/apimachinery v0.25.6
 	k8s.io/client-go v0.25.6
 	k8s.io/utils v0.0.0-20220728103510-ee6ede2d64ed
-	sigs.k8s.io/controller-runtime v0.12.2
+	sigs.k8s.io/controller-runtime v0.13.0
 )
 
 require (
@@ -61,6 +61,7 @@ require (
 	github.com/edsrzf/mmap-go v1.1.0 // indirect
 	github.com/emicklei/go-restful/v3 v3.10.1 // indirect
 	github.com/evanphx/json-patch v5.6.0+incompatible // indirect
+	github.com/evanphx/json-patch/v5 v5.6.0 // indirect
 	github.com/fatih/color v1.15.0 // indirect
 	github.com/frankban/quicktest v1.14.3 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
@@ -153,7 +154,7 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	k8s.io/cli-runtime v0.24.0 // indirect
-	k8s.io/component-base v0.24.2 // indirect
+	k8s.io/component-base v0.25.0 // indirect
 	k8s.io/klog/v2 v2.90.0 // indirect
 	k8s.io/kube-aggregator v0.19.12 // indirect
 	k8s.io/kube-openapi v0.0.0-20220803162953-67bda5d908f1 // indirect
