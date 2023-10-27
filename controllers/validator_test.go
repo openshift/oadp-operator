@@ -211,7 +211,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 								},
 								Credential: &corev1.SecretKeySelector{
 									LocalObjectReference: corev1.LocalObjectReference{
-										Name: "testing",
+										Name: "cloud-credentials",
 									},
 									Key: "credentials",
 								},
@@ -234,6 +234,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 						Name:      "cloud-credentials",
 						Namespace: "test-ns",
 					},
+					Data: map[string][]byte{"credentials": []byte("dummy_data") },
 				},
 			},
 			wantErr: false,
@@ -255,7 +256,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 								},
 								Credential: &corev1.SecretKeySelector{
 									LocalObjectReference: corev1.LocalObjectReference{
-										Name: "testing",
+										Name: "cloud-credentials",
 									},
 									Key: "credentials",
 								},
@@ -285,6 +286,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 						Name:      "cloud-credentials",
 						Namespace: "test-ns",
 					},
+					Data: map[string][]byte{"credentials": []byte("dummy_data") },
 				},
 			},
 			wantErr: false,
@@ -306,7 +308,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 								},
 								Credential: &corev1.SecretKeySelector{
 									LocalObjectReference: corev1.LocalObjectReference{
-										Name: "testing",
+										Name: "cloud-credentials",
 									},
 									Key: "credentials",
 								},
@@ -345,6 +347,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 						Name:      "cloud-credentials",
 						Namespace: "test-ns",
 					},
+					Data: map[string][]byte{"credentials": []byte("dummy_data") },
 				},
 			},
 			wantErr: false,
@@ -514,6 +517,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 									LocalObjectReference: corev1.LocalObjectReference{
 										Name: "cloud-credentials",
 									},
+									Key: "credentials",
 								},
 							},
 						},
@@ -553,6 +557,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 						Name:      "cloud-credentials",
 						Namespace: "test-ns",
 					},
+					Data: map[string][]byte{"credentials": []byte("dummy_data") },
 				},
 			},
 			wantErr: false,
@@ -600,6 +605,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 						Name:      "cloud-credentials-gcp",
 						Namespace: "test-ns",
 					},
+					Data: map[string][]byte{"credentials": []byte("dummy_data") },
 				},
 			},
 			wantErr: false,
@@ -749,6 +755,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 						Name:      "Test",
 						Namespace: "test-ns",
 					},
+					Data: map[string][]byte{"Creds": []byte("dummy_data") },
 				},
 			},
 			wantErr: false,
@@ -869,6 +876,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 						Name:      "cloud-credentials",
 						Namespace: "test-ns",
 					},
+					Data: map[string][]byte{"cloud": []byte("dummy_data") },
 				},
 			},
 			wantErr: false,
@@ -1078,6 +1086,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 						Name:      "custom-bsl-credentials",
 						Namespace: "test-ns",
 					},
+					Data: map[string][]byte{"cloud": []byte("dummy_data") },
 				},
 				&corev1.Secret{
 					ObjectMeta: metav1.ObjectMeta{
@@ -1138,6 +1147,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 									LocalObjectReference: corev1.LocalObjectReference{
 										Name: "cloud-credentials",
 									},
+									Key: "cloud",
 								},
 							},
 						},
@@ -1156,6 +1166,13 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 						Name:      "testing",
 						Namespace: "test-ns",
 					},
+				},
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "cloud-credentials",
+						Namespace: "test-ns",
+					},
+					Data: map[string][]byte{"cloud": []byte("dummy_data") },
 				},
 			},
 			wantErr: false,

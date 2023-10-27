@@ -51,6 +51,24 @@ func (r *DPAReconciler) ValidateDataProtectionCR(log logr.Logger) (bool, error) 
 		if location.CloudStorage != nil && location.CloudStorage.Prefix == "" && dpa.BackupImages() {
 			return false, errors.New("BackupLocation must have cloud storage prefix when backupImages is not set to false")
 		}
+
+		// Check the Velero flags 'no-secret' or 'no-default-backup-location' are not set 
+		if !dpa.Spec.Configuration.Velero.HasFeatureFlag("no-secret") || dpa.Spec.Configuration.Velero.NoDefaultBackupLocation {
+
+			// Check if the BSL secret key configured in the DPA exists with a secret data
+			secretName, secretKey := r.getSecretNameAndKeyforBackupLocation(location)
+			bslSecret, err := r.getProviderSecret(secretName)
+
+			if err != nil {
+				return false, err
+			}
+
+			data, foundKey := bslSecret.Data[secretKey]
+
+			if !foundKey || len(data) == 0 {
+				return false, fmt.Errorf("Secret name %s is missing data for key %s", secretName, secretKey)
+			}
+		}
 	}
 
 	for _, location := range dpa.Spec.SnapshotLocations {
