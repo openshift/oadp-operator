@@ -34,8 +34,6 @@ const ReconcileCompleteMessage = "Reconcile complete"
 
 const OadpOperatorLabel = "openshift.io/oadp"
 const RegistryDeploymentLabel = "openshift.io/oadp-registry"
-const OadpBSLnameLabel = "openshift.io/oadp-bsl-name"
-const OadpBSLProviderLabel = "openshift.io/oadp-bsl-provider"
 
 // +kubebuilder:validation:Enum=aws;gcp;azure;csi;vsm;openshift;kubevirt
 type DefaultPlugin string
