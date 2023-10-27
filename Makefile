@@ -65,7 +65,7 @@ ifeq ($(CLUSTER_TYPE), ibmcloud)
 endif
 
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
-ENVTEST_K8S_VERSION = 1.24
+ENVTEST_K8S_VERSION = 1.26
 
 # VERSION defines the project version for the bundle.
 # Update this value when you upgrade the version of your project.
@@ -196,7 +196,7 @@ bundle-isupdated:
 
 ##@ Build
 
-build: generate fmt vet ## Build manager binary.
+build: manifests generate fmt vet ## Build manager binary.
 	go build -o bin/manager main.go
 
 run: manifests generate fmt vet ## Run a controller from your host.
@@ -268,7 +268,7 @@ build-deploy: ## Build current branch image and deploy controller to the k8s clu
 
 CONTROLLER_GEN = $(shell pwd)/bin/controller-gen
 controller-gen: ## Download controller-gen locally if necessary.
-	$(call go-install-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@v0.10.0)
+	$(call go-install-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@v0.11.3)
 
 KUSTOMIZE = $(shell pwd)/bin/kustomize
 kustomize: ## Download kustomize locally if necessary.
@@ -319,7 +319,7 @@ yq: ## Download yq locally if necessary.
 	$(call go-install-tool,$(YQ),github.com/mikefarah/yq/v4@v4.28.1)
 
 OPERATOR_SDK = $(shell pwd)/bin/operator-sdk
-OSDK_VERSION = 1.25.0
+OSDK_VERSION = 1.28.0
 operator-sdk:
 	# Download operator-sdk locally if does not exist
 	@if [ ! -f $(OPERATOR_SDK) ]; then \
