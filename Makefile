@@ -65,7 +65,7 @@ ifeq ($(CLUSTER_TYPE), ibmcloud)
 endif
 
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
-ENVTEST_K8S_VERSION = 1.21
+ENVTEST_K8S_VERSION = 1.22
 
 # VERSION defines the project version for the bundle.
 # Update this value when you upgrade the version of your project.
@@ -109,8 +109,6 @@ BUNDLE_IMG ?= $(IMAGE_TAG_BASE)-bundle:v$(VERSION)
 
 # Image URL to use all building/pushing image targets
 IMG ?= quay.io/konveyor/oadp-operator:latest
-# Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
-CRD_OPTIONS ?= "crd:trivialVersions=true,preserveUnknownFields=false"
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
@@ -147,8 +145,8 @@ help: ## Display this help.
 
 manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
 	# Commenting out default which overwrites scoped config/rbac/role.yaml
-	# GOFLAGS="-mod=mod" $(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
-	GOFLAGS="-mod=mod" $(CONTROLLER_GEN) $(CRD_OPTIONS) webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+	# GOFLAGS="-mod=mod" $(CONTROLLER_GEN) rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+	GOFLAGS="-mod=mod" $(CONTROLLER_GEN) crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 	# run make nullables to generate nullable fields after all manifest changesin dependent targets.
 	# It's not included here because `test` and `bundle` target have different yaml styes.
 	# To keep dpa CRD the same, nullables have been added to test and bundle target separately.
@@ -239,7 +237,7 @@ build-deploy: ## Build current branch image and deploy controller to the k8s clu
 
 CONTROLLER_GEN = $(shell pwd)/bin/controller-gen
 controller-gen: ## Download controller-gen locally if necessary.
-	$(call go-install-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@v0.6.1)
+	$(call go-install-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@v0.7.0)
 
 KUSTOMIZE = $(shell pwd)/bin/kustomize
 kustomize: ## Download kustomize locally if necessary.
