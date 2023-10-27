@@ -1434,7 +1434,7 @@ func TestDPAReconciler_ReconcileBackupStorageLocations(t *testing.T) {
 			Name:      "cloud-credentials",
 			Namespace: "test-ns",
 		},
-		Data: map[string][]byte{"credentials": {} },
+		Data: map[string][]byte{"credentials": {}},
 	}
 	cs := &oadpv1alpha1.CloudStorage{
 		ObjectMeta: metav1.ObjectMeta{
@@ -1609,7 +1609,7 @@ func TestDPAReconciler_ReconcileBackupStorageLocations(t *testing.T) {
 						Name:      "cloud-credentials",
 						Namespace: "test-ns",
 					},
-					Data: map[string][]byte{"credentials": {} },
+					Data: map[string][]byte{"credentials": {}},
 				},
 			},
 			want:    true,
@@ -1667,7 +1667,7 @@ func TestDPAReconciler_ReconcileBackupStorageLocations(t *testing.T) {
 						Name:      "cloud-credentials",
 						Namespace: "test-ns",
 					},
-					Data: map[string][]byte{"credentials": {} },
+					Data: map[string][]byte{"credentials": {}},
 				},
 				&oadpv1alpha1.CloudStorage{
 					ObjectMeta: metav1.ObjectMeta{
@@ -1744,7 +1744,7 @@ func TestDPAReconciler_ReconcileBackupStorageLocations(t *testing.T) {
 						Name:      "cloud-credentials",
 						Namespace: "test-ns",
 					},
-					Data: map[string][]byte{"credentials": {} },
+					Data: map[string][]byte{"credentials": {}},
 				},
 			},
 			want:    true,
@@ -1805,7 +1805,7 @@ func TestDPAReconciler_ReconcileBackupStorageLocations(t *testing.T) {
 						Name:      "cloud-credentials",
 						Namespace: "test-ns",
 					},
-					Data: map[string][]byte{"credentials": {} },
+					Data: map[string][]byte{"credentials": {}},
 				},
 				&oadpv1alpha1.CloudStorage{
 					ObjectMeta: metav1.ObjectMeta{
