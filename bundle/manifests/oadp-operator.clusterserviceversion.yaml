@@ -152,7 +152,7 @@ metadata:
     categories: OpenShift Optional
     certified: "false"
     containerImage: quay.io/konveyor/oadp-operator:latest
-    createdAt: "2023-10-27T02:26:32Z"
+    createdAt: "2023-10-27T02:32:36Z"
     description: OADP (OpenShift API for Data Protection) operator sets up and installs
       Data Protection Applications on the OpenShift platform.
     features.operators.openshift.io/cnf: "false"
