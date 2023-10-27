@@ -673,14 +673,18 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 				Eventually(VerifyVeleroResourceLimits(namespace, dpa.Spec.Configuration.Velero.PodConfig.ResourceAllocations.Limits), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 			}
 
-			//restic installation
+			//restic installation with new and deprecated options
 			if dpa.Spec.Configuration.Restic != nil && *dpa.Spec.Configuration.Restic.Enable {
 				log.Printf("Waiting for restic pods to be running")
-				Eventually(AreNodeAgentPodsRunning(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
+				Eventually(AreNodeAgentPodsRunning(namespace), timeoutMultiplier*time.Minute*4, time.Second*5).Should(BeTrue())
+			} else if dpa.Spec.Configuration.NodeAgent != nil && *dpa.Spec.Configuration.NodeAgent.Enable {
+				log.Printf("Waiting for NodeAgent pods to be running")
+				Eventually(AreNodeAgentPodsRunning(namespace), timeoutMultiplier*time.Minute*4, time.Second*5).Should(BeTrue())
 			} else {
-				log.Printf("Waiting for restic daemonset to be deleted")
-				Eventually(IsResticDaemonsetDeleted(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
+				log.Printf("Waiting for NodeAgent daemonset to be deleted")
+				Eventually(IsNodeAgentDaemonsetDeleted(namespace), timeoutMultiplier*time.Minute*4, time.Second*5).Should(BeTrue())
 			}
+
 			// check defaultplugins
 			log.Printf("Waiting for velero deployment to have expected plugins")
 			if len(dpa.Spec.Configuration.Velero.DefaultPlugins) > 0 {
@@ -703,7 +707,14 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 			if dpa.Spec.Configuration.Restic != nil && dpa.Spec.Configuration.Restic.PodConfig != nil {
 				for key, value := range dpa.Spec.Configuration.Restic.PodConfig.NodeSelector {
 					log.Printf("Waiting for restic daemonset to get node selector")
-					Eventually(ResticDaemonSetHasNodeSelector(namespace, key, value), timeoutMultiplier*time.Minute*6, time.Second*5).Should(BeTrue())
+					Eventually(NodeAgentDaemonSetHasNodeSelector(namespace, key, value), timeoutMultiplier*time.Minute*6, time.Second*5).Should(BeTrue())
+				}
+			}
+			log.Printf("Waiting for nodeAgent daemonset to have nodeselector")
+			if dpa.Spec.Configuration.NodeAgent != nil && dpa.Spec.Configuration.NodeAgent.PodConfig != nil {
+				for key, value := range dpa.Spec.Configuration.NodeAgent.PodConfig.NodeSelector {
+					log.Printf("Waiting for NodeAgent daemonset to get node selector")
+					Eventually(NodeAgentDaemonSetHasNodeSelector(namespace, key, value), timeoutMultiplier*time.Minute*6, time.Second*5).Should(BeTrue())
 				}
 			}
 			// wait at least 1 minute after reconciled
@@ -728,23 +739,46 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 	type deletionCase struct {
 		WantError bool
 	}
-	DescribeTable("DPA Deletion test",
+	DescribeTable("DPA / Restic Deletion test",
 		func(installCase deletionCase) {
-			log.Printf("Building dpa")
+			log.Printf("Building dpa with restic")
 			err := dpaCR.Build(RESTIC)
 			Expect(err).NotTo(HaveOccurred())
-			log.Printf("Creating dpa")
+			log.Printf("Creating dpa with restic")
 			err = dpaCR.CreateOrUpdate(&dpaCR.CustomResource.Spec)
 			Expect(err).NotTo(HaveOccurred())
-			log.Printf("Waiting for velero pod to be running")
+			log.Printf("Waiting for velero pod with restic to be running")
 			Eventually(AreVeleroPodsRunning(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
-			log.Printf("Deleting dpa")
+			log.Printf("Deleting dpa with restic")
 			err = dpaCR.Delete()
 			if installCase.WantError {
 				Expect(err).To(HaveOccurred())
 			} else {
 				Expect(err).NotTo(HaveOccurred())
-				log.Printf("Checking no velero pods are running")
+				log.Printf("Checking no velero pods with restic are running")
+				Eventually(AreVeleroPodsRunning(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).ShouldNot(BeTrue())
+			}
+		},
+		Entry("Should succeed", deletionCase{WantError: false}),
+	)
+
+	DescribeTable("DPA / Kopia Deletion test",
+		func(installCase deletionCase) {
+			log.Printf("Building dpa with kopia")
+			err := dpaCR.Build(KOPIA)
+			Expect(err).NotTo(HaveOccurred())
+			log.Printf("Creating dpa with kopia")
+			err = dpaCR.CreateOrUpdate(&dpaCR.CustomResource.Spec)
+			Expect(err).NotTo(HaveOccurred())
+			log.Printf("Waiting for velero pod with kopia to be running")
+			Eventually(AreVeleroPodsRunning(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
+			log.Printf("Deleting dpa with kopia")
+			err = dpaCR.Delete()
+			if installCase.WantError {
+				Expect(err).To(HaveOccurred())
+			} else {
+				Expect(err).NotTo(HaveOccurred())
+				log.Printf("Checking no velero pods with kopia are running")
 				Eventually(AreVeleroPodsRunning(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).ShouldNot(BeTrue())
 			}
 		},

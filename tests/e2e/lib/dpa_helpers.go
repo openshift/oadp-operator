@@ -40,6 +40,7 @@ const (
 	CSI          BackupRestoreType = "csi"
 	CSIDataMover BackupRestoreType = "csi-datamover"
 	RESTIC       BackupRestoreType = "restic"
+	KOPIA        BackupRestoreType = "kopia"
 )
 
 type DpaCustomResource struct {
@@ -72,7 +73,7 @@ func (v *DpaCustomResource) Build(backupRestoreType BackupRestoreType) error {
 					DefaultPlugins: v.CustomResource.Spec.Configuration.Velero.DefaultPlugins,
 				},
 				NodeAgent: &oadpv1alpha1.NodeAgentConfig{
-					UploaderType: "restic",
+					UploaderType: "kopia",
 					NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
 						PodConfig: &oadpv1alpha1.PodConfig{},
 					},
@@ -114,9 +115,9 @@ func (v *DpaCustomResource) Build(backupRestoreType BackupRestoreType) error {
 		veleroFeatureFlags[flag] = emptyStruct{}
 	}
 	switch backupRestoreType {
-	case RESTIC:
+	case RESTIC, KOPIA:
 		dpaInstance.Spec.Configuration.NodeAgent.Enable = pointer.Bool(true)
-		dpaInstance.Spec.Configuration.NodeAgent.UploaderType = "restic"
+		dpaInstance.Spec.Configuration.NodeAgent.UploaderType = string(backupRestoreType)
 		delete(defaultPlugins, oadpv1alpha1.DefaultPluginCSI)
 		delete(veleroFeatureFlags, "EnableCSI")
 		dpaInstance.Spec.SnapshotLocations = nil
@@ -126,6 +127,7 @@ func (v *DpaCustomResource) Build(backupRestoreType BackupRestoreType) error {
 		veleroFeatureFlags["EnableCSI"] = emptyStruct{}
 		dpaInstance.Spec.SnapshotLocations = nil
 	case CSIDataMover:
+		// We don't need to have restic use case, kopia is enough
 		dpaInstance.Spec.Configuration.NodeAgent.Enable = pointer.Bool(true)
 		dpaInstance.Spec.Configuration.NodeAgent.UploaderType = "kopia"
 		defaultPlugins[oadpv1alpha1.DefaultPluginCSI] = emptyStruct{}

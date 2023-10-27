@@ -520,8 +520,7 @@ func VerifyBackupRestoreData(artifact_dir string, namespace string, routeName st
 		return err
 	}
 
-	//Verifying backup-restore data only for CSI as of now.
-	if backupRestoretype == CSI || backupRestoretype == CSIDataMover || backupRestoretype == RESTIC {
+	if backupRestoretype == CSI || backupRestoretype == CSIDataMover || backupRestoretype == RESTIC || backupRestoretype == KOPIA {
 		//check if backupfile exists. If true { compare data response with data from file} (post restore step)
 		//else write data to backup-data.txt (prebackup step)
 		if _, err := os.Stat(backupFile); err == nil {
@@ -579,7 +578,7 @@ func verifyVolume(volumeFile string, volumeApi string, prebackupState bool, back
 	if err != nil {
 		return err
 	}
-	if backupRestoretype == CSI || backupRestoretype == RESTIC {
+	if backupRestoretype == CSI || backupRestoretype == RESTIC || backupRestoretype == KOPIA {
 		if _, err := os.Stat(volumeFile); err == nil {
 			volumeBackupData, err := os.ReadFile(volumeFile)
 			if err != nil {

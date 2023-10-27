@@ -76,7 +76,7 @@ var _ = Describe("Subscription Config Suite Test", func() {
 					vd, err := GetVeleroDeploymentList(namespace)
 					Expect(err).NotTo(HaveOccurred())
 					log.Printf("Getting daemonsets")
-					rds, err := GetResticDaemonsetList(namespace)
+					nads, err := GetNodeAgentDaemonsetList(namespace)
 					Expect(err).NotTo(HaveOccurred())
 					for _, env := range s.Spec.Config.Env {
 						for _, deployment := range vd.Items {
@@ -86,7 +86,7 @@ var _ = Describe("Subscription Config Suite Test", func() {
 								Expect(container.Env).To(ContainElement(env))
 							}
 						}
-						for _, daemonset := range rds.Items {
+						for _, daemonset := range nads.Items {
 							log.Printf("Checking env vars are passed to daemonset " + daemonset.Name)
 							for _, container := range daemonset.Spec.Template.Spec.Containers {
 								log.Printf("Checking env vars are passed to container " + container.Name)

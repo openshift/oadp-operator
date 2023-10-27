@@ -214,13 +214,19 @@ This section includes how to debug a failed restore. For more specific issues re
 
 <hr style="height:1px;border:none;color:#333;"> 
 
-<h3 align="center">Issue with Backup/Restore of DeploymentConfig using Restic or restore hooks<a id="deployconfig"></a></h3>
+<h3 align="center">Issue with Backup/Restore of DeploymentConfig with volumes or restore hooks<a id="deployconfig"></a></h3>
 
--  (OADP 1.1+) **Error:** `DeploymentConfigs restore with spec.Replicas==0 or DC pods fail to restart if they crash if using Restic or restore hooks`
+-  (OADP 1.3+) **Error:** `DeploymentConfigs restore with spec.Replicas==0 or DC pods fail to restart if they crash if using DC with volumes or restore hooks`
+
+    **Solution:**
+
+    Solution is the same as in the (OADP 1.1+), except it applies to the use case if you are restoring DeploymentConfigs and have either volumes or post-restore hooks regardless of the backup method.
+
+-  (OADP 1.1+) **Error:** `DeploymentConfigs restore with spec.Replicas==0 or DC pods fail to restart if they crash if using Restic/Kopia restores or restore hooks`
 
     **Solution:**
     
-    This is expected behavior on restore if you are restoring DeploymentConfigs and are either using Restic for volume restore or you have post-restore hooks. The pod and DC plugins make these modifications to ensure that Restic and hooks work properly, and [dc-restic-post-restore.sh](../docs/scripts/dc-restic-post-restore.sh) should have been run immediately after a successful restore. Usage for this script is `dc-restic-post-restore.sh <restore-name>`
+    This is expected behavior on restore if you are restoring DeploymentConfigs and are either using Restic or Kopia for volume restore or you have post-restore hooks. The pod and DC plugins make these modifications to ensure that Restic or Kopia and hooks work properly, and [dc-post-restore.sh](../docs/scripts/dc-post-restore.sh) should have been run immediately after a successful restore. Usage for this script is `dc-post-restore.sh <restore-name>`
 
 -  (OADP 1.0.z) **Error:** `Using Restic as backup method causes PartiallyFailed/Failed errors in the Restore or post-restore hooks fail to execute`
 
@@ -246,7 +252,7 @@ This section includes how to debug a failed restore. For more specific issues re
     ```
 
 
-<hr style="height:1px;border:none;color:#333;"> 
+<hr style="height:1px;border:none;color:#333;">
 
 <h3 align="center">New Restic Backup Partially Failing After Clearing Bucket<a id="resbackup"></a></h3>
 
