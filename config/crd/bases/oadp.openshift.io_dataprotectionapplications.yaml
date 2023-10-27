@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.8.0
+    controller-gen.kubebuilder.io/version: v0.11.3
   creationTimestamp: null
   name: dataprotectionapplications.oadp.openshift.io
 spec:
@@ -20,7 +20,7 @@ spec:
     - name: v1alpha1
       schema:
         openAPIV3Schema:
-          description: DataProtectionApplication is the Schema for the dpa API
+          description: DataProtectionApplication represents configuration to install a data protection application to safely backup and restore, perform disaster recovery and migrate Kubernetes cluster resources and persistent volumes.
           properties:
             apiVersion:
               description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
@@ -59,6 +59,7 @@ spec:
                                 description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?'
                                 type: string
                             type: object
+                            x-kubernetes-map-type: atomic
                           config:
                             additionalProperties:
                               type: string
@@ -79,6 +80,7 @@ spec:
                             required:
                               - key
                             type: object
+                            x-kubernetes-map-type: atomic
                           default:
                             description: default indicates this location is the default backup storage location.
                             type: boolean
@@ -123,6 +125,7 @@ spec:
                             required:
                               - key
                             type: object
+                            x-kubernetes-map-type: atomic
                           default:
                             description: Default indicates this location is the default backup storage location.
                             type: boolean
@@ -196,6 +199,7 @@ spec:
                                         required:
                                           - key
                                         type: object
+                                        x-kubernetes-map-type: atomic
                                       fieldRef:
                                         description: 'Selects a field of the pod: supports metadata.name, metadata.namespace, `metadata.labels[''<KEY>'']`, `metadata.annotations[''<KEY>'']`, spec.nodeName, spec.serviceAccountName, status.hostIP, status.podIP, status.podIPs.'
                                         properties:
@@ -208,6 +212,7 @@ spec:
                                         required:
                                           - fieldPath
                                         type: object
+                                        x-kubernetes-map-type: atomic
                                       resourceFieldRef:
                                         description: 'Selects a resource of the container: only resources limits and requests (limits.cpu, limits.memory, limits.ephemeral-storage, requests.cpu, requests.memory and requests.ephemeral-storage) are currently supported.'
                                         properties:
@@ -227,6 +232,7 @@ spec:
                                         required:
                                           - resource
                                         type: object
+                                        x-kubernetes-map-type: atomic
                                       secretKeyRef:
                                         description: Selects a key of a secret in the pod's namespace
                                         properties:
@@ -242,6 +248,7 @@ spec:
                                         required:
                                           - key
                                         type: object
+                                        x-kubernetes-map-type: atomic
                                     type: object
                                 required:
                                   - name
@@ -360,6 +367,7 @@ spec:
                                         required:
                                           - key
                                         type: object
+                                        x-kubernetes-map-type: atomic
                                       fieldRef:
                                         description: 'Selects a field of the pod: supports metadata.name, metadata.namespace, `metadata.labels[''<KEY>'']`, `metadata.annotations[''<KEY>'']`, spec.nodeName, spec.serviceAccountName, status.hostIP, status.podIP, status.podIPs.'
                                         properties:
@@ -372,6 +380,7 @@ spec:
                                         required:
                                           - fieldPath
                                         type: object
+                                        x-kubernetes-map-type: atomic
                                       resourceFieldRef:
                                         description: 'Selects a resource of the container: only resources limits and requests (limits.cpu, limits.memory, limits.ephemeral-storage, requests.cpu, requests.memory and requests.ephemeral-storage) are currently supported.'
                                         properties:
@@ -391,6 +400,7 @@ spec:
                                         required:
                                           - resource
                                         type: object
+                                        x-kubernetes-map-type: atomic
                                       secretKeyRef:
                                         description: Selects a key of a secret in the pod's namespace
                                         properties:
@@ -406,6 +416,7 @@ spec:
                                         required:
                                           - key
                                         type: object
+                                        x-kubernetes-map-type: atomic
                                     type: object
                                 required:
                                   - name
@@ -702,6 +713,7 @@ spec:
                                         required:
                                           - key
                                         type: object
+                                        x-kubernetes-map-type: atomic
                                       fieldRef:
                                         description: 'Selects a field of the pod: supports metadata.name, metadata.namespace, `metadata.labels[''<KEY>'']`, `metadata.annotations[''<KEY>'']`, spec.nodeName, spec.serviceAccountName, status.hostIP, status.podIP, status.podIPs.'
                                         properties:
@@ -714,6 +726,7 @@ spec:
                                         required:
                                           - fieldPath
                                         type: object
+                                        x-kubernetes-map-type: atomic
                                       resourceFieldRef:
                                         description: 'Selects a resource of the container: only resources limits and requests (limits.cpu, limits.memory, limits.ephemeral-storage, requests.cpu, requests.memory and requests.ephemeral-storage) are currently supported.'
                                         properties:
@@ -733,6 +746,7 @@ spec:
                                         required:
                                           - resource
                                         type: object
+                                        x-kubernetes-map-type: atomic
                                       secretKeyRef:
                                         description: Selects a key of a secret in the pod's namespace
                                         properties:
@@ -748,6 +762,7 @@ spec:
                                         required:
                                           - key
                                         type: object
+                                        x-kubernetes-map-type: atomic
                                     type: object
                                 required:
                                   - name
@@ -980,6 +995,7 @@ spec:
                             required:
                               - key
                             type: object
+                            x-kubernetes-map-type: atomic
                           provider:
                             description: Provider is the provider of the volume storage.
                             type: string
@@ -1002,6 +1018,7 @@ spec:
               description: DataProtectionApplicationStatus defines the observed state of DataProtectionApplication
               properties:
                 conditions:
+                  description: Conditions defines the observed state of DataProtectionApplication
                   items:
                     description: "Condition contains details for one aspect of the current state of this API Resource. --- This struct is intended for direct use as an array at the field path .status.conditions.  For example, \n type FooStatus struct{ // Represents the observations of a foo's current state. // Known .status.conditions.type are: \"Available\", \"Progressing\", and \"Degraded\" // +patchMergeKey=type // +patchStrategy=merge // +listType=map // +listMapKey=type Conditions []metav1.Condition `json:\"conditions,omitempty\" patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"` \n // other fields }"
                     properties:
@@ -1050,9 +1067,3 @@ spec:
       storage: true
       subresources:
         status: {}
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []

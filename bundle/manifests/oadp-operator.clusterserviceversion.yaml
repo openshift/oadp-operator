@@ -152,7 +152,7 @@ metadata:
     categories: OpenShift Optional
     certified: "false"
     containerImage: quay.io/konveyor/oadp-operator:latest
-    createdAt: "2023-10-27T02:32:36Z"
+    createdAt: "2023-10-27T06:12:32Z"
     description: OADP (OpenShift API for Data Protection) operator sets up and installs
       Data Protection Applications on the OpenShift platform.
     features.operators.openshift.io/cnf: "false"
@@ -272,7 +272,8 @@ spec:
         displayName: LastValidationTime
         path: lastValidationTime
       version: v1
-    - kind: CloudStorage
+    - displayName: Cloud Storage
+      kind: CloudStorage
       name: cloudstorages.oadp.openshift.io
       version: v1alpha1
     - kind: DataDownload
@@ -281,9 +282,105 @@ spec:
     - description: DataProtectionApplication represents configuration to install a
         data protection application to safely backup and restore, perform disaster
         recovery and migrate Kubernetes cluster resources and persistent volumes.
-      displayName: DataProtectionApplication
+      displayName: Data Protection Application
       kind: DataProtectionApplication
       name: dataprotectionapplications.oadp.openshift.io
+      specDescriptors:
+      - description: backupImages is used to specify whether you want to deploy a
+          registry for enabling backup and restore of images
+        displayName: Backup Images
+        path: backupImages
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+      - description: backupLocations defines the list of desired configuration to
+          use for BackupStorageLocations
+        displayName: Backup Locations
+        path: backupLocations
+      - displayName: Cloud Storage Ref
+        path: backupLocations[0].bucket.cloudStorageRef
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:selector:oadp.openshift.io:v1alpha1:CloudStorage
+      - description: default indicates this location is the default backup storage
+          location.
+        displayName: Default
+        path: backupLocations[0].bucket.default
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+      - description: configuration is used to configure the data protection application's
+          server config
+        displayName: Configuration
+        path: configuration
+      - description: enable defines a boolean pointer whether we want the daemonset
+          to exist or not
+        displayName: Enable
+        path: configuration.nodeAgent.enable
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+      - description: resourceAllocations defines the CPU and Memory resource allocations
+          for the Pod
+        displayName: Resource Allocations
+        path: configuration.nodeAgent.podConfig.resourceAllocations
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:resourceRequirements
+      - description: enable defines a boolean pointer whether we want the daemonset
+          to exist or not
+        displayName: Enable
+        path: configuration.restic.enable
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+      - description: resourceAllocations defines the CPU and Memory resource allocations
+          for the Pod
+        displayName: Resource Allocations
+        path: configuration.restic.podConfig.resourceAllocations
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:resourceRequirements
+      - description: If you need to install Velero without a default backup storage
+          location noDefaultBackupLocation flag is required for confirmation
+        displayName: No Default Backup Location
+        path: configuration.velero.noDefaultBackupLocation
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+      - description: resourceAllocations defines the CPU and Memory resource allocations
+          for the Pod
+        displayName: Resource Allocations
+        path: configuration.velero.podConfig.resourceAllocations
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:resourceRequirements
+      - description: features defines the configuration for the DPA to enable the
+          OADP tech preview features
+        displayName: Features
+        path: features
+      - description: User supplied Restic Secret name
+        displayName: Credential Name
+        path: features.dataMover.credentialName
+        x-descriptors:
+        - urn:alm:descriptor:io.kubernetes:Secret
+      - description: enable flag is used to specify whether you want to deploy the
+          volume snapshot mover controller
+        displayName: Enable
+        path: features.dataMover.enable
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+      - description: add annotations to pods deployed by operator
+        displayName: Pod Annotations
+        path: podAnnotations
+      - description: podDnsConfig defines the DNS parameters of a pod in addition
+          to those generated from DNSPolicy. https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-dns-config
+        displayName: Pod DNS Config
+        path: podDnsConfig
+      - description: podDnsPolicy defines how a pod's DNS will be configured. https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy
+        displayName: Pod DNS Policy
+        path: podDnsPolicy
+      - description: snapshotLocations defines the list of desired configuration to
+          use for VolumeSnapshotLocations
+        displayName: Snapshot Locations
+        path: snapshotLocations
+      - description: 'unsupportedOverrides can be used to override images used in
+          deployments. Available keys are: - veleroImageFqin - awsPluginImageFqin
+          - openshiftPluginImageFqin - azurePluginImageFqin - gcpPluginImageFqin -
+          csiPluginImageFqin - dataMoverImageFqin - resticRestoreImageFqin - kubevirtPluginImageFqin'
+        displayName: Unsupported Overrides
+        path: unsupportedOverrides
       statusDescriptors:
       - description: Conditions defines the observed state of DataProtectionApplication
         displayName: Conditions

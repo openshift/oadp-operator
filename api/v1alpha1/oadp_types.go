@@ -88,6 +88,7 @@ type VeleroConfig struct {
 	RestoreResourcesVersionPriority string `json:"restoreResourcesVersionPriority,omitempty"`
 	// If you need to install Velero without a default backup storage location noDefaultBackupLocation flag is required for confirmation
 	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
 	NoDefaultBackupLocation bool `json:"noDefaultBackupLocation,omitempty"`
 	// Pod specific configuration
 	PodConfig *PodConfig `json:"podConfig,omitempty"`
@@ -125,6 +126,7 @@ type PodConfig struct {
 	// resourceAllocations defines the CPU and Memory resource allocations for the Pod
 	// +optional
 	// +nullable
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:resourceRequirements"}
 	ResourceAllocations corev1.ResourceRequirements `json:"resourceAllocations,omitempty"`
 	// env defines the list of environment variables to be supplied to podSpec
 	// +optional
@@ -135,6 +137,7 @@ type NodeAgentCommonFields struct {
 	// enable defines a boolean pointer whether we want the daemonset to
 	// exist or not
 	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
 	Enable *bool `json:"enable,omitempty"`
 	// supplementalGroups defines the linux groups to be applied to the NodeAgent Pod
 	// +optional
@@ -182,6 +185,7 @@ type ApplicationConfig struct {
 
 // CloudStorageLocation defines BackupStorageLocation using bucket referenced by CloudStorage CR.
 type CloudStorageLocation struct {
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:selector:oadp.openshift.io:v1alpha1:CloudStorage"}
 	CloudStorageRef corev1.LocalObjectReference `json:"cloudStorageRef"`
 
 	// config is for provider-specific configuration fields.
@@ -194,6 +198,7 @@ type CloudStorageLocation struct {
 
 	// default indicates this location is the default backup storage location.
 	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
 	Default bool `json:"default,omitempty"`
 
 	// backupSyncPeriod defines how frequently to sync backup API objects from object storage. A value of 0 disables sync.
@@ -235,9 +240,11 @@ type SnapshotLocation struct {
 type DataMover struct {
 	// enable flag is used to specify whether you want to deploy the volume snapshot mover controller
 	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
 	Enable bool `json:"enable,omitempty"`
 	// User supplied Restic Secret name
 	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:io.kubernetes:Secret"}
 	CredentialName string `json:"credentialName,omitempty"`
 	// User supplied timeout to be used for VolumeSnapshotBackup and VolumeSnapshotRestore to complete, default value is 10m
 	// +optional
@@ -327,9 +334,11 @@ type Features struct {
 type DataProtectionApplicationSpec struct {
 	// backupLocations defines the list of desired configuration to use for BackupStorageLocations
 	// +optional
+	//+operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Backup Locations"
 	BackupLocations []BackupLocation `json:"backupLocations"`
 	// snapshotLocations defines the list of desired configuration to use for VolumeSnapshotLocations
 	// +optional
+	//+operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Snapshot Locations"
 	SnapshotLocations []SnapshotLocation `json:"snapshotLocations"`
 	// unsupportedOverrides can be used to override images used in deployments.
 	// Available keys are:
@@ -343,31 +352,41 @@ type DataProtectionApplicationSpec struct {
 	//   - resticRestoreImageFqin
 	//   - kubevirtPluginImageFqin
 	// +optional
+	//+operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Unsupported Overrides"
 	UnsupportedOverrides map[UnsupportedImageKey]string `json:"unsupportedOverrides,omitempty"`
 	// add annotations to pods deployed by operator
 	// +optional
+	//+operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Pod Annotations"
 	PodAnnotations map[string]string `json:"podAnnotations,omitempty"`
 	// podDnsPolicy defines how a pod's DNS will be configured.
 	// https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy
 	// +optional
+	//+operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Pod DNS Policy"
 	PodDnsPolicy corev1.DNSPolicy `json:"podDnsPolicy,omitempty"`
 	// podDnsConfig defines the DNS parameters of a pod in addition to
 	// those generated from DNSPolicy.
 	// https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-dns-config
 	// +optional
+	//+operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Pod DNS Config"
 	PodDnsConfig corev1.PodDNSConfig `json:"podDnsConfig,omitempty"`
 	// backupImages is used to specify whether you want to deploy a registry for enabling backup and restore of images
 	// +optional
+	//+operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Backup Images"
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
 	BackupImages *bool `json:"backupImages,omitempty"`
 	// configuration is used to configure the data protection application's server config
+	//+operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Configuration"
 	Configuration *ApplicationConfig `json:"configuration"`
 	// features defines the configuration for the DPA to enable the OADP tech preview features
 	// +optional
+	//+operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Features"
 	Features *Features `json:"features"`
 }
 
 // DataProtectionApplicationStatus defines the observed state of DataProtectionApplication
 type DataProtectionApplicationStatus struct {
+	//+operator-sdk:csv:customresourcedefinitions:type=status
+	// Conditions defines the observed state of DataProtectionApplication
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
@@ -375,7 +394,8 @@ type DataProtectionApplicationStatus struct {
 //+kubebuilder:subresource:status
 //+kubebuilder:resource:path=dataprotectionapplications,shortName=dpa
 
-// DataProtectionApplication is the Schema for the dpa API
+//+operator-sdk:csv:customresourcedefinitions:displayName="Data Protection Application"
+// DataProtectionApplication represents configuration to install a data protection application to safely backup and restore, perform disaster recovery and migrate Kubernetes cluster resources and persistent volumes.
 type DataProtectionApplication struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
