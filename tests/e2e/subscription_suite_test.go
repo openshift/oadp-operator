@@ -22,16 +22,16 @@ var _ = Describe("Subscription Config Suite Test", func() {
 		dpaCR.CustomResource.Spec.Configuration.NodeAgent.Enable = pointer.BoolPtr(true)
 		dpaCR.CustomResource.Spec.Configuration.NodeAgent.UploaderType = "restic"
 
-		err = dpaCR.Delete()
+		err = dpaCR.Delete(runTimeClientForSuiteRun)
 		Expect(err).ToNot(HaveOccurred())
-		Eventually(dpaCR.IsDeleted(), timeoutMultiplier*time.Minute*2, time.Second*5).Should(BeTrue())
+		Eventually(dpaCR.IsDeleted(runTimeClientForSuiteRun), timeoutMultiplier*time.Minute*2, time.Second*5).Should(BeTrue())
 
 		testSuiteInstanceName := "ts-" + instanceName
 		dpaCR.Name = testSuiteInstanceName
 	})
 
 	var _ = AfterEach(func() {
-		err := dpaCR.Delete()
+		err := dpaCR.Delete(runTimeClientForSuiteRun)
 		Expect(err).ToNot(HaveOccurred())
 	})
 	type SubscriptionConfigTestCase struct {
@@ -42,7 +42,7 @@ var _ = Describe("Subscription Config Suite Test", func() {
 	DescribeTable("Proxy test table",
 		func(testCase SubscriptionConfigTestCase) {
 			log.Printf("Getting Operator Subscription")
-			s, err := dpaCR.GetOperatorSubscription(stream)
+			s, err := dpaCR.GetOperatorSubscription(runTimeClientForSuiteRun, stream)
 			Expect(err).To(BeNil())
 			log.Printf("Setting test case subscription config")
 			s.Spec.Config = &testCase.SubscriptionConfig
@@ -58,25 +58,25 @@ var _ = Describe("Subscription Config Suite Test", func() {
 				Eventually(s.CsvIsReady, time.Minute*15).Should(BeTrue())
 
 				log.Printf("CreatingOrUpdate test Velero")
-				err = dpaCR.CreateOrUpdate(&dpaCR.CustomResource.Spec)
+				err = dpaCR.CreateOrUpdate(runTimeClientForSuiteRun, &dpaCR.CustomResource.Spec)
 				Expect(err).NotTo(HaveOccurred())
 
 				log.Printf("Getting velero object")
-				velero, err := dpaCR.Get()
+				velero, err := dpaCR.Get(runTimeClientForSuiteRun)
 				Expect(err).NotTo(HaveOccurred())
 				log.Printf("Waiting for velero pod to be running")
-				Eventually(AreVeleroPodsRunning(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
+				Eventually(AreVeleroPodsRunning(kubernetesClientForSuiteRun, namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 				if velero.Spec.Configuration.NodeAgent.Enable != nil && *velero.Spec.Configuration.NodeAgent.Enable {
 					log.Printf("Waiting for Node Agent pods to be running")
-					Eventually(AreNodeAgentPodsRunning(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
+					Eventually(AreNodeAgentPodsRunning(kubernetesClientForSuiteRun, namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 				}
 				if s.Spec.Config != nil && s.Spec.Config.Env != nil {
 					// get pod env vars
 					log.Printf("Getting deployments")
-					vd, err := GetVeleroDeploymentList(namespace)
+					vd, err := GetVeleroDeploymentList(kubernetesClientForSuiteRun, namespace)
 					Expect(err).NotTo(HaveOccurred())
 					log.Printf("Getting daemonsets")
-					nads, err := GetNodeAgentDaemonsetList(namespace)
+					nads, err := GetNodeAgentDaemonsetList(kubernetesClientForSuiteRun, namespace)
 					Expect(err).NotTo(HaveOccurred())
 					for _, env := range s.Spec.Config.Env {
 						for _, deployment := range vd.Items {
@@ -96,7 +96,7 @@ var _ = Describe("Subscription Config Suite Test", func() {
 					}
 				}
 				log.Printf("Deleting test Velero")
-				err = dpaCR.Delete()
+				err = dpaCR.Delete(runTimeClientForSuiteRun)
 				Expect(err).ToNot(HaveOccurred())
 			}
 

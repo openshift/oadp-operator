@@ -34,7 +34,7 @@ func mongoready(preBackupState bool, twoVol bool, backupRestoreType BackupRestor
 		if !exists {
 			return errors.New("did not find Mongo scc")
 		}
-		err = VerifyBackupRestoreData(artifact_dir, namespace, "todolist-route", "todolist", preBackupState, false, backupRestoreType)
+		err = VerifyBackupRestoreData(runTimeClientForSuiteRun, artifact_dir, namespace, "todolist-route", "todolist", preBackupState, false, backupRestoreType)
 		return err
 	})
 }
@@ -51,7 +51,7 @@ func mysqlReady(preBackupState bool, twoVol bool, backupRestoreType BackupRestor
 		if !exists {
 			return errors.New("did not find MYSQL scc")
 		}
-		err = VerifyBackupRestoreData(artifact_dir, namespace, "todolist-route", "todolist", preBackupState, twoVol, backupRestoreType)
+		err = VerifyBackupRestoreData(runTimeClientForSuiteRun, artifact_dir, namespace, "todolist-route", "todolist", preBackupState, twoVol, backupRestoreType)
 		return err
 	})
 }
@@ -91,13 +91,13 @@ var _ = Describe("AWS backup restore tests", func() {
 			// print namespace error events for app namespace
 			if lastBRCase.ApplicationNamespace != "" {
 				GinkgoWriter.Println("Printing app namespace events")
-				PrintNamespaceEventsAfterTime(lastBRCase.ApplicationNamespace, lastInstallTime)
+				PrintNamespaceEventsAfterTime(kubernetesClientForSuiteRun, lastBRCase.ApplicationNamespace, lastInstallTime)
 			}
 			GinkgoWriter.Println("Printing oadp namespace events")
-			PrintNamespaceEventsAfterTime(namespace, lastInstallTime)
-			err = SavePodLogs(namespace, baseReportDir)
+			PrintNamespaceEventsAfterTime(kubernetesClientForSuiteRun, namespace, lastInstallTime)
+			err = SavePodLogs(kubernetesClientForSuiteRun, namespace, baseReportDir)
 			Expect(err).NotTo(HaveOccurred())
-			err = SavePodLogs(lastBRCase.ApplicationNamespace, baseReportDir)
+			err = SavePodLogs(kubernetesClientForSuiteRun, lastBRCase.ApplicationNamespace, baseReportDir)
 			Expect(err).NotTo(HaveOccurred())
 		}
 
@@ -110,9 +110,9 @@ var _ = Describe("AWS backup restore tests", func() {
 		}
 		Expect(err).ToNot(HaveOccurred())
 
-		err = dpaCR.Delete()
+		err = dpaCR.Delete(runTimeClientForSuiteRun)
 		Expect(err).ToNot(HaveOccurred())
-		Eventually(IsNamespaceDeleted(lastBRCase.ApplicationNamespace), timeoutMultiplier*time.Minute*2, time.Second*5).Should(BeTrue())
+		Eventually(IsNamespaceDeleted(kubernetesClientForSuiteRun, lastBRCase.ApplicationNamespace), timeoutMultiplier*time.Minute*2, time.Second*5).Should(BeTrue())
 	})
 
 	updateLastInstallTime := func() {
@@ -126,7 +126,7 @@ var _ = Describe("AWS backup restore tests", func() {
 					brCase.MinK8SVersion = &K8sVersion{Major: "1", Minor: "23"}
 				}
 			}
-			if notVersionTarget, reason := NotServerVersionTarget(brCase.MinK8SVersion, brCase.MaxK8SVersion); notVersionTarget {
+			if notVersionTarget, reason := NotServerVersionTarget(kubernetesClientForSuiteRun, brCase.MinK8SVersion, brCase.MaxK8SVersion); notVersionTarget {
 				Skip(reason)
 			}
 
@@ -138,17 +138,17 @@ var _ = Describe("AWS backup restore tests", func() {
 			//updateLastInstallingNamespace(dpaCR.Namespace)
 			updateLastInstallTime()
 
-			err = dpaCR.CreateOrUpdate(&dpaCR.CustomResource.Spec)
+			err = dpaCR.CreateOrUpdate(runTimeClientForSuiteRun, &dpaCR.CustomResource.Spec)
 			Expect(err).NotTo(HaveOccurred())
 
 			fmt.Printf("Cluster type: %s \n", provider)
 
 			log.Printf("Waiting for velero pod to be running")
-			Eventually(AreVeleroPodsRunning(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
+			Eventually(AreVeleroPodsRunning(kubernetesClientForSuiteRun, namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 
 			if brCase.BackupRestoreType == RESTIC || brCase.BackupRestoreType == KOPIA || brCase.BackupRestoreType == CSIDataMover {
 				log.Printf("Waiting for Node Agent pods to be running")
-				Eventually(AreNodeAgentPodsRunning(namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
+				Eventually(AreNodeAgentPodsRunning(kubernetesClientForSuiteRun, namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 			}
 			if brCase.BackupRestoreType == CSI || brCase.BackupRestoreType == CSIDataMover {
 				if provider == "aws" || provider == "ibmcloud" || provider == "gcp" || provider == "azure" {
@@ -195,7 +195,7 @@ var _ = Describe("AWS backup restore tests", func() {
 
 			// wait for pods to be running
 			Eventually(AreAppBuildsReady(dpaCR.Client, brCase.ApplicationNamespace), timeoutMultiplier*time.Minute*5, time.Second*5).Should(BeTrue())
-			Eventually(AreApplicationPodsRunning(brCase.ApplicationNamespace), timeoutMultiplier*time.Minute*9, time.Second*5).Should(BeTrue())
+			Eventually(AreApplicationPodsRunning(kubernetesClientForSuiteRun, brCase.ApplicationNamespace), timeoutMultiplier*time.Minute*9, time.Second*5).Should(BeTrue())
 
 			// Run optional custom verification
 			log.Printf("Running pre-backup function for case %s", brCase.Name)
@@ -214,11 +214,11 @@ var _ = Describe("AWS backup restore tests", func() {
 
 			// wait for backup to not be running
 			Eventually(IsBackupDone(dpaCR.Client, namespace, backupName), timeoutMultiplier*time.Minute*20, time.Second*10).Should(BeTrue())
-			GinkgoWriter.Println(DescribeBackup(dpaCR.Client, backup))
-			Expect(BackupErrorLogs(dpaCR.Client, backup)).To(Equal([]string{}))
+			GinkgoWriter.Println(DescribeBackup(veleroClientForSuiteRun, csiClientForSuiteRun, dpaCR.Client, backup))
+			Expect(BackupErrorLogs(kubernetesClientForSuiteRun, dpaCR.Client, backup)).To(Equal([]string{}))
 
 			// check if backup succeeded
-			succeeded, err := IsBackupCompletedSuccessfully(dpaCR.Client, backup)
+			succeeded, err := IsBackupCompletedSuccessfully(kubernetesClientForSuiteRun, dpaCR.Client, backup)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(succeeded).To(Equal(true))
 			log.Printf("Backup for case %s succeeded", brCase.Name)
@@ -234,7 +234,7 @@ var _ = Describe("AWS backup restore tests", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			// Wait for namespace to be deleted
-			Eventually(IsNamespaceDeleted(brCase.ApplicationNamespace), timeoutMultiplier*time.Minute*4, time.Second*5).Should(BeTrue())
+			Eventually(IsNamespaceDeleted(kubernetesClientForSuiteRun, brCase.ApplicationNamespace), timeoutMultiplier*time.Minute*4, time.Second*5).Should(BeTrue())
 
 			updateLastInstallTime()
 			// run restore
@@ -242,11 +242,11 @@ var _ = Describe("AWS backup restore tests", func() {
 			restore, err := CreateRestoreFromBackup(dpaCR.Client, namespace, backupName, restoreName)
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(IsRestoreDone(dpaCR.Client, namespace, restoreName), timeoutMultiplier*time.Minute*60, time.Second*10).Should(BeTrue())
-			GinkgoWriter.Println(DescribeRestore(dpaCR.Client, restore))
-			Expect(RestoreErrorLogs(dpaCR.Client, restore)).To(Equal([]string{}))
+			GinkgoWriter.Println(DescribeRestore(veleroClientForSuiteRun, dpaCR.Client, restore))
+			Expect(RestoreErrorLogs(kubernetesClientForSuiteRun, dpaCR.Client, restore)).To(Equal([]string{}))
 
 			// Check if restore succeeded
-			succeeded, err = IsRestoreCompletedSuccessfully(dpaCR.Client, namespace, restoreName)
+			succeeded, err = IsRestoreCompletedSuccessfully(kubernetesClientForSuiteRun, dpaCR.Client, namespace, restoreName)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(succeeded).To(Equal(true))
 
@@ -263,7 +263,7 @@ var _ = Describe("AWS backup restore tests", func() {
 
 			// verify app is running
 			Eventually(AreAppBuildsReady(dpaCR.Client, brCase.ApplicationNamespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
-			Eventually(AreApplicationPodsRunning(brCase.ApplicationNamespace), timeoutMultiplier*time.Minute*9, time.Second*5).Should(BeTrue())
+			Eventually(AreApplicationPodsRunning(kubernetesClientForSuiteRun, brCase.ApplicationNamespace), timeoutMultiplier*time.Minute*9, time.Second*5).Should(BeTrue())
 
 			// Run optional custom verification
 			log.Printf("Running post-restore function for case %s", brCase.Name)

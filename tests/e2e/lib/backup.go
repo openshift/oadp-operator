@@ -8,6 +8,7 @@ import (
 	velero "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -58,7 +59,7 @@ func IsBackupDone(ocClient client.Client, veleroNamespace, name string) wait.Con
 	}
 }
 
-func IsBackupCompletedSuccessfully(ocClient client.Client, backup velero.Backup) (bool, error) {
+func IsBackupCompletedSuccessfully(c *kubernetes.Clientset, ocClient client.Client, backup velero.Backup) (bool, error) {
 	err := ocClient.Get(context.Background(), client.ObjectKey{
 		Namespace: backup.Namespace,
 		Name:      backup.Name,
@@ -70,5 +71,9 @@ func IsBackupCompletedSuccessfully(ocClient client.Client, backup velero.Backup)
 	if backup.Status.Phase == velero.BackupPhaseCompleted {
 		return true, nil
 	}
-	return false, fmt.Errorf("backup phase is: %s; expected: %s\nvalidation errors: %v\nvelero failure logs: %v", backup.Status.Phase, velero.BackupPhaseCompleted, backup.Status.ValidationErrors, GetVeleroContainerFailureLogs(backup.Namespace))
+	return false, fmt.Errorf(
+		"backup phase is: %s; expected: %s\nvalidation errors: %v\nvelero failure logs: %v",
+		backup.Status.Phase, velero.BackupPhaseCompleted, backup.Status.ValidationErrors,
+		GetVeleroContainerFailureLogs(c, backup.Namespace),
+	)
 }

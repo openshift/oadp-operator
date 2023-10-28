@@ -8,6 +8,7 @@ import (
 	velero "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -84,7 +85,7 @@ func IsRestoreDone(ocClient client.Client, veleroNamespace, name string) wait.Co
 	}
 }
 
-func IsRestoreCompletedSuccessfully(ocClient client.Client, veleroNamespace, name string) (bool, error) {
+func IsRestoreCompletedSuccessfully(c *kubernetes.Clientset, ocClient client.Client, veleroNamespace, name string) (bool, error) {
 	restore := velero.Restore{}
 	err := ocClient.Get(context.Background(), client.ObjectKey{
 		Namespace: veleroNamespace,
@@ -96,5 +97,9 @@ func IsRestoreCompletedSuccessfully(ocClient client.Client, veleroNamespace, nam
 	if restore.Status.Phase == velero.RestorePhaseCompleted {
 		return true, nil
 	}
-	return false, fmt.Errorf("restore phase is: %s; expected: %s\nfailure reason: %s\nvalidation errors: %v\nvelero failure logs: %v", restore.Status.Phase, velero.RestorePhaseCompleted, restore.Status.FailureReason, restore.Status.ValidationErrors, GetVeleroContainerFailureLogs(veleroNamespace))
+	return false, fmt.Errorf(
+		"restore phase is: %s; expected: %s\nfailure reason: %s\nvalidation errors: %v\nvelero failure logs: %v",
+		restore.Status.Phase, velero.RestorePhaseCompleted, restore.Status.FailureReason, restore.Status.ValidationErrors,
+		GetVeleroContainerFailureLogs(c, veleroNamespace),
+	)
 }

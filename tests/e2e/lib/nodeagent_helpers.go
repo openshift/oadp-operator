@@ -10,18 +10,15 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/kubernetes"
 )
 
-func HasCorrectNumNodeAgentPods(namespace string) wait.ConditionFunc {
+func HasCorrectNumNodeAgentPods(c *kubernetes.Clientset, namespace string) wait.ConditionFunc {
 	return func() (bool, error) {
-		client, err := setUpClient()
-		if err != nil {
-			return false, err
-		}
 		nodeAgentOptions := metav1.ListOptions{
 			FieldSelector: "metadata.name=" + common.NodeAgent,
 		}
-		nodeAgentDaemeonSet, err := client.AppsV1().DaemonSets(namespace).List(context.TODO(), nodeAgentOptions)
+		nodeAgentDaemeonSet, err := c.AppsV1().DaemonSets(namespace).List(context.TODO(), nodeAgentOptions)
 		if err != nil {
 			return false, err
 		}
@@ -45,18 +42,14 @@ func HasCorrectNumNodeAgentPods(namespace string) wait.ConditionFunc {
 	}
 }
 
-func waitForDesiredNodeAgentPods(namespace string) error {
-	return wait.PollImmediate(time.Second*5, time.Minute*2, HasCorrectNumNodeAgentPods(namespace))
+func waitForDesiredNodeAgentPods(c *kubernetes.Clientset, namespace string) error {
+	return wait.PollImmediate(time.Second*5, time.Minute*2, HasCorrectNumNodeAgentPods(c, namespace))
 }
 
-func AreNodeAgentPodsRunning(namespace string) wait.ConditionFunc {
+func AreNodeAgentPodsRunning(c *kubernetes.Clientset, namespace string) wait.ConditionFunc {
 	log.Printf("Checking for correct number of running Node Agent pods...")
 	return func() (bool, error) {
-		err := waitForDesiredNodeAgentPods(namespace)
-		if err != nil {
-			return false, err
-		}
-		client, err := setUpClient()
+		err := waitForDesiredNodeAgentPods(c, namespace)
 		if err != nil {
 			return false, err
 		}
@@ -64,7 +57,7 @@ func AreNodeAgentPodsRunning(namespace string) wait.ConditionFunc {
 			LabelSelector: "name=" + common.NodeAgent,
 		}
 		// get pods in the oadp-operator-e2e namespace with label selector
-		podList, err := client.CoreV1().Pods(namespace).List(context.TODO(), nodeAgentOptions)
+		podList, err := c.CoreV1().Pods(namespace).List(context.TODO(), nodeAgentOptions)
 		if err != nil {
 			return false, nil
 		}
@@ -79,15 +72,11 @@ func AreNodeAgentPodsRunning(namespace string) wait.ConditionFunc {
 }
 
 // keep for now
-func IsNodeAgentDaemonsetDeleted(namespace string) wait.ConditionFunc {
+func IsNodeAgentDaemonsetDeleted(c *kubernetes.Clientset, namespace string) wait.ConditionFunc {
 	log.Printf("Checking if NodeAgent daemonset has been deleted...")
 	return func() (bool, error) {
-		client, err := setUpClient()
-		if err != nil {
-			return false, nil
-		}
 		// Check for daemonSet
-		_, err = client.AppsV1().DaemonSets(namespace).Get(context.Background(), common.NodeAgent, metav1.GetOptions{})
+		_, err := c.AppsV1().DaemonSets(namespace).Get(context.Background(), common.NodeAgent, metav1.GetOptions{})
 		if apierrors.IsNotFound(err) {
 			return true, nil
 		}
@@ -95,13 +84,9 @@ func IsNodeAgentDaemonsetDeleted(namespace string) wait.ConditionFunc {
 	}
 }
 
-func NodeAgentDaemonSetHasNodeSelector(namespace, key, value string) wait.ConditionFunc {
+func NodeAgentDaemonSetHasNodeSelector(c *kubernetes.Clientset, namespace, key, value string) wait.ConditionFunc {
 	return func() (bool, error) {
-		client, err := setUpClient()
-		if err != nil {
-			return false, nil
-		}
-		ds, err := client.AppsV1().DaemonSets(namespace).Get(context.TODO(), common.NodeAgent, metav1.GetOptions{})
+		ds, err := c.AppsV1().DaemonSets(namespace).Get(context.TODO(), common.NodeAgent, metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}
@@ -115,16 +100,12 @@ func NodeAgentDaemonSetHasNodeSelector(namespace, key, value string) wait.Condit
 	}
 }
 
-func GetNodeAgentDaemonsetList(namespace string) (*appsv1.DaemonSetList, error) {
-	client, err := setUpClient()
-	if err != nil {
-		return nil, err
-	}
+func GetNodeAgentDaemonsetList(c *kubernetes.Clientset, namespace string) (*appsv1.DaemonSetList, error) {
 	registryListOptions := metav1.ListOptions{
 		LabelSelector: "component=velero",
 	}
 	// get pods in the oadp-operator-e2e namespace with label selector
-	deploymentList, err := client.AppsV1().DaemonSets(namespace).List(context.TODO(), registryListOptions)
+	deploymentList, err := c.AppsV1().DaemonSets(namespace).List(context.TODO(), registryListOptions)
 	if err != nil {
 		return nil, err
 	}

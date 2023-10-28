@@ -8,11 +8,12 @@ import (
 	"github.com/openshift/oadp-operator/pkg/credentials"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func (d *DpaCustomResource) RemoveVeleroPlugin(namespace string, instanceName string, pluginValues []oadpv1alpha1.DefaultPlugin, removedPlugin string) error {
-	err := d.SetClient()
+func (d *DpaCustomResource) RemoveVeleroPlugin(c client.Client, string, instanceName string, pluginValues []oadpv1alpha1.DefaultPlugin, removedPlugin string) error {
+	err := d.SetClient(c)
 	if err != nil {
 		return err
 	}
@@ -35,13 +36,9 @@ func (d *DpaCustomResource) RemoveVeleroPlugin(namespace string, instanceName st
 	return nil
 }
 
-func DoesPluginExist(namespace string, plugin oadpv1alpha1.DefaultPlugin) wait.ConditionFunc {
+func DoesPluginExist(c *kubernetes.Clientset, namespace string, plugin oadpv1alpha1.DefaultPlugin) wait.ConditionFunc {
 	return func() (bool, error) {
-		clientset, err := setUpClient()
-		if err != nil {
-			return false, err
-		}
-		veleroDeployment, err := clientset.AppsV1().Deployments(namespace).Get(context.TODO(), "velero", metav1.GetOptions{})
+		veleroDeployment, err := c.AppsV1().Deployments(namespace).Get(context.TODO(), "velero", metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}
@@ -58,13 +55,9 @@ func DoesPluginExist(namespace string, plugin oadpv1alpha1.DefaultPlugin) wait.C
 	}
 }
 
-func DoesCustomPluginExist(namespace string, plugin oadpv1alpha1.CustomPlugin) wait.ConditionFunc {
+func DoesCustomPluginExist(c *kubernetes.Clientset, namespace string, plugin oadpv1alpha1.CustomPlugin) wait.ConditionFunc {
 	return func() (bool, error) {
-		clientset, err := setUpClient()
-		if err != nil {
-			return false, err
-		}
-		veleroDeployment, err := clientset.AppsV1().Deployments(namespace).Get(context.TODO(), "velero", metav1.GetOptions{})
+		veleroDeployment, err := c.AppsV1().Deployments(namespace).Get(context.TODO(), "velero", metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}
@@ -79,15 +72,11 @@ func DoesCustomPluginExist(namespace string, plugin oadpv1alpha1.CustomPlugin) w
 	}
 }
 
-func DoesVeleroDeploymentExist(namespace string, deploymentName string) wait.ConditionFunc {
+func DoesVeleroDeploymentExist(c *kubernetes.Clientset, namespace string, deploymentName string) wait.ConditionFunc {
 	log.Printf("Waiting for velero deployment to be created...")
 	return func() (bool, error) {
-		client, err := setUpClient()
-		if err != nil {
-			return false, err
-		}
 		// Check for deployment
-		_, err = client.AppsV1().Deployments(namespace).Get(context.Background(), deploymentName, metav1.GetOptions{})
+		_, err := c.AppsV1().Deployments(namespace).Get(context.Background(), deploymentName, metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}

@@ -9,15 +9,14 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/client/config"
 )
 
 type Subscription struct {
 	*operators.Subscription
 }
 
-func (d *DpaCustomResource) GetOperatorSubscription(stream string) (*Subscription, error) {
-	err := d.SetClient()
+func (d *DpaCustomResource) GetOperatorSubscription(c client.Client, stream string) (*Subscription, error) {
+	err := d.SetClient(c)
 	if err != nil {
 		return nil, err
 	}
@@ -40,47 +39,35 @@ func (d *DpaCustomResource) GetOperatorSubscription(stream string) (*Subscriptio
 	return &Subscription{&sl.Items[0]}, nil
 }
 
-func (s *Subscription) Refresh() error {
-	cfg, err := config.GetConfig()
-	if err != nil {
-		return err
-	}
-	c, err := client.New(cfg, client.Options{})
-	if err != nil {
-		return err
-	}
+func (s *Subscription) Refresh(c client.Client) error {
 	return c.Get(context.Background(), types.NamespacedName{Namespace: s.Namespace, Name: s.Name}, s.Subscription)
 }
 
-func (s *Subscription) getCSV() (*operators.ClusterServiceVersion, error) {
-	err := s.Refresh()
+func (s *Subscription) getCSV(c client.Client) (*operators.ClusterServiceVersion, error) {
+	err := s.Refresh(c)
 	if err != nil {
 		return nil, err
 	}
 
-	client, err := client.New(config.GetConfigOrDie(), client.Options{})
-	if err != nil {
-		return nil, err
-	}
 	var installPlan operators.InstallPlan
 
 	if s.Status.InstallPlanRef == nil {
 		return nil, errors.New("no install plan found in subscription")
 	}
-	err = client.Get(context.Background(), types.NamespacedName{Namespace: s.Namespace, Name: s.Status.InstallPlanRef.Name}, &installPlan)
+	err = c.Get(context.Background(), types.NamespacedName{Namespace: s.Namespace, Name: s.Status.InstallPlanRef.Name}, &installPlan)
 	if err != nil {
 		return nil, err
 	}
 	var csv operators.ClusterServiceVersion
-	err = client.Get(context.Background(), types.NamespacedName{Namespace: installPlan.Namespace, Name: installPlan.Spec.ClusterServiceVersionNames[0]}, &csv)
+	err = c.Get(context.Background(), types.NamespacedName{Namespace: installPlan.Namespace, Name: installPlan.Spec.ClusterServiceVersionNames[0]}, &csv)
 	if err != nil {
 		return nil, err
 	}
 	return &csv, nil
 }
 
-func (s *Subscription) CsvIsReady() bool {
-	csv, err := s.getCSV()
+func (s *Subscription) CsvIsReady(c client.Client) bool {
+	csv, err := s.getCSV(c)
 	if err != nil {
 		log.Printf("Error getting CSV: %v", err)
 		return false
@@ -88,8 +75,8 @@ func (s *Subscription) CsvIsReady() bool {
 	log.Default().Printf("CSV status phase: %v", csv.Status.Phase)
 	return csv.Status.Phase == operators.CSVPhaseSucceeded
 }
-func (s *Subscription) CsvIsInstalling() bool {
-	csv, err := s.getCSV()
+func (s *Subscription) CsvIsInstalling(c client.Client) bool {
+	csv, err := s.getCSV(c)
 	if err != nil {
 		log.Printf("Error getting CSV: %v", err)
 		return false
@@ -97,19 +84,15 @@ func (s *Subscription) CsvIsInstalling() bool {
 	return csv.Status.Phase == operators.CSVPhaseInstalling
 }
 
-func (s *Subscription) CreateOrUpdate() error {
-	client, err := client.New(config.GetConfigOrDie(), client.Options{})
-	if err != nil {
-		return err
-	}
+func (s *Subscription) CreateOrUpdate(c client.Client) error {
 	log.Printf(s.APIVersion)
 	var currentSubscription operators.Subscription
-	err = client.Get(context.Background(), types.NamespacedName{Namespace: s.Namespace, Name: s.Name}, &currentSubscription)
+	err := c.Get(context.Background(), types.NamespacedName{Namespace: s.Namespace, Name: s.Name}, &currentSubscription)
 	if apierrors.IsNotFound(err) {
-		return client.Create(context.Background(), s.Subscription)
+		return c.Create(context.Background(), s.Subscription)
 	}
 	if err != nil {
 		return err
 	}
-	return client.Update(context.Background(), s.Subscription)
+	return c.Update(context.Background(), s.Subscription)
 }
