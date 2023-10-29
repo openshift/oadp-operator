@@ -75,6 +75,7 @@ func (s *Subscription) CsvIsReady(c client.Client) bool {
 	log.Default().Printf("CSV status phase: %v", csv.Status.Phase)
 	return csv.Status.Phase == operators.CSVPhaseSucceeded
 }
+
 func (s *Subscription) CsvIsInstalling(c client.Client) bool {
 	csv, err := s.getCSV(c)
 	if err != nil {

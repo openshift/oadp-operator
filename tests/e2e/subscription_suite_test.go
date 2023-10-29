@@ -15,17 +15,6 @@ import (
 
 var _ = Describe("Subscription Config Suite Test", func() {
 	var _ = BeforeEach(func() {
-		log.Printf("Building dpaSpec")
-		err := dpaCR.Build(CSI)
-		Expect(err).NotTo(HaveOccurred())
-		//also test restic
-		dpaCR.CustomResource.Spec.Configuration.NodeAgent.Enable = pointer.BoolPtr(true)
-		dpaCR.CustomResource.Spec.Configuration.NodeAgent.UploaderType = "restic"
-
-		err = dpaCR.Delete(runTimeClientForSuiteRun)
-		Expect(err).ToNot(HaveOccurred())
-		Eventually(dpaCR.IsDeleted(runTimeClientForSuiteRun), timeoutMultiplier*time.Minute*2, time.Second*5).Should(BeTrue())
-
 		testSuiteInstanceName := "ts-" + instanceName
 		dpaCR.Name = testSuiteInstanceName
 	})
@@ -33,6 +22,7 @@ var _ = Describe("Subscription Config Suite Test", func() {
 	var _ = AfterEach(func() {
 		err := dpaCR.Delete(runTimeClientForSuiteRun)
 		Expect(err).ToNot(HaveOccurred())
+		Eventually(dpaCR.IsDeleted(runTimeClientForSuiteRun), timeoutMultiplier*time.Minute*2, time.Second*5).Should(BeTrue())
 	})
 	type SubscriptionConfigTestCase struct {
 		operators.SubscriptionConfig
@@ -49,15 +39,22 @@ var _ = Describe("Subscription Config Suite Test", func() {
 			log.Printf("Updating Subscription")
 			err = dpaCR.Client.Update(context.Background(), s.Subscription)
 			Expect(err).To(BeNil())
+			Eventually(s.CsvIsInstalling, time.Minute*1, time.Second*5).WithArguments(runTimeClientForSuiteRun).Should(BeTrue())
 
 			// get csv from installplan from subscription
 			log.Printf("Wait for CSV to be succeeded")
 			if testCase.failureExpected != nil && *testCase.failureExpected {
-				Consistently(s.CsvIsReady, time.Minute*2).Should(BeFalse())
+				Consistently(s.CsvIsReady, time.Minute*2, time.Second*5).WithArguments(runTimeClientForSuiteRun).Should(BeFalse())
+				// TODO read error message instead?
 			} else {
-				Eventually(s.CsvIsReady, time.Minute*15).Should(BeTrue())
+				Eventually(s.CsvIsReady, time.Minute*15, time.Second*5).WithArguments(runTimeClientForSuiteRun).Should(BeTrue())
 
-				log.Printf("CreatingOrUpdate test Velero")
+				log.Printf("Creating test Velero")
+				err := dpaCR.Build(CSI)
+				Expect(err).NotTo(HaveOccurred())
+				//also test restic
+				dpaCR.CustomResource.Spec.Configuration.NodeAgent.Enable = pointer.BoolPtr(true)
+				dpaCR.CustomResource.Spec.Configuration.NodeAgent.UploaderType = "restic"
 				err = dpaCR.CreateOrUpdate(runTimeClientForSuiteRun, &dpaCR.CustomResource.Spec)
 				Expect(err).NotTo(HaveOccurred())
 
@@ -134,6 +131,7 @@ var _ = Describe("Subscription Config Suite Test", func() {
 			failureExpected: pointer.Bool(true),
 		}),
 		// Leave this as last entry to reset config
+		// TODO move this to after each
 		Entry("Config unset", SubscriptionConfigTestCase{
 			SubscriptionConfig: operators.SubscriptionConfig{},
 		}),
