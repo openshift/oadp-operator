@@ -216,7 +216,7 @@ If you don't need volumesnapshotlocation, you will not need to create a VSL cred
 If you need `VolumeSnapshotLocation`, regardless of the `noDefaultBackupLocation` setting, you will need a to create VSL credentials.
 
 
-### Creating a Secret for volumeSnapshotMover
+### Creating a Secret for volumeSnapshotMover (OADP 1.2 or below)
 
 VolumeSnapshotMover requires a restic secret. It can be configured as so:
 

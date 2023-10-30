@@ -34,13 +34,6 @@ const ReconcileCompleteMessage = "Reconcile complete"
 
 const OadpOperatorLabel = "openshift.io/oadp"
 const RegistryDeploymentLabel = "openshift.io/oadp-registry"
-const DataMoverDeploymentLabel = "openshift.io/oadp-data-mover"
-const OadpBSLnameLabel = "openshift.io/oadp-bsl-name"
-const OadpBSLProviderLabel = "openshift.io/oadp-bsl-provider"
-
-// datamover labels
-const DataMoverLabel = "openshift.io/volume-snapshot-mover"
-const StorageClassLabel = "openshift.io/vsm-storageclass"
 
 // +kubebuilder:validation:Enum=aws;gcp;azure;csi;vsm;openshift;kubevirt
 type DefaultPlugin string
@@ -66,8 +59,6 @@ const OpenShiftPluginImageKey UnsupportedImageKey = "openshiftPluginImageFqin"
 const AzurePluginImageKey UnsupportedImageKey = "azurePluginImageFqin"
 const GCPPluginImageKey UnsupportedImageKey = "gcpPluginImageFqin"
 const CSIPluginImageKey UnsupportedImageKey = "csiPluginImageFqin"
-const VSMPluginImageKey UnsupportedImageKey = "vsmPluginImageFqin"
-const DataMoverImageKey UnsupportedImageKey = "dataMoverImageFqin"
 const ResticRestoreImageKey UnsupportedImageKey = "resticRestoreImageFqin"
 const KubeVirtPluginImageKey UnsupportedImageKey = "kubevirtPluginImageFqin"
 const OperatorTypeKey UnsupportedImageKey = "operator-type"
@@ -318,7 +309,9 @@ type VolumeOptions struct {
 
 // Features defines the configuration for the DPA to enable the tech preview features
 type Features struct {
-	// Contains data mover specific configurations
+	// (do not use warning) Contains data mover specific configurations
+	// dataMover is for backwards compatibility and is not necessary in OADP 1.3
+	// dataMover will be removed with the OADP 1.4
 	// +optional
 	DataMover *DataMover `json:"dataMover,omitempty"`
 }
@@ -339,10 +332,11 @@ type DataProtectionApplicationSpec struct {
 	//   - azurePluginImageFqin
 	//   - gcpPluginImageFqin
 	//   - csiPluginImageFqin
-	//   - dataMoverImageFqin
 	//   - resticRestoreImageFqin
 	//   - kubevirtPluginImageFqin
+	//   - operator-type
 	// +optional
+	// +kubebuilder:validation:Enum=veleroImageFqin;awsPluginImageFqin;openshiftPluginImageFqin;azurePluginImageFqin;gcpPluginImageFqin;csiPluginImageFqin;resticRestoreImageFqin;kubevirtPluginImageFqin;operator-type
 	UnsupportedOverrides map[UnsupportedImageKey]string `json:"unsupportedOverrides,omitempty"`
 	// add annotations to pods deployed by operator
 	// +optional

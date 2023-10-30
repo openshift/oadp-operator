@@ -17,8 +17,6 @@ resources:
 - bases/velero.io_schedules.yaml
 - bases/velero.io_serverstatusrequests.yaml
 - bases/velero.io_volumesnapshotlocations.yaml
-- bases/datamover.oadp.openshift.io_volumesnapshotbackups.yaml
-- bases/datamover.oadp.openshift.io_volumesnapshotrestores.yaml
 #+kubebuilder:scaffold:crdkustomizeresource
 
 patchesStrategicMerge:

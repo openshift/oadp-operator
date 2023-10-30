@@ -461,9 +461,6 @@ spec:
         displayName: Plugins
         path: plugins
       version: v1
-    - kind: VolumeSnapshotBackup
-      name: volumesnapshotbackups.datamover.oadp.openshift.io
-      version: v1alpha1
     - description: VolumeSnapshotLocation is a location where Velero stores volume
         snapshots.
       displayName: VolumeSnapshotLocation
@@ -474,9 +471,6 @@ spec:
         displayName: Phase
         path: phase
       version: v1
-    - kind: VolumeSnapshotRestore
-      name: volumesnapshotrestores.datamover.oadp.openshift.io
-      version: v1alpha1
   description: |
     **OpenShift API for Data Protection (OADP)** operator sets up and installs
     Velero on the OpenShift platform, allowing users to backup and restore
@@ -490,7 +484,7 @@ spec:
     an archive file on object storage. OADP backs up persistent volumes
     (PVs) by creating snapshots with the native cloud snapshot API or with
     the Container Storage Interface (CSI). For cloud providers that do not
-    support snapshots, OADP backs up resources and PV data with Restic.
+    support snapshots, OADP backs up resources and PV data with Restic or Kopia.
 
     * [Installing OADP for application backup and restore][install-doc]
 
@@ -522,54 +516,6 @@ spec:
           verbs:
           - create
           - delete
-          - get
-          - list
-          - patch
-          - update
-          - watch
-        - apiGroups:
-          - datamover.oadp.openshift.io
-          resources:
-          - '*'
-          verbs:
-          - '*'
-        - apiGroups:
-          - volsync.backube
-          resources:
-          - '*'
-          verbs:
-          - '*'
-        - apiGroups:
-          - snapshot.storage.k8s.io
-          resources:
-          - volumesnapshots
-          - volumesnapshotcontents
-          verbs:
-          - create
-          - delete
-          - get
-          - list
-          - patch
-          - update
-          - watch
-          - deletecollection
-        - apiGroups:
-          - snapshot.storage.k8s.io
-          resources:
-          - volumesnapshotclasses
-          verbs:
-          - create
-          - get
-          - list
-          - patch
-          - update
-          - watch
-        - apiGroups:
-          - storage.k8s.io
-          resources:
-          - storageclasses
-          verbs:
-          - create
           - get
           - list
           - patch
@@ -827,14 +773,8 @@ spec:
                   value: quay.io/konveyor/velero-plugin-for-gcp:latest
                 - name: RELATED_IMAGE_VELERO_PLUGIN_FOR_CSI
                   value: quay.io/konveyor/velero-plugin-for-csi:latest
-                - name: RELATED_IMAGE_VELERO_PLUGIN_FOR_VSM
-                  value: quay.io/konveyor/velero-plugin-for-vsm:latest
-                - name: RELATED_IMAGE_VOLUME_SNAPSHOT_MOVER
-                  value: quay.io/konveyor/volume-snapshot-mover:latest
                 - name: RELATED_IMAGE_KUBEVIRT_VELERO_PLUGIN
                   value: quay.io/konveyor/kubevirt-velero-plugin:v0.2.0
-                - name: RELATED_IMAGE_DATA_MOVER_DUMMY_POD
-                  value: quay.io/konveyor/rsync-transfer:latest
                 - name: RELATED_IMAGE_MUSTGATHER
                   value: registry.redhat.io/oadp/oadp-mustgather-rhel8:v1.2
                 image: quay.io/konveyor/oadp-operator:latest
@@ -957,14 +897,8 @@ spec:
     name: velero-plugin-for-gcp
   - image: quay.io/konveyor/velero-plugin-for-csi:latest
     name: velero-plugin-for-csi
-  - image: quay.io/konveyor/velero-plugin-for-vsm:latest
-    name: velero-plugin-for-vsm
-  - image: quay.io/konveyor/volume-snapshot-mover:latest
-    name: volume-snapshot-mover
   - image: quay.io/konveyor/kubevirt-velero-plugin:v0.2.0
     name: kubevirt-velero-plugin
-  - image: quay.io/konveyor/rsync-transfer:latest
-    name: data-mover-dummy-pod
   - image: registry.redhat.io/oadp/oadp-mustgather-rhel8:v1.2
     name: mustgather
   version: 99.0.0

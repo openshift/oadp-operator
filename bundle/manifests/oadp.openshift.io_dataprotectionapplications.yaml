@@ -825,7 +825,7 @@ spec:
                   description: features defines the configuration for the DPA to enable the OADP tech preview features
                   properties:
                     dataMover:
-                      description: Contains data mover specific configurations
+                      description: (do not use warning) Contains data mover specific configurations dataMover is for backwards compatibility and is not necessary in OADP 1.3 dataMover will be removed with the OADP 1.4
                       properties:
                         credentialName:
                           description: User supplied Restic Secret name
@@ -992,7 +992,17 @@ spec:
                 unsupportedOverrides:
                   additionalProperties:
                     type: string
-                  description: 'unsupportedOverrides can be used to override images used in deployments. Available keys are:   - veleroImageFqin   - awsPluginImageFqin   - openshiftPluginImageFqin   - azurePluginImageFqin   - gcpPluginImageFqin   - csiPluginImageFqin   - dataMoverImageFqin   - resticRestoreImageFqin   - kubevirtPluginImageFqin'
+                  description: 'unsupportedOverrides can be used to override images used in deployments. Available keys are:   - veleroImageFqin   - awsPluginImageFqin   - openshiftPluginImageFqin   - azurePluginImageFqin   - gcpPluginImageFqin   - csiPluginImageFqin   - resticRestoreImageFqin   - kubevirtPluginImageFqin   - operator-type'
+                  enum:
+                    - veleroImageFqin
+                    - awsPluginImageFqin
+                    - openshiftPluginImageFqin
+                    - azurePluginImageFqin
+                    - gcpPluginImageFqin
+                    - csiPluginImageFqin
+                    - resticRestoreImageFqin
+                    - kubevirtPluginImageFqin
+                    - operator-type
                   type: object
               required:
                 - configuration

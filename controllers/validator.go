@@ -5,10 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"time"
-
 	mapset "github.com/deckarep/golang-set/v2"
-
 	"github.com/go-logr/logr"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	"github.com/openshift/oadp-operator/pkg/credentials"
@@ -81,30 +78,14 @@ func (r *DPAReconciler) ValidateDataProtectionCR(log logr.Logger) (bool, error) 
 		}
 	}
 
-	// check if the VSM plugin is specified or not
-	VSMPluginPresent := false
+	// check for VSM/Volsync DataMover (OADP 1.2 or below) syntax
 	for _, plugin := range dpa.Spec.Configuration.Velero.DefaultPlugins {
 		if plugin == oadpv1alpha1.DefaultPluginVSM {
-			VSMPluginPresent = true
+			return false, errors.New("Delete vsm from spec.configuration.velero.defaultPlugins and dataMover object from spec.features, they are not used in OADP 1.3")
 		}
 	}
-
-	if r.checkIfDataMoverIsEnabled(&dpa) {
-		// parse for timeout if specified and see if there are no errors
-		if len(dpa.Spec.Features.DataMover.Timeout) > 0 {
-			_, err := time.ParseDuration(dpa.Spec.Features.DataMover.Timeout)
-			if err != nil {
-				return false, err
-			}
-		}
-
-		if !VSMPluginPresent {
-			return false, errors.New("datamover is enabled, specify vsm as a default plugin")
-		}
-	}
-
-	if !r.checkIfDataMoverIsEnabled(&dpa) && VSMPluginPresent {
-		return false, errors.New("datamover is disabled, remove vsm as a default plugin")
+	if dpa.Spec.Features != nil && dpa.Spec.Features.DataMover != nil {
+		return false, errors.New("Delete vsm from spec.configuration.velero.defaultPlugins and dataMover object from spec.features, they are not used in OADP 1.3")
 	}
 
 	if val, found := dpa.Spec.UnsupportedOverrides[oadpv1alpha1.OperatorTypeKey]; found && val != oadpv1alpha1.OperatorTypeMTC {

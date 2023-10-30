@@ -1,4 +1,4 @@
-<h1 align="center">Stateful Application Backup/Restore - VolumeSnapshotMover</h1>
+<h1 align="center">Stateful Application Backup/Restore - VolumeSnapshotMover (OADP 1.2 or below)</h1>
 <h2 align="center">Relocate Snapshots into your Object Storage Location</h2>
 
 <h2>Background Information:<a id="pre-reqs"></a></h2>

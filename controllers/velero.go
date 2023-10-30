@@ -418,21 +418,6 @@ func (r *DPAReconciler) customizeVeleroContainer(dpa *oadpv1alpha1.DataProtectio
 		}})
 	}
 
-	// Check if data-mover is enabled and set the env var so that the csi data-mover code path is triggred
-	if r.checkIfDataMoverIsEnabled(dpa) {
-		veleroContainer.Env = common.AppendUniqueEnvVars(veleroContainer.Env, []corev1.EnvVar{{
-			Name:  "VOLUME_SNAPSHOT_MOVER",
-			Value: "true",
-		}})
-
-		if len(dpa.Spec.Features.DataMover.Timeout) > 0 {
-			veleroContainer.Env = common.AppendUniqueEnvVars(veleroContainer.Env, []corev1.EnvVar{{
-				Name:  "DATAMOVER_TIMEOUT",
-				Value: dpa.Spec.Features.DataMover.Timeout,
-			}})
-		}
-	}
-
 	// Enable user to specify --fs-backup-timeout (defaults to 1h)
 	// Append FS timeout option manually. Not configurable via install package, missing from podTemplateConfig struct. See: https://github.com/vmware-tanzu/velero/blob/8d57215ded1aa91cdea2cf091d60e072ce3f340f/pkg/install/deployment.go#L34-L45
 	veleroContainer.Args = append(veleroContainer.Args, fmt.Sprintf("--fs-backup-timeout=%s", getFsBackupTimeout(dpa)))

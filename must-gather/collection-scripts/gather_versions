@@ -60,9 +60,6 @@ log_operator "OADP" "redhat-oadp-operator"
 # Community OADP operator
 log_operator "Community OADP operator" "oadp-operator"
 
-# Volsync operator information
-log_operator "Volsync" "volsync-product"
-
 # Restic version
 if [ -z "${skip_tls}" ]; then
     log_command "Restic version" "restic version"
