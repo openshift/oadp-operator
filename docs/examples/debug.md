@@ -1,11 +1,22 @@
 # Potentially helpful debug commands
 
-## watch datamover backup resources live
+## DataMover
+
+Compile `getDataMoverResources` script
 ```
-watch -n 10 ./datamover_resources.sh -b -d 
+go build getDataMoverResources.go
 ```
 
-## watch datamover restore resources live
+> **Note:** if you are using VSM/Volsync DataMover (OADP 1.2 or lower), pass the flag `-v=false` to the next commands.
+
+### watch backup resources live
+
 ```
-watch -n 10 ./datamover_resources.sh -r -d 
+watch -n 10 ./getDataMoverResources -b -d
+```
+
+### watch restore resources live
+
+```
+watch -n 10 ./getDataMoverResources -r -d
 ```

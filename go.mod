@@ -26,6 +26,7 @@ require (
 require (
 	github.com/deckarep/golang-set/v2 v2.3.0
 	github.com/google/go-cmp v0.5.9
+	github.com/spf13/cobra v1.6.1
 	github.com/vmware-tanzu/velero v1.12.0
 	sigs.k8s.io/yaml v1.3.0
 )
@@ -121,7 +122,6 @@ require (
 	github.com/prometheus/procfs v0.9.0 // indirect
 	github.com/robfig/cron v1.1.0 // indirect
 	github.com/rs/xid v1.4.0 // indirect
-	github.com/spf13/cobra v1.6.1 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/zeebo/blake3 v0.2.3 // indirect
 	go.opencensus.io v0.24.0 // indirect
