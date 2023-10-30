@@ -36,21 +36,44 @@
 +      uploaderType: restic
 ```
 
-> **Note:** OADP will be favoring Kopia over Restic in the near future.
+> **Note:** In the next version of OADP the Restic option will be deprecated and Kopia will be come the default uploaderType.
 
 ## Upgrade steps
 
-### Create new backup
+### If the OADP 1.2 tech-preview DataMover feature is in use, please read the following.
 
-If you are using DataMover, you need to create new backups before upgrade, because the 1.2 DataMover backups will not work after upgrade. We suggest to create Restic backups.
+OADP 1.2 DataMover backups can NOT be restored with OADP 1.3. To prevent a gap in the data protection of your applications we recommend the following.
 
-### Copy old DPA
+* If on cluster backups are sufficient and CSI storage is available
+  * Backup the applications with a CSI backup
+
+* If off cluster backups are required
+  * Backup the applications with a filesystem backup using the `--default-volumes-to-fs-backup=true` option.
+  * Backup the applications with your CloudStorage plugins e.g. velero-plugin-for-aws
+
+* If for any reason an OADP 1.2 DataMover backup must be restored, OADP must be fully uninstalled and OADP 1.2 reinstalled and configured.
+
+### Backup the DPA configuration
 
 Save your current DataProtectionApplication (DPA) CustomResource config, be sure to remember the values.
 
+For example:
+```
+oc get dpa -n openshift-adp -o yaml > dpa.orig.backup 
+```
+
+For general operator upgrade instructions please review the [OpenShift documentation](https://docs.openshift.com/container-platform/4.13/operators/admin/olm-upgrading-operators.html)
+* Change the Subscription for the OADP Operator from `stable-1.2` to `stable-1.3`
+* Allow time for the operator and containers to update and restart
+
 ### Convert your DPA to the new version
 
-If you are using DataMover, you need to update with the new configuration. Example
+If you are using DataMover, you need to update with the new configuration. 
+
+* remove the features.dataMover key and values from DPA
+* remove the VSM plugin 
+
+Example
 ```diff
  spec:
    configuration:
@@ -68,12 +91,6 @@ If you are using DataMover, you need to update with the new configuration. Examp
        - openshift
 ```
 
-### Uninstall the OADP operator
+### Verify the upgrade 
 
-Use the web console to uninstall the OADP operator by clicking on `Install Operators` under the `Operators` tab on the left-side menu. Then click on `OADP Operator`.
-
-After clicking on `OADP Operator` under `Installed Operators`, navigate to the right side of the page, where the `Actions` drop-down menu is. Click on that, and select `Uninstall Operator`.
-
-### Install OADP Operator 1.3.x
-
-Follow theses [basic install](../docs/install_olm.md) instructions to install the new OADP operator version, create DPA, and verify correct installation.
+Follow theses [basic install verification](../docs/install_olm.md#verify-install) to verify the installation.

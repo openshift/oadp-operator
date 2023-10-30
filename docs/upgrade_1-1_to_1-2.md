@@ -19,9 +19,20 @@
 
 ## Upgrade steps
 
-### Copy old DPA
+### Backup the DPA configuration
 
 Save your current DataProtectionApplication (DPA) CustomResource config, be sure to remember the values.
+
+For example:
+```
+oc get dpa -n openshift-adp -o yaml > dpa.orig.backup 
+```
+
+### Upgrade the OADP Operator
+
+For general operator upgrade instructions please review the [OpenShift documentation](https://docs.openshift.com/container-platform/4.13/operators/admin/olm-upgrading-operators.html)
+* Change the Subscription for the OADP Operator from `stable-1.1` to `stable-1.2`
+* Allow time for the operator and containers to update and restart
 
 ### Convert your DPA to the new version
 
@@ -39,12 +50,6 @@ If you are using fields that were updated in `spec.configuration.velero.args`, y
 +        fs-backup-timeout: 600
 ```
 
-### Uninstall the OADP operator
+### Verify the upgrade 
 
-Use the web console to uninstall the OADP operator by clicking on `Install Operators` under the `Operators` tab on the left-side menu. Then click on `OADP Operator`.
-
-After clicking on `OADP Operator` under `Installed Operators`, navigate to the right side of the page, where the `Actions` drop-down menu is. Click on that, and select `Uninstall Operator`.
-
-### Install OADP Operator 1.2.x
-
-Follow theses [basic install](../docs/install_olm.md) instructions to install the new OADP operator version, create DPA, and verify correct installation.
+Follow theses [basic install verification](../docs/install_olm.md#verify-install) to verify the installation.
