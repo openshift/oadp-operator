@@ -23,7 +23,7 @@ Azure:
 [![Azure builds](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-master-4.13-operator-e2e-azure-periodic-slack)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-master-4.13-operator-e2e-azure-periodic-slack)
 </div>
 
-Note: Official Overview and usage documents are being moved to [Red Hat Customer Portal](https://docs.openshift.com/container-platform/latest/backup_and_restore/application_backup_and_restore/oadp-intro.html)
+Note: Official Overview and documentation can be found in the [Red Hat Customer Portal](https://docs.openshift.com/container-platform/latest/backup_and_restore/application_backup_and_restore/oadp-intro.html)
 
 Documentation in this repository are considered unofficial and for development purposes only.
 # Table of Contents
