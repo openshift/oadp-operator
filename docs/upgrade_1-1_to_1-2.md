@@ -5,17 +5,18 @@
 
 - Velero was updated from version 1.9 to 1.11 (Changes reference: https://velero.io/docs/v1.11/upgrade-to-1.11/#upgrade-from-version-lower-than-v1100)
 
-    From this update, in `spec.configuration.velero.args` these were changed:
+    From this update, in the DPA's configuration `spec.configuration.velero.args` have changed:
 
-    - `default-volumes-to-restic` was renamed `default-volumes-to-fs-backup`, **if you are using it, you need to add it back, with the new name, to your DPA after upgrading OADP**
+    - The `default-volumes-to-restic` field was renamed `default-volumes-to-fs-backup`, **if you are using `spec.velero`, you need to add it back, with the new name, to your DPA after upgrading OADP**
 
-    - `default-restic-prune-frequency` was renamed `default-repo-maintain-frequency`, **if you are using it, you need to add it back, with the new name, to your DPA after upgrading OADP**
+    - The `default-restic-prune-frequency` field was renamed `default-repo-maintain-frequency`, **if you are using it, you need to add it back, with the new name, to your DPA after upgrading OADP**
 
-    - `restic-timeout` was renamed `fs-backup-timeout`, **if you are using it, you need to add it back, with the new name, to your DPA after upgrading OADP**
+    - The `restic-timeout` field was renamed `fs-backup-timeout`, **if you are using it, you need to add it back, with the new name, to your DPA after upgrading OADP**
 
-- `restic` DaemonSet was renamed to `node-agent` (no changes required, OADP code handles this change)
+- The `restic` DaemonSet was renamed to `node-agent`.  OADP will automatically update this field)
 
-- `resticrepositories.velero.io` CustomResourceDefinition was renamed to `backuprepositories.velero.io` (you can delete `resticrepositories.velero.io` CRD from your cluster, if you want)
+- The CustomResourceDefinition `resticrepositories.velero.io` was renamed to `backuprepositories.velero.io` 
+  * The CustomResourceDefinition `resticrepositories.velero.io` can optionally be removed from the cluster.
 
 ## Upgrade steps
 
