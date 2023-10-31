@@ -42,7 +42,7 @@
 
 ## Upgrade steps
 
-### If the OADP 1.2 tech-preview Data Mover feature is in use, please read the following.
+### If the OADP 1.2 tech-preview Data Mover feature is in use, please read the following
 
 OADP 1.2 Data Mover backups can **NOT** be restored with OADP 1.3. To prevent a gap in the data protection of your applications we recommend the following to be **completed prior to the OADP upgrade**.
 
@@ -50,7 +50,7 @@ OADP 1.2 Data Mover backups can **NOT** be restored with OADP 1.3. To prevent a 
   * Backup the applications with a CSI backup
 
 * If off cluster backups are required
-  * Backup the applications with a filesystem backup using the `--default-volumes-to-fs-backup=true` option.
+  * Backup the applications with a filesystem backup using the `--default-volumes-to-fs-backup=true` or `backup.spec.defaultVolumesToFsBackup` options.
   * Backup the applications with your CloudStorage plugins e.g. velero-plugin-for-aws
 
 * If for any reason an OADP 1.2 Data Mover backup must be restored, OADP must be fully uninstalled and OADP 1.2 reinstalled and configured.
