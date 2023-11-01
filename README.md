@@ -29,7 +29,7 @@ Documentation in this repository are considered unofficial and for development p
 # Table of Contents
 
 1. [About](#about)
-2. [Installing OADP](https://access.redhat.com/documentation/en-us/openshift_container_platform/4.10/html-single/backup_and_restore/index#installing-and-configuring-oadp)
+2. [Installing OADP](https://docs.openshift.com/container-platform/latest/backup_and_restore/application_backup_and_restore/installing/about-installing-oadp.html)
 3. [API References](docs/API_ref.md)
 4. API Usage
     1. [Configure Plugins](docs/config/plugins.md)
