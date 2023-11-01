@@ -23,13 +23,13 @@ Azure:
 [![Azure builds](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-master-4.13-operator-e2e-azure-periodic-slack)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-master-4.13-operator-e2e-azure-periodic-slack)
 </div>
 
-Note: Official Overview and usage documents are being moved to [Red Hat Customer Portal](https://access.redhat.com/documentation/en-us/openshift_container_platform/4.10/html-single/backup_and_restore/index)
+Note: Official Overview and documentation can be found in the [OpenShift Documentation](https://docs.openshift.com/container-platform/latest/backup_and_restore/application_backup_and_restore/oadp-intro.html)
 
 Documentation in this repository are considered unofficial and for development purposes only.
 # Table of Contents
 
 1. [About](#about)
-2. [Installing OADP](https://access.redhat.com/documentation/en-us/openshift_container_platform/4.10/html-single/backup_and_restore/index#installing-and-configuring-oadp)
+2. [Installing OADP](https://docs.openshift.com/container-platform/latest/backup_and_restore/application_backup_and_restore/installing/about-installing-oadp.html)
 3. [API References](docs/API_ref.md)
 4. API Usage
     1. [Configure Plugins](docs/config/plugins.md)
@@ -62,7 +62,6 @@ OADP is the OpenShift API for Data Protection operator. This open source operato
 sets up and installs <a href="https://velero.io/">Velero</a> on the OpenShift
 platform, allowing users to backup and restore applications. [See video demo!](https://www.youtube.com/watch?v=iyoxuP2xb2E)
 
-- The official OpenShift OADP documentation can be found [here](https://docs.openshift.com/container-platform/4.12/backup_and_restore/application_backup_and_restore/backing_up_and_restoring/backing-up-applications.html)
 - We maintain an up to date FAQ page [here](https://access.redhat.com/articles/5456281)
 
 <hr style="height:1px;border:none;color:#333;">
