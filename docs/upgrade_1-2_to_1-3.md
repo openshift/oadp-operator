@@ -111,11 +111,11 @@ For example:
 velero backup create example-backup --include-namespaces mysql-persistent --snapshot-move-data=true
 ```
 or
-```
+```yaml
 apiVersion: velero.io/v1
 kind: Backup
 metadata:
-  name: mysql-persistent
+  name: example-backup
   namespace: openshift-adp
 spec:
   snapshotMoveData: true
