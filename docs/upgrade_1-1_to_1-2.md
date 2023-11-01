@@ -1,27 +1,39 @@
 # Upgrading from OADP 1.1
 
-> **NOTE:** Always upgrade to next minor version, do NOT skip versions. To update to higher version, do one upgrade at a time. Example: to upgrade from 1.1 to 1.3, upgrade first to 1.2, then to 1.3.
+> **NOTE:** Always upgrade to next minor version, do NOT skip versions. To update to higher version, please upgrade one channel at a time. Example: to upgrade from 1.1 to 1.3, upgrade first to 1.2, then to 1.3.
 ## Changes from OADP 1.1 to 1.2
 
 - Velero was updated from version 1.9 to 1.11 (Changes reference: https://velero.io/docs/v1.11/upgrade-to-1.11/#upgrade-from-version-lower-than-v1100)
 
-    From this update, in `spec.configuration.velero.args` these were changed:
+    From this update, in the DPA's configuration `spec.configuration.velero.args` have changed:
 
-    - `default-volumes-to-restic` was renamed `default-volumes-to-fs-backup`, **if you are using it, you need to add it back, with the new name, to your DPA after upgrading OADP**
+    - The `default-volumes-to-restic` field was renamed `default-volumes-to-fs-backup`, **if you are using `spec.velero`, you need to add it back, with the new name, to your DPA after upgrading OADP**
 
-    - `default-restic-prune-frequency` was renamed `default-repo-maintain-frequency`, **if you are using it, you need to add it back, with the new name, to your DPA after upgrading OADP**
+    - The `default-restic-prune-frequency` field was renamed `default-repo-maintain-frequency`, **if you are using `spec.velero`, you need to add it back, with the new name, to your DPA after upgrading OADP**
 
-    - `restic-timeout` was renamed `fs-backup-timeout`, **if you are using it, you need to add it back, with the new name, to your DPA after upgrading OADP**
+    - The `restic-timeout` field was renamed `fs-backup-timeout`, **if you are using `spec.velero`, you need to add it back, with the new name, to your DPA after upgrading OADP**
 
-- `restic` DaemonSet was renamed to `node-agent` (no changes required, OADP code handles this change)
+- The `restic` DaemonSet was renamed to `node-agent`.  OADP will automatically update the name of the DaemonSet
 
-- `resticrepositories.velero.io` CustomResourceDefinition was renamed to `backuprepositories.velero.io` (you can delete `resticrepositories.velero.io` CRD from your cluster, if you want)
+- The CustomResourceDefinition `resticrepositories.velero.io` was renamed to `backuprepositories.velero.io` 
+  * The CustomResourceDefinition `resticrepositories.velero.io` can optionally be removed from the cluster
 
 ## Upgrade steps
 
-### Copy old DPA
+### Backup the DPA configuration
 
 Save your current DataProtectionApplication (DPA) CustomResource config, be sure to remember the values.
+
+For example:
+```
+oc get dpa -n openshift-adp -o yaml > dpa.orig.backup 
+```
+
+### Upgrade the OADP Operator
+
+For general operator upgrade instructions please review the [OpenShift documentation](https://docs.openshift.com/container-platform/4.13/operators/admin/olm-upgrading-operators.html)
+* Change the Subscription for the OADP Operator from `stable-1.1` to `stable-1.2`
+* Allow time for the operator and containers to update and restart
 
 ### Convert your DPA to the new version
 
@@ -39,12 +51,6 @@ If you are using fields that were updated in `spec.configuration.velero.args`, y
 +        fs-backup-timeout: 600
 ```
 
-### Uninstall the OADP operator
+### Verify the upgrade 
 
-Use the web console to uninstall the OADP operator by clicking on `Install Operators` under the `Operators` tab on the left-side menu. Then click on `OADP Operator`.
-
-After clicking on `OADP Operator` under `Installed Operators`, navigate to the right side of the page, where the `Actions` drop-down menu is. Click on that, and select `Uninstall Operator`.
-
-### Install OADP Operator 1.2.x
-
-Follow theses [basic install](../docs/install_olm.md) instructions to install the new OADP operator version, create DPA, and verify correct installation.
+Follow theses [basic install verification](../docs/install_olm.md#verify-install) to verify the installation.

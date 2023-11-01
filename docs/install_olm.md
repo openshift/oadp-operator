@@ -60,7 +60,7 @@ spec:
       - aws
     nodeAgent:
       enable: true
-      uploaderType: restic
+      uploaderType: restic #[restic, kopia]
   backupLocations:
     - name: default
       velero:
@@ -89,32 +89,57 @@ spec:
 
 ### Verify install
 
-To verify all of the correct resources have been created, the following command
+* To verify all of the correct resources have been created, the following command
 `oc get all -n openshift-adp` should look similar to:
 
+**Note**: The node-agent pods are labeled as `restic` in older installations.
+
 ```
-NAME                                                     READY   STATUS    RESTARTS   AGE
-pod/oadp-operator-controller-manager-67d9494d47-6l8z8    2/2     Running   0          2m8s
-pod/oadp-velero-sample-1-aws-registry-5d6968cbdd-d5w9k   1/1     Running   0          95s
-pod/restic-9cq4q                                         1/1     Running   0          94s
-pod/restic-m4lts                                         1/1     Running   0          94s
-pod/restic-pv4kr                                         1/1     Running   0          95s
-pod/velero-588db7f655-n842v                              1/1     Running   0          95s
+NAME                                                    READY   STATUS    RESTARTS   AGE
+pod/node-agent-9pjz9                                    1/1     Running   0          3d17h
+pod/node-agent-fmn84                                    1/1     Running   0          3d17h
+pod/node-agent-xw2dg                                    1/1     Running   0          3d17h
+pod/openshift-adp-controller-manager-76b8bc8d7b-kgkcw   1/1     Running   0          3d17h
+pod/velero-64475b8c5b-nh2qc                             1/1     Running   0          3d17h
 
 NAME                                                       TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)    AGE
-service/oadp-operator-controller-manager-metrics-service   ClusterIP   172.30.70.140    <none>        8443/TCP   2m8s
-service/oadp-velero-sample-1-aws-registry-svc              ClusterIP   172.30.130.230   <none>        5000/TCP   95s
+service/openshift-adp-controller-manager-metrics-service   ClusterIP   172.30.194.192   <none>        8443/TCP   3d17h
+service/openshift-adp-velero-metrics-svc                   ClusterIP   172.30.190.174   <none>        8085/TCP   3d17h
 
-NAME                    DESIRED   CURRENT   READY   UP-TO-DATE   AVAILABLE   NODE SELECTOR   AGE
-daemonset.apps/restic   3         3         3       3            3           <none>          96s
+NAME                        DESIRED   CURRENT   READY   UP-TO-DATE   AVAILABLE   NODE SELECTOR   AGE
+daemonset.apps/node-agent   3         3         3       3            3           <none>          3d17h
 
-NAME                                                READY   UP-TO-DATE   AVAILABLE   AGE
-deployment.apps/oadp-operator-controller-manager    1/1     1            1           2m9s
-deployment.apps/oadp-velero-sample-1-aws-registry   1/1     1            1           96s
-deployment.apps/velero                              1/1     1            1           96s
+NAME                                               READY   UP-TO-DATE   AVAILABLE   AGE
+deployment.apps/openshift-adp-controller-manager   1/1     1            1           3d17h
+deployment.apps/velero                             1/1     1            1           3d17h
 
-NAME                                                           DESIRED   CURRENT   READY   AGE
-replicaset.apps/oadp-operator-controller-manager-67d9494d47    1         1         1       2m9s
-replicaset.apps/oadp-velero-sample-1-aws-registry-5d6968cbdd   1         1         1       96s
-replicaset.apps/velero-588db7f655                              1         1         1       96s
+NAME                                                          DESIRED   CURRENT   READY   AGE
+replicaset.apps/openshift-adp-controller-manager-76b8bc8d7b   1         1         1       3d17h
+replicaset.apps/openshift-adp-controller-manager-85fff975b8   0         0         0       3d17h
+replicaset.apps/velero-64475b8c5b                             1         1         1       3d17h
+replicaset.apps/velero-8b5bc54fd                              0         0         0       3d17h
+replicaset.apps/velero-f5c9ffb66                              0         0         0       3d17h
+
 ```
+
+* Verify the DPA has been reconciled:
+
+```
+oc get dpa dpa-sample -n openshift-adp -o jsonpath='{.status}'
+```
+
+Example Output:
+```
+{"conditions":[{"lastTransitionTime":"2023-10-27T01:23:57Z","message":"Reconcile complete","reason":"Complete","status":"True","type":"Reconciled"}]}
+```
+
+Note: the `type` is set to `Reconciled`
+
+* Verify the BackupStorageLocation
+```
+oc get backupStorageLocation -n openshift-adp
+NAME           PHASE       LAST VALIDATED   AGE     DEFAULT
+dpa-sample-1   Available   1s               3d16h   true
+```
+
+Note: the `PHASE` is in `Available`
