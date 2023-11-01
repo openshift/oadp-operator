@@ -104,11 +104,8 @@ var _ = BeforeSuite(func() {
 
 	var err error
 	kubeConf := config.GetConfigOrDie()
-	log.Printf(
-		"Kubernetes client configuration: QPS %v, Burst %#v",
-		kubeConf.QPS,
-		kubeConf.Burst,
-	)
+	kubeConf.QPS = 50
+	kubeConf.Burst = 100
 
 	kubernetesClientForSuiteRun, err = kubernetes.NewForConfig(kubeConf)
 	Expect(err).NotTo(HaveOccurred())
