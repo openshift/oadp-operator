@@ -14,8 +14,6 @@
     - The CustomResourceDefinitions `volumesnapshotbackups.datamover.oadp.openshift.io` and `volumesnapshotrestores.datamover.oadp.openshift.io` are no longer required and can optionally be removed.
 
     - The secrets used for the OADP-1.2 Data Mover are no longer required and can optionally be removed.
-
-    - The `velero.io/csi-volumesnapshot-class` label in the VolumeSnapShotClass manifests are no longer required and can optionally be removed.
     
 - OADP now supports Kopia, an alternative file system backup tool to Restic.
 
