@@ -290,12 +290,12 @@ func GetVeleroPods(c *kubernetes.Clientset, namespace string) (*corev1.PodList, 
 	// get pods in test namespace with labelSelector
 	var podList *corev1.PodList
 	var err error
-	if podList, err = c.CoreV1().Pods(namespace).List(context.TODO(), veleroOptions); err != nil {
+	if podList, err = c.CoreV1().Pods(namespace).List(context.Background(), veleroOptions); err != nil {
 		return nil, err
 	}
 	if len(podList.Items) == 0 {
 		// handle some oadp versions where label was deploy=velero
-		if podList, err = c.CoreV1().Pods(namespace).List(context.TODO(), veleroOptionsDeploy); err != nil {
+		if podList, err = c.CoreV1().Pods(namespace).List(context.Background(), veleroOptionsDeploy); err != nil {
 			return nil, err
 		}
 	}

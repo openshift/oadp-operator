@@ -40,13 +40,13 @@ func DescribeBackup(veleroClient veleroClientset.Interface, csiClient *snapshotv
 	caCertFile := ""
 
 	deleteRequestListOptions := pkgbackup.NewDeleteBackupRequestListOptions(backup.Name, string(backup.UID))
-	deleteRequestList, err := veleroClient.VeleroV1().DeleteBackupRequests(backup.Namespace).List(context.TODO(), deleteRequestListOptions)
+	deleteRequestList, err := veleroClient.VeleroV1().DeleteBackupRequests(backup.Namespace).List(context.Background(), deleteRequestListOptions)
 	if err != nil {
 		log.Printf("error getting DeleteBackupRequests for backup %s: %v\n", backup.Name, err)
 	}
 
 	opts := label.NewListOptionsForBackup(backup.Name)
-	podVolumeBackupList, err := veleroClient.VeleroV1().PodVolumeBackups(backup.Namespace).List(context.TODO(), opts)
+	podVolumeBackupList, err := veleroClient.VeleroV1().PodVolumeBackups(backup.Namespace).List(context.Background(), opts)
 	if err != nil {
 		log.Printf("error getting PodVolumeBackups for backup %s: %v\n", backup.Name, err)
 	}
@@ -54,7 +54,7 @@ func DescribeBackup(veleroClient veleroClientset.Interface, csiClient *snapshotv
 	// declare vscList up here since it may be empty and we'll pass the empty Items field into DescribeBackup
 	vscList := new(snapshotv1api.VolumeSnapshotContentList)
 	if features.IsEnabled(velero.CSIFeatureFlag) {
-		vscList, err = csiClient.SnapshotV1().VolumeSnapshotContents().List(context.TODO(), opts)
+		vscList, err = csiClient.SnapshotV1().VolumeSnapshotContents().List(context.Background(), opts)
 		if err != nil {
 			log.Printf("error getting VolumeSnapshotContent objects for backup %s: %v\n", backup.Name, err)
 		}
@@ -84,7 +84,7 @@ func DescribeRestore(veleroClient veleroClientset.Interface, ocClient client.Cli
 	insecureSkipTLSVerify := true
 	caCertFile := ""
 	opts := newPodVolumeRestoreListOptions(restore.Name)
-	podvolumeRestoreList, err := veleroClient.VeleroV1().PodVolumeRestores(restore.Namespace).List(context.TODO(), opts)
+	podvolumeRestoreList, err := veleroClient.VeleroV1().PodVolumeRestores(restore.Namespace).List(context.Background(), opts)
 	if err != nil {
 		log.Printf("error getting PodVolumeRestores for restore %s: %v\n", restore.Name, err)
 	}
@@ -199,7 +199,7 @@ func GetVeleroDeploymentList(c *kubernetes.Clientset, namespace string) (*appsv1
 		LabelSelector: "component=velero",
 	}
 	// get pods in the oadp-operator-e2e namespace with label selector
-	deploymentList, err := c.AppsV1().Deployments(namespace).List(context.TODO(), registryListOptions)
+	deploymentList, err := c.AppsV1().Deployments(namespace).List(context.Background(), registryListOptions)
 	if err != nil {
 		return nil, err
 	}

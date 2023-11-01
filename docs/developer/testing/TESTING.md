@@ -20,6 +20,7 @@ To get started, you need to provide the following **required** environment varia
 | `VSL_REGION` | The region of snapshotLocations | - | true |
 | `BSL_REGION` | The region of backupLocations | `us-east-1` | false |
 | `OADP_TEST_NAMESPACE` | The namespace where OADP operator is installed | `openshift-adp` | false |
+| `OPENSHIFT_CI` | Disable colored output from tests suite run | `true` | false |
 
 The expected format for `OADP_CRED_FILE` and `CI_CRED_FILE` files is:
 ```
@@ -38,6 +39,7 @@ export VSL_REGION=<snapshotLocations_region>
 # non required
 export BSL_REGION=<backupLocations_region>
 export OADP_TEST_NAMESPACE=<test_namespace>
+export OPENSHIFT_CI=false
 ```
 
 It is also possible to set the environment variables during make command call. Example
@@ -48,6 +50,7 @@ CI_CRED_FILE=<path_to_snapshotLocations_credentials_file> \
 VSL_REGION=<snapshotLocations_region> \
 BSL_REGION=<backupLocations_region> \
 OADP_TEST_NAMESPACE=<test_namespace> \
+OPENSHIFT_CI=false \
 make test-e2e
 ```
 

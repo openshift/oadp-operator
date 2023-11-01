@@ -38,7 +38,7 @@ func (d *DpaCustomResource) RemoveVeleroPlugin(c client.Client, string, instance
 
 func DoesPluginExist(c *kubernetes.Clientset, namespace string, plugin oadpv1alpha1.DefaultPlugin) wait.ConditionFunc {
 	return func() (bool, error) {
-		veleroDeployment, err := c.AppsV1().Deployments(namespace).Get(context.TODO(), "velero", metav1.GetOptions{})
+		veleroDeployment, err := c.AppsV1().Deployments(namespace).Get(context.Background(), "velero", metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}
@@ -57,7 +57,7 @@ func DoesPluginExist(c *kubernetes.Clientset, namespace string, plugin oadpv1alp
 
 func DoesCustomPluginExist(c *kubernetes.Clientset, namespace string, plugin oadpv1alpha1.CustomPlugin) wait.ConditionFunc {
 	return func() (bool, error) {
-		veleroDeployment, err := c.AppsV1().Deployments(namespace).Get(context.TODO(), "velero", metav1.GetOptions{})
+		veleroDeployment, err := c.AppsV1().Deployments(namespace).Get(context.Background(), "velero", metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}

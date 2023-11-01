@@ -514,6 +514,7 @@ test-e2e: test-e2e-setup install-ginkgo
 	-timeout_multiplier=$(E2E_TIMEOUT_MULTIPLIER) \
 	-artifact_dir=$(ARTIFACT_DIR) \
 	-oc_cli=$(OC_CLI) \
+	--ginkgo.no-color=$(OPENSHIFT_CI) \
 	--ginkgo.label-filter="$(TEST_FILTER)" \
 	--ginkgo.timeout=2h
 

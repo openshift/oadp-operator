@@ -40,7 +40,7 @@ func GetRegistryDeploymentList(c *kubernetes.Clientset, namespace string) (*apps
 		LabelSelector: "app.kubernetes.io/component=Registry",
 	}
 	// get pods in the oadp-operator-e2e namespace with label selector
-	deploymentList, err := c.AppsV1().Deployments(namespace).List(context.TODO(), registryListOptions)
+	deploymentList, err := c.AppsV1().Deployments(namespace).List(context.Background(), registryListOptions)
 	if err != nil {
 		return nil, err
 	}

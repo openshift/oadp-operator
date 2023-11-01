@@ -111,7 +111,7 @@ func CreateCredentialsSecret(clientset *kubernetes.Clientset, data []byte, names
 		},
 		Type: corev1.SecretTypeOpaque,
 	}
-	_, err := clientset.CoreV1().Secrets(namespace).Create(context.TODO(), &secret, metav1.CreateOptions{})
+	_, err := clientset.CoreV1().Secrets(namespace).Create(context.Background(), &secret, metav1.CreateOptions{})
 	if apierrors.IsAlreadyExists(err) {
 		return nil
 	}
@@ -199,11 +199,11 @@ func GetPodContainerLogs(clientset *kubernetes.Clientset, namespace, podname, co
 
 func GetDeploymentPodContainerLogs(clientset *kubernetes.Clientset, namespace, deploymentName, containerName string) (string, error) {
 	// get replicasets owned by deployment
-	replicasets, err := clientset.AppsV1().ReplicaSets(namespace).List(context.TODO(), metav1.ListOptions{})
+	replicasets, err := clientset.AppsV1().ReplicaSets(namespace).List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		return "", err
 	}
-	pods, err := clientset.CoreV1().Pods(namespace).List(context.TODO(), metav1.ListOptions{})
+	pods, err := clientset.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		return "", err
 	}

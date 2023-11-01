@@ -370,7 +370,7 @@ func AreApplicationPodsRunning(c *kubernetes.Clientset, namespace string) wait.C
 			LabelSelector: e2eAppLabelSelector.String(),
 		}
 		// get pods in test namespace with labelSelector
-		podList, err := c.CoreV1().Pods(namespace).List(context.TODO(), veleroOptions)
+		podList, err := c.CoreV1().Pods(namespace).List(context.Background(), veleroOptions)
 		if err != nil {
 			return false, nil
 		}
@@ -411,7 +411,7 @@ func InstalledSubscriptionCSV(ocClient client.Client, namespace, subscriptionNam
 
 func PrintNamespaceEventsAfterTime(c *kubernetes.Clientset, namespace string, startTime time.Time) {
 	log.Println("Printing events for namespace: ", namespace)
-	events, err := c.CoreV1().Events(namespace).List(context.TODO(), metav1.ListOptions{})
+	events, err := c.CoreV1().Events(namespace).List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		ginkgo.GinkgoWriter.Write([]byte(fmt.Sprintf("Error getting events: %v\n", err)))
 		return
