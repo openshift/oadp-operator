@@ -201,7 +201,7 @@ spec:
         displayName: LastMaintenanceTime
         path: lastMaintenanceTime
       version: v1
-    - description: Backup is a Velero resource that respresents the capture of Kubernetes
+    - description: Backup is a Velero resource that represents the capture of Kubernetes
         cluster state at a point in time (API objects and associated volume state).
       displayName: Backup
       kind: Backup
@@ -216,7 +216,7 @@ spec:
         displayName: Expiration
         path: expiration
       - description: Format Version is the backup format version, including major,
-          minor, and patch verison.
+          minor, and patch version.
         displayName: FormatVersion
         path: formatVersion
       - description: Phase is the current state of the Backup
@@ -224,11 +224,11 @@ spec:
         path: phase
       - description: Progress contains information about the backup's execution progress.
           Note that this information is best-effort only -- if Velero fails to update
-          it during a backup for any reason, itm= may be inaccurate/stale.
+          it during a backup for any reason, it may be inaccurate/stale.
         displayName: Progress
         path: progress
       - description: Start Timestamp records the time a backup was started. Separate
-          from CreationTimestamp, since that value vhanges on restores. The server's
+          from CreationTimestamp, since that value changes on restores. The server's
           time is used for StartTimestamps.
         displayName: StartTimestamp
         path: startTimestamp
@@ -264,7 +264,7 @@ spec:
         displayName: Phase
         path: phase
       - description: LastSyncedTime is the last time the contents of the location
-          weer synced into
+          were synced into
         displayName: LastSyncedTime
         path: lastSyncedTime
       - description: LastValidationTime is the last time the backup store location
@@ -272,11 +272,50 @@ spec:
         displayName: LastValidationTime
         path: lastValidationTime
       version: v1
-    - kind: CloudStorage
+    - description: The CloudStorage API automates the creation of a bucket for object
+        storage.
+      displayName: CloudStorage
+      kind: CloudStorage
       name: cloudstorages.oadp.openshift.io
+      statusDescriptors:
+      - description: LastSyncTimestamp is the last time the contents of the CloudStorage
+          was synced
+        displayName: LastSyncTimestamp
+        path: lastSyncTimestamp
+      - description: Name is the name requested for the bucket (aws, gcp) or container
+          (azure)
+        displayName: Name
+        path: name
       version: v1alpha1
-    - kind: DataDownload
+    - description: DataDownload represents a data download of a volume snapshot. There
+        is one DataDownload created per volume to be restored.
+      displayName: DataDownload
+      kind: DataDownload
       name: datadownloads.velero.io
+      statusDescriptors:
+      - description: Phase is the current state of the DataDownload.
+        displayName: Phase
+        path: phase
+      - description: CompletionTimestamp records the time a restore was completed.
+          Completion time is recorded even on failed restores. The server's time is
+          used for CompletionTimestamps
+        displayName: CompletionTimestamp
+        path: completionTimestamp
+      - description: Message is a message about the current status of the BackupRepository.
+        displayName: Message
+        path: message
+      - description: Node is the name of the node where the DataDownload is processed.
+        displayName: Node
+        path: node
+      - description: Progress holds the total number of bytes of the snapshot and
+          the current number of restored bytes. This can be used to display progress
+          information about the restore operation.
+        displayName: Progress
+        path: progress
+      - description: StartTimestamp records the time a restore was started. The server's
+          time is used for StartTimestamps
+        displayName: StartTimestamp
+        path: startTimestamp
       version: v2alpha1
     - description: DataProtectionApplication represents configuration to install a
         data protection application to safely backup and restore, perform disaster
@@ -289,8 +328,46 @@ spec:
         displayName: Conditions
         path: conditions
       version: v1alpha1
-    - kind: DataUpload
+    - description: DataUpload acts as the protocol between data mover plugins and
+        data mover controller for the datamover backup operation
+      displayName: DataUpload
+      kind: DataUpload
       name: datauploads.velero.io
+      statusDescriptors:
+      - description: CompletionTimestamp records the time a backup was completed.
+          Completion time is recorded even on failed backups. Completion time is recorded
+          before uploading the backup object. The server's time is used for CompletionTimestamps
+        displayName: CompletionTimestamp
+        path: completionTimestamp
+      - description: DataMoverResult stores data-mover-specific information as a result
+          of the DataUpload.
+        displayName: DataMoverResult
+        path: dataMoverResult
+      - description: Message is a message about the DataUpload's status.
+        displayName: Message
+        path: message
+      - description: Node is the name of the node where the DataUpload is processed.
+        displayName: Node
+        path: node
+      - description: Path is the full path of the snapshot volume being backed up.
+        displayName: Path
+        path: path
+      - description: Phase is the current state of the DataUpload.
+        displayName: Phase
+        path: phase
+      - description: Progress holds the total number of bytes of the volume and the
+          current number of backed up bytes. This can be used to display progress
+          information about the backup operation.
+        displayName: Progress
+        path: progress
+      - description: SnapshotID is the identifier for the snapshot in the backup repository.
+        displayName: SnapshotID
+        path: snapshotID
+      - description: StartTimestamp records the time a backup was started. Separate
+          from CreationTimestamp, since that value changes on restores. The server's
+          time is used for StartTimestamps
+        displayName: StartTimestamp
+        path: startTimestamp
       version: v2alpha1
     - description: DeleteBackupRequest is a request to delete one or more backups.
       displayName: DeleteBackupRequest
