@@ -200,7 +200,7 @@ spec:
         displayName: LastMaintenanceTime
         path: lastMaintenanceTime
       version: v1
-    - description: Backup is a Velero resource that respresents the capture of Kubernetes
+    - description: Backup is a Velero resource that represents the capture of Kubernetes
         cluster state at a point in time (API objects and associated volume state).
       displayName: Backup
       kind: Backup
@@ -215,7 +215,7 @@ spec:
         displayName: Expiration
         path: expiration
       - description: Format Version is the backup format version, including major,
-          minor, and patch verison.
+          minor, and patch version.
         displayName: FormatVersion
         path: formatVersion
       - description: Phase is the current state of the Backup
@@ -223,11 +223,11 @@ spec:
         path: phase
       - description: Progress contains information about the backup's execution progress.
           Note that this information is best-effort only -- if Velero fails to update
-          it during a backup for any reason, itm= may be inaccurate/stale.
+          it during a backup for any reason, it may be inaccurate/stale.
         displayName: Progress
         path: progress
       - description: Start Timestamp records the time a backup was started. Separate
-          from CreationTimestamp, since that value vhanges on restores. The server's
+          from CreationTimestamp, since that value changes on restores. The server's
           time is used for StartTimestamps.
         displayName: StartTimestamp
         path: startTimestamp
@@ -263,7 +263,7 @@ spec:
         displayName: Phase
         path: phase
       - description: LastSyncedTime is the last time the contents of the location
-          weer synced into
+          were synced into
         displayName: LastSyncedTime
         path: lastSyncedTime
       - description: LastValidationTime is the last time the backup store location
@@ -271,8 +271,20 @@ spec:
         displayName: LastValidationTime
         path: lastValidationTime
       version: v1
-    - kind: CloudStorage
+    - description: The CloudStorage API automates the creation of a bucket for object
+        storage.
+      displayName: CloudStorage
+      kind: CloudStorage
       name: cloudstorages.oadp.openshift.io
+      statusDescriptors:
+      - description: LastSyncTimestamp is the last time the contents of the CloudStorage
+          was synced
+        displayName: LastSyncTimestamp
+        path: lastSyncTimestamp
+      - description: Name is the name requested for the bucket (aws, gcp) or container
+          (azure)
+        displayName: Name
+        path: name
       version: v1alpha1
     - description: DataProtectionApplication represents configuration to install a
         data protection application to safely backup and restore, perform disaster
@@ -454,8 +466,42 @@ spec:
         displayName: Plugins
         path: plugins
       version: v1
-    - kind: VolumeSnapshotBackup
+    - description: VolumeSnapshotBackup is the Schema for the volumesnapshotbackups
+        API
+      displayName: VolumeSnapshotBackup
+      kind: VolumeSnapshotBackup
       name: volumesnapshotbackups.datamover.oadp.openshift.io
+      statusDescriptors:
+      - description: volumesnapshotbackup batching status
+        displayName: BatchingStatus
+        path: batchingStatus
+      - description: CompletionTimestamp records the time a volumesnapshotbackup reached
+          a terminal state.
+        displayName: CompletionTimestamp
+        path: completionTimestamp
+      - description: Include references to the Volsync CRs and their state as they
+          are running
+        displayName: Conditions
+        path: conditions
+      - description: volumesnapshot backup phase status
+        displayName: Phase
+        path: phase
+      - description: Includes information pertaining to Volsync ReplicationSource
+          CR
+        displayName: ReplicationSourceData
+        path: replicationSourceData
+      - description: Includes restic repository path
+        displayName: Resticrepository
+        path: resticrepository
+      - description: Includes source PVC name and size
+        displayName: SourcePVCData
+        path: sourcePVCData
+      - description: StartTimestamp records the time a volsumesnapshotbackup was started.
+        displayName: StartTimestamp
+        path: startTimestamp
+      - description: name of the VolumeSnapshotClass
+        displayName: VolumeSnapshotClassName
+        path: volumeSnapshotClassName
       version: v1alpha1
     - description: VolumeSnapshotLocation is a location where Velero stores volume
         snapshots.
@@ -467,8 +513,40 @@ spec:
         displayName: Phase
         path: phase
       version: v1
-    - kind: VolumeSnapshotRestore
+    - description: VolumeSnapshotRestore is the Schema for the volumesnapshotrestores
+        API
+      displayName: VolumeSnapshotRestore
+      kind: VolumeSnapshotRestore
       name: volumesnapshotrestores.datamover.oadp.openshift.io
+      statusDescriptors:
+      - description: volumesnapshotrestore batching status
+        displayName: BatchingStatus
+        path: batchingStatus
+      - description: CompletionTimestamp records the time a volumesnapshotrestore
+          reached a terminal state.
+        displayName: CompletionTimestamp
+        path: completionTimestamp
+      - description: Include references to the Volsync CRs and their state as they
+          are running
+        displayName: Conditions
+        path: conditions
+      - description: volumesnapshot restore phase status
+        displayName: Phase
+        path: phase
+      - description: Includes information pertaining to Volsync ReplicationDestination
+          CR
+        displayName: ReplicationDestinationData
+        path: replicationDestinationData
+      - description: name of the volumesnapshot snaphandle that is backed up
+        displayName: SnapshotHandle
+        path: snapshotHandle
+      - description: StartTimestamp records the time a volsumesnapshotrestore was
+          started.
+        displayName: StartTimestamp
+        path: startTimestamp
+      - description: name of the volumesnapshotcontent that is backed up
+        displayName: VolumeSnapshotContentName
+        path: volumeSnapshotContentName
       version: v1alpha1
   description: |
     **OpenShift API for Data Protection (OADP)** operator sets up and installs
