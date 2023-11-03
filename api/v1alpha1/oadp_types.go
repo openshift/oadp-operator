@@ -422,7 +422,7 @@ func (dpa *DataProtectionApplication) AutoCorrect() {
 	if dpa.Spec.Configuration.Velero.Args != nil {
 		// if args is not nil, we take care of some fields that will be overridden from dpa if not specified in args
 		// Enable user to specify --fs-backup-timeout duration (OADP default 1h0m0s)
-		fsBackupTimeout := "1h"
+		fsBackupTimeout := "4h"
 		if dpa.Spec.Configuration != nil {
 			if dpa.Spec.Configuration.NodeAgent != nil && len(dpa.Spec.Configuration.NodeAgent.Timeout) > 0 {
 				fsBackupTimeout = dpa.Spec.Configuration.NodeAgent.Timeout

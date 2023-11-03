@@ -252,8 +252,13 @@ build-deploy: ## Build current branch image and deploy controller to the k8s clu
 	IMG=$(THIS_IMAGE) make docker-build docker-push deploy
 
 CONTROLLER_GEN = $(shell pwd)/bin/controller-gen
+CONTROLLER_GEN_VER = v0.6.1
 controller-gen: ## Download controller-gen locally if necessary.
-	$(call go-install-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@v0.6.1)
+	@if [ -f $(CONTROLLER_GEN) ]; then \
+		($(CONTROLLER_GEN) --version | grep -ve "$(CONTROLLER_GEN_VER)" && echo "controller-gen version is not $(CONTROLLER_GEN_VER), removing" && \
+			rm $(CONTROLLER_GEN) && echo "removed old controller-gen" || true) \
+	fi
+	$(call go-install-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_GEN_VER))
 
 KUSTOMIZE = $(shell pwd)/bin/kustomize
 kustomize: ## Download kustomize locally if necessary.
@@ -304,11 +309,16 @@ yq: ## Download yq locally if necessary.
 	$(call go-install-tool,$(YQ),github.com/mikefarah/yq/v4@v4.28.1)
 
 OPERATOR_SDK = $(shell pwd)/bin/operator-sdk
+OPERATOR_SDK_VER = v1.23.0
 operator-sdk:
+	@if [ -f $(OPERATOR_SDK) ]; then \
+		($(OPERATOR_SDK) --version | grep -ve "$(OPERATOR_SDK_VER)" && echo "operator-sdk version is not $(OPERATOR_SDK_VER), removing" && \
+			rm $(OPERATOR_SDK) && echo "removed old operator-sdk" || true) \
+	fi
 	# Download operator-sdk locally if does not exist
 	if [ ! -f $(OPERATOR_SDK) ]; then \
 		mkdir -p bin ;\
-		curl -Lo $(OPERATOR_SDK) https://github.com/operator-framework/operator-sdk/releases/download/v1.23.0/operator-sdk_$(shell go env GOOS)_$(shell go env GOARCH) ; \
+		curl -Lo $(OPERATOR_SDK) https://github.com/operator-framework/operator-sdk/releases/download/$(OPERATOR_SDK_VER)/operator-sdk_$(shell go env GOOS)_$(shell go env GOARCH) ; \
 		chmod +x $(OPERATOR_SDK); \
 	fi
 

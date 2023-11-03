@@ -2458,7 +2458,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 									Args: []string{
 										"server",
 										"--metrics-address=:" + strconv.Itoa(int(argsMetricsPortTest)),
-										"--fs-backup-timeout=1h0m0s",
+										"--fs-backup-timeout=4h0m0s",
 										defaultRestoreResourcePriorities,
 									},
 									VolumeMounts: baseVolumeMounts,
@@ -2528,7 +2528,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 									Command:         []string{"/velero"},
 									Args: []string{
 										"server",
-										"--fs-backup-timeout=1h0m0s",
+										"--fs-backup-timeout=4h0m0s",
 										"--restore-resource-priorities=securitycontextconstraints,test",
 									},
 									VolumeMounts: baseVolumeMounts,
