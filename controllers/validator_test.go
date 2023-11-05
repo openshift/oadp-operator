@@ -1152,6 +1152,214 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 			wantErr: false,
 			want:    true,
 		},
+		{
+			name: "given invalid DPA CR, BSL secret key name not match the secret key name, error case",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-DPA-CR",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					BackupLocations: []oadpv1alpha1.BackupLocation{
+						{
+							Velero: &v1.BackupStorageLocationSpec{
+								StorageType: v1.StorageType{
+									ObjectStorage: &v1.ObjectStorageLocation{
+										Bucket: "test-bucket",
+										Prefix: "test-prefix",
+									},
+								},
+								Provider: "velero.io/aws",
+								Credential: &corev1.SecretKeySelector{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: "cloud-credentials",
+									},
+									Key:      "no-match-key",
+									Optional: new(bool),
+								},
+								Config: map[string]string{
+									"region": "us-east-1",
+								},
+							},
+						},
+					},
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+								oadpv1alpha1.DefaultPluginAWS,
+							},
+						},
+					},
+				},
+			},
+			objects: []client.Object{
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "cloud-credentials",
+						Namespace: "test-ns",
+					},
+					Data: map[string][]byte{"credentials": []byte("dummy_data")},
+				},
+			},
+			wantErr: true,
+			want:    false,
+		},
+		{
+			name: "given invalid DPA CR, BSL secret is missing data, error case",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-DPA-CR",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					BackupLocations: []oadpv1alpha1.BackupLocation{
+						{
+							Velero: &v1.BackupStorageLocationSpec{
+								StorageType: v1.StorageType{
+									ObjectStorage: &v1.ObjectStorageLocation{
+										Bucket: "test-bucket",
+										Prefix: "test-prefix",
+									},
+								},
+								Provider: "velero.io/aws",
+								Credential: &corev1.SecretKeySelector{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: "cloud-credentials",
+									},
+									Key:      "credentials",
+									Optional: new(bool),
+								},
+								Config: map[string]string{
+									"region": "us-east-1",
+								},
+							},
+						},
+					},
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+								oadpv1alpha1.DefaultPluginAWS,
+							},
+						},
+					},
+				},
+			},
+			objects: []client.Object{
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "cloud-credentials",
+						Namespace: "test-ns",
+					},
+					Data: map[string][]byte{"credentials": []byte("")},
+				},
+			},
+			wantErr: true,
+			want:    false,
+		},
+		{
+			name: "given invalid DPA CR, BSL secret key is empty, error case",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-DPA-CR",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					BackupLocations: []oadpv1alpha1.BackupLocation{
+						{
+							Velero: &v1.BackupStorageLocationSpec{
+								StorageType: v1.StorageType{
+									ObjectStorage: &v1.ObjectStorageLocation{
+										Bucket: "test-bucket",
+										Prefix: "test-prefix",
+									},
+								},
+								Provider: "velero.io/aws",
+								Credential: &corev1.SecretKeySelector{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: "cloud-credentials",
+									},
+									Key:      "",
+									Optional: new(bool),
+								},
+								Config: map[string]string{
+									"region": "us-east-1",
+								},
+							},
+						},
+					},
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+								oadpv1alpha1.DefaultPluginAWS,
+							},
+						},
+					},
+				},
+			},
+			objects: []client.Object{
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "cloud-credentials",
+						Namespace: "test-ns",
+					},
+					Data: map[string][]byte{"credentials": []byte("dummy_data")},
+				},
+			},
+			wantErr: true,
+			want:    false,
+		},
+		{
+			name: "given invalid DPA CR, BSL secret name is empty, error case",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-DPA-CR",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					BackupLocations: []oadpv1alpha1.BackupLocation{
+						{
+							Velero: &v1.BackupStorageLocationSpec{
+								StorageType: v1.StorageType{
+									ObjectStorage: &v1.ObjectStorageLocation{
+										Bucket: "test-bucket",
+										Prefix: "test-prefix",
+									},
+								},
+								Provider: "velero.io/aws",
+								Credential: &corev1.SecretKeySelector{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: "",
+									},
+									Key:      "credentials",
+									Optional: new(bool),
+								},
+								Config: map[string]string{
+									"region": "us-east-1",
+								},
+							},
+						},
+					},
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+								oadpv1alpha1.DefaultPluginAWS,
+							},
+						},
+					},
+				},
+			},
+			objects: []client.Object{
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "cloud-credentials",
+						Namespace: "test-ns",
+					},
+					Data: map[string][]byte{"credentials": []byte("dummy_data")},
+				},
+			},
+			wantErr: true,
+			want:    false,
+		},
 	}
 	for _, tt := range tests {
 		tt.objects = append(tt.objects, tt.dpa)
