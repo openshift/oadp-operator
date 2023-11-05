@@ -54,7 +54,21 @@ func (r *DPAReconciler) ValidateDataProtectionCR(log logr.Logger) (bool, error) 
 		}
 
 		// Check the Velero flags 'no-secret' or 'no-default-backup-location' are not set
-		if !dpa.Spec.Configuration.Velero.HasFeatureFlag("no-secret") || dpa.Spec.Configuration.Velero.NoDefaultBackupLocation {
+		if !(dpa.Spec.Configuration.Velero.HasFeatureFlag("no-secret") || dpa.Spec.Configuration.Velero.NoDefaultBackupLocation) {
+
+			// Check if the user specified credential under velero
+			if location.Velero != nil && location.Velero.Credential != nil {
+
+				// Check if user specified empty credential key
+				if location.Velero.Credential.Key == "" {
+					return false, fmt.Errorf("Secret key specified in BackupLocation %s cannot be empty", location.Name)
+				}
+
+				// Check if user specified empty credential name
+				if location.Velero.Credential.Name == "" {
+					return false, fmt.Errorf("Secret name specified in BackupLocation %s cannot be empty", location.Name)
+				}
+			}
 
 			// Check if the BSL secret key configured in the DPA exists with a secret data
 			secretName, secretKey := r.getSecretNameAndKeyforBackupLocation(location)
