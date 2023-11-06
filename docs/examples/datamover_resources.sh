@@ -52,30 +52,30 @@ function backup_summary () {
     echo -e "Get Backups:\n"
     oc -n openshift-adp exec deployment/velero -c velero -it -- ./velero get backup ;
     echo -e "\nTotal Snapshots: " `oc get volumesnapshot -A | sed 1d | wc -l` ; 
-    echo "Total OADP Snapshots: " `oc get volumesnapshot -n openshift-adp | sed 1d | wc -l` ; 
+    echo "Total OADP Snapshots: " `oc get volumesnapshot -n openshift-adp | sed 1d | wc -l` ;
     echo "Total SnapshotContents: " `oc get volumesnapshotcontents -A | sed 1d | wc -l` ; 
-    echo -e "\nTotal VSB: " `oc get vsb -A | sed 1d | wc -l` ; 
-    echo "Completed: " `oc get vsb -A | grep -c Completed` ; 
-    echo "InProgress: " `oc get vsb -A | grep -c InProgress` ; 
-    echo "SnapshotBackupDone: " `oc get vsb -A | grep -c SnapshotBackupDone` ; 
-    echo -e "\nVSB STATUS" ; 
-    echo "Completed: " `oc get vsb -A -oyaml | grep batching | grep -c Completed` ; 
-    echo "Processing: " `oc get vsb -A -oyaml | grep batching | grep -c Processing` ; 
-    echo "Queued: " `oc get vsb -A -oyaml | grep batching | grep -c Queued` ; 
+    echo -e "\nTotal VSB: " `oc get vsb -A 2>/dev/null | sed 1d | wc -l` ;
+    echo "Completed: " `oc get vsb -A 2>/dev/null | grep -c Completed` ;
+    echo "InProgress: " `oc get vsb -A 2>/dev/null | grep -c InProgress` ;
+    echo "SnapshotBackupDone: " `oc get vsb -A 2>/dev/null | grep -c SnapshotBackupDone` ;
+    echo -e "\nVSB STATUS" ;
+    echo "Completed: " `oc get vsb -A -oyaml 2>/dev/null | grep batching | grep -c Completed` ;
+    echo "Processing: " `oc get vsb -A -oyaml 2>/dev/null | grep batching | grep -c Processing` ;
+    echo "Queued: " `oc get vsb -A -oyaml 2>/dev/null | grep batching | grep -c Queued` ;
     echo -e "\nTotal ReplicationSources: " `oc get replicationsources -A | sed 1d | wc -l` ;
 }
 
 function restore_summary () {
     echo -e "Get Restores:\n"
-    oc -n openshift-adp exec deployment/velero -c velero -it -- ./velero get restore ; 
-    echo -e "\nTotal VSR: " `oc get vsr -A | sed 1d | wc -l` ; 
-    echo "Completed: " `oc get vsr -A | grep -c Completed` ; 
-    echo "InProgress: " `oc get vsr -A | grep -c InProgress` ; 
-    echo "SnapshotRestoreDone: " `oc get vsr -A | grep -c SnapshotRestoreDone` ; 
-    echo -e "\nVSR STATUS" ; 
-    echo "Completed: " `oc get vsr -A -oyaml | grep batching | grep -c Completed` ; 
-    echo "Processing: " `oc get vsr -A -oyaml | grep batching | grep -c Processing` ; 
-    echo "Queued: " `oc get vsr -A -oyaml | grep batching | grep -c Queued` ; 
+    oc -n openshift-adp exec deployment/velero -c velero -it -- ./velero get restore ;
+    echo -e "\nTotal VSR: " `oc get vsr -A 2>/dev/null | sed 1d | wc -l` ;
+    echo "Completed: " `oc get vsr -A 2>/dev/null | grep -c Completed` ;
+    echo "InProgress: " `oc get vsr -A 2>/dev/null | grep -c InProgress` ;
+    echo "SnapshotRestoreDone: " `oc get vsr -A 2>/dev/null | grep -c SnapshotRestoreDone` ;
+    echo -e "\nVSR STATUS" ;
+    echo "Completed: " `oc get vsr -A -oyaml 2>/dev/null | grep batching | grep -c Completed` ;
+    echo "Processing: " `oc get vsr -A -oyaml 2>/dev/null | grep batching | grep -c Processing` ;
+    echo "Queued: " `oc get vsr -A -oyaml 2>/dev/null | grep batching | grep -c Queued` ;
     echo -e "\nTotal ReplicationDestinations: " `oc get replicationdestinations -A | sed 1d | wc -l` ;
 }
 

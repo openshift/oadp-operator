@@ -6,8 +6,6 @@ Run `oc api-resources | grep -e 'oadp\|velero'` to get available APIs
 
 Example output (subject to change, depending on the version of OADP installed):
 ```
-volumesnapshotbackups                 vsb                 datamover.oadp.openshift.io/v1alpha1            true         VolumeSnapshotBackup
-volumesnapshotrestores                vsr                 datamover.oadp.openshift.io/v1alpha1            true         VolumeSnapshotRestore
 veleroinstalls                                            managed.openshift.io/v1alpha2                   true         VeleroInstall
 cloudstorages                                             oadp.openshift.io/v1alpha1                      true         CloudStorage
 dataprotectionapplications            dpa                 oadp.openshift.io/v1alpha1                      true         DataProtectionApplication
