@@ -89,13 +89,13 @@ items:
                   else
                     echo "Formatting $DEVICE"
                     mkfs.ext4 $DEVICE
+                    mkdir -p $MOUNT_POINT
+                    echo "Mounting $DEVICE in the $MOUNT_POINT"
+                    mount $DEVICE $MOUNT_POINT
+                    echo $(date +%s) > $MOUNT_POINT/format_timestamp
+                    echo "Recorded timestamp: $(cat $MOUNT_POINT/format_timestamp)"
+                    umount $MOUNT_POINT
                   fi
-                  mkdir -p $MOUNT_POINT
-                  echo "Mounting $DEVICE in the $MOUNT_POINT"
-                  mount $DEVICE $MOUNT_POINT
-                  echo $(date +%s) > $MOUNT_POINT/format_timestamp
-                  echo "Recorded timestamp: $(cat $MOUNT_POINT/format_timestamp)"
-                  umount $MOUNT_POINT
               volumeDevices:
                 - name: block-volume-pv
                   devicePath: /dev/xvdx
