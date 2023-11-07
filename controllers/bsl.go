@@ -29,8 +29,14 @@ func (r *DPAReconciler) ValidateBackupStorageLocations(dpa oadpv1alpha1.DataProt
 
 	// Ensure BSL is a valid configuration
 	// First, check for provider and then call functions based on the cloud provider for each backupstoragelocation configured
+	numDefaultLocations := 0
 	for _, bslSpec := range dpa.Spec.BackupLocations {
 		if bslSpec.Velero != nil {
+			if bslSpec.Velero.Default {
+				numDefaultLocations++
+			} else if bslSpec.Name == "default" {
+				return false, fmt.Errorf("Storage location named 'default' must be set as default")
+			}
 			provider := bslSpec.Velero.Provider
 			if len(provider) == 0 {
 				return false, fmt.Errorf("no provider specified for one of the backupstoragelocations configured")
@@ -65,10 +71,21 @@ func (r *DPAReconciler) ValidateBackupStorageLocations(dpa oadpv1alpha1.DataProt
 			if bslSpec.CloudStorage.Credential.LocalObjectReference.Name == "" {
 				return false, fmt.Errorf("must provide a valid credential secret name")
 			}
+			if bslSpec.CloudStorage.Default {
+				numDefaultLocations++
+			} else if bslSpec.Name == "default" {
+				return false, fmt.Errorf("Storage location named 'default' must be set as default")
+			}
 		}
 		if bslSpec.CloudStorage != nil && bslSpec.Velero != nil {
 			return false, fmt.Errorf("must choose one of bucket or velero")
 		}
+	}
+	if numDefaultLocations > 1 {
+		return false, fmt.Errorf("Only one Storage Location be set as default")
+	}
+	if numDefaultLocations == 0 && !dpa.Spec.Configuration.Velero.NoDefaultBackupLocation {
+		return false, errors.New("no default backupstoragelocations configured, ensure that one backupstoragelocation has been configured as the default location")
 	}
 	// TODO: Discuss If multiple BSLs exist, ensure we have multiple credentials
 

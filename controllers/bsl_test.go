@@ -420,6 +420,7 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 										Name: "cloud-credentials",
 									},
 								},
+								Default: true,
 							},
 						},
 					},
@@ -582,6 +583,7 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 										Name: "cloud-credentials",
 									},
 								},
+								Default: true,
 							},
 						},
 					},
@@ -589,6 +591,50 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 			},
 			want:    true,
 			wantErr: false,
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cloud-credentials",
+					Namespace: "test-ns",
+				},
+			},
+		},
+		{
+			name: "test BSLs specified, no default set",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{},
+					},
+					BackupLocations: []oadpv1alpha1.BackupLocation{
+						{
+							Velero: &velerov1.BackupStorageLocationSpec{
+								Provider: "aws",
+								StorageType: velerov1.StorageType{
+									ObjectStorage: &velerov1.ObjectStorageLocation{
+										Bucket: "test-aws-bucket",
+										Prefix: "velero",
+									},
+								},
+								Config: map[string]string{
+									Region: "test-region",
+								},
+								Credential: &corev1.SecretKeySelector{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: "cloud-credentials",
+									},
+								},
+								Default: false,
+							},
+						},
+					},
+				},
+			},
+			want:    false,
+			wantErr: true,
 			secret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "cloud-credentials",
@@ -749,6 +795,7 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 										Name: "cloud-credentials",
 									},
 								},
+								Default: true,
 							},
 						},
 						{
@@ -984,6 +1031,7 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 										Name: "cloud-credentials",
 									},
 								},
+								Default: true,
 							},
 						},
 						{
@@ -1111,6 +1159,7 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 										Prefix: "prefix",
 									},
 								},
+								Default: true,
 							},
 						},
 					},
@@ -1150,6 +1199,7 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 										Prefix: "prefix",
 									},
 								},
+								Default: true,
 							},
 						},
 					},
