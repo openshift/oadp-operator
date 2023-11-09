@@ -99,6 +99,19 @@ This section includes how to debug a failed restore. For more specific issues re
  
 <hr style="height:1px;border:none;color:#333;">
 
+<h3 align="center">Restore Errors and Warnings<a id="creds"></a></h3>
+
+Restore errors and warnings are shown in the `velero describe` output in three groups:
+1. Velero: Warnings or errors that relate to the overall restore workflow but not to a particular resource will be shown here.
+2. Cluster: Warnings or errors that relate to particular cluster-scoped resources will be shown here
+3. Namespaces: Warnings or errors that relate to particular namespaced resources will be shown here, grouped by namespace
+
+One or more errors in any of the above categories will cause a Restore to be `PartiallyFailed` rather than `Completed`. Warnings will not cause a change to the completion status.
+
+For resource-specific errors ("Cluster" and "Namespaces" errors), the `restore describe --details` output should include the resource list which will list all resources that Velero succeeded in restoring. For any that errored out, check to see if the resource is actually in the cluster.
+Note that if there are "Velero" errors (but no resource-specific errors), it is possible that the restore completed without any actual problems with restoring workloads, but careful validation of post-restore applications is advisable.
+For example, if there are PodVolumeRestore and/or Node Agent-related errors, check the status of PodVolumeRestores and DataDownloads -- if none of these are failed or still running, then volume data may have been fully restored.
+
 <h1 align="center">Common Issues and Misconfigurations<a id="misconfig"></a></h1>
 
 <h3 align="center">Credentials Secret Not Properly Formatted<a id="creds"></a></h3>
