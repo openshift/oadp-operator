@@ -14,9 +14,14 @@ import (
 )
 
 var _ = Describe("Subscription Config Suite Test", func() {
+	type SubscriptionConfigTestCase struct {
+		operators.SubscriptionConfig
+		failureExpected *bool
+		stream          string
+	}
+
 	var _ = BeforeEach(func() {
-		testSuiteInstanceName := "ts-" + instanceName
-		dpaCR.Name = testSuiteInstanceName
+		dpaCR.Name = "ts-" + instanceName
 	})
 
 	var _ = AfterEach(func() {
@@ -24,11 +29,7 @@ var _ = Describe("Subscription Config Suite Test", func() {
 		Expect(err).ToNot(HaveOccurred())
 		Eventually(dpaCR.IsDeleted(runTimeClientForSuiteRun), timeoutMultiplier*time.Minute*2, time.Second*5).Should(BeTrue())
 	})
-	type SubscriptionConfigTestCase struct {
-		operators.SubscriptionConfig
-		failureExpected *bool
-		stream          string
-	}
+
 	DescribeTable("Proxy test table",
 		func(testCase SubscriptionConfigTestCase) {
 			log.Printf("Getting Operator Subscription")

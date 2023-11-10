@@ -84,9 +84,8 @@ func TestOADPE2E(t *testing.T) {
 		t.Fatalf(errString)
 	}
 
-	log.Println("Using velero prefix: " + VeleroPrefix)
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "OADP E2E Suite")
+	RunSpecs(t, "OADP E2E using velero prefix: "+VeleroPrefix)
 }
 
 var kubernetesClientForSuiteRun *kubernetes.Clientset

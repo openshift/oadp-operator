@@ -5,7 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"net/url"
@@ -19,6 +19,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 	"github.com/onsi/ginkgo/v2"
+	"github.com/onsi/gomega"
 	ocpappsv1 "github.com/openshift/api/apps/v1"
 	buildv1 "github.com/openshift/api/build/v1"
 	routev1 "github.com/openshift/api/route/v1"
@@ -471,82 +472,58 @@ func VerifyBackupRestoreData(clientv1 client.Client, artifact_dir string, namesp
 		return err
 	}
 	appApi := "http://" + appRoute.Spec.Host
+	appEndpoint := appApi + "/todo-incomplete"
+	volumeEndpoint := appApi + "/log"
 
 	//if this is prebackstate = true, add items via makeRequest function. We only want to make request before backup
 	//and ignore post restore checks.
+	log.Printf("PrebackState: %t\n", prebackupState)
 	if prebackupState {
 		// delete backupFile if it exists
 		if _, err := os.Stat(backupFile); err == nil {
 			os.Remove(backupFile)
 		}
 		//data before curl request
-		dataBeforeCurl, err := getResponseData(appApi + "/todo-incomplete")
+		dataBeforeCurl, err := getResponseData(appEndpoint)
 		if err != nil {
 			return err
-		} else {
-			fmt.Printf("Data before the curl request: \n %s\n", dataBeforeCurl)
 		}
+		log.Printf("Data before the curl request: \n %s\n", dataBeforeCurl)
 		//make post request to given api
-		switch app {
-		case "todolist":
-			fmt.Printf("PrebackState: %t, so make a curl request\n", prebackupState)
-			makeRequest("POST", appApi+"/todo", time.Now().String())
-			makeRequest("POST", appApi+"/todo", time.Now().Weekday().String())
-		}
-	}
-	volumeApi := appApi + "/log"
-
-	switch app {
-	case "todolist":
-		appApi += "/todo-incomplete"
+		makeRequest("POST", appApi+"/todo", time.Now().String())
+		makeRequest("POST", appApi+"/todo", time.Now().Weekday().String())
 	}
 
 	//get response Data if response status is 200
-	respData, err := getResponseData(appApi)
+	respData, err := getResponseData(appEndpoint)
 	if err != nil {
 		return err
 	}
 
-	if backupRestoretype == CSI || backupRestoretype == CSIDataMover || backupRestoretype == RESTIC || backupRestoretype == KOPIA {
-		//check if backupfile exists. If true { compare data response with data from file} (post restore step)
-		//else write data to backup-data.txt (prebackup step)
-		if _, err := os.Stat(backupFile); err == nil {
-			backupData, err := os.ReadFile(backupFile)
-			if err != nil {
-				return err
-			}
-			os.Remove(backupFile)
-			fmt.Printf("Data came from backup-file\n %s\n", backupData)
-			fmt.Printf("Data from the response after restore\n %s\n", respData)
-			backDataIsEqual := false
-			for i := 0; i < 5 && !backDataIsEqual; i++ {
-				respData, err = getResponseData(appApi)
-				if err != nil {
-					return err
-				}
-				backDataIsEqual = bytes.Equal(backupData, respData)
-				if backDataIsEqual != true {
-					fmt.Printf("Backup and Restore Data are not equal, retry %d\n", i)
-					fmt.Printf("Data from the response after restore\n %s\n", respData)
-					time.Sleep(10 * time.Second)
-				}
-			}
-			if backDataIsEqual != true {
-				return errors.New("Backup and Restore Data are not the same")
-			}
-
-		} else if errors.Is(err, os.ErrNotExist) {
-			fmt.Printf("Writing data to backupFile (backup-data.txt): \n %s\n", respData)
-			err := os.WriteFile(backupFile, respData, 0644)
-			if err != nil {
-				return err
-			}
+	if prebackupState {
+		log.Printf("Writing data to backupFile (backup-data.txt): \n %s\n", respData)
+		err := os.WriteFile(backupFile, respData, 0644)
+		if err != nil {
+			return err
+		}
+	} else {
+		backupData, err := os.ReadFile(backupFile)
+		if err != nil {
+			return err
+		}
+		os.Remove(backupFile)
+		log.Printf("Data came from backup-file\n %s\n", backupData)
+		backDataIsEqual := false
+		log.Printf("Data from the response after restore\n %s\n", respData)
+		backDataIsEqual = bytes.Equal(backupData, respData)
+		if backDataIsEqual != true {
+			return errors.New("Backup and Restore Data are not the same")
 		}
 	}
 
 	if twoVol {
 		volumeFile := artifact_dir + "/volume-data.txt"
-		return verifyVolume(volumeFile, volumeApi, prebackupState, backupRestoretype)
+		return verifyVolume(volumeFile, volumeEndpoint, prebackupState, backupRestoretype)
 	}
 
 	return nil
@@ -566,7 +543,14 @@ func verifyVolume(volumeFile string, volumeApi string, prebackupState bool, back
 		return err
 	}
 	if backupRestoretype == CSI || backupRestoretype == RESTIC || backupRestoretype == KOPIA {
-		if _, err := os.Stat(volumeFile); err == nil {
+		if prebackupState {
+			fmt.Printf("Writing data to volumeFile (volume-data.txt): \n %s\n", volData)
+			err := os.WriteFile(volumeFile, volData, 0644)
+			if err != nil {
+				return err
+			}
+
+		} else {
 			volumeBackupData, err := os.ReadFile(volumeFile)
 			if err != nil {
 				return err
@@ -574,28 +558,16 @@ func verifyVolume(volumeFile string, volumeApi string, prebackupState bool, back
 			os.Remove(volumeFile)
 			fmt.Printf("Data came from volume-file\n %s\n", volumeBackupData)
 			fmt.Printf("Volume Data after restore\n %s\n", volData)
-			dataIsEqual := false
-			for i := 0; i < 5 && !dataIsEqual; i++ {
-				volData, err = getResponseData(volumeApi)
-				if err != nil {
-					return err
-				}
-				dataIsEqual = bytes.Contains(volData, volumeBackupData)
-				if dataIsEqual != true {
-					fmt.Printf("Backup-volume and Restore-volume Data are not equal, retry %d\n", i)
-					fmt.Printf("volume-Data from the response after restore\n %s\n", volData)
-					time.Sleep(10 * time.Second)
-				}
-			}
-			if dataIsEqual != true {
-				return errors.New("Backup and Restore Data are not the same")
-			}
-
-		} else if errors.Is(err, os.ErrNotExist) {
-			fmt.Printf("Writing data to volumeFile (volume-data.txt): \n %s\n", volData)
-			err := os.WriteFile(volumeFile, volData, 0644)
+			dataIsIn := false
+			volData, err = getResponseData(volumeApi)
 			if err != nil {
 				return err
+			}
+			dataIsIn = bytes.Contains(volData, volumeBackupData)
+			if dataIsIn != true {
+				fmt.Println("Backup-volume data is not in Restore-volume data")
+				fmt.Printf("volume-Data from the response after restore\n %s\n", volData)
+				return errors.New("Backup data is not in Restore Data")
 			}
 		}
 	}
@@ -604,27 +576,23 @@ func verifyVolume(volumeFile string, volumeApi string, prebackupState bool, back
 }
 
 func getResponseData(appApi string) ([]byte, error) {
-	resp, err := http.Get(appApi)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
+	var body []byte
+	var readError error
 
-	if resp.StatusCode != 200 { // # TODO: NEED TO FIND A BETTER WAY TO DEBUG RESPONSE
-		var retrySchedule = []time.Duration{
-			15 * time.Second,
-			1 * time.Minute,
-			2 * time.Minute,
+	checkStatusCode := func() (bool, error) {
+		resp, err := http.Get(appApi)
+		if err != nil {
+			return false, err
 		}
-		for _, backoff := range retrySchedule {
-			resp, err = http.Get(appApi)
-			if resp.StatusCode != 200 {
-				log.Printf("Request error: %+v\n", err)
-				log.Printf("Retrying in %v\n", backoff)
-				time.Sleep(backoff)
-			}
+		defer resp.Body.Close()
+		if resp.StatusCode != 200 {
+			log.Printf("Request errored out with Status Code %v\n", resp.StatusCode)
+			return false, fmt.Errorf("Request errored out with Status Code %v", resp.StatusCode)
 		}
+		body, readError = io.ReadAll(resp.Body)
+		return true, nil
 	}
-	return ioutil.ReadAll(resp.Body)
 
+	gomega.Eventually(checkStatusCode, time.Minute*4, time.Second*15).Should(gomega.BeTrue())
+	return body, readError
 }
