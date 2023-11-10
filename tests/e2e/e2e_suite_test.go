@@ -8,10 +8,15 @@ import (
 	"testing"
 	"time"
 
+	snapshotv1client "github.com/kubernetes-csi/external-snapshotter/client/v4/clientset/versioned"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/openshift/oadp-operator/tests/e2e/lib"
 	"github.com/openshift/oadp-operator/tests/e2e/utils"
+	veleroClientset "github.com/vmware-tanzu/velero/pkg/generated/clientset/versioned"
+	"k8s.io/client-go/kubernetes"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
 )
 
 // Common vars obtained from flags passed in ginkgo.
@@ -84,6 +89,10 @@ func TestOADPE2E(t *testing.T) {
 	RunSpecs(t, "OADP E2E Suite")
 }
 
+var kubernetesClientForSuiteRun *kubernetes.Clientset
+var runTimeClientForSuiteRun client.Client
+var veleroClientForSuiteRun veleroClientset.Interface
+var csiClientForSuiteRun *snapshotv1client.Clientset
 var dpaCR *DpaCustomResource
 
 var _ = BeforeSuite(func() {
@@ -92,6 +101,23 @@ var _ = BeforeSuite(func() {
 	if errString != "" {
 		Expect(errors.New(errString)).NotTo(HaveOccurred())
 	}
+
+	var err error
+	kubeConf := config.GetConfigOrDie()
+	kubeConf.QPS = 50
+	kubeConf.Burst = 100
+
+	kubernetesClientForSuiteRun, err = kubernetes.NewForConfig(kubeConf)
+	Expect(err).NotTo(HaveOccurred())
+
+	runTimeClientForSuiteRun, err = client.New(kubeConf, client.Options{})
+	Expect(err).NotTo(HaveOccurred())
+
+	veleroClientForSuiteRun, err = veleroClientset.NewForConfig(kubeConf)
+	Expect(err).NotTo(HaveOccurred())
+
+	csiClientForSuiteRun, err = snapshotv1client.NewForConfig(kubeConf)
+	Expect(err).NotTo(HaveOccurred())
 
 	dpaCR = &DpaCustomResource{
 		Namespace: namespace,
@@ -103,28 +129,32 @@ var _ = BeforeSuite(func() {
 
 	bslCredFileData, err := utils.ReadFile(bslCredFile)
 	Expect(err).NotTo(HaveOccurred())
-	err = CreateCredentialsSecret(bslCredFileData, namespace, "bsl-cloud-credentials-"+provider)
+	err = CreateCredentialsSecret(kubernetesClientForSuiteRun, bslCredFileData, namespace, "bsl-cloud-credentials-"+provider)
 	Expect(err).NotTo(HaveOccurred())
-	err = CreateCredentialsSecret(utils.ReplaceSecretDataNewLineWithCarriageReturn(bslCredFileData), namespace, "bsl-cloud-credentials-"+provider+"-with-carriage-return")
+	err = CreateCredentialsSecret(
+		kubernetesClientForSuiteRun,
+		utils.ReplaceSecretDataNewLineWithCarriageReturn(bslCredFileData),
+		namespace, "bsl-cloud-credentials-"+provider+"-with-carriage-return",
+	)
 	Expect(err).NotTo(HaveOccurred())
 
 	vslCredFileData, err := utils.ReadFile(vslCredFile)
 	Expect(err).NotTo(HaveOccurred())
-	err = CreateCredentialsSecret(vslCredFileData, namespace, credSecretRef)
+	err = CreateCredentialsSecret(kubernetesClientForSuiteRun, vslCredFileData, namespace, credSecretRef)
 	Expect(err).NotTo(HaveOccurred())
-	dpaCR.SetClient()
-	Expect(DoesNamespaceExist(namespace)).Should(BeTrue())
+	dpaCR.SetClient(runTimeClientForSuiteRun)
+	Expect(DoesNamespaceExist(kubernetesClientForSuiteRun, namespace)).Should(BeTrue())
 })
 
 var _ = AfterSuite(func() {
 	log.Printf("Deleting Velero CR")
-	err := DeleteSecret(namespace, credSecretRef)
+	err := DeleteSecret(kubernetesClientForSuiteRun, namespace, credSecretRef)
 	Expect(err).ToNot(HaveOccurred())
-	err = DeleteSecret(namespace, "bsl-cloud-credentials-"+provider)
+	err = DeleteSecret(kubernetesClientForSuiteRun, namespace, "bsl-cloud-credentials-"+provider)
 	Expect(err).ToNot(HaveOccurred())
-	err = DeleteSecret(namespace, "bsl-cloud-credentials-"+provider+"-with-carriage-return")
+	err = DeleteSecret(kubernetesClientForSuiteRun, namespace, "bsl-cloud-credentials-"+provider+"-with-carriage-return")
 	Expect(err).ToNot(HaveOccurred())
-	err = dpaCR.Delete()
+	err = dpaCR.Delete(runTimeClientForSuiteRun)
 	Expect(err).ToNot(HaveOccurred())
-	Eventually(dpaCR.IsDeleted(), timeoutMultiplier*time.Minute*2, time.Second*5).Should(BeTrue())
+	Eventually(dpaCR.IsDeleted(runTimeClientForSuiteRun), timeoutMultiplier*time.Minute*2, time.Second*5).Should(BeTrue())
 })

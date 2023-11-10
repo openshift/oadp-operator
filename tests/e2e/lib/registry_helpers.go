@@ -9,13 +9,14 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/kubernetes"
 )
 
-func AreRegistryDeploymentsAvailable(namespace string) wait.ConditionFunc {
+func AreRegistryDeploymentsAvailable(c *kubernetes.Clientset, namespace string) wait.ConditionFunc {
 	log.Printf("Checking for available registry deployments")
 	return func() (bool, error) {
 		// get pods in the oadp-operator-e2e namespace with label selector
-		deploymentList, err := GetRegistryDeploymentList(namespace)
+		deploymentList, err := GetRegistryDeploymentList(c, namespace)
 		if err != nil {
 			return false, err
 		}
@@ -34,27 +35,23 @@ func AreRegistryDeploymentsAvailable(namespace string) wait.ConditionFunc {
 	}
 }
 
-func GetRegistryDeploymentList(namespace string) (*appsv1.DeploymentList, error) {
-	client, err := setUpClient()
-	if err != nil {
-		return nil, err
-	}
+func GetRegistryDeploymentList(c *kubernetes.Clientset, namespace string) (*appsv1.DeploymentList, error) {
 	registryListOptions := metav1.ListOptions{
 		LabelSelector: "app.kubernetes.io/component=Registry",
 	}
 	// get pods in the oadp-operator-e2e namespace with label selector
-	deploymentList, err := client.AppsV1().Deployments(namespace).List(context.TODO(), registryListOptions)
+	deploymentList, err := c.AppsV1().Deployments(namespace).List(context.Background(), registryListOptions)
 	if err != nil {
 		return nil, err
 	}
 	return deploymentList, nil
 }
 
-func AreRegistryDeploymentsNotAvailable(namespace string) wait.ConditionFunc {
+func AreRegistryDeploymentsNotAvailable(c *kubernetes.Clientset, namespace string) wait.ConditionFunc {
 	log.Printf("Checking for unavailable registry deployments")
 	return func() (bool, error) {
 		// get pods in the oadp-operator-e2e namespace with label selector
-		deploymentList, err := GetRegistryDeploymentList(namespace)
+		deploymentList, err := GetRegistryDeploymentList(c, namespace)
 		if err != nil {
 			return false, err
 		}

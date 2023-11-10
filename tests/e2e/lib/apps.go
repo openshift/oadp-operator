@@ -36,8 +36,8 @@ import (
 	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/client/config"
 )
 
 const e2eAppLabelKey = "e2e-app"
@@ -363,18 +363,14 @@ func areAppBuildsReady(ocClient client.Client, namespace string) (bool, error) {
 	return true, nil
 }
 
-func AreApplicationPodsRunning(namespace string) wait.ConditionFunc {
+func AreApplicationPodsRunning(c *kubernetes.Clientset, namespace string) wait.ConditionFunc {
 	return func() (bool, error) {
-		clientset, err := setUpClient()
-		if err != nil {
-			return false, err
-		}
 		// select Velero pod with this label
 		veleroOptions := metav1.ListOptions{
 			LabelSelector: e2eAppLabelSelector.String(),
 		}
 		// get pods in test namespace with labelSelector
-		podList, err := clientset.CoreV1().Pods(namespace).List(context.TODO(), veleroOptions)
+		podList, err := c.CoreV1().Pods(namespace).List(context.Background(), veleroOptions)
 		if err != nil {
 			return false, nil
 		}
@@ -413,14 +409,9 @@ func InstalledSubscriptionCSV(ocClient client.Client, namespace, subscriptionNam
 	}
 }
 
-func PrintNamespaceEventsAfterTime(namespace string, startTime time.Time) {
+func PrintNamespaceEventsAfterTime(c *kubernetes.Clientset, namespace string, startTime time.Time) {
 	log.Println("Printing events for namespace: ", namespace)
-	clientset, err := setUpClient()
-	if err != nil {
-		ginkgo.GinkgoWriter.Write([]byte(fmt.Sprintf("Error getting client: %v\n", err)))
-		return
-	}
-	events, err := clientset.CoreV1().Events(namespace).List(context.TODO(), metav1.ListOptions{})
+	events, err := c.CoreV1().Events(namespace).List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		ginkgo.GinkgoWriter.Write([]byte(fmt.Sprintf("Error getting events: %v\n", err)))
 		return
@@ -467,16 +458,12 @@ func makeRequest(request string, api string, todo string) {
 }
 
 // VerifyBackupRestoreData verifies if app ready before backup and after restore to compare data.
-func VerifyBackupRestoreData(artifact_dir string, namespace string, routeName string, app string, prebackupState bool, twoVol bool, backupRestoretype BackupRestoreType) error {
+func VerifyBackupRestoreData(clientv1 client.Client, artifact_dir string, namespace string, routeName string, app string, prebackupState bool, twoVol bool, backupRestoretype BackupRestoreType) error {
 	log.Printf("Verifying backup/restore data of %s", app)
 	appRoute := &routev1.Route{}
-	clientv1, err := client.New(config.GetConfigOrDie(), client.Options{})
-	if err != nil {
-		return err
-	}
 	backupFile := artifact_dir + "/backup-data.txt"
 	routev1.AddToScheme(clientv1.Scheme())
-	err = clientv1.Get(context.Background(), client.ObjectKey{
+	err := clientv1.Get(context.Background(), client.ObjectKey{
 		Namespace: namespace,
 		Name:      routeName,
 	}, appRoute)

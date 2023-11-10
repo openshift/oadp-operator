@@ -28,9 +28,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/uuid"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/yaml"
 )
 
@@ -174,8 +174,8 @@ func (v *DpaCustomResource) ProviderStorageClassName(e2eRoot string) (string, er
 	return *pvcList.Items[0].Spec.StorageClassName, nil
 }
 
-func (v *DpaCustomResource) Create() error {
-	err := v.SetClient()
+func (v *DpaCustomResource) Create(c client.Client) error {
+	err := v.SetClient(c)
 	if err != nil {
 		return err
 	}
@@ -188,8 +188,8 @@ func (v *DpaCustomResource) Create() error {
 	return nil
 }
 
-func (v *DpaCustomResource) Get() (*oadpv1alpha1.DataProtectionApplication, error) {
-	err := v.SetClient()
+func (v *DpaCustomResource) Get(c client.Client) (*oadpv1alpha1.DataProtectionApplication, error) {
+	err := v.SetClient(c)
 	if err != nil {
 		return nil, err
 	}
@@ -204,21 +204,21 @@ func (v *DpaCustomResource) Get() (*oadpv1alpha1.DataProtectionApplication, erro
 	return &vel, nil
 }
 
-func (v *DpaCustomResource) GetNoErr() *oadpv1alpha1.DataProtectionApplication {
-	Dpa, _ := v.Get()
+func (v *DpaCustomResource) GetNoErr(c client.Client) *oadpv1alpha1.DataProtectionApplication {
+	Dpa, _ := v.Get(c)
 	return Dpa
 }
 
-func (v *DpaCustomResource) CreateOrUpdate(spec *oadpv1alpha1.DataProtectionApplicationSpec) error {
-	return v.CreateOrUpdateWithRetries(spec, 3)
+func (v *DpaCustomResource) CreateOrUpdate(c client.Client, spec *oadpv1alpha1.DataProtectionApplicationSpec) error {
+	return v.CreateOrUpdateWithRetries(c, spec, 3)
 }
-func (v *DpaCustomResource) CreateOrUpdateWithRetries(spec *oadpv1alpha1.DataProtectionApplicationSpec, retries int) error {
+func (v *DpaCustomResource) CreateOrUpdateWithRetries(c client.Client, spec *oadpv1alpha1.DataProtectionApplicationSpec, retries int) error {
 	var (
 		err error
 		cr  *oadpv1alpha1.DataProtectionApplication
 	)
 	for i := 0; i < retries; i++ {
-		if cr, err = v.Get(); apierrors.IsNotFound(err) {
+		if cr, err = v.Get(c); apierrors.IsNotFound(err) {
 			v.CustomResource = &oadpv1alpha1.DataProtectionApplication{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "DataProtectionApplication",
@@ -230,7 +230,7 @@ func (v *DpaCustomResource) CreateOrUpdateWithRetries(spec *oadpv1alpha1.DataPro
 				},
 				Spec: *spec.DeepCopy(),
 			}
-			return v.Create()
+			return v.Create(c)
 		} else if err != nil {
 			return err
 		}
@@ -251,8 +251,8 @@ func (v *DpaCustomResource) CreateOrUpdateWithRetries(spec *oadpv1alpha1.DataPro
 	return err
 }
 
-func (v *DpaCustomResource) Delete() error {
-	err := v.SetClient()
+func (v *DpaCustomResource) Delete(c client.Client) error {
+	err := v.SetClient(c)
 	if err != nil {
 		return err
 	}
@@ -263,11 +263,7 @@ func (v *DpaCustomResource) Delete() error {
 	return err
 }
 
-func (v *DpaCustomResource) SetClient() error {
-	client, err := client.New(config.GetConfigOrDie(), client.Options{})
-	if err != nil {
-		return err
-	}
+func (v *DpaCustomResource) SetClient(client client.Client) error {
 	oadpv1alpha1.AddToScheme(client.Scheme())
 	velero.AddToScheme(client.Scheme())
 	appsv1.AddToScheme(client.Scheme())
@@ -283,11 +279,7 @@ func (v *DpaCustomResource) SetClient() error {
 	return nil
 }
 
-func GetVeleroPods(namespace string) (*corev1.PodList, error) {
-	clientset, err := setUpClient()
-	if err != nil {
-		return nil, err
-	}
+func GetVeleroPods(c *kubernetes.Clientset, namespace string) (*corev1.PodList, error) {
 	// select Velero pod with this label
 	veleroOptions := metav1.ListOptions{
 		LabelSelector: "component=velero",
@@ -297,21 +289,22 @@ func GetVeleroPods(namespace string) (*corev1.PodList, error) {
 	}
 	// get pods in test namespace with labelSelector
 	var podList *corev1.PodList
-	if podList, err = clientset.CoreV1().Pods(namespace).List(context.TODO(), veleroOptions); err != nil {
+	var err error
+	if podList, err = c.CoreV1().Pods(namespace).List(context.Background(), veleroOptions); err != nil {
 		return nil, err
 	}
 	if len(podList.Items) == 0 {
 		// handle some oadp versions where label was deploy=velero
-		if podList, err = clientset.CoreV1().Pods(namespace).List(context.TODO(), veleroOptionsDeploy); err != nil {
+		if podList, err = c.CoreV1().Pods(namespace).List(context.Background(), veleroOptionsDeploy); err != nil {
 			return nil, err
 		}
 	}
 	return podList, nil
 }
 
-func AreVeleroPodsRunning(namespace string) wait.ConditionFunc {
+func AreVeleroPodsRunning(c *kubernetes.Clientset, namespace string) wait.ConditionFunc {
 	return func() (bool, error) {
-		podList, err := GetVeleroPods(namespace)
+		podList, err := GetVeleroPods(c, namespace)
 		if err != nil {
 			return false, err
 		}
@@ -330,17 +323,17 @@ func AreVeleroPodsRunning(namespace string) wait.ConditionFunc {
 	}
 }
 
-func GetOpenShiftADPLogs(namespace string) (string, error) {
-	return GetPodWithPrefixContainerLogs(namespace, "openshift-adp-controller-manager-", "manager")
+func GetOpenShiftADPLogs(c *kubernetes.Clientset, namespace string) (string, error) {
+	return GetPodWithPrefixContainerLogs(c, namespace, "openshift-adp-controller-manager-", "manager")
 }
 
 // Returns logs from velero container on velero pod
-func GetVeleroContainerLogs(namespace string) (string, error) {
-	return GetPodWithPrefixContainerLogs(namespace, "velero-", "velero")
+func GetVeleroContainerLogs(c *kubernetes.Clientset, namespace string) (string, error) {
+	return GetPodWithPrefixContainerLogs(c, namespace, "velero-", "velero")
 }
 
-func GetVeleroContainerFailureLogs(namespace string) []string {
-	containerLogs, err := GetVeleroContainerLogs(namespace)
+func GetVeleroContainerFailureLogs(c *kubernetes.Clientset, namespace string) []string {
+	containerLogs, err := GetVeleroContainerLogs(c, namespace)
 	if err != nil {
 		log.Printf("cannot get velero container logs")
 		return nil
@@ -355,9 +348,9 @@ func GetVeleroContainerFailureLogs(namespace string) []string {
 	return failureArr
 }
 
-func (v *DpaCustomResource) IsDeleted() wait.ConditionFunc {
+func (v *DpaCustomResource) IsDeleted(c client.Client) wait.ConditionFunc {
 	return func() (bool, error) {
-		err := v.SetClient()
+		err := v.SetClient(c)
 		if err != nil {
 			return false, err
 		}
@@ -417,14 +410,9 @@ func DoesVSLSpecMatchesDpa(namespace string, vslspec velero.VolumeSnapshotLocati
 }
 
 // check velero tolerations
-func VerifyVeleroTolerations(namespace string, t []corev1.Toleration) wait.ConditionFunc {
+func VerifyVeleroTolerations(c *kubernetes.Clientset, namespace string, t []corev1.Toleration) wait.ConditionFunc {
 	return func() (bool, error) {
-		clientset, err := setUpClient()
-		if err != nil {
-			return false, err
-		}
-
-		veldep, _ := clientset.AppsV1().Deployments(namespace).Get(context.Background(), "velero", metav1.GetOptions{})
+		veldep, _ := c.AppsV1().Deployments(namespace).Get(context.Background(), "velero", metav1.GetOptions{})
 
 		if !reflect.DeepEqual(t, veldep.Spec.Template.Spec.Tolerations) {
 			return false, errors.New("given Velero tolerations does not match the deployed velero tolerations")
@@ -434,13 +422,9 @@ func VerifyVeleroTolerations(namespace string, t []corev1.Toleration) wait.Condi
 }
 
 // check for velero resource requests
-func VerifyVeleroResourceRequests(namespace string, requests corev1.ResourceList) wait.ConditionFunc {
+func VerifyVeleroResourceRequests(c *kubernetes.Clientset, namespace string, requests corev1.ResourceList) wait.ConditionFunc {
 	return func() (bool, error) {
-		clientset, err := setUpClient()
-		if err != nil {
-			return false, err
-		}
-		veldep, _ := clientset.AppsV1().Deployments(namespace).Get(context.Background(), "velero", metav1.GetOptions{})
+		veldep, _ := c.AppsV1().Deployments(namespace).Get(context.Background(), "velero", metav1.GetOptions{})
 
 		for _, c := range veldep.Spec.Template.Spec.Containers {
 			if c.Name == common.Velero {
@@ -454,13 +438,9 @@ func VerifyVeleroResourceRequests(namespace string, requests corev1.ResourceList
 }
 
 // check for velero resource limits
-func VerifyVeleroResourceLimits(namespace string, limits corev1.ResourceList) wait.ConditionFunc {
+func VerifyVeleroResourceLimits(c *kubernetes.Clientset, namespace string, limits corev1.ResourceList) wait.ConditionFunc {
 	return func() (bool, error) {
-		clientset, err := setUpClient()
-		if err != nil {
-			return false, err
-		}
-		veldep, _ := clientset.AppsV1().Deployments(namespace).Get(context.Background(), "velero", metav1.GetOptions{})
+		veldep, _ := c.AppsV1().Deployments(namespace).Get(context.Background(), "velero", metav1.GetOptions{})
 
 		for _, c := range veldep.Spec.Template.Spec.Containers {
 			if c.Name == common.Velero {
