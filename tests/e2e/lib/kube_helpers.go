@@ -13,66 +13,8 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/apimachinery/pkg/version"
 	"k8s.io/client-go/kubernetes"
 )
-
-type K8sVersion struct {
-	Major string
-	Minor string
-}
-
-var (
-	// Version struct representing OCP 4.8.x https://docs.openshift.com/container-platform/4.8/release_notes/ocp-4-8-release-notes.html
-	K8sVersionOcp48 = K8sVersion{
-		Major: "1",
-		Minor: "21",
-	}
-	// https://docs.openshift.com/container-platform/4.7/release_notes/ocp-4-7-release-notes.html
-	K8sVersionOcp47 = K8sVersion{
-		Major: "1",
-		Minor: "20",
-	}
-)
-
-func k8sVersionGreater(v1 *K8sVersion, v2 *K8sVersion) bool {
-	if v1.Major > v2.Major {
-		return true
-	}
-	if v1.Major == v2.Major {
-		return v1.Minor > v2.Minor
-	}
-	return false
-}
-
-func k8sVersionLesser(v1 *K8sVersion, v2 *K8sVersion) bool {
-	if v1.Major < v2.Major {
-		return true
-	}
-	if v1.Major == v2.Major {
-		return v1.Minor < v2.Minor
-	}
-	return false
-}
-
-func serverK8sVersion(clientset *kubernetes.Clientset) *K8sVersion {
-	version, err := serverVersion(clientset)
-	if err != nil {
-		return nil
-	}
-	return &K8sVersion{Major: version.Major, Minor: version.Minor}
-}
-
-func NotServerVersionTarget(clientset *kubernetes.Clientset, minVersion *K8sVersion, maxVersion *K8sVersion) (bool, string) {
-	serverVersion := serverK8sVersion(clientset)
-	if maxVersion != nil && k8sVersionGreater(serverVersion, maxVersion) {
-		return true, "Server Version is greater than max target version"
-	}
-	if minVersion != nil && k8sVersionLesser(serverVersion, minVersion) {
-		return true, "Server Version is lesser than min target version"
-	}
-	return false, ""
-}
 
 func DoesNamespaceExist(clientset *kubernetes.Clientset, namespace string) (bool, error) {
 	_, err := clientset.CoreV1().Namespaces().Get(context.Background(), namespace, metav1.GetOptions{})
@@ -85,15 +27,11 @@ func DoesNamespaceExist(clientset *kubernetes.Clientset, namespace string) (bool
 func IsNamespaceDeleted(clientset *kubernetes.Clientset, namespace string) wait.ConditionFunc {
 	return func() (bool, error) {
 		_, err := clientset.CoreV1().Namespaces().Get(context.Background(), namespace, metav1.GetOptions{})
-		if err != nil {
+		if apierrors.IsNotFound(err) {
 			return true, nil
 		}
 		return false, err
 	}
-}
-
-func serverVersion(clientset *kubernetes.Clientset) (*version.Info, error) {
-	return clientset.Discovery().ServerVersion()
 }
 
 func CreateCredentialsSecret(clientset *kubernetes.Clientset, data []byte, namespace string, credSecretRef string) error {
@@ -129,7 +67,7 @@ func DeleteSecret(clientset *kubernetes.Clientset, namespace string, credSecretR
 func isCredentialsSecretDeleted(clientset *kubernetes.Clientset, namespace string, credSecretRef string) wait.ConditionFunc {
 	return func() (bool, error) {
 		_, err := clientset.CoreV1().Secrets(namespace).Get(context.Background(), credSecretRef, metav1.GetOptions{})
-		if err != nil {
+		if apierrors.IsNotFound(err) {
 			log.Printf("Secret in test namespace has been deleted")
 			return true, nil
 		}
@@ -195,33 +133,4 @@ func GetPodContainerLogs(clientset *kubernetes.Clientset, namespace, podname, co
 		return "", err
 	}
 	return buf.String(), nil
-}
-
-func GetDeploymentPodContainerLogs(clientset *kubernetes.Clientset, namespace, deploymentName, containerName string) (string, error) {
-	// get replicasets owned by deployment
-	replicasets, err := clientset.AppsV1().ReplicaSets(namespace).List(context.Background(), metav1.ListOptions{})
-	if err != nil {
-		return "", err
-	}
-	pods, err := clientset.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{})
-	if err != nil {
-		return "", err
-	}
-	var podLogs string
-	for _, r := range replicasets.Items {
-		if r.OwnerReferences[0].Name == deploymentName {
-			// get pods owned by replicasets
-			for _, p := range pods.Items {
-				if p.OwnerReferences[0].Name == r.Name {
-					podLogs += "pod logs for " + p.Name + ":"
-					thisPodLogs, err := GetPodContainerLogs(clientset, namespace, p.Name, containerName)
-					if err != nil {
-						return podLogs, err
-					}
-					podLogs += thisPodLogs
-				}
-			}
-		}
-	}
-	return podLogs, nil
 }

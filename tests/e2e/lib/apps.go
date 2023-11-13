@@ -382,8 +382,7 @@ func AreApplicationPodsRunning(c *kubernetes.Clientset, namespace string) wait.C
 		for _, podInfo := range podList.Items {
 			phase := podInfo.Status.Phase
 			if phase != corev1.PodRunning && phase != corev1.PodSucceeded {
-				ginkgo.GinkgoWriter.Write([]byte(fmt.Sprintf("Pod %v not yet succeeded", podInfo.Name)))
-				ginkgo.GinkgoWriter.Write([]byte(fmt.Sprintf("status: %v", podInfo.Status)))
+				log.Printf("Pod %v not yet succeeded: phase is %v", podInfo.Name, phase)
 				return false, nil
 			}
 		}
@@ -493,7 +492,6 @@ func VerifyBackupRestoreData(clientv1 client.Client, artifact_dir string, namesp
 		makeRequest("POST", appApi+"/todo", time.Now().String())
 		makeRequest("POST", appApi+"/todo", time.Now().Weekday().String())
 	}
-
 	//get response Data if response status is 200
 	respData, err := getResponseData(appEndpoint)
 	if err != nil {
@@ -511,7 +509,6 @@ func VerifyBackupRestoreData(clientv1 client.Client, artifact_dir string, namesp
 		if err != nil {
 			return err
 		}
-		os.Remove(backupFile)
 		log.Printf("Data came from backup-file\n %s\n", backupData)
 		backDataIsEqual := false
 		log.Printf("Data from the response after restore\n %s\n", respData)
@@ -531,47 +528,34 @@ func VerifyBackupRestoreData(clientv1 client.Client, artifact_dir string, namesp
 
 // VerifyVolumeData for application with two volumes
 func verifyVolume(volumeFile string, volumeApi string, prebackupState bool, backupRestoretype BackupRestoreType) error {
-	if prebackupState {
-		// delete volumeFile if it exists
-		if _, err := os.Stat(volumeFile); err == nil {
-			os.Remove(volumeFile)
-		}
-	}
 	//get response Data if response status is 200
 	volData, err := getResponseData(volumeApi)
 	if err != nil {
 		return err
 	}
-	if backupRestoretype == CSI || backupRestoretype == RESTIC || backupRestoretype == KOPIA {
-		if prebackupState {
-			fmt.Printf("Writing data to volumeFile (volume-data.txt): \n %s\n", volData)
-			err := os.WriteFile(volumeFile, volData, 0644)
-			if err != nil {
-				return err
-			}
-
-		} else {
-			volumeBackupData, err := os.ReadFile(volumeFile)
-			if err != nil {
-				return err
-			}
+	if prebackupState {
+		// delete volumeFile if it exists
+		if _, err := os.Stat(volumeFile); err == nil {
 			os.Remove(volumeFile)
-			fmt.Printf("Data came from volume-file\n %s\n", volumeBackupData)
-			fmt.Printf("Volume Data after restore\n %s\n", volData)
-			dataIsIn := false
-			volData, err = getResponseData(volumeApi)
-			if err != nil {
-				return err
-			}
-			dataIsIn = bytes.Contains(volData, volumeBackupData)
-			if dataIsIn != true {
-				fmt.Println("Backup-volume data is not in Restore-volume data")
-				fmt.Printf("volume-Data from the response after restore\n %s\n", volData)
-				return errors.New("Backup data is not in Restore Data")
-			}
+		}
+		log.Printf("Writing data to volumeFile (volume-data.txt): \n %s", volData)
+		err := os.WriteFile(volumeFile, volData, 0644)
+		if err != nil {
+			return err
+		}
+
+	} else {
+		volumeBackupData, err := os.ReadFile(volumeFile)
+		if err != nil {
+			return err
+		}
+		log.Printf("Data came from volume-file\n %s", volumeBackupData)
+		log.Printf("Volume Data after restore\n %s", volData)
+		dataIsIn := bytes.Contains(volData, volumeBackupData)
+		if dataIsIn != true {
+			return errors.New("Backup data is not in Restore Data")
 		}
 	}
-
 	return nil
 }
 

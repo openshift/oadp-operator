@@ -41,7 +41,7 @@ func mongoready(preBackupState bool, twoVol bool, backupRestoreType BackupRestor
 
 func mysqlReady(preBackupState bool, twoVol bool, backupRestoreType BackupRestoreType) VerificationFunction {
 	return VerificationFunction(func(ocClient client.Client, namespace string) error {
-		fmt.Printf("checking for the NAMESPACE: %s\n ", namespace)
+		log.Printf("checking for the NAMESPACE: %s", namespace)
 		// This test confirms that SCC restore logic in our plugin is working
 		Eventually(IsDeploymentReady(ocClient, namespace, "mysql"), timeoutMultiplier*time.Minute*10, time.Second*10).Should(BeTrue())
 		exists, err := DoesSCCExist(ocClient, "mysql-persistent-scc")
@@ -65,22 +65,11 @@ type BackupRestoreCase struct {
 	PreBackupVerify              VerificationFunction
 	PostRestoreVerify            VerificationFunction
 	AppReadyDelay                time.Duration
-	MaxK8SVersion                *K8sVersion
-	MinK8SVersion                *K8sVersion
 	MustGatherFiles              []string            // list of files expected in must-gather under quay.io.../clusters/clustername/... ie. "namespaces/openshift-adp/oadp.openshift.io/dpa-ts-example-velero/ts-example-velero.yml"
 	MustGatherValidationFunction *func(string) error // validation function for must-gather where string parameter is the path to "quay.io.../clusters/clustername/"
 }
 
 func runBackupAndRestore(brCase BackupRestoreCase, expectedErr error, updateLastBRcase func(brCase BackupRestoreCase), updateLastInstallTime func()) {
-	if provider == "azure" && (brCase.BackupRestoreType == CSI || brCase.BackupRestoreType == CSIDataMover) {
-		if brCase.MinK8SVersion == nil {
-			brCase.MinK8SVersion = &K8sVersion{Major: "1", Minor: "23"}
-		}
-	}
-	if notVersionTarget, reason := NotServerVersionTarget(kubernetesClientForSuiteRun, brCase.MinK8SVersion, brCase.MaxK8SVersion); notVersionTarget {
-		Skip(reason)
-	}
-
 	updateLastBRcase(brCase)
 
 	err := dpaCR.Build(brCase.BackupRestoreType)
@@ -154,6 +143,7 @@ func runBackupAndRestore(brCase BackupRestoreCase, expectedErr error, updateLast
 	nsRequiresResticDCWorkaround, err := NamespaceRequiresResticDCWorkaround(dpaCR.Client, brCase.ApplicationNamespace)
 	Expect(err).ToNot(HaveOccurred())
 
+	// TODO this should be a function, not an arbitrary sleep
 	log.Printf("Sleeping for %v to allow application to be ready for case %s", brCase.AppReadyDelay, brCase.Name)
 	time.Sleep(brCase.AppReadyDelay)
 	// create backup
@@ -163,6 +153,7 @@ func runBackupAndRestore(brCase BackupRestoreCase, expectedErr error, updateLast
 
 	// wait for backup to not be running
 	Eventually(IsBackupDone(dpaCR.Client, namespace, backupName), timeoutMultiplier*time.Minute*20, time.Second*10).Should(BeTrue())
+	// TODO only log on fail?
 	GinkgoWriter.Println(DescribeBackup(veleroClientForSuiteRun, csiClientForSuiteRun, dpaCR.Client, backup))
 	Expect(BackupErrorLogs(kubernetesClientForSuiteRun, dpaCR.Client, backup)).To(Equal([]string{}))
 
@@ -191,6 +182,7 @@ func runBackupAndRestore(brCase BackupRestoreCase, expectedErr error, updateLast
 	restore, err := CreateRestoreFromBackup(dpaCR.Client, namespace, backupName, restoreName)
 	Expect(err).ToNot(HaveOccurred())
 	Eventually(IsRestoreDone(dpaCR.Client, namespace, restoreName), timeoutMultiplier*time.Minute*60, time.Second*10).Should(BeTrue())
+	// TODO only log on fail?
 	GinkgoWriter.Println(DescribeRestore(veleroClientForSuiteRun, dpaCR.Client, restore))
 	Expect(RestoreErrorLogs(kubernetesClientForSuiteRun, dpaCR.Client, restore)).To(Equal([]string{}))
 
@@ -267,10 +259,6 @@ var _ = Describe("Backup and restore tests", func() {
 	updateLastInstallTime := func() {
 		lastInstallTime = time.Now()
 	}
-
-	var _ = BeforeEach(func() {
-		dpaCR.Name = "ts-" + instanceName
-	})
 
 	var _ = AfterEach(func(ctx SpecContext) {
 		tearDownBackupAndRestore(lastBRCase, lastInstallTime, ctx.SpecReport())

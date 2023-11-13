@@ -22,10 +22,6 @@ var _ = Describe("Backup and restore tests with must-gather", func() {
 		lastInstallTime = time.Now()
 	}
 
-	var _ = BeforeEach(func() {
-		dpaCR.Name = "ts-" + instanceName
-	})
-
 	var _ = AfterEach(func(ctx SpecContext) {
 		tearDownBackupAndRestore(lastBRCase, lastInstallTime, ctx.SpecReport())
 	})

@@ -95,6 +95,7 @@ var csiClientForSuiteRun *snapshotv1client.Clientset
 var dpaCR *DpaCustomResource
 
 var _ = BeforeSuite(func() {
+	// TODO create logger (hh:mm:ss message) to be used by all functions
 	flag.Parse()
 	errString := LoadDpaSettingsFromJson(settings)
 	if errString != "" {
@@ -123,8 +124,7 @@ var _ = BeforeSuite(func() {
 		Provider:  provider,
 	}
 	dpaCR.CustomResource = Dpa
-	testSuiteInstanceName := "ts-" + instanceName
-	dpaCR.Name = testSuiteInstanceName
+	dpaCR.Name = "ts-" + instanceName
 
 	bslCredFileData, err := utils.ReadFile(bslCredFile)
 	Expect(err).NotTo(HaveOccurred())

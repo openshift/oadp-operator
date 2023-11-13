@@ -38,6 +38,9 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 		TestCarriageReturn bool
 		WantError          bool
 	}
+	type deletionCase struct {
+		WantError bool
+	}
 
 	var lastInstallingApplicationNamespace string
 	var lastInstallTime time.Time
@@ -84,19 +87,18 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 			lastInstallTime = time.Now()
 			err = dpaCR.CreateOrUpdate(runTimeClientForSuiteRun, installCase.DpaSpec)
 			Expect(err).ToNot(HaveOccurred())
+			// sleep to accommodate throttled CI environment
+			// TODO this should be a function, not an arbitrary sleep
+			time.Sleep(20 * time.Second)
+			// Capture logs right after DPA is reconciled for diffing after one minute.
+			Eventually(dpaCR.GetNoErr(runTimeClientForSuiteRun).Status.Conditions[0].Type, timeoutMultiplier*time.Minute*3, time.Second*5).Should(Equal("Reconciled"))
 			if installCase.WantError {
-				// Eventually()
 				log.Printf("Test case expected to error. Waiting for the error to show in DPA Status")
-				Eventually(dpaCR.GetNoErr(runTimeClientForSuiteRun).Status.Conditions[0].Type, timeoutMultiplier*time.Minute*3, time.Second*5).Should(Equal("Reconciled"))
 				Eventually(dpaCR.GetNoErr(runTimeClientForSuiteRun).Status.Conditions[0].Status, timeoutMultiplier*time.Minute*3, time.Second*5).Should(Equal(metav1.ConditionFalse))
 				Eventually(dpaCR.GetNoErr(runTimeClientForSuiteRun).Status.Conditions[0].Reason, timeoutMultiplier*time.Minute*3, time.Second*5).Should(Equal("Error"))
 				Eventually(dpaCR.GetNoErr(runTimeClientForSuiteRun).Status.Conditions[0].Message, timeoutMultiplier*time.Minute*3, time.Second*5).Should(Equal(expectedErr.Error()))
 				return
 			}
-			// sleep to accomodates throttled CI environment
-			time.Sleep(20 * time.Second)
-			// Capture logs right after DPA is reconciled for diffing after one minute.
-			Eventually(dpaCR.GetNoErr(runTimeClientForSuiteRun).Status.Conditions[0].Type, timeoutMultiplier*time.Minute*3, time.Second*5).Should(Equal("Reconciled"))
 			timeReconciled := time.Now()
 			adpLogsAtReconciled, err := GetOpenShiftADPLogs(kubernetesClientForSuiteRun, dpaCR.Namespace)
 			Expect(err).NotTo(HaveOccurred())
@@ -118,9 +120,9 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 				}
 			}
 
-			// Check for velero tolerations
+			// Check for velero tolerances
 			if len(dpa.Spec.Configuration.Velero.PodConfig.Tolerations) > 0 {
-				log.Printf("Checking for velero tolerations")
+				log.Printf("Checking for velero tolerances")
 				Eventually(VerifyVeleroTolerations(kubernetesClientForSuiteRun, namespace, dpa.Spec.Configuration.Velero.PodConfig.Tolerations), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 			}
 
@@ -147,7 +149,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 				Eventually(IsNodeAgentDaemonsetDeleted(kubernetesClientForSuiteRun, namespace), timeoutMultiplier*time.Minute*4, time.Second*5).Should(BeTrue())
 			}
 
-			// check defaultplugins
+			// check defaultPlugins
 			log.Printf("Waiting for velero deployment to have expected plugins")
 			if len(dpa.Spec.Configuration.Velero.DefaultPlugins) > 0 {
 				log.Printf("Checking for default plugins")
@@ -156,7 +158,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 				}
 			}
 
-			// check customplugins
+			// check customPlugins
 			log.Printf("Waiting for velero deployment to have expected custom plugins")
 			if len(dpa.Spec.Configuration.Velero.CustomPlugins) > 0 {
 				log.Printf("Checking for custom plugins")
@@ -165,17 +167,17 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 				}
 			}
 
-			log.Printf("Waiting for restic daemonset to have nodeselector")
+			log.Printf("Waiting for restic daemonSet to have nodeSelector")
 			if dpa.Spec.Configuration.Restic != nil && dpa.Spec.Configuration.Restic.PodConfig != nil {
 				for key, value := range dpa.Spec.Configuration.Restic.PodConfig.NodeSelector {
-					log.Printf("Waiting for restic daemonset to get node selector")
+					log.Printf("Waiting for restic daemonSet to get node selector")
 					Eventually(NodeAgentDaemonSetHasNodeSelector(kubernetesClientForSuiteRun, namespace, key, value), timeoutMultiplier*time.Minute*6, time.Second*5).Should(BeTrue())
 				}
 			}
-			log.Printf("Waiting for nodeAgent daemonset to have nodeselector")
+			log.Printf("Waiting for nodeAgent daemonSet to have nodeSelector")
 			if dpa.Spec.Configuration.NodeAgent != nil && dpa.Spec.Configuration.NodeAgent.PodConfig != nil {
 				for key, value := range dpa.Spec.Configuration.NodeAgent.PodConfig.NodeSelector {
-					log.Printf("Waiting for NodeAgent daemonset to get node selector")
+					log.Printf("Waiting for NodeAgent daemonSet to get node selector")
 					Eventually(NodeAgentDaemonSetHasNodeSelector(kubernetesClientForSuiteRun, namespace, key, value), timeoutMultiplier*time.Minute*6, time.Second*5).Should(BeTrue())
 				}
 			}
@@ -723,9 +725,6 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 		}, fmt.Errorf("region for AWS backupstoragelocation cannot be empty when s3ForcePathStyle is true or when backing up images")),
 	)
 
-	type deletionCase struct {
-		WantError bool
-	}
 	DescribeTable("DPA / Restic Deletion test",
 		func(installCase deletionCase) {
 			log.Printf("Building dpa with restic")
