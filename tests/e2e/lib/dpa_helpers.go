@@ -302,6 +302,7 @@ func GetVeleroPods(c *kubernetes.Clientset, namespace string) (*corev1.PodList, 
 	return podList, nil
 }
 
+// TODO duplications with AreApplicationPodsRunning form apps.go
 func AreVeleroPodsRunning(c *kubernetes.Clientset, namespace string) wait.ConditionFunc {
 	return func() (bool, error) {
 		podList, err := GetVeleroPods(c, namespace)
@@ -309,7 +310,7 @@ func AreVeleroPodsRunning(c *kubernetes.Clientset, namespace string) wait.Condit
 			return false, err
 		}
 		if podList.Items == nil || len(podList.Items) == 0 {
-			GinkgoWriter.Println("velero pods not found")
+			log.Println("velero pods not found")
 			return false, nil
 		}
 		for _, podInfo := range (*podList).Items {
@@ -318,7 +319,7 @@ func AreVeleroPodsRunning(c *kubernetes.Clientset, namespace string) wait.Condit
 				return false, nil
 			}
 		}
-		GinkgoWriter.Println("velero pods are running")
+		log.Println("velero pods are running")
 		return true, nil
 	}
 }

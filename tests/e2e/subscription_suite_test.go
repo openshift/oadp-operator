@@ -20,10 +20,6 @@ var _ = Describe("Subscription Config Suite Test", func() {
 		stream          string
 	}
 
-	var _ = BeforeEach(func() {
-		dpaCR.Name = "ts-" + instanceName
-	})
-
 	var _ = AfterEach(func() {
 		err := dpaCR.Delete(runTimeClientForSuiteRun)
 		Expect(err).ToNot(HaveOccurred())
