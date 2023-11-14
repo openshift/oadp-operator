@@ -72,7 +72,7 @@ ENVTEST_K8S_VERSION = 1.21
 # To re-generate a bundle for another specific version without changing the standard setup, you can:
 # - use the VERSION as arg of the bundle target (e.g make bundle VERSION=0.0.2)
 # - use environment variables to overwrite this value (e.g export VERSION=0.0.2)
-DEFAULT_VERSION := 99.0.0
+DEFAULT_VERSION := 1.3.0
 VERSION ?= $(DEFAULT_VERSION)
 
 # CHANNELS define the bundle channels used in the bundle.
@@ -108,7 +108,7 @@ IMAGE_TAG_BASE ?= openshift.io/oadp-operator
 BUNDLE_IMG ?= $(IMAGE_TAG_BASE)-bundle:v$(VERSION)
 
 # Image URL to use all building/pushing image targets
-IMG ?= quay.io/konveyor/oadp-operator:latest
+IMG ?= quay.io/konveyor/oadp-operator:oadp-1.3
 # Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
 CRD_OPTIONS ?= "crd:trivialVersions=true,preserveUnknownFields=false"
 
