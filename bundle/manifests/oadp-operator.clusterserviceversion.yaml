@@ -151,7 +151,7 @@ metadata:
     capabilities: Seamless Upgrades
     categories: OpenShift Optional
     certified: "false"
-    containerImage: quay.io/konveyor/oadp-operator:latest
+    containerImage: quay.io/konveyor/oadp-operator:oadp-1.3
     createdAt: "2020-09-08T12:21:00Z"
     description: OADP (OpenShift API for Data Protection) operator sets up and installs
       Data Protection Applications on the OpenShift platform.
@@ -165,7 +165,7 @@ metadata:
     features.operators.openshift.io/token-auth-aws: "true"
     features.operators.openshift.io/token-auth-azure: "false"
     features.operators.openshift.io/token-auth-gcp: "false"
-    olm.skipRange: '>=0.0.0 <99.0.0'
+    olm.skipRange: '>=0.0.0 <1.3.0'
     operatorframework.io/suggested-namespace: openshift-adp
     operators.openshift.io/infrastructure-features: '["Disconnected"]'
     operators.openshift.io/valid-subscription: '["OpenShift Container Platform", "OpenShift
@@ -179,7 +179,7 @@ metadata:
     operatorframework.io/arch.arm64: supported
     operatorframework.io/arch.ppc64le: supported
     operatorframework.io/arch.s390x: supported
-  name: oadp-operator.v99.0.0
+  name: oadp-operator.v1.3.0
   namespace: openshift-adp
 spec:
   apiservicedefinitions: {}
@@ -837,24 +837,24 @@ spec:
                     fieldRef:
                       fieldPath: metadata.annotations['olm.targetNamespaces']
                 - name: RELATED_IMAGE_VELERO
-                  value: quay.io/konveyor/velero:latest
+                  value: quay.io/konveyor/velero:oadp-1.3
                 - name: RELATED_IMAGE_VELERO_RESTORE_HELPER
-                  value: quay.io/konveyor/velero-restore-helper:latest
+                  value: quay.io/konveyor/velero-restore-helper:oadp-1.3
                 - name: RELATED_IMAGE_OPENSHIFT_VELERO_PLUGIN
-                  value: quay.io/konveyor/openshift-velero-plugin:latest
+                  value: quay.io/konveyor/openshift-velero-plugin:oadp-1.3
                 - name: RELATED_IMAGE_VELERO_PLUGIN_FOR_AWS
-                  value: quay.io/konveyor/velero-plugin-for-aws:latest
+                  value: quay.io/konveyor/velero-plugin-for-aws:oadp-1.3
                 - name: RELATED_IMAGE_VELERO_PLUGIN_FOR_MICROSOFT_AZURE
-                  value: quay.io/konveyor/velero-plugin-for-microsoft-azure:latest
+                  value: quay.io/konveyor/velero-plugin-for-microsoft-azure:oadp-1.3
                 - name: RELATED_IMAGE_VELERO_PLUGIN_FOR_GCP
-                  value: quay.io/konveyor/velero-plugin-for-gcp:latest
+                  value: quay.io/konveyor/velero-plugin-for-gcp:oadp-1.3
                 - name: RELATED_IMAGE_VELERO_PLUGIN_FOR_CSI
-                  value: quay.io/konveyor/velero-plugin-for-csi:latest
+                  value: quay.io/konveyor/velero-plugin-for-csi:oadp-1.3
                 - name: RELATED_IMAGE_KUBEVIRT_VELERO_PLUGIN
                   value: quay.io/konveyor/kubevirt-velero-plugin:v0.2.0
                 - name: RELATED_IMAGE_MUSTGATHER
                   value: registry.redhat.io/oadp/oadp-mustgather-rhel8:v1.2
-                image: quay.io/konveyor/oadp-operator:latest
+                image: quay.io/konveyor/oadp-operator:oadp-1.3
                 imagePullPolicy: Always
                 livenessProbe:
                   httpGet:
@@ -960,22 +960,22 @@ spec:
   provider:
     name: Red Hat
   relatedImages:
-  - image: quay.io/konveyor/velero:latest
+  - image: quay.io/konveyor/velero:oadp-1.3
     name: velero
-  - image: quay.io/konveyor/velero-restore-helper:latest
+  - image: quay.io/konveyor/velero-restore-helper:oadp-1.3
     name: velero-restore-helper
-  - image: quay.io/konveyor/openshift-velero-plugin:latest
+  - image: quay.io/konveyor/openshift-velero-plugin:oadp-1.3
     name: openshift-velero-plugin
-  - image: quay.io/konveyor/velero-plugin-for-aws:latest
+  - image: quay.io/konveyor/velero-plugin-for-aws:oadp-1.3
     name: velero-plugin-for-aws
-  - image: quay.io/konveyor/velero-plugin-for-microsoft-azure:latest
+  - image: quay.io/konveyor/velero-plugin-for-microsoft-azure:oadp-1.3
     name: velero-plugin-for-microsoft-azure
-  - image: quay.io/konveyor/velero-plugin-for-gcp:latest
+  - image: quay.io/konveyor/velero-plugin-for-gcp:oadp-1.3
     name: velero-plugin-for-gcp
-  - image: quay.io/konveyor/velero-plugin-for-csi:latest
+  - image: quay.io/konveyor/velero-plugin-for-csi:oadp-1.3
     name: velero-plugin-for-csi
   - image: quay.io/konveyor/kubevirt-velero-plugin:v0.2.0
     name: kubevirt-velero-plugin
   - image: registry.redhat.io/oadp/oadp-mustgather-rhel8:v1.2
     name: mustgather
-  version: 99.0.0
+  version: 1.3.0
