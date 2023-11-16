@@ -84,9 +84,8 @@ func TestOADPE2E(t *testing.T) {
 		t.Fatalf(errString)
 	}
 
-	log.Println("Using velero prefix: " + VeleroPrefix)
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "OADP E2E Suite")
+	RunSpecs(t, "OADP E2E using velero prefix: "+VeleroPrefix)
 }
 
 var kubernetesClientForSuiteRun *kubernetes.Clientset
@@ -96,6 +95,7 @@ var csiClientForSuiteRun *snapshotv1client.Clientset
 var dpaCR *DpaCustomResource
 
 var _ = BeforeSuite(func() {
+	// TODO create logger (hh:mm:ss message) to be used by all functions
 	flag.Parse()
 	errString := LoadDpaSettingsFromJson(settings)
 	if errString != "" {
@@ -124,8 +124,7 @@ var _ = BeforeSuite(func() {
 		Provider:  provider,
 	}
 	dpaCR.CustomResource = Dpa
-	testSuiteInstanceName := "ts-" + instanceName
-	dpaCR.Name = testSuiteInstanceName
+	dpaCR.Name = "ts-" + instanceName
 
 	bslCredFileData, err := utils.ReadFile(bslCredFile)
 	Expect(err).NotTo(HaveOccurred())
