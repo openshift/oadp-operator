@@ -35,14 +35,13 @@ const ReconcileCompleteMessage = "Reconcile complete"
 const OadpOperatorLabel = "openshift.io/oadp"
 const RegistryDeploymentLabel = "openshift.io/oadp-registry"
 
-// +kubebuilder:validation:Enum=aws;gcp;azure;csi;vsm;openshift;kubevirt
+// +kubebuilder:validation:Enum=aws;gcp;azure;csi;openshift;kubevirt
 type DefaultPlugin string
 
 const DefaultPluginAWS DefaultPlugin = "aws"
 const DefaultPluginGCP DefaultPlugin = "gcp"
 const DefaultPluginMicrosoftAzure DefaultPlugin = "azure"
 const DefaultPluginCSI DefaultPlugin = "csi"
-const DefaultPluginVSM DefaultPlugin = "vsm"
 const DefaultPluginOpenShift DefaultPlugin = "openshift"
 const DefaultPluginKubeVirt DefaultPlugin = "kubevirt"
 
@@ -222,99 +221,8 @@ type SnapshotLocation struct {
 	Velero *velero.VolumeSnapshotLocationSpec `json:"velero"`
 }
 
-// DataMover defines the various config for DPA data mover
-type DataMover struct {
-	// enable flag is used to specify whether you want to deploy the volume snapshot mover controller
-	// +optional
-	Enable bool `json:"enable,omitempty"`
-	// User supplied Restic Secret name
-	// +optional
-	CredentialName string `json:"credentialName,omitempty"`
-	// User supplied timeout to be used for VolumeSnapshotBackup and VolumeSnapshotRestore to complete, default value is 10m
-	// +optional
-	Timeout string `json:"timeout,omitempty"`
-	// the number of batched volumeSnapshotBackups that can be inProgress at once, default value is 10
-	// +optional
-	MaxConcurrentBackupVolumes string `json:"maxConcurrentBackupVolumes,omitempty"`
-	// the number of batched volumeSnapshotRestores that can be inProgress at once, default value is 10
-	// +optional
-	MaxConcurrentRestoreVolumes string `json:"maxConcurrentRestoreVolumes,omitempty"`
-	// defines how often (in days) to prune the datamover snapshots from the repository
-	// +optional
-	PruneInterval string `json:"pruneInterval,omitempty"`
-	// defines configurations for data mover volume options for a storageClass
-	// +optional
-	VolumeOptionsForStorageClasses map[string]DataMoverVolumeOptions `json:"volumeOptionsForStorageClasses,omitempty"`
-	// defines the parameters that can be specified for retention of datamover snapshots
-	// +optional
-	SnapshotRetainPolicy *RetainPolicy `json:"snapshotRetainPolicy,omitempty"`
-	// schedule is a cronspec (https://en.wikipedia.org/wiki/Cron#Overview) that
-	// can be used to schedule datamover(volsync) synchronization to occur at regular, time-based
-	// intervals. For example, in order to enforce datamover SnapshotRetainPolicy at a regular interval you need to
-	// specify this Schedule trigger as a cron expression, by default the trigger is a manual trigger. For more details
-	// on Volsync triggers, refer: https://volsync.readthedocs.io/en/stable/usage/triggers.html
-	//+kubebuilder:validation:Pattern=`^(\d+|\*)(/\d+)?(\s+(\d+|\*)(/\d+)?){4}$`
-	//+optional
-	Schedule string `json:"schedule,omitempty"`
-}
-
-// RetainPolicy defines the fields for retention of datamover snapshots
-type RetainPolicy struct {
-	// Hourly defines the number of snapshots to be kept hourly
-	//+optional
-	Hourly string `json:"hourly,omitempty"`
-	// Daily defines the number of snapshots to be kept daily
-	//+optional
-	Daily string `json:"daily,omitempty"`
-	// Weekly defines the number of snapshots to be kept weekly
-	//+optional
-	Weekly string `json:"weekly,omitempty"`
-	// Monthly defines the number of snapshots to be kept monthly
-	//+optional
-	Monthly string `json:"monthly,omitempty"`
-	// Yearly defines the number of snapshots to be kept yearly
-	//+optional
-	Yearly string `json:"yearly,omitempty"`
-	// Within defines the number of snapshots to be kept Within the given time period
-	//+optional
-	Within string `json:"within,omitempty"`
-}
-
-type DataMoverVolumeOptions struct {
-	SourceVolumeOptions      *VolumeOptions `json:"sourceVolumeOptions,omitempty"`
-	DestinationVolumeOptions *VolumeOptions `json:"destinationVolumeOptions,omitempty"`
-}
-
-// VolumeOptions defines configurations for VolSync options
-type VolumeOptions struct {
-	// storageClassName can be used to override the StorageClass of the source
-	// or destination PVC
-	//+optional
-	StorageClassName string `json:"storageClassName,omitempty"`
-	// accessMode can be used to override the accessMode of the source or
-	// destination PVC
-	//+optional
-	AccessMode corev1.PersistentVolumeAccessMode `json:"accessMode,omitempty"`
-	// cacheStorageClassName is the storageClass that should be used when provisioning
-	// the data mover cache volume
-	//+optional
-	CacheStorageClassName string `json:"cacheStorageClassName,omitempty"`
-	// cacheCapacity determines the size of the restic metadata cache volume
-	//+optional
-	CacheCapacity string `json:"cacheCapacity,omitempty"`
-	// cacheAccessMode is the access mode to be used to provision the cache volume
-	//+optional
-	CacheAccessMode string `json:"cacheAccessMode,omitempty"`
-}
-
 // Features defines the configuration for the DPA to enable the tech preview features
-type Features struct {
-	// (do not use warning) Contains data mover specific configurations
-	// dataMover is for backwards compatibility and is not necessary in OADP 1.3
-	// dataMover will be removed with the OADP 1.4
-	// +optional
-	DataMover *DataMover `json:"dataMover,omitempty"`
-}
+type Features struct{}
 
 // DataProtectionApplicationSpec defines the desired state of Velero
 type DataProtectionApplicationSpec struct {
