@@ -91,13 +91,6 @@ make test-e2e-cleanup
 ```
 And clean the bucket in your provider.
 
-## CI jobs
-
-The CI jobs are defined in the following folders
-- https://github.com/openshift/release/tree/master/core-services/prow/02_config/openshift/oadp-operator
-- https://github.com/openshift/release/tree/master/ci-operator/config/openshift/oadp-operator
-- https://github.com/openshift/release/tree/master/ci-operator/jobs/openshift/oadp-operator
-
 ## Debugging
 
 When you run `make test-e2e`, the following steps are executed
