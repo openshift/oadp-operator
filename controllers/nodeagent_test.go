@@ -1296,49 +1296,36 @@ func Test_getFsPvHostPath(t *testing.T) {
 	tests := []struct {
 		name         string
 		platformType string
-		envRestic    string
 		envFS        string
 		want         string
 	}{
 		{
 			name:         "generic pv host path returned for empty platform type case",
 			platformType: "",
-			envRestic:    "",
 			envFS:        "",
 			want:         GenericPVHostPath,
 		},
 		{
 			name:         "IBMCloud pv host path returned for IBMCloud platform type",
 			platformType: IBMCloudPlatform,
-			envRestic:    "",
 			envFS:        "",
 			want:         IBMCloudPVHostPath,
 		},
 		{
-			name:         "empty platform type with restic env var set",
-			platformType: "",
-			envRestic:    "/foo/restic/bar",
-			envFS:        "",
-			want:         "/foo/restic/bar",
-		},
-		{
 			name:         "empty platform type with fs env var set",
 			platformType: "",
-			envRestic:    "",
 			envFS:        "/foo/file-system/bar",
 			want:         "/foo/file-system/bar",
 		},
 		{
 			name:         "IBMCloud platform type but env var also set, env var takes precedence",
 			platformType: IBMCloudPlatform,
-			envRestic:    "",
 			envFS:        "/foo/file-system/env/var/override",
 			want:         "/foo/file-system/env/var/override",
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Setenv(ResticPVHostPathEnvVar, tt.envRestic)
 			t.Setenv(FSPVHostPathEnvVar, tt.envFS)
 			if got := getFsPvHostPath(tt.platformType); got != tt.want {
 				t.Errorf("getFsPvHostPath() = %v, want %v", got, tt.want)

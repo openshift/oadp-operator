@@ -24,10 +24,6 @@ func (r *DPAReconciler) ValidateDataProtectionCR(log logr.Logger) (bool, error) 
 		return false, errors.New("DPA CR Velero configuration cannot be nil")
 	}
 
-	if dpa.Spec.Configuration.Restic != nil && dpa.Spec.Configuration.NodeAgent != nil {
-		return false, errors.New("DPA CR cannot have restic (deprecated in OADP 1.3) as well as nodeAgent options at the same time")
-	}
-
 	if dpa.Spec.Configuration.Velero.NoDefaultBackupLocation {
 		if len(dpa.Spec.BackupLocations) != 0 {
 			return false, errors.New("DPA CR Velero configuration cannot have backup locations if noDefaultBackupLocation is set")
@@ -53,6 +49,11 @@ func (r *DPAReconciler) ValidateDataProtectionCR(log logr.Logger) (bool, error) 
 		return false, errors.New("Delete vsm from spec.configuration.velero.defaultPlugins and dataMover object from spec.features. Use Velero Built-in Data Mover instead")
 	}
 
+	// check for ResticConfig (OADP 1.3 or below) syntax
+	if dpa.Spec.Configuration != nil && dpa.Spec.Configuration.Restic != nil {
+		return false, errors.New("Delete restic object from spec.configuration, use spec.configuration.nodeAgent instead")
+	}
+
 	if val, found := dpa.Spec.UnsupportedOverrides[oadpv1alpha1.OperatorTypeKey]; found && val != oadpv1alpha1.OperatorTypeMTC {
 		return false, errors.New("only mtc operator type override is supported")
 	}
@@ -66,11 +67,12 @@ func (r *DPAReconciler) ValidateDataProtectionCR(log logr.Logger) (bool, error) 
 	if _, err := r.getVeleroResourceReqs(&dpa); err != nil {
 		return false, err
 	}
-	if _, err := getResticResourceReqs(&dpa); err != nil {
-		return false, err
-	}
+
 	if _, err := getNodeAgentResourceReqs(&dpa); err != nil {
 		return false, err
+	}
+	if validBsl, err := r.ValidateBackupStorageLocations(dpa); !validBsl || err != nil {
+		return validBsl, err
 	}
 
 	// validate non-admin enable and tech-preview-ack
