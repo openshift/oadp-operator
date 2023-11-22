@@ -82,16 +82,7 @@ func (r *DPAReconciler) ReconcileNodeAgentDaemonset(log logr.Logger) (bool, erro
 		ObjectMeta: getNodeAgentObjectMeta(r),
 	}
 
-	if dpa.Spec.Configuration.Restic != nil {
-		// V(-1) corresponds to the warn level
-		var deprecationMsg string = "(Deprecation Warning) Use nodeAgent instead of restic, which is deprecated and will be removed with the OADP 1.4"
-		log.V(-1).Info(deprecationMsg)
-		r.EventRecorder.Event(&dpa, corev1.EventTypeWarning, "DeprecationResticConfig", deprecationMsg)
-	}
-
-	if dpa.Spec.Configuration.Restic != nil && dpa.Spec.Configuration.Restic.Enable != nil && *dpa.Spec.Configuration.Restic.Enable {
-		deleteDaemonSet = false
-	} else if dpa.Spec.Configuration.NodeAgent != nil && dpa.Spec.Configuration.NodeAgent.Enable != nil && *dpa.Spec.Configuration.NodeAgent.Enable {
+	if dpa.Spec.Configuration.NodeAgent != nil && dpa.Spec.Configuration.NodeAgent.Enable != nil && *dpa.Spec.Configuration.NodeAgent.Enable {
 		deleteDaemonSet = false
 	}
 
@@ -198,9 +189,7 @@ func (r *DPAReconciler) buildNodeAgentDaemonset(dpa *oadpv1alpha1.DataProtection
 
 	// get resource requirements for nodeAgent ds
 	// ignoring err here as it is checked in validator.go
-	if dpa.Spec.Configuration.Restic != nil {
-		nodeAgentResourceReqs, _ = getResticResourceReqs(dpa)
-	} else if dpa.Spec.Configuration.NodeAgent != nil {
+	if dpa.Spec.Configuration.NodeAgent != nil {
 		nodeAgentResourceReqs, _ = getNodeAgentResourceReqs(dpa)
 	} else {
 		return nil, fmt.Errorf("NodeAgent or Restic configuration cannot be nil")
@@ -229,24 +218,14 @@ func (r *DPAReconciler) buildNodeAgentDaemonset(dpa *oadpv1alpha1.DataProtection
 }
 
 func (r *DPAReconciler) customizeNodeAgentDaemonset(dpa *oadpv1alpha1.DataProtectionApplication, ds *appsv1.DaemonSet) (*appsv1.DaemonSet, error) {
-	if dpa.Spec.Configuration == nil || (dpa.Spec.Configuration.Restic == nil && dpa.Spec.Configuration.NodeAgent == nil) {
-		// if restic and nodeAgent are not configured, therefore not enabled, return early.
+	if dpa.Spec.Configuration == nil || dpa.Spec.Configuration.NodeAgent == nil {
+		// if nodeAgent is not configured, therefore not enabled, return early.
 		return nil, nil
-	}
-
-	var useResticConf bool = true
-
-	if dpa.Spec.Configuration.NodeAgent != nil {
-		useResticConf = false
 	}
 
 	// add custom pod labels
 	var err error
-	if useResticConf {
-		if dpa.Spec.Configuration.Restic.PodConfig != nil && dpa.Spec.Configuration.Restic.PodConfig.Labels != nil {
-			ds.Spec.Template.Labels, err = common.AppendUniqueKeyTOfTMaps(ds.Spec.Template.Labels, dpa.Spec.Configuration.Restic.PodConfig.Labels)
-		}
-	} else if dpa.Spec.Configuration.NodeAgent.PodConfig != nil && dpa.Spec.Configuration.NodeAgent.PodConfig.Labels != nil {
+	if dpa.Spec.Configuration.NodeAgent.PodConfig != nil && dpa.Spec.Configuration.NodeAgent.PodConfig.Labels != nil {
 		ds.Spec.Template.Labels, err = common.AppendUniqueKeyTOfTMaps(ds.Spec.Template.Labels, dpa.Spec.Configuration.NodeAgent.PodConfig.Labels)
 	}
 	if err != nil {
@@ -260,16 +239,9 @@ func (r *DPAReconciler) customizeNodeAgentDaemonset(dpa *oadpv1alpha1.DataProtec
 	}
 
 	// customize template specs
-	if useResticConf {
-		ds.Spec.Template.Spec.SecurityContext = &corev1.PodSecurityContext{
-			RunAsUser:          pointer.Int64(0),
-			SupplementalGroups: dpa.Spec.Configuration.Restic.SupplementalGroups,
-		}
-	} else {
-		ds.Spec.Template.Spec.SecurityContext = &corev1.PodSecurityContext{
-			RunAsUser:          pointer.Int64(0),
-			SupplementalGroups: dpa.Spec.Configuration.NodeAgent.SupplementalGroups,
-		}
+	ds.Spec.Template.Spec.SecurityContext = &corev1.PodSecurityContext{
+		RunAsUser:          pointer.Int64(0),
+		SupplementalGroups: dpa.Spec.Configuration.NodeAgent.SupplementalGroups,
 	}
 
 	// append certs volume
@@ -289,12 +261,7 @@ func (r *DPAReconciler) customizeNodeAgentDaemonset(dpa *oadpv1alpha1.DataProtec
 	}
 
 	// Update with any pod config values
-	if useResticConf {
-		if dpa.Spec.Configuration.Restic.PodConfig != nil {
-			ds.Spec.Template.Spec.Tolerations = dpa.Spec.Configuration.Restic.PodConfig.Tolerations
-			ds.Spec.Template.Spec.NodeSelector = dpa.Spec.Configuration.Restic.PodConfig.NodeSelector
-		}
-	} else if dpa.Spec.Configuration.NodeAgent.PodConfig != nil {
+	if dpa.Spec.Configuration.NodeAgent.PodConfig != nil {
 		ds.Spec.Template.Spec.Tolerations = dpa.Spec.Configuration.NodeAgent.PodConfig.Tolerations
 		ds.Spec.Template.Spec.NodeSelector = dpa.Spec.Configuration.NodeAgent.PodConfig.NodeSelector
 	}
@@ -315,11 +282,7 @@ func (r *DPAReconciler) customizeNodeAgentDaemonset(dpa *oadpv1alpha1.DataProtec
 			MountPath: "/etc/ssl/certs",
 		})
 		// append PodConfig envs to nodeAgent container
-		if useResticConf {
-			if dpa.Spec.Configuration.Restic.PodConfig != nil && dpa.Spec.Configuration.Restic.PodConfig.Env != nil {
-				nodeAgentContainer.Env = common.AppendUniqueEnvVars(nodeAgentContainer.Env, dpa.Spec.Configuration.Restic.PodConfig.Env)
-			}
-		} else if dpa.Spec.Configuration.NodeAgent.PodConfig != nil && dpa.Spec.Configuration.NodeAgent.PodConfig.Env != nil {
+		if dpa.Spec.Configuration.NodeAgent.PodConfig != nil && dpa.Spec.Configuration.NodeAgent.PodConfig.Env != nil {
 			nodeAgentContainer.Env = common.AppendUniqueEnvVars(nodeAgentContainer.Env, dpa.Spec.Configuration.NodeAgent.PodConfig.Env)
 		}
 

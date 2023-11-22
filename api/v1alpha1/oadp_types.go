@@ -121,7 +121,8 @@ type PodConfig struct {
 	Env []corev1.EnvVar `json:"env,omitempty"`
 }
 
-type NodeAgentCommonFields struct {
+// NodeAgentConfig is the configuration for node server
+type NodeAgentConfig struct {
 	// enable defines a boolean pointer whether we want the daemonset to
 	// exist or not
 	// +optional
@@ -134,13 +135,6 @@ type NodeAgentCommonFields struct {
 	Timeout string `json:"timeout,omitempty"`
 	// Pod specific configuration
 	PodConfig *PodConfig `json:"podConfig,omitempty"`
-}
-
-// NodeAgentConfig is the configuration for node server
-type NodeAgentConfig struct {
-	// Embedding NodeAgentCommonFields
-	// +optional
-	NodeAgentCommonFields `json:",inline"`
 
 	// The type of uploader to transfer the data of pod volumes, the supported values are 'restic' or 'kopia'
 	// +kubebuilder:validation:Enum=restic;kopia
@@ -148,22 +142,9 @@ type NodeAgentConfig struct {
 	UploaderType string `json:"uploaderType"`
 }
 
-// ResticConfig is the configuration for restic server
-type ResticConfig struct {
-	// Embedding NodeAgentCommonFields
-	// +optional
-	NodeAgentCommonFields `json:",inline"`
-}
-
 // ApplicationConfig defines the configuration for the Data Protection Application
 type ApplicationConfig struct {
 	Velero *VeleroConfig `json:"velero,omitempty"`
-	// (deprecation warning) ResticConfig is the configuration for restic DaemonSet.
-	// restic is for backwards compatibility and is replaced by the nodeAgent
-	// restic will be removed with the OADP 1.4
-	// +kubebuilder:deprecatedversion:warning=1.3
-	// +optional
-	Restic *ResticConfig `json:"restic,omitempty"`
 
 	// NodeAgent is needed to allow selection between kopia or restic
 	// +optional
@@ -334,8 +315,6 @@ func (dpa *DataProtectionApplication) AutoCorrect() {
 		if dpa.Spec.Configuration != nil {
 			if dpa.Spec.Configuration.NodeAgent != nil && len(dpa.Spec.Configuration.NodeAgent.Timeout) > 0 {
 				fsBackupTimeout = dpa.Spec.Configuration.NodeAgent.Timeout
-			} else if dpa.Spec.Configuration.Restic != nil && len(dpa.Spec.Configuration.Restic.Timeout) > 0 {
-				fsBackupTimeout = dpa.Spec.Configuration.Restic.Timeout
 			}
 		}
 		if pvOperationTimeout, err := time.ParseDuration(fsBackupTimeout); err == nil && dpa.Spec.Configuration.Velero.Args.PodVolumeOperationTimeout == nil {

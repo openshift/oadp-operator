@@ -331,7 +331,6 @@ nullables:
 nullable-crds-bundle: DPA_SPEC_CONFIG_PROP = .spec.versions.0.schema.openAPIV3Schema.properties.spec.properties.configuration.properties
 nullable-crds-bundle: PROP_RESOURCE_ALLOC = properties.podConfig.properties.resourceAllocations
 nullable-crds-bundle: VELERO_RESOURCE_ALLOC = $(DPA_SPEC_CONFIG_PROP).velero.$(PROP_RESOURCE_ALLOC)
-nullable-crds-bundle: RESTIC_RESOURCE_ALLOC = $(DPA_SPEC_CONFIG_PROP).restic.$(PROP_RESOURCE_ALLOC)
 nullable-crds-bundle: DPA_CRD_YAML ?= bundle/manifests/oadp.openshift.io_dataprotectionapplications.yaml
 nullable-crds-bundle: yq
 # Velero CRD
@@ -344,17 +343,6 @@ nullable-crds-bundle: yq
 	@$(YQ) '$(VELERO_RESOURCE_ALLOC).properties.requests.nullable = true' $(DPA_CRD_YAML) > $(DPA_CRD_YAML).yqresult
 	@mv $(DPA_CRD_YAML).yqresult $(DPA_CRD_YAML)
 	@$(YQ) '$(VELERO_RESOURCE_ALLOC).properties.requests.additionalProperties.nullable = true' $(DPA_CRD_YAML) > $(DPA_CRD_YAML).yqresult
-	@mv $(DPA_CRD_YAML).yqresult $(DPA_CRD_YAML)
-# Restic CRD
-	@$(YQ) '$(RESTIC_RESOURCE_ALLOC).nullable = true' $(DPA_CRD_YAML) > $(DPA_CRD_YAML).yqresult
-	@mv $(DPA_CRD_YAML).yqresult $(DPA_CRD_YAML)
-	@$(YQ) '$(RESTIC_RESOURCE_ALLOC).properties.limits.nullable = true' $(DPA_CRD_YAML) > $(DPA_CRD_YAML).yqresult
-	@mv $(DPA_CRD_YAML).yqresult $(DPA_CRD_YAML)
-	@$(YQ) '$(RESTIC_RESOURCE_ALLOC).properties.limits.additionalProperties.nullable = true' $(DPA_CRD_YAML) > $(DPA_CRD_YAML).yqresult
-	@mv $(DPA_CRD_YAML).yqresult $(DPA_CRD_YAML)
-	@$(YQ) '$(RESTIC_RESOURCE_ALLOC).properties.requests.nullable = true' $(DPA_CRD_YAML) > $(DPA_CRD_YAML).yqresult
-	@mv $(DPA_CRD_YAML).yqresult $(DPA_CRD_YAML)
-	@$(YQ) '$(RESTIC_RESOURCE_ALLOC).properties.requests.additionalProperties.nullable = true' $(DPA_CRD_YAML) > $(DPA_CRD_YAML).yqresult
 	@mv $(DPA_CRD_YAML).yqresult $(DPA_CRD_YAML)
 
 .PHONY: nullable-crds-config

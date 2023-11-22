@@ -74,9 +74,7 @@ func (v *DpaCustomResource) Build(backupRestoreType BackupRestoreType) error {
 				},
 				NodeAgent: &oadpv1alpha1.NodeAgentConfig{
 					UploaderType: "kopia",
-					NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
-						PodConfig: &oadpv1alpha1.PodConfig{},
-					},
+					PodConfig:    &oadpv1alpha1.PodConfig{},
 				},
 			},
 			SnapshotLocations: v.CustomResource.Spec.SnapshotLocations,

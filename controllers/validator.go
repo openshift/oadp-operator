@@ -23,10 +23,6 @@ func (r *DPAReconciler) ValidateDataProtectionCR(log logr.Logger) (bool, error) 
 		return false, errors.New("DPA CR Velero configuration cannot be nil")
 	}
 
-	if dpa.Spec.Configuration.Restic != nil && dpa.Spec.Configuration.NodeAgent != nil {
-		return false, errors.New("DPA CR cannot have restic (deprecated in OADP 1.3) as well as nodeAgent options at the same time")
-	}
-
 	if dpa.Spec.Configuration.Velero.NoDefaultBackupLocation {
 		if len(dpa.Spec.BackupLocations) != 0 {
 			return false, errors.New("DPA CR Velero configuration cannot have backup locations if noDefaultBackupLocation is set")
@@ -90,9 +86,6 @@ func (r *DPAReconciler) ValidateDataProtectionCR(log logr.Logger) (bool, error) 
 		return false, err
 	}
 
-	if _, err := getResticResourceReqs(&dpa); err != nil {
-		return false, err
-	}
 	if validBsl, err := r.ValidateBackupStorageLocations(dpa); !validBsl || err != nil {
 		return validBsl, err
 	}
