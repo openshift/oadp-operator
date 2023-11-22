@@ -34,7 +34,7 @@ metadata:
             "configuration": {
               "nodeAgent": {
                 "enable": true,
-                "uploaderType": "restic"
+                "uploaderType": "kopia"
               },
               "velero": {
                 "defaultPlugins": [
