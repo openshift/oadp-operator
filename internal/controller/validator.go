@@ -10,6 +10,7 @@ import (
 	"github.com/go-logr/logr"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -20,6 +21,8 @@ import (
 )
 
 const NACNonEnforceableErr = "DPA %s is non-enforceable by admins"
+
+var wasRestic bool
 
 // ValidateDataProtectionCR function validates the DPA CR, returns true if valid, false otherwise
 // it calls other validation functions to validate the DPA CR
@@ -35,10 +38,6 @@ func (r *DataProtectionApplicationReconciler) ValidateDataProtectionCR(log logr.
 
 	if r.dpa.Spec.Configuration == nil || r.dpa.Spec.Configuration.Velero == nil {
 		return false, errors.New("DPA CR Velero configuration cannot be nil")
-	}
-
-	if r.dpa.Spec.Configuration.Restic != nil && r.dpa.Spec.Configuration.NodeAgent != nil {
-		return false, errors.New("DPA CR cannot have restic (deprecated in OADP 1.3) as well as nodeAgent options at the same time")
 	}
 
 	if r.dpa.Spec.Configuration.Velero.NoDefaultBackupLocation {
@@ -61,10 +60,31 @@ func (r *DataProtectionApplicationReconciler) ValidateDataProtectionCR(log logr.
 		return validVsl, err
 	}
 
+	// ENSURE UPGRADES --------------------------------------------------------
 	// check for VSM/Volsync DataMover (OADP 1.2 or below) syntax
 	if r.dpa.Spec.Features != nil && r.dpa.Spec.Features.DataMover != nil {
 		return false, errors.New("Delete vsm from spec.configuration.velero.defaultPlugins and dataMover object from spec.features. Use Velero Built-in Data Mover instead")
 	}
+
+	// check for ResticConfig (OADP 1.4 or below) syntax
+	if r.dpa.Spec.Configuration.Restic != nil {
+		return false, errors.New("Delete restic object from spec.configuration, use spec.configuration.nodeAgent instead")
+	}
+	// ENSURE UPGRADES --------------------------------------------------------
+
+	// DEPRECATIONS -----------------------------------------------------------
+	if r.dpa.Spec.Configuration.NodeAgent != nil && r.dpa.Spec.Configuration.NodeAgent.UploaderType == "restic" {
+		if !wasRestic {
+			deprecationWarning := "(Deprecation Warning) Use kopia instead of restic in spec.configuration.nodeAgent.uploaderType, which is deprecated and will be removed in the future"
+			// V(-1) corresponds to the warn level
+			log.V(-1).Info(deprecationWarning)
+			r.EventRecorder.Event(r.dpa, corev1.EventTypeWarning, "DeprecationResticFileSystemBackup", deprecationWarning)
+		}
+		wasRestic = true
+	} else {
+		wasRestic = false
+	}
+	// DEPRECATIONS -----------------------------------------------------------
 
 	if val, found := r.dpa.Spec.UnsupportedOverrides[oadpv1alpha1.OperatorTypeKey]; found && val != oadpv1alpha1.OperatorTypeMTC {
 		return false, errors.New("only mtc operator type override is supported")
@@ -77,10 +97,6 @@ func (r *DataProtectionApplicationReconciler) ValidateDataProtectionCR(log logr.
 	// TODO refactor to call functions only once
 	// they are called here to check error, and then after to get value
 	if _, err := r.getVeleroResourceReqs(); err != nil {
-		return false, err
-	}
-
-	if _, err := getResticResourceReqs(r.dpa); err != nil {
 		return false, err
 	}
 	if _, err := getNodeAgentResourceReqs(r.dpa); err != nil {

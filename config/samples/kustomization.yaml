@@ -8,7 +8,6 @@ resources:
 - downloadrequest.yaml
 - podvolumebackup.yaml
 - podvolumerestore.yaml
-- resticrepository.yaml
 - backup.yaml
 - restore.yaml
 - schedule.yaml
