@@ -162,12 +162,19 @@ A Kubernetes CR that acts as the protocol between data mover plugins and data mo
 </table>
 
 <h2>Backup Process</h2>
+<div>
+A user creates a backup CR with the snapshotMoveData option set to true.  Velero calls the BIA V2 api to create a VolumeSnapshot request and a DataUpload CR via the Data Mover Plugin.  Once the snapshot is created and a lock acquired, the status is reconciled. Now working from the Data Mover plugin the snapshot is mounted from the Node-Agent.  The DataUpload Controller then works with Kopia ( the uploader ) to move the object off cluster to the Unified Repo Backup repository off cluster.  The status is once again reconciled and the backup CR is moved to complete.
 
-<p dir="auto"><img alt="data-mover-13-backup-sequence" src="data-mover-13-backup-sequence.png" width="850" /></p>
+</div>
+
+<p dir="auto"><img alt="backup-13-workflow" src="backup-13-workflow.png" width="850" /></p>
 
 <div>
-A user creates a backup CR with the snapshotMoveData option set to true.  Velero calls the BIA V2 api to create a VolumeSnapshot request and a DataUpload CR from the Data Mover plugin.  The Data Mover plugin calls the CSI driver to create the snapshot.  Once the snapshot is created and a lock acquired, the status is reconciled.  The DataUpload Controller then works with Kopia to move the object off cluster to the Unified Repository.  The status is once again reconciled and the backup CR is moved to complete.
+A more in depth visualization of the backup workflow with Data Mover is found below.
+
 </div>
+
+<p dir="auto"><img alt="data-mover-13-backup-sequence" src="data-mover-13-backup-sequence.png" width="850" /></p>
 
 <h2>Restore Process</h2>
 <div>
