@@ -57,6 +57,8 @@
 
 ### Create a StorageClass and VolumeShapshotClass:
 
+- Exisiting VolumeSnapshotClass definitions can not be modified, a new VolumeSnapshotClass must be created.
+
 - A `StorageClass` and a `VolumeSnapshotClass` are needed before the Mssql application
 is created. The app will map to the `StorageClass`, which contains information about the CSI driver.
 
