@@ -22,10 +22,10 @@ if [[ $# -ne 1 ]]; then
     exit 1
 fi
 
-echo restore: $1
+echo "restore: $1"
 
 label=$(label_name $1)
-echo label: $label
+echo "label:   $label"
 
 echo Deleting disconnected restore pods
 oc delete pods --all-namespaces -l oadp.openshift.io/disconnected-from-dc=$label

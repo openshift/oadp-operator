@@ -12,7 +12,6 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	. "github.com/onsi/ginkgo/v2"
-	"github.com/onsi/ginkgo/v2/types"
 	. "github.com/onsi/gomega"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	. "github.com/openshift/oadp-operator/tests/e2e/lib"
@@ -39,8 +38,165 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 		TestCarriageReturn bool
 		WantError          bool
 	}
+	type deletionCase struct {
+		WantError bool
+	}
 
-	genericTests := []TableEntry{
+	var lastInstallingApplicationNamespace string
+	var lastInstallTime time.Time
+	var _ = AfterEach(func(ctx SpecContext) {
+		report := ctx.SpecReport()
+		if report.Failed() {
+			baseReportDir := artifact_dir + "/" + report.LeafNodeText
+			err := os.MkdirAll(baseReportDir, 0755)
+			Expect(err).NotTo(HaveOccurred())
+			// print namespace error events for app namespace
+			if lastInstallingApplicationNamespace != "" {
+				PrintNamespaceEventsAfterTime(kubernetesClientForSuiteRun, lastInstallingApplicationNamespace, lastInstallTime)
+			}
+			err = SavePodLogs(kubernetesClientForSuiteRun, lastInstallingApplicationNamespace, baseReportDir)
+			Expect(err).NotTo(HaveOccurred())
+			log.Printf("Running must gather for failed deployment test - " + report.LeafNodeText)
+			err = RunMustGather(oc_cli, baseReportDir+"/must-gather")
+			if err != nil {
+				log.Printf("Failed to run must gather: " + err.Error())
+			}
+		}
+	})
+	DescribeTable("Updating custom resource with new configuration",
+		func(installCase InstallCase, expectedErr error) {
+			//TODO: Calling dpaCR.build() is the old pattern.
+			//Change it later to make sure all the spec values are passed for every test case,
+			// instead of assigning the values in advance to the DPA CR
+			err := dpaCR.Build(installCase.BRestoreType)
+			Expect(err).NotTo(HaveOccurred())
+			if len(installCase.DpaSpec.BackupLocations) > 0 {
+				if installCase.DpaSpec.BackupLocations[0].Velero.Credential == nil {
+					installCase.DpaSpec.BackupLocations[0].Velero.Credential = &bslCredential
+				}
+				if installCase.TestCarriageReturn {
+					installCase.DpaSpec.BackupLocations[0].Velero.Credential = &corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: "bsl-cloud-credentials-" + dpaCR.Provider + "-with-carriage-return",
+						},
+						Key: bslCredential.Key,
+					}
+				}
+			}
+			lastInstallingApplicationNamespace = dpaCR.Namespace
+			lastInstallTime = time.Now()
+			err = dpaCR.CreateOrUpdate(runTimeClientForSuiteRun, installCase.DpaSpec)
+			Expect(err).ToNot(HaveOccurred())
+			// sleep to accommodate throttled CI environment
+			// TODO this should be a function, not an arbitrary sleep
+			time.Sleep(20 * time.Second)
+			// Capture logs right after DPA is reconciled for diffing after one minute.
+			Eventually(dpaCR.GetNoErr(runTimeClientForSuiteRun).Status.Conditions[0].Type, timeoutMultiplier*time.Minute*3, time.Second*5).Should(Equal("Reconciled"))
+			if installCase.WantError {
+				log.Printf("Test case expected to error. Waiting for the error to show in DPA Status")
+				Eventually(dpaCR.GetNoErr(runTimeClientForSuiteRun).Status.Conditions[0].Status, timeoutMultiplier*time.Minute*3, time.Second*5).Should(Equal(metav1.ConditionFalse))
+				Eventually(dpaCR.GetNoErr(runTimeClientForSuiteRun).Status.Conditions[0].Reason, timeoutMultiplier*time.Minute*3, time.Second*5).Should(Equal("Error"))
+				Eventually(dpaCR.GetNoErr(runTimeClientForSuiteRun).Status.Conditions[0].Message, timeoutMultiplier*time.Minute*3, time.Second*5).Should(Equal(expectedErr.Error()))
+				return
+			}
+			timeReconciled := time.Now()
+			adpLogsAtReconciled, err := GetOpenShiftADPLogs(kubernetesClientForSuiteRun, dpaCR.Namespace)
+			Expect(err).NotTo(HaveOccurred())
+			log.Printf("Waiting for velero pod to be running")
+			Eventually(AreVeleroPodsRunning(kubernetesClientForSuiteRun, namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
+			dpa, err := dpaCR.Get(runTimeClientForSuiteRun)
+			Expect(err).NotTo(HaveOccurred())
+			if len(dpa.Spec.BackupLocations) > 0 {
+				log.Printf("Checking for bsl spec")
+				for _, bsl := range dpa.Spec.BackupLocations {
+					// Check if bsl matches the spec
+					Expect(DoesBSLSpecMatchesDpa(namespace, *bsl.Velero, installCase.DpaSpec)).To(BeTrue())
+				}
+			}
+			if len(dpa.Spec.SnapshotLocations) > 0 {
+				log.Printf("Checking for vsl spec")
+				for _, vsl := range dpa.Spec.SnapshotLocations {
+					Expect(DoesVSLSpecMatchesDpa(namespace, *vsl.Velero, installCase.DpaSpec)).To(BeTrue())
+				}
+			}
+
+			// Check for velero tolerances
+			if len(dpa.Spec.Configuration.Velero.PodConfig.Tolerations) > 0 {
+				log.Printf("Checking for velero tolerances")
+				Eventually(VerifyVeleroTolerations(kubernetesClientForSuiteRun, namespace, dpa.Spec.Configuration.Velero.PodConfig.Tolerations), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
+			}
+
+			// check for velero resource allocations
+			if dpa.Spec.Configuration.Velero.PodConfig.ResourceAllocations.Requests != nil {
+				log.Printf("Checking for velero resource allocation requests")
+				Eventually(VerifyVeleroResourceRequests(kubernetesClientForSuiteRun, namespace, dpa.Spec.Configuration.Velero.PodConfig.ResourceAllocations.Requests), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
+			}
+
+			if dpa.Spec.Configuration.Velero.PodConfig.ResourceAllocations.Limits != nil {
+				log.Printf("Checking for velero resource allocation limits")
+				Eventually(VerifyVeleroResourceLimits(kubernetesClientForSuiteRun, namespace, dpa.Spec.Configuration.Velero.PodConfig.ResourceAllocations.Limits), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
+			}
+
+			//restic installation with new and deprecated options
+			if dpa.Spec.Configuration.Restic != nil && *dpa.Spec.Configuration.Restic.Enable {
+				log.Printf("Waiting for restic pods to be running")
+				Eventually(AreNodeAgentPodsRunning(kubernetesClientForSuiteRun, namespace), timeoutMultiplier*time.Minute*4, time.Second*5).Should(BeTrue())
+			} else if dpa.Spec.Configuration.NodeAgent != nil && *dpa.Spec.Configuration.NodeAgent.Enable {
+				log.Printf("Waiting for NodeAgent pods to be running")
+				Eventually(AreNodeAgentPodsRunning(kubernetesClientForSuiteRun, namespace), timeoutMultiplier*time.Minute*4, time.Second*5).Should(BeTrue())
+			} else {
+				log.Printf("Waiting for NodeAgent daemonset to be deleted")
+				Eventually(IsNodeAgentDaemonsetDeleted(kubernetesClientForSuiteRun, namespace), timeoutMultiplier*time.Minute*4, time.Second*5).Should(BeTrue())
+			}
+
+			// check defaultPlugins
+			log.Printf("Waiting for velero deployment to have expected plugins")
+			if len(dpa.Spec.Configuration.Velero.DefaultPlugins) > 0 {
+				log.Printf("Checking for default plugins")
+				for _, plugin := range dpa.Spec.Configuration.Velero.DefaultPlugins {
+					Eventually(DoesPluginExist(kubernetesClientForSuiteRun, namespace, plugin), timeoutMultiplier*time.Minute*6, time.Second*5).Should(BeTrue())
+				}
+			}
+
+			// check customPlugins
+			log.Printf("Waiting for velero deployment to have expected custom plugins")
+			if len(dpa.Spec.Configuration.Velero.CustomPlugins) > 0 {
+				log.Printf("Checking for custom plugins")
+				for _, plugin := range dpa.Spec.Configuration.Velero.CustomPlugins {
+					Eventually(DoesCustomPluginExist(kubernetesClientForSuiteRun, namespace, plugin), timeoutMultiplier*time.Minute*6, time.Second*5).Should(BeTrue())
+				}
+			}
+
+			log.Printf("Waiting for restic daemonSet to have nodeSelector")
+			if dpa.Spec.Configuration.Restic != nil && dpa.Spec.Configuration.Restic.PodConfig != nil {
+				for key, value := range dpa.Spec.Configuration.Restic.PodConfig.NodeSelector {
+					log.Printf("Waiting for restic daemonSet to get node selector")
+					Eventually(NodeAgentDaemonSetHasNodeSelector(kubernetesClientForSuiteRun, namespace, key, value), timeoutMultiplier*time.Minute*6, time.Second*5).Should(BeTrue())
+				}
+			}
+			log.Printf("Waiting for nodeAgent daemonSet to have nodeSelector")
+			if dpa.Spec.Configuration.NodeAgent != nil && dpa.Spec.Configuration.NodeAgent.PodConfig != nil {
+				for key, value := range dpa.Spec.Configuration.NodeAgent.PodConfig.NodeSelector {
+					log.Printf("Waiting for NodeAgent daemonSet to get node selector")
+					Eventually(NodeAgentDaemonSetHasNodeSelector(kubernetesClientForSuiteRun, namespace, key, value), timeoutMultiplier*time.Minute*6, time.Second*5).Should(BeTrue())
+				}
+			}
+			// wait at least 1 minute after reconciled
+			Eventually(func() bool {
+				//has it been at least 1 minute since reconciled?
+				log.Printf("Waiting for 1 minute after reconciled: %v elapsed", time.Since(timeReconciled).String())
+				return time.Now().After(timeReconciled.Add(time.Minute))
+			}, timeoutMultiplier*time.Minute*5, time.Second*5).Should(BeTrue())
+			adpLogsAfterOneMinute, err := GetOpenShiftADPLogs(kubernetesClientForSuiteRun, dpaCR.Namespace)
+			Expect(err).NotTo(HaveOccurred())
+			// We expect adp logs to be the same after 1 minute
+			adpLogsDiff := cmp.Diff(adpLogsAtReconciled, adpLogsAfterOneMinute)
+			// If registry deployment were deleted after CR update, we expect to see a new log entry, ignore that.
+			// We also ignore case where deprecated restic entry was used
+			if !strings.Contains(adpLogsDiff, "Registry Deployment deleted") && !strings.Contains(adpLogsDiff, "(Deprecation Warning) Use nodeAgent instead of restic, which is deprecated and will be removed with the OADP 1.4") {
+				Expect(adpLogsDiff).To(Equal(""))
+			}
+		},
 		Entry("Default velero CR", InstallCase{
 			Name:         "default-cr",
 			BRestoreType: RESTIC,
@@ -465,10 +621,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 			},
 			WantError: false,
 		}, nil),
-	}
-
-	awsTests := []TableEntry{
-		Entry("AWS Without Region No S3ForcePathStyle with BackupImages false should succeed", Label("aws"), InstallCase{
+		Entry("AWS Without Region No S3ForcePathStyle with BackupImages false should succeed", Label("aws", "ibmcloud"), InstallCase{
 			Name:         "default-no-region-no-s3forcepathstyle",
 			BRestoreType: RESTIC,
 			DpaSpec: &oadpv1alpha1.DataProtectionApplicationSpec{
@@ -500,7 +653,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 			},
 			WantError: false,
 		}, nil),
-		Entry("AWS With Region And S3ForcePathStyle should succeed", Label("aws"), InstallCase{
+		Entry("AWS With Region And S3ForcePathStyle should succeed", Label("aws", "ibmcloud"), InstallCase{
 			Name:         "default-with-region-and-s3forcepathstyle",
 			BRestoreType: RESTIC,
 			DpaSpec: &oadpv1alpha1.DataProtectionApplicationSpec{
@@ -536,7 +689,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 			},
 			WantError: false,
 		}, nil),
-		Entry("AWS Without Region And S3ForcePathStyle true should fail", Label("aws"), InstallCase{
+		Entry("AWS Without Region And S3ForcePathStyle true should fail", Label("aws", "ibmcloud"), InstallCase{
 			Name:         "default-with-region-and-s3forcepathstyle",
 			BRestoreType: RESTIC,
 			DpaSpec: &oadpv1alpha1.DataProtectionApplicationSpec{
@@ -570,175 +723,8 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 			},
 			WantError: true,
 		}, fmt.Errorf("region for AWS backupstoragelocation cannot be empty when s3ForcePathStyle is true or when backing up images")),
-	}
-	genericTests = append(genericTests, awsTests...)
-
-	var lastInstallingApplicationNamespace string
-	var lastInstallTime time.Time
-	var _ = ReportAfterEach(func(report SpecReport) {
-		if report.State == types.SpecStateSkipped || report.State == types.SpecStatePending {
-			// do not run if the test is skipped
-			return
-		}
-		if report.Failed() {
-			baseReportDir := artifact_dir + "/" + report.LeafNodeText
-			err := os.MkdirAll(baseReportDir, 0755)
-			Expect(err).NotTo(HaveOccurred())
-			// print namespace error events for app namespace
-			if lastInstallingApplicationNamespace != "" {
-				PrintNamespaceEventsAfterTime(kubernetesClientForSuiteRun, lastInstallingApplicationNamespace, lastInstallTime)
-			}
-			err = SavePodLogs(kubernetesClientForSuiteRun, lastInstallingApplicationNamespace, baseReportDir)
-			Expect(err).NotTo(HaveOccurred())
-			log.Printf("Running must gather for failed deployment test - " + report.LeafNodeText)
-			err = RunMustGather(oc_cli, baseReportDir+"/must-gather")
-			if err != nil {
-				log.Printf("Failed to run must gather: " + err.Error())
-			}
-		}
-	})
-	DescribeTable("Updating custom resource with new configuration",
-
-		func(installCase InstallCase, expectedErr error) {
-			//TODO: Calling dpaCR.build() is the old pattern.
-			//Change it later to make sure all the spec values are passed for every test case,
-			// instead of assigning the values in advance to the DPA CR
-			err := dpaCR.Build(installCase.BRestoreType)
-			Expect(err).NotTo(HaveOccurred())
-			if len(installCase.DpaSpec.BackupLocations) > 0 {
-				if installCase.DpaSpec.BackupLocations[0].Velero.Credential == nil {
-					installCase.DpaSpec.BackupLocations[0].Velero.Credential = &bslCredential
-				}
-				if installCase.TestCarriageReturn {
-					installCase.DpaSpec.BackupLocations[0].Velero.Credential = &corev1.SecretKeySelector{
-						LocalObjectReference: corev1.LocalObjectReference{
-							Name: "bsl-cloud-credentials-" + dpaCR.Provider + "-with-carriage-return",
-						},
-						Key: bslCredential.Key,
-					}
-				}
-			}
-			lastInstallingApplicationNamespace = dpaCR.Namespace
-			lastInstallTime = time.Now()
-			err = dpaCR.CreateOrUpdate(runTimeClientForSuiteRun, installCase.DpaSpec)
-			Expect(err).ToNot(HaveOccurred())
-			if installCase.WantError {
-				// Eventually()
-				log.Printf("Test case expected to error. Waiting for the error to show in DPA Status")
-				Eventually(dpaCR.GetNoErr(runTimeClientForSuiteRun).Status.Conditions[0].Type, timeoutMultiplier*time.Minute*3, time.Second*5).Should(Equal("Reconciled"))
-				Eventually(dpaCR.GetNoErr(runTimeClientForSuiteRun).Status.Conditions[0].Status, timeoutMultiplier*time.Minute*3, time.Second*5).Should(Equal(metav1.ConditionFalse))
-				Eventually(dpaCR.GetNoErr(runTimeClientForSuiteRun).Status.Conditions[0].Reason, timeoutMultiplier*time.Minute*3, time.Second*5).Should(Equal("Error"))
-				Eventually(dpaCR.GetNoErr(runTimeClientForSuiteRun).Status.Conditions[0].Message, timeoutMultiplier*time.Minute*3, time.Second*5).Should(Equal(expectedErr.Error()))
-				return
-			}
-			// sleep to accomodates throttled CI environment
-			time.Sleep(20 * time.Second)
-			// Capture logs right after DPA is reconciled for diffing after one minute.
-			Eventually(dpaCR.GetNoErr(runTimeClientForSuiteRun).Status.Conditions[0].Type, timeoutMultiplier*time.Minute*3, time.Second*5).Should(Equal("Reconciled"))
-			timeReconciled := time.Now()
-			adpLogsAtReconciled, err := GetOpenShiftADPLogs(kubernetesClientForSuiteRun, dpaCR.Namespace)
-			Expect(err).NotTo(HaveOccurred())
-			log.Printf("Waiting for velero pod to be running")
-			Eventually(AreVeleroPodsRunning(kubernetesClientForSuiteRun, namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
-			dpa, err := dpaCR.Get(runTimeClientForSuiteRun)
-			Expect(err).NotTo(HaveOccurred())
-			if len(dpa.Spec.BackupLocations) > 0 {
-				log.Printf("Checking for bsl spec")
-				for _, bsl := range dpa.Spec.BackupLocations {
-					// Check if bsl matches the spec
-					Expect(DoesBSLSpecMatchesDpa(namespace, *bsl.Velero, installCase.DpaSpec)).To(BeTrue())
-				}
-			}
-			if len(dpa.Spec.SnapshotLocations) > 0 {
-				log.Printf("Checking for vsl spec")
-				for _, vsl := range dpa.Spec.SnapshotLocations {
-					Expect(DoesVSLSpecMatchesDpa(namespace, *vsl.Velero, installCase.DpaSpec)).To(BeTrue())
-				}
-			}
-
-			// Check for velero tolerations
-			if len(dpa.Spec.Configuration.Velero.PodConfig.Tolerations) > 0 {
-				log.Printf("Checking for velero tolerations")
-				Eventually(VerifyVeleroTolerations(kubernetesClientForSuiteRun, namespace, dpa.Spec.Configuration.Velero.PodConfig.Tolerations), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
-			}
-
-			// check for velero resource allocations
-			if dpa.Spec.Configuration.Velero.PodConfig.ResourceAllocations.Requests != nil {
-				log.Printf("Checking for velero resource allocation requests")
-				Eventually(VerifyVeleroResourceRequests(kubernetesClientForSuiteRun, namespace, dpa.Spec.Configuration.Velero.PodConfig.ResourceAllocations.Requests), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
-			}
-
-			if dpa.Spec.Configuration.Velero.PodConfig.ResourceAllocations.Limits != nil {
-				log.Printf("Checking for velero resource allocation limits")
-				Eventually(VerifyVeleroResourceLimits(kubernetesClientForSuiteRun, namespace, dpa.Spec.Configuration.Velero.PodConfig.ResourceAllocations.Limits), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
-			}
-
-			//restic installation with new and deprecated options
-			if dpa.Spec.Configuration.Restic != nil && *dpa.Spec.Configuration.Restic.Enable {
-				log.Printf("Waiting for restic pods to be running")
-				Eventually(AreNodeAgentPodsRunning(kubernetesClientForSuiteRun, namespace), timeoutMultiplier*time.Minute*4, time.Second*5).Should(BeTrue())
-			} else if dpa.Spec.Configuration.NodeAgent != nil && *dpa.Spec.Configuration.NodeAgent.Enable {
-				log.Printf("Waiting for NodeAgent pods to be running")
-				Eventually(AreNodeAgentPodsRunning(kubernetesClientForSuiteRun, namespace), timeoutMultiplier*time.Minute*4, time.Second*5).Should(BeTrue())
-			} else {
-				log.Printf("Waiting for NodeAgent daemonset to be deleted")
-				Eventually(IsNodeAgentDaemonsetDeleted(kubernetesClientForSuiteRun, namespace), timeoutMultiplier*time.Minute*4, time.Second*5).Should(BeTrue())
-			}
-
-			// check defaultplugins
-			log.Printf("Waiting for velero deployment to have expected plugins")
-			if len(dpa.Spec.Configuration.Velero.DefaultPlugins) > 0 {
-				log.Printf("Checking for default plugins")
-				for _, plugin := range dpa.Spec.Configuration.Velero.DefaultPlugins {
-					Eventually(DoesPluginExist(kubernetesClientForSuiteRun, namespace, plugin), timeoutMultiplier*time.Minute*6, time.Second*5).Should(BeTrue())
-				}
-			}
-
-			// check customplugins
-			log.Printf("Waiting for velero deployment to have expected custom plugins")
-			if len(dpa.Spec.Configuration.Velero.CustomPlugins) > 0 {
-				log.Printf("Checking for custom plugins")
-				for _, plugin := range dpa.Spec.Configuration.Velero.CustomPlugins {
-					Eventually(DoesCustomPluginExist(kubernetesClientForSuiteRun, namespace, plugin), timeoutMultiplier*time.Minute*6, time.Second*5).Should(BeTrue())
-				}
-			}
-
-			log.Printf("Waiting for restic daemonset to have nodeselector")
-			if dpa.Spec.Configuration.Restic != nil && dpa.Spec.Configuration.Restic.PodConfig != nil {
-				for key, value := range dpa.Spec.Configuration.Restic.PodConfig.NodeSelector {
-					log.Printf("Waiting for restic daemonset to get node selector")
-					Eventually(NodeAgentDaemonSetHasNodeSelector(kubernetesClientForSuiteRun, namespace, key, value), timeoutMultiplier*time.Minute*6, time.Second*5).Should(BeTrue())
-				}
-			}
-			log.Printf("Waiting for nodeAgent daemonset to have nodeselector")
-			if dpa.Spec.Configuration.NodeAgent != nil && dpa.Spec.Configuration.NodeAgent.PodConfig != nil {
-				for key, value := range dpa.Spec.Configuration.NodeAgent.PodConfig.NodeSelector {
-					log.Printf("Waiting for NodeAgent daemonset to get node selector")
-					Eventually(NodeAgentDaemonSetHasNodeSelector(kubernetesClientForSuiteRun, namespace, key, value), timeoutMultiplier*time.Minute*6, time.Second*5).Should(BeTrue())
-				}
-			}
-			// wait at least 1 minute after reconciled
-			Eventually(func() bool {
-				//has it been at least 1 minute since reconciled?
-				log.Printf("Waiting for 1 minute after reconciled: %v elapsed", time.Since(timeReconciled).String())
-				return time.Now().After(timeReconciled.Add(time.Minute))
-			}, timeoutMultiplier*time.Minute*5, time.Second*5).Should(BeTrue())
-			adpLogsAfterOneMinute, err := GetOpenShiftADPLogs(kubernetesClientForSuiteRun, dpaCR.Namespace)
-			Expect(err).NotTo(HaveOccurred())
-			// We expect adp logs to be the same after 1 minute
-			adpLogsDiff := cmp.Diff(adpLogsAtReconciled, adpLogsAfterOneMinute)
-			// If registry deployment were deleted after CR update, we expect to see a new log entry, ignore that.
-			// We also ignore case where deprecated restic entry was used
-			if !strings.Contains(adpLogsDiff, "Registry Deployment deleted") && !strings.Contains(adpLogsDiff, "(Deprecation Warning) Use nodeAgent instead of restic, which is deprecated and will be removed with the OADP 1.4") {
-				Expect(adpLogsDiff).To(Equal(""))
-			}
-
-		}, genericTests,
 	)
 
-	type deletionCase struct {
-		WantError bool
-	}
 	DescribeTable("DPA / Restic Deletion test",
 		func(installCase deletionCase) {
 			log.Printf("Building dpa with restic")

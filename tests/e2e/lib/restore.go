@@ -3,8 +3,8 @@ package lib
 import (
 	"context"
 	"fmt"
+	"log"
 
-	"github.com/onsi/ginkgo/v2"
 	velero "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -12,33 +12,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type restoreOpts func(*velero.Restore)
-
-func WithIncludedResources(resources []string) restoreOpts {
-	return func(restore *velero.Restore) {
-		restore.Spec.IncludedResources = resources
-	}
-}
-
-func WithExcludedResources(resources []string) restoreOpts {
-	return func(restore *velero.Restore) {
-		restore.Spec.ExcludedResources = resources
-	}
-}
-
-func WithIncludedNamespaces(namespaces []string) restoreOpts {
-	return func(restore *velero.Restore) {
-		restore.Spec.IncludedNamespaces = namespaces
-	}
-}
-
-func WithExcludedNamespaces(namespaces []string) restoreOpts {
-	return func(restore *velero.Restore) {
-		restore.Spec.ExcludedNamespaces = namespaces
-	}
-}
-
-func CreateRestoreFromBackup(ocClient client.Client, veleroNamespace, backupName, restoreName string, opts ...restoreOpts) (velero.Restore, error) {
+func CreateRestoreFromBackup(ocClient client.Client, veleroNamespace, backupName, restoreName string) (velero.Restore, error) {
 	restore := velero.Restore{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      restoreName,
@@ -47,9 +21,6 @@ func CreateRestoreFromBackup(ocClient client.Client, veleroNamespace, backupName
 		Spec: velero.RestoreSpec{
 			BackupName: backupName,
 		},
-	}
-	for _, opt := range opts {
-		opt(&restore)
 	}
 	err := ocClient.Create(context.Background(), &restore)
 	return restore, err
@@ -66,7 +37,7 @@ func IsRestoreDone(ocClient client.Client, veleroNamespace, name string) wait.Co
 			return false, err
 		}
 		if len(restore.Status.Phase) > 0 {
-			ginkgo.GinkgoWriter.Write([]byte(fmt.Sprintf("restore phase: %s\n", restore.Status.Phase)))
+			log.Printf("restore phase: %s", restore.Status.Phase)
 		}
 		var phasesNotDone = []velero.RestorePhase{
 			velero.RestorePhaseNew,

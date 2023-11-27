@@ -207,20 +207,19 @@ func GetVeleroDeploymentList(c *kubernetes.Clientset, namespace string) (*appsv1
 }
 
 func RunDcPostRestoreScript(dcRestoreName string) error {
-	logger := log.Default()
-	logger.Printf("Running post restore script for %s", dcRestoreName)
-	// get current directory
+	log.Printf("Running post restore script for %s", dcRestoreName)
 	currentDir, err := os.Getwd()
 	if err != nil {
 		return err
 	}
 	currentDir = strings.TrimSuffix(currentDir, "/tests/e2e")
+	var stderrOutput bytes.Buffer
 	command := exec.Command("bash", currentDir+"/docs/scripts/dc-post-restore.sh", dcRestoreName)
+	command.Stderr = &stderrOutput
 	stdOut, err := command.Output()
-	logger.Printf("command: %s", command.String())
-	logger.Printf("stdout: %s", stdOut)
-	logger.Printf("stderr: %s", command.Stderr)
-	logger.Printf("err: %s", err)
+	log.Printf("command: %s", command.String())
+	log.Printf("stdout:\n%s", stdOut)
+	log.Printf("stderr:\n%s", stderrOutput.String())
+	log.Printf("err: %v", err)
 	return err
-	// return exec.Command("bash", "./docs/scripts/dc-post-restore.sh", dcRestoreName).Run()
 }

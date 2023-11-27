@@ -3,8 +3,8 @@ package lib
 import (
 	"context"
 	"fmt"
+	"log"
 
-	"github.com/onsi/ginkgo/v2"
 	velero "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -39,7 +39,7 @@ func IsBackupDone(ocClient client.Client, veleroNamespace, name string) wait.Con
 			return false, err
 		}
 		if len(backup.Status.Phase) > 0 {
-			ginkgo.GinkgoWriter.Write([]byte(fmt.Sprintf("backup phase: %s\n", backup.Status.Phase)))
+			log.Printf("backup phase: %s", backup.Status.Phase)
 		}
 		var phasesNotDone = []velero.BackupPhase{
 			velero.BackupPhaseNew,
@@ -72,8 +72,8 @@ func IsBackupCompletedSuccessfully(c *kubernetes.Clientset, ocClient client.Clie
 		return true, nil
 	}
 	return false, fmt.Errorf(
-		"backup phase is: %s; expected: %s\nvalidation errors: %v\nvelero failure logs: %v",
-		backup.Status.Phase, velero.BackupPhaseCompleted, backup.Status.ValidationErrors,
+		"backup phase is: %s; expected: %s\nfailure reason: %s\nvalidation errors: %v\nvelero failure logs: %v",
+		backup.Status.Phase, velero.BackupPhaseCompleted, backup.Status.FailureReason, backup.Status.ValidationErrors,
 		GetVeleroContainerFailureLogs(c, backup.Namespace),
 	)
 }

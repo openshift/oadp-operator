@@ -14,21 +14,18 @@ import (
 )
 
 var _ = Describe("Subscription Config Suite Test", func() {
-	var _ = BeforeEach(func() {
-		testSuiteInstanceName := "ts-" + instanceName
-		dpaCR.Name = testSuiteInstanceName
-	})
+	type SubscriptionConfigTestCase struct {
+		operators.SubscriptionConfig
+		failureExpected *bool
+		stream          string
+	}
 
 	var _ = AfterEach(func() {
 		err := dpaCR.Delete(runTimeClientForSuiteRun)
 		Expect(err).ToNot(HaveOccurred())
 		Eventually(dpaCR.IsDeleted(runTimeClientForSuiteRun), timeoutMultiplier*time.Minute*2, time.Second*5).Should(BeTrue())
 	})
-	type SubscriptionConfigTestCase struct {
-		operators.SubscriptionConfig
-		failureExpected *bool
-		stream          string
-	}
+
 	DescribeTable("Proxy test table",
 		func(testCase SubscriptionConfigTestCase) {
 			log.Printf("Getting Operator Subscription")
