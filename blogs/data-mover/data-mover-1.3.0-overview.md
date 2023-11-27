@@ -1,8 +1,8 @@
-Data Mover (OADP 1.2 or below)
+Data Mover OADP 1.3
 
 <h2>Introduction</h2>
 
-<p dir="auto">Data Mover provides portability and durability of CSI volume snapshots by relocating snapshots into an object storage location during backup of a stateful application. These snapshots are then available for restore during instances of disaster scenarios. This blog will discuss the new changes in OADP 1.3.0 and the various Data Mover components and how they work together to complete this process.</p>
+<p dir="auto">OADP 1.3 includes a built-in Data Mover that you can use to move Container Storage Interface (CSI) volume snapshots to a remote object store.  Data Mover provides portability and durability of CSI volume snapshots by relocating snapshots into an object storage location during backup of a stateful application. These snapshots are then available for restore during instances of disaster scenarios. This blog will discuss the new changes in OADP 1.3.0 and the various Data Mover components and how they work together to complete this process.</p>
 
 <h2>How Data Mover has evolved</h2>
 
@@ -22,9 +22,11 @@ The Data Mover released in OADP 1.2.0 was performant for production workloads an
 
 <p dir="auto">During a backup using Velero with CSI, CSI snapshotting is performed. This snapshot is created on the storage provider where the snapshot was taken. This means that for some providers, such as ODF (OpenShift Data Foundation), the snapshot lives on the cluster. Due to this poor durability, in the case of a disaster scenario, the snapshot is also subjected to disaster.</p>
 
+<h2>Components</h2>
+
 <h3><a href="https://github.com/openshift/oadp-operator">OADP OPERATOR</a>:</h3>
 
-<p dir="auto">OADP is the OpenShift API for Data Protection operator. This open source operator sets up and installs Velero on the OpenShift platform, allowing users to backup and restore applications. We will be installing Velero alongside the CSI plugin (modified version).</p>
+<p dir="auto">OADP is the OpenShift API for Data Protection operator. This open source operator sets up and installs Velero on the OpenShift platform, allowing users to backup and restore applications. We will be installing Velero alongside the CSI plugin.</p>
 
 <h3><a href="https://github.com/vmware-tanzu/velero-plugin-for-csi">CSI PLUGIN</a>:</h3>
 
@@ -54,8 +56,6 @@ VBDM is the built-in data mover shipped along with Velero, it includes Velero da
 
 
 
-<h1>Below are the data movement actions and sequences during backup</h1>
-<p dir="auto"><img alt="data-mover-13-backup-sequence" src="data-mover-backup-sequence.png" width="850" /></p>
 
 <h3>DataUpload (DUCR) spec</h3>
 <p>
@@ -100,7 +100,7 @@ A Kubernetes CR that acts as the protocol between data mover plugins and data mo
 </tr>
 <tr>
 <td>snapshotType</td>
-<td>SnapshotType is the type of the snapshot to be backed up.</td>
+<td>SnapshotType is the type of the snapshot to be backed up. Currently the only valid value is CSI</td>
 </tr>
 <tr>
 <td>sourceNamespace</td>
@@ -116,26 +116,62 @@ A Kubernetes CR that acts as the protocol between data mover plugins and data mo
 
 <h3>Note: For additional specification information please see the <a href=https://github.com/openshift/oadp-operator/blob/master/docs/API_ref.md>API reference documentation</a>
 
+<h3>DataUpload (DUCR) status descriptions</h3>
+
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>New</td>
+<td>The DUCR has been created but not processed by a controller</td>
+</tr>
+<tr>
+<td>Accepted</td>
+<td>The object lock has been acquired for this DUCR and the elected controller is trying to expose the snapshot</td>
+</tr>
+<tr>
+<td>Prepared</td>
+<td>The snapshot has been exposed, the related controller is starting to process the upload</td>
+</tr>
+<tr>
+<td>InProgress</td>
+<td>The data upload is in progress</td>
+</tr>
+<tr>
+<td>Canceling</td>
+<td>The data upload is being canceled</td>
+</tr>
+<tr>
+<td>Canceled</td>
+<td>The data upload has been canceled</td>
+</tr>
+<tr>
+<td>Completed</td>
+<td>The data upload has completed</td>
+</tr>
+<tr>
+<td>Failed</td>
+<td>The data upload has failed</td>
+</tr>
+</tbody>
+</table>
 
 <h2>Backup Process</h2>
+
+<p dir="auto"><img alt="data-mover-13-backup-sequence" src="data-mover-13-backup-sequence.png" width="850" /></p>
+
 <div>
-	
-to do
+A user creates a backup CR with the snapshotMoveData option set to true.  Velero calls the BIA V2 api to create a VolumeSnapshot request and a DataUpload CR from the Data Mover plugin.  The Data Mover plugin calls the CSI driver to create the snapshot.  Once the snapshot is created and a lock acquired, the status is reconciled.  The DataUpload Controller then works with Kopia to move the object off cluster to the Unified Repository.  The status is once again reconciled and the backup CR is moved to complete.
 </div>
-
-
-<p dir="auto"><img alt="data-mover-backup" src="data-mover-backup.png" width="850" /></p>
-
 
 <h2>Restore Process</h2>
 <div>
-Previously mentioned, during the backup process, a VSB custom resource is stored as a backup object that contains essential details for performing a volumeSnapshotMover restore. When a VSB CR is encountered, the VSM plugin generates a VSR CR. The VSM controller then begins to reconcile on the VSR CR. Furthermore, the VSM controller creates a VolSync ReplicationDestination CR in the OADP Operator namespace, which facilitates the recovery of the VolumeSnapshot stored in the object storage location during the backup.<br><br>
-
-After the completion of the VolSync restore step, the Velero restore process continues as usual. However, the CSI plugin utilizes the snapHandle of the VolSync VolumeSnapshot as the data source for its corresponding PVC.
-</div>
-
-<p dir="auto"><img alt="data-mover-restore" src="data-mover-restore.png" width="850" /></p>
-
+todo
 
 <h2>Thank you!</h2>
 The source of this blog post can be found in the <a href="https://github.com/openshift/oadp-operator/tree/master/blogs/data-mover">oadp-operator repository</a>
