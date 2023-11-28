@@ -6,9 +6,56 @@ The configuration for OADP repo can be found in
 - https://github.com/openshift/release/tree/master/core-services/prow/02_config/openshift/oadp-operator
 - https://github.com/openshift/release/tree/master/ci-operator/config/openshift/oadp-operator
 - https://github.com/openshift/release/tree/master/ci-operator/jobs/openshift/oadp-operator
+
+The configuration for [OpenShift Velero plugin repo](https://github.com/openshift/openshift-velero-plugin) can be found in
+- https://github.com/openshift/release/tree/master/core-services/prow/02_config/openshift/openshift-velero-plugin
+- https://github.com/openshift/release/tree/master/ci-operator/config/openshift/openshift-velero-plugin
+- https://github.com/openshift/release/tree/master/ci-operator/jobs/openshift/openshift-velero-plugin
+
+The configuration for [Volume Snapshot Mover repo](https://github.com/migtools/volume-snapshot-mover) can be found in (OADP < 1.3)
+- https://github.com/openshift/release/tree/master/core-services/prow/02_config/migtools/volume-snapshot-mover
+- https://github.com/openshift/release/tree/master/ci-operator/config/migtools/volume-snapshot-mover
+- https://github.com/openshift/release/tree/master/ci-operator/jobs/migtools/volume-snapshot-mover
+
+The configuration for [Velero plugin for VSM repo](https://github.com/migtools/velero-plugin-for-vsm) can be found in (OADP < 1.3)
+- https://github.com/openshift/release/tree/master/core-services/prow/02_config/migtools/velero-plugin-for-vsm
+- https://github.com/openshift/release/tree/master/ci-operator/config/migtools/velero-plugin-for-vsm
+- https://github.com/openshift/release/tree/master/ci-operator/jobs/migtools/velero-plugin-for-vsm
+
+The configuration for [OADP's Velero repo](https://github.com/openshift/velero) can be found in
+- https://github.com/openshift/release/tree/master/core-services/prow/02_config/openshift/velero
+- https://github.com/openshift/release/tree/master/ci-operator/config/openshift/velero
+- https://github.com/openshift/release/tree/master/ci-operator/jobs/openshift/velero
+
+The configuration for [OADP's restic repo](https://github.com/openshift/restic) can be found in
+- https://github.com/openshift/release/tree/master/core-services/prow/02_config/openshift/restic
+- https://github.com/openshift/release/tree/master/ci-operator/config/openshift/restic
+- https://github.com/openshift/release/tree/master/ci-operator/jobs/openshift/restic
+
+The configuration for [OADP's Velero plugin for AWS repo](https://github.com/openshift/velero-plugin-for-aws) can be found in
+- https://github.com/openshift/release/tree/master/core-services/prow/02_config/openshift/velero-plugin-for-aws
+- https://github.com/openshift/release/tree/master/ci-operator/config/openshift/velero-plugin-for-aws
+- https://github.com/openshift/release/tree/master/ci-operator/jobs/openshift/velero-plugin-for-aws
+
+The configuration for [OADP's Velero plugin for GCP repo](https://github.com/openshift/velero-plugin-for-gcp) can be found in
+- https://github.com/openshift/release/tree/master/core-services/prow/02_config/openshift/velero-plugin-for-gcp
+- https://github.com/openshift/release/tree/master/ci-operator/config/openshift/velero-plugin-for-gcp
+- https://github.com/openshift/release/tree/master/ci-operator/jobs/openshift/velero-plugin-for-gcp
+
+The configuration for [OADP's Velero plugin for Microsoft Azure repo](https://github.com/openshift/velero-plugin-for-microsoft-azure) can be found in
+- https://github.com/openshift/release/tree/master/core-services/prow/02_config/openshift/velero-plugin-for-microsoft-azure
+- https://github.com/openshift/release/tree/master/ci-operator/config/openshift/velero-plugin-for-microsoft-azure
+- https://github.com/openshift/release/tree/master/ci-operator/jobs/openshift/velero-plugin-for-microsoft-azure
+
+The configuration for [OADP's Velero plugin for CSI repo](https://github.com/openshift/velero-plugin-for-csi) can be found in
+- https://github.com/openshift/release/tree/master/core-services/prow/02_config/openshift/velero-plugin-for-csi
+- https://github.com/openshift/release/tree/master/ci-operator/config/openshift/velero-plugin-for-csi
+- https://github.com/openshift/release/tree/master/ci-operator/jobs/openshift/velero-plugin-for-csi
+
+The images mirroring to [quay.io](https://quay.io/organization/konveyor) configuration for all OADP related images can be found in
 - https://github.com/openshift/release/tree/master/core-services/image-mirroring/konveyor
 
-The jobs run can be seen in PRs and in the links in the README.md file.
+The jobs run can be seen in PRs and in the links in the README.md file of OADP repo.
 
 OADP operator master branch is tested against the last 3 minor OCP releases. To Update an OCP version the project is tested against, see [Update OCP version](#update-ocp-version).
 
@@ -30,7 +77,7 @@ To update the Go version used in CI jobs of a branch:
 ### Update OCP version
 
 To update an OCP version in a branch:
-- ename the oldest OCP version config file to the new version and change the occurrences in the file, and update jobs file.
+- Rename the oldest OCP version config file to the new version and change the occurrences in the file, and update jobs file.
 - Update links in README file.
 
 Example: update `4.11` to `4.14` in master branch.
@@ -66,22 +113,22 @@ After that, run `make jobs` to update job files in `ci-operator/jobs/openshift/o
 +4.12, 4.13, 4.14 Periodic E2E Tests
 
  AWS :
--[![AWS builds](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-master-4.11-operator-e2e-aws-periodic-slack)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-master-4.11-operator-e2e-aws-periodic-slack)
- [![AWS builds](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-master-4.12-operator-e2e-aws-periodic-slack)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-master-4.12-operator-e2e-aws-periodic-slack)
- [![AWS builds](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-master-4.13-operator-e2e-aws-periodic-slack)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-master-4.13-operator-e2e-aws-periodic-slack)
-+[![AWS builds](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-master-4.14-operator-e2e-aws-periodic-slack)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-master-4.14-operator-e2e-aws-periodic-slack)
+-[![AWS builds](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-master-4.11-e2e-test-aws-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-master-4.11-e2e-test-aws-periodic)
+ [![AWS builds](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-master-4.12-e2e-test-aws-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-master-4.12-e2e-test-aws-periodic)
+ [![AWS builds](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-master-4.13-e2e-test-aws-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-master-4.13-e2e-test-aws-periodic)
++[![AWS builds](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-master-4.14-e2e-test-aws-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-master-4.14-e2e-test-aws-periodic)
 
  GCP:
--[![GCP builds](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-master-4.11-operator-e2e-gcp-periodic-slack)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-master-4.11-operator-e2e-gcp-periodic-slack)
- [![GCP builds](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-master-4.12-operator-e2e-gcp-periodic-slack)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-master-4.12-operator-e2e-gcp-periodic-slack)
- [![GCP builds](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-master-4.13-operator-e2e-gcp-periodic-slack)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-master-4.13-operator-e2e-gcp-periodic-slack)
-+[![GCP builds](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-master-4.14-operator-e2e-gcp-periodic-slack)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-master-4.14-operator-e2e-gcp-periodic-slack)
+-[![GCP builds](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-master-4.11-e2e-test-gcp-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-master-4.11-e2e-test-gcp-periodic)
+ [![GCP builds](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-master-4.12-e2e-test-gcp-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-master-4.12-e2e-test-gcp-periodic)
+ [![GCP builds](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-master-4.13-e2e-test-gcp-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-master-4.13-e2e-test-gcp-periodic)
++[![GCP builds](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-master-4.14-e2e-test-gcp-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-master-4.14-e2e-test-gcp-periodic)
 
  Azure:
--[![Azure builds](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-master-4.11-operator-e2e-azure-periodic-slack)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-master-4.11-operator-e2e-azure-periodic-slack)
- [![Azure builds](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-master-4.12-operator-e2e-azure-periodic-slack)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-master-4.12-operator-e2e-azure-periodic-slack)
- [![Azure builds](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-master-4.13-operator-e2e-azure-periodic-slack)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-master-4.13-operator-e2e-azure-periodic-slack)
-+[![Azure builds](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-master-4.14-operator-e2e-azure-periodic-slack)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-master-4.14-operator-e2e-azure-periodic-slack)
+-[![Azure builds](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-master-4.11-e2e-test-azure-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-master-4.11-e2e-test-azure-periodic)
+ [![Azure builds](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-master-4.12-e2e-test-azure-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-master-4.12-e2e-test-azure-periodic)
+ [![Azure builds](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-master-4.13-e2e-test-azure-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-master-4.13-e2e-test-azure-periodic)
++[![Azure builds](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-master-4.14-e2e-test-azure-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-master-4.14-e2e-test-azure-periodic)
 ```
 
 **TODO automate this process**
