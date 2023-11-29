@@ -163,15 +163,24 @@ A Kubernetes CR that acts as the protocol between data mover plugins and data mo
 
 <h2>Backup Process</h2>
 <div>
-A user creates a backup CR with the snapshotMoveData option set to true.  Velero calls the BIA V2 api to create a VolumeSnapshot request and a DataUpload CR via the Data Mover Plugin.  Once the snapshot is created and a lock acquired, the status is reconciled. Now working from the Data Mover plugin the snapshot is mounted from the Node-Agent.  The DataUpload Controller then works with Kopia ( the uploader ) to move the object off cluster to the Unified Repo Backup repository off cluster.  The status is once again reconciled and the backup CR is moved to complete.
+A user creates a backup CR with the snapshotMoveData option set to true. Velero calls the BIA V2 api to create a CSI VolumeSnapshot request. The status will move from `New` to `InProgress`.<br><br>
+
+After the VolumeSnapshots are created, you will see one or more DataUpload CRs created.  You may also see some temporary objects (i.e., pods, PVCs, PVs) created in protected (openShift-adp) namespace. The temporary objects are created to assist in the data movement. The status of the DataUpload object will progress from `New` to `Accepted` to `InProgress`. <br>
+
+Now working from the Data Mover plugin the CSI snapshot is mounted from the Node-Agent. The DataUpload Controller then works with Kopia ( the uploader ) to move the object off cluster to the Unified Repo Backup repository off cluster.  The status is once again reconciled and the backup CR is moved to complete.<br>
+
+Users can see the DataUpload objects move to a terminal status of either `Completed`, `Failed` or `Canceled`
+Once the object has been uploaded any intermediate objects like the VolumeSnapshot and VolumeSnapshotContents will be removed. Finally the backup object status will be updated with it's terminal status.
 
 </div>
+<hr>
 
 <p dir="auto"><img alt="backup-13-workflow" src="backup-13-workflow.png" width="850" /></p>
 
 <div>
+<hr>
 A more in depth visualization of the backup workflow with Data Mover is found below.
-
+<hr>
 </div>
 
 <p dir="auto"><img alt="data-mover-13-backup-sequence" src="data-mover-13-backup-sequence.png" width="850" /></p>
