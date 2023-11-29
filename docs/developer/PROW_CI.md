@@ -27,11 +27,6 @@ The configuration for [OADP's Velero repo](https://github.com/openshift/velero) 
 - https://github.com/openshift/release/tree/master/ci-operator/config/openshift/velero
 - https://github.com/openshift/release/tree/master/ci-operator/jobs/openshift/velero
 
-The configuration for [OADP's restic repo](https://github.com/openshift/restic) can be found in
-- https://github.com/openshift/release/tree/master/core-services/prow/02_config/openshift/restic
-- https://github.com/openshift/release/tree/master/ci-operator/config/openshift/restic
-- https://github.com/openshift/release/tree/master/ci-operator/jobs/openshift/restic
-
 The configuration for [OADP's Velero plugin for AWS repo](https://github.com/openshift/velero-plugin-for-aws) can be found in
 - https://github.com/openshift/release/tree/master/core-services/prow/02_config/openshift/velero-plugin-for-aws
 - https://github.com/openshift/release/tree/master/ci-operator/config/openshift/velero-plugin-for-aws
@@ -51,6 +46,11 @@ The configuration for [OADP's Velero plugin for CSI repo](https://github.com/ope
 - https://github.com/openshift/release/tree/master/core-services/prow/02_config/openshift/velero-plugin-for-csi
 - https://github.com/openshift/release/tree/master/ci-operator/config/openshift/velero-plugin-for-csi
 - https://github.com/openshift/release/tree/master/ci-operator/jobs/openshift/velero-plugin-for-csi
+
+The configuration for [OADP's restic repo](https://github.com/openshift/restic) can be found in (OADP < 1.3)
+- https://github.com/openshift/release/tree/master/core-services/prow/02_config/openshift/restic
+- https://github.com/openshift/release/tree/master/ci-operator/config/openshift/restic
+- https://github.com/openshift/release/tree/master/ci-operator/jobs/openshift/restic
 
 The images mirroring to [quay.io](https://quay.io/organization/konveyor) configuration for all OADP related images can be found in
 - https://github.com/openshift/release/tree/master/core-services/image-mirroring/konveyor
