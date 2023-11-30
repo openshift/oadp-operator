@@ -66,7 +66,7 @@ The new velero `DataUpload` and `DataDownload` will be added.
 
 #### OADP container images
 
-References to `velero-plugin-for-vsm` and `volume-snapshot-mover` images need to be removed from `config/manager/manager.yaml`, golang code, and `deploy/disconnected-prep.sh`.
+References to `velero-plugin-for-vsm` and `volume-snapshot-mover` images need to be removed from `config/manager/manager.yaml`, golang code, and `hack/disconnected-prep.sh`.
 
 #### Velero code
 

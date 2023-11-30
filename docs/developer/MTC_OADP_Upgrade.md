@@ -15,7 +15,7 @@ Before you follow the steps, install MTC `1.6.3` in the cluster and also make th
 
 **MTC changes are as follows:**
 
-_**build/Dockerfile.bundle:**_
+_**bundle.Dockerfile:**_
 
 ```diff
 - LABEL operators.operatorframework.io.bundle.package.v1=crane-operator
@@ -97,7 +97,7 @@ _**deploy/olm-catalog/bundle/metadata/dependencies.yaml:**_
 
 **OADP changes are as follows:**
 
-**_build/Dockerfile.bundle:_**
+**_bundle.Dockerfile:_**
 ```diff
 - LABEL operators.operatorframework.io.bundle.package.v1=oadp-operator
 - LABEL operators.operatorframework.io.bundle.channels.v1=stable
@@ -140,7 +140,7 @@ Upgrade simulation steps:
 
 1. Build the MTC bundle using the following command (from MTC root directory)
 ```
-podman build -f build/Dockerfile.bundle -t quay.io/$ORG/mig-operator-bundle:$TAG .  
+podman build -f bundle.Dockerfile -t quay.io/$ORG/mig-operator-bundle:$TAG .  
 ```
 2. Push the MTC bundle image
 ```
@@ -148,7 +148,7 @@ podman push quay.io/$ORG/mig-operator-bundle:$TAG
 ```
 3. Build the OADP Operator bundle using the following command (from OADP root directory)
 ```
-podman build -f build/Dockerfile.bundle -t quay.io/$ORG/oadp-operator-bundle:$TAG .
+podman build -f bundle.Dockerfile -t quay.io/$ORG/oadp-operator-bundle:$TAG .
 ```
 4. Push the OADP bundle image
 ```
