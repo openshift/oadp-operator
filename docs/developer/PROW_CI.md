@@ -64,9 +64,15 @@ The jobs run can be seen in PRs and in the links in the README.md file of OADP r
 
 OADP operator master branch is tested against the last 3 minor OCP releases. To Update an OCP version the project is tested against, see [Update OCP version](#update-ocp-version).
 
-### TODO Creating new release branch
+### Flakes
 
-https://github.com/openshift/oadp-operator/issues/1227
+TODO link to wiki
+
+### Creating new release branch
+
+When creating a new OADP release, a new branch (following the pattern `oadp-major.minor`, [example](https://github.com/openshift/oadp-operator/tree/oadp-1.3)) must be created in each one of related repos of OADP, and OADP repo itself.
+
+
 
 **TODO automate this process**
 
