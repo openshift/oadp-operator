@@ -70,9 +70,235 @@ TODO link to wiki
 
 ### Creating new release branch
 
-When creating a new OADP release, a new branch (following the pattern `oadp-major.minor`, [example](https://github.com/openshift/oadp-operator/tree/oadp-1.3)) must be created in each one of related repos of OADP, and OADP repo itself.
+To create new OADP release branch:
+- A new branch (following the pattern `oadp-major.minor`, [example](https://github.com/openshift/oadp-operator/tree/oadp-1.3)) must be created in each one of related repos of OADP, and OADP repo itself.
+- The new OADP branch must be updated to point to new release.
+- CI files for each new repo branch, must be created.
 
+Example: create `oadp-1.3` branch.
 
+OADP repo `Makefile` in `oadp-1.3` branch must be updated:
+```diff
+...
+-DEFAULT_VERSION := 99.0.0
++DEFAULT_VERSION := 1.3.0
+...
+-CHANNELS = "stable"
++CHANNELS = "stable-1.3"
+...
+-DEFAULT_CHANNEL = "stable"
++DEFAULT_CHANNEL = "stable-1.3"
+...
+-IMG ?= quay.io/konveyor/oadp-operator:latest
++IMG ?= quay.io/konveyor/oadp-operator:oadp-1.3
+...
+ # A valid Git branch from https://github.com/openshift/oadp-operator
+-PREVIOUS_CHANNEL ?= oadp-1.2
++PREVIOUS_CHANNEL ?= oadp-1.3
+...
+```
+
+OADP repo `config/manifests/bases/oadp-operator.clusterserviceversion.yaml` in `oadp-1.3` branch must be updated:
+```diff
+...
+-    containerImage: quay.io/konveyor/oadp-operator:latest
++    containerImage: quay.io/konveyor/oadp-operator:oadp-1.3
+...
+-    olm.skipRange: '>=0.0.0 <99.0.0'
++    olm.skipRange: '>=0.0.0 <1.3.0'
+...
+-  name: oadp-operator.v99.0.0
++  name: oadp-operator.v1.3.0
+...
+-  version: 99.0.0
++  version: 1.3.0
+```
+
+OADP repo `config/manager/manager.yaml` in `oadp-1.3` branch must be updated:
+```diff
+...
+           - name: RELATED_IMAGE_VELERO
+-            value: quay.io/konveyor/velero:latest
++            value: quay.io/konveyor/velero:oadp-1.3
+           - name: RELATED_IMAGE_VELERO_RESTORE_HELPER
+-            value: quay.io/konveyor/velero-restore-helper:latest
++            value: quay.io/konveyor/velero-restore-helper:oadp-1.3
+           - name: RELATED_IMAGE_OPENSHIFT_VELERO_PLUGIN
+-            value: quay.io/konveyor/openshift-velero-plugin:latest
++            value: quay.io/konveyor/openshift-velero-plugin:oadp-1.3
+           - name: RELATED_IMAGE_VELERO_PLUGIN_FOR_AWS
+-            value: quay.io/konveyor/velero-plugin-for-aws:latest
++            value: quay.io/konveyor/velero-plugin-for-aws:oadp-1.3
+           - name: RELATED_IMAGE_VELERO_PLUGIN_FOR_MICROSOFT_AZURE
+-            value: quay.io/konveyor/velero-plugin-for-microsoft-azure:latest
++            value: quay.io/konveyor/velero-plugin-for-microsoft-azure:oadp-1.3
+           - name: RELATED_IMAGE_VELERO_PLUGIN_FOR_GCP
+-            value: quay.io/konveyor/velero-plugin-for-gcp:latest
++            value: quay.io/konveyor/velero-plugin-for-gcp:oadp-1.3
+           - name: RELATED_IMAGE_VELERO_PLUGIN_FOR_CSI
+-            value: quay.io/konveyor/velero-plugin-for-csi:latest
++            value: quay.io/konveyor/velero-plugin-for-csi:oadp-1.3
+...
+```
+
+After updating these files, run `make bundle`.
+
+OADP repo `README.md` in `oadp-1.3` branch must be updated:
+```diff
+-Periodic Unit Tests [![Unit tests](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-master-unit-test-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-master-unit-test-periodic)
++Periodic Unit Tests [![Unit tests](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-oadp-1.3-unit-test-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-oadp-1.3-unit-test-periodic)
+...
+ AWS :
+-[![AWS builds](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-master-4.12-e2e-test-aws-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-master-4.12-e2e-test-aws-periodic)
++[![AWS builds](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-oadp-1.3-4.12-e2e-test-aws-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-oadp-1.3-4.12-e2e-test-aws-periodic)
+-[![AWS builds](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-master-4.13-e2e-test-aws-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-master-4.13-e2e-test-aws-periodic)
++[![AWS builds](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-oadp-1.3-4.13-e2e-test-aws-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-oadp-1.3-4.13-e2e-test-aws-periodic)
+-[![AWS builds](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-master-4.14-e2e-test-aws-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-master-4.14-e2e-test-aws-periodic)
++[![AWS builds](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-oadp-1.3-4.14-e2e-test-aws-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-oadp-1.3-4.14-e2e-test-aws-periodic)
+
+ GCP:
+-[![GCP builds](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-master-4.12-e2e-test-gcp-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-master-4.12-e2e-test-gcp-periodic)
++[![GCP builds](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-oadp-1.3-4.12-e2e-test-gcp-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-oadp-1.3-4.12-e2e-test-gcp-periodic)
+-[![GCP builds](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-master-4.13-e2e-test-gcp-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-master-4.13-e2e-test-gcp-periodic)
++[![GCP builds](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-oadp-1.3-4.13-e2e-test-gcp-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-oadp-1.3-4.13-e2e-test-gcp-periodic)
+-[![GCP builds](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-master-4.14-e2e-test-gcp-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-master-4.14-e2e-test-gcp-periodic)
++[![GCP builds](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-oadp-1.3-4.14-e2e-test-gcp-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-oadp-1.3-4.14-e2e-test-gcp-periodic)
+
+ Azure:
+-[![Azure builds](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-master-4.12-e2e-test-azure-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-master-4.12-e2e-test-azure-periodic)
++[![Azure builds](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-oadp-1.3-4.12-e2e-test-azure-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-oadp-1.3-4.12-e2e-test-azure-periodic)
+-[![Azure builds](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-master-4.13-e2e-test-azure-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-master-4.13-e2e-test-azure-periodic)
++[![Azure builds](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-oadp-1.3-4.13-e2e-test-azure-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-oadp-1.3-4.13-e2e-test-azure-periodic)
+-[![Azure builds](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-master-4.14-e2e-test-azure-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-master-4.14-e2e-test-azure-periodic)
++[![Azure builds](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-oadp-1.3-4.14-e2e-test-azure-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-oadp-1.3-4.14-e2e-test-azure-periodic)
+```
+
+Also, new configs must be added to each new branch of related OADP repos in https://github.com/openshift/release repo. As an example, here are the changes needed for OADP repo CI.
+
+The new branch must be added to `core-services/prow/02_config/openshift/oadp-operator/_prowconfig.yaml`
+```diff
+...
+   - includedBranches:
+     - master
+     - oadp-1.0
+     - oadp-1.1
+     - oadp-1.2
++    - oadp-1.3
+     labels:
+...
+```
+
+`ci-operator/config/openshift/oadp-operator/openshift-oadp-operator-oadp-1.3.yaml` file must be created. To make it easier, copy the contents of `ci-operator/config/openshift/oadp-operator/openshift-oadp-operator-master.yaml`, changing the following.
+```diff
+...
+ images:
+ - dockerfile_path: Dockerfile
+   from: src
+-  to: oadp-operator
++  to: oadp-operator-1.3
+ promotion:
+...
+ zz_generated_metadata:
+-  branch: master
++  branch: oadp-1.3
+   org: openshift
+   repo: oadp-operator
+```
+
+`ci-operator/config/openshift/oadp-operator/openshift-oadp-operator-oadp-1.3__4.VERSION.yaml` files must be created. To make it easier, copy the contents of `ci-operator/config/openshift/oadp-operator/openshift-oadp-operator-master__4.14.VERSION`, changing the following.
+```diff
+...
+ images:
+ - dockerfile_path: Dockerfile
+   from: src
+-  to: oadp-operator
++  to: oadp-operator-1.3
+ - dockerfile_path: build/ci-Dockerfile
+   from: src
+-  to: test-oadp-operator
++  to: test-oadp-operator-1.3
+ operator:
+   bundles:
+   - dockerfile_path: build/Dockerfile.bundle
+   substitutions:
+-  - pullspec: quay.io/konveyor/oadp-operator:latest
+-    with: oadp-operator
++  - pullspec: quay.io/konveyor/oadp-operator:oadp-1.3
++    with: oadp-operator-1.3
+ releases:
+...
+     env:
+-      OO_CHANNEL: stable
++      OO_CHANNEL: stable-1.3
+       OO_INSTALL_NAMESPACE: openshift-adp
+...
+         namespace: test-credentials
+-      from: test-oadp-operator
++      from: test-oadp-operator-1.3
+       resources:
+...
+     env:
+-      OO_CHANNEL: stable
++      OO_CHANNEL: stable-1.3
+       OO_INSTALL_NAMESPACE: openshift-adp
+...
+         namespace: test-credentials
+-      from: test-oadp-operator
++      from: test-oadp-operator-1.3
+       resources:
+...
+     env:
+-      OO_CHANNEL: stable
++      OO_CHANNEL: stable-1.3
+       OO_INSTALL_NAMESPACE: openshift-adp
+...
+         namespace: test-credentials
+-      from: test-oadp-operator
++      from: test-oadp-operator-1.3
+       resources:
+...
+     env:
+-      OO_CHANNEL: stable
++      OO_CHANNEL: stable-1.3
+       OO_INSTALL_NAMESPACE: openshift-adp
+...
+         namespace: test-credentials
+-      from: test-oadp-operator
++      from: test-oadp-operator-1.3
+       resources:
+...
+     env:
+-      OO_CHANNEL: stable
++      OO_CHANNEL: stable-1.3
+       OO_INSTALL_NAMESPACE: openshift-adp
+...
+         namespace: test-credentials
+-      from: test-oadp-operator
++      from: test-oadp-operator-1.3
+       resources:
+...
+     env:
+-      OO_CHANNEL: stable
++      OO_CHANNEL: stable-1.3
+       OO_INSTALL_NAMESPACE: openshift-adp
+...
+         namespace: test-credentials
+-      from: test-oadp-operator
++      from: test-oadp-operator-1.3
+       resources:
+         requests:
+           cpu: 1000m
+           memory: 512Mi
+     workflow: optional-operators-ci-azure
+ zz_generated_metadata:
+-  branch: master
++  branch: oadp-1.3
+   org: openshift
+   repo: oadp-operator
+   variant: "4.14"
+```
+
+After creating these files, run `make jobs`.
 
 **TODO automate this process**
 
