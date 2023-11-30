@@ -116,7 +116,7 @@ A Kubernetes CR that acts as the protocol between data mover plugins and data mo
 
 <h3>Note: For additional specification information please see the <a href=https://github.com/openshift/oadp-operator/blob/master/docs/API_ref.md>API reference documentation</a>
 
-<h3>DataUpload (DUCR) status descriptions</h3>
+<h3>DataUpload (DUCR) and DataDownload (DDCR) status descriptions</h3>
 
 <table>
 <thead>
