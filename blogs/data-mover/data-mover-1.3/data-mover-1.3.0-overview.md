@@ -187,7 +187,27 @@ A more in depth visualization of the backup workflow with Data Mover is found be
 
 <h2>Restore Process</h2>
 <div>
-todo
+A user creates a restore CR, no additional data mover options or parameters are required. Velero calls the RIA V2 api to create a PV and PVC in the protected namespace (openshift-adp). The status will move from `New` to `InProgress`.<br><br>
+
+The data from backup is queried from the remotely stored DataUpload CR and written to local ConfigMaps.  A ConfigMap is created for each PV to be restored and are temporary objects that are deleted upon the restore completion. The ConfigMap stores vital information like the Repo Snapshot ID.
+
+As the data from the backup is downloaded via DataDownload Controller via Kopia the target volume is marked as not ready to prevent binding. The status of the download
+can be viewed from the DataDownload CR object as `Accepted`, `Prepared`, or `InProgress`.
+
+Once the DataDownload is in status `Completed`, the target PVC should have been created in the target user namespace and waiting for binding.  The PV's claim reference is written to the target PVC in the target user namespace and the PVC will be immediately bound to the target PV.
+
+</div>
+<hr>
+
+<p dir="auto"><img alt="restore-13-workflow" src="restore-13-workflow.png" width="850" /></p>
+
+<div>
+<hr>
+A more in depth visualization of the restore workflow with Data Mover is found below.
+<hr>
+</div>
+
+<p dir="auto"><img alt="data-mover-13-restore-sequence" src="data-mover-13-restore-sequence.png" width="850" /></p>
 
 <h2>Thank you!</h2>
 The source of this blog post can be found in the <a href="https://github.com/openshift/oadp-operator/tree/master/blogs/data-mover">oadp-operator repository</a>
