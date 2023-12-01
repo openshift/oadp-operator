@@ -152,7 +152,7 @@ metadata:
     categories: OpenShift Optional
     certified: "false"
     containerImage: quay.io/konveyor/oadp-operator:latest
-    createdAt: "2020-09-08T12:21:00Z"
+    createdAt: "2023-12-01T20:24:02Z"
     description: OADP (OpenShift API for Data Protection) operator sets up and installs
       Data Protection Applications on the OpenShift platform.
     features.operators.openshift.io/cnf: "false"
@@ -170,7 +170,7 @@ metadata:
     operators.openshift.io/infrastructure-features: '["Disconnected"]'
     operators.openshift.io/valid-subscription: '["OpenShift Container Platform", "OpenShift
       Platform Plus"]'
-    operators.operatorframework.io/builder: operator-sdk-v1.23.0
+    operators.operatorframework.io/builder: operator-sdk-v1.32.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
     repository: https://github.com/openshift/oadp-operator
     support: Red Hat
@@ -272,20 +272,9 @@ spec:
         displayName: LastValidationTime
         path: lastValidationTime
       version: v1
-    - description: The CloudStorage API automates the creation of a bucket for object
-        storage.
-      displayName: CloudStorage
+    - displayName: Cloud Storage
       kind: CloudStorage
       name: cloudstorages.oadp.openshift.io
-      statusDescriptors:
-      - description: LastSyncTimestamp is the last time the contents of the CloudStorage
-          was synced
-        displayName: LastSyncTimestamp
-        path: lastSyncTimestamp
-      - description: Name is the name requested for the bucket (aws, gcp) or container
-          (azure)
-        displayName: Name
-        path: name
       version: v1alpha1
     - description: DataDownload represents a data download of a volume snapshot. There
         is one DataDownload created per volume to be restored.
@@ -317,16 +306,10 @@ spec:
         displayName: StartTimestamp
         path: startTimestamp
       version: v2alpha1
-    - description: DataProtectionApplication represents configuration to install a
-        data protection application to safely backup and restore, perform disaster
-        recovery and migrate Kubernetes cluster resources and persistent volumes.
-      displayName: DataProtectionApplication
+    - description: DataProtectionApplication is the Schema for the dpa API
+      displayName: Data Protection Application
       kind: DataProtectionApplication
       name: dataprotectionapplications.oadp.openshift.io
-      statusDescriptors:
-      - description: Conditions defines the observed state of DataProtectionApplication
-        displayName: Conditions
-        path: conditions
       version: v1alpha1
     - description: DataUpload acts as the protocol between data mover plugins and
         data mover controller for the datamover backup operation
@@ -813,6 +796,12 @@ spec:
         serviceAccountName: velero
       deployments:
       - label:
+          app.kubernetes.io/component: manager
+          app.kubernetes.io/created-by: oadp-operator
+          app.kubernetes.io/instance: controller-manager
+          app.kubernetes.io/managed-by: kustomize
+          app.kubernetes.io/name: deployment
+          app.kubernetes.io/part-of: oadp-operator
           control-plane: controller-manager
         name: openshift-adp-controller-manager
         spec:
