@@ -10,17 +10,26 @@ The OADP engineering team first introduced the Data Mover feature in OADP 1.1.0.
 
 The Data Mover released in OADP 1.2.0 was performant for production workloads and was on average five times faster in uploading and downloading volumes than OADP 1.1.0.  Around the same time OADP 1.2.0 was released <a href=https://github.com/vmware-tanzu/velero/blob/main/design/Implemented/unified-repo-and-kopia-integration/unified-repo-and-kopia-integration.md>Kopia</a> was introduced and supported in Velero.  Kopia and asynchronous operations opened the door to a built in Data Mover in Velero itself.  A built in Data Mover allows for a more simplified workflow by not having the complexity of integrating an additional component like Volsync.  A design for <a href=https://github.com/vmware-tanzu/velero/blob/main/design/volume-snapshot-data-movement/volume-snapshot-data-movement.md>a built Data Mover</a> was proposed and accepted in the Velero project.  Thus far Red Hat engineering has found this new design for Data Mover to be reliable, performant and easier to maintain for future releases of OADP.  OADP 1.3.0 will bring this new design for a Data Mover to our customers as tech preview and we expect full support of the feature in OADP 1.3.2 to be released early in 2024.
 
+<h2>Why We Need Data Mover</h2>
+
+<p dir="auto">During a backup using Velero with CSI, CSI snapshotting is performed. This snapshot is created on the storage provider where the snapshot was taken. This means that for some providers, such as ODF (OpenShift Data Foundation), the snapshot resides on the cluster. Due to this poor durability, in the case of a cluster level disaster scenario, the snapshot is also subjected to disaster.</p>
+
+<h2>Improvements to Data Mover for Block Mode Volumes and OpenShift Virtualization</h2>
+Previous implementations of OADP did not support the data movement of volumes defined with <a href=https://kubernetes.io/docs/concepts/storage/persistent-volumes/#volume-mode>volumeMode: Block</a>.  We are pleased to report that the OADP 1.3 Data Mover now can successfully backup and restore volumes in either Filesystem or Block Mode.  By default <a href= https://docs.openshift.com/container-platform/latest/virt/about_virt/about-virt.html >OpenShift Virtualization</a> utilizes block mode volumes as persistent storage for virtual machines.  The lack of support for block mode PV's limited the utility of OADP to successfully provide disaster recovery services for OpenShift Virtualization workloads. <br><br>
+
+For backups Kopia's default uploader was extended to use the <a href=https://pkg.go.dev/github.com/kopia/kopia@v0.13.0/fs#StreamingFile>StreamingFile api</a> and mapping the block mode volume as device allows Kopia to correctly access the data and copy it to the Unified Repository. <br>
+
+We would like to thank our partners <a href=https://cloudcasa.io/>CloudCasa</a> and  <a href=https://www.vmware.com/VMware>VMware</a> for their collaboration and contributions in the upstream Velero project to enable this feature.
+Further improvements to block mode volumes are in progress to improve the utility and performance of the feature.  Please follow our work in the <a href=https://github.com/vmware-tanzu/velero>Velero Project</a> as we improve this critical feature.
+
+
 <h2>What Is CSI?</h2>
 
-<p dir="auto">One of the more important components of Data Mover to understand is CSI, or Container Storage Interface. CSI provides a layer of abstraction between container orchestration tools and storage systems such that storage vendors can develop a plugin once and have it work across a number of container orchestration systems. CSI defines an API for storage plugins to enable creation of a snapshot to provides point-in-time snapshotting of volumes.</p>
+<p dir="auto">One of the more important components of Data Mover to understand is CSI, or Container Storage Interface. CSI provides a layer of abstraction between container orchestration tools and storage systems such that storage vendors can develop a plugin once and have it work across a number of container orchestration systems. CSI defines an API for storage plugins to enable the creation of a snapshot that provides point-in-time snapshotting of volumes.</p>
 
 <p dir="auto">CSI compliant storage plugins are now the industry standard and are the preferred storage plugin type for most container orchestrators including Kubernetes. Most of Kubernetes "in-tree" drivers developed prior to CSI all have a target removal date as most storage vendors move towards deprecating non CSI plugins. However, issues concerning CSI volumes still remain. Some volumes have vendor-specific requirements, and can prevent proper portability and durability. Data Mover works to solve this case, which will be discussed more in the next section.</p>
 
 <p dir="auto">You can read more about CSI<span>&nbsp;</span><a href="https://kubernetes-csi.github.io/docs/">here</a>.</p>
-
-<h2>Why We Need Data Mover</h2>
-
-<p dir="auto">During a backup using Velero with CSI, CSI snapshotting is performed. This snapshot is created on the storage provider where the snapshot was taken. This means that for some providers, such as ODF (OpenShift Data Foundation), the snapshot lives on the cluster. Due to this poor durability, in the case of a disaster scenario, the snapshot is also subjected to disaster.</p>
 
 <h2>Components</h2>
 
@@ -53,6 +62,9 @@ VBDM is the built-in data mover shipped along with Velero, it includes Velero da
 
 <h3>The Exposer</h3>
 <p>Exposer is to expose the snapshot/target volume as a path/device name/endpoint that are recognizable by Velero generic data path. For different snapshot types/snapshot accesses, the Exposer may be different. This isolation guarantees that when we want to support other snapshot types/snapshot accesses, we only need to replace with a new Exposer and keep other components as is.</p>
+
+<h3>Velero Generic Data Path</h3>
+<p>VGDP is the collective of modules that is introduced in Unified Repository design. Velero uses these modules to finish data transmission for various purposes. In includes uploaders and the backup repository</p>
 
 
 
@@ -187,14 +199,17 @@ A more in depth visualization of the backup workflow with Data Mover is found be
 
 <h2>Restore Process</h2>
 <div>
-A user creates a restore CR, no additional data mover options or parameters are required. Velero calls the RIA V2 api to create a PV and PVC in the protected namespace (openshift-adp). The status will move from `New` to `InProgress`.<br><br>
+A user creates a restore CR, no additional data mover options or parameters are required. Velero calls the RIA V2 api to create a PV and PVC in the protected namespace (openshift-adp). The backup status will move from `New` to `InProgress`.<br><br>
 
-The data from backup is queried from the remotely stored DataUpload CR and written to local ConfigMaps.  A ConfigMap is created for each PV to be restored and are temporary objects that are deleted upon the restore completion. The ConfigMap stores vital information like the Repo Snapshot ID.
+The data from backup is queried from the remotely stored DataUpload CR and written to the local ConfigMaps.  A ConfigMap is created for each PV to be restored. These Configmaps are temporary objects that are deleted upon the restore's workflow completion. The ConfigMap stores vital information like the Repo Snapshot ID or VolumeSnapshotContent name.  The data stored in the ConfigMap is then used to build the DataDownload CR spec. 
 
-As the data from the backup is downloaded via DataDownload Controller via Kopia the target volume is marked as not ready to prevent binding. The status of the download
-can be viewed from the DataDownload CR object as `Accepted`, `Prepared`, or `InProgress`.
+The DataMover plugin creates the DataDownload CR and DataDownload Controller reconciles on the CR.  The Node-Agent begins the download the backed up PV data from S3. 
 
-Once the DataDownload is in status `Completed`, the target PVC should have been created in the target user namespace and waiting for binding.  The PV's claim reference is written to the target PVC in the target user namespace and the PVC will be immediately bound to the target PV.
+As the data from the backup is downloaded via DataDownload Controller via Kopia the target volume is marked as not ready. In order  to prevent the volume from binding the spec.VolumeName set to empty (""). The status of the download can be viewed from the DataDownload CR object as `Accepted`, `Prepared`, or `InProgress`.  Similarly with the Data Mover backup process a user may find temporary objects (i.e., pods, PVCs, PVs) created in the protected namespace (openshift-adp) during this step.
+
+Once the DataDownload is in a terminal status `Completed`, the target PVC should have been created in the target user namespace and waiting for binding.  The PV's claim reference is written to the target PVC in the target user namespace and the PVC will be immediately bound to the target PV.  
+
+Please note the advantage of reusing the same cluster scoped PV throughout the restore eliminates the need to recopy the PV data from the protected namespace to the application namespace as was the requirement for OADP-1.2
 
 </div>
 <hr>
@@ -211,3 +226,5 @@ A more in depth visualization of the restore workflow with Data Mover is found b
 
 <h2>Thank you!</h2>
 The source of this blog post can be found in the <a href="https://github.com/openshift/oadp-operator/tree/master/blogs/data-mover">oadp-operator repository</a>
+
+The original upstream Velero design for the VBDM can be found <a href=https://github.com/vmware-tanzu/velero/blob/main/design/volume-snapshot-data-movement/volume-snapshot-data-movement.md>here.</a> Information and diagrams have been sourced directly from the design.  
