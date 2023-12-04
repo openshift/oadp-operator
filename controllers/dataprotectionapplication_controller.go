@@ -18,7 +18,6 @@ package controllers
 
 import (
 	"context"
-	"os"
 
 	routev1 "github.com/openshift/api/route/v1"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
@@ -44,7 +43,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
-// DPAReconciler reconciles a Velero object
+// DataProtectionApplicationReconciler reconciles a DataProtectionApplication object
 type DPAReconciler struct {
 	client.Client
 	Scheme         *runtime.Scheme
@@ -54,26 +53,19 @@ type DPAReconciler struct {
 	EventRecorder  record.EventRecorder
 }
 
-var debugMode = os.Getenv("DEBUG") == "true"
+// TODO change name? DPAReconciler -> DataProtectionApplicationReconciler
 
-//TODO!!! FIX THIS!!!!
+//TODO!!! FIX THIS!!!!?
 
 //+kubebuilder:rbac:groups=*,resources=*,verbs=*
-//+kubebuilder:rbac:groups=oadp.openshift.io,resources=dataprotectionapplications,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=security.openshift.io,resources=securitycontextconstraints,verbs=use,resourceNames=privileged;velero-privileged
 //+kubebuilder:rbac:groups=velero.io,resources=backups;restores;backupstoragelocations;volumesnapshotlocations,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=oadp.openshift.io,resources=dataprotectionapplications,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=oadp.openshift.io,resources=dataprotectionapplications/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=oadp.openshift.io,resources=dataprotectionapplications/finalizers,verbs=update
 
 // Reconcile is part of the main Kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
-// TODO(user): Modify the Reconcile function to compare the state specified by
-// the DataProtectionApplication object against the actual cluster state, and then
-// perform operations to make the cluster state reflect the state specified by
-// the user.
-//
-// For more details, check Reconcile and its Result here:
-// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.9.2/pkg/reconcile
 func (r *DPAReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	r.Log = log.FromContext(ctx)
 	log := r.Log.WithValues("dpa", req.NamespacedName)
@@ -152,8 +144,7 @@ func (r *DPAReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-type labelHandler struct {
-}
+type labelHandler struct{}
 
 func (l *labelHandler) Create(evt event.CreateEvent, q workqueue.RateLimitingInterface) {
 	// check for the label & add it to the queue

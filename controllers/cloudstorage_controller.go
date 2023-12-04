@@ -1,15 +1,18 @@
+// TODO license header
+
 package controllers
 
 import (
 	"context"
 	"fmt"
+	"os"
+	"strconv"
+	"time"
+
 	"github.com/openshift/oadp-operator/pkg/common"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"os"
-	"strconv"
-	"time"
 
 	"github.com/go-logr/logr"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
@@ -25,36 +28,25 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
-const (
-	oadpFinalizerBucket              = "oadp.openshift.io/bucket-protection"
-	oadpCloudStorageDeleteAnnotation = "oadp.openshift.io/cloudstorage-delete"
-)
-
-// VeleroReconciler reconciles a Velero object
-type BucketReconciler struct {
+// CloudStorageReconciler reconciles a CloudStorage object
+type CloudStorageReconciler struct {
 	Client        client.Client
 	Scheme        *runtime.Scheme
 	Log           logr.Logger
 	EventRecorder record.EventRecorder
 }
 
-//TODO!!! FIX THIS!!!!
+//TODO!!! FIX THIS!!!!?
+// TODO change buckets to cloudstorages?
 
-//+kubebuilder:rbac:groups=oadp.openshift.io,resources=buckets,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=corev1,resources=secrets,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=oadp.openshift.io,resources=buckets,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=oadp.openshift.io,resources=buckets/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=oadp.openshift.io,resources=buckets/finalizers,verbs=update
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
-// TODO(user): Modify the Reconcile function to compare the state specified by
-// the Velero object against the actual cluster state, and then
-// perform operations to make the cluster state reflect the state specified by
-// the user.
-//
-// For more details, check Reconcile and its Result here:
-// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.9.2/pkg/reconcile
-func (b BucketReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (b CloudStorageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	b.Log = log.FromContext(ctx)
 	log := b.Log.WithValues("bucket", req.NamespacedName)
 	result := ctrl.Result{}
@@ -158,7 +150,7 @@ func (b BucketReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (b *BucketReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (b *CloudStorageReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&oadpv1alpha1.CloudStorage{}).
@@ -166,6 +158,11 @@ func (b *BucketReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(b)
 
 }
+
+const (
+	oadpFinalizerBucket              = "oadp.openshift.io/bucket-protection"
+	oadpCloudStorageDeleteAnnotation = "oadp.openshift.io/cloudstorage-delete"
+)
 
 func bucketPredicate() predicate.Predicate {
 	return predicate.Funcs{
@@ -205,7 +202,7 @@ func removeKey(slice []string, s string) []string {
 	return slice
 }
 
-func (b *BucketReconciler) WaitForSecret(namespace, name string) (*corev1.Secret, error) {
+func (b *CloudStorageReconciler) WaitForSecret(namespace, name string) (*corev1.Secret, error) {
 	// set a timeout of 10 minutes
 	timeout := 10 * time.Minute
 
