@@ -1,22 +1,11 @@
+// TODO license header
+
 package v1alpha1
 
 import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
-
-// CloudStorage types are APIs for automatic bucket creation at cloud providers if defined name do not exists.
-
-//+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
-
-type CloudStorage struct {
-	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
-
-	Spec   CloudStorageSpec   `json:"spec,omitempty"`
-	Status CloudStorageStatus `json:"status,omitempty"`
-}
 
 type CloudStorageProvider string
 
@@ -26,6 +15,7 @@ const (
 	GCPBucketProvider   CloudStorageProvider = CloudStorageProvider(DefaultPluginGCP)
 )
 
+// CloudStorageSpec defines the desired state of CloudStorage
 type CloudStorageSpec struct {
 	// name is the name requested for the bucket (aws, gcp) or container (azure)
 	Name string `json:"name"`
@@ -48,18 +38,35 @@ type CloudStorageSpec struct {
 	// need storage account name and key to create azure container
 	// az storage container create -n <container-name> --account-name <storage-account-name> --account-key <storage-account-key>
 	// azure account key will use CreationSecret to store key and account name
-
 }
 
+// CloudStorageStatus defines the observed state of CloudStorage
 type CloudStorageStatus struct {
 	Name       string       `json:"name"`
 	LastSynced *metav1.Time `json:"lastSyncTimestamp,omitempty"`
 }
 
 //+kubebuilder:object:root=true
+//+kubebuilder:subresource:status
 
+// CloudStorage types are APIs for automatic bucket creation at cloud providers if defined name do not exists.
+type CloudStorage struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+
+	Spec   CloudStorageSpec   `json:"spec,omitempty"`
+	Status CloudStorageStatus `json:"status,omitempty"`
+}
+
+//+kubebuilder:object:root=true
+
+// CloudStorageList contains a list of CloudStorage
 type CloudStorageList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []CloudStorage `json:"items"`
+}
+
+func init() {
+	SchemeBuilder.Register(&CloudStorage{}, &CloudStorageList{})
 }

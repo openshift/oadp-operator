@@ -152,7 +152,7 @@ metadata:
     categories: OpenShift Optional
     certified: "false"
     containerImage: quay.io/konveyor/oadp-operator:latest
-    createdAt: "2023-12-01T20:24:02Z"
+    createdAt: "2023-12-04T12:14:27Z"
     description: OADP (OpenShift API for Data Protection) operator sets up and installs
       Data Protection Applications on the OpenShift platform.
     features.operators.openshift.io/cnf: "false"
@@ -272,7 +272,9 @@ spec:
         displayName: LastValidationTime
         path: lastValidationTime
       version: v1
-    - displayName: Cloud Storage
+    - description: CloudStorage types are APIs for automatic bucket creation at cloud
+        providers if defined name do not exists.
+      displayName: Cloud Storage
       kind: CloudStorage
       name: cloudstorages.oadp.openshift.io
       version: v1alpha1

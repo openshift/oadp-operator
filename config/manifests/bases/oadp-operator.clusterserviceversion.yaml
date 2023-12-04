@@ -374,7 +374,9 @@ spec:
         displayName: StartTimestamp
         path: startTimestamp
       version: v2alpha1
-    - displayName: Cloud Storage
+    - description: CloudStorage types are APIs for automatic bucket creation at cloud
+        providers if defined name do not exists.
+      displayName: Cloud Storage
       kind: CloudStorage
       name: cloudstorages.oadp.openshift.io
       version: v1alpha1

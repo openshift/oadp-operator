@@ -17,6 +17,8 @@ spec:
   - name: v1alpha1
     schema:
       openAPIV3Schema:
+        description: CloudStorage types are APIs for automatic bucket creation at
+          cloud providers if defined name do not exists.
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -31,6 +33,7 @@ spec:
           metadata:
             type: object
           spec:
+            description: CloudStorageSpec defines the desired state of CloudStorage
             properties:
               creationSecret:
                 description: creationSecret is the secret that is needed to be used
@@ -78,6 +81,7 @@ spec:
             - provider
             type: object
           status:
+            description: CloudStorageStatus defines the observed state of CloudStorage
             properties:
               lastSyncTimestamp:
                 format: date-time

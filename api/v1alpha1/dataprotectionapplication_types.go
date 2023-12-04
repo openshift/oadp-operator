@@ -288,16 +288,15 @@ type DataProtectionApplication struct {
 
 //+kubebuilder:object:root=true
 
-// DataProtectionApplicationList contains a list of Velero
+// DataProtectionApplicationList contains a list of DataProtectionApplication
 type DataProtectionApplicationList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []DataProtectionApplication `json:"items"`
 }
 
-// Default BackupImages behavior when nil to true
-func (dpa *DataProtectionApplication) BackupImages() bool {
-	return dpa.Spec.BackupImages == nil || *dpa.Spec.BackupImages
+func init() {
+	SchemeBuilder.Register(&DataProtectionApplication{}, &DataProtectionApplicationList{})
 }
 
 func (veleroConfig *VeleroConfig) HasFeatureFlag(flag string) bool {
@@ -309,8 +308,9 @@ func (veleroConfig *VeleroConfig) HasFeatureFlag(flag string) bool {
 	return false
 }
 
-func init() {
-	SchemeBuilder.Register(&DataProtectionApplication{}, &DataProtectionApplicationList{}, &CloudStorage{}, &CloudStorageList{})
+// Default BackupImages behavior when nil to true
+func (dpa *DataProtectionApplication) BackupImages() bool {
+	return dpa.Spec.BackupImages == nil || *dpa.Spec.BackupImages
 }
 
 // AutoCorrect is a collection of auto-correction functions for the DPA CR
