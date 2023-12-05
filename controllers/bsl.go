@@ -366,8 +366,28 @@ func (r *DPAReconciler) validateProviderPluginAndSecret(bslSpec velerov1.BackupS
 	}
 	secretName, _ := r.getSecretNameAndKey(&bslSpec, oadpv1alpha1.DefaultPlugin(bslSpec.Provider))
 
-	_, err := r.getProviderSecret(secretName)
+	// At this time if the user initially creates a secret w/o the default named secrets having been created the reconcile will fail
+	// https://issues.redhat.com/browse/OADP-3193
+	
+	// provider := bslSpec.Velero.Provider //this may be needed for this case.
+	var defaultSecretName string
+	switch bucket.Spec.Provider {
+	case oadpv1alpha1.AWSBucketProvider:
+		defaultSecretName = VeleroAWSSecretName
+		_, err := r.getProviderSecret(VeleroAWSSecretName)
+	case oadpv1alpha1.AzureBucketProvider:
+		defaultSecretName = VeleroAWSSecretName
+		_, err := r.getProviderSecret(VeleroAzureSecretName)
+	case oadpv1alpha1.GCPBucketProvider:
+		defaultSecretName = VeleroAWSSecretName
+		_, err := r.getProviderSecret(VeleroGCPSecretName)
+	if err != nil {
+		r.Log.Info(fmt.Sprintf("Error: The default secret, %s must also exist in the namespace %s", defaultSecretName, r.NamespacedName.Namespace))
+		return err
+	}
 
+	
+	_, err := r.getProviderSecret(secretName)
 	if err != nil {
 		r.Log.Info(fmt.Sprintf("error validating %s provider secret:  %s/%s", bslSpec.Provider, r.NamespacedName.Namespace, secretName))
 		return err
