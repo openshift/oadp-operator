@@ -364,32 +364,20 @@ func (r *DPAReconciler) validateProviderPluginAndSecret(bslSpec velerov1.BackupS
 		r.Log.Info(fmt.Sprintf("%s backupstoragelocation is configured but velero plugin for %s is not present", bslSpec.Provider, bslSpec.Provider))
 		//TODO: set warning condition on Velero CR
 	}
-	secretName, _ := r.getSecretNameAndKey(&bslSpec, oadpv1alpha1.DefaultPlugin(bslSpec.Provider))
+	secretName, _, isDefault := r.getSecretNameAndKey(&bslSpec, oadpv1alpha1.DefaultPlugin(bslSpec.Provider))
 
 	// At this time if the user initially creates a secret w/o the default named secrets having been created the reconcile will fail
 	// https://issues.redhat.com/browse/OADP-3193
-	
-	// provider := bslSpec.Velero.Provider //this may be needed for this case.
-	var defaultSecretName string
-	switch bucket.Spec.Provider {
-	case oadpv1alpha1.AWSBucketProvider:
-		defaultSecretName = VeleroAWSSecretName
-		_, err := r.getProviderSecret(VeleroAWSSecretName)
-	case oadpv1alpha1.AzureBucketProvider:
-		defaultSecretName = VeleroAWSSecretName
-		_, err := r.getProviderSecret(VeleroAzureSecretName)
-	case oadpv1alpha1.GCPBucketProvider:
-		defaultSecretName = VeleroAWSSecretName
-		_, err := r.getProviderSecret(VeleroGCPSecretName)
-	if err != nil {
-		r.Log.Info(fmt.Sprintf("Error: The default secret, %s must also exist in the namespace %s", defaultSecretName, r.NamespacedName.Namespace))
-		return err
-	}
 
-	
+	// provider := bslSpec.Velero.Provider //this may be needed for this case.
 	_, err := r.getProviderSecret(secretName)
+
 	if err != nil {
-		r.Log.Info(fmt.Sprintf("error validating %s provider secret:  %s/%s", bslSpec.Provider, r.NamespacedName.Namespace, secretName))
+		if isDefault {
+			r.Log.Error(err, fmt.Sprintf("Error: The default secret, %s must also exist in the namespace %s", secretName, r.NamespacedName.Namespace))
+			return err
+		}
+		r.Log.Error(err, fmt.Sprintf("error validating %s provider secret:  %s/%s", bslSpec.Provider, r.NamespacedName.Namespace, secretName))
 		return err
 	}
 	return nil
