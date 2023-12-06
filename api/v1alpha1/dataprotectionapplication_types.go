@@ -270,6 +270,8 @@ type DataProtectionApplicationSpec struct {
 
 // DataProtectionApplicationStatus defines the observed state of DataProtectionApplication
 type DataProtectionApplicationStatus struct {
+	// Conditions defines the observed state of DataProtectionApplication
+	//+operator-sdk:csv:customresourcedefinitions:type=status
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
@@ -277,7 +279,9 @@ type DataProtectionApplicationStatus struct {
 //+kubebuilder:subresource:status
 //+kubebuilder:resource:path=dataprotectionapplications,shortName=dpa
 
-// DataProtectionApplication is the Schema for the dpa API
+// DataProtectionApplication represents configuration to install a data protection application
+// to safely backup and restore, perform disaster recovery and migrate Kubernetes cluster resources
+// and persistent volumes.
 type DataProtectionApplication struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

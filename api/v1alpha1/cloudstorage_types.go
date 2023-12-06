@@ -42,14 +42,18 @@ type CloudStorageSpec struct {
 
 // CloudStorageStatus defines the observed state of CloudStorage
 type CloudStorageStatus struct {
-	Name       string       `json:"name"`
+	// Name is the name requested for the bucket (aws, gcp) or container (azure)
+	//+operator-sdk:csv:customresourcedefinitions:type=status
+	Name string `json:"name"`
+	// LastSyncTimestamp is the last time the contents of the CloudStorage was synced
+	//+operator-sdk:csv:customresourcedefinitions:type=status,displayName="LastSyncTimestamp"
 	LastSynced *metav1.Time `json:"lastSyncTimestamp,omitempty"`
 }
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 
-// CloudStorage types are APIs for automatic bucket creation at cloud providers if defined name do not exists.
+// CloudStorage API automates the creation of a bucket for object storage.
 type CloudStorage struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

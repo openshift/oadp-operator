@@ -152,7 +152,7 @@ metadata:
     categories: OpenShift Optional
     certified: "false"
     containerImage: quay.io/konveyor/oadp-operator:latest
-    createdAt: "2023-12-04T12:14:27Z"
+    createdAt: "2023-12-06T15:35:25Z"
     description: OADP (OpenShift API for Data Protection) operator sets up and installs
       Data Protection Applications on the OpenShift platform.
     features.operators.openshift.io/cnf: "false"
@@ -272,11 +272,20 @@ spec:
         displayName: LastValidationTime
         path: lastValidationTime
       version: v1
-    - description: CloudStorage types are APIs for automatic bucket creation at cloud
-        providers if defined name do not exists.
+    - description: CloudStorage API automates the creation of a bucket for object
+        storage.
       displayName: Cloud Storage
       kind: CloudStorage
       name: cloudstorages.oadp.openshift.io
+      statusDescriptors:
+      - description: LastSyncTimestamp is the last time the contents of the CloudStorage
+          was synced
+        displayName: LastSyncTimestamp
+        path: lastSyncTimestamp
+      - description: Name is the name requested for the bucket (aws, gcp) or container
+          (azure)
+        displayName: Name
+        path: name
       version: v1alpha1
     - description: DataDownload represents a data download of a volume snapshot. There
         is one DataDownload created per volume to be restored.
@@ -308,10 +317,16 @@ spec:
         displayName: StartTimestamp
         path: startTimestamp
       version: v2alpha1
-    - description: DataProtectionApplication is the Schema for the dpa API
+    - description: DataProtectionApplication represents configuration to install a
+        data protection application to safely backup and restore, perform disaster
+        recovery and migrate Kubernetes cluster resources and persistent volumes.
       displayName: Data Protection Application
       kind: DataProtectionApplication
       name: dataprotectionapplications.oadp.openshift.io
+      statusDescriptors:
+      - description: Conditions defines the observed state of DataProtectionApplication
+        displayName: Conditions
+        path: conditions
       version: v1alpha1
     - description: DataUpload acts as the protocol between data mover plugins and
         data mover controller for the datamover backup operation
