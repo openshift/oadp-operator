@@ -25,10 +25,9 @@ import (
 )
 
 const (
-	ResticRestoreHelperCM = "restic-restore-action-config"
-	FsRestoreHelperCM     = "fs-restore-action-config"
-	HostPods              = "host-pods"
-	HostPlugins           = "host-plugins"
+	FsRestoreHelperCM = "fs-restore-action-config"
+	HostPods          = "host-pods"
+	HostPlugins       = "host-plugins"
 )
 
 var (
@@ -48,12 +47,7 @@ var (
 )
 
 func getFsPvHostPath() string {
-	env := os.Getenv("RESTIC_PV_HOSTPATH")
 	envFs := os.Getenv("FS_PV_HOSTPATH")
-
-	if env != "" {
-		return env
-	}
 
 	if envFs != "" {
 		return envFs
@@ -187,13 +181,12 @@ func (r *DPAReconciler) buildNodeAgentDaemonset(dpa *oadpv1alpha1.DataProtection
 
 	var nodeAgentResourceReqs corev1.ResourceRequirements
 
+	if dpa.Spec.Configuration.NodeAgent == nil {
+		return nil, fmt.Errorf("NodeAgent configuration cannot be nil")
+	}
 	// get resource requirements for nodeAgent ds
 	// ignoring err here as it is checked in validator.go
-	if dpa.Spec.Configuration.NodeAgent != nil {
-		nodeAgentResourceReqs, _ = getNodeAgentResourceReqs(dpa)
-	} else {
-		return nil, fmt.Errorf("NodeAgent or Restic configuration cannot be nil")
-	}
+	nodeAgentResourceReqs, _ = getNodeAgentResourceReqs(dpa)
 
 	installDs := install.DaemonSet(ds.Namespace,
 		install.WithResources(nodeAgentResourceReqs),
@@ -341,17 +334,6 @@ func (r *DPAReconciler) ReconcileFsRestoreHelperConfig(log logr.Logger) (bool, e
 			Name:      FsRestoreHelperCM,
 			Namespace: r.NamespacedName.Namespace,
 		},
-	}
-
-	// Delete renamed CM restic-restore-action-config
-	// Velero uses labels to identify the CM. For consistency we have the
-	// same name as upstream, whch is `fs-restore-action-config`
-	resticRestoreHelperCM := corev1.ConfigMap{}
-	if err := r.Get(r.Context, types.NamespacedName{Namespace: r.NamespacedName.Namespace, Name: ResticRestoreHelperCM}, &resticRestoreHelperCM); err == nil {
-		r.Log.Info("Deleting deprecated ConfigMap restic-restore-action-config.")
-		if err := r.Delete(r.Context, &resticRestoreHelperCM); err != nil {
-			return false, err
-		}
 	}
 
 	op, err := controllerutil.CreateOrPatch(r.Context, r.Client, &fsRestoreHelperCM, func() error {

@@ -165,8 +165,6 @@ func (r *DPAReconciler) buildVeleroDeployment(veleroDeployment *appsv1.Deploymen
 		return fmt.Errorf("error appending pod annotations: %v", err)
 	}
 
-	// Since `restic` can be still be used and it default's to an empty string, we can't just
-	// pass the dpa.Spec.Configuration.NodeAgent.UploaderType directly
 	uploaderType := ""
 	if dpa.Spec.Configuration.NodeAgent != nil && len(dpa.Spec.Configuration.NodeAgent.UploaderType) > 0 {
 		uploaderType = dpa.Spec.Configuration.NodeAgent.UploaderType
@@ -554,8 +552,6 @@ func (r *DPAReconciler) getVeleroResourceReqs(dpa *oadpv1alpha1.DataProtectionAp
 }
 
 // Get NodeAgent Resource Requirements
-// Separate function to getResticResourceReqs, so once Restic config is removed in OADP 1.4+
-// It will be easier to delete obsolete getResticResourceReqs
 func getNodeAgentResourceReqs(dpa *oadpv1alpha1.DataProtectionApplication) (corev1.ResourceRequirements, error) {
 
 	// Set default values

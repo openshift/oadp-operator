@@ -390,7 +390,7 @@ catalog-push: ## Push a catalog image.
 	$(MAKE) docker-push IMG=$(CATALOG_IMG)
 
 # A valid Git branch from https://github.com/openshift/oadp-operator
-PREVIOUS_CHANNEL ?= oadp-1.2
+PREVIOUS_CHANNEL ?= oadp-1.3
 
 .PHONY: catalog-test-upgrade
 catalog-test-upgrade: TEMP:= $(shell mktemp -d)
