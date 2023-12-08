@@ -15,11 +15,11 @@ The Data Mover released in OADP 1.2.0 was performant for production workloads an
 <p dir="auto">During a backup using Velero with CSI, CSI snapshotting is performed. This snapshot is created on the storage provider where the snapshot was taken. This means that for some providers, such as ODF (OpenShift Data Foundation), the snapshot resides on the cluster. Due to this poor durability, in the case of a cluster level disaster scenario, the snapshot is also subjected to disaster.</p>
 
 <h2>Improvements to Data Mover for Block Mode Volumes and OpenShift Virtualization</h2>
-Previous implementations of OADP did not support the data movement of volumes defined with <a href=https://kubernetes.io/docs/concepts/storage/persistent-volumes/#volume-mode>volumeMode: Block</a>.  We are pleased to report that the OADP 1.3 Data Mover now can successfully backup and restore volumes in either Filesystem or Block Mode.  By default <a href= https://docs.openshift.com/container-platform/latest/virt/about_virt/about-virt.html >OpenShift Virtualization</a> utilizes block mode volumes as persistent storage for virtual machines.  The lack of support for block mode PV's limited the utility of OADP to successfully provide disaster recovery services for OpenShift Virtualization workloads. Now in OADP-1.3 OpenShift Virtualization customers will be able to backup VM's, move the VM backup off cluster and restore their VM's as needed.<br><br>
+Previous implementations of OADP did not support the data movement of volumes defined with <a href=https://kubernetes.io/docs/concepts/storage/persistent-volumes/#volume-mode>volumeMode: Block</a>.  We are pleased to report that the OADP 1.3 Data Mover now can successfully backup and restore volumes in either Filesystem or Block Mode.  By default <a href= https://docs.openshift.com/container-platform/latest/virt/about_virt/about-virt.html >OpenShift Virtualization</a> utilizes block mode volumes as persistent storage for virtual machines.  The lack of support for block mode PVs limited the utility of OADP to successfully provide disaster recovery services for OpenShift Virtualization workloads. Now in OADP-1.3 OpenShift Virtualization customers will be able to backup VMs, move the VM backup off cluster and restore their VMs as needed.<br><br>
 
 For backup, Kopia's default uploader was extended to use the <a href=https://pkg.go.dev/github.com/kopia/kopia@v0.13.0/fs#StreamingFile>StreamingFile api</a> and mapping the block mode volume as device allows Kopia to correctly access the data and copy it to the Unified Repository. To restore, the block device data is copied back to the cluster via Kopia to a provisioned block device in /var/lib/kubelet/plugins by following a symbolic link to the device in /var/lib/kubelet/pods. <br>
 
-We would like to thank our partners <a href=https://cloudcasa.io/>CloudCasa</a> and  <a href=https://www.vmware.com/VMware>VMware</a> for their collaboration and contributions in the upstream Velero project to enable this feature.
+We would like to thank our partners <a href=https://cloudcasa.io/>CloudCasa</a> and  <a href=https://www.vmware.com/>VMware</a> for their collaboration and contributions in the upstream Velero project to enable this feature.
 Further improvements to block mode volumes are in progress to improve the utility and performance of the feature.  Please follow our work in the <a href=https://github.com/vmware-tanzu/velero>Velero Project</a> as we improve this critical feature.
 
 
@@ -177,7 +177,7 @@ A Kubernetes CR that acts as the protocol between data mover plugins and data mo
 <div>
 A user creates a backup CR with the snapshotMoveData option set to true. Velero calls the BIA V2 api to create a CSI VolumeSnapshot request. The status will move from `New` to `InProgress`.<br><br>
 
-After the VolumeSnapshots are created, you will see one or more DataUpload CRs created.  You may also see some temporary objects (i.e., pods, PVCs, PVs) created in protected (openShift-adp) namespace. The temporary objects are created to assist in the data movement. The status of the DataUpload object will progress from `New` to `Accepted` to `InProgress`. <br>
+After the VolumeSnapshots are created, you will see one or more DataUpload CRs created.  You may also see some temporary objects (i.e., pods, PVCs, PVs) created in protected (openshift-adp) namespace. The temporary objects are created to assist in the data movement. The status of the DataUpload object will progress from `New` to `Accepted` to `InProgress`. <br>
 
 Now working from the Data Mover plugin the CSI snapshot is mounted from the Node-Agent. The DataUpload Controller then works with Kopia ( the uploader ) to move the object off cluster to the Unified Repo Backup repository off cluster.  The status is once again reconciled and the backup CR is moved to complete.<br>
 
@@ -207,7 +207,7 @@ The DataMover plugin creates the DataDownload CR and DataDownload Controller rec
 
 As the data from the backup is downloaded via DataDownload Controller via Kopia the target volume is marked as not ready. In order  to prevent the volume from binding the spec.VolumeName set to empty (""). The status of the download can be viewed from the DataDownload CR object as `Accepted`, `Prepared`, or `InProgress`.  Similarly with the Data Mover backup process a user may find temporary objects (i.e., pods, PVCs, PVs) created in the protected namespace (openshift-adp) during this step.
 
-Once the DataDownload is in a terminal status `Completed`, the target PVC should have been created in the target user namespace and waiting for binding.  The PV's claim reference is written to the target PVC in the target user namespace and the PVC will be immediately bound to the target PV.  
+Once the DataDownload is in a terminal status `Completed`, the target PVC should have been created in the target user namespace and waiting for binding.  The PVs claim reference is written to the target PVC in the target user namespace and the PVC will be immediately bound to the target PV.  
 
 Please note the advantage of reusing the same cluster scoped PV throughout the restore eliminates the need to recopy the PV data from the protected namespace to the application namespace as was the requirement for OADP-1.2
 
