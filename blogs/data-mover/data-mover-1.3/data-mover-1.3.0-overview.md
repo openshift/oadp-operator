@@ -207,7 +207,7 @@ The DataMover plugin creates the DataDownload CR and DataDownload Controller rec
 
 As the data from the backup is downloaded via DataDownload Controller via Kopia the target volume is marked as not ready. In order  to prevent the volume from binding the spec.VolumeName set to empty (""). The status of the download can be viewed from the DataDownload CR object as `Accepted`, `Prepared`, or `InProgress`.  Similarly with the Data Mover backup process a user may find temporary objects (i.e., pods, PVCs, PVs) created in the protected namespace (openshift-adp) during this step.
 
-Once the DataDownload is in a terminal status `Completed`, the target PVC should have been created in the target user namespace and waiting for binding.  The PVs claim reference is written to the target PVC in the target user namespace and the PVC will be immediately bound to the target PV.  
+Once the DataDownload is in a terminal status `Completed`, the target PVC should have been created in the target user namespace and waiting for binding.  The PV's claim reference is written to the target PVC in the target user namespace and the PVC will be immediately bound to the target PV.  
 
 Please note the advantage of reusing the same cluster scoped PV throughout the restore eliminates the need to recopy the PV data from the protected namespace to the application namespace as was the requirement for OADP-1.2
 
