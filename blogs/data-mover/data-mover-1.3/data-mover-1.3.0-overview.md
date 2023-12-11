@@ -65,7 +65,7 @@ VBDM is the built-in data mover shipped along with Velero, it includes Velero da
 <p>Node-Agent is an existing Velero module that will be used to host VBDM</p>
 
 <h3>The Exposer</h3>
-<p>Exposer is to expose the snapshot/target volume as a path/device name/endpoint that are recognizable by Velero generic data path. For different snapshot types/snapshot accesses, the Exposer may be different. This isolation guarantees that when we want to support other snapshot types/snapshot accesses, we only need to replace with a new Exposer and keep other components as is.</p>
+<p>Exposer is used to expose the snapshot/target volume as a path/device name/endpoint that are recognizable by the Velero generic data path. For different snapshot types/snapshot accesses, the Exposer may be different. This isolation guarantees that when we want to support other snapshot types/snapshot access methods, only the Exposer component would need to be replaced.</p>
 
 <h3>Velero Generic Data Path</h3>
 <p>VGDP is the collective of modules that is introduced in Unified Repository design. Velero uses these modules to finish data transmission for various purposes. In includes uploaders and the backup repository</p>
@@ -258,7 +258,7 @@ A more in depth visualization of the backup workflow with Data Mover is found be
 
 <h2>Restore Process</h2>
 <div>
-A user creates a restore CR, no additional data mover options or parameters are required. Velero's CSI plugin (based on RIA V2 plugin API) creates a PV and PVC in the protected namespace (OADP operator's namespace). The restore status will move from `New` to `InProgress`.<br><br>
+A user creates a restore CR, no additional data mover options or parameters are required. Velero's CSI plugin (based on RIA V2 plugin API) creates a PV and PVC in the protected namespace (OADP operator's namespace). The restore CR status will move from `New` to `InProgress`.<br><br>
 
 The data from backup is queried from the remotely stored DataUpload CR and written to the in-cluster ConfigMaps.  A ConfigMap is created for each PV to be restored. These Configmaps are temporary objects that are deleted upon the restore's workflow completion. The ConfigMap stores vital information like the Repo Snapshot ID or VolumeSnapshotContent name.  The data stored in the ConfigMap is then used to build the DataDownload CR spec. 
 
