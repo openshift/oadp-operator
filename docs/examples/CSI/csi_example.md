@@ -25,7 +25,7 @@
           - csi
         nodeAgent:
           enable: false
-          uploaderType: restic
+          uploaderType: restic #[restic, kopia]
         featureFlags:
           - EnableCSI
       backupLocations:
@@ -55,10 +55,16 @@
 
 <hr style="height:1px;border:none;color:#333;">
 
-### Create a StorageClass and VolumeShapshotClass:
+### StorageClass and VolumeShapshotClass Requirements:
 
-- A `StorageClass` and a `VolumeSnapshotClass` are needed before the Mssql application
-is created. The app will map to the `StorageClass`, which contains information about the CSI driver.
+- A `StorageClass` and a `VolumeSnapshotClass` are needed before the mysql or any application
+with persistent data is created. The app will map to the `StorageClass`, which contains information about the CSI driver.
+
+- Most VolumeSnapshotClass specifications can not be modified as they are managed by an operator. 
+  - A new VolumeSnapshotClass can be created with the correct labels and annotations.
+  - A label and annotation can be added to an existing vsc via the following command: 
+    - `oc label volumesnapshotclass <vsc> velero.io/csi-volumesnapshot-class=true`
+    - `oc annotate volumesnapshotclass <vsc> snapshot.storage.kubernetes.io/is-default-class=true --overwrite`
 
 - Include a label in `VolumeSnapshotClass` to let
 Velero know which to use, and set `deletionPolicy` to  `Retain` in order for
@@ -83,7 +89,7 @@ deletionPolicy: Retain
 
 `oc get storageclass`
 
-If this is not found, create a `StorageClass` like below:
+In most cases storage classes would have already been created in the cluster by default.  If that is not the case, please create a `StorageClass` like below:
 
 ```
 apiVersion: storage.k8s.io/v1
@@ -102,7 +108,7 @@ allowVolumeExpansion: true
 
 <hr style="height:1px;border:none;color:#333;">
 
-### Create the Mssql deployment config:
+### Create the mysql deployment config:
 
 `oc create -f docs/examples/manifests/mysql/mysql-persistent-csi-template.yaml`
 `oc create -f docs/examples/manifests/mysql/pvc/aws.yaml`
