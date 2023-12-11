@@ -392,7 +392,6 @@ func (r *DPAReconciler) ReconcileFsRestoreHelperConfig(log logr.Logger) (bool, e
 	}
 
 	op, err := controllerutil.CreateOrPatch(r.Context, r.Client, &fsRestoreHelperCM, func() error {
-
 		// update the Config Map
 		err := r.updateFsRestoreHelperCM(&fsRestoreHelperCM, &dpa)
 		return err
@@ -416,7 +415,6 @@ func (r *DPAReconciler) ReconcileFsRestoreHelperConfig(log logr.Logger) (bool, e
 }
 
 func (r *DPAReconciler) updateFsRestoreHelperCM(fsRestoreHelperCM *corev1.ConfigMap, dpa *oadpv1alpha1.DataProtectionApplication) error {
-
 	// Setting controller owner reference on the FS restore helper CM
 	err := controllerutil.SetControllerReference(dpa, fsRestoreHelperCM, r.Scheme)
 	if err != nil {

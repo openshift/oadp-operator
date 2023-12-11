@@ -214,7 +214,6 @@ func registryName(bsl *velerov1.BackupStorageLocation) string {
 }
 
 func (r *DPAReconciler) getProviderSecret(secretName string) (corev1.Secret, error) {
-
 	secret := corev1.Secret{}
 	key := types.NamespacedName{
 		Name:      secretName,
@@ -244,7 +243,6 @@ func replaceCarriageReturn(data map[string][]byte, logger logr.Logger) map[strin
 }
 
 func (r *DPAReconciler) getSecretNameAndKeyforBackupLocation(bslspec oadpv1alpha1.BackupLocation) (string, string) {
-
 	if bslspec.CloudStorage != nil {
 		if bslspec.CloudStorage.Credential != nil {
 			return bslspec.CloudStorage.Credential.Name, bslspec.CloudStorage.Credential.Key
@@ -258,7 +256,7 @@ func (r *DPAReconciler) getSecretNameAndKeyforBackupLocation(bslspec oadpv1alpha
 }
 
 func (r *DPAReconciler) getSecretNameAndKey(bslSpec *velerov1.BackupStorageLocationSpec, plugin oadpv1alpha1.DefaultPlugin) (string, string) {
-	// Assume default values unless user has overriden them
+	// Assume default values unless user has overridden them
 	secretName := credentials.PluginSpecificFields[plugin].SecretName
 	secretKey := credentials.PluginSpecificFields[plugin].PluginSecretKey
 	if _, ok := bslSpec.Config["credentialsFile"]; ok {
@@ -283,7 +281,6 @@ func (r *DPAReconciler) getSecretNameAndKey(bslSpec *velerov1.BackupStorageLocat
 }
 
 func (r *DPAReconciler) parseAWSSecret(secret corev1.Secret, secretKey string, matchProfile string) (string, string, error) {
-
 	AWSAccessKey, AWSSecretKey, profile := "", "", ""
 	splitString := strings.Split(string(secret.Data[secretKey]), "\n")
 	keyNameRegex, err := regexp.Compile(`\[.*\]`)
@@ -368,7 +365,6 @@ func (r *DPAReconciler) parseAWSSecret(secret corev1.Secret, secretKey string, m
 }
 
 func (r *DPAReconciler) parseAzureSecret(secret corev1.Secret, secretKey string) (azureCredentials, error) {
-
 	azcreds := azureCredentials{}
 
 	splitString := strings.Split(string(secret.Data[secretKey]), "\n")
@@ -577,7 +573,6 @@ func (r *DPAReconciler) ReconcileRegistryRoutes(log logr.Logger) (bool, error) {
 }
 
 func (r *DPAReconciler) ReconcileRegistryRouteConfigs(log logr.Logger) (bool, error) {
-
 	// Now for each of these bsl instances, create a registry route cm for each of them
 	registryRouteCM := corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{

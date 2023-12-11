@@ -150,7 +150,6 @@ func DoesSCCExist(ocClient client.Client, sccName string) (bool, error) {
 		return false, err
 	}
 	return true, nil
-
 }
 
 func UninstallApplication(ocClient client.Client, file string) error {
@@ -543,7 +542,6 @@ func verifyVolume(volumeFile string, volumeApi string, prebackupState bool, back
 		if err != nil {
 			return err
 		}
-
 	} else {
 		volumeBackupData, err := os.ReadFile(volumeFile)
 		if err != nil {

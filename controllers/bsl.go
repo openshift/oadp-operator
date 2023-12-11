@@ -218,7 +218,7 @@ func (r *DPAReconciler) UpdateCredentialsSecretLabels(secretName string, namespa
 			return false, err
 		}
 
-		r.EventRecorder.Event(&secret, corev1.EventTypeNormal, "SecretLabelled", fmt.Sprintf("Secret %s has been labelled", secretName))
+		r.EventRecorder.Event(&secret, corev1.EventTypeNormal, "SecretLabelled", fmt.Sprintf("Secret %s has been labeled", secretName))
 	}
 	return true, nil
 }

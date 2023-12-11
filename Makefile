@@ -179,6 +179,7 @@ test: vet envtest ## Run Go linter and unit tests and check Go code format and i
 	@make fmt-isupdated
 	@make api-isupdated
 	@make bundle-isupdated
+	@make lint
 
 .PHONY: fmt-isupdated
 fmt-isupdated: TEMP:= $(shell mktemp -d)
@@ -532,3 +533,20 @@ test-e2e-cleanup: login-required
 	$(OC_CLI) delete restore -n $(OADP_TEST_NAMESPACE) --all --wait=false
 	for restore_name in $(shell $(OC_CLI) get restore -n $(OADP_TEST_NAMESPACE) -o name);do $(OC_CLI) patch "$$restore_name" -n $(OADP_TEST_NAMESPACE) -p '{"metadata":{"finalizers":null}}' --type=merge;done
 	rm -rf $(SETTINGS_TMP)
+
+# from https://github.com/kubernetes-sigs/kubebuilder/blob/3c9cf656ce4d62a10c8e78a1c0f066de47c983db/pkg/plugins/golang/v4/scaffolds/internal/templates/makefile.go#L136C1-L150C28
+GOLANGCI_LINT = $(shell pwd)/bin/golangci-lint
+GOLANGCI_LINT_VERSION ?= v1.55.2
+golangci-lint:
+	@[ -f $(GOLANGCI_LINT) ] || { \
+	set -e ;\
+	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(shell dirname $(GOLANGCI_LINT)) $(GOLANGCI_LINT_VERSION) ;\
+	}
+
+.PHONY: lint
+lint: golangci-lint ## Run golangci-lint linter & yamllint
+	$(GOLANGCI_LINT) run
+
+.PHONY: lint-fix
+lint-fix: golangci-lint ## Run golangci-lint linter and perform fixes
+	$(GOLANGCI_LINT) run --fix

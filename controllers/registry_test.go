@@ -297,7 +297,6 @@ func TestDPAReconciler_getSecretNameAndKeyforBackupLocation(t *testing.T) {
 }
 
 func TestDPAReconciler_populateAWSRegistrySecret(t *testing.T) {
-
 	tests := []struct {
 		name           string
 		bsl            *velerov1.BackupStorageLocation

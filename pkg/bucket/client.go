@@ -4,10 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/openshift/oadp-operator/pkg/common"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+
+	"github.com/openshift/oadp-operator/pkg/common"
 
 	"github.com/openshift/oadp-operator/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"

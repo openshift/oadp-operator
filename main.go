@@ -20,6 +20,8 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"os"
+
 	"github.com/openshift/oadp-operator/pkg/common"
 	monitor "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -27,7 +29,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/kubernetes"
-	"os"
 	client "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 
@@ -283,7 +284,6 @@ func DoesCRDExist(CRDGroupVersion, CRDName string) (bool, error) {
 		}
 	}
 	return discoveryResult, nil
-
 }
 
 // CreateCredRequest WITP : WebIdentityTokenPath

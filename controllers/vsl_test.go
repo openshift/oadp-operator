@@ -520,7 +520,6 @@ func TestDPAReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 			}
 		})
 	}
-
 }
 
 func TestDPAReconciler_ReconcileVolumeSnapshotLocations(t *testing.T) {

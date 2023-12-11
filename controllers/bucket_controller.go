@@ -3,13 +3,14 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"os"
+	"strconv"
+	"time"
+
 	"github.com/openshift/oadp-operator/pkg/common"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"os"
-	"strconv"
-	"time"
 
 	"github.com/go-logr/logr"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
@@ -159,12 +160,10 @@ func (b BucketReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 
 // SetupWithManager sets up the controller with the Manager.
 func (b *BucketReconciler) SetupWithManager(mgr ctrl.Manager) error {
-
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&oadpv1alpha1.CloudStorage{}).
 		WithEventFilter(bucketPredicate()).
 		Complete(b)
-
 }
 
 func bucketPredicate() predicate.Predicate {
@@ -216,7 +215,6 @@ func (b *BucketReconciler) WaitForSecret(namespace, name string) (*corev1.Secret
 	}
 
 	err := wait.PollImmediate(5*time.Second, timeout, func() (bool, error) {
-
 		err := b.Client.Get(context.Background(), key, &secret)
 		if err != nil {
 			if errors.IsNotFound(err) {

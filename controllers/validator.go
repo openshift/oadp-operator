@@ -55,7 +55,6 @@ func (r *DPAReconciler) ValidateDataProtectionCR(log logr.Logger) (bool, error) 
 
 		// Check the Velero flags 'no-secret' or 'no-default-backup-location' are not set
 		if !dpa.Spec.Configuration.Velero.HasFeatureFlag("no-secret") || dpa.Spec.Configuration.Velero.NoDefaultBackupLocation {
-
 			// Check if the BSL secret key configured in the DPA exists with a secret data
 			secretName, secretKey := r.getSecretNameAndKeyforBackupLocation(location)
 			bslSecret, err := r.getProviderSecret(secretName)

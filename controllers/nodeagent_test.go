@@ -2489,7 +2489,6 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 }
 
 func TestDPAReconciler_updateFsRestoreHelperCM(t *testing.T) {
-
 	tests := []struct {
 		name                  string
 		fsRestoreHelperCM     *v1.ConfigMap

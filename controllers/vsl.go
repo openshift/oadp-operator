@@ -99,7 +99,6 @@ func (r *DPAReconciler) LabelVSLSecrets(log logr.Logger) (bool, error) {
 				}
 			}
 		}
-
 	}
 	return true, nil
 }
@@ -161,7 +160,6 @@ func (r *DPAReconciler) ValidateVolumeSnapshotLocations(dpa oadpv1alpha1.DataPro
 
 		//GCP
 		if vslSpec.Velero.Provider == GCPProvider {
-
 			// check for invalid config key
 			for key := range vslSpec.Velero.Config {
 				valid := validGCPKeys[key]
@@ -183,7 +181,6 @@ func (r *DPAReconciler) ValidateVolumeSnapshotLocations(dpa oadpv1alpha1.DataPro
 
 		//Azure
 		if vslSpec.Velero.Provider == Azure {
-
 			// check for invalid config key
 			for key := range vslSpec.Velero.Config {
 				valid := validAzureKeys[key]
@@ -251,7 +248,6 @@ func (r *DPAReconciler) ReconcileVolumeSnapshotLocations(log logr.Logger) (bool,
 				fmt.Sprintf("performed %s on volumesnapshotlocation %s/%s", op, vsl.Namespace, vsl.Name),
 			)
 		}
-
 	}
 	return true, nil
 }

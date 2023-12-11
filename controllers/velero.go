@@ -143,7 +143,6 @@ func (r *DPAReconciler) veleroClusterRoleBinding(dpa *oadpv1alpha1.DataProtectio
 
 // Build VELERO Deployment
 func (r *DPAReconciler) buildVeleroDeployment(veleroDeployment *appsv1.Deployment, dpa *oadpv1alpha1.DataProtectionApplication) error {
-
 	if dpa == nil {
 		return fmt.Errorf("DPA CR cannot be nil")
 	}
@@ -448,7 +447,6 @@ func getFsBackupTimeout(dpa *oadpv1alpha1.DataProtectionApplication) string {
 }
 
 func (r *DPAReconciler) isSTSTokenNeeded(bsls []oadpv1alpha1.BackupLocation, ns string) bool {
-
 	for _, bsl := range bsls {
 		if bsl.CloudStorage != nil {
 			bucket := &oadpv1alpha1.CloudStorage{}
@@ -502,7 +500,6 @@ func getAppLabels(instanceName string) map[string]string {
 
 // Get Velero Resource Requirements
 func (r *DPAReconciler) getVeleroResourceReqs(dpa *oadpv1alpha1.DataProtectionApplication) (corev1.ResourceRequirements, error) {
-
 	// Set default values
 	ResourcesReqs := corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
@@ -550,7 +547,6 @@ func (r *DPAReconciler) getVeleroResourceReqs(dpa *oadpv1alpha1.DataProtectionAp
 				return ResourcesReqs, err
 			}
 		}
-
 	}
 
 	return ResourcesReqs, nil
@@ -558,7 +554,6 @@ func (r *DPAReconciler) getVeleroResourceReqs(dpa *oadpv1alpha1.DataProtectionAp
 
 // Get Restic Resource Requirements
 func getResticResourceReqs(dpa *oadpv1alpha1.DataProtectionApplication) (corev1.ResourceRequirements, error) {
-
 	// Set default values
 	ResourcesReqs := corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
@@ -606,7 +601,6 @@ func getResticResourceReqs(dpa *oadpv1alpha1.DataProtectionApplication) (corev1.
 				return ResourcesReqs, err
 			}
 		}
-
 	}
 
 	return ResourcesReqs, nil
@@ -616,7 +610,6 @@ func getResticResourceReqs(dpa *oadpv1alpha1.DataProtectionApplication) (corev1.
 // Separate function to getResticResourceReqs, so once Restic config is removed in OADP 1.4+
 // It will be easier to delete obsolete getResticResourceReqs
 func getNodeAgentResourceReqs(dpa *oadpv1alpha1.DataProtectionApplication) (corev1.ResourceRequirements, error) {
-
 	// Set default values
 	ResourcesReqs := corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
@@ -664,7 +657,6 @@ func getNodeAgentResourceReqs(dpa *oadpv1alpha1.DataProtectionApplication) (core
 				return ResourcesReqs, err
 			}
 		}
-
 	}
 
 	return ResourcesReqs, nil
@@ -672,7 +664,7 @@ func getNodeAgentResourceReqs(dpa *oadpv1alpha1.DataProtectionApplication) (core
 
 // noDefaultCredentials determines if a provider needs the default credentials.
 // This returns a map of providers found to if they need a default credential,
-// a boolean if Cloud Storage backup storage location was used and an error if any occured.
+// a boolean if Cloud Storage backup storage location was used and an error if any occurred.
 func (r DPAReconciler) noDefaultCredentials(dpa oadpv1alpha1.DataProtectionApplication) (map[string]bool, bool, error) {
 	providerNeedsDefaultCreds := map[string]bool{}
 	hasCloudStorage := false
@@ -731,5 +723,4 @@ func (r DPAReconciler) noDefaultCredentials(dpa oadpv1alpha1.DataProtectionAppli
 	}
 
 	return providerNeedsDefaultCreds, hasCloudStorage, nil
-
 }

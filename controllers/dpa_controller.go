@@ -116,7 +116,6 @@ func (r *DPAReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 				Message: err.Error(),
 			},
 		)
-
 	} else {
 		apimeta.SetStatusCondition(&dpa.Status.Conditions,
 			metav1.Condition{
@@ -167,10 +166,8 @@ func (l *labelHandler) Create(evt event.CreateEvent, q workqueue.RateLimitingInt
 		Name:      dpaname,
 		Namespace: namespace,
 	}})
-
 }
 func (l *labelHandler) Delete(evt event.DeleteEvent, q workqueue.RateLimitingInterface) {
-
 	namespace := evt.Object.GetNamespace()
 	dpaname := evt.Object.GetLabels()[namespace+".dataprotectionapplication"]
 	if evt.Object.GetLabels()[oadpv1alpha1.OadpOperatorLabel] == "" || dpaname == "" {
@@ -180,7 +177,6 @@ func (l *labelHandler) Delete(evt event.DeleteEvent, q workqueue.RateLimitingInt
 		Name:      dpaname,
 		Namespace: namespace,
 	}})
-
 }
 func (l *labelHandler) Update(evt event.UpdateEvent, q workqueue.RateLimitingInterface) {
 	namespace := evt.ObjectNew.GetNamespace()
@@ -192,10 +188,8 @@ func (l *labelHandler) Update(evt event.UpdateEvent, q workqueue.RateLimitingInt
 		Name:      dpaname,
 		Namespace: namespace,
 	}})
-
 }
 func (l *labelHandler) Generic(evt event.GenericEvent, q workqueue.RateLimitingInterface) {
-
 	namespace := evt.Object.GetNamespace()
 	dpaname := evt.Object.GetLabels()[namespace+".dataprotectionapplication"]
 	if evt.Object.GetLabels()[oadpv1alpha1.OadpOperatorLabel] == "" || dpaname == "" {
@@ -205,7 +199,6 @@ func (l *labelHandler) Generic(evt event.GenericEvent, q workqueue.RateLimitingI
 		Name:      dpaname,
 		Namespace: namespace,
 	}})
-
 }
 
 type ReconcileFunc func(logr.Logger) (bool, error)

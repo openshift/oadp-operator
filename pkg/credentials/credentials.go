@@ -153,7 +153,6 @@ func getKubeVirtPluginImage(dpa *oadpv1alpha1.DataProtectionApplication) string 
 
 func getPluginImage(pluginName string, dpa *oadpv1alpha1.DataProtectionApplication) string {
 	switch pluginName {
-
 	case common.VeleroPluginForAWS:
 		return getAWSPluginImage(dpa)
 
@@ -195,7 +194,6 @@ func AppendCloudProviderVolumes(dpa *oadpv1alpha1.DataProtectionApplication, ds 
 			cloudProviderMap.IsCloudProvider && //if plugin is a cloud provider plugin, and one of the following condition is true
 			(!dpa.Spec.Configuration.Velero.NoDefaultBackupLocation || // it has a backup location in OADP/velero context OR
 				dpa.Spec.UnsupportedOverrides[oadpv1alpha1.OperatorTypeKey] == oadpv1alpha1.OperatorTypeMTC) { // OADP is installed via MTC
-
 			pluginNeedsCheck, foundProviderPlugin := providerNeedsDefaultCreds[string(plugin)]
 			if !foundProviderPlugin && !hasCloudStorage {
 				pluginNeedsCheck = true
@@ -235,7 +233,6 @@ func AppendCloudProviderVolumes(dpa *oadpv1alpha1.DataProtectionApplication, ds 
 					},
 				)
 			}
-
 		}
 	}
 	for _, bslSpec := range dpa.Spec.BackupLocations {
@@ -260,7 +257,6 @@ func AppendCloudProviderVolumes(dpa *oadpv1alpha1.DataProtectionApplication, ds 
 
 // add plugin specific specs to velero deployment
 func AppendPluginSpecificSpecs(dpa *oadpv1alpha1.DataProtectionApplication, veleroDeployment *appsv1.Deployment, veleroContainer *corev1.Container, providerNeedsDefaultCreds map[string]bool, hasCloudStorage bool) error {
-
 	init_container_resources := veleroContainer.Resources
 
 	for _, plugin := range dpa.Spec.Configuration.Velero.DefaultPlugins {
@@ -356,7 +352,7 @@ func AppendPluginSpecificSpecs(dpa *oadpv1alpha1.DataProtectionApplication, vele
 
 // TODO: remove duplicate func in registry.go - refactoring away registry.go later
 func GetSecretNameAndKey(bslSpec *velerov1.BackupStorageLocationSpec, plugin oadpv1alpha1.DefaultPlugin) (string, string) {
-	// Assume default values unless user has overriden them
+	// Assume default values unless user has overridden them
 	secretName := PluginSpecificFields[plugin].SecretName
 	secretKey := PluginSpecificFields[plugin].PluginSecretKey
 	if _, ok := bslSpec.Config["credentialsFile"]; ok {

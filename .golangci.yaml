@@ -1,0 +1,97 @@
+# Documentation reference https://golangci-lint.run/usage/configuration/
+run:
+  concurrency: 4
+  skip-dirs-use-default: false
+  modules-download-mode: readonly
+  allow-parallel-runners: false
+
+output:
+  format: colored-line-number
+  print-issued-lines: true
+  print-linter-name: true
+  uniq-by-line: true
+  sort-results: true
+
+linters-settings:
+  dogsled:
+    max-blank-identifiers: 2
+  errcheck:
+    check-type-assertions: true
+    check-blank: true
+  goconst:
+    min-len: 3
+    min-occurrences: 5
+  gofmt:
+    simplify: true
+  govet:
+    disable-all: false
+    enable:
+      - atomicalign
+    enable-all: false
+  misspell:
+    locale: US
+  nakedret:
+    max-func-lines: 30
+  nolintlint:
+    allow-unused: false
+    allow-no-explanation: []
+    require-explanation: true
+    require-specific: true
+  revive:
+    enable-all-rules: true
+    rules:
+      - name: line-length-limit
+        arguments: [120]
+  unparam:
+    check-exported: true
+  whitespace:
+    multi-if: false
+    multi-func: false
+
+linters:
+  disable-all: true
+  enable:
+    - asasalint
+    - asciicheck
+    - bidichk
+    - bodyclose
+    - dogsled
+    - dupword
+    - durationcheck
+    - errcheck
+    - errchkjson
+    - exportloopref
+    - ginkgolinter
+    - goconst
+    - gofmt
+    - goheader
+    - goimports
+    - goprintffuncname
+    - gosec
+    - gosimple
+    - govet
+    - importas
+    - ineffassign
+    - misspell
+    - nakedret
+    - nilerr
+    - noctx
+    - nolintlint
+    - nosprintfhostport
+    - revive
+    - staticcheck
+    - stylecheck
+    - unconvert
+    - unparam
+    - unused
+    - usestdlibvars
+    - whitespace
+  fast: false
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+severity:
+  default-severity: error
+  case-sensitive: false
