@@ -35,15 +35,19 @@ Further improvements to block mode volumes are in progress to improve the utilit
 
 <h3><a href="https://github.com/openshift/oadp-operator">OADP OPERATOR</a>:</h3>
 
-<p dir="auto">OADP is the OpenShift API for Data Protection operator. This open source operator sets up and installs Velero on the OpenShift platform, allowing users to backup and restore applications. We will be installing Velero alongside the CSI plugin.</p>
+<p dir="auto">OADP is the OpenShift API for Data Protection operator. This open source operator sets up and installs Velero on the OpenShift platform, allowing users to backup and restore applications. We will be installing Velero alongside the velero-plugin-for-csi plugin.</p>
 
 <h3><a href="https://github.com/vmware-tanzu/velero-plugin-for-csi">CSI PLUGIN</a>:</h3>
 
-<p dir="auto">The collection of Velero plugins for snapshotting CSI backed PVCs using the <a href="https://kubernetes.io/docs/concepts/storage/volume-snapshots/">CSI snapshot APIs</a>.</p>
+<p dir="auto">The collection of Velero plugins for snapshotting CSI backed PVCs using the <a href="https://kubernetes.io/docs/concepts/storage/volume-snapshots/">Kubernetes snapshot API</a>.</p>
 
 <h3><a href="https://github.com/migtools/kopia">Kopia</a>:</h3>
 
-<p>Kopia is a fast and secure open-source backup/restore tool that allows you to create encrypted snapshots of your data and save the snapshots to remote or cloud storage of your choice, to network-attached storage or server, or locally on your machine.</p>
+<p>Kopia is a fast and secure open-source backup/restore tool that allows you to create encrypted snapshots of your data and save the snapshots to remote or cloud object storage of your choice, to network-attached object storage or server, or local object storage on your machine.</p>
+
+<h3><a href="https://github.com/vmware-tanzu/velero/blob/main/design/Implemented/unified-repo-and-kopia-integration/unified-repo-and-kopia-integration.md">Unified Repository</a>:</h3>
+
+<p>A target storage interface that works with both Restic and Kopia.</p>
 
 <h3>The DataUpload and DataDownload CR</h3>
 <p>
@@ -65,8 +69,6 @@ VBDM is the built-in data mover shipped along with Velero, it includes Velero da
 
 <h3>Velero Generic Data Path</h3>
 <p>VGDP is the collective of modules that is introduced in Unified Repository design. Velero uses these modules to finish data transmission for various purposes. In includes uploaders and the backup repository</p>
-
-
 
 
 <h3>DataUpload (DUCR) spec</h3>
@@ -126,7 +128,62 @@ A Kubernetes CR that acts as the protocol between data mover plugins and data mo
 </tbody>
 </table>
 
-<h3>Note: For additional specification information please see the <a href=https://github.com/openshift/oadp-operator/blob/master/docs/API_ref.md>API reference documentation</a>
+<h3>Note: For additional specification information please see the <a href=https://pkg.go.dev/github.com/vmware-tanzu/velero@v1.12.2/pkg/apis/velero/v2alpha1#DataUploadSpec>DataUpload API reference documentation</a>
+
+<h3>DataDownload (DDCR) spec</h3>
+<p>
+A Kubernetes CR that acts as the protocol between data mover plugins and data movers
+</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>backupStorageLocation</td>
+<td>BackupStorageLocation is the name of the backup storage location where the
+     backup repository is stored.</td>
+</tr>
+<tr>
+<td>cancel</td>
+<td>Cancel indicates request to cancel the ongoing DataUpload. It can be set
+     when the DataUpload is in InProgress phase</td>
+</tr>
+<tr>
+<td>dataMoverConfig</td>
+<td>DataMoverConfig is for data-mover-specific configuration fields.</td>
+</tr>
+<tr>
+<td>datamover</td>
+<td>DataMover specifies the data mover to be used by the backup. If DataMover
+     is "" or "velero", the built-in data mover will be used.</td>
+</tr>
+<tr>
+<td>operationTimeout</td>
+<td>OperationTimeout specifies the time used to wait internal operations,
+     before returning error as timeout.</td>
+</tr>
+<tr>
+<td>snapshotID</td>
+<td>SnapshotID is the ID of the Velero backup snapshot to be restored from.</td>
+</tr>
+<tr>
+<td>sourceNamespace</td>
+<td>SourceNamespace is the original namespace where the volume is backed up
+     from. It is the same namespace for SourcePVC and CSI namespaced objects.</td>
+</tr>
+<tr>
+<td>targetVolume</td>
+<td>TargetVolume is the information of the target PVC and PV.</td>
+</tr>
+</tbody>
+</table>
+
+<h3>Note: For additional specification information please see the <a href=https://pkg.go.dev/github.com/vmware-tanzu/velero@v1.12.2/pkg/apis/velero/v2alpha1#DataDownloadSpec>DataDownload API reference documentation</a>
+
 
 <h3>DataUpload (DUCR) and DataDownload (DDCR) status descriptions</h3>
 
@@ -173,16 +230,18 @@ A Kubernetes CR that acts as the protocol between data mover plugins and data mo
 </tbody>
 </table>
 
+<h3>Note: For additional specification information please see the <a href=https://pkg.go.dev/github.com/vmware-tanzu/velero@v1.12.2/pkg/apis/velero/v2alpha1#DataUploadStatus>DataUploadStatus</a> and <a href=https://pkg.go.dev/github.com/vmware-tanzu/velero@v1.12.2/pkg/apis/velero/v2alpha1#DataDownloadStatus>DataDownloadStatus</a> API reference documentation
+
 <h2>Backup Process</h2>
 <div>
-A user creates a backup CR with the snapshotMoveData option set to true. Velero calls the BIA V2 api to create a CSI VolumeSnapshot request. The status will move from `New` to `InProgress`.<br><br>
+A user creates a backup CR with the snapshotMoveData option set to true. The velero-plugin-for-csi (based on Asynchronous BackupItemAction/BIA V2 plugin API) creates a CSI VolumeSnapshot of the PVC included in the backup. The backup CR status will move from `New` to `InProgress`.<br><br>
 
-After the VolumeSnapshots are created, you will see one or more DataUpload CRs created.  You may also see some temporary objects (i.e., pods, PVCs, PVs) created in protected (openshift-adp) namespace. The temporary objects are created to assist in the data movement. The status of the DataUpload object will progress from `New` to `Accepted` to `InProgress`. <br>
+After the VolumeSnapshots are created, you will see one or more DataUpload CRs created.  You may also see some temporary objects (i.e., pods, PVCs, PVs) created in protected (OADP operator's namespace) namespace. The temporary objects are created to assist in the data movement. The status of the DataUpload object will progress from `New` to `Accepted` to `InProgress`. <br>
 
-Now working from the Data Mover plugin the CSI snapshot is mounted from the Node-Agent. The DataUpload Controller then works with Kopia ( the uploader ) to move the object off cluster to the Unified Repo Backup repository off cluster.  The status is once again reconciled and the backup CR is moved to complete.<br>
+Now working from the CSI plugin the CSI snapshot is mounted from the Node-Agent. The DataUpload Controller then works with Kopia ( the uploader ) to move the object off cluster to the Unified Repo Backup repository off cluster.  The status is once again reconciled and the backup CR is moved to complete.<br>
 
 Users can see the DataUpload objects move to a terminal status of either `Completed`, `Failed` or `Canceled`
-Once the object has been uploaded any intermediate objects like the VolumeSnapshot and VolumeSnapshotContents will be removed. Finally the backup object status will be updated with it's terminal status.
+Once the object has been uploaded, any intermediate objects like the VolumeSnapshot and VolumeSnapshotContents will be removed. Finally the backup object status will be updated with it's terminal status.
 
 </div>
 <hr>
@@ -199,17 +258,15 @@ A more in depth visualization of the backup workflow with Data Mover is found be
 
 <h2>Restore Process</h2>
 <div>
-A user creates a restore CR, no additional data mover options or parameters are required. Velero calls the RIA V2 api to create a PV and PVC in the protected namespace (openshift-adp). The backup status will move from `New` to `InProgress`.<br><br>
+A user creates a restore CR, no additional data mover options or parameters are required. Velero's CSI plugin (based on RIA V2 plugin API) creates a PV and PVC in the protected namespace (OADP operator's namespace). The restore status will move from `New` to `InProgress`.<br><br>
 
-The data from backup is queried from the remotely stored DataUpload CR and written to the local ConfigMaps.  A ConfigMap is created for each PV to be restored. These Configmaps are temporary objects that are deleted upon the restore's workflow completion. The ConfigMap stores vital information like the Repo Snapshot ID or VolumeSnapshotContent name.  The data stored in the ConfigMap is then used to build the DataDownload CR spec. 
+The data from backup is queried from the remotely stored DataUpload CR and written to the in-cluster ConfigMaps.  A ConfigMap is created for each PV to be restored. These Configmaps are temporary objects that are deleted upon the restore's workflow completion. The ConfigMap stores vital information like the Repo Snapshot ID or VolumeSnapshotContent name.  The data stored in the ConfigMap is then used to build the DataDownload CR spec. 
 
-The DataMover plugin creates the DataDownload CR and DataDownload Controller reconciles on the CR.  The Node-Agent begins the download the backed up PV data from S3. 
+The CSI plugin creates the DataDownload CR and DataDownload Controller reconciles on the CR.  The Node-Agent begins the download of the backed up PV data from S3. 
 
-As the data from the backup is downloaded via DataDownload Controller via Kopia the target volume is marked as not ready. In order  to prevent the volume from binding the spec.VolumeName set to empty (""). The status of the download can be viewed from the DataDownload CR object as `Accepted`, `Prepared`, or `InProgress`.  Similarly with the Data Mover backup process a user may find temporary objects (i.e., pods, PVCs, PVs) created in the protected namespace (openshift-adp) during this step.
+As the data from the backup is downloaded via DataDownload Controller via Kopia the target volume is marked as not ready. In order  to prevent the volume from binding the spec.VolumeName set to empty (""). The status of the download can be viewed from the DataDownload CR object as `Accepted`, `Prepared`, or `InProgress`.  Similarly with the Data Mover backup process a user may find temporary objects (i.e., pods, PVCs, PVs) created in the protected namespace (OADP operator's namespace) during this step.
 
 Once the DataDownload is in a terminal status `Completed`, the target PVC should have been created in the target user namespace and waiting for binding.  The PV's claim reference is written to the target PVC in the target user namespace and the PVC will be immediately bound to the target PV.  
-
-Please note the advantage of reusing the same cluster scoped PV throughout the restore eliminates the need to recopy the PV data from the protected namespace to the application namespace as was the requirement for OADP-1.2
 
 </div>
 <hr>
