@@ -103,7 +103,7 @@ function wait_cnv_csv_succeeded() {
     done
 }
 export -f wait_cnv_csv_succeeded
-if timeout 2m bash -c wait_cnv_csv_succeeded
+if timeout 5m bash -c wait_cnv_csv_succeeded
 then
     echo "CSV succeeded."
 else
