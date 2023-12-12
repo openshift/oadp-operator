@@ -275,7 +275,7 @@ submit-coverage:
 	curl -Os https://uploader.codecov.io/latest/$(OS_String)/codecov
 	chmod +x codecov
 	./codecov -C $(shell git rev-parse HEAD) -r openshift/oadp-operator
-	rm -f codecov tmp.*
+	rm -f codecov
 
 # go-install-tool will 'go install' any package $2 and install it to $1.
 PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
