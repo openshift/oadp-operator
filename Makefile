@@ -492,7 +492,9 @@ test-e2e-setup: login-required
 	VSL_REGION="$(VSL_REGION)" \
 	BSL_REGION="$(BSL_REGION)" \
 	BSL_AWS_PROFILE="$(BSL_AWS_PROFILE)" \
-	/bin/bash "tests/e2e/scripts/$(CLUSTER_TYPE)_settings.sh"
+	OC_CLI="$(OC_CLI)" \
+	/bin/bash "tests/e2e/scripts/$(CLUSTER_TYPE)_settings.sh" && \
+	/bin/bash "tests/e2e/scripts/virt_install.sh"
 
 .PHONY: test-e2e
 test-e2e: test-e2e-setup install-ginkgo
