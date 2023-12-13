@@ -1,6 +1,5 @@
 #!/bin/bash
 
-export CSV="${CSV:=kubevirt-hyperconverged-operator.v4.13.6}"
 export VIRT_NAMESPACE="${VIRT_NAMESPACE:=openshift-cnv}"
 export OC_CLI="${OC_CLI:=oc}"
 
@@ -18,6 +17,17 @@ then
     exit 0
 else
     echo "No HCO found, installing virt operator..."
+fi
+
+
+# Get the current kubevirt-hyperconverged ClusterServiceVersion
+export CSV=$(oc get packagemanifests kubevirt-hyperconverged -o jsonpath="{range.status.channels[*]}{.currentCSV}")
+if [ -z "$CSV" ]
+then
+    echo "No CSV for kubevirt-hyperconverged!"
+    exit 1
+else
+    echo "CSV: $CSV"
 fi
 
 
@@ -107,7 +117,7 @@ if timeout 5m bash -c wait_cnv_csv_succeeded
 then
     echo "CSV succeeded."
 else
-    echo "Failed installing CSV after two minutes!"
+    echo "Failed installing CSV after five minutes!"
     exit 1
 fi
 
