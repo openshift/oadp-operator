@@ -408,7 +408,7 @@ func (v *VirtOperator) EnsureVirtInstallation(timeout time.Duration) error {
 	log.Println("CSV ready")
 
 	log.Printf("Creating hyperconverged operator")
-	if err := v.ensureHco(5 * time.Minute); err != nil {
+	if err := v.ensureHco(15 * time.Minute); err != nil {
 		return err
 	}
 	log.Printf("Created HCO")
