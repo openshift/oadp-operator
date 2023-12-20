@@ -15,18 +15,9 @@ type Subscription struct {
 	*operators.Subscription
 }
 
-func (d *DpaCustomResource) GetOperatorSubscription(c client.Client, stream string) (*Subscription, error) {
-	err := d.SetClient(c)
-	if err != nil {
-		return nil, err
-	}
+func GetOperatorSubscription(c client.Client, namespace, label string) (*Subscription, error) {
 	sl := operators.SubscriptionList{}
-	if stream == "up" {
-		err = d.Client.List(context.Background(), &sl, client.InNamespace(d.Namespace), client.MatchingLabels(map[string]string{"operators.coreos.com/oadp-operator." + d.Namespace: ""}))
-	}
-	if stream == "down" {
-		err = d.Client.List(context.Background(), &sl, client.InNamespace(d.Namespace), client.MatchingLabels(map[string]string{"operators.coreos.com/redhat-oadp-operator." + d.Namespace: ""}))
-	}
+	err := c.List(context.Background(), &sl, client.InNamespace(namespace), client.MatchingLabels(map[string]string{label: ""}))
 	if err != nil {
 		return nil, err
 	}
@@ -37,6 +28,33 @@ func (d *DpaCustomResource) GetOperatorSubscription(c client.Client, stream stri
 		return nil, errors.New("more than one subscription found")
 	}
 	return &Subscription{&sl.Items[0]}, nil
+}
+
+func (d *DpaCustomResource) GetOperatorSubscription(c client.Client, stream string) (*Subscription, error) {
+	err := d.SetClient(c)
+	if err != nil {
+		return nil, err
+	}
+
+	label := ""
+	if stream == "up" {
+		label = "operators.coreos.com/oadp-operator." + d.Namespace
+	}
+	if stream == "down" {
+		label = "operators.coreos.com/redhat-oadp-operator." + d.Namespace
+	}
+	return GetOperatorSubscription(c, d.Namespace, label)
+}
+
+func (v *VirtOperator) GetOperatorSubscription(stream string) (*Subscription, error) {
+	label := ""
+	if stream == "up" {
+		label = "operators.coreos.com/kubevirt-hyperconverged.kubevirt-hyperconverged"
+	}
+	if stream == "down" {
+		label = "operators.coreos.com/kubevirt-hyperconverged.openshift-cnv"
+	}
+	return GetOperatorSubscription(v.Client, v.Namespace, label)
 }
 
 func (s *Subscription) Refresh(c client.Client) error {
