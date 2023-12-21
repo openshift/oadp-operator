@@ -493,8 +493,6 @@ test-e2e-setup: login-required
 	VSL_REGION="$(VSL_REGION)" \
 	BSL_REGION="$(BSL_REGION)" \
 	BSL_AWS_PROFILE="$(BSL_AWS_PROFILE)" \
-	OC_CLI="$(OC_CLI)" \
-	TEST_VIRT="$(TEST_VIRT)" \
 	/bin/bash "tests/e2e/scripts/$(CLUSTER_TYPE)_settings.sh"
 
 .PHONY: test-e2e
