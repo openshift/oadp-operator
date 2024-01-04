@@ -88,7 +88,9 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 		Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 			Configuration: &oadpv1alpha1.ApplicationConfig{
 				NodeAgent: &oadpv1alpha1.NodeAgentConfig{
-					PodConfig:    &oadpv1alpha1.PodConfig{},
+					NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
+						PodConfig: &oadpv1alpha1.PodConfig{},
+					},
 					UploaderType: "",
 				},
 			},
@@ -271,11 +273,13 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 					Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 						Configuration: &oadpv1alpha1.ApplicationConfig{
 							NodeAgent: &oadpv1alpha1.NodeAgentConfig{
-								PodConfig: &oadpv1alpha1.PodConfig{
-									Env: []corev1.EnvVar{
-										{
-											Name:  "TEST_ENV",
-											Value: "TEST_VALUE",
+								NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
+									PodConfig: &oadpv1alpha1.PodConfig{
+										Env: []corev1.EnvVar{
+											{
+												Name:  "TEST_ENV",
+												Value: "TEST_VALUE",
+											},
 										},
 									},
 								},
@@ -429,9 +433,11 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 					Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 						Configuration: &oadpv1alpha1.ApplicationConfig{
 							NodeAgent: &oadpv1alpha1.NodeAgentConfig{
-								PodConfig: &oadpv1alpha1.PodConfig{
-									Labels: map[string]string{
-										"nodeAgentLabel": "this is a label",
+								NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
+									PodConfig: &oadpv1alpha1.PodConfig{
+										Labels: map[string]string{
+											"nodeAgentLabel": "this is a label",
+										},
 									},
 								},
 								UploaderType: "",
@@ -585,9 +591,11 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 					Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 						Configuration: &oadpv1alpha1.ApplicationConfig{
 							NodeAgent: &oadpv1alpha1.NodeAgentConfig{
-								PodConfig: &oadpv1alpha1.PodConfig{
-									Labels: map[string]string{
-										"name": "not-node-agent", // this label is already defined by https://github.com/openshift/velero/blob/8b2f7dbdb510434b9c05180bae7a3fb2a8081e2f/pkg/install/daemonset.go#L71
+								NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
+									PodConfig: &oadpv1alpha1.PodConfig{
+										Labels: map[string]string{
+											"name": "not-node-agent", // this label is already defined by https://github.com/openshift/velero/blob/8b2f7dbdb510434b9c05180bae7a3fb2a8081e2f/pkg/install/daemonset.go#L71
+										},
 									},
 								},
 								UploaderType: "",
@@ -615,9 +623,11 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 					Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 						Configuration: &oadpv1alpha1.ApplicationConfig{
 							NodeAgent: &oadpv1alpha1.NodeAgentConfig{
-								PodConfig: &oadpv1alpha1.PodConfig{
-									NodeSelector: map[string]string{
-										"foo": "bar",
+								NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
+									PodConfig: &oadpv1alpha1.PodConfig{
+										NodeSelector: map[string]string{
+											"foo": "bar",
+										},
 									},
 								},
 								UploaderType: "",
@@ -787,18 +797,20 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 					Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 						Configuration: &oadpv1alpha1.ApplicationConfig{
 							NodeAgent: &oadpv1alpha1.NodeAgentConfig{
-								PodConfig: &oadpv1alpha1.PodConfig{
-									NodeSelector: map[string]string{
-										"foo": "bar",
-									},
-									ResourceAllocations: oadpv1alpha1.OADPResourceRequirements{
-										Limits: corev1.ResourceList{
-											corev1.ResourceCPU:    resource.MustParse("2"),
-											corev1.ResourceMemory: resource.MustParse("128Mi"),
+								NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
+									PodConfig: &oadpv1alpha1.PodConfig{
+										NodeSelector: map[string]string{
+											"foo": "bar",
 										},
-										Requests: corev1.ResourceList{
-											corev1.ResourceCPU:    resource.MustParse("1"),
-											corev1.ResourceMemory: resource.MustParse("256Mi"),
+										ResourceAllocations: oadpv1alpha1.OADPResourceRequirements{
+											Limits: corev1.ResourceList{
+												corev1.ResourceCPU:    resource.MustParse("2"),
+												corev1.ResourceMemory: resource.MustParse("128Mi"),
+											},
+											Requests: corev1.ResourceList{
+												corev1.ResourceCPU:    resource.MustParse("1"),
+												corev1.ResourceMemory: resource.MustParse("256Mi"),
+											},
 										},
 									},
 								},
@@ -973,13 +985,15 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 					Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 						Configuration: &oadpv1alpha1.ApplicationConfig{
 							NodeAgent: &oadpv1alpha1.NodeAgentConfig{
-								PodConfig: &oadpv1alpha1.PodConfig{
-									NodeSelector: map[string]string{
-										"foo": "bar",
-									},
-									ResourceAllocations: oadpv1alpha1.OADPResourceRequirements{
-										Limits: corev1.ResourceList{
-											corev1.ResourceCPU: resource.MustParse("2"),
+								NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
+									PodConfig: &oadpv1alpha1.PodConfig{
+										NodeSelector: map[string]string{
+											"foo": "bar",
+										},
+										ResourceAllocations: oadpv1alpha1.OADPResourceRequirements{
+											Limits: corev1.ResourceList{
+												corev1.ResourceCPU: resource.MustParse("2"),
+											},
 										},
 									},
 								},
@@ -1153,13 +1167,15 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 					Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 						Configuration: &oadpv1alpha1.ApplicationConfig{
 							NodeAgent: &oadpv1alpha1.NodeAgentConfig{
-								PodConfig: &oadpv1alpha1.PodConfig{
-									NodeSelector: map[string]string{
-										"foo": "bar",
-									},
-									ResourceAllocations: oadpv1alpha1.OADPResourceRequirements{
-										Requests: corev1.ResourceList{
-											corev1.ResourceCPU: resource.MustParse("2"),
+								NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
+									PodConfig: &oadpv1alpha1.PodConfig{
+										NodeSelector: map[string]string{
+											"foo": "bar",
+										},
+										ResourceAllocations: oadpv1alpha1.OADPResourceRequirements{
+											Requests: corev1.ResourceList{
+												corev1.ResourceCPU: resource.MustParse("2"),
+											},
 										},
 									},
 								},
@@ -1330,13 +1346,15 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 					Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 						Configuration: &oadpv1alpha1.ApplicationConfig{
 							NodeAgent: &oadpv1alpha1.NodeAgentConfig{
-								PodConfig: &oadpv1alpha1.PodConfig{
-									NodeSelector: map[string]string{
-										"foo": "bar",
-									},
-									ResourceAllocations: oadpv1alpha1.OADPResourceRequirements{
-										Limits: corev1.ResourceList{
-											corev1.ResourceMemory: resource.MustParse("256Mi"),
+								NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
+									PodConfig: &oadpv1alpha1.PodConfig{
+										NodeSelector: map[string]string{
+											"foo": "bar",
+										},
+										ResourceAllocations: oadpv1alpha1.OADPResourceRequirements{
+											Limits: corev1.ResourceList{
+												corev1.ResourceMemory: resource.MustParse("256Mi"),
+											},
 										},
 									},
 								},
@@ -1510,13 +1528,15 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 					Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 						Configuration: &oadpv1alpha1.ApplicationConfig{
 							NodeAgent: &oadpv1alpha1.NodeAgentConfig{
-								PodConfig: &oadpv1alpha1.PodConfig{
-									NodeSelector: map[string]string{
-										"foo": "bar",
-									},
-									ResourceAllocations: oadpv1alpha1.OADPResourceRequirements{
-										Requests: corev1.ResourceList{
-											corev1.ResourceMemory: resource.MustParse("256Mi"),
+								NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
+									PodConfig: &oadpv1alpha1.PodConfig{
+										NodeSelector: map[string]string{
+											"foo": "bar",
+										},
+										ResourceAllocations: oadpv1alpha1.OADPResourceRequirements{
+											Requests: corev1.ResourceList{
+												corev1.ResourceMemory: resource.MustParse("256Mi"),
+											},
 										},
 									},
 								},
@@ -1687,13 +1707,15 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 					Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 						Configuration: &oadpv1alpha1.ApplicationConfig{
 							NodeAgent: &oadpv1alpha1.NodeAgentConfig{
-								PodConfig: &oadpv1alpha1.PodConfig{
-									Tolerations: []v1.Toleration{
-										{
-											Key:      "key1",
-											Operator: "Equal",
-											Value:    "value1",
-											Effect:   "NoSchedule",
+								NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
+									PodConfig: &oadpv1alpha1.PodConfig{
+										Tolerations: []v1.Toleration{
+											{
+												Key:      "key1",
+												Operator: "Equal",
+												Value:    "value1",
+												Effect:   "NoSchedule",
+											},
 										},
 									},
 								},
@@ -1868,7 +1890,9 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 					Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 						Configuration: &oadpv1alpha1.ApplicationConfig{
 							NodeAgent: &oadpv1alpha1.NodeAgentConfig{
-								PodConfig:    &oadpv1alpha1.PodConfig{},
+								NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
+									PodConfig: &oadpv1alpha1.PodConfig{},
+								},
 								UploaderType: "",
 							},
 							Velero: &oadpv1alpha1.VeleroConfig{

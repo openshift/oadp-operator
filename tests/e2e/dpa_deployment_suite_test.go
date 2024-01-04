@@ -196,8 +196,10 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 						PodConfig:      &oadpv1alpha1.PodConfig{},
 					},
 					NodeAgent: &oadpv1alpha1.NodeAgentConfig{
-						PodConfig:    &oadpv1alpha1.PodConfig{},
-						Enable:       pointer.Bool(true),
+						NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
+							PodConfig: &oadpv1alpha1.PodConfig{},
+							Enable:    pointer.Bool(true),
+						},
 						UploaderType: "restic",
 					},
 				},
@@ -231,8 +233,10 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 						PodConfig:      &oadpv1alpha1.PodConfig{},
 					},
 					NodeAgent: &oadpv1alpha1.NodeAgentConfig{
-						PodConfig:    &oadpv1alpha1.PodConfig{},
-						Enable:       pointer.Bool(true),
+						NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
+							PodConfig: &oadpv1alpha1.PodConfig{},
+							Enable:    pointer.Bool(true),
+						},
 						UploaderType: "restic",
 					},
 				},
@@ -273,8 +277,10 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 						},
 					},
 					NodeAgent: &oadpv1alpha1.NodeAgentConfig{
-						PodConfig:    &oadpv1alpha1.PodConfig{},
-						Enable:       pointer.Bool(false),
+						NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
+							PodConfig: &oadpv1alpha1.PodConfig{},
+							Enable:    pointer.Bool(false),
+						},
 						UploaderType: "restic",
 					},
 				},
@@ -321,8 +327,10 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 						}, Dpa.Spec.Configuration.Velero.DefaultPlugins...),
 					},
 					NodeAgent: &oadpv1alpha1.NodeAgentConfig{
-						PodConfig:    &oadpv1alpha1.PodConfig{},
-						Enable:       pointer.Bool(false),
+						NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
+							PodConfig: &oadpv1alpha1.PodConfig{},
+							Enable:    pointer.Bool(false),
+						},
 						UploaderType: "restic",
 					},
 				},
@@ -368,8 +376,10 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 						},
 					},
 					NodeAgent: &oadpv1alpha1.NodeAgentConfig{
-						PodConfig:    &oadpv1alpha1.PodConfig{},
-						Enable:       pointer.Bool(false),
+						NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
+							PodConfig: &oadpv1alpha1.PodConfig{},
+							Enable:    pointer.Bool(false),
+						},
 						UploaderType: "restic",
 					},
 				},
@@ -403,8 +413,10 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 						DefaultPlugins: Dpa.Spec.Configuration.Velero.DefaultPlugins,
 					},
 					NodeAgent: &oadpv1alpha1.NodeAgentConfig{
-						PodConfig:    &oadpv1alpha1.PodConfig{},
-						Enable:       pointer.Bool(true),
+						NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
+							PodConfig: &oadpv1alpha1.PodConfig{},
+							Enable:    pointer.Bool(true),
+						},
 						UploaderType: "restic",
 					},
 				},
@@ -438,8 +450,10 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 						DefaultPlugins: Dpa.Spec.Configuration.Velero.DefaultPlugins,
 					},
 					NodeAgent: &oadpv1alpha1.NodeAgentConfig{
-						PodConfig:    &oadpv1alpha1.PodConfig{},
-						Enable:       pointer.Bool(false),
+						NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
+							PodConfig: &oadpv1alpha1.PodConfig{},
+							Enable:    pointer.Bool(false),
+						},
 						UploaderType: "restic",
 					},
 				},
@@ -474,8 +488,10 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 						}, Dpa.Spec.Configuration.Velero.DefaultPlugins...),
 					},
 					NodeAgent: &oadpv1alpha1.NodeAgentConfig{
-						PodConfig:    &oadpv1alpha1.PodConfig{},
-						Enable:       pointer.Bool(false),
+						NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
+							PodConfig: &oadpv1alpha1.PodConfig{},
+							Enable:    pointer.Bool(false),
+						},
 						UploaderType: "restic",
 					},
 				},
@@ -524,12 +540,14 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 						DefaultPlugins: Dpa.Spec.Configuration.Velero.DefaultPlugins,
 					},
 					NodeAgent: &oadpv1alpha1.NodeAgentConfig{
-						PodConfig: &oadpv1alpha1.PodConfig{
-							NodeSelector: map[string]string{
-								"foo": "bar",
+						NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
+							PodConfig: &oadpv1alpha1.PodConfig{
+								NodeSelector: map[string]string{
+									"foo": "bar",
+								},
 							},
+							Enable: pointer.Bool(true),
 						},
-						Enable:       pointer.Bool(true),
 						UploaderType: "restic",
 					},
 				},
@@ -562,17 +580,19 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 						DefaultPlugins: Dpa.Spec.Configuration.Velero.DefaultPlugins,
 					},
 					NodeAgent: &oadpv1alpha1.NodeAgentConfig{
-						PodConfig: &oadpv1alpha1.PodConfig{
-							Tolerations: []corev1.Toleration{
-								{
-									Key:               "node.kubernetes.io/unreachable",
-									Operator:          "Exists",
-									Effect:            "NoExecute",
-									TolerationSeconds: func(i int64) *int64 { return &i }(6000),
+						NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
+							PodConfig: &oadpv1alpha1.PodConfig{
+								Tolerations: []corev1.Toleration{
+									{
+										Key:               "node.kubernetes.io/unreachable",
+										Operator:          "Exists",
+										Effect:            "NoExecute",
+										TolerationSeconds: func(i int64) *int64 { return &i }(6000),
+									},
 								},
 							},
+							Enable: pointer.Bool(true),
 						},
-						Enable:       pointer.Bool(true),
 						UploaderType: "restic",
 					},
 				},
@@ -590,8 +610,10 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 						DefaultPlugins:          Dpa.Spec.Configuration.Velero.DefaultPlugins,
 					},
 					NodeAgent: &oadpv1alpha1.NodeAgentConfig{
-						PodConfig:    &oadpv1alpha1.PodConfig{},
-						Enable:       pointer.Bool(true),
+						NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
+							PodConfig: &oadpv1alpha1.PodConfig{},
+							Enable:    pointer.Bool(true),
+						},
 						UploaderType: "restic",
 					},
 				},

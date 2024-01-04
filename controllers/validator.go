@@ -74,10 +74,10 @@ func (r *DPAReconciler) ValidateDataProtectionCR(log logr.Logger) (bool, error) 
 		}
 	}
 
-	// // check for ResticConfig (OADP 1.3 or below) syntax
-	// if dpa.Spec.Configuration != nil && dpa.Spec.Configuration.Restic != nil {
-	// 	return false, errors.New("Delete restic object from spec.configuration, use spec.configuration.nodeAgent instead in OADP 1.4")
-	// }
+	// check for ResticConfig (OADP 1.3 or below) syntax
+	if dpa.Spec.Configuration != nil && dpa.Spec.Configuration.Restic != nil {
+		return false, errors.New("Delete restic object from spec.configuration, use spec.configuration.nodeAgent instead in OADP 1.4")
+	}
 
 	if val, found := dpa.Spec.UnsupportedOverrides[oadpv1alpha1.OperatorTypeKey]; found && val != oadpv1alpha1.OperatorTypeMTC {
 		return false, errors.New("only mtc operator type override is supported")
