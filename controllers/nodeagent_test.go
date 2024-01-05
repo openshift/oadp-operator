@@ -127,7 +127,8 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 					Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 						Configuration: &oadpv1alpha1.ApplicationConfig{
 							NodeAgent: &oadpv1alpha1.NodeAgentConfig{
-								UploaderType: "",
+								NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{},
+								UploaderType:          "",
 							},
 							Velero: &oadpv1alpha1.VeleroConfig{
 								PodConfig: &oadpv1alpha1.PodConfig{},
@@ -802,7 +803,7 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 										NodeSelector: map[string]string{
 											"foo": "bar",
 										},
-										ResourceAllocations: oadpv1alpha1.OADPResourceRequirements{
+										ResourceAllocations: corev1.ResourceRequirements{
 											Limits: corev1.ResourceList{
 												corev1.ResourceCPU:    resource.MustParse("2"),
 												corev1.ResourceMemory: resource.MustParse("128Mi"),
@@ -990,7 +991,7 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 										NodeSelector: map[string]string{
 											"foo": "bar",
 										},
-										ResourceAllocations: oadpv1alpha1.OADPResourceRequirements{
+										ResourceAllocations: corev1.ResourceRequirements{
 											Limits: corev1.ResourceList{
 												corev1.ResourceCPU: resource.MustParse("2"),
 											},
@@ -1172,7 +1173,7 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 										NodeSelector: map[string]string{
 											"foo": "bar",
 										},
-										ResourceAllocations: oadpv1alpha1.OADPResourceRequirements{
+										ResourceAllocations: corev1.ResourceRequirements{
 											Requests: corev1.ResourceList{
 												corev1.ResourceCPU: resource.MustParse("2"),
 											},
@@ -1351,7 +1352,7 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 										NodeSelector: map[string]string{
 											"foo": "bar",
 										},
-										ResourceAllocations: oadpv1alpha1.OADPResourceRequirements{
+										ResourceAllocations: corev1.ResourceRequirements{
 											Limits: corev1.ResourceList{
 												corev1.ResourceMemory: resource.MustParse("256Mi"),
 											},
@@ -1533,7 +1534,7 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 										NodeSelector: map[string]string{
 											"foo": "bar",
 										},
-										ResourceAllocations: oadpv1alpha1.OADPResourceRequirements{
+										ResourceAllocations: corev1.ResourceRequirements{
 											Requests: corev1.ResourceList{
 												corev1.ResourceMemory: resource.MustParse("256Mi"),
 											},

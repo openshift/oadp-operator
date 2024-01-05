@@ -271,7 +271,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 								oadpv1alpha1.DefaultPluginAWS,
 							},
 							PodConfig: &oadpv1alpha1.PodConfig{
-								ResourceAllocations: oadpv1alpha1.OADPResourceRequirements{
+								ResourceAllocations: corev1.ResourceRequirements{
 									Requests: corev1.ResourceList{
 										corev1.ResourceCPU: resource.MustParse("2"),
 									},
@@ -324,7 +324,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 								oadpv1alpha1.DefaultPluginAWS,
 							},
 							PodConfig: &oadpv1alpha1.PodConfig{
-								ResourceAllocations: oadpv1alpha1.OADPResourceRequirements{
+								ResourceAllocations: corev1.ResourceRequirements{
 									Requests: corev1.ResourceList{
 										corev1.ResourceCPU: resource.MustParse("2"),
 									},
@@ -334,7 +334,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 						NodeAgent: &oadpv1alpha1.NodeAgentConfig{
 							NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
 								PodConfig: &oadpv1alpha1.PodConfig{
-									ResourceAllocations: oadpv1alpha1.OADPResourceRequirements{
+									ResourceAllocations: corev1.ResourceRequirements{
 										Requests: corev1.ResourceList{
 											corev1.ResourceCPU: resource.MustParse("2"),
 										},
