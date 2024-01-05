@@ -319,7 +319,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 				Configuration: &oadpv1alpha1.ApplicationConfig{
 					Velero: &oadpv1alpha1.VeleroConfig{
 						PodConfig: &oadpv1alpha1.PodConfig{
-							ResourceAllocations: corev1.ResourceRequirements{
+							ResourceAllocations: oadpv1alpha1.OADPResourceRequirements{
 								Limits: corev1.ResourceList{
 									corev1.ResourceCPU:    resource.MustParse("2"),
 									corev1.ResourceMemory: resource.MustParse("512Mi"),
