@@ -63,6 +63,7 @@ items:
           labels:
             e2e-app: "true"
             app: mongo
+            curl-tool: "true"
         spec:
           serviceAccountName: mongo-persistent-sa
           containers:
@@ -105,6 +106,9 @@ items:
               successThreshold: 1
               failureThreshold: 40 # 40x30sec before restart pod
             restartPolicy: Always
+          - image: docker.io/curlimages/curl:8.5.0
+            name: curl-tool
+            command: ["/bin/sleep", "infinity"]
           volumes:
           - name: mongo-data
             persistentVolumeClaim:

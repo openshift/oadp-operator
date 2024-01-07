@@ -5,15 +5,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"log"
-	"net/http"
-	"net/url"
 	"os"
 	"os/exec"
 	"reflect"
 	"sort"
-	"strings"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
@@ -22,7 +18,6 @@ import (
 	"github.com/onsi/gomega"
 	ocpappsv1 "github.com/openshift/api/apps/v1"
 	buildv1 "github.com/openshift/api/build/v1"
-	routev1 "github.com/openshift/api/route/v1"
 	security "github.com/openshift/api/security/v1"
 	templatev1 "github.com/openshift/api/template/v1"
 	operatorsv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
@@ -38,6 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -114,14 +110,14 @@ func InstallApplicationWithRetries(ocClient client.Client, file string, retries 
 						continue
 					}
 					if !reflect.DeepEqual(clusterResource.Object[key], resource.Object[key]) {
-						fmt.Println("diff found for key:", key)
+						log.Println("diff found for key:", key)
 						ginkgo.GinkgoWriter.Println(cmp.Diff(clusterResource.Object[key], resource.Object[key]))
 						needsUpdate = true
 						clusterResource.Object[key] = resource.Object[key]
 					}
 				}
 				if needsUpdate {
-					fmt.Printf("updating resource: %s; name: %s\n", resource.GroupVersionKind(), resource.GetName())
+					log.Printf("updating resource: %s; name: %s\n", resource.GroupVersionKind(), resource.GetName())
 					err = ocClient.Update(context.Background(), &clusterResource)
 				}
 			}
@@ -130,7 +126,7 @@ func InstallApplicationWithRetries(ocClient client.Client, file string, retries 
 				break
 			}
 			// if error, retry
-			fmt.Printf("error creating or updating resource: %s; name: %s; error: %s; retrying for %d more times\n", resource.GroupVersionKind(), resource.GetName(), err, retries-i)
+			log.Printf("error creating or updating resource: %s; name: %s; error: %s; retrying for %d more times\n", resource.GroupVersionKind(), resource.GetName(), err, retries-i)
 		}
 		// if still error on this resource, return error
 		if err != nil {
@@ -449,105 +445,148 @@ func RunMustGather(oc_cli string, artifact_dir string) error {
 	return err
 }
 
-func makeRequest(request string, api string, todo string) {
-	params := url.Values{}
-	params.Add("description", todo)
-	body := strings.NewReader(params.Encode())
-	req, err := http.NewRequest(request, api, body)
-	if err != nil {
-		log.Printf("Error making post request to todo app before Prebackup  %s", err)
-	}
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		log.Printf("Response of todo POST REQUEST  %s", resp.Status)
-	}
-	defer resp.Body.Close()
-}
-
 // VerifyBackupRestoreData verifies if app ready before backup and after restore to compare data.
-func VerifyBackupRestoreData(clientv1 client.Client, artifact_dir string, namespace string, routeName string, app string, prebackupState bool, twoVol bool, backupRestoretype BackupRestoreType) error {
+func VerifyBackupRestoreData(ocClient client.Client, kubeClient *kubernetes.Clientset, kubeConfig *rest.Config, artifactDir string, namespace string, routeName string, serviceName string, app string, prebackupState bool, twoVol bool) error {
 	log.Printf("Verifying backup/restore data of %s", app)
-	appRoute := &routev1.Route{}
-	backupFile := artifact_dir + "/backup-data.txt"
-	routev1.AddToScheme(clientv1.Scheme())
-	err := clientv1.Get(context.Background(), client.ObjectKey{
-		Namespace: namespace,
-		Name:      routeName,
-	}, appRoute)
+	appEndpointURL, proxyPodParams, err := getAppEndpointURLAndProxyParams(ocClient, kubeClient, kubeConfig, namespace, serviceName, routeName)
 	if err != nil {
 		return err
 	}
-	appApi := "http://" + appRoute.Spec.Host
-	appEndpoint := appApi + "/todo-incomplete"
-	volumeEndpoint := appApi + "/log"
 
-	//if this is prebackstate = true, add items via makeRequest function. We only want to make request before backup
-	//and ignore post restore checks.
-	log.Printf("PrebackState: %t\n", prebackupState)
+	// Construct request parameters for the "todo-incomplete" endpoint
+	requestParamsTodoIncomplete := getRequestParameters(appEndpointURL+"/todo-incomplete", proxyPodParams, GET, nil)
+
 	if prebackupState {
-		// delete backupFile if it exists
-		if _, err := os.Stat(backupFile); err == nil {
-			os.Remove(backupFile)
-		}
-		//data before curl request
-		dataBeforeCurl, err := getResponseData(appEndpoint)
+		// Clean up existing backup file
+		RemoveFileIfExists(artifactDir + "/backup-data.txt")
+
+		// Make requests and update data before backup
+		dataBeforeCurl, errResp, err := MakeRequest(*requestParamsTodoIncomplete)
 		if err != nil {
+			if errResp != "" {
+				log.Printf("Request response error msg: %s\n", errResp)
+			}
 			return err
 		}
 		log.Printf("Data before the curl request: \n %s\n", dataBeforeCurl)
-		//make post request to given api
-		makeRequest("POST", appApi+"/todo", time.Now().String())
-		makeRequest("POST", appApi+"/todo", time.Now().Weekday().String())
+
+		// Make two post requests to the "todo" endpoint
+		postPayload := `{"description": "` + time.Now().String() + `"}`
+		requestParams := getRequestParameters(appEndpointURL+"/todo", proxyPodParams, POST, &postPayload)
+		MakeRequest(*requestParams)
+
+		postPayload = `{"description": "` + time.Now().Weekday().String() + `"}`
+		requestParams = getRequestParameters(appEndpointURL+"/todo", proxyPodParams, POST, &postPayload)
+		MakeRequest(*requestParams)
 	}
-	//get response Data if response status is 200
-	respData, err := getResponseData(appEndpoint)
+
+	// Make request to the "todo-incomplete" endpoint
+	respData, errResp, err := MakeRequest(*requestParamsTodoIncomplete)
 	if err != nil {
+		if errResp != "" {
+			log.Printf("Request response error msg: %s\n", errResp)
+		}
 		return err
 	}
 
 	if prebackupState {
+		// Write data to backup file
 		log.Printf("Writing data to backupFile (backup-data.txt): \n %s\n", respData)
-		err := os.WriteFile(backupFile, respData, 0644)
-		if err != nil {
+		if err := os.WriteFile(artifactDir+"/backup-data.txt", []byte(respData), 0644); err != nil {
 			return err
 		}
 	} else {
-		backupData, err := os.ReadFile(backupFile)
+		// Compare data with backup file after restore
+		backupData, err := os.ReadFile(artifactDir + "/backup-data.txt")
 		if err != nil {
 			return err
 		}
 		log.Printf("Data came from backup-file\n %s\n", backupData)
-		backDataIsEqual := false
-		log.Printf("Data from the response after restore\n %s\n", respData)
-		backDataIsEqual = bytes.Equal(backupData, respData)
-		if backDataIsEqual != true {
+		log.Printf("Data came from response\n %s\n", respData)
+		trimmedBackup := bytes.TrimSpace(backupData)
+		trimmedResp := bytes.TrimSpace([]byte(respData))
+		if !bytes.Equal(trimmedBackup, trimmedResp) {
 			return errors.New("Backup and Restore Data are not the same")
 		}
 	}
 
 	if twoVol {
-		volumeFile := artifact_dir + "/volume-data.txt"
-		return verifyVolume(volumeFile, volumeEndpoint, prebackupState, backupRestoretype)
+		// Verify volume data if needed
+		requestParamsVolume := getRequestParameters(appEndpointURL+"/log", proxyPodParams, GET, nil)
+		volumeFile := artifactDir + "/volume-data.txt"
+		return verifyVolume(requestParamsVolume, volumeFile, prebackupState)
 	}
 
 	return nil
 }
 
-// VerifyVolumeData for application with two volumes
-func verifyVolume(volumeFile string, volumeApi string, prebackupState bool, backupRestoretype BackupRestoreType) error {
-	//get response Data if response status is 200
-	volData, err := getResponseData(volumeApi)
-	if err != nil {
-		return err
+func getRequestParameters(url string, proxyPodParams *ProxyPodParameters, method HTTPMethod, payload *string) *RequestParameters {
+	return &RequestParameters{
+		ProxyPodParams: proxyPodParams,
+		RequestMethod:  &method,
+		URL:            url,
+		Payload:        payload,
 	}
+}
+
+func getAppEndpointURLAndProxyParams(ocClient client.Client, kubeClient *kubernetes.Clientset, kubeConfig *rest.Config, namespace, serviceName, routeName string) (string, *ProxyPodParameters, error) {
+	appEndpointURL, err := GetRouteEndpointURL(ocClient, namespace, routeName)
+	// Something wrong with standard endpoint, try with proxy pod.
+	if err != nil {
+		log.Println("Can not connect to the application endpoint with route:", err)
+		log.Println("Trying to get to the service via proxy POD")
+
+		pod, podErr := GetFirstPodByLabel(kubeClient, namespace, "curl-tool=true")
+		if podErr != nil {
+			return "", nil, fmt.Errorf("Error getting pod for the proxy command: %v", podErr)
+		}
+
+		proxyPodParams := &ProxyPodParameters{
+			KubeClient:    kubeClient,
+			KubeConfig:    kubeConfig,
+			Namespace:     namespace,
+			PodName:       pod.ObjectMeta.Name,
+			ContainerName: "curl-tool",
+		}
+
+		appEndpointURL = GetInternalServiceEndpointURL(namespace, serviceName)
+
+		return appEndpointURL, proxyPodParams, nil
+	}
+
+	return appEndpointURL, nil, nil
+}
+
+// VerifyVolumeData for application with two volumes
+func verifyVolume(requestParams *RequestParameters, volumeFile string, prebackupState bool) error {
+	var volData string
+	var err error
+
+	// Function to get response
+	getResponseFromVolumeCall := func() bool {
+		// Attempt to make the request
+		var errResp string
+		volData, errResp, err = MakeRequest(*requestParams)
+		if err != nil {
+			if errResp != "" {
+				log.Printf("Request response error msg: %s\n", errResp)
+			}
+			log.Printf("Request errored out: %v\n", err)
+			return false
+		}
+		return true
+	}
+
+	if success := gomega.Eventually(getResponseFromVolumeCall, time.Minute*4, time.Second*15).Should(gomega.BeTrue()); !success {
+		return fmt.Errorf("Failed to get response for volume: %v", err)
+	}
+
 	if prebackupState {
 		// delete volumeFile if it exists
-		if _, err := os.Stat(volumeFile); err == nil {
-			os.Remove(volumeFile)
-		}
+		RemoveFileIfExists(volumeFile)
+
 		log.Printf("Writing data to volumeFile (volume-data.txt): \n %s", volData)
-		err := os.WriteFile(volumeFile, volData, 0644)
+		err := os.WriteFile(volumeFile, []byte(volData), 0644)
 		if err != nil {
 			return err
 		}
@@ -559,32 +598,10 @@ func verifyVolume(volumeFile string, volumeApi string, prebackupState bool, back
 		}
 		log.Printf("Data came from volume-file\n %s", volumeBackupData)
 		log.Printf("Volume Data after restore\n %s", volData)
-		dataIsIn := bytes.Contains(volData, volumeBackupData)
+		dataIsIn := bytes.Contains([]byte(volData), volumeBackupData)
 		if dataIsIn != true {
 			return errors.New("Backup data is not in Restore Data")
 		}
 	}
 	return nil
-}
-
-func getResponseData(appApi string) ([]byte, error) {
-	var body []byte
-	var readError error
-
-	checkStatusCode := func() (bool, error) {
-		resp, err := http.Get(appApi)
-		if err != nil {
-			return false, err
-		}
-		defer resp.Body.Close()
-		if resp.StatusCode != 200 {
-			log.Printf("Request errored out with Status Code %v\n", resp.StatusCode)
-			return false, fmt.Errorf("Request errored out with Status Code %v", resp.StatusCode)
-		}
-		body, readError = io.ReadAll(resp.Body)
-		return true, nil
-	}
-
-	gomega.Eventually(checkStatusCode, time.Minute*4, time.Second*15).Should(gomega.BeTrue())
-	return body, readError
 }

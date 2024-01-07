@@ -19,9 +19,7 @@ import (
 	templatev1 "github.com/openshift/api/template/v1"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	"github.com/openshift/oadp-operator/pkg/common"
-	utils "github.com/openshift/oadp-operator/tests/e2e/utils"
 	operatorsv1 "github.com/operator-framework/api/pkg/operators/v1"
-	operators "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	operatorsv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	velero "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -158,7 +156,7 @@ func (v *DpaCustomResource) Build(backupRestoreType BackupRestoreType) error {
 func (v *DpaCustomResource) ProviderStorageClassName(e2eRoot string) (string, error) {
 	pvcFile := fmt.Sprintf("%s/sample-applications/%s/pvc/%s.yaml", e2eRoot, "mongo-persistent", v.Provider)
 	pvcList := corev1.PersistentVolumeClaimList{}
-	pvcBytes, err := utils.ReadFile(pvcFile)
+	pvcBytes, err := ReadFile(pvcFile)
 	if err != nil {
 		return "", err
 	}
@@ -271,7 +269,6 @@ func (v *DpaCustomResource) SetClient(client client.Client) error {
 	corev1.AddToScheme(client.Scheme())
 	templatev1.AddToScheme(client.Scheme())
 	security.AddToScheme(client.Scheme())
-	operators.AddToScheme(client.Scheme())
 	volumesnapshotv1.AddToScheme(client.Scheme())
 	buildv1.AddToScheme(client.Scheme())
 	operatorsv1alpha1.AddToScheme(client.Scheme())
@@ -457,7 +454,7 @@ func VerifyVeleroResourceLimits(c *kubernetes.Clientset, namespace string, limit
 }
 
 func LoadDpaSettingsFromJson(settings string) string {
-	file, err := utils.ReadFile(settings)
+	file, err := ReadFile(settings)
 	if err != nil {
 		return fmt.Sprintf("Error decoding json file: %v", err)
 	}

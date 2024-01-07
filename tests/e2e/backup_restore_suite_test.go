@@ -24,7 +24,7 @@ type VerificationFunction func(client.Client, string) error
 type appVerificationFunction func(bool, bool, BackupRestoreType) VerificationFunction
 
 // TODO duplications with mongoready
-func mongoready(preBackupState bool, twoVol bool, backupRestoreType BackupRestoreType) VerificationFunction {
+func mongoready(preBackupState bool, twoVol bool) VerificationFunction {
 	return VerificationFunction(func(ocClient client.Client, namespace string) error {
 		Eventually(IsDCReady(ocClient, namespace, "todolist"), timeoutMultiplier*time.Minute*10, time.Second*10).Should(BeTrue())
 		exists, err := DoesSCCExist(ocClient, "mongo-persistent-scc")
@@ -34,12 +34,12 @@ func mongoready(preBackupState bool, twoVol bool, backupRestoreType BackupRestor
 		if !exists {
 			return errors.New("did not find Mongo scc")
 		}
-		err = VerifyBackupRestoreData(runTimeClientForSuiteRun, artifact_dir, namespace, "todolist-route", "todolist", preBackupState, false, backupRestoreType)
+		err = VerifyBackupRestoreData(runTimeClientForSuiteRun, kubernetesClientForSuiteRun, kubeConfig, artifact_dir, namespace, "todolist-route", "todolist", "todolist", preBackupState, false)
 		return err
 	})
 }
 
-func mysqlReady(preBackupState bool, twoVol bool, backupRestoreType BackupRestoreType) VerificationFunction {
+func mysqlReady(preBackupState bool, twoVol bool) VerificationFunction {
 	return VerificationFunction(func(ocClient client.Client, namespace string) error {
 		log.Printf("checking for the NAMESPACE: %s", namespace)
 		// This test confirms that SCC restore logic in our plugin is working
@@ -51,7 +51,7 @@ func mysqlReady(preBackupState bool, twoVol bool, backupRestoreType BackupRestor
 		if !exists {
 			return errors.New("did not find MYSQL scc")
 		}
-		err = VerifyBackupRestoreData(runTimeClientForSuiteRun, artifact_dir, namespace, "todolist-route", "todolist", preBackupState, twoVol, backupRestoreType)
+		err = VerifyBackupRestoreData(runTimeClientForSuiteRun, kubernetesClientForSuiteRun, kubeConfig, artifact_dir, namespace, "todolist-route", "todolist", "todolist", preBackupState, twoVol)
 		return err
 	})
 }
@@ -293,16 +293,16 @@ var _ = Describe("Backup and restore tests", func() {
 			ApplicationNamespace: "mysql-persistent",
 			Name:                 "mysql-csi-e2e",
 			BackupRestoreType:    CSI,
-			PreBackupVerify:      mysqlReady(true, false, CSI),
-			PostRestoreVerify:    mysqlReady(false, false, CSI),
+			PreBackupVerify:      mysqlReady(true, false),
+			PostRestoreVerify:    mysqlReady(false, false),
 		}, nil),
 		Entry("Mongo application CSI", FlakeAttempts(flakeAttempts), BackupRestoreCase{
 			ApplicationTemplate:  "./sample-applications/mongo-persistent/mongo-persistent-csi.yaml",
 			ApplicationNamespace: "mongo-persistent",
 			Name:                 "mongo-csi-e2e",
 			BackupRestoreType:    CSI,
-			PreBackupVerify:      mongoready(true, false, CSI),
-			PostRestoreVerify:    mongoready(false, false, CSI),
+			PreBackupVerify:      mongoready(true, false),
+			PostRestoreVerify:    mongoready(false, false),
 		}, nil),
 		Entry("MySQL application two Vol CSI", FlakeAttempts(flakeAttempts), BackupRestoreCase{
 			ApplicationTemplate:  fmt.Sprintf("./sample-applications/mysql-persistent/mysql-persistent-twovol-csi.yaml"),
@@ -310,56 +310,56 @@ var _ = Describe("Backup and restore tests", func() {
 			Name:                 "mysql-twovol-csi-e2e",
 			BackupRestoreType:    CSI,
 			AppReadyDelay:        30 * time.Second,
-			PreBackupVerify:      mysqlReady(true, true, CSI),
-			PostRestoreVerify:    mysqlReady(false, true, CSI),
+			PreBackupVerify:      mysqlReady(true, true),
+			PostRestoreVerify:    mysqlReady(false, true),
 		}, nil),
 		Entry("Mongo application RESTIC", FlakeAttempts(flakeAttempts), BackupRestoreCase{
 			ApplicationTemplate:  "./sample-applications/mongo-persistent/mongo-persistent.yaml",
 			ApplicationNamespace: "mongo-persistent",
 			Name:                 "mongo-restic-e2e",
 			BackupRestoreType:    RESTIC,
-			PreBackupVerify:      mongoready(true, false, RESTIC),
-			PostRestoreVerify:    mongoready(false, false, RESTIC),
+			PreBackupVerify:      mongoready(true, false),
+			PostRestoreVerify:    mongoready(false, false),
 		}, nil),
 		Entry("MySQL application RESTIC", FlakeAttempts(flakeAttempts), BackupRestoreCase{
 			ApplicationTemplate:  "./sample-applications/mysql-persistent/mysql-persistent.yaml",
 			ApplicationNamespace: "mysql-persistent",
 			Name:                 "mysql-restic-e2e",
 			BackupRestoreType:    RESTIC,
-			PreBackupVerify:      mysqlReady(true, false, RESTIC),
-			PostRestoreVerify:    mysqlReady(false, false, RESTIC),
+			PreBackupVerify:      mysqlReady(true, false),
+			PostRestoreVerify:    mysqlReady(false, false),
 		}, nil),
 		Entry("Mongo application KOPIA", FlakeAttempts(flakeAttempts), BackupRestoreCase{
 			ApplicationTemplate:  "./sample-applications/mongo-persistent/mongo-persistent.yaml",
 			ApplicationNamespace: "mongo-persistent",
 			Name:                 "mongo-kopia-e2e",
 			BackupRestoreType:    KOPIA,
-			PreBackupVerify:      mongoready(true, false, KOPIA),
-			PostRestoreVerify:    mongoready(false, false, KOPIA),
+			PreBackupVerify:      mongoready(true, false),
+			PostRestoreVerify:    mongoready(false, false),
 		}, nil),
 		Entry("MySQL application KOPIA", FlakeAttempts(flakeAttempts), BackupRestoreCase{
 			ApplicationTemplate:  "./sample-applications/mysql-persistent/mysql-persistent.yaml",
 			ApplicationNamespace: "mysql-persistent",
 			Name:                 "mysql-kopia-e2e",
 			BackupRestoreType:    KOPIA,
-			PreBackupVerify:      mysqlReady(true, false, KOPIA),
-			PostRestoreVerify:    mysqlReady(false, false, KOPIA),
+			PreBackupVerify:      mysqlReady(true, false),
+			PostRestoreVerify:    mysqlReady(false, false),
 		}, nil),
 		Entry("Mongo application DATAMOVER", FlakeAttempts(flakeAttempts), BackupRestoreCase{
 			ApplicationTemplate:  "./sample-applications/mongo-persistent/mongo-persistent-csi.yaml",
 			ApplicationNamespace: "mongo-persistent",
 			Name:                 "mongo-datamover-e2e",
 			BackupRestoreType:    CSIDataMover,
-			PreBackupVerify:      mongoready(true, false, CSIDataMover),
-			PostRestoreVerify:    mongoready(false, false, CSIDataMover),
+			PreBackupVerify:      mongoready(true, false),
+			PostRestoreVerify:    mongoready(false, false),
 		}, nil),
 		Entry("MySQL application DATAMOVER", FlakeAttempts(flakeAttempts), BackupRestoreCase{
 			ApplicationTemplate:  "./sample-applications/mysql-persistent/mysql-persistent-csi.yaml",
 			ApplicationNamespace: "mysql-persistent",
 			Name:                 "mysql-datamover-e2e",
 			BackupRestoreType:    CSIDataMover,
-			PreBackupVerify:      mysqlReady(true, false, CSIDataMover),
-			PostRestoreVerify:    mysqlReady(false, false, CSIDataMover),
+			PreBackupVerify:      mysqlReady(true, false),
+			PostRestoreVerify:    mysqlReady(false, false),
 		}, nil),
 		Entry("Mongo application BlockDevice DATAMOVER", FlakeAttempts(flakeAttempts), BackupRestoreCase{
 			ApplicationTemplate:  "./sample-applications/mongo-persistent/mongo-persistent-block.yaml",
@@ -367,8 +367,8 @@ var _ = Describe("Backup and restore tests", func() {
 			ApplicationNamespace: "mongo-persistent",
 			Name:                 "mongo-blockdevice-e2e",
 			BackupRestoreType:    CSIDataMover,
-			PreBackupVerify:      mongoready(true, false, CSIDataMover),
-			PostRestoreVerify:    mongoready(false, false, CSIDataMover),
+			PreBackupVerify:      mongoready(true, false),
+			PostRestoreVerify:    mongoready(false, false),
 		}, nil),
 	)
 })

@@ -83,6 +83,7 @@ items:
           labels:
             e2e-app: "true"
             app: mysql
+            curl-tool: "true"
         spec:
           securityContext:
             runAsNonRoot: true
@@ -140,6 +141,9 @@ items:
               successThreshold: 1
               failureThreshold: 40 # 40x30sec before restart pod
             restartPolicy: Always
+          - image: docker.io/curlimages/curl:8.5.0
+            name: curl-tool
+            command: ["/bin/sleep", "infinity"]
           volumes:
           - name: mysql-data
             persistentVolumeClaim:
@@ -186,7 +190,7 @@ items:
         spec:
           containers:
           - name: todolist
-            image: quay.io/konveyor/todolist-mariadb-go:v2_4
+            image: quay.io/migtools/oadp-ci-todolist-mariadb-go:latest
             env:
               - name: foo
                 value: bar
