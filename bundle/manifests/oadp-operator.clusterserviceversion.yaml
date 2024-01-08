@@ -8,10 +8,9 @@ metadata:
           "apiVersion": "oadp.openshift.io/v1alpha1",
           "kind": "DataProtectionApplication",
           "metadata": {
-            "name": "ts-dpa"
+            "name": "velero-sample"
           },
           "spec": {
-            "backupImages": false,
             "backupLocations": [
               {
                 "velero": {
@@ -25,7 +24,7 @@ metadata:
                   },
                   "default": true,
                   "objectStorage": {
-                    "bucket": "shubbam-6109f5e9711c8c58131acdd2f490f451",
+                    "bucket": "my-bucket-name",
                     "prefix": "velero"
                   },
                   "provider": "aws"
@@ -41,13 +40,21 @@ metadata:
                 "defaultPlugins": [
                   "openshift",
                   "aws",
-                  "csi"
+                  "kubevirt"
                 ]
               }
             },
-            "unsupportedOverrides": {
-              "veleroImageFqin": "quay.io/spampatt/velero:fix-ducr-cancel-1"
-            }
+            "snapshotLocations": [
+              {
+                "velero": {
+                  "config": {
+                    "profile": "default",
+                    "region": "us-west-2"
+                  },
+                  "provider": "aws"
+                }
+              }
+            ]
           }
         },
         {
