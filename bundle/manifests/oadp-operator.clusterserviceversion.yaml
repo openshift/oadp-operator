@@ -8,9 +8,10 @@ metadata:
           "apiVersion": "oadp.openshift.io/v1alpha1",
           "kind": "DataProtectionApplication",
           "metadata": {
-            "name": "velero-sample"
+            "name": "ts-dpa"
           },
           "spec": {
+            "backupImages": false,
             "backupLocations": [
               {
                 "velero": {
@@ -24,7 +25,7 @@ metadata:
                   },
                   "default": true,
                   "objectStorage": {
-                    "bucket": "my-bucket-name",
+                    "bucket": "shubbam-6109f5e9711c8c58131acdd2f490f451",
                     "prefix": "velero"
                   },
                   "provider": "aws"
@@ -40,21 +41,13 @@ metadata:
                 "defaultPlugins": [
                   "openshift",
                   "aws",
-                  "kubevirt"
+                  "csi"
                 ]
               }
             },
-            "snapshotLocations": [
-              {
-                "velero": {
-                  "config": {
-                    "profile": "default",
-                    "region": "us-west-2"
-                  },
-                  "provider": "aws"
-                }
-              }
-            ]
+            "unsupportedOverrides": {
+              "veleroImageFqin": "quay.io/spampatt/velero:fix-ducr-cancel-1"
+            }
           }
         },
         {
@@ -855,7 +848,7 @@ spec:
                 - name: RELATED_IMAGE_MUSTGATHER
                   value: registry.redhat.io/oadp/oadp-mustgather-rhel8:v1.2
                 image: quay.io/konveyor/oadp-operator:latest
-                imagePullPolicy: Always
+                imagePullPolicy: IfNotPresent
                 livenessProbe:
                   httpGet:
                     path: /healthz
