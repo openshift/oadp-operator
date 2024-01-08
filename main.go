@@ -53,6 +53,7 @@ import (
 
 	//+kubebuilder:scaffold:imports
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
+	"github.com/openshift/oadp-operator/pkg/leaderelection"
 )
 
 var (
@@ -100,6 +101,11 @@ func main() {
 	flag.Parse()
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
+
+	restConfig := ctrl.GetConfigOrDie()
+
+	// Get LeaderElection configs
+	leConfig := leaderelection.GetLeaderElectionConfig(restConfig, enableLeaderElection)
 
 	watchNamespace, err := getWatchNamespace()
 	if err != nil {
@@ -154,7 +160,10 @@ func main() {
 		Port:                   9443,
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
-		LeaderElectionID:       "8b4defce.openshift.io",
+		LeaseDuration:          &leConfig.LeaseDuration.Duration,
+		RenewDeadline:          &leConfig.RenewDeadline.Duration,
+		RetryPeriod:            &leConfig.RetryPeriod.Duration,
+		LeaderElectionID:       "oadp.openshift.io",
 		Namespace:              watchNamespace,
 	})
 	if err != nil {
