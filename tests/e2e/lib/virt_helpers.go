@@ -15,6 +15,7 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/version"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -26,13 +27,14 @@ type VirtOperator struct {
 	Dynamic   dynamic.Interface
 	Namespace string
 	Csv       string
+	Version   *version.Version
 }
 
 // GetVirtOperator fills out a new VirtOperator
 func GetVirtOperator(client client.Client, clientset *kubernetes.Clientset, dynamicClient dynamic.Interface) (*VirtOperator, error) {
 	namespace := "openshift-cnv"
 
-	csv, err := GetCsvFromPackageManifest(dynamicClient, "kubevirt-hyperconverged")
+	csv, version, err := GetCsvFromPackageManifest(dynamicClient, "kubevirt-hyperconverged")
 	if err != nil {
 		log.Printf("Failed to get CSV from package manifest")
 		return nil, err
@@ -44,6 +46,7 @@ func GetVirtOperator(client client.Client, clientset *kubernetes.Clientset, dyna
 		Dynamic:   dynamicClient,
 		Namespace: namespace,
 		Csv:       csv,
+		Version:   version,
 	}
 
 	return v, nil
@@ -52,7 +55,7 @@ func GetVirtOperator(client client.Client, clientset *kubernetes.Clientset, dyna
 // GetCsvFromPackageManifest returns the current CSV from the first channel
 // in the given PackageManifest name. Uses the dynamic client because adding
 // the real PackageManifest API from OLM was actually more work than this.
-func GetCsvFromPackageManifest(dynamicClient dynamic.Interface, name string) (string, error) {
+func GetCsvFromPackageManifest(dynamicClient dynamic.Interface, name string) (string, *version.Version, error) {
 	resourceId := schema.GroupVersionResource{
 		Group:    "packages.operators.coreos.com",
 		Resource: "packagemanifests",
@@ -63,37 +66,51 @@ func GetCsvFromPackageManifest(dynamicClient dynamic.Interface, name string) (st
 	unstructuredManifest, err := dynamicClient.Resource(resourceId).Namespace("default").Get(context.Background(), name, v1.GetOptions{})
 	if err != nil {
 		log.Printf("Error getting packagemanifest %s: %v", name, err)
-		return "", err
+		return "", nil, err
 	}
 
 	log.Println("Extracting channels...")
 	channels, ok, err := unstructured.NestedSlice(unstructuredManifest.UnstructuredContent(), "status", "channels")
 	if err != nil {
 		log.Printf("Error getting channels from packagemanifest: %v", err)
-		return "", err
+		return "", nil, err
 	}
 	if !ok {
-		return "", errors.New("failed to get channels list from " + name + " packagemanifest")
+		return "", nil, errors.New("failed to get channels list from " + name + " packagemanifest")
 	}
 	if len(channels) < 1 {
-		return "", errors.New("no channels listed in package manifest " + name)
+		return "", nil, errors.New("no channels listed in package manifest " + name)
 	}
 
 	firstChannel, ok := channels[0].(map[string]interface{})
 	if !ok {
-		return "", errors.New("failed to read first channel from package manifest " + name)
+		return "", nil, errors.New("failed to read first channel from package manifest " + name)
 	}
 
 	csv, ok, err := unstructured.NestedString(firstChannel, "currentCSV")
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 	if !ok {
-		return "", errors.New("failed to get current CSV from " + name + " packagemanifest")
+		return "", nil, errors.New("failed to get current CSV from " + name + " packagemanifest")
 	}
 	log.Printf("Current CSV is: %s", csv)
 
-	return csv, nil
+	versionString, ok, err := unstructured.NestedString(firstChannel, "currentCSVDesc", "version")
+	if err != nil {
+		return "", nil, err
+	}
+	if !ok {
+		return "", nil, errors.New("failed to get current operator version from " + name + " packagemanifest")
+	}
+	log.Printf("Current operator version is: %s", versionString)
+
+	version, err := version.ParseGeneric(versionString)
+	if err != nil {
+		return "", nil, err
+	}
+
+	return csv, version, nil
 }
 
 // Checks the existence of the operator's target namespace

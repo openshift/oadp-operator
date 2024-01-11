@@ -6,6 +6,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/openshift/oadp-operator/tests/e2e/lib"
+	"k8s.io/apimachinery/pkg/util/version"
 )
 
 var _ = Describe("VM backup and restore tests", Ordered, func() {
@@ -22,6 +23,12 @@ var _ = Describe("VM backup and restore tests", Ordered, func() {
 		v, err = GetVirtOperator(runTimeClientForSuiteRun, kubernetesClientForSuiteRun, dynamicClient)
 		Expect(err).To(BeNil())
 		Expect(v).ToNot(BeNil())
+
+		minimum, err := version.ParseGeneric("4.13")
+		Expect(err).To(BeNil())
+		if !v.Version.AtLeast(minimum) {
+			Skip("Skipping virtualization testing on cluster version " + v.Version.String() + ", minimum required is " + minimum.String())
+		}
 
 		err = v.EnsureVirtInstallation(5 * time.Minute)
 		Expect(err).To(BeNil())
