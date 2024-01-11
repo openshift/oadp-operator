@@ -42,7 +42,7 @@ func init() {
 	flag.StringVar(&oc_cli, "oc_cli", "oc", "OC CLI Client")
 	flag.StringVar(&stream, "stream", "up", "[up, down] upstream or downstream")
 	flag.Int64Var(&timeoutMultiplierInput, "timeout_multiplier", 1, "Customize timeout multiplier from default (1)")
-	flag.BoolVar(&virtTestingEnabled, "test_virt", false, "Flag to enable virtualization testing (default false)")
+	flag.BoolVar(&virtTestingEnabled, "test_virt", false, "Enable Virtual Machine backup/restore testing (default false)")
 	timeoutMultiplier = time.Duration(timeoutMultiplierInput)
 	flag.Int64Var(&flakeAttempts, "flakeAttempts", 3, "Customize the number of flake retries (3)")
 
