@@ -1,22 +1,12 @@
 package e2e_test
 
 import (
-	"os"
-	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/openshift/oadp-operator/tests/e2e/lib"
 )
-
-var virtTestingEnabled bool
-
-func init() {
-	if strings.ToLower(os.Getenv("TEST_VIRT")) == "true" {
-		virtTestingEnabled = true
-	}
-}
 
 var _ = Describe("VM backup and restore tests", Ordered, func() {
 	var v *VirtOperator
@@ -29,7 +19,7 @@ var _ = Describe("VM backup and restore tests", Ordered, func() {
 
 		Expect(runTimeClientForSuiteRun).ToNot(BeNil())
 		Expect(kubernetesClientForSuiteRun).ToNot(BeNil())
-		v, err = GetVirtOperator(runTimeClientForSuiteRun, kubernetesClientForSuiteRun, "down")
+		v, err = GetVirtOperator(runTimeClientForSuiteRun, kubernetesClientForSuiteRun, dynamicClient)
 		Expect(err).To(BeNil())
 		Expect(v).ToNot(BeNil())
 

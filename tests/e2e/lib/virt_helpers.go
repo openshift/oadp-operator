@@ -17,44 +17,20 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
-	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-const (
-	CommunityOperator  = 0
-	DownstreamOperator = 1
-)
-
 type VirtOperator struct {
-	Client       client.Client
-	Clientset    *kubernetes.Clientset
-	Dynamic      dynamic.Interface
-	Namespace    string
-	OperatorType int
-	Csv          string
+	Client    client.Client
+	Clientset *kubernetes.Clientset
+	Dynamic   dynamic.Interface
+	Namespace string
+	Csv       string
 }
 
 // GetVirtOperator fills out a new VirtOperator
-func GetVirtOperator(client client.Client, clientset *kubernetes.Clientset, stream string) (*VirtOperator, error) {
-	operatorType := DownstreamOperator
+func GetVirtOperator(client client.Client, clientset *kubernetes.Clientset, dynamicClient dynamic.Interface) (*VirtOperator, error) {
 	namespace := "openshift-cnv"
-	if stream == "up" {
-		operatorType = CommunityOperator
-		namespace = "kubevirt-hyperconverged"
-	}
-
-	config, err := ctrl.GetConfig()
-	if err != nil {
-		log.Printf("Failed to get dynamic client config: %v", err)
-		return nil, err
-	}
-
-	dynamicClient, err := dynamic.NewForConfig(config)
-	if err != nil {
-		log.Printf("Failed to create dynamic client: %v", err)
-		return nil, err
-	}
 
 	csv, err := GetCsvFromPackageManifest(dynamicClient, "kubevirt-hyperconverged")
 	if err != nil {
@@ -63,12 +39,11 @@ func GetVirtOperator(client client.Client, clientset *kubernetes.Clientset, stre
 	}
 
 	v := &VirtOperator{
-		Client:       client,
-		Clientset:    clientset,
-		Dynamic:      dynamicClient,
-		Namespace:    namespace,
-		OperatorType: operatorType,
-		Csv:          csv,
+		Client:    client,
+		Clientset: clientset,
+		Dynamic:   dynamicClient,
+		Namespace: namespace,
+		Csv:       csv,
 	}
 
 	return v, nil
@@ -150,7 +125,7 @@ func (v *VirtOperator) checkSubscription() bool {
 
 // Checks if the ClusterServiceVersion status has changed to ready
 func (v *VirtOperator) checkCsv() bool {
-	subscription, err := v.GetOperatorSubscription("down")
+	subscription, err := v.GetOperatorSubscription()
 	if err != nil {
 		if err.Error() == "no subscription found" {
 			return false
@@ -223,8 +198,7 @@ func (v *VirtOperator) installOperatorGroup() error {
 	return nil
 }
 
-// Creates the upstream or downstream subscription, which triggers
-// creation of the ClusterServiceVersion.
+// Creates the subscription, which triggers creation of the ClusterServiceVersion.
 func (v *VirtOperator) installSubscription() error {
 	subscription := &operatorsv1alpha1.Subscription{
 		ObjectMeta: metav1.ObjectMeta{
@@ -265,8 +239,8 @@ func (v *VirtOperator) installHco() error {
 			"metadata": map[string]interface{}{
 				"name":      "kubevirt-hyperconverged",
 				"namespace": v.Namespace,
-				"spec":      "{}",
 			},
+			"spec": map[string]interface{}{},
 		},
 	}
 
@@ -408,7 +382,7 @@ func (v *VirtOperator) EnsureVirtInstallation(timeout time.Duration) error {
 	log.Println("CSV ready")
 
 	log.Printf("Creating hyperconverged operator")
-	if err := v.ensureHco(15 * time.Minute); err != nil {
+	if err := v.ensureHco(5 * time.Minute); err != nil {
 		return err
 	}
 	log.Printf("Created HCO")

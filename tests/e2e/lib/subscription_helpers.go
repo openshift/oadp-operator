@@ -46,14 +46,8 @@ func (d *DpaCustomResource) GetOperatorSubscription(c client.Client, stream stri
 	return GetOperatorSubscription(c, d.Namespace, label)
 }
 
-func (v *VirtOperator) GetOperatorSubscription(stream string) (*Subscription, error) {
-	label := ""
-	if stream == "up" {
-		label = "operators.coreos.com/kubevirt-hyperconverged.kubevirt-hyperconverged"
-	}
-	if stream == "down" {
-		label = "operators.coreos.com/kubevirt-hyperconverged.openshift-cnv"
-	}
+func (v *VirtOperator) GetOperatorSubscription() (*Subscription, error) {
+	label := "operators.coreos.com/kubevirt-hyperconverged.openshift-cnv"
 	return GetOperatorSubscription(v.Client, v.Namespace, label)
 }
 
