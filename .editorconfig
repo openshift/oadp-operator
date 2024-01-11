@@ -1,0 +1,28 @@
+# https://EditorConfig.org
+
+root = true
+
+[*]
+indent_size = 4
+indent_style = space
+end_of_line = lf
+charset = utf-8
+trim_trailing_whitespace = true
+insert_final_newline = true
+
+[{*.go,go.mod,Makefile}]
+indent_style = unset
+
+[{*.{yaml,yml,json,sh},PROJECT,OWNERS}]
+indent_size = 2
+
+[{*.md,LICENSE}]
+indent_size = unset
+
+[must-gather/**]
+indent_size = unset
+indent_style = unset
+
+[blogs/**]
+indent_size = unset
+indent_style = unset

@@ -71,7 +71,7 @@ spec:
 #### AWS Plugin Exception:
 
   - *If you are using the AWS plugin, you can use the `profile` config key
-    to use one secret for separate credentials.* 
+    to use one secret for separate credentials.*
     Example AWS credentials and DPA:
 
   ```
@@ -150,12 +150,12 @@ spec:
 
 2. #### `BackupStorageLocation` and `VolumeSnapshotLocation` use the same provider but use different credentials:
 
-    - An example of this could be Using AWS S3 for your BSL, and also using an S3 
+    - An example of this could be Using AWS S3 for your BSL, and also using an S3
     compatible provider, such as Minio or Noobaa.
 
     - As mentioned previously, if you are using the AWS plugin, you can use one
       secret with separate credentials. Further information [here](#separatecreds).
-                
+
     - Example:
 
     `oc create secret generic <CUSTOM_NAME> --namespace openshift-adp --from-file cloud=<CREDENTIALS_FILE_PATH>`
@@ -231,5 +231,5 @@ stringData:
   RESTIC_PASSWORD: my-secure-restic-password
 ```
 
-- *Note:* `dpa.spec.features.dataMover.credentialName` must match the name of the secret. 
+- *Note:* `dpa.spec.features.dataMover.credentialName` must match the name of the secret.
   Otherwise it will default to the name `dm-credential`.

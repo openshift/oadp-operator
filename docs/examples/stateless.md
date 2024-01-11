@@ -3,12 +3,12 @@
 <h2 align="center">Using an AWS s3 Bucket</h2>
 
 ### Prerequisites
-* OADP operator, a credentials secret, and a DataProtectionApplication (DPA) CR 
+* OADP operator, a credentials secret, and a DataProtectionApplication (DPA) CR
   are all created. Follow [these steps](/docs/install_olm.md) for installation instructions.
 
-  - Make sure your DPA CR is similar to below in the install step. 
+  - Make sure your DPA CR is similar to below in the install step.
 
-* Information on `backupLocations` spec can be found [here](/docs/config/bsl_and_vsl.md). 
+* Information on `backupLocations` spec can be found [here](/docs/config/bsl_and_vsl.md).
 
 ```
 apiVersion: oadp.openshift.io/v1alpha1

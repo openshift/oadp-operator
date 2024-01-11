@@ -184,6 +184,7 @@ envtest: $(ENVTEST)
 test: vet envtest ## Run unit tests; run Go linters checks; and check if api and bundle folders are up to date
 	KUBEBUILDER_ASSETS="$(ENVTESTPATH)" go test -mod=mod $(shell go list -mod=mod ./... | grep -v /tests/e2e) -coverprofile cover.out
 	@make lint
+	@make ec
 	@make api-isupdated
 	@make bundle-isupdated
 
@@ -262,15 +263,15 @@ kustomize: ## Download kustomize locally if necessary.
 
 # Codecov OS String for use in download url
 ifeq ($(OS),Windows_NT)
-    OS_String = windows
+OS_String = windows
 else
-    UNAME_S := $(shell uname -s)
-    ifeq ($(UNAME_S),Linux)
-        OS_String = linux
-    endif
-    ifeq ($(UNAME_S),Darwin)
-        OS_String = macos
-    endif
+UNAME_S := $(shell uname -s)
+ifeq ($(UNAME_S),Linux)
+	OS_String = linux
+endif
+ifeq ($(UNAME_S),Darwin)
+	OS_String = macos
+endif
 endif
 submit-coverage:
 	curl -Os https://uploader.codecov.io/latest/$(OS_String)/codecov
@@ -544,3 +545,22 @@ lint: golangci-lint ## Run Go linters checks against all project's Go files.
 .PHONY: lint-fix
 lint-fix: golangci-lint ## Fix Go linters issues.
 	$(GOLANGCI_LINT) run --fix
+
+EC ?= $(shell pwd)/bin/ec-$(EC_VERSION)
+EC_VERSION ?= 2.8.0
+
+.PHONY: editorconfig
+editorconfig: ## Download editorconfig locally if necessary.
+	@[ -f $(EC) ] || { \
+	set -e ;\
+	ec_binary=ec-$(shell go env GOOS)-$(shell go env GOARCH) ;\
+	ec_tar=$(shell pwd)/bin/$${ec_binary}.tar.gz ;\
+	curl -sSLo $${ec_tar} https://github.com/editorconfig-checker/editorconfig-checker/releases/download/$(EC_VERSION)/$${ec_binary}.tar.gz ;\
+	tar xzf $${ec_tar} ;\
+	rm -rf $${ec_tar} ;\
+	mv $(shell pwd)/bin/$${ec_binary} $(EC) ;\
+	}
+
+.PHONY: ec
+ec: editorconfig ## Run file formatter checks against all project's files.
+	$(EC)

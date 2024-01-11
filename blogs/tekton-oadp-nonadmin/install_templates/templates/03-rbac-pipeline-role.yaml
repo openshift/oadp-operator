@@ -10,7 +10,7 @@ parameters:
   - name: USER
     description: user with rights to launch b/r pipelines
 objects:
-  # This manifest gives tekton the permission to execute velero backups and restore 
+  # This manifest gives tekton the permission to execute velero backups and restore
 - apiVersion: rbac.authorization.k8s.io/v1
   kind: ClusterRole
   metadata:
@@ -42,7 +42,7 @@ objects:
     verbs:
     - "get"
     - "patch"
-  
+
     # This role gives a non-admin user permission to execute tekton pipelines, but
     # not to edit the pipeline.
 - kind: Role

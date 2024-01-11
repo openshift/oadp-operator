@@ -60,9 +60,9 @@
 - A `StorageClass` and a `VolumeSnapshotClass` are needed before the mysql or any application
 with persistent data is created. The app will map to the `StorageClass`, which contains information about the CSI driver.
 
-- Most VolumeSnapshotClass specifications can not be modified as they are managed by an operator. 
+- Most VolumeSnapshotClass specifications can not be modified as they are managed by an operator.
   - A new VolumeSnapshotClass can be created with the correct labels and annotations.
-  - A label and annotation can be added to an existing vsc via the following command: 
+  - A label and annotation can be added to an existing vsc via the following command:
     - `oc label volumesnapshotclass <vsc> velero.io/csi-volumesnapshot-class=true`
     - `oc annotate volumesnapshotclass <vsc> snapshot.storage.kubernetes.io/is-default-class=true --overwrite`
 

@@ -76,9 +76,9 @@ We will be using OpenShift Data Foundation to simplify application deployment ac
    Authenticate with your credentials if necessary.
 
 <!-- 2. Navigate to *OperatorHub* from the side menu and install **Local Storage Operator**
-   
+
    ![Local Storage](localStorage.png)
-   
+
    Leaving everything as default, click through until the installation finished. -->
 2. Navigate to *OperatorHub*, search for and install **OpenShift Data Foundation**
 
@@ -124,10 +124,10 @@ Object Bucket Claim creates a persistent storage bucket for Velero to store back
    When the *Status* is *Bound*, the bucket is ready.
 
 ### Gathering information from Object Bucket
-1. Gathering bucket name and host 
+1. Gathering bucket name and host
    - Using OpenShift CLI:
       - Get *bucket name*
-        
+
         ```
         oc get configmap oadp-bucket -n default -o jsonpath='{.data.BUCKET_NAME}{"\n"}'
         ```
@@ -158,7 +158,7 @@ Object Bucket Claim creates a persistent storage bucket for Velero to store back
      1. Navigate to *Storage* > *Object Bucket Claim* > *oadp-bucket*. Ensure you are in the same *Project* used to create *oadp-bucket*.
      2. Click on oadp-secret in the bottom left to view bucket secrets
      3. Click Reveal values to see the bucket secret values. Copy data from *AWS_ACCESS_KEY_ID* and *AWS_SECRET_ACCESS_KEY* and save it as we'll need it later when installing the OADP Operator.
-   
+
    Note: regardless of the cloud provider, the secret field names seen here may contain *AWS_\**.
 3. Now you should have the following information:
    - *bucket name*
@@ -199,7 +199,7 @@ Go to Channel #general and type some message
 ![First message!](firstMessage.png)
 
 ## Installing OpenShift API for Data Protection Operator
-You can install the OADP Operator from the Openshift's OperatorHub. 
+You can install the OADP Operator from the Openshift's OperatorHub.
 You can search for the operator using keywords such as `oadp` or `velero`.
 
 ![OADP-OLM-1](OADP-OLM-1.png)
@@ -208,7 +208,7 @@ Now click on `Install`
 
 <!-- ![OADP-OLM-1](/docs/images/click-install.png) -->
 
-Finally, click on `Install` again. This will create *Project* `openshift-adp` 
+Finally, click on `Install` again. This will create *Project* `openshift-adp`
 if it does not exist, and install the OADP operator in it.
 
 <!-- ![OADP-OLM-1](/docs/images/click-install-again.png) -->
@@ -234,7 +234,7 @@ Fill out the following fields:
 ![](secretKeyValFields.png)
 
 ### Create the DataProtectionApplication Custom Resource
-From side bars navigate to *Operators* > *Installed Operators* 
+From side bars navigate to *Operators* > *Installed Operators*
 
 Create an instance of the DataProtectionApplication (DPA) CR by clicking on `Create Instance` as highlighted below:
 

@@ -28,7 +28,7 @@ while getopts "h:i" option; do
       h) # display Help
          Help
          exit;;
-      i) # Enter a demo user base name 
+      i) # Enter a demo user base name
 	 INSTALLSAMPLE="true";;
      \?) # Invalid option
          echo "Error: Invalid option"

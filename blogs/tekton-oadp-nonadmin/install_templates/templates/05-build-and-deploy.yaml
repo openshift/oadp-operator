@@ -37,7 +37,7 @@ objects:
         type: string
     workspaces:
       - name: debug
-    results: 
+    results:
       - name: list-files
         description: lists the repos files
     steps:
@@ -72,7 +72,7 @@ objects:
         type: string
     workspaces:
       - name: debug
-    results: 
+    results:
       - name: list-files
         description: lists the repos files
     steps:
@@ -198,10 +198,10 @@ objects:
           name: openshift-client
         workspaces:
           - name: manifest-dir
-            workspace: repo  
+            workspace: repo
     workspaces:
     - name: repo
-      
+
 - kind: Pipeline
   apiVersion: tekton.dev/v1beta1
   metadata:
@@ -296,6 +296,6 @@ objects:
         - name: manifest-dir
           workspace: repo
 
-  
-        
-              
+
+
+

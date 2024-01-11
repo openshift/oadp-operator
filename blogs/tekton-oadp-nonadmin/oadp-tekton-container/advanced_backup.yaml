@@ -59,8 +59,8 @@ spec:
     pods: PROVIDED_ORDERED_RESOURCE_PODS
     persistentvolumes: PROVIDED_ORDERED_RESOURCE_PERSISTENT_VOLUMES
 
-  # Array of namespace-scoped resources to include from the backup. Resources may be shortcuts 
-  # (for example 'cm' for 'configmaps'), or fully-qualified. If unspecified, 
+  # Array of namespace-scoped resources to include from the backup. Resources may be shortcuts
+  # (for example 'cm' for 'configmaps'), or fully-qualified. If unspecified,
   # all namespace-scoped resources are included. Optional.
   # Cannot work with include-resources, exclude-resources and include-cluster-resources.
   # includedNamespaceScopedResources: {}

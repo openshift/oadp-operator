@@ -14,7 +14,7 @@
     - The CustomResourceDefinitions `volumesnapshotbackups.datamover.oadp.openshift.io` and `volumesnapshotrestores.datamover.oadp.openshift.io` are no longer required and can optionally be removed.
 
     - The secrets used for the OADP-1.2 Data Mover are no longer required and can optionally be removed.
-    
+
 - OADP now supports Kopia, an alternative file system backup tool to Restic.
 
     - To employ Kopia, use the new `spec.configuration.nodeAgent` field. For example:
@@ -61,7 +61,7 @@ Save your current DataProtectionApplication (DPA) CustomResource config, be sure
 
 For example:
 ```
-oc get dpa -n openshift-adp -o yaml > dpa.orig.backup 
+oc get dpa -n openshift-adp -o yaml > dpa.orig.backup
 ```
 
 ### Upgrade the OADP Operator
@@ -75,7 +75,7 @@ For general operator upgrade instructions please review the [OpenShift documenta
 If relocating backups off cluster is required (Data Mover), please reconfigure the DPA with the following:
 
 * remove the features.dataMover key and values from DPA
-* remove the VSM plugin 
+* remove the VSM plugin
 
 Example
 ```diff
@@ -97,7 +97,7 @@ Example
 
 * Wait for the DPA to reconcile successfully.
 
-### Verify the upgrade 
+### Verify the upgrade
 
 Follow theses [basic install verification](../docs/install_olm.md#verify-install) to verify the installation.
 

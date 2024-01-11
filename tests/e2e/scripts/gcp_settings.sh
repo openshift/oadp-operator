@@ -3,35 +3,34 @@
 cat > $TMP_DIR/oadpcreds <<EOF
 {
   "spec": {
-      "configuration":{
-        "velero":{
-          "defaultPlugins": [
-            "openshift", "$PROVIDER"
-          ]
-        }
-      },
-      "backupLocations": [
-        {
-          "velero": {
-            "provider": "$PROVIDER",
-            "config": {
-            },
-            "objectStorage":{
-              "bucket": "$BUCKET"
-            }
+    "configuration":{
+      "velero":{
+        "defaultPlugins": [
+          "openshift", "$PROVIDER"
+        ]
+      }
+    },
+    "backupLocations": [
+      {
+        "velero": {
+          "provider": "$PROVIDER",
+          "config": {},
+          "objectStorage":{
+            "bucket": "$BUCKET"
           }
         }
-      ],
-     "snapshotLocations": [
-       {
-         "velero": {
-           "provider": "$PROVIDER",
-           "config": { 
-             "snapshotLocation": "$VSL_REGION"
-           }
-         }
-       }
-     ]
+      }
+    ],
+    "snapshotLocations": [
+      {
+        "velero": {
+          "provider": "$PROVIDER",
+          "config": {
+            "snapshotLocation": "$VSL_REGION"
+          }
+        }
+      }
+    ]
   }
 }
 EOF

@@ -167,7 +167,7 @@ For informing user about deprecation of the `restic` we considered few additiona
 	This option is not for one particular onfiguration field, but entire CRD, which is outside of our desired needs as we do not want to deprecate entire CRD and create a new version of it, just one field rename.
 
 - Adding additional Reconcile condition with warning message
-	Currently there are two `Reasons` that the main DPA reconcail status may have: 
+	Currently there are two `Reasons` that the main DPA reconcail status may have:
 	```
 	const ReconciledReasonComplete = "Complete"
 	const ReconciledReasonError = "Error"
@@ -183,7 +183,7 @@ For informing user about deprecation of the `restic` we considered few additiona
 	const ReconciledReasonWarning = "Warning"
 	```
 
-	This however would require refactoring of the `Reconcile` functions, and that would require separate design doc and separate implementation. 
+	This however would require refactoring of the `Reconcile` functions, and that would require separate design doc and separate implementation.
 
 ## Security Considerations
 

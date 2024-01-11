@@ -6,6 +6,6 @@ WORKDIR /
 
 COPY --from=builder /usr/bin/oc /usr/bin/oc
 COPY backup.yaml .
-COPY restore.yaml . 
+COPY restore.yaml .
 COPY check_backup_namespace.sh /usr/bin/
 COPY get_restore_namespace.sh /usr/bin/

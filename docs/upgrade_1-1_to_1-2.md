@@ -15,7 +15,7 @@
 
 - The `restic` DaemonSet was renamed to `node-agent`.  OADP will automatically update the name of the DaemonSet
 
-- The CustomResourceDefinition `resticrepositories.velero.io` was renamed to `backuprepositories.velero.io` 
+- The CustomResourceDefinition `resticrepositories.velero.io` was renamed to `backuprepositories.velero.io`
   * The CustomResourceDefinition `resticrepositories.velero.io` can optionally be removed from the cluster
 
 ## Upgrade steps
@@ -26,7 +26,7 @@ Save your current DataProtectionApplication (DPA) CustomResource config, be sure
 
 For example:
 ```
-oc get dpa -n openshift-adp -o yaml > dpa.orig.backup 
+oc get dpa -n openshift-adp -o yaml > dpa.orig.backup
 ```
 
 ### Upgrade the OADP Operator
@@ -51,6 +51,6 @@ If you are using fields that were updated in `spec.configuration.velero.args`, y
 +        fs-backup-timeout: 600
 ```
 
-### Verify the upgrade 
+### Verify the upgrade
 
 Follow theses [basic install verification](../docs/install_olm.md#verify-install) to verify the installation.

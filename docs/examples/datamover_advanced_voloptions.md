@@ -7,12 +7,12 @@
 <h2>Background Information:<a id="pre-reqs"></a></h2>
 
 
-OADP Data Mover 1.2 leverages some of the recently added features of Ceph to be 
-performant in large scale environments, one being the 
-[shallow copy](https://github.com/ceph/ceph-csi/blob/devel/docs/design/proposals/cephfs-snapshot-shallow-ro-vol.md) 
+OADP Data Mover 1.2 leverages some of the recently added features of Ceph to be
+performant in large scale environments, one being the
+[shallow copy](https://github.com/ceph/ceph-csi/blob/devel/docs/design/proposals/cephfs-snapshot-shallow-ro-vol.md)
 method, which is available > OCP 4.11. This feature requires use of the Data Mover
 1.2 feature for volumeOptions so that other storageClasses and accessModes can be
-used other than what is found on the source PVC. 
+used other than what is found on the source PVC.
 
 1. [Prerequisites](#pre-reqs)
 2. [CephFS with ShallowCopy](#shallowcopy)
@@ -22,10 +22,10 @@ used other than what is found on the source PVC.
 
 - OCP > 4.11
 
-- OADP operator and a credentials secret are created. Follow 
+- OADP operator and a credentials secret are created. Follow
   [these steps](/docs/install_olm.md) for installation instructions.
 
-- A CephFS and a CephRBD `StorageClass` and a `VolumeSnapshotClass` 
+- A CephFS and a CephRBD `StorageClass` and a `VolumeSnapshotClass`
     - Installing ODF will create these in your cluster:
 
 ### CephFS VolumeSnapshotClass and StorageClass:
@@ -41,7 +41,7 @@ metadata:
   annotations:
     snapshot.storage.kubernetes.io/is-default-class: 'true' # <--- Note the default
   labels:
-    velero.io/csi-volumesnapshot-class: 'true'   # <--- Note the velero label 
+    velero.io/csi-volumesnapshot-class: 'true'   # <--- Note the velero label
   name: ocs-storagecluster-cephfsplugin-snapclass
 parameters:
   clusterID: openshift-storage
@@ -73,7 +73,7 @@ allowVolumeExpansion: true
 volumeBindingMode: Immediate
 ```
 
-### CephRBD VolumeSnapshotClass and StorageClass: 
+### CephRBD VolumeSnapshotClass and StorageClass:
 
 **Note:** The deletionPolicy, and labels
 ```yml
@@ -83,7 +83,7 @@ driver: openshift-storage.rbd.csi.ceph.com
 kind: VolumeSnapshotClass
 metadata:
   labels:
-    velero.io/csi-volumesnapshot-class: 'true' # <--- Note velero 
+    velero.io/csi-volumesnapshot-class: 'true' # <--- Note velero
   name: ocs-storagecluster-rbdplugin-snapclass
 parameters:
   clusterID: openshift-storage
@@ -142,7 +142,7 @@ allowVolumeExpansion: true
 volumeBindingMode: Immediate
 ```
 
-- **Notes**: 
+- **Notes**:
     - Make sure the default `VolumeSnapshotClass` and `StorageClass` are the same provisioner
     - The `VolumeSnapshotClass` must have the `deletionPloicy` set to Retain
     - The `VolumeSnapshotClasses` must have the label `velero.io/csi-volumesnapshot-class: 'true'`
@@ -166,30 +166,30 @@ stringData:
 
 <h1 align="center">Backup/Restore with CephFS ShallowCopy<a id="shallowcopy"></a></h1>
 
-- Please ensure that a stateful application is running in a separate namespace with PVCs using 
+- Please ensure that a stateful application is running in a separate namespace with PVCs using
   CephFS as the provisioner
 
 - Please ensure the default `StorageClass` and `VolumeSnapshotClass` as cephFS, as shown
     in the [prerequisites](#pre-reqs)
 
 - **Helpful Commands**:
-    
+
     Check the VolumeSnapshotClass retain policy:
     ```
     oc get volumesnapshotclass -A  -o jsonpath='{range .items[*]}{"Name: "}{.metadata.name}{"  "}{"Retention Policy: "}{.deletionPolicy}{"\n"}{end}'
     ```
     Check the VolumeSnapShotClass lables:
     ```
-    oc get volumesnapshotclass -A  -o jsonpath='{range .items[*]}{"Name: "}{.metadata.name}{"  "}{"labels: "}{.metadata.labels}{"\n"}{end}' 
+    oc get volumesnapshotclass -A  -o jsonpath='{range .items[*]}{"Name: "}{.metadata.name}{"  "}{"labels: "}{.metadata.labels}{"\n"}{end}'
     ```
     Check the StorageClass annotations:
     ```
-    oc get storageClass -A  -o jsonpath='{range .items[*]}{"Name: "}{.metadata.name}{"  "}{"annotations: "}{.metadata.annotations}{"\n"}{end}' 
+    oc get storageClass -A  -o jsonpath='{range .items[*]}{"Name: "}{.metadata.name}{"  "}{"annotations: "}{.metadata.annotations}{"\n"}{end}'
     ```
 
 - Create a DPA similar to below:
-  - Add the restic secret name from the previous step to your DPA CR 
-    in `spec.features.dataMover.credentialName`. If this step is not completed 
+  - Add the restic secret name from the previous step to your DPA CR
+    in `spec.features.dataMover.credentialName`. If this step is not completed
     then it will default to the secret name `dm-credential`.
 
 
@@ -261,10 +261,10 @@ OR
 
 ```
 oc get vsb -n <app-ns>
-oc get vsb <vsb-name> -n <app-ns> -ojsonpath="{.status.phase}` 
+oc get vsb <vsb-name> -n <app-ns> -ojsonpath="{.status.phase}`
 ```
 
-- Wait several minutes and check the VolumeSnapshotBackup CR status for `completed`: 
+- Wait several minutes and check the VolumeSnapshotBackup CR status for `completed`:
 
 - There should now be a snapshot(s) in the object store that was given in the restic secret.
 - You can check for this snapshot in your targeted `backupStorageLocation` with a
@@ -288,7 +288,7 @@ spec:
 ```
 - Monitor the datamover backup and artifacts via [a debug script](/docs/examples/debug.md)
 OR
-- Check the `VolumeSnapshotRestore`(s) progress: 
+- Check the `VolumeSnapshotRestore`(s) progress:
 
 ```
 oc get vsr -n <app-ns>
@@ -305,12 +305,12 @@ oc get vsr <vsr-name> -n <app-ns> -ojsonpath="{.status.phase}
 - Ensure a stateful application is running in a separate namespace with PVCs provisioned
   by both CephFS and CephRBD
 
-- This assumes cephFS is being used as the default `StorageClass` and 
+- This assumes cephFS is being used as the default `StorageClass` and
     `VolumeSnapshotClass`
 
 - Create a DPA similar to below:
-  - Add the restic secret name from the prerequisites to your DPA CR in 
-  `spec.features.dataMover.credentialName`. If this step is not completed then 
+  - Add the restic secret name from the prerequisites to your DPA CR in
+  `spec.features.dataMover.credentialName`. If this step is not completed then
     it will default to the secret name `dm-credential`
   - Note: `volumeOptionsForStorageClass` can be defined for multiple storageClasses,
     thus allowing a backup to complete with volumes with different providers.

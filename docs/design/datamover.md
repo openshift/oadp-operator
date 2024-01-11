@@ -25,12 +25,12 @@ status: implementable
 
 ## Open questions
 
-* PVC/VolumeSnapshot mover - Should the Datamover Backup process be triggered off a PVC or a snapshot? 
+* PVC/VolumeSnapshot mover - Should the Datamover Backup process be triggered off a PVC or a snapshot?
     * Should we support both types and provide user an option to pick either PVC or snapshot?
 
 
 ## Summary
-OADP operator currently supports backup and restore of applications backed by CSI volumes by leveraging the Velero CSI plugin. The problem with CSI snapshots on some providers such as ODF is that these snapshots are local to the Openshift cluster and cannot be recovered if the cluster gets deleted accidentally or if there is a disaster. In order to overcome this issue, DataMover is made available for users to save the snapshots in a remote storage. 
+OADP operator currently supports backup and restore of applications backed by CSI volumes by leveraging the Velero CSI plugin. The problem with CSI snapshots on some providers such as ODF is that these snapshots are local to the Openshift cluster and cannot be recovered if the cluster gets deleted accidentally or if there is a disaster. In order to overcome this issue, DataMover is made available for users to save the snapshots in a remote storage.
 
 ## Motivation
 
@@ -38,7 +38,7 @@ Create an extensible design to support various data movers that can be integrate
 
 ## Goals
 * Create an extensible data mover solution
-* Supply a default data mover option 
+* Supply a default data mover option
 * Supply APIs for DataMover CRs (eg: VolumeSnapshotBackup, VolumeSnapshotRestore)
 * Supply a sample codebase for the Data Mover plugin and controller implementation
 
@@ -49,21 +49,21 @@ Create an extensible design to support various data movers that can be integrate
 
 ## User stories
 
-Story 1: 
-As an application developer, I would like to save the CSI snaphots in a S3 bucket. 
+Story 1:
+As an application developer, I would like to save the CSI snaphots in a S3 bucket.
 
 Story 2:
 As a cluster admin, I would like to be able to restore CSI snapshots if disaster happens.
 
 ## Design & Implementation details
 
-This design supports adding the data mover feature to the OADP operator and facilitates integrating various vendor implemented data movers. 
+This design supports adding the data mover feature to the OADP operator and facilitates integrating various vendor implemented data movers.
 
 ![DataMover CRD](../images/datamovercrd.png)
 
-Note: We will be supporting VolSync as the default data mover. 
+Note: We will be supporting VolSync as the default data mover.
 
-The VolumeSnapshotBackup Controller will watch for VolumeSnapshotBackup CR. Likewise, VolumeSnapshotRestore Controller will watch for VolumeSnapshotRestore CR. 
+The VolumeSnapshotBackup Controller will watch for VolumeSnapshotBackup CR. Likewise, VolumeSnapshotRestore Controller will watch for VolumeSnapshotRestore CR.
 
 ### Volume Snapshot Backup
 
@@ -101,7 +101,7 @@ status:
   volumeSnapshotClassName: <volumesnapshotclass_name>
 ```
 ### Volume Snapshot Restore
-When a velero restore is triggered, the custom Velero CSI plugin looks for `VolumeSnapshotBackup` CR in the backup resources. If it encounters a `VolumeSnapshotBackup` resource, then the extended plugin (velero RestoreItemAction plugin) will create a `VolumeSnapshotRestore` CR in the app namespace. It will populate the CR with the details obtained from the `VolumeSnapshotBackup` resource. 
+When a velero restore is triggered, the custom Velero CSI plugin looks for `VolumeSnapshotBackup` CR in the backup resources. If it encounters a `VolumeSnapshotBackup` resource, then the extended plugin (velero RestoreItemAction plugin) will create a `VolumeSnapshotRestore` CR in the app namespace. It will populate the CR with the details obtained from the `VolumeSnapshotBackup` resource.
 
 The velero CSI plugin waits for  `VolumeSnapshotRestore (VSR)` to complete, which is after the VSR controller waits for VolSync's `ReplicationDestination` CR to complete, before proceeding with the Velero restore process.
 
@@ -127,7 +127,7 @@ status:
   snapshotHandle: <vsc_snaphandle>
 ```
 
-We will provide a sample codebase which the vendors will be able to extend and implement their own data movers. 
+We will provide a sample codebase which the vendors will be able to extend and implement their own data movers.
 
 
 ### Default OADP Data Mover controller
@@ -139,7 +139,7 @@ The user will provide the restic password in a secret and the controller will cr
 ...
 spec:
   features:
-    dataMover: 
+    dataMover:
       enable: true
       credentialName: <dm-restic-secret-name>
 
@@ -160,9 +160,9 @@ stringData:
 *Note: More details for installing restic secret in [here](https://volsync.readthedocs.io/en/stable/usage/restic/index.html#specifying-a-repository)*
 
 
-Custom velero CSI plugin will be responsible for creating `VolumeSnapshotBackup` & `VolumeSnapshotRestore` CRs. 
+Custom velero CSI plugin will be responsible for creating `VolumeSnapshotBackup` & `VolumeSnapshotRestore` CRs.
 
-Once a VolumeSnapshotBackup CR gets created, the controller will create the corresponding `ReplicationSource` CR in the protected namespace. VolSync watches for the creation of `ReplicationSource` CR and copies the PVC data to the restic repository mentioned in the `restic-config`.  
+Once a VolumeSnapshotBackup CR gets created, the controller will create the corresponding `ReplicationSource` CR in the protected namespace. VolSync watches for the creation of `ReplicationSource` CR and copies the PVC data to the restic repository mentioned in the `restic-config`.
 ```
 apiVersion: volsync.backube/v1alpha1
 kind: ReplicationSource
@@ -185,7 +185,7 @@ spec:
     copyMethod: None
 ```
 
-Similarly, when a VolumeSnapshotRestore CR gets created, controller will create a `ReplicationDestination` CR in the protected namespace. VolSync controller copies the PVC data from the restic repository to the protected namespace. The `snaphandle` from the volumesnapshotcontent created by VolSync controller will be passed back to Velero CSI plugin. The plugin passes this `snaphandle` to the restore process and continues with the CSI restore operation. 
+Similarly, when a VolumeSnapshotRestore CR gets created, controller will create a `ReplicationDestination` CR in the protected namespace. VolSync controller copies the PVC data from the restic repository to the protected namespace. The `snaphandle` from the volumesnapshotcontent created by VolSync controller will be passed back to Velero CSI plugin. The plugin passes this `snaphandle` to the restore process and continues with the CSI restore operation.
 
 ```
 apiVersion: volsync.backube/v1alpha1
@@ -211,5 +211,5 @@ Data mover controller will clean up all controller-created resources after the p
 PVC must be labelled with the `<tagname>`, to be moved by the specific `DataMoverClass`. User/Admin of the cluster must label the PVCs with the required `<tagname>` and map it to a `DataMoverClass`. If the PVCs are not labelled, it will be moved by the default datamover.
 
 #### Alternate options
-PVCs can be annotated with the `DataMoverClass`, and when a backup is created, the controller will look at the DataMoverClass and add it to the `VolumeSnapshotBackup` CR. 
+PVCs can be annotated with the `DataMoverClass`, and when a backup is created, the controller will look at the DataMoverClass and add it to the `VolumeSnapshotBackup` CR.
 

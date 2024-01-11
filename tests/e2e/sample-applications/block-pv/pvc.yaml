@@ -5,7 +5,7 @@ metadata:
 spec:
   accessModes:
     - ReadWriteOnce
-  volumeMode: Block 
+  volumeMode: Block
   resources:
     requests:
       storage: 10Gi

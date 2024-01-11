@@ -14,8 +14,8 @@ AZURE_CLOUD_NAME=AzurePublicCloud
 EOF
 ```
 
-<b>Note:</b> 
-- Servical Principal credentials does not support backing up of images. 
+<b>Note:</b>
+- Servical Principal credentials does not support backing up of images.
 - If you are looking for that feature, please add storage access key to the credentials as follows,
  ```
 cat << EOF  > ./credentials-velero
@@ -126,5 +126,5 @@ spec:
         provider: azure
 ```
 
-<b>Note:</b> 
-If you would like to take backups to the specified VolumeSnapshotLocation, make sure to include Service Principal credentials. 
+<b>Note:</b>
+If you would like to take backups to the specified VolumeSnapshotLocation, make sure to include Service Principal credentials.

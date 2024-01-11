@@ -22,17 +22,17 @@
             }
           }
         }
-      ],
-      "snapshotLocations": [
-        {
-          "velero": {
-            "provider": "aws",
-            "config": { 
-              "profile": "default",
-              "region": "us-east-1"
-            }
+    ],
+    "snapshotLocations": [
+      {
+        "velero": {
+          "provider": "aws",
+          "config": {
+            "profile": "default",
+            "region": "us-east-1"
           }
         }
-      ]
+      }
+    ]
   }
 }

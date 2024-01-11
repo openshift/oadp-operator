@@ -1,7 +1,7 @@
 # Create a project and user with non-admin access that can execute an OADP backup
 
 ## Background
-Traditionally Red Hat OpenShift API for Data Protection ( OADP ) has been utilized by OpenShift administrators to provide data protection for the tenants in the clusters they manage.  In this model the OpenShift administrators are responsible for the execution of the backups of their tenant's data.  The top down approach may be appropriate for some administrators, however others may want to delegate backup and restore execution to their tenants and application owners. 
+Traditionally Red Hat OpenShift API for Data Protection ( OADP ) has been utilized by OpenShift administrators to provide data protection for the tenants in the clusters they manage.  In this model the OpenShift administrators are responsible for the execution of the backups of their tenant's data.  The top down approach may be appropriate for some administrators, however others may want to delegate backup and restore execution to their tenants and application owners.
 
 The purpose of this demonstration is to provide a comprehensive example for OpenShift administrators on how OADP and OpenShift Pipelines may be configured to provide users that are non-administrators access to trigger an OADP backup and restore workflow.
 
@@ -22,7 +22,7 @@ A user may want to change the backup custom resource, or other aspects of this d
 
 * To change the backup or restore custom resource, update the [cr's in the oadp-tekton-container directory](oadp-tekton-container/)
 * The oauth and some of the user settings can be found in the [demo_users](demo_users) directory
-* Some of the templates used in this demonstration are templated and found in [install_templates/templates](install_templates). The [install.sh](install.sh) script executes `oc process` to substitute variables and renders to the directory of the users choice or by default to `/tmp/oadp_non_admin` 
+* Some of the templates used in this demonstration are templated and found in [install_templates/templates](install_templates). The [install.sh](install.sh) script executes `oc process` to substitute variables and renders to the directory of the users choice or by default to `/tmp/oadp_non_admin`
 * The parameters that users are allowed to set in the Tekton pipeline are defined in [05-build-and-deploy.yaml](install_templates/templates/05-build-and-deploy.yaml).
 * A more [advanced velero backup custom resource](oadp-tekton-container/advanced_backup.yaml) is provided as an example but not used in this demo
 
@@ -55,10 +55,10 @@ Summary:
 
 ```
 
-### First create non-admin users 
+### First create non-admin users
 * **NOTE** The script [demo_users/create_demousers.sh](demo_users/create_demousers.sh) is for demo purposes only.
 
-A cluster with non-admin users that also have applications deployed as any non-admin user can potentially skip these steps. 
+A cluster with non-admin users that also have applications deployed as any non-admin user can potentially skip these steps.
 
   *  This step can easily be done manually and the script skipped by executing the steps documented [here](https://www.redhat.com/sysadmin/openshift-htpasswd-oauth)
   *  If a user has been created manually, the created user requires the `view` role as demonstrated here:
@@ -105,7 +105,7 @@ $ oc adm policy add-role-to-user edit buzz1 -n mysql-persistent
 Outside of this demonstration users and namespaces that are required to be backed up would have already been setup.  This step should only be required for demonstration purposes.
 
 
-### Setup the Tekton pipelines 
+### Setup the Tekton pipelines
 
 * logged in as the kubeadmin user, execute the following:
 

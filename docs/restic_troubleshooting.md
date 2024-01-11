@@ -69,9 +69,9 @@ status:
   phase: Ready
 ```
 
-## restic repo password 
+## restic repo password
 ```
-[whayutin@thinkdoe SETUP]$ oc get  secret  velero-repo-credentials -n openshift-adp 
+[whayutin@thinkdoe SETUP]$ oc get  secret  velero-repo-credentials -n openshift-adp
 NAME                      TYPE     DATA   AGE
 velero-repo-credentials   Opaque   1      5d23h
 [whayutin@thinkdoe SETUP]$ oc get  secret  velero-repo-credentials -n openshift-adp -o yaml
@@ -98,9 +98,9 @@ oc get  secret  velero-repo-credentials -n openshift-adp -o jsonpath='{.data.rep
 ## restic commands:
 
 #### stats
-``` 
+```
 restic stats  --cache-dir /tmp/.cache   -r s3:<REPOSITORY-URL>/<BUCKET>/velero/restic/mysql-persistent
-enter password for repository: 
+enter password for repository:
 repository 2464cd5d opened (version 2, compression level auto)
 scanning...
 Stats in restore-size mode:
@@ -112,23 +112,23 @@ Stats in restore-size mode:
 #### list locks
 ```
 restic  --cache-dir /tmp/.cache -r s3:<REPOSITORY-URL>/<BUCKET>/velero/restic/mysql-persistent list locks
-enter password for repository: 
+enter password for repository:
 repository 2464cd5d opened (version 2, compression level auto)
 
 ```
 
 #### unlock
 ```
-sh-4.4$ restic  --cache-dir /tmp/.cache   -r s3:<REPOSITORY-URL>/<BUCKET>/velero/restic/mysql-persistent unlock    
-enter password for repository: 
+sh-4.4$ restic  --cache-dir /tmp/.cache   -r s3:<REPOSITORY-URL>/<BUCKET>/velero/restic/mysql-persistent unlock
+enter password for repository:
 repository 2464cd5d opened (version 2, compression level auto)
-sh-4.4$ 
+sh-4.4$
 ```
 
 #### list blobs
 ```
 sh-4.4$ restic  --cache-dir /tmp/.cache   -r s3:<REPOSITORY-URL>/<BUCKET>/velero/restic/mysql-persistent list blobs
-enter password for repository: 
+enter password for repository:
 repository 2464cd5d opened (version 2, compression level auto)
 data c2017654d859475a2ee546d693a2bb12886eec94edb5cac737ea573f3ef8d0ae
 tree 159821e90934b136b8c7c355eec08074a66ba7d7db20b9cfe6c98c8c9253dd3f
@@ -139,8 +139,8 @@ data 369b06f024be1a9f192efaeff32612bd0f89d280743fcb0df60216fbd097f943
 
 #### prune
 ```
-restic  --cache-dir /tmp/.cache   -r s3:<REPOSITORY-URL>/<BUCKET>/velero/restic/mysql-persistent prune  
-enter password for repository: 
+restic  --cache-dir /tmp/.cache   -r s3:<REPOSITORY-URL>/<BUCKET>/velero/restic/mysql-persistent prune
+enter password for repository:
 repository 2464cd5d opened (version 2, compression level auto)
 loading indexes...
 loading all snapshots...
@@ -162,7 +162,7 @@ done
 #### retain policy - keep
 ```
 restic  --cache-dir /tmp/.cache   -r s3:<REPOSITORY-URL>/<BUCKET>/velero/restic/mysql-persistent forget --keep-last 1 --prune
-enter password for repository: 
+enter password for repository:
 repository 2464cd5d opened (version 2, compression level auto)
 Applying Policy: keep 1 latest snapshots
 keep 1 snapshots:
@@ -180,11 +180,11 @@ af9a6651  2023-06-19 19:35:43  velero      pod=mysql-7bc95589b4-zr7c4,pod-uid=87
 1 snapshots
 ```
 
-#### In case of restic backup failure 
+#### In case of restic backup failure
 
 * check PodVolumeBackup/PodVolumeRestore CR status. Check is there any useful information in restic daemonSet pod.
 ```
-oc -n openshift-adp get podvolumebackups -l velero.io/backup-name=<backup-name> 
+oc -n openshift-adp get podvolumebackups -l velero.io/backup-name=<backup-name>
 oc -n openshift-adp get podvolumerestore -l velero.io/restore-name=<restore-name>
 oc logs -n openshift-adp <restic-pod>
 ```
@@ -195,8 +195,8 @@ oc logs -n openshift-adp <restic-pod>
 ```
 oc get replicationsource -A
 NAMESPACE       NAME                SOURCE                                                 LAST SYNC              DURATION        NEXT SYNC
-openshift-adp   vsb-7rkn6-rep-src   snapcontent-993aabe2-8170-4661-984e-00a560f486cd-pvc   2023-06-20T20:16:55Z   33.274853286s   
-openshift-adp   vsb-vpqzd-rep-src   snapcontent-a751884d-b148-4a7d-9f5d-90da7a522be7-pvc   2023-06-20T20:17:51Z   24.452515994s   
+openshift-adp   vsb-7rkn6-rep-src   snapcontent-993aabe2-8170-4661-984e-00a560f486cd-pvc   2023-06-20T20:16:55Z   33.274853286s
+openshift-adp   vsb-vpqzd-rep-src   snapcontent-a751884d-b148-4a7d-9f5d-90da7a522be7-pvc   2023-06-20T20:17:51Z   24.452515994s
 ```
 
 ```
@@ -279,13 +279,13 @@ metadata:
 type: Opaque
 ```
 
-#### decode the restic passwd 
+#### decode the restic passwd
 ```
 cho "cmVzdGljcGFzc3dvcmQ=" | base64 -d
 resticpassword
 ```
 
-#### datamover restic path 
+#### datamover restic path
 
 The path in 1.2.0 is
 `$bucket/openshift-adp/$snapcontent_name`
@@ -312,7 +312,7 @@ spec:
 
 ```
 restic  --cache-dir /tmp/.cache -r s3:<REPOSITORY-URL>/<BUCKET>/openshift-adp/snapcontent-993aabe2-8170-4661-984e-00a560f486cd-pvc snapshots
-enter password for repository: 
+enter password for repository:
 repository 85c55159 opened (version 2, compression level auto)
 created new cache in /tmp/.cache
 ID        Time                 Host        Tags        Paths
@@ -362,7 +362,7 @@ spec:
 #### get snapshots
 ```
 restic  --cache-dir /tmp/.cache -r s3:<REPOSITORY-URL>/<BUCKET>/openshift-adp/snapcontent-2044fb64-253d-461b-93f3-1ce8d6b67ebe-pvc snapshots
-enter password for repository: 
+enter password for repository:
 repository 83b7f53a opened (version 2, compression level auto)
 ID        Time                 Host        Tags        Paths
 ------------------------------------------------------------

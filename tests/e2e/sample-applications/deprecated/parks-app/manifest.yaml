@@ -5,7 +5,7 @@ items:
     kind: Namespace
     metadata:
       name: parks-app
-  
+
   - kind: ImageStream
     apiVersion: image.openshift.io/v1
     metadata:
@@ -16,7 +16,7 @@ items:
     spec: {}
     status:
       dockerImageRepository: ''
-  
+
   - kind: BuildConfig
     apiVersion: build.openshift.io/v1
     metadata:
@@ -54,8 +54,8 @@ items:
       resources: {}
     status:
       lastVersion: 0
-    
-    
+
+
   - kind: DeploymentConfig
     apiVersion: apps.openshift.io/v1
     metadata:
@@ -82,7 +82,7 @@ items:
         deploymentconfig: restify
       template:
         metadata:
-          creationTimestamp: 
+          creationTimestamp:
           labels:
             e2e-app: "true"
             app: restify
@@ -111,7 +111,7 @@ items:
             - name: "restify-volume-1"
               mountPath: "/run"
     status: {}
-    
+
   - kind: Route
     apiVersion: route.openshift.io/v1
     metadata:
@@ -126,7 +126,7 @@ items:
       port:
         targetPort: '8080'
     status: {}
-    
+
   - kind: Service
     apiVersion: v1
     metadata:
@@ -145,7 +145,7 @@ items:
         deploymentconfig: restify
     status:
       loadBalancer: {}
-    
+
   - kind: DeploymentConfig
     apiVersion: apps.openshift.io/v1
     metadata:
@@ -198,7 +198,7 @@ items:
             persistentVolumeClaim:
               claimName: mongodb-data-claim
           restartPolicy: Always
-    
+
   - kind: Service
     apiVersion: v1
     metadata:
@@ -217,7 +217,7 @@ items:
       sessionAffinity: None
     status:
       loadBalancer: {}
-    
+
   - apiVersion: v1
     kind: PersistentVolumeClaim
     metadata:
@@ -229,4 +229,4 @@ items:
       resources:
         requests:
           storage: 10Gi
-    
+

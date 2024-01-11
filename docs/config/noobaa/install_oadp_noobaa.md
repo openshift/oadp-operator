@@ -14,14 +14,14 @@
 
 Velero allows a user to configure the `BackupStorageLocation` object with any
 valid s3 provider. This can include tools like Noobaa & Minio. OADP Operator
-allows you to integrate with Noobaa in a couple of ways: 
+allows you to integrate with Noobaa in a couple of ways:
 
-The first option is to manually install Noobaa somewhere, and then configure 
-the BackupStorageLocation configuration on the DataProtectionApplication (DPA) CR. 
+The first option is to manually install Noobaa somewhere, and then configure
+the BackupStorageLocation configuration on the DataProtectionApplication (DPA) CR.
 
-The second option is to allow OADP to discover an existing OCS operator 
-installation and attempt to create the Noobaa bucket automatically for the user, 
-and configure the BSL for OADP without any user intervention. 
+The second option is to allow OADP to discover an existing OCS operator
+installation and attempt to create the Noobaa bucket automatically for the user,
+and configure the BSL for OADP without any user intervention.
 
 *NOTE*: This feature has known bugs which need to be
 addressed. We recommend installing Noobaa/Minio manually and following the
@@ -79,7 +79,7 @@ the following `backupStorageLocations` spec in the Velero CR:
        objectStorage:
          bucket: noobaa-bucket-name       # Bucket name
          prefix: velero
-       provider: aws                      # aws provider means use s3 client               
+       provider: aws                      # aws provider means use s3 client
 
 ```
 
@@ -95,18 +95,18 @@ to bugs.
 Please follow the these steps in order to install OADP Operator with NooBaa:
 
 1. Create a namespace named `openshift-adp`.
-2. Do not create any cloud credentials secret, as the secret comes out of the 
+2. Do not create any cloud credentials secret, as the secret comes out of the
 box for NooBaa.
-3. Now install the OCS (OpenShift Container Storage) operator from the 
-OperatorHub in the `openshift-storage` namespace, so that the requisite NooBaa 
-CRDs get deployed on the cluster, and wait untill the OCS operator pods are in 
+3. Now install the OCS (OpenShift Container Storage) operator from the
+OperatorHub in the `openshift-storage` namespace, so that the requisite NooBaa
+CRDs get deployed on the cluster, and wait untill the OCS operator pods are in
 running state.
 4. Make sure the Velero CR file specifically has the following:
    - `configuration.nodeAgent.enable: true`
    - `configuration.nodeAgent.uploaderType` is set to `restic` or `kopia`
    - `defaultPlugins` list should only consist of `aws` plugin
    - No data pertaining to Volume Snapshot Locations and Backup Storage Locations.
- 
+
 The DPA CR file may look somewhat like this:
 
   ```
@@ -124,7 +124,7 @@ spec:
       enable: true
       uploaderType: restic
   ```
-  
+
 5. Now for deployment of Velero use the following:
 
 ```
@@ -134,7 +134,7 @@ oc create -f config/samples/oadp_v1alpha1_dpa.yaml
 
 ## NooBaa and disaster scenarios:
 
-- If you are using cluster storage for your NooBaa bucket backupStorageLocation, 
+- If you are using cluster storage for your NooBaa bucket backupStorageLocation,
 then backups will be subjected to disaster.
-- To avoid such case, you will need to configure Noobaa as an external object store: 
+- To avoid such case, you will need to configure Noobaa as an external object store:
   - [Configuring the backing store](https://access.redhat.com/documentation/en-us/red_hat_openshift_data_foundation/4.10/html/managing_hybrid_and_multicloud_resources/adding-storage-resources-for-hybrid-or-multicloud_rhodf)

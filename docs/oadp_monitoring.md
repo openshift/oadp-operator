@@ -27,7 +27,7 @@ Monitoring [metrics](#metrics) requires enabling monitoring for the user-defined
 This paragraph will provide a short set of instructions how to enable user workload monitoring for an OADP project in the cluster. For comprehensive set of configuration options refer to the [enabling monitoring for user-defined projects](https://access.redhat.com/documentation/en-us/openshift_container_platform/4.13/html/monitoring/enabling-monitoring-for-user-defined-projects#doc-wrapper) documentation.
 
 
-1. Edit the `cluster-monitoring-config` ConfigMap object in the `openshift-monitoring` namespace and add or enable the `enableUserWorkload` option under `data/config.yaml`. 
+1. Edit the `cluster-monitoring-config` ConfigMap object in the `openshift-monitoring` namespace and add or enable the `enableUserWorkload` option under `data/config.yaml`.
 
     ```shell
     $ oc edit configmap cluster-monitoring-config -n openshift-monitoring
@@ -127,13 +127,13 @@ OADP provides an `openshift-adp-velero-metrics-svc` service which is being creat
 4. Confirm that our new ServiceMonitor is `Up`
 
     In the **Administrator** perspective in the OpenShift Container Platform web console use **Observe/Targets** to view the Metrics Targets. Ensure the `Filter` is either unselected or `User`  Source is selected and type `openshift-adp` in the Text search field. Ensure the status for our ServiceMonitor is Up:
-    
+
     ![OpenShift Metrics Targets](./images/metrics_targets.png)
 
 ## Sample Alerting Rules
 
  The OpenShift Container Platform monitoring stack allows to receive Alerts configured using certain Alerting Rules. To create Alerting rule for the OADP project we will use one of the [Metrics](#metrics), which are scraped with the user workload monitoring described previously.
- 
+
 Please refer to the OpenShift documentation for detailed instructions on how to create and manage [OpenShift Alerts](https://access.redhat.com/documentation/en-us/openshift_container_platform/4.13/html/monitoring/managing-alerts).
 
 1. Create PrometheusRule yaml file with our sample `OADPBackupFailing` alert and save it under `4_create_oadp_alert_rule.yaml` name.

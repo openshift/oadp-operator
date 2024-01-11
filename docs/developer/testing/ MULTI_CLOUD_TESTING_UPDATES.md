@@ -1,4 +1,4 @@
-# Multi Cloud Test Suite Updates for Backup / Restore cases 
+# Multi Cloud Test Suite Updates for Backup / Restore cases
 
 ### Overview
 Running backup/restore test cases with cloud-provider specific snapshots enabled.
@@ -10,10 +10,10 @@ In ideal cases, both the credentials / profile for BSL and VSL would be the same
 
 #### AWS Multi Profile Support
 
-The CI Cloud credential is present at this location in OpenShift CI Cluster: 
-`/var/run/secrets/ci.openshift.io/cluster-profile/.awscred` 
+The CI Cloud credential is present at this location in OpenShift CI Cluster:
+`/var/run/secrets/ci.openshift.io/cluster-profile/.awscred`
 
-Our Cloud credential used for BSL is present at this location: 
+Our Cloud credential used for BSL is present at this location:
 `/var/run/oadp-credentials/new-aws-credentials`
 
 Here since they are two profiles, we are using the concept of credentialsFile in BSL config [ref] (https://github.com/vmware-tanzu/velero/issues/3428)
@@ -22,10 +22,10 @@ We are also mounting credentials [here](https://github.com/openshift/oadp-operat
 
 #### GCP
 
-The CI Cloud credential is present at this location in OpenShift CI Cluster: 
-`/var/run/secrets/ci.openshift.io/cluster-profile/gce.json` 
+The CI Cloud credential is present at this location in OpenShift CI Cluster:
+`/var/run/secrets/ci.openshift.io/cluster-profile/gce.json`
 
-Our Cloud credential used for BSL is present at this location: 
+Our Cloud credential used for BSL is present at this location:
 `/var/run/oadp-credentials/gcp-credentials`
 
 Here since they are two different credentials and not profiles, we are using the concept of credentialsFile in BSL config [ref](https://github.com/vmware-tanzu/velero/issues/3430)
@@ -34,13 +34,13 @@ We are also mounting credentials [here](https://github.com/openshift/oadp-operat
 
 #### [Azure](https://github.com/vmware-tanzu/velero/issues/3429)
 
-The CI Cloud credential is present at this location in OpenShift CI Cluster: 
-`/var/run/secrets/ci.openshift.io/cluster-profile/osServicePrincipal.json` 
+The CI Cloud credential is present at this location in OpenShift CI Cluster:
+`/var/run/secrets/ci.openshift.io/cluster-profile/osServicePrincipal.json`
 
-Our Cloud credential used for BSL is present at this location: 
+Our Cloud credential used for BSL is present at this location:
 `/var/run/oadp-credentials/azure-credentials`
 
-The required variables for e2e tests are 
+The required variables for e2e tests are
 
 For object storage with backup of registy support, We need the below credentials
 ```
@@ -69,11 +69,11 @@ The below is given to the volume backup credentials in CI Environment
 The resource group is different in OpenShift CI environment. After some research, it was found that the resource group is same as the "<cluster_name>-rg" where the cluster group can be derived from
 
 ```
-sh-4.4$ cat metadata.json 
+sh-4.4$ cat metadata.json
 {"clusterName":"ci-op-w718n0np-32d40","clusterID":"6de2d426-68af-43d3-9d1a-d72666edc550","infraID":"ci-op-w718n0np-32d40-4fdtv","azure":{"cloudName":"AzurePublicCloud","region":"eastus","resourceGroupName":""}}
 ```
 
-In the end, for VSL all we needed was the subscriptionId and resourceGroup from the OpenShift CI environment and by default the VSL uses 'cloud-credential-\<platform>' secret for VSL. 
+In the end, for VSL all we needed was the subscriptionId and resourceGroup from the OpenShift CI environment and by default the VSL uses 'cloud-credential-\<platform>' secret for VSL.
 
 ### Pre-requisites for setting up envs in various cloud from local env.
 
@@ -102,7 +102,7 @@ export CI_CRED_FILE=/Users/drajds/.aws/ci-credentials
 
 For GCE & Azure, put your credentials file with name `${OADP_CRED_DIR}/<provider>-credentials` and bucket with name `${OADP_CRED_DIR}/azure-velero-bucket-name`
 
-#### GCP 
+#### GCP
 
 ```
 drajds@drajds-mac oadp-operator % cat ~/.oadp-gcp

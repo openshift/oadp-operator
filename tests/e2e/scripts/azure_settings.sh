@@ -33,47 +33,47 @@ AZURE_TENANT_ID=${AZURE_TENANT_ID}
 AZURE_CLIENT_ID=${AZURE_CLIENT_ID}
 AZURE_CLIENT_SECRET=${AZURE_CLIENT_SECRET}
 AZURE_RESOURCE_GROUP=${AZURE_RESOURCE_GROUP}
-AZURE_STORAGE_ACCOUNT_ACCESS_KEY=${AZURE_STORAGE_ACCOUNT_ACCESS_KEY} 
+AZURE_STORAGE_ACCOUNT_ACCESS_KEY=${AZURE_STORAGE_ACCOUNT_ACCESS_KEY}
 AZURE_CLOUD_NAME=AzurePublicCloud
 EOF
 
 cat > $TMP_DIR/oadpcreds <<EOF
 {
   "spec": {
-      "configuration":{
-        "velero":{
-          "defaultPlugins": [
-            "openshift", "$PROVIDER"
-          ]
-        }
-      },
-      "backupLocations": [
-        {
-          "velero": {
-            "provider": "$PROVIDER",
-            "config": {
-              "subscriptionId": "$AZURE_SUBSCRIPTION_ID",
-              "storageAccount": "$AZURE_STORAGE_ACCOUNT",
-              "resourceGroup": "$AZURE_RESOURCE_GROUP",
-              "storageAccountKeyEnvVar": "AZURE_STORAGE_ACCOUNT_ACCESS_KEY"
-            },
-            "objectStorage":{
-              "bucket": "$BUCKET"
-            }
+    "configuration":{
+      "velero":{
+        "defaultPlugins": [
+          "openshift", "$PROVIDER"
+        ]
+      }
+    },
+    "backupLocations": [
+      {
+        "velero": {
+          "provider": "$PROVIDER",
+          "config": {
+            "subscriptionId": "$AZURE_SUBSCRIPTION_ID",
+            "storageAccount": "$AZURE_STORAGE_ACCOUNT",
+            "resourceGroup": "$AZURE_RESOURCE_GROUP",
+            "storageAccountKeyEnvVar": "AZURE_STORAGE_ACCOUNT_ACCESS_KEY"
+          },
+          "objectStorage":{
+            "bucket": "$BUCKET"
           }
         }
-      ],
-     "snapshotLocations": [
-       {
-         "velero": {
-           "provider": "$PROVIDER",
-           "config": { 
-              "subscriptionId": "$CI_AZURE_SUBSCRIPTION_ID",
-              "resourceGroup": "$CI_AZURE_RESOURCE_GROUP"
-           }
-         }
-       }
-     ]
+      }
+    ],
+    "snapshotLocations": [
+      {
+        "velero": {
+          "provider": "$PROVIDER",
+          "config": {
+            "subscriptionId": "$CI_AZURE_SUBSCRIPTION_ID",
+            "resourceGroup": "$CI_AZURE_RESOURCE_GROUP"
+          }
+        }
+      }
+    ]
   }
 }
 EOF
