@@ -24,6 +24,7 @@ var _ = Describe("VM backup and restore tests", Ordered, func() {
 
 		minimum, err := version.ParseGeneric("4.13")
 		Expect(err).To(BeNil())
+		Expect(v.Version).ToNot(BeNil())
 		if !v.Version.AtLeast(minimum) {
 			Skip("Skipping virtualization testing on cluster version " + v.Version.String() + ", minimum required is " + minimum.String())
 		}
