@@ -110,7 +110,7 @@ var kubernetesClientForSuiteRun *kubernetes.Clientset
 var runTimeClientForSuiteRun client.Client
 var veleroClientForSuiteRun veleroClientset.Interface
 var csiClientForSuiteRun *snapshotv1client.Clientset
-var dynamicClient dynamic.Interface
+var dynamicClientForSuiteRun dynamic.Interface
 var dpaCR *DpaCustomResource
 var knownFlake bool
 var accumulatedTestLogs []string
@@ -140,7 +140,7 @@ var _ = BeforeSuite(func() {
 	csiClientForSuiteRun, err = snapshotv1client.NewForConfig(kubeConf)
 	Expect(err).NotTo(HaveOccurred())
 
-	dynamicClient, err = dynamic.NewForConfig(kubeConf)
+	dynamicClientForSuiteRun, err = dynamic.NewForConfig(kubeConf)
 	Expect(err).NotTo(HaveOccurred())
 
 	dpaCR = &DpaCustomResource{

@@ -18,9 +18,7 @@ var _ = Describe("VM backup and restore tests", Ordered, func() {
 			Skip("Virtualization testing is disabled, skipping tests")
 		}
 
-		Expect(runTimeClientForSuiteRun).ToNot(BeNil())
-		Expect(kubernetesClientForSuiteRun).ToNot(BeNil())
-		v, err = GetVirtOperator(runTimeClientForSuiteRun, kubernetesClientForSuiteRun, dynamicClient)
+		v, err = GetVirtOperator(runTimeClientForSuiteRun, kubernetesClientForSuiteRun, dynamicClientForSuiteRun)
 		Expect(err).To(BeNil())
 		Expect(v).ToNot(BeNil())
 
