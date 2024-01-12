@@ -53,7 +53,7 @@ func (d *DpaCustomResource) GetOperatorSubscription(c client.Client, stream Stre
 	return getOperatorSubscription(c, d.Namespace, label)
 }
 
-func (v *VirtOperator) GetOperatorSubscription() (*Subscription, error) {
+func (v *VirtOperator) getOperatorSubscription() (*Subscription, error) {
 	label := "operators.coreos.com/kubevirt-hyperconverged.openshift-cnv"
 	return getOperatorSubscription(v.Client, v.Namespace, label)
 }

@@ -146,7 +146,7 @@ func (v *VirtOperator) checkSubscription() bool {
 
 // Checks if the ClusterServiceVersion status has changed to ready
 func (v *VirtOperator) checkCsv() bool {
-	subscription, err := v.GetOperatorSubscription()
+	subscription, err := v.getOperatorSubscription()
 	if err != nil {
 		if err.Error() == "no subscription found" {
 			return false
