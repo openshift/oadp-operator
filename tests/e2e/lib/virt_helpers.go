@@ -322,7 +322,7 @@ func (v *VirtOperator) ensureCsv(timeout time.Duration) error {
 	return utils.WaitForCheck(timeout, 5*time.Second, v.checkCsv, "timed out waiting for CSV to become ready")
 }
 
-// Creates HCO instance if needed, and waits for it to go healthy
+// Creates HyperConverged Operator instance if needed, and waits for it to go healthy
 func (v *VirtOperator) ensureHco(timeout time.Duration) error {
 	if !v.checkHco() {
 		if err := v.installHco(); err != nil {
