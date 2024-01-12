@@ -21,6 +21,18 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+var packageManifestsGvr = schema.GroupVersionResource{
+	Group:    "packages.operators.coreos.com",
+	Resource: "packagemanifests",
+	Version:  "v1",
+}
+
+var hyperConvergedGvr = schema.GroupVersionResource{
+	Group:    "hco.kubevirt.io",
+	Resource: "hyperconvergeds",
+	Version:  "v1beta1",
+}
+
 type VirtOperator struct {
 	Client    client.Client
 	Clientset *kubernetes.Clientset
@@ -60,14 +72,8 @@ func GetVirtOperator(client client.Client, clientset *kubernetes.Clientset, dyna
 // Also returns just the version (e.g. 4.12.8 from above) as a comparable
 // Version type, so it is easy to check against the current cluster version.
 func getCsvFromPackageManifest(dynamicClient dynamic.Interface, name string) (string, *version.Version, error) {
-	resourceId := schema.GroupVersionResource{
-		Group:    "packages.operators.coreos.com",
-		Resource: "packagemanifests",
-		Version:  "v1",
-	}
-
 	log.Println("Getting packagemanifest...")
-	unstructuredManifest, err := dynamicClient.Resource(resourceId).Namespace("default").Get(context.Background(), name, v1.GetOptions{})
+	unstructuredManifest, err := dynamicClient.Resource(packageManifestsGvr).Namespace("default").Get(context.Background(), name, v1.GetOptions{})
 	if err != nil {
 		log.Printf("Error getting packagemanifest %s: %v", name, err)
 		return "", nil, err
@@ -160,13 +166,7 @@ func (v *VirtOperator) checkCsv() bool {
 // health status field is "healthy". Uses dynamic client to avoid uprooting lots
 // of package dependencies, which should probably be fixed later.
 func (v *VirtOperator) checkHco() bool {
-	resourceId := schema.GroupVersionResource{
-		Group:    "hco.kubevirt.io",
-		Resource: "hyperconvergeds",
-		Version:  "v1beta1",
-	}
-
-	unstructuredHco, err := v.Dynamic.Resource(resourceId).Namespace(v.Namespace).Get(context.Background(), "kubevirt-hyperconverged", v1.GetOptions{})
+	unstructuredHco, err := v.Dynamic.Resource(hyperConvergedGvr).Namespace(v.Namespace).Get(context.Background(), "kubevirt-hyperconverged", v1.GetOptions{})
 	if err != nil {
 		log.Printf("Error getting HCO: %v", err)
 		return false
@@ -247,12 +247,6 @@ func (v *VirtOperator) installSubscription() error {
 // Creates a HyperConverged Operator instance. Another dynamic client to avoid
 // bringing in the KubeVirt APIs for now.
 func (v *VirtOperator) installHco() error {
-	resourceId := schema.GroupVersionResource{
-		Group:    "hco.kubevirt.io",
-		Resource: "hyperconvergeds",
-		Version:  "v1beta1",
-	}
-
 	unstructuredHco := unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "hco.kubevirt.io/v1beta1",
@@ -265,7 +259,7 @@ func (v *VirtOperator) installHco() error {
 		},
 	}
 
-	_, err := v.Dynamic.Resource(resourceId).Namespace(v.Namespace).Create(context.Background(), &unstructuredHco, v1.CreateOptions{})
+	_, err := v.Dynamic.Resource(hyperConvergedGvr).Namespace(v.Namespace).Create(context.Background(), &unstructuredHco, v1.CreateOptions{})
 	if err != nil {
 		log.Printf("Error creating HCO: %v", err)
 		return err
