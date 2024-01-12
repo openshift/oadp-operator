@@ -34,7 +34,7 @@ type VirtOperator struct {
 func GetVirtOperator(client client.Client, clientset *kubernetes.Clientset, dynamicClient dynamic.Interface) (*VirtOperator, error) {
 	namespace := "openshift-cnv"
 
-	csv, version, err := GetCsvFromPackageManifest(dynamicClient, "kubevirt-hyperconverged")
+	csv, version, err := getCsvFromPackageManifest(dynamicClient, "kubevirt-hyperconverged")
 	if err != nil {
 		log.Printf("Failed to get CSV from package manifest")
 		return nil, err
@@ -52,10 +52,14 @@ func GetVirtOperator(client client.Client, clientset *kubernetes.Clientset, dyna
 	return v, nil
 }
 
-// GetCsvFromPackageManifest returns the current CSV from the first channel
+// getCsvFromPackageManifest returns the current CSV from the first channel
 // in the given PackageManifest name. Uses the dynamic client because adding
 // the real PackageManifest API from OLM was actually more work than this.
-func GetCsvFromPackageManifest(dynamicClient dynamic.Interface, name string) (string, *version.Version, error) {
+// Takes the name of the package manifest, and returns the currentCSV string,
+// like: kubevirt-hyperconverged-operator.v4.12.8
+// Also returns just the version (e.g. 4.12.8 from above) as a comparable
+// Version type, so it is easy to check against the current cluster version.
+func getCsvFromPackageManifest(dynamicClient dynamic.Interface, name string) (string, *version.Version, error) {
 	resourceId := schema.GroupVersionResource{
 		Group:    "packages.operators.coreos.com",
 		Resource: "packagemanifests",
