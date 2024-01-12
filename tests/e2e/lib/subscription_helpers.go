@@ -22,7 +22,7 @@ const (
 	DOWNSTREAM StreamSource = "down"
 )
 
-func GetOperatorSubscription(c client.Client, namespace, label string) (*Subscription, error) {
+func getOperatorSubscription(c client.Client, namespace, label string) (*Subscription, error) {
 	sl := operators.SubscriptionList{}
 	err := c.List(context.Background(), &sl, client.InNamespace(namespace), client.MatchingLabels(map[string]string{label: ""}))
 	if err != nil {
@@ -50,12 +50,12 @@ func (d *DpaCustomResource) GetOperatorSubscription(c client.Client, stream Stre
 	if stream == DOWNSTREAM {
 		label = "operators.coreos.com/redhat-oadp-operator." + d.Namespace
 	}
-	return GetOperatorSubscription(c, d.Namespace, label)
+	return getOperatorSubscription(c, d.Namespace, label)
 }
 
 func (v *VirtOperator) GetOperatorSubscription() (*Subscription, error) {
 	label := "operators.coreos.com/kubevirt-hyperconverged.openshift-cnv"
-	return GetOperatorSubscription(v.Client, v.Namespace, label)
+	return getOperatorSubscription(v.Client, v.Namespace, label)
 }
 
 func (s *Subscription) Refresh(c client.Client) error {
