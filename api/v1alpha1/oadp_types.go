@@ -158,11 +158,8 @@ type ResticConfig struct {
 // ApplicationConfig defines the configuration for the Data Protection Application
 type ApplicationConfig struct {
 	Velero *VeleroConfig `json:"velero,omitempty"`
-
-	// (do not use warning) ResticConfig is the configuration for restic DaemonSet.
-	// restic is for backwards compatibility and is replaced by the nodeAgent
-	// restic will be removed with the OADP 1.5
-	// +kubebuilder:deprecatedversion:warning=1.3
+	// (do not use warning) restic field is for backwards compatibility and
+	// will be removed in the future. Use nodeAgent field instead
 	// +optional
 	Restic *ResticConfig `json:"restic,omitempty"`
 
