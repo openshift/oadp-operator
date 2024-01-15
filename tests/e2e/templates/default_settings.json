@@ -19,10 +19,6 @@
             },
             "objectStorage":{
               "bucket": "myBucket"
-            },
-            "credential":{
-              "name": "cloud-credentials",
-              "key": "cloud"
             }
           }
         }

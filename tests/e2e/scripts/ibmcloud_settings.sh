@@ -25,11 +25,7 @@ cat > $TMP_DIR/oadpcreds <<EOF
             }
           }
         }
-      ],
-    "credential":{
-      "name": "$SECRET",
-      "key": "cloud"
-    }
+      ]
   }
 }
 EOF
