@@ -312,6 +312,9 @@ bundle: manifests kustomize operator-sdk ## Generate bundle manifests and metada
 	cd config/manager && GOFLAGS="-mod=mod" $(KUSTOMIZE) edit set image controller=$(IMG)
 	GOFLAGS="-mod=mod" $(KUSTOMIZE) build config/manifests | GOFLAGS="-mod=mod" $(OPERATOR_SDK) generate bundle -q --extra-service-accounts "velero" --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
 	@make nullables
+	# Copy updated bundle.Dockerfile to CI's Dockerfile.bundle
+	# TODO: update CI to use generated one
+	cp bundle.Dockerfile build/Dockerfile.bundle
 	GOFLAGS="-mod=mod" $(OPERATOR_SDK) bundle validate ./bundle
 
 .PHONY: nullables
