@@ -3,11 +3,11 @@ package lib
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"strings"
 	"time"
 
-	utils "github.com/openshift/oadp-operator/tests/e2e/utils"
 	operatorsv1 "github.com/operator-framework/api/pkg/operators/v1"
 	operatorsv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 
@@ -17,6 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/version"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -275,8 +276,11 @@ func (v *VirtOperator) ensureNamespace(timeout time.Duration) error {
 		if err := v.installNamespace(); err != nil {
 			return err
 		}
-		if err := utils.WaitForCheck(timeout, 1*time.Second, v.checkNamespace, "timed out waiting to create namespace "+v.Namespace); err != nil {
-			return err
+		err := wait.PollImmediate(time.Second, timeout, func() (bool, error) {
+			return v.checkNamespace(), nil
+		})
+		if err != nil {
+			return fmt.Errorf("timed out waiting to create namespace %s: %w", v.Namespace, err)
 		}
 	} else {
 		log.Printf("Namespace %s already present, no action required", v.Namespace)
@@ -291,8 +295,11 @@ func (v *VirtOperator) ensureOperatorGroup(timeout time.Duration) error {
 		if err := v.installOperatorGroup(); err != nil {
 			return err
 		}
-		if err := utils.WaitForCheck(timeout, 1*time.Second, v.checkOperatorGroup, "timed out waiting to create operator group kubevirt-hyperconverged-group"); err != nil {
-			return err
+		err := wait.PollImmediate(time.Second, timeout, func() (bool, error) {
+			return v.checkOperatorGroup(), nil
+		})
+		if err != nil {
+			return fmt.Errorf("timed out waiting to create operator group kubevirt-hyperconverged-group: %w", err)
 		}
 	} else {
 		log.Printf("Operator group already present, no action required")
@@ -307,8 +314,11 @@ func (v *VirtOperator) ensureSubscription(timeout time.Duration) error {
 		if err := v.installSubscription(); err != nil {
 			return err
 		}
-		if err := utils.WaitForCheck(timeout, 1*time.Second, v.checkSubscription, "timed out waiting to create subscription"); err != nil {
-			return err
+		err := wait.PollImmediate(time.Second, timeout, func() (bool, error) {
+			return v.checkSubscription(), nil
+		})
+		if err != nil {
+			return fmt.Errorf("timed out waiting to create subscription: %w", err)
 		}
 	} else {
 		log.Printf("Subscription already created, no action required")
@@ -319,7 +329,13 @@ func (v *VirtOperator) ensureSubscription(timeout time.Duration) error {
 
 // Waits for the ClusterServiceVersion to go to ready, triggered by subscription
 func (v *VirtOperator) ensureCsv(timeout time.Duration) error {
-	return utils.WaitForCheck(timeout, 5*time.Second, v.checkCsv, "timed out waiting for CSV to become ready")
+	err := wait.PollImmediate(5*time.Second, timeout, func() (bool, error) {
+		return v.checkCsv(), nil
+	})
+	if err != nil {
+		return fmt.Errorf("timed out waiting for CSV to become ready: %w", err)
+	}
+	return nil
 }
 
 // Creates HyperConverged Operator instance if needed, and waits for it to go healthy
@@ -328,8 +344,11 @@ func (v *VirtOperator) ensureHco(timeout time.Duration) error {
 		if err := v.installHco(); err != nil {
 			return err
 		}
-		if err := utils.WaitForCheck(timeout, 5*time.Second, v.checkHco, "timed out waiting to create HCO"); err != nil {
-			return err
+		err := wait.PollImmediate(5*time.Second, timeout, func() (bool, error) {
+			return v.checkHco(), nil
+		})
+		if err != nil {
+			return fmt.Errorf("timed out waiting to create HCO: %w", err)
 		}
 	} else {
 		log.Printf("HCO already created, no action required")
