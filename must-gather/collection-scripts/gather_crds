@@ -1,0 +1,31 @@
+#!/bin/bash
+source pwait
+max_parallelism=10
+
+# Cluster passed in from main gather
+clusterID=$1
+
+# Resource list
+resources=()
+
+# OADP
+for i in $(/usr/bin/oc get crd | grep oadp.openshift.io | awk '{print $1}'); do
+  resources+=($i)
+done
+
+# Velero
+for i in $(/usr/bin/oc get crd | grep velero.io | awk '{print $1}'); do
+  resources+=($i)
+done
+
+echo "Starting collection of: [${resources[@]}]"
+
+# we use nested loops to nicely output objects partitioned per kind
+for resource in ${resources[@]}; do
+  echo "Collecting ${resource} CRD"
+  # cluster-scoped-resources/apiextensions.k8s.io/customresourcedefinitions/
+  object_collection_path=/must-gather/cluster-scoped-resources/apiextensions.k8s.io/customresourcedefinitions
+  mkdir -p ${object_collection_path}
+  /usr/bin/oc get crd ${resource} -o yaml &> ${object_collection_path}/${resource}.yaml &
+done
+wait
