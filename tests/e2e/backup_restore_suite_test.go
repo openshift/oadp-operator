@@ -64,7 +64,6 @@ type BackupRestoreCase struct {
 	BackupRestoreType            BackupRestoreType
 	PreBackupVerify              VerificationFunction
 	PostRestoreVerify            VerificationFunction
-	AppReadyDelay                time.Duration
 	MustGatherFiles              []string            // list of files expected in must-gather under quay.io.../clusters/clustername/... ie. "namespaces/openshift-adp/oadp.openshift.io/dpa-ts-example-velero/ts-example-velero.yml"
 	MustGatherValidationFunction *func(string) error // validation function for must-gather where string parameter is the path to "quay.io.../clusters/clustername/"
 }
@@ -143,9 +142,6 @@ func runBackupAndRestore(brCase BackupRestoreCase, expectedErr error, updateLast
 	nsRequiresResticDCWorkaround, err := NamespaceRequiresResticDCWorkaround(dpaCR.Client, brCase.ApplicationNamespace)
 	Expect(err).ToNot(HaveOccurred())
 
-	// TODO this should be a function, not an arbitrary sleep
-	log.Printf("Sleeping for %v to allow application to be ready for case %s", brCase.AppReadyDelay, brCase.Name)
-	time.Sleep(brCase.AppReadyDelay)
 	// create backup
 	log.Printf("Creating backup %s for case %s", backupName, brCase.Name)
 	backup, err := CreateBackupForNamespaces(dpaCR.Client, namespace, backupName, []string{brCase.ApplicationNamespace}, brCase.BackupRestoreType == RESTIC || brCase.BackupRestoreType == KOPIA, brCase.BackupRestoreType == CSIDataMover)
@@ -289,7 +285,6 @@ var _ = Describe("Backup and restore tests", func() {
 			ApplicationNamespace: "mysql-persistent",
 			Name:                 "mysql-twovol-csi-e2e",
 			BackupRestoreType:    CSI,
-			AppReadyDelay:        30 * time.Second,
 			PreBackupVerify:      mysqlReady(true, true, CSI),
 			PostRestoreVerify:    mysqlReady(false, true, CSI),
 		}, nil),
