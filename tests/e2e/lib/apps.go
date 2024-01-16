@@ -385,6 +385,14 @@ func AreApplicationPodsRunning(c *kubernetes.Clientset, namespace string) wait.C
 				log.Printf("Pod %v not yet succeeded: phase is %v", podInfo.Name, phase)
 				return false, nil
 			}
+
+			conditionType := corev1.ContainersReady
+			for _, condition := range podInfo.Status.Conditions {
+				if condition.Type == conditionType && condition.Status != corev1.ConditionTrue {
+					log.Printf("Pod %v not yet succeeded: condition is false: %v", podInfo.Name, conditionType)
+					return false, nil
+				}
+			}
 		}
 		return true, err
 	}
