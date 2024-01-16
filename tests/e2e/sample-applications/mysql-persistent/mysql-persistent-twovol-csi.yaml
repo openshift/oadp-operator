@@ -156,8 +156,8 @@ items:
               claimName: applog
           initContainers:
           - name: init-myservice
-            image: registry.access.redhat.com/ubi8/ubi:latest
-            command: ['sh', '-c', 'sleep 10; until getent hosts mysql; do echo waiting for mysql; sleep 5; done;']
+            image: docker.io/curlimages/curl:8.5.0
+            command: ['sh', '-c', 'sleep 10; until /usr/bin/nc -z -w 1 mysql 3306; do echo Trying to connect to mysql DB port; sleep 5; done; echo mysql DB port reachable']
   - apiVersion: route.openshift.io/v1
     kind: Route
     metadata:
