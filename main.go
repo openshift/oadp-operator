@@ -20,6 +20,8 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"os"
+
 	"github.com/openshift/oadp-operator/pkg/common"
 	monitor "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -27,7 +29,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/kubernetes"
-	"os"
 	client "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 
@@ -222,12 +223,12 @@ func getWatchNamespace() (string, error) {
 	return ns, nil
 }
 
-// setting privileged pod security labels to OADP operator namespace
+// setting Pod security admission labels to privileged in OADP operator namespace
 func addPodSecurityPrivilegedLabels(watchNamespaceName string) error {
-	setupLog.Info("patching operator namespace with PSA labels")
+	setupLog.Info("patching operator namespace with Pod security admission (PSA) labels to privileged")
 
 	if len(watchNamespaceName) == 0 {
-		return fmt.Errorf("cannot add privileged pod security labels, watchNamespaceName is empty")
+		return fmt.Errorf("cannot patch operator namespace with PSA labels to privileged, watchNamespaceName is empty")
 	}
 
 	kubeconf := ctrl.GetConfigOrDie()
@@ -243,17 +244,17 @@ func addPodSecurityPrivilegedLabels(watchNamespaceName string) error {
 		return err
 	}
 
-	privilegedLabels := map[string]string{
-		"pod-security.kubernetes.io/enforce": "privileged",
-		"pod-security.kubernetes.io/audit":   "privileged",
-		"pod-security.kubernetes.io/warn":    "privileged",
-	}
+	namespaceLabels := operatorNamespace.GetLabels()
+	// overwrite Pod security admission labels, if they exist; otherwise, add them
+	namespaceLabels["pod-security.kubernetes.io/enforce"] = "privileged"
+	namespaceLabels["pod-security.kubernetes.io/audit"] = "privileged"
+	namespaceLabels["pod-security.kubernetes.io/warn"] = "privileged"
 
-	operatorNamespace.SetLabels(privilegedLabels)
+	operatorNamespace.SetLabels(namespaceLabels)
 
 	_, err = clientset.CoreV1().Namespaces().Update(context.TODO(), operatorNamespace, metav1.UpdateOptions{})
 	if err != nil {
-		setupLog.Error(err, "problem patching operator namespace for privileged pod security labels")
+		setupLog.Error(err, "problem patching operator namespace with PSA labels to privileged")
 		return err
 	}
 	return nil
