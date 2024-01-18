@@ -35,6 +35,12 @@ var hyperConvergedGvr = schema.GroupVersionResource{
 	Version:  "v1beta1",
 }
 
+var csvGvr = schema.GroupVersionResource{
+	Group:    "operators.coreos.com",
+	Resource: "clusterserviceversion",
+	Version:  "v1alpha1",
+}
+
 type VirtOperator struct {
 	Client    client.Client
 	Clientset *kubernetes.Clientset
@@ -64,6 +70,22 @@ func GetVirtOperator(client client.Client, clientset *kubernetes.Clientset, dyna
 	}
 
 	return v, nil
+}
+
+// Helper to create an operator group object, common to installOperatorGroup
+// and removeOperatorGroup.
+func (v *VirtOperator) makeOperatorGroup() *operatorsv1.OperatorGroup {
+	return &operatorsv1.OperatorGroup{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "kubevirt-hyperconverged-group",
+			Namespace: v.Namespace,
+		},
+		Spec: operatorsv1.OperatorGroupSpec{
+			TargetNamespaces: []string{
+				v.Namespace,
+			},
+		},
+	}
 }
 
 // getCsvFromPackageManifest returns the current CSV from the first channel
@@ -200,17 +222,7 @@ func (v *VirtOperator) installNamespace() error {
 
 // Creates the virtualization operator group
 func (v *VirtOperator) installOperatorGroup() error {
-	group := &operatorsv1.OperatorGroup{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "kubevirt-hyperconverged-group",
-			Namespace: v.Namespace,
-		},
-		Spec: operatorsv1.OperatorGroupSpec{
-			TargetNamespaces: []string{
-				v.Namespace,
-			},
-		},
-	}
+	group := v.makeOperatorGroup()
 	err := v.Client.Create(context.Background(), group)
 	if err != nil {
 		if !strings.Contains(err.Error(), "already exists") {
@@ -260,7 +272,6 @@ func (v *VirtOperator) installHco() error {
 			"spec": map[string]interface{}{},
 		},
 	}
-
 	_, err := v.Dynamic.Resource(hyperConvergedGvr).Namespace(v.Namespace).Create(context.Background(), &unstructuredHco, v1.CreateOptions{})
 	if err != nil {
 		log.Printf("Error creating HCO: %v", err)
@@ -357,6 +368,151 @@ func (v *VirtOperator) ensureHco(timeout time.Duration) error {
 	return nil
 }
 
+// Deletes the virtualization operator namespace (likely openshift-cnv).
+func (v *VirtOperator) removeNamespace() error {
+	err := v.Client.Delete(context.Background(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: v.Namespace}})
+	if err != nil {
+		log.Printf("Failed to delete namespace %s: %v", v.Namespace, err)
+		return err
+	}
+	return nil
+}
+
+// Deletes the virtualization operator group
+func (v *VirtOperator) removeOperatorGroup() error {
+	group := v.makeOperatorGroup()
+	err := v.Client.Delete(context.Background(), group)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// Deletes the kubvirt subscription
+func (v *VirtOperator) removeSubscription() error {
+	subscription, err := v.getOperatorSubscription()
+	if err != nil {
+		return err
+	}
+	return subscription.Delete(v.Client)
+}
+
+// Deletes the virt ClusterServiceVersion
+func (v *VirtOperator) removeCsv() error {
+	return v.Dynamic.Resource(csvGvr).Namespace(v.Namespace).Delete(context.Background(), v.Csv, v1.DeleteOptions{})
+}
+
+// Deletes a HyperConverged Operator instance.
+func (v *VirtOperator) removeHco() error {
+	err := v.Dynamic.Resource(hyperConvergedGvr).Namespace(v.Namespace).Delete(context.Background(), "kubevirt-hyperconverged", v1.DeleteOptions{})
+	if err != nil {
+		log.Printf("Error deleting HCO: %v", err)
+		return err
+	}
+
+	return nil
+}
+
+// Makes sure the virtualization operator's namespace is removed.
+func (v *VirtOperator) ensureNamespaceRemoved(timeout time.Duration) error {
+	if !v.checkNamespace() {
+		log.Printf("Namespace %s already removed, no action required", v.Namespace)
+		return nil
+	}
+
+	if err := v.removeNamespace(); err != nil {
+		return err
+	}
+
+	err := wait.PollImmediate(5*time.Second, timeout, func() (bool, error) {
+		return !v.checkNamespace(), nil
+	})
+	if err != nil {
+		return fmt.Errorf("timed out waiting to delete namespace %s: %w", v.Namespace, err)
+	}
+
+	return nil
+}
+
+// Makes sure the operator group is removed.
+func (v *VirtOperator) ensureOperatorGroupRemoved(timeout time.Duration) error {
+	if !v.checkOperatorGroup() {
+		log.Printf("Operator group already removed, no action required")
+		return nil
+	}
+
+	if err := v.removeOperatorGroup(); err != nil {
+		return err
+	}
+
+	err := wait.PollImmediate(5*time.Second, timeout, func() (bool, error) {
+		return !v.checkOperatorGroup(), nil
+	})
+	if err != nil {
+		return fmt.Errorf("timed out waiting for operator group to be removed: %w", err)
+	}
+
+	return nil
+}
+
+// Deletes the subscription
+func (v *VirtOperator) ensureSubscriptionRemoved(timeout time.Duration) error {
+	if !v.checkSubscription() {
+		log.Printf("Subscription already removed, no action required")
+		return nil
+	}
+
+	if err := v.removeSubscription(); err != nil {
+		return err
+	}
+
+	err := wait.PollImmediate(5*time.Second, timeout, func() (bool, error) {
+		return !v.checkSubscription(), nil
+	})
+	if err != nil {
+		return fmt.Errorf("timed out waiting for subscription to be deleted: %w", err)
+	}
+	return nil
+}
+
+// Deletes the ClusterServiceVersion and waits for it to be removed
+func (v *VirtOperator) ensureCsvRemoved(timeout time.Duration) error {
+	if !v.checkCsv() {
+		log.Printf("CSV already removed, no action required")
+		return nil
+	}
+
+	if err := v.removeCsv(); err != nil {
+		return err
+	}
+
+	err := wait.PollImmediate(5*time.Second, timeout, func() (bool, error) {
+		return !v.checkCsv(), nil
+	})
+	if err != nil {
+		return fmt.Errorf("timed out waiting for CSV to be deleted: %w", err)
+	}
+	return nil
+}
+
+// Deletes the HyperConverged Operator instance and waits for it to be removed.
+func (v *VirtOperator) ensureHcoRemoved(timeout time.Duration) error {
+	if !v.checkHco() {
+		log.Printf("HCO already removed, no action required")
+		return nil
+	}
+
+	if err := v.removeHco(); err != nil {
+		return err
+	}
+
+	err := wait.PollImmediate(5*time.Second, timeout, func() (bool, error) {
+		return !v.checkHco(), nil
+	})
+
+	return err
+}
+
 // IsVirtInstalled returns whether or not the OpenShift Virtualization operator
 // is installed and ready, by checking for a HyperConverged operator resource.
 func (v *VirtOperator) IsVirtInstalled() bool {
@@ -404,6 +560,41 @@ func (v *VirtOperator) EnsureVirtInstallation(timeout time.Duration) error {
 		return err
 	}
 	log.Printf("Created HCO")
+
+	return nil
+}
+
+// EnsureVirtRemoval makes sure the virtualization operator is removed.
+func (v *VirtOperator) EnsureVirtRemoval(timeout time.Duration) error {
+	log.Printf("Removing hyperconverged operator")
+	if err := v.ensureHcoRemoved(3 * time.Minute); err != nil {
+		return err
+	}
+	log.Printf("Removed HCO")
+
+	log.Printf("Deleting virtualization operator subscription")
+	if err := v.ensureSubscriptionRemoved(10 * time.Second); err != nil {
+		return err
+	}
+	log.Println("Deleted subscription")
+
+	log.Printf("Deleting ClusterServiceVersion")
+	if err := v.ensureCsvRemoved(2 * time.Minute); err != nil {
+		return err
+	}
+	log.Println("CSV removed")
+
+	log.Printf("Deleting operator group kubevirt-hyperconverged-group")
+	if err := v.ensureOperatorGroupRemoved(10 * time.Second); err != nil {
+		return err
+	}
+	log.Println("Deleted operator group")
+
+	log.Printf("Deleting virtualization namespace %s", v.Namespace)
+	if err := v.ensureNamespaceRemoved(3 * time.Minute); err != nil {
+		return err
+	}
+	log.Printf("Deleting namespace %s", v.Namespace)
 
 	return nil
 }

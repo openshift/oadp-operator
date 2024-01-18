@@ -116,3 +116,15 @@ func (s *Subscription) CreateOrUpdate(c client.Client) error {
 	}
 	return c.Update(context.Background(), s.Subscription)
 }
+
+func (s *Subscription) Delete(c client.Client) error {
+	var currentSubscription operators.Subscription
+	err := c.Get(context.Background(), types.NamespacedName{Namespace: s.Namespace, Name: s.Name}, &currentSubscription)
+	if apierrors.IsNotFound(err) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	return c.Delete(context.Background(), s.Subscription)
+}
