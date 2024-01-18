@@ -20,16 +20,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"github.com/openshift/oadp-operator/pkg/common"
-	monitor "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/client-go/discovery"
-	"k8s.io/client-go/kubernetes"
 	"os"
-	client "sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/client/config"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -37,32 +28,33 @@ import (
 
 	routev1 "github.com/openshift/api/route/v1"
 	security "github.com/openshift/api/security/v1"
+	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	"github.com/openshift/oadp-operator/controllers"
+	"github.com/openshift/oadp-operator/pkg/common"
+	monitor "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/client-go/discovery"
+	"k8s.io/client-go/kubernetes"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
+	client "sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-
 	//+kubebuilder:scaffold:imports
-	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 )
 
 var (
 	scheme   = runtime.NewScheme()
 	setupLog = ctrl.Log.WithName("setup")
 )
-
-// WebIdentityTokenPath mount present on operator CSV
-const WebIdentityTokenPath = "/var/run/secrets/openshift/serviceaccount/token"
-
-// CloudCredentials API constants
-const CloudCredentialGroupVersion = "cloudcredential.openshift.io/v1"
-const CloudCredentialsCRDName = "credentialsrequests"
 
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
@@ -182,7 +174,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (&controllers.BucketReconciler{
+	if err = (&controllers.CloudStorageReconciler{
 		Client:        mgr.GetClient(),
 		Scheme:        mgr.GetScheme(),
 		EventRecorder: mgr.GetEventRecorderFor("bucket-controller"),
@@ -207,6 +199,13 @@ func main() {
 		os.Exit(1)
 	}
 }
+
+// WebIdentityTokenPath mount present on operator CSV
+const WebIdentityTokenPath = "/var/run/secrets/openshift/serviceaccount/token"
+
+// CloudCredentials API constants
+const CloudCredentialGroupVersion = "cloudcredential.openshift.io/v1"
+const CloudCredentialsCRDName = "credentialsrequests"
 
 // getWatchNamespace returns the Namespace the operator should be watching for changes
 func getWatchNamespace() (string, error) {

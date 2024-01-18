@@ -28,8 +28,6 @@ var (
 	// GroupVersion is group version used to register these objects
 	GroupVersion = schema.GroupVersion{Group: "oadp.openshift.io", Version: "v1alpha1"}
 
-	Kind = "DataProtectionApplication"
-
 	// SchemeBuilder is used to add go types to the GroupVersionKind scheme
 	SchemeBuilder = &scheme.Builder{GroupVersion: GroupVersion}
 

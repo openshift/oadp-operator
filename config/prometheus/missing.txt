@@ -1,0 +1,11 @@
+?
+config/rbac/cloudstorage_editor_role.yaml
+config/rbac/cloudstorage_viewer_role.yaml
+config/rbac/dataprotectionapplication_editor_role.yaml
+config/rbac/dataprotectionapplication_viewer_role.yaml
+config/samples/oadp_v1alpha1_cloudstorage.yaml
+config/samples/oadp_v1alpha1_dataprotectionapplication.yaml
+controllers/cloudstorage_controller.go
+controllers/dataprotectionapplication_controller.go
+.gitignore go.mod go.sum Makefile (very different from original)
+and exclude README

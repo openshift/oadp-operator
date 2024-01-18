@@ -73,6 +73,7 @@ func (r *DPAReconciler) ReconcileVeleroDeployment(log logr.Logger) (bool, error)
 		},
 	}
 	var orig *appsv1.Deployment // for debugging purposes
+	var debugMode = os.Getenv("DEBUG") == "true"
 	op, err := controllerutil.CreateOrPatch(r.Context, r.Client, veleroDeployment, func() error {
 		if debugMode {
 			orig = veleroDeployment.DeepCopy() // for debugging purposes

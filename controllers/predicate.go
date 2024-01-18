@@ -40,7 +40,7 @@ func isObjectOurs(scheme *runtime.Scheme, object client.Object) bool {
 		return false
 	}
 	gvk := objGVKs[0]
-	if gvk.Group == oadpv1alpha1.GroupVersion.Group && gvk.Version == oadpv1alpha1.GroupVersion.Version && gvk.Kind == oadpv1alpha1.Kind {
+	if gvk.Group == oadpv1alpha1.GroupVersion.Group && gvk.Version == oadpv1alpha1.GroupVersion.Version {
 		return true
 	}
 	return object.GetLabels()[oadpv1alpha1.OadpOperatorLabel] != ""

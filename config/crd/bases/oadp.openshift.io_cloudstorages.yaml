@@ -19,6 +19,8 @@ spec:
   - name: v1alpha1
     schema:
       openAPIV3Schema:
+        description: CloudStorage API automates the creation of a bucket for object
+          storage.
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -33,6 +35,7 @@ spec:
           metadata:
             type: object
           spec:
+            description: CloudStorageSpec defines the desired state of CloudStorage
             properties:
               creationSecret:
                 description: creationSecret is the secret that is needed to be used
@@ -80,11 +83,16 @@ spec:
             - provider
             type: object
           status:
+            description: CloudStorageStatus defines the observed state of CloudStorage
             properties:
               lastSyncTimestamp:
+                description: LastSyncTimestamp is the last time the contents of the
+                  CloudStorage was synced
                 format: date-time
                 type: string
               name:
+                description: Name is the name requested for the bucket (aws, gcp)
+                  or container (azure)
                 type: string
             required:
             - name
