@@ -12,6 +12,7 @@ import (
 var _ = Describe("VM backup and restore tests", Ordered, func() {
 	var v *VirtOperator
 	var err error
+	wasInstalledFromTest := false
 
 	var _ = BeforeAll(func() {
 		if !virtTestingEnabled {
@@ -31,6 +32,18 @@ var _ = Describe("VM backup and restore tests", Ordered, func() {
 
 		err = v.EnsureVirtInstallation(5 * time.Minute)
 		Expect(err).To(BeNil())
+		wasInstalledFromTest = true
+	})
+
+	var _ = AfterAll(func() {
+		if !virtTestingEnabled {
+			Skip("Virtualization testing is disabled, skipping test cleanup")
+		}
+
+		if v != nil && wasInstalledFromTest {
+			err := v.EnsureVirtRemoval(5 * time.Minute)
+			Expect(err).To(BeNil())
+		}
 	})
 
 	It("should verify virt installation", func() {
