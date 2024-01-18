@@ -58,12 +58,22 @@ var (
 	setupLog = ctrl.Log.WithName("setup")
 )
 
-// WebIdentityTokenPath mount present on operator CSV
-const WebIdentityTokenPath = "/var/run/secrets/openshift/serviceaccount/token"
+const (
+	// WebIdentityTokenPath mount present on operator CSV
+	WebIdentityTokenPath = "/var/run/secrets/openshift/serviceaccount/token"
 
-// CloudCredentials API constants
-const CloudCredentialGroupVersion = "cloudcredential.openshift.io/v1"
-const CloudCredentialsCRDName = "credentialsrequests"
+	// CloudCredentials API constants
+	CloudCredentialGroupVersion = "cloudcredential.openshift.io/v1"
+	CloudCredentialsCRDName     = "credentialsrequests"
+
+	// Pod security admission (PSA) labels
+	pSALabelPrefix = "pod-security.kubernetes.io/"
+	enforceLabel   = pSALabelPrefix + "enforce"
+	auditLabel     = pSALabelPrefix + "audit"
+	warnLabel      = pSALabelPrefix + "warn"
+
+	privileged = "privileged"
+)
 
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
@@ -223,7 +233,7 @@ func getWatchNamespace() (string, error) {
 	return ns, nil
 }
 
-// setting Pod security admission labels to privileged in OADP operator namespace
+// setting Pod security admission (PSA) labels to privileged in OADP operator namespace
 func addPodSecurityPrivilegedLabels(watchNamespaceName string) error {
 	setupLog.Info("patching operator namespace with Pod security admission (PSA) labels to privileged")
 
@@ -245,10 +255,10 @@ func addPodSecurityPrivilegedLabels(watchNamespaceName string) error {
 	}
 
 	namespaceLabels := operatorNamespace.GetLabels()
-	// overwrite Pod security admission labels, if they exist; otherwise, add them
-	namespaceLabels["pod-security.kubernetes.io/enforce"] = "privileged"
-	namespaceLabels["pod-security.kubernetes.io/audit"] = "privileged"
-	namespaceLabels["pod-security.kubernetes.io/warn"] = "privileged"
+	// overwrite PSA labels, if they exist; otherwise, add them
+	namespaceLabels[enforceLabel] = privileged
+	namespaceLabels[auditLabel] = privileged
+	namespaceLabels[warnLabel] = privileged
 
 	operatorNamespace.SetLabels(namespaceLabels)
 
