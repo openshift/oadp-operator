@@ -67,10 +67,10 @@ const (
 	CloudCredentialsCRDName     = "credentialsrequests"
 
 	// Pod security admission (PSA) labels
-	pSALabelPrefix = "pod-security.kubernetes.io/"
-	enforceLabel   = pSALabelPrefix + "enforce"
-	auditLabel     = pSALabelPrefix + "audit"
-	warnLabel      = pSALabelPrefix + "warn"
+	psaLabelPrefix = "pod-security.kubernetes.io/"
+	enforceLabel   = psaLabelPrefix + "enforce"
+	auditLabel     = psaLabelPrefix + "audit"
+	warnLabel      = psaLabelPrefix + "warn"
 
 	privileged = "privileged"
 )
