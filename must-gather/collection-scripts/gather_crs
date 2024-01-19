@@ -27,7 +27,7 @@ for resource in ${resources[@]}; do
   /usr/bin/oc get ${resource} --all-namespaces -o custom-columns=NAMESPACE:.metadata.namespace --no-headers 2> /dev/null | \
   while read namespace; do
     resource_name=$(echo $resource | cut -d "." -f 1)
-    echo "Collecting ${resource_name}"
+    echo "Collecting ${resource_name} in ${namespace} namespace"
     if echo "${resource}" | grep -q velero.io; then
       object_collection_path=/must-gather/clusters/${clusterID}/namespaces/${namespace}/velero.io/${resource_name}
     else
