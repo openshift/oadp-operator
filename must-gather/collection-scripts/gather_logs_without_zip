@@ -25,15 +25,6 @@ for ns in ${namespaces[@]}; do
     /usr/bin/gather_logs_pods ${clusterID} ${ns} ${logs_since} ${max_parallelism} &
 done
 
-# Collect the DPA CR
-for ns in ${namespaces[@]}; do
-  for dpa in $(oc get dpa --namespace ${ns} --no-headers | awk '{print $1}'); do
-    mkdir -p "/must-gather/clusters/${clusterID}/namespaces/${ns}/oadp.openshift.io/dpa-${dpa}"
-    oc get dpa ${dpa} -o yaml --namespace ${ns} &> "/must-gather/clusters/${clusterID}/namespaces/${ns}/oadp.openshift.io/dpa-${dpa}/${dpa}.yml" &
-    pwait $max_parallelism
-  done
-done
-
 # Waits for gather_crs, gather_logs, gather_metrics running in background
 echo "Waiting for background gather tasks to finish"
 wait
