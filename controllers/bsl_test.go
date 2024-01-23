@@ -1290,6 +1290,86 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 			wantErr: true,
 		},
 		{
+			name: "BSL with no region and S3ForcePathStyle as false and default backup images is false",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{},
+					},
+					BackupImages: pointer.Bool(false),
+					BackupLocations: []oadpv1alpha1.BackupLocation{
+						{
+							Velero: &velerov1.BackupStorageLocationSpec{
+								Provider: "aws",
+								Config: map[string]string{
+									S3ForcePathStyle: "false",
+								},
+								StorageType: velerov1.StorageType{
+									ObjectStorage: &velerov1.ObjectStorageLocation{
+										Bucket: "bucket",
+										Prefix: "prefix",
+									},
+								},
+								Default: true,
+							},
+						},
+					},
+				},
+			},
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cloud-credentials",
+					Namespace: "test-ns",
+				},
+			},
+			want:    true,
+			wantErr: false,
+		},
+		{
+			name: "BSL with no region and S3ForcePathStyle as true error case",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{},
+					},
+					BackupImages: pointer.Bool(false),
+					BackupLocations: []oadpv1alpha1.BackupLocation{
+						{
+							Velero: &velerov1.BackupStorageLocationSpec{
+								Provider: "aws",
+								Config: map[string]string{
+									S3ForcePathStyle: "true",
+								},
+								StorageType: velerov1.StorageType{
+									ObjectStorage: &velerov1.ObjectStorageLocation{
+										Bucket: "bucket",
+										Prefix: "prefix",
+									},
+								},
+								Default: true,
+							},
+						},
+					},
+				},
+			},
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cloud-credentials",
+					Namespace: "test-ns",
+				},
+			},
+			want:    false,
+			wantErr: true,
+		},
+		{
 			name: "BSL Region set for aws provider with S3ForcePathStyle expect to succeed",
 			dpa: &oadpv1alpha1.DataProtectionApplication{
 				ObjectMeta: metav1.ObjectMeta{
