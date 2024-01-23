@@ -1,6 +1,5 @@
-# Documentation reference https://golangci-lint.run/usage/configuration/
+# Documentation reference https://github.com/golangci/golangci-lint/blob/v1.55.2/.golangci.reference.yml
 run:
-  concurrency: 4
   skip-dirs-use-default: false
   modules-download-mode: readonly
   allow-parallel-runners: false
@@ -24,10 +23,7 @@ linters-settings:
   gofmt:
     simplify: true
   govet:
-    disable-all: false
-    enable:
-      - atomicalign
-    enable-all: false
+    enable-all: true
   misspell:
     locale: US
   nakedret:
@@ -89,6 +85,11 @@ linters:
   fast: false
 
 issues:
+  exclude-use-default: false
+  exclude-rules:
+    - linters:
+        - revive
+      text: "^struct-tag: unknown option 'inline' in JSON tag$"
   max-issues-per-linter: 0
   max-same-issues: 0
 
