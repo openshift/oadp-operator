@@ -64,6 +64,7 @@ type BackupRestoreCase struct {
 	BackupRestoreType            BackupRestoreType
 	PreBackupVerify              VerificationFunction
 	PostRestoreVerify            VerificationFunction
+	AppReadyDelay                time.Duration
 	MustGatherFiles              []string            // list of files expected in must-gather under quay.io.../clusters/clustername/... ie. "namespaces/openshift-adp/oadp.openshift.io/dpa-ts-example-velero/ts-example-velero.yml"
 	MustGatherValidationFunction *func(string) error // validation function for must-gather where string parameter is the path to "quay.io.../clusters/clustername/"
 }
@@ -142,6 +143,9 @@ func runBackupAndRestore(brCase BackupRestoreCase, expectedErr error, updateLast
 	nsRequiresResticDCWorkaround, err := NamespaceRequiresResticDCWorkaround(dpaCR.Client, brCase.ApplicationNamespace)
 	Expect(err).ToNot(HaveOccurred())
 
+	// TODO this should be a function, not an arbitrary sleep
+	log.Printf("Sleeping for %v to allow application to be ready for case %s", brCase.AppReadyDelay, brCase.Name)
+	time.Sleep(brCase.AppReadyDelay)
 	// create backup
 	log.Printf("Creating backup %s for case %s", backupName, brCase.Name)
 	backup, err := CreateBackupForNamespaces(dpaCR.Client, namespace, backupName, []string{brCase.ApplicationNamespace}, brCase.BackupRestoreType == RESTIC || brCase.BackupRestoreType == KOPIA, brCase.BackupRestoreType == CSIDataMover)
@@ -150,8 +154,14 @@ func runBackupAndRestore(brCase BackupRestoreCase, expectedErr error, updateLast
 	// wait for backup to not be running
 	Eventually(IsBackupDone(dpaCR.Client, namespace, backupName), timeoutMultiplier*time.Minute*20, time.Second*10).Should(BeTrue())
 	// TODO only log on fail?
-	GinkgoWriter.Println(DescribeBackup(veleroClientForSuiteRun, csiClientForSuiteRun, dpaCR.Client, backup))
-	Expect(BackupErrorLogs(kubernetesClientForSuiteRun, dpaCR.Client, backup)).To(Equal([]string{}))
+	describeBackup := DescribeBackup(veleroClientForSuiteRun, csiClientForSuiteRun, dpaCR.Client, backup)
+	GinkgoWriter.Println(describeBackup)
+
+	backupLogs := BackupLogs(kubernetesClientForSuiteRun, dpaCR.Client, backup)
+	backupErrorLogs := BackupErrorLogs(kubernetesClientForSuiteRun, dpaCR.Client, backup)
+	accumulatedTestLogs = append(accumulatedTestLogs, describeBackup, backupLogs)
+
+	Expect(backupErrorLogs).Should(Equal([]string{}))
 
 	// check if backup succeeded
 	succeeded, err := IsBackupCompletedSuccessfully(kubernetesClientForSuiteRun, dpaCR.Client, backup)
@@ -179,8 +189,14 @@ func runBackupAndRestore(brCase BackupRestoreCase, expectedErr error, updateLast
 	Expect(err).ToNot(HaveOccurred())
 	Eventually(IsRestoreDone(dpaCR.Client, namespace, restoreName), timeoutMultiplier*time.Minute*60, time.Second*10).Should(BeTrue())
 	// TODO only log on fail?
-	GinkgoWriter.Println(DescribeRestore(veleroClientForSuiteRun, dpaCR.Client, restore))
-	Expect(RestoreErrorLogs(kubernetesClientForSuiteRun, dpaCR.Client, restore)).To(Equal([]string{}))
+	describeRestore := DescribeRestore(veleroClientForSuiteRun, dpaCR.Client, restore)
+	GinkgoWriter.Println(describeRestore)
+
+	restoreLogs := RestoreLogs(kubernetesClientForSuiteRun, dpaCR.Client, restore)
+	restoreErrorLogs := RestoreErrorLogs(kubernetesClientForSuiteRun, dpaCR.Client, restore)
+	accumulatedTestLogs = append(accumulatedTestLogs, describeRestore, restoreLogs)
+
+	Expect(restoreErrorLogs).Should(Equal([]string{}))
 
 	// Check if restore succeeded
 	succeeded, err = IsRestoreCompletedSuccessfully(kubernetesClientForSuiteRun, dpaCR.Client, namespace, restoreName)
@@ -210,6 +226,11 @@ func runBackupAndRestore(brCase BackupRestoreCase, expectedErr error, updateLast
 
 func tearDownBackupAndRestore(brCase BackupRestoreCase, installTime time.Time, report SpecReport) {
 	log.Println("Post backup and restore state: ", report.State.String())
+	knownFlake = false
+	logString := strings.Join(accumulatedTestLogs, "\n")
+	CheckIfFlakeOccured(logString, &knownFlake)
+	accumulatedTestLogs = nil
+
 	if report.Failed() {
 		// print namespace error events for app namespace
 		if brCase.ApplicationNamespace != "" {
@@ -262,9 +283,12 @@ var _ = Describe("Backup and restore tests", func() {
 
 	DescribeTable("Backup and restore applications",
 		func(brCase BackupRestoreCase, expectedErr error) {
+			if CurrentSpecReport().NumAttempts > 1 && !knownFlake {
+				Fail("No known FLAKE found in a previous run, marking test as failed.")
+			}
 			runBackupAndRestore(brCase, expectedErr, updateLastBRcase, updateLastInstallTime)
 		},
-		Entry("MySQL application CSI", BackupRestoreCase{
+		Entry("MySQL application CSI", FlakeAttempts(flakeAttempts), BackupRestoreCase{
 			ApplicationTemplate:  "./sample-applications/mysql-persistent/mysql-persistent-csi.yaml",
 			ApplicationNamespace: "mysql-persistent",
 			Name:                 "mysql-csi-e2e",
@@ -272,7 +296,7 @@ var _ = Describe("Backup and restore tests", func() {
 			PreBackupVerify:      mysqlReady(true, false, CSI),
 			PostRestoreVerify:    mysqlReady(false, false, CSI),
 		}, nil),
-		Entry("Mongo application CSI", BackupRestoreCase{
+		Entry("Mongo application CSI", FlakeAttempts(flakeAttempts), BackupRestoreCase{
 			ApplicationTemplate:  "./sample-applications/mongo-persistent/mongo-persistent-csi.yaml",
 			ApplicationNamespace: "mongo-persistent",
 			Name:                 "mongo-csi-e2e",
@@ -280,15 +304,16 @@ var _ = Describe("Backup and restore tests", func() {
 			PreBackupVerify:      mongoready(true, false, CSI),
 			PostRestoreVerify:    mongoready(false, false, CSI),
 		}, nil),
-		Entry("MySQL application two Vol CSI", BackupRestoreCase{
+		Entry("MySQL application two Vol CSI", FlakeAttempts(flakeAttempts), BackupRestoreCase{
 			ApplicationTemplate:  fmt.Sprintf("./sample-applications/mysql-persistent/mysql-persistent-twovol-csi.yaml"),
 			ApplicationNamespace: "mysql-persistent",
 			Name:                 "mysql-twovol-csi-e2e",
 			BackupRestoreType:    CSI,
+			AppReadyDelay:        30 * time.Second,
 			PreBackupVerify:      mysqlReady(true, true, CSI),
 			PostRestoreVerify:    mysqlReady(false, true, CSI),
 		}, nil),
-		Entry("Mongo application RESTIC", BackupRestoreCase{
+		Entry("Mongo application RESTIC", FlakeAttempts(flakeAttempts), BackupRestoreCase{
 			ApplicationTemplate:  "./sample-applications/mongo-persistent/mongo-persistent.yaml",
 			ApplicationNamespace: "mongo-persistent",
 			Name:                 "mongo-restic-e2e",
@@ -296,7 +321,7 @@ var _ = Describe("Backup and restore tests", func() {
 			PreBackupVerify:      mongoready(true, false, RESTIC),
 			PostRestoreVerify:    mongoready(false, false, RESTIC),
 		}, nil),
-		Entry("MySQL application RESTIC", BackupRestoreCase{
+		Entry("MySQL application RESTIC", FlakeAttempts(flakeAttempts), BackupRestoreCase{
 			ApplicationTemplate:  "./sample-applications/mysql-persistent/mysql-persistent.yaml",
 			ApplicationNamespace: "mysql-persistent",
 			Name:                 "mysql-restic-e2e",
@@ -304,7 +329,7 @@ var _ = Describe("Backup and restore tests", func() {
 			PreBackupVerify:      mysqlReady(true, false, RESTIC),
 			PostRestoreVerify:    mysqlReady(false, false, RESTIC),
 		}, nil),
-		Entry("Mongo application KOPIA", BackupRestoreCase{
+		Entry("Mongo application KOPIA", FlakeAttempts(flakeAttempts), BackupRestoreCase{
 			ApplicationTemplate:  "./sample-applications/mongo-persistent/mongo-persistent.yaml",
 			ApplicationNamespace: "mongo-persistent",
 			Name:                 "mongo-kopia-e2e",
@@ -312,7 +337,7 @@ var _ = Describe("Backup and restore tests", func() {
 			PreBackupVerify:      mongoready(true, false, KOPIA),
 			PostRestoreVerify:    mongoready(false, false, KOPIA),
 		}, nil),
-		Entry("MySQL application KOPIA", BackupRestoreCase{
+		Entry("MySQL application KOPIA", FlakeAttempts(flakeAttempts), BackupRestoreCase{
 			ApplicationTemplate:  "./sample-applications/mysql-persistent/mysql-persistent.yaml",
 			ApplicationNamespace: "mysql-persistent",
 			Name:                 "mysql-kopia-e2e",
@@ -320,7 +345,7 @@ var _ = Describe("Backup and restore tests", func() {
 			PreBackupVerify:      mysqlReady(true, false, KOPIA),
 			PostRestoreVerify:    mysqlReady(false, false, KOPIA),
 		}, nil),
-		Entry("Mongo application DATAMOVER", BackupRestoreCase{
+		Entry("Mongo application DATAMOVER", FlakeAttempts(flakeAttempts), BackupRestoreCase{
 			ApplicationTemplate:  "./sample-applications/mongo-persistent/mongo-persistent-csi.yaml",
 			ApplicationNamespace: "mongo-persistent",
 			Name:                 "mongo-datamover-e2e",
@@ -328,7 +353,7 @@ var _ = Describe("Backup and restore tests", func() {
 			PreBackupVerify:      mongoready(true, false, CSIDataMover),
 			PostRestoreVerify:    mongoready(false, false, CSIDataMover),
 		}, nil),
-		Entry("MySQL application DATAMOVER", BackupRestoreCase{
+		Entry("MySQL application DATAMOVER", FlakeAttempts(flakeAttempts), BackupRestoreCase{
 			ApplicationTemplate:  "./sample-applications/mysql-persistent/mysql-persistent-csi.yaml",
 			ApplicationNamespace: "mysql-persistent",
 			Name:                 "mysql-datamover-e2e",
@@ -336,7 +361,7 @@ var _ = Describe("Backup and restore tests", func() {
 			PreBackupVerify:      mysqlReady(true, false, CSIDataMover),
 			PostRestoreVerify:    mysqlReady(false, false, CSIDataMover),
 		}, nil),
-		Entry("Mongo application BlockDevice DATAMOVER", BackupRestoreCase{
+		Entry("Mongo application BlockDevice DATAMOVER", FlakeAttempts(flakeAttempts), BackupRestoreCase{
 			ApplicationTemplate:  "./sample-applications/mongo-persistent/mongo-persistent-block.yaml",
 			PvcSuffixName:        "-block-mode",
 			ApplicationNamespace: "mongo-persistent",
