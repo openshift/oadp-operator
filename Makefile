@@ -149,9 +149,6 @@ manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and Cust
 	# Commenting out default which overwrites scoped config/rbac/role.yaml
 	# GOFLAGS="-mod=mod" $(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 	GOFLAGS="-mod=mod" $(CONTROLLER_GEN) $(CRD_OPTIONS) webhook paths="./..." output:crd:artifacts:config=config/crd/bases
-	# run make nullables to generate nullable fields after all manifest changesin dependent targets.
-	# It's not included here because `test` and `bundle` target have different yaml styes.
-	# To keep dpa CRD the same, nullables have been added to test and bundle target separately.
 
 generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
 	GOFLAGS="-mod=mod" $(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
@@ -291,11 +288,6 @@ rm -rf $$TMP_DIR ;\
 }
 endef
 
-YQ = $(shell pwd)/bin/yq
-yq: ## Download yq locally if necessary.
-	# 4.28.1 is latest with go 1.17 go.mod
-	$(call go-install-tool,$(YQ),github.com/mikefarah/yq/v4@v4.28.1)
-
 OPERATOR_SDK = $(shell pwd)/bin/operator-sdk
 operator-sdk:
 	# Download operator-sdk locally if does not exist
@@ -310,50 +302,10 @@ bundle: manifests kustomize operator-sdk ## Generate bundle manifests and metada
 	GOFLAGS="-mod=mod" $(OPERATOR_SDK) generate kustomize manifests -q
 	cd config/manager && GOFLAGS="-mod=mod" $(KUSTOMIZE) edit set image controller=$(IMG)
 	GOFLAGS="-mod=mod" $(KUSTOMIZE) build config/manifests | GOFLAGS="-mod=mod" $(OPERATOR_SDK) generate bundle -q --extra-service-accounts "velero" --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
-	@make nullables
 	# Copy updated bundle.Dockerfile to CI's Dockerfile.bundle
 	# TODO: update CI to use generated one
 	cp bundle.Dockerfile build/Dockerfile.bundle
 	GOFLAGS="-mod=mod" $(OPERATOR_SDK) bundle validate ./bundle
-
-.PHONY: nullables
-nullables:
-	@make nullable-crds-bundle nullable-crds-config # patch nullables in CRDs
-
-.PHONY: nullable-crds-bundle
-nullable-crds-bundle: DPA_SPEC_CONFIG_PROP = .spec.versions.0.schema.openAPIV3Schema.properties.spec.properties.configuration.properties
-nullable-crds-bundle: PROP_RESOURCE_ALLOC = properties.podConfig.properties.resourceAllocations
-nullable-crds-bundle: VELERO_RESOURCE_ALLOC = $(DPA_SPEC_CONFIG_PROP).velero.$(PROP_RESOURCE_ALLOC)
-nullable-crds-bundle: RESTIC_RESOURCE_ALLOC = $(DPA_SPEC_CONFIG_PROP).restic.$(PROP_RESOURCE_ALLOC)
-nullable-crds-bundle: DPA_CRD_YAML ?= bundle/manifests/oadp.openshift.io_dataprotectionapplications.yaml
-nullable-crds-bundle: yq
-# Velero CRD
-	@$(YQ) '$(VELERO_RESOURCE_ALLOC).nullable = true' $(DPA_CRD_YAML) > $(DPA_CRD_YAML).yqresult
-	@mv $(DPA_CRD_YAML).yqresult $(DPA_CRD_YAML)
-	@$(YQ) '$(VELERO_RESOURCE_ALLOC).properties.limits.nullable = true' $(DPA_CRD_YAML) > $(DPA_CRD_YAML).yqresult
-	@mv $(DPA_CRD_YAML).yqresult $(DPA_CRD_YAML)
-	@$(YQ) '$(VELERO_RESOURCE_ALLOC).properties.limits.additionalProperties.nullable = true' $(DPA_CRD_YAML) > $(DPA_CRD_YAML).yqresult
-	@mv $(DPA_CRD_YAML).yqresult $(DPA_CRD_YAML)
-	@$(YQ) '$(VELERO_RESOURCE_ALLOC).properties.requests.nullable = true' $(DPA_CRD_YAML) > $(DPA_CRD_YAML).yqresult
-	@mv $(DPA_CRD_YAML).yqresult $(DPA_CRD_YAML)
-	@$(YQ) '$(VELERO_RESOURCE_ALLOC).properties.requests.additionalProperties.nullable = true' $(DPA_CRD_YAML) > $(DPA_CRD_YAML).yqresult
-	@mv $(DPA_CRD_YAML).yqresult $(DPA_CRD_YAML)
-# Restic CRD
-	@$(YQ) '$(RESTIC_RESOURCE_ALLOC).nullable = true' $(DPA_CRD_YAML) > $(DPA_CRD_YAML).yqresult
-	@mv $(DPA_CRD_YAML).yqresult $(DPA_CRD_YAML)
-	@$(YQ) '$(RESTIC_RESOURCE_ALLOC).properties.limits.nullable = true' $(DPA_CRD_YAML) > $(DPA_CRD_YAML).yqresult
-	@mv $(DPA_CRD_YAML).yqresult $(DPA_CRD_YAML)
-	@$(YQ) '$(RESTIC_RESOURCE_ALLOC).properties.limits.additionalProperties.nullable = true' $(DPA_CRD_YAML) > $(DPA_CRD_YAML).yqresult
-	@mv $(DPA_CRD_YAML).yqresult $(DPA_CRD_YAML)
-	@$(YQ) '$(RESTIC_RESOURCE_ALLOC).properties.requests.nullable = true' $(DPA_CRD_YAML) > $(DPA_CRD_YAML).yqresult
-	@mv $(DPA_CRD_YAML).yqresult $(DPA_CRD_YAML)
-	@$(YQ) '$(RESTIC_RESOURCE_ALLOC).properties.requests.additionalProperties.nullable = true' $(DPA_CRD_YAML) > $(DPA_CRD_YAML).yqresult
-	@mv $(DPA_CRD_YAML).yqresult $(DPA_CRD_YAML)
-
-.PHONY: nullable-crds-config
-nullable-crds-config: DPA_CRD_YAML ?= config/crd/bases/oadp.openshift.io_dataprotectionapplications.yaml
-nullable-crds-config:
-	@ DPA_CRD_YAML=$(DPA_CRD_YAML) make nullable-crds-bundle
 
 .PHONY: bundle-build
 bundle-build: ## Build the bundle image.

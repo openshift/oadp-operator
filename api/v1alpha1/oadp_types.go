@@ -101,6 +101,22 @@ type VeleroConfig struct {
 	Args *server.Args `json:"args,omitempty"`
 }
 
+// Copy of corev1.ResourceRequirements with nullable
+type OADPResourceRequirements struct {
+	// Limits describes the maximum amount of compute resources allowed.
+	// More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+	// +optional
+	// +nullable
+	Limits corev1.ResourceList `json:"limits,omitempty" protobuf:"bytes,1,rep,name=limits,casttype=ResourceList,castkey=ResourceName"`
+	// Requests describes the minimum amount of compute resources required.
+	// If Requests is omitted for a container, it defaults to Limits if that is explicitly specified,
+	// otherwise to an implementation-defined value.
+	// More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+	// +optional
+	// +nullable
+	Requests corev1.ResourceList `json:"requests,omitempty" protobuf:"bytes,2,rep,name=requests,casttype=ResourceList,castkey=ResourceName"`
+}
+
 // PodConfig defines the pod configuration options
 type PodConfig struct {
 	// labels to add to pods
@@ -115,7 +131,7 @@ type PodConfig struct {
 	// resourceAllocations defines the CPU and Memory resource allocations for the Pod
 	// +optional
 	// +nullable
-	ResourceAllocations corev1.ResourceRequirements `json:"resourceAllocations,omitempty"`
+	ResourceAllocations OADPResourceRequirements `json:"resourceAllocations,omitempty"`
 	// env defines the list of environment variables to be supplied to podSpec
 	// +optional
 	Env []corev1.EnvVar `json:"env,omitempty"`

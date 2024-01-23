@@ -15,7 +15,7 @@ require (
 	github.com/operator-framework/operator-lib v0.9.0
 	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.51.2
 	github.com/sirupsen/logrus v1.9.0
-	k8s.io/api v0.25.6
+	k8s.io/api v0.25.6 // must update OADPResourceRequirements in api/v1alpha1/oadp_types.go when package updates
 	k8s.io/apiextensions-apiserver v0.24.2
 	k8s.io/apimachinery v0.25.6
 	k8s.io/client-go v0.25.6
