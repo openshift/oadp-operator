@@ -70,7 +70,7 @@ items:
           # Used to format the block device (put filesystem on it).
           # This allows Mongo to use the filesystem which lives on block device.
           initContainers:
-            - image: mongo:latest
+            - image: docker.io/library/mongo:latest
               securityContext:
                 privileged: true
               name: setup-block-device
@@ -100,7 +100,7 @@ items:
                 - name: block-volume-pv
                   devicePath: /dev/xvdx
           containers:
-            - image: mongo:latest
+            - image: docker.io/library/mongo:latest
               name: mongo
               securityContext:
                 privileged: true
