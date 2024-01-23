@@ -284,7 +284,7 @@ func (r *DPAReconciler) validateAWSBackupStorageLocation(bslSpec velerov1.Backup
 		return fmt.Errorf("prefix for AWS backupstoragelocation object storage cannot be empty. It is required for backing up images")
 	}
 	// BSL region is required when s3ForcePathStyle is true AND BackupImages is true
-	if (bslSpec.Config == nil || len(bslSpec.Config[Region]) == 0 && bslSpec.Config[S3ForcePathStyle] == "true") && dpa.BackupImages() {
+	if (bslSpec.Config == nil || len(bslSpec.Config[Region]) == 0 || (len(bslSpec.Config[Region]) == 0 && bslSpec.Config[S3ForcePathStyle] == "true")) && dpa.BackupImages() {
 		return fmt.Errorf("region for AWS backupstoragelocation cannot be empty when s3ForcePathStyle is true or when backing up images")
 	}
 
