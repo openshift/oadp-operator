@@ -362,13 +362,15 @@ func (r *DPAReconciler) customizeVeleroDeployment(dpa *oadpv1alpha1.DataProtecti
 	}
 
 	// check for default-snapshot-move-data parameter
-	if len(getSnapshotMoveDataValue(dpa)) > 0 {
-		veleroContainer.Args = append(veleroContainer.Args, fmt.Sprintf("--snapshot-move-data=%s", getSnapshotMoveDataValue(dpa)))
+	snapshotMoveData := getSnapshotMoveDataValue(dpa)
+	if len(snapshotMoveData) > 0 {
+		veleroContainer.Args = append(veleroContainer.Args, fmt.Sprintf("--snapshot-move-data=%s", snapshotMoveData))
 	}
 
 	// check for default-volumes-to-fs-backup
-	if len(getDefaultVolumesToFSBackup(dpa)) > 0 {
-		veleroContainer.Args = append(veleroContainer.Args, fmt.Sprintf("--default-volumes-to-fs-backup=%s", getDefaultVolumesToFSBackup(dpa)))
+	defaultVolumesToFSBackup := getDefaultVolumesToFSBackup(dpa)
+	if len(defaultVolumesToFSBackup) > 0 {
+		veleroContainer.Args = append(veleroContainer.Args, fmt.Sprintf("--default-volumes-to-fs-backup=%s", defaultVolumesToFSBackup))
 	}
 
 	// Set defaults to avoid update events
