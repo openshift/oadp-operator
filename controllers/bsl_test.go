@@ -1175,7 +1175,7 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "BSL without config section for aws provider and default backupImages is true behaviour",
+			name: "BSL without config section for aws provider and default backupImages is true behavior",
 			dpa: &oadpv1alpha1.DataProtectionApplication{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "foo",
@@ -1211,7 +1211,7 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "BSL with config section having only profile and s3ForcePathStyle is true for aws provider and default backup images is true behaviour",
+			name: "BSL with config section having only profile and s3ForcePathStyle is true for aws provider and default backup images is true behavior",
 			dpa: &oadpv1alpha1.DataProtectionApplication{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "foo",
@@ -1251,7 +1251,7 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "BSL with config section having only profile and default backup images is true behaviour",
+			name: "BSL with config section having only profile and default backup images is true behavior",
 			dpa: &oadpv1alpha1.DataProtectionApplication{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "foo",
