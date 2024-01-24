@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"fmt"
+	"github.com/vmware-tanzu/velero/pkg/util/boolptr"
 	"os"
 	"reflect"
 	"strconv"
@@ -42,6 +43,9 @@ const (
 	VeleroReplicaOverride = "VELERO_DEBUG_REPLICAS_OVERRIDE"
 
 	defaultFsBackupTimeout = "1h"
+
+	TrueVal  = "true"
+	FalseVal = "false"
 )
 
 var (
@@ -357,6 +361,16 @@ func (r *DPAReconciler) customizeVeleroDeployment(dpa *oadpv1alpha1.DataProtecti
 		veleroContainer.Args = append(veleroContainer.Args, fmt.Sprintf("--resource-timeout=%v", resourceTimeoutString))
 	}
 
+	// check for default-snapshot-move-data parameter
+	if len(getSnapshotMoveDataValue(dpa)) > 0 {
+		veleroContainer.Args = append(veleroContainer.Args, fmt.Sprintf("--snapshot-move-data=%s", getSnapshotMoveDataValue(dpa)))
+	}
+
+	// check for default-volumes-to-fs-backup
+	if len(getDefaultVolumesToFSBackup(dpa)) > 0 {
+		veleroContainer.Args = append(veleroContainer.Args, fmt.Sprintf("--default-volumes-to-fs-backup=%s", getDefaultVolumesToFSBackup(dpa)))
+	}
+
 	// Set defaults to avoid update events
 	if veleroDeployment.Spec.Strategy.Type == "" {
 		veleroDeployment.Spec.Strategy.Type = appsv1.RollingUpdateDeploymentStrategyType
@@ -445,6 +459,30 @@ func getFsBackupTimeout(dpa *oadpv1alpha1.DataProtectionApplication) string {
 		return dpa.Spec.Configuration.NodeAgent.Timeout
 	}
 	return defaultFsBackupTimeout
+}
+
+func getSnapshotMoveDataValue(dpa *oadpv1alpha1.DataProtectionApplication) string {
+	if dpa.Spec.Configuration.Velero != nil && boolptr.IsSetToTrue(dpa.Spec.Configuration.Velero.SnapshotMoveData) {
+		return TrueVal
+	}
+
+	if dpa.Spec.Configuration.Velero != nil && boolptr.IsSetToFalse(dpa.Spec.Configuration.Velero.SnapshotMoveData) {
+		return FalseVal
+	}
+
+	return ""
+}
+
+func getDefaultVolumesToFSBackup(dpa *oadpv1alpha1.DataProtectionApplication) string {
+	if dpa.Spec.Configuration.Velero != nil && boolptr.IsSetToTrue(dpa.Spec.Configuration.Velero.DefaultVolumesToFSBackup) {
+		return TrueVal
+	}
+
+	if dpa.Spec.Configuration.Velero != nil && boolptr.IsSetToFalse(dpa.Spec.Configuration.Velero.DefaultVolumesToFSBackup) {
+		return FalseVal
+	}
+
+	return ""
 }
 
 func (r *DPAReconciler) isSTSTokenNeeded(bsls []oadpv1alpha1.BackupLocation, ns string) bool {
