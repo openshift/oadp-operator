@@ -619,6 +619,16 @@ func (in *VeleroConfig) DeepCopyInto(out *VeleroConfig) {
 		*out = new(PodConfig)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.DefaultVolumesToFSBackup != nil {
+		in, out := &in.DefaultVolumesToFSBackup, &out.DefaultVolumesToFSBackup
+		*out = new(bool)
+		**out = **in
+	}
+	if in.SnapshotMoveData != nil {
+		in, out := &in.SnapshotMoveData, &out.SnapshotMoveData
+		*out = new(bool)
+		**out = **in
+	}
 	if in.Args != nil {
 		in, out := &in.Args, &out.Args
 		*out = new(server.Args)
