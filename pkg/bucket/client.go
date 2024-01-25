@@ -57,8 +57,8 @@ func getCredentialFromCloudStorageSecret(a client.Client, cloudStorage v1alpha1.
 		if err != nil {
 			return "", err
 		}
-
-		if common.CCOWorkflow() {
+		CCO, _ := common.CCOWorkflow()
+		if CCO {
 			filename, err = SharedCredentialsFileFromSecret(secret)
 			if err != nil {
 				return "", err

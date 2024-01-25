@@ -184,15 +184,26 @@ func AppendTTMapAsCopy[T comparable](add ...map[T]T) map[T]T {
 	return base
 }
 
-// CCOWorkflow checks if the AWS STS secret is to be obtained from Cloud Credentials Operator (CCO)
+// CCOWorkflow checks if the AWS STS/Azure Identity secret is to be obtained from Cloud Credentials Operator (CCO)
 // if the user provides role ARN during installation then the ARN gets set as env var on operator deployment
 // during installation via OLM
-func CCOWorkflow() bool {
+// for Azure identity the user needs to provide clientID, tenantID and subscriptionID
+func CCOWorkflow() (CCO bool, provider string) {
+	// AWS STS case
 	roleARN := os.Getenv("ROLEARN")
 	if len(roleARN) > 0 {
-		return true
+		return true, "aws"
 	}
-	return false
+
+	//Azure Identity case
+	clientID := os.Getenv("CLIENTID")
+	tenantID := os.Getenv("TENANTID")
+	subscriptionID := os.Getenv("SUBSCRIPTIONID")
+	if len(clientID) > 0 && len(tenantID) > 0 && len(subscriptionID) > 0 {
+		return true, "azure"
+	}
+
+	return false, ""
 }
 
 // StripDefaultPorts removes port 80 from HTTP URLs and 443 from HTTPS URLs.
