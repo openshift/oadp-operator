@@ -28,6 +28,9 @@ var _ = Describe("Backup and restore tests with must-gather", func() {
 
 	DescribeTable("Backup and restore applications and run must-gather",
 		func(brCase BackupRestoreCase, expectedErr error) {
+			if CurrentSpecReport().NumAttempts > 1 && !knownFlake {
+				Fail("No known FLAKE found in a previous run, marking test as failed.")
+			}
 			runBackupAndRestore(brCase, expectedErr, updateLastBRcase, updateLastInstallTime)
 
 			// TODO look for duplications in tearDownBackupAndRestore
@@ -71,7 +74,7 @@ var _ = Describe("Backup and restore tests with must-gather", func() {
 				Expect(err).ToNot(HaveOccurred())
 			}
 		},
-		Entry("Mongo application DATAMOVER", BackupRestoreCase{
+		Entry("Mongo application DATAMOVER", FlakeAttempts(flakeAttempts), BackupRestoreCase{
 			ApplicationTemplate:  "./sample-applications/mongo-persistent/mongo-persistent-csi.yaml",
 			ApplicationNamespace: "mongo-persistent",
 			Name:                 "mongo-datamover-e2e",

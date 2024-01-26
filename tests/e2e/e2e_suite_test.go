@@ -5,6 +5,7 @@ import (
 	"flag"
 	"log"
 	"os"
+	"strconv"
 	"testing"
 	"time"
 
@@ -21,7 +22,7 @@ import (
 
 // Common vars obtained from flags passed in ginkgo.
 var bslCredFile, namespace, credSecretRef, instanceName, provider, vslCredFile, settings, artifact_dir, oc_cli, stream string
-var timeoutMultiplierInput int64
+var timeoutMultiplierInput, flakeAttempts int64
 var timeoutMultiplier time.Duration
 
 func init() {
@@ -39,6 +40,7 @@ func init() {
 	flag.StringVar(&stream, "stream", "up", "[up, down] upstream or downstream")
 	flag.Int64Var(&timeoutMultiplierInput, "timeout_multiplier", 1, "Customize timeout multiplier from default (1)")
 	timeoutMultiplier = time.Duration(timeoutMultiplierInput)
+	flag.Int64Var(&flakeAttempts, "flakeAttempts", 3, "Customize the number of flake retries (3)")
 
 	// helps with launching debug sessions from IDE
 	if os.Getenv("E2E_USE_ENV_FLAGS") == "true" {
@@ -74,6 +76,15 @@ func init() {
 		if os.Getenv("OC_CLI") != "" {
 			oc_cli = os.Getenv("OC_CLI")
 		}
+		if envValue := os.Getenv("FLAKE_ATTEMPTS"); envValue != "" {
+			// Parse the environment variable as int64
+			parsedValue, err := strconv.ParseInt(envValue, 10, 64)
+			if err != nil {
+				log.Println("Error parsing FLAKE_ATTEMPTS, default flake number will be used:", err)
+			} else {
+				flakeAttempts = parsedValue
+			}
+		}
 	}
 }
 
@@ -93,6 +104,8 @@ var runTimeClientForSuiteRun client.Client
 var veleroClientForSuiteRun veleroClientset.Interface
 var csiClientForSuiteRun *snapshotv1client.Clientset
 var dpaCR *DpaCustomResource
+var knownFlake bool
+var accumulatedTestLogs []string
 
 var _ = BeforeSuite(func() {
 	// TODO create logger (hh:mm:ss message) to be used by all functions

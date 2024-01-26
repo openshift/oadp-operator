@@ -95,6 +95,30 @@ items:
             volumeMounts:
             - name: mysql-data
               mountPath: /var/lib/mysql
+            livenessProbe:
+              tcpSocket:
+                port: mysql
+              initialDelaySeconds: 30
+              periodSeconds: 10
+              timeoutSeconds: 5
+            startupProbe:
+              exec:
+                command:
+                - /usr/bin/timeout
+                - 1s
+                - /usr/bin/mysql
+                - $(MYSQL_DATABASE)
+                - -h
+                - 127.0.0.1
+                - -u$(MYSQL_USER)
+                - -p$(MYSQL_PASSWORD)
+                - -e EXIT
+              initialDelaySeconds: 5
+              periodSeconds: 30
+              timeoutSeconds: 2
+              successThreshold: 1
+              failureThreshold: 40 # 40x30sec before restart pod
+            restartPolicy: Always
           volumes:
           - name: mysql-data
             persistentVolumeClaim:
