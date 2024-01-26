@@ -11,20 +11,16 @@ namespaces=("$@")
 resources=()
 
 # OADP
-for i in $(/usr/bin/oc get crd | grep oadp.openshift.io | awk '{print $1}'); do
-  resources+=($i)
-done
+resources+=($(/usr/bin/oc get crd | awk '/oadp.openshift.io/{print $1}'))
 
 # Velero
-for i in $(/usr/bin/oc get crd | grep velero.io | awk '{print $1}'); do
-  resources+=($i)
-done
+resources+=($(/usr/bin/oc get crd | awk '/velero.io/{print $1}'))
 
 echo "Starting collection of: [${resources[@]}]"
 
 # we use nested loops to nicely output objects partitioned per namespace, kind
 for resource in ${resources[@]}; do
-  /usr/bin/oc get ${resource} --all-namespaces -o custom-columns=NAMESPACE:.metadata.namespace --no-headers 2> /dev/null | \
+  /usr/bin/oc get ${resource} --all-namespaces -o custom-columns=NAMESPACE:.metadata.namespace --no-headers 2> /dev/null | uniq | \
   while read namespace; do
     resource_name=$(echo $resource | cut -d "." -f 1)
     echo "Collecting ${resource_name} in ${namespace} namespace"
