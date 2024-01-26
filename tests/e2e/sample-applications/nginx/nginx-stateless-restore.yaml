@@ -1,7 +1,0 @@
-apiVersion: velero.io/v1
-kind: Restore
-metadata:
-  name: nginx-stateless
-  namespace: openshift-adp
-spec:
-  backupName: nginx-stateless
