@@ -139,9 +139,6 @@ var _ = ginkgov2.Describe("VM backup and restore tests", ginkgov2.Ordered, func(
 				Name:              "cirros-vm",
 				SkipVerifyLogs:    true,
 				BackupRestoreType: lib.CSIDataMover,
-				ReadyDelay:        1 * time.Minute,
-				SnapshotVolumes:   true,
-				RestorePVs:        true,
 			},
 		}, nil),
 	)
