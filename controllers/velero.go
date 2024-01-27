@@ -373,6 +373,10 @@ func (r *DPAReconciler) customizeVeleroDeployment(dpa *oadpv1alpha1.DataProtecti
 		veleroContainer.Args = append(veleroContainer.Args, fmt.Sprintf("--default-volumes-to-fs-backup=%s", defaultVolumesToFSBackup))
 	}
 
+	// check for disable-informer-cache flag
+	disableInformerCache := disableInformerCacheValue(dpa)
+	veleroContainer.Args = append(veleroContainer.Args, fmt.Sprintf("--disable-informer-cache=%s", disableInformerCache))
+
 	// Set defaults to avoid update events
 	if veleroDeployment.Spec.Strategy.Type == "" {
 		veleroDeployment.Spec.Strategy.Type = appsv1.RollingUpdateDeploymentStrategyType
@@ -485,6 +489,13 @@ func getDefaultVolumesToFSBackup(dpa *oadpv1alpha1.DataProtectionApplication) st
 	}
 
 	return ""
+}
+
+func disableInformerCacheValue(dpa *oadpv1alpha1.DataProtectionApplication) string {
+	if dpa.DisableInformerCache() {
+		return TrueVal
+	}
+	return FalseVal
 }
 
 func (r *DPAReconciler) isSTSTokenNeeded(bsls []oadpv1alpha1.BackupLocation, ns string) bool {

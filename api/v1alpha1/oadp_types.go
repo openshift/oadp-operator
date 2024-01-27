@@ -98,6 +98,9 @@ type VeleroConfig struct {
 	// Specify whether CSI snapshot data should be moved to backup storage by default
 	// +optional
 	SnapshotMoveData *bool `json:"snapshotMoveData,omitempty"`
+	// Disable informer cache for Get calls on restore. With this enabled, it will speed up restore in cases where there are backup resources which already exist in the cluster, but for very large clusters this will increase velero memory usage. Default is false.
+	// +optional
+	DisableInformerCache *bool `json:"disableInformerCache,omitempty"`
 	// resourceTimeout defines how long to wait for several Velero resources before timeout occurs,
 	// such as Velero CRD availability, volumeSnapshot deletion, and repo availability.
 	// Default is 10m
@@ -396,6 +399,14 @@ type DataProtectionApplicationList struct {
 // Default BackupImages behavior when nil to true
 func (dpa *DataProtectionApplication) BackupImages() bool {
 	return dpa.Spec.BackupImages == nil || *dpa.Spec.BackupImages
+}
+
+// Default DisableInformerCache behavior when nil to false
+func (dpa *DataProtectionApplication) DisableInformerCache() bool {
+	if dpa.Spec.Configuration.Velero.DisableInformerCache == nil {
+		return false
+	}
+	return *dpa.Spec.Configuration.Velero.DisableInformerCache
 }
 
 func (veleroConfig *VeleroConfig) HasFeatureFlag(flag string) bool {
