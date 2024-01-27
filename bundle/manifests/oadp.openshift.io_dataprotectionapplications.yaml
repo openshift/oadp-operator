@@ -649,6 +649,9 @@ spec:
                         defaultVolumesToFSBackup:
                           description: Use pod volume file system backup by default for volumes
                           type: boolean
+                        disableInformerCache:
+                          description: Disable informer cache for Get calls on restore. With this enabled, it will speed up restore in cases where there are backup resources which already exist in the cluster, but for very large clusters this will increase velero memory usage. Default is false.
+                          type: boolean
                         featureFlags:
                           description: featureFlags defines the list of features to enable for Velero instance
                           items:
