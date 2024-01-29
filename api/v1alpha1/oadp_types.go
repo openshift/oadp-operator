@@ -402,7 +402,7 @@ func (dpa *DataProtectionApplication) BackupImages() bool {
 }
 
 // Default DisableInformerCache behavior when nil to false
-func (dpa *DataProtectionApplication) DisableInformerCache() bool {
+func (dpa *DataProtectionApplication) GetDisableInformerCache() bool {
 	if dpa.Spec.Configuration.Velero.DisableInformerCache == nil {
 		return false
 	}
