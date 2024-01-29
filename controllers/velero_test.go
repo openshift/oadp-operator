@@ -1454,7 +1454,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 										"--item-operation-sync-frequency=5m",
 										"--default-item-operation-timeout=2h",
 										"--default-volumes-to-fs-backup=false",
-										"--disable-informer-cache=false",
+										defaultDisableInformerCache,
 									},
 									VolumeMounts: []corev1.VolumeMount{
 										{
@@ -1818,7 +1818,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 										"--item-operation-sync-frequency=5m",
 										"--default-item-operation-timeout=2h",
 										"--default-volumes-to-fs-backup=false",
-										"--disable-informer-cache=false",
+										defaultDisableInformerCache,
 									},
 									VolumeMounts: []corev1.VolumeMount{
 										{

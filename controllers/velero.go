@@ -492,7 +492,7 @@ func getDefaultVolumesToFSBackup(dpa *oadpv1alpha1.DataProtectionApplication) st
 }
 
 func disableInformerCacheValue(dpa *oadpv1alpha1.DataProtectionApplication) string {
-	if dpa.DisableInformerCache() {
+	if dpa.GetDisableInformerCache() {
 		return TrueVal
 	}
 	return FalseVal
