@@ -17,11 +17,11 @@ import (
 
 func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 	tests := []struct {
-		name    string
-		dpa     *oadpv1alpha1.DataProtectionApplication
-		objects []client.Object
-		want    bool
-		wantErr bool
+		name       string
+		dpa        *oadpv1alpha1.DataProtectionApplication
+		objects    []client.Object
+		wantErr    bool
+		messageErr string
 	}{
 		{
 			name: "given valid DPA CR, no default backup location, no backup images, no error case",
@@ -44,7 +44,6 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 			},
 			objects: []client.Object{},
 			wantErr: false,
-			want:    true,
 		},
 		{
 			name: "given valid DPA CR, no default backup location, no backup images, MTC type override, no error case",
@@ -70,7 +69,6 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 			},
 			objects: []client.Object{},
 			wantErr: false,
-			want:    true,
 		},
 		{
 			name: "given valid DPA CR, no default backup location, no backup images, notMTC type override, error case",
@@ -94,9 +92,9 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 					},
 				},
 			},
-			objects: []client.Object{},
-			wantErr: true,
-			want:    false,
+			objects:    []client.Object{},
+			wantErr:    true,
+			messageErr: "only mtc operator type override is supported",
 		},
 		{
 			name: "given valid DPA CR, no default backup location, backup images cannot be nil, error case",
@@ -116,9 +114,9 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 					},
 				},
 			},
-			objects: []client.Object{},
-			wantErr: true,
-			want:    false,
+			objects:    []client.Object{},
+			wantErr:    true,
+			messageErr: "backupImages needs to be set to false when noDefaultBackupLocation is set",
 		},
 		{
 			name: "given valid DPA CR, no default backup location, backup images cannot be true, error case",
@@ -139,9 +137,9 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 					BackupImages: pointer.Bool(true),
 				},
 			},
-			objects: []client.Object{},
-			wantErr: true,
-			want:    false,
+			objects:    []client.Object{},
+			wantErr:    true,
+			messageErr: "backupImages needs to be set to false when noDefaultBackupLocation is set",
 		},
 		{
 			name: "given invalid DPA CR, velero configuration is nil, error case",
@@ -164,8 +162,8 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 					},
 				},
 			},
-			wantErr: true,
-			want:    false,
+			wantErr:    true,
+			messageErr: "no backupstoragelocations configured, ensure a backupstoragelocation has been configured or use the noDefaultBackupLocation flag",
 		},
 		{
 			name: "given valid DPA CR, no BSL configured and noDefaultBackupLocation flag is set, error case",
@@ -192,8 +190,8 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 					},
 				},
 			},
-			wantErr: true,
-			want:    false,
+			wantErr:    true,
+			messageErr: "no backupstoragelocations configured, ensure a backupstoragelocation has been configured or use the noDefaultBackupLocation flag",
 		},
 		{
 			name: "given valid DPA CR bucket BSL configured with creds and AWS Default Plugin",
@@ -239,7 +237,6 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 				},
 			},
 			wantErr: false,
-			want:    true,
 		},
 		{
 			name: "given valid DPA CR with valid velero resource requirements ",
@@ -292,7 +289,6 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 				},
 			},
 			wantErr: false,
-			want:    true,
 		},
 		{
 			name: "given valid DPA CR with valid restic resource requirements ",
@@ -356,7 +352,6 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 				},
 			},
 			wantErr: false,
-			want:    true,
 		},
 		{
 			name: "given valid DPA CR bucket BSL configured with creds and VSL and AWS Default Plugin with no secret",
@@ -402,9 +397,9 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 					BackupImages: pointer.Bool(false),
 				},
 			},
-			objects: []client.Object{},
-			wantErr: true,
-			want:    false,
+			objects:    []client.Object{},
+			wantErr:    true,
+			messageErr: "secrets \"testing\" not found",
 		},
 		{
 			name: "given valid DPA CR bucket BSL configured with creds and VSL and AWS Default Plugin with no secret, with no-secrets feature enabled",
@@ -453,7 +448,6 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 			},
 			objects: []client.Object{},
 			wantErr: false,
-			want:    true,
 		},
 		{
 			name: "given invalid DPA CR bucket BSL configured and AWS Default Plugin with no secret",
@@ -503,8 +497,8 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 					},
 				},
 			},
-			wantErr: true,
-			want:    false,
+			wantErr:    true,
+			messageErr: "secrets \"\" not found",
 		},
 		{
 			name: "given valid DPA CR bucket BSL configured and AWS Default Plugin with secret",
@@ -569,7 +563,6 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 				},
 			},
 			wantErr: false,
-			want:    true,
 		},
 		{
 			name: "given valid DPA CR BSL configured and GCP Default Plugin with secret",
@@ -618,7 +611,6 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 				},
 			},
 			wantErr: false,
-			want:    true,
 		},
 		{
 			name: "given valid DPA CR BSL configured and GCP Default Plugin without secret with no-secret feature flag",
@@ -655,7 +647,6 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 			},
 			objects: []client.Object{},
 			wantErr: false,
-			want:    true,
 		},
 		{
 			name: "should error: given valid DPA CR BSL configured and GCP Default Plugin without secret without no-secret feature flag",
@@ -687,9 +678,9 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 					},
 				},
 			},
-			objects: []client.Object{},
-			wantErr: true,
-			want:    false,
+			objects:    []client.Object{},
+			wantErr:    true,
+			messageErr: "secrets \"\" not found",
 		},
 		{
 			name: "given valid DPA CR VSL configured and GCP Default Plugin without secret",
@@ -715,9 +706,9 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 					},
 				},
 			},
-			objects: []client.Object{},
-			wantErr: true,
-			want:    false,
+			objects:    []client.Object{},
+			wantErr:    true,
+			messageErr: "no backupstoragelocations configured, ensure a backupstoragelocation has been configured or use the noDefaultBackupLocation flag",
 		},
 		{
 			name: "given valid DPA CR AWS Default Plugin with credentials",
@@ -770,7 +761,6 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 				},
 			},
 			wantErr: false,
-			want:    true,
 		},
 		{
 			name: "given valid DPA CR AWS Default Plugin with credentials and one without",
@@ -831,8 +821,8 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 					},
 				},
 			},
-			wantErr: true,
-			want:    false,
+			wantErr:    true,
+			messageErr: "Secret name Test is missing data for key Creds",
 		},
 		{
 			name: "given valid DPA CR AWS Default Plugin with credentials and a VSL, and default secret specified, passes",
@@ -892,7 +882,6 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 				},
 			},
 			wantErr: false,
-			want:    true,
 		},
 		{
 			name: "given valid DPA CR AWS Default Plugin with credentials and a VSL, and without secret in cluster, fails",
@@ -941,9 +930,9 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 					},
 				},
 			},
-			objects: []client.Object{},
-			wantErr: true,
-			want:    false,
+			objects:    []client.Object{},
+			wantErr:    true,
+			messageErr: "secrets \"cloud-credentials\" not found",
 		},
 		{
 			name: "given valid DPA CR AWS with VSL credentials referencing a non-existent secret",
@@ -1007,8 +996,8 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 					},
 				},
 			},
-			wantErr: true,
-			want:    false,
+			wantErr:    true,
+			messageErr: "Secret name cloud-credentials is missing data for key cloud",
 		},
 		{
 			name: "given valid DPA CR AWS with BSL and VSL credentials referencing a custom secret",
@@ -1081,7 +1070,6 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 				},
 			},
 			wantErr: false,
-			want:    true,
 		},
 		{
 			name: "If DPA CR has CloudStorageLocation without Prefix defined with backupImages enabled, error case",
@@ -1109,9 +1097,9 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 					BackupImages: pointer.Bool(true),
 				},
 			},
-			objects: []client.Object{},
-			wantErr: true,
-			want:    false,
+			objects:    []client.Object{},
+			wantErr:    true,
+			messageErr: "BackupLocation must have cloud storage prefix when backupImages is not set to false",
 		},
 		{
 			name: "If DPA CR has CloudStorageLocation with Prefix defined with backupImages enabled, no error case",
@@ -1162,7 +1150,6 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 				},
 			},
 			wantErr: false,
-			want:    true,
 		},
 		{
 			name: "given invalid DPA CR, BSL secret key name not match the secret key name, error case",
@@ -1213,8 +1200,8 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 					Data: map[string][]byte{"credentials": []byte("dummy_data")},
 				},
 			},
-			wantErr: true,
-			want:    false,
+			wantErr:    true,
+			messageErr: "Secret name cloud-credentials is missing data for key no-match-key",
 		},
 		{
 			name: "given invalid DPA CR, BSL secret is missing data, error case",
@@ -1265,8 +1252,8 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 					Data: map[string][]byte{"credentials": []byte("")},
 				},
 			},
-			wantErr: true,
-			want:    false,
+			wantErr:    true,
+			messageErr: "Secret name cloud-credentials is missing data for key credentials",
 		},
 		{
 			name: "given invalid DPA CR, BSL secret key is empty, error case",
@@ -1317,8 +1304,8 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 					Data: map[string][]byte{"credentials": []byte("dummy_data")},
 				},
 			},
-			wantErr: true,
-			want:    false,
+			wantErr:    true,
+			messageErr: "Secret key specified in BackupLocation  cannot be empty",
 		},
 		{
 			name: "given invalid DPA CR, BSL secret name is empty, error case",
@@ -1369,8 +1356,8 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 					Data: map[string][]byte{"credentials": []byte("dummy_data")},
 				},
 			},
-			wantErr: true,
-			want:    false,
+			wantErr:    true,
+			messageErr: "Secret name specified in BackupLocation  cannot be empty",
 		},
 	}
 	for _, tt := range tests {
@@ -1392,12 +1379,16 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 		}
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := r.ValidateDataProtectionCR(r.Log)
-			if (err != nil) != tt.wantErr {
+			if err != nil && !tt.wantErr {
 				t.Errorf("ValidateDataProtectionCR() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if got != tt.want {
-				t.Errorf("ValidateDataProtectionCR() got = %v, want %v", got, tt.want)
+			if tt.wantErr && err.Error() != tt.messageErr {
+				t.Errorf("Error messages are not the same: got %v, expected %v", err.Error(), tt.messageErr)
+				return
+			}
+			if got != !tt.wantErr {
+				t.Errorf("ValidateDataProtectionCR() got = %v, want %v", got, !tt.wantErr)
 			}
 		})
 	}
