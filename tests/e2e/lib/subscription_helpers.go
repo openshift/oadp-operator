@@ -15,18 +15,16 @@ type Subscription struct {
 	*operators.Subscription
 }
 
-func (d *DpaCustomResource) GetOperatorSubscription(c client.Client, stream string) (*Subscription, error) {
-	err := d.SetClient(c)
-	if err != nil {
-		return nil, err
-	}
+type StreamSource string
+
+const (
+	UPSTREAM   StreamSource = "up"
+	DOWNSTREAM StreamSource = "down"
+)
+
+func getOperatorSubscription(c client.Client, namespace, label string) (*Subscription, error) {
 	sl := operators.SubscriptionList{}
-	if stream == "up" {
-		err = d.Client.List(context.Background(), &sl, client.InNamespace(d.Namespace), client.MatchingLabels(map[string]string{"operators.coreos.com/oadp-operator." + d.Namespace: ""}))
-	}
-	if stream == "down" {
-		err = d.Client.List(context.Background(), &sl, client.InNamespace(d.Namespace), client.MatchingLabels(map[string]string{"operators.coreos.com/redhat-oadp-operator." + d.Namespace: ""}))
-	}
+	err := c.List(context.Background(), &sl, client.InNamespace(namespace), client.MatchingLabels(map[string]string{label: ""}))
 	if err != nil {
 		return nil, err
 	}
@@ -37,6 +35,27 @@ func (d *DpaCustomResource) GetOperatorSubscription(c client.Client, stream stri
 		return nil, errors.New("more than one subscription found")
 	}
 	return &Subscription{&sl.Items[0]}, nil
+}
+
+func (d *DpaCustomResource) GetOperatorSubscription(c client.Client, stream StreamSource) (*Subscription, error) {
+	err := d.SetClient(c)
+	if err != nil {
+		return nil, err
+	}
+
+	label := ""
+	if stream == UPSTREAM {
+		label = "operators.coreos.com/oadp-operator." + d.Namespace
+	}
+	if stream == DOWNSTREAM {
+		label = "operators.coreos.com/redhat-oadp-operator." + d.Namespace
+	}
+	return getOperatorSubscription(c, d.Namespace, label)
+}
+
+func (v *VirtOperator) getOperatorSubscription() (*Subscription, error) {
+	label := "operators.coreos.com/kubevirt-hyperconverged.openshift-cnv"
+	return getOperatorSubscription(v.Client, v.Namespace, label)
 }
 
 func (s *Subscription) Refresh(c client.Client) error {
@@ -96,4 +115,16 @@ func (s *Subscription) CreateOrUpdate(c client.Client) error {
 		return err
 	}
 	return c.Update(context.Background(), s.Subscription)
+}
+
+func (s *Subscription) Delete(c client.Client) error {
+	var currentSubscription operators.Subscription
+	err := c.Get(context.Background(), types.NamespacedName{Namespace: s.Namespace, Name: s.Name}, &currentSubscription)
+	if apierrors.IsNotFound(err) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	return c.Delete(context.Background(), s.Subscription)
 }

@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -15,6 +16,7 @@ import (
 	. "github.com/openshift/oadp-operator/tests/e2e/lib"
 	"github.com/openshift/oadp-operator/tests/e2e/utils"
 	veleroClientset "github.com/vmware-tanzu/velero/pkg/generated/clientset/versioned"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
@@ -24,6 +26,7 @@ import (
 var bslCredFile, namespace, credSecretRef, instanceName, provider, vslCredFile, settings, artifact_dir, oc_cli, stream string
 var timeoutMultiplierInput, flakeAttempts int64
 var timeoutMultiplier time.Duration
+var virtTestingEnabled bool
 
 func init() {
 	// TODO better descriptions to flags
@@ -39,6 +42,7 @@ func init() {
 	flag.StringVar(&oc_cli, "oc_cli", "oc", "OC CLI Client")
 	flag.StringVar(&stream, "stream", "up", "[up, down] upstream or downstream")
 	flag.Int64Var(&timeoutMultiplierInput, "timeout_multiplier", 1, "Customize timeout multiplier from default (1)")
+	flag.BoolVar(&virtTestingEnabled, "test_virt", false, "Enable Virtual Machine backup/restore testing (default false)")
 	timeoutMultiplier = time.Duration(timeoutMultiplierInput)
 	flag.Int64Var(&flakeAttempts, "flakeAttempts", 3, "Customize the number of flake retries (3)")
 
@@ -85,6 +89,9 @@ func init() {
 				flakeAttempts = parsedValue
 			}
 		}
+		if strings.ToLower(os.Getenv("TEST_VIRT")) == "true" {
+			virtTestingEnabled = true
+		}
 	}
 }
 
@@ -103,6 +110,7 @@ var kubernetesClientForSuiteRun *kubernetes.Clientset
 var runTimeClientForSuiteRun client.Client
 var veleroClientForSuiteRun veleroClientset.Interface
 var csiClientForSuiteRun *snapshotv1client.Clientset
+var dynamicClientForSuiteRun dynamic.Interface
 var dpaCR *DpaCustomResource
 var knownFlake bool
 var accumulatedTestLogs []string
@@ -130,6 +138,9 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	csiClientForSuiteRun, err = snapshotv1client.NewForConfig(kubeConf)
+	Expect(err).NotTo(HaveOccurred())
+
+	dynamicClientForSuiteRun, err = dynamic.NewForConfig(kubeConf)
 	Expect(err).NotTo(HaveOccurred())
 
 	dpaCR = &DpaCustomResource{
