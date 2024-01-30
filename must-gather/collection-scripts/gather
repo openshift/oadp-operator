@@ -24,8 +24,8 @@ for ns in ${namespaces[@]}; do
   done
 
 # Collect Velero and OADP CRs
-echo "Gathering Velero and OADP CRs for namespaces [${namespaces[@]}]"
-/usr/bin/gather_crs ${clusterID} ${namespaces[@]} &
+echo "Gathering Velero and OADP CRs"
+/usr/bin/gather_crs ${clusterID} &
 pids+=($!)
 
 # Collect Velero and OADP CRDs

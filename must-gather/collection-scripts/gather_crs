@@ -4,8 +4,6 @@ max_parallelism=10
 
 # Cluster passed in from main gather
 clusterID=$1
-shift
-namespaces=("$@")
 
 # Resource list
 resources=()
@@ -16,21 +14,21 @@ resources+=($(/usr/bin/oc get crd | awk '/oadp.openshift.io/{print $1}'))
 # Velero
 resources+=($(/usr/bin/oc get crd | awk '/velero.io/{print $1}'))
 
-echo "Starting collection of: [${resources[@]}]"
+echo "Starting collection of:" "${resources[@]}"
 
 # we use nested loops to nicely output objects partitioned per namespace, kind
-for resource in ${resources[@]}; do
-  /usr/bin/oc get ${resource} --all-namespaces -o custom-columns=NAMESPACE:.metadata.namespace --no-headers 2> /dev/null | uniq | \
+for resource in "${resources[@]}"; do
+  /usr/bin/oc get "${resource}" --all-namespaces -o custom-columns=NAMESPACE:.metadata.namespace --no-headers 2> /dev/null | uniq | \
   while read namespace; do
-    resource_name=$(echo $resource | cut -d "." -f 1)
+    resource_name=$(echo "$resource" | cut -d "." -f 1)
     echo "Collecting ${resource_name} in ${namespace} namespace"
     if echo "${resource}" | grep -q velero.io; then
       object_collection_path=/must-gather/clusters/${clusterID}/namespaces/${namespace}/velero.io/${resource_name}
     else
       object_collection_path=/must-gather/clusters/${clusterID}/namespaces/${namespace}/oadp.openshift.io/${resource_name}
     fi
-    mkdir -p ${object_collection_path}
-    /usr/bin/oc get ${resource} -n ${namespace} -o yaml &> ${object_collection_path}/${resource_name}.yaml &
+    mkdir -p "${object_collection_path}"
+    /usr/bin/oc get "${resource}" -n "${namespace}" -o yaml &> "${object_collection_path}/${resource_name}.yaml" &
     pwait $max_parallelism
   done
 done
