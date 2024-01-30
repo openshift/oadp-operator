@@ -723,6 +723,45 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 			},
 			WantError: true,
 		}, fmt.Errorf("region for AWS backupstoragelocation cannot be empty when s3ForcePathStyle is true or when backing up images")),
+		Entry("unsupportedOverrides should succeed", Label("aws", "ibmcloud"), InstallCase{
+			Name:         "valid-unsupported-overrides",
+			BRestoreType: RESTIC,
+			DpaSpec: &oadpv1alpha1.DataProtectionApplicationSpec{
+				BackupLocations: []oadpv1alpha1.BackupLocation{
+					{
+						Velero: &velero.BackupStorageLocationSpec{
+							Provider: providerFromDPA,
+							Config: map[string]string{
+								"profile":          bslConfig["profile"],
+								"region":           bslConfig["region"],
+								"s3ForcePathStyle": "true",
+							},
+							Default: true,
+							StorageType: velero.StorageType{
+								ObjectStorage: &velero.ObjectStorageLocation{
+									Bucket: bucket,
+									Prefix: VeleroPrefix,
+								},
+							},
+							Credential: &bslCredential,
+						},
+					},
+				},
+				Configuration: &oadpv1alpha1.ApplicationConfig{
+					Velero: &oadpv1alpha1.VeleroConfig{
+						PodConfig: &oadpv1alpha1.PodConfig{},
+						DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+							oadpv1alpha1.DefaultPluginOpenShift,
+							oadpv1alpha1.DefaultPluginAWS,
+						},
+					},
+				},
+				UnsupportedOverrides: map[oadpv1alpha1.UnsupportedImageKey]string{
+					"awsPluginImageFqin": "quay.io/konveyor/velero-plugin-for-aws:latest",
+				},
+			},
+			WantError: false,
+		}, nil),
 	)
 
 	DescribeTable("DPA / Restic Deletion test",
