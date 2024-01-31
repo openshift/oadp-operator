@@ -23,19 +23,19 @@ type ServerConfig struct {
 	// defaultBackupLocation will be defined outside of server config in DataProtectionApplication
 	// defaultBackupLocation                        string
 
-	// How often to ensure all Velero backups in object storage exist as Backup API objects in the cluster. This is the default sync period if none is explicitly specified for a backup storage location.
+	// How often (in minutes) to ensure all Velero backups in object storage exist as Backup API objects in the cluster. This is the default sync period if none is explicitly specified for a backup storage location.
 	// +optional
-	BackupSyncPeriod *time.Duration `json:"backup-sync-period,omitempty"`
-	// How long pod volume file system backups/restores should be allowed to run before timing out. (default 4h0m0s)
+	BackupSyncPeriod *int64 `json:"backup-sync-period,omitempty"`
+	//  How long pod volume file system backups/restores should be allowed to run before timing out. (default 4h0m0s)
 	// +optional
 	PodVolumeOperationTimeout *time.Duration `json:"fs-backup-timeout,omitempty"`
-	// How long to wait on persistent volumes and namespaces to terminate during a restore before timing out.
+	//  How long to wait on persistent volumes and namespaces to terminate during a restore before timing out.
 	// +optional
 	ResourceTerminatingTimeout *time.Duration `json:"terminating-resource-timeout,omitempty"`
-	// default 720h0m0s
+	//  default 720h0m0s
 	// +optional
 	DefaultBackupTTL *time.Duration `json:"default-backup-ttl,omitempty"`
-	// How often to verify if the storage is valid. Optional. Set this to `0s` to disable sync. Default 1 minute.
+	//  How often to verify if the storage is valid. Optional. Set this to `0s` to disable sync. Default 1 minute.
 	// +optional
 	StoreValidationFrequency *time.Duration `json:"store-validation-frequency,omitempty"`
 	// Desired order of resource restores, the priority list contains two parts which are split by "-" element. The resources before "-" element are restored first as high priorities, the resources after "-" element are restored last as low priorities, and any resource not in the list will be restored alphabetically between the high and low priorities. (default securitycontextconstraints,customresourcedefinitions,namespaces,roles,rolebindings,clusterrolebindings,managedcluster.cluster.open-cluster-management.io,managedcluster.clusterview.open-cluster-management.io,klusterletaddonconfig.agent.open-cluster-management.io,managedclusteraddon.addon.open-cluster-management.io,storageclasses,volumesnapshotclass.snapshot.storage.k8s.io,volumesnapshotcontents.snapshot.storage.k8s.io,volumesnapshots.snapshot.storage.k8s.io,datauploads.velero.io,persistentvolumes,persistentvolumeclaims,serviceaccounts,secrets,configmaps,limitranges,pods,replicasets.apps,clusterclasses.cluster.x-k8s.io,endpoints,services,-,clusterbootstraps.run.tanzu.vmware.com,clusters.cluster.x-k8s.io,clusterresourcesets.addons.cluster.x-k8s.io)
@@ -65,25 +65,25 @@ type ServerConfig struct {
 	// The address to expose the pprof profiler.
 	// +optional
 	ProfilerAddress string `json:"profiler-address,omitempty"`
-	// How often to check status on backup/restore operations after backup/restore processing.
+	//  How often to check status on backup/restore operations after backup/restore processing.
 	// +optional
 	ItemOperationSyncFrequency *time.Duration `json:"item-operation-sync-frequency,omitempty"`
 	// The format for log output. Valid values are text, json. (default text)
 	// +kubebuilder:validation:Enum=text;json
 	// +optional
 	FormatFlag string `json:"log-format,omitempty"`
-	// How often 'maintain' is run for backup repositories by default.
+	//  How often 'maintain' is run for backup repositories by default.
 	// +optional
 	RepoMaintenanceFrequency *time.Duration `json:"default-repo-maintain-frequency,omitempty"`
-	// How long to wait by default before backups can be garbage collected. (default 720h0m0s)
+	//  How long to wait by default before backups can be garbage collected. (default 720h0m0s)
 	// +optional
 	GarbageCollectionFrequency *time.Duration `json:"garbage-collection-frequency,omitempty"`
 	// Backup all volumes with pod volume file system backup by default.
 	// +optional
 	DefaultVolumesToFsBackup *bool `json:"default-volumes-to-fs-backup,omitempty"`
-	// How long to wait on asynchronous BackupItemActions and RestoreItemActions to complete before timing out. (default 1h0m0s)
+	//  How long to wait on asynchronous BackupItemActions and RestoreItemActions to complete before timing out. (default 1h0m0s)
 	DefaultItemOperationTimeout *time.Duration `json:"default-item-operation-timeout,omitempty"`
-	// How long to wait for resource processes which are not covered by other specific timeout parameters. Default is 10 minutes. (default 10m0s)
+	//  How long to wait for resource processes which are not covered by other specific timeout parameters. Default is 10 minutes. (default 10m0s)
 	ResourceTimeout *time.Duration `json:"resource-timeout,omitempty"`
 	// Max concurrent connections number that Velero can create with kube-apiserver. Default is 30. (default 30)
 	MaxConcurrentK8SConnections *int `json:"max-concurrent-k8s-connections,omitempty"`

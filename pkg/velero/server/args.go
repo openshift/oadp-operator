@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/openshift/oadp-operator/pkg/klog"
 	"github.com/openshift/oadp-operator/pkg/velero/client"
@@ -47,7 +48,7 @@ func (a Args) StringArr(dpaFeatureFlags []string, logLevel string) ([]string, er
 		args = append(args, fmt.Sprintf("--log-level=%s", logrusLevel.String()))
 	}
 	if a.BackupSyncPeriod != nil {
-		args = append(args, fmt.Sprintf("--backup-sync-period=%s", a.BackupSyncPeriod.String())) // duration
+		args = append(args, fmt.Sprintf("--backup-sync-period=%s", (time.Duration(*a.BackupSyncPeriod)*time.Minute).String())) // duration
 	}
 	if a.ClientBurst != nil {
 		args = append(args, fmt.Sprintf("--client-burst=%s", strconv.Itoa(*a.ClientBurst))) // int
