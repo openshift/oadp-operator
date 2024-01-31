@@ -557,6 +557,11 @@ func (in *VeleroConfig) DeepCopyInto(out *VeleroConfig) {
 		*out = new(bool)
 		**out = **in
 	}
+	if in.DisableInformerCache != nil {
+		in, out := &in.DisableInformerCache, &out.DisableInformerCache
+		*out = new(bool)
+		**out = **in
+	}
 	if in.Args != nil {
 		in, out := &in.Args, &out.Args
 		*out = new(server.Args)
