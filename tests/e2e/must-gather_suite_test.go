@@ -75,6 +75,7 @@ var _ = Describe("Backup and restore tests with must-gather", func() {
 			}
 		},
 		Entry("Mongo application DATAMOVER", FlakeAttempts(flakeAttempts), BackupRestoreCase{
+			ApplicationCommon:    "",
 			ApplicationTemplate:  "./sample-applications/mongo-persistent/mongo-persistent-csi.yaml",
 			ApplicationNamespace: "mongo-persistent",
 			Name:                 "mongo-datamover-e2e",

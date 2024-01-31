@@ -57,6 +57,7 @@ func mysqlReady(preBackupState bool, twoVol bool, backupRestoreType BackupRestor
 }
 
 type BackupRestoreCase struct {
+	ApplicationCommon            string
 	ApplicationTemplate          string
 	PvcSuffixName                string
 	ApplicationNamespace         string
@@ -107,6 +108,13 @@ func runBackupAndRestore(brCase BackupRestoreCase, expectedErr error, updateLast
 
 	// install app
 	updateLastInstallTime()
+
+	if brCase.ApplicationCommon != "" {
+		log.Printf("Prep application steps for case %s", brCase.Name)
+		err = InstallApplication(dpaCR.Client, brCase.ApplicationCommon)
+		Expect(err).ToNot(HaveOccurred())
+	}
+
 	log.Printf("Installing application for case %s", brCase.Name)
 	err = InstallApplication(dpaCR.Client, brCase.ApplicationTemplate)
 	Expect(err).ToNot(HaveOccurred())
@@ -178,6 +186,12 @@ func runBackupAndRestore(brCase BackupRestoreCase, expectedErr error, updateLast
 	log.Printf("Uninstalling app for case %s", brCase.Name)
 	err = UninstallApplication(dpaCR.Client, brCase.ApplicationTemplate)
 	Expect(err).ToNot(HaveOccurred())
+
+	if brCase.ApplicationCommon != "" {
+		log.Printf("Uninstalling prep application steps for case %s", brCase.Name)
+		err = UninstallApplication(dpaCR.Client, brCase.ApplicationCommon)
+		Expect(err).ToNot(HaveOccurred())
+	}
 
 	// Wait for namespace to be deleted
 	Eventually(IsNamespaceDeleted(kubernetesClientForSuiteRun, brCase.ApplicationNamespace), timeoutMultiplier*time.Minute*4, time.Second*5).Should(BeTrue())
@@ -289,6 +303,7 @@ var _ = Describe("Backup and restore tests", func() {
 			runBackupAndRestore(brCase, expectedErr, updateLastBRcase, updateLastInstallTime)
 		},
 		Entry("MySQL application CSI", FlakeAttempts(flakeAttempts), BackupRestoreCase{
+			ApplicationCommon:    "",
 			ApplicationTemplate:  "./sample-applications/mysql-persistent/mysql-persistent-csi.yaml",
 			ApplicationNamespace: "mysql-persistent",
 			Name:                 "mysql-csi-e2e",
@@ -297,6 +312,7 @@ var _ = Describe("Backup and restore tests", func() {
 			PostRestoreVerify:    mysqlReady(false, false, CSI),
 		}, nil),
 		Entry("Mongo application CSI", FlakeAttempts(flakeAttempts), BackupRestoreCase{
+			ApplicationCommon:    "./sample-applications/mongo-persistent/mongo-common-steps.yaml",
 			ApplicationTemplate:  "./sample-applications/mongo-persistent/mongo-persistent-csi.yaml",
 			ApplicationNamespace: "mongo-persistent",
 			Name:                 "mongo-csi-e2e",
@@ -305,6 +321,7 @@ var _ = Describe("Backup and restore tests", func() {
 			PostRestoreVerify:    mongoready(false, false, CSI),
 		}, nil),
 		Entry("MySQL application two Vol CSI", FlakeAttempts(flakeAttempts), BackupRestoreCase{
+			ApplicationCommon:    "",
 			ApplicationTemplate:  fmt.Sprintf("./sample-applications/mysql-persistent/mysql-persistent-twovol-csi.yaml"),
 			ApplicationNamespace: "mysql-persistent",
 			Name:                 "mysql-twovol-csi-e2e",
@@ -314,6 +331,7 @@ var _ = Describe("Backup and restore tests", func() {
 			PostRestoreVerify:    mysqlReady(false, true, CSI),
 		}, nil),
 		Entry("Mongo application RESTIC", FlakeAttempts(flakeAttempts), BackupRestoreCase{
+			ApplicationCommon:    "./sample-applications/mongo-persistent/mongo-common-steps.yaml",
 			ApplicationTemplate:  "./sample-applications/mongo-persistent/mongo-persistent.yaml",
 			ApplicationNamespace: "mongo-persistent",
 			Name:                 "mongo-restic-e2e",
@@ -322,6 +340,7 @@ var _ = Describe("Backup and restore tests", func() {
 			PostRestoreVerify:    mongoready(false, false, RESTIC),
 		}, nil),
 		Entry("MySQL application RESTIC", FlakeAttempts(flakeAttempts), BackupRestoreCase{
+			ApplicationCommon:    "",
 			ApplicationTemplate:  "./sample-applications/mysql-persistent/mysql-persistent.yaml",
 			ApplicationNamespace: "mysql-persistent",
 			Name:                 "mysql-restic-e2e",
@@ -330,6 +349,7 @@ var _ = Describe("Backup and restore tests", func() {
 			PostRestoreVerify:    mysqlReady(false, false, RESTIC),
 		}, nil),
 		Entry("Mongo application KOPIA", FlakeAttempts(flakeAttempts), BackupRestoreCase{
+			ApplicationCommon:    "./sample-applications/mongo-persistent/mongo-common-steps.yaml",
 			ApplicationTemplate:  "./sample-applications/mongo-persistent/mongo-persistent.yaml",
 			ApplicationNamespace: "mongo-persistent",
 			Name:                 "mongo-kopia-e2e",
@@ -338,6 +358,7 @@ var _ = Describe("Backup and restore tests", func() {
 			PostRestoreVerify:    mongoready(false, false, KOPIA),
 		}, nil),
 		Entry("MySQL application KOPIA", FlakeAttempts(flakeAttempts), BackupRestoreCase{
+			ApplicationCommon:    "",
 			ApplicationTemplate:  "./sample-applications/mysql-persistent/mysql-persistent.yaml",
 			ApplicationNamespace: "mysql-persistent",
 			Name:                 "mysql-kopia-e2e",
@@ -346,6 +367,7 @@ var _ = Describe("Backup and restore tests", func() {
 			PostRestoreVerify:    mysqlReady(false, false, KOPIA),
 		}, nil),
 		Entry("Mongo application DATAMOVER", FlakeAttempts(flakeAttempts), BackupRestoreCase{
+			ApplicationCommon:    "./sample-applications/mongo-persistent/mongo-common-steps.yaml",
 			ApplicationTemplate:  "./sample-applications/mongo-persistent/mongo-persistent-csi.yaml",
 			ApplicationNamespace: "mongo-persistent",
 			Name:                 "mongo-datamover-e2e",
@@ -354,6 +376,7 @@ var _ = Describe("Backup and restore tests", func() {
 			PostRestoreVerify:    mongoready(false, false, CSIDataMover),
 		}, nil),
 		Entry("MySQL application DATAMOVER", FlakeAttempts(flakeAttempts), BackupRestoreCase{
+			ApplicationCommon:    "",
 			ApplicationTemplate:  "./sample-applications/mysql-persistent/mysql-persistent-csi.yaml",
 			ApplicationNamespace: "mysql-persistent",
 			Name:                 "mysql-datamover-e2e",
@@ -362,6 +385,7 @@ var _ = Describe("Backup and restore tests", func() {
 			PostRestoreVerify:    mysqlReady(false, false, CSIDataMover),
 		}, nil),
 		Entry("Mongo application BlockDevice DATAMOVER", FlakeAttempts(flakeAttempts), BackupRestoreCase{
+			ApplicationCommon:    "./sample-applications/mongo-persistent/mongo-common-steps.yaml",
 			ApplicationTemplate:  "./sample-applications/mongo-persistent/mongo-persistent-block.yaml",
 			PvcSuffixName:        "-block-mode",
 			ApplicationNamespace: "mongo-persistent",

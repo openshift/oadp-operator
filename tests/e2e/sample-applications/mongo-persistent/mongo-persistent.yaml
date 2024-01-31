@@ -1,38 +1,6 @@
 apiVersion: v1
 kind: List
 items:
-  - kind: Namespace
-    apiVersion: v1
-    metadata:
-      name: mongo-persistent
-      labels:
-        app: todolist-mongo-go
-  - apiVersion: v1
-    kind: ServiceAccount
-    metadata:
-      name: mongo-persistent-sa
-      namespace: mongo-persistent
-      labels:
-        component: mongo-persistent
-  - kind: SecurityContextConstraints
-    apiVersion: security.openshift.io/v1
-    metadata:
-      name: mongo-persistent-scc
-    allowPrivilegeEscalation: true
-    allowPrivilegedContainer: true
-    runAsUser:
-      type: RunAsAny
-    seLinuxContext:
-      type: RunAsAny
-    fsGroup:
-      type: RunAsAny
-    supplementalGroups:
-      type: RunAsAny
-    volumes:
-    - '*'
-    users:
-    - system:admin
-    - system:serviceaccount:mongo-persistent:mongo-persistent-sa
   - apiVersion: v1
     kind: PersistentVolumeClaim
     metadata:
@@ -46,16 +14,6 @@ items:
       resources:
         requests:
           storage: 1Gi
-  - kind: ImageStream
-    apiVersion: image.openshift.io/v1
-    metadata:
-      name: todolist-mongo-go
-      namespace: mongo-persistent
-      labels:
-        app: todolist
-    spec: {}
-    status:
-      dockerImageRepository: ''
   - apiVersion: apps/v1
     kind: Deployment
     metadata:
@@ -122,88 +80,3 @@ items:
           - name: mongo-data
             persistentVolumeClaim:
               claimName: mongo
-  - apiVersion: v1
-    kind: Service
-    metadata:
-      annotations:
-        template.openshift.io/expose-uri: mongodb://{.spec.clusterIP}:{.spec.ports[?(.name=="mongo")].port}
-      name: mongo
-      namespace: mongo-persistent
-      labels:
-        app: mongo
-        service: mongo
-    spec:
-      ports:
-      - protocol: TCP
-        name: mongo
-        port: 27017
-      selector:
-        app: mongo
-  - apiVersion: apps.openshift.io/v1
-    kind: DeploymentConfig
-    metadata:
-      name: todolist
-      namespace: mongo-persistent
-      labels:
-        app: todolist
-        service: todolist
-        e2e-app: "true"
-    spec:
-      replicas: 1
-      selector:
-        app: todolist
-        service: todolist
-      strategy:
-        type: Recreate
-      template:
-        metadata:
-          labels:
-            app: todolist
-            service: todolist
-            e2e-app: "true"
-        spec:
-          containers:
-          - name: todolist
-            image: quay.io/migtools/oadp-ci-todolist-mongo-go:latest
-            env:
-              - name: foo
-                value: bar
-            ports:
-              - containerPort: 8000
-                protocol: TCP
-          initContainers:
-          - name: init-myservice
-            image: docker.io/curlimages/curl:8.5.0
-            command: ['sh', '-c', 'sleep 10; until curl -s mongo:27017; do echo Trying to connect to mongo DB port; sleep 5; done; echo mongo DB port reachable']
-  - apiVersion: v1
-    kind: Service
-    metadata:
-      name: todolist
-      namespace: mongo-persistent
-      labels:
-        app: todolist
-        service: todolist
-      annotations:
-        app: todolist
-    spec:
-      ports:
-        - name: web
-          protocol: TCP
-          port: 8000
-          targetPort: 8000
-      selector:
-        app: todolist
-      sessionAffinity: None
-      ipFamilies:
-        - IPv4
-      ipFamilyPolicy: SingleStack
-  - apiVersion: route.openshift.io/v1
-    kind: Route
-    metadata:
-      name: todolist-route
-      namespace: mongo-persistent
-    spec:
-      path: "/"
-      to:
-        kind: Service
-        name: todolist
