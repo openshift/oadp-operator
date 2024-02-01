@@ -8,6 +8,8 @@ import (
 
 // This package is used to store ServerConfig struct and note information about flags for velero server and how they are set.
 // The options you can set in `velero server` is a combination of ServerConfig, featureFlagSet
+// Any time.Duration should be converted metav1.Duration so that UnmarshalJSON can be used to parse the duration from string
+// This is also true in the CRD original codebase under _types.go, just not in server.go
 
 // ServerConfig holds almost all the configuration for the Velero server.
 // https://github.com/openshift/velero/blob/dd02df5cd5751263fce6d1ebd48ea11423b0cd16/pkg/cmd/server/server.go#L112-L129
