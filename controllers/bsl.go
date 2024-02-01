@@ -283,8 +283,10 @@ func (r *DPAReconciler) validateAWSBackupStorageLocation(bslSpec velerov1.Backup
 	if len(bslSpec.StorageType.ObjectStorage.Prefix) == 0 && dpa.BackupImages() {
 		return fmt.Errorf("prefix for AWS backupstoragelocation object storage cannot be empty. It is required for backing up images")
 	}
-	// BSL region is required when s3ForcePathStyle is true AND BackupImages is true
-	if (bslSpec.Config == nil || len(bslSpec.Config[Region]) == 0 && bslSpec.Config[S3ForcePathStyle] == "true") && dpa.BackupImages() {
+
+	// BSL region is required when s3ForcePathStyle is true OR BackupImages is true
+	// TODO: Update logic when (region auto-discovery) https://github.com/openshift/openshift-velero-plugin/pull/223 is merged
+	if (bslSpec.Config == nil || len(bslSpec.Config[Region]) == 0) && (bslSpec.Config != nil && bslSpec.Config[S3ForcePathStyle] == "true" || dpa.BackupImages()) {
 		return fmt.Errorf("region for AWS backupstoragelocation cannot be empty when s3ForcePathStyle is true or when backing up images")
 	}
 
