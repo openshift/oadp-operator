@@ -169,8 +169,6 @@ func (r *DPAReconciler) buildVeleroDeployment(veleroDeployment *appsv1.Deploymen
 		return fmt.Errorf("error appending pod annotations: %v", err)
 	}
 
-	// Since `restic` can be still be used and it default's to an empty string, we can't just
-	// pass the dpa.Spec.Configuration.NodeAgent.UploaderType directly
 	uploaderType := ""
 	if dpa.Spec.Configuration.NodeAgent != nil && len(dpa.Spec.Configuration.NodeAgent.UploaderType) > 0 {
 		uploaderType = dpa.Spec.Configuration.NodeAgent.UploaderType
@@ -458,9 +456,6 @@ func (r *DPAReconciler) customizeVeleroContainer(dpa *oadpv1alpha1.DataProtectio
 }
 
 func getFsBackupTimeout(dpa *oadpv1alpha1.DataProtectionApplication) string {
-	if dpa.Spec.Configuration.Restic != nil && len(dpa.Spec.Configuration.Restic.Timeout) > 0 {
-		return dpa.Spec.Configuration.Restic.Timeout
-	}
 	if dpa.Spec.Configuration.NodeAgent != nil && len(dpa.Spec.Configuration.NodeAgent.Timeout) > 0 {
 		return dpa.Spec.Configuration.NodeAgent.Timeout
 	}
@@ -607,65 +602,7 @@ func (r *DPAReconciler) getVeleroResourceReqs(dpa *oadpv1alpha1.DataProtectionAp
 	return ResourcesReqs, nil
 }
 
-// Get Restic Resource Requirements
-func getResticResourceReqs(dpa *oadpv1alpha1.DataProtectionApplication) (corev1.ResourceRequirements, error) {
-
-	// Set default values
-	ResourcesReqs := corev1.ResourceRequirements{
-		Requests: corev1.ResourceList{
-			corev1.ResourceCPU:    resource.MustParse("500m"),
-			corev1.ResourceMemory: resource.MustParse("128Mi"),
-		},
-	}
-
-	if dpa != nil && dpa.Spec.Configuration != nil && dpa.Spec.Configuration.Restic != nil && dpa.Spec.Configuration.Restic.PodConfig != nil {
-		// Set custom limits and requests values if defined on Restic Spec
-		if dpa.Spec.Configuration.Restic.PodConfig.ResourceAllocations.Requests.Cpu() != nil && dpa.Spec.Configuration.Restic.PodConfig.ResourceAllocations.Requests.Cpu().Value() != 0 {
-			parsedQuantity, err := resource.ParseQuantity(dpa.Spec.Configuration.Restic.PodConfig.ResourceAllocations.Requests.Cpu().String())
-			ResourcesReqs.Requests[corev1.ResourceCPU] = parsedQuantity
-			if err != nil {
-				return ResourcesReqs, err
-			}
-		}
-
-		if dpa.Spec.Configuration.Restic.PodConfig.ResourceAllocations.Requests.Memory() != nil && dpa.Spec.Configuration.Restic.PodConfig.ResourceAllocations.Requests.Memory().Value() != 0 {
-			parsedQuantity, err := resource.ParseQuantity(dpa.Spec.Configuration.Restic.PodConfig.ResourceAllocations.Requests.Memory().String())
-			ResourcesReqs.Requests[corev1.ResourceMemory] = parsedQuantity
-			if err != nil {
-				return ResourcesReqs, err
-			}
-		}
-
-		if dpa.Spec.Configuration.Restic.PodConfig.ResourceAllocations.Limits.Cpu() != nil && dpa.Spec.Configuration.Restic.PodConfig.ResourceAllocations.Limits.Cpu().Value() != 0 {
-			if ResourcesReqs.Limits == nil {
-				ResourcesReqs.Limits = corev1.ResourceList{}
-			}
-			parsedQuantity, err := resource.ParseQuantity(dpa.Spec.Configuration.Restic.PodConfig.ResourceAllocations.Limits.Cpu().String())
-			ResourcesReqs.Limits[corev1.ResourceCPU] = parsedQuantity
-			if err != nil {
-				return ResourcesReqs, err
-			}
-		}
-
-		if dpa.Spec.Configuration.Restic.PodConfig.ResourceAllocations.Limits.Memory() != nil && dpa.Spec.Configuration.Restic.PodConfig.ResourceAllocations.Limits.Memory().Value() != 0 {
-			if ResourcesReqs.Limits == nil {
-				ResourcesReqs.Limits = corev1.ResourceList{}
-			}
-			parsedQuantiy, err := resource.ParseQuantity(dpa.Spec.Configuration.Restic.PodConfig.ResourceAllocations.Limits.Memory().String())
-			ResourcesReqs.Limits[corev1.ResourceMemory] = parsedQuantiy
-			if err != nil {
-				return ResourcesReqs, err
-			}
-		}
-
-	}
-
-	return ResourcesReqs, nil
-}
-
 // Get NodeAgent Resource Requirements
-// Separate function to getResticResourceReqs, so once Restic config is removed in OADP 1.4+
-// It will be easier to delete obsolete getResticResourceReqs
 func getNodeAgentResourceReqs(dpa *oadpv1alpha1.DataProtectionApplication) (corev1.ResourceRequirements, error) {
 
 	// Set default values
