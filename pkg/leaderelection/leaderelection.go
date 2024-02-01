@@ -8,7 +8,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 	"math"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"strings"
@@ -113,11 +113,7 @@ func GetClusterInfraStatus(restClient *rest.Config) (*configv1.InfrastructureSta
 
 	infra := &configv1.Infrastructure{}
 	key := types.NamespacedName{Name: infraResourceName}
-	if err := client.Get(context.TODO(), key, infra); err != nil {
-		return nil, err
-	}
-
-	if err != nil {
+	if err = client.Get(context.TODO(), key, infra); err != nil {
 		return nil, err
 	}
 
