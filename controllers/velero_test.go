@@ -4094,6 +4094,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 										defaultRestoreResourcePriorities,
 										"--store-validation-frequency=1ns",
 										"--terminating-resource-timeout=1ns",
+										defaultDisableInformerCache,
 									},
 									VolumeMounts: baseVolumeMounts,
 									Env:          baseEnvVars,
