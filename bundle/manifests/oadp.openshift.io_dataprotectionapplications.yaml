@@ -493,7 +493,7 @@ spec:
                               description: log to standard error as well as files (no effect when -logtostderr=true)
                               type: boolean
                             backup-sync-period:
-                              description: How often (in minutes) to ensure all Velero backups in object storage exist as Backup API objects in the cluster. This is the default sync period if none is explicitly specified for a backup storage location.
+                              description: How often (in nanoseconds) to ensure all Velero backups in object storage exist as Backup API objects in the cluster. This is the default sync period if none is explicitly specified for a backup storage location.
                               format: int64
                               type: integer
                             client-burst:
@@ -509,15 +509,15 @@ spec:
                               description: Show colored output in TTY
                               type: boolean
                             default-backup-ttl:
-                              description: ' default 720h0m0s'
+                              description: How long (in nanoseconds) to wait by default before backups can be garbage collected. (default is 720 hours)
                               format: int64
                               type: integer
                             default-item-operation-timeout:
-                              description: ' How long to wait on asynchronous BackupItemActions and RestoreItemActions to complete before timing out. (default 1h0m0s)'
+                              description: How long (in nanoseconds) to wait on asynchronous BackupItemActions and RestoreItemActions to complete before timing out. (default is 1 hour)
                               format: int64
                               type: integer
                             default-repo-maintain-frequency:
-                              description: ' How often ''maintain'' is run for backup repositories by default.'
+                              description: How often (in nanoseconds) 'maintain' is run for backup repositories by default.
                               format: int64
                               type: integer
                             default-volumes-to-fs-backup:
@@ -542,15 +542,15 @@ spec:
                                 type: string
                               type: array
                             fs-backup-timeout:
-                              description: ' How long pod volume file system backups/restores should be allowed to run before timing out. (default 4h0m0s)'
+                              description: How long (in nanoseconds) pod volume file system backups/restores should be allowed to run before timing out. (default is 4 hours)
                               format: int64
                               type: integer
                             garbage-collection-frequency:
-                              description: ' How long to wait by default before backups can be garbage collected. (default 720h0m0s)'
+                              description: How long (in nanoseconds) to wait by default before backups can be garbage collected. (default is 720 hours)
                               format: int64
                               type: integer
                             item-operation-sync-frequency:
-                              description: ' How often to check status on backup/restore operations after backup/restore processing.'
+                              description: How often (in nanoseconds) to check status on backup/restore operations after backup/restore processing.
                               format: int64
                               type: integer
                             log-format:
@@ -589,7 +589,7 @@ spec:
                               description: The address to expose the pprof profiler.
                               type: string
                             resource-timeout:
-                              description: ' How long to wait for resource processes which are not covered by other specific timeout parameters. Default is 10 minutes. (default 10m0s)'
+                              description: How long (in nanoseconds) to wait for resource processes which are not covered by other specific timeout parameters. (default is 10 minutes)
                               format: int64
                               type: integer
                             restore-resource-priorities:
@@ -605,11 +605,11 @@ spec:
                               description: logs at or above this threshold go to stderr when writing to files and stderr (no effect when -logtostderr=true or -alsologtostderr=false) (default 2)
                               type: integer
                             store-validation-frequency:
-                              description: ' How often to verify if the storage is valid. Optional. Set this to `0s` to disable sync. Default 1 minute.'
+                              description: How often (in nanoseconds) to verify if the storage is valid. Optional. Set this to `0` to disable sync. (default is 1 minute)
                               format: int64
                               type: integer
                             terminating-resource-timeout:
-                              description: ' How long to wait on persistent volumes and namespaces to terminate during a restore before timing out.'
+                              description: How long (in nanoseconds) to wait on persistent volumes and namespaces to terminate during a restore before timing out.
                               format: int64
                               type: integer
                             v:
