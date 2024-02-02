@@ -371,10 +371,13 @@ func (r *DPAReconciler) customizeVeleroDeployment(dpa *oadpv1alpha1.DataProtecti
 		return fmt.Errorf("default-snapshot-move-data and default-volumes-to-fs-backup can not be true at the same time")
 	}
 
-	if len(defaultSnapshotMoveData) > 0 && len(defaultVolumesToFSBackup) == 0 {
+	// check for default-volumes-to-fs-backup
+	if len(defaultSnapshotMoveData) > 0 {
 		veleroContainer.Args = append(veleroContainer.Args, fmt.Sprintf("--default-snapshot-move-data=%s", defaultSnapshotMoveData))
 	}
-	if len(defaultVolumesToFSBackup) > 0 && len(defaultSnapshotMoveData) == 0 {
+
+	// check for default-volumes-to-fs-backup
+	if len(defaultVolumesToFSBackup) > 0 {
 		veleroContainer.Args = append(veleroContainer.Args, fmt.Sprintf("--default-volumes-to-fs-backup=%s", defaultVolumesToFSBackup))
 	}
 

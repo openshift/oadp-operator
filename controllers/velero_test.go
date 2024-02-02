@@ -828,8 +828,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							LogLevel:                    logrus.InfoLevel.String(),
 							ItemOperationSyncFrequency:  "5m",
 							DefaultItemOperationTimeout: "2h",
-							//DefaultSnapshotMoveData:     pointer.Bool(false),
-							DefaultVolumesToFSBackup: pointer.Bool(false),
+							DefaultSnapshotMoveData:     pointer.Bool(false),
 						},
 					},
 				},
@@ -911,7 +910,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 										logrus.InfoLevel.String(),
 										"--item-operation-sync-frequency=5m",
 										"--default-item-operation-timeout=2h",
-										"--snapshot-move-data=false",
+										"--default-snapshot-move-data=false",
 										defaultDisableInformerCache,
 									},
 									VolumeMounts: []corev1.VolumeMount{
@@ -979,7 +978,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 			},
 		},
 		{
-			name: "given valid DPA CR and Velero Config is defined correctly, SnapshotMovedata is set to true",
+			name: "given valid DPA CR and Velero Config is defined correctly, defaultSnapshotMovedata is set to true",
 			veleroDeployment: &appsv1.Deployment{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-velero-deployment",
@@ -1092,7 +1091,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 										logrus.InfoLevel.String(),
 										"--item-operation-sync-frequency=5m",
 										"--default-item-operation-timeout=2h",
-										"--snapshot-move-data=true",
+										"--default-snapshot-move-data=true",
 										defaultDisableInformerCache,
 									},
 									VolumeMounts: []corev1.VolumeMount{
@@ -2181,7 +2180,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 										logrus.InfoLevel.String(),
 										"--item-operation-sync-frequency=5m",
 										"--default-item-operation-timeout=2h",
-										"--snapshot-move-data=true",
+										"--default-snapshot-move-data=true",
 										"--default-volumes-to-fs-backup=false",
 										defaultDisableInformerCache,
 									},
