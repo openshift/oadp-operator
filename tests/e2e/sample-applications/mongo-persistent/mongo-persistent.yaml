@@ -99,6 +99,25 @@ items:
             volumeMounts:
             - name: mongo-data
               mountPath: /data/db
+            livenessProbe:
+              tcpSocket:
+                port: mongo
+              initialDelaySeconds: 5
+              periodSeconds: 10
+            startupProbe:
+              exec:
+                command:
+                - mongosh
+                - admin
+                - -u $(MONGO_INITDB_ROOT_USERNAME)
+                - -p $(MONGO_INITDB_ROOT_PASSWORD)
+                - --eval 'printjson(db.getCollectionNames())'
+              initialDelaySeconds: 5
+              periodSeconds: 30
+              timeoutSeconds: 2
+              successThreshold: 1
+              failureThreshold: 40 # 40x30sec before restart pod
+            restartPolicy: Always
           volumes:
           - name: mongo-data
             persistentVolumeClaim:
