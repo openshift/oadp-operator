@@ -978,6 +978,47 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 			},
 		},
 		{
+			name: "given valid DPA CR and Velero Config is defined incorrectly, DefaultSnapshotMovedata true, DefaultVolumesToFSBackup true ",
+			veleroDeployment: &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-velero-deployment",
+					Namespace: "test-ns",
+				},
+				Spec: appsv1.DeploymentSpec{
+					Selector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"app.kubernetes.io/name":       common.Velero,
+							"app.kubernetes.io/instance":   "test-Velero-CR",
+							"app.kubernetes.io/managed-by": common.OADPOperator,
+							"app.kubernetes.io/component":  Server,
+							"component":                    "velero",
+							"deploy":                       "velero",
+							oadpv1alpha1.OadpOperatorLabel: "True",
+						},
+					},
+				},
+			},
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-Velero-CR",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							LogLevel:                    logrus.InfoLevel.String(),
+							ItemOperationSyncFrequency:  "5m",
+							DefaultItemOperationTimeout: "2h",
+							DefaultSnapshotMoveData:     pointer.Bool(true),
+							DefaultVolumesToFSBackup:    pointer.Bool(true),
+						},
+					},
+				},
+			},
+			wantErr:              true,
+			wantVeleroDeployment: nil,
+		},
+		{
 			name: "given valid DPA CR and Velero Config is defined correctly, defaultSnapshotMovedata is set to true",
 			veleroDeployment: &appsv1.Deployment{
 				ObjectMeta: metav1.ObjectMeta{
