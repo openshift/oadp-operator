@@ -97,7 +97,7 @@ type VeleroConfig struct {
 	DefaultVolumesToFSBackup *bool `json:"defaultVolumesToFSBackup,omitempty"`
 	// Specify whether CSI snapshot data should be moved to backup storage by default
 	// +optional
-	SnapshotMoveData *bool `json:"snapshotMoveData,omitempty"`
+	DefaultSnapshotMoveData *bool `json:"defaultSnapshotMoveData,omitempty"`
 	// Disable informer cache for Get calls on restore. With this enabled, it will speed up restore in cases where there are backup resources which already exist in the cluster, but for very large clusters this will increase velero memory usage. Default is false.
 	// +optional
 	DisableInformerCache *bool `json:"disableInformerCache,omitempty"`

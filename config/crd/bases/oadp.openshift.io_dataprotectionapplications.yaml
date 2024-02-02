@@ -824,7 +824,7 @@ spec:
                         restoreResourcesVersionPriority:
                           description: restoreResourceVersionPriority represents a configmap that will be created if defined for use in conjunction with EnableAPIGroupVersions feature flag Defining this field automatically add EnableAPIGroupVersions to the velero server feature flag
                           type: string
-                        snapshotMoveData:
+                        defaultSnapshotMoveData:
                           description: Specify whether CSI snapshot data should be moved to backup storage by default
                           type: boolean
                       type: object
