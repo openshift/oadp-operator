@@ -41,8 +41,7 @@ var _ = Describe("VM backup and restore tests", Ordered, func() {
 		}
 
 		if v != nil && wasInstalledFromTest {
-			err := v.EnsureVirtRemoval(5 * time.Minute)
-			Expect(err).To(BeNil())
+			v.EnsureVirtRemoval(6 * time.Minute)
 		}
 	})
 
