@@ -31,14 +31,13 @@ func (r *DPAReconciler) ValidateDataProtectionCR(log logr.Logger) (bool, error) 
 		if len(dpa.Spec.BackupLocations) != 0 {
 			return false, errors.New("DPA CR Velero configuration cannot have backup locations if noDefaultBackupLocation is set")
 		}
+		if dpa.BackupImages() {
+			return false, errors.New("backupImages needs to be set to false when noDefaultBackupLocation is set")
+		}
 	} else {
 		if len(dpa.Spec.BackupLocations) == 0 {
 			return false, errors.New("no backupstoragelocations configured, ensure a backupstoragelocation has been configured or use the noDefaultBackupLocation flag")
 		}
-	}
-
-	if dpa.Spec.Configuration.Velero.NoDefaultBackupLocation && dpa.BackupImages() {
-		return false, errors.New("backupImages needs to be set to false when noDefaultBackupLocation is set")
 	}
 
 	for _, location := range dpa.Spec.BackupLocations {
@@ -53,8 +52,8 @@ func (r *DPAReconciler) ValidateDataProtectionCR(log logr.Logger) (bool, error) 
 			return false, errors.New("BackupLocation must have cloud storage prefix when backupImages is not set to false")
 		}
 
-		// Check the Velero flags 'no-secret' or 'no-default-backup-location' are not set
-		if !(dpa.Spec.Configuration.Velero.HasFeatureFlag("no-secret") || dpa.Spec.Configuration.Velero.NoDefaultBackupLocation) {
+		// Check if the Velero feature flag 'no-secret' is not set
+		if !dpa.Spec.Configuration.Velero.HasFeatureFlag("no-secret") {
 
 			// Check if the user specified credential under velero
 			if location.Velero != nil && location.Velero.Credential != nil {
