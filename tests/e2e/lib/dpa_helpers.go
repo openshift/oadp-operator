@@ -255,9 +255,14 @@ func (v *DpaCustomResource) CreateOrUpdateWithRetries(c client.Client, spec *oad
 func (v *DpaCustomResource) Delete(c client.Client) error {
 	err := v.SetClient(c)
 	if err != nil {
+		log.Printf("Error while Delete, SetClient: %v", err)
 		return err
 	}
 	err = v.Client.Delete(context.Background(), v.CustomResource)
+	if err != nil {
+		log.Printf("Error while Delete: %v", err)
+	}
+
 	if apierrors.IsNotFound(err) {
 		return nil
 	}
