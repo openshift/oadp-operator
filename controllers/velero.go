@@ -42,7 +42,7 @@ const (
 
 	VeleroReplicaOverride = "VELERO_DEBUG_REPLICAS_OVERRIDE"
 
-	defaultFsBackupTimeout = "1h"
+	defaultFsBackupTimeout = "4h"
 
 	TrueVal  = "true"
 	FalseVal = "false"
@@ -438,7 +438,7 @@ func (r *DPAReconciler) customizeVeleroContainer(dpa *oadpv1alpha1.DataProtectio
 		}})
 	}
 
-	// Enable user to specify --fs-backup-timeout (defaults to 1h)
+	// Enable user to specify --fs-backup-timeout (defaults to 4h)
 	// Append FS timeout option manually. Not configurable via install package, missing from podTemplateConfig struct. See: https://github.com/vmware-tanzu/velero/blob/8d57215ded1aa91cdea2cf091d60e072ce3f340f/pkg/install/deployment.go#L34-L45
 	veleroContainer.Args = append(veleroContainer.Args, fmt.Sprintf("--fs-backup-timeout=%s", getFsBackupTimeout(dpa)))
 	// Overriding velero restore resource priorities to OpenShift default (ie. SecurityContextConstraints needs to be restored before pod/SA)

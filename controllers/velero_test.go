@@ -31,7 +31,7 @@ const (
 	proxyEnvKey                            = "HTTP_PROXY"
 	proxyEnvValue                          = "http://proxy.example.com:8080"
 	argsMetricsPortTest              int32 = 69420
-	defaultFileSystemBackupTimeout         = "--fs-backup-timeout=1h"
+	defaultFileSystemBackupTimeout         = "--fs-backup-timeout=4h"
 	defaultRestoreResourcePriorities       = "--restore-resource-priorities=securitycontextconstraints,customresourcedefinitions,namespaces,roles,rolebindings,clusterrolebindings,managedcluster.cluster.open-cluster-management.io,managedcluster.clusterview.open-cluster-management.io,klusterletaddonconfig.agent.open-cluster-management.io,managedclusteraddon.addon.open-cluster-management.io,storageclasses,volumesnapshotclass.snapshot.storage.k8s.io,volumesnapshotcontents.snapshot.storage.k8s.io,volumesnapshots.snapshot.storage.k8s.io,datauploads.velero.io,persistentvolumes,persistentvolumeclaims,serviceaccounts,secrets,configmaps,limitranges,pods,replicasets.apps,clusterclasses.cluster.x-k8s.io,endpoints,services,-,clusterbootstraps.run.tanzu.vmware.com,clusters.cluster.x-k8s.io,clusterresourcesets.addons.cluster.x-k8s.io"
 	defaultDisableInformerCache            = "--disable-informer-cache=false"
 )
@@ -3932,7 +3932,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 									Args: []string{
 										"server",
 										"--metrics-address=:" + strconv.Itoa(int(argsMetricsPortTest)),
-										"--fs-backup-timeout=1h0m0s",
+										"--fs-backup-timeout=4h0m0s",
 										defaultRestoreResourcePriorities,
 										defaultDisableInformerCache,
 									},
@@ -4003,7 +4003,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 									Command:         []string{"/velero"},
 									Args: []string{
 										"server",
-										"--fs-backup-timeout=1h0m0s",
+										"--fs-backup-timeout=4h0m0s",
 										"--restore-resource-priorities=securitycontextconstraints,test",
 										defaultDisableInformerCache,
 									},
