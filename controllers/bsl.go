@@ -15,22 +15,23 @@ import (
 )
 
 func (r *DPAReconciler) ValidateBackupStorageLocations(dpa oadpv1alpha1.DataProtectionApplication) (bool, error) {
-	if dpa.Spec.Configuration == nil || dpa.Spec.Configuration.Velero == nil {
-		return false, errors.New("DPA CR Velero configuration cannot be nil")
-	}
-	// Ensure we have a BSL or user has specified NoDefaultBackupLocation install
-	if len(dpa.Spec.BackupLocations) == 0 && !dpa.Spec.Configuration.Velero.NoDefaultBackupLocation {
-		return false, errors.New("no backupstoragelocations configured, ensure a backupstoragelocation has been configured")
-	}
-
-	if err := r.ensureBackupLocationHasVeleroOrCloudStorage(&dpa); err != nil {
-		return false, err
-	}
-
 	// Ensure BSL is a valid configuration
 	// First, check for provider and then call functions based on the cloud provider for each backupstoragelocation configured
 	numDefaultLocations := 0
 	for _, bslSpec := range dpa.Spec.BackupLocations {
+
+		if err := r.ensureBackupLocationHasVeleroOrCloudStorage(&bslSpec); err != nil {
+			return false, err
+		}
+
+		if err := r.ensurePrefixWhenBackupImages(&dpa, &bslSpec); err != nil {
+			return false, err
+		}
+
+		if err := r.ensureSecretDataExists(&dpa, &bslSpec); err != nil {
+			return false, err
+		}
+
 		if bslSpec.Velero != nil {
 			if bslSpec.Velero.Default {
 				numDefaultLocations++
@@ -377,14 +378,53 @@ func (r *DPAReconciler) validateProviderPluginAndSecret(bslSpec velerov1.BackupS
 	return nil
 }
 
-func (r *DPAReconciler) ensureBackupLocationHasVeleroOrCloudStorage(dpa *oadpv1alpha1.DataProtectionApplication) error {
-	for _, bsl := range dpa.Spec.BackupLocations {
-		if bsl.CloudStorage == nil && bsl.Velero == nil {
-			return fmt.Errorf("no bucket CloudStorage or velero BackupStorageLocation provided for backupLocations")
-		}
+func (r *DPAReconciler) ensureBackupLocationHasVeleroOrCloudStorage(bsl *oadpv1alpha1.BackupLocation) error {
+	if bsl.CloudStorage == nil && bsl.Velero == nil {
+		return fmt.Errorf("BackupLocation must have velero or bucket configuration")
+	}
 
-		if bsl.CloudStorage != nil && bsl.Velero != nil {
-			return fmt.Errorf("cannot have both backupstoragelocations and bucket provided for a single StorageLocation")
+	if bsl.CloudStorage != nil && bsl.Velero != nil {
+		return fmt.Errorf("cannot have both backupstoragelocations and bucket provided for a single StorageLocation")
+	}
+	return nil
+}
+
+func (r *DPAReconciler) ensurePrefixWhenBackupImages(dpa *oadpv1alpha1.DataProtectionApplication, bsl *oadpv1alpha1.BackupLocation) error {
+
+	if bsl.Velero != nil && bsl.Velero.ObjectStorage != nil && bsl.Velero.ObjectStorage.Prefix == "" && dpa.BackupImages() {
+		return fmt.Errorf("BackupLocation must have velero prefix when backupImages is not set to false")
+	}
+
+	if bsl.CloudStorage != nil && bsl.CloudStorage.Prefix == "" && dpa.BackupImages() {
+		return fmt.Errorf("BackupLocation must have cloud storage prefix when backupImages is not set to false")
+	}
+
+	return nil
+}
+
+func (r *DPAReconciler) ensureSecretDataExists(dpa *oadpv1alpha1.DataProtectionApplication, bsl *oadpv1alpha1.BackupLocation) error {
+	// Check if the Velero feature flag 'no-secret' is not set
+	if !(dpa.Spec.Configuration.Velero.HasFeatureFlag("no-secret")) {
+		// Check if the user specified credential under velero
+		if bsl.Velero != nil && bsl.Velero.Credential != nil {
+			// Check if user specified empty credential key
+			if bsl.Velero.Credential.Key == "" {
+				return fmt.Errorf("Secret key specified in BackupLocation %s cannot be empty", bsl.Name)
+			}
+			// Check if user specified empty credential name
+			if bsl.Velero.Credential.Name == "" {
+				return fmt.Errorf("Secret name specified in BackupLocation %s cannot be empty", bsl.Name)
+			}
+		}
+		// Check if the BSL secret key configured in the DPA exists with a secret data
+		secretName, secretKey := r.getSecretNameAndKeyforBackupLocation(*bsl)
+		bslSecret, err := r.getProviderSecret(secretName)
+		if err != nil {
+			return err
+		}
+		data, foundKey := bslSecret.Data[secretKey]
+		if !foundKey || len(data) == 0 {
+			return fmt.Errorf("Secret name %s is missing data for key %s", secretName, secretKey)
 		}
 	}
 	return nil

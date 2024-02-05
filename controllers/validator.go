@@ -40,55 +40,11 @@ func (r *DPAReconciler) ValidateDataProtectionCR(log logr.Logger) (bool, error) 
 		}
 	}
 
-	for _, location := range dpa.Spec.BackupLocations {
-		// check for velero BSL config or cloud storage config
-		if location.Velero == nil && location.CloudStorage == nil {
-			return false, errors.New("BackupLocation must have velero or bucket configuration")
-		}
-		if location.Velero != nil && location.Velero.ObjectStorage != nil && location.Velero.ObjectStorage.Prefix == "" && dpa.BackupImages() {
-			return false, errors.New("BackupLocation must have velero prefix when backupImages is not set to false")
-		}
-		if location.CloudStorage != nil && location.CloudStorage.Prefix == "" && dpa.BackupImages() {
-			return false, errors.New("BackupLocation must have cloud storage prefix when backupImages is not set to false")
-		}
-
-		// Check if the Velero feature flag 'no-secret' is not set
-		if !dpa.Spec.Configuration.Velero.HasFeatureFlag("no-secret") {
-
-			// Check if the user specified credential under velero
-			if location.Velero != nil && location.Velero.Credential != nil {
-
-				// Check if user specified empty credential key
-				if location.Velero.Credential.Key == "" {
-					return false, fmt.Errorf("Secret key specified in BackupLocation %s cannot be empty", location.Name)
-				}
-
-				// Check if user specified empty credential name
-				if location.Velero.Credential.Name == "" {
-					return false, fmt.Errorf("Secret name specified in BackupLocation %s cannot be empty", location.Name)
-				}
-			}
-
-			// Check if the BSL secret key configured in the DPA exists with a secret data
-			secretName, secretKey := r.getSecretNameAndKeyforBackupLocation(location)
-			bslSecret, err := r.getProviderSecret(secretName)
-
-			if err != nil {
-				return false, err
-			}
-
-			data, foundKey := bslSecret.Data[secretKey]
-
-			if !foundKey || len(data) == 0 {
-				return false, fmt.Errorf("Secret name %s is missing data for key %s", secretName, secretKey)
-			}
-		}
+	if validBsl, err := r.ValidateBackupStorageLocations(dpa); !validBsl || err != nil {
+		return validBsl, err
 	}
-
-	for _, location := range dpa.Spec.SnapshotLocations {
-		if location.Velero == nil {
-			return false, errors.New("snapshotLocation velero configuration cannot be nil")
-		}
+	if validVsl, err := r.ValidateVolumeSnapshotLocations(dpa); !validVsl || err != nil {
+		return validVsl, err
 	}
 
 	if val, found := dpa.Spec.UnsupportedOverrides[oadpv1alpha1.OperatorTypeKey]; found && val != oadpv1alpha1.OperatorTypeMTC {
@@ -105,12 +61,6 @@ func (r *DPAReconciler) ValidateDataProtectionCR(log logr.Logger) (bool, error) 
 
 	if _, err := getResticResourceReqs(&dpa); err != nil {
 		return false, err
-	}
-	if validBsl, err := r.ValidateBackupStorageLocations(dpa); !validBsl || err != nil {
-		return validBsl, err
-	}
-	if validVsl, err := r.ValidateVolumeSnapshotLocations(dpa); !validVsl || err != nil {
-		return validVsl, err
 	}
 	return true, nil
 }
