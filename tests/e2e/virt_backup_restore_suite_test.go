@@ -51,4 +51,9 @@ var _ = Describe("VM backup and restore tests", Ordered, func() {
 		installed := v.IsVirtInstalled()
 		Expect(installed).To(BeTrue())
 	})
+
+	It("should upload a data volume successfully", func() {
+		err := v.EnsureDataVolume("openshift-cnv", "cirros", "https://download.cirros-cloud.net/0.6.2/cirros-0.6.2-x86_64-disk.img", "128Mi", 5*time.Minute)
+		Expect(err).To(BeNil())
+	})
 })
