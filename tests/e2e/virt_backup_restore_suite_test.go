@@ -30,9 +30,11 @@ var _ = Describe("VM backup and restore tests", Ordered, func() {
 			Skip("Skipping virtualization testing on cluster version " + v.Version.String() + ", minimum required is " + minimum.String())
 		}
 
-		err = v.EnsureVirtInstallation(5 * time.Minute)
-		Expect(err).To(BeNil())
-		wasInstalledFromTest = true
+		if !v.IsVirtInstalled() {
+			err = v.EnsureVirtInstallation(5 * time.Minute)
+			Expect(err).To(BeNil())
+			wasInstalledFromTest = true
+		}
 	})
 
 	var _ = AfterAll(func() {
