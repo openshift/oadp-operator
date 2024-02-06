@@ -1990,6 +1990,7 @@ func TestDPAReconciler_ReconcileBackupStorageLocations(t *testing.T) {
 					Name:      tt.dpa.Name,
 				},
 				EventRecorder: record.NewFakeRecorder(10),
+				dpa:           tt.dpa,
 			}
 			wantBSL := &velerov1.BackupStorageLocation{
 				ObjectMeta: metav1.ObjectMeta{
@@ -2313,6 +2314,11 @@ func TestDPAReconciler_ReconcileBackupStorageLocations(t *testing.T) {
 	}
 	for _, tt := range bslPrefixCATests {
 		t.Run(tt.name, func(t *testing.T) {
+			dpa, ok := tt.objects[0].(*oadpv1alpha1.DataProtectionApplication)
+			if !ok {
+				t.Errorf("Unexpected object type: %T", tt.objects[0])
+				return
+			}
 			fakeClient, err := getFakeClientFromObjects(tt.objects...)
 			if err != nil {
 				t.Errorf("error in creating fake client, likely programmer error")
@@ -2327,7 +2333,9 @@ func TestDPAReconciler_ReconcileBackupStorageLocations(t *testing.T) {
 					Name:      tt.objects[0].GetName(),
 				},
 				EventRecorder: record.NewFakeRecorder(10),
+				dpa:           dpa,
 			}
+
 			got, err := r.ReconcileBackupStorageLocations(r.Log)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ReconcileBackupStorageLocations() error =%v, wantErr %v", err, tt.wantErr)

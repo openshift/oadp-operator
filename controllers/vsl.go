@@ -49,11 +49,7 @@ var validAzureKeys = map[string]bool{
 }
 
 func (r *DPAReconciler) LabelVSLSecrets(log logr.Logger) (bool, error) {
-	dpa := oadpv1alpha1.DataProtectionApplication{}
-	if err := r.Get(r.Context, r.NamespacedName, &dpa); err != nil {
-		return false, err
-	}
-
+	dpa := r.dpa
 	for _, vsl := range dpa.Spec.SnapshotLocations {
 		provider := strings.TrimPrefix(vsl.Velero.Provider, veleroIOPrefix)
 		switch provider {
@@ -205,11 +201,7 @@ func (r *DPAReconciler) ValidateVolumeSnapshotLocations(dpa oadpv1alpha1.DataPro
 }
 
 func (r *DPAReconciler) ReconcileVolumeSnapshotLocations(log logr.Logger) (bool, error) {
-	dpa := oadpv1alpha1.DataProtectionApplication{}
-	if err := r.Get(r.Context, r.NamespacedName, &dpa); err != nil {
-		return false, err
-	}
-
+	dpa := r.dpa
 	// Loop through all configured VSLs
 	for i, vslSpec := range dpa.Spec.SnapshotLocations {
 		// Create VSL as is, we can safely assume they are valid from
@@ -229,7 +221,7 @@ func (r *DPAReconciler) ReconcileVolumeSnapshotLocations(log logr.Logger) (bool,
 			// SetOwnerReference instead
 
 			// Set controller reference to Velero controller
-			err := controllerutil.SetControllerReference(&dpa, &vsl, r.Scheme)
+			err := controllerutil.SetControllerReference(dpa, &vsl, r.Scheme)
 			if err != nil {
 				return err
 			}
