@@ -784,7 +784,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 				Eventually(AreVeleroPodsRunning(kubernetesClientForSuiteRun, namespace), timeoutMultiplier*time.Minute*3, time.Second*5).ShouldNot(BeTrue())
 			}
 		},
-		Entry("Should succeed", deletionCase{WantError: false}),
+		Entry("DPA / Restic Success Deletion", deletionCase{WantError: false}),
 	)
 
 	DescribeTable("DPA / Kopia Deletion test",
@@ -807,6 +807,6 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 				Eventually(AreVeleroPodsRunning(kubernetesClientForSuiteRun, namespace), timeoutMultiplier*time.Minute*3, time.Second*5).ShouldNot(BeTrue())
 			}
 		},
-		Entry("Should succeed", deletionCase{WantError: false}),
+		Entry("DPA / Kopia Success Deletion", deletionCase{WantError: false}),
 	)
 })

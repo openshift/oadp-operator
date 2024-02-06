@@ -26,7 +26,7 @@ type appVerificationFunction func(bool, bool, BackupRestoreType) VerificationFun
 // TODO duplications with mongoready
 func mongoready(preBackupState bool, twoVol bool, backupRestoreType BackupRestoreType) VerificationFunction {
 	return VerificationFunction(func(ocClient client.Client, namespace string) error {
-		Eventually(IsDCReady(ocClient, namespace, "todolist"), timeoutMultiplier*time.Minute*10, time.Second*10).Should(BeTrue())
+		Eventually(IsDCReady(ocClient, namespace, "todolist"), timeoutMultiplier*time.Minute*3, time.Second*10).Should(BeTrue())
 		exists, err := DoesSCCExist(ocClient, "mongo-persistent-scc")
 		if err != nil {
 			return err
@@ -43,7 +43,7 @@ func mysqlReady(preBackupState bool, twoVol bool, backupRestoreType BackupRestor
 	return VerificationFunction(func(ocClient client.Client, namespace string) error {
 		log.Printf("checking for the NAMESPACE: %s", namespace)
 		// This test confirms that SCC restore logic in our plugin is working
-		Eventually(IsDeploymentReady(ocClient, namespace, "mysql"), timeoutMultiplier*time.Minute*10, time.Second*10).Should(BeTrue())
+		Eventually(IsDeploymentReady(ocClient, namespace, "mysql"), timeoutMultiplier*time.Minute*3, time.Second*10).Should(BeTrue())
 		exists, err := DoesSCCExist(ocClient, "mysql-persistent-scc")
 		if err != nil {
 			return err
@@ -132,8 +132,8 @@ func runBackupAndRestore(brCase BackupRestoreCase, expectedErr error, updateLast
 	}
 
 	// wait for pods to be running
-	Eventually(AreAppBuildsReady(dpaCR.Client, brCase.ApplicationNamespace), timeoutMultiplier*time.Minute*5, time.Second*5).Should(BeTrue())
-	Eventually(AreApplicationPodsRunning(kubernetesClientForSuiteRun, brCase.ApplicationNamespace), timeoutMultiplier*time.Minute*9, time.Second*5).Should(BeTrue())
+	Eventually(AreAppBuildsReady(dpaCR.Client, brCase.ApplicationNamespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
+	Eventually(AreApplicationPodsRunning(kubernetesClientForSuiteRun, brCase.ApplicationNamespace), timeoutMultiplier*time.Minute*5, time.Second*5).Should(BeTrue())
 
 	// Run optional custom verification
 	log.Printf("Running pre-backup function for case %s", brCase.Name)
@@ -148,11 +148,11 @@ func runBackupAndRestore(brCase BackupRestoreCase, expectedErr error, updateLast
 	time.Sleep(brCase.AppReadyDelay)
 	// create backup
 	log.Printf("Creating backup %s for case %s", backupName, brCase.Name)
-	backup, err := CreateBackupForNamespaces(dpaCR.Client, namespace, backupName, []string{brCase.ApplicationNamespace}, brCase.BackupRestoreType == RESTIC || brCase.BackupRestoreType == KOPIA, brCase.BackupRestoreType == CSIDataMover)
+	backup, err := CreateBackupForNamespaces(dpaCR.Client, namespace, backupName, []string{brCase.ApplicationNamespace}, brCase.BackupRestoreType == RESTIC || brCase.BackupRestoreType == KOPIA, brCase.BackupRestoreType == CSIDataMover, "180s")
 	Expect(err).ToNot(HaveOccurred())
 
 	// wait for backup to not be running
-	Eventually(IsBackupDone(dpaCR.Client, namespace, backupName), timeoutMultiplier*time.Minute*20, time.Second*10).Should(BeTrue())
+	Eventually(IsBackupDone(dpaCR.Client, namespace, backupName), timeoutMultiplier*time.Minute*4, time.Second*5).Should(BeTrue())
 	// TODO only log on fail?
 	describeBackup := DescribeBackup(veleroClientForSuiteRun, csiClientForSuiteRun, dpaCR.Client, backup)
 	GinkgoWriter.Println(describeBackup)
@@ -187,7 +187,7 @@ func runBackupAndRestore(brCase BackupRestoreCase, expectedErr error, updateLast
 	log.Printf("Creating restore %s for case %s", restoreName, brCase.Name)
 	restore, err := CreateRestoreFromBackup(dpaCR.Client, namespace, backupName, restoreName)
 	Expect(err).ToNot(HaveOccurred())
-	Eventually(IsRestoreDone(dpaCR.Client, namespace, restoreName), timeoutMultiplier*time.Minute*60, time.Second*10).Should(BeTrue())
+	Eventually(IsRestoreDone(dpaCR.Client, namespace, restoreName), timeoutMultiplier*time.Minute*8, time.Second*10).Should(BeTrue())
 	// TODO only log on fail?
 	describeRestore := DescribeRestore(veleroClientForSuiteRun, dpaCR.Client, restore)
 	GinkgoWriter.Println(describeRestore)
@@ -216,7 +216,7 @@ func runBackupAndRestore(brCase BackupRestoreCase, expectedErr error, updateLast
 
 	// verify app is running
 	Eventually(AreAppBuildsReady(dpaCR.Client, brCase.ApplicationNamespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
-	Eventually(AreApplicationPodsRunning(kubernetesClientForSuiteRun, brCase.ApplicationNamespace), timeoutMultiplier*time.Minute*9, time.Second*5).Should(BeTrue())
+	Eventually(AreApplicationPodsRunning(kubernetesClientForSuiteRun, brCase.ApplicationNamespace), timeoutMultiplier*time.Minute*2, time.Second*5).Should(BeTrue())
 
 	// Run optional custom verification
 	log.Printf("Running post-restore function for case %s", brCase.Name)
