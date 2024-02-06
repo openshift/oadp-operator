@@ -158,9 +158,10 @@ func TestDPAReconciler_updateVeleroMetricsSVC(t *testing.T) {
 					Name:      tt.svc.Name,
 				},
 				EventRecorder: record.NewFakeRecorder(10),
+				dpa:           tt.dpa,
 			}
 
-			err = r.updateVeleroMetricsSVC(tt.svc, tt.dpa)
+			err = r.updateVeleroMetricsSVC(tt.svc)
 			if !reflect.DeepEqual(tt.wantVeleroMtricsSVC.Labels, tt.svc.Labels) {
 				t.Errorf("expected velero metrics svc labels to be %#v, got %#v", tt.wantVeleroMtricsSVC.Labels, tt.svc.Labels)
 			}

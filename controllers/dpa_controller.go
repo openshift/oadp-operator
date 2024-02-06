@@ -50,6 +50,7 @@ type DPAReconciler struct {
 	Context        context.Context
 	NamespacedName types.NamespacedName
 	EventRecorder  record.EventRecorder
+	dpa            *oadpv1alpha1.DataProtectionApplication
 }
 
 var debugMode = os.Getenv("DEBUG") == "true"
@@ -79,9 +80,9 @@ func (r *DPAReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	// Set reconciler context + name
 	r.Context = ctx
 	r.NamespacedName = req.NamespacedName
-	dpa := oadpv1alpha1.DataProtectionApplication{}
+	r.dpa = &oadpv1alpha1.DataProtectionApplication{}
 
-	if err := r.Get(ctx, req.NamespacedName, &dpa); err != nil {
+	if err := r.Get(ctx, req.NamespacedName, r.dpa); err != nil {
 		logger.Error(err, "unable to fetch DataProtectionApplication CR")
 		return result, nil
 	}
@@ -107,7 +108,7 @@ func (r *DPAReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	)
 
 	if err != nil {
-		apimeta.SetStatusCondition(&dpa.Status.Conditions,
+		apimeta.SetStatusCondition(&r.dpa.Status.Conditions,
 			metav1.Condition{
 				Type:    oadpv1alpha1.ConditionReconciled,
 				Status:  metav1.ConditionFalse,
@@ -117,7 +118,7 @@ func (r *DPAReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		)
 
 	} else {
-		apimeta.SetStatusCondition(&dpa.Status.Conditions,
+		apimeta.SetStatusCondition(&r.dpa.Status.Conditions,
 			metav1.Condition{
 				Type:    oadpv1alpha1.ConditionReconciled,
 				Status:  metav1.ConditionTrue,
@@ -126,7 +127,7 @@ func (r *DPAReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 			},
 		)
 	}
-	statusErr := r.Client.Status().Update(ctx, &dpa)
+	statusErr := r.Client.Status().Update(ctx, r.dpa)
 	if err == nil { // Don't mask previous error
 		err = statusErr
 	}
@@ -213,7 +214,6 @@ type ReconcileFunc func(logr.Logger) (bool, error)
 // false or an error.
 func ReconcileBatch(l logr.Logger, reconcileFuncs ...ReconcileFunc) (bool, error) {
 	// TODO: #1127 DPAReconciler already have a logger, use it instead of passing to each reconcile functions
-	// TODO: #1128 Right now each reconcile functions call get for DPA, we can do it once and pass it to each function
 	for _, f := range reconcileFuncs {
 		if cont, err := f(l); !cont || err != nil {
 			return cont, err

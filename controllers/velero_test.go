@@ -233,6 +233,7 @@ var _ = ginkgo.Describe("Test ReconcileVeleroDeployment function", func() {
 					Namespace: scenario.namespace,
 				},
 				EventRecorder: event,
+				dpa:           dpa,
 			}
 			result, err := r.ReconcileVeleroDeployment(logr.Discard())
 
@@ -1719,12 +1720,12 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 			if err != nil {
 				t.Errorf("error in creating fake client, likely programmer error")
 			}
-			r := DPAReconciler{Client: fakeClient}
+			r := DPAReconciler{Client: fakeClient, dpa: test.dpa}
 			oadpclient.SetClient(fakeClient)
 			if test.testProxy {
 				t.Setenv(proxyEnvKey, proxyEnvValue)
 			}
-			if err := r.buildVeleroDeployment(test.veleroDeployment, test.dpa); err != nil {
+			if err := r.buildVeleroDeployment(test.veleroDeployment); err != nil {
 				if test.errorMessage != err.Error() {
 					t.Errorf("buildVeleroDeployment() error = %v, errorMessage %v", err, test.errorMessage)
 				}
@@ -1957,6 +1958,7 @@ func Test_validateVeleroPlugins(t *testing.T) {
 				Name:      tt.dpa.Name,
 			},
 			EventRecorder: record.NewFakeRecorder(10),
+			dpa:           tt.dpa,
 		}
 		t.Run(tt.name, func(t *testing.T) {
 			result, err := r.ValidateVeleroPlugins(r.Log)
@@ -2038,8 +2040,9 @@ func TestDPAReconciler_noDefaultCredentials(t *testing.T) {
 			}
 			r := DPAReconciler{
 				Client: fakeClient,
+				dpa:    &tt.args.dpa,
 			}
-			got, got1, err := r.noDefaultCredentials(tt.args.dpa)
+			got, got1, err := r.noDefaultCredentials()
 			if (err != nil) != tt.wantErr {
 				t.Errorf("DPAReconciler.noDefaultCredentials() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -2110,8 +2113,9 @@ func TestDPAReconciler_VeleroDebugEnvironment(t *testing.T) {
 			}
 			r := DPAReconciler{
 				Client: fakeClient,
+				dpa:    dpa,
 			}
-			err = r.buildVeleroDeployment(deployment, dpa)
+			err = r.buildVeleroDeployment(deployment)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("DPAReconciler.VeleroDebugEnvironment error = %v, wantErr %v", err, tt.wantErr)
 				return
