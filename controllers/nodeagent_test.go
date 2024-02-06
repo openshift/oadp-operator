@@ -38,6 +38,7 @@ func TestDPAReconciler_ReconcileNodeAgentDaemonset(t *testing.T) {
 	}
 	type args struct {
 		log logr.Logger
+		dpa oadpv1alpha1.DataProtectionApplication
 	}
 	tests := []struct {
 		name    string
@@ -57,6 +58,7 @@ func TestDPAReconciler_ReconcileNodeAgentDaemonset(t *testing.T) {
 				Context:        tt.fields.Context,
 				NamespacedName: tt.fields.NamespacedName,
 				EventRecorder:  tt.fields.EventRecorder,
+				dpa:            &tt.args.dpa,
 			}
 			got, err := r.ReconcileNodeAgentDaemonset(tt.args.log)
 			if (err != nil) != tt.wantErr {

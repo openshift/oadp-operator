@@ -65,10 +65,8 @@ var (
 )
 
 func (r *DPAReconciler) ReconcileVeleroDeployment(log logr.Logger) (bool, error) {
-	dpa := oadpv1alpha1.DataProtectionApplication{}
-	if err := r.Get(r.Context, r.NamespacedName, &dpa); err != nil {
-		return false, err
-	}
+
+	dpa := r.dpa
 
 	veleroDeployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
@@ -84,18 +82,18 @@ func (r *DPAReconciler) ReconcileVeleroDeployment(log logr.Logger) (bool, error)
 		// Setting Deployment selector if a new object is created as it is immutable
 		if veleroDeployment.ObjectMeta.CreationTimestamp.IsZero() {
 			veleroDeployment.Spec.Selector = &metav1.LabelSelector{
-				MatchLabels: getDpaAppLabels(&dpa),
+				MatchLabels: getDpaAppLabels(dpa),
 			}
 		}
 
 		// update the Deployment template
-		err := r.buildVeleroDeployment(veleroDeployment, &dpa)
+		err := r.buildVeleroDeployment(veleroDeployment, dpa)
 		if err != nil {
 			return err
 		}
 
 		// Setting controller owner reference on the velero deployment
-		return controllerutil.SetControllerReference(&dpa, veleroDeployment, r.Scheme)
+		return controllerutil.SetControllerReference(dpa, veleroDeployment, r.Scheme)
 	})
 	if debugMode && op != controllerutil.OperationResultNone { // for debugging purposes
 		fmt.Printf("DEBUG: There was a diff which resulted in an operation on Velero Deployment: %s\n", cmp.Diff(orig, veleroDeployment))
