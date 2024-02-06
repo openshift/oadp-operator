@@ -26,7 +26,7 @@ require (
 require (
 	github.com/deckarep/golang-set/v2 v2.3.0
 	github.com/google/go-cmp v0.5.9
-	github.com/vmware-tanzu/velero v1.12.0
+	github.com/vmware-tanzu/velero v1.12.3
 	sigs.k8s.io/yaml v1.3.0
 )
 
