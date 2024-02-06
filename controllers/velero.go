@@ -367,7 +367,7 @@ func (r *DPAReconciler) customizeVeleroDeployment(dpa *oadpv1alpha1.DataProtecti
 	// check for default-volumes-to-fs-backup
 	defaultVolumesToFSBackup := getDefaultVolumesToFSBackup(dpa)
 
-	// check for default-volumes-to-fs-backup
+	// check for default-snapshot-move-data
 	if len(defaultSnapshotMoveData) > 0 {
 		veleroContainer.Args = append(veleroContainer.Args, fmt.Sprintf("--default-snapshot-move-data=%s", defaultSnapshotMoveData))
 	}
