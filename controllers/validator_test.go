@@ -1409,6 +1409,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 				Namespace: tt.dpa.Namespace,
 				Name:      tt.dpa.Name,
 			},
+			dpa:           tt.dpa,
 			EventRecorder: record.NewFakeRecorder(10),
 		}
 		t.Run(tt.name, func(t *testing.T) {

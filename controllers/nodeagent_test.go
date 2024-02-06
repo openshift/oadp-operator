@@ -160,6 +160,7 @@ var _ = ginkgo.Describe("Test ReconcileNodeAgentDaemonSet function", func() {
 					Namespace: scenario.namespace,
 				},
 				EventRecorder: event,
+				dpa:           dpa,
 			}
 			result, err := r.ReconcileNodeAgentDaemonset(logr.Discard())
 
@@ -1131,8 +1132,8 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 			if err != nil {
 				t.Errorf("error in creating fake client, likely programmer error")
 			}
-			r := &DPAReconciler{Client: fakeClient}
-			if result, err := r.buildNodeAgentDaemonset(test.dpa, test.nodeAgentDaemonSet); err != nil {
+			r := &DPAReconciler{Client: fakeClient, dpa: test.dpa}
+			if result, err := r.buildNodeAgentDaemonset(test.nodeAgentDaemonSet); err != nil {
 				if test.errorMessage != err.Error() {
 					t.Errorf("buildNodeAgentDaemonset() error = %v, errorMessage %v", err, test.errorMessage)
 				}
@@ -1206,8 +1207,9 @@ func TestDPAReconciler_updateFsRestoreHelperCM(t *testing.T) {
 					Name:      tt.dpa.Name,
 				},
 				EventRecorder: record.NewFakeRecorder(10),
+				dpa:           tt.dpa,
 			}
-			if err := r.updateFsRestoreHelperCM(tt.fsRestoreHelperCM, tt.dpa); (err != nil) != tt.wantErr {
+			if err := r.updateFsRestoreHelperCM(tt.fsRestoreHelperCM); (err != nil) != tt.wantErr {
 				t.Errorf("updateFsRestoreHelperCM() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			if !reflect.DeepEqual(tt.fsRestoreHelperCM, tt.wantFsRestoreHelperCM) {
@@ -1279,6 +1281,7 @@ func TestDPAReconciler_getPlatformType(t *testing.T) {
 					Name:      tt.dpa.Name,
 				},
 				EventRecorder: record.NewFakeRecorder(10),
+				dpa:           tt.dpa,
 			}
 			got, err := r.getPlatformType()
 			if (err != nil) != tt.wantErr {
