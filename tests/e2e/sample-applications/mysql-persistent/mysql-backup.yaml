@@ -1,7 +1,7 @@
 apiVersion: velero.io/v1
 kind: Backup
 metadata:
-  name: mysql-persistent
+  name: mysql-persistent-test-defaults-3
   namespace: openshift-adp
 spec:
   includedNamespaces:

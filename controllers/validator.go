@@ -40,11 +40,6 @@ func (r *DPAReconciler) ValidateDataProtectionCR(log logr.Logger) (bool, error) 
 		}
 	}
 
-	//FIXME hrm.. how to get the boolean value?
-	if dpa.Spec.Configuration.Velero.DefaultSnapshotMoveData != nil && dpa.Spec.Configuration.Velero.DefaultVolumesToFSBackup != nil {
-		return false, errors.New("defaultVolumeSnapshotLocation cannot be set when defaultSnapshotMoveData is also set")
-	}
-
 	if validBsl, err := r.ValidateBackupStorageLocations(dpa); !validBsl || err != nil {
 		return validBsl, err
 	}
