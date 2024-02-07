@@ -51,6 +51,7 @@ type CustomPlugin struct {
 	Image string `json:"image"`
 }
 
+// Field does not have enum validation for development flexibility
 type UnsupportedImageKey string
 
 const VeleroImageKey UnsupportedImageKey = "veleroImageFqin"
@@ -345,7 +346,6 @@ type DataProtectionApplicationSpec struct {
 	//   - kubevirtPluginImageFqin
 	//   - operator-type
 	// +optional
-	// +kubebuilder:validation:Enum=veleroImageFqin;awsPluginImageFqin;openshiftPluginImageFqin;azurePluginImageFqin;gcpPluginImageFqin;csiPluginImageFqin;resticRestoreImageFqin;kubevirtPluginImageFqin;operator-type
 	UnsupportedOverrides map[UnsupportedImageKey]string `json:"unsupportedOverrides,omitempty"`
 	// add annotations to pods deployed by operator
 	// +optional
