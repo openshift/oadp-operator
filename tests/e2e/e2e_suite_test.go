@@ -14,10 +14,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/openshift/oadp-operator/tests/e2e/lib"
-	"github.com/openshift/oadp-operator/tests/e2e/utils"
 	veleroClientset "github.com/vmware-tanzu/velero/pkg/generated/clientset/versioned"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 )
@@ -114,6 +114,7 @@ var dynamicClientForSuiteRun dynamic.Interface
 var dpaCR *DpaCustomResource
 var knownFlake bool
 var accumulatedTestLogs []string
+var kubeConfig *rest.Config
 
 var _ = BeforeSuite(func() {
 	// TODO create logger (hh:mm:ss message) to be used by all functions
@@ -124,23 +125,23 @@ var _ = BeforeSuite(func() {
 	}
 
 	var err error
-	kubeConf := config.GetConfigOrDie()
-	kubeConf.QPS = 50
-	kubeConf.Burst = 100
+	kubeConfig = config.GetConfigOrDie()
+	kubeConfig.QPS = 50
+	kubeConfig.Burst = 100
 
-	kubernetesClientForSuiteRun, err = kubernetes.NewForConfig(kubeConf)
+	kubernetesClientForSuiteRun, err = kubernetes.NewForConfig(kubeConfig)
 	Expect(err).NotTo(HaveOccurred())
 
-	runTimeClientForSuiteRun, err = client.New(kubeConf, client.Options{})
+	runTimeClientForSuiteRun, err = client.New(kubeConfig, client.Options{})
 	Expect(err).NotTo(HaveOccurred())
 
-	veleroClientForSuiteRun, err = veleroClientset.NewForConfig(kubeConf)
+	veleroClientForSuiteRun, err = veleroClientset.NewForConfig(kubeConfig)
 	Expect(err).NotTo(HaveOccurred())
 
-	csiClientForSuiteRun, err = snapshotv1client.NewForConfig(kubeConf)
+	csiClientForSuiteRun, err = snapshotv1client.NewForConfig(kubeConfig)
 	Expect(err).NotTo(HaveOccurred())
 
-	dynamicClientForSuiteRun, err = dynamic.NewForConfig(kubeConf)
+	dynamicClientForSuiteRun, err = dynamic.NewForConfig(kubeConfig)
 	Expect(err).NotTo(HaveOccurred())
 
 	dpaCR = &DpaCustomResource{
@@ -150,18 +151,18 @@ var _ = BeforeSuite(func() {
 	dpaCR.CustomResource = Dpa
 	dpaCR.Name = "ts-" + instanceName
 
-	bslCredFileData, err := utils.ReadFile(bslCredFile)
+	bslCredFileData, err := ReadFile(bslCredFile)
 	Expect(err).NotTo(HaveOccurred())
 	err = CreateCredentialsSecret(kubernetesClientForSuiteRun, bslCredFileData, namespace, "bsl-cloud-credentials-"+provider)
 	Expect(err).NotTo(HaveOccurred())
 	err = CreateCredentialsSecret(
 		kubernetesClientForSuiteRun,
-		utils.ReplaceSecretDataNewLineWithCarriageReturn(bslCredFileData),
+		ReplaceSecretDataNewLineWithCarriageReturn(bslCredFileData),
 		namespace, "bsl-cloud-credentials-"+provider+"-with-carriage-return",
 	)
 	Expect(err).NotTo(HaveOccurred())
 
-	vslCredFileData, err := utils.ReadFile(vslCredFile)
+	vslCredFileData, err := ReadFile(vslCredFile)
 	Expect(err).NotTo(HaveOccurred())
 	err = CreateCredentialsSecret(kubernetesClientForSuiteRun, vslCredFileData, namespace, credSecretRef)
 	Expect(err).NotTo(HaveOccurred())

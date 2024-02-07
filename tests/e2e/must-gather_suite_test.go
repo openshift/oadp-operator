@@ -9,7 +9,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/openshift/oadp-operator/tests/e2e/lib"
-	"github.com/openshift/oadp-operator/tests/e2e/utils"
 )
 
 var _ = Describe("Backup and restore tests with must-gather", func() {
@@ -51,7 +50,7 @@ var _ = Describe("Backup and restore tests with must-gather", func() {
 				if dirEntry.IsDir() && strings.HasPrefix(dirEntry.Name(), "quay-io") {
 					mustGatherImageDir := baseReportDir + "/must-gather/" + dirEntry.Name()
 					// extract must-gather.tar.gz
-					err = utils.ExtractTarGz(mustGatherImageDir, "must-gather.tar.gz")
+					err = ExtractTarGz(mustGatherImageDir, "must-gather.tar.gz")
 					Expect(err).ToNot(HaveOccurred())
 					mustGatherDir := mustGatherImageDir + "/must-gather"
 					clusters, err := os.ReadDir(mustGatherDir + "/clusters")
@@ -79,8 +78,8 @@ var _ = Describe("Backup and restore tests with must-gather", func() {
 			ApplicationNamespace: "mongo-persistent",
 			Name:                 "mongo-datamover-e2e",
 			BackupRestoreType:    CSIDataMover,
-			PreBackupVerify:      mongoready(true, false, CSIDataMover),
-			PostRestoreVerify:    mongoready(false, false, CSIDataMover),
+			PreBackupVerify:      mongoready(true, false),
+			PostRestoreVerify:    mongoready(false, false),
 			MustGatherFiles: []string{
 				"namespaces/" + namespace + "/oadp.openshift.io/dpa-ts-" + instanceName + "/ts-" + instanceName + ".yml",
 				"namespaces/" + namespace + "/velero.io/backupstoragelocations.velero.io/ts-" + instanceName + "-1.yaml",
