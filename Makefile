@@ -32,7 +32,7 @@ VELERO_INSTANCE_NAME ?= velero-test
 E2E_TIMEOUT_MULTIPLIER ?= 1
 ARTIFACT_DIR ?= /tmp
 OC_CLI = $(shell which oc)
-TEST_VIRT ?= ${OPENSHIFT_CI}
+TEST_VIRT ?= false
 
 ifdef CLI_DIR
 	OC_CLI = ${CLI_DIR}/oc
@@ -472,9 +472,14 @@ install-ginkgo: # Make sure ginkgo is in $GOPATH/bin
 	go install -v -mod=mod github.com/onsi/ginkgo/v2/ginkgo
 
 OADP_BUCKET ?= $(shell cat $(OADP_BUCKET_FILE))
-TEST_FILTER := ($(shell echo '! aws && ! gcp && ! azure && ! ibmcloud' | \
-sed -r "s/[&]* [!] $(CLUSTER_TYPE)|[!] $(CLUSTER_TYPE) [&]*//")) || $(CLUSTER_TYPE)
+TEST_FILTER = (($(shell echo '! aws && ! gcp && ! azure && ! ibmcloud' | \
+sed -r "s/[&]* [!] $(CLUSTER_TYPE)|[!] $(CLUSTER_TYPE) [&]*//")) || $(CLUSTER_TYPE))
 #TEST_FILTER := $(shell echo '! aws && ! gcp && ! azure' | sed -r "s/[&]* [!] $(CLUSTER_TYPE)|[!] $(CLUSTER_TYPE) [&]*//")
+ifeq ($(TEST_VIRT),true)
+	TEST_FILTER += && (virt)
+else
+	TEST_FILTER += && (! virt)
+endif
 SETTINGS_TMP=/tmp/test-settings
 
 .PHONY: test-e2e-setup
@@ -507,7 +512,6 @@ test-e2e: test-e2e-setup install-ginkgo
 	-timeout_multiplier=$(E2E_TIMEOUT_MULTIPLIER) \
 	-artifact_dir=$(ARTIFACT_DIR) \
 	-oc_cli=$(OC_CLI) \
-	-test_virt=$(TEST_VIRT) \
 	--ginkgo.vv \
 	--ginkgo.no-color=$(OPENSHIFT_CI) \
 	--ginkgo.label-filter="$(TEST_FILTER)" \
