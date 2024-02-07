@@ -79,7 +79,7 @@ items:
         spec:
           serviceAccountName: mongo-persistent-sa
           containers:
-          - image: mongo:latest
+          - image: docker.io/library/mongo:latest
             name: mongo
             securityContext:
               privileged: true
