@@ -21,7 +21,7 @@ To get started, you need to provide the following **required** environment varia
 | `BSL_REGION` | The region of backupLocations | `us-east-1` | false |
 | `OADP_TEST_NAMESPACE` | The namespace where OADP operator is installed | `openshift-adp` | false |
 | `OPENSHIFT_CI` | Disable colored output from tests suite run | `true` | false |
-| `TEST_VIRT` | Enable Virtual Machine backup/restore testing | `true` | false |
+| `TEST_VIRT` | Exclusively run Virtual Machine backup/restore testing | `false` | false |
 
 The expected format for `OADP_CRED_FILE` and `CI_CRED_FILE` files is:
 ```

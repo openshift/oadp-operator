@@ -6,7 +6,6 @@ import (
 	"log"
 	"os"
 	"strconv"
-	"strings"
 	"testing"
 	"time"
 
@@ -26,7 +25,6 @@ import (
 var bslCredFile, namespace, credSecretRef, instanceName, provider, vslCredFile, settings, artifact_dir, oc_cli, stream string
 var timeoutMultiplierInput, flakeAttempts int64
 var timeoutMultiplier time.Duration
-var virtTestingEnabled bool
 
 func init() {
 	// TODO better descriptions to flags
@@ -42,7 +40,6 @@ func init() {
 	flag.StringVar(&oc_cli, "oc_cli", "oc", "OC CLI Client")
 	flag.StringVar(&stream, "stream", "up", "[up, down] upstream or downstream")
 	flag.Int64Var(&timeoutMultiplierInput, "timeout_multiplier", 1, "Customize timeout multiplier from default (1)")
-	flag.BoolVar(&virtTestingEnabled, "test_virt", false, "Enable Virtual Machine backup/restore testing (default false)")
 	timeoutMultiplier = time.Duration(timeoutMultiplierInput)
 	flag.Int64Var(&flakeAttempts, "flakeAttempts", 3, "Customize the number of flake retries (3)")
 
@@ -88,9 +85,6 @@ func init() {
 			} else {
 				flakeAttempts = parsedValue
 			}
-		}
-		if strings.ToLower(os.Getenv("TEST_VIRT")) == "true" {
-			virtTestingEnabled = true
 		}
 	}
 }
