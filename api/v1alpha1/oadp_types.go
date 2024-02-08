@@ -356,7 +356,7 @@ func (dpa *DataProtectionApplication) AutoCorrect() {
 			}
 		}
 		if pvOperationTimeout, err := time.ParseDuration(fsBackupTimeout); err == nil && dpa.Spec.Configuration.Velero.Args.PodVolumeOperationTimeout == nil {
-			dpa.Spec.Configuration.Velero.Args.PodVolumeOperationTimeout = &pvOperationTimeout
+			dpa.Spec.Configuration.Velero.Args.PodVolumeOperationTimeout = &metav1.Duration{Duration: pvOperationTimeout}
 		}
 		if dpa.Spec.Configuration.Velero.Args.RestoreResourcePriorities == "" {
 			dpa.Spec.Configuration.Velero.Args.RestoreResourcePriorities = common.DefaultRestoreResourcePriorities.String()

@@ -47,7 +47,7 @@ func (a Args) StringArr(dpaFeatureFlags []string, logLevel string) ([]string, er
 		args = append(args, fmt.Sprintf("--log-level=%s", logrusLevel.String()))
 	}
 	if a.BackupSyncPeriod != nil {
-		args = append(args, fmt.Sprintf("--backup-sync-period=%s", a.BackupSyncPeriod.String())) // duration
+		args = append(args, fmt.Sprintf("--backup-sync-period=%s", a.BackupSyncPeriod.Duration.String())) // duration
 	}
 	if a.ClientBurst != nil {
 		args = append(args, fmt.Sprintf("--client-burst=%s", strconv.Itoa(*a.ClientBurst))) // int
@@ -63,23 +63,23 @@ func (a Args) StringArr(dpaFeatureFlags []string, logLevel string) ([]string, er
 	}
 	// default-backup-storage-location set outside Args
 	if a.DefaultBackupTTL != nil {
-		args = append(args, fmt.Sprintf("--default-backup-ttl=%s", a.DefaultBackupTTL.String())) // duration
+		args = append(args, fmt.Sprintf("--default-backup-ttl=%s", a.DefaultBackupTTL.Duration.String())) // duration
 	}
 	if a.DefaultItemOperationTimeout != nil {
-		args = append(args, fmt.Sprintf("--default-item-operation-timeout=%s", a.DefaultItemOperationTimeout.String())) // duration
+		args = append(args, fmt.Sprintf("--default-item-operation-timeout=%s", a.DefaultItemOperationTimeout.Duration.String())) // duration
 	}
 	if a.ResourceTimeout != nil {
-		args = append(args, fmt.Sprintf("--resource-timeout=%s", a.ResourceTimeout.String())) // duration
+		args = append(args, fmt.Sprintf("--resource-timeout=%s", a.ResourceTimeout.Duration.String())) // duration
 	}
 	if a.RepoMaintenanceFrequency != nil {
-		args = append(args, fmt.Sprintf("--default-repo-maintain-frequency=%s", a.RepoMaintenanceFrequency.String())) // duration
+		args = append(args, fmt.Sprintf("--default-repo-maintain-frequency=%s", a.RepoMaintenanceFrequency.Duration.String())) // duration
 	}
 	// default-volume-snapshot-locations set outside Args
 	if a.DisabledControllers != nil {
 		args = append(args, fmt.Sprintf("--disable-controllers=%s", strings.Join(a.DisabledControllers, ","))) // strings
 	}
 	if a.GarbageCollectionFrequency != nil {
-		args = append(args, fmt.Sprintf("--garbage-collection-frequency=%s", a.GarbageCollectionFrequency.String())) // duration
+		args = append(args, fmt.Sprintf("--garbage-collection-frequency=%s", a.GarbageCollectionFrequency.Duration.String())) // duration
 	}
 	if a.FormatFlag != "" {
 		args = append(args, fmt.Sprintf("--log-format=%s", a.FormatFlag)) // format
@@ -92,10 +92,10 @@ func (a Args) StringArr(dpaFeatureFlags []string, logLevel string) ([]string, er
 		args = append(args, fmt.Sprintf("--profiler-address=%s", a.ProfilerAddress)) // string
 	}
 	if a.PodVolumeOperationTimeout != nil {
-		args = append(args, fmt.Sprintf("--fs-backup-timeout=%s", a.PodVolumeOperationTimeout.String())) // duration
+		args = append(args, fmt.Sprintf("--fs-backup-timeout=%s", a.PodVolumeOperationTimeout.Duration.String())) // duration
 	}
 	if a.ItemOperationSyncFrequency != nil {
-		args = append(args, fmt.Sprintf("--item-operation-sync-frequency=%s", a.ItemOperationSyncFrequency.String())) // duration
+		args = append(args, fmt.Sprintf("--item-operation-sync-frequency=%s", a.ItemOperationSyncFrequency.Duration.String())) // duration
 	}
 	if a.MaxConcurrentK8SConnections != nil {
 		args = append(args, fmt.Sprintf("--max-concurrent-k8s-connections=%d", *a.MaxConcurrentK8SConnections)) // uint
@@ -107,10 +107,10 @@ func (a Args) StringArr(dpaFeatureFlags []string, logLevel string) ([]string, er
 		args = append(args, fmt.Sprintf("--restore-resource-priorities=%s", a.RestoreResourcePriorities)) // stringArray
 	}
 	if a.StoreValidationFrequency != nil {
-		args = append(args, fmt.Sprintf("--store-validation-frequency=%s", a.StoreValidationFrequency.String())) // duration
+		args = append(args, fmt.Sprintf("--store-validation-frequency=%s", a.StoreValidationFrequency.Duration.String())) // duration
 	}
 	if a.ResourceTerminatingTimeout != nil {
-		args = append(args, fmt.Sprintf("--terminating-resource-timeout=%s", a.ResourceTerminatingTimeout.String())) // duration
+		args = append(args, fmt.Sprintf("--terminating-resource-timeout=%s", a.ResourceTerminatingTimeout.Duration.String())) // duration
 	}
 	if a.AddDirHeader != nil {
 		args = append(args, fmt.Sprintf("--add_dir_header=%s", strconv.FormatBool(*a.AddDirHeader))) // optionalBool
