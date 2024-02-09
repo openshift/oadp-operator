@@ -14,6 +14,9 @@ var _ = Describe("VM backup and restore tests", Ordered, func() {
 	wasInstalledFromTest := false
 
 	var _ = BeforeAll(func() {
+		dpaCR.CustomResource.Name = "dummyDPA"
+		dpaCR.CustomResource.Namespace = "openshift-adp"
+
 		v, err = GetVirtOperator(runTimeClientForSuiteRun, kubernetesClientForSuiteRun, dynamicClientForSuiteRun)
 		Expect(err).To(BeNil())
 		Expect(v).ToNot(BeNil())
