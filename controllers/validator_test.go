@@ -498,7 +498,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 				},
 			},
 			wantErr:    true,
-			messageErr: "secrets \"\" not found",
+			messageErr: "must provide a valid credential secret",
 		},
 		{
 			name: "given valid DPA CR bucket BSL configured and AWS Default Plugin with secret",
@@ -559,7 +559,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 						Name:      "cloud-credentials",
 						Namespace: "test-ns",
 					},
-					Data: map[string][]byte{"credentials": []byte("dummy_data")},
+					Data: map[string][]byte{"credentials": []byte("dummy_data"), "cloud": []byte("dummy_data")},
 				},
 			},
 			wantErr: false,
@@ -859,7 +859,10 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 					SnapshotLocations: []oadpv1alpha1.SnapshotLocation{
 						{
 							Velero: &v1.VolumeSnapshotLocationSpec{
-								Provider: "velero.io/aws",
+								Provider: "aws",
+								Config: map[string]string{
+									AWSRegion: "us-east-1",
+								},
 							},
 						},
 					},
@@ -1067,6 +1070,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 						Name:      "custom-vsl-credentials",
 						Namespace: "test-ns",
 					},
+					Data: map[string][]byte{"cloud": []byte("dummy_data")},
 				},
 			},
 			wantErr: false,

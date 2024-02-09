@@ -199,6 +199,11 @@ func (r *DPAReconciler) ValidateVolumeSnapshotLocations(dpa oadpv1alpha1.DataPro
 				)
 			}
 		}
+
+		if err := r.ensureVslSecretDataExists(&dpa, &vslSpec); err != nil {
+			return false, err
+		}
+
 	}
 	return true, nil
 }
@@ -260,4 +265,30 @@ func containsPlugin(d []oadpv1alpha1.DefaultPlugin, value string) bool {
 		}
 	}
 	return false
+}
+
+func (r *DPAReconciler) ensureVslSecretDataExists(dpa *oadpv1alpha1.DataProtectionApplication, vsl *oadpv1alpha1.SnapshotLocation) error {
+	// Check if the Velero feature flag 'no-secret' is not set
+	if !(dpa.Spec.Configuration.Velero.HasFeatureFlag("no-secret")) {
+		// Check if the user specified credential under velero
+		if vsl.Velero != nil && vsl.Velero.Credential != nil {
+			// Check if user specified empty credential key
+			if vsl.Velero.Credential.Key == "" {
+				return fmt.Errorf("Secret key specified in SnapshotLocation cannot be empty")
+			}
+			// Check if user specified empty credential name
+			if vsl.Velero.Credential.Name == "" {
+				return fmt.Errorf("Secret name specified in SnapshotLocation cannot be empty")
+			}
+
+		}
+		// Check if the VSL secret key configured in the DPA exists with a secret data
+		if vsl.Velero != nil {
+			_, _, err := r.getSecretNameAndKey(vsl.Velero.Config, vsl.Velero.Credential, oadpv1alpha1.DefaultPlugin(vsl.Velero.Provider))
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
