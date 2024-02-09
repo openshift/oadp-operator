@@ -242,33 +242,35 @@ func replaceCarriageReturn(data map[string][]byte, logger logr.Logger) map[strin
 	return data
 }
 
-func (r *DPAReconciler) getSecretNameAndKeyforBackupLocation(bslspec oadpv1alpha1.BackupLocation) (string, string) {
-
-	if bslspec.CloudStorage != nil {
-		if bslspec.CloudStorage.Credential != nil {
-			return bslspec.CloudStorage.Credential.Name, bslspec.CloudStorage.Credential.Key
+func (r *DPAReconciler) getSecretNameAndKeyFromCloudStorage(cloudStorage *oadpv1alpha1.CloudStorageLocation) (string, string, error) {
+	if cloudStorage.Credential != nil {
+		// Check if user specified empty credential key
+		if cloudStorage.Credential.Key == "" {
+			return "", "", fmt.Errorf("Secret key specified in CloudStorage cannot be empty")
 		}
+		// Check if user specified empty credential name
+		if cloudStorage.Credential.Name == "" {
+			return "", "", fmt.Errorf("Secret name specified in CloudStorage cannot be empty")
+		}
+		secretName, secretKey := cloudStorage.Credential.Name, cloudStorage.Credential.Key
+		err := r.verifySecretContent(secretName, secretKey)
+		return secretName, secretKey, err
 	}
-	if bslspec.Velero != nil {
-		return r.getSecretNameAndKey(bslspec.Velero, oadpv1alpha1.DefaultPlugin(bslspec.Velero.Provider))
-	}
-
-	return "", ""
+	return "", "", nil
 }
 
-func (r *DPAReconciler) getSecretNameAndKey(bslSpec *velerov1.BackupStorageLocationSpec, plugin oadpv1alpha1.DefaultPlugin) (string, string) {
+func (r *DPAReconciler) getSecretNameAndKey(config map[string]string, credential *corev1.SecretKeySelector, plugin oadpv1alpha1.DefaultPlugin) (string, string, error) {
 	// Assume default values unless user has overriden them
 	secretName := credentials.PluginSpecificFields[plugin].SecretName
 	secretKey := credentials.PluginSpecificFields[plugin].PluginSecretKey
-	if _, ok := bslSpec.Config["credentialsFile"]; ok {
+	if _, ok := config["credentialsFile"]; ok {
 		if secretName, secretKey, err :=
-			credentials.GetSecretNameKeyFromCredentialsFileConfigString(bslSpec.Config["credentialsFile"]); err == nil {
+			credentials.GetSecretNameKeyFromCredentialsFileConfigString(config["credentialsFile"]); err == nil {
 			r.Log.Info(fmt.Sprintf("credentialsFile secret: %s, key: %s", secretName, secretKey))
-			return secretName, secretKey
+			return secretName, secretKey, nil
 		}
 	}
 	// check if user specified the Credential Name and Key
-	credential := bslSpec.Credential
 	if credential != nil {
 		if len(credential.Name) > 0 {
 			secretName = credential.Name
@@ -278,7 +280,12 @@ func (r *DPAReconciler) getSecretNameAndKey(bslSpec *velerov1.BackupStorageLocat
 		}
 	}
 
-	return secretName, secretKey
+	err := r.verifySecretContent(secretName, secretKey)
+	if err != nil {
+		return secretName, secretKey, err
+	}
+
+	return secretName, secretKey, nil
 }
 
 func (r *DPAReconciler) parseAWSSecret(secret corev1.Secret, secretKey string, matchProfile string) (string, string, error) {
@@ -711,7 +718,7 @@ func (r *DPAReconciler) patchRegistrySecret(secret *corev1.Secret, bsl *velerov1
 
 func (r *DPAReconciler) populateAWSRegistrySecret(bsl *velerov1.BackupStorageLocation, registrySecret *corev1.Secret) error {
 	// Check for secret name
-	secretName, secretKey := r.getSecretNameAndKey(&bsl.Spec, oadpv1alpha1.DefaultPluginAWS)
+	secretName, secretKey, _ := r.getSecretNameAndKey(bsl.Spec.Config, bsl.Spec.Credential, oadpv1alpha1.DefaultPluginAWS)
 
 	// fetch secret and error
 	secret, err := r.getProviderSecret(secretName)
@@ -740,7 +747,7 @@ func (r *DPAReconciler) populateAWSRegistrySecret(bsl *velerov1.BackupStorageLoc
 
 func (r *DPAReconciler) populateAzureRegistrySecret(bsl *velerov1.BackupStorageLocation, registrySecret *corev1.Secret) error {
 	// Check for secret name
-	secretName, secretKey := r.getSecretNameAndKey(&bsl.Spec, oadpv1alpha1.DefaultPluginMicrosoftAzure)
+	secretName, secretKey, _ := r.getSecretNameAndKey(bsl.Spec.Config, bsl.Spec.Credential, oadpv1alpha1.DefaultPluginMicrosoftAzure)
 
 	// fetch secret and error
 	secret, err := r.getProviderSecret(secretName)
@@ -780,5 +787,17 @@ func (r *DPAReconciler) populateAzureRegistrySecret(bsl *velerov1.BackupStorageL
 		"resource_group_key":  []byte(azcreds.resourceGroup),
 	}
 
+	return nil
+}
+
+func (r *DPAReconciler) verifySecretContent(secretName string, secretKey string) error {
+	secret, err := r.getProviderSecret(secretName)
+	if err != nil {
+		return err
+	}
+	data, foundKey := secret.Data[secretKey]
+	if !foundKey || len(data) == 0 {
+		return fmt.Errorf("Secret name %s is missing data for key %s", secretName, secretKey)
+	}
 	return nil
 }
