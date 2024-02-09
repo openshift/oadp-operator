@@ -4018,6 +4018,95 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "Check values of time fields in Velero args",
+			veleroDeployment: &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-velero-deployment",
+					Namespace: "test-ns",
+				},
+				Spec: appsv1.DeploymentSpec{
+					Selector: &metav1.LabelSelector{MatchLabels: veleroDeploymentMatchLabels},
+				},
+			},
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-Velero-CR",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							Args: &server.Args{
+								ServerConfig: server.ServerConfig{
+									BackupSyncPeriod:            pointer.Duration(1),
+									PodVolumeOperationTimeout:   pointer.Duration(1),
+									ResourceTerminatingTimeout:  pointer.Duration(1),
+									DefaultBackupTTL:            pointer.Duration(1),
+									StoreValidationFrequency:    pointer.Duration(1),
+									ItemOperationSyncFrequency:  pointer.Duration(1),
+									RepoMaintenanceFrequency:    pointer.Duration(1),
+									GarbageCollectionFrequency:  pointer.Duration(1),
+									DefaultItemOperationTimeout: pointer.Duration(1),
+									ResourceTimeout:             pointer.Duration(1),
+								},
+							},
+						},
+					},
+				},
+			},
+			wantVeleroDeployment: &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-velero-deployment",
+					Namespace: "test-ns",
+					Labels:    veleroDeploymentLabel,
+				},
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "Deployment",
+					APIVersion: appsv1.SchemeGroupVersion.String(),
+				},
+				Spec: appsv1.DeploymentSpec{
+					Selector: &metav1.LabelSelector{MatchLabels: veleroDeploymentMatchLabels},
+					Replicas: pointer.Int32(1),
+					Template: corev1.PodTemplateSpec{
+						ObjectMeta: veleroPodObjectMeta,
+						Spec: corev1.PodSpec{
+							RestartPolicy:      corev1.RestartPolicyAlways,
+							ServiceAccountName: common.Velero,
+							Containers: []corev1.Container{
+								{
+									Name:            common.Velero,
+									Image:           common.VeleroImage,
+									ImagePullPolicy: corev1.PullAlways,
+									Ports:           []corev1.ContainerPort{{Name: "metrics", ContainerPort: 8085}},
+									Resources:       corev1.ResourceRequirements{Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("500m"), corev1.ResourceMemory: resource.MustParse("128Mi")}},
+									Command:         []string{"/velero"},
+									Args: []string{
+										"server",
+										"--backup-sync-period=1ns",
+										"--default-backup-ttl=1ns",
+										"--default-item-operation-timeout=1ns",
+										"--resource-timeout=1ns",
+										"--default-repo-maintain-frequency=1ns",
+										"--garbage-collection-frequency=1ns",
+										"--fs-backup-timeout=1ns",
+										"--item-operation-sync-frequency=1ns",
+										defaultRestoreResourcePriorities,
+										"--store-validation-frequency=1ns",
+										"--terminating-resource-timeout=1ns",
+										defaultDisableInformerCache,
+									},
+									VolumeMounts: baseVolumeMounts,
+									Env:          baseEnvVars,
+								},
+							},
+							Volumes:        baseVolumes,
+							InitContainers: []corev1.Container{},
+						},
+					},
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
