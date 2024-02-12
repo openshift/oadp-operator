@@ -20,6 +20,8 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"os"
+
 	"github.com/openshift/oadp-operator/pkg/common"
 	monitor "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -27,7 +29,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/kubernetes"
-	"os"
 	client "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 
@@ -243,13 +244,21 @@ func addPodSecurityPrivilegedLabels(watchNamespaceName string) error {
 		return err
 	}
 
+	// merge existing labels onto privileged labels added by oadp operator
+	// so the update request doesnt remove existing labels
+	updatedLabels := operatorNamespace.GetLabels()
+
 	privilegedLabels := map[string]string{
 		"pod-security.kubernetes.io/enforce": "privileged",
 		"pod-security.kubernetes.io/audit":   "privileged",
 		"pod-security.kubernetes.io/warn":    "privileged",
 	}
 
-	operatorNamespace.SetLabels(privilegedLabels)
+	for key, value := range privilegedLabels {
+		updatedLabels[key] = value
+	}
+
+	operatorNamespace.SetLabels(updatedLabels)
 
 	_, err = clientset.CoreV1().Namespaces().Update(context.TODO(), operatorNamespace, metav1.UpdateOptions{})
 	if err != nil {
