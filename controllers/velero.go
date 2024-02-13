@@ -2,11 +2,12 @@ package controllers
 
 import (
 	"fmt"
-	"github.com/vmware-tanzu/velero/pkg/util/boolptr"
 	"os"
 	"reflect"
 	"strconv"
 	"strings"
+
+	"github.com/vmware-tanzu/velero/pkg/util/boolptr"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/openshift/oadp-operator/pkg/credentials"
@@ -362,13 +363,16 @@ func (r *DPAReconciler) customizeVeleroDeployment(dpa *oadpv1alpha1.DataProtecti
 	}
 
 	// check for default-snapshot-move-data parameter
-	snapshotMoveData := getSnapshotMoveDataValue(dpa)
-	if len(snapshotMoveData) > 0 {
-		veleroContainer.Args = append(veleroContainer.Args, fmt.Sprintf("--snapshot-move-data=%s", snapshotMoveData))
+	defaultSnapshotMoveData := getDefaultSnapshotMoveDataValue(dpa)
+	// check for default-volumes-to-fs-backup
+	defaultVolumesToFSBackup := getDefaultVolumesToFSBackup(dpa)
+
+	// check for default-snapshot-move-data
+	if len(defaultSnapshotMoveData) > 0 {
+		veleroContainer.Args = append(veleroContainer.Args, fmt.Sprintf("--default-snapshot-move-data=%s", defaultSnapshotMoveData))
 	}
 
 	// check for default-volumes-to-fs-backup
-	defaultVolumesToFSBackup := getDefaultVolumesToFSBackup(dpa)
 	if len(defaultVolumesToFSBackup) > 0 {
 		veleroContainer.Args = append(veleroContainer.Args, fmt.Sprintf("--default-volumes-to-fs-backup=%s", defaultVolumesToFSBackup))
 	}
@@ -467,12 +471,12 @@ func getFsBackupTimeout(dpa *oadpv1alpha1.DataProtectionApplication) string {
 	return defaultFsBackupTimeout
 }
 
-func getSnapshotMoveDataValue(dpa *oadpv1alpha1.DataProtectionApplication) string {
-	if dpa.Spec.Configuration.Velero != nil && boolptr.IsSetToTrue(dpa.Spec.Configuration.Velero.SnapshotMoveData) {
+func getDefaultSnapshotMoveDataValue(dpa *oadpv1alpha1.DataProtectionApplication) string {
+	if dpa.Spec.Configuration.Velero != nil && boolptr.IsSetToTrue(dpa.Spec.Configuration.Velero.DefaultSnapshotMoveData) {
 		return TrueVal
 	}
 
-	if dpa.Spec.Configuration.Velero != nil && boolptr.IsSetToFalse(dpa.Spec.Configuration.Velero.SnapshotMoveData) {
+	if dpa.Spec.Configuration.Velero != nil && boolptr.IsSetToFalse(dpa.Spec.Configuration.Velero.DefaultSnapshotMoveData) {
 		return FalseVal
 	}
 
