@@ -22,7 +22,7 @@ var _ = Describe("VM backup and restore tests", Ordered, func() {
 		Expect(v).ToNot(BeNil())
 
 		if !v.IsVirtInstalled() {
-			err = v.EnsureVirtInstallation(5 * time.Minute)
+			err = v.EnsureVirtInstallation()
 			Expect(err).To(BeNil())
 			wasInstalledFromTest = true
 		}
@@ -30,7 +30,7 @@ var _ = Describe("VM backup and restore tests", Ordered, func() {
 
 	var _ = AfterAll(func() {
 		if v != nil && wasInstalledFromTest {
-			v.EnsureVirtRemoval(6 * time.Minute)
+			v.EnsureVirtRemoval()
 		}
 	})
 

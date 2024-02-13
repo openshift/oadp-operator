@@ -525,7 +525,7 @@ func (v *VirtOperator) IsVirtInstalled() bool {
 
 // EnsureVirtInstallation makes sure the OpenShift Virtualization operator is
 // installed. This will install the operator if it is not already present.
-func (v *VirtOperator) EnsureVirtInstallation(timeout time.Duration) error {
+func (v *VirtOperator) EnsureVirtInstallation() error {
 	if v.IsVirtInstalled() {
 		log.Printf("Virtualization operator already installed, no action needed")
 		return nil
@@ -565,7 +565,7 @@ func (v *VirtOperator) EnsureVirtInstallation(timeout time.Duration) error {
 }
 
 // EnsureVirtRemoval makes sure the virtualization operator is removed.
-func (v *VirtOperator) EnsureVirtRemoval(timeout time.Duration) error {
+func (v *VirtOperator) EnsureVirtRemoval() error {
 	log.Printf("Removing hyperconverged operator")
 	if err := v.ensureHcoRemoved(3 * time.Minute); err != nil {
 		return err
