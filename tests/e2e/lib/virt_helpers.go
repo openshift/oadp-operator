@@ -23,6 +23,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+const (
+	emulationAnnotation = "kubevirt.kubevirt.io/jsonpatch"
+	useEmulation        = `[{"op": "add", "path": "/spec/configuration/developerConfiguration", "value": {"useEmulation": true}}]`
+)
+
 var packageManifestsGvr = schema.GroupVersionResource{
 	Group:    "packages.operators.coreos.com",
 	Resource: "packagemanifests",
@@ -33,6 +38,12 @@ var hyperConvergedGvr = schema.GroupVersionResource{
 	Group:    "hco.kubevirt.io",
 	Resource: "hyperconvergeds",
 	Version:  "v1beta1",
+}
+
+var virtualMachineGvr = schema.GroupVersionResource{
+	Group:    "kubevirt.io",
+	Resource: "virtualmachines",
+	Version:  "v1",
 }
 
 var csvGvr = schema.GroupVersionResource{
@@ -210,6 +221,32 @@ func (v *VirtOperator) checkHco() bool {
 	return health == "healthy"
 }
 
+// Check if KVM emulation is enabled.
+func (v *VirtOperator) checkEmulation() bool {
+	hco, err := v.Dynamic.Resource(hyperConvergedGvr).Namespace("openshift-cnv").Get(context.Background(), "kubevirt-hyperconverged", v1.GetOptions{})
+	if err != nil {
+		return false
+	}
+	if hco == nil {
+		return false
+	}
+
+	// Look for JSON patcher annotation that enables emulation.
+	patcher, ok, err := unstructured.NestedString(hco.UnstructuredContent(), "metadata", "annotations", emulationAnnotation)
+	if err != nil {
+		log.Printf("Failed to get KVM emulation annotation from HCO: %v", err)
+		return false
+	}
+	if !ok {
+		log.Printf("No KVM emulation annotation (%s) listed on HCO!", emulationAnnotation)
+	}
+	if strings.Compare(patcher, useEmulation) == 0 {
+		return true
+	}
+
+	return false
+}
+
 // Creates the target virtualization namespace, likely openshift-cnv or kubevirt-hyperconverged
 func (v *VirtOperator) installNamespace() error {
 	err := v.Client.Create(context.Background(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: v.Namespace}})
@@ -275,6 +312,36 @@ func (v *VirtOperator) installHco() error {
 	_, err := v.Dynamic.Resource(hyperConvergedGvr).Namespace(v.Namespace).Create(context.Background(), &unstructuredHco, v1.CreateOptions{})
 	if err != nil {
 		log.Printf("Error creating HCO: %v", err)
+		return err
+	}
+
+	return nil
+}
+
+func (v *VirtOperator) configureEmulation() error {
+	hco, err := v.Dynamic.Resource(hyperConvergedGvr).Namespace("openshift-cnv").Get(context.Background(), "kubevirt-hyperconverged", v1.GetOptions{})
+	if err != nil {
+		return err
+	}
+	if hco == nil {
+		return fmt.Errorf("could not find hyperconverged operator to set emulation annotation")
+	}
+
+	annotations, ok, err := unstructured.NestedMap(hco.UnstructuredContent(), "metadata", "annotations")
+	if err != nil {
+		return err
+	}
+	if !ok {
+		annotations = make(map[string]interface{})
+	}
+	annotations[emulationAnnotation] = useEmulation
+
+	if err := unstructured.SetNestedMap(hco.UnstructuredContent(), annotations, "metadata", "annotations"); err != nil {
+		return err
+	}
+
+	_, err = v.Dynamic.Resource(hyperConvergedGvr).Namespace("openshift-cnv").Update(context.Background(), hco, v1.UpdateOptions{})
+	if err != nil {
 		return err
 	}
 
@@ -508,6 +575,25 @@ func (v *VirtOperator) ensureHcoRemoved(timeout time.Duration) error {
 
 	err := wait.PollImmediate(5*time.Second, timeout, func() (bool, error) {
 		return !v.checkHco(), nil
+	})
+
+	return err
+}
+
+// Enable KVM emulation for use on cloud clusters that do not have direct
+// access to the host server's virtualization capabilities.
+func (v *VirtOperator) ensureEmulation(timeout time.Duration) error {
+	if v.checkEmulation() {
+		log.Printf("KVM emulation already enabled, no work needed to turn it on.")
+		return nil
+	}
+
+	if err := v.configureEmulation(); err != nil {
+		return err
+	}
+
+	err := wait.PollImmediate(5*time.Second, timeout, func() (bool, error) {
+		return v.checkEmulation(), nil
 	})
 
 	return err
