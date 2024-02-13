@@ -684,3 +684,17 @@ func (v *VirtOperator) EnsureVirtRemoval() error {
 
 	return nil
 }
+
+// Create a Virtual Machine from an existing PVC.
+func (v *VirtOperator) CreateVM(namespace, name, source string) error {
+	log.Printf("Enabling KVM emulation...")
+	if err := v.ensureEmulation(10 * time.Second); err != nil {
+		return fmt.Errorf("failed to enable KVM emulation: %w", err)
+	}
+
+	if err := v.CloneDisk(namespace, source, name, 5*time.Minute); err != nil {
+		return err
+	}
+
+	return nil
+}

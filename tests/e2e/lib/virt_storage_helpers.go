@@ -59,10 +59,30 @@ func (v *VirtOperator) checkDataVolumeReady(namespace, name string) bool {
 	return phase == "Succeeded"
 }
 
-// Create a DataVolume and ask it to fill itself with the contents of the given
-// URL. Also add annotations to immediately create and bind to a PersistentVolume,
+func (v *VirtOperator) getDataVolumeSize(namespace, name string) (string, error) {
+	unstructuredDataVolume, err := v.getDataVolume(namespace, name)
+	if err != nil {
+		log.Printf("Error getting DataVolume %s/%s: %v", namespace, name, err)
+		return "", err
+	}
+	if unstructuredDataVolume == nil {
+		return "", err
+	}
+	size, ok, err := unstructured.NestedString(unstructuredDataVolume.UnstructuredContent(), "spec", "pvc", "resources", "requests", "storage")
+	if err != nil {
+		log.Printf("Error getting size from DataVolume: %v", err)
+		return "", err
+	}
+	if !ok {
+		return "", err
+	}
+	return size, nil
+}
+
+// Create a DataVolume, accepting an unstructured source specification.
+// Also add annotations to immediately create and bind to a PersistentVolume,
 // and to avoid deleting the DataVolume after the PVC is all ready.
-func (v *VirtOperator) createDataVolumeFromUrl(namespace, name, url, size string) error {
+func (v *VirtOperator) createDataVolumeFromSource(namespace, name, size string, source map[string]interface{}) error {
 	unstructuredDataVolume := unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "cdi.kubevirt.io/v1beta1",
@@ -76,11 +96,7 @@ func (v *VirtOperator) createDataVolumeFromUrl(namespace, name, url, size string
 				},
 			},
 			"spec": map[string]interface{}{
-				"source": map[string]interface{}{
-					"http": map[string]interface{}{
-						"url": url,
-					},
-				},
+				"source": source,
 				"pvc": map[string]interface{}{
 					"accessModes": []string{
 						"ReadWriteOnce",
@@ -108,6 +124,27 @@ func (v *VirtOperator) createDataVolumeFromUrl(namespace, name, url, size string
 	}
 
 	return nil
+}
+
+// Create a DataVolume and ask it to fill itself with the contents of the given URL.
+func (v *VirtOperator) createDataVolumeFromUrl(namespace, name, url, size string) error {
+	urlSource := map[string]interface{}{
+		"http": map[string]interface{}{
+			"url": url,
+		},
+	}
+	return v.createDataVolumeFromSource(namespace, name, size, urlSource)
+}
+
+// Create a DataVolume as a clone of an existing PVC.
+func (v *VirtOperator) createDataVolumeFromPvc(namespace, sourceName, cloneName, size string) error {
+	pvcSource := map[string]interface{}{
+		"pvc": map[string]interface{}{
+			"name":      sourceName,
+			"namespace": namespace,
+		},
+	}
+	return v.createDataVolumeFromSource(namespace, cloneName, size, pvcSource)
 }
 
 // Create a DataVolume and wait for it to be ready.
@@ -152,6 +189,32 @@ func (v *VirtOperator) EnsureDataVolumeRemoval(namespace, name string, timeout t
 	}
 
 	log.Printf("DataVolume %s/%s cleaned up", namespace, name)
+
+	return nil
+}
+
+// Clone a DataVolume and wait for the copy to be ready.
+func (v *VirtOperator) CloneDisk(namespace, sourceName, cloneName string, timeout time.Duration) error {
+	log.Printf("Cloning %s/%s to %s/%s...", namespace, sourceName, namespace, cloneName)
+	if !v.checkDataVolumeExists(namespace, sourceName) {
+		return fmt.Errorf("source disk does not exist")
+	}
+
+	size, err := v.getDataVolumeSize(namespace, sourceName)
+	if err != nil {
+		return fmt.Errorf("failed to get disk size for clone: %w", err)
+	}
+
+	if err := v.createDataVolumeFromPvc(namespace, sourceName, cloneName, size); err != nil {
+		return fmt.Errorf("failed to clone disk: %w", err)
+	}
+
+	err = wait.PollImmediate(5*time.Second, timeout, func() (bool, error) {
+		return v.checkDataVolumeReady(namespace, cloneName), nil
+	})
+	if err != nil {
+		return fmt.Errorf("timed out waiting to clone DataVolume %s/%s to %s/%s: %w", namespace, sourceName, namespace, cloneName, err)
+	}
 
 	return nil
 }

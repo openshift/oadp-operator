@@ -26,11 +26,15 @@ var _ = Describe("VM backup and restore tests", Ordered, func() {
 			Expect(err).To(BeNil())
 			wasInstalledFromTest = true
 		}
+
+		err = v.EnsureDataVolume("openshift-cnv", "cirros-dv", "https://download.cirros-cloud.net/0.6.2/cirros-0.6.2-x86_64-disk.img", "128Mi", 5*time.Minute)
+		Expect(err).To(BeNil())
 	})
 
 	var _ = AfterAll(func() {
 		if v != nil && wasInstalledFromTest {
 			v.EnsureVirtRemoval()
+			v.EnsureDataVolumeRemoval("openshift-cnv", "cirros-dv", 2*time.Minute)
 		}
 	})
 
@@ -39,9 +43,8 @@ var _ = Describe("VM backup and restore tests", Ordered, func() {
 		Expect(installed).To(BeTrue())
 	})
 
-	It("should upload a data volume successfully", Label("virt"), func() {
-		err := v.EnsureDataVolume("openshift-cnv", "cirros", "https://download.cirros-cloud.net/0.6.2/cirros-0.6.2-x86_64-disk.img", "128Mi", 5*time.Minute)
+	It("should create and boot a virtual machine", Label("virt"), func() {
+		err := v.CreateVM("openshift-cnv", "cirros-vm", "cirros-dv")
 		Expect(err).To(BeNil())
-		v.EnsureDataVolumeRemoval("openshift-cnv", "cirros", 2*time.Minute)
 	})
 })
