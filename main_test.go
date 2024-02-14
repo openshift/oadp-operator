@@ -30,21 +30,53 @@ import (
 func Test_addPodSecurityPrivilegedLabels(t *testing.T) {
 	var watchNamespaceName = "openshift-adp"
 	tests := []struct {
-		name    string
+		name           string
 		existingLabels map[string]string
 		expectedLabels map[string]string
-		wantErr bool
+		wantErr        bool
 	}{
 		{
-			name: "existing labels",
+			name: "Adds new labels to the namespace without overriding existing labels",
 			existingLabels: map[string]string{
 				"existing-label": "existing-value",
 			},
 			expectedLabels: map[string]string{
 				"existing-label": "existing-value",
-				enforceLabel: privileged,
-				auditLabel: privileged,
-				warnLabel: privileged,
+				enforceLabel:     privileged,
+				auditLabel:       privileged,
+				warnLabel:        privileged,
+			},
+			wantErr: false,
+		},
+		{
+			name: "Doesn't error if the labels already exist in the namespace",
+			existingLabels: map[string]string{
+				"existing-label": "existing-value",
+				enforceLabel:     privileged,
+				auditLabel:       privileged,
+				warnLabel:        privileged,
+			},
+			expectedLabels: map[string]string{
+				"existing-label": "existing-value",
+				enforceLabel:     privileged,
+				auditLabel:       privileged,
+				warnLabel:        privileged,
+			},
+			wantErr: false,
+		},
+		{
+			name: "Replaces existing false value if the labels already exist in the namespace",
+			existingLabels: map[string]string{
+				"existing-label": "existing-value",
+				enforceLabel:     "false",
+				auditLabel:       "false",
+				warnLabel:        "false",
+			},
+			expectedLabels: map[string]string{
+				"existing-label": "existing-value",
+				enforceLabel:     privileged,
+				auditLabel:       privileged,
+				warnLabel:        privileged,
 			},
 			wantErr: false,
 		},
@@ -60,7 +92,7 @@ func Test_addPodSecurityPrivilegedLabels(t *testing.T) {
 			// Create a new namespace with the existing labels
 			namespace := coreV1.Namespace{
 				ObjectMeta: v1.ObjectMeta{
-					Name: watchNamespaceName,
+					Name:   watchNamespaceName,
 					Labels: labels,
 				},
 			}
@@ -76,7 +108,10 @@ func Test_addPodSecurityPrivilegedLabels(t *testing.T) {
 			// assert that existing labels are not overridden
 			for key, value := range tt.existingLabels {
 				if nsFromCluster.Labels[key] != value {
-					t.Errorf("namespace from cluster label for key %v is %v, want %v", key, nsFromCluster.Labels[key], value)
+					if key != enforceLabel && key != auditLabel && key != warnLabel {
+						// only error if the existing label changed is not one of the labels we're intended on changing
+						t.Errorf("namespace from cluster label for key %v is %v, want %v", key, nsFromCluster.Labels[key], value)
+					}
 				}
 			}
 			for key, value := range tt.expectedLabels {
