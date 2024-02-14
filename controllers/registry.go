@@ -251,21 +251,24 @@ func (r *DPAReconciler) getSecretNameAndKeyforBackupLocation(bslspec oadpv1alpha
 		}
 	}
 	if bslspec.Velero != nil {
-		return r.getSecretNameAndKey(bslspec.Velero, oadpv1alpha1.DefaultPlugin(bslspec.Velero.Provider))
+		sn, sk, _ := r.getSecretNameAndKey(bslspec.Velero, oadpv1alpha1.DefaultPlugin(bslspec.Velero.Provider))
+		return sn, sk
 	}
 
 	return "", ""
 }
 
-func (r *DPAReconciler) getSecretNameAndKey(bslSpec *velerov1.BackupStorageLocationSpec, plugin oadpv1alpha1.DefaultPlugin) (string, string) {
+// returns secret name, secret key and a bool indicating if the secret is default or not
+func (r *DPAReconciler) getSecretNameAndKey(bslSpec *velerov1.BackupStorageLocationSpec, plugin oadpv1alpha1.DefaultPlugin) (string, string, bool) {
 	// Assume default values unless user has overriden them
+	defaultSecret := true
 	secretName := credentials.PluginSpecificFields[plugin].SecretName
 	secretKey := credentials.PluginSpecificFields[plugin].PluginSecretKey
 	if _, ok := bslSpec.Config["credentialsFile"]; ok {
 		if secretName, secretKey, err :=
 			credentials.GetSecretNameKeyFromCredentialsFileConfigString(bslSpec.Config["credentialsFile"]); err == nil {
 			r.Log.Info(fmt.Sprintf("credentialsFile secret: %s, key: %s", secretName, secretKey))
-			return secretName, secretKey
+			return secretName, secretKey, false
 		}
 	}
 	// check if user specified the Credential Name and Key
@@ -273,13 +276,14 @@ func (r *DPAReconciler) getSecretNameAndKey(bslSpec *velerov1.BackupStorageLocat
 	if credential != nil {
 		if len(credential.Name) > 0 {
 			secretName = credential.Name
+			defaultSecret = false
 		}
 		if len(credential.Key) > 0 {
 			secretKey = credential.Key
 		}
 	}
 
-	return secretName, secretKey
+	return secretName, secretKey, defaultSecret
 }
 
 func (r *DPAReconciler) parseAWSSecret(secret corev1.Secret, secretKey string, matchProfile string) (string, string, error) {
@@ -712,7 +716,7 @@ func (r *DPAReconciler) patchRegistrySecret(secret *corev1.Secret, bsl *velerov1
 
 func (r *DPAReconciler) populateAWSRegistrySecret(bsl *velerov1.BackupStorageLocation, registrySecret *corev1.Secret) error {
 	// Check for secret name
-	secretName, secretKey := r.getSecretNameAndKey(&bsl.Spec, oadpv1alpha1.DefaultPluginAWS)
+	secretName, secretKey, _ := r.getSecretNameAndKey(&bsl.Spec, oadpv1alpha1.DefaultPluginAWS)
 
 	// fetch secret and error
 	secret, err := r.getProviderSecret(secretName)
@@ -741,7 +745,7 @@ func (r *DPAReconciler) populateAWSRegistrySecret(bsl *velerov1.BackupStorageLoc
 
 func (r *DPAReconciler) populateAzureRegistrySecret(bsl *velerov1.BackupStorageLocation, registrySecret *corev1.Secret) error {
 	// Check for secret name
-	secretName, secretKey := r.getSecretNameAndKey(&bsl.Spec, oadpv1alpha1.DefaultPluginMicrosoftAzure)
+	secretName, secretKey, _ := r.getSecretNameAndKey(&bsl.Spec, oadpv1alpha1.DefaultPluginMicrosoftAzure)
 
 	// fetch secret and error
 	secret, err := r.getProviderSecret(secretName)
