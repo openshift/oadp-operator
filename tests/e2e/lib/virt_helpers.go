@@ -676,11 +676,6 @@ func (v *VirtOperator) removeVm(namespace, name string) error {
 }
 
 func (v *VirtOperator) ensureVm(namespace, name, source string, timeout time.Duration) error {
-	if v.checkVmExists(namespace, name) {
-		log.Printf("VM %s/%s already exists.", namespace, name)
-		return nil
-	}
-
 	if err := v.createVm(namespace, name, source); err != nil {
 		return fmt.Errorf("failed to create VM %s/%s: %w", namespace, name, err)
 	}
@@ -715,9 +710,9 @@ func (v *VirtOperator) EnsureEmulation(timeout time.Duration) error {
 	if v.checkEmulation() {
 		log.Printf("KVM emulation already enabled, no work needed to turn it on.")
 		return nil
-	} else {
-		log.Printf("Enabling KVM emulation...")
 	}
+
+	log.Printf("Enabling KVM emulation...")
 
 	if err := v.configureEmulation(); err != nil {
 		return err

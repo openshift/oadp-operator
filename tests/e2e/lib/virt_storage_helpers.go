@@ -148,12 +148,12 @@ func (v *VirtOperator) createDataVolumeFromPvc(namespace, sourceName, cloneName,
 }
 
 // Create a DataVolume and wait for it to be ready.
-func (v *VirtOperator) EnsureDataVolume(namespace, name, url, size string, timeout time.Duration) error {
+func (v *VirtOperator) EnsureDataVolumeFromUrl(namespace, name, url, size string, timeout time.Duration) error {
 	if !v.checkDataVolumeExists(namespace, name) {
 		if err := v.createDataVolumeFromUrl(namespace, name, url, size); err != nil {
 			return err
 		}
-		log.Printf("Created DataVolume %s/%s", namespace, name)
+		log.Printf("Created DataVolume %s/%s from %s", namespace, name, url)
 	} else {
 		log.Printf("DataVolume %s/%s already created, checking for readiness", namespace, name)
 	}

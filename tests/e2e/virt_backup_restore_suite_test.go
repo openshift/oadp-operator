@@ -1,12 +1,37 @@
 package e2e_test
 
 import (
+	"fmt"
+	"io"
+	"net/http"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/openshift/oadp-operator/tests/e2e/lib"
 )
+
+func getLatestCirrosImageURL() (string, error) {
+	cirrosVersionURL := "https://download.cirros-cloud.net/version/released"
+
+	resp, err := http.Get(cirrosVersionURL)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+
+	latestCirrosVersion := strings.TrimSpace(string(body))
+
+	imageURL := fmt.Sprintf("https://download.cirros-cloud.net/%s/cirros-%s-x86_64-disk.img", latestCirrosVersion, latestCirrosVersion)
+
+	return imageURL, nil
+}
 
 var _ = Describe("VM backup and restore tests", Ordered, func() {
 	var v *VirtOperator
@@ -30,13 +55,16 @@ var _ = Describe("VM backup and restore tests", Ordered, func() {
 		err = v.EnsureEmulation(10 * time.Second)
 		Expect(err).To(BeNil())
 
-		err = v.EnsureDataVolume("openshift-cnv", "cirros-dv", "https://download.cirros-cloud.net/0.6.2/cirros-0.6.2-x86_64-disk.img", "128Mi", 5*time.Minute)
+		url, err := getLatestCirrosImageURL()
+		Expect(err).To(BeNil())
+		err = v.EnsureDataVolumeFromUrl("openshift-cnv", "cirros-dv", url, "128Mi", 5*time.Minute)
 		Expect(err).To(BeNil())
 	})
 
 	var _ = AfterAll(func() {
+		v.RemoveDataVolume("openshift-cnv", "cirros-dv", 2*time.Minute)
+
 		if v != nil && wasInstalledFromTest {
-			v.RemoveDataVolume("openshift-cnv", "cirros-dv", 2*time.Minute)
 			v.EnsureVirtRemoval()
 		}
 	})
