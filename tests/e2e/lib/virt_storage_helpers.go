@@ -171,7 +171,7 @@ func (v *VirtOperator) EnsureDataVolume(namespace, name, url, size string, timeo
 }
 
 // Delete a DataVolume and wait for it to go away.
-func (v *VirtOperator) EnsureDataVolumeRemoval(namespace, name string, timeout time.Duration) error {
+func (v *VirtOperator) RemoveDataVolume(namespace, name string, timeout time.Duration) error {
 	err := v.deleteDataVolume(namespace, name)
 	if err != nil {
 		if apierrors.IsNotFound(err) {

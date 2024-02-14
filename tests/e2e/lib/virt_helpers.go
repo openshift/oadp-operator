@@ -12,6 +12,7 @@ import (
 	operatorsv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -580,12 +581,142 @@ func (v *VirtOperator) ensureHcoRemoved(timeout time.Duration) error {
 	return err
 }
 
+func (v *VirtOperator) getVmStatus(namespace, name string) (string, error) {
+	vm, err := v.Dynamic.Resource(virtualMachineGvr).Namespace(namespace).Get(context.Background(), name, v1.GetOptions{})
+	if err != nil {
+		return "", err
+	}
+
+	status, ok, err := unstructured.NestedString(vm.UnstructuredContent(), "status", "printableStatus")
+	if err != nil {
+		return "", err
+	}
+	if !ok {
+		return "", fmt.Errorf("status field not populated yet on VM %s/%s", namespace, name)
+	}
+	log.Printf("VM %s/%s status is: %s", namespace, name, status)
+
+	return status, nil
+}
+
+func (v *VirtOperator) checkVmExists(namespace, name string) bool {
+	_, err := v.getVmStatus(namespace, name)
+	if err == nil {
+		return true
+	}
+	return false
+}
+
+func (v *VirtOperator) checkVmStatus(namespace, name, expectedStatus string) bool {
+	status, _ := v.getVmStatus(namespace, name)
+	return status == expectedStatus
+}
+
+func (v *VirtOperator) createVm(namespace, name, source string) error {
+	unstructuredVm := unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "kubevirt.io/v1",
+			"kind":       "VirtualMachine",
+			"metadata": map[string]interface{}{
+				"name":      name,
+				"namespace": namespace,
+			},
+			"spec": map[string]interface{}{
+				"running": true,
+				"template": map[string]interface{}{
+					"spec": map[string]interface{}{
+						"domain": map[string]interface{}{
+							"devices": map[string]interface{}{
+								"disks": []map[string]interface{}{
+									{
+										"disk": map[string]interface{}{
+											"bus": "virtio",
+										},
+										"name": "rootdisk",
+									},
+								},
+							},
+							"resources": map[string]interface{}{
+								"requests": map[string]interface{}{
+									"cpu":    "1",
+									"memory": "256Mi",
+								},
+							},
+						},
+						"volumes": []map[string]interface{}{
+							{
+								"dataVolume": map[string]interface{}{
+									"name": name,
+								},
+								"name": "rootdisk",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	if _, err := v.Dynamic.Resource(virtualMachineGvr).Namespace(namespace).Create(context.TODO(), &unstructuredVm, v1.CreateOptions{}); err != nil {
+		return fmt.Errorf("error creating VM %s/%s: %w", namespace, name, err)
+	}
+
+	return nil
+}
+
+func (v *VirtOperator) removeVm(namespace, name string) error {
+	if err := v.Dynamic.Resource(virtualMachineGvr).Namespace(namespace).Delete(context.TODO(), name, v1.DeleteOptions{}); err != nil {
+		if !apierrors.IsNotFound(err) {
+			return fmt.Errorf("error deleting VM %s/%s: %w", namespace, name, err)
+		}
+		log.Printf("VM %s/%s not found, delete not necessary.", namespace, name)
+	}
+
+	return nil
+}
+
+func (v *VirtOperator) ensureVm(namespace, name, source string, timeout time.Duration) error {
+	if v.checkVmExists(namespace, name) {
+		log.Printf("VM %s/%s already exists.", namespace, name)
+		return nil
+	}
+
+	if err := v.createVm(namespace, name, source); err != nil {
+		return fmt.Errorf("failed to create VM %s/%s: %w", namespace, name, err)
+	}
+
+	err := wait.PollImmediate(5*time.Second, timeout, func() (bool, error) {
+		return v.checkVmStatus(namespace, name, "Running"), nil
+	})
+
+	return err
+}
+
+func (v *VirtOperator) ensureVmRemoval(namespace, name string, timeout time.Duration) error {
+	if !v.checkVmExists(namespace, name) {
+		log.Printf("VM %s/%s already removed, no action required", namespace, name)
+		return nil
+	}
+
+	if err := v.removeVm(namespace, name); err != nil {
+		return err
+	}
+
+	err := wait.PollImmediate(5*time.Second, timeout, func() (bool, error) {
+		return !v.checkVmExists(namespace, name), nil
+	})
+
+	return err
+}
+
 // Enable KVM emulation for use on cloud clusters that do not have direct
 // access to the host server's virtualization capabilities.
-func (v *VirtOperator) ensureEmulation(timeout time.Duration) error {
+func (v *VirtOperator) EnsureEmulation(timeout time.Duration) error {
 	if v.checkEmulation() {
 		log.Printf("KVM emulation already enabled, no work needed to turn it on.")
 		return nil
+	} else {
+		log.Printf("Enabling KVM emulation...")
 	}
 
 	if err := v.configureEmulation(); err != nil {
@@ -685,16 +816,14 @@ func (v *VirtOperator) EnsureVirtRemoval() error {
 	return nil
 }
 
-// Create a Virtual Machine from an existing PVC.
-func (v *VirtOperator) CreateVM(namespace, name, source string) error {
-	log.Printf("Enabling KVM emulation...")
-	if err := v.ensureEmulation(10 * time.Second); err != nil {
-		return fmt.Errorf("failed to enable KVM emulation: %w", err)
-	}
+// Create a virtual machine from an existing PVC.
+func (v *VirtOperator) CreateVm(namespace, name, source string, timeout time.Duration) error {
+	log.Printf("Creating virtual machine %s/%s", namespace, name)
+	return v.ensureVm(namespace, name, source, timeout)
+}
 
-	if err := v.CloneDisk(namespace, source, name, 5*time.Minute); err != nil {
-		return err
-	}
-
-	return nil
+// Remove a virtual machine, but leave its data volume.
+func (v *VirtOperator) RemoveVm(namespace, name string, timeout time.Duration) error {
+	log.Printf("Removing virtual machine %s/%s", namespace, name)
+	return v.ensureVmRemoval(namespace, name, timeout)
 }

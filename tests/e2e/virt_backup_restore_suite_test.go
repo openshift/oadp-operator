@@ -27,6 +27,9 @@ var _ = Describe("VM backup and restore tests", Ordered, func() {
 			wasInstalledFromTest = true
 		}
 
+		err = v.EnsureEmulation(10 * time.Second)
+		Expect(err).To(BeNil())
+
 		err = v.EnsureDataVolume("openshift-cnv", "cirros-dv", "https://download.cirros-cloud.net/0.6.2/cirros-0.6.2-x86_64-disk.img", "128Mi", 5*time.Minute)
 		Expect(err).To(BeNil())
 	})
@@ -34,7 +37,6 @@ var _ = Describe("VM backup and restore tests", Ordered, func() {
 	var _ = AfterAll(func() {
 		if v != nil && wasInstalledFromTest {
 			v.EnsureVirtRemoval()
-			v.EnsureDataVolumeRemoval("openshift-cnv", "cirros-dv", 2*time.Minute)
 		}
 	})
 
@@ -44,7 +46,17 @@ var _ = Describe("VM backup and restore tests", Ordered, func() {
 	})
 
 	It("should create and boot a virtual machine", Label("virt"), func() {
-		err := v.CreateVM("openshift-cnv", "cirros-vm", "cirros-dv")
+		namespace := "openshift-cnv"
+		source := "cirros-dv"
+		name := "cirros-vm"
+
+		err := v.CloneDisk(namespace, source, name, 5*time.Minute)
 		Expect(err).To(BeNil())
+
+		err = v.CreateVm(namespace, name, source, 5*time.Minute)
+		Expect(err).To(BeNil())
+
+		v.RemoveVm(namespace, name, 2*time.Minute)
+		v.RemoveDataVolume(namespace, name, 2*time.Minute)
 	})
 })
