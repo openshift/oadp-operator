@@ -169,38 +169,6 @@ items:
         port: 27017
       selector:
         app: mongo
-  - kind: BuildConfig
-    apiVersion: build.openshift.io/v1
-    metadata:
-      name: todolist
-      namespace: mongo-persistent
-      labels:
-        app.kubernetes.io/name: todolist
-    spec:
-      triggers:
-      - type: GitHub
-        github:
-          secret: 4Xwu0tyAab90aaoasd88qweAasdaqvjknfrl3qwpo
-      - type: Generic
-        generic:
-          secret: 4Xwu0tyAab90aaoasd88qweAasdaqvjknfrl3qwpo
-      - type: ConfigChange
-      - type: ImageChange
-        imageChange: {}
-      source:
-        type: Git
-        git:
-          uri: https://github.com/konveyor/mig-demo-apps.git
-          ref: master
-      strategy:
-        type: Docker
-        dockerStrategy:
-          dockerfilePath: apps/todolist-mongo-go/Dockerfile
-      output:
-        to:
-          kind: ImageStreamTag
-          name: "todolist-mongo-go:latest"
-      resources: {}
   - apiVersion: apps.openshift.io/v1
     kind: DeploymentConfig
     metadata:
@@ -208,47 +176,28 @@ items:
       namespace: mongo-persistent
       labels:
         app: todolist
-        app.kubernetes.io/name: todolist
-        application: todolist
-        deploymentconfig: todolist-mongo-go
+        service: todolist
+        e2e-app: "true"
     spec:
+      replicas: 1
       selector:
         app: todolist
+        service: todolist
       strategy:
-        type: Rolling
-      triggers:
-        - type: ConfigChange
-          imageChangeParams:
-            containerNames:
-              - todolist
-            from:
-              kind: ImageStreamTag
-              namespace: mongo-persistent
-              name: 'todolist-mongo-go:latest'
-        - type: ImageChange
-          imageChangeParams:
-            automatic: true
-            containerNames:
-              - todolist
-            from:
-              kind: ImageStreamTag
-              namespace: mongo-persistent
-              name: 'todolist-mongo-go:latest'
-      replicas: 1
+        type: Recreate
       template:
         metadata:
-          creationTimestamp:
           labels:
-            e2e-app: "true"
             app: todolist
-            application: todolist
-            deploymentconfig: todolist-mongo-go
-            app.kubernetes.io/name: todolist
+            service: todolist
+            e2e-app: "true"
         spec:
           containers:
           - name: todolist
-            image:  >-
-              image-registry.openshift-image-registry.svc:5000/mongo-persistent/todolist-mongo-go
+            image: quay.io/migtools/oadp-ci-todolist-mongo-go:latest
+            env:
+              - name: foo
+                value: bar
             ports:
               - containerPort: 8000
                 protocol: TCP
