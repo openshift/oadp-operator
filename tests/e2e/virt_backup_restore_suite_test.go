@@ -36,6 +36,7 @@ var _ = Describe("VM backup and restore tests", Ordered, func() {
 
 	var _ = AfterAll(func() {
 		if v != nil && wasInstalledFromTest {
+			v.RemoveDataVolume("openshift-cnv", "cirros-dv", 2*time.Minute)
 			v.EnsureVirtRemoval()
 		}
 	})
