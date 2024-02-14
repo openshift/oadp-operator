@@ -3,7 +3,8 @@ kind: ClusterServiceVersion
 metadata:
   annotations:
     capabilities: Seamless Upgrades
-    categories: OpenShift Optional
+    categories: |
+      Cloud Provider,Developer Tools,Modernization & Migration,OpenShift Optional,Storage
     certified: "false"
     containerImage: quay.io/konveyor/oadp-operator:latest
     createdAt: "2020-09-08T12:21:00Z"
@@ -442,17 +443,44 @@ spec:
   - supported: false
     type: AllNamespaces
   keywords:
+  - disaster backup
+  - disaster recovery
+  - disaster restore
+  - disaster
+  - backup
+  - restore
+  - backup automation
+  - recovery
+  - data protection
+  - data management
+  - data
+  - protection
+  - management
+  - application resilience
+  - resilience
   - velero
   - openshift
   - oadp
+  - cloud-native
+  - replication
+  - kopia
+  - restic
+  - network file system
+  - nfs
+  - simple cloud storage
+  - s3
+  - minio
+  - cloud storage
+  - data foundation
+  - ceph
+  - csi
+  - container storage interface
   links:
   - name: OADP Operator
     url: https://github.com/openshift/oadp-operator
   maintainers:
-  - email: dymurray@redhat.com
-    name: Dylan Murray
-  - email: spampatt@redhat.com
-    name: Shubham Dilip Pampattiwar
+  - email: oadp-maintainers@redhat.com
+    name: OADP Operator maintainers
   maturity: stable
   provider:
     name: Red Hat
