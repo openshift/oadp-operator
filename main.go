@@ -247,7 +247,10 @@ func addPodSecurityPrivilegedLabels(watchNamespaceName string) error {
 		setupLog.Error(err, "problem getting client")
 		return err
 	}
+	return addPodSecurityPrivilegedLabelsWithClientSet(watchNamespaceName, clientset)
+}
 
+func addPodSecurityPrivilegedLabelsWithClientSet(watchNamespaceName string, clientset kubernetes.Interface) error {
 	operatorNamespace, err := clientset.CoreV1().Namespaces().Get(context.TODO(), watchNamespaceName, metav1.GetOptions{})
 	if err != nil {
 		setupLog.Error(err, "problem getting operator namespace")
