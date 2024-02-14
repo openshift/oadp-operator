@@ -18,6 +18,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
@@ -27,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/kubernetes"
 	client "sigs.k8s.io/controller-runtime/pkg/client"
@@ -251,21 +253,21 @@ func addPodSecurityPrivilegedLabels(watchNamespaceName string) error {
 }
 
 func addPodSecurityPrivilegedLabelsWithClientSet(watchNamespaceName string, clientset kubernetes.Interface) error {
-	operatorNamespace, err := clientset.CoreV1().Namespaces().Get(context.TODO(), watchNamespaceName, metav1.GetOptions{})
+	nsPatch, err := json.Marshal(map[string]interface{}{
+		"metadata": map[string]interface{}{
+			"labels": map[string]string{
+				enforceLabel: privileged,
+				auditLabel:   privileged,
+				warnLabel:    privileged,
+			},
+		},
+	})
 	if err != nil {
-		setupLog.Error(err, "problem getting operator namespace")
+		setupLog.Error(err, "problem marshalling patches")
 		return err
 	}
-
-	namespaceLabels := operatorNamespace.GetLabels()
-	// overwrite PSA labels, if they exist; otherwise, add them
-	namespaceLabels[enforceLabel] = privileged
-	namespaceLabels[auditLabel] = privileged
-	namespaceLabels[warnLabel] = privileged
-
-	operatorNamespace.SetLabels(namespaceLabels)
-
-	_, err = clientset.CoreV1().Namespaces().Update(context.TODO(), operatorNamespace, metav1.UpdateOptions{})
+	fmt.Printf("Patches: %s\n", nsPatch)
+	_, err = clientset.CoreV1().Namespaces().Patch(context.TODO(), watchNamespaceName, types.StrategicMergePatchType, nsPatch, metav1.PatchOptions{})
 	if err != nil {
 		setupLog.Error(err, "problem patching operator namespace with PSA labels to privileged")
 		return err
