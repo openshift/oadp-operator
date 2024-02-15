@@ -75,7 +75,7 @@ type ServerConfig struct {
 	// How often (in nanoseconds) 'maintain' is run for backup repositories by default.
 	// +optional
 	RepoMaintenanceFrequency *time.Duration `json:"default-repo-maintain-frequency,omitempty"`
-	// How long (in nanoseconds) to wait by default before backups can be garbage collected. (default is 720 hours)
+	// How often (in nanoseconds) garbage collection checks for expired backups. (default is 1 hour)
 	// +optional
 	GarbageCollectionFrequency *time.Duration `json:"garbage-collection-frequency,omitempty"`
 	// Backup all volumes with pod volume file system backup by default.
