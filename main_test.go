@@ -26,17 +26,16 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 )
 
-// Tests that addPodSecurityPrivilegedLabels do not override the existing labels in oadp namespace
-func Test_addPodSecurityPrivilegedLabels(t *testing.T) {
-	var watchNamespaceName = "openshift-adp"
+// Tests that addPodSecurityPrivilegedLabels do not override the existing labels in OADP namespace
+func TestAddPodSecurityPrivilegedLabels(t *testing.T) {
+	var testNamespaceName = "openshift-adp"
 	tests := []struct {
 		name           string
 		existingLabels map[string]string
 		expectedLabels map[string]string
-		wantErr        bool
 	}{
 		{
-			name: "Adds new labels to the namespace without overriding existing labels",
+			name: "PSA labels do not exist in the namespace",
 			existingLabels: map[string]string{
 				"existing-label": "existing-value",
 			},
@@ -46,77 +45,68 @@ func Test_addPodSecurityPrivilegedLabels(t *testing.T) {
 				auditLabel:       privileged,
 				warnLabel:        privileged,
 			},
-			wantErr: false,
 		},
 		{
-			name: "Doesn't error if the labels already exist in the namespace",
+			name: "PSA labels exist in the namespace, but are not set to privileged",
 			existingLabels: map[string]string{
-				"existing-label": "existing-value",
-				enforceLabel:     privileged,
-				auditLabel:       privileged,
-				warnLabel:        privileged,
+				"user-label": "user-value",
+				enforceLabel: "baseline",
+				auditLabel:   "baseline",
+				warnLabel:    "baseline",
 			},
 			expectedLabels: map[string]string{
-				"existing-label": "existing-value",
-				enforceLabel:     privileged,
-				auditLabel:       privileged,
-				warnLabel:        privileged,
+				"user-label": "user-value",
+				enforceLabel: privileged,
+				auditLabel:   privileged,
+				warnLabel:    privileged,
 			},
-			wantErr: false,
 		},
 		{
-			name: "Replaces existing false value if the labels already exist in the namespace",
+			name: "PSA labels exist in the namespace, and are set to privileged",
 			existingLabels: map[string]string{
-				"existing-label": "existing-value",
-				enforceLabel:     "false",
-				auditLabel:       "false",
-				warnLabel:        "false",
+				"another-label": "another-value",
+				enforceLabel:    privileged,
+				auditLabel:      privileged,
+				warnLabel:       privileged,
 			},
 			expectedLabels: map[string]string{
-				"existing-label": "existing-value",
-				enforceLabel:     privileged,
-				auditLabel:       privileged,
-				warnLabel:        privileged,
+				"another-label": "another-value",
+				enforceLabel:    privileged,
+				auditLabel:      privileged,
+				warnLabel:       privileged,
 			},
-			wantErr: false,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// make a copy of the existing labels to avoid modifying the test case map
-			var labels map[string]string
-			labels = make(map[string]string)
-			for key, value := range tt.existingLabels {
-				labels[key] = value
-			}
 			// Create a new namespace with the existing labels
 			namespace := coreV1.Namespace{
 				ObjectMeta: v1.ObjectMeta{
-					Name:   watchNamespaceName,
-					Labels: labels,
+					Name:   testNamespaceName,
+					Labels: tt.existingLabels,
 				},
 			}
-			// fake clientset
-			clientset := fake.NewSimpleClientset(&namespace)
-			if err := addPodSecurityPrivilegedLabelsWithClientSet(watchNamespaceName, clientset); (err != nil) != tt.wantErr {
-				t.Errorf("addPodSecurityPrivilegedLabels() error = %v, wantErr %v", err, tt.wantErr)
-			}
-			nsFromCluster, err := clientset.CoreV1().Namespaces().Get(context.TODO(), watchNamespaceName, v1.GetOptions{})
+			testClient := fake.NewSimpleClientset(&namespace)
+			err := addPodSecurityPrivilegedLabels(testNamespaceName, testClient)
 			if err != nil {
 				t.Errorf("addPodSecurityPrivilegedLabels() error = %v", err)
 			}
+			testNamespace, err := testClient.CoreV1().Namespaces().Get(context.TODO(), testNamespaceName, v1.GetOptions{})
+			if err != nil {
+				t.Errorf("Get test namespace error = %v", err)
+			}
 			// assert that existing labels are not overridden
 			for key, value := range tt.existingLabels {
-				if nsFromCluster.Labels[key] != value {
+				if testNamespace.Labels[key] != value {
+					// only error if changing non PSA labels
 					if key != enforceLabel && key != auditLabel && key != warnLabel {
-						// only error if the existing label changed is not one of the labels we're intended on changing
-						t.Errorf("namespace from cluster label for key %v is %v, want %v", key, nsFromCluster.Labels[key], value)
+						t.Errorf("namespace label %v has value %v, instead of %v", key, testNamespace.Labels[key], value)
 					}
 				}
 			}
 			for key, value := range tt.expectedLabels {
-				if nsFromCluster.Labels[key] != value {
-					t.Errorf("namespace from cluster label for key %v is %v, want %v", key, nsFromCluster.Labels[key], value)
+				if testNamespace.Labels[key] != value {
+					t.Errorf("namespace label %v has value %v, instead of %v", key, testNamespace.Labels[key], value)
 				}
 			}
 		})
