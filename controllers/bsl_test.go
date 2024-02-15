@@ -12,6 +12,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
+	"github.com/openshift/oadp-operator/pkg/storage/aws"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -1183,7 +1184,7 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 								Provider: "aws",
 								StorageType: velerov1.StorageType{
 									ObjectStorage: &velerov1.ObjectStorageLocation{
-										Bucket: "bucket",
+										Bucket: aws.DiscoverableBucket,
 										Prefix: "prefix",
 									},
 								},
@@ -1339,7 +1340,7 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 								},
 								StorageType: velerov1.StorageType{
 									ObjectStorage: &velerov1.ObjectStorageLocation{
-										Bucket: "bucket",
+										Bucket: aws.DiscoverableBucket,
 										Prefix: "prefix",
 									},
 								},
