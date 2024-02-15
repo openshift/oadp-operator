@@ -1,12 +1,37 @@
 package e2e_test
 
 import (
+	"fmt"
+	"io"
+	"net/http"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/openshift/oadp-operator/tests/e2e/lib"
 )
+
+func getLatestCirrosImageURL() (string, error) {
+	cirrosVersionURL := "https://download.cirros-cloud.net/version/released"
+
+	resp, err := http.Get(cirrosVersionURL)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+
+	latestCirrosVersion := strings.TrimSpace(string(body))
+
+	imageURL := fmt.Sprintf("https://download.cirros-cloud.net/%s/cirros-%s-x86_64-disk.img", latestCirrosVersion, latestCirrosVersion)
+
+	return imageURL, nil
+}
 
 var _ = Describe("VM backup and restore tests", Ordered, func() {
 	var v *VirtOperator
@@ -22,15 +47,25 @@ var _ = Describe("VM backup and restore tests", Ordered, func() {
 		Expect(v).ToNot(BeNil())
 
 		if !v.IsVirtInstalled() {
-			err = v.EnsureVirtInstallation(5 * time.Minute)
+			err = v.EnsureVirtInstallation()
 			Expect(err).To(BeNil())
 			wasInstalledFromTest = true
 		}
+
+		err = v.EnsureEmulation(10 * time.Second)
+		Expect(err).To(BeNil())
+
+		url, err := getLatestCirrosImageURL()
+		Expect(err).To(BeNil())
+		err = v.EnsureDataVolumeFromUrl("openshift-cnv", "cirros-dv", url, "128Mi", 5*time.Minute)
+		Expect(err).To(BeNil())
 	})
 
 	var _ = AfterAll(func() {
+		v.RemoveDataVolume("openshift-cnv", "cirros-dv", 2*time.Minute)
+
 		if v != nil && wasInstalledFromTest {
-			v.EnsureVirtRemoval(6 * time.Minute)
+			v.EnsureVirtRemoval()
 		}
 	})
 
@@ -39,9 +74,18 @@ var _ = Describe("VM backup and restore tests", Ordered, func() {
 		Expect(installed).To(BeTrue())
 	})
 
-	It("should upload a data volume successfully", Label("virt"), func() {
-		err := v.EnsureDataVolume("openshift-cnv", "cirros", "https://download.cirros-cloud.net/0.6.2/cirros-0.6.2-x86_64-disk.img", "128Mi", 5*time.Minute)
+	It("should create and boot a virtual machine", Label("virt"), func() {
+		namespace := "openshift-cnv"
+		source := "cirros-dv"
+		name := "cirros-vm"
+
+		err := v.CloneDisk(namespace, source, name, 5*time.Minute)
 		Expect(err).To(BeNil())
-		v.EnsureDataVolumeRemoval("openshift-cnv", "cirros", 2*time.Minute)
+
+		err = v.CreateVm(namespace, name, source, 5*time.Minute)
+		Expect(err).To(BeNil())
+
+		v.RemoveVm(namespace, name, 2*time.Minute)
+		v.RemoveDataVolume(namespace, name, 2*time.Minute)
 	})
 })
