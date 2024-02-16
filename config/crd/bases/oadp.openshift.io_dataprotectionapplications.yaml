@@ -546,7 +546,7 @@ spec:
                               format: int64
                               type: integer
                             garbage-collection-frequency:
-                              description: How long (in nanoseconds) to wait by default before backups can be garbage collected. (default is 720 hours)
+                              description: How often (in nanoseconds) garbage collection checks for expired backups. (default is 1 hour)
                               format: int64
                               type: integer
                             item-operation-sync-frequency:
