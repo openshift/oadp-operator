@@ -8,7 +8,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws/endpoints"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
-	// "github.com/pkg/errors" don't need stack trace, not inside velero-plugin
 )
 
 func BucketRegionIsDiscoverable(bucket string) bool {
