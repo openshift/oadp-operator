@@ -22,14 +22,18 @@ import (
 	"fmt"
 	"github.com/openshift/oadp-operator/pkg/common"
 	monitor "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/kubernetes"
 	"os"
 	client "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
+	"time"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -101,13 +105,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	// check if this is standardized STS workflow via OLM and CCO
-	if common.CCOWorkflow() {
-		setupLog.Info("AWS Role ARN specified by the user, following standardized STS workflow")
-		// ROLEARN env var is set via operator subscription
-		roleARN := os.Getenv("ROLEARN")
-		setupLog.Info("getting role ARN", "role ARN =", roleARN)
-
+	// check if this is standardized STS/Azure Identity workflow via OLM and CCO\
+	CCO, provider := common.CCOWorkflow()
+	if CCO && len(provider) > 0 {
 		// check if cred request API exists in the cluster before creating a cred request
 		setupLog.Info("Checking if credentialsrequest CRD exists in the cluster")
 		credReqCRDExists, err := DoesCRDExist(CloudCredentialGroupVersion, CloudCredentialsCRDName)
@@ -116,14 +116,49 @@ func main() {
 			os.Exit(1)
 		}
 
-		if credReqCRDExists {
-			// create cred request
-			setupLog.Info(fmt.Sprintf("Creating credentials request for role: %s, and WebIdentityTokenPath: %s", roleARN, WebIdentityTokenPath))
-			if err := CreateCredRequest(roleARN, WebIdentityTokenPath, watchNamespace); err != nil {
-				if !errors.IsAlreadyExists(err) {
-					setupLog.Error(err, "unable to create credRequest")
-					os.Exit(1)
+		if provider == "aws" {
+			setupLog.Info("AWS Role ARN specified by the user, following standardized STS workflow")
+			// ROLEARN env var is set via operator subscription
+			roleARN := os.Getenv("ROLEARN")
+			setupLog.Info("getting role ARN", "role ARN =", roleARN)
+
+			if credReqCRDExists {
+				// create cred request
+				setupLog.Info(fmt.Sprintf("Creating credentials request for role: %s, and WebIdentityTokenPath: %s", roleARN, WebIdentityTokenPath))
+				if err := CreateCredRequestAWS(roleARN, WebIdentityTokenPath, watchNamespace); err != nil {
+					if !errors.IsAlreadyExists(err) {
+						setupLog.Error(err, "unable to create credRequest")
+						os.Exit(1)
+					}
 				}
+			}
+		}
+
+		if provider == "azure" {
+			setupLog.Info("Azure CLIENTID, TENANTID and SUBSCRIPTIONID specified by the user, following standardized Azure Identity workflow")
+			clientID := os.Getenv("CLIENTID")
+			tenantID := os.Getenv("TENANTID")
+			subscriptionID := os.Getenv("SUBSCRIPTIONID")
+			setupLog.Info("getting CLIENTID", "CLIENTID=", clientID)
+			setupLog.Info("getting TENANTID", "TENANTID=", tenantID)
+			setupLog.Info("getting SUBSCRIPTIONID", "SUBSCRIPTIONID=", subscriptionID)
+
+			if credReqCRDExists {
+				// create cred request
+				setupLog.Info(fmt.Sprintf("Creating credentials request for clientID: %s, tenantID: %s, subscriptionID: %s and WebIdentityTokenPath: %s", clientID, tenantID, subscriptionID, WebIdentityTokenPath))
+				if err := CreateCredRequestAzure(clientID, tenantID, subscriptionID, WebIdentityTokenPath, watchNamespace); err != nil {
+					if !errors.IsAlreadyExists(err) {
+						setupLog.Error(err, "unable to create credRequest")
+						os.Exit(1)
+					}
+				}
+			}
+
+			// wait for credentials request to be processed in ARO cluster
+			_, err := WaitForSecret(watchNamespace, "cloud-credentials-azure")
+			if err != nil {
+				setupLog.Error(err, "unable to fetch secret created by CCO")
+				os.Exit(1)
 			}
 		}
 	}
@@ -287,7 +322,7 @@ func DoesCRDExist(CRDGroupVersion, CRDName string) (bool, error) {
 }
 
 // CreateCredRequest WITP : WebIdentityTokenPath
-func CreateCredRequest(roleARN string, WITP string, secretNS string) error {
+func CreateCredRequestAWS(roleARN string, WITP string, secretNS string) error {
 	cfg := config.GetConfigOrDie()
 	client, err := client.New(cfg, client.Options{})
 	if err != nil {
@@ -338,4 +373,92 @@ func CreateCredRequest(roleARN string, WITP string, secretNS string) error {
 
 	setupLog.Info("Custom resource credentialsrequest created successfully")
 	return nil
+}
+
+// For Azure azureFederatedTokenFile is same as WebIdentityTokenPath for AWS
+func CreateCredRequestAzure(clientID string, tenantID string, subscriptionID string, azureFederatedTokenFile string, secretNS string) error {
+	cfg := config.GetConfigOrDie()
+	client, err := client.New(cfg, client.Options{})
+	if err != nil {
+		setupLog.Error(err, "unable to create client")
+	}
+
+	// Create Credentials Request to be processed by CCO (Cloud Credentials Operator)
+	credRequest := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "cloudcredential.openshift.io/v1",
+			"kind":       "CredentialsRequest",
+			"metadata": map[string]interface{}{
+				"name":      "oadp-azure-credentials-request",
+				"namespace": "openshift-cloud-credential-operator",
+			},
+			"spec": map[string]interface{}{
+				"secretRef": map[string]interface{}{
+					"name":      "cloud-credentials-azure",
+					"namespace": secretNS,
+				},
+				"serviceAccountNames": []interface{}{
+					"openshift-adp-controller-manager",
+				},
+				"providerSpec": map[string]interface{}{
+					"apiVersion":    "cloudcredential.openshift.io/v1",
+					"kind":          "AzureProviderSpec",
+					"azureClientID": clientID,
+					// region as specified in the RH Azure identity docs
+					"azureRegion":         "centralus",
+					"azureSubscriptionID": subscriptionID,
+					"azureTenantID":       tenantID,
+					// TODO: check type/name of rolebindings needed for credentials Request
+					"roleBindings": []interface{}{
+						map[string]interface{}{
+							"role": "Contributor",
+						},
+					},
+				},
+				"cloudTokenPath": azureFederatedTokenFile,
+			},
+		},
+	}
+
+	if err := client.Create(context.Background(), credRequest); err != nil {
+		setupLog.Error(err, "unable to create credentials request resource")
+	}
+
+	setupLog.Info("Custom resource credentialsrequest for azure created successfully")
+	return nil
+
+}
+
+func WaitForSecret(namespace, name string) (*corev1.Secret, error) {
+	// set a timeout of 10 minutes
+	timeout := 10 * time.Minute
+
+	secret := corev1.Secret{}
+	key := types.NamespacedName{
+		Name:      name,
+		Namespace: namespace,
+	}
+
+	cfg := config.GetConfigOrDie()
+	client, err := client.New(cfg, client.Options{})
+	if err != nil {
+		setupLog.Error(err, "unable to create client")
+	}
+
+	err = wait.PollImmediate(5*time.Second, timeout, func() (bool, error) {
+
+		err := client.Get(context.Background(), key, &secret)
+		if err != nil {
+			if errors.IsNotFound(err) {
+				return false, nil
+			}
+		}
+		return true, nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &secret, nil
 }
