@@ -1,0 +1,23 @@
+#!/bin/bash
+
+# Cluster passed in from main gather
+clusterID=$1
+
+# Resource list
+resources=()
+
+# OADP
+resources+=($(/usr/bin/oc get crd | awk '/oadp.openshift.io/{print $1}'))
+
+# Velero
+resources+=($(/usr/bin/oc get crd | awk '/velero.io/{print $1}'))
+
+echo "Starting collection of CRDs:" "${resources[@]}"
+object_collection_path=/must-gather/clusters/${clusterID}/cluster-scoped-resources/apiextensions.k8s.io/customresourcedefinitions
+
+for resource in "${resources[@]}"; do
+  echo "Collecting ${resource} CRD"
+  mkdir -p "${object_collection_path}"
+  /usr/bin/oc get crd "${resource}" -o yaml &> "${object_collection_path}/${resource}.yaml" &
+done
+wait

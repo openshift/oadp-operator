@@ -4,53 +4,31 @@ max_parallelism=10
 
 # Cluster passed in from main gather
 clusterID=$1
-shift
-namespaces=("$@")
 
 # Resource list
 resources=()
 
 # OADP
-for i in $(/usr/bin/oc get crd | grep oadp.openshift.io | awk '{print $1}'); do
-  resources+=($i)
-done
+resources+=($(/usr/bin/oc get crd | awk '/oadp.openshift.io/{print $1}'))
 
 # Velero
-for i in $(/usr/bin/oc get crd | grep velero.io | awk '{print $1}'); do
-  resources+=($i)
-done
+resources+=($(/usr/bin/oc get crd | awk '/velero.io/{print $1}'))
 
-echo "Starting collection of: [${resources[@]}]"
+echo "Starting collection of:" "${resources[@]}"
 
 # we use nested loops to nicely output objects partitioned per namespace, kind
-for resource in ${resources[@]}; do
-  echo "Collecting ${resource}"
-  /usr/bin/oc get ${resource} --all-namespaces -o custom-columns=NAME:.metadata.name,NAMESPACE:.metadata.namespace --no-headers 2> /dev/null | \
-  while read ocresource; do
-    ocobject=$(echo $ocresource | awk '{print $1}')
-    ocproject=$(echo $ocresource | awk '{print $2}')
-    if [ -z "${ocproject}" ]|[ "${ocproject}" == "<none>" ]; then
-      object_collection_path=/must-gather/clusters/${clusterID}/cluster-scoped-resources/${resource}
-      mkdir -p ${object_collection_path}
-      /usr/bin/oc get ${resource} -o yaml ${ocobject} &> ${object_collection_path}/${ocobject}.yaml &
+for resource in "${resources[@]}"; do
+  /usr/bin/oc get "${resource}" --all-namespaces -o custom-columns=NAMESPACE:.metadata.namespace --no-headers 2> /dev/null | uniq | \
+  while read namespace; do
+    resource_name=$(echo "$resource" | cut -d "." -f 1)
+    echo "Collecting ${resource_name} in ${namespace} namespace"
+    if echo "${resource}" | grep -q velero.io; then
+      object_collection_path=/must-gather/clusters/${clusterID}/namespaces/${namespace}/velero.io/${resource_name}
     else
-      #TODO: verify if there are more crds to add for oadp
-      skip=("dataprotectionapplications.oadp.openshift.io")
-      if [[ ${skip[*]} =~ "${resource}" ]]; then
-        continue
-      fi
-      object_collection_path=/must-gather/clusters/${clusterID}/namespaces/${ocproject}/velero.io/${resource}
-      mkdir -p ${object_collection_path}
-      /usr/bin/oc get ${resource} -n ${ocproject} -o yaml ${ocobject} &> ${object_collection_path}/${ocobject}.yaml & 
+      object_collection_path=/must-gather/clusters/${clusterID}/namespaces/${namespace}/oadp.openshift.io/${resource_name}
     fi
-    pwait $max_parallelism
-  done
-done
-
-for ns in ${namespaces[@]}; do
-  for dpa in $(oc get dpa --namespace ${ns} --no-headers | awk '{print $1}'); do
-    mkdir -p "/must-gather/clusters/${clusterID}/namespaces/${ns}/oadp.openshift.io/dpa-${dpa}"
-    oc get dpa ${dpa} -o yaml --namespace ${ns} &> "/must-gather/clusters/${clusterID}/namespaces/${ns}/oadp.openshift.io/dpa-${dpa}/${dpa}.yml" &
+    mkdir -p "${object_collection_path}"
+    /usr/bin/oc get "${resource}" -n "${namespace}" -o yaml &> "${object_collection_path}/${resource_name}.yaml" &
     pwait $max_parallelism
   done
 done

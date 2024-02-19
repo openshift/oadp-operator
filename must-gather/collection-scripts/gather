@@ -23,9 +23,14 @@ for ns in ${namespaces[@]}; do
     pids+=($!)
   done
 
-# Collect DPA CRs
-echo "Gathering DPA CRs for namespaces [${namespaces[@]}]"
-/usr/bin/gather_crs ${clusterID} ${namespaces[@]} &
+# Collect Velero and OADP CRs
+echo "Gathering Velero and OADP CRs"
+/usr/bin/gather_crs ${clusterID} &
+pids+=($!)
+
+# Collect Velero and OADP CRDs
+echo "Gathering Velero and OADP CRDs"
+/usr/bin/gather_crds ${clusterID} &
 pids+=($!)
 
 # Collect the logs"
@@ -63,7 +68,7 @@ else
   find /must-gather/clusters/*/namespaces/*/pods/ -name '*.log' -delete
 fi
 
-# Tar all must-gather artifacts for faster transmission 
+# Tar all must-gather artifacts for faster transmission
 echo "Tarring must-gather artifacts..."
 archive_path="/must-gather-archive"
 mkdir -p ${archive_path}
