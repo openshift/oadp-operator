@@ -12,7 +12,6 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
-	"github.com/openshift/oadp-operator/pkg/storage/aws"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -23,6 +22,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
+
+// A bucket that region can be automatically discovered
+const DiscoverableBucket string = "openshift-velero-plugin-s3-auto-region-test-1"
 
 func getSchemeForFakeClient() (*runtime.Scheme, error) {
 	err := oadpv1alpha1.AddToScheme(scheme.Scheme)
@@ -1192,7 +1194,7 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 								Provider: "aws",
 								StorageType: velerov1.StorageType{
 									ObjectStorage: &velerov1.ObjectStorageLocation{
-										Bucket: aws.DiscoverableBucket,
+										Bucket: DiscoverableBucket,
 										Prefix: "prefix",
 									},
 								},
@@ -1351,7 +1353,7 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 								},
 								StorageType: velerov1.StorageType{
 									ObjectStorage: &velerov1.ObjectStorageLocation{
-										Bucket: aws.DiscoverableBucket,
+										Bucket: DiscoverableBucket,
 										Prefix: "prefix",
 									},
 								},

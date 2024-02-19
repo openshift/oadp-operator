@@ -42,6 +42,3 @@ func GetBucketRegion(bucket string) (string, error) {
 
 	return "", errors.New("unable to determine bucket's region")
 }
-
-// For tests to use when discoverable bucket is required.
-const DiscoverableBucket string = "openshift-velero-plugin-s3-auto-region-test-1"
