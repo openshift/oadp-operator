@@ -12,13 +12,14 @@ import (
 	snapshotv1client "github.com/kubernetes-csi/external-snapshotter/client/v4/clientset/versioned"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	. "github.com/openshift/oadp-operator/tests/e2e/lib"
-	veleroClientset "github.com/vmware-tanzu/velero/pkg/generated/clientset/versioned"
+	veleroclientset "github.com/vmware-tanzu/velero/pkg/generated/clientset/versioned"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
+
+	. "github.com/openshift/oadp-operator/tests/e2e/lib"
 )
 
 // Common vars obtained from flags passed in ginkgo.
@@ -102,7 +103,7 @@ func TestOADPE2E(t *testing.T) {
 
 var kubernetesClientForSuiteRun *kubernetes.Clientset
 var runTimeClientForSuiteRun client.Client
-var veleroClientForSuiteRun veleroClientset.Interface
+var veleroClientForSuiteRun veleroclientset.Interface
 var csiClientForSuiteRun *snapshotv1client.Clientset
 var dynamicClientForSuiteRun dynamic.Interface
 var dpaCR *DpaCustomResource
@@ -129,7 +130,7 @@ var _ = BeforeSuite(func() {
 	runTimeClientForSuiteRun, err = client.New(kubeConfig, client.Options{})
 	Expect(err).NotTo(HaveOccurred())
 
-	veleroClientForSuiteRun, err = veleroClientset.NewForConfig(kubeConfig)
+	veleroClientForSuiteRun, err = veleroclientset.NewForConfig(kubeConfig)
 	Expect(err).NotTo(HaveOccurred())
 
 	csiClientForSuiteRun, err = snapshotv1client.NewForConfig(kubeConfig)

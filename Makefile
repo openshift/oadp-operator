@@ -181,17 +181,11 @@ envtest: $(ENVTEST)
 # to login to registry cluster follow https://docs.ci.openshift.org/docs/how-tos/use-registries-in-build-farm/#how-do-i-log-in-to-pull-images-that-require-authentication
 # If bin/ contains binaries of different arch, you may remove them so the container can install their arch.
 .PHONY: test
-test: vet envtest ## Run Go linter and unit tests and check Go code format and if api and bundle folders are up to date.
+test: vet envtest ## Run unit tests; run Go linters checks; and check if api and bundle folders are up to date
 	KUBEBUILDER_ASSETS="$(ENVTESTPATH)" go test -mod=mod $(shell go list -mod=mod ./... | grep -v /tests/e2e) -coverprofile cover.out
-	@make fmt-isupdated
+	@make lint
 	@make api-isupdated
 	@make bundle-isupdated
-
-.PHONY: fmt-isupdated
-fmt-isupdated: TEMP:= $(shell mktemp -d)
-fmt-isupdated:
-	@cp -r ./ $(TEMP) && cd $(TEMP) && make fmt && cd - && diff -ruN . $(TEMP)/ && echo "Go code is formatted" || (echo "Go code is not formatted, run 'make fmt' to format" && exit 1)
-	@chmod -R 777 $(TEMP) && rm -rf $(TEMP)
 
 .PHONY: api-isupdated
 api-isupdated: TEMP:= $(shell mktemp -d)
@@ -536,3 +530,38 @@ test-e2e-cleanup: login-required
 	$(OC_CLI) delete restore -n $(OADP_TEST_NAMESPACE) --all --wait=false
 	for restore_name in $(shell $(OC_CLI) get restore -n $(OADP_TEST_NAMESPACE) -o name);do $(OC_CLI) patch "$$restore_name" -n $(OADP_TEST_NAMESPACE) -p '{"metadata":{"finalizers":null}}' --type=merge;done
 	rm -rf $(SETTINGS_TMP)
+
+## Location to install dependencies to
+LOCALBIN ?= $(shell pwd)/bin
+$(LOCALBIN):
+	mkdir -p $(LOCALBIN)
+
+GOLANGCI_LINT = $(LOCALBIN)/golangci-lint-$(GOLANGCI_LINT_VERSION)
+GOLANGCI_LINT_VERSION ?= v1.56.2
+
+.PHONY: golangci-lint
+golangci-lint: $(GOLANGCI_LINT) ## Download golangci-lint locally if necessary.
+$(GOLANGCI_LINT): $(LOCALBIN)
+	$(call go-install-tool,$(GOLANGCI_LINT),github.com/golangci/golangci-lint/cmd/golangci-lint,${GOLANGCI_LINT_VERSION})
+
+# go-install-tool will 'go install' any package with custom target and name of binary, if it doesn't exist
+# $1 - target path with name of binary with version
+# $2 - package url which can be installed
+# $3 - specific version of package
+define go-install-tool
+@[ -f $(1) ] || { \
+set -e; \
+package=$(2)@$(3) ;\
+echo "Downloading $${package}" ;\
+GOBIN=$(LOCALBIN) go install $${package} ;\
+mv "$$(echo "$(1)" | sed "s/-$(3)$$//")" $(1) ;\
+}
+endef
+
+.PHONY: lint
+lint: golangci-lint ## Run Go linters checks against all project's Go files.
+	$(GOLANGCI_LINT) run
+
+.PHONY: lint-fix
+lint-fix: golangci-lint ## Fix Go linters issues.
+	$(GOLANGCI_LINT) run --fix

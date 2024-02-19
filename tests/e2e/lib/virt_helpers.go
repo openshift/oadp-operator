@@ -10,11 +10,9 @@ import (
 
 	operatorsv1 "github.com/operator-framework/api/pkg/operators/v1"
 	operatorsv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
-
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/version"
@@ -63,22 +61,22 @@ type VirtOperator struct {
 }
 
 // GetVirtOperator fills out a new VirtOperator
-func GetVirtOperator(client client.Client, clientset *kubernetes.Clientset, dynamicClient dynamic.Interface) (*VirtOperator, error) {
+func GetVirtOperator(c client.Client, clientset *kubernetes.Clientset, dynamicClient dynamic.Interface) (*VirtOperator, error) {
 	namespace := "openshift-cnv"
 
-	csv, version, err := getCsvFromPackageManifest(dynamicClient, "kubevirt-hyperconverged")
+	csv, operatorVersion, err := getCsvFromPackageManifest(dynamicClient, "kubevirt-hyperconverged")
 	if err != nil {
 		log.Printf("Failed to get CSV from package manifest")
 		return nil, err
 	}
 
 	v := &VirtOperator{
-		Client:    client,
+		Client:    c,
 		Clientset: clientset,
 		Dynamic:   dynamicClient,
 		Namespace: namespace,
 		Csv:       csv,
-		Version:   version,
+		Version:   operatorVersion,
 	}
 
 	return v, nil
@@ -109,7 +107,7 @@ func (v *VirtOperator) makeOperatorGroup() *operatorsv1.OperatorGroup {
 // Version type, so it is easy to check against the current cluster version.
 func getCsvFromPackageManifest(dynamicClient dynamic.Interface, name string) (string, *version.Version, error) {
 	log.Println("Getting packagemanifest...")
-	unstructuredManifest, err := dynamicClient.Resource(packageManifestsGvr).Namespace("default").Get(context.Background(), name, v1.GetOptions{})
+	unstructuredManifest, err := dynamicClient.Resource(packageManifestsGvr).Namespace("default").Get(context.Background(), name, metav1.GetOptions{})
 	if err != nil {
 		log.Printf("Error getting packagemanifest %s: %v", name, err)
 		return "", nil, err
@@ -151,12 +149,12 @@ func getCsvFromPackageManifest(dynamicClient dynamic.Interface, name string) (st
 	}
 	log.Printf("Current operator version is: %s", versionString)
 
-	version, err := version.ParseGeneric(versionString)
+	operatorVersion, err := version.ParseGeneric(versionString)
 	if err != nil {
 		return "", nil, err
 	}
 
-	return csv, version, nil
+	return csv, operatorVersion, nil
 }
 
 // Checks the existence of the operator's target namespace
@@ -202,7 +200,7 @@ func (v *VirtOperator) checkCsv() bool {
 // health status field is "healthy". Uses dynamic client to avoid uprooting lots
 // of package dependencies, which should probably be fixed later.
 func (v *VirtOperator) checkHco() bool {
-	unstructuredHco, err := v.Dynamic.Resource(hyperConvergedGvr).Namespace(v.Namespace).Get(context.Background(), "kubevirt-hyperconverged", v1.GetOptions{})
+	unstructuredHco, err := v.Dynamic.Resource(hyperConvergedGvr).Namespace(v.Namespace).Get(context.Background(), "kubevirt-hyperconverged", metav1.GetOptions{})
 	if err != nil {
 		log.Printf("Error getting HCO: %v", err)
 		return false
@@ -224,7 +222,7 @@ func (v *VirtOperator) checkHco() bool {
 
 // Check if KVM emulation is enabled.
 func (v *VirtOperator) checkEmulation() bool {
-	hco, err := v.Dynamic.Resource(hyperConvergedGvr).Namespace("openshift-cnv").Get(context.Background(), "kubevirt-hyperconverged", v1.GetOptions{})
+	hco, err := v.Dynamic.Resource(hyperConvergedGvr).Namespace("openshift-cnv").Get(context.Background(), "kubevirt-hyperconverged", metav1.GetOptions{})
 	if err != nil {
 		return false
 	}
@@ -310,7 +308,7 @@ func (v *VirtOperator) installHco() error {
 			"spec": map[string]interface{}{},
 		},
 	}
-	_, err := v.Dynamic.Resource(hyperConvergedGvr).Namespace(v.Namespace).Create(context.Background(), &unstructuredHco, v1.CreateOptions{})
+	_, err := v.Dynamic.Resource(hyperConvergedGvr).Namespace(v.Namespace).Create(context.Background(), &unstructuredHco, metav1.CreateOptions{})
 	if err != nil {
 		log.Printf("Error creating HCO: %v", err)
 		return err
@@ -320,7 +318,7 @@ func (v *VirtOperator) installHco() error {
 }
 
 func (v *VirtOperator) configureEmulation() error {
-	hco, err := v.Dynamic.Resource(hyperConvergedGvr).Namespace("openshift-cnv").Get(context.Background(), "kubevirt-hyperconverged", v1.GetOptions{})
+	hco, err := v.Dynamic.Resource(hyperConvergedGvr).Namespace("openshift-cnv").Get(context.Background(), "kubevirt-hyperconverged", metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
@@ -341,7 +339,7 @@ func (v *VirtOperator) configureEmulation() error {
 		return err
 	}
 
-	_, err = v.Dynamic.Resource(hyperConvergedGvr).Namespace("openshift-cnv").Update(context.Background(), hco, v1.UpdateOptions{})
+	_, err = v.Dynamic.Resource(hyperConvergedGvr).Namespace("openshift-cnv").Update(context.Background(), hco, metav1.UpdateOptions{})
 	if err != nil {
 		return err
 	}
@@ -467,12 +465,12 @@ func (v *VirtOperator) removeSubscription() error {
 
 // Deletes the virt ClusterServiceVersion
 func (v *VirtOperator) removeCsv() error {
-	return v.Dynamic.Resource(csvGvr).Namespace(v.Namespace).Delete(context.Background(), v.Csv, v1.DeleteOptions{})
+	return v.Dynamic.Resource(csvGvr).Namespace(v.Namespace).Delete(context.Background(), v.Csv, metav1.DeleteOptions{})
 }
 
 // Deletes a HyperConverged Operator instance.
 func (v *VirtOperator) removeHco() error {
-	err := v.Dynamic.Resource(hyperConvergedGvr).Namespace(v.Namespace).Delete(context.Background(), "kubevirt-hyperconverged", v1.DeleteOptions{})
+	err := v.Dynamic.Resource(hyperConvergedGvr).Namespace(v.Namespace).Delete(context.Background(), "kubevirt-hyperconverged", metav1.DeleteOptions{})
 	if err != nil {
 		log.Printf("Error deleting HCO: %v", err)
 		return err
@@ -582,7 +580,7 @@ func (v *VirtOperator) ensureHcoRemoved(timeout time.Duration) error {
 }
 
 func (v *VirtOperator) getVmStatus(namespace, name string) (string, error) {
-	vm, err := v.Dynamic.Resource(virtualMachineGvr).Namespace(namespace).Get(context.Background(), name, v1.GetOptions{})
+	vm, err := v.Dynamic.Resource(virtualMachineGvr).Namespace(namespace).Get(context.Background(), name, metav1.GetOptions{})
 	if err != nil {
 		return "", err
 	}
@@ -657,7 +655,7 @@ func (v *VirtOperator) createVm(namespace, name, source string) error {
 		},
 	}
 
-	if _, err := v.Dynamic.Resource(virtualMachineGvr).Namespace(namespace).Create(context.TODO(), &unstructuredVm, v1.CreateOptions{}); err != nil {
+	if _, err := v.Dynamic.Resource(virtualMachineGvr).Namespace(namespace).Create(context.TODO(), &unstructuredVm, metav1.CreateOptions{}); err != nil {
 		return fmt.Errorf("error creating VM %s/%s: %w", namespace, name, err)
 	}
 
@@ -665,7 +663,7 @@ func (v *VirtOperator) createVm(namespace, name, source string) error {
 }
 
 func (v *VirtOperator) removeVm(namespace, name string) error {
-	if err := v.Dynamic.Resource(virtualMachineGvr).Namespace(namespace).Delete(context.TODO(), name, v1.DeleteOptions{}); err != nil {
+	if err := v.Dynamic.Resource(virtualMachineGvr).Namespace(namespace).Delete(context.TODO(), name, metav1.DeleteOptions{}); err != nil {
 		if !apierrors.IsNotFound(err) {
 			return fmt.Errorf("error deleting VM %s/%s: %w", namespace, name, err)
 		}

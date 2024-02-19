@@ -7,10 +7,11 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	. "github.com/openshift/oadp-operator/tests/e2e/lib"
 	operators "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/utils/pointer"
+
+	. "github.com/openshift/oadp-operator/tests/e2e/lib"
 )
 
 var _ = Describe("Subscription Config Suite Test", func() {

@@ -4,12 +4,13 @@ import (
 	"context"
 	"log"
 
-	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
-	"github.com/openshift/oadp-operator/pkg/credentials"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
+	"github.com/openshift/oadp-operator/pkg/credentials"
 )
 
 func (d *DpaCustomResource) RemoveVeleroPlugin(c client.Client, string, instanceName string, pluginValues []oadpv1alpha1.DefaultPlugin, removedPlugin string) error {

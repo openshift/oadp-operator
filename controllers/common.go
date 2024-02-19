@@ -1,9 +1,10 @@
 package controllers
 
 import (
-	"github.com/openshift/oadp-operator/pkg/common"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/utils/pointer"
+
+	"github.com/openshift/oadp-operator/pkg/common"
 )
 
 // setting defaults to avoid emitting update events
