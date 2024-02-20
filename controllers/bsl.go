@@ -288,8 +288,7 @@ func (r *DPAReconciler) validateAWSBackupStorageLocation(bslSpec velerov1.Backup
 	// BSL region is required when
 	// - s3ForcePathStyle is true, because some velero processes requires region to be set and is not auto-discoverable when s3ForcePathStyle is true
 	//   imagestream backup in openshift-velero-plugin now uses the same method to discover region as the rest of the velero codebase
-	//   after https://github.com/openshift/openshift-velero-plugin/pull/223.
-	// For some aws buckets, the region may not be discoverable and the user has to set it manually.
+	// - even when s3ForcePathStyle is false, some aws bucket regions may not be discoverable and the user has to set it manually
 	if (bslSpec.Config == nil || len(bslSpec.Config[Region]) == 0) &&
 		(bslSpec.Config != nil && bslSpec.Config[S3ForcePathStyle] == "true" || !aws.BucketRegionIsDiscoverable(bslSpec.ObjectStorage.Bucket)) {
 		return fmt.Errorf("region for AWS backupstoragelocation not automatically discoverable. Please set the region in the backupstoragelocation config")
