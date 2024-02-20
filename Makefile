@@ -535,7 +535,7 @@ GOLANGCI_LINT = $(shell pwd)/bin/golangci-lint
 
 .PHONY: golangci-lint
 golangci-lint: ## Download golangci-lint locally if necessary.
-	$(call go-install-tool,$(GOLANGCI_LINT),github.com/golangci/golangci-lint/cmd/golangci-lint@v1.56.2)
+	$(call go-install-tool,$(GOLANGCI_LINT),github.com/golangci/golangci-lint/cmd/golangci-lint@v1.55.2)
 
 .PHONY: lint
 lint: golangci-lint ## Run Go linters checks against all project's Go files.

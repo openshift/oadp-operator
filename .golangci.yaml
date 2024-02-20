@@ -1,4 +1,4 @@
-# Documentation reference https://github.com/golangci/golangci-lint/blob/v1.56.2/.golangci.reference.yml
+# Documentation reference https://github.com/golangci/golangci-lint/blob/v1.55.2/.golangci.reference.yml
 run:
   skip-dirs-use-default: false
   modules-download-mode: readonly
