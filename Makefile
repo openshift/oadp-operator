@@ -542,13 +542,13 @@ GOLANGCI_LINT_VERSION ?= v1.56.2
 .PHONY: golangci-lint
 golangci-lint: $(GOLANGCI_LINT) ## Download golangci-lint locally if necessary.
 $(GOLANGCI_LINT): $(LOCALBIN)
-	$(call go-install-tool,$(GOLANGCI_LINT),github.com/golangci/golangci-lint/cmd/golangci-lint,${GOLANGCI_LINT_VERSION})
+	$(call go-install-tool-with-version,$(GOLANGCI_LINT),github.com/golangci/golangci-lint/cmd/golangci-lint,${GOLANGCI_LINT_VERSION})
 
-# go-install-tool will 'go install' any package with custom target and name of binary, if it doesn't exist
+# go-install-tool-with-version will 'go install' any package with custom target and name of binary, if it doesn't exist
 # $1 - target path with name of binary with version
 # $2 - package url which can be installed
 # $3 - specific version of package
-define go-install-tool
+define go-install-tool-with-version
 @[ -f $(1) ] || { \
 set -e; \
 package=$(2)@$(3) ;\
