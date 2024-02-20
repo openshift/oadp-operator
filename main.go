@@ -102,10 +102,10 @@ func main() {
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
-	restConfig := ctrl.GetConfigOrDie()
+	kubeconf := ctrl.GetConfigOrDie()
 
 	// Get LeaderElection configs
-	leConfig := leaderelection.GetLeaderElectionConfig(restConfig, enableLeaderElection)
+	leConfig := leaderelection.GetLeaderElectionConfig(kubeconf, enableLeaderElection)
 
 	watchNamespace, err := getWatchNamespace()
 	if err != nil {
@@ -113,7 +113,6 @@ func main() {
 			"the manager will watch and manage resources in all namespaces")
 	}
 
-	kubeconf := ctrl.GetConfigOrDie()
 	clientset, err := kubernetes.NewForConfig(kubeconf)
 	if err != nil {
 		setupLog.Error(err, "problem getting client")
