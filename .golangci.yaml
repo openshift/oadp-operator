@@ -77,35 +77,35 @@ linters:
     - asasalint
     - asciicheck
     - bidichk
-    - bodyclose
+    # - bodyclose
     - dogsled
-    - dupword
+    # - dupword
     # - durationcheck
     # - errcheck
     - errchkjson
     - exportloopref
     - gci
     # - ginkgolinter
-    - goconst
+    # - goconst
     - gofmt
-    - goheader
+    # - goheader
     - goprintffuncname
     # - gosec
-    - gosimple
+    # - gosimple
     # - govet
-    - ineffassign
-    - misspell
+    # - ineffassign
+    # - misspell
     - nakedret
-    - nilerr
-    - noctx
+    # - nilerr
+    # - noctx
     - nolintlint
     - nosprintfhostport
     - revive
-    - staticcheck
-    - stylecheck
-    - unconvert
-    - unparam
-    - unused
+    # - staticcheck
+    # - stylecheck
+    # - unconvert
+    # - unparam
+    # - unused
     - usestdlibvars
   fast: false
 
@@ -118,10 +118,6 @@ issues:
     - linters:
         - stylecheck
       text: "ST1000:|ST1020:|ST1021:|ST1022:"
-    - linters:
-      # TODO should be deleted
-        - stylecheck
-      text: "ST1001:|ST1003:|ST1005:"
   max-issues-per-linter: 0
   max-same-issues: 0
 

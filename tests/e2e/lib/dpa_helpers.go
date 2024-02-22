@@ -12,7 +12,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
-	. "github.com/onsi/ginkgo/v2"
+	ginkgov2 "github.com/onsi/ginkgo/v2"
 	appsv1 "github.com/openshift/api/apps/v1"
 	buildv1 "github.com/openshift/api/build/v1"
 	security "github.com/openshift/api/security/v1"
@@ -382,7 +382,7 @@ func DoesBSLSpecMatchesDpa(namespace string, bsl velero.BackupStorageLocationSpe
 				bsl.Config = make(map[string]string)
 			}
 			if !reflect.DeepEqual(bsl, *b.Velero) {
-				GinkgoWriter.Print(cmp.Diff(bsl, *b.Velero))
+				ginkgov2.GinkgoWriter.Print(cmp.Diff(bsl, *b.Velero))
 				return false, errors.New("given Velero bsl does not match the deployed velero bsl")
 			}
 		}
@@ -403,7 +403,7 @@ func DoesVSLSpecMatchesDpa(namespace string, vslspec velero.VolumeSnapshotLocati
 			vslspec.Config = make(map[string]string)
 		}
 		if reflect.DeepEqual(vslspec, *v.Velero) {
-			GinkgoWriter.Print(cmp.Diff(vslspec, *v.Velero))
+			ginkgov2.GinkgoWriter.Print(cmp.Diff(vslspec, *v.Velero))
 			return true, nil
 		}
 	}
