@@ -20,8 +20,8 @@ import (
 	"context"
 	"testing"
 
-	coreV1 "k8s.io/api/core/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 )
@@ -80,7 +80,7 @@ func TestAddPodSecurityPrivilegedLabels(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create a new namespace with the existing labels
-			namespace := coreV1.Namespace{
+			namespace := corev1.Namespace{
 				ObjectMeta: v1.ObjectMeta{
 					Name:   testNamespaceName,
 					Labels: tt.existingLabels,
