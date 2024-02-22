@@ -18,18 +18,21 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
+	"os"
+
 	"github.com/openshift/oadp-operator/pkg/common"
 	monitor "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/kubernetes"
-	"os"
+	"k8s.io/client-go/rest"
 	client "sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/client/config"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -57,12 +60,22 @@ var (
 	setupLog = ctrl.Log.WithName("setup")
 )
 
-// WebIdentityTokenPath mount present on operator CSV
-const WebIdentityTokenPath = "/var/run/secrets/openshift/serviceaccount/token"
+const (
+	// WebIdentityTokenPath mount present on operator CSV
+	WebIdentityTokenPath = "/var/run/secrets/openshift/serviceaccount/token"
 
-// CloudCredentials API constants
-const CloudCredentialGroupVersion = "cloudcredential.openshift.io/v1"
-const CloudCredentialsCRDName = "credentialsrequests"
+	// CloudCredentials API constants
+	CloudCredentialGroupVersion = "cloudcredential.openshift.io/v1"
+	CloudCredentialsCRDName     = "credentialsrequests"
+
+	// Pod security admission (PSA) labels
+	psaLabelPrefix = "pod-security.kubernetes.io/"
+	enforceLabel   = psaLabelPrefix + "enforce"
+	auditLabel     = psaLabelPrefix + "audit"
+	warnLabel      = psaLabelPrefix + "warn"
+
+	privileged = "privileged"
+)
 
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
@@ -94,8 +107,15 @@ func main() {
 			"the manager will watch and manage resources in all namespaces")
 	}
 
+	kubeconf := ctrl.GetConfigOrDie()
+	clientset, err := kubernetes.NewForConfig(kubeconf)
+	if err != nil {
+		setupLog.Error(err, "problem getting client")
+		os.Exit(1)
+	}
+
 	// setting privileged pod security labels to operator ns
-	err = addPodSecurityPrivilegedLabels(watchNamespace)
+	err = addPodSecurityPrivilegedLabels(watchNamespace, clientset)
 	if err != nil {
 		setupLog.Error(err, "error setting privileged pod security labels to operator namespace")
 		os.Exit(1)
@@ -110,7 +130,7 @@ func main() {
 
 		// check if cred request API exists in the cluster before creating a cred request
 		setupLog.Info("Checking if credentialsrequest CRD exists in the cluster")
-		credReqCRDExists, err := DoesCRDExist(CloudCredentialGroupVersion, CloudCredentialsCRDName)
+		credReqCRDExists, err := DoesCRDExist(CloudCredentialGroupVersion, CloudCredentialsCRDName, kubeconf)
 		if err != nil {
 			setupLog.Error(err, "problem checking the existence of CredentialRequests CRD")
 			os.Exit(1)
@@ -119,7 +139,7 @@ func main() {
 		if credReqCRDExists {
 			// create cred request
 			setupLog.Info(fmt.Sprintf("Creating credentials request for role: %s, and WebIdentityTokenPath: %s", roleARN, WebIdentityTokenPath))
-			if err := CreateCredRequest(roleARN, WebIdentityTokenPath, watchNamespace); err != nil {
+			if err := CreateCredRequest(roleARN, WebIdentityTokenPath, watchNamespace, kubeconf); err != nil {
 				if !errors.IsAlreadyExists(err) {
 					setupLog.Error(err, "unable to create credRequest")
 					os.Exit(1)
@@ -128,7 +148,7 @@ func main() {
 		}
 	}
 
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
+	mgr, err := ctrl.NewManager(kubeconf, ctrl.Options{
 		Scheme:                 scheme,
 		MetricsBindAddress:     metricsAddr,
 		Port:                   9443,
@@ -222,46 +242,36 @@ func getWatchNamespace() (string, error) {
 	return ns, nil
 }
 
-// setting privileged pod security labels to OADP operator namespace
-func addPodSecurityPrivilegedLabels(watchNamespaceName string) error {
-	setupLog.Info("patching operator namespace with PSA labels")
+// setting Pod security admission (PSA) labels to privileged in OADP operator namespace
+func addPodSecurityPrivilegedLabels(watchNamespaceName string, clientset kubernetes.Interface) error {
+	setupLog.Info("patching operator namespace with Pod security admission (PSA) labels to privileged")
 
 	if len(watchNamespaceName) == 0 {
-		return fmt.Errorf("cannot add privileged pod security labels, watchNamespaceName is empty")
+		return fmt.Errorf("cannot patch operator namespace with PSA labels to privileged, watchNamespaceName is empty")
 	}
 
-	kubeconf := ctrl.GetConfigOrDie()
-	clientset, err := kubernetes.NewForConfig(kubeconf)
+	nsPatch, err := json.Marshal(map[string]interface{}{
+		"metadata": map[string]interface{}{
+			"labels": map[string]string{
+				enforceLabel: privileged,
+				auditLabel:   privileged,
+				warnLabel:    privileged,
+			},
+		},
+	})
 	if err != nil {
-		setupLog.Error(err, "problem getting client")
+		setupLog.Error(err, "problem marshalling patches")
 		return err
 	}
-
-	operatorNamespace, err := clientset.CoreV1().Namespaces().Get(context.TODO(), watchNamespaceName, metav1.GetOptions{})
+	_, err = clientset.CoreV1().Namespaces().Patch(context.TODO(), watchNamespaceName, types.StrategicMergePatchType, nsPatch, metav1.PatchOptions{})
 	if err != nil {
-		setupLog.Error(err, "problem getting operator namespace")
-		return err
-	}
-
-	privilegedLabels := map[string]string{
-		"pod-security.kubernetes.io/enforce": "privileged",
-		"pod-security.kubernetes.io/audit":   "privileged",
-		"pod-security.kubernetes.io/warn":    "privileged",
-	}
-
-	operatorNamespace.SetLabels(privilegedLabels)
-
-	_, err = clientset.CoreV1().Namespaces().Update(context.TODO(), operatorNamespace, metav1.UpdateOptions{})
-	if err != nil {
-		setupLog.Error(err, "problem patching operator namespace for privileged pod security labels")
+		setupLog.Error(err, "problem patching operator namespace with PSA labels to privileged")
 		return err
 	}
 	return nil
 }
 
-func DoesCRDExist(CRDGroupVersion, CRDName string) (bool, error) {
-	kubeconf := ctrl.GetConfigOrDie()
-
+func DoesCRDExist(CRDGroupVersion, CRDName string, kubeconf *rest.Config) (bool, error) {
 	discoveryClient, err := discovery.NewDiscoveryClientForConfig(kubeconf)
 	if err != nil {
 		return false, err
@@ -287,9 +297,8 @@ func DoesCRDExist(CRDGroupVersion, CRDName string) (bool, error) {
 }
 
 // CreateCredRequest WITP : WebIdentityTokenPath
-func CreateCredRequest(roleARN string, WITP string, secretNS string) error {
-	cfg := config.GetConfigOrDie()
-	client, err := client.New(cfg, client.Options{})
+func CreateCredRequest(roleARN string, WITP string, secretNS string, kubeconf *rest.Config) error {
+	client, err := client.New(kubeconf, client.Options{})
 	if err != nil {
 		setupLog.Error(err, "unable to create client")
 	}
