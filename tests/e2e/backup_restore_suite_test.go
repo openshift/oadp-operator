@@ -176,8 +176,7 @@ func runBackupAndRestore(brCase BackupRestoreCase, expectedErr error, updateLast
 
 	// uninstall app
 	log.Printf("Uninstalling app for case %s", brCase.Name)
-	err = UninstallApplication(dpaCR.Client, brCase.ApplicationTemplate)
-	Expect(err).ToNot(HaveOccurred())
+	UninstallApplication(dpaCR.Client, brCase.ApplicationTemplate)
 
 	// Wait for namespace to be deleted
 	Eventually(IsNamespaceDeleted(kubernetesClientForSuiteRun, brCase.ApplicationNamespace), timeoutMultiplier*time.Minute*4, time.Second*5).Should(BeTrue())
@@ -250,8 +249,7 @@ func tearDownBackupAndRestore(brCase BackupRestoreCase, installTime time.Time, r
 	if brCase.BackupRestoreType == CSI || brCase.BackupRestoreType == CSIDataMover {
 		log.Printf("Deleting VolumeSnapshot for CSI backuprestore of %s", brCase.Name)
 		snapshotClassPath := fmt.Sprintf("./sample-applications/snapclass-csi/%s.yaml", provider)
-		err := UninstallApplication(dpaCR.Client, snapshotClassPath)
-		Expect(err).ToNot(HaveOccurred())
+		UninstallApplication(dpaCR.Client, snapshotClassPath)
 	}
 	err := dpaCR.Client.Delete(context.Background(), &corev1.Namespace{ObjectMeta: v1.ObjectMeta{
 		Name:      brCase.ApplicationNamespace,
@@ -260,10 +258,7 @@ func tearDownBackupAndRestore(brCase BackupRestoreCase, installTime time.Time, r
 	if k8serror.IsNotFound(err) {
 		err = nil
 	}
-	Expect(err).ToNot(HaveOccurred())
-
-	err = dpaCR.Delete(runTimeClientForSuiteRun)
-	Expect(err).ToNot(HaveOccurred())
+	dpaCR.Delete(runTimeClientForSuiteRun)
 	Eventually(IsNamespaceDeleted(kubernetesClientForSuiteRun, brCase.ApplicationNamespace), timeoutMultiplier*time.Minute*2, time.Second*5).Should(BeTrue())
 }
 

@@ -152,6 +152,7 @@ func DoesSCCExist(ocClient client.Client, sccName string) (bool, error) {
 func UninstallApplication(ocClient client.Client, file string) error {
 	template, err := os.ReadFile(file)
 	if err != nil {
+		log.Printf("UninstallApplication got errors while reading file: %v", err)
 		return err
 	}
 	obj := &unstructured.UnstructuredList{}
@@ -159,6 +160,7 @@ func UninstallApplication(ocClient client.Client, file string) error {
 	dec := yaml.NewDecodingSerializer(unstructured.UnstructuredJSONScheme)
 	_, _, err = dec.Decode([]byte(template), nil, obj)
 	if err != nil {
+		log.Printf("UninstallApplication got errors while decoding JSON: %v", err)
 		return err
 	}
 	for _, resource := range obj.Items {
@@ -166,6 +168,7 @@ func UninstallApplication(ocClient client.Client, file string) error {
 		if apierrors.IsNotFound(err) {
 			continue
 		} else if err != nil {
+			log.Printf("UninstallApplication got errors while performing Delete: %v", err)
 			return err
 		}
 	}
