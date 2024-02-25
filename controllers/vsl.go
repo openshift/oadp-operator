@@ -105,13 +105,10 @@ func (r *DPAReconciler) LabelVSLSecrets(log logr.Logger) (bool, error) {
 }
 
 func (r *DPAReconciler) ValidateVolumeSnapshotLocations(dpa oadpv1alpha1.DataProtectionApplication) (bool, error) {
-	if dpa.Spec.Configuration == nil {
-		return false, errors.New("application configuration not found")
-	}
-	if dpa.Spec.Configuration.Velero == nil {
-		return false, errors.New("velero configuration not found")
-	}
 	for i, vslSpec := range dpa.Spec.SnapshotLocations {
+		if vslSpec.Velero == nil {
+			return false, errors.New("snapshotLocation velero configuration cannot be nil")
+		}
 		vsl := velerov1.VolumeSnapshotLocation{
 			ObjectMeta: metav1.ObjectMeta{
 				// TODO: Use a hash instead of i
