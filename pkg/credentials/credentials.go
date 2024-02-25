@@ -194,7 +194,7 @@ func AppendCloudProviderVolumes(dpa *oadpv1alpha1.DataProtectionApplication, ds 
 		if cloudProviderMap, ok := PluginSpecificFields[plugin]; ok &&
 			cloudProviderMap.IsCloudProvider && //if plugin is a cloud provider plugin, and one of the following condition is true
 			(!dpa.Spec.Configuration.Velero.NoDefaultBackupLocation || // it has a backup location in OADP/velero context OR
-				dpa.Spec.UnsupportedOverrides[oadpv1alpha1.OperatorTypeKey] == oadpv1alpha1.OperatorTypeMTC) { // OADP is installed via MTC
+				dpa.Spec.UnsupportedOverrides[oadpv1alpha1.OperatorTypeKey] == common.OperatorTypeMTC) { // OADP is installed via MTC
 
 			pluginNeedsCheck, foundProviderPlugin := providerNeedsDefaultCreds[string(plugin)]
 			if !foundProviderPlugin && !hasCloudStorage {
@@ -292,7 +292,7 @@ func AppendPluginSpecificSpecs(dpa *oadpv1alpha1.DataProtectionApplication, vele
 				continue
 			}
 			if dpa.Spec.Configuration.Velero.NoDefaultBackupLocation &&
-				dpa.Spec.UnsupportedOverrides[oadpv1alpha1.OperatorTypeKey] != oadpv1alpha1.OperatorTypeMTC &&
+				dpa.Spec.UnsupportedOverrides[oadpv1alpha1.OperatorTypeKey] != common.OperatorTypeMTC &&
 				pluginSpecificMap.IsCloudProvider {
 				continue
 			}

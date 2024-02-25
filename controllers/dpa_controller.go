@@ -32,6 +32,7 @@ import (
 	"github.com/go-logr/logr"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	oadpClient "github.com/openshift/oadp-operator/pkg/client"
+	"github.com/openshift/oadp-operator/pkg/common"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
@@ -42,6 +43,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
+)
+
+// Conditions
+const (
+	conditionReconciled      = "Reconciled"
+	reconciledReasonComplete = "Complete"
+	reconciledReasonError    = "Error"
+	reconcileCompleteMessage = "Reconcile complete"
 )
 
 // DPAReconciler reconciles a Velero object
@@ -110,9 +119,9 @@ func (r *DPAReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	if err != nil {
 		apimeta.SetStatusCondition(&dpa.Status.Conditions,
 			metav1.Condition{
-				Type:    oadpv1alpha1.ConditionReconciled,
+				Type:    conditionReconciled,
 				Status:  metav1.ConditionFalse,
-				Reason:  oadpv1alpha1.ReconciledReasonError,
+				Reason:  reconciledReasonError,
 				Message: err.Error(),
 			},
 		)
@@ -120,10 +129,10 @@ func (r *DPAReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	} else {
 		apimeta.SetStatusCondition(&dpa.Status.Conditions,
 			metav1.Condition{
-				Type:    oadpv1alpha1.ConditionReconciled,
+				Type:    conditionReconciled,
 				Status:  metav1.ConditionTrue,
-				Reason:  oadpv1alpha1.ReconciledReasonComplete,
-				Message: oadpv1alpha1.ReconcileCompleteMessage,
+				Reason:  reconciledReasonComplete,
+				Message: reconcileCompleteMessage,
 			},
 		)
 	}
@@ -159,7 +168,7 @@ func (l *labelHandler) Create(evt event.CreateEvent, q workqueue.RateLimitingInt
 	// check for the label & add it to the queue
 	namespace := evt.Object.GetNamespace()
 	dpaname := evt.Object.GetLabels()[namespace+".dataprotectionapplication"]
-	if evt.Object.GetLabels()[oadpv1alpha1.OadpOperatorLabel] == "" || dpaname == "" {
+	if evt.Object.GetLabels()[common.OadpOperatorLabel] == "" || dpaname == "" {
 		return
 	}
 
@@ -173,7 +182,7 @@ func (l *labelHandler) Delete(evt event.DeleteEvent, q workqueue.RateLimitingInt
 
 	namespace := evt.Object.GetNamespace()
 	dpaname := evt.Object.GetLabels()[namespace+".dataprotectionapplication"]
-	if evt.Object.GetLabels()[oadpv1alpha1.OadpOperatorLabel] == "" || dpaname == "" {
+	if evt.Object.GetLabels()[common.OadpOperatorLabel] == "" || dpaname == "" {
 		return
 	}
 	q.Add(reconcile.Request{NamespacedName: types.NamespacedName{
@@ -185,7 +194,7 @@ func (l *labelHandler) Delete(evt event.DeleteEvent, q workqueue.RateLimitingInt
 func (l *labelHandler) Update(evt event.UpdateEvent, q workqueue.RateLimitingInterface) {
 	namespace := evt.ObjectNew.GetNamespace()
 	dpaname := evt.ObjectNew.GetLabels()[namespace+".dataprotectionapplication"]
-	if evt.ObjectNew.GetLabels()[oadpv1alpha1.OadpOperatorLabel] == "" || dpaname == "" {
+	if evt.ObjectNew.GetLabels()[common.OadpOperatorLabel] == "" || dpaname == "" {
 		return
 	}
 	q.Add(reconcile.Request{NamespacedName: types.NamespacedName{
@@ -198,7 +207,7 @@ func (l *labelHandler) Generic(evt event.GenericEvent, q workqueue.RateLimitingI
 
 	namespace := evt.Object.GetNamespace()
 	dpaname := evt.Object.GetLabels()[namespace+".dataprotectionapplication"]
-	if evt.Object.GetLabels()[oadpv1alpha1.OadpOperatorLabel] == "" || dpaname == "" {
+	if evt.Object.GetLabels()[common.OadpOperatorLabel] == "" || dpaname == "" {
 		return
 	}
 	q.Add(reconcile.Request{NamespacedName: types.NamespacedName{

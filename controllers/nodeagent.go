@@ -426,7 +426,7 @@ func (r *DPAReconciler) updateFsRestoreHelperCM(fsRestoreHelperCM *corev1.Config
 	fsRestoreHelperCM.Labels = map[string]string{
 		"velero.io/plugin-config":      "",
 		"velero.io/pod-volume-restore": "RestoreItemAction",
-		oadpv1alpha1.OadpOperatorLabel: "True",
+		common.OadpOperatorLabel:       "True",
 	}
 
 	fsRestoreHelperCM.Data = map[string]string{

@@ -5,6 +5,7 @@ import (
 
 	"github.com/go-logr/logr"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
+	"github.com/openshift/oadp-operator/pkg/common"
 	v1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -63,7 +64,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 					},
 					BackupImages: pointer.Bool(false),
 					UnsupportedOverrides: map[oadpv1alpha1.UnsupportedImageKey]string{
-						oadpv1alpha1.OperatorTypeKey: oadpv1alpha1.OperatorTypeMTC,
+						oadpv1alpha1.OperatorTypeKey: common.OperatorTypeMTC,
 					},
 				},
 			},
@@ -88,7 +89,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 					},
 					BackupImages: pointer.Bool(false),
 					UnsupportedOverrides: map[oadpv1alpha1.UnsupportedImageKey]string{
-						oadpv1alpha1.OperatorTypeKey: "not" + oadpv1alpha1.OperatorTypeMTC,
+						oadpv1alpha1.OperatorTypeKey: "not" + common.OperatorTypeMTC,
 					},
 				},
 			},

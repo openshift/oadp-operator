@@ -20,30 +20,22 @@ import (
 	"time"
 
 	"github.com/openshift/oadp-operator/pkg/common"
-	"github.com/openshift/oadp-operator/pkg/velero/server"
 	velero "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// Conditions
-const ConditionReconciled = "Reconciled"
-const ReconciledReasonComplete = "Complete"
-const ReconciledReasonError = "Error"
-const ReconcileCompleteMessage = "Reconcile complete"
-
-const OadpOperatorLabel = "openshift.io/oadp"
-const RegistryDeploymentLabel = "openshift.io/oadp-registry"
-
 // +kubebuilder:validation:Enum=aws;gcp;azure;csi;openshift;kubevirt
 type DefaultPlugin string
 
-const DefaultPluginAWS DefaultPlugin = "aws"
-const DefaultPluginGCP DefaultPlugin = "gcp"
-const DefaultPluginMicrosoftAzure DefaultPlugin = "azure"
-const DefaultPluginCSI DefaultPlugin = "csi"
-const DefaultPluginOpenShift DefaultPlugin = "openshift"
-const DefaultPluginKubeVirt DefaultPlugin = "kubevirt"
+const (
+	DefaultPluginAWS            DefaultPlugin = "aws"
+	DefaultPluginGCP            DefaultPlugin = "gcp"
+	DefaultPluginMicrosoftAzure DefaultPlugin = "azure"
+	DefaultPluginCSI            DefaultPlugin = "csi"
+	DefaultPluginOpenShift      DefaultPlugin = "openshift"
+	DefaultPluginKubeVirt       DefaultPlugin = "kubevirt"
+)
 
 type CustomPlugin struct {
 	Name  string `json:"name"`
@@ -53,17 +45,214 @@ type CustomPlugin struct {
 // Field does not have enum validation for development flexibility
 type UnsupportedImageKey string
 
-const VeleroImageKey UnsupportedImageKey = "veleroImageFqin"
-const AWSPluginImageKey UnsupportedImageKey = "awsPluginImageFqin"
-const OpenShiftPluginImageKey UnsupportedImageKey = "openshiftPluginImageFqin"
-const AzurePluginImageKey UnsupportedImageKey = "azurePluginImageFqin"
-const GCPPluginImageKey UnsupportedImageKey = "gcpPluginImageFqin"
-const CSIPluginImageKey UnsupportedImageKey = "csiPluginImageFqin"
-const ResticRestoreImageKey UnsupportedImageKey = "resticRestoreImageFqin"
-const KubeVirtPluginImageKey UnsupportedImageKey = "kubevirtPluginImageFqin"
-const OperatorTypeKey UnsupportedImageKey = "operator-type"
+const (
+	VeleroImageKey          UnsupportedImageKey = "veleroImageFqin"
+	AWSPluginImageKey       UnsupportedImageKey = "awsPluginImageFqin"
+	OpenShiftPluginImageKey UnsupportedImageKey = "openshiftPluginImageFqin"
+	AzurePluginImageKey     UnsupportedImageKey = "azurePluginImageFqin"
+	GCPPluginImageKey       UnsupportedImageKey = "gcpPluginImageFqin"
+	CSIPluginImageKey       UnsupportedImageKey = "csiPluginImageFqin"
+	ResticRestoreImageKey   UnsupportedImageKey = "resticRestoreImageFqin"
+	KubeVirtPluginImageKey  UnsupportedImageKey = "kubevirtPluginImageFqin"
+	OperatorTypeKey         UnsupportedImageKey = "operator-type"
+)
 
-const OperatorTypeMTC = "mtc"
+// Args are the arguments that are passed to the Velero server
+type Args struct {
+	ServerFlags `json:",inline"`
+	GlobalFlags `json:",inline"`
+}
+
+// To get these flags, run
+// go run github.com/openshift/velero@SPECIFIC-VERSION-FROM-GO-MOD help server
+
+// Flags defined under "Flags:"
+
+// ServerFlags are flags that are defined for Velero server CLI command
+type ServerFlags struct {
+	// TODO check description of each flag
+
+	// How often (in nanoseconds) to ensure all Velero backups in object storage exist as Backup API objects in the cluster. This is the default sync period if none is explicitly specified for a backup storage location.
+	// +optional
+	BackupSyncPeriod *time.Duration `json:"backup-sync-period,omitempty"`
+
+	// Maximum number of requests by the server to the Kubernetes API in a short period of time.
+	// +optional
+	ClientBurst *int `json:"client-burst,omitempty"`
+
+	// Page size of requests by the server to the Kubernetes API when listing objects during a backup. Set to 0 to disable paging.
+	// +optional
+	ClientPageSize *int `json:"client-page-size,omitempty"`
+
+	// Maximum number of requests per second by the server to the Kubernetes API once the burst limit has been reached.
+	// this will be validated as a valid float32
+	// +optional
+	ClientQPS *string `json:"client-qps,omitempty"`
+
+	// --default-backup-storage-location string              Name of the default backup storage location. DEPRECATED: this flag will be removed in v2.0. Use "velero backup-location set --default" instead. (default "default")
+
+	// How long (in nanoseconds) to wait by default before backups can be garbage collected. (default is 720 hours)
+	// +optional
+	DefaultBackupTTL *time.Duration `json:"default-backup-ttl,omitempty"`
+
+	// How long (in nanoseconds) to wait on asynchronous BackupItemActions and RestoreItemActions to complete before timing out. (default is 1 hour)
+	DefaultItemOperationTimeout *time.Duration `json:"default-item-operation-timeout,omitempty"`
+	// DUPLICATE OF VeleroConfig.DefaultItemOperationTimeout
+
+	// How often (in nanoseconds) 'maintain' is run for backup repositories by default.
+	// +optional
+	RepoMaintenanceFrequency *time.Duration `json:"default-repo-maintain-frequency,omitempty"`
+
+	// --default-snapshot-move-data                          Move data by default for all snapshots supporting data movement.
+	// VeleroConfig.DefaultSnapshotMoveData
+
+	// TODO --default-volume-snapshot-locations mapStringString   List of unique volume providers and default volume snapshot location (provider1:location-01,provider2:location-02,...)
+
+	// Backup all volumes with pod volume file system backup by default.
+	// +optional
+	DefaultVolumesToFsBackup *bool `json:"default-volumes-to-fs-backup,omitempty"`
+	// DUPLICATE of VeleroConfig.DefaultVolumesToFSBackup
+
+	// --disable-controllers strings                         List of controllers to disable on startup. Valid values are backup,backup-operations,backup-deletion,backup-finalizer,backup-sync,download-request,gc,backup-repo,restore,restore-operations,schedule,server-status-request
+	// TYPO? List of controllers to disable on startup. Valid values are backup,backup-operations,backup-deletion,backup-finalizer,backup-sync,download-request,gc,backup-repo,restore,restore-operations,schedule,server-status-request
+	// +kubebuilder:validation:Enum=backup;backup-operations;backup-deletion;backup-finalizer;backup-sync;download-request;gc;backup-repo;restore;restore-operations;schedule;server-status-request
+	// +optional
+	DisabledControllers []string `json:"disabled-controllers,omitempty"`
+
+	// --disable-informer-cache                              Disable informer cache for Get calls on restore. With this enabled, it will speed up restore in cases where there are backup resources which already exist in the cluster, but for very large clusters this will increase velero memory usage. Default is false (don't disable).
+	// VeleroConfig.DisableInformerCache
+
+	// How long (in nanoseconds) pod volume file system backups/restores should be allowed to run before timing out. (default is 4 hours)
+	// +optional
+	PodVolumeOperationTimeout *time.Duration `json:"fs-backup-timeout,omitempty"`
+	// DUPLICATE of NodeAgentCommonFields.Timeout
+
+	// How often (in nanoseconds) garbage collection checks for expired backups. (default is 1 hour)
+	// +optional
+	GarbageCollectionFrequency *time.Duration `json:"garbage-collection-frequency,omitempty"`
+
+	// How often (in nanoseconds) to check status on backup/restore operations after backup/restore processing.
+	// +optional
+	ItemOperationSyncFrequency *time.Duration `json:"item-operation-sync-frequency,omitempty"`
+	// DUPLICATE of VeleroConfig.ItemOperationSyncFrequency
+
+	// The format for log output. Valid values are text, json. (default text)
+	// +kubebuilder:validation:Enum=text;json
+	// +optional
+	FormatFlag string `json:"log-format,omitempty"`
+
+	// --log-level                                           The level at which to log. Valid values are trace, debug, info, warning, error, fatal, panic. (default info)
+	// VeleroConfig.LogLevel
+
+	// Max concurrent connections number that Velero can create with kube-apiserver. Default is 30. (default 30)
+	MaxConcurrentK8SConnections *int `json:"max-concurrent-k8s-connections,omitempty"`
+
+	// The address to expose prometheus metrics
+	// +optional
+	MetricsAddress string `json:"metrics-address,omitempty"`
+
+	// TODO --plugin-dir string                                   Directory containing Velero plugins (default "/plugins")
+
+	// The address to expose the pprof profiler.
+	// +optional
+	ProfilerAddress string `json:"profiler-address,omitempty"`
+
+	// How long (in nanoseconds) to wait for resource processes which are not covered by other specific timeout parameters. (default is 10 minutes)
+	ResourceTimeout *time.Duration `json:"resource-timeout,omitempty"`
+	// DUPLICATE of VeleroConfig.ResourceTimeout
+
+	// TODO DEPRECATED: this flag will be removed in v2.0. Use read-only backup storage locations instead.
+	// +optional
+	// RestoreOnly *bool `json:"restore-only,omitempty"`
+
+	// Desired order of resource restores, the priority list contains two parts which are split by "-" element. The resources before "-" element are restored first as high priorities, the resources after "-" element are restored last as low priorities, and any resource not in the list will be restored alphabetically between the high and low priorities. (default securitycontextconstraints,customresourcedefinitions,namespaces,roles,rolebindings,clusterrolebindings,managedcluster.cluster.open-cluster-management.io,managedcluster.clusterview.open-cluster-management.io,klusterletaddonconfig.agent.open-cluster-management.io,managedclusteraddon.addon.open-cluster-management.io,storageclasses,volumesnapshotclass.snapshot.storage.k8s.io,volumesnapshotcontents.snapshot.storage.k8s.io,volumesnapshots.snapshot.storage.k8s.io,datauploads.velero.io,persistentvolumes,persistentvolumeclaims,serviceaccounts,secrets,configmaps,limitranges,pods,replicasets.apps,clusterclasses.cluster.x-k8s.io,endpoints,services,-,clusterbootstraps.run.tanzu.vmware.com,clusters.cluster.x-k8s.io,clusterresourcesets.addons.cluster.x-k8s.io)
+	// +optional
+	RestoreResourcePriorities string `json:"restore-resource-priorities,omitempty"`
+
+	// TODO --schedule-skip-immediately                           Skip the first scheduled backup immediately after creating a schedule. Default is false (don't skip).
+
+	// How often (in nanoseconds) to verify if the storage is valid. Optional. Set this to `0` to disable sync. (default is 1 minute)
+	// +optional
+	StoreValidationFrequency *time.Duration `json:"store-validation-frequency,omitempty"`
+
+	// How long (in nanoseconds) to wait on persistent volumes and namespaces to terminate during a restore before timing out.
+	// +optional
+	ResourceTerminatingTimeout *time.Duration `json:"terminating-resource-timeout,omitempty"`
+
+	// --uploader-type string                                Type of uploader to handle the transfer of data of pod volumes (default "restic")
+	// NodeAgentConfig.UploaderType
+}
+
+// Flags defined under "Global Flags:"
+
+// GlobalFlags are flags that are defined across Velero CLI commands
+type GlobalFlags struct {
+	// If true, adds the file directory to the header of the log messages
+	// +optional
+	AddDirHeader *bool `json:"add_dir_header,omitempty"`
+
+	// log to standard error as well as files (no effect when -logtostderr=true)
+	// +optional
+	AlsoToStderr *bool `json:"alsologtostderr,omitempty"`
+
+	// Show colored output in TTY
+	// +optional
+	Colorized *bool `json:"colorized,omitempty"`
+
+	// --features stringArray             Comma-separated list of features to enable for this Velero process. Combines with values from $HOME/.config/velero/config.json if present
+	// VeleroConfig.FeatureFlags
+
+	// TODO --kubeconfig string                Path to the kubeconfig file to use to talk to the Kubernetes apiserver. If unset, try the environment variable KUBECONFIG, as well as in-cluster configuration
+
+	// TODO --kubecontext string               The context to use to talk to the Kubernetes apiserver. If unset defaults to whatever your current-context is (kubectl config current-context)
+
+	// when logging hits line file:N, emit a stack trace (default :0)
+	// +optional
+	TraceLocation string `json:"log_backtrace_at,omitempty"`
+
+	// If non-empty, write log files in this directory (no effect when -logtostderr=true)
+	// +optional
+	LogDir string `json:"log_dir,omitempty"`
+
+	// If non-empty, use this log file (no effect when -logtostderr=true)
+	// +optional
+	LogFile string `json:"log_file,omitempty"`
+
+	// Defines the maximum size a log file can grow to (no effect when -logtostderr=true). Unit is megabytes. If the value is 0, the maximum file size is unlimited. (default 1800)
+	// +kubebuilder:validation:Minimum=0
+	// +optional
+	LogFileMaxSizeMB *int64 `json:"log_file_max_size,omitempty"`
+
+	// log to standard error instead of files (default true)
+	// +optional
+	ToStderr *bool `json:"logtostderr,omitempty"`
+
+	// TODO -n, --namespace string                 The namespace in which Velero should operate (default "velero")
+
+	// If true, only write logs to their native severity level (vs also writing to each lower severity level; no effect when -logtostderr=true)
+	// +optional
+	OneOutput *bool `json:"one_output,omitempty"`
+
+	// If true, avoid header prefixes in the log messages
+	// +optional
+	SkipHeaders *bool `json:"skip_headers,omitempty"`
+
+	// If true, avoid headers when opening log files (no effect when -logtostderr=true)
+	// +optional
+	SkipLogHeaders *bool `json:"skip_log_headers,omitempty"`
+
+	// logs at or above this threshold go to stderr when writing to files and stderr (no effect when -logtostderr=true or -alsologtostderr=false) (default 2)
+	// +optional
+	StderrThreshold *int `json:"stderrthreshold,omitempty"`
+
+	// number for the log level verbosity
+	// +optional
+	Verbosity *int `json:"v,omitempty"`
+
+	// comma-separated list of pattern=N settings for file-filtered logging
+	// +optional
+	Vmodule string `json:"vmodule,omitempty"`
+}
 
 type VeleroConfig struct {
 	// featureFlags defines the list of features to enable for Velero instance
@@ -108,7 +297,7 @@ type VeleroConfig struct {
 	ResourceTimeout string `json:"resourceTimeout,omitempty"`
 	// Velero args are settings to customize velero server arguments. Overrides values in other fields.
 	// +optional
-	Args *server.Args `json:"args,omitempty"`
+	Args *Args `json:"args,omitempty"`
 }
 
 // PodConfig defines the pod configuration options
@@ -167,7 +356,10 @@ type ResticConfig struct {
 
 // ApplicationConfig defines the configuration for the Data Protection Application
 type ApplicationConfig struct {
+	// TODO missing description for velero
+
 	Velero *VeleroConfig `json:"velero,omitempty"`
+
 	// (deprecation warning) ResticConfig is the configuration for restic DaemonSet.
 	// restic is for backwards compatibility and is replaced by the nodeAgent
 	// restic will be removed with the OADP 1.4
@@ -304,6 +496,12 @@ type DataProtectionApplicationList struct {
 	Items           []DataProtectionApplication `json:"items"`
 }
 
+func init() {
+	SchemeBuilder.Register(&DataProtectionApplication{}, &DataProtectionApplicationList{}, &CloudStorage{}, &CloudStorageList{})
+}
+
+// TODO write tests for these functions
+
 // Default BackupImages behavior when nil to true
 func (dpa *DataProtectionApplication) BackupImages() bool {
 	return dpa.Spec.BackupImages == nil || *dpa.Spec.BackupImages
@@ -326,41 +524,21 @@ func (veleroConfig *VeleroConfig) HasFeatureFlag(flag string) bool {
 	return false
 }
 
-func init() {
-	SchemeBuilder.Register(&DataProtectionApplication{}, &DataProtectionApplicationList{}, &CloudStorage{}, &CloudStorageList{})
-}
-
 // AutoCorrect is a collection of auto-correction functions for the DPA CR
 // These auto corrects are in-memory only and do not persist to the CR
 // There should not be another place where these auto-corrects are done
 func (dpa *DataProtectionApplication) AutoCorrect() {
+	// TODO error instead of changing user object?
+
 	//check if CSI plugin is added in spec
 	if hasCSIPlugin(dpa.Spec.Configuration.Velero.DefaultPlugins) {
+		// CSI plugin is added, so ensure that CSI feature flags is set
 		dpa.Spec.Configuration.Velero.FeatureFlags = append(dpa.Spec.Configuration.Velero.FeatureFlags, velero.CSIFeatureFlag)
 	}
 	if dpa.Spec.Configuration.Velero.RestoreResourcesVersionPriority != "" {
 		// if the RestoreResourcesVersionPriority is specified then ensure feature flag is enabled for enableApiGroupVersions
 		// duplicate feature flag checks are done in ReconcileVeleroDeployment
 		dpa.Spec.Configuration.Velero.FeatureFlags = append(dpa.Spec.Configuration.Velero.FeatureFlags, velero.APIGroupVersionsFeatureFlag)
-	}
-
-	if dpa.Spec.Configuration.Velero.Args != nil {
-		// if args is not nil, we take care of some fields that will be overridden from dpa if not specified in args
-		// Enable user to specify --fs-backup-timeout duration (OADP default 4h0m0s)
-		fsBackupTimeout := "4h"
-		if dpa.Spec.Configuration != nil {
-			if dpa.Spec.Configuration.NodeAgent != nil && len(dpa.Spec.Configuration.NodeAgent.Timeout) > 0 {
-				fsBackupTimeout = dpa.Spec.Configuration.NodeAgent.Timeout
-			} else if dpa.Spec.Configuration.Restic != nil && len(dpa.Spec.Configuration.Restic.Timeout) > 0 {
-				fsBackupTimeout = dpa.Spec.Configuration.Restic.Timeout
-			}
-		}
-		if pvOperationTimeout, err := time.ParseDuration(fsBackupTimeout); err == nil && dpa.Spec.Configuration.Velero.Args.PodVolumeOperationTimeout == nil {
-			dpa.Spec.Configuration.Velero.Args.PodVolumeOperationTimeout = &pvOperationTimeout
-		}
-		if dpa.Spec.Configuration.Velero.Args.RestoreResourcePriorities == "" {
-			dpa.Spec.Configuration.Velero.Args.RestoreResourcePriorities = common.DefaultRestoreResourcePriorities.String()
-		}
 	}
 
 	dpa.Spec.Configuration.Velero.DefaultPlugins = common.RemoveDuplicateValues(dpa.Spec.Configuration.Velero.DefaultPlugins)
@@ -370,7 +548,6 @@ func (dpa *DataProtectionApplication) AutoCorrect() {
 func hasCSIPlugin(plugins []DefaultPlugin) bool {
 	for _, plugin := range plugins {
 		if plugin == DefaultPluginCSI {
-			// CSI plugin is added so ensure that CSI feature flags is set
 			return true
 		}
 	}

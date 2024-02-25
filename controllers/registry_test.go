@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-logr/logr"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
+	"github.com/openshift/oadp-operator/pkg/common"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -346,7 +347,7 @@ func TestDPAReconciler_populateAWSRegistrySecret(t *testing.T) {
 					Name:      "oadp-test-bsl-aws-registry-secret",
 					Namespace: "test-ns",
 					Labels: map[string]string{
-						oadpv1alpha1.OadpOperatorLabel: "True",
+						common.OadpOperatorLabel: "True",
 					},
 				},
 			},
@@ -374,7 +375,7 @@ func TestDPAReconciler_populateAWSRegistrySecret(t *testing.T) {
 					Name:      "oadp-" + tt.bsl.Name + "-" + tt.bsl.Spec.Provider + "-registry-secret",
 					Namespace: r.NamespacedName.Namespace,
 					Labels: map[string]string{
-						oadpv1alpha1.OadpOperatorLabel: "True",
+						common.OadpOperatorLabel: "True",
 					},
 				},
 				Data: awsRegistrySecretData,
@@ -464,7 +465,7 @@ func TestDPAReconciler_populateAzureRegistrySecret(t *testing.T) {
 					Name:      "oadp-" + tt.bsl.Name + "-" + tt.bsl.Spec.Provider + "-registry-secret",
 					Namespace: r.NamespacedName.Namespace,
 					Labels: map[string]string{
-						oadpv1alpha1.OadpOperatorLabel: "True",
+						common.OadpOperatorLabel: "True",
 					},
 				},
 				Data: azureRegistrySecretData,

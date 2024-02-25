@@ -166,10 +166,10 @@ func (r *DPAReconciler) ReconcileRegistries(log logr.Logger) (bool, error) {
 	}
 
 	bslLabels := map[string]string{
-		"app.kubernetes.io/name":             common.OADPOperatorVelero,
-		"app.kubernetes.io/managed-by":       common.OADPOperator,
-		"app.kubernetes.io/component":        "bsl",
-		oadpv1alpha1.RegistryDeploymentLabel: "True",
+		"app.kubernetes.io/name":       common.OADPOperatorVelero,
+		"app.kubernetes.io/managed-by": common.OADPOperator,
+		"app.kubernetes.io/component":  "bsl",
+		common.RegistryDeploymentLabel: "True",
 	}
 	bslListOptions := client.MatchingLabels(bslLabels)
 	backupStorageLocationList := velerov1.BackupStorageLocationList{}
@@ -636,7 +636,7 @@ func (r *DPAReconciler) ReconcileRegistrySecrets(log logr.Logger) (bool, error) 
 				Name:      "oadp-" + bsl.Name + "-" + bsl.Spec.Provider + "-registry-secret",
 				Namespace: r.NamespacedName.Namespace,
 				Labels: map[string]string{
-					oadpv1alpha1.OadpOperatorLabel: "True",
+					common.OadpOperatorLabel: "True",
 				},
 			},
 		}
