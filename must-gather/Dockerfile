@@ -12,11 +12,11 @@ RUN curl --location --output velero.tgz https://github.com/openshift/velero/arch
     CGO_ENABLED=0 GOOS=linux go build -a -mod=mod -ldflags '-extldflags "-static"' -o /restic github.com/restic/restic/cmd/restic && \
     cd .. && rm -rf restic.tgz restic-${RESTIC_BRANCH}
 
-FROM registry.access.redhat.com/ubi8/go-toolset:latest AS gobuilder
+FROM registry.access.redhat.com/ubi9/go-toolset:latest AS gobuilder
 
 RUN go install -v github.com/google/pprof@latest
 
-FROM quay.io/openshift/origin-must-gather:4.10 AS builder
+FROM quay.io/openshift/origin-must-gather:latest AS builder
 
 FROM registry.access.redhat.com/ubi9-minimal:latest
 
