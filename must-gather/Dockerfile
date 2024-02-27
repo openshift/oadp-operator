@@ -16,7 +16,7 @@ FROM registry.access.redhat.com/ubi8/go-toolset:1.20.10 AS gobuilder
 
 RUN go install -v github.com/google/pprof@latest
 
-FROM quay.io/openshift/origin-must-gather:4.10 AS builder
+FROM quay.io/openshift/origin-must-gather:4.14 AS builder
 
 FROM registry.access.redhat.com/ubi9-minimal:latest
 
