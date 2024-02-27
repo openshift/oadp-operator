@@ -1,4 +1,4 @@
-FROM quay.io/konveyor/builder:latest AS konveyor-builder
+FROM quay.io/konveyor/builder:ubi9-latest AS konveyor-builder
 ARG RESTIC_BRANCH=konveyor-0.15.0
 ARG VELERO_BRANCH=konveyor-dev
 WORKDIR /build
@@ -12,13 +12,13 @@ RUN curl --location --output velero.tgz https://github.com/openshift/velero/arch
     CGO_ENABLED=0 GOOS=linux go build -a -mod=mod -ldflags '-extldflags "-static"' -o /restic github.com/restic/restic/cmd/restic && \
     cd .. && rm -rf restic.tgz restic-${RESTIC_BRANCH}
 
-FROM registry.access.redhat.com/ubi8/go-toolset:1.17.10 AS gobuilder
+FROM registry.access.redhat.com/ubi8/go-toolset:latest AS gobuilder
 
 RUN go install -v github.com/google/pprof@latest
 
 FROM quay.io/openshift/origin-must-gather:4.10 AS builder
 
-FROM registry.access.redhat.com/ubi8-minimal:latest
+FROM registry.access.redhat.com/ubi9-minimal:latest
 
 RUN microdnf -y install rsync tar gzip graphviz findutils
 
