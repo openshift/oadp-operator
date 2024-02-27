@@ -722,7 +722,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 				},
 			},
 			WantError: true,
-		}, fmt.Errorf("region for AWS backupstoragelocation cannot be empty when s3ForcePathStyle is true or when backing up images")),
+		}, fmt.Errorf("region for AWS backupstoragelocation not automatically discoverable. Please set the region in the backupstoragelocation config")),
 		Entry("unsupportedOverrides should succeed", Label("aws", "ibmcloud"), InstallCase{
 			Name:         "valid-unsupported-overrides",
 			BRestoreType: RESTIC,

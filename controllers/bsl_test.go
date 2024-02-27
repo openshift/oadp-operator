@@ -23,6 +23,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
+// A bucket that region can be automatically discovered
+const DiscoverableBucket string = "openshift-velero-plugin-s3-auto-region-test-1"
+
 func getSchemeForFakeClient() (*runtime.Scheme, error) {
 	err := oadpv1alpha1.AddToScheme(scheme.Scheme)
 	if err != nil {
@@ -1220,7 +1223,7 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 								Provider: "aws",
 								StorageType: velerov1.StorageType{
 									ObjectStorage: &velerov1.ObjectStorageLocation{
-										Bucket: "bucket",
+										Bucket: DiscoverableBucket,
 										Prefix: "prefix",
 									},
 								},
@@ -1380,7 +1383,7 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 								},
 								StorageType: velerov1.StorageType{
 									ObjectStorage: &velerov1.ObjectStorageLocation{
-										Bucket: "bucket",
+										Bucket: DiscoverableBucket,
 										Prefix: "prefix",
 									},
 								},
