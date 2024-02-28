@@ -2,8 +2,10 @@ package lib
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
+	"time"
 
 	velero "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -12,7 +14,41 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func CreateBackupForNamespaces(ocClient client.Client, veleroNamespace, backupName string, namespaces []string, defaultVolumesToFsBackup bool, snapshotMoveData bool) (velero.Backup, error) {
+// ParseDuration parses a string representation of a duration with suffixes (s, m, h)
+// and converts it to the k8s.io/apimachinery/pkg/apis/meta/v1.Duration type.
+//
+// The input string should have the format "<value><suffix>", where:
+// - <value> is a positive integer representing the duration value.
+// - <suffix> is a character representing the duration unit:
+//   - "s" for seconds
+//   - "m" for minutes
+//   - "h" for hours
+//
+// Example valid inputs: "10s", "5m", "1h"
+//
+// Returns the parsed duration as a v1.Duration object, or an error if parsing fails.
+func parseDuration(durationStr string) (metav1.Duration, error) {
+
+	value, err := time.ParseDuration(durationStr)
+	if err != nil {
+		return metav1.Duration{}, errors.New("Invalid duration value: " + durationStr)
+	}
+
+	duration := metav1.Duration{Duration: value}
+	return duration, nil
+}
+
+func CreateBackupForNamespaces(ocClient client.Client, veleroNamespace, backupName string, namespaces []string, defaultVolumesToFsBackup bool, snapshotMoveData bool, csiSnapshotTimeout string) (velero.Backup, error) {
+
+	csiSnapDuration, err := parseDuration(csiSnapshotTimeout)
+
+	if err != nil {
+		log.Printf("Error parsing duration: %v", err)
+		return velero.Backup{}, err
+	}
+
+	log.Printf("csiSnapshotTimeout Parsed duration: %s", csiSnapDuration)
+
 	backup := velero.Backup{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      backupName,
@@ -22,9 +58,10 @@ func CreateBackupForNamespaces(ocClient client.Client, veleroNamespace, backupNa
 			IncludedNamespaces:       namespaces,
 			DefaultVolumesToFsBackup: &defaultVolumesToFsBackup,
 			SnapshotMoveData:         &snapshotMoveData,
+			CSISnapshotTimeout:       csiSnapDuration,
 		},
 	}
-	err := ocClient.Create(context.Background(), &backup)
+	err = ocClient.Create(context.Background(), &backup)
 	return backup, err
 }
 
