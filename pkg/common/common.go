@@ -7,7 +7,6 @@ import (
 	"os"
 
 	"github.com/aws/aws-sdk-go/aws/request"
-	"github.com/vmware-tanzu/velero/pkg/restore"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -18,43 +17,14 @@ const (
 	OADPOperator               = "oadp-operator"
 	OADPOperatorVelero         = "oadp-operator-velero"
 	OADPOperatorServiceAccount = "openshift-adp-controller-manager"
+	OperatorTypeMTC            = "mtc"
 )
 
-var DefaultRestoreResourcePriorities = restore.Priorities{
-	HighPriorities: []string{
-		"securitycontextconstraints",
-		"customresourcedefinitions",
-		"namespaces",
-		"roles",
-		"rolebindings",
-		"clusterrolebindings",
-		"managedcluster.cluster.open-cluster-management.io",
-		"managedcluster.clusterview.open-cluster-management.io",
-		"klusterletaddonconfig.agent.open-cluster-management.io",
-		"managedclusteraddon.addon.open-cluster-management.io",
-		"storageclasses",
-		"volumesnapshotclass.snapshot.storage.k8s.io",
-		"volumesnapshotcontents.snapshot.storage.k8s.io",
-		"volumesnapshots.snapshot.storage.k8s.io",
-		"datauploads.velero.io",
-		"persistentvolumes",
-		"persistentvolumeclaims",
-		"serviceaccounts",
-		"secrets",
-		"configmaps",
-		"limitranges",
-		"pods",
-		"replicasets.apps",
-		"clusterclasses.cluster.x-k8s.io",
-		"endpoints",
-		"services",
-	},
-	LowPriorities: []string{
-		"clusterbootstraps.run.tanzu.vmware.com",
-		"clusters.cluster.x-k8s.io",
-		"clusterresourcesets.addons.cluster.x-k8s.io",
-	},
-}
+// Labels
+const (
+	OadpOperatorLabel       = "openshift.io/oadp"
+	RegistryDeploymentLabel = "openshift.io/oadp-registry"
+)
 
 // Images
 const (

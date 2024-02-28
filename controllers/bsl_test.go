@@ -12,6 +12,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
+	"github.com/openshift/oadp-operator/pkg/common"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -1556,10 +1557,10 @@ func TestDPAReconciler_updateBSLFromSpec(t *testing.T) {
 						"app.kubernetes.io/name":     "oadp-operator-velero",
 						"app.kubernetes.io/instance": tt.dpa.Name + "-1",
 						//"app.kubernetes.io/version":    "x.y.z",
-						"app.kubernetes.io/managed-by":       "oadp-operator",
-						"app.kubernetes.io/component":        "bsl",
-						oadpv1alpha1.OadpOperatorLabel:       "True",
-						oadpv1alpha1.RegistryDeploymentLabel: "True",
+						"app.kubernetes.io/managed-by": "oadp-operator",
+						"app.kubernetes.io/component":  "bsl",
+						common.OadpOperatorLabel:       "True",
+						common.RegistryDeploymentLabel: "True",
 					},
 					OwnerReferences: []metav1.OwnerReference{{
 						APIVersion:         oadpv1alpha1.SchemeBuilder.GroupVersion.String(),

@@ -524,7 +524,7 @@ spec:
                               description: Backup all volumes with pod volume file system backup by default.
                               type: boolean
                             disabled-controllers:
-                              description: List of controllers to disable on startup. Valid values are backup,backup-operations,backup-deletion,backup-finalizer,backup-sync,download-request,gc,backup-repo,restore,restore-operations,schedule,server-status-request
+                              description: --disable-controllers strings                         List of controllers to disable on startup. Valid values are backup,backup-operations,backup-deletion,backup-finalizer,backup-sync,download-request,gc,backup-repo,restore,restore-operations,schedule,server-status-request TYPO? List of controllers to disable on startup. Valid values are backup,backup-operations,backup-deletion,backup-finalizer,backup-sync,download-request,gc,backup-repo,restore,restore-operations,schedule,server-status-request
                               enum:
                                 - backup
                                 - backup-operations
@@ -560,7 +560,7 @@ spec:
                                 - json
                               type: string
                             log_backtrace_at:
-                              description: when logging hits line file:N, emit a stack trace
+                              description: when logging hits line file:N, emit a stack trace (default :0)
                               type: string
                             log_dir:
                               description: If non-empty, write log files in this directory (no effect when -logtostderr=true)
@@ -574,7 +574,7 @@ spec:
                               minimum: 0
                               type: integer
                             logtostderr:
-                              description: 'Boolean flags. Not handled atomically because the flag.Value interface does not let us avoid the =true, and that shorthand is necessary for compatibility. TODO: does this matter enough to fix? Seems unlikely.'
+                              description: log to standard error instead of files (default true)
                               type: boolean
                             max-concurrent-k8s-connections:
                               description: Max concurrent connections number that Velero can create with kube-apiserver. Default is 30. (default 30)

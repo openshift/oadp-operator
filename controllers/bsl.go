@@ -206,8 +206,8 @@ func (r *DPAReconciler) UpdateCredentialsSecretLabels(secretName string, namespa
 	if secret.Labels == nil {
 		secret.Labels = make(map[string]string)
 	}
-	if secret.Labels[oadpv1alpha1.OadpOperatorLabel] != "True" {
-		secret.Labels[oadpv1alpha1.OadpOperatorLabel] = "True"
+	if secret.Labels[common.OadpOperatorLabel] != "True" {
+		secret.Labels[common.OadpOperatorLabel] = "True"
 		needPatch = true
 	}
 	if secret.Labels[namespace+".dataprotectionapplication"] != dpaName {
@@ -256,10 +256,10 @@ func (r *DPAReconciler) updateBSLFromSpec(bsl *velerov1.BackupStorageLocation, d
 		"app.kubernetes.io/name":     common.OADPOperatorVelero,
 		"app.kubernetes.io/instance": bsl.Name,
 		//"app.kubernetes.io/version":    "x.y.z",
-		"app.kubernetes.io/managed-by":       common.OADPOperator,
-		"app.kubernetes.io/component":        "bsl",
-		oadpv1alpha1.OadpOperatorLabel:       "True",
-		oadpv1alpha1.RegistryDeploymentLabel: registryDeployment,
+		"app.kubernetes.io/managed-by": common.OADPOperator,
+		"app.kubernetes.io/component":  "bsl",
+		common.OadpOperatorLabel:       "True",
+		common.RegistryDeploymentLabel: registryDeployment,
 	}
 	bsl.Spec = bslSpec
 

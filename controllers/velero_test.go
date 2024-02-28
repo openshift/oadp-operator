@@ -13,7 +13,6 @@ import (
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	oadpClient "github.com/openshift/oadp-operator/pkg/client"
 	"github.com/openshift/oadp-operator/pkg/common"
-	"github.com/openshift/oadp-operator/pkg/velero/server"
 	"github.com/sirupsen/logrus"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -31,9 +30,10 @@ const (
 	proxyEnvKey                            = "HTTP_PROXY"
 	proxyEnvValue                          = "http://proxy.example.com:8080"
 	argsMetricsPortTest              int32 = 69420
-	defaultFileSystemBackupTimeout         = "--fs-backup-timeout=4h"
+	defaultFileSystemBackupTimeout         = "--fs-backup-timeout=4h0m0s"
 	defaultRestoreResourcePriorities       = "--restore-resource-priorities=securitycontextconstraints,customresourcedefinitions,namespaces,roles,rolebindings,clusterrolebindings,managedcluster.cluster.open-cluster-management.io,managedcluster.clusterview.open-cluster-management.io,klusterletaddonconfig.agent.open-cluster-management.io,managedclusteraddon.addon.open-cluster-management.io,storageclasses,volumesnapshotclass.snapshot.storage.k8s.io,volumesnapshotcontents.snapshot.storage.k8s.io,volumesnapshots.snapshot.storage.k8s.io,datauploads.velero.io,persistentvolumes,persistentvolumeclaims,serviceaccounts,secrets,configmaps,limitranges,pods,replicasets.apps,clusterclasses.cluster.x-k8s.io,endpoints,services,-,clusterbootstraps.run.tanzu.vmware.com,clusters.cluster.x-k8s.io,clusterresourcesets.addons.cluster.x-k8s.io"
 	defaultDisableInformerCache            = "--disable-informer-cache=false"
+	logLevelInfo                           = "--log-level=info"
 )
 
 var (
@@ -43,7 +43,7 @@ var (
 		"app.kubernetes.io/managed-by": common.OADPOperator,
 		"app.kubernetes.io/component":  Server,
 		"component":                    "velero",
-		oadpv1alpha1.OadpOperatorLabel: "True",
+		common.OadpOperatorLabel:       "True",
 	}
 	veleroPodLabelAppend        = map[string]string{"deploy": "velero"}
 	veleroDeploymentMatchLabels = common.AppendTTMapAsCopy(veleroDeploymentLabel, veleroPodLabelAppend)
@@ -215,9 +215,9 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 									Command:         []string{"/velero"},
 									Args: []string{
 										"server",
+										defaultDisableInformerCache,
 										defaultFileSystemBackupTimeout,
 										defaultRestoreResourcePriorities,
-										defaultDisableInformerCache,
 									},
 									VolumeMounts: baseVolumeMounts,
 									Env:          baseEnvVars,
@@ -287,9 +287,9 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 									Command:         []string{"/velero"},
 									Args: []string{
 										"server",
+										defaultDisableInformerCache,
 										defaultFileSystemBackupTimeout,
 										defaultRestoreResourcePriorities,
-										defaultDisableInformerCache,
 									},
 									VolumeMounts: baseVolumeMounts,
 									Env: []corev1.EnvVar{
@@ -339,7 +339,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 						},
 					},
 					UnsupportedOverrides: map[oadpv1alpha1.UnsupportedImageKey]string{
-						oadpv1alpha1.OperatorTypeKey: oadpv1alpha1.OperatorTypeMTC,
+						oadpv1alpha1.OperatorTypeKey: common.OperatorTypeMTC,
 					},
 				},
 			},
@@ -372,10 +372,10 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 									Command:         []string{"/velero"},
 									Args: []string{
 										"server",
-										"--features=EnableCSI",
+										defaultDisableInformerCache,
 										defaultFileSystemBackupTimeout,
 										defaultRestoreResourcePriorities,
-										defaultDisableInformerCache,
+										"--features=EnableCSI",
 									},
 									VolumeMounts: append(baseVolumeMounts, []corev1.VolumeMount{
 										{Name: "cloud-credentials", MountPath: "/credentials"},
@@ -480,9 +480,9 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 									Command:         []string{"/velero"},
 									Args: []string{
 										"server",
+										defaultDisableInformerCache,
 										defaultFileSystemBackupTimeout,
 										defaultRestoreResourcePriorities,
-										defaultDisableInformerCache,
 									},
 									VolumeMounts: baseVolumeMounts,
 
@@ -573,9 +573,9 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 									Command:         []string{"/velero"},
 									Args: []string{
 										"server",
+										defaultDisableInformerCache,
 										defaultFileSystemBackupTimeout,
 										defaultRestoreResourcePriorities,
-										defaultDisableInformerCache,
 									},
 									VolumeMounts: baseVolumeMounts,
 									Env:          baseEnvVars,
@@ -635,7 +635,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							"app.kubernetes.io/component":  Server,
 							"component":                    "velero",
 							"deploy":                       "velero",
-							oadpv1alpha1.OadpOperatorLabel: "True",
+							common.OadpOperatorLabel:       "True",
 						},
 					},
 				},
@@ -665,7 +665,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 						"app.kubernetes.io/managed-by": common.OADPOperator,
 						"app.kubernetes.io/component":  Server,
 						"component":                    "velero",
-						oadpv1alpha1.OadpOperatorLabel: "True",
+						common.OadpOperatorLabel:       "True",
 					},
 				},
 				TypeMeta: metav1.TypeMeta{
@@ -681,7 +681,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							"app.kubernetes.io/component":  Server,
 							"component":                    "velero",
 							"deploy":                       "velero",
-							oadpv1alpha1.OadpOperatorLabel: "True",
+							common.OadpOperatorLabel:       "True",
 						},
 					},
 					Replicas: pointer.Int32(1),
@@ -694,7 +694,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 								"app.kubernetes.io/component":  Server,
 								"component":                    "velero",
 								"deploy":                       "velero",
-								oadpv1alpha1.OadpOperatorLabel: "True",
+								common.OadpOperatorLabel:       "True",
 							},
 							Annotations: map[string]string{
 								"prometheus.io/scrape": "true",
@@ -725,12 +725,11 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 									Command: []string{"/velero"},
 									Args: []string{
 										"server",
-										defaultFileSystemBackupTimeout,
-										defaultRestoreResourcePriorities,
-										"--log-level",
-										logrus.InfoLevel.String(),
-										"--item-operation-sync-frequency=5m",
 										defaultDisableInformerCache,
+										defaultFileSystemBackupTimeout,
+										"--item-operation-sync-frequency=5m",
+										logLevelInfo,
+										defaultRestoreResourcePriorities,
 									},
 									VolumeMounts: []corev1.VolumeMount{
 										{
@@ -812,7 +811,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							"app.kubernetes.io/component":  Server,
 							"component":                    "velero",
 							"deploy":                       "velero",
-							oadpv1alpha1.OadpOperatorLabel: "True",
+							common.OadpOperatorLabel:       "True",
 						},
 					},
 				},
@@ -844,7 +843,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 						"app.kubernetes.io/managed-by": common.OADPOperator,
 						"app.kubernetes.io/component":  Server,
 						"component":                    "velero",
-						oadpv1alpha1.OadpOperatorLabel: "True",
+						common.OadpOperatorLabel:       "True",
 					},
 				},
 				TypeMeta: metav1.TypeMeta{
@@ -860,7 +859,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							"app.kubernetes.io/component":  Server,
 							"component":                    "velero",
 							"deploy":                       "velero",
-							oadpv1alpha1.OadpOperatorLabel: "True",
+							common.OadpOperatorLabel:       "True",
 						},
 					},
 					Replicas: pointer.Int32(1),
@@ -873,7 +872,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 								"app.kubernetes.io/component":  Server,
 								"component":                    "velero",
 								"deploy":                       "velero",
-								oadpv1alpha1.OadpOperatorLabel: "True",
+								common.OadpOperatorLabel:       "True",
 							},
 							Annotations: map[string]string{
 								"prometheus.io/scrape": "true",
@@ -904,14 +903,13 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 									Command: []string{"/velero"},
 									Args: []string{
 										"server",
-										defaultFileSystemBackupTimeout,
-										defaultRestoreResourcePriorities,
-										"--log-level",
-										logrus.InfoLevel.String(),
-										"--item-operation-sync-frequency=5m",
 										"--default-item-operation-timeout=2h",
 										"--default-snapshot-move-data=false",
 										defaultDisableInformerCache,
+										defaultFileSystemBackupTimeout,
+										"--item-operation-sync-frequency=5m",
+										logLevelInfo,
+										defaultRestoreResourcePriorities,
 									},
 									VolumeMounts: []corev1.VolumeMount{
 										{
@@ -993,7 +991,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							"app.kubernetes.io/component":  Server,
 							"component":                    "velero",
 							"deploy":                       "velero",
-							oadpv1alpha1.OadpOperatorLabel: "True",
+							common.OadpOperatorLabel:       "True",
 						},
 					},
 				},
@@ -1025,7 +1023,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 						"app.kubernetes.io/managed-by": common.OADPOperator,
 						"app.kubernetes.io/component":  Server,
 						"component":                    "velero",
-						oadpv1alpha1.OadpOperatorLabel: "True",
+						common.OadpOperatorLabel:       "True",
 					},
 				},
 				TypeMeta: metav1.TypeMeta{
@@ -1041,7 +1039,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							"app.kubernetes.io/component":  Server,
 							"component":                    "velero",
 							"deploy":                       "velero",
-							oadpv1alpha1.OadpOperatorLabel: "True",
+							common.OadpOperatorLabel:       "True",
 						},
 					},
 					Replicas: pointer.Int32(1),
@@ -1054,7 +1052,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 								"app.kubernetes.io/component":  Server,
 								"component":                    "velero",
 								"deploy":                       "velero",
-								oadpv1alpha1.OadpOperatorLabel: "True",
+								common.OadpOperatorLabel:       "True",
 							},
 							Annotations: map[string]string{
 								"prometheus.io/scrape": "true",
@@ -1085,14 +1083,13 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 									Command: []string{"/velero"},
 									Args: []string{
 										"server",
-										defaultFileSystemBackupTimeout,
-										defaultRestoreResourcePriorities,
-										"--log-level",
-										logrus.InfoLevel.String(),
-										"--item-operation-sync-frequency=5m",
 										"--default-item-operation-timeout=2h",
 										"--default-snapshot-move-data=true",
 										defaultDisableInformerCache,
+										defaultFileSystemBackupTimeout,
+										"--item-operation-sync-frequency=5m",
+										logLevelInfo,
+										defaultRestoreResourcePriorities,
 									},
 									VolumeMounts: []corev1.VolumeMount{
 										{
@@ -1174,7 +1171,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							"app.kubernetes.io/component":  Server,
 							"component":                    "velero",
 							"deploy":                       "velero",
-							oadpv1alpha1.OadpOperatorLabel: "True",
+							common.OadpOperatorLabel:       "True",
 						},
 					},
 				},
@@ -1206,7 +1203,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 						"app.kubernetes.io/managed-by": common.OADPOperator,
 						"app.kubernetes.io/component":  Server,
 						"component":                    "velero",
-						oadpv1alpha1.OadpOperatorLabel: "True",
+						common.OadpOperatorLabel:       "True",
 					},
 				},
 				TypeMeta: metav1.TypeMeta{
@@ -1222,7 +1219,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							"app.kubernetes.io/component":  Server,
 							"component":                    "velero",
 							"deploy":                       "velero",
-							oadpv1alpha1.OadpOperatorLabel: "True",
+							common.OadpOperatorLabel:       "True",
 						},
 					},
 					Replicas: pointer.Int32(1),
@@ -1235,7 +1232,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 								"app.kubernetes.io/component":  Server,
 								"component":                    "velero",
 								"deploy":                       "velero",
-								oadpv1alpha1.OadpOperatorLabel: "True",
+								common.OadpOperatorLabel:       "True",
 							},
 							Annotations: map[string]string{
 								"prometheus.io/scrape": "true",
@@ -1266,14 +1263,13 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 									Command: []string{"/velero"},
 									Args: []string{
 										"server",
-										defaultFileSystemBackupTimeout,
-										defaultRestoreResourcePriorities,
-										"--log-level",
-										logrus.InfoLevel.String(),
-										"--item-operation-sync-frequency=5m",
 										"--default-item-operation-timeout=2h",
 										"--default-volumes-to-fs-backup=true",
 										defaultDisableInformerCache,
+										defaultFileSystemBackupTimeout,
+										"--item-operation-sync-frequency=5m",
+										logLevelInfo,
+										defaultRestoreResourcePriorities,
 									},
 									VolumeMounts: []corev1.VolumeMount{
 										{
@@ -1355,7 +1351,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							"app.kubernetes.io/component":  Server,
 							"component":                    "velero",
 							"deploy":                       "velero",
-							oadpv1alpha1.OadpOperatorLabel: "True",
+							common.OadpOperatorLabel:       "True",
 						},
 					},
 				},
@@ -1387,7 +1383,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 						"app.kubernetes.io/managed-by": common.OADPOperator,
 						"app.kubernetes.io/component":  Server,
 						"component":                    "velero",
-						oadpv1alpha1.OadpOperatorLabel: "True",
+						common.OadpOperatorLabel:       "True",
 					},
 				},
 				TypeMeta: metav1.TypeMeta{
@@ -1403,7 +1399,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							"app.kubernetes.io/component":  Server,
 							"component":                    "velero",
 							"deploy":                       "velero",
-							oadpv1alpha1.OadpOperatorLabel: "True",
+							common.OadpOperatorLabel:       "True",
 						},
 					},
 					Replicas: pointer.Int32(1),
@@ -1416,7 +1412,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 								"app.kubernetes.io/component":  Server,
 								"component":                    "velero",
 								"deploy":                       "velero",
-								oadpv1alpha1.OadpOperatorLabel: "True",
+								common.OadpOperatorLabel:       "True",
 							},
 							Annotations: map[string]string{
 								"prometheus.io/scrape": "true",
@@ -1447,14 +1443,13 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 									Command: []string{"/velero"},
 									Args: []string{
 										"server",
-										defaultFileSystemBackupTimeout,
-										defaultRestoreResourcePriorities,
-										"--log-level",
-										logrus.InfoLevel.String(),
-										"--item-operation-sync-frequency=5m",
 										"--default-item-operation-timeout=2h",
 										"--default-volumes-to-fs-backup=false",
 										defaultDisableInformerCache,
+										defaultFileSystemBackupTimeout,
+										"--item-operation-sync-frequency=5m",
+										logLevelInfo,
+										defaultRestoreResourcePriorities,
 									},
 									VolumeMounts: []corev1.VolumeMount{
 										{
@@ -1536,7 +1531,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							"app.kubernetes.io/component":  Server,
 							"component":                    "velero",
 							"deploy":                       "velero",
-							oadpv1alpha1.OadpOperatorLabel: "True",
+							common.OadpOperatorLabel:       "True",
 						},
 					},
 				},
@@ -1569,7 +1564,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 						"app.kubernetes.io/managed-by": common.OADPOperator,
 						"app.kubernetes.io/component":  Server,
 						"component":                    "velero",
-						oadpv1alpha1.OadpOperatorLabel: "True",
+						common.OadpOperatorLabel:       "True",
 					},
 				},
 				TypeMeta: metav1.TypeMeta{
@@ -1585,7 +1580,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							"app.kubernetes.io/component":  Server,
 							"component":                    "velero",
 							"deploy":                       "velero",
-							oadpv1alpha1.OadpOperatorLabel: "True",
+							common.OadpOperatorLabel:       "True",
 						},
 					},
 					Replicas: pointer.Int32(1),
@@ -1598,7 +1593,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 								"app.kubernetes.io/component":  Server,
 								"component":                    "velero",
 								"deploy":                       "velero",
-								oadpv1alpha1.OadpOperatorLabel: "True",
+								common.OadpOperatorLabel:       "True",
 							},
 							Annotations: map[string]string{
 								"prometheus.io/scrape": "true",
@@ -1629,14 +1624,13 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 									Command: []string{"/velero"},
 									Args: []string{
 										"server",
-										defaultFileSystemBackupTimeout,
-										defaultRestoreResourcePriorities,
-										"--log-level",
-										logrus.InfoLevel.String(),
-										"--item-operation-sync-frequency=5m",
 										"--default-item-operation-timeout=2h",
 										"--default-volumes-to-fs-backup=false",
 										"--disable-informer-cache=true",
+										defaultFileSystemBackupTimeout,
+										"--item-operation-sync-frequency=5m",
+										logLevelInfo,
+										defaultRestoreResourcePriorities,
 									},
 									VolumeMounts: []corev1.VolumeMount{
 										{
@@ -1718,7 +1712,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							"app.kubernetes.io/component":  Server,
 							"component":                    "velero",
 							"deploy":                       "velero",
-							oadpv1alpha1.OadpOperatorLabel: "True",
+							common.OadpOperatorLabel:       "True",
 						},
 					},
 				},
@@ -1751,7 +1745,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 						"app.kubernetes.io/managed-by": common.OADPOperator,
 						"app.kubernetes.io/component":  Server,
 						"component":                    "velero",
-						oadpv1alpha1.OadpOperatorLabel: "True",
+						common.OadpOperatorLabel:       "True",
 					},
 				},
 				TypeMeta: metav1.TypeMeta{
@@ -1767,7 +1761,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							"app.kubernetes.io/component":  Server,
 							"component":                    "velero",
 							"deploy":                       "velero",
-							oadpv1alpha1.OadpOperatorLabel: "True",
+							common.OadpOperatorLabel:       "True",
 						},
 					},
 					Replicas: pointer.Int32(1),
@@ -1780,7 +1774,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 								"app.kubernetes.io/component":  Server,
 								"component":                    "velero",
 								"deploy":                       "velero",
-								oadpv1alpha1.OadpOperatorLabel: "True",
+								common.OadpOperatorLabel:       "True",
 							},
 							Annotations: map[string]string{
 								"prometheus.io/scrape": "true",
@@ -1811,14 +1805,13 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 									Command: []string{"/velero"},
 									Args: []string{
 										"server",
-										defaultFileSystemBackupTimeout,
-										defaultRestoreResourcePriorities,
-										"--log-level",
-										logrus.InfoLevel.String(),
-										"--item-operation-sync-frequency=5m",
 										"--default-item-operation-timeout=2h",
 										"--default-volumes-to-fs-backup=false",
 										defaultDisableInformerCache,
+										defaultFileSystemBackupTimeout,
+										"--item-operation-sync-frequency=5m",
+										logLevelInfo,
+										defaultRestoreResourcePriorities,
 									},
 									VolumeMounts: []corev1.VolumeMount{
 										{
@@ -1900,7 +1893,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							"app.kubernetes.io/component":  Server,
 							"component":                    "velero",
 							"deploy":                       "velero",
-							oadpv1alpha1.OadpOperatorLabel: "True",
+							common.OadpOperatorLabel:       "True",
 						},
 					},
 				},
@@ -1932,7 +1925,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 						"app.kubernetes.io/managed-by": common.OADPOperator,
 						"app.kubernetes.io/component":  Server,
 						"component":                    "velero",
-						oadpv1alpha1.OadpOperatorLabel: "True",
+						common.OadpOperatorLabel:       "True",
 					},
 				},
 				TypeMeta: metav1.TypeMeta{
@@ -1948,7 +1941,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							"app.kubernetes.io/component":  Server,
 							"component":                    "velero",
 							"deploy":                       "velero",
-							oadpv1alpha1.OadpOperatorLabel: "True",
+							common.OadpOperatorLabel:       "True",
 						},
 					},
 					Replicas: pointer.Int32(1),
@@ -1961,7 +1954,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 								"app.kubernetes.io/component":  Server,
 								"component":                    "velero",
 								"deploy":                       "velero",
-								oadpv1alpha1.OadpOperatorLabel: "True",
+								common.OadpOperatorLabel:       "True",
 							},
 							Annotations: map[string]string{
 								"prometheus.io/scrape": "true",
@@ -1992,14 +1985,13 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 									Command: []string{"/velero"},
 									Args: []string{
 										"server",
-										defaultFileSystemBackupTimeout,
-										defaultRestoreResourcePriorities,
-										"--log-level",
-										logrus.InfoLevel.String(),
-										"--item-operation-sync-frequency=5m",
 										"--default-item-operation-timeout=2h",
 										"--default-volumes-to-fs-backup=false",
 										defaultDisableInformerCache,
+										defaultFileSystemBackupTimeout,
+										"--item-operation-sync-frequency=5m",
+										logLevelInfo,
+										defaultRestoreResourcePriorities,
 									},
 									VolumeMounts: []corev1.VolumeMount{
 										{
@@ -2081,7 +2073,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							"app.kubernetes.io/component":  Server,
 							"component":                    "velero",
 							"deploy":                       "velero",
-							oadpv1alpha1.OadpOperatorLabel: "True",
+							common.OadpOperatorLabel:       "True",
 						},
 					},
 				},
@@ -2114,7 +2106,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 						"app.kubernetes.io/managed-by": common.OADPOperator,
 						"app.kubernetes.io/component":  Server,
 						"component":                    "velero",
-						oadpv1alpha1.OadpOperatorLabel: "True",
+						common.OadpOperatorLabel:       "True",
 					},
 				},
 				TypeMeta: metav1.TypeMeta{
@@ -2130,7 +2122,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							"app.kubernetes.io/component":  Server,
 							"component":                    "velero",
 							"deploy":                       "velero",
-							oadpv1alpha1.OadpOperatorLabel: "True",
+							common.OadpOperatorLabel:       "True",
 						},
 					},
 					Replicas: pointer.Int32(1),
@@ -2143,7 +2135,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 								"app.kubernetes.io/component":  Server,
 								"component":                    "velero",
 								"deploy":                       "velero",
-								oadpv1alpha1.OadpOperatorLabel: "True",
+								common.OadpOperatorLabel:       "True",
 							},
 							Annotations: map[string]string{
 								"prometheus.io/scrape": "true",
@@ -2174,15 +2166,14 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 									Command: []string{"/velero"},
 									Args: []string{
 										"server",
-										defaultFileSystemBackupTimeout,
-										defaultRestoreResourcePriorities,
-										"--log-level",
-										logrus.InfoLevel.String(),
-										"--item-operation-sync-frequency=5m",
 										"--default-item-operation-timeout=2h",
 										"--default-snapshot-move-data=true",
 										"--default-volumes-to-fs-backup=false",
 										defaultDisableInformerCache,
+										defaultFileSystemBackupTimeout,
+										"--item-operation-sync-frequency=5m",
+										logLevelInfo,
+										defaultRestoreResourcePriorities,
 									},
 									VolumeMounts: []corev1.VolumeMount{
 										{
@@ -2264,7 +2255,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							"app.kubernetes.io/component":  Server,
 							"component":                    "velero",
 							"deploy":                       "velero",
-							oadpv1alpha1.OadpOperatorLabel: "True",
+							common.OadpOperatorLabel:       "True",
 						},
 					},
 				},
@@ -2295,7 +2286,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 						"app.kubernetes.io/managed-by": common.OADPOperator,
 						"app.kubernetes.io/component":  Server,
 						"component":                    "velero",
-						oadpv1alpha1.OadpOperatorLabel: "True",
+						common.OadpOperatorLabel:       "True",
 					},
 				},
 				TypeMeta: metav1.TypeMeta{
@@ -2311,7 +2302,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							"app.kubernetes.io/component":  Server,
 							"component":                    "velero",
 							"deploy":                       "velero",
-							oadpv1alpha1.OadpOperatorLabel: "True",
+							common.OadpOperatorLabel:       "True",
 						},
 					},
 					Replicas: pointer.Int32(1),
@@ -2324,7 +2315,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 								"app.kubernetes.io/component":  Server,
 								"component":                    "velero",
 								"deploy":                       "velero",
-								oadpv1alpha1.OadpOperatorLabel: "True",
+								common.OadpOperatorLabel:       "True",
 							},
 							Annotations: map[string]string{
 								"prometheus.io/scrape": "true",
@@ -2355,13 +2346,12 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 									Command: []string{"/velero"},
 									Args: []string{
 										"server",
-										defaultFileSystemBackupTimeout,
-										defaultRestoreResourcePriorities,
-										"--log-level",
-										logrus.InfoLevel.String(),
-										"--item-operation-sync-frequency=5m",
 										"--default-item-operation-timeout=2h",
 										defaultDisableInformerCache,
+										defaultFileSystemBackupTimeout,
+										"--item-operation-sync-frequency=5m",
+										logLevelInfo,
+										defaultRestoreResourcePriorities,
 									},
 									VolumeMounts: []corev1.VolumeMount{
 										{
@@ -2480,11 +2470,10 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 									Command:         []string{"/velero"},
 									Args: []string{
 										"server",
-										defaultFileSystemBackupTimeout,
-										defaultRestoreResourcePriorities,
-										"--log-level",
-										logrus.InfoLevel.String(),
 										defaultDisableInformerCache,
+										defaultFileSystemBackupTimeout,
+										logLevelInfo,
+										defaultRestoreResourcePriorities,
 									},
 									VolumeMounts: baseVolumeMounts,
 									Env:          baseEnvVars,
@@ -2513,7 +2502,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							"app.kubernetes.io/component":  Server,
 							"component":                    "velero",
 							"deploy":                       "velero",
-							oadpv1alpha1.OadpOperatorLabel: "True",
+							common.OadpOperatorLabel:       "True",
 						},
 					},
 				},
@@ -2543,7 +2532,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 						"app.kubernetes.io/managed-by": common.OADPOperator,
 						"app.kubernetes.io/component":  Server,
 						"component":                    "velero",
-						oadpv1alpha1.OadpOperatorLabel: "True",
+						common.OadpOperatorLabel:       "True",
 					},
 				},
 				TypeMeta: metav1.TypeMeta{
@@ -2559,7 +2548,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							"app.kubernetes.io/component":  Server,
 							"component":                    "velero",
 							"deploy":                       "velero",
-							oadpv1alpha1.OadpOperatorLabel: "True",
+							common.OadpOperatorLabel:       "True",
 						},
 					},
 					Replicas: pointer.Int32(1),
@@ -2572,7 +2561,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 								"app.kubernetes.io/component":  Server,
 								"component":                    "velero",
 								"deploy":                       "velero",
-								oadpv1alpha1.OadpOperatorLabel: "True",
+								common.OadpOperatorLabel:       "True",
 							},
 							Annotations: map[string]string{
 								"prometheus.io/scrape": "true",
@@ -2603,12 +2592,11 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 									Command: []string{"/velero"},
 									Args: []string{
 										"server",
-										defaultFileSystemBackupTimeout,
-										defaultRestoreResourcePriorities,
-										"--log-level",
-										logrus.InfoLevel.String(),
-										"--resource-timeout=5m",
 										defaultDisableInformerCache,
+										defaultFileSystemBackupTimeout,
+										logLevelInfo,
+										"--resource-timeout=5m",
+										defaultRestoreResourcePriorities,
 									},
 									VolumeMounts: []corev1.VolumeMount{
 										{
@@ -2673,33 +2661,6 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 					},
 				},
 			},
-		},
-		{
-			name: "given valid DPA CR and log level is defined incorrectly error is returned",
-			veleroDeployment: &appsv1.Deployment{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-velero-deployment",
-					Namespace: "test-ns",
-				},
-				Spec: appsv1.DeploymentSpec{
-					Selector: &metav1.LabelSelector{MatchLabels: veleroDeploymentMatchLabels},
-				},
-			},
-			dpa: &oadpv1alpha1.DataProtectionApplication{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-Velero-CR",
-					Namespace: "test-ns",
-				},
-				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
-					Configuration: &oadpv1alpha1.ApplicationConfig{
-						Velero: &oadpv1alpha1.VeleroConfig{
-							LogLevel: logrus.InfoLevel.String() + "typo",
-						},
-					},
-				},
-			},
-			wantErr:              true,
-			wantVeleroDeployment: nil,
 		},
 		{
 			name: "given valid DPA CR, velero deployment resource customization",
@@ -2778,9 +2739,9 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 									Command: []string{"/velero"},
 									Args: []string{
 										"server",
+										defaultDisableInformerCache,
 										defaultFileSystemBackupTimeout,
 										defaultRestoreResourcePriorities,
-										defaultDisableInformerCache,
 									},
 									VolumeMounts: baseVolumeMounts,
 									Env:          baseEnvVars,
@@ -2864,9 +2825,9 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 									Command: []string{"/velero"},
 									Args: []string{
 										"server",
+										defaultDisableInformerCache,
 										defaultFileSystemBackupTimeout,
 										defaultRestoreResourcePriorities,
-										defaultDisableInformerCache,
 									},
 									VolumeMounts: baseVolumeMounts,
 									Env:          baseEnvVars,
@@ -2947,9 +2908,9 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 									Command: []string{"/velero"},
 									Args: []string{
 										"server",
+										defaultDisableInformerCache,
 										defaultFileSystemBackupTimeout,
 										defaultRestoreResourcePriorities,
-										defaultDisableInformerCache,
 									},
 									VolumeMounts: baseVolumeMounts,
 									Env:          baseEnvVars,
@@ -3030,9 +2991,9 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 									Command: []string{"/velero"},
 									Args: []string{
 										"server",
+										defaultDisableInformerCache,
 										defaultFileSystemBackupTimeout,
 										defaultRestoreResourcePriorities,
-										defaultDisableInformerCache,
 									},
 									VolumeMounts: baseVolumeMounts,
 									Env:          baseEnvVars,
@@ -3116,9 +3077,9 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 									Command: []string{"/velero"},
 									Args: []string{
 										"server",
+										defaultDisableInformerCache,
 										defaultFileSystemBackupTimeout,
 										defaultRestoreResourcePriorities,
-										defaultDisableInformerCache,
 									},
 									VolumeMounts: baseVolumeMounts,
 									Env:          baseEnvVars,
@@ -3188,7 +3149,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 						"app.kubernetes.io/instance":   "test-Velero-CR",
 						"app.kubernetes.io/managed-by": common.OADPOperator,
 						"app.kubernetes.io/component":  Server,
-						oadpv1alpha1.OadpOperatorLabel: "True",
+						common.OadpOperatorLabel:       "True",
 						"component":                    "velero",
 					},
 				},
@@ -3234,9 +3195,9 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 									Command: []string{"/velero"},
 									Args: []string{
 										"server",
+										defaultDisableInformerCache,
 										defaultFileSystemBackupTimeout,
 										defaultRestoreResourcePriorities,
-										defaultDisableInformerCache,
 									},
 									VolumeMounts: baseVolumeMounts,
 									Env:          baseEnvVars,
@@ -3301,7 +3262,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 						"app.kubernetes.io/instance":   "test-Velero-CR",
 						"app.kubernetes.io/managed-by": common.OADPOperator,
 						"app.kubernetes.io/component":  Server,
-						oadpv1alpha1.OadpOperatorLabel: "True",
+						common.OadpOperatorLabel:       "True",
 						"component":                    "velero",
 					},
 				},
@@ -3342,9 +3303,9 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 									Command: []string{"/velero"},
 									Args: []string{
 										"server",
+										defaultDisableInformerCache,
 										defaultFileSystemBackupTimeout,
 										defaultRestoreResourcePriorities,
-										defaultDisableInformerCache,
 									},
 									VolumeMounts: baseVolumeMounts,
 									Env:          baseEnvVars,
@@ -3412,9 +3373,9 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 									Command:         []string{"/velero"},
 									Args: []string{
 										"server",
+										defaultDisableInformerCache,
 										defaultFileSystemBackupTimeout,
 										defaultRestoreResourcePriorities,
-										defaultDisableInformerCache,
 									},
 									VolumeMounts: append(baseVolumeMounts, []corev1.VolumeMount{
 										{Name: "cloud-credentials", MountPath: "/credentials"},
@@ -3496,9 +3457,9 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 									Command:         []string{"/velero"},
 									Args: []string{
 										"server",
+										defaultDisableInformerCache,
 										defaultFileSystemBackupTimeout,
 										defaultRestoreResourcePriorities,
-										defaultDisableInformerCache,
 									},
 									VolumeMounts: []corev1.VolumeMount{
 										{Name: "plugins", MountPath: "/plugins"},
@@ -3593,9 +3554,9 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 									Command:         []string{"/velero"},
 									Args: []string{
 										"server",
+										defaultDisableInformerCache,
 										defaultFileSystemBackupTimeout,
 										defaultRestoreResourcePriorities,
-										defaultDisableInformerCache,
 									},
 									VolumeMounts: []corev1.VolumeMount{
 										{Name: "plugins", MountPath: "/plugins"},
@@ -3712,9 +3673,9 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 									Command:         []string{"/velero"},
 									Args: []string{
 										"server",
+										defaultDisableInformerCache,
 										defaultFileSystemBackupTimeout,
 										defaultRestoreResourcePriorities,
-										defaultDisableInformerCache,
 									},
 									VolumeMounts: []corev1.VolumeMount{
 										{Name: "plugins", MountPath: "/plugins"},
@@ -3816,9 +3777,9 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 									Command:         []string{"/velero"},
 									Args: []string{
 										"server",
+										defaultDisableInformerCache,
 										defaultFileSystemBackupTimeout,
 										defaultRestoreResourcePriorities,
-										defaultDisableInformerCache,
 									},
 									VolumeMounts: []corev1.VolumeMount{
 										{Name: "plugins", MountPath: "/plugins"},
@@ -3889,8 +3850,8 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 					Configuration: &oadpv1alpha1.ApplicationConfig{
 						Velero: &oadpv1alpha1.VeleroConfig{
-							Args: &server.Args{
-								ServerConfig: server.ServerConfig{
+							Args: &oadpv1alpha1.Args{
+								ServerFlags: oadpv1alpha1.ServerFlags{
 									MetricsAddress: ":" + strconv.Itoa(int(argsMetricsPortTest)),
 								},
 							},
@@ -3931,10 +3892,10 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 									Command:         []string{"/velero"},
 									Args: []string{
 										"server",
-										"--metrics-address=:" + strconv.Itoa(int(argsMetricsPortTest)),
-										"--fs-backup-timeout=4h0m0s",
-										defaultRestoreResourcePriorities,
 										defaultDisableInformerCache,
+										defaultFileSystemBackupTimeout,
+										"--metrics-address=:" + strconv.Itoa(int(argsMetricsPortTest)),
+										defaultRestoreResourcePriorities,
 									},
 									VolumeMounts: baseVolumeMounts,
 									Env:          baseEnvVars,
@@ -3966,8 +3927,8 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 					Configuration: &oadpv1alpha1.ApplicationConfig{
 						Velero: &oadpv1alpha1.VeleroConfig{
-							Args: &server.Args{
-								ServerConfig: server.ServerConfig{
+							Args: &oadpv1alpha1.Args{
+								ServerFlags: oadpv1alpha1.ServerFlags{
 									RestoreResourcePriorities: "securitycontextconstraints,test",
 								},
 							},
@@ -4003,9 +3964,9 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 									Command:         []string{"/velero"},
 									Args: []string{
 										"server",
-										"--fs-backup-timeout=4h0m0s",
-										"--restore-resource-priorities=securitycontextconstraints,test",
 										defaultDisableInformerCache,
+										defaultFileSystemBackupTimeout,
+										"--restore-resource-priorities=securitycontextconstraints,test",
 									},
 									VolumeMounts: baseVolumeMounts,
 									Env:          baseEnvVars,
@@ -4037,8 +3998,8 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 					Configuration: &oadpv1alpha1.ApplicationConfig{
 						Velero: &oadpv1alpha1.VeleroConfig{
-							Args: &server.Args{
-								ServerConfig: server.ServerConfig{
+							Args: &oadpv1alpha1.Args{
+								ServerFlags: oadpv1alpha1.ServerFlags{
 									BackupSyncPeriod:            pointer.Duration(1),
 									PodVolumeOperationTimeout:   pointer.Duration(1),
 									ResourceTerminatingTimeout:  pointer.Duration(1),
@@ -4086,15 +4047,83 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 										"--backup-sync-period=1ns",
 										"--default-backup-ttl=1ns",
 										"--default-item-operation-timeout=1ns",
-										"--resource-timeout=1ns",
 										"--default-repo-maintain-frequency=1ns",
-										"--garbage-collection-frequency=1ns",
+										defaultDisableInformerCache,
 										"--fs-backup-timeout=1ns",
+										"--garbage-collection-frequency=1ns",
 										"--item-operation-sync-frequency=1ns",
+										"--resource-timeout=1ns",
 										defaultRestoreResourcePriorities,
 										"--store-validation-frequency=1ns",
 										"--terminating-resource-timeout=1ns",
+									},
+									VolumeMounts: baseVolumeMounts,
+									Env:          baseEnvVars,
+								},
+							},
+							Volumes:        baseVolumes,
+							InitContainers: []corev1.Container{},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "Confirm Velero args are lost",
+			veleroDeployment: &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-velero-deployment",
+					Namespace: "test-ns",
+				},
+				Spec: appsv1.DeploymentSpec{
+					Selector: &metav1.LabelSelector{MatchLabels: veleroDeploymentMatchLabels},
+				},
+			},
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-Velero-CR",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{},
+						NodeAgent: &oadpv1alpha1.NodeAgentConfig{
+							UploaderType: "kopia",
+						},
+					},
+				},
+			},
+			wantVeleroDeployment: &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-velero-deployment",
+					Namespace: "test-ns",
+					Labels:    veleroDeploymentLabel,
+				},
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "Deployment",
+					APIVersion: appsv1.SchemeGroupVersion.String(),
+				},
+				Spec: appsv1.DeploymentSpec{
+					Selector: &metav1.LabelSelector{MatchLabels: veleroDeploymentMatchLabels},
+					Replicas: pointer.Int32(1),
+					Template: corev1.PodTemplateSpec{
+						ObjectMeta: veleroPodObjectMeta,
+						Spec: corev1.PodSpec{
+							RestartPolicy:      corev1.RestartPolicyAlways,
+							ServiceAccountName: common.Velero,
+							Containers: []corev1.Container{
+								{
+									Name:            common.Velero,
+									Image:           common.VeleroImage,
+									ImagePullPolicy: corev1.PullAlways,
+									Ports:           []corev1.ContainerPort{{Name: "metrics", ContainerPort: 8085}},
+									Resources:       corev1.ResourceRequirements{Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("500m"), corev1.ResourceMemory: resource.MustParse("128Mi")}},
+									Command:         []string{"/velero"},
+									Args: []string{
+										"server",
 										defaultDisableInformerCache,
+										defaultFileSystemBackupTimeout,
+										defaultRestoreResourcePriorities,
 									},
 									VolumeMounts: baseVolumeMounts,
 									Env:          baseEnvVars,
@@ -4227,6 +4256,8 @@ func TestDPAReconciler_getVeleroImage(t *testing.T) {
 		})
 	}
 }
+
+// wrong location
 func Test_removeDuplicateValues(t *testing.T) {
 	type args struct {
 		slice []string
