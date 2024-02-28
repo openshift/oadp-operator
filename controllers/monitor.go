@@ -12,11 +12,7 @@ import (
 )
 
 func (r *DPAReconciler) ReconcileVeleroMetricsSVC(log logr.Logger) (bool, error) {
-	dpa := oadpv1alpha1.DataProtectionApplication{}
-	if err := r.Get(r.Context, r.NamespacedName, &dpa); err != nil {
-		return false, err
-	}
-
+	dpa := r.dpa
 	svc := corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "openshift-adp-velero-metrics-svc",
@@ -27,7 +23,7 @@ func (r *DPAReconciler) ReconcileVeleroMetricsSVC(log logr.Logger) (bool, error)
 	// Create SVC
 	op, err := controllerutil.CreateOrPatch(r.Context, r.Client, &svc, func() error {
 		// TODO: check for svc status condition errors and respond here
-		err := r.updateVeleroMetricsSVC(&svc, &dpa)
+		err := r.updateVeleroMetricsSVC(&svc, dpa)
 		return err
 	})
 	if err != nil {

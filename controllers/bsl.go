@@ -95,10 +95,7 @@ func (r *DPAReconciler) ValidateBackupStorageLocations(dpa oadpv1alpha1.DataProt
 }
 
 func (r *DPAReconciler) ReconcileBackupStorageLocations(log logr.Logger) (bool, error) {
-	dpa := oadpv1alpha1.DataProtectionApplication{}
-	if err := r.Get(r.Context, r.NamespacedName, &dpa); err != nil {
-		return false, err
-	}
+	dpa := r.dpa
 	// Loop through all configured BSLs
 	for i, bslSpec := range dpa.Spec.BackupLocations {
 		// Create BSL as is, we can safely assume they are valid from
@@ -135,7 +132,7 @@ func (r *DPAReconciler) ReconcileBackupStorageLocations(log logr.Logger) (bool, 
 
 			// TODO: check for BSL status condition errors and respond here
 			if bslSpec.Velero != nil {
-				err := r.updateBSLFromSpec(&bsl, &dpa, *bslSpec.Velero)
+				err := r.updateBSLFromSpec(&bsl, dpa, *bslSpec.Velero)
 
 				return err
 			}
@@ -145,7 +142,7 @@ func (r *DPAReconciler) ReconcileBackupStorageLocations(log logr.Logger) (bool, 
 				if err != nil {
 					return err
 				}
-				err = controllerutil.SetControllerReference(&dpa, &bsl, r.Scheme)
+				err = controllerutil.SetControllerReference(dpa, &bsl, r.Scheme)
 				if err != nil {
 					return err
 				}
