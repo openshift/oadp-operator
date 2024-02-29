@@ -18,7 +18,7 @@ import (
 	"github.com/vmware-tanzu/velero/pkg/cmd/util/downloadrequest"
 	"github.com/vmware-tanzu/velero/pkg/cmd/util/output"
 	"github.com/vmware-tanzu/velero/pkg/features"
-	veleroClientset "github.com/vmware-tanzu/velero/pkg/generated/clientset/versioned"
+	veleroclientset "github.com/vmware-tanzu/velero/pkg/generated/clientset/versioned"
 	"github.com/vmware-tanzu/velero/pkg/label"
 	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -27,7 +27,7 @@ import (
 )
 
 // https://github.com/vmware-tanzu/velero/blob/11bfe82342c9f54c63f40d3e97313ce763b446f2/pkg/cmd/cli/backup/describe.go#L77-L111
-func DescribeBackup(veleroClient veleroClientset.Interface, csiClient *snapshotv1client.Clientset, ocClient client.Client, backup velero.Backup) (backupDescription string) {
+func DescribeBackup(veleroClient veleroclientset.Interface, csiClient *snapshotv1client.Clientset, ocClient client.Client, backup velero.Backup) (backupDescription string) {
 	err := ocClient.Get(context.Background(), client.ObjectKey{
 		Namespace: backup.Namespace,
 		Name:      backup.Name,
@@ -72,7 +72,7 @@ func DescribeBackup(veleroClient veleroClientset.Interface, csiClient *snapshotv
 }
 
 // https://github.com/vmware-tanzu/velero/blob/11bfe82342c9f54c63f40d3e97313ce763b446f2/pkg/cmd/cli/restore/describe.go#L72-L78
-func DescribeRestore(veleroClient veleroClientset.Interface, ocClient client.Client, restore velero.Restore) string {
+func DescribeRestore(veleroClient veleroclientset.Interface, ocClient client.Client, restore velero.Restore) string {
 	err := ocClient.Get(context.Background(), client.ObjectKey{
 		Namespace: restore.Namespace,
 		Name:      restore.Name,

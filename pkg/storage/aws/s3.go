@@ -2,7 +2,6 @@ package aws
 
 import (
 	"context"
-
 	"errors"
 
 	"github.com/aws/aws-sdk-go/aws/endpoints"
@@ -21,7 +20,7 @@ func BucketRegionIsDiscoverable(bucket string) bool {
 func GetBucketRegion(bucket string) (string, error) {
 	var region string
 
-	session, err := session.NewSession()
+	sessionInstance, err := session.NewSession()
 	if err != nil {
 		// return "", errors.WithStack(err) // don't need stack trace, not inside velero-plugin
 		return "", err
@@ -29,7 +28,7 @@ func GetBucketRegion(bucket string) (string, error) {
 
 	for _, partition := range endpoints.DefaultPartitions() {
 		for regionHint := range partition.Regions() {
-			region, _ = s3manager.GetBucketRegion(context.Background(), session, bucket, regionHint)
+			region, _ = s3manager.GetBucketRegion(context.Background(), sessionInstance, bucket, regionHint)
 
 			// we only need to try a single region hint per partition, so break after the first
 			break

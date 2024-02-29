@@ -6,13 +6,10 @@ import (
 	"reflect"
 	"testing"
 
-	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
-
 	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
-	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -21,6 +18,8 @@ import (
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+
+	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 )
 
 // A bucket that region can be automatically discovered
@@ -1636,7 +1635,7 @@ func TestDPAReconciler_ensureBackupLocationHasVeleroOrCloudStorage(t *testing.T)
 								Provider: "aws",
 							},
 							CloudStorage: &oadpv1alpha1.CloudStorageLocation{
-								CloudStorageRef: v1.LocalObjectReference{
+								CloudStorageRef: corev1.LocalObjectReference{
 									Name: "foo",
 								},
 							},
@@ -1903,8 +1902,8 @@ func TestDPAReconciler_ReconcileBackupStorageLocations(t *testing.T) {
 			Namespace: "test-ns",
 		},
 		Spec: oadpv1alpha1.CloudStorageSpec{
-			CreationSecret: v1.SecretKeySelector{
-				LocalObjectReference: v1.LocalObjectReference{
+			CreationSecret: corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{
 					Name: "cloud-credentials",
 				},
 				Key: "credentials",
@@ -1955,11 +1954,11 @@ func TestDPAReconciler_ReconcileBackupStorageLocations(t *testing.T) {
 					BackupLocations: []oadpv1alpha1.BackupLocation{
 						{
 							CloudStorage: &oadpv1alpha1.CloudStorageLocation{
-								CloudStorageRef: v1.LocalObjectReference{
+								CloudStorageRef: corev1.LocalObjectReference{
 									Name: "test-cs",
 								},
-								Credential: &v1.SecretKeySelector{
-									LocalObjectReference: v1.LocalObjectReference{
+								Credential: &corev1.SecretKeySelector{
+									LocalObjectReference: corev1.LocalObjectReference{
 										Name: "cloud-credentials",
 									},
 									Key: "credentials",
@@ -2054,8 +2053,8 @@ func TestDPAReconciler_ReconcileBackupStorageLocations(t *testing.T) {
 											Prefix: "test-prefix",
 										},
 									},
-									Credential: &v1.SecretKeySelector{
-										LocalObjectReference: v1.LocalObjectReference{
+									Credential: &corev1.SecretKeySelector{
+										LocalObjectReference: corev1.LocalObjectReference{
 											Name: "cloud-credentials",
 										},
 										Key: "credentials",
@@ -2087,8 +2086,8 @@ func TestDPAReconciler_ReconcileBackupStorageLocations(t *testing.T) {
 							Prefix: "test-prefix",
 						},
 					},
-					Credential: &v1.SecretKeySelector{
-						LocalObjectReference: v1.LocalObjectReference{
+					Credential: &corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
 							Name: "cloud-credentials",
 						},
 						Key: "credentials",
@@ -2108,11 +2107,11 @@ func TestDPAReconciler_ReconcileBackupStorageLocations(t *testing.T) {
 						BackupLocations: []oadpv1alpha1.BackupLocation{
 							{
 								CloudStorage: &oadpv1alpha1.CloudStorageLocation{
-									CloudStorageRef: v1.LocalObjectReference{
+									CloudStorageRef: corev1.LocalObjectReference{
 										Name: "test-cs",
 									},
-									Credential: &v1.SecretKeySelector{
-										LocalObjectReference: v1.LocalObjectReference{
+									Credential: &corev1.SecretKeySelector{
+										LocalObjectReference: corev1.LocalObjectReference{
 											Name: "cloud-credentials",
 										},
 										Key: "credentials",
@@ -2137,8 +2136,8 @@ func TestDPAReconciler_ReconcileBackupStorageLocations(t *testing.T) {
 					},
 					Spec: oadpv1alpha1.CloudStorageSpec{
 						Provider: "aws",
-						CreationSecret: v1.SecretKeySelector{
-							LocalObjectReference: v1.LocalObjectReference{
+						CreationSecret: corev1.SecretKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{
 								Name: "cloud-credentials",
 							},
 							Key: "credentials",
@@ -2245,11 +2244,11 @@ func TestDPAReconciler_ReconcileBackupStorageLocations(t *testing.T) {
 						BackupLocations: []oadpv1alpha1.BackupLocation{
 							{
 								CloudStorage: &oadpv1alpha1.CloudStorageLocation{
-									CloudStorageRef: v1.LocalObjectReference{
+									CloudStorageRef: corev1.LocalObjectReference{
 										Name: "test-cs",
 									},
-									Credential: &v1.SecretKeySelector{
-										LocalObjectReference: v1.LocalObjectReference{
+									Credential: &corev1.SecretKeySelector{
+										LocalObjectReference: corev1.LocalObjectReference{
 											Name: "cloud-credentials",
 										},
 										Key: "credentials",
@@ -2275,8 +2274,8 @@ func TestDPAReconciler_ReconcileBackupStorageLocations(t *testing.T) {
 					},
 					Spec: oadpv1alpha1.CloudStorageSpec{
 						Provider: "aws",
-						CreationSecret: v1.SecretKeySelector{
-							LocalObjectReference: v1.LocalObjectReference{
+						CreationSecret: corev1.SecretKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{
 								Name: "cloud-credentials",
 							},
 							Key: "credentials",

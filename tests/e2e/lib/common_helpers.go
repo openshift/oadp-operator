@@ -6,7 +6,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
-	"net/url"
+	neturl "net/url"
 	"os"
 	"os/exec"
 	"strings"
@@ -175,7 +175,7 @@ func convertJsonStringToURLParams(payload string) (string, error) {
 		return "", err
 	}
 
-	params := url.Values{}
+	params := neturl.Values{}
 	for key, value := range data {
 		params.Add(key, fmt.Sprintf("%v", value))
 	}

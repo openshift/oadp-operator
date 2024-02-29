@@ -10,15 +10,16 @@ import (
 	"time"
 
 	snapshotv1client "github.com/kubernetes-csi/external-snapshotter/client/v4/clientset/versioned"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-	. "github.com/openshift/oadp-operator/tests/e2e/lib"
-	veleroClientset "github.com/vmware-tanzu/velero/pkg/generated/clientset/versioned"
+	ginkgov2 "github.com/onsi/ginkgo/v2"
+	"github.com/onsi/gomega"
+	veleroclientset "github.com/vmware-tanzu/velero/pkg/generated/clientset/versioned"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
+
+	"github.com/openshift/oadp-operator/tests/e2e/lib"
 )
 
 // Common vars obtained from flags passed in ginkgo.
@@ -91,31 +92,31 @@ func init() {
 
 func TestOADPE2E(t *testing.T) {
 	flag.Parse()
-	errString := LoadDpaSettingsFromJson(settings)
+	errString := lib.LoadDpaSettingsFromJson(settings)
 	if errString != "" {
 		t.Fatalf(errString)
 	}
 
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "OADP E2E using velero prefix: "+VeleroPrefix)
+	gomega.RegisterFailHandler(ginkgov2.Fail)
+	ginkgov2.RunSpecs(t, "OADP E2E using velero prefix: "+lib.VeleroPrefix)
 }
 
 var kubernetesClientForSuiteRun *kubernetes.Clientset
 var runTimeClientForSuiteRun client.Client
-var veleroClientForSuiteRun veleroClientset.Interface
+var veleroClientForSuiteRun veleroclientset.Interface
 var csiClientForSuiteRun *snapshotv1client.Clientset
 var dynamicClientForSuiteRun dynamic.Interface
-var dpaCR *DpaCustomResource
+var dpaCR *lib.DpaCustomResource
 var knownFlake bool
 var accumulatedTestLogs []string
 var kubeConfig *rest.Config
 
-var _ = BeforeSuite(func() {
+var _ = ginkgov2.BeforeSuite(func() {
 	// TODO create logger (hh:mm:ss message) to be used by all functions
 	flag.Parse()
-	errString := LoadDpaSettingsFromJson(settings)
+	errString := lib.LoadDpaSettingsFromJson(settings)
 	if errString != "" {
-		Expect(errors.New(errString)).NotTo(HaveOccurred())
+		gomega.Expect(errors.New(errString)).NotTo(gomega.HaveOccurred())
 	}
 
 	var err error
@@ -124,55 +125,55 @@ var _ = BeforeSuite(func() {
 	kubeConfig.Burst = 100
 
 	kubernetesClientForSuiteRun, err = kubernetes.NewForConfig(kubeConfig)
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	runTimeClientForSuiteRun, err = client.New(kubeConfig, client.Options{})
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
-	veleroClientForSuiteRun, err = veleroClientset.NewForConfig(kubeConfig)
-	Expect(err).NotTo(HaveOccurred())
+	veleroClientForSuiteRun, err = veleroclientset.NewForConfig(kubeConfig)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	csiClientForSuiteRun, err = snapshotv1client.NewForConfig(kubeConfig)
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	dynamicClientForSuiteRun, err = dynamic.NewForConfig(kubeConfig)
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
-	dpaCR = &DpaCustomResource{
+	dpaCR = &lib.DpaCustomResource{
 		Namespace: namespace,
 		Provider:  provider,
 	}
-	dpaCR.CustomResource = Dpa
+	dpaCR.CustomResource = lib.Dpa
 	dpaCR.Name = "ts-" + instanceName
 
-	bslCredFileData, err := ReadFile(bslCredFile)
-	Expect(err).NotTo(HaveOccurred())
-	err = CreateCredentialsSecret(kubernetesClientForSuiteRun, bslCredFileData, namespace, "bsl-cloud-credentials-"+provider)
-	Expect(err).NotTo(HaveOccurred())
-	err = CreateCredentialsSecret(
+	bslCredFileData, err := lib.ReadFile(bslCredFile)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	err = lib.CreateCredentialsSecret(kubernetesClientForSuiteRun, bslCredFileData, namespace, "bsl-cloud-credentials-"+provider)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	err = lib.CreateCredentialsSecret(
 		kubernetesClientForSuiteRun,
-		ReplaceSecretDataNewLineWithCarriageReturn(bslCredFileData),
+		lib.ReplaceSecretDataNewLineWithCarriageReturn(bslCredFileData),
 		namespace, "bsl-cloud-credentials-"+provider+"-with-carriage-return",
 	)
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
-	vslCredFileData, err := ReadFile(vslCredFile)
-	Expect(err).NotTo(HaveOccurred())
-	err = CreateCredentialsSecret(kubernetesClientForSuiteRun, vslCredFileData, namespace, credSecretRef)
-	Expect(err).NotTo(HaveOccurred())
+	vslCredFileData, err := lib.ReadFile(vslCredFile)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	err = lib.CreateCredentialsSecret(kubernetesClientForSuiteRun, vslCredFileData, namespace, credSecretRef)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	dpaCR.SetClient(runTimeClientForSuiteRun)
-	Expect(DoesNamespaceExist(kubernetesClientForSuiteRun, namespace)).Should(BeTrue())
+	gomega.Expect(lib.DoesNamespaceExist(kubernetesClientForSuiteRun, namespace)).Should(gomega.BeTrue())
 })
 
-var _ = AfterSuite(func() {
+var _ = ginkgov2.AfterSuite(func() {
 	log.Printf("Deleting Velero CR")
-	err := DeleteSecret(kubernetesClientForSuiteRun, namespace, credSecretRef)
-	Expect(err).ToNot(HaveOccurred())
-	err = DeleteSecret(kubernetesClientForSuiteRun, namespace, "bsl-cloud-credentials-"+provider)
-	Expect(err).ToNot(HaveOccurred())
-	err = DeleteSecret(kubernetesClientForSuiteRun, namespace, "bsl-cloud-credentials-"+provider+"-with-carriage-return")
-	Expect(err).ToNot(HaveOccurred())
+	err := lib.DeleteSecret(kubernetesClientForSuiteRun, namespace, credSecretRef)
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+	err = lib.DeleteSecret(kubernetesClientForSuiteRun, namespace, "bsl-cloud-credentials-"+provider)
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+	err = lib.DeleteSecret(kubernetesClientForSuiteRun, namespace, "bsl-cloud-credentials-"+provider+"-with-carriage-return")
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	err = dpaCR.Delete(runTimeClientForSuiteRun)
-	Expect(err).ToNot(HaveOccurred())
-	Eventually(dpaCR.IsDeleted(runTimeClientForSuiteRun), timeoutMultiplier*time.Minute*2, time.Second*5).Should(BeTrue())
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+	gomega.Eventually(dpaCR.IsDeleted(runTimeClientForSuiteRun), timeoutMultiplier*time.Minute*2, time.Second*5).Should(gomega.BeTrue())
 })

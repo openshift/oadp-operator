@@ -5,10 +5,11 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/openshift/oadp-operator/pkg/klog"
-	"github.com/openshift/oadp-operator/pkg/velero/client"
 	"github.com/sirupsen/logrus"
 	"github.com/vmware-tanzu/velero/pkg/util/boolptr"
+
+	"github.com/openshift/oadp-operator/pkg/klog"
+	"github.com/openshift/oadp-operator/pkg/velero/client"
 )
 
 // VeleroServerArgs are the arguments that are passed to the Velero server

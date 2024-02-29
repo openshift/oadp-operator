@@ -19,11 +19,12 @@ package v1alpha1
 import (
 	"time"
 
-	"github.com/openshift/oadp-operator/pkg/common"
-	"github.com/openshift/oadp-operator/pkg/velero/server"
 	velero "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/openshift/oadp-operator/pkg/common"
+	"github.com/openshift/oadp-operator/pkg/velero/server"
 )
 
 // Conditions

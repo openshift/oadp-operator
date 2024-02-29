@@ -1,11 +1,12 @@
 package controllers
 
 import (
-	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+
+	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 )
 
 func veleroPredicate(scheme *runtime.Scheme) predicate.Predicate {

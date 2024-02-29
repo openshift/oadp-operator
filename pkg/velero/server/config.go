@@ -4,7 +4,7 @@ import (
 	"time"
 
 	"github.com/vmware-tanzu/velero/pkg/client"
-	vServer "github.com/vmware-tanzu/velero/pkg/cmd/server"
+	veleroserver "github.com/vmware-tanzu/velero/pkg/cmd/server"
 )
 
 // This package is used to store ServerConfig struct and note information about flags for velero server and how they are set.
@@ -89,4 +89,4 @@ type ServerConfig struct {
 	MaxConcurrentK8SConnections *int `json:"max-concurrent-k8s-connections,omitempty"`
 }
 
-var VeleroServerCommand = vServer.NewCommand(client.NewFactory("velero-server", client.VeleroConfig{})).Flags()
+var VeleroServerCommand = veleroserver.NewCommand(client.NewFactory("velero-server", client.VeleroConfig{})).Flags()

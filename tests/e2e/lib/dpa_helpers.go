@@ -12,13 +12,11 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
-	. "github.com/onsi/ginkgo/v2"
+	ginkgov2 "github.com/onsi/ginkgo/v2"
 	appsv1 "github.com/openshift/api/apps/v1"
 	buildv1 "github.com/openshift/api/build/v1"
 	security "github.com/openshift/api/security/v1"
 	templatev1 "github.com/openshift/api/template/v1"
-	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
-	"github.com/openshift/oadp-operator/pkg/common"
 	operatorsv1 "github.com/operator-framework/api/pkg/operators/v1"
 	operatorsv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	velero "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
@@ -31,6 +29,9 @@ import (
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
+
+	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
+	"github.com/openshift/oadp-operator/pkg/common"
 )
 
 type BackupRestoreType string
@@ -262,19 +263,19 @@ func (v *DpaCustomResource) Delete(c client.Client) error {
 	return err
 }
 
-func (v *DpaCustomResource) SetClient(client client.Client) error {
-	oadpv1alpha1.AddToScheme(client.Scheme())
-	velero.AddToScheme(client.Scheme())
-	appsv1.AddToScheme(client.Scheme())
-	corev1.AddToScheme(client.Scheme())
-	templatev1.AddToScheme(client.Scheme())
-	security.AddToScheme(client.Scheme())
-	volumesnapshotv1.AddToScheme(client.Scheme())
-	buildv1.AddToScheme(client.Scheme())
-	operatorsv1alpha1.AddToScheme(client.Scheme())
-	operatorsv1.AddToScheme(client.Scheme())
+func (v *DpaCustomResource) SetClient(c client.Client) error {
+	oadpv1alpha1.AddToScheme(c.Scheme())
+	velero.AddToScheme(c.Scheme())
+	appsv1.AddToScheme(c.Scheme())
+	corev1.AddToScheme(c.Scheme())
+	templatev1.AddToScheme(c.Scheme())
+	security.AddToScheme(c.Scheme())
+	volumesnapshotv1.AddToScheme(c.Scheme())
+	buildv1.AddToScheme(c.Scheme())
+	operatorsv1alpha1.AddToScheme(c.Scheme())
+	operatorsv1.AddToScheme(c.Scheme())
 
-	v.Client = client
+	v.Client = c
 	return nil
 }
 
@@ -381,7 +382,7 @@ func DoesBSLSpecMatchesDpa(namespace string, bsl velero.BackupStorageLocationSpe
 				bsl.Config = make(map[string]string)
 			}
 			if !reflect.DeepEqual(bsl, *b.Velero) {
-				GinkgoWriter.Print(cmp.Diff(bsl, *b.Velero))
+				ginkgov2.GinkgoWriter.Print(cmp.Diff(bsl, *b.Velero))
 				return false, errors.New("given Velero bsl does not match the deployed velero bsl")
 			}
 		}
@@ -402,7 +403,7 @@ func DoesVSLSpecMatchesDpa(namespace string, vslspec velero.VolumeSnapshotLocati
 			vslspec.Config = make(map[string]string)
 		}
 		if reflect.DeepEqual(vslspec, *v.Velero) {
-			GinkgoWriter.Print(cmp.Diff(vslspec, *v.Velero))
+			ginkgov2.GinkgoWriter.Print(cmp.Diff(vslspec, *v.Velero))
 			return true, nil
 		}
 	}

@@ -3,16 +3,17 @@ package leaderelection
 import (
 	"context"
 	"fmt"
-	configv1 "github.com/openshift/api/config/v1"
 	"io/ioutil"
+	"math"
+	"strings"
+	"time"
+
+	configv1 "github.com/openshift/api/config/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
-	"math"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"strings"
-	"time"
 )
 
 const infraResourceName = "cluster"
@@ -106,14 +107,14 @@ func GetClusterInfraStatus(restClient *rest.Config) (*configv1.InfrastructureSta
 	if err != nil {
 		return nil, err
 	}
-	client, err := client.New(restClient, client.Options{})
+	clientInstance, err := client.New(restClient, client.Options{})
 	if err != nil {
 		return nil, err
 	}
 
 	infra := &configv1.Infrastructure{}
 	key := types.NamespacedName{Name: infraResourceName}
-	if err = client.Get(context.TODO(), key, infra); err != nil {
+	if err = clientInstance.Get(context.TODO(), key, infra); err != nil {
 		return nil, err
 	}
 

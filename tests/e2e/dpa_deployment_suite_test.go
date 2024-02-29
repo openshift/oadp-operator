@@ -7,23 +7,23 @@ import (
 	"strings"
 	"time"
 
-	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"github.com/google/go-cmp/cmp"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
-	. "github.com/openshift/oadp-operator/tests/e2e/lib"
+	ginkgov2 "github.com/onsi/ginkgo/v2"
+	"github.com/onsi/gomega"
 	velero "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
+
+	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
+	"github.com/openshift/oadp-operator/tests/e2e/lib"
 )
 
-var _ = Describe("Configuration testing for DPA Custom Resource", func() {
-	providerFromDPA := Dpa.Spec.BackupLocations[0].Velero.Provider
-	bucket := Dpa.Spec.BackupLocations[0].Velero.ObjectStorage.Bucket
-	bslConfig := Dpa.Spec.BackupLocations[0].Velero.Config
+var _ = ginkgov2.Describe("Configuration testing for DPA Custom Resource", func() {
+	providerFromDPA := lib.Dpa.Spec.BackupLocations[0].Velero.Provider
+	bucket := lib.Dpa.Spec.BackupLocations[0].Velero.ObjectStorage.Bucket
+	bslConfig := lib.Dpa.Spec.BackupLocations[0].Velero.Config
 	bslCredential := corev1.SecretKeySelector{
 		LocalObjectReference: corev1.LocalObjectReference{
 			Name: "bsl-cloud-credentials-" + provider,
@@ -33,7 +33,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 
 	type InstallCase struct {
 		Name               string
-		BRestoreType       BackupRestoreType
+		BRestoreType       lib.BackupRestoreType
 		DpaSpec            *oadpv1alpha1.DataProtectionApplicationSpec
 		TestCarriageReturn bool
 		WantError          bool
@@ -44,32 +44,32 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 
 	var lastInstallingApplicationNamespace string
 	var lastInstallTime time.Time
-	var _ = AfterEach(func(ctx SpecContext) {
+	var _ = ginkgov2.AfterEach(func(ctx ginkgov2.SpecContext) {
 		report := ctx.SpecReport()
 		if report.Failed() {
 			baseReportDir := artifact_dir + "/" + report.LeafNodeText
 			err := os.MkdirAll(baseReportDir, 0755)
-			Expect(err).NotTo(HaveOccurred())
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 			// print namespace error events for app namespace
 			if lastInstallingApplicationNamespace != "" {
-				PrintNamespaceEventsAfterTime(kubernetesClientForSuiteRun, lastInstallingApplicationNamespace, lastInstallTime)
+				lib.PrintNamespaceEventsAfterTime(kubernetesClientForSuiteRun, lastInstallingApplicationNamespace, lastInstallTime)
 			}
-			err = SavePodLogs(kubernetesClientForSuiteRun, lastInstallingApplicationNamespace, baseReportDir)
-			Expect(err).NotTo(HaveOccurred())
+			err = lib.SavePodLogs(kubernetesClientForSuiteRun, lastInstallingApplicationNamespace, baseReportDir)
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 			log.Printf("Running must gather for failed deployment test - " + report.LeafNodeText)
-			err = RunMustGather(oc_cli, baseReportDir+"/must-gather")
+			err = lib.RunMustGather(oc_cli, baseReportDir+"/must-gather")
 			if err != nil {
 				log.Printf("Failed to run must gather: " + err.Error())
 			}
 		}
 	})
-	DescribeTable("Updating custom resource with new configuration",
+	ginkgov2.DescribeTable("Updating custom resource with new configuration",
 		func(installCase InstallCase, expectedErr error) {
 			//TODO: Calling dpaCR.build() is the old pattern.
 			//Change it later to make sure all the spec values are passed for every test case,
 			// instead of assigning the values in advance to the DPA CR
 			err := dpaCR.Build(installCase.BRestoreType)
-			Expect(err).NotTo(HaveOccurred())
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 			if len(installCase.DpaSpec.BackupLocations) > 0 {
 				if installCase.DpaSpec.BackupLocations[0].Velero.Credential == nil {
 					installCase.DpaSpec.BackupLocations[0].Velero.Credential = &bslCredential
@@ -86,67 +86,67 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 			lastInstallingApplicationNamespace = dpaCR.Namespace
 			lastInstallTime = time.Now()
 			err = dpaCR.CreateOrUpdate(runTimeClientForSuiteRun, installCase.DpaSpec)
-			Expect(err).ToNot(HaveOccurred())
+			gomega.Expect(err).ToNot(gomega.HaveOccurred())
 			// sleep to accommodate throttled CI environment
 			// TODO this should be a function, not an arbitrary sleep
 			time.Sleep(20 * time.Second)
 			// Capture logs right after DPA is reconciled for diffing after one minute.
-			Eventually(dpaCR.GetNoErr(runTimeClientForSuiteRun).Status.Conditions[0].Type, timeoutMultiplier*time.Minute*3, time.Second*5).Should(Equal("Reconciled"))
+			gomega.Eventually(dpaCR.GetNoErr(runTimeClientForSuiteRun).Status.Conditions[0].Type, timeoutMultiplier*time.Minute*3, time.Second*5).Should(gomega.Equal("Reconciled"))
 			if installCase.WantError {
 				log.Printf("Test case expected to error. Waiting for the error to show in DPA Status")
-				Eventually(dpaCR.GetNoErr(runTimeClientForSuiteRun).Status.Conditions[0].Status, timeoutMultiplier*time.Minute*3, time.Second*5).Should(Equal(metav1.ConditionFalse))
-				Eventually(dpaCR.GetNoErr(runTimeClientForSuiteRun).Status.Conditions[0].Reason, timeoutMultiplier*time.Minute*3, time.Second*5).Should(Equal("Error"))
-				Eventually(dpaCR.GetNoErr(runTimeClientForSuiteRun).Status.Conditions[0].Message, timeoutMultiplier*time.Minute*3, time.Second*5).Should(Equal(expectedErr.Error()))
+				gomega.Eventually(dpaCR.GetNoErr(runTimeClientForSuiteRun).Status.Conditions[0].Status, timeoutMultiplier*time.Minute*3, time.Second*5).Should(gomega.Equal(metav1.ConditionFalse))
+				gomega.Eventually(dpaCR.GetNoErr(runTimeClientForSuiteRun).Status.Conditions[0].Reason, timeoutMultiplier*time.Minute*3, time.Second*5).Should(gomega.Equal("Error"))
+				gomega.Eventually(dpaCR.GetNoErr(runTimeClientForSuiteRun).Status.Conditions[0].Message, timeoutMultiplier*time.Minute*3, time.Second*5).Should(gomega.Equal(expectedErr.Error()))
 				return
 			}
 			timeReconciled := time.Now()
-			adpLogsAtReconciled, err := GetOpenShiftADPLogs(kubernetesClientForSuiteRun, dpaCR.Namespace)
-			Expect(err).NotTo(HaveOccurred())
+			adpLogsAtReconciled, err := lib.GetOpenShiftADPLogs(kubernetesClientForSuiteRun, dpaCR.Namespace)
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 			log.Printf("Waiting for velero pod to be running")
-			Eventually(AreVeleroPodsRunning(kubernetesClientForSuiteRun, namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
+			gomega.Eventually(lib.AreVeleroPodsRunning(kubernetesClientForSuiteRun, namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(gomega.BeTrue())
 			dpa, err := dpaCR.Get(runTimeClientForSuiteRun)
-			Expect(err).NotTo(HaveOccurred())
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 			if len(dpa.Spec.BackupLocations) > 0 {
 				log.Printf("Checking for bsl spec")
 				for _, bsl := range dpa.Spec.BackupLocations {
 					// Check if bsl matches the spec
-					Expect(DoesBSLSpecMatchesDpa(namespace, *bsl.Velero, installCase.DpaSpec)).To(BeTrue())
+					gomega.Expect(lib.DoesBSLSpecMatchesDpa(namespace, *bsl.Velero, installCase.DpaSpec)).To(gomega.BeTrue())
 				}
 			}
 			if len(dpa.Spec.SnapshotLocations) > 0 {
 				log.Printf("Checking for vsl spec")
 				for _, vsl := range dpa.Spec.SnapshotLocations {
-					Expect(DoesVSLSpecMatchesDpa(namespace, *vsl.Velero, installCase.DpaSpec)).To(BeTrue())
+					gomega.Expect(lib.DoesVSLSpecMatchesDpa(namespace, *vsl.Velero, installCase.DpaSpec)).To(gomega.BeTrue())
 				}
 			}
 
 			// Check for velero tolerances
 			if len(dpa.Spec.Configuration.Velero.PodConfig.Tolerations) > 0 {
 				log.Printf("Checking for velero tolerances")
-				Eventually(VerifyVeleroTolerations(kubernetesClientForSuiteRun, namespace, dpa.Spec.Configuration.Velero.PodConfig.Tolerations), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
+				gomega.Eventually(lib.VerifyVeleroTolerations(kubernetesClientForSuiteRun, namespace, dpa.Spec.Configuration.Velero.PodConfig.Tolerations), timeoutMultiplier*time.Minute*3, time.Second*5).Should(gomega.BeTrue())
 			}
 
 			// check for velero resource allocations
 			if dpa.Spec.Configuration.Velero.PodConfig.ResourceAllocations.Requests != nil {
 				log.Printf("Checking for velero resource allocation requests")
-				Eventually(VerifyVeleroResourceRequests(kubernetesClientForSuiteRun, namespace, dpa.Spec.Configuration.Velero.PodConfig.ResourceAllocations.Requests), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
+				gomega.Eventually(lib.VerifyVeleroResourceRequests(kubernetesClientForSuiteRun, namespace, dpa.Spec.Configuration.Velero.PodConfig.ResourceAllocations.Requests), timeoutMultiplier*time.Minute*3, time.Second*5).Should(gomega.BeTrue())
 			}
 
 			if dpa.Spec.Configuration.Velero.PodConfig.ResourceAllocations.Limits != nil {
 				log.Printf("Checking for velero resource allocation limits")
-				Eventually(VerifyVeleroResourceLimits(kubernetesClientForSuiteRun, namespace, dpa.Spec.Configuration.Velero.PodConfig.ResourceAllocations.Limits), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
+				gomega.Eventually(lib.VerifyVeleroResourceLimits(kubernetesClientForSuiteRun, namespace, dpa.Spec.Configuration.Velero.PodConfig.ResourceAllocations.Limits), timeoutMultiplier*time.Minute*3, time.Second*5).Should(gomega.BeTrue())
 			}
 
 			//restic installation with new and deprecated options
 			if dpa.Spec.Configuration.Restic != nil && *dpa.Spec.Configuration.Restic.Enable {
 				log.Printf("Waiting for restic pods to be running")
-				Eventually(AreNodeAgentPodsRunning(kubernetesClientForSuiteRun, namespace), timeoutMultiplier*time.Minute*4, time.Second*5).Should(BeTrue())
+				gomega.Eventually(lib.AreNodeAgentPodsRunning(kubernetesClientForSuiteRun, namespace), timeoutMultiplier*time.Minute*4, time.Second*5).Should(gomega.BeTrue())
 			} else if dpa.Spec.Configuration.NodeAgent != nil && *dpa.Spec.Configuration.NodeAgent.Enable {
 				log.Printf("Waiting for NodeAgent pods to be running")
-				Eventually(AreNodeAgentPodsRunning(kubernetesClientForSuiteRun, namespace), timeoutMultiplier*time.Minute*4, time.Second*5).Should(BeTrue())
+				gomega.Eventually(lib.AreNodeAgentPodsRunning(kubernetesClientForSuiteRun, namespace), timeoutMultiplier*time.Minute*4, time.Second*5).Should(gomega.BeTrue())
 			} else {
 				log.Printf("Waiting for NodeAgent daemonset to be deleted")
-				Eventually(IsNodeAgentDaemonsetDeleted(kubernetesClientForSuiteRun, namespace), timeoutMultiplier*time.Minute*4, time.Second*5).Should(BeTrue())
+				gomega.Eventually(lib.IsNodeAgentDaemonsetDeleted(kubernetesClientForSuiteRun, namespace), timeoutMultiplier*time.Minute*4, time.Second*5).Should(gomega.BeTrue())
 			}
 
 			// check defaultPlugins
@@ -154,7 +154,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 			if len(dpa.Spec.Configuration.Velero.DefaultPlugins) > 0 {
 				log.Printf("Checking for default plugins")
 				for _, plugin := range dpa.Spec.Configuration.Velero.DefaultPlugins {
-					Eventually(DoesPluginExist(kubernetesClientForSuiteRun, namespace, plugin), timeoutMultiplier*time.Minute*6, time.Second*5).Should(BeTrue())
+					gomega.Eventually(lib.DoesPluginExist(kubernetesClientForSuiteRun, namespace, plugin), timeoutMultiplier*time.Minute*6, time.Second*5).Should(gomega.BeTrue())
 				}
 			}
 
@@ -163,7 +163,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 			if len(dpa.Spec.Configuration.Velero.CustomPlugins) > 0 {
 				log.Printf("Checking for custom plugins")
 				for _, plugin := range dpa.Spec.Configuration.Velero.CustomPlugins {
-					Eventually(DoesCustomPluginExist(kubernetesClientForSuiteRun, namespace, plugin), timeoutMultiplier*time.Minute*6, time.Second*5).Should(BeTrue())
+					gomega.Eventually(lib.DoesCustomPluginExist(kubernetesClientForSuiteRun, namespace, plugin), timeoutMultiplier*time.Minute*6, time.Second*5).Should(gomega.BeTrue())
 				}
 			}
 
@@ -171,39 +171,39 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 			if dpa.Spec.Configuration.Restic != nil && dpa.Spec.Configuration.Restic.PodConfig != nil {
 				for key, value := range dpa.Spec.Configuration.Restic.PodConfig.NodeSelector {
 					log.Printf("Waiting for restic daemonSet to get node selector")
-					Eventually(NodeAgentDaemonSetHasNodeSelector(kubernetesClientForSuiteRun, namespace, key, value), timeoutMultiplier*time.Minute*6, time.Second*5).Should(BeTrue())
+					gomega.Eventually(lib.NodeAgentDaemonSetHasNodeSelector(kubernetesClientForSuiteRun, namespace, key, value), timeoutMultiplier*time.Minute*6, time.Second*5).Should(gomega.BeTrue())
 				}
 			}
 			log.Printf("Waiting for nodeAgent daemonSet to have nodeSelector")
 			if dpa.Spec.Configuration.NodeAgent != nil && dpa.Spec.Configuration.NodeAgent.PodConfig != nil {
 				for key, value := range dpa.Spec.Configuration.NodeAgent.PodConfig.NodeSelector {
 					log.Printf("Waiting for NodeAgent daemonSet to get node selector")
-					Eventually(NodeAgentDaemonSetHasNodeSelector(kubernetesClientForSuiteRun, namespace, key, value), timeoutMultiplier*time.Minute*6, time.Second*5).Should(BeTrue())
+					gomega.Eventually(lib.NodeAgentDaemonSetHasNodeSelector(kubernetesClientForSuiteRun, namespace, key, value), timeoutMultiplier*time.Minute*6, time.Second*5).Should(gomega.BeTrue())
 				}
 			}
 			// wait at least 1 minute after reconciled
-			Eventually(func() bool {
+			gomega.Eventually(func() bool {
 				//has it been at least 1 minute since reconciled?
 				log.Printf("Waiting for 1 minute after reconciled: %v elapsed", time.Since(timeReconciled).String())
 				return time.Now().After(timeReconciled.Add(time.Minute))
-			}, timeoutMultiplier*time.Minute*5, time.Second*5).Should(BeTrue())
-			adpLogsAfterOneMinute, err := GetOpenShiftADPLogs(kubernetesClientForSuiteRun, dpaCR.Namespace)
-			Expect(err).NotTo(HaveOccurred())
+			}, timeoutMultiplier*time.Minute*5, time.Second*5).Should(gomega.BeTrue())
+			adpLogsAfterOneMinute, err := lib.GetOpenShiftADPLogs(kubernetesClientForSuiteRun, dpaCR.Namespace)
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 			// We expect adp logs to be the same after 1 minute
 			adpLogsDiff := cmp.Diff(adpLogsAtReconciled, adpLogsAfterOneMinute)
 			// If registry deployment were deleted after CR update, we expect to see a new log entry, ignore that.
 			// We also ignore case where deprecated restic entry was used
 			if !strings.Contains(adpLogsDiff, "Registry Deployment deleted") && !strings.Contains(adpLogsDiff, "(Deprecation Warning) Use nodeAgent instead of restic, which is deprecated and will be removed with the OADP 1.4") {
-				Expect(adpLogsDiff).To(Equal(""))
+				gomega.Expect(adpLogsDiff).To(gomega.Equal(""))
 			}
 		},
-		Entry("Default velero CR", InstallCase{
+		ginkgov2.Entry("Default velero CR", InstallCase{
 			Name:         "default-cr",
-			BRestoreType: RESTIC,
+			BRestoreType: lib.RESTIC,
 			DpaSpec: &oadpv1alpha1.DataProtectionApplicationSpec{
 				Configuration: &oadpv1alpha1.ApplicationConfig{
 					Velero: &oadpv1alpha1.VeleroConfig{
-						DefaultPlugins: Dpa.Spec.Configuration.Velero.DefaultPlugins,
+						DefaultPlugins: lib.Dpa.Spec.Configuration.Velero.DefaultPlugins,
 						PodConfig:      &oadpv1alpha1.PodConfig{},
 					},
 					Restic: &oadpv1alpha1.ResticConfig{
@@ -222,7 +222,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 							StorageType: velero.StorageType{
 								ObjectStorage: &velero.ObjectStorageLocation{
 									Bucket: bucket,
-									Prefix: VeleroPrefix,
+									Prefix: lib.VeleroPrefix,
 								},
 							},
 							Credential: &bslCredential,
@@ -232,14 +232,14 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 			},
 			WantError: false,
 		}, nil),
-		Entry("Default velero CR, test carriage return", InstallCase{
+		ginkgov2.Entry("Default velero CR, test carriage return", InstallCase{
 			Name:               "default-cr",
-			BRestoreType:       RESTIC,
+			BRestoreType:       lib.RESTIC,
 			TestCarriageReturn: true,
 			DpaSpec: &oadpv1alpha1.DataProtectionApplicationSpec{
 				Configuration: &oadpv1alpha1.ApplicationConfig{
 					Velero: &oadpv1alpha1.VeleroConfig{
-						DefaultPlugins: Dpa.Spec.Configuration.Velero.DefaultPlugins,
+						DefaultPlugins: lib.Dpa.Spec.Configuration.Velero.DefaultPlugins,
 						PodConfig:      &oadpv1alpha1.PodConfig{},
 					},
 					Restic: &oadpv1alpha1.ResticConfig{
@@ -258,7 +258,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 							StorageType: velero.StorageType{
 								ObjectStorage: &velero.ObjectStorageLocation{
 									Bucket: bucket,
-									Prefix: VeleroPrefix,
+									Prefix: lib.VeleroPrefix,
 								},
 							},
 							Credential: &bslCredential,
@@ -268,16 +268,16 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 			},
 			WantError: false,
 		}, nil),
-		Entry("Adding Velero custom plugin", InstallCase{
+		ginkgov2.Entry("Adding Velero custom plugin", InstallCase{
 			Name:         "default-cr-velero-custom-plugin",
-			BRestoreType: RESTIC,
+			BRestoreType: lib.RESTIC,
 			DpaSpec: &oadpv1alpha1.DataProtectionApplicationSpec{
 				Configuration: &oadpv1alpha1.ApplicationConfig{
 					Velero: &oadpv1alpha1.VeleroConfig{
 						PodConfig: &oadpv1alpha1.PodConfig{},
 						DefaultPlugins: append([]oadpv1alpha1.DefaultPlugin{
 							oadpv1alpha1.DefaultPluginCSI,
-						}, Dpa.Spec.Configuration.Velero.DefaultPlugins...),
+						}, lib.Dpa.Spec.Configuration.Velero.DefaultPlugins...),
 						CustomPlugins: []oadpv1alpha1.CustomPlugin{
 							{
 								Name:  "encryption-plugin",
@@ -302,7 +302,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 							StorageType: velero.StorageType{
 								ObjectStorage: &velero.ObjectStorageLocation{
 									Bucket: bucket,
-									Prefix: VeleroPrefix,
+									Prefix: lib.VeleroPrefix,
 								},
 							},
 							Credential: &bslCredential,
@@ -312,9 +312,9 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 			},
 			WantError: false,
 		}, nil),
-		Entry("Adding Velero resource allocations", InstallCase{
+		ginkgov2.Entry("Adding Velero resource allocations", InstallCase{
 			Name:         "default-cr-velero-resource-alloc",
-			BRestoreType: RESTIC,
+			BRestoreType: lib.RESTIC,
 			DpaSpec: &oadpv1alpha1.DataProtectionApplicationSpec{
 				Configuration: &oadpv1alpha1.ApplicationConfig{
 					Velero: &oadpv1alpha1.VeleroConfig{
@@ -332,7 +332,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 						},
 						DefaultPlugins: append([]oadpv1alpha1.DefaultPlugin{
 							oadpv1alpha1.DefaultPluginCSI,
-						}, Dpa.Spec.Configuration.Velero.DefaultPlugins...),
+						}, lib.Dpa.Spec.Configuration.Velero.DefaultPlugins...),
 					},
 					Restic: &oadpv1alpha1.ResticConfig{
 						NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
@@ -351,7 +351,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 							StorageType: velero.StorageType{
 								ObjectStorage: &velero.ObjectStorageLocation{
 									Bucket: bucket,
-									Prefix: VeleroPrefix,
+									Prefix: lib.VeleroPrefix,
 								},
 							},
 							Credential: &bslCredential,
@@ -361,9 +361,9 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 			},
 			WantError: false,
 		}, nil),
-		Entry("Provider plugin", InstallCase{
+		ginkgov2.Entry("Provider plugin", InstallCase{
 			Name:         "default-cr-aws-plugin",
-			BRestoreType: RESTIC,
+			BRestoreType: lib.RESTIC,
 			DpaSpec: &oadpv1alpha1.DataProtectionApplicationSpec{
 				Configuration: &oadpv1alpha1.ApplicationConfig{
 					Velero: &oadpv1alpha1.VeleroConfig{
@@ -399,7 +399,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 							StorageType: velero.StorageType{
 								ObjectStorage: &velero.ObjectStorageLocation{
 									Bucket: bucket,
-									Prefix: VeleroPrefix,
+									Prefix: lib.VeleroPrefix,
 								},
 							},
 							Credential: &bslCredential,
@@ -409,14 +409,14 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 			},
 			WantError: false,
 		}, nil),
-		Entry("DPA CR with bsl and vsl", InstallCase{
+		ginkgov2.Entry("DPA CR with bsl and vsl", InstallCase{
 			Name:         "default-cr-bsl-vsl",
-			BRestoreType: RESTIC,
+			BRestoreType: lib.RESTIC,
 			DpaSpec: &oadpv1alpha1.DataProtectionApplicationSpec{
 				Configuration: &oadpv1alpha1.ApplicationConfig{
 					Velero: &oadpv1alpha1.VeleroConfig{
 						PodConfig:      &oadpv1alpha1.PodConfig{},
-						DefaultPlugins: Dpa.Spec.Configuration.Velero.DefaultPlugins,
+						DefaultPlugins: lib.Dpa.Spec.Configuration.Velero.DefaultPlugins,
 					},
 					Restic: &oadpv1alpha1.ResticConfig{
 						NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
@@ -425,7 +425,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 						},
 					},
 				},
-				SnapshotLocations: Dpa.Spec.SnapshotLocations,
+				SnapshotLocations: lib.Dpa.Spec.SnapshotLocations,
 				BackupLocations: []oadpv1alpha1.BackupLocation{
 					{
 						Velero: &velero.BackupStorageLocationSpec{
@@ -435,7 +435,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 							StorageType: velero.StorageType{
 								ObjectStorage: &velero.ObjectStorageLocation{
 									Bucket: bucket,
-									Prefix: VeleroPrefix,
+									Prefix: lib.VeleroPrefix,
 								},
 							},
 							Credential: &bslCredential,
@@ -445,14 +445,14 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 			},
 			WantError: false,
 		}, nil),
-		Entry("Default velero CR with restic disabled", InstallCase{
+		ginkgov2.Entry("Default velero CR with restic disabled", InstallCase{
 			Name:         "default-cr-no-restic",
-			BRestoreType: RESTIC,
+			BRestoreType: lib.RESTIC,
 			DpaSpec: &oadpv1alpha1.DataProtectionApplicationSpec{
 				Configuration: &oadpv1alpha1.ApplicationConfig{
 					Velero: &oadpv1alpha1.VeleroConfig{
 						PodConfig:      &oadpv1alpha1.PodConfig{},
-						DefaultPlugins: Dpa.Spec.Configuration.Velero.DefaultPlugins,
+						DefaultPlugins: lib.Dpa.Spec.Configuration.Velero.DefaultPlugins,
 					},
 					Restic: &oadpv1alpha1.ResticConfig{
 						NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
@@ -470,7 +470,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 							StorageType: velero.StorageType{
 								ObjectStorage: &velero.ObjectStorageLocation{
 									Bucket: bucket,
-									Prefix: VeleroPrefix,
+									Prefix: lib.VeleroPrefix,
 								},
 							},
 							Credential: &bslCredential,
@@ -480,16 +480,16 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 			},
 			WantError: false,
 		}, nil),
-		Entry("Adding CSI plugin", InstallCase{
+		ginkgov2.Entry("Adding CSI plugin", InstallCase{
 			Name:         "default-cr-csi",
-			BRestoreType: RESTIC,
+			BRestoreType: lib.RESTIC,
 			DpaSpec: &oadpv1alpha1.DataProtectionApplicationSpec{
 				Configuration: &oadpv1alpha1.ApplicationConfig{
 					Velero: &oadpv1alpha1.VeleroConfig{
 						PodConfig: &oadpv1alpha1.PodConfig{},
 						DefaultPlugins: append([]oadpv1alpha1.DefaultPlugin{
 							oadpv1alpha1.DefaultPluginCSI,
-						}, Dpa.Spec.Configuration.Velero.DefaultPlugins...),
+						}, lib.Dpa.Spec.Configuration.Velero.DefaultPlugins...),
 					},
 					Restic: &oadpv1alpha1.ResticConfig{
 						NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
@@ -507,7 +507,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 							StorageType: velero.StorageType{
 								ObjectStorage: &velero.ObjectStorageLocation{
 									Bucket: bucket,
-									Prefix: VeleroPrefix,
+									Prefix: lib.VeleroPrefix,
 								},
 							},
 							Credential: &bslCredential,
@@ -517,9 +517,9 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 			},
 			WantError: false,
 		}, nil),
-		Entry("Set restic node selector", InstallCase{
+		ginkgov2.Entry("Set restic node selector", InstallCase{
 			Name:         "default-cr-node-selector",
-			BRestoreType: RESTIC,
+			BRestoreType: lib.RESTIC,
 			DpaSpec: &oadpv1alpha1.DataProtectionApplicationSpec{
 				BackupLocations: []oadpv1alpha1.BackupLocation{
 					{
@@ -530,7 +530,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 							StorageType: velero.StorageType{
 								ObjectStorage: &velero.ObjectStorageLocation{
 									Bucket: bucket,
-									Prefix: VeleroPrefix,
+									Prefix: lib.VeleroPrefix,
 								},
 							},
 							Credential: &bslCredential,
@@ -540,7 +540,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 				Configuration: &oadpv1alpha1.ApplicationConfig{
 					Velero: &oadpv1alpha1.VeleroConfig{
 						PodConfig:      &oadpv1alpha1.PodConfig{},
-						DefaultPlugins: Dpa.Spec.Configuration.Velero.DefaultPlugins,
+						DefaultPlugins: lib.Dpa.Spec.Configuration.Velero.DefaultPlugins,
 					},
 					Restic: &oadpv1alpha1.ResticConfig{
 						NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
@@ -556,9 +556,9 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 			},
 			WantError: false,
 		}, nil),
-		Entry("Enable tolerations", InstallCase{
+		ginkgov2.Entry("Enable tolerations", InstallCase{
 			Name:         "default-cr-tolerations",
-			BRestoreType: RESTIC,
+			BRestoreType: lib.RESTIC,
 			DpaSpec: &oadpv1alpha1.DataProtectionApplicationSpec{
 				BackupLocations: []oadpv1alpha1.BackupLocation{
 					{
@@ -569,7 +569,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 							StorageType: velero.StorageType{
 								ObjectStorage: &velero.ObjectStorageLocation{
 									Bucket: bucket,
-									Prefix: VeleroPrefix,
+									Prefix: lib.VeleroPrefix,
 								},
 							},
 							Credential: &bslCredential,
@@ -579,7 +579,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 				Configuration: &oadpv1alpha1.ApplicationConfig{
 					Velero: &oadpv1alpha1.VeleroConfig{
 						PodConfig:      &oadpv1alpha1.PodConfig{},
-						DefaultPlugins: Dpa.Spec.Configuration.Velero.DefaultPlugins,
+						DefaultPlugins: lib.Dpa.Spec.Configuration.Velero.DefaultPlugins,
 					},
 					Restic: &oadpv1alpha1.ResticConfig{
 						NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
@@ -600,15 +600,15 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 			},
 			WantError: false,
 		}, nil),
-		Entry("NoDefaultBackupLocation", InstallCase{
+		ginkgov2.Entry("NoDefaultBackupLocation", InstallCase{
 			Name:         "default-cr-node-selector",
-			BRestoreType: RESTIC,
+			BRestoreType: lib.RESTIC,
 			DpaSpec: &oadpv1alpha1.DataProtectionApplicationSpec{
 				Configuration: &oadpv1alpha1.ApplicationConfig{
 					Velero: &oadpv1alpha1.VeleroConfig{
 						PodConfig:               &oadpv1alpha1.PodConfig{},
 						NoDefaultBackupLocation: true,
-						DefaultPlugins:          Dpa.Spec.Configuration.Velero.DefaultPlugins,
+						DefaultPlugins:          lib.Dpa.Spec.Configuration.Velero.DefaultPlugins,
 					},
 					Restic: &oadpv1alpha1.ResticConfig{
 						NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
@@ -621,9 +621,9 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 			},
 			WantError: false,
 		}, nil),
-		Entry("AWS Without Region No S3ForcePathStyle with BackupImages false should succeed", Label("aws", "ibmcloud"), InstallCase{
+		ginkgov2.Entry("AWS Without Region No S3ForcePathStyle with BackupImages false should succeed", ginkgov2.Label("aws", "ibmcloud"), InstallCase{
 			Name:         "default-no-region-no-s3forcepathstyle",
-			BRestoreType: RESTIC,
+			BRestoreType: lib.RESTIC,
 			DpaSpec: &oadpv1alpha1.DataProtectionApplicationSpec{
 				BackupImages: pointer.Bool(false),
 				BackupLocations: []oadpv1alpha1.BackupLocation{
@@ -634,7 +634,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 							StorageType: velero.StorageType{
 								ObjectStorage: &velero.ObjectStorageLocation{
 									Bucket: bucket,
-									Prefix: VeleroPrefix,
+									Prefix: lib.VeleroPrefix,
 								},
 							},
 							Credential: &bslCredential,
@@ -653,9 +653,9 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 			},
 			WantError: false,
 		}, nil),
-		Entry("AWS With Region And S3ForcePathStyle should succeed", Label("aws", "ibmcloud"), InstallCase{
+		ginkgov2.Entry("AWS With Region And S3ForcePathStyle should succeed", ginkgov2.Label("aws", "ibmcloud"), InstallCase{
 			Name:         "default-with-region-and-s3forcepathstyle",
-			BRestoreType: RESTIC,
+			BRestoreType: lib.RESTIC,
 			DpaSpec: &oadpv1alpha1.DataProtectionApplicationSpec{
 				BackupLocations: []oadpv1alpha1.BackupLocation{
 					{
@@ -670,7 +670,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 							StorageType: velero.StorageType{
 								ObjectStorage: &velero.ObjectStorageLocation{
 									Bucket: bucket,
-									Prefix: VeleroPrefix,
+									Prefix: lib.VeleroPrefix,
 								},
 							},
 							Credential: &bslCredential,
@@ -689,9 +689,9 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 			},
 			WantError: false,
 		}, nil),
-		Entry("AWS Without Region And S3ForcePathStyle true should fail", Label("aws", "ibmcloud"), InstallCase{
+		ginkgov2.Entry("AWS Without Region And S3ForcePathStyle true should fail", ginkgov2.Label("aws", "ibmcloud"), InstallCase{
 			Name:         "default-with-region-and-s3forcepathstyle",
-			BRestoreType: RESTIC,
+			BRestoreType: lib.RESTIC,
 			DpaSpec: &oadpv1alpha1.DataProtectionApplicationSpec{
 				BackupLocations: []oadpv1alpha1.BackupLocation{
 					{
@@ -704,7 +704,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 							StorageType: velero.StorageType{
 								ObjectStorage: &velero.ObjectStorageLocation{
 									Bucket: bucket,
-									Prefix: VeleroPrefix,
+									Prefix: lib.VeleroPrefix,
 								},
 							},
 							Credential: &bslCredential,
@@ -723,9 +723,9 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 			},
 			WantError: true,
 		}, fmt.Errorf("region for AWS backupstoragelocation not automatically discoverable. Please set the region in the backupstoragelocation config")),
-		Entry("unsupportedOverrides should succeed", Label("aws", "ibmcloud"), InstallCase{
+		ginkgov2.Entry("unsupportedOverrides should succeed", ginkgov2.Label("aws", "ibmcloud"), InstallCase{
 			Name:         "valid-unsupported-overrides",
-			BRestoreType: RESTIC,
+			BRestoreType: lib.RESTIC,
 			DpaSpec: &oadpv1alpha1.DataProtectionApplicationSpec{
 				BackupLocations: []oadpv1alpha1.BackupLocation{
 					{
@@ -740,7 +740,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 							StorageType: velero.StorageType{
 								ObjectStorage: &velero.ObjectStorageLocation{
 									Bucket: bucket,
-									Prefix: VeleroPrefix,
+									Prefix: lib.VeleroPrefix,
 								},
 							},
 							Credential: &bslCredential,
@@ -764,49 +764,49 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 		}, nil),
 	)
 
-	DescribeTable("DPA / Restic Deletion test",
+	ginkgov2.DescribeTable("DPA / Restic Deletion test",
 		func(installCase deletionCase) {
 			log.Printf("Building dpa with restic")
-			err := dpaCR.Build(RESTIC)
-			Expect(err).NotTo(HaveOccurred())
+			err := dpaCR.Build(lib.RESTIC)
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 			log.Printf("Creating dpa with restic")
 			err = dpaCR.CreateOrUpdate(runTimeClientForSuiteRun, &dpaCR.CustomResource.Spec)
-			Expect(err).NotTo(HaveOccurred())
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 			log.Printf("Waiting for velero pod with restic to be running")
-			Eventually(AreVeleroPodsRunning(kubernetesClientForSuiteRun, namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
+			gomega.Eventually(lib.AreVeleroPodsRunning(kubernetesClientForSuiteRun, namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(gomega.BeTrue())
 			log.Printf("Deleting dpa with restic")
 			err = dpaCR.Delete(runTimeClientForSuiteRun)
 			if installCase.WantError {
-				Expect(err).To(HaveOccurred())
+				gomega.Expect(err).To(gomega.HaveOccurred())
 			} else {
-				Expect(err).NotTo(HaveOccurred())
+				gomega.Expect(err).NotTo(gomega.HaveOccurred())
 				log.Printf("Checking no velero pods with restic are running")
-				Eventually(AreVeleroPodsRunning(kubernetesClientForSuiteRun, namespace), timeoutMultiplier*time.Minute*3, time.Second*5).ShouldNot(BeTrue())
+				gomega.Eventually(lib.AreVeleroPodsRunning(kubernetesClientForSuiteRun, namespace), timeoutMultiplier*time.Minute*3, time.Second*5).ShouldNot(gomega.BeTrue())
 			}
 		},
-		Entry("Should succeed", deletionCase{WantError: false}),
+		ginkgov2.Entry("Should succeed", deletionCase{WantError: false}),
 	)
 
-	DescribeTable("DPA / Kopia Deletion test",
+	ginkgov2.DescribeTable("DPA / Kopia Deletion test",
 		func(installCase deletionCase) {
 			log.Printf("Building dpa with kopia")
-			err := dpaCR.Build(KOPIA)
-			Expect(err).NotTo(HaveOccurred())
+			err := dpaCR.Build(lib.KOPIA)
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 			log.Printf("Creating dpa with kopia")
 			err = dpaCR.CreateOrUpdate(runTimeClientForSuiteRun, &dpaCR.CustomResource.Spec)
-			Expect(err).NotTo(HaveOccurred())
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 			log.Printf("Waiting for velero pod with kopia to be running")
-			Eventually(AreVeleroPodsRunning(kubernetesClientForSuiteRun, namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
+			gomega.Eventually(lib.AreVeleroPodsRunning(kubernetesClientForSuiteRun, namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(gomega.BeTrue())
 			log.Printf("Deleting dpa with kopia")
 			err = dpaCR.Delete(runTimeClientForSuiteRun)
 			if installCase.WantError {
-				Expect(err).To(HaveOccurred())
+				gomega.Expect(err).To(gomega.HaveOccurred())
 			} else {
-				Expect(err).NotTo(HaveOccurred())
+				gomega.Expect(err).NotTo(gomega.HaveOccurred())
 				log.Printf("Checking no velero pods with kopia are running")
-				Eventually(AreVeleroPodsRunning(kubernetesClientForSuiteRun, namespace), timeoutMultiplier*time.Minute*3, time.Second*5).ShouldNot(BeTrue())
+				gomega.Eventually(lib.AreVeleroPodsRunning(kubernetesClientForSuiteRun, namespace), timeoutMultiplier*time.Minute*3, time.Second*5).ShouldNot(gomega.BeTrue())
 			}
 		},
-		Entry("Should succeed", deletionCase{WantError: false}),
+		ginkgov2.Entry("Should succeed", deletionCase{WantError: false}),
 	)
 })

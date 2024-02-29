@@ -3,26 +3,27 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"github.com/openshift/oadp-operator/pkg/common"
-	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"os"
 	"strconv"
 	"time"
 
 	"github.com/go-logr/logr"
-	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
-	bucketpkg "github.com/openshift/oadp-operator/pkg/bucket"
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+
+	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
+	bucketpkg "github.com/openshift/oadp-operator/pkg/bucket"
+	"github.com/openshift/oadp-operator/pkg/common"
 )
 
 const (
@@ -56,14 +57,14 @@ type BucketReconciler struct {
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.9.2/pkg/reconcile
 func (b BucketReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	b.Log = log.FromContext(ctx)
-	log := b.Log.WithValues("bucket", req.NamespacedName)
+	logger := b.Log.WithValues("bucket", req.NamespacedName)
 	result := ctrl.Result{}
 	// Set reconciler context + name
 
 	bucket := oadpv1alpha1.CloudStorage{}
 
 	if err := b.Client.Get(ctx, req.NamespacedName, &bucket); err != nil {
-		log.Error(err, "unable to fetch bucket CR")
+		logger.Error(err, "unable to fetch bucket CR")
 		return result, nil
 	}
 
@@ -94,16 +95,16 @@ func (b BucketReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		if shouldDelete && bucket.DeletionTimestamp != nil {
 			deleted, err := clnt.Delete()
 			if err != nil {
-				log.Error(err, "unable to delete bucket")
+				logger.Error(err, "unable to delete bucket")
 				b.EventRecorder.Event(&bucket, corev1.EventTypeWarning, "UnableToDeleteBucket", fmt.Sprintf("unable to delete bucket: %v", bucket.Spec.Name))
 				return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
 			}
 			if !deleted {
-				log.Info("unable to delete bucket for unknown reason")
+				logger.Info("unable to delete bucket for unknown reason")
 				b.EventRecorder.Event(&bucket, corev1.EventTypeWarning, "UnableToDeleteBucketUnknown", fmt.Sprintf("unable to delete bucket: %v", bucket.Spec.Name))
 				return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
 			}
-			log.Info("bucket deleted")
+			logger.Info("bucket deleted")
 			b.EventRecorder.Event(&bucket, corev1.EventTypeNormal, "BucketDeleted", fmt.Sprintf("bucket %v deleted", bucket.Spec.Name))
 
 			//Removing oadpFinalizerBucket from bucket.Finalizers
@@ -118,11 +119,11 @@ func (b BucketReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	var ok bool
 	if common.CCOWorkflow() {
 		// wait for the credential request to be processed and the secret to be created
-		log.Info(fmt.Sprintf("Following standardized STS workflow, waiting for for the credential request to be processed and provision the secret"))
+		logger.Info(fmt.Sprintf("Following standardized STS workflow, waiting for for the credential request to be processed and provision the secret"))
 		installNS := os.Getenv("WATCH_NAMESPACE")
 		_, err = b.WaitForSecret(installNS, VeleroAWSSecretName)
 		if err != nil {
-			log.Error(err, "unable to fetch secert created by CCO")
+			logger.Error(err, "unable to fetch secert created by CCO")
 			return result, err
 		}
 	}
@@ -131,20 +132,20 @@ func (b BucketReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		// Handle Creation if not exist.
 		created, err := clnt.Create()
 		if !created {
-			log.Info("unable to create object bucket")
+			logger.Info("unable to create object bucket")
 			b.EventRecorder.Event(&bucket, corev1.EventTypeWarning, "BucketNotCreated", fmt.Sprintf("unable to create bucket: %v", err))
 			return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
 		}
 		if err != nil {
 			//TODO: LOG/EVENT THE MESSAGE
-			log.Error(err, "Error while creating event")
+			logger.Error(err, "Error while creating event")
 			return ctrl.Result{RequeueAfter: 1 * time.Minute}, nil
 		}
 		b.EventRecorder.Event(&bucket, corev1.EventTypeNormal, "BucketCreated", fmt.Sprintf("bucket %v has been created", bucket.Spec.Name))
 	}
 	if err != nil {
 		// Bucket may be created but something else went wrong.
-		log.Error(err, "unable to determine if bucket exists.")
+		logger.Error(err, "unable to determine if bucket exists.")
 		b.EventRecorder.Event(&bucket, corev1.EventTypeWarning, "BucketNotFound", fmt.Sprintf("unable to find bucket: %v", err))
 		return ctrl.Result{RequeueAfter: 1 * time.Minute}, nil
 	}

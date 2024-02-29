@@ -7,29 +7,27 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/vmware-tanzu/velero/pkg/util/boolptr"
-
+	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
-	"github.com/openshift/oadp-operator/pkg/credentials"
 	"github.com/operator-framework/operator-lib/proxy"
 	"github.com/sirupsen/logrus"
-	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/util/intstr"
-
-	"github.com/go-logr/logr"
-	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
-	"github.com/openshift/oadp-operator/pkg/common"
 	"github.com/vmware-tanzu/velero/pkg/install"
+	"github.com/vmware-tanzu/velero/pkg/util/boolptr"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/pointer"
-
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+
+	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
+	"github.com/openshift/oadp-operator/pkg/common"
+	"github.com/openshift/oadp-operator/pkg/credentials"
 )
 
 const (
