@@ -7,24 +7,22 @@ import (
 	"reflect"
 	"testing"
 
-	"k8s.io/apimachinery/pkg/api/resource"
-	"k8s.io/apimachinery/pkg/util/intstr"
-
+	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
-
-	"github.com/go-logr/logr"
-	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
-	"github.com/openshift/oadp-operator/pkg/common"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
+	"github.com/openshift/oadp-operator/pkg/common"
 )
 
 func TestDPAReconciler_ReconcileNodeAgentDaemonset(t *testing.T) {
@@ -151,60 +149,60 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 						Type: appsv1.RollingUpdateDaemonSetStrategyType,
 					},
 					Selector: nodeAgentLabelSelector,
-					Template: v1.PodTemplateSpec{
+					Template: corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: map[string]string{
 								"component": common.Velero,
 								"name":      common.NodeAgent,
 							},
 						},
-						Spec: v1.PodSpec{
+						Spec: corev1.PodSpec{
 							NodeSelector:       dpa.Spec.Configuration.NodeAgent.PodConfig.NodeSelector,
 							ServiceAccountName: common.Velero,
-							SecurityContext: &v1.PodSecurityContext{
+							SecurityContext: &corev1.PodSecurityContext{
 								RunAsUser:          pointer.Int64(0),
 								SupplementalGroups: dpa.Spec.Configuration.NodeAgent.SupplementalGroups,
 							},
-							Volumes: []v1.Volume{
+							Volumes: []corev1.Volume{
 								// Cloud Provider volumes are dynamically added in the for loop below
 								{
 									Name: HostPods,
-									VolumeSource: v1.VolumeSource{
-										HostPath: &v1.HostPathVolumeSource{
+									VolumeSource: corev1.VolumeSource{
+										HostPath: &corev1.HostPathVolumeSource{
 											Path: fsPvHostPath,
 										},
 									},
 								},
 								{
 									Name: HostPlugins,
-									VolumeSource: v1.VolumeSource{
-										HostPath: &v1.HostPathVolumeSource{
+									VolumeSource: corev1.VolumeSource{
+										HostPath: &corev1.HostPathVolumeSource{
 											Path: "/var/lib/kubelet/plugins",
 										},
 									},
 								},
 								{
 									Name: "scratch",
-									VolumeSource: v1.VolumeSource{
-										EmptyDir: &v1.EmptyDirVolumeSource{},
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{},
 									},
 								},
 								{
 									Name: "certs",
-									VolumeSource: v1.VolumeSource{
-										EmptyDir: &v1.EmptyDirVolumeSource{},
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{},
 									},
 								},
 							},
 							Tolerations: dpa.Spec.Configuration.NodeAgent.PodConfig.Tolerations,
-							Containers: []v1.Container{
+							Containers: []corev1.Container{
 								{
 									Name: common.NodeAgent,
-									SecurityContext: &v1.SecurityContext{
+									SecurityContext: &corev1.SecurityContext{
 										Privileged: pointer.Bool(true),
 									},
 									Image:           getVeleroImage(&dpa),
-									ImagePullPolicy: v1.PullAlways,
+									ImagePullPolicy: corev1.PullAlways,
 									Command: []string{
 										"/velero",
 									},
@@ -212,14 +210,14 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 										common.NodeAgent,
 										"server",
 									},
-									Ports: []v1.ContainerPort{
+									Ports: []corev1.ContainerPort{
 										{
 											Name:          "metrics",
 											ContainerPort: 8085,
 											Protocol:      "TCP",
 										},
 									},
-									VolumeMounts: []v1.VolumeMount{
+									VolumeMounts: []corev1.VolumeMount{
 										{
 											Name:             HostPods,
 											MountPath:        "/host_pods",
@@ -245,19 +243,19 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 											corev1.ResourceMemory: resource.MustParse("128Mi"),
 										},
 									},
-									Env: []v1.EnvVar{
+									Env: []corev1.EnvVar{
 										{
 											Name: "NODE_NAME",
-											ValueFrom: &v1.EnvVarSource{
-												FieldRef: &v1.ObjectFieldSelector{
+											ValueFrom: &corev1.EnvVarSource{
+												FieldRef: &corev1.ObjectFieldSelector{
 													FieldPath: "spec.nodeName",
 												},
 											},
 										},
 										{
 											Name: "VELERO_NAMESPACE",
-											ValueFrom: &v1.EnvVarSource{
-												FieldRef: &v1.ObjectFieldSelector{
+											ValueFrom: &corev1.EnvVarSource{
+												FieldRef: &corev1.ObjectFieldSelector{
 													FieldPath: "metadata.namespace",
 												},
 											},
@@ -314,60 +312,60 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 						Type: appsv1.RollingUpdateDaemonSetStrategyType,
 					},
 					Selector: nodeAgentLabelSelector,
-					Template: v1.PodTemplateSpec{
+					Template: corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: map[string]string{
 								"component": common.Velero,
 								"name":      common.NodeAgent,
 							},
 						},
-						Spec: v1.PodSpec{
+						Spec: corev1.PodSpec{
 							NodeSelector:       dpa.Spec.Configuration.NodeAgent.PodConfig.NodeSelector,
 							ServiceAccountName: common.Velero,
-							SecurityContext: &v1.PodSecurityContext{
+							SecurityContext: &corev1.PodSecurityContext{
 								RunAsUser:          pointer.Int64(0),
 								SupplementalGroups: dpa.Spec.Configuration.NodeAgent.SupplementalGroups,
 							},
-							Volumes: []v1.Volume{
+							Volumes: []corev1.Volume{
 								// Cloud Provider volumes are dynamically added in the for loop below
 								{
 									Name: HostPods,
-									VolumeSource: v1.VolumeSource{
-										HostPath: &v1.HostPathVolumeSource{
+									VolumeSource: corev1.VolumeSource{
+										HostPath: &corev1.HostPathVolumeSource{
 											Path: fsPvHostPath,
 										},
 									},
 								},
 								{
 									Name: HostPlugins,
-									VolumeSource: v1.VolumeSource{
-										HostPath: &v1.HostPathVolumeSource{
+									VolumeSource: corev1.VolumeSource{
+										HostPath: &corev1.HostPathVolumeSource{
 											Path: "/var/lib/kubelet/plugins",
 										},
 									},
 								},
 								{
 									Name: "scratch",
-									VolumeSource: v1.VolumeSource{
-										EmptyDir: &v1.EmptyDirVolumeSource{},
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{},
 									},
 								},
 								{
 									Name: "certs",
-									VolumeSource: v1.VolumeSource{
-										EmptyDir: &v1.EmptyDirVolumeSource{},
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{},
 									},
 								},
 							},
 							Tolerations: dpa.Spec.Configuration.NodeAgent.PodConfig.Tolerations,
-							Containers: []v1.Container{
+							Containers: []corev1.Container{
 								{
 									Name: common.NodeAgent,
-									SecurityContext: &v1.SecurityContext{
+									SecurityContext: &corev1.SecurityContext{
 										Privileged: pointer.Bool(true),
 									},
 									Image:           getVeleroImage(&dpa),
-									ImagePullPolicy: v1.PullAlways,
+									ImagePullPolicy: corev1.PullAlways,
 									Command: []string{
 										"/velero",
 									},
@@ -375,14 +373,14 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 										"node-agent",
 										"server",
 									},
-									Ports: []v1.ContainerPort{
+									Ports: []corev1.ContainerPort{
 										{
 											Name:          "metrics",
 											ContainerPort: 8085,
 											Protocol:      "TCP",
 										},
 									},
-									VolumeMounts: []v1.VolumeMount{
+									VolumeMounts: []corev1.VolumeMount{
 										{
 											Name:             HostPods,
 											MountPath:        "/host_pods",
@@ -408,19 +406,19 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 											corev1.ResourceMemory: resource.MustParse("128Mi"),
 										},
 									},
-									Env: []v1.EnvVar{
+									Env: []corev1.EnvVar{
 										{
 											Name: "NODE_NAME",
-											ValueFrom: &v1.EnvVarSource{
-												FieldRef: &v1.ObjectFieldSelector{
+											ValueFrom: &corev1.EnvVarSource{
+												FieldRef: &corev1.ObjectFieldSelector{
 													FieldPath: "spec.nodeName",
 												},
 											},
 										},
 										{
 											Name: "VELERO_NAMESPACE",
-											ValueFrom: &v1.EnvVarSource{
-												FieldRef: &v1.ObjectFieldSelector{
+											ValueFrom: &corev1.EnvVarSource{
+												FieldRef: &corev1.ObjectFieldSelector{
 													FieldPath: "metadata.namespace",
 												},
 											},
@@ -482,7 +480,7 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 						Type: appsv1.RollingUpdateDaemonSetStrategyType,
 					},
 					Selector: nodeAgentLabelSelector,
-					Template: v1.PodTemplateSpec{
+					Template: corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: map[string]string{
 								"component":      common.Velero,
@@ -490,53 +488,53 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 								"nodeAgentLabel": "this is a label",
 							},
 						},
-						Spec: v1.PodSpec{
+						Spec: corev1.PodSpec{
 							NodeSelector:       dpa.Spec.Configuration.NodeAgent.PodConfig.NodeSelector,
 							ServiceAccountName: common.Velero,
-							SecurityContext: &v1.PodSecurityContext{
+							SecurityContext: &corev1.PodSecurityContext{
 								RunAsUser:          pointer.Int64(0),
 								SupplementalGroups: dpa.Spec.Configuration.NodeAgent.SupplementalGroups,
 							},
-							Volumes: []v1.Volume{
+							Volumes: []corev1.Volume{
 								// Cloud Provider volumes are dynamically added in the for loop below
 								{
 									Name: HostPods,
-									VolumeSource: v1.VolumeSource{
-										HostPath: &v1.HostPathVolumeSource{
+									VolumeSource: corev1.VolumeSource{
+										HostPath: &corev1.HostPathVolumeSource{
 											Path: fsPvHostPath,
 										},
 									},
 								},
 								{
 									Name: HostPlugins,
-									VolumeSource: v1.VolumeSource{
-										HostPath: &v1.HostPathVolumeSource{
+									VolumeSource: corev1.VolumeSource{
+										HostPath: &corev1.HostPathVolumeSource{
 											Path: "/var/lib/kubelet/plugins",
 										},
 									},
 								},
 								{
 									Name: "scratch",
-									VolumeSource: v1.VolumeSource{
-										EmptyDir: &v1.EmptyDirVolumeSource{},
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{},
 									},
 								},
 								{
 									Name: "certs",
-									VolumeSource: v1.VolumeSource{
-										EmptyDir: &v1.EmptyDirVolumeSource{},
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{},
 									},
 								},
 							},
 							Tolerations: dpa.Spec.Configuration.NodeAgent.PodConfig.Tolerations,
-							Containers: []v1.Container{
+							Containers: []corev1.Container{
 								{
 									Name: common.NodeAgent,
-									SecurityContext: &v1.SecurityContext{
+									SecurityContext: &corev1.SecurityContext{
 										Privileged: pointer.Bool(true),
 									},
 									Image:           getVeleroImage(&dpa),
-									ImagePullPolicy: v1.PullAlways,
+									ImagePullPolicy: corev1.PullAlways,
 									Command: []string{
 										"/velero",
 									},
@@ -544,14 +542,14 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 										common.NodeAgent,
 										"server",
 									},
-									Ports: []v1.ContainerPort{
+									Ports: []corev1.ContainerPort{
 										{
 											Name:          "metrics",
 											ContainerPort: 8085,
 											Protocol:      "TCP",
 										},
 									},
-									VolumeMounts: []v1.VolumeMount{
+									VolumeMounts: []corev1.VolumeMount{
 										{
 											Name:             HostPods,
 											MountPath:        "/host_pods",
@@ -577,19 +575,19 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 											corev1.ResourceMemory: resource.MustParse("128Mi"),
 										},
 									},
-									Env: []v1.EnvVar{
+									Env: []corev1.EnvVar{
 										{
 											Name: "NODE_NAME",
-											ValueFrom: &v1.EnvVarSource{
-												FieldRef: &v1.ObjectFieldSelector{
+											ValueFrom: &corev1.EnvVarSource{
+												FieldRef: &corev1.ObjectFieldSelector{
 													FieldPath: "spec.nodeName",
 												},
 											},
 										},
 										{
 											Name: "VELERO_NAMESPACE",
-											ValueFrom: &v1.EnvVarSource{
-												FieldRef: &v1.ObjectFieldSelector{
+											ValueFrom: &corev1.EnvVarSource{
+												FieldRef: &corev1.ObjectFieldSelector{
 													FieldPath: "metadata.namespace",
 												},
 											},
@@ -678,70 +676,70 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 						Type: appsv1.RollingUpdateDaemonSetStrategyType,
 					},
 					Selector: nodeAgentLabelSelector,
-					Template: v1.PodTemplateSpec{
+					Template: corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: map[string]string{
 								"component": common.Velero,
 								"name":      common.NodeAgent,
 							},
 						},
-						Spec: v1.PodSpec{
+						Spec: corev1.PodSpec{
 							NodeSelector: map[string]string{
 								"foo": "bar",
 							},
 							ServiceAccountName: common.Velero,
-							SecurityContext: &v1.PodSecurityContext{
+							SecurityContext: &corev1.PodSecurityContext{
 								RunAsUser:          pointer.Int64(0),
 								SupplementalGroups: dpa.Spec.Configuration.NodeAgent.SupplementalGroups,
 							},
-							Volumes: []v1.Volume{
+							Volumes: []corev1.Volume{
 								// Cloud Provider volumes are dynamically added in the for loop below
 								{
 									Name: HostPods,
-									VolumeSource: v1.VolumeSource{
-										HostPath: &v1.HostPathVolumeSource{
+									VolumeSource: corev1.VolumeSource{
+										HostPath: &corev1.HostPathVolumeSource{
 											Path: fsPvHostPath,
 										},
 									},
 								},
 								{
 									Name: HostPlugins,
-									VolumeSource: v1.VolumeSource{
-										HostPath: &v1.HostPathVolumeSource{
+									VolumeSource: corev1.VolumeSource{
+										HostPath: &corev1.HostPathVolumeSource{
 											Path: "/var/lib/kubelet/plugins",
 										},
 									},
 								},
 								{
 									Name: "scratch",
-									VolumeSource: v1.VolumeSource{
-										EmptyDir: &v1.EmptyDirVolumeSource{},
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{},
 									},
 								},
 								{
 									Name: "certs",
-									VolumeSource: v1.VolumeSource{
-										EmptyDir: &v1.EmptyDirVolumeSource{},
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{},
 									},
 								},
 								{
 									Name: "cloud-credentials",
-									VolumeSource: v1.VolumeSource{
-										Secret: &v1.SecretVolumeSource{
+									VolumeSource: corev1.VolumeSource{
+										Secret: &corev1.SecretVolumeSource{
 											SecretName: "cloud-credentials",
 										},
 									},
 								},
 							},
 							Tolerations: dpa.Spec.Configuration.NodeAgent.PodConfig.Tolerations,
-							Containers: []v1.Container{
+							Containers: []corev1.Container{
 								{
 									Name: common.NodeAgent,
-									SecurityContext: &v1.SecurityContext{
+									SecurityContext: &corev1.SecurityContext{
 										Privileged: pointer.Bool(true),
 									},
 									Image:           getVeleroImage(&dpa),
-									ImagePullPolicy: v1.PullAlways,
+									ImagePullPolicy: corev1.PullAlways,
 									Command: []string{
 										"/velero",
 									},
@@ -749,14 +747,14 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 										common.NodeAgent,
 										"server",
 									},
-									Ports: []v1.ContainerPort{
+									Ports: []corev1.ContainerPort{
 										{
 											Name:          "metrics",
 											ContainerPort: 8085,
 											Protocol:      "TCP",
 										},
 									},
-									VolumeMounts: []v1.VolumeMount{
+									VolumeMounts: []corev1.VolumeMount{
 										{
 											Name:             HostPods,
 											MountPath:        "/host_pods",
@@ -786,19 +784,19 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 											corev1.ResourceMemory: resource.MustParse("128Mi"),
 										},
 									},
-									Env: []v1.EnvVar{
+									Env: []corev1.EnvVar{
 										{
 											Name: "NODE_NAME",
-											ValueFrom: &v1.EnvVarSource{
-												FieldRef: &v1.ObjectFieldSelector{
+											ValueFrom: &corev1.EnvVarSource{
+												FieldRef: &corev1.ObjectFieldSelector{
 													FieldPath: "spec.nodeName",
 												},
 											},
 										},
 										{
 											Name: "VELERO_NAMESPACE",
-											ValueFrom: &v1.EnvVarSource{
-												FieldRef: &v1.ObjectFieldSelector{
+											ValueFrom: &corev1.EnvVarSource{
+												FieldRef: &corev1.ObjectFieldSelector{
 													FieldPath: "metadata.namespace",
 												},
 											},
@@ -869,70 +867,70 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 						Type: appsv1.RollingUpdateDaemonSetStrategyType,
 					},
 					Selector: nodeAgentLabelSelector,
-					Template: v1.PodTemplateSpec{
+					Template: corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: map[string]string{
 								"component": common.Velero,
 								"name":      common.NodeAgent,
 							},
 						},
-						Spec: v1.PodSpec{
+						Spec: corev1.PodSpec{
 							NodeSelector: map[string]string{
 								"foo": "bar",
 							},
 							ServiceAccountName: common.Velero,
-							SecurityContext: &v1.PodSecurityContext{
+							SecurityContext: &corev1.PodSecurityContext{
 								RunAsUser:          pointer.Int64(0),
 								SupplementalGroups: dpa.Spec.Configuration.NodeAgent.SupplementalGroups,
 							},
-							Volumes: []v1.Volume{
+							Volumes: []corev1.Volume{
 								// Cloud Provider volumes are dynamically added in the for loop below
 								{
 									Name: HostPods,
-									VolumeSource: v1.VolumeSource{
-										HostPath: &v1.HostPathVolumeSource{
+									VolumeSource: corev1.VolumeSource{
+										HostPath: &corev1.HostPathVolumeSource{
 											Path: fsPvHostPath,
 										},
 									},
 								},
 								{
 									Name: HostPlugins,
-									VolumeSource: v1.VolumeSource{
-										HostPath: &v1.HostPathVolumeSource{
+									VolumeSource: corev1.VolumeSource{
+										HostPath: &corev1.HostPathVolumeSource{
 											Path: "/var/lib/kubelet/plugins",
 										},
 									},
 								},
 								{
 									Name: "scratch",
-									VolumeSource: v1.VolumeSource{
-										EmptyDir: &v1.EmptyDirVolumeSource{},
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{},
 									},
 								},
 								{
 									Name: "certs",
-									VolumeSource: v1.VolumeSource{
-										EmptyDir: &v1.EmptyDirVolumeSource{},
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{},
 									},
 								},
 								{
 									Name: "cloud-credentials",
-									VolumeSource: v1.VolumeSource{
-										Secret: &v1.SecretVolumeSource{
+									VolumeSource: corev1.VolumeSource{
+										Secret: &corev1.SecretVolumeSource{
 											SecretName: "cloud-credentials",
 										},
 									},
 								},
 							},
 							Tolerations: dpa.Spec.Configuration.NodeAgent.PodConfig.Tolerations,
-							Containers: []v1.Container{
+							Containers: []corev1.Container{
 								{
 									Name: common.NodeAgent,
-									SecurityContext: &v1.SecurityContext{
+									SecurityContext: &corev1.SecurityContext{
 										Privileged: pointer.Bool(true),
 									},
 									Image:           getVeleroImage(&dpa),
-									ImagePullPolicy: v1.PullAlways,
+									ImagePullPolicy: corev1.PullAlways,
 									Command: []string{
 										"/velero",
 									},
@@ -940,14 +938,14 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 										common.NodeAgent,
 										"server",
 									},
-									Ports: []v1.ContainerPort{
+									Ports: []corev1.ContainerPort{
 										{
 											Name:          "metrics",
 											ContainerPort: 8085,
 											Protocol:      "TCP",
 										},
 									},
-									VolumeMounts: []v1.VolumeMount{
+									VolumeMounts: []corev1.VolumeMount{
 										{
 											Name:             HostPods,
 											MountPath:        "/host_pods",
@@ -981,19 +979,19 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 											corev1.ResourceMemory: resource.MustParse("256Mi"),
 										},
 									},
-									Env: []v1.EnvVar{
+									Env: []corev1.EnvVar{
 										{
 											Name: "NODE_NAME",
-											ValueFrom: &v1.EnvVarSource{
-												FieldRef: &v1.ObjectFieldSelector{
+											ValueFrom: &corev1.EnvVarSource{
+												FieldRef: &corev1.ObjectFieldSelector{
 													FieldPath: "spec.nodeName",
 												},
 											},
 										},
 										{
 											Name: "VELERO_NAMESPACE",
-											ValueFrom: &v1.EnvVarSource{
-												FieldRef: &v1.ObjectFieldSelector{
+											ValueFrom: &corev1.EnvVarSource{
+												FieldRef: &corev1.ObjectFieldSelector{
 													FieldPath: "metadata.namespace",
 												},
 											},
@@ -1059,70 +1057,70 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 						Type: appsv1.RollingUpdateDaemonSetStrategyType,
 					},
 					Selector: nodeAgentLabelSelector,
-					Template: v1.PodTemplateSpec{
+					Template: corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: map[string]string{
 								"component": common.Velero,
 								"name":      common.NodeAgent,
 							},
 						},
-						Spec: v1.PodSpec{
+						Spec: corev1.PodSpec{
 							NodeSelector: map[string]string{
 								"foo": "bar",
 							},
 							ServiceAccountName: common.Velero,
-							SecurityContext: &v1.PodSecurityContext{
+							SecurityContext: &corev1.PodSecurityContext{
 								RunAsUser:          pointer.Int64(0),
 								SupplementalGroups: dpa.Spec.Configuration.NodeAgent.SupplementalGroups,
 							},
-							Volumes: []v1.Volume{
+							Volumes: []corev1.Volume{
 								// Cloud Provider volumes are dynamically added in the for loop below
 								{
 									Name: HostPods,
-									VolumeSource: v1.VolumeSource{
-										HostPath: &v1.HostPathVolumeSource{
+									VolumeSource: corev1.VolumeSource{
+										HostPath: &corev1.HostPathVolumeSource{
 											Path: fsPvHostPath,
 										},
 									},
 								},
 								{
 									Name: HostPlugins,
-									VolumeSource: v1.VolumeSource{
-										HostPath: &v1.HostPathVolumeSource{
+									VolumeSource: corev1.VolumeSource{
+										HostPath: &corev1.HostPathVolumeSource{
 											Path: "/var/lib/kubelet/plugins",
 										},
 									},
 								},
 								{
 									Name: "scratch",
-									VolumeSource: v1.VolumeSource{
-										EmptyDir: &v1.EmptyDirVolumeSource{},
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{},
 									},
 								},
 								{
 									Name: "certs",
-									VolumeSource: v1.VolumeSource{
-										EmptyDir: &v1.EmptyDirVolumeSource{},
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{},
 									},
 								},
 								{
 									Name: "cloud-credentials",
-									VolumeSource: v1.VolumeSource{
-										Secret: &v1.SecretVolumeSource{
+									VolumeSource: corev1.VolumeSource{
+										Secret: &corev1.SecretVolumeSource{
 											SecretName: "cloud-credentials",
 										},
 									},
 								},
 							},
 							Tolerations: dpa.Spec.Configuration.NodeAgent.PodConfig.Tolerations,
-							Containers: []v1.Container{
+							Containers: []corev1.Container{
 								{
 									Name: common.NodeAgent,
-									SecurityContext: &v1.SecurityContext{
+									SecurityContext: &corev1.SecurityContext{
 										Privileged: pointer.Bool(true),
 									},
 									Image:           getVeleroImage(&dpa),
-									ImagePullPolicy: v1.PullAlways,
+									ImagePullPolicy: corev1.PullAlways,
 									Command: []string{
 										"/velero",
 									},
@@ -1130,14 +1128,14 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 										common.NodeAgent,
 										"server",
 									},
-									Ports: []v1.ContainerPort{
+									Ports: []corev1.ContainerPort{
 										{
 											Name:          "metrics",
 											ContainerPort: 8085,
 											Protocol:      "TCP",
 										},
 									},
-									VolumeMounts: []v1.VolumeMount{
+									VolumeMounts: []corev1.VolumeMount{
 										{
 											Name:             HostPods,
 											MountPath:        "/host_pods",
@@ -1170,19 +1168,19 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 											corev1.ResourceMemory: resource.MustParse("128Mi"),
 										},
 									},
-									Env: []v1.EnvVar{
+									Env: []corev1.EnvVar{
 										{
 											Name: "NODE_NAME",
-											ValueFrom: &v1.EnvVarSource{
-												FieldRef: &v1.ObjectFieldSelector{
+											ValueFrom: &corev1.EnvVarSource{
+												FieldRef: &corev1.ObjectFieldSelector{
 													FieldPath: "spec.nodeName",
 												},
 											},
 										},
 										{
 											Name: "VELERO_NAMESPACE",
-											ValueFrom: &v1.EnvVarSource{
-												FieldRef: &v1.ObjectFieldSelector{
+											ValueFrom: &corev1.EnvVarSource{
+												FieldRef: &corev1.ObjectFieldSelector{
 													FieldPath: "metadata.namespace",
 												},
 											},
@@ -1248,70 +1246,70 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 						Type: appsv1.RollingUpdateDaemonSetStrategyType,
 					},
 					Selector: nodeAgentLabelSelector,
-					Template: v1.PodTemplateSpec{
+					Template: corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: map[string]string{
 								"component": common.Velero,
 								"name":      common.NodeAgent,
 							},
 						},
-						Spec: v1.PodSpec{
+						Spec: corev1.PodSpec{
 							NodeSelector: map[string]string{
 								"foo": "bar",
 							},
 							ServiceAccountName: common.Velero,
-							SecurityContext: &v1.PodSecurityContext{
+							SecurityContext: &corev1.PodSecurityContext{
 								RunAsUser:          pointer.Int64(0),
 								SupplementalGroups: dpa.Spec.Configuration.NodeAgent.SupplementalGroups,
 							},
-							Volumes: []v1.Volume{
+							Volumes: []corev1.Volume{
 								// Cloud Provider volumes are dynamically added in the for loop below
 								{
 									Name: HostPods,
-									VolumeSource: v1.VolumeSource{
-										HostPath: &v1.HostPathVolumeSource{
+									VolumeSource: corev1.VolumeSource{
+										HostPath: &corev1.HostPathVolumeSource{
 											Path: fsPvHostPath,
 										},
 									},
 								},
 								{
 									Name: HostPlugins,
-									VolumeSource: v1.VolumeSource{
-										HostPath: &v1.HostPathVolumeSource{
+									VolumeSource: corev1.VolumeSource{
+										HostPath: &corev1.HostPathVolumeSource{
 											Path: "/var/lib/kubelet/plugins",
 										},
 									},
 								},
 								{
 									Name: "scratch",
-									VolumeSource: v1.VolumeSource{
-										EmptyDir: &v1.EmptyDirVolumeSource{},
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{},
 									},
 								},
 								{
 									Name: "certs",
-									VolumeSource: v1.VolumeSource{
-										EmptyDir: &v1.EmptyDirVolumeSource{},
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{},
 									},
 								},
 								{
 									Name: "cloud-credentials",
-									VolumeSource: v1.VolumeSource{
-										Secret: &v1.SecretVolumeSource{
+									VolumeSource: corev1.VolumeSource{
+										Secret: &corev1.SecretVolumeSource{
 											SecretName: "cloud-credentials",
 										},
 									},
 								},
 							},
 							Tolerations: dpa.Spec.Configuration.NodeAgent.PodConfig.Tolerations,
-							Containers: []v1.Container{
+							Containers: []corev1.Container{
 								{
 									Name: common.NodeAgent,
-									SecurityContext: &v1.SecurityContext{
+									SecurityContext: &corev1.SecurityContext{
 										Privileged: pointer.Bool(true),
 									},
 									Image:           getVeleroImage(&dpa),
-									ImagePullPolicy: v1.PullAlways,
+									ImagePullPolicy: corev1.PullAlways,
 									Command: []string{
 										"/velero",
 									},
@@ -1319,14 +1317,14 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 										common.NodeAgent,
 										"server",
 									},
-									Ports: []v1.ContainerPort{
+									Ports: []corev1.ContainerPort{
 										{
 											Name:          "metrics",
 											ContainerPort: 8085,
 											Protocol:      "TCP",
 										},
 									},
-									VolumeMounts: []v1.VolumeMount{
+									VolumeMounts: []corev1.VolumeMount{
 										{
 											Name:             HostPods,
 											MountPath:        "/host_pods",
@@ -1356,19 +1354,19 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 											corev1.ResourceMemory: resource.MustParse("128Mi"),
 										},
 									},
-									Env: []v1.EnvVar{
+									Env: []corev1.EnvVar{
 										{
 											Name: "NODE_NAME",
-											ValueFrom: &v1.EnvVarSource{
-												FieldRef: &v1.ObjectFieldSelector{
+											ValueFrom: &corev1.EnvVarSource{
+												FieldRef: &corev1.ObjectFieldSelector{
 													FieldPath: "spec.nodeName",
 												},
 											},
 										},
 										{
 											Name: "VELERO_NAMESPACE",
-											ValueFrom: &v1.EnvVarSource{
-												FieldRef: &v1.ObjectFieldSelector{
+											ValueFrom: &corev1.EnvVarSource{
+												FieldRef: &corev1.ObjectFieldSelector{
 													FieldPath: "metadata.namespace",
 												},
 											},
@@ -1434,70 +1432,70 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 						Type: appsv1.RollingUpdateDaemonSetStrategyType,
 					},
 					Selector: nodeAgentLabelSelector,
-					Template: v1.PodTemplateSpec{
+					Template: corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: map[string]string{
 								"component": common.Velero,
 								"name":      common.NodeAgent,
 							},
 						},
-						Spec: v1.PodSpec{
+						Spec: corev1.PodSpec{
 							NodeSelector: map[string]string{
 								"foo": "bar",
 							},
 							ServiceAccountName: common.Velero,
-							SecurityContext: &v1.PodSecurityContext{
+							SecurityContext: &corev1.PodSecurityContext{
 								RunAsUser:          pointer.Int64(0),
 								SupplementalGroups: dpa.Spec.Configuration.NodeAgent.SupplementalGroups,
 							},
-							Volumes: []v1.Volume{
+							Volumes: []corev1.Volume{
 								// Cloud Provider volumes are dynamically added in the for loop below
 								{
 									Name: HostPods,
-									VolumeSource: v1.VolumeSource{
-										HostPath: &v1.HostPathVolumeSource{
+									VolumeSource: corev1.VolumeSource{
+										HostPath: &corev1.HostPathVolumeSource{
 											Path: fsPvHostPath,
 										},
 									},
 								},
 								{
 									Name: HostPlugins,
-									VolumeSource: v1.VolumeSource{
-										HostPath: &v1.HostPathVolumeSource{
+									VolumeSource: corev1.VolumeSource{
+										HostPath: &corev1.HostPathVolumeSource{
 											Path: "/var/lib/kubelet/plugins",
 										},
 									},
 								},
 								{
 									Name: "scratch",
-									VolumeSource: v1.VolumeSource{
-										EmptyDir: &v1.EmptyDirVolumeSource{},
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{},
 									},
 								},
 								{
 									Name: "certs",
-									VolumeSource: v1.VolumeSource{
-										EmptyDir: &v1.EmptyDirVolumeSource{},
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{},
 									},
 								},
 								{
 									Name: "cloud-credentials",
-									VolumeSource: v1.VolumeSource{
-										Secret: &v1.SecretVolumeSource{
+									VolumeSource: corev1.VolumeSource{
+										Secret: &corev1.SecretVolumeSource{
 											SecretName: "cloud-credentials",
 										},
 									},
 								},
 							},
 							Tolerations: dpa.Spec.Configuration.NodeAgent.PodConfig.Tolerations,
-							Containers: []v1.Container{
+							Containers: []corev1.Container{
 								{
 									Name: common.NodeAgent,
-									SecurityContext: &v1.SecurityContext{
+									SecurityContext: &corev1.SecurityContext{
 										Privileged: pointer.Bool(true),
 									},
 									Image:           getVeleroImage(&dpa),
-									ImagePullPolicy: v1.PullAlways,
+									ImagePullPolicy: corev1.PullAlways,
 									Command: []string{
 										"/velero",
 									},
@@ -1505,14 +1503,14 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 										common.NodeAgent,
 										"server",
 									},
-									Ports: []v1.ContainerPort{
+									Ports: []corev1.ContainerPort{
 										{
 											Name:          "metrics",
 											ContainerPort: 8085,
 											Protocol:      "TCP",
 										},
 									},
-									VolumeMounts: []v1.VolumeMount{
+									VolumeMounts: []corev1.VolumeMount{
 										{
 											Name:             HostPods,
 											MountPath:        "/host_pods",
@@ -1545,19 +1543,19 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 											corev1.ResourceMemory: resource.MustParse("128Mi"),
 										},
 									},
-									Env: []v1.EnvVar{
+									Env: []corev1.EnvVar{
 										{
 											Name: "NODE_NAME",
-											ValueFrom: &v1.EnvVarSource{
-												FieldRef: &v1.ObjectFieldSelector{
+											ValueFrom: &corev1.EnvVarSource{
+												FieldRef: &corev1.ObjectFieldSelector{
 													FieldPath: "spec.nodeName",
 												},
 											},
 										},
 										{
 											Name: "VELERO_NAMESPACE",
-											ValueFrom: &v1.EnvVarSource{
-												FieldRef: &v1.ObjectFieldSelector{
+											ValueFrom: &corev1.EnvVarSource{
+												FieldRef: &corev1.ObjectFieldSelector{
 													FieldPath: "metadata.namespace",
 												},
 											},
@@ -1623,70 +1621,70 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 						Type: appsv1.RollingUpdateDaemonSetStrategyType,
 					},
 					Selector: nodeAgentLabelSelector,
-					Template: v1.PodTemplateSpec{
+					Template: corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: map[string]string{
 								"component": common.Velero,
 								"name":      common.NodeAgent,
 							},
 						},
-						Spec: v1.PodSpec{
+						Spec: corev1.PodSpec{
 							NodeSelector: map[string]string{
 								"foo": "bar",
 							},
 							ServiceAccountName: common.Velero,
-							SecurityContext: &v1.PodSecurityContext{
+							SecurityContext: &corev1.PodSecurityContext{
 								RunAsUser:          pointer.Int64(0),
 								SupplementalGroups: dpa.Spec.Configuration.NodeAgent.SupplementalGroups,
 							},
-							Volumes: []v1.Volume{
+							Volumes: []corev1.Volume{
 								// Cloud Provider volumes are dynamically added in the for loop below
 								{
 									Name: HostPods,
-									VolumeSource: v1.VolumeSource{
-										HostPath: &v1.HostPathVolumeSource{
+									VolumeSource: corev1.VolumeSource{
+										HostPath: &corev1.HostPathVolumeSource{
 											Path: fsPvHostPath,
 										},
 									},
 								},
 								{
 									Name: HostPlugins,
-									VolumeSource: v1.VolumeSource{
-										HostPath: &v1.HostPathVolumeSource{
+									VolumeSource: corev1.VolumeSource{
+										HostPath: &corev1.HostPathVolumeSource{
 											Path: "/var/lib/kubelet/plugins",
 										},
 									},
 								},
 								{
 									Name: "scratch",
-									VolumeSource: v1.VolumeSource{
-										EmptyDir: &v1.EmptyDirVolumeSource{},
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{},
 									},
 								},
 								{
 									Name: "certs",
-									VolumeSource: v1.VolumeSource{
-										EmptyDir: &v1.EmptyDirVolumeSource{},
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{},
 									},
 								},
 								{
 									Name: "cloud-credentials",
-									VolumeSource: v1.VolumeSource{
-										Secret: &v1.SecretVolumeSource{
+									VolumeSource: corev1.VolumeSource{
+										Secret: &corev1.SecretVolumeSource{
 											SecretName: "cloud-credentials",
 										},
 									},
 								},
 							},
 							Tolerations: dpa.Spec.Configuration.NodeAgent.PodConfig.Tolerations,
-							Containers: []v1.Container{
+							Containers: []corev1.Container{
 								{
 									Name: common.NodeAgent,
-									SecurityContext: &v1.SecurityContext{
+									SecurityContext: &corev1.SecurityContext{
 										Privileged: pointer.Bool(true),
 									},
 									Image:           getVeleroImage(&dpa),
-									ImagePullPolicy: v1.PullAlways,
+									ImagePullPolicy: corev1.PullAlways,
 									Command: []string{
 										"/velero",
 									},
@@ -1694,14 +1692,14 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 										common.NodeAgent,
 										"server",
 									},
-									Ports: []v1.ContainerPort{
+									Ports: []corev1.ContainerPort{
 										{
 											Name:          "metrics",
 											ContainerPort: 8085,
 											Protocol:      "TCP",
 										},
 									},
-									VolumeMounts: []v1.VolumeMount{
+									VolumeMounts: []corev1.VolumeMount{
 										{
 											Name:             HostPods,
 											MountPath:        "/host_pods",
@@ -1731,19 +1729,19 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 											corev1.ResourceMemory: resource.MustParse("256Mi"),
 										},
 									},
-									Env: []v1.EnvVar{
+									Env: []corev1.EnvVar{
 										{
 											Name: "NODE_NAME",
-											ValueFrom: &v1.EnvVarSource{
-												FieldRef: &v1.ObjectFieldSelector{
+											ValueFrom: &corev1.EnvVarSource{
+												FieldRef: &corev1.ObjectFieldSelector{
 													FieldPath: "spec.nodeName",
 												},
 											},
 										},
 										{
 											Name: "VELERO_NAMESPACE",
-											ValueFrom: &v1.EnvVarSource{
-												FieldRef: &v1.ObjectFieldSelector{
+											ValueFrom: &corev1.EnvVarSource{
+												FieldRef: &corev1.ObjectFieldSelector{
 													FieldPath: "metadata.namespace",
 												},
 											},
@@ -1773,7 +1771,7 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 							NodeAgent: &oadpv1alpha1.NodeAgentConfig{
 								NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
 									PodConfig: &oadpv1alpha1.PodConfig{
-										Tolerations: []v1.Toleration{
+										Tolerations: []corev1.Toleration{
 											{
 												Key:      "key1",
 												Operator: "Equal",
@@ -1809,59 +1807,59 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 						Type: appsv1.RollingUpdateDaemonSetStrategyType,
 					},
 					Selector: nodeAgentLabelSelector,
-					Template: v1.PodTemplateSpec{
+					Template: corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: map[string]string{
 								"component": common.Velero,
 								"name":      common.NodeAgent,
 							},
 						},
-						Spec: v1.PodSpec{
+						Spec: corev1.PodSpec{
 							ServiceAccountName: common.Velero,
-							SecurityContext: &v1.PodSecurityContext{
+							SecurityContext: &corev1.PodSecurityContext{
 								RunAsUser:          pointer.Int64(0),
 								SupplementalGroups: dpa.Spec.Configuration.NodeAgent.SupplementalGroups,
 							},
-							Volumes: []v1.Volume{
+							Volumes: []corev1.Volume{
 								// Cloud Provider volumes are dynamically added in the for loop below
 								{
 									Name: HostPods,
-									VolumeSource: v1.VolumeSource{
-										HostPath: &v1.HostPathVolumeSource{
+									VolumeSource: corev1.VolumeSource{
+										HostPath: &corev1.HostPathVolumeSource{
 											Path: fsPvHostPath,
 										},
 									},
 								},
 								{
 									Name: HostPlugins,
-									VolumeSource: v1.VolumeSource{
-										HostPath: &v1.HostPathVolumeSource{
+									VolumeSource: corev1.VolumeSource{
+										HostPath: &corev1.HostPathVolumeSource{
 											Path: "/var/lib/kubelet/plugins",
 										},
 									},
 								},
 								{
 									Name: "scratch",
-									VolumeSource: v1.VolumeSource{
-										EmptyDir: &v1.EmptyDirVolumeSource{},
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{},
 									},
 								},
 								{
 									Name: "certs",
-									VolumeSource: v1.VolumeSource{
-										EmptyDir: &v1.EmptyDirVolumeSource{},
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{},
 									},
 								},
 								{
 									Name: "cloud-credentials",
-									VolumeSource: v1.VolumeSource{
-										Secret: &v1.SecretVolumeSource{
+									VolumeSource: corev1.VolumeSource{
+										Secret: &corev1.SecretVolumeSource{
 											SecretName: "cloud-credentials",
 										},
 									},
 								},
 							},
-							Tolerations: []v1.Toleration{
+							Tolerations: []corev1.Toleration{
 								{
 									Key:      "key1",
 									Operator: "Equal",
@@ -1869,14 +1867,14 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 									Effect:   "NoSchedule",
 								},
 							},
-							Containers: []v1.Container{
+							Containers: []corev1.Container{
 								{
 									Name: common.NodeAgent,
-									SecurityContext: &v1.SecurityContext{
+									SecurityContext: &corev1.SecurityContext{
 										Privileged: pointer.Bool(true),
 									},
 									Image:           getVeleroImage(&dpa),
-									ImagePullPolicy: v1.PullAlways,
+									ImagePullPolicy: corev1.PullAlways,
 									Command: []string{
 										"/velero",
 									},
@@ -1884,14 +1882,14 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 										common.NodeAgent,
 										"server",
 									},
-									Ports: []v1.ContainerPort{
+									Ports: []corev1.ContainerPort{
 										{
 											Name:          "metrics",
 											ContainerPort: 8085,
 											Protocol:      "TCP",
 										},
 									},
-									VolumeMounts: []v1.VolumeMount{
+									VolumeMounts: []corev1.VolumeMount{
 										{
 											Name:             HostPods,
 											MountPath:        "/host_pods",
@@ -1921,19 +1919,19 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 											corev1.ResourceMemory: resource.MustParse("128Mi"),
 										},
 									},
-									Env: []v1.EnvVar{
+									Env: []corev1.EnvVar{
 										{
 											Name: "NODE_NAME",
-											ValueFrom: &v1.EnvVarSource{
-												FieldRef: &v1.ObjectFieldSelector{
+											ValueFrom: &corev1.EnvVarSource{
+												FieldRef: &corev1.ObjectFieldSelector{
 													FieldPath: "spec.nodeName",
 												},
 											},
 										},
 										{
 											Name: "VELERO_NAMESPACE",
-											ValueFrom: &v1.EnvVarSource{
-												FieldRef: &v1.ObjectFieldSelector{
+											ValueFrom: &corev1.EnvVarSource{
+												FieldRef: &corev1.ObjectFieldSelector{
 													FieldPath: "metadata.namespace",
 												},
 											},
@@ -1990,68 +1988,68 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 						Type: appsv1.RollingUpdateDaemonSetStrategyType,
 					},
 					Selector: nodeAgentLabelSelector,
-					Template: v1.PodTemplateSpec{
+					Template: corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: map[string]string{
 								"component": common.Velero,
 								"name":      common.NodeAgent,
 							},
 						},
-						Spec: v1.PodSpec{
+						Spec: corev1.PodSpec{
 							NodeSelector:       dpa.Spec.Configuration.NodeAgent.PodConfig.NodeSelector,
 							ServiceAccountName: common.Velero,
-							SecurityContext: &v1.PodSecurityContext{
+							SecurityContext: &corev1.PodSecurityContext{
 								RunAsUser:          pointer.Int64(0),
 								SupplementalGroups: dpa.Spec.Configuration.NodeAgent.SupplementalGroups,
 							},
-							Volumes: []v1.Volume{
+							Volumes: []corev1.Volume{
 								// Cloud Provider volumes are dynamically added in the for loop below
 								{
 									Name: HostPods,
-									VolumeSource: v1.VolumeSource{
-										HostPath: &v1.HostPathVolumeSource{
+									VolumeSource: corev1.VolumeSource{
+										HostPath: &corev1.HostPathVolumeSource{
 											Path: fsPvHostPath,
 										},
 									},
 								},
 								{
 									Name: HostPlugins,
-									VolumeSource: v1.VolumeSource{
-										HostPath: &v1.HostPathVolumeSource{
+									VolumeSource: corev1.VolumeSource{
+										HostPath: &corev1.HostPathVolumeSource{
 											Path: "/var/lib/kubelet/plugins",
 										},
 									},
 								},
 								{
 									Name: "scratch",
-									VolumeSource: v1.VolumeSource{
-										EmptyDir: &v1.EmptyDirVolumeSource{},
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{},
 									},
 								},
 								{
 									Name: "certs",
-									VolumeSource: v1.VolumeSource{
-										EmptyDir: &v1.EmptyDirVolumeSource{},
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{},
 									},
 								},
 								{
 									Name: "cloud-credentials",
-									VolumeSource: v1.VolumeSource{
-										Secret: &v1.SecretVolumeSource{
+									VolumeSource: corev1.VolumeSource{
+										Secret: &corev1.SecretVolumeSource{
 											SecretName: "cloud-credentials",
 										},
 									},
 								},
 							},
 							Tolerations: dpa.Spec.Configuration.NodeAgent.PodConfig.Tolerations,
-							Containers: []v1.Container{
+							Containers: []corev1.Container{
 								{
 									Name: common.NodeAgent,
-									SecurityContext: &v1.SecurityContext{
+									SecurityContext: &corev1.SecurityContext{
 										Privileged: pointer.Bool(true),
 									},
 									Image:           getVeleroImage(&dpa),
-									ImagePullPolicy: v1.PullAlways,
+									ImagePullPolicy: corev1.PullAlways,
 									Command: []string{
 										"/velero",
 									},
@@ -2059,14 +2057,14 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 										common.NodeAgent,
 										"server",
 									},
-									Ports: []v1.ContainerPort{
+									Ports: []corev1.ContainerPort{
 										{
 											Name:          "metrics",
 											ContainerPort: 8085,
 											Protocol:      "TCP",
 										},
 									},
-									VolumeMounts: []v1.VolumeMount{
+									VolumeMounts: []corev1.VolumeMount{
 										{
 											Name:             HostPods,
 											MountPath:        "/host_pods",
@@ -2096,19 +2094,19 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 											corev1.ResourceMemory: resource.MustParse("128Mi"),
 										},
 									},
-									Env: []v1.EnvVar{
+									Env: []corev1.EnvVar{
 										{
 											Name: "NODE_NAME",
-											ValueFrom: &v1.EnvVarSource{
-												FieldRef: &v1.ObjectFieldSelector{
+											ValueFrom: &corev1.EnvVarSource{
+												FieldRef: &corev1.ObjectFieldSelector{
 													FieldPath: "spec.nodeName",
 												},
 											},
 										},
 										{
 											Name: "VELERO_NAMESPACE",
-											ValueFrom: &v1.EnvVarSource{
-												FieldRef: &v1.ObjectFieldSelector{
+											ValueFrom: &corev1.EnvVarSource{
+												FieldRef: &corev1.ObjectFieldSelector{
 													FieldPath: "metadata.namespace",
 												},
 											},
@@ -2156,8 +2154,8 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 										S3URL:                 "https://sr-url-aws-domain.com",
 										InsecureSkipTLSVerify: "false",
 									},
-									Credential: &v1.SecretKeySelector{
-										LocalObjectReference: v1.LocalObjectReference{
+									Credential: &corev1.SecretKeySelector{
+										LocalObjectReference: corev1.LocalObjectReference{
 											Name: "cloud-credentials",
 										},
 									},
@@ -2184,7 +2182,7 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 						Type: appsv1.RollingUpdateDaemonSetStrategyType,
 					},
 					Selector: nodeAgentLabelSelector,
-					Template: v1.PodTemplateSpec{
+					Template: corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: map[string]string{
 								"component": common.Velero,
@@ -2194,53 +2192,53 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 								"test-annotation": "awesome annotation",
 							},
 						},
-						Spec: v1.PodSpec{
+						Spec: corev1.PodSpec{
 							NodeSelector:       dpa.Spec.Configuration.NodeAgent.PodConfig.NodeSelector,
 							ServiceAccountName: common.Velero,
-							SecurityContext: &v1.PodSecurityContext{
+							SecurityContext: &corev1.PodSecurityContext{
 								RunAsUser:          pointer.Int64(0),
 								SupplementalGroups: dpa.Spec.Configuration.NodeAgent.SupplementalGroups,
 							},
-							Volumes: []v1.Volume{
+							Volumes: []corev1.Volume{
 								// Cloud Provider volumes are dynamically added in the for loop below
 								{
 									Name: HostPods,
-									VolumeSource: v1.VolumeSource{
-										HostPath: &v1.HostPathVolumeSource{
+									VolumeSource: corev1.VolumeSource{
+										HostPath: &corev1.HostPathVolumeSource{
 											Path: fsPvHostPath,
 										},
 									},
 								},
 								{
 									Name: HostPlugins,
-									VolumeSource: v1.VolumeSource{
-										HostPath: &v1.HostPathVolumeSource{
+									VolumeSource: corev1.VolumeSource{
+										HostPath: &corev1.HostPathVolumeSource{
 											Path: "/var/lib/kubelet/plugins",
 										},
 									},
 								},
 								{
 									Name: "scratch",
-									VolumeSource: v1.VolumeSource{
-										EmptyDir: &v1.EmptyDirVolumeSource{},
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{},
 									},
 								},
 								{
 									Name: "certs",
-									VolumeSource: v1.VolumeSource{
-										EmptyDir: &v1.EmptyDirVolumeSource{},
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{},
 									},
 								},
 							},
 							Tolerations: dpa.Spec.Configuration.NodeAgent.PodConfig.Tolerations,
-							Containers: []v1.Container{
+							Containers: []corev1.Container{
 								{
 									Name: common.NodeAgent,
-									SecurityContext: &v1.SecurityContext{
+									SecurityContext: &corev1.SecurityContext{
 										Privileged: pointer.Bool(true),
 									},
 									Image:           getVeleroImage(&dpa),
-									ImagePullPolicy: v1.PullAlways,
+									ImagePullPolicy: corev1.PullAlways,
 									Command: []string{
 										"/velero",
 									},
@@ -2248,14 +2246,14 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 										common.NodeAgent,
 										"server",
 									},
-									Ports: []v1.ContainerPort{
+									Ports: []corev1.ContainerPort{
 										{
 											Name:          "metrics",
 											ContainerPort: 8085,
 											Protocol:      "TCP",
 										},
 									},
-									VolumeMounts: []v1.VolumeMount{
+									VolumeMounts: []corev1.VolumeMount{
 										{
 											Name:             HostPods,
 											MountPath:        "/host_pods",
@@ -2281,19 +2279,19 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 											corev1.ResourceMemory: resource.MustParse("128Mi"),
 										},
 									},
-									Env: []v1.EnvVar{
+									Env: []corev1.EnvVar{
 										{
 											Name: "NODE_NAME",
-											ValueFrom: &v1.EnvVarSource{
-												FieldRef: &v1.ObjectFieldSelector{
+											ValueFrom: &corev1.EnvVarSource{
+												FieldRef: &corev1.ObjectFieldSelector{
 													FieldPath: "spec.nodeName",
 												},
 											},
 										},
 										{
 											Name: "VELERO_NAMESPACE",
-											ValueFrom: &v1.EnvVarSource{
-												FieldRef: &v1.ObjectFieldSelector{
+											ValueFrom: &corev1.EnvVarSource{
+												FieldRef: &corev1.ObjectFieldSelector{
 													FieldPath: "metadata.namespace",
 												},
 											},
@@ -2344,12 +2342,12 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 							"test-annotation": "awesome annotation",
 						},
 						PodDnsPolicy: "None",
-						PodDnsConfig: v1.PodDNSConfig{
+						PodDnsConfig: corev1.PodDNSConfig{
 							Nameservers: []string{
 								"1.1.1.1",
 								"8.8.8.8",
 							},
-							Options: []v1.PodDNSConfigOption{
+							Options: []corev1.PodDNSConfigOption{
 								{
 									Name:  "ndots",
 									Value: pointer.String("2"),
@@ -2376,7 +2374,7 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 						Type: appsv1.RollingUpdateDaemonSetStrategyType,
 					},
 					Selector: nodeAgentLabelSelector,
-					Template: v1.PodTemplateSpec{
+					Template: corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: map[string]string{
 								"component": common.Velero,
@@ -2386,20 +2384,20 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 								"test-annotation": "awesome annotation",
 							},
 						},
-						Spec: v1.PodSpec{
+						Spec: corev1.PodSpec{
 							NodeSelector:       dpa.Spec.Configuration.NodeAgent.PodConfig.NodeSelector,
 							ServiceAccountName: common.Velero,
-							SecurityContext: &v1.PodSecurityContext{
+							SecurityContext: &corev1.PodSecurityContext{
 								RunAsUser:          pointer.Int64(0),
 								SupplementalGroups: dpa.Spec.Configuration.NodeAgent.SupplementalGroups,
 							},
 							DNSPolicy: "None",
-							DNSConfig: &v1.PodDNSConfig{
+							DNSConfig: &corev1.PodDNSConfig{
 								Nameservers: []string{
 									"1.1.1.1",
 									"8.8.8.8",
 								},
-								Options: []v1.PodDNSConfigOption{
+								Options: []corev1.PodDNSConfigOption{
 									{
 										Name:  "ndots",
 										Value: pointer.String("2"),
@@ -2409,54 +2407,54 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 									},
 								},
 							},
-							Volumes: []v1.Volume{
+							Volumes: []corev1.Volume{
 								// Cloud Provider volumes are dynamically added in the for loop below
 								{
 									Name: HostPods,
-									VolumeSource: v1.VolumeSource{
-										HostPath: &v1.HostPathVolumeSource{
+									VolumeSource: corev1.VolumeSource{
+										HostPath: &corev1.HostPathVolumeSource{
 											Path: fsPvHostPath,
 										},
 									},
 								},
 								{
 									Name: HostPlugins,
-									VolumeSource: v1.VolumeSource{
-										HostPath: &v1.HostPathVolumeSource{
+									VolumeSource: corev1.VolumeSource{
+										HostPath: &corev1.HostPathVolumeSource{
 											Path: "/var/lib/kubelet/plugins",
 										},
 									},
 								},
 								{
 									Name: "scratch",
-									VolumeSource: v1.VolumeSource{
-										EmptyDir: &v1.EmptyDirVolumeSource{},
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{},
 									},
 								},
 								{
 									Name: "certs",
-									VolumeSource: v1.VolumeSource{
-										EmptyDir: &v1.EmptyDirVolumeSource{},
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{},
 									},
 								},
 								{
 									Name: "cloud-credentials",
-									VolumeSource: v1.VolumeSource{
-										Secret: &v1.SecretVolumeSource{
+									VolumeSource: corev1.VolumeSource{
+										Secret: &corev1.SecretVolumeSource{
 											SecretName: "cloud-credentials",
 										},
 									},
 								},
 							},
 							Tolerations: dpa.Spec.Configuration.NodeAgent.PodConfig.Tolerations,
-							Containers: []v1.Container{
+							Containers: []corev1.Container{
 								{
 									Name: common.NodeAgent,
-									SecurityContext: &v1.SecurityContext{
+									SecurityContext: &corev1.SecurityContext{
 										Privileged: pointer.Bool(true),
 									},
 									Image:           getVeleroImage(&dpa),
-									ImagePullPolicy: v1.PullAlways,
+									ImagePullPolicy: corev1.PullAlways,
 									Command: []string{
 										"/velero",
 									},
@@ -2464,14 +2462,14 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 										common.NodeAgent,
 										"server",
 									},
-									Ports: []v1.ContainerPort{
+									Ports: []corev1.ContainerPort{
 										{
 											Name:          "metrics",
 											ContainerPort: 8085,
 											Protocol:      "TCP",
 										},
 									},
-									VolumeMounts: []v1.VolumeMount{
+									VolumeMounts: []corev1.VolumeMount{
 										{
 											Name:             HostPods,
 											MountPath:        "/host_pods",
@@ -2501,19 +2499,19 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 											corev1.ResourceMemory: resource.MustParse("128Mi"),
 										},
 									},
-									Env: []v1.EnvVar{
+									Env: []corev1.EnvVar{
 										{
 											Name: "NODE_NAME",
-											ValueFrom: &v1.EnvVarSource{
-												FieldRef: &v1.ObjectFieldSelector{
+											ValueFrom: &corev1.EnvVarSource{
+												FieldRef: &corev1.ObjectFieldSelector{
 													FieldPath: "spec.nodeName",
 												},
 											},
 										},
 										{
 											Name: "VELERO_NAMESPACE",
-											ValueFrom: &v1.EnvVarSource{
-												FieldRef: &v1.ObjectFieldSelector{
+											ValueFrom: &corev1.EnvVarSource{
+												FieldRef: &corev1.ObjectFieldSelector{
 													FieldPath: "metadata.namespace",
 												},
 											},
@@ -2583,14 +2581,14 @@ func TestDPAReconciler_updateFsRestoreHelperCM(t *testing.T) {
 
 	tests := []struct {
 		name                  string
-		fsRestoreHelperCM     *v1.ConfigMap
+		fsRestoreHelperCM     *corev1.ConfigMap
 		dpa                   *oadpv1alpha1.DataProtectionApplication
 		wantErr               bool
-		wantFsRestoreHelperCM *v1.ConfigMap
+		wantFsRestoreHelperCM *corev1.ConfigMap
 	}{
 		{
 			name: "Given DPA CR instance, appropriate NodeAgent restore helper cm is created",
-			fsRestoreHelperCM: &v1.ConfigMap{
+			fsRestoreHelperCM: &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      FsRestoreHelperCM,
 					Namespace: "test-ns",
@@ -2598,7 +2596,7 @@ func TestDPAReconciler_updateFsRestoreHelperCM(t *testing.T) {
 			},
 			dpa:     &oadpv1alpha1.DataProtectionApplication{},
 			wantErr: false,
-			wantFsRestoreHelperCM: &v1.ConfigMap{
+			wantFsRestoreHelperCM: &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      FsRestoreHelperCM,
 					Namespace: "test-ns",

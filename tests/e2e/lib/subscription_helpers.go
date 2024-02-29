@@ -15,7 +15,14 @@ type Subscription struct {
 	*operators.Subscription
 }
 
-func (d *DpaCustomResource) GetOperatorSubscription(c client.Client, stream string) (*Subscription, error) {
+type StreamSource string
+
+const (
+	UPSTREAM   StreamSource = "up"
+	DOWNSTREAM StreamSource = "down"
+)
+
+func (d *DpaCustomResource) GetOperatorSubscription(c client.Client, stream StreamSource) (*Subscription, error) {
 	err := d.SetClient(c)
 	if err != nil {
 		return nil, err

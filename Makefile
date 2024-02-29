@@ -180,17 +180,11 @@ envtest: $(ENVTEST)
 # to login to registry cluster follow https://docs.ci.openshift.org/docs/how-tos/use-registries-in-build-farm/#how-do-i-log-in-to-pull-images-that-require-authentication
 # If bin/ contains binaries of different arch, you may remove them so the container can install their arch.
 .PHONY: test
-test: vet envtest ## Run Go linter and unit tests and check Go code format and if api and bundle folders are up to date.
+test: vet envtest ## Run unit tests; run Go linters checks; and check if api and bundle folders are up to date
 	KUBEBUILDER_ASSETS="$(ENVTESTPATH)" go test -mod=mod $(shell go list -mod=mod ./... | grep -v /tests/e2e) -coverprofile cover.out
-	@make fmt-isupdated
+	@make lint
 	@make api-isupdated
 	@make bundle-isupdated
-
-.PHONY: fmt-isupdated
-fmt-isupdated: TEMP:= $(shell mktemp -d)
-fmt-isupdated:
-	@cp -r ./ $(TEMP) && cd $(TEMP) && make fmt && cd - && diff -ruN . $(TEMP)/ && echo "Go code is formatted" || (echo "Go code is not formatted, run 'make fmt' to format" && exit 1)
-	@chmod -R 777 $(TEMP) && rm -rf $(TEMP)
 
 .PHONY: api-isupdated
 api-isupdated: TEMP:= $(shell mktemp -d)
@@ -538,3 +532,17 @@ test-e2e-cleanup: login-required
 	$(OC_CLI) delete restore -n $(OADP_TEST_NAMESPACE) --all --wait=false
 	for restore_name in $(shell $(OC_CLI) get restore -n $(OADP_TEST_NAMESPACE) -o name);do $(OC_CLI) patch "$$restore_name" -n $(OADP_TEST_NAMESPACE) -p '{"metadata":{"finalizers":null}}' --type=merge;done
 	rm -rf $(SETTINGS_TMP)
+
+GOLANGCI_LINT = $(shell pwd)/bin/golangci-lint
+
+.PHONY: golangci-lint
+golangci-lint: ## Download golangci-lint locally if necessary.
+	$(call go-install-tool,$(GOLANGCI_LINT),github.com/golangci/golangci-lint/cmd/golangci-lint@v1.55.2)
+
+.PHONY: lint
+lint: golangci-lint ## Run Go linters checks against all project's Go files.
+	$(GOLANGCI_LINT) run
+
+.PHONY: lint-fix
+lint-fix: golangci-lint ## Fix Go linters issues.
+	$(GOLANGCI_LINT) run --fix

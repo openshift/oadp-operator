@@ -66,12 +66,12 @@ func InstallApplicationWithRetries(ocClient client.Client, file string, retries 
 		return err
 	}
 	for _, resource := range obj.Items {
-		labels := resource.GetLabels()
-		if labels == nil {
-			labels = make(map[string]string)
+		resourceLabels := resource.GetLabels()
+		if resourceLabels == nil {
+			resourceLabels = make(map[string]string)
 		}
-		labels[e2eAppLabelKey] = "true"
-		resource.SetLabels(labels)
+		resourceLabels[e2eAppLabelKey] = "true"
+		resource.SetLabels(resourceLabels)
 		resourceCreate := resource.DeepCopy()
 		err = nil // reset error for each resource
 		for i := 0; i < retries; i++ {
@@ -96,13 +96,13 @@ func InstallApplicationWithRetries(ocClient client.Client, file string, retries 
 					resource.SetDeletionTimestamp(clusterResource.GetDeletionTimestamp())
 					resource.SetFinalizers(clusterResource.GetFinalizers())
 					// append cluster labels to existing labels if they don't already exist
-					labels := resource.GetLabels()
-					if labels == nil {
-						labels = make(map[string]string)
+					resourceLabels := resource.GetLabels()
+					if resourceLabels == nil {
+						resourceLabels = make(map[string]string)
 					}
 					for k, v := range clusterResource.GetLabels() {
-						if _, exists := labels[k]; !exists {
-							labels[k] = v
+						if _, exists := resourceLabels[k]; !exists {
+							resourceLabels[k] = v
 						}
 					}
 				}
@@ -577,7 +577,7 @@ func getResponseData(appApi string) ([]byte, error) {
 			return false, err
 		}
 		defer resp.Body.Close()
-		if resp.StatusCode != 200 {
+		if resp.StatusCode != 200 { //nolint:usestdlibvars // code only in release branch
 			log.Printf("Request errored out with Status Code %v\n", resp.StatusCode)
 			return false, fmt.Errorf("Request errored out with Status Code %v", resp.StatusCode)
 		}

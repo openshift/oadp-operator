@@ -5,12 +5,13 @@ import (
 	"log"
 	"time"
 
-	"github.com/openshift/oadp-operator/pkg/common"
 	appsv1 "k8s.io/api/apps/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
+
+	"github.com/openshift/oadp-operator/pkg/common"
 )
 
 func HasCorrectNumNodeAgentPods(c *kubernetes.Clientset, namespace string) wait.ConditionFunc {

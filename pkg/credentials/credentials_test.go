@@ -5,12 +5,13 @@ import (
 	"os"
 	"testing"
 
-	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
-	"github.com/openshift/oadp-operator/pkg/client"
-	"github.com/openshift/oadp-operator/pkg/common"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
+
+	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
+	"github.com/openshift/oadp-operator/pkg/client"
+	"github.com/openshift/oadp-operator/pkg/common"
 )
 
 func TestCredentials_getPluginImage(t *testing.T) {

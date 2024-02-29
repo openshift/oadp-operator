@@ -23,36 +23,34 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/openshift/oadp-operator/pkg/common"
+	routev1 "github.com/openshift/api/route/v1"
+	security "github.com/openshift/api/security/v1"
 	monitor "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
+	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
+	appsv1 "k8s.io/api/apps/v1"
+	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
-	client "sigs.k8s.io/controller-runtime/pkg/client"
-
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
-
-	routev1 "github.com/openshift/api/route/v1"
-	security "github.com/openshift/api/security/v1"
-	"github.com/openshift/oadp-operator/controllers"
-	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
-	appsv1 "k8s.io/api/apps/v1"
-	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	//+kubebuilder:scaffold:imports
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
+	"github.com/openshift/oadp-operator/controllers"
+	"github.com/openshift/oadp-operator/pkg/common"
 	"github.com/openshift/oadp-operator/pkg/leaderelection"
 )
 
@@ -306,7 +304,7 @@ func DoesCRDExist(CRDGroupVersion, CRDName string, kubeconf *rest.Config) (bool,
 
 // CreateCredRequest WITP : WebIdentityTokenPath
 func CreateCredRequest(roleARN string, WITP string, secretNS string, kubeconf *rest.Config) error {
-	client, err := client.New(kubeconf, client.Options{})
+	clientInstance, err := client.New(kubeconf, client.Options{})
 	if err != nil {
 		setupLog.Error(err, "unable to create client")
 	}
@@ -349,7 +347,7 @@ func CreateCredRequest(roleARN string, WITP string, secretNS string, kubeconf *r
 		},
 	}
 
-	if err := client.Create(context.Background(), credRequest); err != nil {
+	if err := clientInstance.Create(context.Background(), credRequest); err != nil {
 		setupLog.Error(err, "unable to create credentials request resource")
 	}
 

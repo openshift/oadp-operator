@@ -20,18 +20,14 @@ import (
 	"context"
 	"os"
 
+	"github.com/go-logr/logr"
 	routev1 "github.com/openshift/api/route/v1"
-	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
-
 	security "github.com/openshift/api/security/v1"
+	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"github.com/go-logr/logr"
-	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
-	oadpClient "github.com/openshift/oadp-operator/pkg/client"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
@@ -42,6 +38,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
+
+	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
+	oadpclient "github.com/openshift/oadp-operator/pkg/client"
 )
 
 // DPAReconciler reconciles a Velero object
@@ -76,7 +75,7 @@ var debugMode = os.Getenv("DEBUG") == "true"
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.9.2/pkg/reconcile
 func (r *DPAReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	r.Log = log.FromContext(ctx)
-	log := r.Log.WithValues("dpa", req.NamespacedName)
+	logger := r.Log.WithValues("dpa", req.NamespacedName)
 	result := ctrl.Result{}
 	// Set reconciler context + name
 	r.Context = ctx
@@ -84,12 +83,12 @@ func (r *DPAReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	dpa := oadpv1alpha1.DataProtectionApplication{}
 
 	if err := r.Get(ctx, req.NamespacedName, &dpa); err != nil {
-		log.Error(err, "unable to fetch DataProtectionApplication CR")
+		logger.Error(err, "unable to fetch DataProtectionApplication CR")
 		return result, nil
 	}
 
 	// set client to pkg/client for use in non-reconcile functions
-	oadpClient.SetClient(r.Client)
+	oadpclient.SetClient(r.Client)
 
 	_, err := ReconcileBatch(r.Log,
 		r.ValidateDataProtectionCR,
