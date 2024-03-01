@@ -14,7 +14,7 @@ import (
 	"github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	k8serror "k8s.io/apimachinery/pkg/api/errors"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/openshift/oadp-operator/tests/e2e/lib"
@@ -277,7 +277,7 @@ func tearDownBackupAndRestore(brCase BackupRestoreCase, installTime time.Time, r
 		err := lib.UninstallApplication(dpaCR.Client, snapshotClassPath)
 		gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	}
-	err := dpaCR.Client.Delete(context.Background(), &corev1.Namespace{ObjectMeta: v1.ObjectMeta{
+	err := dpaCR.Client.Delete(context.Background(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{
 		Name:      brCase.Namespace,
 		Namespace: brCase.Namespace,
 	}}, &client.DeleteOptions{})
