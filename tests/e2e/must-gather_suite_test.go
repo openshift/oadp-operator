@@ -13,9 +13,9 @@ import (
 )
 
 var _ = ginkgov2.Describe("Backup and restore tests with must-gather", func() {
-	var lastBRCase BackupRestoreCase
+	var lastBRCase ApplicationBackupRestoreCase
 	var lastInstallTime time.Time
-	updateLastBRcase := func(brCase BackupRestoreCase) {
+	updateLastBRcase := func(brCase ApplicationBackupRestoreCase) {
 		lastBRCase = brCase
 	}
 	updateLastInstallTime := func() {
@@ -27,7 +27,7 @@ var _ = ginkgov2.Describe("Backup and restore tests with must-gather", func() {
 	})
 
 	ginkgov2.DescribeTable("Backup and restore applications and run must-gather",
-		func(brCase BackupRestoreCase, expectedErr error) {
+		func(brCase ApplicationBackupRestoreCase, expectedErr error) {
 			if ginkgov2.CurrentSpecReport().NumAttempts > 1 && !knownFlake {
 				ginkgov2.Fail("No known FLAKE found in a previous run, marking test as failed.")
 			}
@@ -74,13 +74,15 @@ var _ = ginkgov2.Describe("Backup and restore tests with must-gather", func() {
 				gomega.Expect(err).ToNot(gomega.HaveOccurred())
 			}
 		},
-		ginkgov2.Entry("Mongo application DATAMOVER", ginkgov2.FlakeAttempts(flakeAttempts), BackupRestoreCase{
-			ApplicationTemplate:  "./sample-applications/mongo-persistent/mongo-persistent-csi.yaml",
-			ApplicationNamespace: "mongo-persistent",
-			Name:                 "mongo-datamover-e2e",
-			BackupRestoreType:    lib.CSIDataMover,
-			PreBackupVerify:      mongoready(true, false),
-			PostRestoreVerify:    mongoready(false, false),
+		ginkgov2.Entry("Mongo application DATAMOVER", ginkgov2.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
+			ApplicationTemplate: "./sample-applications/mongo-persistent/mongo-persistent-csi.yaml",
+			BackupRestoreCase: BackupRestoreCase{
+				Namespace:         "mongo-persistent",
+				Name:              "mongo-datamover-e2e",
+				BackupRestoreType: lib.CSIDataMover,
+				PreBackupVerify:   mongoready(true, false),
+				PostRestoreVerify: mongoready(false, false),
+			},
 			MustGatherFiles: []string{
 				"namespaces/" + namespace + "/oadp.openshift.io/dpa-ts-" + instanceName + "/ts-" + instanceName + ".yml",
 				"namespaces/" + namespace + "/velero.io/backupstoragelocations.velero.io/ts-" + instanceName + "-1.yaml",
