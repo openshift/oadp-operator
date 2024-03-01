@@ -23,7 +23,7 @@ var _ = ginkgov2.Describe("Backup and restore tests with must-gather", func() {
 	}
 
 	var _ = ginkgov2.AfterEach(func(ctx ginkgov2.SpecContext) {
-		tearDownBackupAndRestore(lastBRCase, lastInstallTime, ctx.SpecReport())
+		tearDownBackupAndRestore(lastBRCase.BackupRestoreCase, lastInstallTime, ctx.SpecReport())
 	})
 
 	ginkgov2.DescribeTable("Backup and restore applications and run must-gather",
@@ -31,7 +31,7 @@ var _ = ginkgov2.Describe("Backup and restore tests with must-gather", func() {
 			if ginkgov2.CurrentSpecReport().NumAttempts > 1 && !knownFlake {
 				ginkgov2.Fail("No known FLAKE found in a previous run, marking test as failed.")
 			}
-			runBackupAndRestore(brCase, expectedErr, updateLastBRcase, updateLastInstallTime)
+			runApplicationBackupAndRestore(brCase, expectedErr, updateLastBRcase, updateLastInstallTime)
 
 			// TODO look for duplications in tearDownBackupAndRestore
 			baseReportDir := artifact_dir + "/" + brCase.Name
