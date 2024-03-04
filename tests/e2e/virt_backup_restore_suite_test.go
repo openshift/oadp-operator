@@ -103,7 +103,7 @@ var _ = ginkgov2.Describe("VM backup and restore tests", ginkgov2.Ordered, func(
 			wasInstalledFromTest = true
 		}
 
-		err = v.EnsureEmulation(10 * time.Second)
+		err = v.EnsureEmulation(20 * time.Second)
 		gomega.Expect(err).To(gomega.BeNil())
 
 		url, err := getLatestCirrosImageURL()

@@ -24,6 +24,28 @@ func (v *VirtOperator) deletePvc(namespace, name string) error {
 	return v.Clientset.CoreV1().PersistentVolumeClaims(namespace).Delete(context.Background(), name, metav1.DeleteOptions{})
 }
 
+func (v *VirtOperator) detachPvc(namespace, name string) error {
+	pvc, err := v.Clientset.CoreV1().PersistentVolumeClaims(namespace).Get(context.Background(), name, metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+	if pvc == nil {
+		return fmt.Errorf("PVC %s/%s does not exist", namespace, name)
+	}
+
+	owners := make([]metav1.OwnerReference, 0)
+	for _, owner := range pvc.OwnerReferences {
+		if owner.Kind == "DataVolume" {
+			continue
+		}
+		owners = append(owners, owner)
+	}
+
+	pvc.OwnerReferences = owners
+	_, err = v.Clientset.CoreV1().PersistentVolumeClaims(namespace).Update(context.Background(), pvc, metav1.UpdateOptions{})
+	return err
+}
+
 func (v *VirtOperator) checkPvcExists(namespace, name string) bool {
 	pvc, err := v.Clientset.CoreV1().PersistentVolumeClaims(namespace).Get(context.Background(), name, metav1.GetOptions{})
 	if err != nil {
@@ -211,24 +233,21 @@ func (v *VirtOperator) RemoveDataVolume(namespace, name string, timeout time.Dur
 
 // Remove owner reference from a PVC, so DV removal keeps the PVC.
 func (v *VirtOperator) DetachPvc(namespace, name string, timeout time.Duration) error {
-	pvc, err := v.Clientset.CoreV1().PersistentVolumeClaims(namespace).Get(context.Background(), name, metav1.GetOptions{})
-	if err != nil {
-		return err
-	}
-	if pvc == nil {
-		return fmt.Errorf("PVC %s/%s does not exist", namespace, name)
-	}
-
-	owners := make([]metav1.OwnerReference, 0)
-	for _, owner := range pvc.OwnerReferences {
-		if owner.Kind == "DataVolume" {
-			continue
+	// Retry if there are API server conflicts ("the object has been modified")
+	timeTaken := 0 * time.Second
+	err := wait.PollImmediate(5*time.Second, timeout, func() (bool, error) {
+		timeTaken += 5
+		innerErr := v.detachPvc(namespace, name)
+		if innerErr != nil {
+			if apierrors.IsConflict(innerErr) {
+				log.Printf("PVC modification conflict, trying again...")
+				return false, nil // Conflict: try again
+			}
+			return false, innerErr // Anything else: give up
 		}
-		owners = append(owners, owner)
-	}
+		return innerErr == nil, nil
+	})
 
-	pvc.OwnerReferences = owners
-	_, err = v.Clientset.CoreV1().PersistentVolumeClaims(namespace).Update(context.Background(), pvc, metav1.UpdateOptions{})
 	return err
 }
 

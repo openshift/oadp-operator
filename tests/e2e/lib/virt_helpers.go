@@ -168,20 +168,14 @@ func (v *VirtOperator) checkNamespace() bool {
 func (v *VirtOperator) checkOperatorGroup() bool {
 	group := operatorsv1.OperatorGroup{}
 	err := v.Client.Get(context.TODO(), client.ObjectKey{Namespace: v.Namespace, Name: "kubevirt-hyperconverged-group"}, &group)
-	if err != nil {
-		return false
-	}
-	return true
+	return err == nil
 }
 
 // Checks if there is a virtualization subscription
 func (v *VirtOperator) checkSubscription() bool {
 	subscription := operatorsv1alpha1.Subscription{}
 	err := v.Client.Get(context.TODO(), client.ObjectKey{Namespace: v.Namespace, Name: "hco-operatorhub"}, &subscription)
-	if err != nil {
-		return false
-	}
-	return true
+	return err == nil
 }
 
 // Checks if the ClusterServiceVersion status has changed to ready
@@ -599,10 +593,7 @@ func (v *VirtOperator) getVmStatus(namespace, name string) (string, error) {
 
 func (v *VirtOperator) checkVmExists(namespace, name string) bool {
 	_, err := v.getVmStatus(namespace, name)
-	if err == nil {
-		return true
-	}
-	return false
+	return err == nil
 }
 
 func (v *VirtOperator) checkVmStatus(namespace, name, expectedStatus string) bool {
@@ -712,11 +703,26 @@ func (v *VirtOperator) EnsureEmulation(timeout time.Duration) error {
 
 	log.Printf("Enabling KVM emulation...")
 
-	if err := v.configureEmulation(); err != nil {
+	// Retry if there are API server conflicts ("the object has been modified")
+	timeTaken := 0 * time.Second
+	err := wait.PollImmediate(5*time.Second, timeout, func() (bool, error) {
+		timeTaken += 5
+		innerErr := v.configureEmulation()
+		if innerErr != nil {
+			if apierrors.IsConflict(innerErr) {
+				log.Printf("HCO modification conflict, trying again...")
+				return false, nil // Conflict: try again
+			}
+			return false, innerErr // Anything else: give up
+		}
+		return innerErr == nil, nil
+	})
+	if err != nil {
 		return err
 	}
 
-	err := wait.PollImmediate(5*time.Second, timeout, func() (bool, error) {
+	timeout = timeout - timeTaken
+	err = wait.PollImmediate(5*time.Second, timeout, func() (bool, error) {
 		return v.checkEmulation(), nil
 	})
 

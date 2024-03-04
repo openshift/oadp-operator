@@ -9,6 +9,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -22,8 +23,10 @@ func CreateBackupForNamespaces(ocClient client.Client, veleroNamespace, backupNa
 			IncludedNamespaces:       namespaces,
 			DefaultVolumesToFsBackup: &defaultVolumesToFsBackup,
 			SnapshotMoveData:         &snapshotMoveData,
-			SnapshotVolumes:          &snapshotVolumes,
 		},
+	}
+	if snapshotVolumes {
+		backup.Spec.SnapshotVolumes = pointer.Bool(true)
 	}
 	err := ocClient.Create(context.Background(), &backup)
 	return backup, err
