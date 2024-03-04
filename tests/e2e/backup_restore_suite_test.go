@@ -171,16 +171,20 @@ func runApplicationBackupAndRestore(brCase ApplicationBackupRestoreCase, expecte
 	gomega.Eventually(lib.AreApplicationPodsRunning(kubernetesClientForSuiteRun, brCase.Namespace), timeoutMultiplier*time.Minute*9, time.Second*5).Should(gomega.BeTrue())
 
 	// Run optional custom verification
-	log.Printf("Running post-restore function for case %s", brCase.Name)
-	err = brCase.PostRestoreVerify(dpaCR.Client, brCase.Namespace)
-	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+	if brCase.PostRestoreVerify != nil {
+		log.Printf("Running post-restore function for case %s", brCase.Name)
+		err = brCase.PostRestoreVerify(dpaCR.Client, brCase.Namespace)
+		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+	}
 }
 
 func runBackup(brCase BackupRestoreCase, backupName string) bool {
 	// Run optional custom verification
-	log.Printf("Running pre-backup function for case %s", brCase.Name)
-	err := brCase.PreBackupVerify(dpaCR.Client, brCase.Namespace)
-	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+	if brCase.PreBackupVerify != nil {
+		log.Printf("Running pre-backup function for case %s", brCase.Name)
+		err := brCase.PreBackupVerify(dpaCR.Client, brCase.Namespace)
+		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+	}
 
 	nsRequiresResticDCWorkaround, err := lib.NamespaceRequiresResticDCWorkaround(dpaCR.Client, brCase.Namespace)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
