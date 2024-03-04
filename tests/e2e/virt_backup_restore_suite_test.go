@@ -34,15 +34,59 @@ func getLatestCirrosImageURL() (string, error) {
 	return imageURL, nil
 }
 
+type VmBackupRestoreCase struct {
+	BackupRestoreCase
+	Source          string
+	SourceNamespace string
+}
+
+func runVmBackupAndRestore(brCase VmBackupRestoreCase, expectedErr error, updateLastBRcase func(brCase VmBackupRestoreCase), updateLastInstallTime func(), v *lib.VirtOperator) {
+	// Create DPA
+	backupName, restoreName := prepareBackupAndRestore(brCase.BackupRestoreCase, func() {})
+
+	err := lib.CreateNamespace(v.Clientset, brCase.Namespace)
+	gomega.Expect(err).To(gomega.BeNil())
+
+	// Create VM from clone of CirrOS image
+	err = v.CloneDisk(brCase.SourceNamespace, brCase.Source, brCase.Namespace, brCase.Name, 5*time.Minute)
+	gomega.Expect(err).To(gomega.BeNil())
+
+	err = v.CreateVm(brCase.Namespace, brCase.Name, brCase.Source, 5*time.Minute)
+	gomega.Expect(err).To(gomega.BeNil())
+
+	// Remove the Data Volume, but keep the PVC attached to the VM
+	err = v.RemoveDataVolume(brCase.Namespace, brCase.Name, 2*time.Minute)
+	gomega.Expect(err).To(gomega.BeNil())
+
+	// Back up VM
+	nsRequiresResticDCWorkaruond := runBackup(brCase.BackupRestoreCase, backupName, time.Second)
+
+	// Delete test namespace
+	v.RemoveVm(brCase.Namespace, brCase.Name, 2*time.Minute)
+	err = lib.DeleteNamespace(v.Clientset, brCase.Namespace)
+	gomega.Expect(err).To(gomega.BeNil())
+	err = v.RemovePvc(brCase.Namespace, brCase.Name, 2*time.Minute)
+	gomega.Expect(err).To(gomega.BeNil())
+	gomega.Eventually(lib.IsNamespaceDeleted(kubernetesClientForSuiteRun, brCase.Namespace), timeoutMultiplier*time.Minute*4, time.Second*5).Should(gomega.BeTrue())
+
+	// Do restore
+	runRestore(brCase.BackupRestoreCase, backupName, restoreName, nsRequiresResticDCWorkaruond)
+}
+
 var _ = ginkgov2.Describe("VM backup and restore tests", ginkgov2.Ordered, func() {
 	var v *lib.VirtOperator
 	var err error
 	wasInstalledFromTest := false
+	var lastBRCase VmBackupRestoreCase
+	var lastInstallTime time.Time
+	updateLastBRcase := func(brCase VmBackupRestoreCase) {
+		lastBRCase = brCase
+	}
+	updateLastInstallTime := func() {
+		lastInstallTime = time.Now()
+	}
 
 	var _ = ginkgov2.BeforeAll(func() {
-		dpaCR.CustomResource.Name = "dummyDPA"
-		dpaCR.CustomResource.Namespace = "openshift-adp"
-
 		v, err = lib.GetVirtOperator(runTimeClientForSuiteRun, kubernetesClientForSuiteRun, dynamicClientForSuiteRun)
 		gomega.Expect(err).To(gomega.BeNil())
 		gomega.Expect(v).ToNot(gomega.BeNil())
@@ -70,23 +114,22 @@ var _ = ginkgov2.Describe("VM backup and restore tests", ginkgov2.Ordered, func(
 		}
 	})
 
-	ginkgov2.It("should verify virt installation", ginkgov2.Label("virt"), func() {
-		installed := v.IsVirtInstalled()
-		gomega.Expect(installed).To(gomega.BeTrue())
+	var _ = ginkgov2.AfterEach(func(ctx ginkgov2.SpecContext) {
+		tearDownBackupAndRestore(lastBRCase.BackupRestoreCase, lastInstallTime, ctx.SpecReport())
 	})
 
-	ginkgov2.It("should create and boot a virtual machine", ginkgov2.Label("virt"), func() {
-		namespace := "openshift-cnv"
-		source := "cirros-dv"
-		name := "cirros-vm"
+	ginkgov2.DescribeTable("Backup and restore virtual machines",
+		func(brCase VmBackupRestoreCase, expectedError error) {
+			runVmBackupAndRestore(brCase, expectedError, updateLastBRcase, updateLastInstallTime, v)
+		},
 
-		err := v.CloneDisk(namespace, source, name, 5*time.Minute)
-		gomega.Expect(err).To(gomega.BeNil())
-
-		err = v.CreateVm(namespace, name, source, 5*time.Minute)
-		gomega.Expect(err).To(gomega.BeNil())
-
-		v.RemoveVm(namespace, name, 2*time.Minute)
-		v.RemoveDataVolume(namespace, name, 2*time.Minute)
-	})
+		ginkgov2.Entry("default virtual machine backup and restore", ginkgov2.Label("virt"), VmBackupRestoreCase{
+			Source:          "cirros-dv",
+			SourceNamespace: "openshift-cnv",
+			BackupRestoreCase: BackupRestoreCase{
+				Namespace: "cirros-test-vm",
+				Name:      "cirros-vm",
+			},
+		}, nil),
+	)
 })
