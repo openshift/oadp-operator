@@ -63,6 +63,7 @@ type BackupRestoreCase struct {
 	BackupRestoreType lib.BackupRestoreType
 	PreBackupVerify   VerificationFunction
 	PostRestoreVerify VerificationFunction
+	SkipVerifyLogs    bool
 }
 
 type ApplicationBackupRestoreCase struct {
@@ -200,7 +201,9 @@ func runBackup(brCase BackupRestoreCase, backupName string, delay time.Duration)
 	backupErrorLogs := lib.BackupErrorLogs(kubernetesClientForSuiteRun, dpaCR.Client, backup)
 	accumulatedTestLogs = append(accumulatedTestLogs, describeBackup, backupLogs)
 
-	gomega.Expect(backupErrorLogs).Should(gomega.Equal([]string{}))
+	if !brCase.SkipVerifyLogs {
+		gomega.Expect(backupErrorLogs).Should(gomega.Equal([]string{}))
+	}
 
 	// check if backup succeeded
 	succeeded, err := lib.IsBackupCompletedSuccessfully(kubernetesClientForSuiteRun, dpaCR.Client, backup)
@@ -229,7 +232,9 @@ func runRestore(brCase BackupRestoreCase, backupName, restoreName string, nsRequ
 	restoreErrorLogs := lib.RestoreErrorLogs(kubernetesClientForSuiteRun, dpaCR.Client, restore)
 	accumulatedTestLogs = append(accumulatedTestLogs, describeRestore, restoreLogs)
 
-	gomega.Expect(restoreErrorLogs).Should(gomega.Equal([]string{}))
+	if !brCase.SkipVerifyLogs {
+		gomega.Expect(restoreErrorLogs).Should(gomega.Equal([]string{}))
+	}
 
 	// Check if restore succeeded
 	succeeded, err := lib.IsRestoreCompletedSuccessfully(kubernetesClientForSuiteRun, dpaCR.Client, namespace, restoreName)

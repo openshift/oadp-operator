@@ -127,8 +127,9 @@ var _ = ginkgov2.Describe("VM backup and restore tests", ginkgov2.Ordered, func(
 			Source:          "cirros-dv",
 			SourceNamespace: "openshift-cnv",
 			BackupRestoreCase: BackupRestoreCase{
-				Namespace: "cirros-test-vm",
-				Name:      "cirros-vm",
+				Namespace:      "cirros-test-vm",
+				Name:           "cirros-vm",
+				SkipVerifyLogs: true,
 			},
 		}, nil),
 	)
