@@ -634,8 +634,8 @@ func (v *VirtOperator) createVm(namespace, name, source string) error {
 						},
 						"volumes": []map[string]interface{}{
 							{
-								"dataVolume": map[string]interface{}{
-									"name": name,
+								"persistentVolumeClaim": map[string]interface{}{
+									"claimName": name,
 								},
 								"name": "rootdisk",
 							},
