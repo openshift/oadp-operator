@@ -57,6 +57,22 @@ func (v *VirtOperator) checkPvcExists(namespace, name string) bool {
 	return true
 }
 
+// Check if this PVC is still owned by a DataVolume.
+func (v *VirtOperator) checkPvcAttached(namespace, name string) bool {
+	pvc, err := v.Clientset.CoreV1().PersistentVolumeClaims(namespace).Get(context.Background(), name, metav1.GetOptions{})
+	if err != nil || pvc == nil {
+		return false
+	}
+
+	for _, owner := range pvc.OwnerReferences {
+		if owner.Kind == "DataVolume" {
+			return true
+		}
+	}
+
+	return false
+}
+
 func (v *VirtOperator) getDataVolume(namespace, name string) (*unstructured.Unstructured, error) {
 	unstructuredDataVolume, err := v.Dynamic.Resource(dataVolumeGVK).Namespace(namespace).Get(context.Background(), name, metav1.GetOptions{})
 	return unstructuredDataVolume, err
@@ -246,6 +262,15 @@ func (v *VirtOperator) DetachPvc(namespace, name string, timeout time.Duration) 
 			return false, innerErr // Anything else: give up
 		}
 		return innerErr == nil, nil
+	})
+
+	if err != nil {
+		return fmt.Errorf("timed out waiting to remove DataVolume as owner of PVC %s/%s", namespace, name)
+	}
+
+	timeout = timeout - timeTaken
+	err = wait.PollImmediate(5*time.Second, timeout, func() (bool, error) {
+		return !v.checkPvcAttached(namespace, name), nil
 	})
 
 	return err
