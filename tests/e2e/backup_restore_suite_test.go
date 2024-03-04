@@ -63,6 +63,7 @@ type BackupRestoreCase struct {
 	BackupRestoreType lib.BackupRestoreType
 	PreBackupVerify   VerificationFunction
 	PostRestoreVerify VerificationFunction
+	ReadyDelay        time.Duration
 	SkipVerifyLogs    bool
 	SnapshotVolumes   bool
 	RestorePVs        bool
@@ -72,7 +73,6 @@ type ApplicationBackupRestoreCase struct {
 	BackupRestoreCase
 	ApplicationTemplate          string
 	PvcSuffixName                string
-	AppReadyDelay                time.Duration
 	MustGatherFiles              []string            // list of files expected in must-gather under quay.io.../clusters/clustername/... ie. "namespaces/openshift-adp/oadp.openshift.io/dpa-ts-example-velero/ts-example-velero.yml"
 	MustGatherValidationFunction *func(string) error // validation function for must-gather where string parameter is the path to "quay.io.../clusters/clustername/"
 }
@@ -151,7 +151,7 @@ func runApplicationBackupAndRestore(brCase ApplicationBackupRestoreCase, expecte
 	gomega.Eventually(lib.AreApplicationPodsRunning(kubernetesClientForSuiteRun, brCase.Namespace), timeoutMultiplier*time.Minute*9, time.Second*5).Should(gomega.BeTrue())
 
 	// do the backup for real
-	nsRequiredResticDCWorkaround := runBackup(brCase.BackupRestoreCase, backupName, brCase.AppReadyDelay)
+	nsRequiredResticDCWorkaround := runBackup(brCase.BackupRestoreCase, backupName)
 
 	// uninstall app
 	log.Printf("Uninstalling app for case %s", brCase.Name)
@@ -176,7 +176,7 @@ func runApplicationBackupAndRestore(brCase ApplicationBackupRestoreCase, expecte
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 }
 
-func runBackup(brCase BackupRestoreCase, backupName string, delay time.Duration) bool {
+func runBackup(brCase BackupRestoreCase, backupName string) bool {
 	// Run optional custom verification
 	log.Printf("Running pre-backup function for case %s", brCase.Name)
 	err := brCase.PreBackupVerify(dpaCR.Client, brCase.Namespace)
@@ -186,8 +186,8 @@ func runBackup(brCase BackupRestoreCase, backupName string, delay time.Duration)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 	// TODO this should be a function, not an arbitrary sleep
-	log.Printf("Sleeping for %v to allow application to be ready for case %s", delay, brCase.Name)
-	time.Sleep(delay)
+	log.Printf("Sleeping for %v to allow application to be ready for case %s", brCase.ReadyDelay, brCase.Name)
+	time.Sleep(brCase.ReadyDelay)
 	// create backup
 	log.Printf("Creating backup %s for case %s", backupName, brCase.Name)
 	backup, err := lib.CreateBackupForNamespaces(dpaCR.Client, namespace, backupName, []string{brCase.Namespace}, brCase.BackupRestoreType == lib.RESTIC || brCase.BackupRestoreType == lib.KOPIA, brCase.BackupRestoreType == lib.CSIDataMover, brCase.SnapshotVolumes)
@@ -341,13 +341,13 @@ var _ = ginkgov2.Describe("Backup and restore tests", func() {
 		}, nil),
 		ginkgov2.Entry("MySQL application two Vol CSI", ginkgov2.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
 			ApplicationTemplate: "./sample-applications/mysql-persistent/mysql-persistent-twovol-csi.yaml",
-			AppReadyDelay:       30 * time.Second,
 			BackupRestoreCase: BackupRestoreCase{
 				Namespace:         "mysql-persistent",
 				Name:              "mysql-twovol-csi-e2e",
 				BackupRestoreType: lib.CSI,
 				PreBackupVerify:   mysqlReady(true, true),
 				PostRestoreVerify: mysqlReady(false, true),
+				ReadyDelay:        30 * time.Second,
 			},
 		}, nil),
 		ginkgov2.Entry("Mongo application RESTIC", ginkgov2.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{

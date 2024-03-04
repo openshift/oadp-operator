@@ -64,7 +64,7 @@ func runVmBackupAndRestore(brCase VmBackupRestoreCase, expectedErr error, update
 	gomega.Expect(err).To(gomega.BeNil())
 
 	// Back up VM
-	nsRequiresResticDCWorkaruond := runBackup(brCase.BackupRestoreCase, backupName, time.Second)
+	nsRequiresResticDCWorkaround := runBackup(brCase.BackupRestoreCase, backupName)
 
 	// Delete everything in test namespace
 	err = v.RemoveVm(brCase.Namespace, brCase.Name, 2*time.Minute)
@@ -76,7 +76,7 @@ func runVmBackupAndRestore(brCase VmBackupRestoreCase, expectedErr error, update
 	gomega.Eventually(lib.IsNamespaceDeleted(kubernetesClientForSuiteRun, brCase.Namespace), timeoutMultiplier*time.Minute*4, time.Second*5).Should(gomega.BeTrue())
 
 	// Do restore
-	runRestore(brCase.BackupRestoreCase, backupName, restoreName, nsRequiresResticDCWorkaruond)
+	runRestore(brCase.BackupRestoreCase, backupName, restoreName, nsRequiresResticDCWorkaround)
 }
 
 var _ = ginkgov2.Describe("VM backup and restore tests", ginkgov2.Ordered, func() {
@@ -139,6 +139,7 @@ var _ = ginkgov2.Describe("VM backup and restore tests", ginkgov2.Ordered, func(
 				Name:              "cirros-vm",
 				SkipVerifyLogs:    true,
 				BackupRestoreType: lib.CSIDataMover,
+				ReadyDelay:        1 * time.Minute,
 				SnapshotVolumes:   true,
 				RestorePVs:        true,
 			},
