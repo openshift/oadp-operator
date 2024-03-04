@@ -10,6 +10,7 @@ import (
 	ginkgov2 "github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
 
+	"github.com/openshift/oadp-operator/api/v1alpha1"
 	"github.com/openshift/oadp-operator/tests/e2e/lib"
 )
 
@@ -41,6 +42,8 @@ type VmBackupRestoreCase struct {
 }
 
 func runVmBackupAndRestore(brCase VmBackupRestoreCase, expectedErr error, updateLastBRcase func(brCase VmBackupRestoreCase), updateLastInstallTime func(), v *lib.VirtOperator) {
+	updateLastBRcase(brCase)
+
 	// Create DPA
 	backupName, restoreName := prepareBackupAndRestore(brCase.BackupRestoreCase, func() {})
 
@@ -55,17 +58,20 @@ func runVmBackupAndRestore(brCase VmBackupRestoreCase, expectedErr error, update
 	gomega.Expect(err).To(gomega.BeNil())
 
 	// Remove the Data Volume, but keep the PVC attached to the VM
+	err = v.DetachPvc(brCase.Namespace, brCase.Name, 2*time.Minute)
+	gomega.Expect(err).To(gomega.BeNil())
 	err = v.RemoveDataVolume(brCase.Namespace, brCase.Name, 2*time.Minute)
 	gomega.Expect(err).To(gomega.BeNil())
 
 	// Back up VM
 	nsRequiresResticDCWorkaruond := runBackup(brCase.BackupRestoreCase, backupName, time.Second)
 
-	// Delete test namespace
-	v.RemoveVm(brCase.Namespace, brCase.Name, 2*time.Minute)
-	err = lib.DeleteNamespace(v.Clientset, brCase.Namespace)
+	// Delete everything in test namespace
+	err = v.RemoveVm(brCase.Namespace, brCase.Name, 2*time.Minute)
 	gomega.Expect(err).To(gomega.BeNil())
 	err = v.RemovePvc(brCase.Namespace, brCase.Name, 2*time.Minute)
+	gomega.Expect(err).To(gomega.BeNil())
+	err = lib.DeleteNamespace(v.Clientset, brCase.Namespace)
 	gomega.Expect(err).To(gomega.BeNil())
 	gomega.Eventually(lib.IsNamespaceDeleted(kubernetesClientForSuiteRun, brCase.Namespace), timeoutMultiplier*time.Minute*4, time.Second*5).Should(gomega.BeTrue())
 
@@ -104,6 +110,8 @@ var _ = ginkgov2.Describe("VM backup and restore tests", ginkgov2.Ordered, func(
 		gomega.Expect(err).To(gomega.BeNil())
 		err = v.EnsureDataVolumeFromUrl("openshift-cnv", "cirros-dv", url, "128Mi", 5*time.Minute)
 		gomega.Expect(err).To(gomega.BeNil())
+
+		dpaCR.CustomResource.Spec.Configuration.Velero.DefaultPlugins = append(dpaCR.CustomResource.Spec.Configuration.Velero.DefaultPlugins, v1alpha1.DefaultPluginKubeVirt)
 	})
 
 	var _ = ginkgov2.AfterAll(func() {
@@ -127,9 +135,12 @@ var _ = ginkgov2.Describe("VM backup and restore tests", ginkgov2.Ordered, func(
 			Source:          "cirros-dv",
 			SourceNamespace: "openshift-cnv",
 			BackupRestoreCase: BackupRestoreCase{
-				Namespace:      "cirros-test-vm",
-				Name:           "cirros-vm",
-				SkipVerifyLogs: true,
+				Namespace:         "cirros-test-vm",
+				Name:              "cirros-vm",
+				SkipVerifyLogs:    true,
+				BackupRestoreType: lib.CSIDataMover,
+				SnapshotVolumes:   true,
+				RestorePVs:        true,
 			},
 		}, nil),
 	)

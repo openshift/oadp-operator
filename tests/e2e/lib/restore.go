@@ -12,7 +12,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func CreateRestoreFromBackup(ocClient client.Client, veleroNamespace, backupName, restoreName string) (velero.Restore, error) {
+func CreateRestoreFromBackup(ocClient client.Client, veleroNamespace, backupName, restoreName string, restorePVs bool) (velero.Restore, error) {
 	restore := velero.Restore{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      restoreName,
@@ -20,6 +20,7 @@ func CreateRestoreFromBackup(ocClient client.Client, veleroNamespace, backupName
 		},
 		Spec: velero.RestoreSpec{
 			BackupName: backupName,
+			RestorePVs: &restorePVs,
 		},
 	}
 	err := ocClient.Create(context.Background(), &restore)

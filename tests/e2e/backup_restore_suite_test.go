@@ -64,6 +64,8 @@ type BackupRestoreCase struct {
 	PreBackupVerify   VerificationFunction
 	PostRestoreVerify VerificationFunction
 	SkipVerifyLogs    bool
+	SnapshotVolumes   bool
+	RestorePVs        bool
 }
 
 type ApplicationBackupRestoreCase struct {
@@ -188,7 +190,7 @@ func runBackup(brCase BackupRestoreCase, backupName string, delay time.Duration)
 	time.Sleep(delay)
 	// create backup
 	log.Printf("Creating backup %s for case %s", backupName, brCase.Name)
-	backup, err := lib.CreateBackupForNamespaces(dpaCR.Client, namespace, backupName, []string{brCase.Namespace}, brCase.BackupRestoreType == lib.RESTIC || brCase.BackupRestoreType == lib.KOPIA, brCase.BackupRestoreType == lib.CSIDataMover)
+	backup, err := lib.CreateBackupForNamespaces(dpaCR.Client, namespace, backupName, []string{brCase.Namespace}, brCase.BackupRestoreType == lib.RESTIC || brCase.BackupRestoreType == lib.KOPIA, brCase.BackupRestoreType == lib.CSIDataMover, brCase.SnapshotVolumes)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 	// wait for backup to not be running
@@ -221,7 +223,7 @@ func runBackup(brCase BackupRestoreCase, backupName string, delay time.Duration)
 
 func runRestore(brCase BackupRestoreCase, backupName, restoreName string, nsRequiresResticDCWorkaround bool) {
 	log.Printf("Creating restore %s for case %s", restoreName, brCase.Name)
-	restore, err := lib.CreateRestoreFromBackup(dpaCR.Client, namespace, backupName, restoreName)
+	restore, err := lib.CreateRestoreFromBackup(dpaCR.Client, namespace, backupName, restoreName, brCase.RestorePVs)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	gomega.Eventually(lib.IsRestoreDone(dpaCR.Client, namespace, restoreName), timeoutMultiplier*time.Minute*60, time.Second*10).Should(gomega.BeTrue())
 	// TODO only log on fail?
