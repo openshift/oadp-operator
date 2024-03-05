@@ -8,7 +8,7 @@ import (
 	"time"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -20,13 +20,66 @@ var dataVolumeGVK = schema.GroupVersionResource{
 	Version:  "v1beta1",
 }
 
+func (v *VirtOperator) deletePvc(namespace, name string) error {
+	return v.Clientset.CoreV1().PersistentVolumeClaims(namespace).Delete(context.Background(), name, metav1.DeleteOptions{})
+}
+
+func (v *VirtOperator) detachPvc(namespace, name string) error {
+	pvc, err := v.Clientset.CoreV1().PersistentVolumeClaims(namespace).Get(context.Background(), name, metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+	if pvc == nil {
+		return fmt.Errorf("PVC %s/%s does not exist", namespace, name)
+	}
+
+	owners := make([]metav1.OwnerReference, 0)
+	for _, owner := range pvc.OwnerReferences {
+		if owner.Kind == "DataVolume" {
+			continue
+		}
+		owners = append(owners, owner)
+	}
+
+	pvc.OwnerReferences = owners
+	_, err = v.Clientset.CoreV1().PersistentVolumeClaims(namespace).Update(context.Background(), pvc, metav1.UpdateOptions{})
+	return err
+}
+
+func (v *VirtOperator) checkPvcExists(namespace, name string) bool {
+	pvc, err := v.Clientset.CoreV1().PersistentVolumeClaims(namespace).Get(context.Background(), name, metav1.GetOptions{})
+	if err != nil {
+		return false
+	}
+	if pvc == nil {
+		return false
+	}
+	return true
+}
+
+// Check if this PVC is still owned by a DataVolume.
+func (v *VirtOperator) checkPvcAttached(namespace, name string) bool {
+	pvc, err := v.Clientset.CoreV1().PersistentVolumeClaims(namespace).Get(context.Background(), name, metav1.GetOptions{})
+	if err != nil || pvc == nil {
+		return false
+	}
+
+	for _, owner := range pvc.OwnerReferences {
+		if owner.Kind == "DataVolume" {
+			return true
+		}
+	}
+
+	return false
+}
+
 func (v *VirtOperator) getDataVolume(namespace, name string) (*unstructured.Unstructured, error) {
-	unstructuredDataVolume, err := v.Dynamic.Resource(dataVolumeGVK).Namespace(namespace).Get(context.Background(), name, v1.GetOptions{})
+	unstructuredDataVolume, err := v.Dynamic.Resource(dataVolumeGVK).Namespace(namespace).Get(context.Background(), name, metav1.GetOptions{})
 	return unstructuredDataVolume, err
 }
 
 func (v *VirtOperator) deleteDataVolume(namespace, name string) error {
-	return v.Dynamic.Resource(dataVolumeGVK).Namespace(namespace).Delete(context.Background(), name, v1.DeleteOptions{})
+	return v.Dynamic.Resource(dataVolumeGVK).Namespace(namespace).Delete(context.Background(), name, metav1.DeleteOptions{})
 }
 
 func (v *VirtOperator) checkDataVolumeExists(namespace, name string) bool {
@@ -56,6 +109,7 @@ func (v *VirtOperator) checkDataVolumeReady(namespace, name string) bool {
 	if !ok {
 		return false
 	}
+	log.Printf("Phase of DataVolume %s/%s: %s", namespace, name, phase)
 	return phase == "Succeeded"
 }
 
@@ -111,7 +165,7 @@ func (v *VirtOperator) createDataVolumeFromSource(namespace, name, size string, 
 		},
 	}
 
-	_, err := v.Dynamic.Resource(dataVolumeGVK).Namespace(v.Namespace).Create(context.Background(), &unstructuredDataVolume, v1.CreateOptions{})
+	_, err := v.Dynamic.Resource(dataVolumeGVK).Namespace(namespace).Create(context.Background(), &unstructuredDataVolume, metav1.CreateOptions{})
 	if err != nil {
 		if apierrors.IsAlreadyExists(err) {
 			return nil
@@ -137,14 +191,14 @@ func (v *VirtOperator) createDataVolumeFromUrl(namespace, name, url, size string
 }
 
 // Create a DataVolume as a clone of an existing PVC.
-func (v *VirtOperator) createDataVolumeFromPvc(namespace, sourceName, cloneName, size string) error {
+func (v *VirtOperator) createDataVolumeFromPvc(sourceNamespace, sourceName, cloneNamespace, cloneName, size string) error {
 	pvcSource := map[string]interface{}{
 		"pvc": map[string]interface{}{
 			"name":      sourceName,
-			"namespace": namespace,
+			"namespace": sourceNamespace,
 		},
 	}
-	return v.createDataVolumeFromSource(namespace, cloneName, size, pvcSource)
+	return v.createDataVolumeFromSource(cloneNamespace, cloneName, size, pvcSource)
 }
 
 // Create a DataVolume and wait for it to be ready.
@@ -193,27 +247,78 @@ func (v *VirtOperator) RemoveDataVolume(namespace, name string, timeout time.Dur
 	return nil
 }
 
+// Remove owner reference from a PVC, so DV removal keeps the PVC.
+func (v *VirtOperator) DetachPvc(namespace, name string, timeout time.Duration) error {
+	// Retry if there are API server conflicts ("the object has been modified")
+	timeTaken := 0 * time.Second
+	err := wait.PollImmediate(5*time.Second, timeout, func() (bool, error) {
+		timeTaken += 5
+		innerErr := v.detachPvc(namespace, name)
+		if innerErr != nil {
+			if apierrors.IsConflict(innerErr) {
+				log.Printf("PVC modification conflict, trying again...")
+				return false, nil // Conflict: try again
+			}
+			return false, innerErr // Anything else: give up
+		}
+		return innerErr == nil, nil
+	})
+
+	if err != nil {
+		return fmt.Errorf("timed out waiting to remove DataVolume as owner of PVC %s/%s", namespace, name)
+	}
+
+	timeout = timeout - timeTaken
+	err = wait.PollImmediate(5*time.Second, timeout, func() (bool, error) {
+		return !v.checkPvcAttached(namespace, name), nil
+	})
+
+	return err
+}
+
+func (v *VirtOperator) RemovePvc(namespace, name string, timeout time.Duration) error {
+	err := v.deletePvc(namespace, name)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			log.Printf("PVC %s/%s already removed", namespace, name)
+		} else {
+			return err
+		}
+	}
+
+	err = wait.PollImmediate(5*time.Second, timeout, func() (bool, error) {
+		return !v.checkPvcExists(namespace, name), nil
+	})
+	if err != nil {
+		return fmt.Errorf("timed out waiting for PVC %s/%s to be deleted: %w", namespace, name, err)
+	}
+
+	log.Printf("Removed PVC %s/%s", namespace, name)
+
+	return nil
+}
+
 // Clone a DataVolume and wait for the copy to be ready.
-func (v *VirtOperator) CloneDisk(namespace, sourceName, cloneName string, timeout time.Duration) error {
-	log.Printf("Cloning %s/%s to %s/%s...", namespace, sourceName, namespace, cloneName)
-	if !v.checkDataVolumeExists(namespace, sourceName) {
+func (v *VirtOperator) CloneDisk(sourceNamespace, sourceName, cloneNamespace, cloneName string, timeout time.Duration) error {
+	log.Printf("Cloning %s/%s to %s/%s...", sourceNamespace, sourceName, cloneNamespace, cloneName)
+	if !v.checkDataVolumeExists(sourceNamespace, sourceName) {
 		return fmt.Errorf("source disk does not exist")
 	}
 
-	size, err := v.getDataVolumeSize(namespace, sourceName)
+	size, err := v.getDataVolumeSize(sourceNamespace, sourceName)
 	if err != nil {
 		return fmt.Errorf("failed to get disk size for clone: %w", err)
 	}
 
-	if err := v.createDataVolumeFromPvc(namespace, sourceName, cloneName, size); err != nil {
+	if err := v.createDataVolumeFromPvc(sourceNamespace, sourceName, cloneNamespace, cloneName, size); err != nil {
 		return fmt.Errorf("failed to clone disk: %w", err)
 	}
 
 	err = wait.PollImmediate(5*time.Second, timeout, func() (bool, error) {
-		return v.checkDataVolumeReady(namespace, cloneName), nil
+		return v.checkDataVolumeReady(cloneNamespace, cloneName), nil
 	})
 	if err != nil {
-		return fmt.Errorf("timed out waiting to clone DataVolume %s/%s to %s/%s: %w", namespace, sourceName, namespace, cloneName, err)
+		return fmt.Errorf("timed out waiting to clone DataVolume %s/%s to %s/%s: %w", sourceNamespace, sourceName, cloneNamespace, cloneName, err)
 	}
 
 	return nil
