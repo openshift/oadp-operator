@@ -16,7 +16,7 @@ import (
 	"github.com/openshift/oadp-operator/tests/e2e/lib"
 )
 
-var _ = ginkgov2.FDescribe("Subscription Config Suite Test", func() {
+var _ = ginkgov2.Describe("Subscription Config Suite Test", func() {
 	type SubscriptionConfigTestCase struct {
 		operators.SubscriptionConfig
 		failureExpected *bool
@@ -49,7 +49,9 @@ var _ = ginkgov2.FDescribe("Subscription Config Suite Test", func() {
 					}
 					for _, pod := range controllerManagerPods.Items {
 						podLogs, err := lib.GetPodContainerLogs(kubernetesClientForSuiteRun, namespace, pod.Name, "manager")
-						gomega.Expect(err).To(gomega.BeNil())
+						if err != nil {
+							return false
+						}
 						if strings.Contains(podLogs, "error setting privileged pod security labels to operator namespace") && strings.Contains(podLogs, "connect: connection refused") {
 							log.Printf("found error message in controller manager Pod")
 							return true
@@ -80,7 +82,9 @@ var _ = ginkgov2.FDescribe("Subscription Config Suite Test", func() {
 
 				isLeaseReady := func() bool {
 					podLogs, err := lib.GetPodContainerLogs(kubernetesClientForSuiteRun, namespace, controllerManagerPodName, "manager")
-					gomega.Expect(err).To(gomega.BeNil())
+					if err != nil {
+						return false
+					}
 					log.Printf("waiting leaderelection")
 					return strings.Contains(podLogs, "leaderelection.go:258] successfully acquired lease")
 				}
