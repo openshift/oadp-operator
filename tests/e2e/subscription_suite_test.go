@@ -3,6 +3,7 @@ package e2e_test
 import (
 	"context"
 	"log"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -10,6 +11,7 @@ import (
 	. "github.com/openshift/oadp-operator/tests/e2e/lib"
 	operators "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
 )
 
@@ -38,16 +40,57 @@ var _ = Describe("Subscription Config Suite Test", func() {
 			Expect(err).To(BeNil())
 			Eventually(s.CsvIsInstalling, time.Minute*1, time.Second*5).WithArguments(runTimeClientForSuiteRun).Should(BeTrue())
 
-			// get csv from installplan from subscription
-			log.Printf("Wait for CSV to be succeeded")
 			if testCase.failureExpected != nil && *testCase.failureExpected {
-				Consistently(s.CsvIsReady, time.Minute*2, time.Second*5).WithArguments(runTimeClientForSuiteRun).Should(BeFalse())
-				// TODO read error message instead?
+				haveErrorMessage := func() bool {
+					controllerManagerPods, err := kubernetesClientForSuiteRun.CoreV1().Pods(namespace).List(context.Background(), v1.ListOptions{LabelSelector: "control-plane=controller-manager"})
+					if err != nil {
+						return false
+					}
+					for _, pod := range controllerManagerPods.Items {
+						podLogs, err := GetPodContainerLogs(kubernetesClientForSuiteRun, namespace, pod.Name, "manager")
+						if err != nil {
+							return false
+						}
+						if strings.Contains(podLogs, "error setting privileged pod security labels to operator namespace") && strings.Contains(podLogs, "connect: connection refused") {
+							log.Printf("found error message in controller manager Pod")
+							return true
+						}
+					}
+					return false
+				}
+				Eventually(haveErrorMessage, time.Minute*1, time.Second*5).Should(BeTrue())
 			} else {
-				Eventually(s.CsvIsReady, time.Minute*15, time.Second*5).WithArguments(runTimeClientForSuiteRun).Should(BeTrue())
+				log.Printf("Wait for CSV to be succeeded")
+				Eventually(s.CsvIsReady, time.Minute*7, time.Second*5).WithArguments(runTimeClientForSuiteRun).Should(BeTrue())
+
+				var controllerManagerPodName string
+				onlyOneManagerPod := func() bool {
+					controllerManagerPod, err := kubernetesClientForSuiteRun.CoreV1().Pods(namespace).List(context.Background(), v1.ListOptions{LabelSelector: "control-plane=controller-manager"})
+					if err != nil {
+						return false
+					}
+					log.Printf("waiting for having only one controller manager Pod")
+					if len(controllerManagerPod.Items) == 1 {
+						controllerManagerPodName = controllerManagerPod.Items[0].Name
+						return true
+					}
+					return false
+				}
+
+				Eventually(onlyOneManagerPod, time.Minute*4, time.Second*5).Should(BeTrue())
+
+				isLeaseReady := func() bool {
+					podLogs, err := GetPodContainerLogs(kubernetesClientForSuiteRun, namespace, controllerManagerPodName, "manager")
+					if err != nil {
+						return false
+					}
+					log.Printf("waiting leaderelection")
+					return strings.Contains(podLogs, "leaderelection.go:258] successfully acquired lease")
+				}
+				Eventually(isLeaseReady, time.Minute*4, time.Second*5).Should(BeTrue())
 
 				log.Printf("Creating test Velero")
-				err := dpaCR.Build(CSI)
+				err = dpaCR.Build(CSI)
 				Expect(err).NotTo(HaveOccurred())
 				//also test restic
 				dpaCR.CustomResource.Spec.Configuration.NodeAgent.Enable = pointer.BoolPtr(true)
@@ -59,10 +102,10 @@ var _ = Describe("Subscription Config Suite Test", func() {
 				velero, err := dpaCR.Get(runTimeClientForSuiteRun)
 				Expect(err).NotTo(HaveOccurred())
 				log.Printf("Waiting for velero pod to be running")
-				Eventually(AreVeleroPodsRunning(kubernetesClientForSuiteRun, namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
+				Eventually(AreVeleroPodsRunning(kubernetesClientForSuiteRun, namespace), timeoutMultiplier*time.Minute*1, time.Second*5).Should(BeTrue())
 				if velero.Spec.Configuration.NodeAgent.Enable != nil && *velero.Spec.Configuration.NodeAgent.Enable {
 					log.Printf("Waiting for Node Agent pods to be running")
-					Eventually(AreNodeAgentPodsRunning(kubernetesClientForSuiteRun, namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
+					Eventually(AreNodeAgentPodsRunning(kubernetesClientForSuiteRun, namespace), timeoutMultiplier*time.Minute*1, time.Second*5).Should(BeTrue())
 				}
 				if s.Spec.Config != nil && s.Spec.Config.Env != nil {
 					// get pod env vars
