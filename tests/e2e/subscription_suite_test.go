@@ -3,12 +3,14 @@ package e2e_test
 import (
 	"context"
 	"log"
+	"strings"
 	"time"
 
 	ginkgov2 "github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
 	operators "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
 
 	"github.com/openshift/oadp-operator/tests/e2e/lib"
@@ -39,16 +41,57 @@ var _ = ginkgov2.Describe("Subscription Config Suite Test", func() {
 			gomega.Expect(err).To(gomega.BeNil())
 			gomega.Eventually(s.CsvIsInstalling, time.Minute*1, time.Second*5).WithArguments(runTimeClientForSuiteRun).Should(gomega.BeTrue())
 
-			// get csv from installplan from subscription
-			log.Printf("Wait for CSV to be succeeded")
 			if testCase.failureExpected != nil && *testCase.failureExpected {
-				gomega.Consistently(s.CsvIsReady, time.Minute*2, time.Second*5).WithArguments(runTimeClientForSuiteRun).Should(gomega.BeFalse())
-				// TODO read error message instead?
+				haveErrorMessage := func() bool {
+					controllerManagerPods, err := kubernetesClientForSuiteRun.CoreV1().Pods(namespace).List(context.Background(), v1.ListOptions{LabelSelector: "control-plane=controller-manager"})
+					if err != nil {
+						return false
+					}
+					for _, pod := range controllerManagerPods.Items {
+						podLogs, err := lib.GetPodContainerLogs(kubernetesClientForSuiteRun, namespace, pod.Name, "manager")
+						if err != nil {
+							return false
+						}
+						if strings.Contains(podLogs, "error setting privileged pod security labels to operator namespace") && strings.Contains(podLogs, "connect: connection refused") {
+							log.Printf("found error message in controller manager Pod")
+							return true
+						}
+					}
+					return false
+				}
+				gomega.Eventually(haveErrorMessage, time.Minute*1, time.Second*5).Should(gomega.BeTrue())
 			} else {
-				gomega.Eventually(s.CsvIsReady, time.Minute*15, time.Second*5).WithArguments(runTimeClientForSuiteRun).Should(gomega.BeTrue())
+				log.Printf("Wait for CSV to be succeeded")
+				gomega.Eventually(s.CsvIsReady, time.Minute*7, time.Second*5).WithArguments(runTimeClientForSuiteRun).Should(gomega.BeTrue())
+
+				var controllerManagerPodName string
+				onlyOneManagerPod := func() bool {
+					controllerManagerPod, err := kubernetesClientForSuiteRun.CoreV1().Pods(namespace).List(context.Background(), v1.ListOptions{LabelSelector: "control-plane=controller-manager"})
+					if err != nil {
+						return false
+					}
+					log.Printf("waiting for having only one controller manager Pod")
+					if len(controllerManagerPod.Items) == 1 {
+						controllerManagerPodName = controllerManagerPod.Items[0].Name
+						return true
+					}
+					return false
+				}
+
+				gomega.Eventually(onlyOneManagerPod, time.Minute*4, time.Second*5).Should(gomega.BeTrue())
+
+				isLeaseReady := func() bool {
+					podLogs, err := lib.GetPodContainerLogs(kubernetesClientForSuiteRun, namespace, controllerManagerPodName, "manager")
+					if err != nil {
+						return false
+					}
+					log.Printf("waiting leaderelection")
+					return strings.Contains(podLogs, "leaderelection.go:258] successfully acquired lease")
+				}
+				gomega.Eventually(isLeaseReady, time.Minute*4, time.Second*5).Should(gomega.BeTrue())
 
 				log.Printf("Creating test Velero")
-				err := dpaCR.Build(lib.CSI)
+				err = dpaCR.Build(lib.CSI)
 				gomega.Expect(err).NotTo(gomega.HaveOccurred())
 				//also test restic
 				dpaCR.CustomResource.Spec.Configuration.NodeAgent.Enable = pointer.BoolPtr(true)
@@ -60,10 +103,10 @@ var _ = ginkgov2.Describe("Subscription Config Suite Test", func() {
 				velero, err := dpaCR.Get(runTimeClientForSuiteRun)
 				gomega.Expect(err).NotTo(gomega.HaveOccurred())
 				log.Printf("Waiting for velero pod to be running")
-				gomega.Eventually(lib.AreVeleroPodsRunning(kubernetesClientForSuiteRun, namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(gomega.BeTrue())
+				gomega.Eventually(lib.AreVeleroPodsRunning(kubernetesClientForSuiteRun, namespace), timeoutMultiplier*time.Minute*1, time.Second*5).Should(gomega.BeTrue())
 				if velero.Spec.Configuration.NodeAgent.Enable != nil && *velero.Spec.Configuration.NodeAgent.Enable {
 					log.Printf("Waiting for Node Agent pods to be running")
-					gomega.Eventually(lib.AreNodeAgentPodsRunning(kubernetesClientForSuiteRun, namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(gomega.BeTrue())
+					gomega.Eventually(lib.AreNodeAgentPodsRunning(kubernetesClientForSuiteRun, namespace), timeoutMultiplier*time.Minute*1, time.Second*5).Should(gomega.BeTrue())
 				}
 				if s.Spec.Config != nil && s.Spec.Config.Env != nil {
 					// get pod env vars
