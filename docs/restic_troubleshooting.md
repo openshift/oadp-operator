@@ -1,6 +1,10 @@
 # Velero Restic Troubleshooting Tips
 This document contains commands for both Velero Restic Filesystem copy and for OADP's datamover feature.
 
+## Additional information can be found in the restic documentation
+
+https://restic.readthedocs.io/en/latest/077_troubleshooting.html
+
 ## setup cli clients
 ```
 alias velero='oc -n openshift-adp exec deployment/velero -c velero -it -- ./velero'
