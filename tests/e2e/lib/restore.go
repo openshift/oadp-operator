@@ -9,11 +9,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func CreateRestoreFromBackup(ocClient client.Client, veleroNamespace, backupName, restoreName string, restorePVs bool) (velero.Restore, error) {
+func CreateRestoreFromBackup(ocClient client.Client, veleroNamespace, backupName, restoreName string) (velero.Restore, error) {
 	restore := velero.Restore{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      restoreName,
@@ -22,9 +21,6 @@ func CreateRestoreFromBackup(ocClient client.Client, veleroNamespace, backupName
 		Spec: velero.RestoreSpec{
 			BackupName: backupName,
 		},
-	}
-	if restorePVs {
-		restore.Spec.RestorePVs = pointer.Bool(true)
 	}
 	err := ocClient.Create(context.Background(), &restore)
 	return restore, err
