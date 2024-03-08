@@ -54,7 +54,7 @@ func runVmBackupAndRestore(brCase VmBackupRestoreCase, expectedErr error, update
 	err = v.CloneDisk(brCase.SourceNamespace, brCase.Source, brCase.Namespace, brCase.Name, 5*time.Minute)
 	gomega.Expect(err).To(gomega.BeNil())
 
-	err = v.CreateVm(brCase.Namespace, brCase.Name, brCase.Source, 5*time.Minute)
+	err = v.CreateVm(brCase.Namespace, brCase.Name, 5*time.Minute)
 	gomega.Expect(err).To(gomega.BeNil())
 
 	// Remove the Data Volume, but keep the PVC attached to the VM
