@@ -263,15 +263,15 @@ kustomize: ## Download kustomize locally if necessary.
 
 # Codecov OS String for use in download url
 ifeq ($(OS),Windows_NT)
-OS_String = windows
+    OS_String = windows
 else
-UNAME_S := $(shell uname -s)
-ifeq ($(UNAME_S),Linux)
-	OS_String = linux
-endif
-ifeq ($(UNAME_S),Darwin)
-	OS_String = macos
-endif
+    UNAME_S := $(shell uname -s)
+    ifeq ($(UNAME_S),Linux)
+        OS_String = linux
+    endif
+    ifeq ($(UNAME_S),Darwin)
+        OS_String = macos
+    endif
 endif
 submit-coverage:
 	curl -Os https://uploader.codecov.io/latest/$(OS_String)/codecov
