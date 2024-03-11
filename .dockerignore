@@ -6,11 +6,10 @@ bin
 .devcontainer
 build
 cache
-.ci-operator.yaml
 .gitignore
 ./*.yml
 ./*.yaml
-OWNERS*
+OWNERS
 PROJECT
 LICENSE
 Dockerfile

@@ -1,9 +1,0 @@
-FROM openshift/origin-release:golang-1.17
-RUN yum -y install epel-release --disablerepo=epel && yum clean all
-RUN yum -y install make
-RUN go get -u github.com/onsi/ginkgo/ginkgo && \
- go get -u github.com/onsi/ginkgo/v2/ginkgo
-# pin v1.22 as latest requires go 1.18
-RUN go get -d -u github.com/onsi/gomega@v1.22
-RUN chmod g+rw /etc/passwd
-ENV LC_ALL=en_US.utf-8 LANG=en_US.utf-8
