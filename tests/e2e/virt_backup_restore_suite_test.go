@@ -53,14 +53,28 @@ func runVmBackupAndRestore(brCase VmBackupRestoreCase, expectedErr error, update
 	err := lib.CreateNamespace(v.Clientset, brCase.Namespace)
 	gomega.Expect(err).To(gomega.BeNil())
 
-	// Create VM disk, defaults to clone of CirrOS image
+	// Create a standalone VM disk. This defaults to cloning the CirrOS image.
+	// This uses a DataVolume so import and clone progress can be monitored.
+	// Behavioral notes: CDI will garbage collect DataVolumes if they are not
+	// attached to anything, so this disk needs to include the annotation
+	// storage.deleteAfterCompletion in order to keep it around long enough to
+	// attach to a VM. CDI also waits until the DataVolume is attached to
+	// something before running whatever import process it has been asked to
+	// run, so this disk also needs the storage.bind.immediate.requested
+	// annotation to get it to start the cloning process.
 	err = v.CreateDiskFromYaml(brCase.Namespace, diskName, 5*time.Minute)
 	gomega.Expect(err).To(gomega.BeNil())
 
 	err = v.CreateVm(brCase.Namespace, vmName, 5*time.Minute)
 	gomega.Expect(err).To(gomega.BeNil())
 
-	// Remove the Data Volume, but keep the PVC attached to the VM
+	// Remove the Data Volume, but keep the PVC attached to the VM. The
+	// DataVolume must be removed before backing up, because otherwise the
+	// restore process might try to follow the instructions in the spec. For
+	// example, a DataVolume that lists a cloned PVC will get restored in the
+	// same state, and attempt to clone the PVC again after restore. The
+	// DataVolume also needs to be detached from the VM, so that the VM restore
+	// does not try to use the DataVolume that was deleted.
 	err = v.DetachPvc(brCase.Namespace, diskName, 2*time.Minute)
 	gomega.Expect(err).To(gomega.BeNil())
 	err = v.RemoveDataVolume(brCase.Namespace, diskName, 2*time.Minute)
