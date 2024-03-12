@@ -1,0 +1,14 @@
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: vmroute
+  namespace: openshift-virtualization-os-images
+spec:
+  #host: vmroute-openshift-virtualization-os-images.apps.cluster-wdh03122024metala.wdh03122024metala.mg.dog8code.com
+  port:
+    targetPort: todoport
+  to:
+    kind: Service
+    name: vm-service
+    weight: 100
+  wildcardPolicy: None
