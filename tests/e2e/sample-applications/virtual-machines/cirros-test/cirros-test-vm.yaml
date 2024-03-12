@@ -4,8 +4,8 @@ items:
   - apiVersion: kubevirt.io/v1
     kind: VirtualMachine
     metadata:
-      name: cirros-vm
-      namespace: cirros-test-vm
+      name: cirros-test-vm
+      namespace: cirros-test
     spec:
       running: true
       template:
@@ -23,4 +23,4 @@ items:
           volumes:
           - name: rootdisk
             persistentVolumeClaim:
-              claimName: cirros-vm
+              claimName: cirros-test-disk

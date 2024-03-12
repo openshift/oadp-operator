@@ -44,32 +44,35 @@ type VmBackupRestoreCase struct {
 func runVmBackupAndRestore(brCase VmBackupRestoreCase, expectedErr error, updateLastBRcase func(brCase VmBackupRestoreCase), updateLastInstallTime func(), v *lib.VirtOperator) {
 	updateLastBRcase(brCase)
 
+	diskName := brCase.Name + "-disk"
+	vmName := brCase.Name + "-vm"
+
 	// Create DPA
 	backupName, restoreName := prepareBackupAndRestore(brCase.BackupRestoreCase, func() {})
 
 	err := lib.CreateNamespace(v.Clientset, brCase.Namespace)
 	gomega.Expect(err).To(gomega.BeNil())
 
-	// Create VM from clone of CirrOS image
-	err = v.CloneDisk(brCase.SourceNamespace, brCase.Source, brCase.Namespace, brCase.Name, 5*time.Minute)
+	// Create VM disk, defaults to clone of CirrOS image
+	err = v.CreateDiskFromYaml(brCase.Namespace, diskName, 5*time.Minute)
 	gomega.Expect(err).To(gomega.BeNil())
 
-	err = v.CreateVm(brCase.Namespace, brCase.Name, 5*time.Minute)
+	err = v.CreateVm(brCase.Namespace, vmName, 5*time.Minute)
 	gomega.Expect(err).To(gomega.BeNil())
 
 	// Remove the Data Volume, but keep the PVC attached to the VM
-	err = v.DetachPvc(brCase.Namespace, brCase.Name, 2*time.Minute)
+	err = v.DetachPvc(brCase.Namespace, diskName, 2*time.Minute)
 	gomega.Expect(err).To(gomega.BeNil())
-	err = v.RemoveDataVolume(brCase.Namespace, brCase.Name, 2*time.Minute)
+	err = v.RemoveDataVolume(brCase.Namespace, diskName, 2*time.Minute)
 	gomega.Expect(err).To(gomega.BeNil())
 
 	// Back up VM
 	nsRequiresResticDCWorkaround := runBackup(brCase.BackupRestoreCase, backupName)
 
 	// Delete everything in test namespace
-	err = v.RemoveVm(brCase.Namespace, brCase.Name, 2*time.Minute)
+	err = v.RemoveVm(brCase.Namespace, vmName, 2*time.Minute)
 	gomega.Expect(err).To(gomega.BeNil())
-	err = v.RemovePvc(brCase.Namespace, brCase.Name, 2*time.Minute)
+	err = v.RemovePvc(brCase.Namespace, diskName, 2*time.Minute)
 	gomega.Expect(err).To(gomega.BeNil())
 	err = lib.DeleteNamespace(v.Clientset, brCase.Namespace)
 	gomega.Expect(err).To(gomega.BeNil())
@@ -135,8 +138,8 @@ var _ = ginkgov2.Describe("VM backup and restore tests", ginkgov2.Ordered, func(
 			Source:          "cirros-dv",
 			SourceNamespace: "openshift-cnv",
 			BackupRestoreCase: BackupRestoreCase{
-				Namespace:         "cirros-test-vm",
-				Name:              "cirros-vm",
+				Namespace:         "cirros-test",
+				Name:              "cirros-test",
 				SkipVerifyLogs:    true,
 				BackupRestoreType: lib.CSIDataMover,
 			},

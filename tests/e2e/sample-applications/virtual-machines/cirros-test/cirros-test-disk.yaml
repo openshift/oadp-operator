@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: List
+items:
+  - apiVersion: cdi.kubevirt.io/v1beta1
+    kind: DataVolume
+    metadata:
+      name: cirros-test-disk
+      namespace: cirros-test
+      annotations:
+        cdi.kubevirt.io/storage.bind.immediate.requested: ""
+        cdi.kubevirt.io/storage.deleteAfterCompletion: "false"
+    spec:
+      source:
+        pvc:
+          name: cirros-dv
+          namespace: openshift-cnv
+      pvc:
+        accessModes:
+        - ReadWriteOnce
+        resources:
+          requests:
+            storage: 128Mi
