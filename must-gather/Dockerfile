@@ -20,7 +20,7 @@ FROM quay.io/openshift/origin-must-gather:latest AS builder
 
 FROM registry.access.redhat.com/ubi9-minimal:latest
 
-RUN microdnf -y install rsync tar gzip graphviz findutils
+RUN microdnf -y install rsync tar gzip findutils
 
 COPY --from=gobuilder /opt/app-root/src/go/bin/pprof /usr/bin/pprof
 COPY --from=builder /usr/bin/oc /usr/bin/oc
