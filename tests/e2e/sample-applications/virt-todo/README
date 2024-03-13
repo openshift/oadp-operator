@@ -1,0 +1,2 @@
+# check volumeMode
+oc get pvc fedora-close-carp -o yaml -n virttodo | grep volumeMode

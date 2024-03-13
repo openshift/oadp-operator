@@ -16,7 +16,7 @@ metadata:
   creationTimestamp: '2024-03-12T19:47:37Z'
   generation: 1
   labels:
-    app: fedora-close-herring
+    app: fedora-close-carp
     vm.kubevirt.io/template: fedora-server-small
     vm.kubevirt.io/template.namespace: openshift
     vm.kubevirt.io/template.revision: '1'
@@ -95,8 +95,8 @@ metadata:
       manager: kubectl-create
       operation: Update
       time: '2024-03-12T19:47:37Z'
-  name: fedora-close-herring
-  namespace: openshift-virtualization-os-images
+  name: fedora-close-carp
+  namespace: virttodo
   uid: 26d098f2-7b20-42da-90d9-66bec57188f4
 spec:
   dataVolumeTemplates:
@@ -104,7 +104,7 @@ spec:
       kind: DataVolume
       metadata:
         creationTimestamp: null
-        name: fedora-close-herring
+        name: fedora-close-carp
       spec:
         sourceRef:
           kind: DataSource
@@ -123,7 +123,7 @@ spec:
         vm.kubevirt.io/workload: server
       creationTimestamp: null
       labels:
-        kubevirt.io/domain: fedora-close-herring
+        kubevirt.io/domain: fedora-close-carp
         kubevirt.io/size: small
         special: key
     spec:
@@ -142,7 +142,7 @@ spec:
                 bus: virtio
               name: cloudinitdisk
           interfaces:
-            - macAddress: '02:73:43:00:00:06'
+            - macAddress: '02:73:43:00:00:07'
               masquerade: {}
               model: virtio
               name: default
@@ -166,7 +166,7 @@ spec:
       terminationGracePeriodSeconds: 180
       volumes:
         - dataVolume:
-            name: fedora-close-herring
+            name: fedora-close-carp
           name: rootdisk
         - cloudInitConfigDrive:
             userData: |-

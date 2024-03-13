@@ -1,0 +1,8 @@
+apiVersion: velero.io/v1
+kind: Restore
+metadata:
+  name: virttodo-restore-1
+  namespace: openshift-adp
+spec:
+  backupName: virttodo-backup-dm-1
+  restorePVs: true

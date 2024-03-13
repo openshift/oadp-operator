@@ -2,7 +2,7 @@ apiVersion: route.openshift.io/v1
 kind: Route
 metadata:
   name: vmroute
-  namespace: openshift-virtualization-os-images
+  namespace: virttodo
 spec:
   #host: vmroute-openshift-virtualization-os-images.apps.cluster-wdh03122024metala.wdh03122024metala.mg.dog8code.com
   port:
