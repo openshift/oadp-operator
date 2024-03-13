@@ -189,13 +189,16 @@ spec:
                 - mysql -uroot -e "CREATE DATABASE todolist; USE todolist; CREATE USER 'test'@'localhost' IDENTIFIED BY 'test';"
                 - mysql -uroot -e "grant all privileges on todolist.* to test@'localhost' identified by 'test'; FLUSH PRIVILEGES;"
                 - pushd /home/test/
-                - wget https://github.com/weshayutin/todolist-mariadb-go/releases/download/testing1/todolist-linux-amd64.zip
+                - wget https://github.com/weshayutin/todolist-mariadb-go/releases/download/testing3/todolist-linux-amd64.zip
                 - unzip todolist-linux-amd64.zip
-                - cp systemd/todolist-mariadb.service /etc/systemd/user
+                - chown -R test:test /home/test
+                - semanage fcontext --add --type bin_t '/home/test/todolist-linux-amd64'
+                - restorecon -Fv /home/test/todolist-linux-amd64
+                - cp systemd/todolist-mariadb.service /etc/systemd/system/
                 - popd
-                - systemctl --user daemon-reload
-                - systemctl --user start todolist-mariadb.service
-                - systemctl --user enable todolist-mariadb.service
-                - systemctl --user status todolist-mariadb.service
+                - systemctl daemon-reload
+                - systemctl start todolist-mariadb.service
+                - systemctl enable todolist-mariadb.service
+                - systemctl status todolist-mariadb.service
                 - systemctl  disable  cloud-init
           name: cloudinitdisk
