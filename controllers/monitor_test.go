@@ -152,7 +152,7 @@ func TestDPAReconciler_updateVeleroMetricsSVC(t *testing.T) {
 				Client:  fakeClient,
 				Scheme:  fakeClient.Scheme(),
 				Log:     logr.Discard(),
-				Context: newContextForTest(tt.name),
+				Context: newContextForTest(),
 				NamespacedName: types.NamespacedName{
 					Namespace: tt.svc.Namespace,
 					Name:      tt.svc.Name,
@@ -160,7 +160,7 @@ func TestDPAReconciler_updateVeleroMetricsSVC(t *testing.T) {
 				EventRecorder: record.NewFakeRecorder(10),
 			}
 
-			err = r.updateVeleroMetricsSVC(tt.svc, tt.dpa)
+			_ = r.updateVeleroMetricsSVC(tt.svc, tt.dpa)
 			if !reflect.DeepEqual(tt.wantVeleroMtricsSVC.Labels, tt.svc.Labels) {
 				t.Errorf("expected velero metrics svc labels to be %#v, got %#v", tt.wantVeleroMtricsSVC.Labels, tt.svc.Labels)
 			}

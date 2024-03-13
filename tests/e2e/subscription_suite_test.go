@@ -20,7 +20,6 @@ var _ = ginkgov2.Describe("Subscription Config Suite Test", func() {
 	type SubscriptionConfigTestCase struct {
 		operators.SubscriptionConfig
 		failureExpected *bool
-		stream          lib.StreamSource
 	}
 
 	var _ = ginkgov2.AfterEach(func() {
@@ -91,8 +90,7 @@ var _ = ginkgov2.Describe("Subscription Config Suite Test", func() {
 				gomega.Eventually(isLeaseReady, time.Minute*4, time.Second*5).Should(gomega.BeTrue())
 
 				log.Printf("Creating test Velero")
-				err = dpaCR.Build(lib.CSI)
-				gomega.Expect(err).NotTo(gomega.HaveOccurred())
+				dpaCR.Build(lib.CSI)
 				//also test restic
 				dpaCR.CustomResource.Spec.Configuration.NodeAgent.Enable = pointer.BoolPtr(true)
 				dpaCR.CustomResource.Spec.Configuration.NodeAgent.UploaderType = "restic"

@@ -22,10 +22,8 @@ import (
 
 type VerificationFunction func(client.Client, string) error
 
-type appVerificationFunction func(bool, bool, lib.BackupRestoreType) VerificationFunction
-
 // TODO duplications with mongoready
-func mongoready(preBackupState bool, twoVol bool) VerificationFunction {
+func mongoready(preBackupState bool) VerificationFunction {
 	return VerificationFunction(func(ocClient client.Client, namespace string) error {
 		gomega.Eventually(lib.IsDCReady(ocClient, namespace, "todolist"), timeoutMultiplier*time.Minute*10, time.Second*10).Should(gomega.BeTrue())
 		exists, err := lib.DoesSCCExist(ocClient, "mongo-persistent-scc")
@@ -75,13 +73,12 @@ type ApplicationBackupRestoreCase struct {
 }
 
 func prepareBackupAndRestore(brCase BackupRestoreCase, updateLastInstallTime func()) (string, string) {
-	err := dpaCR.Build(brCase.BackupRestoreType)
-	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	dpaCR.Build(brCase.BackupRestoreType)
 
 	//updateLastInstallingNamespace(dpaCR.Namespace)
 	updateLastInstallTime()
 
-	err = dpaCR.CreateOrUpdate(runTimeClientForSuiteRun, &dpaCR.CustomResource.Spec)
+	err := dpaCR.CreateOrUpdate(runTimeClientForSuiteRun, &dpaCR.CustomResource.Spec)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	log.Printf("Waiting for velero pod to be running")
@@ -111,7 +108,7 @@ func prepareBackupAndRestore(brCase BackupRestoreCase, updateLastInstallTime fun
 	return backupName, restoreName
 }
 
-func runApplicationBackupAndRestore(brCase ApplicationBackupRestoreCase, expectedErr error, updateLastBRcase func(brCase ApplicationBackupRestoreCase), updateLastInstallTime func()) {
+func runApplicationBackupAndRestore(brCase ApplicationBackupRestoreCase, updateLastBRcase func(brCase ApplicationBackupRestoreCase), updateLastInstallTime func()) {
 	updateLastBRcase(brCase)
 
 	// create DPA
@@ -278,10 +275,8 @@ func tearDownBackupAndRestore(brCase BackupRestoreCase, installTime time.Time, r
 		baseReportDir := artifact_dir + "/" + report.LeafNodeText
 		err := os.MkdirAll(baseReportDir, 0755)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
-		err = lib.SavePodLogs(kubernetesClientForSuiteRun, namespace, baseReportDir)
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
-		err = lib.SavePodLogs(kubernetesClientForSuiteRun, brCase.Namespace, baseReportDir)
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		lib.SavePodLogs(kubernetesClientForSuiteRun, namespace, baseReportDir)
+		lib.SavePodLogs(kubernetesClientForSuiteRun, brCase.Namespace, baseReportDir)
 	}
 	if brCase.BackupRestoreType == lib.CSI || brCase.BackupRestoreType == lib.CSIDataMover {
 		log.Printf("Deleting VolumeSnapshot for CSI backuprestore of %s", brCase.Name)
@@ -322,7 +317,7 @@ var _ = ginkgov2.Describe("Backup and restore tests", func() {
 			if ginkgov2.CurrentSpecReport().NumAttempts > 1 && !knownFlake {
 				ginkgov2.Fail("No known FLAKE found in a previous run, marking test as failed.")
 			}
-			runApplicationBackupAndRestore(brCase, expectedErr, updateLastBRcase, updateLastInstallTime)
+			runApplicationBackupAndRestore(brCase, updateLastBRcase, updateLastInstallTime)
 		},
 		ginkgov2.Entry("MySQL application CSI", ginkgov2.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
 			ApplicationTemplate: "./sample-applications/mysql-persistent/mysql-persistent-csi.yaml",
@@ -340,8 +335,8 @@ var _ = ginkgov2.Describe("Backup and restore tests", func() {
 				Namespace:         "mongo-persistent",
 				Name:              "mongo-csi-e2e",
 				BackupRestoreType: lib.CSI,
-				PreBackupVerify:   mongoready(true, false),
-				PostRestoreVerify: mongoready(false, false),
+				PreBackupVerify:   mongoready(true),
+				PostRestoreVerify: mongoready(false),
 			},
 		}, nil),
 		ginkgov2.Entry("MySQL application two Vol CSI", ginkgov2.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
@@ -360,8 +355,8 @@ var _ = ginkgov2.Describe("Backup and restore tests", func() {
 				Namespace:         "mongo-persistent",
 				Name:              "mongo-restic-e2e",
 				BackupRestoreType: lib.RESTIC,
-				PreBackupVerify:   mongoready(true, false),
-				PostRestoreVerify: mongoready(false, false),
+				PreBackupVerify:   mongoready(true),
+				PostRestoreVerify: mongoready(false),
 			},
 		}, nil),
 		ginkgov2.Entry("MySQL application RESTIC", ginkgov2.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
@@ -380,8 +375,8 @@ var _ = ginkgov2.Describe("Backup and restore tests", func() {
 				Namespace:         "mongo-persistent",
 				Name:              "mongo-kopia-e2e",
 				BackupRestoreType: lib.KOPIA,
-				PreBackupVerify:   mongoready(true, false),
-				PostRestoreVerify: mongoready(false, false),
+				PreBackupVerify:   mongoready(true),
+				PostRestoreVerify: mongoready(false),
 			},
 		}, nil),
 		ginkgov2.Entry("MySQL application KOPIA", ginkgov2.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
@@ -400,8 +395,8 @@ var _ = ginkgov2.Describe("Backup and restore tests", func() {
 				Namespace:         "mongo-persistent",
 				Name:              "mongo-datamover-e2e",
 				BackupRestoreType: lib.CSIDataMover,
-				PreBackupVerify:   mongoready(true, false),
-				PostRestoreVerify: mongoready(false, false),
+				PreBackupVerify:   mongoready(true),
+				PostRestoreVerify: mongoready(false),
 			},
 		}, nil),
 		ginkgov2.Entry("MySQL application DATAMOVER", ginkgov2.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
@@ -421,8 +416,8 @@ var _ = ginkgov2.Describe("Backup and restore tests", func() {
 				Namespace:         "mongo-persistent",
 				Name:              "mongo-blockdevice-e2e",
 				BackupRestoreType: lib.CSIDataMover,
-				PreBackupVerify:   mongoready(true, false),
-				PostRestoreVerify: mongoready(false, false),
+				PreBackupVerify:   mongoready(true),
+				PostRestoreVerify: mongoready(false),
 			},
 		}, nil),
 	)

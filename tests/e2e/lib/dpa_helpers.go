@@ -52,10 +52,12 @@ type DpaCustomResource struct {
 	Provider          string
 }
 
+const BSLCloudCredentialsPrefix = "bsl-cloud-credentials-"
+
 var VeleroPrefix = "velero-e2e-" + string(uuid.NewUUID())
 var Dpa *oadpv1alpha1.DataProtectionApplication
 
-func (v *DpaCustomResource) Build(backupRestoreType BackupRestoreType) error {
+func (v *DpaCustomResource) Build(backupRestoreType BackupRestoreType) {
 	// Velero Instance creation spec with backupstorage location default to AWS. Would need to parameterize this later on to support multiple plugins.
 	dpaInstance := oadpv1alpha1.DataProtectionApplication{
 		TypeMeta: metav1.TypeMeta{
@@ -88,7 +90,7 @@ func (v *DpaCustomResource) Build(backupRestoreType BackupRestoreType) error {
 						Config:   v.CustomResource.Spec.BackupLocations[0].Velero.Config,
 						Credential: &corev1.SecretKeySelector{
 							LocalObjectReference: corev1.LocalObjectReference{
-								Name: "bsl-cloud-credentials-" + v.Provider,
+								Name: BSLCloudCredentialsPrefix + v.Provider,
 							},
 							Key: "cloud",
 						},
@@ -149,7 +151,6 @@ func (v *DpaCustomResource) Build(backupRestoreType BackupRestoreType) error {
 		// oadpv1alpha1.CSIPluginImageKey: "quay.io/emcmulla/csi-plugin:latest",
 	}
 	v.CustomResource = &dpaInstance
-	return nil
 }
 
 // if e2e, test/e2e is "." since context is tests/e2e/
@@ -369,7 +370,7 @@ func (v *DpaCustomResource) IsDeleted(c client.Client) wait.ConditionFunc {
 }
 
 // check if bsl matches the spec
-func DoesBSLSpecMatchesDpa(namespace string, bsl velero.BackupStorageLocationSpec, spec *oadpv1alpha1.DataProtectionApplicationSpec) (bool, error) {
+func DoesBSLSpecMatchesDpa(bsl velero.BackupStorageLocationSpec, spec *oadpv1alpha1.DataProtectionApplicationSpec) (bool, error) {
 	if len(spec.BackupLocations) == 0 {
 		return false, errors.New("no backup storage location configured. Expected BSL to be configured")
 	}
@@ -391,7 +392,7 @@ func DoesBSLSpecMatchesDpa(namespace string, bsl velero.BackupStorageLocationSpe
 }
 
 // check if vsl matches the spec
-func DoesVSLSpecMatchesDpa(namespace string, vslspec velero.VolumeSnapshotLocationSpec, spec *oadpv1alpha1.DataProtectionApplicationSpec) (bool, error) {
+func DoesVSLSpecMatchesDpa(vslspec velero.VolumeSnapshotLocationSpec, spec *oadpv1alpha1.DataProtectionApplicationSpec) (bool, error) {
 	if len(spec.SnapshotLocations) == 0 {
 		return false, errors.New("no volume storage location configured. Expected VSL to be configured")
 	}

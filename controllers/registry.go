@@ -66,87 +66,7 @@ const (
 	ResourceGroup         = "resourceGroup"
 )
 
-// creating skeleton for provider based env var map
-var cloudProviderEnvVarMap = map[string][]corev1.EnvVar{
-	"aws": {
-		{
-			Name:  RegistryStorageEnvVarKey,
-			Value: S3,
-		},
-		{
-			Name:  RegistryStorageS3AccesskeyEnvVarKey,
-			Value: "",
-		},
-		{
-			Name:  RegistryStorageS3BucketEnvVarKey,
-			Value: "",
-		},
-		{
-			Name:  RegistryStorageS3RegionEnvVarKey,
-			Value: "",
-		},
-		{
-			Name:  RegistryStorageS3SecretkeyEnvVarKey,
-			Value: "",
-		},
-		{
-			Name:  RegistryStorageS3RegionendpointEnvVarKey,
-			Value: "",
-		},
-		{
-			Name:  RegistryStorageS3SkipverifyEnvVarKey,
-			Value: "",
-		},
-	},
-	"azure": {
-		{
-			Name:  RegistryStorageEnvVarKey,
-			Value: Azure,
-		},
-		{
-			Name:  RegistryStorageAzureContainerEnvVarKey,
-			Value: "",
-		},
-		{
-			Name:  RegistryStorageAzureAccountnameEnvVarKey,
-			Value: "",
-		},
-		{
-			Name:  RegistryStorageAzureAccountkeyEnvVarKey,
-			Value: "",
-		},
-		{
-			Name:  RegistryStorageAzureAADEndpointEnvVarKey,
-			Value: "",
-		},
-		{
-			Name:  RegistryStorageAzureSPNClientIDEnvVarKey,
-			Value: "",
-		},
-		{
-			Name:  RegistryStorageAzureSPNClientSecretEnvVarKey,
-			Value: "",
-		},
-		{
-			Name:  RegistryStorageAzureSPNTenantIDEnvVarKey,
-			Value: "",
-		},
-	},
-	"gcp": {
-		{
-			Name:  RegistryStorageEnvVarKey,
-			Value: GCS,
-		},
-		{
-			Name:  RegistryStorageGCSBucket,
-			Value: "",
-		},
-		{
-			Name:  RegistryStorageGCSKeyfile,
-			Value: "",
-		},
-	},
-}
+const oadpPrefix = "oadp-"
 
 type azureCredentials struct {
 	subscriptionID     string
@@ -208,7 +128,7 @@ func (r *DPAReconciler) ReconcileRegistries(log logr.Logger) (bool, error) {
 }
 
 func registryName(bsl *velerov1.BackupStorageLocation) string {
-	return "oadp-" + bsl.Name + "-" + bsl.Spec.Provider + "-registry"
+	return oadpPrefix + bsl.Name + "-" + bsl.Spec.Provider + "-registry"
 }
 
 func (r *DPAReconciler) getProviderSecret(secretName string) (corev1.Secret, error) {
@@ -492,7 +412,7 @@ func (r *DPAReconciler) ReconcileRegistrySVCs(log logr.Logger) (bool, error) {
 		for _, bsl := range bslList.Items {
 			svc := corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "oadp-" + bsl.Name + "-" + bsl.Spec.Provider + "-registry-svc",
+					Name:      oadpPrefix + bsl.Name + "-" + bsl.Spec.Provider + "-registry-svc",
 					Namespace: r.NamespacedName.Namespace,
 				},
 			}
@@ -540,13 +460,13 @@ func (r *DPAReconciler) ReconcileRegistryRoutes(log logr.Logger) (bool, error) {
 		for _, bsl := range bslList.Items {
 			route := routev1.Route{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "oadp-" + bsl.Name + "-" + bsl.Spec.Provider + "-registry-route",
+					Name:      oadpPrefix + bsl.Name + "-" + bsl.Spec.Provider + "-registry-route",
 					Namespace: r.NamespacedName.Namespace,
 				},
 				Spec: routev1.RouteSpec{
 					To: routev1.RouteTargetReference{
 						Kind: "Service",
-						Name: "oadp-" + bsl.Name + "-" + bsl.Spec.Provider + "-registry-svc",
+						Name: oadpPrefix + bsl.Name + "-" + bsl.Spec.Provider + "-registry-svc",
 					},
 				},
 			}
@@ -631,7 +551,7 @@ func (r *DPAReconciler) ReconcileRegistrySecrets(log logr.Logger) (bool, error) 
 		}
 		secret := corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "oadp-" + bsl.Name + "-" + bsl.Spec.Provider + "-registry-secret",
+				Name:      oadpPrefix + bsl.Name + "-" + bsl.Spec.Provider + "-registry-secret",
 				Namespace: r.NamespacedName.Namespace,
 				Labels: map[string]string{
 					oadpv1alpha1.OadpOperatorLabel: "True",

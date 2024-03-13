@@ -9,27 +9,11 @@ import (
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/record"
 
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 )
-
-func getSchemeForFakeClientForRegistry() (*runtime.Scheme, error) {
-	err := oadpv1alpha1.AddToScheme(scheme.Scheme)
-	if err != nil {
-		return nil, err
-	}
-
-	err = velerov1.AddToScheme(scheme.Scheme)
-	if err != nil {
-		return nil, err
-	}
-
-	return scheme.Scheme, nil
-}
 
 const (
 	testProfile            = "someProfile"
@@ -47,83 +31,55 @@ const (
 	testResourceGroup      = "someResourceGroup"
 )
 
+const (
+	awsAccessKeyId     = "aws_access_key_id="
+	awsSecretAccessKey = "aws_secret_access_key="
+)
+
 var (
 	secretData = map[string][]byte{
 		"cloud": []byte(
 			"\n[" + testBslProfile + "]\n" +
-				"aws_access_key_id=" + testBslAccessKey + "\n" +
-				"aws_secret_access_key=" + testBslSecretAccessKey +
+				awsAccessKeyId + testBslAccessKey + "\n" +
+				awsSecretAccessKey + testBslSecretAccessKey +
 				"\n[default]" + "\n" +
-				"aws_access_key_id=" + testAccessKey + "\n" +
-				"aws_secret_access_key=" + testSecretAccessKey +
+				awsAccessKeyId + testAccessKey + "\n" +
+				awsSecretAccessKey + testSecretAccessKey +
 				"\n[test-profile]\n" +
-				"aws_access_key_id=" + testAccessKey + "\n" +
-				"aws_secret_access_key=" + testSecretAccessKey,
+				awsAccessKeyId + testAccessKey + "\n" +
+				awsSecretAccessKey + testSecretAccessKey,
 		),
 	}
 	secretDataWithEqualInSecret = map[string][]byte{
 		"cloud": []byte(
 			"\n[" + testBslProfile + "]\n" +
-				"aws_access_key_id=" + testBslAccessKey + "\n" +
-				"aws_secret_access_key=" + testBslSecretAccessKey + "=" + testBslSecretAccessKey +
+				awsAccessKeyId + testBslAccessKey + "\n" +
+				awsSecretAccessKey + testBslSecretAccessKey + "=" + testBslSecretAccessKey +
 				"\n[default]" + "\n" +
-				"aws_access_key_id=" + testAccessKey + "\n" +
-				"aws_secret_access_key=" + testSecretAccessKey + "=" + testSecretAccessKey +
+				awsAccessKeyId + testAccessKey + "\n" +
+				awsSecretAccessKey + testSecretAccessKey + "=" + testSecretAccessKey +
 				"\n[test-profile]\n" +
-				"aws_access_key_id=" + testAccessKey + "\n" +
-				"aws_secret_access_key=" + testSecretAccessKey + "=" + testSecretAccessKey,
+				awsAccessKeyId + testAccessKey + "\n" +
+				awsSecretAccessKey + testSecretAccessKey + "=" + testSecretAccessKey,
 		),
 	}
 	secretDataWithCarriageReturnInSecret = map[string][]byte{
 		"cloud": []byte(
 			"\n[" + testBslProfile + "]\r\n" +
-				"aws_access_key_id=" + testBslAccessKey + "\n" +
-				"aws_secret_access_key=" + testBslSecretAccessKey + "=" + testBslSecretAccessKey +
+				awsAccessKeyId + testBslAccessKey + "\n" +
+				awsSecretAccessKey + testBslSecretAccessKey + "=" + testBslSecretAccessKey +
 				"\n[default]" + "\n" +
-				"aws_access_key_id=" + testAccessKey + "\n" +
-				"aws_secret_access_key=" + testSecretAccessKey + "=" + testSecretAccessKey +
+				awsAccessKeyId + testAccessKey + "\n" +
+				awsSecretAccessKey + testSecretAccessKey + "=" + testSecretAccessKey +
 				"\r\n[test-profile]\n" +
-				"aws_access_key_id=" + testAccessKey + "\r\n" +
-				"aws_secret_access_key=" + testSecretAccessKey + "=" + testSecretAccessKey,
-		),
-	}
-	secretDataWithMixedQuotesAndSpacesInSecret = map[string][]byte{
-		"cloud": []byte(
-			"\n[" + testBslProfile + "]\n" +
-				"aws_access_key_id =" + testBslAccessKey + "\n" +
-				" aws_secret_access_key=" + "\" " + testBslSecretAccessKey + "\"" +
-				"\n[default]" + "\n" +
-				" aws_access_key_id= " + testAccessKey + "\n" +
-				"aws_secret_access_key =" + "'" + testSecretAccessKey + " '" +
-				"\n[test-profile]\n" +
-				"aws_access_key_id =" + testAccessKey + "\n" +
-				"aws_secret_access_key=" + "\" " + testSecretAccessKey + "\"",
-		),
-	}
-	awsSecretDataWithMissingProfile = map[string][]byte{
-		"cloud": []byte(
-			"[default]" + "\n" +
-				"aws_access_key_id=" + testAccessKey + "\n" +
-				"aws_secret_access_key=" + testSecretAccessKey +
-				"\n[test-profile]\n" +
-				"aws_access_key_id=" + testAccessKey + "\n" +
-				"aws_secret_access_key=" + testSecretAccessKey,
+				awsAccessKeyId + testAccessKey + "\r\n" +
+				awsSecretAccessKey + testSecretAccessKey + "=" + testSecretAccessKey,
 		),
 	}
 	secretAzureData = map[string][]byte{
 		"cloud": []byte("[default]" + "\n" +
 			"AZURE_STORAGE_ACCOUNT_ACCESS_KEY=" + testStoragekey + "\n" +
 			"AZURE_CLOUD_NAME=" + testCloudName),
-	}
-	secretAzureServicePrincipalData = map[string][]byte{
-		"cloud": []byte("[default]" + "\n" +
-			"AZURE_STORAGE_ACCOUNT_ACCESS_KEY=" + testStoragekey + "\n" +
-			"AZURE_CLOUD_NAME=" + testCloudName + "\n" +
-			"AZURE_SUBSCRIPTION_ID=" + testSubscriptionID + "\n" +
-			"AZURE_TENANT_ID=" + testTenantID + "\n" +
-			"AZURE_CLIENT_ID=" + testClientID + "\n" +
-			"AZURE_CLIENT_SECRET=" + testClientSecret + "\n" +
-			"AZURE_RESOURCE_GROUP=" + testResourceGroup),
 	}
 	awsRegistrySecretData = map[string][]byte{
 		"access_key": []byte(testBslAccessKey),
@@ -137,19 +93,7 @@ var (
 		"subscription_id_key": []byte(""),
 		"tenant_id_key":       []byte(""),
 	}
-	azureRegistrySPSecretData = map[string][]byte{
-		"client_id_key":       []byte(testClientID),
-		"client_secret_key":   []byte(testClientSecret),
-		"resource_group_key":  []byte(testResourceGroup),
-		"storage_account_key": []byte(testStoragekey),
-		"subscription_id_key": []byte(testSubscriptionID),
-		"tenant_id_key":       []byte(testTenantID),
-	}
 )
-
-var testAWSEnvVar = cloudProviderEnvVarMap["aws"]
-var testAzureEnvVar = cloudProviderEnvVarMap["azure"]
-var testGCPEnvVar = cloudProviderEnvVarMap["gcp"]
 
 func TestDPAReconciler_getSecretNameAndKeyforBackupLocation(t *testing.T) {
 	tests := []struct {
@@ -265,7 +209,7 @@ func TestDPAReconciler_getSecretNameAndKeyforBackupLocation(t *testing.T) {
 				Client:        fakeClient,
 				Scheme:        fakeClient.Scheme(),
 				Log:           logr.Discard(),
-				Context:       newContextForTest(tt.name),
+				Context:       newContextForTest(),
 				EventRecorder: record.NewFakeRecorder(10),
 			}
 
@@ -363,7 +307,7 @@ func TestDPAReconciler_populateAWSRegistrySecret(t *testing.T) {
 				Client:  fakeClient,
 				Scheme:  fakeClient.Scheme(),
 				Log:     logr.Discard(),
-				Context: newContextForTest(tt.name),
+				Context: newContextForTest(),
 				NamespacedName: types.NamespacedName{
 					Namespace: tt.bsl.Namespace,
 					Name:      tt.bsl.Name,
@@ -372,7 +316,7 @@ func TestDPAReconciler_populateAWSRegistrySecret(t *testing.T) {
 			}
 			wantRegistrySecret := &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "oadp-" + tt.bsl.Name + "-" + tt.bsl.Spec.Provider + "-registry-secret",
+					Name:      oadpPrefix + tt.bsl.Name + "-" + tt.bsl.Spec.Provider + "-registry-secret",
 					Namespace: r.NamespacedName.Namespace,
 					Labels: map[string]string{
 						oadpv1alpha1.OadpOperatorLabel: "True",
@@ -453,7 +397,7 @@ func TestDPAReconciler_populateAzureRegistrySecret(t *testing.T) {
 				Client:  fakeClient,
 				Scheme:  fakeClient.Scheme(),
 				Log:     logr.Discard(),
-				Context: newContextForTest(tt.name),
+				Context: newContextForTest(),
 				NamespacedName: types.NamespacedName{
 					Namespace: tt.bsl.Namespace,
 					Name:      tt.bsl.Name,
@@ -462,7 +406,7 @@ func TestDPAReconciler_populateAzureRegistrySecret(t *testing.T) {
 			}
 			wantRegistrySecret := &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "oadp-" + tt.bsl.Name + "-" + tt.bsl.Spec.Provider + "-registry-secret",
+					Name:      oadpPrefix + tt.bsl.Name + "-" + tt.bsl.Spec.Provider + "-registry-secret",
 					Namespace: r.NamespacedName.Namespace,
 					Labels: map[string]string{
 						oadpv1alpha1.OadpOperatorLabel: "True",

@@ -92,18 +92,6 @@ func DeleteSecret(clientset *kubernetes.Clientset, namespace string, credSecretR
 	return err
 }
 
-func isCredentialsSecretDeleted(clientset *kubernetes.Clientset, namespace string, credSecretRef string) wait.ConditionFunc {
-	return func() (bool, error) {
-		_, err := clientset.CoreV1().Secrets(namespace).Get(context.Background(), credSecretRef, metav1.GetOptions{})
-		if apierrors.IsNotFound(err) {
-			log.Printf("Secret in test namespace has been deleted")
-			return true, nil
-		}
-		log.Printf("Secret still exists in namespace")
-		return false, err
-	}
-}
-
 // ExecuteCommandInPodsSh executes a command in a Kubernetes pod using the provided parameters.
 //
 // Parameters:
@@ -245,10 +233,10 @@ func GetPodWithPrefixContainerLogs(clientset *kubernetes.Clientset, namespace st
 	return "", fmt.Errorf("No pod found with prefix %s", podPrefix)
 }
 
-func SavePodLogs(clientset *kubernetes.Clientset, namespace, dir string) error {
+func SavePodLogs(clientset *kubernetes.Clientset, namespace, dir string) {
 	podList, err := clientset.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{})
 	if err != nil {
-		return nil
+		return
 	}
 	for _, pod := range podList.Items {
 		podDir := fmt.Sprintf("%s/%s/%s", dir, namespace, pod.Name)
@@ -259,7 +247,7 @@ func SavePodLogs(clientset *kubernetes.Clientset, namespace, dir string) error {
 		for _, container := range pod.Spec.Containers {
 			logs, err := GetPodContainerLogs(clientset, namespace, pod.Name, container.Name)
 			if err != nil {
-				return nil
+				return
 			}
 			err = os.WriteFile(podDir+"/"+container.Name+".log", []byte(logs), 0644)
 			if err != nil {
@@ -267,7 +255,6 @@ func SavePodLogs(clientset *kubernetes.Clientset, namespace, dir string) error {
 			}
 		}
 	}
-	return nil
 }
 
 func GetPodContainerLogs(clientset *kubernetes.Clientset, namespace, podname, container string) (string, error) {

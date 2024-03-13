@@ -26,7 +26,7 @@ var _ = ginkgov2.Describe("Configuration testing for DPA Custom Resource", func(
 	bslConfig := lib.Dpa.Spec.BackupLocations[0].Velero.Config
 	bslCredential := corev1.SecretKeySelector{
 		LocalObjectReference: corev1.LocalObjectReference{
-			Name: "bsl-cloud-credentials-" + provider,
+			Name: lib.BSLCloudCredentialsPrefix + provider,
 		},
 		Key: "cloud",
 	}
@@ -54,8 +54,7 @@ var _ = ginkgov2.Describe("Configuration testing for DPA Custom Resource", func(
 			if lastInstallingApplicationNamespace != "" {
 				lib.PrintNamespaceEventsAfterTime(kubernetesClientForSuiteRun, lastInstallingApplicationNamespace, lastInstallTime)
 			}
-			err = lib.SavePodLogs(kubernetesClientForSuiteRun, lastInstallingApplicationNamespace, baseReportDir)
-			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			lib.SavePodLogs(kubernetesClientForSuiteRun, lastInstallingApplicationNamespace, baseReportDir)
 			log.Printf("Running must gather for failed deployment test - " + report.LeafNodeText)
 			err = lib.RunMustGather(oc_cli, baseReportDir+"/must-gather")
 			if err != nil {
@@ -68,8 +67,7 @@ var _ = ginkgov2.Describe("Configuration testing for DPA Custom Resource", func(
 			//TODO: Calling dpaCR.build() is the old pattern.
 			//Change it later to make sure all the spec values are passed for every test case,
 			// instead of assigning the values in advance to the DPA CR
-			err := dpaCR.Build(installCase.BRestoreType)
-			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			dpaCR.Build(installCase.BRestoreType)
 			if len(installCase.DpaSpec.BackupLocations) > 0 {
 				if installCase.DpaSpec.BackupLocations[0].Velero.Credential == nil {
 					installCase.DpaSpec.BackupLocations[0].Velero.Credential = &bslCredential
@@ -77,7 +75,7 @@ var _ = ginkgov2.Describe("Configuration testing for DPA Custom Resource", func(
 				if installCase.TestCarriageReturn {
 					installCase.DpaSpec.BackupLocations[0].Velero.Credential = &corev1.SecretKeySelector{
 						LocalObjectReference: corev1.LocalObjectReference{
-							Name: "bsl-cloud-credentials-" + dpaCR.Provider + "-with-carriage-return",
+							Name: lib.BSLCloudCredentialsPrefix + dpaCR.Provider + "-with-carriage-return",
 						},
 						Key: bslCredential.Key,
 					}
@@ -85,7 +83,7 @@ var _ = ginkgov2.Describe("Configuration testing for DPA Custom Resource", func(
 			}
 			lastInstallingApplicationNamespace = dpaCR.Namespace
 			lastInstallTime = time.Now()
-			err = dpaCR.CreateOrUpdate(runTimeClientForSuiteRun, installCase.DpaSpec)
+			err := dpaCR.CreateOrUpdate(runTimeClientForSuiteRun, installCase.DpaSpec)
 			gomega.Expect(err).ToNot(gomega.HaveOccurred())
 			// sleep to accommodate throttled CI environment
 			// TODO this should be a function, not an arbitrary sleep
@@ -110,13 +108,13 @@ var _ = ginkgov2.Describe("Configuration testing for DPA Custom Resource", func(
 				log.Printf("Checking for bsl spec")
 				for _, bsl := range dpa.Spec.BackupLocations {
 					// Check if bsl matches the spec
-					gomega.Expect(lib.DoesBSLSpecMatchesDpa(namespace, *bsl.Velero, installCase.DpaSpec)).To(gomega.BeTrue())
+					gomega.Expect(lib.DoesBSLSpecMatchesDpa(*bsl.Velero, installCase.DpaSpec)).To(gomega.BeTrue())
 				}
 			}
 			if len(dpa.Spec.SnapshotLocations) > 0 {
 				log.Printf("Checking for vsl spec")
 				for _, vsl := range dpa.Spec.SnapshotLocations {
-					gomega.Expect(lib.DoesVSLSpecMatchesDpa(namespace, *vsl.Velero, installCase.DpaSpec)).To(gomega.BeTrue())
+					gomega.Expect(lib.DoesVSLSpecMatchesDpa(*vsl.Velero, installCase.DpaSpec)).To(gomega.BeTrue())
 				}
 			}
 
@@ -767,10 +765,9 @@ var _ = ginkgov2.Describe("Configuration testing for DPA Custom Resource", func(
 	ginkgov2.DescribeTable("DPA / Restic Deletion test",
 		func(installCase deletionCase) {
 			log.Printf("Building dpa with restic")
-			err := dpaCR.Build(lib.RESTIC)
-			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			dpaCR.Build(lib.RESTIC)
 			log.Printf("Creating dpa with restic")
-			err = dpaCR.CreateOrUpdate(runTimeClientForSuiteRun, &dpaCR.CustomResource.Spec)
+			err := dpaCR.CreateOrUpdate(runTimeClientForSuiteRun, &dpaCR.CustomResource.Spec)
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 			log.Printf("Waiting for velero pod with restic to be running")
 			gomega.Eventually(lib.AreVeleroPodsRunning(kubernetesClientForSuiteRun, namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(gomega.BeTrue())
@@ -790,10 +787,9 @@ var _ = ginkgov2.Describe("Configuration testing for DPA Custom Resource", func(
 	ginkgov2.DescribeTable("DPA / Kopia Deletion test",
 		func(installCase deletionCase) {
 			log.Printf("Building dpa with kopia")
-			err := dpaCR.Build(lib.KOPIA)
-			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			dpaCR.Build(lib.KOPIA)
 			log.Printf("Creating dpa with kopia")
-			err = dpaCR.CreateOrUpdate(runTimeClientForSuiteRun, &dpaCR.CustomResource.Spec)
+			err := dpaCR.CreateOrUpdate(runTimeClientForSuiteRun, &dpaCR.CustomResource.Spec)
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 			log.Printf("Waiting for velero pod with kopia to be running")
 			gomega.Eventually(lib.AreVeleroPodsRunning(kubernetesClientForSuiteRun, namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(gomega.BeTrue())

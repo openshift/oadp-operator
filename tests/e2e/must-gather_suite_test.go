@@ -31,7 +31,7 @@ var _ = ginkgov2.Describe("Backup and restore tests with must-gather", func() {
 			if ginkgov2.CurrentSpecReport().NumAttempts > 1 && !knownFlake {
 				ginkgov2.Fail("No known FLAKE found in a previous run, marking test as failed.")
 			}
-			runApplicationBackupAndRestore(brCase, expectedErr, updateLastBRcase, updateLastInstallTime)
+			runApplicationBackupAndRestore(brCase, updateLastBRcase, updateLastInstallTime)
 
 			// TODO look for duplications in tearDownBackupAndRestore
 			baseReportDir := artifact_dir + "/" + brCase.Name
@@ -80,8 +80,8 @@ var _ = ginkgov2.Describe("Backup and restore tests with must-gather", func() {
 				Namespace:         "mongo-persistent",
 				Name:              "mongo-datamover-e2e",
 				BackupRestoreType: lib.CSIDataMover,
-				PreBackupVerify:   mongoready(true, false),
-				PostRestoreVerify: mongoready(false, false),
+				PreBackupVerify:   mongoready(true),
+				PostRestoreVerify: mongoready(false),
 			},
 			MustGatherFiles: []string{
 				"namespaces/" + namespace + "/oadp.openshift.io/dpa-ts-" + instanceName + "/ts-" + instanceName + ".yml",

@@ -119,7 +119,7 @@ func (b BucketReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	var ok bool
 	if common.CCOWorkflow() {
 		// wait for the credential request to be processed and the secret to be created
-		logger.Info(fmt.Sprintf("Following standardized STS workflow, waiting for for the credential request to be processed and provision the secret"))
+		logger.Info("Following standardized STS workflow, waiting for for the credential request to be processed and provision the secret")
 		installNS := os.Getenv("WATCH_NAMESPACE")
 		_, err = b.WaitForSecret(installNS, VeleroAWSSecretName)
 		if err != nil {

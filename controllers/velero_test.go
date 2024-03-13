@@ -4386,7 +4386,7 @@ func Test_validateVeleroPlugins(t *testing.T) {
 			Client:  fakeClient,
 			Scheme:  fakeClient.Scheme(),
 			Log:     logr.Discard(),
-			Context: newContextForTest(tt.name),
+			Context: newContextForTest(),
 			NamespacedName: types.NamespacedName{
 				Namespace: tt.dpa.Namespace,
 				Name:      tt.dpa.Name,
@@ -4394,7 +4394,7 @@ func Test_validateVeleroPlugins(t *testing.T) {
 			EventRecorder: record.NewFakeRecorder(10),
 		}
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := r.ValidateVeleroPlugins(r.Log)
+			result, err := r.ValidateVeleroPlugins()
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ValidateVeleroPlugins() error = %v, wantErr %v", err, tt.wantErr)
 			}

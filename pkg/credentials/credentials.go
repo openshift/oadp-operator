@@ -259,7 +259,7 @@ func AppendCloudProviderVolumes(dpa *oadpv1alpha1.DataProtectionApplication, ds 
 }
 
 // add plugin specific specs to velero deployment
-func AppendPluginSpecificSpecs(dpa *oadpv1alpha1.DataProtectionApplication, veleroDeployment *appsv1.Deployment, veleroContainer *corev1.Container, providerNeedsDefaultCreds map[string]bool, hasCloudStorage bool) error {
+func AppendPluginSpecificSpecs(dpa *oadpv1alpha1.DataProtectionApplication, veleroDeployment *appsv1.Deployment, veleroContainer *corev1.Container, providerNeedsDefaultCreds map[string]bool, hasCloudStorage bool) {
 
 	init_container_resources := veleroContainer.Resources
 
@@ -351,7 +351,6 @@ func AppendPluginSpecificSpecs(dpa *oadpv1alpha1.DataProtectionApplication, vele
 				})
 		}
 	}
-	return nil
 }
 
 // TODO: remove duplicate func in registry.go - refactoring away registry.go later
@@ -429,11 +428,11 @@ func BslUsesShortLivedCredential(bls []oadpv1alpha1.BackupLocation, namespace st
 				return true, nil
 			}
 		}
-		secretName, secretKey, provider, config, err := GetSecretNameKeyConfigProviderForBackupLocation(blspec, namespace)
+		secretName, secretKey, provider, _, err := GetSecretNameKeyConfigProviderForBackupLocation(blspec, namespace)
 		if err != nil {
 			return false, err
 		}
-		ret, err = SecretContainsShortLivedCredential(secretName, secretKey, provider, namespace, config)
+		ret, err = SecretContainsShortLivedCredential(secretName, secretKey, provider, namespace)
 		if err != nil {
 			return false, err
 		}
@@ -444,7 +443,7 @@ func BslUsesShortLivedCredential(bls []oadpv1alpha1.BackupLocation, namespace st
 	return ret, err
 }
 
-func SecretContainsShortLivedCredential(secretName, secretKey, provider, namespace string, config map[string]string) (bool, error) {
+func SecretContainsShortLivedCredential(secretName, secretKey, provider, namespace string) (bool, error) {
 	switch provider {
 	case "aws":
 		// AWS credentials short lived are determined by enableSharedConfig

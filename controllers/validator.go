@@ -52,7 +52,7 @@ func (r *DPAReconciler) ValidateDataProtectionCR(log logr.Logger) (bool, error) 
 		return false, errors.New("only mtc operator type override is supported")
 	}
 
-	if _, err := r.ValidateVeleroPlugins(r.Log); err != nil {
+	if _, err := r.ValidateVeleroPlugins(); err != nil {
 		return false, err
 	}
 
@@ -66,13 +66,10 @@ func (r *DPAReconciler) ValidateDataProtectionCR(log logr.Logger) (bool, error) 
 	return true, nil
 }
 
-// empty struct to use as map value
-type empty struct{}
-
 // For later: Move this code into validator.go when more need for validation arises
 // TODO: if multiple default plugins exist, ensure we validate all of them.
 // Right now its sequential validation
-func (r *DPAReconciler) ValidateVeleroPlugins(log logr.Logger) (bool, error) {
+func (r *DPAReconciler) ValidateVeleroPlugins() (bool, error) {
 	dpa := oadpv1alpha1.DataProtectionApplication{}
 	if err := r.Get(r.Context, r.NamespacedName, &dpa); err != nil {
 		return false, err
