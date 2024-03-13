@@ -20,7 +20,8 @@ FROM quay.io/openshift/origin-must-gather:latest AS builder
 
 FROM registry.access.redhat.com/ubi9-minimal:latest
 
-RUN microdnf -y install rsync tar gzip findutils
+RUN echo -ne "[centos-9-appstream]\nname = CentOS 9 (RPMs) - AppStream\nbaseurl = https://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/\nenabled = 1\ngpgcheck = 0" > /etc/yum.repos.d/centos-9-appstream.repo
+RUN microdnf -y install rsync tar gzip graphviz findutils
 
 COPY --from=gobuilder /opt/app-root/src/go/bin/pprof /usr/bin/pprof
 COPY --from=builder /usr/bin/oc /usr/bin/oc
