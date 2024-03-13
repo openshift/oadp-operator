@@ -26,3 +26,6 @@ indent_style = unset
 [blogs/**]
 indent_size = unset
 indent_style = unset
+
+[must-gather/collection-scripts/_metrics_chart_template_part_1.html]
+insert_final_newline = false
