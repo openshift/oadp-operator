@@ -1,3 +1,7 @@
+# notes:
+Obviously there are improvements to this workflow, however this is meant to
+serve as a template or example to fit into other working test frameworks.
+
 # To install
 setup the openshift-virtualization operator
 
