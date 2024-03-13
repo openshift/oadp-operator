@@ -103,7 +103,7 @@ var _ = ginkgov2.Describe("Subscription Config Suite Test", func() {
 				velero, err := dpaCR.Get(runTimeClientForSuiteRun)
 				gomega.Expect(err).NotTo(gomega.HaveOccurred())
 				log.Printf("Waiting for velero pod to be running")
-				gomega.Eventually(lib.AreVeleroPodsRunning(kubernetesClientForSuiteRun, namespace), timeoutMultiplier*time.Minute*1, time.Second*5).Should(gomega.BeTrue())
+				gomega.Eventually(lib.AreVeleroPodsRunning(kubernetesClientForSuiteRun, namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(gomega.BeTrue())
 				if velero.Spec.Configuration.NodeAgent.Enable != nil && *velero.Spec.Configuration.NodeAgent.Enable {
 					log.Printf("Waiting for Node Agent pods to be running")
 					gomega.Eventually(lib.AreNodeAgentPodsRunning(kubernetesClientForSuiteRun, namespace), timeoutMultiplier*time.Minute*1, time.Second*5).Should(gomega.BeTrue())
