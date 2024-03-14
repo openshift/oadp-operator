@@ -24,8 +24,7 @@ setup the openshift-virtualization operator
 * open browser to $route
   * add data
 
-# Build out the test.py
-* edit the test.py script, add the route prepended with http://
+* alternatively, use the python test.py script to populate data.
 `python test.py --base_url=$route`
 
 * alternatively you can use curl commands, for example:
