@@ -1,15 +1,13 @@
 #!/usr/bin/env python
-from datetime import datetime
+
+import argparse
 import json
 import requests
 
+from datetime import datetime
 
-#base_url = "http://localhost:8000"
-base_url = "http://vmroute-virttodo.apps.cluster-wdh03122024metala.wdh03122024metala.mg.dog8code.com"
-# example remote
-# base_url = "http://todolist-route-mysql-persistent.apps.cluster-wdh01102024g.wdh01102024g.mg.dog8code.com"
 
-def updateToDo(id, completed):
+def updateToDo(base_url, id, completed):
   """Update data to the todo application
 
   Args:
@@ -17,12 +15,8 @@ def updateToDo(id, completed):
     completed: bool
 
   Returns:
-    {"updated": true/false}
+    bool
   """
-  data = {
-      "id": id,
-      "completed": completed
-  }
 
   # Set the endpoint URL
   endpoint = base_url + "/todo/" + str(id)
@@ -37,7 +31,7 @@ def updateToDo(id, completed):
       return False
   
 
-def createToDo(description, completed):
+def createToDo(base_url, description, completed):
   """Post data to the todo application
 
   Args:
@@ -64,14 +58,14 @@ def createToDo(description, completed):
   response_dict = json.loads(response.text)[0]
   return response_dict
 
-def checkToDoLists(completed):
-  """Post data to the todo application
+def checkToDoLists(base_url, completed):
+  """Get data from the todo application
 
   Args:
     completed: bool
 
   Returns:
-    json list
+    json dict
   """
   # Set the endpoint URL
   if completed:
@@ -88,8 +82,8 @@ def checkToDoLists(completed):
   response_dict = json.loads(response.text)
   return response_dict
 
-def deleteToDoItems(item):
-  """Post data to the todo application
+def deleteToDoItems(base_url, item):
+  """Delete data from the todo application
 
   Args:
     item: dict
@@ -109,68 +103,74 @@ def deleteToDoItems(item):
       print("Failed to delete item " + str(item["Id"]))
       return False
 
-
-
 def main():
-   date = datetime.today().strftime('%Y-%m-%d-%H:%M:%S')
-   # create todo items
-   test1 = createToDo("pytest-1-" + date, False)
-   test2 = createToDo("pytest-2-" + date, False)
-   test3 = createToDo("pytest-1-" + date, False)
+  parser = argparse.ArgumentParser(description='Process some integers.')
+  parser.add_argument('--base_url', dest='base_url', required=True,
+                      help='The openshift route to the VM')
+  args = parser.parse_args()
+  print(args.base_url)
+  base_url = args.base_url
 
-   # update todo items
-   success = updateToDo(test1["Id"], True)
-   success = updateToDo(test2["Id"], True)
 
-   # check todo's
-   completed = checkToDoLists(True)
-   incomplete = checkToDoLists(False)
-   print("COMPLETED ITEMS:")
-   print(completed)
-   print("INCOMPLETE ITEMS:")
-   print(incomplete)
+  date = datetime.today().strftime('%Y-%m-%d-%H:%M:%S')
+  # create todo items
+  test1 = createToDo(base_url, "pytest-1-" + date, False)
+  test2 = createToDo(base_url, "pytest-2-" + date, False)
+  test3 = createToDo(base_url, "pytest-1-" + date, False)
 
-   # test complete or incomplete
-   found_completed = False
-   for i in completed:
-       if test1["Description"] == i["Description"]:
-          found_completed = True
+  # update todo items
+  success = updateToDo(base_url, test1["Id"], True)
+  success = updateToDo(base_url, test2["Id"], True)
 
-   found_incomplete = False
-   for i in incomplete:
-      if test3["Description"] == i["Description"]:
-         found_incomplete = True
+  # check todo's
+  completed = checkToDoLists(base_url, True)
+  incomplete = checkToDoLists(base_url, False)
+  print("COMPLETED ITEMS:")
+  print(completed)
+  print("INCOMPLETE ITEMS:")
+  print(incomplete)
+
+  # test complete or incomplete
+  found_completed = False
+  for i in completed:
+    if test1["Description"] == i["Description"]:
+      found_completed = True
+
+  found_incomplete = False
+  for i in incomplete:
+    if test3["Description"] == i["Description"]:
+      found_incomplete = True
    
-   if found_completed == False or found_incomplete == False:
-      print("FAILED complete / incomplete TEST")
-   else:
-      print("SUCCESS!")
+  if found_completed == False or found_incomplete == False:
+    print("FAILED complete / incomplete TEST")
+  else:
+    print("SUCCESS!")
 
-   # Delete items
-   deleteToDoItems(test1)
-   deleteToDoItems(test3)
-   completed = checkToDoLists(True)
-   incomplete = checkToDoLists(False)
-   print("COMPLETED ITEMS:")
-   print(completed)
-   print("INCOMPLETE ITEMS:")
-   print(incomplete)
+  # Delete items
+  deleteToDoItems(base_url, test1)
+  deleteToDoItems(base_url, test3)
+  completed = checkToDoLists(base_url, True)
+  incomplete = checkToDoLists(base_url, False)
+  print("COMPLETED ITEMS:")
+  print(completed)
+  print("INCOMPLETE ITEMS:")
+  print(incomplete)
 
-   # Test deleted items
-   found_completed = False
-   for i in completed:
-       if test1["Description"] == i["Description"]:
-          found_completed = True
+  # Test deleted items
+  found_completed = False
+  for i in completed:
+    if test1["Description"] == i["Description"]:
+      found_completed = True
 
-   found_incomplete = False
-   for i in incomplete:
-      if test3["Description"] == i["Description"]:
-         found_incomplete = True
+  found_incomplete = False
+  for i in incomplete:
+    if test3["Description"] == i["Description"]:
+      found_incomplete = True
     
-   if found_completed == True or found_incomplete == True:
-      print("FAILED Delete TEST")
-   else:
-      print("SUCCESS!")
+  if found_completed == True or found_incomplete == True:
+    print("FAILED Delete TEST")
+  else:
+    print("SUCCESS!")
    
 
 

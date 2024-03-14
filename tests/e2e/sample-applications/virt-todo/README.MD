@@ -26,7 +26,16 @@ setup the openshift-virtualization operator
 
 # Build out the test.py
 * edit the test.py script, add the route prepended with http://
-`python test.py`
+`python test.py --base_url=$route`
+
+* alternatively you can use curl commands, for example:
+```
+export date=`date "+%F-%T"`
+curl -d "description=curl_todo_1_$date&completed=false" -X POST http://localhost:8000/todo
+curl -d "description=curl_todo_2_$date&completed=false" -X POST http://localhost:8000/todo
+curl -d "description=curl_todo_3_$date&completed=false" -X POST http://localhost:8000/todo
+curl -d "id=1&completed=true" -X POST http://localhost:8000/todo/1
+```
 
 # Backup vm
 `oc create -f backup_virttodo.yaml`
