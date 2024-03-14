@@ -329,9 +329,9 @@ func (v *VirtOperator) CloneDisk(sourceNamespace, sourceName, cloneNamespace, cl
 // should match a subdirectory under sample-applications/virtual-machines, and
 // the name argument should match a .yaml file in that directory, for example:
 //
-//	sample-applications/virtual-machines/cirros-test/cirros-test-disk.yaml
+//	sample-applications/virtual-machines/example-vm-test/example-vm-test-disk.yaml
 //
-// This file should create a DataVolume with the following annotations set:
+// This file must specify a DataVolume with the following annotations set:
 //
 //	cdi.kubevirt.io/storage.bind.immediate.requested: ""
 //	cdi.kubevirt.io/storage.deleteAfterCompletion: "false"
