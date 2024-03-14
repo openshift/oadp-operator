@@ -535,7 +535,7 @@ func TestSecretContainsShortLivedCredential(t *testing.T) {
 			if err != nil {
 				t.Fatalf("failed to create secret: %v", err)
 			}
-			if got, err := SecretContainsShortLivedCredential(secretName, secretKey, tt.args.provider, namespace, tt.args.config); got != tt.want {
+			if got, err := SecretContainsShortLivedCredential(secretName, secretKey, tt.args.provider, namespace); got != tt.want {
 				t.Errorf("SecretContainsShortLivedCredential() = %v, want %v", got, tt.want)
 			} else if err != nil && !tt.wantErr {
 				t.Errorf("SecretContainsShortLivedCredential() = %v, want %v", err, tt.wantErr)

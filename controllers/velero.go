@@ -15,14 +15,12 @@ import (
 	"github.com/vmware-tanzu/velero/pkg/util/boolptr"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/pointer"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
@@ -131,19 +129,6 @@ func (r *DPAReconciler) ReconcileVeleroDeployment(log logr.Logger) (bool, error)
 	return true, nil
 }
 
-func (r *DPAReconciler) veleroServiceAccount(dpa *oadpv1alpha1.DataProtectionApplication) (*corev1.ServiceAccount, error) {
-	annotations := make(map[string]string)
-	sa := install.ServiceAccount(dpa.Namespace, annotations)
-	sa.Labels = getDpaAppLabels(dpa)
-	return sa, nil
-}
-
-func (r *DPAReconciler) veleroClusterRoleBinding(dpa *oadpv1alpha1.DataProtectionApplication) (*rbacv1.ClusterRoleBinding, error) {
-	crb := install.ClusterRoleBinding(dpa.Namespace)
-	crb.Labels = getDpaAppLabels(dpa)
-	return crb, nil
-}
-
 // Build VELERO Deployment
 func (r *DPAReconciler) buildVeleroDeployment(veleroDeployment *appsv1.Deployment, dpa *oadpv1alpha1.DataProtectionApplication) error {
 
@@ -235,7 +220,7 @@ func (r *DPAReconciler) customizeVeleroDeployment(dpa *oadpv1alpha1.DataProtecti
 		}
 	}
 
-	hasShortLivedCredentials, err := credentials.BslUsesShortLivedCredential(dpa.Spec.BackupLocations, dpa.Namespace)
+	hasShortLivedCredentials, _ := credentials.BslUsesShortLivedCredential(dpa.Spec.BackupLocations, dpa.Namespace)
 
 	// Selector: veleroDeployment.Spec.Selector,
 	replicas := int32(1)
@@ -317,7 +302,7 @@ func (r *DPAReconciler) customizeVeleroDeployment(dpa *oadpv1alpha1.DataProtecti
 			break
 		}
 	}
-	if err := r.customizeVeleroContainer(dpa, veleroDeployment, veleroContainer, hasShortLivedCredentials, prometheusPort); err != nil {
+	if err := r.customizeVeleroContainer(dpa, veleroContainer, hasShortLivedCredentials, prometheusPort); err != nil {
 		return err
 	}
 
@@ -396,10 +381,11 @@ func (r *DPAReconciler) customizeVeleroDeployment(dpa *oadpv1alpha1.DataProtecti
 		veleroDeployment.Spec.ProgressDeadlineSeconds = pointer.Int32(600)
 	}
 	setPodTemplateSpecDefaults(&veleroDeployment.Spec.Template)
-	return credentials.AppendPluginSpecificSpecs(dpa, veleroDeployment, veleroContainer, providerNeedsDefaultCreds, hasCloudStorage)
+	credentials.AppendPluginSpecificSpecs(dpa, veleroDeployment, veleroContainer, providerNeedsDefaultCreds, hasCloudStorage)
+	return nil
 }
 
-func (r *DPAReconciler) customizeVeleroContainer(dpa *oadpv1alpha1.DataProtectionApplication, veleroDeployment *appsv1.Deployment, veleroContainer *corev1.Container, hasShortLivedCredentials bool, prometheusPort *int) error {
+func (r *DPAReconciler) customizeVeleroContainer(dpa *oadpv1alpha1.DataProtectionApplication, veleroContainer *corev1.Container, hasShortLivedCredentials bool, prometheusPort *int) error {
 	if veleroContainer == nil {
 		return fmt.Errorf("could not find velero container in Deployment")
 	}
@@ -498,28 +484,6 @@ func disableInformerCacheValue(dpa *oadpv1alpha1.DataProtectionApplication) stri
 		return TrueVal
 	}
 	return FalseVal
-}
-
-func (r *DPAReconciler) isSTSTokenNeeded(bsls []oadpv1alpha1.BackupLocation, ns string) bool {
-
-	for _, bsl := range bsls {
-		if bsl.CloudStorage != nil {
-			bucket := &oadpv1alpha1.CloudStorage{}
-			err := r.Get(r.Context, client.ObjectKey{
-				Name:      bsl.CloudStorage.CloudStorageRef.Name,
-				Namespace: ns,
-			}, bucket)
-			if err != nil {
-				//log
-				return false
-			}
-			if bucket.Spec.EnableSharedConfig != nil && *bucket.Spec.EnableSharedConfig {
-				return true
-			}
-		}
-	}
-
-	return false
 }
 
 func getVeleroImage(dpa *oadpv1alpha1.DataProtectionApplication) string {

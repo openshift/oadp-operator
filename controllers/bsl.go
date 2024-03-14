@@ -123,7 +123,7 @@ func (r *DPAReconciler) ReconcileBackupStorageLocations(log logr.Logger) (bool, 
 		// which in turn will be used in th elabel handler to trigger the reconciliation loop
 
 		secretName, _ := r.getSecretNameAndKeyforBackupLocation(bslSpec)
-		_, err := r.UpdateCredentialsSecretLabels(secretName, dpa.Namespace, dpa.Name)
+		err := r.UpdateCredentialsSecretLabels(secretName, dpa.Namespace, dpa.Name)
 		if err != nil {
 			return false, err
 		}
@@ -193,14 +193,14 @@ func (r *DPAReconciler) ReconcileBackupStorageLocations(log logr.Logger) (bool, 
 	return true, nil
 }
 
-func (r *DPAReconciler) UpdateCredentialsSecretLabels(secretName string, namespace string, dpaName string) (bool, error) {
+func (r *DPAReconciler) UpdateCredentialsSecretLabels(secretName string, namespace string, dpaName string) error {
 	var secret corev1.Secret
 	secret, err := r.getProviderSecret(secretName)
 	if err != nil {
-		return false, err
+		return err
 	}
 	if secret.Name == "" {
-		return false, errors.New("secret not found")
+		return errors.New("secret not found")
 	}
 	needPatch := false
 	originalSecret := secret.DeepCopy()
@@ -211,19 +211,19 @@ func (r *DPAReconciler) UpdateCredentialsSecretLabels(secretName string, namespa
 		secret.Labels[oadpv1alpha1.OadpOperatorLabel] = "True"
 		needPatch = true
 	}
-	if secret.Labels[namespace+".dataprotectionapplication"] != dpaName {
-		secret.Labels[namespace+".dataprotectionapplication"] = dpaName
+	if secret.Labels[namespace+common.DPASuffix] != dpaName {
+		secret.Labels[namespace+common.DPASuffix] = dpaName
 		needPatch = true
 	}
 	if needPatch {
 		err = r.Client.Patch(r.Context, &secret, client.MergeFrom(originalSecret))
 		if err != nil {
-			return false, err
+			return err
 		}
 
 		r.EventRecorder.Event(&secret, corev1.EventTypeNormal, "SecretLabelled", fmt.Sprintf("Secret %s has been labelled", secretName))
 	}
-	return true, nil
+	return nil
 }
 
 func (r *DPAReconciler) updateBSLFromSpec(bsl *velerov1.BackupStorageLocation, dpa *oadpv1alpha1.DataProtectionApplication, bslSpec velerov1.BackupStorageLocationSpec) error {

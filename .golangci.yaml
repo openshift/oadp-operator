@@ -86,14 +86,14 @@ linters:
     - exportloopref
     - gci
     # - ginkgolinter
-    # - goconst
+    - goconst
     - gofmt
     # - goheader
     - goprintffuncname
     # - gosec
-    # - gosimple
+    - gosimple
     # - govet
-    # - ineffassign
+    - ineffassign
     # - misspell
     - nakedret
     # - nilerr
@@ -103,9 +103,9 @@ linters:
     - revive
     # - staticcheck
     # - stylecheck
-    # - unconvert
-    # - unparam
-    # - unused
+    - unconvert
+    - unparam
+    - unused
     - usestdlibvars
   fast: false
 

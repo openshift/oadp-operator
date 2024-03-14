@@ -29,7 +29,6 @@ import (
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -142,12 +141,7 @@ func main() {
 		if credReqCRDExists {
 			// create cred request
 			setupLog.Info(fmt.Sprintf("Creating credentials request for role: %s, and WebIdentityTokenPath: %s", roleARN, WebIdentityTokenPath))
-			if err := CreateCredRequest(roleARN, WebIdentityTokenPath, watchNamespace, kubeconf); err != nil {
-				if !errors.IsAlreadyExists(err) {
-					setupLog.Error(err, "unable to create credRequest")
-					os.Exit(1)
-				}
-			}
+			CreateCredRequest(roleARN, WebIdentityTokenPath, watchNamespace, kubeconf)
 		}
 	}
 
@@ -303,7 +297,7 @@ func DoesCRDExist(CRDGroupVersion, CRDName string, kubeconf *rest.Config) (bool,
 }
 
 // CreateCredRequest WITP : WebIdentityTokenPath
-func CreateCredRequest(roleARN string, WITP string, secretNS string, kubeconf *rest.Config) error {
+func CreateCredRequest(roleARN string, WITP string, secretNS string, kubeconf *rest.Config) {
 	clientInstance, err := client.New(kubeconf, client.Options{})
 	if err != nil {
 		setupLog.Error(err, "unable to create client")
@@ -352,5 +346,4 @@ func CreateCredRequest(roleARN string, WITP string, secretNS string, kubeconf *r
 	}
 
 	setupLog.Info("Custom resource credentialsrequest created successfully")
-	return nil
 }

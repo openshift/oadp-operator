@@ -41,7 +41,7 @@ type VmBackupRestoreCase struct {
 	SourceNamespace string
 }
 
-func runVmBackupAndRestore(brCase VmBackupRestoreCase, expectedErr error, updateLastBRcase func(brCase VmBackupRestoreCase), updateLastInstallTime func(), v *lib.VirtOperator) {
+func runVmBackupAndRestore(brCase VmBackupRestoreCase, updateLastBRcase func(brCase VmBackupRestoreCase), v *lib.VirtOperator) {
 	updateLastBRcase(brCase)
 
 	// Create DPA
@@ -54,7 +54,7 @@ func runVmBackupAndRestore(brCase VmBackupRestoreCase, expectedErr error, update
 	err = v.CloneDisk(brCase.SourceNamespace, brCase.Source, brCase.Namespace, brCase.Name, 5*time.Minute)
 	gomega.Expect(err).To(gomega.BeNil())
 
-	err = v.CreateVm(brCase.Namespace, brCase.Name, brCase.Source, 5*time.Minute)
+	err = v.CreateVm(brCase.Namespace, brCase.Name, 5*time.Minute)
 	gomega.Expect(err).To(gomega.BeNil())
 
 	// Remove the Data Volume, but keep the PVC attached to the VM
@@ -87,9 +87,6 @@ var _ = ginkgov2.Describe("VM backup and restore tests", ginkgov2.Ordered, func(
 	var lastInstallTime time.Time
 	updateLastBRcase := func(brCase VmBackupRestoreCase) {
 		lastBRCase = brCase
-	}
-	updateLastInstallTime := func() {
-		lastInstallTime = time.Now()
 	}
 
 	var _ = ginkgov2.BeforeAll(func() {
@@ -128,7 +125,7 @@ var _ = ginkgov2.Describe("VM backup and restore tests", ginkgov2.Ordered, func(
 
 	ginkgov2.DescribeTable("Backup and restore virtual machines",
 		func(brCase VmBackupRestoreCase, expectedError error) {
-			runVmBackupAndRestore(brCase, expectedError, updateLastBRcase, updateLastInstallTime, v)
+			runVmBackupAndRestore(brCase, updateLastBRcase, v)
 		},
 
 		ginkgov2.Entry("default virtual machine backup and restore", ginkgov2.Label("virt"), VmBackupRestoreCase{

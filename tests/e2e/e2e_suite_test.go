@@ -148,12 +148,12 @@ var _ = ginkgov2.BeforeSuite(func() {
 
 	bslCredFileData, err := lib.ReadFile(bslCredFile)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-	err = lib.CreateCredentialsSecret(kubernetesClientForSuiteRun, bslCredFileData, namespace, "bsl-cloud-credentials-"+provider)
+	err = lib.CreateCredentialsSecret(kubernetesClientForSuiteRun, bslCredFileData, namespace, lib.BSLCloudCredentialsPrefix+provider)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	err = lib.CreateCredentialsSecret(
 		kubernetesClientForSuiteRun,
 		lib.ReplaceSecretDataNewLineWithCarriageReturn(bslCredFileData),
-		namespace, "bsl-cloud-credentials-"+provider+"-with-carriage-return",
+		namespace, lib.BSLCloudCredentialsPrefix+provider+"-with-carriage-return",
 	)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
@@ -169,9 +169,9 @@ var _ = ginkgov2.AfterSuite(func() {
 	log.Printf("Deleting Velero CR")
 	err := lib.DeleteSecret(kubernetesClientForSuiteRun, namespace, credSecretRef)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
-	err = lib.DeleteSecret(kubernetesClientForSuiteRun, namespace, "bsl-cloud-credentials-"+provider)
+	err = lib.DeleteSecret(kubernetesClientForSuiteRun, namespace, lib.BSLCloudCredentialsPrefix+provider)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
-	err = lib.DeleteSecret(kubernetesClientForSuiteRun, namespace, "bsl-cloud-credentials-"+provider+"-with-carriage-return")
+	err = lib.DeleteSecret(kubernetesClientForSuiteRun, namespace, lib.BSLCloudCredentialsPrefix+provider+"-with-carriage-return")
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	err = dpaCR.Delete(runTimeClientForSuiteRun)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())

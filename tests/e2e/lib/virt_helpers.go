@@ -601,7 +601,7 @@ func (v *VirtOperator) checkVmStatus(namespace, name, expectedStatus string) boo
 	return status == expectedStatus
 }
 
-func (v *VirtOperator) createVm(namespace, name, source string) error {
+func (v *VirtOperator) createVm(namespace, name string) error {
 	unstructuredVm := unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "kubevirt.io/v1",
@@ -664,8 +664,8 @@ func (v *VirtOperator) removeVm(namespace, name string) error {
 	return nil
 }
 
-func (v *VirtOperator) ensureVm(namespace, name, source string, timeout time.Duration) error {
-	if err := v.createVm(namespace, name, source); err != nil {
+func (v *VirtOperator) ensureVm(namespace, name string, timeout time.Duration) error {
+	if err := v.createVm(namespace, name); err != nil {
 		return fmt.Errorf("failed to create VM %s/%s: %w", namespace, name, err)
 	}
 
@@ -816,9 +816,9 @@ func (v *VirtOperator) EnsureVirtRemoval() error {
 }
 
 // Create a virtual machine from an existing PVC.
-func (v *VirtOperator) CreateVm(namespace, name, source string, timeout time.Duration) error {
+func (v *VirtOperator) CreateVm(namespace, name string, timeout time.Duration) error {
 	log.Printf("Creating virtual machine %s/%s", namespace, name)
-	return v.ensureVm(namespace, name, source, timeout)
+	return v.ensureVm(namespace, name, timeout)
 }
 
 // Remove a virtual machine, but leave its data volume.

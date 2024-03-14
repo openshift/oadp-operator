@@ -37,7 +37,7 @@ func GetRouteEndpointURL(ocClient client.Client, namespace, routeName string) (s
 	// Check if the route is accessible
 	log.Printf("Verifying if the service is accessible via: %s", routeEndpoint)
 	resp, err := IsURLReachable(routeEndpoint)
-	if err != nil || resp == false {
+	if err != nil || !resp {
 		return "", fmt.Errorf("Route endpoint not accessible: %v", err)
 	}
 

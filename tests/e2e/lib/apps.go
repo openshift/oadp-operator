@@ -57,7 +57,7 @@ func InstallApplicationWithRetries(ocClient client.Client, file string, retries 
 	obj := &unstructured.UnstructuredList{}
 
 	dec := yaml.NewDecodingSerializer(unstructured.UnstructuredJSONScheme)
-	_, _, err = dec.Decode([]byte(template), nil, obj)
+	_, _, err = dec.Decode(template, nil, obj)
 	if err != nil {
 		return err
 	}
@@ -71,7 +71,6 @@ func InstallApplicationWithRetries(ocClient client.Client, file string, retries 
 		resourceCreate := resource.DeepCopy()
 		err = nil // reset error for each resource
 		for i := 0; i < retries; i++ {
-			err = nil // reset error for each retry
 			err = ocClient.Create(context.Background(), resourceCreate)
 			if apierrors.IsAlreadyExists(err) {
 				// if spec has changed for following kinds, update the resource
@@ -157,7 +156,7 @@ func UninstallApplication(ocClient client.Client, file string) error {
 	obj := &unstructured.UnstructuredList{}
 
 	dec := yaml.NewDecodingSerializer(unstructured.UnstructuredJSONScheme)
-	_, _, err = dec.Decode([]byte(template), nil, obj)
+	_, _, err = dec.Decode(template, nil, obj)
 	if err != nil {
 		return err
 	}
@@ -237,7 +236,7 @@ func AreVolumeSnapshotsReady(ocClient client.Client, backupName string) wait.Con
 			return false, nil
 		}
 		for _, v := range vList.Items {
-			log.Println(fmt.Sprintf("waiting for volume snapshot contents %s to be ready", v.Name))
+			log.Printf("waiting for volume snapshot contents %s to be ready", v.Name)
 			if v.Status.ReadyToUse == nil {
 				ginkgo.GinkgoWriter.Println("VolumeSnapshotContents Ready status not found for " + v.Name)
 				ginkgo.GinkgoWriter.Println(fmt.Sprintf("status: %v", v.Status))
@@ -599,7 +598,7 @@ func verifyVolume(requestParams *RequestParameters, volumeFile string, prebackup
 		log.Printf("Data came from volume-file\n %s", volumeBackupData)
 		log.Printf("Volume Data after restore\n %s", volData)
 		dataIsIn := bytes.Contains([]byte(volData), volumeBackupData)
-		if dataIsIn != true {
+		if !dataIsIn {
 			return errors.New("Backup data is not in Restore Data")
 		}
 	}

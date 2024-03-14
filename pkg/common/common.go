@@ -18,6 +18,7 @@ const (
 	OADPOperator               = "oadp-operator"
 	OADPOperatorVelero         = "oadp-operator-velero"
 	OADPOperatorServiceAccount = "openshift-adp-controller-manager"
+	DPASuffix                  = ".dataprotectionapplication"
 )
 
 var DefaultRestoreResourcePriorities = restore.Priorities{
@@ -144,7 +145,7 @@ func containsEnvVar(envVars []corev1.EnvVar, envVar corev1.EnvVar) bool {
 }
 
 func AppendUniqueValues[T comparable](slice []T, values ...T) []T {
-	if values == nil || len(values) == 0 {
+	if len(values) == 0 {
 		return slice
 	}
 	slice = append(slice, values...)
@@ -169,7 +170,7 @@ func RemoveDuplicateValues[T comparable](slice []T) []T {
 }
 
 func AppendTTMapAsCopy[T comparable](add ...map[T]T) map[T]T {
-	if add == nil || len(add) == 0 {
+	if len(add) == 0 {
 		return nil
 	}
 	base := map[T]T{}
@@ -192,10 +193,7 @@ func AppendTTMapAsCopy[T comparable](add ...map[T]T) map[T]T {
 // during installation via OLM
 func CCOWorkflow() bool {
 	roleARN := os.Getenv("ROLEARN")
-	if len(roleARN) > 0 {
-		return true
-	}
-	return false
+	return len(roleARN) > 0
 }
 
 // StripDefaultPorts removes port 80 from HTTP URLs and 443 from HTTPS URLs.
