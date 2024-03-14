@@ -17,6 +17,10 @@ def updateToDo(base_url, id, completed):
   Returns:
     bool
   """
+  data = {
+      "id": id,
+      "completed": completed
+  }
 
   # Set the endpoint URL
   endpoint = base_url + "/todo/" + str(id)
