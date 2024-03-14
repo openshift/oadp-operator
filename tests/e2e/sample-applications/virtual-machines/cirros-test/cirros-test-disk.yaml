@@ -7,6 +7,12 @@ items:
       name: cirros-test-disk
       namespace: cirros-test
       annotations:
+        # The test code wants to watch a DataVolume for the status of a download
+        # or clone. CDI defaults to deleting a DataVolume some time after it is
+        # done, so the test might miss the status. Add the deleteAfterCompletion
+        # annotation to avoid this. Also, add the bind.immediate.requested
+        # annotation so that CDI does not wait for a VM to start before binding
+        # to a PV and doing the download/clone.
         cdi.kubevirt.io/storage.bind.immediate.requested: ""
         cdi.kubevirt.io/storage.deleteAfterCompletion: "false"
     spec:
