@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -601,58 +602,6 @@ func (v *VirtOperator) checkVmStatus(namespace, name, expectedStatus string) boo
 	return status == expectedStatus
 }
 
-func (v *VirtOperator) createVm(namespace, name, source string) error {
-	unstructuredVm := unstructured.Unstructured{
-		Object: map[string]interface{}{
-			"apiVersion": "kubevirt.io/v1",
-			"kind":       "VirtualMachine",
-			"metadata": map[string]interface{}{
-				"name":      name,
-				"namespace": namespace,
-			},
-			"spec": map[string]interface{}{
-				"running": true,
-				"template": map[string]interface{}{
-					"spec": map[string]interface{}{
-						"domain": map[string]interface{}{
-							"devices": map[string]interface{}{
-								"disks": []map[string]interface{}{
-									{
-										"disk": map[string]interface{}{
-											"bus": "virtio",
-										},
-										"name": "rootdisk",
-									},
-								},
-							},
-							"resources": map[string]interface{}{
-								"requests": map[string]interface{}{
-									"cpu":    "1",
-									"memory": "256Mi",
-								},
-							},
-						},
-						"volumes": []map[string]interface{}{
-							{
-								"persistentVolumeClaim": map[string]interface{}{
-									"claimName": name,
-								},
-								"name": "rootdisk",
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-
-	if _, err := v.Dynamic.Resource(virtualMachineGvr).Namespace(namespace).Create(context.TODO(), &unstructuredVm, metav1.CreateOptions{}); err != nil {
-		return fmt.Errorf("error creating VM %s/%s: %w", namespace, name, err)
-	}
-
-	return nil
-}
-
 func (v *VirtOperator) removeVm(namespace, name string) error {
 	if err := v.Dynamic.Resource(virtualMachineGvr).Namespace(namespace).Delete(context.TODO(), name, metav1.DeleteOptions{}); err != nil {
 		if !apierrors.IsNotFound(err) {
@@ -664,8 +613,8 @@ func (v *VirtOperator) removeVm(namespace, name string) error {
 	return nil
 }
 
-func (v *VirtOperator) ensureVm(namespace, name, source string, timeout time.Duration) error {
-	if err := v.createVm(namespace, name, source); err != nil {
+func (v *VirtOperator) ensureVm(namespace, name string, timeout time.Duration) error {
+	if err := InstallApplication(v.Client, filepath.Join("sample-applications", "virtual-machines", namespace, name+".yaml")); err != nil {
 		return fmt.Errorf("failed to create VM %s/%s: %w", namespace, name, err)
 	}
 
@@ -816,9 +765,9 @@ func (v *VirtOperator) EnsureVirtRemoval() error {
 }
 
 // Create a virtual machine from an existing PVC.
-func (v *VirtOperator) CreateVm(namespace, name, source string, timeout time.Duration) error {
+func (v *VirtOperator) CreateVm(namespace, name string, timeout time.Duration) error {
 	log.Printf("Creating virtual machine %s/%s", namespace, name)
-	return v.ensureVm(namespace, name, source, timeout)
+	return v.ensureVm(namespace, name, timeout)
 }
 
 // Remove a virtual machine, but leave its data volume.

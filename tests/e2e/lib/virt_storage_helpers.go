@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -322,4 +323,28 @@ func (v *VirtOperator) CloneDisk(sourceNamespace, sourceName, cloneNamespace, cl
 	}
 
 	return nil
+}
+
+// Create a DataVolume from a sample YAML template. The namespace argument
+// should match a subdirectory under sample-applications/virtual-machines, and
+// the name argument should match a .yaml file in that directory, for example:
+//
+//	sample-applications/virtual-machines/example-vm-test/example-vm-test-disk.yaml
+//
+// This file must specify a DataVolume with the following annotations set:
+//
+//	cdi.kubevirt.io/storage.bind.immediate.requested: ""
+//	cdi.kubevirt.io/storage.deleteAfterCompletion: "false"
+//
+// This function will then wait for that DataVolume to be marked "Succeeded".
+func (v *VirtOperator) CreateDiskFromYaml(namespace, name string, timeout time.Duration) error {
+	if err := InstallApplication(v.Client, filepath.Join("sample-applications", "virtual-machines", namespace, name+".yaml")); err != nil {
+		return fmt.Errorf("failed to create DataVolume %s/%s: %w", namespace, name, err)
+	}
+
+	err := wait.PollImmediate(5*time.Second, timeout, func() (bool, error) {
+		return v.checkDataVolumeReady(namespace, name), nil
+	})
+
+	return err
 }
