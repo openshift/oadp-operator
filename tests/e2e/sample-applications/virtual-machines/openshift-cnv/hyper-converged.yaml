@@ -9,6 +9,6 @@ items:
       annotations:
         # TODO this triggers Alert KubevirtHyperconvergedClusterOperatorUSModification: unsafe modification for
         # the kubevirt.kubevirt.io/jsonpatch annotation in the HyperConverged resource.
-        kubevirt.kubevirt.io/jsonpatch: >
+        kubevirt.kubevirt.io/jsonpatch: >-
           [{"op": "add", "path": "/spec/configuration/developerConfiguration", "value": {"useEmulation": true}}]
     spec: {}

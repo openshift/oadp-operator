@@ -215,9 +215,11 @@ func (v *VirtOperator) checkEmulation() bool {
 	// TODO check if spec.configuration.developerConfiguration.useEmulation field is set to true in kubevirst object
 	hco, err := v.Dynamic.Resource(hyperConvergedGvr).Namespace(v.Namespace).Get(context.Background(), v.HyperConverged, metav1.GetOptions{})
 	if err != nil {
+		log.Printf("Failed to get hyperConverged: %v", err)
 		return false
 	}
 	if hco == nil {
+		log.Print("No hyperConverged found")
 		return false
 	}
 
@@ -229,12 +231,10 @@ func (v *VirtOperator) checkEmulation() bool {
 	}
 	if !ok {
 		log.Printf("No KVM emulation annotation (%s) listed on HCO!", emulationAnnotation)
-	}
-	if strings.Compare(patcher, useEmulation) == 0 {
-		return true
+		return false
 	}
 
-	return false
+	return strings.Compare(patcher, useEmulation) == 0
 }
 
 // Creates target namespace if needed, and waits for it to exist
