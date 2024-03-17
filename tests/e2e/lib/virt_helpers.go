@@ -52,51 +52,46 @@ var csvGvr = schema.GroupVersionResource{
 	Version:  "v1alpha1",
 }
 
+var operatorGroupGvr = schema.GroupVersionResource{
+	Group:    "operators.coreos.com",
+	Resource: "operatorgroups",
+	Version:  "v1",
+}
+
 type VirtOperator struct {
-	Client    client.Client
-	Clientset *kubernetes.Clientset
-	Dynamic   dynamic.Interface
-	Namespace string
-	Csv       string
-	Version   *version.Version
+	Client         client.Client
+	Clientset      *kubernetes.Clientset
+	Dynamic        dynamic.Interface
+	Namespace      string
+	Csv            string
+	Version        *version.Version
+	OperatorGroup  string
+	Subscription   string
+	HyperConverged string
 }
 
 // GetVirtOperator fills out a new VirtOperator
 func GetVirtOperator(c client.Client, clientset *kubernetes.Clientset, dynamicClient dynamic.Interface) (*VirtOperator, error) {
-	namespace := "openshift-cnv"
-
-	csv, operatorVersion, err := getCsvFromPackageManifest(dynamicClient, "kubevirt-hyperconverged")
+	operatorName := "kubevirt-hyperconverged"
+	csv, operatorVersion, err := getCsvFromPackageManifest(dynamicClient, operatorName)
 	if err != nil {
 		log.Printf("Failed to get CSV from package manifest")
 		return nil, err
 	}
 
 	v := &VirtOperator{
-		Client:    c,
-		Clientset: clientset,
-		Dynamic:   dynamicClient,
-		Namespace: namespace,
-		Csv:       csv,
-		Version:   operatorVersion,
+		Client:         c,
+		Clientset:      clientset,
+		Dynamic:        dynamicClient,
+		Namespace:      "openshift-cnv",
+		Csv:            csv,
+		Version:        operatorVersion,
+		OperatorGroup:  "kubevirt-hyperconverged-group",
+		Subscription:   "hco-operatorhub",
+		HyperConverged: operatorName,
 	}
 
 	return v, nil
-}
-
-// Helper to create an operator group object, common to installOperatorGroup
-// and removeOperatorGroup.
-func (v *VirtOperator) makeOperatorGroup() *operatorsv1.OperatorGroup {
-	return &operatorsv1.OperatorGroup{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "kubevirt-hyperconverged-group",
-			Namespace: v.Namespace,
-		},
-		Spec: operatorsv1.OperatorGroupSpec{
-			TargetNamespaces: []string{
-				v.Namespace,
-			},
-		},
-	}
 }
 
 // getCsvFromPackageManifest returns the current CSV from the first channel
@@ -168,14 +163,14 @@ func (v *VirtOperator) checkNamespace() bool {
 // Checks for the existence of the virtualization operator group
 func (v *VirtOperator) checkOperatorGroup() bool {
 	group := operatorsv1.OperatorGroup{}
-	err := v.Client.Get(context.TODO(), client.ObjectKey{Namespace: v.Namespace, Name: "kubevirt-hyperconverged-group"}, &group)
+	err := v.Client.Get(context.TODO(), client.ObjectKey{Namespace: v.Namespace, Name: v.OperatorGroup}, &group)
 	return err == nil
 }
 
 // Checks if there is a virtualization subscription
 func (v *VirtOperator) checkSubscription() bool {
 	subscription := operatorsv1alpha1.Subscription{}
-	err := v.Client.Get(context.TODO(), client.ObjectKey{Namespace: v.Namespace, Name: "hco-operatorhub"}, &subscription)
+	err := v.Client.Get(context.TODO(), client.ObjectKey{Namespace: v.Namespace, Name: v.Subscription}, &subscription)
 	return err == nil
 }
 
@@ -195,7 +190,7 @@ func (v *VirtOperator) checkCsv() bool {
 // health status field is "healthy". Uses dynamic client to avoid uprooting lots
 // of package dependencies, which should probably be fixed later.
 func (v *VirtOperator) checkHco() bool {
-	unstructuredHco, err := v.Dynamic.Resource(hyperConvergedGvr).Namespace(v.Namespace).Get(context.Background(), "kubevirt-hyperconverged", metav1.GetOptions{})
+	unstructuredHco, err := v.Dynamic.Resource(hyperConvergedGvr).Namespace(v.Namespace).Get(context.Background(), v.HyperConverged, metav1.GetOptions{})
 	if err != nil {
 		log.Printf("Error getting HCO: %v", err)
 		return false
@@ -217,7 +212,8 @@ func (v *VirtOperator) checkHco() bool {
 
 // Check if KVM emulation is enabled.
 func (v *VirtOperator) checkEmulation() bool {
-	hco, err := v.Dynamic.Resource(hyperConvergedGvr).Namespace("openshift-cnv").Get(context.Background(), "kubevirt-hyperconverged", metav1.GetOptions{})
+	// TODO check if spec.configuration.developerConfiguration.useEmulation field is set to true in kubevirst object
+	hco, err := v.Dynamic.Resource(hyperConvergedGvr).Namespace(v.Namespace).Get(context.Background(), v.HyperConverged, metav1.GetOptions{})
 	if err != nil {
 		return false
 	}
@@ -241,118 +237,14 @@ func (v *VirtOperator) checkEmulation() bool {
 	return false
 }
 
-// Creates the target virtualization namespace, likely openshift-cnv or kubevirt-hyperconverged
-func (v *VirtOperator) installNamespace() error {
-	err := v.Client.Create(context.Background(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: v.Namespace}})
-	if err != nil {
-		log.Printf("Failed to create namespace %s: %v", v.Namespace, err)
-		return err
-	}
-	return nil
-}
-
-// Creates the virtualization operator group
-func (v *VirtOperator) installOperatorGroup() error {
-	group := v.makeOperatorGroup()
-	err := v.Client.Create(context.Background(), group)
-	if err != nil {
-		if !strings.Contains(err.Error(), "already exists") {
-			log.Printf("Failed to create operator group: %v", err)
-			return err
-		}
-	}
-	return nil
-}
-
-// Creates the subscription, which triggers creation of the ClusterServiceVersion.
-func (v *VirtOperator) installSubscription() error {
-	subscription := &operatorsv1alpha1.Subscription{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "hco-operatorhub",
-			Namespace: v.Namespace,
-		},
-		Spec: &operatorsv1alpha1.SubscriptionSpec{
-			CatalogSource:          "redhat-operators",
-			CatalogSourceNamespace: "openshift-marketplace",
-			Package:                "kubevirt-hyperconverged",
-			Channel:                "stable",
-			StartingCSV:            v.Csv,
-			InstallPlanApproval:    operatorsv1alpha1.ApprovalAutomatic,
-		},
-	}
-	err := v.Client.Create(context.Background(), subscription)
-	if err != nil {
-		log.Printf("Failed to create subscription: %v", err)
-		return err
-	}
-
-	return nil
-}
-
-// Creates a HyperConverged Operator instance. Another dynamic client to avoid
-// bringing in the KubeVirt APIs for now.
-func (v *VirtOperator) installHco() error {
-	unstructuredHco := unstructured.Unstructured{
-		Object: map[string]interface{}{
-			"apiVersion": "hco.kubevirt.io/v1beta1",
-			"kind":       "HyperConverged",
-			"metadata": map[string]interface{}{
-				"name":      "kubevirt-hyperconverged",
-				"namespace": v.Namespace,
-			},
-			"spec": map[string]interface{}{},
-		},
-	}
-	_, err := v.Dynamic.Resource(hyperConvergedGvr).Namespace(v.Namespace).Create(context.Background(), &unstructuredHco, metav1.CreateOptions{})
-	if err != nil {
-		log.Printf("Error creating HCO: %v", err)
-		return err
-	}
-
-	return nil
-}
-
-func (v *VirtOperator) configureEmulation() error {
-	hco, err := v.Dynamic.Resource(hyperConvergedGvr).Namespace("openshift-cnv").Get(context.Background(), "kubevirt-hyperconverged", metav1.GetOptions{})
-	if err != nil {
-		return err
-	}
-	if hco == nil {
-		return fmt.Errorf("could not find hyperconverged operator to set emulation annotation")
-	}
-
-	annotations, ok, err := unstructured.NestedMap(hco.UnstructuredContent(), "metadata", "annotations")
-	if err != nil {
-		return err
-	}
-	if !ok {
-		annotations = make(map[string]interface{})
-	}
-	annotations[emulationAnnotation] = useEmulation
-
-	if err := unstructured.SetNestedMap(hco.UnstructuredContent(), annotations, "metadata", "annotations"); err != nil {
-		return err
-	}
-
-	_, err = v.Dynamic.Resource(hyperConvergedGvr).Namespace("openshift-cnv").Update(context.Background(), hco, metav1.UpdateOptions{})
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
 // Creates target namespace if needed, and waits for it to exist
 func (v *VirtOperator) ensureNamespace(timeout time.Duration) error {
 	if !v.checkNamespace() {
-		if err := v.installNamespace(); err != nil {
-			return err
-		}
 		err := wait.PollImmediate(time.Second, timeout, func() (bool, error) {
 			return v.checkNamespace(), nil
 		})
 		if err != nil {
-			return fmt.Errorf("timed out waiting to create namespace %s: %w", v.Namespace, err)
+			return fmt.Errorf("timed out waiting to for namespace %s: %w", v.Namespace, err)
 		}
 	} else {
 		log.Printf("Namespace %s already present, no action required", v.Namespace)
@@ -364,17 +256,14 @@ func (v *VirtOperator) ensureNamespace(timeout time.Duration) error {
 // Creates operator group if needed, and waits for it to exist
 func (v *VirtOperator) ensureOperatorGroup(timeout time.Duration) error {
 	if !v.checkOperatorGroup() {
-		if err := v.installOperatorGroup(); err != nil {
-			return err
-		}
 		err := wait.PollImmediate(time.Second, timeout, func() (bool, error) {
 			return v.checkOperatorGroup(), nil
 		})
 		if err != nil {
-			return fmt.Errorf("timed out waiting to create operator group kubevirt-hyperconverged-group: %w", err)
+			return fmt.Errorf("timed out waiting to create operator group %s: %w", v.OperatorGroup, err)
 		}
 	} else {
-		log.Printf("Operator group already present, no action required")
+		log.Printf("Operator group %s already present, no action required", v.OperatorGroup)
 	}
 
 	return nil
@@ -383,17 +272,14 @@ func (v *VirtOperator) ensureOperatorGroup(timeout time.Duration) error {
 // Creates the virtualization subscription if needed, and waits for it to exist
 func (v *VirtOperator) ensureSubscription(timeout time.Duration) error {
 	if !v.checkSubscription() {
-		if err := v.installSubscription(); err != nil {
-			return err
-		}
 		err := wait.PollImmediate(time.Second, timeout, func() (bool, error) {
 			return v.checkSubscription(), nil
 		})
 		if err != nil {
-			return fmt.Errorf("timed out waiting to create subscription: %w", err)
+			return fmt.Errorf("timed out waiting to create subscription %s: %w", v.Subscription, err)
 		}
 	} else {
-		log.Printf("Subscription already created, no action required")
+		log.Printf("Subscription %s already present, no action required", v.Subscription)
 	}
 
 	return nil
@@ -413,9 +299,6 @@ func (v *VirtOperator) ensureCsv(timeout time.Duration) error {
 // Creates HyperConverged Operator instance if needed, and waits for it to go healthy
 func (v *VirtOperator) ensureHco(timeout time.Duration) error {
 	if !v.checkHco() {
-		if err := v.installHco(); err != nil {
-			return err
-		}
 		err := wait.PollImmediate(5*time.Second, timeout, func() (bool, error) {
 			return v.checkHco(), nil
 		})
@@ -423,7 +306,7 @@ func (v *VirtOperator) ensureHco(timeout time.Duration) error {
 			return fmt.Errorf("timed out waiting to create HCO: %w", err)
 		}
 	} else {
-		log.Printf("HCO already created, no action required")
+		log.Printf("HCO already present, no action required")
 	}
 
 	return nil
@@ -441,12 +324,7 @@ func (v *VirtOperator) removeNamespace() error {
 
 // Deletes the virtualization operator group
 func (v *VirtOperator) removeOperatorGroup() error {
-	group := v.makeOperatorGroup()
-	err := v.Client.Delete(context.Background(), group)
-	if err != nil {
-		return err
-	}
-	return nil
+	return v.Dynamic.Resource(operatorGroupGvr).Namespace(v.Namespace).Delete(context.Background(), v.OperatorGroup, metav1.DeleteOptions{})
 }
 
 // Deletes the kubvirt subscription
@@ -465,7 +343,7 @@ func (v *VirtOperator) removeCsv() error {
 
 // Deletes a HyperConverged Operator instance.
 func (v *VirtOperator) removeHco() error {
-	err := v.Dynamic.Resource(hyperConvergedGvr).Namespace(v.Namespace).Delete(context.Background(), "kubevirt-hyperconverged", metav1.DeleteOptions{})
+	err := v.Dynamic.Resource(hyperConvergedGvr).Namespace(v.Namespace).Delete(context.Background(), v.HyperConverged, metav1.DeleteOptions{})
 	if err != nil {
 		log.Printf("Error deleting HCO: %v", err)
 		return err
@@ -644,38 +522,12 @@ func (v *VirtOperator) ensureVmRemoval(namespace, name string, timeout time.Dura
 
 // Enable KVM emulation for use on cloud clusters that do not have direct
 // access to the host server's virtualization capabilities.
-func (v *VirtOperator) EnsureEmulation(timeout time.Duration) error {
+func (v *VirtOperator) ensureEmulation() error {
 	if v.checkEmulation() {
-		log.Printf("KVM emulation already enabled, no work needed to turn it on.")
 		return nil
 	}
 
-	log.Printf("Enabling KVM emulation...")
-
-	// Retry if there are API server conflicts ("the object has been modified")
-	timeTaken := 0 * time.Second
-	err := wait.PollImmediate(5*time.Second, timeout, func() (bool, error) {
-		timeTaken += 5
-		innerErr := v.configureEmulation()
-		if innerErr != nil {
-			if apierrors.IsConflict(innerErr) {
-				log.Printf("HCO modification conflict, trying again...")
-				return false, nil // Conflict: try again
-			}
-			return false, innerErr // Anything else: give up
-		}
-		return innerErr == nil, nil
-	})
-	if err != nil {
-		return err
-	}
-
-	timeout = timeout - timeTaken
-	err = wait.PollImmediate(5*time.Second, timeout, func() (bool, error) {
-		return v.checkEmulation(), nil
-	})
-
-	return err
+	return fmt.Errorf("KVM emulation is not enabled in hyperconverged %s", v.HyperConverged)
 }
 
 // IsVirtInstalled returns whether or not the OpenShift Virtualization operator
@@ -696,23 +548,23 @@ func (v *VirtOperator) EnsureVirtInstallation() error {
 		return nil
 	}
 
-	log.Printf("Creating virtualization namespace %s", v.Namespace)
+	log.Printf("Creating virtualization namespace %s, operator group %s and virtualization operator subscription %s", v.Namespace, v.OperatorGroup, v.Subscription)
+	installOperatorTemplate := filepath.Join("sample-applications", "virtual-machines", v.Namespace, "openshift-virtualization.yaml")
+	if err := InstallApplication(v.Client, installOperatorTemplate, v.Csv); err != nil {
+		return err
+	}
+
 	if err := v.ensureNamespace(10 * time.Second); err != nil {
 		return err
 	}
-	log.Printf("Created namespace %s", v.Namespace)
 
-	log.Printf("Creating operator group kubevirt-hyperconverged-group")
 	if err := v.ensureOperatorGroup(10 * time.Second); err != nil {
 		return err
 	}
-	log.Println("Created operator group")
 
-	log.Printf("Creating virtualization operator subscription")
 	if err := v.ensureSubscription(10 * time.Second); err != nil {
 		return err
 	}
-	log.Println("Created subscription")
 
 	log.Printf("Waiting for ClusterServiceVersion")
 	if err := v.ensureCsv(5 * time.Minute); err != nil {
@@ -720,11 +572,21 @@ func (v *VirtOperator) EnsureVirtInstallation() error {
 	}
 	log.Println("CSV ready")
 
-	log.Printf("Creating hyperconverged operator")
+	log.Printf("Creating hyperconverged %s", v.HyperConverged)
+	hyperConvergedTemplate := filepath.Join("sample-applications", "virtual-machines", v.Namespace, "hyper-converged.yaml")
+	if err := InstallApplication(v.Client, hyperConvergedTemplate); err != nil {
+		return err
+	}
 	if err := v.ensureHco(5 * time.Minute); err != nil {
 		return err
 	}
 	log.Printf("Created HCO")
+
+	log.Printf("Checking if KVM emulation is enabled in hyperconverged %s", v.HyperConverged)
+	if err := v.ensureEmulation(); err != nil {
+		return err
+	}
+	log.Printf("KVM emulation is enabled in hyperconverged %s", v.HyperConverged)
 
 	return nil
 }
@@ -749,7 +611,7 @@ func (v *VirtOperator) EnsureVirtRemoval() error {
 	}
 	log.Println("CSV removed")
 
-	log.Printf("Deleting operator group kubevirt-hyperconverged-group")
+	log.Printf("Deleting operator group %s", v.OperatorGroup)
 	if err := v.ensureOperatorGroupRemoved(10 * time.Second); err != nil {
 		return err
 	}

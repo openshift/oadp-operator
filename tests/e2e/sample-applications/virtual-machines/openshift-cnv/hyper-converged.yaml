@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: List
+items:
+  - apiVersion: hco.kubevirt.io/v1beta1
+    kind: HyperConverged
+    metadata:
+      name: kubevirt-hyperconverged
+      namespace: openshift-cnv
+      annotations:
+        # TODO this triggers Alert KubevirtHyperconvergedClusterOperatorUSModification: unsafe modification for
+        # the kubevirt.kubevirt.io/jsonpatch annotation in the HyperConverged resource.
+        kubevirt.kubevirt.io/jsonpatch: >
+          [{"op": "add", "path": "/spec/configuration/developerConfiguration", "value": {"useEmulation": true}}]
+    spec: {}

@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"reflect"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
@@ -45,16 +46,25 @@ var (
 	e2eAppLabelSelector       = labels.NewSelector().Add(*e2eAppLabelRequirement)
 )
 
-func InstallApplication(ocClient client.Client, file string) error {
-	return InstallApplicationWithRetries(ocClient, file, 3)
+func InstallApplication(ocClient client.Client, file string, replace ...string) error {
+	return InstallApplicationWithRetries(ocClient, file, 3, replace...)
 }
 
-func InstallApplicationWithRetries(ocClient client.Client, file string, retries int) error {
+func InstallApplicationWithRetries(ocClient client.Client, file string, retries int, replace ...string) error {
 	template, err := os.ReadFile(file)
 	if err != nil {
 		return err
 	}
 	obj := &unstructured.UnstructuredList{}
+
+	for index, replacement := range replace {
+		replaceInTemplate := fmt.Sprintf("<<template-replace-%v>>", index+1)
+		templateRawString := string(template)
+		if !strings.Contains(templateRawString, replaceInTemplate) {
+			return fmt.Errorf("replace directive %s not found in %s template file", replaceInTemplate, file)
+		}
+		template = []byte(strings.Replace(templateRawString, replaceInTemplate, replacement, 1))
+	}
 
 	dec := yaml.NewDecodingSerializer(unstructured.UnstructuredJSONScheme)
 	_, _, err = dec.Decode([]byte(template), nil, obj)
