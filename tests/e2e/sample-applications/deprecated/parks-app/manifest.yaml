@@ -197,7 +197,6 @@ items:
           - name: mongodb-data
             persistentVolumeClaim:
               claimName: mongodb-data-claim
-          restartPolicy: Always
     
   - kind: Service
     apiVersion: v1
