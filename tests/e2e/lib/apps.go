@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"reflect"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -57,13 +58,27 @@ func InstallApplicationWithRetries(ocClient client.Client, file string, retries 
 	}
 	obj := &unstructured.UnstructuredList{}
 
+	// YAML templates can have replace directives, in the form of "<<template-replace-N>>", where N
+	// is a integer, starting from 1 (increasing by 1, for each new replacement). Replace directives
+	// can be repeated. The number of replaces must always match the number of unique replace
+	// directives in template file
+	uniqueMatches := make(map[string]bool)
+	for _, match := range regexp.MustCompile(`<<template-replace-\d+>>`).FindAll(template, -1) {
+		uniqueMatches[(string(match))] = true
+	}
+	numberOfUniqueMatches := len(uniqueMatches)
+	numberOfReplaces := len(replace)
+	if numberOfReplaces != numberOfUniqueMatches {
+		return fmt.Errorf("number of replaces (%v) differs from number of unique replace directives (%v) in %s template file", numberOfReplaces, numberOfUniqueMatches, file)
+	}
+
 	for index, replacement := range replace {
 		replaceInTemplate := fmt.Sprintf("<<template-replace-%v>>", index+1)
 		templateRawString := string(template)
 		if !strings.Contains(templateRawString, replaceInTemplate) {
 			return fmt.Errorf("replace directive %s not found in %s template file", replaceInTemplate, file)
 		}
-		template = []byte(strings.Replace(templateRawString, replaceInTemplate, replacement, 1))
+		template = []byte(strings.Replace(templateRawString, replaceInTemplate, replacement, -1))
 	}
 
 	dec := yaml.NewDecodingSerializer(unstructured.UnstructuredJSONScheme)
