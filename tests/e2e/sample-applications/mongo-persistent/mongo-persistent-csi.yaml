@@ -105,7 +105,6 @@ items:
               timeoutSeconds: 2
               successThreshold: 1
               failureThreshold: 40 # 40x30sec before restart pod
-            restartPolicy: Always
           - image: docker.io/curlimages/curl:8.5.0
             name: curl-tool
             command: ["/bin/sleep", "infinity"]
