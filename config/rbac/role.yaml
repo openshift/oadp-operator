@@ -181,3 +181,42 @@ rules:
   - update
   - patch
   - watch
+# https://github.com/migtools/oadp-non-admin/blob/master/config/rbac/role.yaml
+- apiGroups:
+  - nac.oadp.openshift.io
+  resources:
+  - nonadminbackups
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - nac.oadp.openshift.io
+  resources:
+  - nonadminbackups/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - nac.oadp.openshift.io
+  resources:
+  - nonadminbackups/status
+  verbs:
+  - get
+  - patch
+  - update
+# TODO not needed? config/velero/velero-role.yaml
+- apiGroups:
+  - velero.io
+  resources:
+  - backups
+  verbs:
+  - create
+  - get
+  - list
+  - patch
+  - update
+  - watch

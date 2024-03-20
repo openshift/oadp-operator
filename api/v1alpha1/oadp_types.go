@@ -62,6 +62,7 @@ const GCPPluginImageKey UnsupportedImageKey = "gcpPluginImageFqin"
 const CSIPluginImageKey UnsupportedImageKey = "csiPluginImageFqin"
 const ResticRestoreImageKey UnsupportedImageKey = "resticRestoreImageFqin"
 const KubeVirtPluginImageKey UnsupportedImageKey = "kubevirtPluginImageFqin"
+const NonAdminControllerImageKey UnsupportedImageKey = "nonAdminControllerImageFqin"
 const OperatorTypeKey UnsupportedImageKey = "operator-type"
 
 const OperatorTypeMTC = "mtc"
@@ -233,7 +234,11 @@ type SnapshotLocation struct {
 }
 
 // Features defines the configuration for the DPA to enable the tech preview features
-type Features struct{}
+type Features struct {
+	// Enables non admin feature, by default false
+	// +optional
+	EnableNonAdminMode *bool `json:"enableNonAdminMode,omitempty"`
+}
 
 // DataProtectionApplicationSpec defines the desired state of Velero
 type DataProtectionApplicationSpec struct {
@@ -253,6 +258,7 @@ type DataProtectionApplicationSpec struct {
 	//   - csiPluginImageFqin
 	//   - resticRestoreImageFqin
 	//   - kubevirtPluginImageFqin
+	//   - nonAdminControllerImageFqin
 	//   - operator-type
 	// +optional
 	UnsupportedOverrides map[UnsupportedImageKey]string `json:"unsupportedOverrides,omitempty"`

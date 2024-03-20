@@ -400,6 +400,9 @@ spec:
         displayName: Expiration
         path: expiration
       version: v1
+    - kind: NonAdminBackup
+      name: nonadminbackups.nac.oadp.openshift.io
+      version: v1alpha1
     - description: A velero pod volume backup is a restic backup of persistent volumes
         attached to a running pod.
       displayName: PodVolumeBackup
@@ -563,6 +566,7 @@ spec:
     (PVs) by creating snapshots with the native cloud snapshot API or with
     the Container Storage Interface (CSI). For cloud providers that do not
     support snapshots, OADP backs up resources and PV data with Restic or Kopia.
+    TODO talk about NAC???
 
     * [Installing OADP for application backup and restore][install-doc]
 
@@ -757,6 +761,43 @@ spec:
           - patch
           - watch
         - apiGroups:
+          - nac.oadp.openshift.io
+          resources:
+          - nonadminbackups
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - nac.oadp.openshift.io
+          resources:
+          - nonadminbackups/finalizers
+          verbs:
+          - update
+        - apiGroups:
+          - nac.oadp.openshift.io
+          resources:
+          - nonadminbackups/status
+          verbs:
+          - get
+          - patch
+          - update
+        - apiGroups:
+          - velero.io
+          resources:
+          - backups
+          verbs:
+          - create
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
           - authentication.k8s.io
           resources:
           - tokenreviews
@@ -861,6 +902,8 @@ spec:
                   value: quay.io/konveyor/kubevirt-velero-plugin:v0.2.0
                 - name: RELATED_IMAGE_MUSTGATHER
                   value: registry.redhat.io/oadp/oadp-mustgather-rhel8:v1.2
+                - name: RELATED_IMAGE_NON_ADMIN_CONTROLLER
+                  value: quay.io/msouzaol/non-admin-controller:latest
                 image: quay.io/konveyor/oadp-operator:latest
                 imagePullPolicy: Always
                 livenessProbe:
@@ -1012,4 +1055,6 @@ spec:
     name: kubevirt-velero-plugin
   - image: registry.redhat.io/oadp/oadp-mustgather-rhel8:v1.2
     name: mustgather
+  - image: quay.io/msouzaol/non-admin-controller:latest
+    name: non-admin-controller
   version: 99.0.0
