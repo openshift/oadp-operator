@@ -54,6 +54,9 @@ spec:
             value: quay.io/konveyor/kubevirt-velero-plugin:v0.2.0
           - name: RELATED_IMAGE_MUSTGATHER
             value: registry.redhat.io/oadp/oadp-mustgather-rhel8:v1.2
+          # TODO change
+          - name: RELATED_IMAGE_NON_ADMIN_CONTROLLER
+            value: quay.io/msouzaol/non-admin-controller:latest
         args:
         - --leader-elect
         image: controller:latest
