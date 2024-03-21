@@ -300,9 +300,7 @@ func (r *DPAReconciler) customizeVeleroDeployment(dpa *oadpv1alpha1.DataProtecti
 		address := strings.Split(dpa.Spec.Configuration.Velero.Args.MetricsAddress, ":")
 		if len(address) == 2 {
 			veleroDeployment.Spec.Template.Annotations["prometheus.io/port"] = address[1]
-			if prometheusPort == nil {
-				prometheusPort = new(int)
-			}
+			prometheusPort = new(int)
 			*prometheusPort, err = strconv.Atoi(address[1])
 			if err != nil {
 				return fmt.Errorf("error parsing metrics address port: %v", err)
@@ -337,26 +335,17 @@ func (r *DPAReconciler) customizeVeleroDeployment(dpa *oadpv1alpha1.DataProtecti
 	// Setting async operations server parameter ItemOperationSyncFrequency
 	if dpa.Spec.Configuration.Velero.ItemOperationSyncFrequency != "" {
 		ItemOperationSyncFrequencyString := dpa.Spec.Configuration.Velero.ItemOperationSyncFrequency
-		if err != nil {
-			return err
-		}
 		veleroContainer.Args = append(veleroContainer.Args, fmt.Sprintf("--item-operation-sync-frequency=%v", ItemOperationSyncFrequencyString))
 	}
 
 	// Setting async operations server parameter DefaultItemOperationTimeout
 	if dpa.Spec.Configuration.Velero.DefaultItemOperationTimeout != "" {
 		DefaultItemOperationTimeoutString := dpa.Spec.Configuration.Velero.DefaultItemOperationTimeout
-		if err != nil {
-			return err
-		}
 		veleroContainer.Args = append(veleroContainer.Args, fmt.Sprintf("--default-item-operation-timeout=%v", DefaultItemOperationTimeoutString))
 	}
 
 	if dpa.Spec.Configuration.Velero.ResourceTimeout != "" {
 		resourceTimeoutString := dpa.Spec.Configuration.Velero.ResourceTimeout
-		if err != nil {
-			return err
-		}
 		veleroContainer.Args = append(veleroContainer.Args, fmt.Sprintf("--resource-timeout=%v", resourceTimeoutString))
 	}
 
