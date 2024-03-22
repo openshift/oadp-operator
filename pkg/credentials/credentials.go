@@ -9,7 +9,7 @@ import (
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
@@ -395,7 +395,7 @@ func GetSecretNameKeyConfigProviderForBackupLocation(blspec oadpv1alpha1.BackupL
 		if blspec.CloudStorage.Credential != nil {
 			// Get CloudStorageRef provider
 			cs := oadpv1alpha1.CloudStorage{
-				ObjectMeta: v1.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Name:      blspec.CloudStorage.CloudStorageRef.Name,
 					Namespace: namespace,
 				},
@@ -416,7 +416,7 @@ func BslUsesShortLivedCredential(bls []oadpv1alpha1.BackupLocation, namespace st
 		if blspec.CloudStorage != nil && blspec.CloudStorage.Credential != nil {
 			// Get CloudStorageRef provider
 			cs := oadpv1alpha1.CloudStorage{
-				ObjectMeta: v1.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Name:      blspec.CloudStorage.CloudStorageRef.Name,
 					Namespace: namespace,
 				},
@@ -460,26 +460,6 @@ func SecretContainsShortLivedCredential(secretName, secretKey, provider, namespa
 		return false, nil
 	}
 	return false, nil
-}
-
-const secretFilesDirRoot = "/tmp/oadp-operator/secret-files"
-
-func GetSecretAsFilePath(secretName, secretKey, namespace string) (string, error) {
-	decodedSecret, err := GetDecodedSecret(secretName, secretKey, namespace)
-	if err != nil {
-		return "", err
-	}
-	// write the decoded secret to a file
-	err = os.MkdirAll(secretFilesDirRoot, 0755)
-	if err != nil {
-		return "", errors.Join(errors.New("error creating secret files directory"), err)
-	}
-	secretFilePath := secretFilesDirRoot + "/" + secretName + "-" + secretKey
-	err = os.WriteFile(secretFilePath, []byte(decodedSecret), 0644)
-	if err != nil {
-		return "", errors.Join(errors.New("error writing secret file"), err)
-	}
-	return secretFilePath, nil
 }
 
 func GetDecodedSecret(secretName, secretKey, namespace string) (s string, err error) {
