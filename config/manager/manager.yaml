@@ -56,7 +56,7 @@ spec:
             value: registry.redhat.io/oadp/oadp-mustgather-rhel8:v1.2
           # TODO change
           - name: RELATED_IMAGE_NON_ADMIN_CONTROLLER
-            value: quay.io/msouzaol/non-admin-controller:latest
+            value: quay.io/konveyor/non-admin-controller:latest
         args:
         - --leader-elect
         image: controller:latest

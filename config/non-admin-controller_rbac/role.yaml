@@ -1,0 +1,43 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: non-admin-controller-role
+rules:
+- apiGroups:
+  - nac.oadp.openshift.io
+  resources:
+  - nonadminbackups
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - nac.oadp.openshift.io
+  resources:
+  - nonadminbackups/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - nac.oadp.openshift.io
+  resources:
+  - nonadminbackups/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - velero.io
+  resources:
+  - backups
+  verbs:
+  - create
+  - get
+  - list
+  - patch
+  - update
+  - watch

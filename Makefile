@@ -310,7 +310,7 @@ operator-sdk:
 bundle: manifests kustomize operator-sdk ## Generate bundle manifests and metadata, then validate generated files.
 	GOFLAGS="-mod=mod" $(OPERATOR_SDK) generate kustomize manifests -q
 	cd config/manager && GOFLAGS="-mod=mod" $(KUSTOMIZE) edit set image controller=$(IMG)
-	GOFLAGS="-mod=mod" $(KUSTOMIZE) build config/manifests | GOFLAGS="-mod=mod" $(OPERATOR_SDK) generate bundle -q --extra-service-accounts "velero" --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
+	GOFLAGS="-mod=mod" $(KUSTOMIZE) build config/manifests | GOFLAGS="-mod=mod" $(OPERATOR_SDK) generate bundle -q --extra-service-accounts "velero,openshift-adp-non-admin-controller" --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
 	@make nullables
 	# Copy updated bundle.Dockerfile to CI's Dockerfile.bundle
 	# TODO: update CI to use generated one
@@ -544,3 +544,34 @@ lint: golangci-lint ## Run Go linters checks against all project's Go files.
 .PHONY: lint-fix
 lint-fix: golangci-lint ## Fix Go linters issues.
 	$(GOLANGCI_LINT) run --fix
+
+.PHONY: update-non-admin-manifests
+update-non-admin-manifests: NON_ADMIN_CONTROLLER_IMG?=quay.io/konveyor/non-admin-controller:latest
+update-non-admin-manifests: ## Update Non Admin Controller (NAC) manifests shipped with OADP, from NON_ADMIN_CONTROLLER_PATH
+ifeq ($(NON_ADMIN_CONTROLLER_PATH),)
+	$(error You must set NON_ADMIN_CONTROLLER_PATH to run this command)
+endif
+	@for file_name in $(shell ls $(NON_ADMIN_CONTROLLER_PATH)/config/crd/bases);do \
+		cp $(NON_ADMIN_CONTROLLER_PATH)/config/crd/bases/$$file_name $(shell pwd)/config/crd/bases/$$file_name && \
+		grep -q "\- bases/$$file_name" $(shell pwd)/config/crd/kustomization.yaml || \
+		sed -i "s%resources:%resources:\n- bases/$$file_name%" $(shell pwd)/config/crd/kustomization.yaml;done
+	@sed -i "$(shell grep -Inr 'RELATED_IMAGE_NON_ADMIN_CONTROLLER' $(shell pwd)/config/manager/manager.yaml | awk -F':' '{print $$1+1}')s%.*%            value: $(NON_ADMIN_CONTROLLER_IMG)%" $(shell pwd)/config/manager/manager.yaml
+	@mkdir -p $(shell pwd)/config/non-admin-controller_rbac
+	@cp $(NON_ADMIN_CONTROLLER_PATH)/config/rbac/role.yaml $(shell pwd)/config/non-admin-controller_rbac/role.yaml && \
+		sed -i "s%manager-role%non-admin-controller-role%" $(shell pwd)/config/non-admin-controller_rbac/role.yaml
+	@cp $(NON_ADMIN_CONTROLLER_PATH)/config/rbac/role_binding.yaml $(shell pwd)/config/non-admin-controller_rbac/role_binding.yaml  && \
+		sed -i "s%oadp-nac%oadp-operator%" $(shell pwd)/config/non-admin-controller_rbac/role_binding.yaml && \
+		sed -i "s%manager-rolebinding%non-admin-controller-rolebinding%" $(shell pwd)/config/non-admin-controller_rbac/role_binding.yaml && \
+		sed -i "s%manager-role%non-admin-controller-role%" $(shell pwd)/config/non-admin-controller_rbac/role_binding.yaml && \
+		sed -i "s%controller-manager%non-admin-controller%" $(shell pwd)/config/non-admin-controller_rbac/role_binding.yaml
+	@cp $(NON_ADMIN_CONTROLLER_PATH)/config/rbac/service_account.yaml $(shell pwd)/config/non-admin-controller_rbac/service_account.yaml  && \
+		sed -i "s%oadp-nac%oadp-operator%" $(shell pwd)/config/non-admin-controller_rbac/service_account.yaml && \
+		sed -i "s%controller-manager%non-admin-controller%" $(shell pwd)/config/non-admin-controller_rbac/service_account.yaml
+	@echo -e "resources:\n- service_account.yaml\n- role.yaml\n- role_binding.yaml" > $(shell pwd)/config/non-admin-controller_rbac/kustomization.yaml
+	@for file_name in $(shell ls $(NON_ADMIN_CONTROLLER_PATH)/config/samples);do \
+		if [ "$$file_name" != "kustomization.yaml" ];then \
+			cp $(NON_ADMIN_CONTROLLER_PATH)/config/samples/$$file_name $(shell pwd)/config/samples/$$file_name && \
+			sed -i "s%oadp-nac%oadp-operator%" $(shell pwd)/config/samples/$$file_name && \
+			grep -q "\- $$file_name" $(shell pwd)/config/samples/kustomization.yaml || \
+			sed -i "s%resources:%resources:\n- $$file_name%" $(shell pwd)/config/samples/kustomization.yaml;fi;done
+	@make bundle

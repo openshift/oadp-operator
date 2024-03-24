@@ -415,7 +415,6 @@ spec:
     (PVs) by creating snapshots with the native cloud snapshot API or with
     the Container Storage Interface (CSI). For cloud providers that do not
     support snapshots, OADP backs up resources and PV data with Restic or Kopia.
-    TODO talk about NAC???
 
     * [Installing OADP for application backup and restore][install-doc]
 
