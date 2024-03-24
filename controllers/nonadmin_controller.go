@@ -16,13 +16,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
-	"github.com/openshift/oadp-operator/pkg/common"
 )
 
 const (
-	nonAdminController           = "non-admin-controller"
-	nonAdminControllerDeployment = nonAdminController + "-deployment"
-	nonAdminControllerContainer  = nonAdminController + "-container"
+	nonAdminController               = "non-admin-controller"
+	nonAdminControllerDeployment     = nonAdminController + "-deployment"
+	nonAdminControllerContainer      = nonAdminController + "-container"
+	nonAdminControllerServiceAccount = "openshift-adp-non-admin-controller"
 )
 
 var nonAdminControllerDeploymentLabel = map[string]string{
@@ -150,7 +150,7 @@ func (r *DPAReconciler) buildNonAdminDeployment(deploymentObject *appsv1.Deploym
 			Spec: corev1.PodSpec{
 				RestartPolicy:      corev1.RestartPolicyAlways,
 				Containers:         []corev1.Container{nonAdminContainer},
-				ServiceAccountName: common.OADPOperatorServiceAccount,
+				ServiceAccountName: nonAdminControllerServiceAccount,
 			},
 		},
 	}
@@ -167,6 +167,7 @@ func (r *DPAReconciler) checkNonAdminEnabled(dpa *oadpv1alpha1.DataProtectionApp
 }
 
 func (r *DPAReconciler) getNonAdminImage(dpa *oadpv1alpha1.DataProtectionApplication) string {
+	// TODO is this needed?
 	unsupportedOverride := dpa.Spec.UnsupportedOverrides[oadpv1alpha1.NonAdminControllerImageKey]
 	if unsupportedOverride != "" {
 		return unsupportedOverride
