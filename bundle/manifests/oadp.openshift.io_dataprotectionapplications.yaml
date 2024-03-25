@@ -832,7 +832,7 @@ spec:
                 features:
                   description: features defines the configuration for the DPA to enable the OADP tech preview features
                   properties:
-                    enableNonAdminMode:
+                    enableNonAdmin:
                       description: Enables non admin feature, by default false
                       type: boolean
                   type: object
