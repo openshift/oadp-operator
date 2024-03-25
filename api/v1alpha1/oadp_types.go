@@ -237,7 +237,7 @@ type SnapshotLocation struct {
 type Features struct {
 	// Enables non admin feature, by default false
 	// +optional
-	EnableNonAdminMode *bool `json:"enableNonAdminMode,omitempty"`
+	EnableNonAdmin *bool `json:"enableNonAdmin,omitempty"`
 }
 
 // DataProtectionApplicationSpec defines the desired state of Velero

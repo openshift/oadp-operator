@@ -159,8 +159,8 @@ func (r *DPAReconciler) buildNonAdminDeployment(deploymentObject *appsv1.Deploym
 }
 
 func (r *DPAReconciler) checkNonAdminEnabled(dpa *oadpv1alpha1.DataProtectionApplication) bool {
-	if dpa.Spec.Features != nil && dpa.Spec.Features.EnableNonAdminMode != nil {
-		return *dpa.Spec.Features.EnableNonAdminMode
+	if dpa.Spec.Features != nil && dpa.Spec.Features.EnableNonAdmin != nil {
+		return *dpa.Spec.Features.EnableNonAdmin
 	}
 
 	return false
