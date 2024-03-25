@@ -1,0 +1,126 @@
+﻿apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  annotations:
+    vm.kubevirt.io/validations: |
+      [
+        {
+          "name": "minimal-required-memory",
+          "path": "jsonpath::.spec.domain.memory.guest",
+          "rule": "integer",
+          "message": "This VM requires more memory.",
+          "min": 1073741824
+        }
+      ]
+  labels:
+    app: fedora-close-carp
+    vm.kubevirt.io/template: fedora-server-small
+    vm.kubevirt.io/template.namespace: openshift
+    vm.kubevirt.io/template.revision: '1'
+    vm.kubevirt.io/template.version: v0.26.0
+  name: fedora-close-carp
+  namespace: virttodo
+spec:
+  dataVolumeTemplates:
+    - apiVersion: cdi.kubevirt.io/v1beta1
+      kind: DataVolume
+      metadata:
+        creationTimestamp: null
+        name: fedora-close-carp
+      spec:
+        sourceRef:
+          kind: DataSource
+          name: fedora
+          namespace: openshift-virtualization-os-images
+        storage:
+          resources:
+            requests:
+              storage: 30Gi
+  running: true
+  template:
+    metadata:
+      annotations:
+        vm.kubevirt.io/flavor: small
+        vm.kubevirt.io/os: fedora
+        vm.kubevirt.io/workload: server
+      creationTimestamp: null
+      labels:
+        kubevirt.io/domain: fedora-close-carp
+        kubevirt.io/size: small
+        special: key
+    spec:
+      architecture: amd64
+      domain:
+        cpu:
+          cores: 1
+          sockets: 1
+          threads: 1
+        devices:
+          disks:
+            - disk:
+                bus: virtio
+              name: rootdisk
+            - disk:
+                bus: virtio
+              name: cloudinitdisk
+          interfaces:
+            - macAddress: '02:73:43:00:00:07'
+              masquerade: {}
+              model: virtio
+              name: default
+          networkInterfaceMultiqueue: true
+          rng: {}
+        features:
+          acpi: {}
+          smm:
+            enabled: true
+        firmware:
+          bootloader:
+            efi: {}
+        machine:
+          type: pc-q35-rhel9.2.0
+        memory:
+          guest: 2Gi
+        resources: {}
+      networks:
+        - name: default
+          pod: {}
+      terminationGracePeriodSeconds: 180
+      volumes:
+        - dataVolume:
+            name: fedora-close-carp
+          name: rootdisk
+        - cloudInitConfigDrive:
+            userData: |-
+              #cloud-config
+              user: fedora
+              password: dog8code
+              chpasswd: { expire: False }
+              user: test
+              password: dog8code
+              chpasswd: { expire: False }
+              packages:
+                - mariadb-server
+                - unzip
+                - wget
+              runcmd:
+                - systemctl stop firewalld
+                - systemctl disable firewalld
+                - systemctl start mariadb
+                - systemctl enable mariadb
+                - mysql -uroot -e "CREATE DATABASE todolist; USE todolist; CREATE USER 'test'@'localhost' IDENTIFIED BY 'test';"
+                - mysql -uroot -e "grant all privileges on todolist.* to test@'localhost' identified by 'test'; FLUSH PRIVILEGES;"
+                - pushd /home/test/
+                - wget https://github.com/weshayutin/todolist-mariadb-go/releases/download/testing3/todolist-linux-amd64.zip
+                - unzip todolist-linux-amd64.zip
+                - chown -R test:test /home/test
+                - semanage fcontext --add --type bin_t '/home/test/todolist-linux-amd64'
+                - restorecon -Fv /home/test/todolist-linux-amd64
+                - cp systemd/todolist-mariadb.service /etc/systemd/system/
+                - popd
+                - systemctl daemon-reload
+                - systemctl start todolist-mariadb.service
+                - systemctl enable todolist-mariadb.service
+                - systemctl status todolist-mariadb.service
+                - systemctl  disable  cloud-init
+          name: cloudinitdisk

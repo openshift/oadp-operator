@@ -1,0 +1,12 @@
+apiVersion: velero.io/v1
+kind: Backup
+metadata:
+  name: virttodo-backup-dm-1
+  namespace: openshift-adp
+spec:
+  includedNamespaces:
+  - virttodo
+  storageLocation: default
+  ttl: 720h0m0s
+  snapshotMoveData: True
+  defaultVolumesToFsBackup: False
