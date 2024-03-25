@@ -2,10 +2,10 @@ package lib
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"path/filepath"
-	"strings"
 	"time"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -114,113 +114,43 @@ func (v *VirtOperator) checkDataVolumeReady(namespace, name string) bool {
 	return phase == "Succeeded"
 }
 
-func (v *VirtOperator) getDataVolumeSize(namespace, name string) (string, error) {
-	unstructuredDataVolume, err := v.getDataVolume(namespace, name)
-	if err != nil {
-		log.Printf("Error getting DataVolume %s/%s: %v", namespace, name, err)
-		return "", err
-	}
-	if unstructuredDataVolume == nil {
-		return "", err
-	}
-	size, ok, err := unstructured.NestedString(unstructuredDataVolume.UnstructuredContent(), "spec", "pvc", "resources", "requests", "storage")
-	if err != nil {
-		log.Printf("Error getting size from DataVolume: %v", err)
-		return "", err
-	}
-	if !ok {
-		return "", err
-	}
-	return size, nil
-}
-
-// Create a DataVolume, accepting an unstructured source specification.
-// Also add annotations to immediately create and bind to a PersistentVolume,
-// and to avoid deleting the DataVolume after the PVC is all ready.
-func (v *VirtOperator) createDataVolumeFromSource(namespace, name, size string, source map[string]interface{}) error {
-	unstructuredDataVolume := unstructured.Unstructured{
-		Object: map[string]interface{}{
-			"apiVersion": "cdi.kubevirt.io/v1beta1",
-			"kind":       "DataVolume",
-			"metadata": map[string]interface{}{
-				"name":      name,
-				"namespace": namespace,
-				"annotations": map[string]interface{}{
-					"cdi.kubevirt.io/storage.bind.immediate.requested": "",
-					"cdi.kubevirt.io/storage.deleteAfterCompletion":    "false",
-				},
-			},
-			"spec": map[string]interface{}{
-				"source": source,
-				"pvc": map[string]interface{}{
-					"accessModes": []string{
-						"ReadWriteOnce",
-					},
-					"resources": map[string]interface{}{
-						"requests": map[string]interface{}{
-							"storage": size,
-						},
-					},
-				},
-			},
-		},
-	}
-
-	_, err := v.Dynamic.Resource(dataVolumeGVK).Namespace(namespace).Create(context.Background(), &unstructuredDataVolume, metav1.CreateOptions{})
-	if err != nil {
-		if apierrors.IsAlreadyExists(err) {
-			return nil
-		}
-		if strings.Contains(err.Error(), "already exists") {
-			return nil
-		}
-		log.Printf("Error creating DataVolume: %v", err)
-		return err
-	}
-
-	return nil
-}
-
 // Create a DataVolume and ask it to fill itself with the contents of the given URL.
-func (v *VirtOperator) createDataVolumeFromUrl(namespace, name, url, size string) error {
+func (v *VirtOperator) createDataVolumeFromUrl(name, url string, timeout time.Duration) error {
 	urlSource := map[string]interface{}{
 		"http": map[string]interface{}{
 			"url": url,
 		},
 	}
-	return v.createDataVolumeFromSource(namespace, name, size, urlSource)
+	urlSourceJson, err := json.Marshal(urlSource)
+	if err != nil {
+		return err
+	}
+	return v.CreateDataVolume(v.Namespace, name, string(urlSourceJson), timeout)
 }
 
 // Create a DataVolume as a clone of an existing PVC.
-func (v *VirtOperator) createDataVolumeFromPvc(sourceNamespace, sourceName, cloneNamespace, cloneName, size string) error {
+func (v *VirtOperator) createDataVolumeFromPvc(sourceName, cloneNamespace, cloneName string, timeout time.Duration) error {
 	pvcSource := map[string]interface{}{
 		"pvc": map[string]interface{}{
 			"name":      sourceName,
-			"namespace": sourceNamespace,
+			"namespace": v.Namespace,
 		},
 	}
-	return v.createDataVolumeFromSource(cloneNamespace, cloneName, size, pvcSource)
+	pvcSourceJson, err := json.Marshal(pvcSource)
+	if err != nil {
+		return err
+	}
+	return v.CreateDataVolume(cloneNamespace, cloneName, string(pvcSourceJson), timeout)
 }
 
 // Create a DataVolume and wait for it to be ready.
-func (v *VirtOperator) EnsureDataVolumeFromUrl(namespace, name, url, size string, timeout time.Duration) error {
-	if !v.checkDataVolumeExists(namespace, name) {
-		if err := v.createDataVolumeFromUrl(namespace, name, url, size); err != nil {
+func (v *VirtOperator) EnsureDataVolumeFromUrl(name, url string, timeout time.Duration) error {
+	if !v.checkDataVolumeExists(v.Namespace, name) {
+		if err := v.createDataVolumeFromUrl(name, url, timeout); err != nil {
 			return err
 		}
-		log.Printf("Created DataVolume %s/%s from %s", namespace, name, url)
-	} else {
-		log.Printf("DataVolume %s/%s already created, checking for readiness", namespace, name)
+		log.Printf("Created DataVolume %s/%s from %s", v.Namespace, name, url)
 	}
-
-	err := wait.PollImmediate(5*time.Second, timeout, func() (bool, error) {
-		return v.checkDataVolumeReady(namespace, name), nil
-	})
-	if err != nil {
-		return fmt.Errorf("timed out waiting for DataVolume %s/%s to go ready: %w", namespace, name, err)
-	}
-
-	log.Printf("DataVolume %s/%s ready", namespace, name)
 
 	return nil
 }
@@ -300,45 +230,31 @@ func (v *VirtOperator) RemovePvc(namespace, name string, timeout time.Duration) 
 }
 
 // Clone a DataVolume and wait for the copy to be ready.
-func (v *VirtOperator) CloneDisk(sourceNamespace, sourceName, cloneNamespace, cloneName string, timeout time.Duration) error {
-	log.Printf("Cloning %s/%s to %s/%s...", sourceNamespace, sourceName, cloneNamespace, cloneName)
-	if !v.checkDataVolumeExists(sourceNamespace, sourceName) {
+func (v *VirtOperator) CloneDisk(sourceName, cloneNamespace, cloneName string, timeout time.Duration) error {
+	log.Printf("Cloning %s/%s to %s/%s...", v.Namespace, sourceName, cloneNamespace, cloneName)
+	if !v.checkDataVolumeExists(v.Namespace, sourceName) {
 		return fmt.Errorf("source disk does not exist")
 	}
 
-	size, err := v.getDataVolumeSize(sourceNamespace, sourceName)
-	if err != nil {
-		return fmt.Errorf("failed to get disk size for clone: %w", err)
-	}
-
-	if err := v.createDataVolumeFromPvc(sourceNamespace, sourceName, cloneNamespace, cloneName, size); err != nil {
+	if err := v.createDataVolumeFromPvc(sourceName, cloneNamespace, cloneName, timeout); err != nil {
 		return fmt.Errorf("failed to clone disk: %w", err)
-	}
-
-	err = wait.PollImmediate(5*time.Second, timeout, func() (bool, error) {
-		return v.checkDataVolumeReady(cloneNamespace, cloneName), nil
-	})
-	if err != nil {
-		return fmt.Errorf("timed out waiting to clone DataVolume %s/%s to %s/%s: %w", sourceNamespace, sourceName, cloneNamespace, cloneName, err)
 	}
 
 	return nil
 }
 
-// Create a DataVolume from a sample YAML template. The namespace argument
-// should match a subdirectory under sample-applications/virtual-machines, and
-// the name argument should match a .yaml file in that directory, for example:
+// Create a DataVolume from sample-applications/virtual-machines/data-volume.yaml
+// template, with specified name, namespace and source.
 //
-//	sample-applications/virtual-machines/example-vm-test/example-vm-test-disk.yaml
-//
-// This file must specify a DataVolume with the following annotations set:
+// The template must specify a DataVolume with the following annotations set:
 //
 //	cdi.kubevirt.io/storage.bind.immediate.requested: ""
 //	cdi.kubevirt.io/storage.deleteAfterCompletion: "false"
 //
 // This function will then wait for that DataVolume to be marked "Succeeded".
-func (v *VirtOperator) CreateDiskFromYaml(namespace, name string, timeout time.Duration) error {
-	if err := InstallApplication(v.Client, filepath.Join("sample-applications", "virtual-machines", namespace, name+".yaml")); err != nil {
+func (v *VirtOperator) CreateDataVolume(namespace, name, source string, timeout time.Duration) error {
+	dataVolumeTemplate := filepath.Join("sample-applications", "virtual-machines", "data-volume.yaml")
+	if err := InstallApplication(v.Client, dataVolumeTemplate, name, namespace, source); err != nil {
 		return fmt.Errorf("failed to create DataVolume %s/%s: %w", namespace, name, err)
 	}
 
@@ -346,5 +262,10 @@ func (v *VirtOperator) CreateDiskFromYaml(namespace, name string, timeout time.D
 		return v.checkDataVolumeReady(namespace, name), nil
 	})
 
-	return err
+	if err != nil {
+		return fmt.Errorf("timed out waiting for DataVolume %s/%s to go ready: %w", namespace, name, err)
+	}
+
+	log.Printf("DataVolume %s/%s ready", namespace, name)
+	return nil
 }
