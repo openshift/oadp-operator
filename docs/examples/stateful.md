@@ -103,7 +103,7 @@ Visit the route location provided in the `HOST/PORT` section following this comm
 Here you will see a table of data. Enter additional data and save.
 Once completed, it's time to begin a backup.
 
-### Check the data 
+### Check the data
 It is good practice to check the data in the database prior to taking the backup.
 ```
 export TODOHOST=`oc get route -n mysql-persistent  -o jsonpath='{range .items[*]}{.spec.host}'`

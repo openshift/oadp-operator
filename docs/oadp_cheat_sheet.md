@@ -86,7 +86,7 @@ velero completion bash > /usr/local/etc/bash_completion.d/velero
 velero backup get
 ```
 
-## Create a Backup 
+## Create a Backup
 
 #### Backup with Defaults
 ```
@@ -99,7 +99,7 @@ velero backup create backup $backup_name --include-namespaces $namespace --defau
 ```
 
 #### Create a backup excluding the velero and default namespaces.
-```  
+```
 velero backup create $backup_name --exclude-namespaces velero,default
 ```
 

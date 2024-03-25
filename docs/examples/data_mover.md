@@ -17,9 +17,9 @@ OADP Data Mover enables customers to back up container storage interface (CSI) v
 
 <hr style="height:1px;border:none;color:#333;">
 
-- Have a stateful application running in a separate namespace. 
+- Have a stateful application running in a separate namespace.
 
-- Follow instructions for installing the OADP operator and creating an 
+- Follow instructions for installing the OADP operator and creating an
 appropriate `volumeSnapshotClass` and `storageClass`found [here](/docs/examples/CSI/csi_example.md).
 
 - Install the VolSync operator using OLM.
@@ -43,7 +43,7 @@ stringData:
 ```
 
 - Create a DPA similar to below:
-  - Add the restic secret name from the previous step to your DPA CR in `spec.features.dataMover.credentialName`.  
+  - Add the restic secret name from the previous step to your DPA CR in `spec.features.dataMover.credentialName`.
     If this step is not completed then it will default to the secret name `dm-credential`.
 
   - Note the CSI and VSM as `defaultPlugins` and `dataMover.enable` flag.
@@ -57,7 +57,7 @@ metadata:
   namespace: openshift-adp
 spec:
   features:
-    dataMover: 
+    dataMover:
       enable: true
       credentialName: <secret-name>
   backupLocations:
@@ -103,11 +103,11 @@ spec:
   storageLocation: velero-sample-1
 ```
 
-- Wait several minutes and check the VolumeSnapshotBackup CR status for `completed`: 
+- Wait several minutes and check the VolumeSnapshotBackup CR status for `completed`:
 
 `oc get vsb -n <app-ns>`
 
-`oc get vsb <vsb-name> -n <app-ns> -ojsonpath="{.status.phase}` 
+`oc get vsb <vsb-name> -n <app-ns> -ojsonpath="{.status.phase}`
 
 - There should now be a snapshot in the object store that was given in the restic secret.
 - You can check for this snapshot in your targeted `backupStorageLocation` with a
@@ -130,11 +130,11 @@ spec:
   backupName: <previous-backup-name>
 ```
 
-- Wait several minutes and check the VolumeSnapshotRestore CR status for `completed`: 
+- Wait several minutes and check the VolumeSnapshotRestore CR status for `completed`:
 
 `oc get vsr -n <app-ns>`
 
-`oc get vsr <vsr-name> -n <app-ns> -ojsonpath="{.status.phase}` 
+`oc get vsr <vsr-name> -n <app-ns> -ojsonpath="{.status.phase}`
 
 - Check that your application data has been restored:
 

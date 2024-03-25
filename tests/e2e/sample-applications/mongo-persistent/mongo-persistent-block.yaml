@@ -67,7 +67,7 @@ items:
         spec:
           serviceAccountName: mongo-persistent-sa
           securityContext:
-            runAsUser: 0  
+            runAsUser: 0
           # Used to format the block device (put filesystem on it).
           # This allows Mongo to use the filesystem which lives on block device.
           initContainers:

@@ -3,6 +3,6 @@ spec:
   - htpasswd:
       fileData:
         name: oadp-nonadmin-REPLACEME
-    name: REPLACEME 
-    mappingMethod: claim 
+    name: REPLACEME
+    mappingMethod: claim
     type: HTPasswd

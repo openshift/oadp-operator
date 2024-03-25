@@ -23,7 +23,7 @@ for ns in ${namespaces[@]}; do
   for dpa in $(oc get dpa --namespace ${ns} --no-headers | awk '{print $1}'); do
     plan_path="/must-gather/clusters/${cluster}/namespaces/${ns}/oadp.openshift.io/dpa-${dpa}"
     mkdir -p ${plan_path}
-    
+
       for backup in $(oc get backup --namespace ${ns} --no-headers | awk '{print $1}'); do
         # Gather backup
         backup_path="${plan_path}/backup-${backup}"
@@ -38,7 +38,7 @@ for ns in ${namespaces[@]}; do
           pwait $max_parallelism
         done
       done
-      
+
       for restore in $(oc get restore --namespace ${ns} --no-headers | awk '{print $1}'); do
         # Gather restore
         restore_path="${plan_path}/restore-${restore}"
@@ -53,7 +53,7 @@ for ns in ${namespaces[@]}; do
           pwait $max_parallelism
         done
       done
-    
+
   done
 done
 

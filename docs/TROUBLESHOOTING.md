@@ -1,6 +1,6 @@
 <h1 align="center">Troubleshooting<a id="troubleshooting"></a></h1>
 
-If you need help, first search if there is [already an issue filed](https://issues.redhat.com/issues/?jql=project%20%3D%20OADP) 
+If you need help, first search if there is [already an issue filed](https://issues.redhat.com/issues/?jql=project%20%3D%20OADP)
   or please log into jira and create a new issue in the `OADP` project.
 
 1. [OADP Cheat Sheet](oadp_cheat_sheet.md)
@@ -38,17 +38,17 @@ This section includes steps to debug a failed backup. For more specific issues r
     ```
     oc logs -f deployment.apps/volume-snapshot-mover -n openshift-adp
     ```
-    
+
 2. Velero commands
-    1. Alias the velero command: 
+    1. Alias the velero command:
     ```
     alias velero='oc -n openshift-adp exec deployment/velero -c velero -it -- ./velero'
     ```
-    2. Get the backup details: 
+    2. Get the backup details:
     ```
     velero backup describe <backupName> --details
     ```
-    3. Get the backup logs: 
+    3. Get the backup logs:
     ```
     velero backup logs <backupName>
     ```
@@ -60,8 +60,8 @@ This section includes steps to debug a failed backup. For more specific issues r
 
 5. CSI Snapshots debug
     1. This guide has not yet been published
-    
-    
+
+
 
 <hr style="height:1px;border:none;color:#333;">
 
@@ -82,21 +82,21 @@ This section includes how to debug a failed restore. For more specific issues re
     ```
     oc logs -f deployment.apps/volume-snapshot-mover -n openshift-adp
     ```
-    
+
 2. Velero commands
-    1. Alias the velero command: 
+    1. Alias the velero command:
     ```
     alias velero='oc -n openshift-adp exec deployment/velero -c velero -it -- ./velero'
     ```
-    2. Get the restore details: 
+    2. Get the restore details:
     ```
     velero restore describe <restoreName> --details
     ```
-    3. Get the backup logs: 
+    3. Get the backup logs:
     ```
     velero backup logs <restoreName>
     ```
- 
+
 <hr style="height:1px;border:none;color:#333;">
 
 <h1 align="center">Common Issues and Misconfigurations<a id="misconfig"></a></h1>
@@ -115,13 +115,13 @@ This section includes how to debug a failed restore. For more specific issues re
     *Note:* Do not use quotes while putting values in place of INSERT_VALUE Placeholders
 
 
-<hr style="height:1px;border:none;color:#333;"> 
+<hr style="height:1px;border:none;color:#333;">
 
 <h3 align="center">Errors in the Velero Pod<a id="velpod"></a></h3>
 
 -  **Error:** `Backup storage contains invalid top-level directories: [someDirName]`
 
-    **Problem:** your object storage root/prefix directory contains directories not 
+    **Problem:** your object storage root/prefix directory contains directories not
     from velero's [approved list](https://github.com/vmware-tanzu/velero/blob/6f64052e94ef71c9d360863f341fe3c11e319f08/pkg/persistence/object_store_layout.go#L37-L43)
 
     **Solutions:**
@@ -139,28 +139,28 @@ This section includes how to debug a failed restore. For more specific issues re
 
     2. Delete the offending directories from your object storage location.
 
-  
-<hr style="height:1px;border:none;color:#333;"> 
+
+<hr style="height:1px;border:none;color:#333;">
 
 <h3 align="center">Errors in Backup Logs<a id="backuplogs"></a></h3>
 
--   **Error:** 
+-   **Error:**
     `error getting volume info: rpc error: code = Unknown desc = InvalidVolume.NotFound: The volume ‘vol-xxxx’ does not exist.\n\tstatus code: 400`
 
-    **Problem** 
+    **Problem**
     AWS PV and Volume snaphot location are in different regions.
 
     **Solution**
-    Edit Velero `volume_snapshot_location` to the region specified in PV, and 
+    Edit Velero `volume_snapshot_location` to the region specified in PV, and
     change region in VolumeSnapshotLocation resource to the region mentioned in the PV, and then create a new backup.
 
 
-<hr style="height:1px;border:none;color:#333;"> 
+<hr style="height:1px;border:none;color:#333;">
 
 <h3 align="center">Backup/Restore is Stuck In Progress<a id="stuck"></a></h3>
 
-  - If a backup or restore is stuck as "In Progress," then it is likely that the backup 
-  or restore was interrupted. If this is the case, it cannot resume. 
+  - If a backup or restore is stuck as "In Progress," then it is likely that the backup
+  or restore was interrupted. If this is the case, it cannot resume.
 
   - For further details on your backup, run the command:
   ```
@@ -171,13 +171,13 @@ This section includes how to debug a failed restore. For more specific issues re
   velero restore describe <backup-name> --details  # --details is optional
   ```
 
-  - You can delete the backup with the command: 
+  - You can delete the backup with the command:
   ```
   velero backup delete <backupName>
   ```
-  - You can delete the restore with the command: 
+  - You can delete the restore with the command:
   ```
-  velero delete restore <restoreName> 
+  velero delete restore <restoreName>
   ```
 
 
@@ -185,8 +185,8 @@ This section includes how to debug a failed restore. For more specific issues re
 
 <h3 align="center">Restic - NFS Volumes and rootSquash<a id="rootsquash"></a></h3>
 
-- If using NFS volumes while `rootSquash` is enabled, Restic will be mapped to 
-`nfsnobody` and not have the proper permissions to perform a backup/restore. 
+- If using NFS volumes while `rootSquash` is enabled, Restic will be mapped to
+`nfsnobody` and not have the proper permissions to perform a backup/restore.
 
 #### To solve this issue:
   - Use supplemental groups, and apply this same supplemental group to the Restic
@@ -212,7 +212,7 @@ This section includes how to debug a failed restore. For more specific issues re
 ```
 
 
-<hr style="height:1px;border:none;color:#333;"> 
+<hr style="height:1px;border:none;color:#333;">
 
 <h3 align="center">Issue with Backup/Restore of DeploymentConfig with volumes or restore hooks<a id="deployconfig"></a></h3>
 
@@ -225,7 +225,7 @@ This section includes how to debug a failed restore. For more specific issues re
 -  (OADP 1.1+) **Error:** `DeploymentConfigs restore with spec.Replicas==0 or DC pods fail to restart if they crash if using Restic/Kopia restores or restore hooks`
 
     **Solution:**
-    
+
     This is expected behavior on restore if you are restoring DeploymentConfigs and are either using Restic or Kopia for volume restore or you have post-restore hooks. The pod and DC plugins make these modifications to ensure that Restic or Kopia and hooks work properly, and [dc-post-restore.sh](../docs/scripts/dc-post-restore.sh) should have been run immediately after a successful restore. Usage for this script is `dc-post-restore.sh <restore-name>`
 
 -  (OADP 1.0.z) **Error:** `Using Restic as backup method causes PartiallyFailed/Failed errors in the Restore or post-restore hooks fail to execute`
@@ -256,11 +256,11 @@ This section includes how to debug a failed restore. For more specific issues re
 
 <h3 align="center">New Restic Backup Partially Failing After Clearing Bucket<a id="resbackup"></a></h3>
 
-  After creating a backup for a stateful app using Restic on a given namespace, 
-  clearing the bucket, and then creating a new backup again using Restic, the 
-  backup will partially fail. 
-  
-  - Velero pod logs after attempting to backup the Mssql app using the steps 
+  After creating a backup for a stateful app using Restic on a given namespace,
+  clearing the bucket, and then creating a new backup again using Restic, the
+  backup will partially fail.
+
+  - Velero pod logs after attempting to backup the Mssql app using the steps
   defined above:
 
   ```
@@ -269,7 +269,7 @@ This section includes how to debug a failed restore. For more specific issues re
 
   - Running the command:
   ```
-  velero backup describe <backup-name> --details 
+  velero backup describe <backup-name> --details
   ```
   results in:
   ```
@@ -278,19 +278,19 @@ This section includes how to debug a failed restore. For more specific issues re
     mssql-persistent/mssql-deployment-1-l7482: mssql-vol
   ```
 
-  This is a known Velero [issue](https://github.com/vmware-tanzu/velero/issues/4421) 
-  which appears to be in the process of deciding expected behavior. 
+  This is a known Velero [issue](https://github.com/vmware-tanzu/velero/issues/4421)
+  which appears to be in the process of deciding expected behavior.
 
 
 <hr style="height:1px;border:none;color:#333;">
 
 <h3 align="center">Restic Restore Partially Failing on OCP 4.14 Due to Changed PSA Policy<a id="psapolicy"></a></h3>
 
- **Issue:** 
- OCP 4.14 enforces a Pod Security Admission (PSA) policy that can hinder the readiness of pods during a Restic restore process. If a Security Context Constraints (SCC) resource is not found during the creation of a pod, and the PSA policy on the pod is not aligned with the required standards, pod admission is denied. This issue arises due to the resource restore order of Velero.  
-  - Sample error: 
+ **Issue:**
+ OCP 4.14 enforces a Pod Security Admission (PSA) policy that can hinder the readiness of pods during a Restic restore process. If a Security Context Constraints (SCC) resource is not found during the creation of a pod, and the PSA policy on the pod is not aligned with the required standards, pod admission is denied. This issue arises due to the resource restore order of Velero.
+  - Sample error:
   ```
-  \"level=error\" in line#2273: time=\"2023-06-12T06:50:04Z\" level=error msg=\"error restoring mysql-869f9f44f6-tp5lv: pods \\\"mysql-869f9f44f6-tp5lv\\\" is forbidden: violates PodSecurity \\\"restricted:v1.24\\\": privileged (container \\\"mysql\\\" must not set securityContext.privileged=true), allowPrivilegeEscalation != false (containers \\\"restic-wait\\\", \\\"mysql\\\" must set securityContext.allowPrivilegeEscalation=false), unrestricted capabilities (containers \\\"restic-wait\\\", \\\"mysql\\\" must set securityContext.capabilities.drop=[\\\"ALL\\\"]), seccompProfile (pod or containers \\\"restic-wait\\\", \\\"mysql\\\" must set securityContext.seccompProfile.type to \\\"RuntimeDefault\\\" or \\\"Localhost\\\")\" logSource=\"/remote-source/velero/app/pkg/restore/restore.go:1388\" restore=openshift-adp/todolist-backup-0780518c-08ed-11ee-805c-0a580a80e92c\n velero container contains \"level=error\" in line#2447: time=\"2023-06-12T06:50:05Z\" level=error msg=\"Namespace todolist-mariadb, resource restore error: error restoring pods/todolist-mariadb/mysql-869f9f44f6-tp5lv: pods \\\"mysql-869f9f44f6-tp5lv\\\" is forbidden: violates PodSecurity \\\"restricted:v1.24\\\": privileged (container \\\"mysql\\\" must not set securityContext.privileged=true), allowPrivilegeEscalation != false (containers \\\"restic-wait\\\", \\\"mysql\\\" must set securityContext.allowPrivilegeEscalation=false), unrestricted capabilities (containers \\\"restic-wait\\\", \\\"mysql\\\" must set securityContext.capabilities.drop=[\\\"ALL\\\"]), seccompProfile (pod or containers \\\"restic-wait\\\", \\\"mysql\\\" must set securityContext.seccompProfile.type to \\\"RuntimeDefault\\\" or \\\"Localhost\\\")\" logSource=\"/remote-source/velero/app/pkg/controller/restore_controller.go:510\" restore=openshift-adp/todolist-backup-0780518c-08ed-11ee-805c-0a580a80e92c\n]", 
+  \"level=error\" in line#2273: time=\"2023-06-12T06:50:04Z\" level=error msg=\"error restoring mysql-869f9f44f6-tp5lv: pods \\\"mysql-869f9f44f6-tp5lv\\\" is forbidden: violates PodSecurity \\\"restricted:v1.24\\\": privileged (container \\\"mysql\\\" must not set securityContext.privileged=true), allowPrivilegeEscalation != false (containers \\\"restic-wait\\\", \\\"mysql\\\" must set securityContext.allowPrivilegeEscalation=false), unrestricted capabilities (containers \\\"restic-wait\\\", \\\"mysql\\\" must set securityContext.capabilities.drop=[\\\"ALL\\\"]), seccompProfile (pod or containers \\\"restic-wait\\\", \\\"mysql\\\" must set securityContext.seccompProfile.type to \\\"RuntimeDefault\\\" or \\\"Localhost\\\")\" logSource=\"/remote-source/velero/app/pkg/restore/restore.go:1388\" restore=openshift-adp/todolist-backup-0780518c-08ed-11ee-805c-0a580a80e92c\n velero container contains \"level=error\" in line#2447: time=\"2023-06-12T06:50:05Z\" level=error msg=\"Namespace todolist-mariadb, resource restore error: error restoring pods/todolist-mariadb/mysql-869f9f44f6-tp5lv: pods \\\"mysql-869f9f44f6-tp5lv\\\" is forbidden: violates PodSecurity \\\"restricted:v1.24\\\": privileged (container \\\"mysql\\\" must not set securityContext.privileged=true), allowPrivilegeEscalation != false (containers \\\"restic-wait\\\", \\\"mysql\\\" must set securityContext.allowPrivilegeEscalation=false), unrestricted capabilities (containers \\\"restic-wait\\\", \\\"mysql\\\" must set securityContext.capabilities.drop=[\\\"ALL\\\"]), seccompProfile (pod or containers \\\"restic-wait\\\", \\\"mysql\\\" must set securityContext.seccompProfile.type to \\\"RuntimeDefault\\\" or \\\"Localhost\\\")\" logSource=\"/remote-source/velero/app/pkg/controller/restore_controller.go:510\" restore=openshift-adp/todolist-backup-0780518c-08ed-11ee-805c-0a580a80e92c\n]",
   ```
 
  **Solution:**
@@ -310,11 +310,11 @@ This section includes how to debug a failed restore. For more specific issues re
         - openshift
   ```
   Please note that this is a temporary fix for this issue, and ongoing discussions are in progress to address it. Also, note that if have an existing restore resource priority list, make sure you combine that existing list with the complete list presented in the example above.
-  
-  - This error can occur regardless of the SCC if the application is not aligned with the security standards. Please ensure that the security standards for the application pods are aligned, as provided in the link below, to prevent deployment warnings.  
+
+  - This error can occur regardless of the SCC if the application is not aligned with the security standards. Please ensure that the security standards for the application pods are aligned, as provided in the link below, to prevent deployment warnings.
   https://access.redhat.com/solutions/7002730
 
-<hr style="height:1px;border:none;color:#333;"> 
+<hr style="height:1px;border:none;color:#333;">
 <h1 align="center">OADP FAQ<a id="faq"></a></h1>
 
 The OADP team maintains a [FAQ page](https://access.redhat.com/articles/5456281)
