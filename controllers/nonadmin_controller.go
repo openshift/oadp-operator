@@ -16,18 +16,30 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
+	"github.com/openshift/oadp-operator/pkg/common"
 )
 
 const (
-	nonAdminController               = "non-admin-controller"
-	nonAdminControllerDeployment     = nonAdminController + "-deployment"
-	nonAdminControllerContainer      = nonAdminController + "-container"
-	nonAdminControllerServiceAccount = "openshift-adp-non-admin-controller"
+	nonAdminPrefix                      = "non-admin-"
+	controllerManager                   = "controller-manager"
+	nonAdminControllerContainer         = nonAdminPrefix + "manager"
+	nonAdminControllerControllerManager = common.OADPOperatorPrefix + nonAdminPrefix + controllerManager
 )
 
-var nonAdminControllerDeploymentLabel = map[string]string{
-	"component": nonAdminController,
-}
+var (
+	nonAdminControlPlaneLabel = map[string]string{
+		"control-plane": nonAdminPrefix + controllerManager,
+	}
+	nonAdminDeploymentLabels = map[string]string{
+		"app.kubernetes.io/component":  "manager",
+		"app.kubernetes.io/created-by": common.OADPOperator,
+		"app.kubernetes.io/instance":   nonAdminPrefix + controllerManager,
+		"app.kubernetes.io/managed-by": "kustomize",
+		"app.kubernetes.io/name":       "deployment",
+		"app.kubernetes.io/part-of":    common.OADPOperator,
+		"control-plane":                nonAdminPrefix + controllerManager,
+	}
+)
 
 func (r *DPAReconciler) ReconcileNonAdminController(log logr.Logger) (bool, error) {
 	// TODO https://github.com/openshift/oadp-operator/pull/1316
@@ -38,7 +50,7 @@ func (r *DPAReconciler) ReconcileNonAdminController(log logr.Logger) (bool, erro
 
 	nonAdminDeployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      nonAdminControllerDeployment,
+			Name:      nonAdminControllerControllerManager,
 			Namespace: r.NamespacedName.Namespace,
 		},
 	}
@@ -90,15 +102,14 @@ func (r *DPAReconciler) ReconcileNonAdminController(log logr.Logger) (bool, erro
 			// Setting Deployment selector if a new object is created, as it is immutable
 			if nonAdminDeployment.ObjectMeta.CreationTimestamp.IsZero() {
 				nonAdminDeployment.Spec.Selector = &metav1.LabelSelector{
-					MatchLabels: nonAdminControllerDeploymentLabel,
+					MatchLabels: nonAdminControlPlaneLabel,
 				}
 			}
 
 			nonAdminImage := r.getNonAdminImage(&dpa)
-			err := r.buildNonAdminDeployment(nonAdminDeployment, nonAdminImage)
-			if err != nil {
-				return err
-			}
+			// TODO remove, just for tests
+			log.Info(fmt.Sprintf("NON ADMIN IMAGE: %v", nonAdminImage))
+			r.buildNonAdminDeployment(nonAdminDeployment, nonAdminImage)
 
 			// Setting controller owner reference on the non admin controller deployment
 			return controllerutil.SetControllerReference(&dpa, nonAdminDeployment, r.Scheme)
@@ -133,29 +144,29 @@ func (r *DPAReconciler) ReconcileNonAdminController(log logr.Logger) (bool, erro
 	return true, nil
 }
 
-func (r *DPAReconciler) buildNonAdminDeployment(deploymentObject *appsv1.Deployment, image string) error {
-	nonAdminContainer := corev1.Container{
-		Image:           image,
-		Name:            nonAdminControllerContainer,
-		ImagePullPolicy: corev1.PullAlways,
-	}
+func (r *DPAReconciler) buildNonAdminDeployment(deploymentObject *appsv1.Deployment, image string) {
+	deploymentObject.ObjectMeta.Labels = nonAdminDeploymentLabels
 
 	deploymentObject.Spec = appsv1.DeploymentSpec{
-		Selector: deploymentObject.Spec.Selector,
 		Replicas: pointer.Int32(1),
+		Selector: deploymentObject.Spec.Selector,
 		Template: corev1.PodTemplateSpec{
 			ObjectMeta: metav1.ObjectMeta{
-				Labels: nonAdminControllerDeploymentLabel,
+				Labels: nonAdminControlPlaneLabel,
 			},
 			Spec: corev1.PodSpec{
+				Containers: []corev1.Container{
+					{
+						Image:           image,
+						ImagePullPolicy: corev1.PullAlways,
+						Name:            nonAdminControllerContainer,
+					},
+				},
 				RestartPolicy:      corev1.RestartPolicyAlways,
-				Containers:         []corev1.Container{nonAdminContainer},
-				ServiceAccountName: nonAdminControllerServiceAccount,
+				ServiceAccountName: nonAdminControllerControllerManager,
 			},
 		},
 	}
-
-	return nil
 }
 
 func (r *DPAReconciler) checkNonAdminEnabled(dpa *oadpv1alpha1.DataProtectionApplication) bool {
