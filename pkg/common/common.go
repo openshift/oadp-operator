@@ -12,12 +12,14 @@ import (
 )
 
 const (
+	// From config/default/kustomization.yaml namePrefix field
+	OADPOperatorPrefix         = "openshift-adp-"
 	Velero                     = "velero"
 	NodeAgent                  = "node-agent"
 	VeleroNamespace            = "oadp-operator"
 	OADPOperator               = "oadp-operator"
 	OADPOperatorVelero         = "oadp-operator-velero"
-	OADPOperatorServiceAccount = "openshift-adp-controller-manager"
+	OADPOperatorServiceAccount = OADPOperatorPrefix + "controller-manager"
 )
 
 var DefaultRestoreResourcePriorities = restore.Priorities{

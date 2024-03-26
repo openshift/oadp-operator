@@ -326,7 +326,7 @@ func CreateCredRequest(roleARN string, WITP string, secretNS string, kubeconf *r
 					"namespace": secretNS,
 				},
 				"serviceAccountNames": []interface{}{
-					"openshift-adp-controller-manager",
+					common.OADPOperatorServiceAccount,
 				},
 				"providerSpec": map[string]interface{}{
 					"apiVersion": "cloudcredential.openshift.io/v1",
