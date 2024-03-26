@@ -827,7 +827,7 @@ spec:
           - patch
           - update
           - watch
-        serviceAccountName: openshift-adp-non-admin-controller
+        serviceAccountName: openshift-adp-non-admin-controller-manager
       - rules:
         - apiGroups:
           - build.openshift.io
