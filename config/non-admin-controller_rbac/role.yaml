@@ -2,7 +2,7 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: non-admin-controller-role
+  name: non-admin-controller-manager-role
 rules:
 - apiGroups:
   - nac.oadp.openshift.io
