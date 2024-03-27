@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/go-logr/logr"
+	"golang.org/x/exp/maps"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serror "k8s.io/apimachinery/pkg/api/errors"
@@ -20,24 +21,24 @@ import (
 )
 
 const (
-	nonAdminPrefix                      = "non-admin-"
-	controllerManager                   = "controller-manager"
-	nonAdminControllerContainer         = nonAdminPrefix + "manager"
-	nonAdminControllerControllerManager = common.OADPOperatorPrefix + nonAdminPrefix + controllerManager
+	nonAdminPrefix            = "non-admin-"
+	controllerManager         = "controller-manager"
+	containerName             = nonAdminPrefix + "manager"
+	nonAdminControllerManager = common.OADPOperatorPrefix + nonAdminPrefix + controllerManager
+	controlPlaneKey           = "control-plane"
 )
 
 var (
-	nonAdminControlPlaneLabel = map[string]string{
-		"control-plane": nonAdminPrefix + controllerManager,
+	controlPlaneLabel = map[string]string{
+		controlPlaneKey: nonAdminPrefix + controllerManager,
 	}
-	nonAdminDeploymentLabels = map[string]string{
+	deploymentLabels = map[string]string{
 		"app.kubernetes.io/component":  "manager",
 		"app.kubernetes.io/created-by": common.OADPOperator,
 		"app.kubernetes.io/instance":   nonAdminPrefix + controllerManager,
 		"app.kubernetes.io/managed-by": "kustomize",
 		"app.kubernetes.io/name":       "deployment",
 		"app.kubernetes.io/part-of":    common.OADPOperator,
-		"control-plane":                nonAdminPrefix + controllerManager,
 	}
 )
 
@@ -50,7 +51,7 @@ func (r *DPAReconciler) ReconcileNonAdminController(log logr.Logger) (bool, erro
 
 	nonAdminDeployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      nonAdminControllerControllerManager,
+			Name:      nonAdminControllerManager,
 			Namespace: r.NamespacedName.Namespace,
 		},
 	}
@@ -58,6 +59,7 @@ func (r *DPAReconciler) ReconcileNonAdminController(log logr.Logger) (bool, erro
 	// Delete (possible) previously deployment
 	if !r.checkNonAdminEnabled(&dpa) {
 		if err := r.Get(
+			// TODO use r.Context?
 			context.Background(),
 			types.NamespacedName{
 				Name:      nonAdminDeployment.Name,
@@ -73,6 +75,7 @@ func (r *DPAReconciler) ReconcileNonAdminController(log logr.Logger) (bool, erro
 
 		deleteOptionPropagationForeground := metav1.DeletePropagationForeground
 		if err := r.Delete(
+			// TODO use r.Context?
 			context.Background(),
 			nonAdminDeployment,
 			&client.DeleteOptions{PropagationPolicy: &deleteOptionPropagationForeground},
@@ -80,7 +83,7 @@ func (r *DPAReconciler) ReconcileNonAdminController(log logr.Logger) (bool, erro
 			r.EventRecorder.Event(
 				nonAdminDeployment,
 				corev1.EventTypeWarning,
-				"DeleteNonAdminDeploymentFailed",
+				"NonAdminDeploymentDeleteFailed",
 				fmt.Sprintf("Could not delete non admin controller deployment %s/%s: %s", nonAdminDeployment.Namespace, nonAdminDeployment.Name, err),
 			)
 			return false, err
@@ -88,7 +91,7 @@ func (r *DPAReconciler) ReconcileNonAdminController(log logr.Logger) (bool, erro
 		r.EventRecorder.Event(
 			nonAdminDeployment,
 			corev1.EventTypeNormal,
-			"DeletedNonAdminDeploymentDeployment",
+			"NonAdminDeploymentDeleteSucceed",
 			fmt.Sprintf("Non admin controller deployment %s/%s deleted", nonAdminDeployment.Namespace, nonAdminDeployment.Name),
 		)
 		return true, nil
@@ -99,37 +102,18 @@ func (r *DPAReconciler) ReconcileNonAdminController(log logr.Logger) (bool, erro
 		r.Client,
 		nonAdminDeployment,
 		func() error {
-			// Setting Deployment selector if a new object is created, as it is immutable
-			if nonAdminDeployment.ObjectMeta.CreationTimestamp.IsZero() {
-				nonAdminDeployment.Spec.Selector = &metav1.LabelSelector{
-					MatchLabels: nonAdminControlPlaneLabel,
-				}
-			}
-
 			nonAdminImage := r.getNonAdminImage(&dpa)
-			// TODO remove, just for tests
-			log.Info(fmt.Sprintf("NON ADMIN IMAGE: %v", nonAdminImage))
-			r.buildNonAdminDeployment(nonAdminDeployment, nonAdminImage)
+			if len(nonAdminImage) == 0 {
+				return fmt.Errorf("no Non Admin Controller image found in RELATED_IMAGE_NON_ADMIN_CONTROLLER environment variable or unsupportedOverrides")
+			}
+			ensureRequiredLabels(nonAdminDeployment)
+			ensureRequiredSpecs(nonAdminDeployment, nonAdminImage)
 
 			// Setting controller owner reference on the non admin controller deployment
 			return controllerutil.SetControllerReference(&dpa, nonAdminDeployment, r.Scheme)
 		},
 	)
-
 	if err != nil {
-		// TODO needed?
-		if k8serror.IsInvalid(err) {
-			cause, isStatusCause := k8serror.StatusCause(err, metav1.CauseTypeFieldValueInvalid)
-			if isStatusCause && cause.Field == "spec.selector" {
-				log.Info("Found immutable selector from previous deployment, recreating non admin controller deployment")
-				err := r.Delete(r.Context, nonAdminDeployment)
-				if err != nil {
-					return false, err
-				}
-				return r.ReconcileNonAdminController(log)
-			}
-		}
-
 		return false, err
 	}
 
@@ -138,38 +122,58 @@ func (r *DPAReconciler) ReconcileNonAdminController(log logr.Logger) (bool, erro
 			nonAdminDeployment,
 			corev1.EventTypeNormal,
 			"NonAdminDeploymentReconciled",
-			fmt.Sprintf("Non admin controller deployment %s/%s was %s", nonAdminDeployment.Namespace, nonAdminDeployment.Name, operation),
+			fmt.Sprintf("Non admin controller deployment %s/%s %s", nonAdminDeployment.Namespace, nonAdminDeployment.Name, operation),
 		)
 	}
 	return true, nil
 }
 
-func (r *DPAReconciler) buildNonAdminDeployment(deploymentObject *appsv1.Deployment, image string) {
-	deploymentObject.ObjectMeta.Labels = nonAdminDeploymentLabels
-
-	deploymentObject.Spec = appsv1.DeploymentSpec{
-		Replicas: pointer.Int32(1),
-		Selector: deploymentObject.Spec.Selector,
-		Template: corev1.PodTemplateSpec{
-			ObjectMeta: metav1.ObjectMeta{
-				Labels: nonAdminControlPlaneLabel,
-			},
-			Spec: corev1.PodSpec{
-				Containers: []corev1.Container{
-					{
-						Image:           image,
-						ImagePullPolicy: corev1.PullAlways,
-						Name:            nonAdminControllerContainer,
-					},
-				},
-				RestartPolicy:      corev1.RestartPolicyAlways,
-				ServiceAccountName: nonAdminControllerControllerManager,
-			},
-		},
+func ensureRequiredLabels(deploymentObject *appsv1.Deployment) {
+	maps.Copy(deploymentLabels, controlPlaneLabel)
+	deploymentObjectLabels := deploymentObject.GetLabels()
+	if deploymentObjectLabels == nil {
+		deploymentObject.SetLabels(deploymentLabels)
+	} else {
+		for key, value := range deploymentLabels {
+			deploymentObjectLabels[key] = value
+		}
+		deploymentObject.SetLabels(deploymentObjectLabels)
 	}
 }
 
+func ensureRequiredSpecs(deploymentObject *appsv1.Deployment, image string) {
+	deploymentObject.Spec.Replicas = pointer.Int32(1)
+	deploymentObject.Spec.Selector = &metav1.LabelSelector{
+		MatchLabels: controlPlaneLabel,
+	}
+	templateObjectLabels := deploymentObject.Spec.Template.GetLabels()
+	if templateObjectLabels == nil {
+		deploymentObject.Spec.Template.SetLabels(controlPlaneLabel)
+	} else {
+		templateObjectLabels[controlPlaneKey] = controlPlaneLabel[controlPlaneKey]
+		deploymentObject.Spec.Template.SetLabels(templateObjectLabels)
+	}
+	if len(deploymentObject.Spec.Template.Spec.Containers) == 0 {
+		deploymentObject.Spec.Template.Spec.Containers = []corev1.Container{{
+			Name:            containerName,
+			Image:           image,
+			ImagePullPolicy: corev1.PullAlways,
+		}}
+	} else {
+		for _, container := range deploymentObject.Spec.Template.Spec.Containers {
+			if container.Name == containerName {
+				container.Image = image
+				container.ImagePullPolicy = corev1.PullAlways
+				break
+			}
+		}
+	}
+	deploymentObject.Spec.Template.Spec.RestartPolicy = corev1.RestartPolicyAlways
+	deploymentObject.Spec.Template.Spec.ServiceAccountName = nonAdminControllerManager
+}
+
 func (r *DPAReconciler) checkNonAdminEnabled(dpa *oadpv1alpha1.DataProtectionApplication) bool {
+	// TODO https://github.com/openshift/oadp-operator/pull/1316
 	if dpa.Spec.Features != nil && dpa.Spec.Features.EnableNonAdmin != nil {
 		return *dpa.Spec.Features.EnableNonAdmin
 	}
@@ -178,17 +182,12 @@ func (r *DPAReconciler) checkNonAdminEnabled(dpa *oadpv1alpha1.DataProtectionApp
 }
 
 func (r *DPAReconciler) getNonAdminImage(dpa *oadpv1alpha1.DataProtectionApplication) string {
-	// TODO is this needed?
+	// TODO https://github.com/openshift/oadp-operator/pull/1316
 	unsupportedOverride := dpa.Spec.UnsupportedOverrides[oadpv1alpha1.NonAdminControllerImageKey]
 	if unsupportedOverride != "" {
 		return unsupportedOverride
 	}
 
 	environmentVariable := os.Getenv("RELATED_IMAGE_NON_ADMIN_CONTROLLER")
-	if environmentVariable != "" {
-		return environmentVariable
-	}
-
-	// TODO change
-	return "quay.io/msouzaol/non-admin-controller:latest"
+	return environmentVariable
 }
