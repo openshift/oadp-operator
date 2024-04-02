@@ -1,7 +1,6 @@
 package controllers
 
 import (
-	"context"
 	"fmt"
 	"os"
 
@@ -59,8 +58,7 @@ func (r *DPAReconciler) ReconcileNonAdminController(log logr.Logger) (bool, erro
 	// Delete (possible) previously deployment
 	if !r.checkNonAdminEnabled(&dpa) {
 		if err := r.Get(
-			// TODO use r.Context?
-			context.Background(),
+			r.Context,
 			types.NamespacedName{
 				Name:      nonAdminDeployment.Name,
 				Namespace: nonAdminDeployment.Namespace,
@@ -75,8 +73,7 @@ func (r *DPAReconciler) ReconcileNonAdminController(log logr.Logger) (bool, erro
 
 		deleteOptionPropagationForeground := metav1.DeletePropagationForeground
 		if err := r.Delete(
-			// TODO use r.Context?
-			context.Background(),
+			r.Context,
 			nonAdminDeployment,
 			&client.DeleteOptions{PropagationPolicy: &deleteOptionPropagationForeground},
 		); err != nil {
@@ -174,8 +171,10 @@ func ensureRequiredSpecs(deploymentObject *appsv1.Deployment, image string) {
 
 func (r *DPAReconciler) checkNonAdminEnabled(dpa *oadpv1alpha1.DataProtectionApplication) bool {
 	// TODO https://github.com/openshift/oadp-operator/pull/1316
-	if dpa.Spec.Features != nil && dpa.Spec.Features.EnableNonAdmin != nil {
-		return *dpa.Spec.Features.EnableNonAdmin
+	if dpa.Spec.Features != nil &&
+		dpa.Spec.Features.NonAdmin != nil &&
+		dpa.Spec.Features.NonAdmin.Enable != nil {
+		return *dpa.Spec.Features.NonAdmin.Enable
 	}
 
 	return false

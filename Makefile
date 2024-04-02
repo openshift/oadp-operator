@@ -65,8 +65,9 @@ ifeq ($(CLUSTER_TYPE), ibmcloud)
 	VELERO_PLUGIN = aws
 endif
 
+# Kubernetes version from OpenShift 4.15.x https://openshift-release.apps.ci.l2s4.p1.openshiftapps.com/#4-stable
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
-ENVTEST_K8S_VERSION = 1.21
+ENVTEST_K8S_VERSION = 1.28
 
 # VERSION defines the project version for the bundle.
 # Update this value when you upgrade the version of your project.
@@ -164,7 +165,7 @@ vet: ## Run go vet against code.
 	go vet -mod=mod ./...
 
 ENVTEST := $(shell pwd)/bin/setup-envtest
-ENVTESTPATH = $(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)
+ENVTESTPATH = $(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(shell pwd)/bin -p path)
 ifeq ($(shell $(ENVTEST) list | grep $(ENVTEST_K8S_VERSION)),)
 	ENVTESTPATH = $(shell $(ENVTEST) --arch=amd64 use $(ENVTEST_K8S_VERSION) -p path)
 endif
@@ -565,3 +566,7 @@ endif
 		grep -q "\- $$file_name" $(shell pwd)/config/samples/kustomization.yaml || \
 		sed -i "s%resources:%resources:\n- $$file_name%" $(shell pwd)/config/samples/kustomization.yaml;done
 	@make bundle
+
+.PHONY: test-integration
+test-integration: install-ginkgo
+	KUBEBUILDER_ASSETS="$(ENVTESTPATH)" ginkgo run -mod=mod controllers -- --ginkgo.vv

@@ -233,11 +233,17 @@ type SnapshotLocation struct {
 	Velero *velero.VolumeSnapshotLocationSpec `json:"velero"`
 }
 
-// Features defines the configuration for the DPA to enable the tech preview features
-type Features struct {
+// NonAdmin defines the configuration for the non admin feature
+type NonAdmin struct {
 	// Enables non admin feature, by default false
 	// +optional
-	EnableNonAdmin *bool `json:"enableNonAdmin,omitempty"`
+	Enable *bool `json:"enable,omitempty"`
+}
+
+// Features defines the configuration for the DPA to enable the tech preview features
+type Features struct {
+	// +optional
+	NonAdmin *NonAdmin `json:"nonAdmin"`
 }
 
 // DataProtectionApplicationSpec defines the desired state of Velero
