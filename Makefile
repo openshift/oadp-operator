@@ -566,7 +566,3 @@ endif
 		grep -q "\- $$file_name" $(shell pwd)/config/samples/kustomization.yaml || \
 		sed -i "s%resources:%resources:\n- $$file_name%" $(shell pwd)/config/samples/kustomization.yaml;done
 	@make bundle
-
-.PHONY: test-integration
-test-integration: install-ginkgo
-	KUBEBUILDER_ASSETS="$(ENVTESTPATH)" ginkgo run -mod=mod controllers -- --ginkgo.vv
