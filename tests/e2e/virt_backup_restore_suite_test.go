@@ -35,10 +35,11 @@ func getLatestCirrosImageURL() (string, error) {
 	return imageURL, nil
 }
 
+const cirrOSDataVolume = "cirros-dv"
+
 type VmBackupRestoreCase struct {
 	BackupRestoreCase
-	Source          string
-	SourceNamespace string
+	Source string
 }
 
 func runVmBackupAndRestore(brCase VmBackupRestoreCase, expectedErr error, updateLastBRcase func(brCase VmBackupRestoreCase), updateLastInstallTime func(), v *lib.VirtOperator) {
@@ -62,7 +63,7 @@ func runVmBackupAndRestore(brCase VmBackupRestoreCase, expectedErr error, update
 	// something before running whatever import process it has been asked to
 	// run, so this disk also needs the storage.bind.immediate.requested
 	// annotation to get it to start the cloning process.
-	err = v.CreateDiskFromYaml(brCase.Namespace, diskName, 5*time.Minute)
+	err = v.CloneDisk(brCase.Source, brCase.Namespace, diskName, 5*time.Minute)
 	gomega.Expect(err).To(gomega.BeNil())
 
 	err = v.CreateVm(brCase.Namespace, vmName, 5*time.Minute)
@@ -120,19 +121,16 @@ var _ = ginkgov2.Describe("VM backup and restore tests", ginkgov2.Ordered, func(
 			wasInstalledFromTest = true
 		}
 
-		err = v.EnsureEmulation(20 * time.Second)
-		gomega.Expect(err).To(gomega.BeNil())
-
 		url, err := getLatestCirrosImageURL()
 		gomega.Expect(err).To(gomega.BeNil())
-		err = v.EnsureDataVolumeFromUrl("openshift-cnv", "cirros-dv", url, "128Mi", 5*time.Minute)
+		err = v.EnsureDataVolumeFromUrl(cirrOSDataVolume, url, 5*time.Minute)
 		gomega.Expect(err).To(gomega.BeNil())
 
 		dpaCR.CustomResource.Spec.Configuration.Velero.DefaultPlugins = append(dpaCR.CustomResource.Spec.Configuration.Velero.DefaultPlugins, v1alpha1.DefaultPluginKubeVirt)
 	})
 
 	var _ = ginkgov2.AfterAll(func() {
-		v.RemoveDataVolume("openshift-cnv", "cirros-dv", 2*time.Minute)
+		v.RemoveDataVolume(v.Namespace, cirrOSDataVolume, 2*time.Minute)
 
 		if v != nil && wasInstalledFromTest {
 			v.EnsureVirtRemoval()
@@ -148,9 +146,8 @@ var _ = ginkgov2.Describe("VM backup and restore tests", ginkgov2.Ordered, func(
 			runVmBackupAndRestore(brCase, expectedError, updateLastBRcase, updateLastInstallTime, v)
 		},
 
-		ginkgov2.Entry("default virtual machine backup and restore", ginkgov2.Label("virt"), VmBackupRestoreCase{
-			Source:          "cirros-dv",
-			SourceNamespace: "openshift-cnv",
+		ginkgov2.Entry("CirrOS virtual machine backup and restore", ginkgov2.Label("virt"), VmBackupRestoreCase{
+			Source: cirrOSDataVolume,
 			BackupRestoreCase: BackupRestoreCase{
 				Namespace:         "cirros-test",
 				Name:              "cirros-test",
