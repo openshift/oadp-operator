@@ -1,7 +1,6 @@
 package e2e_test
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"log"
@@ -11,21 +10,11 @@ import (
 
 	ginkgov2 "github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	"github.com/openshift/oadp-operator/api/v1alpha1"
 	"github.com/openshift/oadp-operator/tests/e2e/lib"
 )
-
-var virtualMachineGVK = schema.GroupVersionResource{
-	Group:    "kubevirt.io",
-	Resource: "virtualmachines",
-	Version:  "v1",
-}
 
 func getLatestCirrosImageURL() (string, error) {
 	cirrosVersionURL := "https://download.cirros-cloud.net/version/released"
@@ -107,29 +96,8 @@ func runVmBackupAndRestore(brCase VmBackupRestoreCase, expectedErr error, update
 		// Afterward, run through the standard application verification to make sure
 		// the application itself is working correctly.
 		err = wait.PollImmediate(10*time.Second, 10*time.Minute, func() (bool, error) {
-			unstructuredVm, err := v.Dynamic.Resource(virtualMachineGVK).Namespace(brCase.Namespace).Get(context.Background(), brCase.Name, metav1.GetOptions{})
-			if err != nil {
-				if apierrors.IsNotFound(err) {
-					log.Printf("VM %s/%s does not exist yet.", brCase.Namespace, brCase.Name)
-					return false, nil
-				}
-				log.Printf("Error getting virtual machine %s/%s: %v", brCase.Namespace, brCase.Name, err)
-				return false, err
-			}
-			if unstructuredVm == nil {
-				return false, nil
-			}
-			status, ok, err := unstructured.NestedString(unstructuredVm.UnstructuredContent(), "status", "printableStatus")
-			if err != nil {
-				log.Printf("Error getting status from VM: %v", err)
-				return false, err
-			}
-			if !ok {
-				log.Printf("Could not find VM status in API result.")
-				return false, nil
-			}
-			log.Printf("Status for VM %s/%s: %s", brCase.Namespace, brCase.Name, status)
-			return status == "Running", nil
+			status, err := v.GetVmStatus(brCase.Namespace, brCase.Name)
+			return status == "Running", err
 		})
 		gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	}
