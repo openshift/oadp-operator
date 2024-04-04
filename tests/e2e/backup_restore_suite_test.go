@@ -301,7 +301,7 @@ func tearDownBackupAndRestore(brCase BackupRestoreCase, installTime time.Time, r
 
 	err = dpaCR.Delete(runTimeClientForSuiteRun)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
-	gomega.Eventually(lib.IsNamespaceDeleted(kubernetesClientForSuiteRun, brCase.Namespace), timeoutMultiplier*time.Minute*10, time.Second*5).Should(gomega.BeTrue())
+	gomega.Eventually(lib.IsNamespaceDeleted(kubernetesClientForSuiteRun, brCase.Namespace), timeoutMultiplier*time.Minute*5, time.Second*5).Should(gomega.BeTrue())
 }
 
 var _ = ginkgov2.Describe("Backup and restore tests", func() {
