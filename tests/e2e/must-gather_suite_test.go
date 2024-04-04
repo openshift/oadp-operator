@@ -82,6 +82,7 @@ var _ = ginkgov2.Describe("Backup and restore tests with must-gather", func() {
 				BackupRestoreType: lib.CSIDataMover,
 				PreBackupVerify:   mongoready(true, false),
 				PostRestoreVerify: mongoready(false, false),
+				BackupTimeout:     20 * time.Minute,
 			},
 			MustGatherFiles: []string{
 				"namespaces/" + namespace + "/oadp.openshift.io/dpa-ts-" + instanceName + "/ts-" + instanceName + ".yml",

@@ -195,6 +195,7 @@ var _ = ginkgov2.Describe("VM backup and restore tests", ginkgov2.Ordered, func(
 				Name:              "cirros-test",
 				SkipVerifyLogs:    true,
 				BackupRestoreType: lib.CSIDataMover,
+				BackupTimeout:     20 * time.Minute,
 			},
 		}, nil),
 
@@ -208,6 +209,7 @@ var _ = ginkgov2.Describe("VM backup and restore tests", ginkgov2.Ordered, func(
 				BackupRestoreType: lib.CSI,
 				PreBackupVerify:   mysqlReady(true, false),
 				PostRestoreVerify: mysqlReady(false, false),
+				BackupTimeout:     45 * time.Minute,
 			},
 		}, nil),
 	)

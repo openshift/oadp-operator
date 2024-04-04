@@ -64,6 +64,7 @@ type BackupRestoreCase struct {
 	PreBackupVerify   VerificationFunction
 	PostRestoreVerify VerificationFunction
 	SkipVerifyLogs    bool // TODO remove
+	BackupTimeout     time.Duration
 }
 
 type ApplicationBackupRestoreCase struct {
@@ -199,7 +200,7 @@ func runBackup(brCase BackupRestoreCase, backupName string) bool {
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 	// wait for backup to not be running
-	gomega.Eventually(lib.IsBackupDone(dpaCR.Client, namespace, backupName), timeoutMultiplier*time.Minute*60, time.Second*10).Should(gomega.BeTrue())
+	gomega.Eventually(lib.IsBackupDone(dpaCR.Client, namespace, backupName), timeoutMultiplier*brCase.BackupTimeout, time.Second*10).Should(gomega.BeTrue())
 	// TODO only log on fail?
 	describeBackup := lib.DescribeBackup(veleroClientForSuiteRun, csiClientForSuiteRun, dpaCR.Client, backup)
 	ginkgov2.GinkgoWriter.Println(describeBackup)
@@ -332,6 +333,7 @@ var _ = ginkgov2.Describe("Backup and restore tests", func() {
 				BackupRestoreType: lib.CSI,
 				PreBackupVerify:   mysqlReady(true, false),
 				PostRestoreVerify: mysqlReady(false, false),
+				BackupTimeout:     20 * time.Minute,
 			},
 		}, nil),
 		ginkgov2.Entry("Mongo application CSI", ginkgov2.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
@@ -342,6 +344,7 @@ var _ = ginkgov2.Describe("Backup and restore tests", func() {
 				BackupRestoreType: lib.CSI,
 				PreBackupVerify:   mongoready(true, false),
 				PostRestoreVerify: mongoready(false, false),
+				BackupTimeout:     20 * time.Minute,
 			},
 		}, nil),
 		ginkgov2.Entry("MySQL application two Vol CSI", ginkgov2.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
@@ -352,6 +355,7 @@ var _ = ginkgov2.Describe("Backup and restore tests", func() {
 				BackupRestoreType: lib.CSI,
 				PreBackupVerify:   mysqlReady(true, true),
 				PostRestoreVerify: mysqlReady(false, true),
+				BackupTimeout:     20 * time.Minute,
 			},
 		}, nil),
 		ginkgov2.Entry("Mongo application RESTIC", ginkgov2.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
@@ -362,6 +366,7 @@ var _ = ginkgov2.Describe("Backup and restore tests", func() {
 				BackupRestoreType: lib.RESTIC,
 				PreBackupVerify:   mongoready(true, false),
 				PostRestoreVerify: mongoready(false, false),
+				BackupTimeout:     20 * time.Minute,
 			},
 		}, nil),
 		ginkgov2.Entry("MySQL application RESTIC", ginkgov2.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
@@ -372,6 +377,7 @@ var _ = ginkgov2.Describe("Backup and restore tests", func() {
 				BackupRestoreType: lib.RESTIC,
 				PreBackupVerify:   mysqlReady(true, false),
 				PostRestoreVerify: mysqlReady(false, false),
+				BackupTimeout:     20 * time.Minute,
 			},
 		}, nil),
 		ginkgov2.Entry("Mongo application KOPIA", ginkgov2.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
@@ -382,6 +388,7 @@ var _ = ginkgov2.Describe("Backup and restore tests", func() {
 				BackupRestoreType: lib.KOPIA,
 				PreBackupVerify:   mongoready(true, false),
 				PostRestoreVerify: mongoready(false, false),
+				BackupTimeout:     20 * time.Minute,
 			},
 		}, nil),
 		ginkgov2.Entry("MySQL application KOPIA", ginkgov2.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
@@ -392,6 +399,7 @@ var _ = ginkgov2.Describe("Backup and restore tests", func() {
 				BackupRestoreType: lib.KOPIA,
 				PreBackupVerify:   mysqlReady(true, false),
 				PostRestoreVerify: mysqlReady(false, false),
+				BackupTimeout:     20 * time.Minute,
 			},
 		}, nil),
 		ginkgov2.Entry("Mongo application DATAMOVER", ginkgov2.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
@@ -402,6 +410,7 @@ var _ = ginkgov2.Describe("Backup and restore tests", func() {
 				BackupRestoreType: lib.CSIDataMover,
 				PreBackupVerify:   mongoready(true, false),
 				PostRestoreVerify: mongoready(false, false),
+				BackupTimeout:     20 * time.Minute,
 			},
 		}, nil),
 		ginkgov2.Entry("MySQL application DATAMOVER", ginkgov2.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
@@ -412,6 +421,7 @@ var _ = ginkgov2.Describe("Backup and restore tests", func() {
 				BackupRestoreType: lib.CSIDataMover,
 				PreBackupVerify:   mysqlReady(true, false),
 				PostRestoreVerify: mysqlReady(false, false),
+				BackupTimeout:     20 * time.Minute,
 			},
 		}, nil),
 		ginkgov2.Entry("Mongo application BlockDevice DATAMOVER", ginkgov2.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
@@ -423,6 +433,7 @@ var _ = ginkgov2.Describe("Backup and restore tests", func() {
 				BackupRestoreType: lib.CSIDataMover,
 				PreBackupVerify:   mongoready(true, false),
 				PostRestoreVerify: mongoready(false, false),
+				BackupTimeout:     20 * time.Minute,
 			},
 		}, nil),
 	)
