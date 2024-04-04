@@ -102,6 +102,7 @@ func runVmBackupAndRestore(brCase VmBackupRestoreCase, expectedErr error, update
 		gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	}
 
+	// TODO: find a better way to check for clout-init completion
 	if brCase.InitDelay > 0*time.Second {
 		log.Printf("Sleeping to wait for cloud-init to be ready...")
 		time.Sleep(brCase.InitDelay)
