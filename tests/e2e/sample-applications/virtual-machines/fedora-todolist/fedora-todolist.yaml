@@ -235,7 +235,7 @@ items:
       template:
         metadata:
           annotations:
-            vm.kubevirt.io/flavor: small
+            vm.kubevirt.io/flavor: tiny
             vm.kubevirt.io/os: fedora
             vm.kubevirt.io/workload: server
         spec:
