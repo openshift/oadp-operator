@@ -219,7 +219,7 @@ var _ = ginkgov2.Describe("VM backup and restore tests", ginkgov2.Ordered, func(
 			runVmBackupAndRestore(brCase, expectedError, updateLastBRcase, updateLastInstallTime, v)
 		},
 
-		ginkgov2.Entry("default virtual machine backup and restore", ginkgov2.Label("virt"), VmBackupRestoreCase{
+		ginkgov2.Entry("no-application CSI datamover backup and restore, CirrOS VM", ginkgov2.Label("virt"), VmBackupRestoreCase{
 			Source:          "cirros-dv",
 			SourceNamespace: "openshift-cnv",
 			BackupRestoreCase: BackupRestoreCase{
@@ -230,7 +230,7 @@ var _ = ginkgov2.Describe("VM backup and restore tests", ginkgov2.Ordered, func(
 			},
 		}, nil),
 
-		ginkgov2.Entry("todolist backup and restore", ginkgov2.Label("virt"), VmBackupRestoreCase{
+		ginkgov2.Entry("todolist CSI backup and restore, in a Fedora VM", ginkgov2.Label("virt"), VmBackupRestoreCase{
 			Template:  "./sample-applications/virtual-machines/fedora-todolist/fedora-todolist.yaml",
 			InitDelay: 3 * time.Minute,
 			BackupRestoreCase: BackupRestoreCase{
