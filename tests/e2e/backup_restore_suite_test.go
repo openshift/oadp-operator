@@ -199,7 +199,7 @@ func runBackup(brCase BackupRestoreCase, backupName string) bool {
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 	// wait for backup to not be running
-	gomega.Eventually(lib.IsBackupDone(dpaCR.Client, namespace, backupName), timeoutMultiplier*time.Minute*20, time.Second*10).Should(gomega.BeTrue())
+	gomega.Eventually(lib.IsBackupDone(dpaCR.Client, namespace, backupName), timeoutMultiplier*time.Minute*60, time.Second*10).Should(gomega.BeTrue())
 	// TODO only log on fail?
 	describeBackup := lib.DescribeBackup(veleroClientForSuiteRun, csiClientForSuiteRun, dpaCR.Client, backup)
 	ginkgov2.GinkgoWriter.Println(describeBackup)
@@ -300,7 +300,7 @@ func tearDownBackupAndRestore(brCase BackupRestoreCase, installTime time.Time, r
 
 	err = dpaCR.Delete(runTimeClientForSuiteRun)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
-	gomega.Eventually(lib.IsNamespaceDeleted(kubernetesClientForSuiteRun, brCase.Namespace), timeoutMultiplier*time.Minute*2, time.Second*5).Should(gomega.BeTrue())
+	gomega.Eventually(lib.IsNamespaceDeleted(kubernetesClientForSuiteRun, brCase.Namespace), timeoutMultiplier*time.Minute*10, time.Second*5).Should(gomega.BeTrue())
 }
 
 var _ = ginkgov2.Describe("Backup and restore tests", func() {

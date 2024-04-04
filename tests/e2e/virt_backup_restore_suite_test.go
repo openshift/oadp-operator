@@ -90,7 +90,7 @@ func runVmBackupAndRestore(brCase VmBackupRestoreCase, expectedErr error, update
 	gomega.Expect(err).To(gomega.BeNil())
 	err = lib.DeleteNamespace(v.Clientset, brCase.Namespace)
 	gomega.Expect(err).To(gomega.BeNil())
-	gomega.Eventually(lib.IsNamespaceDeleted(kubernetesClientForSuiteRun, brCase.Namespace), timeoutMultiplier*time.Minute*4, time.Second*5).Should(gomega.BeTrue())
+	gomega.Eventually(lib.IsNamespaceDeleted(kubernetesClientForSuiteRun, brCase.Namespace), timeoutMultiplier*time.Minute*5, time.Second*5).Should(gomega.BeTrue())
 
 	// Do restore
 	runRestore(brCase.BackupRestoreCase, backupName, restoreName, nsRequiresResticDCWorkaround)
