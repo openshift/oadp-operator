@@ -235,7 +235,7 @@ type SnapshotLocation struct {
 
 // NonAdmin defines the configuration for the non admin feature
 type NonAdmin struct {
-	// Enables non admin feature, by default false
+	// Enables non admin feature, by default is disabled
 	// +optional
 	Enable *bool `json:"enable,omitempty"`
 }

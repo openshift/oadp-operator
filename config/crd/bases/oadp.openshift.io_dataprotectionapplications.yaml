@@ -836,7 +836,7 @@ spec:
                       description: NonAdmin defines the configuration for the non admin feature
                       properties:
                         enable:
-                          description: Enables non admin feature, by default false
+                          description: Enables non admin feature, by default is disabled
                           type: boolean
                       type: object
                   type: object
