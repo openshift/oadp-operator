@@ -189,17 +189,13 @@ test: vet envtest ## Run unit tests; run Go linters checks; and check if api and
 	@make bundle-isupdated
 
 .PHONY: api-isupdated
-api-isupdated: TEMP:= $(shell mktemp -d)
 api-isupdated:
-	@cp -r ./ $(TEMP) && cd $(TEMP) && make generate && cd - && diff -ruN api/ $(TEMP)/api/ && echo "api is up to date" || (echo "api is out of date, run 'make generate' to update" && exit 1)
-	@chmod -R 777 $(TEMP) && rm -rf $(TEMP)
+	$(call run-in-temp,make generate,compare)
 
 .PHONY: bundle-isupdated
-bundle-isupdated: TEMP:= $(shell mktemp -d)
 bundle-isupdated: VERSION:= $(DEFAULT_VERSION) #prevent VERSION overrides from https://github.com/openshift/release/blob/f1a388ab05d493b6d95b8908e28687b4c0679498/clusters/build-clusters/01_cluster/ci/_origin-release-build/golang-1.19/Dockerfile#LL9C1-L9C1
 bundle-isupdated:
-	@cp -r ./ $(TEMP) && cd $(TEMP) && make bundle && cd - && diff -ruN bundle/ $(TEMP)/bundle/ && echo "bundle is up to date" || (echo "bundle is out of date, run 'make bundle' to update" && exit 1)
-	@chmod -R 777 $(TEMP) && rm -rf $(TEMP)
+	$(call run-in-temp,make bundle,compare)
 
 ##@ Build
 
@@ -369,15 +365,8 @@ GIT_REV:=$(shell git rev-parse --short HEAD)
 .PHONY: deploy-olm
 deploy-olm: THIS_OPERATOR_IMAGE?=ttl.sh/oadp-operator-$(GIT_REV):1h # Set target specific variable
 deploy-olm: THIS_BUNDLE_IMAGE?=ttl.sh/oadp-operator-bundle-$(GIT_REV):1h # Set target specific variable
-deploy-olm: DEPLOY_TMP:=$(shell mktemp -d)/ # Set target specific variable
-deploy-olm: undeploy-olm ## Build current branch operator image, bundle image, push and install via OLM
-	@echo "DEPLOY_TMP: $(DEPLOY_TMP)"
-	# build and push operator and bundle image
-	# use $(OPERATOR_SDK) to install bundle to authenticated cluster
-	cp -r . $(DEPLOY_TMP) && cd $(DEPLOY_TMP) && \
-	IMG=$(THIS_OPERATOR_IMAGE) BUNDLE_IMG=$(THIS_BUNDLE_IMAGE) \
-		make docker-build docker-push bundle bundle-build bundle-push; \
-	chmod -R 777 $(DEPLOY_TMP) && rm -rf $(DEPLOY_TMP)
+deploy-olm: operator-sdk undeploy-olm ## Build current branch operator image, bundle image, push and install via OLM
+	$(call run-in-temp,make docker-build docker-push bundle bundle-build bundle-push IMG=$(THIS_OPERATOR_IMAGE) BUNDLE_IMG=$(THIS_BUNDLE_IMAGE))
 	$(OPERATOR_SDK) run bundle $(THIS_BUNDLE_IMAGE) --namespace $(OADP_TEST_NAMESPACE)
 
 .PHONY: undeploy-olm
@@ -436,13 +425,15 @@ catalog-push: ## Push a catalog image.
 PREVIOUS_CHANNEL ?= oadp-1.2
 
 .PHONY: catalog-test-upgrade
-catalog-test-upgrade: TEMP:= $(shell mktemp -d)
 catalog-test-upgrade: PREVIOUS_OPERATOR_IMAGE?=ttl.sh/oadp-operator-previous-$(GIT_REV):1h
 catalog-test-upgrade: PREVIOUS_BUNDLE_IMAGE?=ttl.sh/oadp-operator-previous-bundle-$(GIT_REV):1h
 catalog-test-upgrade: THIS_OPERATOR_IMAGE?=ttl.sh/oadp-operator-$(GIT_REV):1h
 catalog-test-upgrade: THIS_BUNDLE_IMAGE?=ttl.sh/oadp-operator-bundle-$(GIT_REV):1h
 catalog-test-upgrade: CATALOG_IMAGE?=ttl.sh/oadp-operator-catalog-$(GIT_REV):1h
 catalog-test-upgrade: opm login-required ## Prepare a catalog image with two channels: PREVIOUS_CHANNEL and from current branch
+ifeq ($(TEMP),)
+	$(error You must set TEMP to run this command)
+endif
 	cp -r ./ $(TEMP)/current
 	git clone --depth=1 git@github.com:openshift/oadp-operator.git -b $(PREVIOUS_CHANNEL) $(TEMP)/$(PREVIOUS_CHANNEL)
 	cd $(TEMP)/$(PREVIOUS_CHANNEL) && IMG=$(PREVIOUS_OPERATOR_IMAGE) BUNDLE_IMG=$(PREVIOUS_BUNDLE_IMAGE) make bundle && \
@@ -566,3 +557,19 @@ endif
 		grep -q "\- $$file_name" $(shell pwd)/config/samples/kustomization.yaml || \
 		sed -i "s%resources:%resources:\n- $$file_name%" $(shell pwd)/config/samples/kustomization.yaml;done
 	@make bundle
+
+define run-in-temp
+@{ \
+set -e ;\
+TEMP=$$(mktemp -d) ;\
+echo $$TEMP ;\
+if [ -z "$$TEMP" ];then (echo "temporary dir is empty, aborting" && exit 1);fi ;\
+cp -r . $$TEMP ;\
+cd $$TEMP ;\
+$(1) || { EXIT_CODE=1; echo "command '$(1)' failed";} ;\
+if [ "$(2)" = "compare" ];then cd -;\
+	diff -ruN . $$TEMP --exclude=.git && echo "code is up to date" || { EXIT_CODE=1; echo "code is out of date, run '$(1)' to update it";};fi ;\
+chmod -R 777 $$TEMP && rm -rf $$TEMP ;\
+exit $$EXIT_CODE ;\
+}
+endef
