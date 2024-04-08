@@ -574,7 +574,7 @@ func (v *VirtOperator) ensureHcoRemoved(timeout time.Duration) error {
 	return err
 }
 
-func (v *VirtOperator) getVmStatus(namespace, name string) (string, error) {
+func (v *VirtOperator) GetVmStatus(namespace, name string) (string, error) {
 	vm, err := v.Dynamic.Resource(virtualMachineGvr).Namespace(namespace).Get(context.Background(), name, metav1.GetOptions{})
 	if err != nil {
 		return "", err
@@ -584,21 +584,20 @@ func (v *VirtOperator) getVmStatus(namespace, name string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if !ok {
-		return "", fmt.Errorf("status field not populated yet on VM %s/%s", namespace, name)
+	if ok {
+		log.Printf("VM %s/%s status is: %s", namespace, name, status)
 	}
-	log.Printf("VM %s/%s status is: %s", namespace, name, status)
 
 	return status, nil
 }
 
 func (v *VirtOperator) checkVmExists(namespace, name string) bool {
-	_, err := v.getVmStatus(namespace, name)
+	_, err := v.GetVmStatus(namespace, name)
 	return err == nil
 }
 
 func (v *VirtOperator) checkVmStatus(namespace, name, expectedStatus string) bool {
-	status, _ := v.getVmStatus(namespace, name)
+	status, _ := v.GetVmStatus(namespace, name)
 	return status == expectedStatus
 }
 
