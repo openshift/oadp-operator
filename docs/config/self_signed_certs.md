@@ -4,10 +4,10 @@
 
 ### Use Velero with a storage provider secured by a self-signed certificate
 
-If you are using an S3-Compatible storage provider that is secured with a 
-self-signed certificate, connections to the object store may fail with a 
-`certificate signed by unknown authority` message. In order to proceed, you will 
-have to specify a base64 encoded certificate string as a value of the `caCert` 
+If you are using an S3-Compatible storage provider that is secured with a
+self-signed certificate, connections to the object store may fail with a
+`certificate signed by unknown authority` message. In order to proceed, you will
+have to specify a base64 encoded certificate string as a value of the `caCert`
 spec, under the `objectStorage` configuration in the DataProtectionApplication (DPA) CR.
 
 Your DPA CR might look somewhat like this:
@@ -55,5 +55,5 @@ spec:
           profile: "default"
 
 ```
-<b>Note:</b> Ensure that `insecureSkipTLSVerify` is set to `false` so that TLS 
+<b>Note:</b> Ensure that `insecureSkipTLSVerify` is set to `false` so that TLS
 is used.

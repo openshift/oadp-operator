@@ -53,7 +53,7 @@ Further improvements to block mode volumes are in progress to improve the utilit
 <p>
 The DataUpload (DUCR) and DataDownload (DDCR) are Kubernetes CRs that act as the protocol between data mover plugins and data movers</p>
 
-<h3>The Data Mover (DM)</h3> 
+<h3>The Data Mover (DM)</h3>
 <p>
 DM is a collective of modules to finish the data movement, specifically, data upload and data download. The modules may include the data mover controllers to reconcile DUCR/DDCR and the data path to transfer data.</p>
 
@@ -260,13 +260,13 @@ A more in depth visualization of the backup workflow with Data Mover is found be
 <div>
 A user creates a restore CR, no additional data mover options or parameters are required. Velero's CSI plugin (based on RIA V2 plugin API) creates a PV and PVC in the protected namespace (OADP operator's namespace). The restore CR status will move from `New` to `InProgress`.<br><br>
 
-The data from backup is queried from the remotely stored DataUpload CR and written to the in-cluster ConfigMaps.  A ConfigMap is created for each PV to be restored. These Configmaps are temporary objects that are deleted upon the restore's workflow completion. The ConfigMap stores vital information like the Repo Snapshot ID or VolumeSnapshotContent name.  The data stored in the ConfigMap is then used to build the DataDownload CR spec. 
+The data from backup is queried from the remotely stored DataUpload CR and written to the in-cluster ConfigMaps.  A ConfigMap is created for each PV to be restored. These Configmaps are temporary objects that are deleted upon the restore's workflow completion. The ConfigMap stores vital information like the Repo Snapshot ID or VolumeSnapshotContent name.  The data stored in the ConfigMap is then used to build the DataDownload CR spec.
 
-The CSI plugin creates the DataDownload CR and DataDownload Controller reconciles on the CR.  The Node-Agent begins the download of the backed up PV data from S3. 
+The CSI plugin creates the DataDownload CR and DataDownload Controller reconciles on the CR.  The Node-Agent begins the download of the backed up PV data from S3.
 
 As the data from the backup is downloaded via DataDownload Controller via Kopia the target volume is marked as not ready. In order  to prevent the volume from binding the spec.VolumeName set to empty (""). The status of the download can be viewed from the DataDownload CR object as `Accepted`, `Prepared`, or `InProgress`.  Similarly with the Data Mover backup process a user may find temporary objects (i.e., pods, PVCs, PVs) created in the protected namespace (OADP operator's namespace) during this step.
 
-Once the DataDownload is in a terminal status `Completed`, the target PVC should have been created in the target user namespace and waiting for binding.  The PV's claim reference is written to the target PVC in the target user namespace and the PVC will be immediately bound to the target PV.  
+Once the DataDownload is in a terminal status `Completed`, the target PVC should have been created in the target user namespace and waiting for binding.  The PV's claim reference is written to the target PVC in the target user namespace and the PVC will be immediately bound to the target PV.
 
 </div>
 <hr>
@@ -284,4 +284,4 @@ A more in depth visualization of the restore workflow with Data Mover is found b
 <h2>Thank you!</h2>
 The source of this blog post can be found in the <a href="https://github.com/openshift/oadp-operator/tree/master/blogs/data-mover">oadp-operator repository</a>
 
-The original upstream Velero design for the VBDM can be found <a href=https://github.com/vmware-tanzu/velero/blob/main/design/volume-snapshot-data-movement/volume-snapshot-data-movement.md>here.</a> Information and diagrams have been sourced directly from the design.  
+The original upstream Velero design for the VBDM can be found <a href=https://github.com/vmware-tanzu/velero/blob/main/design/volume-snapshot-data-movement/volume-snapshot-data-movement.md>here.</a> Information and diagrams have been sourced directly from the design.

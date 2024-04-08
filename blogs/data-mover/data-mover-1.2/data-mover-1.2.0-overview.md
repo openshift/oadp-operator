@@ -19,7 +19,7 @@ Data Mover (OADP 1.2 or below)
 <p dir="auto">With VolumeSnapshotMover controller, snapshots are relocated off of the cluster to the targeted backupStorageLocation (generally object storage), providing additional safety.</p>
 
 <h2>OADP's Data Mover Roadmap</h2>
-<p dir="auto">The OADP team introduced the Data Mover feature in OADP-1.1.0 as a tech preview feature.  During the course of OADP-1.1 and OADP-1.2 development we have also been actively contributing to the upstream Velero project.  Our work in the upstream has focused on providing the foundation for the Data Mover feature directly in Velero.  We are pleased to see the upstream Velero project has officially adopted the feature and will release a <a href="https://github.com/vmware-tanzu/velero/wiki/1.12-Roadmap">built in Data Mover</a> in Velero 1.12. 
+<p dir="auto">The OADP team introduced the Data Mover feature in OADP-1.1.0 as a tech preview feature.  During the course of OADP-1.1 and OADP-1.2 development we have also been actively contributing to the upstream Velero project.  Our work in the upstream has focused on providing the foundation for the Data Mover feature directly in Velero.  We are pleased to see the upstream Velero project has officially adopted the feature and will release a <a href="https://github.com/vmware-tanzu/velero/wiki/1.12-Roadmap">built in Data Mover</a> in Velero 1.12.
 The Data Mover feature in OADP-1.2 will remain in tech preview as we continue to contribute to and evalute Velero's built in Data Mover for our customers.
 <h2>Components</h2>
 
@@ -112,7 +112,7 @@ A VSR represents a restore of a PVC from a snapshot. It can be used to restore a
 
 <h2>Backup Process</h2>
 <div>
-	
+
 The CSI plugin is extended to facilitate the data movement of CSI VolumeSnapshots(VS) from the cluster to object storage. When Velero backup is triggered, a snapshot of the application volume is created, followed by the associated VolumeSnapshotContent(VSC). This leads to the creation of a VolumeSnapshotBackup(VSB) per VSC, which triggers the Data Mover process as the VolumeSnapshotMover(VSM) controller begins reconciliation on these VSB instances.<br><br>
 
 During the Data Mover process, the VolumeSnapshotMover first validates the VSB and then clones the VSC, followed by VS, and PVC to the protected namespace (default: openshift-adp). The VSM controller uses the cloned PVC as the source PVC and creates a VolSync ReplicationSource CR. VolSync then performs reconciliation on the ReplicationSource CR.<br><br>

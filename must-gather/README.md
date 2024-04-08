@@ -46,9 +46,9 @@ The latest Prometheus data file (prom_data.tar.gz) in current directory/subdirec
 ```sh
 oc adm must-gather --image=quay.io/konveyor/oadp-must-gather:latest -- /usr/bin/gather_with_timeout <timeout_value_in_seconds>
 ```
-### Support for insecure TLS connections 
+### Support for insecure TLS connections
 
-If a custom CA cert is used, then must-gather pod fails to grab the output for velero logs/describe. In this case, the user can pass a flag to the must-gather command to allow insecure TLS connections. 
+If a custom CA cert is used, then must-gather pod fails to grab the output for velero logs/describe. In this case, the user can pass a flag to the must-gather command to allow insecure TLS connections.
 
 ```sh
 oc adm must-gather --image=quay.io/konveyor/oadp-must-gather:latest -- /usr/bin/gather_without_tls <true/false>

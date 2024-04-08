@@ -8,10 +8,10 @@ spec:
       image: quay.io/rhn_engineering_whayutin/fedorablock
       command: ["/bin/sh", "-c"]
       args: [ "tail -f /dev/null" ]
-      volumeDevices:  
+      volumeDevices:
         - name: data
-          devicePath: /dev/xvda 
+          devicePath: /dev/xvda
   volumes:
     - name: data
       persistentVolumeClaim:
-        claimName: block-pvc 
+        claimName: block-pvc

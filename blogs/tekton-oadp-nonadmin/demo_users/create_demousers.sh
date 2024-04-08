@@ -34,7 +34,7 @@ while getopts ":h:n:c:p:x:d:" option; do
       h) # display Help
          Help
          exit;;
-      n) # Enter a demo user base name 
+      n) # Enter a demo user base name
 	 BASENAME=$OPTARG;;
       c) # Enter the number of users to be created
 	 COUNT=$OPTARG;;

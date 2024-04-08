@@ -1,7 +1,7 @@
 <h1 align="center">Install OADP Operator using OperatorHub</h1>
 
 ### Install the OADP Operator
-You can install the OADP Operator from the Openshift's OperatorHub. 
+You can install the OADP Operator from the Openshift's OperatorHub.
 You can search for the operator using keywords such as `oadp` or `velero`.
 
 ![OADP-OLM-1](/docs/images/OADP-OLM-1.png)
@@ -10,7 +10,7 @@ Now click on `Install`
 
 ![OADP-OLM-1](/docs/images/click-install.png)
 
-Finally, click on `Install` again. This will create namespace `openshift-adp` 
+Finally, click on `Install` again. This will create namespace `openshift-adp`
 if it does not exist, and install the OADP operator in it.
 
 ![OADP-OLM-1](/docs/images/click-install-again.png)

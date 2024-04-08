@@ -94,7 +94,7 @@ oc apply -f manifests/openshift-adp-cloud-credentials-gcp-credentials.yaml
 - [4.3.4.1. Installing the OADP Operator](https://access.redhat.com/documentation/en-us/openshift_container_platform/4.10/html-single/backup_and_restore/index#oadp-installing-operator_installing-oadp-gcp)
 - Skip to [4.3.4.5. Installing the Data Protection Application
 ](https://access.redhat.com/documentation/en-us/openshift_container_platform/4.10/html-single/backup_and_restore/index#oadp-installing-dpa_installing-oadp-gcp) to create Data Protection Application
-    
+
     Note that the key for credentials should be `service_account.json` instead of `cloud` in the official documentation example.
     ```yaml
     apiVersion: oadp.openshift.io/v1alpha1

@@ -9,7 +9,7 @@ items:
       labels:
         app: mongo
     spec:
-      volumeMode: Block 
+      volumeMode: Block
       accessModes:
       - ReadWriteOnce
       storageClassName: gp2-csi

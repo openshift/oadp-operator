@@ -140,7 +140,7 @@ Upgrade simulation steps:
 
 1. Build the MTC bundle using the following command (from MTC root directory)
 ```
-podman build -f bundle.Dockerfile -t quay.io/$ORG/mig-operator-bundle:$TAG .  
+podman build -f bundle.Dockerfile -t quay.io/$ORG/mig-operator-bundle:$TAG .
 ```
 2. Push the MTC bundle image
 ```

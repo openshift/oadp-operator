@@ -31,7 +31,7 @@ while getopts ":h:p:u:d:" option; do
       h) # display Help
          Help
          exit;;
-      p) # Enter a project name 
+      p) # Enter a project name
 	 PROJECT=$OPTARG;;
       u) # Enter a user name
 	 USER=$OPTARG;;

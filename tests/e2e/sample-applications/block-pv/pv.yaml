@@ -7,7 +7,7 @@ spec:
     storage: 10Gi
   accessModes:
     - ReadWriteOnce
-  volumeMode: Block 
+  volumeMode: Block
   persistentVolumeReclaimPolicy: Retain
   fc:
     targetWWNs: ["50060e801049cfd1"]
