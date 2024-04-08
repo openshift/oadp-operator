@@ -216,8 +216,35 @@ var _ = ginkgo.Describe("Test ReconcileNonAdminController function", func() {
 	)
 })
 
+func TestDPAReconcilerBuildNonAdminDeployment(t *testing.T) {
+	r := &DPAReconciler{}
+	t.Setenv("RELATED_IMAGE_NON_ADMIN_CONTROLLER", defaultNonAdminImage)
+	deployment := createTestDeployment("test-build-deployment")
+	err := r.buildNonAdminDeployment(deployment, &oadpv1alpha1.DataProtectionApplication{})
+	if err != nil {
+		t.Errorf("An error occurred while building deployment: %s", err)
+		return
+	}
+	labels := deployment.GetLabels()
+	if labels["test"] != "test" {
+		t.Errorf("Deployment label 'test' has wrong value: %v", labels["test"])
+	}
+	if labels["app.kubernetes.io/name"] != "deployment" {
+		t.Errorf("Deployment label 'app.kubernetes.io/name' has wrong value: %v", labels["app.kubernetes.io/name"])
+	}
+	if labels[controlPlaneKey] != nonAdminPrefix+controllerManager {
+		t.Errorf("Deployment label '%v' has wrong value: %v", controlPlaneKey, labels[controlPlaneKey])
+	}
+	if *deployment.Spec.Replicas != 1 {
+		t.Errorf("Deployment has wrong number of replicas: %v", *deployment.Spec.Replicas)
+	}
+	if deployment.Spec.Template.Spec.ServiceAccountName != nonAdminControllerManager {
+		t.Errorf("Deployment has wrong ServiceAccount: %v", deployment.Spec.Template.Spec.ServiceAccountName)
+	}
+}
+
 func TestEnsureRequiredLabels(t *testing.T) {
-	deployment := createTestDeployment("test-ensure-spec")
+	deployment := createTestDeployment("test-ensure-label")
 	ensureRequiredLabels(deployment)
 	labels := deployment.GetLabels()
 	if labels["test"] != "test" {

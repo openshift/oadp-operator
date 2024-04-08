@@ -99,12 +99,10 @@ func (r *DPAReconciler) ReconcileNonAdminController(log logr.Logger) (bool, erro
 		r.Client,
 		nonAdminDeployment,
 		func() error {
-			nonAdminImage := r.getNonAdminImage(&dpa)
-			if len(nonAdminImage) == 0 {
-				return fmt.Errorf("no Non Admin Controller image found in RELATED_IMAGE_NON_ADMIN_CONTROLLER environment variable or unsupportedOverrides")
+			err := r.buildNonAdminDeployment(nonAdminDeployment, &dpa)
+			if err != nil {
+				return err
 			}
-			ensureRequiredLabels(nonAdminDeployment)
-			ensureRequiredSpecs(nonAdminDeployment, nonAdminImage)
 
 			// Setting controller owner reference on the non admin controller deployment
 			return controllerutil.SetControllerReference(&dpa, nonAdminDeployment, r.Scheme)
@@ -123,6 +121,17 @@ func (r *DPAReconciler) ReconcileNonAdminController(log logr.Logger) (bool, erro
 		)
 	}
 	return true, nil
+}
+
+func (r *DPAReconciler) buildNonAdminDeployment(deploymentObject *appsv1.Deployment, dpa *oadpv1alpha1.DataProtectionApplication) error {
+	// TODO https://github.com/openshift/oadp-operator/pull/1316
+	nonAdminImage := r.getNonAdminImage(dpa)
+	if len(nonAdminImage) == 0 {
+		return fmt.Errorf("no Non Admin Controller image found in RELATED_IMAGE_NON_ADMIN_CONTROLLER environment variable or unsupportedOverrides")
+	}
+	ensureRequiredLabels(deploymentObject)
+	ensureRequiredSpecs(deploymentObject, nonAdminImage)
+	return nil
 }
 
 func ensureRequiredLabels(deploymentObject *appsv1.Deployment) {
