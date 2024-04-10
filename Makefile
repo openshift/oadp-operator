@@ -311,7 +311,7 @@ operator-sdk:
 bundle: manifests kustomize operator-sdk ## Generate bundle manifests and metadata, then validate generated files.
 	GOFLAGS="-mod=mod" $(OPERATOR_SDK) generate kustomize manifests -q
 	cd config/manager && GOFLAGS="-mod=mod" $(KUSTOMIZE) edit set image controller=$(IMG)
-	GOFLAGS="-mod=mod" $(KUSTOMIZE) build config/manifests | GOFLAGS="-mod=mod" $(OPERATOR_SDK) generate bundle -q --extra-service-accounts "velero,openshift-adp-non-admin-controller-manager" --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
+	GOFLAGS="-mod=mod" $(KUSTOMIZE) build config/manifests | GOFLAGS="-mod=mod" $(OPERATOR_SDK) generate bundle -q --extra-service-accounts "velero,non-admin-controller" --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
 	@make nullables
 	# Copy updated bundle.Dockerfile to CI's Dockerfile.bundle
 	# TODO: update CI to use generated one
@@ -377,7 +377,7 @@ deploy-olm: undeploy-olm ## Build current branch operator image, bundle image, p
 	cp -r . $(DEPLOY_TMP) && cd $(DEPLOY_TMP) && \
 	IMG=$(THIS_OPERATOR_IMAGE) BUNDLE_IMG=$(THIS_BUNDLE_IMAGE) \
 		make docker-build docker-push bundle bundle-build bundle-push; \
-	rm -rf $(DEPLOY_TMP)
+	chmod -R 777 $(DEPLOY_TMP) && rm -rf $(DEPLOY_TMP)
 	$(OPERATOR_SDK) run bundle $(THIS_BUNDLE_IMAGE) --namespace $(OADP_TEST_NAMESPACE)
 
 .PHONY: undeploy-olm
@@ -547,7 +547,7 @@ lint-fix: golangci-lint ## Fix Go linters issues.
 	$(GOLANGCI_LINT) run --fix
 
 .PHONY: update-non-admin-manifests
-update-non-admin-manifests: NON_ADMIN_CONTROLLER_IMG?=quay.io/konveyor/non-admin-controller:latest
+update-non-admin-manifests: NON_ADMIN_CONTROLLER_IMG?=quay.io/konveyor/oadp-non-admin:latest
 update-non-admin-manifests: ## Update Non Admin Controller (NAC) manifests shipped with OADP, from NON_ADMIN_CONTROLLER_PATH
 ifeq ($(NON_ADMIN_CONTROLLER_PATH),)
 	$(error You must set NON_ADMIN_CONTROLLER_PATH to run this command)

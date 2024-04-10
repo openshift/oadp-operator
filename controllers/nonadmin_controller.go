@@ -20,21 +20,18 @@ import (
 )
 
 const (
-	nonAdminPrefix            = "non-admin-"
-	controllerManager         = "controller-manager"
-	containerName             = nonAdminPrefix + "manager"
-	nonAdminControllerManager = common.OADPOperatorPrefix + nonAdminPrefix + controllerManager
-	controlPlaneKey           = "control-plane"
+	nonAdminObjectName = "non-admin-controller"
+	controlPlaneKey    = "control-plane"
 )
 
 var (
 	controlPlaneLabel = map[string]string{
-		controlPlaneKey: nonAdminPrefix + controllerManager,
+		controlPlaneKey: nonAdminObjectName,
 	}
 	deploymentLabels = map[string]string{
 		"app.kubernetes.io/component":  "manager",
 		"app.kubernetes.io/created-by": common.OADPOperator,
-		"app.kubernetes.io/instance":   nonAdminPrefix + controllerManager,
+		"app.kubernetes.io/instance":   nonAdminObjectName,
 		"app.kubernetes.io/managed-by": "kustomize",
 		"app.kubernetes.io/name":       "deployment",
 		"app.kubernetes.io/part-of":    common.OADPOperator,
@@ -50,7 +47,7 @@ func (r *DPAReconciler) ReconcileNonAdminController(log logr.Logger) (bool, erro
 
 	nonAdminDeployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      nonAdminControllerManager,
+			Name:      nonAdminObjectName,
 			Namespace: r.NamespacedName.Namespace,
 		},
 	}
@@ -161,13 +158,13 @@ func ensureRequiredSpecs(deploymentObject *appsv1.Deployment, image string) {
 	}
 	if len(deploymentObject.Spec.Template.Spec.Containers) == 0 {
 		deploymentObject.Spec.Template.Spec.Containers = []corev1.Container{{
-			Name:            containerName,
+			Name:            nonAdminObjectName,
 			Image:           image,
 			ImagePullPolicy: corev1.PullAlways,
 		}}
 	} else {
 		for _, container := range deploymentObject.Spec.Template.Spec.Containers {
-			if container.Name == containerName {
+			if container.Name == nonAdminObjectName {
 				container.Image = image
 				container.ImagePullPolicy = corev1.PullAlways
 				break
@@ -175,7 +172,7 @@ func ensureRequiredSpecs(deploymentObject *appsv1.Deployment, image string) {
 		}
 	}
 	deploymentObject.Spec.Template.Spec.RestartPolicy = corev1.RestartPolicyAlways
-	deploymentObject.Spec.Template.Spec.ServiceAccountName = nonAdminControllerManager
+	deploymentObject.Spec.Template.Spec.ServiceAccountName = nonAdminObjectName
 }
 
 func (r *DPAReconciler) checkNonAdminEnabled(dpa *oadpv1alpha1.DataProtectionApplication) bool {

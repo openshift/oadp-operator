@@ -32,7 +32,7 @@ type ReconcileNonAdminControllerScenario struct {
 func createTestDeployment(namespace string) *appsv1.Deployment {
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      nonAdminControllerManager,
+			Name:      nonAdminObjectName,
 			Namespace: namespace,
 			Labels: map[string]string{
 				"test":                   "test",
@@ -52,7 +52,7 @@ func createTestDeployment(namespace string) *appsv1.Deployment {
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{
 						{
-							Name:  containerName,
+							Name:  nonAdminObjectName,
 							Image: defaultNonAdminImage,
 						},
 					},
@@ -148,7 +148,7 @@ var _ = ginkgo.Describe("Test ReconcileNonAdminController function", func() {
 		if k8sClient.Get(
 			ctx,
 			types.NamespacedName{
-				Name:      nonAdminControllerManager,
+				Name:      nonAdminObjectName,
 				Namespace: currentTestScenario.namespace,
 			},
 			deployment,
@@ -232,13 +232,13 @@ func TestDPAReconcilerBuildNonAdminDeployment(t *testing.T) {
 	if labels["app.kubernetes.io/name"] != "deployment" {
 		t.Errorf("Deployment label 'app.kubernetes.io/name' has wrong value: %v", labels["app.kubernetes.io/name"])
 	}
-	if labels[controlPlaneKey] != nonAdminPrefix+controllerManager {
+	if labels[controlPlaneKey] != nonAdminObjectName {
 		t.Errorf("Deployment label '%v' has wrong value: %v", controlPlaneKey, labels[controlPlaneKey])
 	}
 	if *deployment.Spec.Replicas != 1 {
 		t.Errorf("Deployment has wrong number of replicas: %v", *deployment.Spec.Replicas)
 	}
-	if deployment.Spec.Template.Spec.ServiceAccountName != nonAdminControllerManager {
+	if deployment.Spec.Template.Spec.ServiceAccountName != nonAdminObjectName {
 		t.Errorf("Deployment has wrong ServiceAccount: %v", deployment.Spec.Template.Spec.ServiceAccountName)
 	}
 }
@@ -253,7 +253,7 @@ func TestEnsureRequiredLabels(t *testing.T) {
 	if labels["app.kubernetes.io/name"] != "deployment" {
 		t.Errorf("Deployment label 'app.kubernetes.io/name' has wrong value: %v", labels["app.kubernetes.io/name"])
 	}
-	if labels[controlPlaneKey] != nonAdminPrefix+controllerManager {
+	if labels[controlPlaneKey] != nonAdminObjectName {
 		t.Errorf("Deployment label '%v' has wrong value: %v", controlPlaneKey, labels[controlPlaneKey])
 	}
 }
@@ -264,7 +264,7 @@ func TestEnsureRequiredSpecs(t *testing.T) {
 	if *deployment.Spec.Replicas != 1 {
 		t.Errorf("Deployment has wrong number of replicas: %v", *deployment.Spec.Replicas)
 	}
-	if deployment.Spec.Template.Spec.ServiceAccountName != nonAdminControllerManager {
+	if deployment.Spec.Template.Spec.ServiceAccountName != nonAdminObjectName {
 		t.Errorf("Deployment has wrong ServiceAccount: %v", deployment.Spec.Template.Spec.ServiceAccountName)
 	}
 }

@@ -602,6 +602,45 @@ spec:
       clusterPermissions:
       - rules:
         - apiGroups:
+          - nac.oadp.openshift.io
+          resources:
+          - nonadminbackups
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - nac.oadp.openshift.io
+          resources:
+          - nonadminbackups/finalizers
+          verbs:
+          - update
+        - apiGroups:
+          - nac.oadp.openshift.io
+          resources:
+          - nonadminbackups/status
+          verbs:
+          - get
+          - patch
+          - update
+        - apiGroups:
+          - velero.io
+          resources:
+          - backups
+          verbs:
+          - create
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        serviceAccountName: non-admin-controller
+      - rules:
+        - apiGroups:
           - config.openshift.io
           resources:
           - infrastructures
@@ -789,45 +828,6 @@ spec:
           verbs:
           - create
         serviceAccountName: openshift-adp-controller-manager
-      - rules:
-        - apiGroups:
-          - nac.oadp.openshift.io
-          resources:
-          - nonadminbackups
-          verbs:
-          - create
-          - delete
-          - get
-          - list
-          - patch
-          - update
-          - watch
-        - apiGroups:
-          - nac.oadp.openshift.io
-          resources:
-          - nonadminbackups/finalizers
-          verbs:
-          - update
-        - apiGroups:
-          - nac.oadp.openshift.io
-          resources:
-          - nonadminbackups/status
-          verbs:
-          - get
-          - patch
-          - update
-        - apiGroups:
-          - velero.io
-          resources:
-          - backups
-          verbs:
-          - create
-          - get
-          - list
-          - patch
-          - update
-          - watch
-        serviceAccountName: openshift-adp-non-admin-controller-manager
       - rules:
         - apiGroups:
           - build.openshift.io

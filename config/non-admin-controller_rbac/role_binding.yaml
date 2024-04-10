@@ -3,17 +3,17 @@ kind: ClusterRoleBinding
 metadata:
   labels:
     app.kubernetes.io/name: clusterrolebinding
-    app.kubernetes.io/instance: non-admin-manager-rolebinding
+    app.kubernetes.io/instance: non-admin-controller-rolebinding
     app.kubernetes.io/component: rbac
     app.kubernetes.io/created-by: oadp-operator
     app.kubernetes.io/part-of: oadp-operator
     app.kubernetes.io/managed-by: kustomize
-  name: non-admin-manager-rolebinding
+  name: non-admin-controller-rolebinding
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: non-admin-manager-role
+  name: non-admin-controller-role
 subjects:
 - kind: ServiceAccount
-  name: non-admin-controller-manager
+  name: non-admin-controller
   namespace: system
