@@ -417,7 +417,9 @@ spec:
         displayName: Expiration
         path: expiration
       version: v1
-    - kind: NonAdminBackup
+    - description: NonAdminBackup is the Schema for the nonadminbackups API
+      displayName: Non Admin Backup
+      kind: NonAdminBackup
       name: nonadminbackups.nac.oadp.openshift.io
       version: v1alpha1
     - description: A velero pod volume backup is a restic backup of persistent volumes
