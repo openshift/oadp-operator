@@ -165,7 +165,9 @@ var _ = ginkgov2.Describe("VM backup and restore tests", ginkgov2.Ordered, func(
 
 		url, err := getLatestCirrosImageURL()
 		gomega.Expect(err).To(gomega.BeNil())
-		err = v.EnsureDataVolumeFromUrl("openshift-cnv", "cirros-dv", url, "128Mi", 5*time.Minute)
+		err = v.EnsureDataVolumeFromUrl("openshift-virtualization-os-images", "cirros", url, "128Mi", 5*time.Minute)
+		gomega.Expect(err).To(gomega.BeNil())
+		err = v.EnsureDataSourceFromPvc("openshift-virtualization-os-images", "cirros", "openshift-virtualization-os-images", "cirros")
 		gomega.Expect(err).To(gomega.BeNil())
 
 		dpaCR.CustomResource.Spec.Configuration.Velero.DefaultPlugins = append(dpaCR.CustomResource.Spec.Configuration.Velero.DefaultPlugins, v1alpha1.DefaultPluginKubeVirt)
@@ -173,6 +175,7 @@ var _ = ginkgov2.Describe("VM backup and restore tests", ginkgov2.Ordered, func(
 
 	var _ = ginkgov2.AfterAll(func() {
 		v.RemoveDataVolume("openshift-cnv", "cirros-dv", 2*time.Minute)
+		v.RemoveDataSource("openshift-virtualization-os-images", "cirros")
 
 		if v != nil && wasInstalledFromTest {
 			v.EnsureVirtRemoval()
@@ -189,8 +192,8 @@ var _ = ginkgov2.Describe("VM backup and restore tests", ginkgov2.Ordered, func(
 		},
 
 		ginkgov2.Entry("no-application CSI datamover backup and restore, CirrOS VM", ginkgov2.Label("virt"), VmBackupRestoreCase{
-			Source:          "cirros-dv",
-			SourceNamespace: "openshift-cnv",
+			Template:  "./sample-applications/virtual-machines/cirros-test/cirros-test.yaml",
+			InitDelay: 2 * time.Minute,
 			BackupRestoreCase: BackupRestoreCase{
 				Namespace:         "cirros-test",
 				Name:              "cirros-test",

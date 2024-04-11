@@ -21,6 +21,12 @@ var dataVolumeGVK = schema.GroupVersionResource{
 	Version:  "v1beta1",
 }
 
+var dataSourceGVK = schema.GroupVersionResource{
+	Group:    "cdi.kubevirt.io",
+	Resource: "datasources",
+	Version:  "v1beta1",
+}
+
 func (v *VirtOperator) deletePvc(namespace, name string) error {
 	return v.Clientset.CoreV1().PersistentVolumeClaims(namespace).Delete(context.Background(), name, metav1.DeleteOptions{})
 }
@@ -244,6 +250,45 @@ func (v *VirtOperator) RemoveDataVolume(namespace, name string, timeout time.Dur
 	}
 
 	log.Printf("DataVolume %s/%s cleaned up", namespace, name)
+
+	return nil
+}
+
+func (v *VirtOperator) RemoveDataSource(namespace, name string) error {
+	return v.Dynamic.Resource(dataSourceGVK).Namespace(namespace).Delete(context.Background(), name, metav1.DeleteOptions{})
+}
+
+func (v *VirtOperator) EnsureDataSourceFromPvc(pvcNamespace, pvcName, dsNamespace, dsName string) error {
+	unstructuredDataSource := unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "cdi.kubevirt.io/v1beta1",
+			"kind":       "DataSource",
+			"metadata": map[string]interface{}{
+				"name":      dsName,
+				"namespace": dsNamespace,
+			},
+			"spec": map[string]interface{}{
+				"source": map[string]interface{}{
+					"pvc": map[string]interface{}{
+						"name":      pvcName,
+						"namespace": pvcNamespace,
+					},
+				},
+			},
+		},
+	}
+
+	_, err := v.Dynamic.Resource(dataSourceGVK).Namespace(dsNamespace).Create(context.Background(), &unstructuredDataSource, metav1.CreateOptions{})
+	if err != nil {
+		if apierrors.IsAlreadyExists(err) {
+			return nil
+		}
+		if strings.Contains(err.Error(), "already exists") {
+			return nil
+		}
+		log.Printf("Error creating DataSource: %v", err)
+		return err
+	}
 
 	return nil
 }
