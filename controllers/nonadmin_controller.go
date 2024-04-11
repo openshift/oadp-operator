@@ -145,6 +145,11 @@ func ensureRequiredLabels(deploymentObject *appsv1.Deployment) {
 }
 
 func ensureRequiredSpecs(deploymentObject *appsv1.Deployment, image string) {
+	namespaceEnvVar := corev1.EnvVar{
+		Name:  "WATCH_NAMESPACE",
+		Value: deploymentObject.Namespace,
+	}
+
 	deploymentObject.Spec.Replicas = pointer.Int32(1)
 	deploymentObject.Spec.Selector = &metav1.LabelSelector{
 		MatchLabels: controlPlaneLabel,
@@ -161,12 +166,14 @@ func ensureRequiredSpecs(deploymentObject *appsv1.Deployment, image string) {
 			Name:            nonAdminObjectName,
 			Image:           image,
 			ImagePullPolicy: corev1.PullAlways,
+			Env:             []corev1.EnvVar{namespaceEnvVar},
 		}}
 	} else {
 		for _, container := range deploymentObject.Spec.Template.Spec.Containers {
 			if container.Name == nonAdminObjectName {
 				container.Image = image
 				container.ImagePullPolicy = corev1.PullAlways
+				container.Env = []corev1.EnvVar{namespaceEnvVar}
 				break
 			}
 		}
