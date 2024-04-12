@@ -23,6 +23,9 @@ items:
                   storage: 128Mi
       running: true
       template:
+        metadata:
+          annotations:
+            vm.kubevirt.io/flavor: tiny
         spec:
           domain:
             devices:

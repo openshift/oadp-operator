@@ -66,10 +66,10 @@ func (v *VirtOperator) checkDataVolumeReady(namespace, name string) bool {
 	return phase == "Succeeded"
 }
 
-// Create a DataVolume, accepting an unstructured source specification.
+// Create a DataVolume and ask it to fill itself with the contents of the given URL.
 // Also add annotations to immediately create and bind to a PersistentVolume,
 // and to avoid deleting the DataVolume after the PVC is all ready.
-func (v *VirtOperator) createDataVolumeFromSource(namespace, name, size string, source map[string]interface{}) error {
+func (v *VirtOperator) createDataVolumeFromUrl(namespace, name, url, size string) error {
 	unstructuredDataVolume := unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "cdi.kubevirt.io/v1beta1",
@@ -83,7 +83,11 @@ func (v *VirtOperator) createDataVolumeFromSource(namespace, name, size string, 
 				},
 			},
 			"spec": map[string]interface{}{
-				"source": source,
+				"source": map[string]interface{}{
+					"http": map[string]interface{}{
+						"url": url,
+					},
+				},
 				"pvc": map[string]interface{}{
 					"accessModes": []string{
 						"ReadWriteOnce",
@@ -111,16 +115,6 @@ func (v *VirtOperator) createDataVolumeFromSource(namespace, name, size string, 
 	}
 
 	return nil
-}
-
-// Create a DataVolume and ask it to fill itself with the contents of the given URL.
-func (v *VirtOperator) createDataVolumeFromUrl(namespace, name, url, size string) error {
-	urlSource := map[string]interface{}{
-		"http": map[string]interface{}{
-			"url": url,
-		},
-	}
-	return v.createDataVolumeFromSource(namespace, name, size, urlSource)
 }
 
 // Create a DataVolume and wait for it to be ready.
@@ -173,27 +167,29 @@ func (v *VirtOperator) RemoveDataSource(namespace, name string) error {
 	return v.Dynamic.Resource(dataSourceGVK).Namespace(namespace).Delete(context.Background(), name, metav1.DeleteOptions{})
 }
 
-func (v *VirtOperator) EnsureDataSourceFromPvc(pvcNamespace, pvcName, dsNamespace, dsName string) error {
+// Create a DataSource from an existing PVC, with the same name and namespace.
+// This way, the PVC can be specified as a sourceRef in the VM spec.
+func (v *VirtOperator) CreateDataSourceFromPvc(namespace, name string) error {
 	unstructuredDataSource := unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "cdi.kubevirt.io/v1beta1",
 			"kind":       "DataSource",
 			"metadata": map[string]interface{}{
-				"name":      dsName,
-				"namespace": dsNamespace,
+				"name":      name,
+				"namespace": namespace,
 			},
 			"spec": map[string]interface{}{
 				"source": map[string]interface{}{
 					"pvc": map[string]interface{}{
-						"name":      pvcName,
-						"namespace": pvcNamespace,
+						"name":      name,
+						"namespace": namespace,
 					},
 				},
 			},
 		},
 	}
 
-	_, err := v.Dynamic.Resource(dataSourceGVK).Namespace(dsNamespace).Create(context.Background(), &unstructuredDataSource, metav1.CreateOptions{})
+	_, err := v.Dynamic.Resource(dataSourceGVK).Namespace(namespace).Create(context.Background(), &unstructuredDataSource, metav1.CreateOptions{})
 	if err != nil {
 		if apierrors.IsAlreadyExists(err) {
 			return nil
