@@ -14,25 +14,25 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
-var dataVolumeGVK = schema.GroupVersionResource{
+var dataVolumeGVR = schema.GroupVersionResource{
 	Group:    "cdi.kubevirt.io",
 	Resource: "datavolumes",
 	Version:  "v1beta1",
 }
 
-var dataSourceGVK = schema.GroupVersionResource{
+var dataSourceGVR = schema.GroupVersionResource{
 	Group:    "cdi.kubevirt.io",
 	Resource: "datasources",
 	Version:  "v1beta1",
 }
 
 func (v *VirtOperator) getDataVolume(namespace, name string) (*unstructured.Unstructured, error) {
-	unstructuredDataVolume, err := v.Dynamic.Resource(dataVolumeGVK).Namespace(namespace).Get(context.Background(), name, metav1.GetOptions{})
+	unstructuredDataVolume, err := v.Dynamic.Resource(dataVolumeGVR).Namespace(namespace).Get(context.Background(), name, metav1.GetOptions{})
 	return unstructuredDataVolume, err
 }
 
 func (v *VirtOperator) deleteDataVolume(namespace, name string) error {
-	return v.Dynamic.Resource(dataVolumeGVK).Namespace(namespace).Delete(context.Background(), name, metav1.DeleteOptions{})
+	return v.Dynamic.Resource(dataVolumeGVR).Namespace(namespace).Delete(context.Background(), name, metav1.DeleteOptions{})
 }
 
 func (v *VirtOperator) checkDataVolumeExists(namespace, name string) bool {
@@ -102,7 +102,7 @@ func (v *VirtOperator) createDataVolumeFromUrl(namespace, name, url, size string
 		},
 	}
 
-	_, err := v.Dynamic.Resource(dataVolumeGVK).Namespace(namespace).Create(context.Background(), &unstructuredDataVolume, metav1.CreateOptions{})
+	_, err := v.Dynamic.Resource(dataVolumeGVR).Namespace(namespace).Create(context.Background(), &unstructuredDataVolume, metav1.CreateOptions{})
 	if err != nil {
 		if apierrors.IsAlreadyExists(err) {
 			return nil
@@ -164,7 +164,7 @@ func (v *VirtOperator) RemoveDataVolume(namespace, name string, timeout time.Dur
 }
 
 func (v *VirtOperator) RemoveDataSource(namespace, name string) error {
-	return v.Dynamic.Resource(dataSourceGVK).Namespace(namespace).Delete(context.Background(), name, metav1.DeleteOptions{})
+	return v.Dynamic.Resource(dataSourceGVR).Namespace(namespace).Delete(context.Background(), name, metav1.DeleteOptions{})
 }
 
 // Create a DataSource from an existing PVC, with the same name and namespace.
@@ -189,7 +189,7 @@ func (v *VirtOperator) CreateDataSourceFromPvc(namespace, name string) error {
 		},
 	}
 
-	_, err := v.Dynamic.Resource(dataSourceGVK).Namespace(namespace).Create(context.Background(), &unstructuredDataSource, metav1.CreateOptions{})
+	_, err := v.Dynamic.Resource(dataSourceGVR).Namespace(namespace).Create(context.Background(), &unstructuredDataSource, metav1.CreateOptions{})
 	if err != nil {
 		if apierrors.IsAlreadyExists(err) {
 			return nil
