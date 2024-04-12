@@ -151,7 +151,7 @@ var _ = ginkgov2.Describe("VM backup and restore tests", ginkgov2.Ordered, func(
 
 		ginkgov2.Entry("no-application CSI datamover backup and restore, CirrOS VM", ginkgov2.Label("virt"), VmBackupRestoreCase{
 			Template:  "./sample-applications/virtual-machines/cirros-test/cirros-test.yaml",
-			InitDelay: 2 * time.Minute,
+			InitDelay: 2 * time.Minute, // Just long enough to get to login prompt, VM is marked running while kernel messages are still scrolling by
 			BackupRestoreCase: BackupRestoreCase{
 				Namespace:         "cirros-test",
 				Name:              "cirros-test",
@@ -163,7 +163,7 @@ var _ = ginkgov2.Describe("VM backup and restore tests", ginkgov2.Ordered, func(
 
 		ginkgov2.Entry("no-application CSI backup and restore, CirrOS VM", ginkgov2.Label("virt"), VmBackupRestoreCase{
 			Template:  "./sample-applications/virtual-machines/cirros-test/cirros-test.yaml",
-			InitDelay: 2 * time.Minute,
+			InitDelay: 2 * time.Minute, // Just long enough to get to login prompt, VM is marked running while kernel messages are still scrolling by
 			BackupRestoreCase: BackupRestoreCase{
 				Namespace:         "cirros-test",
 				Name:              "cirros-test",
@@ -175,7 +175,7 @@ var _ = ginkgov2.Describe("VM backup and restore tests", ginkgov2.Ordered, func(
 
 		ginkgov2.Entry("todolist CSI backup and restore, in a Fedora VM", ginkgov2.Label("virt"), VmBackupRestoreCase{
 			Template:  "./sample-applications/virtual-machines/fedora-todolist/fedora-todolist.yaml",
-			InitDelay: 3 * time.Minute,
+			InitDelay: 3 * time.Minute, // For cloud-init
 			BackupRestoreCase: BackupRestoreCase{
 				Namespace:         "mysql-persistent",
 				Name:              "fedora-todolist",
