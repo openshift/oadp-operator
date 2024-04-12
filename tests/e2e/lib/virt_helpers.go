@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -596,11 +595,6 @@ func (v *VirtOperator) checkVmExists(namespace, name string) bool {
 	return err == nil
 }
 
-func (v *VirtOperator) checkVmStatus(namespace, name, expectedStatus string) bool {
-	status, _ := v.GetVmStatus(namespace, name)
-	return status == expectedStatus
-}
-
 func (v *VirtOperator) removeVm(namespace, name string) error {
 	if err := v.Dynamic.Resource(virtualMachineGvr).Namespace(namespace).Delete(context.TODO(), name, metav1.DeleteOptions{}); err != nil {
 		if !apierrors.IsNotFound(err) {
@@ -610,18 +604,6 @@ func (v *VirtOperator) removeVm(namespace, name string) error {
 	}
 
 	return nil
-}
-
-func (v *VirtOperator) ensureVm(namespace, name string, timeout time.Duration) error {
-	if err := InstallApplication(v.Client, filepath.Join("sample-applications", "virtual-machines", namespace, name+".yaml")); err != nil {
-		return fmt.Errorf("failed to create VM %s/%s: %w", namespace, name, err)
-	}
-
-	err := wait.PollImmediate(5*time.Second, timeout, func() (bool, error) {
-		return v.checkVmStatus(namespace, name, "Running"), nil
-	})
-
-	return err
 }
 
 func (v *VirtOperator) ensureVmRemoval(namespace, name string, timeout time.Duration) error {
@@ -761,12 +743,6 @@ func (v *VirtOperator) EnsureVirtRemoval() error {
 	log.Printf("Deleting namespace %s", v.Namespace)
 
 	return nil
-}
-
-// Create a virtual machine from an existing PVC.
-func (v *VirtOperator) CreateVm(namespace, name string, timeout time.Duration) error {
-	log.Printf("Creating virtual machine %s/%s", namespace, name)
-	return v.ensureVm(namespace, name, timeout)
 }
 
 // Remove a virtual machine, but leave its data volume.
