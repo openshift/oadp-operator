@@ -39,10 +39,8 @@ func getLatestCirrosImageURL() (string, error) {
 
 type VmBackupRestoreCase struct {
 	BackupRestoreCase
-	Template        string
-	InitDelay       time.Duration
-	Source          string
-	SourceNamespace string
+	Template  string
+	InitDelay time.Duration
 }
 
 func runVmBackupAndRestore(brCase VmBackupRestoreCase, expectedErr error, updateLastBRcase func(brCase VmBackupRestoreCase), updateLastInstallTime func(), v *lib.VirtOperator) {
