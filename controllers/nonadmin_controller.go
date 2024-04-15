@@ -96,10 +96,7 @@ func (r *DPAReconciler) ReconcileNonAdminController(log logr.Logger) (bool, erro
 		r.Client,
 		nonAdminDeployment,
 		func() error {
-			err := r.buildNonAdminDeployment(nonAdminDeployment, &dpa)
-			if err != nil {
-				return err
-			}
+			r.buildNonAdminDeployment(nonAdminDeployment, &dpa)
 
 			// Setting controller owner reference on the non admin controller deployment
 			return controllerutil.SetControllerReference(&dpa, nonAdminDeployment, r.Scheme)
@@ -120,15 +117,11 @@ func (r *DPAReconciler) ReconcileNonAdminController(log logr.Logger) (bool, erro
 	return true, nil
 }
 
-func (r *DPAReconciler) buildNonAdminDeployment(deploymentObject *appsv1.Deployment, dpa *oadpv1alpha1.DataProtectionApplication) error {
+func (r *DPAReconciler) buildNonAdminDeployment(deploymentObject *appsv1.Deployment, dpa *oadpv1alpha1.DataProtectionApplication) {
 	// TODO https://github.com/openshift/oadp-operator/pull/1316
 	nonAdminImage := r.getNonAdminImage(dpa)
-	if len(nonAdminImage) == 0 {
-		return fmt.Errorf("no Non Admin Controller image found in RELATED_IMAGE_NON_ADMIN_CONTROLLER environment variable or unsupportedOverrides")
-	}
 	ensureRequiredLabels(deploymentObject)
 	ensureRequiredSpecs(deploymentObject, nonAdminImage)
-	return nil
 }
 
 func ensureRequiredLabels(deploymentObject *appsv1.Deployment) {
@@ -201,5 +194,10 @@ func (r *DPAReconciler) getNonAdminImage(dpa *oadpv1alpha1.DataProtectionApplica
 	}
 
 	environmentVariable := os.Getenv("RELATED_IMAGE_NON_ADMIN_CONTROLLER")
-	return environmentVariable
+	if environmentVariable != "" {
+		return environmentVariable
+	}
+
+	// TODO https://github.com/openshift/oadp-operator/issues/1379
+	return "quay.io/konveyor/oadp-non-admin:latest"
 }

@@ -202,29 +202,13 @@ var _ = ginkgo.Describe("Test ReconcileNonAdminController function", func() {
 			nonAdminEnabled: false,
 		}),
 	)
-
-	ginkgo.DescribeTable("Reconcile is false",
-		func(scenario ReconcileNonAdminControllerScenario) {
-			runReconcileNonAdminControllerTest(scenario, updateTestScenario, ctx, "")
-		},
-		ginkgo.Entry("Should error out without non admin image", ReconcileNonAdminControllerScenario{
-			namespace:       "test-a",
-			dpa:             "test-a-dpa",
-			errMessage:      "no Non Admin Controller image found",
-			nonAdminEnabled: true,
-		}),
-	)
 })
 
 func TestDPAReconcilerBuildNonAdminDeployment(t *testing.T) {
 	r := &DPAReconciler{}
 	t.Setenv("RELATED_IMAGE_NON_ADMIN_CONTROLLER", defaultNonAdminImage)
 	deployment := createTestDeployment("test-build-deployment")
-	err := r.buildNonAdminDeployment(deployment, &oadpv1alpha1.DataProtectionApplication{})
-	if err != nil {
-		t.Errorf("An error occurred while building deployment: %s", err)
-		return
-	}
+	r.buildNonAdminDeployment(deployment, &oadpv1alpha1.DataProtectionApplication{})
 	labels := deployment.GetLabels()
 	if labels["test"] != "test" {
 		t.Errorf("Deployment label 'test' has wrong value: %v", labels["test"])
@@ -329,6 +313,7 @@ func TestDPAReconcilerGetNonAdminImage(t *testing.T) {
 		{
 			name:  "Get non admin image from environment variable with default value",
 			image: defaultNonAdminImage,
+			env:   defaultNonAdminImage,
 			dpa:   &oadpv1alpha1.DataProtectionApplication{},
 		},
 		{
@@ -348,13 +333,16 @@ func TestDPAReconcilerGetNonAdminImage(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:  "Get non admin image from fallback",
+			image: defaultNonAdminImage,
+			dpa:   &oadpv1alpha1.DataProtectionApplication{},
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			if len(test.env) > 0 {
 				t.Setenv("RELATED_IMAGE_NON_ADMIN_CONTROLLER", test.env)
-			} else {
-				t.Setenv("RELATED_IMAGE_NON_ADMIN_CONTROLLER", defaultNonAdminImage)
 			}
 			image := r.getNonAdminImage(test.dpa)
 			if image != test.image {
