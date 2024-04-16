@@ -325,7 +325,7 @@ func AreVeleroPodsRunning(c *kubernetes.Clientset, namespace string) wait.Condit
 }
 
 func GetOpenShiftADPLogs(c *kubernetes.Clientset, namespace string) (string, error) {
-	return GetPodWithPrefixContainerLogs(c, namespace, "openshift-adp-controller-manager-", "manager")
+	return GetPodWithPrefixContainerLogs(c, namespace, common.OADPOperatorPrefix+"controller-manager-", "manager")
 }
 
 // Returns logs from velero container on velero pod

@@ -5,6 +5,23 @@ metadata:
     alm-examples: |-
       [
         {
+          "apiVersion": "nac.oadp.openshift.io/v1alpha1",
+          "kind": "NonAdminBackup",
+          "metadata": {
+            "labels": {
+              "app.kubernetes.io/created-by": "oadp-operator",
+              "app.kubernetes.io/instance": "nonadminbackup-sample",
+              "app.kubernetes.io/managed-by": "kustomize",
+              "app.kubernetes.io/name": "nonadminbackup",
+              "app.kubernetes.io/part-of": "oadp-operator"
+            },
+            "name": "nonadminbackup-sample"
+          },
+          "spec": {
+            "backupSpec": {}
+          }
+        },
+        {
           "apiVersion": "oadp.openshift.io/v1alpha1",
           "kind": "DataProtectionApplication",
           "metadata": {
@@ -400,6 +417,11 @@ spec:
         displayName: Expiration
         path: expiration
       version: v1
+    - description: NonAdminBackup is the Schema for the nonadminbackups API
+      displayName: Non Admin Backup
+      kind: NonAdminBackup
+      name: nonadminbackups.nac.oadp.openshift.io
+      version: v1alpha1
     - description: A velero pod volume backup is a restic backup of persistent volumes
         attached to a running pod.
       displayName: PodVolumeBackup
@@ -580,6 +602,45 @@ spec:
   install:
     spec:
       clusterPermissions:
+      - rules:
+        - apiGroups:
+          - nac.oadp.openshift.io
+          resources:
+          - nonadminbackups
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - nac.oadp.openshift.io
+          resources:
+          - nonadminbackups/finalizers
+          verbs:
+          - update
+        - apiGroups:
+          - nac.oadp.openshift.io
+          resources:
+          - nonadminbackups/status
+          verbs:
+          - get
+          - patch
+          - update
+        - apiGroups:
+          - velero.io
+          resources:
+          - backups
+          verbs:
+          - create
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        serviceAccountName: non-admin-controller
       - rules:
         - apiGroups:
           - config.openshift.io
@@ -861,6 +922,8 @@ spec:
                   value: quay.io/konveyor/kubevirt-velero-plugin:v0.2.0
                 - name: RELATED_IMAGE_MUSTGATHER
                   value: registry.redhat.io/oadp/oadp-mustgather-rhel8:v1.2
+                - name: RELATED_IMAGE_NON_ADMIN_CONTROLLER
+                  value: quay.io/konveyor/oadp-non-admin:latest
                 image: quay.io/konveyor/oadp-operator:latest
                 imagePullPolicy: Always
                 livenessProbe:
@@ -1012,4 +1075,6 @@ spec:
     name: kubevirt-velero-plugin
   - image: registry.redhat.io/oadp/oadp-mustgather-rhel8:v1.2
     name: mustgather
+  - image: quay.io/konveyor/oadp-non-admin:latest
+    name: non-admin-controller
   version: 99.0.0

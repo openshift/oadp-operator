@@ -12,4 +12,5 @@ resources:
 - schedule.yaml
 - serverstatusrequest.yaml
 - volumesnapshotlocation.yaml
+- nac_v1alpha1_nonadminbackup.yaml
 #+kubebuilder:scaffold:manifestskustomizesamples
