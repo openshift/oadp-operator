@@ -561,15 +561,7 @@ endif
 define run-in-temp
 @{ \
 set -e ;\
-TEMP=$$(mktemp -d) ;\
-echo $$TEMP ;\
-if [ -z "$$TEMP" ];then (echo "temporary dir is empty, aborting" && exit 1);fi ;\
-cp -r . $$TEMP ;\
-cd $$TEMP ;\
-$(1) || { EXIT_CODE=1; echo "command '$(1)' failed";} ;\
-if [ "$(2)" = "compare" ];then cd -;\
-	diff -ruN . $$TEMP --exclude=.git && echo "code is up to date" || { EXIT_CODE=1; echo "code is out of date, run '$(1)' to update it";};fi ;\
-chmod -R 777 $$TEMP && rm -rf $$TEMP ;\
+./hack/run_in_temp.sh $(1) || { EXIT_CODE=1; echo "command '$(1)' failed";} ;\
 exit $$EXIT_CODE ;\
 }
 endef
