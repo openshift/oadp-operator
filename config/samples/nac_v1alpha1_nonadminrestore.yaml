@@ -1,0 +1,12 @@
+apiVersion: nac.oadp.openshift.io/v1alpha1
+kind: NonAdminRestore
+metadata:
+  labels:
+    app.kubernetes.io/name: nonadminrestore
+    app.kubernetes.io/instance: nonadminrestore-sample
+    app.kubernetes.io/part-of: oadp-operator
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: oadp-operator
+  name: nonadminrestore-sample
+spec:
+  # TODO(user): Add fields here

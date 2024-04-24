@@ -22,6 +22,21 @@ metadata:
           }
         },
         {
+          "apiVersion": "nac.oadp.openshift.io/v1alpha1",
+          "kind": "NonAdminRestore",
+          "metadata": {
+            "labels": {
+              "app.kubernetes.io/created-by": "oadp-operator",
+              "app.kubernetes.io/instance": "nonadminrestore-sample",
+              "app.kubernetes.io/managed-by": "kustomize",
+              "app.kubernetes.io/name": "nonadminrestore",
+              "app.kubernetes.io/part-of": "oadp-operator"
+            },
+            "name": "nonadminrestore-sample"
+          },
+          "spec": null
+        },
+        {
           "apiVersion": "oadp.openshift.io/v1alpha1",
           "kind": "DataProtectionApplication",
           "metadata": {
@@ -422,6 +437,9 @@ spec:
       kind: NonAdminBackup
       name: nonadminbackups.nac.oadp.openshift.io
       version: v1alpha1
+    - kind: NonAdminRestore
+      name: nonadminrestores.nac.oadp.openshift.io
+      version: v1alpha1
     - description: A velero pod volume backup is a restic backup of persistent volumes
         attached to a running pod.
       displayName: PodVolumeBackup
@@ -625,6 +643,32 @@ spec:
           - nac.oadp.openshift.io
           resources:
           - nonadminbackups/status
+          verbs:
+          - get
+          - patch
+          - update
+        - apiGroups:
+          - nac.oadp.openshift.io
+          resources:
+          - nonadminrestores
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - nac.oadp.openshift.io
+          resources:
+          - nonadminrestores/finalizers
+          verbs:
+          - update
+        - apiGroups:
+          - nac.oadp.openshift.io
+          resources:
+          - nonadminrestores/status
           verbs:
           - get
           - patch

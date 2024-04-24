@@ -31,6 +31,32 @@ rules:
   - patch
   - update
 - apiGroups:
+  - nac.oadp.openshift.io
+  resources:
+  - nonadminrestores
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - nac.oadp.openshift.io
+  resources:
+  - nonadminrestores/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - nac.oadp.openshift.io
+  resources:
+  - nonadminrestores/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
   - velero.io
   resources:
   - backups
