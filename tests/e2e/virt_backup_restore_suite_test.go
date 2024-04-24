@@ -39,17 +39,12 @@ func getLatestCirrosImageURL() (string, error) {
 
 type VmBackupRestoreCase struct {
 	BackupRestoreCase
-	Template        string
-	InitDelay       time.Duration
-	Source          string
-	SourceNamespace string
+	Template  string
+	InitDelay time.Duration
 }
 
 func runVmBackupAndRestore(brCase VmBackupRestoreCase, expectedErr error, updateLastBRcase func(brCase VmBackupRestoreCase), updateLastInstallTime func(), v *lib.VirtOperator) {
 	updateLastBRcase(brCase)
-
-	diskName := brCase.Name + "-disk"
-	vmName := brCase.Name + "-vm"
 
 	// Create DPA
 	backupName, restoreName := prepareBackupAndRestore(brCase.BackupRestoreCase, func() {})
@@ -57,50 +52,20 @@ func runVmBackupAndRestore(brCase VmBackupRestoreCase, expectedErr error, update
 	err := lib.CreateNamespace(v.Clientset, brCase.Namespace)
 	gomega.Expect(err).To(gomega.BeNil())
 
-	if brCase.Template == "" { // No template: CirrOS test
-		// Create a standalone VM disk. This defaults to cloning the CirrOS image.
-		// This uses a DataVolume so import and clone progress can be monitored.
-		// Behavioral notes: CDI will garbage collect DataVolumes if they are not
-		// attached to anything, so this disk needs to include the annotation
-		// storage.deleteAfterCompletion in order to keep it around long enough to
-		// attach to a VM. CDI also waits until the DataVolume is attached to
-		// something before running whatever import process it has been asked to
-		// run, so this disk also needs the storage.bind.immediate.requested
-		// annotation to get it to start the cloning process.
-		err = v.CreateDiskFromYaml(brCase.Namespace, diskName, 5*time.Minute)
-		gomega.Expect(err).To(gomega.BeNil())
-
-		err = v.CreateVm(brCase.Namespace, vmName, 5*time.Minute)
-		gomega.Expect(err).To(gomega.BeNil())
-
-		// Remove the Data Volume, but keep the PVC attached to the VM. The
-		// DataVolume must be removed before backing up, because otherwise the
-		// restore process might try to follow the instructions in the spec. For
-		// example, a DataVolume that lists a cloned PVC will get restored in the
-		// same state, and attempt to clone the PVC again after restore. The
-		// DataVolume also needs to be detached from the VM, so that the VM restore
-		// does not try to use the DataVolume that was deleted.
-		err = v.DetachPvc(brCase.Namespace, diskName, 2*time.Minute)
-		gomega.Expect(err).To(gomega.BeNil())
-		err = v.RemoveDataVolume(brCase.Namespace, diskName, 2*time.Minute)
-		gomega.Expect(err).To(gomega.BeNil())
-
-	} else { // Fedora test
-		err = lib.InstallApplication(v.Client, brCase.Template)
-		if err != nil {
-			fmt.Printf("Failed to install VM template %s: %v", brCase.Template, err)
-		}
-		gomega.Expect(err).To(gomega.BeNil())
-
-		// Wait for VM to start, then give some time for cloud-init to run.
-		// Afterward, run through the standard application verification to make sure
-		// the application itself is working correctly.
-		err = wait.PollImmediate(10*time.Second, 10*time.Minute, func() (bool, error) {
-			status, err := v.GetVmStatus(brCase.Namespace, brCase.Name)
-			return status == "Running", err
-		})
-		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+	err = lib.InstallApplication(v.Client, brCase.Template)
+	if err != nil {
+		fmt.Printf("Failed to install VM template %s: %v", brCase.Template, err)
 	}
+	gomega.Expect(err).To(gomega.BeNil())
+
+	// Wait for VM to start, then give some time for cloud-init to run.
+	// Afterward, run through the standard application verification to make sure
+	// the application itself is working correctly.
+	err = wait.PollImmediate(10*time.Second, 10*time.Minute, func() (bool, error) {
+		status, err := v.GetVmStatus(brCase.Namespace, brCase.Name)
+		return status == "Running", err
+	})
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 	// TODO: find a better way to check for clout-init completion
 	if brCase.InitDelay > 0*time.Second {
@@ -112,15 +77,8 @@ func runVmBackupAndRestore(brCase VmBackupRestoreCase, expectedErr error, update
 	nsRequiresResticDCWorkaround := runBackup(brCase.BackupRestoreCase, backupName)
 
 	// Delete everything in test namespace
-	if brCase.Template == "" { // No template: CirrOS test
-		err = v.RemoveVm(brCase.Namespace, vmName, 2*time.Minute)
-		gomega.Expect(err).To(gomega.BeNil())
-		err = v.RemovePvc(brCase.Namespace, diskName, 2*time.Minute)
-		gomega.Expect(err).To(gomega.BeNil())
-	} else { // Fedora test
-		err = v.RemoveVm(brCase.Namespace, brCase.Name, 2*time.Minute)
-		gomega.Expect(err).To(gomega.BeNil())
-	}
+	err = v.RemoveVm(brCase.Namespace, brCase.Name, 2*time.Minute)
+	gomega.Expect(err).To(gomega.BeNil())
 	err = lib.DeleteNamespace(v.Clientset, brCase.Namespace)
 	gomega.Expect(err).To(gomega.BeNil())
 	gomega.Eventually(lib.IsNamespaceDeleted(kubernetesClientForSuiteRun, brCase.Namespace), timeoutMultiplier*time.Minute*5, time.Second*5).Should(gomega.BeTrue())
@@ -165,14 +123,17 @@ var _ = ginkgov2.Describe("VM backup and restore tests", ginkgov2.Ordered, func(
 
 		url, err := getLatestCirrosImageURL()
 		gomega.Expect(err).To(gomega.BeNil())
-		err = v.EnsureDataVolumeFromUrl("openshift-cnv", "cirros-dv", url, "128Mi", 5*time.Minute)
+		err = v.EnsureDataVolumeFromUrl("openshift-virtualization-os-images", "cirros", url, "128Mi", 5*time.Minute)
+		gomega.Expect(err).To(gomega.BeNil())
+		err = v.CreateDataSourceFromPvc("openshift-virtualization-os-images", "cirros")
 		gomega.Expect(err).To(gomega.BeNil())
 
 		dpaCR.CustomResource.Spec.Configuration.Velero.DefaultPlugins = append(dpaCR.CustomResource.Spec.Configuration.Velero.DefaultPlugins, v1alpha1.DefaultPluginKubeVirt)
 	})
 
 	var _ = ginkgov2.AfterAll(func() {
-		v.RemoveDataVolume("openshift-cnv", "cirros-dv", 2*time.Minute)
+		v.RemoveDataSource("openshift-virtualization-os-images", "cirros")
+		v.RemoveDataVolume("openshift-virtualization-os-images", "cirros", 2*time.Minute)
 
 		if v != nil && wasInstalledFromTest {
 			v.EnsureVirtRemoval()
@@ -189,8 +150,8 @@ var _ = ginkgov2.Describe("VM backup and restore tests", ginkgov2.Ordered, func(
 		},
 
 		ginkgov2.Entry("no-application CSI datamover backup and restore, CirrOS VM", ginkgov2.Label("virt"), VmBackupRestoreCase{
-			Source:          "cirros-dv",
-			SourceNamespace: "openshift-cnv",
+			Template:  "./sample-applications/virtual-machines/cirros-test/cirros-test.yaml",
+			InitDelay: 2 * time.Minute, // Just long enough to get to login prompt, VM is marked running while kernel messages are still scrolling by
 			BackupRestoreCase: BackupRestoreCase{
 				Namespace:         "cirros-test",
 				Name:              "cirros-test",
@@ -200,9 +161,21 @@ var _ = ginkgov2.Describe("VM backup and restore tests", ginkgov2.Ordered, func(
 			},
 		}, nil),
 
+		ginkgov2.Entry("no-application CSI backup and restore, CirrOS VM", ginkgov2.Label("virt"), VmBackupRestoreCase{
+			Template:  "./sample-applications/virtual-machines/cirros-test/cirros-test.yaml",
+			InitDelay: 2 * time.Minute, // Just long enough to get to login prompt, VM is marked running while kernel messages are still scrolling by
+			BackupRestoreCase: BackupRestoreCase{
+				Namespace:         "cirros-test",
+				Name:              "cirros-test",
+				SkipVerifyLogs:    true,
+				BackupRestoreType: lib.CSI,
+				BackupTimeout:     20 * time.Minute,
+			},
+		}, nil),
+
 		ginkgov2.Entry("todolist CSI backup and restore, in a Fedora VM", ginkgov2.Label("virt"), VmBackupRestoreCase{
 			Template:  "./sample-applications/virtual-machines/fedora-todolist/fedora-todolist.yaml",
-			InitDelay: 3 * time.Minute,
+			InitDelay: 3 * time.Minute, // For cloud-init
 			BackupRestoreCase: BackupRestoreCase{
 				Namespace:         "mysql-persistent",
 				Name:              "fedora-todolist",
