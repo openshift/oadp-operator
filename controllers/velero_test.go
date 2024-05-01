@@ -21,6 +21,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/yaml"
 
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	oadpclient "github.com/openshift/oadp-operator/pkg/client"
@@ -4107,6 +4108,426 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 					},
 				},
 			},
+		},
+		{
+			name: "given wesley DPA CR for minio s3, appropriate Velero Deployment is built",
+			veleroDeployment: &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-velero-deployment",
+					Namespace: "test-ns",
+				},
+				Spec: appsv1.DeploymentSpec{
+					Selector: &metav1.LabelSelector{MatchLabels: veleroDeploymentMatchLabels},
+				},
+			},
+			dpa: func() *oadpv1alpha1.DataProtectionApplication {
+				dpa := &oadpv1alpha1.DataProtectionApplication{}
+				err := yaml.Unmarshal([]byte(`apiVersion: oadp.openshift.io/v1alpha1
+kind: DataProtectionApplication
+metadata:
+  name: dpa-sample
+  namespace: openshift-adp
+spec:
+  backupLocations:
+  - velero:
+      config:
+        customerKeyEncryptionFile: /credentials/customer-key
+        insecureSkipTLSVerify: "true"
+        profile: default
+        region: minio
+        s3ForcePathStyle: "true"
+        s3Url: http://some-minio:9000
+      credential:
+        key: cloud
+        name: cloud-credentials
+      default: true
+      objectStorage:
+        bucket: velero
+        prefix: velero
+      provider: aws
+  configuration:
+    nodeAgent:
+      enable: true
+      uploaderType: kopia
+    velero:
+      defaultPlugins:
+      - openshift
+      - aws
+      - csi
+      featureFlags:
+      - EnableCSI
+`), dpa)
+				if err != nil {
+					panic(err)
+				}
+				return dpa
+			}(),
+			wantErr: false,
+			wantVeleroDeployment: func() *appsv1.Deployment {
+				deploy := &appsv1.Deployment{}
+				err := yaml.Unmarshal([]byte(`apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  labels:
+    app.kubernetes.io/component: server
+    app.kubernetes.io/instance: dpa-sample
+    app.kubernetes.io/managed-by: oadp-operator
+    app.kubernetes.io/name: velero
+    component: velero
+    openshift.io/oadp: "True"
+  name: test-velero-deployment
+  namespace: test-ns
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: server
+      app.kubernetes.io/instance: dpa-sample
+      app.kubernetes.io/managed-by: oadp-operator
+      app.kubernetes.io/name: velero
+      component: velero
+      deploy: velero
+      openshift.io/oadp: "True"
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+        prometheus.io/path: /metrics
+        prometheus.io/port: "8085"
+        prometheus.io/scrape: "true"
+      creationTimestamp: null
+      labels:
+        app.kubernetes.io/component: server
+        app.kubernetes.io/instance: dpa-sample
+        app.kubernetes.io/managed-by: oadp-operator
+        app.kubernetes.io/name: velero
+        component: velero
+        deploy: velero
+        openshift.io/oadp: "True"
+    spec:
+      containers:
+      - args:
+        - server
+        - --features=EnableCSI
+        - --uploader-type=kopia
+        - --fs-backup-timeout=4h
+        - --restore-resource-priorities=securitycontextconstraints,customresourcedefinitions,klusterletconfigs.config.open-cluster-management.io,managedcluster.cluster.open-cluster-management.io,namespaces,roles,rolebindings,clusterrolebindings,klusterletaddonconfig.agent.open-cluster-management.io,managedclusteraddon.addon.open-cluster-management.io,storageclasses,volumesnapshotclass.snapshot.storage.k8s.io,volumesnapshotcontents.snapshot.storage.k8s.io,volumesnapshots.snapshot.storage.k8s.io,datauploads.velero.io,persistentvolumes,persistentvolumeclaims,serviceaccounts,secrets,configmaps,limitranges,pods,replicasets.apps,clusterclasses.cluster.x-k8s.io,endpoints,services,-,clusterbootstraps.run.tanzu.vmware.com,clusters.cluster.x-k8s.io,clusterresourcesets.addons.cluster.x-k8s.io
+        - --disable-informer-cache=false
+        command:
+        - /velero
+        env:
+        - name: VELERO_SCRATCH_DIR
+          value: /scratch
+        - name: VELERO_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        - name: LD_LIBRARY_PATH
+          value: /plugins
+        - name: OPENSHIFT_IMAGESTREAM_BACKUP
+          value: "true"
+        image: quay.io/konveyor/velero:latest
+        imagePullPolicy: Always
+        name: velero
+        ports:
+        - containerPort: 8085
+          name: metrics
+          protocol: TCP
+        resources:
+          requests:
+            cpu: 500m
+            memory: 128Mi
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /plugins
+          name: plugins
+        - mountPath: /scratch
+          name: scratch
+        - mountPath: /etc/ssl/certs
+          name: certs
+      dnsPolicy: ClusterFirst
+      initContainers:
+      - image: quay.io/konveyor/openshift-velero-plugin:latest
+        imagePullPolicy: Always
+        name: openshift-velero-plugin
+        resources:
+          requests:
+            cpu: 500m
+            memory: 128Mi
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /target
+          name: plugins
+      - image: quay.io/konveyor/velero-plugin-for-aws:latest
+        imagePullPolicy: Always
+        name: velero-plugin-for-aws
+        resources:
+          requests:
+            cpu: 500m
+            memory: 128Mi
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /target
+          name: plugins
+      - image: quay.io/konveyor/velero-plugin-for-csi:latest
+        imagePullPolicy: Always
+        name: velero-plugin-for-csi
+        resources:
+          requests:
+            cpu: 500m
+            memory: 128Mi
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /target
+          name: plugins
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      serviceAccount: velero
+      serviceAccountName: velero
+      terminationGracePeriodSeconds: 30
+      volumes:
+      - emptyDir: {}
+        name: plugins
+      - emptyDir: {}
+        name: scratch
+      - emptyDir: {}
+        name: certs
+status: {}`), deploy)
+				if err != nil {
+					panic(err)
+				}
+				return deploy
+			}(),
+		},
+		{
+			name: "given wesley DPA CR for minio s3 with snapshotLocation without .credentials, appropriate Velero Deployment is built containing /credential mount",
+			veleroDeployment: &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-velero-deployment",
+					Namespace: "test-ns",
+				},
+				Spec: appsv1.DeploymentSpec{
+					Selector: &metav1.LabelSelector{MatchLabels: veleroDeploymentMatchLabels},
+				},
+			},
+			dpa: func() *oadpv1alpha1.DataProtectionApplication {
+				dpa := &oadpv1alpha1.DataProtectionApplication{}
+				err := yaml.Unmarshal([]byte(`apiVersion: oadp.openshift.io/v1alpha1
+kind: DataProtectionApplication
+metadata:
+  name: dpa-sample
+  namespace: openshift-adp
+spec:
+  backupLocations:
+  - velero:
+      config:
+        customerKeyEncryptionFile: /credentials/customer-key
+        insecureSkipTLSVerify: "true"
+        profile: default
+        region: minio
+        s3ForcePathStyle: "true"
+        s3Url: http://some-minio:9000
+      credential:
+        key: cloud
+        name: cloud-credentials
+      default: true
+      objectStorage:
+        bucket: velero
+        prefix: velero
+      provider: aws
+  snapshotLocations:
+  - velero:
+      config:
+        profile: default
+        region: us-west-2
+      provider: aws
+  configuration:
+    nodeAgent:
+      enable: true
+      uploaderType: kopia
+    velero:
+      defaultPlugins:
+      - openshift
+      - aws
+      - csi
+      featureFlags:
+      - EnableCSI
+`), dpa)
+				if err != nil {
+					panic(err)
+				}
+				return dpa
+			}(),
+			wantErr: false,
+			wantVeleroDeployment: func() *appsv1.Deployment {
+				deploy := &appsv1.Deployment{}
+				err := yaml.Unmarshal([]byte(`apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  labels:
+    app.kubernetes.io/component: server
+    app.kubernetes.io/instance: dpa-sample
+    app.kubernetes.io/managed-by: oadp-operator
+    app.kubernetes.io/name: velero
+    component: velero
+    openshift.io/oadp: "True"
+  name: test-velero-deployment
+  namespace: test-ns
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: server
+      app.kubernetes.io/instance: dpa-sample
+      app.kubernetes.io/managed-by: oadp-operator
+      app.kubernetes.io/name: velero
+      component: velero
+      deploy: velero
+      openshift.io/oadp: "True"
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+        prometheus.io/path: /metrics
+        prometheus.io/port: "8085"
+        prometheus.io/scrape: "true"
+      creationTimestamp: null
+      labels:
+        app.kubernetes.io/component: server
+        app.kubernetes.io/instance: dpa-sample
+        app.kubernetes.io/managed-by: oadp-operator
+        app.kubernetes.io/name: velero
+        component: velero
+        deploy: velero
+        openshift.io/oadp: "True"
+    spec:
+      containers:
+      - args:
+        - server
+        - --features=EnableCSI
+        - --uploader-type=kopia
+        - --fs-backup-timeout=4h
+        - --restore-resource-priorities=securitycontextconstraints,customresourcedefinitions,klusterletconfigs.config.open-cluster-management.io,managedcluster.cluster.open-cluster-management.io,namespaces,roles,rolebindings,clusterrolebindings,klusterletaddonconfig.agent.open-cluster-management.io,managedclusteraddon.addon.open-cluster-management.io,storageclasses,volumesnapshotclass.snapshot.storage.k8s.io,volumesnapshotcontents.snapshot.storage.k8s.io,volumesnapshots.snapshot.storage.k8s.io,datauploads.velero.io,persistentvolumes,persistentvolumeclaims,serviceaccounts,secrets,configmaps,limitranges,pods,replicasets.apps,clusterclasses.cluster.x-k8s.io,endpoints,services,-,clusterbootstraps.run.tanzu.vmware.com,clusters.cluster.x-k8s.io,clusterresourcesets.addons.cluster.x-k8s.io
+        - --disable-informer-cache=false
+        command:
+        - /velero
+        env:
+        - name: VELERO_SCRATCH_DIR
+          value: /scratch
+        - name: VELERO_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        - name: LD_LIBRARY_PATH
+          value: /plugins
+        - name: OPENSHIFT_IMAGESTREAM_BACKUP
+          value: "true"
+        - name: AWS_SHARED_CREDENTIALS_FILE
+          value: /credentials/cloud
+        image: quay.io/konveyor/velero:latest
+        imagePullPolicy: Always
+        name: velero
+        ports:
+        - containerPort: 8085
+          name: metrics
+          protocol: TCP
+        resources:
+          requests:
+            cpu: 500m
+            memory: 128Mi
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /plugins
+          name: plugins
+        - mountPath: /scratch
+          name: scratch
+        - mountPath: /etc/ssl/certs
+          name: certs
+        - mountPath: /credentials
+          name: cloud-credentials
+      dnsPolicy: ClusterFirst
+      initContainers:
+      - image: quay.io/konveyor/openshift-velero-plugin:latest
+        imagePullPolicy: Always
+        name: openshift-velero-plugin
+        resources:
+          requests:
+            cpu: 500m
+            memory: 128Mi
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /target
+          name: plugins
+      - image: quay.io/konveyor/velero-plugin-for-aws:latest
+        imagePullPolicy: Always
+        name: velero-plugin-for-aws
+        resources:
+          requests:
+            cpu: 500m
+            memory: 128Mi
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /target
+          name: plugins
+      - image: quay.io/konveyor/velero-plugin-for-csi:latest
+        imagePullPolicy: Always
+        name: velero-plugin-for-csi
+        resources:
+          requests:
+            cpu: 500m
+            memory: 128Mi
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /target
+          name: plugins
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      serviceAccount: velero
+      serviceAccountName: velero
+      terminationGracePeriodSeconds: 30
+      volumes:
+      - emptyDir: {}
+        name: plugins
+      - emptyDir: {}
+        name: scratch
+      - emptyDir: {}
+        name: certs
+      - name: cloud-credentials
+        secret:
+          defaultMode: 420
+          secretName: cloud-credentials
+status: {}`), deploy)
+				if err != nil {
+					panic(err)
+				}
+				return deploy
+			}(),
 		},
 	}
 	for _, tt := range tests {
