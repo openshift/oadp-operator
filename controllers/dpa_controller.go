@@ -158,8 +158,8 @@ type labelHandler struct {
 
 func (l *labelHandler) Create(evt event.CreateEvent, q workqueue.RateLimitingInterface) {
 	// check for the label & add it to the queue
-	namespace := evt.Object.GetNamespace()
-	dpaname := evt.Object.GetLabels()[namespace+".dataprotectionapplication"]
+	namespace := evt.Object.GetLabels()["dataprotectionapplication.namespace"]
+	dpaname := evt.Object.GetLabels()["dataprotectionapplication.name"]
 	if evt.Object.GetLabels()[oadpv1alpha1.OadpOperatorLabel] == "" || dpaname == "" {
 		return
 	}
@@ -172,8 +172,8 @@ func (l *labelHandler) Create(evt event.CreateEvent, q workqueue.RateLimitingInt
 }
 func (l *labelHandler) Delete(evt event.DeleteEvent, q workqueue.RateLimitingInterface) {
 
-	namespace := evt.Object.GetNamespace()
-	dpaname := evt.Object.GetLabels()[namespace+".dataprotectionapplication"]
+	namespace := evt.Object.GetLabels()["dataprotectionapplication.namespace"]
+	dpaname := evt.Object.GetLabels()["dataprotectionapplication.name"]
 	if evt.Object.GetLabels()[oadpv1alpha1.OadpOperatorLabel] == "" || dpaname == "" {
 		return
 	}
@@ -184,8 +184,8 @@ func (l *labelHandler) Delete(evt event.DeleteEvent, q workqueue.RateLimitingInt
 
 }
 func (l *labelHandler) Update(evt event.UpdateEvent, q workqueue.RateLimitingInterface) {
-	namespace := evt.ObjectNew.GetNamespace()
-	dpaname := evt.ObjectNew.GetLabels()[namespace+".dataprotectionapplication"]
+	namespace := evt.ObjectNew.GetLabels()["dataprotectionapplication.namespace"]
+	dpaname := evt.ObjectNew.GetLabels()["dataprotectionapplication.name"]
 	if evt.ObjectNew.GetLabels()[oadpv1alpha1.OadpOperatorLabel] == "" || dpaname == "" {
 		return
 	}
@@ -197,8 +197,8 @@ func (l *labelHandler) Update(evt event.UpdateEvent, q workqueue.RateLimitingInt
 }
 func (l *labelHandler) Generic(evt event.GenericEvent, q workqueue.RateLimitingInterface) {
 
-	namespace := evt.Object.GetNamespace()
-	dpaname := evt.Object.GetLabels()[namespace+".dataprotectionapplication"]
+	namespace := evt.Object.GetLabels()["dataprotectionapplication.namespace"]
+	dpaname := evt.Object.GetLabels()["dataprotectionapplication.name"]
 	if evt.Object.GetLabels()[oadpv1alpha1.OadpOperatorLabel] == "" || dpaname == "" {
 		return
 	}

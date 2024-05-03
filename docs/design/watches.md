@@ -4,7 +4,8 @@ The provider secret gets created independently by the user, and it is not part o
 
 ```
  1. oadpApi.OadpOperatorLabel: "True"
- 2. <namespace>.dataprotectionapplication: <name>
+ 2. dataprotectionapplication.namespace: <namespace>
+ 3. dataprotectionapplication.name: <name>
 ```
 
 where `<namespace>` is the namespace where OADP operator is installed and `<name>` is the name of the DPA instance

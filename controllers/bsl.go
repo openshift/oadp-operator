@@ -210,8 +210,12 @@ func (r *DPAReconciler) UpdateCredentialsSecretLabels(secretName string, namespa
 		secret.Labels[oadpv1alpha1.OadpOperatorLabel] = "True"
 		needPatch = true
 	}
-	if secret.Labels[namespace+".dataprotectionapplication"] != dpaName {
-		secret.Labels[namespace+".dataprotectionapplication"] = dpaName
+	if secret.Labels["dataprotectionapplication.name"] != dpaName {
+		secret.Labels["dataprotectionapplication.name"] = dpaName
+		needPatch = true
+	}
+	if secret.Labels["dataprotectionapplication.namespace"] != namespace {
+		secret.Labels["dataprotectionapplication.namespace"] = namespace
 		needPatch = true
 	}
 	if needPatch {
