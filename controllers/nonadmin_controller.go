@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"fmt"
+	"github.com/vmware-tanzu/velero/pkg/util/boolptr"
 	"os"
 
 	"github.com/go-logr/logr"
@@ -177,10 +178,11 @@ func ensureRequiredSpecs(deploymentObject *appsv1.Deployment, image string) {
 
 func (r *DPAReconciler) checkNonAdminEnabled(dpa *oadpv1alpha1.DataProtectionApplication) bool {
 	// TODO https://github.com/openshift/oadp-operator/pull/1316
-	if dpa.Spec.Features != nil &&
-		dpa.Spec.Features.NonAdmin != nil &&
-		dpa.Spec.Features.NonAdmin.Enable != nil {
-		return *dpa.Spec.Features.NonAdmin.Enable
+	if dpa.Spec.NonAdmin != nil &&
+		dpa.Spec.NonAdmin.Enable != nil &&
+		boolptr.IsSetToTrue(dpa.Spec.NonAdmin.Enable) &&
+		dpa.Spec.UnsupportedOverrides[oadpv1alpha1.TechPreviewAck] == TrueVal {
+		return true
 	}
 
 	return false

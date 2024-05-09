@@ -85,10 +85,11 @@ func runReconcileNonAdminControllerTest(
 		},
 		Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 			Configuration: &oadpv1alpha1.ApplicationConfig{},
-			Features: &oadpv1alpha1.Features{
-				NonAdmin: &oadpv1alpha1.NonAdmin{
-					Enable: pointer.Bool(scenario.nonAdminEnabled),
-				},
+			NonAdmin: &oadpv1alpha1.NonAdmin{
+				Enable: pointer.Bool(scenario.nonAdminEnabled),
+			},
+			UnsupportedOverrides: map[oadpv1alpha1.UnsupportedImageKey]string{
+				oadpv1alpha1.TechPreviewAck: "true",
 			},
 		},
 	}
@@ -261,27 +262,65 @@ func TestDPAReconcilerCheckNonAdminEnabled(t *testing.T) {
 		dpa    *oadpv1alpha1.DataProtectionApplication
 	}{
 		{
-			name:   "DPA has non admin feature enable: true",
+			name:   "DPA has non admin feature enable: true and tech-preview-ack as true",
 			result: true,
 			dpa: &oadpv1alpha1.DataProtectionApplication{
 				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
-					Features: &oadpv1alpha1.Features{
-						NonAdmin: &oadpv1alpha1.NonAdmin{
-							Enable: pointer.Bool(true),
-						},
+					NonAdmin: &oadpv1alpha1.NonAdmin{
+						Enable: pointer.Bool(true),
+					},
+					UnsupportedOverrides: map[oadpv1alpha1.UnsupportedImageKey]string{
+						oadpv1alpha1.TechPreviewAck: "true",
 					},
 				},
 			},
 		},
 		{
-			name:   "DPA has non admin feature enable: false",
+			name:   "DPA has non admin feature enable: false and tech-preview ack as true",
 			result: false,
 			dpa: &oadpv1alpha1.DataProtectionApplication{
 				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
-					Features: &oadpv1alpha1.Features{
-						NonAdmin: &oadpv1alpha1.NonAdmin{
-							Enable: pointer.Bool(false),
-						},
+					NonAdmin: &oadpv1alpha1.NonAdmin{
+						Enable: pointer.Bool(false),
+					},
+					UnsupportedOverrides: map[oadpv1alpha1.UnsupportedImageKey]string{
+						oadpv1alpha1.TechPreviewAck: "true",
+					},
+				},
+			},
+		},
+		{
+			name:   "DPA has non admin feature enable: true and tech-preview ack as false",
+			result: false,
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					NonAdmin: &oadpv1alpha1.NonAdmin{
+						Enable: pointer.Bool(true),
+					},
+					UnsupportedOverrides: map[oadpv1alpha1.UnsupportedImageKey]string{
+						oadpv1alpha1.TechPreviewAck: "false",
+					},
+				},
+			},
+		},
+		{
+			name:   "DPA has non admin feature enable: true and no tech-preview ack unsupported override",
+			result: false,
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					NonAdmin: &oadpv1alpha1.NonAdmin{
+						Enable: pointer.Bool(true),
+					},
+				},
+			},
+		},
+		{
+			name:   "DPA does not have non admin feature enabled but tech-preview ack is true",
+			result: false,
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					UnsupportedOverrides: map[oadpv1alpha1.UnsupportedImageKey]string{
+						oadpv1alpha1.TechPreviewAck: "false",
 					},
 				},
 			},
