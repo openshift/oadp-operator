@@ -5,7 +5,6 @@ import (
 	"os"
 
 	"github.com/go-logr/logr"
-	"github.com/vmware-tanzu/velero/pkg/util/boolptr"
 	"golang.org/x/exp/maps"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -54,7 +53,7 @@ func (r *DPAReconciler) ReconcileNonAdminController(log logr.Logger) (bool, erro
 	}
 
 	// Delete (possible) previously deployment
-	if !r.checkNonAdminEnabled(&dpa) {
+	if !(r.checkNonAdminEnabled(&dpa) && dpa.Spec.UnsupportedOverrides[oadpv1alpha1.TechPreviewAck] == TrueVal) {
 		if err := r.Get(
 			r.Context,
 			types.NamespacedName{
@@ -179,12 +178,9 @@ func ensureRequiredSpecs(deploymentObject *appsv1.Deployment, image string) {
 func (r *DPAReconciler) checkNonAdminEnabled(dpa *oadpv1alpha1.DataProtectionApplication) bool {
 	// TODO https://github.com/openshift/oadp-operator/pull/1316
 	if dpa.Spec.NonAdmin != nil &&
-		dpa.Spec.NonAdmin.Enable != nil &&
-		boolptr.IsSetToTrue(dpa.Spec.NonAdmin.Enable) &&
-		dpa.Spec.UnsupportedOverrides[oadpv1alpha1.TechPreviewAck] == TrueVal {
-		return true
+		dpa.Spec.NonAdmin.Enable != nil {
+		return *dpa.Spec.NonAdmin.Enable
 	}
-
 	return false
 }
 

@@ -234,7 +234,6 @@ type SnapshotLocation struct {
 	Velero *velero.VolumeSnapshotLocationSpec `json:"velero"`
 }
 
-// NonAdmin defines the configuration for the non admin feature
 type NonAdmin struct {
 	// Enables non admin feature, by default is disabled
 	// +optional

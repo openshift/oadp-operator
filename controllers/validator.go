@@ -7,7 +7,6 @@ import (
 
 	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/go-logr/logr"
-	"github.com/vmware-tanzu/velero/pkg/util/boolptr"
 
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	"github.com/openshift/oadp-operator/pkg/credentials"
@@ -66,11 +65,8 @@ func (r *DPAReconciler) ValidateDataProtectionCR(log logr.Logger) (bool, error) 
 	}
 
 	// validate non-admin enable and tech-preview-ack
-	if !r.checkNonAdminEnabled(&dpa) {
-		if dpa.Spec.NonAdmin != nil &&
-			dpa.Spec.NonAdmin.Enable != nil &&
-			boolptr.IsSetToTrue(dpa.Spec.NonAdmin.Enable) &&
-			!(dpa.Spec.UnsupportedOverrides[oadpv1alpha1.TechPreviewAck] == TrueVal) {
+	if r.checkNonAdminEnabled(&dpa) {
+		if !(dpa.Spec.UnsupportedOverrides[oadpv1alpha1.TechPreviewAck] == TrueVal) {
 			return false, errors.New("in order to enable the non-admin feature please set dpa.spec.unsupportedOverrides[tech-preview-ack]: true")
 		}
 	}
