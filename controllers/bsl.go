@@ -118,8 +118,8 @@ func (r *DPAReconciler) ReconcileBackupStorageLocations(log logr.Logger) (bool, 
 		}
 		// Add the following labels to the bsl secret,
 		//	 1. oadpApi.OadpOperatorLabel: "True"
-		// 	 2. <namespace>.dataprotectionapplication: <name>
-		// which in turn will be used in th elabel handler to trigger the reconciliation loop
+		// 	 2. dataprotectionapplication.name: <name>
+		// which in turn will be used in the label handler to trigger the reconciliation loop
 
 		secretName, _ := r.getSecretNameAndKeyforBackupLocation(bslSpec)
 		_, err := r.UpdateCredentialsSecretLabels(secretName, dpa.Namespace, dpa.Name)
@@ -212,10 +212,6 @@ func (r *DPAReconciler) UpdateCredentialsSecretLabels(secretName string, namespa
 	}
 	if secret.Labels["dataprotectionapplication.name"] != dpaName {
 		secret.Labels["dataprotectionapplication.name"] = dpaName
-		needPatch = true
-	}
-	if secret.Labels["dataprotectionapplication.namespace"] != namespace {
-		secret.Labels["dataprotectionapplication.namespace"] = namespace
 		needPatch = true
 	}
 	if needPatch {
