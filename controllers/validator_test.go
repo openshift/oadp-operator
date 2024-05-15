@@ -1387,7 +1387,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 			},
 			objects:    []client.Object{},
 			wantErr:    true,
-			messageErr: "in order to enable the non-admin feature please set dpa.spec.unsupportedOverrides[tech-preview-ack]: true",
+			messageErr: "in order to enable/disable the non-admin feature please set dpa.spec.unsupportedOverrides[tech-preview-ack]: 'true'",
 		},
 	}
 	for _, tt := range tests {

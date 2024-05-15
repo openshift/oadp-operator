@@ -67,7 +67,7 @@ func (r *DPAReconciler) ValidateDataProtectionCR(log logr.Logger) (bool, error) 
 	// validate non-admin enable and tech-preview-ack
 	if r.checkNonAdminEnabled(&dpa) {
 		if !(dpa.Spec.UnsupportedOverrides[oadpv1alpha1.TechPreviewAck] == TrueVal) {
-			return false, errors.New("in order to enable the non-admin feature please set dpa.spec.unsupportedOverrides[tech-preview-ack]: true")
+			return false, errors.New("in order to enable/disable the non-admin feature please set dpa.spec.unsupportedOverrides[tech-preview-ack]: 'true'")
 		}
 	}
 
