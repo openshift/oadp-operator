@@ -34,7 +34,11 @@ metadata:
             },
             "name": "nonadminrestore-sample"
           },
-          "spec": null
+          "spec": {
+            "restoreSpec": {
+              "backupName": "nonadminbackup-sample"
+            }
+          }
         },
         {
           "apiVersion": "oadp.openshift.io/v1alpha1",
@@ -677,6 +681,17 @@ spec:
           - velero.io
           resources:
           - backups
+          verbs:
+          - create
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - velero.io
+          resources:
+          - restores
           verbs:
           - create
           - get

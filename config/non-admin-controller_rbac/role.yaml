@@ -67,3 +67,14 @@ rules:
   - patch
   - update
   - watch
+- apiGroups:
+  - velero.io
+  resources:
+  - restores
+  verbs:
+  - create
+  - get
+  - list
+  - patch
+  - update
+  - watch

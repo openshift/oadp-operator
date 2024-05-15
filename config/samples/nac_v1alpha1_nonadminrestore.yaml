@@ -9,4 +9,5 @@ metadata:
     app.kubernetes.io/created-by: oadp-operator
   name: nonadminrestore-sample
 spec:
-  # TODO(user): Add fields here
+  restoreSpec:
+    backupName: nonadminbackup-sample
