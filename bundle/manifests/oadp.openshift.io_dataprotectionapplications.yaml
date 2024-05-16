@@ -831,14 +831,13 @@ spec:
                   type: object
                 features:
                   description: features defines the configuration for the DPA to enable the OADP tech preview features
+                  type: object
+                nonAdmin:
+                  description: nonAdmin defines the configuration for the DPA to enable backup and restore operations for non-admin users
                   properties:
-                    nonAdmin:
-                      description: NonAdmin defines the configuration for the non admin feature
-                      properties:
-                        enable:
-                          description: Enables non admin feature, by default is disabled
-                          type: boolean
-                      type: object
+                    enable:
+                      description: Enables non admin feature, by default is disabled
+                      type: boolean
                   type: object
                 podAnnotations:
                   additionalProperties:
@@ -915,7 +914,7 @@ spec:
                 unsupportedOverrides:
                   additionalProperties:
                     type: string
-                  description: 'unsupportedOverrides can be used to override images used in deployments. Available keys are:   - veleroImageFqin   - awsPluginImageFqin   - openshiftPluginImageFqin   - azurePluginImageFqin   - gcpPluginImageFqin   - csiPluginImageFqin   - resticRestoreImageFqin   - kubevirtPluginImageFqin   - nonAdminControllerImageFqin   - operator-type'
+                  description: 'unsupportedOverrides can be used to override images used in deployments. Available keys are:   - veleroImageFqin   - awsPluginImageFqin   - openshiftPluginImageFqin   - azurePluginImageFqin   - gcpPluginImageFqin   - csiPluginImageFqin   - resticRestoreImageFqin   - kubevirtPluginImageFqin   - nonAdminControllerImageFqin   - operator-type   - tech-preview-ack'
                   type: object
               required:
                 - configuration

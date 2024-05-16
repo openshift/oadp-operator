@@ -64,6 +64,7 @@ const ResticRestoreImageKey UnsupportedImageKey = "resticRestoreImageFqin"
 const KubeVirtPluginImageKey UnsupportedImageKey = "kubevirtPluginImageFqin"
 const NonAdminControllerImageKey UnsupportedImageKey = "nonAdminControllerImageFqin"
 const OperatorTypeKey UnsupportedImageKey = "operator-type"
+const TechPreviewAck UnsupportedImageKey = "tech-preview-ack"
 
 const OperatorTypeMTC = "mtc"
 
@@ -233,7 +234,6 @@ type SnapshotLocation struct {
 	Velero *velero.VolumeSnapshotLocationSpec `json:"velero"`
 }
 
-// NonAdmin defines the configuration for the non admin feature
 type NonAdmin struct {
 	// Enables non admin feature, by default is disabled
 	// +optional
@@ -242,8 +242,6 @@ type NonAdmin struct {
 
 // Features defines the configuration for the DPA to enable the tech preview features
 type Features struct {
-	// +optional
-	NonAdmin *NonAdmin `json:"nonAdmin"`
 }
 
 // DataProtectionApplicationSpec defines the desired state of Velero
@@ -266,6 +264,7 @@ type DataProtectionApplicationSpec struct {
 	//   - kubevirtPluginImageFqin
 	//   - nonAdminControllerImageFqin
 	//   - operator-type
+	//   - tech-preview-ack
 	// +optional
 	UnsupportedOverrides map[UnsupportedImageKey]string `json:"unsupportedOverrides,omitempty"`
 	// add annotations to pods deployed by operator
@@ -288,6 +287,9 @@ type DataProtectionApplicationSpec struct {
 	// features defines the configuration for the DPA to enable the OADP tech preview features
 	// +optional
 	Features *Features `json:"features"`
+	// nonAdmin defines the configuration for the DPA to enable backup and restore operations for non-admin users
+	// +optional
+	NonAdmin *NonAdmin `json:"nonAdmin,omitempty"`
 }
 
 // DataProtectionApplicationStatus defines the observed state of DataProtectionApplication

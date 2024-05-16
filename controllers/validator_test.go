@@ -1360,6 +1360,35 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 			wantErr:    true,
 			messageErr: "Secret name specified in BackupLocation  cannot be empty",
 		},
+		{
+			name: "given invalid DPA CR tech-preview-ack not set as true but non-admin is enabled error case",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-DPA-CR",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					NonAdmin: &oadpv1alpha1.NonAdmin{
+						Enable: pointer.Bool(true),
+					},
+					UnsupportedOverrides: map[oadpv1alpha1.UnsupportedImageKey]string{
+						oadpv1alpha1.TechPreviewAck: "false",
+					},
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+								oadpv1alpha1.DefaultPluginAWS,
+							},
+							NoDefaultBackupLocation: true,
+						},
+					},
+					BackupImages: pointer.Bool(false),
+				},
+			},
+			objects:    []client.Object{},
+			wantErr:    true,
+			messageErr: "in order to enable/disable the non-admin feature please set dpa.spec.unsupportedOverrides[tech-preview-ack]: 'true'",
+		},
 	}
 	for _, tt := range tests {
 		tt.objects = append(tt.objects, tt.dpa)
