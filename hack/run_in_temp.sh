@@ -34,10 +34,12 @@ function cleanup_and_exit() {
           if [[ "${OADP_TMP_DIR}" =~ "${OADP_TMP_DIR_PREFIX}"* ]]; then
               echo "Cleaning up temporary OADP files"
               rm -rf "${COMMAND_TEMP_DIR}"
-              rmdir "${DEFAULT_TMP_DIR}" || exit 1
           fi
       fi
     fi
+
+    # Try to remove the DEFAULT_TMP_DIR if empty
+    rmdir "${DEFAULT_TMP_DIR}" 2>/dev/null
 
     # Propagate exit value if was provided
     [ -n "${exit_val}" ] && echo "Exit code: ${exit_val}" && exit "$exit_val"
@@ -54,18 +56,18 @@ fi
 
 # We need to get the git hash from the directory that was used to run this script
 # so we get the hash of the oadp-operator source code
-pushd "$ABS_OADP_GIT_DIR"
+pushd "$ABS_OADP_GIT_DIR" || exit
   CURRENT_GIT_HASH=$(git rev-parse HEAD)
   COMMAND_TEMP_DIR=$(TMPDIR="${DEFAULT_TMP_DIR}" mktemp -d -t "${OADP_TMP_DIR_PREFIX}XXXX-${CURRENT_GIT_HASH}") || exit 1
-popd
-
+popd || exit
 
 # Copy the entire oadp directory excluding .makefiletmpdir
 echo "Making a copy of the OADP folder: ${ABS_OADP_GIT_DIR}"
 echo "Destination: ${COMMAND_TEMP_DIR}"
-rsync -avq --exclude='${TMP_FOLDER_NAME}' "${ABS_OADP_GIT_DIR}/" "${COMMAND_TEMP_DIR}/"
+rsync -avq --exclude="${TMP_FOLDER_NAME}/" "${ABS_OADP_GIT_DIR}/" "${COMMAND_TEMP_DIR}/"
 
 # Run the commands that were passed as arguments inside the temp directory
-pushd "${COMMAND_TEMP_DIR}"
-  eval "$@" || exit 1
-popd
+pushd "${COMMAND_TEMP_DIR}" || exit
+  "$@" || exit 1
+popd || exit
+
