@@ -48,6 +48,11 @@ func (r *DPAReconciler) ValidateDataProtectionCR(log logr.Logger) (bool, error) 
 		return validVsl, err
 	}
 
+	// check for VSM/Volsync DataMover (OADP 1.2 or below) syntax
+	if dpa.Spec.Features != nil && dpa.Spec.Features.DataMover != nil {
+		return false, errors.New("Delete vsm from spec.configuration.velero.defaultPlugins and dataMover object from spec.features. Use Velero Built-in Data Mover instead")
+	}
+
 	if val, found := dpa.Spec.UnsupportedOverrides[oadpv1alpha1.OperatorTypeKey]; found && val != oadpv1alpha1.OperatorTypeMTC {
 		return false, errors.New("only mtc operator type override is supported")
 	}
@@ -103,6 +108,10 @@ func (r *DPAReconciler) ValidateVeleroPlugins(log logr.Logger) (bool, error) {
 		pluginSpecificMap, ok := credentials.PluginSpecificFields[plugin]
 		pluginNeedsCheck, foundInBSLorVSL := providerNeedsDefaultCreds[string(plugin)]
 
+		// check for VSM/Volsync DataMover (OADP 1.2 or below) syntax
+		if plugin == oadpv1alpha1.DefaultPluginVSM {
+			return false, errors.New("Delete vsm from spec.configuration.velero.defaultPlugins and dataMover object from spec.features. Use Velero Built-in Data Mover instead")
+		}
 		if foundInVSL := snapshotLocationsProviders[string(plugin)]; foundInVSL {
 			pluginNeedsCheck = true
 		}
