@@ -4693,6 +4693,87 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "Conflicting burst and qps",
+			veleroDeployment: &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-velero-deployment",
+					Namespace: "test-ns",
+				},
+				Spec: appsv1.DeploymentSpec{
+					Selector: &metav1.LabelSelector{MatchLabels: veleroDeploymentMatchLabels},
+				},
+			},
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-Velero-CR",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							ClientBurst: pointer.Int(123),
+							ClientQPS:   pointer.Float32(123),
+							Args: &server.Args{
+								ServerConfig: server.ServerConfig{
+									ClientBurst: pointer.Int(321),
+									ClientQPS:   pointer.String("321"),
+								},
+							},
+						},
+						NodeAgent: &oadpv1alpha1.NodeAgentConfig{
+							UploaderType: "kopia",
+						},
+					},
+				},
+			},
+			wantVeleroDeployment: &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-velero-deployment",
+					Namespace: "test-ns",
+					Labels:    veleroDeploymentLabel,
+				},
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "Deployment",
+					APIVersion: appsv1.SchemeGroupVersion.String(),
+				},
+				Spec: appsv1.DeploymentSpec{
+					Selector: &metav1.LabelSelector{MatchLabels: veleroDeploymentMatchLabels},
+					Replicas: pointer.Int32(1),
+					Template: corev1.PodTemplateSpec{
+						ObjectMeta: veleroPodObjectMeta,
+						Spec: corev1.PodSpec{
+							RestartPolicy:      corev1.RestartPolicyAlways,
+							ServiceAccountName: common.Velero,
+							Containers: []corev1.Container{
+								{
+									Name:            common.Velero,
+									Image:           common.VeleroImage,
+									ImagePullPolicy: corev1.PullAlways,
+									Ports:           []corev1.ContainerPort{{Name: "metrics", ContainerPort: 8085}},
+									Resources:       corev1.ResourceRequirements{Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("500m"), corev1.ResourceMemory: resource.MustParse("128Mi")}},
+									Command:         []string{"/velero"},
+									Args: []string{
+										"server",
+										// should be present... "--uploader-type=kopia",
+										"--client-burst=321",
+										"--client-qps=321",
+										"--fs-backup-timeout=4h0m0s",
+										defaultRestoreResourcePriorities,
+										defaultDisableInformerCache,
+									},
+									VolumeMounts: baseVolumeMounts,
+									Env:          baseEnvVars,
+								},
+							},
+							Volumes:        baseVolumes,
+							InitContainers: []corev1.Container{},
+						},
+					},
+				},
+			},
+			wantErr: true, // TODO should error to avoid user confusion?
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
