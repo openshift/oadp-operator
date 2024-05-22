@@ -160,6 +160,12 @@ type NodeAgentConfig struct {
 	// +kubebuilder:validation:Enum=restic;kopia
 	// +kubebuilder:validation:Required
 	UploaderType string `json:"uploaderType"`
+
+	// UnsupportedNodeAgentArgs accepts a string of server args and their values to be supplied to nodeagent daemon set
+	// each pair of server arg and value is comma separated if there are multiple args to be supplied
+	// This will replace and override any other args specified via DPA for the nodeagent
+	// +optional
+	UnsupportedNodeAgentArgs string `json:"unsupportedNodeAgentArgs,omitempty"`
 }
 
 // ResticConfig is the configuration for restic server
