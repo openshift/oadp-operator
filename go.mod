@@ -1,6 +1,6 @@
 module github.com/openshift/oadp-operator
 
-go 1.22.0
+go 1.22.2
 
 require (
 	github.com/aws/aws-sdk-go v1.44.253
@@ -26,7 +26,7 @@ require (
 require (
 	github.com/deckarep/golang-set/v2 v2.3.0
 	github.com/google/go-cmp v0.6.0
-	github.com/vmware-tanzu/velero v1.12.3
+	github.com/vmware-tanzu/velero v1.14.0
 	k8s.io/klog/v2 v2.110.1
 	sigs.k8s.io/yaml v1.4.0
 )
