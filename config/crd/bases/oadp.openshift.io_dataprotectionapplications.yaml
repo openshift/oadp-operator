@@ -313,7 +313,7 @@ spec:
                           description: timeout defines the NodeAgent timeout, default value is 1h
                           type: string
                         unsupportedNodeAgentArgs:
-                          description: UnsupportedNodeAgentArgs accepts a string of server args to be supplied to nodeagent daemon set This will replace and override any other args specified via DPA for the nodeagent
+                          description: UnsupportedNodeAgentArgs accepts a string of server args and their values to be supplied to nodeagent daemon set, each pair of server arg and value should be comma separated if there are multiple args to be supplied
                           type: string
                         uploaderType:
                           description: The type of uploader to transfer the data of pod volumes, the supported values are 'restic' or 'kopia'
