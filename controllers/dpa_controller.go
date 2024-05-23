@@ -41,7 +41,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 // DPAReconciler reconciles a Velero object
@@ -148,7 +147,7 @@ func (r *DPAReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&corev1.Service{}).
 		Owns(&routev1.Route{}).
 		Owns(&corev1.ConfigMap{}).
-		Watches(&source.Kind{Type: &corev1.Secret{}}, &labelHandler{}).
+		Watches(&corev1.Secret{}, &labelHandler{}).
 		WithEventFilter(veleroPredicate(r.Scheme)).
 		Complete(r)
 }
@@ -156,7 +155,7 @@ func (r *DPAReconciler) SetupWithManager(mgr ctrl.Manager) error {
 type labelHandler struct {
 }
 
-func (l *labelHandler) Create(evt event.CreateEvent, q workqueue.RateLimitingInterface) {
+func (l *labelHandler) Create(ctx context.Context, evt event.CreateEvent, q workqueue.RateLimitingInterface) {
 	// check for the label & add it to the queue
 	namespace := evt.Object.GetNamespace()
 	dpaname := evt.Object.GetLabels()[namespace+".dataprotectionapplication"]
@@ -170,7 +169,7 @@ func (l *labelHandler) Create(evt event.CreateEvent, q workqueue.RateLimitingInt
 	}})
 
 }
-func (l *labelHandler) Delete(evt event.DeleteEvent, q workqueue.RateLimitingInterface) {
+func (l *labelHandler) Delete(ctx context.Context, evt event.DeleteEvent, q workqueue.RateLimitingInterface) {
 
 	namespace := evt.Object.GetNamespace()
 	dpaname := evt.Object.GetLabels()[namespace+".dataprotectionapplication"]
@@ -183,7 +182,7 @@ func (l *labelHandler) Delete(evt event.DeleteEvent, q workqueue.RateLimitingInt
 	}})
 
 }
-func (l *labelHandler) Update(evt event.UpdateEvent, q workqueue.RateLimitingInterface) {
+func (l *labelHandler) Update(ctx context.Context, evt event.UpdateEvent, q workqueue.RateLimitingInterface) {
 	namespace := evt.ObjectNew.GetNamespace()
 	dpaname := evt.ObjectNew.GetLabels()[namespace+".dataprotectionapplication"]
 	if evt.ObjectNew.GetLabels()[oadpv1alpha1.OadpOperatorLabel] == "" || dpaname == "" {
@@ -195,7 +194,7 @@ func (l *labelHandler) Update(evt event.UpdateEvent, q workqueue.RateLimitingInt
 	}})
 
 }
-func (l *labelHandler) Generic(evt event.GenericEvent, q workqueue.RateLimitingInterface) {
+func (l *labelHandler) Generic(ctx context.Context, evt event.GenericEvent, q workqueue.RateLimitingInterface) {
 
 	namespace := evt.Object.GetNamespace()
 	dpaname := evt.Object.GetLabels()[namespace+".dataprotectionapplication"]
