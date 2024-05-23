@@ -252,7 +252,7 @@ func AppendPluginSpecificSpecs(dpa *oadpv1alpha1.DataProtectionApplication, vele
 				corev1.Container{
 					Image:                    getPluginImage(pluginSpecificMap.PluginName, dpa),
 					Name:                     pluginSpecificMap.PluginName,
-					ImagePullPolicy:          corev1.PullAlways,
+					ImagePullPolicy:          common.GetImagePullPolicy(getPluginImage(pluginSpecificMap.PluginName, dpa)),
 					Resources:                init_container_resources,
 					TerminationMessagePath:   "/dev/termination-log",
 					TerminationMessagePolicy: "File",
@@ -320,7 +320,7 @@ func AppendPluginSpecificSpecs(dpa *oadpv1alpha1.DataProtectionApplication, vele
 				corev1.Container{
 					Image:                    plugin.Image,
 					Name:                     plugin.Name,
-					ImagePullPolicy:          corev1.PullAlways,
+					ImagePullPolicy:          common.GetImagePullPolicy(plugin.Image),
 					Resources:                init_container_resources,
 					TerminationMessagePath:   "/dev/termination-log",
 					TerminationMessagePolicy: "File",

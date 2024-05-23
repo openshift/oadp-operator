@@ -281,7 +281,7 @@ func (r *DPAReconciler) customizeVeleroDeployment(dpa *oadpv1alpha1.DataProtecti
 	}
 	//add any default init containers here if needed eg: setup-certificate-secret
 	// When you do this
-	// - please set the ImagePullPolicy to Always, and
+	// - please set the ImagePullPolicy to Always , and
 	// - please also update the test
 	if veleroDeployment.Spec.Template.Spec.InitContainers == nil {
 		veleroDeployment.Spec.Template.Spec.InitContainers = []corev1.Container{}
@@ -400,7 +400,7 @@ func (r *DPAReconciler) customizeVeleroContainer(dpa *oadpv1alpha1.DataProtectio
 			}
 		}
 	}
-	veleroContainer.ImagePullPolicy = corev1.PullAlways
+	veleroContainer.ImagePullPolicy = common.GetImagePullPolicy(getVeleroImage(dpa))
 	veleroContainer.VolumeMounts = append(veleroContainer.VolumeMounts,
 		corev1.VolumeMount{
 			Name:      "certs",

@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
 
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/vmware-tanzu/velero/pkg/restore"
@@ -213,4 +214,15 @@ func StripDefaultPorts(fromUrl string) (string, error) {
 		r.URL.Host = r.Host
 	}
 	return r.URL.String(), nil
+}
+
+// GetImagePullPolicy get imagePullPolicy for a container, based on its image.
+// If image contains a digest, use IfNotPresent; otherwise, Always.
+// Reference: https://github.com/distribution/distribution/blob/v2.7.1/reference/reference.go
+func GetImagePullPolicy(image string) corev1.PullPolicy {
+	if strings.Contains(image, "@") {
+		// If image contains a digest
+		return corev1.PullIfNotPresent
+	}
+	return corev1.PullAlways
 }
