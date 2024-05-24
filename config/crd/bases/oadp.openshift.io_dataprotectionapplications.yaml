@@ -1001,7 +1001,7 @@ spec:
                 unsupportedOverrides:
                   additionalProperties:
                     type: string
-                  description: 'unsupportedOverrides can be used to override images used in deployments. Available keys are:   - veleroImageFqin   - awsPluginImageFqin   - openshiftPluginImageFqin   - azurePluginImageFqin   - gcpPluginImageFqin   - csiPluginImageFqin   - resticRestoreImageFqin   - kubevirtPluginImageFqin   - operator-type'
+                  description: 'unsupportedOverrides can be used to override images used in deployments. Available keys are:   - veleroImageFqin   - awsPluginImageFqin   - openshiftPluginImageFqin   - azurePluginImageFqin   - gcpPluginImageFqin   - resticRestoreImageFqin   - kubevirtPluginImageFqin   - operator-type'
                   type: object
               required:
                 - configuration
