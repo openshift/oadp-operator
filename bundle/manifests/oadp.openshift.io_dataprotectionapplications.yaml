@@ -1304,7 +1304,6 @@ spec:
                       - openshiftPluginImageFqin
                       - azurePluginImageFqin
                       - gcpPluginImageFqin
-                      - csiPluginImageFqin
                       - resticRestoreImageFqin
                       - kubevirtPluginImageFqin
                       - operator-type

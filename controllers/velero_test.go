@@ -421,7 +421,6 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 								pluginContainer(common.VeleroPluginForAzure, common.AzurePluginImage),
 								pluginContainer(common.KubeVirtPlugin, common.KubeVirtPluginImage),
 								pluginContainer(common.VeleroPluginForOpenshift, common.OpenshiftPluginImage),
-								pluginContainer(common.VeleroPluginForCSI, common.CSIPluginImage),
 							},
 						},
 					},
