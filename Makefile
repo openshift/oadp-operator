@@ -313,7 +313,7 @@ operator-sdk:
 	# Download operator-sdk locally if does not exist
 	if [ ! -f $(OPERATOR_SDK) ]; then \
 		mkdir -p bin ;\
-		curl -Lo $(OPERATOR_SDK) https://github.com/operator-framework/operator-sdk/releases/download/v1.23.0/operator-sdk_$(shell go env GOOS)_$(shell go env GOARCH) ; \
+		curl -Lo $(OPERATOR_SDK) https://github.com/operator-framework/operator-sdk/releases/download/v1.34.2/operator-sdk_$(shell go env GOOS)_$(shell go env GOARCH) ; \
 		chmod +x $(OPERATOR_SDK); \
 	fi
 
@@ -388,7 +388,7 @@ deploy-olm: operator-sdk undeploy-olm ## Build current branch operator image, bu
 	IMG=$(THIS_OPERATOR_IMAGE) BUNDLE_IMG=$(THIS_BUNDLE_IMAGE) \
 		make docker-build docker-push bundle bundle-build bundle-push; \
 	rm -rf $(DEPLOY_TMP)
-	$(OPERATOR_SDK) run bundle $(THIS_BUNDLE_IMAGE) --namespace $(OADP_TEST_NAMESPACE)
+	$(OPERATOR_SDK) run bundle --security-context-config restricted $(THIS_BUNDLE_IMAGE) --namespace $(OADP_TEST_NAMESPACE)
 
 .PHONY: undeploy-olm
 undeploy-olm: login-required ## Uninstall current branch operator via OLM
