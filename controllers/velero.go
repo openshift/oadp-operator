@@ -557,8 +557,12 @@ func (r *DPAReconciler) customizeVeleroContainer(dpa *oadpv1alpha1.DataProtectio
 	// Overriding velero restore resource priorities to OpenShift default (ie. SecurityContextConstraints needs to be restored before pod/SA)
 	veleroContainer.Args = append(veleroContainer.Args, fmt.Sprintf("--restore-resource-priorities=%s", common.DefaultRestoreResourcePriorities.String()))
 
-	veleroContainer.Args = append(veleroContainer.Args, fmt.Sprintf("--client-burst=%v", getClientBurst(dpa)))
-	veleroContainer.Args = append(veleroContainer.Args, fmt.Sprintf("--client-qps=%v", getClientQPS(dpa)))
+	if dpa.Spec.Configuration.Velero != nil && dpa.Spec.Configuration.Velero.ClientBurst != nil {
+		veleroContainer.Args = append(veleroContainer.Args, fmt.Sprintf("--client-burst=%v", *dpa.Spec.Configuration.Velero.ClientBurst))
+	}
+	if dpa.Spec.Configuration.Velero != nil && dpa.Spec.Configuration.Velero.ClientQPS != nil {
+		veleroContainer.Args = append(veleroContainer.Args, fmt.Sprintf("--client-qps=%v", *dpa.Spec.Configuration.Velero.ClientQPS))
+	}
 	setContainerDefaults(veleroContainer)
 	// if server args is set, override the default server args
 	if dpa.Spec.Configuration.Velero.Args != nil {
@@ -571,22 +575,6 @@ func (r *DPAReconciler) customizeVeleroContainer(dpa *oadpv1alpha1.DataProtectio
 		}
 	}
 	return nil
-}
-
-func getClientBurst(dpa *oadpv1alpha1.DataProtectionApplication) int {
-	if dpa.Spec.Configuration.Velero != nil && dpa.Spec.Configuration.Velero.ClientBurst != nil {
-		return *dpa.Spec.Configuration.Velero.ClientBurst
-	}
-	// Velero default until 1.13
-	return 30
-}
-
-func getClientQPS(dpa *oadpv1alpha1.DataProtectionApplication) float32 {
-	if dpa.Spec.Configuration.Velero != nil && dpa.Spec.Configuration.Velero.ClientQPS != nil {
-		return *dpa.Spec.Configuration.Velero.ClientQPS
-	}
-	// Velero default until 1.13
-	return 20.0
 }
 
 func getFsBackupTimeout(dpa *oadpv1alpha1.DataProtectionApplication) string {

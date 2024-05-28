@@ -109,10 +109,10 @@ type VeleroConfig struct {
 	// Default is 10m
 	// +optional
 	ResourceTimeout string `json:"resourceTimeout,omitempty"`
-	// Maximum number of requests by the server to the Kubernetes API in a short period of time. (default 30)
+	// Maximum number of requests by the server to the Kubernetes API in a short period of time. (default 100)
 	// +optional
 	ClientBurst *int `json:"client-burst,omitempty"`
-	// Maximum number of requests per second by the server to the Kubernetes API once the burst limit has been reached. (default 20)
+	// Maximum number of requests per second by the server to the Kubernetes API once the burst limit has been reached. (default 100)
 	// +optional
 	ClientQPS *float32 `json:"client-qps,omitempty"`
 	// Velero args are settings to customize velero server arguments. Overrides values in other fields.
