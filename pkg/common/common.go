@@ -217,11 +217,11 @@ func StripDefaultPorts(fromUrl string) (string, error) {
 }
 
 // GetImagePullPolicy get imagePullPolicy for a container, based on its image.
-// If image contains a digest, use IfNotPresent; otherwise, Always.
+// If image contains a sha256 digest, use IfNotPresent; otherwise, Always.
 // Reference: https://github.com/distribution/distribution/blob/v2.7.1/reference/reference.go
 func GetImagePullPolicy(image string) corev1.PullPolicy {
-	if strings.Contains(image, "@") {
-		// If image contains a digest
+	if strings.Contains(image, "@sha256:") {
+		// If image contains a sha256 digest
 		return corev1.PullIfNotPresent
 	}
 	return corev1.PullAlways
