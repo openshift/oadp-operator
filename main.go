@@ -157,11 +157,11 @@ func main() {
 	}
 
 	mgr, err := ctrl.NewManager(kubeconf, ctrl.Options{
-		Scheme:                 scheme,
-		Metrics:                metricsserver.Options{
+		Scheme: scheme,
+		Metrics: metricsserver.Options{
 			BindAddress: metricsAddr,
 		},
-		WebhookServer:          &webhook.DefaultServer{
+		WebhookServer: &webhook.DefaultServer{
 			Options: webhook.Options{
 				Port: 9443,
 			},
@@ -173,10 +173,10 @@ func main() {
 		RetryPeriod:            &leConfig.RetryPeriod.Duration,
 		LeaderElectionID:       "oadp.openshift.io",
 		Cache: cache.Options{
-                        DefaultNamespaces: map[string]cache.Config{
-                                watchNamespace: {},
-                        },
-                },
+			DefaultNamespaces: map[string]cache.Config{
+				watchNamespace: {},
+			},
+		},
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
