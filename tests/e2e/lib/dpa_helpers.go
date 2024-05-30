@@ -280,10 +280,10 @@ func (v *DpaCustomResource) SetClient(client client.Client) error {
 func GetVeleroPods(c *kubernetes.Clientset, namespace string) (*corev1.PodList, error) {
 	// select Velero pod with this label
 	veleroOptions := metav1.ListOptions{
-		LabelSelector: "component=velero",
+		LabelSelector: "component=velero,!job-name",
 	}
 	veleroOptionsDeploy := metav1.ListOptions{
-		LabelSelector: "deploy=velero",
+		LabelSelector: "deploy=velero,!job-name",
 	}
 	// get pods in test namespace with labelSelector
 	var podList *corev1.PodList
