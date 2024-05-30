@@ -85,7 +85,7 @@ var _ = Describe("Subscription Config Suite Test", func() {
 						return false
 					}
 					log.Printf("waiting leaderelection")
-					return strings.Contains(podLogs, "leaderelection.go:258] successfully acquired lease")
+					return strings.Contains(podLogs, "successfully acquired lease")
 				}
 				Eventually(isLeaseReady, time.Minute*4, time.Second*5).Should(BeTrue())
 
