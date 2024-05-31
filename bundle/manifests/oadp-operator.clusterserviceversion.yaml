@@ -856,8 +856,6 @@ spec:
                 - name: RELATED_IMAGE_VELERO_PLUGIN_FOR_GCP
                   value: quay.io/konveyor/velero-plugin-for-gcp:oadp-1.4
                 - name: RELATED_IMAGE_VELERO_PLUGIN_FOR_CSI
-                  value: quay.io/konveyor/velero-plugin-for-csi:oadp-1.3
-                - name: RELATED_IMAGE_KUBEVIRT_VELERO_PLUGIN
                   value: quay.io/konveyor/kubevirt-velero-plugin:v0.2.0
                 - name: RELATED_IMAGE_MUSTGATHER
                   value: registry.redhat.io/oadp/oadp-mustgather-rhel8:v1.2
@@ -1006,8 +1004,6 @@ spec:
     name: velero-plugin-for-microsoft-azure
   - image: quay.io/konveyor/velero-plugin-for-gcp:oadp-1.4
     name: velero-plugin-for-gcp
-  - image: quay.io/konveyor/velero-plugin-for-csi:oadp-1.3
-    name: velero-plugin-for-csi
   - image: quay.io/konveyor/kubevirt-velero-plugin:v0.2.0
     name: kubevirt-velero-plugin
   - image: registry.redhat.io/oadp/oadp-mustgather-rhel8:v1.2
