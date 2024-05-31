@@ -154,7 +154,10 @@ var _ = ginkgov2.Describe("Configuration testing for DPA Custom Resource", func(
 			if len(dpa.Spec.Configuration.Velero.DefaultPlugins) > 0 {
 				log.Printf("Checking for default plugins")
 				for _, plugin := range dpa.Spec.Configuration.Velero.DefaultPlugins {
-					gomega.Eventually(lib.DoesPluginExist(kubernetesClientForSuiteRun, namespace, plugin), timeoutMultiplier*time.Minute*6, time.Second*5).Should(gomega.BeTrue())
+					// CSI under DefaultPlugins no longer installs an actual initcontainer as of OADP 1.4/Velero 1.14
+					if plugin != oadpv1alpha1.DefaultPluginCSI {
+						gomega.Eventually(lib.DoesPluginExist(kubernetesClientForSuiteRun, namespace, plugin), timeoutMultiplier*time.Minute*6, time.Second*5).Should(gomega.BeTrue())
+					}
 				}
 			}
 

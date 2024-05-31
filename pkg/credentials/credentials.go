@@ -61,11 +61,6 @@ var (
 			IsCloudProvider: false,
 			PluginName:      common.VeleroPluginForOpenshift,
 		},
-		oadpv1alpha1.DefaultPluginCSI: {
-			IsCloudProvider: false,
-			//TODO: Check if the Registry needs to an upstream one from CSI
-			PluginName: common.VeleroPluginForCSI,
-		},
 		oadpv1alpha1.DefaultPluginKubeVirt: {
 			IsCloudProvider: false,
 			PluginName:      common.KubeVirtPlugin,
@@ -99,16 +94,6 @@ func getAWSPluginImage(dpa *oadpv1alpha1.DataProtectionApplication) string {
 		return common.AWSPluginImage
 	}
 	return os.Getenv("RELATED_IMAGE_VELERO_PLUGIN_FOR_AWS")
-}
-
-func getCSIPluginImage(dpa *oadpv1alpha1.DataProtectionApplication) string {
-	if dpa.Spec.UnsupportedOverrides[oadpv1alpha1.CSIPluginImageKey] != "" {
-		return dpa.Spec.UnsupportedOverrides[oadpv1alpha1.CSIPluginImageKey]
-	}
-	if os.Getenv("RELATED_IMAGE_VELERO_PLUGIN_FOR_CSI") == "" {
-		return common.CSIPluginImage
-	}
-	return os.Getenv("RELATED_IMAGE_VELERO_PLUGIN_FOR_CSI")
 }
 
 func getGCPPluginImage(dpa *oadpv1alpha1.DataProtectionApplication) string {
@@ -156,9 +141,6 @@ func getPluginImage(pluginName string, dpa *oadpv1alpha1.DataProtectionApplicati
 
 	case common.VeleroPluginForAWS:
 		return getAWSPluginImage(dpa)
-
-	case common.VeleroPluginForCSI:
-		return getCSIPluginImage(dpa)
 
 	case common.VeleroPluginForGCP:
 		return getGCPPluginImage(dpa)

@@ -44,6 +44,8 @@ func IsRestoreDone(ocClient client.Client, veleroNamespace, name string) wait.Co
 			velero.RestorePhaseInProgress,
 			velero.RestorePhaseWaitingForPluginOperations,
 			velero.RestorePhaseWaitingForPluginOperationsPartiallyFailed,
+			velero.RestorePhaseFinalizing,
+			velero.RestorePhaseFinalizingPartiallyFailed,
 			"",
 		}
 		for _, notDonePhase := range phasesNotDone {
