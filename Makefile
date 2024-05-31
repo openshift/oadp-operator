@@ -316,7 +316,7 @@ bundle: manifests kustomize operator-sdk ## Generate bundle manifests and metada
 	# TODO: update CI to use generated one
 	cp bundle.Dockerfile build/Dockerfile.bundle
 	GOFLAGS="-mod=mod" $(OPERATOR_SDK) bundle validate ./bundle
-	sed -i '/    createdAt: /c\\$(shell grep -I '^    createdAt: ' bundle/manifests/oadp-operator.clusterserviceversion.yaml)' bundle/manifests/oadp-operator.clusterserviceversion.yaml
+	sed -i '' 's/    createdAt: .*/$(shell grep -I '^    createdAt: ' bundle/manifests/oadp-operator.clusterserviceversion.yaml)/' bundle/manifests/oadp-operator.clusterserviceversion.yaml
 
 .PHONY: nullables
 nullables:
