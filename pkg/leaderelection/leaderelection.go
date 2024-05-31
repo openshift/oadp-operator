@@ -38,7 +38,7 @@ func GetLeaderElectionConfig(restConfig *rest.Config, enabled bool) configv1.Lea
 				return LeaderElectionSNOConfig(defaultLeaderElection)
 			}
 		} else {
-			klog.Warning("unable to get cluster infrastructure status, using HA cluster values for leader election: %v", err)
+			klog.Warningf("unable to get cluster infrastructure status, using HA cluster values for leader election: %v", err)
 		}
 	}
 	return defaultLeaderElection

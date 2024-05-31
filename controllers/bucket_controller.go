@@ -153,7 +153,7 @@ func (b BucketReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	bucket.Status.LastSynced = &v1.Time{Time: time.Now()}
 	bucket.Status.Name = bucket.Spec.Name
 
-	b.Client.Status().Update(ctx, &bucket, &client.UpdateOptions{})
+	b.Client.Status().Update(ctx, &bucket)
 	return ctrl.Result{}, nil
 }
 

@@ -145,8 +145,6 @@ func (v *DpaCustomResource) Build(backupRestoreType BackupRestoreType) error {
 	// Uncomment to override plugin images to use
 	dpaInstance.Spec.UnsupportedOverrides = map[oadpv1alpha1.UnsupportedImageKey]string{
 		// oadpv1alpha1.VeleroImageKey: "quay.io/konveyor/velero:oadp-1.1",
-		// oadpv1alpha1.DataMoverImageKey: "quay.io/emcmulla/data-mover:latest",
-		// oadpv1alpha1.CSIPluginImageKey: "quay.io/emcmulla/csi-plugin:latest",
 	}
 	v.CustomResource = &dpaInstance
 	return nil
@@ -282,10 +280,10 @@ func (v *DpaCustomResource) SetClient(client client.Client) error {
 func GetVeleroPods(c *kubernetes.Clientset, namespace string) (*corev1.PodList, error) {
 	// select Velero pod with this label
 	veleroOptions := metav1.ListOptions{
-		LabelSelector: "component=velero",
+		LabelSelector: "component=velero,!job-name",
 	}
 	veleroOptionsDeploy := metav1.ListOptions{
-		LabelSelector: "deploy=velero",
+		LabelSelector: "deploy=velero,!job-name",
 	}
 	// get pods in test namespace with labelSelector
 	var podList *corev1.PodList

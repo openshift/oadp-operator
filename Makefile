@@ -72,7 +72,7 @@ ENVTEST_K8S_VERSION = 1.21
 # To re-generate a bundle for another specific version without changing the standard setup, you can:
 # - use the VERSION as arg of the bundle target (e.g make bundle VERSION=0.0.2)
 # - use environment variables to overwrite this value (e.g export VERSION=0.0.2)
-DEFAULT_VERSION := 1.3.0
+DEFAULT_VERSION := 1.4.0
 VERSION ?= $(DEFAULT_VERSION)
 
 # CHANNELS define the bundle channels used in the bundle.
@@ -80,7 +80,7 @@ VERSION ?= $(DEFAULT_VERSION)
 # To re-generate a bundle for other specific channels without changing the standard setup, you can:
 # - use the CHANNELS as arg of the bundle target (e.g make bundle CHANNELS=candidate,fast,stable)
 # - use environment variables to overwrite this value (e.g export CHANNELS="candidate,fast,stable")
-CHANNELS = "stable-1.3"
+CHANNELS = "stable-1.4"
 ifneq ($(origin CHANNELS), undefined)
 BUNDLE_CHANNELS := --channels=$(CHANNELS)
 endif
@@ -90,7 +90,7 @@ endif
 # To re-generate a bundle for any other default channel without changing the default setup, you can:
 # - use the DEFAULT_CHANNEL as arg of the bundle target (e.g make bundle DEFAULT_CHANNEL=stable)
 # - use environment variables to overwrite this value (e.g export DEFAULT_CHANNEL="stable")
-DEFAULT_CHANNEL = "stable-1.3"
+DEFAULT_CHANNEL = "stable-1.4"
 ifneq ($(origin DEFAULT_CHANNEL), undefined)
 BUNDLE_DEFAULT_CHANNEL := --default-channel=$(DEFAULT_CHANNEL)
 endif
@@ -108,9 +108,8 @@ IMAGE_TAG_BASE ?= openshift.io/oadp-operator
 BUNDLE_IMG ?= $(IMAGE_TAG_BASE)-bundle:v$(VERSION)
 
 # Image URL to use all building/pushing image targets
-IMG ?= quay.io/konveyor/oadp-operator:oadp-1.3
-# Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
-CRD_OPTIONS ?= "crd:trivialVersions=true,preserveUnknownFields=false"
+IMG ?= quay.io/konveyor/oadp-operator:oadp-1.4
+CRD_OPTIONS ?= "crd"
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
@@ -259,7 +258,7 @@ build-deploy: ## Build current branch image and deploy controller to the k8s clu
 
 CONTROLLER_GEN = $(shell pwd)/bin/controller-gen
 controller-gen: ## Download controller-gen locally if necessary.
-	$(call go-install-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@v0.6.1)
+	$(call go-install-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@v0.14.0)
 
 KUSTOMIZE = $(shell pwd)/bin/kustomize
 kustomize: ## Download kustomize locally if necessary.
@@ -314,7 +313,7 @@ operator-sdk:
 	# Download operator-sdk locally if does not exist
 	if [ ! -f $(OPERATOR_SDK) ]; then \
 		mkdir -p bin ;\
-		curl -Lo $(OPERATOR_SDK) https://github.com/operator-framework/operator-sdk/releases/download/v1.23.0/operator-sdk_$(shell go env GOOS)_$(shell go env GOARCH) ; \
+		curl -Lo $(OPERATOR_SDK) https://github.com/operator-framework/operator-sdk/releases/download/v1.34.2/operator-sdk_$(shell go env GOOS)_$(shell go env GOARCH) ; \
 		chmod +x $(OPERATOR_SDK); \
 	fi
 
@@ -328,6 +327,7 @@ bundle: manifests kustomize operator-sdk ## Generate bundle manifests and metada
 	# TODO: update CI to use generated one
 	cp bundle.Dockerfile build/Dockerfile.bundle
 	GOFLAGS="-mod=mod" $(OPERATOR_SDK) bundle validate ./bundle
+	sed -i '/    createdAt: /c\\$(shell grep -I '^    createdAt: ' bundle/manifests/oadp-operator.clusterserviceversion.yaml)' bundle/manifests/oadp-operator.clusterserviceversion.yaml
 
 .PHONY: nullables
 nullables:
@@ -389,7 +389,7 @@ deploy-olm: operator-sdk undeploy-olm ## Build current branch operator image, bu
 	IMG=$(THIS_OPERATOR_IMAGE) BUNDLE_IMG=$(THIS_BUNDLE_IMAGE) \
 		make docker-build docker-push bundle bundle-build bundle-push; \
 	rm -rf $(DEPLOY_TMP)
-	$(OPERATOR_SDK) run bundle $(THIS_BUNDLE_IMAGE) --namespace $(OADP_TEST_NAMESPACE)
+	$(OPERATOR_SDK) run bundle --security-context-config restricted $(THIS_BUNDLE_IMAGE) --namespace $(OADP_TEST_NAMESPACE)
 
 .PHONY: undeploy-olm
 undeploy-olm: login-required ## Uninstall current branch operator via OLM
@@ -444,7 +444,7 @@ catalog-push: ## Push a catalog image.
 	$(MAKE) docker-push IMG=$(CATALOG_IMG)
 
 # A valid Git branch from https://github.com/openshift/oadp-operator
-PREVIOUS_CHANNEL ?= oadp-1.2
+PREVIOUS_CHANNEL ?= oadp-1.3
 
 .PHONY: catalog-test-upgrade
 catalog-test-upgrade: TEMP:= $(shell mktemp -d)
