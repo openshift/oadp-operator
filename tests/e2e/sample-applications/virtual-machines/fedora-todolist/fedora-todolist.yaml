@@ -1,0 +1,312 @@
+apiVersion: v1
+kind: List
+items:
+  - kind: Namespace
+    apiVersion: v1
+    metadata:
+      name: mysql-persistent
+      labels:
+        app: mysql
+  - apiVersion: v1
+    kind: ServiceAccount
+    metadata:
+      name: mysql-persistent-sa
+      namespace: mysql-persistent
+      labels:
+        component: mysql-persistent
+  - apiVersion: v1
+    kind: PersistentVolumeClaim
+    metadata:
+      name: mysql
+      namespace: mysql-persistent
+      labels:
+        app: mysql
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: 1Gi
+  - kind: SecurityContextConstraints
+    apiVersion: security.openshift.io/v1
+    metadata:
+      name: mysql-persistent-scc
+    allowPrivilegeEscalation: true
+    allowPrivilegedContainer: true
+    runAsUser:
+      type: RunAsAny
+    seLinuxContext:
+      type: RunAsAny
+    fsGroup:
+      type: RunAsAny
+    supplementalGroups:
+      type: RunAsAny
+    volumes:
+    - '*'
+    users:
+    - system:admin
+    - system:serviceaccount:mysql-persistent:mysql-persistent-sa
+  - apiVersion: v1
+    kind: Service
+    metadata:
+      annotations:
+        template.openshift.io/expose-uri: mariadb://{.spec.clusterIP}:{.spec.ports[?(.name=="mysql")].port}
+      name: mysql
+      namespace: mysql-persistent
+      labels:
+        app: mysql
+        service: mysql
+    spec:
+      ports:
+      - protocol: TCP
+        name: mysql
+        port: 3306
+      selector:
+        app: mysql
+  - apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      annotations:
+        template.alpha.openshift.io/wait-for-ready: 'true'
+      name: mysql
+      namespace: mysql-persistent
+      labels:
+        e2e-app: "true"
+    spec:
+      selector:
+        matchLabels:
+          app: mysql
+      strategy:
+        type: Recreate
+      template:
+        metadata:
+          labels:
+            e2e-app: "true"
+            app: mysql
+            curl-tool: "true"
+        spec:
+          securityContext:
+            runAsNonRoot: true
+          serviceAccountName: mysql-persistent-sa
+          containers:
+          - image: registry.redhat.io/rhel8/mariadb-105:latest
+            name: mysql
+            securityContext:
+              privileged: false
+              allowPrivilegeEscalation: false
+              capabilities:
+                drop:
+                - ALL
+              seccompProfile:
+                type: RuntimeDefault
+            env:
+              - name: MYSQL_USER
+                value: changeme
+              - name: MYSQL_PASSWORD
+                value: changeme
+              - name: MYSQL_ROOT_PASSWORD
+                value: root
+              - name: MYSQL_DATABASE
+                value: todolist
+            ports:
+            - containerPort: 3306
+              name: mysql
+            resources:
+              limits:
+                memory: 512Mi
+            volumeMounts:
+            - name: mysql-data
+              mountPath: /var/lib/mysql
+            livenessProbe:
+              tcpSocket:
+                port: mysql
+              initialDelaySeconds: 10
+              periodSeconds: 10
+              timeoutSeconds: 5
+            startupProbe:
+              exec:
+                command:
+                - /usr/bin/timeout
+                - 1s
+                - /usr/bin/mysql
+                - $(MYSQL_DATABASE)
+                - -h
+                - 127.0.0.1
+                - -u$(MYSQL_USER)
+                - -p$(MYSQL_PASSWORD)
+                - -e EXIT
+              initialDelaySeconds: 5
+              periodSeconds: 30
+              timeoutSeconds: 2
+              successThreshold: 1
+              failureThreshold: 40 # 40x30sec before restart pod
+            restartPolicy: Always
+          - image: docker.io/curlimages/curl:8.5.0
+            name: curl-tool
+            command: ["/bin/sleep", "infinity"]
+          volumes:
+          - name: mysql-data
+            persistentVolumeClaim:
+              claimName: mysql
+  - apiVersion: v1
+    kind: Service
+    metadata:
+      name: todolist
+      namespace: mysql-persistent
+      labels:
+        app: todolist
+        service: todolist
+        e2e-app: "true"
+    spec:
+      ports:
+        - name: web
+          port: 8000
+          targetPort: 8000
+      selector:
+        app: todolist
+        service: todolist
+  - apiVersion: apps.openshift.io/v1
+    kind: DeploymentConfig
+    metadata:
+      name: todolist
+      namespace: mysql-persistent
+      labels:
+        app: todolist
+        service: todolist
+        e2e-app: "true"
+    spec:
+      replicas: 1
+      selector:
+        app: todolist
+        service: todolist
+      strategy:
+        type: Recreate
+      template:
+        metadata:
+          labels:
+            app: todolist
+            service: todolist
+            e2e-app: "true"
+        spec:
+          containers:
+          - name: todolist
+            image:  quay.io/rhn_engineering_whayutin/todolist-mariadb-go-2:latest
+            env:
+              - name: foo
+                value: bar
+            ports:
+              - containerPort: 8000
+                protocol: TCP
+          initContainers:
+          - name: init-myservice
+            image: docker.io/curlimages/curl:8.5.0
+            command: ['sh', '-c', 'sleep 10; until /usr/bin/nc -z -w 1 mysql 3306; do echo Trying to connect to mysql DB port; sleep 5; done; echo mysql DB port reachable']
+  - apiVersion: route.openshift.io/v1
+    kind: Route
+    metadata:
+      name: todolist-route
+      namespace: mysql-persistent
+    spec:
+      path: "/"
+      to:
+        kind: Service
+        name: todolist
+  - apiVersion: kubevirt.io/v1
+    kind: VirtualMachine
+    metadata:
+      name: fedora-todolist
+      namespace: mysql-persistent
+    spec:
+      dataVolumeTemplates:
+        - apiVersion: cdi.kubevirt.io/v1beta1
+          kind: DataVolume
+          metadata:
+            name: fedora-todolist-disk
+          spec:
+            sourceRef:
+              kind: DataSource
+              name: fedora
+              namespace: openshift-virtualization-os-images
+            storage:
+              resources:
+                requests:
+                  storage: 30Gi
+      running: true
+      template:
+        metadata:
+          annotations:
+            vm.kubevirt.io/flavor: tiny
+            vm.kubevirt.io/os: fedora
+            vm.kubevirt.io/workload: server
+        spec:
+          architecture: amd64
+          domain:
+            devices:
+              disks:
+                - disk:
+                    bus: virtio
+                  name: rootdisk
+                - disk:
+                    bus: virtio
+                  name: cloudinitdisk
+              interfaces:
+                - macAddress: '02:73:43:00:00:07'
+                  masquerade: {}
+                  model: virtio
+                  name: default
+              networkInterfaceMultiqueue: true
+              rng: {}
+            features:
+              acpi: {}
+              smm:
+                enabled: true
+            firmware:
+              bootloader:
+                efi: {}
+            machine:
+              type: pc-q35-rhel9.2.0
+            memory:
+              guest: 2Gi
+            resources: {}
+          networks:
+            - name: default
+              pod: {}
+          terminationGracePeriodSeconds: 180
+          volumes:
+            - dataVolume:
+                name: fedora-todolist-disk
+              name: rootdisk
+            - cloudInitConfigDrive:
+                userData: |-
+                  #cloud-config
+                  user: fedora
+                  password: dog8code
+                  chpasswd: { expire: False }
+                  user: test
+                  password: dog8code
+                  chpasswd: { expire: False }
+                  packages:
+                    - mariadb-server
+                    - unzip
+                    - wget
+                  runcmd:
+                    - systemctl stop firewalld
+                    - systemctl disable firewalld
+                    - systemctl start mariadb
+                    - systemctl enable mariadb
+                    - mysql -uroot -e "CREATE DATABASE todolist; USE todolist; CREATE USER 'test'@'localhost' IDENTIFIED BY 'test';"
+                    - mysql -uroot -e "grant all privileges on todolist.* to test@'localhost' identified by 'test'; FLUSH PRIVILEGES;"
+                    - pushd /home/test/
+                    - wget https://github.com/weshayutin/todolist-mariadb-go/releases/download/testing3/todolist-linux-amd64.zip
+                    - unzip todolist-linux-amd64.zip
+                    - chown -R test:test /home/test
+                    - semanage fcontext --add --type bin_t '/home/test/todolist-linux-amd64'
+                    - restorecon -Fv /home/test/todolist-linux-amd64
+                    - cp systemd/todolist-mariadb.service /etc/systemd/system/
+                    - popd
+                    - systemctl daemon-reload
+                    - systemctl start todolist-mariadb.service
+                    - systemctl enable todolist-mariadb.service
+                    - systemctl status todolist-mariadb.service
+                    - systemctl  disable  cloud-init
+              name: cloudinitdisk

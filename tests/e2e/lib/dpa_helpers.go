@@ -20,6 +20,7 @@ import (
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	"github.com/openshift/oadp-operator/pkg/common"
 	utils "github.com/openshift/oadp-operator/tests/e2e/utils"
+	operatorsv1 "github.com/operator-framework/api/pkg/operators/v1"
 	operators "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	operatorsv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	velero "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
@@ -272,6 +273,7 @@ func (v *DpaCustomResource) SetClient(client client.Client) error {
 	volumesnapshotv1.AddToScheme(client.Scheme())
 	buildv1.AddToScheme(client.Scheme())
 	operatorsv1alpha1.AddToScheme(client.Scheme())
+	operatorsv1.AddToScheme(client.Scheme())
 
 	v.Client = client
 	return nil

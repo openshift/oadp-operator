@@ -13,9 +13,9 @@ import (
 )
 
 var _ = Describe("Backup and restore tests with must-gather", func() {
-	var lastBRCase BackupRestoreCase
+	var lastBRCase ApplicationBackupRestoreCase
 	var lastInstallTime time.Time
-	updateLastBRcase := func(brCase BackupRestoreCase) {
+	updateLastBRcase := func(brCase ApplicationBackupRestoreCase) {
 		lastBRCase = brCase
 	}
 	updateLastInstallTime := func() {
@@ -23,15 +23,15 @@ var _ = Describe("Backup and restore tests with must-gather", func() {
 	}
 
 	var _ = AfterEach(func(ctx SpecContext) {
-		tearDownBackupAndRestore(lastBRCase, lastInstallTime, ctx.SpecReport())
+		tearDownBackupAndRestore(lastBRCase.BackupRestoreCase, lastInstallTime, ctx.SpecReport())
 	})
 
 	DescribeTable("Backup and restore applications and run must-gather",
-		func(brCase BackupRestoreCase, expectedErr error) {
+		func(brCase ApplicationBackupRestoreCase, expectedErr error) {
 			if CurrentSpecReport().NumAttempts > 1 && !knownFlake {
 				Fail("No known FLAKE found in a previous run, marking test as failed.")
 			}
-			runBackupAndRestore(brCase, expectedErr, updateLastBRcase, updateLastInstallTime)
+			runApplicationBackupAndRestore(brCase, expectedErr, updateLastBRcase, updateLastInstallTime)
 
 			// TODO look for duplications in tearDownBackupAndRestore
 			baseReportDir := artifact_dir + "/" + brCase.Name
@@ -74,13 +74,16 @@ var _ = Describe("Backup and restore tests with must-gather", func() {
 				Expect(err).ToNot(HaveOccurred())
 			}
 		},
-		Entry("Mongo application DATAMOVER", FlakeAttempts(flakeAttempts), BackupRestoreCase{
-			ApplicationTemplate:  "./sample-applications/mongo-persistent/mongo-persistent-csi.yaml",
-			ApplicationNamespace: "mongo-persistent",
-			Name:                 "mongo-datamover-e2e",
-			BackupRestoreType:    CSIDataMover,
-			PreBackupVerify:      mongoready(true, false, CSIDataMover),
-			PostRestoreVerify:    mongoready(false, false, CSIDataMover),
+		Entry("Mongo application DATAMOVER", FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
+			ApplicationTemplate: "./sample-applications/mongo-persistent/mongo-persistent-csi.yaml",
+			BackupRestoreCase: BackupRestoreCase{
+				Namespace:         "mongo-persistent",
+				Name:              "mongo-datamover-e2e",
+				BackupRestoreType: CSIDataMover,
+				PreBackupVerify:   mongoready(true, false, CSIDataMover),
+				PostRestoreVerify: mongoready(false, false, CSIDataMover),
+				BackupTimeout:     20 * time.Minute,
+			},
 			MustGatherFiles: []string{
 				"namespaces/" + namespace + "/oadp.openshift.io/dpa-ts-" + instanceName + "/ts-" + instanceName + ".yml",
 				"namespaces/" + namespace + "/velero.io/backupstoragelocations.velero.io/ts-" + instanceName + "-1.yaml",
