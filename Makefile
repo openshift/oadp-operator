@@ -389,7 +389,7 @@ deploy-olm: operator-sdk undeploy-olm ## Build current branch operator image, bu
 	cp -r . $(DEPLOY_TMP) && cd $(DEPLOY_TMP) && \
 	IMG=$(THIS_OPERATOR_IMAGE) BUNDLE_IMG=$(THIS_BUNDLE_IMAGE) \
 		make docker-build docker-push bundle bundle-build bundle-push; \
-	rm -rf $(DEPLOY_TMP)
+	chmod -R 777 ${DEPLOY_TMP} && rm -rf $(DEPLOY_TMP)
 	$(OPERATOR_SDK) run bundle --security-context-config restricted $(THIS_BUNDLE_IMAGE) --namespace $(OADP_TEST_NAMESPACE)
 
 .PHONY: undeploy-olm
