@@ -186,6 +186,13 @@ func runBackup(brCase BackupRestoreCase, backupName string) bool {
 	nsRequiresResticDCWorkaround, err := NamespaceRequiresResticDCWorkaround(dpaCR.Client, brCase.Namespace)
 	Expect(err).ToNot(HaveOccurred())
 
+	if strings.Contains(brCase.Name, "twovol") {
+		volumeSyncDelay := 30 * time.Second
+		log.Printf("Sleeping for %v to allow volume to be in sync with /tmp/log/ for case %s", volumeSyncDelay, brCase.Name)
+		// TODO this should be a function, not an arbitrary sleep
+		time.Sleep(volumeSyncDelay)
+	}
+
 	// create backup
 	log.Printf("Creating backup %s for case %s", backupName, brCase.Name)
 	backup, err := CreateBackupForNamespaces(dpaCR.Client, namespace, backupName, []string{brCase.Namespace}, brCase.BackupRestoreType == RESTIC || brCase.BackupRestoreType == KOPIA, brCase.BackupRestoreType == CSIDataMover)
