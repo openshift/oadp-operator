@@ -16,6 +16,23 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
+func CreateNamespace(clientset *kubernetes.Clientset, namespace string) error {
+	ns := corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespace}}
+	_, err := clientset.CoreV1().Namespaces().Create(context.Background(), &ns, metav1.CreateOptions{})
+	if apierrors.IsAlreadyExists(err) {
+		return nil
+	}
+	return err
+}
+
+func DeleteNamespace(clientset *kubernetes.Clientset, namespace string) error {
+	err := clientset.CoreV1().Namespaces().Delete(context.Background(), namespace, metav1.DeleteOptions{})
+	if apierrors.IsNotFound(err) {
+		return nil
+	}
+	return err
+}
+
 func DoesNamespaceExist(clientset *kubernetes.Clientset, namespace string) (bool, error) {
 	_, err := clientset.CoreV1().Namespaces().Get(context.Background(), namespace, metav1.GetOptions{})
 	if err != nil {

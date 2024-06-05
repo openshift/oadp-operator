@@ -15,7 +15,7 @@ import (
 	. "github.com/openshift/oadp-operator/tests/e2e/lib"
 	corev1 "k8s.io/api/core/v1"
 	k8serror "k8s.io/apimachinery/pkg/api/errors"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -57,21 +57,24 @@ func mysqlReady(preBackupState bool, twoVol bool, backupRestoreType BackupRestor
 }
 
 type BackupRestoreCase struct {
+	Namespace         string
+	Name              string
+	BackupRestoreType BackupRestoreType
+	PreBackupVerify   VerificationFunction
+	PostRestoreVerify VerificationFunction
+	SkipVerifyLogs    bool // TODO remove
+	BackupTimeout     time.Duration
+}
+
+type ApplicationBackupRestoreCase struct {
+	BackupRestoreCase
 	ApplicationTemplate          string
 	PvcSuffixName                string
-	ApplicationNamespace         string
-	Name                         string
-	BackupRestoreType            BackupRestoreType
-	PreBackupVerify              VerificationFunction
-	PostRestoreVerify            VerificationFunction
-	AppReadyDelay                time.Duration
 	MustGatherFiles              []string            // list of files expected in must-gather under quay.io.../clusters/clustername/... ie. "namespaces/openshift-adp/oadp.openshift.io/dpa-ts-example-velero/ts-example-velero.yml"
 	MustGatherValidationFunction *func(string) error // validation function for must-gather where string parameter is the path to "quay.io.../clusters/clustername/"
 }
 
-func runBackupAndRestore(brCase BackupRestoreCase, expectedErr error, updateLastBRcase func(brCase BackupRestoreCase), updateLastInstallTime func()) {
-	updateLastBRcase(brCase)
-
+func prepareBackupAndRestore(brCase BackupRestoreCase, updateLastInstallTime func()) (string, string) {
 	err := dpaCR.Build(brCase.BackupRestoreType)
 	Expect(err).NotTo(HaveOccurred())
 
@@ -105,10 +108,19 @@ func runBackupAndRestore(brCase BackupRestoreCase, expectedErr error, updateLast
 	backupName := fmt.Sprintf("%s-%s", brCase.Name, backupUid.String())
 	restoreName := fmt.Sprintf("%s-%s", brCase.Name, restoreUid.String())
 
+	return backupName, restoreName
+}
+
+func runApplicationBackupAndRestore(brCase ApplicationBackupRestoreCase, expectedErr error, updateLastBRcase func(brCase ApplicationBackupRestoreCase), updateLastInstallTime func()) {
+	updateLastBRcase(brCase)
+
+	// create DPA
+	backupName, restoreName := prepareBackupAndRestore(brCase.BackupRestoreCase, updateLastInstallTime)
+
 	// install app
 	updateLastInstallTime()
 	log.Printf("Installing application for case %s", brCase.Name)
-	err = InstallApplication(dpaCR.Client, brCase.ApplicationTemplate)
+	err := InstallApplication(dpaCR.Client, brCase.ApplicationTemplate)
 	Expect(err).ToNot(HaveOccurred())
 	if brCase.BackupRestoreType == CSI || brCase.BackupRestoreType == CSIDataMover {
 		log.Printf("Creating pvc for case %s", brCase.Name)
@@ -125,34 +137,69 @@ func runBackupAndRestore(brCase BackupRestoreCase, expectedErr error, updateLast
 			pvcPathFormat = "./sample-applications/%s/pvc-twoVol/%s.yaml"
 		}
 
-		pvcPath = fmt.Sprintf(pvcPathFormat, brCase.ApplicationNamespace, pvcName)
+		pvcPath = fmt.Sprintf(pvcPathFormat, brCase.Namespace, pvcName)
 
 		err = InstallApplication(dpaCR.Client, pvcPath)
 		Expect(err).ToNot(HaveOccurred())
 	}
 
 	// wait for pods to be running
-	Eventually(AreAppBuildsReady(dpaCR.Client, brCase.ApplicationNamespace), timeoutMultiplier*time.Minute*5, time.Second*5).Should(BeTrue())
-	Eventually(AreApplicationPodsRunning(kubernetesClientForSuiteRun, brCase.ApplicationNamespace), timeoutMultiplier*time.Minute*9, time.Second*5).Should(BeTrue())
+	Eventually(AreAppBuildsReady(dpaCR.Client, brCase.Namespace), timeoutMultiplier*time.Minute*5, time.Second*5).Should(BeTrue())
+	Eventually(AreApplicationPodsRunning(kubernetesClientForSuiteRun, brCase.Namespace), timeoutMultiplier*time.Minute*9, time.Second*5).Should(BeTrue())
+
+	// do the backup for real
+	nsRequiredResticDCWorkaround := runBackup(brCase.BackupRestoreCase, backupName)
+
+	// uninstall app
+	log.Printf("Uninstalling app for case %s", brCase.Name)
+	err = UninstallApplication(dpaCR.Client, brCase.ApplicationTemplate)
+	Expect(err).ToNot(HaveOccurred())
+
+	// Wait for namespace to be deleted
+	Eventually(IsNamespaceDeleted(kubernetesClientForSuiteRun, brCase.Namespace), timeoutMultiplier*time.Minute*4, time.Second*5).Should(BeTrue())
+
+	updateLastInstallTime()
+
+	// run restore
+	runRestore(brCase.BackupRestoreCase, backupName, restoreName, nsRequiredResticDCWorkaround)
+
+	// verify app is running
+	Eventually(AreAppBuildsReady(dpaCR.Client, brCase.Namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
+	Eventually(AreApplicationPodsRunning(kubernetesClientForSuiteRun, brCase.Namespace), timeoutMultiplier*time.Minute*9, time.Second*5).Should(BeTrue())
 
 	// Run optional custom verification
-	log.Printf("Running pre-backup function for case %s", brCase.Name)
-	err = brCase.PreBackupVerify(dpaCR.Client, brCase.ApplicationNamespace)
+	if brCase.PostRestoreVerify != nil {
+		log.Printf("Running post-restore function for case %s", brCase.Name)
+		err = brCase.PostRestoreVerify(dpaCR.Client, brCase.Namespace)
+		Expect(err).ToNot(HaveOccurred())
+	}
+}
+
+func runBackup(brCase BackupRestoreCase, backupName string) bool {
+	// Run optional custom verification
+	if brCase.PreBackupVerify != nil {
+		log.Printf("Running pre-backup function for case %s", brCase.Name)
+		err := brCase.PreBackupVerify(dpaCR.Client, brCase.Namespace)
+		Expect(err).ToNot(HaveOccurred())
+	}
+
+	nsRequiresResticDCWorkaround, err := NamespaceRequiresResticDCWorkaround(dpaCR.Client, brCase.Namespace)
 	Expect(err).ToNot(HaveOccurred())
 
-	nsRequiresResticDCWorkaround, err := NamespaceRequiresResticDCWorkaround(dpaCR.Client, brCase.ApplicationNamespace)
-	Expect(err).ToNot(HaveOccurred())
+	if strings.Contains(brCase.Name, "twovol") {
+		volumeSyncDelay := 30 * time.Second
+		log.Printf("Sleeping for %v to allow volume to be in sync with /tmp/log/ for case %s", volumeSyncDelay, brCase.Name)
+		// TODO this should be a function, not an arbitrary sleep
+		time.Sleep(volumeSyncDelay)
+	}
 
-	// TODO this should be a function, not an arbitrary sleep
-	log.Printf("Sleeping for %v to allow application to be ready for case %s", brCase.AppReadyDelay, brCase.Name)
-	time.Sleep(brCase.AppReadyDelay)
 	// create backup
 	log.Printf("Creating backup %s for case %s", backupName, brCase.Name)
-	backup, err := CreateBackupForNamespaces(dpaCR.Client, namespace, backupName, []string{brCase.ApplicationNamespace}, brCase.BackupRestoreType == RESTIC || brCase.BackupRestoreType == KOPIA, brCase.BackupRestoreType == CSIDataMover)
+	backup, err := CreateBackupForNamespaces(dpaCR.Client, namespace, backupName, []string{brCase.Namespace}, brCase.BackupRestoreType == RESTIC || brCase.BackupRestoreType == KOPIA, brCase.BackupRestoreType == CSIDataMover)
 	Expect(err).ToNot(HaveOccurred())
 
 	// wait for backup to not be running
-	Eventually(IsBackupDone(dpaCR.Client, namespace, backupName), timeoutMultiplier*time.Minute*20, time.Second*10).Should(BeTrue())
+	Eventually(IsBackupDone(dpaCR.Client, namespace, backupName), timeoutMultiplier*brCase.BackupTimeout, time.Second*10).Should(BeTrue())
 	// TODO only log on fail?
 	describeBackup := DescribeBackup(veleroClientForSuiteRun, csiClientForSuiteRun, dpaCR.Client, backup)
 	GinkgoWriter.Println(describeBackup)
@@ -161,7 +208,9 @@ func runBackupAndRestore(brCase BackupRestoreCase, expectedErr error, updateLast
 	backupErrorLogs := BackupErrorLogs(kubernetesClientForSuiteRun, dpaCR.Client, backup)
 	accumulatedTestLogs = append(accumulatedTestLogs, describeBackup, backupLogs)
 
-	Expect(backupErrorLogs).Should(Equal([]string{}))
+	if !brCase.SkipVerifyLogs {
+		Expect(backupErrorLogs).Should(Equal([]string{}))
+	}
 
 	// check if backup succeeded
 	succeeded, err := IsBackupCompletedSuccessfully(kubernetesClientForSuiteRun, dpaCR.Client, backup)
@@ -174,16 +223,10 @@ func runBackupAndRestore(brCase BackupRestoreCase, expectedErr error, updateLast
 		Eventually(AreVolumeSnapshotsReady(dpaCR.Client, backupName), timeoutMultiplier*time.Minute*4, time.Second*10).Should(BeTrue())
 	}
 
-	// uninstall app
-	log.Printf("Uninstalling app for case %s", brCase.Name)
-	err = UninstallApplication(dpaCR.Client, brCase.ApplicationTemplate)
-	Expect(err).ToNot(HaveOccurred())
+	return nsRequiresResticDCWorkaround
+}
 
-	// Wait for namespace to be deleted
-	Eventually(IsNamespaceDeleted(kubernetesClientForSuiteRun, brCase.ApplicationNamespace), timeoutMultiplier*time.Minute*4, time.Second*5).Should(BeTrue())
-
-	updateLastInstallTime()
-	// run restore
+func runRestore(brCase BackupRestoreCase, backupName, restoreName string, nsRequiresResticDCWorkaround bool) {
 	log.Printf("Creating restore %s for case %s", restoreName, brCase.Name)
 	restore, err := CreateRestoreFromBackup(dpaCR.Client, namespace, backupName, restoreName)
 	Expect(err).ToNot(HaveOccurred())
@@ -196,10 +239,12 @@ func runBackupAndRestore(brCase BackupRestoreCase, expectedErr error, updateLast
 	restoreErrorLogs := RestoreErrorLogs(kubernetesClientForSuiteRun, dpaCR.Client, restore)
 	accumulatedTestLogs = append(accumulatedTestLogs, describeRestore, restoreLogs)
 
-	Expect(restoreErrorLogs).Should(Equal([]string{}))
+	if !brCase.SkipVerifyLogs {
+		Expect(restoreErrorLogs).Should(Equal([]string{}))
+	}
 
 	// Check if restore succeeded
-	succeeded, err = IsRestoreCompletedSuccessfully(kubernetesClientForSuiteRun, dpaCR.Client, namespace, restoreName)
+	succeeded, err := IsRestoreCompletedSuccessfully(kubernetesClientForSuiteRun, dpaCR.Client, namespace, restoreName)
 	Expect(err).ToNot(HaveOccurred())
 	Expect(succeeded).To(Equal(true))
 
@@ -213,15 +258,6 @@ func runBackupAndRestore(brCase BackupRestoreCase, expectedErr error, updateLast
 		err = RunDcPostRestoreScript(restoreName)
 		Expect(err).ToNot(HaveOccurred())
 	}
-
-	// verify app is running
-	Eventually(AreAppBuildsReady(dpaCR.Client, brCase.ApplicationNamespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
-	Eventually(AreApplicationPodsRunning(kubernetesClientForSuiteRun, brCase.ApplicationNamespace), timeoutMultiplier*time.Minute*9, time.Second*5).Should(BeTrue())
-
-	// Run optional custom verification
-	log.Printf("Running post-restore function for case %s", brCase.Name)
-	err = brCase.PostRestoreVerify(dpaCR.Client, brCase.ApplicationNamespace)
-	Expect(err).ToNot(HaveOccurred())
 }
 
 func tearDownBackupAndRestore(brCase BackupRestoreCase, installTime time.Time, report SpecReport) {
@@ -233,9 +269,9 @@ func tearDownBackupAndRestore(brCase BackupRestoreCase, installTime time.Time, r
 
 	if report.Failed() {
 		// print namespace error events for app namespace
-		if brCase.ApplicationNamespace != "" {
+		if brCase.Namespace != "" {
 			GinkgoWriter.Println("Printing app namespace events")
-			PrintNamespaceEventsAfterTime(kubernetesClientForSuiteRun, brCase.ApplicationNamespace, installTime)
+			PrintNamespaceEventsAfterTime(kubernetesClientForSuiteRun, brCase.Namespace, installTime)
 		}
 		GinkgoWriter.Println("Printing oadp namespace events")
 		PrintNamespaceEventsAfterTime(kubernetesClientForSuiteRun, namespace, installTime)
@@ -244,7 +280,7 @@ func tearDownBackupAndRestore(brCase BackupRestoreCase, installTime time.Time, r
 		Expect(err).NotTo(HaveOccurred())
 		err = SavePodLogs(kubernetesClientForSuiteRun, namespace, baseReportDir)
 		Expect(err).NotTo(HaveOccurred())
-		err = SavePodLogs(kubernetesClientForSuiteRun, brCase.ApplicationNamespace, baseReportDir)
+		err = SavePodLogs(kubernetesClientForSuiteRun, brCase.Namespace, baseReportDir)
 		Expect(err).NotTo(HaveOccurred())
 	}
 	if brCase.BackupRestoreType == CSI || brCase.BackupRestoreType == CSIDataMover {
@@ -253,9 +289,9 @@ func tearDownBackupAndRestore(brCase BackupRestoreCase, installTime time.Time, r
 		err := UninstallApplication(dpaCR.Client, snapshotClassPath)
 		Expect(err).ToNot(HaveOccurred())
 	}
-	err := dpaCR.Client.Delete(context.Background(), &corev1.Namespace{ObjectMeta: v1.ObjectMeta{
-		Name:      brCase.ApplicationNamespace,
-		Namespace: brCase.ApplicationNamespace,
+	err := dpaCR.Client.Delete(context.Background(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{
+		Name:      brCase.Namespace,
+		Namespace: brCase.Namespace,
 	}}, &client.DeleteOptions{})
 	if k8serror.IsNotFound(err) {
 		err = nil
@@ -264,13 +300,13 @@ func tearDownBackupAndRestore(brCase BackupRestoreCase, installTime time.Time, r
 
 	err = dpaCR.Delete(runTimeClientForSuiteRun)
 	Expect(err).ToNot(HaveOccurred())
-	Eventually(IsNamespaceDeleted(kubernetesClientForSuiteRun, brCase.ApplicationNamespace), timeoutMultiplier*time.Minute*2, time.Second*5).Should(BeTrue())
+	Eventually(IsNamespaceDeleted(kubernetesClientForSuiteRun, brCase.Namespace), timeoutMultiplier*time.Minute*5, time.Second*5).Should(BeTrue())
 }
 
 var _ = Describe("Backup and restore tests", func() {
-	var lastBRCase BackupRestoreCase
+	var lastBRCase ApplicationBackupRestoreCase
 	var lastInstallTime time.Time
-	updateLastBRcase := func(brCase BackupRestoreCase) {
+	updateLastBRcase := func(brCase ApplicationBackupRestoreCase) {
 		lastBRCase = brCase
 	}
 	updateLastInstallTime := func() {
@@ -278,97 +314,126 @@ var _ = Describe("Backup and restore tests", func() {
 	}
 
 	var _ = AfterEach(func(ctx SpecContext) {
-		tearDownBackupAndRestore(lastBRCase, lastInstallTime, ctx.SpecReport())
+		tearDownBackupAndRestore(lastBRCase.BackupRestoreCase, lastInstallTime, ctx.SpecReport())
 	})
 
 	DescribeTable("Backup and restore applications",
-		func(brCase BackupRestoreCase, expectedErr error) {
+		func(brCase ApplicationBackupRestoreCase, expectedErr error) {
 			if CurrentSpecReport().NumAttempts > 1 && !knownFlake {
 				Fail("No known FLAKE found in a previous run, marking test as failed.")
 			}
-			runBackupAndRestore(brCase, expectedErr, updateLastBRcase, updateLastInstallTime)
+			runApplicationBackupAndRestore(brCase, expectedErr, updateLastBRcase, updateLastInstallTime)
 		},
-		Entry("MySQL application CSI", FlakeAttempts(flakeAttempts), BackupRestoreCase{
-			ApplicationTemplate:  "./sample-applications/mysql-persistent/mysql-persistent-csi.yaml",
-			ApplicationNamespace: "mysql-persistent",
-			Name:                 "mysql-csi-e2e",
-			BackupRestoreType:    CSI,
-			PreBackupVerify:      mysqlReady(true, false, CSI),
-			PostRestoreVerify:    mysqlReady(false, false, CSI),
+		Entry("MySQL application CSI", FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
+			ApplicationTemplate: "./sample-applications/mysql-persistent/mysql-persistent-csi.yaml",
+			BackupRestoreCase: BackupRestoreCase{
+				Namespace:         "mysql-persistent",
+				Name:              "mysql-csi-e2e",
+				BackupRestoreType: CSI,
+				PreBackupVerify:   mysqlReady(true, false, CSI),
+				PostRestoreVerify: mysqlReady(false, false, CSI),
+				BackupTimeout:     20 * time.Minute,
+			},
 		}, nil),
-		Entry("Mongo application CSI", FlakeAttempts(flakeAttempts), BackupRestoreCase{
-			ApplicationTemplate:  "./sample-applications/mongo-persistent/mongo-persistent-csi.yaml",
-			ApplicationNamespace: "mongo-persistent",
-			Name:                 "mongo-csi-e2e",
-			BackupRestoreType:    CSI,
-			PreBackupVerify:      mongoready(true, false, CSI),
-			PostRestoreVerify:    mongoready(false, false, CSI),
+		Entry("Mongo application CSI", FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
+			ApplicationTemplate: "./sample-applications/mongo-persistent/mongo-persistent-csi.yaml",
+			BackupRestoreCase: BackupRestoreCase{
+				Namespace:         "mongo-persistent",
+				Name:              "mongo-csi-e2e",
+				BackupRestoreType: CSI,
+				PreBackupVerify:   mongoready(true, false, CSI),
+				PostRestoreVerify: mongoready(false, false, CSI),
+				BackupTimeout:     20 * time.Minute,
+			},
 		}, nil),
-		Entry("MySQL application two Vol CSI", FlakeAttempts(flakeAttempts), BackupRestoreCase{
-			ApplicationTemplate:  fmt.Sprintf("./sample-applications/mysql-persistent/mysql-persistent-twovol-csi.yaml"),
-			ApplicationNamespace: "mysql-persistent",
-			Name:                 "mysql-twovol-csi-e2e",
-			BackupRestoreType:    CSI,
-			AppReadyDelay:        30 * time.Second,
-			PreBackupVerify:      mysqlReady(true, true, CSI),
-			PostRestoreVerify:    mysqlReady(false, true, CSI),
+		Entry("MySQL application two Vol CSI", FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
+			ApplicationTemplate: "./sample-applications/mysql-persistent/mysql-persistent-twovol-csi.yaml",
+			BackupRestoreCase: BackupRestoreCase{
+				Namespace:         "mysql-persistent",
+				Name:              "mysql-twovol-csi-e2e",
+				BackupRestoreType: CSI,
+				PreBackupVerify:   mysqlReady(true, true, CSI),
+				PostRestoreVerify: mysqlReady(false, true, CSI),
+				BackupTimeout:     20 * time.Minute,
+			},
 		}, nil),
-		Entry("Mongo application RESTIC", FlakeAttempts(flakeAttempts), BackupRestoreCase{
-			ApplicationTemplate:  "./sample-applications/mongo-persistent/mongo-persistent.yaml",
-			ApplicationNamespace: "mongo-persistent",
-			Name:                 "mongo-restic-e2e",
-			BackupRestoreType:    RESTIC,
-			PreBackupVerify:      mongoready(true, false, RESTIC),
-			PostRestoreVerify:    mongoready(false, false, RESTIC),
+		Entry("Mongo application RESTIC", FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
+			ApplicationTemplate: "./sample-applications/mongo-persistent/mongo-persistent.yaml",
+			BackupRestoreCase: BackupRestoreCase{
+				Namespace:         "mongo-persistent",
+				Name:              "mongo-restic-e2e",
+				BackupRestoreType: RESTIC,
+				PreBackupVerify:   mongoready(true, false, RESTIC),
+				PostRestoreVerify: mongoready(false, false, RESTIC),
+				BackupTimeout:     20 * time.Minute,
+			},
 		}, nil),
-		Entry("MySQL application RESTIC", FlakeAttempts(flakeAttempts), BackupRestoreCase{
-			ApplicationTemplate:  "./sample-applications/mysql-persistent/mysql-persistent.yaml",
-			ApplicationNamespace: "mysql-persistent",
-			Name:                 "mysql-restic-e2e",
-			BackupRestoreType:    RESTIC,
-			PreBackupVerify:      mysqlReady(true, false, RESTIC),
-			PostRestoreVerify:    mysqlReady(false, false, RESTIC),
+		Entry("MySQL application RESTIC", FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
+			ApplicationTemplate: "./sample-applications/mysql-persistent/mysql-persistent.yaml",
+			BackupRestoreCase: BackupRestoreCase{
+				Namespace:         "mysql-persistent",
+				Name:              "mysql-restic-e2e",
+				BackupRestoreType: RESTIC,
+				PreBackupVerify:   mysqlReady(true, false, RESTIC),
+				PostRestoreVerify: mysqlReady(false, false, RESTIC),
+				BackupTimeout:     20 * time.Minute,
+			},
 		}, nil),
-		Entry("Mongo application KOPIA", FlakeAttempts(flakeAttempts), BackupRestoreCase{
-			ApplicationTemplate:  "./sample-applications/mongo-persistent/mongo-persistent.yaml",
-			ApplicationNamespace: "mongo-persistent",
-			Name:                 "mongo-kopia-e2e",
-			BackupRestoreType:    KOPIA,
-			PreBackupVerify:      mongoready(true, false, KOPIA),
-			PostRestoreVerify:    mongoready(false, false, KOPIA),
+		Entry("Mongo application KOPIA", FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
+			ApplicationTemplate: "./sample-applications/mongo-persistent/mongo-persistent.yaml",
+			BackupRestoreCase: BackupRestoreCase{
+				Namespace:         "mongo-persistent",
+				Name:              "mongo-kopia-e2e",
+				BackupRestoreType: KOPIA,
+				PreBackupVerify:   mongoready(true, false, KOPIA),
+				PostRestoreVerify: mongoready(false, false, KOPIA),
+				BackupTimeout:     20 * time.Minute,
+			},
 		}, nil),
-		Entry("MySQL application KOPIA", FlakeAttempts(flakeAttempts), BackupRestoreCase{
-			ApplicationTemplate:  "./sample-applications/mysql-persistent/mysql-persistent.yaml",
-			ApplicationNamespace: "mysql-persistent",
-			Name:                 "mysql-kopia-e2e",
-			BackupRestoreType:    KOPIA,
-			PreBackupVerify:      mysqlReady(true, false, KOPIA),
-			PostRestoreVerify:    mysqlReady(false, false, KOPIA),
+		Entry("MySQL application KOPIA", FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
+			ApplicationTemplate: "./sample-applications/mysql-persistent/mysql-persistent.yaml",
+			BackupRestoreCase: BackupRestoreCase{
+				Namespace:         "mysql-persistent",
+				Name:              "mysql-kopia-e2e",
+				BackupRestoreType: KOPIA,
+				PreBackupVerify:   mysqlReady(true, false, KOPIA),
+				PostRestoreVerify: mysqlReady(false, false, KOPIA),
+				BackupTimeout:     20 * time.Minute,
+			},
 		}, nil),
-		Entry("Mongo application DATAMOVER", FlakeAttempts(flakeAttempts), BackupRestoreCase{
-			ApplicationTemplate:  "./sample-applications/mongo-persistent/mongo-persistent-csi.yaml",
-			ApplicationNamespace: "mongo-persistent",
-			Name:                 "mongo-datamover-e2e",
-			BackupRestoreType:    CSIDataMover,
-			PreBackupVerify:      mongoready(true, false, CSIDataMover),
-			PostRestoreVerify:    mongoready(false, false, CSIDataMover),
+		Entry("Mongo application DATAMOVER", FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
+			ApplicationTemplate: "./sample-applications/mongo-persistent/mongo-persistent-csi.yaml",
+			BackupRestoreCase: BackupRestoreCase{
+				Namespace:         "mongo-persistent",
+				Name:              "mongo-datamover-e2e",
+				BackupRestoreType: CSIDataMover,
+				PreBackupVerify:   mongoready(true, false, CSIDataMover),
+				PostRestoreVerify: mongoready(false, false, CSIDataMover),
+				BackupTimeout:     20 * time.Minute,
+			},
 		}, nil),
-		Entry("MySQL application DATAMOVER", FlakeAttempts(flakeAttempts), BackupRestoreCase{
-			ApplicationTemplate:  "./sample-applications/mysql-persistent/mysql-persistent-csi.yaml",
-			ApplicationNamespace: "mysql-persistent",
-			Name:                 "mysql-datamover-e2e",
-			BackupRestoreType:    CSIDataMover,
-			PreBackupVerify:      mysqlReady(true, false, CSIDataMover),
-			PostRestoreVerify:    mysqlReady(false, false, CSIDataMover),
+		Entry("MySQL application DATAMOVER", FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
+			ApplicationTemplate: "./sample-applications/mysql-persistent/mysql-persistent-csi.yaml",
+			BackupRestoreCase: BackupRestoreCase{
+				Namespace:         "mysql-persistent",
+				Name:              "mysql-datamover-e2e",
+				BackupRestoreType: CSIDataMover,
+				PreBackupVerify:   mysqlReady(true, false, CSIDataMover),
+				PostRestoreVerify: mysqlReady(false, false, CSIDataMover),
+				BackupTimeout:     20 * time.Minute,
+			},
 		}, nil),
-		Entry("Mongo application BlockDevice DATAMOVER", FlakeAttempts(flakeAttempts), BackupRestoreCase{
-			ApplicationTemplate:  "./sample-applications/mongo-persistent/mongo-persistent-block.yaml",
-			PvcSuffixName:        "-block-mode",
-			ApplicationNamespace: "mongo-persistent",
-			Name:                 "mongo-blockdevice-e2e",
-			BackupRestoreType:    CSIDataMover,
-			PreBackupVerify:      mongoready(true, false, CSIDataMover),
-			PostRestoreVerify:    mongoready(false, false, CSIDataMover),
+		Entry("Mongo application BlockDevice DATAMOVER", FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
+			ApplicationTemplate: "./sample-applications/mongo-persistent/mongo-persistent-block.yaml",
+			PvcSuffixName:       "-block-mode",
+			BackupRestoreCase: BackupRestoreCase{
+				Namespace:         "mongo-persistent",
+				Name:              "mongo-blockdevice-e2e",
+				BackupRestoreType: CSIDataMover,
+				PreBackupVerify:   mongoready(true, false, CSIDataMover),
+				PostRestoreVerify: mongoready(false, false, CSIDataMover),
+				BackupTimeout:     20 * time.Minute,
+			},
 		}, nil),
 	)
 })

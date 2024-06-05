@@ -15,6 +15,7 @@ import (
 	. "github.com/openshift/oadp-operator/tests/e2e/lib"
 	"github.com/openshift/oadp-operator/tests/e2e/utils"
 	veleroClientset "github.com/vmware-tanzu/velero/pkg/generated/clientset/versioned"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
@@ -103,6 +104,7 @@ var kubernetesClientForSuiteRun *kubernetes.Clientset
 var runTimeClientForSuiteRun client.Client
 var veleroClientForSuiteRun veleroClientset.Interface
 var csiClientForSuiteRun *snapshotv1client.Clientset
+var dynamicClientForSuiteRun dynamic.Interface
 var dpaCR *DpaCustomResource
 var knownFlake bool
 var accumulatedTestLogs []string
@@ -130,6 +132,9 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	csiClientForSuiteRun, err = snapshotv1client.NewForConfig(kubeConf)
+	Expect(err).NotTo(HaveOccurred())
+
+	dynamicClientForSuiteRun, err = dynamic.NewForConfig(kubeConf)
 	Expect(err).NotTo(HaveOccurred())
 
 	dpaCR = &DpaCustomResource{
