@@ -4128,7 +4128,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 					Configuration: &oadpv1alpha1.ApplicationConfig{
 						Velero: &oadpv1alpha1.VeleroConfig{
 							ClientBurst: pointer.Int(123),
-							ClientQPS:   pointer.Float32(123),
+							ClientQPS:   pointer.Int(123),
 						},
 						NodeAgent: &oadpv1alpha1.NodeAgentConfig{
 							UploaderType: "kopia",
@@ -4202,7 +4202,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 					Configuration: &oadpv1alpha1.ApplicationConfig{
 						Velero: &oadpv1alpha1.VeleroConfig{
 							ClientBurst: pointer.Int(123),
-							ClientQPS:   pointer.Float32(123),
+							ClientQPS:   pointer.Int(123),
 							Args: &server.Args{
 								ServerConfig: server.ServerConfig{
 									ClientBurst: pointer.Int(321),
