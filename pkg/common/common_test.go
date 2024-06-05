@@ -168,8 +168,23 @@ func TestGetImagePullPolicy(t *testing.T) {
 			result: corev1.PullIfNotPresent,
 		},
 		{
-			name:   "Image with non sha256 digest",
+			name:   "Image with wrong sha256 digest",
+			image:  "test.com/foo@sha256:123456789009876543211234566789009876543211234566789009876543211",
+			result: corev1.PullAlways,
+		},
+		{
+			name:   "Image with sha512 digest",
 			image:  "test.com/foo@sha512:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+			result: corev1.PullIfNotPresent,
+		},
+		{
+			name:   "Image with wrong sha512 digest",
+			image:  "test.com/foo@sha512:Ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+			result: corev1.PullAlways,
+		},
+		{
+			name:   "Image with non sha512 nor sha512 digest",
+			image:  "test.com/foo@sha256+b64u:LCa0a2j_xo_5m0U8HTBBNBNCLXBkg7-g-YpeiGJm564",
 			result: corev1.PullAlways,
 		},
 	}
