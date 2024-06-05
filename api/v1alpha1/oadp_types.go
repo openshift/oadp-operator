@@ -114,7 +114,7 @@ type VeleroConfig struct {
 	ClientBurst *int `json:"client-burst,omitempty"`
 	// Maximum number of requests per second by the server to the Kubernetes API once the burst limit has been reached. (default 100)
 	// +optional
-	ClientQPS *float32 `json:"client-qps,omitempty"`
+	ClientQPS *int `json:"client-qps,omitempty"`
 	// Velero args are settings to customize velero server arguments. Overrides values in other fields.
 	// +optional
 	Args *server.Args `json:"args,omitempty"`

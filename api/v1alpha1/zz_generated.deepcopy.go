@@ -670,7 +670,7 @@ func (in *VeleroConfig) DeepCopyInto(out *VeleroConfig) {
 	}
 	if in.ClientQPS != nil {
 		in, out := &in.ClientQPS, &out.ClientQPS
-		*out = new(float32)
+		*out = new(int)
 		**out = **in
 	}
 	if in.Args != nil {

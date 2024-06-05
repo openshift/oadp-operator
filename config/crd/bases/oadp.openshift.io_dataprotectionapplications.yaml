@@ -803,7 +803,7 @@ spec:
                           type: integer
                         client-qps:
                           description: Maximum number of requests per second by the server to the Kubernetes API once the burst limit has been reached. (default 100)
-                          type: number
+                          type: integer
                         customPlugins:
                           description: customPlugins defines the custom plugin to be installed with Velero
                           items:
