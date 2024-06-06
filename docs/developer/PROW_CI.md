@@ -52,7 +52,7 @@ The configuration for [OADP's restic repo](https://github.com/openshift/restic) 
 - https://github.com/openshift/release/tree/master/ci-operator/config/openshift/restic
 - https://github.com/openshift/release/tree/master/ci-operator/jobs/openshift/restic
 
-The configuration for [Non Admin repo](https://github.com/migtools/oadp-non-admin) can be found in (OADP >= 1.4)
+The configuration for [Non Admin repo](https://github.com/migtools/oadp-non-admin) can be found in (OADP >= 1.5)
 - https://github.com/openshift/release/tree/master/core-services/prow/02_config/migtools/oadp-non-admin
 - https://github.com/openshift/release/tree/master/ci-operator/config/migtools/oadp-non-admin
 - https://github.com/openshift/release/tree/master/ci-operator/jobs/migtools/oadp-non-admin
