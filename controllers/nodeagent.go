@@ -84,7 +84,7 @@ func (r *DPAReconciler) ReconcileNodeAgentDaemonset(log logr.Logger) (bool, erro
 
 	if dpa.Spec.Configuration.Restic != nil {
 		// V(-1) corresponds to the warn level
-		var deprecationMsg string = "(Deprecation Warning) Use nodeAgent instead of restic, which is deprecated and will be removed with the OADP 1.4"
+		var deprecationMsg string = "(Deprecation Warning) Use nodeAgent instead of restic, which is deprecated and will be removed in the future"
 		log.V(-1).Info(deprecationMsg)
 		r.EventRecorder.Event(&dpa, corev1.EventTypeWarning, "DeprecationResticConfig", deprecationMsg)
 	}

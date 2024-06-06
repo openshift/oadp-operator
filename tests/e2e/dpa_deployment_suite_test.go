@@ -196,7 +196,7 @@ var _ = ginkgov2.Describe("Configuration testing for DPA Custom Resource", func(
 			adpLogsDiff := cmp.Diff(adpLogsAtReconciled, adpLogsAfterOneMinute)
 			// If registry deployment were deleted after CR update, we expect to see a new log entry, ignore that.
 			// We also ignore case where deprecated restic entry was used
-			if !strings.Contains(adpLogsDiff, "Registry Deployment deleted") && !strings.Contains(adpLogsDiff, "(Deprecation Warning) Use nodeAgent instead of restic, which is deprecated and will be removed with the OADP 1.4") {
+			if !strings.Contains(adpLogsDiff, "Registry Deployment deleted") && !strings.Contains(adpLogsDiff, "(Deprecation Warning) Use nodeAgent instead of restic, which is deprecated and will be removed in the future") {
 				gomega.Expect(adpLogsDiff).To(gomega.Equal(""))
 			}
 		},
