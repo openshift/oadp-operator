@@ -1,5 +1,5 @@
 # Unsupported Arguments schema and common design
-Date: 2024-06-29
+Date: 2024-05-29
 
 ## Abstract
 OADP allows to configure it's components parameters via number of DataProtectionApplication Schema.
@@ -25,15 +25,15 @@ Over the past OADP releases, some implementations have provided access to extra 
 ## Design
 Unsupported arguments are defined as a `ConfigMap` within the same Namespace as OADP Operator.
 
-There may be multiple `ConfigMaps` for particular section of the OADP configuration.
+Multiple `ConfigMaps` may exist to represent specific sections of the OADP configuration, such as dedicated `ConfigMap` instances for Velero server arguments or node-agent arguments.
 
-There are default naming convention for the `ConfigMaps`, however user may override those using `DPA` annotations.
+The user must provide `DPA` annotation(s) with the `name` of the `ConfigMap` where the OADP configuration for the unsupported arguments is present.
 
 When ConfigMap is found, controller takes those values as the highest priority and replaces **all** of the other configuration options, even if they were defined within `DPA` schema for the section for which the `ConfigMap` was created.
 
 The Schema of an `ConfigMap` includes data that corresponds to the arguments passed to the relevant executable as in the below example:
 
-   ```
+   ```yaml
    apiVersion: v1
    kind: ConfigMap
    metadata:
@@ -44,8 +44,7 @@ The Schema of an `ConfigMap` includes data that corresponds to the arguments pas
      --log-level: 'debug'
    ```
 
-If the name of the ConfigMap is recognized by the OADP controller it is consumed, otherwise user has to create DPA with the annotation pointing to a relevant ConfigMap as in the example:
-
+The user has to create DPA with the annotation pointing to a relevant ConfigMap as in the example where both `oadp-unsupported-velero-server-args` and `unsupported-node-agent` ConfigMaps are expected to be present:
 
     ```yaml
     kind: DataProtectionApplication
@@ -54,7 +53,8 @@ If the name of the ConfigMap is recognized by the OADP controller it is consumed
     name: sample-dpa
     namespace: openshift-adp
     annotations:
-        custom.configmap.dpa/velero-server-args: 'oadp-unsupported-velero-server-args'
+        oadp.openshift.io/unsupported-velero-server-args: 'oadp-unsupported-velero-server-args'
+        oadp.openshift.io/unsupported-noda-agent-args: 'unsupported-node-agent'
     spec:
         [...]
     ```
@@ -71,7 +71,8 @@ If the name of the ConfigMap is recognized by the OADP controller it is consumed
    Adding the unsupported arguments and options within CRD makes those options highly visible to the users and may encourage to use them.
 
  - Annotations to include unsupported args directly
-   This mmethod allows easily to add args to existing resources, however they have size limitations, restricting the amount of data that can be stored and may have impact on the scenarios where limit is reached.
+
+   This method allows easily to add args to existing resources, however they have size limitations, restricting the amount of data that can be stored and may have impact on the scenarios where limit is reached.
 
    Annotations are also problematic to maintain when used for more complex types of configurations.
 
@@ -84,8 +85,8 @@ If the name of the ConfigMap is recognized by the OADP controller it is consumed
     name: sample-dpa
     namespace: openshift-adp
     annotations:
-        custom.configmap.dpa/velero-server-args: '{"arg_1":"val_1","arg2":"val2"}'
-        custom.configmap.dpa/node-agent-args: '{"arg_1":"val_1","arg_2":"val_2"}'
+        oadp.openshift.io/unsupported-velero-server-args: '{"arg_1":"val_1","arg2":"val2"}'
+        oadp.openshift.io/unsupported-noda-agent-args: '{"arg_1":"val_1","arg_2":"val_2"}'
     spec:
         [...]
     ```
@@ -106,13 +107,13 @@ This design is backwards compatible with previous unsupported arguments passed v
 
 This may lead to the situation where users will have running previous configurations that are not reflected with the OADP instances that are using new way of defining unsupported arguments.
 
+This will be documented in the developer and support documentation.
+
 ## Implementation
 The implementation will take place within OADP controller only, without changes to the DPA specification.
 
 Once ConfigMap(s) are discovered to be in the same Namespace as OADP their config will take precendence and replace all the other arguments passed to the executable as a simple string without any validations.
 
 ## Open Issues
- - Should we include the unsupported args in all cases when the ConfigMaps are found in the napespace or maybe only when annotations are within DPA?
  - Naming convention for the annotations - currently it's not well defined
- - We may consider using one ConfigMap instead of multiple ConfigMaps, but this will lock down it's schema and may lead to future issues with enabling other unsupported args.
 
