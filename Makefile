@@ -502,6 +502,8 @@ test-e2e-setup: login-required
 
 .PHONY: test-e2e
 test-e2e: test-e2e-setup install-ginkgo
+	which ginkgo
+	ginkgo version
 	ginkgo run -mod=mod tests/e2e/ -- \
 	-settings=$(SETTINGS_TMP)/oadpcreds \
 	-provider=$(CLUSTER_TYPE) \
