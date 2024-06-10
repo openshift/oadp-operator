@@ -111,8 +111,7 @@ BUNDLE_IMG ?= $(IMAGE_TAG_BASE)-bundle:v$(VERSION)
 
 # Image URL to use all building/pushing image targets
 IMG ?= quay.io/konveyor/oadp-operator:latest
-# Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
-CRD_OPTIONS ?= "crd:trivialVersions=true,preserveUnknownFields=false"
+CRD_OPTIONS ?= "crd"
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
@@ -255,7 +254,7 @@ build-deploy: ## Build current branch image and deploy controller to the k8s clu
 
 CONTROLLER_GEN = $(shell pwd)/bin/controller-gen
 controller-gen: ## Download controller-gen locally if necessary.
-	$(call go-install-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@v0.6.1)
+	$(call go-install-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@v0.14.0)
 
 KUSTOMIZE = $(shell pwd)/bin/kustomize
 kustomize: ## Download kustomize locally if necessary.
@@ -303,7 +302,7 @@ operator-sdk:
 	# Download operator-sdk locally if does not exist
 	if [ ! -f $(OPERATOR_SDK) ]; then \
 		mkdir -p bin ;\
-		curl -Lo $(OPERATOR_SDK) https://github.com/operator-framework/operator-sdk/releases/download/v1.23.0/operator-sdk_$(shell go env GOOS)_$(shell go env GOARCH) ; \
+		curl -Lo $(OPERATOR_SDK) https://github.com/operator-framework/operator-sdk/releases/download/v1.34.2/operator-sdk_$(shell go env GOOS)_$(shell go env GOARCH) ; \
 		chmod +x $(OPERATOR_SDK); \
 	fi
 
@@ -317,6 +316,7 @@ bundle: manifests kustomize operator-sdk ## Generate bundle manifests and metada
 	# TODO: update CI to use generated one
 	cp bundle.Dockerfile build/Dockerfile.bundle
 	GOFLAGS="-mod=mod" $(OPERATOR_SDK) bundle validate ./bundle
+	sed -i '/    createdAt: /c\\$(shell grep -I '^    createdAt: ' bundle/manifests/oadp-operator.clusterserviceversion.yaml)' bundle/manifests/oadp-operator.clusterserviceversion.yaml
 
 .PHONY: nullables
 nullables:
@@ -378,7 +378,7 @@ deploy-olm: undeploy-olm ## Build current branch operator image, bundle image, p
 	IMG=$(THIS_OPERATOR_IMAGE) BUNDLE_IMG=$(THIS_BUNDLE_IMAGE) \
 		make docker-build docker-push bundle bundle-build bundle-push; \
 	chmod -R 777 $(DEPLOY_TMP) && rm -rf $(DEPLOY_TMP)
-	$(OPERATOR_SDK) run bundle $(THIS_BUNDLE_IMAGE) --namespace $(OADP_TEST_NAMESPACE)
+	$(OPERATOR_SDK) run bundle --security-context-config restricted $(THIS_BUNDLE_IMAGE) --namespace $(OADP_TEST_NAMESPACE)
 
 .PHONY: undeploy-olm
 undeploy-olm: login-required operator-sdk ## Uninstall current branch operator via OLM
@@ -433,7 +433,7 @@ catalog-push: ## Push a catalog image.
 	$(MAKE) docker-push IMG=$(CATALOG_IMG)
 
 # A valid Git branch from https://github.com/openshift/oadp-operator
-PREVIOUS_CHANNEL ?= oadp-1.2
+PREVIOUS_CHANNEL ?= oadp-1.3
 
 .PHONY: catalog-test-upgrade
 catalog-test-upgrade: TEMP:= $(shell mktemp -d)

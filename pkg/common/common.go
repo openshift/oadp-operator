@@ -65,7 +65,6 @@ const (
 	AWSPluginImage       = "quay.io/konveyor/velero-plugin-for-aws:latest"
 	AzurePluginImage     = "quay.io/konveyor/velero-plugin-for-microsoft-azure:latest"
 	GCPPluginImage       = "quay.io/konveyor/velero-plugin-for-gcp:latest"
-	CSIPluginImage       = "quay.io/konveyor/velero-plugin-for-csi:latest"
 	RegistryImage        = "quay.io/konveyor/registry:latest"
 	KubeVirtPluginImage  = "quay.io/konveyor/kubevirt-velero-plugin:v0.2.0"
 )
@@ -75,7 +74,6 @@ const (
 	VeleroPluginForAWS       = "velero-plugin-for-aws"
 	VeleroPluginForAzure     = "velero-plugin-for-microsoft-azure"
 	VeleroPluginForGCP       = "velero-plugin-for-gcp"
-	VeleroPluginForCSI       = "velero-plugin-for-csi"
 	VeleroPluginForOpenshift = "openshift-velero-plugin"
 	KubeVirtPlugin           = "kubevirt-velero-plugin"
 )

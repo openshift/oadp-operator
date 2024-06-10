@@ -60,7 +60,6 @@ const AWSPluginImageKey UnsupportedImageKey = "awsPluginImageFqin"
 const OpenShiftPluginImageKey UnsupportedImageKey = "openshiftPluginImageFqin"
 const AzurePluginImageKey UnsupportedImageKey = "azurePluginImageFqin"
 const GCPPluginImageKey UnsupportedImageKey = "gcpPluginImageFqin"
-const CSIPluginImageKey UnsupportedImageKey = "csiPluginImageFqin"
 const ResticRestoreImageKey UnsupportedImageKey = "resticRestoreImageFqin"
 const KubeVirtPluginImageKey UnsupportedImageKey = "kubevirtPluginImageFqin"
 const NonAdminControllerImageKey UnsupportedImageKey = "nonAdminControllerImageFqin"
@@ -349,7 +348,6 @@ type DataProtectionApplicationSpec struct {
 	//   - openshiftPluginImageFqin
 	//   - azurePluginImageFqin
 	//   - gcpPluginImageFqin
-	//   - csiPluginImageFqin
 	//   - resticRestoreImageFqin
 	//   - kubevirtPluginImageFqin
 	//   - nonAdminControllerImageFqin

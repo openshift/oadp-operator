@@ -11,13 +11,11 @@ import (
 	"strings"
 	"time"
 
-	snapshotv1api "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 	snapshotv1client "github.com/kubernetes-csi/external-snapshotter/client/v4/clientset/versioned"
 	velero "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	pkgbackup "github.com/vmware-tanzu/velero/pkg/backup"
 	"github.com/vmware-tanzu/velero/pkg/cmd/util/downloadrequest"
 	"github.com/vmware-tanzu/velero/pkg/cmd/util/output"
-	"github.com/vmware-tanzu/velero/pkg/features"
 	veleroclientset "github.com/vmware-tanzu/velero/pkg/generated/clientset/versioned"
 	"github.com/vmware-tanzu/velero/pkg/label"
 	appsv1 "k8s.io/api/apps/v1"
@@ -51,14 +49,6 @@ func DescribeBackup(veleroClient veleroclientset.Interface, csiClient *snapshotv
 		log.Printf("error getting PodVolumeBackups for backup %s: %v\n", backup.Name, err)
 	}
 
-	// declare vscList up here since it may be empty and we'll pass the empty Items field into DescribeBackup
-	vscList := new(snapshotv1api.VolumeSnapshotContentList)
-	if features.IsEnabled(velero.CSIFeatureFlag) {
-		vscList, err = csiClient.SnapshotV1().VolumeSnapshotContents().List(context.Background(), opts)
-		if err != nil {
-			log.Printf("error getting VolumeSnapshotContent objects for backup %s: %v\n", backup.Name, err)
-		}
-	}
 	// output.DescribeBackup is a helper function from velero CLI that attempts to download logs for a backup.
 	// if a backup failed, this function may panic. Recover from the panic and return string of backup object
 	defer func() {
@@ -68,7 +58,7 @@ func DescribeBackup(veleroClient veleroclientset.Interface, csiClient *snapshotv
 			backupDescription = fmt.Sprint(backup)
 		}
 	}()
-	return output.DescribeBackup(context.Background(), ocClient, &backup, deleteRequestList.Items, podVolumeBackupList.Items, vscList.Items, details, insecureSkipTLSVerify, caCertFile)
+	return output.DescribeBackup(context.Background(), ocClient, &backup, deleteRequestList.Items, podVolumeBackupList.Items, details, insecureSkipTLSVerify, caCertFile)
 }
 
 // https://github.com/vmware-tanzu/velero/blob/11bfe82342c9f54c63f40d3e97313ce763b446f2/pkg/cmd/cli/restore/describe.go#L72-L78

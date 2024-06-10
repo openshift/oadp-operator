@@ -210,6 +210,13 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 										common.NodeAgent,
 										"server",
 									},
+									Ports: []corev1.ContainerPort{
+										{
+											Name:          "metrics",
+											ContainerPort: 8085,
+											Protocol:      "TCP",
+										},
+									},
 									VolumeMounts: []corev1.VolumeMount{
 										{
 											Name:             HostPods,
@@ -365,6 +372,13 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 									Args: []string{
 										"node-agent",
 										"server",
+									},
+									Ports: []corev1.ContainerPort{
+										{
+											Name:          "metrics",
+											ContainerPort: 8085,
+											Protocol:      "TCP",
+										},
 									},
 									VolumeMounts: []corev1.VolumeMount{
 										{
@@ -527,6 +541,13 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 									Args: []string{
 										common.NodeAgent,
 										"server",
+									},
+									Ports: []corev1.ContainerPort{
+										{
+											Name:          "metrics",
+											ContainerPort: 8085,
+											Protocol:      "TCP",
+										},
 									},
 									VolumeMounts: []corev1.VolumeMount{
 										{
@@ -726,6 +747,13 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 										common.NodeAgent,
 										"server",
 									},
+									Ports: []corev1.ContainerPort{
+										{
+											Name:          "metrics",
+											ContainerPort: 8085,
+											Protocol:      "TCP",
+										},
+									},
 									VolumeMounts: []corev1.VolumeMount{
 										{
 											Name:             HostPods,
@@ -910,6 +938,13 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 										common.NodeAgent,
 										"server",
 									},
+									Ports: []corev1.ContainerPort{
+										{
+											Name:          "metrics",
+											ContainerPort: 8085,
+											Protocol:      "TCP",
+										},
+									},
 									VolumeMounts: []corev1.VolumeMount{
 										{
 											Name:             HostPods,
@@ -1093,6 +1128,13 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 										common.NodeAgent,
 										"server",
 									},
+									Ports: []corev1.ContainerPort{
+										{
+											Name:          "metrics",
+											ContainerPort: 8085,
+											Protocol:      "TCP",
+										},
+									},
 									VolumeMounts: []corev1.VolumeMount{
 										{
 											Name:             HostPods,
@@ -1275,6 +1317,13 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 										common.NodeAgent,
 										"server",
 									},
+									Ports: []corev1.ContainerPort{
+										{
+											Name:          "metrics",
+											ContainerPort: 8085,
+											Protocol:      "TCP",
+										},
+									},
 									VolumeMounts: []corev1.VolumeMount{
 										{
 											Name:             HostPods,
@@ -1453,6 +1502,13 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 									Args: []string{
 										common.NodeAgent,
 										"server",
+									},
+									Ports: []corev1.ContainerPort{
+										{
+											Name:          "metrics",
+											ContainerPort: 8085,
+											Protocol:      "TCP",
+										},
 									},
 									VolumeMounts: []corev1.VolumeMount{
 										{
@@ -1635,6 +1691,13 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 									Args: []string{
 										common.NodeAgent,
 										"server",
+									},
+									Ports: []corev1.ContainerPort{
+										{
+											Name:          "metrics",
+											ContainerPort: 8085,
+											Protocol:      "TCP",
+										},
 									},
 									VolumeMounts: []corev1.VolumeMount{
 										{
@@ -1819,6 +1882,13 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 										common.NodeAgent,
 										"server",
 									},
+									Ports: []corev1.ContainerPort{
+										{
+											Name:          "metrics",
+											ContainerPort: 8085,
+											Protocol:      "TCP",
+										},
+									},
 									VolumeMounts: []corev1.VolumeMount{
 										{
 											Name:             HostPods,
@@ -1986,6 +2056,13 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 									Args: []string{
 										common.NodeAgent,
 										"server",
+									},
+									Ports: []corev1.ContainerPort{
+										{
+											Name:          "metrics",
+											ContainerPort: 8085,
+											Protocol:      "TCP",
+										},
 									},
 									VolumeMounts: []corev1.VolumeMount{
 										{
@@ -2168,6 +2245,13 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 									Args: []string{
 										common.NodeAgent,
 										"server",
+									},
+									Ports: []corev1.ContainerPort{
+										{
+											Name:          "metrics",
+											ContainerPort: 8085,
+											Protocol:      "TCP",
+										},
 									},
 									VolumeMounts: []corev1.VolumeMount{
 										{
@@ -2377,6 +2461,13 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 									Args: []string{
 										common.NodeAgent,
 										"server",
+									},
+									Ports: []corev1.ContainerPort{
+										{
+											Name:          "metrics",
+											ContainerPort: 8085,
+											Protocol:      "TCP",
+										},
 									},
 									VolumeMounts: []corev1.VolumeMount{
 										{
