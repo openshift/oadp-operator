@@ -218,17 +218,26 @@ func StripDefaultPorts(fromUrl string) (string, error) {
 
 // GetImagePullPolicy get imagePullPolicy for a container, based on its image.
 // If image contains a sha256 or sha512 digest, use IfNotPresent; otherwise, Always.
+// If an error occurs, Always is used.
 // Reference: https://github.com/distribution/distribution/blob/v2.7.1/reference/reference.go
-func GetImagePullPolicy(image string) corev1.PullPolicy {
-	matched, err := regexp.Match("@sha256:[a-f0-9]{64}", []byte(image))
-	if err == nil && matched {
-		// If image contains a sha256 digest
-		return corev1.PullIfNotPresent
+func GetImagePullPolicy(image string) (corev1.PullPolicy, error) {
+	sha256regex, err := regexp.Compile("@sha256:[a-f0-9]{64}")
+	if err != nil {
+		return corev1.PullAlways, err
+	} else {
+		if sha256regex.Match([]byte(image)) {
+			// image contains a sha256 digest
+			return corev1.PullIfNotPresent, nil
+		}
 	}
-	matched, err = regexp.Match("@sha512:[a-f0-9]{128}", []byte(image))
-	if err == nil && matched {
-		// If image contains a sha512 digest
-		return corev1.PullIfNotPresent
+	sha512regex, err := regexp.Compile("@sha512:[a-f0-9]{128}")
+	if err != nil {
+		return corev1.PullAlways, err
+	} else {
+		if sha512regex.Match([]byte(image)) {
+			// image contains a sha512 digest
+			return corev1.PullIfNotPresent, nil
+		}
 	}
-	return corev1.PullAlways
+	return corev1.PullAlways, nil
 }

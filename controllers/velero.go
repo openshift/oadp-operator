@@ -385,7 +385,112 @@ func (r *DPAReconciler) customizeVeleroDeployment(dpa *oadpv1alpha1.DataProtecti
 		veleroDeployment.Spec.ProgressDeadlineSeconds = pointer.Int32(600)
 	}
 	setPodTemplateSpecDefaults(&veleroDeployment.Spec.Template)
-	return credentials.AppendPluginSpecificSpecs(dpa, veleroDeployment, veleroContainer, providerNeedsDefaultCreds, hasCloudStorage)
+	return r.appendPluginSpecificSpecs(dpa, veleroDeployment, veleroContainer, providerNeedsDefaultCreds, hasCloudStorage)
+}
+
+// add plugin specific specs to velero deployment
+func (r *DPAReconciler) appendPluginSpecificSpecs(dpa *oadpv1alpha1.DataProtectionApplication, veleroDeployment *appsv1.Deployment, veleroContainer *corev1.Container, providerNeedsDefaultCreds map[string]bool, hasCloudStorage bool) error {
+
+	init_container_resources := veleroContainer.Resources
+
+	for _, plugin := range dpa.Spec.Configuration.Velero.DefaultPlugins {
+		if pluginSpecificMap, ok := credentials.PluginSpecificFields[plugin]; ok {
+			imagePullPolicy, err := common.GetImagePullPolicy(credentials.GetPluginImage(pluginSpecificMap.PluginName, dpa))
+			if err != nil {
+				r.Log.Error(err, "imagePullPolicy regex failed")
+			}
+
+			veleroDeployment.Spec.Template.Spec.InitContainers = append(
+				veleroDeployment.Spec.Template.Spec.InitContainers,
+				corev1.Container{
+					Image:                    credentials.GetPluginImage(pluginSpecificMap.PluginName, dpa),
+					Name:                     pluginSpecificMap.PluginName,
+					ImagePullPolicy:          imagePullPolicy,
+					Resources:                init_container_resources,
+					TerminationMessagePath:   "/dev/termination-log",
+					TerminationMessagePolicy: "File",
+					VolumeMounts: []corev1.VolumeMount{
+						{
+							MountPath: "/target",
+							Name:      "plugins",
+						},
+					},
+				})
+
+			pluginNeedsCheck, foundInBSLorVSL := providerNeedsDefaultCreds[string(plugin)]
+
+			if !foundInBSLorVSL && !hasCloudStorage {
+				pluginNeedsCheck = true
+			}
+
+			if !pluginSpecificMap.IsCloudProvider || !pluginNeedsCheck {
+				continue
+			}
+			if dpa.Spec.Configuration.Velero.NoDefaultBackupLocation &&
+				dpa.Spec.UnsupportedOverrides[oadpv1alpha1.OperatorTypeKey] != oadpv1alpha1.OperatorTypeMTC &&
+				pluginSpecificMap.IsCloudProvider {
+				continue
+			}
+			// set default secret name to use
+			secretName := pluginSpecificMap.SecretName
+			// append plugin specific volume mounts
+			if veleroContainer != nil {
+				veleroContainer.VolumeMounts = append(
+					veleroContainer.VolumeMounts,
+					corev1.VolumeMount{
+						Name:      secretName,
+						MountPath: pluginSpecificMap.MountPath,
+					})
+
+				// append plugin specific env vars
+				veleroContainer.Env = append(
+					veleroContainer.Env,
+					corev1.EnvVar{
+						Name:  pluginSpecificMap.EnvCredentialsFile,
+						Value: pluginSpecificMap.MountPath + "/" + credentials.CloudFieldPath,
+					})
+			}
+
+			// append plugin specific volumes
+			veleroDeployment.Spec.Template.Spec.Volumes = append(
+				veleroDeployment.Spec.Template.Spec.Volumes,
+				corev1.Volume{
+					Name: secretName,
+					VolumeSource: corev1.VolumeSource{
+						Secret: &corev1.SecretVolumeSource{
+							SecretName:  secretName,
+							DefaultMode: common.DefaultModePtr(),
+						},
+					},
+				})
+		}
+	}
+	// append custom plugin init containers
+	if dpa.Spec.Configuration.Velero.CustomPlugins != nil {
+		for _, plugin := range dpa.Spec.Configuration.Velero.CustomPlugins {
+			imagePullPolicy, err := common.GetImagePullPolicy(plugin.Image)
+			if err != nil {
+				r.Log.Error(err, "imagePullPolicy regex failed")
+			}
+			veleroDeployment.Spec.Template.Spec.InitContainers = append(
+				veleroDeployment.Spec.Template.Spec.InitContainers,
+				corev1.Container{
+					Image:                    plugin.Image,
+					Name:                     plugin.Name,
+					ImagePullPolicy:          imagePullPolicy,
+					Resources:                init_container_resources,
+					TerminationMessagePath:   "/dev/termination-log",
+					TerminationMessagePolicy: "File",
+					VolumeMounts: []corev1.VolumeMount{
+						{
+							MountPath: "/target",
+							Name:      "plugins",
+						},
+					},
+				})
+		}
+	}
+	return nil
 }
 
 func (r *DPAReconciler) customizeVeleroContainer(dpa *oadpv1alpha1.DataProtectionApplication, veleroDeployment *appsv1.Deployment, veleroContainer *corev1.Container, hasShortLivedCredentials bool, prometheusPort *int) error {
@@ -400,7 +505,11 @@ func (r *DPAReconciler) customizeVeleroContainer(dpa *oadpv1alpha1.DataProtectio
 			}
 		}
 	}
-	veleroContainer.ImagePullPolicy = common.GetImagePullPolicy(getVeleroImage(dpa))
+	imagePullPolicy, err := common.GetImagePullPolicy(getVeleroImage(dpa))
+	if err != nil {
+		r.Log.Error(err, "imagePullPolicy regex failed")
+	}
+	veleroContainer.ImagePullPolicy = imagePullPolicy
 	veleroContainer.VolumeMounts = append(veleroContainer.VolumeMounts,
 		corev1.VolumeMount{
 			Name:      "certs",

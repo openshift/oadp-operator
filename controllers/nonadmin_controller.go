@@ -120,8 +120,12 @@ func (r *DPAReconciler) ReconcileNonAdminController(log logr.Logger) (bool, erro
 func (r *DPAReconciler) buildNonAdminDeployment(deploymentObject *appsv1.Deployment, dpa *oadpv1alpha1.DataProtectionApplication) {
 	// TODO https://github.com/openshift/oadp-operator/pull/1316
 	nonAdminImage := r.getNonAdminImage(dpa)
+	imagePullPolicy, err := common.GetImagePullPolicy(nonAdminImage)
+	if err != nil {
+		r.Log.Error(err, "imagePullPolicy regex failed")
+	}
 	ensureRequiredLabels(deploymentObject)
-	ensureRequiredSpecs(deploymentObject, nonAdminImage)
+	ensureRequiredSpecs(deploymentObject, nonAdminImage, imagePullPolicy)
 }
 
 func ensureRequiredLabels(deploymentObject *appsv1.Deployment) {
@@ -137,7 +141,7 @@ func ensureRequiredLabels(deploymentObject *appsv1.Deployment) {
 	}
 }
 
-func ensureRequiredSpecs(deploymentObject *appsv1.Deployment, image string) {
+func ensureRequiredSpecs(deploymentObject *appsv1.Deployment, image string, imagePullPolicy corev1.PullPolicy) {
 	namespaceEnvVar := corev1.EnvVar{
 		Name:  "WATCH_NAMESPACE",
 		Value: deploymentObject.Namespace,
@@ -158,14 +162,14 @@ func ensureRequiredSpecs(deploymentObject *appsv1.Deployment, image string) {
 		deploymentObject.Spec.Template.Spec.Containers = []corev1.Container{{
 			Name:            nonAdminObjectName,
 			Image:           image,
-			ImagePullPolicy: common.GetImagePullPolicy(image),
+			ImagePullPolicy: imagePullPolicy,
 			Env:             []corev1.EnvVar{namespaceEnvVar},
 		}}
 	} else {
 		for _, container := range deploymentObject.Spec.Template.Spec.Containers {
 			if container.Name == nonAdminObjectName {
 				container.Image = image
-				container.ImagePullPolicy = common.GetImagePullPolicy(image)
+				container.ImagePullPolicy = imagePullPolicy
 				container.Env = []corev1.EnvVar{namespaceEnvVar}
 				break
 			}

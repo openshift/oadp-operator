@@ -190,7 +190,10 @@ func TestGetImagePullPolicy(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			result := GetImagePullPolicy(test.image)
+			result, err := GetImagePullPolicy(test.image)
+			if err != nil {
+				t.Errorf("Error occurred in test: %s", err)
+			}
 			if result != test.result {
 				t.Errorf("Results differ: got '%v' but expected '%v'", result, test.result)
 			}

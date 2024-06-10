@@ -330,7 +330,12 @@ func (r *DPAReconciler) customizeNodeAgentDaemonset(dpa *oadpv1alpha1.DataProtec
 			Privileged: pointer.Bool(true),
 		}
 
-		nodeAgentContainer.ImagePullPolicy = common.GetImagePullPolicy(getVeleroImage(dpa))
+		imagePullPolicy, err := common.GetImagePullPolicy(getVeleroImage(dpa))
+		if err != nil {
+			r.Log.Error(err, "imagePullPolicy regex failed")
+		}
+
+		nodeAgentContainer.ImagePullPolicy = imagePullPolicy
 		setContainerDefaults(nodeAgentContainer)
 	}
 
