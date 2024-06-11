@@ -254,9 +254,11 @@ func (r *DPAReconciler) updateBSLFromSpec(bsl *velerov1.BackupStorageLocation, d
 		}
 
 		// Since the AWS SDK upgrade in velero-plugin-for-aws, data transfer to BSL bucket fails unless
-		// we specify the checksumAlgorithm. We will set it empty string if checksumAlgorithm is not specified by the user
-		// Setting it to an empty string will default to using the CRC32 algorithm for checksum calculation.
-		if _, exists := bslSpec.Config[checksumAlgorithm]; len(s3Url) > 0 && !exists {
+		// if the chosen checksumAlgorithm doesn't work for the provider. Velero sets this to CRC32 if not
+		// chosen by the user. We will set it empty string if checksumAlgorithm is not specified by the user
+		// to bypass checksum calculation entirely. If your s3 provider supports checksum calculation,
+		// then you should specify this value in the config.
+		if _, exists := bslSpec.Config[checksumAlgorithm]; !exists {
 			bslSpec.Config[checksumAlgorithm] = ""
 		}
 

@@ -1591,7 +1591,8 @@ func TestDPAReconciler_updateBSLFromSpec(t *testing.T) {
 						},
 					},
 					Config: map[string]string{
-						Region: "test-region",
+						Region:            "test-region",
+						checksumAlgorithm: "",
 					},
 					Credential: &corev1.SecretKeySelector{
 						LocalObjectReference: corev1.LocalObjectReference{
@@ -1605,7 +1606,7 @@ func TestDPAReconciler_updateBSLFromSpec(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "checksumAlgorithm config is not specified by the user, add it as an empty string for s3-compatible BSL",
+			name: "checksumAlgorithm config is not specified by the user, add it as an empty string for BSL config",
 			bsl: &velerov1.BackupStorageLocation{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "foo-1",
@@ -1624,15 +1625,12 @@ func TestDPAReconciler_updateBSLFromSpec(t *testing.T) {
 								Provider: "aws",
 								StorageType: velerov1.StorageType{
 									ObjectStorage: &velerov1.ObjectStorageLocation{
-										Bucket: "test-noobaa-bucket",
+										Bucket: "test-aws-bucket",
 										Prefix: "velero",
 									},
 								},
 								Config: map[string]string{
-									Region:           "nooba",
-									Profile:          "nooba",
-									S3ForcePathStyle: "true",
-									S3URL:            "https://s3-compatible-storage-provider-like-noobaa-minio-etc.com",
+									Region: "test-region",
 								},
 								Credential: &corev1.SecretKeySelector{
 									LocalObjectReference: corev1.LocalObjectReference{
@@ -1672,15 +1670,12 @@ func TestDPAReconciler_updateBSLFromSpec(t *testing.T) {
 					Provider: "aws",
 					StorageType: velerov1.StorageType{
 						ObjectStorage: &velerov1.ObjectStorageLocation{
-							Bucket: "test-noobaa-bucket",
+							Bucket: "test-aws-bucket",
 							Prefix: "velero",
 						},
 					},
 					Config: map[string]string{
-						Region:            "nooba",
-						Profile:           "nooba",
-						S3ForcePathStyle:  "true",
-						S3URL:             "https://s3-compatible-storage-provider-like-noobaa-minio-etc.com",
+						Region:            "test-region",
 						checksumAlgorithm: "",
 					},
 					Credential: &corev1.SecretKeySelector{
