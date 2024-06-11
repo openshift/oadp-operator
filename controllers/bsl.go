@@ -256,7 +256,7 @@ func (r *DPAReconciler) updateBSLFromSpec(bsl *velerov1.BackupStorageLocation, d
 		// we specify the checksumAlgorithm. We will set it empty string if checksumAlgorithm is not specified by the user
 		// Setting it to an empty string will default to using the CRC32 algorithm for checksum calculation.
 		if _, exists := bslSpec.Config[checksumAlgorithm]; len(s3Url) > 0 && !exists {
-			bslSpec.Config["checksumAlgorithm"] = ""
+			bslSpec.Config[checksumAlgorithm] = ""
 		}
 
 	}
