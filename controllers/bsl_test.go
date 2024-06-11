@@ -2066,6 +2066,9 @@ func TestDPAReconciler_ReconcileBackupStorageLocations(t *testing.T) {
 						{
 							Velero: &velerov1.BackupStorageLocationSpec{
 								Provider: "aws",
+								Config: map[string]string{
+									Region: "us-east-1",
+								},
 							},
 						},
 					},
@@ -2181,6 +2184,9 @@ func TestDPAReconciler_ReconcileBackupStorageLocations(t *testing.T) {
 							{
 								Velero: &velerov1.BackupStorageLocationSpec{
 									Provider: "aws",
+									Config: map[string]string{
+										Region: "us-east-1",
+									},
 									StorageType: velerov1.StorageType{
 										ObjectStorage: &velerov1.ObjectStorageLocation{
 											Prefix: "test-prefix",
@@ -2214,6 +2220,10 @@ func TestDPAReconciler_ReconcileBackupStorageLocations(t *testing.T) {
 				},
 				Spec: velerov1.BackupStorageLocationSpec{
 					Provider: "aws",
+					Config: map[string]string{
+						Region:            "us-east-1",
+						checksumAlgorithm: "",
+					},
 					StorageType: velerov1.StorageType{
 						ObjectStorage: &velerov1.ObjectStorageLocation{
 							Prefix: "test-prefix",
@@ -2314,6 +2324,9 @@ func TestDPAReconciler_ReconcileBackupStorageLocations(t *testing.T) {
 							{
 								Velero: &velerov1.BackupStorageLocationSpec{
 									Provider: "aws",
+									Config: map[string]string{
+										Region: "us-east-1",
+									},
 									StorageType: velerov1.StorageType{
 										ObjectStorage: &velerov1.ObjectStorageLocation{
 											Bucket: "test-bucket",
@@ -2349,6 +2362,10 @@ func TestDPAReconciler_ReconcileBackupStorageLocations(t *testing.T) {
 				},
 				Spec: velerov1.BackupStorageLocationSpec{
 					Provider: "aws",
+					Config: map[string]string{
+						Region:            "us-east-1",
+						checksumAlgorithm: "",
+					},
 					StorageType: velerov1.StorageType{
 						ObjectStorage: &velerov1.ObjectStorageLocation{
 							Prefix: "test-prefix",
