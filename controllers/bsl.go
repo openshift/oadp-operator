@@ -236,7 +236,7 @@ func (r *DPAReconciler) updateBSLFromSpec(bsl *velerov1.BackupStorageLocation, d
 	// However, the registry deployment fails without a valid storage account key.
 	// This logic prevents the registry pods from being deployed if Azure SP is used as an auth mechanism.
 	registryDeployment := "True"
-	if bslSpec.Provider == "azure" {
+	if bslSpec.Provider == "azure" && bslSpec.Config != nil {
 		if len(bslSpec.Config["storageAccountKeyEnvVar"]) == 0 {
 			registryDeployment = "False"
 		}
@@ -245,7 +245,7 @@ func (r *DPAReconciler) updateBSLFromSpec(bsl *velerov1.BackupStorageLocation, d
 	// (80 for HTTP and 443 for HTTPS) before calculating a signature, and not
 	// all S3-compatible services do this. Remove the ports here to avoid 403
 	// errors from mismatched signatures.
-	if bslSpec.Provider == "aws" {
+	if bslSpec.Provider == "aws" && bslSpec.Config != nil {
 		s3Url := bslSpec.Config["s3Url"]
 		if len(s3Url) > 0 {
 			if s3Url, err = common.StripDefaultPorts(s3Url); err == nil {
@@ -261,7 +261,6 @@ func (r *DPAReconciler) updateBSLFromSpec(bsl *velerov1.BackupStorageLocation, d
 		if _, exists := bslSpec.Config[checksumAlgorithm]; !exists {
 			bslSpec.Config[checksumAlgorithm] = ""
 		}
-
 	}
 	bsl.Labels = map[string]string{
 		"app.kubernetes.io/name":     common.OADPOperatorVelero,

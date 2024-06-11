@@ -1606,6 +1606,82 @@ func TestDPAReconciler_updateBSLFromSpec(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			name: "BSL spec config is nil, no BSL spec update",
+			bsl: &velerov1.BackupStorageLocation{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo-1",
+					Namespace: "bar",
+				},
+			},
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "bar",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					BackupLocations: []oadpv1alpha1.BackupLocation{
+						{
+							Velero: &velerov1.BackupStorageLocationSpec{
+								Provider: "aws",
+								StorageType: velerov1.StorageType{
+									ObjectStorage: &velerov1.ObjectStorageLocation{
+										Bucket: "test-aws-bucket",
+										Prefix: "velero",
+									},
+								},
+								Credential: &corev1.SecretKeySelector{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: "cloud-credentials",
+									},
+									Key: "cloud",
+								},
+								Default: true,
+							},
+						},
+					},
+				},
+			},
+			wantBSL: &velerov1.BackupStorageLocation{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo-1",
+					Namespace: "bar",
+					Labels: map[string]string{
+						"app.kubernetes.io/name":     "oadp-operator-velero",
+						"app.kubernetes.io/instance": "foo" + "-1",
+						//"app.kubernetes.io/version":    "x.y.z",
+						"app.kubernetes.io/managed-by":       "oadp-operator",
+						"app.kubernetes.io/component":        "bsl",
+						oadpv1alpha1.OadpOperatorLabel:       "True",
+						oadpv1alpha1.RegistryDeploymentLabel: "True",
+					},
+					OwnerReferences: []metav1.OwnerReference{{
+						APIVersion:         oadpv1alpha1.SchemeBuilder.GroupVersion.String(),
+						Kind:               "DataProtectionApplication",
+						Name:               "foo",
+						Controller:         pointer.BoolPtr(true),
+						BlockOwnerDeletion: pointer.BoolPtr(true),
+					}},
+				},
+				Spec: velerov1.BackupStorageLocationSpec{
+					Provider: "aws",
+					StorageType: velerov1.StorageType{
+						ObjectStorage: &velerov1.ObjectStorageLocation{
+							Bucket: "test-aws-bucket",
+							Prefix: "velero",
+						},
+					},
+					Credential: &corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: "cloud-credentials",
+						},
+						Key: "cloud",
+					},
+					Default: true,
+				},
+			},
+			wantErr: false,
+		},
+		{
 			name: "checksumAlgorithm config is not specified by the user, add it as an empty string for BSL config",
 			bsl: &velerov1.BackupStorageLocation{
 				ObjectMeta: metav1.ObjectMeta{
