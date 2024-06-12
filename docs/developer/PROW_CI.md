@@ -42,7 +42,7 @@ The configuration for [OADP's Velero plugin for Microsoft Azure repo](https://gi
 - https://github.com/openshift/release/tree/master/ci-operator/config/openshift/velero-plugin-for-microsoft-azure
 - https://github.com/openshift/release/tree/master/ci-operator/jobs/openshift/velero-plugin-for-microsoft-azure
 
-The configuration for [OADP's Velero plugin for CSI repo](https://github.com/openshift/velero-plugin-for-csi) can be found in
+The configuration for [OADP's Velero plugin for CSI repo](https://github.com/openshift/velero-plugin-for-csi) can be found in (OADP < 1.4)
 - https://github.com/openshift/release/tree/master/core-services/prow/02_config/openshift/velero-plugin-for-csi
 - https://github.com/openshift/release/tree/master/ci-operator/config/openshift/velero-plugin-for-csi
 - https://github.com/openshift/release/tree/master/ci-operator/jobs/openshift/velero-plugin-for-csi
