@@ -1519,6 +1519,7 @@ func TestDPAReconciler_updateBSLFromSpec(t *testing.T) {
 		name    string
 		bsl     *velerov1.BackupStorageLocation
 		dpa     *oadpv1alpha1.DataProtectionApplication
+		wantBSL *velerov1.BackupStorageLocation
 		wantErr bool
 	}{
 		{
@@ -1534,7 +1535,235 @@ func TestDPAReconciler_updateBSLFromSpec(t *testing.T) {
 					Name:      "foo",
 					Namespace: "bar",
 				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					BackupLocations: []oadpv1alpha1.BackupLocation{
+						{
+							Velero: &velerov1.BackupStorageLocationSpec{
+								Provider: "aws",
+								StorageType: velerov1.StorageType{
+									ObjectStorage: &velerov1.ObjectStorageLocation{
+										Bucket: "test-aws-bucket",
+										Prefix: "velero",
+									},
+								},
+								Config: map[string]string{
+									Region: "test-region",
+								},
+								Credential: &corev1.SecretKeySelector{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: "cloud-credentials",
+									},
+									Key: "cloud",
+								},
+								Default: true,
+							},
+						},
+					},
+				},
 			},
+			wantBSL: &velerov1.BackupStorageLocation{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo-1",
+					Namespace: "bar",
+					Labels: map[string]string{
+						"app.kubernetes.io/name":     "oadp-operator-velero",
+						"app.kubernetes.io/instance": "foo" + "-1",
+						//"app.kubernetes.io/version":    "x.y.z",
+						"app.kubernetes.io/managed-by":       "oadp-operator",
+						"app.kubernetes.io/component":        "bsl",
+						oadpv1alpha1.OadpOperatorLabel:       "True",
+						oadpv1alpha1.RegistryDeploymentLabel: "True",
+					},
+					OwnerReferences: []metav1.OwnerReference{{
+						APIVersion:         oadpv1alpha1.SchemeBuilder.GroupVersion.String(),
+						Kind:               "DataProtectionApplication",
+						Name:               "foo",
+						Controller:         pointer.BoolPtr(true),
+						BlockOwnerDeletion: pointer.BoolPtr(true),
+					}},
+				},
+				Spec: velerov1.BackupStorageLocationSpec{
+					Provider: "aws",
+					StorageType: velerov1.StorageType{
+						ObjectStorage: &velerov1.ObjectStorageLocation{
+							Bucket: "test-aws-bucket",
+							Prefix: "velero",
+						},
+					},
+					Config: map[string]string{
+						Region:            "test-region",
+						checksumAlgorithm: "",
+					},
+					Credential: &corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: "cloud-credentials",
+						},
+						Key: "cloud",
+					},
+					Default: true,
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "BSL spec config is nil, no BSL spec update",
+			bsl: &velerov1.BackupStorageLocation{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo-1",
+					Namespace: "bar",
+				},
+			},
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "bar",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					BackupLocations: []oadpv1alpha1.BackupLocation{
+						{
+							Velero: &velerov1.BackupStorageLocationSpec{
+								Provider: "aws",
+								StorageType: velerov1.StorageType{
+									ObjectStorage: &velerov1.ObjectStorageLocation{
+										Bucket: "test-aws-bucket",
+										Prefix: "velero",
+									},
+								},
+								Credential: &corev1.SecretKeySelector{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: "cloud-credentials",
+									},
+									Key: "cloud",
+								},
+								Default: true,
+							},
+						},
+					},
+				},
+			},
+			wantBSL: &velerov1.BackupStorageLocation{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo-1",
+					Namespace: "bar",
+					Labels: map[string]string{
+						"app.kubernetes.io/name":     "oadp-operator-velero",
+						"app.kubernetes.io/instance": "foo" + "-1",
+						//"app.kubernetes.io/version":    "x.y.z",
+						"app.kubernetes.io/managed-by":       "oadp-operator",
+						"app.kubernetes.io/component":        "bsl",
+						oadpv1alpha1.OadpOperatorLabel:       "True",
+						oadpv1alpha1.RegistryDeploymentLabel: "True",
+					},
+					OwnerReferences: []metav1.OwnerReference{{
+						APIVersion:         oadpv1alpha1.SchemeBuilder.GroupVersion.String(),
+						Kind:               "DataProtectionApplication",
+						Name:               "foo",
+						Controller:         pointer.BoolPtr(true),
+						BlockOwnerDeletion: pointer.BoolPtr(true),
+					}},
+				},
+				Spec: velerov1.BackupStorageLocationSpec{
+					Provider: "aws",
+					StorageType: velerov1.StorageType{
+						ObjectStorage: &velerov1.ObjectStorageLocation{
+							Bucket: "test-aws-bucket",
+							Prefix: "velero",
+						},
+					},
+					Credential: &corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: "cloud-credentials",
+						},
+						Key: "cloud",
+					},
+					Default: true,
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "checksumAlgorithm config is not specified by the user, add it as an empty string for BSL config",
+			bsl: &velerov1.BackupStorageLocation{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo-1",
+					Namespace: "bar",
+				},
+			},
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "bar",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					BackupLocations: []oadpv1alpha1.BackupLocation{
+						{
+							Velero: &velerov1.BackupStorageLocationSpec{
+								Provider: "aws",
+								StorageType: velerov1.StorageType{
+									ObjectStorage: &velerov1.ObjectStorageLocation{
+										Bucket: "test-aws-bucket",
+										Prefix: "velero",
+									},
+								},
+								Config: map[string]string{
+									Region: "test-region",
+								},
+								Credential: &corev1.SecretKeySelector{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: "cloud-credentials",
+									},
+									Key: "cloud",
+								},
+								Default: true,
+							},
+						},
+					},
+				},
+			},
+
+			wantBSL: &velerov1.BackupStorageLocation{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo-1",
+					Namespace: "bar",
+					Labels: map[string]string{
+						"app.kubernetes.io/name":     "oadp-operator-velero",
+						"app.kubernetes.io/instance": "foo" + "-1",
+						//"app.kubernetes.io/version":    "x.y.z",
+						"app.kubernetes.io/managed-by":       "oadp-operator",
+						"app.kubernetes.io/component":        "bsl",
+						oadpv1alpha1.OadpOperatorLabel:       "True",
+						oadpv1alpha1.RegistryDeploymentLabel: "True",
+					},
+					OwnerReferences: []metav1.OwnerReference{{
+						APIVersion:         oadpv1alpha1.SchemeBuilder.GroupVersion.String(),
+						Kind:               "DataProtectionApplication",
+						Name:               "foo",
+						Controller:         pointer.BoolPtr(true),
+						BlockOwnerDeletion: pointer.BoolPtr(true),
+					}},
+				},
+				Spec: velerov1.BackupStorageLocationSpec{
+					Provider: "aws",
+					StorageType: velerov1.StorageType{
+						ObjectStorage: &velerov1.ObjectStorageLocation{
+							Bucket: "test-aws-bucket",
+							Prefix: "velero",
+						},
+					},
+					Config: map[string]string{
+						Region:            "test-region",
+						checksumAlgorithm: "",
+					},
+					Credential: &corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: "cloud-credentials",
+						},
+						Key: "cloud",
+					},
+					Default: true,
+				},
+			},
+			wantErr: false,
 		},
 	}
 	for _, tt := range tests {
@@ -1547,40 +1776,19 @@ func TestDPAReconciler_updateBSLFromSpec(t *testing.T) {
 				Scheme: scheme,
 			}
 
-			wantBSl := &velerov1.BackupStorageLocation{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "foo-1",
-					Namespace: "bar",
-					Labels: map[string]string{
-						"app.kubernetes.io/name":     "oadp-operator-velero",
-						"app.kubernetes.io/instance": tt.dpa.Name + "-1",
-						//"app.kubernetes.io/version":    "x.y.z",
-						"app.kubernetes.io/managed-by":       "oadp-operator",
-						"app.kubernetes.io/component":        "bsl",
-						oadpv1alpha1.OadpOperatorLabel:       "True",
-						oadpv1alpha1.RegistryDeploymentLabel: "True",
-					},
-					OwnerReferences: []metav1.OwnerReference{{
-						APIVersion:         oadpv1alpha1.SchemeBuilder.GroupVersion.String(),
-						Kind:               "DataProtectionApplication",
-						Name:               tt.dpa.Name,
-						UID:                tt.dpa.UID,
-						Controller:         pointer.BoolPtr(true),
-						BlockOwnerDeletion: pointer.BoolPtr(true),
-					}},
-				},
-			}
-
-			err = r.updateBSLFromSpec(tt.bsl, tt.dpa, tt.bsl.Spec)
+			err = r.updateBSLFromSpec(tt.bsl, tt.dpa, *tt.dpa.Spec.BackupLocations[0].Velero)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("updateBSLFromSpec() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if !reflect.DeepEqual(tt.bsl.Labels, wantBSl.Labels) {
-				t.Errorf("expected bsl labels to be %#v, got %#v", wantBSl.Labels, tt.bsl.Labels)
+			if !reflect.DeepEqual(tt.bsl.Labels, tt.wantBSL.Labels) {
+				t.Errorf("expected bsl labels to be %#v, got %#v", tt.wantBSL.Labels, tt.bsl.Labels)
 			}
-			if !reflect.DeepEqual(tt.bsl.OwnerReferences, wantBSl.OwnerReferences) {
-				t.Errorf("expected bsl owner references to be %#v, got %#v", wantBSl.OwnerReferences, tt.bsl.OwnerReferences)
+			if !reflect.DeepEqual(tt.bsl.OwnerReferences, tt.wantBSL.OwnerReferences) {
+				t.Errorf("expected bsl owner references to be %#v, got %#v", tt.wantBSL.OwnerReferences, tt.bsl.OwnerReferences)
+			}
+			if !reflect.DeepEqual(tt.bsl.Spec, tt.wantBSL.Spec) {
+				t.Errorf("expected bsl Spec to be %#v, got %#v", tt.wantBSL.Spec, tt.bsl.Spec)
 			}
 		})
 	}
@@ -1933,6 +2141,9 @@ func TestDPAReconciler_ReconcileBackupStorageLocations(t *testing.T) {
 						{
 							Velero: &velerov1.BackupStorageLocationSpec{
 								Provider: "aws",
+								Config: map[string]string{
+									Region: "us-east-1",
+								},
 							},
 						},
 					},
@@ -2048,6 +2259,9 @@ func TestDPAReconciler_ReconcileBackupStorageLocations(t *testing.T) {
 							{
 								Velero: &velerov1.BackupStorageLocationSpec{
 									Provider: "aws",
+									Config: map[string]string{
+										Region: "us-east-1",
+									},
 									StorageType: velerov1.StorageType{
 										ObjectStorage: &velerov1.ObjectStorageLocation{
 											Prefix: "test-prefix",
@@ -2081,6 +2295,10 @@ func TestDPAReconciler_ReconcileBackupStorageLocations(t *testing.T) {
 				},
 				Spec: velerov1.BackupStorageLocationSpec{
 					Provider: "aws",
+					Config: map[string]string{
+						Region:            "us-east-1",
+						checksumAlgorithm: "",
+					},
 					StorageType: velerov1.StorageType{
 						ObjectStorage: &velerov1.ObjectStorageLocation{
 							Prefix: "test-prefix",
@@ -2181,6 +2399,9 @@ func TestDPAReconciler_ReconcileBackupStorageLocations(t *testing.T) {
 							{
 								Velero: &velerov1.BackupStorageLocationSpec{
 									Provider: "aws",
+									Config: map[string]string{
+										Region: "us-east-1",
+									},
 									StorageType: velerov1.StorageType{
 										ObjectStorage: &velerov1.ObjectStorageLocation{
 											Bucket: "test-bucket",
@@ -2216,6 +2437,10 @@ func TestDPAReconciler_ReconcileBackupStorageLocations(t *testing.T) {
 				},
 				Spec: velerov1.BackupStorageLocationSpec{
 					Provider: "aws",
+					Config: map[string]string{
+						Region:            "us-east-1",
+						checksumAlgorithm: "",
+					},
 					StorageType: velerov1.StorageType{
 						ObjectStorage: &velerov1.ObjectStorageLocation{
 							Prefix: "test-prefix",

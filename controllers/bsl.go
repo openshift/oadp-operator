@@ -236,7 +236,7 @@ func (r *DPAReconciler) updateBSLFromSpec(bsl *velerov1.BackupStorageLocation, d
 	// However, the registry deployment fails without a valid storage account key.
 	// This logic prevents the registry pods from being deployed if Azure SP is used as an auth mechanism.
 	registryDeployment := "True"
-	if bslSpec.Provider == "azure" {
+	if bslSpec.Provider == "azure" && bslSpec.Config != nil {
 		if len(bslSpec.Config["storageAccountKeyEnvVar"]) == 0 {
 			registryDeployment = "False"
 		}
@@ -245,12 +245,21 @@ func (r *DPAReconciler) updateBSLFromSpec(bsl *velerov1.BackupStorageLocation, d
 	// (80 for HTTP and 443 for HTTPS) before calculating a signature, and not
 	// all S3-compatible services do this. Remove the ports here to avoid 403
 	// errors from mismatched signatures.
-	if bslSpec.Provider == "aws" {
+	if bslSpec.Provider == "aws" && bslSpec.Config != nil {
 		s3Url := bslSpec.Config["s3Url"]
 		if len(s3Url) > 0 {
 			if s3Url, err = common.StripDefaultPorts(s3Url); err == nil {
 				bslSpec.Config["s3Url"] = s3Url
 			}
+		}
+
+		// Since the AWS SDK upgrade in velero-plugin-for-aws, data transfer to BSL bucket fails
+		// if the chosen checksumAlgorithm doesn't work for the provider. Velero sets this to CRC32 if not
+		// chosen by the user. We will set it empty string if checksumAlgorithm is not specified by the user
+		// to bypass checksum calculation entirely. If your s3 provider supports checksum calculation,
+		// then you should specify this value in the config.
+		if _, exists := bslSpec.Config[checksumAlgorithm]; !exists {
+			bslSpec.Config[checksumAlgorithm] = ""
 		}
 	}
 	bsl.Labels = map[string]string{
