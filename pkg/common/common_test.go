@@ -200,3 +200,80 @@ func TestGetImagePullPolicy(t *testing.T) {
 		})
 	}
 }
+
+func TestGenerateCliArgsFromConfigMap(t *testing.T) {
+    tests := []struct {
+        name           string
+        cliSubCommand  string
+        configMap      *corev1.ConfigMap
+        expectedArgs   []string
+    }{
+        {
+            name:          "All arguments with spaces, some without sigle quotes",
+            cliSubCommand: "server",
+            configMap: &corev1.ConfigMap{
+                Data: map[string]string{
+                    "--default-volume-snapshot-locations": "aws:backups-primary, azure:backups-secondary",
+                    "--log-level": "'debug'",
+                },
+            },
+            expectedArgs: []string{
+                "server",
+                "--default-volume-snapshot-locations 'aws:backups-primary, azure:backups-secondary'",
+                "--log-level 'debug'",
+            },
+        },
+        {
+            name:          "Boolean argument without space",
+            cliSubCommand: "server",
+            configMap: &corev1.ConfigMap{
+                Data: map[string]string{
+                    "--default-snapshot-move": "=true",
+                },
+            },
+            expectedArgs: []string{
+                "server",
+                "--default-snapshot-move=true",
+            },
+        },
+        {
+            name:          "Non-Boolean argument with space",
+            cliSubCommand: "server",
+            configMap: &corev1.ConfigMap{
+                Data: map[string]string{
+                    "--default-snapshot-move-data": "' =true'",
+                },
+            },
+            expectedArgs: []string{
+                "server",
+                "--default-snapshot-move-data ' =true'",
+            },
+        },
+        {
+            name:          "Mixed arguments",
+            cliSubCommand: "server",
+            configMap: &corev1.ConfigMap{
+                Data: map[string]string{
+                    "--default-volume-snapshot-locations": "'aws:backups-primary,azure:backups-secondary'",
+                    "--log-level": "'debug'",
+                    "--default-snapshot-move-data": "=True",
+                },
+            },
+            expectedArgs: []string{
+                "server",
+                "--default-volume-snapshot-locations 'aws:backups-primary,azure:backups-secondary'",
+                "--log-level 'debug'",
+                "--default-snapshot-move-data=True",
+            },
+        },
+    }
+
+    for _, tt := range tests {
+        t.Run(tt.name, func(t *testing.T) {
+            gotArgs := GenerateCliArgsFromConfigMap(tt.cliSubCommand, tt.configMap)
+            if !reflect.DeepEqual(gotArgs, tt.expectedArgs) {
+                t.Errorf("GenerateCliArgsFromConfigMap() = %v, want %v", gotArgs, tt.expectedArgs)
+            }
+        })
+    }
+}
