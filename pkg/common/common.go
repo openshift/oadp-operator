@@ -5,7 +5,11 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+<<<<<<< HEAD
 	"regexp"
+=======
+	"strings"
+>>>>>>> 59e7d06 (Implementation function for unsupported args.)
 
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/vmware-tanzu/velero/pkg/restore"
@@ -238,4 +242,28 @@ func GetImagePullPolicy(image string) (corev1.PullPolicy, error) {
 		return corev1.PullIfNotPresent, nil
 	}
 	return corev1.PullAlways, nil
+}
+
+func GenerateCliArgsFromConfigMap(cliSubCommand string, configMap *corev1.ConfigMap) []string {
+    args := []string{cliSubCommand}
+
+    // Iterate through each key-value pair in the ConfigMap
+    for key, value := range configMap.Data {
+
+		
+		// Check if the value is a boolean argument
+		if strings.EqualFold(value, "=true") || strings.EqualFold(value, "=false") {
+            args = append(args, fmt.Sprintf("%s%s", key, value))
+        } else {
+			// Surround the value with single quotes for non-boolean arguments
+			if !strings.HasPrefix(value, "'") && !strings.HasSuffix(value, "'") {
+				value = fmt.Sprintf("'%s'", value)
+			}
+
+            // Otherwise, append with a space between key and value
+            args = append(args, fmt.Sprintf("%s %s", key, value))
+        }
+    }
+
+    return args
 }
