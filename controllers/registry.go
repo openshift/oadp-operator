@@ -63,6 +63,7 @@ const (
 	Profile               = "profile"
 	S3URL                 = "s3Url"
 	S3ForcePathStyle      = "s3ForcePathStyle"
+	checksumAlgorithm     = "checksumAlgorithm"
 	InsecureSkipTLSVerify = "insecureSkipTLSVerify"
 	StorageAccount        = "storageAccount"
 	ResourceGroup         = "resourceGroup"
