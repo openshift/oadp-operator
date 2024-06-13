@@ -8,13 +8,11 @@
 
     From this update:
 
-    - TODO CSI?
+    - velero-plugin-for-csi code is now inside Velero code, which means, no init container is needed for the plugin anymore. No changes needed in DPA.
 
-    - Velero changed client Burst and QPS defaults from 30 and 20 to 100 and 100, respectively. If you want to change these values, use new `spec.configuration.velero.client-burst` and `spec.configuration.velero.client-qps` fields.
+    - Velero changed client Burst and QPS defaults from 30 and 20 to 100 and 100, respectively.
 
-    - Non AWS object storages that use AWS plugin need a new `spec.backupLocations[].velero.config.checksumAlgorithm` field to be set in DPA to them to work in OADP 1.4.
-
-- TODO image pull policy override
+    - velero-plugin-for-aws updated default value of `spec.config.checksumAlgorithm` field in BackupStorageLocations (BSLs) from `""` (no checksum calculation) to `CRC32` (reference https://github.com/vmware-tanzu/velero-plugin-for-aws/blob/release-1.10/backupstoragelocation.md). For compatibility, OADP did not change default value of the field for BSLs created within DPA (and if you want to change it, use `spec.backupLocations[].velero.config.checksumAlgorithm` field). If your BSLs are created outside DPA, you may need to change value of the `spec.config.checksumAlgorithm` field in the BSLs. Some compatible S3 storages, like IBM, currently only work with `""` value.
 
 ## Upgrade steps
 
@@ -35,19 +33,14 @@ For general operator upgrade instructions please review the [OpenShift documenta
 
 ### Convert your DPA to the new version
 
-If you are using an object storage compatible with AWS (different then AWS itself) and using AWS plugin, you need to add new `spec.backupLocations[].velero.config.checksumAlgorithm` field with an empty string as value to your DPA. Example
-```diff
- spec:
-   backupLocations:
-     - velero:
-         config:
-           profile: default
-           region: <region>
-           s3ForcePathStyle: 'true'
-           s3Url: <url>
-+          checksumAlgorithm: ""
-```
+No changes.
 
 ### Verify the upgrade
 
 Follow theses [basic install verification](../docs/install_olm.md#verify-install) to verify the installation.
+
+## Changes from OADP 1.4.0 to 1.4.1
+
+- If you want to change client Burst and QPS values, use new `spec.configuration.velero.client-burst` and `spec.configuration.velero.client-qps` fields.
+
+- TODO image pull policy override and default behavior
