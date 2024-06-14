@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"strings"
 
 	"github.com/go-logr/logr"
 	"github.com/operator-framework/operator-lib/proxy"
@@ -328,6 +329,18 @@ func (r *DPAReconciler) customizeNodeAgentDaemonset(dpa *oadpv1alpha1.DataProtec
 
 		nodeAgentContainer.SecurityContext = &corev1.SecurityContext{
 			Privileged: pointer.Bool(true),
+		}
+
+		// append node agent server args if specified via UnsupportedNodeAgentArgs
+		if len(dpa.Spec.Configuration.NodeAgent.UnsupportedNodeAgentArgs) > 0 {
+			unsupportedArgs := strings.TrimSpace(dpa.Spec.Configuration.NodeAgent.UnsupportedNodeAgentArgs)
+			unsupportedArgsList := strings.Split(unsupportedArgs, ",")
+			for _, arg := range unsupportedArgsList {
+				arg = strings.TrimSpace(arg)
+				if arg != "" {
+					nodeAgentContainer.Args = append(nodeAgentContainer.Args, arg)
+				}
+			}
 		}
 
 		nodeAgentContainer.ImagePullPolicy = corev1.PullAlways
