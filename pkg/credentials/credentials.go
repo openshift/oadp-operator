@@ -28,7 +28,7 @@ type DefaultPluginFields struct {
 }
 
 const (
-	cloudFieldPath = "cloud"
+	CloudFieldPath = "cloud"
 )
 
 var (
@@ -151,7 +151,7 @@ func getKubeVirtPluginImage(dpa *oadpv1alpha1.DataProtectionApplication) string 
 	return os.Getenv("RELATED_IMAGE_KUBEVIRT_VELERO_PLUGIN")
 }
 
-func getPluginImage(pluginName string, dpa *oadpv1alpha1.DataProtectionApplication) string {
+func GetPluginImage(pluginName string, dpa *oadpv1alpha1.DataProtectionApplication) string {
 	switch pluginName {
 
 	case common.VeleroPluginForAWS:
@@ -231,7 +231,7 @@ func AppendCloudProviderVolumes(dpa *oadpv1alpha1.DataProtectionApplication, ds 
 					resticContainer.Env,
 					corev1.EnvVar{
 						Name:  cloudProviderMap.EnvCredentialsFile,
-						Value: cloudProviderMap.MountPath + "/" + cloudFieldPath,
+						Value: cloudProviderMap.MountPath + "/" + CloudFieldPath,
 					},
 				)
 			}
@@ -253,102 +253,6 @@ func AppendCloudProviderVolumes(dpa *oadpv1alpha1.DataProtectionApplication, ds 
 					},
 				)
 			}
-		}
-	}
-	return nil
-}
-
-// add plugin specific specs to velero deployment
-func AppendPluginSpecificSpecs(dpa *oadpv1alpha1.DataProtectionApplication, veleroDeployment *appsv1.Deployment, veleroContainer *corev1.Container, providerNeedsDefaultCreds map[string]bool, hasCloudStorage bool) error {
-
-	init_container_resources := veleroContainer.Resources
-
-	for _, plugin := range dpa.Spec.Configuration.Velero.DefaultPlugins {
-		if pluginSpecificMap, ok := PluginSpecificFields[plugin]; ok {
-			veleroDeployment.Spec.Template.Spec.InitContainers = append(
-				veleroDeployment.Spec.Template.Spec.InitContainers,
-				corev1.Container{
-					Image:                    getPluginImage(pluginSpecificMap.PluginName, dpa),
-					Name:                     pluginSpecificMap.PluginName,
-					ImagePullPolicy:          corev1.PullAlways,
-					Resources:                init_container_resources,
-					TerminationMessagePath:   "/dev/termination-log",
-					TerminationMessagePolicy: "File",
-					VolumeMounts: []corev1.VolumeMount{
-						{
-							MountPath: "/target",
-							Name:      "plugins",
-						},
-					},
-				})
-
-			pluginNeedsCheck, foundInBSLorVSL := providerNeedsDefaultCreds[string(plugin)]
-
-			if !foundInBSLorVSL && !hasCloudStorage {
-				pluginNeedsCheck = true
-			}
-
-			if !pluginSpecificMap.IsCloudProvider || !pluginNeedsCheck {
-				continue
-			}
-			if dpa.Spec.Configuration.Velero.NoDefaultBackupLocation &&
-				dpa.Spec.UnsupportedOverrides[oadpv1alpha1.OperatorTypeKey] != oadpv1alpha1.OperatorTypeMTC &&
-				pluginSpecificMap.IsCloudProvider {
-				continue
-			}
-			// set default secret name to use
-			secretName := pluginSpecificMap.SecretName
-			// append plugin specific volume mounts
-			if veleroContainer != nil {
-				veleroContainer.VolumeMounts = append(
-					veleroContainer.VolumeMounts,
-					corev1.VolumeMount{
-						Name:      secretName,
-						MountPath: pluginSpecificMap.MountPath,
-					})
-
-				// append plugin specific env vars
-				veleroContainer.Env = append(
-					veleroContainer.Env,
-					corev1.EnvVar{
-						Name:  pluginSpecificMap.EnvCredentialsFile,
-						Value: pluginSpecificMap.MountPath + "/" + cloudFieldPath,
-					})
-			}
-
-			// append plugin specific volumes
-			veleroDeployment.Spec.Template.Spec.Volumes = append(
-				veleroDeployment.Spec.Template.Spec.Volumes,
-				corev1.Volume{
-					Name: secretName,
-					VolumeSource: corev1.VolumeSource{
-						Secret: &corev1.SecretVolumeSource{
-							SecretName:  secretName,
-							DefaultMode: common.DefaultModePtr(),
-						},
-					},
-				})
-		}
-	}
-	// append custom plugin init containers
-	if dpa.Spec.Configuration.Velero.CustomPlugins != nil {
-		for _, plugin := range dpa.Spec.Configuration.Velero.CustomPlugins {
-			veleroDeployment.Spec.Template.Spec.InitContainers = append(
-				veleroDeployment.Spec.Template.Spec.InitContainers,
-				corev1.Container{
-					Image:                    plugin.Image,
-					Name:                     plugin.Name,
-					ImagePullPolicy:          corev1.PullAlways,
-					Resources:                init_container_resources,
-					TerminationMessagePath:   "/dev/termination-log",
-					TerminationMessagePolicy: "File",
-					VolumeMounts: []corev1.VolumeMount{
-						{
-							MountPath: "/target",
-							Name:      "plugins",
-						},
-					},
-				})
 		}
 	}
 	return nil
