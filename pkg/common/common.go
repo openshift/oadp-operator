@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"regexp"
 
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/vmware-tanzu/velero/pkg/restore"
@@ -213,4 +214,28 @@ func StripDefaultPorts(fromUrl string) (string, error) {
 		r.URL.Host = r.Host
 	}
 	return r.URL.String(), nil
+}
+
+// GetImagePullPolicy get imagePullPolicy for a container, based on its image.
+// If image contains a sha256 or sha512 digest, use IfNotPresent; otherwise, Always.
+// If an error occurs, Always is used.
+// Reference: https://github.com/distribution/distribution/blob/v2.7.1/reference/reference.go
+func GetImagePullPolicy(image string) (corev1.PullPolicy, error) {
+	sha256regex, err := regexp.Compile("@sha256:[a-f0-9]{64}")
+	if err != nil {
+		return corev1.PullAlways, err
+	}
+	if sha256regex.Match([]byte(image)) {
+		// image contains a sha256 digest
+		return corev1.PullIfNotPresent, nil
+	}
+	sha512regex, err := regexp.Compile("@sha512:[a-f0-9]{128}")
+	if err != nil {
+		return corev1.PullAlways, err
+	}
+	if sha512regex.Match([]byte(image)) {
+		// image contains a sha512 digest
+		return corev1.PullIfNotPresent, nil
+	}
+	return corev1.PullAlways, nil
 }

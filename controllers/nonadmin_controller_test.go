@@ -245,7 +245,7 @@ func TestEnsureRequiredLabels(t *testing.T) {
 
 func TestEnsureRequiredSpecs(t *testing.T) {
 	deployment := createTestDeployment("test-ensure-spec")
-	ensureRequiredSpecs(deployment, defaultNonAdminImage)
+	ensureRequiredSpecs(deployment, defaultNonAdminImage, corev1.PullAlways)
 	if *deployment.Spec.Replicas != 1 {
 		t.Errorf("Deployment has wrong number of replicas: %v", *deployment.Spec.Replicas)
 	}
