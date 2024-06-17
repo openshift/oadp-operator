@@ -5,11 +5,8 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-<<<<<<< HEAD
 	"regexp"
-=======
 	"strings"
->>>>>>> 59e7d06 (Implementation function for unsupported args.)
 
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/vmware-tanzu/velero/pkg/restore"
@@ -244,26 +241,52 @@ func GetImagePullPolicy(image string) (corev1.PullPolicy, error) {
 	return corev1.PullAlways, nil
 }
 
+// GenerateCliArgsFromConfigMap generates CLI arguments from a ConfigMap.
+//
+// This function takes a CLI subcommand and a ConfigMap, and returns a slice of strings representing
+// the CLI arguments from the ConfigMap.
+// The function processes each key-value pair in the ConfigMap as follows:
+//
+//  1. If the ConfigMaps' value starts and ends with single (') or double (") quotes, it is left unchanged.
+//  2. If the ConfigMaps' key starts with single '-' or double '--', it is left unchanged.
+//  3. If an argument key is passed without `-` or `--` prefix, then `--` is added as a key prefix.
+//  4. If the ConfigMap value is "true" or "false" (case-insensitive), it is converted to lowercase
+//     and used without single quotes surroundings (boolean value).
+//  5. The formatted key-value pair is added to the result.
+//
+// Args:
+//
+//	cliSubCommand: The CLI subcommand as a string, for example 'server'
+//	configMap: A pointer to a corev1.ConfigMap containing key-value pairs.
+//
+// Returns:
+//
+//	A slice of strings representing the CLI arguments.
 func GenerateCliArgsFromConfigMap(cliSubCommand string, configMap *corev1.ConfigMap) []string {
-    args := []string{cliSubCommand}
+	args := []string{cliSubCommand}
 
-    // Iterate through each key-value pair in the ConfigMap
-    for key, value := range configMap.Data {
+	// Iterate through each key-value pair in the ConfigMap
+	for key, value := range configMap.Data {
+		// Ensure the key is prefixed by "--" if it doesn't start with "--" or "-"
+		if !strings.HasPrefix(key, "--") && !strings.HasPrefix(key, "-") {
+			key = fmt.Sprintf("--%s", key)
+		}
 
-		
-		// Check if the value is a boolean argument
-		if strings.EqualFold(value, "=true") || strings.EqualFold(value, "=false") {
-            args = append(args, fmt.Sprintf("%s%s", key, value))
-        } else {
+		switch {
+		case (strings.HasPrefix(value, "'") && strings.HasSuffix(value, "'")) ||
+			(strings.HasPrefix(value, "\"") && strings.HasSuffix(value, "\"")):
+			// Leave the value as is if it's surrounded by single or double quotes
+		case strings.EqualFold(value, "true") || strings.EqualFold(value, "false"):
+			// Convert true/false to lowercase if not surrounded by quotes - boolean
+			value = strings.ToLower(value)
+		default:
 			// Surround the value with single quotes for non-boolean arguments
-			if !strings.HasPrefix(value, "'") && !strings.HasSuffix(value, "'") {
-				value = fmt.Sprintf("'%s'", value)
-			}
+			value = fmt.Sprintf("'%s'", value)
+		}
 
-            // Otherwise, append with a space between key and value
-            args = append(args, fmt.Sprintf("%s %s", key, value))
-        }
-    }
+		// Append the formatted key-value pair to args
+		args = append(args, fmt.Sprintf("%s=%s", key, value))
+	}
 
-    return args
+	return args
 }

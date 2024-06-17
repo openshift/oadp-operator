@@ -2,6 +2,7 @@ package common
 
 import (
 	"reflect"
+	"sort"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
@@ -202,78 +203,115 @@ func TestGetImagePullPolicy(t *testing.T) {
 }
 
 func TestGenerateCliArgsFromConfigMap(t *testing.T) {
-    tests := []struct {
-        name           string
-        cliSubCommand  string
-        configMap      *corev1.ConfigMap
-        expectedArgs   []string
-    }{
-        {
-            name:          "All arguments with spaces, some without sigle quotes",
-            cliSubCommand: "server",
-            configMap: &corev1.ConfigMap{
-                Data: map[string]string{
-                    "--default-volume-snapshot-locations": "aws:backups-primary, azure:backups-secondary",
-                    "--log-level": "'debug'",
-                },
-            },
-            expectedArgs: []string{
-                "server",
-                "--default-volume-snapshot-locations 'aws:backups-primary, azure:backups-secondary'",
-                "--log-level 'debug'",
-            },
-        },
-        {
-            name:          "Boolean argument without space",
-            cliSubCommand: "server",
-            configMap: &corev1.ConfigMap{
-                Data: map[string]string{
-                    "--default-snapshot-move": "=true",
-                },
-            },
-            expectedArgs: []string{
-                "server",
-                "--default-snapshot-move=true",
-            },
-        },
-        {
-            name:          "Non-Boolean argument with space",
-            cliSubCommand: "server",
-            configMap: &corev1.ConfigMap{
-                Data: map[string]string{
-                    "--default-snapshot-move-data": "' =true'",
-                },
-            },
-            expectedArgs: []string{
-                "server",
-                "--default-snapshot-move-data ' =true'",
-            },
-        },
-        {
-            name:          "Mixed arguments",
-            cliSubCommand: "server",
-            configMap: &corev1.ConfigMap{
-                Data: map[string]string{
-                    "--default-volume-snapshot-locations": "'aws:backups-primary,azure:backups-secondary'",
-                    "--log-level": "'debug'",
-                    "--default-snapshot-move-data": "=True",
-                },
-            },
-            expectedArgs: []string{
-                "server",
-                "--default-volume-snapshot-locations 'aws:backups-primary,azure:backups-secondary'",
-                "--log-level 'debug'",
-                "--default-snapshot-move-data=True",
-            },
-        },
-    }
+	tests := []struct {
+		name          string
+		cliSubCommand string
+		configMap     *corev1.ConfigMap
+		expectedArgs  []string
+	}{
+		{
+			name:          "Boolean argument variations",
+			cliSubCommand: "server",
+			configMap: &corev1.ConfigMap{
+				Data: map[string]string{
+					"--default-snapshot-move":   "true",
+					"--another-key-mix-letters": "TrUe",
+					"key-no-prefix":             "False",
+					"string-not-bool":           "'False'",
+				},
+			},
+			expectedArgs: []string{
+				"server",
+				"--default-snapshot-move=true",
+				"--another-key-mix-letters=true",
+				"--key-no-prefix=false",
+				"--string-not-bool='False'",
+			},
+		},
+		{
+			name:          "All arguments with spaces, some without sigle quotes",
+			cliSubCommand: "server",
+			configMap: &corev1.ConfigMap{
+				Data: map[string]string{
+					"default-volume-snapshot-locations": "aws:backups-primary, azure:backups-secondary",
+					"log-level":                         "'debug'",
+				},
+			},
+			expectedArgs: []string{
+				"server",
+				"--default-volume-snapshot-locations='aws:backups-primary, azure:backups-secondary'",
+				"--log-level='debug'",
+			},
+		},
+		{
+			name:          "Preserve single and double '-' as key prefix",
+			cliSubCommand: "server",
+			configMap: &corev1.ConfigMap{
+				Data: map[string]string{
+					"-default-volume-snapshot-locations": "aws:backups-primary, azure:backups-secondary",
+					"--log-level":                        "'debug'",
+					"-string-bool":                       "False",
+				},
+			},
+			expectedArgs: []string{
+				"server",
+				"-default-volume-snapshot-locations='aws:backups-primary, azure:backups-secondary'",
+				"--log-level='debug'",
+				"-string-bool=false",
+			},
+		},
+		{
+			name:          "Non-Boolean argument with space",
+			cliSubCommand: "server",
+			configMap: &corev1.ConfigMap{
+				Data: map[string]string{
+					"default-snapshot-move-data": "' true'",
+				},
+			},
+			expectedArgs: []string{
+				"server",
+				"--default-snapshot-move-data=' true'",
+			},
+		},
+		{
+			name:          "Mixed arguments",
+			cliSubCommand: "server",
+			configMap: &corev1.ConfigMap{
+				Data: map[string]string{
+					"--default-volume-snapshot-locations": "'aws:backups-primary,azure:backups-secondary'",
+					"--log-level":                         "'debug'",
+					"--default-snapshot-move-data":        "True",
+				},
+			},
+			expectedArgs: []string{
+				"server",
+				"--default-volume-snapshot-locations='aws:backups-primary,azure:backups-secondary'",
+				"--log-level='debug'",
+				"--default-snapshot-move-data=true",
+			},
+		},
+		{
+			name:          "Empty ConfigMap",
+			cliSubCommand: "server",
+			configMap: &corev1.ConfigMap{
+				Data: map[string]string{},
+			},
+			expectedArgs: []string{
+				"server",
+			},
+		},
+	}
 
-    for _, tt := range tests {
-        t.Run(tt.name, func(t *testing.T) {
-            gotArgs := GenerateCliArgsFromConfigMap(tt.cliSubCommand, tt.configMap)
-            if !reflect.DeepEqual(gotArgs, tt.expectedArgs) {
-                t.Errorf("GenerateCliArgsFromConfigMap() = %v, want %v", gotArgs, tt.expectedArgs)
-            }
-        })
-    }
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotArgs := GenerateCliArgsFromConfigMap(tt.cliSubCommand, tt.configMap)
+			// We don't require order of the args, so the test needs to sort them
+			// before comparison
+			sort.Strings(gotArgs)
+			sort.Strings(tt.expectedArgs)
+			if !reflect.DeepEqual(gotArgs, tt.expectedArgs) {
+				t.Errorf("GenerateCliArgsFromConfigMap() = %v, want %v", gotArgs, tt.expectedArgs)
+			}
+		})
+	}
 }
