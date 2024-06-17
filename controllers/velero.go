@@ -764,7 +764,7 @@ func getResticResourceReqs(dpa *oadpv1alpha1.DataProtectionApplication) (corev1.
 }
 
 // Get NodeAgent Resource Requirements
-// Separate function to getResticResourceReqs, so once Restic config is removed in OADP 1.4+
+// Separate function to getResticResourceReqs, so once Restic config is removed in the future
 // It will be easier to delete obsolete getResticResourceReqs
 func getNodeAgentResourceReqs(dpa *oadpv1alpha1.DataProtectionApplication) (corev1.ResourceRequirements, error) {
 
