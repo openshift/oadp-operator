@@ -436,7 +436,7 @@ func TestCredentials_getPluginImage(t *testing.T) {
 				os.Setenv(key, value)
 				defer os.Unsetenv(key)
 			}
-			gotImage := getPluginImage(tt.pluginName, tt.dpa)
+			gotImage := GetPluginImage(tt.pluginName, tt.dpa)
 			if gotImage != tt.wantImage {
 				t.Errorf("Expected plugin image %v did not match %v", tt.wantImage, gotImage)
 			}

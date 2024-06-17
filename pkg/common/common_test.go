@@ -3,6 +3,8 @@ package common
 import (
 	"reflect"
 	"testing"
+
+	corev1 "k8s.io/api/core/v1"
 )
 
 func TestAppendUniqueKeyTOfTMaps(t *testing.T) {
@@ -144,6 +146,56 @@ func TestStripDefaultPorts(t *testing.T) {
 			}
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("StripDefaultPorts() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestGetImagePullPolicy(t *testing.T) {
+	tests := []struct {
+		name   string
+		image  string
+		result corev1.PullPolicy
+	}{
+		{
+			name:   "Image without digest",
+			image:  "quay.io/konveyor/velero:oadp-1.4",
+			result: corev1.PullAlways,
+		},
+		{
+			name:   "Image with sha256 digest",
+			image:  "test.com/foo@sha256:1234567890098765432112345667890098765432112345667890098765432112",
+			result: corev1.PullIfNotPresent,
+		},
+		{
+			name:   "Image with wrong sha256 digest",
+			image:  "test.com/foo@sha256:123456789009876543211234566789009876543211234566789009876543211",
+			result: corev1.PullAlways,
+		},
+		{
+			name:   "Image with sha512 digest",
+			image:  "test.com/foo@sha512:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+			result: corev1.PullIfNotPresent,
+		},
+		{
+			name:   "Image with wrong sha512 digest",
+			image:  "test.com/foo@sha512:Ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+			result: corev1.PullAlways,
+		},
+		{
+			name:   "Image with non sha512 nor sha512 digest",
+			image:  "test.com/foo@sha256+b64u:LCa0a2j_xo_5m0U8HTBBNBNCLXBkg7-g-YpeiGJm564",
+			result: corev1.PullAlways,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			result, err := GetImagePullPolicy(test.image)
+			if err != nil {
+				t.Errorf("Error occurred in test: %s", err)
+			}
+			if result != test.result {
+				t.Errorf("Results differ: got '%v' but expected '%v'", result, test.result)
 			}
 		})
 	}
