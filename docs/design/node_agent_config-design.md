@@ -17,7 +17,7 @@ Upstream [kopia](https://github.com/kopia/kopia) project which is used by Velero
 
 - A new option `nodeAgent` under `configuration` section to allow configuration of restic or kopia uploader
 - Backwards compatibility with the current OADP configuration schema options, namely `restic`
-- Preparation for the future deprecation of the current `restic` configuration option (from OADP 1.4+)
+- Preparation for the future deprecation of the current `restic` configuration option
 - Allow new schema(s) to be used by the datamover node agent
 - Enablment of datamover node agent
 - Deprecation of the `restic` configuration option
@@ -85,7 +85,7 @@ type ApplicationConfig struct {
 	Velero *VeleroConfig `json:"velero,omitempty"`
 	// (deprecation warning) ResticConfig is the configuration for restic DaemonSet.
 	// Restic is for backwards compatibility and is replaced by the nodeAgent
-	// Restic will be removed with the OADP 1.4
+	// Restic will be removed in the future
 	// +kubebuilder:deprecatedversion:warning=1.3
 	// +optional
 	Restic *ResticConfig `json:"restic,omitempty"`
@@ -120,7 +120,7 @@ configuration:
 		type: object
 
 	restic:
-		description: (Deprecation Warning) Use nodeAgent instead of restic, which is deprecated and will be removed with the OADP 1.4
+		description: (Deprecation Warning) Use nodeAgent instead of restic, which is deprecated and will be removed in the future
 		properties:
 
 		[...] // <Same as all current restic configuration options>
@@ -193,7 +193,7 @@ The enablement of an extra upload mechanism could potentially introduce security
 
 ### Current `restic` configuration option
 
-This design does not change current configuration options, however it proposes addition of the deprecation warning to the current `Restic` schema. The `Restic` configuration option will be removed from OADP 1.4.
+This design does not change current configuration options, however it proposes addition of the deprecation warning to the current `Restic` schema. The `Restic` configuration option will be removed in the future.
 
 ### RESTIC_PV_HOSTPATH environment option
 
