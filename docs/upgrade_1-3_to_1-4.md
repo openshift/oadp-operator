@@ -12,7 +12,9 @@
 
     - Velero changed client Burst and QPS defaults from 30 and 20 to 100 and 100, respectively.
 
-    - velero-plugin-for-aws updated default value of `spec.config.checksumAlgorithm` field in BackupStorageLocations (BSLs) from `""` (no checksum calculation) to `CRC32` (reference https://github.com/vmware-tanzu/velero-plugin-for-aws/blob/release-1.10/backupstoragelocation.md). For compatibility, OADP did not change default value of the field for BSLs created within DPA (and if you want to change it, use `spec.backupLocations[].velero.config.checksumAlgorithm` field). If your BSLs are created outside DPA, you may need to change value of the `spec.config.checksumAlgorithm` field in the BSLs. Some compatible S3 storages, like IBM, currently only work with `""` value.
+    - velero-plugin-for-aws updated default value of `spec.config.checksumAlgorithm` field in BackupStorageLocations (BSLs) from `""` (no checksum calculation) to `CRC32` algorithm (reference https://github.com/vmware-tanzu/velero-plugin-for-aws/blob/release-1.10/backupstoragelocation.md). The checksum algorithm types are known to work only with AWS. Several S3 providers require the md5sum to be disabled (setting checksum algorithm to `""`). Please confirm with your storage provider with regards to the md5sum algorithm support and configuration.
+
+        OADP 1.4 default value for BSLs created within DPA for this configuration is `""`, meaning the md5sum is not checked (which is consistent with OADP 1.3). For BSLs created within DPA, this can be updated by using `spec.backupLocations[].velero.config.checksumAlgorithm` field in the DPA. If your BSLs are created outside DPA, this configuration can be updated by using `spec.config.checksumAlgorithm` field in the BSLs.
 
 ## Upgrade steps
 
@@ -33,7 +35,7 @@ For general operator upgrade instructions please review the [OpenShift documenta
 
 ### Convert your DPA to the new version
 
-No changes.
+No DPA changes are required to upgrade from OADP 1.3 to 1.4.
 
 ### Verify the upgrade
 
