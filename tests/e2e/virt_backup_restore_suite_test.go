@@ -11,6 +11,7 @@ import (
 	ginkgov2 "github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/openshift/oadp-operator/api/v1alpha1"
 	"github.com/openshift/oadp-operator/tests/e2e/lib"
@@ -37,10 +38,26 @@ func getLatestCirrosImageURL() (string, error) {
 	return imageURL, nil
 }
 
+func vmPoweredOff(vmnamespace, vmname string) VerificationFunction {
+	return VerificationFunction(func(ocClient client.Client, namespace string) error {
+		isOff := func() bool {
+			status, err := lib.GetVmStatus(dynamicClientForSuiteRun, vmnamespace, vmname)
+			if err != nil {
+				log.Printf("Error getting VM status: %v", err)
+			}
+			log.Printf("VM status is: %s\n", status)
+			return status == "Stopped"
+		}
+		gomega.Eventually(isOff, timeoutMultiplier*time.Minute*10, time.Second*10).Should(gomega.BeTrue())
+		return nil
+	})
+}
+
 type VmBackupRestoreCase struct {
 	BackupRestoreCase
-	Template  string
-	InitDelay time.Duration
+	Template   string
+	InitDelay  time.Duration
+	PowerState string
 }
 
 func runVmBackupAndRestore(brCase VmBackupRestoreCase, expectedErr error, updateLastBRcase func(brCase VmBackupRestoreCase), updateLastInstallTime func(), v *lib.VirtOperator) {
@@ -71,6 +88,14 @@ func runVmBackupAndRestore(brCase VmBackupRestoreCase, expectedErr error, update
 	if brCase.InitDelay > 0*time.Second {
 		log.Printf("Sleeping to wait for cloud-init to be ready...")
 		time.Sleep(brCase.InitDelay)
+	}
+
+	// Check if this VM should be running or stopped for this test.
+	// Depend on pre-backup verification function to poll state.
+	if brCase.PowerState == "Stopped" {
+		log.Print("Stopping VM before backup as specified in test case.")
+		err = v.StopVm(brCase.Namespace, brCase.Name)
+		gomega.Expect(err).To(gomega.BeNil())
 	}
 
 	// Back up VM
@@ -170,6 +195,20 @@ var _ = ginkgov2.Describe("VM backup and restore tests", ginkgov2.Ordered, func(
 				SkipVerifyLogs:    true,
 				BackupRestoreType: lib.CSI,
 				BackupTimeout:     20 * time.Minute,
+			},
+		}, nil),
+
+		ginkgov2.Entry("no-application CSI backup and restore, powered-off CirrOS VM", ginkgov2.Label("virt"), VmBackupRestoreCase{
+			Template:   "./sample-applications/virtual-machines/cirros-test/cirros-test.yaml",
+			InitDelay:  2 * time.Minute,
+			PowerState: "Stopped",
+			BackupRestoreCase: BackupRestoreCase{
+				Namespace:         "cirros-test",
+				Name:              "cirros-test",
+				SkipVerifyLogs:    true,
+				BackupRestoreType: lib.CSI,
+				BackupTimeout:     20 * time.Minute,
+				PreBackupVerify:   vmPoweredOff("cirros-test", "cirros-test"),
 			},
 		}, nil),
 

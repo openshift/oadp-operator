@@ -33,6 +33,10 @@ items:
               - disk:
                   bus: virtio
                 name: rootdisk
+            firmware:
+              bootloader:
+                efi:
+                  secureBoot: false
             resources:
               requests:
                 cpu: 1

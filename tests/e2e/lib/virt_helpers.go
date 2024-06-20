@@ -25,6 +25,7 @@ import (
 const (
 	emulationAnnotation = "kubevirt.kubevirt.io/jsonpatch"
 	useEmulation        = `[{"op": "add", "path": "/spec/configuration/developerConfiguration", "value": {"useEmulation": true}}]`
+	stopVmPath          = "/apis/subresources.kubevirt.io/v1/namespaces/%s/virtualmachines/%s/stop"
 )
 
 var packageManifestsGvr = schema.GroupVersionResource{
@@ -588,8 +589,8 @@ func (v *VirtOperator) ensureHcoRemoved(timeout time.Duration) error {
 	return err
 }
 
-func (v *VirtOperator) GetVmStatus(namespace, name string) (string, error) {
-	vm, err := v.Dynamic.Resource(virtualMachineGvr).Namespace(namespace).Get(context.Background(), name, metav1.GetOptions{})
+func GetVmStatus(dynamic dynamic.Interface, namespace, name string) (string, error) {
+	vm, err := dynamic.Resource(virtualMachineGvr).Namespace(namespace).Get(context.Background(), name, metav1.GetOptions{})
 	if err != nil {
 		return "", err
 	}
@@ -603,6 +604,20 @@ func (v *VirtOperator) GetVmStatus(namespace, name string) (string, error) {
 	}
 
 	return status, nil
+}
+
+func (v *VirtOperator) GetVmStatus(namespace, name string) (string, error) {
+	return GetVmStatus(v.Dynamic, namespace, name)
+}
+
+// StopVm stops a VM with a REST call to "stop". This is needed because a
+// poweroff from inside the VM results in KubeVirt restarting it.
+// From the KubeVirt API reference:
+//
+//	/apis/subresources.kubevirt.io/v1/namespaces/{namespace:[a-z0-9]}/virtualmachines/{name:[a-z0-9][a-z0-9\-]}/stop
+func (v *VirtOperator) StopVm(namespace, name string) error {
+	path := fmt.Sprintf(stopVmPath, namespace, name)
+	return v.Clientset.RESTClient().Put().AbsPath(path).Do(context.TODO()).Error()
 }
 
 func (v *VirtOperator) checkVmExists(namespace, name string) bool {
