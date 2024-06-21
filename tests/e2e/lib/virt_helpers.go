@@ -589,8 +589,8 @@ func (v *VirtOperator) ensureHcoRemoved(timeout time.Duration) error {
 	return err
 }
 
-func GetVmStatus(dynamic dynamic.Interface, namespace, name string) (string, error) {
-	vm, err := dynamic.Resource(virtualMachineGvr).Namespace(namespace).Get(context.Background(), name, metav1.GetOptions{})
+func GetVmStatus(dynamicClient dynamic.Interface, namespace, name string) (string, error) {
+	vm, err := dynamicClient.Resource(virtualMachineGvr).Namespace(namespace).Get(context.Background(), name, metav1.GetOptions{})
 	if err != nil {
 		return "", err
 	}
