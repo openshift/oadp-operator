@@ -126,12 +126,27 @@ func getCsvFromPackageManifest(dynamicClient dynamic.Interface, name string) (st
 		return "", nil, errors.New("no channels listed in package manifest " + name)
 	}
 
-	firstChannel, ok := channels[0].(map[string]interface{})
-	if !ok {
-		return "", nil, errors.New("failed to read first channel from package manifest " + name)
+	var stableChannel map[string]interface{}
+	for _, channel := range channels {
+		currentChannel, ok := channel.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		channelName, ok, err := unstructured.NestedString(currentChannel, "name")
+		if err != nil || !ok {
+			continue
+		}
+		log.Printf("Found channel: %s", channelName)
+		if channelName == "stable" {
+			stableChannel = currentChannel
+		}
 	}
 
-	csv, ok, err := unstructured.NestedString(firstChannel, "currentCSV")
+	if len(stableChannel) == 0 {
+		return "", nil, errors.New("failed to get stable channel from " + name + " packagemanifest")
+	}
+
+	csv, ok, err := unstructured.NestedString(stableChannel, "currentCSV")
 	if err != nil {
 		return "", nil, err
 	}
@@ -140,7 +155,7 @@ func getCsvFromPackageManifest(dynamicClient dynamic.Interface, name string) (st
 	}
 	log.Printf("Current CSV is: %s", csv)
 
-	versionString, ok, err := unstructured.NestedString(firstChannel, "currentCSVDesc", "version")
+	versionString, ok, err := unstructured.NestedString(stableChannel, "currentCSVDesc", "version")
 	if err != nil {
 		return "", nil, err
 	}
