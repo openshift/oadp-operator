@@ -239,7 +239,7 @@ func TestGenerateCliArgsFromConfigMap(t *testing.T) {
 			},
 			expectedArgs: []string{
 				"server",
-				"--default-volume-snapshot-locations='aws:backups-primary, azure:backups-secondary'",
+				"--default-volume-snapshot-locations=aws:backups-primary, azure:backups-secondary",
 				"--log-level='debug'",
 			},
 		},
@@ -249,14 +249,14 @@ func TestGenerateCliArgsFromConfigMap(t *testing.T) {
 			configMap: &corev1.ConfigMap{
 				Data: map[string]string{
 					"-default-volume-snapshot-locations": "aws:backups-primary, azure:backups-secondary",
-					"--log-level":                        "'debug'",
+					"--log-level":                        "debug",
 					"-string-bool":                       "False",
 				},
 			},
 			expectedArgs: []string{
 				"server",
-				"-default-volume-snapshot-locations='aws:backups-primary, azure:backups-secondary'",
-				"--log-level='debug'",
+				"-default-volume-snapshot-locations=aws:backups-primary, azure:backups-secondary",
+				"--log-level=debug",
 				"-string-bool=false",
 			},
 		},
@@ -265,12 +265,12 @@ func TestGenerateCliArgsFromConfigMap(t *testing.T) {
 			cliSubCommand: "server",
 			configMap: &corev1.ConfigMap{
 				Data: map[string]string{
-					"default-snapshot-move-data": "' true'",
+					"default-snapshot-move-data": " true",
 				},
 			},
 			expectedArgs: []string{
 				"server",
-				"--default-snapshot-move-data=' true'",
+				"--default-snapshot-move-data= true",
 			},
 		},
 		{
@@ -278,15 +278,15 @@ func TestGenerateCliArgsFromConfigMap(t *testing.T) {
 			cliSubCommand: "server",
 			configMap: &corev1.ConfigMap{
 				Data: map[string]string{
-					"--default-volume-snapshot-locations": "'aws:backups-primary,azure:backups-secondary'",
-					"--log-level":                         "'debug'",
+					"--default-volume-snapshot-locations": "aws:backups-primary,azure:backups-secondary",
+					"--log-level":                         "debug",
 					"--default-snapshot-move-data":        "True",
 				},
 			},
 			expectedArgs: []string{
 				"server",
-				"--default-volume-snapshot-locations='aws:backups-primary,azure:backups-secondary'",
-				"--log-level='debug'",
+				"--default-volume-snapshot-locations=aws:backups-primary,azure:backups-secondary",
+				"--log-level=debug",
 				"--default-snapshot-move-data=true",
 			},
 		},
