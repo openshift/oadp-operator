@@ -272,16 +272,9 @@ func GenerateCliArgsFromConfigMap(cliSubCommand string, configMap *corev1.Config
 			key = fmt.Sprintf("--%s", key)
 		}
 
-		switch {
-		case (strings.HasPrefix(value, "'") && strings.HasSuffix(value, "'")) ||
-			(strings.HasPrefix(value, "\"") && strings.HasSuffix(value, "\"")):
-			// Leave the value as is if it's surrounded by single or double quotes
-		case strings.EqualFold(value, "true") || strings.EqualFold(value, "false"):
+		if strings.EqualFold(value, "true") || strings.EqualFold(value, "false") {
 			// Convert true/false to lowercase if not surrounded by quotes - boolean
 			value = strings.ToLower(value)
-		default:
-			// Surround the value with single quotes for non-boolean arguments
-			value = fmt.Sprintf("'%s'", value)
 		}
 
 		// Append the formatted key-value pair to args
