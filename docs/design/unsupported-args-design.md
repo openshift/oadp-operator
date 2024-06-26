@@ -38,7 +38,7 @@ The Schema of an `ConfigMap` includes data that corresponds to the arguments pas
 
 > ℹ️ **Note 2:** An boolean argument value `true` or `false` is always converted to lower-case.
 
-> ℹ️ **Note 4:** An argument value is always combined with the argument name using `=` character in between.
+> ℹ️ **Note 3:** An argument value is always combined with the argument name using `=` character in between.
 
 
   ```yaml
@@ -48,7 +48,7 @@ The Schema of an `ConfigMap` includes data that corresponds to the arguments pas
     name: oadp-unsupported-velero-server-args
     namespace: openshift-adp
   data:
-    default-volume-snapshot-locations: aws:backups-primary,azure:backups-secondary'
+    default-volume-snapshot-locations: aws:backups-primary,azure:backups-secondary
     log-level: debug
     default-snapshot-move-data: true
   ```

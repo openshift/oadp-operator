@@ -248,12 +248,11 @@ func GetImagePullPolicy(image string) (corev1.PullPolicy, error) {
 // the CLI arguments from the subcommand(s) followed by the arguments from the ConfigMap.
 // The function processes each key-value pair in the ConfigMap as follows:
 //
-//  1. If the ConfigMaps' value starts and ends with single (') or double (") quotes, it is left unchanged.
-//  2. If the ConfigMaps' key starts with single '-' or double '--', it is left unchanged.
-//  3. If an argument key is passed without `-` or `--` prefix, then `--` is added as a key prefix.
-//  4. If the ConfigMap value is "true" or "false" (case-insensitive), it is converted to lowercase
+//  1. If the ConfigMaps' key starts with single '-' or double '--', it is left unchanged.
+//  2. If an argument key is passed without `-` or `--` prefix, then `--` is added as a key prefix.
+//  3. If the ConfigMap value is "true" or "false" (case-insensitive), it is converted to lowercase
 //     and used without single quotes surroundings (boolean value).
-//  5. The formatted key-value pair is added to the result that is alphabetically sorted.
+//  4. The formatted key-value pair is added to the result that is alphabetically sorted.
 //
 // Args:
 //
