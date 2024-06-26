@@ -170,7 +170,7 @@ metadata:
       Cloud Provider,Developer Tools,Modernization & Migration,OpenShift Optional,Storage
     certified: "false"
     containerImage: quay.io/konveyor/oadp-operator:latest
-    createdAt: "2024-05-29T17:22:16Z"
+    createdAt: "2024-06-20T18:28:23Z"
     description: OADP (OpenShift API for Data Protection) operator sets up and installs
       Data Protection Applications on the OpenShift platform.
     features.operators.openshift.io/cnf: "false"
@@ -917,7 +917,7 @@ spec:
                 - name: RELATED_IMAGE_VELERO_PLUGIN_FOR_GCP
                   value: quay.io/konveyor/velero-plugin-for-gcp:latest
                 - name: RELATED_IMAGE_KUBEVIRT_VELERO_PLUGIN
-                  value: quay.io/konveyor/kubevirt-velero-plugin:v0.2.0
+                  value: quay.io/konveyor/kubevirt-velero-plugin:v0.7.0
                 - name: RELATED_IMAGE_MUSTGATHER
                   value: registry.redhat.io/oadp/oadp-mustgather-rhel8:v1.2
                 - name: RELATED_IMAGE_NON_ADMIN_CONTROLLER
@@ -1067,7 +1067,7 @@ spec:
     name: velero-plugin-for-microsoft-azure
   - image: quay.io/konveyor/velero-plugin-for-gcp:latest
     name: velero-plugin-for-gcp
-  - image: quay.io/konveyor/kubevirt-velero-plugin:v0.2.0
+  - image: quay.io/konveyor/kubevirt-velero-plugin:v0.7.0
     name: kubevirt-velero-plugin
   - image: registry.redhat.io/oadp/oadp-mustgather-rhel8:v1.2
     name: mustgather
