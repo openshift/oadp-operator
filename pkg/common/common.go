@@ -249,10 +249,11 @@ func GetImagePullPolicy(image string) (corev1.PullPolicy, error) {
 // The function processes each key-value pair in the ConfigMap as follows:
 //
 //  1. If the ConfigMaps' key starts with single '-' or double '--', it is left unchanged.
-//  2. If an argument key is passed without `-` or `--` prefix, then `--` is added as a key prefix.
-//  3. If the ConfigMap value is "true" or "false" (case-insensitive), it is converted to lowercase
+//  2. If the key name is a single character and does not start with `-`, then `-` is added as a prefix to the key.
+//  3. If the key name is longer than one character and does not start with `--`, then `--` is added as a prefix to the key.
+//  4. If the ConfigMap value is "true" or "false" (case-insensitive), it is converted to lowercase
 //     and used without single quotes surroundings (boolean value).
-//  4. The formatted key-value pair is added to the result that is alphabetically sorted.
+//  5. The formatted key-value pair is added to the result that is alphabetically sorted.
 //
 // Args:
 //
@@ -265,16 +266,18 @@ func GetImagePullPolicy(image string) (corev1.PullPolicy, error) {
 //	A slice of strings representing the CLI arguments.
 func GenerateCliArgsFromConfigMap(configMap *corev1.ConfigMap, cliSubCommand ...string) []string {
 
-	// cliSubCommand elements to be a separate items in args slice
-	args := make([]string, len(cliSubCommand))
-	copy(args, cliSubCommand)
-
 	var keyValueArgs []string
+
 	// Iterate through each key-value pair in the ConfigMap
 	for key, value := range configMap.Data {
-		// Ensure the key is prefixed by "--" if it doesn't start with "--" or "-"
-		if !strings.HasPrefix(key, "--") && !strings.HasPrefix(key, "-") {
-			key = fmt.Sprintf("--%s", key)
+		// Ensure the key is prefixed by "--" or "-" if it doesn't start with "--" or "-"
+		// Single character key should be prefixed with one "-"
+		if !strings.HasPrefix(key, "-") {
+			if len(key) == 1 {
+				key = fmt.Sprintf("-%s", key)
+			} else {
+				key = fmt.Sprintf("--%s", key)
+			}
 		}
 
 		if strings.EqualFold(value, "true") || strings.EqualFold(value, "false") {
@@ -290,7 +293,7 @@ func GenerateCliArgsFromConfigMap(configMap *corev1.ConfigMap, cliSubCommand ...
 	sort.Strings(keyValueArgs)
 
 	// Append the formatted key-value pair to args
-	args = append(args, keyValueArgs...)
+	cliSubCommand = append(cliSubCommand, keyValueArgs...)
 
-	return args
+	return cliSubCommand
 }
