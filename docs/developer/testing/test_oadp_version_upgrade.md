@@ -14,7 +14,7 @@ The catalog will have two channels:
 
 - the previous version (the released version prior to the version of the branch you are)
 
-    this is defined in `PREVIOUS_CHANNEL` variable in Makefile, and can be cahnged
+    this is defined in `PREVIOUS_CHANNEL` variable in Makefile, and can be changed
 
 - and the current version (the version of the branch you are, which can be yet unreleased, if on master branch)
 
