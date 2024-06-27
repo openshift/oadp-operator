@@ -228,7 +228,7 @@ func TestGenerateCliArgsFromConfigMap(t *testing.T) {
 			},
 		},
 		{
-			name:          "All arguments with spaces, some without sigle quotes",
+			name:          "All arguments with spaces, some without single quotes",
 			cliSubCommand: []string{"server"},
 			configMap: &corev1.ConfigMap{
 				Data: map[string]string{
@@ -247,16 +247,18 @@ func TestGenerateCliArgsFromConfigMap(t *testing.T) {
 			cliSubCommand: []string{"server"},
 			configMap: &corev1.ConfigMap{
 				Data: map[string]string{
-					"-default-volume-snapshot-locations": "aws:backups-primary, azure:backups-secondary",
-					"--log-level":                        "debug",
-					"-string-bool":                       "False",
+					"--default-volume-snapshot-locations": "aws:backups-primary, azure:backups-secondary",
+					"--log-level":                         "debug",
+					"--string-bool":                       "False",
+					"-n":                                  "mynamespace",
 				},
 			},
 			expectedArgs: []string{
 				"server",
+				"--default-volume-snapshot-locations=aws:backups-primary, azure:backups-secondary",
 				"--log-level=debug",
-				"-default-volume-snapshot-locations=aws:backups-primary, azure:backups-secondary",
-				"-string-bool=false",
+				"--string-bool=false",
+				"-n=mynamespace",
 			},
 		},
 		{
@@ -280,6 +282,8 @@ func TestGenerateCliArgsFromConfigMap(t *testing.T) {
 					"--default-volume-snapshot-locations": "aws:backups-primary,azure:backups-secondary",
 					"--log-level":                         "debug",
 					"--default-snapshot-move-data":        "True",
+					"-v":                                  "3",
+					"n":                                   "mynamespace",
 				},
 			},
 			expectedArgs: []string{
@@ -287,6 +291,8 @@ func TestGenerateCliArgsFromConfigMap(t *testing.T) {
 				"--default-snapshot-move-data=true",
 				"--default-volume-snapshot-locations=aws:backups-primary,azure:backups-secondary",
 				"--log-level=debug",
+				"-n=mynamespace",
+				"-v=3",
 			},
 		},
 		{

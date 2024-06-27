@@ -36,7 +36,7 @@ The Schema of an `ConfigMap` includes data that corresponds to the arguments pas
 <a name="notes"></a>
 > ℹ️ **Note 1:** If an argument name is passed without `-` prefix or `--` prefix, then `--` is added to the argument name.
 
-> ℹ️ **Note 2:** An boolean argument value `true` or `false` is always converted to lower-case.
+> ℹ️ **Note 2:** A boolean argument value `true` or `false` is always converted to lower-case.
 
 > ℹ️ **Note 3:** An argument value is always combined with the argument name using `=` character in between.
 
