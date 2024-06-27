@@ -147,7 +147,6 @@ items:
                 timeoutSeconds: 2
                 successThreshold: 1
                 failureThreshold: 40 # 40x30sec before restart pod
-              restartPolicy: Always
           volumes:
           - name: block-volume-pv
             persistentVolumeClaim:
