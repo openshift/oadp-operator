@@ -1,0 +1,38 @@
+# oc process -f tests/e2e/sample-applications/upgrades/operator-install.yaml \
+#   -p NAMESPACE=<oadp-namespace> \
+#   -p CHANNEL=<previous-oadp-channel> \
+#   | oc create -f -
+apiVersion: template.openshift.io/v1
+kind: Template
+metadata:
+  name: oadp-operator-install
+objects:
+  # - kind: Namespace
+  #   apiVersion: v1
+  #   metadata:
+  #     name: ${NAMESPACE}
+  # - kind: OperatorGroup
+  #   apiVersion: operators.coreos.com/v1
+  #   metadata:
+  #     name: oadp-operator-group
+  #     namespace: ${NAMESPACE}
+  #   spec:
+  #     targetNamespaces:
+  #       - ${NAMESPACE}
+  - kind: Subscription
+    apiVersion: operators.coreos.com/v1alpha1
+    metadata:
+      name: oadp-operator
+      namespace: ${NAMESPACE}
+    spec:
+      source: oadp-operator-catalog-test-upgrade
+      sourceNamespace: openshift-marketplace
+      name: oadp-operator
+      channel: ${CHANNEL}
+      installPlanApproval: Automatic
+parameters:
+  - description: Previous OADP operator channel
+    name: CHANNEL
+  - description: Namespace to install OADP operator
+    name: NAMESPACE
+    value: openshift-adp
