@@ -36,11 +36,9 @@ The Schema of an `ConfigMap` includes data that corresponds to the arguments pas
 <a name="notes"></a>
 > ℹ️ **Note 1:** If an argument name is passed without `-` prefix or `--` prefix, then `--` is added to the argument name.
 
-> ℹ️ **Note 2:** If an non-boolean argument value is passed without `'` or `"` sourrounding, then the single quote is added to the argument value.
+> ℹ️ **Note 2:** A boolean argument value `true` or `false` is always converted to lower-case.
 
-> ℹ️ **Note 3:** An boolean argument value `true` or `false` is always converted to lower-case and not sourrounded by single quote `'`.
-
-> ℹ️ **Note 4:** An argument value is always combined with the argument name using `=` character in between.
+> ℹ️ **Note 3:** An argument value is always combined with the argument name using `=` character in between.
 
 
   ```yaml
@@ -50,15 +48,15 @@ The Schema of an `ConfigMap` includes data that corresponds to the arguments pas
     name: oadp-unsupported-velero-server-args
     namespace: openshift-adp
   data:
-    default-volume-snapshot-locations: 'aws:backups-primary,azure:backups-secondary'
-    log-level: 'debug'
-    default-snapshot-move-data: 'true'
+    default-volume-snapshot-locations: aws:backups-primary,azure:backups-secondary
+    log-level: debug
+    default-snapshot-move-data: true
   ```
 
 Above example will translate to the `velero` args:
 
 ```shell
-velero server --default-volume-snapshot-locations='aws:backups-primary,azure:backups-secondary' --log-level='debug' --default-snapshot-move-data=true
+velero server --default-volume-snapshot-locations=aws:backups-primary,azure:backups-secondary --log-level=debug --default-snapshot-move-data=true
 ```
 
 The user has to create DPA with the annotation pointing to a relevant ConfigMap as in the example where both `oadp-unsupported-velero-server-args` and `unsupported-node-agent` ConfigMaps are expected to be present:
