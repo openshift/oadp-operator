@@ -404,7 +404,7 @@ func TestCredentials_getPluginImage(t *testing.T) {
 				},
 			},
 			pluginName: common.KubeVirtPlugin,
-			wantImage:  "quay.io/konveyor/kubevirt-velero-plugin:v0.2.0",
+			wantImage:  "quay.io/konveyor/kubevirt-velero-plugin:v0.6.2",
 		},
 		{
 			name: "given default Velero CR with env var set, image should be built via env vars",

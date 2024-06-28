@@ -66,7 +66,7 @@ const (
 	GCPPluginImage       = "quay.io/konveyor/velero-plugin-for-gcp:latest"
 	CSIPluginImage       = "quay.io/konveyor/velero-plugin-for-csi:latest"
 	RegistryImage        = "quay.io/konveyor/registry:latest"
-	KubeVirtPluginImage  = "quay.io/konveyor/kubevirt-velero-plugin:v0.2.0"
+	KubeVirtPluginImage  = "quay.io/konveyor/kubevirt-velero-plugin:v0.6.2"
 )
 
 // Plugin names
