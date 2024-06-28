@@ -4,7 +4,7 @@
 
 ### OADP operator installed
 
-You need to have OADP operator already installed in your cluster to run E2E tests. For testing PRs, use `make deploy-olm` to install it with the code changes introduced by them. [More info](../install_from_source.md).
+You need to have OADP operator already installed in your cluster to run E2E tests (except for upgrade tests). For testing PRs, use `make deploy-olm` to install it with the code changes introduced by them. [More info](../install_from_source.md).
 
 ### AWS setup
 
@@ -22,6 +22,7 @@ To get started, you need to provide the following **required** environment varia
 | `OADP_TEST_NAMESPACE` | The namespace where OADP operator is installed | `openshift-adp` | false |
 | `OPENSHIFT_CI` | Disable colored output from tests suite run | `true` | false |
 | `TEST_VIRT` | Exclusively run Virtual Machine backup/restore testing | `false` | false |
+| `TEST_UPGRADE` | Exclusively run upgrade tests. Need to first run `make catalog-test-upgrade`, if testing non production operator | `false` | false |
 
 The expected format for `OADP_CRED_FILE` and `CI_CRED_FILE` files is:
 ```

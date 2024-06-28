@@ -30,6 +30,7 @@ VELERO_INSTANCE_NAME ?= velero-test
 ARTIFACT_DIR ?= /tmp
 OC_CLI = $(shell which oc)
 TEST_VIRT ?= false
+TEST_UPGRADE ?= false
 
 ifdef CLI_DIR
 	OC_CLI = ${CLI_DIR}/oc
@@ -429,9 +430,9 @@ catalog-push: ## Push a catalog image.
 	$(MAKE) docker-push IMG=$(CATALOG_IMG)
 
 # A valid Git branch from https://github.com/openshift/oadp-operator
-PREVIOUS_CHANNEL ?= oadp-1.3
+PREVIOUS_CHANNEL ?= oadp-1.4
 # Go version in go.mod in that branch
-PREVIOUS_CHANNEL_GO_VERSION ?= 1.20
+PREVIOUS_CHANNEL_GO_VERSION ?= 1.22
 
 .PHONY: catalog-test-upgrade
 catalog-test-upgrade: PREVIOUS_OPERATOR_IMAGE?=ttl.sh/oadp-operator-previous-$(GIT_REV):1h
@@ -477,6 +478,11 @@ ifeq ($(TEST_VIRT),true)
 	TEST_FILTER += && (virt)
 else
 	TEST_FILTER += && (! virt)
+endif
+ifeq ($(TEST_UPGRADE),true)
+	TEST_FILTER += && (upgrade)
+else
+	TEST_FILTER += && (! upgrade)
 endif
 SETTINGS_TMP=/tmp/test-settings
 
