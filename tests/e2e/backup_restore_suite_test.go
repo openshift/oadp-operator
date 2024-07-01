@@ -299,7 +299,7 @@ func tearDownBackupAndRestore(brCase BackupRestoreCase, installTime time.Time, r
 	}
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
-	err = dpaCR.Delete(runTimeClientForSuiteRun)
+	err = dpaCR.Delete()
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	gomega.Eventually(lib.IsNamespaceDeleted(kubernetesClientForSuiteRun, brCase.Namespace), timeoutMultiplier*time.Minute*5, time.Second*5).Should(gomega.BeTrue())
 }

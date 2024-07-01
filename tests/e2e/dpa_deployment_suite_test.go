@@ -104,7 +104,7 @@ var _ = ginkgov2.Describe("Configuration testing for DPA Custom Resource", func(
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 			log.Printf("Waiting for velero pod to be running")
 			gomega.Eventually(lib.AreVeleroPodsRunning(kubernetesClientForSuiteRun, namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(gomega.BeTrue())
-			dpa, err := dpaCR.Get(runTimeClientForSuiteRun)
+			dpa, err := dpaCR.Get()
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 			if len(dpa.Spec.BackupLocations) > 0 {
 				log.Printf("Checking for bsl spec")
@@ -778,7 +778,7 @@ var _ = ginkgov2.Describe("Configuration testing for DPA Custom Resource", func(
 			log.Printf("Waiting for velero pod with restic to be running")
 			gomega.Eventually(lib.AreVeleroPodsRunning(kubernetesClientForSuiteRun, namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(gomega.BeTrue())
 			log.Printf("Deleting dpa with restic")
-			err = dpaCR.Delete(runTimeClientForSuiteRun)
+			err = dpaCR.Delete()
 			if installCase.WantError {
 				gomega.Expect(err).To(gomega.HaveOccurred())
 			} else {
@@ -801,7 +801,7 @@ var _ = ginkgov2.Describe("Configuration testing for DPA Custom Resource", func(
 			log.Printf("Waiting for velero pod with kopia to be running")
 			gomega.Eventually(lib.AreVeleroPodsRunning(kubernetesClientForSuiteRun, namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(gomega.BeTrue())
 			log.Printf("Deleting dpa with kopia")
-			err = dpaCR.Delete(runTimeClientForSuiteRun)
+			err = dpaCR.Delete()
 			if installCase.WantError {
 				gomega.Expect(err).To(gomega.HaveOccurred())
 			} else {
