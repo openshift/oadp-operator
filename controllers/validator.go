@@ -14,12 +14,10 @@ import (
 
 // ValidateDataProtectionCR function validates the DPA CR, returns true if valid, false otherwise
 // it calls other validation functions to validate the DPA CR
-// TODO: #1129 Clean up duplicate logic for validating backupstoragelocations and volumesnapshotlocations in dpa
 func (r *DPAReconciler) ValidateDataProtectionCR(log logr.Logger) (bool, error) {
-	dpa := oadpv1alpha1.DataProtectionApplication{}
-	if err := r.Get(r.Context, r.NamespacedName, &dpa); err != nil {
-		return false, err
-	}
+
+	dpa := r.dpa
+
 	if dpa.Spec.Configuration == nil || dpa.Spec.Configuration.Velero == nil {
 		return false, errors.New("DPA CR Velero configuration cannot be nil")
 	}
@@ -41,10 +39,10 @@ func (r *DPAReconciler) ValidateDataProtectionCR(log logr.Logger) (bool, error) 
 		}
 	}
 
-	if validBsl, err := r.ValidateBackupStorageLocations(dpa); !validBsl || err != nil {
+	if validBsl, err := r.ValidateBackupStorageLocations(*dpa); !validBsl || err != nil {
 		return validBsl, err
 	}
-	if validVsl, err := r.ValidateVolumeSnapshotLocations(dpa); !validVsl || err != nil {
+	if validVsl, err := r.ValidateVolumeSnapshotLocations(*dpa); !validVsl || err != nil {
 		return validVsl, err
 	}
 
@@ -61,11 +59,11 @@ func (r *DPAReconciler) ValidateDataProtectionCR(log logr.Logger) (bool, error) 
 		return false, err
 	}
 
-	if _, err := r.getVeleroResourceReqs(&dpa); err != nil {
+	if _, err := r.getVeleroResourceReqs(dpa); err != nil {
 		return false, err
 	}
 
-	if _, err := getResticResourceReqs(&dpa); err != nil {
+	if _, err := getResticResourceReqs(dpa); err != nil {
 		return false, err
 	}
 
