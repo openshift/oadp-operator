@@ -29,6 +29,8 @@ const (
 	FsRestoreHelperCM     = "fs-restore-action-config"
 	HostPods              = "host-pods"
 	HostPlugins           = "host-plugins"
+
+	UnsupportedNodeAgentServerArgsAnnotation = "oadp.openshift.io/unsupported-node-agent-server-args"
 )
 
 var (
@@ -378,7 +380,33 @@ func (r *DPAReconciler) customizeNodeAgentDaemonset(dpa *oadpv1alpha1.DataProtec
 	if ds.Spec.RevisionHistoryLimit == nil {
 		ds.Spec.RevisionHistoryLimit = pointer.Int32(10)
 	}
+
+	if err := r.applyUnsupportedNodeAgentServerArgsOverride(dpa, nodeAgentContainer); err != nil {
+		return nil, err
+	}
+
 	return ds, nil
+}
+
+// Apply Override unsupported Node agent Server Args
+func (r *DPAReconciler) applyUnsupportedNodeAgentServerArgsOverride(dpa *oadpv1alpha1.DataProtectionApplication, nodeAgentContainer *corev1.Container) error {
+	if configMapName, ok := dpa.Annotations[UnsupportedNodeAgentServerArgsAnnotation]; ok {
+		// Got an DPA annotation for Unsupported Node Agent Server Args
+		if configMapName == "" {
+			// Can't be empty string, do not report error
+			return nil
+		}
+
+		unsupportedNodeAgentServerArgsCM := corev1.ConfigMap{}
+		if err := r.Get(r.Context, types.NamespacedName{Namespace: dpa.Namespace, Name: configMapName}, &unsupportedNodeAgentServerArgsCM); err != nil {
+			return err
+		}
+
+		r.Log.Info("Applying Unsupported Node Agent Server Args.")
+		// if server args is set, override the default server args
+		nodeAgentContainer.Args = common.GenerateCliArgsFromConfigMap(&unsupportedNodeAgentServerArgsCM, "node-agent", "server")
+	}
+	return nil
 }
 
 func (r *DPAReconciler) ReconcileFsRestoreHelperConfig(log logr.Logger) (bool, error) {
