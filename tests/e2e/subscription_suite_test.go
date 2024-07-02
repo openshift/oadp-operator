@@ -24,9 +24,9 @@ var _ = ginkgov2.Describe("Subscription Config Suite Test", func() {
 	}
 
 	var _ = ginkgov2.AfterEach(func() {
-		err := dpaCR.Delete(runTimeClientForSuiteRun)
+		err := dpaCR.Delete()
 		gomega.Expect(err).ToNot(gomega.HaveOccurred())
-		gomega.Eventually(dpaCR.IsDeleted(runTimeClientForSuiteRun), timeoutMultiplier*time.Minute*2, time.Second*5).Should(gomega.BeTrue())
+		gomega.Eventually(dpaCR.IsDeleted(), timeoutMultiplier*time.Minute*2, time.Second*5).Should(gomega.BeTrue())
 	})
 
 	ginkgov2.DescribeTable("Proxy test table",
@@ -100,7 +100,7 @@ var _ = ginkgov2.Describe("Subscription Config Suite Test", func() {
 				gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 				log.Printf("Getting velero object")
-				velero, err := dpaCR.Get(runTimeClientForSuiteRun)
+				velero, err := dpaCR.Get()
 				gomega.Expect(err).NotTo(gomega.HaveOccurred())
 				log.Printf("Waiting for velero pod to be running")
 				gomega.Eventually(lib.AreVeleroPodsRunning(kubernetesClientForSuiteRun, namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(gomega.BeTrue())
@@ -134,7 +134,7 @@ var _ = ginkgov2.Describe("Subscription Config Suite Test", func() {
 					}
 				}
 				log.Printf("Deleting test Velero")
-				err = dpaCR.Delete(runTimeClientForSuiteRun)
+				err = dpaCR.Delete()
 				gomega.Expect(err).ToNot(gomega.HaveOccurred())
 			}
 

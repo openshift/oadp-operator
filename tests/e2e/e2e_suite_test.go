@@ -9,16 +9,26 @@ import (
 	"testing"
 	"time"
 
+	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 	snapshotv1client "github.com/kubernetes-csi/external-snapshotter/client/v4/clientset/versioned"
 	ginkgov2 "github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
+	openshiftappsv1 "github.com/openshift/api/apps/v1"
+	openshiftbuildv1 "github.com/openshift/api/build/v1"
+	openshiftsecurityv1 "github.com/openshift/api/security/v1"
+	openshifttemplatev1 "github.com/openshift/api/template/v1"
+	operatorsv1 "github.com/operator-framework/api/pkg/operators/v1"
+	operatorsv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
+	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	veleroclientset "github.com/vmware-tanzu/velero/pkg/generated/clientset/versioned"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 
+	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	"github.com/openshift/oadp-operator/tests/e2e/lib"
 )
 
@@ -130,6 +140,17 @@ var _ = ginkgov2.BeforeSuite(func() {
 	runTimeClientForSuiteRun, err = client.New(kubeConfig, client.Options{})
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
+	oadpv1alpha1.AddToScheme(runTimeClientForSuiteRun.Scheme())
+	velerov1.AddToScheme(runTimeClientForSuiteRun.Scheme())
+	openshiftappsv1.AddToScheme(runTimeClientForSuiteRun.Scheme())
+	openshiftbuildv1.AddToScheme(runTimeClientForSuiteRun.Scheme())
+	openshiftsecurityv1.AddToScheme(runTimeClientForSuiteRun.Scheme())
+	openshifttemplatev1.AddToScheme(runTimeClientForSuiteRun.Scheme())
+	corev1.AddToScheme(runTimeClientForSuiteRun.Scheme())
+	volumesnapshotv1.AddToScheme(runTimeClientForSuiteRun.Scheme())
+	operatorsv1alpha1.AddToScheme(runTimeClientForSuiteRun.Scheme())
+	operatorsv1.AddToScheme(runTimeClientForSuiteRun.Scheme())
+
 	veleroClientForSuiteRun, err = veleroclientset.NewForConfig(kubeConfig)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
@@ -173,7 +194,7 @@ var _ = ginkgov2.AfterSuite(func() {
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	err = lib.DeleteSecret(kubernetesClientForSuiteRun, namespace, "bsl-cloud-credentials-"+provider+"-with-carriage-return")
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
-	err = dpaCR.Delete(runTimeClientForSuiteRun)
+	err = dpaCR.Delete()
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
-	gomega.Eventually(dpaCR.IsDeleted(runTimeClientForSuiteRun), timeoutMultiplier*time.Minute*2, time.Second*5).Should(gomega.BeTrue())
+	gomega.Eventually(dpaCR.IsDeleted(), timeoutMultiplier*time.Minute*2, time.Second*5).Should(gomega.BeTrue())
 })

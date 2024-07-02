@@ -11,14 +11,7 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 	ginkgov2 "github.com/onsi/ginkgo/v2"
-	appsv1 "github.com/openshift/api/apps/v1"
-	buildv1 "github.com/openshift/api/build/v1"
-	security "github.com/openshift/api/security/v1"
-	templatev1 "github.com/openshift/api/template/v1"
-	operatorsv1 "github.com/operator-framework/api/pkg/operators/v1"
-	operatorsv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	velero "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -172,12 +165,8 @@ func (v *DpaCustomResource) ProviderStorageClassName(e2eRoot string) (string, er
 	return *pvcList.Items[0].Spec.StorageClassName, nil
 }
 
-func (v *DpaCustomResource) Create(c client.Client) error {
-	err := v.SetClient(c)
-	if err != nil {
-		return err
-	}
-	err = v.Client.Create(context.Background(), v.CustomResource)
+func (v *DpaCustomResource) Create() error {
+	err := v.Client.Create(context.Background(), v.CustomResource)
 	if apierrors.IsAlreadyExists(err) {
 		return errors.New("found unexpected existing Velero CR")
 	} else if err != nil {
@@ -186,13 +175,9 @@ func (v *DpaCustomResource) Create(c client.Client) error {
 	return nil
 }
 
-func (v *DpaCustomResource) Get(c client.Client) (*oadpv1alpha1.DataProtectionApplication, error) {
-	err := v.SetClient(c)
-	if err != nil {
-		return nil, err
-	}
+func (v *DpaCustomResource) Get() (*oadpv1alpha1.DataProtectionApplication, error) {
 	vel := oadpv1alpha1.DataProtectionApplication{}
-	err = v.Client.Get(context.Background(), client.ObjectKey{
+	err := v.Client.Get(context.Background(), client.ObjectKey{
 		Namespace: v.Namespace,
 		Name:      v.Name,
 	}, &vel)
@@ -203,7 +188,7 @@ func (v *DpaCustomResource) Get(c client.Client) (*oadpv1alpha1.DataProtectionAp
 }
 
 func (v *DpaCustomResource) GetNoErr(c client.Client) *oadpv1alpha1.DataProtectionApplication {
-	Dpa, _ := v.Get(c)
+	Dpa, _ := v.Get()
 	return Dpa
 }
 
@@ -216,7 +201,7 @@ func (v *DpaCustomResource) CreateOrUpdateWithRetries(c client.Client, spec *oad
 		cr  *oadpv1alpha1.DataProtectionApplication
 	)
 	for i := 0; i < retries; i++ {
-		if cr, err = v.Get(c); apierrors.IsNotFound(err) {
+		if cr, err = v.Get(); apierrors.IsNotFound(err) {
 			v.CustomResource = &oadpv1alpha1.DataProtectionApplication{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "DataProtectionApplication",
@@ -228,7 +213,7 @@ func (v *DpaCustomResource) CreateOrUpdateWithRetries(c client.Client, spec *oad
 				},
 				Spec: *spec.DeepCopy(),
 			}
-			return v.Create(c)
+			return v.Create()
 		} else if err != nil {
 			return err
 		}
@@ -249,12 +234,8 @@ func (v *DpaCustomResource) CreateOrUpdateWithRetries(c client.Client, spec *oad
 	return err
 }
 
-func (v *DpaCustomResource) Delete(c client.Client) error {
-	err := v.SetClient(c)
-	if err != nil {
-		return err
-	}
-	err = v.Client.Delete(context.Background(), v.CustomResource)
+func (v *DpaCustomResource) Delete() error {
+	err := v.Client.Delete(context.Background(), v.CustomResource)
 	if apierrors.IsNotFound(err) {
 		return nil
 	}
@@ -262,17 +243,6 @@ func (v *DpaCustomResource) Delete(c client.Client) error {
 }
 
 func (v *DpaCustomResource) SetClient(c client.Client) error {
-	oadpv1alpha1.AddToScheme(c.Scheme())
-	velero.AddToScheme(c.Scheme())
-	appsv1.AddToScheme(c.Scheme())
-	corev1.AddToScheme(c.Scheme())
-	templatev1.AddToScheme(c.Scheme())
-	security.AddToScheme(c.Scheme())
-	volumesnapshotv1.AddToScheme(c.Scheme())
-	buildv1.AddToScheme(c.Scheme())
-	operatorsv1alpha1.AddToScheme(c.Scheme())
-	operatorsv1.AddToScheme(c.Scheme())
-
 	v.Client = c
 	return nil
 }
@@ -347,15 +317,11 @@ func GetVeleroContainerFailureLogs(c *kubernetes.Clientset, namespace string) []
 	return failureArr
 }
 
-func (v *DpaCustomResource) IsDeleted(c client.Client) wait.ConditionFunc {
+func (v *DpaCustomResource) IsDeleted() wait.ConditionFunc {
 	return func() (bool, error) {
-		err := v.SetClient(c)
-		if err != nil {
-			return false, err
-		}
 		// Check for velero CR in cluster
 		vel := oadpv1alpha1.DataProtectionApplication{}
-		err = v.Client.Get(context.Background(), client.ObjectKey{
+		err := v.Client.Get(context.Background(), client.ObjectKey{
 			Namespace: v.Namespace,
 			Name:      v.Name,
 		}, &vel)
