@@ -160,6 +160,9 @@ var _ = ginkgov2.BeforeSuite(func() {
 	dynamicClientForSuiteRun, err = dynamic.NewForConfig(kubeConfig)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
+	err = lib.CreateNamespace(kubernetesClientForSuiteRun, namespace)
+	gomega.Expect(err).To(gomega.BeNil())
+
 	dpaCR = &lib.DpaCustomResource{
 		Namespace: namespace,
 		Provider:  provider,
