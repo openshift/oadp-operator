@@ -47,8 +47,13 @@ spec:
   targetNamespaces:
     - <oadp-namespace>
 ```
+For example, run
+```sh
+export OADP_NAMESPACE=openshift-adp
+echo -e "kind: OperatorGroup\napiVersion: operators.coreos.com/v1\nmetadata:\n  name: oadp-operator-group\n  namespace: $OADP_NAMESPACE\nspec:\n  targetNamespaces:\n    - $OADP_NAMESPACE" | oc create -f -
+```
 
-Now create Subscription pointing to previous version (for example, `stable 1.2`)
+Now create Subscription pointing to previous version (for example, `stable 1.2`) with this content
 ```yaml
 kind: Subscription
 apiVersion: operators.coreos.com/v1alpha1
@@ -61,6 +66,12 @@ spec:
   name: oadp-operator
   channel: <previous-version>
   installPlanApproval: Automatic
+```
+For example, run
+```sh
+export OADP_NAMESPACE=openshift-adp
+export PREVIOUS_CHANNEL=stable-1.2
+echo -e "kind: Subscription\napiVersion: operators.coreos.com/v1alpha1\nmetadata:\n  name: oadp-operator\n  namespace: $OADP_NAMESPACE\nspec:\n  source: oadp-operator-catalog-test-upgrade\n  sourceNamespace: openshift-marketplace\n  name: oadp-operator\n  channel: $PREVIOUS_CHANNEL\n  installPlanApproval: Automatic" | oc create -f -
 ```
 
 Finally, after  creating a DPA, change channel of the installed operator to the next version (for example, `stable`, which points to master branch)
