@@ -9,16 +9,27 @@ import (
 	"testing"
 	"time"
 
+	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 	snapshotv1client "github.com/kubernetes-csi/external-snapshotter/client/v4/clientset/versioned"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	openshiftappsv1 "github.com/openshift/api/apps/v1"
+	openshiftbuildv1 "github.com/openshift/api/build/v1"
+	openshiftsecurityv1 "github.com/openshift/api/security/v1"
+	openshifttemplatev1 "github.com/openshift/api/template/v1"
 	. "github.com/openshift/oadp-operator/tests/e2e/lib"
 	"github.com/openshift/oadp-operator/tests/e2e/utils"
+	operatorsv1 "github.com/operator-framework/api/pkg/operators/v1"
+	operatorsv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
+	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	veleroClientset "github.com/vmware-tanzu/velero/pkg/generated/clientset/versioned"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
+
+	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 )
 
 // Common vars obtained from flags passed in ginkgo.
@@ -128,6 +139,17 @@ var _ = BeforeSuite(func() {
 	runTimeClientForSuiteRun, err = client.New(kubeConf, client.Options{})
 	Expect(err).NotTo(HaveOccurred())
 
+	oadpv1alpha1.AddToScheme(runTimeClientForSuiteRun.Scheme())
+	velerov1.AddToScheme(runTimeClientForSuiteRun.Scheme())
+	openshiftappsv1.AddToScheme(runTimeClientForSuiteRun.Scheme())
+	openshiftbuildv1.AddToScheme(runTimeClientForSuiteRun.Scheme())
+	openshiftsecurityv1.AddToScheme(runTimeClientForSuiteRun.Scheme())
+	openshifttemplatev1.AddToScheme(runTimeClientForSuiteRun.Scheme())
+	corev1.AddToScheme(runTimeClientForSuiteRun.Scheme())
+	volumesnapshotv1.AddToScheme(runTimeClientForSuiteRun.Scheme())
+	operatorsv1alpha1.AddToScheme(runTimeClientForSuiteRun.Scheme())
+	operatorsv1.AddToScheme(runTimeClientForSuiteRun.Scheme())
+
 	veleroClientForSuiteRun, err = veleroClientset.NewForConfig(kubeConf)
 	Expect(err).NotTo(HaveOccurred())
 
@@ -171,7 +193,7 @@ var _ = AfterSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 	err = DeleteSecret(kubernetesClientForSuiteRun, namespace, "bsl-cloud-credentials-"+provider+"-with-carriage-return")
 	Expect(err).ToNot(HaveOccurred())
-	err = dpaCR.Delete(runTimeClientForSuiteRun)
+	err = dpaCR.Delete()
 	Expect(err).ToNot(HaveOccurred())
-	Eventually(dpaCR.IsDeleted(runTimeClientForSuiteRun), timeoutMultiplier*time.Minute*2, time.Second*5).Should(BeTrue())
+	Eventually(dpaCR.IsDeleted(), timeoutMultiplier*time.Minute*2, time.Second*5).Should(BeTrue())
 })

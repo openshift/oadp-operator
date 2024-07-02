@@ -23,9 +23,9 @@ var _ = Describe("Subscription Config Suite Test", func() {
 	}
 
 	var _ = AfterEach(func() {
-		err := dpaCR.Delete(runTimeClientForSuiteRun)
+		err := dpaCR.Delete()
 		Expect(err).ToNot(HaveOccurred())
-		Eventually(dpaCR.IsDeleted(runTimeClientForSuiteRun), timeoutMultiplier*time.Minute*2, time.Second*5).Should(BeTrue())
+		Eventually(dpaCR.IsDeleted(), timeoutMultiplier*time.Minute*2, time.Second*5).Should(BeTrue())
 	})
 
 	DescribeTable("Proxy test table",
@@ -99,7 +99,7 @@ var _ = Describe("Subscription Config Suite Test", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				log.Printf("Getting velero object")
-				velero, err := dpaCR.Get(runTimeClientForSuiteRun)
+				velero, err := dpaCR.Get()
 				Expect(err).NotTo(HaveOccurred())
 				log.Printf("Waiting for velero pod to be running")
 				Eventually(AreVeleroPodsRunning(kubernetesClientForSuiteRun, namespace), timeoutMultiplier*time.Minute*1, time.Second*5).Should(BeTrue())
@@ -133,7 +133,7 @@ var _ = Describe("Subscription Config Suite Test", func() {
 					}
 				}
 				log.Printf("Deleting test Velero")
-				err = dpaCR.Delete(runTimeClientForSuiteRun)
+				err = dpaCR.Delete()
 				Expect(err).ToNot(HaveOccurred())
 			}
 

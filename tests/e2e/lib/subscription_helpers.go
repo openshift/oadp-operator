@@ -38,11 +38,6 @@ func getOperatorSubscription(c client.Client, namespace, label string) (*Subscri
 }
 
 func (d *DpaCustomResource) GetOperatorSubscription(c client.Client, stream StreamSource) (*Subscription, error) {
-	err := d.SetClient(c)
-	if err != nil {
-		return nil, err
-	}
-
 	label := ""
 	if stream == UPSTREAM {
 		label = "operators.coreos.com/oadp-operator." + d.Namespace
