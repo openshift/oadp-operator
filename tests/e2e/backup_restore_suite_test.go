@@ -298,7 +298,7 @@ func tearDownBackupAndRestore(brCase BackupRestoreCase, installTime time.Time, r
 	}
 	Expect(err).ToNot(HaveOccurred())
 
-	err = dpaCR.Delete(runTimeClientForSuiteRun)
+	err = dpaCR.Delete()
 	Expect(err).ToNot(HaveOccurred())
 	Eventually(IsNamespaceDeleted(kubernetesClientForSuiteRun, brCase.Namespace), timeoutMultiplier*time.Minute*5, time.Second*5).Should(BeTrue())
 }

@@ -104,7 +104,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 			Expect(err).NotTo(HaveOccurred())
 			log.Printf("Waiting for velero pod to be running")
 			Eventually(AreVeleroPodsRunning(kubernetesClientForSuiteRun, namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
-			dpa, err := dpaCR.Get(runTimeClientForSuiteRun)
+			dpa, err := dpaCR.Get()
 			Expect(err).NotTo(HaveOccurred())
 			if len(dpa.Spec.BackupLocations) > 0 {
 				log.Printf("Checking for bsl spec")
@@ -778,7 +778,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 			log.Printf("Waiting for velero pod with restic to be running")
 			Eventually(AreVeleroPodsRunning(kubernetesClientForSuiteRun, namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 			log.Printf("Deleting dpa with restic")
-			err = dpaCR.Delete(runTimeClientForSuiteRun)
+			err = dpaCR.Delete()
 			if installCase.WantError {
 				Expect(err).To(HaveOccurred())
 			} else {
@@ -801,7 +801,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 			log.Printf("Waiting for velero pod with kopia to be running")
 			Eventually(AreVeleroPodsRunning(kubernetesClientForSuiteRun, namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 			log.Printf("Deleting dpa with kopia")
-			err = dpaCR.Delete(runTimeClientForSuiteRun)
+			err = dpaCR.Delete()
 			if installCase.WantError {
 				Expect(err).To(HaveOccurred())
 			} else {
