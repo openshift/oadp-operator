@@ -418,7 +418,7 @@ func (r *DPAReconciler) appendPluginSpecificSpecs(dpa *oadpv1alpha1.DataProtecti
 
 	for _, plugin := range dpa.Spec.Configuration.Velero.DefaultPlugins {
 		if pluginSpecificMap, ok := credentials.PluginSpecificFields[plugin]; ok {
-			imagePullPolicy, err := common.GetImagePullPolicy(credentials.GetPluginImage(pluginSpecificMap.PluginName, dpa))
+			imagePullPolicy, err := common.GetImagePullPolicy(dpa.Spec.ContainerImagePullPolicy, credentials.GetPluginImage(pluginSpecificMap.PluginName, dpa))
 			if err != nil {
 				r.Log.Error(err, "imagePullPolicy regex failed")
 			}
@@ -491,7 +491,7 @@ func (r *DPAReconciler) appendPluginSpecificSpecs(dpa *oadpv1alpha1.DataProtecti
 	// append custom plugin init containers
 	if dpa.Spec.Configuration.Velero.CustomPlugins != nil {
 		for _, plugin := range dpa.Spec.Configuration.Velero.CustomPlugins {
-			imagePullPolicy, err := common.GetImagePullPolicy(plugin.Image)
+			imagePullPolicy, err := common.GetImagePullPolicy(dpa.Spec.ContainerImagePullPolicy, plugin.Image)
 			if err != nil {
 				r.Log.Error(err, "imagePullPolicy regex failed")
 			}
@@ -528,7 +528,7 @@ func (r *DPAReconciler) customizeVeleroContainer(dpa *oadpv1alpha1.DataProtectio
 			}
 		}
 	}
-	imagePullPolicy, err := common.GetImagePullPolicy(getVeleroImage(dpa))
+	imagePullPolicy, err := common.GetImagePullPolicy(dpa.Spec.ContainerImagePullPolicy, getVeleroImage(dpa))
 	if err != nil {
 		r.Log.Error(err, "imagePullPolicy regex failed")
 	}
