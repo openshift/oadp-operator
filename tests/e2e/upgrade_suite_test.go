@@ -32,9 +32,6 @@ var _ = ginkgo.Describe("OADP upgrade scenarios", ginkgo.Ordered, func() {
 			dpaCR.CustomResource.Name = "dummyDPA"
 			dpaCR.CustomResource.Namespace = namespace
 
-			v1alpha1.AddToScheme(runTimeClientForSuiteRun.Scheme())
-			v1.AddToScheme(runTimeClientForSuiteRun.Scheme())
-
 			// Create operatorGroup and subscription with previous channel stable-1.4
 			log.Print("Checking if OperatorGroup needs to be created")
 			operatorGroupList := v1.OperatorGroupList{}
