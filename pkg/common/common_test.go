@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/utils/ptr"
 )
 
 func TestAppendUniqueKeyTOfTMaps(t *testing.T) {
@@ -152,8 +153,6 @@ func TestStripDefaultPorts(t *testing.T) {
 }
 
 func TestGetImagePullPolicy(t *testing.T) {
-	pointerPullNever := corev1.PullNever
-
 	tests := []struct {
 		name     string
 		image    string
@@ -191,15 +190,15 @@ func TestGetImagePullPolicy(t *testing.T) {
 			result: corev1.PullAlways,
 		},
 		{
-			name:     "Image without digest, but with override",
+			name:     "Image without digest, but with override to Never",
 			image:    "quay.io/konveyor/velero:oadp-1.4",
-			override: &pointerPullNever,
+			override: ptr.To(corev1.PullNever),
 			result:   corev1.PullNever,
 		},
 		{
-			name:     "Image with sha256 digest, but with override",
+			name:     "Image with sha256 digest, but with override to Never",
 			image:    "test.com/foo@sha256:1234567890098765432112345667890098765432112345667890098765432112",
-			override: &pointerPullNever,
+			override: ptr.To(corev1.PullNever),
 			result:   corev1.PullNever,
 		},
 	}
