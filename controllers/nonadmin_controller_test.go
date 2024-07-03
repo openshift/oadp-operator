@@ -13,7 +13,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 )
@@ -41,7 +41,7 @@ func createTestDeployment(namespace string) *appsv1.Deployment {
 			},
 		},
 		Spec: appsv1.DeploymentSpec{
-			Replicas: pointer.Int32(2),
+			Replicas: ptr.To(int32(2)),
 			Selector: &metav1.LabelSelector{
 				MatchLabels: controlPlaneLabel,
 			},
@@ -53,7 +53,7 @@ func createTestDeployment(namespace string) *appsv1.Deployment {
 					Containers: []corev1.Container{
 						{
 							Name:  nonAdminObjectName,
-							Image: defaultNonAdminImage,
+							Image: "wrong",
 						},
 					},
 					ServiceAccountName: "wrong-one",
@@ -86,7 +86,7 @@ func runReconcileNonAdminControllerTest(
 		Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 			Configuration: &oadpv1alpha1.ApplicationConfig{},
 			NonAdmin: &oadpv1alpha1.NonAdmin{
-				Enable: pointer.Bool(scenario.nonAdminEnabled),
+				Enable: ptr.To(scenario.nonAdminEnabled),
 			},
 			UnsupportedOverrides: map[oadpv1alpha1.UnsupportedImageKey]string{
 				oadpv1alpha1.TechPreviewAck: "true",
@@ -252,6 +252,9 @@ func TestEnsureRequiredSpecs(t *testing.T) {
 	if deployment.Spec.Template.Spec.ServiceAccountName != nonAdminObjectName {
 		t.Errorf("Deployment has wrong ServiceAccount: %v", deployment.Spec.Template.Spec.ServiceAccountName)
 	}
+	if deployment.Spec.Template.Spec.Containers[0].Image != defaultNonAdminImage {
+		t.Errorf("Deployment has wrong Image: %v", deployment.Spec.Template.Spec.Containers[0].Image)
+	}
 }
 
 func TestDPAReconcilerCheckNonAdminEnabled(t *testing.T) {
@@ -267,7 +270,7 @@ func TestDPAReconcilerCheckNonAdminEnabled(t *testing.T) {
 			dpa: &oadpv1alpha1.DataProtectionApplication{
 				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 					NonAdmin: &oadpv1alpha1.NonAdmin{
-						Enable: pointer.Bool(true),
+						Enable: ptr.To(true),
 					},
 				},
 			},
@@ -278,7 +281,7 @@ func TestDPAReconcilerCheckNonAdminEnabled(t *testing.T) {
 			dpa: &oadpv1alpha1.DataProtectionApplication{
 				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 					NonAdmin: &oadpv1alpha1.NonAdmin{
-						Enable: pointer.Bool(false),
+						Enable: ptr.To(false),
 					},
 				},
 			},
