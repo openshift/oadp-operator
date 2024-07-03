@@ -159,6 +159,9 @@ var _ = BeforeSuite(func() {
 	dynamicClientForSuiteRun, err = dynamic.NewForConfig(kubeConf)
 	Expect(err).NotTo(HaveOccurred())
 
+	err = CreateNamespace(kubernetesClientForSuiteRun, namespace)
+	Expect(err).To(BeNil())
+
 	dpaCR = &DpaCustomResource{
 		Namespace: namespace,
 		Provider:  provider,

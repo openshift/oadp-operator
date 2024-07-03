@@ -86,7 +86,7 @@ func (s *Subscription) CsvIsReady(c client.Client) bool {
 		log.Printf("Error getting CSV: %v", err)
 		return false
 	}
-	log.Default().Printf("CSV status phase: %v", csv.Status.Phase)
+	log.Default().Printf("CSV %s status phase: %v", csv.Name, csv.Status.Phase)
 	return csv.Status.Phase == operators.CSVPhaseSucceeded
 }
 
