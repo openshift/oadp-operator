@@ -1,7 +1,6 @@
 package e2e_test
 
 import (
-	"errors"
 	"flag"
 	"log"
 	"os"
@@ -10,7 +9,6 @@ import (
 	"time"
 
 	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
-	snapshotv1client "github.com/kubernetes-csi/external-snapshotter/client/v4/clientset/versioned"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	openshiftappsv1 "github.com/openshift/api/apps/v1"
@@ -32,27 +30,43 @@ import (
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 )
 
-// Common vars obtained from flags passed in ginkgo.
-var bslCredFile, namespace, credSecretRef, instanceName, provider, vslCredFile, settings, artifact_dir, oc_cli, stream string
-var timeoutMultiplierInput, flakeAttempts int64
-var timeoutMultiplier time.Duration
+var (
+	// Common vars obtained from flags passed in ginkgo.
+	bslCredFile, namespace, credSecretRef, instanceName, provider, vslCredFile, settings, artifact_dir, oc_cli, stream string
+	timeoutMultiplierInput, flakeAttempts                                                                              int64
+	timeoutMultiplier                                                                                                  time.Duration
+
+	kubernetesClientForSuiteRun     *kubernetes.Clientset
+	runTimeClientForSuiteRun        client.Client
+	veleroClientForSuiteRun         veleroClientset.Interface
+	dynamicClientForSuiteRun        dynamic.Interface
+	dpaCR                           *DpaCustomResource
+	bslSecretName                   = "bsl-cloud-credentials-" + provider
+	bslSecretNameWithCarriageReturn = "bsl-cloud-credentials-" + provider + "-with-carriage-return"
+	// TODO vsl secret name
+
+	knownFlake          bool
+	accumulatedTestLogs []string
+)
 
 func init() {
 	// TODO better descriptions to flags
 	flag.StringVar(&bslCredFile, "credentials", "", "Credentials path for BackupStorageLocation")
+	// TODO: change flag in makefile to --vsl-credentials
+	flag.StringVar(&vslCredFile, "ci_cred_file", bslCredFile, "Credentials path for for VolumeSnapshotLocation, this credential would have access to cluster volume snapshots (for CI this is not OADP owned credential)")
 	flag.StringVar(&namespace, "velero_namespace", "velero", "Velero Namespace")
 	flag.StringVar(&settings, "settings", "./templates/default_settings.json", "Settings of the velero instance")
 	flag.StringVar(&instanceName, "velero_instance_name", "example-velero", "Velero Instance Name")
+	// TODO remove
 	flag.StringVar(&credSecretRef, "creds_secret_ref", "cloud-credentials", "Credential secret ref (name) for volume storage location")
 	flag.StringVar(&provider, "provider", "aws", "Cloud provider")
-	// TODO: change flag in makefile to --vsl-credentials
-	flag.StringVar(&vslCredFile, "ci_cred_file", bslCredFile, "Credentials path for for VolumeSnapshotLocation, this credential would have access to cluster volume snapshots (for CI this is not OADP owned credential)")
 	flag.StringVar(&artifact_dir, "artifact_dir", "/tmp", "Directory for storing must gather")
 	flag.StringVar(&oc_cli, "oc_cli", "oc", "OC CLI Client")
 	flag.StringVar(&stream, "stream", "up", "[up, down] upstream or downstream")
 	flag.Int64Var(&timeoutMultiplierInput, "timeout_multiplier", 1, "Customize timeout multiplier from default (1)")
-	timeoutMultiplier = time.Duration(timeoutMultiplierInput)
 	flag.Int64Var(&flakeAttempts, "flakeAttempts", 3, "Customize the number of flake retries (3)")
+	// TODO remove?
+	timeoutMultiplier = time.Duration(timeoutMultiplierInput)
 
 	// helps with launching debug sessions from IDE
 	if os.Getenv("E2E_USE_ENV_FLAGS") == "true" {
@@ -102,32 +116,17 @@ func init() {
 
 func TestOADPE2E(t *testing.T) {
 	flag.Parse()
-	errString := LoadDpaSettingsFromJson(settings)
-	if errString != "" {
-		t.Fatalf(errString)
-	}
 
 	RegisterFailHandler(Fail)
+
+	err := LoadDpaSettingsFromJson(settings)
+	Expect(err).NotTo(HaveOccurred())
+
 	RunSpecs(t, "OADP E2E using velero prefix: "+VeleroPrefix)
 }
 
-var kubernetesClientForSuiteRun *kubernetes.Clientset
-var runTimeClientForSuiteRun client.Client
-var veleroClientForSuiteRun veleroClientset.Interface
-var csiClientForSuiteRun *snapshotv1client.Clientset
-var dynamicClientForSuiteRun dynamic.Interface
-var dpaCR *DpaCustomResource
-var knownFlake bool
-var accumulatedTestLogs []string
-
 var _ = BeforeSuite(func() {
 	// TODO create logger (hh:mm:ss message) to be used by all functions
-	flag.Parse()
-	errString := LoadDpaSettingsFromJson(settings)
-	if errString != "" {
-		Expect(errors.New(errString)).NotTo(HaveOccurred())
-	}
-
 	var err error
 	kubeConf := config.GetConfigOrDie()
 	kubeConf.QPS = 50
@@ -153,30 +152,31 @@ var _ = BeforeSuite(func() {
 	veleroClientForSuiteRun, err = veleroClientset.NewForConfig(kubeConf)
 	Expect(err).NotTo(HaveOccurred())
 
-	csiClientForSuiteRun, err = snapshotv1client.NewForConfig(kubeConf)
-	Expect(err).NotTo(HaveOccurred())
-
 	dynamicClientForSuiteRun, err = dynamic.NewForConfig(kubeConf)
 	Expect(err).NotTo(HaveOccurred())
 
 	err = CreateNamespace(kubernetesClientForSuiteRun, namespace)
 	Expect(err).To(BeNil())
+	Expect(DoesNamespaceExist(kubernetesClientForSuiteRun, namespace)).Should(BeTrue())
 
 	dpaCR = &DpaCustomResource{
-		Namespace: namespace,
-		Provider:  provider,
+		Name:           "ts-" + instanceName,
+		Namespace:      namespace,
+		Provider:       provider,
+		CustomResource: Dpa,
+		Client:         runTimeClientForSuiteRun,
+		BSLSecretName:  bslSecretName,
 	}
-	dpaCR.CustomResource = Dpa
-	dpaCR.Name = "ts-" + instanceName
 
+	log.Printf("Creating Secrets")
 	bslCredFileData, err := utils.ReadFile(bslCredFile)
 	Expect(err).NotTo(HaveOccurred())
-	err = CreateCredentialsSecret(kubernetesClientForSuiteRun, bslCredFileData, namespace, "bsl-cloud-credentials-"+provider)
+	err = CreateCredentialsSecret(kubernetesClientForSuiteRun, bslCredFileData, namespace, bslSecretName)
 	Expect(err).NotTo(HaveOccurred())
 	err = CreateCredentialsSecret(
 		kubernetesClientForSuiteRun,
 		utils.ReplaceSecretDataNewLineWithCarriageReturn(bslCredFileData),
-		namespace, "bsl-cloud-credentials-"+provider+"-with-carriage-return",
+		namespace, bslSecretNameWithCarriageReturn,
 	)
 	Expect(err).NotTo(HaveOccurred())
 
@@ -184,18 +184,18 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	err = CreateCredentialsSecret(kubernetesClientForSuiteRun, vslCredFileData, namespace, credSecretRef)
 	Expect(err).NotTo(HaveOccurred())
-	dpaCR.SetClient(runTimeClientForSuiteRun)
-	Expect(DoesNamespaceExist(kubernetesClientForSuiteRun, namespace)).Should(BeTrue())
 })
 
 var _ = AfterSuite(func() {
-	log.Printf("Deleting Velero CR")
+	log.Printf("Deleting Secrets")
 	err := DeleteSecret(kubernetesClientForSuiteRun, namespace, credSecretRef)
 	Expect(err).ToNot(HaveOccurred())
-	err = DeleteSecret(kubernetesClientForSuiteRun, namespace, "bsl-cloud-credentials-"+provider)
+	err = DeleteSecret(kubernetesClientForSuiteRun, namespace, bslSecretName)
 	Expect(err).ToNot(HaveOccurred())
-	err = DeleteSecret(kubernetesClientForSuiteRun, namespace, "bsl-cloud-credentials-"+provider+"-with-carriage-return")
+	err = DeleteSecret(kubernetesClientForSuiteRun, namespace, bslSecretNameWithCarriageReturn)
 	Expect(err).ToNot(HaveOccurred())
+
+	log.Printf("Deleting DPA")
 	err = dpaCR.Delete()
 	Expect(err).ToNot(HaveOccurred())
 	Eventually(dpaCR.IsDeleted(), timeoutMultiplier*time.Minute*2, time.Second*5).Should(BeTrue())

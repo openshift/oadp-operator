@@ -18,7 +18,7 @@ BSL_AWS_PROFILE ?= default
 # BSL_AWS_PROFILE ?= migration-engineering
 
 # vsl secret
-CREDS_SECRET_REF ?= cloud-credentials
+CREDS_SECRET_REF ?= cloud-credentials-aws
 # bucket file
 OADP_BUCKET_FILE ?= ${OADP_CRED_DIR}/new-velero-bucket-name
 # azure cluster resource file - only in CI

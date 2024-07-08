@@ -3,126 +3,24 @@ package lib
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"os"
 	"os/exec"
+	"reflect"
 	"regexp"
 	"strings"
 	"time"
 
-	snapshotv1client "github.com/kubernetes-csi/external-snapshotter/client/v4/clientset/versioned"
-	velero "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
-	pkgbackup "github.com/vmware-tanzu/velero/pkg/backup"
-	"github.com/vmware-tanzu/velero/pkg/cmd/util/downloadrequest"
-	"github.com/vmware-tanzu/velero/pkg/cmd/util/output"
-	veleroClientset "github.com/vmware-tanzu/velero/pkg/generated/clientset/versioned"
-	"github.com/vmware-tanzu/velero/pkg/label"
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/openshift/oadp-operator/pkg/common"
 )
-
-// https://github.com/vmware-tanzu/velero/blob/11bfe82342c9f54c63f40d3e97313ce763b446f2/pkg/cmd/cli/backup/describe.go#L77-L111
-func DescribeBackup(veleroClient veleroClientset.Interface, csiClient *snapshotv1client.Clientset, ocClient client.Client, backup velero.Backup) (backupDescription string) {
-	err := ocClient.Get(context.Background(), client.ObjectKey{
-		Namespace: backup.Namespace,
-		Name:      backup.Name,
-	}, &backup)
-	if err != nil {
-		return "could not get provided backup: " + err.Error()
-	}
-	details := true
-	insecureSkipTLSVerify := true
-	caCertFile := ""
-
-	deleteRequestListOptions := pkgbackup.NewDeleteBackupRequestListOptions(backup.Name, string(backup.UID))
-	deleteRequestList, err := veleroClient.VeleroV1().DeleteBackupRequests(backup.Namespace).List(context.Background(), deleteRequestListOptions)
-	if err != nil {
-		log.Printf("error getting DeleteBackupRequests for backup %s: %v\n", backup.Name, err)
-	}
-
-	opts := label.NewListOptionsForBackup(backup.Name)
-	podVolumeBackupList, err := veleroClient.VeleroV1().PodVolumeBackups(backup.Namespace).List(context.Background(), opts)
-	if err != nil {
-		log.Printf("error getting PodVolumeBackups for backup %s: %v\n", backup.Name, err)
-	}
-
-	// output.DescribeBackup is a helper function from velero CLI that attempts to download logs for a backup.
-	// if a backup failed, this function may panic. Recover from the panic and return string of backup object
-	defer func() {
-		if r := recover(); r != nil {
-			log.Printf("Recovered from panic in DescribeBackup: %v\n", r)
-			log.Print("returning backup object instead")
-			backupDescription = fmt.Sprint(backup)
-		}
-	}()
-	return output.DescribeBackup(context.Background(), ocClient, &backup, deleteRequestList.Items, podVolumeBackupList.Items, details, insecureSkipTLSVerify, caCertFile)
-}
-
-// https://github.com/vmware-tanzu/velero/blob/11bfe82342c9f54c63f40d3e97313ce763b446f2/pkg/cmd/cli/restore/describe.go#L72-L78
-func DescribeRestore(veleroClient veleroClientset.Interface, ocClient client.Client, restore velero.Restore) string {
-	err := ocClient.Get(context.Background(), client.ObjectKey{
-		Namespace: restore.Namespace,
-		Name:      restore.Name,
-	}, &restore)
-	if err != nil {
-		return "could not get provided backup: " + err.Error()
-	}
-	details := true
-	insecureSkipTLSVerify := true
-	caCertFile := ""
-	opts := newPodVolumeRestoreListOptions(restore.Name)
-	podvolumeRestoreList, err := veleroClient.VeleroV1().PodVolumeRestores(restore.Namespace).List(context.Background(), opts)
-	if err != nil {
-		log.Printf("error getting PodVolumeRestores for restore %s: %v\n", restore.Name, err)
-	}
-
-	return output.DescribeRestore(context.Background(), ocClient, &restore, podvolumeRestoreList.Items, details, insecureSkipTLSVerify, caCertFile)
-}
-
-// newPodVolumeRestoreListOptions creates a ListOptions with a label selector configured to
-// find PodVolumeRestores for the restore identified by name.
-func newPodVolumeRestoreListOptions(name string) metav1.ListOptions {
-	return metav1.ListOptions{
-		LabelSelector: fmt.Sprintf("%s=%s", velero.RestoreNameLabel, label.GetValidName(name)),
-	}
-}
-
-func BackupLogs(c *kubernetes.Clientset, ocClient client.Client, backup velero.Backup) (backupLogs string) {
-	insecureSkipTLSVerify := true
-	caCertFile := ""
-	// new io.Writer that store the logs in a string
-	logs := &bytes.Buffer{}
-	// new io.Writer that store the logs in a string
-	// if a backup failed, this function may panic. Recover from the panic and return container logs
-	defer func() {
-		if r := recover(); r != nil {
-			backupLogs = recoverFromPanicLogs(c, backup.Namespace, r, "BackupLogs")
-		}
-	}()
-	downloadrequest.Stream(context.Background(), ocClient, backup.Namespace, backup.Name, velero.DownloadTargetKindBackupLog, logs, time.Minute, insecureSkipTLSVerify, caCertFile)
-
-	return logs.String()
-}
-
-func RestoreLogs(c *kubernetes.Clientset, ocClient client.Client, restore velero.Restore) (restoreLogs string) {
-	insecureSkipTLSVerify := true
-	caCertFile := ""
-	// new io.Writer that store the logs in a string
-	logs := &bytes.Buffer{}
-	// new io.Writer that store the logs in a string
-	// if a backup failed, this function may panic. Recover from the panic and return container logs
-	defer func() {
-		if r := recover(); r != nil {
-			restoreLogs = recoverFromPanicLogs(c, restore.Namespace, r, "RestoreLogs")
-		}
-	}()
-	downloadrequest.Stream(context.Background(), ocClient, restore.Namespace, restore.Name, velero.DownloadTargetKindRestoreLog, logs, time.Minute, insecureSkipTLSVerify, caCertFile)
-
-	return logs.String()
-}
 
 func recoverFromPanicLogs(c *kubernetes.Clientset, veleroNamespace string, panicReason interface{}, panicFrom string) string {
 	log.Printf("Recovered from panic in %s: %v\n", panicFrom, panicReason)
@@ -132,16 +30,6 @@ func recoverFromPanicLogs(c *kubernetes.Clientset, veleroNamespace string, panic
 		log.Printf("error getting container logs: %v\n", err)
 	}
 	return containerLogs
-}
-
-func BackupErrorLogs(c *kubernetes.Clientset, ocClient client.Client, backup velero.Backup) []string {
-	bl := BackupLogs(c, ocClient, backup)
-	return errorLogsExcludingIgnored(bl)
-}
-
-func RestoreErrorLogs(c *kubernetes.Clientset, ocClient client.Client, restore velero.Restore) []string {
-	rl := RestoreLogs(c, ocClient, restore)
-	return errorLogsExcludingIgnored(rl)
 }
 
 func errorLogsExcludingIgnored(logs string) []string {
@@ -168,16 +56,127 @@ func errorLogsExcludingIgnored(logs string) []string {
 	return logLines
 }
 
-func GetVeleroDeploymentList(c *kubernetes.Clientset, namespace string) (*appsv1.DeploymentList, error) {
-	registryListOptions := metav1.ListOptions{
-		LabelSelector: "component=velero",
-	}
-	// get pods in the oadp-operator-e2e namespace with label selector
-	deploymentList, err := c.AppsV1().Deployments(namespace).List(context.Background(), registryListOptions)
+func GetVeleroDeployment(c *kubernetes.Clientset, namespace string) (*appsv1.Deployment, error) {
+	deployment, err := c.AppsV1().Deployments(namespace).Get(context.Background(), common.Velero, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
-	return deploymentList, nil
+	return deployment, nil
+}
+
+func GetVeleroPod(c *kubernetes.Clientset, namespace string) (*corev1.Pod, error) {
+	pod, err := GetPodWithLabel(c, namespace, "deploy=velero,component=velero,!job-name")
+	if err != nil {
+		return nil, err
+	}
+	return pod, nil
+}
+
+func VeleroPodIsRunning(c *kubernetes.Clientset, namespace string) wait.ConditionFunc {
+	return func() (bool, error) {
+		pod, err := GetVeleroPod(c, namespace)
+		if err != nil {
+			return false, err
+		}
+		if pod.Status.Phase != corev1.PodRunning {
+			log.Printf("velero Pod phase is %v", pod.Status.Phase)
+			return false, nil
+		}
+		log.Printf("velero Pod phase is %v", corev1.PodRunning)
+		return true, nil
+	}
+}
+
+func VeleroPodIsUpdated(c *kubernetes.Clientset, namespace string, updateTime time.Time) wait.ConditionFunc {
+	return func() (bool, error) {
+		pod, err := GetVeleroPod(c, namespace)
+		if err != nil {
+			return false, err
+		}
+		return pod.CreationTimestamp.After(updateTime), nil
+	}
+}
+
+// check velero tolerations
+func VerifyVeleroTolerations(c *kubernetes.Clientset, namespace string, t []corev1.Toleration) wait.ConditionFunc {
+	return func() (bool, error) {
+		velero, err := GetVeleroDeployment(c, namespace)
+		if err != nil {
+			return false, err
+		}
+
+		if !reflect.DeepEqual(t, velero.Spec.Template.Spec.Tolerations) {
+			return false, errors.New("given Velero tolerations does not match the deployed velero tolerations")
+		}
+		return true, nil
+	}
+}
+
+// check for velero resource requests
+func VerifyVeleroResourceRequests(c *kubernetes.Clientset, namespace string, requests corev1.ResourceList) wait.ConditionFunc {
+	return func() (bool, error) {
+		velero, err := GetVeleroDeployment(c, namespace)
+		if err != nil {
+			return false, err
+		}
+
+		for _, container := range velero.Spec.Template.Spec.Containers {
+			if container.Name == common.Velero {
+				if !reflect.DeepEqual(requests, container.Resources.Requests) {
+					return false, errors.New("given Velero resource requests do not match the deployed velero resource requests")
+				}
+			}
+		}
+		return true, nil
+	}
+}
+
+// check for velero resource limits
+func VerifyVeleroResourceLimits(c *kubernetes.Clientset, namespace string, limits corev1.ResourceList) wait.ConditionFunc {
+	return func() (bool, error) {
+		velero, err := GetVeleroDeployment(c, namespace)
+		if err != nil {
+			return false, err
+		}
+
+		for _, container := range velero.Spec.Template.Spec.Containers {
+			if container.Name == common.Velero {
+				if !reflect.DeepEqual(limits, container.Resources.Limits) {
+					return false, errors.New("given Velero resource limits do not match the deployed velero resource limits")
+				}
+			}
+		}
+		return true, nil
+	}
+}
+
+// Returns logs from velero container on velero pod
+func GetVeleroContainerLogs(c *kubernetes.Clientset, namespace string) (string, error) {
+	velero, err := GetVeleroPod(c, namespace)
+	if err != nil {
+		return "", err
+	}
+	logs, err := GetPodContainerLogs(c, namespace, velero.Name, common.Velero)
+	if err != nil {
+		return "", err
+	}
+	return logs, nil
+}
+
+func GetVeleroContainerFailureLogs(c *kubernetes.Clientset, namespace string) []string {
+	containerLogs, err := GetVeleroContainerLogs(c, namespace)
+	if err != nil {
+		log.Printf("cannot get velero container logs")
+		return nil
+	}
+	containerLogsArray := strings.Split(containerLogs, "\n")
+	var failureArr = []string{}
+	for i, line := range containerLogsArray {
+		if strings.Contains(line, "level=error") {
+			failureArr = append(failureArr, fmt.Sprintf("velero container error line#%d: "+line+"\n", i))
+		}
+	}
+	return failureArr
 }
 
 func RunDcPostRestoreScript(dcRestoreName string) error {

@@ -1,18 +1,25 @@
 package lib
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"log"
+	"time"
 
 	velero "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
+	pkgbackup "github.com/vmware-tanzu/velero/pkg/backup"
+	"github.com/vmware-tanzu/velero/pkg/cmd/util/downloadrequest"
+	"github.com/vmware-tanzu/velero/pkg/cmd/util/output"
+	veleroClientset "github.com/vmware-tanzu/velero/pkg/generated/clientset/versioned"
+	"github.com/vmware-tanzu/velero/pkg/label"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func CreateBackupForNamespaces(ocClient client.Client, veleroNamespace, backupName string, namespaces []string, defaultVolumesToFsBackup bool, snapshotMoveData bool) (velero.Backup, error) {
+func CreateBackupForNamespaces(ocClient client.Client, veleroNamespace, backupName string, namespaces []string, defaultVolumesToFsBackup bool, snapshotMoveData bool) error {
 	backup := velero.Backup{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      backupName,
@@ -24,17 +31,24 @@ func CreateBackupForNamespaces(ocClient client.Client, veleroNamespace, backupNa
 			SnapshotMoveData:         &snapshotMoveData,
 		},
 	}
-	err := ocClient.Create(context.Background(), &backup)
-	return backup, err
+	return ocClient.Create(context.Background(), &backup)
+}
+
+func GetBackup(c client.Client, namespace string, name string) (*velero.Backup, error) {
+	backup := velero.Backup{}
+	err := c.Get(context.Background(), client.ObjectKey{
+		Namespace: namespace,
+		Name:      name,
+	}, &backup)
+	if err != nil {
+		return nil, err
+	}
+	return &backup, nil
 }
 
 func IsBackupDone(ocClient client.Client, veleroNamespace, name string) wait.ConditionFunc {
 	return func() (bool, error) {
-		backup := velero.Backup{}
-		err := ocClient.Get(context.Background(), client.ObjectKey{
-			Namespace: veleroNamespace,
-			Name:      name,
-		}, &backup)
+		backup, err := GetBackup(ocClient, veleroNamespace, name)
 		if err != nil {
 			return false, err
 		}
@@ -59,11 +73,8 @@ func IsBackupDone(ocClient client.Client, veleroNamespace, name string) wait.Con
 	}
 }
 
-func IsBackupCompletedSuccessfully(c *kubernetes.Clientset, ocClient client.Client, backup velero.Backup) (bool, error) {
-	err := ocClient.Get(context.Background(), client.ObjectKey{
-		Namespace: backup.Namespace,
-		Name:      backup.Name,
-	}, &backup)
+func IsBackupCompletedSuccessfully(c *kubernetes.Clientset, ocClient client.Client, namespace string, name string) (bool, error) {
+	backup, err := GetBackup(ocClient, namespace, name)
 	if err != nil {
 		return false, err
 	}
@@ -76,4 +87,60 @@ func IsBackupCompletedSuccessfully(c *kubernetes.Clientset, ocClient client.Clie
 		backup.Status.Phase, velero.BackupPhaseCompleted, backup.Status.FailureReason, backup.Status.ValidationErrors,
 		GetVeleroContainerFailureLogs(c, backup.Namespace),
 	)
+}
+
+// https://github.com/vmware-tanzu/velero/blob/11bfe82342c9f54c63f40d3e97313ce763b446f2/pkg/cmd/cli/backup/describe.go#L77-L111
+func DescribeBackup(veleroClient veleroClientset.Interface, ocClient client.Client, namespace string, name string) (backupDescription string) {
+	backup, err := GetBackup(ocClient, namespace, name)
+	if err != nil {
+		return "could not get provided backup: " + err.Error()
+	}
+	details := true
+	insecureSkipTLSVerify := true
+	caCertFile := ""
+
+	deleteRequestListOptions := pkgbackup.NewDeleteBackupRequestListOptions(backup.Name, string(backup.UID))
+	deleteRequestList, err := veleroClient.VeleroV1().DeleteBackupRequests(backup.Namespace).List(context.Background(), deleteRequestListOptions)
+	if err != nil {
+		log.Printf("error getting DeleteBackupRequests for backup %s: %v\n", backup.Name, err)
+	}
+
+	opts := label.NewListOptionsForBackup(backup.Name)
+	podVolumeBackupList, err := veleroClient.VeleroV1().PodVolumeBackups(backup.Namespace).List(context.Background(), opts)
+	if err != nil {
+		log.Printf("error getting PodVolumeBackups for backup %s: %v\n", backup.Name, err)
+	}
+
+	// output.DescribeBackup is a helper function from velero CLI that attempts to download logs for a backup.
+	// if a backup failed, this function may panic. Recover from the panic and return string of backup object
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("Recovered from panic in DescribeBackup: %v\n", r)
+			log.Print("returning backup object instead")
+			backupDescription = fmt.Sprint(backup)
+		}
+	}()
+	return output.DescribeBackup(context.Background(), ocClient, backup, deleteRequestList.Items, podVolumeBackupList.Items, details, insecureSkipTLSVerify, caCertFile)
+}
+
+func BackupLogs(c *kubernetes.Clientset, ocClient client.Client, namespace string, name string) (backupLogs string) {
+	insecureSkipTLSVerify := true
+	caCertFile := ""
+	// new io.Writer that store the logs in a string
+	logs := &bytes.Buffer{}
+	// new io.Writer that store the logs in a string
+	// if a backup failed, this function may panic. Recover from the panic and return container logs
+	defer func() {
+		if r := recover(); r != nil {
+			backupLogs = recoverFromPanicLogs(c, namespace, r, "BackupLogs")
+		}
+	}()
+	downloadrequest.Stream(context.Background(), ocClient, namespace, name, velero.DownloadTargetKindBackupLog, logs, time.Minute, insecureSkipTLSVerify, caCertFile)
+
+	return logs.String()
+}
+
+func BackupErrorLogs(c *kubernetes.Clientset, ocClient client.Client, namespace string, name string) []string {
+	bl := BackupLogs(c, ocClient, namespace, name)
+	return errorLogsExcludingIgnored(bl)
 }
