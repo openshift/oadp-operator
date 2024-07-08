@@ -289,6 +289,7 @@ func (v *DpaCustomResource) IsNotReconciled(message string) wait.ConditionFunc {
 		if len(dpa.Status.Conditions) == 0 {
 			return false, nil
 		}
+		log.Printf("DPA status is %s; %s; %s", dpa.Status.Conditions[0].Status, dpa.Status.Conditions[0].Reason, dpa.Status.Conditions[0].Message)
 		return dpa.Status.Conditions[0].Status == metav1.ConditionFalse &&
 			dpa.Status.Conditions[0].Reason == oadpv1alpha1.ReconciledReasonError &&
 			dpa.Status.Conditions[0].Message == message, nil

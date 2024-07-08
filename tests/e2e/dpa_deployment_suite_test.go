@@ -83,13 +83,14 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 			lastInstallTime = time.Now()
 			err = dpaCR.CreateOrUpdate(runTimeClientForSuiteRun, installCase.DpaSpec)
 			Expect(err).ToNot(HaveOccurred())
+			timeAfterDPACreation := time.Now()
 
 			if installCase.WantError {
 				log.Printf("Test case expected to error. Waiting for the error to show in DPA Status")
 				Eventually(dpaCR.IsNotReconciled(expectedErr.Error()), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 				return
 			}
-			// Eventually(dpaCR.IsReconciled(), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
+			Eventually(dpaCR.IsReconciled(), timeoutMultiplier*time.Minute*2, time.Second*5).Should(BeTrue())
 			Consistently(dpaCR.IsReconciled(), timeoutMultiplier*time.Minute*2, time.Second*15).Should(BeTrue())
 
 			timeReconciled := time.Now()
@@ -100,7 +101,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			log.Printf("Waiting for velero Pod to be running")
-			Eventually(VeleroPodIsUpdated(kubernetesClientForSuiteRun, namespace, timeReconciled), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
+			Eventually(VeleroPodIsUpdated(kubernetesClientForSuiteRun, namespace, timeAfterDPACreation), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 			Eventually(VeleroPodIsRunning(kubernetesClientForSuiteRun, namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 			timeAfterVeleroIsRunning := time.Now()
 
@@ -791,7 +792,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 			err = dpaCR.Delete()
 			Expect(err).NotTo(HaveOccurred())
 			log.Printf("Checking no velero pods with restic are running")
-			Eventually(VeleroPodIsRunning(kubernetesClientForSuiteRun, namespace), timeoutMultiplier*time.Minute*3, time.Second*5).ShouldNot(BeFalse())
+			Eventually(VeleroPodIsRunning(kubernetesClientForSuiteRun, namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeFalse())
 		},
 		Entry("Should succeed", deletionCase{}),
 	)
@@ -810,7 +811,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 			err = dpaCR.Delete()
 			Expect(err).NotTo(HaveOccurred())
 			log.Printf("Checking no velero pods with kopia are running")
-			Eventually(VeleroPodIsRunning(kubernetesClientForSuiteRun, namespace), timeoutMultiplier*time.Minute*3, time.Second*5).ShouldNot(BeFalse())
+			Eventually(VeleroPodIsRunning(kubernetesClientForSuiteRun, namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeFalse())
 		},
 		Entry("Should succeed", deletionCase{}),
 	)

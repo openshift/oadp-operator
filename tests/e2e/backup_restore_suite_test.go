@@ -77,8 +77,7 @@ func prepareBackupAndRestore(brCase BackupRestoreCase, updateLastInstallTime fun
 	Expect(err).NotTo(HaveOccurred())
 
 	log.Print("Checking if DPA is reconciled")
-	// Eventually(dpaCR.IsReconciled(), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
-	Consistently(dpaCR.IsReconciled(), timeoutMultiplier*time.Minute*2, time.Second*15).Should(BeTrue())
+	Eventually(dpaCR.IsReconciled(), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 
 	log.Print("Checking if velero Pod is running")
 	Eventually(VeleroPodIsRunning(kubernetesClientForSuiteRun, namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
