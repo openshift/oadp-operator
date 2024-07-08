@@ -41,8 +41,8 @@ var (
 	veleroClientForSuiteRun         veleroClientset.Interface
 	dynamicClientForSuiteRun        dynamic.Interface
 	dpaCR                           *DpaCustomResource
-	bslSecretName                   = "bsl-cloud-credentials-" + provider
-	bslSecretNameWithCarriageReturn = "bsl-cloud-credentials-" + provider + "-with-carriage-return"
+	bslSecretName                   string
+	bslSecretNameWithCarriageReturn string
 	// TODO vsl secret name
 
 	knownFlake          bool
@@ -158,6 +158,10 @@ var _ = BeforeSuite(func() {
 	err = CreateNamespace(kubernetesClientForSuiteRun, namespace)
 	Expect(err).To(BeNil())
 	Expect(DoesNamespaceExist(kubernetesClientForSuiteRun, namespace)).Should(BeTrue())
+
+	bslSecretName = "bsl-cloud-credentials-" + provider
+	bslSecretNameWithCarriageReturn = "bsl-cloud-credentials-" + provider + "-with-carriage-return"
+	// TODO vsl secret name
 
 	dpaCR = &DpaCustomResource{
 		Name:           "ts-" + instanceName,
