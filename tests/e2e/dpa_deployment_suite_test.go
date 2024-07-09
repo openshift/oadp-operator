@@ -19,6 +19,7 @@ import (
 )
 
 var _ = Describe("Configuration testing for DPA Custom Resource", func() {
+	providerFromDPA := Dpa.Spec.BackupLocations[0].Velero.Provider
 	bucket := Dpa.Spec.BackupLocations[0].Velero.ObjectStorage.Bucket
 	bslConfig := Dpa.Spec.BackupLocations[0].Velero.Config
 	bslCredential := corev1.SecretKeySelector{
@@ -74,9 +75,9 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 			}
 			lastInstallingApplicationNamespace = dpaCR.Namespace
 			lastInstallTime = time.Now()
+			timeDPACreation := time.Now()
 			err = dpaCR.CreateOrUpdate(runTimeClientForSuiteRun, installCase.DpaSpec)
 			Expect(err).ToNot(HaveOccurred())
-			timeAfterDPACreation := time.Now()
 
 			if installCase.WantError {
 				log.Printf("Test case expected to error. Waiting for the error to show in DPA Status")
@@ -84,7 +85,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 				return
 			}
 			Eventually(dpaCR.IsReconciled(), timeoutMultiplier*time.Minute*2, time.Second*5).Should(BeTrue())
-			Consistently(dpaCR.IsReconciled(), timeoutMultiplier*time.Minute*2, time.Second*15).Should(BeTrue())
+			Consistently(dpaCR.IsReconciled(), timeoutMultiplier*time.Minute*1, time.Second*15).Should(BeTrue())
 
 			timeReconciled := time.Now()
 			adpLogsAtReconciled, err := GetManagerPodLogs(kubernetesClientForSuiteRun, dpaCR.Namespace)
@@ -94,7 +95,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			log.Printf("Waiting for velero Pod to be running")
-			Eventually(VeleroPodIsUpdated(kubernetesClientForSuiteRun, namespace, timeAfterDPACreation), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
+			Eventually(VeleroPodIsUpdated(kubernetesClientForSuiteRun, namespace, timeDPACreation), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 			Eventually(VeleroPodIsRunning(kubernetesClientForSuiteRun, namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 			timeAfterVeleroIsRunning := time.Now()
 
@@ -222,7 +223,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 				BackupLocations: []oadpv1alpha1.BackupLocation{
 					{
 						Velero: &velero.BackupStorageLocationSpec{
-							Provider: provider,
+							Provider: providerFromDPA,
 							Config:   bslConfig,
 							Default:  true,
 							StorageType: velero.StorageType{
@@ -258,7 +259,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 				BackupLocations: []oadpv1alpha1.BackupLocation{
 					{
 						Velero: &velero.BackupStorageLocationSpec{
-							Provider: provider,
+							Provider: providerFromDPA,
 							Config:   bslConfig,
 							Default:  true,
 							StorageType: velero.StorageType{
@@ -302,7 +303,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 				BackupLocations: []oadpv1alpha1.BackupLocation{
 					{
 						Velero: &velero.BackupStorageLocationSpec{
-							Provider: provider,
+							Provider: providerFromDPA,
 							Config:   bslConfig,
 							Default:  true,
 							StorageType: velero.StorageType{
@@ -351,7 +352,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 				BackupLocations: []oadpv1alpha1.BackupLocation{
 					{
 						Velero: &velero.BackupStorageLocationSpec{
-							Provider: provider,
+							Provider: providerFromDPA,
 							Config:   bslConfig,
 							Default:  true,
 							StorageType: velero.StorageType{
@@ -377,11 +378,11 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 						DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
 							oadpv1alpha1.DefaultPluginCSI,
 							func() oadpv1alpha1.DefaultPlugin {
-								if provider == "aws" {
+								if providerFromDPA == "aws" {
 									return oadpv1alpha1.DefaultPluginAWS
-								} else if provider == "azure" {
+								} else if providerFromDPA == "azure" {
 									return oadpv1alpha1.DefaultPluginMicrosoftAzure
-								} else if provider == "gcp" {
+								} else if providerFromDPA == "gcp" {
 									return oadpv1alpha1.DefaultPluginGCP
 								}
 								return ""
@@ -399,7 +400,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 				BackupLocations: []oadpv1alpha1.BackupLocation{
 					{
 						Velero: &velero.BackupStorageLocationSpec{
-							Provider: provider,
+							Provider: providerFromDPA,
 							Config:   bslConfig,
 							Default:  true,
 							StorageType: velero.StorageType{
@@ -435,7 +436,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 				BackupLocations: []oadpv1alpha1.BackupLocation{
 					{
 						Velero: &velero.BackupStorageLocationSpec{
-							Provider: provider,
+							Provider: providerFromDPA,
 							Config:   bslConfig,
 							Default:  true,
 							StorageType: velero.StorageType{
@@ -470,7 +471,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 				BackupLocations: []oadpv1alpha1.BackupLocation{
 					{
 						Velero: &velero.BackupStorageLocationSpec{
-							Provider: provider,
+							Provider: providerFromDPA,
 							Config:   bslConfig,
 							Default:  true,
 							StorageType: velero.StorageType{
@@ -507,7 +508,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 				BackupLocations: []oadpv1alpha1.BackupLocation{
 					{
 						Velero: &velero.BackupStorageLocationSpec{
-							Provider: provider,
+							Provider: providerFromDPA,
 							Config:   bslConfig,
 							Default:  true,
 							StorageType: velero.StorageType{
@@ -530,7 +531,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 				BackupLocations: []oadpv1alpha1.BackupLocation{
 					{
 						Velero: &velero.BackupStorageLocationSpec{
-							Provider: provider,
+							Provider: providerFromDPA,
 							Config:   bslConfig,
 							Default:  true,
 							StorageType: velero.StorageType{
@@ -569,7 +570,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 				BackupLocations: []oadpv1alpha1.BackupLocation{
 					{
 						Velero: &velero.BackupStorageLocationSpec{
-							Provider: provider,
+							Provider: providerFromDPA,
 							Config:   bslConfig,
 							Default:  true,
 							StorageType: velero.StorageType{
@@ -635,7 +636,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 				BackupLocations: []oadpv1alpha1.BackupLocation{
 					{
 						Velero: &velero.BackupStorageLocationSpec{
-							Provider: provider,
+							Provider: providerFromDPA,
 							Default:  true,
 							StorageType: velero.StorageType{
 								ObjectStorage: &velero.ObjectStorageLocation{
@@ -666,7 +667,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 				BackupLocations: []oadpv1alpha1.BackupLocation{
 					{
 						Velero: &velero.BackupStorageLocationSpec{
-							Provider: provider,
+							Provider: providerFromDPA,
 							Config: map[string]string{
 								"region":           bslConfig["region"],
 								"s3ForcePathStyle": "true",
@@ -702,7 +703,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 				BackupLocations: []oadpv1alpha1.BackupLocation{
 					{
 						Velero: &velero.BackupStorageLocationSpec{
-							Provider: provider,
+							Provider: providerFromDPA,
 							Config: map[string]string{
 								"s3ForcePathStyle": "true",
 							},
@@ -736,7 +737,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 				BackupLocations: []oadpv1alpha1.BackupLocation{
 					{
 						Velero: &velero.BackupStorageLocationSpec{
-							Provider: provider,
+							Provider: providerFromDPA,
 							Config: map[string]string{
 								"profile":          bslConfig["profile"],
 								"region":           bslConfig["region"],
@@ -785,6 +786,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 			err = dpaCR.Delete()
 			Expect(err).NotTo(HaveOccurred())
 			log.Printf("Checking no velero pods with restic are running")
+			// TODO this fails because returns false, err; needs to be false, nil
 			Eventually(VeleroPodIsRunning(kubernetesClientForSuiteRun, namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeFalse())
 		},
 		Entry("Should succeed", deletionCase{}),

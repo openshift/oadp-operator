@@ -275,9 +275,15 @@ func (v *DpaCustomResource) IsReconciled() wait.ConditionFunc {
 		if len(dpa.Status.Conditions) == 0 {
 			return false, nil
 		}
-		log.Printf("DPA status is %s", dpa.Status.Conditions[0].Type)
-		// TODO check more things...
-		return dpa.Status.Conditions[0].Type == oadpv1alpha1.ConditionReconciled, nil
+		dpaType := dpa.Status.Conditions[0].Type
+		dpaStatus := dpa.Status.Conditions[0].Status
+		dpaReason := dpa.Status.Conditions[0].Reason
+		dpaMessage := dpa.Status.Conditions[0].Message
+		log.Printf("DPA status is %s: %s, reason %s: %s", dpaType, dpaStatus, dpaReason, dpaMessage)
+		return dpaType == oadpv1alpha1.ConditionReconciled &&
+			dpaStatus == metav1.ConditionTrue &&
+			dpaReason == oadpv1alpha1.ReconciledReasonComplete &&
+			dpaMessage == oadpv1alpha1.ReconcileCompleteMessage, nil
 	}
 }
 
@@ -290,10 +296,15 @@ func (v *DpaCustomResource) IsNotReconciled(message string) wait.ConditionFunc {
 		if len(dpa.Status.Conditions) == 0 {
 			return false, nil
 		}
-		log.Printf("DPA status is %s; %s; %s", dpa.Status.Conditions[0].Status, dpa.Status.Conditions[0].Reason, dpa.Status.Conditions[0].Message)
-		return dpa.Status.Conditions[0].Status == metav1.ConditionFalse &&
-			dpa.Status.Conditions[0].Reason == oadpv1alpha1.ReconciledReasonError &&
-			dpa.Status.Conditions[0].Message == message, nil
+		dpaType := dpa.Status.Conditions[0].Type
+		dpaStatus := dpa.Status.Conditions[0].Status
+		dpaReason := dpa.Status.Conditions[0].Reason
+		dpaMessage := dpa.Status.Conditions[0].Message
+		log.Printf("DPA status is %s: %s, reason %s: %s", dpaType, dpaStatus, dpaReason, dpaMessage)
+		return dpaType == oadpv1alpha1.ConditionReconciled &&
+			dpaStatus == metav1.ConditionFalse &&
+			dpaReason == oadpv1alpha1.ReconciledReasonError &&
+			dpaMessage == message, nil
 	}
 }
 
