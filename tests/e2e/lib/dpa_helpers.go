@@ -276,6 +276,7 @@ func (v *DpaCustomResource) IsReconciled() wait.ConditionFunc {
 			return false, nil
 		}
 		log.Printf("DPA status is %s", dpa.Status.Conditions[0].Type)
+		// TODO check more things...
 		return dpa.Status.Conditions[0].Type == oadpv1alpha1.ConditionReconciled, nil
 	}
 }
