@@ -69,14 +69,6 @@ func TestDPAReconciler_ReconcileNodeAgentDaemonset(t *testing.T) {
 }
 
 func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
-	type fields struct {
-		Client         client.Client
-		Scheme         *runtime.Scheme
-		Log            logr.Logger
-		Context        context.Context
-		NamespacedName types.NamespacedName
-		EventRecorder  record.EventRecorder
-	}
 	type args struct {
 		dpa *oadpv1alpha1.DataProtectionApplication
 		ds  *appsv1.DaemonSet
@@ -96,15 +88,13 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 	}
 	tests := []struct {
 		name          string
-		fields        fields
 		args          args
 		want          *appsv1.DaemonSet
 		wantErr       bool
 		clientObjects []client.Object
 	}{
 		{
-			name:   "dpa is nil",
-			fields: fields{NamespacedName: types.NamespacedName{Namespace: "velero"}},
+			name: "dpa is nil",
 			args: args{
 				nil, &appsv1.DaemonSet{},
 			},
@@ -1961,7 +1951,7 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 						Name:      "sample-dpa",
 						Namespace: "sample-ns",
 						Annotations: map[string]string{
-							UnsupportedNodeAgentServerArgsAnnotation: "unsupported-node-agent-server-args-cm",
+							common.UnsupportedNodeAgentServerArgsAnnotation: "unsupported-node-agent-server-args-cm",
 						},
 					},
 					Spec: oadpv1alpha1.DataProtectionApplicationSpec{
@@ -2157,7 +2147,7 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 						Name:      "sample-dpa",
 						Namespace: "sample-ns",
 						Annotations: map[string]string{
-							UnsupportedNodeAgentServerArgsAnnotation: "",
+							common.UnsupportedNodeAgentServerArgsAnnotation: "",
 						},
 					},
 					Spec: oadpv1alpha1.DataProtectionApplicationSpec{
@@ -2351,7 +2341,7 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 						Name:      "sample-dpa",
 						Namespace: "sample-ns",
 						Annotations: map[string]string{
-							UnsupportedNodeAgentServerArgsAnnotation: "unsupported-node-agent-server-args-cm",
+							common.UnsupportedNodeAgentServerArgsAnnotation: "unsupported-node-agent-server-args-cm",
 						},
 					},
 					Spec: oadpv1alpha1.DataProtectionApplicationSpec{
@@ -2965,12 +2955,7 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 				t.Errorf("error in creating fake client, likely programmer error")
 			}
 			r := &DPAReconciler{
-				Client:         fakeClient,
-				Scheme:         tt.fields.Scheme,
-				Log:            tt.fields.Log,
-				Context:        tt.fields.Context,
-				NamespacedName: tt.fields.NamespacedName,
-				EventRecorder:  tt.fields.EventRecorder,
+				Client: fakeClient,
 			}
 			got, err := r.buildNodeAgentDaemonset(tt.args.dpa, tt.args.ds)
 			if (err != nil) != tt.wantErr {
