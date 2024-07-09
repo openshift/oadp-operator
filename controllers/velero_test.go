@@ -589,6 +589,299 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 			},
 		},
 		{
+			name: "given valid DPA CR with Unsupported Server Args, appropriate Velero Deployment is built",
+			veleroDeployment: &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-velero-deployment",
+					Namespace: "test-ns",
+				},
+				Spec: appsv1.DeploymentSpec{
+					Selector: &metav1.LabelSelector{MatchLabels: veleroDeploymentMatchLabels},
+				},
+			},
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-Velero-CR",
+					Namespace: "test-ns",
+					Annotations: map[string]string{
+						"oadp.openshift.io/unsupported-velero-server-args": "unsupported-server-args-cm",
+					},
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{},
+					},
+				},
+			},
+			clientObjects: []client.Object{
+				&corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "unsupported-server-args-cm",
+						Namespace: "test-ns",
+					},
+					Data: map[string]string{
+						"unsupported-arg":      "value1",
+						"unsupported-bool-arg": "True",
+					},
+				},
+			},
+			wantErr: false,
+			wantVeleroDeployment: &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-velero-deployment",
+					Namespace: "test-ns",
+					Labels:    veleroDeploymentLabel,
+				},
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "Deployment",
+					APIVersion: appsv1.SchemeGroupVersion.String(),
+				},
+				Spec: appsv1.DeploymentSpec{
+					Selector: &metav1.LabelSelector{MatchLabels: veleroDeploymentMatchLabels},
+					Replicas: pointer.Int32(1),
+					Template: corev1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Labels:      veleroDeploymentMatchLabels,
+							Annotations: veleroPodAnnotations,
+						},
+						Spec: corev1.PodSpec{
+							RestartPolicy:      corev1.RestartPolicyAlways,
+							ServiceAccountName: common.Velero,
+							Containers: []corev1.Container{
+								{
+									Name:            common.Velero,
+									Image:           common.VeleroImage,
+									ImagePullPolicy: corev1.PullAlways,
+									Ports:           []corev1.ContainerPort{{Name: "metrics", ContainerPort: 8085}},
+									Resources:       corev1.ResourceRequirements{Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("500m"), corev1.ResourceMemory: resource.MustParse("128Mi")}},
+									Command:         []string{"/velero"},
+									Args: []string{
+										"server",
+										"--unsupported-arg=value1",
+										"--unsupported-bool-arg=true",
+									},
+									VolumeMounts: baseVolumeMounts,
+									Env:          baseEnvVars,
+								},
+							},
+							Volumes:        baseVolumes,
+							InitContainers: []corev1.Container{},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "given valid DPA CR with Empty String Unsupported Server Args Annotation, appropriate Velero Deployment is built",
+			veleroDeployment: &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-velero-deployment",
+					Namespace: "test-ns",
+				},
+				Spec: appsv1.DeploymentSpec{
+					Selector: &metav1.LabelSelector{MatchLabels: veleroDeploymentMatchLabels},
+				},
+			},
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-Velero-CR",
+					Namespace: "test-ns",
+					Annotations: map[string]string{
+						"oadp.openshift.io/unsupported-velero-server-args": "",
+					},
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{},
+					},
+				},
+			},
+			clientObjects: []client.Object{
+				&corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "unsupported-server-args-cm",
+						Namespace: "test-ns",
+					},
+					Data: map[string]string{
+						"unsupported-arg":      "value1",
+						"unsupported-bool-arg": "True",
+					},
+				},
+			},
+			wantErr: false,
+			wantVeleroDeployment: &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-velero-deployment",
+					Namespace: "test-ns",
+					Labels:    veleroDeploymentLabel,
+				},
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "Deployment",
+					APIVersion: appsv1.SchemeGroupVersion.String(),
+				},
+				Spec: appsv1.DeploymentSpec{
+					Selector: &metav1.LabelSelector{MatchLabels: veleroDeploymentMatchLabels},
+					Replicas: pointer.Int32(1),
+					Template: corev1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Labels:      veleroDeploymentMatchLabels,
+							Annotations: veleroPodAnnotations,
+						},
+						Spec: corev1.PodSpec{
+							RestartPolicy:      corev1.RestartPolicyAlways,
+							ServiceAccountName: common.Velero,
+							Containers: []corev1.Container{
+								{
+									Name:            common.Velero,
+									Image:           common.VeleroImage,
+									ImagePullPolicy: corev1.PullAlways,
+									Ports:           []corev1.ContainerPort{{Name: "metrics", ContainerPort: 8085}},
+									Resources:       corev1.ResourceRequirements{Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("500m"), corev1.ResourceMemory: resource.MustParse("128Mi")}},
+									Command:         []string{"/velero"},
+									Args: []string{
+										"server",
+										defaultFileSystemBackupTimeout,
+										defaultRestoreResourcePriorities,
+										defaultDisableInformerCache,
+									},
+									VolumeMounts: baseVolumeMounts,
+									Env:          baseEnvVars,
+								},
+							},
+							Volumes:        baseVolumes,
+							InitContainers: []corev1.Container{},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "given valid DPA CR with Unsupported Server Args and user added args, appropriate Velero Deployment is built",
+			veleroDeployment: &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-velero-deployment",
+					Namespace: "test-ns",
+				},
+				Spec: appsv1.DeploymentSpec{
+					Selector: &metav1.LabelSelector{MatchLabels: veleroDeploymentMatchLabels},
+				},
+			},
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-Velero-CR",
+					Namespace: "test-ns",
+					Annotations: map[string]string{
+						"oadp.openshift.io/unsupported-velero-server-args": "unsupported-server-args-cm",
+					},
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							Args: &server.Args{
+								ServerConfig: server.ServerConfig{
+									BackupSyncPeriod:            pointer.Duration(1),
+									PodVolumeOperationTimeout:   pointer.Duration(1),
+									ResourceTerminatingTimeout:  pointer.Duration(1),
+									DefaultBackupTTL:            pointer.Duration(1),
+									StoreValidationFrequency:    pointer.Duration(1),
+									ItemOperationSyncFrequency:  pointer.Duration(1),
+									RepoMaintenanceFrequency:    pointer.Duration(1),
+									GarbageCollectionFrequency:  pointer.Duration(1),
+									DefaultItemOperationTimeout: pointer.Duration(1),
+									ResourceTimeout:             pointer.Duration(1),
+								},
+							},
+						},
+					},
+				},
+			},
+			clientObjects: []client.Object{
+				&corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "unsupported-server-args-cm",
+						Namespace: "test-ns",
+					},
+					Data: map[string]string{
+						"unsupported-arg":      "value1",
+						"unsupported-bool-arg": "True",
+					},
+				},
+			},
+			wantErr: false,
+			wantVeleroDeployment: &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-velero-deployment",
+					Namespace: "test-ns",
+					Labels:    veleroDeploymentLabel,
+				},
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "Deployment",
+					APIVersion: appsv1.SchemeGroupVersion.String(),
+				},
+				Spec: appsv1.DeploymentSpec{
+					Selector: &metav1.LabelSelector{MatchLabels: veleroDeploymentMatchLabels},
+					Replicas: pointer.Int32(1),
+					Template: corev1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Labels:      veleroDeploymentMatchLabels,
+							Annotations: veleroPodAnnotations,
+						},
+						Spec: corev1.PodSpec{
+							RestartPolicy:      corev1.RestartPolicyAlways,
+							ServiceAccountName: common.Velero,
+							Containers: []corev1.Container{
+								{
+									Name:            common.Velero,
+									Image:           common.VeleroImage,
+									ImagePullPolicy: corev1.PullAlways,
+									Ports:           []corev1.ContainerPort{{Name: "metrics", ContainerPort: 8085}},
+									Resources:       corev1.ResourceRequirements{Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("500m"), corev1.ResourceMemory: resource.MustParse("128Mi")}},
+									Command:         []string{"/velero"},
+									Args: []string{
+										"server",
+										"--unsupported-arg=value1",
+										"--unsupported-bool-arg=true",
+									},
+									VolumeMounts: baseVolumeMounts,
+									Env:          baseEnvVars,
+								},
+							},
+							Volumes:        baseVolumes,
+							InitContainers: []corev1.Container{},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "given valid DPA CR with Unsupported Server Args and missing ConfigMap, appropriate Velero Deployment is nil with error",
+			veleroDeployment: &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-velero-deployment",
+					Namespace: "test-ns",
+				},
+				Spec: appsv1.DeploymentSpec{
+					Selector: &metav1.LabelSelector{MatchLabels: veleroDeploymentMatchLabels},
+				},
+			},
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-Velero-CR",
+					Namespace: "test-ns",
+					Annotations: map[string]string{
+						"oadp.openshift.io/unsupported-velero-server-args": "missing-unsupported-server-args-cm",
+					},
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{},
+					},
+				},
+			},
+			wantErr:              true,
+			wantVeleroDeployment: nil,
+		},
+		{
 			name: "given invalid DPA CR because invalid podConfig label, appropriate Velero Deployment is nil with error",
 			veleroDeployment: &appsv1.Deployment{
 				ObjectMeta: metav1.ObjectMeta{
