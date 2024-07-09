@@ -29,8 +29,6 @@ const (
 	FsRestoreHelperCM     = "fs-restore-action-config"
 	HostPods              = "host-pods"
 	HostPlugins           = "host-plugins"
-
-	UnsupportedNodeAgentServerArgsAnnotation = "oadp.openshift.io/unsupported-node-agent-server-args"
 )
 
 var (
@@ -315,39 +313,50 @@ func (r *DPAReconciler) customizeNodeAgentDaemonset(dpa *oadpv1alpha1.DataProtec
 	for i, container := range ds.Spec.Template.Spec.Containers {
 		if container.Name == common.NodeAgent {
 			nodeAgentContainer = &ds.Spec.Template.Spec.Containers[i]
+
+			// append certs volume mount
+			nodeAgentContainer.VolumeMounts = append(nodeAgentContainer.VolumeMounts, corev1.VolumeMount{
+				Name:      "certs",
+				MountPath: "/etc/ssl/certs",
+			})
+			// append PodConfig envs to nodeAgent container
+			if useResticConf {
+				if dpa.Spec.Configuration.Restic.PodConfig != nil && dpa.Spec.Configuration.Restic.PodConfig.Env != nil {
+					nodeAgentContainer.Env = common.AppendUniqueEnvVars(nodeAgentContainer.Env, dpa.Spec.Configuration.Restic.PodConfig.Env)
+				}
+			} else if dpa.Spec.Configuration.NodeAgent.PodConfig != nil && dpa.Spec.Configuration.NodeAgent.PodConfig.Env != nil {
+				nodeAgentContainer.Env = common.AppendUniqueEnvVars(nodeAgentContainer.Env, dpa.Spec.Configuration.NodeAgent.PodConfig.Env)
+			}
+
+			// append env vars to the nodeAgent container
+			nodeAgentContainer.Env = common.AppendUniqueEnvVars(nodeAgentContainer.Env, proxy.ReadProxyVarsFromEnv())
+
+			nodeAgentContainer.SecurityContext = &corev1.SecurityContext{
+				Privileged: pointer.Bool(true),
+			}
+
+			imagePullPolicy, err := common.GetImagePullPolicy(getVeleroImage(dpa))
+			if err != nil {
+				r.Log.Error(err, "imagePullPolicy regex failed")
+			}
+
+			nodeAgentContainer.ImagePullPolicy = imagePullPolicy
+			setContainerDefaults(nodeAgentContainer)
+
+			if configMapName, ok := dpa.Annotations[common.UnsupportedNodeAgentServerArgsAnnotation]; ok {
+				unsupportedServerArgsCM := corev1.ConfigMap{}
+				if configMapName != "" {
+					if err := r.Get(r.Context, types.NamespacedName{Namespace: dpa.Namespace, Name: configMapName}, &unsupportedServerArgsCM); err != nil {
+						return nil, err
+					}
+					if err := common.ApplyUnsupportedServerArgsOverride(nodeAgentContainer, unsupportedServerArgsCM, common.NodeAgent); err != nil {
+						return nil, err
+					}
+				}
+			}
+
 			break
 		}
-	}
-
-	if nodeAgentContainer != nil {
-		// append certs volume mount
-		nodeAgentContainer.VolumeMounts = append(nodeAgentContainer.VolumeMounts, corev1.VolumeMount{
-			Name:      "certs",
-			MountPath: "/etc/ssl/certs",
-		})
-		// append PodConfig envs to nodeAgent container
-		if useResticConf {
-			if dpa.Spec.Configuration.Restic.PodConfig != nil && dpa.Spec.Configuration.Restic.PodConfig.Env != nil {
-				nodeAgentContainer.Env = common.AppendUniqueEnvVars(nodeAgentContainer.Env, dpa.Spec.Configuration.Restic.PodConfig.Env)
-			}
-		} else if dpa.Spec.Configuration.NodeAgent.PodConfig != nil && dpa.Spec.Configuration.NodeAgent.PodConfig.Env != nil {
-			nodeAgentContainer.Env = common.AppendUniqueEnvVars(nodeAgentContainer.Env, dpa.Spec.Configuration.NodeAgent.PodConfig.Env)
-		}
-
-		// append env vars to the nodeAgent container
-		nodeAgentContainer.Env = common.AppendUniqueEnvVars(nodeAgentContainer.Env, proxy.ReadProxyVarsFromEnv())
-
-		nodeAgentContainer.SecurityContext = &corev1.SecurityContext{
-			Privileged: pointer.Bool(true),
-		}
-
-		imagePullPolicy, err := common.GetImagePullPolicy(getVeleroImage(dpa))
-		if err != nil {
-			r.Log.Error(err, "imagePullPolicy regex failed")
-		}
-
-		nodeAgentContainer.ImagePullPolicy = imagePullPolicy
-		setContainerDefaults(nodeAgentContainer)
 	}
 
 	// attach DNS policy and config if enabled
@@ -381,32 +390,7 @@ func (r *DPAReconciler) customizeNodeAgentDaemonset(dpa *oadpv1alpha1.DataProtec
 		ds.Spec.RevisionHistoryLimit = pointer.Int32(10)
 	}
 
-	if err := r.applyUnsupportedNodeAgentServerArgsOverride(dpa, nodeAgentContainer); err != nil {
-		return nil, err
-	}
-
 	return ds, nil
-}
-
-// Apply Override unsupported Node agent Server Args
-func (r *DPAReconciler) applyUnsupportedNodeAgentServerArgsOverride(dpa *oadpv1alpha1.DataProtectionApplication, nodeAgentContainer *corev1.Container) error {
-	if configMapName, ok := dpa.Annotations[UnsupportedNodeAgentServerArgsAnnotation]; ok {
-		// Got an DPA annotation for Unsupported Node Agent Server Args
-		if configMapName == "" {
-			// Can't be empty string, do not report error
-			return nil
-		}
-
-		unsupportedNodeAgentServerArgsCM := corev1.ConfigMap{}
-		if err := r.Get(r.Context, types.NamespacedName{Namespace: dpa.Namespace, Name: configMapName}, &unsupportedNodeAgentServerArgsCM); err != nil {
-			return err
-		}
-
-		r.Log.Info("Applying Unsupported Node Agent Server Args.")
-		// if server args is set, override the default server args
-		nodeAgentContainer.Args = common.GenerateCliArgsFromConfigMap(&unsupportedNodeAgentServerArgsCM, "node-agent", "server")
-	}
-	return nil
 }
 
 func (r *DPAReconciler) ReconcileFsRestoreHelperConfig(log logr.Logger) (bool, error) {
