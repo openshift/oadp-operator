@@ -344,8 +344,8 @@ func (r *DPAReconciler) customizeNodeAgentDaemonset(dpa *oadpv1alpha1.DataProtec
 			setContainerDefaults(nodeAgentContainer)
 
 			if configMapName, ok := dpa.Annotations[common.UnsupportedNodeAgentServerArgsAnnotation]; ok {
-				unsupportedServerArgsCM := corev1.ConfigMap{}
 				if configMapName != "" {
+					unsupportedServerArgsCM := corev1.ConfigMap{}
 					if err := r.Get(r.Context, types.NamespacedName{Namespace: dpa.Namespace, Name: configMapName}, &unsupportedServerArgsCM); err != nil {
 						return nil, err
 					}

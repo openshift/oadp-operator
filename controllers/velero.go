@@ -505,8 +505,8 @@ func (r *DPAReconciler) appendPluginSpecificSpecs(dpa *oadpv1alpha1.DataProtecti
 	}
 
 	if configMapName, ok := dpa.Annotations[common.UnsupportedVeleroServerArgsAnnotation]; ok {
-		unsupportedServerArgsCM := corev1.ConfigMap{}
 		if configMapName != "" {
+			unsupportedServerArgsCM := corev1.ConfigMap{}
 			if err := r.Get(r.Context, types.NamespacedName{Namespace: dpa.Namespace, Name: configMapName}, &unsupportedServerArgsCM); err != nil {
 				return err
 			}
