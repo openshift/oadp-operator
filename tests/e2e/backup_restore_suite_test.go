@@ -112,7 +112,7 @@ func prepareBackupAndRestore(brCase BackupRestoreCase, updateLastInstallTime fun
 	return backupName, restoreName
 }
 
-func runApplicationBackupAndRestore(brCase ApplicationBackupRestoreCase, expectedBackupErr, expectedRestoreErr error, updateLastBRcase func(brCase ApplicationBackupRestoreCase), updateLastInstallTime func()) {
+func runApplicationBackupAndRestore(brCase ApplicationBackupRestoreCase, expectedErr error, updateLastBRcase func(brCase ApplicationBackupRestoreCase), updateLastInstallTime func()) {
 	updateLastBRcase(brCase)
 
 	// create DPA
@@ -149,7 +149,7 @@ func runApplicationBackupAndRestore(brCase ApplicationBackupRestoreCase, expecte
 	gomega.Eventually(lib.AreApplicationPodsRunning(kubernetesClientForSuiteRun, brCase.Namespace), timeoutMultiplier*time.Minute*9, time.Second*5).Should(gomega.BeTrue())
 
 	// do the backup for real
-	nsRequiredResticDCWorkaround := runBackup(brCase.BackupRestoreCase, backupName, expectedBackupErr)
+	nsRequiredResticDCWorkaround := runBackup(brCase.BackupRestoreCase, backupName)
 
 	// uninstall app
 	log.Printf("Uninstalling app for case %s", brCase.Name)
@@ -162,7 +162,7 @@ func runApplicationBackupAndRestore(brCase ApplicationBackupRestoreCase, expecte
 	updateLastInstallTime()
 
 	// run restore
-	runRestore(brCase.BackupRestoreCase, backupName, restoreName, nsRequiredResticDCWorkaround, expectedRestoreErr)
+	runRestore(brCase.BackupRestoreCase, backupName, restoreName, nsRequiredResticDCWorkaround)
 
 	// verify app is running
 	gomega.Eventually(lib.AreAppBuildsReady(dpaCR.Client, brCase.Namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(gomega.BeTrue())
@@ -176,7 +176,7 @@ func runApplicationBackupAndRestore(brCase ApplicationBackupRestoreCase, expecte
 	}
 }
 
-func runBackup(brCase BackupRestoreCase, backupName string, expectedErr error) bool {
+func runBackup(brCase BackupRestoreCase, backupName string) bool {
 	// Run optional custom verification
 	if brCase.PreBackupVerify != nil {
 		log.Printf("Running pre-backup function for case %s", brCase.Name)
@@ -227,7 +227,7 @@ func runBackup(brCase BackupRestoreCase, backupName string, expectedErr error) b
 	return nsRequiresResticDCWorkaround
 }
 
-func runRestore(brCase BackupRestoreCase, backupName, restoreName string, nsRequiresResticDCWorkaround bool, expectedErr error) {
+func runRestore(brCase BackupRestoreCase, backupName, restoreName string, nsRequiresResticDCWorkaround bool) {
 	log.Printf("Creating restore %s for case %s", restoreName, brCase.Name)
 	restore, err := lib.CreateRestoreFromBackup(dpaCR.Client, namespace, backupName, restoreName)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
@@ -246,13 +246,8 @@ func runRestore(brCase BackupRestoreCase, backupName, restoreName string, nsRequ
 
 	// Check if restore succeeded
 	succeeded, err := lib.IsRestoreCompletedSuccessfully(kubernetesClientForSuiteRun, dpaCR.Client, namespace, restoreName)
-	if expectedErr != nil {
-		gomega.Expect(succeeded).To(gomega.Equal(false))
-		gomega.Expect(err.Error()).To(gomega.ContainSubstring(expectedErr.Error()))
-	} else {
-		gomega.Expect(err).ToNot(gomega.HaveOccurred())
-		gomega.Expect(succeeded).To(gomega.Equal(true))
-	}
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+	gomega.Expect(succeeded).To(gomega.Equal(true))
 
 	if nsRequiresResticDCWorkaround {
 		// We run the dc-post-restore.sh script for both restic and
@@ -324,11 +319,11 @@ var _ = ginkgov2.Describe("Backup and restore tests", func() {
 	})
 
 	ginkgov2.DescribeTable("Backup and restore applications",
-		func(brCase ApplicationBackupRestoreCase, expectedBackupErr, expectedRestoreErr error) {
+		func(brCase ApplicationBackupRestoreCase, expectedErr error) {
 			if ginkgov2.CurrentSpecReport().NumAttempts > 1 && !knownFlake {
 				ginkgov2.Fail("No known FLAKE found in a previous run, marking test as failed.")
 			}
-			runApplicationBackupAndRestore(brCase, expectedBackupErr, expectedRestoreErr, updateLastBRcase, updateLastInstallTime)
+			runApplicationBackupAndRestore(brCase, expectedErr, updateLastBRcase, updateLastInstallTime)
 		},
 		ginkgov2.Entry("MySQL application CSI", ginkgov2.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
 			ApplicationTemplate: "./sample-applications/mysql-persistent/mysql-persistent-csi.yaml",
@@ -340,7 +335,7 @@ var _ = ginkgov2.Describe("Backup and restore tests", func() {
 				PostRestoreVerify: mysqlReady(false, false),
 				BackupTimeout:     20 * time.Minute,
 			},
-		}, nil, nil),
+		}, nil),
 		ginkgov2.Entry("Mongo application CSI", ginkgov2.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
 			ApplicationTemplate: "./sample-applications/mongo-persistent/mongo-persistent-csi.yaml",
 			BackupRestoreCase: BackupRestoreCase{
@@ -351,7 +346,7 @@ var _ = ginkgov2.Describe("Backup and restore tests", func() {
 				PostRestoreVerify: mongoready(false, false),
 				BackupTimeout:     20 * time.Minute,
 			},
-		}, nil, nil),
+		}, nil),
 		ginkgov2.Entry("MySQL application two Vol CSI", ginkgov2.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
 			ApplicationTemplate: "./sample-applications/mysql-persistent/mysql-persistent-twovol-csi.yaml",
 			BackupRestoreCase: BackupRestoreCase{
@@ -362,7 +357,7 @@ var _ = ginkgov2.Describe("Backup and restore tests", func() {
 				PostRestoreVerify: mysqlReady(false, true),
 				BackupTimeout:     20 * time.Minute,
 			},
-		}, nil, nil),
+		}, nil),
 		ginkgov2.Entry("Mongo application RESTIC", ginkgov2.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
 			ApplicationTemplate: "./sample-applications/mongo-persistent/mongo-persistent.yaml",
 			BackupRestoreCase: BackupRestoreCase{
@@ -373,7 +368,7 @@ var _ = ginkgov2.Describe("Backup and restore tests", func() {
 				PostRestoreVerify: mongoready(false, false),
 				BackupTimeout:     20 * time.Minute,
 			},
-		}, nil, nil),
+		}, nil),
 		ginkgov2.Entry("MySQL application RESTIC", ginkgov2.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
 			ApplicationTemplate: "./sample-applications/mysql-persistent/mysql-persistent.yaml",
 			BackupRestoreCase: BackupRestoreCase{
@@ -384,7 +379,7 @@ var _ = ginkgov2.Describe("Backup and restore tests", func() {
 				PostRestoreVerify: mysqlReady(false, false),
 				BackupTimeout:     20 * time.Minute,
 			},
-		}, nil, nil),
+		}, nil),
 		ginkgov2.Entry("Mongo application KOPIA", ginkgov2.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
 			ApplicationTemplate: "./sample-applications/mongo-persistent/mongo-persistent.yaml",
 			BackupRestoreCase: BackupRestoreCase{
@@ -395,7 +390,7 @@ var _ = ginkgov2.Describe("Backup and restore tests", func() {
 				PostRestoreVerify: mongoready(false, false),
 				BackupTimeout:     20 * time.Minute,
 			},
-		}, nil, nil),
+		}, nil),
 		ginkgov2.Entry("MySQL application KOPIA", ginkgov2.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
 			ApplicationTemplate: "./sample-applications/mysql-persistent/mysql-persistent.yaml",
 			BackupRestoreCase: BackupRestoreCase{
@@ -406,7 +401,7 @@ var _ = ginkgov2.Describe("Backup and restore tests", func() {
 				PostRestoreVerify: mysqlReady(false, false),
 				BackupTimeout:     20 * time.Minute,
 			},
-		}, nil, nil),
+		}, nil),
 		ginkgov2.Entry("Mongo application DATAMOVER", ginkgov2.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
 			ApplicationTemplate: "./sample-applications/mongo-persistent/mongo-persistent-csi.yaml",
 			BackupRestoreCase: BackupRestoreCase{
@@ -417,7 +412,7 @@ var _ = ginkgov2.Describe("Backup and restore tests", func() {
 				PostRestoreVerify: mongoready(false, false),
 				BackupTimeout:     20 * time.Minute,
 			},
-		}, nil, nil),
+		}, nil),
 		ginkgov2.Entry("MySQL application DATAMOVER", ginkgov2.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
 			ApplicationTemplate: "./sample-applications/mysql-persistent/mysql-persistent-csi.yaml",
 			BackupRestoreCase: BackupRestoreCase{
@@ -428,7 +423,7 @@ var _ = ginkgov2.Describe("Backup and restore tests", func() {
 				PostRestoreVerify: mysqlReady(false, false),
 				BackupTimeout:     20 * time.Minute,
 			},
-		}, nil, nil),
+		}, nil),
 		ginkgov2.Entry("Mongo application BlockDevice DATAMOVER", ginkgov2.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
 			ApplicationTemplate: "./sample-applications/mongo-persistent/mongo-persistent-block.yaml",
 			PvcSuffixName:       "-block-mode",
@@ -440,6 +435,6 @@ var _ = ginkgov2.Describe("Backup and restore tests", func() {
 				PostRestoreVerify: mongoready(false, false),
 				BackupTimeout:     20 * time.Minute,
 			},
-		}, nil, nil),
+		}, nil),
 	)
 })

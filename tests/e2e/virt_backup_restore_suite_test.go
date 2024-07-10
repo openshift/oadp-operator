@@ -1,7 +1,6 @@
 package e2e_test
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -61,7 +60,7 @@ type VmBackupRestoreCase struct {
 	PowerState string
 }
 
-func runVmBackupAndRestore(brCase VmBackupRestoreCase, expectedBackupErr, expectedRestoreErr error, updateLastBRcase func(brCase VmBackupRestoreCase), updateLastInstallTime func(), v *lib.VirtOperator) {
+func runVmBackupAndRestore(brCase VmBackupRestoreCase, expectedErr error, updateLastBRcase func(brCase VmBackupRestoreCase), updateLastInstallTime func(), v *lib.VirtOperator) {
 	updateLastBRcase(brCase)
 
 	// Create DPA
@@ -100,7 +99,7 @@ func runVmBackupAndRestore(brCase VmBackupRestoreCase, expectedBackupErr, expect
 	}
 
 	// Back up VM
-	nsRequiresResticDCWorkaround := runBackup(brCase.BackupRestoreCase, backupName, expectedBackupErr)
+	nsRequiresResticDCWorkaround := runBackup(brCase.BackupRestoreCase, backupName)
 
 	// Delete everything in test namespace
 	err = v.RemoveVm(brCase.Namespace, brCase.Name, 2*time.Minute)
@@ -110,7 +109,7 @@ func runVmBackupAndRestore(brCase VmBackupRestoreCase, expectedBackupErr, expect
 	gomega.Eventually(lib.IsNamespaceDeleted(kubernetesClientForSuiteRun, brCase.Namespace), timeoutMultiplier*time.Minute*5, time.Second*5).Should(gomega.BeTrue())
 
 	// Do restore
-	runRestore(brCase.BackupRestoreCase, backupName, restoreName, nsRequiresResticDCWorkaround, expectedRestoreErr)
+	runRestore(brCase.BackupRestoreCase, backupName, restoreName, nsRequiresResticDCWorkaround)
 
 	// Run optional custom verification
 	if brCase.PostRestoreVerify != nil {
@@ -171,8 +170,8 @@ var _ = ginkgov2.Describe("VM backup and restore tests", ginkgov2.Ordered, func(
 	})
 
 	ginkgov2.DescribeTable("Backup and restore virtual machines",
-		func(brCase VmBackupRestoreCase, expectedBackupError, expectedRestoreError error) {
-			runVmBackupAndRestore(brCase, expectedBackupError, expectedRestoreError, updateLastBRcase, updateLastInstallTime, v)
+		func(brCase VmBackupRestoreCase, expectedError error) {
+			runVmBackupAndRestore(brCase, expectedError, updateLastBRcase, updateLastInstallTime, v)
 		},
 
 		ginkgov2.Entry("no-application CSI datamover backup and restore, CirrOS VM", ginkgov2.Label("virt"), VmBackupRestoreCase{
@@ -185,7 +184,7 @@ var _ = ginkgov2.Describe("VM backup and restore tests", ginkgov2.Ordered, func(
 				BackupRestoreType: lib.CSIDataMover,
 				BackupTimeout:     20 * time.Minute,
 			},
-		}, nil, nil),
+		}, nil),
 
 		ginkgov2.Entry("no-application CSI backup and restore, CirrOS VM", ginkgov2.Label("virt"), VmBackupRestoreCase{
 			Template:  "./sample-applications/virtual-machines/cirros-test/cirros-test.yaml",
@@ -197,7 +196,7 @@ var _ = ginkgov2.Describe("VM backup and restore tests", ginkgov2.Ordered, func(
 				BackupRestoreType: lib.CSI,
 				BackupTimeout:     20 * time.Minute,
 			},
-		}, nil, nil),
+		}, nil),
 
 		ginkgov2.Entry("no-application CSI backup and restore, powered-off CirrOS VM", ginkgov2.Label("virt"), VmBackupRestoreCase{
 			Template:   "./sample-applications/virtual-machines/cirros-test/cirros-test.yaml",
@@ -211,7 +210,7 @@ var _ = ginkgov2.Describe("VM backup and restore tests", ginkgov2.Ordered, func(
 				BackupTimeout:     20 * time.Minute,
 				PreBackupVerify:   vmPoweredOff("cirros-test", "cirros-test"),
 			},
-		}, nil, errors.New("fail to patch dynamic PV")),
+		}, nil),
 
 		ginkgov2.Entry("todolist CSI backup and restore, in a Fedora VM", ginkgov2.Label("virt"), VmBackupRestoreCase{
 			Template:  "./sample-applications/virtual-machines/fedora-todolist/fedora-todolist.yaml",
@@ -225,6 +224,6 @@ var _ = ginkgov2.Describe("VM backup and restore tests", ginkgov2.Ordered, func(
 				PostRestoreVerify: mysqlReady(false, false),
 				BackupTimeout:     45 * time.Minute,
 			},
-		}, nil, nil),
+		}, nil),
 	)
 })

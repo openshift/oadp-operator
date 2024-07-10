@@ -27,11 +27,11 @@ var _ = ginkgov2.Describe("Backup and restore tests with must-gather", func() {
 	})
 
 	ginkgov2.DescribeTable("Backup and restore applications and run must-gather",
-		func(brCase ApplicationBackupRestoreCase, expectedBackupErr, expectedRestoreErr error) {
+		func(brCase ApplicationBackupRestoreCase, expectedErr error) {
 			if ginkgov2.CurrentSpecReport().NumAttempts > 1 && !knownFlake {
 				ginkgov2.Fail("No known FLAKE found in a previous run, marking test as failed.")
 			}
-			runApplicationBackupAndRestore(brCase, expectedBackupErr, expectedRestoreErr, updateLastBRcase, updateLastInstallTime)
+			runApplicationBackupAndRestore(brCase, expectedErr, updateLastBRcase, updateLastInstallTime)
 
 			// TODO look for duplications in tearDownBackupAndRestore
 			baseReportDir := artifact_dir + "/" + brCase.Name
@@ -88,6 +88,6 @@ var _ = ginkgov2.Describe("Backup and restore tests with must-gather", func() {
 				"namespaces/" + namespace + "/oadp.openshift.io/dpa-ts-" + instanceName + "/ts-" + instanceName + ".yml",
 				"namespaces/" + namespace + "/velero.io/backupstoragelocations.velero.io/ts-" + instanceName + "-1.yaml",
 			},
-		}, nil, nil),
+		}, nil),
 	)
 })
