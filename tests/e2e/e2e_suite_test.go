@@ -22,6 +22,7 @@ import (
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	veleroClientset "github.com/vmware-tanzu/velero/pkg/generated/clientset/versioned"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/uuid"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -36,10 +37,11 @@ var (
 	timeoutMultiplierInput, flakeAttempts                                                                              int64
 	timeoutMultiplier                                                                                                  time.Duration
 
-	kubernetesClientForSuiteRun     *kubernetes.Clientset
-	runTimeClientForSuiteRun        client.Client
-	veleroClientForSuiteRun         veleroClientset.Interface
-	dynamicClientForSuiteRun        dynamic.Interface
+	kubernetesClientForSuiteRun *kubernetes.Clientset
+	runTimeClientForSuiteRun    client.Client
+	veleroClientForSuiteRun     veleroClientset.Interface
+	dynamicClientForSuiteRun    dynamic.Interface
+
 	dpaCR                           *DpaCustomResource
 	bslSecretName                   string
 	bslSecretNameWithCarriageReturn string
@@ -63,9 +65,9 @@ func init() {
 	flag.StringVar(&artifact_dir, "artifact_dir", "/tmp", "Directory for storing must gather")
 	flag.StringVar(&oc_cli, "oc_cli", "oc", "OC CLI Client")
 	flag.StringVar(&stream, "stream", "up", "[up, down] upstream or downstream")
-	flag.Int64Var(&timeoutMultiplierInput, "timeout_multiplier", 1, "Customize timeout multiplier from default (1)")
 	flag.Int64Var(&flakeAttempts, "flakeAttempts", 3, "Customize the number of flake retries (3)")
-	// TODO remove?
+	// TODO remove
+	flag.Int64Var(&timeoutMultiplierInput, "timeout_multiplier", 1, "Customize timeout multiplier from default (1)")
 	timeoutMultiplier = time.Duration(timeoutMultiplierInput)
 
 	// helps with launching debug sessions from IDE
@@ -117,24 +119,12 @@ func init() {
 func TestOADPE2E(t *testing.T) {
 	flag.Parse()
 
-	bslSecretName = "bsl-cloud-credentials-" + provider
-	bslSecretNameWithCarriageReturn = "bsl-cloud-credentials-" + provider + "-with-carriage-return"
-	// TODO vsl secret name
-
-	RegisterFailHandler(Fail)
-
-	err := LoadDpaSettingsFromJson(settings)
-	Expect(err).NotTo(HaveOccurred())
-
-	RunSpecs(t, "OADP E2E using velero prefix: "+VeleroPrefix)
-}
-
-var _ = BeforeSuite(func() {
-	// TODO create logger (hh:mm:ss message) to be used by all functions
 	var err error
 	kubeConf := config.GetConfigOrDie()
 	kubeConf.QPS = 50
 	kubeConf.Burst = 100
+
+	RegisterFailHandler(Fail)
 
 	kubernetesClientForSuiteRun, err = kubernetes.NewForConfig(kubeConf)
 	Expect(err).NotTo(HaveOccurred())
@@ -163,15 +153,38 @@ var _ = BeforeSuite(func() {
 	Expect(err).To(BeNil())
 	Expect(DoesNamespaceExist(kubernetesClientForSuiteRun, namespace)).Should(BeTrue())
 
-	dpaCR = &DpaCustomResource{
-		Name:           "ts-" + instanceName,
-		Namespace:      namespace,
-		Provider:       provider,
-		CustomResource: Dpa,
-		Client:         runTimeClientForSuiteRun,
-		BSLSecretName:  bslSecretName,
-	}
+	dpa, err := LoadDpaSettingsFromJson(settings)
+	Expect(err).NotTo(HaveOccurred())
 
+	bslSecretName = "bsl-cloud-credentials-" + provider
+	bslSecretNameWithCarriageReturn = "bsl-cloud-credentials-" + provider + "-with-carriage-return"
+	// TODO vsl secret name
+
+	veleroPrefix := "velero-e2e-" + string(uuid.NewUUID())
+
+	dpaCR = &DpaCustomResource{
+		Name:                 "ts-" + instanceName,
+		Namespace:            namespace,
+		Provider:             provider,
+		CustomResource:       dpa.DeepCopy(),
+		Client:               runTimeClientForSuiteRun,
+		BSLSecretName:        bslSecretName,
+		BSLConfig:            dpa.DeepCopy().Spec.BackupLocations[0].Velero.Config,
+		BSLProvider:          dpa.DeepCopy().Spec.BackupLocations[0].Velero.Provider,
+		BSLBucket:            dpa.DeepCopy().Spec.BackupLocations[0].Velero.ObjectStorage.Bucket,
+		BSLBucketPrefix:      veleroPrefix,
+		VeleroDefaultPlugins: dpa.DeepCopy().Spec.Configuration.Velero.DefaultPlugins,
+		SnapshotLocations:    dpa.DeepCopy().Spec.SnapshotLocations,
+	}
+	// TODO
+	log.Printf("DEBUG 1:\n%#v", dpaCR.SnapshotLocations)
+	log.Printf("DEBUG 2:\n%#v", dpaCR.VeleroDefaultPlugins)
+
+	RunSpecs(t, "OADP E2E using velero prefix: "+veleroPrefix)
+}
+
+var _ = BeforeSuite(func() {
+	// TODO create logger (hh:mm:ss message) to be used by all functions
 	log.Printf("Creating Secrets")
 	bslCredFileData, err := utils.ReadFile(bslCredFile)
 	Expect(err).NotTo(HaveOccurred())

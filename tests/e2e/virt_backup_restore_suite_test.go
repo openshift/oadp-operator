@@ -153,7 +153,7 @@ var _ = Describe("VM backup and restore tests", Ordered, func() {
 		err = v.CreateDataSourceFromPvc("openshift-virtualization-os-images", "cirros")
 		Expect(err).To(BeNil())
 
-		dpaCR.CustomResource.Spec.Configuration.Velero.DefaultPlugins = append(dpaCR.CustomResource.Spec.Configuration.Velero.DefaultPlugins, v1alpha1.DefaultPluginKubeVirt)
+		dpaCR.VeleroDefaultPlugins = append(dpaCR.VeleroDefaultPlugins, v1alpha1.DefaultPluginKubeVirt)
 	})
 
 	var _ = AfterAll(func() {

@@ -57,7 +57,7 @@ var _ = ginkgo.Describe("OADP upgrade scenarios", ginkgo.Ordered, func() {
 					Namespace: namespace,
 				},
 				Spec: &v1alpha1.SubscriptionSpec{
-					CatalogSource:          "oadp-operator-catalog-test-upgrade",
+					CatalogSource:          "oadp-operator-catalog-test-upgrade", // TODO
 					CatalogSourceNamespace: "openshift-marketplace",
 					Package:                "oadp-operator",
 					Channel:                scenario.previous,
@@ -84,7 +84,7 @@ var _ = ginkgo.Describe("OADP upgrade scenarios", ginkgo.Ordered, func() {
 					Configuration: &oadpv1alpha1.ApplicationConfig{
 						Velero: &oadpv1alpha1.VeleroConfig{
 							LogLevel:       "debug",
-							DefaultPlugins: append(dpaCR.CustomResource.Spec.Configuration.Velero.DefaultPlugins, oadpv1alpha1.DefaultPluginCSI),
+							DefaultPlugins: append(dpaCR.VeleroDefaultPlugins, oadpv1alpha1.DefaultPluginCSI),
 							FeatureFlags:   append(dpaCR.CustomResource.Spec.Configuration.Velero.FeatureFlags, velerov1.CSIFeatureFlag),
 						},
 						NodeAgent: &oadpv1alpha1.NodeAgentConfig{
@@ -98,9 +98,9 @@ var _ = ginkgo.Describe("OADP upgrade scenarios", ginkgo.Ordered, func() {
 					BackupLocations: []oadpv1alpha1.BackupLocation{
 						{
 							Velero: &velerov1.BackupStorageLocationSpec{
-								Provider: dpaCR.CustomResource.Spec.BackupLocations[0].Velero.Provider,
+								Provider: dpaCR.BSLProvider,
 								Default:  true,
-								Config:   dpaCR.CustomResource.Spec.BackupLocations[0].Velero.Config,
+								Config:   dpaCR.BSLConfig,
 								Credential: &corev1.SecretKeySelector{
 									LocalObjectReference: corev1.LocalObjectReference{
 										Name: bslSecretName,
@@ -109,8 +109,8 @@ var _ = ginkgo.Describe("OADP upgrade scenarios", ginkgo.Ordered, func() {
 								},
 								StorageType: velerov1.StorageType{
 									ObjectStorage: &velerov1.ObjectStorageLocation{
-										Bucket: dpaCR.CustomResource.Spec.BackupLocations[0].Velero.ObjectStorage.Bucket,
-										Prefix: lib.VeleroPrefix,
+										Bucket: dpaCR.BSLBucket,
+										Prefix: dpaCR.BSLBucketPrefix,
 									},
 								},
 							},
@@ -123,7 +123,7 @@ var _ = ginkgo.Describe("OADP upgrade scenarios", ginkgo.Ordered, func() {
 
 			// check that DPA is reconciled
 			log.Print("Checking if DPA is reconciled")
-			gomega.Eventually(dpaCR.IsReconciled(), time.Minute*3, time.Second*5).Should(gomega.BeTrue())
+			gomega.Eventually(dpaCR.IsReconciledTrue(), time.Minute*3, time.Second*5).Should(gomega.BeTrue())
 
 			// check that velero pod is running
 			log.Print("Checking if velero pod is running")
@@ -152,8 +152,6 @@ var _ = ginkgo.Describe("OADP upgrade scenarios", ginkgo.Ordered, func() {
 			err = runTimeClientForSuiteRun.Update(context.Background(), &subscription)
 			gomega.Expect(err).To(gomega.BeNil())
 
-			// TODO Check that after X minutes csv oadp-operator.v1.3.0 has status.phase Replacing and its deleted
-
 			// Check that after 8 minutes csv oadp-operator.v1.4.0 has status.phase Installing -> Succeeded
 			log.Print("Waiting for next channel CSV to be created")
 			gomega.Eventually(subscriptionHelper.CsvIsInstalling(runTimeClientForSuiteRun), time.Minute*3, time.Second*5).Should(gomega.BeTrue())
@@ -167,9 +165,8 @@ var _ = ginkgo.Describe("OADP upgrade scenarios", ginkgo.Ordered, func() {
 
 			// check if updated DPA is reconciled
 			log.Print("Checking if DPA was reconciled after update")
-			// TODO gomega.Eventually(dpaCR.IsUpdated, time.Minute*3, time.Second*5).WithArguments(timeAfterUpgrade).Should(gomega.BeTrue())
-			// TODO gomega.Eventually(dpaCR.IsReconciled(), time.Minute*3, time.Second*5).Should(gomega.BeTrue())
-			gomega.Consistently(dpaCR.IsReconciled(), time.Minute*3, time.Second*15).Should(gomega.BeTrue())
+			// TODO do not use Consistently, using because no field in DPA is updated telling when it was last reconciled
+			gomega.Consistently(dpaCR.IsReconciledTrue(), time.Minute*3, time.Second*15).Should(gomega.BeTrue())
 
 			// check if updated velero pod is running
 			log.Print("Checking if velero pod was recreated after update")

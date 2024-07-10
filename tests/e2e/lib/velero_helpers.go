@@ -15,6 +15,7 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
@@ -94,6 +95,20 @@ func VeleroPodIsUpdated(c *kubernetes.Clientset, namespace string, updateTime ti
 			return false, err
 		}
 		return pod.CreationTimestamp.After(updateTime), nil
+	}
+}
+
+func VeleroIsDeleted(c *kubernetes.Clientset, namespace string) wait.ConditionFunc {
+	return func() (bool, error) {
+		_, err := GetVeleroPod(c, namespace)
+		if err.Error() != "no Pod found" {
+			return false, err
+		}
+		_, err = GetVeleroDeployment(c, namespace)
+		if !apierrors.IsNotFound(err) {
+			return false, err
+		}
+		return true, nil
 	}
 }
 

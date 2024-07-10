@@ -76,8 +76,12 @@ func prepareBackupAndRestore(brCase BackupRestoreCase, updateLastInstallTime fun
 	err = dpaCR.CreateOrUpdate(runTimeClientForSuiteRun, &dpaCR.CustomResource.Spec)
 	Expect(err).NotTo(HaveOccurred())
 
+	// TODO
+	log.Printf("DEBUG 1:\n%#v", dpaCR.SnapshotLocations)
+	log.Printf("DEBUG 2:\n%#v", dpaCR.VeleroDefaultPlugins)
+
 	log.Print("Checking if DPA is reconciled")
-	Eventually(dpaCR.IsReconciled(), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
+	Eventually(dpaCR.IsReconciledTrue(), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 
 	log.Print("Checking if velero Pod is running")
 	Eventually(VeleroPodIsRunning(kubernetesClientForSuiteRun, namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())

@@ -25,11 +25,6 @@ func GetNodeAgentDaemonSet(c *kubernetes.Clientset, namespace string) (*appsv1.D
 func AreNodeAgentPodsRunning(c *kubernetes.Clientset, namespace string) wait.ConditionFunc {
 	log.Printf("Checking for correct number of running Node Agent Pods...")
 	return func() (bool, error) {
-		podList, err := GetAllPodsWithLabel(c, namespace, "name="+common.NodeAgent)
-		if err != nil {
-			return false, err
-		}
-
 		nodeAgentDaemonSet, err := GetNodeAgentDaemonSet(c, namespace)
 		if err != nil {
 			return false, err
@@ -38,8 +33,16 @@ func AreNodeAgentPodsRunning(c *kubernetes.Clientset, namespace string) wait.Con
 		numScheduled := nodeAgentDaemonSet.Status.CurrentNumberScheduled
 		numDesired := nodeAgentDaemonSet.Status.DesiredNumberScheduled
 		// check correct number of NodeAgent Pods are initialized
-		if numScheduled != numDesired || numDesired != int32(len(podList.Items)) {
+		if numScheduled != numDesired {
 			return false, fmt.Errorf("wrong number of Node Agent Pods")
+		}
+		if numDesired == 0 {
+			return true, nil
+		}
+
+		podList, err := GetAllPodsWithLabel(c, namespace, "name="+common.NodeAgent)
+		if err != nil {
+			return false, err
 		}
 
 		for _, pod := range podList.Items {

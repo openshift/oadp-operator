@@ -41,18 +41,24 @@ var _ = Describe("Subscription Config Suite Test", func() {
 
 			if testCase.failureExpected != nil && *testCase.failureExpected {
 				haveErrorMessage := func() bool {
-					podLogs, err := GetManagerPodLogs(kubernetesClientForSuiteRun, namespace)
+					controllerManagerPods, err := GetAllPodsWithLabel(kubernetesClientForSuiteRun, namespace, "control-plane=controller-manager")
 					if err != nil {
 						return false
 					}
-					if strings.Contains(podLogs, "error setting privileged pod security labels to operator namespace") && strings.Contains(podLogs, "connect: connection refused") {
-						log.Printf("found error message in controller manager Pod")
-						return true
+					for _, pod := range controllerManagerPods.Items {
+						podLogs, err := GetPodContainerLogs(kubernetesClientForSuiteRun, namespace, pod.Name, "manager")
+						if err != nil {
+							return false
+						}
+						if strings.Contains(podLogs, "error setting privileged pod security labels to operator namespace") && strings.Contains(podLogs, "connect: connection refused") {
+							log.Printf("found error message in controller manager Pod")
+							return true
+						}
 					}
 					return false
 				}
 				Eventually(haveErrorMessage, time.Minute*1, time.Second*5).Should(BeTrue())
-				// TODO wait CSV change to failure
+				// TODO can not wait to CSV change to failure, otherwise following tests get stuck
 			} else {
 				log.Printf("Wait for CSV to be succeeded")
 				Eventually(s.CsvIsReady(runTimeClientForSuiteRun), time.Minute*7, time.Second*5).Should(BeTrue())
@@ -60,26 +66,26 @@ var _ = Describe("Subscription Config Suite Test", func() {
 				Eventually(ManagerPodIsUp(kubernetesClientForSuiteRun, namespace), time.Minute*8, time.Second*5).Should(BeTrue())
 
 				log.Printf("Creating test DPA")
-				err = dpaCR.Build(CSI)
+				err = dpaCR.Build(RESTIC)
 				Expect(err).NotTo(HaveOccurred())
-				//also test restic
-				dpaCR.CustomResource.Spec.Configuration.NodeAgent.Enable = ptr.To(true)
-				dpaCR.CustomResource.Spec.Configuration.NodeAgent.UploaderType = "restic"
 				err = dpaCR.CreateOrUpdate(runTimeClientForSuiteRun, &dpaCR.CustomResource.Spec)
 				Expect(err).NotTo(HaveOccurred())
 
+				// TODO
+				log.Printf("DEBUG 1:\n%#v", dpaCR.SnapshotLocations)
+				log.Printf("DEBUG 2:\n%#v", dpaCR.VeleroDefaultPlugins)
+
 				log.Print("Checking if DPA is reconciled")
-				Eventually(dpaCR.IsReconciled(), timeoutMultiplier*time.Minute*1, time.Second*5).Should(BeTrue())
+				Eventually(dpaCR.IsReconciledTrue(), timeoutMultiplier*time.Minute*1, time.Second*5).Should(BeTrue())
 
 				log.Printf("Getting DPA object")
 				dpa, err := dpaCR.Get()
 				Expect(err).NotTo(HaveOccurred())
 
-				log.Printf("Waiting for velero pod to be running")
+				log.Printf("Waiting for velero Pod to be running")
 				Eventually(VeleroPodIsRunning(kubernetesClientForSuiteRun, namespace), timeoutMultiplier*time.Minute*1, time.Second*5).Should(BeTrue())
-				// TODO if seems unnecessary
 				if dpa.Spec.Configuration.NodeAgent.Enable != nil && *dpa.Spec.Configuration.NodeAgent.Enable {
-					log.Printf("Waiting for Node Agent pods to be running")
+					log.Printf("Waiting for Node Agent Pods to be running")
 					Eventually(AreNodeAgentPodsRunning(kubernetesClientForSuiteRun, namespace), timeoutMultiplier*time.Minute*1, time.Second*5).Should(BeTrue())
 				}
 
