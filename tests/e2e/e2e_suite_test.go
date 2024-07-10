@@ -33,9 +33,9 @@ import (
 
 var (
 	// Common vars obtained from flags passed in ginkgo.
-	bslCredFile, namespace, credSecretRef, instanceName, provider, vslCredFile, settings, artifact_dir, oc_cli, stream string
-	timeoutMultiplierInput, flakeAttempts                                                                              int64
-	timeoutMultiplier                                                                                                  time.Duration
+	bslCredFile, namespace, instanceName, provider, vslCredFile, settings, artifact_dir, oc_cli, stream string
+	timeoutMultiplierInput, flakeAttempts                                                               int64
+	timeoutMultiplier                                                                                   time.Duration
 
 	kubernetesClientForSuiteRun *kubernetes.Clientset
 	runTimeClientForSuiteRun    client.Client
@@ -45,7 +45,7 @@ var (
 	dpaCR                           *DpaCustomResource
 	bslSecretName                   string
 	bslSecretNameWithCarriageReturn string
-	// TODO vsl secret name
+	vslSecretName                   string
 
 	knownFlake          bool
 	accumulatedTestLogs []string
@@ -59,8 +59,6 @@ func init() {
 	flag.StringVar(&namespace, "velero_namespace", "velero", "Velero Namespace")
 	flag.StringVar(&settings, "settings", "./templates/default_settings.json", "Settings of the velero instance")
 	flag.StringVar(&instanceName, "velero_instance_name", "example-velero", "Velero Instance Name")
-	// TODO remove
-	flag.StringVar(&credSecretRef, "creds_secret_ref", "cloud-credentials", "Credential secret ref (name) for volume storage location")
 	flag.StringVar(&provider, "provider", "aws", "Cloud provider")
 	flag.StringVar(&artifact_dir, "artifact_dir", "/tmp", "Directory for storing must gather")
 	flag.StringVar(&oc_cli, "oc_cli", "oc", "OC CLI Client")
@@ -86,9 +84,6 @@ func init() {
 		}
 		if os.Getenv("VELERO_INSTANCE_NAME") != "" {
 			instanceName = os.Getenv("VELERO_INSTANCE_NAME")
-		}
-		if os.Getenv("CREDS_SECRET_REF") != "" {
-			credSecretRef = os.Getenv("CREDS_SECRET_REF")
 		}
 		if os.Getenv("PROVIDER") != "" {
 			provider = os.Getenv("PROVIDER")
@@ -158,7 +153,7 @@ func TestOADPE2E(t *testing.T) {
 
 	bslSecretName = "bsl-cloud-credentials-" + provider
 	bslSecretNameWithCarriageReturn = "bsl-cloud-credentials-" + provider + "-with-carriage-return"
-	// TODO vsl secret name
+	vslSecretName = "vsl-cloud-credentials-" + provider
 
 	veleroPrefix := "velero-e2e-" + string(uuid.NewUUID())
 
@@ -166,7 +161,6 @@ func TestOADPE2E(t *testing.T) {
 		Name:                 "ts-" + instanceName,
 		Namespace:            namespace,
 		Provider:             provider,
-		CustomResource:       dpa.DeepCopy(),
 		Client:               runTimeClientForSuiteRun,
 		BSLSecretName:        bslSecretName,
 		BSLConfig:            dpa.DeepCopy().Spec.BackupLocations[0].Velero.Config,
@@ -199,13 +193,13 @@ var _ = BeforeSuite(func() {
 
 	vslCredFileData, err := utils.ReadFile(vslCredFile)
 	Expect(err).NotTo(HaveOccurred())
-	err = CreateCredentialsSecret(kubernetesClientForSuiteRun, vslCredFileData, namespace, credSecretRef)
+	err = CreateCredentialsSecret(kubernetesClientForSuiteRun, vslCredFileData, namespace, vslSecretName)
 	Expect(err).NotTo(HaveOccurred())
 })
 
 var _ = AfterSuite(func() {
 	log.Printf("Deleting Secrets")
-	err := DeleteSecret(kubernetesClientForSuiteRun, namespace, credSecretRef)
+	err := DeleteSecret(kubernetesClientForSuiteRun, namespace, vslSecretName)
 	Expect(err).ToNot(HaveOccurred())
 	err = DeleteSecret(kubernetesClientForSuiteRun, namespace, bslSecretName)
 	Expect(err).ToNot(HaveOccurred())

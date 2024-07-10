@@ -75,50 +75,44 @@ var _ = ginkgo.Describe("OADP upgrade scenarios", ginkgo.Ordered, func() {
 			// create DPA after controller-manager Pod is running
 			gomega.Eventually(lib.ManagerPodIsUp(kubernetesClientForSuiteRun, namespace), time.Minute*8, time.Second*15).Should(gomega.BeTrue())
 			log.Print("Creating DPA")
-			dpaCR.CustomResource = &oadpv1alpha1.DataProtectionApplication{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      dpaCR.Name,
-					Namespace: dpaCR.Namespace,
-				},
-				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
-					Configuration: &oadpv1alpha1.ApplicationConfig{
-						Velero: &oadpv1alpha1.VeleroConfig{
-							LogLevel:       "debug",
-							DefaultPlugins: append(dpaCR.VeleroDefaultPlugins, oadpv1alpha1.DefaultPluginCSI),
-							FeatureFlags:   append(dpaCR.CustomResource.Spec.Configuration.Velero.FeatureFlags, velerov1.CSIFeatureFlag),
-						},
-						NodeAgent: &oadpv1alpha1.NodeAgentConfig{
-							UploaderType: "kopia",
-							NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
-								PodConfig: &oadpv1alpha1.PodConfig{},
-								Enable:    ptr.To(false),
-							},
+			dpaSpec := &oadpv1alpha1.DataProtectionApplicationSpec{
+				Configuration: &oadpv1alpha1.ApplicationConfig{
+					Velero: &oadpv1alpha1.VeleroConfig{
+						LogLevel:       "debug",
+						DefaultPlugins: append(dpaCR.VeleroDefaultPlugins, oadpv1alpha1.DefaultPluginCSI),
+						FeatureFlags:   []string{velerov1.CSIFeatureFlag},
+					},
+					NodeAgent: &oadpv1alpha1.NodeAgentConfig{
+						UploaderType: "kopia",
+						NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
+							PodConfig: &oadpv1alpha1.PodConfig{},
+							Enable:    ptr.To(false),
 						},
 					},
-					BackupLocations: []oadpv1alpha1.BackupLocation{
-						{
-							Velero: &velerov1.BackupStorageLocationSpec{
-								Provider: dpaCR.BSLProvider,
-								Default:  true,
-								Config:   dpaCR.BSLConfig,
-								Credential: &corev1.SecretKeySelector{
-									LocalObjectReference: corev1.LocalObjectReference{
-										Name: bslSecretName,
-									},
-									Key: "cloud",
+				},
+				BackupLocations: []oadpv1alpha1.BackupLocation{
+					{
+						Velero: &velerov1.BackupStorageLocationSpec{
+							Provider: dpaCR.BSLProvider,
+							Default:  true,
+							Config:   dpaCR.BSLConfig,
+							Credential: &corev1.SecretKeySelector{
+								LocalObjectReference: corev1.LocalObjectReference{
+									Name: bslSecretName,
 								},
-								StorageType: velerov1.StorageType{
-									ObjectStorage: &velerov1.ObjectStorageLocation{
-										Bucket: dpaCR.BSLBucket,
-										Prefix: dpaCR.BSLBucketPrefix,
-									},
+								Key: "cloud",
+							},
+							StorageType: velerov1.StorageType{
+								ObjectStorage: &velerov1.ObjectStorageLocation{
+									Bucket: dpaCR.BSLBucket,
+									Prefix: dpaCR.BSLBucketPrefix,
 								},
 							},
 						},
 					},
 				},
 			}
-			err = dpaCR.CreateOrUpdate(runTimeClientForSuiteRun, &dpaCR.CustomResource.Spec)
+			err = dpaCR.CreateOrUpdate(runTimeClientForSuiteRun, dpaSpec)
 			gomega.Expect(err).To(gomega.BeNil())
 
 			// check that DPA is reconciled

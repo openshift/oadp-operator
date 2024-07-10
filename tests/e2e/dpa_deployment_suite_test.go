@@ -28,6 +28,7 @@ type TestDPASpec struct {
 	EnableNodeAgent         bool
 	NoDefaultBackupLocation bool
 	s3ForcePathStyle        bool
+	NoS3ForcePathStyle      bool
 	NoRegion                bool
 	DoNotBackupImages       bool
 	UnsupportedOverrides    map[oadpv1alpha1.UnsupportedImageKey]string
@@ -82,13 +83,21 @@ func createTestDPASpec(testSpec TestDPASpec) *oadpv1alpha1.DataProtectionApplica
 			},
 		}
 	}
+	if len(testSpec.SnapshotLocations) > 0 {
+		dpaSpec.SnapshotLocations[0].Velero.Credential = &corev1.SecretKeySelector{
+			LocalObjectReference: corev1.LocalObjectReference{
+				Name: vslSecretName,
+			},
+			Key: "cloud",
+		}
+	}
 	if testSpec.NoDefaultBackupLocation {
 		dpaSpec.Configuration.Velero.NoDefaultBackupLocation = true
 		dpaSpec.BackupLocations = []oadpv1alpha1.BackupLocation{}
 	}
 	if testSpec.s3ForcePathStyle {
 		configWithS3ForcePathStyle := map[string]string{}
-		for key, value := range dpaCR.BSLConfig {
+		for key, value := range dpaSpec.BackupLocations[0].Velero.Config {
 			configWithS3ForcePathStyle[key] = value
 		}
 		configWithS3ForcePathStyle["s3ForcePathStyle"] = "true"
@@ -96,8 +105,17 @@ func createTestDPASpec(testSpec TestDPASpec) *oadpv1alpha1.DataProtectionApplica
 	}
 	if testSpec.NoRegion {
 		configWithoutRegion := map[string]string{}
-		for key, value := range dpaCR.BSLConfig {
+		for key, value := range dpaSpec.BackupLocations[0].Velero.Config {
 			if key != "region" {
+				configWithoutRegion[key] = value
+			}
+		}
+		dpaSpec.BackupLocations[0].Velero.Config = configWithoutRegion
+	}
+	if testSpec.NoS3ForcePathStyle {
+		configWithoutRegion := map[string]string{}
+		for key, value := range dpaSpec.BackupLocations[0].Velero.Config {
+			if key != "s3ForcePathStyle" {
 				configWithoutRegion[key] = value
 			}
 		}
@@ -297,7 +315,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 				},
 			}),
 		}),
-		Entry("DPA CR with BSL and VSL", Label("aws", "azure", "gcp"), InstallCase{
+		Entry("DPA CR with VSL", Label("aws", "azure", "gcp"), InstallCase{
 			DpaSpec: createTestDPASpec(TestDPASpec{
 				BSLSecretName:     bslSecretName,
 				SnapshotLocations: dpaCR.SnapshotLocations,
@@ -339,12 +357,13 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 				s3ForcePathStyle: true,
 			}),
 		}),
-		Entry("DPA CR without Region and with BackupImages false", Label("aws", "ibmcloud"), InstallCase{
+		Entry("DPA CR without Region, without S3ForcePathStyle and with BackupImages false", Label("aws"), InstallCase{
 			// TODO fails with ibm: region for AWS backupstoragelocation not automatically discoverable. Please set the region in the backupstoragelocation config
 			DpaSpec: createTestDPASpec(TestDPASpec{
-				BSLSecretName:     bslSecretName,
-				NoRegion:          true,
-				DoNotBackupImages: true,
+				BSLSecretName:      bslSecretName,
+				NoRegion:           true,
+				NoS3ForcePathStyle: true,
+				DoNotBackupImages:  true,
 			}),
 		}),
 		Entry("DPA CR with unsupportedOverrides", Label("aws", "ibmcloud"), InstallCase{
@@ -366,25 +385,19 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 			log.Printf("Test case expected to error. Waiting for the error to show in DPA Status")
 			Eventually(dpaCR.IsReconciledFalse(message), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 		},
-		Entry("DPA CR without Region and S3ForcePathStyle true", Label("aws", "ibmcloud"), InstallCase{
+		Entry("DPA CR without Region and with S3ForcePathStyle true", Label("aws", "ibmcloud"), InstallCase{
 			DpaSpec: createTestDPASpec(TestDPASpec{
 				BSLSecretName:    bslSecretName,
-				s3ForcePathStyle: true,
 				NoRegion:         true,
+				s3ForcePathStyle: true,
 			}),
 		}, "region for AWS backupstoragelocation not automatically discoverable. Please set the region in the backupstoragelocation config"),
 	)
 
 	DescribeTable("DPA Deletion test",
 		func() {
-			log.Printf("Building DPA")
-			err := dpaCR.Build(KOPIA)
-			Expect(err).NotTo(HaveOccurred())
 			log.Printf("Creating DPA")
-			err = dpaCR.CreateOrUpdate(runTimeClientForSuiteRun, &dpaCR.CustomResource.Spec)
-			// TODO
-			log.Printf("DEBUG 1:\n%#v", dpaCR.SnapshotLocations)
-			log.Printf("DEBUG 2:\n%#v", dpaCR.VeleroDefaultPlugins)
+			err := dpaCR.CreateOrUpdate(runTimeClientForSuiteRun, dpaCR.Build(KOPIA))
 			Expect(err).NotTo(HaveOccurred())
 			log.Printf("Waiting for velero Pod to be running")
 			Eventually(VeleroPodIsRunning(kubernetesClientForSuiteRun, namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())

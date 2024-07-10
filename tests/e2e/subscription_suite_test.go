@@ -66,14 +66,8 @@ var _ = Describe("Subscription Config Suite Test", func() {
 				Eventually(ManagerPodIsUp(kubernetesClientForSuiteRun, namespace), time.Minute*8, time.Second*5).Should(BeTrue())
 
 				log.Printf("Creating test DPA")
-				err = dpaCR.Build(RESTIC)
+				err = dpaCR.CreateOrUpdate(runTimeClientForSuiteRun, dpaCR.Build(RESTIC))
 				Expect(err).NotTo(HaveOccurred())
-				err = dpaCR.CreateOrUpdate(runTimeClientForSuiteRun, &dpaCR.CustomResource.Spec)
-				Expect(err).NotTo(HaveOccurred())
-
-				// TODO
-				log.Printf("DEBUG 1:\n%#v", dpaCR.SnapshotLocations)
-				log.Printf("DEBUG 2:\n%#v", dpaCR.VeleroDefaultPlugins)
 
 				log.Print("Checking if DPA is reconciled")
 				Eventually(dpaCR.IsReconciledTrue(), timeoutMultiplier*time.Minute*1, time.Second*5).Should(BeTrue())

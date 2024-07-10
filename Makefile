@@ -17,8 +17,6 @@ VSL_REGION ?= ${LEASED_RESOURCE}
 BSL_AWS_PROFILE ?= default
 # BSL_AWS_PROFILE ?= migration-engineering
 
-# vsl secret
-CREDS_SECRET_REF ?= cloud-credentials-aws
 # bucket file
 OADP_BUCKET_FILE ?= ${OADP_CRED_DIR}/new-velero-bucket-name
 # azure cluster resource file - only in CI
@@ -45,7 +43,6 @@ CLUSTER_TYPE ?= $(CLUSTER_TYPE_SHELL)
 ifeq ($(CLUSTER_TYPE), gcp)
 	CI_CRED_FILE = ${CLUSTER_PROFILE_DIR}/gce.json
 	OADP_CRED_FILE = ${OADP_CRED_DIR}/gcp-credentials
-	CREDS_SECRET_REF = cloud-credentials-gcp
 	OADP_BUCKET_FILE = ${OADP_CRED_DIR}/gcp-velero-bucket-name
 endif
 
@@ -56,7 +53,6 @@ endif
 ifeq ($(CLUSTER_TYPE), azure)
 	CI_CRED_FILE = /tmp/ci-azure-credentials
 	OADP_CRED_FILE = /tmp/oadp-azure-credentials
-	CREDS_SECRET_REF = cloud-credentials-azure
 	OADP_BUCKET_FILE = ${OADP_CRED_DIR}/azure-velero-bucket-name
 endif
 
@@ -509,7 +505,6 @@ test-e2e-setup: login-required
 	TMP_DIR=$(SETTINGS_TMP) \
 	OPENSHIFT_CI="$(OPENSHIFT_CI)" \
 	PROVIDER="$(VELERO_PLUGIN)" \
-	SECRET="$(CREDS_SECRET_REF)" \
 	AZURE_RESOURCE_FILE="$(AZURE_RESOURCE_FILE)" \
 	CI_JSON_CRED_FILE="$(AZURE_CI_JSON_CRED_FILE)" \
 	OADP_JSON_CRED_FILE="$(AZURE_OADP_JSON_CRED_FILE)" \
@@ -526,7 +521,6 @@ test-e2e: test-e2e-setup install-ginkgo
 	ginkgo run -mod=mod tests/e2e/ -- \
 	-settings=$(SETTINGS_TMP)/oadpcreds \
 	-provider=$(CLUSTER_TYPE) \
-	-creds_secret_ref=$(CREDS_SECRET_REF) \
 	-credentials=$(OADP_CRED_FILE) \
 	-ci_cred_file=$(CI_CRED_FILE) \
 	-velero_namespace=$(OADP_TEST_NAMESPACE) \

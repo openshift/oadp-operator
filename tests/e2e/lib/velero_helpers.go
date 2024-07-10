@@ -101,11 +101,11 @@ func VeleroPodIsUpdated(c *kubernetes.Clientset, namespace string, updateTime ti
 func VeleroIsDeleted(c *kubernetes.Clientset, namespace string) wait.ConditionFunc {
 	return func() (bool, error) {
 		_, err := GetVeleroPod(c, namespace)
-		if err.Error() != "no Pod found" {
+		if err == nil || err.Error() != "no Pod found" {
 			return false, err
 		}
 		_, err = GetVeleroDeployment(c, namespace)
-		if !apierrors.IsNotFound(err) {
+		if err == nil || !apierrors.IsNotFound(err) {
 			return false, err
 		}
 		return true, nil
