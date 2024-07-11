@@ -74,3 +74,4 @@ data:
 - If the Unsupported args annotation exists on the DPA and the configmap corresponding to the value of the annotation:
   - is empty: then no error on DPA
   - does not exist: then DPA status is in error state
+- The server args and values specified in the configmaps will override all the existing server args.
