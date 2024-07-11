@@ -304,39 +304,50 @@ func (r *DPAReconciler) customizeNodeAgentDaemonset(dpa *oadpv1alpha1.DataProtec
 	for i, container := range ds.Spec.Template.Spec.Containers {
 		if container.Name == common.NodeAgent {
 			nodeAgentContainer = &ds.Spec.Template.Spec.Containers[i]
+
+			// append certs volume mount
+			nodeAgentContainer.VolumeMounts = append(nodeAgentContainer.VolumeMounts, corev1.VolumeMount{
+				Name:      "certs",
+				MountPath: "/etc/ssl/certs",
+			})
+			// append PodConfig envs to nodeAgent container
+			if useResticConf {
+				if dpa.Spec.Configuration.Restic.PodConfig != nil && dpa.Spec.Configuration.Restic.PodConfig.Env != nil {
+					nodeAgentContainer.Env = common.AppendUniqueEnvVars(nodeAgentContainer.Env, dpa.Spec.Configuration.Restic.PodConfig.Env)
+				}
+			} else if dpa.Spec.Configuration.NodeAgent.PodConfig != nil && dpa.Spec.Configuration.NodeAgent.PodConfig.Env != nil {
+				nodeAgentContainer.Env = common.AppendUniqueEnvVars(nodeAgentContainer.Env, dpa.Spec.Configuration.NodeAgent.PodConfig.Env)
+			}
+
+			// append env vars to the nodeAgent container
+			nodeAgentContainer.Env = common.AppendUniqueEnvVars(nodeAgentContainer.Env, proxy.ReadProxyVarsFromEnv())
+
+			nodeAgentContainer.SecurityContext = &corev1.SecurityContext{
+				Privileged: pointer.Bool(true),
+			}
+
+			imagePullPolicy, err := common.GetImagePullPolicy(getVeleroImage(dpa))
+			if err != nil {
+				r.Log.Error(err, "imagePullPolicy regex failed")
+			}
+
+			nodeAgentContainer.ImagePullPolicy = imagePullPolicy
+			setContainerDefaults(nodeAgentContainer)
+
+			if configMapName, ok := dpa.Annotations[common.UnsupportedNodeAgentServerArgsAnnotation]; ok {
+				if configMapName != "" {
+					unsupportedServerArgsCM := corev1.ConfigMap{}
+					if err := r.Get(r.Context, types.NamespacedName{Namespace: dpa.Namespace, Name: configMapName}, &unsupportedServerArgsCM); err != nil {
+						return nil, err
+					}
+					if err := common.ApplyUnsupportedServerArgsOverride(nodeAgentContainer, unsupportedServerArgsCM, common.NodeAgent); err != nil {
+						return nil, err
+					}
+				}
+			}
+
 			break
 		}
-	}
-
-	if nodeAgentContainer != nil {
-		// append certs volume mount
-		nodeAgentContainer.VolumeMounts = append(nodeAgentContainer.VolumeMounts, corev1.VolumeMount{
-			Name:      "certs",
-			MountPath: "/etc/ssl/certs",
-		})
-		// append PodConfig envs to nodeAgent container
-		if useResticConf {
-			if dpa.Spec.Configuration.Restic.PodConfig != nil && dpa.Spec.Configuration.Restic.PodConfig.Env != nil {
-				nodeAgentContainer.Env = common.AppendUniqueEnvVars(nodeAgentContainer.Env, dpa.Spec.Configuration.Restic.PodConfig.Env)
-			}
-		} else if dpa.Spec.Configuration.NodeAgent.PodConfig != nil && dpa.Spec.Configuration.NodeAgent.PodConfig.Env != nil {
-			nodeAgentContainer.Env = common.AppendUniqueEnvVars(nodeAgentContainer.Env, dpa.Spec.Configuration.NodeAgent.PodConfig.Env)
-		}
-
-		// append env vars to the nodeAgent container
-		nodeAgentContainer.Env = common.AppendUniqueEnvVars(nodeAgentContainer.Env, proxy.ReadProxyVarsFromEnv())
-
-		nodeAgentContainer.SecurityContext = &corev1.SecurityContext{
-			Privileged: pointer.Bool(true),
-		}
-
-		imagePullPolicy, err := common.GetImagePullPolicy(getVeleroImage(dpa))
-		if err != nil {
-			r.Log.Error(err, "imagePullPolicy regex failed")
-		}
-
-		nodeAgentContainer.ImagePullPolicy = imagePullPolicy
-		setContainerDefaults(nodeAgentContainer)
 	}
 
 	// attach DNS policy and config if enabled
@@ -369,6 +380,7 @@ func (r *DPAReconciler) customizeNodeAgentDaemonset(dpa *oadpv1alpha1.DataProtec
 	if ds.Spec.RevisionHistoryLimit == nil {
 		ds.Spec.RevisionHistoryLimit = pointer.Int32(10)
 	}
+
 	return ds, nil
 }
 

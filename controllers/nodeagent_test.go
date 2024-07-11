@@ -69,14 +69,6 @@ func TestDPAReconciler_ReconcileNodeAgentDaemonset(t *testing.T) {
 }
 
 func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
-	type fields struct {
-		Client         client.Client
-		Scheme         *runtime.Scheme
-		Log            logr.Logger
-		Context        context.Context
-		NamespacedName types.NamespacedName
-		EventRecorder  record.EventRecorder
-	}
 	type args struct {
 		dpa *oadpv1alpha1.DataProtectionApplication
 		ds  *appsv1.DaemonSet
@@ -95,15 +87,14 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 		},
 	}
 	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		want    *appsv1.DaemonSet
-		wantErr bool
+		name          string
+		args          args
+		want          *appsv1.DaemonSet
+		wantErr       bool
+		clientObjects []client.Object
 	}{
 		{
-			name:   "dpa is nil",
-			fields: fields{NamespacedName: types.NamespacedName{Namespace: "velero"}},
+			name: "dpa is nil",
 			args: args{
 				nil, &appsv1.DaemonSet{},
 			},
@@ -1953,7 +1944,431 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 			},
 		},
 		{
-			name: "Valid velero and daemonset for aws as bsl",
+			name: "Valid DPA CR with Unsupported NodeAgent Args, appropriate NodeAgent DaemonSet is built",
+			args: args{
+				&oadpv1alpha1.DataProtectionApplication{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "sample-dpa",
+						Namespace: "sample-ns",
+						Annotations: map[string]string{
+							common.UnsupportedNodeAgentServerArgsAnnotation: "unsupported-node-agent-server-args-cm",
+						},
+					},
+					Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+						Configuration: &oadpv1alpha1.ApplicationConfig{
+							NodeAgent: &oadpv1alpha1.NodeAgentConfig{
+								NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
+									PodConfig: &oadpv1alpha1.PodConfig{},
+								},
+								UploaderType: "",
+							},
+							Velero: &oadpv1alpha1.VeleroConfig{
+								PodConfig: &oadpv1alpha1.PodConfig{},
+								DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+									oadpv1alpha1.DefaultPluginAWS,
+								},
+							},
+						},
+					},
+				}, &appsv1.DaemonSet{
+					ObjectMeta: getNodeAgentObjectMeta(r),
+				},
+			},
+			clientObjects: []client.Object{
+				&corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "unsupported-node-agent-server-args-cm",
+						Namespace: "sample-ns",
+					},
+					Data: map[string]string{
+						"unsupported-arg":      "value1",
+						"unsupported-bool-arg": "True",
+					},
+				},
+			},
+			wantErr: false,
+			want: &appsv1.DaemonSet{
+				ObjectMeta: getNodeAgentObjectMeta(r),
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "DaemonSet",
+					APIVersion: appsv1.SchemeGroupVersion.String(),
+				},
+				Spec: appsv1.DaemonSetSpec{
+					UpdateStrategy: appsv1.DaemonSetUpdateStrategy{
+						Type: appsv1.RollingUpdateDaemonSetStrategyType,
+					},
+					Selector: nodeAgentLabelSelector,
+					Template: corev1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Labels: map[string]string{
+								"component": common.Velero,
+								"name":      common.NodeAgent,
+							},
+						},
+						Spec: corev1.PodSpec{
+							NodeSelector:       dpa.Spec.Configuration.NodeAgent.PodConfig.NodeSelector,
+							ServiceAccountName: common.Velero,
+							SecurityContext: &corev1.PodSecurityContext{
+								RunAsUser:          pointer.Int64(0),
+								SupplementalGroups: dpa.Spec.Configuration.NodeAgent.SupplementalGroups,
+							},
+							Volumes: []corev1.Volume{
+								// Cloud Provider volumes are dynamically added in the for loop below
+								{
+									Name: HostPods,
+									VolumeSource: corev1.VolumeSource{
+										HostPath: &corev1.HostPathVolumeSource{
+											Path: fsPvHostPath,
+										},
+									},
+								},
+								{
+									Name: HostPlugins,
+									VolumeSource: corev1.VolumeSource{
+										HostPath: &corev1.HostPathVolumeSource{
+											Path: "/var/lib/kubelet/plugins",
+										},
+									},
+								},
+								{
+									Name: "scratch",
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{},
+									},
+								},
+								{
+									Name: "certs",
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{},
+									},
+								},
+								{
+									Name: "cloud-credentials",
+									VolumeSource: corev1.VolumeSource{
+										Secret: &corev1.SecretVolumeSource{
+											SecretName: "cloud-credentials",
+										},
+									},
+								},
+							},
+							Tolerations: dpa.Spec.Configuration.NodeAgent.PodConfig.Tolerations,
+							Containers: []corev1.Container{
+								{
+									Name: common.NodeAgent,
+									SecurityContext: &corev1.SecurityContext{
+										Privileged: pointer.Bool(true),
+									},
+									Image:           getVeleroImage(&dpa),
+									ImagePullPolicy: corev1.PullAlways,
+									Command: []string{
+										"/velero",
+									},
+									Args: []string{
+										common.NodeAgent,
+										"server",
+										"--unsupported-arg=value1",
+										"--unsupported-bool-arg=true",
+									},
+									Ports: []corev1.ContainerPort{
+										{
+											Name:          "metrics",
+											ContainerPort: 8085,
+											Protocol:      "TCP",
+										},
+									},
+									VolumeMounts: []corev1.VolumeMount{
+										{
+											Name:             HostPods,
+											MountPath:        "/host_pods",
+											MountPropagation: &mountPropagationToHostContainer,
+										},
+										{
+											Name:             HostPlugins,
+											MountPath:        "/var/lib/kubelet/plugins",
+											MountPropagation: &mountPropagationToHostContainer,
+										},
+										{
+											Name:      "scratch",
+											MountPath: "/scratch",
+										},
+										{
+											Name:      "certs",
+											MountPath: "/etc/ssl/certs",
+										},
+										{
+											Name:      "cloud-credentials",
+											MountPath: "/credentials",
+										},
+									},
+									Resources: corev1.ResourceRequirements{
+										Requests: corev1.ResourceList{
+											corev1.ResourceCPU:    resource.MustParse("500m"),
+											corev1.ResourceMemory: resource.MustParse("128Mi"),
+										},
+									},
+									Env: []corev1.EnvVar{
+										{
+											Name: "NODE_NAME",
+											ValueFrom: &corev1.EnvVarSource{
+												FieldRef: &corev1.ObjectFieldSelector{
+													FieldPath: "spec.nodeName",
+												},
+											},
+										},
+										{
+											Name: "VELERO_NAMESPACE",
+											ValueFrom: &corev1.EnvVarSource{
+												FieldRef: &corev1.ObjectFieldSelector{
+													FieldPath: "metadata.namespace",
+												},
+											},
+										},
+										{
+											Name:  "VELERO_SCRATCH_DIR",
+											Value: "/scratch",
+										},
+										{
+											Name:  common.AWSSharedCredentialsFileEnvKey,
+											Value: "/credentials/cloud",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "Valid DPA CR with empty value for Unsupported NodeAgent Args cm annotation, appropriate NodeAgent DaemonSet is built",
+			args: args{
+				&oadpv1alpha1.DataProtectionApplication{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "sample-dpa",
+						Namespace: "sample-ns",
+						Annotations: map[string]string{
+							common.UnsupportedNodeAgentServerArgsAnnotation: "",
+						},
+					},
+					Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+						Configuration: &oadpv1alpha1.ApplicationConfig{
+							NodeAgent: &oadpv1alpha1.NodeAgentConfig{
+								NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
+									PodConfig: &oadpv1alpha1.PodConfig{},
+								},
+								UploaderType: "",
+							},
+							Velero: &oadpv1alpha1.VeleroConfig{
+								PodConfig: &oadpv1alpha1.PodConfig{},
+								DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+									oadpv1alpha1.DefaultPluginAWS,
+								},
+							},
+						},
+					},
+				}, &appsv1.DaemonSet{
+					ObjectMeta: getNodeAgentObjectMeta(r),
+				},
+			},
+			clientObjects: []client.Object{
+				&corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "unsupported-node-agent-server-args-cm",
+						Namespace: "sample-ns",
+					},
+					Data: map[string]string{
+						"unsupported-arg":      "value1",
+						"unsupported-bool-arg": "True",
+					},
+				},
+			},
+			wantErr: false,
+			want: &appsv1.DaemonSet{
+				ObjectMeta: getNodeAgentObjectMeta(r),
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "DaemonSet",
+					APIVersion: appsv1.SchemeGroupVersion.String(),
+				},
+				Spec: appsv1.DaemonSetSpec{
+					UpdateStrategy: appsv1.DaemonSetUpdateStrategy{
+						Type: appsv1.RollingUpdateDaemonSetStrategyType,
+					},
+					Selector: nodeAgentLabelSelector,
+					Template: corev1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Labels: map[string]string{
+								"component": common.Velero,
+								"name":      common.NodeAgent,
+							},
+						},
+						Spec: corev1.PodSpec{
+							NodeSelector:       dpa.Spec.Configuration.NodeAgent.PodConfig.NodeSelector,
+							ServiceAccountName: common.Velero,
+							SecurityContext: &corev1.PodSecurityContext{
+								RunAsUser:          pointer.Int64(0),
+								SupplementalGroups: dpa.Spec.Configuration.NodeAgent.SupplementalGroups,
+							},
+							Volumes: []corev1.Volume{
+								// Cloud Provider volumes are dynamically added in the for loop below
+								{
+									Name: HostPods,
+									VolumeSource: corev1.VolumeSource{
+										HostPath: &corev1.HostPathVolumeSource{
+											Path: fsPvHostPath,
+										},
+									},
+								},
+								{
+									Name: HostPlugins,
+									VolumeSource: corev1.VolumeSource{
+										HostPath: &corev1.HostPathVolumeSource{
+											Path: "/var/lib/kubelet/plugins",
+										},
+									},
+								},
+								{
+									Name: "scratch",
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{},
+									},
+								},
+								{
+									Name: "certs",
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{},
+									},
+								},
+								{
+									Name: "cloud-credentials",
+									VolumeSource: corev1.VolumeSource{
+										Secret: &corev1.SecretVolumeSource{
+											SecretName: "cloud-credentials",
+										},
+									},
+								},
+							},
+							Tolerations: dpa.Spec.Configuration.NodeAgent.PodConfig.Tolerations,
+							Containers: []corev1.Container{
+								{
+									Name: common.NodeAgent,
+									SecurityContext: &corev1.SecurityContext{
+										Privileged: pointer.Bool(true),
+									},
+									Image:           getVeleroImage(&dpa),
+									ImagePullPolicy: corev1.PullAlways,
+									Command: []string{
+										"/velero",
+									},
+									Args: []string{
+										common.NodeAgent,
+										"server",
+									},
+									Ports: []corev1.ContainerPort{
+										{
+											Name:          "metrics",
+											ContainerPort: 8085,
+											Protocol:      "TCP",
+										},
+									},
+									VolumeMounts: []corev1.VolumeMount{
+										{
+											Name:             HostPods,
+											MountPath:        "/host_pods",
+											MountPropagation: &mountPropagationToHostContainer,
+										},
+										{
+											Name:             HostPlugins,
+											MountPath:        "/var/lib/kubelet/plugins",
+											MountPropagation: &mountPropagationToHostContainer,
+										},
+										{
+											Name:      "scratch",
+											MountPath: "/scratch",
+										},
+										{
+											Name:      "certs",
+											MountPath: "/etc/ssl/certs",
+										},
+										{
+											Name:      "cloud-credentials",
+											MountPath: "/credentials",
+										},
+									},
+									Resources: corev1.ResourceRequirements{
+										Requests: corev1.ResourceList{
+											corev1.ResourceCPU:    resource.MustParse("500m"),
+											corev1.ResourceMemory: resource.MustParse("128Mi"),
+										},
+									},
+									Env: []corev1.EnvVar{
+										{
+											Name: "NODE_NAME",
+											ValueFrom: &corev1.EnvVarSource{
+												FieldRef: &corev1.ObjectFieldSelector{
+													FieldPath: "spec.nodeName",
+												},
+											},
+										},
+										{
+											Name: "VELERO_NAMESPACE",
+											ValueFrom: &corev1.EnvVarSource{
+												FieldRef: &corev1.ObjectFieldSelector{
+													FieldPath: "metadata.namespace",
+												},
+											},
+										},
+										{
+											Name:  "VELERO_SCRATCH_DIR",
+											Value: "/scratch",
+										},
+										{
+											Name:  common.AWSSharedCredentialsFileEnvKey,
+											Value: "/credentials/cloud",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "Valid DPA CR with Unsupported NodeAgent Args cm missing, DPA error case",
+			args: args{
+				&oadpv1alpha1.DataProtectionApplication{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "sample-dpa",
+						Namespace: "sample-ns",
+						Annotations: map[string]string{
+							common.UnsupportedNodeAgentServerArgsAnnotation: "unsupported-node-agent-server-args-cm",
+						},
+					},
+					Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+						Configuration: &oadpv1alpha1.ApplicationConfig{
+							NodeAgent: &oadpv1alpha1.NodeAgentConfig{
+								NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
+									PodConfig: &oadpv1alpha1.PodConfig{},
+								},
+								UploaderType: "",
+							},
+							Velero: &oadpv1alpha1.VeleroConfig{
+								PodConfig: &oadpv1alpha1.PodConfig{},
+								DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+									oadpv1alpha1.DefaultPluginAWS,
+								},
+							},
+						},
+					},
+				}, &appsv1.DaemonSet{
+					ObjectMeta: getNodeAgentObjectMeta(r),
+				},
+			},
+			wantErr: true,
+			want:    nil,
+		},
+		{
+			name: "Valid velero and daemon set for aws as bsl",
 			args: args{
 				&oadpv1alpha1.DataProtectionApplication{
 					Spec: oadpv1alpha1.DataProtectionApplicationSpec{
@@ -2535,13 +2950,12 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			fakeClient, err := getFakeClientFromObjects(tt.clientObjects...)
+			if err != nil {
+				t.Errorf("error in creating fake client, likely programmer error")
+			}
 			r := &DPAReconciler{
-				Client:         tt.fields.Client,
-				Scheme:         tt.fields.Scheme,
-				Log:            tt.fields.Log,
-				Context:        tt.fields.Context,
-				NamespacedName: tt.fields.NamespacedName,
-				EventRecorder:  tt.fields.EventRecorder,
+				Client: fakeClient,
 			}
 			got, err := r.buildNodeAgentDaemonset(tt.args.dpa, tt.args.ds)
 			if (err != nil) != tt.wantErr {
