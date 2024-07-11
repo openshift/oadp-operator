@@ -104,7 +104,7 @@ func runVmBackupAndRestore(brCase VmBackupRestoreCase, expectedErr error, update
 	nsRequiresResticDCWorkaround := runBackup(brCase.BackupRestoreCase, backupName)
 
 	// Delete everything in test namespace
-	err = v.RemoveVm(brCase.Namespace, brCase.Name, 2*time.Minute)
+	err = v.RemoveVm(brCase.Namespace, brCase.Name, 5*time.Minute)
 	gomega.Expect(err).To(gomega.BeNil())
 	err = lib.DeleteNamespace(v.Clientset, brCase.Namespace)
 	gomega.Expect(err).To(gomega.BeNil())
