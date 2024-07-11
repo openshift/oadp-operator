@@ -27,7 +27,6 @@ AZURE_OADP_JSON_CRED_FILE ?= ${OADP_CRED_DIR}/azure-credentials
 # Misc
 OPENSHIFT_CI ?= true
 VELERO_INSTANCE_NAME ?= velero-test
-E2E_TIMEOUT_MULTIPLIER ?= 1
 ARTIFACT_DIR ?= /tmp
 OC_CLI = $(shell which oc)
 TEST_VIRT ?= false
@@ -525,7 +524,6 @@ test-e2e: test-e2e-setup install-ginkgo
 	-ci_cred_file=$(CI_CRED_FILE) \
 	-velero_namespace=$(OADP_TEST_NAMESPACE) \
 	-velero_instance_name=$(VELERO_INSTANCE_NAME) \
-	-timeout_multiplier=$(E2E_TIMEOUT_MULTIPLIER) \
 	-artifact_dir=$(ARTIFACT_DIR) \
 	-oc_cli=$(OC_CLI) \
 	--ginkgo.vv \

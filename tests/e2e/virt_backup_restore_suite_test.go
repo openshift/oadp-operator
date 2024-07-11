@@ -106,7 +106,7 @@ func runVmBackupAndRestore(brCase VmBackupRestoreCase, expectedErr error, update
 	Expect(err).To(BeNil())
 	err = lib.DeleteNamespace(v.Clientset, brCase.Namespace)
 	Expect(err).To(BeNil())
-	Eventually(lib.IsNamespaceDeleted(kubernetesClientForSuiteRun, brCase.Namespace), timeoutMultiplier*time.Minute*5, time.Second*5).Should(BeTrue())
+	Eventually(lib.IsNamespaceDeleted(kubernetesClientForSuiteRun, brCase.Namespace), time.Minute*5, time.Second*5).Should(BeTrue())
 
 	// Do restore
 	runRestore(brCase.BackupRestoreCase, backupName, restoreName, nsRequiresResticDCWorkaround)

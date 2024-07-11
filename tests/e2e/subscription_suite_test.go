@@ -24,7 +24,7 @@ var _ = Describe("Subscription Config Suite Test", func() {
 		log.Printf("Deleting test DPA")
 		err := dpaCR.Delete()
 		Expect(err).ToNot(HaveOccurred())
-		Eventually(dpaCR.IsDeleted(), timeoutMultiplier*time.Minute*2, time.Second*5).Should(BeTrue())
+		Eventually(dpaCR.IsDeleted(), time.Minute*2, time.Second*5).Should(BeTrue())
 	})
 
 	DescribeTable("Proxy test table",
@@ -70,21 +70,21 @@ var _ = Describe("Subscription Config Suite Test", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				log.Print("Checking if DPA is reconciled")
-				Eventually(dpaCR.IsReconciledTrue(), timeoutMultiplier*time.Minute*1, time.Second*5).Should(BeTrue())
+				Eventually(dpaCR.IsReconciledTrue(), time.Minute*1, time.Second*5).Should(BeTrue())
 
 				log.Printf("Getting DPA object")
 				dpa, err := dpaCR.Get()
 				Expect(err).NotTo(HaveOccurred())
 
 				log.Printf("Waiting for velero Pod to be running")
-				Eventually(VeleroPodIsRunning(kubernetesClientForSuiteRun, namespace), timeoutMultiplier*time.Minute*1, time.Second*5).Should(BeTrue())
+				Eventually(VeleroPodIsRunning(kubernetesClientForSuiteRun, namespace), time.Minute*1, time.Second*5).Should(BeTrue())
 				if dpa.Spec.Configuration.NodeAgent.Enable != nil && *dpa.Spec.Configuration.NodeAgent.Enable {
 					log.Printf("Waiting for Node Agent Pods to be running")
-					Eventually(AreNodeAgentPodsRunning(kubernetesClientForSuiteRun, namespace), timeoutMultiplier*time.Minute*1, time.Second*5).Should(BeTrue())
+					Eventually(AreNodeAgentPodsRunning(kubernetesClientForSuiteRun, namespace), time.Minute*1, time.Second*5).Should(BeTrue())
 				}
 
 				log.Print("Checking if BSL is available")
-				Eventually(dpaCR.BSLsAreAvailable(), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
+				Eventually(dpaCR.BSLsAreAvailable(), time.Minute*3, time.Second*5).Should(BeTrue())
 
 				if s.Spec.Config != nil && s.Spec.Config.Env != nil {
 					// get pod env vars

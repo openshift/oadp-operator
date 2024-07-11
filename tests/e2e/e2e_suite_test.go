@@ -34,8 +34,7 @@ import (
 var (
 	// Common vars obtained from flags passed in ginkgo.
 	bslCredFile, namespace, instanceName, provider, vslCredFile, settings, artifact_dir, oc_cli, stream string
-	timeoutMultiplierInput, flakeAttempts                                                               int64
-	timeoutMultiplier                                                                                   time.Duration
+	flakeAttempts                                                                                       int64
 
 	kubernetesClientForSuiteRun *kubernetes.Clientset
 	runTimeClientForSuiteRun    client.Client
@@ -64,9 +63,6 @@ func init() {
 	flag.StringVar(&oc_cli, "oc_cli", "oc", "OC CLI Client")
 	flag.StringVar(&stream, "stream", "up", "[up, down] upstream or downstream")
 	flag.Int64Var(&flakeAttempts, "flakeAttempts", 3, "Customize the number of flake retries (3)")
-	// TODO remove
-	flag.Int64Var(&timeoutMultiplierInput, "timeout_multiplier", 1, "Customize timeout multiplier from default (1)")
-	timeoutMultiplier = time.Duration(timeoutMultiplierInput)
 
 	// helps with launching debug sessions from IDE
 	if os.Getenv("E2E_USE_ENV_FLAGS") == "true" {
@@ -170,9 +166,6 @@ func TestOADPE2E(t *testing.T) {
 		VeleroDefaultPlugins: dpa.DeepCopy().Spec.Configuration.Velero.DefaultPlugins,
 		SnapshotLocations:    dpa.DeepCopy().Spec.SnapshotLocations,
 	}
-	// TODO
-	log.Printf("DEBUG 1:\n%#v", dpaCR.SnapshotLocations)
-	log.Printf("DEBUG 2:\n%#v", dpaCR.VeleroDefaultPlugins)
 
 	RunSpecs(t, "OADP E2E using velero prefix: "+veleroPrefix)
 }
@@ -209,5 +202,5 @@ var _ = AfterSuite(func() {
 	log.Printf("Deleting DPA")
 	err = dpaCR.Delete()
 	Expect(err).ToNot(HaveOccurred())
-	Eventually(dpaCR.IsDeleted(), timeoutMultiplier*time.Minute*2, time.Second*5).Should(BeTrue())
+	Eventually(dpaCR.IsDeleted(), time.Minute*2, time.Second*5).Should(BeTrue())
 })
