@@ -2,7 +2,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.6.1
+    controller-gen.kubebuilder.io/version: v0.14.0
   creationTimestamp: null
   name: dataprotectionapplications.oadp.openshift.io
 spec:
@@ -22,10 +22,19 @@ spec:
           description: DataProtectionApplication is the Schema for the dpa API
           properties:
             apiVersion:
-              description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+              description: |-
+                APIVersion defines the versioned schema of this representation of an object.
+                Servers should convert recognized schemas to the latest internal value, and
+                may reject unrecognized values.
+                More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
               type: string
             kind:
-              description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+              description: |-
+                Kind is a string value representing the REST resource this object represents.
+                Servers may infer this from the endpoint the client submits requests to.
+                Cannot be updated.
+                In CamelCase.
+                More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
               type: string
             metadata:
               type: object
@@ -52,12 +61,18 @@ spec:
                             format: byte
                             type: string
                           cloudStorageRef:
-                            description: LocalObjectReference contains enough information to let you locate the referenced object inside the same namespace.
+                            description: |-
+                              LocalObjectReference contains enough information to let you locate the
+                              referenced object inside the same namespace.
                             properties:
                               name:
-                                description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?'
+                                description: |-
+                                  Name of the referent.
+                                  More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                  TODO: Add other useful fields. apiVersion, kind, uid?
                                 type: string
                             type: object
+                            x-kubernetes-map-type: atomic
                           config:
                             additionalProperties:
                               type: string
@@ -70,7 +85,10 @@ spec:
                                 description: The key of the secret to select from.  Must be a valid secret key.
                                 type: string
                               name:
-                                description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?'
+                                description: |-
+                                  Name of the referent.
+                                  More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                  TODO: Add other useful fields. apiVersion, kind, uid?
                                 type: string
                               optional:
                                 description: Specify whether the Secret or its key must be defined
@@ -78,6 +96,7 @@ spec:
                             required:
                               - key
                             type: object
+                            x-kubernetes-map-type: atomic
                           default:
                             description: default indicates this location is the default backup storage location.
                             type: boolean
@@ -114,7 +133,10 @@ spec:
                                 description: The key of the secret to select from.  Must be a valid secret key.
                                 type: string
                               name:
-                                description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?'
+                                description: |-
+                                  Name of the referent.
+                                  More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                  TODO: Add other useful fields. apiVersion, kind, uid?
                                 type: string
                               optional:
                                 description: Specify whether the Secret or its key must be defined
@@ -122,6 +144,7 @@ spec:
                             required:
                               - key
                             type: object
+                            x-kubernetes-map-type: atomic
                           default:
                             description: Default indicates this location is the default backup storage location.
                             type: boolean
@@ -161,7 +184,9 @@ spec:
                       description: NodeAgent is needed to allow selection between kopia or restic
                       properties:
                         enable:
-                          description: enable defines a boolean pointer whether we want the daemonset to exist or not
+                          description: |-
+                            enable defines a boolean pointer whether we want the daemonset to
+                            exist or not
                           type: boolean
                         podConfig:
                           description: Pod specific configuration
@@ -175,7 +200,16 @@ spec:
                                     description: Name of the environment variable. Must be a C_IDENTIFIER.
                                     type: string
                                   value:
-                                    description: 'Variable references $(VAR_NAME) are expanded using the previously defined environment variables in the container and any service environment variables. If a variable cannot be resolved, the reference in the input string will be unchanged. Double $$ are reduced to a single $, which allows for escaping the $(VAR_NAME) syntax: i.e. "$$(VAR_NAME)" will produce the string literal "$(VAR_NAME)". Escaped references will never be expanded, regardless of whether the variable exists or not. Defaults to "".'
+                                    description: |-
+                                      Variable references $(VAR_NAME) are expanded
+                                      using the previously defined environment variables in the container and
+                                      any service environment variables. If a variable cannot be resolved,
+                                      the reference in the input string will be unchanged. Double $$ are reduced
+                                      to a single $, which allows for escaping the $(VAR_NAME) syntax: i.e.
+                                      "$$(VAR_NAME)" will produce the string literal "$(VAR_NAME)".
+                                      Escaped references will never be expanded, regardless of whether the variable
+                                      exists or not.
+                                      Defaults to "".
                                     type: string
                                   valueFrom:
                                     description: Source for the environment variable's value. Cannot be used if value is not empty.
@@ -187,7 +221,10 @@ spec:
                                             description: The key to select.
                                             type: string
                                           name:
-                                            description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?'
+                                            description: |-
+                                              Name of the referent.
+                                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                              TODO: Add other useful fields. apiVersion, kind, uid?
                                             type: string
                                           optional:
                                             description: Specify whether the ConfigMap or its key must be defined
@@ -195,8 +232,11 @@ spec:
                                         required:
                                           - key
                                         type: object
+                                        x-kubernetes-map-type: atomic
                                       fieldRef:
-                                        description: 'Selects a field of the pod: supports metadata.name, metadata.namespace, `metadata.labels[''<KEY>'']`, `metadata.annotations[''<KEY>'']`, spec.nodeName, spec.serviceAccountName, status.hostIP, status.podIP, status.podIPs.'
+                                        description: |-
+                                          Selects a field of the pod: supports metadata.name, metadata.namespace, `metadata.labels['<KEY>']`, `metadata.annotations['<KEY>']`,
+                                          spec.nodeName, spec.serviceAccountName, status.hostIP, status.podIP, status.podIPs.
                                         properties:
                                           apiVersion:
                                             description: Version of the schema the FieldPath is written in terms of, defaults to "v1".
@@ -207,8 +247,11 @@ spec:
                                         required:
                                           - fieldPath
                                         type: object
+                                        x-kubernetes-map-type: atomic
                                       resourceFieldRef:
-                                        description: 'Selects a resource of the container: only resources limits and requests (limits.cpu, limits.memory, limits.ephemeral-storage, requests.cpu, requests.memory and requests.ephemeral-storage) are currently supported.'
+                                        description: |-
+                                          Selects a resource of the container: only resources limits and requests
+                                          (limits.cpu, limits.memory, limits.ephemeral-storage, requests.cpu, requests.memory and requests.ephemeral-storage) are currently supported.
                                         properties:
                                           containerName:
                                             description: 'Container name: required for volumes, optional for env vars'
@@ -226,6 +269,7 @@ spec:
                                         required:
                                           - resource
                                         type: object
+                                        x-kubernetes-map-type: atomic
                                       secretKeyRef:
                                         description: Selects a key of a secret in the pod's namespace
                                         properties:
@@ -233,7 +277,10 @@ spec:
                                             description: The key of the secret to select from.  Must be a valid secret key.
                                             type: string
                                           name:
-                                            description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?'
+                                            description: |-
+                                              Name of the referent.
+                                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                              TODO: Add other useful fields. apiVersion, kind, uid?
                                             type: string
                                           optional:
                                             description: Specify whether the Secret or its key must be defined
@@ -241,6 +288,7 @@ spec:
                                         required:
                                           - key
                                         type: object
+                                        x-kubernetes-map-type: atomic
                                     type: object
                                 required:
                                   - name
@@ -267,7 +315,9 @@ spec:
                                       - type: string
                                     pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                     x-kubernetes-int-or-string: true
-                                  description: 'Limits describes the maximum amount of compute resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                                  description: |-
+                                    Limits describes the maximum amount of compute resources allowed.
+                                    More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
                                   type: object
                                 requests:
                                   additionalProperties:
@@ -276,29 +326,49 @@ spec:
                                       - type: string
                                     pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                     x-kubernetes-int-or-string: true
-                                  description: 'Requests describes the minimum amount of compute resources required. If Requests is omitted for a container, it defaults to Limits if that is explicitly specified, otherwise to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                                  description: |-
+                                    Requests describes the minimum amount of compute resources required.
+                                    If Requests is omitted for a container, it defaults to Limits if that is explicitly specified,
+                                    otherwise to an implementation-defined value.
+                                    More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
                                   type: object
                               type: object
                             tolerations:
                               description: tolerations defines the list of tolerations to be applied to daemonset
                               items:
-                                description: The pod this Toleration is attached to tolerates any taint that matches the triple <key,value,effect> using the matching operator <operator>.
+                                description: |-
+                                  The pod this Toleration is attached to tolerates any taint that matches
+                                  the triple <key,value,effect> using the matching operator <operator>.
                                 properties:
                                   effect:
-                                    description: Effect indicates the taint effect to match. Empty means match all taint effects. When specified, allowed values are NoSchedule, PreferNoSchedule and NoExecute.
+                                    description: |-
+                                      Effect indicates the taint effect to match. Empty means match all taint effects.
+                                      When specified, allowed values are NoSchedule, PreferNoSchedule and NoExecute.
                                     type: string
                                   key:
-                                    description: Key is the taint key that the toleration applies to. Empty means match all taint keys. If the key is empty, operator must be Exists; this combination means to match all values and all keys.
+                                    description: |-
+                                      Key is the taint key that the toleration applies to. Empty means match all taint keys.
+                                      If the key is empty, operator must be Exists; this combination means to match all values and all keys.
                                     type: string
                                   operator:
-                                    description: Operator represents a key's relationship to the value. Valid operators are Exists and Equal. Defaults to Equal. Exists is equivalent to wildcard for value, so that a pod can tolerate all taints of a particular category.
+                                    description: |-
+                                      Operator represents a key's relationship to the value.
+                                      Valid operators are Exists and Equal. Defaults to Equal.
+                                      Exists is equivalent to wildcard for value, so that a pod can
+                                      tolerate all taints of a particular category.
                                     type: string
                                   tolerationSeconds:
-                                    description: TolerationSeconds represents the period of time the toleration (which must be of effect NoExecute, otherwise this field is ignored) tolerates the taint. By default, it is not set, which means tolerate the taint forever (do not evict). Zero and negative values will be treated as 0 (evict immediately) by the system.
+                                    description: |-
+                                      TolerationSeconds represents the period of time the toleration (which must be
+                                      of effect NoExecute, otherwise this field is ignored) tolerates the taint. By default,
+                                      it is not set, which means tolerate the taint forever (do not evict). Zero and
+                                      negative values will be treated as 0 (evict immediately) by the system.
                                     format: int64
                                     type: integer
                                   value:
-                                    description: Value is the taint value the toleration matches to. If the operator is Exists, the value should be empty, otherwise just a regular string.
+                                    description: |-
+                                      Value is the taint value the toleration matches to.
+                                      If the operator is Exists, the value should be empty, otherwise just a regular string.
                                     type: string
                                 type: object
                               type: array
@@ -322,10 +392,15 @@ spec:
                         - uploaderType
                       type: object
                     restic:
-                      description: (deprecation warning) ResticConfig is the configuration for restic DaemonSet. restic is for backwards compatibility and is replaced by the nodeAgent restic will be removed with the OADP 1.4
+                      description: |-
+                        (deprecation warning) ResticConfig is the configuration for restic DaemonSet.
+                        restic is for backwards compatibility and is replaced by the nodeAgent
+                        restic will be removed with the OADP 1.4
                       properties:
                         enable:
-                          description: enable defines a boolean pointer whether we want the daemonset to exist or not
+                          description: |-
+                            enable defines a boolean pointer whether we want the daemonset to
+                            exist or not
                           type: boolean
                         podConfig:
                           description: Pod specific configuration
@@ -339,7 +414,16 @@ spec:
                                     description: Name of the environment variable. Must be a C_IDENTIFIER.
                                     type: string
                                   value:
-                                    description: 'Variable references $(VAR_NAME) are expanded using the previously defined environment variables in the container and any service environment variables. If a variable cannot be resolved, the reference in the input string will be unchanged. Double $$ are reduced to a single $, which allows for escaping the $(VAR_NAME) syntax: i.e. "$$(VAR_NAME)" will produce the string literal "$(VAR_NAME)". Escaped references will never be expanded, regardless of whether the variable exists or not. Defaults to "".'
+                                    description: |-
+                                      Variable references $(VAR_NAME) are expanded
+                                      using the previously defined environment variables in the container and
+                                      any service environment variables. If a variable cannot be resolved,
+                                      the reference in the input string will be unchanged. Double $$ are reduced
+                                      to a single $, which allows for escaping the $(VAR_NAME) syntax: i.e.
+                                      "$$(VAR_NAME)" will produce the string literal "$(VAR_NAME)".
+                                      Escaped references will never be expanded, regardless of whether the variable
+                                      exists or not.
+                                      Defaults to "".
                                     type: string
                                   valueFrom:
                                     description: Source for the environment variable's value. Cannot be used if value is not empty.
@@ -351,7 +435,10 @@ spec:
                                             description: The key to select.
                                             type: string
                                           name:
-                                            description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?'
+                                            description: |-
+                                              Name of the referent.
+                                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                              TODO: Add other useful fields. apiVersion, kind, uid?
                                             type: string
                                           optional:
                                             description: Specify whether the ConfigMap or its key must be defined
@@ -359,8 +446,11 @@ spec:
                                         required:
                                           - key
                                         type: object
+                                        x-kubernetes-map-type: atomic
                                       fieldRef:
-                                        description: 'Selects a field of the pod: supports metadata.name, metadata.namespace, `metadata.labels[''<KEY>'']`, `metadata.annotations[''<KEY>'']`, spec.nodeName, spec.serviceAccountName, status.hostIP, status.podIP, status.podIPs.'
+                                        description: |-
+                                          Selects a field of the pod: supports metadata.name, metadata.namespace, `metadata.labels['<KEY>']`, `metadata.annotations['<KEY>']`,
+                                          spec.nodeName, spec.serviceAccountName, status.hostIP, status.podIP, status.podIPs.
                                         properties:
                                           apiVersion:
                                             description: Version of the schema the FieldPath is written in terms of, defaults to "v1".
@@ -371,8 +461,11 @@ spec:
                                         required:
                                           - fieldPath
                                         type: object
+                                        x-kubernetes-map-type: atomic
                                       resourceFieldRef:
-                                        description: 'Selects a resource of the container: only resources limits and requests (limits.cpu, limits.memory, limits.ephemeral-storage, requests.cpu, requests.memory and requests.ephemeral-storage) are currently supported.'
+                                        description: |-
+                                          Selects a resource of the container: only resources limits and requests
+                                          (limits.cpu, limits.memory, limits.ephemeral-storage, requests.cpu, requests.memory and requests.ephemeral-storage) are currently supported.
                                         properties:
                                           containerName:
                                             description: 'Container name: required for volumes, optional for env vars'
@@ -390,6 +483,7 @@ spec:
                                         required:
                                           - resource
                                         type: object
+                                        x-kubernetes-map-type: atomic
                                       secretKeyRef:
                                         description: Selects a key of a secret in the pod's namespace
                                         properties:
@@ -397,7 +491,10 @@ spec:
                                             description: The key of the secret to select from.  Must be a valid secret key.
                                             type: string
                                           name:
-                                            description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?'
+                                            description: |-
+                                              Name of the referent.
+                                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                              TODO: Add other useful fields. apiVersion, kind, uid?
                                             type: string
                                           optional:
                                             description: Specify whether the Secret or its key must be defined
@@ -405,6 +502,7 @@ spec:
                                         required:
                                           - key
                                         type: object
+                                        x-kubernetes-map-type: atomic
                                     type: object
                                 required:
                                   - name
@@ -432,7 +530,9 @@ spec:
                                     pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                     x-kubernetes-int-or-string: true
                                     nullable: true
-                                  description: 'Limits describes the maximum amount of compute resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                                  description: |-
+                                    Limits describes the maximum amount of compute resources allowed.
+                                    More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
                                   type: object
                                   nullable: true
                                 requests:
@@ -443,30 +543,50 @@ spec:
                                     pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                     x-kubernetes-int-or-string: true
                                     nullable: true
-                                  description: 'Requests describes the minimum amount of compute resources required. If Requests is omitted for a container, it defaults to Limits if that is explicitly specified, otherwise to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                                  description: |-
+                                    Requests describes the minimum amount of compute resources required.
+                                    If Requests is omitted for a container, it defaults to Limits if that is explicitly specified,
+                                    otherwise to an implementation-defined value.
+                                    More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
                                   type: object
                                   nullable: true
                               type: object
                             tolerations:
                               description: tolerations defines the list of tolerations to be applied to daemonset
                               items:
-                                description: The pod this Toleration is attached to tolerates any taint that matches the triple <key,value,effect> using the matching operator <operator>.
+                                description: |-
+                                  The pod this Toleration is attached to tolerates any taint that matches
+                                  the triple <key,value,effect> using the matching operator <operator>.
                                 properties:
                                   effect:
-                                    description: Effect indicates the taint effect to match. Empty means match all taint effects. When specified, allowed values are NoSchedule, PreferNoSchedule and NoExecute.
+                                    description: |-
+                                      Effect indicates the taint effect to match. Empty means match all taint effects.
+                                      When specified, allowed values are NoSchedule, PreferNoSchedule and NoExecute.
                                     type: string
                                   key:
-                                    description: Key is the taint key that the toleration applies to. Empty means match all taint keys. If the key is empty, operator must be Exists; this combination means to match all values and all keys.
+                                    description: |-
+                                      Key is the taint key that the toleration applies to. Empty means match all taint keys.
+                                      If the key is empty, operator must be Exists; this combination means to match all values and all keys.
                                     type: string
                                   operator:
-                                    description: Operator represents a key's relationship to the value. Valid operators are Exists and Equal. Defaults to Equal. Exists is equivalent to wildcard for value, so that a pod can tolerate all taints of a particular category.
+                                    description: |-
+                                      Operator represents a key's relationship to the value.
+                                      Valid operators are Exists and Equal. Defaults to Equal.
+                                      Exists is equivalent to wildcard for value, so that a pod can
+                                      tolerate all taints of a particular category.
                                     type: string
                                   tolerationSeconds:
-                                    description: TolerationSeconds represents the period of time the toleration (which must be of effect NoExecute, otherwise this field is ignored) tolerates the taint. By default, it is not set, which means tolerate the taint forever (do not evict). Zero and negative values will be treated as 0 (evict immediately) by the system.
+                                    description: |-
+                                      TolerationSeconds represents the period of time the toleration (which must be
+                                      of effect NoExecute, otherwise this field is ignored) tolerates the taint. By default,
+                                      it is not set, which means tolerate the taint forever (do not evict). Zero and
+                                      negative values will be treated as 0 (evict immediately) by the system.
                                     format: int64
                                     type: integer
                                   value:
-                                    description: Value is the taint value the toleration matches to. If the operator is Exists, the value should be empty, otherwise just a regular string.
+                                    description: |-
+                                      Value is the taint value the toleration matches to.
+                                      If the operator is Exists, the value should be empty, otherwise just a regular string.
                                     type: string
                                 type: object
                               type: array
@@ -503,7 +623,9 @@ spec:
                               description: Page size of requests by the server to the Kubernetes API when listing objects during a backup. Set to 0 to disable paging.
                               type: integer
                             client-qps:
-                              description: Maximum number of requests per second by the server to the Kubernetes API once the burst limit has been reached. this will be validated as a valid float32
+                              description: |-
+                                Maximum number of requests per second by the server to the Kubernetes API once the burst limit has been reached.
+                                this will be validated as a valid float32
                               type: string
                             colorized:
                               description: Show colored output in TTY
@@ -574,7 +696,10 @@ spec:
                               minimum: 0
                               type: integer
                             logtostderr:
-                              description: 'Boolean flags. Not handled atomically because the flag.Value interface does not let us avoid the =true, and that shorthand is necessary for compatibility. TODO: does this matter enough to fix? Seems unlikely.'
+                              description: |-
+                                Boolean flags. Not handled atomically because the flag.Value interface
+                                does not let us avoid the =true, and that shorthand is necessary for
+                                compatibility. TODO: does this matter enough to fix? Seems unlikely.
                               type: boolean
                             max-concurrent-k8s-connections:
                               description: Max concurrent connections number that Velero can create with kube-apiserver. Default is 30. (default 30)
@@ -690,7 +815,16 @@ spec:
                                     description: Name of the environment variable. Must be a C_IDENTIFIER.
                                     type: string
                                   value:
-                                    description: 'Variable references $(VAR_NAME) are expanded using the previously defined environment variables in the container and any service environment variables. If a variable cannot be resolved, the reference in the input string will be unchanged. Double $$ are reduced to a single $, which allows for escaping the $(VAR_NAME) syntax: i.e. "$$(VAR_NAME)" will produce the string literal "$(VAR_NAME)". Escaped references will never be expanded, regardless of whether the variable exists or not. Defaults to "".'
+                                    description: |-
+                                      Variable references $(VAR_NAME) are expanded
+                                      using the previously defined environment variables in the container and
+                                      any service environment variables. If a variable cannot be resolved,
+                                      the reference in the input string will be unchanged. Double $$ are reduced
+                                      to a single $, which allows for escaping the $(VAR_NAME) syntax: i.e.
+                                      "$$(VAR_NAME)" will produce the string literal "$(VAR_NAME)".
+                                      Escaped references will never be expanded, regardless of whether the variable
+                                      exists or not.
+                                      Defaults to "".
                                     type: string
                                   valueFrom:
                                     description: Source for the environment variable's value. Cannot be used if value is not empty.
@@ -702,7 +836,10 @@ spec:
                                             description: The key to select.
                                             type: string
                                           name:
-                                            description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?'
+                                            description: |-
+                                              Name of the referent.
+                                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                              TODO: Add other useful fields. apiVersion, kind, uid?
                                             type: string
                                           optional:
                                             description: Specify whether the ConfigMap or its key must be defined
@@ -710,8 +847,11 @@ spec:
                                         required:
                                           - key
                                         type: object
+                                        x-kubernetes-map-type: atomic
                                       fieldRef:
-                                        description: 'Selects a field of the pod: supports metadata.name, metadata.namespace, `metadata.labels[''<KEY>'']`, `metadata.annotations[''<KEY>'']`, spec.nodeName, spec.serviceAccountName, status.hostIP, status.podIP, status.podIPs.'
+                                        description: |-
+                                          Selects a field of the pod: supports metadata.name, metadata.namespace, `metadata.labels['<KEY>']`, `metadata.annotations['<KEY>']`,
+                                          spec.nodeName, spec.serviceAccountName, status.hostIP, status.podIP, status.podIPs.
                                         properties:
                                           apiVersion:
                                             description: Version of the schema the FieldPath is written in terms of, defaults to "v1".
@@ -722,8 +862,11 @@ spec:
                                         required:
                                           - fieldPath
                                         type: object
+                                        x-kubernetes-map-type: atomic
                                       resourceFieldRef:
-                                        description: 'Selects a resource of the container: only resources limits and requests (limits.cpu, limits.memory, limits.ephemeral-storage, requests.cpu, requests.memory and requests.ephemeral-storage) are currently supported.'
+                                        description: |-
+                                          Selects a resource of the container: only resources limits and requests
+                                          (limits.cpu, limits.memory, limits.ephemeral-storage, requests.cpu, requests.memory and requests.ephemeral-storage) are currently supported.
                                         properties:
                                           containerName:
                                             description: 'Container name: required for volumes, optional for env vars'
@@ -741,6 +884,7 @@ spec:
                                         required:
                                           - resource
                                         type: object
+                                        x-kubernetes-map-type: atomic
                                       secretKeyRef:
                                         description: Selects a key of a secret in the pod's namespace
                                         properties:
@@ -748,7 +892,10 @@ spec:
                                             description: The key of the secret to select from.  Must be a valid secret key.
                                             type: string
                                           name:
-                                            description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?'
+                                            description: |-
+                                              Name of the referent.
+                                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                              TODO: Add other useful fields. apiVersion, kind, uid?
                                             type: string
                                           optional:
                                             description: Specify whether the Secret or its key must be defined
@@ -756,6 +903,7 @@ spec:
                                         required:
                                           - key
                                         type: object
+                                        x-kubernetes-map-type: atomic
                                     type: object
                                 required:
                                   - name
@@ -783,7 +931,9 @@ spec:
                                     pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                     x-kubernetes-int-or-string: true
                                     nullable: true
-                                  description: 'Limits describes the maximum amount of compute resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                                  description: |-
+                                    Limits describes the maximum amount of compute resources allowed.
+                                    More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
                                   type: object
                                   nullable: true
                                 requests:
@@ -794,39 +944,64 @@ spec:
                                     pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                     x-kubernetes-int-or-string: true
                                     nullable: true
-                                  description: 'Requests describes the minimum amount of compute resources required. If Requests is omitted for a container, it defaults to Limits if that is explicitly specified, otherwise to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                                  description: |-
+                                    Requests describes the minimum amount of compute resources required.
+                                    If Requests is omitted for a container, it defaults to Limits if that is explicitly specified,
+                                    otherwise to an implementation-defined value.
+                                    More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
                                   type: object
                                   nullable: true
                               type: object
                             tolerations:
                               description: tolerations defines the list of tolerations to be applied to daemonset
                               items:
-                                description: The pod this Toleration is attached to tolerates any taint that matches the triple <key,value,effect> using the matching operator <operator>.
+                                description: |-
+                                  The pod this Toleration is attached to tolerates any taint that matches
+                                  the triple <key,value,effect> using the matching operator <operator>.
                                 properties:
                                   effect:
-                                    description: Effect indicates the taint effect to match. Empty means match all taint effects. When specified, allowed values are NoSchedule, PreferNoSchedule and NoExecute.
+                                    description: |-
+                                      Effect indicates the taint effect to match. Empty means match all taint effects.
+                                      When specified, allowed values are NoSchedule, PreferNoSchedule and NoExecute.
                                     type: string
                                   key:
-                                    description: Key is the taint key that the toleration applies to. Empty means match all taint keys. If the key is empty, operator must be Exists; this combination means to match all values and all keys.
+                                    description: |-
+                                      Key is the taint key that the toleration applies to. Empty means match all taint keys.
+                                      If the key is empty, operator must be Exists; this combination means to match all values and all keys.
                                     type: string
                                   operator:
-                                    description: Operator represents a key's relationship to the value. Valid operators are Exists and Equal. Defaults to Equal. Exists is equivalent to wildcard for value, so that a pod can tolerate all taints of a particular category.
+                                    description: |-
+                                      Operator represents a key's relationship to the value.
+                                      Valid operators are Exists and Equal. Defaults to Equal.
+                                      Exists is equivalent to wildcard for value, so that a pod can
+                                      tolerate all taints of a particular category.
                                     type: string
                                   tolerationSeconds:
-                                    description: TolerationSeconds represents the period of time the toleration (which must be of effect NoExecute, otherwise this field is ignored) tolerates the taint. By default, it is not set, which means tolerate the taint forever (do not evict). Zero and negative values will be treated as 0 (evict immediately) by the system.
+                                    description: |-
+                                      TolerationSeconds represents the period of time the toleration (which must be
+                                      of effect NoExecute, otherwise this field is ignored) tolerates the taint. By default,
+                                      it is not set, which means tolerate the taint forever (do not evict). Zero and
+                                      negative values will be treated as 0 (evict immediately) by the system.
                                     format: int64
                                     type: integer
                                   value:
-                                    description: Value is the taint value the toleration matches to. If the operator is Exists, the value should be empty, otherwise just a regular string.
+                                    description: |-
+                                      Value is the taint value the toleration matches to.
+                                      If the operator is Exists, the value should be empty, otherwise just a regular string.
                                     type: string
                                 type: object
                               type: array
                           type: object
                         resourceTimeout:
-                          description: resourceTimeout defines how long to wait for several Velero resources before timeout occurs, such as Velero CRD availability, volumeSnapshot deletion, and repo availability. Default is 10m
+                          description: |-
+                            resourceTimeout defines how long to wait for several Velero resources before timeout occurs,
+                            such as Velero CRD availability, volumeSnapshot deletion, and repo availability.
+                            Default is 10m
                           type: string
                         restoreResourcesVersionPriority:
-                          description: restoreResourceVersionPriority represents a configmap that will be created if defined for use in conjunction with EnableAPIGroupVersions feature flag Defining this field automatically add EnableAPIGroupVersions to the velero server feature flag
+                          description: |-
+                            restoreResourceVersionPriority represents a configmap that will be created if defined for use in conjunction with EnableAPIGroupVersions feature flag
+                            Defining this field automatically add EnableAPIGroupVersions to the velero server feature flag
                           type: string
                       type: object
                   type: object
@@ -834,7 +1009,10 @@ spec:
                   description: features defines the configuration for the DPA to enable the OADP tech preview features
                   properties:
                     dataMover:
-                      description: (do not use warning) Contains data mover specific configurations dataMover is for backwards compatibility and is not necessary in OADP 1.3 dataMover will be removed with the OADP 1.4
+                      description: |-
+                        (do not use warning) Contains data mover specific configurations
+                        dataMover is for backwards compatibility and is not necessary in OADP 1.3
+                        dataMover will be removed with the OADP 1.4
                       properties:
                         credentialName:
                           description: User supplied Restic Secret name
@@ -852,7 +1030,12 @@ spec:
                           description: defines how often (in days) to prune the datamover snapshots from the repository
                           type: string
                         schedule:
-                          description: 'schedule is a cronspec (https://en.wikipedia.org/wiki/Cron#Overview) that can be used to schedule datamover(volsync) synchronization to occur at regular, time-based intervals. For example, in order to enforce datamover SnapshotRetainPolicy at a regular interval you need to specify this Schedule trigger as a cron expression, by default the trigger is a manual trigger. For more details on Volsync triggers, refer: https://volsync.readthedocs.io/en/stable/usage/triggers.html'
+                          description: |-
+                            schedule is a cronspec (https://en.wikipedia.org/wiki/Cron#Overview) that
+                            can be used to schedule datamover(volsync) synchronization to occur at regular, time-based
+                            intervals. For example, in order to enforce datamover SnapshotRetainPolicy at a regular interval you need to
+                            specify this Schedule trigger as a cron expression, by default the trigger is a manual trigger. For more details
+                            on Volsync triggers, refer: https://volsync.readthedocs.io/en/stable/usage/triggers.html
                           pattern: ^(\d+|\*)(/\d+)?(\s+(\d+|\*)(/\d+)?){4}$
                           type: string
                         snapshotRetainPolicy:
@@ -887,7 +1070,9 @@ spec:
                                 description: VolumeOptions defines configurations for VolSync options
                                 properties:
                                   accessMode:
-                                    description: accessMode can be used to override the accessMode of the source or destination PVC
+                                    description: |-
+                                      accessMode can be used to override the accessMode of the source or
+                                      destination PVC
                                     type: string
                                   cacheAccessMode:
                                     description: cacheAccessMode is the access mode to be used to provision the cache volume
@@ -896,17 +1081,23 @@ spec:
                                     description: cacheCapacity determines the size of the restic metadata cache volume
                                     type: string
                                   cacheStorageClassName:
-                                    description: cacheStorageClassName is the storageClass that should be used when provisioning the data mover cache volume
+                                    description: |-
+                                      cacheStorageClassName is the storageClass that should be used when provisioning
+                                      the data mover cache volume
                                     type: string
                                   storageClassName:
-                                    description: storageClassName can be used to override the StorageClass of the source or destination PVC
+                                    description: |-
+                                      storageClassName can be used to override the StorageClass of the source
+                                      or destination PVC
                                     type: string
                                 type: object
                               sourceVolumeOptions:
                                 description: VolumeOptions defines configurations for VolSync options
                                 properties:
                                   accessMode:
-                                    description: accessMode can be used to override the accessMode of the source or destination PVC
+                                    description: |-
+                                      accessMode can be used to override the accessMode of the source or
+                                      destination PVC
                                     type: string
                                   cacheAccessMode:
                                     description: cacheAccessMode is the access mode to be used to provision the cache volume
@@ -915,10 +1106,14 @@ spec:
                                     description: cacheCapacity determines the size of the restic metadata cache volume
                                     type: string
                                   cacheStorageClassName:
-                                    description: cacheStorageClassName is the storageClass that should be used when provisioning the data mover cache volume
+                                    description: |-
+                                      cacheStorageClassName is the storageClass that should be used when provisioning
+                                      the data mover cache volume
                                     type: string
                                   storageClassName:
-                                    description: storageClassName can be used to override the StorageClass of the source or destination PVC
+                                    description: |-
+                                      storageClassName can be used to override the StorageClass of the source
+                                      or destination PVC
                                     type: string
                                 type: object
                             type: object
@@ -932,15 +1127,25 @@ spec:
                   description: add annotations to pods deployed by operator
                   type: object
                 podDnsConfig:
-                  description: podDnsConfig defines the DNS parameters of a pod in addition to those generated from DNSPolicy. https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-dns-config
+                  description: |-
+                    podDnsConfig defines the DNS parameters of a pod in addition to
+                    those generated from DNSPolicy.
+                    https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-dns-config
                   properties:
                     nameservers:
-                      description: A list of DNS name server IP addresses. This will be appended to the base nameservers generated from DNSPolicy. Duplicated nameservers will be removed.
+                      description: |-
+                        A list of DNS name server IP addresses.
+                        This will be appended to the base nameservers generated from DNSPolicy.
+                        Duplicated nameservers will be removed.
                       items:
                         type: string
                       type: array
                     options:
-                      description: A list of DNS resolver options. This will be merged with the base options generated from DNSPolicy. Duplicated entries will be removed. Resolution options given in Options will override those that appear in the base DNSPolicy.
+                      description: |-
+                        A list of DNS resolver options.
+                        This will be merged with the base options generated from DNSPolicy.
+                        Duplicated entries will be removed. Resolution options given in Options
+                        will override those that appear in the base DNSPolicy.
                       items:
                         description: PodDNSConfigOption defines DNS resolver options of a pod.
                         properties:
@@ -952,13 +1157,18 @@ spec:
                         type: object
                       type: array
                     searches:
-                      description: A list of DNS search domains for host-name lookup. This will be appended to the base search paths generated from DNSPolicy. Duplicated search paths will be removed.
+                      description: |-
+                        A list of DNS search domains for host-name lookup.
+                        This will be appended to the base search paths generated from DNSPolicy.
+                        Duplicated search paths will be removed.
                       items:
                         type: string
                       type: array
                   type: object
                 podDnsPolicy:
-                  description: podDnsPolicy defines how a pod's DNS will be configured. https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy
+                  description: |-
+                    podDnsPolicy defines how a pod's DNS will be configured.
+                    https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy
                   type: string
                 snapshotLocations:
                   description: snapshotLocations defines the list of desired configuration to use for VolumeSnapshotLocations
@@ -980,7 +1190,10 @@ spec:
                                 description: The key of the secret to select from.  Must be a valid secret key.
                                 type: string
                               name:
-                                description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?'
+                                description: |-
+                                  Name of the referent.
+                                  More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                  TODO: Add other useful fields. apiVersion, kind, uid?
                                 type: string
                               optional:
                                 description: Specify whether the Secret or its key must be defined
@@ -988,6 +1201,7 @@ spec:
                             required:
                               - key
                             type: object
+                            x-kubernetes-map-type: atomic
                           provider:
                             description: Provider is the provider of the volume storage.
                             type: string
@@ -1001,7 +1215,18 @@ spec:
                 unsupportedOverrides:
                   additionalProperties:
                     type: string
-                  description: 'unsupportedOverrides can be used to override images used in deployments. Available keys are:   - veleroImageFqin   - awsPluginImageFqin   - openshiftPluginImageFqin   - azurePluginImageFqin   - gcpPluginImageFqin   - csiPluginImageFqin   - resticRestoreImageFqin   - kubevirtPluginImageFqin   - operator-type'
+                  description: |-
+                    unsupportedOverrides can be used to override images used in deployments.
+                    Available keys are:
+                      - veleroImageFqin
+                      - awsPluginImageFqin
+                      - openshiftPluginImageFqin
+                      - azurePluginImageFqin
+                      - gcpPluginImageFqin
+                      - csiPluginImageFqin
+                      - resticRestoreImageFqin
+                      - kubevirtPluginImageFqin
+                      - operator-type
                   type: object
               required:
                 - configuration
@@ -1011,23 +1236,35 @@ spec:
               properties:
                 conditions:
                   items:
-                    description: "Condition contains details for one aspect of the current state of this API Resource. --- This struct is intended for direct use as an array at the field path .status.conditions.  For example, \n \ttype FooStatus struct{ \t    // Represents the observations of a foo's current state. \t    // Known .status.conditions.type are: \"Available\", \"Progressing\", and \"Degraded\" \t    // +patchMergeKey=type \t    // +patchStrategy=merge \t    // +listType=map \t    // +listMapKey=type \t    Conditions []metav1.Condition `json:\"conditions,omitempty\" patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"` \n \t    // other fields \t}"
+                    description: "Condition contains details for one aspect of the current state of this API Resource.\n---\nThis struct is intended for direct use as an array at the field path .status.conditions.  For example,\n\n\n\ttype FooStatus struct{\n\t    // Represents the observations of a foo's current state.\n\t    // Known .status.conditions.type are: \"Available\", \"Progressing\", and \"Degraded\"\n\t    // +patchMergeKey=type\n\t    // +patchStrategy=merge\n\t    // +listType=map\n\t    // +listMapKey=type\n\t    Conditions []metav1.Condition `json:\"conditions,omitempty\" patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"`\n\n\n\t    // other fields\n\t}"
                     properties:
                       lastTransitionTime:
-                        description: lastTransitionTime is the last time the condition transitioned from one status to another. This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                        description: |-
+                          lastTransitionTime is the last time the condition transitioned from one status to another.
+                          This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
                         format: date-time
                         type: string
                       message:
-                        description: message is a human readable message indicating details about the transition. This may be an empty string.
+                        description: |-
+                          message is a human readable message indicating details about the transition.
+                          This may be an empty string.
                         maxLength: 32768
                         type: string
                       observedGeneration:
-                        description: observedGeneration represents the .metadata.generation that the condition was set based upon. For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date with respect to the current state of the instance.
+                        description: |-
+                          observedGeneration represents the .metadata.generation that the condition was set based upon.
+                          For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                          with respect to the current state of the instance.
                         format: int64
                         minimum: 0
                         type: integer
                       reason:
-                        description: reason contains a programmatic identifier indicating the reason for the condition's last transition. Producers of specific condition types may define expected values and meanings for this field, and whether the values are considered a guaranteed API. The value should be a CamelCase string. This field may not be empty.
+                        description: |-
+                          reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                          Producers of specific condition types may define expected values and meanings for this field,
+                          and whether the values are considered a guaranteed API.
+                          The value should be a CamelCase string.
+                          This field may not be empty.
                         maxLength: 1024
                         minLength: 1
                         pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
@@ -1040,7 +1277,12 @@ spec:
                           - Unknown
                         type: string
                       type:
-                        description: type of condition in CamelCase or in foo.example.com/CamelCase. --- Many .condition.type values are consistent across resources like Available, but because arbitrary conditions can be useful (see .node.status.conditions), the ability to deconflict is important. The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)
+                        description: |-
+                          type of condition in CamelCase or in foo.example.com/CamelCase.
+                          ---
+                          Many .condition.type values are consistent across resources like Available, but because arbitrary conditions can be
+                          useful (see .node.status.conditions), the ability to deconflict is important.
+                          The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)
                         maxLength: 316
                         pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
                         type: string
@@ -1062,5 +1304,5 @@ status:
   acceptedNames:
     kind: ""
     plural: ""
-  conditions: []
-  storedVersions: []
+  conditions: null
+  storedVersions: null
