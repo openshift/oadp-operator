@@ -1,6 +1,7 @@
 package e2e_test
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"strings"
@@ -165,8 +166,6 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			log.Printf("Waiting for velero Pod to be running")
-			// Eventually(VeleroPodIsUpdated(kubernetesClientForSuiteRun, namespace, lastInstallTime), time.Minute*2, time.Second*5).Should(BeTrue())
-			// Eventually(VeleroPodIsRunning(kubernetesClientForSuiteRun, namespace), time.Minute*3, time.Second*5).Should(BeTrue())
 			// TODO do not use Consistently
 			Consistently(VeleroPodIsRunning(kubernetesClientForSuiteRun, namespace), time.Minute*1, time.Second*15).Should(BeTrue())
 			timeAfterVeleroIsRunning := time.Now()
@@ -204,16 +203,24 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 					log.Printf("Checking for BSL spec")
 					Expect(dpaCR.DoesBSLSpecMatchesDpa(namespace, *bsl.Velero)).To(BeTrue())
 				}
+			} else {
+				log.Println("Checking no BSLs are deployed")
+				_, err = dpaCR.ListBSLs()
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(Equal(fmt.Sprintf("no BSL in %s namespace", namespace)))
 			}
 
 			if len(installCase.DpaSpec.SnapshotLocations) > 0 {
-				log.Print("Checking if VSLs are available")
-				// TODO do not use Consistently, using because no field in VSL tells time it was last reconciled
-				Consistently(dpaCR.VSLsAreAvailable(), time.Minute*2, time.Second*15).Should(BeTrue())
+				// TODO Check if VSLs are available creating new backup/restore test with VSL
 				for _, vsl := range installCase.DpaSpec.SnapshotLocations {
 					log.Printf("Checking for VSL spec")
 					Expect(dpaCR.DoesVSLSpecMatchesDpa(namespace, *vsl.Velero)).To(BeTrue())
 				}
+			} else {
+				log.Println("Checking no VSLs are deployed")
+				_, err = dpaCR.ListVSLs()
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(Equal(fmt.Sprintf("no VSL in %s namespace", namespace)))
 			}
 
 			if len(installCase.DpaSpec.Configuration.Velero.PodConfig.Tolerations) > 0 {
@@ -344,7 +351,6 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 			}),
 		}),
 		Entry("DPA CR with NoDefaultBackupLocation and with BackupImages false", InstallCase{
-			// TODO BSL should be deleted?
 			DpaSpec: createTestDPASpec(TestDPASpec{
 				BSLSecretName:           bslSecretName,
 				NoDefaultBackupLocation: true,
@@ -358,6 +364,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 			}),
 		}),
 		Entry("DPA CR without Region, without S3ForcePathStyle and with BackupImages false", Label("aws"), InstallCase{
+			// TODO waiting Wes
 			DpaSpec: createTestDPASpec(TestDPASpec{
 				BSLSecretName:      bslSecretName,
 				NoRegion:           true,
@@ -408,5 +415,4 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 		},
 		Entry("Should succeed"),
 	)
-
 })

@@ -360,33 +360,9 @@ func (v *DpaCustomResource) ListVSLs() (*velero.VolumeSnapshotLocationList, erro
 	return vsls, nil
 }
 
-func (v *DpaCustomResource) VSLsAreAvailable() wait.ConditionFunc {
-	return func() (bool, error) {
-		vsls, err := v.ListVSLs()
-		if err != nil {
-			return false, err
-		}
-		areAvailable := true
-		for _, vsl := range vsls.Items {
-			phase := vsl.Status.Phase
-			if len(phase) > 0 {
-				log.Printf("VSL %s phase is %s", vsl.Name, phase)
-				if phase != velero.VolumeSnapshotLocationPhaseAvailable {
-					areAvailable = false
-				}
-			} else {
-				log.Printf("VSL %s phase is not yet set", vsl.Name)
-				areAvailable = false
-			}
-		}
-
-		return areAvailable, nil
-	}
-}
-
 // check if vsl matches the spec
 func (v *DpaCustomResource) DoesVSLSpecMatchesDpa(namespace string, dpaVSLSpec velero.VolumeSnapshotLocationSpec) (bool, error) {
-	vsls, err := v.ListBSLs()
+	vsls, err := v.ListVSLs()
 	if err != nil {
 		return false, err
 	}

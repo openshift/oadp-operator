@@ -112,18 +112,6 @@ func (s *Subscription) Delete(c client.Client) error {
 	return c.Delete(context.Background(), s.Subscription)
 }
 
-// TODO doc
-func ManagerPodIsUp(c *kubernetes.Clientset, namespace string) wait.ConditionFunc {
-	return func() (bool, error) {
-		logs, err := GetManagerPodLogs(c, namespace)
-		if err != nil {
-			return false, err
-		}
-		log.Print("waiting for leader election")
-		return strings.Contains(logs, "successfully acquired lease"), nil
-	}
-}
-
 func GetManagerPodLogs(c *kubernetes.Clientset, namespace string) (string, error) {
 	controllerManagerPod, err := GetPodWithLabel(c, namespace, "control-plane=controller-manager")
 	if err != nil {
@@ -134,4 +122,16 @@ func GetManagerPodLogs(c *kubernetes.Clientset, namespace string) (string, error
 		return "", err
 	}
 	return logs, nil
+}
+
+// TODO doc
+func ManagerPodIsUp(c *kubernetes.Clientset, namespace string) wait.ConditionFunc {
+	return func() (bool, error) {
+		logs, err := GetManagerPodLogs(c, namespace)
+		if err != nil {
+			return false, err
+		}
+		log.Print("waiting for leader election")
+		return strings.Contains(logs, "successfully acquired lease"), nil
+	}
 }
