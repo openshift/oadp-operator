@@ -5,70 +5,189 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"slices"
 	"testing"
 
-	"k8s.io/apimachinery/pkg/api/resource"
-	"k8s.io/apimachinery/pkg/util/intstr"
-
-	"github.com/google/go-cmp/cmp"
-	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
-
 	"github.com/go-logr/logr"
+	"github.com/google/go-cmp/cmp"
+	"github.com/onsi/ginkgo/v2"
+	"github.com/onsi/gomega"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	"github.com/openshift/oadp-operator/pkg/common"
+	"github.com/operator-framework/operator-lib/proxy"
+	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/tools/record"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func TestDPAReconciler_ReconcileNodeAgentDaemonset(t *testing.T) {
-	type fields struct {
-		Client         client.Client
-		Scheme         *runtime.Scheme
-		Log            logr.Logger
-		Context        context.Context
-		NamespacedName types.NamespacedName
-		EventRecorder  record.EventRecorder
-	}
-	type args struct {
-		log logr.Logger
-	}
-	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		want    bool
-		wantErr bool
-	}{
-		//TODO: Add tests
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			r := &DPAReconciler{
-				Client:         tt.fields.Client,
-				Scheme:         tt.fields.Scheme,
-				Log:            tt.fields.Log,
-				Context:        tt.fields.Context,
-				NamespacedName: tt.fields.NamespacedName,
-				EventRecorder:  tt.fields.EventRecorder,
-			}
-			got, err := r.ReconcileNodeAgentDaemonset(tt.args.log)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("DPAReconciler.ReconcileNodeAgentDaemonset() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if got != tt.want {
-				t.Errorf("DPAReconciler.ReconcileNodeAgentDaemonset() = %v, want %v", got, tt.want)
-			}
-		})
-	}
+type ReconcileNodeAgentControllerScenario struct {
+	namespace string
+	dpaName   string
+	envVar    corev1.EnvVar
 }
+
+var _ = ginkgo.Describe("Test ReconcileNodeAgentDaemonSet function", func() {
+	var (
+		ctx                 = context.Background()
+		currentTestScenario ReconcileNodeAgentControllerScenario
+		updateTestScenario  = func(scenario ReconcileNodeAgentControllerScenario) {
+			currentTestScenario = scenario
+		}
+	)
+
+	ginkgo.AfterEach(func() {
+		os.Unsetenv(currentTestScenario.envVar.Name)
+
+		daemonSet := &appsv1.DaemonSet{}
+		if k8sClient.Get(
+			ctx,
+			types.NamespacedName{
+				Name:      common.NodeAgent,
+				Namespace: currentTestScenario.namespace,
+			},
+			daemonSet,
+		) == nil {
+			gomega.Expect(k8sClient.Delete(ctx, daemonSet)).To(gomega.Succeed())
+		}
+
+		dpa := &oadpv1alpha1.DataProtectionApplication{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      currentTestScenario.dpaName,
+				Namespace: currentTestScenario.namespace,
+			},
+		}
+		gomega.Expect(k8sClient.Delete(ctx, dpa)).To(gomega.Succeed())
+
+		namespace := &corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: currentTestScenario.namespace,
+			},
+		}
+		gomega.Expect(k8sClient.Delete(ctx, namespace)).To(gomega.Succeed())
+	})
+
+	ginkgo.DescribeTable("Check if Subscription Config environment variables are passed to NodeAgent Containers",
+		func(scenario ReconcileNodeAgentControllerScenario) {
+			updateTestScenario(scenario)
+
+			namespace := &corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: scenario.namespace,
+				},
+			}
+			gomega.Expect(k8sClient.Create(ctx, namespace)).To(gomega.Succeed())
+
+			dpa := &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      scenario.dpaName,
+					Namespace: scenario.namespace,
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						NodeAgent: &oadpv1alpha1.NodeAgentConfig{
+							UploaderType: "kopia",
+							NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
+								Enable: ptr.To(true),
+							},
+						},
+						Velero: &oadpv1alpha1.VeleroConfig{
+							NoDefaultBackupLocation: true,
+						},
+					},
+				},
+			}
+			gomega.Expect(k8sClient.Create(ctx, dpa)).To(gomega.Succeed())
+
+			// Subscription Config environment variables are passed to controller-manager Pod
+			// https://github.com/operator-framework/operator-lifecycle-manager/blob/d8500d88932b17aa9b1853f0f26086f6ee6b35f9/doc/design/subscription-config.md
+			os.Setenv(scenario.envVar.Name, scenario.envVar.Value)
+
+			event := record.NewFakeRecorder(5)
+			r := &DPAReconciler{
+				Client:  k8sClient,
+				Scheme:  testEnv.Scheme,
+				Context: ctx,
+				NamespacedName: types.NamespacedName{
+					Name:      scenario.dpaName,
+					Namespace: scenario.namespace,
+				},
+				EventRecorder: event,
+			}
+			result, err := r.ReconcileNodeAgentDaemonset(logr.Discard())
+
+			gomega.Expect(result).To(gomega.BeTrue())
+			gomega.Expect(err).To(gomega.Not(gomega.HaveOccurred()))
+
+			gomega.Expect(len(event.Events)).To(gomega.Equal(1))
+			message := <-event.Events
+			for _, word := range []string{"Normal", "NodeAgentDaemonsetReconciled", "created"} {
+				gomega.Expect(message).To(gomega.ContainSubstring(word))
+			}
+
+			daemonSet := &appsv1.DaemonSet{}
+			err = k8sClient.Get(
+				ctx,
+				types.NamespacedName{
+					Name:      common.NodeAgent,
+					Namespace: scenario.namespace,
+				},
+				daemonSet,
+			)
+			gomega.Expect(err).To(gomega.Not(gomega.HaveOccurred()))
+
+			if slices.Contains(proxy.ProxyEnvNames, scenario.envVar.Name) {
+				for _, container := range daemonSet.Spec.Template.Spec.Containers {
+					gomega.Expect(container.Env).To(gomega.ContainElement(scenario.envVar))
+				}
+			} else {
+				for _, container := range daemonSet.Spec.Template.Spec.Containers {
+					gomega.Expect(container.Env).To(gomega.Not(gomega.ContainElement(scenario.envVar)))
+				}
+			}
+		},
+		ginkgo.Entry("Should add HTTP_PROXY environment variable to NodeAgent Containers", ReconcileNodeAgentControllerScenario{
+			namespace: "test-node-agent-environment-variables-1",
+			dpaName:   "test-node-agent-environment-variables-1-dpa",
+			envVar: corev1.EnvVar{
+				Name:  "HTTP_PROXY",
+				Value: "http://proxy.example.com:8080",
+			},
+		}),
+		ginkgo.Entry("Should add HTTPS_PROXY environment variable to NodeAgent Containers", ReconcileNodeAgentControllerScenario{
+			namespace: "test-node-agent-environment-variables-2",
+			dpaName:   "test-node-agent-environment-variables-2-dpa",
+			envVar: corev1.EnvVar{
+				Name:  "HTTPS_PROXY",
+				Value: "localhost",
+			},
+		}),
+		ginkgo.Entry("Should add NO_PROXY environment variable to NodeAgent Containers", ReconcileNodeAgentControllerScenario{
+			namespace: "test-node-agent-environment-variables-3",
+			dpaName:   "test-node-agent-environment-variables-3-dpa",
+			envVar: corev1.EnvVar{
+				Name:  "NO_PROXY",
+				Value: "1.1.1.1",
+			},
+		}),
+		ginkgo.Entry("Should NOT add WRONG environment variable to NodeAgent Containers", ReconcileNodeAgentControllerScenario{
+			namespace: "test-node-agent-environment-variables-4",
+			dpaName:   "test-node-agent-environment-variables-4-dpa",
+			envVar: corev1.EnvVar{
+				Name:  "WRONG",
+				Value: "I do not know what is happening here",
+			},
+		}),
+	)
+})
 
 func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 	type args struct {
@@ -153,7 +272,7 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 							NodeSelector:       dpa.Spec.Configuration.NodeAgent.PodConfig.NodeSelector,
 							ServiceAccountName: common.Velero,
 							SecurityContext: &v1.PodSecurityContext{
-								RunAsUser:          pointer.Int64(0),
+								RunAsUser:          ptr.To(int64(0)),
 								SupplementalGroups: dpa.Spec.Configuration.NodeAgent.SupplementalGroups,
 							},
 							Volumes: []v1.Volume{
@@ -192,7 +311,7 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 								{
 									Name: common.NodeAgent,
 									SecurityContext: &v1.SecurityContext{
-										Privileged: pointer.Bool(true),
+										Privileged: ptr.To(true),
 									},
 									Image:           getVeleroImage(&dpa),
 									ImagePullPolicy: v1.PullAlways,
@@ -316,7 +435,7 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 							NodeSelector:       dpa.Spec.Configuration.NodeAgent.PodConfig.NodeSelector,
 							ServiceAccountName: common.Velero,
 							SecurityContext: &v1.PodSecurityContext{
-								RunAsUser:          pointer.Int64(0),
+								RunAsUser:          ptr.To(int64(0)),
 								SupplementalGroups: dpa.Spec.Configuration.NodeAgent.SupplementalGroups,
 							},
 							Volumes: []v1.Volume{
@@ -355,7 +474,7 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 								{
 									Name: common.NodeAgent,
 									SecurityContext: &v1.SecurityContext{
-										Privileged: pointer.Bool(true),
+										Privileged: ptr.To(true),
 									},
 									Image:           getVeleroImage(&dpa),
 									ImagePullPolicy: v1.PullAlways,
@@ -485,7 +604,7 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 							NodeSelector:       dpa.Spec.Configuration.NodeAgent.PodConfig.NodeSelector,
 							ServiceAccountName: common.Velero,
 							SecurityContext: &v1.PodSecurityContext{
-								RunAsUser:          pointer.Int64(0),
+								RunAsUser:          ptr.To(int64(0)),
 								SupplementalGroups: dpa.Spec.Configuration.NodeAgent.SupplementalGroups,
 							},
 							Volumes: []v1.Volume{
@@ -524,7 +643,7 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 								{
 									Name: common.NodeAgent,
 									SecurityContext: &v1.SecurityContext{
-										Privileged: pointer.Bool(true),
+										Privileged: ptr.To(true),
 									},
 									Image:           getVeleroImage(&dpa),
 									ImagePullPolicy: v1.PullAlways,
@@ -682,7 +801,7 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 							},
 							ServiceAccountName: common.Velero,
 							SecurityContext: &v1.PodSecurityContext{
-								RunAsUser:          pointer.Int64(0),
+								RunAsUser:          ptr.To(int64(0)),
 								SupplementalGroups: dpa.Spec.Configuration.NodeAgent.SupplementalGroups,
 							},
 							Volumes: []v1.Volume{
@@ -729,7 +848,7 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 								{
 									Name: common.NodeAgent,
 									SecurityContext: &v1.SecurityContext{
-										Privileged: pointer.Bool(true),
+										Privileged: ptr.To(true),
 									},
 									Image:           getVeleroImage(&dpa),
 									ImagePullPolicy: v1.PullAlways,
@@ -873,7 +992,7 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 							},
 							ServiceAccountName: common.Velero,
 							SecurityContext: &v1.PodSecurityContext{
-								RunAsUser:          pointer.Int64(0),
+								RunAsUser:          ptr.To(int64(0)),
 								SupplementalGroups: dpa.Spec.Configuration.NodeAgent.SupplementalGroups,
 							},
 							Volumes: []v1.Volume{
@@ -920,7 +1039,7 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 								{
 									Name: common.NodeAgent,
 									SecurityContext: &v1.SecurityContext{
-										Privileged: pointer.Bool(true),
+										Privileged: ptr.To(true),
 									},
 									Image:           getVeleroImage(&dpa),
 									ImagePullPolicy: v1.PullAlways,
@@ -1063,7 +1182,7 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 							},
 							ServiceAccountName: common.Velero,
 							SecurityContext: &v1.PodSecurityContext{
-								RunAsUser:          pointer.Int64(0),
+								RunAsUser:          ptr.To(int64(0)),
 								SupplementalGroups: dpa.Spec.Configuration.NodeAgent.SupplementalGroups,
 							},
 							Volumes: []v1.Volume{
@@ -1110,7 +1229,7 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 								{
 									Name: common.NodeAgent,
 									SecurityContext: &v1.SecurityContext{
-										Privileged: pointer.Bool(true),
+										Privileged: ptr.To(true),
 									},
 									Image:           getVeleroImage(&dpa),
 									ImagePullPolicy: v1.PullAlways,
@@ -1252,7 +1371,7 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 							},
 							ServiceAccountName: common.Velero,
 							SecurityContext: &v1.PodSecurityContext{
-								RunAsUser:          pointer.Int64(0),
+								RunAsUser:          ptr.To(int64(0)),
 								SupplementalGroups: dpa.Spec.Configuration.NodeAgent.SupplementalGroups,
 							},
 							Volumes: []v1.Volume{
@@ -1299,7 +1418,7 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 								{
 									Name: common.NodeAgent,
 									SecurityContext: &v1.SecurityContext{
-										Privileged: pointer.Bool(true),
+										Privileged: ptr.To(true),
 									},
 									Image:           getVeleroImage(&dpa),
 									ImagePullPolicy: v1.PullAlways,
@@ -1438,7 +1557,7 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 							},
 							ServiceAccountName: common.Velero,
 							SecurityContext: &v1.PodSecurityContext{
-								RunAsUser:          pointer.Int64(0),
+								RunAsUser:          ptr.To(int64(0)),
 								SupplementalGroups: dpa.Spec.Configuration.NodeAgent.SupplementalGroups,
 							},
 							Volumes: []v1.Volume{
@@ -1485,7 +1604,7 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 								{
 									Name: common.NodeAgent,
 									SecurityContext: &v1.SecurityContext{
-										Privileged: pointer.Bool(true),
+										Privileged: ptr.To(true),
 									},
 									Image:           getVeleroImage(&dpa),
 									ImagePullPolicy: v1.PullAlways,
@@ -1627,7 +1746,7 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 							},
 							ServiceAccountName: common.Velero,
 							SecurityContext: &v1.PodSecurityContext{
-								RunAsUser:          pointer.Int64(0),
+								RunAsUser:          ptr.To(int64(0)),
 								SupplementalGroups: dpa.Spec.Configuration.NodeAgent.SupplementalGroups,
 							},
 							Volumes: []v1.Volume{
@@ -1674,7 +1793,7 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 								{
 									Name: common.NodeAgent,
 									SecurityContext: &v1.SecurityContext{
-										Privileged: pointer.Bool(true),
+										Privileged: ptr.To(true),
 									},
 									Image:           getVeleroImage(&dpa),
 									ImagePullPolicy: v1.PullAlways,
@@ -1810,7 +1929,7 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 						Spec: v1.PodSpec{
 							ServiceAccountName: common.Velero,
 							SecurityContext: &v1.PodSecurityContext{
-								RunAsUser:          pointer.Int64(0),
+								RunAsUser:          ptr.To(int64(0)),
 								SupplementalGroups: dpa.Spec.Configuration.NodeAgent.SupplementalGroups,
 							},
 							Volumes: []v1.Volume{
@@ -1864,7 +1983,7 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 								{
 									Name: common.NodeAgent,
 									SecurityContext: &v1.SecurityContext{
-										Privileged: pointer.Bool(true),
+										Privileged: ptr.To(true),
 									},
 									Image:           getVeleroImage(&dpa),
 									ImagePullPolicy: v1.PullAlways,
@@ -2416,7 +2535,7 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 							NodeSelector:       dpa.Spec.Configuration.NodeAgent.PodConfig.NodeSelector,
 							ServiceAccountName: common.Velero,
 							SecurityContext: &v1.PodSecurityContext{
-								RunAsUser:          pointer.Int64(0),
+								RunAsUser:          ptr.To(int64(0)),
 								SupplementalGroups: dpa.Spec.Configuration.NodeAgent.SupplementalGroups,
 							},
 							Volumes: []v1.Volume{
@@ -2463,7 +2582,7 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 								{
 									Name: common.NodeAgent,
 									SecurityContext: &v1.SecurityContext{
-										Privileged: pointer.Bool(true),
+										Privileged: ptr.To(true),
 									},
 									Image:           getVeleroImage(&dpa),
 									ImagePullPolicy: v1.PullAlways,
@@ -2613,7 +2732,7 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 							NodeSelector:       dpa.Spec.Configuration.NodeAgent.PodConfig.NodeSelector,
 							ServiceAccountName: common.Velero,
 							SecurityContext: &v1.PodSecurityContext{
-								RunAsUser:          pointer.Int64(0),
+								RunAsUser:          ptr.To(int64(0)),
 								SupplementalGroups: dpa.Spec.Configuration.NodeAgent.SupplementalGroups,
 							},
 							Volumes: []v1.Volume{
@@ -2652,7 +2771,7 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 								{
 									Name: common.NodeAgent,
 									SecurityContext: &v1.SecurityContext{
-										Privileged: pointer.Bool(true),
+										Privileged: ptr.To(true),
 									},
 									Image:           getVeleroImage(&dpa),
 									ImagePullPolicy: v1.PullAlways,
@@ -2767,7 +2886,7 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 							Options: []v1.PodDNSConfigOption{
 								{
 									Name:  "ndots",
-									Value: pointer.String("2"),
+									Value: ptr.To("2"),
 								},
 								{
 									Name: "edns0",
@@ -2805,7 +2924,7 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 							NodeSelector:       dpa.Spec.Configuration.NodeAgent.PodConfig.NodeSelector,
 							ServiceAccountName: common.Velero,
 							SecurityContext: &v1.PodSecurityContext{
-								RunAsUser:          pointer.Int64(0),
+								RunAsUser:          ptr.To(int64(0)),
 								SupplementalGroups: dpa.Spec.Configuration.NodeAgent.SupplementalGroups,
 							},
 							DNSPolicy: "None",
@@ -2817,7 +2936,7 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 								Options: []v1.PodDNSConfigOption{
 									{
 										Name:  "ndots",
-										Value: pointer.String("2"),
+										Value: ptr.To("2"),
 									},
 									{
 										Name: "edns0",
@@ -2868,7 +2987,7 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 								{
 									Name: common.NodeAgent,
 									SecurityContext: &v1.SecurityContext{
-										Privileged: pointer.Bool(true),
+										Privileged: ptr.To(true),
 									},
 									Image:           getVeleroImage(&dpa),
 									ImagePullPolicy: v1.PullAlways,
@@ -2982,7 +3101,7 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 					}
 				}
 				if tt.want.Spec.RevisionHistoryLimit == nil {
-					tt.want.Spec.RevisionHistoryLimit = pointer.Int32(10)
+					tt.want.Spec.RevisionHistoryLimit = ptr.To(int32(10))
 				}
 			}
 			if !reflect.DeepEqual(got, tt.want) {
@@ -3027,8 +3146,8 @@ func TestDPAReconciler_updateFsRestoreHelperCM(t *testing.T) {
 							Kind:               "DataProtectionApplication",
 							Name:               "",
 							UID:                "",
-							Controller:         pointer.BoolPtr(true),
-							BlockOwnerDeletion: pointer.BoolPtr(true),
+							Controller:         ptr.To(true),
+							BlockOwnerDeletion: ptr.To(true),
 						},
 					},
 				},

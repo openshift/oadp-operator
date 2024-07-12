@@ -18,13 +18,6 @@ type Subscription struct {
 	*operators.Subscription
 }
 
-type StreamSource string
-
-const (
-	UPSTREAM   StreamSource = "up"
-	DOWNSTREAM StreamSource = "down"
-)
-
 func getOperatorSubscription(c client.Client, namespace, label string) (*Subscription, error) {
 	sl := operators.SubscriptionList{}
 	err := c.List(context.Background(), &sl, client.InNamespace(namespace), client.MatchingLabels(map[string]string{label: ""}))
@@ -38,17 +31,6 @@ func getOperatorSubscription(c client.Client, namespace, label string) (*Subscri
 		return nil, errors.New("more than one subscription found")
 	}
 	return &Subscription{&sl.Items[0]}, nil
-}
-
-func (d *DpaCustomResource) GetOperatorSubscription(c client.Client, stream StreamSource) (*Subscription, error) {
-	label := ""
-	if stream == UPSTREAM {
-		label = "operators.coreos.com/oadp-operator." + d.Namespace
-	}
-	if stream == DOWNSTREAM {
-		label = "operators.coreos.com/redhat-oadp-operator." + d.Namespace
-	}
-	return getOperatorSubscription(c, d.Namespace, label)
 }
 
 func (v *VirtOperator) getOperatorSubscription() (*Subscription, error) {
