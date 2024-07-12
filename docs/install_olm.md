@@ -89,57 +89,57 @@ spec:
 
 ### Verify install
 
+* Verify the DPA has been reconciled successfully:
+
+  ```
+  oc get dpa dpa-sample -n openshift-adp -o jsonpath='{.status}'
+  ```
+
+  Example Output:
+  ```
+  {"conditions":[{"lastTransitionTime":"2023-10-27T01:23:57Z","message":"Reconcile complete","reason":"Complete","status":"True","type":"Reconciled"}]}
+  ```
+
+  **Note**: the `type` is set to `Reconciled` and `status` is set to `True`.
+
 * To verify all of the correct resources have been created, the following command
 `oc get all -n openshift-adp` should look similar to:
+  ```
+  NAME                                                    READY   STATUS    RESTARTS   AGE
+  pod/node-agent-9pjz9                                    1/1     Running   0          3d17h
+  pod/node-agent-fmn84                                    1/1     Running   0          3d17h
+  pod/node-agent-xw2dg                                    1/1     Running   0          3d17h
+  pod/openshift-adp-controller-manager-76b8bc8d7b-kgkcw   1/1     Running   0          3d17h
+  pod/velero-64475b8c5b-nh2qc                             1/1     Running   0          3d17h
 
-**Note**: The node-agent pods are labeled as `restic` in older installations.
+  NAME                                                       TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)    AGE
+  service/openshift-adp-controller-manager-metrics-service   ClusterIP   172.30.194.192   <none>        8443/TCP   3d17h
+  service/openshift-adp-velero-metrics-svc                   ClusterIP   172.30.190.174   <none>        8085/TCP   3d17h
 
-```
-NAME                                                    READY   STATUS    RESTARTS   AGE
-pod/node-agent-9pjz9                                    1/1     Running   0          3d17h
-pod/node-agent-fmn84                                    1/1     Running   0          3d17h
-pod/node-agent-xw2dg                                    1/1     Running   0          3d17h
-pod/openshift-adp-controller-manager-76b8bc8d7b-kgkcw   1/1     Running   0          3d17h
-pod/velero-64475b8c5b-nh2qc                             1/1     Running   0          3d17h
+  NAME                        DESIRED   CURRENT   READY   UP-TO-DATE   AVAILABLE   NODE SELECTOR   AGE
+  daemonset.apps/node-agent   3         3         3       3            3           <none>          3d17h
 
-NAME                                                       TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)    AGE
-service/openshift-adp-controller-manager-metrics-service   ClusterIP   172.30.194.192   <none>        8443/TCP   3d17h
-service/openshift-adp-velero-metrics-svc                   ClusterIP   172.30.190.174   <none>        8085/TCP   3d17h
+  NAME                                               READY   UP-TO-DATE   AVAILABLE   AGE
+  deployment.apps/openshift-adp-controller-manager   1/1     1            1           3d17h
+  deployment.apps/velero                             1/1     1            1           3d17h
 
-NAME                        DESIRED   CURRENT   READY   UP-TO-DATE   AVAILABLE   NODE SELECTOR   AGE
-daemonset.apps/node-agent   3         3         3       3            3           <none>          3d17h
+  NAME                                                          DESIRED   CURRENT   READY   AGE
+  replicaset.apps/openshift-adp-controller-manager-76b8bc8d7b   1         1         1       3d17h
+  replicaset.apps/openshift-adp-controller-manager-85fff975b8   0         0         0       3d17h
+  replicaset.apps/velero-64475b8c5b                             1         1         1       3d17h
+  replicaset.apps/velero-8b5bc54fd                              0         0         0       3d17h
+  replicaset.apps/velero-f5c9ffb66                              0         0         0       3d17h
+  ```
 
-NAME                                               READY   UP-TO-DATE   AVAILABLE   AGE
-deployment.apps/openshift-adp-controller-manager   1/1     1            1           3d17h
-deployment.apps/velero                             1/1     1            1           3d17h
+  **Note**: The node-agent Pods are created only if using `restic` or `kopia` in DPA.
 
-NAME                                                          DESIRED   CURRENT   READY   AGE
-replicaset.apps/openshift-adp-controller-manager-76b8bc8d7b   1         1         1       3d17h
-replicaset.apps/openshift-adp-controller-manager-85fff975b8   0         0         0       3d17h
-replicaset.apps/velero-64475b8c5b                             1         1         1       3d17h
-replicaset.apps/velero-8b5bc54fd                              0         0         0       3d17h
-replicaset.apps/velero-f5c9ffb66                              0         0         0       3d17h
+  **Note**: The node-agent Pods are labeled as `restic` in older installations.
 
-```
+* Verify the BackupStorageLocations
+  ```
+  oc get backupStorageLocation -n openshift-adp
+  NAME           PHASE       LAST VALIDATED   AGE     DEFAULT
+  dpa-sample-1   Available   1s               3d16h   true
+  ```
 
-* Verify the DPA has been reconciled:
-
-```
-oc get dpa dpa-sample -n openshift-adp -o jsonpath='{.status}'
-```
-
-Example Output:
-```
-{"conditions":[{"lastTransitionTime":"2023-10-27T01:23:57Z","message":"Reconcile complete","reason":"Complete","status":"True","type":"Reconciled"}]}
-```
-
-Note: the `type` is set to `Reconciled`
-
-* Verify the BackupStorageLocation
-```
-oc get backupStorageLocation -n openshift-adp
-NAME           PHASE       LAST VALIDATED   AGE     DEFAULT
-dpa-sample-1   Available   1s               3d16h   true
-```
-
-Note: the `PHASE` is in `Available`
+  **Note**: the `PHASE` set to `Available`.
