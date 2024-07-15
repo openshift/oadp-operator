@@ -6,13 +6,13 @@ import (
 	"strings"
 	"time"
 
-	ginkgov2 "github.com/onsi/ginkgo/v2"
+	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
 
 	"github.com/openshift/oadp-operator/tests/e2e/lib"
 )
 
-var _ = ginkgov2.Describe("Backup and restore tests with must-gather", func() {
+var _ = ginkgo.Describe("Backup and restore tests with must-gather", func() {
 	var lastBRCase ApplicationBackupRestoreCase
 	var lastInstallTime time.Time
 	updateLastBRcase := func(brCase ApplicationBackupRestoreCase) {
@@ -22,14 +22,14 @@ var _ = ginkgov2.Describe("Backup and restore tests with must-gather", func() {
 		lastInstallTime = time.Now()
 	}
 
-	var _ = ginkgov2.AfterEach(func(ctx ginkgov2.SpecContext) {
+	var _ = ginkgo.AfterEach(func(ctx ginkgo.SpecContext) {
 		tearDownBackupAndRestore(lastBRCase.BackupRestoreCase, lastInstallTime, ctx.SpecReport())
 	})
 
-	ginkgov2.DescribeTable("Backup and restore applications and run must-gather",
+	ginkgo.DescribeTable("Backup and restore applications and run must-gather",
 		func(brCase ApplicationBackupRestoreCase, expectedErr error) {
-			if ginkgov2.CurrentSpecReport().NumAttempts > 1 && !knownFlake {
-				ginkgov2.Fail("No known FLAKE found in a previous run, marking test as failed.")
+			if ginkgo.CurrentSpecReport().NumAttempts > 1 && !knownFlake {
+				ginkgo.Fail("No known FLAKE found in a previous run, marking test as failed.")
 			}
 			runApplicationBackupAndRestore(brCase, expectedErr, updateLastBRcase, updateLastInstallTime)
 
@@ -74,7 +74,7 @@ var _ = ginkgov2.Describe("Backup and restore tests with must-gather", func() {
 				gomega.Expect(err).ToNot(gomega.HaveOccurred())
 			}
 		},
-		ginkgov2.Entry("Mongo application DATAMOVER", ginkgov2.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
+		ginkgo.Entry("Mongo application DATAMOVER", ginkgo.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
 			ApplicationTemplate: "./sample-applications/mongo-persistent/mongo-persistent-csi.yaml",
 			BackupRestoreCase: BackupRestoreCase{
 				Namespace:         "mongo-persistent",

@@ -26,7 +26,6 @@ Create `.vscode/launch.json` file with following content
                 "SETTINGS": "${workspaceRoot}/.vscode/default_settings.json",
                 "CLOUD_CREDENTIALS": "",
                 "VELERO_INSTANCE_NAME": "",
-                "CREDS_SECRET_REF": "",
                 "PROVIDER": "",
                 "CI_CRED_FILE": "",
                 "ARTIFACT_DIR": "",

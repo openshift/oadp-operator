@@ -20,7 +20,6 @@ import (
 	buildv1 "github.com/openshift/api/build/v1"
 	security "github.com/openshift/api/security/v1"
 	templatev1 "github.com/openshift/api/template/v1"
-	operatorsv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	"github.com/vmware-tanzu/velero/pkg/label"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -29,7 +28,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
-	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
@@ -37,13 +35,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-const e2eAppLabelKey = "e2e-app"
-const e2eAppLabelValue = "true"
-
-var (
-	e2eAppLabelRequirement, _ = labels.NewRequirement(e2eAppLabelKey, selection.Equals, []string{e2eAppLabelValue})
-	e2eAppLabelSelector       = labels.NewSelector().Add(*e2eAppLabelRequirement)
+const (
+	e2eAppLabelKey   = "e2e-app"
+	e2eAppLabelValue = "true"
 )
+
+var e2eAppLabel = fmt.Sprintf("%s=%s", e2eAppLabelKey, e2eAppLabelValue)
 
 func InstallApplication(ocClient client.Client, file string) error {
 	return InstallApplicationWithRetries(ocClient, file, 3)
@@ -66,7 +63,7 @@ func InstallApplicationWithRetries(ocClient client.Client, file string, retries 
 		if resourceLabels == nil {
 			resourceLabels = make(map[string]string)
 		}
-		resourceLabels[e2eAppLabelKey] = "true"
+		resourceLabels[e2eAppLabelKey] = e2eAppLabelValue
 		resource.SetLabels(resourceLabels)
 		resourceCreate := resource.DeepCopy()
 		err = nil // reset error for each resource
@@ -138,10 +135,9 @@ func InstallApplicationWithRetries(ocClient client.Client, file string, retries 
 }
 
 func DoesSCCExist(ocClient client.Client, sccName string) (bool, error) {
-	scc := security.SecurityContextConstraints{}
 	err := ocClient.Get(context.Background(), client.ObjectKey{
 		Name: sccName,
-	}, &scc)
+	}, &security.SecurityContextConstraints{})
 	if err != nil {
 		return false, err
 	}
@@ -227,7 +223,6 @@ func NamespaceRequiresResticDCWorkaround(ocClient client.Client, namespace strin
 func AreVolumeSnapshotsReady(ocClient client.Client, backupName string) wait.ConditionFunc {
 	return func() (bool, error) {
 		vList := &volumesnapshotv1.VolumeSnapshotContentList{}
-		// vListBeta := &volumesnapshotv1beta1.VolumeSnapshotList{}
 		err := ocClient.List(context.Background(), vList, &client.ListOptions{LabelSelector: label.NewSelectorForBackup(backupName)})
 		if err != nil {
 			return false, err
@@ -320,7 +315,11 @@ func AreAppBuildsReady(ocClient client.Client, namespace string) wait.ConditionF
 
 func areAppBuildsReady(ocClient client.Client, namespace string) (bool, error) {
 	buildList := &buildv1.BuildList{}
-	err := ocClient.List(context.Background(), buildList, &client.ListOptions{Namespace: namespace, LabelSelector: e2eAppLabelSelector})
+	label, err := labels.Parse(e2eAppLabel)
+	if err != nil {
+		return false, err
+	}
+	err = ocClient.List(context.Background(), buildList, &client.ListOptions{Namespace: namespace, LabelSelector: label})
 	if err != nil && !apierrors.IsNotFound(err) {
 		return false, err
 	}
@@ -362,54 +361,26 @@ func areAppBuildsReady(ocClient client.Client, namespace string) (bool, error) {
 
 func AreApplicationPodsRunning(c *kubernetes.Clientset, namespace string) wait.ConditionFunc {
 	return func() (bool, error) {
-		// select Velero pod with this label
-		veleroOptions := metav1.ListOptions{
-			LabelSelector: e2eAppLabelSelector.String(),
-		}
-		// get pods in test namespace with labelSelector
-		podList, err := c.CoreV1().Pods(namespace).List(context.Background(), veleroOptions)
+		podList, err := GetAllPodsWithLabel(c, namespace, e2eAppLabel)
 		if err != nil {
-			return false, nil
+			return false, err
 		}
-		if len(podList.Items) == 0 {
-			return false, nil
-		}
-		// get pod name and status with specified label selector
-		for _, podInfo := range podList.Items {
-			phase := podInfo.Status.Phase
+
+		for _, pod := range podList.Items {
+			phase := pod.Status.Phase
 			if phase != corev1.PodRunning && phase != corev1.PodSucceeded {
-				log.Printf("Pod %v not yet succeeded: phase is %v", podInfo.Name, phase)
-				return false, nil
+				log.Printf("Pod %v not yet succeeded: phase is %v", pod.Name, phase)
+				return false, fmt.Errorf("Pod not yet succeeded")
 			}
 
-			conditionType := corev1.ContainersReady
-			for _, condition := range podInfo.Status.Conditions {
-				if condition.Type == conditionType && condition.Status != corev1.ConditionTrue {
-					log.Printf("Pod %v not yet succeeded: condition is false: %v", podInfo.Name, conditionType)
-					return false, nil
+			for _, condition := range pod.Status.Conditions {
+				if condition.Type == corev1.ContainersReady && condition.Status != corev1.ConditionTrue {
+					log.Printf("Pod %v not yet succeeded: condition is: %v", pod.Name, condition.Status)
+					return false, fmt.Errorf("Pod not yet succeeded")
 				}
 			}
 		}
-		return true, err
-	}
-}
-
-func InstalledSubscriptionCSV(ocClient client.Client, namespace, subscriptionName string) func() (string, error) {
-	return func() (string, error) {
-		// get operator-sdk subscription
-		subscription := &operatorsv1alpha1.Subscription{}
-		err := ocClient.Get(context.Background(), client.ObjectKey{
-			Namespace: namespace,
-			Name:      subscriptionName,
-		}, subscription)
-		if err != nil {
-			if apierrors.IsNotFound(err) {
-				return "", nil
-			}
-			ginkgo.GinkgoWriter.Write([]byte(fmt.Sprintf("Error getting subscription: %v\n", err)))
-			return "", err
-		}
-		return subscription.Status.InstalledCSV, nil
+		return true, nil
 	}
 }
 

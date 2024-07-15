@@ -4,12 +4,17 @@ import (
 	"context"
 	"os"
 	"reflect"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
+	"github.com/onsi/ginkgo/v2"
+	"github.com/onsi/gomega"
+	"github.com/operator-framework/operator-lib/proxy"
 	"github.com/sirupsen/logrus"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -19,7 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/tools/record"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
@@ -106,6 +111,160 @@ var (
 		},
 	}
 )
+
+type ReconcileVeleroControllerScenario struct {
+	namespace string
+	dpaName   string
+	envVar    corev1.EnvVar
+}
+
+var _ = ginkgo.Describe("Test ReconcileVeleroDeployment function", func() {
+	var (
+		ctx                 = context.Background()
+		currentTestScenario ReconcileVeleroControllerScenario
+		updateTestScenario  = func(scenario ReconcileVeleroControllerScenario) {
+			currentTestScenario = scenario
+		}
+	)
+
+	ginkgo.AfterEach(func() {
+		os.Unsetenv(currentTestScenario.envVar.Name)
+
+		deployment := &appsv1.Deployment{}
+		if k8sClient.Get(
+			ctx,
+			types.NamespacedName{
+				Name:      common.Velero,
+				Namespace: currentTestScenario.namespace,
+			},
+			deployment,
+		) == nil {
+			gomega.Expect(k8sClient.Delete(ctx, deployment)).To(gomega.Succeed())
+		}
+
+		dpa := &oadpv1alpha1.DataProtectionApplication{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      currentTestScenario.dpaName,
+				Namespace: currentTestScenario.namespace,
+			},
+		}
+		gomega.Expect(k8sClient.Delete(ctx, dpa)).To(gomega.Succeed())
+
+		namespace := &corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: currentTestScenario.namespace,
+			},
+		}
+		gomega.Expect(k8sClient.Delete(ctx, namespace)).To(gomega.Succeed())
+	})
+
+	ginkgo.DescribeTable("Check if Subscription Config environment variables are passed to Velero Containers",
+		func(scenario ReconcileVeleroControllerScenario) {
+			updateTestScenario(scenario)
+
+			namespace := &corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: scenario.namespace,
+				},
+			}
+			gomega.Expect(k8sClient.Create(ctx, namespace)).To(gomega.Succeed())
+
+			dpa := &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      scenario.dpaName,
+					Namespace: scenario.namespace,
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							NoDefaultBackupLocation: true,
+						},
+					},
+				},
+			}
+			gomega.Expect(k8sClient.Create(ctx, dpa)).To(gomega.Succeed())
+
+			// Subscription Config environment variables are passed to controller-manager Pod
+			// https://github.com/operator-framework/operator-lifecycle-manager/blob/d8500d88932b17aa9b1853f0f26086f6ee6b35f9/doc/design/subscription-config.md
+			os.Setenv(scenario.envVar.Name, scenario.envVar.Value)
+
+			event := record.NewFakeRecorder(5)
+			r := &DPAReconciler{
+				Client:  k8sClient,
+				Scheme:  testEnv.Scheme,
+				Context: ctx,
+				NamespacedName: types.NamespacedName{
+					Name:      scenario.dpaName,
+					Namespace: scenario.namespace,
+				},
+				EventRecorder: event,
+			}
+			result, err := r.ReconcileVeleroDeployment(logr.Discard())
+
+			gomega.Expect(result).To(gomega.BeTrue())
+			gomega.Expect(err).To(gomega.Not(gomega.HaveOccurred()))
+
+			gomega.Expect(len(event.Events)).To(gomega.Equal(1))
+			message := <-event.Events
+			for _, word := range []string{"Normal", "VeleroDeploymentReconciled", "created"} {
+				gomega.Expect(message).To(gomega.ContainSubstring(word))
+			}
+
+			deployment := &appsv1.Deployment{}
+			err = k8sClient.Get(
+				ctx,
+				types.NamespacedName{
+					Name:      common.Velero,
+					Namespace: scenario.namespace,
+				},
+				deployment,
+			)
+			gomega.Expect(err).To(gomega.Not(gomega.HaveOccurred()))
+
+			if slices.Contains(proxy.ProxyEnvNames, scenario.envVar.Name) {
+				for _, container := range deployment.Spec.Template.Spec.Containers {
+					gomega.Expect(container.Env).To(gomega.ContainElement(scenario.envVar))
+				}
+			} else {
+				for _, container := range deployment.Spec.Template.Spec.Containers {
+					gomega.Expect(container.Env).To(gomega.Not(gomega.ContainElement(scenario.envVar)))
+				}
+			}
+		},
+		ginkgo.Entry("Should add HTTP_PROXY environment variable to Velero Containers", ReconcileVeleroControllerScenario{
+			namespace: "test-velero-environment-variables-1",
+			dpaName:   "test-velero-environment-variables-1-dpa",
+			envVar: corev1.EnvVar{
+				Name:  "HTTP_PROXY",
+				Value: "http://proxy.example.com:8080",
+			},
+		}),
+		ginkgo.Entry("Should add HTTPS_PROXY environment variable to Velero Containers", ReconcileVeleroControllerScenario{
+			namespace: "test-velero-environment-variables-2",
+			dpaName:   "test-velero-environment-variables-2-dpa",
+			envVar: corev1.EnvVar{
+				Name:  "HTTPS_PROXY",
+				Value: "localhost",
+			},
+		}),
+		ginkgo.Entry("Should add NO_PROXY environment variable to Velero Containers", ReconcileVeleroControllerScenario{
+			namespace: "test-velero-environment-variables-3",
+			dpaName:   "test-velero-environment-variables-3-dpa",
+			envVar: corev1.EnvVar{
+				Name:  "NO_PROXY",
+				Value: "1.1.1.1",
+			},
+		}),
+		ginkgo.Entry("Should NOT add WRONG environment variable to Velero Containers", ReconcileVeleroControllerScenario{
+			namespace: "test-velero-environment-variables-4",
+			dpaName:   "test-velero-environment-variables-4-dpa",
+			envVar: corev1.EnvVar{
+				Name:  "WRONG",
+				Value: "I do not know what is happening here",
+			},
+		}),
+	)
+})
 
 func pluginContainer(name, image string) corev1.Container {
 	container := baseContainer
@@ -200,7 +359,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 				},
 				Spec: appsv1.DeploymentSpec{
 					Selector: &metav1.LabelSelector{MatchLabels: veleroDeploymentMatchLabels},
-					Replicas: pointer.Int32(1),
+					Replicas: ptr.To(int32(1)),
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: veleroPodObjectMeta,
 						Spec: corev1.PodSpec{
@@ -272,7 +431,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 				},
 				Spec: appsv1.DeploymentSpec{
 					Selector: &metav1.LabelSelector{MatchLabels: veleroDeploymentMatchLabels},
-					Replicas: pointer.Int32(1),
+					Replicas: ptr.To(int32(1)),
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: veleroPodObjectMeta,
 						Spec: corev1.PodSpec{
@@ -357,7 +516,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 				},
 				Spec: appsv1.DeploymentSpec{
 					Selector: &metav1.LabelSelector{MatchLabels: veleroDeploymentMatchLabels},
-					Replicas: pointer.Int32(1),
+					Replicas: ptr.To(int32(1)),
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: veleroPodObjectMeta,
 						Spec: corev1.PodSpec{
@@ -464,7 +623,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 				},
 				Spec: appsv1.DeploymentSpec{
 					Selector: &metav1.LabelSelector{MatchLabels: veleroDeploymentMatchLabels},
-					Replicas: pointer.Int32(1),
+					Replicas: ptr.To(int32(1)),
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: veleroPodObjectMeta,
 						Spec: corev1.PodSpec{
@@ -551,7 +710,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 				},
 				Spec: appsv1.DeploymentSpec{
 					Selector: &metav1.LabelSelector{MatchLabels: veleroDeploymentMatchLabels},
-					Replicas: pointer.Int32(1),
+					Replicas: ptr.To(int32(1)),
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: common.AppendTTMapAsCopy(veleroDeploymentMatchLabels,
@@ -638,7 +797,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 				},
 				Spec: appsv1.DeploymentSpec{
 					Selector: &metav1.LabelSelector{MatchLabels: veleroDeploymentMatchLabels},
-					Replicas: pointer.Int32(1),
+					Replicas: ptr.To(int32(1)),
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels:      veleroDeploymentMatchLabels,
@@ -721,7 +880,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 				},
 				Spec: appsv1.DeploymentSpec{
 					Selector: &metav1.LabelSelector{MatchLabels: veleroDeploymentMatchLabels},
-					Replicas: pointer.Int32(1),
+					Replicas: ptr.To(int32(1)),
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels:      veleroDeploymentMatchLabels,
@@ -779,16 +938,16 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 						Velero: &oadpv1alpha1.VeleroConfig{
 							Args: &server.Args{
 								ServerConfig: server.ServerConfig{
-									BackupSyncPeriod:            pointer.Duration(1),
-									PodVolumeOperationTimeout:   pointer.Duration(1),
-									ResourceTerminatingTimeout:  pointer.Duration(1),
-									DefaultBackupTTL:            pointer.Duration(1),
-									StoreValidationFrequency:    pointer.Duration(1),
-									ItemOperationSyncFrequency:  pointer.Duration(1),
-									RepoMaintenanceFrequency:    pointer.Duration(1),
-									GarbageCollectionFrequency:  pointer.Duration(1),
-									DefaultItemOperationTimeout: pointer.Duration(1),
-									ResourceTimeout:             pointer.Duration(1),
+									BackupSyncPeriod:            ptr.To(time.Duration(1)),
+									PodVolumeOperationTimeout:   ptr.To(time.Duration(1)),
+									ResourceTerminatingTimeout:  ptr.To(time.Duration(1)),
+									DefaultBackupTTL:            ptr.To(time.Duration(1)),
+									StoreValidationFrequency:    ptr.To(time.Duration(1)),
+									ItemOperationSyncFrequency:  ptr.To(time.Duration(1)),
+									RepoMaintenanceFrequency:    ptr.To(time.Duration(1)),
+									GarbageCollectionFrequency:  ptr.To(time.Duration(1)),
+									DefaultItemOperationTimeout: ptr.To(time.Duration(1)),
+									ResourceTimeout:             ptr.To(time.Duration(1)),
 								},
 							},
 						},
@@ -820,7 +979,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 				},
 				Spec: appsv1.DeploymentSpec{
 					Selector: &metav1.LabelSelector{MatchLabels: veleroDeploymentMatchLabels},
-					Replicas: pointer.Int32(1),
+					Replicas: ptr.To(int32(1)),
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels:      veleroDeploymentMatchLabels,
@@ -977,7 +1136,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							oadpv1alpha1.OadpOperatorLabel: "True",
 						},
 					},
-					Replicas: pointer.Int32(1),
+					Replicas: ptr.To(int32(1)),
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: map[string]string{
@@ -1121,7 +1280,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							LogLevel:                    logrus.InfoLevel.String(),
 							ItemOperationSyncFrequency:  "5m",
 							DefaultItemOperationTimeout: "2h",
-							DefaultSnapshotMoveData:     pointer.Bool(false),
+							DefaultSnapshotMoveData:     ptr.To(false),
 						},
 					},
 				},
@@ -1156,7 +1315,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							oadpv1alpha1.OadpOperatorLabel: "True",
 						},
 					},
-					Replicas: pointer.Int32(1),
+					Replicas: ptr.To(int32(1)),
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: map[string]string{
@@ -1302,7 +1461,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							LogLevel:                    logrus.InfoLevel.String(),
 							ItemOperationSyncFrequency:  "5m",
 							DefaultItemOperationTimeout: "2h",
-							DefaultSnapshotMoveData:     pointer.Bool(true),
+							DefaultSnapshotMoveData:     ptr.To(true),
 						},
 					},
 				},
@@ -1337,7 +1496,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							oadpv1alpha1.OadpOperatorLabel: "True",
 						},
 					},
-					Replicas: pointer.Int32(1),
+					Replicas: ptr.To(int32(1)),
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: map[string]string{
@@ -1483,7 +1642,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							LogLevel:                    logrus.InfoLevel.String(),
 							ItemOperationSyncFrequency:  "5m",
 							DefaultItemOperationTimeout: "2h",
-							DefaultVolumesToFSBackup:    pointer.Bool(true),
+							DefaultVolumesToFSBackup:    ptr.To(true),
 						},
 					},
 				},
@@ -1518,7 +1677,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							oadpv1alpha1.OadpOperatorLabel: "True",
 						},
 					},
-					Replicas: pointer.Int32(1),
+					Replicas: ptr.To(int32(1)),
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: map[string]string{
@@ -1664,7 +1823,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							LogLevel:                    logrus.InfoLevel.String(),
 							ItemOperationSyncFrequency:  "5m",
 							DefaultItemOperationTimeout: "2h",
-							DefaultVolumesToFSBackup:    pointer.Bool(false),
+							DefaultVolumesToFSBackup:    ptr.To(false),
 						},
 					},
 				},
@@ -1699,7 +1858,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							oadpv1alpha1.OadpOperatorLabel: "True",
 						},
 					},
-					Replicas: pointer.Int32(1),
+					Replicas: ptr.To(int32(1)),
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: map[string]string{
@@ -1845,8 +2004,8 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							LogLevel:                    logrus.InfoLevel.String(),
 							ItemOperationSyncFrequency:  "5m",
 							DefaultItemOperationTimeout: "2h",
-							DefaultVolumesToFSBackup:    pointer.Bool(false),
-							DisableInformerCache:        pointer.Bool(true),
+							DefaultVolumesToFSBackup:    ptr.To(false),
+							DisableInformerCache:        ptr.To(true),
 						},
 					},
 				},
@@ -1881,7 +2040,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							oadpv1alpha1.OadpOperatorLabel: "True",
 						},
 					},
-					Replicas: pointer.Int32(1),
+					Replicas: ptr.To(int32(1)),
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: map[string]string{
@@ -2027,8 +2186,8 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							LogLevel:                    logrus.InfoLevel.String(),
 							ItemOperationSyncFrequency:  "5m",
 							DefaultItemOperationTimeout: "2h",
-							DefaultVolumesToFSBackup:    pointer.Bool(false),
-							DisableInformerCache:        pointer.Bool(false),
+							DefaultVolumesToFSBackup:    ptr.To(false),
+							DisableInformerCache:        ptr.To(false),
 						},
 					},
 				},
@@ -2063,7 +2222,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							oadpv1alpha1.OadpOperatorLabel: "True",
 						},
 					},
-					Replicas: pointer.Int32(1),
+					Replicas: ptr.To(int32(1)),
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: map[string]string{
@@ -2209,7 +2368,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							LogLevel:                    logrus.InfoLevel.String(),
 							ItemOperationSyncFrequency:  "5m",
 							DefaultItemOperationTimeout: "2h",
-							DefaultVolumesToFSBackup:    pointer.Bool(false),
+							DefaultVolumesToFSBackup:    ptr.To(false),
 						},
 					},
 				},
@@ -2244,7 +2403,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							oadpv1alpha1.OadpOperatorLabel: "True",
 						},
 					},
-					Replicas: pointer.Int32(1),
+					Replicas: ptr.To(int32(1)),
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: map[string]string{
@@ -2390,8 +2549,8 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							LogLevel:                    logrus.InfoLevel.String(),
 							ItemOperationSyncFrequency:  "5m",
 							DefaultItemOperationTimeout: "2h",
-							DefaultVolumesToFSBackup:    pointer.Bool(false),
-							DefaultSnapshotMoveData:     pointer.Bool(true),
+							DefaultVolumesToFSBackup:    ptr.To(false),
+							DefaultSnapshotMoveData:     ptr.To(true),
 						},
 					},
 				},
@@ -2426,7 +2585,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							oadpv1alpha1.OadpOperatorLabel: "True",
 						},
 					},
-					Replicas: pointer.Int32(1),
+					Replicas: ptr.To(int32(1)),
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: map[string]string{
@@ -2607,7 +2766,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							oadpv1alpha1.OadpOperatorLabel: "True",
 						},
 					},
-					Replicas: pointer.Int32(1),
+					Replicas: ptr.To(int32(1)),
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: map[string]string{
@@ -2757,7 +2916,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 				},
 				Spec: appsv1.DeploymentSpec{
 					Selector: &metav1.LabelSelector{MatchLabels: veleroDeploymentMatchLabels},
-					Replicas: pointer.Int32(1),
+					Replicas: ptr.To(int32(1)),
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: veleroPodObjectMeta,
 						Spec: corev1.PodSpec{
@@ -2855,7 +3014,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							oadpv1alpha1.OadpOperatorLabel: "True",
 						},
 					},
-					Replicas: pointer.Int32(1),
+					Replicas: ptr.To(int32(1)),
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: map[string]string{
@@ -3046,7 +3205,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 				},
 				Spec: appsv1.DeploymentSpec{
 					Selector: &metav1.LabelSelector{MatchLabels: veleroDeploymentMatchLabels},
-					Replicas: pointer.Int32(1),
+					Replicas: ptr.To(int32(1)),
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: veleroPodObjectMeta,
 						Spec: corev1.PodSpec{
@@ -3133,7 +3292,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 				},
 				Spec: appsv1.DeploymentSpec{
 					Selector: &metav1.LabelSelector{MatchLabels: veleroDeploymentMatchLabels},
-					Replicas: pointer.Int32(1),
+					Replicas: ptr.To(int32(1)),
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: veleroPodObjectMeta,
 						Spec: corev1.PodSpec{
@@ -3219,7 +3378,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 				},
 				Spec: appsv1.DeploymentSpec{
 					Selector: &metav1.LabelSelector{MatchLabels: veleroDeploymentMatchLabels},
-					Replicas: pointer.Int32(1),
+					Replicas: ptr.To(int32(1)),
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: veleroPodObjectMeta,
 						Spec: corev1.PodSpec{
@@ -3302,7 +3461,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 				},
 				Spec: appsv1.DeploymentSpec{
 					Selector: &metav1.LabelSelector{MatchLabels: veleroDeploymentMatchLabels},
-					Replicas: pointer.Int32(1),
+					Replicas: ptr.To(int32(1)),
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: veleroPodObjectMeta,
 						Spec: corev1.PodSpec{
@@ -3385,7 +3544,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 				},
 				Spec: appsv1.DeploymentSpec{
 					Selector: &metav1.LabelSelector{MatchLabels: veleroDeploymentMatchLabels},
-					Replicas: pointer.Int32(1),
+					Replicas: ptr.To(int32(1)),
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: veleroPodObjectMeta,
 						Spec: corev1.PodSpec{
@@ -3491,7 +3650,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 				},
 				Spec: appsv1.DeploymentSpec{
 					Selector: &metav1.LabelSelector{MatchLabels: veleroDeploymentMatchLabels},
-					Replicas: pointer.Int32(1),
+					Replicas: ptr.To(int32(1)),
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels:      veleroDeploymentMatchLabels,
@@ -3604,7 +3763,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 				},
 				Spec: appsv1.DeploymentSpec{
 					Selector: &metav1.LabelSelector{MatchLabels: veleroDeploymentMatchLabels},
-					Replicas: pointer.Int32(1),
+					Replicas: ptr.To(int32(1)),
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels:      veleroDeploymentMatchLabels,
@@ -3689,7 +3848,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 				},
 				Spec: appsv1.DeploymentSpec{
 					Selector: &metav1.LabelSelector{MatchLabels: veleroDeploymentMatchLabels},
-					Replicas: pointer.Int32(1),
+					Replicas: ptr.To(int32(1)),
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: veleroPodObjectMeta,
 						Spec: corev1.PodSpec{
@@ -3773,7 +3932,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 				},
 				Spec: appsv1.DeploymentSpec{
 					Selector: &metav1.LabelSelector{MatchLabels: veleroDeploymentMatchLabels},
-					Replicas: pointer.Int32(1),
+					Replicas: ptr.To(int32(1)),
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: veleroPodObjectMeta,
 						Spec: corev1.PodSpec{
@@ -3863,7 +4022,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 				},
 				Spec: appsv1.DeploymentSpec{
 					Selector: &metav1.LabelSelector{MatchLabels: veleroDeploymentMatchLabels},
-					Replicas: pointer.Int32(1),
+					Replicas: ptr.To(int32(1)),
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: veleroDeploymentMatchLabels,
@@ -3951,7 +4110,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							"8.8.8.8",
 						},
 						Options: []corev1.PodDNSConfigOption{
-							{Name: "ndots", Value: pointer.String("2")},
+							{Name: "ndots", Value: ptr.To("2")},
 							{
 								Name: "edns0",
 							},
@@ -3972,7 +4131,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 				},
 				Spec: appsv1.DeploymentSpec{
 					Selector: &metav1.LabelSelector{MatchLabels: veleroDeploymentMatchLabels},
-					Replicas: pointer.Int32(1),
+					Replicas: ptr.To(int32(1)),
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: veleroDeploymentMatchLabels,
@@ -3989,7 +4148,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							DNSConfig: &corev1.PodDNSConfig{
 								Nameservers: []string{"1.1.1.1", "8.8.8.8"},
 								Options: []corev1.PodDNSConfigOption{
-									{Name: "ndots", Value: pointer.String("2")},
+									{Name: "ndots", Value: ptr.To("2")},
 									{
 										Name: "edns0",
 									},
@@ -4093,7 +4252,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 				},
 				Spec: appsv1.DeploymentSpec{
 					Selector: &metav1.LabelSelector{MatchLabels: veleroDeploymentMatchLabels},
-					Replicas: pointer.Int32(1),
+					Replicas: ptr.To(int32(1)),
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: veleroPodObjectMeta,
 						Spec: corev1.PodSpec{
@@ -4131,12 +4290,12 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 									Name: "bound-sa-token",
 									VolumeSource: corev1.VolumeSource{
 										Projected: &corev1.ProjectedVolumeSource{
-											DefaultMode: pointer.Int32(420),
+											DefaultMode: ptr.To(int32(420)),
 											Sources: []corev1.VolumeProjection{
 												{
 													ServiceAccountToken: &corev1.ServiceAccountTokenProjection{
 														Audience:          "openshift",
-														ExpirationSeconds: pointer.Int64(3600),
+														ExpirationSeconds: ptr.To(int64(3600)),
 														Path:              "token",
 													},
 												},
@@ -4203,7 +4362,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 				},
 				Spec: appsv1.DeploymentSpec{
 					Selector: &metav1.LabelSelector{MatchLabels: veleroDeploymentMatchLabels},
-					Replicas: pointer.Int32(1),
+					Replicas: ptr.To(int32(1)),
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: veleroDeploymentMatchLabels,
@@ -4280,7 +4439,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 				},
 				Spec: appsv1.DeploymentSpec{
 					Selector: &metav1.LabelSelector{MatchLabels: veleroDeploymentMatchLabels},
-					Replicas: pointer.Int32(1),
+					Replicas: ptr.To(int32(1)),
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: veleroPodObjectMeta,
 						Spec: corev1.PodSpec{
@@ -4332,16 +4491,16 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 						Velero: &oadpv1alpha1.VeleroConfig{
 							Args: &server.Args{
 								ServerConfig: server.ServerConfig{
-									BackupSyncPeriod:            pointer.Duration(1),
-									PodVolumeOperationTimeout:   pointer.Duration(1),
-									ResourceTerminatingTimeout:  pointer.Duration(1),
-									DefaultBackupTTL:            pointer.Duration(1),
-									StoreValidationFrequency:    pointer.Duration(1),
-									ItemOperationSyncFrequency:  pointer.Duration(1),
-									RepoMaintenanceFrequency:    pointer.Duration(1),
-									GarbageCollectionFrequency:  pointer.Duration(1),
-									DefaultItemOperationTimeout: pointer.Duration(1),
-									ResourceTimeout:             pointer.Duration(1),
+									BackupSyncPeriod:            ptr.To(time.Duration(1)),
+									PodVolumeOperationTimeout:   ptr.To(time.Duration(1)),
+									ResourceTerminatingTimeout:  ptr.To(time.Duration(1)),
+									DefaultBackupTTL:            ptr.To(time.Duration(1)),
+									StoreValidationFrequency:    ptr.To(time.Duration(1)),
+									ItemOperationSyncFrequency:  ptr.To(time.Duration(1)),
+									RepoMaintenanceFrequency:    ptr.To(time.Duration(1)),
+									GarbageCollectionFrequency:  ptr.To(time.Duration(1)),
+									DefaultItemOperationTimeout: ptr.To(time.Duration(1)),
+									ResourceTimeout:             ptr.To(time.Duration(1)),
 								},
 							},
 						},
@@ -4360,7 +4519,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 				},
 				Spec: appsv1.DeploymentSpec{
 					Selector: &metav1.LabelSelector{MatchLabels: veleroDeploymentMatchLabels},
-					Replicas: pointer.Int32(1),
+					Replicas: ptr.To(int32(1)),
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: veleroPodObjectMeta,
 						Spec: corev1.PodSpec{
@@ -4439,10 +4598,10 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 					}
 				}
 				if tt.wantVeleroDeployment.Spec.RevisionHistoryLimit == nil {
-					tt.wantVeleroDeployment.Spec.RevisionHistoryLimit = pointer.Int32(10)
+					tt.wantVeleroDeployment.Spec.RevisionHistoryLimit = ptr.To(int32(10))
 				}
 				if tt.wantVeleroDeployment.Spec.ProgressDeadlineSeconds == nil {
-					tt.wantVeleroDeployment.Spec.ProgressDeadlineSeconds = pointer.Int32(600)
+					tt.wantVeleroDeployment.Spec.ProgressDeadlineSeconds = ptr.To(int32(600))
 				}
 			}
 			if !reflect.DeepEqual(tt.wantVeleroDeployment, tt.veleroDeployment) {
@@ -4803,12 +4962,12 @@ func TestDPAReconciler_VeleroDebugEnvironment(t *testing.T) {
 		},
 		{
 			name:     "debug replica override set to 1",
-			replicas: pointer.Int(1),
+			replicas: ptr.To(1),
 			wantErr:  false,
 		},
 		{
 			name:     "debug replica override set to 0",
-			replicas: pointer.Int(0),
+			replicas: ptr.To(0),
 			wantErr:  false,
 		},
 	}

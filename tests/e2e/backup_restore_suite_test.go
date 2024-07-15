@@ -1,7 +1,6 @@
 package e2e_test
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"log"
@@ -10,52 +9,14 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	ginkgov2 "github.com/onsi/ginkgo/v2"
+	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
-	corev1 "k8s.io/api/core/v1"
-	k8serror "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/openshift/oadp-operator/tests/e2e/lib"
 )
 
 type VerificationFunction func(client.Client, string) error
-
-type appVerificationFunction func(bool, bool, lib.BackupRestoreType) VerificationFunction
-
-// TODO duplications with mongoready
-func mongoready(preBackupState bool, twoVol bool) VerificationFunction {
-	return VerificationFunction(func(ocClient client.Client, namespace string) error {
-		gomega.Eventually(lib.IsDCReady(ocClient, namespace, "todolist"), timeoutMultiplier*time.Minute*10, time.Second*10).Should(gomega.BeTrue())
-		exists, err := lib.DoesSCCExist(ocClient, "mongo-persistent-scc")
-		if err != nil {
-			return err
-		}
-		if !exists {
-			return errors.New("did not find Mongo scc")
-		}
-		err = lib.VerifyBackupRestoreData(runTimeClientForSuiteRun, kubernetesClientForSuiteRun, kubeConfig, artifact_dir, namespace, "todolist-route", "todolist", "todolist", preBackupState, false)
-		return err
-	})
-}
-
-func mysqlReady(preBackupState bool, twoVol bool) VerificationFunction {
-	return VerificationFunction(func(ocClient client.Client, namespace string) error {
-		log.Printf("checking for the NAMESPACE: %s", namespace)
-		// This test confirms that SCC restore logic in our plugin is working
-		gomega.Eventually(lib.IsDeploymentReady(ocClient, namespace, "mysql"), timeoutMultiplier*time.Minute*10, time.Second*10).Should(gomega.BeTrue())
-		exists, err := lib.DoesSCCExist(ocClient, "mysql-persistent-scc")
-		if err != nil {
-			return err
-		}
-		if !exists {
-			return errors.New("did not find MYSQL scc")
-		}
-		err = lib.VerifyBackupRestoreData(runTimeClientForSuiteRun, kubernetesClientForSuiteRun, kubeConfig, artifact_dir, namespace, "todolist-route", "todolist", "todolist", preBackupState, twoVol)
-		return err
-	})
-}
 
 type BackupRestoreCase struct {
 	Namespace         string
@@ -75,23 +36,58 @@ type ApplicationBackupRestoreCase struct {
 	MustGatherValidationFunction *func(string) error // validation function for must-gather where string parameter is the path to "quay.io.../clusters/clustername/"
 }
 
-func prepareBackupAndRestore(brCase BackupRestoreCase, updateLastInstallTime func()) (string, string) {
-	err := dpaCR.Build(brCase.BackupRestoreType)
-	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+func mongoready(preBackupState bool, twoVol bool) VerificationFunction {
+	return VerificationFunction(func(ocClient client.Client, namespace string) error {
+		gomega.Eventually(lib.IsDCReady(ocClient, namespace, "todolist"), time.Minute*10, time.Second*10).Should(gomega.BeTrue())
+		exists, err := lib.DoesSCCExist(ocClient, "mongo-persistent-scc")
+		if err != nil {
+			return err
+		}
+		if !exists {
+			return errors.New("did not find Mongo scc")
+		}
+		err = lib.VerifyBackupRestoreData(runTimeClientForSuiteRun, kubernetesClientForSuiteRun, kubeConfig, artifact_dir, namespace, "todolist-route", "todolist", "todolist", preBackupState, false)
+		return err
+	})
+}
 
-	//updateLastInstallingNamespace(dpaCR.Namespace)
+func mysqlReady(preBackupState bool, twoVol bool) VerificationFunction {
+	return VerificationFunction(func(ocClient client.Client, namespace string) error {
+		log.Printf("checking for the NAMESPACE: %s", namespace)
+		// This test confirms that SCC restore logic in our plugin is working
+		gomega.Eventually(lib.IsDeploymentReady(ocClient, namespace, "mysql"), time.Minute*10, time.Second*10).Should(gomega.BeTrue())
+		exists, err := lib.DoesSCCExist(ocClient, "mysql-persistent-scc")
+		if err != nil {
+			return err
+		}
+		if !exists {
+			return errors.New("did not find MYSQL scc")
+		}
+		err = lib.VerifyBackupRestoreData(runTimeClientForSuiteRun, kubernetesClientForSuiteRun, kubeConfig, artifact_dir, namespace, "todolist-route", "todolist", "todolist", preBackupState, twoVol)
+		return err
+	})
+}
+
+func prepareBackupAndRestore(brCase BackupRestoreCase, updateLastInstallTime func()) (string, string) {
 	updateLastInstallTime()
 
-	err = dpaCR.CreateOrUpdate(runTimeClientForSuiteRun, &dpaCR.CustomResource.Spec)
+	err := dpaCR.CreateOrUpdate(runTimeClientForSuiteRun, dpaCR.Build(brCase.BackupRestoreType))
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
-	log.Printf("Waiting for velero pod to be running")
-	gomega.Eventually(lib.AreVeleroPodsRunning(kubernetesClientForSuiteRun, namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(gomega.BeTrue())
+	log.Print("Checking if DPA is reconciled")
+	gomega.Eventually(dpaCR.IsReconciledTrue(), time.Minute*3, time.Second*5).Should(gomega.BeTrue())
+
+	log.Printf("Waiting for Velero Pod to be running")
+	gomega.Eventually(lib.VeleroPodIsRunning(kubernetesClientForSuiteRun, namespace), time.Minute*3, time.Second*5).Should(gomega.BeTrue())
 
 	if brCase.BackupRestoreType == lib.RESTIC || brCase.BackupRestoreType == lib.KOPIA || brCase.BackupRestoreType == lib.CSIDataMover {
 		log.Printf("Waiting for Node Agent pods to be running")
-		gomega.Eventually(lib.AreNodeAgentPodsRunning(kubernetesClientForSuiteRun, namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(gomega.BeTrue())
+		gomega.Eventually(lib.AreNodeAgentPodsRunning(kubernetesClientForSuiteRun, namespace), time.Minute*3, time.Second*5).Should(gomega.BeTrue())
 	}
+
+	log.Print("Checking if BSL is available")
+	gomega.Eventually(dpaCR.BSLsAreAvailable(), time.Minute*3, time.Second*5).Should(gomega.BeTrue())
+
 	if brCase.BackupRestoreType == lib.CSI || brCase.BackupRestoreType == lib.CSIDataMover {
 		if provider == "aws" || provider == "ibmcloud" || provider == "gcp" || provider == "azure" {
 			log.Printf("Creating VolumeSnapshotClass for CSI backuprestore of %s", brCase.Name)
@@ -144,9 +140,9 @@ func runApplicationBackupAndRestore(brCase ApplicationBackupRestoreCase, expecte
 		gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	}
 
-	// wait for pods to be running
-	gomega.Eventually(lib.AreAppBuildsReady(dpaCR.Client, brCase.Namespace), timeoutMultiplier*time.Minute*5, time.Second*5).Should(gomega.BeTrue())
-	gomega.Eventually(lib.AreApplicationPodsRunning(kubernetesClientForSuiteRun, brCase.Namespace), timeoutMultiplier*time.Minute*9, time.Second*5).Should(gomega.BeTrue())
+	// wait for Pods to be running
+	gomega.Eventually(lib.AreAppBuildsReady(dpaCR.Client, brCase.Namespace), time.Minute*5, time.Second*5).Should(gomega.BeTrue())
+	gomega.Eventually(lib.AreApplicationPodsRunning(kubernetesClientForSuiteRun, brCase.Namespace), time.Minute*9, time.Second*5).Should(gomega.BeTrue())
 
 	// do the backup for real
 	nsRequiredResticDCWorkaround := runBackup(brCase.BackupRestoreCase, backupName)
@@ -157,7 +153,7 @@ func runApplicationBackupAndRestore(brCase ApplicationBackupRestoreCase, expecte
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 	// Wait for namespace to be deleted
-	gomega.Eventually(lib.IsNamespaceDeleted(kubernetesClientForSuiteRun, brCase.Namespace), timeoutMultiplier*time.Minute*4, time.Second*5).Should(gomega.BeTrue())
+	gomega.Eventually(lib.IsNamespaceDeleted(kubernetesClientForSuiteRun, brCase.Namespace), time.Minute*4, time.Second*5).Should(gomega.BeTrue())
 
 	updateLastInstallTime()
 
@@ -165,8 +161,8 @@ func runApplicationBackupAndRestore(brCase ApplicationBackupRestoreCase, expecte
 	runRestore(brCase.BackupRestoreCase, backupName, restoreName, nsRequiredResticDCWorkaround)
 
 	// verify app is running
-	gomega.Eventually(lib.AreAppBuildsReady(dpaCR.Client, brCase.Namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(gomega.BeTrue())
-	gomega.Eventually(lib.AreApplicationPodsRunning(kubernetesClientForSuiteRun, brCase.Namespace), timeoutMultiplier*time.Minute*9, time.Second*5).Should(gomega.BeTrue())
+	gomega.Eventually(lib.AreAppBuildsReady(dpaCR.Client, brCase.Namespace), time.Minute*3, time.Second*5).Should(gomega.BeTrue())
+	gomega.Eventually(lib.AreApplicationPodsRunning(kubernetesClientForSuiteRun, brCase.Namespace), time.Minute*9, time.Second*5).Should(gomega.BeTrue())
 
 	// Run optional custom verification
 	if brCase.PostRestoreVerify != nil {
@@ -196,17 +192,17 @@ func runBackup(brCase BackupRestoreCase, backupName string) bool {
 
 	// create backup
 	log.Printf("Creating backup %s for case %s", backupName, brCase.Name)
-	backup, err := lib.CreateBackupForNamespaces(dpaCR.Client, namespace, backupName, []string{brCase.Namespace}, brCase.BackupRestoreType == lib.RESTIC || brCase.BackupRestoreType == lib.KOPIA, brCase.BackupRestoreType == lib.CSIDataMover)
+	err = lib.CreateBackupForNamespaces(dpaCR.Client, namespace, backupName, []string{brCase.Namespace}, brCase.BackupRestoreType == lib.RESTIC || brCase.BackupRestoreType == lib.KOPIA, brCase.BackupRestoreType == lib.CSIDataMover)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 	// wait for backup to not be running
-	gomega.Eventually(lib.IsBackupDone(dpaCR.Client, namespace, backupName), timeoutMultiplier*brCase.BackupTimeout, time.Second*10).Should(gomega.BeTrue())
+	gomega.Eventually(lib.IsBackupDone(dpaCR.Client, namespace, backupName), brCase.BackupTimeout, time.Second*10).Should(gomega.BeTrue())
 	// TODO only log on fail?
-	describeBackup := lib.DescribeBackup(veleroClientForSuiteRun, csiClientForSuiteRun, dpaCR.Client, backup)
-	ginkgov2.GinkgoWriter.Println(describeBackup)
+	describeBackup := lib.DescribeBackup(veleroClientForSuiteRun, dpaCR.Client, namespace, backupName)
+	ginkgo.GinkgoWriter.Println(describeBackup)
 
-	backupLogs := lib.BackupLogs(kubernetesClientForSuiteRun, dpaCR.Client, backup)
-	backupErrorLogs := lib.BackupErrorLogs(kubernetesClientForSuiteRun, dpaCR.Client, backup)
+	backupLogs := lib.BackupLogs(kubernetesClientForSuiteRun, dpaCR.Client, namespace, backupName)
+	backupErrorLogs := lib.BackupErrorLogs(kubernetesClientForSuiteRun, dpaCR.Client, namespace, backupName)
 	accumulatedTestLogs = append(accumulatedTestLogs, describeBackup, backupLogs)
 
 	if !brCase.SkipVerifyLogs {
@@ -214,14 +210,14 @@ func runBackup(brCase BackupRestoreCase, backupName string) bool {
 	}
 
 	// check if backup succeeded
-	succeeded, err := lib.IsBackupCompletedSuccessfully(kubernetesClientForSuiteRun, dpaCR.Client, backup)
+	succeeded, err := lib.IsBackupCompletedSuccessfully(kubernetesClientForSuiteRun, dpaCR.Client, namespace, backupName)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	gomega.Expect(succeeded).To(gomega.Equal(true))
 	log.Printf("Backup for case %s succeeded", brCase.Name)
 
 	if brCase.BackupRestoreType == lib.CSI {
 		// wait for volume snapshot to be Ready
-		gomega.Eventually(lib.AreVolumeSnapshotsReady(dpaCR.Client, backupName), timeoutMultiplier*time.Minute*4, time.Second*10).Should(gomega.BeTrue())
+		gomega.Eventually(lib.AreVolumeSnapshotsReady(dpaCR.Client, backupName), time.Minute*4, time.Second*10).Should(gomega.BeTrue())
 	}
 
 	return nsRequiresResticDCWorkaround
@@ -229,15 +225,15 @@ func runBackup(brCase BackupRestoreCase, backupName string) bool {
 
 func runRestore(brCase BackupRestoreCase, backupName, restoreName string, nsRequiresResticDCWorkaround bool) {
 	log.Printf("Creating restore %s for case %s", restoreName, brCase.Name)
-	restore, err := lib.CreateRestoreFromBackup(dpaCR.Client, namespace, backupName, restoreName)
+	err := lib.CreateRestoreFromBackup(dpaCR.Client, namespace, backupName, restoreName)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
-	gomega.Eventually(lib.IsRestoreDone(dpaCR.Client, namespace, restoreName), timeoutMultiplier*time.Minute*60, time.Second*10).Should(gomega.BeTrue())
+	gomega.Eventually(lib.IsRestoreDone(dpaCR.Client, namespace, restoreName), time.Minute*60, time.Second*10).Should(gomega.BeTrue())
 	// TODO only log on fail?
-	describeRestore := lib.DescribeRestore(veleroClientForSuiteRun, dpaCR.Client, restore)
-	ginkgov2.GinkgoWriter.Println(describeRestore)
+	describeRestore := lib.DescribeRestore(veleroClientForSuiteRun, dpaCR.Client, namespace, restoreName)
+	ginkgo.GinkgoWriter.Println(describeRestore)
 
-	restoreLogs := lib.RestoreLogs(kubernetesClientForSuiteRun, dpaCR.Client, restore)
-	restoreErrorLogs := lib.RestoreErrorLogs(kubernetesClientForSuiteRun, dpaCR.Client, restore)
+	restoreLogs := lib.RestoreLogs(kubernetesClientForSuiteRun, dpaCR.Client, namespace, restoreName)
+	restoreErrorLogs := lib.RestoreErrorLogs(kubernetesClientForSuiteRun, dpaCR.Client, namespace, restoreName)
 	accumulatedTestLogs = append(accumulatedTestLogs, describeRestore, restoreLogs)
 
 	if !brCase.SkipVerifyLogs {
@@ -261,20 +257,20 @@ func runRestore(brCase BackupRestoreCase, backupName, restoreName string, nsRequ
 	}
 }
 
-func tearDownBackupAndRestore(brCase BackupRestoreCase, installTime time.Time, report ginkgov2.SpecReport) {
+func tearDownBackupAndRestore(brCase BackupRestoreCase, installTime time.Time, report ginkgo.SpecReport) {
 	log.Println("Post backup and restore state: ", report.State.String())
 	knownFlake = false
 	logString := strings.Join(accumulatedTestLogs, "\n")
-	lib.CheckIfFlakeOccured(logString, &knownFlake)
+	lib.CheckIfFlakeOccurred(logString, &knownFlake)
 	accumulatedTestLogs = nil
 
 	if report.Failed() {
 		// print namespace error events for app namespace
 		if brCase.Namespace != "" {
-			ginkgov2.GinkgoWriter.Println("Printing app namespace events")
+			ginkgo.GinkgoWriter.Println("Printing app namespace events")
 			lib.PrintNamespaceEventsAfterTime(kubernetesClientForSuiteRun, brCase.Namespace, installTime)
 		}
-		ginkgov2.GinkgoWriter.Println("Printing oadp namespace events")
+		ginkgo.GinkgoWriter.Println("Printing oadp namespace events")
 		lib.PrintNamespaceEventsAfterTime(kubernetesClientForSuiteRun, namespace, installTime)
 		baseReportDir := artifact_dir + "/" + report.LeafNodeText
 		err := os.MkdirAll(baseReportDir, 0755)
@@ -290,21 +286,16 @@ func tearDownBackupAndRestore(brCase BackupRestoreCase, installTime time.Time, r
 		err := lib.UninstallApplication(dpaCR.Client, snapshotClassPath)
 		gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	}
-	err := dpaCR.Client.Delete(context.Background(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{
-		Name:      brCase.Namespace,
-		Namespace: brCase.Namespace,
-	}}, &client.DeleteOptions{})
-	if k8serror.IsNotFound(err) {
-		err = nil
-	}
+
+	err := dpaCR.Delete()
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
-	err = dpaCR.Delete()
+	err = lib.DeleteNamespace(kubernetesClientForSuiteRun, brCase.Namespace)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
-	gomega.Eventually(lib.IsNamespaceDeleted(kubernetesClientForSuiteRun, brCase.Namespace), timeoutMultiplier*time.Minute*5, time.Second*5).Should(gomega.BeTrue())
+	gomega.Eventually(lib.IsNamespaceDeleted(kubernetesClientForSuiteRun, brCase.Namespace), time.Minute*5, time.Second*5).Should(gomega.BeTrue())
 }
 
-var _ = ginkgov2.Describe("Backup and restore tests", func() {
+var _ = ginkgo.Describe("Backup and restore tests", func() {
 	var lastBRCase ApplicationBackupRestoreCase
 	var lastInstallTime time.Time
 	updateLastBRcase := func(brCase ApplicationBackupRestoreCase) {
@@ -314,18 +305,18 @@ var _ = ginkgov2.Describe("Backup and restore tests", func() {
 		lastInstallTime = time.Now()
 	}
 
-	var _ = ginkgov2.AfterEach(func(ctx ginkgov2.SpecContext) {
+	var _ = ginkgo.AfterEach(func(ctx ginkgo.SpecContext) {
 		tearDownBackupAndRestore(lastBRCase.BackupRestoreCase, lastInstallTime, ctx.SpecReport())
 	})
 
-	ginkgov2.DescribeTable("Backup and restore applications",
+	ginkgo.DescribeTable("Backup and restore applications",
 		func(brCase ApplicationBackupRestoreCase, expectedErr error) {
-			if ginkgov2.CurrentSpecReport().NumAttempts > 1 && !knownFlake {
-				ginkgov2.Fail("No known FLAKE found in a previous run, marking test as failed.")
+			if ginkgo.CurrentSpecReport().NumAttempts > 1 && !knownFlake {
+				ginkgo.Fail("No known FLAKE found in a previous run, marking test as failed.")
 			}
 			runApplicationBackupAndRestore(brCase, expectedErr, updateLastBRcase, updateLastInstallTime)
 		},
-		ginkgov2.Entry("MySQL application CSI", ginkgov2.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
+		ginkgo.Entry("MySQL application CSI", ginkgo.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
 			ApplicationTemplate: "./sample-applications/mysql-persistent/mysql-persistent-csi.yaml",
 			BackupRestoreCase: BackupRestoreCase{
 				Namespace:         "mysql-persistent",
@@ -336,7 +327,7 @@ var _ = ginkgov2.Describe("Backup and restore tests", func() {
 				BackupTimeout:     20 * time.Minute,
 			},
 		}, nil),
-		ginkgov2.Entry("Mongo application CSI", ginkgov2.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
+		ginkgo.Entry("Mongo application CSI", ginkgo.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
 			ApplicationTemplate: "./sample-applications/mongo-persistent/mongo-persistent-csi.yaml",
 			BackupRestoreCase: BackupRestoreCase{
 				Namespace:         "mongo-persistent",
@@ -347,7 +338,7 @@ var _ = ginkgov2.Describe("Backup and restore tests", func() {
 				BackupTimeout:     20 * time.Minute,
 			},
 		}, nil),
-		ginkgov2.Entry("MySQL application two Vol CSI", ginkgov2.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
+		ginkgo.Entry("MySQL application two Vol CSI", ginkgo.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
 			ApplicationTemplate: "./sample-applications/mysql-persistent/mysql-persistent-twovol-csi.yaml",
 			BackupRestoreCase: BackupRestoreCase{
 				Namespace:         "mysql-persistent",
@@ -358,7 +349,7 @@ var _ = ginkgov2.Describe("Backup and restore tests", func() {
 				BackupTimeout:     20 * time.Minute,
 			},
 		}, nil),
-		ginkgov2.Entry("Mongo application RESTIC", ginkgov2.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
+		ginkgo.Entry("Mongo application RESTIC", ginkgo.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
 			ApplicationTemplate: "./sample-applications/mongo-persistent/mongo-persistent.yaml",
 			BackupRestoreCase: BackupRestoreCase{
 				Namespace:         "mongo-persistent",
@@ -369,7 +360,7 @@ var _ = ginkgov2.Describe("Backup and restore tests", func() {
 				BackupTimeout:     20 * time.Minute,
 			},
 		}, nil),
-		ginkgov2.Entry("MySQL application RESTIC", ginkgov2.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
+		ginkgo.Entry("MySQL application RESTIC", ginkgo.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
 			ApplicationTemplate: "./sample-applications/mysql-persistent/mysql-persistent.yaml",
 			BackupRestoreCase: BackupRestoreCase{
 				Namespace:         "mysql-persistent",
@@ -380,7 +371,7 @@ var _ = ginkgov2.Describe("Backup and restore tests", func() {
 				BackupTimeout:     20 * time.Minute,
 			},
 		}, nil),
-		ginkgov2.Entry("Mongo application KOPIA", ginkgov2.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
+		ginkgo.Entry("Mongo application KOPIA", ginkgo.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
 			ApplicationTemplate: "./sample-applications/mongo-persistent/mongo-persistent.yaml",
 			BackupRestoreCase: BackupRestoreCase{
 				Namespace:         "mongo-persistent",
@@ -391,7 +382,7 @@ var _ = ginkgov2.Describe("Backup and restore tests", func() {
 				BackupTimeout:     20 * time.Minute,
 			},
 		}, nil),
-		ginkgov2.Entry("MySQL application KOPIA", ginkgov2.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
+		ginkgo.Entry("MySQL application KOPIA", ginkgo.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
 			ApplicationTemplate: "./sample-applications/mysql-persistent/mysql-persistent.yaml",
 			BackupRestoreCase: BackupRestoreCase{
 				Namespace:         "mysql-persistent",
@@ -402,7 +393,7 @@ var _ = ginkgov2.Describe("Backup and restore tests", func() {
 				BackupTimeout:     20 * time.Minute,
 			},
 		}, nil),
-		ginkgov2.Entry("Mongo application DATAMOVER", ginkgov2.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
+		ginkgo.Entry("Mongo application DATAMOVER", ginkgo.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
 			ApplicationTemplate: "./sample-applications/mongo-persistent/mongo-persistent-csi.yaml",
 			BackupRestoreCase: BackupRestoreCase{
 				Namespace:         "mongo-persistent",
@@ -413,7 +404,7 @@ var _ = ginkgov2.Describe("Backup and restore tests", func() {
 				BackupTimeout:     20 * time.Minute,
 			},
 		}, nil),
-		ginkgov2.Entry("MySQL application DATAMOVER", ginkgov2.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
+		ginkgo.Entry("MySQL application DATAMOVER", ginkgo.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
 			ApplicationTemplate: "./sample-applications/mysql-persistent/mysql-persistent-csi.yaml",
 			BackupRestoreCase: BackupRestoreCase{
 				Namespace:         "mysql-persistent",
@@ -424,7 +415,7 @@ var _ = ginkgov2.Describe("Backup and restore tests", func() {
 				BackupTimeout:     20 * time.Minute,
 			},
 		}, nil),
-		ginkgov2.Entry("Mongo application BlockDevice DATAMOVER", ginkgov2.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
+		ginkgo.Entry("Mongo application BlockDevice DATAMOVER", ginkgo.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
 			ApplicationTemplate: "./sample-applications/mongo-persistent/mongo-persistent-block.yaml",
 			PvcSuffixName:       "-block-mode",
 			BackupRestoreCase: BackupRestoreCase{

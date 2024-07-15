@@ -1,9 +1,8 @@
 package lib
 
 import (
-	"context"
+	"fmt"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 
@@ -13,36 +12,35 @@ import (
 
 func DoesPluginExist(c *kubernetes.Clientset, namespace string, plugin oadpv1alpha1.DefaultPlugin) wait.ConditionFunc {
 	return func() (bool, error) {
-		veleroDeployment, err := c.AppsV1().Deployments(namespace).Get(context.Background(), "velero", metav1.GetOptions{})
+		veleroDeployment, err := GetVeleroDeployment(c, namespace)
 		if err != nil {
 			return false, err
 		}
 		// loop over initContainers and get names
-
-		for _, container := range veleroDeployment.Spec.Template.Spec.InitContainers {
-			if p, ok := credentials.PluginSpecificFields[plugin]; ok {
-				if container.Name == p.PluginName {
+		if pluginSpecific, ok := credentials.PluginSpecificFields[plugin]; ok {
+			for _, container := range veleroDeployment.Spec.Template.Spec.InitContainers {
+				if container.Name == pluginSpecific.PluginName {
 					return true, nil
 				}
 			}
+			return false, fmt.Errorf("plugin %s does not exist", plugin)
 		}
-		return false, err
+		return false, fmt.Errorf("plugin %s is not valid", plugin)
 	}
 }
 
 func DoesCustomPluginExist(c *kubernetes.Clientset, namespace string, plugin oadpv1alpha1.CustomPlugin) wait.ConditionFunc {
 	return func() (bool, error) {
-		veleroDeployment, err := c.AppsV1().Deployments(namespace).Get(context.Background(), "velero", metav1.GetOptions{})
+		veleroDeployment, err := GetVeleroDeployment(c, namespace)
 		if err != nil {
 			return false, err
 		}
 		// loop over initContainers and check for custom plugins
-
 		for _, container := range veleroDeployment.Spec.Template.Spec.InitContainers {
 			if container.Name == plugin.Name && container.Image == plugin.Image {
 				return true, nil
 			}
 		}
-		return false, err
+		return false, fmt.Errorf("custom plugin %s does not exist", plugin.Name)
 	}
 }

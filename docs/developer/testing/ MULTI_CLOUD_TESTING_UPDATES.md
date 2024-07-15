@@ -83,7 +83,6 @@ export CLUSTER_TYPE=aws
 export OADP_TEST_NAMESPACE=openshift-adp
 export BSL_REGION=us-east-1
 export VSL_REGION=us-west-2
-export CREDS_SECRET_REF=cloud-credentials
 export OADP_CRED_FILE=/Users/drajds/.aws/credentials
 export OADP_BUCKET_FILE=/Users/drajds/.aws/bucket
 export VELERO_INSTANCE_NAME=example-velero
@@ -94,7 +93,6 @@ export CI_CRED_FILE=/Users/drajds/.aws/ci-credentials
 ```
 
 * VSL_REGION - the region the cluster is spawned on
-* CREDS_SECRET_REF - reference for VSL (& BSL if not using different profile)
 * OADP_CRED_FILE - credentials file for BSL
 * OADP_BUCKET_FILE - bucket file for BSL - has only the bucket name - no json
 * CLUSTER_PROFILE_DIR - directory containing credentials for VSL
@@ -109,7 +107,6 @@ drajds@drajds-mac oadp-operator % cat ~/.oadp-gcp
 export CLUSTER_TYPE=gcp
 export OADP_TEST_NAMESPACE=openshift-adp
 export VSL_REGION=us-central1
-export CREDS_SECRET_REF=cloud-credentials-gcp
 export OADP_CRED_FILE=aos-serviceaccount.json
 export OADP_BUCKET_FILE=/Users/drajds/.gcp/bucket
 export VELERO_INSTANCE_NAME=gcp-example-velero
@@ -124,7 +121,6 @@ export CI_CRED_FILE=gcp_sa.json
 drajds@drajds-mac oadp-operator % cat ~/.oadp-azure
 export CLUSTER_TYPE=azure4
 export OADP_TEST_NAMESPACE=openshift-adp
-export CREDS_SECRET_REF=cloud-credentials-azure
 export VELERO_INSTANCE_NAME=azure-example-velero
 export CLUSTER_PROFILE_DIR=/Users/drajds/.azure
 export AZURE_RESOURCE_FILE=/Users/drajds/.azure/resource.yaml
