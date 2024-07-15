@@ -88,4 +88,5 @@ versions. Here is the default mapping of versions:
 | v1.2.0          |        v1.11.0 |
 | v1.3.0          |        v1.12.1 |
 | v1.3.1          |        v1.12.4 |
+| v1.4.0          |        v1.14.0 |
 
