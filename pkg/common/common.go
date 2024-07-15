@@ -6,6 +6,8 @@ import (
 	"net/url"
 	"os"
 	"regexp"
+	"sort"
+	"strings"
 
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/vmware-tanzu/velero/pkg/restore"
@@ -236,4 +238,54 @@ func GetImagePullPolicy(image string) (corev1.PullPolicy, error) {
 		return corev1.PullIfNotPresent, nil
 	}
 	return corev1.PullAlways, nil
+}
+
+// GenerateCliArgsFromConfigMap generates CLI arguments from a ConfigMap.
+//
+// This function takes a ConfigMap and a CLI subcommand(s), and returns a slice of strings representing
+// the CLI arguments from the subcommand(s) followed by the arguments from the ConfigMap.
+// The function processes each key-value pair in the ConfigMap as follows:
+//
+//  1. If the ConfigMaps' key starts with single '-' or double '--', it is left unchanged.
+//  2. If the key name does not start with `-` or `--`, then `--` is added as a prefix to the key.
+//  3. If the ConfigMap value is "true" or "false" (case-insensitive), it is converted to lowercase
+//     and used without single quotes surroundings (boolean value).
+//  4. The formatted key-value pair is added to the result that is alphabetically sorted.
+//
+// Args:
+//
+//		configMap: A pointer to a corev1.ConfigMap containing key-value pairs.
+//		cliSubCommand: The CLI subcommand(s) as a string, for example 'server'
+//	                or 'node-agent', 'server'
+//
+// Returns:
+//
+//	A slice of strings representing the CLI arguments.
+func GenerateCliArgsFromConfigMap(configMap *corev1.ConfigMap, cliSubCommand ...string) []string {
+
+	var keyValueArgs []string
+
+	// Iterate through each key-value pair in the ConfigMap
+	for key, value := range configMap.Data {
+		// Ensure the key is prefixed by "--" if it doesn't start with "--" or "-"
+		if !strings.HasPrefix(key, "-") {
+			key = fmt.Sprintf("--%s", key)
+		}
+
+		if strings.EqualFold(value, "true") || strings.EqualFold(value, "false") {
+			// Convert true/false to lowercase if not surrounded by quotes - boolean
+			value = strings.ToLower(value)
+		}
+
+		keyValueArgs = append(keyValueArgs, fmt.Sprintf("%s=%s", key, value))
+
+	}
+	// We ensure the flags are alphabetically sorted, so they
+	// are always added to the cliSubCommand(s) the same way
+	sort.Strings(keyValueArgs)
+
+	// Append the formatted key-value pair to args
+	cliSubCommand = append(cliSubCommand, keyValueArgs...)
+
+	return cliSubCommand
 }
