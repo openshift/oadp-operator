@@ -11,7 +11,7 @@ import (
 	pkgbackup "github.com/vmware-tanzu/velero/pkg/backup"
 	"github.com/vmware-tanzu/velero/pkg/cmd/util/downloadrequest"
 	"github.com/vmware-tanzu/velero/pkg/cmd/util/output"
-	veleroClientset "github.com/vmware-tanzu/velero/pkg/generated/clientset/versioned"
+	veleroclientset "github.com/vmware-tanzu/velero/pkg/generated/clientset/versioned"
 	"github.com/vmware-tanzu/velero/pkg/label"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -90,7 +90,7 @@ func IsBackupCompletedSuccessfully(c *kubernetes.Clientset, ocClient client.Clie
 }
 
 // https://github.com/vmware-tanzu/velero/blob/11bfe82342c9f54c63f40d3e97313ce763b446f2/pkg/cmd/cli/backup/describe.go#L77-L111
-func DescribeBackup(veleroClient veleroClientset.Interface, ocClient client.Client, namespace string, name string) (backupDescription string) {
+func DescribeBackup(veleroClient veleroclientset.Interface, ocClient client.Client, namespace string, name string) (backupDescription string) {
 	backup, err := GetBackup(ocClient, namespace, name)
 	if err != nil {
 		return "could not get provided backup: " + err.Error()

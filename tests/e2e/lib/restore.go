@@ -10,7 +10,7 @@ import (
 	velero "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	"github.com/vmware-tanzu/velero/pkg/cmd/util/downloadrequest"
 	"github.com/vmware-tanzu/velero/pkg/cmd/util/output"
-	veleroClientset "github.com/vmware-tanzu/velero/pkg/generated/clientset/versioned"
+	veleroclientset "github.com/vmware-tanzu/velero/pkg/generated/clientset/versioned"
 	"github.com/vmware-tanzu/velero/pkg/label"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -87,7 +87,7 @@ func IsRestoreCompletedSuccessfully(c *kubernetes.Clientset, ocClient client.Cli
 }
 
 // https://github.com/vmware-tanzu/velero/blob/11bfe82342c9f54c63f40d3e97313ce763b446f2/pkg/cmd/cli/restore/describe.go#L72-L78
-func DescribeRestore(veleroClient veleroClientset.Interface, ocClient client.Client, namespace string, name string) string {
+func DescribeRestore(veleroClient veleroclientset.Interface, ocClient client.Client, namespace string, name string) string {
 	restore, err := GetRestore(ocClient, namespace, name)
 	if err != nil {
 		return "could not get provided backup: " + err.Error()

@@ -315,11 +315,11 @@ func AreAppBuildsReady(ocClient client.Client, namespace string) wait.ConditionF
 
 func areAppBuildsReady(ocClient client.Client, namespace string) (bool, error) {
 	buildList := &buildv1.BuildList{}
-	label, err := labels.Parse(e2eAppLabel)
+	parsedLabel, err := labels.Parse(e2eAppLabel)
 	if err != nil {
 		return false, err
 	}
-	err = ocClient.List(context.Background(), buildList, &client.ListOptions{Namespace: namespace, LabelSelector: label})
+	err = ocClient.List(context.Background(), buildList, &client.ListOptions{Namespace: namespace, LabelSelector: parsedLabel})
 	if err != nil && !apierrors.IsNotFound(err) {
 		return false, err
 	}
