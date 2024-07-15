@@ -311,14 +311,13 @@ func (v *DpaCustomResource) BSLsAreUpdated(updateTime time.Time) wait.ConditionF
 		if err != nil {
 			return false, err
 		}
-		areUpdated := true
+
 		for _, bsl := range bsls.Items {
 			if !bsl.Status.LastValidationTime.After(updateTime) {
-				areUpdated = false
+				return false, nil
 			}
 		}
-
-		return areUpdated, nil
+		return true, nil
 	}
 }
 

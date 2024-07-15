@@ -33,8 +33,8 @@ import (
 
 var (
 	// Common vars obtained from flags passed in ginkgo.
-	bslCredFile, namespace, instanceName, provider, vslCredFile, settings, artifact_dir, oc_cli, stream string
-	flakeAttempts                                                                                       int64
+	bslCredFile, namespace, instanceName, provider, vslCredFile, settings, artifact_dir, oc_cli string
+	flakeAttempts                                                                               int64
 
 	kubernetesClientForSuiteRun *kubernetes.Clientset
 	runTimeClientForSuiteRun    client.Client
@@ -62,7 +62,6 @@ func init() {
 	flag.StringVar(&provider, "provider", "aws", "Cloud provider")
 	flag.StringVar(&artifact_dir, "artifact_dir", "/tmp", "Directory for storing must gather")
 	flag.StringVar(&oc_cli, "oc_cli", "oc", "OC CLI Client")
-	flag.StringVar(&stream, "stream", "up", "[up, down] upstream or downstream")
 	flag.Int64Var(&flakeAttempts, "flakeAttempts", 3, "Customize the number of flake retries (3)")
 
 	// helps with launching debug sessions from IDE
@@ -72,9 +71,6 @@ func init() {
 		}
 		if os.Getenv("VELERO_NAMESPACE") != "" {
 			namespace = os.Getenv("VELERO_NAMESPACE")
-		}
-		if os.Getenv("OADP_STREAM") != "" {
-			stream = os.Getenv("OADP_STREAM")
 		}
 		if os.Getenv("SETTINGS") != "" {
 			settings = os.Getenv("SETTINGS")
