@@ -47,8 +47,6 @@ const (
 
 	TrueVal  = "true"
 	FalseVal = "false"
-
-	UnsupportedVeleroServerArgsAnnotation = "oadp.openshift.io/unsupported-velero-server-args"
 )
 
 var (
@@ -146,27 +144,6 @@ func (r *DPAReconciler) veleroClusterRoleBinding(dpa *oadpv1alpha1.DataProtectio
 	crb := install.ClusterRoleBinding(dpa.Namespace)
 	crb.Labels = getDpaAppLabels(dpa)
 	return crb, nil
-}
-
-// Apply Override unsupported Args
-func (r *DPAReconciler) applyUnsupportedArgsOverride(dpa *oadpv1alpha1.DataProtectionApplication, veleroDeployment *appsv1.Deployment, veleroContainer *corev1.Container) error {
-	if configMapName, ok := dpa.Annotations[UnsupportedVeleroServerArgsAnnotation]; ok {
-		// Got an DPA annotation for Unsupported Server Args
-		if configMapName == "" {
-			// Can't be empty string, do not report error
-			return nil
-		}
-
-		unsupportedServerArgsCM := corev1.ConfigMap{}
-		if err := r.Get(r.Context, types.NamespacedName{Namespace: dpa.Namespace, Name: configMapName}, &unsupportedServerArgsCM); err != nil {
-			return err
-		}
-
-		r.Log.Info("Applying Unsupported Server Args.")
-		// if server args is set, override the default server args
-		veleroContainer.Args = common.GenerateCliArgsFromConfigMap(&unsupportedServerArgsCM, "server")
-	}
-	return nil
 }
 
 // Build VELERO Deployment
@@ -526,7 +503,20 @@ func (r *DPAReconciler) appendPluginSpecificSpecs(dpa *oadpv1alpha1.DataProtecti
 				})
 		}
 	}
-	return r.applyUnsupportedArgsOverride(dpa, veleroDeployment, veleroContainer)
+
+	if configMapName, ok := dpa.Annotations[common.UnsupportedVeleroServerArgsAnnotation]; ok {
+		if configMapName != "" {
+			unsupportedServerArgsCM := corev1.ConfigMap{}
+			if err := r.Get(r.Context, types.NamespacedName{Namespace: dpa.Namespace, Name: configMapName}, &unsupportedServerArgsCM); err != nil {
+				return err
+			}
+			if err := common.ApplyUnsupportedServerArgsOverride(veleroContainer, unsupportedServerArgsCM, common.Velero); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
 }
 
 func (r *DPAReconciler) customizeVeleroContainer(dpa *oadpv1alpha1.DataProtectionApplication, veleroDeployment *appsv1.Deployment, veleroContainer *corev1.Container, hasShortLivedCredentials bool, prometheusPort *int) error {

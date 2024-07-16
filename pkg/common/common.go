@@ -92,6 +92,12 @@ const (
 	NoProxyEnvVar                  = "NO_PROXY"
 )
 
+// Unsupported Server Args annotation keys
+const (
+	UnsupportedVeleroServerArgsAnnotation    = "oadp.openshift.io/unsupported-velero-server-args"
+	UnsupportedNodeAgentServerArgsAnnotation = "oadp.openshift.io/unsupported-node-agent-server-args"
+)
+
 const defaultMode = int32(420)
 
 func DefaultModePtr() *int32 {
@@ -288,4 +294,19 @@ func GenerateCliArgsFromConfigMap(configMap *corev1.ConfigMap, cliSubCommand ...
 	cliSubCommand = append(cliSubCommand, keyValueArgs...)
 
 	return cliSubCommand
+}
+
+// Apply Override unsupported Node agent Server Args
+func ApplyUnsupportedServerArgsOverride(container *corev1.Container, unsupportedServerArgsCM corev1.ConfigMap, serverType string) error {
+
+	switch serverType {
+	case NodeAgent:
+		// if server args is set, override the default server args
+		container.Args = GenerateCliArgsFromConfigMap(&unsupportedServerArgsCM, "node-agent", "server")
+
+	case Velero:
+		// if server args is set, override the default server args
+		container.Args = GenerateCliArgsFromConfigMap(&unsupportedServerArgsCM, "server")
+	}
+	return nil
 }
