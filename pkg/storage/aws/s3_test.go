@@ -36,6 +36,12 @@ func TestGetBucketRegion(t *testing.T) {
 			region:  "sa-east-1",
 			wantErr: false,
 		},
+		{
+			name:    "velero-6109f5e9711c8c58131acdd2f490f451", // oadp prow aws bucket name
+			bucket:  "velero-6109f5e9711c8c58131acdd2f490f451",
+			region:  "us-east-1",
+			wantErr: false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
