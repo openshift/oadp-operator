@@ -153,7 +153,6 @@ func TestOADPE2E(t *testing.T) {
 	dpaCR = &lib.DpaCustomResource{
 		Name:                 "ts-" + instanceName,
 		Namespace:            namespace,
-		Provider:             provider,
 		Client:               runTimeClientForSuiteRun,
 		BSLSecretName:        bslSecretName,
 		BSLConfig:            dpa.DeepCopy().Spec.BackupLocations[0].Velero.Config,

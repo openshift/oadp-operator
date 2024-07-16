@@ -2,7 +2,6 @@ package e2e_test
 
 import (
 	"log"
-	"os"
 	"strings"
 	"time"
 
@@ -136,18 +135,7 @@ var _ = ginkgo.Describe("Configuration testing for DPA Custom Resource", func() 
 	var _ = ginkgo.AfterEach(func(ctx ginkgo.SpecContext) {
 		report := ctx.SpecReport()
 		if report.Failed() {
-			baseReportDir := artifact_dir + "/" + report.LeafNodeText
-			err := os.MkdirAll(baseReportDir, 0755)
-			gomega.Expect(err).NotTo(gomega.HaveOccurred())
-			// print namespace error events for DPA namespace
-			lib.PrintNamespaceEventsAfterTime(kubernetesClientForSuiteRun, dpaCR.Namespace, lastInstallTime)
-			err = lib.SavePodLogs(kubernetesClientForSuiteRun, dpaCR.Namespace, baseReportDir)
-			gomega.Expect(err).NotTo(gomega.HaveOccurred())
-			log.Printf("Running must gather for failed deployment test - " + report.LeafNodeText)
-			err = lib.RunMustGather(oc_cli, baseReportDir+"/must-gather")
-			if err != nil {
-				log.Printf("Failed to run must gather: " + err.Error())
-			}
+			getFailedTestLogs(namespace, "", lastInstallTime, report)
 		}
 	})
 	ginkgo.DescribeTable("DPA reconciled to true",

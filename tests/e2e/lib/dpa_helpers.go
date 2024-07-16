@@ -17,7 +17,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/yaml"
 
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 )
@@ -35,7 +34,6 @@ type DpaCustomResource struct {
 	Name                 string
 	Namespace            string
 	Client               client.Client
-	Provider             string
 	BSLSecretName        string
 	BSLConfig            map[string]string
 	BSLProvider          string
@@ -118,28 +116,6 @@ func (v *DpaCustomResource) Build(backupRestoreType BackupRestoreType) *oadpv1al
 		// oadpv1alpha1.VeleroImageKey: "quay.io/konveyor/velero:oadp-1.1",
 	}
 	return &dpaSpec
-}
-
-// if e2e, test/e2e is "." since context is tests/e2e/
-// for unit-test, test/e2e is ".." since context is tests/e2e/lib/
-func (v *DpaCustomResource) ProviderStorageClassName(e2eRoot string) (string, error) {
-	pvcFile := fmt.Sprintf("%s/sample-applications/%s/pvc/%s.yaml", e2eRoot, "mongo-persistent", v.Provider)
-	pvcList := corev1.PersistentVolumeClaimList{}
-	pvcBytes, err := ReadFile(pvcFile)
-	if err != nil {
-		return "", err
-	}
-	err = yaml.Unmarshal(pvcBytes, &pvcList)
-	if err != nil {
-		return "", err
-	}
-	if pvcList.Items == nil || len(pvcList.Items) == 0 {
-		return "", errors.New("pvc not found")
-	}
-	if pvcList.Items[0].Spec.StorageClassName == nil {
-		return "", errors.New("storage class name not found in pvc")
-	}
-	return *pvcList.Items[0].Spec.StorageClassName, nil
 }
 
 func (v *DpaCustomResource) Create(dpa *oadpv1alpha1.DataProtectionApplication) error {

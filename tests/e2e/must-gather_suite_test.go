@@ -33,16 +33,14 @@ var _ = ginkgo.Describe("Backup and restore tests with must-gather", func() {
 			}
 			runApplicationBackupAndRestore(brCase, expectedErr, updateLastBRcase, updateLastInstallTime)
 
-			// TODO look for duplications in tearDownBackupAndRestore
 			baseReportDir := artifact_dir + "/" + brCase.Name
 			err := os.MkdirAll(baseReportDir, 0755)
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
-			log.Printf("Running must gather for backup/restore test - " + "")
+
+			log.Printf("Running must gather for backup/restore test - " + brCase.Name)
 			err = lib.RunMustGather(oc_cli, baseReportDir+"/must-gather")
-			if err != nil {
-				log.Printf("Failed to run must gather: " + err.Error())
-			}
 			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+
 			// get dirs in must-gather dir
 			dirEntries, err := os.ReadDir(baseReportDir + "/must-gather")
 			gomega.Expect(err).ToNot(gomega.HaveOccurred())

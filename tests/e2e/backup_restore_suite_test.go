@@ -257,28 +257,30 @@ func runRestore(brCase BackupRestoreCase, backupName, restoreName string, nsRequ
 	}
 }
 
+func getFailedTestLogs(oadpNamespace string, appNamespace string, installTime time.Time, report ginkgo.SpecReport) {
+	baseReportDir := artifact_dir + "/" + report.LeafNodeText
+	err := os.MkdirAll(baseReportDir, 0755)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+
+	log.Println("Printing OADP namespace events")
+	lib.PrintNamespaceEventsAfterTime(kubernetesClientForSuiteRun, oadpNamespace, installTime)
+	err = lib.SavePodLogs(kubernetesClientForSuiteRun, oadpNamespace, baseReportDir)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+
+	if appNamespace != "" {
+		log.Println("Printing app namespace events")
+		lib.PrintNamespaceEventsAfterTime(kubernetesClientForSuiteRun, appNamespace, installTime)
+		err = lib.SavePodLogs(kubernetesClientForSuiteRun, appNamespace, baseReportDir)
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	}
+}
+
 func tearDownBackupAndRestore(brCase BackupRestoreCase, installTime time.Time, report ginkgo.SpecReport) {
 	log.Println("Post backup and restore state: ", report.State.String())
-	knownFlake = false
-	logString := strings.Join(accumulatedTestLogs, "\n")
-	lib.CheckIfFlakeOccurred(logString, &knownFlake)
-	accumulatedTestLogs = nil
 
 	if report.Failed() {
-		// print namespace error events for app namespace
-		if brCase.Namespace != "" {
-			ginkgo.GinkgoWriter.Println("Printing app namespace events")
-			lib.PrintNamespaceEventsAfterTime(kubernetesClientForSuiteRun, brCase.Namespace, installTime)
-		}
-		ginkgo.GinkgoWriter.Println("Printing oadp namespace events")
-		lib.PrintNamespaceEventsAfterTime(kubernetesClientForSuiteRun, namespace, installTime)
-		baseReportDir := artifact_dir + "/" + report.LeafNodeText
-		err := os.MkdirAll(baseReportDir, 0755)
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
-		err = lib.SavePodLogs(kubernetesClientForSuiteRun, namespace, baseReportDir)
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
-		err = lib.SavePodLogs(kubernetesClientForSuiteRun, brCase.Namespace, baseReportDir)
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		lib.CheckIfFlakeOccurred(&accumulatedTestLogs, &knownFlake)
+		getFailedTestLogs(namespace, brCase.Namespace, installTime, report)
 	}
 	if brCase.BackupRestoreType == lib.CSI || brCase.BackupRestoreType == lib.CSIDataMover {
 		log.Printf("Deleting VolumeSnapshot for CSI backuprestore of %s", brCase.Name)
