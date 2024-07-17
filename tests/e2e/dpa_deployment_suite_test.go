@@ -354,7 +354,7 @@ var _ = ginkgo.Describe("Configuration testing for DPA Custom Resource", func() 
 				s3ForcePathStyle: true,
 			}),
 		}),
-		// TODO bug?
+		// TODO bug https://github.com/vmware-tanzu/velero/issues/8022
 		// Entry("DPA CR without Region, without S3ForcePathStyle and with BackupImages false", Label("aws"), InstallCase{
 		// 	DpaSpec: createTestDPASpec(TestDPASpec{
 		// 		BSLSecretName:      bslSecretName,
