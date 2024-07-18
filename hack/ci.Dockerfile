@@ -1,4 +1,4 @@
-# This Dockerfile is used by PROW CI to run E2E tests of the repo
+# This Dockerfile WILL used by PROW CI to run E2E tests of the repo
 FROM quay.io/konveyor/builder AS builder
 
 WORKDIR /go/src/github.com/openshift/oadp-operator
