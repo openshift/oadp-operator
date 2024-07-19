@@ -118,7 +118,7 @@ Create `ci-operator/config/openshift/oadp-operator/openshift-oadp-operator-oadp-
 
 > **Note**: to get diff between files, you can run `diff -ruN ci-operator/config/openshift/oadp-operator/openshift-oadp-operator-master.yaml ci-operator/config/openshift/oadp-operator/openshift-oadp-operator-oadp-1.4.yaml`.
 
-Create `ci-operator/config/openshift/oadp-operator/openshift-oadp-operator-oadp-1.3__4.VERSION.yaml` files. To make it easier, copy the contents of `ci-operator/config/openshift/oadp-operator/openshift-oadp-operator-master__4.VERSION.yaml` files (if release branch was created from master branch), changing the following.
+Create `ci-operator/config/openshift/oadp-operator/openshift-oadp-operator-oadp-1.4__4.VERSION.yaml` files. To make it easier, copy the contents of `ci-operator/config/openshift/oadp-operator/openshift-oadp-operator-master__4.VERSION.yaml` files (if release branch was created from master branch), changing the following.
 ```diff
 ...
  images:
@@ -317,20 +317,21 @@ To update the Go version used in CI jobs of a branch:
 To update an OCP version in a branch:
 - Rename the oldest OCP version config file to the new version and change the occurrences in the file, and update jobs file.
 - Update links in README file.
+- Update envtest Kubernetes version in Makefile.
 
-Example: update `4.11` to `4.14` in master branch.
+Example: update `4.13` to `4.16` in master branch.
 
-`openshift-oadp-operator-master__4.11.yaml` needs to be renamed `openshift-oadp-operator-master__4.14.yaml`, in `ci-operator/config/openshift/oadp-operator/` folder of https://github.com/openshift/release repo.
+`openshift-oadp-operator-master__4.13.yaml` needs to be renamed `openshift-oadp-operator-master__4.16.yaml`, in `ci-operator/config/openshift/oadp-operator/` folder of https://github.com/openshift/release repo.
 
-`4.11` occurrences in the file need to be updated to `4.14`.
+`4.13` occurrences in the file need to be updated to `4.16`.
 ```diff
 ...
  releases:
    latest:
      release:
        channel: fast
--      version: "4.11"
-+      version: "4.14"
+-      version: "4.13"
++      version: "4.16"
  resources:
    '*':
      limits:
@@ -338,35 +339,33 @@ Example: update `4.11` to `4.14` in master branch.
    branch: master
    org: openshift
    repo: oadp-operator
--  variant: "4.11"
-+  variant: "4.14"
+-  variant: "4.13"
++  variant: "4.16"
 ```
 
 After that, run `make jobs` to update job files in `ci-operator/jobs/openshift/oadp-operator` folder of https://github.com/openshift/release repo.
 
-`4.11` occurrences in README.md need to be updated to `4.14` in master branch of https://github.com/openshift/oadp-operator repo.
+`4.13` occurrences in README.md need to be updated to `4.16` in master branch of https://github.com/openshift/oadp-operator repo.
 
 ```diff
--4.11, 4.12, 4.13 Periodic E2E Tests
-+4.12, 4.13, 4.14 Periodic E2E Tests
+-4.13, 4.14, 4.15 Periodic E2E Tests
++4.14, 4.15, 4.16 Periodic E2E Tests
 
  AWS :
--[![AWS builds](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-master-4.11-e2e-test-aws-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-master-4.11-e2e-test-aws-periodic)
- [![AWS builds](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-master-4.12-e2e-test-aws-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-master-4.12-e2e-test-aws-periodic)
- [![AWS builds](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-master-4.13-e2e-test-aws-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-master-4.13-e2e-test-aws-periodic)
-+[![AWS builds](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-master-4.14-e2e-test-aws-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-master-4.14-e2e-test-aws-periodic)
+-[![AWS builds](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-master-4.13-e2e-test-aws-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-master-4.13-e2e-test-aws-periodic)
+ [![AWS builds](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-master-4.14-e2e-test-aws-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-master-4.14-e2e-test-aws-periodic)
+ [![AWS builds](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-master-4.15-e2e-test-aws-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-master-4.15-e2e-test-aws-periodic)
++[![AWS builds](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-master-4.16-e2e-test-aws-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-master-4.16-e2e-test-aws-periodic)
+```
 
- GCP:
--[![GCP builds](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-master-4.11-e2e-test-gcp-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-master-4.11-e2e-test-gcp-periodic)
- [![GCP builds](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-master-4.12-e2e-test-gcp-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-master-4.12-e2e-test-gcp-periodic)
- [![GCP builds](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-master-4.13-e2e-test-gcp-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-master-4.13-e2e-test-gcp-periodic)
-+[![GCP builds](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-master-4.14-e2e-test-gcp-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-master-4.14-e2e-test-gcp-periodic)
+Finally, update envtest version in Makefile needs to be updated to point to Kubernetes version of OCP `4.16` in master branch of https://github.com/openshift/oadp-operator repo.
 
- Azure:
--[![Azure builds](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-master-4.11-e2e-test-azure-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-master-4.11-e2e-test-azure-periodic)
- [![Azure builds](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-master-4.12-e2e-test-azure-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-master-4.12-e2e-test-azure-periodic)
- [![Azure builds](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-master-4.13-e2e-test-azure-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-master-4.13-e2e-test-azure-periodic)
-+[![Azure builds](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-master-4.14-e2e-test-azure-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-master-4.14-e2e-test-azure-periodic)
+```diff
+-# Kubernetes version from OpenShift 4.15.x https://openshift-release.apps.ci.l2s4.p1.openshiftapps.com/#4-stable
++# Kubernetes version from OpenShift 4.16.x https://openshift-release.apps.ci.l2s4.p1.openshiftapps.com/#4-stable
+ # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
+-ENVTEST_K8S_VERSION = 1.28
++ENVTEST_K8S_VERSION = 1.29
 ```
 
 **TODO automate this process**
