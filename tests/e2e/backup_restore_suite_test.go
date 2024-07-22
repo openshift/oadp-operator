@@ -1,7 +1,6 @@
 package e2e_test
 
 import (
-	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -36,32 +35,17 @@ type ApplicationBackupRestoreCase struct {
 	MustGatherValidationFunction *func(string) error // validation function for must-gather where string parameter is the path to "quay.io.../clusters/clustername/"
 }
 
-func mongoready(preBackupState bool, twoVol bool) VerificationFunction {
-	return VerificationFunction(func(ocClient client.Client, namespace string) error {
-		gomega.Eventually(lib.IsDCReady(ocClient, namespace, "todolist"), time.Minute*10, time.Second*10).Should(gomega.BeTrue())
-		exists, err := lib.DoesSCCExist(ocClient, "mongo-persistent-scc")
-		if err != nil {
-			return err
-		}
-		if !exists {
-			return errors.New("did not find Mongo scc")
-		}
-		err = lib.VerifyBackupRestoreData(runTimeClientForSuiteRun, kubernetesClientForSuiteRun, kubeConfig, artifact_dir, namespace, "todolist-route", "todolist", "todolist", preBackupState, false)
-		return err
-	})
-}
-
-func mysqlReady(preBackupState bool, twoVol bool) VerificationFunction {
+func todoListReady(preBackupState bool, twoVol bool, database string) VerificationFunction {
 	return VerificationFunction(func(ocClient client.Client, namespace string) error {
 		log.Printf("checking for the NAMESPACE: %s", namespace)
+		gomega.Eventually(lib.AreAppBuildsReady(dpaCR.Client, namespace), time.Minute*3, time.Second*5).Should(gomega.BeTrue())
+		gomega.Eventually(lib.IsDeploymentReady(ocClient, namespace, database), time.Minute*10, time.Second*10).Should(gomega.BeTrue())
+		gomega.Eventually(lib.IsDCReady(ocClient, namespace, "todolist"), time.Minute*10, time.Second*10).Should(gomega.BeTrue())
+		gomega.Eventually(lib.AreApplicationPodsRunning(kubernetesClientForSuiteRun, namespace), time.Minute*9, time.Second*5).Should(gomega.BeTrue())
 		// This test confirms that SCC restore logic in our plugin is working
-		gomega.Eventually(lib.IsDeploymentReady(ocClient, namespace, "mysql"), time.Minute*10, time.Second*10).Should(gomega.BeTrue())
-		exists, err := lib.DoesSCCExist(ocClient, "mysql-persistent-scc")
+		err := lib.DoesSCCExist(ocClient, database+"-persistent-scc")
 		if err != nil {
 			return err
-		}
-		if !exists {
-			return errors.New("did not find MYSQL scc")
 		}
 		err = lib.VerifyBackupRestoreData(runTimeClientForSuiteRun, kubernetesClientForSuiteRun, kubeConfig, artifact_dir, namespace, "todolist-route", "todolist", "todolist", preBackupState, twoVol)
 		return err
@@ -140,9 +124,16 @@ func runApplicationBackupAndRestore(brCase ApplicationBackupRestoreCase, expecte
 		gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	}
 
-	// wait for Pods to be running
-	gomega.Eventually(lib.AreAppBuildsReady(dpaCR.Client, brCase.Namespace), time.Minute*5, time.Second*5).Should(gomega.BeTrue())
-	gomega.Eventually(lib.AreApplicationPodsRunning(kubernetesClientForSuiteRun, brCase.Namespace), time.Minute*9, time.Second*5).Should(gomega.BeTrue())
+	// Run optional custom verification
+	if brCase.PreBackupVerify != nil {
+		log.Printf("Running pre-backup custom function for case %s", brCase.Name)
+		err := brCase.PreBackupVerify(dpaCR.Client, brCase.Namespace)
+		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+	} else {
+		log.Printf("Running pre-backup check for case %s", brCase.Name)
+		gomega.Eventually(lib.AreAppBuildsReady(dpaCR.Client, brCase.Namespace), time.Minute*3, time.Second*5).Should(gomega.BeTrue())
+		gomega.Eventually(lib.AreApplicationPodsRunning(kubernetesClientForSuiteRun, brCase.Namespace), time.Minute*9, time.Second*5).Should(gomega.BeTrue())
+	}
 
 	// do the backup for real
 	nsRequiredResticDCWorkaround := runBackup(brCase.BackupRestoreCase, backupName)
@@ -160,26 +151,19 @@ func runApplicationBackupAndRestore(brCase ApplicationBackupRestoreCase, expecte
 	// run restore
 	runRestore(brCase.BackupRestoreCase, backupName, restoreName, nsRequiredResticDCWorkaround)
 
-	// verify app is running
-	gomega.Eventually(lib.AreAppBuildsReady(dpaCR.Client, brCase.Namespace), time.Minute*3, time.Second*5).Should(gomega.BeTrue())
-	gomega.Eventually(lib.AreApplicationPodsRunning(kubernetesClientForSuiteRun, brCase.Namespace), time.Minute*9, time.Second*5).Should(gomega.BeTrue())
-
 	// Run optional custom verification
 	if brCase.PostRestoreVerify != nil {
-		log.Printf("Running post-restore function for case %s", brCase.Name)
+		log.Printf("Running post-restore custom function for case %s", brCase.Name)
 		err = brCase.PostRestoreVerify(dpaCR.Client, brCase.Namespace)
 		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+	} else {
+		log.Printf("Running post-restore check for case %s", brCase.Name)
+		gomega.Eventually(lib.AreAppBuildsReady(dpaCR.Client, brCase.Namespace), time.Minute*3, time.Second*5).Should(gomega.BeTrue())
+		gomega.Eventually(lib.AreApplicationPodsRunning(kubernetesClientForSuiteRun, brCase.Namespace), time.Minute*9, time.Second*5).Should(gomega.BeTrue())
 	}
 }
 
 func runBackup(brCase BackupRestoreCase, backupName string) bool {
-	// Run optional custom verification
-	if brCase.PreBackupVerify != nil {
-		log.Printf("Running pre-backup function for case %s", brCase.Name)
-		err := brCase.PreBackupVerify(dpaCR.Client, brCase.Namespace)
-		gomega.Expect(err).ToNot(gomega.HaveOccurred())
-	}
-
 	nsRequiresResticDCWorkaround, err := lib.NamespaceRequiresResticDCWorkaround(dpaCR.Client, brCase.Namespace)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
@@ -324,8 +308,8 @@ var _ = ginkgo.Describe("Backup and restore tests", func() {
 				Namespace:         "mysql-persistent",
 				Name:              "mysql-csi-e2e",
 				BackupRestoreType: lib.CSI,
-				PreBackupVerify:   mysqlReady(true, false),
-				PostRestoreVerify: mysqlReady(false, false),
+				PreBackupVerify:   todoListReady(true, false, "mysql"),
+				PostRestoreVerify: todoListReady(false, false, "mysql"),
 				BackupTimeout:     20 * time.Minute,
 			},
 		}, nil),
@@ -335,8 +319,8 @@ var _ = ginkgo.Describe("Backup and restore tests", func() {
 				Namespace:         "mongo-persistent",
 				Name:              "mongo-csi-e2e",
 				BackupRestoreType: lib.CSI,
-				PreBackupVerify:   mongoready(true, false),
-				PostRestoreVerify: mongoready(false, false),
+				PreBackupVerify:   todoListReady(true, false, "mongo"),
+				PostRestoreVerify: todoListReady(false, false, "mongo"),
 				BackupTimeout:     20 * time.Minute,
 			},
 		}, nil),
@@ -346,8 +330,8 @@ var _ = ginkgo.Describe("Backup and restore tests", func() {
 				Namespace:         "mysql-persistent",
 				Name:              "mysql-twovol-csi-e2e",
 				BackupRestoreType: lib.CSI,
-				PreBackupVerify:   mysqlReady(true, true),
-				PostRestoreVerify: mysqlReady(false, true),
+				PreBackupVerify:   todoListReady(true, true, "mysql"),
+				PostRestoreVerify: todoListReady(false, true, "mysql"),
 				BackupTimeout:     20 * time.Minute,
 			},
 		}, nil),
@@ -357,8 +341,8 @@ var _ = ginkgo.Describe("Backup and restore tests", func() {
 				Namespace:         "mongo-persistent",
 				Name:              "mongo-restic-e2e",
 				BackupRestoreType: lib.RESTIC,
-				PreBackupVerify:   mongoready(true, false),
-				PostRestoreVerify: mongoready(false, false),
+				PreBackupVerify:   todoListReady(true, false, "mongo"),
+				PostRestoreVerify: todoListReady(false, false, "mongo"),
 				BackupTimeout:     20 * time.Minute,
 			},
 		}, nil),
@@ -368,8 +352,8 @@ var _ = ginkgo.Describe("Backup and restore tests", func() {
 				Namespace:         "mysql-persistent",
 				Name:              "mysql-restic-e2e",
 				BackupRestoreType: lib.RESTIC,
-				PreBackupVerify:   mysqlReady(true, false),
-				PostRestoreVerify: mysqlReady(false, false),
+				PreBackupVerify:   todoListReady(true, false, "mysql"),
+				PostRestoreVerify: todoListReady(false, false, "mysql"),
 				BackupTimeout:     20 * time.Minute,
 			},
 		}, nil),
@@ -379,8 +363,8 @@ var _ = ginkgo.Describe("Backup and restore tests", func() {
 				Namespace:         "mongo-persistent",
 				Name:              "mongo-kopia-e2e",
 				BackupRestoreType: lib.KOPIA,
-				PreBackupVerify:   mongoready(true, false),
-				PostRestoreVerify: mongoready(false, false),
+				PreBackupVerify:   todoListReady(true, false, "mongo"),
+				PostRestoreVerify: todoListReady(false, false, "mongo"),
 				BackupTimeout:     20 * time.Minute,
 			},
 		}, nil),
@@ -390,8 +374,8 @@ var _ = ginkgo.Describe("Backup and restore tests", func() {
 				Namespace:         "mysql-persistent",
 				Name:              "mysql-kopia-e2e",
 				BackupRestoreType: lib.KOPIA,
-				PreBackupVerify:   mysqlReady(true, false),
-				PostRestoreVerify: mysqlReady(false, false),
+				PreBackupVerify:   todoListReady(true, false, "mysql"),
+				PostRestoreVerify: todoListReady(false, false, "mysql"),
 				BackupTimeout:     20 * time.Minute,
 			},
 		}, nil),
@@ -401,8 +385,8 @@ var _ = ginkgo.Describe("Backup and restore tests", func() {
 				Namespace:         "mongo-persistent",
 				Name:              "mongo-datamover-e2e",
 				BackupRestoreType: lib.CSIDataMover,
-				PreBackupVerify:   mongoready(true, false),
-				PostRestoreVerify: mongoready(false, false),
+				PreBackupVerify:   todoListReady(true, false, "mongo"),
+				PostRestoreVerify: todoListReady(false, false, "mongo"),
 				BackupTimeout:     20 * time.Minute,
 			},
 		}, nil),
@@ -412,8 +396,8 @@ var _ = ginkgo.Describe("Backup and restore tests", func() {
 				Namespace:         "mysql-persistent",
 				Name:              "mysql-datamover-e2e",
 				BackupRestoreType: lib.CSIDataMover,
-				PreBackupVerify:   mysqlReady(true, false),
-				PostRestoreVerify: mysqlReady(false, false),
+				PreBackupVerify:   todoListReady(true, false, "mysql"),
+				PostRestoreVerify: todoListReady(false, false, "mysql"),
 				BackupTimeout:     20 * time.Minute,
 			},
 		}, nil),
@@ -424,8 +408,8 @@ var _ = ginkgo.Describe("Backup and restore tests", func() {
 				Namespace:         "mongo-persistent",
 				Name:              "mongo-blockdevice-e2e",
 				BackupRestoreType: lib.CSIDataMover,
-				PreBackupVerify:   mongoready(true, false),
-				PostRestoreVerify: mongoready(false, false),
+				PreBackupVerify:   todoListReady(true, false, "mongo"),
+				PostRestoreVerify: todoListReady(false, false, "mongo"),
 				BackupTimeout:     20 * time.Minute,
 			},
 		}, nil),

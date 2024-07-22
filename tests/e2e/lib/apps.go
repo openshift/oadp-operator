@@ -134,15 +134,12 @@ func InstallApplicationWithRetries(ocClient client.Client, file string, retries 
 	return nil
 }
 
-func DoesSCCExist(ocClient client.Client, sccName string) (bool, error) {
-	err := ocClient.Get(context.Background(), client.ObjectKey{
-		Name: sccName,
-	}, &security.SecurityContextConstraints{})
-	if err != nil {
-		return false, err
-	}
-	return true, nil
-
+func DoesSCCExist(ocClient client.Client, sccName string) error {
+	return ocClient.Get(
+		context.Background(),
+		client.ObjectKey{Name: sccName},
+		&security.SecurityContextConstraints{},
+	)
 }
 
 func UninstallApplication(ocClient client.Client, file string) error {
@@ -367,6 +364,11 @@ func AreApplicationPodsRunning(c *kubernetes.Clientset, namespace string) wait.C
 		}
 
 		for _, pod := range podList.Items {
+			if pod.DeletionTimestamp != nil {
+				log.Printf("Pod %v is terminating", pod.Name)
+				return false, fmt.Errorf("Pod is terminating")
+			}
+
 			phase := pod.Status.Phase
 			if phase != corev1.PodRunning && phase != corev1.PodSucceeded {
 				log.Printf("Pod %v not yet succeeded: phase is %v", pod.Name, phase)

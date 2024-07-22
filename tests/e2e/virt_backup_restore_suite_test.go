@@ -41,6 +41,8 @@ func getLatestCirrosImageURL() (string, error) {
 
 func vmPoweredOff(vmnamespace, vmname string) VerificationFunction {
 	return VerificationFunction(func(ocClient client.Client, namespace string) error {
+		gomega.Eventually(lib.AreAppBuildsReady(dpaCR.Client, namespace), time.Minute*3, time.Second*5).Should(gomega.BeTrue())
+		gomega.Eventually(lib.AreApplicationPodsRunning(kubernetesClientForSuiteRun, namespace), time.Minute*9, time.Second*5).Should(gomega.BeTrue())
 		isOff := func() bool {
 			status, err := lib.GetVmStatus(dynamicClientForSuiteRun, vmnamespace, vmname)
 			if err != nil {
@@ -223,8 +225,8 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 				Name:              "fedora-todolist",
 				SkipVerifyLogs:    true,
 				BackupRestoreType: lib.CSI,
-				PreBackupVerify:   mysqlReady(true, false),
-				PostRestoreVerify: mysqlReady(false, false),
+				PreBackupVerify:   todoListReady(true, false, "mysql"),
+				PostRestoreVerify: todoListReady(false, false, "mysql"),
 				BackupTimeout:     45 * time.Minute,
 			},
 		}, nil),

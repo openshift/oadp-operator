@@ -78,8 +78,8 @@ var _ = ginkgo.Describe("Backup and restore tests with must-gather", func() {
 				Namespace:         "mongo-persistent",
 				Name:              "mongo-datamover-e2e",
 				BackupRestoreType: lib.CSIDataMover,
-				PreBackupVerify:   mongoready(true, false),
-				PostRestoreVerify: mongoready(false, false),
+				PreBackupVerify:   todoListReady(true, false, "mongo"),
+				PostRestoreVerify: todoListReady(false, false, "mongo"),
 				BackupTimeout:     20 * time.Minute,
 			},
 			MustGatherFiles: []string{
