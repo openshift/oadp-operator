@@ -18,6 +18,26 @@ import (
 	"github.com/openshift/oadp-operator/tests/e2e/lib"
 )
 
+// TODO duplication of todoListReady in tests/e2e/backup_restore_suite_test.go
+func vmTodoListReady(preBackupState bool, twoVol bool, database string) VerificationFunction {
+	return VerificationFunction(func(ocClient client.Client, namespace string) error {
+		log.Printf("checking for the NAMESPACE: %s", namespace)
+		gomega.Eventually(lib.AreAppBuildsReady(dpaCR.Client, namespace), time.Minute*3, time.Second*5).Should(gomega.BeTrue())
+		gomega.Eventually(lib.IsDeploymentReady(ocClient, namespace, database), time.Minute*10, time.Second*10).Should(gomega.BeTrue())
+		// in VM tests, DeploymentConfig was refactored to Deployment (to avoid deprecation warnings)
+		// gomega.Eventually(lib.IsDCReady(ocClient, namespace, "todolist"), time.Minute*10, time.Second*10).Should(gomega.BeTrue())
+		gomega.Eventually(lib.IsDeploymentReady(ocClient, namespace, "todolist"), time.Minute*10, time.Second*10).Should(gomega.BeTrue())
+		gomega.Eventually(lib.AreApplicationPodsRunning(kubernetesClientForSuiteRun, namespace), time.Minute*9, time.Second*5).Should(gomega.BeTrue())
+		// This test confirms that SCC restore logic in our plugin is working
+		err := lib.DoesSCCExist(ocClient, database+"-persistent-scc")
+		if err != nil {
+			return err
+		}
+		err = lib.VerifyBackupRestoreData(runTimeClientForSuiteRun, kubernetesClientForSuiteRun, kubeConfig, artifact_dir, namespace, "todolist-route", "todolist", "todolist", preBackupState, twoVol)
+		return err
+	})
+}
+
 func getLatestCirrosImageURL() (string, error) {
 	cirrosVersionURL := "https://download.cirros-cloud.net/version/released"
 
@@ -225,8 +245,8 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 				Name:              "fedora-todolist",
 				SkipVerifyLogs:    true,
 				BackupRestoreType: lib.CSI,
-				PreBackupVerify:   todoListReady(true, false, "mysql"),
-				PostRestoreVerify: todoListReady(false, false, "mysql"),
+				PreBackupVerify:   vmTodoListReady(true, false, "mysql"),
+				PostRestoreVerify: vmTodoListReady(false, false, "mysql"),
 				BackupTimeout:     45 * time.Minute,
 			},
 		}, nil),

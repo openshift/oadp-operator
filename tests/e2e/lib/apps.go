@@ -258,6 +258,7 @@ func IsDCReady(ocClient client.Client, namespace, dcName string) wait.ConditionF
 		for _, condition := range dc.Status.Conditions {
 			if condition.Type == ocpappsv1.DeploymentAvailable {
 				if condition.Status == corev1.ConditionFalse {
+					log.Printf("DeploymentConfig %s has condition.Status False", dc.Name)
 					return false, nil
 				}
 				break
