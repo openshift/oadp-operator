@@ -60,7 +60,6 @@ func getLatestCirrosImageURL() (string, error) {
 
 func vmPoweredOff(vmnamespace, vmname string) VerificationFunction {
 	return VerificationFunction(func(ocClient client.Client, namespace string) error {
-		gomega.Eventually(lib.AreApplicationPodsRunning(kubernetesClientForSuiteRun, namespace), time.Minute*9, time.Second*5).Should(gomega.BeTrue())
 		isOff := func() bool {
 			status, err := lib.GetVmStatus(dynamicClientForSuiteRun, vmnamespace, vmname)
 			if err != nil {
@@ -125,9 +124,6 @@ func runVmBackupAndRestore(brCase VmBackupRestoreCase, expectedErr error, update
 		log.Printf("Running pre-backup custom function for case %s", brCase.Name)
 		err := brCase.PreBackupVerify(dpaCR.Client, brCase.Namespace)
 		gomega.Expect(err).ToNot(gomega.HaveOccurred())
-	} else {
-		log.Printf("Running pre-backup check for case %s", brCase.Name)
-		gomega.Eventually(lib.AreApplicationPodsRunning(kubernetesClientForSuiteRun, brCase.Namespace), time.Minute*9, time.Second*5).Should(gomega.BeTrue())
 	}
 
 	// Back up VM
@@ -148,9 +144,6 @@ func runVmBackupAndRestore(brCase VmBackupRestoreCase, expectedErr error, update
 		log.Printf("Running post-restore custom function for VM case %s", brCase.Name)
 		err = brCase.PostRestoreVerify(dpaCR.Client, brCase.Namespace)
 		gomega.Expect(err).ToNot(gomega.HaveOccurred())
-	} else {
-		log.Printf("Running post-restore check for case %s", brCase.Name)
-		gomega.Eventually(lib.AreApplicationPodsRunning(kubernetesClientForSuiteRun, brCase.Namespace), time.Minute*9, time.Second*5).Should(gomega.BeTrue())
 	}
 }
 

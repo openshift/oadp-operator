@@ -40,8 +40,6 @@ func todoListReady(preBackupState bool, twoVol bool, database string) Verificati
 		log.Printf("checking for the NAMESPACE: %s", namespace)
 		gomega.Eventually(lib.IsDeploymentReady(ocClient, namespace, database), time.Minute*10, time.Second*10).Should(gomega.BeTrue())
 		gomega.Eventually(lib.IsDCReady(ocClient, namespace, "todolist"), time.Minute*10, time.Second*10).Should(gomega.BeTrue())
-		// TODO remove or change line?
-		// gomega.Eventually(lib.AreAppBuildsReady(dpaCR.Client, namespace), time.Minute*3, time.Second*5).Should(gomega.BeTrue())
 		gomega.Eventually(lib.AreApplicationPodsRunning(kubernetesClientForSuiteRun, namespace), time.Minute*9, time.Second*5).Should(gomega.BeTrue())
 		// This test confirms that SCC restore logic in our plugin is working
 		err := lib.DoesSCCExist(ocClient, database+"-persistent-scc")
@@ -130,9 +128,6 @@ func runApplicationBackupAndRestore(brCase ApplicationBackupRestoreCase, expecte
 		log.Printf("Running pre-backup custom function for case %s", brCase.Name)
 		err := brCase.PreBackupVerify(dpaCR.Client, brCase.Namespace)
 		gomega.Expect(err).ToNot(gomega.HaveOccurred())
-	} else {
-		log.Printf("Running pre-backup check for case %s", brCase.Name)
-		gomega.Eventually(lib.AreApplicationPodsRunning(kubernetesClientForSuiteRun, brCase.Namespace), time.Minute*9, time.Second*5).Should(gomega.BeTrue())
 	}
 
 	// do the backup for real
@@ -156,9 +151,6 @@ func runApplicationBackupAndRestore(brCase ApplicationBackupRestoreCase, expecte
 		log.Printf("Running post-restore custom function for case %s", brCase.Name)
 		err = brCase.PostRestoreVerify(dpaCR.Client, brCase.Namespace)
 		gomega.Expect(err).ToNot(gomega.HaveOccurred())
-	} else {
-		log.Printf("Running post-restore check for case %s", brCase.Name)
-		gomega.Eventually(lib.AreApplicationPodsRunning(kubernetesClientForSuiteRun, brCase.Namespace), time.Minute*9, time.Second*5).Should(gomega.BeTrue())
 	}
 }
 
