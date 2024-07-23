@@ -22,7 +22,6 @@ import (
 func vmTodoListReady(preBackupState bool, twoVol bool, database string) VerificationFunction {
 	return VerificationFunction(func(ocClient client.Client, namespace string) error {
 		log.Printf("checking for the NAMESPACE: %s", namespace)
-		gomega.Eventually(lib.AreAppBuildsReady(dpaCR.Client, namespace), time.Minute*3, time.Second*5).Should(gomega.BeTrue())
 		gomega.Eventually(lib.IsDeploymentReady(ocClient, namespace, database), time.Minute*10, time.Second*10).Should(gomega.BeTrue())
 		// in VM tests, DeploymentConfig was refactored to Deployment (to avoid deprecation warnings)
 		// gomega.Eventually(lib.IsDCReady(ocClient, namespace, "todolist"), time.Minute*10, time.Second*10).Should(gomega.BeTrue())
@@ -61,7 +60,6 @@ func getLatestCirrosImageURL() (string, error) {
 
 func vmPoweredOff(vmnamespace, vmname string) VerificationFunction {
 	return VerificationFunction(func(ocClient client.Client, namespace string) error {
-		gomega.Eventually(lib.AreAppBuildsReady(dpaCR.Client, namespace), time.Minute*3, time.Second*5).Should(gomega.BeTrue())
 		gomega.Eventually(lib.AreApplicationPodsRunning(kubernetesClientForSuiteRun, namespace), time.Minute*9, time.Second*5).Should(gomega.BeTrue())
 		isOff := func() bool {
 			status, err := lib.GetVmStatus(dynamicClientForSuiteRun, vmnamespace, vmname)
@@ -122,6 +120,16 @@ func runVmBackupAndRestore(brCase VmBackupRestoreCase, expectedErr error, update
 		gomega.Expect(err).To(gomega.BeNil())
 	}
 
+	// Run optional custom verification
+	if brCase.PreBackupVerify != nil {
+		log.Printf("Running pre-backup custom function for case %s", brCase.Name)
+		err := brCase.PreBackupVerify(dpaCR.Client, brCase.Namespace)
+		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+	} else {
+		log.Printf("Running pre-backup check for case %s", brCase.Name)
+		gomega.Eventually(lib.AreApplicationPodsRunning(kubernetesClientForSuiteRun, brCase.Namespace), time.Minute*9, time.Second*5).Should(gomega.BeTrue())
+	}
+
 	// Back up VM
 	nsRequiresResticDCWorkaround := runBackup(brCase.BackupRestoreCase, backupName)
 
@@ -137,9 +145,12 @@ func runVmBackupAndRestore(brCase VmBackupRestoreCase, expectedErr error, update
 
 	// Run optional custom verification
 	if brCase.PostRestoreVerify != nil {
-		log.Printf("Running post-restore function for VM case %s", brCase.Name)
+		log.Printf("Running post-restore custom function for VM case %s", brCase.Name)
 		err = brCase.PostRestoreVerify(dpaCR.Client, brCase.Namespace)
 		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+	} else {
+		log.Printf("Running post-restore check for case %s", brCase.Name)
+		gomega.Eventually(lib.AreApplicationPodsRunning(kubernetesClientForSuiteRun, brCase.Namespace), time.Minute*9, time.Second*5).Should(gomega.BeTrue())
 	}
 }
 

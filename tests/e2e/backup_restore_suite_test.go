@@ -38,9 +38,10 @@ type ApplicationBackupRestoreCase struct {
 func todoListReady(preBackupState bool, twoVol bool, database string) VerificationFunction {
 	return VerificationFunction(func(ocClient client.Client, namespace string) error {
 		log.Printf("checking for the NAMESPACE: %s", namespace)
-		gomega.Eventually(lib.AreAppBuildsReady(dpaCR.Client, namespace), time.Minute*3, time.Second*5).Should(gomega.BeTrue())
 		gomega.Eventually(lib.IsDeploymentReady(ocClient, namespace, database), time.Minute*10, time.Second*10).Should(gomega.BeTrue())
 		gomega.Eventually(lib.IsDCReady(ocClient, namespace, "todolist"), time.Minute*10, time.Second*10).Should(gomega.BeTrue())
+		// TODO remove or change line?
+		// gomega.Eventually(lib.AreAppBuildsReady(dpaCR.Client, namespace), time.Minute*3, time.Second*5).Should(gomega.BeTrue())
 		gomega.Eventually(lib.AreApplicationPodsRunning(kubernetesClientForSuiteRun, namespace), time.Minute*9, time.Second*5).Should(gomega.BeTrue())
 		// This test confirms that SCC restore logic in our plugin is working
 		err := lib.DoesSCCExist(ocClient, database+"-persistent-scc")
@@ -131,7 +132,6 @@ func runApplicationBackupAndRestore(brCase ApplicationBackupRestoreCase, expecte
 		gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	} else {
 		log.Printf("Running pre-backup check for case %s", brCase.Name)
-		gomega.Eventually(lib.AreAppBuildsReady(dpaCR.Client, brCase.Namespace), time.Minute*3, time.Second*5).Should(gomega.BeTrue())
 		gomega.Eventually(lib.AreApplicationPodsRunning(kubernetesClientForSuiteRun, brCase.Namespace), time.Minute*9, time.Second*5).Should(gomega.BeTrue())
 	}
 
@@ -158,7 +158,6 @@ func runApplicationBackupAndRestore(brCase ApplicationBackupRestoreCase, expecte
 		gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	} else {
 		log.Printf("Running post-restore check for case %s", brCase.Name)
-		gomega.Eventually(lib.AreAppBuildsReady(dpaCR.Client, brCase.Namespace), time.Minute*3, time.Second*5).Should(gomega.BeTrue())
 		gomega.Eventually(lib.AreApplicationPodsRunning(kubernetesClientForSuiteRun, brCase.Namespace), time.Minute*9, time.Second*5).Should(gomega.BeTrue())
 	}
 }

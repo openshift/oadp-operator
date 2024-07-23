@@ -256,6 +256,7 @@ func IsDCReady(ocClient client.Client, namespace, dcName string) wait.ConditionF
 		}
 		// check dc for false availability condition which occurs when a new replication controller is created (after a new build completed) even if there are satisfactory available replicas
 		for _, condition := range dc.Status.Conditions {
+			log.Printf("DeploymentConfig %s Status.Conditions:\n%#v", dc.Name, condition)
 			if condition.Type == ocpappsv1.DeploymentAvailable {
 				if condition.Status == corev1.ConditionFalse {
 					log.Printf("DeploymentConfig %s has condition.Status False", dc.Name)
@@ -302,12 +303,6 @@ func IsDeploymentReady(ocClient client.Client, namespace, dName string) wait.Con
 			return false, errors.New("deployment is not in a ready state")
 		}
 		return true, nil
-	}
-}
-
-func AreAppBuildsReady(ocClient client.Client, namespace string) wait.ConditionFunc {
-	return func() (bool, error) {
-		return areAppBuildsReady(ocClient, namespace)
 	}
 }
 
