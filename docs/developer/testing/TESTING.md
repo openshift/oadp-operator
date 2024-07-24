@@ -119,7 +119,22 @@ E2E tests are defined to run in the CI, so to run the locally, you may need to c
 - the related PersistentVolumeClaims to your provider in `tests/e2e/sample-applications/mysql-persistent/pvc-twoVol/`, `tests/e2e/sample-applications/mysql-persistent/pvc/` and `tests/e2e/sample-applications/mongo-persistent/pvc/` folders with your storage classes (to list cluster drivers, run `oc get storageclasses`)
 - Optionally, the user can use the default storage class by choosing the pvc/default_sc.yaml files.
 
-If running E2E tests against operator created from `make deploy-olm`, remember its image expires, which may cause **Subscription Config Suite Test** to fail.
+If running E2E tests against operator created from `make deploy-olm`, remember its image expires, which may cause tests to fail.
+
+When running Virtual Machine backup/restore tests on IBM Cloud, it is better to manually install OpenShift Virtualization operator, instead of automatically installing it through `make test-e2e`. Because this may cause the error of Virtual Machines never starting to run. Example test log:
+```
+...
+2024/07/24 15:12:57 VM cirros-test/cirros-test status is: Stopped
+2024/07/24 15:13:07 VM cirros-test/cirros-test status is: Stopped
+2024/07/24 15:13:17 VM cirros-test/cirros-test status is: Stopped
+2024/07/24 15:13:27 VM cirros-test/cirros-test status is: Stopped
+...
+```
+From events, printed after test failure, you can get the necessary solution. Example test log:
+```
+  Event: DataVolume.storage spec is missing accessMode and volumeMode, cannot get access mode from StorageProfile ibmc-vpc-block-10iops-tier, Type: Warning, Count: 17, Src: {DataVolume cirros-test cirros-test-disk 4d522545-1170-4b82-ae0c-39441de839f4 cdi.kubevirt.io/v1beta1 453012805 }, Reason: ErrClaimNotValid
+```
+In this case, solution would be to run `oc patch storageprofile ibmc-vpc-block-10iops-tier --type=merge -p '{"spec": {"claimPropertySets": [{"accessModes": ["ReadWriteOnce"], "volumeMode": "Block"}]}}'`.
 
 ### With Visual Studio
 
