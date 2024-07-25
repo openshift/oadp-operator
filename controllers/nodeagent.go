@@ -42,9 +42,6 @@ const (
 )
 
 var (
-	fsPvHostPath    = getFsPvHostPath("")
-	pluginsHostPath = getPluginsHostPath("")
-
 	// v1.MountPropagationHostToContainer is a const. Const cannot be pointed to.
 	// we need to declare mountPropagationToHostContainer so that we have an address to point to
 	// for ds.Spec.Template.Spec.Volumes[].Containers[].VolumeMounts[].MountPropagation
