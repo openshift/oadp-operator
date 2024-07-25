@@ -203,7 +203,11 @@ func (v *VirtOperator) checkCsv() bool {
 		}
 	}
 
-	return subscription.CsvIsReady(v.Client)
+	isReady, err := subscription.CsvIsReady(v.Client)()
+	if err != nil {
+		return false
+	}
+	return isReady
 }
 
 // CheckHco looks for a HyperConvergedOperator and returns whether or not its

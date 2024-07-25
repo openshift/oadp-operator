@@ -17,19 +17,15 @@ import (
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
 	ocpappsv1 "github.com/openshift/api/apps/v1"
-	buildv1 "github.com/openshift/api/build/v1"
 	security "github.com/openshift/api/security/v1"
 	templatev1 "github.com/openshift/api/template/v1"
-	operatorsv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	"github.com/vmware-tanzu/velero/pkg/label"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
-	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
@@ -37,13 +33,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-const e2eAppLabelKey = "e2e-app"
-const e2eAppLabelValue = "true"
-
-var (
-	e2eAppLabelRequirement, _ = labels.NewRequirement(e2eAppLabelKey, selection.Equals, []string{e2eAppLabelValue})
-	e2eAppLabelSelector       = labels.NewSelector().Add(*e2eAppLabelRequirement)
+const (
+	e2eAppLabelKey   = "e2e-app"
+	e2eAppLabelValue = "true"
 )
+
+var e2eAppLabel = fmt.Sprintf("%s=%s", e2eAppLabelKey, e2eAppLabelValue)
 
 func InstallApplication(ocClient client.Client, file string) error {
 	return InstallApplicationWithRetries(ocClient, file, 3)
@@ -66,7 +61,7 @@ func InstallApplicationWithRetries(ocClient client.Client, file string, retries 
 		if resourceLabels == nil {
 			resourceLabels = make(map[string]string)
 		}
-		resourceLabels[e2eAppLabelKey] = "true"
+		resourceLabels[e2eAppLabelKey] = e2eAppLabelValue
 		resource.SetLabels(resourceLabels)
 		resourceCreate := resource.DeepCopy()
 		err = nil // reset error for each resource
@@ -137,16 +132,12 @@ func InstallApplicationWithRetries(ocClient client.Client, file string, retries 
 	return nil
 }
 
-func DoesSCCExist(ocClient client.Client, sccName string) (bool, error) {
-	scc := security.SecurityContextConstraints{}
-	err := ocClient.Get(context.Background(), client.ObjectKey{
-		Name: sccName,
-	}, &scc)
-	if err != nil {
-		return false, err
-	}
-	return true, nil
-
+func DoesSCCExist(ocClient client.Client, sccName string) error {
+	return ocClient.Get(
+		context.Background(),
+		client.ObjectKey{Name: sccName},
+		&security.SecurityContextConstraints{},
+	)
 }
 
 func UninstallApplication(ocClient client.Client, file string) error {
@@ -227,7 +218,6 @@ func NamespaceRequiresResticDCWorkaround(ocClient client.Client, namespace strin
 func AreVolumeSnapshotsReady(ocClient client.Client, backupName string) wait.ConditionFunc {
 	return func() (bool, error) {
 		vList := &volumesnapshotv1.VolumeSnapshotContentList{}
-		// vListBeta := &volumesnapshotv1beta1.VolumeSnapshotList{}
 		err := ocClient.List(context.Background(), vList, &client.ListOptions{LabelSelector: label.NewSelectorForBackup(backupName)})
 		if err != nil {
 			return false, err
@@ -264,8 +254,10 @@ func IsDCReady(ocClient client.Client, namespace, dcName string) wait.ConditionF
 		}
 		// check dc for false availability condition which occurs when a new replication controller is created (after a new build completed) even if there are satisfactory available replicas
 		for _, condition := range dc.Status.Conditions {
+			log.Printf("DeploymentConfig %s Status.Conditions:\n%#v", dc.Name, condition)
 			if condition.Type == ocpappsv1.DeploymentAvailable {
 				if condition.Status == corev1.ConditionFalse {
+					log.Printf("DeploymentConfig %s has condition.Status False", dc.Name)
 					return false, nil
 				}
 				break
@@ -278,13 +270,6 @@ func IsDCReady(ocClient client.Client, namespace, dcName string) wait.ConditionF
 				}
 			}
 			return false, errors.New("DC is not in a ready state")
-		}
-		for _, trigger := range dc.Spec.Triggers {
-			if trigger.Type == ocpappsv1.DeploymentTriggerOnImageChange {
-				if trigger.ImageChangeParams.Automatic {
-					return areAppBuildsReady(ocClient, namespace)
-				}
-			}
 		}
 		return true, nil
 	}
@@ -312,104 +297,34 @@ func IsDeploymentReady(ocClient client.Client, namespace, dName string) wait.Con
 	}
 }
 
-func AreAppBuildsReady(ocClient client.Client, namespace string) wait.ConditionFunc {
-	return func() (bool, error) {
-		return areAppBuildsReady(ocClient, namespace)
-	}
-}
-
-func areAppBuildsReady(ocClient client.Client, namespace string) (bool, error) {
-	buildList := &buildv1.BuildList{}
-	err := ocClient.List(context.Background(), buildList, &client.ListOptions{Namespace: namespace, LabelSelector: e2eAppLabelSelector})
-	if err != nil && !apierrors.IsNotFound(err) {
-		return false, err
-	}
-	if buildList.Items != nil {
-		for _, build := range buildList.Items {
-			if build.Status.Phase == buildv1.BuildPhaseNew ||
-				build.Status.Phase == buildv1.BuildPhasePending ||
-				build.Status.Phase == buildv1.BuildPhaseRunning {
-				log.Println("Build is not ready: " + build.Name)
-				return false, nil
-			}
-			if build.Status.Phase == buildv1.BuildPhaseFailed || build.Status.Phase == buildv1.BuildPhaseError {
-				ginkgo.GinkgoWriter.Println("Build failed/error: " + build.Name)
-				ginkgo.GinkgoWriter.Println(fmt.Sprintf("status: %v", build.Status))
-				return false, errors.New("found build failed or error")
-			}
-			if build.Status.Phase == buildv1.BuildPhaseComplete {
-				log.Println("Build is complete: " + build.Name + " patching build pod label to exclude from backup")
-				podName := build.GetAnnotations()["openshift.io/build.pod-name"]
-				pod := corev1.Pod{}
-				err := ocClient.Get(context.Background(), client.ObjectKey{
-					Namespace: namespace,
-					Name:      podName,
-				}, &pod)
-				if err != nil {
-					return false, err
-				}
-				pod.Labels["velero.io/exclude-from-backup"] = "true"
-				err = ocClient.Update(context.Background(), &pod)
-				if err != nil {
-					log.Println("Error patching build pod label to exclude from backup: " + err.Error())
-					return false, err
-				}
-			}
-		}
-	}
-	return true, nil
-}
-
 func AreApplicationPodsRunning(c *kubernetes.Clientset, namespace string) wait.ConditionFunc {
 	return func() (bool, error) {
-		// select Velero pod with this label
-		veleroOptions := metav1.ListOptions{
-			LabelSelector: e2eAppLabelSelector.String(),
-		}
-		// get pods in test namespace with labelSelector
-		podList, err := c.CoreV1().Pods(namespace).List(context.Background(), veleroOptions)
+		podList, err := GetAllPodsWithLabel(c, namespace, e2eAppLabel)
 		if err != nil {
-			return false, nil
+			return false, err
 		}
-		if len(podList.Items) == 0 {
-			return false, nil
-		}
-		// get pod name and status with specified label selector
-		for _, podInfo := range podList.Items {
-			phase := podInfo.Status.Phase
-			if phase != corev1.PodRunning && phase != corev1.PodSucceeded {
-				log.Printf("Pod %v not yet succeeded: phase is %v", podInfo.Name, phase)
-				return false, nil
+
+		for _, pod := range podList.Items {
+			if pod.DeletionTimestamp != nil {
+				log.Printf("Pod %v is terminating", pod.Name)
+				return false, fmt.Errorf("Pod is terminating")
 			}
 
-			conditionType := corev1.ContainersReady
-			for _, condition := range podInfo.Status.Conditions {
-				if condition.Type == conditionType && condition.Status != corev1.ConditionTrue {
-					log.Printf("Pod %v not yet succeeded: condition is false: %v", podInfo.Name, conditionType)
-					return false, nil
+			phase := pod.Status.Phase
+			if phase != corev1.PodRunning && phase != corev1.PodSucceeded {
+				log.Printf("Pod %v not yet succeeded: phase is %v", pod.Name, phase)
+				return false, fmt.Errorf("Pod not yet succeeded")
+			}
+
+			for _, condition := range pod.Status.Conditions {
+				log.Printf("Pod %v condition:\n%#v", pod.Name, condition)
+				if condition.Type == corev1.ContainersReady && condition.Status != corev1.ConditionTrue {
+					log.Printf("Pod %v not yet succeeded: condition is: %v", pod.Name, condition.Status)
+					return false, fmt.Errorf("Pod not yet succeeded")
 				}
 			}
 		}
-		return true, err
-	}
-}
-
-func InstalledSubscriptionCSV(ocClient client.Client, namespace, subscriptionName string) func() (string, error) {
-	return func() (string, error) {
-		// get operator-sdk subscription
-		subscription := &operatorsv1alpha1.Subscription{}
-		err := ocClient.Get(context.Background(), client.ObjectKey{
-			Namespace: namespace,
-			Name:      subscriptionName,
-		}, subscription)
-		if err != nil {
-			if apierrors.IsNotFound(err) {
-				return "", nil
-			}
-			ginkgo.GinkgoWriter.Write([]byte(fmt.Sprintf("Error getting subscription: %v\n", err)))
-			return "", err
-		}
-		return subscription.Status.InstalledCSV, nil
+		return true, nil
 	}
 }
 

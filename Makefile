@@ -17,8 +17,6 @@ VSL_REGION ?= ${LEASED_RESOURCE}
 BSL_AWS_PROFILE ?= default
 # BSL_AWS_PROFILE ?= migration-engineering
 
-# vsl secret
-CREDS_SECRET_REF ?= cloud-credentials
 # bucket file
 OADP_BUCKET_FILE ?= ${OADP_CRED_DIR}/new-velero-bucket-name
 # azure cluster resource file - only in CI
@@ -29,7 +27,6 @@ AZURE_OADP_JSON_CRED_FILE ?= ${OADP_CRED_DIR}/azure-credentials
 # Misc
 OPENSHIFT_CI ?= true
 VELERO_INSTANCE_NAME ?= velero-test
-E2E_TIMEOUT_MULTIPLIER ?= 1
 ARTIFACT_DIR ?= /tmp
 OC_CLI = $(shell which oc)
 TEST_VIRT ?= false
@@ -44,7 +41,6 @@ CLUSTER_TYPE ?= $(CLUSTER_TYPE_SHELL)
 ifeq ($(CLUSTER_TYPE), gcp)
 	CI_CRED_FILE = ${CLUSTER_PROFILE_DIR}/gce.json
 	OADP_CRED_FILE = ${OADP_CRED_DIR}/gcp-credentials
-	CREDS_SECRET_REF = cloud-credentials-gcp
 	OADP_BUCKET_FILE = ${OADP_CRED_DIR}/gcp-velero-bucket-name
 endif
 
@@ -55,7 +51,6 @@ endif
 ifeq ($(CLUSTER_TYPE), azure)
 	CI_CRED_FILE = /tmp/ci-azure-credentials
 	OADP_CRED_FILE = /tmp/oadp-azure-credentials
-	CREDS_SECRET_REF = cloud-credentials-azure
 	OADP_BUCKET_FILE = ${OADP_CRED_DIR}/azure-velero-bucket-name
 endif
 
@@ -65,9 +60,9 @@ ifeq ($(CLUSTER_TYPE), ibmcloud)
 	VELERO_PLUGIN = aws
 endif
 
-# Kubernetes version from OpenShift 4.15.x https://openshift-release.apps.ci.l2s4.p1.openshiftapps.com/#4-stable
+# Kubernetes version from OpenShift 4.16.x https://openshift-release.apps.ci.l2s4.p1.openshiftapps.com/#4-stable
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
-ENVTEST_K8S_VERSION = 1.28
+ENVTEST_K8S_VERSION = 1.29
 
 # VERSION defines the project version for the bundle.
 # Update this value when you upgrade the version of your project.
@@ -507,12 +502,10 @@ test-e2e: test-e2e-setup install-ginkgo
 	ginkgo run -mod=mod tests/e2e/ -- \
 	-settings=$(SETTINGS_TMP)/oadpcreds \
 	-provider=$(CLUSTER_TYPE) \
-	-creds_secret_ref=$(CREDS_SECRET_REF) \
 	-credentials=$(OADP_CRED_FILE) \
 	-ci_cred_file=$(CI_CRED_FILE) \
 	-velero_namespace=$(OADP_TEST_NAMESPACE) \
 	-velero_instance_name=$(VELERO_INSTANCE_NAME) \
-	-timeout_multiplier=$(E2E_TIMEOUT_MULTIPLIER) \
 	-artifact_dir=$(ARTIFACT_DIR) \
 	-oc_cli=$(OC_CLI) \
 	--ginkgo.vv \

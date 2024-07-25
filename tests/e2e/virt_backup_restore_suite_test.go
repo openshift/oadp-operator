@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	ginkgov2 "github.com/onsi/ginkgo/v2"
+	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -17,6 +17,25 @@ import (
 	"github.com/openshift/oadp-operator/api/v1alpha1"
 	"github.com/openshift/oadp-operator/tests/e2e/lib"
 )
+
+// TODO duplication of todoListReady in tests/e2e/backup_restore_suite_test.go
+func vmTodoListReady(preBackupState bool, twoVol bool, database string) VerificationFunction {
+	return VerificationFunction(func(ocClient client.Client, namespace string) error {
+		log.Printf("checking for the NAMESPACE: %s", namespace)
+		gomega.Eventually(lib.IsDeploymentReady(ocClient, namespace, database), time.Minute*10, time.Second*10).Should(gomega.BeTrue())
+		// in VM tests, DeploymentConfig was refactored to Deployment (to avoid deprecation warnings)
+		// gomega.Eventually(lib.IsDCReady(ocClient, namespace, "todolist"), time.Minute*10, time.Second*10).Should(gomega.BeTrue())
+		gomega.Eventually(lib.IsDeploymentReady(ocClient, namespace, "todolist"), time.Minute*10, time.Second*10).Should(gomega.BeTrue())
+		gomega.Eventually(lib.AreApplicationPodsRunning(kubernetesClientForSuiteRun, namespace), time.Minute*9, time.Second*5).Should(gomega.BeTrue())
+		// This test confirms that SCC restore logic in our plugin is working
+		err := lib.DoesSCCExist(ocClient, database+"-persistent-scc")
+		if err != nil {
+			return err
+		}
+		err = lib.VerifyBackupRestoreData(runTimeClientForSuiteRun, kubernetesClientForSuiteRun, kubeConfig, artifact_dir, namespace, "todolist-route", "todolist", "todolist", preBackupState, twoVol)
+		return err
+	})
+}
 
 func getLatestCirrosImageURL() (string, error) {
 	cirrosVersionURL := "https://download.cirros-cloud.net/version/released"
@@ -49,7 +68,7 @@ func vmPoweredOff(vmnamespace, vmname string) VerificationFunction {
 			log.Printf("VM status is: %s\n", status)
 			return status == "Stopped"
 		}
-		gomega.Eventually(isOff, timeoutMultiplier*time.Minute*10, time.Second*10).Should(gomega.BeTrue())
+		gomega.Eventually(isOff, time.Minute*10, time.Second*10).Should(gomega.BeTrue())
 		return nil
 	})
 }
@@ -100,6 +119,13 @@ func runVmBackupAndRestore(brCase VmBackupRestoreCase, expectedErr error, update
 		gomega.Expect(err).To(gomega.BeNil())
 	}
 
+	// Run optional custom verification
+	if brCase.PreBackupVerify != nil {
+		log.Printf("Running pre-backup custom function for case %s", brCase.Name)
+		err := brCase.PreBackupVerify(dpaCR.Client, brCase.Namespace)
+		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+	}
+
 	// Back up VM
 	nsRequiresResticDCWorkaround := runBackup(brCase.BackupRestoreCase, backupName)
 
@@ -108,20 +134,24 @@ func runVmBackupAndRestore(brCase VmBackupRestoreCase, expectedErr error, update
 	gomega.Expect(err).To(gomega.BeNil())
 	err = lib.DeleteNamespace(v.Clientset, brCase.Namespace)
 	gomega.Expect(err).To(gomega.BeNil())
-	gomega.Eventually(lib.IsNamespaceDeleted(kubernetesClientForSuiteRun, brCase.Namespace), timeoutMultiplier*time.Minute*5, time.Second*5).Should(gomega.BeTrue())
+	gomega.Eventually(lib.IsNamespaceDeleted(kubernetesClientForSuiteRun, brCase.Namespace), time.Minute*5, time.Second*5).Should(gomega.BeTrue())
 
 	// Do restore
 	runVmRestore(brCase, backupName, restoreName, nsRequiresResticDCWorkaround)
 
 	// Run optional custom verification
 	if brCase.PostRestoreVerify != nil {
-		log.Printf("Running post-restore function for VM case %s", brCase.Name)
+		log.Printf("Running post-restore custom function for VM case %s", brCase.Name)
 		err = brCase.PostRestoreVerify(dpaCR.Client, brCase.Namespace)
 		gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	}
+
+	// avoid finalizers in namespace deletion
+	err = v.RemoveVm(brCase.Namespace, brCase.Name, 5*time.Minute)
+	gomega.Expect(err).To(gomega.BeNil())
 }
 
-var _ = ginkgov2.Describe("VM backup and restore tests", ginkgov2.Ordered, func() {
+var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 	var v *lib.VirtOperator
 	var err error
 	wasInstalledFromTest := false
@@ -134,7 +164,7 @@ var _ = ginkgov2.Describe("VM backup and restore tests", ginkgov2.Ordered, func(
 		lastInstallTime = time.Now()
 	}
 
-	var _ = ginkgov2.BeforeAll(func() {
+	var _ = ginkgo.BeforeAll(func() {
 		v, err = lib.GetVirtOperator(runTimeClientForSuiteRun, kubernetesClientForSuiteRun, dynamicClientForSuiteRun)
 		gomega.Expect(err).To(gomega.BeNil())
 		gomega.Expect(v).ToNot(gomega.BeNil())
@@ -155,10 +185,10 @@ var _ = ginkgov2.Describe("VM backup and restore tests", ginkgov2.Ordered, func(
 		err = v.CreateDataSourceFromPvc("openshift-virtualization-os-images", "cirros")
 		gomega.Expect(err).To(gomega.BeNil())
 
-		dpaCR.CustomResource.Spec.Configuration.Velero.DefaultPlugins = append(dpaCR.CustomResource.Spec.Configuration.Velero.DefaultPlugins, v1alpha1.DefaultPluginKubeVirt)
+		dpaCR.VeleroDefaultPlugins = append(dpaCR.VeleroDefaultPlugins, v1alpha1.DefaultPluginKubeVirt)
 	})
 
-	var _ = ginkgov2.AfterAll(func() {
+	var _ = ginkgo.AfterAll(func() {
 		v.RemoveDataSource("openshift-virtualization-os-images", "cirros")
 		v.RemoveDataVolume("openshift-virtualization-os-images", "cirros", 2*time.Minute)
 
@@ -167,16 +197,16 @@ var _ = ginkgov2.Describe("VM backup and restore tests", ginkgov2.Ordered, func(
 		}
 	})
 
-	var _ = ginkgov2.AfterEach(func(ctx ginkgov2.SpecContext) {
+	var _ = ginkgo.AfterEach(func(ctx ginkgo.SpecContext) {
 		tearDownBackupAndRestore(lastBRCase.BackupRestoreCase, lastInstallTime, ctx.SpecReport())
 	})
 
-	ginkgov2.DescribeTable("Backup and restore virtual machines",
+	ginkgo.DescribeTable("Backup and restore virtual machines",
 		func(brCase VmBackupRestoreCase, expectedError error) {
 			runVmBackupAndRestore(brCase, expectedError, updateLastBRcase, updateLastInstallTime, v)
 		},
 
-		ginkgov2.Entry("no-application CSI datamover backup and restore, CirrOS VM", ginkgov2.Label("virt"), VmBackupRestoreCase{
+		ginkgo.Entry("no-application CSI datamover backup and restore, CirrOS VM", ginkgo.Label("virt"), VmBackupRestoreCase{
 			Template:  "./sample-applications/virtual-machines/cirros-test/cirros-test.yaml",
 			InitDelay: 2 * time.Minute, // Just long enough to get to login prompt, VM is marked running while kernel messages are still scrolling by
 			BackupRestoreCase: BackupRestoreCase{
@@ -188,7 +218,7 @@ var _ = ginkgov2.Describe("VM backup and restore tests", ginkgov2.Ordered, func(
 			},
 		}, nil),
 
-		ginkgov2.Entry("no-application CSI backup and restore, CirrOS VM", ginkgov2.Label("virt"), VmBackupRestoreCase{
+		ginkgo.Entry("no-application CSI backup and restore, CirrOS VM", ginkgo.Label("virt"), VmBackupRestoreCase{
 			Template:  "./sample-applications/virtual-machines/cirros-test/cirros-test.yaml",
 			InitDelay: 2 * time.Minute, // Just long enough to get to login prompt, VM is marked running while kernel messages are still scrolling by
 			BackupRestoreCase: BackupRestoreCase{
@@ -200,7 +230,7 @@ var _ = ginkgov2.Describe("VM backup and restore tests", ginkgov2.Ordered, func(
 			},
 		}, nil),
 
-		ginkgov2.Entry("no-application CSI backup and restore, powered-off CirrOS VM", ginkgov2.Label("virt"), VmBackupRestoreCase{
+		ginkgo.Entry("no-application CSI backup and restore, powered-off CirrOS VM", ginkgo.Label("virt"), VmBackupRestoreCase{
 			Template:   "./sample-applications/virtual-machines/cirros-test/cirros-test.yaml",
 			InitDelay:  2 * time.Minute,
 			PowerState: "Stopped",
@@ -215,7 +245,7 @@ var _ = ginkgov2.Describe("VM backup and restore tests", ginkgov2.Ordered, func(
 			RestoreErr: errors.New("fail to patch dynamic PV"),
 		}, nil),
 
-		ginkgov2.Entry("todolist CSI backup and restore, in a Fedora VM", ginkgov2.Label("virt"), VmBackupRestoreCase{
+		ginkgo.Entry("todolist CSI backup and restore, in a Fedora VM", ginkgo.Label("virt"), VmBackupRestoreCase{
 			Template:  "./sample-applications/virtual-machines/fedora-todolist/fedora-todolist.yaml",
 			InitDelay: 3 * time.Minute, // For cloud-init
 			BackupRestoreCase: BackupRestoreCase{
@@ -223,8 +253,8 @@ var _ = ginkgov2.Describe("VM backup and restore tests", ginkgov2.Ordered, func(
 				Name:              "fedora-todolist",
 				SkipVerifyLogs:    true,
 				BackupRestoreType: lib.CSI,
-				PreBackupVerify:   mysqlReady(true, false),
-				PostRestoreVerify: mysqlReady(false, false),
+				PreBackupVerify:   vmTodoListReady(true, false, "mysql"),
+				PostRestoreVerify: vmTodoListReady(false, false, "mysql"),
 				BackupTimeout:     45 * time.Minute,
 			},
 		}, nil),
@@ -235,15 +265,15 @@ var _ = ginkgov2.Describe("VM backup and restore tests", ginkgov2.Ordered, func(
 // changes to runRestore when they are likely to be taken out in the near future.
 func runVmRestore(brCase VmBackupRestoreCase, backupName, restoreName string, nsRequiresResticDCWorkaround bool) {
 	log.Printf("Creating restore %s for case %s", restoreName, brCase.Name)
-	restore, err := lib.CreateRestoreFromBackup(dpaCR.Client, namespace, backupName, restoreName)
+	err := lib.CreateRestoreFromBackup(dpaCR.Client, namespace, backupName, restoreName)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
-	gomega.Eventually(lib.IsRestoreDone(dpaCR.Client, namespace, restoreName), timeoutMultiplier*time.Minute*60, time.Second*10).Should(gomega.BeTrue())
+	gomega.Eventually(lib.IsRestoreDone(dpaCR.Client, namespace, restoreName), time.Minute*60, time.Second*10).Should(gomega.BeTrue())
 	// TODO only log on fail?
-	describeRestore := lib.DescribeRestore(veleroClientForSuiteRun, dpaCR.Client, restore)
-	ginkgov2.GinkgoWriter.Println(describeRestore)
+	describeRestore := lib.DescribeRestore(veleroClientForSuiteRun, dpaCR.Client, namespace, restoreName)
+	ginkgo.GinkgoWriter.Println(describeRestore)
 
-	restoreLogs := lib.RestoreLogs(kubernetesClientForSuiteRun, dpaCR.Client, restore)
-	restoreErrorLogs := lib.RestoreErrorLogs(kubernetesClientForSuiteRun, dpaCR.Client, restore)
+	restoreLogs := lib.RestoreLogs(kubernetesClientForSuiteRun, dpaCR.Client, namespace, restoreName)
+	restoreErrorLogs := lib.RestoreErrorLogs(kubernetesClientForSuiteRun, dpaCR.Client, namespace, restoreName)
 	accumulatedTestLogs = append(accumulatedTestLogs, describeRestore, restoreLogs)
 
 	if !brCase.SkipVerifyLogs {
