@@ -574,6 +574,7 @@ func TestDPAReconciler_ReconcileVolumeSnapshotLocations(t *testing.T) {
 					Name:      tt.dpa.Name,
 				},
 				EventRecorder: record.NewFakeRecorder(10),
+				dpa:           tt.dpa,
 			}
 			wantVSL := &velerov1.VolumeSnapshotLocation{
 				ObjectMeta: metav1.ObjectMeta{

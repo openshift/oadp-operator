@@ -159,11 +159,6 @@ type azureCredentials struct {
 }
 
 func (r *DPAReconciler) ReconcileRegistries(log logr.Logger) (bool, error) {
-	dpa := oadpv1alpha1.DataProtectionApplication{}
-	if err := r.Get(r.Context, r.NamespacedName, &dpa); err != nil {
-		return false, err
-	}
-
 	bslLabels := map[string]string{
 		"app.kubernetes.io/name":             common.OADPOperatorVelero,
 		"app.kubernetes.io/managed-by":       common.OADPOperator,
@@ -472,11 +467,6 @@ func (r *DPAReconciler) getMatchedKeyValue(key string, s string) (string, error)
 }
 
 func (r *DPAReconciler) ReconcileRegistrySVCs(log logr.Logger) (bool, error) {
-	dpa := oadpv1alpha1.DataProtectionApplication{}
-	if err := r.Get(r.Context, r.NamespacedName, &dpa); err != nil {
-		return false, err
-	}
-
 	// fetch the bsl instances
 	bslList := velerov1.BackupStorageLocationList{}
 	if err := r.List(r.Context, &bslList, &client.ListOptions{
@@ -520,11 +510,6 @@ func (r *DPAReconciler) ReconcileRegistrySVCs(log logr.Logger) (bool, error) {
 }
 
 func (r *DPAReconciler) ReconcileRegistryRoutes(log logr.Logger) (bool, error) {
-	dpa := oadpv1alpha1.DataProtectionApplication{}
-	if err := r.Get(r.Context, r.NamespacedName, &dpa); err != nil {
-		return false, err
-	}
-
 	// fetch the bsl instances
 	bslList := velerov1.BackupStorageLocationList{}
 	if err := r.List(r.Context, &bslList, &client.ListOptions{
@@ -576,7 +561,6 @@ func (r *DPAReconciler) ReconcileRegistryRoutes(log logr.Logger) (bool, error) {
 }
 
 func (r *DPAReconciler) ReconcileRegistryRouteConfigs(log logr.Logger) (bool, error) {
-
 	// Now for each of these bsl instances, create a registry route cm for each of them
 	registryRouteCM := corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
@@ -608,11 +592,7 @@ func (r *DPAReconciler) ReconcileRegistryRouteConfigs(log logr.Logger) (bool, er
 
 // Create secret for registry to be parsed by openshift-velero-plugin
 func (r *DPAReconciler) ReconcileRegistrySecrets(log logr.Logger) (bool, error) {
-	dpa := oadpv1alpha1.DataProtectionApplication{}
-	if err := r.Get(r.Context, r.NamespacedName, &dpa); err != nil {
-		return false, err
-	}
-
+	dpa := r.dpa
 	// fetch the bsl instances
 	bslList := velerov1.BackupStorageLocationList{}
 	if err := r.List(r.Context, &bslList, &client.ListOptions{
@@ -665,7 +645,7 @@ func (r *DPAReconciler) ReconcileRegistrySecrets(log logr.Logger) (bool, error) 
 		// Create Secret
 		op, err := controllerutil.CreateOrPatch(r.Context, r.Client, &secret, func() error {
 			// TODO: check for secret status condition errors and respond here
-			err := r.patchRegistrySecret(&secret, &bsl, &dpa)
+			err := r.patchRegistrySecret(&secret, &bsl, dpa)
 
 			return err
 		})
