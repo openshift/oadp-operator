@@ -11,6 +11,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/openshift/oadp-operator/api/v1alpha1"
 	"github.com/openshift/oadp-operator/tests/e2e/lib"
@@ -37,10 +38,26 @@ func getLatestCirrosImageURL() (string, error) {
 	return imageURL, nil
 }
 
+func vmPoweredOff(vmnamespace, vmname string) VerificationFunction {
+	return VerificationFunction(func(ocClient client.Client, namespace string) error {
+		isOff := func() bool {
+			status, err := lib.GetVmStatus(dynamicClientForSuiteRun, vmnamespace, vmname)
+			if err != nil {
+				log.Printf("Error getting VM status: %v", err)
+			}
+			log.Printf("VM status is: %s\n", status)
+			return status == "Stopped"
+		}
+		Eventually(isOff, timeoutMultiplier*time.Minute*10, time.Second*10).Should(BeTrue())
+		return nil
+	})
+}
+
 type VmBackupRestoreCase struct {
 	BackupRestoreCase
-	Template  string
-	InitDelay time.Duration
+	Template   string
+	InitDelay  time.Duration
+	PowerState string
 }
 
 func runVmBackupAndRestore(brCase VmBackupRestoreCase, expectedErr error, updateLastBRcase func(brCase VmBackupRestoreCase), updateLastInstallTime func(), v *lib.VirtOperator) {
@@ -73,11 +90,19 @@ func runVmBackupAndRestore(brCase VmBackupRestoreCase, expectedErr error, update
 		time.Sleep(brCase.InitDelay)
 	}
 
+	// Check if this VM should be running or stopped for this test.
+	// Depend on pre-backup verification function to poll state.
+	if brCase.PowerState == "Stopped" {
+		log.Print("Stopping VM before backup as specified in test case.")
+		err = v.StopVm(brCase.Namespace, brCase.Name)
+		Expect(err).To(BeNil())
+	}
+
 	// Back up VM
 	nsRequiresResticDCWorkaround := runBackup(brCase.BackupRestoreCase, backupName)
 
 	// Delete everything in test namespace
-	err = v.RemoveVm(brCase.Namespace, brCase.Name, 2*time.Minute)
+	err = v.RemoveVm(brCase.Namespace, brCase.Name, 5*time.Minute)
 	Expect(err).To(BeNil())
 	err = lib.DeleteNamespace(v.Clientset, brCase.Namespace)
 	Expect(err).To(BeNil())
@@ -170,6 +195,20 @@ var _ = Describe("VM backup and restore tests", Ordered, func() {
 				SkipVerifyLogs:    true,
 				BackupRestoreType: lib.CSI,
 				BackupTimeout:     20 * time.Minute,
+			},
+		}, nil),
+
+		Entry("no-application CSI backup and restore, powered-off CirrOS VM", Label("virt"), VmBackupRestoreCase{
+			Template:   "./sample-applications/virtual-machines/cirros-test/cirros-test.yaml",
+			InitDelay:  2 * time.Minute,
+			PowerState: "Stopped",
+			BackupRestoreCase: BackupRestoreCase{
+				Namespace:         "cirros-test",
+				Name:              "cirros-test",
+				SkipVerifyLogs:    true,
+				BackupRestoreType: lib.CSI,
+				BackupTimeout:     20 * time.Minute,
+				PreBackupVerify:   vmPoweredOff("cirros-test", "cirros-test"),
 			},
 		}, nil),
 
