@@ -61,11 +61,15 @@ func (r *DPAReconciler) ValidateDataProtectionCR(log logr.Logger) (bool, error) 
 		return false, err
 	}
 
+	// TODO refactor to call functions only once
+	// they are called here to check error, and then after to get value
 	if _, err := r.getVeleroResourceReqs(&dpa); err != nil {
 		return false, err
 	}
-
 	if _, err := getResticResourceReqs(&dpa); err != nil {
+		return false, err
+	}
+	if _, err := getNodeAgentResourceReqs(&dpa); err != nil {
 		return false, err
 	}
 
