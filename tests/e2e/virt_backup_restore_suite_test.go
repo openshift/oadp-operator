@@ -145,6 +145,10 @@ func runVmBackupAndRestore(brCase VmBackupRestoreCase, expectedErr error, update
 		err = brCase.PostRestoreVerify(dpaCR.Client, brCase.Namespace)
 		gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	}
+
+	// avoid finalizers in namespace deletion
+	err = v.RemoveVm(brCase.Namespace, brCase.Name, 5*time.Minute)
+	gomega.Expect(err).To(gomega.BeNil())
 }
 
 var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
