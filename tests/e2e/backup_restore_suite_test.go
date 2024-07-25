@@ -254,7 +254,8 @@ func tearDownBackupAndRestore(brCase BackupRestoreCase, installTime time.Time, r
 	log.Println("Post backup and restore state: ", report.State.String())
 
 	if report.Failed() {
-		lib.CheckIfFlakeOccurred(&accumulatedTestLogs, &knownFlake)
+		knownFlake = lib.CheckIfFlakeOccurred(accumulatedTestLogs)
+		accumulatedTestLogs = nil
 		getFailedTestLogs(namespace, brCase.Namespace, installTime, report)
 	}
 	if brCase.BackupRestoreType == lib.CSI || brCase.BackupRestoreType == lib.CSIDataMover {
