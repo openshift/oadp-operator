@@ -38,6 +38,8 @@ endif
 # makes CLUSTER_TYPE quieter when unauthenticated
 CLUSTER_TYPE_SHELL := $(shell $(OC_CLI) get infrastructures cluster -o jsonpath='{.status.platform}' 2> /dev/null | tr A-Z a-z)
 CLUSTER_TYPE ?= $(CLUSTER_TYPE_SHELL)
+CLUSTER_OS = $(shell $(OC_CLI) get node -o jsonpath='{.items[0].status.nodeInfo.operatingSystem}' 2> /dev/null)
+CLUSTER_ARCH = $(shell $(OC_CLI) get node -o jsonpath='{.items[0].status.nodeInfo.architecture}' 2> /dev/null)
 
 ifeq ($(CLUSTER_TYPE), gcp)
 	CI_CRED_FILE = ${CLUSTER_PROFILE_DIR}/gce.json
@@ -162,6 +164,7 @@ vet: ## Run go vet against code.
 ENVTEST := $(shell pwd)/bin/setup-envtest
 ENVTESTPATH = $(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)
 ifeq ($(shell $(ENVTEST) list | grep $(ENVTEST_K8S_VERSION)),)
+# TODO what --arch=amd64 does here?
 	ENVTESTPATH = $(shell $(ENVTEST) --arch=amd64 use $(ENVTEST_K8S_VERSION) -p path)
 endif
 $(ENVTEST): ## Download envtest-setup locally if necessary.
@@ -210,13 +213,14 @@ build: generate fmt vet ## Build manager binary.
 run: manifests generate fmt vet ## Run a controller from your host.
 	go run ./main.go
 
-# Development clusters require linux/amd64 OCI image
-# Set platform to linux/amd64 regardless of host platform.
 # If using podman machine, and host platform is not linux/amd64 run
 # - podman machine ssh sudo rpm-ostree install qemu-user-static && sudo systemctl reboot
 # from: https://github.com/containers/podman/issues/12144#issuecomment-955760527
 # related enhancements that may remove the need to manually install qemu-user-static https://bugzilla.redhat.com/show_bug.cgi?id=2061584
 DOCKER_BUILD_ARGS ?= --platform=linux/amd64
+ifneq ($(CLUSTER_TYPE),)
+	DOCKER_BUILD_ARGS = --platform=$(CLUSTER_OS)/$(CLUSTER_ARCH)
+endif
 docker-build: ## Build docker image with the manager.
 	docker build -t $(IMG) . $(DOCKER_BUILD_ARGS)
 
