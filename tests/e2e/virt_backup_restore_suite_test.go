@@ -11,7 +11,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -181,7 +181,7 @@ var _ = Describe("VM backup and restore tests", Ordered, func() {
 			v.EnsureVirtRemoval()
 		}
 
-		err := v.Clientset.StorageV1().StorageClasses().Delete(context.TODO(), "test-gp3-csi-immediate", v1.DeleteOptions{})
+		err := v.Clientset.StorageV1().StorageClasses().Delete(context.TODO(), "test-gp3-csi-immediate", metav1.DeleteOptions{})
 		Expect(err).To(BeNil())
 	})
 
