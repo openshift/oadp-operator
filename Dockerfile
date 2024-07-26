@@ -1,5 +1,7 @@
 # Build the manager binary
-FROM quay.io/konveyor/builder:ubi9-v1.20 AS builder
+FROM --platform=${BUILDPLATFORM} quay.io/konveyor/builder:ubi9-v1.20 AS builder
+ARG TARGETOS
+ARG TARGETARCH
 
 WORKDIR /go/src/github.com/openshift/oadp-operator
 # Copy the Go Modules manifests
@@ -16,7 +18,7 @@ COPY pkg/ pkg/
 COPY controllers/ controllers/
 
 # Build
-RUN CGO_ENABLED=0 GOOS=linux go build -mod=mod -a -o /go/src/manager main.go
+RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -mod=mod -a -o /go/src/manager main.go
 
 # Use distroless as minimal base image to package the manager binary
 # Refer to https://github.com/GoogleContainerTools/distroless for more details
