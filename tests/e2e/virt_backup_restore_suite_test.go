@@ -305,7 +305,7 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 			},
 		}, nil),
 
-		ginkgo.Entry("immediate binding no-application CSI+datamover backup and restore, powered-off CirrOS VM", ginkgo.Label("virt"), VmBackupRestoreCase{
+		ginkgo.Entry("immediate binding no-application CSI backup and restore, powered-off CirrOS VM", ginkgo.Label("virt"), VmBackupRestoreCase{
 			Template:   "./sample-applications/virtual-machines/cirros-test/cirros-test-immediate.yaml",
 			InitDelay:  2 * time.Minute,
 			PowerState: "Stopped",
@@ -313,7 +313,7 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 				Namespace:         "cirros-test",
 				Name:              "cirros-test",
 				SkipVerifyLogs:    true,
-				BackupRestoreType: lib.CSIDataMover,
+				BackupRestoreType: lib.CSI,
 				BackupTimeout:     20 * time.Minute,
 				PreBackupVerify:   vmPoweredOff("cirros-test", "cirros-test"),
 			},
