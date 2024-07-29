@@ -164,7 +164,6 @@ vet: ## Run go vet against code.
 ENVTEST := $(shell pwd)/bin/setup-envtest
 ENVTESTPATH = $(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)
 ifeq ($(shell $(ENVTEST) list | grep $(ENVTEST_K8S_VERSION)),)
-# TODO what --arch=amd64 does here?
 	ENVTESTPATH = $(shell $(ENVTEST) --arch=amd64 use $(ENVTEST_K8S_VERSION) -p path)
 endif
 $(ENVTEST): ## Download envtest-setup locally if necessary.
