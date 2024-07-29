@@ -284,7 +284,7 @@ var _ = Describe("VM backup and restore tests", Ordered, func() {
 			},
 		}, nil),
 
-		Entry("immediate binding no-application CSI+datamover backup and restore, powered-off CirrOS VM", Label("virt"), VmBackupRestoreCase{
+		Entry("immediate binding no-application CSI backup and restore, powered-off CirrOS VM", Label("virt"), VmBackupRestoreCase{
 			Template:   "./sample-applications/virtual-machines/cirros-test/cirros-test-immediate.yaml",
 			InitDelay:  2 * time.Minute,
 			PowerState: "Stopped",
@@ -292,7 +292,7 @@ var _ = Describe("VM backup and restore tests", Ordered, func() {
 				Namespace:         "cirros-test",
 				Name:              "cirros-test",
 				SkipVerifyLogs:    true,
-				BackupRestoreType: lib.CSIDataMover,
+				BackupRestoreType: lib.CSI,
 				BackupTimeout:     20 * time.Minute,
 				PreBackupVerify:   vmPoweredOff("cirros-test", "cirros-test"),
 			},
