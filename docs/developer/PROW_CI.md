@@ -194,14 +194,6 @@ Finally, add image to `core-services/image-mirroring/konveyor/mapping_konveyor_l
 
 For this example, lets say new release branch is `oadp-1.4`.
 
-TODO
-
-grep -Iinr 'latest' ./controllers
-
-grep -Iinr 'latest' ./pkg
-
-grep -Iinr ':latest' ./tests --include=\*.go
-
 Update `Makefile`, changing the following (if release branch was created from master branch).
 ```diff
 ...
@@ -278,6 +270,47 @@ Update `config/manager/manager.yaml`, changing the following (if release branch 
 > **Note**: to get diff between files, you can run `git diff master oadp-1.4 config/manager/manager.yaml`.
 
 After updating these files, run `make bundle`.
+
+Update `pkg/common/common.go`, changing the following (if release branch was created from master branch).
+```diff
+...
+ // Images
+ const (
+-	VeleroImage          = "quay.io/konveyor/velero:latest"
++	VeleroImage          = "quay.io/konveyor/velero:oadp-1.4"
+-	OpenshiftPluginImage = "quay.io/konveyor/openshift-velero-plugin:latest"
++	OpenshiftPluginImage = "quay.io/konveyor/openshift-velero-plugin:oadp-1.4"
+-	AWSPluginImage       = "quay.io/konveyor/velero-plugin-for-aws:latest"
++	AWSPluginImage       = "quay.io/konveyor/velero-plugin-for-aws:oadp-1.4"
+-	AzurePluginImage     = "quay.io/konveyor/velero-plugin-for-microsoft-azure:latest"
++	AzurePluginImage     = "quay.io/konveyor/velero-plugin-for-microsoft-azure:oadp-1.4"
+-	GCPPluginImage       = "quay.io/konveyor/velero-plugin-for-gcp:latest"
++	GCPPluginImage       = "quay.io/konveyor/velero-plugin-for-gcp:oadp-1.4"
+	RegistryImage        = "quay.io/konveyor/registry:latest"
+	KubeVirtPluginImage  = "quay.io/konveyor/kubevirt-velero-plugin:v0.7.0"
+ )
+...
+```
+
+Update `controllers/nonadmin_controller.go`, changing the following (if release branch was created from master branch).
+```diff
+...
+ 	// TODO https://github.com/openshift/oadp-operator/issues/1379
+-	return "quay.io/konveyor/oadp-non-admin:latest"
++	return "quay.io/konveyor/oadp-non-admin:oadp-1.4"
+ }
+...
+```
+
+Update `tests/e2e/lib/apps.go`, changing the following (if release branch was created from master branch).
+```diff
+...
+ 	mustGatherCmd := "must-gather"
+-	mustGatherImg := "--image=quay.io/konveyor/oadp-must-gather:latest"
++	mustGatherImg := "--image=quay.io/konveyor/oadp-must-gather:oadp-1.4"
+	destDir := "--dest-dir=" + artifact_dir
+...
+```
 
 Update `README.md`, changing the following (if release branch was created from master branch).
 ```diff
