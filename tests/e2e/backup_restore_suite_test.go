@@ -1,7 +1,6 @@
 package e2e_test
 
 import (
-	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -35,34 +34,18 @@ type ApplicationBackupRestoreCase struct {
 	MustGatherValidationFunction *func(string) error // validation function for must-gather where string parameter is the path to "quay.io.../clusters/clustername/"
 }
 
-func mongoready(preBackupState bool, twoVol bool, backupRestoreType BackupRestoreType) VerificationFunction {
-	return VerificationFunction(func(ocClient client.Client, namespace string) error {
-		Eventually(IsDCReady(ocClient, namespace, "todolist"), time.Minute*10, time.Second*10).Should(BeTrue())
-		exists, err := DoesSCCExist(ocClient, "mongo-persistent-scc")
-		if err != nil {
-			return err
-		}
-		if !exists {
-			return errors.New("did not find Mongo scc")
-		}
-		err = VerifyBackupRestoreData(runTimeClientForSuiteRun, artifact_dir, namespace, "todolist-route", "todolist", preBackupState, false, backupRestoreType)
-		return err
-	})
-}
-
-func mysqlReady(preBackupState bool, twoVol bool, backupRestoreType BackupRestoreType) VerificationFunction {
+func todoListReady(preBackupState bool, twoVol bool, database string) VerificationFunction {
 	return VerificationFunction(func(ocClient client.Client, namespace string) error {
 		log.Printf("checking for the NAMESPACE: %s", namespace)
+		Eventually(IsDeploymentReady(ocClient, namespace, database), time.Minute*10, time.Second*10).Should(BeTrue())
+		Eventually(IsDCReady(ocClient, namespace, "todolist"), time.Minute*10, time.Second*10).Should(BeTrue())
+		Eventually(AreApplicationPodsRunning(kubernetesClientForSuiteRun, namespace), time.Minute*9, time.Second*5).Should(BeTrue())
 		// This test confirms that SCC restore logic in our plugin is working
-		Eventually(IsDeploymentReady(ocClient, namespace, "mysql"), time.Minute*10, time.Second*10).Should(BeTrue())
-		exists, err := DoesSCCExist(ocClient, "mysql-persistent-scc")
+		err := DoesSCCExist(ocClient, database+"-persistent-scc")
 		if err != nil {
 			return err
 		}
-		if !exists {
-			return errors.New("did not find MYSQL scc")
-		}
-		err = VerifyBackupRestoreData(runTimeClientForSuiteRun, artifact_dir, namespace, "todolist-route", "todolist", preBackupState, twoVol, backupRestoreType)
+		err = VerifyBackupRestoreData(runTimeClientForSuiteRun, artifact_dir, namespace, "todolist-route", "todolist", preBackupState, twoVol)
 		return err
 	})
 }
@@ -139,9 +122,12 @@ func runApplicationBackupAndRestore(brCase ApplicationBackupRestoreCase, expecte
 		Expect(err).ToNot(HaveOccurred())
 	}
 
-	// wait for pods to be running
-	Eventually(AreAppBuildsReady(dpaCR.Client, brCase.Namespace), time.Minute*5, time.Second*5).Should(BeTrue())
-	Eventually(AreApplicationPodsRunning(kubernetesClientForSuiteRun, brCase.Namespace), time.Minute*9, time.Second*5).Should(BeTrue())
+	// Run optional custom verification
+	if brCase.PreBackupVerify != nil {
+		log.Printf("Running pre-backup custom function for case %s", brCase.Name)
+		err := brCase.PreBackupVerify(dpaCR.Client, brCase.Namespace)
+		Expect(err).ToNot(HaveOccurred())
+	}
 
 	// do the backup for real
 	nsRequiredResticDCWorkaround := runBackup(brCase.BackupRestoreCase, backupName)
@@ -159,26 +145,15 @@ func runApplicationBackupAndRestore(brCase ApplicationBackupRestoreCase, expecte
 	// run restore
 	runRestore(brCase.BackupRestoreCase, backupName, restoreName, nsRequiredResticDCWorkaround)
 
-	// verify app is running
-	Eventually(AreAppBuildsReady(dpaCR.Client, brCase.Namespace), time.Minute*3, time.Second*5).Should(BeTrue())
-	Eventually(AreApplicationPodsRunning(kubernetesClientForSuiteRun, brCase.Namespace), time.Minute*9, time.Second*5).Should(BeTrue())
-
 	// Run optional custom verification
 	if brCase.PostRestoreVerify != nil {
-		log.Printf("Running post-restore function for case %s", brCase.Name)
+		log.Printf("Running post-restore custom function for case %s", brCase.Name)
 		err = brCase.PostRestoreVerify(dpaCR.Client, brCase.Namespace)
 		Expect(err).ToNot(HaveOccurred())
 	}
 }
 
 func runBackup(brCase BackupRestoreCase, backupName string) bool {
-	// Run optional custom verification
-	if brCase.PreBackupVerify != nil {
-		log.Printf("Running pre-backup function for case %s", brCase.Name)
-		err := brCase.PreBackupVerify(dpaCR.Client, brCase.Namespace)
-		Expect(err).ToNot(HaveOccurred())
-	}
-
 	nsRequiresResticDCWorkaround, err := NamespaceRequiresResticDCWorkaround(dpaCR.Client, brCase.Namespace)
 	Expect(err).ToNot(HaveOccurred())
 
@@ -256,28 +231,31 @@ func runRestore(brCase BackupRestoreCase, backupName, restoreName string, nsRequ
 	}
 }
 
+func getFailedTestLogs(oadpNamespace string, appNamespace string, installTime time.Time, report SpecReport) {
+	baseReportDir := artifact_dir + "/" + report.LeafNodeText
+	err := os.MkdirAll(baseReportDir, 0755)
+	Expect(err).NotTo(HaveOccurred())
+
+	log.Println("Printing OADP namespace events")
+	PrintNamespaceEventsAfterTime(kubernetesClientForSuiteRun, oadpNamespace, installTime)
+	err = SavePodLogs(kubernetesClientForSuiteRun, oadpNamespace, baseReportDir)
+	Expect(err).NotTo(HaveOccurred())
+
+	if appNamespace != "" {
+		log.Println("Printing app namespace events")
+		PrintNamespaceEventsAfterTime(kubernetesClientForSuiteRun, appNamespace, installTime)
+		err = SavePodLogs(kubernetesClientForSuiteRun, appNamespace, baseReportDir)
+		Expect(err).NotTo(HaveOccurred())
+	}
+}
+
 func tearDownBackupAndRestore(brCase BackupRestoreCase, installTime time.Time, report SpecReport) {
 	log.Println("Post backup and restore state: ", report.State.String())
-	knownFlake = false
-	logString := strings.Join(accumulatedTestLogs, "\n")
-	CheckIfFlakeOccurred(logString, &knownFlake)
-	accumulatedTestLogs = nil
 
 	if report.Failed() {
-		// print namespace error events for app namespace
-		if brCase.Namespace != "" {
-			GinkgoWriter.Println("Printing app namespace events")
-			PrintNamespaceEventsAfterTime(kubernetesClientForSuiteRun, brCase.Namespace, installTime)
-		}
-		GinkgoWriter.Println("Printing oadp namespace events")
-		PrintNamespaceEventsAfterTime(kubernetesClientForSuiteRun, namespace, installTime)
-		baseReportDir := artifact_dir + "/" + report.LeafNodeText
-		err := os.MkdirAll(baseReportDir, 0755)
-		Expect(err).NotTo(HaveOccurred())
-		err = SavePodLogs(kubernetesClientForSuiteRun, namespace, baseReportDir)
-		Expect(err).NotTo(HaveOccurred())
-		err = SavePodLogs(kubernetesClientForSuiteRun, brCase.Namespace, baseReportDir)
-		Expect(err).NotTo(HaveOccurred())
+		knownFlake = CheckIfFlakeOccurred(accumulatedTestLogs)
+		accumulatedTestLogs = nil
+		getFailedTestLogs(namespace, brCase.Namespace, installTime, report)
 	}
 	if brCase.BackupRestoreType == CSI || brCase.BackupRestoreType == CSIDataMover {
 		log.Printf("Deleting VolumeSnapshot for CSI backuprestore of %s", brCase.Name)
@@ -321,8 +299,8 @@ var _ = Describe("Backup and restore tests", func() {
 				Namespace:         "mysql-persistent",
 				Name:              "mysql-csi-e2e",
 				BackupRestoreType: CSI,
-				PreBackupVerify:   mysqlReady(true, false, CSI),
-				PostRestoreVerify: mysqlReady(false, false, CSI),
+				PreBackupVerify:   todoListReady(true, false, "mysql"),
+				PostRestoreVerify: todoListReady(false, false, "mysql"),
 				BackupTimeout:     20 * time.Minute,
 			},
 		}, nil),
@@ -332,8 +310,8 @@ var _ = Describe("Backup and restore tests", func() {
 				Namespace:         "mongo-persistent",
 				Name:              "mongo-csi-e2e",
 				BackupRestoreType: CSI,
-				PreBackupVerify:   mongoready(true, false, CSI),
-				PostRestoreVerify: mongoready(false, false, CSI),
+				PreBackupVerify:   todoListReady(true, false, "mongo"),
+				PostRestoreVerify: todoListReady(false, false, "mongo"),
 				BackupTimeout:     20 * time.Minute,
 			},
 		}, nil),
@@ -343,8 +321,8 @@ var _ = Describe("Backup and restore tests", func() {
 				Namespace:         "mysql-persistent",
 				Name:              "mysql-twovol-csi-e2e",
 				BackupRestoreType: CSI,
-				PreBackupVerify:   mysqlReady(true, true, CSI),
-				PostRestoreVerify: mysqlReady(false, true, CSI),
+				PreBackupVerify:   todoListReady(true, true, "mysql"),
+				PostRestoreVerify: todoListReady(false, true, "mysql"),
 				BackupTimeout:     20 * time.Minute,
 			},
 		}, nil),
@@ -354,8 +332,8 @@ var _ = Describe("Backup and restore tests", func() {
 				Namespace:         "mongo-persistent",
 				Name:              "mongo-restic-e2e",
 				BackupRestoreType: RESTIC,
-				PreBackupVerify:   mongoready(true, false, RESTIC),
-				PostRestoreVerify: mongoready(false, false, RESTIC),
+				PreBackupVerify:   todoListReady(true, false, "mongo"),
+				PostRestoreVerify: todoListReady(false, false, "mongo"),
 				BackupTimeout:     20 * time.Minute,
 			},
 		}, nil),
@@ -365,8 +343,8 @@ var _ = Describe("Backup and restore tests", func() {
 				Namespace:         "mysql-persistent",
 				Name:              "mysql-restic-e2e",
 				BackupRestoreType: RESTIC,
-				PreBackupVerify:   mysqlReady(true, false, RESTIC),
-				PostRestoreVerify: mysqlReady(false, false, RESTIC),
+				PreBackupVerify:   todoListReady(true, false, "mysql"),
+				PostRestoreVerify: todoListReady(false, false, "mysql"),
 				BackupTimeout:     20 * time.Minute,
 			},
 		}, nil),
@@ -376,8 +354,8 @@ var _ = Describe("Backup and restore tests", func() {
 				Namespace:         "mongo-persistent",
 				Name:              "mongo-kopia-e2e",
 				BackupRestoreType: KOPIA,
-				PreBackupVerify:   mongoready(true, false, KOPIA),
-				PostRestoreVerify: mongoready(false, false, KOPIA),
+				PreBackupVerify:   todoListReady(true, false, "mongo"),
+				PostRestoreVerify: todoListReady(false, false, "mongo"),
 				BackupTimeout:     20 * time.Minute,
 			},
 		}, nil),
@@ -387,8 +365,8 @@ var _ = Describe("Backup and restore tests", func() {
 				Namespace:         "mysql-persistent",
 				Name:              "mysql-kopia-e2e",
 				BackupRestoreType: KOPIA,
-				PreBackupVerify:   mysqlReady(true, false, KOPIA),
-				PostRestoreVerify: mysqlReady(false, false, KOPIA),
+				PreBackupVerify:   todoListReady(true, false, "mysql"),
+				PostRestoreVerify: todoListReady(false, false, "mysql"),
 				BackupTimeout:     20 * time.Minute,
 			},
 		}, nil),
@@ -398,8 +376,8 @@ var _ = Describe("Backup and restore tests", func() {
 				Namespace:         "mongo-persistent",
 				Name:              "mongo-datamover-e2e",
 				BackupRestoreType: CSIDataMover,
-				PreBackupVerify:   mongoready(true, false, CSIDataMover),
-				PostRestoreVerify: mongoready(false, false, CSIDataMover),
+				PreBackupVerify:   todoListReady(true, false, "mongo"),
+				PostRestoreVerify: todoListReady(false, false, "mongo"),
 				BackupTimeout:     20 * time.Minute,
 			},
 		}, nil),
@@ -409,8 +387,8 @@ var _ = Describe("Backup and restore tests", func() {
 				Namespace:         "mysql-persistent",
 				Name:              "mysql-datamover-e2e",
 				BackupRestoreType: CSIDataMover,
-				PreBackupVerify:   mysqlReady(true, false, CSIDataMover),
-				PostRestoreVerify: mysqlReady(false, false, CSIDataMover),
+				PreBackupVerify:   todoListReady(true, false, "mysql"),
+				PostRestoreVerify: todoListReady(false, false, "mysql"),
 				BackupTimeout:     20 * time.Minute,
 			},
 		}, nil),
@@ -421,8 +399,8 @@ var _ = Describe("Backup and restore tests", func() {
 				Namespace:         "mongo-persistent",
 				Name:              "mongo-blockdevice-e2e",
 				BackupRestoreType: CSIDataMover,
-				PreBackupVerify:   mongoready(true, false, CSIDataMover),
-				PostRestoreVerify: mongoready(false, false, CSIDataMover),
+				PreBackupVerify:   todoListReady(true, false, "mongo"),
+				PostRestoreVerify: todoListReady(false, false, "mongo"),
 				BackupTimeout:     20 * time.Minute,
 			},
 		}, nil),

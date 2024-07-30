@@ -21,7 +21,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/tools/record"
@@ -2130,7 +2129,7 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 							NodeSelector:       dpa.Spec.Configuration.NodeAgent.PodConfig.NodeSelector,
 							ServiceAccountName: common.Velero,
 							SecurityContext: &corev1.PodSecurityContext{
-								RunAsUser:          pointer.Int64(0),
+								RunAsUser:          ptr.To(int64(0)),
 								SupplementalGroups: dpa.Spec.Configuration.NodeAgent.SupplementalGroups,
 							},
 							Volumes: []corev1.Volume{
@@ -2177,7 +2176,7 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 								{
 									Name: common.NodeAgent,
 									SecurityContext: &corev1.SecurityContext{
-										Privileged: pointer.Bool(true),
+										Privileged: ptr.To(true),
 									},
 									Image:           getVeleroImage(&dpa),
 									ImagePullPolicy: corev1.PullAlways,
@@ -2326,7 +2325,7 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 							NodeSelector:       dpa.Spec.Configuration.NodeAgent.PodConfig.NodeSelector,
 							ServiceAccountName: common.Velero,
 							SecurityContext: &corev1.PodSecurityContext{
-								RunAsUser:          pointer.Int64(0),
+								RunAsUser:          ptr.To(int64(0)),
 								SupplementalGroups: dpa.Spec.Configuration.NodeAgent.SupplementalGroups,
 							},
 							Volumes: []corev1.Volume{
@@ -2373,7 +2372,7 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 								{
 									Name: common.NodeAgent,
 									SecurityContext: &corev1.SecurityContext{
-										Privileged: pointer.Bool(true),
+										Privileged: ptr.To(true),
 									},
 									Image:           getVeleroImage(&dpa),
 									ImagePullPolicy: corev1.PullAlways,

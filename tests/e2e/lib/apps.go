@@ -21,7 +21,6 @@ import (
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
 	ocpappsv1 "github.com/openshift/api/apps/v1"
-	buildv1 "github.com/openshift/api/build/v1"
 	routev1 "github.com/openshift/api/route/v1"
 	security "github.com/openshift/api/security/v1"
 	templatev1 "github.com/openshift/api/template/v1"
@@ -31,7 +30,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -138,15 +136,12 @@ func InstallApplicationWithRetries(ocClient client.Client, file string, retries 
 	return nil
 }
 
-func DoesSCCExist(ocClient client.Client, sccName string) (bool, error) {
-	err := ocClient.Get(context.Background(), client.ObjectKey{
-		Name: sccName,
-	}, &security.SecurityContextConstraints{})
-	if err != nil {
-		return false, err
-	}
-	return true, nil
-
+func DoesSCCExist(ocClient client.Client, sccName string) error {
+	return ocClient.Get(
+		context.Background(),
+		client.ObjectKey{Name: sccName},
+		&security.SecurityContextConstraints{},
+	)
 }
 
 func UninstallApplication(ocClient client.Client, file string) error {
@@ -263,8 +258,10 @@ func IsDCReady(ocClient client.Client, namespace, dcName string) wait.ConditionF
 		}
 		// check dc for false availability condition which occurs when a new replication controller is created (after a new build completed) even if there are satisfactory available replicas
 		for _, condition := range dc.Status.Conditions {
+			log.Printf("DeploymentConfig %s Status.Conditions:\n%#v", dc.Name, condition)
 			if condition.Type == ocpappsv1.DeploymentAvailable {
 				if condition.Status == corev1.ConditionFalse {
+					log.Printf("DeploymentConfig %s has condition.Status False", dc.Name)
 					return false, nil
 				}
 				break
@@ -277,13 +274,6 @@ func IsDCReady(ocClient client.Client, namespace, dcName string) wait.ConditionF
 				}
 			}
 			return false, errors.New("DC is not in a ready state")
-		}
-		for _, trigger := range dc.Spec.Triggers {
-			if trigger.Type == ocpappsv1.DeploymentTriggerOnImageChange {
-				if trigger.ImageChangeParams.Automatic {
-					return areAppBuildsReady(ocClient, namespace)
-				}
-			}
 		}
 		return true, nil
 	}
@@ -311,58 +301,6 @@ func IsDeploymentReady(ocClient client.Client, namespace, dName string) wait.Con
 	}
 }
 
-func AreAppBuildsReady(ocClient client.Client, namespace string) wait.ConditionFunc {
-	return func() (bool, error) {
-		return areAppBuildsReady(ocClient, namespace)
-	}
-}
-
-func areAppBuildsReady(ocClient client.Client, namespace string) (bool, error) {
-	buildList := &buildv1.BuildList{}
-	label, err := labels.Parse(e2eAppLabel)
-	if err != nil {
-		return false, err
-	}
-	err = ocClient.List(context.Background(), buildList, &client.ListOptions{Namespace: namespace, LabelSelector: label})
-	if err != nil && !apierrors.IsNotFound(err) {
-		return false, err
-	}
-	if buildList.Items != nil {
-		for _, build := range buildList.Items {
-			if build.Status.Phase == buildv1.BuildPhaseNew ||
-				build.Status.Phase == buildv1.BuildPhasePending ||
-				build.Status.Phase == buildv1.BuildPhaseRunning {
-				log.Println("Build is not ready: " + build.Name)
-				return false, nil
-			}
-			if build.Status.Phase == buildv1.BuildPhaseFailed || build.Status.Phase == buildv1.BuildPhaseError {
-				ginkgo.GinkgoWriter.Println("Build failed/error: " + build.Name)
-				ginkgo.GinkgoWriter.Println(fmt.Sprintf("status: %v", build.Status))
-				return false, errors.New("found build failed or error")
-			}
-			if build.Status.Phase == buildv1.BuildPhaseComplete {
-				log.Println("Build is complete: " + build.Name + " patching build pod label to exclude from backup")
-				podName := build.GetAnnotations()["openshift.io/build.pod-name"]
-				pod := corev1.Pod{}
-				err := ocClient.Get(context.Background(), client.ObjectKey{
-					Namespace: namespace,
-					Name:      podName,
-				}, &pod)
-				if err != nil {
-					return false, err
-				}
-				pod.Labels["velero.io/exclude-from-backup"] = "true"
-				err = ocClient.Update(context.Background(), &pod)
-				if err != nil {
-					log.Println("Error patching build pod label to exclude from backup: " + err.Error())
-					return false, err
-				}
-			}
-		}
-	}
-	return true, nil
-}
-
 func AreApplicationPodsRunning(c *kubernetes.Clientset, namespace string) wait.ConditionFunc {
 	return func() (bool, error) {
 		podList, err := GetAllPodsWithLabel(c, namespace, e2eAppLabel)
@@ -371,6 +309,11 @@ func AreApplicationPodsRunning(c *kubernetes.Clientset, namespace string) wait.C
 		}
 
 		for _, pod := range podList.Items {
+			if pod.DeletionTimestamp != nil {
+				log.Printf("Pod %v is terminating", pod.Name)
+				return false, fmt.Errorf("Pod is terminating")
+			}
+
 			phase := pod.Status.Phase
 			if phase != corev1.PodRunning && phase != corev1.PodSucceeded {
 				log.Printf("Pod %v not yet succeeded: phase is %v", pod.Name, phase)
@@ -378,6 +321,7 @@ func AreApplicationPodsRunning(c *kubernetes.Clientset, namespace string) wait.C
 			}
 
 			for _, condition := range pod.Status.Conditions {
+				log.Printf("Pod %v condition:\n%#v", pod.Name, condition)
 				if condition.Type == corev1.ContainersReady && condition.Status != corev1.ConditionTrue {
 					log.Printf("Pod %v not yet succeeded: condition is: %v", pod.Name, condition.Status)
 					return false, fmt.Errorf("Pod not yet succeeded")
@@ -437,7 +381,7 @@ func makeRequest(request string, api string, todo string) {
 }
 
 // VerifyBackupRestoreData verifies if app ready before backup and after restore to compare data.
-func VerifyBackupRestoreData(clientv1 client.Client, artifact_dir string, namespace string, routeName string, app string, prebackupState bool, twoVol bool, backupRestoretype BackupRestoreType) error {
+func VerifyBackupRestoreData(clientv1 client.Client, artifact_dir string, namespace string, routeName string, app string, prebackupState bool, twoVol bool) error {
 	log.Printf("Verifying backup/restore data of %s", app)
 	appRoute := &routev1.Route{}
 	backupFile := artifact_dir + "/backup-data.txt"
@@ -499,14 +443,14 @@ func VerifyBackupRestoreData(clientv1 client.Client, artifact_dir string, namesp
 
 	if twoVol {
 		volumeFile := artifact_dir + "/volume-data.txt"
-		return verifyVolume(volumeFile, volumeEndpoint, prebackupState, backupRestoretype)
+		return verifyVolume(volumeFile, volumeEndpoint, prebackupState)
 	}
 
 	return nil
 }
 
 // VerifyVolumeData for application with two volumes
-func verifyVolume(volumeFile string, volumeApi string, prebackupState bool, backupRestoretype BackupRestoreType) error {
+func verifyVolume(volumeFile string, volumeApi string, prebackupState bool) error {
 	//get response Data if response status is 200
 	volData, err := getResponseData(volumeApi)
 	if err != nil {

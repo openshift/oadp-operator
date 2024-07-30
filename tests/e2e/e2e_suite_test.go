@@ -25,6 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/uuid"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 
@@ -33,8 +34,8 @@ import (
 
 var (
 	// Common vars obtained from flags passed in ginkgo.
-	bslCredFile, namespace, instanceName, provider, vslCredFile, settings, artifact_dir, oc_cli, stream string
-	flakeAttempts                                                                                       int64
+	bslCredFile, namespace, instanceName, provider, vslCredFile, settings, artifact_dir, oc_cli string
+	flakeAttempts                                                                               int64
 
 	kubernetesClientForSuiteRun *kubernetes.Clientset
 	runTimeClientForSuiteRun    client.Client
@@ -46,6 +47,7 @@ var (
 	bslSecretNameWithCarriageReturn string
 	vslSecretName                   string
 
+	kubeConfig          *rest.Config
 	knownFlake          bool
 	accumulatedTestLogs []string
 )
@@ -61,7 +63,6 @@ func init() {
 	flag.StringVar(&provider, "provider", "aws", "Cloud provider")
 	flag.StringVar(&artifact_dir, "artifact_dir", "/tmp", "Directory for storing must gather")
 	flag.StringVar(&oc_cli, "oc_cli", "oc", "OC CLI Client")
-	flag.StringVar(&stream, "stream", "up", "[up, down] upstream or downstream")
 	flag.Int64Var(&flakeAttempts, "flakeAttempts", 3, "Customize the number of flake retries (3)")
 
 	// helps with launching debug sessions from IDE
@@ -71,9 +72,6 @@ func init() {
 		}
 		if os.Getenv("VELERO_NAMESPACE") != "" {
 			namespace = os.Getenv("VELERO_NAMESPACE")
-		}
-		if os.Getenv("OADP_STREAM") != "" {
-			stream = os.Getenv("OADP_STREAM")
 		}
 		if os.Getenv("SETTINGS") != "" {
 			settings = os.Getenv("SETTINGS")
@@ -111,16 +109,16 @@ func TestOADPE2E(t *testing.T) {
 	flag.Parse()
 
 	var err error
-	kubeConf := config.GetConfigOrDie()
-	kubeConf.QPS = 50
-	kubeConf.Burst = 100
+	kubeConfig = config.GetConfigOrDie()
+	kubeConfig.QPS = 50
+	kubeConfig.Burst = 100
 
 	RegisterFailHandler(Fail)
 
-	kubernetesClientForSuiteRun, err = kubernetes.NewForConfig(kubeConf)
+	kubernetesClientForSuiteRun, err = kubernetes.NewForConfig(kubeConfig)
 	Expect(err).NotTo(HaveOccurred())
 
-	runTimeClientForSuiteRun, err = client.New(kubeConf, client.Options{})
+	runTimeClientForSuiteRun, err = client.New(kubeConfig, client.Options{})
 	Expect(err).NotTo(HaveOccurred())
 
 	oadpv1alpha1.AddToScheme(runTimeClientForSuiteRun.Scheme())
@@ -134,10 +132,10 @@ func TestOADPE2E(t *testing.T) {
 	operatorsv1alpha1.AddToScheme(runTimeClientForSuiteRun.Scheme())
 	operatorsv1.AddToScheme(runTimeClientForSuiteRun.Scheme())
 
-	veleroClientForSuiteRun, err = veleroClientset.NewForConfig(kubeConf)
+	veleroClientForSuiteRun, err = veleroClientset.NewForConfig(kubeConfig)
 	Expect(err).NotTo(HaveOccurred())
 
-	dynamicClientForSuiteRun, err = dynamic.NewForConfig(kubeConf)
+	dynamicClientForSuiteRun, err = dynamic.NewForConfig(kubeConfig)
 	Expect(err).NotTo(HaveOccurred())
 
 	err = CreateNamespace(kubernetesClientForSuiteRun, namespace)
@@ -156,7 +154,6 @@ func TestOADPE2E(t *testing.T) {
 	dpaCR = &DpaCustomResource{
 		Name:                 "ts-" + instanceName,
 		Namespace:            namespace,
-		Provider:             provider,
 		Client:               runTimeClientForSuiteRun,
 		BSLSecretName:        bslSecretName,
 		BSLConfig:            dpa.DeepCopy().Spec.BackupLocations[0].Velero.Config,

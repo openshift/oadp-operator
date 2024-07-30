@@ -17,6 +17,25 @@ import (
 	"github.com/openshift/oadp-operator/tests/e2e/lib"
 )
 
+// TODO duplication of todoListReady in tests/e2e/backup_restore_suite_test.go
+func vmTodoListReady(preBackupState bool, twoVol bool, database string) VerificationFunction {
+	return VerificationFunction(func(ocClient client.Client, namespace string) error {
+		log.Printf("checking for the NAMESPACE: %s", namespace)
+		Eventually(lib.IsDeploymentReady(ocClient, namespace, database), time.Minute*10, time.Second*10).Should(BeTrue())
+		// in VM tests, DeploymentConfig was refactored to Deployment (to avoid deprecation warnings)
+		// gomega.Eventually(lib.IsDCReady(ocClient, namespace, "todolist"), time.Minute*10, time.Second*10).Should(gomega.BeTrue())
+		Eventually(lib.IsDeploymentReady(ocClient, namespace, "todolist"), time.Minute*10, time.Second*10).Should(BeTrue())
+		Eventually(lib.AreApplicationPodsRunning(kubernetesClientForSuiteRun, namespace), time.Minute*9, time.Second*5).Should(BeTrue())
+		// This test confirms that SCC restore logic in our plugin is working
+		err := lib.DoesSCCExist(ocClient, database+"-persistent-scc")
+		if err != nil {
+			return err
+		}
+		err = lib.VerifyBackupRestoreData(runTimeClientForSuiteRun, artifact_dir, namespace, "todolist-route", "todolist", preBackupState, twoVol)
+		return err
+	})
+}
+
 func getLatestCirrosImageURL() (string, error) {
 	cirrosVersionURL := "https://download.cirros-cloud.net/version/released"
 
@@ -48,7 +67,7 @@ func vmPoweredOff(vmnamespace, vmname string) VerificationFunction {
 			log.Printf("VM status is: %s\n", status)
 			return status == "Stopped"
 		}
-		Eventually(isOff, timeoutMultiplier*time.Minute*10, time.Second*10).Should(BeTrue())
+		Eventually(isOff, time.Minute*10, time.Second*10).Should(BeTrue())
 		return nil
 	})
 }
@@ -98,6 +117,13 @@ func runVmBackupAndRestore(brCase VmBackupRestoreCase, expectedErr error, update
 		Expect(err).To(BeNil())
 	}
 
+	// Run optional custom verification
+	if brCase.PreBackupVerify != nil {
+		log.Printf("Running pre-backup custom function for case %s", brCase.Name)
+		err := brCase.PreBackupVerify(dpaCR.Client, brCase.Namespace)
+		Expect(err).ToNot(HaveOccurred())
+	}
+
 	// Back up VM
 	nsRequiresResticDCWorkaround := runBackup(brCase.BackupRestoreCase, backupName)
 
@@ -113,10 +139,14 @@ func runVmBackupAndRestore(brCase VmBackupRestoreCase, expectedErr error, update
 
 	// Run optional custom verification
 	if brCase.PostRestoreVerify != nil {
-		log.Printf("Running post-restore function for VM case %s", brCase.Name)
+		log.Printf("Running post-restore custom function for VM case %s", brCase.Name)
 		err = brCase.PostRestoreVerify(dpaCR.Client, brCase.Namespace)
 		Expect(err).ToNot(HaveOccurred())
 	}
+
+	// avoid finalizers in namespace deletion
+	err = v.RemoveVm(brCase.Namespace, brCase.Name, 5*time.Minute)
+	Expect(err).To(BeNil())
 }
 
 var _ = Describe("VM backup and restore tests", Ordered, func() {
@@ -220,8 +250,8 @@ var _ = Describe("VM backup and restore tests", Ordered, func() {
 				Name:              "fedora-todolist",
 				SkipVerifyLogs:    true,
 				BackupRestoreType: lib.CSI,
-				PreBackupVerify:   mysqlReady(true, false, lib.CSI),
-				PostRestoreVerify: mysqlReady(false, false, lib.CSI),
+				PreBackupVerify:   vmTodoListReady(true, false, "mysql"),
+				PostRestoreVerify: vmTodoListReady(false, false, "mysql"),
 				BackupTimeout:     45 * time.Minute,
 			},
 		}, nil),

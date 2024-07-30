@@ -796,7 +796,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 				},
 				Spec: appsv1.DeploymentSpec{
 					Selector: &metav1.LabelSelector{MatchLabels: veleroDeploymentMatchLabels},
-					Replicas: pointer.Int32(1),
+					Replicas: ptr.To(int32(1)),
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels:      veleroDeploymentMatchLabels,
@@ -879,7 +879,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 				},
 				Spec: appsv1.DeploymentSpec{
 					Selector: &metav1.LabelSelector{MatchLabels: veleroDeploymentMatchLabels},
-					Replicas: pointer.Int32(1),
+					Replicas: ptr.To(int32(1)),
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels:      veleroDeploymentMatchLabels,
@@ -937,16 +937,16 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 						Velero: &oadpv1alpha1.VeleroConfig{
 							Args: &server.Args{
 								ServerConfig: server.ServerConfig{
-									BackupSyncPeriod:            pointer.Duration(1),
-									PodVolumeOperationTimeout:   pointer.Duration(1),
-									ResourceTerminatingTimeout:  pointer.Duration(1),
-									DefaultBackupTTL:            pointer.Duration(1),
-									StoreValidationFrequency:    pointer.Duration(1),
-									ItemOperationSyncFrequency:  pointer.Duration(1),
-									RepoMaintenanceFrequency:    pointer.Duration(1),
-									GarbageCollectionFrequency:  pointer.Duration(1),
-									DefaultItemOperationTimeout: pointer.Duration(1),
-									ResourceTimeout:             pointer.Duration(1),
+									BackupSyncPeriod:            ptr.To(time.Duration(1)),
+									PodVolumeOperationTimeout:   ptr.To(time.Duration(1)),
+									ResourceTerminatingTimeout:  ptr.To(time.Duration(1)),
+									DefaultBackupTTL:            ptr.To(time.Duration(1)),
+									StoreValidationFrequency:    ptr.To(time.Duration(1)),
+									ItemOperationSyncFrequency:  ptr.To(time.Duration(1)),
+									RepoMaintenanceFrequency:    ptr.To(time.Duration(1)),
+									GarbageCollectionFrequency:  ptr.To(time.Duration(1)),
+									DefaultItemOperationTimeout: ptr.To(time.Duration(1)),
+									ResourceTimeout:             ptr.To(time.Duration(1)),
 								},
 							},
 						},
@@ -978,7 +978,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 				},
 				Spec: appsv1.DeploymentSpec{
 					Selector: &metav1.LabelSelector{MatchLabels: veleroDeploymentMatchLabels},
-					Replicas: pointer.Int32(1),
+					Replicas: ptr.To(int32(1)),
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels:      veleroDeploymentMatchLabels,

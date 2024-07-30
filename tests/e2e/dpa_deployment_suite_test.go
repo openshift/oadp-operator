@@ -2,7 +2,6 @@ package e2e_test
 
 import (
 	"log"
-	"os"
 	"strings"
 	"time"
 
@@ -136,18 +135,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 	var _ = AfterEach(func(ctx SpecContext) {
 		report := ctx.SpecReport()
 		if report.Failed() {
-			baseReportDir := artifact_dir + "/" + report.LeafNodeText
-			err := os.MkdirAll(baseReportDir, 0755)
-			Expect(err).NotTo(HaveOccurred())
-			// print namespace error events for DPA namespace
-			PrintNamespaceEventsAfterTime(kubernetesClientForSuiteRun, dpaCR.Namespace, lastInstallTime)
-			err = SavePodLogs(kubernetesClientForSuiteRun, dpaCR.Namespace, baseReportDir)
-			Expect(err).NotTo(HaveOccurred())
-			log.Printf("Running must gather for failed deployment test - " + report.LeafNodeText)
-			err = RunMustGather(oc_cli, baseReportDir+"/must-gather")
-			if err != nil {
-				log.Printf("Failed to run must gather: " + err.Error())
-			}
+			getFailedTestLogs(namespace, "", lastInstallTime, report)
 		}
 	})
 	DescribeTable("DPA reconciled to true",
@@ -366,7 +354,7 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 				s3ForcePathStyle: true,
 			}),
 		}),
-		// TODO bug?
+		// TODO bug https://github.com/vmware-tanzu/velero/issues/8022
 		// Entry("DPA CR without Region, without S3ForcePathStyle and with BackupImages false", Label("aws"), InstallCase{
 		// 	DpaSpec: createTestDPASpec(TestDPASpec{
 		// 		BSLSecretName:      bslSecretName,

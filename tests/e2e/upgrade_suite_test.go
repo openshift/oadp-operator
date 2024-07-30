@@ -20,11 +20,10 @@ import (
 )
 
 type channelUpgradeCase struct {
-	previous string
-	next     string
+	previous   string
+	next       string
+	production bool
 }
-
-// TODO break in smaller PRs (refactor) and last one being upgrade test one
 
 var _ = ginkgo.Describe("OADP upgrade scenarios", ginkgo.Ordered, func() {
 	ginkgo.DescribeTable("Upgrade OADP channel tests",
@@ -50,6 +49,13 @@ var _ = ginkgo.Describe("OADP upgrade scenarios", ginkgo.Ordered, func() {
 				gomega.Expect(err).To(gomega.BeNil())
 			}
 
+			subscriptionPackage := "oadp-operator"
+			subscriptionSource := "oadp-operator-catalog-test-upgrade"
+			if scenario.production {
+				subscriptionPackage = "redhat-oadp-operator"
+				subscriptionSource = "redhat-operators"
+			}
+
 			log.Print("Creating Subscription oadp-operator")
 			subscription := v1alpha1.Subscription{
 				ObjectMeta: metav1.ObjectMeta{
@@ -57,10 +63,10 @@ var _ = ginkgo.Describe("OADP upgrade scenarios", ginkgo.Ordered, func() {
 					Namespace: namespace,
 				},
 				Spec: &v1alpha1.SubscriptionSpec{
-					CatalogSource:          "oadp-operator-catalog-test-upgrade", // TODO
-					CatalogSourceNamespace: "openshift-marketplace",
-					Package:                "oadp-operator",
+					Package:                subscriptionPackage,
+					CatalogSource:          subscriptionSource,
 					Channel:                scenario.previous,
+					CatalogSourceNamespace: "openshift-marketplace",
 					InstallPlanApproval:    v1alpha1.ApprovalAutomatic,
 				},
 			}
@@ -115,7 +121,7 @@ var _ = ginkgo.Describe("OADP upgrade scenarios", ginkgo.Ordered, func() {
 			err = dpaCR.CreateOrUpdate(runTimeClientForSuiteRun, dpaSpec)
 			gomega.Expect(err).To(gomega.BeNil())
 
-			// check that DPA is reconciled
+			// check that DPA is reconciled true
 			log.Print("Checking if DPA is reconciled")
 			gomega.Eventually(dpaCR.IsReconciledTrue(), time.Minute*3, time.Second*5).Should(gomega.BeTrue())
 
@@ -194,6 +200,8 @@ var _ = ginkgo.Describe("OADP upgrade scenarios", ginkgo.Ordered, func() {
 		ginkgo.Entry("Upgrade from stable-1.3 (oadp-1.3 branch) to stable-1.4 (oadp-1.4 branch) channel", ginkgo.Label("upgrade", "aws", "ibmcloud"), channelUpgradeCase{
 			previous: "stable-1.3",
 			next:     "stable-1.4",
+			// to test production
+			// production: true,
 		}),
 	)
 })

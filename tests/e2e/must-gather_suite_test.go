@@ -33,16 +33,14 @@ var _ = Describe("Backup and restore tests with must-gather", func() {
 			}
 			runApplicationBackupAndRestore(brCase, expectedErr, updateLastBRcase, updateLastInstallTime)
 
-			// TODO look for duplications in tearDownBackupAndRestore
 			baseReportDir := artifact_dir + "/" + brCase.Name
 			err := os.MkdirAll(baseReportDir, 0755)
 			Expect(err).NotTo(HaveOccurred())
-			log.Printf("Running must gather for backup/restore test - " + "")
+
+			log.Printf("Running must gather for backup/restore test - " + brCase.Name)
 			err = RunMustGather(oc_cli, baseReportDir+"/must-gather")
-			if err != nil {
-				log.Printf("Failed to run must gather: " + err.Error())
-			}
 			Expect(err).ToNot(HaveOccurred())
+
 			// get dirs in must-gather dir
 			dirEntries, err := os.ReadDir(baseReportDir + "/must-gather")
 			Expect(err).ToNot(HaveOccurred())
@@ -80,8 +78,8 @@ var _ = Describe("Backup and restore tests with must-gather", func() {
 				Namespace:         "mongo-persistent",
 				Name:              "mongo-datamover-e2e",
 				BackupRestoreType: CSIDataMover,
-				PreBackupVerify:   mongoready(true, false, CSIDataMover),
-				PostRestoreVerify: mongoready(false, false, CSIDataMover),
+				PreBackupVerify:   todoListReady(true, false, "mongo"),
+				PostRestoreVerify: todoListReady(false, false, "mongo"),
 				BackupTimeout:     20 * time.Minute,
 			},
 			MustGatherFiles: []string{

@@ -17,9 +17,8 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/yaml"
 )
 
 type BackupRestoreType string
@@ -35,7 +34,6 @@ type DpaCustomResource struct {
 	Name                 string
 	Namespace            string
 	Client               client.Client
-	Provider             string
 	BSLSecretName        string
 	BSLConfig            map[string]string
 	BSLProvider          string
@@ -98,17 +96,17 @@ func (v *DpaCustomResource) Build(backupRestoreType BackupRestoreType) *oadpv1al
 	}
 	switch backupRestoreType {
 	case RESTIC, KOPIA:
-		dpaSpec.Configuration.NodeAgent.Enable = pointer.Bool(true)
+		dpaSpec.Configuration.NodeAgent.Enable = ptr.To(true)
 		dpaSpec.Configuration.NodeAgent.UploaderType = string(backupRestoreType)
 		dpaSpec.SnapshotLocations = nil
 	case CSI:
-		dpaSpec.Configuration.NodeAgent.Enable = pointer.Bool(false)
+		dpaSpec.Configuration.NodeAgent.Enable = ptr.To(false)
 		dpaSpec.Configuration.Velero.DefaultPlugins = append(dpaSpec.Configuration.Velero.DefaultPlugins, oadpv1alpha1.DefaultPluginCSI)
 		dpaSpec.Configuration.Velero.FeatureFlags = append(dpaSpec.Configuration.Velero.FeatureFlags, velero.CSIFeatureFlag)
 		dpaSpec.SnapshotLocations = nil
 	case CSIDataMover:
 		// We don't need to have restic use case, kopia is enough
-		dpaSpec.Configuration.NodeAgent.Enable = pointer.Bool(true)
+		dpaSpec.Configuration.NodeAgent.Enable = ptr.To(true)
 		dpaSpec.Configuration.NodeAgent.UploaderType = "kopia"
 		dpaSpec.Configuration.Velero.DefaultPlugins = append(dpaSpec.Configuration.Velero.DefaultPlugins, oadpv1alpha1.DefaultPluginCSI)
 		dpaSpec.Configuration.Velero.FeatureFlags = append(dpaSpec.Configuration.Velero.FeatureFlags, velero.CSIFeatureFlag)
@@ -119,28 +117,6 @@ func (v *DpaCustomResource) Build(backupRestoreType BackupRestoreType) *oadpv1al
 		// oadpv1alpha1.VeleroImageKey: "quay.io/konveyor/velero:oadp-1.1",
 	}
 	return &dpaSpec
-}
-
-// if e2e, test/e2e is "." since context is tests/e2e/
-// for unit-test, test/e2e is ".." since context is tests/e2e/lib/
-func (v *DpaCustomResource) ProviderStorageClassName(e2eRoot string) (string, error) {
-	pvcFile := fmt.Sprintf("%s/sample-applications/%s/pvc/%s.yaml", e2eRoot, "mongo-persistent", v.Provider)
-	pvcList := corev1.PersistentVolumeClaimList{}
-	pvcBytes, err := utils.ReadFile(pvcFile)
-	if err != nil {
-		return "", err
-	}
-	err = yaml.Unmarshal(pvcBytes, &pvcList)
-	if err != nil {
-		return "", err
-	}
-	if pvcList.Items == nil || len(pvcList.Items) == 0 {
-		return "", errors.New("pvc not found")
-	}
-	if pvcList.Items[0].Spec.StorageClassName == nil {
-		return "", errors.New("storage class name not found in pvc")
-	}
-	return *pvcList.Items[0].Spec.StorageClassName, nil
 }
 
 func (v *DpaCustomResource) Create(dpa *oadpv1alpha1.DataProtectionApplication) error {
@@ -312,14 +288,13 @@ func (v *DpaCustomResource) BSLsAreUpdated(updateTime time.Time) wait.ConditionF
 		if err != nil {
 			return false, err
 		}
-		areUpdated := true
+
 		for _, bsl := range bsls.Items {
 			if !bsl.Status.LastValidationTime.After(updateTime) {
-				areUpdated = false
+				return false, nil
 			}
 		}
-
-		return areUpdated, nil
+		return true, nil
 	}
 }
 

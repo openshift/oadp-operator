@@ -3,6 +3,7 @@ package lib
 import (
 	"log"
 	"regexp"
+	"strings"
 )
 
 var errorIgnorePatterns = []string{
@@ -28,14 +29,12 @@ type FlakePattern struct {
 	StringSearchPattern string
 }
 
-// CheckIfFlakeOccurred checks for known flake patterns in the provided input string (typically log from the test ran).
-// It updates the value pointed to by knownFlake based on whether a known flake pattern is found.
+// CheckIfFlakeOccurred checks for known flake patterns in the provided logs (typically logs from the test ran).
 //
 // Parameters:
 //
-//	input (string):     The input string to be examined for known flake patterns.
-//	knownFlake (*bool): A pointer to a boolean variable that will be updated based on whether a known flake pattern is found in the input.
-func CheckIfFlakeOccurred(input string, knownFlake *bool) {
+//	logs ([]string):    Logs to be examined for known flake patterns.
+func CheckIfFlakeOccurred(logs []string) bool {
 	flakePatterns := []FlakePattern{
 		{
 			Issue:               "https://github.com/kubernetes-csi/external-snapshotter/pull/876",
@@ -48,15 +47,15 @@ func CheckIfFlakeOccurred(input string, knownFlake *bool) {
 			StringSearchPattern: "Error copying image: writing blob: uploading layer chunked: received unexpected HTTP status: 500 Internal Server Error",
 		},
 	}
+	logString := strings.Join(logs, "\n")
 
 	for _, pattern := range flakePatterns {
 		re := regexp.MustCompile(pattern.StringSearchPattern)
-		if re.MatchString(input) {
+		if re.MatchString(logString) {
 			log.Printf("FLAKE DETECTION: Match found for issue %s: %s\n", pattern.Issue, pattern.Description)
-			*knownFlake = true
-			return
+			return true
 		}
 	}
 	log.Println("FLAKE DETECTION: No known flakes found.")
-	*knownFlake = false
+	return false
 }
