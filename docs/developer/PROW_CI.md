@@ -221,6 +221,8 @@ Update `Makefile`, changing the following (if release branch was created from ma
 >+PREVIOUS_CHANNEL_GO_VERSION ?= 1.22
 >...
 >```
+>`PREVIOUS_CHANNEL` points to new branch and `PREVIOUS_CHANNEL_GO_VERSION` points to new branch Go version (in `go.mod`).
+>
 >Upgrade E2E tests must also be updated.
 
 > **Note**: to get diff between files, you can run `git diff master oadp-1.4 Makefile`.
@@ -375,6 +377,21 @@ Example: update `4.13` to `4.16` in master branch.
 -  variant: "4.13"
 +  variant: "4.16"
 ```
+
+> **Note**: if OCP version is not in https://openshift-release.apps.ci.l2s4.p1.openshiftapps.com/#4-stable, you may also need to change
+> ```diff
+> ...
+>  releases:
+>    latest:
+> -    release:
+> -      channel: fast
+> -      version: "4.13"
+> +    candidate:
+> +      product: ocp
+> +      stream: nightly
+> +      version: "4.16"
+> ...
+> ```
 
 After that, run `make jobs` to update job files in `ci-operator/jobs/openshift/oadp-operator` folder of https://github.com/openshift/release repo.
 
