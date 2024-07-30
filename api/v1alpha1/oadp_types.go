@@ -375,11 +375,11 @@ type DataProtectionApplicationSpec struct {
 	// features defines the configuration for the DPA to enable the OADP tech preview features
 	// +optional
 	Features *Features `json:"features"`
-	// Which imagePullPolicy to use in all container images used by OADP.
+	// which imagePullPolicy to use in all container images used by OADP.
 	// By default, for images with sha256 or sha512 digest, OADP uses IfNotPresent and uses Always for all other images.
 	// +optional
 	// +kubebuilder:validation:Enum=Always;IfNotPresent;Never
-	ContainerImagePullPolicy *corev1.PullPolicy `json:"containerImagePullPolicy,omitempty"`
+	ImagePullPolicy *corev1.PullPolicy `json:"imagePullPolicy,omitempty"`
 	// nonAdmin defines the configuration for the DPA to enable backup and restore operations for non-admin users
 	// +optional
 	NonAdmin *NonAdmin `json:"nonAdmin,omitempty"`
