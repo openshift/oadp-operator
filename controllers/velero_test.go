@@ -4578,8 +4578,8 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 					Configuration: &oadpv1alpha1.ApplicationConfig{
 						Velero: &oadpv1alpha1.VeleroConfig{
-							ClientBurst: pointer.Int(123),
-							ClientQPS:   pointer.Int(123),
+							ClientBurst: ptr.To(123),
+							ClientQPS:   ptr.To(123),
 						},
 						NodeAgent: &oadpv1alpha1.NodeAgentConfig{
 							UploaderType: "kopia",
@@ -4599,7 +4599,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 				},
 				Spec: appsv1.DeploymentSpec{
 					Selector: &metav1.LabelSelector{MatchLabels: veleroDeploymentMatchLabels},
-					Replicas: pointer.Int32(1),
+					Replicas: ptr.To(int32(1)),
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: veleroPodObjectMeta,
 						Spec: corev1.PodSpec{
@@ -4652,12 +4652,12 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 					Configuration: &oadpv1alpha1.ApplicationConfig{
 						Velero: &oadpv1alpha1.VeleroConfig{
-							ClientBurst: pointer.Int(123),
-							ClientQPS:   pointer.Int(123),
+							ClientBurst: ptr.To(123),
+							ClientQPS:   ptr.To(123),
 							Args: &server.Args{
 								ServerConfig: server.ServerConfig{
-									ClientBurst: pointer.Int(321),
-									ClientQPS:   pointer.String("321"),
+									ClientBurst: ptr.To(321),
+									ClientQPS:   ptr.To("321"),
 								},
 							},
 						},
@@ -4679,7 +4679,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 				},
 				Spec: appsv1.DeploymentSpec{
 					Selector: &metav1.LabelSelector{MatchLabels: veleroDeploymentMatchLabels},
-					Replicas: pointer.Int32(1),
+					Replicas: ptr.To(int32(1)),
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: veleroPodObjectMeta,
 						Spec: corev1.PodSpec{
