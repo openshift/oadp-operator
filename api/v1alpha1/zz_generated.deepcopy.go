@@ -400,6 +400,11 @@ func (in *DataProtectionApplicationSpec) DeepCopyInto(out *DataProtectionApplica
 		*out = new(Features)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.ImagePullPolicy != nil {
+		in, out := &in.ImagePullPolicy, &out.ImagePullPolicy
+		*out = new(v1.PullPolicy)
+		**out = **in
+	}
 	if in.NonAdmin != nil {
 		in, out := &in.NonAdmin, &out.NonAdmin
 		*out = new(NonAdmin)

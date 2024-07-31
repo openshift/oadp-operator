@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/utils/ptr"
 )
 
 func TestAppendUniqueKeyTOfTMaps(t *testing.T) {
@@ -153,9 +154,10 @@ func TestStripDefaultPorts(t *testing.T) {
 
 func TestGetImagePullPolicy(t *testing.T) {
 	tests := []struct {
-		name   string
-		image  string
-		result corev1.PullPolicy
+		name     string
+		image    string
+		override *corev1.PullPolicy
+		result   corev1.PullPolicy
 	}{
 		{
 			name:   "Image without digest",
@@ -187,10 +189,22 @@ func TestGetImagePullPolicy(t *testing.T) {
 			image:  "test.com/foo@sha256+b64u:LCa0a2j_xo_5m0U8HTBBNBNCLXBkg7-g-YpeiGJm564",
 			result: corev1.PullAlways,
 		},
+		{
+			name:     "Image without digest, but with override to Never",
+			image:    "quay.io/konveyor/velero:oadp-1.4",
+			override: ptr.To(corev1.PullNever),
+			result:   corev1.PullNever,
+		},
+		{
+			name:     "Image with sha256 digest, but with override to Never",
+			image:    "test.com/foo@sha256:1234567890098765432112345667890098765432112345667890098765432112",
+			override: ptr.To(corev1.PullNever),
+			result:   corev1.PullNever,
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			result, err := GetImagePullPolicy(test.image)
+			result, err := GetImagePullPolicy(test.override, test.image)
 			if err != nil {
 				t.Errorf("Error occurred in test: %s", err)
 			}

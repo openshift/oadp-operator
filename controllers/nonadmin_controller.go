@@ -120,7 +120,7 @@ func (r *DPAReconciler) ReconcileNonAdminController(log logr.Logger) (bool, erro
 func (r *DPAReconciler) buildNonAdminDeployment(deploymentObject *appsv1.Deployment, dpa *oadpv1alpha1.DataProtectionApplication) {
 	// TODO https://github.com/openshift/oadp-operator/pull/1316
 	nonAdminImage := r.getNonAdminImage(dpa)
-	imagePullPolicy, err := common.GetImagePullPolicy(nonAdminImage)
+	imagePullPolicy, err := common.GetImagePullPolicy(dpa.Spec.ImagePullPolicy, nonAdminImage)
 	if err != nil {
 		r.Log.Error(err, "imagePullPolicy regex failed")
 	}
