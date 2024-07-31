@@ -365,6 +365,11 @@ type DataProtectionApplicationSpec struct {
 	// features defines the configuration for the DPA to enable the OADP tech preview features
 	// +optional
 	Features *Features `json:"features"`
+	// which imagePullPolicy to use in all container images used by OADP.
+	// By default, for images with sha256 or sha512 digest, OADP uses IfNotPresent and uses Always for all other images.
+	// +optional
+	// +kubebuilder:validation:Enum=Always;IfNotPresent;Never
+	ImagePullPolicy *corev1.PullPolicy `json:"imagePullPolicy,omitempty"`
 }
 
 // DataProtectionApplicationStatus defines the observed state of DataProtectionApplication

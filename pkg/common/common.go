@@ -222,11 +222,15 @@ func StripDefaultPorts(fromUrl string) (string, error) {
 	return r.URL.String(), nil
 }
 
-// GetImagePullPolicy get imagePullPolicy for a container, based on its image.
+// GetImagePullPolicy get imagePullPolicy for a container, based on its image, if an override is not provided.
+// If override is provided, use the override imagePullPolicy.
 // If image contains a sha256 or sha512 digest, use IfNotPresent; otherwise, Always.
 // If an error occurs, Always is used.
 // Reference: https://github.com/distribution/distribution/blob/v2.7.1/reference/reference.go
-func GetImagePullPolicy(image string) (corev1.PullPolicy, error) {
+func GetImagePullPolicy(override *corev1.PullPolicy, image string) (corev1.PullPolicy, error) {
+	if override != nil {
+		return *override, nil
+	}
 	sha256regex, err := regexp.Compile("@sha256:[a-f0-9]{64}")
 	if err != nil {
 		return corev1.PullAlways, err

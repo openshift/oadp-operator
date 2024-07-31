@@ -1202,6 +1202,15 @@ spec:
                           type: object
                       type: object
                   type: object
+                imagePullPolicy:
+                  description: |-
+                    which imagePullPolicy to use in all container images used by OADP.
+                    By default, for images with sha256 or sha512 digest, OADP uses IfNotPresent and uses Always for all other images.
+                  enum:
+                    - Always
+                    - IfNotPresent
+                    - Never
+                  type: string
                 podAnnotations:
                   additionalProperties:
                     type: string
