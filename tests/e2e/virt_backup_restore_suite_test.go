@@ -48,7 +48,7 @@ func vmPoweredOff(vmnamespace, vmname string) VerificationFunction {
 			log.Printf("VM status is: %s\n", status)
 			return status == "Stopped"
 		}
-		Eventually(isOff, timeoutMultiplier*time.Minute*10, time.Second*10).Should(BeTrue())
+		Eventually(isOff, time.Minute*10, time.Second*10).Should(BeTrue())
 		return nil
 	})
 }
@@ -98,6 +98,13 @@ func runVmBackupAndRestore(brCase VmBackupRestoreCase, expectedErr error, update
 		Expect(err).To(BeNil())
 	}
 
+	// Run optional custom verification
+	if brCase.PreBackupVerify != nil {
+		log.Printf("Running pre-backup custom function for case %s", brCase.Name)
+		err := brCase.PreBackupVerify(dpaCR.Client, brCase.Namespace)
+		Expect(err).ToNot(HaveOccurred())
+	}
+
 	// Back up VM
 	nsRequiresResticDCWorkaround := runBackup(brCase.BackupRestoreCase, backupName)
 
@@ -106,17 +113,21 @@ func runVmBackupAndRestore(brCase VmBackupRestoreCase, expectedErr error, update
 	Expect(err).To(BeNil())
 	err = lib.DeleteNamespace(v.Clientset, brCase.Namespace)
 	Expect(err).To(BeNil())
-	Eventually(lib.IsNamespaceDeleted(kubernetesClientForSuiteRun, brCase.Namespace), timeoutMultiplier*time.Minute*5, time.Second*5).Should(BeTrue())
+	Eventually(lib.IsNamespaceDeleted(kubernetesClientForSuiteRun, brCase.Namespace), time.Minute*5, time.Second*5).Should(BeTrue())
 
 	// Do restore
 	runRestore(brCase.BackupRestoreCase, backupName, restoreName, nsRequiresResticDCWorkaround)
 
 	// Run optional custom verification
 	if brCase.PostRestoreVerify != nil {
-		log.Printf("Running post-restore function for VM case %s", brCase.Name)
+		log.Printf("Running post-restore custom function for VM case %s", brCase.Name)
 		err = brCase.PostRestoreVerify(dpaCR.Client, brCase.Namespace)
 		Expect(err).ToNot(HaveOccurred())
 	}
+
+	// avoid finalizers in namespace deletion
+	err = v.RemoveVm(brCase.Namespace, brCase.Name, 5*time.Minute)
+	Expect(err).To(BeNil())
 }
 
 var _ = Describe("VM backup and restore tests", Ordered, func() {
@@ -153,7 +164,7 @@ var _ = Describe("VM backup and restore tests", Ordered, func() {
 		err = v.CreateDataSourceFromPvc("openshift-virtualization-os-images", "cirros")
 		Expect(err).To(BeNil())
 
-		dpaCR.CustomResource.Spec.Configuration.Velero.DefaultPlugins = append(dpaCR.CustomResource.Spec.Configuration.Velero.DefaultPlugins, v1alpha1.DefaultPluginKubeVirt)
+		dpaCR.VeleroDefaultPlugins = append(dpaCR.VeleroDefaultPlugins, v1alpha1.DefaultPluginKubeVirt)
 	})
 
 	var _ = AfterAll(func() {
@@ -220,8 +231,8 @@ var _ = Describe("VM backup and restore tests", Ordered, func() {
 				Name:              "fedora-todolist",
 				SkipVerifyLogs:    true,
 				BackupRestoreType: lib.CSI,
-				PreBackupVerify:   mysqlReady(true, false, lib.CSI),
-				PostRestoreVerify: mysqlReady(false, false, lib.CSI),
+				PreBackupVerify:   todoListReady(true, false, "mysql"),
+				PostRestoreVerify: todoListReady(false, false, "mysql"),
 				BackupTimeout:     45 * time.Minute,
 			},
 		}, nil),

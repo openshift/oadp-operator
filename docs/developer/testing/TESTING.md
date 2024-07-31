@@ -176,11 +176,6 @@ func init() {
 	flag.StringVar(&settings, "settings", "./templates/default_settings.json", "Settings of the velero instance")
 	flag.StringVar(&instanceName, "velero_instance_name", "example-velero", "Velero Instance Name")
 	flag.StringVar(&clusterProfile, "cluster_profile", "aws", "Cluster profile")
-	timeoutMultiplierInput := flag.Int64("timeout_multiplier", 1, "Customize timeout multiplier from default (1)")
-	timeoutMultiplier = 1
-	if timeoutMultiplierInput != nil && *timeoutMultiplierInput >= 1 {
-		timeoutMultiplier = time.Duration(*timeoutMultiplierInput)
-	}
 }
 
 ```

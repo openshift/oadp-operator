@@ -7,7 +7,6 @@ import (
 	"io"
 	"log"
 	"os"
-	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -25,20 +24,20 @@ func CreateNamespace(clientset *kubernetes.Clientset, namespace string) error {
 	return err
 }
 
-func DeleteNamespace(clientset *kubernetes.Clientset, namespace string) error {
-	err := clientset.CoreV1().Namespaces().Delete(context.Background(), namespace, metav1.DeleteOptions{})
-	if apierrors.IsNotFound(err) {
-		return nil
-	}
-	return err
-}
-
 func DoesNamespaceExist(clientset *kubernetes.Clientset, namespace string) (bool, error) {
 	_, err := clientset.CoreV1().Namespaces().Get(context.Background(), namespace, metav1.GetOptions{})
 	if err != nil {
 		return false, err
 	}
 	return true, nil
+}
+
+func DeleteNamespace(clientset *kubernetes.Clientset, namespace string) error {
+	err := clientset.CoreV1().Namespaces().Delete(context.Background(), namespace, metav1.DeleteOptions{})
+	if apierrors.IsNotFound(err) {
+		return nil
+	}
+	return err
 }
 
 func IsNamespaceDeleted(clientset *kubernetes.Clientset, namespace string) wait.ConditionFunc {
@@ -81,35 +80,6 @@ func DeleteSecret(clientset *kubernetes.Clientset, namespace string, credSecretR
 	return err
 }
 
-func isCredentialsSecretDeleted(clientset *kubernetes.Clientset, namespace string, credSecretRef string) wait.ConditionFunc {
-	return func() (bool, error) {
-		_, err := clientset.CoreV1().Secrets(namespace).Get(context.Background(), credSecretRef, metav1.GetOptions{})
-		if apierrors.IsNotFound(err) {
-			log.Printf("Secret in test namespace has been deleted")
-			return true, nil
-		}
-		log.Printf("Secret still exists in namespace")
-		return false, err
-	}
-}
-
-func GetPodWithPrefixContainerLogs(clientset *kubernetes.Clientset, namespace string, podPrefix string, container string) (string, error) {
-	podList, err := clientset.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{})
-	if err != nil {
-		return "", err
-	}
-	for _, pod := range podList.Items {
-		if strings.HasPrefix(pod.Name, podPrefix) {
-			logs, err := GetPodContainerLogs(clientset, namespace, pod.Name, container)
-			if err != nil {
-				return "", err
-			}
-			return logs, nil
-		}
-	}
-	return "", fmt.Errorf("No pod found with prefix %s", podPrefix)
-}
-
 func SavePodLogs(clientset *kubernetes.Clientset, namespace, dir string) error {
 	podList, err := clientset.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{})
 	if err != nil {
@@ -150,4 +120,28 @@ func GetPodContainerLogs(clientset *kubernetes.Clientset, namespace, podname, co
 		return "", err
 	}
 	return buf.String(), nil
+}
+
+func GetAllPodsWithLabel(c *kubernetes.Clientset, namespace string, LabelSelector string) (*corev1.PodList, error) {
+	podList, err := c.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{LabelSelector: LabelSelector})
+	if err != nil {
+		return nil, err
+	}
+	if len(podList.Items) == 0 {
+		log.Println("no Pod found")
+		return nil, fmt.Errorf("no Pod found")
+	}
+	return podList, nil
+}
+
+func GetPodWithLabel(c *kubernetes.Clientset, namespace string, LabelSelector string) (*corev1.Pod, error) {
+	podList, err := GetAllPodsWithLabel(c, namespace, LabelSelector)
+	if err != nil {
+		return nil, err
+	}
+	if len(podList.Items) > 1 {
+		log.Println("more than one Pod found")
+		return nil, fmt.Errorf("more than one Pod found")
+	}
+	return &podList.Items[0], nil
 }

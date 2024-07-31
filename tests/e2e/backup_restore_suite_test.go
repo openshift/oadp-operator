@@ -1,8 +1,6 @@
 package e2e_test
 
 import (
-	"context"
-	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -13,48 +11,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/openshift/oadp-operator/tests/e2e/lib"
-	corev1 "k8s.io/api/core/v1"
-	k8serror "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type VerificationFunction func(client.Client, string) error
-
-type appVerificationFunction func(bool, bool, BackupRestoreType) VerificationFunction
-
-// TODO duplications with mongoready
-func mongoready(preBackupState bool, twoVol bool, backupRestoreType BackupRestoreType) VerificationFunction {
-	return VerificationFunction(func(ocClient client.Client, namespace string) error {
-		Eventually(IsDCReady(ocClient, namespace, "todolist"), timeoutMultiplier*time.Minute*10, time.Second*10).Should(BeTrue())
-		exists, err := DoesSCCExist(ocClient, "mongo-persistent-scc")
-		if err != nil {
-			return err
-		}
-		if !exists {
-			return errors.New("did not find Mongo scc")
-		}
-		err = VerifyBackupRestoreData(runTimeClientForSuiteRun, artifact_dir, namespace, "todolist-route", "todolist", preBackupState, false, backupRestoreType)
-		return err
-	})
-}
-
-func mysqlReady(preBackupState bool, twoVol bool, backupRestoreType BackupRestoreType) VerificationFunction {
-	return VerificationFunction(func(ocClient client.Client, namespace string) error {
-		log.Printf("checking for the NAMESPACE: %s", namespace)
-		// This test confirms that SCC restore logic in our plugin is working
-		Eventually(IsDeploymentReady(ocClient, namespace, "mysql"), timeoutMultiplier*time.Minute*10, time.Second*10).Should(BeTrue())
-		exists, err := DoesSCCExist(ocClient, "mysql-persistent-scc")
-		if err != nil {
-			return err
-		}
-		if !exists {
-			return errors.New("did not find MYSQL scc")
-		}
-		err = VerifyBackupRestoreData(runTimeClientForSuiteRun, artifact_dir, namespace, "todolist-route", "todolist", preBackupState, twoVol, backupRestoreType)
-		return err
-	})
-}
 
 type BackupRestoreCase struct {
 	Namespace         string
@@ -74,23 +34,42 @@ type ApplicationBackupRestoreCase struct {
 	MustGatherValidationFunction *func(string) error // validation function for must-gather where string parameter is the path to "quay.io.../clusters/clustername/"
 }
 
-func prepareBackupAndRestore(brCase BackupRestoreCase, updateLastInstallTime func()) (string, string) {
-	err := dpaCR.Build(brCase.BackupRestoreType)
-	Expect(err).NotTo(HaveOccurred())
+func todoListReady(preBackupState bool, twoVol bool, database string) VerificationFunction {
+	return VerificationFunction(func(ocClient client.Client, namespace string) error {
+		log.Printf("checking for the NAMESPACE: %s", namespace)
+		Eventually(IsDeploymentReady(ocClient, namespace, database), time.Minute*10, time.Second*10).Should(BeTrue())
+		Eventually(IsDCReady(ocClient, namespace, "todolist"), time.Minute*10, time.Second*10).Should(BeTrue())
+		Eventually(AreApplicationPodsRunning(kubernetesClientForSuiteRun, namespace), time.Minute*9, time.Second*5).Should(BeTrue())
+		// This test confirms that SCC restore logic in our plugin is working
+		err := DoesSCCExist(ocClient, database+"-persistent-scc")
+		if err != nil {
+			return err
+		}
+		err = VerifyBackupRestoreData(runTimeClientForSuiteRun, artifact_dir, namespace, "todolist-route", "todolist", preBackupState, twoVol)
+		return err
+	})
+}
 
-	//updateLastInstallingNamespace(dpaCR.Namespace)
+func prepareBackupAndRestore(brCase BackupRestoreCase, updateLastInstallTime func()) (string, string) {
 	updateLastInstallTime()
 
-	err = dpaCR.CreateOrUpdate(runTimeClientForSuiteRun, &dpaCR.CustomResource.Spec)
+	err := dpaCR.CreateOrUpdate(runTimeClientForSuiteRun, dpaCR.Build(brCase.BackupRestoreType))
 	Expect(err).NotTo(HaveOccurred())
 
-	log.Printf("Waiting for velero pod to be running")
-	Eventually(AreVeleroPodsRunning(kubernetesClientForSuiteRun, namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
+	log.Print("Checking if DPA is reconciled")
+	Eventually(dpaCR.IsReconciledTrue(), time.Minute*3, time.Second*5).Should(BeTrue())
+
+	log.Print("Checking if velero Pod is running")
+	Eventually(VeleroPodIsRunning(kubernetesClientForSuiteRun, namespace), time.Minute*3, time.Second*5).Should(BeTrue())
 
 	if brCase.BackupRestoreType == RESTIC || brCase.BackupRestoreType == KOPIA || brCase.BackupRestoreType == CSIDataMover {
 		log.Printf("Waiting for Node Agent pods to be running")
-		Eventually(AreNodeAgentPodsRunning(kubernetesClientForSuiteRun, namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
+		Eventually(AreNodeAgentPodsRunning(kubernetesClientForSuiteRun, namespace), time.Minute*3, time.Second*5).Should(BeTrue())
 	}
+
+	log.Print("Checking if BSL is available")
+	Eventually(dpaCR.BSLsAreAvailable(), time.Minute*3, time.Second*5).Should(BeTrue())
+
 	if brCase.BackupRestoreType == CSI || brCase.BackupRestoreType == CSIDataMover {
 		if provider == "aws" || provider == "ibmcloud" || provider == "gcp" || provider == "azure" {
 			log.Printf("Creating VolumeSnapshotClass for CSI backuprestore of %s", brCase.Name)
@@ -143,9 +122,12 @@ func runApplicationBackupAndRestore(brCase ApplicationBackupRestoreCase, expecte
 		Expect(err).ToNot(HaveOccurred())
 	}
 
-	// wait for pods to be running
-	Eventually(AreAppBuildsReady(dpaCR.Client, brCase.Namespace), timeoutMultiplier*time.Minute*5, time.Second*5).Should(BeTrue())
-	Eventually(AreApplicationPodsRunning(kubernetesClientForSuiteRun, brCase.Namespace), timeoutMultiplier*time.Minute*9, time.Second*5).Should(BeTrue())
+	// Run optional custom verification
+	if brCase.PreBackupVerify != nil {
+		log.Printf("Running pre-backup custom function for case %s", brCase.Name)
+		err := brCase.PreBackupVerify(dpaCR.Client, brCase.Namespace)
+		Expect(err).ToNot(HaveOccurred())
+	}
 
 	// do the backup for real
 	nsRequiredResticDCWorkaround := runBackup(brCase.BackupRestoreCase, backupName)
@@ -156,33 +138,22 @@ func runApplicationBackupAndRestore(brCase ApplicationBackupRestoreCase, expecte
 	Expect(err).ToNot(HaveOccurred())
 
 	// Wait for namespace to be deleted
-	Eventually(IsNamespaceDeleted(kubernetesClientForSuiteRun, brCase.Namespace), timeoutMultiplier*time.Minute*4, time.Second*5).Should(BeTrue())
+	Eventually(IsNamespaceDeleted(kubernetesClientForSuiteRun, brCase.Namespace), time.Minute*4, time.Second*5).Should(BeTrue())
 
 	updateLastInstallTime()
 
 	// run restore
 	runRestore(brCase.BackupRestoreCase, backupName, restoreName, nsRequiredResticDCWorkaround)
 
-	// verify app is running
-	Eventually(AreAppBuildsReady(dpaCR.Client, brCase.Namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
-	Eventually(AreApplicationPodsRunning(kubernetesClientForSuiteRun, brCase.Namespace), timeoutMultiplier*time.Minute*9, time.Second*5).Should(BeTrue())
-
 	// Run optional custom verification
 	if brCase.PostRestoreVerify != nil {
-		log.Printf("Running post-restore function for case %s", brCase.Name)
+		log.Printf("Running post-restore custom function for case %s", brCase.Name)
 		err = brCase.PostRestoreVerify(dpaCR.Client, brCase.Namespace)
 		Expect(err).ToNot(HaveOccurred())
 	}
 }
 
 func runBackup(brCase BackupRestoreCase, backupName string) bool {
-	// Run optional custom verification
-	if brCase.PreBackupVerify != nil {
-		log.Printf("Running pre-backup function for case %s", brCase.Name)
-		err := brCase.PreBackupVerify(dpaCR.Client, brCase.Namespace)
-		Expect(err).ToNot(HaveOccurred())
-	}
-
 	nsRequiresResticDCWorkaround, err := NamespaceRequiresResticDCWorkaround(dpaCR.Client, brCase.Namespace)
 	Expect(err).ToNot(HaveOccurred())
 
@@ -195,17 +166,17 @@ func runBackup(brCase BackupRestoreCase, backupName string) bool {
 
 	// create backup
 	log.Printf("Creating backup %s for case %s", backupName, brCase.Name)
-	backup, err := CreateBackupForNamespaces(dpaCR.Client, namespace, backupName, []string{brCase.Namespace}, brCase.BackupRestoreType == RESTIC || brCase.BackupRestoreType == KOPIA, brCase.BackupRestoreType == CSIDataMover)
+	err = CreateBackupForNamespaces(dpaCR.Client, namespace, backupName, []string{brCase.Namespace}, brCase.BackupRestoreType == RESTIC || brCase.BackupRestoreType == KOPIA, brCase.BackupRestoreType == CSIDataMover)
 	Expect(err).ToNot(HaveOccurred())
 
 	// wait for backup to not be running
-	Eventually(IsBackupDone(dpaCR.Client, namespace, backupName), timeoutMultiplier*brCase.BackupTimeout, time.Second*10).Should(BeTrue())
+	Eventually(IsBackupDone(dpaCR.Client, namespace, backupName), brCase.BackupTimeout, time.Second*10).Should(BeTrue())
 	// TODO only log on fail?
-	describeBackup := DescribeBackup(veleroClientForSuiteRun, csiClientForSuiteRun, dpaCR.Client, backup)
+	describeBackup := DescribeBackup(veleroClientForSuiteRun, dpaCR.Client, namespace, backupName)
 	GinkgoWriter.Println(describeBackup)
 
-	backupLogs := BackupLogs(kubernetesClientForSuiteRun, dpaCR.Client, backup)
-	backupErrorLogs := BackupErrorLogs(kubernetesClientForSuiteRun, dpaCR.Client, backup)
+	backupLogs := BackupLogs(kubernetesClientForSuiteRun, dpaCR.Client, namespace, backupName)
+	backupErrorLogs := BackupErrorLogs(kubernetesClientForSuiteRun, dpaCR.Client, namespace, backupName)
 	accumulatedTestLogs = append(accumulatedTestLogs, describeBackup, backupLogs)
 
 	if !brCase.SkipVerifyLogs {
@@ -213,14 +184,14 @@ func runBackup(brCase BackupRestoreCase, backupName string) bool {
 	}
 
 	// check if backup succeeded
-	succeeded, err := IsBackupCompletedSuccessfully(kubernetesClientForSuiteRun, dpaCR.Client, backup)
+	succeeded, err := IsBackupCompletedSuccessfully(kubernetesClientForSuiteRun, dpaCR.Client, namespace, backupName)
 	Expect(err).ToNot(HaveOccurred())
 	Expect(succeeded).To(Equal(true))
 	log.Printf("Backup for case %s succeeded", brCase.Name)
 
 	if brCase.BackupRestoreType == CSI {
 		// wait for volume snapshot to be Ready
-		Eventually(AreVolumeSnapshotsReady(dpaCR.Client, backupName), timeoutMultiplier*time.Minute*4, time.Second*10).Should(BeTrue())
+		Eventually(AreVolumeSnapshotsReady(dpaCR.Client, backupName), time.Minute*4, time.Second*10).Should(BeTrue())
 	}
 
 	return nsRequiresResticDCWorkaround
@@ -228,15 +199,15 @@ func runBackup(brCase BackupRestoreCase, backupName string) bool {
 
 func runRestore(brCase BackupRestoreCase, backupName, restoreName string, nsRequiresResticDCWorkaround bool) {
 	log.Printf("Creating restore %s for case %s", restoreName, brCase.Name)
-	restore, err := CreateRestoreFromBackup(dpaCR.Client, namespace, backupName, restoreName)
+	err := CreateRestoreFromBackup(dpaCR.Client, namespace, backupName, restoreName)
 	Expect(err).ToNot(HaveOccurred())
-	Eventually(IsRestoreDone(dpaCR.Client, namespace, restoreName), timeoutMultiplier*time.Minute*60, time.Second*10).Should(BeTrue())
+	Eventually(IsRestoreDone(dpaCR.Client, namespace, restoreName), time.Minute*60, time.Second*10).Should(BeTrue())
 	// TODO only log on fail?
-	describeRestore := DescribeRestore(veleroClientForSuiteRun, dpaCR.Client, restore)
+	describeRestore := DescribeRestore(veleroClientForSuiteRun, dpaCR.Client, namespace, restoreName)
 	GinkgoWriter.Println(describeRestore)
 
-	restoreLogs := RestoreLogs(kubernetesClientForSuiteRun, dpaCR.Client, restore)
-	restoreErrorLogs := RestoreErrorLogs(kubernetesClientForSuiteRun, dpaCR.Client, restore)
+	restoreLogs := RestoreLogs(kubernetesClientForSuiteRun, dpaCR.Client, namespace, restoreName)
+	restoreErrorLogs := RestoreErrorLogs(kubernetesClientForSuiteRun, dpaCR.Client, namespace, restoreName)
 	accumulatedTestLogs = append(accumulatedTestLogs, describeRestore, restoreLogs)
 
 	if !brCase.SkipVerifyLogs {
@@ -260,28 +231,31 @@ func runRestore(brCase BackupRestoreCase, backupName, restoreName string, nsRequ
 	}
 }
 
+func getFailedTestLogs(oadpNamespace string, appNamespace string, installTime time.Time, report SpecReport) {
+	baseReportDir := artifact_dir + "/" + report.LeafNodeText
+	err := os.MkdirAll(baseReportDir, 0755)
+	Expect(err).NotTo(HaveOccurred())
+
+	log.Println("Printing OADP namespace events")
+	PrintNamespaceEventsAfterTime(kubernetesClientForSuiteRun, oadpNamespace, installTime)
+	err = SavePodLogs(kubernetesClientForSuiteRun, oadpNamespace, baseReportDir)
+	Expect(err).NotTo(HaveOccurred())
+
+	if appNamespace != "" {
+		log.Println("Printing app namespace events")
+		PrintNamespaceEventsAfterTime(kubernetesClientForSuiteRun, appNamespace, installTime)
+		err = SavePodLogs(kubernetesClientForSuiteRun, appNamespace, baseReportDir)
+		Expect(err).NotTo(HaveOccurred())
+	}
+}
+
 func tearDownBackupAndRestore(brCase BackupRestoreCase, installTime time.Time, report SpecReport) {
 	log.Println("Post backup and restore state: ", report.State.String())
-	knownFlake = false
-	logString := strings.Join(accumulatedTestLogs, "\n")
-	CheckIfFlakeOccured(logString, &knownFlake)
-	accumulatedTestLogs = nil
 
 	if report.Failed() {
-		// print namespace error events for app namespace
-		if brCase.Namespace != "" {
-			GinkgoWriter.Println("Printing app namespace events")
-			PrintNamespaceEventsAfterTime(kubernetesClientForSuiteRun, brCase.Namespace, installTime)
-		}
-		GinkgoWriter.Println("Printing oadp namespace events")
-		PrintNamespaceEventsAfterTime(kubernetesClientForSuiteRun, namespace, installTime)
-		baseReportDir := artifact_dir + "/" + report.LeafNodeText
-		err := os.MkdirAll(baseReportDir, 0755)
-		Expect(err).NotTo(HaveOccurred())
-		err = SavePodLogs(kubernetesClientForSuiteRun, namespace, baseReportDir)
-		Expect(err).NotTo(HaveOccurred())
-		err = SavePodLogs(kubernetesClientForSuiteRun, brCase.Namespace, baseReportDir)
-		Expect(err).NotTo(HaveOccurred())
+		knownFlake = CheckIfFlakeOccurred(accumulatedTestLogs)
+		accumulatedTestLogs = nil
+		getFailedTestLogs(namespace, brCase.Namespace, installTime, report)
 	}
 	if brCase.BackupRestoreType == CSI || brCase.BackupRestoreType == CSIDataMover {
 		log.Printf("Deleting VolumeSnapshot for CSI backuprestore of %s", brCase.Name)
@@ -289,18 +263,13 @@ func tearDownBackupAndRestore(brCase BackupRestoreCase, installTime time.Time, r
 		err := UninstallApplication(dpaCR.Client, snapshotClassPath)
 		Expect(err).ToNot(HaveOccurred())
 	}
-	err := dpaCR.Client.Delete(context.Background(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{
-		Name:      brCase.Namespace,
-		Namespace: brCase.Namespace,
-	}}, &client.DeleteOptions{})
-	if k8serror.IsNotFound(err) {
-		err = nil
-	}
+
+	err := dpaCR.Delete()
 	Expect(err).ToNot(HaveOccurred())
 
-	err = dpaCR.Delete()
+	err = DeleteNamespace(kubernetesClientForSuiteRun, brCase.Namespace)
 	Expect(err).ToNot(HaveOccurred())
-	Eventually(IsNamespaceDeleted(kubernetesClientForSuiteRun, brCase.Namespace), timeoutMultiplier*time.Minute*5, time.Second*5).Should(BeTrue())
+	Eventually(IsNamespaceDeleted(kubernetesClientForSuiteRun, brCase.Namespace), time.Minute*5, time.Second*5).Should(BeTrue())
 }
 
 var _ = Describe("Backup and restore tests", func() {
@@ -330,8 +299,8 @@ var _ = Describe("Backup and restore tests", func() {
 				Namespace:         "mysql-persistent",
 				Name:              "mysql-csi-e2e",
 				BackupRestoreType: CSI,
-				PreBackupVerify:   mysqlReady(true, false, CSI),
-				PostRestoreVerify: mysqlReady(false, false, CSI),
+				PreBackupVerify:   todoListReady(true, false, "mysql"),
+				PostRestoreVerify: todoListReady(false, false, "mysql"),
 				BackupTimeout:     20 * time.Minute,
 			},
 		}, nil),
@@ -341,8 +310,8 @@ var _ = Describe("Backup and restore tests", func() {
 				Namespace:         "mongo-persistent",
 				Name:              "mongo-csi-e2e",
 				BackupRestoreType: CSI,
-				PreBackupVerify:   mongoready(true, false, CSI),
-				PostRestoreVerify: mongoready(false, false, CSI),
+				PreBackupVerify:   todoListReady(true, false, "mongo"),
+				PostRestoreVerify: todoListReady(false, false, "mongo"),
 				BackupTimeout:     20 * time.Minute,
 			},
 		}, nil),
@@ -352,8 +321,8 @@ var _ = Describe("Backup and restore tests", func() {
 				Namespace:         "mysql-persistent",
 				Name:              "mysql-twovol-csi-e2e",
 				BackupRestoreType: CSI,
-				PreBackupVerify:   mysqlReady(true, true, CSI),
-				PostRestoreVerify: mysqlReady(false, true, CSI),
+				PreBackupVerify:   todoListReady(true, true, "mysql"),
+				PostRestoreVerify: todoListReady(false, true, "mysql"),
 				BackupTimeout:     20 * time.Minute,
 			},
 		}, nil),
@@ -363,8 +332,8 @@ var _ = Describe("Backup and restore tests", func() {
 				Namespace:         "mongo-persistent",
 				Name:              "mongo-restic-e2e",
 				BackupRestoreType: RESTIC,
-				PreBackupVerify:   mongoready(true, false, RESTIC),
-				PostRestoreVerify: mongoready(false, false, RESTIC),
+				PreBackupVerify:   todoListReady(true, false, "mongo"),
+				PostRestoreVerify: todoListReady(false, false, "mongo"),
 				BackupTimeout:     20 * time.Minute,
 			},
 		}, nil),
@@ -374,8 +343,8 @@ var _ = Describe("Backup and restore tests", func() {
 				Namespace:         "mysql-persistent",
 				Name:              "mysql-restic-e2e",
 				BackupRestoreType: RESTIC,
-				PreBackupVerify:   mysqlReady(true, false, RESTIC),
-				PostRestoreVerify: mysqlReady(false, false, RESTIC),
+				PreBackupVerify:   todoListReady(true, false, "mysql"),
+				PostRestoreVerify: todoListReady(false, false, "mysql"),
 				BackupTimeout:     20 * time.Minute,
 			},
 		}, nil),
@@ -385,8 +354,8 @@ var _ = Describe("Backup and restore tests", func() {
 				Namespace:         "mongo-persistent",
 				Name:              "mongo-kopia-e2e",
 				BackupRestoreType: KOPIA,
-				PreBackupVerify:   mongoready(true, false, KOPIA),
-				PostRestoreVerify: mongoready(false, false, KOPIA),
+				PreBackupVerify:   todoListReady(true, false, "mongo"),
+				PostRestoreVerify: todoListReady(false, false, "mongo"),
 				BackupTimeout:     20 * time.Minute,
 			},
 		}, nil),
@@ -396,8 +365,8 @@ var _ = Describe("Backup and restore tests", func() {
 				Namespace:         "mysql-persistent",
 				Name:              "mysql-kopia-e2e",
 				BackupRestoreType: KOPIA,
-				PreBackupVerify:   mysqlReady(true, false, KOPIA),
-				PostRestoreVerify: mysqlReady(false, false, KOPIA),
+				PreBackupVerify:   todoListReady(true, false, "mysql"),
+				PostRestoreVerify: todoListReady(false, false, "mysql"),
 				BackupTimeout:     20 * time.Minute,
 			},
 		}, nil),
@@ -407,8 +376,8 @@ var _ = Describe("Backup and restore tests", func() {
 				Namespace:         "mongo-persistent",
 				Name:              "mongo-datamover-e2e",
 				BackupRestoreType: CSIDataMover,
-				PreBackupVerify:   mongoready(true, false, CSIDataMover),
-				PostRestoreVerify: mongoready(false, false, CSIDataMover),
+				PreBackupVerify:   todoListReady(true, false, "mongo"),
+				PostRestoreVerify: todoListReady(false, false, "mongo"),
 				BackupTimeout:     20 * time.Minute,
 			},
 		}, nil),
@@ -418,8 +387,8 @@ var _ = Describe("Backup and restore tests", func() {
 				Namespace:         "mysql-persistent",
 				Name:              "mysql-datamover-e2e",
 				BackupRestoreType: CSIDataMover,
-				PreBackupVerify:   mysqlReady(true, false, CSIDataMover),
-				PostRestoreVerify: mysqlReady(false, false, CSIDataMover),
+				PreBackupVerify:   todoListReady(true, false, "mysql"),
+				PostRestoreVerify: todoListReady(false, false, "mysql"),
 				BackupTimeout:     20 * time.Minute,
 			},
 		}, nil),
@@ -430,8 +399,8 @@ var _ = Describe("Backup and restore tests", func() {
 				Namespace:         "mongo-persistent",
 				Name:              "mongo-blockdevice-e2e",
 				BackupRestoreType: CSIDataMover,
-				PreBackupVerify:   mongoready(true, false, CSIDataMover),
-				PostRestoreVerify: mongoready(false, false, CSIDataMover),
+				PreBackupVerify:   todoListReady(true, false, "mongo"),
+				PostRestoreVerify: todoListReady(false, false, "mongo"),
 				BackupTimeout:     20 * time.Minute,
 			},
 		}, nil),
