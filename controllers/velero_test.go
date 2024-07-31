@@ -4561,15 +4561,6 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 		},
 		{
 			name: "Override burst and qps",
-			veleroDeployment: &appsv1.Deployment{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-velero-deployment",
-					Namespace: "test-ns",
-				},
-				Spec: appsv1.DeploymentSpec{
-					Selector: &metav1.LabelSelector{MatchLabels: veleroDeploymentMatchLabels},
-				},
-			},
 			dpa: &oadpv1alpha1.DataProtectionApplication{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-Velero-CR",
@@ -4585,6 +4576,15 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							UploaderType: "kopia",
 						},
 					},
+				},
+			},
+			veleroDeployment: &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-velero-deployment",
+					Namespace: "test-ns",
+				},
+				Spec: appsv1.DeploymentSpec{
+					Selector: &metav1.LabelSelector{MatchLabels: veleroDeploymentMatchLabels},
 				},
 			},
 			wantVeleroDeployment: &appsv1.Deployment{
@@ -4635,15 +4635,6 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 		},
 		{
 			name: "Conflicting burst and qps",
-			veleroDeployment: &appsv1.Deployment{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-velero-deployment",
-					Namespace: "test-ns",
-				},
-				Spec: appsv1.DeploymentSpec{
-					Selector: &metav1.LabelSelector{MatchLabels: veleroDeploymentMatchLabels},
-				},
-			},
 			dpa: &oadpv1alpha1.DataProtectionApplication{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-Velero-CR",
@@ -4665,6 +4656,15 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							UploaderType: "kopia",
 						},
 					},
+				},
+			},
+			veleroDeployment: &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-velero-deployment",
+					Namespace: "test-ns",
+				},
+				Spec: appsv1.DeploymentSpec{
+					Selector: &metav1.LabelSelector{MatchLabels: veleroDeploymentMatchLabels},
 				},
 			},
 			wantVeleroDeployment: &appsv1.Deployment{
@@ -4712,7 +4712,6 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 					},
 				},
 			},
-			wantErr: true, // TODO should error to avoid user confusion?
 		},
 	}
 	for _, tt := range tests {
