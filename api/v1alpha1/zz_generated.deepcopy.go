@@ -663,6 +663,16 @@ func (in *VeleroConfig) DeepCopyInto(out *VeleroConfig) {
 		*out = new(bool)
 		**out = **in
 	}
+	if in.ClientBurst != nil {
+		in, out := &in.ClientBurst, &out.ClientBurst
+		*out = new(int)
+		**out = **in
+	}
+	if in.ClientQPS != nil {
+		in, out := &in.ClientQPS, &out.ClientQPS
+		*out = new(int)
+		**out = **in
+	}
 	if in.Args != nil {
 		in, out := &in.Args, &out.Args
 		*out = new(server.Args)

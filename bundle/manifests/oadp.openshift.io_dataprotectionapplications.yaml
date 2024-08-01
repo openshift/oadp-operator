@@ -798,6 +798,12 @@ spec:
                               description: comma-separated list of pattern=N settings for file-filtered logging
                               type: string
                           type: object
+                        client-burst:
+                          description: maximum number of requests by the server to the Kubernetes API in a short period of time. (default 100)
+                          type: integer
+                        client-qps:
+                          description: maximum number of requests per second by the server to the Kubernetes API once the burst limit has been reached. (default 100)
+                          type: integer
                         customPlugins:
                           description: customPlugins defines the custom plugin to be installed with Velero
                           items:

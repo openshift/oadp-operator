@@ -4559,6 +4559,160 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "Override burst and qps",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-Velero-CR",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							ClientBurst: ptr.To(123),
+							ClientQPS:   ptr.To(123),
+						},
+						NodeAgent: &oadpv1alpha1.NodeAgentConfig{
+							UploaderType: "kopia",
+						},
+					},
+				},
+			},
+			veleroDeployment: &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-velero-deployment",
+					Namespace: "test-ns",
+				},
+				Spec: appsv1.DeploymentSpec{
+					Selector: &metav1.LabelSelector{MatchLabels: veleroDeploymentMatchLabels},
+				},
+			},
+			wantVeleroDeployment: &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-velero-deployment",
+					Namespace: "test-ns",
+					Labels:    veleroDeploymentLabel,
+				},
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "Deployment",
+					APIVersion: appsv1.SchemeGroupVersion.String(),
+				},
+				Spec: appsv1.DeploymentSpec{
+					Selector: &metav1.LabelSelector{MatchLabels: veleroDeploymentMatchLabels},
+					Replicas: ptr.To(int32(1)),
+					Template: corev1.PodTemplateSpec{
+						ObjectMeta: veleroPodObjectMeta,
+						Spec: corev1.PodSpec{
+							RestartPolicy:      corev1.RestartPolicyAlways,
+							ServiceAccountName: common.Velero,
+							Containers: []corev1.Container{
+								{
+									Name:            common.Velero,
+									Image:           common.VeleroImage,
+									ImagePullPolicy: corev1.PullAlways,
+									Ports:           []corev1.ContainerPort{{Name: "metrics", ContainerPort: 8085}},
+									Resources:       corev1.ResourceRequirements{Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("500m"), corev1.ResourceMemory: resource.MustParse("128Mi")}},
+									Command:         []string{"/velero"},
+									Args: []string{
+										"server",
+										"--uploader-type=kopia",
+										defaultFileSystemBackupTimeout,
+										defaultRestoreResourcePriorities,
+										"--client-burst=123",
+										"--client-qps=123",
+										defaultDisableInformerCache,
+									},
+									VolumeMounts: baseVolumeMounts,
+									Env:          baseEnvVars,
+								},
+							},
+							Volumes:        baseVolumes,
+							InitContainers: []corev1.Container{},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "Conflicting burst and qps",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-Velero-CR",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							ClientBurst: ptr.To(123),
+							ClientQPS:   ptr.To(123),
+							Args: &server.Args{
+								ServerConfig: server.ServerConfig{
+									ClientBurst: ptr.To(321),
+									ClientQPS:   ptr.To("321"),
+								},
+							},
+						},
+						NodeAgent: &oadpv1alpha1.NodeAgentConfig{
+							UploaderType: "kopia",
+						},
+					},
+				},
+			},
+			veleroDeployment: &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-velero-deployment",
+					Namespace: "test-ns",
+				},
+				Spec: appsv1.DeploymentSpec{
+					Selector: &metav1.LabelSelector{MatchLabels: veleroDeploymentMatchLabels},
+				},
+			},
+			wantVeleroDeployment: &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-velero-deployment",
+					Namespace: "test-ns",
+					Labels:    veleroDeploymentLabel,
+				},
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "Deployment",
+					APIVersion: appsv1.SchemeGroupVersion.String(),
+				},
+				Spec: appsv1.DeploymentSpec{
+					Selector: &metav1.LabelSelector{MatchLabels: veleroDeploymentMatchLabels},
+					Replicas: ptr.To(int32(1)),
+					Template: corev1.PodTemplateSpec{
+						ObjectMeta: veleroPodObjectMeta,
+						Spec: corev1.PodSpec{
+							RestartPolicy:      corev1.RestartPolicyAlways,
+							ServiceAccountName: common.Velero,
+							Containers: []corev1.Container{
+								{
+									Name:            common.Velero,
+									Image:           common.VeleroImage,
+									ImagePullPolicy: corev1.PullAlways,
+									Ports:           []corev1.ContainerPort{{Name: "metrics", ContainerPort: 8085}},
+									Resources:       corev1.ResourceRequirements{Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("500m"), corev1.ResourceMemory: resource.MustParse("128Mi")}},
+									Command:         []string{"/velero"},
+									Args: []string{
+										"server",
+										// should be present... "--uploader-type=kopia",
+										"--client-burst=321",
+										"--client-qps=321",
+										"--fs-backup-timeout=4h0m0s",
+										defaultRestoreResourcePriorities,
+										defaultDisableInformerCache,
+									},
+									VolumeMounts: baseVolumeMounts,
+									Env:          baseEnvVars,
+								},
+							},
+							Volumes:        baseVolumes,
+							InitContainers: []corev1.Container{},
+						},
+					},
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
