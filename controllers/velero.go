@@ -569,6 +569,13 @@ func (r *DPAReconciler) customizeVeleroContainer(dpa *oadpv1alpha1.DataProtectio
 	veleroContainer.Args = append(veleroContainer.Args, fmt.Sprintf("--fs-backup-timeout=%s", getFsBackupTimeout(dpa)))
 	// Overriding velero restore resource priorities to OpenShift default (ie. SecurityContextConstraints needs to be restored before pod/SA)
 	veleroContainer.Args = append(veleroContainer.Args, fmt.Sprintf("--restore-resource-priorities=%s", common.DefaultRestoreResourcePriorities.String()))
+
+	if dpa.Spec.Configuration.Velero != nil && dpa.Spec.Configuration.Velero.ClientBurst != nil {
+		veleroContainer.Args = append(veleroContainer.Args, fmt.Sprintf("--client-burst=%v", *dpa.Spec.Configuration.Velero.ClientBurst))
+	}
+	if dpa.Spec.Configuration.Velero != nil && dpa.Spec.Configuration.Velero.ClientQPS != nil {
+		veleroContainer.Args = append(veleroContainer.Args, fmt.Sprintf("--client-qps=%v", *dpa.Spec.Configuration.Velero.ClientQPS))
+	}
 	setContainerDefaults(veleroContainer)
 	// if server args is set, override the default server args
 	if dpa.Spec.Configuration.Velero.Args != nil {
