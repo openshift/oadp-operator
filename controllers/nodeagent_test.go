@@ -250,6 +250,13 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 				},
 			},
 			wantErr: false,
+			clientObjects: []client.Object{
+				&configv1.Infrastructure{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "cluster",
+					},
+				},
+			},
 			want: &appsv1.DaemonSet{
 				ObjectMeta: getNodeAgentObjectMeta(r),
 				TypeMeta: metav1.TypeMeta{
@@ -413,6 +420,13 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 				},
 			},
 			wantErr: false,
+			clientObjects: []client.Object{
+				&configv1.Infrastructure{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "cluster",
+					},
+				},
+			},
 			want: &appsv1.DaemonSet{
 				ObjectMeta: getNodeAgentObjectMeta(r),
 				TypeMeta: metav1.TypeMeta{
@@ -581,6 +595,13 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 				},
 			},
 			wantErr: false,
+			clientObjects: []client.Object{
+				&configv1.Infrastructure{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "cluster",
+					},
+				},
+			},
 			want: &appsv1.DaemonSet{
 				ObjectMeta: getNodeAgentObjectMeta(r),
 				TypeMeta: metav1.TypeMeta{
@@ -746,7 +767,14 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 				},
 			},
 			wantErr: true,
-			want:    nil,
+			clientObjects: []client.Object{
+				&configv1.Infrastructure{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "cluster",
+					},
+				},
+			},
+			want: nil,
 		},
 		{
 			name: "test NodeAgent nodeselector customization via dpa",
@@ -777,6 +805,13 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 				},
 			},
 			wantErr: false,
+			clientObjects: []client.Object{
+				&configv1.Infrastructure{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "cluster",
+					},
+				},
+			},
 			want: &appsv1.DaemonSet{
 				ObjectMeta: getNodeAgentObjectMeta(r),
 				TypeMeta: metav1.TypeMeta{
@@ -968,6 +1003,13 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 				},
 			},
 			wantErr: false,
+			clientObjects: []client.Object{
+				&configv1.Infrastructure{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "cluster",
+					},
+				},
+			},
 			want: &appsv1.DaemonSet{
 				ObjectMeta: getNodeAgentObjectMeta(r),
 				TypeMeta: metav1.TypeMeta{
@@ -1158,6 +1200,13 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 				},
 			},
 			wantErr: false,
+			clientObjects: []client.Object{
+				&configv1.Infrastructure{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "cluster",
+					},
+				},
+			},
 			want: &appsv1.DaemonSet{
 				ObjectMeta: getNodeAgentObjectMeta(r),
 				TypeMeta: metav1.TypeMeta{
@@ -1347,6 +1396,13 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 				},
 			},
 			wantErr: false,
+			clientObjects: []client.Object{
+				&configv1.Infrastructure{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "cluster",
+					},
+				},
+			},
 			want: &appsv1.DaemonSet{
 				ObjectMeta: getNodeAgentObjectMeta(r),
 				TypeMeta: metav1.TypeMeta{
@@ -1533,6 +1589,13 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 				},
 			},
 			wantErr: false,
+			clientObjects: []client.Object{
+				&configv1.Infrastructure{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "cluster",
+					},
+				},
+			},
 			want: &appsv1.DaemonSet{
 				ObjectMeta: getNodeAgentObjectMeta(r),
 				TypeMeta: metav1.TypeMeta{
@@ -1722,6 +1785,13 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 				},
 			},
 			wantErr: false,
+			clientObjects: []client.Object{
+				&configv1.Infrastructure{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "cluster",
+					},
+				},
+			},
 			want: &appsv1.DaemonSet{
 				ObjectMeta: getNodeAgentObjectMeta(r),
 				TypeMeta: metav1.TypeMeta{
@@ -1908,6 +1978,13 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 				},
 			},
 			wantErr: false,
+			clientObjects: []client.Object{
+				&configv1.Infrastructure{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "cluster",
+					},
+				},
+			},
 			want: &appsv1.DaemonSet{
 				ObjectMeta: getNodeAgentObjectMeta(r),
 				TypeMeta: metav1.TypeMeta{
@@ -2106,6 +2183,11 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 						"unsupported-bool-arg": "True",
 					},
 				},
+				&configv1.Infrastructure{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "cluster",
+					},
+				},
 			},
 			wantErr: false,
 			want: &appsv1.DaemonSet{
@@ -2302,6 +2384,11 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 						"unsupported-bool-arg": "True",
 					},
 				},
+				&configv1.Infrastructure{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "cluster",
+					},
+				},
 			},
 			wantErr: false,
 			want: &appsv1.DaemonSet{
@@ -2486,7 +2573,14 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 				},
 			},
 			wantErr: true,
-			want:    nil,
+			clientObjects: []client.Object{
+				&configv1.Infrastructure{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "cluster",
+					},
+				},
+			},
+			want: nil,
 		},
 		{
 			name: "Valid velero and daemon set for aws as bsl",
@@ -2513,6 +2607,13 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 				},
 			},
 			wantErr: false,
+			clientObjects: []client.Object{
+				&configv1.Infrastructure{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "cluster",
+					},
+				},
+			},
 			want: &appsv1.DaemonSet{
 				ObjectMeta: getNodeAgentObjectMeta(r),
 				TypeMeta: metav1.TypeMeta{
@@ -2707,6 +2808,13 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 				},
 			},
 			wantErr: false,
+			clientObjects: []client.Object{
+				&configv1.Infrastructure{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "cluster",
+					},
+				},
+			},
 			want: &appsv1.DaemonSet{
 				ObjectMeta: getNodeAgentObjectMeta(r),
 				TypeMeta: metav1.TypeMeta{
@@ -2899,6 +3007,13 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 				},
 			},
 			wantErr: false,
+			clientObjects: []client.Object{
+				&configv1.Infrastructure{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "cluster",
+					},
+				},
+			},
 			want: &appsv1.DaemonSet{
 				ObjectMeta: getNodeAgentObjectMeta(r),
 				TypeMeta: metav1.TypeMeta{
@@ -3215,6 +3330,20 @@ func TestDPAReconciler_getPlatformType(t *testing.T) {
 			want:    IBMCloudPlatform,
 			wantErr: false,
 		},
+		{
+			name: "get empty platform type for non existing infrastructure object",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "sample-dpa",
+					Namespace: "sample-ns",
+				},
+			},
+			clientObjects: []client.Object{
+				&configv1.Infrastructure{},
+			},
+			want:    "",
+			wantErr: true,
+		},
 	}
 	for _, tt := range tests {
 		fakeClient, err := getFakeClientFromObjects(tt.clientObjects...)
@@ -3291,8 +3420,8 @@ func Test_getFsPvHostPath(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			os.Setenv(ResticPVHostPathEnvVar, tt.envRestic)
-			os.Setenv(FSPVHostPathEnvVar, tt.envFS)
+			t.Setenv(ResticPVHostPathEnvVar, tt.envRestic)
+			t.Setenv(FSPVHostPathEnvVar, tt.envFS)
 			if got := getFsPvHostPath(tt.platformType); got != tt.want {
 				t.Errorf("getFsPvHostPath() = %v, want %v", got, tt.want)
 			}
