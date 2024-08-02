@@ -648,6 +648,8 @@ spec:
           - infrastructures
           verbs:
           - get
+          - list
+          - watch
         - apiGroups:
           - cloudcredential.openshift.io
           resources:
@@ -904,6 +906,10 @@ spec:
                   valueFrom:
                     fieldRef:
                       fieldPath: metadata.annotations['olm.targetNamespaces']
+                - name: RESTIC_PV_HOSTPATH
+                  value: ""
+                - name: FS_PV_HOSTPATH
+                  value: ""
                 - name: RELATED_IMAGE_VELERO
                   value: quay.io/konveyor/velero:latest
                 - name: RELATED_IMAGE_VELERO_RESTORE_HELPER

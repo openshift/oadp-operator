@@ -12,6 +12,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
+	configv1 "github.com/openshift/api/config/v1"
 	"github.com/operator-framework/operator-lib/proxy"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -3178,6 +3179,122 @@ func TestDPAReconciler_updateFsRestoreHelperCM(t *testing.T) {
 			}
 			if !reflect.DeepEqual(tt.fsRestoreHelperCM, tt.wantFsRestoreHelperCM) {
 				t.Errorf("updateFsRestoreHelperCM() got CM = %v, want CM %v", tt.fsRestoreHelperCM, tt.wantFsRestoreHelperCM)
+			}
+		})
+	}
+}
+
+func TestDPAReconciler_getPlatformType(t *testing.T) {
+	tests := []struct {
+		name          string
+		dpa           *oadpv1alpha1.DataProtectionApplication
+		clientObjects []client.Object
+		want          string
+		wantErr       bool
+	}{
+		{
+			name: "get IBMCloud platform type from infrastructure object",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "sample-dpa",
+					Namespace: "sample-ns",
+				},
+			},
+			clientObjects: []client.Object{
+				&configv1.Infrastructure{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "cluster",
+					},
+					Status: configv1.InfrastructureStatus{
+						PlatformStatus: &configv1.PlatformStatus{
+							Type: configv1.IBMCloudPlatformType,
+						},
+					},
+				},
+			},
+			want:    IBMCloudPlatform,
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		fakeClient, err := getFakeClientFromObjects(tt.clientObjects...)
+		if err != nil {
+			t.Errorf("error in creating fake client, likely programmer error")
+		}
+		t.Run(tt.name, func(t *testing.T) {
+			r := &DPAReconciler{
+				Client:  fakeClient,
+				Scheme:  fakeClient.Scheme(),
+				Log:     logr.Discard(),
+				Context: newContextForTest(tt.name),
+				NamespacedName: types.NamespacedName{
+					Namespace: tt.dpa.Namespace,
+					Name:      tt.dpa.Name,
+				},
+				EventRecorder: record.NewFakeRecorder(10),
+			}
+			got, err := r.getPlatformType()
+			if (err != nil) != tt.wantErr {
+				t.Errorf("getPlatformType() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("getPlatformType() got = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_getFsPvHostPath(t *testing.T) {
+	tests := []struct {
+		name         string
+		platformType string
+		envRestic    string
+		envFS        string
+		want         string
+	}{
+		{
+			name:         "generic pv host path returned for empty platform type case",
+			platformType: "",
+			envRestic:    "",
+			envFS:        "",
+			want:         GenericPVHostPath,
+		},
+		{
+			name:         "IBMCloud pv host path returned for IBMCloud platform type",
+			platformType: IBMCloudPlatform,
+			envRestic:    "",
+			envFS:        "",
+			want:         IBMCloudPVHostPath,
+		},
+		{
+			name:         "empty platform type with restic env var set",
+			platformType: "",
+			envRestic:    "/foo/restic/bar",
+			envFS:        "",
+			want:         "/foo/restic/bar",
+		},
+		{
+			name:         "empty platform type with fs env var set",
+			platformType: "",
+			envRestic:    "",
+			envFS:        "/foo/file-system/bar",
+			want:         "/foo/file-system/bar",
+		},
+		{
+			name:         "IBMCloud platform type but env var also set, env var takes precedence",
+			platformType: IBMCloudPlatform,
+			envRestic:    "",
+			envFS:        "/foo/file-system/env/var/override",
+			want:         "/foo/file-system/env/var/override",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			os.Setenv(ResticPVHostPathEnvVar, tt.envRestic)
+			os.Setenv(FSPVHostPathEnvVar, tt.envFS)
+			if got := getFsPvHostPath(tt.platformType); got != tt.want {
+				t.Errorf("getFsPvHostPath() = %v, want %v", got, tt.want)
 			}
 		})
 	}
