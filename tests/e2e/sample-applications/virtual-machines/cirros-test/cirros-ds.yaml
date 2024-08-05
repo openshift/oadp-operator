@@ -1,0 +1,31 @@
+apiVersion: v1
+kind: List
+items:
+  - apiVersion: cdi.kubevirt.io/v1beta1
+    kind: DataVolume
+    metadata:
+      annotations:
+        cdi.kubevirt.io/storage.bind.immediate.requested: ""
+        cdi.kubevirt.io/storage.deleteAfterCompletion: "false"
+      name: cirros
+      namespace: cirros-test
+    spec:
+      pvc:
+        accessModes:
+        - ReadWriteOnce
+        resources:
+          requests:
+            storage: 128Mi
+      source:
+        http:
+          url: https://download.cirros-cloud.net/0.6.2/cirros-0.6.2-x86_64-disk.img
+  - apiVersion: cdi.kubevirt.io/v1beta1
+    kind: DataSource
+    metadata:
+      name: cirros
+      namespace: cirros-test
+    spec:
+      source:
+        pvc:
+          name: cirros
+          namespace: cirros-test
