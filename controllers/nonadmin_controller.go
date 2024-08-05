@@ -166,11 +166,12 @@ func ensureRequiredSpecs(deploymentObject *appsv1.Deployment, image string, imag
 			Env:             []corev1.EnvVar{namespaceEnvVar},
 		}}
 	} else {
-		for _, container := range deploymentObject.Spec.Template.Spec.Containers {
+		for index, container := range deploymentObject.Spec.Template.Spec.Containers {
 			if container.Name == nonAdminObjectName {
-				container.Image = image
-				container.ImagePullPolicy = imagePullPolicy
-				container.Env = []corev1.EnvVar{namespaceEnvVar}
+				nonAdminContainer := &deploymentObject.Spec.Template.Spec.Containers[index]
+				nonAdminContainer.Image = image
+				nonAdminContainer.ImagePullPolicy = imagePullPolicy
+				nonAdminContainer.Env = []corev1.EnvVar{namespaceEnvVar}
 				break
 			}
 		}
