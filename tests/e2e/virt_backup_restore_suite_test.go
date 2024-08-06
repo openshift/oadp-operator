@@ -302,6 +302,7 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 				BackupTimeout:     20 * time.Minute,
 				PreBackupVerify:   vmPoweredOff("cirros-test", "cirros-test"),
 			},
+			RestoreErr: errors.New("fail to patch dynamic PV"),
 		}, nil),
 
 		ginkgo.Entry("immediate binding no-application CSI backup and restore, powered-off CirrOS VM", ginkgo.Label("virt"), VmBackupRestoreCase{
