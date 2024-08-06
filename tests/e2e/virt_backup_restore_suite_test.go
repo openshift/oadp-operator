@@ -276,6 +276,7 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 				BackupRestoreType: lib.CSIDataMover,
 				BackupTimeout:     20 * time.Minute,
 			},
+			RestoreErr: errors.New("fail to patch dynamic PV"),
 		}, nil),
 
 		ginkgo.Entry("immediate binding no-application CSI backup and restore, CirrOS VM", ginkgo.Label("virt"), VmBackupRestoreCase{
