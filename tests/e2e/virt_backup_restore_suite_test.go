@@ -131,7 +131,7 @@ func runVmBackupAndRestore(brCase VmBackupRestoreCase, expectedErr error, update
 	Expect(err).To(BeNil())
 }
 
-var _ = Describe("VM backup and restore tests", Ordered, func() {
+var _ = Describe("VM backup and restore tests", func() {
 	var v *lib.VirtOperator
 	var err error
 	wasInstalledFromTest := false
