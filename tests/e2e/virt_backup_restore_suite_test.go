@@ -1,7 +1,6 @@
 package e2e_test
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -12,7 +11,6 @@ import (
 
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -201,7 +199,8 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 			v.EnsureVirtRemoval()
 		}
 
-		err := v.Clientset.StorageV1().StorageClasses().Delete(context.TODO(), "test-gp3-csi-immediate", metav1.DeleteOptions{})
+		storageClassYaml := fmt.Sprintf("./sample-applications/storageclass-immediate/%s-immediate.yaml", provider)
+		err := lib.UninstallApplication(v.Client, storageClassYaml)
 		gomega.Expect(err).To(gomega.BeNil())
 	})
 
