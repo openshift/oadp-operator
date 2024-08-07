@@ -150,7 +150,7 @@ func runVmBackupAndRestore(brCase VmBackupRestoreCase, expectedErr error, update
 	gomega.Expect(err).To(gomega.BeNil())
 }
 
-var _ = ginkgo.Describe("VM backup and restore tests", func() {
+var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 	var v *lib.VirtOperator
 	var err error
 	wasInstalledFromTest := false
