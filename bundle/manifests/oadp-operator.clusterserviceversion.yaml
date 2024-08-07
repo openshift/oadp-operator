@@ -910,6 +910,8 @@ spec:
                   value: ""
                 - name: FS_PV_HOSTPATH
                   value: ""
+                - name: PLUGINS_HOSTPATH
+                  value: ""
                 - name: RELATED_IMAGE_VELERO
                   value: quay.io/konveyor/velero:latest
                 - name: RELATED_IMAGE_VELERO_RESTORE_HELPER

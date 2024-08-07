@@ -26,20 +26,24 @@ import (
 )
 
 const (
-	ResticRestoreHelperCM  = "restic-restore-action-config"
-	FsRestoreHelperCM      = "fs-restore-action-config"
-	HostPods               = "host-pods"
-	HostPlugins            = "host-plugins"
-	Cluster                = "cluster"
-	IBMCloudPlatform       = "IBMCloud"
-	GenericPVHostPath      = "/var/lib/kubelet/pods"
-	IBMCloudPVHostPath     = "/var/data/kubelet/pods"
-	ResticPVHostPathEnvVar = "RESTIC_PV_HOSTPATH"
-	FSPVHostPathEnvVar     = "FS_PV_HOSTPATH"
+	ResticRestoreHelperCM   = "restic-restore-action-config"
+	FsRestoreHelperCM       = "fs-restore-action-config"
+	HostPods                = "host-pods"
+	HostPlugins             = "host-plugins"
+	Cluster                 = "cluster"
+	IBMCloudPlatform        = "IBMCloud"
+	GenericPVHostPath       = "/var/lib/kubelet/pods"
+	IBMCloudPVHostPath      = "/var/data/kubelet/pods"
+	GenericPluginsHostPath  = "/var/lib/kubelet/plugins"
+	IBMCloudPluginsHostPath = "/var/data/kubelet/plugins"
+	ResticPVHostPathEnvVar  = "RESTIC_PV_HOSTPATH"
+	FSPVHostPathEnvVar      = "FS_PV_HOSTPATH"
+	PluginsHostPathEnvVar   = "PLUGINS_HOSTPATH"
 )
 
 var (
-	fsPvHostPath = getFsPvHostPath("")
+	fsPvHostPath    = getFsPvHostPath("")
+	pluginsHostPath = getPluginsHostPath("")
 
 	// v1.MountPropagationHostToContainer is a const. Const cannot be pointed to.
 	// we need to declare mountPropagationToHostContainer so that we have an address to point to
@@ -70,6 +74,22 @@ func getFsPvHostPath(platformType string) string {
 		return IBMCloudPVHostPath
 	default:
 		return GenericPVHostPath
+	}
+}
+
+// getPluginsHostPath returns the host path for persistent volumes based on the platform type.
+func getPluginsHostPath(platformType string) string {
+	// Check if environment var is set for host plugins
+	if env := os.Getenv(PluginsHostPathEnvVar); env != "" {
+		return env
+	}
+
+	// Return platform-specific host paths
+	switch platformType {
+	case IBMCloudPlatform:
+		return IBMCloudPluginsHostPath
+	default:
+		return GenericPluginsHostPath
 	}
 }
 
@@ -304,6 +324,13 @@ func (r *DPAReconciler) customizeNodeAgentDaemonset(dpa *oadpv1alpha1.DataProtec
 		}
 	}
 
+	// update nodeAgent plugins host path
+	for i, vol := range ds.Spec.Template.Spec.Volumes {
+		if vol.Name == HostPlugins {
+			ds.Spec.Template.Spec.Volumes[i].HostPath.Path = getPluginsHostPath(platformType)
+		}
+	}
+
 	// Update with any pod config values
 	if useResticConf {
 		if dpa.Spec.Configuration.Restic.PodConfig != nil {
@@ -326,6 +353,13 @@ func (r *DPAReconciler) customizeNodeAgentDaemonset(dpa *oadpv1alpha1.DataProtec
 				Name:      "certs",
 				MountPath: "/etc/ssl/certs",
 			})
+
+			// update nodeAgent plugins volume mount host path
+			for v, volumeMount := range nodeAgentContainer.VolumeMounts {
+				if volumeMount.Name == HostPlugins {
+					nodeAgentContainer.VolumeMounts[v].MountPath = getPluginsHostPath(platformType)
+				}
+			}
 			// append PodConfig envs to nodeAgent container
 			if useResticConf {
 				if dpa.Spec.Configuration.Restic.PodConfig != nil && dpa.Spec.Configuration.Restic.PodConfig.Env != nil {

@@ -296,7 +296,7 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 									Name: HostPlugins,
 									VolumeSource: corev1.VolumeSource{
 										HostPath: &corev1.HostPathVolumeSource{
-											Path: "/var/lib/kubelet/plugins",
+											Path: pluginsHostPath,
 										},
 									},
 								},
@@ -344,7 +344,7 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 										},
 										{
 											Name:             HostPlugins,
-											MountPath:        "/var/lib/kubelet/plugins",
+											MountPath:        pluginsHostPath,
 											MountPropagation: &mountPropagationToHostContainer,
 										},
 										{
@@ -466,7 +466,7 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 									Name: HostPlugins,
 									VolumeSource: corev1.VolumeSource{
 										HostPath: &corev1.HostPathVolumeSource{
-											Path: "/var/lib/kubelet/plugins",
+											Path: pluginsHostPath,
 										},
 									},
 								},
@@ -514,7 +514,7 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 										},
 										{
 											Name:             HostPlugins,
-											MountPath:        "/var/lib/kubelet/plugins",
+											MountPath:        pluginsHostPath,
 											MountPropagation: &mountPropagationToHostContainer,
 										},
 										{
@@ -642,7 +642,7 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 									Name: HostPlugins,
 									VolumeSource: corev1.VolumeSource{
 										HostPath: &corev1.HostPathVolumeSource{
-											Path: "/var/lib/kubelet/plugins",
+											Path: pluginsHostPath,
 										},
 									},
 								},
@@ -690,7 +690,7 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 										},
 										{
 											Name:             HostPlugins,
-											MountPath:        "/var/lib/kubelet/plugins",
+											MountPath:        pluginsHostPath,
 											MountPropagation: &mountPropagationToHostContainer,
 										},
 										{
@@ -853,7 +853,7 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 									Name: HostPlugins,
 									VolumeSource: corev1.VolumeSource{
 										HostPath: &corev1.HostPathVolumeSource{
-											Path: "/var/lib/kubelet/plugins",
+											Path: pluginsHostPath,
 										},
 									},
 								},
@@ -909,7 +909,7 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 										},
 										{
 											Name:             HostPlugins,
-											MountPath:        "/var/lib/kubelet/plugins",
+											MountPath:        pluginsHostPath,
 											MountPropagation: &mountPropagationToHostContainer,
 										},
 										{
@@ -1051,7 +1051,7 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 									Name: HostPlugins,
 									VolumeSource: corev1.VolumeSource{
 										HostPath: &corev1.HostPathVolumeSource{
-											Path: "/var/lib/kubelet/plugins",
+											Path: pluginsHostPath,
 										},
 									},
 								},
@@ -1107,7 +1107,7 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 										},
 										{
 											Name:             HostPlugins,
-											MountPath:        "/var/lib/kubelet/plugins",
+											MountPath:        pluginsHostPath,
 											MountPropagation: &mountPropagationToHostContainer,
 										},
 										{
@@ -1248,7 +1248,7 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 									Name: HostPlugins,
 									VolumeSource: corev1.VolumeSource{
 										HostPath: &corev1.HostPathVolumeSource{
-											Path: "/var/lib/kubelet/plugins",
+											Path: pluginsHostPath,
 										},
 									},
 								},
@@ -1304,7 +1304,7 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 										},
 										{
 											Name:             HostPlugins,
-											MountPath:        "/var/lib/kubelet/plugins",
+											MountPath:        pluginsHostPath,
 											MountPropagation: &mountPropagationToHostContainer,
 										},
 										{
@@ -1444,7 +1444,7 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 									Name: HostPlugins,
 									VolumeSource: corev1.VolumeSource{
 										HostPath: &corev1.HostPathVolumeSource{
-											Path: "/var/lib/kubelet/plugins",
+											Path: pluginsHostPath,
 										},
 									},
 								},
@@ -1500,7 +1500,7 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 										},
 										{
 											Name:             HostPlugins,
-											MountPath:        "/var/lib/kubelet/plugins",
+											MountPath:        pluginsHostPath,
 											MountPropagation: &mountPropagationToHostContainer,
 										},
 										{
@@ -1637,7 +1637,7 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 									Name: HostPlugins,
 									VolumeSource: corev1.VolumeSource{
 										HostPath: &corev1.HostPathVolumeSource{
-											Path: "/var/lib/kubelet/plugins",
+											Path: pluginsHostPath,
 										},
 									},
 								},
@@ -1693,7 +1693,7 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 										},
 										{
 											Name:             HostPlugins,
-											MountPath:        "/var/lib/kubelet/plugins",
+											MountPath:        pluginsHostPath,
 											MountPropagation: &mountPropagationToHostContainer,
 										},
 										{
@@ -1833,7 +1833,7 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 									Name: HostPlugins,
 									VolumeSource: corev1.VolumeSource{
 										HostPath: &corev1.HostPathVolumeSource{
-											Path: "/var/lib/kubelet/plugins",
+											Path: pluginsHostPath,
 										},
 									},
 								},
@@ -1889,7 +1889,7 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 										},
 										{
 											Name:             HostPlugins,
-											MountPath:        "/var/lib/kubelet/plugins",
+											MountPath:        pluginsHostPath,
 											MountPropagation: &mountPropagationToHostContainer,
 										},
 										{
@@ -2023,7 +2023,7 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 									Name: HostPlugins,
 									VolumeSource: corev1.VolumeSource{
 										HostPath: &corev1.HostPathVolumeSource{
-											Path: "/var/lib/kubelet/plugins",
+											Path: pluginsHostPath,
 										},
 									},
 								},
@@ -2086,7 +2086,7 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 										},
 										{
 											Name:             HostPlugins,
-											MountPath:        "/var/lib/kubelet/plugins",
+											MountPath:        pluginsHostPath,
 											MountPropagation: &mountPropagationToHostContainer,
 										},
 										{
@@ -2229,7 +2229,7 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 									Name: HostPlugins,
 									VolumeSource: corev1.VolumeSource{
 										HostPath: &corev1.HostPathVolumeSource{
-											Path: "/var/lib/kubelet/plugins",
+											Path: pluginsHostPath,
 										},
 									},
 								},
@@ -2287,7 +2287,7 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 										},
 										{
 											Name:             HostPlugins,
-											MountPath:        "/var/lib/kubelet/plugins",
+											MountPath:        pluginsHostPath,
 											MountPropagation: &mountPropagationToHostContainer,
 										},
 										{
@@ -2430,7 +2430,7 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 									Name: HostPlugins,
 									VolumeSource: corev1.VolumeSource{
 										HostPath: &corev1.HostPathVolumeSource{
-											Path: "/var/lib/kubelet/plugins",
+											Path: pluginsHostPath,
 										},
 									},
 								},
@@ -2486,7 +2486,7 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 										},
 										{
 											Name:             HostPlugins,
-											MountPath:        "/var/lib/kubelet/plugins",
+											MountPath:        pluginsHostPath,
 											MountPropagation: &mountPropagationToHostContainer,
 										},
 										{
@@ -2653,7 +2653,7 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 									Name: HostPlugins,
 									VolumeSource: corev1.VolumeSource{
 										HostPath: &corev1.HostPathVolumeSource{
-											Path: "/var/lib/kubelet/plugins",
+											Path: pluginsHostPath,
 										},
 									},
 								},
@@ -2709,7 +2709,7 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 										},
 										{
 											Name:             HostPlugins,
-											MountPath:        "/var/lib/kubelet/plugins",
+											MountPath:        pluginsHostPath,
 											MountPropagation: &mountPropagationToHostContainer,
 										},
 										{
@@ -2857,7 +2857,7 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 									Name: HostPlugins,
 									VolumeSource: corev1.VolumeSource{
 										HostPath: &corev1.HostPathVolumeSource{
-											Path: "/var/lib/kubelet/plugins",
+											Path: pluginsHostPath,
 										},
 									},
 								},
@@ -2905,7 +2905,7 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 										},
 										{
 											Name:             HostPlugins,
-											MountPath:        "/var/lib/kubelet/plugins",
+											MountPath:        pluginsHostPath,
 											MountPropagation: &mountPropagationToHostContainer,
 										},
 										{
@@ -3072,7 +3072,7 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 									Name: HostPlugins,
 									VolumeSource: corev1.VolumeSource{
 										HostPath: &corev1.HostPathVolumeSource{
-											Path: "/var/lib/kubelet/plugins",
+											Path: pluginsHostPath,
 										},
 									},
 								},
@@ -3128,7 +3128,7 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 										},
 										{
 											Name:             HostPlugins,
-											MountPath:        "/var/lib/kubelet/plugins",
+											MountPath:        pluginsHostPath,
 											MountPropagation: &mountPropagationToHostContainer,
 										},
 										{
@@ -3424,6 +3424,48 @@ func Test_getFsPvHostPath(t *testing.T) {
 			t.Setenv(FSPVHostPathEnvVar, tt.envFS)
 			if got := getFsPvHostPath(tt.platformType); got != tt.want {
 				t.Errorf("getFsPvHostPath() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_getPluginsHostPath(t *testing.T) {
+	tests := []struct {
+		name         string
+		platformType string
+		env          string
+		want         string
+	}{
+		{
+			name:         "generic plugins host path returned for empty platform type case",
+			platformType: "",
+			env:          "",
+			want:         GenericPluginsHostPath,
+		},
+		{
+			name:         "IBMCloud plugins host path returned for IBMCloud platform type",
+			platformType: IBMCloudPlatform,
+			env:          "",
+			want:         IBMCloudPluginsHostPath,
+		},
+		{
+			name:         "empty platform type with env var set",
+			platformType: "",
+			env:          "/foo/plugins/bar",
+			want:         "/foo/plugins/bar",
+		},
+		{
+			name:         "IBMClout platform type and env var also set, env var takes precedence",
+			platformType: IBMCloudPlatform,
+			env:          "/foo/plugins/bar",
+			want:         "/foo/plugins/bar",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Setenv(PluginsHostPathEnvVar, tt.env)
+			if got := getPluginsHostPath(tt.platformType); got != tt.want {
+				t.Errorf("getPluginsHostPath() = %v, want %v", got, tt.want)
 			}
 		})
 	}
