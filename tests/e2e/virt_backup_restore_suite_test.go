@@ -186,8 +186,7 @@ var _ = ginkgo.Describe("VM backup and restore tests", func() {
 
 		dpaCR.VeleroDefaultPlugins = append(dpaCR.VeleroDefaultPlugins, v1alpha1.DefaultPluginKubeVirt)
 
-		storageClassYaml := fmt.Sprintf("./sample-applications/storageclass-immediate/%s-immediate.yaml", provider)
-		err = lib.InstallApplication(v.Client, storageClassYaml)
+		err = v.CreateImmediateModeStorageClass("test-sc-immediate")
 		gomega.Expect(err).To(gomega.BeNil())
 	})
 
@@ -199,8 +198,7 @@ var _ = ginkgo.Describe("VM backup and restore tests", func() {
 			v.EnsureVirtRemoval()
 		}
 
-		storageClassYaml := fmt.Sprintf("./sample-applications/storageclass-immediate/%s-immediate.yaml", provider)
-		err := lib.UninstallApplication(v.Client, storageClassYaml)
+		err := v.RemoveStorageClass("test-sc-immediate")
 		gomega.Expect(err).To(gomega.BeNil())
 	})
 
