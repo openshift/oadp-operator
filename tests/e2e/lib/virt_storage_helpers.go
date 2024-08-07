@@ -2,11 +2,13 @@ package lib
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"strings"
 	"time"
 
+	v1 "k8s.io/api/storage/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -202,4 +204,43 @@ func (v *VirtOperator) CreateDataSourceFromPvc(namespace, name string) error {
 	}
 
 	return nil
+}
+
+// Check the VolumeBindingMode of the default storage class, and make an
+// Immediate-mode copy if it is set to WaitForFirstConsumer.
+func (v *VirtOperator) CreateImmediateModeStorageClass(name string) error {
+	// Find the default storage class
+	storageClasses, err := v.Clientset.StorageV1().StorageClasses().List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		return err
+	}
+	var defaultStorageClass *v1.StorageClass
+	for _, storageClass := range storageClasses.Items {
+		if storageClass.Annotations["storageclass.kubernetes.io/is-default-class"] == "true" {
+			log.Printf("Found default storage class: %s", storageClass.Name)
+			defaultStorageClass = &storageClass
+			if storageClass.VolumeBindingMode != nil && *storageClass.VolumeBindingMode == v1.VolumeBindingImmediate {
+				log.Println("Default storage class already set to Immediate")
+				return nil
+			}
+			break
+		}
+	}
+	if defaultStorageClass == nil {
+		return errors.New("no default storage class found")
+	}
+
+	mode := v1.VolumeBindingImmediate
+	immediateStorageClass := defaultStorageClass.DeepCopy()
+	immediateStorageClass.VolumeBindingMode = &mode
+	immediateStorageClass.Name = name
+	immediateStorageClass.ResourceVersion = ""
+	immediateStorageClass.Annotations["storageclass.kubernetes.io/is-default-class"] = "false"
+
+	_, err = v.Clientset.StorageV1().StorageClasses().Create(context.Background(), immediateStorageClass, metav1.CreateOptions{})
+	return err
+}
+
+func (v *VirtOperator) RemoveStorageClass(name string) error {
+	return v.Clientset.StorageV1().StorageClasses().Delete(context.TODO(), name, metav1.DeleteOptions{})
 }

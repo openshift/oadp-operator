@@ -21,7 +21,7 @@ items:
               resources:
                 requests:
                   storage: 128Mi
-              storageClassName: test-gp3-csi-immediate
+              storageClassName: test-sc-immediate
       running: true
       template:
         metadata:
