@@ -221,6 +221,9 @@ func AppendCloudProviderVolumes(dpa *oadpv1alpha1.DataProtectionApplication, ds 
 		}
 	}
 	for _, bslSpec := range dpa.Spec.BackupLocations {
+		if bslSpec.Velero == nil {
+			return errors.New("spec.backupLocations.velero must be provided in DPA")
+		}
 		if _, ok := bslSpec.Velero.Config["credentialsFile"]; ok {
 			if secretName, err := GetSecretNameFromCredentialsFileConfigString(bslSpec.Velero.Config["credentialsFile"]); err == nil {
 				ds.Spec.Template.Spec.Volumes = append(

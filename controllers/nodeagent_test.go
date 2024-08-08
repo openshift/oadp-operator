@@ -944,7 +944,7 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 			}),
 		},
 		{
-			name: "valid DPA CR with aws plugin from CloudStorage, NodeAgent DaemonSet is built with aws plugin",
+			name: "invalid DPA CR with aws plugin from CloudStorage, error is returned",
 			dpa: createTestDpaWith(
 				nil,
 				oadpv1alpha1.DataProtectionApplicationSpec{
@@ -990,8 +990,8 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 					},
 				},
 			},
-			nodeAgentDaemonSet:     testNodeAgentDaemonSet.DeepCopy(),
-			wantNodeAgentDaemonSet: createTestBuiltNodeAgentDaemonSet(TestBuiltNodeAgentDaemonSetOptions{}),
+			nodeAgentDaemonSet: testNodeAgentDaemonSet.DeepCopy(),
+			errorMessage:       "spec.backupLocations.velero must be provided in DPA",
 		},
 		{
 			name: "valid DPA CR with aws plugin and BSL, NodeAgent DaemonSet is built",

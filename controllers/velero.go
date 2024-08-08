@@ -65,9 +65,6 @@ var (
 		Requests: corev1.ResourceList{
 			corev1.ResourceCPU:    resource.MustParse("500m"),
 			corev1.ResourceMemory: resource.MustParse("128Mi"),
-			// TODO add defaults?
-			// corev1.ResourceStorage: resource.MustParse("0"),
-			// corev1.ResourceEphemeralStorage: resource.MustParse("0"),
 		},
 	}
 )
@@ -680,39 +677,32 @@ func getAppLabels(instanceName string) map[string]string {
 	return labels
 }
 
-// getResourceListFrom get the values of cpu, memory, storage and ephemeral-storage from
-// input into fallback.
-func getResourceListFrom(input corev1.ResourceList, fallback corev1.ResourceList) (*corev1.ResourceList, error) {
+// getResourceListFrom get the values of cpu, memory and ephemeral-storage from
+// input into defaultResourceList.
+func getResourceListFrom(input corev1.ResourceList, defaultResourceList corev1.ResourceList) (*corev1.ResourceList, error) {
 	if input.Cpu() != nil && input.Cpu().Value() != 0 {
 		parsedQuantity, err := resource.ParseQuantity(input.Cpu().String())
 		if err != nil {
 			return nil, err
 		}
-		fallback[corev1.ResourceCPU] = parsedQuantity
+		defaultResourceList[corev1.ResourceCPU] = parsedQuantity
 	}
 	if input.Memory() != nil && input.Memory().Value() != 0 {
 		parsedQuantity, err := resource.ParseQuantity(input.Memory().String())
 		if err != nil {
 			return nil, err
 		}
-		fallback[corev1.ResourceMemory] = parsedQuantity
-	}
-	if input.Storage() != nil && input.Storage().Value() != 0 {
-		parsedQuantity, err := resource.ParseQuantity(input.Storage().String())
-		if err != nil {
-			return nil, err
-		}
-		fallback[corev1.ResourceStorage] = parsedQuantity
+		defaultResourceList[corev1.ResourceMemory] = parsedQuantity
 	}
 	if input.StorageEphemeral() != nil && input.StorageEphemeral().Value() != 0 {
 		parsedQuantity, err := resource.ParseQuantity(input.StorageEphemeral().String())
 		if err != nil {
 			return nil, err
 		}
-		fallback[corev1.ResourceEphemeralStorage] = parsedQuantity
+		defaultResourceList[corev1.ResourceEphemeralStorage] = parsedQuantity
 	}
 
-	return &fallback, nil
+	return &defaultResourceList, nil
 }
 
 func getResourceReqs(dpa *corev1.ResourceRequirements) (corev1.ResourceRequirements, error) {
