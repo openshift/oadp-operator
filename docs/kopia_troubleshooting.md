@@ -68,6 +68,31 @@ kopia repository status
 kopia repository info
 ```
 
+* content and size
+```
+kopia content stats
+```
+
+```
+Count: 116
+Total Bytes: 37.2 MB
+Total Packed: 37.1 MB (compression 0.1%)
+By Method:
+  (uncompressed)         count: 102 size: 37.1 MB
+  zstd-fastest           count: 14 size: 50.4 KB packed: 13.6 KB compression: 73.1%
+Average: 320.4 KB
+Histogram:
+
+        0 between 0 B and 10 B (total 0 B)
+        8 between 10 B and 100 B (total 506 B)
+       19 between 100 B and 1 KB (total 9 KB)
+       49 between 1 KB and 10 KB (total 201.6 KB)
+       30 between 10 KB and 100 KB (total 0.9 MB)
+        1 between 100 KB and 1 MB (total 114.7 KB)
+        9 between 1 MB and 10 MB (total 35.9 MB)
+        0 between 10 MB and 100 MB (total 0 B)
+```
+
 * statistics
 ```
 kopia snapshot ls --all --storage-stats
