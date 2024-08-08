@@ -14,6 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/utils/ptr"
 )
 
 var dataVolumeGVR = schema.GroupVersionResource{
@@ -230,9 +231,8 @@ func (v *VirtOperator) CreateImmediateModeStorageClass(name string) error {
 		return errors.New("no default storage class found")
 	}
 
-	mode := storagev1.VolumeBindingImmediate
 	immediateStorageClass := defaultStorageClass
-	immediateStorageClass.VolumeBindingMode = &mode
+	immediateStorageClass.VolumeBindingMode = ptr.To[storagev1.VolumeBindingMode](storagev1.VolumeBindingImmediate)
 	immediateStorageClass.Name = name
 	immediateStorageClass.ResourceVersion = ""
 	immediateStorageClass.Annotations["storageclass.kubernetes.io/is-default-class"] = "false"
@@ -242,5 +242,5 @@ func (v *VirtOperator) CreateImmediateModeStorageClass(name string) error {
 }
 
 func (v *VirtOperator) RemoveStorageClass(name string) error {
-	return v.Clientset.StorageV1().StorageClasses().Delete(context.TODO(), name, metav1.DeleteOptions{})
+	return v.Clientset.StorageV1().StorageClasses().Delete(context.Background(), name, metav1.DeleteOptions{})
 }
