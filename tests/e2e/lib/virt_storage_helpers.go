@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	v1 "k8s.io/api/storage/v1"
+	storagev1 "k8s.io/api/storage/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -214,12 +214,12 @@ func (v *VirtOperator) CreateImmediateModeStorageClass(name string) error {
 	if err != nil {
 		return err
 	}
-	var defaultStorageClass *v1.StorageClass
+	var defaultStorageClass *storagev1.StorageClass
 	for _, storageClass := range storageClasses.Items {
 		if storageClass.Annotations["storageclass.kubernetes.io/is-default-class"] == "true" {
 			log.Printf("Found default storage class: %s", storageClass.Name)
-			defaultStorageClass = &storageClass
-			if storageClass.VolumeBindingMode != nil && *storageClass.VolumeBindingMode == v1.VolumeBindingImmediate {
+			defaultStorageClass = storageClass.DeepCopy()
+			if storageClass.VolumeBindingMode != nil && *storageClass.VolumeBindingMode == storagev1.VolumeBindingImmediate {
 				log.Println("Default storage class already set to Immediate")
 				return nil
 			}
@@ -230,8 +230,8 @@ func (v *VirtOperator) CreateImmediateModeStorageClass(name string) error {
 		return errors.New("no default storage class found")
 	}
 
-	mode := v1.VolumeBindingImmediate
-	immediateStorageClass := defaultStorageClass.DeepCopy()
+	mode := storagev1.VolumeBindingImmediate
+	immediateStorageClass := defaultStorageClass
 	immediateStorageClass.VolumeBindingMode = &mode
 	immediateStorageClass.Name = name
 	immediateStorageClass.ResourceVersion = ""
