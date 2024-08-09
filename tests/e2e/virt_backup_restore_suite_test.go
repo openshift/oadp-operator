@@ -165,6 +165,9 @@ var _ = Describe("VM backup and restore tests", Ordered, func() {
 		Expect(err).To(BeNil())
 
 		dpaCR.VeleroDefaultPlugins = append(dpaCR.VeleroDefaultPlugins, v1alpha1.DefaultPluginKubeVirt)
+
+		err = v.CreateImmediateModeStorageClass("test-sc-immediate")
+		Expect(err).To(BeNil())
 	})
 
 	var _ = AfterAll(func() {
@@ -174,6 +177,9 @@ var _ = Describe("VM backup and restore tests", Ordered, func() {
 		if v != nil && wasInstalledFromTest {
 			v.EnsureVirtRemoval()
 		}
+
+		err := v.RemoveStorageClass("test-sc-immediate")
+		Expect(err).To(BeNil())
 	})
 
 	var _ = AfterEach(func(ctx SpecContext) {
@@ -211,6 +217,72 @@ var _ = Describe("VM backup and restore tests", Ordered, func() {
 
 		Entry("no-application CSI backup and restore, powered-off CirrOS VM", Label("virt"), VmBackupRestoreCase{
 			Template:   "./sample-applications/virtual-machines/cirros-test/cirros-test.yaml",
+			InitDelay:  2 * time.Minute,
+			PowerState: "Stopped",
+			BackupRestoreCase: BackupRestoreCase{
+				Namespace:         "cirros-test",
+				Name:              "cirros-test",
+				SkipVerifyLogs:    true,
+				BackupRestoreType: lib.CSI,
+				BackupTimeout:     20 * time.Minute,
+				PreBackupVerify:   vmPoweredOff("cirros-test", "cirros-test"),
+			},
+		}, nil),
+
+		Entry("no-application CSI+datamover backup and restore, powered-off CirrOS VM", Label("virt"), VmBackupRestoreCase{
+			Template:   "./sample-applications/virtual-machines/cirros-test/cirros-test.yaml",
+			InitDelay:  2 * time.Minute,
+			PowerState: "Stopped",
+			BackupRestoreCase: BackupRestoreCase{
+				Namespace:         "cirros-test",
+				Name:              "cirros-test",
+				SkipVerifyLogs:    true,
+				BackupRestoreType: lib.CSIDataMover,
+				BackupTimeout:     20 * time.Minute,
+				PreBackupVerify:   vmPoweredOff("cirros-test", "cirros-test"),
+			},
+		}, nil),
+
+		Entry("immediate binding no-application CSI datamover backup and restore, CirrOS VM", Label("virt"), VmBackupRestoreCase{
+			Template:  "./sample-applications/virtual-machines/cirros-test/cirros-test-immediate.yaml",
+			InitDelay: 2 * time.Minute, // Just long enough to get to login prompt, VM is marked running while kernel messages are still scrolling by
+			BackupRestoreCase: BackupRestoreCase{
+				Namespace:         "cirros-test",
+				Name:              "cirros-test",
+				SkipVerifyLogs:    true,
+				BackupRestoreType: lib.CSIDataMover,
+				BackupTimeout:     20 * time.Minute,
+			},
+		}, nil),
+
+		Entry("immediate binding no-application CSI backup and restore, CirrOS VM", Label("virt"), VmBackupRestoreCase{
+			Template:  "./sample-applications/virtual-machines/cirros-test/cirros-test-immediate.yaml",
+			InitDelay: 2 * time.Minute, // Just long enough to get to login prompt, VM is marked running while kernel messages are still scrolling by
+			BackupRestoreCase: BackupRestoreCase{
+				Namespace:         "cirros-test",
+				Name:              "cirros-test",
+				SkipVerifyLogs:    true,
+				BackupRestoreType: lib.CSI,
+				BackupTimeout:     20 * time.Minute,
+			},
+		}, nil),
+
+		Entry("immediate binding no-application CSI+datamover backup and restore, powered-off CirrOS VM", Label("virt"), VmBackupRestoreCase{
+			Template:   "./sample-applications/virtual-machines/cirros-test/cirros-test-immediate.yaml",
+			InitDelay:  2 * time.Minute,
+			PowerState: "Stopped",
+			BackupRestoreCase: BackupRestoreCase{
+				Namespace:         "cirros-test",
+				Name:              "cirros-test",
+				SkipVerifyLogs:    true,
+				BackupRestoreType: lib.CSIDataMover,
+				BackupTimeout:     20 * time.Minute,
+				PreBackupVerify:   vmPoweredOff("cirros-test", "cirros-test"),
+			},
+		}, nil),
+
+		Entry("immediate binding no-application CSI backup and restore, powered-off CirrOS VM", Label("virt"), VmBackupRestoreCase{
+			Template:   "./sample-applications/virtual-machines/cirros-test/cirros-test-immediate.yaml",
 			InitDelay:  2 * time.Minute,
 			PowerState: "Stopped",
 			BackupRestoreCase: BackupRestoreCase{
