@@ -12,6 +12,8 @@ rules:
   - infrastructures
   verbs:
   - get
+  - list
+  - watch
 - apiGroups:
   - cloudcredential.openshift.io
   resources:
