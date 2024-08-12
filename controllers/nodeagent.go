@@ -64,7 +64,7 @@ func getFsPvHostPath(platformType string) string {
 	if envFs := os.Getenv(FSPVHostPathEnvVar); envFs != "" {
 		return envFs
 	}
-	
+
 	if env := os.Getenv(ResticPVHostPathEnvVar); env != "" {
 		return env
 	}
