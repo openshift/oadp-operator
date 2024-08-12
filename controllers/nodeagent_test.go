@@ -44,6 +44,21 @@ var _ = ginkgo.Describe("Test ReconcileNodeAgentDaemonSet function", func() {
 		}
 	)
 
+	ginkgo.BeforeEach(func() {
+		clusterInfraObject := &configv1.Infrastructure{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "cluster",
+			},
+			Spec: configv1.InfrastructureSpec{
+				PlatformSpec: configv1.PlatformSpec{
+					Type: IBMCloudPlatform,
+				},
+			},
+		}
+
+		gomega.Expect(k8sClient.Create(ctx, clusterInfraObject)).To(gomega.Succeed())
+	})
+
 	ginkgo.AfterEach(func() {
 		os.Unsetenv(currentTestScenario.envVar.Name)
 
@@ -73,6 +88,16 @@ var _ = ginkgo.Describe("Test ReconcileNodeAgentDaemonSet function", func() {
 			},
 		}
 		gomega.Expect(k8sClient.Delete(ctx, namespace)).To(gomega.Succeed())
+
+		clusterInfraObject := &configv1.Infrastructure{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "cluster",
+			},
+		}
+
+		if k8sClient.Get(ctx, client.ObjectKeyFromObject(clusterInfraObject), clusterInfraObject) == nil {
+			gomega.Expect(k8sClient.Delete(ctx, clusterInfraObject)).To(gomega.Succeed())
+		}
 	})
 
 	ginkgo.DescribeTable("Check if Subscription Config environment variables are passed to NodeAgent Containers",

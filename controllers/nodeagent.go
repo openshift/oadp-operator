@@ -61,11 +61,12 @@ var (
 // getFsPvHostPath returns the host path for persistent volumes based on the platform type.
 func getFsPvHostPath(platformType string) string {
 	// Check if environment variables are set for host paths
-	if env := os.Getenv(ResticPVHostPathEnvVar); env != "" {
-		return env
-	}
 	if envFs := os.Getenv(FSPVHostPathEnvVar); envFs != "" {
 		return envFs
+	}
+	
+	if env := os.Getenv(ResticPVHostPathEnvVar); env != "" {
+		return env
 	}
 
 	// Return platform-specific host paths
