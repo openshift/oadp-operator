@@ -6,11 +6,12 @@ import (
 	"os"
 	"reflect"
 
+	"github.com/go-logr/logr"
+	configv1 "github.com/openshift/api/config/v1"
 	"github.com/openshift/oadp-operator/pkg/common"
 	"github.com/operator-framework/operator-lib/proxy"
 	"github.com/vmware-tanzu/velero/pkg/install"
 
-	"github.com/go-logr/logr"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	"github.com/openshift/oadp-operator/pkg/credentials"
 	appsv1 "k8s.io/api/apps/v1"
@@ -25,14 +26,24 @@ import (
 )
 
 const (
-	ResticRestoreHelperCM = "restic-restore-action-config"
-	FsRestoreHelperCM     = "fs-restore-action-config"
-	HostPods              = "host-pods"
-	HostPlugins           = "host-plugins"
+	ResticRestoreHelperCM   = "restic-restore-action-config"
+	FsRestoreHelperCM       = "fs-restore-action-config"
+	HostPods                = "host-pods"
+	HostPlugins             = "host-plugins"
+	Cluster                 = "cluster"
+	IBMCloudPlatform        = "IBMCloud"
+	GenericPVHostPath       = "/var/lib/kubelet/pods"
+	IBMCloudPVHostPath      = "/var/data/kubelet/pods"
+	GenericPluginsHostPath  = "/var/lib/kubelet/plugins"
+	IBMCloudPluginsHostPath = "/var/data/kubelet/plugins"
+	ResticPVHostPathEnvVar  = "RESTIC_PV_HOSTPATH"
+	FSPVHostPathEnvVar      = "FS_PV_HOSTPATH"
+	PluginsHostPathEnvVar   = "PLUGINS_HOSTPATH"
 )
 
 var (
-	fsPvHostPath string = getFsPvHostPath()
+	fsPvHostPath    = getFsPvHostPath("")
+	pluginsHostPath = getPluginsHostPath("")
 
 	// v1.MountPropagationHostToContainer is a const. Const cannot be pointed to.
 	// we need to declare mountPropagationToHostContainer so that we have an address to point to
@@ -47,19 +58,40 @@ var (
 	}
 )
 
-func getFsPvHostPath() string {
-	env := os.Getenv("RESTIC_PV_HOSTPATH")
-	envFs := os.Getenv("FS_PV_HOSTPATH")
-
-	if env != "" {
-		return env
-	}
-
-	if envFs != "" {
+// getFsPvHostPath returns the host path for persistent volumes based on the platform type.
+func getFsPvHostPath(platformType string) string {
+	// Check if environment variables are set for host paths
+	if envFs := os.Getenv(FSPVHostPathEnvVar); envFs != "" {
 		return envFs
 	}
 
-	return "/var/lib/kubelet/pods"
+	if env := os.Getenv(ResticPVHostPathEnvVar); env != "" {
+		return env
+	}
+
+	// Return platform-specific host paths
+	switch platformType {
+	case IBMCloudPlatform:
+		return IBMCloudPVHostPath
+	default:
+		return GenericPVHostPath
+	}
+}
+
+// getPluginsHostPath returns the host path for persistent volumes based on the platform type.
+func getPluginsHostPath(platformType string) string {
+	// Check if environment var is set for host plugins
+	if env := os.Getenv(PluginsHostPathEnvVar); env != "" {
+		return env
+	}
+
+	// Return platform-specific host paths
+	switch platformType {
+	case IBMCloudPlatform:
+		return IBMCloudPluginsHostPath
+	default:
+		return GenericPluginsHostPath
+	}
 }
 
 func getNodeAgentObjectMeta(r *DPAReconciler) metav1.ObjectMeta {
@@ -290,10 +322,22 @@ func (r *DPAReconciler) customizeNodeAgentDaemonset(dpa *oadpv1alpha1.DataProtec
 			},
 		})
 
+	// check platform type
+	platformType, err := r.getPlatformType()
+	if err != nil {
+		return nil, fmt.Errorf("error checking platform type: %s", err)
+	}
 	// update nodeAgent host PV path
 	for i, vol := range ds.Spec.Template.Spec.Volumes {
 		if vol.Name == HostPods {
-			ds.Spec.Template.Spec.Volumes[i].HostPath.Path = getFsPvHostPath()
+			ds.Spec.Template.Spec.Volumes[i].HostPath.Path = getFsPvHostPath(platformType)
+		}
+	}
+
+	// update nodeAgent plugins host path
+	for i, vol := range ds.Spec.Template.Spec.Volumes {
+		if vol.Name == HostPlugins {
+			ds.Spec.Template.Spec.Volumes[i].HostPath.Path = getPluginsHostPath(platformType)
 		}
 	}
 
@@ -319,6 +363,13 @@ func (r *DPAReconciler) customizeNodeAgentDaemonset(dpa *oadpv1alpha1.DataProtec
 				Name:      "certs",
 				MountPath: "/etc/ssl/certs",
 			})
+
+			// update nodeAgent plugins volume mount host path
+			for v, volumeMount := range nodeAgentContainer.VolumeMounts {
+				if volumeMount.Name == HostPlugins {
+					nodeAgentContainer.VolumeMounts[v].MountPath = getPluginsHostPath(platformType)
+				}
+			}
 			// append PodConfig envs to nodeAgent container
 			if useResticConf {
 				if dpa.Spec.Configuration.Restic.PodConfig != nil && dpa.Spec.Configuration.Restic.PodConfig.Env != nil {
@@ -460,4 +511,20 @@ func (r *DPAReconciler) updateFsRestoreHelperCM(fsRestoreHelperCM *corev1.Config
 	}
 
 	return nil
+}
+
+// getPlatformType fetches the cluster infrastructure object and returns the platform type.
+func (r *DPAReconciler) getPlatformType() (string, error) {
+	infra := &configv1.Infrastructure{}
+	key := types.NamespacedName{Name: Cluster}
+	if err := r.Get(r.Context, key, infra); err != nil {
+		return "", err
+	}
+
+	if platformStatus := infra.Status.PlatformStatus; platformStatus != nil {
+		if platformType := platformStatus.Type; platformType != "" {
+			return string(platformType), nil
+		}
+	}
+	return "", nil
 }
