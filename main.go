@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"os"
 
+	configv1 "github.com/openshift/api/config/v1"
 	routev1 "github.com/openshift/api/route/v1"
 	security "github.com/openshift/api/security/v1"
 	monitor "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
@@ -209,6 +210,11 @@ func main() {
 
 	if err := v1.AddToScheme(mgr.GetScheme()); err != nil {
 		setupLog.Error(err, "unable to add Kubernetes API extensions to scheme")
+		os.Exit(1)
+	}
+
+	if err := configv1.AddToScheme(mgr.GetScheme()); err != nil {
+		setupLog.Error(err, "unable to add OpenShift configuration API to scheme")
 		os.Exit(1)
 	}
 
