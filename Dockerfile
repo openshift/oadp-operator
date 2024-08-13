@@ -1,5 +1,6 @@
 # Build the manager binary
 FROM --platform=$BUILDPLATFORM quay.io/konveyor/builder:ubi9-latest AS builder
+ARG BUILDPLATFORM
 ARG TARGETOS
 ARG TARGETARCH
 
