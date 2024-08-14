@@ -189,7 +189,7 @@ items:
         spec:
           containers:
           - name: todolist
-            image: quay.io/migtools/oadp-ci-todolist-mariadb-go:latest
+            image: quay.io/migtools/oadp-ci-todolist-mariadb-go:multiarch
             env:
               - name: foo
                 value: bar
