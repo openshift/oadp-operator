@@ -23,6 +23,9 @@ import (
 	"fmt"
 	"os"
 
+	configv1 "github.com/openshift/api/config/v1"
+	routev1 "github.com/openshift/api/route/v1"
+	security "github.com/openshift/api/security/v1"
 	"github.com/openshift/oadp-operator/pkg/common"
 	monitor "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -38,8 +41,6 @@ import (
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
-	routev1 "github.com/openshift/api/route/v1"
-	security "github.com/openshift/api/security/v1"
 	"github.com/openshift/oadp-operator/controllers"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -211,6 +212,11 @@ func main() {
 
 	if err := v1.AddToScheme(mgr.GetScheme()); err != nil {
 		setupLog.Error(err, "unable to add Kubernetes API extensions to scheme")
+		os.Exit(1)
+	}
+
+	if err := configv1.AddToScheme(mgr.GetScheme()); err != nil {
+		setupLog.Error(err, "unable to add OpenShift configuration API to scheme")
 		os.Exit(1)
 	}
 
