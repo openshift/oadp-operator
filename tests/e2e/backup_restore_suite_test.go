@@ -173,7 +173,7 @@ func runBackup(brCase BackupRestoreCase, backupName string) bool {
 	// wait for backup to not be running
 	gomega.Eventually(lib.IsBackupDone(dpaCR.Client, namespace, backupName), brCase.BackupTimeout, time.Second*10).Should(gomega.BeTrue())
 	// TODO only log on fail?
-	describeBackup := lib.DescribeBackup(veleroClientForSuiteRun, dpaCR.Client, namespace, backupName)
+	describeBackup := lib.DescribeBackup(dynamicClientForSuiteRun, dpaCR.Client, namespace, backupName)
 	ginkgo.GinkgoWriter.Println(describeBackup)
 
 	backupLogs := lib.BackupLogs(kubernetesClientForSuiteRun, dpaCR.Client, namespace, backupName)
@@ -204,7 +204,7 @@ func runRestore(brCase BackupRestoreCase, backupName, restoreName string, nsRequ
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	gomega.Eventually(lib.IsRestoreDone(dpaCR.Client, namespace, restoreName), time.Minute*60, time.Second*10).Should(gomega.BeTrue())
 	// TODO only log on fail?
-	describeRestore := lib.DescribeRestore(veleroClientForSuiteRun, dpaCR.Client, namespace, restoreName)
+	describeRestore := lib.DescribeRestore(dynamicClientForSuiteRun, dpaCR.Client, namespace, restoreName)
 	ginkgo.GinkgoWriter.Println(describeRestore)
 
 	restoreLogs := lib.RestoreLogs(kubernetesClientForSuiteRun, dpaCR.Client, namespace, restoreName)

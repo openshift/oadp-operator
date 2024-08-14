@@ -10,13 +10,21 @@ import (
 	velero "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	"github.com/vmware-tanzu/velero/pkg/cmd/util/downloadrequest"
 	"github.com/vmware-tanzu/velero/pkg/cmd/util/output"
-	veleroclientset "github.com/vmware-tanzu/velero/pkg/generated/clientset/versioned"
 	"github.com/vmware-tanzu/velero/pkg/label"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+var podVolumeRestoresGVR = schema.GroupVersionResource{
+	Group:    "velero.io",
+	Version:  "v1",
+	Resource: "podvolumerestores",
+}
 
 func CreateRestoreFromBackup(ocClient client.Client, veleroNamespace, backupName, restoreName string) error {
 	restore := velero.Restore{
@@ -87,7 +95,7 @@ func IsRestoreCompletedSuccessfully(c *kubernetes.Clientset, ocClient client.Cli
 }
 
 // https://github.com/vmware-tanzu/velero/blob/11bfe82342c9f54c63f40d3e97313ce763b446f2/pkg/cmd/cli/restore/describe.go#L72-L78
-func DescribeRestore(veleroClient veleroclientset.Interface, ocClient client.Client, namespace string, name string) string {
+func DescribeRestore(dynamicClient dynamic.Interface, ocClient client.Client, namespace string, name string) string {
 	restore, err := GetRestore(ocClient, namespace, name)
 	if err != nil {
 		return "could not get provided backup: " + err.Error()
@@ -96,9 +104,14 @@ func DescribeRestore(veleroClient veleroclientset.Interface, ocClient client.Cli
 	insecureSkipTLSVerify := true
 	caCertFile := ""
 	opts := metav1.ListOptions{LabelSelector: fmt.Sprintf("%s=%s", velero.RestoreNameLabel, label.GetValidName(restore.Name))}
-	podvolumeRestoreList, err := veleroClient.VeleroV1().PodVolumeRestores(restore.Namespace).List(context.Background(), opts)
+	podvolumeRestoreUnstructuredList, err := dynamicClient.Resource(podVolumeRestoresGVR).Namespace(restore.Namespace).List(context.Background(), opts)
 	if err != nil {
 		log.Printf("error getting PodVolumeRestores for restore %s: %v\n", restore.Name, err)
+	}
+	var podvolumeRestoreList velero.PodVolumeRestoreList
+	err = runtime.DefaultUnstructuredConverter.FromUnstructured(podvolumeRestoreUnstructuredList.UnstructuredContent(), podvolumeRestoreList)
+	if err != nil {
+		log.Printf("error converting Unstructured to PodVolumeRestores: %v\n", err)
 	}
 
 	return output.DescribeRestore(context.Background(), ocClient, restore, podvolumeRestoreList.Items, details, insecureSkipTLSVerify, caCertFile)

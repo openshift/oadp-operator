@@ -11,12 +11,27 @@ import (
 	pkgbackup "github.com/vmware-tanzu/velero/pkg/backup"
 	"github.com/vmware-tanzu/velero/pkg/cmd/util/downloadrequest"
 	"github.com/vmware-tanzu/velero/pkg/cmd/util/output"
-	veleroclientset "github.com/vmware-tanzu/velero/pkg/generated/clientset/versioned"
 	"github.com/vmware-tanzu/velero/pkg/label"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+)
+
+var (
+	deleteBackupRequestsGVR = schema.GroupVersionResource{
+		Group:    "velero.io",
+		Version:  "v1",
+		Resource: "deletebackuprequests",
+	}
+	podVolumeBackupsGVR = schema.GroupVersionResource{
+		Group:    "velero.io",
+		Version:  "v1",
+		Resource: "podvolumebackups",
+	}
 )
 
 func CreateBackupForNamespaces(ocClient client.Client, veleroNamespace, backupName string, namespaces []string, defaultVolumesToFsBackup bool, snapshotMoveData bool) error {
@@ -90,7 +105,7 @@ func IsBackupCompletedSuccessfully(c *kubernetes.Clientset, ocClient client.Clie
 }
 
 // https://github.com/vmware-tanzu/velero/blob/11bfe82342c9f54c63f40d3e97313ce763b446f2/pkg/cmd/cli/backup/describe.go#L77-L111
-func DescribeBackup(veleroClient veleroclientset.Interface, ocClient client.Client, namespace string, name string) (backupDescription string) {
+func DescribeBackup(dynamicClient dynamic.Interface, ocClient client.Client, namespace string, name string) (backupDescription string) {
 	backup, err := GetBackup(ocClient, namespace, name)
 	if err != nil {
 		return "could not get provided backup: " + err.Error()
@@ -100,15 +115,25 @@ func DescribeBackup(veleroClient veleroclientset.Interface, ocClient client.Clie
 	caCertFile := ""
 
 	deleteRequestListOptions := pkgbackup.NewDeleteBackupRequestListOptions(backup.Name, string(backup.UID))
-	deleteRequestList, err := veleroClient.VeleroV1().DeleteBackupRequests(backup.Namespace).List(context.Background(), deleteRequestListOptions)
+	deleteRequestUnstructuredList, err := dynamicClient.Resource(deleteBackupRequestsGVR).Namespace(backup.Namespace).List(context.Background(), deleteRequestListOptions)
 	if err != nil {
 		log.Printf("error getting DeleteBackupRequests for backup %s: %v\n", backup.Name, err)
 	}
+	var deleteRequestList velero.DeleteBackupRequestList
+	err = runtime.DefaultUnstructuredConverter.FromUnstructured(deleteRequestUnstructuredList.UnstructuredContent(), deleteRequestList)
+	if err != nil {
+		log.Printf("error converting Unstructured to DeleteBackupRequests: %v\n", err)
+	}
 
 	opts := label.NewListOptionsForBackup(backup.Name)
-	podVolumeBackupList, err := veleroClient.VeleroV1().PodVolumeBackups(backup.Namespace).List(context.Background(), opts)
+	podVolumeBackupUnstructuredList, err := dynamicClient.Resource(podVolumeBackupsGVR).Namespace(backup.Namespace).List(context.Background(), opts)
 	if err != nil {
 		log.Printf("error getting PodVolumeBackups for backup %s: %v\n", backup.Name, err)
+	}
+	var podVolumeBackupList velero.PodVolumeBackupList
+	err = runtime.DefaultUnstructuredConverter.FromUnstructured(podVolumeBackupUnstructuredList.UnstructuredContent(), podVolumeBackupList)
+	if err != nil {
+		log.Printf("error converting Unstructured to PodVolumeBackups: %v\n", err)
 	}
 
 	// output.DescribeBackup is a helper function from velero CLI that attempts to download logs for a backup.
