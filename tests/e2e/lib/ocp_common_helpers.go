@@ -23,7 +23,6 @@ import (
 func GetRouteEndpointURL(ocClient client.Client, namespace, routeName string) (string, error) {
 	log.Println("Verifying if the service is accessible via route")
 	route := &routev1.Route{}
-	routev1.AddToScheme(ocClient.Scheme())
 	err := ocClient.Get(context.Background(), client.ObjectKey{Namespace: namespace, Name: routeName}, route)
 	if err != nil {
 		if apierrors.IsNotFound(err) {

@@ -269,7 +269,7 @@ func runVmRestore(brCase VmBackupRestoreCase, backupName, restoreName string, ns
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	gomega.Eventually(lib.IsRestoreDone(dpaCR.Client, namespace, restoreName), time.Minute*60, time.Second*10).Should(gomega.BeTrue())
 	// TODO only log on fail?
-	describeRestore := lib.DescribeRestore(dynamicClientForSuiteRun, dpaCR.Client, namespace, restoreName)
+	describeRestore := lib.DescribeRestore(dpaCR.Client, namespace, restoreName)
 	ginkgo.GinkgoWriter.Println(describeRestore)
 
 	restoreLogs := lib.RestoreLogs(kubernetesClientForSuiteRun, dpaCR.Client, namespace, restoreName)
