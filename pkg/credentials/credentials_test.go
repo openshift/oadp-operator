@@ -2,7 +2,6 @@ package credentials
 
 import (
 	"context"
-	"os"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
@@ -361,8 +360,7 @@ func TestCredentials_getPluginImage(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			for key, value := range tt.setEnvVars {
-				os.Setenv(key, value)
-				defer os.Unsetenv(key)
+				t.Setenv(key, value)
 			}
 			gotImage := GetPluginImage(tt.pluginName, tt.dpa)
 			if gotImage != tt.wantImage {
