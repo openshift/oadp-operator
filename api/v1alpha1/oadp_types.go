@@ -128,7 +128,7 @@ type PodConfig struct {
 	// tolerations defines the list of tolerations to be applied to daemonset
 	// +optional
 	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
-	// resourceAllocations defines the CPU and Memory resource allocations for the Pod
+	// resourceAllocations defines the CPU, Memory and ephemeral-storage resource allocations for the Pod
 	// +optional
 	// +nullable
 	ResourceAllocations corev1.ResourceRequirements `json:"resourceAllocations,omitempty"`

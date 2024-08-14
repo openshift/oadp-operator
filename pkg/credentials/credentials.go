@@ -179,6 +179,7 @@ func AppendCloudProviderVolumes(dpa *oadpv1alpha1.DataProtectionApplication, ds 
 				dpa.Spec.UnsupportedOverrides[oadpv1alpha1.OperatorTypeKey] == oadpv1alpha1.OperatorTypeMTC) { // OADP is installed via MTC
 
 			pluginNeedsCheck, foundProviderPlugin := providerNeedsDefaultCreds[string(plugin)]
+			// duplication with controllers/validator.go
 			if !foundProviderPlugin && !hasCloudStorage {
 				pluginNeedsCheck = true
 			}
@@ -221,21 +222,24 @@ func AppendCloudProviderVolumes(dpa *oadpv1alpha1.DataProtectionApplication, ds 
 		}
 	}
 	for _, bslSpec := range dpa.Spec.BackupLocations {
-		if _, ok := bslSpec.Velero.Config["credentialsFile"]; ok {
-			if secretName, err := GetSecretNameFromCredentialsFileConfigString(bslSpec.Velero.Config["credentialsFile"]); err == nil {
-				ds.Spec.Template.Spec.Volumes = append(
-					ds.Spec.Template.Spec.Volumes,
-					corev1.Volume{
-						Name: secretName,
-						VolumeSource: corev1.VolumeSource{
-							Secret: &corev1.SecretVolumeSource{
-								SecretName: secretName,
+		if bslSpec.Velero != nil {
+			if _, ok := bslSpec.Velero.Config["credentialsFile"]; ok {
+				if secretName, err := GetSecretNameFromCredentialsFileConfigString(bslSpec.Velero.Config["credentialsFile"]); err == nil {
+					ds.Spec.Template.Spec.Volumes = append(
+						ds.Spec.Template.Spec.Volumes,
+						corev1.Volume{
+							Name: secretName,
+							VolumeSource: corev1.VolumeSource{
+								Secret: &corev1.SecretVolumeSource{
+									SecretName: secretName,
+								},
 							},
 						},
-					},
-				)
+					)
+				}
 			}
 		}
+
 	}
 	return nil
 }

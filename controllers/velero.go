@@ -63,6 +63,12 @@ var (
 		"app.kubernetes.io/component":  Server,
 		oadpv1alpha1.OadpOperatorLabel: "True",
 	}
+	defaultContainerResourceRequirements = corev1.ResourceRequirements{
+		Requests: corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse("500m"),
+			corev1.ResourceMemory: resource.MustParse("128Mi"),
+		},
+	}
 )
 
 func (r *DPAReconciler) ReconcileVeleroDeployment(log logr.Logger) (bool, error) {
@@ -684,174 +690,80 @@ func getAppLabels(instanceName string) map[string]string {
 	return labels
 }
 
+// getResourceListFrom get the values of cpu, memory and ephemeral-storage from
+// input into defaultResourceList.
+func getResourceListFrom(input corev1.ResourceList, defaultResourceList corev1.ResourceList) (*corev1.ResourceList, error) {
+	if input.Cpu() != nil && input.Cpu().Value() != 0 {
+		parsedQuantity, err := resource.ParseQuantity(input.Cpu().String())
+		if err != nil {
+			return nil, err
+		}
+		defaultResourceList[corev1.ResourceCPU] = parsedQuantity
+	}
+	if input.Memory() != nil && input.Memory().Value() != 0 {
+		parsedQuantity, err := resource.ParseQuantity(input.Memory().String())
+		if err != nil {
+			return nil, err
+		}
+		defaultResourceList[corev1.ResourceMemory] = parsedQuantity
+	}
+	if input.StorageEphemeral() != nil && input.StorageEphemeral().Value() != 0 {
+		parsedQuantity, err := resource.ParseQuantity(input.StorageEphemeral().String())
+		if err != nil {
+			return nil, err
+		}
+		defaultResourceList[corev1.ResourceEphemeralStorage] = parsedQuantity
+	}
+
+	return &defaultResourceList, nil
+}
+
+func getResourceReqs(dpa *corev1.ResourceRequirements) (corev1.ResourceRequirements, error) {
+	resourcesReqs := *defaultContainerResourceRequirements.DeepCopy()
+
+	if dpa.Requests != nil {
+		requests, err := getResourceListFrom(dpa.Requests, resourcesReqs.Requests)
+		if err != nil {
+			return resourcesReqs, err
+		}
+		resourcesReqs.Requests = *requests
+	}
+
+	if dpa.Limits != nil {
+		limits, err := getResourceListFrom(dpa.Limits, corev1.ResourceList{})
+		if err != nil {
+			return resourcesReqs, err
+		}
+		resourcesReqs.Limits = *limits
+	}
+
+	return resourcesReqs, nil
+}
+
 // Get Velero Resource Requirements
 func (r *DPAReconciler) getVeleroResourceReqs(dpa *oadpv1alpha1.DataProtectionApplication) (corev1.ResourceRequirements, error) {
-
-	// Set default values
-	ResourcesReqs := corev1.ResourceRequirements{
-		Requests: corev1.ResourceList{
-			corev1.ResourceCPU:    resource.MustParse("500m"),
-			corev1.ResourceMemory: resource.MustParse("128Mi"),
-		},
+	if dpa.Spec.Configuration.Velero != nil && dpa.Spec.Configuration.Velero.PodConfig != nil {
+		return getResourceReqs(&dpa.Spec.Configuration.Velero.PodConfig.ResourceAllocations)
 	}
-
-	if dpa != nil && dpa.Spec.Configuration != nil && dpa.Spec.Configuration.Velero != nil && dpa.Spec.Configuration.Velero.PodConfig != nil {
-		// Set custom limits and requests values if defined on VELERO Spec
-		if dpa.Spec.Configuration.Velero.PodConfig.ResourceAllocations.Requests.Cpu() != nil && dpa.Spec.Configuration.Velero.PodConfig.ResourceAllocations.Requests.Cpu().Value() != 0 {
-			parsedQuantity, err := resource.ParseQuantity(dpa.Spec.Configuration.Velero.PodConfig.ResourceAllocations.Requests.Cpu().String())
-			ResourcesReqs.Requests[corev1.ResourceCPU] = parsedQuantity
-			if err != nil {
-				return ResourcesReqs, err
-			}
-		}
-
-		if dpa.Spec.Configuration.Velero.PodConfig.ResourceAllocations.Requests.Memory() != nil && dpa.Spec.Configuration.Velero.PodConfig.ResourceAllocations.Requests.Memory().Value() != 0 {
-			parsedQuantity, err := resource.ParseQuantity(dpa.Spec.Configuration.Velero.PodConfig.ResourceAllocations.Requests.Memory().String())
-			ResourcesReqs.Requests[corev1.ResourceMemory] = parsedQuantity
-			if err != nil {
-				return ResourcesReqs, err
-			}
-		}
-
-		if dpa.Spec.Configuration.Velero.PodConfig.ResourceAllocations.Limits.Cpu() != nil && dpa.Spec.Configuration.Velero.PodConfig.ResourceAllocations.Limits.Cpu().Value() != 0 {
-			if ResourcesReqs.Limits == nil {
-				ResourcesReqs.Limits = corev1.ResourceList{}
-			}
-			parsedQuantity, err := resource.ParseQuantity(dpa.Spec.Configuration.Velero.PodConfig.ResourceAllocations.Limits.Cpu().String())
-			ResourcesReqs.Limits[corev1.ResourceCPU] = parsedQuantity
-			if err != nil {
-				return ResourcesReqs, err
-			}
-		}
-
-		if dpa.Spec.Configuration.Velero.PodConfig.ResourceAllocations.Limits.Memory() != nil && dpa.Spec.Configuration.Velero.PodConfig.ResourceAllocations.Limits.Memory().Value() != 0 {
-			if ResourcesReqs.Limits == nil {
-				ResourcesReqs.Limits = corev1.ResourceList{}
-			}
-			parsedQuantiy, err := resource.ParseQuantity(dpa.Spec.Configuration.Velero.PodConfig.ResourceAllocations.Limits.Memory().String())
-			ResourcesReqs.Limits[corev1.ResourceMemory] = parsedQuantiy
-			if err != nil {
-				return ResourcesReqs, err
-			}
-		}
-
-	}
-
-	return ResourcesReqs, nil
+	return *defaultContainerResourceRequirements.DeepCopy(), nil
 }
 
 // Get Restic Resource Requirements
 func getResticResourceReqs(dpa *oadpv1alpha1.DataProtectionApplication) (corev1.ResourceRequirements, error) {
-
-	// Set default values
-	ResourcesReqs := corev1.ResourceRequirements{
-		Requests: corev1.ResourceList{
-			corev1.ResourceCPU:    resource.MustParse("500m"),
-			corev1.ResourceMemory: resource.MustParse("128Mi"),
-		},
+	if dpa.Spec.Configuration.Restic != nil && dpa.Spec.Configuration.Restic.PodConfig != nil {
+		return getResourceReqs(&dpa.Spec.Configuration.Restic.PodConfig.ResourceAllocations)
 	}
-
-	if dpa != nil && dpa.Spec.Configuration != nil && dpa.Spec.Configuration.Restic != nil && dpa.Spec.Configuration.Restic.PodConfig != nil {
-		// Set custom limits and requests values if defined on Restic Spec
-		if dpa.Spec.Configuration.Restic.PodConfig.ResourceAllocations.Requests.Cpu() != nil && dpa.Spec.Configuration.Restic.PodConfig.ResourceAllocations.Requests.Cpu().Value() != 0 {
-			parsedQuantity, err := resource.ParseQuantity(dpa.Spec.Configuration.Restic.PodConfig.ResourceAllocations.Requests.Cpu().String())
-			ResourcesReqs.Requests[corev1.ResourceCPU] = parsedQuantity
-			if err != nil {
-				return ResourcesReqs, err
-			}
-		}
-
-		if dpa.Spec.Configuration.Restic.PodConfig.ResourceAllocations.Requests.Memory() != nil && dpa.Spec.Configuration.Restic.PodConfig.ResourceAllocations.Requests.Memory().Value() != 0 {
-			parsedQuantity, err := resource.ParseQuantity(dpa.Spec.Configuration.Restic.PodConfig.ResourceAllocations.Requests.Memory().String())
-			ResourcesReqs.Requests[corev1.ResourceMemory] = parsedQuantity
-			if err != nil {
-				return ResourcesReqs, err
-			}
-		}
-
-		if dpa.Spec.Configuration.Restic.PodConfig.ResourceAllocations.Limits.Cpu() != nil && dpa.Spec.Configuration.Restic.PodConfig.ResourceAllocations.Limits.Cpu().Value() != 0 {
-			if ResourcesReqs.Limits == nil {
-				ResourcesReqs.Limits = corev1.ResourceList{}
-			}
-			parsedQuantity, err := resource.ParseQuantity(dpa.Spec.Configuration.Restic.PodConfig.ResourceAllocations.Limits.Cpu().String())
-			ResourcesReqs.Limits[corev1.ResourceCPU] = parsedQuantity
-			if err != nil {
-				return ResourcesReqs, err
-			}
-		}
-
-		if dpa.Spec.Configuration.Restic.PodConfig.ResourceAllocations.Limits.Memory() != nil && dpa.Spec.Configuration.Restic.PodConfig.ResourceAllocations.Limits.Memory().Value() != 0 {
-			if ResourcesReqs.Limits == nil {
-				ResourcesReqs.Limits = corev1.ResourceList{}
-			}
-			parsedQuantiy, err := resource.ParseQuantity(dpa.Spec.Configuration.Restic.PodConfig.ResourceAllocations.Limits.Memory().String())
-			ResourcesReqs.Limits[corev1.ResourceMemory] = parsedQuantiy
-			if err != nil {
-				return ResourcesReqs, err
-			}
-		}
-
-	}
-
-	return ResourcesReqs, nil
+	return *defaultContainerResourceRequirements.DeepCopy(), nil
 }
 
 // Get NodeAgent Resource Requirements
 // Separate function to getResticResourceReqs, so once Restic config is removed in the future
 // It will be easier to delete obsolete getResticResourceReqs
 func getNodeAgentResourceReqs(dpa *oadpv1alpha1.DataProtectionApplication) (corev1.ResourceRequirements, error) {
-
-	// Set default values
-	ResourcesReqs := corev1.ResourceRequirements{
-		Requests: corev1.ResourceList{
-			corev1.ResourceCPU:    resource.MustParse("500m"),
-			corev1.ResourceMemory: resource.MustParse("128Mi"),
-		},
+	if dpa.Spec.Configuration.NodeAgent != nil && dpa.Spec.Configuration.NodeAgent.PodConfig != nil {
+		return getResourceReqs(&dpa.Spec.Configuration.NodeAgent.PodConfig.ResourceAllocations)
 	}
-
-	if dpa != nil && dpa.Spec.Configuration != nil && dpa.Spec.Configuration.NodeAgent != nil && dpa.Spec.Configuration.NodeAgent.PodConfig != nil {
-		// Set custom limits and requests values if defined on NodeAgent Spec
-		if dpa.Spec.Configuration.NodeAgent.PodConfig.ResourceAllocations.Requests.Cpu() != nil && dpa.Spec.Configuration.NodeAgent.PodConfig.ResourceAllocations.Requests.Cpu().Value() != 0 {
-			parsedQuantity, err := resource.ParseQuantity(dpa.Spec.Configuration.NodeAgent.PodConfig.ResourceAllocations.Requests.Cpu().String())
-			ResourcesReqs.Requests[corev1.ResourceCPU] = parsedQuantity
-			if err != nil {
-				return ResourcesReqs, err
-			}
-		}
-
-		if dpa.Spec.Configuration.NodeAgent.PodConfig.ResourceAllocations.Requests.Memory() != nil && dpa.Spec.Configuration.NodeAgent.PodConfig.ResourceAllocations.Requests.Memory().Value() != 0 {
-			parsedQuantity, err := resource.ParseQuantity(dpa.Spec.Configuration.NodeAgent.PodConfig.ResourceAllocations.Requests.Memory().String())
-			ResourcesReqs.Requests[corev1.ResourceMemory] = parsedQuantity
-			if err != nil {
-				return ResourcesReqs, err
-			}
-		}
-
-		if dpa.Spec.Configuration.NodeAgent.PodConfig.ResourceAllocations.Limits.Cpu() != nil && dpa.Spec.Configuration.NodeAgent.PodConfig.ResourceAllocations.Limits.Cpu().Value() != 0 {
-			if ResourcesReqs.Limits == nil {
-				ResourcesReqs.Limits = corev1.ResourceList{}
-			}
-			parsedQuantity, err := resource.ParseQuantity(dpa.Spec.Configuration.NodeAgent.PodConfig.ResourceAllocations.Limits.Cpu().String())
-			ResourcesReqs.Limits[corev1.ResourceCPU] = parsedQuantity
-			if err != nil {
-				return ResourcesReqs, err
-			}
-		}
-
-		if dpa.Spec.Configuration.NodeAgent.PodConfig.ResourceAllocations.Limits.Memory() != nil && dpa.Spec.Configuration.NodeAgent.PodConfig.ResourceAllocations.Limits.Memory().Value() != 0 {
-			if ResourcesReqs.Limits == nil {
-				ResourcesReqs.Limits = corev1.ResourceList{}
-			}
-			parsedQuantiy, err := resource.ParseQuantity(dpa.Spec.Configuration.NodeAgent.PodConfig.ResourceAllocations.Limits.Memory().String())
-			ResourcesReqs.Limits[corev1.ResourceMemory] = parsedQuantiy
-			if err != nil {
-				return ResourcesReqs, err
-			}
-		}
-
-	}
-
-	return ResourcesReqs, nil
+	return *defaultContainerResourceRequirements.DeepCopy(), nil
 }
 
 // noDefaultCredentials determines if a provider needs the default credentials.

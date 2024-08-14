@@ -305,7 +305,7 @@ spec:
                               description: nodeSelector defines the nodeSelector to be supplied to podSpec
                               type: object
                             resourceAllocations:
-                              description: resourceAllocations defines the CPU and Memory resource allocations for the Pod
+                              description: resourceAllocations defines the CPU, Memory and ephemeral-storage resource allocations for the Pod
                               nullable: true
                               properties:
                                 claims:
@@ -546,7 +546,7 @@ spec:
                               description: nodeSelector defines the nodeSelector to be supplied to podSpec
                               type: object
                             resourceAllocations:
-                              description: resourceAllocations defines the CPU and Memory resource allocations for the Pod
+                              description: resourceAllocations defines the CPU, Memory and ephemeral-storage resource allocations for the Pod
                               nullable: true
                               properties:
                                 claims:
@@ -980,7 +980,7 @@ spec:
                               description: nodeSelector defines the nodeSelector to be supplied to podSpec
                               type: object
                             resourceAllocations:
-                              description: resourceAllocations defines the CPU and Memory resource allocations for the Pod
+                              description: resourceAllocations defines the CPU, Memory and ephemeral-storage resource allocations for the Pod
                               nullable: true
                               properties:
                                 claims:
