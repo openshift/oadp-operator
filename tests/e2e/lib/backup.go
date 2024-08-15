@@ -11,7 +11,6 @@ import (
 	pkgbackup "github.com/vmware-tanzu/velero/pkg/backup"
 	"github.com/vmware-tanzu/velero/pkg/cmd/util/downloadrequest"
 	"github.com/vmware-tanzu/velero/pkg/cmd/util/output"
-	veleroclientset "github.com/vmware-tanzu/velero/pkg/generated/clientset/versioned"
 	"github.com/vmware-tanzu/velero/pkg/label"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -90,7 +89,7 @@ func IsBackupCompletedSuccessfully(c *kubernetes.Clientset, ocClient client.Clie
 }
 
 // https://github.com/vmware-tanzu/velero/blob/11bfe82342c9f54c63f40d3e97313ce763b446f2/pkg/cmd/cli/backup/describe.go#L77-L111
-func DescribeBackup(veleroClient veleroclientset.Interface, ocClient client.Client, namespace string, name string) (backupDescription string) {
+func DescribeBackup(ocClient client.Client, namespace string, name string) (backupDescription string) {
 	backup, err := GetBackup(ocClient, namespace, name)
 	if err != nil {
 		return "could not get provided backup: " + err.Error()
@@ -100,13 +99,15 @@ func DescribeBackup(veleroClient veleroclientset.Interface, ocClient client.Clie
 	caCertFile := ""
 
 	deleteRequestListOptions := pkgbackup.NewDeleteBackupRequestListOptions(backup.Name, string(backup.UID))
-	deleteRequestList, err := veleroClient.VeleroV1().DeleteBackupRequests(backup.Namespace).List(context.Background(), deleteRequestListOptions)
+	deleteRequestList := &velero.DeleteBackupRequestList{}
+	err = ocClient.List(context.Background(), deleteRequestList, client.InNamespace(backup.Namespace), &client.ListOptions{Raw: &deleteRequestListOptions})
 	if err != nil {
 		log.Printf("error getting DeleteBackupRequests for backup %s: %v\n", backup.Name, err)
 	}
 
 	opts := label.NewListOptionsForBackup(backup.Name)
-	podVolumeBackupList, err := veleroClient.VeleroV1().PodVolumeBackups(backup.Namespace).List(context.Background(), opts)
+	podVolumeBackupList := &velero.PodVolumeBackupList{}
+	err = ocClient.List(context.Background(), podVolumeBackupList, client.InNamespace(backup.Namespace), &client.ListOptions{Raw: &opts})
 	if err != nil {
 		log.Printf("error getting PodVolumeBackups for backup %s: %v\n", backup.Name, err)
 	}

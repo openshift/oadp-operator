@@ -13,12 +13,12 @@ import (
 	"github.com/onsi/gomega"
 	openshiftappsv1 "github.com/openshift/api/apps/v1"
 	openshiftbuildv1 "github.com/openshift/api/build/v1"
+	openshiftroutev1 "github.com/openshift/api/route/v1"
 	openshiftsecurityv1 "github.com/openshift/api/security/v1"
 	openshifttemplatev1 "github.com/openshift/api/template/v1"
 	operatorsv1 "github.com/operator-framework/api/pkg/operators/v1"
 	operatorsv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
-	veleroclientset "github.com/vmware-tanzu/velero/pkg/generated/clientset/versioned"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/uuid"
 	"k8s.io/client-go/dynamic"
@@ -38,7 +38,6 @@ var (
 
 	kubernetesClientForSuiteRun *kubernetes.Clientset
 	runTimeClientForSuiteRun    client.Client
-	veleroClientForSuiteRun     veleroclientset.Interface
 	dynamicClientForSuiteRun    dynamic.Interface
 
 	dpaCR                           *lib.DpaCustomResource
@@ -126,13 +125,11 @@ func TestOADPE2E(t *testing.T) {
 	openshiftbuildv1.AddToScheme(runTimeClientForSuiteRun.Scheme())
 	openshiftsecurityv1.AddToScheme(runTimeClientForSuiteRun.Scheme())
 	openshifttemplatev1.AddToScheme(runTimeClientForSuiteRun.Scheme())
+	openshiftroutev1.AddToScheme(runTimeClientForSuiteRun.Scheme())
 	corev1.AddToScheme(runTimeClientForSuiteRun.Scheme())
 	volumesnapshotv1.AddToScheme(runTimeClientForSuiteRun.Scheme())
 	operatorsv1alpha1.AddToScheme(runTimeClientForSuiteRun.Scheme())
 	operatorsv1.AddToScheme(runTimeClientForSuiteRun.Scheme())
-
-	veleroClientForSuiteRun, err = veleroclientset.NewForConfig(kubeConfig)
-	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	dynamicClientForSuiteRun, err = dynamic.NewForConfig(kubeConfig)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
