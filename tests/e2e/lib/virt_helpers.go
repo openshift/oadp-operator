@@ -28,6 +28,7 @@ const (
 	emulationAnnotation = "kubevirt.kubevirt.io/jsonpatch"
 	useEmulation        = `[{"op": "add", "path": "/spec/configuration/developerConfiguration", "value": {"useEmulation": true}}]`
 	stopVmPath          = "/apis/subresources.kubevirt.io/v1/namespaces/%s/virtualmachines/%s/stop"
+	isDefaultClass      = "storageclass.kubernetes.io/is-default-class"
 )
 
 var packageManifestsGvr = schema.GroupVersionResource{

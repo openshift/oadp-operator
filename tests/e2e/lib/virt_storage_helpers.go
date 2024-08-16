@@ -217,7 +217,7 @@ func (v *VirtOperator) CreateImmediateModeStorageClass(name string) error {
 	}
 	var defaultStorageClass *storagev1.StorageClass
 	for _, storageClass := range storageClasses.Items {
-		if storageClass.Annotations["storageclass.kubernetes.io/is-default-class"] == "true" {
+		if storageClass.Annotations[isDefaultClass] == "true" {
 			log.Printf("Found default storage class: %s", storageClass.Name)
 			defaultStorageClass = storageClass.DeepCopy()
 			if storageClass.VolumeBindingMode != nil && *storageClass.VolumeBindingMode == storagev1.VolumeBindingImmediate {
@@ -235,7 +235,7 @@ func (v *VirtOperator) CreateImmediateModeStorageClass(name string) error {
 	immediateStorageClass.VolumeBindingMode = ptr.To[storagev1.VolumeBindingMode](storagev1.VolumeBindingImmediate)
 	immediateStorageClass.Name = name
 	immediateStorageClass.ResourceVersion = ""
-	immediateStorageClass.Annotations["storageclass.kubernetes.io/is-default-class"] = "false"
+	immediateStorageClass.Annotations[isDefaultClass] = "false"
 
 	_, err = v.Clientset.StorageV1().StorageClasses().Create(context.Background(), immediateStorageClass, metav1.CreateOptions{})
 	return err
