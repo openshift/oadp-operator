@@ -337,7 +337,7 @@ func runVmRestore(brCase VmBackupRestoreCase, backupName, restoreName string, ns
 	succeeded, err := lib.IsRestoreCompletedSuccessfully(kubernetesClientForSuiteRun, dpaCR.Client, namespace, restoreName)
 	if brCase.RestoreErr != nil {
 		Expect(succeeded).To(Equal(false))
-		Expect(err.Error()).To(ContainSubstring(brCase.RestoreErr.Error()))
+		Expect(err.Error() + describeRestore).To(ContainSubstring(brCase.RestoreErr.Error()))
 	} else {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(succeeded).To(Equal(true))
