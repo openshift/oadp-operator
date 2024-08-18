@@ -28,6 +28,7 @@ const (
 	emulationAnnotation = "kubevirt.kubevirt.io/jsonpatch"
 	useEmulation        = `[{"op": "add", "path": "/spec/configuration/developerConfiguration", "value": {"useEmulation": true}}]`
 	stopVmPath          = "/apis/subresources.kubevirt.io/v1/namespaces/%s/virtualmachines/%s/stop"
+	isDefaultClass      = "storageclass.kubernetes.io/is-default-class"
 )
 
 var packageManifestsGvr = schema.GroupVersionResource{
@@ -185,14 +186,14 @@ func (v *VirtOperator) checkNamespace() bool {
 // Checks for the existence of the virtualization operator group
 func (v *VirtOperator) checkOperatorGroup() bool {
 	group := operatorsv1.OperatorGroup{}
-	err := v.Client.Get(context.TODO(), client.ObjectKey{Namespace: v.Namespace, Name: "kubevirt-hyperconverged-group"}, &group)
+	err := v.Client.Get(context.Background(), client.ObjectKey{Namespace: v.Namespace, Name: "kubevirt-hyperconverged-group"}, &group)
 	return err == nil
 }
 
 // Checks if there is a virtualization subscription
 func (v *VirtOperator) checkSubscription() bool {
 	subscription := operatorsv1alpha1.Subscription{}
-	err := v.Client.Get(context.TODO(), client.ObjectKey{Namespace: v.Namespace, Name: "hco-operatorhub"}, &subscription)
+	err := v.Client.Get(context.Background(), client.ObjectKey{Namespace: v.Namespace, Name: "hco-operatorhub"}, &subscription)
 	return err == nil
 }
 
@@ -623,7 +624,7 @@ func (v *VirtOperator) GetVmStatus(namespace, name string) (string, error) {
 //	/apis/subresources.kubevirt.io/v1/namespaces/{namespace:[a-z0-9]}/virtualmachines/{name:[a-z0-9][a-z0-9\-]}/stop
 func (v *VirtOperator) StopVm(namespace, name string) error {
 	path := fmt.Sprintf(stopVmPath, namespace, name)
-	return v.Clientset.RESTClient().Put().AbsPath(path).Do(context.TODO()).Error()
+	return v.Clientset.RESTClient().Put().AbsPath(path).Do(context.Background()).Error()
 }
 
 func (v *VirtOperator) checkVmExists(namespace, name string) bool {
@@ -632,7 +633,7 @@ func (v *VirtOperator) checkVmExists(namespace, name string) bool {
 }
 
 func (v *VirtOperator) removeVm(namespace, name string) error {
-	if err := v.Dynamic.Resource(virtualMachineGvr).Namespace(namespace).Delete(context.TODO(), name, v1.DeleteOptions{}); err != nil {
+	if err := v.Dynamic.Resource(virtualMachineGvr).Namespace(namespace).Delete(context.Background(), name, metav1.DeleteOptions{}); err != nil {
 		if !apierrors.IsNotFound(err) {
 			return fmt.Errorf("error deleting VM %s/%s: %w", namespace, name, err)
 		}
