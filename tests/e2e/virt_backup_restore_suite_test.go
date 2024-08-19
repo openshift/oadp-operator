@@ -180,7 +180,7 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 
 		url, err := getLatestCirrosImageURL()
 		gomega.Expect(err).To(gomega.BeNil())
-		err = v.EnsureDataVolumeFromUrl("openshift-virtualization-os-images", "cirros", url, "128Mi", 5*time.Minute)
+		err = v.EnsureDataVolumeFromUrl("openshift-virtualization-os-images", "cirros", url, "150Mi", 5*time.Minute)
 		gomega.Expect(err).To(gomega.BeNil())
 		err = v.CreateDataSourceFromPvc("openshift-virtualization-os-images", "cirros")
 		gomega.Expect(err).To(gomega.BeNil())
