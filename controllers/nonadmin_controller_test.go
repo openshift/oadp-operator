@@ -203,13 +203,50 @@ var _ = ginkgo.Describe("Test ReconcileNonAdminController function", func() {
 			nonAdminEnabled: false,
 		}),
 	)
+
+	ginkgo.DescribeTable("Reconcile is false",
+		func(scenario ReconcileNonAdminControllerScenario) {
+			runReconcileNonAdminControllerTest(scenario, updateTestScenario, ctx, defaultNonAdminImage)
+		},
+		ginkgo.Entry("Should error because non admin container was not found in Deployment", ReconcileNonAdminControllerScenario{
+			namespace:       "test-error-1",
+			dpa:             "test-error-1-dpa",
+			errMessage:      "could not find Non admin container in Deployment",
+			nonAdminEnabled: true,
+			deployment: &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      nonAdminObjectName,
+					Namespace: "test-error-1",
+				},
+				Spec: appsv1.DeploymentSpec{
+					Selector: &metav1.LabelSelector{
+						MatchLabels: controlPlaneLabel,
+					},
+					Template: corev1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Labels: controlPlaneLabel,
+						},
+						Spec: corev1.PodSpec{
+							Containers: []corev1.Container{{
+								Name:  "wrong",
+								Image: defaultNonAdminImage,
+							}},
+						},
+					},
+				},
+			},
+		}),
+	)
 })
 
 func TestDPAReconcilerBuildNonAdminDeployment(t *testing.T) {
 	r := &DPAReconciler{}
 	t.Setenv("RELATED_IMAGE_NON_ADMIN_CONTROLLER", defaultNonAdminImage)
 	deployment := createTestDeployment("test-build-deployment")
-	r.buildNonAdminDeployment(deployment, &oadpv1alpha1.DataProtectionApplication{})
+	err := r.buildNonAdminDeployment(deployment, &oadpv1alpha1.DataProtectionApplication{})
+	if err != nil {
+		t.Errorf("buildNonAdminDeployment() errored out: %v", err)
+	}
 	labels := deployment.GetLabels()
 	if labels["test"] != "test" {
 		t.Errorf("Deployment label 'test' has wrong value: %v", labels["test"])
@@ -245,7 +282,10 @@ func TestEnsureRequiredLabels(t *testing.T) {
 
 func TestEnsureRequiredSpecs(t *testing.T) {
 	deployment := createTestDeployment("test-ensure-spec")
-	ensureRequiredSpecs(deployment, defaultNonAdminImage, corev1.PullAlways)
+	err := ensureRequiredSpecs(deployment, defaultNonAdminImage, corev1.PullAlways)
+	if err != nil {
+		t.Errorf("ensureRequiredSpecs() errored out: %v", err)
+	}
 	if *deployment.Spec.Replicas != 1 {
 		t.Errorf("Deployment has wrong number of replicas: %v", *deployment.Spec.Replicas)
 	}
