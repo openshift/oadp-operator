@@ -113,7 +113,7 @@ func (v *DpaCustomResource) Build(backupRestoreType BackupRestoreType) *oadpv1al
 	}
 	// Uncomment to override plugin images to use
 	dpaSpec.UnsupportedOverrides = map[oadpv1alpha1.UnsupportedImageKey]string{
-		// oadpv1alpha1.VeleroImageKey: "quay.io/konveyor/velero:oadp-1.1",
+		oadpv1alpha1.VeleroImageKey: "quay.io/konveyor/velero:oadp-1.4",
 	}
 	return &dpaSpec
 }
