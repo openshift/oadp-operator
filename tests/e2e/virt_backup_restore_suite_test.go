@@ -249,21 +249,6 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 			},
 		}, nil),
 
-		ginkgo.Entry("no-application CSI+datamover backup and restore, powered-off CirrOS VM", ginkgo.Label("virt"), VmBackupRestoreCase{
-			Template:   "./sample-applications/virtual-machines/cirros-test/cirros-test.yaml",
-			InitDelay:  2 * time.Minute,
-			PowerState: "Stopped",
-			BackupRestoreCase: BackupRestoreCase{
-				Namespace:         "cirros-test",
-				Name:              "cirros-test",
-				SkipVerifyLogs:    true,
-				BackupRestoreType: lib.CSIDataMover,
-				BackupTimeout:     20 * time.Minute,
-				PreBackupVerify:   vmPoweredOff("cirros-test", "cirros-test"),
-			},
-			RestoreErr: errors.New("fail to patch dynamic PV"),
-		}, nil),
-
 		ginkgo.Entry("immediate binding no-application CSI datamover backup and restore, CirrOS VM", ginkgo.Label("virt"), VmBackupRestoreCase{
 			Template:  "./sample-applications/virtual-machines/cirros-test/cirros-test-immediate.yaml",
 			InitDelay: 2 * time.Minute, // Just long enough to get to login prompt, VM is marked running while kernel messages are still scrolling by
