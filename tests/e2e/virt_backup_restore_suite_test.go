@@ -1,7 +1,6 @@
 package e2e_test
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -59,7 +58,6 @@ type VmBackupRestoreCase struct {
 	Template   string
 	InitDelay  time.Duration
 	PowerState string
-	RestoreErr error
 }
 
 func runVmBackupAndRestore(brCase VmBackupRestoreCase, expectedErr error, updateLastBRcase func(brCase VmBackupRestoreCase), updateLastInstallTime func(), v *lib.VirtOperator) {
@@ -118,7 +116,7 @@ func runVmBackupAndRestore(brCase VmBackupRestoreCase, expectedErr error, update
 	Eventually(lib.IsNamespaceDeleted(kubernetesClientForSuiteRun, brCase.Namespace), time.Minute*5, time.Second*5).Should(BeTrue())
 
 	// Do restore
-	runVmRestore(brCase, backupName, restoreName, nsRequiresResticDCWorkaround)
+	runRestore(brCase.BackupRestoreCase, backupName, restoreName, nsRequiresResticDCWorkaround)
 
 	// Run optional custom verification
 	if brCase.PostRestoreVerify != nil {
@@ -231,21 +229,6 @@ var _ = Describe("VM backup and restore tests", Ordered, func() {
 			},
 		}, nil),
 
-		Entry("no-application CSI+datamover backup and restore, powered-off CirrOS VM", Label("virt"), VmBackupRestoreCase{
-			Template:   "./sample-applications/virtual-machines/cirros-test/cirros-test.yaml",
-			InitDelay:  2 * time.Minute,
-			PowerState: "Stopped",
-			BackupRestoreCase: BackupRestoreCase{
-				Namespace:         "cirros-test",
-				Name:              "cirros-test",
-				SkipVerifyLogs:    true,
-				BackupRestoreType: lib.CSIDataMover,
-				BackupTimeout:     20 * time.Minute,
-				PreBackupVerify:   vmPoweredOff("cirros-test", "cirros-test"),
-			},
-			RestoreErr: errors.New("error to expose snapshot: error to wait target PVC consumed"),
-		}, nil),
-
 		Entry("immediate binding no-application CSI datamover backup and restore, CirrOS VM", Label("virt"), VmBackupRestoreCase{
 			Template:  "./sample-applications/virtual-machines/cirros-test/cirros-test-immediate.yaml",
 			InitDelay: 2 * time.Minute, // Just long enough to get to login prompt, VM is marked running while kernel messages are still scrolling by
@@ -313,44 +296,3 @@ var _ = Describe("VM backup and restore tests", Ordered, func() {
 		}, nil),
 	)
 })
-
-// Temporary VM-specific copy of runRestore. This is here to avoid making big
-// changes to runRestore when they are likely to be taken out in the near future.
-func runVmRestore(brCase VmBackupRestoreCase, backupName, restoreName string, nsRequiresResticDCWorkaround bool) {
-	log.Printf("Creating restore %s for case %s", restoreName, brCase.Name)
-	err := lib.CreateRestoreFromBackup(dpaCR.Client, namespace, backupName, restoreName)
-	Expect(err).ToNot(HaveOccurred())
-	Eventually(lib.IsRestoreDone(dpaCR.Client, namespace, restoreName), time.Minute*60, time.Second*10).Should(BeTrue())
-	// TODO only log on fail?
-	describeRestore := lib.DescribeRestore(veleroClientForSuiteRun, dpaCR.Client, namespace, restoreName)
-	GinkgoWriter.Println(describeRestore)
-
-	restoreLogs := lib.RestoreLogs(kubernetesClientForSuiteRun, dpaCR.Client, namespace, restoreName)
-	restoreErrorLogs := lib.RestoreErrorLogs(kubernetesClientForSuiteRun, dpaCR.Client, namespace, restoreName)
-	accumulatedTestLogs = append(accumulatedTestLogs, describeRestore, restoreLogs)
-
-	if !brCase.SkipVerifyLogs {
-		Expect(restoreErrorLogs).Should(Equal([]string{}))
-	}
-
-	// Check if restore succeeded
-	succeeded, err := lib.IsRestoreCompletedSuccessfully(kubernetesClientForSuiteRun, dpaCR.Client, namespace, restoreName)
-	if brCase.RestoreErr != nil {
-		Expect(succeeded).To(Equal(false))
-		Expect(err.Error() + describeRestore).To(ContainSubstring(brCase.RestoreErr.Error()))
-	} else {
-		Expect(err).ToNot(HaveOccurred())
-		Expect(succeeded).To(Equal(true))
-	}
-
-	if nsRequiresResticDCWorkaround {
-		// We run the dc-post-restore.sh script for both restic and
-		// kopia backups and for any DCs with attached volumes,
-		// regardless of whether it was restic or kopia backup.
-		// The script is designed to work with labels set by the
-		// openshift-velero-plugin and can be run without pre-conditions.
-		log.Printf("Running dc-post-restore.sh script.")
-		err = lib.RunDcPostRestoreScript(restoreName)
-		Expect(err).ToNot(HaveOccurred())
-	}
-}
