@@ -20,7 +20,7 @@ items:
             storage:
               resources:
                 requests:
-                  storage: 128Mi
+                  storage: 150Mi
       running: true
       template:
         metadata:

@@ -159,7 +159,7 @@ var _ = Describe("VM backup and restore tests", Ordered, func() {
 
 		url, err := getLatestCirrosImageURL()
 		Expect(err).To(BeNil())
-		err = v.EnsureDataVolumeFromUrl("openshift-virtualization-os-images", "cirros", url, "128Mi", 5*time.Minute)
+		err = v.EnsureDataVolumeFromUrl("openshift-virtualization-os-images", "cirros", url, "150Mi", 5*time.Minute)
 		Expect(err).To(BeNil())
 		err = v.CreateDataSourceFromPvc("openshift-virtualization-os-images", "cirros")
 		Expect(err).To(BeNil())
