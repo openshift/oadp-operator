@@ -1,0 +1,532 @@
+---
+# Test quickly with:
+# oc delete ns minimal-24csivol && oc create -f ./tests/e2e/sample-applications/minimal-24csivol/list.yaml && oc wait --for condition=available deployment/minimal-24csivol --timeout -1h && oc logs deploy/minimal-24csivol -f;
+
+# namespace minimal-24csivol
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: minimal-24csivol
+---
+# test deployment with 8 volumeMounts, 8 volumes, 8 PVCs.
+# container mounts 8 PVC volumes.
+# Appends current time to each volume ./$(date +%s).txt once if does not exists.
+# Continuously cat each file in volume to stdout.
+# container echoes the contents of each volume to stdout.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: minimal-24csivol
+  namespace: minimal-24csivol
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: minimal-24csivol
+  template:
+    metadata:
+      labels:
+        app: minimal-24csivol
+    spec:
+      containers:
+      - name: alpine
+        resources:
+          requests:
+            cpu: 100m
+            memory: 100Mi
+          limits:
+            cpu: 100m
+            memory: 100Mi
+        image: alpine
+        securityContext:
+          runAsNonRoot: true
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+          seccompProfile:
+            type: RuntimeDefault
+        tty: true
+        interactive: true
+        command: ["/bin/sh"]
+        args:
+          - "-c"
+          - |
+            date +%s > /mnt/volume1/$(date +%s).txt
+            dd if=/dev/urandom of=/mnt/volume1/random.img count=512 bs=1M
+            date +%s > /mnt/volume2/$(date +%s).txt
+            dd if=/dev/urandom of=/mnt/volume2/random.img count=512 bs=1M
+            date +%s > /mnt/volume3/$(date +%s).txt
+            dd if=/dev/urandom of=/mnt/volume3/random.img count=512 bs=1M
+            date +%s > /mnt/volume4/$(date +%s).txt
+            dd if=/dev/urandom of=/mnt/volume4/random.img count=512 bs=1M
+            date +%s > /mnt/volume5/$(date +%s).txt
+            dd if=/dev/urandom of=/mnt/volume5/random.img count=512 bs=1M
+            date +%s > /mnt/volume6/$(date +%s).txt
+            dd if=/dev/urandom of=/mnt/volume6/random.img count=512 bs=1M
+            date +%s > /mnt/volume7/$(date +%s).txt
+            dd if=/dev/urandom of=/mnt/volume7/random.img count=512 bs=1M
+            date +%s > /mnt/volume8/$(date +%s).txt
+            dd if=/dev/urandom of=/mnt/volume8/random.img count=512 bs=1M
+            date +%s > /mnt/volume9/$(date +%s).txt
+            date +%s > /mnt/volume10/$(date +%s).txt
+            date +%s > /mnt/volume11/$(date +%s).txt
+            date +%s > /mnt/volume12/$(date +%s).txt
+            date +%s > /mnt/volume13/$(date +%s).txt
+            date +%s > /mnt/volume14/$(date +%s).txt
+            date +%s > /mnt/volume15/$(date +%s).txt
+            date +%s > /mnt/volume16/$(date +%s).txt
+            date +%s > /mnt/volume17/$(date +%s).txt
+            date +%s > /mnt/volume18/$(date +%s).txt
+            date +%s > /mnt/volume19/$(date +%s).txt
+            date +%s > /mnt/volume20/$(date +%s).txt
+            date +%s > /mnt/volume21/$(date +%s).txt
+            date +%s > /mnt/volume22/$(date +%s).txt
+            date +%s > /mnt/volume23/$(date +%s).txt
+            date +%s > /mnt/volume24/$(date +%s).txt
+
+            while true; do
+              ls -l /mnt/volume*/* | grep -v lost+found | grep -v total
+              sleep 1
+            done
+# Output on initial creation
+# -rw-r--r--    1 10012100 10012100        11 Feb 27 23:03 /mnt/volume1/1677538986.txt
+# -rw-r--r--    1 10012100 10012100        11 Feb 27 23:03 /mnt/volume2/1677538986.txt
+# -rw-r--r--    1 10012100 10012100        11 Feb 27 23:03 /mnt/volume3/1677538986.txt
+# -rw-r--r--    1 10012100 10012100        11 Feb 27 23:03 /mnt/volume4/1677538986.txt
+# -rw-r--r--    1 10012100 10012100        11 Feb 27 23:03 /mnt/volume5/1677538987.txt
+# -rw-r--r--    1 10012100 10012100        11 Feb 27 23:03 /mnt/volume6/1677538987.txt
+# -rw-r--r--    1 10012100 10012100        11 Feb 27 23:03 /mnt/volume7/1677538987.txt
+# -rw-r--r--    1 10012100 10012100        11 Feb 27 23:03 /mnt/volume8/1677538987.txt
+
+# If restore works, we would expect to see two files per volume
+# -rw-r--r--    1 10012100 10012100        11 Feb 27 23:03 /mnt/volume1/1677538986.txt
+# -rw-r--r--    1 10012100 10012100        11 Feb 27 23:14 /mnt/volume1/1677539648.txt
+# -rw-r--r--    1 10012100 10012100        11 Feb 27 23:03 /mnt/volume2/1677538986.txt
+# -rw-r--r--    1 10012100 10012100        11 Feb 27 23:14 /mnt/volume2/1677539648.txt
+# -rw-r--r--    1 10012100 10012100        11 Feb 27 23:03 /mnt/volume3/1677538986.txt
+# -rw-r--r--    1 10012100 10012100        11 Feb 27 23:14 /mnt/volume3/1677539648.txt
+# -rw-r--r--    1 10012100 10012100        11 Feb 27 23:03 /mnt/volume4/1677538986.txt
+# -rw-r--r--    1 10012100 10012100        11 Feb 27 23:14 /mnt/volume4/1677539648.txt
+# -rw-r--r--    1 10012100 10012100        11 Feb 27 23:03 /mnt/volume5/1677538987.txt
+# -rw-r--r--    1 10012100 10012100        11 Feb 27 23:14 /mnt/volume5/1677539648.txt
+# -rw-r--r--    1 10012100 10012100        11 Feb 27 23:03 /mnt/volume6/1677538987.txt
+# -rw-r--r--    1 10012100 10012100        11 Feb 27 23:14 /mnt/volume6/1677539648.txt
+# -rw-r--r--    1 10012100 10012100        11 Feb 27 23:03 /mnt/volume7/1677538987.txt
+# -rw-r--r--    1 10012100 10012100        11 Feb 27 23:14 /mnt/volume7/1677539648.txt
+# -rw-r--r--    1 10012100 10012100        11 Feb 27 23:03 /mnt/volume8/1677538987.txt
+# -rw-r--r--    1 10012100 10012100        11 Feb 27 23:14 /mnt/volume8/1677539648.txt
+
+        volumeMounts:
+        - name: volume1
+          mountPath: /mnt/volume1
+        - name: volume2
+          mountPath: /mnt/volume2
+        - name: volume3
+          mountPath: /mnt/volume3
+        - name: volume4
+          mountPath: /mnt/volume4
+        - name: volume5
+          mountPath: /mnt/volume5
+        - name: volume6
+          mountPath: /mnt/volume6
+        - name: volume7
+          mountPath: /mnt/volume7
+        - name: volume8
+          mountPath: /mnt/volume8
+        - name: volume9
+          mountPath: /mnt/volume9
+        - name: volume10
+          mountPath: /mnt/volume10
+        - name: volume11
+          mountPath: /mnt/volume11
+        - name: volume12
+          mountPath: /mnt/volume12
+        - name: volume13
+          mountPath: /mnt/volume13
+        - name: volume14
+          mountPath: /mnt/volume14
+        - name: volume15
+          mountPath: /mnt/volume15
+        - name: volume16
+          mountPath: /mnt/volume16
+        - name: volume17
+          mountPath: /mnt/volume17
+        - name: volume18
+          mountPath: /mnt/volume18
+        - name: volume19
+          mountPath: /mnt/volume19
+        - name: volume20
+          mountPath: /mnt/volume20
+        - name: volume21
+          mountPath: /mnt/volume21
+        - name: volume22
+          mountPath: /mnt/volume22
+        - name: volume23
+          mountPath: /mnt/volume23
+        - name: volume24
+          mountPath: /mnt/volume24
+
+      volumes:
+      - name: volume1
+        persistentVolumeClaim:
+          claimName: volume1
+      - name: volume2
+        persistentVolumeClaim:
+          claimName: volume2
+      - name: volume3
+        persistentVolumeClaim:
+          claimName: volume3
+      - name: volume4
+        persistentVolumeClaim:
+          claimName: volume4
+      - name: volume5
+        persistentVolumeClaim:
+          claimName: volume5
+      - name: volume6
+        persistentVolumeClaim:
+          claimName: volume6
+      - name: volume7
+        persistentVolumeClaim:
+          claimName: volume7
+      - name: volume8
+        persistentVolumeClaim:
+          claimName: volume8
+      - name: volume9
+        persistentVolumeClaim:
+          claimName: volume9
+      - name: volume10
+        persistentVolumeClaim:
+          claimName: volume10
+      - name: volume11
+        persistentVolumeClaim:
+          claimName: volume11 
+      - name: volume12
+        persistentVolumeClaim:
+          claimName: volume12
+      - name: volume13
+        persistentVolumeClaim:
+          claimName: volume13
+      - name: volume14
+        persistentVolumeClaim:
+          claimName: volume14
+      - name: volume15
+        persistentVolumeClaim:
+          claimName: volume15
+      - name: volume16
+        persistentVolumeClaim:
+          claimName: volume16
+      - name: volume17
+        persistentVolumeClaim:
+          claimName: volume17
+      - name: volume18
+        persistentVolumeClaim:
+          claimName: volume18
+      - name: volume19
+        persistentVolumeClaim:
+          claimName: volume19
+      - name: volume20
+        persistentVolumeClaim:
+          claimName: volume20
+      - name: volume21
+        persistentVolumeClaim:
+          claimName: volume21
+      - name: volume22
+        persistentVolumeClaim:
+          claimName: volume22
+      - name: volume23
+        persistentVolumeClaim:
+          claimName: volume23
+      - name: volume24
+        persistentVolumeClaim:
+          claimName: volume24
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: volume1
+  namespace: minimal-24csivol
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: volume2
+  namespace: minimal-24csivol
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: volume3
+  namespace: minimal-24csivol
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: volume4
+  namespace: minimal-24csivol
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: volume5
+  namespace: minimal-24csivol
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: volume6
+  namespace: minimal-24csivol
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: volume7
+  namespace: minimal-24csivol
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: volume8
+  namespace: minimal-24csivol
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: volume9
+  namespace: minimal-24csivol
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: volume10
+  namespace: minimal-24csivol
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: volume11
+  namespace: minimal-24csivol
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: volume12
+  namespace: minimal-24csivol
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: volume13
+  namespace: minimal-24csivol
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: volume14
+  namespace: minimal-24csivol
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: volume15
+  namespace: minimal-24csivol
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: volume16
+  namespace: minimal-24csivol
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: volume17
+  namespace: minimal-24csivol
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: volume18
+  namespace: minimal-24csivol
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: volume19
+  namespace: minimal-24csivol
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: volume20
+  namespace: minimal-24csivol
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: volume21
+  namespace: minimal-24csivol
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: volume22
+  namespace: minimal-24csivol
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: volume23
+  namespace: minimal-24csivol
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: volume24
+  namespace: minimal-24csivol
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+
+
