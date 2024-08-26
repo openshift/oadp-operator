@@ -1,7 +1,6 @@
 package e2e_test
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -78,7 +77,6 @@ type VmBackupRestoreCase struct {
 	Template   string
 	InitDelay  time.Duration
 	PowerState string
-	RestoreErr error
 }
 
 func runVmBackupAndRestore(brCase VmBackupRestoreCase, expectedErr error, updateLastBRcase func(brCase VmBackupRestoreCase), updateLastInstallTime func(), v *lib.VirtOperator) {
@@ -137,7 +135,7 @@ func runVmBackupAndRestore(brCase VmBackupRestoreCase, expectedErr error, update
 	gomega.Eventually(lib.IsNamespaceDeleted(kubernetesClientForSuiteRun, brCase.Namespace), time.Minute*5, time.Second*5).Should(gomega.BeTrue())
 
 	// Do restore
-	runVmRestore(brCase, backupName, restoreName, nsRequiresResticDCWorkaround)
+	runRestore(brCase.BackupRestoreCase, backupName, restoreName, nsRequiresResticDCWorkaround)
 
 	// Run optional custom verification
 	if brCase.PostRestoreVerify != nil {
@@ -242,7 +240,6 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 				BackupTimeout:     20 * time.Minute,
 				PreBackupVerify:   vmPoweredOff("cirros-test", "cirros-test"),
 			},
-			RestoreErr: errors.New("fail to patch dynamic PV"),
 		}, nil),
 
 		ginkgo.Entry("todolist CSI backup and restore, in a Fedora VM", ginkgo.Label("virt"), VmBackupRestoreCase{
@@ -260,45 +257,3 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 		}, nil),
 	)
 })
-
-// Temporary VM-specific copy of runRestore. This is here to avoid making big
-// changes to runRestore when they are likely to be taken out in the near future.
-func runVmRestore(brCase VmBackupRestoreCase, backupName, restoreName string, nsRequiresResticDCWorkaround bool) {
-	log.Printf("Creating restore %s for case %s", restoreName, brCase.Name)
-	err := lib.CreateRestoreFromBackup(dpaCR.Client, namespace, backupName, restoreName)
-	gomega.Expect(err).ToNot(gomega.HaveOccurred())
-	gomega.Eventually(lib.IsRestoreDone(dpaCR.Client, namespace, restoreName), time.Minute*60, time.Second*10).Should(gomega.BeTrue())
-	// TODO only log on fail?
-	describeRestore := lib.DescribeRestore(dpaCR.Client, namespace, restoreName)
-	ginkgo.GinkgoWriter.Println(describeRestore)
-
-	restoreLogs := lib.RestoreLogs(kubernetesClientForSuiteRun, dpaCR.Client, namespace, restoreName)
-	restoreErrorLogs := lib.RestoreErrorLogs(kubernetesClientForSuiteRun, dpaCR.Client, namespace, restoreName)
-	accumulatedTestLogs = append(accumulatedTestLogs, describeRestore, restoreLogs)
-
-	if !brCase.SkipVerifyLogs {
-		gomega.Expect(restoreErrorLogs).Should(gomega.Equal([]string{}))
-	}
-
-	// Check if restore succeeded
-	succeeded, err := lib.IsRestoreCompletedSuccessfully(kubernetesClientForSuiteRun, dpaCR.Client, namespace, restoreName)
-	if brCase.RestoreErr != nil {
-		gomega.Expect(succeeded).To(gomega.Equal(false))
-		gomega.Expect(err).NotTo(gomega.BeNil())
-		gomega.Expect(err.Error()).To(gomega.ContainSubstring(brCase.RestoreErr.Error()))
-	} else {
-		gomega.Expect(err).ToNot(gomega.HaveOccurred())
-		gomega.Expect(succeeded).To(gomega.Equal(true))
-	}
-
-	if nsRequiresResticDCWorkaround {
-		// We run the dc-post-restore.sh script for both restic and
-		// kopia backups and for any DCs with attached volumes,
-		// regardless of whether it was restic or kopia backup.
-		// The script is designed to work with labels set by the
-		// openshift-velero-plugin and can be run without pre-conditions.
-		log.Printf("Running dc-post-restore.sh script.")
-		err = lib.RunDcPostRestoreScript(restoreName)
-		gomega.Expect(err).ToNot(gomega.HaveOccurred())
-	}
-}
