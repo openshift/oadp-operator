@@ -1,7 +1,6 @@
 package e2e_test
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -242,7 +241,6 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 				BackupTimeout:     20 * time.Minute,
 				PreBackupVerify:   vmPoweredOff("cirros-test", "cirros-test"),
 			},
-			RestoreErr: errors.New("fail to patch dynamic PV"),
 		}, nil),
 
 		ginkgo.Entry("todolist CSI backup and restore, in a Fedora VM", ginkgo.Label("virt"), VmBackupRestoreCase{
