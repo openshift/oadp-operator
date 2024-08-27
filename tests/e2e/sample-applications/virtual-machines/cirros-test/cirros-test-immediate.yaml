@@ -20,7 +20,7 @@ items:
             storage:
               resources:
                 requests:
-                  storage: 128Mi
+                  storage: 150Mi
               storageClassName: test-sc-immediate
       running: true
       template:
