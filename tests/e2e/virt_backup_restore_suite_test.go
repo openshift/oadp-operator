@@ -184,6 +184,9 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 		gomega.Expect(err).To(gomega.BeNil())
 
 		dpaCR.VeleroDefaultPlugins = append(dpaCR.VeleroDefaultPlugins, v1alpha1.DefaultPluginKubeVirt)
+
+		err = v.CreateImmediateModeStorageClass("test-sc-immediate")
+		gomega.Expect(err).To(gomega.BeNil())
 	})
 
 	var _ = ginkgo.AfterAll(func() {
@@ -193,6 +196,9 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 		if v != nil && wasInstalledFromTest {
 			v.EnsureVirtRemoval()
 		}
+
+		err := v.RemoveStorageClass("test-sc-immediate")
+		gomega.Expect(err).To(gomega.BeNil())
 	})
 
 	var _ = ginkgo.AfterEach(func(ctx ginkgo.SpecContext) {
@@ -230,6 +236,58 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 
 		ginkgo.Entry("no-application CSI backup and restore, powered-off CirrOS VM", ginkgo.Label("virt"), VmBackupRestoreCase{
 			Template:   "./sample-applications/virtual-machines/cirros-test/cirros-test.yaml",
+			InitDelay:  2 * time.Minute,
+			PowerState: "Stopped",
+			BackupRestoreCase: BackupRestoreCase{
+				Namespace:         "cirros-test",
+				Name:              "cirros-test",
+				SkipVerifyLogs:    true,
+				BackupRestoreType: lib.CSI,
+				BackupTimeout:     20 * time.Minute,
+				PreBackupVerify:   vmPoweredOff("cirros-test", "cirros-test"),
+			},
+		}, nil),
+
+		ginkgo.Entry("immediate binding no-application CSI datamover backup and restore, CirrOS VM", ginkgo.Label("virt"), VmBackupRestoreCase{
+			Template:  "./sample-applications/virtual-machines/cirros-test/cirros-test-immediate.yaml",
+			InitDelay: 2 * time.Minute, // Just long enough to get to login prompt, VM is marked running while kernel messages are still scrolling by
+			BackupRestoreCase: BackupRestoreCase{
+				Namespace:         "cirros-test",
+				Name:              "cirros-test",
+				SkipVerifyLogs:    true,
+				BackupRestoreType: lib.CSIDataMover,
+				BackupTimeout:     20 * time.Minute,
+			},
+		}, nil),
+
+		ginkgo.Entry("immediate binding no-application CSI backup and restore, CirrOS VM", ginkgo.Label("virt"), VmBackupRestoreCase{
+			Template:  "./sample-applications/virtual-machines/cirros-test/cirros-test-immediate.yaml",
+			InitDelay: 2 * time.Minute, // Just long enough to get to login prompt, VM is marked running while kernel messages are still scrolling by
+			BackupRestoreCase: BackupRestoreCase{
+				Namespace:         "cirros-test",
+				Name:              "cirros-test",
+				SkipVerifyLogs:    true,
+				BackupRestoreType: lib.CSI,
+				BackupTimeout:     20 * time.Minute,
+			},
+		}, nil),
+
+		ginkgo.Entry("immediate binding no-application CSI+datamover backup and restore, powered-off CirrOS VM", ginkgo.Label("virt"), VmBackupRestoreCase{
+			Template:   "./sample-applications/virtual-machines/cirros-test/cirros-test-immediate.yaml",
+			InitDelay:  2 * time.Minute,
+			PowerState: "Stopped",
+			BackupRestoreCase: BackupRestoreCase{
+				Namespace:         "cirros-test",
+				Name:              "cirros-test",
+				SkipVerifyLogs:    true,
+				BackupRestoreType: lib.CSIDataMover,
+				BackupTimeout:     20 * time.Minute,
+				PreBackupVerify:   vmPoweredOff("cirros-test", "cirros-test"),
+			},
+		}, nil),
+
+		ginkgo.Entry("immediate binding no-application CSI backup and restore, powered-off CirrOS VM", ginkgo.Label("virt"), VmBackupRestoreCase{
+			Template:   "./sample-applications/virtual-machines/cirros-test/cirros-test-immediate.yaml",
 			InitDelay:  2 * time.Minute,
 			PowerState: "Stopped",
 			BackupRestoreCase: BackupRestoreCase{

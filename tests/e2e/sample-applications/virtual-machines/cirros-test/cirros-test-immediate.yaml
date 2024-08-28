@@ -1,0 +1,48 @@
+apiVersion: v1
+kind: List
+items:
+  - apiVersion: kubevirt.io/v1
+    kind: VirtualMachine
+    metadata:
+      name: cirros-test
+      namespace: cirros-test
+    spec:
+      dataVolumeTemplates:
+        - apiVersion: cdi.kubevirt.io/v1beta1
+          kind: DataVolume
+          metadata:
+            name: cirros-test-disk
+          spec:
+            sourceRef:
+              kind: DataSource
+              name: cirros
+              namespace: openshift-virtualization-os-images
+            storage:
+              resources:
+                requests:
+                  storage: 150Mi
+              storageClassName: test-sc-immediate
+      running: true
+      template:
+        metadata:
+          annotations:
+            vm.kubevirt.io/flavor: tiny
+        spec:
+          domain:
+            devices:
+              disks:
+              - disk:
+                  bus: virtio
+                name: rootdisk
+            firmware:
+              bootloader:
+                efi:
+                  secureBoot: false
+            resources:
+              requests:
+                cpu: 1
+                memory: 256Mi
+          volumes:
+          - name: rootdisk
+            persistentVolumeClaim:
+              claimName: cirros-test-disk
