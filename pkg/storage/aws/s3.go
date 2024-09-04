@@ -25,10 +25,10 @@ func GetBucketRegion(bucket string) (string, error) {
 	// which AWS partition to perform the query on.
 	// Client therefore needs to be configured with region.
 	// In local dev environments, you might have ~/.aws/config that could be loaded and set with default region.
-	// In cluster/CI environment, ~/.aws/config may not be configured, so set region explicitly.
-	// Also set to use anonymous credentials
-	cfg, err := config.LoadDefaultConfig(context.TODO(),
-		config.WithRegion("us-east-1"),
+	// In cluster/CI environment, ~/.aws/config may not be configured, so set hinting region server explicitly.
+	// Also set to use anonymous credentials. If the bucket is private, this function would not work unless we modify it to take credentials.
+	cfg, err := config.LoadDefaultConfig(context.Background(),
+		config.WithRegion("us-east-1"), // This is not default region being used, this is to specify a region hinting server that we will use to get region from.
 		config.WithCredentialsProvider(aws.AnonymousCredentials{}),
 	)
 	if err != nil {
