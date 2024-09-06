@@ -242,5 +242,12 @@ func (v *VirtOperator) CreateImmediateModeStorageClass(name string) error {
 }
 
 func (v *VirtOperator) RemoveStorageClass(name string) error {
-	return v.Clientset.StorageV1().StorageClasses().Delete(context.Background(), name, metav1.DeleteOptions{})
+	err := v.Clientset.StorageV1().StorageClasses().Delete(context.Background(), name, metav1.DeleteOptions{})
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil
+		}
+		return err
+	}
+	return nil
 }
