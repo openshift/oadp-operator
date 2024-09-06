@@ -38,7 +38,7 @@ func (v *VirtOperator) deleteDataVolume(namespace, name string) error {
 	return v.Dynamic.Resource(dataVolumeGVR).Namespace(namespace).Delete(context.Background(), name, metav1.DeleteOptions{})
 }
 
-func (v *VirtOperator) checkDataVolumeExists(namespace, name string) bool {
+func (v *VirtOperator) CheckDataVolumeExists(namespace, name string) bool {
 	unstructuredDataVolume, err := v.getDataVolume(namespace, name)
 	if err != nil {
 		return false
@@ -122,7 +122,7 @@ func (v *VirtOperator) createDataVolumeFromUrl(namespace, name, url, size string
 
 // Create a DataVolume and wait for it to be ready.
 func (v *VirtOperator) EnsureDataVolumeFromUrl(namespace, name, url, size string, timeout time.Duration) error {
-	if !v.checkDataVolumeExists(namespace, name) {
+	if !v.CheckDataVolumeExists(namespace, name) {
 		if err := v.createDataVolumeFromUrl(namespace, name, url, size); err != nil {
 			return err
 		}
@@ -155,7 +155,7 @@ func (v *VirtOperator) RemoveDataVolume(namespace, name string, timeout time.Dur
 	}
 
 	err = wait.PollImmediate(5*time.Second, timeout, func() (bool, error) {
-		return !v.checkDataVolumeExists(namespace, name), nil
+		return !v.CheckDataVolumeExists(namespace, name), nil
 	})
 	if err != nil {
 		return fmt.Errorf("timed out waiting for DataVolume %s/%s to be deleted: %w", namespace, name, err)

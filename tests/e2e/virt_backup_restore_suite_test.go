@@ -153,6 +153,10 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 	var v *lib.VirtOperator
 	var err error
 	wasInstalledFromTest := false
+
+	cirrosDownloadedFromTest := false
+	cirrosNamespace := "openshift-virtualization-os-images"
+
 	var lastBRCase VmBackupRestoreCase
 	var lastInstallTime time.Time
 	updateLastBRcase := func(brCase VmBackupRestoreCase) {
@@ -178,10 +182,13 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 
 		url, err := getLatestCirrosImageURL()
 		gomega.Expect(err).To(gomega.BeNil())
-		err = v.EnsureDataVolumeFromUrl("openshift-virtualization-os-images", "cirros", url, "150Mi", 5*time.Minute)
-		gomega.Expect(err).To(gomega.BeNil())
-		err = v.CreateDataSourceFromPvc("openshift-virtualization-os-images", "cirros")
-		gomega.Expect(err).To(gomega.BeNil())
+		if !v.CheckDataVolumeExists(cirrosNamespace, "cirros") {
+			err = v.EnsureDataVolumeFromUrl(cirrosNamespace, "cirros", url, "150Mi", 5*time.Minute)
+			gomega.Expect(err).To(gomega.BeNil())
+			err = v.CreateDataSourceFromPvc(cirrosNamespace, "cirros")
+			gomega.Expect(err).To(gomega.BeNil())
+			cirrosDownloadedFromTest = true
+		}
 
 		dpaCR.VeleroDefaultPlugins = append(dpaCR.VeleroDefaultPlugins, v1alpha1.DefaultPluginKubeVirt)
 
@@ -190,8 +197,10 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 	})
 
 	var _ = ginkgo.AfterAll(func() {
-		v.RemoveDataSource("openshift-virtualization-os-images", "cirros")
-		v.RemoveDataVolume("openshift-virtualization-os-images", "cirros", 2*time.Minute)
+		if v != nil && cirrosDownloadedFromTest {
+			v.RemoveDataSource(cirrosNamespace, "cirros")
+			v.RemoveDataVolume(cirrosNamespace, "cirros", 2*time.Minute)
+		}
 
 		if v != nil && wasInstalledFromTest {
 			v.EnsureVirtRemoval()
