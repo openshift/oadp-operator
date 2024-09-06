@@ -177,8 +177,12 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 			wasInstalledFromTest = true
 		}
 
-		err = v.EnsureEmulation(20 * time.Second)
-		gomega.Expect(err).To(gomega.BeNil())
+		if kvmEmulation {
+			err = v.EnsureEmulation(20 * time.Second)
+			gomega.Expect(err).To(gomega.BeNil())
+		} else {
+			log.Println("Avoiding setting KVM emulation, by command line request")
+		}
 
 		url, err := getLatestCirrosImageURL()
 		gomega.Expect(err).To(gomega.BeNil())
