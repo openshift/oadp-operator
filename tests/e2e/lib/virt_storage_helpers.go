@@ -207,28 +207,31 @@ func (v *VirtOperator) CreateDataSourceFromPvc(namespace, name string) error {
 	return nil
 }
 
-// Check the VolumeBindingMode of the default storage class, and make an
-// Immediate-mode copy if it is set to WaitForFirstConsumer.
-func (v *VirtOperator) CreateImmediateModeStorageClass(name string) error {
-	// Find the default storage class
+// Find the default storage class
+func (v *VirtOperator) GetDefaultStorageClass() (*storagev1.StorageClass, error) {
 	storageClasses, err := v.Clientset.StorageV1().StorageClasses().List(context.Background(), metav1.ListOptions{})
 	if err != nil {
-		return err
+		return nil, err
 	}
+
 	var defaultStorageClass *storagev1.StorageClass
 	for _, storageClass := range storageClasses.Items {
 		if storageClass.Annotations["storageclass.kubernetes.io/is-default-class"] == "true" {
 			log.Printf("Found default storage class: %s", storageClass.Name)
 			defaultStorageClass = storageClass.DeepCopy()
-			if storageClass.VolumeBindingMode != nil && *storageClass.VolumeBindingMode == storagev1.VolumeBindingImmediate {
-				log.Println("Default storage class already set to Immediate")
-				return nil
-			}
-			break
+			return defaultStorageClass, nil
 		}
 	}
-	if defaultStorageClass == nil {
-		return errors.New("no default storage class found")
+
+	return nil, errors.New("no default storage class found")
+}
+
+// Check the VolumeBindingMode of the default storage class, and make an
+// Immediate-mode copy if it is set to WaitForFirstConsumer.
+func (v *VirtOperator) CreateImmediateModeStorageClass(name string) error {
+	defaultStorageClass, err := v.GetDefaultStorageClass()
+	if err != nil {
+		return err
 	}
 
 	immediateStorageClass := defaultStorageClass
@@ -238,6 +241,24 @@ func (v *VirtOperator) CreateImmediateModeStorageClass(name string) error {
 	immediateStorageClass.Annotations["storageclass.kubernetes.io/is-default-class"] = "false"
 
 	_, err = v.Clientset.StorageV1().StorageClasses().Create(context.Background(), immediateStorageClass, metav1.CreateOptions{})
+	return err
+}
+
+// Check the VolumeBindingMode of the default storage class, and make a
+// WaitForFirstConsumer-mode copy if it is set to Immediate.
+func (v *VirtOperator) CreateWaitForFirstConsumerStorageClass(name string) error {
+	defaultStorageClass, err := v.GetDefaultStorageClass()
+	if err != nil {
+		return err
+	}
+
+	wffcStorageClass := defaultStorageClass
+	wffcStorageClass.VolumeBindingMode = ptr.To[storagev1.VolumeBindingMode](storagev1.VolumeBindingWaitForFirstConsumer)
+	wffcStorageClass.Name = name
+	wffcStorageClass.ResourceVersion = ""
+	wffcStorageClass.Annotations["storageclass.kubernetes.io/is-default-class"] = "false"
+
+	_, err = v.Clientset.StorageV1().StorageClasses().Create(context.Background(), wffcStorageClass, metav1.CreateOptions{})
 	return err
 }
 

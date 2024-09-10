@@ -198,6 +198,8 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 
 		err = v.CreateImmediateModeStorageClass("test-sc-immediate")
 		gomega.Expect(err).To(gomega.BeNil())
+		err = v.CreateWaitForFirstConsumerStorageClass("test-sc-wffc")
+		gomega.Expect(err).To(gomega.BeNil())
 	})
 
 	var _ = ginkgo.AfterAll(func() {
@@ -211,6 +213,8 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 		}
 
 		err := v.RemoveStorageClass("test-sc-immediate")
+		gomega.Expect(err).To(gomega.BeNil())
+		err = v.RemoveStorageClass("test-sc-wffc")
 		gomega.Expect(err).To(gomega.BeNil())
 	})
 
