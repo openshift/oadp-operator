@@ -65,8 +65,6 @@ ifeq ($(CLUSTER_TYPE), ibmcloud)
 endif
 
 ifeq ($(CLUSTER_TYPE), openstack)
-	CLUSTER_TYPE = aws
-	VELERO_PLUGIN = aws
 	KVM_EMULATION = false
 endif
 
