@@ -11,7 +11,7 @@ import (
 	k8serror "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
@@ -68,11 +68,10 @@ func (r *DPAReconciler) ReconcileNonAdminController(log logr.Logger) (bool, erro
 			return false, err
 		}
 
-		deleteOptionPropagationForeground := metav1.DeletePropagationForeground
 		if err := r.Delete(
 			r.Context,
 			nonAdminDeployment,
-			&client.DeleteOptions{PropagationPolicy: &deleteOptionPropagationForeground},
+			&client.DeleteOptions{PropagationPolicy: ptr.To(metav1.DeletePropagationForeground)},
 		); err != nil {
 			r.EventRecorder.Event(
 				nonAdminDeployment,
@@ -96,7 +95,10 @@ func (r *DPAReconciler) ReconcileNonAdminController(log logr.Logger) (bool, erro
 		r.Client,
 		nonAdminDeployment,
 		func() error {
-			r.buildNonAdminDeployment(nonAdminDeployment, &dpa)
+			err := r.buildNonAdminDeployment(nonAdminDeployment, &dpa)
+			if err != nil {
+				return err
+			}
 
 			// Setting controller owner reference on the non admin controller deployment
 			return controllerutil.SetControllerReference(&dpa, nonAdminDeployment, r.Scheme)
@@ -117,7 +119,7 @@ func (r *DPAReconciler) ReconcileNonAdminController(log logr.Logger) (bool, erro
 	return true, nil
 }
 
-func (r *DPAReconciler) buildNonAdminDeployment(deploymentObject *appsv1.Deployment, dpa *oadpv1alpha1.DataProtectionApplication) {
+func (r *DPAReconciler) buildNonAdminDeployment(deploymentObject *appsv1.Deployment, dpa *oadpv1alpha1.DataProtectionApplication) error {
 	// TODO https://github.com/openshift/oadp-operator/pull/1316
 	nonAdminImage := r.getNonAdminImage(dpa)
 	imagePullPolicy, err := common.GetImagePullPolicy(dpa.Spec.ImagePullPolicy, nonAdminImage)
@@ -125,7 +127,11 @@ func (r *DPAReconciler) buildNonAdminDeployment(deploymentObject *appsv1.Deploym
 		r.Log.Error(err, "imagePullPolicy regex failed")
 	}
 	ensureRequiredLabels(deploymentObject)
-	ensureRequiredSpecs(deploymentObject, nonAdminImage, imagePullPolicy)
+	err = ensureRequiredSpecs(deploymentObject, nonAdminImage, imagePullPolicy)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func ensureRequiredLabels(deploymentObject *appsv1.Deployment) {
@@ -141,13 +147,13 @@ func ensureRequiredLabels(deploymentObject *appsv1.Deployment) {
 	}
 }
 
-func ensureRequiredSpecs(deploymentObject *appsv1.Deployment, image string, imagePullPolicy corev1.PullPolicy) {
+func ensureRequiredSpecs(deploymentObject *appsv1.Deployment, image string, imagePullPolicy corev1.PullPolicy) error {
 	namespaceEnvVar := corev1.EnvVar{
 		Name:  "WATCH_NAMESPACE",
 		Value: deploymentObject.Namespace,
 	}
 
-	deploymentObject.Spec.Replicas = pointer.Int32(1)
+	deploymentObject.Spec.Replicas = ptr.To(int32(1))
 	deploymentObject.Spec.Selector = &metav1.LabelSelector{
 		MatchLabels: controlPlaneLabel,
 	}
@@ -158,6 +164,7 @@ func ensureRequiredSpecs(deploymentObject *appsv1.Deployment, image string, imag
 		templateObjectLabels[controlPlaneKey] = controlPlaneLabel[controlPlaneKey]
 		deploymentObject.Spec.Template.SetLabels(templateObjectLabels)
 	}
+	nonAdminContainerFound := false
 	if len(deploymentObject.Spec.Template.Spec.Containers) == 0 {
 		deploymentObject.Spec.Template.Spec.Containers = []corev1.Container{{
 			Name:            nonAdminObjectName,
@@ -165,18 +172,25 @@ func ensureRequiredSpecs(deploymentObject *appsv1.Deployment, image string, imag
 			ImagePullPolicy: imagePullPolicy,
 			Env:             []corev1.EnvVar{namespaceEnvVar},
 		}}
+		nonAdminContainerFound = true
 	} else {
-		for _, container := range deploymentObject.Spec.Template.Spec.Containers {
+		for index, container := range deploymentObject.Spec.Template.Spec.Containers {
 			if container.Name == nonAdminObjectName {
-				container.Image = image
-				container.ImagePullPolicy = imagePullPolicy
-				container.Env = []corev1.EnvVar{namespaceEnvVar}
+				nonAdminContainer := &deploymentObject.Spec.Template.Spec.Containers[index]
+				nonAdminContainer.Image = image
+				nonAdminContainer.ImagePullPolicy = imagePullPolicy
+				nonAdminContainer.Env = []corev1.EnvVar{namespaceEnvVar}
+				nonAdminContainerFound = true
 				break
 			}
 		}
 	}
+	if !nonAdminContainerFound {
+		return fmt.Errorf("could not find Non admin container in Deployment")
+	}
 	deploymentObject.Spec.Template.Spec.RestartPolicy = corev1.RestartPolicyAlways
 	deploymentObject.Spec.Template.Spec.ServiceAccountName = nonAdminObjectName
+	return nil
 }
 
 func (r *DPAReconciler) checkNonAdminEnabled(dpa *oadpv1alpha1.DataProtectionApplication) bool {
