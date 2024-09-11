@@ -120,8 +120,14 @@ func (r *DPAReconciler) ReconcileBackupStorageLocations(log logr.Logger) (bool, 
 		//	 1. oadpApi.OadpOperatorLabel: "True"
 		// 	 2. dataprotectionapplication.name: <name>
 		// which in turn will be used in the label handler to trigger the reconciliation loop
+		var secretName string
+		if bslSpec.CloudStorage != nil {
+			secretName, _, _ = r.getSecretNameAndKeyFromCloudStorage(bslSpec.CloudStorage)
+		}
 
-		secretName, _ := r.getSecretNameAndKeyforBackupLocation(bslSpec)
+		if bslSpec.Velero != nil {
+			secretName, _, _ = r.getSecretNameAndKey(bslSpec.Velero.Config, bslSpec.Velero.Credential, oadpv1alpha1.DefaultPlugin(bslSpec.Velero.Provider))
+		}
 		_, err := r.UpdateCredentialsSecretLabels(secretName, dpa.Namespace, dpa.Name)
 		if err != nil {
 			return false, err
@@ -371,7 +377,7 @@ func (r *DPAReconciler) validateProviderPluginAndSecret(bslSpec velerov1.BackupS
 		r.Log.Info(fmt.Sprintf("%s backupstoragelocation is configured but velero plugin for %s is not present", bslSpec.Provider, bslSpec.Provider))
 		//TODO: set warning condition on Velero CR
 	}
-	secretName, _ := r.getSecretNameAndKey(&bslSpec, oadpv1alpha1.DefaultPlugin(bslSpec.Provider))
+	secretName, _, _ := r.getSecretNameAndKey(bslSpec.Config, bslSpec.Credential, oadpv1alpha1.DefaultPlugin(bslSpec.Provider))
 
 	_, err := r.getProviderSecret(secretName)
 
@@ -420,16 +426,23 @@ func (r *DPAReconciler) ensureSecretDataExists(dpa *oadpv1alpha1.DataProtectionA
 				return fmt.Errorf("Secret name specified in BackupLocation %s cannot be empty", bsl.Name)
 			}
 		}
+
 		// Check if the BSL secret key configured in the DPA exists with a secret data
-		secretName, secretKey := r.getSecretNameAndKeyforBackupLocation(*bsl)
-		bslSecret, err := r.getProviderSecret(secretName)
-		if err != nil {
-			return err
+
+		if bsl.CloudStorage != nil {
+			_, _, err := r.getSecretNameAndKeyFromCloudStorage(bsl.CloudStorage)
+			if err != nil {
+				return err
+			}
 		}
-		data, foundKey := bslSecret.Data[secretKey]
-		if !foundKey || len(data) == 0 {
-			return fmt.Errorf("Secret name %s is missing data for key %s", secretName, secretKey)
+
+		if bsl.Velero != nil {
+			_, _, err := r.getSecretNameAndKey(bsl.Velero.Config, bsl.Velero.Credential, oadpv1alpha1.DefaultPlugin(bsl.Velero.Provider))
+			if err != nil {
+				return err
+			}
 		}
+
 	}
 	return nil
 }

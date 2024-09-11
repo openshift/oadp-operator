@@ -43,6 +43,7 @@ func TestDPAReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 					Name:      "cloud-credentials",
 					Namespace: "test-ns",
 				},
+				Data: map[string][]byte{"cloud": []byte("dummy_data")},
 			},
 		},
 
@@ -77,6 +78,7 @@ func TestDPAReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 					Name:      "cloud-credentials",
 					Namespace: "test-ns",
 				},
+				Data: map[string][]byte{"cloud": []byte("dummy_data")},
 			},
 		},
 		{
@@ -106,6 +108,7 @@ func TestDPAReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 					Name:      "cloud-credentials",
 					Namespace: "test-ns",
 				},
+				Data: map[string][]byte{"cloud": []byte("dummy_data")},
 			},
 		},
 		{
@@ -139,6 +142,7 @@ func TestDPAReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 					Name:      "cloud-credentials",
 					Namespace: "test-ns",
 				},
+				Data: map[string][]byte{"cloud": []byte("dummy_data")},
 			},
 		},
 		{
@@ -172,6 +176,7 @@ func TestDPAReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 					Name:      "cloud-credentials",
 					Namespace: "test-ns",
 				},
+				Data: map[string][]byte{"cloud": []byte("dummy_data")},
 			},
 		},
 
@@ -200,9 +205,10 @@ func TestDPAReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 			wantErr: false,
 			secret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "cloud-credentials",
+					Name:      "cloud-credentials-gcp",
 					Namespace: "test-ns",
 				},
+				Data: map[string][]byte{"cloud": []byte("dummy_data")},
 			},
 		},
 		{
@@ -232,9 +238,10 @@ func TestDPAReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 			wantErr: false,
 			secret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "cloud-credentials",
+					Name:      "cloud-credentials-gcp",
 					Namespace: "test-ns",
 				},
+				Data: map[string][]byte{"cloud": []byte("dummy_data")},
 			},
 		},
 		{
@@ -264,9 +271,10 @@ func TestDPAReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 			wantErr: false,
 			secret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "cloud-credentials",
+					Name:      "cloud-credentials-gcp",
 					Namespace: "test-ns",
 				},
+				Data: map[string][]byte{"cloud": []byte("dummy_data")},
 			},
 		},
 		{
@@ -296,9 +304,10 @@ func TestDPAReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 			wantErr: true,
 			secret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "cloud-credentials",
+					Name:      "cloud-credentials-gcp",
 					Namespace: "test-ns",
 				},
+				Data: map[string][]byte{"cloud": []byte("dummy_data")},
 			},
 		},
 
@@ -327,9 +336,10 @@ func TestDPAReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 			wantErr: false,
 			secret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "cloud-credentials",
+					Name:      "cloud-credentials-azure",
 					Namespace: "test-ns",
 				},
+				Data: map[string][]byte{"cloud": []byte("dummy_data")},
 			},
 		},
 		{
@@ -359,9 +369,10 @@ func TestDPAReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 			wantErr: false,
 			secret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "cloud-credentials",
+					Name:      "cloud-credentials-azure",
 					Namespace: "test-ns",
 				},
+				Data: map[string][]byte{"cloud": []byte("dummy_data")},
 			},
 		},
 		{
@@ -391,9 +402,10 @@ func TestDPAReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 			wantErr: false,
 			secret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "cloud-credentials",
+					Name:      "cloud-credentials-azure",
 					Namespace: "test-ns",
 				},
+				Data: map[string][]byte{"cloud": []byte("dummy_data")},
 			},
 		},
 		{
@@ -423,9 +435,10 @@ func TestDPAReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 			wantErr: false,
 			secret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "cloud-credentials",
+					Name:      "cloud-credentials-azure",
 					Namespace: "test-ns",
 				},
+				Data: map[string][]byte{"cloud": []byte("dummy_data")},
 			},
 		},
 		{
@@ -455,9 +468,10 @@ func TestDPAReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 			wantErr: false,
 			secret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "cloud-credentials",
+					Name:      "cloud-credentials-azure",
 					Namespace: "test-ns",
 				},
+				Data: map[string][]byte{"cloud": []byte("dummy_data")},
 			},
 		},
 		{
@@ -487,9 +501,10 @@ func TestDPAReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 			wantErr: true,
 			secret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "cloud-credentials",
+					Name:      "cloud-credentials-azure",
 					Namespace: "test-ns",
 				},
+				Data: map[string][]byte{"cloud": []byte("dummy_data")},
 			},
 		},
 	}
