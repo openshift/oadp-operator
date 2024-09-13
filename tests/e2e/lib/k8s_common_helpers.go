@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"regexp"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -90,6 +91,34 @@ func DeleteSecret(clientset *kubernetes.Clientset, namespace string, credSecretR
 		return nil
 	}
 	return err
+}
+
+// DeleteBackupRepositoryByRegex deletes a BackupRepository instance that matches the given regex pattern.
+func DeleteBackupRepositoryByRegex(c *kubernetes.Clientset, namespace string, regexPattern string) error {
+	// Compile the regex pattern
+	regex, err := regexp.Compile(regexPattern)
+	if err != nil {
+		return fmt.Errorf("failed to compile regex pattern: %v", err)
+	}
+	// List all BackupRepository instances in the namespace
+	backupRepos, err := clientset.CoreV1().BackupRepositories(namespace).Get(context.Background(), namespace, metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to list BackupRepositories: %v", err)
+	}
+
+	// Iterate through the BackupRepositories and delete the one that matches the regex
+	for _, repo := range backupRepos.Items {
+		if regex.MatchString(repo.Name) {
+			err := clientset.CoreV1().BackupRepositories(namespace).Delete(context.TODO(), repo.Name, metav1.DeleteOptions{})
+			if err != nil {
+				return fmt.Errorf("failed to delete BackupRepository %s: %v", repo.Name, err)
+			}
+			log.Printf("Successfully deleted BackupRepository: %s", repo.Name)
+			return nil
+		}
+	}
+
+	return fmt.Errorf("no BackupRepository matching the regex pattern %s was found", regexPattern)
 }
 
 // ExecuteCommandInPodsSh executes a command in a Kubernetes pod using the provided parameters.

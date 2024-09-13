@@ -187,6 +187,8 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 
 		err = v.CreateImmediateModeStorageClass("test-sc-immediate")
 		gomega.Expect(err).To(gomega.BeNil())
+		err = lib.DeleteBackupRepositoryByRegex(kubernetesClientForSuiteRun, "openshift-oadp", "cirros-test.*")
+		gomega.Expect(err).To(gomega.BeNil())
 	})
 
 	var _ = ginkgo.AfterAll(func() {
