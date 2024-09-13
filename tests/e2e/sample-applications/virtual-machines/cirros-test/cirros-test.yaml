@@ -21,6 +21,7 @@ items:
               resources:
                 requests:
                   storage: 150Mi
+              storageClassName: test-sc-wffc
       running: true
       template:
         metadata:

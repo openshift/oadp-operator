@@ -30,6 +30,7 @@ VELERO_INSTANCE_NAME ?= velero-test
 ARTIFACT_DIR ?= /tmp
 OC_CLI = $(shell which oc)
 TEST_VIRT ?= false
+KVM_EMULATION ?= true
 TEST_UPGRADE ?= false
 
 ifdef CLI_DIR
@@ -61,6 +62,10 @@ VELERO_PLUGIN ?= ${CLUSTER_TYPE}
 
 ifeq ($(CLUSTER_TYPE), ibmcloud)
 	VELERO_PLUGIN = aws
+endif
+
+ifeq ($(CLUSTER_TYPE), openstack)
+	KVM_EMULATION = false
 endif
 
 # Kubernetes version from OpenShift 4.16.x https://openshift-release.apps.ci.l2s4.p1.openshiftapps.com/#4-stable
@@ -517,6 +522,7 @@ test-e2e: test-e2e-setup install-ginkgo
 	-velero_instance_name=$(VELERO_INSTANCE_NAME) \
 	-artifact_dir=$(ARTIFACT_DIR) \
 	-oc_cli=$(OC_CLI) \
+	-kvm_emulation=$(KVM_EMULATION) \
 	--ginkgo.vv \
 	--ginkgo.no-color=$(OPENSHIFT_CI) \
 	--ginkgo.label-filter="$(TEST_FILTER)" \
