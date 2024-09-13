@@ -18,8 +18,8 @@ OADP supports backup and restore operations for OpenShift Virtualization workloa
 
 | VolumeMode | FSB - restic | FSB - kopia | CSI | CSI DataMover ** |
 |------------|--------------|-------------|-----|------------------|
-| Filesystem | N            | N           | N   | N                |
-| Block      | N            | N           | S   | S, I  |
+| Filesystem | N            | N           | S   | S, I             |
+| Block      | N            | N           | S   | S, I             |
 
 * Legend:
   * S - Supported
