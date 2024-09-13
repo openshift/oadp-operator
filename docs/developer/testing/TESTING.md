@@ -56,6 +56,10 @@ OPENSHIFT_CI=false \
 make test-e2e
 ```
 
+### OpenStack setup
+
+* no changes needed, just setup s3 storage in aws.
+
 ### Azure setup
 
 TODO
