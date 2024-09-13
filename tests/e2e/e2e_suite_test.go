@@ -48,6 +48,8 @@ var (
 	kubeConfig          *rest.Config
 	knownFlake          bool
 	accumulatedTestLogs []string
+
+	kvmEmulation bool
 )
 
 func init() {
@@ -62,6 +64,7 @@ func init() {
 	flag.StringVar(&artifact_dir, "artifact_dir", "/tmp", "Directory for storing must gather")
 	flag.StringVar(&oc_cli, "oc_cli", "oc", "OC CLI Client")
 	flag.Int64Var(&flakeAttempts, "flakeAttempts", 3, "Customize the number of flake retries (3)")
+	flag.BoolVar(&kvmEmulation, "kvm_emulation", true, "Enable or disable KVM emulation for virtualization testing")
 
 	// helps with launching debug sessions from IDE
 	if os.Getenv("E2E_USE_ENV_FLAGS") == "true" {
@@ -100,7 +103,15 @@ func init() {
 				flakeAttempts = parsedValue
 			}
 		}
+		if envValue := os.Getenv("KVM_EMULATION"); envValue != "" {
+			if parsedValue, err := strconv.ParseBool(envValue); err == nil {
+				kvmEmulation = parsedValue
+			} else {
+				log.Println("Error parsing KVM_EMULATION, it will be enabled by default: ", err)
+			}
+		}
 	}
+
 }
 
 func TestOADPE2E(t *testing.T) {

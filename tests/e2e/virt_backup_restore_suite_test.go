@@ -153,6 +153,10 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 	var v *lib.VirtOperator
 	var err error
 	wasInstalledFromTest := false
+
+	cirrosDownloadedFromTest := false
+	cirrosNamespace := "openshift-virtualization-os-images"
+
 	var lastBRCase VmBackupRestoreCase
 	var lastInstallTime time.Time
 	updateLastBRcase := func(brCase VmBackupRestoreCase) {
@@ -173,32 +177,45 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 			wasInstalledFromTest = true
 		}
 
-		err = v.EnsureEmulation(20 * time.Second)
-		gomega.Expect(err).To(gomega.BeNil())
+		if kvmEmulation {
+			err = v.EnsureEmulation(20 * time.Second)
+			gomega.Expect(err).To(gomega.BeNil())
+		} else {
+			log.Println("Avoiding setting KVM emulation, by command line request")
+		}
 
 		url, err := getLatestCirrosImageURL()
 		gomega.Expect(err).To(gomega.BeNil())
-		err = v.EnsureDataVolumeFromUrl("openshift-virtualization-os-images", "cirros", url, "150Mi", 5*time.Minute)
-		gomega.Expect(err).To(gomega.BeNil())
-		err = v.CreateDataSourceFromPvc("openshift-virtualization-os-images", "cirros")
-		gomega.Expect(err).To(gomega.BeNil())
+		if !v.CheckDataVolumeExists(cirrosNamespace, "cirros") {
+			err = v.EnsureDataVolumeFromUrl(cirrosNamespace, "cirros", url, "150Mi", 5*time.Minute)
+			gomega.Expect(err).To(gomega.BeNil())
+			err = v.CreateDataSourceFromPvc(cirrosNamespace, "cirros")
+			gomega.Expect(err).To(gomega.BeNil())
+			cirrosDownloadedFromTest = true
+		}
 
 		dpaCR.VeleroDefaultPlugins = append(dpaCR.VeleroDefaultPlugins, v1alpha1.DefaultPluginKubeVirt)
 
 		err = v.CreateImmediateModeStorageClass("test-sc-immediate")
 		gomega.Expect(err).To(gomega.BeNil())
+		err = v.CreateWaitForFirstConsumerStorageClass("test-sc-wffc")
+		gomega.Expect(err).To(gomega.BeNil())
 		lib.DeleteBackupRepositoryByRegex(runTimeClientForSuiteRun, "openshift-oadp", "cirros-test.*")
 	})
 
 	var _ = ginkgo.AfterAll(func() {
-		v.RemoveDataSource("openshift-virtualization-os-images", "cirros")
-		v.RemoveDataVolume("openshift-virtualization-os-images", "cirros", 2*time.Minute)
+		if v != nil && cirrosDownloadedFromTest {
+			v.RemoveDataSource(cirrosNamespace, "cirros")
+			v.RemoveDataVolume(cirrosNamespace, "cirros", 2*time.Minute)
+		}
 
 		if v != nil && wasInstalledFromTest {
 			v.EnsureVirtRemoval()
 		}
 
 		err := v.RemoveStorageClass("test-sc-immediate")
+		gomega.Expect(err).To(gomega.BeNil())
+		err = v.RemoveStorageClass("test-sc-wffc")
 		gomega.Expect(err).To(gomega.BeNil())
 	})
 

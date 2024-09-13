@@ -72,7 +72,7 @@ func prepareBackupAndRestore(brCase BackupRestoreCase, updateLastInstallTime fun
 	gomega.Eventually(dpaCR.BSLsAreAvailable(), time.Minute*3, time.Second*5).Should(gomega.BeTrue())
 
 	if brCase.BackupRestoreType == lib.CSI || brCase.BackupRestoreType == lib.CSIDataMover {
-		if provider == "aws" || provider == "ibmcloud" || provider == "gcp" || provider == "azure" {
+		if provider == "aws" || provider == "ibmcloud" || provider == "gcp" || provider == "azure" || provider == "openstack" {
 			log.Printf("Creating VolumeSnapshotClass for CSI backuprestore of %s", brCase.Name)
 			snapshotClassPath := fmt.Sprintf("./sample-applications/snapclass-csi/%s.yaml", provider)
 			err = lib.InstallApplication(dpaCR.Client, snapshotClassPath)

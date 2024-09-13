@@ -38,7 +38,7 @@ func (v *VirtOperator) deleteDataVolume(namespace, name string) error {
 	return v.Dynamic.Resource(dataVolumeGVR).Namespace(namespace).Delete(context.Background(), name, metav1.DeleteOptions{})
 }
 
-func (v *VirtOperator) checkDataVolumeExists(namespace, name string) bool {
+func (v *VirtOperator) CheckDataVolumeExists(namespace, name string) bool {
 	unstructuredDataVolume, err := v.getDataVolume(namespace, name)
 	if err != nil {
 		return false
@@ -122,7 +122,7 @@ func (v *VirtOperator) createDataVolumeFromUrl(namespace, name, url, size string
 
 // Create a DataVolume and wait for it to be ready.
 func (v *VirtOperator) EnsureDataVolumeFromUrl(namespace, name, url, size string, timeout time.Duration) error {
-	if !v.checkDataVolumeExists(namespace, name) {
+	if !v.CheckDataVolumeExists(namespace, name) {
 		if err := v.createDataVolumeFromUrl(namespace, name, url, size); err != nil {
 			return err
 		}
@@ -155,7 +155,7 @@ func (v *VirtOperator) RemoveDataVolume(namespace, name string, timeout time.Dur
 	}
 
 	err = wait.PollImmediate(5*time.Second, timeout, func() (bool, error) {
-		return !v.checkDataVolumeExists(namespace, name), nil
+		return !v.CheckDataVolumeExists(namespace, name), nil
 	})
 	if err != nil {
 		return fmt.Errorf("timed out waiting for DataVolume %s/%s to be deleted: %w", namespace, name, err)
@@ -207,28 +207,31 @@ func (v *VirtOperator) CreateDataSourceFromPvc(namespace, name string) error {
 	return nil
 }
 
-// Check the VolumeBindingMode of the default storage class, and make an
-// Immediate-mode copy if it is set to WaitForFirstConsumer.
-func (v *VirtOperator) CreateImmediateModeStorageClass(name string) error {
-	// Find the default storage class
+// Find the default storage class
+func (v *VirtOperator) GetDefaultStorageClass() (*storagev1.StorageClass, error) {
 	storageClasses, err := v.Clientset.StorageV1().StorageClasses().List(context.Background(), metav1.ListOptions{})
 	if err != nil {
-		return err
+		return nil, err
 	}
+
 	var defaultStorageClass *storagev1.StorageClass
 	for _, storageClass := range storageClasses.Items {
 		if storageClass.Annotations["storageclass.kubernetes.io/is-default-class"] == "true" {
 			log.Printf("Found default storage class: %s", storageClass.Name)
 			defaultStorageClass = storageClass.DeepCopy()
-			if storageClass.VolumeBindingMode != nil && *storageClass.VolumeBindingMode == storagev1.VolumeBindingImmediate {
-				log.Println("Default storage class already set to Immediate")
-				return nil
-			}
-			break
+			return defaultStorageClass, nil
 		}
 	}
-	if defaultStorageClass == nil {
-		return errors.New("no default storage class found")
+
+	return nil, errors.New("no default storage class found")
+}
+
+// Check the VolumeBindingMode of the default storage class, and make an
+// Immediate-mode copy if it is set to WaitForFirstConsumer.
+func (v *VirtOperator) CreateImmediateModeStorageClass(name string) error {
+	defaultStorageClass, err := v.GetDefaultStorageClass()
+	if err != nil {
+		return err
 	}
 
 	immediateStorageClass := defaultStorageClass
@@ -241,6 +244,31 @@ func (v *VirtOperator) CreateImmediateModeStorageClass(name string) error {
 	return err
 }
 
+// Check the VolumeBindingMode of the default storage class, and make a
+// WaitForFirstConsumer-mode copy if it is set to Immediate.
+func (v *VirtOperator) CreateWaitForFirstConsumerStorageClass(name string) error {
+	defaultStorageClass, err := v.GetDefaultStorageClass()
+	if err != nil {
+		return err
+	}
+
+	wffcStorageClass := defaultStorageClass
+	wffcStorageClass.VolumeBindingMode = ptr.To[storagev1.VolumeBindingMode](storagev1.VolumeBindingWaitForFirstConsumer)
+	wffcStorageClass.Name = name
+	wffcStorageClass.ResourceVersion = ""
+	wffcStorageClass.Annotations["storageclass.kubernetes.io/is-default-class"] = "false"
+
+	_, err = v.Clientset.StorageV1().StorageClasses().Create(context.Background(), wffcStorageClass, metav1.CreateOptions{})
+	return err
+}
+
 func (v *VirtOperator) RemoveStorageClass(name string) error {
-	return v.Clientset.StorageV1().StorageClasses().Delete(context.Background(), name, metav1.DeleteOptions{})
+	err := v.Clientset.StorageV1().StorageClasses().Delete(context.Background(), name, metav1.DeleteOptions{})
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil
+		}
+		return err
+	}
+	return nil
 }
