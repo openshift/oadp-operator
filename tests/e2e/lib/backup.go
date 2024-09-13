@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"regexp"
 	"time"
 
 	velero "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
@@ -43,6 +44,59 @@ func GetBackup(c client.Client, namespace string, name string) (*velero.Backup, 
 		return nil, err
 	}
 	return &backup, nil
+}
+
+func GetBackupRepositoryList(c client.Client) (*velero.BackupRepositoryList, error) {
+	backupRepositoryList := &velero.BackupRepositoryList{}
+	err := c.List(context.Background(), backupRepositoryList)
+	if err != nil {
+		return nil, err
+	}
+	return backupRepositoryList, nil
+}
+
+func DeleteBackupRepository(c client.Client, namespace string, name string) error {
+	backupRepository := &velero.BackupRepository{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "openshift-adp",
+			Name:      name,
+		},
+	}
+	err := c.Delete(context.Background(), backupRepository)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// DeleteBackupRepositoryByRegex deletes a BackupRepository instance that matches the given regex pattern.
+func DeleteBackupRepositoryByRegex(c client.Client, namespace string, regexPattern string) error {
+	log.Printf("Checking if backuprepository for cirros-test exists")
+	regex, err := regexp.Compile(regexPattern)
+	if err != nil {
+		return fmt.Errorf("failed to compile regex pattern: %v", err)
+	}
+	// List all BackupRepository instances in the namespace
+	backupRepos, err := GetBackupRepositoryList(c)
+	if err != nil {
+		return fmt.Errorf("failed to get BackupRepository list: %v", err)
+	}
+
+	// Iterate through the BackupRepositories and delete the one that matches the regex
+	for _, repo := range backupRepos.Items {
+		if regex.MatchString(repo.Name) {
+			err := DeleteBackupRepository(c, namespace, repo.Name)
+			if err != nil {
+				return fmt.Errorf("failed to delete BackupRepository %s: %v", repo.Name, err)
+			}
+			log.Printf("Successfully deleted BackupRepository: %s", repo.Name)
+			return nil
+		} else {
+			log.Printf("backuprepository starting with %s not found", regexPattern)
+		}
+	}
+
+	return fmt.Errorf("no BackupRepository matching the regex pattern %s was found", regexPattern)
 }
 
 func IsBackupDone(ocClient client.Client, veleroNamespace, name string) wait.ConditionFunc {
