@@ -20,6 +20,7 @@ metadata:
     features.operators.openshift.io/token-auth-aws: "true"
     features.operators.openshift.io/token-auth-azure: "false"
     features.operators.openshift.io/token-auth-gcp: "false"
+    olm.properties: '[{"type": "olm.maxOpenShiftVersion", "value": "4.15"}]'
     olm.skipRange: '>=0.0.0 <1.3.0'
     operatorframework.io/suggested-namespace: openshift-adp
     operators.openshift.io/infrastructure-features: '["Disconnected"]'
