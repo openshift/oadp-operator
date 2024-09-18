@@ -183,7 +183,7 @@ func DeleteBackupRepositoryByRegex(c client.Client, namespace string, regexPatte
 		return fmt.Errorf("failed to get BackupRepository list: %v", err)
 	}
 
-	// Iterate through the BackupRepositories and delete the one that matches the regex
+	// Get a list of the BackupRepositories and delete the one that matches the regex
 	for _, repo := range backupRepos.Items {
 		if regex.MatchString(repo.Name) {
 			err := DeleteBackupRepository(c, namespace, repo.Name)
