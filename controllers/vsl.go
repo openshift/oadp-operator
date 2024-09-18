@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-logr/logr"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
+	"github.com/openshift/oadp-operator/pkg/common"
 	"github.com/openshift/oadp-operator/pkg/credentials"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -218,10 +219,17 @@ func (r *DPAReconciler) ReconcileVolumeSnapshotLocations(log logr.Logger) (bool,
 	for i, vslSpec := range dpa.Spec.SnapshotLocations {
 		// Create VSL as is, we can safely assume they are valid from
 		// ValidateVolumeSnapshotLocations
+
+		// check if VSL name is specified in DPA spec
+		vslName := fmt.Sprintf("%s-%d", r.NamespacedName.Name, i+1)
+		if vslSpec.Name != "" {
+			vslName = vslSpec.Name
+		}
+
 		vsl := velerov1.VolumeSnapshotLocation{
 			ObjectMeta: metav1.ObjectMeta{
 				// TODO: Use a hash instead of i
-				Name:      fmt.Sprintf("%s-%d", r.NamespacedName.Name, i+1),
+				Name:      vslName,
 				Namespace: r.NamespacedName.Namespace,
 			},
 			Spec: *vslSpec.Velero,
@@ -238,6 +246,14 @@ func (r *DPAReconciler) ReconcileVolumeSnapshotLocations(log logr.Logger) (bool,
 				return err
 			}
 			// TODO: check for VSL status condition errors and respond here
+
+			vsl.Labels = map[string]string{
+				"app.kubernetes.io/name":       common.OADPOperatorVelero,
+				"app.kubernetes.io/instance":   vslName,
+				"app.kubernetes.io/managed-by": common.OADPOperator,
+				"app.kubernetes.io/component":  "vsl",
+				oadpv1alpha1.OadpOperatorLabel: "True",
+			}
 
 			vsl.Spec = *vslSpec.Velero
 			return nil

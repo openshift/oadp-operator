@@ -229,6 +229,8 @@ type BackupLocation struct {
 type SnapshotLocation struct {
 	// TODO: Add name/annotations/labels support
 
+	// +optional
+	Name   string                             `json:"name,omitempty"`
 	Velero *velero.VolumeSnapshotLocationSpec `json:"velero"`
 }
 
