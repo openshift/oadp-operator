@@ -1,6 +1,7 @@
 package e2e_test
 
 import (
+	"fmt"
 	"log"
 	"strings"
 	"time"
@@ -190,14 +191,12 @@ var _ = ginkgo.Describe("Configuration testing for DPA Custom Resource", func() 
 					log.Printf("Checking for BSL spec")
 					gomega.Expect(dpaCR.DoesBSLSpecMatchesDpa(namespace, *bsl.Velero)).To(gomega.BeTrue())
 				}
+			} else {
+				log.Println("Checking no BSLs are deployed")
+				_, err = dpaCR.ListBSLs()
+				gomega.Expect(err).To(gomega.HaveOccurred())
+				gomega.Expect(err.Error()).To(gomega.Equal(fmt.Sprintf("no BSL in %s namespace", namespace)))
 			}
-			// TODO bug
-			// else {
-			// 	log.Println("Checking no BSLs are deployed")
-			// 	_, err = dpaCR.ListBSLs()
-			// 	Expect(err).To(HaveOccurred())
-			// 	Expect(err.Error()).To(Equal(fmt.Sprintf("no BSL in %s namespace", namespace)))
-			// }
 
 			if len(installCase.DpaSpec.SnapshotLocations) > 0 {
 				// TODO Check if VSLs are available creating new backup/restore test with VSL
@@ -205,14 +204,12 @@ var _ = ginkgo.Describe("Configuration testing for DPA Custom Resource", func() 
 					log.Printf("Checking for VSL spec")
 					gomega.Expect(dpaCR.DoesVSLSpecMatchesDpa(namespace, *vsl.Velero)).To(gomega.BeTrue())
 				}
+			} else {
+				log.Println("Checking no VSLs are deployed")
+				_, err = dpaCR.ListVSLs()
+				gomega.Expect(err).To(gomega.HaveOccurred())
+				gomega.Expect(err.Error()).To(gomega.Equal(fmt.Sprintf("no VSL in %s namespace", namespace)))
 			}
-			// TODO bug
-			// else {
-			// 	log.Println("Checking no VSLs are deployed")
-			// 	_, err = dpaCR.ListVSLs()
-			// 	Expect(err).To(HaveOccurred())
-			// 	Expect(err.Error()).To(Equal(fmt.Sprintf("no VSL in %s namespace", namespace)))
-			// }
 
 			if len(installCase.DpaSpec.Configuration.Velero.PodConfig.Tolerations) > 0 {
 				log.Printf("Checking for velero tolerances")
