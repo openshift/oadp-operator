@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"regexp"
 	"time"
 
 	velero "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
@@ -147,11 +146,14 @@ func BackupErrorLogs(c *kubernetes.Clientset, ocClient client.Client, namespace 
 	return errorLogsExcludingIgnored(bl)
 }
 
-func GetBackupRepositoryList(c client.Client) (*velero.BackupRepositoryList, error) {
-	backupRepositoryList := &velero.BackupRepositoryList{}
-	err := c.List(context.Background(), backupRepositoryList)
+func GetBackupRepositoryList(c client.Client, namespace string) (*velero.BackupRepositoryList, error) {
+	backupRepositoryList := &velero.BackupRepositoryList{
+		Items: []velero.BackupRepository{},
+	}
+	err := c.List(context.Background(), backupRepositoryList, client.InNamespace(namespace))
+	// if there is an error, just print, don't return the error
 	if err != nil {
-		return nil, err
+		log.Printf("error getting BackupRepository list: %v", err)
 	}
 	return backupRepositoryList, nil
 }
@@ -159,7 +161,7 @@ func GetBackupRepositoryList(c client.Client) (*velero.BackupRepositoryList, err
 func DeleteBackupRepository(c client.Client, namespace string, name string) error {
 	backupRepository := &velero.BackupRepository{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: "openshift-adp",
+			Namespace: namespace,
 			Name:      name,
 		},
 	}
@@ -171,32 +173,22 @@ func DeleteBackupRepository(c client.Client, namespace string, name string) erro
 }
 
 // DeleteBackupRepositoryByRegex deletes a BackupRepository instance that matches the given regex pattern.
-func DeleteBackupRepositoryByRegex(c client.Client, namespace string, regexPattern string) error {
-	log.Printf("Checking if backuprepository for cirros-test exists")
-	regex, err := regexp.Compile(regexPattern)
-	if err != nil {
-		return fmt.Errorf("failed to compile regex pattern: %v", err)
-	}
-	// List all BackupRepository instances in the namespace
-	backupRepos, err := GetBackupRepositoryList(c)
+func DeleteBackupRepositoryByRegex(c client.Client, namespace string) error {
+	log.Printf("Checking if backuprepository's exist in %s", namespace)
+
+	backupRepos, err := GetBackupRepositoryList(c, namespace)
 	if err != nil {
 		return fmt.Errorf("failed to get BackupRepository list: %v", err)
 	}
-
 	// Get a list of the BackupRepositories and delete the one that matches the regex
 	for _, repo := range backupRepos.Items {
-		if regex.MatchString(repo.Name) {
-			err := DeleteBackupRepository(c, namespace, repo.Name)
-			if err != nil {
-				return fmt.Errorf("failed to delete BackupRepository %s: %v", repo.Name, err)
-			}
-			log.Printf("Successfully deleted BackupRepository: %s", repo.Name)
-			return nil
-		} else {
-			log.Printf("backuprepository starting with %s not found", regexPattern)
-			return nil
+		log.Printf("backuprepository name is %s", repo.Name)
+		err := DeleteBackupRepository(c, namespace, repo.Name)
+		if err != nil {
+			return fmt.Errorf("failed to delete BackupRepository %s: %v", repo.Name, err)
 		}
+		log.Printf("Successfully deleted BackupRepository: %s", repo.Name)
 	}
 
-	return fmt.Errorf("no BackupRepository matching the regex pattern %s was found", regexPattern)
+	return nil
 }
