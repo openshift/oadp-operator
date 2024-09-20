@@ -8,7 +8,7 @@ You need to have OADP operator already installed in your cluster to run E2E test
 
 ### AWS setup
 
-> **Note:** If you are using IBM Cloud, follow this section.
+> **Note:** If you are using IBM Cloud, or OpenStack follow this section.
 
 To get started, you need to provide the following **required** environment variables.
 
@@ -55,6 +55,10 @@ OADP_TEST_NAMESPACE=<test_namespace> \
 OPENSHIFT_CI=false \
 make test-e2e
 ```
+
+### OpenStack setup
+
+* no changes needed, just setup s3 storage in aws. See the above AWS setup.
 
 ### Azure setup
 
