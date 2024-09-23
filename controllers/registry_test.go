@@ -237,10 +237,10 @@ func TestDPAReconciler_getSecretNameAndKey(t *testing.T) {
 			gotName, gotKey, _ := r.getSecretNameAndKey(tt.bsl.Velero.Config, tt.bsl.Velero.Credential, oadpv1alpha1.DefaultPlugin(tt.bsl.Velero.Provider))
 
 			if !reflect.DeepEqual(tt.wantSecretName, gotName) {
-				t.Errorf("expected registry container env var to be %#v, got %#v", tt.wantSecretName, gotName)
+				t.Errorf("expected secret name to be %#v, got %#v", tt.wantSecretName, gotName)
 			}
 			if !reflect.DeepEqual(tt.wantSecretKey, gotKey) {
-				t.Errorf("expected registry container env var to be %#v, got %#v", tt.wantSecretKey, gotKey)
+				t.Errorf("expected secret key to be %#v, got %#v", tt.wantSecretKey, gotKey)
 			}
 		})
 	}
@@ -326,10 +326,10 @@ func TestDPAReconciler_getSecretNameAndKeyFromCloudStorage(t *testing.T) {
 			gotName, gotKey, _ := r.getSecretNameAndKeyFromCloudStorage(tt.bsl.CloudStorage)
 
 			if !reflect.DeepEqual(tt.wantSecretName, gotName) {
-				t.Errorf("expected registry container env var to be %#v, got %#v", tt.wantSecretName, gotName)
+				t.Errorf("expected secret name to be %#v, got %#v", tt.wantSecretName, gotName)
 			}
 			if !reflect.DeepEqual(tt.wantSecretKey, gotKey) {
-				t.Errorf("expected registry container env var to be %#v, got %#v", tt.wantSecretKey, gotKey)
+				t.Errorf("expected secret key to be %#v, got %#v", tt.wantSecretKey, gotKey)
 			}
 		})
 	}
@@ -422,7 +422,7 @@ func TestDPAReconciler_populateAWSRegistrySecret(t *testing.T) {
 				t.Errorf("populateAWSRegistrySecret() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			if !reflect.DeepEqual(tt.registrySecret.Data, wantRegistrySecret.Data) {
-				t.Errorf("expected bsl labels to be %#v, got %#v", tt.registrySecret.Data, wantRegistrySecret.Data)
+				t.Errorf("expected aws registry secret to be %#v, got %#v", tt.registrySecret.Data, wantRegistrySecret.Data)
 			}
 		})
 	}
@@ -509,10 +509,10 @@ func TestDPAReconciler_populateAzureRegistrySecret(t *testing.T) {
 				Data: azureRegistrySecretData,
 			}
 			if err := r.populateAzureRegistrySecret(tt.bsl, tt.registrySecret); (err != nil) != tt.wantErr {
-				t.Errorf("populateAWSRegistrySecret() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("populateAzureRegistrySecret() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			if !reflect.DeepEqual(tt.registrySecret.Data, wantRegistrySecret.Data) {
-				t.Errorf("expected bsl labels to be %#v, got %#v", tt.registrySecret, wantRegistrySecret.Data)
+				t.Errorf("expected azure registry secret to be %#v, got %#v", tt.registrySecret, wantRegistrySecret.Data)
 			}
 		})
 	}
