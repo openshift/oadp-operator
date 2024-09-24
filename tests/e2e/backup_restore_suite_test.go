@@ -29,10 +29,8 @@ type BackupRestoreCase struct {
 
 type ApplicationBackupRestoreCase struct {
 	BackupRestoreCase
-	ApplicationTemplate          string
-	PvcSuffixName                string
-	MustGatherFiles              []string            // list of files expected in must-gather under quay.io.../clusters/clustername/... ie. "namespaces/openshift-adp/oadp.openshift.io/dpa-ts-example-velero/ts-example-velero.yml"
-	MustGatherValidationFunction *func(string) error // validation function for must-gather where string parameter is the path to "quay.io.../clusters/clustername/"
+	ApplicationTemplate string
+	PvcSuffixName       string
 }
 
 func todoListReady(preBackupState bool, twoVol bool, database string) VerificationFunction {

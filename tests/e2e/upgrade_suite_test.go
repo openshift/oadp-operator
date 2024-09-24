@@ -55,10 +55,10 @@ var _ = ginkgo.Describe("OADP upgrade scenarios", ginkgo.Ordered, func() {
 				subscriptionSource = "redhat-operators"
 			}
 
-			log.Print("Creating Subscription oadp-operator")
+			log.Printf("Creating Subscription %v", subscriptionPackage)
 			subscription := v1alpha1.Subscription{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "oadp-operator",
+					Name:      subscriptionPackage,
 					Namespace: namespace,
 				},
 				Spec: &v1alpha1.SubscriptionSpec{

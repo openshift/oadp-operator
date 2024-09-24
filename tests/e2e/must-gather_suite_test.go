@@ -3,7 +3,6 @@ package e2e_test
 import (
 	"log"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/onsi/ginkgo/v2"
@@ -46,7 +45,7 @@ var _ = ginkgo.Describe("Backup and restore tests with must-gather", func() {
 			gomega.Expect(err).ToNot(gomega.HaveOccurred())
 			clusterDir := ""
 			for _, dirEntry := range dirEntries {
-				if dirEntry.IsDir() && strings.HasPrefix(dirEntry.Name(), "quay-io") {
+				if dirEntry.IsDir() {
 					mustGatherImageDir := baseReportDir + "/must-gather/" + dirEntry.Name()
 					// extract must-gather.tar.gz
 					err = lib.ExtractTarGz(mustGatherImageDir, "must-gather.tar.gz")
@@ -57,22 +56,22 @@ var _ = ginkgo.Describe("Backup and restore tests with must-gather", func() {
 					for _, cluster := range clusters {
 						if cluster.IsDir() {
 							clusterDir = mustGatherDir + "/clusters/" + cluster.Name()
+							if clusterDir != "" {
+								for _, file := range []string{
+									"namespaces/" + namespace + "/oadp.openshift.io/dpa-ts-" + instanceName + "/ts-" + instanceName + ".yml",
+									"namespaces/" + namespace + "/velero.io/backupstoragelocations.velero.io/ts-" + instanceName + "-1.yaml",
+								} {
+									log.Printf("checking if %v is present in must-gather", file)
+									_, err := os.Stat(clusterDir + "/" + file)
+									gomega.Expect(err).ToNot(gomega.HaveOccurred())
+								}
+							}
 						}
 					}
 				}
 			}
-			if len(brCase.MustGatherFiles) > 0 && clusterDir != "" {
-				for _, file := range brCase.MustGatherFiles {
-					_, err := os.Stat(clusterDir + "/" + file)
-					gomega.Expect(err).ToNot(gomega.HaveOccurred())
-				}
-			}
-			if brCase.MustGatherValidationFunction != nil && clusterDir != "" {
-				err = (*brCase.MustGatherValidationFunction)(clusterDir)
-				gomega.Expect(err).ToNot(gomega.HaveOccurred())
-			}
 		},
-		ginkgo.Entry("Mongo application DATAMOVER", ginkgo.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
+		ginkgo.FEntry("Mongo application DATAMOVER", ginkgo.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
 			ApplicationTemplate: "./sample-applications/mongo-persistent/mongo-persistent-csi.yaml",
 			BackupRestoreCase: BackupRestoreCase{
 				Namespace:         "mongo-persistent",
@@ -81,10 +80,6 @@ var _ = ginkgo.Describe("Backup and restore tests with must-gather", func() {
 				PreBackupVerify:   todoListReady(true, false, "mongo"),
 				PostRestoreVerify: todoListReady(false, false, "mongo"),
 				BackupTimeout:     20 * time.Minute,
-			},
-			MustGatherFiles: []string{
-				"namespaces/" + namespace + "/oadp.openshift.io/dpa-ts-" + instanceName + "/ts-" + instanceName + ".yml",
-				"namespaces/" + namespace + "/velero.io/backupstoragelocations.velero.io/ts-" + instanceName + "-1.yaml",
 			},
 		}, nil),
 	)
