@@ -201,18 +201,12 @@ func (r *DPAReconciler) ReconcileNodeAgentDaemonset(log logr.Logger) (bool, erro
  * returns: (pointer to daemonset, nil) if successful
  */
 func (r *DPAReconciler) buildNodeAgentDaemonset(dpa *oadpv1alpha1.DataProtectionApplication, ds *appsv1.DaemonSet) (*appsv1.DaemonSet, error) {
-	if dpa == nil {
-		return nil, fmt.Errorf("dpa cannot be nil")
-	}
 	if ds == nil {
-		return nil, fmt.Errorf("ds cannot be nil")
+		return nil, fmt.Errorf("DaemonSet cannot be nil")
 	}
 
 	var nodeAgentResourceReqs corev1.ResourceRequirements
 
-	if dpa.Spec.Configuration.NodeAgent == nil {
-		return nil, fmt.Errorf("NodeAgent configuration cannot be nil")
-	}
 	// get resource requirements for nodeAgent ds
 	// ignoring err here as it is checked in validator.go
 	nodeAgentResourceReqs, _ = getNodeAgentResourceReqs(dpa)
@@ -240,20 +234,6 @@ func (r *DPAReconciler) buildNodeAgentDaemonset(dpa *oadpv1alpha1.DataProtection
 }
 
 func (r *DPAReconciler) customizeNodeAgentDaemonset(dpa *oadpv1alpha1.DataProtectionApplication, ds *appsv1.DaemonSet) (*appsv1.DaemonSet, error) {
-	if dpa.Spec.Configuration == nil || dpa.Spec.Configuration.NodeAgent == nil {
-		// if nodeAgent is not configured, therefore not enabled, return early.
-		return nil, nil
-	}
-
-	// add custom pod labels
-	var err error
-	if dpa.Spec.Configuration.NodeAgent.PodConfig != nil && dpa.Spec.Configuration.NodeAgent.PodConfig.Labels != nil {
-		ds.Spec.Template.Labels, err = common.AppendUniqueKeyTOfTMaps(ds.Spec.Template.Labels, dpa.Spec.Configuration.NodeAgent.PodConfig.Labels)
-	}
-	if err != nil {
-		return nil, fmt.Errorf("NodeAgent daemonset template custom label: %s", err)
-	}
-
 	// customize specs
 	ds.Spec.Selector = nodeAgentLabelSelector
 	ds.Spec.UpdateStrategy = appsv1.DaemonSetUpdateStrategy{
@@ -298,6 +278,14 @@ func (r *DPAReconciler) customizeNodeAgentDaemonset(dpa *oadpv1alpha1.DataProtec
 	if dpa.Spec.Configuration.NodeAgent.PodConfig != nil {
 		ds.Spec.Template.Spec.Tolerations = dpa.Spec.Configuration.NodeAgent.PodConfig.Tolerations
 		ds.Spec.Template.Spec.NodeSelector = dpa.Spec.Configuration.NodeAgent.PodConfig.NodeSelector
+		// add custom pod labels
+		if dpa.Spec.Configuration.NodeAgent.PodConfig.Labels != nil {
+			var err error
+			ds.Spec.Template.Labels, err = common.AppendUniqueKeyTOfTMaps(ds.Spec.Template.Labels, dpa.Spec.Configuration.NodeAgent.PodConfig.Labels)
+			if err != nil {
+				return nil, fmt.Errorf("NodeAgent daemonset template custom label: %s", err)
+			}
+		}
 	}
 
 	// fetch nodeAgent container in order to customize it

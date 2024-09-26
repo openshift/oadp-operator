@@ -448,13 +448,9 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 		errorMessage           string
 	}{
 		{
-			name:         "DPA CR is nil, error is returned",
-			errorMessage: "dpa cannot be nil",
-		},
-		{
 			name:         "NodeAgent DaemonSet is nil, error is returned",
 			dpa:          &oadpv1alpha1.DataProtectionApplication{},
-			errorMessage: "ds cannot be nil",
+			errorMessage: "DaemonSet cannot be nil",
 		},
 		{
 			name: "valid DPA CR, NodeAgent DaemonSet is built",
@@ -546,6 +542,7 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 					},
 				},
 			),
+			clientObjects:      []client.Object{testGenericInfrastructure},
 			nodeAgentDaemonSet: testNodeAgentDaemonSet.DeepCopy(),
 			errorMessage:       "NodeAgent daemonset template custom label: conflicting key name with value not-node-agent may not override node-agent",
 		},
