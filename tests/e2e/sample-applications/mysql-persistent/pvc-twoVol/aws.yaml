@@ -11,7 +11,7 @@ items:
     spec:
       accessModes:
       - ReadWriteOnce
-      storageClassName: gp2-csi
+      storageClassName: gp3-csi
       resources:
         requests:
           storage: 1Gi
@@ -25,7 +25,7 @@ items:
     spec:
       accessModes:
       - ReadWriteOnce
-      storageClassName: gp2-csi
+      storageClassName: gp3-csi
       resources:
         requests:
           storage: 1Gi
