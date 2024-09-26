@@ -7,6 +7,7 @@ import (
 
 	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/go-logr/logr"
+	corev1 "k8s.io/api/core/v1"
 
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	"github.com/openshift/oadp-operator/pkg/credentials"
@@ -58,8 +59,10 @@ func (r *DPAReconciler) ValidateDataProtectionCR(log logr.Logger) (bool, error) 
 
 	// DEPRECATIONS -----------------------------------------------------------
 	if dpa.Spec.Configuration.NodeAgent != nil && dpa.Spec.Configuration.NodeAgent.UploaderType == "restic" {
+		deprecationWarning := "(Deprecation Warning) Use kopia instead of restic in spec.configuration.nodeAgent.uploaderType, which is deprecated and will be removed in the future"
 		// V(-1) corresponds to the warn level
-		log.V(-1).Info("(Deprecation Warning) Use kopia instead of restic in spec.configuration.nodeAgent.uploaderType, which is deprecated and will be removed in the future")
+		log.V(-1).Info(deprecationWarning)
+		r.EventRecorder.Event(&dpa, corev1.EventTypeWarning, "DeprecationResticFileSystemBackup", deprecationWarning)
 	}
 	// DEPRECATIONS -----------------------------------------------------------
 
