@@ -44,15 +44,17 @@ func (r *DPAReconciler) ValidateDataProtectionCR(log logr.Logger) (bool, error) 
 		return validVsl, err
 	}
 
+	// ENSURE UPGRADES --------------------------------------------------------
 	// check for VSM/Volsync DataMover (OADP 1.2 or below) syntax
 	if dpa.Spec.Features != nil && dpa.Spec.Features.DataMover != nil {
 		return false, errors.New("Delete vsm from spec.configuration.velero.defaultPlugins and dataMover object from spec.features. Use Velero Built-in Data Mover instead")
 	}
 
-	// check for ResticConfig (OADP 1.3 or below) syntax
+	// check for ResticConfig (OADP 1.4 or below) syntax
 	if dpa.Spec.Configuration != nil && dpa.Spec.Configuration.Restic != nil {
 		return false, errors.New("Delete restic object from spec.configuration, use spec.configuration.nodeAgent instead")
 	}
+	// ENSURE UPGRADES --------------------------------------------------------
 
 	if val, found := dpa.Spec.UnsupportedOverrides[oadpv1alpha1.OperatorTypeKey]; found && val != oadpv1alpha1.OperatorTypeMTC {
 		return false, errors.New("only mtc operator type override is supported")
