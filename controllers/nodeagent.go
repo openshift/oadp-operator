@@ -16,7 +16,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
@@ -120,11 +120,9 @@ func (r *DPAReconciler) ReconcileNodeAgentDaemonset(log logr.Logger) (bool, erro
 			}
 			return false, err
 		}
-		// no errors means there already is an existing DaeMonset.
+		// no errors means there is already an existing DaemonSet.
 		// TODO: Check if NodeAgent is in use, a backup is running, so don't blindly delete NodeAgent.
-		// If dpa.Spec.Configuration.NodeAgent enable exists and is false, attempt to delete.
-		deleteOptionPropagationForeground := metav1.DeletePropagationForeground
-		if err := r.Delete(deleteContext, ds, &client.DeleteOptions{PropagationPolicy: &deleteOptionPropagationForeground}); err != nil {
+		if err := r.Delete(deleteContext, ds, &client.DeleteOptions{PropagationPolicy: ptr.To(metav1.DeletePropagationForeground)}); err != nil {
 			// TODO: Come back and fix event recording to be consistent
 			r.EventRecorder.Event(ds, corev1.EventTypeNormal, "DeleteDaemonSetFailed", "Got DaemonSet to delete but could not delete err:"+err.Error())
 			return false, err
@@ -242,7 +240,7 @@ func (r *DPAReconciler) customizeNodeAgentDaemonset(dpa *oadpv1alpha1.DataProtec
 
 	// customize template specs
 	ds.Spec.Template.Spec.SecurityContext = &corev1.PodSecurityContext{
-		RunAsUser:          pointer.Int64(0),
+		RunAsUser:          ptr.To(int64(0)),
 		SupplementalGroups: dpa.Spec.Configuration.NodeAgent.SupplementalGroups,
 	}
 
@@ -315,7 +313,7 @@ func (r *DPAReconciler) customizeNodeAgentDaemonset(dpa *oadpv1alpha1.DataProtec
 			nodeAgentContainer.Env = common.AppendUniqueEnvVars(nodeAgentContainer.Env, proxy.ReadProxyVarsFromEnv())
 
 			nodeAgentContainer.SecurityContext = &corev1.SecurityContext{
-				Privileged: pointer.Bool(true),
+				Privileged: ptr.To(true),
 			}
 
 			imagePullPolicy, err := common.GetImagePullPolicy(dpa.Spec.ImagePullPolicy, getVeleroImage(dpa))
@@ -370,7 +368,7 @@ func (r *DPAReconciler) customizeNodeAgentDaemonset(dpa *oadpv1alpha1.DataProtec
 		}
 	}
 	if ds.Spec.RevisionHistoryLimit == nil {
-		ds.Spec.RevisionHistoryLimit = pointer.Int32(10)
+		ds.Spec.RevisionHistoryLimit = ptr.To(int32(10))
 	}
 
 	return ds, nil
