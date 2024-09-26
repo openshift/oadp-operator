@@ -23,6 +23,7 @@ type TestDPASpec struct {
 	SnapshotLocations       []oadpv1alpha1.SnapshotLocation
 	VeleroPodConfig         oadpv1alpha1.PodConfig
 	NodeAgentPodConfig      oadpv1alpha1.PodConfig
+	EnableRestic            bool
 	EnableNodeAgent         bool
 	UploaderType            string
 	NoDefaultBackupLocation bool
@@ -73,6 +74,13 @@ func createTestDPASpec(testSpec TestDPASpec) *oadpv1alpha1.DataProtectionApplica
 				PodConfig: &testSpec.NodeAgentPodConfig,
 			},
 			UploaderType: testSpec.UploaderType,
+		}
+	}
+	if testSpec.EnableRestic {
+		dpaSpec.Configuration.Restic = &oadpv1alpha1.ResticConfig{
+			NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
+				Enable: ptr.To(true),
+			},
 		}
 	}
 	if len(testSpec.SnapshotLocations) > 0 {
@@ -300,7 +308,7 @@ var _ = ginkgo.Describe("Configuration testing for DPA Custom Resource", func() 
 				SnapshotLocations: dpaCR.SnapshotLocations,
 			}),
 		}),
-		ginkgo.Entry("DPA CR with restic enabled with node selector", InstallCase{
+		ginkgo.Entry("DPA CR with NodeAgent enabled with restic and node selector", InstallCase{
 			DpaSpec: createTestDPASpec(TestDPASpec{
 				BSLSecretName:   bslSecretName,
 				EnableNodeAgent: true,
@@ -312,7 +320,7 @@ var _ = ginkgo.Describe("Configuration testing for DPA Custom Resource", func() 
 				},
 			}),
 		}),
-		ginkgo.Entry("DPA CR with kopia enabled with node selector", InstallCase{
+		ginkgo.Entry("DPA CR with NodeAgent enabled with kopia and node selector", InstallCase{
 			DpaSpec: createTestDPASpec(TestDPASpec{
 				BSLSecretName:   bslSecretName,
 				EnableNodeAgent: true,
@@ -371,7 +379,11 @@ var _ = ginkgo.Describe("Configuration testing for DPA Custom Resource", func() 
 				s3ForcePathStyle: true,
 			}),
 		}, "region for AWS backupstoragelocation not automatically discoverable. Please set the region in the backupstoragelocation config"),
-		// DPA with restic config
+		ginkgo.Entry("DPA CR with restic config enabled", ginkgo.Label("aws", "ibmcloud"), InstallCase{
+			DpaSpec: createTestDPASpec(TestDPASpec{
+				EnableRestic: true,
+			}),
+		}, "Delete restic object from spec.configuration, use spec.configuration.nodeAgent instead"),
 	)
 
 	ginkgo.DescribeTable("DPA Deletion test",
