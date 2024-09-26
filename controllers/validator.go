@@ -51,10 +51,17 @@ func (r *DPAReconciler) ValidateDataProtectionCR(log logr.Logger) (bool, error) 
 	}
 
 	// check for ResticConfig (OADP 1.4 or below) syntax
-	if dpa.Spec.Configuration != nil && dpa.Spec.Configuration.Restic != nil {
+	if dpa.Spec.Configuration.Restic != nil {
 		return false, errors.New("Delete restic object from spec.configuration, use spec.configuration.nodeAgent instead")
 	}
 	// ENSURE UPGRADES --------------------------------------------------------
+
+	// DEPRECATIONS -----------------------------------------------------------
+	if dpa.Spec.Configuration.NodeAgent != nil && dpa.Spec.Configuration.NodeAgent.UploaderType == "restic" {
+		// V(-1) corresponds to the warn level
+		log.V(-1).Info("(Deprecation Warning) Use kopia instead of restic in spec.configuration.nodeAgent.uploaderType, which is deprecated and will be removed in the future")
+	}
+	// DEPRECATIONS -----------------------------------------------------------
 
 	if val, found := dpa.Spec.UnsupportedOverrides[oadpv1alpha1.OperatorTypeKey]; found && val != oadpv1alpha1.OperatorTypeMTC {
 		return false, errors.New("only mtc operator type override is supported")
@@ -69,12 +76,8 @@ func (r *DPAReconciler) ValidateDataProtectionCR(log logr.Logger) (bool, error) 
 	if _, err := r.getVeleroResourceReqs(&dpa); err != nil {
 		return false, err
 	}
-
 	if _, err := getNodeAgentResourceReqs(&dpa); err != nil {
 		return false, err
-	}
-	if validBsl, err := r.ValidateBackupStorageLocations(dpa); !validBsl || err != nil {
-		return validBsl, err
 	}
 
 	// validate non-admin enable and tech-preview-ack

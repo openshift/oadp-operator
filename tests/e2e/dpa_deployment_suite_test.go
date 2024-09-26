@@ -69,7 +69,7 @@ func createTestDPASpec(testSpec TestDPASpec) *oadpv1alpha1.DataProtectionApplica
 	if testSpec.EnableNodeAgent {
 		dpaSpec.Configuration.NodeAgent = &oadpv1alpha1.NodeAgentConfig{
 			NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
-				Enable:    ptr.To(testSpec.EnableNodeAgent),
+				Enable:    ptr.To(true),
 				PodConfig: &testSpec.NodeAgentPodConfig,
 			},
 			UploaderType: testSpec.UploaderType,
@@ -371,6 +371,7 @@ var _ = ginkgo.Describe("Configuration testing for DPA Custom Resource", func() 
 				s3ForcePathStyle: true,
 			}),
 		}, "region for AWS backupstoragelocation not automatically discoverable. Please set the region in the backupstoragelocation config"),
+		// DPA with restic config
 	)
 
 	ginkgo.DescribeTable("DPA Deletion test",
