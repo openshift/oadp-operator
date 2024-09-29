@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	"github.com/aws/aws-sdk-go/aws/request"
-	"github.com/vmware-tanzu/velero/pkg/restore"
+	"github.com/vmware-tanzu/velero/pkg/types"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -25,7 +25,7 @@ const (
 	OADPOperatorServiceAccount = OADPOperatorPrefix + "controller-manager"
 )
 
-var DefaultRestoreResourcePriorities = restore.Priorities{
+var DefaultRestoreResourcePriorities = types.Priorities{
 	HighPriorities: []string{
 		"securitycontextconstraints",
 		"customresourcedefinitions",
