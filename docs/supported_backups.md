@@ -26,6 +26,6 @@ OADP supports backup and restore operations for OpenShift Virtualization workloa
   * **I:** Incremental Backup supported
   * **N:** Not Supported
   * **FSB:** File System Backup
-  * **Cloud Provider Native Snapshots:** Non CSI Volume support for AWS, GCP, Azure via plugins.
+  * **Cloud Provider Native Snapshots:** Cloud Provider Native Volume support for [AWS](https://github.com/openshift/velero-plugin-for-aws), [GCP](https://github.com/openshift/velero-plugin-for-gcp), [Azure](https://github.com/openshift/velero-plugin-for-microsoft-azure) via plugins.
   * **i:** FSB - restic will be deprecated in 1.5.0, using kopia is recommended. Restoring restic backups will continue to be supported.
   * **ii:** DataMover upload and download operations use kopia regardless of uploader type.
