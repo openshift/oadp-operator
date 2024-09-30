@@ -154,6 +154,7 @@ func GetBackupRepositoryList(c client.Client, namespace string) (*velero.BackupR
 	// if there is an error, just print, don't return the error
 	if err != nil {
 		log.Printf("error getting BackupRepository list: %v", err)
+		return nil, err
 	}
 	return backupRepositoryList, nil
 }
@@ -172,20 +173,26 @@ func DeleteBackupRepository(c client.Client, namespace string, name string) erro
 	return nil
 }
 
-// DeleteBackupRepositoryByRegex deletes a BackupRepository instance that matches the given regex pattern.
-func DeleteBackupRepositoryByRegex(c client.Client, namespace string) error {
+// DeleteBackupRepositories deletes all BackupRepositories n.
+func DeleteBackupRepositories(c client.Client, namespace string) error {
 	log.Printf("Checking if backuprepository's exist in %s", namespace)
 
 	backupRepos, err := GetBackupRepositoryList(c, namespace)
 	if err != nil {
 		return fmt.Errorf("failed to get BackupRepository list: %v", err)
 	}
-	// Get a list of the BackupRepositories and delete the one that matches the regex
+	if len(backupRepos.Items) == 0 {
+		log.Printf("No BackupRepositories found in namespace %s", namespace)
+		return nil
+	}
+
+	// Get a list of the BackupRepositories and delete all of them.
 	for _, repo := range backupRepos.Items {
 		log.Printf("backuprepository name is %s", repo.Name)
 		err := DeleteBackupRepository(c, namespace, repo.Name)
 		if err != nil {
-			return fmt.Errorf("failed to delete BackupRepository %s: %v", repo.Name, err)
+			log.Printf("failed to delete BackupRepository %s: ", repo.Name)
+			return err
 		}
 		log.Printf("Successfully deleted BackupRepository: %s", repo.Name)
 	}

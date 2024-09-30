@@ -98,7 +98,7 @@ func runApplicationBackupAndRestore(brCase ApplicationBackupRestoreCase, expecte
 	backupName, restoreName := prepareBackupAndRestore(brCase.BackupRestoreCase, updateLastInstallTime)
 
 	// Ensure that an existing backup repository is deleted
-	brerr := lib.DeleteBackupRepositoryByRegex(runTimeClientForSuiteRun, namespace)
+	brerr := lib.DeleteBackupRepositories(runTimeClientForSuiteRun, namespace)
 	gomega.Expect(brerr).ToNot(gomega.HaveOccurred())
 
 	// install app
