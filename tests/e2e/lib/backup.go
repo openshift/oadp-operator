@@ -147,11 +147,12 @@ func BackupErrorLogs(c *kubernetes.Clientset, ocClient client.Client, namespace 
 }
 
 func GetBackupRepositoryList(c client.Client, namespace string) (*velero.BackupRepositoryList, error) {
+	// initialize an empty list of BackupRepositories
 	backupRepositoryList := &velero.BackupRepositoryList{
 		Items: []velero.BackupRepository{},
 	}
+	// get the list of BackupRepositories in the given namespace
 	err := c.List(context.Background(), backupRepositoryList, client.InNamespace(namespace))
-	// if there is an error, just print, don't return the error
 	if err != nil {
 		log.Printf("error getting BackupRepository list: %v", err)
 		return nil, err
@@ -173,7 +174,7 @@ func DeleteBackupRepository(c client.Client, namespace string, name string) erro
 	return nil
 }
 
-// DeleteBackupRepositories deletes all BackupRepositories n.
+// DeleteBackupRepositories deletes all BackupRepositories in the given namespace.
 func DeleteBackupRepositories(c client.Client, namespace string) error {
 	log.Printf("Checking if backuprepository's exist in %s", namespace)
 
