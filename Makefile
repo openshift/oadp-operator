@@ -527,7 +527,7 @@ test-e2e: test-e2e-setup install-ginkgo
 	--ginkgo.no-color=$(OPENSHIFT_CI) \
 	--ginkgo.label-filter="$(TEST_FILTER)" \
 	--ginkgo.timeout=2h \
-	$(TEST_ARGS)
+	$(GINKGO_ARGS)
 
 .PHONY: test-e2e-cleanup
 test-e2e-cleanup: login-required

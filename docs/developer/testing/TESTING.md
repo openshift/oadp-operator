@@ -90,7 +90,7 @@ FIt("the assertion", func() { ... })
 You can also execute make test-e2e with a $TEST_ARGS variable set. Example:
 
 ```bash
-make test-e2e TEST_ARGS="--ginkgo.focus='MySQL application DATAMOVER'"
+make test-e2e GINKGO_ARGS="--ginkgo.focus='MySQL application DATAMOVER'"
 ```
 
 These need to be removed to run all specs. Checks [Ginkgo docs](https://onsi.github.io/ginkgo/) for more info.
