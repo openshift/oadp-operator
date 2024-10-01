@@ -200,6 +200,8 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 		gomega.Expect(err).To(gomega.BeNil())
 		err = v.CreateWaitForFirstConsumerStorageClass("test-sc-wffc")
 		gomega.Expect(err).To(gomega.BeNil())
+		err = lib.DeleteBackupRepositories(runTimeClientForSuiteRun, namespace)
+		gomega.Expect(err).To(gomega.BeNil())
 	})
 
 	var _ = ginkgo.AfterAll(func() {

@@ -145,3 +145,58 @@ func BackupErrorLogs(c *kubernetes.Clientset, ocClient client.Client, namespace 
 	bl := BackupLogs(c, ocClient, namespace, name)
 	return errorLogsExcludingIgnored(bl)
 }
+
+func GetBackupRepositoryList(c client.Client, namespace string) (*velero.BackupRepositoryList, error) {
+	// initialize an empty list of BackupRepositories
+	backupRepositoryList := &velero.BackupRepositoryList{
+		Items: []velero.BackupRepository{},
+	}
+	// get the list of BackupRepositories in the given namespace
+	err := c.List(context.Background(), backupRepositoryList, client.InNamespace(namespace))
+	if err != nil {
+		log.Printf("error getting BackupRepository list: %v", err)
+		return nil, err
+	}
+	return backupRepositoryList, nil
+}
+
+func DeleteBackupRepository(c client.Client, namespace string, name string) error {
+	backupRepository := &velero.BackupRepository{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: namespace,
+			Name:      name,
+		},
+	}
+	err := c.Delete(context.Background(), backupRepository)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// DeleteBackupRepositories deletes all BackupRepositories in the given namespace.
+func DeleteBackupRepositories(c client.Client, namespace string) error {
+	log.Printf("Checking if backuprepository's exist in %s", namespace)
+
+	backupRepos, err := GetBackupRepositoryList(c, namespace)
+	if err != nil {
+		return fmt.Errorf("failed to get BackupRepository list: %v", err)
+	}
+	if len(backupRepos.Items) == 0 {
+		log.Printf("No BackupRepositories found in namespace %s", namespace)
+		return nil
+	}
+
+	// Get a list of the BackupRepositories and delete all of them.
+	for _, repo := range backupRepos.Items {
+		log.Printf("backuprepository name is %s", repo.Name)
+		err := DeleteBackupRepository(c, namespace, repo.Name)
+		if err != nil {
+			log.Printf("failed to delete BackupRepository %s: ", repo.Name)
+			return err
+		}
+		log.Printf("Successfully deleted BackupRepository: %s", repo.Name)
+	}
+
+	return nil
+}
