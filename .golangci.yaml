@@ -94,6 +94,7 @@ linters:
     # - gosimple
     # - govet
     # - ineffassign
+    - loggercheck
     # - misspell
     - nakedret
     # - nilerr
