@@ -167,6 +167,13 @@ type GlobalFlags struct {
 	// Show colored output in TTY
 	// +optional
 	Colorized *bool `json:"colorized,omitempty"`
+	// CACert is not a flag in velero server
+	LoggingFlags `json:",inline"`
+}
+
+// klog init flags from https://github.com/openshift/velero/blob/240b4e666fe15ef98defa2b51483fe87ac9996fb/pkg/cmd/velero/velero.go#L125
+// LoggingFlags collects all the global state of the logging setup.
+type LoggingFlags struct {
 	// Boolean flags. Not handled atomically because the flag.Value interface
 	// does not let us avoid the =true, and that shorthand is necessary for
 	// compatibility. TODO: does this matter enough to fix? Seems unlikely.
