@@ -184,11 +184,12 @@ envtest: $(ENVTEST)
 # to login to registry cluster follow https://docs.ci.openshift.org/docs/how-tos/use-registries-in-build-farm/#how-do-i-log-in-to-pull-images-that-require-authentication
 # If bin/ contains binaries of different arch, you may remove them so the container can install their arch.
 .PHONY: test
-test: vet envtest ## Run unit tests; run Go linters checks; and check if api and bundle folders are up to date
+test: vet envtest ## Run unit tests; run Go linters checks; check if api and bundle folders are up to date; and check if go dependencies are valid
 	KUBEBUILDER_ASSETS="$(ENVTESTPATH)" go test -mod=mod $(shell go list -mod=mod ./... | grep -v /tests/e2e) -coverprofile cover.out
 	@make lint
 	@make api-isupdated
 	@make bundle-isupdated
+	@make check-go-dependencies
 
 .PHONY: api-isupdated
 api-isupdated: TEMP:= $(shell mktemp -d)
@@ -555,6 +556,13 @@ lint: golangci-lint ## Run Go linters checks against all project's Go files.
 .PHONY: lint-fix
 lint-fix: golangci-lint ## Fix Go linters issues.
 	$(GOLANGCI_LINT) run --fix
+
+.PHONY: check-go-dependencies
+check-go-dependencies: TEMP:= $(shell mktemp -d)
+check-go-dependencies:
+	@cp -r ./ $(TEMP) && cd $(TEMP) && go mod tidy && cd - && diff -ruN ./ $(TEMP)/ && echo "go dependencies checked" || (echo "go dependencies are out of date, run 'go mod tidy' to update" && exit 1)
+	@chmod -R 777 $(TEMP) && rm -rf $(TEMP)
+	go mod verify
 
 .PHONY: update-non-admin-manifests
 update-non-admin-manifests: NON_ADMIN_CONTROLLER_IMG?=quay.io/konveyor/oadp-non-admin:latest
