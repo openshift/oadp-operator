@@ -5,156 +5,136 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/sirupsen/logrus"
 	"github.com/vmware-tanzu/velero/pkg/util/boolptr"
 
-	"github.com/openshift/oadp-operator/pkg/klog"
-	"github.com/openshift/oadp-operator/pkg/velero/client"
+	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 )
 
-// VeleroServerArgs are the arguments that are passed to the Velero server
-// +kubebuilder:object:generate=true
-type Args struct {
-	ServerConfig `json:",inline"`
-	GlobalFlags  `json:",inline"`
-}
-
-// GlobalFlags are flags that are defined across Velero CLI commands
-// +kubebuilder:object:generate=true
-type GlobalFlags struct {
-	client.VeleroConfig `json:",inline"`
-	klog.LoggingT       `json:",inline"`
-}
-
-// StringArr returns the Velero server arguments as a string array
-// dpaFeatureFlags are the feature flags that are defined in the DPA CR which will be merged with Args
+// GetArgs returns the Velero server arguments as a string array
 // Most validations are done in the DPA CRD except float32 validation
-func (a Args) StringArr(dpaFeatureFlags []string, logLevel string) ([]string, error) {
+func GetArgs(dpa *oadpv1alpha1.DataProtectionApplication) ([]string, error) {
+	serverArgs := dpa.Spec.Configuration.Velero.Args
 	args := []string{"server"}
 	// we are overriding args, so recreate args from scratch
-	if len(dpaFeatureFlags) > 0 {
-		args = append(args, fmt.Sprintf("--features=%s", strings.Join(dpaFeatureFlags, ",")))
+	if len(dpa.Spec.Configuration.Velero.FeatureFlags) > 0 {
+		args = append(args, fmt.Sprintf("--features=%s", strings.Join(dpa.Spec.Configuration.Velero.FeatureFlags, ",")))
 	}
-	if boolptr.IsSetToTrue(a.DefaultVolumesToFsBackup) {
+	if boolptr.IsSetToTrue(serverArgs.DefaultVolumesToFsBackup) {
 		args = append(args, "--default-volumes-to-fs-backup=true")
-	} else if boolptr.IsSetToFalse(a.DefaultVolumesToFsBackup) {
+	} else if boolptr.IsSetToFalse(serverArgs.DefaultVolumesToFsBackup) {
 		args = append(args, "--default-volumes-to-fs-backup=false")
 	}
-	if logLevel != "" {
-		logrusLevel, err := logrus.ParseLevel(logLevel)
-		if err != nil {
-			return []string{}, fmt.Errorf("invalid log level %s, use: %s", logLevel, "trace, debug, info, warning, error, fatal, or panic")
-		}
-		args = append(args, fmt.Sprintf("--log-level=%s", logrusLevel.String()))
+	if dpa.Spec.Configuration.Velero.LogLevel != "" {
+		args = append(args, fmt.Sprintf("--log-level=%s", dpa.Spec.Configuration.Velero.LogLevel))
 	}
-	if a.BackupSyncPeriod != nil {
-		args = append(args, fmt.Sprintf("--backup-sync-period=%s", a.BackupSyncPeriod.String())) // duration
+	if serverArgs.BackupSyncPeriod != nil {
+		args = append(args, fmt.Sprintf("--backup-sync-period=%s", serverArgs.BackupSyncPeriod.String())) // duration
 	}
-	if a.ClientBurst != nil {
-		args = append(args, fmt.Sprintf("--client-burst=%s", strconv.Itoa(*a.ClientBurst))) // int
+	if serverArgs.ClientBurst != nil {
+		args = append(args, fmt.Sprintf("--client-burst=%s", strconv.Itoa(*serverArgs.ClientBurst))) // int
 	}
-	if a.ClientPageSize != nil {
-		args = append(args, fmt.Sprintf("--client-page-size=%s", strconv.Itoa(*a.ClientPageSize))) // int
+	if serverArgs.ClientPageSize != nil {
+		args = append(args, fmt.Sprintf("--client-page-size=%s", strconv.Itoa(*serverArgs.ClientPageSize))) // int
 	}
-	if a.ClientQPS != nil {
-		if _, err := strconv.ParseFloat(*a.ClientQPS, 32); err != nil {
+	if serverArgs.ClientQPS != nil {
+		if _, err := strconv.ParseFloat(*serverArgs.ClientQPS, 32); err != nil {
 			return nil, err
 		}
-		args = append(args, fmt.Sprintf("--client-qps=%s", *a.ClientQPS)) // float32
+		args = append(args, fmt.Sprintf("--client-qps=%s", *serverArgs.ClientQPS)) // float32
 	}
 	// default-backup-storage-location set outside Args
-	if a.DefaultBackupTTL != nil {
-		args = append(args, fmt.Sprintf("--default-backup-ttl=%s", a.DefaultBackupTTL.String())) // duration
+	if serverArgs.DefaultBackupTTL != nil {
+		args = append(args, fmt.Sprintf("--default-backup-ttl=%s", serverArgs.DefaultBackupTTL.String())) // duration
 	}
-	if a.DefaultItemOperationTimeout != nil {
-		args = append(args, fmt.Sprintf("--default-item-operation-timeout=%s", a.DefaultItemOperationTimeout.String())) // duration
+	if serverArgs.DefaultItemOperationTimeout != nil {
+		args = append(args, fmt.Sprintf("--default-item-operation-timeout=%s", serverArgs.DefaultItemOperationTimeout.String())) // duration
 	}
-	if a.ResourceTimeout != nil {
-		args = append(args, fmt.Sprintf("--resource-timeout=%s", a.ResourceTimeout.String())) // duration
+	if serverArgs.ResourceTimeout != nil {
+		args = append(args, fmt.Sprintf("--resource-timeout=%s", serverArgs.ResourceTimeout.String())) // duration
 	}
-	if a.RepoMaintenanceFrequency != nil {
-		args = append(args, fmt.Sprintf("--default-repo-maintain-frequency=%s", a.RepoMaintenanceFrequency.String())) // duration
+	if serverArgs.RepoMaintenanceFrequency != nil {
+		args = append(args, fmt.Sprintf("--default-repo-maintain-frequency=%s", serverArgs.RepoMaintenanceFrequency.String())) // duration
 	}
 	// default-volume-snapshot-locations set outside Args
-	if a.DisabledControllers != nil {
-		args = append(args, fmt.Sprintf("--disable-controllers=%s", strings.Join(a.DisabledControllers, ","))) // strings
+	if serverArgs.DisabledControllers != nil {
+		args = append(args, fmt.Sprintf("--disable-controllers=%s", strings.Join(serverArgs.DisabledControllers, ","))) // strings
 	}
-	if a.GarbageCollectionFrequency != nil {
-		args = append(args, fmt.Sprintf("--garbage-collection-frequency=%s", a.GarbageCollectionFrequency.String())) // duration
+	if serverArgs.GarbageCollectionFrequency != nil {
+		args = append(args, fmt.Sprintf("--garbage-collection-frequency=%s", serverArgs.GarbageCollectionFrequency.String())) // duration
 	}
-	if a.FormatFlag != "" {
-		args = append(args, fmt.Sprintf("--log-format=%s", a.FormatFlag)) // format
+	if serverArgs.FormatFlag != "" {
+		args = append(args, fmt.Sprintf("--log-format=%s", serverArgs.FormatFlag)) // format
 	}
-	if a.MetricsAddress != "" {
-		args = append(args, fmt.Sprintf("--metrics-address=%s", a.MetricsAddress)) // string
+	if serverArgs.MetricsAddress != "" {
+		args = append(args, fmt.Sprintf("--metrics-address=%s", serverArgs.MetricsAddress)) // string
 	}
 	// plugin-dir is fixed to /plugins
-	if a.ProfilerAddress != "" {
-		args = append(args, fmt.Sprintf("--profiler-address=%s", a.ProfilerAddress)) // string
+	if serverArgs.ProfilerAddress != "" {
+		args = append(args, fmt.Sprintf("--profiler-address=%s", serverArgs.ProfilerAddress)) // string
 	}
-	if a.PodVolumeOperationTimeout != nil {
-		args = append(args, fmt.Sprintf("--fs-backup-timeout=%s", a.PodVolumeOperationTimeout.String())) // duration
+	if serverArgs.PodVolumeOperationTimeout != nil {
+		args = append(args, fmt.Sprintf("--fs-backup-timeout=%s", serverArgs.PodVolumeOperationTimeout.String())) // duration
 	}
-	if a.ItemOperationSyncFrequency != nil {
-		args = append(args, fmt.Sprintf("--item-operation-sync-frequency=%s", a.ItemOperationSyncFrequency.String())) // duration
+	if serverArgs.ItemOperationSyncFrequency != nil {
+		args = append(args, fmt.Sprintf("--item-operation-sync-frequency=%s", serverArgs.ItemOperationSyncFrequency.String())) // duration
 	}
-	if a.MaxConcurrentK8SConnections != nil {
-		args = append(args, fmt.Sprintf("--max-concurrent-k8s-connections=%d", *a.MaxConcurrentK8SConnections)) // uint
+	if serverArgs.MaxConcurrentK8SConnections != nil {
+		args = append(args, fmt.Sprintf("--max-concurrent-k8s-connections=%d", *serverArgs.MaxConcurrentK8SConnections)) // uint
 	}
 	// restore-only is being deprecated, set in bsl
 	// RestoreResourcePriorities are set in DPA which creates a configmap
 	// However, server args is also an option.
-	if a.RestoreResourcePriorities != "" {
-		args = append(args, fmt.Sprintf("--restore-resource-priorities=%s", a.RestoreResourcePriorities)) // stringArray
+	if serverArgs.RestoreResourcePriorities != "" {
+		args = append(args, fmt.Sprintf("--restore-resource-priorities=%s", serverArgs.RestoreResourcePriorities)) // stringArray
 	}
-	if a.StoreValidationFrequency != nil {
-		args = append(args, fmt.Sprintf("--store-validation-frequency=%s", a.StoreValidationFrequency.String())) // duration
+	if serverArgs.StoreValidationFrequency != nil {
+		args = append(args, fmt.Sprintf("--store-validation-frequency=%s", serverArgs.StoreValidationFrequency.String())) // duration
 	}
-	if a.ResourceTerminatingTimeout != nil {
-		args = append(args, fmt.Sprintf("--terminating-resource-timeout=%s", a.ResourceTerminatingTimeout.String())) // duration
+	if serverArgs.ResourceTerminatingTimeout != nil {
+		args = append(args, fmt.Sprintf("--terminating-resource-timeout=%s", serverArgs.ResourceTerminatingTimeout.String())) // duration
 	}
-	if a.AddDirHeader != nil {
-		args = append(args, fmt.Sprintf("--add_dir_header=%s", strconv.FormatBool(*a.AddDirHeader))) // optionalBool
+	if serverArgs.AddDirHeader != nil {
+		args = append(args, fmt.Sprintf("--add_dir_header=%s", strconv.FormatBool(*serverArgs.AddDirHeader))) // optionalBool
 	}
-	if a.AlsoToStderr != nil {
-		args = append(args, fmt.Sprintf("--alsologtostderr=%s", strconv.FormatBool(*a.AlsoToStderr))) // alsologtostderr
+	if serverArgs.AlsoToStderr != nil {
+		args = append(args, fmt.Sprintf("--alsologtostderr=%s", strconv.FormatBool(*serverArgs.AlsoToStderr))) // alsologtostderr
 	}
-	if a.Colorized != nil {
-		args = append(args, fmt.Sprintf("--colorized=%s", strconv.FormatBool(*a.Colorized))) // optionalBool
+	if serverArgs.Colorized != nil {
+		args = append(args, fmt.Sprintf("--colorized=%s", strconv.FormatBool(*serverArgs.Colorized))) // optionalBool
 	}
 	// features set outside Args
 	// args = append(args, "--kubeconfig")        // string
 	// args = append(args, "--kubecontext")       // string
-	if a.TraceLocation != "" {
-		args = append(args, fmt.Sprintf("--log_backtrace_at=%s", a.TraceLocation)) // traceLocation
+	if serverArgs.TraceLocation != "" {
+		args = append(args, fmt.Sprintf("--log_backtrace_at=%s", serverArgs.TraceLocation)) // traceLocation
 	}
-	if a.LogDir != "" {
-		args = append(args, fmt.Sprintf("--log_dir=%s", a.LogDir)) // string
+	if serverArgs.LogDir != "" {
+		args = append(args, fmt.Sprintf("--log_dir=%s", serverArgs.LogDir)) // string
 	}
-	if a.LogFile != "" {
-		args = append(args, fmt.Sprintf("--log_file=%s", a.LogFile)) // string
+	if serverArgs.LogFile != "" {
+		args = append(args, fmt.Sprintf("--log_file=%s", serverArgs.LogFile)) // string
 	}
-	if a.LogFileMaxSizeMB != nil {
-		args = append(args, fmt.Sprintf("--log_file_max_size=%d", *a.LogFileMaxSizeMB)) // uint
+	if serverArgs.LogFileMaxSizeMB != nil {
+		args = append(args, fmt.Sprintf("--log_file_max_size=%d", *serverArgs.LogFileMaxSizeMB)) // uint
 	}
-	if a.ToStderr != nil {
-		args = append(args, fmt.Sprintf("--logtostderr=%s", strconv.FormatBool(*a.ToStderr))) // optionalBool
+	if serverArgs.ToStderr != nil {
+		args = append(args, fmt.Sprintf("--logtostderr=%s", strconv.FormatBool(*serverArgs.ToStderr))) // optionalBool
 	}
 	// args = append(args, "--namespace")         // string
-	if a.SkipHeaders != nil {
-		args = append(args, fmt.Sprintf("--skip_headers=%s", strconv.FormatBool(*a.SkipHeaders))) // optionalBool
+	if serverArgs.SkipHeaders != nil {
+		args = append(args, fmt.Sprintf("--skip_headers=%s", strconv.FormatBool(*serverArgs.SkipHeaders))) // optionalBool
 	}
-	if a.SkipLogHeaders != nil {
-		args = append(args, fmt.Sprintf("--skip_log_headers=%s", strconv.FormatBool(*a.SkipLogHeaders))) // optionalBool
+	if serverArgs.SkipLogHeaders != nil {
+		args = append(args, fmt.Sprintf("--skip_log_headers=%s", strconv.FormatBool(*serverArgs.SkipLogHeaders))) // optionalBool
 	}
-	if a.StderrThreshold != nil {
-		args = append(args, fmt.Sprintf("--stderrthreshold=%d", *a.StderrThreshold)) // severity
+	if serverArgs.StderrThreshold != nil {
+		args = append(args, fmt.Sprintf("--stderrthreshold=%d", *serverArgs.StderrThreshold)) // severity
 	}
-	if a.Verbosity != nil {
-		args = append(args, fmt.Sprintf("--v=%d", *a.Verbosity)) // count
+	if serverArgs.Verbosity != nil {
+		args = append(args, fmt.Sprintf("--v=%d", *serverArgs.Verbosity)) // count
 	}
-	if a.Vmodule != "" {
-		args = append(args, fmt.Sprintf("--vmodule=%s", a.Vmodule)) // string
+	if serverArgs.Vmodule != "" {
+		args = append(args, fmt.Sprintf("--vmodule=%s", serverArgs.Vmodule)) // string
 	}
 	return args, nil
 }

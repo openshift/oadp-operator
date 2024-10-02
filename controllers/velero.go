@@ -28,6 +28,7 @@ import (
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	"github.com/openshift/oadp-operator/pkg/common"
 	"github.com/openshift/oadp-operator/pkg/credentials"
+	veleroserver "github.com/openshift/oadp-operator/pkg/velero/server"
 )
 
 const (
@@ -573,9 +574,7 @@ func (r *DPAReconciler) customizeVeleroContainer(dpa *oadpv1alpha1.DataProtectio
 	// if server args is set, override the default server args
 	if dpa.Spec.Configuration.Velero.Args != nil {
 		var err error
-		veleroContainer.Args, err = dpa.Spec.Configuration.Velero.Args.StringArr(
-			dpa.Spec.Configuration.Velero.FeatureFlags,
-			dpa.Spec.Configuration.Velero.LogLevel)
+		veleroContainer.Args, err = veleroserver.GetArgs(dpa)
 		if err != nil {
 			return err
 		}

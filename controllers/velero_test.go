@@ -31,7 +31,6 @@ import (
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	oadpclient "github.com/openshift/oadp-operator/pkg/client"
 	"github.com/openshift/oadp-operator/pkg/common"
-	"github.com/openshift/oadp-operator/pkg/velero/server"
 )
 
 const (
@@ -1563,8 +1562,8 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 				oadpv1alpha1.DataProtectionApplicationSpec{
 					Configuration: &oadpv1alpha1.ApplicationConfig{
 						Velero: &oadpv1alpha1.VeleroConfig{
-							Args: &server.Args{
-								ServerConfig: server.ServerConfig{
+							Args: &oadpv1alpha1.VeleroServerArgs{
+								ServerFlags: oadpv1alpha1.ServerFlags{
 									MetricsAddress: fmt.Sprintf(":%v", argsMetricsPortTest),
 								},
 							},
@@ -1590,8 +1589,8 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 				oadpv1alpha1.DataProtectionApplicationSpec{
 					Configuration: &oadpv1alpha1.ApplicationConfig{
 						Velero: &oadpv1alpha1.VeleroConfig{
-							Args: &server.Args{
-								ServerConfig: server.ServerConfig{
+							Args: &oadpv1alpha1.VeleroServerArgs{
+								ServerFlags: oadpv1alpha1.ServerFlags{
 									RestoreResourcePriorities: "securitycontextconstraints,test",
 								},
 							},
@@ -1615,8 +1614,8 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 				oadpv1alpha1.DataProtectionApplicationSpec{
 					Configuration: &oadpv1alpha1.ApplicationConfig{
 						Velero: &oadpv1alpha1.VeleroConfig{
-							Args: &server.Args{
-								ServerConfig: server.ServerConfig{
+							Args: &oadpv1alpha1.VeleroServerArgs{
+								ServerFlags: oadpv1alpha1.ServerFlags{
 									BackupSyncPeriod:            ptr.To(time.Duration(1)),
 									PodVolumeOperationTimeout:   ptr.To(time.Duration(1)),
 									ResourceTerminatingTimeout:  ptr.To(time.Duration(1)),
@@ -1688,8 +1687,8 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 						Velero: &oadpv1alpha1.VeleroConfig{
 							ClientBurst: ptr.To(123),
 							ClientQPS:   ptr.To(123),
-							Args: &server.Args{
-								ServerConfig: server.ServerConfig{
+							Args: &oadpv1alpha1.VeleroServerArgs{
+								ServerFlags: oadpv1alpha1.ServerFlags{
 									ClientBurst: ptr.To(321),
 									ClientQPS:   ptr.To("321"),
 								},
