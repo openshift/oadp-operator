@@ -49,7 +49,8 @@ var (
 	knownFlake          bool
 	accumulatedTestLogs []string
 
-	kvmEmulation bool
+	kvmEmulation         bool
+	unsupportedOverrides map[string]string
 )
 
 func init() {
@@ -169,6 +170,7 @@ func TestOADPE2E(t *testing.T) {
 		BSLBucketPrefix:      veleroPrefix,
 		VeleroDefaultPlugins: dpa.DeepCopy().Spec.Configuration.Velero.DefaultPlugins,
 		SnapshotLocations:    dpa.DeepCopy().Spec.SnapshotLocations,
+		UnsupportedOverrides: dpa.DeepCopy().Spec.UnsupportedOverrides,
 	}
 
 	ginkgo.RunSpecs(t, "OADP E2E using velero prefix: "+veleroPrefix)
