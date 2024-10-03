@@ -147,7 +147,6 @@ func (v *DpaCustomResource) Get() (*oadpv1alpha1.DataProtectionApplication, erro
 
 func (v *DpaCustomResource) CreateOrUpdate(c client.Client, spec *oadpv1alpha1.DataProtectionApplicationSpec) error {
 	dpa, err := v.Get()
-	log.Printf("WES2 - DPA: %v", dpa)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			dpa = &oadpv1alpha1.DataProtectionApplication{
@@ -157,13 +156,16 @@ func (v *DpaCustomResource) CreateOrUpdate(c client.Client, spec *oadpv1alpha1.D
 				},
 				Spec: *spec.DeepCopy(),
 			}
-			return v.Create(dpa)
+			dpaPatch := dpa.DeepCopy()
+			dpaPatch.Spec.UnsupportedOverrides = v.UnsupportedOverrides
+			return v.Create(dpaPatch)
 		}
 		return err
 	}
 	dpaPatch := dpa.DeepCopy()
 	spec.DeepCopyInto(&dpaPatch.Spec)
 	dpaPatch.ObjectMeta.ManagedFields = nil
+	dpaPatch.Spec.UnsupportedOverrides = v.UnsupportedOverrides
 	err = v.Client.Patch(context.Background(), dpaPatch, client.MergeFrom(dpa), &client.PatchOptions{})
 	if err != nil {
 		log.Printf("error patching DPA: %s", err)
@@ -172,6 +174,7 @@ func (v *DpaCustomResource) CreateOrUpdate(c client.Client, spec *oadpv1alpha1.D
 		}
 		return err
 	}
+
 	return nil
 }
 
