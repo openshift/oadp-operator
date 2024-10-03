@@ -51,7 +51,6 @@ func LoadDpaSettingsFromJson(settings string) (*oadpv1alpha1.DataProtectionAppli
 	}
 	dpa := &oadpv1alpha1.DataProtectionApplication{}
 	err = json.Unmarshal(file, &dpa)
-	log.Printf("WES - DPA: %v", dpa)
 	if err != nil {
 		return nil, fmt.Errorf("Error decoding json file: %v", err)
 	}
@@ -114,16 +113,11 @@ func (v *DpaCustomResource) Build(backupRestoreType BackupRestoreType) *oadpv1al
 		dpaSpec.Configuration.Velero.FeatureFlags = append(dpaSpec.Configuration.Velero.FeatureFlags, velero.CSIFeatureFlag)
 		dpaSpec.SnapshotLocations = nil
 	}
-	// Uncomment to override plugin images to use
-	// dpaSpec.UnsupportedOverrides = map[oadpv1alpha1.UnsupportedImageKey]string{
-	// 	oadpv1alpha1.VeleroImageKey: "quay.io/rhn_engineering_whayutin/velero:testlatest",
-	// }
-	log.Printf("WES-Michal - DPA: %v", dpaSpec)
+
 	return &dpaSpec
 }
 
 func (v *DpaCustomResource) Create(dpa *oadpv1alpha1.DataProtectionApplication) error {
-	log.Printf("WES4 - DPA: %v", dpa)
 	err := v.Client.Create(context.Background(), dpa)
 	if apierrors.IsAlreadyExists(err) {
 		return errors.New("found unexpected existing Velero CR")
