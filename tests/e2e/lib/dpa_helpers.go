@@ -94,9 +94,7 @@ func (v *DpaCustomResource) Build(backupRestoreType BackupRestoreType) *oadpv1al
 				},
 			},
 		},
-		UnsupportedOverrides: map[oadpv1alpha1.UnsupportedImageKey]string{
-			oadpv1alpha1.VeleroImageKey: v.UnsupportedOverrides[oadpv1alpha1.VeleroImageKey],
-		},
+		UnsupportedOverrides: v.UnsupportedOverrides,
 	}
 	switch backupRestoreType {
 	case RESTIC, KOPIA:
@@ -120,7 +118,7 @@ func (v *DpaCustomResource) Build(backupRestoreType BackupRestoreType) *oadpv1al
 	// dpaSpec.UnsupportedOverrides = map[oadpv1alpha1.UnsupportedImageKey]string{
 	// 	oadpv1alpha1.VeleroImageKey: "quay.io/rhn_engineering_whayutin/velero:testlatest",
 	// }
-	// log.Printf("WES3 - DPA: %v", dpaSpec)
+	log.Printf("WES-Michal - DPA: %v", dpaSpec)
 	return &dpaSpec
 }
 
@@ -148,10 +146,6 @@ func (v *DpaCustomResource) Get() (*oadpv1alpha1.DataProtectionApplication, erro
 }
 
 func (v *DpaCustomResource) CreateOrUpdate(c client.Client, spec *oadpv1alpha1.DataProtectionApplicationSpec) error {
-	// for debugging
-	// prettyPrint, _ := json.MarshalIndent(spec, "", "  ")
-	// log.Printf("DPA with spec\n%s\n", prettyPrint)
-
 	dpa, err := v.Get()
 	log.Printf("WES2 - DPA: %v", dpa)
 	if err != nil {
