@@ -13,6 +13,7 @@ cat > $TMP_DIR/oadpcreds <<EOF
         "resticRestoreImageFqin": "$RESTORE_IMAGE",
         "kubevirtPluginImageFqin": "$KUBEVIRT_PLUGIN_IMAGE",
         "nonAdminControllerImageFqin": "$NON_ADMIN_IMAGE"
+      },
       "configuration":{
         "velero":{
           "defaultPlugins": [

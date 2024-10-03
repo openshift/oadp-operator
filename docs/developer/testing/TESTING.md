@@ -108,7 +108,7 @@ export RESTORE_IMAGE=<restore_image>
 export KUBEVIRT_PLUGIN_IMAGE=<kubevirt_plugin_image>
 export NON_ADMIN_IMAGE=<non_admin_image>
 ```
-For further details, see tests/e2e/scripts/
+For further details, see [tests/e2e/scripts/](../../../tests/e2e/scripts/)
 
 ## Clean up
 
