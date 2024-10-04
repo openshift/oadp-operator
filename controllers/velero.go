@@ -450,22 +450,20 @@ func (r *DPAReconciler) appendPluginSpecificSpecs(dpa *oadpv1alpha1.DataProtecti
 			// set default secret name to use
 			secretName := pluginSpecificMap.SecretName
 			// append plugin specific volume mounts
-			if veleroContainer != nil {
-				veleroContainer.VolumeMounts = append(
-					veleroContainer.VolumeMounts,
-					corev1.VolumeMount{
-						Name:      secretName,
-						MountPath: pluginSpecificMap.MountPath,
-					})
+			veleroContainer.VolumeMounts = append(
+				veleroContainer.VolumeMounts,
+				corev1.VolumeMount{
+					Name:      secretName,
+					MountPath: pluginSpecificMap.MountPath,
+				})
 
-				// append plugin specific env vars
-				veleroContainer.Env = append(
-					veleroContainer.Env,
-					corev1.EnvVar{
-						Name:  pluginSpecificMap.EnvCredentialsFile,
-						Value: pluginSpecificMap.MountPath + "/" + credentials.CloudFieldPath,
-					})
-			}
+			// append plugin specific env vars
+			veleroContainer.Env = append(
+				veleroContainer.Env,
+				corev1.EnvVar{
+					Name:  pluginSpecificMap.EnvCredentialsFile,
+					Value: pluginSpecificMap.MountPath + "/" + credentials.CloudFieldPath,
+				})
 
 			// append plugin specific volumes
 			veleroDeployment.Spec.Template.Spec.Volumes = append(
@@ -756,12 +754,10 @@ func (r DPAReconciler) noDefaultCredentials(dpa oadpv1alpha1.DataProtectionAppli
 	hasCloudStorage := false
 	if dpa.Spec.Configuration.Velero.NoDefaultBackupLocation {
 		needDefaultCred := false
-
 		if dpa.Spec.UnsupportedOverrides[oadpv1alpha1.OperatorTypeKey] == oadpv1alpha1.OperatorTypeMTC {
 			// MTC requires default credentials
 			needDefaultCred = true
 		}
-		// go through cloudprovider plugins and mark providerNeedsDefaultCreds to false
 		for _, provider := range dpa.Spec.Configuration.Velero.DefaultPlugins {
 			if psf, ok := credentials.PluginSpecificFields[provider]; ok && psf.IsCloudProvider {
 				providerNeedsDefaultCreds[psf.PluginName] = needDefaultCred
