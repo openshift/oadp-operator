@@ -9,7 +9,6 @@ cat > $TMP_DIR/oadpcreds <<EOF
         "openshiftPluginImageFqin": "$OPENSHIFT_PLUGIN_IMAGE",
         "azurePluginImageFqin": "$AZURE_PLUGIN_IMAGE",
         "gcpPluginImageFqin": "$GCP_PLUGIN_IMAGE",
-        "csiPluginImageFqin": "$CSI_PLUGIN_IMAGE",
         "resticRestoreImageFqin": "$RESTORE_IMAGE",
         "kubevirtPluginImageFqin": "$KUBEVIRT_PLUGIN_IMAGE",
         "nonAdminControllerImageFqin": "$NON_ADMIN_IMAGE"
