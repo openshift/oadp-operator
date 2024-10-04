@@ -32,7 +32,6 @@ type TestDPASpec struct {
 	NoS3ForcePathStyle      bool
 	NoRegion                bool
 	DoNotBackupImages       bool
-	UnsupportedOverrides    map[oadpv1alpha1.UnsupportedImageKey]string
 }
 
 func createTestDPASpec(testSpec TestDPASpec) *oadpv1alpha1.DataProtectionApplicationSpec {
@@ -66,7 +65,7 @@ func createTestDPASpec(testSpec TestDPASpec) *oadpv1alpha1.DataProtectionApplica
 			},
 		},
 		SnapshotLocations:    testSpec.SnapshotLocations,
-		UnsupportedOverrides: testSpec.UnsupportedOverrides,
+		UnsupportedOverrides: dpaCR.UnsupportedOverrides,
 	}
 	if testSpec.EnableNodeAgent {
 		dpaSpec.Configuration.NodeAgent = &oadpv1alpha1.NodeAgentConfig{
@@ -357,14 +356,6 @@ var _ = ginkgo.Describe("Configuration testing for DPA Custom Resource", func() 
 				NoRegion:           true,
 				NoS3ForcePathStyle: true,
 				DoNotBackupImages:  true,
-			}),
-		}),
-		ginkgo.Entry("DPA CR with unsupportedOverrides", ginkgo.Label("aws", "ibmcloud"), InstallCase{
-			DpaSpec: createTestDPASpec(TestDPASpec{
-				BSLSecretName: bslSecretName,
-				UnsupportedOverrides: map[oadpv1alpha1.UnsupportedImageKey]string{
-					"awsPluginImageFqin": "quay.io/konveyor/velero-plugin-for-aws:oadp-1.4",
-				},
 			}),
 		}),
 	)

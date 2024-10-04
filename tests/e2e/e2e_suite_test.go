@@ -49,8 +49,7 @@ var (
 	knownFlake          bool
 	accumulatedTestLogs []string
 
-	kvmEmulation         bool
-	unsupportedOverrides map[string]string
+	kvmEmulation bool
 )
 
 func init() {
