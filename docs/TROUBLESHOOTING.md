@@ -1,80 +1,76 @@
-<h1 align="center">Troubleshooting<a id="troubleshooting"></a></h1>
+# Troubleshooting 
 
 If you need help, first search if there is [already an issue filed](https://issues.redhat.com/issues/?jql=project%20%3D%20OADP) 
   or please log into jira and create a new issue in the `OADP` project.
 
 1. [OADP Cheat Sheet](oadp_cheat_sheet.md)
-2. [Debugging Failed Backups](#backup)
-3. [Debugging Failed Restores](#restore)
-4. [Debugging Data Mover (OADP 1.2 or below)](https://github.com/migtools/volume-snapshot-mover/blob/master/docs/troubleshooting.md)
-5. [Common Issues and Misconfigurations](#misconfig)
-    1. [Credentials Not Properly Formatted](#creds)
-    2. [Errors in the Velero Pod](#velpod)
-    3. [Errors in Backup Logs](#backuplogs)
-    4. [Backup/Restore is Stuck In Progress](#stuck)
-    5. [Restic - NFS Volumes and rootSquash](#rootsquash)
-    6. [Issue with Backup/Restore of DeploymentConfig using Restic](#deployconfig)
-    7. [New Restic Backup Partially Failing After Clearing Bucket](#resbackup)
-    8. [Restic Restore Partially Failing on OCP 4.14 Due to Changed PSA Policy](#psapolicy)
-6. [OADP FAQ](#faq)
-7. [OpenShift ROSA STS and OADP installation](https://github.com/rh-mobb/documentation/blob/main/content/docs/misc/oadp/rosa-sts/_index.md)
+1. [OADP FAQ](#faq)
+1. [OADP Official Troubleshooting Documentation](https://docs.openshift.com/container-platform/latest/backup_and_restore/application_backup_and_restore/troubleshooting.html)
+1. [OADP must-gather](https://docs.openshift.com/container-platform/latest/backup_and_restore/application_backup_and_restore/troubleshooting.html#migration-using-must-gather_oadp-troubleshooting)
+1. [Debugging Failed Backups](#debugging-failed-backups)
+1. [Debugging Failed Restores](#debugging-failed-restores)
+1. [Debugging Data Mover (OADP 1.2 or below)](https://github.com/migtools/volume-snapshot-mover/blob/master/docs/troubleshooting.md)
+1. [OpenShift ROSA STS and OADP installation](https://github.com/rh-mobb/documentation/blob/main/content/docs/misc/oadp/rosa-sts/_index.md)
+1. [Common Issues and Misconfigurations](#common-issues-and-misconfigurations)
+    - [Credentials Not Properly Formatted](#credentials-secret-not-properly-formatted)
+    - [Errors in the Velero Pod](#errors-in-the-velero-pod)
+    - [Errors in Backup Logs](#errors-in-backup-logs)
+    - [Backup/Restore is Stuck In Progress](#backuprestore-is-stuck-in-progress)
+    - [Restic - NFS Volumes and rootSquash](#restic---nfs-volumes-and-rootsquash)
+    - [Issue with Backup/Restore of DeploymentConfig using Restic](#issue-with-backuprestore-of-deploymentconfig-using-restic)
+    - [New Restic Backup Partially Failing After Clearing Bucket](#new-restic-backup-partially-failing-after-clearing-bucket)
+    - [Restic Restore Partially Failing on OCP 4.14 Due to Changed PSA Policy](#restic-restore-partially-failing-on-ocp-414-due-to-changed-psa-policy)
 
 
-<hr style="height:1px;border:none;color:#333;">
+## Debugging Failed Backups
 
-<h1 align="center">Debugging Failed Backups<a id="backup"></a></h1>
-
-This section includes steps to debug a failed backup. For more specific issues related to Restic/CSI/volume snapshots check out the following section. Both the OpenShift commands and native Velero commands are useful in troubleshooting.
 1. OpenShift commands
-    1. Check for validation errors in the backup by running the following command,
+    - Check for validation errors in the backup by running the following command,
     ```
     oc describe backup <backupName> -n openshift-adp
     ```
-    2. Check the Velero logs
+    - Check the Velero logs
     ```
     oc logs -f deploy/velero -n openshift-adp
     ```
-    If Data Mover (OADP 1.2 or below) is enabled, check the volume-snapshot-logs
+    - If Data Mover (OADP 1.2 or below) is enabled, check the volume-snapshot-logs
     ```
     oc logs -f deployment.apps/volume-snapshot-mover -n openshift-adp
     ```
     
-2. Velero commands
-    1. Alias the velero command: 
+1. Velero commands
+    -  Alias the velero command: 
     ```
     alias velero='oc -n openshift-adp exec deployment/velero -c velero -it -- ./velero'
     ```
-    2. Get the backup details: 
+    - Get the backup details: 
     ```
     velero backup describe <backupName> --details
     ```
-    3. Get the backup logs: 
+    - Get the backup logs: 
     ```
     velero backup logs <backupName>
     ```
-3. Restic backup debug
-    1. Please refer to the [restic troubleshooting tips page](restic_troubleshooting.md)
+1. Restic backup debug
+    - Please refer to the [restic troubleshooting tips page](restic_troubleshooting.md)
 
-4. Volume Snapshots debug
-    1. This guide has not yet been published
+1. Volume Snapshots debug
+    - This guide has not yet been published
 
-5. CSI Snapshots debug
-    1. This guide has not yet been published
+1. CSI Snapshots debug
+    - This guide has not yet been published
     
     
-
-<hr style="height:1px;border:none;color:#333;">
-
-<h1 align="center">Debugging Failed Restores<a id="restore"></a></h1>
+## Debugging Failed Restores
 
 This section includes how to debug a failed restore. For more specific issues related to restic/CSI/Volume snapshots check out the following section.
 
 1. OpenShift commands
-    1. Check for validation errors in the backup by running the following command,
+    - Check for validation errors in the backup by running the following command,
     ```
     oc describe restore <restoreName> -n openshift-adp
     ```
-    2. Check the Velero logs
+    - Check the Velero logs
     ```
     oc logs -f deployment.apps/velero -n openshift-adp
     ```
@@ -83,25 +79,24 @@ This section includes how to debug a failed restore. For more specific issues re
     oc logs -f deployment.apps/volume-snapshot-mover -n openshift-adp
     ```
     
-2. Velero commands
-    1. Alias the velero command: 
+1. Velero commands
+    - Alias the velero command: 
     ```
     alias velero='oc -n openshift-adp exec deployment/velero -c velero -it -- ./velero'
     ```
-    2. Get the restore details: 
+    - Get the restore details: 
     ```
     velero restore describe <restoreName> --details
     ```
-    3. Get the backup logs: 
+    - Get the backup logs: 
     ```
     velero backup logs <restoreName>
     ```
  
-<hr style="height:1px;border:none;color:#333;">
 
-<h1 align="center">Common Issues and Misconfigurations<a id="misconfig"></a></h1>
+## Common Issues and Misconfigurations
 
-<h3 align="center">Credentials Secret Not Properly Formatted<a id="creds"></a></h3>
+### Credentials Secret Not Properly Formatted
 
   - Credentials:
     An example of correct AWS credentials:
@@ -115,9 +110,7 @@ This section includes how to debug a failed restore. For more specific issues re
     *Note:* Do not use quotes while putting values in place of INSERT_VALUE Placeholders
 
 
-<hr style="height:1px;border:none;color:#333;"> 
-
-<h3 align="center">Errors in the Velero Pod<a id="velpod"></a></h3>
+### Errors in the Velero Pod
 
 -  **Error:** `Backup storage contains invalid top-level directories: [someDirName]`
 
@@ -140,9 +133,8 @@ This section includes how to debug a failed restore. For more specific issues re
     2. Delete the offending directories from your object storage location.
 
   
-<hr style="height:1px;border:none;color:#333;"> 
 
-<h3 align="center">Errors in Backup Logs<a id="backuplogs"></a></h3>
+### Errors in Backup Logs
 
 -   **Error:** 
     `error getting volume info: rpc error: code = Unknown desc = InvalidVolume.NotFound: The volume ‘vol-xxxx’ does not exist.\n\tstatus code: 400`
@@ -155,9 +147,7 @@ This section includes how to debug a failed restore. For more specific issues re
     change region in VolumeSnapshotLocation resource to the region mentioned in the PV, and then create a new backup.
 
 
-<hr style="height:1px;border:none;color:#333;"> 
-
-<h3 align="center">Backup/Restore is Stuck In Progress<a id="stuck"></a></h3>
+### Backup/Restore is Stuck In Progress
 
   - If a backup or restore is stuck as "In Progress," then it is likely that the backup 
   or restore was interrupted. If this is the case, it cannot resume. 
@@ -181,9 +171,7 @@ This section includes how to debug a failed restore. For more specific issues re
   ```
 
 
-<hr style="height:1px;border:none;color:#333;">
-
-<h3 align="center">Restic - NFS Volumes and rootSquash<a id="rootsquash"></a></h3>
+### Restic - NFS Volumes and rootSquash
 
 - If using NFS volumes while `rootSquash` is enabled, Restic will be mapped to 
 `nfsnobody` and not have the proper permissions to perform a backup/restore. 
@@ -211,10 +199,7 @@ This section includes how to debug a failed restore. For more specific issues re
             - 1234
 ```
 
-
-<hr style="height:1px;border:none;color:#333;"> 
-
-<h3 align="center">Issue with Backup/Restore of DeploymentConfig with volumes or restore hooks<a id="deployconfig"></a></h3>
+### Issue with Backup/Restore of DeploymentConfig with volumes or restore hooks
 
 -  (OADP 1.3+) **Error:** `DeploymentConfigs restore with spec.Replicas==0 or DC pods fail to restart if they crash if using DC with volumes or restore hooks`
 
@@ -251,10 +236,7 @@ This section includes how to debug a failed restore. For more specific issues re
     velero restore create --from-backup=<BACKUP_NAME> -n openshift-adp --include-namespaces <TARGET_NAMESPACE> --include-resources replicationcontroller,deploymentconfig,templateinstances.template.openshift.io --restore-volumes=true
     ```
 
-
-<hr style="height:1px;border:none;color:#333;">
-
-<h3 align="center">New Restic Backup Partially Failing After Clearing Bucket<a id="resbackup"></a></h3>
+### New Restic Backup Partially Failing After Clearing Bucket
 
   After creating a backup for a stateful app using Restic on a given namespace, 
   clearing the bucket, and then creating a new backup again using Restic, the 
@@ -282,9 +264,7 @@ This section includes how to debug a failed restore. For more specific issues re
   which appears to be in the process of deciding expected behavior. 
 
 
-<hr style="height:1px;border:none;color:#333;">
-
-<h3 align="center">Restic Restore Partially Failing on OCP 4.14 Due to Changed PSA Policy<a id="psapolicy"></a></h3>
+### Restic Restore Partially Failing on OCP 4.14 Due to Changed PSA Policy 
 
  **Issue:** 
  OCP 4.14 enforces a Pod Security Admission (PSA) policy that can hinder the readiness of pods during a Restic restore process. If a Security Context Constraints (SCC) resource is not found during the creation of a pod, and the PSA policy on the pod is not aligned with the required standards, pod admission is denied. This issue arises due to the resource restore order of Velero.  
@@ -313,8 +293,3 @@ This section includes how to debug a failed restore. For more specific issues re
   
   - This error can occur regardless of the SCC if the application is not aligned with the security standards. Please ensure that the security standards for the application pods are aligned, as provided in the link below, to prevent deployment warnings.  
   https://access.redhat.com/solutions/7002730
-
-<hr style="height:1px;border:none;color:#333;"> 
-<h1 align="center">OADP FAQ<a id="faq"></a></h1>
-
-The OADP team maintains a [FAQ page](https://access.redhat.com/articles/5456281)
