@@ -64,6 +64,8 @@ The jobs run can be seen in PRs and in the links in the README.md file of OADP r
 
 OADP operator master branch is tested against the last 3 minor OCP releases. To Update an OCP version the project is tested against, see [Update OCP version](#update-ocp-version).
 
+> **Note**: To avoid changing upstream `OWNERS` files on `openshift` organization forks, we use `DOWNSTREAM_OWNERS` files on those repos. Reference https://github.com/openshift/release/blob/dd6b8b25a85bfd92ca74fdf1435ee9f21cd22516/core-services/prow/02_config/_plugins.yaml#L664-L678
+
 ### Creating new release branches
 
 To create new OADP release branches (they must follow the pattern `oadp-major.minor`, [example](https://github.com/openshift/oadp-operator/tree/oadp-1.4)):
