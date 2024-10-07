@@ -55,10 +55,10 @@ func setPodTemplateSpecDefaults(template *corev1.PodTemplateSpec) {
 	for i := range template.Spec.Volumes {
 		if template.Spec.Volumes[i].Projected != nil {
 			if template.Spec.Volumes[i].Projected != nil {
-				template.Spec.Volumes[i].Projected.DefaultMode = ptr.To(common.DefaultPermission)
+				template.Spec.Volumes[i].Projected.DefaultMode = ptr.To(common.DefaultProjectedPermission)
 			}
 		} else if template.Spec.Volumes[i].Secret != nil {
-			template.Spec.Volumes[i].Secret.DefaultMode = ptr.To(common.DefaultPermission)
+			template.Spec.Volumes[i].Secret.DefaultMode = ptr.To(common.DefaultSecretPermission)
 		} else if template.Spec.Volumes[i].HostPath != nil {
 			if template.Spec.Volumes[i].HostPath.Type == nil {
 				template.Spec.Volumes[i].HostPath.Type = ptr.To(corev1.HostPathType(""))

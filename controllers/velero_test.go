@@ -1451,7 +1451,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 						Name: "bound-sa-token",
 						VolumeSource: corev1.VolumeSource{
 							Projected: &corev1.ProjectedVolumeSource{
-								DefaultMode: ptr.To(int32(0440)),
+								DefaultMode: ptr.To(int32(0644)),
 								Sources: []corev1.VolumeProjection{
 									{
 										ServiceAccountToken: &corev1.ServiceAccountTokenProjection{
