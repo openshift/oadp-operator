@@ -4,7 +4,7 @@ If you need help, first search if there is [already an issue filed](https://issu
   or please log into jira and create a new issue in the `OADP` project.
 
 1. [OADP Cheat Sheet](oadp_cheat_sheet.md)
-1. [OADP FAQ](#faq)
+1. [OADP FAQ](https://access.redhat.com/articles/5456281)
 1. [OADP Official Troubleshooting Documentation](https://docs.openshift.com/container-platform/latest/backup_and_restore/application_backup_and_restore/troubleshooting.html)
 1. [OADP must-gather](https://docs.openshift.com/container-platform/latest/backup_and_restore/application_backup_and_restore/troubleshooting.html#migration-using-must-gather_oadp-troubleshooting)
 1. [Debugging Failed Backups](#debugging-failed-backups)
