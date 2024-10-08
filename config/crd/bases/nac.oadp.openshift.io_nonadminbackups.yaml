@@ -334,7 +334,7 @@ spec:
                   itemOperationTimeout:
                     description: |-
                       ItemOperationTimeout specifies the time used to wait for asynchronous BackupItemAction operations
-                      The default value is 1 hour.
+                      The default value is 4 hour.
                     type: string
                   labelSelector:
                     description: |-
@@ -498,6 +498,16 @@ spec:
                       TTL is a time.Duration-parseable string describing how long
                       the Backup should be retained for.
                     type: string
+                  uploaderConfig:
+                    description: UploaderConfig specifies the configuration for the
+                      uploader.
+                    nullable: true
+                    properties:
+                      parallelFilesUpload:
+                        description: ParallelFilesUpload is the number of files parallel
+                          uploads to perform when using the uploader.
+                        type: integer
+                    type: object
                   volumeSnapshotLocations:
                     description: VolumeSnapshotLocations is a list containing names
                       of VolumeSnapshotLocations associated with this backup.
@@ -598,145 +608,165 @@ spec:
                 - BackingOff
                 - Created
                 type: string
-              veleroBackupName:
-                description: VeleroBackupName references the VeleroBackup object by
-                  it's name.
-                type: string
-              veleroBackupNamespace:
-                description: |-
-                  VeleroBackupNamespace references the Namespace
-                  in which VeleroBackupName object exists.
-                type: string
-              veleroBackupStatus:
-                description: VeleroBackupStatus captures the current status of a Velero
-                  backup.
+              veleroBackup:
+                description: VeleroBackup contains information of the related Velero
+                  backup object.
                 properties:
-                  backupItemOperationsAttempted:
-                    description: |-
-                      BackupItemOperationsAttempted is the total number of attempted
-                      async BackupItemAction operations for this backup.
-                    type: integer
-                  backupItemOperationsCompleted:
-                    description: |-
-                      BackupItemOperationsCompleted is the total number of successfully completed
-                      async BackupItemAction operations for this backup.
-                    type: integer
-                  backupItemOperationsFailed:
-                    description: |-
-                      BackupItemOperationsFailed is the total number of async
-                      BackupItemAction operations for this backup which ended with an error.
-                    type: integer
-                  completionTimestamp:
-                    description: |-
-                      CompletionTimestamp records the time a backup was completed.
-                      Completion time is recorded even on failed backups.
-                      Completion time is recorded before uploading the backup object.
-                      The server's time is used for CompletionTimestamps
-                    format: date-time
-                    nullable: true
+                  name:
+                    description: name references the Velero backup by it's name.
                     type: string
-                  csiVolumeSnapshotsAttempted:
-                    description: |-
-                      CSIVolumeSnapshotsAttempted is the total number of attempted
-                      CSI VolumeSnapshots for this backup.
-                    type: integer
-                  csiVolumeSnapshotsCompleted:
-                    description: |-
-                      CSIVolumeSnapshotsCompleted is the total number of successfully
-                      completed CSI VolumeSnapshots for this backup.
-                    type: integer
-                  errors:
-                    description: |-
-                      Errors is a count of all error messages that were generated during
-                      execution of the backup.  The actual errors are in the backup's log
-                      file in object storage.
-                    type: integer
-                  expiration:
-                    description: Expiration is when this Backup is eligible for garbage-collection.
-                    format: date-time
-                    nullable: true
+                  namespace:
+                    description: namespace references the Namespace in which Velero
+                      backup exists.
                     type: string
-                  failureReason:
-                    description: FailureReason is an error that caused the entire
-                      backup to fail.
-                    type: string
-                  formatVersion:
-                    description: FormatVersion is the backup format version, including
-                      major, minor, and patch version.
-                    type: string
-                  phase:
-                    description: Phase is the current state of the Backup.
-                    enum:
-                    - New
-                    - FailedValidation
-                    - InProgress
-                    - WaitingForPluginOperations
-                    - WaitingForPluginOperationsPartiallyFailed
-                    - Finalizing
-                    - FinalizingPartiallyFailed
-                    - Completed
-                    - PartiallyFailed
-                    - Failed
-                    - Deleting
-                    type: string
-                  progress:
-                    description: |-
-                      Progress contains information about the backup's execution progress. Note
-                      that this information is best-effort only -- if Velero fails to update it
-                      during a backup for any reason, it may be inaccurate/stale.
-                    nullable: true
+                  status:
+                    description: status captures the current status of the Velero
+                      backup.
                     properties:
-                      itemsBackedUp:
+                      backupItemOperationsAttempted:
                         description: |-
-                          ItemsBackedUp is the number of items that have actually been written to the
-                          backup tarball so far.
+                          BackupItemOperationsAttempted is the total number of attempted
+                          async BackupItemAction operations for this backup.
                         type: integer
-                      totalItems:
+                      backupItemOperationsCompleted:
                         description: |-
-                          TotalItems is the total number of items to be backed up. This number may change
-                          throughout the execution of the backup due to plugins that return additional related
-                          items to back up, the velero.io/exclude-from-backup label, and various other
-                          filters that happen as items are processed.
+                          BackupItemOperationsCompleted is the total number of successfully completed
+                          async BackupItemAction operations for this backup.
+                        type: integer
+                      backupItemOperationsFailed:
+                        description: |-
+                          BackupItemOperationsFailed is the total number of async
+                          BackupItemAction operations for this backup which ended with an error.
+                        type: integer
+                      completionTimestamp:
+                        description: |-
+                          CompletionTimestamp records the time a backup was completed.
+                          Completion time is recorded even on failed backups.
+                          Completion time is recorded before uploading the backup object.
+                          The server's time is used for CompletionTimestamps
+                        format: date-time
+                        nullable: true
+                        type: string
+                      csiVolumeSnapshotsAttempted:
+                        description: |-
+                          CSIVolumeSnapshotsAttempted is the total number of attempted
+                          CSI VolumeSnapshots for this backup.
+                        type: integer
+                      csiVolumeSnapshotsCompleted:
+                        description: |-
+                          CSIVolumeSnapshotsCompleted is the total number of successfully
+                          completed CSI VolumeSnapshots for this backup.
+                        type: integer
+                      errors:
+                        description: |-
+                          Errors is a count of all error messages that were generated during
+                          execution of the backup.  The actual errors are in the backup's log
+                          file in object storage.
+                        type: integer
+                      expiration:
+                        description: Expiration is when this Backup is eligible for
+                          garbage-collection.
+                        format: date-time
+                        nullable: true
+                        type: string
+                      failureReason:
+                        description: FailureReason is an error that caused the entire
+                          backup to fail.
+                        type: string
+                      formatVersion:
+                        description: FormatVersion is the backup format version, including
+                          major, minor, and patch version.
+                        type: string
+                      hookStatus:
+                        description: HookStatus contains information about the status
+                          of the hooks.
+                        nullable: true
+                        properties:
+                          hooksAttempted:
+                            description: |-
+                              HooksAttempted is the total number of attempted hooks
+                              Specifically, HooksAttempted represents the number of hooks that failed to execute
+                              and the number of hooks that executed successfully.
+                            type: integer
+                          hooksFailed:
+                            description: HooksFailed is the total number of hooks
+                              which ended with an error
+                            type: integer
+                        type: object
+                      phase:
+                        description: Phase is the current state of the Backup.
+                        enum:
+                        - New
+                        - FailedValidation
+                        - InProgress
+                        - WaitingForPluginOperations
+                        - WaitingForPluginOperationsPartiallyFailed
+                        - Finalizing
+                        - FinalizingPartiallyFailed
+                        - Completed
+                        - PartiallyFailed
+                        - Failed
+                        - Deleting
+                        type: string
+                      progress:
+                        description: |-
+                          Progress contains information about the backup's execution progress. Note
+                          that this information is best-effort only -- if Velero fails to update it
+                          during a backup for any reason, it may be inaccurate/stale.
+                        nullable: true
+                        properties:
+                          itemsBackedUp:
+                            description: |-
+                              ItemsBackedUp is the number of items that have actually been written to the
+                              backup tarball so far.
+                            type: integer
+                          totalItems:
+                            description: |-
+                              TotalItems is the total number of items to be backed up. This number may change
+                              throughout the execution of the backup due to plugins that return additional related
+                              items to back up, the velero.io/exclude-from-backup label, and various other
+                              filters that happen as items are processed.
+                            type: integer
+                        type: object
+                      startTimestamp:
+                        description: |-
+                          StartTimestamp records the time a backup was started.
+                          Separate from CreationTimestamp, since that value changes
+                          on restores.
+                          The server's time is used for StartTimestamps
+                        format: date-time
+                        nullable: true
+                        type: string
+                      validationErrors:
+                        description: |-
+                          ValidationErrors is a slice of all validation errors (if
+                          applicable).
+                        items:
+                          type: string
+                        nullable: true
+                        type: array
+                      version:
+                        description: |-
+                          Version is the backup format major version.
+                          Deprecated: Please see FormatVersion
+                        type: integer
+                      volumeSnapshotsAttempted:
+                        description: |-
+                          VolumeSnapshotsAttempted is the total number of attempted
+                          volume snapshots for this backup.
+                        type: integer
+                      volumeSnapshotsCompleted:
+                        description: |-
+                          VolumeSnapshotsCompleted is the total number of successfully
+                          completed volume snapshots for this backup.
+                        type: integer
+                      warnings:
+                        description: |-
+                          Warnings is a count of all warning messages that were generated during
+                          execution of the backup. The actual warnings are in the backup's log
+                          file in object storage.
                         type: integer
                     type: object
-                  startTimestamp:
-                    description: |-
-                      StartTimestamp records the time a backup was started.
-                      Separate from CreationTimestamp, since that value changes
-                      on restores.
-                      The server's time is used for StartTimestamps
-                    format: date-time
-                    nullable: true
-                    type: string
-                  validationErrors:
-                    description: |-
-                      ValidationErrors is a slice of all validation errors (if
-                      applicable).
-                    items:
-                      type: string
-                    nullable: true
-                    type: array
-                  version:
-                    description: |-
-                      Version is the backup format major version.
-                      Deprecated: Please see FormatVersion
-                    type: integer
-                  volumeSnapshotsAttempted:
-                    description: |-
-                      VolumeSnapshotsAttempted is the total number of attempted
-                      volume snapshots for this backup.
-                    type: integer
-                  volumeSnapshotsCompleted:
-                    description: |-
-                      VolumeSnapshotsCompleted is the total number of successfully
-                      completed volume snapshots for this backup.
-                    type: integer
-                  warnings:
-                    description: |-
-                      Warnings is a count of all warning messages that were generated during
-                      execution of the backup. The actual warnings are in the backup's log
-                      file in object storage.
-                    type: integer
                 type: object
             type: object
         type: object
