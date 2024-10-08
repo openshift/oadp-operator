@@ -1271,6 +1271,8 @@ spec:
                   items:
                     description: SnapshotLocation defines the configuration for the DPA snapshot store
                     properties:
+                      name:
+                        type: string
                       velero:
                         description: VolumeSnapshotLocationSpec defines the specification for a Velero VolumeSnapshotLocation.
                         properties:
