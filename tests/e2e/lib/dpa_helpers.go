@@ -153,9 +153,8 @@ func (v *DpaCustomResource) CreateOrUpdate(c client.Client, spec *oadpv1alpha1.D
 				},
 				Spec: *spec.DeepCopy(),
 			}
-			dpaPatch := dpa.DeepCopy()
-			dpaPatch.Spec.UnsupportedOverrides = v.UnsupportedOverrides
-			return v.Create(dpaPatch)
+			dpa.Spec.UnsupportedOverrides = v.UnsupportedOverrides
+			return v.Create(dpa)
 		}
 		return err
 	}
