@@ -473,8 +473,8 @@ func (r *DPAReconciler) getMatchedKeyValue(key string, s string) (string, error)
 		s = strings.TrimPrefix(s, prefix)
 	}
 	if len(s) == 0 {
-		r.Log.Info("Could not parse secret for %s", key)
-		return s, errors.New(key + " secret parsing error")
+		r.Log.Info(fmt.Sprintf("Could not parse secret for %s", key))
+		return s, errors.New("secret parsing error in key " + key)
 	}
 	return s, nil
 }
