@@ -12,6 +12,7 @@ import (
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
@@ -215,6 +216,7 @@ func (r *DPAReconciler) ReconcileVolumeSnapshotLocations(log logr.Logger) (bool,
 		return false, err
 	}
 
+	dpaVSLNames := []string{}
 	// Loop through all configured VSLs
 	for i, vslSpec := range dpa.Spec.SnapshotLocations {
 		// Create VSL as is, we can safely assume they are valid from
@@ -225,6 +227,7 @@ func (r *DPAReconciler) ReconcileVolumeSnapshotLocations(log logr.Logger) (bool,
 		if vslSpec.Name != "" {
 			vslName = vslSpec.Name
 		}
+		dpaVSLNames = append(dpaVSLNames, vslName)
 
 		vsl := velerov1.VolumeSnapshotLocation{
 			ObjectMeta: metav1.ObjectMeta{
@@ -271,6 +274,34 @@ func (r *DPAReconciler) ReconcileVolumeSnapshotLocations(log logr.Logger) (bool,
 		}
 
 	}
+
+	dpaVSLs := velerov1.VolumeSnapshotLocationList{}
+	dpaVslLabels := map[string]string{
+		"app.kubernetes.io/name":       common.OADPOperatorVelero,
+		"app.kubernetes.io/managed-by": common.OADPOperator,
+		"app.kubernetes.io/component":  "vsl",
+	}
+	err := r.List(r.Context, &dpaVSLs, client.InNamespace(r.NamespacedName.Namespace), client.MatchingLabels(dpaVslLabels))
+	if err != nil {
+		return false, err
+	}
+
+	// If current VSLs do not match the spec, delete extra VSLs
+	if len(dpaVSLNames) != len(dpaVSLs.Items) {
+		for _, vsl := range dpaVSLs.Items {
+			if !common.Contains(dpaVSLNames, vsl.Name) {
+				if err := r.Delete(r.Context, &vsl); err != nil {
+					return false, err
+				}
+				// Record event for VSL deletion
+				r.EventRecorder.Event(&vsl,
+					corev1.EventTypeNormal,
+					"VolumeSnapshotLocationDeleted",
+					fmt.Sprintf("VolumeSnapshotLocation %s created by OADP in namespace %s was deleted as it was not in DPA spec.", vsl.Name, vsl.Namespace))
+			}
+		}
+	}
+
 	return true, nil
 }
 
