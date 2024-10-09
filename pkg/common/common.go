@@ -312,3 +312,12 @@ func ApplyUnsupportedServerArgsOverride(container *corev1.Container, unsupported
 	}
 	return nil
 }
+
+func Contains(slice []string, item string) bool {
+	for _, s := range slice {
+		if s == item {
+			return true
+		}
+	}
+	return false
+}

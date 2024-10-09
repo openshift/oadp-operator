@@ -99,6 +99,8 @@ func (r *DPAReconciler) ReconcileBackupStorageLocations(log logr.Logger) (bool, 
 	if err := r.Get(r.Context, r.NamespacedName, &dpa); err != nil {
 		return false, err
 	}
+
+	dpaBSLNames := []string{}
 	// Loop through all configured BSLs
 	for i, bslSpec := range dpa.Spec.BackupLocations {
 		// Create BSL as is, we can safely assume they are valid from
@@ -109,6 +111,7 @@ func (r *DPAReconciler) ReconcileBackupStorageLocations(log logr.Logger) (bool, 
 		if bslSpec.Name != "" {
 			bslName = bslSpec.Name
 		}
+		dpaBSLNames = append(dpaBSLNames, bslName)
 
 		bsl := velerov1.BackupStorageLocation{
 			ObjectMeta: metav1.ObjectMeta{
@@ -195,6 +198,33 @@ func (r *DPAReconciler) ReconcileBackupStorageLocations(log logr.Logger) (bool, 
 			)
 		}
 	}
+
+	dpaBSLs := velerov1.BackupStorageLocationList{}
+	dpaBSLLabels := map[string]string{
+		"app.kubernetes.io/name":       common.OADPOperatorVelero,
+		"app.kubernetes.io/managed-by": common.OADPOperator,
+		"app.kubernetes.io/component":  "bsl",
+	}
+	err := r.List(r.Context, &dpaBSLs, client.InNamespace(r.NamespacedName.Namespace), client.MatchingLabels(dpaBSLLabels))
+	if err != nil {
+		return false, err
+	}
+	// If current BSLs do not match the spec, delete extra BSLs
+	if len(dpaBSLNames) != len(dpaBSLs.Items) {
+		for _, bsl := range dpaBSLs.Items {
+			if !common.Contains(dpaBSLNames, bsl.Name) {
+				if err := r.Delete(r.Context, &bsl); err != nil {
+					return false, err
+				}
+				// Record event for BSL deletion
+				r.EventRecorder.Event(&bsl,
+					corev1.EventTypeNormal,
+					"BackupStorageLocationDeleted",
+					fmt.Sprintf("BackupStorageLocation %s created by OADP in namespace %s was deleted as it was not in DPA spec.", bsl.Name, bsl.Namespace))
+			}
+		}
+	}
+
 	return true, nil
 }
 

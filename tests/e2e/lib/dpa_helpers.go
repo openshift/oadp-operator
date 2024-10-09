@@ -328,6 +328,30 @@ func GetOpenShiftADPLogs(c *kubernetes.Clientset, namespace string) (string, err
 	return GetPodWithPrefixContainerLogs(c, namespace, "openshift-adp-controller-manager-", "manager")
 }
 
+func (v *DpaCustomResource) ListVSLs() (*velero.VolumeSnapshotLocationList, error) {
+	vsls := &velero.VolumeSnapshotLocationList{}
+	err := v.Client.List(context.Background(), vsls, client.InNamespace(v.Namespace))
+	if err != nil {
+		return nil, err
+	}
+	if len(vsls.Items) == 0 {
+		return nil, fmt.Errorf("no VSL in %s namespace", v.Namespace)
+	}
+	return vsls, nil
+}
+
+func (v *DpaCustomResource) ListBSLs() (*velero.BackupStorageLocationList, error) {
+	bsls := &velero.BackupStorageLocationList{}
+	err := v.Client.List(context.Background(), bsls, client.InNamespace(v.Namespace))
+	if err != nil {
+		return nil, err
+	}
+	if len(bsls.Items) == 0 {
+		return nil, fmt.Errorf("no BSL in %s namespace", v.Namespace)
+	}
+	return bsls, nil
+}
+
 // Returns logs from velero container on velero pod
 func GetVeleroContainerLogs(c *kubernetes.Clientset, namespace string) (string, error) {
 	return GetPodWithPrefixContainerLogs(c, namespace, "velero-", "velero")

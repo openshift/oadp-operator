@@ -112,12 +112,22 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 					// Check if bsl matches the spec
 					Expect(DoesBSLSpecMatchesDpa(namespace, *bsl.Velero, installCase.DpaSpec)).To(BeTrue())
 				}
+			} else {
+				log.Println("Checking no BSLs are deployed")
+				_, err = dpaCR.ListBSLs()
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(Equal(fmt.Sprintf("no BSL in %s namespace", namespace)))
 			}
 			if len(dpa.Spec.SnapshotLocations) > 0 {
 				log.Printf("Checking for vsl spec")
 				for _, vsl := range dpa.Spec.SnapshotLocations {
 					Expect(DoesVSLSpecMatchesDpa(namespace, *vsl.Velero, installCase.DpaSpec)).To(BeTrue())
 				}
+			} else {
+				log.Println("Checking no VSLs are deployed")
+				_, err = dpaCR.ListVSLs()
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(Equal(fmt.Sprintf("no VSL in %s namespace", namespace)))
 			}
 
 			// Check for velero tolerances
