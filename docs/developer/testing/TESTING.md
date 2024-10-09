@@ -94,6 +94,22 @@ You can also execute make test-e2e with a $GINKGO_ARGS variable set. Example:
 make test-e2e GINKGO_ARGS="--ginkgo.focus='MySQL application DATAMOVER'"
 ```
 
+### Run tests with custom images
+
+You can run tests with custom images by setting the following environment variables:
+```bash
+export VELERO_IMAGE=<velero_image>
+export AWS_PLUGIN_IMAGE=<aws_plugin_image>
+export OPENSHIFT_PLUGIN_IMAGE=<openshift_plugin_image>
+export AZURE_PLUGIN_IMAGE=<azure_plugin_image>
+export GCP_PLUGIN_IMAGE=<gcp_plugin_image>
+export CSI_PLUGIN_IMAGE=<csi_plugin_image>
+export RESTORE_IMAGE=<restore_image>
+export KUBEVIRT_PLUGIN_IMAGE=<kubevirt_plugin_image>
+export NON_ADMIN_IMAGE=<non_admin_image>
+```
+For further details, see [tests/e2e/scripts/](../../../tests/e2e/scripts/)
+
 ## Clean up
 
 To clean environment after running E2E tests, run

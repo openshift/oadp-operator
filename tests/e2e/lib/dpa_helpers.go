@@ -41,6 +41,7 @@ type DpaCustomResource struct {
 	BSLBucketPrefix      string
 	VeleroDefaultPlugins []oadpv1alpha1.DefaultPlugin
 	SnapshotLocations    []oadpv1alpha1.SnapshotLocation
+	UnsupportedOverrides map[oadpv1alpha1.UnsupportedImageKey]string
 }
 
 func LoadDpaSettingsFromJson(settings string) (*oadpv1alpha1.DataProtectionApplication, error) {
@@ -92,6 +93,7 @@ func (v *DpaCustomResource) Build(backupRestoreType BackupRestoreType) *oadpv1al
 				},
 			},
 		},
+		UnsupportedOverrides: v.UnsupportedOverrides,
 	}
 	switch backupRestoreType {
 	case RESTIC, KOPIA:
@@ -111,10 +113,7 @@ func (v *DpaCustomResource) Build(backupRestoreType BackupRestoreType) *oadpv1al
 		dpaSpec.Configuration.Velero.FeatureFlags = append(dpaSpec.Configuration.Velero.FeatureFlags, velero.CSIFeatureFlag)
 		dpaSpec.SnapshotLocations = nil
 	}
-	// Uncomment to override plugin images to use
-	dpaSpec.UnsupportedOverrides = map[oadpv1alpha1.UnsupportedImageKey]string{
-		// oadpv1alpha1.VeleroImageKey: "quay.io/konveyor/velero:oadp-1.1",
-	}
+
 	return &dpaSpec
 }
 
@@ -144,7 +143,6 @@ func (v *DpaCustomResource) CreateOrUpdate(c client.Client, spec *oadpv1alpha1.D
 	// for debugging
 	// prettyPrint, _ := json.MarshalIndent(spec, "", "  ")
 	// log.Printf("DPA with spec\n%s\n", prettyPrint)
-
 	dpa, err := v.Get()
 	if err != nil {
 		if apierrors.IsNotFound(err) {
@@ -155,6 +153,7 @@ func (v *DpaCustomResource) CreateOrUpdate(c client.Client, spec *oadpv1alpha1.D
 				},
 				Spec: *spec.DeepCopy(),
 			}
+			dpa.Spec.UnsupportedOverrides = v.UnsupportedOverrides
 			return v.Create(dpa)
 		}
 		return err
@@ -162,6 +161,7 @@ func (v *DpaCustomResource) CreateOrUpdate(c client.Client, spec *oadpv1alpha1.D
 	dpaPatch := dpa.DeepCopy()
 	spec.DeepCopyInto(&dpaPatch.Spec)
 	dpaPatch.ObjectMeta.ManagedFields = nil
+	dpaPatch.Spec.UnsupportedOverrides = v.UnsupportedOverrides
 	err = v.Client.Patch(context.Background(), dpaPatch, client.MergeFrom(dpa), &client.PatchOptions{})
 	if err != nil {
 		log.Printf("error patching DPA: %s", err)
@@ -170,6 +170,7 @@ func (v *DpaCustomResource) CreateOrUpdate(c client.Client, spec *oadpv1alpha1.D
 		}
 		return err
 	}
+
 	return nil
 }
 
