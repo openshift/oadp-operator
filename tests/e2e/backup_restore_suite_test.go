@@ -68,6 +68,8 @@ func prepareBackupAndRestore(brCase BackupRestoreCase, updateLastInstallTime fun
 		gomega.Eventually(lib.AreNodeAgentPodsRunning(kubernetesClientForSuiteRun, namespace), time.Minute*3, time.Second*5).Should(gomega.BeTrue())
 	}
 
+	// Velero does not change status of VSL objects. Users can only confirm if VSLs are correct configured when running a native snapshot backup/restore
+
 	log.Print("Checking if BSL is available")
 	gomega.Eventually(dpaCR.BSLsAreAvailable(), time.Minute*3, time.Second*5).Should(gomega.BeTrue())
 
@@ -404,6 +406,28 @@ var _ = ginkgo.Describe("Backup and restore tests", func() {
 				Namespace:         "mongo-persistent",
 				Name:              "mongo-blockdevice-e2e",
 				BackupRestoreType: lib.CSIDataMover,
+				PreBackupVerify:   todoListReady(true, false, "mongo"),
+				PostRestoreVerify: todoListReady(false, false, "mongo"),
+				BackupTimeout:     20 * time.Minute,
+			},
+		}, nil),
+		ginkgo.Entry("MySQL application Native-Snapshots", ginkgo.FlakeAttempts(flakeAttempts), ginkgo.Label("aws", "azure", "gcp"), ApplicationBackupRestoreCase{
+			ApplicationTemplate: "./sample-applications/mysql-persistent/mysql-persistent.yaml",
+			BackupRestoreCase: BackupRestoreCase{
+				Namespace:         "mysql-persistent",
+				Name:              "mysql-native-snapshots-e2e",
+				BackupRestoreType: lib.NativeSnapshots,
+				PreBackupVerify:   todoListReady(true, false, "mysql"),
+				PostRestoreVerify: todoListReady(false, false, "mysql"),
+				BackupTimeout:     20 * time.Minute,
+			},
+		}, nil),
+		ginkgo.Entry("Mongo application Native-Snapshots", ginkgo.FlakeAttempts(flakeAttempts), ginkgo.Label("aws", "azure", "gcp"), ApplicationBackupRestoreCase{
+			ApplicationTemplate: "./sample-applications/mongo-persistent/mongo-persistent.yaml",
+			BackupRestoreCase: BackupRestoreCase{
+				Namespace:         "mongo-persistent",
+				Name:              "mongo-native-snapshots-e2e",
+				BackupRestoreType: lib.NativeSnapshots,
 				PreBackupVerify:   todoListReady(true, false, "mongo"),
 				PostRestoreVerify: todoListReady(false, false, "mongo"),
 				BackupTimeout:     20 * time.Minute,
