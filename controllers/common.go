@@ -50,14 +50,16 @@ func setPodTemplateSpecDefaults(template *corev1.PodTemplateSpec) {
 	if template.Spec.SchedulerName == "" {
 		template.Spec.SchedulerName = "default-scheduler"
 	}
-	// for each volumes, if volumeSource is Projected or SecretVolumeSource, set default mode
+	// for each volumes, if volumeSource is Projected or SecretVolumeSource, set default permission
 	for i := range template.Spec.Volumes {
 		if template.Spec.Volumes[i].Projected != nil {
 			if template.Spec.Volumes[i].Projected != nil {
-				template.Spec.Volumes[i].Projected.DefaultMode = common.DefaultModePtr()
+				permission := common.DefaultProjectedPermission
+				template.Spec.Volumes[i].Projected.DefaultMode = &permission
 			}
 		} else if template.Spec.Volumes[i].Secret != nil {
-			template.Spec.Volumes[i].Secret.DefaultMode = common.DefaultModePtr()
+			permission := common.DefaultSecretPermission
+			template.Spec.Volumes[i].Secret.DefaultMode = &permission
 		} else if template.Spec.Volumes[i].HostPath != nil {
 			if template.Spec.Volumes[i].HostPath.Type == nil {
 				defaultHostPathType := corev1.HostPathType("")

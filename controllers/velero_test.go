@@ -203,8 +203,13 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: veleroPodObjectMeta,
 						Spec: corev1.PodSpec{
-							RestartPolicy:      corev1.RestartPolicyAlways,
-							ServiceAccountName: common.Velero,
+							TerminationGracePeriodSeconds: pointer.Int64(30),
+							DNSPolicy:                     corev1.DNSClusterFirst,
+							DeprecatedServiceAccount:      common.Velero,
+							SecurityContext:               &corev1.PodSecurityContext{},
+							SchedulerName:                 "default-scheduler",
+							RestartPolicy:                 corev1.RestartPolicyAlways,
+							ServiceAccountName:            common.Velero,
 							Containers: []corev1.Container{
 								{
 									Name:            common.Velero,
@@ -275,8 +280,13 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: veleroPodObjectMeta,
 						Spec: corev1.PodSpec{
-							RestartPolicy:      corev1.RestartPolicyAlways,
-							ServiceAccountName: common.Velero,
+							TerminationGracePeriodSeconds: pointer.Int64(30),
+							DNSPolicy:                     corev1.DNSClusterFirst,
+							DeprecatedServiceAccount:      common.Velero,
+							SecurityContext:               &corev1.PodSecurityContext{},
+							SchedulerName:                 "default-scheduler",
+							RestartPolicy:                 corev1.RestartPolicyAlways,
+							ServiceAccountName:            common.Velero,
 							Containers: []corev1.Container{
 								{
 									Name:            common.Velero,
@@ -360,8 +370,13 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: veleroPodObjectMeta,
 						Spec: corev1.PodSpec{
-							RestartPolicy:      corev1.RestartPolicyAlways,
-							ServiceAccountName: common.Velero,
+							TerminationGracePeriodSeconds: pointer.Int64(30),
+							DNSPolicy:                     corev1.DNSClusterFirst,
+							DeprecatedServiceAccount:      common.Velero,
+							SecurityContext:               &corev1.PodSecurityContext{},
+							SchedulerName:                 "default-scheduler",
+							RestartPolicy:                 corev1.RestartPolicyAlways,
+							ServiceAccountName:            common.Velero,
 							Containers: []corev1.Container{
 								{
 									Name:            common.Velero,
@@ -394,7 +409,8 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 									Name: "cloud-credentials",
 									VolumeSource: corev1.VolumeSource{
 										Secret: &corev1.SecretVolumeSource{
-											SecretName: "cloud-credentials",
+											SecretName:  "cloud-credentials",
+											DefaultMode: pointer.Int32(0440),
 										},
 									},
 								},
@@ -402,7 +418,8 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 									Name: "cloud-credentials-gcp",
 									VolumeSource: corev1.VolumeSource{
 										Secret: &corev1.SecretVolumeSource{
-											SecretName: "cloud-credentials-gcp",
+											SecretName:  "cloud-credentials-gcp",
+											DefaultMode: pointer.Int32(0440),
 										},
 									},
 								},
@@ -410,7 +427,8 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 									Name: "cloud-credentials-azure",
 									VolumeSource: corev1.VolumeSource{
 										Secret: &corev1.SecretVolumeSource{
-											SecretName: "cloud-credentials-azure",
+											SecretName:  "cloud-credentials-azure",
+											DefaultMode: pointer.Int32(0440),
 										},
 									},
 								},
@@ -468,8 +486,13 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: veleroPodObjectMeta,
 						Spec: corev1.PodSpec{
-							RestartPolicy:      corev1.RestartPolicyAlways,
-							ServiceAccountName: common.Velero,
+							TerminationGracePeriodSeconds: pointer.Int64(30),
+							DNSPolicy:                     corev1.DNSClusterFirst,
+							DeprecatedServiceAccount:      common.Velero,
+							SecurityContext:               &corev1.PodSecurityContext{},
+							SchedulerName:                 "default-scheduler",
+							RestartPolicy:                 corev1.RestartPolicyAlways,
+							ServiceAccountName:            common.Velero,
 							Containers: []corev1.Container{
 								{
 									Name:            common.Velero,
@@ -561,8 +584,13 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							Annotations: veleroPodAnnotations,
 						},
 						Spec: corev1.PodSpec{
-							RestartPolicy:      corev1.RestartPolicyAlways,
-							ServiceAccountName: common.Velero,
+							TerminationGracePeriodSeconds: pointer.Int64(30),
+							DNSPolicy:                     corev1.DNSClusterFirst,
+							DeprecatedServiceAccount:      common.Velero,
+							SecurityContext:               &corev1.PodSecurityContext{},
+							SchedulerName:                 "default-scheduler",
+							RestartPolicy:                 corev1.RestartPolicyAlways,
+							ServiceAccountName:            common.Velero,
 							Containers: []corev1.Container{
 								{
 									Name:            common.Velero,
@@ -645,8 +673,13 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							Annotations: veleroPodAnnotations,
 						},
 						Spec: corev1.PodSpec{
-							RestartPolicy:      corev1.RestartPolicyAlways,
-							ServiceAccountName: common.Velero,
+							TerminationGracePeriodSeconds: pointer.Int64(30),
+							DNSPolicy:                     corev1.DNSClusterFirst,
+							DeprecatedServiceAccount:      common.Velero,
+							SecurityContext:               &corev1.PodSecurityContext{},
+							SchedulerName:                 "default-scheduler",
+							RestartPolicy:                 corev1.RestartPolicyAlways,
+							ServiceAccountName:            common.Velero,
 							Containers: []corev1.Container{
 								{
 									Name:            common.Velero,
@@ -728,8 +761,13 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							Annotations: veleroPodAnnotations,
 						},
 						Spec: corev1.PodSpec{
-							RestartPolicy:      corev1.RestartPolicyAlways,
-							ServiceAccountName: common.Velero,
+							TerminationGracePeriodSeconds: pointer.Int64(30),
+							DNSPolicy:                     corev1.DNSClusterFirst,
+							DeprecatedServiceAccount:      common.Velero,
+							SecurityContext:               &corev1.PodSecurityContext{},
+							SchedulerName:                 "default-scheduler",
+							RestartPolicy:                 corev1.RestartPolicyAlways,
+							ServiceAccountName:            common.Velero,
 							Containers: []corev1.Container{
 								{
 									Name:            common.Velero,
@@ -827,8 +865,13 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							Annotations: veleroPodAnnotations,
 						},
 						Spec: corev1.PodSpec{
-							RestartPolicy:      corev1.RestartPolicyAlways,
-							ServiceAccountName: common.Velero,
+							TerminationGracePeriodSeconds: pointer.Int64(30),
+							DNSPolicy:                     corev1.DNSClusterFirst,
+							DeprecatedServiceAccount:      common.Velero,
+							SecurityContext:               &corev1.PodSecurityContext{},
+							SchedulerName:                 "default-scheduler",
+							RestartPolicy:                 corev1.RestartPolicyAlways,
+							ServiceAccountName:            common.Velero,
 							Containers: []corev1.Container{
 								{
 									Name:            common.Velero,
@@ -996,8 +1039,13 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							},
 						},
 						Spec: corev1.PodSpec{
-							RestartPolicy:      corev1.RestartPolicyAlways,
-							ServiceAccountName: common.Velero,
+							TerminationGracePeriodSeconds: pointer.Int64(30),
+							DNSPolicy:                     corev1.DNSClusterFirst,
+							DeprecatedServiceAccount:      common.Velero,
+							SecurityContext:               &corev1.PodSecurityContext{},
+							SchedulerName:                 "default-scheduler",
+							RestartPolicy:                 corev1.RestartPolicyAlways,
+							ServiceAccountName:            common.Velero,
 							Containers: []corev1.Container{
 								{
 									Name:            common.Velero,
@@ -1175,8 +1223,13 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							},
 						},
 						Spec: corev1.PodSpec{
-							RestartPolicy:      corev1.RestartPolicyAlways,
-							ServiceAccountName: common.Velero,
+							TerminationGracePeriodSeconds: pointer.Int64(30),
+							DNSPolicy:                     corev1.DNSClusterFirst,
+							DeprecatedServiceAccount:      common.Velero,
+							SecurityContext:               &corev1.PodSecurityContext{},
+							SchedulerName:                 "default-scheduler",
+							RestartPolicy:                 corev1.RestartPolicyAlways,
+							ServiceAccountName:            common.Velero,
 							Containers: []corev1.Container{
 								{
 									Name:            common.Velero,
@@ -1356,8 +1409,13 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							},
 						},
 						Spec: corev1.PodSpec{
-							RestartPolicy:      corev1.RestartPolicyAlways,
-							ServiceAccountName: common.Velero,
+							TerminationGracePeriodSeconds: pointer.Int64(30),
+							DNSPolicy:                     corev1.DNSClusterFirst,
+							DeprecatedServiceAccount:      common.Velero,
+							SecurityContext:               &corev1.PodSecurityContext{},
+							SchedulerName:                 "default-scheduler",
+							RestartPolicy:                 corev1.RestartPolicyAlways,
+							ServiceAccountName:            common.Velero,
 							Containers: []corev1.Container{
 								{
 									Name:            common.Velero,
@@ -1537,8 +1595,13 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							},
 						},
 						Spec: corev1.PodSpec{
-							RestartPolicy:      corev1.RestartPolicyAlways,
-							ServiceAccountName: common.Velero,
+							TerminationGracePeriodSeconds: pointer.Int64(30),
+							DNSPolicy:                     corev1.DNSClusterFirst,
+							DeprecatedServiceAccount:      common.Velero,
+							SecurityContext:               &corev1.PodSecurityContext{},
+							SchedulerName:                 "default-scheduler",
+							RestartPolicy:                 corev1.RestartPolicyAlways,
+							ServiceAccountName:            common.Velero,
 							Containers: []corev1.Container{
 								{
 									Name:            common.Velero,
@@ -1718,8 +1781,13 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							},
 						},
 						Spec: corev1.PodSpec{
-							RestartPolicy:      corev1.RestartPolicyAlways,
-							ServiceAccountName: common.Velero,
+							TerminationGracePeriodSeconds: pointer.Int64(30),
+							DNSPolicy:                     corev1.DNSClusterFirst,
+							DeprecatedServiceAccount:      common.Velero,
+							SecurityContext:               &corev1.PodSecurityContext{},
+							SchedulerName:                 "default-scheduler",
+							RestartPolicy:                 corev1.RestartPolicyAlways,
+							ServiceAccountName:            common.Velero,
 							Containers: []corev1.Container{
 								{
 									Name:            common.Velero,
@@ -1900,8 +1968,13 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							},
 						},
 						Spec: corev1.PodSpec{
-							RestartPolicy:      corev1.RestartPolicyAlways,
-							ServiceAccountName: common.Velero,
+							TerminationGracePeriodSeconds: pointer.Int64(30),
+							DNSPolicy:                     corev1.DNSClusterFirst,
+							DeprecatedServiceAccount:      common.Velero,
+							SecurityContext:               &corev1.PodSecurityContext{},
+							SchedulerName:                 "default-scheduler",
+							RestartPolicy:                 corev1.RestartPolicyAlways,
+							ServiceAccountName:            common.Velero,
 							Containers: []corev1.Container{
 								{
 									Name:            common.Velero,
@@ -2082,8 +2155,13 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							},
 						},
 						Spec: corev1.PodSpec{
-							RestartPolicy:      corev1.RestartPolicyAlways,
-							ServiceAccountName: common.Velero,
+							TerminationGracePeriodSeconds: pointer.Int64(30),
+							DNSPolicy:                     corev1.DNSClusterFirst,
+							DeprecatedServiceAccount:      common.Velero,
+							SecurityContext:               &corev1.PodSecurityContext{},
+							SchedulerName:                 "default-scheduler",
+							RestartPolicy:                 corev1.RestartPolicyAlways,
+							ServiceAccountName:            common.Velero,
 							Containers: []corev1.Container{
 								{
 									Name:            common.Velero,
@@ -2263,8 +2341,13 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							},
 						},
 						Spec: corev1.PodSpec{
-							RestartPolicy:      corev1.RestartPolicyAlways,
-							ServiceAccountName: common.Velero,
+							TerminationGracePeriodSeconds: pointer.Int64(30),
+							DNSPolicy:                     corev1.DNSClusterFirst,
+							DeprecatedServiceAccount:      common.Velero,
+							SecurityContext:               &corev1.PodSecurityContext{},
+							SchedulerName:                 "default-scheduler",
+							RestartPolicy:                 corev1.RestartPolicyAlways,
+							ServiceAccountName:            common.Velero,
 							Containers: []corev1.Container{
 								{
 									Name:            common.Velero,
@@ -2445,8 +2528,13 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							},
 						},
 						Spec: corev1.PodSpec{
-							RestartPolicy:      corev1.RestartPolicyAlways,
-							ServiceAccountName: common.Velero,
+							TerminationGracePeriodSeconds: pointer.Int64(30),
+							DNSPolicy:                     corev1.DNSClusterFirst,
+							DeprecatedServiceAccount:      common.Velero,
+							SecurityContext:               &corev1.PodSecurityContext{},
+							SchedulerName:                 "default-scheduler",
+							RestartPolicy:                 corev1.RestartPolicyAlways,
+							ServiceAccountName:            common.Velero,
 							Containers: []corev1.Container{
 								{
 									Name:            common.Velero,
@@ -2626,8 +2714,13 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							},
 						},
 						Spec: corev1.PodSpec{
-							RestartPolicy:      corev1.RestartPolicyAlways,
-							ServiceAccountName: common.Velero,
+							TerminationGracePeriodSeconds: pointer.Int64(30),
+							DNSPolicy:                     corev1.DNSClusterFirst,
+							DeprecatedServiceAccount:      common.Velero,
+							SecurityContext:               &corev1.PodSecurityContext{},
+							SchedulerName:                 "default-scheduler",
+							RestartPolicy:                 corev1.RestartPolicyAlways,
+							ServiceAccountName:            common.Velero,
 							Containers: []corev1.Container{
 								{
 									Name:            common.Velero,
@@ -2761,8 +2854,13 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: veleroPodObjectMeta,
 						Spec: corev1.PodSpec{
-							RestartPolicy:      corev1.RestartPolicyAlways,
-							ServiceAccountName: common.Velero,
+							TerminationGracePeriodSeconds: pointer.Int64(30),
+							DNSPolicy:                     corev1.DNSClusterFirst,
+							DeprecatedServiceAccount:      common.Velero,
+							SecurityContext:               &corev1.PodSecurityContext{},
+							SchedulerName:                 "default-scheduler",
+							RestartPolicy:                 corev1.RestartPolicyAlways,
+							ServiceAccountName:            common.Velero,
 							Containers: []corev1.Container{
 								{
 									Name:            common.Velero,
@@ -2874,8 +2972,13 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							},
 						},
 						Spec: corev1.PodSpec{
-							RestartPolicy:      corev1.RestartPolicyAlways,
-							ServiceAccountName: common.Velero,
+							TerminationGracePeriodSeconds: pointer.Int64(30),
+							DNSPolicy:                     corev1.DNSClusterFirst,
+							DeprecatedServiceAccount:      common.Velero,
+							SecurityContext:               &corev1.PodSecurityContext{},
+							SchedulerName:                 "default-scheduler",
+							RestartPolicy:                 corev1.RestartPolicyAlways,
+							ServiceAccountName:            common.Velero,
 							Containers: []corev1.Container{
 								{
 									Name:            common.Velero,
@@ -3050,8 +3153,13 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: veleroPodObjectMeta,
 						Spec: corev1.PodSpec{
-							RestartPolicy:      corev1.RestartPolicyAlways,
-							ServiceAccountName: common.Velero,
+							TerminationGracePeriodSeconds: pointer.Int64(30),
+							DNSPolicy:                     corev1.DNSClusterFirst,
+							DeprecatedServiceAccount:      common.Velero,
+							SecurityContext:               &corev1.PodSecurityContext{},
+							SchedulerName:                 "default-scheduler",
+							RestartPolicy:                 corev1.RestartPolicyAlways,
+							ServiceAccountName:            common.Velero,
 							Containers: []corev1.Container{
 								{
 									Name:            common.Velero,
@@ -3137,8 +3245,13 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: veleroPodObjectMeta,
 						Spec: corev1.PodSpec{
-							RestartPolicy:      corev1.RestartPolicyAlways,
-							ServiceAccountName: common.Velero,
+							TerminationGracePeriodSeconds: pointer.Int64(30),
+							DNSPolicy:                     corev1.DNSClusterFirst,
+							DeprecatedServiceAccount:      common.Velero,
+							SecurityContext:               &corev1.PodSecurityContext{},
+							SchedulerName:                 "default-scheduler",
+							RestartPolicy:                 corev1.RestartPolicyAlways,
+							ServiceAccountName:            common.Velero,
 							Containers: []corev1.Container{
 								{
 									Name:            common.Velero,
@@ -3223,8 +3336,13 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: veleroPodObjectMeta,
 						Spec: corev1.PodSpec{
-							RestartPolicy:      corev1.RestartPolicyAlways,
-							ServiceAccountName: common.Velero,
+							TerminationGracePeriodSeconds: pointer.Int64(30),
+							DNSPolicy:                     corev1.DNSClusterFirst,
+							DeprecatedServiceAccount:      common.Velero,
+							SecurityContext:               &corev1.PodSecurityContext{},
+							SchedulerName:                 "default-scheduler",
+							RestartPolicy:                 corev1.RestartPolicyAlways,
+							ServiceAccountName:            common.Velero,
 							Containers: []corev1.Container{
 								{
 									Name:            common.Velero,
@@ -3306,8 +3424,13 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: veleroPodObjectMeta,
 						Spec: corev1.PodSpec{
-							RestartPolicy:      corev1.RestartPolicyAlways,
-							ServiceAccountName: common.Velero,
+							TerminationGracePeriodSeconds: pointer.Int64(30),
+							DNSPolicy:                     corev1.DNSClusterFirst,
+							DeprecatedServiceAccount:      common.Velero,
+							SecurityContext:               &corev1.PodSecurityContext{},
+							SchedulerName:                 "default-scheduler",
+							RestartPolicy:                 corev1.RestartPolicyAlways,
+							ServiceAccountName:            common.Velero,
 							Containers: []corev1.Container{
 								{
 									Name:            common.Velero,
@@ -3389,8 +3512,13 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: veleroPodObjectMeta,
 						Spec: corev1.PodSpec{
-							RestartPolicy:      corev1.RestartPolicyAlways,
-							ServiceAccountName: common.Velero,
+							TerminationGracePeriodSeconds: pointer.Int64(30),
+							DNSPolicy:                     corev1.DNSClusterFirst,
+							DeprecatedServiceAccount:      common.Velero,
+							SecurityContext:               &corev1.PodSecurityContext{},
+							SchedulerName:                 "default-scheduler",
+							RestartPolicy:                 corev1.RestartPolicyAlways,
+							ServiceAccountName:            common.Velero,
 							Containers: []corev1.Container{
 								{
 									Name:            common.Velero,
@@ -3498,8 +3626,13 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							Annotations: veleroPodAnnotations,
 						},
 						Spec: corev1.PodSpec{
-							RestartPolicy:      corev1.RestartPolicyAlways,
-							ServiceAccountName: common.Velero,
+							TerminationGracePeriodSeconds: pointer.Int64(30),
+							DNSPolicy:                     corev1.DNSClusterFirst,
+							DeprecatedServiceAccount:      common.Velero,
+							SecurityContext:               &corev1.PodSecurityContext{},
+							SchedulerName:                 "default-scheduler",
+							RestartPolicy:                 corev1.RestartPolicyAlways,
+							ServiceAccountName:            common.Velero,
 							Tolerations: []corev1.Toleration{
 								{
 									Key:      "key1",
@@ -3611,8 +3744,13 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							Annotations: veleroPodAnnotations,
 						},
 						Spec: corev1.PodSpec{
-							RestartPolicy:      corev1.RestartPolicyAlways,
-							ServiceAccountName: common.Velero,
+							TerminationGracePeriodSeconds: pointer.Int64(30),
+							DNSPolicy:                     corev1.DNSClusterFirst,
+							DeprecatedServiceAccount:      common.Velero,
+							SecurityContext:               &corev1.PodSecurityContext{},
+							SchedulerName:                 "default-scheduler",
+							RestartPolicy:                 corev1.RestartPolicyAlways,
+							ServiceAccountName:            common.Velero,
 							NodeSelector: map[string]string{
 								"foo": "bar",
 							},
@@ -3693,8 +3831,13 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: veleroPodObjectMeta,
 						Spec: corev1.PodSpec{
-							RestartPolicy:      corev1.RestartPolicyAlways,
-							ServiceAccountName: common.Velero,
+							TerminationGracePeriodSeconds: pointer.Int64(30),
+							DNSPolicy:                     corev1.DNSClusterFirst,
+							DeprecatedServiceAccount:      common.Velero,
+							SecurityContext:               &corev1.PodSecurityContext{},
+							SchedulerName:                 "default-scheduler",
+							RestartPolicy:                 corev1.RestartPolicyAlways,
+							ServiceAccountName:            common.Velero,
 							Containers: []corev1.Container{
 								{
 									Name:            common.Velero,
@@ -3721,7 +3864,8 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 								Name: "cloud-credentials",
 								VolumeSource: corev1.VolumeSource{
 									Secret: &corev1.SecretVolumeSource{
-										SecretName: "cloud-credentials",
+										SecretName:  "cloud-credentials",
+										DefaultMode: pointer.Int32(0440),
 									},
 								},
 							}}...),
@@ -3777,8 +3921,13 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: veleroPodObjectMeta,
 						Spec: corev1.PodSpec{
-							RestartPolicy:      corev1.RestartPolicyAlways,
-							ServiceAccountName: common.Velero,
+							TerminationGracePeriodSeconds: pointer.Int64(30),
+							DNSPolicy:                     corev1.DNSClusterFirst,
+							DeprecatedServiceAccount:      common.Velero,
+							SecurityContext:               &corev1.PodSecurityContext{},
+							SchedulerName:                 "default-scheduler",
+							RestartPolicy:                 corev1.RestartPolicyAlways,
+							ServiceAccountName:            common.Velero,
 							Containers: []corev1.Container{
 								{
 									Name:            common.Velero,
@@ -3808,7 +3957,8 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 								Name: "cloud-credentials",
 								VolumeSource: corev1.VolumeSource{
 									Secret: &corev1.SecretVolumeSource{
-										SecretName: "cloud-credentials",
+										SecretName:  "cloud-credentials",
+										DefaultMode: pointer.Int32(0440),
 									},
 								},
 							}}...),
@@ -3874,8 +4024,13 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							),
 						},
 						Spec: corev1.PodSpec{
-							RestartPolicy:      corev1.RestartPolicyAlways,
-							ServiceAccountName: common.Velero,
+							TerminationGracePeriodSeconds: pointer.Int64(30),
+							DNSPolicy:                     corev1.DNSClusterFirst,
+							DeprecatedServiceAccount:      common.Velero,
+							SecurityContext:               &corev1.PodSecurityContext{},
+							SchedulerName:                 "default-scheduler",
+							RestartPolicy:                 corev1.RestartPolicyAlways,
+							ServiceAccountName:            common.Velero,
 							Containers: []corev1.Container{
 								{
 									Name:            common.Velero,
@@ -3905,7 +4060,8 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 								Name: "cloud-credentials",
 								VolumeSource: corev1.VolumeSource{
 									Secret: &corev1.SecretVolumeSource{
-										SecretName: "cloud-credentials",
+										SecretName:  "cloud-credentials",
+										DefaultMode: pointer.Int32(0440),
 									},
 								},
 							}}...),
@@ -3983,9 +4139,13 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							),
 						},
 						Spec: corev1.PodSpec{
-							RestartPolicy:      corev1.RestartPolicyAlways,
-							ServiceAccountName: common.Velero,
-							DNSPolicy:          "None",
+							TerminationGracePeriodSeconds: pointer.Int64(30),
+							DeprecatedServiceAccount:      common.Velero,
+							SecurityContext:               &corev1.PodSecurityContext{},
+							SchedulerName:                 "default-scheduler",
+							RestartPolicy:                 corev1.RestartPolicyAlways,
+							ServiceAccountName:            common.Velero,
+							DNSPolicy:                     "None",
 							DNSConfig: &corev1.PodDNSConfig{
 								Nameservers: []string{"1.1.1.1", "8.8.8.8"},
 								Options: []corev1.PodDNSConfigOption{
@@ -4024,7 +4184,8 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 								Name: "cloud-credentials",
 								VolumeSource: corev1.VolumeSource{
 									Secret: &corev1.SecretVolumeSource{
-										SecretName: "cloud-credentials",
+										SecretName:  "cloud-credentials",
+										DefaultMode: pointer.Int32(0440),
 									},
 								},
 							}}...),
@@ -4097,8 +4258,13 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: veleroPodObjectMeta,
 						Spec: corev1.PodSpec{
-							RestartPolicy:      corev1.RestartPolicyAlways,
-							ServiceAccountName: common.Velero,
+							TerminationGracePeriodSeconds: pointer.Int64(30),
+							DNSPolicy:                     corev1.DNSClusterFirst,
+							DeprecatedServiceAccount:      common.Velero,
+							SecurityContext:               &corev1.PodSecurityContext{},
+							SchedulerName:                 "default-scheduler",
+							RestartPolicy:                 corev1.RestartPolicyAlways,
+							ServiceAccountName:            common.Velero,
 							Containers: []corev1.Container{
 								{
 									Name:            common.Velero,
@@ -4131,7 +4297,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 									Name: "bound-sa-token",
 									VolumeSource: corev1.VolumeSource{
 										Projected: &corev1.ProjectedVolumeSource{
-											DefaultMode: pointer.Int32(420),
+											DefaultMode: pointer.Int32(0644),
 											Sources: []corev1.VolumeProjection{
 												{
 													ServiceAccountToken: &corev1.ServiceAccountTokenProjection{
@@ -4212,8 +4378,13 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							}),
 						},
 						Spec: corev1.PodSpec{
-							RestartPolicy:      corev1.RestartPolicyAlways,
-							ServiceAccountName: common.Velero,
+							TerminationGracePeriodSeconds: pointer.Int64(30),
+							DNSPolicy:                     corev1.DNSClusterFirst,
+							DeprecatedServiceAccount:      common.Velero,
+							SecurityContext:               &corev1.PodSecurityContext{},
+							SchedulerName:                 "default-scheduler",
+							RestartPolicy:                 corev1.RestartPolicyAlways,
+							ServiceAccountName:            common.Velero,
 							Containers: []corev1.Container{
 								{
 									Name:            common.Velero,
@@ -4284,8 +4455,13 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: veleroPodObjectMeta,
 						Spec: corev1.PodSpec{
-							RestartPolicy:      corev1.RestartPolicyAlways,
-							ServiceAccountName: common.Velero,
+							TerminationGracePeriodSeconds: pointer.Int64(30),
+							DNSPolicy:                     corev1.DNSClusterFirst,
+							DeprecatedServiceAccount:      common.Velero,
+							SecurityContext:               &corev1.PodSecurityContext{},
+							SchedulerName:                 "default-scheduler",
+							RestartPolicy:                 corev1.RestartPolicyAlways,
+							ServiceAccountName:            common.Velero,
 							Containers: []corev1.Container{
 								{
 									Name:            common.Velero,
@@ -4364,8 +4540,13 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: veleroPodObjectMeta,
 						Spec: corev1.PodSpec{
-							RestartPolicy:      corev1.RestartPolicyAlways,
-							ServiceAccountName: common.Velero,
+							TerminationGracePeriodSeconds: pointer.Int64(30),
+							DNSPolicy:                     corev1.DNSClusterFirst,
+							DeprecatedServiceAccount:      common.Velero,
+							SecurityContext:               &corev1.PodSecurityContext{},
+							SchedulerName:                 "default-scheduler",
+							RestartPolicy:                 corev1.RestartPolicyAlways,
+							ServiceAccountName:            common.Velero,
 							Containers: []corev1.Container{
 								{
 									Name:            common.Velero,
@@ -4425,7 +4606,6 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 				}
 			}
 			if tt.dpa != nil {
-				setPodTemplateSpecDefaults(&tt.wantVeleroDeployment.Spec.Template)
 				if len(tt.wantVeleroDeployment.Spec.Template.Spec.Containers) > 0 {
 					setContainerDefaults(&tt.wantVeleroDeployment.Spec.Template.Spec.Containers[0])
 				}
@@ -4446,7 +4626,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 				}
 			}
 			if !reflect.DeepEqual(tt.wantVeleroDeployment, tt.veleroDeployment) {
-				t.Errorf("expected velero deployment spec to be \n%#v, got \n%#v\nDIFF:%v", tt.wantVeleroDeployment, tt.veleroDeployment, cmp.Diff(tt.wantVeleroDeployment, tt.veleroDeployment))
+				t.Errorf("expected velero deployment spec to be\nDIFF:%v", cmp.Diff(tt.wantVeleroDeployment, tt.veleroDeployment))
 			}
 		})
 	}
