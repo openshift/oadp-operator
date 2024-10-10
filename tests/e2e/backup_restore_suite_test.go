@@ -409,5 +409,27 @@ var _ = ginkgo.Describe("Backup and restore tests", func() {
 				BackupTimeout:     20 * time.Minute,
 			},
 		}, nil),
+		ginkgo.Entry("MySQL application VSL", ginkgo.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
+			ApplicationTemplate: "./sample-applications/mysql-persistent/mysql-persistent.yaml",
+			BackupRestoreCase: BackupRestoreCase{
+				Namespace:         "mysql-persistent",
+				Name:              "mysql-vsl-e2e",
+				BackupRestoreType: lib.VSL,
+				PreBackupVerify:   todoListReady(true, false, "mysql"),
+				PostRestoreVerify: todoListReady(false, false, "mysql"),
+				BackupTimeout:     20 * time.Minute,
+			},
+		}, nil),
+		ginkgo.Entry("Mongo application VSL", ginkgo.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
+			ApplicationTemplate: "./sample-applications/mongo-persistent/mongo-persistent.yaml",
+			BackupRestoreCase: BackupRestoreCase{
+				Namespace:         "mongo-persistent",
+				Name:              "mongo-vsl-e2e",
+				BackupRestoreType: lib.VSL,
+				PreBackupVerify:   todoListReady(true, false, "mongo"),
+				PostRestoreVerify: todoListReady(false, false, "mongo"),
+				BackupTimeout:     20 * time.Minute,
+			},
+		}, nil),
 	)
 })

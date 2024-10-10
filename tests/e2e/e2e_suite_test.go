@@ -162,6 +162,7 @@ func TestOADPE2E(t *testing.T) {
 		Name:                 "ts-" + instanceName,
 		Namespace:            namespace,
 		Client:               runTimeClientForSuiteRun,
+		VSLSecretName:        vslSecretName,
 		BSLSecretName:        bslSecretName,
 		BSLConfig:            dpa.DeepCopy().Spec.BackupLocations[0].Velero.Config,
 		BSLProvider:          dpa.DeepCopy().Spec.BackupLocations[0].Velero.Provider,

@@ -28,12 +28,14 @@ const (
 	CSIDataMover BackupRestoreType = "csi-datamover"
 	RESTIC       BackupRestoreType = "restic"
 	KOPIA        BackupRestoreType = "kopia"
+	VSL          BackupRestoreType = "vsl"
 )
 
 type DpaCustomResource struct {
 	Name                 string
 	Namespace            string
 	Client               client.Client
+	VSLSecretName        string
 	BSLSecretName        string
 	BSLConfig            map[string]string
 	BSLProvider          string
@@ -112,6 +114,26 @@ func (v *DpaCustomResource) Build(backupRestoreType BackupRestoreType) *oadpv1al
 		dpaSpec.Configuration.Velero.DefaultPlugins = append(dpaSpec.Configuration.Velero.DefaultPlugins, oadpv1alpha1.DefaultPluginCSI)
 		dpaSpec.Configuration.Velero.FeatureFlags = append(dpaSpec.Configuration.Velero.FeatureFlags, velero.CSIFeatureFlag)
 		dpaSpec.SnapshotLocations = nil
+	case VSL:
+		dpaSpec.SnapshotLocations = []oadpv1alpha1.SnapshotLocation{
+			{
+				Velero: &velero.VolumeSnapshotLocationSpec{
+					Provider: v.BSLProvider,
+					Credential: &corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: v.VSLSecretName,
+						},
+						Key: "cloud",
+					},
+				},
+			},
+		}
+		if v.BSLProvider == "aws" {
+			dpaSpec.SnapshotLocations[0].Velero.Config = map[string]string{
+				"region":  "us-east-1",
+				"profile": "default",
+			}
+		}
 	}
 
 	return &dpaSpec
