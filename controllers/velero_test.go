@@ -314,7 +314,7 @@ func deploymentVolumeSecret(name string) corev1.Volume {
 		VolumeSource: corev1.VolumeSource{
 			Secret: &corev1.SecretVolumeSource{
 				SecretName:  name,
-				DefaultMode: ptr.To(int32(420)),
+				DefaultMode: ptr.To(int32(0440)),
 			},
 		},
 	}
@@ -1450,7 +1450,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 						Name: "bound-sa-token",
 						VolumeSource: corev1.VolumeSource{
 							Projected: &corev1.ProjectedVolumeSource{
-								DefaultMode: ptr.To(int32(420)),
+								DefaultMode: ptr.To(int32(0644)),
 								Sources: []corev1.VolumeProjection{
 									{
 										ServiceAccountToken: &corev1.ServiceAccountTokenProjection{
