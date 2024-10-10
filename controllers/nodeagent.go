@@ -100,12 +100,8 @@ func getNodeAgentObjectMeta(r *DPAReconciler) metav1.ObjectMeta {
 }
 
 func (r *DPAReconciler) ReconcileNodeAgentDaemonset(log logr.Logger) (bool, error) {
-	dpa := oadpv1alpha1.DataProtectionApplication{}
+	dpa := r.dpa
 	var deleteDaemonSet bool = true
-
-	if err := r.Get(r.Context, r.NamespacedName, &dpa); err != nil {
-		return false, err
-	}
 	// Define "static" portion of daemonset
 	ds := &appsv1.DaemonSet{
 		ObjectMeta: getNodeAgentObjectMeta(r),
@@ -115,7 +111,7 @@ func (r *DPAReconciler) ReconcileNodeAgentDaemonset(log logr.Logger) (bool, erro
 		// V(-1) corresponds to the warn level
 		var deprecationMsg string = "(Deprecation Warning) Use nodeAgent instead of restic, which is deprecated and will be removed in the future"
 		log.V(-1).Info(deprecationMsg)
-		r.EventRecorder.Event(&dpa, corev1.EventTypeWarning, "DeprecationResticConfig", deprecationMsg)
+		r.EventRecorder.Event(dpa, corev1.EventTypeWarning, "DeprecationResticConfig", deprecationMsg)
 	}
 
 	if dpa.Spec.Configuration.Restic != nil && dpa.Spec.Configuration.Restic.Enable != nil && *dpa.Spec.Configuration.Restic.Enable {
@@ -171,10 +167,10 @@ func (r *DPAReconciler) ReconcileNodeAgentDaemonset(log logr.Logger) (bool, erro
 			}
 		}
 
-		if _, err := r.buildNodeAgentDaemonset(&dpa, ds); err != nil {
+		if _, err := r.buildNodeAgentDaemonset(ds); err != nil {
 			return err
 		}
-		if err := controllerutil.SetControllerReference(&dpa, ds, r.Scheme); err != nil {
+		if err := controllerutil.SetControllerReference(dpa, ds, r.Scheme); err != nil {
 			return err
 		}
 		return nil
@@ -215,7 +211,8 @@ func (r *DPAReconciler) ReconcileNodeAgentDaemonset(log logr.Logger) (bool, erro
  * 		 ds		- pointer to daemonset with objectMeta defined
  * returns: (pointer to daemonset, nil) if successful
  */
-func (r *DPAReconciler) buildNodeAgentDaemonset(dpa *oadpv1alpha1.DataProtectionApplication, ds *appsv1.DaemonSet) (*appsv1.DaemonSet, error) {
+func (r *DPAReconciler) buildNodeAgentDaemonset(ds *appsv1.DaemonSet) (*appsv1.DaemonSet, error) {
+	dpa := r.dpa
 	if dpa == nil {
 		return nil, fmt.Errorf("dpa cannot be nil")
 	}
@@ -254,10 +251,11 @@ func (r *DPAReconciler) buildNodeAgentDaemonset(dpa *oadpv1alpha1.DataProtection
 	ds.Spec = installDs.Spec
 	ds.Name = dsName
 
-	return r.customizeNodeAgentDaemonset(dpa, ds)
+	return r.customizeNodeAgentDaemonset(ds)
 }
 
-func (r *DPAReconciler) customizeNodeAgentDaemonset(dpa *oadpv1alpha1.DataProtectionApplication, ds *appsv1.DaemonSet) (*appsv1.DaemonSet, error) {
+func (r *DPAReconciler) customizeNodeAgentDaemonset(ds *appsv1.DaemonSet) (*appsv1.DaemonSet, error) {
+	dpa := r.dpa
 	if dpa.Spec.Configuration == nil || (dpa.Spec.Configuration.Restic == nil && dpa.Spec.Configuration.NodeAgent == nil) {
 		// if restic and nodeAgent are not configured, therefore not enabled, return early.
 		return nil, nil
@@ -404,7 +402,7 @@ func (r *DPAReconciler) customizeNodeAgentDaemonset(dpa *oadpv1alpha1.DataProtec
 		ds.Spec.Template.Spec.DNSConfig = &dpa.Spec.PodDnsConfig
 	}
 
-	providerNeedsDefaultCreds, hasCloudStorage, err := r.noDefaultCredentials(*dpa)
+	providerNeedsDefaultCreds, hasCloudStorage, err := r.noDefaultCredentials()
 	if err != nil {
 		return nil, err
 	}
@@ -433,11 +431,6 @@ func (r *DPAReconciler) customizeNodeAgentDaemonset(dpa *oadpv1alpha1.DataProtec
 }
 
 func (r *DPAReconciler) ReconcileFsRestoreHelperConfig(log logr.Logger) (bool, error) {
-	dpa := oadpv1alpha1.DataProtectionApplication{}
-	if err := r.Get(r.Context, r.NamespacedName, &dpa); err != nil {
-		return false, err
-	}
-
 	fsRestoreHelperCM := corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      FsRestoreHelperCM,
@@ -459,7 +452,7 @@ func (r *DPAReconciler) ReconcileFsRestoreHelperConfig(log logr.Logger) (bool, e
 	op, err := controllerutil.CreateOrPatch(r.Context, r.Client, &fsRestoreHelperCM, func() error {
 
 		// update the Config Map
-		err := r.updateFsRestoreHelperCM(&fsRestoreHelperCM, &dpa)
+		err := r.updateFsRestoreHelperCM(&fsRestoreHelperCM)
 		return err
 	})
 
@@ -480,10 +473,10 @@ func (r *DPAReconciler) ReconcileFsRestoreHelperConfig(log logr.Logger) (bool, e
 	return true, nil
 }
 
-func (r *DPAReconciler) updateFsRestoreHelperCM(fsRestoreHelperCM *corev1.ConfigMap, dpa *oadpv1alpha1.DataProtectionApplication) error {
+func (r *DPAReconciler) updateFsRestoreHelperCM(fsRestoreHelperCM *corev1.ConfigMap) error {
 
 	// Setting controller owner reference on the FS restore helper CM
-	err := controllerutil.SetControllerReference(dpa, fsRestoreHelperCM, r.Scheme)
+	err := controllerutil.SetControllerReference(r.dpa, fsRestoreHelperCM, r.Scheme)
 	if err != nil {
 		return err
 	}

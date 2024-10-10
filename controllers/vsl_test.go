@@ -525,8 +525,9 @@ func TestDPAReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 					Name:      tt.dpa.Name,
 				},
 				EventRecorder: record.NewFakeRecorder(10),
+				dpa:           tt.dpa,
 			}
-			got, err := r.ValidateVolumeSnapshotLocations(*tt.dpa)
+			got, err := r.ValidateVolumeSnapshotLocations()
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ValidateVolumeSnapshotLocations() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -589,6 +590,7 @@ func TestDPAReconciler_ReconcileVolumeSnapshotLocations(t *testing.T) {
 					Name:      tt.dpa.Name,
 				},
 				EventRecorder: record.NewFakeRecorder(10),
+				dpa:           tt.dpa,
 			}
 			wantVSL := &velerov1.VolumeSnapshotLocation{
 				ObjectMeta: metav1.ObjectMeta{
