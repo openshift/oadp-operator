@@ -280,7 +280,7 @@ endif
 submit-coverage:
 	curl -Os https://uploader.codecov.io/latest/$(OS_String)/codecov
 	chmod +x codecov
-	./codecov -C $(shell git rev-parse HEAD) -r openshift/oadp-operator
+	./codecov -C $(shell git rev-parse HEAD) -r openshift/oadp-operator --nonZero
 	rm -f codecov
 
 # go-install-tool will 'go install' any package $2 and install it to $1.
