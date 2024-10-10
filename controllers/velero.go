@@ -175,8 +175,6 @@ func (r *DPAReconciler) buildVeleroDeployment(veleroDeployment *appsv1.Deploymen
 		return fmt.Errorf("error appending pod annotations: %v", err)
 	}
 
-	// Since `restic` can be still be used and it default's to an empty string, we can't just
-	// pass the dpa.Spec.Configuration.NodeAgent.UploaderType directly
 	uploaderType := ""
 	if dpa.Spec.Configuration.NodeAgent != nil && len(dpa.Spec.Configuration.NodeAgent.UploaderType) > 0 {
 		uploaderType = dpa.Spec.Configuration.NodeAgent.UploaderType
@@ -583,9 +581,6 @@ func (r *DPAReconciler) customizeVeleroContainer(dpa *oadpv1alpha1.DataProtectio
 }
 
 func getFsBackupTimeout(dpa *oadpv1alpha1.DataProtectionApplication) string {
-	if dpa.Spec.Configuration.Restic != nil && len(dpa.Spec.Configuration.Restic.Timeout) > 0 {
-		return dpa.Spec.Configuration.Restic.Timeout
-	}
 	if dpa.Spec.Configuration.NodeAgent != nil && len(dpa.Spec.Configuration.NodeAgent.Timeout) > 0 {
 		return dpa.Spec.Configuration.NodeAgent.Timeout
 	}
@@ -734,17 +729,7 @@ func (r *DPAReconciler) getVeleroResourceReqs(dpa *oadpv1alpha1.DataProtectionAp
 	return *defaultContainerResourceRequirements.DeepCopy(), nil
 }
 
-// Get Restic Resource Requirements
-func getResticResourceReqs(dpa *oadpv1alpha1.DataProtectionApplication) (corev1.ResourceRequirements, error) {
-	if dpa.Spec.Configuration.Restic != nil && dpa.Spec.Configuration.Restic.PodConfig != nil {
-		return getResourceReqs(&dpa.Spec.Configuration.Restic.PodConfig.ResourceAllocations)
-	}
-	return *defaultContainerResourceRequirements.DeepCopy(), nil
-}
-
 // Get NodeAgent Resource Requirements
-// Separate function to getResticResourceReqs, so once Restic config is removed in the future
-// It will be easier to delete obsolete getResticResourceReqs
 func getNodeAgentResourceReqs(dpa *oadpv1alpha1.DataProtectionApplication) (corev1.ResourceRequirements, error) {
 	if dpa.Spec.Configuration.NodeAgent != nil && dpa.Spec.Configuration.NodeAgent.PodConfig != nil {
 		return getResourceReqs(&dpa.Spec.Configuration.NodeAgent.PodConfig.ResourceAllocations)

@@ -7,6 +7,7 @@ import (
 
 	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/go-logr/logr"
+	corev1 "k8s.io/api/core/v1"
 
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	"github.com/openshift/oadp-operator/pkg/credentials"
@@ -22,10 +23,6 @@ func (r *DPAReconciler) ValidateDataProtectionCR(log logr.Logger) (bool, error) 
 	}
 	if dpa.Spec.Configuration == nil || dpa.Spec.Configuration.Velero == nil {
 		return false, errors.New("DPA CR Velero configuration cannot be nil")
-	}
-
-	if dpa.Spec.Configuration.Restic != nil && dpa.Spec.Configuration.NodeAgent != nil {
-		return false, errors.New("DPA CR cannot have restic (deprecated in OADP 1.3) as well as nodeAgent options at the same time")
 	}
 
 	if dpa.Spec.Configuration.Velero.NoDefaultBackupLocation {
@@ -48,10 +45,26 @@ func (r *DPAReconciler) ValidateDataProtectionCR(log logr.Logger) (bool, error) 
 		return validVsl, err
 	}
 
+	// ENSURE UPGRADES --------------------------------------------------------
 	// check for VSM/Volsync DataMover (OADP 1.2 or below) syntax
 	if dpa.Spec.Features != nil && dpa.Spec.Features.DataMover != nil {
 		return false, errors.New("Delete vsm from spec.configuration.velero.defaultPlugins and dataMover object from spec.features. Use Velero Built-in Data Mover instead")
 	}
+
+	// check for ResticConfig (OADP 1.4 or below) syntax
+	if dpa.Spec.Configuration.Restic != nil {
+		return false, errors.New("Delete restic object from spec.configuration, use spec.configuration.nodeAgent instead")
+	}
+	// ENSURE UPGRADES --------------------------------------------------------
+
+	// DEPRECATIONS -----------------------------------------------------------
+	if dpa.Spec.Configuration.NodeAgent != nil && dpa.Spec.Configuration.NodeAgent.UploaderType == "restic" {
+		deprecationWarning := "(Deprecation Warning) Use kopia instead of restic in spec.configuration.nodeAgent.uploaderType, which is deprecated and will be removed in the future"
+		// V(-1) corresponds to the warn level
+		log.V(-1).Info(deprecationWarning)
+		r.EventRecorder.Event(&dpa, corev1.EventTypeWarning, "DeprecationResticFileSystemBackup", deprecationWarning)
+	}
+	// DEPRECATIONS -----------------------------------------------------------
 
 	if val, found := dpa.Spec.UnsupportedOverrides[oadpv1alpha1.OperatorTypeKey]; found && val != oadpv1alpha1.OperatorTypeMTC {
 		return false, errors.New("only mtc operator type override is supported")
@@ -64,9 +77,6 @@ func (r *DPAReconciler) ValidateDataProtectionCR(log logr.Logger) (bool, error) 
 	// TODO refactor to call functions only once
 	// they are called here to check error, and then after to get value
 	if _, err := r.getVeleroResourceReqs(&dpa); err != nil {
-		return false, err
-	}
-	if _, err := getResticResourceReqs(&dpa); err != nil {
 		return false, err
 	}
 	if _, err := getNodeAgentResourceReqs(&dpa); err != nil {

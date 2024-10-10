@@ -158,14 +158,10 @@ func GetPluginImage(pluginName string, dpa *oadpv1alpha1.DataProtectionApplicati
 }
 
 func AppendCloudProviderVolumes(dpa *oadpv1alpha1.DataProtectionApplication, ds *appsv1.DaemonSet, providerNeedsDefaultCreds map[string]bool, hasCloudStorage bool) error {
-	if dpa.Spec.Configuration.Velero == nil {
-		return errors.New("velero configuration not found")
-	}
-	var resticContainer *corev1.Container
-	// Find Velero container
+	var nodeAgentContainer *corev1.Container
 	for i, container := range ds.Spec.Template.Spec.Containers {
 		if container.Name == common.NodeAgent {
-			resticContainer = &ds.Spec.Template.Spec.Containers[i]
+			nodeAgentContainer = &ds.Spec.Template.Spec.Containers[i]
 		}
 	}
 	for _, plugin := range dpa.Spec.Configuration.Velero.DefaultPlugins {
@@ -202,16 +198,16 @@ func AppendCloudProviderVolumes(dpa *oadpv1alpha1.DataProtectionApplication, ds 
 					},
 				},
 			)
-			if resticContainer != nil {
-				resticContainer.VolumeMounts = append(
-					resticContainer.VolumeMounts,
+			if nodeAgentContainer != nil {
+				nodeAgentContainer.VolumeMounts = append(
+					nodeAgentContainer.VolumeMounts,
 					corev1.VolumeMount{
 						Name:      secretName,
 						MountPath: cloudProviderMap.MountPath,
 					},
 				)
-				resticContainer.Env = append(
-					resticContainer.Env,
+				nodeAgentContainer.Env = append(
+					nodeAgentContainer.Env,
 					corev1.EnvVar{
 						Name:  cloudProviderMap.EnvCredentialsFile,
 						Value: cloudProviderMap.MountPath + "/" + CloudFieldPath,
