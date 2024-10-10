@@ -2,7 +2,7 @@ package controllers
 
 import (
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
 	"github.com/openshift/oadp-operator/pkg/common"
 )
@@ -37,7 +37,7 @@ func setPodTemplateSpecDefaults(template *corev1.PodTemplateSpec) {
 		template.Spec.RestartPolicy = corev1.RestartPolicyAlways
 	}
 	if template.Spec.TerminationGracePeriodSeconds == nil {
-		template.Spec.TerminationGracePeriodSeconds = pointer.Int64(30)
+		template.Spec.TerminationGracePeriodSeconds = ptr.To(int64(30))
 	}
 	if template.Spec.DNSPolicy == "" {
 		template.Spec.DNSPolicy = corev1.DNSClusterFirst
@@ -51,18 +51,17 @@ func setPodTemplateSpecDefaults(template *corev1.PodTemplateSpec) {
 	if template.Spec.SchedulerName == "" {
 		template.Spec.SchedulerName = "default-scheduler"
 	}
-	// for each volumes, if volumeSource is Projected or SecretVolumeSource, set default mode
+	// for each volumes, if volumeSource is Projected or SecretVolumeSource, set default permission
 	for i := range template.Spec.Volumes {
 		if template.Spec.Volumes[i].Projected != nil {
 			if template.Spec.Volumes[i].Projected != nil {
-				template.Spec.Volumes[i].Projected.DefaultMode = common.DefaultModePtr()
+				template.Spec.Volumes[i].Projected.DefaultMode = ptr.To(common.DefaultProjectedPermission)
 			}
 		} else if template.Spec.Volumes[i].Secret != nil {
-			template.Spec.Volumes[i].Secret.DefaultMode = common.DefaultModePtr()
+			template.Spec.Volumes[i].Secret.DefaultMode = ptr.To(common.DefaultSecretPermission)
 		} else if template.Spec.Volumes[i].HostPath != nil {
 			if template.Spec.Volumes[i].HostPath.Type == nil {
-				defaultHostPathType := corev1.HostPathType("")
-				template.Spec.Volumes[i].HostPath.Type = &defaultHostPathType
+				template.Spec.Volumes[i].HostPath.Type = ptr.To(corev1.HostPathType(""))
 			}
 		}
 	}
