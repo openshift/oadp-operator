@@ -98,12 +98,13 @@ const (
 	UnsupportedNodeAgentServerArgsAnnotation = "oadp.openshift.io/unsupported-node-agent-server-args"
 )
 
-const defaultMode = int32(420)
-
-func DefaultModePtr() *int32 {
-	var mode int32 = defaultMode
-	return &mode
-}
+// Volume permissions
+const (
+	// Owner and Group can read; Public do not have any permissions
+	DefaultSecretPermission = int32(0440)
+	// Owner can read and write; Group and Public can read
+	DefaultProjectedPermission = int32(0644)
+)
 
 func AppendUniqueKeyTOfTMaps[T comparable](userLabels ...map[T]T) (map[T]T, error) {
 	var base map[T]T
