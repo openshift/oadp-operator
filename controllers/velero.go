@@ -266,7 +266,6 @@ func (r *DPAReconciler) customizeVeleroDeployment(dpa *oadpv1alpha1.DataProtecti
 				Name: "bound-sa-token",
 				VolumeSource: corev1.VolumeSource{
 					Projected: &corev1.ProjectedVolumeSource{
-						DefaultMode: common.DefaultModePtr(),
 						Sources: []corev1.VolumeProjection{
 							{
 								ServiceAccountToken: &corev1.ServiceAccountTokenProjection{
@@ -397,13 +396,25 @@ func (r *DPAReconciler) customizeVeleroDeployment(dpa *oadpv1alpha1.DataProtecti
 	if veleroDeployment.Spec.ProgressDeadlineSeconds == nil {
 		veleroDeployment.Spec.ProgressDeadlineSeconds = pointer.Int32(600)
 	}
+	r.appendPluginSpecificSpecs(dpa, veleroDeployment, veleroContainer, providerNeedsDefaultCreds, hasCloudStorage)
 	setPodTemplateSpecDefaults(&veleroDeployment.Spec.Template)
-	return r.appendPluginSpecificSpecs(dpa, veleroDeployment, veleroContainer, providerNeedsDefaultCreds, hasCloudStorage)
+	if configMapName, ok := dpa.Annotations[common.UnsupportedVeleroServerArgsAnnotation]; ok {
+		if configMapName != "" {
+			unsupportedServerArgsCM := corev1.ConfigMap{}
+			if err := r.Get(r.Context, types.NamespacedName{Namespace: dpa.Namespace, Name: configMapName}, &unsupportedServerArgsCM); err != nil {
+				return err
+			}
+			if err := common.ApplyUnsupportedServerArgsOverride(veleroContainer, unsupportedServerArgsCM, common.Velero); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
 }
 
 // add plugin specific specs to velero deployment
-func (r *DPAReconciler) appendPluginSpecificSpecs(dpa *oadpv1alpha1.DataProtectionApplication, veleroDeployment *appsv1.Deployment, veleroContainer *corev1.Container, providerNeedsDefaultCreds map[string]bool, hasCloudStorage bool) error {
-
+func (r *DPAReconciler) appendPluginSpecificSpecs(dpa *oadpv1alpha1.DataProtectionApplication, veleroDeployment *appsv1.Deployment, veleroContainer *corev1.Container, providerNeedsDefaultCreds map[string]bool, hasCloudStorage bool) {
 	init_container_resources := veleroContainer.Resources
 
 	for _, plugin := range dpa.Spec.Configuration.Velero.DefaultPlugins {
@@ -447,22 +458,20 @@ func (r *DPAReconciler) appendPluginSpecificSpecs(dpa *oadpv1alpha1.DataProtecti
 			// set default secret name to use
 			secretName := pluginSpecificMap.SecretName
 			// append plugin specific volume mounts
-			if veleroContainer != nil {
-				veleroContainer.VolumeMounts = append(
-					veleroContainer.VolumeMounts,
-					corev1.VolumeMount{
-						Name:      secretName,
-						MountPath: pluginSpecificMap.MountPath,
-					})
+			veleroContainer.VolumeMounts = append(
+				veleroContainer.VolumeMounts,
+				corev1.VolumeMount{
+					Name:      secretName,
+					MountPath: pluginSpecificMap.MountPath,
+				})
 
-				// append plugin specific env vars
-				veleroContainer.Env = append(
-					veleroContainer.Env,
-					corev1.EnvVar{
-						Name:  pluginSpecificMap.EnvCredentialsFile,
-						Value: pluginSpecificMap.MountPath + "/" + credentials.CloudFieldPath,
-					})
-			}
+			// append plugin specific env vars
+			veleroContainer.Env = append(
+				veleroContainer.Env,
+				corev1.EnvVar{
+					Name:  pluginSpecificMap.EnvCredentialsFile,
+					Value: pluginSpecificMap.MountPath + "/" + credentials.CloudFieldPath,
+				})
 
 			// append plugin specific volumes
 			veleroDeployment.Spec.Template.Spec.Volumes = append(
@@ -471,8 +480,7 @@ func (r *DPAReconciler) appendPluginSpecificSpecs(dpa *oadpv1alpha1.DataProtecti
 					Name: secretName,
 					VolumeSource: corev1.VolumeSource{
 						Secret: &corev1.SecretVolumeSource{
-							SecretName:  secretName,
-							DefaultMode: common.DefaultModePtr(),
+							SecretName: secretName,
 						},
 					},
 				})
@@ -503,20 +511,6 @@ func (r *DPAReconciler) appendPluginSpecificSpecs(dpa *oadpv1alpha1.DataProtecti
 				})
 		}
 	}
-
-	if configMapName, ok := dpa.Annotations[common.UnsupportedVeleroServerArgsAnnotation]; ok {
-		if configMapName != "" {
-			unsupportedServerArgsCM := corev1.ConfigMap{}
-			if err := r.Get(r.Context, types.NamespacedName{Namespace: dpa.Namespace, Name: configMapName}, &unsupportedServerArgsCM); err != nil {
-				return err
-			}
-			if err := common.ApplyUnsupportedServerArgsOverride(veleroContainer, unsupportedServerArgsCM, common.Velero); err != nil {
-				return err
-			}
-		}
-	}
-
-	return nil
 }
 
 func (r *DPAReconciler) customizeVeleroContainer(dpa *oadpv1alpha1.DataProtectionApplication, veleroDeployment *appsv1.Deployment, veleroContainer *corev1.Container, hasShortLivedCredentials bool, prometheusPort *int) error {
@@ -855,12 +849,10 @@ func (r DPAReconciler) noDefaultCredentials(dpa oadpv1alpha1.DataProtectionAppli
 	hasCloudStorage := false
 	if dpa.Spec.Configuration.Velero.NoDefaultBackupLocation {
 		needDefaultCred := false
-
 		if dpa.Spec.UnsupportedOverrides[oadpv1alpha1.OperatorTypeKey] == oadpv1alpha1.OperatorTypeMTC {
 			// MTC requires default credentials
 			needDefaultCred = true
 		}
-		// go through cloudprovider plugins and mark providerNeedsDefaultCreds to false
 		for _, provider := range dpa.Spec.Configuration.Velero.DefaultPlugins {
 			if psf, ok := credentials.PluginSpecificFields[provider]; ok && psf.IsCloudProvider {
 				providerNeedsDefaultCreds[psf.PluginName] = needDefaultCred
