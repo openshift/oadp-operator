@@ -22,17 +22,3 @@ items:
       kind: ClusterRole
       name: dv-cloner-role
       apiGroup: rbac.authorization.k8s.io
-  - apiVersion: rbac.authorization.k8s.io/v1
-    kind: RoleBinding
-    metadata:
-      name: cirros-test-cloner
-      namespace: kubevirt-os-images
-    subjects:
-    - kind: ServiceAccount
-      name: default
-      namespace: cirros-test
-    roleRef:
-      kind: ClusterRole
-      name: dv-cloner-role
-      apiGroup: rbac.authorization.k8s.io
-
