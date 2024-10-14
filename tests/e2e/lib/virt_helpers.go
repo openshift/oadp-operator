@@ -181,9 +181,9 @@ func getCsvFromPackageManifest(dynamicClient dynamic.Interface, name string) (st
 }
 
 // Checks the existence of the operator's target namespace
-func (v *VirtOperator) checkNamespace() bool {
+func (v *VirtOperator) checkNamespace(ns string) bool {
 	// First check that the namespace exists
-	exists, _ := DoesNamespaceExist(v.Clientset, v.Namespace)
+	exists, _ := DoesNamespaceExist(v.Clientset, ns)
 	return exists
 }
 
@@ -267,11 +267,12 @@ func (v *VirtOperator) checkEmulation() bool {
 	return false
 }
 
-// Creates the target virtualization namespace, likely openshift-cnv or kubevirt-hyperconverged
-func (v *VirtOperator) installNamespace() error {
-	err := v.Client.Create(context.Background(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: v.Namespace}})
+// Creates the target namespace, likely openshift-cnv or kubevirt-hyperconverged,
+// but also used for openshift-virtualization-os-images if not already present.
+func (v *VirtOperator) installNamespace(ns string) error {
+	err := v.Client.Create(context.Background(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns}})
 	if err != nil {
-		log.Printf("Failed to create namespace %s: %v", v.Namespace, err)
+		log.Printf("Failed to create namespace %s: %v", ns, err)
 		return err
 	}
 	return nil
@@ -380,19 +381,19 @@ func (v *VirtOperator) configureEmulation() error {
 }
 
 // Creates target namespace if needed, and waits for it to exist
-func (v *VirtOperator) ensureNamespace(timeout time.Duration) error {
-	if !v.checkNamespace() {
-		if err := v.installNamespace(); err != nil {
+func (v *VirtOperator) EnsureNamespace(ns string, timeout time.Duration) error {
+	if !v.checkNamespace(ns) {
+		if err := v.installNamespace(ns); err != nil {
 			return err
 		}
 		err := wait.PollImmediate(time.Second, timeout, func() (bool, error) {
-			return v.checkNamespace(), nil
+			return v.checkNamespace(ns), nil
 		})
 		if err != nil {
-			return fmt.Errorf("timed out waiting to create namespace %s: %w", v.Namespace, err)
+			return fmt.Errorf("timed out waiting to create namespace %s: %w", ns, err)
 		}
 	} else {
-		log.Printf("Namespace %s already present, no action required", v.Namespace)
+		log.Printf("Namespace %s already present, no action required", ns)
 	}
 
 	return nil
@@ -467,10 +468,10 @@ func (v *VirtOperator) ensureHco(timeout time.Duration) error {
 }
 
 // Deletes the virtualization operator namespace (likely openshift-cnv).
-func (v *VirtOperator) removeNamespace() error {
-	err := v.Client.Delete(context.Background(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: v.Namespace}})
+func (v *VirtOperator) removeNamespace(ns string) error {
+	err := v.Client.Delete(context.Background(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns}})
 	if err != nil {
-		log.Printf("Failed to delete namespace %s: %v", v.Namespace, err)
+		log.Printf("Failed to delete namespace %s: %v", ns, err)
 		return err
 	}
 	return nil
@@ -512,21 +513,21 @@ func (v *VirtOperator) removeHco() error {
 }
 
 // Makes sure the virtualization operator's namespace is removed.
-func (v *VirtOperator) ensureNamespaceRemoved(timeout time.Duration) error {
-	if !v.checkNamespace() {
-		log.Printf("Namespace %s already removed, no action required", v.Namespace)
+func (v *VirtOperator) ensureNamespaceRemoved(ns string, timeout time.Duration) error {
+	if !v.checkNamespace(ns) {
+		log.Printf("Namespace %s already removed, no action required", ns)
 		return nil
 	}
 
-	if err := v.removeNamespace(); err != nil {
+	if err := v.removeNamespace(ns); err != nil {
 		return err
 	}
 
 	err := wait.PollImmediate(5*time.Second, timeout, func() (bool, error) {
-		return !v.checkNamespace(), nil
+		return !v.checkNamespace(ns), nil
 	})
 	if err != nil {
-		return fmt.Errorf("timed out waiting to delete namespace %s: %w", v.Namespace, err)
+		return fmt.Errorf("timed out waiting to delete namespace %s: %w", ns, err)
 	}
 
 	return nil
@@ -714,7 +715,7 @@ func (v *VirtOperator) EnsureEmulation(timeout time.Duration) error {
 // IsVirtInstalled returns whether or not the OpenShift Virtualization operator
 // is installed and ready, by checking for a HyperConverged operator resource.
 func (v *VirtOperator) IsVirtInstalled() bool {
-	if !v.checkNamespace() {
+	if !v.checkNamespace(v.Namespace) {
 		return false
 	}
 
@@ -730,7 +731,7 @@ func (v *VirtOperator) EnsureVirtInstallation() error {
 	}
 
 	log.Printf("Creating virtualization namespace %s", v.Namespace)
-	if err := v.ensureNamespace(10 * time.Second); err != nil {
+	if err := v.EnsureNamespace(v.Namespace, 10*time.Second); err != nil {
 		return err
 	}
 	log.Printf("Created namespace %s", v.Namespace)
@@ -789,7 +790,7 @@ func (v *VirtOperator) EnsureVirtRemoval() error {
 	log.Println("Deleted operator group")
 
 	log.Printf("Deleting virtualization namespace %s", v.Namespace)
-	if err := v.ensureNamespaceRemoved(3 * time.Minute); err != nil {
+	if err := v.ensureNamespaceRemoved(v.Namespace, 3*time.Minute); err != nil {
 		return err
 	}
 	log.Printf("Deleting namespace %s", v.Namespace)

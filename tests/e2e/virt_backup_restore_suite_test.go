@@ -186,6 +186,8 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 
 		url, err := getLatestCirrosImageURL()
 		gomega.Expect(err).To(gomega.BeNil())
+		err = v.EnsureNamespace(cirrosNamespace, 1*time.Minute)
+		gomega.Expect(err).To(gomega.BeNil())
 		if !v.CheckDataVolumeExists(cirrosNamespace, "cirros") {
 			err = v.EnsureDataVolumeFromUrl(cirrosNamespace, "cirros", url, "150Mi", 5*time.Minute)
 			gomega.Expect(err).To(gomega.BeNil())
