@@ -49,7 +49,8 @@ var (
 	knownFlake          bool
 	accumulatedTestLogs []string
 
-	kvmEmulation bool
+	kvmEmulation   bool
+	useUpstreamHco bool
 )
 
 func init() {
@@ -65,6 +66,7 @@ func init() {
 	flag.StringVar(&oc_cli, "oc_cli", "oc", "OC CLI Client")
 	flag.Int64Var(&flakeAttempts, "flakeAttempts", 3, "Customize the number of flake retries (3)")
 	flag.BoolVar(&kvmEmulation, "kvm_emulation", true, "Enable or disable KVM emulation for virtualization testing")
+	flag.BoolVar(&useUpstreamHco, "hco_upstream", false, "Force use of upstream virtualization operator")
 
 	// helps with launching debug sessions from IDE
 	if os.Getenv("E2E_USE_ENV_FLAGS") == "true" {
@@ -108,6 +110,13 @@ func init() {
 				kvmEmulation = parsedValue
 			} else {
 				log.Println("Error parsing KVM_EMULATION, it will be enabled by default: ", err)
+			}
+		}
+		if envValue := os.Getenv("HCO_UPSTREAM"); envValue != "" {
+			if parsedValue, err := strconv.ParseBool(envValue); err == nil {
+				useUpstreamHco = parsedValue
+			} else {
+				log.Println("Error parsing HCO_UPSTREAM, it will be disabled by default: ", err)
 			}
 		}
 	}

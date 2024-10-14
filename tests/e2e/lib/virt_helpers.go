@@ -59,13 +59,19 @@ type VirtOperator struct {
 	Namespace string
 	Csv       string
 	Version   *version.Version
+	Upstream  bool
 }
 
 // GetVirtOperator fills out a new VirtOperator
-func GetVirtOperator(c client.Client, clientset *kubernetes.Clientset, dynamicClient dynamic.Interface) (*VirtOperator, error) {
+func GetVirtOperator(c client.Client, clientset *kubernetes.Clientset, dynamicClient dynamic.Interface, upstream bool) (*VirtOperator, error) {
 	namespace := "openshift-cnv"
+	manifest := "kubevirt-hyperconverged"
+	if upstream {
+		namespace = "kubevirt-hyperconverged"
+		manifest = "community-kubevirt-hyperconverged"
+	}
 
-	csv, operatorVersion, err := getCsvFromPackageManifest(dynamicClient, "kubevirt-hyperconverged")
+	csv, operatorVersion, err := getCsvFromPackageManifest(dynamicClient, manifest)
 	if err != nil {
 		log.Printf("Failed to get CSV from package manifest")
 		return nil, err
@@ -78,6 +84,7 @@ func GetVirtOperator(c client.Client, clientset *kubernetes.Clientset, dynamicCl
 		Namespace: namespace,
 		Csv:       csv,
 		Version:   operatorVersion,
+		Upstream:  upstream,
 	}
 
 	return v, nil
@@ -236,7 +243,7 @@ func (v *VirtOperator) checkHco() bool {
 
 // Check if KVM emulation is enabled.
 func (v *VirtOperator) checkEmulation() bool {
-	hco, err := v.Dynamic.Resource(hyperConvergedGvr).Namespace("openshift-cnv").Get(context.Background(), "kubevirt-hyperconverged", metav1.GetOptions{})
+	hco, err := v.Dynamic.Resource(hyperConvergedGvr).Namespace(v.Namespace).Get(context.Background(), "kubevirt-hyperconverged", metav1.GetOptions{})
 	if err != nil {
 		return false
 	}
@@ -285,19 +292,30 @@ func (v *VirtOperator) installOperatorGroup() error {
 
 // Creates the subscription, which triggers creation of the ClusterServiceVersion.
 func (v *VirtOperator) installSubscription() error {
+	spec := &operatorsv1alpha1.SubscriptionSpec{
+		CatalogSource:          "redhat-operators",
+		CatalogSourceNamespace: "openshift-marketplace",
+		Package:                "kubevirt-hyperconverged",
+		Channel:                "stable",
+		StartingCSV:            v.Csv,
+		InstallPlanApproval:    operatorsv1alpha1.ApprovalAutomatic,
+	}
+	if v.Upstream {
+		spec = &operatorsv1alpha1.SubscriptionSpec{
+			CatalogSource:          "community-operators",
+			CatalogSourceNamespace: "openshift-marketplace",
+			Package:                "community-kubevirt-hyperconverged",
+			Channel:                "stable",
+			StartingCSV:            v.Csv,
+			InstallPlanApproval:    operatorsv1alpha1.ApprovalAutomatic,
+		}
+	}
 	subscription := &operatorsv1alpha1.Subscription{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "hco-operatorhub",
 			Namespace: v.Namespace,
 		},
-		Spec: &operatorsv1alpha1.SubscriptionSpec{
-			CatalogSource:          "redhat-operators",
-			CatalogSourceNamespace: "openshift-marketplace",
-			Package:                "kubevirt-hyperconverged",
-			Channel:                "stable",
-			StartingCSV:            v.Csv,
-			InstallPlanApproval:    operatorsv1alpha1.ApprovalAutomatic,
-		},
+		Spec: spec,
 	}
 	err := v.Client.Create(context.Background(), subscription)
 	if err != nil {
@@ -332,7 +350,7 @@ func (v *VirtOperator) installHco() error {
 }
 
 func (v *VirtOperator) configureEmulation() error {
-	hco, err := v.Dynamic.Resource(hyperConvergedGvr).Namespace("openshift-cnv").Get(context.Background(), "kubevirt-hyperconverged", metav1.GetOptions{})
+	hco, err := v.Dynamic.Resource(hyperConvergedGvr).Namespace(v.Namespace).Get(context.Background(), "kubevirt-hyperconverged", metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
@@ -353,7 +371,7 @@ func (v *VirtOperator) configureEmulation() error {
 		return err
 	}
 
-	_, err = v.Dynamic.Resource(hyperConvergedGvr).Namespace("openshift-cnv").Update(context.Background(), hco, metav1.UpdateOptions{})
+	_, err = v.Dynamic.Resource(hyperConvergedGvr).Namespace(v.Namespace).Update(context.Background(), hco, metav1.UpdateOptions{})
 	if err != nil {
 		return err
 	}

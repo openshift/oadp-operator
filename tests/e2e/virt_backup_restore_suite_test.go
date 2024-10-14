@@ -167,7 +167,7 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 	}
 
 	var _ = ginkgo.BeforeAll(func() {
-		v, err = lib.GetVirtOperator(runTimeClientForSuiteRun, kubernetesClientForSuiteRun, dynamicClientForSuiteRun)
+		v, err = lib.GetVirtOperator(runTimeClientForSuiteRun, kubernetesClientForSuiteRun, dynamicClientForSuiteRun, useUpstreamHco)
 		gomega.Expect(err).To(gomega.BeNil())
 		gomega.Expect(v).ToNot(gomega.BeNil())
 
