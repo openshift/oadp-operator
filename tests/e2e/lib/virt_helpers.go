@@ -93,16 +93,23 @@ func GetVirtOperator(c client.Client, clientset *kubernetes.Clientset, dynamicCl
 // Helper to create an operator group object, common to installOperatorGroup
 // and removeOperatorGroup.
 func (v *VirtOperator) makeOperatorGroup() *operatorsv1.OperatorGroup {
+	// Community operator fails with "cannot configure to watch own namespace",
+	// need to remove target namespaces.
+	spec := operatorsv1.OperatorGroupSpec{}
+	if !v.Upstream {
+		spec = operatorsv1.OperatorGroupSpec{
+			TargetNamespaces: []string{
+				v.Namespace,
+			},
+		}
+	}
+
 	return &operatorsv1.OperatorGroup{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "kubevirt-hyperconverged-group",
 			Namespace: v.Namespace,
 		},
-		Spec: operatorsv1.OperatorGroupSpec{
-			TargetNamespaces: []string{
-				v.Namespace,
-			},
-		},
+		Spec: spec,
 	}
 }
 
