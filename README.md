@@ -4,6 +4,15 @@
 
   [![Go Report Card](https://goreportcard.com/badge/github.com/openshift/oadp-operator)](https://goreportcard.com/report/github.com/openshift/oadp-operator) [![codecov](https://codecov.io/gh/openshift/oadp-operator/branch/master/graph/badge.svg?token=qLM0hAzjpD)](https://codecov.io/gh/openshift/oadp-operator) [![License](https://img.shields.io/:license-apache-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0.html) [![Go Reference](https://pkg.go.dev/badge/github.com/openshift/oadp-operator.svg)](https://pkg.go.dev/github.com/openshift/oadp-operator)
 
+OADP repositories images job
+[![OADP repository](https://prow.ci.openshift.org/badge.svg?jobs=branch-ci-openshift-oadp-operator-master-images)](https://prow.ci.openshift.org/job-history/gs/test-platform-results/logs/branch-ci-openshift-oadp-operator-master-images)
+[![OpenShift Velero plugin repository](https://prow.ci.openshift.org/badge.svg?jobs=branch-ci-openshift-openshift-velero-plugin-master-images)](https://prow.ci.openshift.org/job-history/gs/test-platform-results/logs/branch-ci-openshift-openshift-velero-plugin-master-images)
+[![OADP's Velero repository](https://prow.ci.openshift.org/badge.svg?jobs=branch-ci-openshift-velero-konveyor-dev-images)](https://prow.ci.openshift.org/job-history/gs/test-platform-results/logs/branch-ci-openshift-velero-konveyor-dev-images)
+[![OADP's Velero plugin for AWS repository](https://prow.ci.openshift.org/badge.svg?jobs=branch-ci-openshift-velero-plugin-for-aws-konveyor-dev-images)](https://prow.ci.openshift.org/job-history/gs/test-platform-results/logs/branch-ci-openshift-velero-plugin-for-aws-konveyor-dev-images)
+[![OADP's Velero plugin for GCP repository](https://prow.ci.openshift.org/badge.svg?jobs=branch-ci-openshift-velero-plugin-for-gcp-konveyor-dev-images)](https://prow.ci.openshift.org/job-history/gs/test-platform-results/logs/branch-ci-openshift-velero-plugin-for-gcp-konveyor-dev-images)
+[![OADP's Velero plugin for Microsoft Azure repository](https://prow.ci.openshift.org/badge.svg?jobs=branch-ci-openshift-velero-plugin-for-microsoft-azure-konveyor-dev-images)](https://prow.ci.openshift.org/job-history/gs/test-platform-results/logs/branch-ci-openshift-velero-plugin-for-microsoft-azure-konveyor-dev-images)
+[![Non Admin repository](https://prow.ci.openshift.org/badge.svg?jobs=branch-ci-migtools-oadp-non-admin-master-images)](https://prow.ci.openshift.org/job-history/gs/test-platform-results/logs/branch-ci-migtools-oadp-non-admin-master-images)
+
 Mirroring images to quay.io [![Mirror images](https://prow.ci.openshift.org/badge.svg?jobs=periodic-image-mirroring-konveyor)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-image-mirroring-konveyor)
 
 Periodic Unit Tests [![Unit tests](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-master-unit-test-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-master-unit-test-periodic)
