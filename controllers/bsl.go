@@ -17,9 +17,10 @@ import (
 	"github.com/openshift/oadp-operator/pkg/storage/aws"
 )
 
-func (r *DPAReconciler) ValidateBackupStorageLocations(dpa oadpv1alpha1.DataProtectionApplication) (bool, error) {
+func (r *DPAReconciler) ValidateBackupStorageLocations() (bool, error) {
 	// Ensure BSL is a valid configuration
 	// First, check for provider and then call functions based on the cloud provider for each backupstoragelocation configured
+	dpa := r.dpa
 	numDefaultLocations := 0
 	for _, bslSpec := range dpa.Spec.BackupLocations {
 
@@ -27,11 +28,11 @@ func (r *DPAReconciler) ValidateBackupStorageLocations(dpa oadpv1alpha1.DataProt
 			return false, err
 		}
 
-		if err := r.ensurePrefixWhenBackupImages(&dpa, &bslSpec); err != nil {
+		if err := r.ensurePrefixWhenBackupImages(&bslSpec); err != nil {
 			return false, err
 		}
 
-		if err := r.ensureSecretDataExists(&dpa, &bslSpec); err != nil {
+		if err := r.ensureSecretDataExists(&bslSpec); err != nil {
 			return false, err
 		}
 
@@ -49,17 +50,17 @@ func (r *DPAReconciler) ValidateBackupStorageLocations(dpa oadpv1alpha1.DataProt
 			// TODO: cases might need some updates for IBM/Minio/noobaa
 			switch provider {
 			case AWSProvider, "velero.io/aws":
-				err := r.validateAWSBackupStorageLocation(*bslSpec.Velero, &dpa)
+				err := r.validateAWSBackupStorageLocation(*bslSpec.Velero)
 				if err != nil {
 					return false, err
 				}
 			case AzureProvider, "velero.io/azure":
-				err := r.validateAzureBackupStorageLocation(*bslSpec.Velero, &dpa)
+				err := r.validateAzureBackupStorageLocation(*bslSpec.Velero)
 				if err != nil {
 					return false, err
 				}
 			case GCPProvider, "velero.io/gcp":
-				err := r.validateGCPBackupStorageLocation(*bslSpec.Velero, &dpa)
+				err := r.validateGCPBackupStorageLocation(*bslSpec.Velero)
 				if err != nil {
 					return false, err
 				}
@@ -97,12 +98,9 @@ func (r *DPAReconciler) ValidateBackupStorageLocations(dpa oadpv1alpha1.DataProt
 }
 
 func (r *DPAReconciler) ReconcileBackupStorageLocations(log logr.Logger) (bool, error) {
-	dpa := oadpv1alpha1.DataProtectionApplication{}
-	if err := r.Get(r.Context, r.NamespacedName, &dpa); err != nil {
-		return false, err
-	}
-
+	dpa := r.dpa
 	dpaBSLNames := []string{}
+
 	// Loop through all configured BSLs
 	for i, bslSpec := range dpa.Spec.BackupLocations {
 		// Create BSL as is, we can safely assume they are valid from
@@ -146,7 +144,7 @@ func (r *DPAReconciler) ReconcileBackupStorageLocations(log logr.Logger) (bool, 
 
 			// TODO: check for BSL status condition errors and respond here
 			if bslSpec.Velero != nil {
-				err := r.updateBSLFromSpec(&bsl, &dpa, *bslSpec.Velero)
+				err := r.updateBSLFromSpec(&bsl, *bslSpec.Velero)
 
 				return err
 			}
@@ -156,7 +154,7 @@ func (r *DPAReconciler) ReconcileBackupStorageLocations(log logr.Logger) (bool, 
 				if err != nil {
 					return err
 				}
-				err = controllerutil.SetControllerReference(&dpa, &bsl, r.Scheme)
+				err = controllerutil.SetControllerReference(dpa, &bsl, r.Scheme)
 				if err != nil {
 					return err
 				}
@@ -263,9 +261,9 @@ func (r *DPAReconciler) UpdateCredentialsSecretLabels(secretName string, namespa
 	return true, nil
 }
 
-func (r *DPAReconciler) updateBSLFromSpec(bsl *velerov1.BackupStorageLocation, dpa *oadpv1alpha1.DataProtectionApplication, bslSpec velerov1.BackupStorageLocationSpec) error {
+func (r *DPAReconciler) updateBSLFromSpec(bsl *velerov1.BackupStorageLocation, bslSpec velerov1.BackupStorageLocationSpec) error {
 	// Set controller reference to Velero controller
-	err := controllerutil.SetControllerReference(dpa, bsl, r.Scheme)
+	err := controllerutil.SetControllerReference(r.dpa, bsl, r.Scheme)
 	if err != nil {
 		return err
 	}
@@ -313,9 +311,9 @@ func (r *DPAReconciler) updateBSLFromSpec(bsl *velerov1.BackupStorageLocation, d
 	return nil
 }
 
-func (r *DPAReconciler) validateAWSBackupStorageLocation(bslSpec velerov1.BackupStorageLocationSpec, dpa *oadpv1alpha1.DataProtectionApplication) error {
+func (r *DPAReconciler) validateAWSBackupStorageLocation(bslSpec velerov1.BackupStorageLocationSpec) error {
 	// validate provider plugin and secret
-	err := r.validateProviderPluginAndSecret(bslSpec, dpa)
+	err := r.validateProviderPluginAndSecret(bslSpec)
 	if err != nil {
 		return err
 	}
@@ -329,7 +327,7 @@ func (r *DPAReconciler) validateAWSBackupStorageLocation(bslSpec velerov1.Backup
 		return fmt.Errorf("bucket name for AWS backupstoragelocation cannot be empty")
 	}
 
-	if len(bslSpec.StorageType.ObjectStorage.Prefix) == 0 && dpa.BackupImages() {
+	if len(bslSpec.StorageType.ObjectStorage.Prefix) == 0 && r.dpa.BackupImages() {
 		return fmt.Errorf("prefix for AWS backupstoragelocation object storage cannot be empty. It is required for backing up images")
 	}
 
@@ -347,9 +345,9 @@ func (r *DPAReconciler) validateAWSBackupStorageLocation(bslSpec velerov1.Backup
 	return nil
 }
 
-func (r *DPAReconciler) validateAzureBackupStorageLocation(bslSpec velerov1.BackupStorageLocationSpec, dpa *oadpv1alpha1.DataProtectionApplication) error {
+func (r *DPAReconciler) validateAzureBackupStorageLocation(bslSpec velerov1.BackupStorageLocationSpec) error {
 	// validate provider plugin and secret
-	err := r.validateProviderPluginAndSecret(bslSpec, dpa)
+	err := r.validateProviderPluginAndSecret(bslSpec)
 	if err != nil {
 		return err
 	}
@@ -371,16 +369,16 @@ func (r *DPAReconciler) validateAzureBackupStorageLocation(bslSpec velerov1.Back
 		return fmt.Errorf("storageAccount for Azure backupstoragelocation config cannot be empty")
 	}
 
-	if len(bslSpec.StorageType.ObjectStorage.Prefix) == 0 && dpa.BackupImages() {
+	if len(bslSpec.StorageType.ObjectStorage.Prefix) == 0 && r.dpa.BackupImages() {
 		return fmt.Errorf("prefix for Azure backupstoragelocation object storage cannot be empty. it is required for backing up images")
 	}
 
 	return nil
 }
 
-func (r *DPAReconciler) validateGCPBackupStorageLocation(bslSpec velerov1.BackupStorageLocationSpec, dpa *oadpv1alpha1.DataProtectionApplication) error {
+func (r *DPAReconciler) validateGCPBackupStorageLocation(bslSpec velerov1.BackupStorageLocationSpec) error {
 	// validate provider plugin and secret
-	err := r.validateProviderPluginAndSecret(bslSpec, dpa)
+	err := r.validateProviderPluginAndSecret(bslSpec)
 	if err != nil {
 		return err
 	}
@@ -393,7 +391,7 @@ func (r *DPAReconciler) validateGCPBackupStorageLocation(bslSpec velerov1.Backup
 	if len(bslSpec.ObjectStorage.Bucket) == 0 {
 		return fmt.Errorf("bucket name for GCP backupstoragelocation cannot be empty")
 	}
-	if len(bslSpec.StorageType.ObjectStorage.Prefix) == 0 && dpa.BackupImages() {
+	if len(bslSpec.StorageType.ObjectStorage.Prefix) == 0 && r.dpa.BackupImages() {
 		return fmt.Errorf("prefix for GCP backupstoragelocation object storage cannot be empty. it is required for backing up images")
 	}
 
@@ -409,12 +407,12 @@ func pluginExistsInVeleroCR(configuredPlugins []oadpv1alpha1.DefaultPlugin, expe
 	return false
 }
 
-func (r *DPAReconciler) validateProviderPluginAndSecret(bslSpec velerov1.BackupStorageLocationSpec, dpa *oadpv1alpha1.DataProtectionApplication) error {
-	if dpa.Spec.Configuration.Velero.HasFeatureFlag("no-secret") {
+func (r *DPAReconciler) validateProviderPluginAndSecret(bslSpec velerov1.BackupStorageLocationSpec) error {
+	if r.dpa.Spec.Configuration.Velero.HasFeatureFlag("no-secret") {
 		return nil
 	}
 	// check for existence of provider plugin and warn if the plugin is absent
-	if !pluginExistsInVeleroCR(dpa.Spec.Configuration.Velero.DefaultPlugins, oadpv1alpha1.DefaultPlugin(bslSpec.Provider)) {
+	if !pluginExistsInVeleroCR(r.dpa.Spec.Configuration.Velero.DefaultPlugins, oadpv1alpha1.DefaultPlugin(bslSpec.Provider)) {
 		r.Log.Info(fmt.Sprintf("%s backupstoragelocation is configured but velero plugin for %s is not present", bslSpec.Provider, bslSpec.Provider))
 		//TODO: set warning condition on Velero CR
 	}
@@ -440,22 +438,22 @@ func (r *DPAReconciler) ensureBackupLocationHasVeleroOrCloudStorage(bsl *oadpv1a
 	return nil
 }
 
-func (r *DPAReconciler) ensurePrefixWhenBackupImages(dpa *oadpv1alpha1.DataProtectionApplication, bsl *oadpv1alpha1.BackupLocation) error {
+func (r *DPAReconciler) ensurePrefixWhenBackupImages(bsl *oadpv1alpha1.BackupLocation) error {
 
-	if bsl.Velero != nil && bsl.Velero.ObjectStorage != nil && bsl.Velero.ObjectStorage.Prefix == "" && dpa.BackupImages() {
+	if bsl.Velero != nil && bsl.Velero.ObjectStorage != nil && bsl.Velero.ObjectStorage.Prefix == "" && r.dpa.BackupImages() {
 		return fmt.Errorf("BackupLocation must have velero prefix when backupImages is not set to false")
 	}
 
-	if bsl.CloudStorage != nil && bsl.CloudStorage.Prefix == "" && dpa.BackupImages() {
+	if bsl.CloudStorage != nil && bsl.CloudStorage.Prefix == "" && r.dpa.BackupImages() {
 		return fmt.Errorf("BackupLocation must have cloud storage prefix when backupImages is not set to false")
 	}
 
 	return nil
 }
 
-func (r *DPAReconciler) ensureSecretDataExists(dpa *oadpv1alpha1.DataProtectionApplication, bsl *oadpv1alpha1.BackupLocation) error {
+func (r *DPAReconciler) ensureSecretDataExists(bsl *oadpv1alpha1.BackupLocation) error {
 	// Check if the Velero feature flag 'no-secret' is not set
-	if !(dpa.Spec.Configuration.Velero.HasFeatureFlag("no-secret")) {
+	if !(r.dpa.Spec.Configuration.Velero.HasFeatureFlag("no-secret")) {
 		// Check if the user specified credential under velero
 		if bsl.Velero != nil && bsl.Velero.Credential != nil {
 			// Check if user specified empty credential key

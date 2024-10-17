@@ -14,12 +14,10 @@ import (
 
 // ValidateDataProtectionCR function validates the DPA CR, returns true if valid, false otherwise
 // it calls other validation functions to validate the DPA CR
-// TODO: #1129 Clean up duplicate logic for validating backupstoragelocations and volumesnapshotlocations in dpa
 func (r *DPAReconciler) ValidateDataProtectionCR(log logr.Logger) (bool, error) {
-	dpa := oadpv1alpha1.DataProtectionApplication{}
-	if err := r.Get(r.Context, r.NamespacedName, &dpa); err != nil {
-		return false, err
-	}
+
+	dpa := r.dpa
+
 	if dpa.Spec.Configuration == nil || dpa.Spec.Configuration.Velero == nil {
 		return false, errors.New("DPA CR Velero configuration cannot be nil")
 	}
@@ -41,10 +39,10 @@ func (r *DPAReconciler) ValidateDataProtectionCR(log logr.Logger) (bool, error) 
 		}
 	}
 
-	if validBsl, err := r.ValidateBackupStorageLocations(dpa); !validBsl || err != nil {
+	if validBsl, err := r.ValidateBackupStorageLocations(); !validBsl || err != nil {
 		return validBsl, err
 	}
-	if validVsl, err := r.ValidateVolumeSnapshotLocations(dpa); !validVsl || err != nil {
+	if validVsl, err := r.ValidateVolumeSnapshotLocations(); !validVsl || err != nil {
 		return validVsl, err
 	}
 
@@ -63,18 +61,19 @@ func (r *DPAReconciler) ValidateDataProtectionCR(log logr.Logger) (bool, error) 
 
 	// TODO refactor to call functions only once
 	// they are called here to check error, and then after to get value
-	if _, err := r.getVeleroResourceReqs(&dpa); err != nil {
+	if _, err := r.getVeleroResourceReqs(); err != nil {
 		return false, err
 	}
-	if _, err := getResticResourceReqs(&dpa); err != nil {
+
+	if _, err := getResticResourceReqs(dpa); err != nil {
 		return false, err
 	}
-	if _, err := getNodeAgentResourceReqs(&dpa); err != nil {
+	if _, err := getNodeAgentResourceReqs(dpa); err != nil {
 		return false, err
 	}
 
 	// validate non-admin enable and tech-preview-ack
-	if r.checkNonAdminEnabled(&dpa) {
+	if r.checkNonAdminEnabled() {
 		if !(dpa.Spec.UnsupportedOverrides[oadpv1alpha1.TechPreviewAck] == TrueVal) {
 			return false, errors.New("in order to enable/disable the non-admin feature please set dpa.spec.unsupportedOverrides[tech-preview-ack]: 'true'")
 		}
@@ -90,12 +89,9 @@ type empty struct{}
 // TODO: if multiple default plugins exist, ensure we validate all of them.
 // Right now its sequential validation
 func (r *DPAReconciler) ValidateVeleroPlugins(log logr.Logger) (bool, error) {
-	dpa := oadpv1alpha1.DataProtectionApplication{}
-	if err := r.Get(r.Context, r.NamespacedName, &dpa); err != nil {
-		return false, err
-	}
+	dpa := r.dpa
 
-	providerNeedsDefaultCreds, hasCloudStorage, err := r.noDefaultCredentials(dpa)
+	providerNeedsDefaultCreds, hasCloudStorage, err := r.noDefaultCredentials()
 	if err != nil {
 		return false, err
 	}

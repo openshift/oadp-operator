@@ -71,10 +71,8 @@ var (
 )
 
 func (r *DPAReconciler) ReconcileVeleroDeployment(log logr.Logger) (bool, error) {
-	dpa := oadpv1alpha1.DataProtectionApplication{}
-	if err := r.Get(r.Context, r.NamespacedName, &dpa); err != nil {
-		return false, err
-	}
+
+	dpa := r.dpa
 
 	veleroDeployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
@@ -90,18 +88,18 @@ func (r *DPAReconciler) ReconcileVeleroDeployment(log logr.Logger) (bool, error)
 		// Setting Deployment selector if a new object is created as it is immutable
 		if veleroDeployment.ObjectMeta.CreationTimestamp.IsZero() {
 			veleroDeployment.Spec.Selector = &metav1.LabelSelector{
-				MatchLabels: getDpaAppLabels(&dpa),
+				MatchLabels: getDpaAppLabels(dpa),
 			}
 		}
 
 		// update the Deployment template
-		err := r.buildVeleroDeployment(veleroDeployment, &dpa)
+		err := r.buildVeleroDeployment(veleroDeployment)
 		if err != nil {
 			return err
 		}
 
 		// Setting controller owner reference on the velero deployment
-		return controllerutil.SetControllerReference(&dpa, veleroDeployment, r.Scheme)
+		return controllerutil.SetControllerReference(dpa, veleroDeployment, r.Scheme)
 	})
 	if debugMode && op != controllerutil.OperationResultNone { // for debugging purposes
 		fmt.Printf("DEBUG: There was a diff which resulted in an operation on Velero Deployment: %s\n", cmp.Diff(orig, veleroDeployment))
@@ -138,22 +136,22 @@ func (r *DPAReconciler) ReconcileVeleroDeployment(log logr.Logger) (bool, error)
 	return true, nil
 }
 
-func (r *DPAReconciler) veleroServiceAccount(dpa *oadpv1alpha1.DataProtectionApplication) (*corev1.ServiceAccount, error) {
+func (r *DPAReconciler) veleroServiceAccount() (*corev1.ServiceAccount, error) {
 	annotations := make(map[string]string)
-	sa := install.ServiceAccount(dpa.Namespace, annotations)
-	sa.Labels = getDpaAppLabels(dpa)
+	sa := install.ServiceAccount(r.dpa.Namespace, annotations)
+	sa.Labels = getDpaAppLabels(r.dpa)
 	return sa, nil
 }
 
-func (r *DPAReconciler) veleroClusterRoleBinding(dpa *oadpv1alpha1.DataProtectionApplication) (*rbacv1.ClusterRoleBinding, error) {
-	crb := install.ClusterRoleBinding(dpa.Namespace)
-	crb.Labels = getDpaAppLabels(dpa)
+func (r *DPAReconciler) veleroClusterRoleBinding() (*rbacv1.ClusterRoleBinding, error) {
+	crb := install.ClusterRoleBinding(r.dpa.Namespace)
+	crb.Labels = getDpaAppLabels(r.dpa)
 	return crb, nil
 }
 
 // Build VELERO Deployment
-func (r *DPAReconciler) buildVeleroDeployment(veleroDeployment *appsv1.Deployment, dpa *oadpv1alpha1.DataProtectionApplication) error {
-
+func (r *DPAReconciler) buildVeleroDeployment(veleroDeployment *appsv1.Deployment) error {
+	dpa := r.dpa
 	if dpa == nil {
 		return fmt.Errorf("DPA CR cannot be nil")
 	}
@@ -163,13 +161,13 @@ func (r *DPAReconciler) buildVeleroDeployment(veleroDeployment *appsv1.Deploymen
 	// Auto corrects DPA
 	dpa.AutoCorrect()
 
-	_, err := r.ReconcileRestoreResourcesVersionPriority(dpa)
+	_, err := r.ReconcileRestoreResourcesVersionPriority()
 	if err != nil {
 		return fmt.Errorf("error creating configmap for restore resource version priority:" + err.Error())
 	}
 	// get resource requirements for velero deployment
 	// ignoring err here as it is checked in validator.go
-	veleroResourceReqs, _ := r.getVeleroResourceReqs(dpa)
+	veleroResourceReqs, _ := r.getVeleroResourceReqs()
 	podAnnotations, err := common.AppendUniqueKeyTOfTMaps(dpa.Spec.PodAnnotations, veleroDeployment.Annotations)
 	if err != nil {
 		return fmt.Errorf("error appending pod annotations: %v", err)
@@ -208,10 +206,11 @@ func (r *DPAReconciler) buildVeleroDeployment(veleroDeployment *appsv1.Deploymen
 	veleroDeployment.Labels = labels
 	annotations, err := common.AppendUniqueKeyTOfTMaps(veleroDeployment.Annotations, installDeployment.Annotations)
 	veleroDeployment.Annotations = annotations
-	return r.customizeVeleroDeployment(dpa, veleroDeployment)
+	return r.customizeVeleroDeployment(veleroDeployment)
 }
 
-func (r *DPAReconciler) customizeVeleroDeployment(dpa *oadpv1alpha1.DataProtectionApplication, veleroDeployment *appsv1.Deployment) error {
+func (r *DPAReconciler) customizeVeleroDeployment(veleroDeployment *appsv1.Deployment) error {
+	dpa := r.dpa
 	//append dpa labels
 	var err error
 	veleroDeployment.Labels, err = common.AppendUniqueKeyTOfTMaps(veleroDeployment.Labels, getDpaAppLabels(dpa))
@@ -320,11 +319,11 @@ func (r *DPAReconciler) customizeVeleroDeployment(dpa *oadpv1alpha1.DataProtecti
 			break
 		}
 	}
-	if err := r.customizeVeleroContainer(dpa, veleroDeployment, veleroContainer, hasShortLivedCredentials, prometheusPort); err != nil {
+	if err := r.customizeVeleroContainer(veleroDeployment, veleroContainer, hasShortLivedCredentials, prometheusPort); err != nil {
 		return err
 	}
 
-	providerNeedsDefaultCreds, hasCloudStorage, err := r.noDefaultCredentials(*dpa)
+	providerNeedsDefaultCreds, hasCloudStorage, err := r.noDefaultCredentials()
 	if err != nil {
 		return err
 	}
@@ -389,7 +388,7 @@ func (r *DPAReconciler) customizeVeleroDeployment(dpa *oadpv1alpha1.DataProtecti
 	if veleroDeployment.Spec.ProgressDeadlineSeconds == nil {
 		veleroDeployment.Spec.ProgressDeadlineSeconds = ptr.To(int32(600))
 	}
-	r.appendPluginSpecificSpecs(dpa, veleroDeployment, veleroContainer, providerNeedsDefaultCreds, hasCloudStorage)
+	r.appendPluginSpecificSpecs(veleroDeployment, veleroContainer, providerNeedsDefaultCreds, hasCloudStorage)
 	setPodTemplateSpecDefaults(&veleroDeployment.Spec.Template)
 	if configMapName, ok := dpa.Annotations[common.UnsupportedVeleroServerArgsAnnotation]; ok {
 		if configMapName != "" {
@@ -407,7 +406,8 @@ func (r *DPAReconciler) customizeVeleroDeployment(dpa *oadpv1alpha1.DataProtecti
 }
 
 // add plugin specific specs to velero deployment
-func (r *DPAReconciler) appendPluginSpecificSpecs(dpa *oadpv1alpha1.DataProtectionApplication, veleroDeployment *appsv1.Deployment, veleroContainer *corev1.Container, providerNeedsDefaultCreds map[string]bool, hasCloudStorage bool) {
+func (r *DPAReconciler) appendPluginSpecificSpecs(veleroDeployment *appsv1.Deployment, veleroContainer *corev1.Container, providerNeedsDefaultCreds map[string]bool, hasCloudStorage bool) {
+	dpa := r.dpa
 	init_container_resources := veleroContainer.Resources
 
 	for _, plugin := range dpa.Spec.Configuration.Velero.DefaultPlugins {
@@ -506,7 +506,8 @@ func (r *DPAReconciler) appendPluginSpecificSpecs(dpa *oadpv1alpha1.DataProtecti
 	}
 }
 
-func (r *DPAReconciler) customizeVeleroContainer(dpa *oadpv1alpha1.DataProtectionApplication, veleroDeployment *appsv1.Deployment, veleroContainer *corev1.Container, hasShortLivedCredentials bool, prometheusPort *int) error {
+func (r *DPAReconciler) customizeVeleroContainer(veleroDeployment *appsv1.Deployment, veleroContainer *corev1.Container, hasShortLivedCredentials bool, prometheusPort *int) error {
+	dpa := r.dpa
 	if veleroContainer == nil {
 		return fmt.Errorf("could not find velero container in Deployment")
 	}
@@ -720,7 +721,8 @@ func getResourceReqs(dpa *corev1.ResourceRequirements) (corev1.ResourceRequireme
 }
 
 // Get Velero Resource Requirements
-func (r *DPAReconciler) getVeleroResourceReqs(dpa *oadpv1alpha1.DataProtectionApplication) (corev1.ResourceRequirements, error) {
+func (r *DPAReconciler) getVeleroResourceReqs() (corev1.ResourceRequirements, error) {
+	dpa := r.dpa
 	if dpa.Spec.Configuration.Velero != nil && dpa.Spec.Configuration.Velero.PodConfig != nil {
 		return getResourceReqs(&dpa.Spec.Configuration.Velero.PodConfig.ResourceAllocations)
 	}
@@ -748,7 +750,8 @@ func getNodeAgentResourceReqs(dpa *oadpv1alpha1.DataProtectionApplication) (core
 // noDefaultCredentials determines if a provider needs the default credentials.
 // This returns a map of providers found to if they need a default credential,
 // a boolean if Cloud Storage backup storage location was used and an error if any occured.
-func (r DPAReconciler) noDefaultCredentials(dpa oadpv1alpha1.DataProtectionApplication) (map[string]bool, bool, error) {
+func (r DPAReconciler) noDefaultCredentials() (map[string]bool, bool, error) {
+	dpa := r.dpa
 	providerNeedsDefaultCreds := map[string]bool{}
 	hasCloudStorage := false
 	if dpa.Spec.Configuration.Velero.NoDefaultBackupLocation {

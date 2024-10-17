@@ -39,11 +39,7 @@ var (
 )
 
 func (r *DPAReconciler) ReconcileNonAdminController(log logr.Logger) (bool, error) {
-	// TODO https://github.com/openshift/oadp-operator/pull/1316
-	dpa := oadpv1alpha1.DataProtectionApplication{}
-	if err := r.Get(r.Context, r.NamespacedName, &dpa); err != nil {
-		return false, err
-	}
+	dpa := r.dpa
 
 	nonAdminDeployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
@@ -53,7 +49,7 @@ func (r *DPAReconciler) ReconcileNonAdminController(log logr.Logger) (bool, erro
 	}
 
 	// Delete (possible) previously deployment
-	if !(r.checkNonAdminEnabled(&dpa) && dpa.Spec.UnsupportedOverrides[oadpv1alpha1.TechPreviewAck] == TrueVal) {
+	if !(r.checkNonAdminEnabled() && dpa.Spec.UnsupportedOverrides[oadpv1alpha1.TechPreviewAck] == TrueVal) {
 		if err := r.Get(
 			r.Context,
 			types.NamespacedName{
@@ -95,13 +91,13 @@ func (r *DPAReconciler) ReconcileNonAdminController(log logr.Logger) (bool, erro
 		r.Client,
 		nonAdminDeployment,
 		func() error {
-			err := r.buildNonAdminDeployment(nonAdminDeployment, &dpa)
+			err := r.buildNonAdminDeployment(nonAdminDeployment)
 			if err != nil {
 				return err
 			}
 
 			// Setting controller owner reference on the non admin controller deployment
-			return controllerutil.SetControllerReference(&dpa, nonAdminDeployment, r.Scheme)
+			return controllerutil.SetControllerReference(dpa, nonAdminDeployment, r.Scheme)
 		},
 	)
 	if err != nil {
@@ -119,9 +115,9 @@ func (r *DPAReconciler) ReconcileNonAdminController(log logr.Logger) (bool, erro
 	return true, nil
 }
 
-func (r *DPAReconciler) buildNonAdminDeployment(deploymentObject *appsv1.Deployment, dpa *oadpv1alpha1.DataProtectionApplication) error {
-	// TODO https://github.com/openshift/oadp-operator/pull/1316
-	nonAdminImage := r.getNonAdminImage(dpa)
+func (r *DPAReconciler) buildNonAdminDeployment(deploymentObject *appsv1.Deployment) error {
+	dpa := r.dpa
+	nonAdminImage := r.getNonAdminImage()
 	imagePullPolicy, err := common.GetImagePullPolicy(dpa.Spec.ImagePullPolicy, nonAdminImage)
 	if err != nil {
 		r.Log.Error(err, "imagePullPolicy regex failed")
@@ -193,8 +189,8 @@ func ensureRequiredSpecs(deploymentObject *appsv1.Deployment, image string, imag
 	return nil
 }
 
-func (r *DPAReconciler) checkNonAdminEnabled(dpa *oadpv1alpha1.DataProtectionApplication) bool {
-	// TODO https://github.com/openshift/oadp-operator/pull/1316
+func (r *DPAReconciler) checkNonAdminEnabled() bool {
+	dpa := r.dpa
 	if dpa.Spec.NonAdmin != nil &&
 		dpa.Spec.NonAdmin.Enable != nil {
 		return *dpa.Spec.NonAdmin.Enable
@@ -202,8 +198,8 @@ func (r *DPAReconciler) checkNonAdminEnabled(dpa *oadpv1alpha1.DataProtectionApp
 	return false
 }
 
-func (r *DPAReconciler) getNonAdminImage(dpa *oadpv1alpha1.DataProtectionApplication) string {
-	// TODO https://github.com/openshift/oadp-operator/pull/1316
+func (r *DPAReconciler) getNonAdminImage() string {
+	dpa := r.dpa
 	unsupportedOverride := dpa.Spec.UnsupportedOverrides[oadpv1alpha1.NonAdminControllerImageKey]
 	if unsupportedOverride != "" {
 		return unsupportedOverride

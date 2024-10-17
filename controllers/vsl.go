@@ -52,11 +52,7 @@ var validAzureKeys = map[string]bool{
 }
 
 func (r *DPAReconciler) LabelVSLSecrets(log logr.Logger) (bool, error) {
-	dpa := oadpv1alpha1.DataProtectionApplication{}
-	if err := r.Get(r.Context, r.NamespacedName, &dpa); err != nil {
-		return false, err
-	}
-
+	dpa := r.dpa
 	for _, vsl := range dpa.Spec.SnapshotLocations {
 		provider := strings.TrimPrefix(vsl.Velero.Provider, veleroIOPrefix)
 		switch provider {
@@ -108,7 +104,8 @@ func (r *DPAReconciler) LabelVSLSecrets(log logr.Logger) (bool, error) {
 	return true, nil
 }
 
-func (r *DPAReconciler) ValidateVolumeSnapshotLocations(dpa oadpv1alpha1.DataProtectionApplication) (bool, error) {
+func (r *DPAReconciler) ValidateVolumeSnapshotLocations() (bool, error) {
+	dpa := r.dpa
 	for i, vslSpec := range dpa.Spec.SnapshotLocations {
 		if vslSpec.Velero == nil {
 			return false, errors.New("snapshotLocation velero configuration cannot be nil")
@@ -204,7 +201,7 @@ func (r *DPAReconciler) ValidateVolumeSnapshotLocations(dpa oadpv1alpha1.DataPro
 			}
 		}
 
-		if err := r.ensureVslSecretDataExists(&dpa, &vslSpec); err != nil {
+		if err := r.ensureVslSecretDataExists(&vslSpec); err != nil {
 			return false, err
 		}
 
@@ -213,11 +210,7 @@ func (r *DPAReconciler) ValidateVolumeSnapshotLocations(dpa oadpv1alpha1.DataPro
 }
 
 func (r *DPAReconciler) ReconcileVolumeSnapshotLocations(log logr.Logger) (bool, error) {
-	dpa := oadpv1alpha1.DataProtectionApplication{}
-	if err := r.Get(r.Context, r.NamespacedName, &dpa); err != nil {
-		return false, err
-	}
-
+	dpa := r.dpa
 	dpaVSLNames := []string{}
 	// Loop through all configured VSLs
 	for i, vslSpec := range dpa.Spec.SnapshotLocations {
@@ -246,7 +239,7 @@ func (r *DPAReconciler) ReconcileVolumeSnapshotLocations(log logr.Logger) (bool,
 			// SetOwnerReference instead
 
 			// Set controller reference to Velero controller
-			err := controllerutil.SetControllerReference(&dpa, &vsl, r.Scheme)
+			err := controllerutil.SetControllerReference(dpa, &vsl, r.Scheme)
 			if err != nil {
 				return err
 			}
@@ -316,9 +309,9 @@ func containsPlugin(d []oadpv1alpha1.DefaultPlugin, value string) bool {
 	return false
 }
 
-func (r *DPAReconciler) ensureVslSecretDataExists(dpa *oadpv1alpha1.DataProtectionApplication, vsl *oadpv1alpha1.SnapshotLocation) error {
+func (r *DPAReconciler) ensureVslSecretDataExists(vsl *oadpv1alpha1.SnapshotLocation) error {
 	// Check if the Velero feature flag 'no-secret' is not set
-	if !(dpa.Spec.Configuration.Velero.HasFeatureFlag("no-secret")) {
+	if !(r.dpa.Spec.Configuration.Velero.HasFeatureFlag("no-secret")) {
 		// Check if the user specified credential under velero
 		if vsl.Velero != nil && vsl.Velero.Credential != nil {
 			// Check if user specified empty credential key

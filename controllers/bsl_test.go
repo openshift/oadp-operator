@@ -1503,8 +1503,9 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 					Name:      tt.dpa.Name,
 				},
 				EventRecorder: record.NewFakeRecorder(10),
+				dpa:           tt.dpa,
 			}
-			got, err := r.ValidateBackupStorageLocations(*tt.dpa)
+			got, err := r.ValidateBackupStorageLocations()
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ValidateBackupStorageLocations() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -1780,9 +1781,10 @@ func TestDPAReconciler_updateBSLFromSpec(t *testing.T) {
 			}
 			r := &DPAReconciler{
 				Scheme: scheme,
+				dpa:    tt.dpa,
 			}
 
-			err = r.updateBSLFromSpec(tt.bsl, tt.dpa, *tt.dpa.Spec.BackupLocations[0].Velero)
+			err = r.updateBSLFromSpec(tt.bsl, *tt.dpa.Spec.BackupLocations[0].Velero)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("updateBSLFromSpec() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -1912,6 +1914,7 @@ func TestDPAReconciler_ensureBackupLocationHasVeleroOrCloudStorage(t *testing.T)
 			}
 			r := &DPAReconciler{
 				Scheme: scheme,
+				dpa:    tt.dpa,
 			}
 			for _, bsl := range tt.dpa.Spec.BackupLocations {
 				if err := r.ensureBackupLocationHasVeleroOrCloudStorage(&bsl); (err != nil) != tt.wantErr {
@@ -2086,9 +2089,10 @@ func TestDPAReconciler_ensurePrefixWhenBackupImages(t *testing.T) {
 			}
 			r := &DPAReconciler{
 				Scheme: scheme,
+				dpa:    tt.dpa,
 			}
 			for _, bsl := range tt.dpa.Spec.BackupLocations {
-				err := r.ensurePrefixWhenBackupImages(tt.dpa, &bsl)
+				err := r.ensurePrefixWhenBackupImages(&bsl)
 				if (err != nil) != tt.wantErr {
 					t.Errorf("ensurePrefixWhenBackupImages() error = %v, wantErr %v", err, tt.wantErr)
 				}
@@ -2207,6 +2211,7 @@ func TestDPAReconciler_ReconcileBackupStorageLocations(t *testing.T) {
 					Name:      tt.dpa.Name,
 				},
 				EventRecorder: record.NewFakeRecorder(10),
+				dpa:           tt.dpa,
 			}
 			wantBSL := &velerov1.BackupStorageLocation{
 				ObjectMeta: metav1.ObjectMeta{
@@ -2558,7 +2563,9 @@ func TestDPAReconciler_ReconcileBackupStorageLocations(t *testing.T) {
 					Name:      tt.objects[0].GetName(),
 				},
 				EventRecorder: record.NewFakeRecorder(10),
+				dpa:           tt.objects[0].(*oadpv1alpha1.DataProtectionApplication),
 			}
+
 			got, err := r.ReconcileBackupStorageLocations(r.Log)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ReconcileBackupStorageLocations() error =%v, wantErr %v", err, tt.wantErr)

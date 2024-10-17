@@ -110,6 +110,7 @@ func runReconcileNonAdminControllerTest(
 			Namespace: scenario.namespace,
 		},
 		EventRecorder: event,
+		dpa:           dpa,
 	}
 	result, err := r.ReconcileNonAdminController(logr.Discard())
 
@@ -240,10 +241,10 @@ var _ = ginkgo.Describe("Test ReconcileNonAdminController function", func() {
 })
 
 func TestDPAReconcilerBuildNonAdminDeployment(t *testing.T) {
-	r := &DPAReconciler{}
+	r := &DPAReconciler{dpa: &oadpv1alpha1.DataProtectionApplication{}}
 	t.Setenv("RELATED_IMAGE_NON_ADMIN_CONTROLLER", defaultNonAdminImage)
 	deployment := createTestDeployment("test-build-deployment")
-	err := r.buildNonAdminDeployment(deployment, &oadpv1alpha1.DataProtectionApplication{})
+	err := r.buildNonAdminDeployment(deployment)
 	if err != nil {
 		t.Errorf("buildNonAdminDeployment() errored out: %v", err)
 	}
@@ -298,7 +299,6 @@ func TestEnsureRequiredSpecs(t *testing.T) {
 }
 
 func TestDPAReconcilerCheckNonAdminEnabled(t *testing.T) {
-	r := &DPAReconciler{}
 	tests := []struct {
 		name   string
 		result bool
@@ -354,7 +354,8 @@ func TestDPAReconcilerCheckNonAdminEnabled(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			result := r.checkNonAdminEnabled(test.dpa)
+			r := &DPAReconciler{dpa: test.dpa}
+			result := r.checkNonAdminEnabled()
 			if result != test.result {
 				t.Errorf("Results differ: got '%v' but expected '%v'", result, test.result)
 			}
@@ -363,7 +364,6 @@ func TestDPAReconcilerCheckNonAdminEnabled(t *testing.T) {
 }
 
 func TestDPAReconcilerGetNonAdminImage(t *testing.T) {
-	r := &DPAReconciler{}
 	tests := []struct {
 		name  string
 		image string
@@ -401,10 +401,11 @@ func TestDPAReconcilerGetNonAdminImage(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			r := &DPAReconciler{dpa: test.dpa}
 			if len(test.env) > 0 {
 				t.Setenv("RELATED_IMAGE_NON_ADMIN_CONTROLLER", test.env)
 			}
-			image := r.getNonAdminImage(test.dpa)
+			image := r.getNonAdminImage()
 			if image != test.image {
 				t.Errorf("Images differ: got '%v' but expected '%v'", image, test.image)
 			}
