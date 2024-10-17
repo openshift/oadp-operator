@@ -109,53 +109,37 @@ func (r *DPAReconciler) LabelVSLSecrets(log logr.Logger) (bool, error) {
 
 func (r *DPAReconciler) ValidateVolumeSnapshotLocations(dpa oadpv1alpha1.DataProtectionApplication) (bool, error) {
 	for i, vslSpec := range dpa.Spec.SnapshotLocations {
+		vslYAMLPath := fmt.Sprintf("spec.snapshotLocations[%v]", i)
+		veleroVSLYAMLPath := vslYAMLPath + ".velero"
+		veleroConfigYAMLPath := "spec.configuration.velero"
+
 		if vslSpec.Velero == nil {
 			return false, errors.New("snapshotLocation velero configuration cannot be nil")
-		}
-		vsl := velerov1.VolumeSnapshotLocation{
-			ObjectMeta: metav1.ObjectMeta{
-				// TODO: Use a hash instead of i
-				Name:      fmt.Sprintf("%s-%d", r.NamespacedName.Name, i+1),
-				Namespace: r.NamespacedName.Namespace,
-			},
-			Spec: *vslSpec.Velero,
 		}
 
 		// check for valid provider
 		if vslSpec.Velero.Provider != AWSProvider && vslSpec.Velero.Provider != GCPProvider &&
-			vslSpec.Velero.Provider != Azure {
-			r.Log.Info("Non-supported provider specified, might be a misconfiguration")
-
-			r.EventRecorder.Event(&vsl,
-				corev1.EventTypeWarning,
-				"VSL provider is invalid",
-				fmt.Sprintf("VSL provider %s is invalid, might be a misconfiguration", vslSpec.Velero.Provider),
-			)
+			vslSpec.Velero.Provider != AzureProvider {
+			return false, fmt.Errorf("DPA %s.provider %s is invalid: only %s, %s and %s are supported", veleroVSLYAMLPath, vslSpec.Velero.Provider, AWSProvider, GCPProvider, AzureProvider)
 		}
 
 		//AWS
 		if vslSpec.Velero.Provider == AWSProvider {
 			//in AWS, region is a required field
 			if len(vslSpec.Velero.Config[AWSRegion]) == 0 {
-				return false, errors.New("region for AWS VSL is not configured, please ensure a region is configured")
+				return false, fmt.Errorf("region for %s VSL in DPA %s.config is not configured, please ensure a region is configured", AWSProvider, veleroVSLYAMLPath)
 			}
 
 			// check for invalid config key
 			for key := range vslSpec.Velero.Config {
 				valid := validAWSKeys[key]
 				if !valid {
-					return false, fmt.Errorf("%s is not a valid AWS config value", key)
+					return false, fmt.Errorf("DPA %s.config key %s is not a valid %s config key", veleroVSLYAMLPath, key, AWSProvider)
 				}
 			}
 			//checking the aws plugin, if not present, throw warning message
 			if !containsPlugin(dpa.Spec.Configuration.Velero.DefaultPlugins, AWSProvider) {
-				r.Log.Info("VSL for AWS specified, but AWS plugin not present, might be a misconfiguration")
-
-				r.EventRecorder.Event(&vsl,
-					corev1.EventTypeWarning,
-					"VolumeSnapshotLocation is invalid",
-					fmt.Sprintf("could not validate vsl for AWS plugin on: %s/%s", vsl.Namespace, vsl.Name),
-				)
+				return false, fmt.Errorf("to use VSL for %s specified in DPA %s, %s plugin must be present in %s.defaultPlugins", AWSProvider, vslYAMLPath, AWSProvider, veleroConfigYAMLPath)
 			}
 		}
 
@@ -166,40 +150,30 @@ func (r *DPAReconciler) ValidateVolumeSnapshotLocations(dpa oadpv1alpha1.DataPro
 			for key := range vslSpec.Velero.Config {
 				valid := validGCPKeys[key]
 				if !valid {
-					return false, fmt.Errorf("%s is not a valid GCP config value", key)
+					return false, fmt.Errorf("DPA %s.config key %s is not a valid %s config key", veleroVSLYAMLPath, key, GCPProvider)
 				}
 			}
 			//checking the gcp plugin, if not present, throw warning message
 			if !containsPlugin(dpa.Spec.Configuration.Velero.DefaultPlugins, "gcp") {
-				r.Log.Info("VSL for GCP specified, but GCP plugin not present, might be a misconfiguration")
 
-				r.EventRecorder.Event(&vsl,
-					corev1.EventTypeWarning,
-					"VolumeSnapshotLocation is invalid",
-					fmt.Sprintf("could not validate vsl for GCP plugin on: %s/%s", vsl.Namespace, vsl.Name),
-				)
+				return false, fmt.Errorf("to use VSL for %s specified in DPA %s, %s plugin must be present in %s.defaultPlugins", GCPProvider, vslYAMLPath, GCPProvider, veleroConfigYAMLPath)
 			}
 		}
 
 		//Azure
-		if vslSpec.Velero.Provider == Azure {
+		if vslSpec.Velero.Provider == AzureProvider {
 
 			// check for invalid config key
 			for key := range vslSpec.Velero.Config {
 				valid := validAzureKeys[key]
 				if !valid {
-					return false, fmt.Errorf("%s is not a valid Azure config value", key)
+					return false, fmt.Errorf("DPA %s.config key %s is not a valid %s config key", veleroVSLYAMLPath, key, AzureProvider)
 				}
 			}
 			//checking the azure plugin, if not present, throw warning message
 			if !containsPlugin(dpa.Spec.Configuration.Velero.DefaultPlugins, "azure") {
-				r.Log.Info("VSL for Azure specified, but Azure plugin not present, might be a misconfiguration")
 
-				r.EventRecorder.Event(&vsl,
-					corev1.EventTypeWarning,
-					"VolumeSnapshotLocation is invalid",
-					fmt.Sprintf("could not validate vsl for Azure plugin on: %s/%s", vsl.Namespace, vsl.Name),
-				)
+				return false, fmt.Errorf("to use VSL for %s specified in DPA %s, %s plugin must be present in %s.defaultPlugins", AzureProvider, vslYAMLPath, AzureProvider, veleroConfigYAMLPath)
 			}
 		}
 
