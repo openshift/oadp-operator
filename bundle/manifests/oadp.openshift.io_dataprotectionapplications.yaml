@@ -824,6 +824,7 @@ spec:
                           items:
                             enum:
                               - aws
+                              - legacy-aws
                               - gcp
                               - azure
                               - csi
@@ -1324,6 +1325,7 @@ spec:
                     Available keys are:
                       - veleroImageFqin
                       - awsPluginImageFqin
+                      - legacyAWSPluginImageFqin
                       - openshiftPluginImageFqin
                       - azurePluginImageFqin
                       - gcpPluginImageFqin

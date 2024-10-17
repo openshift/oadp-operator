@@ -25,6 +25,7 @@ type DefaultPluginFields struct {
 	PluginImage        string
 	PluginSecretKey    string
 	PluginName         string
+	ProviderName       string
 }
 
 const (
@@ -39,6 +40,16 @@ var (
 			MountPath:          "/credentials",
 			EnvCredentialsFile: common.AWSSharedCredentialsFileEnvKey,
 			PluginName:         common.VeleroPluginForAWS,
+			ProviderName:       "aws",
+			PluginSecretKey:    "cloud",
+		},
+		oadpv1alpha1.DefaultPluginLegacyAWS: {
+			IsCloudProvider:    true,
+			SecretName:         "cloud-credentials",
+			MountPath:          "/credentials",
+			EnvCredentialsFile: common.AWSSharedCredentialsFileEnvKey,
+			PluginName:         common.VeleroPluginForLegacyAWS,
+			ProviderName:       "aws",
 			PluginSecretKey:    "cloud",
 		},
 		oadpv1alpha1.DefaultPluginGCP: {
@@ -47,6 +58,7 @@ var (
 			MountPath:          "/credentials-gcp",
 			EnvCredentialsFile: common.GCPCredentialsEnvKey,
 			PluginName:         common.VeleroPluginForGCP,
+			ProviderName:       "gcp",
 			PluginSecretKey:    "cloud",
 		},
 		oadpv1alpha1.DefaultPluginMicrosoftAzure: {
@@ -55,6 +67,7 @@ var (
 			MountPath:          "/credentials-azure",
 			EnvCredentialsFile: common.AzureCredentialsFileEnvKey,
 			PluginName:         common.VeleroPluginForAzure,
+			ProviderName:       "azure",
 			PluginSecretKey:    "cloud",
 		},
 		oadpv1alpha1.DefaultPluginOpenShift: {
@@ -94,6 +107,16 @@ func getAWSPluginImage(dpa *oadpv1alpha1.DataProtectionApplication) string {
 		return common.AWSPluginImage
 	}
 	return os.Getenv("RELATED_IMAGE_VELERO_PLUGIN_FOR_AWS")
+}
+
+func getLegacyAWSPluginImage(dpa *oadpv1alpha1.DataProtectionApplication) string {
+	if dpa.Spec.UnsupportedOverrides[oadpv1alpha1.LegacyAWSPluginImageKey] != "" {
+		return dpa.Spec.UnsupportedOverrides[oadpv1alpha1.LegacyAWSPluginImageKey]
+	}
+	if os.Getenv("RELATED_IMAGE_VELERO_PLUGIN_FOR_LEGACY_AWS") == "" {
+		return common.LegacyAWSPluginImage
+	}
+	return os.Getenv("RELATED_IMAGE_VELERO_PLUGIN_FOR_LEGACY_AWS")
 }
 
 func getGCPPluginImage(dpa *oadpv1alpha1.DataProtectionApplication) string {
@@ -141,6 +164,9 @@ func GetPluginImage(pluginName string, dpa *oadpv1alpha1.DataProtectionApplicati
 
 	case common.VeleroPluginForAWS:
 		return getAWSPluginImage(dpa)
+
+	case common.VeleroPluginForLegacyAWS:
+		return getLegacyAWSPluginImage(dpa)
 
 	case common.VeleroPluginForGCP:
 		return getGCPPluginImage(dpa)

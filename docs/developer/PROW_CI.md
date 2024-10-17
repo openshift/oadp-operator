@@ -32,6 +32,11 @@ The configuration for [OADP's Velero plugin for AWS repo](https://github.com/ope
 - https://github.com/openshift/release/tree/master/ci-operator/config/openshift/velero-plugin-for-aws
 - https://github.com/openshift/release/tree/master/ci-operator/jobs/openshift/velero-plugin-for-aws
 
+The configuration for [OADP's Velero plugin for Legacy AWS repo](https://github.com/openshift/velero-plugin-for-legacy-aws) can be found in
+- https://github.com/openshift/release/tree/master/core-services/prow/02_config/openshift/velero-plugin-for-legacy-aws
+- https://github.com/openshift/release/tree/master/ci-operator/config/openshift/velero-plugin-for-legacy-aws
+- https://github.com/openshift/release/tree/master/ci-operator/jobs/openshift/velero-plugin-for-legacy-aws
+
 The configuration for [OADP's Velero plugin for GCP repo](https://github.com/openshift/velero-plugin-for-gcp) can be found in
 - https://github.com/openshift/release/tree/master/core-services/prow/02_config/openshift/velero-plugin-for-gcp
 - https://github.com/openshift/release/tree/master/ci-operator/config/openshift/velero-plugin-for-gcp
