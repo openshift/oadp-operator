@@ -123,7 +123,7 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 					BackupLocations: []oadpv1alpha1.BackupLocation{
 						{
 							Velero: &velerov1.BackupStorageLocationSpec{
-								Provider: "aws",
+								Provider: string(oadpv1alpha1.DefaultPluginAWS),
 								Config: map[string]string{
 									Region: "us-east-1",
 								},
@@ -219,7 +219,7 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 					BackupLocations: []oadpv1alpha1.BackupLocation{
 						{
 							Velero: &velerov1.BackupStorageLocationSpec{
-								Provider: "aws",
+								Provider: string(oadpv1alpha1.DefaultPluginAWS),
 								Config: map[string]string{
 									Region: "us-east-1",
 								},
@@ -256,7 +256,7 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 					BackupLocations: []oadpv1alpha1.BackupLocation{
 						{
 							Velero: &velerov1.BackupStorageLocationSpec{
-								Provider: "aws",
+								Provider: string(oadpv1alpha1.DefaultPluginAWS),
 								Config: map[string]string{
 									Region: "us-east-1",
 								},
@@ -293,7 +293,7 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 					BackupLocations: []oadpv1alpha1.BackupLocation{
 						{
 							Velero: &velerov1.BackupStorageLocationSpec{
-								Provider: "aws",
+								Provider: string(oadpv1alpha1.DefaultPluginAWS),
 								StorageType: velerov1.StorageType{
 									ObjectStorage: &velerov1.ObjectStorageLocation{
 										Bucket: "",
@@ -335,7 +335,7 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 					BackupLocations: []oadpv1alpha1.BackupLocation{
 						{
 							Velero: &velerov1.BackupStorageLocationSpec{
-								Provider: "aws",
+								Provider: string(oadpv1alpha1.DefaultPluginAWS),
 								StorageType: velerov1.StorageType{
 									ObjectStorage: &velerov1.ObjectStorageLocation{
 										Bucket: "test-aws-bucket",
@@ -377,7 +377,7 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 					BackupLocations: []oadpv1alpha1.BackupLocation{
 						{
 							Velero: &velerov1.BackupStorageLocationSpec{
-								Provider: "aws",
+								Provider: string(oadpv1alpha1.DefaultPluginAWS),
 								StorageType: velerov1.StorageType{
 									ObjectStorage: &velerov1.ObjectStorageLocation{
 										Bucket: "test-aws-bucket",
@@ -421,7 +421,7 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 					BackupLocations: []oadpv1alpha1.BackupLocation{
 						{
 							Velero: &velerov1.BackupStorageLocationSpec{
-								Provider: "aws",
+								Provider: string(oadpv1alpha1.DefaultPluginAWS),
 								StorageType: velerov1.StorageType{
 									ObjectStorage: &velerov1.ObjectStorageLocation{
 										Bucket: "test-aws-bucket",
@@ -467,7 +467,7 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 					BackupLocations: []oadpv1alpha1.BackupLocation{
 						{
 							Velero: &velerov1.BackupStorageLocationSpec{
-								Provider: "azure",
+								Provider: string(oadpv1alpha1.DefaultPluginMicrosoftAzure),
 								StorageType: velerov1.StorageType{
 									ObjectStorage: &velerov1.ObjectStorageLocation{
 										Bucket: "test-azure-bucket",
@@ -509,7 +509,7 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 					BackupLocations: []oadpv1alpha1.BackupLocation{
 						{
 							Velero: &velerov1.BackupStorageLocationSpec{
-								Provider: "azure",
+								Provider: string(oadpv1alpha1.DefaultPluginMicrosoftAzure),
 								StorageType: velerov1.StorageType{
 									ObjectStorage: &velerov1.ObjectStorageLocation{
 										Bucket: "test-azure-bucket",
@@ -549,7 +549,7 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 					BackupLocations: []oadpv1alpha1.BackupLocation{
 						{
 							Velero: &velerov1.BackupStorageLocationSpec{
-								Provider: "gcp",
+								Provider: string(oadpv1alpha1.DefaultPluginGCP),
 								StorageType: velerov1.StorageType{
 									ObjectStorage: &velerov1.ObjectStorageLocation{},
 								},
@@ -586,7 +586,7 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 					BackupLocations: []oadpv1alpha1.BackupLocation{
 						{
 							Velero: &velerov1.BackupStorageLocationSpec{
-								Provider: "aws",
+								Provider: string(oadpv1alpha1.DefaultPluginAWS),
 								StorageType: velerov1.StorageType{
 									ObjectStorage: &velerov1.ObjectStorageLocation{
 										Bucket: "test-aws-bucket",
@@ -632,7 +632,7 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 					BackupLocations: []oadpv1alpha1.BackupLocation{
 						{
 							Velero: &velerov1.BackupStorageLocationSpec{
-								Provider: "aws",
+								Provider: string(oadpv1alpha1.DefaultPluginAWS),
 								StorageType: velerov1.StorageType{
 									ObjectStorage: &velerov1.ObjectStorageLocation{
 										Bucket: "test-aws-bucket",
@@ -676,7 +676,7 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 					BackupLocations: []oadpv1alpha1.BackupLocation{
 						{
 							Velero: &velerov1.BackupStorageLocationSpec{
-								Provider: "aws",
+								Provider: string(oadpv1alpha1.DefaultPluginAWS),
 								StorageType: velerov1.StorageType{
 									ObjectStorage: &velerov1.ObjectStorageLocation{
 										Bucket: "test-aws-bucket",
@@ -718,7 +718,7 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 					BackupLocations: []oadpv1alpha1.BackupLocation{
 						{
 							Velero: &velerov1.BackupStorageLocationSpec{
-								Provider: "gcp",
+								Provider: string(oadpv1alpha1.DefaultPluginGCP),
 								StorageType: velerov1.StorageType{
 									ObjectStorage: &velerov1.ObjectStorageLocation{
 										Bucket: "test-gcp-bucket",
@@ -757,7 +757,7 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 					BackupLocations: []oadpv1alpha1.BackupLocation{
 						{
 							Velero: &velerov1.BackupStorageLocationSpec{
-								Provider: "azure",
+								Provider: string(oadpv1alpha1.DefaultPluginMicrosoftAzure),
 								StorageType: velerov1.StorageType{
 									ObjectStorage: &velerov1.ObjectStorageLocation{
 										Bucket: "test-azure-bucket",
@@ -800,7 +800,7 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 					BackupLocations: []oadpv1alpha1.BackupLocation{
 						{
 							Velero: &velerov1.BackupStorageLocationSpec{
-								Provider: "aws",
+								Provider: string(oadpv1alpha1.DefaultPluginAWS),
 								StorageType: velerov1.StorageType{
 									ObjectStorage: &velerov1.ObjectStorageLocation{
 										Bucket: "test-aws-bucket",
@@ -821,7 +821,7 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 						},
 						{
 							Velero: &velerov1.BackupStorageLocationSpec{
-								Provider: "azure",
+								Provider: string(oadpv1alpha1.DefaultPluginMicrosoftAzure),
 								StorageType: velerov1.StorageType{
 									ObjectStorage: &velerov1.ObjectStorageLocation{
 										Bucket: "test-azure-bucket",
@@ -842,7 +842,7 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 						},
 						{
 							Velero: &velerov1.BackupStorageLocationSpec{
-								Provider: "gcp",
+								Provider: string(oadpv1alpha1.DefaultPluginGCP),
 								StorageType: velerov1.StorageType{
 									ObjectStorage: &velerov1.ObjectStorageLocation{
 										Bucket: "test-gcp-bucket",
@@ -903,7 +903,7 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 					BackupLocations: []oadpv1alpha1.BackupLocation{
 						{
 							Velero: &velerov1.BackupStorageLocationSpec{
-								Provider: "aws",
+								Provider: string(oadpv1alpha1.DefaultPluginAWS),
 								StorageType: velerov1.StorageType{
 									ObjectStorage: &velerov1.ObjectStorageLocation{
 										Bucket: "test-aws-bucket",
@@ -1047,7 +1047,7 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 					BackupLocations: []oadpv1alpha1.BackupLocation{
 						{
 							Velero: &velerov1.BackupStorageLocationSpec{
-								Provider: "aws",
+								Provider: string(oadpv1alpha1.DefaultPluginAWS),
 								StorageType: velerov1.StorageType{
 									ObjectStorage: &velerov1.ObjectStorageLocation{
 										Bucket: "test-aws-bucket",
@@ -1068,7 +1068,7 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 						},
 						{
 							Velero: &velerov1.BackupStorageLocationSpec{
-								Provider: "azure",
+								Provider: string(oadpv1alpha1.DefaultPluginMicrosoftAzure),
 								StorageType: velerov1.StorageType{
 									ObjectStorage: &velerov1.ObjectStorageLocation{
 										Bucket: "test-azure-bucket",
@@ -1089,7 +1089,7 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 						},
 						{
 							Velero: &velerov1.BackupStorageLocationSpec{
-								Provider: "gcp",
+								Provider: string(oadpv1alpha1.DefaultPluginGCP),
 								StorageType: velerov1.StorageType{
 									ObjectStorage: &velerov1.ObjectStorageLocation{
 										Bucket: "test-gcp-bucket",
@@ -1147,7 +1147,7 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 					BackupLocations: []oadpv1alpha1.BackupLocation{
 						{
 							Velero: &velerov1.BackupStorageLocationSpec{
-								Provider: "aws",
+								Provider: string(oadpv1alpha1.DefaultPluginAWS),
 								StorageType: velerov1.StorageType{
 									ObjectStorage: &velerov1.ObjectStorageLocation{
 										Bucket: "test-aws-bucket",
@@ -1188,7 +1188,7 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 					BackupLocations: []oadpv1alpha1.BackupLocation{
 						{
 							Velero: &velerov1.BackupStorageLocationSpec{
-								Provider: "aws",
+								Provider: string(oadpv1alpha1.DefaultPluginAWS),
 								StorageType: velerov1.StorageType{
 									ObjectStorage: &velerov1.ObjectStorageLocation{
 										Bucket: DiscoverableBucket,
@@ -1225,7 +1225,7 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 					BackupLocations: []oadpv1alpha1.BackupLocation{
 						{
 							Velero: &velerov1.BackupStorageLocationSpec{
-								Provider: "aws",
+								Provider: string(oadpv1alpha1.DefaultPluginAWS),
 								StorageType: velerov1.StorageType{
 									ObjectStorage: &velerov1.ObjectStorageLocation{
 										Bucket: "bucket",
@@ -1261,7 +1261,7 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 					BackupLocations: []oadpv1alpha1.BackupLocation{
 						{
 							Velero: &velerov1.BackupStorageLocationSpec{
-								Provider: "aws",
+								Provider: string(oadpv1alpha1.DefaultPluginAWS),
 								Config: map[string]string{
 									Profile:          "default",
 									S3ForcePathStyle: "true",
@@ -1301,7 +1301,7 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 					BackupLocations: []oadpv1alpha1.BackupLocation{
 						{
 							Velero: &velerov1.BackupStorageLocationSpec{
-								Provider: "aws",
+								Provider: string(oadpv1alpha1.DefaultPluginAWS),
 								Config: map[string]string{
 									Profile: "default",
 								},
@@ -1341,7 +1341,7 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 					BackupLocations: []oadpv1alpha1.BackupLocation{
 						{
 							Velero: &velerov1.BackupStorageLocationSpec{
-								Provider: "aws",
+								Provider: string(oadpv1alpha1.DefaultPluginAWS),
 								Config: map[string]string{
 									S3ForcePathStyle: "false",
 								},
@@ -1382,7 +1382,7 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 					BackupLocations: []oadpv1alpha1.BackupLocation{
 						{
 							Velero: &velerov1.BackupStorageLocationSpec{
-								Provider: "aws",
+								Provider: string(oadpv1alpha1.DefaultPluginAWS),
 								Config: map[string]string{
 									S3ForcePathStyle: "true",
 								},
@@ -1421,7 +1421,7 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 					BackupLocations: []oadpv1alpha1.BackupLocation{
 						{
 							Velero: &velerov1.BackupStorageLocationSpec{
-								Provider: "aws",
+								Provider: string(oadpv1alpha1.DefaultPluginAWS),
 								Config: map[string]string{
 									S3ForcePathStyle: "true",
 									Region:           "noobaa",
@@ -1462,7 +1462,7 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 					BackupLocations: []oadpv1alpha1.BackupLocation{
 						{
 							Velero: &velerov1.BackupStorageLocationSpec{
-								Provider: "aws",
+								Provider: string(oadpv1alpha1.DefaultPluginAWS),
 								Config: map[string]string{
 									S3ForcePathStyle: "true",
 								},
@@ -1546,7 +1546,7 @@ func TestDPAReconciler_updateBSLFromSpec(t *testing.T) {
 					BackupLocations: []oadpv1alpha1.BackupLocation{
 						{
 							Velero: &velerov1.BackupStorageLocationSpec{
-								Provider: "aws",
+								Provider: string(oadpv1alpha1.DefaultPluginAWS),
 								StorageType: velerov1.StorageType{
 									ObjectStorage: &velerov1.ObjectStorageLocation{
 										Bucket: "test-aws-bucket",
@@ -1590,7 +1590,7 @@ func TestDPAReconciler_updateBSLFromSpec(t *testing.T) {
 					}},
 				},
 				Spec: velerov1.BackupStorageLocationSpec{
-					Provider: "aws",
+					Provider: string(oadpv1alpha1.DefaultPluginAWS),
 					StorageType: velerov1.StorageType{
 						ObjectStorage: &velerov1.ObjectStorageLocation{
 							Bucket: "test-aws-bucket",
@@ -1629,7 +1629,7 @@ func TestDPAReconciler_updateBSLFromSpec(t *testing.T) {
 					BackupLocations: []oadpv1alpha1.BackupLocation{
 						{
 							Velero: &velerov1.BackupStorageLocationSpec{
-								Provider: "aws",
+								Provider: string(oadpv1alpha1.DefaultPluginAWS),
 								StorageType: velerov1.StorageType{
 									ObjectStorage: &velerov1.ObjectStorageLocation{
 										Bucket: "test-aws-bucket",
@@ -1670,7 +1670,7 @@ func TestDPAReconciler_updateBSLFromSpec(t *testing.T) {
 					}},
 				},
 				Spec: velerov1.BackupStorageLocationSpec{
-					Provider: "aws",
+					Provider: string(oadpv1alpha1.DefaultPluginAWS),
 					StorageType: velerov1.StorageType{
 						ObjectStorage: &velerov1.ObjectStorageLocation{
 							Bucket: "test-aws-bucket",
@@ -1705,7 +1705,7 @@ func TestDPAReconciler_updateBSLFromSpec(t *testing.T) {
 					BackupLocations: []oadpv1alpha1.BackupLocation{
 						{
 							Velero: &velerov1.BackupStorageLocationSpec{
-								Provider: "aws",
+								Provider: string(oadpv1alpha1.DefaultPluginAWS),
 								StorageType: velerov1.StorageType{
 									ObjectStorage: &velerov1.ObjectStorageLocation{
 										Bucket: "test-aws-bucket",
@@ -1750,7 +1750,7 @@ func TestDPAReconciler_updateBSLFromSpec(t *testing.T) {
 					}},
 				},
 				Spec: velerov1.BackupStorageLocationSpec{
-					Provider: "aws",
+					Provider: string(oadpv1alpha1.DefaultPluginAWS),
 					StorageType: velerov1.StorageType{
 						ObjectStorage: &velerov1.ObjectStorageLocation{
 							Bucket: "test-aws-bucket",
@@ -1819,17 +1819,17 @@ func TestDPAReconciler_ensureBackupLocationHasVeleroOrCloudStorage(t *testing.T)
 					BackupLocations: []oadpv1alpha1.BackupLocation{
 						{
 							Velero: &velerov1.BackupStorageLocationSpec{
-								Provider: "aws",
+								Provider: string(oadpv1alpha1.DefaultPluginAWS),
 							},
 						},
 						{
 							Velero: &velerov1.BackupStorageLocationSpec{
-								Provider: "azure",
+								Provider: string(oadpv1alpha1.DefaultPluginMicrosoftAzure),
 							},
 						},
 						{
 							Velero: &velerov1.BackupStorageLocationSpec{
-								Provider: "gcp",
+								Provider: string(oadpv1alpha1.DefaultPluginGCP),
 							},
 						},
 					},
@@ -1848,7 +1848,7 @@ func TestDPAReconciler_ensureBackupLocationHasVeleroOrCloudStorage(t *testing.T)
 					BackupLocations: []oadpv1alpha1.BackupLocation{
 						{
 							Velero: &velerov1.BackupStorageLocationSpec{
-								Provider: "aws",
+								Provider: string(oadpv1alpha1.DefaultPluginAWS),
 							},
 							CloudStorage: &oadpv1alpha1.CloudStorageLocation{
 								CloudStorageRef: corev1.LocalObjectReference{
@@ -1872,32 +1872,32 @@ func TestDPAReconciler_ensureBackupLocationHasVeleroOrCloudStorage(t *testing.T)
 					BackupLocations: []oadpv1alpha1.BackupLocation{
 						{
 							Velero: &velerov1.BackupStorageLocationSpec{
-								Provider: "aws",
+								Provider: string(oadpv1alpha1.DefaultPluginAWS),
 							},
 						},
 						{
 							Velero: &velerov1.BackupStorageLocationSpec{
-								Provider: "aws",
+								Provider: string(oadpv1alpha1.DefaultPluginAWS),
 							},
 						},
 						{
 							Velero: &velerov1.BackupStorageLocationSpec{
-								Provider: "azure",
+								Provider: string(oadpv1alpha1.DefaultPluginMicrosoftAzure),
 							},
 						},
 						{
 							Velero: &velerov1.BackupStorageLocationSpec{
-								Provider: "azure",
+								Provider: string(oadpv1alpha1.DefaultPluginMicrosoftAzure),
 							},
 						},
 						{
 							Velero: &velerov1.BackupStorageLocationSpec{
-								Provider: "gcp",
+								Provider: string(oadpv1alpha1.DefaultPluginGCP),
 							},
 						},
 						{
 							Velero: &velerov1.BackupStorageLocationSpec{
-								Provider: "gcp",
+								Provider: string(oadpv1alpha1.DefaultPluginGCP),
 							},
 						},
 					},
@@ -2127,7 +2127,7 @@ func TestDPAReconciler_ReconcileBackupStorageLocations(t *testing.T) {
 				Key: "credentials",
 			},
 			Name:     "test-cs",
-			Provider: "aws",
+			Provider: oadpv1alpha1.AWSBucketProvider,
 		},
 	}
 
@@ -2150,7 +2150,7 @@ func TestDPAReconciler_ReconcileBackupStorageLocations(t *testing.T) {
 					BackupLocations: []oadpv1alpha1.BackupLocation{
 						{
 							Velero: &velerov1.BackupStorageLocationSpec{
-								Provider: "aws",
+								Provider: string(oadpv1alpha1.DefaultPluginAWS),
 								Config: map[string]string{
 									Region: "us-east-1",
 								},
@@ -2269,7 +2269,7 @@ func TestDPAReconciler_ReconcileBackupStorageLocations(t *testing.T) {
 						BackupLocations: []oadpv1alpha1.BackupLocation{
 							{
 								Velero: &velerov1.BackupStorageLocationSpec{
-									Provider: "aws",
+									Provider: string(oadpv1alpha1.DefaultPluginAWS),
 									Config: map[string]string{
 										Region: "us-east-1",
 									},
@@ -2305,7 +2305,7 @@ func TestDPAReconciler_ReconcileBackupStorageLocations(t *testing.T) {
 					Namespace: "test-ns",
 				},
 				Spec: velerov1.BackupStorageLocationSpec{
-					Provider: "aws",
+					Provider: string(oadpv1alpha1.DefaultPluginAWS),
 					Config: map[string]string{
 						Region:            "us-east-1",
 						checksumAlgorithm: "",
@@ -2364,7 +2364,7 @@ func TestDPAReconciler_ReconcileBackupStorageLocations(t *testing.T) {
 						Namespace: "test-ns",
 					},
 					Spec: oadpv1alpha1.CloudStorageSpec{
-						Provider: "aws",
+						Provider: oadpv1alpha1.AWSBucketProvider,
 						CreationSecret: corev1.SecretKeySelector{
 							LocalObjectReference: corev1.LocalObjectReference{
 								Name: "cloud-credentials",
@@ -2382,7 +2382,7 @@ func TestDPAReconciler_ReconcileBackupStorageLocations(t *testing.T) {
 					Namespace: "test-ns",
 				},
 				Spec: velerov1.BackupStorageLocationSpec{
-					Provider: "aws",
+					Provider: string(oadpv1alpha1.DefaultPluginAWS),
 					StorageType: velerov1.StorageType{
 						ObjectStorage: &velerov1.ObjectStorageLocation{
 							Prefix: "test-prefix",
@@ -2409,7 +2409,7 @@ func TestDPAReconciler_ReconcileBackupStorageLocations(t *testing.T) {
 						BackupLocations: []oadpv1alpha1.BackupLocation{
 							{
 								Velero: &velerov1.BackupStorageLocationSpec{
-									Provider: "aws",
+									Provider: string(oadpv1alpha1.DefaultPluginAWS),
 									Config: map[string]string{
 										Region: "us-east-1",
 									},
@@ -2447,7 +2447,7 @@ func TestDPAReconciler_ReconcileBackupStorageLocations(t *testing.T) {
 					Namespace: "test-ns",
 				},
 				Spec: velerov1.BackupStorageLocationSpec{
-					Provider: "aws",
+					Provider: string(oadpv1alpha1.DefaultPluginAWS),
 					Config: map[string]string{
 						Region:            "us-east-1",
 						checksumAlgorithm: "",
@@ -2509,7 +2509,7 @@ func TestDPAReconciler_ReconcileBackupStorageLocations(t *testing.T) {
 						Namespace: "test-ns",
 					},
 					Spec: oadpv1alpha1.CloudStorageSpec{
-						Provider: "aws",
+						Provider: oadpv1alpha1.AWSBucketProvider,
 						CreationSecret: corev1.SecretKeySelector{
 							LocalObjectReference: corev1.LocalObjectReference{
 								Name: "cloud-credentials",
@@ -2529,7 +2529,7 @@ func TestDPAReconciler_ReconcileBackupStorageLocations(t *testing.T) {
 					Namespace: "test-ns",
 				},
 				Spec: velerov1.BackupStorageLocationSpec{
-					Provider: "aws",
+					Provider: string(oadpv1alpha1.DefaultPluginAWS),
 					StorageType: velerov1.StorageType{
 						ObjectStorage: &velerov1.ObjectStorageLocation{
 							Bucket: "test-bucket",

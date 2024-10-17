@@ -56,7 +56,7 @@ func (r *DPAReconciler) LabelVSLSecrets(log logr.Logger) (bool, error) {
 	for _, vsl := range dpa.Spec.SnapshotLocations {
 		provider := strings.TrimPrefix(vsl.Velero.Provider, veleroIOPrefix)
 		switch provider {
-		case "aws":
+		case string(oadpv1alpha1.DefaultPluginAWS):
 			if vsl.Velero.Credential != nil {
 				secretName := vsl.Velero.Credential.Name
 				_, err := r.UpdateCredentialsSecretLabels(secretName, dpa.Namespace, dpa.Name)
@@ -70,7 +70,7 @@ func (r *DPAReconciler) LabelVSLSecrets(log logr.Logger) (bool, error) {
 					return false, err
 				}
 			}
-		case "gcp":
+		case string(oadpv1alpha1.DefaultPluginGCP):
 			if vsl.Velero.Credential != nil {
 				secretName := vsl.Velero.Credential.Name
 				_, err := r.UpdateCredentialsSecretLabels(secretName, dpa.Namespace, dpa.Name)
@@ -84,7 +84,7 @@ func (r *DPAReconciler) LabelVSLSecrets(log logr.Logger) (bool, error) {
 					return false, err
 				}
 			}
-		case "azure":
+		case string(oadpv1alpha1.DefaultPluginMicrosoftAzure):
 			if vsl.Velero.Credential != nil {
 				secretName := vsl.Velero.Credential.Name
 				_, err := r.UpdateCredentialsSecretLabels(secretName, dpa.Namespace, dpa.Name)
@@ -116,62 +116,63 @@ func (r *DPAReconciler) ValidateVolumeSnapshotLocations() (bool, error) {
 		}
 
 		// check for valid provider
-		if vslSpec.Velero.Provider != AWSProvider && vslSpec.Velero.Provider != GCPProvider &&
-			vslSpec.Velero.Provider != AzureProvider {
-			return false, fmt.Errorf("DPA %s.provider %s is invalid: only %s, %s and %s are supported", veleroVSLYAMLPath, vslSpec.Velero.Provider, AWSProvider, GCPProvider, AzureProvider)
+		if vslSpec.Velero.Provider != string(oadpv1alpha1.DefaultPluginAWS) &&
+			vslSpec.Velero.Provider != string(oadpv1alpha1.DefaultPluginGCP) &&
+			vslSpec.Velero.Provider != string(oadpv1alpha1.DefaultPluginMicrosoftAzure) {
+			return false, fmt.Errorf("DPA %s.provider %s is invalid: only %s, %s and %s are supported", veleroVSLYAMLPath, vslSpec.Velero.Provider, string(oadpv1alpha1.DefaultPluginAWS), string(oadpv1alpha1.DefaultPluginGCP), string(oadpv1alpha1.DefaultPluginMicrosoftAzure))
 		}
 
 		//AWS
-		if vslSpec.Velero.Provider == AWSProvider {
+		if vslSpec.Velero.Provider == string(oadpv1alpha1.DefaultPluginAWS) {
 			//in AWS, region is a required field
 			if len(vslSpec.Velero.Config[AWSRegion]) == 0 {
-				return false, fmt.Errorf("region for %s VSL in DPA %s.config is not configured, please ensure a region is configured", AWSProvider, veleroVSLYAMLPath)
+				return false, fmt.Errorf("region for %s VSL in DPA %s.config is not configured, please ensure a region is configured", string(oadpv1alpha1.DefaultPluginAWS), veleroVSLYAMLPath)
 			}
 
 			// check for invalid config key
 			for key := range vslSpec.Velero.Config {
 				valid := validAWSKeys[key]
 				if !valid {
-					return false, fmt.Errorf("DPA %s.config key %s is not a valid %s config key", veleroVSLYAMLPath, key, AWSProvider)
+					return false, fmt.Errorf("DPA %s.config key %s is not a valid %s config key", veleroVSLYAMLPath, key, string(oadpv1alpha1.DefaultPluginAWS))
 				}
 			}
 			//checking the aws plugin, if not present, throw warning message
-			if !containsPlugin(dpa.Spec.Configuration.Velero.DefaultPlugins, AWSProvider) {
-				return false, fmt.Errorf("to use VSL for %s specified in DPA %s, %s plugin must be present in %s.defaultPlugins", AWSProvider, vslYAMLPath, AWSProvider, veleroConfigYAMLPath)
+			if !containsPlugin(dpa.Spec.Configuration.Velero.DefaultPlugins, string(oadpv1alpha1.DefaultPluginAWS)) {
+				return false, fmt.Errorf("to use VSL for %s specified in DPA %s, %s plugin must be present in %s.defaultPlugins", string(oadpv1alpha1.DefaultPluginAWS), vslYAMLPath, string(oadpv1alpha1.DefaultPluginAWS), veleroConfigYAMLPath)
 			}
 		}
 
 		//GCP
-		if vslSpec.Velero.Provider == GCPProvider {
+		if vslSpec.Velero.Provider == string(oadpv1alpha1.DefaultPluginGCP) {
 
 			// check for invalid config key
 			for key := range vslSpec.Velero.Config {
 				valid := validGCPKeys[key]
 				if !valid {
-					return false, fmt.Errorf("DPA %s.config key %s is not a valid %s config key", veleroVSLYAMLPath, key, GCPProvider)
+					return false, fmt.Errorf("DPA %s.config key %s is not a valid %s config key", veleroVSLYAMLPath, key, string(oadpv1alpha1.DefaultPluginGCP))
 				}
 			}
 			//checking the gcp plugin, if not present, throw warning message
-			if !containsPlugin(dpa.Spec.Configuration.Velero.DefaultPlugins, "gcp") {
+			if !containsPlugin(dpa.Spec.Configuration.Velero.DefaultPlugins, string(oadpv1alpha1.DefaultPluginGCP)) {
 
-				return false, fmt.Errorf("to use VSL for %s specified in DPA %s, %s plugin must be present in %s.defaultPlugins", GCPProvider, vslYAMLPath, GCPProvider, veleroConfigYAMLPath)
+				return false, fmt.Errorf("to use VSL for %s specified in DPA %s, %s plugin must be present in %s.defaultPlugins", string(oadpv1alpha1.DefaultPluginGCP), vslYAMLPath, string(oadpv1alpha1.DefaultPluginGCP), veleroConfigYAMLPath)
 			}
 		}
 
 		//Azure
-		if vslSpec.Velero.Provider == AzureProvider {
+		if vslSpec.Velero.Provider == string(oadpv1alpha1.DefaultPluginMicrosoftAzure) {
 
 			// check for invalid config key
 			for key := range vslSpec.Velero.Config {
 				valid := validAzureKeys[key]
 				if !valid {
-					return false, fmt.Errorf("DPA %s.config key %s is not a valid %s config key", veleroVSLYAMLPath, key, AzureProvider)
+					return false, fmt.Errorf("DPA %s.config key %s is not a valid %s config key", veleroVSLYAMLPath, key, string(oadpv1alpha1.DefaultPluginMicrosoftAzure))
 				}
 			}
 			//checking the azure plugin, if not present, throw warning message
-			if !containsPlugin(dpa.Spec.Configuration.Velero.DefaultPlugins, "azure") {
+			if !containsPlugin(dpa.Spec.Configuration.Velero.DefaultPlugins, string(oadpv1alpha1.DefaultPluginMicrosoftAzure)) {
 
-				return false, fmt.Errorf("to use VSL for %s specified in DPA %s, %s plugin must be present in %s.defaultPlugins", AzureProvider, vslYAMLPath, AzureProvider, veleroConfigYAMLPath)
+				return false, fmt.Errorf("to use VSL for %s specified in DPA %s, %s plugin must be present in %s.defaultPlugins", string(oadpv1alpha1.DefaultPluginMicrosoftAzure), vslYAMLPath, string(oadpv1alpha1.DefaultPluginMicrosoftAzure), veleroConfigYAMLPath)
 			}
 		}
 

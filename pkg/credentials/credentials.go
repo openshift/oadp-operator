@@ -336,16 +336,16 @@ func BslUsesShortLivedCredential(bls []oadpv1alpha1.BackupLocation, namespace st
 
 func SecretContainsShortLivedCredential(secretName, secretKey, provider, namespace string, config map[string]string) (bool, error) {
 	switch provider {
-	case "aws":
+	case string(oadpv1alpha1.DefaultPluginAWS):
 		// AWS credentials short lived are determined by enableSharedConfig
 		// if enableSharedConfig is not set, then we assume it is not short lived
 		// if enableSharedConfig is set, then we assume it is short lived
 		// Alternatively, we can check if the secret contains a session token
 		// TODO: check if secret contains session token
 		return false, nil
-	case "gcp":
+	case string(oadpv1alpha1.DefaultPluginGCP):
 		return gcpSecretAccountTypeIsShortLived(secretName, secretKey, namespace)
-	case "azure":
+	case string(oadpv1alpha1.DefaultPluginMicrosoftAzure):
 		// TODO: check if secret contains session token
 		return false, nil
 	}

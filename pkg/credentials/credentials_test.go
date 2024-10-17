@@ -398,7 +398,7 @@ func TestSecretContainsShortLivedCredential(t *testing.T) {
   "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/SERVICE_ACCOUNT_EMAIL"
 }
 `,
-				provider: "gcp",
+				provider: string(oadpv1alpha1.DefaultPluginGCP),
 				config:   nil,
 			},
 			want:    false,
@@ -418,7 +418,7 @@ func TestSecretContainsShortLivedCredential(t *testing.T) {
   }
 }
 `,
-				provider: "gcp",
+				provider: string(oadpv1alpha1.DefaultPluginGCP),
 				config:   nil,
 			},
 			want:    true,

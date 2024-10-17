@@ -47,19 +47,18 @@ func (r *DPAReconciler) ValidateBackupStorageLocations() (bool, error) {
 				return false, fmt.Errorf("no provider specified for one of the backupstoragelocations configured")
 			}
 
-			// TODO: cases might need some updates for IBM/Minio/noobaa
 			switch provider {
-			case AWSProvider, "velero.io/aws":
+			case string(oadpv1alpha1.DefaultPluginAWS), "velero.io/aws":
 				err := r.validateAWSBackupStorageLocation(*bslSpec.Velero)
 				if err != nil {
 					return false, err
 				}
-			case AzureProvider, "velero.io/azure":
+			case string(oadpv1alpha1.DefaultPluginMicrosoftAzure), "velero.io/azure":
 				err := r.validateAzureBackupStorageLocation(*bslSpec.Velero)
 				if err != nil {
 					return false, err
 				}
-			case GCPProvider, "velero.io/gcp":
+			case string(oadpv1alpha1.DefaultPluginGCP), "velero.io/gcp":
 				err := r.validateGCPBackupStorageLocation(*bslSpec.Velero)
 				if err != nil {
 					return false, err
@@ -175,7 +174,7 @@ func (r *DPAReconciler) ReconcileBackupStorageLocations(log logr.Logger) (bool, 
 				}
 				switch bucket.Spec.Provider {
 				case oadpv1alpha1.AWSBucketProvider:
-					bsl.Spec.Provider = AWSProvider
+					bsl.Spec.Provider = string(oadpv1alpha1.DefaultPluginAWS)
 				case oadpv1alpha1.AzureBucketProvider:
 					return fmt.Errorf("azure provider not yet supported")
 				case oadpv1alpha1.GCPBucketProvider:
@@ -271,7 +270,7 @@ func (r *DPAReconciler) updateBSLFromSpec(bsl *velerov1.BackupStorageLocation, b
 	// However, the registry deployment fails without a valid storage account key.
 	// This logic prevents the registry pods from being deployed if Azure SP is used as an auth mechanism.
 	registryDeployment := "True"
-	if bslSpec.Provider == "azure" && bslSpec.Config != nil {
+	if bslSpec.Provider == string(oadpv1alpha1.DefaultPluginMicrosoftAzure) && bslSpec.Config != nil {
 		if len(bslSpec.Config["storageAccountKeyEnvVar"]) == 0 {
 			registryDeployment = "False"
 		}
@@ -280,7 +279,7 @@ func (r *DPAReconciler) updateBSLFromSpec(bsl *velerov1.BackupStorageLocation, b
 	// (80 for HTTP and 443 for HTTPS) before calculating a signature, and not
 	// all S3-compatible services do this. Remove the ports here to avoid 403
 	// errors from mismatched signatures.
-	if bslSpec.Provider == "aws" && bslSpec.Config != nil {
+	if bslSpec.Provider == string(oadpv1alpha1.DefaultPluginAWS) && bslSpec.Config != nil {
 		s3Url := bslSpec.Config["s3Url"]
 		if len(s3Url) > 0 {
 			if s3Url, err = common.StripDefaultPorts(s3Url); err == nil {

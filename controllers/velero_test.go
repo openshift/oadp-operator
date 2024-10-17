@@ -1490,7 +1490,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 					BackupLocations: []oadpv1alpha1.BackupLocation{
 						{
 							Velero: &velerov1.BackupStorageLocationSpec{
-								Provider: AWSProvider,
+								Provider: string(oadpv1alpha1.DefaultPluginAWS),
 								StorageType: velerov1.StorageType{
 									ObjectStorage: &velerov1.ObjectStorageLocation{
 										Bucket: "aws-bucket",
