@@ -17,7 +17,7 @@ func TestCredentials_getPluginImage(t *testing.T) {
 	tests := []struct {
 		name       string
 		dpa        *oadpv1alpha1.DataProtectionApplication
-		pluginName string
+		pluginName oadpv1alpha1.DefaultPlugin
 		wantImage  string
 		setEnvVars map[string]string
 	}{
@@ -42,7 +42,7 @@ func TestCredentials_getPluginImage(t *testing.T) {
 					},
 				},
 			},
-			pluginName: common.VeleroPluginForAWS,
+			pluginName: oadpv1alpha1.DefaultPluginAWS,
 			wantImage:  "test-image",
 			setEnvVars: make(map[string]string),
 		},
@@ -63,7 +63,7 @@ func TestCredentials_getPluginImage(t *testing.T) {
 					},
 				},
 			},
-			pluginName: common.VeleroPluginForAWS,
+			pluginName: oadpv1alpha1.DefaultPluginAWS,
 			wantImage:  common.AWSPluginImage,
 			setEnvVars: make(map[string]string),
 		},
@@ -84,13 +84,86 @@ func TestCredentials_getPluginImage(t *testing.T) {
 					},
 				},
 			},
-			pluginName: common.VeleroPluginForAWS,
+			pluginName: oadpv1alpha1.DefaultPluginAWS,
 			wantImage:  "quay.io/konveyor/velero-plugin-for-aws:latest",
 			setEnvVars: map[string]string{
 				"REGISTRY":               "quay.io",
 				"PROJECT":                "konveyor",
 				"VELERO_AWS_PLUGIN_REPO": "velero-plugin-for-aws",
 				"VELERO_AWS_PLUGIN_TAG":  "latest",
+			},
+		},
+
+		// Legacy AWS tests
+		{
+			name: "given legacy aws plugin override, custom aws image should be returned",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-Velero-CR",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+								oadpv1alpha1.DefaultPluginLegacyAWS,
+							},
+						},
+					},
+					UnsupportedOverrides: map[oadpv1alpha1.UnsupportedImageKey]string{
+						oadpv1alpha1.LegacyAWSPluginImageKey: "test-image",
+					},
+				},
+			},
+			pluginName: oadpv1alpha1.DefaultPluginLegacyAWS,
+			wantImage:  "test-image",
+			setEnvVars: make(map[string]string),
+		},
+		{
+			name: "given default Velero CR with no env var, default legacy aws image should be returned",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-Velero-CR",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+								oadpv1alpha1.DefaultPluginLegacyAWS,
+							},
+						},
+					},
+				},
+			},
+			pluginName: oadpv1alpha1.DefaultPluginLegacyAWS,
+			wantImage:  common.LegacyAWSPluginImage,
+			setEnvVars: make(map[string]string),
+		},
+		{
+			name: "given default Velero CR with env var set, image should be built via env vars",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-Velero-CR",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+								oadpv1alpha1.DefaultPluginLegacyAWS,
+							},
+						},
+					},
+				},
+			},
+			pluginName: oadpv1alpha1.DefaultPluginLegacyAWS,
+			wantImage:  "quay.io/konveyor/velero-plugin-for-legacy-aws:latest",
+			setEnvVars: map[string]string{
+				"REGISTRY":                      "quay.io",
+				"PROJECT":                       "konveyor",
+				"VELERO_LEGACY_AWS_PLUGIN_REPO": "velero-plugin-for-legacy-aws",
+				"VELERO_LEGACY_AWS_PLUGIN_TAG":  "latest",
 			},
 		},
 
@@ -115,7 +188,7 @@ func TestCredentials_getPluginImage(t *testing.T) {
 					},
 				},
 			},
-			pluginName: common.VeleroPluginForOpenshift,
+			pluginName: oadpv1alpha1.DefaultPluginOpenShift,
 			wantImage:  "test-image",
 			setEnvVars: make(map[string]string),
 		},
@@ -136,7 +209,7 @@ func TestCredentials_getPluginImage(t *testing.T) {
 					},
 				},
 			},
-			pluginName: common.VeleroPluginForOpenshift,
+			pluginName: oadpv1alpha1.DefaultPluginOpenShift,
 			wantImage:  common.OpenshiftPluginImage,
 			setEnvVars: make(map[string]string),
 		},
@@ -157,7 +230,7 @@ func TestCredentials_getPluginImage(t *testing.T) {
 					},
 				},
 			},
-			pluginName: common.VeleroPluginForOpenshift,
+			pluginName: oadpv1alpha1.DefaultPluginOpenShift,
 			wantImage:  "quay.io/konveyor/openshift-velero-plugin:latest",
 			setEnvVars: map[string]string{
 				"REGISTRY":                     "quay.io",
@@ -188,7 +261,7 @@ func TestCredentials_getPluginImage(t *testing.T) {
 					},
 				},
 			},
-			pluginName: common.VeleroPluginForGCP,
+			pluginName: oadpv1alpha1.DefaultPluginGCP,
 			wantImage:  "test-image",
 			setEnvVars: make(map[string]string),
 		},
@@ -209,7 +282,7 @@ func TestCredentials_getPluginImage(t *testing.T) {
 					},
 				},
 			},
-			pluginName: common.VeleroPluginForGCP,
+			pluginName: oadpv1alpha1.DefaultPluginGCP,
 			wantImage:  common.GCPPluginImage,
 			setEnvVars: make(map[string]string),
 		},
@@ -230,7 +303,7 @@ func TestCredentials_getPluginImage(t *testing.T) {
 					},
 				},
 			},
-			pluginName: common.VeleroPluginForGCP,
+			pluginName: oadpv1alpha1.DefaultPluginGCP,
 			wantImage:  "quay.io/konveyor/velero-plugin-for-gcp:latest",
 			setEnvVars: map[string]string{
 				"REGISTRY":               "quay.io",
@@ -261,7 +334,7 @@ func TestCredentials_getPluginImage(t *testing.T) {
 					},
 				},
 			},
-			pluginName: common.VeleroPluginForAzure,
+			pluginName: oadpv1alpha1.DefaultPluginMicrosoftAzure,
 			wantImage:  "test-image",
 			setEnvVars: make(map[string]string),
 		},
@@ -282,7 +355,7 @@ func TestCredentials_getPluginImage(t *testing.T) {
 					},
 				},
 			},
-			pluginName: common.VeleroPluginForAzure,
+			pluginName: oadpv1alpha1.DefaultPluginMicrosoftAzure,
 			wantImage:  common.AzurePluginImage,
 			setEnvVars: make(map[string]string),
 		},
@@ -303,7 +376,7 @@ func TestCredentials_getPluginImage(t *testing.T) {
 					},
 				},
 			},
-			pluginName: common.VeleroPluginForAzure,
+			pluginName: oadpv1alpha1.DefaultPluginMicrosoftAzure,
 			wantImage:  "quay.io/konveyor/velero-plugin-for-microsoft-azure:latest",
 			setEnvVars: map[string]string{
 				"REGISTRY":                 "quay.io",
@@ -330,7 +403,7 @@ func TestCredentials_getPluginImage(t *testing.T) {
 					},
 				},
 			},
-			pluginName: common.KubeVirtPlugin,
+			pluginName: oadpv1alpha1.DefaultPluginKubeVirt,
 			wantImage:  "quay.io/konveyor/kubevirt-velero-plugin:v0.7.0",
 		},
 		{
@@ -350,7 +423,7 @@ func TestCredentials_getPluginImage(t *testing.T) {
 					},
 				},
 			},
-			pluginName: common.KubeVirtPlugin,
+			pluginName: oadpv1alpha1.DefaultPluginKubeVirt,
 			wantImage:  "quay.io/kubevirt/kubevirt-velero-plugin:latest",
 			setEnvVars: map[string]string{
 				"RELATED_IMAGE_KUBEVIRT_VELERO_PLUGIN": "quay.io/kubevirt/kubevirt-velero-plugin:latest",

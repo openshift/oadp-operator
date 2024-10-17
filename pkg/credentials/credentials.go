@@ -25,6 +25,7 @@ type DefaultPluginFields struct {
 	PluginImage        string
 	PluginSecretKey    string
 	PluginName         string
+	ProviderName       string
 }
 
 const (
@@ -39,6 +40,16 @@ var (
 			MountPath:          "/credentials",
 			EnvCredentialsFile: common.AWSSharedCredentialsFileEnvKey,
 			PluginName:         common.VeleroPluginForAWS,
+			ProviderName:       string(oadpv1alpha1.DefaultPluginAWS),
+			PluginSecretKey:    "cloud",
+		},
+		oadpv1alpha1.DefaultPluginLegacyAWS: {
+			IsCloudProvider:    true,
+			SecretName:         "cloud-credentials",
+			MountPath:          "/credentials",
+			EnvCredentialsFile: common.AWSSharedCredentialsFileEnvKey,
+			PluginName:         common.VeleroPluginForLegacyAWS,
+			ProviderName:       string(oadpv1alpha1.DefaultPluginAWS),
 			PluginSecretKey:    "cloud",
 		},
 		oadpv1alpha1.DefaultPluginGCP: {
@@ -47,6 +58,7 @@ var (
 			MountPath:          "/credentials-gcp",
 			EnvCredentialsFile: common.GCPCredentialsEnvKey,
 			PluginName:         common.VeleroPluginForGCP,
+			ProviderName:       string(oadpv1alpha1.DefaultPluginGCP),
 			PluginSecretKey:    "cloud",
 		},
 		oadpv1alpha1.DefaultPluginMicrosoftAzure: {
@@ -55,6 +67,7 @@ var (
 			MountPath:          "/credentials-azure",
 			EnvCredentialsFile: common.AzureCredentialsFileEnvKey,
 			PluginName:         common.VeleroPluginForAzure,
+			ProviderName:       string(oadpv1alpha1.DefaultPluginMicrosoftAzure),
 			PluginSecretKey:    "cloud",
 		},
 		oadpv1alpha1.DefaultPluginOpenShift: {
@@ -94,6 +107,16 @@ func getAWSPluginImage(dpa *oadpv1alpha1.DataProtectionApplication) string {
 		return common.AWSPluginImage
 	}
 	return os.Getenv("RELATED_IMAGE_VELERO_PLUGIN_FOR_AWS")
+}
+
+func getLegacyAWSPluginImage(dpa *oadpv1alpha1.DataProtectionApplication) string {
+	if dpa.Spec.UnsupportedOverrides[oadpv1alpha1.LegacyAWSPluginImageKey] != "" {
+		return dpa.Spec.UnsupportedOverrides[oadpv1alpha1.LegacyAWSPluginImageKey]
+	}
+	if os.Getenv("RELATED_IMAGE_VELERO_PLUGIN_FOR_LEGACY_AWS") == "" {
+		return common.LegacyAWSPluginImage
+	}
+	return os.Getenv("RELATED_IMAGE_VELERO_PLUGIN_FOR_LEGACY_AWS")
 }
 
 func getGCPPluginImage(dpa *oadpv1alpha1.DataProtectionApplication) string {
@@ -136,22 +159,25 @@ func getKubeVirtPluginImage(dpa *oadpv1alpha1.DataProtectionApplication) string 
 	return os.Getenv("RELATED_IMAGE_KUBEVIRT_VELERO_PLUGIN")
 }
 
-func GetPluginImage(pluginName string, dpa *oadpv1alpha1.DataProtectionApplication) string {
-	switch pluginName {
+func GetPluginImage(defaultPlugin oadpv1alpha1.DefaultPlugin, dpa *oadpv1alpha1.DataProtectionApplication) string {
+	switch defaultPlugin {
 
-	case common.VeleroPluginForAWS:
+	case oadpv1alpha1.DefaultPluginAWS:
 		return getAWSPluginImage(dpa)
 
-	case common.VeleroPluginForGCP:
+	case oadpv1alpha1.DefaultPluginLegacyAWS:
+		return getLegacyAWSPluginImage(dpa)
+
+	case oadpv1alpha1.DefaultPluginGCP:
 		return getGCPPluginImage(dpa)
 
-	case common.VeleroPluginForOpenshift:
+	case oadpv1alpha1.DefaultPluginOpenShift:
 		return getOpenshiftPluginImage(dpa)
 
-	case common.VeleroPluginForAzure:
+	case oadpv1alpha1.DefaultPluginMicrosoftAzure:
 		return getAzurePluginImage(dpa)
 
-	case common.KubeVirtPlugin:
+	case oadpv1alpha1.DefaultPluginKubeVirt:
 		return getKubeVirtPluginImage(dpa)
 	}
 	return ""
@@ -178,7 +204,7 @@ func AppendCloudProviderVolumes(dpa *oadpv1alpha1.DataProtectionApplication, ds 
 			(!dpa.Spec.Configuration.Velero.NoDefaultBackupLocation || // it has a backup location in OADP/velero context OR
 				dpa.Spec.UnsupportedOverrides[oadpv1alpha1.OperatorTypeKey] == oadpv1alpha1.OperatorTypeMTC) { // OADP is installed via MTC
 
-			pluginNeedsCheck, foundProviderPlugin := providerNeedsDefaultCreds[string(plugin)]
+			pluginNeedsCheck, foundProviderPlugin := providerNeedsDefaultCreds[cloudProviderMap.ProviderName]
 			// duplication with controllers/validator.go
 			if !foundProviderPlugin && !hasCloudStorage {
 				pluginNeedsCheck = true

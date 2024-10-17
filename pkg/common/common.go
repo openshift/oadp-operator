@@ -66,6 +66,7 @@ const (
 	VeleroImage          = "quay.io/konveyor/velero:latest"
 	OpenshiftPluginImage = "quay.io/konveyor/openshift-velero-plugin:latest"
 	AWSPluginImage       = "quay.io/konveyor/velero-plugin-for-aws:latest"
+	LegacyAWSPluginImage = "quay.io/konveyor/velero-plugin-for-legacy-aws:latest"
 	AzurePluginImage     = "quay.io/konveyor/velero-plugin-for-microsoft-azure:latest"
 	GCPPluginImage       = "quay.io/konveyor/velero-plugin-for-gcp:latest"
 	RegistryImage        = "quay.io/konveyor/registry:latest"
@@ -75,6 +76,7 @@ const (
 // Plugin names
 const (
 	VeleroPluginForAWS       = "velero-plugin-for-aws"
+	VeleroPluginForLegacyAWS = "velero-plugin-for-legacy-aws"
 	VeleroPluginForAzure     = "velero-plugin-for-microsoft-azure"
 	VeleroPluginForGCP       = "velero-plugin-for-gcp"
 	VeleroPluginForOpenshift = "openshift-velero-plugin"

@@ -1396,6 +1396,30 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 			wantErr:    true,
 			messageErr: "in order to enable/disable the non-admin feature please set dpa.spec.unsupportedOverrides[tech-preview-ack]: 'true'",
 		},
+		{
+			name: "given invalid DPA CR aws and legacy-aws plugins both specified",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-DPA-CR",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+								oadpv1alpha1.DefaultPluginAWS,
+								oadpv1alpha1.DefaultPluginLegacyAWS,
+							},
+							NoDefaultBackupLocation: true,
+						},
+					},
+					BackupImages: pointer.Bool(false),
+				},
+			},
+			objects:    []client.Object{},
+			wantErr:    true,
+			messageErr: "aws and legacy-aws can not be both specified in DPA spec.configuration.velero.defaultPlugins",
+		},
 	}
 	for _, tt := range tests {
 		tt.objects = append(tt.objects, tt.dpa)
@@ -1421,7 +1445,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 				t.Errorf("ValidateDataProtectionCR() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if tt.wantErr && err.Error() != tt.messageErr {
+			if tt.wantErr && err != nil && err.Error() != tt.messageErr {
 				t.Errorf("Error messages are not the same: got %v, expected %v", err.Error(), tt.messageErr)
 				return
 			}

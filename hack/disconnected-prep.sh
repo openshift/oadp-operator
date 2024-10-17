@@ -17,6 +17,7 @@ IMAGES=(
   "helper"
   "gcpplugin"
   "awsplugin"
+  "legacyawsplugin"
   "azureplugin"
   "registry"
 )
@@ -28,6 +29,7 @@ IMG_MAP[velero_repo]="velero"
 IMG_MAP[helper_repo]="velero-restore-helper"
 IMG_MAP[gcpplugin_repo]="velero-plugin-for-gcp"
 IMG_MAP[awsplugin_repo]="velero-plugin-for-aws"
+IMG_MAP[legacyawsplugin_repo]="velero-plugin-for-legacy-aws"
 IMG_MAP[azureplugin_repo]="velero-plugin-for-microsoft-azure"
 IMG_MAP[registry_repo]="registry"
 
@@ -71,12 +73,14 @@ for f in bundle/manifests/oadp-operator.clusterserviceversion.yaml
   sed -i "s,/velero-restore-helper:.*,/velero-restore-helper@sha256:${IMG_MAP[helper_sha]},g"                                ${f}
   sed -i "s,/openshift-velero-plugin:.*,/openshift-velero-plugin@sha256:${IMG_MAP[plugin_sha]},g"                                          ${f}
   sed -i "s,/velero-plugin-for-aws:.*,/velero-plugin-for-aws@sha256:${IMG_MAP[awsplugin_sha]},g"                                           ${f}
+  sed -i "s,/velero-plugin-for-legacy-aws:.*,/velero-plugin-for-legacy-aws@sha256:${IMG_MAP[legacyawsplugin_sha]},g"                                           ${f}
   sed -i "s,/velero-plugin-for-microsoft-azure:.*,/velero-plugin-for-microsoft-azure@sha256:${IMG_MAP[azureplugin_sha]},g"                 ${f}
   sed -i "s,/velero-plugin-for-gcp:.*,/velero-plugin-for-gcp@sha256:${IMG_MAP[gcpplugin_sha]},g"                                           ${f}
   sed -i "s,/registry:.*,/registry@sha256:${IMG_MAP[registry_sha]},g"                                                                      ${f}
   sed -i 's,value: velero-restore-helper,value: velero-restore-helper@sha256,g'                                              ${f}
   sed -i 's,value: velero-plugin-for-gcp,value: velero-plugin-for-gcp@sha256,g'                                                            ${f}
   sed -i 's,value: velero-plugin-for-aws,value: velero-plugin-for-aws@sha256,g'                                                            ${f}
+  sed -i 's,value: velero-plugin-for-legacy-aws,value: velero-plugin-for-legacy-aws@sha256,g'                                                            ${f}
   sed -i 's,value: velero-plugin-for-microsoft-azure,value: velero-plugin-for-microsoft-azure@sha256,g'                                    ${f}
   sed -i 's,value: velero$,value: velero@sha256,g'                                                                                         ${f}
   sed -i 's,value: openshift-velero-plugin$,value: openshift-velero-plugin@sha256,g'                                                       ${f}
@@ -86,6 +90,7 @@ for f in bundle/manifests/oadp-operator.clusterserviceversion.yaml
   sed -i "/VELERO_RESTORE_HELPER_TAG/,/^ *[^:]*:/s/value: .*/value: ${IMG_MAP[helper_sha]}/"                                                                  ${f}
   sed -i "/VELERO_GCP_PLUGIN_TAG/,/^ *[^:]*:/s/value: .*/value: ${IMG_MAP[gcpplugin_sha]}/"                                                                          ${f}
   sed -i "/VELERO_AWS_PLUGIN_TAG/,/^ *[^:]*:/s/value: .*/value: ${IMG_MAP[awsplugin_sha]}/"                                                                          ${f}
+  sed -i "/VELERO_LEGACY_AWS_PLUGIN_TAG/,/^ *[^:]*:/s/value: .*/value: ${IMG_MAP[legacyawsplugin_sha]}/"                                                                          ${f}
   sed -i "/VELERO_AZURE_PLUGIN_TAG/,/^ *[^:]*:/s/value: .*/value: ${IMG_MAP[azureplugin_sha]}/"                                                                      ${f}
   sed -i "/VELERO_REGISTRY_TAG/,/^ *[^:]*:/s/value: .*/value: ${IMG_MAP[registry_sha]}/"                                                                             ${f}
 if [[ "$f" =~ .*clusterserviceversion.* ]] && ! grep -q infrastructure-features ${f}; then

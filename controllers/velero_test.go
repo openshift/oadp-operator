@@ -1366,6 +1366,37 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 			}),
 		},
 		{
+			name: "valid DPA CR with legacy aws plugin, Velero Deployment is built with legacy aws plugin",
+			dpa: createTestDpaWith(
+				nil,
+				oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+								oadpv1alpha1.DefaultPluginLegacyAWS,
+							},
+						},
+					},
+				},
+			),
+			veleroDeployment: testVeleroDeployment.DeepCopy(),
+			wantVeleroDeployment: createTestBuiltVeleroDeployment(TestBuiltVeleroDeploymentOptions{
+				initContainers: []corev1.Container{pluginContainer(common.VeleroPluginForLegacyAWS, common.LegacyAWSPluginImage)},
+				volumes:        []corev1.Volume{deploymentVolumeSecret("cloud-credentials")},
+				volumeMounts: []corev1.VolumeMount{
+					{Name: "cloud-credentials", MountPath: "/credentials"},
+				},
+				env: append(baseEnvVars, []corev1.EnvVar{
+					{Name: common.AWSSharedCredentialsFileEnvKey, Value: "/credentials/cloud"},
+				}...),
+				args: []string{
+					defaultFileSystemBackupTimeout,
+					defaultRestoreResourcePriorities,
+					defaultDisableInformerCache,
+				},
+			}),
+		},
+		{
 			name: "valid DPA CR with aws and kubevirt plugin, Velero Deployment is built with aws and kubevirt plugin",
 			dpa: createTestDpaWith(
 				nil,
@@ -1984,7 +2015,7 @@ func TestDPAReconciler_noDefaultCredentials(t *testing.T) {
 		wantErr             bool
 	}{
 		{
-			name: "dpa with all plugins but with noDefualtBackupLocation should not require default credentials",
+			name: "dpa with all plugins but with noDefaultBackupLocation should not require default credentials",
 			args: args{
 				dpa: oadpv1alpha1.DataProtectionApplication{
 					ObjectMeta: metav1.ObjectMeta{
@@ -2002,9 +2033,9 @@ func TestDPAReconciler_noDefaultCredentials(t *testing.T) {
 				},
 			},
 			want: map[string]bool{
-				"velero-plugin-for-aws":             false,
-				"velero-plugin-for-gcp":             false,
-				"velero-plugin-for-microsoft-azure": false,
+				"aws":   false,
+				"gcp":   false,
+				"azure": false,
 			},
 			wantHasCloudStorage: false,
 			wantErr:             false,

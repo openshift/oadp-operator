@@ -35,10 +35,11 @@ const ReconcileCompleteMessage = "Reconcile complete"
 const OadpOperatorLabel = "openshift.io/oadp"
 const RegistryDeploymentLabel = "openshift.io/oadp-registry"
 
-// +kubebuilder:validation:Enum=aws;gcp;azure;csi;vsm;openshift;kubevirt
+// +kubebuilder:validation:Enum=aws;legacy-aws;gcp;azure;csi;vsm;openshift;kubevirt
 type DefaultPlugin string
 
 const DefaultPluginAWS DefaultPlugin = "aws"
+const DefaultPluginLegacyAWS DefaultPlugin = "legacy-aws"
 const DefaultPluginGCP DefaultPlugin = "gcp"
 const DefaultPluginMicrosoftAzure DefaultPlugin = "azure"
 const DefaultPluginCSI DefaultPlugin = "csi"
@@ -56,6 +57,7 @@ type UnsupportedImageKey string
 
 const VeleroImageKey UnsupportedImageKey = "veleroImageFqin"
 const AWSPluginImageKey UnsupportedImageKey = "awsPluginImageFqin"
+const LegacyAWSPluginImageKey UnsupportedImageKey = "legacyAWSPluginImageFqin"
 const OpenShiftPluginImageKey UnsupportedImageKey = "openshiftPluginImageFqin"
 const AzurePluginImageKey UnsupportedImageKey = "azurePluginImageFqin"
 const GCPPluginImageKey UnsupportedImageKey = "gcpPluginImageFqin"
@@ -544,6 +546,7 @@ type DataProtectionApplicationSpec struct {
 	// Available keys are:
 	//   - veleroImageFqin
 	//   - awsPluginImageFqin
+	//   - legacyAWSPluginImageFqin
 	//   - openshiftPluginImageFqin
 	//   - azurePluginImageFqin
 	//   - gcpPluginImageFqin

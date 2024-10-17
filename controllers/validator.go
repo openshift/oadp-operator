@@ -104,9 +104,19 @@ func (r *DPAReconciler) ValidateVeleroPlugins(log logr.Logger) (bool, error) {
 		}
 	}
 
+	foundAWSPlugin := false
+	foundLegacyAWSPlugin := false
 	for _, plugin := range dpa.Spec.Configuration.Velero.DefaultPlugins {
 		pluginSpecificMap, ok := credentials.PluginSpecificFields[plugin]
-		pluginNeedsCheck, foundInBSLorVSL := providerNeedsDefaultCreds[string(plugin)]
+		pluginNeedsCheck, foundInBSLorVSL := providerNeedsDefaultCreds[pluginSpecificMap.ProviderName]
+
+		// "aws" and "legacy-aws" cannot both be specified
+		if plugin == oadpv1alpha1.DefaultPluginAWS {
+			foundAWSPlugin = true
+		}
+		if plugin == oadpv1alpha1.DefaultPluginLegacyAWS {
+			foundLegacyAWSPlugin = true
+		}
 
 		// check for VSM/Volsync DataMover (OADP 1.2 or below) syntax
 		if plugin == oadpv1alpha1.DefaultPluginVSM {
@@ -155,5 +165,10 @@ func (r *DPAReconciler) ValidateVeleroPlugins(log logr.Logger) (bool, error) {
 			}
 		}
 	}
+
+	if foundAWSPlugin && foundLegacyAWSPlugin {
+		return false, fmt.Errorf("%s and %s can not be both specified in DPA spec.configuration.velero.defaultPlugins", oadpv1alpha1.DefaultPluginAWS, oadpv1alpha1.DefaultPluginLegacyAWS)
+	}
+
 	return true, nil
 }
