@@ -434,7 +434,7 @@ func (r *DPAReconciler) appendPluginSpecificSpecs(veleroDeployment *appsv1.Deplo
 					},
 				})
 
-			pluginNeedsCheck, foundInBSLorVSL := providerNeedsDefaultCreds[string(plugin)]
+			pluginNeedsCheck, foundInBSLorVSL := providerNeedsDefaultCreds[pluginSpecificMap.ProviderName]
 
 			if !foundInBSLorVSL && !hasCloudStorage {
 				pluginNeedsCheck = true
@@ -762,7 +762,7 @@ func (r DPAReconciler) noDefaultCredentials() (map[string]bool, bool, error) {
 		}
 		for _, provider := range dpa.Spec.Configuration.Velero.DefaultPlugins {
 			if psf, ok := credentials.PluginSpecificFields[provider]; ok && psf.IsCloudProvider {
-				providerNeedsDefaultCreds[psf.PluginName] = needDefaultCred
+				providerNeedsDefaultCreds[psf.ProviderName] = needDefaultCred
 			}
 		}
 	} else {
