@@ -32,6 +32,7 @@ OC_CLI = $(shell which oc)
 TEST_VIRT ?= false
 KVM_EMULATION ?= true
 TEST_UPGRADE ?= false
+HCO_UPSTREAM ?= false
 
 ifdef CLI_DIR
 	OC_CLI = ${CLI_DIR}/oc
@@ -524,6 +525,7 @@ test-e2e: test-e2e-setup install-ginkgo
 	-artifact_dir=$(ARTIFACT_DIR) \
 	-oc_cli=$(OC_CLI) \
 	-kvm_emulation=$(KVM_EMULATION) \
+	-hco_upstream=$(HCO_UPSTREAM) \
 	--ginkgo.vv \
 	--ginkgo.no-color=$(OPENSHIFT_CI) \
 	--ginkgo.label-filter="$(TEST_FILTER)" \
