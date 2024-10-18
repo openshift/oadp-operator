@@ -147,10 +147,6 @@ var (
 	}
 )
 
-var testAWSEnvVar = cloudProviderEnvVarMap["aws"]
-var testAzureEnvVar = cloudProviderEnvVarMap["azure"]
-var testGCPEnvVar = cloudProviderEnvVarMap["gcp"]
-
 func TestDPAReconciler_getSecretNameAndKey(t *testing.T) {
 	tests := []struct {
 		name           string
@@ -164,7 +160,7 @@ func TestDPAReconciler_getSecretNameAndKey(t *testing.T) {
 			name: "given provider secret, appropriate secret name and key are returned",
 			bsl: &oadpv1alpha1.BackupLocation{
 				Velero: &velerov1.BackupStorageLocationSpec{
-					Provider: AWSProvider,
+					Provider: string(oadpv1alpha1.DefaultPluginAWS),
 					Credential: &corev1.SecretKeySelector{
 						LocalObjectReference: corev1.LocalObjectReference{
 							Name: "cloud-credentials-aws",
@@ -192,7 +188,7 @@ func TestDPAReconciler_getSecretNameAndKey(t *testing.T) {
 			name: "given no provider secret, appropriate secret name and key are returned",
 			bsl: &oadpv1alpha1.BackupLocation{
 				Velero: &velerov1.BackupStorageLocationSpec{
-					Provider: AWSProvider,
+					Provider: string(oadpv1alpha1.DefaultPluginAWS),
 					Config: map[string]string{
 						Region:                "aws-region",
 						S3URL:                 "https://sr-url-aws-domain.com",
@@ -446,7 +442,7 @@ func TestDPAReconciler_populateAzureRegistrySecret(t *testing.T) {
 					Namespace: "test-ns",
 				},
 				Spec: velerov1.BackupStorageLocationSpec{
-					Provider: AzureProvider,
+					Provider: string(oadpv1alpha1.DefaultPluginMicrosoftAzure),
 					StorageType: velerov1.StorageType{
 						ObjectStorage: &velerov1.ObjectStorageLocation{
 							Bucket: "azure-bucket",

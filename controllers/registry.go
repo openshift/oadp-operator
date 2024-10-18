@@ -52,11 +52,7 @@ const (
 // provider specific object storage
 const (
 	S3                    = "s3"
-	Azure                 = "azure"
 	GCS                   = "gcs"
-	AWSProvider           = "aws"
-	AzureProvider         = "azure"
-	GCPProvider           = "gcp"
 	Region                = "region"
 	Profile               = "profile"
 	S3URL                 = "s3Url"
@@ -66,88 +62,6 @@ const (
 	StorageAccount        = "storageAccount"
 	ResourceGroup         = "resourceGroup"
 )
-
-// creating skeleton for provider based env var map
-var cloudProviderEnvVarMap = map[string][]corev1.EnvVar{
-	"aws": {
-		{
-			Name:  RegistryStorageEnvVarKey,
-			Value: S3,
-		},
-		{
-			Name:  RegistryStorageS3AccesskeyEnvVarKey,
-			Value: "",
-		},
-		{
-			Name:  RegistryStorageS3BucketEnvVarKey,
-			Value: "",
-		},
-		{
-			Name:  RegistryStorageS3RegionEnvVarKey,
-			Value: "",
-		},
-		{
-			Name:  RegistryStorageS3SecretkeyEnvVarKey,
-			Value: "",
-		},
-		{
-			Name:  RegistryStorageS3RegionendpointEnvVarKey,
-			Value: "",
-		},
-		{
-			Name:  RegistryStorageS3SkipverifyEnvVarKey,
-			Value: "",
-		},
-	},
-	"azure": {
-		{
-			Name:  RegistryStorageEnvVarKey,
-			Value: Azure,
-		},
-		{
-			Name:  RegistryStorageAzureContainerEnvVarKey,
-			Value: "",
-		},
-		{
-			Name:  RegistryStorageAzureAccountnameEnvVarKey,
-			Value: "",
-		},
-		{
-			Name:  RegistryStorageAzureAccountkeyEnvVarKey,
-			Value: "",
-		},
-		{
-			Name:  RegistryStorageAzureAADEndpointEnvVarKey,
-			Value: "",
-		},
-		{
-			Name:  RegistryStorageAzureSPNClientIDEnvVarKey,
-			Value: "",
-		},
-		{
-			Name:  RegistryStorageAzureSPNClientSecretEnvVarKey,
-			Value: "",
-		},
-		{
-			Name:  RegistryStorageAzureSPNTenantIDEnvVarKey,
-			Value: "",
-		},
-	},
-	"gcp": {
-		{
-			Name:  RegistryStorageEnvVarKey,
-			Value: GCS,
-		},
-		{
-			Name:  RegistryStorageGCSBucket,
-			Value: "",
-		},
-		{
-			Name:  RegistryStorageGCSKeyfile,
-			Value: "",
-		},
-	},
-}
 
 type azureCredentials struct {
 	subscriptionID     string
@@ -614,7 +528,7 @@ func (r *DPAReconciler) ReconcileRegistrySecrets(log logr.Logger) (bool, error) 
 	// Now for each of these bsl instances, create a registry secret
 	for _, bsl := range bslList.Items {
 		// skip for GCP as nothing is directly exposed in env vars
-		if bsl.Spec.Provider == GCPProvider {
+		if bsl.Spec.Provider == string(oadpv1alpha1.DefaultPluginGCP) {
 			continue
 		}
 		secret := corev1.Secret{
@@ -683,9 +597,9 @@ func (r *DPAReconciler) patchRegistrySecret(secret *corev1.Secret, bsl *velerov1
 	// to get around the immutable fields
 	provider := bsl.Spec.Provider
 	switch provider {
-	case AWSProvider:
+	case string(oadpv1alpha1.DefaultPluginAWS):
 		err = r.populateAWSRegistrySecret(bsl, secret)
-	case AzureProvider:
+	case string(oadpv1alpha1.DefaultPluginMicrosoftAzure):
 		err = r.populateAzureRegistrySecret(bsl, secret)
 	}
 

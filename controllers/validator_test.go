@@ -381,7 +381,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 					SnapshotLocations: []oadpv1alpha1.SnapshotLocation{
 						{
 							Velero: &v1.VolumeSnapshotLocationSpec{
-								Provider: "aws",
+								Provider: string(oadpv1alpha1.DefaultPluginAWS),
 								Config: map[string]string{
 									AWSRegion: "us-east-1",
 								},
@@ -429,7 +429,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 					SnapshotLocations: []oadpv1alpha1.SnapshotLocation{
 						{
 							Velero: &v1.VolumeSnapshotLocationSpec{
-								Provider: "aws",
+								Provider: string(oadpv1alpha1.DefaultPluginAWS),
 								Config: map[string]string{
 									AWSRegion: "us-east-1",
 								},
@@ -470,7 +470,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 					SnapshotLocations: []oadpv1alpha1.SnapshotLocation{
 						{
 							Velero: &v1.VolumeSnapshotLocationSpec{
-								Provider: "aws",
+								Provider: string(oadpv1alpha1.DefaultPluginAWS),
 								Config: map[string]string{
 									AWSRegion: "us-east-1",
 								},
@@ -494,7 +494,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 						Namespace: "test-ns",
 					},
 					Spec: oadpv1alpha1.CloudStorageSpec{
-						Provider: "aws",
+						Provider: oadpv1alpha1.AWSBucketProvider,
 					},
 				},
 			},
@@ -528,7 +528,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 					SnapshotLocations: []oadpv1alpha1.SnapshotLocation{
 						{
 							Velero: &v1.VolumeSnapshotLocationSpec{
-								Provider: "aws",
+								Provider: string(oadpv1alpha1.DefaultPluginAWS),
 								Config: map[string]string{
 									AWSRegion: "us-east-1",
 								},
@@ -552,7 +552,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 						Namespace: "test-ns",
 					},
 					Spec: oadpv1alpha1.CloudStorageSpec{
-						Provider: "aws",
+						Provider: oadpv1alpha1.AWSBucketProvider,
 					},
 				},
 				&corev1.Secret{
@@ -860,7 +860,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 					SnapshotLocations: []oadpv1alpha1.SnapshotLocation{
 						{
 							Velero: &v1.VolumeSnapshotLocationSpec{
-								Provider: "aws",
+								Provider: string(oadpv1alpha1.DefaultPluginAWS),
 								Config: map[string]string{
 									AWSRegion: "us-east-1",
 								},
@@ -1038,7 +1038,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 					SnapshotLocations: []oadpv1alpha1.SnapshotLocation{
 						{
 							Velero: &v1.VolumeSnapshotLocationSpec{
-								Provider: "aws",
+								Provider: string(oadpv1alpha1.DefaultPluginAWS),
 								Credential: &corev1.SecretKeySelector{
 									LocalObjectReference: corev1.LocalObjectReference{
 										Name: "custom-vsl-credentials",
