@@ -155,7 +155,7 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 	wasInstalledFromTest := false
 
 	cirrosDownloadedFromTest := false
-	cirrosNamespace := "openshift-virtualization-os-images"
+	bootImageNamespace := "openshift-virtualization-os-images"
 
 	var lastBRCase VmBackupRestoreCase
 	var lastInstallTime time.Time
@@ -167,7 +167,7 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 	}
 
 	var _ = ginkgo.BeforeAll(func() {
-		v, err = lib.GetVirtOperator(runTimeClientForSuiteRun, kubernetesClientForSuiteRun, dynamicClientForSuiteRun)
+		v, err = lib.GetVirtOperator(runTimeClientForSuiteRun, kubernetesClientForSuiteRun, dynamicClientForSuiteRun, useUpstreamHco)
 		gomega.Expect(err).To(gomega.BeNil())
 		gomega.Expect(v).ToNot(gomega.BeNil())
 
@@ -186,14 +186,15 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 
 		url, err := getLatestCirrosImageURL()
 		gomega.Expect(err).To(gomega.BeNil())
-		if !v.CheckDataVolumeExists(cirrosNamespace, "cirros") {
-			err = v.EnsureDataVolumeFromUrl(cirrosNamespace, "cirros", url, "150Mi", 5*time.Minute)
+		err = v.EnsureNamespace(bootImageNamespace, 1*time.Minute)
+		gomega.Expect(err).To(gomega.BeNil())
+		if !v.CheckDataVolumeExists(bootImageNamespace, "cirros") {
+			err = v.EnsureDataVolumeFromUrl(bootImageNamespace, "cirros", url, "150Mi", 5*time.Minute)
 			gomega.Expect(err).To(gomega.BeNil())
-			err = v.CreateDataSourceFromPvc(cirrosNamespace, "cirros")
+			err = v.CreateDataSourceFromPvc(bootImageNamespace, "cirros")
 			gomega.Expect(err).To(gomega.BeNil())
 			cirrosDownloadedFromTest = true
 		}
-
 		dpaCR.VeleroDefaultPlugins = append(dpaCR.VeleroDefaultPlugins, v1alpha1.DefaultPluginKubeVirt)
 
 		err = v.CreateImmediateModeStorageClass("test-sc-immediate")
@@ -202,12 +203,23 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 		gomega.Expect(err).To(gomega.BeNil())
 		err = lib.DeleteBackupRepositories(runTimeClientForSuiteRun, namespace)
 		gomega.Expect(err).To(gomega.BeNil())
+		err = lib.InstallApplication(v.Client, "./sample-applications/virtual-machines/cirros-test/cirros-rbac.yaml")
+		gomega.Expect(err).To(gomega.BeNil())
+
+		if v.Upstream {
+			log.Printf("Creating fedora DataSource in openshift-virtualization-os-images namespace")
+			pvcNamespace, pvcName, err := v.GetDataSourcePvc("kubevirt-os-images", "fedora")
+			gomega.Expect(err).To(gomega.BeNil())
+			err = v.CreateTargetDataSourceFromPvc(pvcNamespace, "openshift-virtualization-os-images", pvcName, "fedora")
+			gomega.Expect(err).To(gomega.BeNil())
+		}
+
 	})
 
 	var _ = ginkgo.AfterAll(func() {
 		if v != nil && cirrosDownloadedFromTest {
-			v.RemoveDataSource(cirrosNamespace, "cirros")
-			v.RemoveDataVolume(cirrosNamespace, "cirros", 2*time.Minute)
+			v.RemoveDataSource(bootImageNamespace, "cirros")
+			v.RemoveDataVolume(bootImageNamespace, "cirros", 2*time.Minute)
 		}
 
 		if v != nil && wasInstalledFromTest {

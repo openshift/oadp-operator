@@ -1,0 +1,27 @@
+apiVersion: v1
+kind: List
+items:
+  - apiVersion: rbac.authorization.k8s.io/v1
+    kind: ClusterRole
+    metadata:
+      name: dv-cloner-role
+    rules:
+    - apiGroups: ["cdi.kubevirt.io"]
+      resources: ["datavolumes/source"]
+      verbs: ["*"]
+  - apiVersion: rbac.authorization.k8s.io/v1
+    kind: RoleBinding
+    metadata:
+      name: cirros-test-cloner
+      namespace: openshift-virtualization-os-images
+    subjects:
+    - kind: ServiceAccount
+      name: default
+      namespace: cirros-test
+    - kind: ServiceAccount
+      name: default
+      namespace: mysql-persistent
+    roleRef:
+      kind: ClusterRole
+      name: dv-cloner-role
+      apiGroup: rbac.authorization.k8s.io
