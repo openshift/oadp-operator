@@ -198,7 +198,7 @@ var _ = ginkgo.Describe("Configuration testing for DPA Custom Resource", func() 
 			}
 
 			if len(installCase.DpaSpec.SnapshotLocations) > 0 {
-				// TODO Check if VSLs are available creating new backup/restore test with VSL
+				// Velero does not change status of VSL objects. Users can only confirm if VSLs are correct configured when running a native snapshot backup/restore
 				for _, vsl := range installCase.DpaSpec.SnapshotLocations {
 					log.Printf("Checking for VSL spec")
 					gomega.Expect(dpaCR.DoesVSLSpecMatchesDpa(namespace, *vsl.Velero)).To(gomega.BeTrue())
