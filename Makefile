@@ -32,7 +32,7 @@ OC_CLI = $(shell which oc)
 TEST_VIRT ?= false
 KVM_EMULATION ?= true
 TEST_UPGRADE ?= false
-HCO_UPSTREAM ?= true
+HCO_UPSTREAM ?= false
 
 ifdef CLI_DIR
 	OC_CLI = ${CLI_DIR}/oc
