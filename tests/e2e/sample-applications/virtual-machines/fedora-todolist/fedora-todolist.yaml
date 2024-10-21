@@ -228,6 +228,7 @@ items:
               name: fedora
               namespace: openshift-virtualization-os-images
             storage:
+              volumeMode: Filesystem
               resources:
                 requests:
                   storage: 30Gi
