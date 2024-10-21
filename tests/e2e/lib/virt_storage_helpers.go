@@ -275,6 +275,9 @@ func (v *VirtOperator) CreateImmediateModeStorageClass(name string) error {
 	immediateStorageClass.Annotations["storageclass.kubernetes.io/is-default-class"] = "false"
 
 	_, err = v.Clientset.StorageV1().StorageClasses().Create(context.Background(), immediateStorageClass, metav1.CreateOptions{})
+	if apierrors.IsAlreadyExists(err) {
+		return nil
+	}
 	return err
 }
 
