@@ -300,58 +300,6 @@ func GetSecretNameKeyConfigProviderForBackupLocation(blspec oadpv1alpha1.BackupL
 	return "", "", "", nil, nil
 }
 
-// Iterate through all backup locations and return true if any of them use short lived credentials
-func BslUsesShortLivedCredential(bls []oadpv1alpha1.BackupLocation, namespace string) (ret bool, err error) {
-	for _, blspec := range bls {
-		if blspec.CloudStorage != nil && blspec.CloudStorage.Credential != nil {
-			// Get CloudStorageRef provider
-			cs := oadpv1alpha1.CloudStorage{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      blspec.CloudStorage.CloudStorageRef.Name,
-					Namespace: namespace,
-				},
-			}
-			err = client.GetClient().Get(context.Background(), types.NamespacedName{Namespace: namespace, Name: blspec.CloudStorage.CloudStorageRef.Name}, &cs)
-			if err != nil {
-				return false, err
-			}
-			if cs.Spec.EnableSharedConfig != nil && *cs.Spec.EnableSharedConfig {
-				return true, nil
-			}
-		}
-		secretName, secretKey, provider, config, err := GetSecretNameKeyConfigProviderForBackupLocation(blspec, namespace)
-		if err != nil {
-			return false, err
-		}
-		ret, err = SecretContainsShortLivedCredential(secretName, secretKey, provider, namespace, config)
-		if err != nil {
-			return false, err
-		}
-		if ret {
-			return true, nil
-		}
-	}
-	return ret, err
-}
-
-func SecretContainsShortLivedCredential(secretName, secretKey, provider, namespace string, config map[string]string) (bool, error) {
-	switch provider {
-	case "aws":
-		// AWS credentials short lived are determined by enableSharedConfig
-		// if enableSharedConfig is not set, then we assume it is not short lived
-		// if enableSharedConfig is set, then we assume it is short lived
-		// Alternatively, we can check if the secret contains a session token
-		// TODO: check if secret contains session token
-		return false, nil
-	case "gcp":
-		return gcpSecretAccountTypeIsShortLived(secretName, secretKey, namespace)
-	case "azure":
-		// TODO: check if secret contains session token
-		return false, nil
-	}
-	return false, nil
-}
-
 func GetDecodedSecret(secretName, secretKey, namespace string) (s string, err error) {
 	bytes, err := GetDecodedSecretAsByte(secretName, secretKey, namespace)
 	return string(bytes), err

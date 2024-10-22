@@ -330,6 +330,11 @@ func createTestBuiltNodeAgentDaemonSet(options TestBuiltNodeAgentDaemonSetOption
 									Name:      "certs",
 									MountPath: "/etc/ssl/certs",
 								},
+								{
+									Name:      "bound-sa-token",
+									MountPath: "/var/run/secrets/openshift/serviceaccount",
+									ReadOnly:  true,
+								},
 							},
 							Env: []corev1.EnvVar{
 								{
@@ -383,6 +388,23 @@ func createTestBuiltNodeAgentDaemonSet(options TestBuiltNodeAgentDaemonSetOption
 							Name: "certs",
 							VolumeSource: corev1.VolumeSource{
 								EmptyDir: &corev1.EmptyDirVolumeSource{},
+							},
+						},
+						{
+							Name: "bound-sa-token",
+							VolumeSource: corev1.VolumeSource{
+								Projected: &corev1.ProjectedVolumeSource{
+									Sources: []corev1.VolumeProjection{
+										{
+											ServiceAccountToken: &corev1.ServiceAccountTokenProjection{
+												Audience:          "openshift",
+												ExpirationSeconds: ptr.To(int64(3600)),
+												Path:              "token",
+											},
+										},
+									},
+									DefaultMode: ptr.To(common.DefaultProjectedPermission),
+								},
 							},
 						},
 					},
