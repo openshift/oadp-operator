@@ -59,13 +59,19 @@ type VirtOperator struct {
 	Namespace string
 	Csv       string
 	Version   *version.Version
+	Upstream  bool
 }
 
 // GetVirtOperator fills out a new VirtOperator
-func GetVirtOperator(c client.Client, clientset *kubernetes.Clientset, dynamicClient dynamic.Interface) (*VirtOperator, error) {
+func GetVirtOperator(c client.Client, clientset *kubernetes.Clientset, dynamicClient dynamic.Interface, upstream bool) (*VirtOperator, error) {
 	namespace := "openshift-cnv"
+	manifest := "kubevirt-hyperconverged"
+	if upstream {
+		namespace = "kubevirt-hyperconverged"
+		manifest = "community-kubevirt-hyperconverged"
+	}
 
-	csv, operatorVersion, err := getCsvFromPackageManifest(dynamicClient, "kubevirt-hyperconverged")
+	csv, operatorVersion, err := getCsvFromPackageManifest(dynamicClient, manifest)
 	if err != nil {
 		log.Printf("Failed to get CSV from package manifest")
 		return nil, err
@@ -78,6 +84,7 @@ func GetVirtOperator(c client.Client, clientset *kubernetes.Clientset, dynamicCl
 		Namespace: namespace,
 		Csv:       csv,
 		Version:   operatorVersion,
+		Upstream:  upstream,
 	}
 
 	return v, nil
@@ -86,16 +93,23 @@ func GetVirtOperator(c client.Client, clientset *kubernetes.Clientset, dynamicCl
 // Helper to create an operator group object, common to installOperatorGroup
 // and removeOperatorGroup.
 func (v *VirtOperator) makeOperatorGroup() *operatorsv1.OperatorGroup {
+	// Community operator fails with "cannot configure to watch own namespace",
+	// need to remove target namespaces.
+	spec := operatorsv1.OperatorGroupSpec{}
+	if !v.Upstream {
+		spec = operatorsv1.OperatorGroupSpec{
+			TargetNamespaces: []string{
+				v.Namespace,
+			},
+		}
+	}
+
 	return &operatorsv1.OperatorGroup{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "kubevirt-hyperconverged-group",
 			Namespace: v.Namespace,
 		},
-		Spec: operatorsv1.OperatorGroupSpec{
-			TargetNamespaces: []string{
-				v.Namespace,
-			},
-		},
+		Spec: spec,
 	}
 }
 
@@ -174,9 +188,9 @@ func getCsvFromPackageManifest(dynamicClient dynamic.Interface, name string) (st
 }
 
 // Checks the existence of the operator's target namespace
-func (v *VirtOperator) checkNamespace() bool {
+func (v *VirtOperator) checkNamespace(ns string) bool {
 	// First check that the namespace exists
-	exists, _ := DoesNamespaceExist(v.Clientset, v.Namespace)
+	exists, _ := DoesNamespaceExist(v.Clientset, ns)
 	return exists
 }
 
@@ -236,7 +250,7 @@ func (v *VirtOperator) checkHco() bool {
 
 // Check if KVM emulation is enabled.
 func (v *VirtOperator) checkEmulation() bool {
-	hco, err := v.Dynamic.Resource(hyperConvergedGvr).Namespace("openshift-cnv").Get(context.Background(), "kubevirt-hyperconverged", metav1.GetOptions{})
+	hco, err := v.Dynamic.Resource(hyperConvergedGvr).Namespace(v.Namespace).Get(context.Background(), "kubevirt-hyperconverged", metav1.GetOptions{})
 	if err != nil {
 		return false
 	}
@@ -260,11 +274,12 @@ func (v *VirtOperator) checkEmulation() bool {
 	return false
 }
 
-// Creates the target virtualization namespace, likely openshift-cnv or kubevirt-hyperconverged
-func (v *VirtOperator) installNamespace() error {
-	err := v.Client.Create(context.Background(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: v.Namespace}})
+// Creates the target namespace, likely openshift-cnv or kubevirt-hyperconverged,
+// but also used for openshift-virtualization-os-images if not already present.
+func (v *VirtOperator) installNamespace(ns string) error {
+	err := v.Client.Create(context.Background(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns}})
 	if err != nil {
-		log.Printf("Failed to create namespace %s: %v", v.Namespace, err)
+		log.Printf("Failed to create namespace %s: %v", ns, err)
 		return err
 	}
 	return nil
@@ -285,19 +300,30 @@ func (v *VirtOperator) installOperatorGroup() error {
 
 // Creates the subscription, which triggers creation of the ClusterServiceVersion.
 func (v *VirtOperator) installSubscription() error {
+	spec := &operatorsv1alpha1.SubscriptionSpec{
+		CatalogSource:          "redhat-operators",
+		CatalogSourceNamespace: "openshift-marketplace",
+		Package:                "kubevirt-hyperconverged",
+		Channel:                "stable",
+		StartingCSV:            v.Csv,
+		InstallPlanApproval:    operatorsv1alpha1.ApprovalAutomatic,
+	}
+	if v.Upstream {
+		spec = &operatorsv1alpha1.SubscriptionSpec{
+			CatalogSource:          "community-operators",
+			CatalogSourceNamespace: "openshift-marketplace",
+			Package:                "community-kubevirt-hyperconverged",
+			Channel:                "stable",
+			StartingCSV:            v.Csv,
+			InstallPlanApproval:    operatorsv1alpha1.ApprovalAutomatic,
+		}
+	}
 	subscription := &operatorsv1alpha1.Subscription{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "hco-operatorhub",
 			Namespace: v.Namespace,
 		},
-		Spec: &operatorsv1alpha1.SubscriptionSpec{
-			CatalogSource:          "redhat-operators",
-			CatalogSourceNamespace: "openshift-marketplace",
-			Package:                "kubevirt-hyperconverged",
-			Channel:                "stable",
-			StartingCSV:            v.Csv,
-			InstallPlanApproval:    operatorsv1alpha1.ApprovalAutomatic,
-		},
+		Spec: spec,
 	}
 	err := v.Client.Create(context.Background(), subscription)
 	if err != nil {
@@ -332,7 +358,7 @@ func (v *VirtOperator) installHco() error {
 }
 
 func (v *VirtOperator) configureEmulation() error {
-	hco, err := v.Dynamic.Resource(hyperConvergedGvr).Namespace("openshift-cnv").Get(context.Background(), "kubevirt-hyperconverged", metav1.GetOptions{})
+	hco, err := v.Dynamic.Resource(hyperConvergedGvr).Namespace(v.Namespace).Get(context.Background(), "kubevirt-hyperconverged", metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
@@ -353,7 +379,7 @@ func (v *VirtOperator) configureEmulation() error {
 		return err
 	}
 
-	_, err = v.Dynamic.Resource(hyperConvergedGvr).Namespace("openshift-cnv").Update(context.Background(), hco, metav1.UpdateOptions{})
+	_, err = v.Dynamic.Resource(hyperConvergedGvr).Namespace(v.Namespace).Update(context.Background(), hco, metav1.UpdateOptions{})
 	if err != nil {
 		return err
 	}
@@ -362,19 +388,19 @@ func (v *VirtOperator) configureEmulation() error {
 }
 
 // Creates target namespace if needed, and waits for it to exist
-func (v *VirtOperator) ensureNamespace(timeout time.Duration) error {
-	if !v.checkNamespace() {
-		if err := v.installNamespace(); err != nil {
+func (v *VirtOperator) EnsureNamespace(ns string, timeout time.Duration) error {
+	if !v.checkNamespace(ns) {
+		if err := v.installNamespace(ns); err != nil {
 			return err
 		}
 		err := wait.PollImmediate(time.Second, timeout, func() (bool, error) {
-			return v.checkNamespace(), nil
+			return v.checkNamespace(ns), nil
 		})
 		if err != nil {
-			return fmt.Errorf("timed out waiting to create namespace %s: %w", v.Namespace, err)
+			return fmt.Errorf("timed out waiting to create namespace %s: %w", ns, err)
 		}
 	} else {
-		log.Printf("Namespace %s already present, no action required", v.Namespace)
+		log.Printf("Namespace %s already present, no action required", ns)
 	}
 
 	return nil
@@ -449,10 +475,10 @@ func (v *VirtOperator) ensureHco(timeout time.Duration) error {
 }
 
 // Deletes the virtualization operator namespace (likely openshift-cnv).
-func (v *VirtOperator) removeNamespace() error {
-	err := v.Client.Delete(context.Background(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: v.Namespace}})
+func (v *VirtOperator) removeNamespace(ns string) error {
+	err := v.Client.Delete(context.Background(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns}})
 	if err != nil {
-		log.Printf("Failed to delete namespace %s: %v", v.Namespace, err)
+		log.Printf("Failed to delete namespace %s: %v", ns, err)
 		return err
 	}
 	return nil
@@ -494,21 +520,21 @@ func (v *VirtOperator) removeHco() error {
 }
 
 // Makes sure the virtualization operator's namespace is removed.
-func (v *VirtOperator) ensureNamespaceRemoved(timeout time.Duration) error {
-	if !v.checkNamespace() {
-		log.Printf("Namespace %s already removed, no action required", v.Namespace)
+func (v *VirtOperator) ensureNamespaceRemoved(ns string, timeout time.Duration) error {
+	if !v.checkNamespace(ns) {
+		log.Printf("Namespace %s already removed, no action required", ns)
 		return nil
 	}
 
-	if err := v.removeNamespace(); err != nil {
+	if err := v.removeNamespace(ns); err != nil {
 		return err
 	}
 
 	err := wait.PollImmediate(5*time.Second, timeout, func() (bool, error) {
-		return !v.checkNamespace(), nil
+		return !v.checkNamespace(ns), nil
 	})
 	if err != nil {
-		return fmt.Errorf("timed out waiting to delete namespace %s: %w", v.Namespace, err)
+		return fmt.Errorf("timed out waiting to delete namespace %s: %w", ns, err)
 	}
 
 	return nil
@@ -696,7 +722,7 @@ func (v *VirtOperator) EnsureEmulation(timeout time.Duration) error {
 // IsVirtInstalled returns whether or not the OpenShift Virtualization operator
 // is installed and ready, by checking for a HyperConverged operator resource.
 func (v *VirtOperator) IsVirtInstalled() bool {
-	if !v.checkNamespace() {
+	if !v.checkNamespace(v.Namespace) {
 		return false
 	}
 
@@ -712,7 +738,7 @@ func (v *VirtOperator) EnsureVirtInstallation() error {
 	}
 
 	log.Printf("Creating virtualization namespace %s", v.Namespace)
-	if err := v.ensureNamespace(10 * time.Second); err != nil {
+	if err := v.EnsureNamespace(v.Namespace, 10*time.Second); err != nil {
 		return err
 	}
 	log.Printf("Created namespace %s", v.Namespace)
@@ -771,7 +797,7 @@ func (v *VirtOperator) EnsureVirtRemoval() error {
 	log.Println("Deleted operator group")
 
 	log.Printf("Deleting virtualization namespace %s", v.Namespace)
-	if err := v.ensureNamespaceRemoved(3 * time.Minute); err != nil {
+	if err := v.ensureNamespaceRemoved(v.Namespace, 3*time.Minute); err != nil {
 		return err
 	}
 	log.Printf("Deleting namespace %s", v.Namespace)

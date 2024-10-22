@@ -173,26 +173,30 @@ func (v *VirtOperator) RemoveDataSource(namespace, name string) error {
 // Create a DataSource from an existing PVC, with the same name and namespace.
 // This way, the PVC can be specified as a sourceRef in the VM spec.
 func (v *VirtOperator) CreateDataSourceFromPvc(namespace, name string) error {
+	return v.CreateTargetDataSourceFromPvc(namespace, namespace, name, name)
+}
+
+func (v *VirtOperator) CreateTargetDataSourceFromPvc(sourceNamespace, destinationNamespace, sourcePvcName, destinationDataSourceName string) error {
 	unstructuredDataSource := unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "cdi.kubevirt.io/v1beta1",
 			"kind":       "DataSource",
 			"metadata": map[string]interface{}{
-				"name":      name,
-				"namespace": namespace,
+				"name":      destinationDataSourceName,
+				"namespace": destinationNamespace,
 			},
 			"spec": map[string]interface{}{
 				"source": map[string]interface{}{
 					"pvc": map[string]interface{}{
-						"name":      name,
-						"namespace": namespace,
+						"name":      sourcePvcName,
+						"namespace": sourceNamespace,
 					},
 				},
 			},
 		},
 	}
 
-	_, err := v.Dynamic.Resource(dataSourceGVR).Namespace(namespace).Create(context.Background(), &unstructuredDataSource, metav1.CreateOptions{})
+	_, err := v.Dynamic.Resource(dataSourceGVR).Namespace(destinationNamespace).Create(context.Background(), &unstructuredDataSource, metav1.CreateOptions{})
 	if err != nil {
 		if apierrors.IsAlreadyExists(err) {
 			return nil
@@ -205,6 +209,36 @@ func (v *VirtOperator) CreateDataSourceFromPvc(namespace, name string) error {
 	}
 
 	return nil
+}
+
+// Find the given DataSource, and return the PVC it points to
+func (v *VirtOperator) GetDataSourcePvc(ns, name string) (string, string, error) {
+	unstructuredDataSource, err := v.Dynamic.Resource(dataSourceGVR).Namespace(ns).Get(context.Background(), name, metav1.GetOptions{})
+	if err != nil {
+		log.Printf("Error getting DataSource %s: %v", name, err)
+		return "", "", err
+	}
+
+	pvcName, ok, err := unstructured.NestedString(unstructuredDataSource.UnstructuredContent(), "status", "source", "pvc", "name")
+	if err != nil {
+		log.Printf("Error getting PVC from DataSource: %v", err)
+		return "", "", err
+	}
+	if !ok {
+		return "", "", errors.New("failed to get PVC from " + name + " DataSource")
+	}
+
+	pvcNamespace, ok, err := unstructured.NestedString(unstructuredDataSource.UnstructuredContent(), "status", "source", "pvc", "namespace")
+	if err != nil {
+		log.Printf("Error getting PVC namespace from DataSource: %v", err)
+		return "", "", err
+	}
+	if !ok {
+		return "", "", errors.New("failed to get PVC namespace from " + name + " DataSource")
+	}
+
+	return pvcNamespace, pvcName, nil
+
 }
 
 // Find the default storage class
@@ -241,6 +275,9 @@ func (v *VirtOperator) CreateImmediateModeStorageClass(name string) error {
 	immediateStorageClass.Annotations["storageclass.kubernetes.io/is-default-class"] = "false"
 
 	_, err = v.Clientset.StorageV1().StorageClasses().Create(context.Background(), immediateStorageClass, metav1.CreateOptions{})
+	if apierrors.IsAlreadyExists(err) {
+		return nil
+	}
 	return err
 }
 
