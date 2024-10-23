@@ -423,7 +423,7 @@ func (r *DPAReconciler) appendPluginSpecificSpecs(dpa *oadpv1alpha1.DataProtecti
 
 	for _, plugin := range dpa.Spec.Configuration.Velero.DefaultPlugins {
 		if pluginSpecificMap, ok := credentials.PluginSpecificFields[plugin]; ok {
-			imagePullPolicy, err := common.GetImagePullPolicy(dpa.Spec.ImagePullPolicy, credentials.GetPluginImage(pluginSpecificMap.PluginName, dpa))
+			imagePullPolicy, err := common.GetImagePullPolicy(dpa.Spec.ImagePullPolicy, credentials.GetPluginImage(plugin, dpa))
 			if err != nil {
 				r.Log.Error(err, "imagePullPolicy regex failed")
 			}
@@ -431,7 +431,7 @@ func (r *DPAReconciler) appendPluginSpecificSpecs(dpa *oadpv1alpha1.DataProtecti
 			veleroDeployment.Spec.Template.Spec.InitContainers = append(
 				veleroDeployment.Spec.Template.Spec.InitContainers,
 				corev1.Container{
-					Image:                    credentials.GetPluginImage(pluginSpecificMap.PluginName, dpa),
+					Image:                    credentials.GetPluginImage(plugin, dpa),
 					Name:                     pluginSpecificMap.PluginName,
 					ImagePullPolicy:          imagePullPolicy,
 					Resources:                init_container_resources,
@@ -445,7 +445,7 @@ func (r *DPAReconciler) appendPluginSpecificSpecs(dpa *oadpv1alpha1.DataProtecti
 					},
 				})
 
-			pluginNeedsCheck, foundInBSLorVSL := providerNeedsDefaultCreds[string(plugin)]
+			pluginNeedsCheck, foundInBSLorVSL := providerNeedsDefaultCreds[pluginSpecificMap.ProviderName]
 
 			if !foundInBSLorVSL && !hasCloudStorage {
 				pluginNeedsCheck = true
@@ -772,7 +772,7 @@ func (r DPAReconciler) noDefaultCredentials(dpa oadpv1alpha1.DataProtectionAppli
 		}
 		for _, provider := range dpa.Spec.Configuration.Velero.DefaultPlugins {
 			if psf, ok := credentials.PluginSpecificFields[provider]; ok && psf.IsCloudProvider {
-				providerNeedsDefaultCreds[psf.PluginName] = needDefaultCred
+				providerNeedsDefaultCreds[psf.ProviderName] = needDefaultCred
 			}
 		}
 	} else {
