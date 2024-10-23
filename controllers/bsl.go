@@ -14,6 +14,7 @@ import (
 
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	"github.com/openshift/oadp-operator/pkg/common"
+	"github.com/openshift/oadp-operator/pkg/credentials"
 	"github.com/openshift/oadp-operator/pkg/storage/aws"
 )
 
@@ -398,9 +399,9 @@ func (r *DPAReconciler) validateGCPBackupStorageLocation(bslSpec velerov1.Backup
 	return nil
 }
 
-func pluginExistsInVeleroCR(configuredPlugins []oadpv1alpha1.DefaultPlugin, expectedPlugin oadpv1alpha1.DefaultPlugin) bool {
+func pluginExistsInVeleroCR(configuredPlugins []oadpv1alpha1.DefaultPlugin, expectedProvider string) bool {
 	for _, plugin := range configuredPlugins {
-		if plugin == expectedPlugin {
+		if credentials.PluginSpecificFields[plugin].ProviderName == expectedProvider {
 			return true
 		}
 	}
@@ -412,7 +413,7 @@ func (r *DPAReconciler) validateProviderPluginAndSecret(bslSpec velerov1.BackupS
 		return nil
 	}
 	// check for existence of provider plugin and warn if the plugin is absent
-	if !pluginExistsInVeleroCR(r.dpa.Spec.Configuration.Velero.DefaultPlugins, oadpv1alpha1.DefaultPlugin(bslSpec.Provider)) {
+	if !pluginExistsInVeleroCR(r.dpa.Spec.Configuration.Velero.DefaultPlugins, bslSpec.Provider) {
 		r.Log.Info(fmt.Sprintf("%s backupstoragelocation is configured but velero plugin for %s is not present", bslSpec.Provider, bslSpec.Provider))
 		//TODO: set warning condition on Velero CR
 	}

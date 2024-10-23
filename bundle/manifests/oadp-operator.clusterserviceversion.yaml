@@ -917,6 +917,8 @@ spec:
                   value: quay.io/konveyor/openshift-velero-plugin:latest
                 - name: RELATED_IMAGE_VELERO_PLUGIN_FOR_AWS
                   value: quay.io/konveyor/velero-plugin-for-aws:latest
+                - name: RELATED_IMAGE_VELERO_PLUGIN_FOR_LEGACY_AWS
+                  value: quay.io/konveyor/velero-plugin-for-legacy-aws:latest
                 - name: RELATED_IMAGE_VELERO_PLUGIN_FOR_MICROSOFT_AZURE
                   value: quay.io/konveyor/velero-plugin-for-microsoft-azure:latest
                 - name: RELATED_IMAGE_VELERO_PLUGIN_FOR_GCP
@@ -1068,6 +1070,8 @@ spec:
     name: openshift-velero-plugin
   - image: quay.io/konveyor/velero-plugin-for-aws:latest
     name: velero-plugin-for-aws
+  - image: quay.io/konveyor/velero-plugin-for-legacy-aws:latest
+    name: velero-plugin-for-legacy-aws
   - image: quay.io/konveyor/velero-plugin-for-microsoft-azure:latest
     name: velero-plugin-for-microsoft-azure
   - image: quay.io/konveyor/velero-plugin-for-gcp:latest
