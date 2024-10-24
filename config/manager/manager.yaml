@@ -50,6 +50,8 @@ spec:
             value: quay.io/konveyor/openshift-velero-plugin:oadp-1.4
           - name: RELATED_IMAGE_VELERO_PLUGIN_FOR_AWS
             value: quay.io/konveyor/velero-plugin-for-aws:oadp-1.4
+          - name: RELATED_IMAGE_VELERO_PLUGIN_FOR_LEGACY_AWS
+            value: quay.io/konveyor/velero-plugin-for-legacy-aws:oadp-1.4
           - name: RELATED_IMAGE_VELERO_PLUGIN_FOR_MICROSOFT_AZURE
             value: quay.io/konveyor/velero-plugin-for-microsoft-azure:oadp-1.4
           - name: RELATED_IMAGE_VELERO_PLUGIN_FOR_GCP

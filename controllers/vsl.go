@@ -308,7 +308,7 @@ func (r *DPAReconciler) ReconcileVolumeSnapshotLocations(log logr.Logger) (bool,
 
 func containsPlugin(d []oadpv1alpha1.DefaultPlugin, value string) bool {
 	for _, elem := range d {
-		if string(elem) == value {
+		if credentials.PluginSpecificFields[elem].ProviderName == value {
 			return true
 		}
 	}
