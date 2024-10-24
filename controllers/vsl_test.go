@@ -100,7 +100,7 @@ func TestDPAReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 					SnapshotLocations: []oadpv1alpha1.SnapshotLocation{
 						{
 							Velero: &velerov1.VolumeSnapshotLocationSpec{
-								Provider: AWSProvider,
+								Provider: string(oadpv1alpha1.DefaultPluginAWS),
 								Config: map[string]string{
 									Region: "us-east-1",
 								},
@@ -138,7 +138,7 @@ func TestDPAReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 					SnapshotLocations: []oadpv1alpha1.SnapshotLocation{
 						{
 							Velero: &velerov1.VolumeSnapshotLocationSpec{
-								Provider: AWSProvider,
+								Provider: string(oadpv1alpha1.DefaultPluginAWS),
 								Config: map[string]string{
 									Region: "us-east-1",
 								},
@@ -171,7 +171,7 @@ func TestDPAReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 					SnapshotLocations: []oadpv1alpha1.SnapshotLocation{
 						{
 							Velero: &velerov1.VolumeSnapshotLocationSpec{
-								Provider: AWSProvider,
+								Provider: string(oadpv1alpha1.DefaultPluginAWS),
 							},
 						},
 					},
@@ -205,7 +205,7 @@ func TestDPAReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 					SnapshotLocations: []oadpv1alpha1.SnapshotLocation{
 						{
 							Velero: &velerov1.VolumeSnapshotLocationSpec{
-								Provider: AWSProvider,
+								Provider: string(oadpv1alpha1.DefaultPluginAWS),
 								Config: map[string]string{
 									Region:     "us-east-1",
 									AWSProfile: "test-profile",
@@ -239,7 +239,7 @@ func TestDPAReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 					SnapshotLocations: []oadpv1alpha1.SnapshotLocation{
 						{
 							Velero: &velerov1.VolumeSnapshotLocationSpec{
-								Provider: AWSProvider,
+								Provider: string(oadpv1alpha1.DefaultPluginAWS),
 								Config: map[string]string{
 									Region:         "us-east-1",
 									"invalid-test": "foo",
@@ -279,7 +279,7 @@ func TestDPAReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 					SnapshotLocations: []oadpv1alpha1.SnapshotLocation{
 						{
 							Velero: &velerov1.VolumeSnapshotLocationSpec{
-								Provider: GCPProvider,
+								Provider: string(oadpv1alpha1.DefaultPluginGCP),
 							},
 						},
 					},
@@ -309,7 +309,7 @@ func TestDPAReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 					SnapshotLocations: []oadpv1alpha1.SnapshotLocation{
 						{
 							Velero: &velerov1.VolumeSnapshotLocationSpec{
-								Provider: GCPProvider,
+								Provider: string(oadpv1alpha1.DefaultPluginGCP),
 							},
 						},
 					},
@@ -343,7 +343,7 @@ func TestDPAReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 					SnapshotLocations: []oadpv1alpha1.SnapshotLocation{
 						{
 							Velero: &velerov1.VolumeSnapshotLocationSpec{
-								Provider: GCPProvider,
+								Provider: string(oadpv1alpha1.DefaultPluginGCP),
 								Config: map[string]string{
 									GCPSnapshotLocation: "test-location",
 								},
@@ -380,7 +380,7 @@ func TestDPAReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 					SnapshotLocations: []oadpv1alpha1.SnapshotLocation{
 						{
 							Velero: &velerov1.VolumeSnapshotLocationSpec{
-								Provider: GCPProvider,
+								Provider: string(oadpv1alpha1.DefaultPluginGCP),
 								Config: map[string]string{
 									GCPProject: "alt-project",
 								},
@@ -413,7 +413,7 @@ func TestDPAReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 					SnapshotLocations: []oadpv1alpha1.SnapshotLocation{
 						{
 							Velero: &velerov1.VolumeSnapshotLocationSpec{
-								Provider: GCPProvider,
+								Provider: string(oadpv1alpha1.DefaultPluginGCP),
 								Config: map[string]string{
 									"invalid-test": "foo",
 								},
@@ -452,7 +452,7 @@ func TestDPAReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 					SnapshotLocations: []oadpv1alpha1.SnapshotLocation{
 						{
 							Velero: &velerov1.VolumeSnapshotLocationSpec{
-								Provider: AzureProvider,
+								Provider: string(oadpv1alpha1.DefaultPluginMicrosoftAzure),
 							},
 						},
 					},
@@ -482,7 +482,7 @@ func TestDPAReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 					SnapshotLocations: []oadpv1alpha1.SnapshotLocation{
 						{
 							Velero: &velerov1.VolumeSnapshotLocationSpec{
-								Provider: AzureProvider,
+								Provider: string(oadpv1alpha1.DefaultPluginMicrosoftAzure),
 							},
 						},
 					},
@@ -516,7 +516,7 @@ func TestDPAReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 					SnapshotLocations: []oadpv1alpha1.SnapshotLocation{
 						{
 							Velero: &velerov1.VolumeSnapshotLocationSpec{
-								Provider: AzureProvider,
+								Provider: string(oadpv1alpha1.DefaultPluginMicrosoftAzure),
 								Config: map[string]string{
 									AzureApiTimeout: "5m",
 								},
@@ -553,7 +553,7 @@ func TestDPAReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 					SnapshotLocations: []oadpv1alpha1.SnapshotLocation{
 						{
 							Velero: &velerov1.VolumeSnapshotLocationSpec{
-								Provider: AzureProvider,
+								Provider: string(oadpv1alpha1.DefaultPluginMicrosoftAzure),
 								Config: map[string]string{
 									ResourceGroup: "test-rg",
 								},
@@ -590,7 +590,7 @@ func TestDPAReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 					SnapshotLocations: []oadpv1alpha1.SnapshotLocation{
 						{
 							Velero: &velerov1.VolumeSnapshotLocationSpec{
-								Provider: AzureProvider,
+								Provider: string(oadpv1alpha1.DefaultPluginMicrosoftAzure),
 								Config: map[string]string{
 									AzureSubscriptionId: "test-alt-sub",
 								},
@@ -627,7 +627,7 @@ func TestDPAReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 					SnapshotLocations: []oadpv1alpha1.SnapshotLocation{
 						{
 							Velero: &velerov1.VolumeSnapshotLocationSpec{
-								Provider: AzureProvider,
+								Provider: string(oadpv1alpha1.DefaultPluginMicrosoftAzure),
 								Config: map[string]string{
 									AzureIncremental: "false",
 								},
@@ -660,7 +660,7 @@ func TestDPAReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 					SnapshotLocations: []oadpv1alpha1.SnapshotLocation{
 						{
 							Velero: &velerov1.VolumeSnapshotLocationSpec{
-								Provider: AzureProvider,
+								Provider: string(oadpv1alpha1.DefaultPluginMicrosoftAzure),
 								Config: map[string]string{
 									"invalid-test": "foo",
 								},
@@ -732,7 +732,7 @@ func TestDPAReconciler_ReconcileVolumeSnapshotLocations(t *testing.T) {
 					SnapshotLocations: []oadpv1alpha1.SnapshotLocation{
 						{
 							Velero: &velerov1.VolumeSnapshotLocationSpec{
-								Provider: AWSProvider,
+								Provider: string(oadpv1alpha1.DefaultPluginAWS),
 								Config: map[string]string{
 									Region: "us-east-1",
 								},
