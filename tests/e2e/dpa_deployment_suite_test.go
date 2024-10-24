@@ -20,6 +20,7 @@ import (
 
 type TestDPASpec struct {
 	BSLSecretName           string
+	DefaultPlugins          []oadpv1alpha1.DefaultPlugin // Overrides default plugins loaded from config
 	CustomPlugins           []oadpv1alpha1.CustomPlugin
 	SnapshotLocations       []oadpv1alpha1.SnapshotLocation
 	VeleroPodConfig         oadpv1alpha1.PodConfig
@@ -66,6 +67,9 @@ func createTestDPASpec(testSpec TestDPASpec) *oadpv1alpha1.DataProtectionApplica
 		},
 		SnapshotLocations:    testSpec.SnapshotLocations,
 		UnsupportedOverrides: dpaCR.UnsupportedOverrides,
+	}
+	if len(testSpec.DefaultPlugins) > 0 {
+		dpaSpec.Configuration.Velero.DefaultPlugins = testSpec.DefaultPlugins
 	}
 	if testSpec.EnableNodeAgent {
 		dpaSpec.Configuration.NodeAgent = &oadpv1alpha1.NodeAgentConfig{
@@ -342,6 +346,12 @@ var _ = ginkgo.Describe("Configuration testing for DPA Custom Resource", func() 
 				BSLSecretName:           bslSecretName,
 				NoDefaultBackupLocation: true,
 				DoNotBackupImages:       true,
+			}),
+		}),
+		ginkgo.Entry("DPA CR with legacy-aws plugin", ginkgo.Label("aws", "ibmcloud"), InstallCase{
+			DpaSpec: createTestDPASpec(TestDPASpec{
+				BSLSecretName:  bslSecretName,
+				DefaultPlugins: []oadpv1alpha1.DefaultPlugin{oadpv1alpha1.DefaultPluginOpenShift, oadpv1alpha1.DefaultPluginLegacyAWS},
 			}),
 		}),
 		ginkgo.Entry("DPA CR with S3ForcePathStyle true", ginkgo.Label("aws"), InstallCase{
