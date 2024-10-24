@@ -97,6 +97,7 @@ var (
 		{Name: "plugins", MountPath: "/plugins"},
 		{Name: "scratch", MountPath: "/scratch"},
 		{Name: "certs", MountPath: "/etc/ssl/certs"},
+		{Name: "bound-sa-token", MountPath: "/var/run/secrets/openshift/serviceaccount", ReadOnly: true},
 	}
 
 	baseVolumes = []corev1.Volume{
@@ -111,6 +112,23 @@ var (
 		{
 			Name:         "certs",
 			VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},
+		},
+		{
+			Name: "bound-sa-token",
+			VolumeSource: corev1.VolumeSource{
+				Projected: &corev1.ProjectedVolumeSource{
+					Sources: []corev1.VolumeProjection{
+						{
+							ServiceAccountToken: &corev1.ServiceAccountTokenProjection{
+								Audience:          "openshift",
+								ExpirationSeconds: ptr.To(int64(3600)),
+								Path:              "token",
+							},
+						},
+					},
+					DefaultMode: ptr.To(common.DefaultProjectedPermission),
+				},
+			},
 		},
 	}
 	baseContainer = corev1.Container{
@@ -1477,28 +1495,8 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 			veleroDeployment: testVeleroDeployment.DeepCopy(),
 			wantVeleroDeployment: createTestBuiltVeleroDeployment(TestBuiltVeleroDeploymentOptions{
 				initContainers: []corev1.Container{pluginContainer(common.VeleroPluginForAWS, common.AWSPluginImage)},
-				volumes: []corev1.Volume{
-					{
-						Name: "bound-sa-token",
-						VolumeSource: corev1.VolumeSource{
-							Projected: &corev1.ProjectedVolumeSource{
-								DefaultMode: ptr.To(int32(0644)),
-								Sources: []corev1.VolumeProjection{
-									{
-										ServiceAccountToken: &corev1.ServiceAccountTokenProjection{
-											Audience:          "openshift",
-											ExpirationSeconds: ptr.To(int64(3600)),
-											Path:              "token",
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-				volumeMounts: []corev1.VolumeMount{
-					{Name: "bound-sa-token", MountPath: "/var/run/secrets/openshift/serviceaccount", ReadOnly: true},
-				},
+				volumes:        []corev1.Volume{},
+				volumeMounts:   []corev1.VolumeMount{},
 				args: []string{
 					defaultFileSystemBackupTimeout,
 					defaultRestoreResourcePriorities,
