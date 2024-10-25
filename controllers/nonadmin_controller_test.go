@@ -305,8 +305,22 @@ func TestDPAReconcilerCheckNonAdminEnabled(t *testing.T) {
 		dpa    *oadpv1alpha1.DataProtectionApplication
 	}{
 		{
-			name:   "DPA has non admin feature enable: true return true",
+			name:   "DPA has non admin feature enable: true and tech-preview-ack return true",
 			result: true,
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					NonAdmin: &oadpv1alpha1.NonAdmin{
+						Enable: ptr.To(true),
+					},
+					UnsupportedOverrides: map[oadpv1alpha1.UnsupportedImageKey]string{
+						oadpv1alpha1.TechPreviewAck: TrueVal,
+					},
+				},
+			},
+		},
+		{
+			name:   "DPA has non admin feature enable: true without tech-preview-ack return false",
+			result: false,
 			dpa: &oadpv1alpha1.DataProtectionApplication{
 				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 					NonAdmin: &oadpv1alpha1.NonAdmin{
