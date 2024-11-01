@@ -22,7 +22,7 @@ func (r *DPAReconciler) ValidateDataProtectionCR(log logr.Logger) (bool, error) 
 		return false, err
 	}
 	if len(dpaList.Items) > 1 {
-		return false, errors.New("only one DPA CR can exist per OADP namespace")
+		return false, errors.New("only one DPA CR can exist per OADP installation namespace")
 	}
 
 	if r.dpa.Spec.Configuration == nil || r.dpa.Spec.Configuration.Velero == nil {

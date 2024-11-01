@@ -96,7 +96,7 @@ func (r *DPAReconciler) ReconcileNonAdminController(log logr.Logger) (bool, erro
 	}
 	for _, dpa := range dpaList.Items {
 		if (&DPAReconciler{dpa: &dpa}).checkNonAdminEnabled() {
-			return false, fmt.Errorf("only one NAC can be installed in the whole cluster")
+			return false, fmt.Errorf("only a single instance of Non-Admin Controller can be installed across the entire cluster. Non-Admin controller is also configured to be installed in %s namespace", dpa.Namespace)
 		}
 	}
 
