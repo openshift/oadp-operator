@@ -24,6 +24,24 @@ AZURE_RESOURCE_FILE ?= /var/run/secrets/ci.openshift.io/multi-stage/metadata.jso
 AZURE_CI_JSON_CRED_FILE ?= ${CLUSTER_PROFILE_DIR}/osServicePrincipal.json
 AZURE_OADP_JSON_CRED_FILE ?= ${OADP_CRED_DIR}/azure-credentials
 
+# CONTAINER_TOOL defines the container tool to be used for building images.
+# By default, this Makefile uses docker, as the target commands have been tested primarily with it.
+# However, if docker is not available, the Makefile will attempt to use podman if it's installed.
+# You may also set CONTAINER_TOOL directly as an environment variable to specify a different tool.
+# If neither docker nor podman is found, or if the specified tool is unavailable, the Makefile will exit with an error.
+
+# Set CONTAINER_TOOL to Docker or Podman if not already defined by the user
+CONTAINER_TOOL ?= $(shell \
+  if command -v docker >/dev/null 2>&1; then echo docker; \
+  elif command -v podman >/dev/null 2>&1; then echo podman; \
+  else echo ""; \
+  fi \
+)
+ifeq ($(shell command -v $(CONTAINER_TOOL) >/dev/null 2>&1 && echo found),)
+  $(error The selected container tool '$(CONTAINER_TOOL)' is not available on this system. Please install it or choose a different tool.)
+endif
+$(info Using Container Tool: $(CONTAINER_TOOL))
+
 # Misc
 OPENSHIFT_CI ?= true
 VELERO_INSTANCE_NAME ?= velero-test
@@ -222,10 +240,10 @@ ifneq ($(CLUSTER_TYPE),)
 	DOCKER_BUILD_ARGS = --platform=$(CLUSTER_OS)/$(CLUSTER_ARCH)
 endif
 docker-build: ## Build docker image with the manager.
-	docker build -t $(IMG) . $(DOCKER_BUILD_ARGS)
+	$(CONTAINER_TOOL) build -t $(IMG) . $(DOCKER_BUILD_ARGS)
 
 docker-push: ## Push docker image with the manager.
-	docker push ${IMG}
+	$(CONTAINER_TOOL) push ${IMG}
 
 ##@ Deployment
 
@@ -366,7 +384,7 @@ nullable-crds-config:
 
 .PHONY: bundle-build
 bundle-build: ## Build the bundle image.
-	docker build -f bundle.Dockerfile -t $(BUNDLE_IMG) . $(DOCKER_BUILD_ARGS)
+	$(CONTAINER_TOOL) build -f bundle.Dockerfile -t $(BUNDLE_IMG) . $(DOCKER_BUILD_ARGS)
 
 .PHONY: bundle-push
 bundle-push: ## Push the bundle image.
@@ -427,12 +445,12 @@ endif
 # https://github.com/operator-framework/community-operators/blob/7f1438c/docs/packaging-operator.md#updating-your-existing-operator
 .PHONY: catalog-build
 catalog-build: opm ## Build a catalog image.
-	$(OPM) index add --container-tool docker --mode semver --tag $(CATALOG_IMG) --bundles $(BUNDLE_IMGS) $(FROM_INDEX_OPT)
+	$(OPM) index add --container-tool $(CONTAINER_TOOL) --mode semver --tag $(CATALOG_IMG) --bundles $(BUNDLE_IMGS) $(FROM_INDEX_OPT)
 
 # For testing oeprator upgrade
 # opm upgrade
 catalog-build-replaces: opm ## Build a catalog image using replace mode
-	$(OPM) index add --container-tool docker --mode replaces --tag $(CATALOG_IMG) --bundles $(BUNDLE_IMGS) $(FROM_INDEX_OPT)
+	$(OPM) index add --container-tool $(CONTAINER_TOOL) --mode replaces --tag $(CATALOG_IMG) --bundles $(BUNDLE_IMGS) $(FROM_INDEX_OPT)
 
 # Push the catalog image.
 .PHONY: catalog-push
@@ -454,8 +472,8 @@ catalog-test-upgrade: opm login-required ## Prepare a catalog image with two cha
 	mkdir test-upgrade && rsync -a --exclude=test-upgrade ./ test-upgrade/current
 	git clone --depth=1 git@github.com:openshift/oadp-operator.git -b $(PREVIOUS_CHANNEL) test-upgrade/$(PREVIOUS_CHANNEL)
 	cd test-upgrade/$(PREVIOUS_CHANNEL) && \
-		echo -e "FROM golang:$(PREVIOUS_CHANNEL_GO_VERSION)\nRUN useradd --create-home dev\nUSER dev\nWORKDIR /home/dev/$(PREVIOUS_CHANNEL)" | docker image build --tag catalog-test-upgrade - && \
-		docker container run -u $(shell id -u):$(shell id -g) -v $(shell pwd)/test-upgrade/$(PREVIOUS_CHANNEL):/home/dev/$(PREVIOUS_CHANNEL) --rm catalog-test-upgrade make bundle IMG=$(PREVIOUS_OPERATOR_IMAGE) BUNDLE_IMG=$(PREVIOUS_BUNDLE_IMAGE) && \
+		echo -e "FROM golang:$(PREVIOUS_CHANNEL_GO_VERSION)\nRUN useradd --create-home dev\nUSER dev\nWORKDIR /home/dev/$(PREVIOUS_CHANNEL)" | $(CONTAINER_TOOL) image build --tag catalog-test-upgrade - && \
+		$(CONTAINER_TOOL) container run -u $(shell id -u):$(shell id -g) -v $(shell pwd)/test-upgrade/$(PREVIOUS_CHANNEL):/home/dev/$(PREVIOUS_CHANNEL) --rm catalog-test-upgrade make bundle IMG=$(PREVIOUS_OPERATOR_IMAGE) BUNDLE_IMG=$(PREVIOUS_BUNDLE_IMAGE) && \
 		sed -i '/replaces:/d' ./bundle/manifests/oadp-operator.clusterserviceversion.yaml && \
 		IMG=$(PREVIOUS_OPERATOR_IMAGE) BUNDLE_IMG=$(PREVIOUS_BUNDLE_IMAGE) \
 		make docker-build docker-push bundle-build bundle-push && cd -
@@ -463,10 +481,10 @@ catalog-test-upgrade: opm login-required ## Prepare a catalog image with two cha
 		sed -i '/replaces:/d' ./bundle/manifests/oadp-operator.clusterserviceversion.yaml && \
 		IMG=$(THIS_OPERATOR_IMAGE) BUNDLE_IMG=$(THIS_BUNDLE_IMAGE) \
 		make docker-build docker-push bundle-build bundle-push && cd -
-	$(OPM) index add --container-tool docker --bundles $(PREVIOUS_BUNDLE_IMAGE),$(THIS_BUNDLE_IMAGE) --tag $(CATALOG_IMAGE)
-	docker push $(CATALOG_IMAGE)
+	$(OPM) index add --container-tool $(CONTAINER_TOOL) --bundles $(PREVIOUS_BUNDLE_IMAGE),$(THIS_BUNDLE_IMAGE) --tag $(CATALOG_IMAGE)
+	$(CONTAINER_TOOL) push $(CATALOG_IMAGE)
 	echo -e "apiVersion: operators.coreos.com/v1alpha1\nkind: CatalogSource\nmetadata:\n  name: oadp-operator-catalog-test-upgrade\n  namespace: openshift-marketplace\nspec:\n  sourceType: grpc\n  image: $(CATALOG_IMAGE)" | $(OC_CLI) create -f -
-	chmod -R 777 test-upgrade && rm -rf test-upgrade && docker image rm catalog-test-upgrade
+	chmod -R 777 test-upgrade && rm -rf test-upgrade && $(CONTAINER_TOOL) image rm catalog-test-upgrade
 
 .PHONY: login-required
 login-required:
