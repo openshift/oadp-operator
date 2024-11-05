@@ -25,6 +25,27 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 		messageErr string
 	}{
 		{
+			name: "[invalid] DPA CR: multiple DPAs in same namespace",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-DPA-CR",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{},
+			},
+			objects: []client.Object{
+				&oadpv1alpha1.DataProtectionApplication{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "another-DPA-CR",
+						Namespace: "test-ns",
+					},
+					Spec: oadpv1alpha1.DataProtectionApplicationSpec{},
+				},
+			},
+			wantErr:    true,
+			messageErr: "only one DPA CR can exist per OADP installation namespace",
+		},
+		{
 			name: "given valid DPA CR, no default backup location, no backup images, no error case",
 			dpa: &oadpv1alpha1.DataProtectionApplication{
 				ObjectMeta: metav1.ObjectMeta{
