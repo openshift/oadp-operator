@@ -45,7 +45,7 @@ Components involved and their responsibilities:
   - Creates the UST CR for the BSL configured in DPA instance.
 ## Detailed Design
 
-Proposed Upload Speed Test CRD:
+#### Proposed Upload Speed Test CRD:
 
 The UploadSpeedTest CRD structure includes fields to capture backup storage location configurations, upload test parameters, and the location of cloud provider secrets.
 
@@ -72,12 +72,9 @@ spec:
   uploadSpeedTestConfig:
     fileSize: "100MB"    # File size for the test upload
     testTimeout: "60s"   # Maximum duration allowed for the test
-  cloudProviderSecretRef:
-    name: cloud-credentials
-    namespace: openshift-adp
 ```
 
-Changes to DPA CRD BSL Configuration spec:
+#### Changes to DPA CRD BSL Configuration spec:
 
 The DPA CRD configuration includes fields to enable and configure the Upload Speed Test (UST) within the BSL configuration.
 
@@ -157,9 +154,6 @@ type UploadSpeedTestSpec struct {
 
 	// UploadSpeedTestConfig defines the parameters for testing upload speed
 	UploadSpeedTestConfig UploadSpeedTestConfig `json:"uploadSpeedTestConfig"`
-
-	// CloudProviderSecretRef is the reference to the secret to be used for authentication with object storage
-	CloudProviderSecretRef CloudProviderSecretRef `json:"cloudProviderSecretRef"`
 }
 
 type UploadSpeedTestConfig struct {
@@ -168,11 +162,6 @@ type UploadSpeedTestConfig struct {
 
 	// timeout value for the upload test operation
 	TestTimeout string `json:"testTimeout"`
-}
-
-type CloudProviderSecretRef struct {
-	Name      string `json:"name"`
-	Namespace string `json:"namespace"`
 }
 ```
 
@@ -199,7 +188,7 @@ type UploadSpeedTestStatus struct {
 - We are targeting this feature for OADP 1.5
 - The implementation would be done in small phases:
   1. First phase would independent introduction of UST CRD and controller (only for AWS provider)
-  1. Then next would enabling integration with OADP/DPA
+  1. Then next would be enabling integration with OADP/DPA
   1. Followed by remaining cloud provider Azure and GCP
 
 ## Future Scope
