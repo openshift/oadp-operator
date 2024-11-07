@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 
@@ -116,14 +117,13 @@ func (r *DPAReconciler) ReconcileNonAdminController(log logr.Logger) (bool, erro
 }
 
 func (r *DPAReconciler) buildNonAdminDeployment(deploymentObject *appsv1.Deployment) error {
-	dpa := r.dpa
 	nonAdminImage := r.getNonAdminImage()
-	imagePullPolicy, err := common.GetImagePullPolicy(dpa.Spec.ImagePullPolicy, nonAdminImage)
+	imagePullPolicy, err := common.GetImagePullPolicy(r.dpa.Spec.ImagePullPolicy, nonAdminImage)
 	if err != nil {
 		r.Log.Error(err, "imagePullPolicy regex failed")
 	}
 	ensureRequiredLabels(deploymentObject)
-	err = ensureRequiredSpecs(deploymentObject, nonAdminImage, imagePullPolicy)
+	err = r.ensureRequiredSpecs(deploymentObject, nonAdminImage, imagePullPolicy)
 	if err != nil {
 		return err
 	}
@@ -143,10 +143,18 @@ func ensureRequiredLabels(deploymentObject *appsv1.Deployment) {
 	}
 }
 
-func ensureRequiredSpecs(deploymentObject *appsv1.Deployment, image string, imagePullPolicy corev1.PullPolicy) error {
+func (r *DPAReconciler) ensureRequiredSpecs(deploymentObject *appsv1.Deployment, image string, imagePullPolicy corev1.PullPolicy) error {
 	namespaceEnvVar := corev1.EnvVar{
 		Name:  "WATCH_NAMESPACE",
 		Value: deploymentObject.Namespace,
+	}
+	converted, err := json.Marshal(r.dpa.Spec.NonAdmin.EnforceBackupSpec)
+	if err != nil {
+		return err
+	}
+	enforceBackupSpecEnvVar := corev1.EnvVar{
+		Name:  "ENFORCE_BACKUP_SPEC",
+		Value: string(converted),
 	}
 
 	deploymentObject.Spec.Replicas = ptr.To(int32(1))
@@ -166,7 +174,7 @@ func ensureRequiredSpecs(deploymentObject *appsv1.Deployment, image string, imag
 			Name:            nonAdminObjectName,
 			Image:           image,
 			ImagePullPolicy: imagePullPolicy,
-			Env:             []corev1.EnvVar{namespaceEnvVar},
+			Env:             []corev1.EnvVar{namespaceEnvVar, enforceBackupSpecEnvVar},
 		}}
 		nonAdminContainerFound = true
 	} else {
@@ -175,7 +183,7 @@ func ensureRequiredSpecs(deploymentObject *appsv1.Deployment, image string, imag
 				nonAdminContainer := &deploymentObject.Spec.Template.Spec.Containers[index]
 				nonAdminContainer.Image = image
 				nonAdminContainer.ImagePullPolicy = imagePullPolicy
-				nonAdminContainer.Env = []corev1.EnvVar{namespaceEnvVar}
+				nonAdminContainer.Env = []corev1.EnvVar{namespaceEnvVar, enforceBackupSpecEnvVar}
 				nonAdminContainerFound = true
 				break
 			}

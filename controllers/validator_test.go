@@ -11,6 +11,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
@@ -1394,7 +1395,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 			},
 			objects:    []client.Object{},
 			wantErr:    true,
-			messageErr: "in order to enable/disable the non-admin feature please set dpa.spec.unsupportedOverrides[tech-preview-ack]: 'true'",
+			messageErr: "in order to enable the non-admin feature please set dpa.spec.unsupportedOverrides[tech-preview-ack]: 'true'",
 		},
 		{
 			name: "given invalid DPA CR aws and legacy-aws plugins both specified",
@@ -1419,6 +1420,35 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 			objects:    []client.Object{},
 			wantErr:    true,
 			messageErr: "aws and legacy-aws can not be both specified in DPA spec.configuration.velero.defaultPlugins",
+		},
+		{
+			name: "[invalid] DPA CR: spec.nonAdmin.enforceBackupSpec.includedNamespaces set",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-DPA-CR",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							NoDefaultBackupLocation: true,
+						},
+					},
+					BackupImages: ptr.To(false),
+					NonAdmin: &oadpv1alpha1.NonAdmin{
+						Enable: ptr.To(true),
+						EnforceBackupSpec: &v1.BackupSpec{
+							IncludedNamespaces: []string{"banana"},
+						},
+					},
+					UnsupportedOverrides: map[oadpv1alpha1.UnsupportedImageKey]string{
+						oadpv1alpha1.TechPreviewAck: "true",
+					},
+				},
+			},
+			objects:    []client.Object{},
+			wantErr:    true,
+			messageErr: "admin users can not set DPA spec.nonAdmin.enforceBackupSpec.includedNamespaces field",
 		},
 	}
 	for _, tt := range tests {

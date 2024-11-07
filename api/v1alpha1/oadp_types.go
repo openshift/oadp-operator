@@ -439,6 +439,15 @@ type NonAdmin struct {
 	// Enables non admin feature, by default is disabled
 	// +optional
 	Enable *bool `json:"enable,omitempty"`
+
+	// which bakup spec field values to enforce
+	// +optional
+	EnforceBackupSpec *velero.BackupSpec `json:"enforceBackupSpec,omitempty"`
+
+	// which restore spec field values to enforce
+	// +optional
+	// EnforceRestoreSpecs *velero.RestoreSpec `json:"enforceRestoreSpecs,omitempty"`
+	// TODO not allow enforcing backupName!!!!
 }
 
 // DataMover defines the various config for DPA data mover
