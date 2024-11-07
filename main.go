@@ -44,7 +44,7 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/cache"
+	// "sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
@@ -171,11 +171,11 @@ func main() {
 		RenewDeadline:          &leConfig.RenewDeadline.Duration,
 		RetryPeriod:            &leConfig.RetryPeriod.Duration,
 		LeaderElectionID:       "oadp.openshift.io",
-		Cache: cache.Options{
-			DefaultNamespaces: map[string]cache.Config{
-				watchNamespace: {},
-			},
-		},
+		// Cache: cache.Options{
+		// 	DefaultNamespaces: map[string]cache.Config{
+		// 		watchNamespace: {},
+		// 	},
+		// },
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
@@ -222,6 +222,7 @@ func main() {
 		Client:        mgr.GetClient(),
 		Scheme:        mgr.GetScheme(),
 		EventRecorder: mgr.GetEventRecorderFor("DPA-controller"),
+		OADPNamespace: watchNamespace,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "DataProtectionApplication")
 		os.Exit(1)

@@ -51,6 +51,7 @@ type DPAReconciler struct {
 	NamespacedName types.NamespacedName
 	EventRecorder  record.EventRecorder
 	dpa            *oadpv1alpha1.DataProtectionApplication
+	OADPNamespace  string
 }
 
 var debugMode = os.Getenv("DEBUG") == "true"
@@ -148,7 +149,7 @@ func (r *DPAReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&routev1.Route{}).
 		Owns(&corev1.ConfigMap{}).
 		Watches(&corev1.Secret{}, &labelHandler{}).
-		WithEventFilter(veleroPredicate(r.Scheme)).
+		WithEventFilter(veleroPredicate(r.Scheme, r.OADPNamespace)).
 		Complete(r)
 }
 
