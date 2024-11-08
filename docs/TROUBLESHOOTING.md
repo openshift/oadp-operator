@@ -10,6 +10,7 @@ If you need help, first search if there is [already an issue filed](https://issu
 1. [Debugging Failed Backups](#debugging-failed-backups)
 1. [Debugging Failed Restores](#debugging-failed-restores)
 1. [Debugging OpenShift Virtualization backup/restore](virtualization_troubleshooting.md)
+1. [Deleting Backups](#deleting-backups)
 1. [Debugging Data Mover (OADP 1.2 or below)](https://github.com/migtools/volume-snapshot-mover/blob/master/docs/troubleshooting.md)
 1. [OpenShift ROSA STS and OADP installation](https://github.com/rh-mobb/documentation/blob/main/content/docs/misc/oadp/rosa-sts/_index.md)
 1. [Common Issues and Misconfigurations](#common-issues-and-misconfigurations)
@@ -94,6 +95,52 @@ This section includes how to debug a failed restore. For more specific issues re
     velero backup logs <restoreName>
     ```
  
+## Deleting Backups
+
+A common misunderstanding is that `oc delete backup $backup_name` command will delete the backup and artifacts from object storage.  This is not the case.  The backup object will be deleted temporarily but will be recreated via Velero's sync controller.
+
+To delete an OADP backup, the related objects and off cluster artifacts.
+
+ 1. OpenShift commands
+    
+    Create a DeleteBackupRequest object:
+    ```
+    apiVersion: velero.io/v1
+    kind: DeleteBackupRequest
+    metadata:
+      name: deletebackuprequest
+      namespace: openshift-adp
+    spec:
+      backupName: <backupName>
+    ```
+
+  1. Velero commands:
+      ```
+      velero backup delete --help
+      ```
+
+      Delete the backup:  
+      ```
+      velero backup delete <backupName>
+      ```
+
+The related artifacts will be deleted at different times depending on the backup method:
+* Restic:  Artifacts are deleted in the next full maintentance cycle after the backup is deleted.
+* CSI: Artifacts are deleted immediately when the backup is deleted.
+* Kopia: Artifacts are deleted after three full maintentance cycles after the backup is deleted.
+
+**Note:** In OADP 1.3.x and OADP 1.4.x the full maintenance cycle executes once every 24 hours.
+
+For more information on Restic and Kopia please refer to the following pages:
+* [Restic Maintenance](restic_troubleshooting.md#maintenance)
+* [Kopia Maintenance](kopia_troubleshooting.md#kopia-repository-maintenance)
+
+Once a backup and related artifacts are deleted and no active backups related to the related namespace it is recommended to delete the backupRepository object.
+
+```
+oc get backuprepositories.velero.io -n openshift-adp
+oc delete backuprepository <backupRepositoryName> -n openshift-adp
+```
 
 ## Common Issues and Misconfigurations
 

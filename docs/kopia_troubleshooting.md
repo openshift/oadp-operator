@@ -65,7 +65,7 @@ kopia repository connect s3 \
 * status and info
 ```
 kopia repository status
-kopia repository info
+kopia maintenance info
 ```
 
 * content and size
@@ -126,6 +126,10 @@ kopia maintenance run --full
 #### Upstream Documentation
 * Velero - https://velero.io/docs/v1.15/repository-maintenance/
 * Kopia - https://kopia.io/docs/advanced/maintenance/
+
+#### Summary of Kopia Maintenance
+
+* Artifacts in S3 are not deleted by OADP-1.4.x immediately when a backup is deleted.  Due to the safety features of Kopia artifacts will not be deleted until three maintenance cycles has completed which can take up to 72 hours.
 
 #### List of RFE's, bug fix and enhancements
 * https://github.com/vmware-tanzu/velero/issues/8364
