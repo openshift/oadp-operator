@@ -78,8 +78,10 @@ func (r *DPAReconciler) ValidateDataProtectionCR(log logr.Logger) (bool, error) 
 		if !(dpa.Spec.UnsupportedOverrides[oadpv1alpha1.TechPreviewAck] == TrueVal) {
 			return false, errors.New("in order to enable the non-admin feature please set dpa.spec.unsupportedOverrides[tech-preview-ack]: 'true'")
 		}
-		if !reflect.ValueOf(r.dpa.Spec.NonAdmin.EnforceBackupSpec.IncludedNamespaces).IsZero() {
-			return false, errors.New("admin users can not set DPA spec.nonAdmin.enforceBackupSpecs.includedNamespaces field")
+		if r.dpa.Spec.NonAdmin.EnforceBackupSpec != nil {
+			if !reflect.ValueOf(r.dpa.Spec.NonAdmin.EnforceBackupSpec.IncludedNamespaces).IsZero() {
+				return false, errors.New("admin users can not set DPA spec.nonAdmin.enforceBackupSpecs.includedNamespaces field")
+			}
 		}
 	}
 
