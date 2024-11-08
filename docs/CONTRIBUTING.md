@@ -5,6 +5,7 @@
    - Use PR Template instructions, they allow to ensure consistency and clarity.
 1. Avoid Self-Overrides
    - If automated tests fail (e.g., Prow tests), ask reviewers to override tests if necessary.
+     - Reviewers may override tests at any time but should provide a reason and links to a job log that supports the override.
 1. Communicate Clearly
    - Communication can be challenging
    - Explain your comments thoroughly
