@@ -1,11 +1,11 @@
 package controllers
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 
 	"github.com/go-logr/logr"
+	velero "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	"golang.org/x/exp/maps"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -23,6 +23,8 @@ import (
 const (
 	nonAdminObjectName = "non-admin-controller"
 	controlPlaneKey    = "control-plane"
+
+	enforcedBackupSpecKey = "enforced-backup-spec"
 )
 
 var (
@@ -37,6 +39,9 @@ var (
 		"app.kubernetes.io/name":       "deployment",
 		"app.kubernetes.io/part-of":    common.OADPOperator,
 	}
+
+	previousEnforcedBackupSpec   *velero.BackupSpec = nil
+	dpaBackupSpecResourceVersion                    = ""
 )
 
 func (r *DPAReconciler) ReconcileNonAdminController(log logr.Logger) (bool, error) {
@@ -123,7 +128,7 @@ func (r *DPAReconciler) buildNonAdminDeployment(deploymentObject *appsv1.Deploym
 		r.Log.Error(err, "imagePullPolicy regex failed")
 	}
 	ensureRequiredLabels(deploymentObject)
-	err = r.ensureRequiredSpecs(deploymentObject, nonAdminImage, imagePullPolicy)
+	err = ensureRequiredSpecs(deploymentObject, r.dpa, nonAdminImage, imagePullPolicy)
 	if err != nil {
 		return err
 	}
@@ -143,24 +148,25 @@ func ensureRequiredLabels(deploymentObject *appsv1.Deployment) {
 	}
 }
 
-func (r *DPAReconciler) ensureRequiredSpecs(deploymentObject *appsv1.Deployment, image string, imagePullPolicy corev1.PullPolicy) error {
+func ensureRequiredSpecs(deploymentObject *appsv1.Deployment, dpa *oadpv1alpha1.DataProtectionApplication, image string, imagePullPolicy corev1.PullPolicy) error {
 	namespaceEnvVar := corev1.EnvVar{
 		Name:  "WATCH_NAMESPACE",
 		Value: deploymentObject.Namespace,
 	}
-	converted, err := json.Marshal(r.dpa.Spec.NonAdmin.EnforceBackupSpec)
-	if err != nil {
-		return err
+	if len(dpaBackupSpecResourceVersion) == 0 || dpa.Spec.NonAdmin.EnforceBackupSpec != previousEnforcedBackupSpec {
+		dpaBackupSpecResourceVersion = dpa.GetResourceVersion()
 	}
-	enforceBackupSpecEnvVar := corev1.EnvVar{
-		Name:  "ENFORCE_BACKUP_SPEC",
-		Value: string(converted),
+	previousEnforcedBackupSpec = dpa.Spec.NonAdmin.EnforceBackupSpec
+	// TODO same thing for restore
+	enforcedSpecAnnotation := map[string]string{
+		enforcedBackupSpecKey: dpaBackupSpecResourceVersion,
 	}
 
 	deploymentObject.Spec.Replicas = ptr.To(int32(1))
 	deploymentObject.Spec.Selector = &metav1.LabelSelector{
 		MatchLabels: controlPlaneLabel,
 	}
+
 	templateObjectLabels := deploymentObject.Spec.Template.GetLabels()
 	if templateObjectLabels == nil {
 		deploymentObject.Spec.Template.SetLabels(controlPlaneLabel)
@@ -168,13 +174,23 @@ func (r *DPAReconciler) ensureRequiredSpecs(deploymentObject *appsv1.Deployment,
 		templateObjectLabels[controlPlaneKey] = controlPlaneLabel[controlPlaneKey]
 		deploymentObject.Spec.Template.SetLabels(templateObjectLabels)
 	}
+
+	templateObjectAnnotations := deploymentObject.Spec.Template.GetAnnotations()
+	if templateObjectAnnotations == nil {
+		deploymentObject.Spec.Template.SetAnnotations(enforcedSpecAnnotation)
+	} else {
+		templateObjectAnnotations[enforcedBackupSpecKey] = enforcedSpecAnnotation[enforcedBackupSpecKey]
+		// TODO same thing for restore
+		deploymentObject.Spec.Template.SetAnnotations(templateObjectAnnotations)
+	}
+
 	nonAdminContainerFound := false
 	if len(deploymentObject.Spec.Template.Spec.Containers) == 0 {
 		deploymentObject.Spec.Template.Spec.Containers = []corev1.Container{{
 			Name:            nonAdminObjectName,
 			Image:           image,
 			ImagePullPolicy: imagePullPolicy,
-			Env:             []corev1.EnvVar{namespaceEnvVar, enforceBackupSpecEnvVar},
+			Env:             []corev1.EnvVar{namespaceEnvVar},
 		}}
 		nonAdminContainerFound = true
 	} else {
@@ -183,7 +199,7 @@ func (r *DPAReconciler) ensureRequiredSpecs(deploymentObject *appsv1.Deployment,
 				nonAdminContainer := &deploymentObject.Spec.Template.Spec.Containers[index]
 				nonAdminContainer.Image = image
 				nonAdminContainer.ImagePullPolicy = imagePullPolicy
-				nonAdminContainer.Env = []corev1.EnvVar{namespaceEnvVar, enforceBackupSpecEnvVar}
+				nonAdminContainer.Env = []corev1.EnvVar{namespaceEnvVar}
 				nonAdminContainerFound = true
 				break
 			}

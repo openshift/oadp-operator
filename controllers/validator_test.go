@@ -1448,7 +1448,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 			},
 			objects:    []client.Object{},
 			wantErr:    true,
-			messageErr: "admin users can not set DPA spec.nonAdmin.enforceBackupSpec.includedNamespaces field",
+			messageErr: "admin users can not set DPA spec.nonAdmin.enforceBackupSpecs.includedNamespaces field",
 		},
 	}
 	for _, tt := range tests {
