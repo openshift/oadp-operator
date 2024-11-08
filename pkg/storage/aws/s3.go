@@ -3,11 +3,14 @@ package aws
 import (
 	"context"
 	"errors"
+	"net/http"
+	"net/url"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/aws-sdk-go/aws/request"
 )
 
 func BucketRegionIsDiscoverable(bucket string) bool {
@@ -39,4 +42,21 @@ func GetBucketRegion(bucket string) (string, error) {
 		return region, nil
 	}
 	return "", errors.New("unable to determine bucket's region: " + err.Error())
+}
+
+// StripDefaultPorts removes port 80 from HTTP URLs and 443 from HTTPS URLs.
+// Defer to the actual AWS SDK implementation to match its behavior exactly.
+func StripDefaultPorts(fromUrl string) (string, error) {
+	u, err := url.Parse(fromUrl)
+	if err != nil {
+		return "", err
+	}
+	r := http.Request{
+		URL: u,
+	}
+	request.SanitizeHostForHeader(&r)
+	if r.Host != "" {
+		r.URL.Host = r.Host
+	}
+	return r.URL.String(), nil
 }
