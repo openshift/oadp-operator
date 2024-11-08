@@ -3,6 +3,7 @@ package controllers
 import (
 	"fmt"
 	"os"
+	"reflect"
 
 	"github.com/go-logr/logr"
 	velero "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
@@ -153,7 +154,7 @@ func ensureRequiredSpecs(deploymentObject *appsv1.Deployment, dpa *oadpv1alpha1.
 		Name:  "WATCH_NAMESPACE",
 		Value: deploymentObject.Namespace,
 	}
-	if len(dpaBackupSpecResourceVersion) == 0 || dpa.Spec.NonAdmin.EnforceBackupSpec != previousEnforcedBackupSpec {
+	if len(dpaBackupSpecResourceVersion) == 0 || !reflect.DeepEqual(dpa.Spec.NonAdmin.EnforceBackupSpec, previousEnforcedBackupSpec) {
 		dpaBackupSpecResourceVersion = dpa.GetResourceVersion()
 	}
 	previousEnforcedBackupSpec = dpa.Spec.NonAdmin.EnforceBackupSpec

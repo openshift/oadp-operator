@@ -354,6 +354,27 @@ func TestEnsureRequiredSpecs(t *testing.T) {
 	if previousEnforcedBackupSpec == deployment.Spec.Template.Annotations[enforcedBackupSpecKey] {
 		t.Errorf("Deployment does not have different Annotation")
 	}
+	previousEnforcedBackupSpec = deployment.DeepCopy().Spec.Template.Annotations[enforcedBackupSpecKey]
+	updatedDPA = &oadpv1alpha1.DataProtectionApplication{
+		ObjectMeta: metav1.ObjectMeta{
+			ResourceVersion: "112233445",
+		},
+		Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+			NonAdmin: &oadpv1alpha1.NonAdmin{
+				Enable: ptr.To(true),
+				EnforceBackupSpec: &v1.BackupSpec{
+					SnapshotMoveData: ptr.To(false),
+				},
+			},
+		},
+	}
+	err = ensureRequiredSpecs(deployment, updatedDPA, defaultNonAdminImage, corev1.PullAlways)
+	if err != nil {
+		t.Errorf("ensureRequiredSpecs() errored out: %v", err)
+	}
+	if previousEnforcedBackupSpec != deployment.Spec.Template.Annotations[enforcedBackupSpecKey] {
+		t.Errorf("Deployment have different Annotation")
+	}
 }
 
 func TestDPAReconcilerCheckNonAdminEnabled(t *testing.T) {
