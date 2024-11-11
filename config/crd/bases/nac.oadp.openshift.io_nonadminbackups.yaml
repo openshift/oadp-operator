@@ -515,6 +515,16 @@ spec:
                       type: string
                     type: array
                 type: object
+              deleteBackup:
+                description: |-
+                  DeleteBackup removes the NonAdminBackup and its associated VeleroBackup from the cluster,
+                  as well as the corresponding object storage
+                type: boolean
+              forceDeleteBackup:
+                description: |-
+                  ForceDeleteBackup removes the NonAdminBackup and its associated VeleroBackup from the cluster,
+                  regardless of whether deletion from object storage succeeds or fails
+                type: boolean
               logLevel:
                 description: NonAdminBackup log level (use debug for the most logging,
                   leave unset for default)
@@ -607,18 +617,22 @@ spec:
                 - New
                 - BackingOff
                 - Created
+                - Deleting
                 type: string
               veleroBackup:
                 description: VeleroBackup contains information of the related Velero
                   backup object.
                 properties:
+                  nacuuid:
+                    description: nacuuid references the Velero Backup object by it's
+                      label containing same NACUUID.
+                    type: string
+                  name:
+                    description: references the Velero Backup object by it's name.
+                    type: string
                   namespace:
                     description: namespace references the Namespace in which Velero
                       backup exists.
-                    type: string
-                  nameuuid:
-                    description: nameuuid references the Velero Backup object by it's
-                      label containing same NameUUID.
                     type: string
                   status:
                     description: status captures the current status of the Velero
@@ -767,6 +781,42 @@ spec:
                           execution of the backup. The actual warnings are in the backup's log
                           file in object storage.
                         type: integer
+                    type: object
+                type: object
+              veleroDeleteBackupRequest:
+                description: VeleroDeleteBackupRequest contains information of the
+                  related Velero delete backup request object.
+                properties:
+                  nacuuid:
+                    description: nacuuid references the Velero delete backup request
+                      object by it's label containing same NACUUID.
+                    type: string
+                  name:
+                    description: name references the Velero delete backup request
+                      object by it's name.
+                    type: string
+                  namespace:
+                    description: namespace references the Namespace in which Velero
+                      delete backup request exists.
+                    type: string
+                  status:
+                    description: status captures the current status of the Velero
+                      delete backup request.
+                    properties:
+                      errors:
+                        description: Errors contains any errors that were encountered
+                          during the deletion process.
+                        items:
+                          type: string
+                        nullable: true
+                        type: array
+                      phase:
+                        description: Phase is the current state of the DeleteBackupRequest.
+                        enum:
+                        - New
+                        - InProgress
+                        - Processed
+                        type: string
                     type: object
                 type: object
             type: object
