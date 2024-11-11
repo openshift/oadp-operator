@@ -284,7 +284,7 @@ func (r *DPAReconciler) updateBSLFromSpec(bsl *velerov1.BackupStorageLocation, b
 	if bslSpec.Provider == "aws" && bslSpec.Config != nil {
 		s3Url := bslSpec.Config["s3Url"]
 		if len(s3Url) > 0 {
-			if s3Url, err = common.StripDefaultPorts(s3Url); err == nil {
+			if s3Url, err = aws.StripDefaultPorts(s3Url); err == nil {
 				bslSpec.Config["s3Url"] = s3Url
 			}
 		}

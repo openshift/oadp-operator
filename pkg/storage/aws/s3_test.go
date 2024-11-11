@@ -1,6 +1,7 @@
 package aws
 
 import (
+	"reflect"
 	"testing"
 )
 
@@ -78,6 +79,51 @@ func TestBucketRegionIsDiscoverable(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := BucketRegionIsDiscoverable(tt.bucket); got != tt.discoverable {
 				t.Errorf("BucketRegionIsDiscoverable() = %v, want %v", got, tt.discoverable)
+			}
+		})
+	}
+}
+
+func TestStripDefaultPorts(t *testing.T) {
+	tests := []struct {
+		name string
+		base string
+		want string
+	}{
+		{
+			name: "port-free URL is returned unchanged",
+			base: "https://s3.region.cloud-object-storage.appdomain.cloud/bucket-name",
+			want: "https://s3.region.cloud-object-storage.appdomain.cloud/bucket-name",
+		},
+		{
+			name: "HTTPS port is removed from URL",
+			base: "https://s3.region.cloud-object-storage.appdomain.cloud:443/bucket-name",
+			want: "https://s3.region.cloud-object-storage.appdomain.cloud/bucket-name",
+		},
+		{
+			name: "HTTP port is removed from URL",
+			base: "http://s3.region.cloud-object-storage.appdomain.cloud:80/bucket-name",
+			want: "http://s3.region.cloud-object-storage.appdomain.cloud/bucket-name",
+		},
+		{
+			name: "alternate HTTP port is preserved",
+			base: "http://10.0.188.30:9000",
+			want: "http://10.0.188.30:9000",
+		},
+		{
+			name: "alternate HTTPS port is preserved",
+			base: "https://10.0.188.30:9000",
+			want: "https://10.0.188.30:9000",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := StripDefaultPorts(tt.base)
+			if err != nil {
+				t.Errorf("An error occurred: %v", err)
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("StripDefaultPorts() = %v, want %v", got, tt.want)
 			}
 		})
 	}
