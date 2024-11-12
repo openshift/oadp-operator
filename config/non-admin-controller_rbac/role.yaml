@@ -31,6 +31,12 @@ rules:
   - patch
   - update
 - apiGroups:
+  - oadp.openshift.io
+  resources:
+  - dataprotectionapplications
+  verbs:
+  - list
+- apiGroups:
   - velero.io
   resources:
   - backups
