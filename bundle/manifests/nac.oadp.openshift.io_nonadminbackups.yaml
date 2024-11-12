@@ -612,12 +612,13 @@ spec:
                 description: VeleroBackup contains information of the related Velero
                   backup object.
                 properties:
-                  name:
-                    description: name references the Velero backup by it's name.
-                    type: string
                   namespace:
                     description: namespace references the Namespace in which Velero
                       backup exists.
+                    type: string
+                  nameuuid:
+                    description: nameuuid references the Velero Backup object by it's
+                      label containing same NameUUID.
                     type: string
                   status:
                     description: status captures the current status of the Velero
