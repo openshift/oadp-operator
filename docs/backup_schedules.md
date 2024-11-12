@@ -1,10 +1,10 @@
 # Backup Schedules
 
 ## Additional Documentation
-* Upstream Documentation: https://velero.io/docs/v1.3.0/api-types/schedule/
+* Upstream Documentation: https://velero.io/docs/main/api-types/schedule/
 
 ## Example Schedule CR
-```
+```yaml
 apiVersion: velero.io/v1
 kind: Schedule
 metadata:
@@ -24,7 +24,7 @@ spec:
 ```
 
 ## Example k8s cronjob to delete scheduled backups (retain latest 10 backups)
-```
+```yaml
 apiVersion: batch/v1
 kind: CronJob
 metadata:
