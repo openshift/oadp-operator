@@ -117,6 +117,10 @@ Status Update:
   - SpeedMbps: Calculated upload speed.
   - ErrorMessage: Details of any error encountered during the test.
 
+Flow Diagram:
+
+![Upload Speed Test Flow Diagram](../images/ust.jpg)
+
 ## Implementation
 
 #### Dynamic Provider Initialization:
