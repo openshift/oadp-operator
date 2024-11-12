@@ -7,7 +7,7 @@
 
 ## Use the kopia client from OpenShift
 
-```
+```yaml
 apiVersion: v1
 kind: Pod
 metadata:
@@ -22,9 +22,14 @@ spec:
     args: ["infinity"] 
 ```
 
+Create the above pod:
+```shell
+oc create -f oadp-mustgather-pod.yaml
+```
+
 Connect to the pod and execute kopia commands
 
-```
+```shell
 oc -n openshift-adp rsh pod/oadp-mustgather-pod
 
 sh-5.1# which kopia
@@ -44,7 +49,7 @@ Flags:
 
 ## Connect to a kopia repository
 
-```
+```shell
 export S3_BUCKET=<your bucket name>
 export S3_REPOSITORY_PATH=<path without S3_BUCKET>
 export S3_ACCESS_KEY=<s3 access key>
@@ -57,23 +62,25 @@ kopia repository connect s3 \
     --prefix="$S3_REPOSITORY_PATH" \
     --access-key="$S3_ACCESS_KEY" \
     --secret-access-key="$S3_SECRET_ACCESS_KEY" \
+    # --disable-tls-verification \ # optional
     --password=static-passw0rd
 ```
 
 ## Basic commands
 
-* status and info
-```
+* status and info - refer to upstream documentation for more detail.
+```shell
 kopia repository status
+kopia maintenance status
 kopia maintenance info
 ```
 
-* content and size
-```
+* content and size - refer to upstream documentation for more detail.
+```shell
 kopia content stats
 ```
 
-```
+```shell
 Count: 116
 Total Bytes: 37.2 MB
 Total Packed: 37.1 MB (compression 0.1%)
@@ -93,13 +100,13 @@ Histogram:
         0 between 10 MB and 100 MB (total 0 B)
 ```
 
-* statistics
-```
+* statistics - refer to upstream documentation for more detail.
+```shell
 kopia snapshot ls --all --storage-stats
 ```
 
-* benchmark
-```
+* benchmark - refer to upstream documentation for more detail.
+```shell
 kopia benchmark hashing
 kopia benchmark encryption
 kopia benchmark splitter
@@ -116,12 +123,40 @@ Users may also find the following type of errors in the logs while maintenance i
 
 ## Kopia Repository Maintenance
 
+Executing kopia maintenance commands manually should not be done under normal circumstances.  The kopia repository maintenance job will handle this.  However, if a user must execute kopia maintenance commands manually the following should be followed:
+
 * repository maintenance commands:
-```
-kopia maintenance info
-kopia maintenance run 
-kopia maintenance run --full
-```
+  ```shell
+  kopia maintenance info
+  ```
+
+* Prior to running maintenance, please check the following:
+  * Ensure there are no running Backups nor Backup will ran during maintenance task.  You may want to scale the velero deployment replicaset down to 0 pods.
+
+  * Take ownership of maintenance by: 
+
+    ```shell
+    kopia maintenance info | grep Owner
+    Owner: default@default
+    ```
+
+  * Set ownership to the current user in the pod
+    ```shell
+    $ kopia maintenance set --owner=me
+    Setting maintenance owner to root@oadp-mustgather-pod
+    ```
+
+* Perform maintenance tasks
+  ```shell
+  kopia maintenance run 
+  kopia maintenance run --full
+  ```
+
+* Revert back to the previous owner, so OADP can function
+  ```shell
+  $ kopia maintenance set --owner=default@default
+  Setting maintenance owner to default@default
+  ```
 
 #### Upstream Documentation
 * Velero - https://velero.io/docs/v1.15/repository-maintenance/
@@ -129,7 +164,11 @@ kopia maintenance run --full
 
 #### Summary of Kopia Maintenance
 
-* Artifacts in S3 are not deleted by OADP-1.4.x immediately when a backup is deleted.  Due to the safety features of Kopia artifacts will not be deleted until three maintenance cycles has completed which can take up to 72 hours.
+Due to the safety features of Kopia, artifacts will not be deleted until at least two full maintenance cycles have passed. Specifically, the first post-deletion maintenance cycle must occur at least 24 hours after item creation, and the second cycle must occur at least four hours after the first.
+
+In practical terms, most normally-expiring backups will be deleted on the second daily full maintenance cycle after deletion, which should occur between 24 and 48 hours post-deletion, depending on how soon the first full maintenance runs.
+
+In certain cases, specifically for backups which are deleted immediately after creation, it could take up to 72 hours, since the 24-to-48-hour window only begins 24 hours post-creation.
 
 #### List of RFE's, bug fix and enhancements
 * https://github.com/vmware-tanzu/velero/issues/8364
@@ -142,7 +181,7 @@ kopia maintenance run --full
 Maintenance is composed of individual tasks grouped into two sets:
 
 #### Quick Maintenance
-This runs frequently (hourly) with the goal of of keeping the number of index blobs (n) small, as high number of indexes negatively affects the performance of all kopia operations. This is because every write session (snapshot command, any policy manipulation, etc.) adds at least one n blob and usually one q blob so it’s very important to aggressively compact them:
+This runs frequently (hourly) with the goal of keeping the number of index blobs (n) small, as high number of indexes negatively affects the performance of all kopia operations. This is because every write session (snapshot command, any policy manipulation, etc.) adds at least one n blob and usually one q blob so it’s very important to aggressively compact them:
 
 * quick-rewrite-contents - looks for contents in short q packs that utilize less than 80% of the target pack size (currently around 20MB) and rewrites them to a new, larger q pack, effectively orphaning the original packs and making them eligible for deletion after some time.
 * quick-delete-blobs - looks for orphaned q packs (that are not referenced by any index) and deletes them after enough time has passed for those contents to be no longer referenced by any cache.
@@ -184,7 +223,10 @@ pod/repo-maintain-job-1730749783183-8vtjh                             0/1     Co
 
 * A user can check the logs of the repo-maintain-jobs for details for kopia or restic repo maintenance cleanup and the removal of artifacts in s3 storage.
 
-* Users can expect a full 72 hour cycle (three executions of a full maintenance) before artifacts in s3 are deleted with OADP-1.[3,4].x
+* Alternatively, a user can execute `kopia maintenance status` as described in this document to better understand the state of the repository.
+
+* In OADP-1.[3,4] and due to the safety features of Kopia, artifacts will not be deleted until at least two full maintenance cycles have passed. Specifically, the first post-deletion maintenance cycle must occur at least 24 hours after item creation, and the second cycle must occur at least four hours after the first. 
+
   * A user can find a note in the repo-maintain-job when the next full cycle maintenance will occur:
     ```
     not due for full maintenance cycle until 2024-11-01 18:29:4
@@ -247,9 +289,9 @@ repo-maintain-job-1730572782098-fr42k velero-repo-maintenance-container time="20
 
 #### Kopia safety features:
 
-* https://github.com/kopia/kopia/blob/master/repo/maintenance/maintenance_safety.go#L56C1-L68C1
+* https://github.com/kopia/kopia/blob/282af8014633c06c358284acaffbbacd852b3b91/repo/maintenance/maintenance_safety.go#L56-L67
 
-```
+```golang
 // Supported safety levels.
 //
 //nolint:gochecknoglobals
@@ -287,7 +329,7 @@ var (
 
 WARNING: As the name implies, the --safety=none flag disables all safety features, so the user must ensure that no concurrent operations are happening and repository storage is properly in sync before attempting it. Failure to do so can introduce repository corruption.
 
-```
+```shell
 kopia maintenance run --full --safety=none
 ```
 

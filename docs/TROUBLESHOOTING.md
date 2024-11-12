@@ -97,14 +97,14 @@ This section includes how to debug a failed restore. For more specific issues re
  
 ## Deleting Backups
 
-A common misunderstanding is that `oc delete backup $backup_name` command will delete the backup and artifacts from object storage.  This is not the case.  The backup object will be deleted temporarily but will be recreated via Velero's sync controller.
+A common misunderstanding is that `oc delete backup $backup_name` command will delete the backup and artifacts from object storage.  **This is not the case**.  The backup object will be deleted temporarily but will be recreated via Velero's sync controller.
 
 To delete an OADP backup, the related objects and off cluster artifacts.
 
  1. OpenShift commands
     
     Create a DeleteBackupRequest object:
-    ```
+    ```yaml
     apiVersion: velero.io/v1
     kind: DeleteBackupRequest
     metadata:
