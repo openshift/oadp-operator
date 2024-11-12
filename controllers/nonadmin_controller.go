@@ -10,6 +10,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8serror "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -84,15 +85,17 @@ func (r *DPAReconciler) ReconcileNonAdminController(log logr.Logger) (bool, erro
 		return true, nil
 	}
 
-	dpaList := &oadpv1alpha1.DataProtectionApplicationList{}
-	err := r.List(r.Context, dpaList)
+	selector, err := fields.ParseSelector(fmt.Sprintf("metadata.namespace!=%s", r.NamespacedName.Namespace))
 	if err != nil {
 		return false, err
 	}
-	r.Log.Info("number of DPAs fetched: ", "number of DPAs", len(dpaList.Items))
-	r.Log.Info("DPA list fetched:\n", "DPAs", dpaList.Items)
+	dpaList := &oadpv1alpha1.DataProtectionApplicationList{}
+	err = r.ClusterWideClient.List(r.Context, dpaList, &client.ListOptions{FieldSelector: selector})
+	if err != nil {
+		return false, err
+	}
 	for _, dpa := range dpaList.Items {
-		if dpa.Namespace != r.NamespacedName.Namespace && (&DPAReconciler{dpa: &dpa}).checkNonAdminEnabled() {
+		if (&DPAReconciler{dpa: &dpa}).checkNonAdminEnabled() {
 			return false, fmt.Errorf("only a single instance of Non-Admin Controller can be installed across the entire cluster. Non-Admin controller is also configured to be installed in %s namespace", dpa.Namespace)
 		}
 	}

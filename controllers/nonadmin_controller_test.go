@@ -136,8 +136,9 @@ func runReconcileNonAdminControllerTest(
 			Name:      scenario.dpa,
 			Namespace: scenario.namespace,
 		},
-		EventRecorder: event,
-		dpa:           dpa,
+		EventRecorder:     event,
+		dpa:               dpa,
+		ClusterWideClient: k8sClient,
 	}
 	result, err := r.ReconcileNonAdminController(logr.Discard())
 

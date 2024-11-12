@@ -45,13 +45,13 @@ import (
 // DPAReconciler reconciles a Velero object
 type DPAReconciler struct {
 	client.Client
-	Scheme         *runtime.Scheme
-	Log            logr.Logger
-	Context        context.Context
-	NamespacedName types.NamespacedName
-	EventRecorder  record.EventRecorder
-	dpa            *oadpv1alpha1.DataProtectionApplication
-	OADPNamespace  string
+	Scheme            *runtime.Scheme
+	Log               logr.Logger
+	Context           context.Context
+	NamespacedName    types.NamespacedName
+	EventRecorder     record.EventRecorder
+	dpa               *oadpv1alpha1.DataProtectionApplication
+	ClusterWideClient client.Client
 }
 
 var debugMode = os.Getenv("DEBUG") == "true"
@@ -149,7 +149,7 @@ func (r *DPAReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&routev1.Route{}).
 		Owns(&corev1.ConfigMap{}).
 		Watches(&corev1.Secret{}, &labelHandler{}).
-		WithEventFilter(veleroPredicate(r.Scheme, r.OADPNamespace)).
+		WithEventFilter(veleroPredicate(r.Scheme)).
 		Complete(r)
 }
 
