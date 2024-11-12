@@ -127,7 +127,7 @@ To delete an OADP backup, the related objects and off cluster artifacts.
 The related artifacts will be deleted at different times depending on the backup method:
 * Restic:  Artifacts are deleted in the next full maintentance cycle after the backup is deleted.
 * CSI: Artifacts are deleted immediately when the backup is deleted.
-* Kopia: Artifacts are deleted after three full maintentance cycles after the backup is deleted.
+* Kopia: Artifacts are deleted after two full maintentance cycles after the backup is deleted.
 
 **Note:** In OADP 1.3.x and OADP 1.4.x the full maintenance cycle executes once every 24 hours.
 

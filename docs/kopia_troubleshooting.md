@@ -142,7 +142,7 @@ Executing kopia maintenance commands manually should not be done under normal ci
 
   * Set ownership to the current user in the pod
     ```shell
-    $ kopia maintenance set --owner=me
+    kopia maintenance set --owner=me
     Setting maintenance owner to root@oadp-mustgather-pod
     ```
 
@@ -154,7 +154,7 @@ Executing kopia maintenance commands manually should not be done under normal ci
 
 * Revert back to the previous owner, so OADP can function
   ```shell
-  $ kopia maintenance set --owner=default@default
+  kopia maintenance set --owner=default@default
   Setting maintenance owner to default@default
   ```
 
