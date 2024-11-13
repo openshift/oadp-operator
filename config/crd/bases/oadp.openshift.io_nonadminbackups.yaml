@@ -4,9 +4,9 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.14.0
-  name: nonadminbackups.nac.oadp.openshift.io
+  name: nonadminbackups.oadp.openshift.io
 spec:
-  group: nac.oadp.openshift.io
+  group: oadp.openshift.io
   names:
     kind: NonAdminBackup
     listKind: NonAdminBackupList

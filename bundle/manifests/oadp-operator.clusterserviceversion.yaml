@@ -5,23 +5,6 @@ metadata:
     alm-examples: |-
       [
         {
-          "apiVersion": "nac.oadp.openshift.io/v1alpha1",
-          "kind": "NonAdminBackup",
-          "metadata": {
-            "labels": {
-              "app.kubernetes.io/created-by": "oadp-operator",
-              "app.kubernetes.io/instance": "nonadminbackup-sample",
-              "app.kubernetes.io/managed-by": "kustomize",
-              "app.kubernetes.io/name": "nonadminbackup",
-              "app.kubernetes.io/part-of": "oadp-operator"
-            },
-            "name": "nonadminbackup-sample"
-          },
-          "spec": {
-            "backupSpec": {}
-          }
-        },
-        {
           "apiVersion": "oadp.openshift.io/v1alpha1",
           "kind": "DataProtectionApplication",
           "metadata": {
@@ -72,6 +55,23 @@ metadata:
                 }
               }
             ]
+          }
+        },
+        {
+          "apiVersion": "oadp.openshift.io/v1alpha1",
+          "kind": "NonAdminBackup",
+          "metadata": {
+            "labels": {
+              "app.kubernetes.io/created-by": "oadp-operator",
+              "app.kubernetes.io/instance": "nonadminbackup-sample",
+              "app.kubernetes.io/managed-by": "kustomize",
+              "app.kubernetes.io/name": "nonadminbackup",
+              "app.kubernetes.io/part-of": "oadp-operator"
+            },
+            "name": "nonadminbackup-sample"
+          },
+          "spec": {
+            "backupSpec": {}
           }
         },
         {
@@ -420,7 +420,7 @@ spec:
     - description: NonAdminBackup is the Schema for the nonadminbackups API
       displayName: Non Admin Backup
       kind: NonAdminBackup
-      name: nonadminbackups.nac.oadp.openshift.io
+      name: nonadminbackups.oadp.openshift.io
       version: v1alpha1
     - description: A velero pod volume backup is a restic backup of persistent volumes
         attached to a running pod.
@@ -604,7 +604,7 @@ spec:
       clusterPermissions:
       - rules:
         - apiGroups:
-          - nac.oadp.openshift.io
+          - oadp.openshift.io
           resources:
           - nonadminbackups
           verbs:
@@ -616,13 +616,13 @@ spec:
           - update
           - watch
         - apiGroups:
-          - nac.oadp.openshift.io
+          - oadp.openshift.io
           resources:
           - nonadminbackups/finalizers
           verbs:
           - update
         - apiGroups:
-          - nac.oadp.openshift.io
+          - oadp.openshift.io
           resources:
           - nonadminbackups/status
           verbs:

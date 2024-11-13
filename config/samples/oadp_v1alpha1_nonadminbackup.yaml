@@ -1,4 +1,4 @@
-apiVersion: nac.oadp.openshift.io/v1alpha1
+apiVersion: oadp.openshift.io/v1alpha1
 kind: NonAdminBackup
 metadata:
   labels:
