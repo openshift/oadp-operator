@@ -54,6 +54,7 @@ export S3_BUCKET=<your bucket name>
 export S3_REPOSITORY_PATH=<path without S3_BUCKET>
 export S3_ACCESS_KEY=<s3 access key>
 export S3_SECRET_ACCESS_KEY=<s3 secret access key>
+# export S3_ENDPOINT=<s3 endpoint> # optional
 
 # Use static-passw0rd as it is hardcoded
 
@@ -63,6 +64,7 @@ kopia repository connect s3 \
     --access-key="$S3_ACCESS_KEY" \
     --secret-access-key="$S3_SECRET_ACCESS_KEY" \
     # --disable-tls-verification \ # optional
+    # --endpoint=S3_ENDPOINT \ # optional
     --password=static-passw0rd
 ```
 
