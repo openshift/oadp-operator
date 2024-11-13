@@ -10,7 +10,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8serror "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -83,21 +82,6 @@ func (r *DPAReconciler) ReconcileNonAdminController(log logr.Logger) (bool, erro
 			fmt.Sprintf("Non admin controller deployment %s/%s deleted", nonAdminDeployment.Namespace, nonAdminDeployment.Name),
 		)
 		return true, nil
-	}
-
-	selector, err := fields.ParseSelector(fmt.Sprintf("metadata.namespace!=%s", r.NamespacedName.Namespace))
-	if err != nil {
-		return false, err
-	}
-	dpaList := &oadpv1alpha1.DataProtectionApplicationList{}
-	err = r.ClusterWideClient.List(r.Context, dpaList, &client.ListOptions{FieldSelector: selector})
-	if err != nil {
-		return false, err
-	}
-	for _, dpa := range dpaList.Items {
-		if (&DPAReconciler{dpa: &dpa}).checkNonAdminEnabled() {
-			return false, fmt.Errorf("only a single instance of Non-Admin Controller can be installed across the entire cluster. Non-Admin controller is also configured to be installed in %s namespace", dpa.Namespace)
-		}
 	}
 
 	operation, err := controllerutil.CreateOrUpdate(

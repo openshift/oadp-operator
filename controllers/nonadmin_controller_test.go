@@ -21,14 +21,12 @@ import (
 const defaultNonAdminImage = "quay.io/konveyor/oadp-non-admin:latest"
 
 type ReconcileNonAdminControllerScenario struct {
-	namespace              string
-	dpa                    string
-	errMessage             string
-	eventWords             []string
-	nonAdminEnabled        bool
-	deployment             *appsv1.Deployment
-	anotherNamespace       string
-	anotherNonAdminEnabled bool
+	namespace       string
+	dpa             string
+	errMessage      string
+	eventWords      []string
+	nonAdminEnabled bool
+	deployment      *appsv1.Deployment
 }
 
 func createTestDeployment(namespace string) *appsv1.Deployment {
@@ -101,31 +99,6 @@ func runReconcileNonAdminControllerTest(
 		gomega.Expect(k8sClient.Create(ctx, scenario.deployment)).To(gomega.Succeed())
 	}
 
-	if len(scenario.anotherNamespace) > 0 {
-		namespace := &corev1.Namespace{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: scenario.anotherNamespace,
-			},
-		}
-		gomega.Expect(k8sClient.Create(ctx, namespace)).To(gomega.Succeed())
-		dpa := &oadpv1alpha1.DataProtectionApplication{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      scenario.dpa,
-				Namespace: scenario.anotherNamespace,
-			},
-			Spec: oadpv1alpha1.DataProtectionApplicationSpec{
-				Configuration: &oadpv1alpha1.ApplicationConfig{},
-				NonAdmin: &oadpv1alpha1.NonAdmin{
-					Enable: ptr.To(scenario.anotherNonAdminEnabled),
-				},
-				UnsupportedOverrides: map[oadpv1alpha1.UnsupportedImageKey]string{
-					oadpv1alpha1.TechPreviewAck: "true",
-				},
-			},
-		}
-		gomega.Expect(k8sClient.Create(ctx, dpa)).To(gomega.Succeed())
-	}
-
 	os.Setenv("RELATED_IMAGE_NON_ADMIN_CONTROLLER", envVarValue)
 	event := record.NewFakeRecorder(5)
 	r := &DPAReconciler{
@@ -136,9 +109,8 @@ func runReconcileNonAdminControllerTest(
 			Name:      scenario.dpa,
 			Namespace: scenario.namespace,
 		},
-		EventRecorder:     event,
-		dpa:               dpa,
-		ClusterWideClient: k8sClient,
+		EventRecorder: event,
+		dpa:           dpa,
 	}
 	result, err := r.ReconcileNonAdminController(logr.Discard())
 
@@ -200,23 +172,6 @@ var _ = ginkgo.Describe("Test ReconcileNonAdminController function", func() {
 			},
 		}
 		gomega.Expect(k8sClient.Delete(ctx, namespace)).To(gomega.Succeed())
-
-		if len(currentTestScenario.anotherNamespace) > 0 {
-			dpa := &oadpv1alpha1.DataProtectionApplication{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      currentTestScenario.dpa,
-					Namespace: currentTestScenario.anotherNamespace,
-				},
-			}
-			gomega.Expect(k8sClient.Delete(ctx, dpa)).To(gomega.Succeed())
-
-			namespace := &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: currentTestScenario.anotherNamespace,
-				},
-			}
-			gomega.Expect(k8sClient.Delete(ctx, namespace)).To(gomega.Succeed())
-		}
 	})
 
 	ginkgo.DescribeTable("Reconcile is true",
@@ -247,14 +202,6 @@ var _ = ginkgo.Describe("Test ReconcileNonAdminController function", func() {
 			namespace:       "test-4",
 			dpa:             "test-4-dpa",
 			nonAdminEnabled: false,
-		}),
-		ginkgo.Entry("Should create non admin deployment with DPAs in other namespaces", ReconcileNonAdminControllerScenario{
-			namespace:              "test-5",
-			dpa:                    "test-5-dpa",
-			eventWords:             []string{"Normal", "NonAdminDeploymentReconciled", "created"},
-			nonAdminEnabled:        true,
-			anotherNamespace:       "test-6",
-			anotherNonAdminEnabled: false,
 		}),
 	)
 
@@ -289,14 +236,6 @@ var _ = ginkgo.Describe("Test ReconcileNonAdminController function", func() {
 					},
 				},
 			},
-		}),
-		ginkgo.Entry("Should error because non admin is enabled in another namespace", ReconcileNonAdminControllerScenario{
-			namespace:              "test-error-2",
-			dpa:                    "test-error-2-dpa",
-			errMessage:             "only a single instance of Non-Admin Controller can be installed across the entire cluster. Non-Admin controller is also configured to be installed in test-error-3 namespace",
-			nonAdminEnabled:        true,
-			anotherNamespace:       "test-error-3",
-			anotherNonAdminEnabled: true,
 		}),
 	)
 })

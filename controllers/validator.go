@@ -84,6 +84,18 @@ func (r *DPAReconciler) ValidateDataProtectionCR(log logr.Logger) (bool, error) 
 		if !(r.dpa.Spec.UnsupportedOverrides[oadpv1alpha1.TechPreviewAck] == TrueVal) {
 			return false, errors.New("in order to enable/disable the non-admin feature please set dpa.spec.unsupportedOverrides[tech-preview-ack]: 'true'")
 		}
+
+		dpaList := &oadpv1alpha1.DataProtectionApplicationList{}
+		err = r.ClusterWideClient.List(r.Context, dpaList)
+		if err != nil {
+			return false, err
+		}
+		for _, dpa := range dpaList.Items {
+			if dpa.Namespace != r.NamespacedName.Namespace && (&DPAReconciler{dpa: &dpa}).checkNonAdminEnabled() {
+				return false, fmt.Errorf("only a single instance of Non-Admin Controller can be installed across the entire cluster. Non-Admin controller is also configured to be installed in %s namespace", dpa.Namespace)
+			}
+		}
+
 	}
 
 	return true, nil
