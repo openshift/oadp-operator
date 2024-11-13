@@ -370,3 +370,26 @@ ab60e48b  2023-06-20 21:04:41  volsync                 /data
 ------------------------------------------------------------
 1 snapshots
 ```
+
+## Maintenance
+
+* Upstream Documentation:
+  * Velero - https://velero.io/docs/v1.15/repository-maintenance/
+  * Restic - https://restic.readthedocs.io/en/latest/060_forget.html#
+
+Restic Repository Maintenance in OADP:
+
+In the namespace where OADP is installed repo-maintain-job's are executed
+
+```shell=
+pod/repo-maintain-job-1730739882527-2nbls                             0/1     Completed   0          168m
+pod/repo-maintain-job-1730743482536-fl9tm                             0/1     Completed   0          108m
+pod/repo-maintain-job-1730747082545-55ggx                             0/1     Completed   0          48m
+pod/repo-maintain-job-1730749183178-5jqf2                             0/1     Completed   0          13m
+pod/repo-maintain-job-1730749483183-mvrzw                             0/1     Completed   0          8m57s
+pod/repo-maintain-job-1730749783183-8vtjh                             0/1     Completed   0          3m57s
+```
+
+* It is recommended to capture the logs from all the repo-maintain-jobs to understand the state of the repository and the maintenance tasks. Capturing the logs should be done on an ongoing basis.
+
+* A user can check the logs of the repo-maintain-jobs for details of restic repo maintenance cleanup and the removal of artifacts in s3 storage.
