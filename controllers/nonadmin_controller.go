@@ -176,6 +176,7 @@ func ensureRequiredSpecs(deploymentObject *appsv1.Deployment, image string, imag
 				nonAdminContainer.Image = image
 				nonAdminContainer.ImagePullPolicy = imagePullPolicy
 				nonAdminContainer.Env = []corev1.EnvVar{namespaceEnvVar}
+				nonAdminContainer.TerminationMessagePolicy = corev1.TerminationMessageFallbackToLogsOnError
 				nonAdminContainerFound = true
 				break
 			}

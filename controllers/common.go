@@ -14,7 +14,7 @@ func setContainerDefaults(container *corev1.Container) {
 		container.TerminationMessagePath = "/dev/termination-log"
 	}
 	if container.TerminationMessagePolicy == "" {
-		container.TerminationMessagePolicy = corev1.TerminationMessageReadFile
+		container.TerminationMessagePolicy = corev1.TerminationMessageFallbackToLogsOnError
 	}
 	for i := range container.Ports {
 		if container.Ports[i].Protocol == "" {

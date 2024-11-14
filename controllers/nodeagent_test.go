@@ -294,7 +294,7 @@ func createTestBuiltNodeAgentDaemonSet(options TestBuiltNodeAgentDaemonSetOption
 							Image:                    common.VeleroImage,
 							ImagePullPolicy:          corev1.PullAlways,
 							TerminationMessagePath:   "/dev/termination-log",
-							TerminationMessagePolicy: corev1.TerminationMessageReadFile,
+							TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
 							SecurityContext:          &corev1.SecurityContext{Privileged: ptr.To(true)},
 							Ports: []corev1.ContainerPort{
 								{
