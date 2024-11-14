@@ -404,7 +404,7 @@ spec:
     - description: NonAdminBackup is the Schema for the nonadminbackups API
       displayName: Non Admin Backup
       kind: NonAdminBackup
-      name: nonadminbackups.nac.oadp.openshift.io
+      name: nonadminbackups.oadp.openshift.io
       version: v1alpha1
   description: |
     **OpenShift API for Data Protection (OADP)** operator sets up and installs
