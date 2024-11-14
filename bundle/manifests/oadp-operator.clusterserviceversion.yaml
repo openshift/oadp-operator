@@ -606,6 +606,12 @@ spec:
         - apiGroups:
           - oadp.openshift.io
           resources:
+          - dataprotectionapplications
+          verbs:
+          - list
+        - apiGroups:
+          - oadp.openshift.io
+          resources:
           - nonadminbackups
           verbs:
           - create
@@ -629,12 +635,6 @@ spec:
           - get
           - patch
           - update
-        - apiGroups:
-          - oadp.openshift.io
-          resources:
-          - dataprotectionapplications
-          verbs:
-          - list
         - apiGroups:
           - velero.io
           resources:
