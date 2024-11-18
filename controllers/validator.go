@@ -7,6 +7,9 @@ import (
 
 	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/go-logr/logr"
+	appsv1 "k8s.io/api/apps/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
@@ -92,7 +95,22 @@ func (r *DPAReconciler) ValidateDataProtectionCR(log logr.Logger) (bool, error) 
 		}
 		for _, dpa := range dpaList.Items {
 			if dpa.Namespace != r.NamespacedName.Namespace && (&DPAReconciler{dpa: &dpa}).checkNonAdminEnabled() {
-				return false, fmt.Errorf("only a single instance of Non-Admin Controller can be installed across the entire cluster. Non-Admin controller is also configured to be installed in %s namespace", dpa.Namespace)
+				nonAdminDeployment := &appsv1.Deployment{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      nonAdminObjectName,
+						Namespace: dpa.Namespace,
+					},
+				}
+				if err := r.ClusterWideClient.Get(
+					r.Context,
+					types.NamespacedName{
+						Name:      nonAdminDeployment.Name,
+						Namespace: nonAdminDeployment.Namespace,
+					},
+					nonAdminDeployment,
+				); err == nil {
+					return false, fmt.Errorf("only a single instance of Non-Admin Controller can be installed across the entire cluster. Non-Admin controller is already configured and installed in %s namespace", dpa.Namespace)
+				}
 			}
 		}
 

@@ -220,6 +220,7 @@ func main() {
 
 	dpaClientScheme := runtime.NewScheme()
 	utilruntime.Must(oadpv1alpha1.AddToScheme(dpaClientScheme))
+	utilruntime.Must(appsv1.AddToScheme(dpaClientScheme))
 	dpaClient, err := client.New(kubeconf, client.Options{
 		Scheme: dpaClientScheme,
 	})

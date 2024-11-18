@@ -5,6 +5,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -1482,9 +1483,15 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 						},
 					},
 				},
+				&appsv1.Deployment{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "non-admin-controller",
+						Namespace: "test-another-ns",
+					},
+				},
 			},
 			wantErr:    true,
-			messageErr: "only a single instance of Non-Admin Controller can be installed across the entire cluster. Non-Admin controller is also configured to be installed in test-another-ns namespace",
+			messageErr: "only a single instance of Non-Admin Controller can be installed across the entire cluster. Non-Admin controller is already configured and installed in test-another-ns namespace",
 		},
 		{
 			name: "given invalid DPA CR aws and legacy-aws plugins both specified",
