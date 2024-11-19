@@ -316,7 +316,7 @@ func TestEnsureRequiredSpecs(t *testing.T) {
 	if len(deployment.Spec.Template.Annotations[enforcedBackupSpecKey]) == 0 {
 		t.Errorf("Deployment does not have Annotation")
 	}
-	previousEnforcedBackupSpec := deployment.DeepCopy().Spec.Template.Annotations[enforcedBackupSpecKey]
+	previousAnnotationValue := deployment.DeepCopy().Spec.Template.Annotations[enforcedBackupSpecKey]
 	updatedDPA := &oadpv1alpha1.DataProtectionApplication{
 		ObjectMeta: metav1.ObjectMeta{
 			ResourceVersion: "147258369",
@@ -331,7 +331,7 @@ func TestEnsureRequiredSpecs(t *testing.T) {
 	if err != nil {
 		t.Errorf("ensureRequiredSpecs() errored out: %v", err)
 	}
-	if previousEnforcedBackupSpec != deployment.Spec.Template.Annotations[enforcedBackupSpecKey] {
+	if previousAnnotationValue != deployment.Spec.Template.Annotations[enforcedBackupSpecKey] {
 		t.Errorf("Deployment have different Annotation")
 	}
 	updatedDPA = &oadpv1alpha1.DataProtectionApplication{
@@ -351,10 +351,10 @@ func TestEnsureRequiredSpecs(t *testing.T) {
 	if err != nil {
 		t.Errorf("ensureRequiredSpecs() errored out: %v", err)
 	}
-	if previousEnforcedBackupSpec == deployment.Spec.Template.Annotations[enforcedBackupSpecKey] {
+	if previousAnnotationValue == deployment.Spec.Template.Annotations[enforcedBackupSpecKey] {
 		t.Errorf("Deployment does not have different Annotation")
 	}
-	previousEnforcedBackupSpec = deployment.DeepCopy().Spec.Template.Annotations[enforcedBackupSpecKey]
+	previousAnnotationValue = deployment.DeepCopy().Spec.Template.Annotations[enforcedBackupSpecKey]
 	updatedDPA = &oadpv1alpha1.DataProtectionApplication{
 		ObjectMeta: metav1.ObjectMeta{
 			ResourceVersion: "112233445",
@@ -372,7 +372,7 @@ func TestEnsureRequiredSpecs(t *testing.T) {
 	if err != nil {
 		t.Errorf("ensureRequiredSpecs() errored out: %v", err)
 	}
-	if previousEnforcedBackupSpec != deployment.Spec.Template.Annotations[enforcedBackupSpecKey] {
+	if previousAnnotationValue != deployment.Spec.Template.Annotations[enforcedBackupSpecKey] {
 		t.Errorf("Deployment have different Annotation")
 	}
 }
