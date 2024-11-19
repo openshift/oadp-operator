@@ -68,6 +68,7 @@ const (
 	GCPPluginImage       = "quay.io/konveyor/velero-plugin-for-gcp:latest"
 	RegistryImage        = "quay.io/konveyor/registry:latest"
 	KubeVirtPluginImage  = "quay.io/konveyor/kubevirt-velero-plugin:v0.7.0"
+	OpenstackPluginImage = "quay.io/konveyor/velero-plugin-for-openstack:latest"
 )
 
 // Plugin names
@@ -78,6 +79,7 @@ const (
 	VeleroPluginForGCP       = "velero-plugin-for-gcp"
 	VeleroPluginForOpenshift = "openshift-velero-plugin"
 	KubeVirtPlugin           = "kubevirt-velero-plugin"
+	VeleroPluginForOpenstack = "velero-plugin-for-openstack"
 )
 
 // Environment Vars keys

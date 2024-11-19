@@ -18,6 +18,7 @@ installing Velero:
    - `OpenShift` [OpenShift Velero Plugin](https://github.com/openshift/openshift-velero-plugin)
    - `CSI` [Plugins for CSI](https://github.com/vmware-tanzu/velero-plugin-for-csi)
    - `kubevirt` [Plugins for Kubevirt](https://github.com/kubevirt/kubevirt-velero-plugin)
+   - `Openstack` [Plugins for Openstack](https://github.com/openshift/lirt-velero-plugin-for-openstack)
    - `VSM (OADP 1.2 or below)` [Plugin for Volume-Snapshot-Mover](https://github.com/migtools/velero-plugin-for-vsm)
 
    Note that only one of `AWS` and `Legacy AWS` may be installed at the same time. `Legacy AWS` is intended for use with certain S3 providers that do not support the V2 AWS SDK APIs used in the `AWS` plugin.

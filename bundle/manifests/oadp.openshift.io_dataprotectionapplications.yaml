@@ -830,6 +830,7 @@ spec:
                               - csi
                               - vsm
                               - openshift
+                              - openstack
                               - kubevirt
                             type: string
                           type: array
@@ -1778,6 +1779,7 @@ spec:
                       - openshiftPluginImageFqin
                       - azurePluginImageFqin
                       - gcpPluginImageFqin
+                      - openstackPluginImageFqin
                       - resticRestoreImageFqin
                       - kubevirtPluginImageFqin
                       - nonAdminControllerImageFqin
