@@ -7,6 +7,12 @@ rules:
 - apiGroups:
   - oadp.openshift.io
   resources:
+  - dataprotectionapplications
+  verbs:
+  - list
+- apiGroups:
+  - oadp.openshift.io
+  resources:
   - nonadminbackups
   verbs:
   - create

@@ -8,6 +8,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
+	"github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -241,7 +242,13 @@ var _ = ginkgo.Describe("Test ReconcileNonAdminController function", func() {
 })
 
 func TestDPAReconcilerBuildNonAdminDeployment(t *testing.T) {
-	r := &DPAReconciler{dpa: &oadpv1alpha1.DataProtectionApplication{}}
+	r := &DPAReconciler{dpa: &oadpv1alpha1.DataProtectionApplication{
+		Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+			NonAdmin: &oadpv1alpha1.NonAdmin{
+				Enable: ptr.To(true),
+			},
+		},
+	}}
 	t.Setenv("RELATED_IMAGE_NON_ADMIN_CONTROLLER", defaultNonAdminImage)
 	deployment := createTestDeployment("test-build-deployment")
 	err := r.buildNonAdminDeployment(deployment)
@@ -283,7 +290,17 @@ func TestEnsureRequiredLabels(t *testing.T) {
 
 func TestEnsureRequiredSpecs(t *testing.T) {
 	deployment := createTestDeployment("test-ensure-spec")
-	err := ensureRequiredSpecs(deployment, defaultNonAdminImage, corev1.PullAlways)
+	dpa := &oadpv1alpha1.DataProtectionApplication{
+		ObjectMeta: metav1.ObjectMeta{
+			ResourceVersion: "123456789",
+		},
+		Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+			NonAdmin: &oadpv1alpha1.NonAdmin{
+				Enable: ptr.To(true),
+			},
+		},
+	}
+	err := ensureRequiredSpecs(deployment, dpa, defaultNonAdminImage, corev1.PullAlways)
 	if err != nil {
 		t.Errorf("ensureRequiredSpecs() errored out: %v", err)
 	}
@@ -295,6 +312,68 @@ func TestEnsureRequiredSpecs(t *testing.T) {
 	}
 	if deployment.Spec.Template.Spec.Containers[0].Image != defaultNonAdminImage {
 		t.Errorf("Deployment has wrong Image: %v", deployment.Spec.Template.Spec.Containers[0].Image)
+	}
+	if len(deployment.Spec.Template.Annotations[enforcedBackupSpecKey]) == 0 {
+		t.Errorf("Deployment does not have Annotation")
+	}
+	previousAnnotationValue := deployment.DeepCopy().Spec.Template.Annotations[enforcedBackupSpecKey]
+	updatedDPA := &oadpv1alpha1.DataProtectionApplication{
+		ObjectMeta: metav1.ObjectMeta{
+			ResourceVersion: "147258369",
+		},
+		Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+			NonAdmin: &oadpv1alpha1.NonAdmin{
+				Enable: ptr.To(true),
+			},
+		},
+	}
+	err = ensureRequiredSpecs(deployment, updatedDPA, defaultNonAdminImage, corev1.PullAlways)
+	if err != nil {
+		t.Errorf("ensureRequiredSpecs() errored out: %v", err)
+	}
+	if previousAnnotationValue != deployment.Spec.Template.Annotations[enforcedBackupSpecKey] {
+		t.Errorf("Deployment have different Annotation")
+	}
+	updatedDPA = &oadpv1alpha1.DataProtectionApplication{
+		ObjectMeta: metav1.ObjectMeta{
+			ResourceVersion: "987654321",
+		},
+		Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+			NonAdmin: &oadpv1alpha1.NonAdmin{
+				Enable: ptr.To(true),
+				EnforceBackupSpec: &v1.BackupSpec{
+					SnapshotMoveData: ptr.To(false),
+				},
+			},
+		},
+	}
+	err = ensureRequiredSpecs(deployment, updatedDPA, defaultNonAdminImage, corev1.PullAlways)
+	if err != nil {
+		t.Errorf("ensureRequiredSpecs() errored out: %v", err)
+	}
+	if previousAnnotationValue == deployment.Spec.Template.Annotations[enforcedBackupSpecKey] {
+		t.Errorf("Deployment does not have different Annotation")
+	}
+	previousAnnotationValue = deployment.DeepCopy().Spec.Template.Annotations[enforcedBackupSpecKey]
+	updatedDPA = &oadpv1alpha1.DataProtectionApplication{
+		ObjectMeta: metav1.ObjectMeta{
+			ResourceVersion: "112233445",
+		},
+		Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+			NonAdmin: &oadpv1alpha1.NonAdmin{
+				Enable: ptr.To(true),
+				EnforceBackupSpec: &v1.BackupSpec{
+					SnapshotMoveData: ptr.To(false),
+				},
+			},
+		},
+	}
+	err = ensureRequiredSpecs(deployment, updatedDPA, defaultNonAdminImage, corev1.PullAlways)
+	if err != nil {
+		t.Errorf("ensureRequiredSpecs() errored out: %v", err)
+	}
+	if previousAnnotationValue != deployment.Spec.Template.Annotations[enforcedBackupSpecKey] {
+		t.Errorf("Deployment have different Annotation")
 	}
 }
 
