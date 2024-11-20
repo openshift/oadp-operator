@@ -7,6 +7,10 @@ import (
 
 	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/go-logr/logr"
+	appsv1 "k8s.io/api/apps/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	"github.com/openshift/oadp-operator/pkg/credentials"
@@ -15,26 +19,32 @@ import (
 // ValidateDataProtectionCR function validates the DPA CR, returns true if valid, false otherwise
 // it calls other validation functions to validate the DPA CR
 func (r *DPAReconciler) ValidateDataProtectionCR(log logr.Logger) (bool, error) {
+	dpaList := &oadpv1alpha1.DataProtectionApplicationList{}
+	err := r.List(r.Context, dpaList, &client.ListOptions{Namespace: r.NamespacedName.Namespace})
+	if err != nil {
+		return false, err
+	}
+	if len(dpaList.Items) > 1 {
+		return false, errors.New("only one DPA CR can exist per OADP installation namespace")
+	}
 
-	dpa := r.dpa
-
-	if dpa.Spec.Configuration == nil || dpa.Spec.Configuration.Velero == nil {
+	if r.dpa.Spec.Configuration == nil || r.dpa.Spec.Configuration.Velero == nil {
 		return false, errors.New("DPA CR Velero configuration cannot be nil")
 	}
 
-	if dpa.Spec.Configuration.Restic != nil && dpa.Spec.Configuration.NodeAgent != nil {
+	if r.dpa.Spec.Configuration.Restic != nil && r.dpa.Spec.Configuration.NodeAgent != nil {
 		return false, errors.New("DPA CR cannot have restic (deprecated in OADP 1.3) as well as nodeAgent options at the same time")
 	}
 
-	if dpa.Spec.Configuration.Velero.NoDefaultBackupLocation {
-		if len(dpa.Spec.BackupLocations) != 0 {
+	if r.dpa.Spec.Configuration.Velero.NoDefaultBackupLocation {
+		if len(r.dpa.Spec.BackupLocations) != 0 {
 			return false, errors.New("DPA CR Velero configuration cannot have backup locations if noDefaultBackupLocation is set")
 		}
-		if dpa.BackupImages() {
+		if r.dpa.BackupImages() {
 			return false, errors.New("backupImages needs to be set to false when noDefaultBackupLocation is set")
 		}
 	} else {
-		if len(dpa.Spec.BackupLocations) == 0 {
+		if len(r.dpa.Spec.BackupLocations) == 0 {
 			return false, errors.New("no backupstoragelocations configured, ensure a backupstoragelocation has been configured or use the noDefaultBackupLocation flag")
 		}
 	}
@@ -47,11 +57,11 @@ func (r *DPAReconciler) ValidateDataProtectionCR(log logr.Logger) (bool, error) 
 	}
 
 	// check for VSM/Volsync DataMover (OADP 1.2 or below) syntax
-	if dpa.Spec.Features != nil && dpa.Spec.Features.DataMover != nil {
+	if r.dpa.Spec.Features != nil && r.dpa.Spec.Features.DataMover != nil {
 		return false, errors.New("Delete vsm from spec.configuration.velero.defaultPlugins and dataMover object from spec.features. Use Velero Built-in Data Mover instead")
 	}
 
-	if val, found := dpa.Spec.UnsupportedOverrides[oadpv1alpha1.OperatorTypeKey]; found && val != oadpv1alpha1.OperatorTypeMTC {
+	if val, found := r.dpa.Spec.UnsupportedOverrides[oadpv1alpha1.OperatorTypeKey]; found && val != oadpv1alpha1.OperatorTypeMTC {
 		return false, errors.New("only mtc operator type override is supported")
 	}
 
@@ -65,25 +75,49 @@ func (r *DPAReconciler) ValidateDataProtectionCR(log logr.Logger) (bool, error) 
 		return false, err
 	}
 
-	if _, err := getResticResourceReqs(dpa); err != nil {
+	if _, err := getResticResourceReqs(r.dpa); err != nil {
 		return false, err
 	}
-	if _, err := getNodeAgentResourceReqs(dpa); err != nil {
+	if _, err := getNodeAgentResourceReqs(r.dpa); err != nil {
 		return false, err
 	}
 
 	// validate non-admin enable and tech-preview-ack
-	if r.checkNonAdminEnabled() {
-		if !(dpa.Spec.UnsupportedOverrides[oadpv1alpha1.TechPreviewAck] == TrueVal) {
+	if r.dpa.Spec.NonAdmin != nil && r.dpa.Spec.NonAdmin.Enable != nil && *r.dpa.Spec.NonAdmin.Enable {
+		if !(r.dpa.Spec.UnsupportedOverrides[oadpv1alpha1.TechPreviewAck] == TrueVal) {
 			return false, errors.New("in order to enable/disable the non-admin feature please set dpa.spec.unsupportedOverrides[tech-preview-ack]: 'true'")
 		}
+
+		dpaList := &oadpv1alpha1.DataProtectionApplicationList{}
+		err = r.ClusterWideClient.List(r.Context, dpaList)
+		if err != nil {
+			return false, err
+		}
+		for _, dpa := range dpaList.Items {
+			if dpa.Namespace != r.NamespacedName.Namespace && (&DPAReconciler{dpa: &dpa}).checkNonAdminEnabled() {
+				nonAdminDeployment := &appsv1.Deployment{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      nonAdminObjectName,
+						Namespace: dpa.Namespace,
+					},
+				}
+				if err := r.ClusterWideClient.Get(
+					r.Context,
+					types.NamespacedName{
+						Name:      nonAdminDeployment.Name,
+						Namespace: nonAdminDeployment.Namespace,
+					},
+					nonAdminDeployment,
+				); err == nil {
+					return false, fmt.Errorf("only a single instance of Non-Admin Controller can be installed across the entire cluster. Non-Admin controller is already configured and installed in %s namespace", dpa.Namespace)
+				}
+			}
+		}
+
 	}
 
 	return true, nil
 }
-
-// empty struct to use as map value
-type empty struct{}
 
 // For later: Move this code into validator.go when more need for validation arises
 // TODO: if multiple default plugins exist, ensure we validate all of them.

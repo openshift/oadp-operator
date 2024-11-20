@@ -5,6 +5,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -25,6 +26,27 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 		wantErr    bool
 		messageErr string
 	}{
+		{
+			name: "[invalid] DPA CR: multiple DPAs in same namespace",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-DPA-CR",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{},
+			},
+			objects: []client.Object{
+				&oadpv1alpha1.DataProtectionApplication{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "another-DPA-CR",
+						Namespace: "test-ns",
+					},
+					Spec: oadpv1alpha1.DataProtectionApplicationSpec{},
+				},
+			},
+			wantErr:    true,
+			messageErr: "only one DPA CR can exist per OADP installation namespace",
+		},
 		{
 			name: "given valid DPA CR, no default backup location, no backup images, no error case",
 			dpa: &oadpv1alpha1.DataProtectionApplication{
@@ -1369,7 +1391,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 			messageErr: "Secret name specified in BackupLocation  cannot be empty",
 		},
 		{
-			name: "given invalid DPA CR tech-preview-ack not set as true but non-admin is enabled error case",
+			name: "[invalid] DPA CR: spec.nonAdmin.enable true, spec.unsupportedOverrides.tech-preview-ack not true string",
 			dpa: &oadpv1alpha1.DataProtectionApplication{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-DPA-CR",
@@ -1393,9 +1415,84 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 					BackupImages: pointer.Bool(false),
 				},
 			},
-			objects:    []client.Object{},
 			wantErr:    true,
 			messageErr: "in order to enable/disable the non-admin feature please set dpa.spec.unsupportedOverrides[tech-preview-ack]: 'true'",
+		},
+		{
+			name: "[valid] DPA CR: spec.nonAdmin.enable true, spec.unsupportedOverrides.tech-preview-ack true string",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-DPA-CR",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					NonAdmin: &oadpv1alpha1.NonAdmin{
+						Enable: pointer.Bool(true),
+					},
+					UnsupportedOverrides: map[oadpv1alpha1.UnsupportedImageKey]string{
+						oadpv1alpha1.TechPreviewAck: "true",
+					},
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+								oadpv1alpha1.DefaultPluginAWS,
+							},
+							NoDefaultBackupLocation: true,
+						},
+					},
+					BackupImages: pointer.Bool(false),
+				},
+			},
+		},
+		{
+			name: "[invalid] DPA CR: multiple NACs in cluster",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-DPA-CR",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					NonAdmin: &oadpv1alpha1.NonAdmin{
+						Enable: pointer.Bool(true),
+					},
+					UnsupportedOverrides: map[oadpv1alpha1.UnsupportedImageKey]string{
+						oadpv1alpha1.TechPreviewAck: "true",
+					},
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+								oadpv1alpha1.DefaultPluginAWS,
+							},
+							NoDefaultBackupLocation: true,
+						},
+					},
+					BackupImages: pointer.Bool(false),
+				},
+			},
+			objects: []client.Object{
+				&oadpv1alpha1.DataProtectionApplication{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "another-DPA-CR",
+						Namespace: "test-another-ns",
+					},
+					Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+						NonAdmin: &oadpv1alpha1.NonAdmin{
+							Enable: pointer.Bool(true),
+						},
+						UnsupportedOverrides: map[oadpv1alpha1.UnsupportedImageKey]string{
+							oadpv1alpha1.TechPreviewAck: "true",
+						},
+					},
+				},
+				&appsv1.Deployment{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "non-admin-controller",
+						Namespace: "test-another-ns",
+					},
+				},
+			},
+			wantErr:    true,
+			messageErr: "only a single instance of Non-Admin Controller can be installed across the entire cluster. Non-Admin controller is already configured and installed in test-another-ns namespace",
 		},
 		{
 			name: "given invalid DPA CR aws and legacy-aws plugins both specified",
@@ -1480,10 +1577,11 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 			t.Errorf("error in creating fake client, likely programmer error")
 		}
 		r := &DPAReconciler{
-			Client:  fakeClient,
-			Scheme:  fakeClient.Scheme(),
-			Log:     logr.Discard(),
-			Context: newContextForTest(tt.name),
+			Client:            fakeClient,
+			ClusterWideClient: fakeClient,
+			Scheme:            fakeClient.Scheme(),
+			Log:               logr.Discard(),
+			Context:           newContextForTest(tt.name),
 			NamespacedName: types.NamespacedName{
 				Namespace: tt.dpa.Namespace,
 				Name:      tt.dpa.Name,

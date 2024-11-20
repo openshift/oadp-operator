@@ -46,8 +46,6 @@ var (
 )
 
 func (r *DPAReconciler) ReconcileNonAdminController(log logr.Logger) (bool, error) {
-	dpa := r.dpa
-
 	nonAdminDeployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      nonAdminObjectName,
@@ -56,7 +54,7 @@ func (r *DPAReconciler) ReconcileNonAdminController(log logr.Logger) (bool, erro
 	}
 
 	// Delete (possible) previously deployment
-	if !(r.checkNonAdminEnabled() && dpa.Spec.UnsupportedOverrides[oadpv1alpha1.TechPreviewAck] == TrueVal) {
+	if !r.checkNonAdminEnabled() {
 		if err := r.Get(
 			r.Context,
 			types.NamespacedName{
@@ -104,7 +102,7 @@ func (r *DPAReconciler) ReconcileNonAdminController(log logr.Logger) (bool, erro
 			}
 
 			// Setting controller owner reference on the non admin controller deployment
-			return controllerutil.SetControllerReference(dpa, nonAdminDeployment, r.Scheme)
+			return controllerutil.SetControllerReference(r.dpa, nonAdminDeployment, r.Scheme)
 		},
 	)
 	if err != nil {
@@ -215,10 +213,8 @@ func ensureRequiredSpecs(deploymentObject *appsv1.Deployment, dpa *oadpv1alpha1.
 }
 
 func (r *DPAReconciler) checkNonAdminEnabled() bool {
-	dpa := r.dpa
-	if dpa.Spec.NonAdmin != nil &&
-		dpa.Spec.NonAdmin.Enable != nil {
-		return *dpa.Spec.NonAdmin.Enable
+	if r.dpa.Spec.NonAdmin != nil && r.dpa.Spec.NonAdmin.Enable != nil {
+		return *r.dpa.Spec.NonAdmin.Enable && r.dpa.Spec.UnsupportedOverrides[oadpv1alpha1.TechPreviewAck] == TrueVal
 	}
 	return false
 }

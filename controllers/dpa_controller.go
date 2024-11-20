@@ -45,12 +45,13 @@ import (
 // DPAReconciler reconciles a Velero object
 type DPAReconciler struct {
 	client.Client
-	Scheme         *runtime.Scheme
-	Log            logr.Logger
-	Context        context.Context
-	NamespacedName types.NamespacedName
-	EventRecorder  record.EventRecorder
-	dpa            *oadpv1alpha1.DataProtectionApplication
+	Scheme            *runtime.Scheme
+	Log               logr.Logger
+	Context           context.Context
+	NamespacedName    types.NamespacedName
+	EventRecorder     record.EventRecorder
+	dpa               *oadpv1alpha1.DataProtectionApplication
+	ClusterWideClient client.Client
 }
 
 var debugMode = os.Getenv("DEBUG") == "true"

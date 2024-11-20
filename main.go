@@ -218,10 +218,22 @@ func main() {
 		os.Exit(1)
 	}
 
+	dpaClientScheme := runtime.NewScheme()
+	utilruntime.Must(oadpv1alpha1.AddToScheme(dpaClientScheme))
+	utilruntime.Must(appsv1.AddToScheme(dpaClientScheme))
+	dpaClient, err := client.New(kubeconf, client.Options{
+		Scheme: dpaClientScheme,
+	})
+	if err != nil {
+		setupLog.Error(err, "unable to create Kubernetes client")
+		os.Exit(1)
+	}
+
 	if err = (&controllers.DPAReconciler{
-		Client:        mgr.GetClient(),
-		Scheme:        mgr.GetScheme(),
-		EventRecorder: mgr.GetEventRecorderFor("DPA-controller"),
+		Client:            mgr.GetClient(),
+		Scheme:            mgr.GetScheme(),
+		EventRecorder:     mgr.GetEventRecorderFor("DPA-controller"),
+		ClusterWideClient: dpaClient,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "DataProtectionApplication")
 		os.Exit(1)
