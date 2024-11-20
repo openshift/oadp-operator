@@ -35,7 +35,7 @@ const ReconcileCompleteMessage = "Reconcile complete"
 const OadpOperatorLabel = "openshift.io/oadp"
 const RegistryDeploymentLabel = "openshift.io/oadp-registry"
 
-// +kubebuilder:validation:Enum=aws;legacy-aws;gcp;azure;csi;vsm;openshift;kubevirt
+// +kubebuilder:validation:Enum=aws;legacy-aws;gcp;azure;csi;vsm;openshift;kubevirt;openstack
 type DefaultPlugin string
 
 const DefaultPluginAWS DefaultPlugin = "aws"
@@ -559,6 +559,7 @@ type DataProtectionApplicationSpec struct {
 	//   - awsPluginImageFqin
 	//   - legacyAWSPluginImageFqin
 	//   - openshiftPluginImageFqin
+	//   - openstackPluginImageFqin
 	//   - azurePluginImageFqin
 	//   - gcpPluginImageFqin
 	//   - resticRestoreImageFqin
