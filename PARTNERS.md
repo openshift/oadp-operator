@@ -22,7 +22,7 @@ Starting in 2024, OADP will implement a streamlined version support policy. Red 
 ### Future Release Planning
 | OpenShift Version | Planned OADP Version | Estimated Release Timeline |
 |-------------------|---------------------|-------------------------|
-| 4.18             | 1.4                 | Q1 2024                |
+| 4.18             | 1.4                 | Q1 2025                |
 | 4.19             | 1.5                 | Q3 2025                |
 | 4.20             | 1.5                 | Q1 2026                |
 | 4.21             | 1.6                 | Q3 2026                |
