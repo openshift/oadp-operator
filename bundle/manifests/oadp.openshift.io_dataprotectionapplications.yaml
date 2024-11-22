@@ -830,8 +830,8 @@ spec:
                               - csi
                               - vsm
                               - openshift
-                              - openstack
                               - kubevirt
+                              - openstack
                             type: string
                           type: array
                         defaultSnapshotMoveData:
@@ -1777,9 +1777,9 @@ spec:
                       - awsPluginImageFqin
                       - legacyAWSPluginImageFqin
                       - openshiftPluginImageFqin
+                      - openstackPluginImageFqin
                       - azurePluginImageFqin
                       - gcpPluginImageFqin
-                      - openstackPluginImageFqin
                       - resticRestoreImageFqin
                       - kubevirtPluginImageFqin
                       - nonAdminControllerImageFqin
