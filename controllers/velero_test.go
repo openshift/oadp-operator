@@ -124,7 +124,7 @@ var (
 			},
 		},
 		TerminationMessagePath:   "/dev/termination-log",
-		TerminationMessagePolicy: "File",
+		TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
 		VolumeMounts: []corev1.VolumeMount{
 			{MountPath: "/target", Name: "plugins"},
 		},
@@ -385,7 +385,7 @@ func createTestBuiltVeleroDeployment(options TestBuiltVeleroDeploymentOptions) *
 							Image:                    common.VeleroImage,
 							ImagePullPolicy:          corev1.PullAlways,
 							TerminationMessagePath:   "/dev/termination-log",
-							TerminationMessagePolicy: corev1.TerminationMessageReadFile,
+							TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
 							Ports: []corev1.ContainerPort{{
 								Name:          "metrics",
 								ContainerPort: 8085,

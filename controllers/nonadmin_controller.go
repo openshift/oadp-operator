@@ -186,10 +186,11 @@ func ensureRequiredSpecs(deploymentObject *appsv1.Deployment, dpa *oadpv1alpha1.
 	nonAdminContainerFound := false
 	if len(deploymentObject.Spec.Template.Spec.Containers) == 0 {
 		deploymentObject.Spec.Template.Spec.Containers = []corev1.Container{{
-			Name:            nonAdminObjectName,
-			Image:           image,
-			ImagePullPolicy: imagePullPolicy,
-			Env:             []corev1.EnvVar{namespaceEnvVar},
+			Name:                     nonAdminObjectName,
+			Image:                    image,
+			ImagePullPolicy:          imagePullPolicy,
+			Env:                      []corev1.EnvVar{namespaceEnvVar},
+			TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
 		}}
 		nonAdminContainerFound = true
 	} else {
@@ -199,6 +200,7 @@ func ensureRequiredSpecs(deploymentObject *appsv1.Deployment, dpa *oadpv1alpha1.
 				nonAdminContainer.Image = image
 				nonAdminContainer.ImagePullPolicy = imagePullPolicy
 				nonAdminContainer.Env = []corev1.EnvVar{namespaceEnvVar}
+				nonAdminContainer.TerminationMessagePolicy = corev1.TerminationMessageFallbackToLogsOnError
 				nonAdminContainerFound = true
 				break
 			}

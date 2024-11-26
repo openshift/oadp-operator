@@ -978,6 +978,7 @@ spec:
                     path: /healthz
                     port: 8081
                   periodSeconds: 10
+                terminationMessagePolicy: FallbackToLogsOnError
                 volumeMounts:
                 - mountPath: /var/run/secrets/openshift/serviceaccount
                   name: bound-sa-token

@@ -67,6 +67,7 @@ spec:
         image: controller:latest
         imagePullPolicy: Always
         name: manager
+        terminationMessagePolicy: FallbackToLogsOnError
         securityContext:
           allowPrivilegeEscalation: false
         startupProbe:

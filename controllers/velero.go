@@ -425,7 +425,7 @@ func (r *DPAReconciler) appendPluginSpecificSpecs(veleroDeployment *appsv1.Deplo
 					ImagePullPolicy:          imagePullPolicy,
 					Resources:                init_container_resources,
 					TerminationMessagePath:   "/dev/termination-log",
-					TerminationMessagePolicy: "File",
+					TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
 					VolumeMounts: []corev1.VolumeMount{
 						{
 							MountPath: "/target",
@@ -494,7 +494,7 @@ func (r *DPAReconciler) appendPluginSpecificSpecs(veleroDeployment *appsv1.Deplo
 					ImagePullPolicy:          imagePullPolicy,
 					Resources:                init_container_resources,
 					TerminationMessagePath:   "/dev/termination-log",
-					TerminationMessagePolicy: "File",
+					TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
 					VolumeMounts: []corev1.VolumeMount{
 						{
 							MountPath: "/target",
