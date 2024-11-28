@@ -18,6 +18,7 @@ resources:
 - bases/velero.io_serverstatusrequests.yaml
 - bases/velero.io_volumesnapshotlocations.yaml
 - bases/oadp.openshift.io_nonadminbackups.yaml
+- bases/oadp.openshift.io_nonadminrestores.yaml
 #+kubebuilder:scaffold:crdkustomizeresource
 
 patchesStrategicMerge:

@@ -406,6 +406,11 @@ spec:
       kind: NonAdminBackup
       name: nonadminbackups.oadp.openshift.io
       version: v1alpha1
+    - description: NonAdminRestore is the Schema for the nonadminrestores API
+      displayName: Non Admin Restore
+      kind: NonAdminRestore
+      name: nonadminrestores.oadp.openshift.io
+      version: v1alpha1
   description: |
     **OpenShift API for Data Protection (OADP)** operator sets up and installs
     Velero on the OpenShift platform, allowing users to backup and restore
