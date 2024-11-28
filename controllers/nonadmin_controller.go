@@ -25,7 +25,8 @@ const (
 	nonAdminObjectName = "non-admin-controller"
 	controlPlaneKey    = "control-plane"
 
-	enforcedBackupSpecKey = "enforced-backup-spec"
+	enforcedBackupSpecKey  = "enforced-backup-spec"
+	enforcedRestoreSpecKey = "enforced-restore-spec"
 )
 
 var (
@@ -41,8 +42,10 @@ var (
 		"app.kubernetes.io/part-of":    common.OADPOperator,
 	}
 
-	previousEnforcedBackupSpec   *velero.BackupSpec = nil
-	dpaBackupSpecResourceVersion                    = ""
+	previousEnforcedBackupSpec    *velero.BackupSpec  = nil
+	dpaBackupSpecResourceVersion                      = ""
+	previousEnforcedRestoreSpec   *velero.RestoreSpec = nil
+	dpaRestoreSpecResourceVersion                     = ""
 )
 
 func (r *DPAReconciler) ReconcileNonAdminController(log logr.Logger) (bool, error) {
@@ -156,9 +159,13 @@ func ensureRequiredSpecs(deploymentObject *appsv1.Deployment, dpa *oadpv1alpha1.
 		dpaBackupSpecResourceVersion = dpa.GetResourceVersion()
 	}
 	previousEnforcedBackupSpec = dpa.Spec.NonAdmin.EnforceBackupSpec
-	// TODO same thing for restore
+	if len(dpaRestoreSpecResourceVersion) == 0 || !reflect.DeepEqual(dpa.Spec.NonAdmin.EnforceRestoreSpec, previousEnforcedRestoreSpec) {
+		dpaRestoreSpecResourceVersion = dpa.GetResourceVersion()
+	}
+	previousEnforcedRestoreSpec = dpa.Spec.NonAdmin.EnforceRestoreSpec
 	enforcedSpecAnnotation := map[string]string{
-		enforcedBackupSpecKey: dpaBackupSpecResourceVersion,
+		enforcedBackupSpecKey:  dpaBackupSpecResourceVersion,
+		enforcedRestoreSpecKey: dpaRestoreSpecResourceVersion,
 	}
 
 	deploymentObject.Spec.Replicas = ptr.To(int32(1))
@@ -179,7 +186,7 @@ func ensureRequiredSpecs(deploymentObject *appsv1.Deployment, dpa *oadpv1alpha1.
 		deploymentObject.Spec.Template.SetAnnotations(enforcedSpecAnnotation)
 	} else {
 		templateObjectAnnotations[enforcedBackupSpecKey] = enforcedSpecAnnotation[enforcedBackupSpecKey]
-		// TODO same thing for restore
+		templateObjectAnnotations[enforcedRestoreSpecKey] = enforcedSpecAnnotation[enforcedRestoreSpecKey]
 		deploymentObject.Spec.Template.SetAnnotations(templateObjectAnnotations)
 	}
 
