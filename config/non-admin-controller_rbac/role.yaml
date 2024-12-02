@@ -37,6 +37,32 @@ rules:
   - patch
   - update
 - apiGroups:
+  - oadp.openshift.io
+  resources:
+  - nonadminrestores
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - oadp.openshift.io
+  resources:
+  - nonadminrestores/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - oadp.openshift.io
+  resources:
+  - nonadminrestores/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
   - velero.io
   resources:
   - backups
@@ -52,6 +78,18 @@ rules:
   - velero.io
   resources:
   - deletebackuprequests
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - velero.io
+  resources:
+  - restores
   verbs:
   - create
   - delete

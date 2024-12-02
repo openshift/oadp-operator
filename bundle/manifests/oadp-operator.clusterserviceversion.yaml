@@ -75,6 +75,25 @@ metadata:
           }
         },
         {
+          "apiVersion": "oadp.openshift.io/v1alpha1",
+          "kind": "NonAdminRestore",
+          "metadata": {
+            "labels": {
+              "app.kubernetes.io/created-by": "oadp-nac",
+              "app.kubernetes.io/instance": "nonadminrestore-sample",
+              "app.kubernetes.io/managed-by": "kustomize",
+              "app.kubernetes.io/name": "nonadminrestore",
+              "app.kubernetes.io/part-of": "oadp-nac"
+            },
+            "name": "nonadminrestore-sample"
+          },
+          "spec": {
+            "restoreSpec": {
+              "backupName": "nonadminbackup-sample"
+            }
+          }
+        },
+        {
           "apiVersion": "velero.io/v1",
           "kind": "Backup",
           "metadata": {
@@ -422,6 +441,9 @@ spec:
       kind: NonAdminBackup
       name: nonadminbackups.oadp.openshift.io
       version: v1alpha1
+    - kind: NonAdminRestore
+      name: nonadminrestores.oadp.openshift.io
+      version: v1alpha1
     - description: A velero pod volume backup is a restic backup of persistent volumes
         attached to a running pod.
       displayName: PodVolumeBackup
@@ -636,6 +658,32 @@ spec:
           - patch
           - update
         - apiGroups:
+          - oadp.openshift.io
+          resources:
+          - nonadminrestores
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - oadp.openshift.io
+          resources:
+          - nonadminrestores/finalizers
+          verbs:
+          - update
+        - apiGroups:
+          - oadp.openshift.io
+          resources:
+          - nonadminrestores/status
+          verbs:
+          - get
+          - patch
+          - update
+        - apiGroups:
           - velero.io
           resources:
           - backups
@@ -651,6 +699,18 @@ spec:
           - velero.io
           resources:
           - deletebackuprequests
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - velero.io
+          resources:
+          - restores
           verbs:
           - create
           - delete
