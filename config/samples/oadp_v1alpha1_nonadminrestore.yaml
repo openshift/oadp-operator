@@ -1,0 +1,13 @@
+apiVersion: oadp.openshift.io/v1alpha1
+kind: NonAdminRestore
+metadata:
+  labels:
+    app.kubernetes.io/name: nonadminrestore
+    app.kubernetes.io/instance: nonadminrestore-sample
+    app.kubernetes.io/part-of: oadp-nac
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: oadp-nac
+  name: nonadminrestore-sample
+spec:
+  restoreSpec:
+    backupName: nonadminbackup-sample

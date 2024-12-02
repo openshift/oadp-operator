@@ -611,8 +611,8 @@ spec:
                   type: object
                 type: array
               phase:
-                description: NonAdminBackupPhase is a simple one high-level summary
-                  of the lifecycle of an NonAdminBackup.
+                description: phase is a simple one high-level summary of the lifecycle
+                  of an NonAdminBackup.
                 enum:
                 - New
                 - BackingOff
