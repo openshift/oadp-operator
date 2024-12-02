@@ -6,31 +6,22 @@ Starting in 2025, OADP will implement a streamlined version support policy. Red 
 ## Version Mapping
 
 ### Current and Planned Supported Versions
-| OpenShift Version | OADP Version | Velero Version |
-|-------------------|--------------|----------------|
-| 4.22             | 1.6          | v1.18          |
-| 4.21             | 1.6          | v1.18          |
-| 4.20             | 1.5          | v1.16          |
-| 4.19             | 1.5          | v1.16          |
-| 4.18             | 1.4          | v1.14          |
-| 4.17             | 1.4          | v1.14          |
-| 4.16             | 1.4          | v1.14          |
-| 4.15             | 1.3, 1.4     | v1.12, v1.14    |
-| 4.14             | 1.3, 1.4     | v1.12, v1.14   |
+| OpenShift Version | OADP Version | Velero Version | Estimated Release Timeline [1]|
+|-------------------|--------------|----------------|-------------------------------|
+| 4.14              | 1.3, 1.4     | v1.12, v1.14   | released                      |
+| 4.15              | 1.3, 1.4     | v1.12, v1.14   | released                      |
+| 4.16              | 1.4          | v1.14          | released                      | 
+| 4.17              | 1.4          | v1.14          | released                      |
+| 4.18              | 1.4          | v1.14          | Q1 2025                       |
+| 4.19              | 1.5          | v1.16          | Q3 2025                       |
+| 4.20              | 1.5          | v1.16          | Q1 2026                       |
+| 4.21              | 1.6          | v1.18          | Q3 2026                       |
 
-
-### Future Release Planning
-| OpenShift Version | Planned OADP Version | Estimated Release Timeline |
-|-------------------|---------------------|-------------------------|
-| 4.18             | 1.4                 | Q1 2025                |
-| 4.19             | 1.5                 | Q3 2025                |
-| 4.20             | 1.5                 | Q1 2026                |
-| 4.21             | 1.6                 | Q3 2026                |
-| 4.22             | 1.6                 | Q1 2027                |
+* [1] Release timelines and versions are subject to change.
 
 ## Impact on Partners
 - Partners must align their integration testing with the specific OADP version corresponding to their target OpenShift version
-    - Unreleased OADP builds are available via the branches of this oadp-operator repository.  The next release will be available for install via the `master` branch until such time the next release branch is created, the `oadp-1.5` branch will be made available for install.
+    - Unreleased OADP builds are available via the branches of this oadp-operator repository.  The next release will be available for install via the `master` branch until such time the next release branch is created, the `oadp-1.<version>` branch will be made available for install.
 
 ## Action Items for Partners
 1. Update your test matrices to reflect the new version pairing strategy
