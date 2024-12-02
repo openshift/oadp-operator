@@ -35,7 +35,7 @@ const ReconcileCompleteMessage = "Reconcile complete"
 const OadpOperatorLabel = "openshift.io/oadp"
 const RegistryDeploymentLabel = "openshift.io/oadp-registry"
 
-// +kubebuilder:validation:Enum=aws;legacy-aws;gcp;azure;csi;vsm;openshift;kubevirt
+// +kubebuilder:validation:Enum=aws;legacy-aws;gcp;azure;csi;vsm;openshift;kubevirt;openstack
 type DefaultPlugin string
 
 const DefaultPluginAWS DefaultPlugin = "aws"
@@ -46,6 +46,7 @@ const DefaultPluginCSI DefaultPlugin = "csi"
 const DefaultPluginVSM DefaultPlugin = "vsm"
 const DefaultPluginOpenShift DefaultPlugin = "openshift"
 const DefaultPluginKubeVirt DefaultPlugin = "kubevirt"
+const DefaultPluginOpenStack DefaultPlugin = "openstack"
 
 type CustomPlugin struct {
 	Name  string `json:"name"`
@@ -63,6 +64,7 @@ const AzurePluginImageKey UnsupportedImageKey = "azurePluginImageFqin"
 const GCPPluginImageKey UnsupportedImageKey = "gcpPluginImageFqin"
 const ResticRestoreImageKey UnsupportedImageKey = "resticRestoreImageFqin"
 const KubeVirtPluginImageKey UnsupportedImageKey = "kubevirtPluginImageFqin"
+const OpenStackPluginImageKey UnsupportedImageKey = "openstackPluginImageFqin"
 const NonAdminControllerImageKey UnsupportedImageKey = "nonAdminControllerImageFqin"
 const OperatorTypeKey UnsupportedImageKey = "operator-type"
 const TechPreviewAck UnsupportedImageKey = "tech-preview-ack"
@@ -557,6 +559,7 @@ type DataProtectionApplicationSpec struct {
 	//   - awsPluginImageFqin
 	//   - legacyAWSPluginImageFqin
 	//   - openshiftPluginImageFqin
+	//   - openstackPluginImageFqin
 	//   - azurePluginImageFqin
 	//   - gcpPluginImageFqin
 	//   - resticRestoreImageFqin

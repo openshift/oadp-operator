@@ -57,6 +57,7 @@ const (
 	AWSProvider           = "aws"
 	AzureProvider         = "azure"
 	GCPProvider           = "gcp"
+	OpenstackProvider     = "openstack"
 	Region                = "region"
 	Profile               = "profile"
 	S3URL                 = "s3Url"

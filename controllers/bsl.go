@@ -65,6 +65,11 @@ func (r *DPAReconciler) ValidateBackupStorageLocations() (bool, error) {
 				if err != nil {
 					return false, err
 				}
+			case OpenstackProvider, "community.openstack.org/openstack":
+				err := r.validateOpenstackBackupStorageLocation(*bslSpec.Velero)
+				if err != nil {
+					return false, err
+				}
 			default:
 				return false, fmt.Errorf("invalid provider")
 			}
@@ -394,6 +399,29 @@ func (r *DPAReconciler) validateGCPBackupStorageLocation(bslSpec velerov1.Backup
 	}
 	if len(bslSpec.StorageType.ObjectStorage.Prefix) == 0 && r.dpa.BackupImages() {
 		return fmt.Errorf("prefix for GCP backupstoragelocation object storage cannot be empty. it is required for backing up images")
+	}
+
+	return nil
+}
+
+func (r *DPAReconciler) validateOpenstackBackupStorageLocation(bslSpec velerov1.BackupStorageLocationSpec) error {
+	// validate provider plugin and secret
+	err := r.validateProviderPluginAndSecret(bslSpec)
+	if err != nil {
+		return err
+	}
+
+	// check for bsl non-optional bsl configs and object storage
+	if bslSpec.ObjectStorage == nil {
+		return fmt.Errorf("object storage configuration for OpenStack backupstoragelocation cannot be nil")
+	}
+
+	if len(bslSpec.ObjectStorage.Bucket) == 0 {
+		return fmt.Errorf("bucket name for OpenStack backupstoragelocation cannot be empty")
+	}
+
+	if len(bslSpec.StorageType.ObjectStorage.Prefix) == 0 && r.dpa.BackupImages() {
+		return fmt.Errorf("prefix for OpenStack backupstoragelocation object storage cannot be empty. it is required for backing up images")
 	}
 
 	return nil

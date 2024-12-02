@@ -31,6 +31,7 @@ IMG_MAP[gcpplugin_repo]="velero-plugin-for-gcp"
 IMG_MAP[awsplugin_repo]="velero-plugin-for-aws"
 IMG_MAP[legacyawsplugin_repo]="velero-plugin-for-legacy-aws"
 IMG_MAP[azureplugin_repo]="velero-plugin-for-microsoft-azure"
+IMG_MAP[openstackplugin_repo]="velero-plugin-for-openstack"
 IMG_MAP[registry_repo]="registry"
 
 #Get latest images

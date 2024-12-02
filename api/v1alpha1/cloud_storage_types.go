@@ -21,9 +21,10 @@ type CloudStorage struct {
 type CloudStorageProvider string
 
 const (
-	AWSBucketProvider   CloudStorageProvider = CloudStorageProvider(DefaultPluginAWS)
-	AzureBucketProvider CloudStorageProvider = CloudStorageProvider(DefaultPluginMicrosoftAzure)
-	GCPBucketProvider   CloudStorageProvider = CloudStorageProvider(DefaultPluginGCP)
+	AWSBucketProvider       CloudStorageProvider = CloudStorageProvider(DefaultPluginAWS)
+	AzureBucketProvider     CloudStorageProvider = CloudStorageProvider(DefaultPluginMicrosoftAzure)
+	GCPBucketProvider       CloudStorageProvider = CloudStorageProvider(DefaultPluginGCP)
+	OpenStackBucketProvider CloudStorageProvider = CloudStorageProvider(DefaultPluginOpenStack)
 )
 
 type CloudStorageSpec struct {
