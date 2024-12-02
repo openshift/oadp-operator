@@ -1,7 +1,7 @@
 # OADP Partner Information
 
 ## Important Announcement: Version Support Changes
-Starting in 2024, OADP will implement a streamlined version support policy. Red Hat will support only one version of OADP per OpenShift version to ensure better stability and maintainability.
+Starting in 2025, OADP will implement a streamlined version support policy. Red Hat will support only one version of OADP per OpenShift version to ensure better stability and maintainability.
 
 ## Version Mapping
 
