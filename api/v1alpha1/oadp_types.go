@@ -446,8 +446,7 @@ type NonAdmin struct {
 
 	// which restore spec field values to enforce
 	// +optional
-	// EnforceRestoreSpecs *velero.RestoreSpec `json:"enforceRestoreSpecs,omitempty"`
-	// TODO not allow enforcing backupName!!!!
+	EnforceRestoreSpec *velero.RestoreSpec `json:"enforceRestoreSpec,omitempty"`
 }
 
 // DataMover defines the various config for DPA data mover
