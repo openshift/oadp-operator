@@ -1037,13 +1037,16 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 					SnapshotLocations: []oadpv1alpha1.SnapshotLocation{
 						{
 							Velero: &v1.VolumeSnapshotLocationSpec{
-								Provider: "velero.io/aws",
+								Provider: "aws",
 								Credential: &corev1.SecretKeySelector{
 									LocalObjectReference: corev1.LocalObjectReference{
 										Name: "custom-vsl-credentials",
 									},
 									Key:      "cloud",
 									Optional: new(bool),
+								},
+								Config: map[string]string{
+									"region": "us-east-1",
 								},
 							},
 						},
