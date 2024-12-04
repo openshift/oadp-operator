@@ -13,11 +13,11 @@ Starting in 2025, OADP will implement a streamlined version support policy. Red 
 | 4.16              | 1.4          | v1.14          | released                      | 
 | 4.17              | 1.4          | v1.14          | released                      |
 | 4.18              | 1.4          | v1.14          | Q1 2025                       |
-| 4.19              | 1.5          | v1.16          | Q3 2025                       |
-| 4.20              | 1.5          | v1.16          | Q1 2026                       |
-| 4.21              | 1.6          | v1.18          | Q3 2026                       |
+| 4.19              | 1.5          | v1.16          | Q2 2025                       |
+| 4.20              | 1.5          | v1.16          | Q4 2025                       |
+| 4.21              | 1.6          | v1.18          | Q1 2026                       |
 
-* [1] Release timelines and versions are subject to change.
+* [1] Release timelines are estimates,and versions are subject to change.
 
 ## Impact on Partners
 - Partners must align their integration testing with the specific OADP version corresponding to their target OpenShift version
