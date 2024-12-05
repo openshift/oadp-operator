@@ -17,6 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
@@ -298,30 +299,45 @@ func (r *DPAReconciler) customizeNodeAgentDaemonset(ds *appsv1.DaemonSet) (*apps
 			SupplementalGroups: dpa.Spec.Configuration.NodeAgent.SupplementalGroups,
 		}
 	}
-
-	// append certs volume
 	ds.Spec.Template.Spec.Volumes = append(ds.Spec.Template.Spec.Volumes,
+		// append certs volume
 		corev1.Volume{
 			Name: "certs",
 			VolumeSource: corev1.VolumeSource{
 				EmptyDir: &corev1.EmptyDirVolumeSource{},
 			},
-		})
+		},
+		// used for short-lived credentials, inert if not used
+		corev1.Volume{
+			Name: "bound-sa-token",
+			VolumeSource: corev1.VolumeSource{
+				Projected: &corev1.ProjectedVolumeSource{
+					Sources: []corev1.VolumeProjection{
+						{
+							ServiceAccountToken: &corev1.ServiceAccountTokenProjection{
+								Audience:          "openshift",
+								ExpirationSeconds: ptr.To(int64(3600)),
+								Path:              "token",
+							},
+						},
+					},
+				},
+			},
+		},
+	)
 
 	// check platform type
 	platformType, err := r.getPlatformType()
 	if err != nil {
 		return nil, fmt.Errorf("error checking platform type: %s", err)
 	}
-	// update nodeAgent host PV path
+
 	for i, vol := range ds.Spec.Template.Spec.Volumes {
+		// update nodeAgent host PV path
 		if vol.Name == HostPods {
 			ds.Spec.Template.Spec.Volumes[i].HostPath.Path = getFsPvHostPath(platformType)
 		}
-	}
-
-	// update nodeAgent plugins host path
-	for i, vol := range ds.Spec.Template.Spec.Volumes {
+		// update nodeAgent plugins host path
 		if vol.Name == HostPlugins {
 			ds.Spec.Template.Spec.Volumes[i].HostPath.Path = getPluginsHostPath(platformType)
 		}
@@ -344,12 +360,19 @@ func (r *DPAReconciler) customizeNodeAgentDaemonset(ds *appsv1.DaemonSet) (*apps
 		if container.Name == common.NodeAgent {
 			nodeAgentContainer = &ds.Spec.Template.Spec.Containers[i]
 
-			// append certs volume mount
-			nodeAgentContainer.VolumeMounts = append(nodeAgentContainer.VolumeMounts, corev1.VolumeMount{
-				Name:      "certs",
-				MountPath: "/etc/ssl/certs",
-			})
-
+			nodeAgentContainer.VolumeMounts = append(nodeAgentContainer.VolumeMounts,
+				// append certs volume mount
+				corev1.VolumeMount{
+					Name:      "certs",
+					MountPath: "/etc/ssl/certs",
+				},
+				// used for short-lived credentials, inert if not used
+				corev1.VolumeMount{
+					Name:      "bound-sa-token",
+					MountPath: "/var/run/secrets/openshift/serviceaccount",
+					ReadOnly:  true,
+				},
+			)
 			// update nodeAgent plugins volume mount host path
 			for v, volumeMount := range nodeAgentContainer.VolumeMounts {
 				if volumeMount.Name == HostPlugins {
