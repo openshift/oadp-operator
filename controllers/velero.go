@@ -242,8 +242,6 @@ func (r *DPAReconciler) customizeVeleroDeployment(dpa *oadpv1alpha1.DataProtecti
 		}
 	}
 
-	hasShortLivedCredentials, err := credentials.BslUsesShortLivedCredential(dpa.Spec.BackupLocations, dpa.Namespace)
-
 	// Selector: veleroDeployment.Spec.Selector,
 	replicas := int32(1)
 	if value, present := os.LookupEnv(VeleroReplicaOverride); present {
@@ -262,28 +260,24 @@ func (r *DPAReconciler) customizeVeleroDeployment(dpa *oadpv1alpha1.DataProtecti
 			VolumeSource: corev1.VolumeSource{
 				EmptyDir: &corev1.EmptyDirVolumeSource{},
 			},
-		})
-
-	if hasShortLivedCredentials {
-		veleroDeployment.Spec.Template.Spec.Volumes = append(veleroDeployment.Spec.Template.Spec.Volumes,
-			corev1.Volume{
-				Name: "bound-sa-token",
-				VolumeSource: corev1.VolumeSource{
-					Projected: &corev1.ProjectedVolumeSource{
-						Sources: []corev1.VolumeProjection{
-							{
-								ServiceAccountToken: &corev1.ServiceAccountTokenProjection{
-									Audience:          "openshift",
-									ExpirationSeconds: ptr.To(int64(3600)),
-									Path:              "token",
-								},
+		},
+		// used for short-lived credentials, inert if not used
+		corev1.Volume{
+			Name: "bound-sa-token",
+			VolumeSource: corev1.VolumeSource{
+				Projected: &corev1.ProjectedVolumeSource{
+					Sources: []corev1.VolumeProjection{
+						{
+							ServiceAccountToken: &corev1.ServiceAccountTokenProjection{
+								Audience:          "openshift",
+								ExpirationSeconds: ptr.To(int64(3600)),
+								Path:              "token",
 							},
 						},
 					},
 				},
 			},
-		)
-	}
+		})
 	// add any default init containers here if needed eg: setup-certificate-secret
 	// When you do this
 	// - please use common.GetImagePullPolicy function to set the ImagePullPolicy, and
@@ -322,7 +316,7 @@ func (r *DPAReconciler) customizeVeleroDeployment(dpa *oadpv1alpha1.DataProtecti
 			break
 		}
 	}
-	if err := r.customizeVeleroContainer(dpa, veleroDeployment, veleroContainer, hasShortLivedCredentials, prometheusPort); err != nil {
+	if err := r.customizeVeleroContainer(dpa, veleroDeployment, veleroContainer, prometheusPort); err != nil {
 		return err
 	}
 
@@ -517,7 +511,7 @@ func (r *DPAReconciler) appendPluginSpecificSpecs(dpa *oadpv1alpha1.DataProtecti
 	}
 }
 
-func (r *DPAReconciler) customizeVeleroContainer(dpa *oadpv1alpha1.DataProtectionApplication, veleroDeployment *appsv1.Deployment, veleroContainer *corev1.Container, hasShortLivedCredentials bool, prometheusPort *int) error {
+func (r *DPAReconciler) customizeVeleroContainer(dpa *oadpv1alpha1.DataProtectionApplication, veleroDeployment *appsv1.Deployment, veleroContainer *corev1.Container, prometheusPort *int) error {
 	if veleroContainer == nil {
 		return fmt.Errorf("could not find velero container in Deployment")
 	}
@@ -539,16 +533,13 @@ func (r *DPAReconciler) customizeVeleroContainer(dpa *oadpv1alpha1.DataProtectio
 			Name:      "certs",
 			MountPath: "/etc/ssl/certs",
 		},
+		// used for short-lived credentials, inert if not used
+		corev1.VolumeMount{
+			Name:      "bound-sa-token",
+			MountPath: "/var/run/secrets/openshift/serviceaccount",
+			ReadOnly:  true,
+		},
 	)
-
-	if hasShortLivedCredentials {
-		veleroContainer.VolumeMounts = append(veleroContainer.VolumeMounts,
-			corev1.VolumeMount{
-				Name:      "bound-sa-token",
-				MountPath: "/var/run/secrets/openshift/serviceaccount",
-				ReadOnly:  true,
-			})
-	}
 	// append velero PodConfig envs to container
 	if dpa.Spec.Configuration != nil && dpa.Spec.Configuration.Velero != nil && dpa.Spec.Configuration.Velero.PodConfig != nil && dpa.Spec.Configuration.Velero.PodConfig.Env != nil {
 		veleroContainer.Env = common.AppendUniqueEnvVars(veleroContainer.Env, dpa.Spec.Configuration.Velero.PodConfig.Env)
