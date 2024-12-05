@@ -240,7 +240,7 @@ ifneq ($(CLUSTER_TYPE),)
 	DOCKER_BUILD_ARGS = --platform=$(CLUSTER_OS)/$(CLUSTER_ARCH)
 endif
 docker-build: ## Build docker image with the manager.
-	$(CONTAINER_TOOL) build -t $(IMG) . $(DOCKER_BUILD_ARGS)
+	$(CONTAINER_TOOL) build --load -t $(IMG) . $(DOCKER_BUILD_ARGS)
 
 docker-push: ## Push docker image with the manager.
 	$(CONTAINER_TOOL) push ${IMG}
@@ -384,7 +384,7 @@ nullable-crds-config:
 
 .PHONY: bundle-build
 bundle-build: ## Build the bundle image.
-	$(CONTAINER_TOOL) build -f bundle.Dockerfile -t $(BUNDLE_IMG) . $(DOCKER_BUILD_ARGS)
+	$(CONTAINER_TOOL) build --load -f bundle.Dockerfile -t $(BUNDLE_IMG) . $(DOCKER_BUILD_ARGS)
 
 .PHONY: bundle-push
 bundle-push: ## Push the bundle image.
