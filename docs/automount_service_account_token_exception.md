@@ -4,7 +4,7 @@
 
 ## **Rationale for Allowing the Default `automountServiceAccountToken` Behavior in OADP Operator Pods**
 
-The Kubernetes Best Practices team recommends setting `automountServiceAccountToken: false` for pods to reduce security risks by minimizing exposure of service account tokens. However, the **OADP Operator Pod** relies on the Kubernetes API server for its critical functions, and disabling the token mount would render it inoperable. While the OADP Operator Pod does not explicitly set `automountServiceAccountToken: true`, it depends on the **default Kubernetes behavior**, which mounts the service account token into the pod.
+The Kubernetes Best Practices team recommends setting `automountServiceAccountToken: false` for pods to reduce security risks by minimizing exposure of service account tokens. However, the **OADP Operator Pod** (`openshift-adp-controller-manager`) relies on the Kubernetes API server for its critical functions, and disabling the token mount would render it inoperable. While the OADP Operator Pod does not explicitly set `automountServiceAccountToken: true`, it depends on the **default Kubernetes behavior**, which mounts the service account token into the pod.
 
 ---
 
@@ -46,5 +46,6 @@ By default, Kubernetes mounts the service account token into pods unless explici
 ### **3. Maintaining Backup and Restore Functionality**
 - The OADP Operator facilitates critical backup and restore operations for workloads in the cluster.
 - Disabling `automountServiceAccountToken` would result in failed operations.
+- Short Term Service Account tokens are rotated externally via cloud-credentials-operator requires us to use the automount token to authenticate against cloud providers.
 
 ---
