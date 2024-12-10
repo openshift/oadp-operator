@@ -611,13 +611,14 @@ spec:
                 type: string
               queueInfo:
                 description: |-
-                  QueueInfo holds the queue position for a specific VeleroBackup.
-                  It is used to estimate how many backups are scheduled before the given VeleroBackup in the OADP namespace.
+                  queueInfo is used to estimate how many backups are scheduled before the given VeleroBackup in the OADP namespace.
                   This number is not guaranteed to be accurate, but it should be close. It's inaccurate for cases when
                   Velero pod is not running or being restarted after Backup object were created.
                   It counts only VeleroBackups that are still subject to be handled by OADP/Velero.
                 properties:
                   estimatedQueuePosition:
+                    description: estimatedQueuePosition is the number of operations
+                      ahead in the queue (0 if not queued)
                     type: integer
                 required:
                 - estimatedQueuePosition
