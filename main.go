@@ -148,7 +148,7 @@ func main() {
 		if credReqCRDExists {
 			// create cred request
 			setupLog.Info(fmt.Sprintf("Creating credentials request for role: %s, and WebIdentityTokenPath: %s", roleARN, WebIdentityTokenPath))
-			if err := CreateCredRequest(roleARN, WebIdentityTokenPath, watchNamespace, kubeconf); err != nil {
+			if err := CreateOrUpdateCredRequest(roleARN, WebIdentityTokenPath, watchNamespace, kubeconf); err != nil {
 				if !errors.IsAlreadyExists(err) {
 					setupLog.Error(err, "unable to create credRequest")
 					os.Exit(1)
@@ -324,8 +324,8 @@ func DoesCRDExist(CRDGroupVersion, CRDName string, kubeconf *rest.Config) (bool,
 }
 
 // CreateCredRequest WITP : WebIdentityTokenPath
-func CreateCredRequest(roleARN string, WITP string, secretNS string, kubeconf *rest.Config) error {
-	client, err := client.New(kubeconf, client.Options{})
+func CreateOrUpdateCredRequest(roleARN string, WITP string, secretNS string, kubeconf *rest.Config) error {
+	clientInstance, err := client.New(kubeconf, client.Options{})
 	if err != nil {
 		setupLog.Error(err, "unable to create client")
 	}
@@ -367,11 +367,33 @@ func CreateCredRequest(roleARN string, WITP string, secretNS string, kubeconf *r
 			},
 		},
 	}
-
-	if err := client.Create(context.Background(), credRequest); err != nil {
-		setupLog.Error(err, "unable to create credentials request resource")
+	verb := "created"
+	if err := clientInstance.Create(context.Background(), credRequest); err != nil {
+		if errors.IsAlreadyExists(err) {
+			verb = "updated"
+			setupLog.Info("CredentialsRequest already exists, updating")
+			fromCluster := &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"apiVersion": "cloudcredential.openshift.io/v1",
+					"kind":       "CredentialsRequest",
+				},
+			}
+			err = clientInstance.Get(context.Background(), types.NamespacedName{Name: "oadp-aws-credentials-request", Namespace: "openshift-cloud-credential-operator"}, fromCluster)
+			if err != nil {
+				setupLog.Error(err, "unable to get existing credentials request resource")
+				return err
+			}
+			// update spec
+			fromCluster.Object["spec"] = credRequest.Object["spec"]
+			if err := clientInstance.Update(context.Background(), fromCluster); err != nil {
+				setupLog.Error(err, fmt.Sprintf("unable to update credentials request resource, %v, %+v", err, fromCluster.Object))
+				return err
+			}
+		} else {
+			setupLog.Error(err, "unable to create credentials request resource")
+			return err
+		}
 	}
-
-	setupLog.Info("Custom resource credentialsrequest created successfully")
+	setupLog.Info("Custom resource credentialsrequest " + verb + " successfully")
 	return nil
 }
