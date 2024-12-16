@@ -543,6 +543,20 @@ spec:
                 - Created
                 - Deleting
                 type: string
+              queueInfo:
+                description: |-
+                  queueInfo is used to estimate how many restores are scheduled before the given VeleroRestore in the OADP namespace.
+                  This number is not guaranteed to be accurate, but it should be close. It's inaccurate for cases when
+                  Velero pod is not running or being restarted after Restore object were created.
+                  It counts only VeleroRestores that are still subject to be handled by OADP/Velero.
+                properties:
+                  estimatedQueuePosition:
+                    description: estimatedQueuePosition is the number of operations
+                      ahead in the queue (0 if not queued)
+                    type: integer
+                required:
+                - estimatedQueuePosition
+                type: object
               veleroRestore:
                 description: VeleroRestore contains information of the related Velero
                   restore object.
