@@ -20,6 +20,8 @@ rules:
   - credentialsrequests
   verbs:
   - create
+  - update
+  - get
 - apiGroups:
   - oadp.openshift.io
   resources:
