@@ -603,6 +603,8 @@ type DataProtectionApplicationStatus struct {
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 //+kubebuilder:resource:path=dataprotectionapplications,shortName=dpa
+// +kubebuilder:printcolumn:name="Reconciled",type="string",JSONPath=".status.conditions[0].status",description="DataProtectionApplication Reconciled status"
+// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp",description="DataProtectionApplication creation timestamp"
 
 // DataProtectionApplication is the Schema for the dpa API
 type DataProtectionApplication struct {

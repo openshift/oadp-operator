@@ -91,16 +91,13 @@ spec:
 
 * Verify the DPA has been reconciled successfully:
 
-  ```
-  oc get dpa dpa-sample -n openshift-adp -o jsonpath='{.status}'
-  ```
-
-  Example Output:
-  ```
-  {"conditions":[{"lastTransitionTime":"2023-10-27T01:23:57Z","message":"Reconcile complete","reason":"Complete","status":"True","type":"Reconciled"}]}
+  ```console
+  $ oc get dpa dpa-sample -n openshift-adp
+  NAME            RECONCILED   AGE
+  dpa-sample      True         2m51s
   ```
 
-  **Note**: the `type` is set to `Reconciled` and `status` is set to `True`.
+  **Note**: `RECONCILED` column must be `True`.
 
 * To verify all of the correct resources have been created, the following command
 `oc get all -n openshift-adp` should look similar to:
