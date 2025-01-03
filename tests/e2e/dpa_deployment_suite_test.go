@@ -379,7 +379,8 @@ var _ = ginkgo.Describe("Configuration testing for DPA Custom Resource", func() 
 		}, "region for AWS backupstoragelocation not automatically discoverable. Please set the region in the backupstoragelocation config"),
 		ginkgo.Entry("DPA CR with restic config enabled", InstallCase{
 			DpaSpec: createTestDPASpec(TestDPASpec{
-				EnableRestic: true,
+				BSLSecretName: bslSecretName,
+				EnableRestic:  true,
 			}),
 		}, "Delete restic object from spec.configuration, use spec.configuration.nodeAgent instead"),
 	)
