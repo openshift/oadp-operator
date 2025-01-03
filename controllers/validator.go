@@ -17,6 +17,8 @@ import (
 	"github.com/openshift/oadp-operator/pkg/credentials"
 )
 
+var wasRestic bool
+
 // ValidateDataProtectionCR function validates the DPA CR, returns true if valid, false otherwise
 // it calls other validation functions to validate the DPA CR
 func (r *DPAReconciler) ValidateDataProtectionCR(log logr.Logger) (bool, error) {
@@ -67,10 +69,15 @@ func (r *DPAReconciler) ValidateDataProtectionCR(log logr.Logger) (bool, error) 
 
 	// DEPRECATIONS -----------------------------------------------------------
 	if r.dpa.Spec.Configuration.NodeAgent != nil && r.dpa.Spec.Configuration.NodeAgent.UploaderType == "restic" {
-		deprecationWarning := "(Deprecation Warning) Use kopia instead of restic in spec.configuration.nodeAgent.uploaderType, which is deprecated and will be removed in the future"
-		// V(-1) corresponds to the warn level
-		log.V(-1).Info(deprecationWarning)
-		r.EventRecorder.Event(r.dpa, corev1.EventTypeWarning, "DeprecationResticFileSystemBackup", deprecationWarning)
+		if !wasRestic {
+			deprecationWarning := "(Deprecation Warning) Use kopia instead of restic in spec.configuration.nodeAgent.uploaderType, which is deprecated and will be removed in the future"
+			// V(-1) corresponds to the warn level
+			log.V(-1).Info(deprecationWarning)
+			r.EventRecorder.Event(r.dpa, corev1.EventTypeWarning, "DeprecationResticFileSystemBackup", deprecationWarning)
+		}
+		wasRestic = true
+	} else {
+		wasRestic = false
 	}
 	// DEPRECATIONS -----------------------------------------------------------
 
