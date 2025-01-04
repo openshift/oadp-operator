@@ -1,12 +1,35 @@
-bin/
-.vscode/
-.idea/
-tests/e2e/e2e.test
-cover.out
-.DS_Store
-tests/e2e/templates/*.yaml
-# `operator-sdk run bundle` caches files in this directory
-cache/
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+bin/*
+Dockerfile.cross
+
+# Test binary, built with `go test -c`
 *.test
 
+# Output of the go coverage tool, specifically when used with LiteIDE
+*.out
+
+# Go workspace file
+go.work
+
+# Kubernetes Generated files - skip generated files, except for vendored files
+!vendor/**/zz_generated.*
+
+# editor and IDE paraphernalia
+.idea
+.vscode
+*.swp
+*.swo
+*~
+
+# OADP
+tests/e2e/e2e.test
+tests/e2e/templates/*.yaml
+.DS_Store
 test-upgrade/
+# `operator-sdk run bundle` caches files in this directory
+cache/

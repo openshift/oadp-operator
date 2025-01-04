@@ -38,17 +38,6 @@ spec:
   apiservicedefinitions: {}
   customresourcedefinitions:
     owned:
-    - description: DataProtectionApplication represents configuration to install a
-        data protection application to safely backup and restore, perform disaster
-        recovery and migrate Kubernetes cluster resources and persistent volumes.
-      displayName: DataProtectionApplication
-      kind: DataProtectionApplication
-      name: dataprotectionapplications.oadp.openshift.io
-      statusDescriptors:
-      - description: Conditions defines the observed state of DataProtectionApplication
-        displayName: Conditions
-        path: conditions
-      version: v1alpha1
     - description: A backup repository is an indicator of a connection from the restic/kopia
         server to the backupstoragelocation.
       displayName: BackupRepository
@@ -386,9 +375,19 @@ spec:
         displayName: StartTimestamp
         path: startTimestamp
       version: v2alpha1
+    - description: NonAdminBackup is the Schema for the nonadminbackups API
+      displayName: Non Admin Backup
+      kind: NonAdminBackup
+      name: nonadminbackups.oadp.openshift.io
+      version: v1alpha1
+    - description: NonAdminRestore is the Schema for the nonadminrestores API
+      displayName: Non Admin Restore
+      kind: NonAdminRestore
+      name: nonadminrestores.oadp.openshift.io
+      version: v1alpha1
     - description: The CloudStorage API automates the creation of a bucket for object
         storage.
-      displayName: CloudStorage
+      displayName: Cloud Storage
       kind: CloudStorage
       name: cloudstorages.oadp.openshift.io
       statusDescriptors:
@@ -401,15 +400,16 @@ spec:
         displayName: Name
         path: name
       version: v1alpha1
-    - description: NonAdminBackup is the Schema for the nonadminbackups API
-      displayName: Non Admin Backup
-      kind: NonAdminBackup
-      name: nonadminbackups.oadp.openshift.io
-      version: v1alpha1
-    - description: NonAdminRestore is the Schema for the nonadminrestores API
-      displayName: Non Admin Restore
-      kind: NonAdminRestore
-      name: nonadminrestores.oadp.openshift.io
+    - description: DataProtectionApplication represents configuration to install a
+        data protection application to safely backup and restore, perform disaster
+        recovery and migrate Kubernetes cluster resources and persistent volumes.
+      displayName: Data Protection Application
+      kind: DataProtectionApplication
+      name: dataprotectionapplications.oadp.openshift.io
+      statusDescriptors:
+      - description: Conditions defines the observed state of DataProtectionApplication
+        displayName: Conditions
+        path: conditions
       version: v1alpha1
   description: |
     **OpenShift API for Data Protection (OADP)** operator sets up and installs
