@@ -300,6 +300,10 @@ func (r *DPAReconciler) ensureVslSecretDataExists(vsl *oadpv1alpha1.SnapshotLoca
 		}
 		// Check if the VSL secret key configured in the DPA exists with a secret data
 		if vsl.Velero != nil {
+			// if using credentialsFile return nil, don't check default secret data key
+			if vsl.Velero.Config[CredentialsFileKey] != "" {
+				return nil
+			}
 			_, _, err := r.getSecretNameAndKey(vsl.Velero.Config, vsl.Velero.Credential, oadpv1alpha1.DefaultPlugin(vsl.Velero.Provider))
 			if err != nil {
 				return err
