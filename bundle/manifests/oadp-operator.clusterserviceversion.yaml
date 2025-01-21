@@ -208,7 +208,7 @@ metadata:
     operators.openshift.io/valid-subscription: '["OpenShift Kubernetes Engine", "OpenShift
       Container Platform", "OpenShift Platform Plus"]'
     operators.operatorframework.io/builder: operator-sdk-v1.34.2
-    operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
+    operators.operatorframework.io/project_layout: go.kubebuilder.io/v4
     repository: https://github.com/openshift/oadp-operator
     support: Red Hat
   labels:
@@ -311,7 +311,7 @@ spec:
       version: v1
     - description: The CloudStorage API automates the creation of a bucket for object
         storage.
-      displayName: CloudStorage
+      displayName: Cloud Storage
       kind: CloudStorage
       name: cloudstorages.oadp.openshift.io
       statusDescriptors:
@@ -357,7 +357,7 @@ spec:
     - description: DataProtectionApplication represents configuration to install a
         data protection application to safely backup and restore, perform disaster
         recovery and migrate Kubernetes cluster resources and persistent volumes.
-      displayName: DataProtectionApplication
+      displayName: Data Protection Application
       kind: DataProtectionApplication
       name: dataprotectionapplications.oadp.openshift.io
       statusDescriptors:
@@ -724,25 +724,41 @@ spec:
         serviceAccountName: non-admin-controller
       - rules:
         - apiGroups:
-          - config.openshift.io
+          - ""
           resources:
-          - infrastructures
-          verbs:
-          - get
-          - list
-          - watch
-        - apiGroups:
-          - cloudcredential.openshift.io
-          resources:
-          - credentialsrequests
+          - configmaps
+          - endpoints
+          - events
+          - persistentvolumeclaims
+          - pods
+          - secrets
+          - serviceaccounts
+          - services
           verbs:
           - create
-          - update
+          - delete
+          - deletecollection
           - get
+          - list
+          - patch
+          - update
+          - watch
         - apiGroups:
-          - oadp.openshift.io
+          - ""
           resources:
-          - '*'
+          - namespaces
+          verbs:
+          - create
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - apps
+          resources:
+          - daemonsets
+          - deployments
           verbs:
           - create
           - delete
@@ -750,6 +766,22 @@ spec:
           - list
           - patch
           - update
+          - watch
+        - apiGroups:
+          - cloudcredential.openshift.io
+          resources:
+          - credentialsrequests
+          verbs:
+          - create
+          - get
+          - update
+        - apiGroups:
+          - config.openshift.io
+          resources:
+          - infrastructures
+          verbs:
+          - get
+          - list
           - watch
         - apiGroups:
           - coordination.k8s.io
@@ -765,9 +797,9 @@ spec:
           - update
           - watch
         - apiGroups:
-          - oadp.openshift.io
+          - monitoring.coreos.com
           resources:
-          - buckets
+          - servicemonitors
           verbs:
           - create
           - delete
@@ -778,32 +810,6 @@ spec:
           - watch
         - apiGroups:
           - oadp.openshift.io
-          resources:
-          - buckets/finalizers
-          verbs:
-          - update
-        - apiGroups:
-          - oadp.openshift.io
-          resources:
-          - buckets/status
-          verbs:
-          - get
-          - patch
-          - update
-        - apiGroups:
-          - oadp.openshift.io
-          resources:
-          - leases
-          verbs:
-          - create
-          - delete
-          - get
-          - list
-          - patch
-          - update
-          - watch
-        - apiGroups:
-          - velero.io
           resources:
           - '*'
           verbs:
@@ -815,61 +821,9 @@ spec:
           - update
           - watch
         - apiGroups:
-          - security.openshift.io
+          - oadp.openshift.io
           resources:
-          - securitycontextconstraints
-          verbs:
-          - list
-          - get
-          - create
-          - delete
-          - patch
-          - update
-          - watch
-        - apiGroups:
-          - security.openshift.io
-          resourceNames:
-          - privileged
-          resources:
-          - securitycontextconstraints
-          verbs:
-          - use
-        - apiGroups:
-          - ""
-          resources:
-          - secrets
-          - configmaps
-          - pods
-          - services
-          - serviceaccounts
-          - endpoints
-          - persistentvolumeclaims
-          - events
-          verbs:
-          - list
-          - get
-          - create
-          - delete
-          - deletecollection
-          - patch
-          - update
-          - watch
-        - apiGroups:
-          - ""
-          resources:
-          - namespaces
-          verbs:
-          - list
-          - get
-          - create
-          - patch
-          - update
-          - watch
-        - apiGroups:
-          - apps
-          resources:
-          - deployments
-          - daemonsets
+          - cloudstorages
           verbs:
           - create
           - delete
@@ -878,6 +832,46 @@ spec:
           - patch
           - update
           - watch
+        - apiGroups:
+          - oadp.openshift.io
+          resources:
+          - cloudstorages/finalizers
+          verbs:
+          - update
+        - apiGroups:
+          - oadp.openshift.io
+          resources:
+          - cloudstorages/status
+          verbs:
+          - get
+          - patch
+          - update
+        - apiGroups:
+          - oadp.openshift.io
+          resources:
+          - dataprotectionapplications
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - oadp.openshift.io
+          resources:
+          - dataprotectionapplications/finalizers
+          verbs:
+          - update
+        - apiGroups:
+          - oadp.openshift.io
+          resources:
+          - dataprotectionapplications/status
+          verbs:
+          - get
+          - patch
+          - update
         - apiGroups:
           - route.openshift.io
           resources:
@@ -891,16 +885,36 @@ spec:
           - update
           - watch
         - apiGroups:
-          - monitoring.coreos.com
+          - security.openshift.io
           resources:
-          - servicemonitors
+          - securitycontextconstraints
           verbs:
-          - get
           - create
-          - list
           - delete
-          - update
+          - get
+          - list
           - patch
+          - update
+          - watch
+        - apiGroups:
+          - security.openshift.io
+          resourceNames:
+          - privileged
+          resources:
+          - securitycontextconstraints
+          verbs:
+          - use
+        - apiGroups:
+          - velero.io
+          resources:
+          - '*'
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
           - watch
         - apiGroups:
           - authentication.k8s.io

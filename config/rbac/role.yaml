@@ -1,31 +1,45 @@
-
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  creationTimestamp: null
   name: manager-role
 rules:
 - apiGroups:
-  - config.openshift.io
+  - ""
   resources:
-  - infrastructures
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - cloudcredential.openshift.io
-  resources:
-  - credentialsrequests
+  - configmaps
+  - endpoints
+  - events
+  - persistentvolumeclaims
+  - pods
+  - secrets
+  - serviceaccounts
+  - services
   verbs:
   - create
-  - update
+  - delete
+  - deletecollection
   - get
+  - list
+  - patch
+  - update
+  - watch
 - apiGroups:
-  - oadp.openshift.io
+  - ""
   resources:
-  - '*'
+  - namespaces
+  verbs:
+  - create
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - apps
+  resources:
+  - daemonsets
+  - deployments
   verbs:
   - create
   - delete
@@ -33,6 +47,22 @@ rules:
   - list
   - patch
   - update
+  - watch
+- apiGroups:
+  - cloudcredential.openshift.io
+  resources:
+  - credentialsrequests
+  verbs:
+  - create
+  - get
+  - update
+- apiGroups:
+  - config.openshift.io
+  resources:
+  - infrastructures
+  verbs:
+  - get
+  - list
   - watch
 - apiGroups:
   - coordination.k8s.io
@@ -48,9 +78,9 @@ rules:
   - update
   - watch
 - apiGroups:
-  - oadp.openshift.io
+  - monitoring.coreos.com
   resources:
-  - buckets
+  - servicemonitors
   verbs:
   - create
   - delete
@@ -61,32 +91,6 @@ rules:
   - watch
 - apiGroups:
   - oadp.openshift.io
-  resources:
-  - buckets/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - oadp.openshift.io
-  resources:
-  - buckets/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - oadp.openshift.io
-  resources:
-  - leases
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - velero.io
   resources:
   - '*'
   verbs:
@@ -98,61 +102,9 @@ rules:
   - update
   - watch
 - apiGroups:
-  - security.openshift.io
+  - oadp.openshift.io
   resources:
-  - securitycontextconstraints
-  verbs:
-  - list
-  - get
-  - create
-  - delete
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - security.openshift.io
-  resources:
-  - securitycontextconstraints
-  verbs:
-  - use
-  resourceNames:
-  - privileged
-- apiGroups:
-  - ""
-  resources:
-  - secrets
-  - configmaps
-  - pods
-  - services
-  - serviceaccounts
-  - endpoints
-  - persistentvolumeclaims
-  - events
-  verbs:
-  - list
-  - get
-  - create
-  - delete
-  - deletecollection
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - ""
-  resources:
-  - namespaces
-  verbs:
-  - list
-  - get
-  - create
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - apps
-  resources:
-  - deployments
-  - daemonsets
+  - cloudstorages
   verbs:
   - create
   - delete
@@ -161,6 +113,46 @@ rules:
   - patch
   - update
   - watch
+- apiGroups:
+  - oadp.openshift.io
+  resources:
+  - cloudstorages/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - oadp.openshift.io
+  resources:
+  - cloudstorages/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - oadp.openshift.io
+  resources:
+  - dataprotectionapplications
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - oadp.openshift.io
+  resources:
+  - dataprotectionapplications/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - oadp.openshift.io
+  resources:
+  - dataprotectionapplications/status
+  verbs:
+  - get
+  - patch
+  - update
 - apiGroups:
   - route.openshift.io
   resources:
@@ -174,14 +166,34 @@ rules:
   - update
   - watch
 - apiGroups:
-  - monitoring.coreos.com
+  - security.openshift.io
   resources:
-  - servicemonitors
+  - securitycontextconstraints
   verbs:
-  - get
   - create
-  - list
   - delete
-  - update
+  - get
+  - list
   - patch
+  - update
+  - watch
+- apiGroups:
+  - security.openshift.io
+  resourceNames:
+  - privileged
+  resources:
+  - securitycontextconstraints
+  verbs:
+  - use
+- apiGroups:
+  - velero.io
+  resources:
+  - '*'
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
   - watch
