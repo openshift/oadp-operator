@@ -526,11 +526,6 @@ spec:
                   DeleteBackup removes the NonAdminBackup and its associated VeleroBackup from the cluster,
                   as well as the corresponding object storage
                 type: boolean
-              forceDeleteBackup:
-                description: |-
-                  ForceDeleteBackup removes the NonAdminBackup and its associated VeleroBackup from the cluster,
-                  regardless of whether deletion from object storage succeeds or fails
-                type: boolean
             required:
             - backupSpec
             type: object
