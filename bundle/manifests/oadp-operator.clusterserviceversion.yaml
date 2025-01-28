@@ -472,7 +472,10 @@ spec:
       kind: NonAdminBackup
       name: nonadminbackups.oadp.openshift.io
       version: v1alpha1
-    - kind: NonAdminBackupStorageLocation
+    - description: NonAdminBackupStorageLocation is the Schema for the nonadminbackupstoragelocations
+        API
+      displayName: Non Admin BackupStorageLocation
+      kind: NonAdminBackupStorageLocation
       name: nonadminbackupstoragelocations.oadp.openshift.io
       version: v1alpha1
     - description: NonAdminRestore is the Schema for the nonadminrestores API
