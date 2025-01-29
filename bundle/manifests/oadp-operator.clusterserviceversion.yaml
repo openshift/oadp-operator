@@ -76,6 +76,37 @@ metadata:
         },
         {
           "apiVersion": "oadp.openshift.io/v1alpha1",
+          "kind": "NonAdminBackupStorageLocation",
+          "metadata": {
+            "labels": {
+              "app.kubernetes.io/created-by": "oadp-nac",
+              "app.kubernetes.io/instance": "nonadminbackupstoragelocation-sample",
+              "app.kubernetes.io/managed-by": "kustomize",
+              "app.kubernetes.io/name": "nonadminbackupstoragelocation",
+              "app.kubernetes.io/part-of": "oadp-nac"
+            },
+            "name": "nonadminbackupstoragelocation-sample"
+          },
+          "spec": {
+            "backupStorageLocationSpec": {
+              "config": {
+                "checksumAlgorithm": "",
+                "region": "eu-central-1"
+              },
+              "credential": {
+                "key": "default",
+                "name": "cloud-credentials"
+              },
+              "objectStorage": {
+                "bucket": "my-bucket",
+                "prefix": "nac-test"
+              },
+              "provider": "aws"
+            }
+          }
+        },
+        {
+          "apiVersion": "oadp.openshift.io/v1alpha1",
           "kind": "NonAdminRestore",
           "metadata": {
             "labels": {
@@ -441,6 +472,12 @@ spec:
       kind: NonAdminBackup
       name: nonadminbackups.oadp.openshift.io
       version: v1alpha1
+    - description: NonAdminBackupStorageLocation is the Schema for the nonadminbackupstoragelocations
+        API
+      displayName: Non Admin BackupStorageLocation
+      kind: NonAdminBackupStorageLocation
+      name: nonadminbackupstoragelocations.oadp.openshift.io
+      version: v1alpha1
     - description: NonAdminRestore is the Schema for the nonadminrestores API
       displayName: Non Admin Restore
       kind: NonAdminRestore
@@ -628,6 +665,18 @@ spec:
       clusterPermissions:
       - rules:
         - apiGroups:
+          - ""
+          resources:
+          - secrets
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
           - oadp.openshift.io
           resources:
           - dataprotectionapplications
@@ -655,6 +704,32 @@ spec:
           - oadp.openshift.io
           resources:
           - nonadminbackups/status
+          verbs:
+          - get
+          - patch
+          - update
+        - apiGroups:
+          - oadp.openshift.io
+          resources:
+          - nonadminbackupstoragelocations
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - oadp.openshift.io
+          resources:
+          - nonadminbackupstoragelocations/finalizers
+          verbs:
+          - update
+        - apiGroups:
+          - oadp.openshift.io
+          resources:
+          - nonadminbackupstoragelocations/status
           verbs:
           - get
           - patch
@@ -697,6 +772,26 @@ spec:
           - patch
           - update
           - watch
+        - apiGroups:
+          - velero.io
+          resources:
+          - backupstoragelocations
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - velero.io
+          resources:
+          - backupstoragelocations/status
+          verbs:
+          - get
+          - patch
+          - update
         - apiGroups:
           - velero.io
           resources:
