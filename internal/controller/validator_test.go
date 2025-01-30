@@ -1416,7 +1416,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 				},
 			},
 			wantErr:    true,
-			messageErr: "in order to enable/disable the non-admin feature please set dpa.spec.unsupportedOverrides[tech-preview-ack]: 'true'",
+			messageErr: "in order to enable/disable the non-admin feature please set dpa.spec.unsupportedOverrides[tech-preview-ack]: \"true\"",
 		},
 		{
 			name: "[valid] DPA CR: spec.nonAdmin.enable true, spec.unsupportedOverrides.tech-preview-ack true string",
