@@ -165,6 +165,14 @@ build: manifests generate fmt vet ## Build manager binary.
 run: manifests generate fmt vet ## Run a controller from your host.
 	go run ./cmd/main.go
 
+OC_CLI ?= $(shell which oc)
+
+# makes CLUSTER_TYPE quieter when unauthenticated
+CLUSTER_TYPE_SHELL := $(shell $(OC_CLI) get infrastructures cluster -o jsonpath='{.status.platform}' 2> /dev/null | tr A-Z a-z)
+CLUSTER_TYPE ?= $(CLUSTER_TYPE_SHELL)
+CLUSTER_OS = $(shell $(OC_CLI) get node -o jsonpath='{.items[0].status.nodeInfo.operatingSystem}' 2> /dev/null)
+CLUSTER_ARCH = $(shell $(OC_CLI) get node -o jsonpath='{.items[0].status.nodeInfo.architecture}' 2> /dev/null)
+
 # If using podman machine, and host platform is not linux/amd64 run
 # - podman machine ssh sudo rpm-ostree install qemu-user-static && sudo systemctl reboot
 # from: https://github.com/containers/podman/issues/12144#issuecomment-955760527
@@ -413,13 +421,6 @@ nullable-crds-config: DPA_CRD_YAML ?= config/crd/bases/oadp.openshift.io_datapro
 nullable-crds-config:
 	@ DPA_CRD_YAML=$(DPA_CRD_YAML) make nullable-crds-bundle
 
-OC_CLI ?= $(shell which oc)
-
-# makes CLUSTER_TYPE quieter when unauthenticated
-CLUSTER_TYPE_SHELL := $(shell $(OC_CLI) get infrastructures cluster -o jsonpath='{.status.platform}' 2> /dev/null | tr A-Z a-z)
-CLUSTER_TYPE ?= $(CLUSTER_TYPE_SHELL)
-CLUSTER_OS = $(shell $(OC_CLI) get node -o jsonpath='{.items[0].status.nodeInfo.operatingSystem}' 2> /dev/null)
-CLUSTER_ARCH = $(shell $(OC_CLI) get node -o jsonpath='{.items[0].status.nodeInfo.architecture}' 2> /dev/null)
 
 .PHONY: login-required
 login-required:
