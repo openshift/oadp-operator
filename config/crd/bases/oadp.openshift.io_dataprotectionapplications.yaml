@@ -2123,6 +2123,11 @@ spec:
                               type: boolean
                           type: object
                       type: object
+                    garbageCollectionPeriod:
+                      description: |-
+                        GarbageCollectionPeriod defines how frequently to look for possible leftover non admin objects in OADP namespace.
+                        By default 5m
+                      type: string
                   type: object
                 podAnnotations:
                   additionalProperties:
