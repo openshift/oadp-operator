@@ -449,7 +449,7 @@ type NonAdmin struct {
 	EnforceRestoreSpec *velero.RestoreSpec `json:"enforceRestoreSpec,omitempty"`
 
 	// GarbageCollectionPeriod defines how frequently to look for possible leftover non admin objects in OADP namespace.
-	// By default 5m
+	// By default 24h
 	// +optional
 	GarbageCollectionPeriod *metav1.Duration `json:"garbageCollectionPeriod,omitempty"`
 }
