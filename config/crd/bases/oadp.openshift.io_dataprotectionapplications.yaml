@@ -2125,7 +2125,7 @@ spec:
                       type: object
                     garbageCollectionPeriod:
                       description: |-
-                        GarbageCollectionPeriod defines how frequently to look for possible leftover non admin objects in OADP namespace.
+                        GarbageCollectionPeriod defines how frequently to look for possible leftover non admin related objects in OADP namespace.
                         By default 24h
                       type: string
                   type: object
