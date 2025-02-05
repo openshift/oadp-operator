@@ -448,9 +448,16 @@ type NonAdmin struct {
 	EnforceRestoreSpec *velero.RestoreSpec `json:"enforceRestoreSpec,omitempty"`
 
 	// GarbageCollectionPeriod defines how frequently to look for possible leftover non admin related objects in OADP namespace.
+	// A value of 0 disables garbage collection.
 	// By default 24h
 	// +optional
 	GarbageCollectionPeriod *metav1.Duration `json:"garbageCollectionPeriod,omitempty"`
+
+	// BackupSyncPeriod defines how frequently to sync backups in OADP namespace to non admin namespaces.
+	// A value of 0 disables sync.
+	// By default 2m
+	// +optional
+	BackupSyncPeriod *metav1.Duration `json:"backupSyncPeriod,omitempty"`
 }
 
 // DataMover defines the various config for DPA data mover

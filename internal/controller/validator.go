@@ -119,6 +119,13 @@ func (r *DataProtectionApplicationReconciler) ValidateDataProtectionCR(log logr.
 				return false, fmt.Errorf("DPA spec.nonAdmin.garbageCollectionPeriod can not be negative")
 			}
 		}
+
+		backupSyncPeriod := r.dpa.Spec.NonAdmin.BackupSyncPeriod
+		if backupSyncPeriod != nil {
+			if backupSyncPeriod.Duration < 0 {
+				return false, fmt.Errorf("DPA spec.nonAdmin.backupSyncPeriod can not be negative")
+			}
+		}
 	}
 
 	return true, nil
