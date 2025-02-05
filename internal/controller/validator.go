@@ -83,37 +83,45 @@ func (r *DataProtectionApplicationReconciler) ValidateDataProtectionCR(log logr.
 	}
 
 	// validate non-admin enable and tech-preview-ack
-	if r.dpa.Spec.NonAdmin != nil && r.dpa.Spec.NonAdmin.Enable != nil && *r.dpa.Spec.NonAdmin.Enable {
-		if !(r.dpa.Spec.UnsupportedOverrides[oadpv1alpha1.TechPreviewAck] == TrueVal) {
-			return false, errors.New("in order to enable/disable the non-admin feature please set dpa.spec.unsupportedOverrides[tech-preview-ack]: \"true\"")
-		}
+	if r.dpa.Spec.NonAdmin != nil {
+		if r.dpa.Spec.NonAdmin.Enable != nil && *r.dpa.Spec.NonAdmin.Enable {
+			if r.dpa.Spec.UnsupportedOverrides[oadpv1alpha1.TechPreviewAck] != TrueVal {
+				return false, errors.New("in order to enable/disable the non-admin feature please set dpa.spec.unsupportedOverrides[tech-preview-ack]: \"true\"")
+			}
 
-		dpaList := &oadpv1alpha1.DataProtectionApplicationList{}
-		err = r.ClusterWideClient.List(r.Context, dpaList)
-		if err != nil {
-			return false, err
-		}
-		for _, dpa := range dpaList.Items {
-			if dpa.Namespace != r.NamespacedName.Namespace && (&DataProtectionApplicationReconciler{dpa: &dpa}).checkNonAdminEnabled() {
-				nonAdminDeployment := &appsv1.Deployment{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      nonAdminObjectName,
-						Namespace: dpa.Namespace,
-					},
-				}
-				if err := r.ClusterWideClient.Get(
-					r.Context,
-					types.NamespacedName{
-						Name:      nonAdminDeployment.Name,
-						Namespace: nonAdminDeployment.Namespace,
-					},
-					nonAdminDeployment,
-				); err == nil {
-					return false, fmt.Errorf("only a single instance of Non-Admin Controller can be installed across the entire cluster. Non-Admin controller is already configured and installed in %s namespace", dpa.Namespace)
+			dpaList := &oadpv1alpha1.DataProtectionApplicationList{}
+			err = r.ClusterWideClient.List(r.Context, dpaList)
+			if err != nil {
+				return false, err
+			}
+			for _, dpa := range dpaList.Items {
+				if dpa.Namespace != r.NamespacedName.Namespace && (&DataProtectionApplicationReconciler{dpa: &dpa}).checkNonAdminEnabled() {
+					nonAdminDeployment := &appsv1.Deployment{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      nonAdminObjectName,
+							Namespace: dpa.Namespace,
+						},
+					}
+					if err := r.ClusterWideClient.Get(
+						r.Context,
+						types.NamespacedName{
+							Name:      nonAdminDeployment.Name,
+							Namespace: nonAdminDeployment.Namespace,
+						},
+						nonAdminDeployment,
+					); err == nil {
+						return false, fmt.Errorf("only a single instance of Non-Admin Controller can be installed across the entire cluster. Non-Admin controller is already configured and installed in %s namespace", dpa.Namespace)
+					}
 				}
 			}
 		}
 
+		garbageCollectionPeriod := r.dpa.Spec.NonAdmin.GarbageCollectionPeriod
+		if garbageCollectionPeriod != nil {
+			if garbageCollectionPeriod.Duration < 0 {
+				return false, fmt.Errorf("DPA spec.nonAdmin.garbageCollectionPeriod can not be negative")
+			}
+		}
 	}
 
 	return true, nil

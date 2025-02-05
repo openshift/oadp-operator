@@ -447,6 +447,11 @@ type NonAdmin struct {
 	// which restore spec field values to enforce
 	// +optional
 	EnforceRestoreSpec *velero.RestoreSpec `json:"enforceRestoreSpec,omitempty"`
+
+	// GarbageCollectionPeriod defines how frequently to look for possible leftover non admin related objects in OADP namespace.
+	// By default 24h
+	// +optional
+	GarbageCollectionPeriod *metav1.Duration `json:"garbageCollectionPeriod,omitempty"`
 }
 
 // DataMover defines the various config for DPA data mover

@@ -25,8 +25,9 @@ const (
 	nonAdminObjectName = "non-admin-controller"
 	controlPlaneKey    = "control-plane"
 
-	enforcedBackupSpecKey  = "enforced-backup-spec"
-	enforcedRestoreSpecKey = "enforced-restore-spec"
+	enforcedBackupSpecKey      = "enforced-backup-spec"
+	enforcedRestoreSpecKey     = "enforced-restore-spec"
+	garbageCollectionPeriodKey = "garbage-collection-period"
 )
 
 var (
@@ -42,10 +43,12 @@ var (
 		"app.kubernetes.io/part-of":    common.OADPOperator,
 	}
 
-	previousEnforcedBackupSpec    *velero.BackupSpec  = nil
-	dpaBackupSpecResourceVersion                      = ""
-	previousEnforcedRestoreSpec   *velero.RestoreSpec = nil
-	dpaRestoreSpecResourceVersion                     = ""
+	previousEnforcedBackupSpec          *velero.BackupSpec  = nil
+	dpaBackupSpecResourceVersion                            = ""
+	previousEnforcedRestoreSpec         *velero.RestoreSpec = nil
+	dpaRestoreSpecResourceVersion                           = ""
+	previousGarbageCollectionPeriod     *metav1.Duration    = nil
+	dpaGarbageCollectionResourceVersion                     = ""
 )
 
 func (r *DataProtectionApplicationReconciler) ReconcileNonAdminController(log logr.Logger) (bool, error) {
@@ -163,9 +166,14 @@ func ensureRequiredSpecs(deploymentObject *appsv1.Deployment, dpa *oadpv1alpha1.
 		dpaRestoreSpecResourceVersion = dpa.GetResourceVersion()
 	}
 	previousEnforcedRestoreSpec = dpa.Spec.NonAdmin.EnforceRestoreSpec
+	if len(dpaGarbageCollectionResourceVersion) == 0 || !reflect.DeepEqual(dpa.Spec.NonAdmin.GarbageCollectionPeriod, previousGarbageCollectionPeriod) {
+		dpaGarbageCollectionResourceVersion = dpa.GetResourceVersion()
+	}
+	previousGarbageCollectionPeriod = dpa.Spec.NonAdmin.GarbageCollectionPeriod
 	enforcedSpecAnnotation := map[string]string{
-		enforcedBackupSpecKey:  dpaBackupSpecResourceVersion,
-		enforcedRestoreSpecKey: dpaRestoreSpecResourceVersion,
+		enforcedBackupSpecKey:      dpaBackupSpecResourceVersion,
+		enforcedRestoreSpecKey:     dpaRestoreSpecResourceVersion,
+		garbageCollectionPeriodKey: dpaGarbageCollectionResourceVersion,
 	}
 
 	deploymentObject.Spec.Replicas = ptr.To(int32(1))
@@ -187,6 +195,7 @@ func ensureRequiredSpecs(deploymentObject *appsv1.Deployment, dpa *oadpv1alpha1.
 	} else {
 		templateObjectAnnotations[enforcedBackupSpecKey] = enforcedSpecAnnotation[enforcedBackupSpecKey]
 		templateObjectAnnotations[enforcedRestoreSpecKey] = enforcedSpecAnnotation[enforcedRestoreSpecKey]
+		templateObjectAnnotations[garbageCollectionPeriodKey] = enforcedSpecAnnotation[garbageCollectionPeriodKey]
 		deploymentObject.Spec.Template.SetAnnotations(templateObjectAnnotations)
 	}
 
