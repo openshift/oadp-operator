@@ -457,9 +457,8 @@ spec:
                       type: object
                     restic:
                       description: |-
-                        (deprecation warning) ResticConfig is the configuration for restic DaemonSet.
-                        restic is for backwards compatibility and is replaced by the nodeAgent
-                        restic will be removed in the future
+                        (do not use warning) restic field is for backwards compatibility and
+                        will be removed in the future. Use nodeAgent field instead
                       properties:
                         enable:
                           description: |-
