@@ -25,9 +25,7 @@ const (
 	nonAdminObjectName = "non-admin-controller"
 	controlPlaneKey    = "control-plane"
 
-	enforcedBackupSpecKey      = "enforced-backup-spec"
-	enforcedRestoreSpecKey     = "enforced-restore-spec"
-	garbageCollectionPeriodKey = "garbage-collection-period"
+	dpaResourceVersionKey = "dpa-resource-version"
 )
 
 var (
@@ -43,12 +41,11 @@ var (
 		"app.kubernetes.io/part-of":    common.OADPOperator,
 	}
 
-	previousEnforcedBackupSpec          *velero.BackupSpec  = nil
-	dpaBackupSpecResourceVersion                            = ""
-	previousEnforcedRestoreSpec         *velero.RestoreSpec = nil
-	dpaRestoreSpecResourceVersion                           = ""
-	previousGarbageCollectionPeriod     *metav1.Duration    = nil
-	dpaGarbageCollectionResourceVersion                     = ""
+	dpaResourceVersion                                  = ""
+	previousEnforcedBackupSpec      *velero.BackupSpec  = nil
+	previousEnforcedRestoreSpec     *velero.RestoreSpec = nil
+	previousGarbageCollectionPeriod *metav1.Duration    = nil
+	previousBackupSyncPeriod        *metav1.Duration    = nil
 )
 
 func (r *DataProtectionApplicationReconciler) ReconcileNonAdminController(log logr.Logger) (bool, error) {
@@ -158,22 +155,19 @@ func ensureRequiredSpecs(deploymentObject *appsv1.Deployment, dpa *oadpv1alpha1.
 		Name:  "WATCH_NAMESPACE",
 		Value: deploymentObject.Namespace,
 	}
-	if len(dpaBackupSpecResourceVersion) == 0 || !reflect.DeepEqual(dpa.Spec.NonAdmin.EnforceBackupSpec, previousEnforcedBackupSpec) {
-		dpaBackupSpecResourceVersion = dpa.GetResourceVersion()
+	if len(dpaResourceVersion) == 0 ||
+		!reflect.DeepEqual(dpa.Spec.NonAdmin.EnforceBackupSpec, previousEnforcedBackupSpec) ||
+		!reflect.DeepEqual(dpa.Spec.NonAdmin.EnforceRestoreSpec, previousEnforcedRestoreSpec) ||
+		!reflect.DeepEqual(dpa.Spec.NonAdmin.GarbageCollectionPeriod, previousGarbageCollectionPeriod) ||
+		!reflect.DeepEqual(dpa.Spec.NonAdmin.BackupSyncPeriod, previousBackupSyncPeriod) {
+		dpaResourceVersion = dpa.GetResourceVersion()
+		previousEnforcedBackupSpec = dpa.Spec.NonAdmin.EnforceBackupSpec
+		previousEnforcedRestoreSpec = dpa.Spec.NonAdmin.EnforceRestoreSpec
+		previousGarbageCollectionPeriod = dpa.Spec.NonAdmin.GarbageCollectionPeriod
+		previousBackupSyncPeriod = dpa.Spec.NonAdmin.BackupSyncPeriod
 	}
-	previousEnforcedBackupSpec = dpa.Spec.NonAdmin.EnforceBackupSpec
-	if len(dpaRestoreSpecResourceVersion) == 0 || !reflect.DeepEqual(dpa.Spec.NonAdmin.EnforceRestoreSpec, previousEnforcedRestoreSpec) {
-		dpaRestoreSpecResourceVersion = dpa.GetResourceVersion()
-	}
-	previousEnforcedRestoreSpec = dpa.Spec.NonAdmin.EnforceRestoreSpec
-	if len(dpaGarbageCollectionResourceVersion) == 0 || !reflect.DeepEqual(dpa.Spec.NonAdmin.GarbageCollectionPeriod, previousGarbageCollectionPeriod) {
-		dpaGarbageCollectionResourceVersion = dpa.GetResourceVersion()
-	}
-	previousGarbageCollectionPeriod = dpa.Spec.NonAdmin.GarbageCollectionPeriod
-	enforcedSpecAnnotation := map[string]string{
-		enforcedBackupSpecKey:      dpaBackupSpecResourceVersion,
-		enforcedRestoreSpecKey:     dpaRestoreSpecResourceVersion,
-		garbageCollectionPeriodKey: dpaGarbageCollectionResourceVersion,
+	podAnnotations := map[string]string{
+		dpaResourceVersionKey: dpaResourceVersion,
 	}
 
 	deploymentObject.Spec.Replicas = ptr.To(int32(1))
@@ -191,11 +185,9 @@ func ensureRequiredSpecs(deploymentObject *appsv1.Deployment, dpa *oadpv1alpha1.
 
 	templateObjectAnnotations := deploymentObject.Spec.Template.GetAnnotations()
 	if templateObjectAnnotations == nil {
-		deploymentObject.Spec.Template.SetAnnotations(enforcedSpecAnnotation)
+		deploymentObject.Spec.Template.SetAnnotations(podAnnotations)
 	} else {
-		templateObjectAnnotations[enforcedBackupSpecKey] = enforcedSpecAnnotation[enforcedBackupSpecKey]
-		templateObjectAnnotations[enforcedRestoreSpecKey] = enforcedSpecAnnotation[enforcedRestoreSpecKey]
-		templateObjectAnnotations[garbageCollectionPeriodKey] = enforcedSpecAnnotation[garbageCollectionPeriodKey]
+		templateObjectAnnotations[dpaResourceVersionKey] = podAnnotations[dpaResourceVersionKey]
 		deploymentObject.Spec.Template.SetAnnotations(templateObjectAnnotations)
 	}
 
