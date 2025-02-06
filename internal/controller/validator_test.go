@@ -1391,7 +1391,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 			messageErr: "Secret name specified in BackupLocation  cannot be empty",
 		},
 		{
-			name: "[invalid] DPA CR: spec.nonAdmin.enable true, spec.unsupportedOverrides.tech-preview-ack not true string",
+			name: "[valid] DPA CR: spec.nonAdmin.enable true",
 			dpa: &oadpv1alpha1.DataProtectionApplication{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-DPA-CR",
@@ -1400,37 +1400,6 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 					NonAdmin: &oadpv1alpha1.NonAdmin{
 						Enable: pointer.Bool(true),
-					},
-					UnsupportedOverrides: map[oadpv1alpha1.UnsupportedImageKey]string{
-						oadpv1alpha1.TechPreviewAck: "false",
-					},
-					Configuration: &oadpv1alpha1.ApplicationConfig{
-						Velero: &oadpv1alpha1.VeleroConfig{
-							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
-								oadpv1alpha1.DefaultPluginAWS,
-							},
-							NoDefaultBackupLocation: true,
-						},
-					},
-					BackupImages: pointer.Bool(false),
-				},
-			},
-			wantErr:    true,
-			messageErr: "in order to enable/disable the non-admin feature please set dpa.spec.unsupportedOverrides[tech-preview-ack]: \"true\"",
-		},
-		{
-			name: "[valid] DPA CR: spec.nonAdmin.enable true, spec.unsupportedOverrides.tech-preview-ack true string",
-			dpa: &oadpv1alpha1.DataProtectionApplication{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-DPA-CR",
-					Namespace: "test-ns",
-				},
-				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
-					NonAdmin: &oadpv1alpha1.NonAdmin{
-						Enable: pointer.Bool(true),
-					},
-					UnsupportedOverrides: map[oadpv1alpha1.UnsupportedImageKey]string{
-						oadpv1alpha1.TechPreviewAck: "true",
 					},
 					Configuration: &oadpv1alpha1.ApplicationConfig{
 						Velero: &oadpv1alpha1.VeleroConfig{
@@ -1455,9 +1424,6 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 					NonAdmin: &oadpv1alpha1.NonAdmin{
 						Enable: pointer.Bool(true),
 					},
-					UnsupportedOverrides: map[oadpv1alpha1.UnsupportedImageKey]string{
-						oadpv1alpha1.TechPreviewAck: "true",
-					},
 					Configuration: &oadpv1alpha1.ApplicationConfig{
 						Velero: &oadpv1alpha1.VeleroConfig{
 							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
@@ -1478,9 +1444,6 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 					Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 						NonAdmin: &oadpv1alpha1.NonAdmin{
 							Enable: pointer.Bool(true),
-						},
-						UnsupportedOverrides: map[oadpv1alpha1.UnsupportedImageKey]string{
-							oadpv1alpha1.TechPreviewAck: "true",
 						},
 					},
 				},
@@ -1539,9 +1502,6 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 							SnapshotVolumes:    ptr.To(false),
 						},
 					},
-					UnsupportedOverrides: map[oadpv1alpha1.UnsupportedImageKey]string{
-						oadpv1alpha1.TechPreviewAck: "true",
-					},
 				},
 			},
 		},
@@ -1566,9 +1526,6 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 							RestorePVs:         ptr.To(true),
 						},
 					},
-					UnsupportedOverrides: map[oadpv1alpha1.UnsupportedImageKey]string{
-						oadpv1alpha1.TechPreviewAck: "true",
-					},
 				},
 			},
 		},
@@ -1588,9 +1545,6 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 					BackupImages: ptr.To(false),
 					NonAdmin: &oadpv1alpha1.NonAdmin{
 						Enable: ptr.To(true),
-					},
-					UnsupportedOverrides: map[oadpv1alpha1.UnsupportedImageKey]string{
-						oadpv1alpha1.TechPreviewAck: "true",
 					},
 				},
 			},
