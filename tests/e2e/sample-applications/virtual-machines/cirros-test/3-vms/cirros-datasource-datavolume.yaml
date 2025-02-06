@@ -1,0 +1,29 @@
+apiVersion: v1
+kind: List
+items:
+- apiVersion: cdi.kubevirt.io/v1beta1
+  kind: DataSource
+  metadata:
+    name: cirros
+    namespace: openshift-virtualization-os-images
+  spec:
+    source:
+      pvc:
+        name: cirros
+        namespace: openshift-virtualization-os-images
+- apiVersion: cdi.kubevirt.io/v1beta1
+  kind: DataVolume
+  metadata:
+    name: cirros
+    namespace: openshift-virtualization-os-images
+  spec:
+    pvc:
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: 150Mi
+    source:
+      http:
+        url: https://download.cirros-cloud.net/0.6.2/cirros-0.6.2-x86_64-disk.img
+

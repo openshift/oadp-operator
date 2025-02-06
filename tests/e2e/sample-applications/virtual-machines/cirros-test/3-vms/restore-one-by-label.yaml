@@ -1,0 +1,11 @@
+apiVersion: velero.io/v1
+kind: Restore
+metadata:
+  name: singlevmrestore-just-third-vm
+  namespace: openshift-adp
+spec:
+  backupName: 3-cirros-vms-all
+  restorePVs: true
+  orLabelSelectors:
+    - matchLabels:
+      app: cirros-test-3
