@@ -65,7 +65,6 @@ const ResticRestoreImageKey UnsupportedImageKey = "resticRestoreImageFqin"
 const KubeVirtPluginImageKey UnsupportedImageKey = "kubevirtPluginImageFqin"
 const NonAdminControllerImageKey UnsupportedImageKey = "nonAdminControllerImageFqin"
 const OperatorTypeKey UnsupportedImageKey = "operator-type"
-const TechPreviewAck UnsupportedImageKey = "tech-preview-ack"
 
 const OperatorTypeMTC = "mtc"
 

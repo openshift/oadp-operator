@@ -232,7 +232,7 @@ func ensureRequiredSpecs(deploymentObject *appsv1.Deployment, dpa *oadpv1alpha1.
 
 func (r *DataProtectionApplicationReconciler) checkNonAdminEnabled() bool {
 	if r.dpa.Spec.NonAdmin != nil && r.dpa.Spec.NonAdmin.Enable != nil {
-		return *r.dpa.Spec.NonAdmin.Enable && r.dpa.Spec.UnsupportedOverrides[oadpv1alpha1.TechPreviewAck] == TrueVal
+		return *r.dpa.Spec.NonAdmin.Enable
 	}
 	return false
 }
