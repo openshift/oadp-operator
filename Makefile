@@ -596,6 +596,7 @@ test-e2e: test-e2e-setup install-ginkgo ## Run E2E tests against OADP operator i
 	--ginkgo.vv \
 	--ginkgo.no-color=$(OPENSHIFT_CI) \
 	--ginkgo.label-filter="$(TEST_FILTER)" \
+	--ginkgo.junit-report="junit_report.xml" \
 	--ginkgo.timeout=2h \
 	$(GINKGO_ARGS)
 
