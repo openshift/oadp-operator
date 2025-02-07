@@ -534,6 +534,9 @@ spec:
                   - type
                   type: object
                 type: array
+              logsPath:
+                description: logsPath is path to restore logs in the storage location
+                type: string
               phase:
                 description: phase is a simple one high-level summary of the lifecycle
                   of an NonAdminRestore.
@@ -557,6 +560,10 @@ spec:
                 required:
                 - estimatedQueuePosition
                 type: object
+              resourceListPath:
+                description: resourceListPath is path to resource list of restore
+                  in storage location
+                type: string
               veleroRestore:
                 description: VeleroRestore contains information of the related Velero
                   restore object.
