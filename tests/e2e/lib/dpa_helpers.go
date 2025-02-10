@@ -308,7 +308,7 @@ func (v *DpaCustomResource) BSLsAreUpdated(updateTime time.Time) wait.ConditionF
 }
 
 // check if bsl matches the spec
-func (v *DpaCustomResource) DoesBSLSpecMatchesDpa(namespace string, dpaBSLSpec velero.BackupStorageLocationSpec) (bool, error) {
+func (v *DpaCustomResource) DoesBSLSpecMatchesDpa(dpaBSLSpec velero.BackupStorageLocationSpec) (bool, error) {
 	bsls, err := v.ListBSLs()
 	if err != nil {
 		return false, err
@@ -345,7 +345,7 @@ func (v *DpaCustomResource) ListVSLs() (*velero.VolumeSnapshotLocationList, erro
 }
 
 // check if vsl matches the spec
-func (v *DpaCustomResource) DoesVSLSpecMatchesDpa(namespace string, dpaVSLSpec velero.VolumeSnapshotLocationSpec) (bool, error) {
+func (v *DpaCustomResource) DoesVSLSpecMatchesDpa(dpaVSLSpec velero.VolumeSnapshotLocationSpec) (bool, error) {
 	vsls, err := v.ListVSLs()
 	if err != nil {
 		return false, err
