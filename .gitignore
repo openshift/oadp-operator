@@ -31,5 +31,6 @@ tests/e2e/e2e.test
 tests/e2e/templates/*.yaml
 .DS_Store
 test-upgrade/
+junit_report.xml
 # `operator-sdk run bundle` caches files in this directory
 cache/
