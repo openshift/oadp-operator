@@ -54,7 +54,7 @@ func todoListReady(preBackupState bool, twoVol bool, database string) Verificati
 func prepareBackupAndRestore(brCase BackupRestoreCase, updateLastInstallTime func()) (string, string) {
 	updateLastInstallTime()
 
-	err := dpaCR.CreateOrUpdate(runTimeClientForSuiteRun, dpaCR.Build(brCase.BackupRestoreType))
+	err := dpaCR.CreateOrUpdate(dpaCR.Build(brCase.BackupRestoreType))
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	log.Print("Checking if DPA is reconciled")

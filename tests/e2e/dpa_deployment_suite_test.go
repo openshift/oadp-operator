@@ -145,7 +145,7 @@ var _ = ginkgo.Describe("Configuration testing for DPA Custom Resource", func() 
 	ginkgo.DescribeTable("DPA reconciled to true",
 		func(installCase InstallCase) {
 			lastInstallTime = time.Now()
-			err := dpaCR.CreateOrUpdate(runTimeClientForSuiteRun, installCase.DpaSpec)
+			err := dpaCR.CreateOrUpdate(installCase.DpaSpec)
 			gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 			gomega.Eventually(dpaCR.IsReconciledTrue(), time.Minute*2, time.Second*5).Should(gomega.BeTrue())
@@ -373,7 +373,7 @@ var _ = ginkgo.Describe("Configuration testing for DPA Custom Resource", func() 
 	ginkgo.DescribeTable("DPA reconciled to false",
 		func(installCase InstallCase, message string) {
 			lastInstallTime = time.Now()
-			err := dpaCR.CreateOrUpdate(runTimeClientForSuiteRun, installCase.DpaSpec)
+			err := dpaCR.CreateOrUpdate(installCase.DpaSpec)
 			gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 			log.Printf("Test case expected to error. Waiting for the error to show in DPA Status")
@@ -391,7 +391,7 @@ var _ = ginkgo.Describe("Configuration testing for DPA Custom Resource", func() 
 	ginkgo.DescribeTable("DPA Deletion test",
 		func() {
 			log.Printf("Creating DPA")
-			err := dpaCR.CreateOrUpdate(runTimeClientForSuiteRun, dpaCR.Build(lib.KOPIA))
+			err := dpaCR.CreateOrUpdate(dpaCR.Build(lib.KOPIA))
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 			log.Printf("Waiting for velero Pod to be running")
 			gomega.Eventually(lib.VeleroPodIsRunning(kubernetesClientForSuiteRun, namespace), time.Minute*3, time.Second*5).Should(gomega.BeTrue())

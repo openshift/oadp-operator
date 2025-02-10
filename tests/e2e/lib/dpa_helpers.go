@@ -148,7 +148,7 @@ func (v *DpaCustomResource) Get() (*oadpv1alpha1.DataProtectionApplication, erro
 	return &dpa, nil
 }
 
-func (v *DpaCustomResource) CreateOrUpdate(c client.Client, spec *oadpv1alpha1.DataProtectionApplicationSpec) error {
+func (v *DpaCustomResource) CreateOrUpdate(spec *oadpv1alpha1.DataProtectionApplicationSpec) error {
 	// for debugging
 	// prettyPrint, _ := json.MarshalIndent(spec, "", "  ")
 	// log.Printf("DPA with spec\n%s\n", prettyPrint)

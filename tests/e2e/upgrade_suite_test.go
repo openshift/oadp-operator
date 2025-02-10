@@ -7,7 +7,7 @@ import (
 
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
-	"github.com/operator-framework/api/pkg/operators/v1"
+	v1 "github.com/operator-framework/api/pkg/operators/v1"
 	"github.com/operator-framework/api/pkg/operators/v1alpha1"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -109,7 +109,7 @@ var _ = ginkgo.Describe("OADP upgrade scenarios", ginkgo.Ordered, func() {
 					},
 				},
 			}
-			err = dpaCR.CreateOrUpdate(runTimeClientForSuiteRun, dpaSpec)
+			err = dpaCR.CreateOrUpdate(dpaSpec)
 			gomega.Expect(err).To(gomega.BeNil())
 
 			// check that DPA is reconciled true
