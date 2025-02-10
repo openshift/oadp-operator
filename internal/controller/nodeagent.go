@@ -409,9 +409,7 @@ func (r *DataProtectionApplicationReconciler) customizeNodeAgentDaemonset(ds *ap
 					if err := r.Get(r.Context, types.NamespacedName{Namespace: dpa.Namespace, Name: configMapName}, &unsupportedServerArgsCM); err != nil {
 						return nil, err
 					}
-					if err := common.ApplyUnsupportedServerArgsOverride(nodeAgentContainer, unsupportedServerArgsCM, common.NodeAgent); err != nil {
-						return nil, err
-					}
+					common.ApplyUnsupportedServerArgsOverride(nodeAgentContainer, unsupportedServerArgsCM, common.NodeAgent)
 				}
 			}
 

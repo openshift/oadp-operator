@@ -390,9 +390,7 @@ func (r *DataProtectionApplicationReconciler) customizeVeleroDeployment(veleroDe
 			if err := r.Get(r.Context, types.NamespacedName{Namespace: dpa.Namespace, Name: configMapName}, &unsupportedServerArgsCM); err != nil {
 				return err
 			}
-			if err := common.ApplyUnsupportedServerArgsOverride(veleroContainer, unsupportedServerArgsCM, common.Velero); err != nil {
-				return err
-			}
+			common.ApplyUnsupportedServerArgsOverride(veleroContainer, unsupportedServerArgsCM, common.Velero)
 		}
 	}
 
