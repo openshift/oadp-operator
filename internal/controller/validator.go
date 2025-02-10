@@ -82,12 +82,9 @@ func (r *DataProtectionApplicationReconciler) ValidateDataProtectionCR(log logr.
 		return false, err
 	}
 
-	// validate non-admin enable and tech-preview-ack
+	// validate non-admin enable
 	if r.dpa.Spec.NonAdmin != nil {
-		if r.dpa.Spec.NonAdmin.Enable != nil && *r.dpa.Spec.NonAdmin.Enable {
-			if r.dpa.Spec.UnsupportedOverrides[oadpv1alpha1.TechPreviewAck] != TrueVal {
-				return false, errors.New("in order to enable/disable the non-admin feature please set dpa.spec.unsupportedOverrides[tech-preview-ack]: \"true\"")
-			}
+		if r.dpa.Spec.NonAdmin.Enable != nil {
 
 			dpaList := &oadpv1alpha1.DataProtectionApplicationList{}
 			err = r.ClusterWideClient.List(r.Context, dpaList)
