@@ -93,7 +93,7 @@ func prepareBackupAndRestore(brCase BackupRestoreCase, updateLastInstallTime fun
 	return backupName, restoreName
 }
 
-func runApplicationBackupAndRestore(brCase ApplicationBackupRestoreCase, expectedErr error, updateLastBRcase func(brCase ApplicationBackupRestoreCase), updateLastInstallTime func()) {
+func runApplicationBackupAndRestore(brCase ApplicationBackupRestoreCase, updateLastBRcase func(brCase ApplicationBackupRestoreCase), updateLastInstallTime func()) {
 	updateLastBRcase(brCase)
 
 	// create DPA
@@ -298,7 +298,7 @@ var _ = ginkgo.Describe("Backup and restore tests", func() {
 			if ginkgo.CurrentSpecReport().NumAttempts > 1 && !knownFlake {
 				ginkgo.Fail("No known FLAKE found in a previous run, marking test as failed.")
 			}
-			runApplicationBackupAndRestore(brCase, expectedErr, updateLastBRcase, updateLastInstallTime)
+			runApplicationBackupAndRestore(brCase, updateLastBRcase, updateLastInstallTime)
 		},
 		ginkgo.Entry("MySQL application CSI", ginkgo.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
 			ApplicationTemplate: "./sample-applications/mysql-persistent/mysql-persistent-csi.yaml",

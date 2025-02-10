@@ -31,7 +31,7 @@ var _ = ginkgo.Describe("Backup and restore tests with must-gather", func() {
 			if ginkgo.CurrentSpecReport().NumAttempts > 1 && !knownFlake {
 				ginkgo.Fail("No known FLAKE found in a previous run, marking test as failed.")
 			}
-			runApplicationBackupAndRestore(brCase, expectedErr, updateLastBRcase, updateLastInstallTime)
+			runApplicationBackupAndRestore(brCase, updateLastBRcase, updateLastInstallTime)
 
 			baseReportDir := artifact_dir + "/" + brCase.Name
 			err := os.MkdirAll(baseReportDir, 0755)
