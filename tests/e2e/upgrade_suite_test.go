@@ -7,7 +7,7 @@ import (
 
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
-	v1 "github.com/operator-framework/api/pkg/operators/v1"
+	operatorv1 "github.com/operator-framework/api/pkg/operators/v1"
 	"github.com/operator-framework/api/pkg/operators/v1alpha1"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -29,18 +29,18 @@ var _ = ginkgo.Describe("OADP upgrade scenarios", ginkgo.Ordered, func() {
 		func(scenario channelUpgradeCase) {
 			// Create OperatorGroup and Subscription with previous channel stable-1.4
 			log.Print("Checking if OperatorGroup needs to be created")
-			operatorGroupList := v1.OperatorGroupList{}
+			operatorGroupList := operatorv1.OperatorGroupList{}
 			err := runTimeClientForSuiteRun.List(context.Background(), &operatorGroupList, client.InNamespace(namespace))
 			gomega.Expect(err).To(gomega.BeNil())
 			gomega.Expect(len(operatorGroupList.Items) > 1).To(gomega.BeFalse())
 			if len(operatorGroupList.Items) == 0 {
 				log.Print("Creating OperatorGroup oadp-operator-group")
-				operatorGroup := v1.OperatorGroup{
+				operatorGroup := operatorv1.OperatorGroup{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "oadp-operator-group",
 						Namespace: namespace,
 					},
-					Spec: v1.OperatorGroupSpec{
+					Spec: operatorv1.OperatorGroupSpec{
 						TargetNamespaces: []string{namespace},
 					},
 				}
