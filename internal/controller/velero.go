@@ -313,7 +313,7 @@ func (r *DataProtectionApplicationReconciler) customizeVeleroDeployment(veleroDe
 			break
 		}
 	}
-	if err := r.customizeVeleroContainer(veleroDeployment, veleroContainer, prometheusPort); err != nil {
+	if err := r.customizeVeleroContainer(veleroContainer, prometheusPort); err != nil {
 		return err
 	}
 
@@ -498,7 +498,7 @@ func (r *DataProtectionApplicationReconciler) appendPluginSpecificSpecs(veleroDe
 	}
 }
 
-func (r *DataProtectionApplicationReconciler) customizeVeleroContainer(veleroDeployment *appsv1.Deployment, veleroContainer *corev1.Container, prometheusPort *int) error {
+func (r *DataProtectionApplicationReconciler) customizeVeleroContainer(veleroContainer *corev1.Container, prometheusPort *int) error {
 	dpa := r.dpa
 	if veleroContainer == nil {
 		return fmt.Errorf("could not find velero container in Deployment")
