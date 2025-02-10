@@ -230,6 +230,8 @@ func (r *DataProtectionApplicationReconciler) ReconcileBackupStorageLocations(lo
 }
 
 func (r *DataProtectionApplicationReconciler) UpdateCredentialsSecretLabels(secretName string, namespace string, dpaName string) (bool, error) {
+	// todo: lot of calls supply this, needs combing
+	_ = namespace
 	var secret corev1.Secret
 	secret, err := r.getProviderSecret(secretName)
 	if err != nil {
