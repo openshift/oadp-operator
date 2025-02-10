@@ -132,7 +132,7 @@ func (r *DataProtectionApplicationReconciler) ReconcileBackupStorageLocations(lo
 		if bslSpec.Velero != nil {
 			secretName, _, _ = r.getSecretNameAndKey(bslSpec.Velero.Config, bslSpec.Velero.Credential, oadpv1alpha1.DefaultPlugin(bslSpec.Velero.Provider))
 		}
-		_, err := r.UpdateCredentialsSecretLabels(secretName, dpa.Namespace, dpa.Name)
+		err := r.UpdateCredentialsSecretLabels(secretName, dpa.Namespace, dpa.Name)
 		if err != nil {
 			return false, err
 		}
@@ -229,16 +229,16 @@ func (r *DataProtectionApplicationReconciler) ReconcileBackupStorageLocations(lo
 	return true, nil
 }
 
-func (r *DataProtectionApplicationReconciler) UpdateCredentialsSecretLabels(secretName string, namespace string, dpaName string) (bool, error) {
+func (r *DataProtectionApplicationReconciler) UpdateCredentialsSecretLabels(secretName string, namespace string, dpaName string) error {
 	// todo: lot of calls supply this, needs combing
 	_ = namespace
 	var secret corev1.Secret
 	secret, err := r.getProviderSecret(secretName)
 	if err != nil {
-		return false, err
+		return err
 	}
 	if secret.Name == "" {
-		return false, errors.New("secret not found")
+		return errors.New("secret not found")
 	}
 	needPatch := false
 	originalSecret := secret.DeepCopy()
@@ -256,12 +256,12 @@ func (r *DataProtectionApplicationReconciler) UpdateCredentialsSecretLabels(secr
 	if needPatch {
 		err = r.Client.Patch(r.Context, &secret, client.MergeFrom(originalSecret))
 		if err != nil {
-			return false, err
+			return err
 		}
 
 		r.EventRecorder.Event(&secret, corev1.EventTypeNormal, "SecretLabelled", fmt.Sprintf("Secret %s has been labelled", secretName))
 	}
-	return true, nil
+	return nil
 }
 
 func (r *DataProtectionApplicationReconciler) updateBSLFromSpec(bsl *velerov1.BackupStorageLocation, bslSpec velerov1.BackupStorageLocationSpec) error {
