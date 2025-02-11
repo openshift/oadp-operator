@@ -2,6 +2,7 @@ package controller
 
 import (
 	"testing"
+	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
@@ -1545,6 +1546,30 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 					BackupImages: ptr.To(false),
 					NonAdmin: &oadpv1alpha1.NonAdmin{
 						Enable: ptr.To(true),
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "[invalid] DPA CR: spec.nonAdmin.garbageCollectionPeriod negative",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-DPA-CR",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							NoDefaultBackupLocation: true,
+						},
+					},
+					BackupImages: ptr.To(false),
+					NonAdmin: &oadpv1alpha1.NonAdmin{
+						Enable: ptr.To(true),
+						GarbageCollectionPeriod: &metav1.Duration{
+							Duration: -3 * time.Minute,
+						},
 					},
 				},
 			},

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/go-logr/logr"
@@ -114,17 +115,30 @@ func (r *DataProtectionApplicationReconciler) ValidateDataProtectionCR(log logr.
 		}
 
 		garbageCollectionPeriod := r.dpa.Spec.NonAdmin.GarbageCollectionPeriod
+		// TODO create const and import in NAC
+		appliedGarbageCollectionPeriod := 24 * time.Hour
 		if garbageCollectionPeriod != nil {
 			if garbageCollectionPeriod.Duration < 0 {
 				return false, fmt.Errorf("DPA spec.nonAdmin.garbageCollectionPeriod can not be negative")
 			}
+			appliedGarbageCollectionPeriod = garbageCollectionPeriod.Duration
 		}
 
 		backupSyncPeriod := r.dpa.Spec.NonAdmin.BackupSyncPeriod
+		// TODO create const and import in NAC
+		appliedBackupSyncPeriod := 2 * time.Minute
 		if backupSyncPeriod != nil {
 			if backupSyncPeriod.Duration < 0 {
 				return false, fmt.Errorf("DPA spec.nonAdmin.backupSyncPeriod can not be negative")
 			}
+			appliedBackupSyncPeriod = backupSyncPeriod.Duration
+		}
+
+		if appliedGarbageCollectionPeriod < appliedBackupSyncPeriod {
+			return false, fmt.Errorf(
+				"DPA spec.nonAdmin.backupSyncPeriod (%v) can not be greater or equal spec.nonAdmin.garbageCollectionPeriod (%v)",
+				appliedBackupSyncPeriod, appliedGarbageCollectionPeriod,
+			)
 		}
 	}
 
