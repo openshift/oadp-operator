@@ -68,6 +68,12 @@ const OperatorTypeKey UnsupportedImageKey = "operator-type"
 
 const OperatorTypeMTC = "mtc"
 
+// NAC defaults
+const (
+	DefaultGarbageCollectionPeriod = 24 * time.Hour
+	DefaultBackupSyncPeriod        = 2 * time.Minute
+)
+
 // VeleroServerArgs are the arguments that are passed to the Velero server
 type VeleroServerArgs struct {
 	ServerFlags `json:",inline"`

@@ -1568,12 +1568,63 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 					NonAdmin: &oadpv1alpha1.NonAdmin{
 						Enable: ptr.To(true),
 						GarbageCollectionPeriod: &metav1.Duration{
-							Duration: -3 * time.Minute,
+							Duration: -3 * time.Hour,
 						},
 					},
 				},
 			},
-			wantErr: false,
+			wantErr:    true,
+			messageErr: "DPA spec.nonAdmin.garbageCollectionPeriod can not be negative",
+		},
+		{
+			name: "[invalid] DPA CR: spec.nonAdmin.backupSyncPeriod negative",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-DPA-CR",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							NoDefaultBackupLocation: true,
+						},
+					},
+					BackupImages: ptr.To(false),
+					NonAdmin: &oadpv1alpha1.NonAdmin{
+						Enable: ptr.To(true),
+						BackupSyncPeriod: &metav1.Duration{
+							Duration: -5 * time.Minute,
+						},
+					},
+				},
+			},
+			wantErr:    true,
+			messageErr: "DPA spec.nonAdmin.backupSyncPeriod can not be negative",
+		},
+		{
+			name: "[invalid] DPA CR: spec.nonAdmin.backupSyncPeriod greater than spec.nonAdmin.garbageCollectionPeriod",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-DPA-CR",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							NoDefaultBackupLocation: true,
+						},
+					},
+					BackupImages: ptr.To(false),
+					NonAdmin: &oadpv1alpha1.NonAdmin{
+						Enable: ptr.To(true),
+						GarbageCollectionPeriod: &metav1.Duration{
+							Duration: 1 * time.Minute,
+						},
+					},
+				},
+			},
+			wantErr:    true,
+			messageErr: "DPA spec.nonAdmin.backupSyncPeriod (2m0s) can not be greater or equal spec.nonAdmin.garbageCollectionPeriod (1m0s)",
 		},
 	}
 	for _, tt := range tests {

@@ -6,7 +6,6 @@ import (
 	"reflect"
 
 	"github.com/go-logr/logr"
-	velero "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	"golang.org/x/exp/maps"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -41,11 +40,8 @@ var (
 		"app.kubernetes.io/part-of":    common.OADPOperator,
 	}
 
-	dpaResourceVersion                                  = ""
-	previousEnforcedBackupSpec      *velero.BackupSpec  = nil
-	previousEnforcedRestoreSpec     *velero.RestoreSpec = nil
-	previousGarbageCollectionPeriod *metav1.Duration    = nil
-	previousBackupSyncPeriod        *metav1.Duration    = nil
+	dpaResourceVersion                                   = ""
+	previousNonAdminConfiguration *oadpv1alpha1.NonAdmin = nil
 )
 
 func (r *DataProtectionApplicationReconciler) ReconcileNonAdminController(log logr.Logger) (bool, error) {
@@ -156,15 +152,9 @@ func ensureRequiredSpecs(deploymentObject *appsv1.Deployment, dpa *oadpv1alpha1.
 		Value: deploymentObject.Namespace,
 	}
 	if len(dpaResourceVersion) == 0 ||
-		!reflect.DeepEqual(dpa.Spec.NonAdmin.EnforceBackupSpec, previousEnforcedBackupSpec) ||
-		!reflect.DeepEqual(dpa.Spec.NonAdmin.EnforceRestoreSpec, previousEnforcedRestoreSpec) ||
-		!reflect.DeepEqual(dpa.Spec.NonAdmin.GarbageCollectionPeriod, previousGarbageCollectionPeriod) ||
-		!reflect.DeepEqual(dpa.Spec.NonAdmin.BackupSyncPeriod, previousBackupSyncPeriod) {
+		!reflect.DeepEqual(dpa.Spec.NonAdmin, previousNonAdminConfiguration) {
 		dpaResourceVersion = dpa.GetResourceVersion()
-		previousEnforcedBackupSpec = dpa.Spec.NonAdmin.EnforceBackupSpec
-		previousEnforcedRestoreSpec = dpa.Spec.NonAdmin.EnforceRestoreSpec
-		previousGarbageCollectionPeriod = dpa.Spec.NonAdmin.GarbageCollectionPeriod
-		previousBackupSyncPeriod = dpa.Spec.NonAdmin.BackupSyncPeriod
+		previousNonAdminConfiguration = dpa.Spec.NonAdmin
 	}
 	podAnnotations := map[string]string{
 		dpaResourceVersionKey: dpaResourceVersion,

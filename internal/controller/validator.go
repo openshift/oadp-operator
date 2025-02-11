@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"time"
 
 	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/go-logr/logr"
@@ -115,8 +114,7 @@ func (r *DataProtectionApplicationReconciler) ValidateDataProtectionCR(log logr.
 		}
 
 		garbageCollectionPeriod := r.dpa.Spec.NonAdmin.GarbageCollectionPeriod
-		// TODO create const and import in NAC
-		appliedGarbageCollectionPeriod := 24 * time.Hour
+		appliedGarbageCollectionPeriod := oadpv1alpha1.DefaultGarbageCollectionPeriod
 		if garbageCollectionPeriod != nil {
 			if garbageCollectionPeriod.Duration < 0 {
 				return false, fmt.Errorf("DPA spec.nonAdmin.garbageCollectionPeriod can not be negative")
@@ -125,8 +123,7 @@ func (r *DataProtectionApplicationReconciler) ValidateDataProtectionCR(log logr.
 		}
 
 		backupSyncPeriod := r.dpa.Spec.NonAdmin.BackupSyncPeriod
-		// TODO create const and import in NAC
-		appliedBackupSyncPeriod := 2 * time.Minute
+		appliedBackupSyncPeriod := oadpv1alpha1.DefaultBackupSyncPeriod
 		if backupSyncPeriod != nil {
 			if backupSyncPeriod.Duration < 0 {
 				return false, fmt.Errorf("DPA spec.nonAdmin.backupSyncPeriod can not be negative")
@@ -140,6 +137,8 @@ func (r *DataProtectionApplicationReconciler) ValidateDataProtectionCR(log logr.
 				appliedBackupSyncPeriod, appliedGarbageCollectionPeriod,
 			)
 		}
+		// TODO should also validate that BSL backupSyncPeriod is not greater or equal to nonAdmin.backupSyncPeriod
+		// but BSL can not exist yet when we validate the value
 	}
 
 	return true, nil
