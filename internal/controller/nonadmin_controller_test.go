@@ -310,14 +310,10 @@ func TestEnsureRequiredSpecs(t *testing.T) {
 	if deployment.Spec.Template.Spec.Containers[0].Image != defaultNonAdminImage {
 		t.Errorf("Deployment has wrong Image: %v", deployment.Spec.Template.Spec.Containers[0].Image)
 	}
-	if len(deployment.Spec.Template.Annotations[enforcedBackupSpecKey]) == 0 {
+	if len(deployment.Spec.Template.Annotations[dpaResourceVersionKey]) == 0 {
 		t.Errorf("Deployment does not have Annotation")
 	}
-	if len(deployment.Spec.Template.Annotations[enforcedRestoreSpecKey]) == 0 {
-		t.Errorf("Deployment does not have Annotation")
-	}
-	previousBackupAnnotationValue := deployment.DeepCopy().Spec.Template.Annotations[enforcedBackupSpecKey]
-	previousRestoreAnnotationValue := deployment.DeepCopy().Spec.Template.Annotations[enforcedRestoreSpecKey]
+	previousDPAAnnotationValue := deployment.DeepCopy().Spec.Template.Annotations[dpaResourceVersionKey]
 	updatedDPA := &oadpv1alpha1.DataProtectionApplication{
 		ObjectMeta: metav1.ObjectMeta{
 			ResourceVersion: "147258369",
@@ -332,10 +328,7 @@ func TestEnsureRequiredSpecs(t *testing.T) {
 	if err != nil {
 		t.Errorf("ensureRequiredSpecs() errored out: %v", err)
 	}
-	if previousBackupAnnotationValue != deployment.Spec.Template.Annotations[enforcedBackupSpecKey] {
-		t.Errorf("Deployment have different Annotation")
-	}
-	if previousRestoreAnnotationValue != deployment.Spec.Template.Annotations[enforcedRestoreSpecKey] {
+	if previousDPAAnnotationValue != deployment.Spec.Template.Annotations[dpaResourceVersionKey] {
 		t.Errorf("Deployment have different Annotation")
 	}
 	updatedDPA = &oadpv1alpha1.DataProtectionApplication{
@@ -355,14 +348,10 @@ func TestEnsureRequiredSpecs(t *testing.T) {
 	if err != nil {
 		t.Errorf("ensureRequiredSpecs() errored out: %v", err)
 	}
-	if previousBackupAnnotationValue == deployment.Spec.Template.Annotations[enforcedBackupSpecKey] {
+	if previousDPAAnnotationValue == deployment.Spec.Template.Annotations[dpaResourceVersionKey] {
 		t.Errorf("Deployment does not have different Annotation")
 	}
-	if previousRestoreAnnotationValue != deployment.Spec.Template.Annotations[enforcedRestoreSpecKey] {
-		t.Errorf("Deployment have different Annotation")
-	}
-	previousBackupAnnotationValue = deployment.DeepCopy().Spec.Template.Annotations[enforcedBackupSpecKey]
-	previousRestoreAnnotationValue = deployment.DeepCopy().Spec.Template.Annotations[enforcedRestoreSpecKey]
+	previousDPAAnnotationValue = deployment.DeepCopy().Spec.Template.Annotations[dpaResourceVersionKey]
 	updatedDPA = &oadpv1alpha1.DataProtectionApplication{
 		ObjectMeta: metav1.ObjectMeta{
 			ResourceVersion: "112233445",
@@ -383,10 +372,7 @@ func TestEnsureRequiredSpecs(t *testing.T) {
 	if err != nil {
 		t.Errorf("ensureRequiredSpecs() errored out: %v", err)
 	}
-	if previousBackupAnnotationValue != deployment.Spec.Template.Annotations[enforcedBackupSpecKey] {
-		t.Errorf("Deployment have different Annotation")
-	}
-	if previousRestoreAnnotationValue == deployment.Spec.Template.Annotations[enforcedRestoreSpecKey] {
+	if previousDPAAnnotationValue == deployment.Spec.Template.Annotations[dpaResourceVersionKey] {
 		t.Errorf("Deployment does not have different Annotation")
 	}
 }

@@ -1277,6 +1277,12 @@ spec:
                 nonAdmin:
                   description: nonAdmin defines the configuration for the DPA to enable backup and restore operations for non-admin users
                   properties:
+                    backupSyncPeriod:
+                      description: |-
+                        BackupSyncPeriod defines how frequently to sync backups in OADP namespace to non admin namespaces.
+                        A value of 0 disables sync.
+                        By default 2m
+                      type: string
                     enable:
                       description: Enables non admin feature, by default is disabled
                       type: boolean
@@ -2126,6 +2132,7 @@ spec:
                     garbageCollectionPeriod:
                       description: |-
                         GarbageCollectionPeriod defines how frequently to look for possible leftover non admin related objects in OADP namespace.
+                        A value of 0 disables garbage collection.
                         By default 24h
                       type: string
                   type: object
