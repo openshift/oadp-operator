@@ -4,16 +4,16 @@ items:
   - apiVersion: kubevirt.io/v1
     kind: VirtualMachine
     metadata:
-      name: cirros-test-3
-      namespace: cirros-test
+      name: cirros-test-pv-2
+      namespace: cirros-test-ds-pv
       labels:
-        app: cirros-test-3
+        app: cirros-test-pv-2
     spec:
       dataVolumeTemplates:
         - apiVersion: cdi.kubevirt.io/v1beta1
           kind: DataVolume
           metadata:
-            name: cirros-test-3
+            name: cirros-test-pv-2
           spec:
             sourceRef:
               kind: DataSource
@@ -46,4 +46,4 @@ items:
           volumes:
           - name: rootdisk
             persistentVolumeClaim:
-              claimName: cirros-test-3
+              claimName: cirros-test-pv-2
