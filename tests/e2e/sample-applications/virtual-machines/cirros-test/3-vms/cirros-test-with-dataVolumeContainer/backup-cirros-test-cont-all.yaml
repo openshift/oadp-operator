@@ -1,0 +1,11 @@
+apiVersion: velero.io/v1
+kind: Backup
+metadata:
+  name: backup-cirros-test-cont-all
+  namespace: openshift-adp
+spec:
+  csiSnapshotTimeout: 10m0s
+  includedNamespaces:
+  - cirros-test-cont
+  snapshotMoveData: true
+  storageLocation: dpa-1
