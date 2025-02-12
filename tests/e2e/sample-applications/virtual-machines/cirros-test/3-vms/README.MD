@@ -1,7 +1,7 @@
 # Various test cases for backing up / restoring vms using selectors
 
 ## DataVolume precreated: backup all, restore one at a time
-setup:
+#### setup:
 ```
 cd cirros-test-with-dataVolumePV 
 oc create namespace cirros-test-ds-pv
@@ -11,7 +11,7 @@ oc create -f backup-cirros-test-pv-all.yaml
 oc delete -f cirros-test-1.yaml -f cirros-test-2.yaml -f cirros-test-3.yaml
 ```
 
-to restore:
+#### to restore:
 ```
 alias velero='oc -n openshift-adp exec deployment/velero -c velero -it -- ./velero'
 velero restore create cirros-test-1  --from-backup 3-cirros-vms-all --selector app=cirros-test-pv-1
@@ -31,6 +31,7 @@ velero restore create namespace3vms-backup-2-vms-backup1  --from-backup namespac
 **The above use case should all work as expected. \0/**
 
 ## DataVolume not precreated, container disk: backup all, restore one at a time
+#### setup:
 ```
 cd cirros-test-dataVolumeContainer
 
@@ -39,7 +40,7 @@ oc create -f cirros-test-1.yaml -f cirros-test-2.yaml -f cirros-test-3.yaml
 oc create -f backup-cirros-test-cont-all.yaml
 oc delete -f cirros-test-1.yaml -f cirros-test-2.yaml -f cirros-test-3.yaml
 ```
-to restore scenario 1: (does NOT work)
+#### to restore scenario 1: (does NOT work)
 ```
 alias velero='oc -n openshift-adp exec deployment/velero -c velero -it -- ./velero'
 velero restore create cirros-test-1  --from-backup 3-cirros-vms-all --selector app=cirros-test-cont-1
@@ -47,7 +48,7 @@ velero restore create cirros-test-2  --from-backup 3-cirros-vms-all --selector a
 velero restore create cirros-test-3  --from-backup 3-cirros-vms-all --selector app=cirros-test-cont-3
 ```
 
-to restore scenario 2: (works)
+#### to restore scenario 2: (works)
 ```
 velero restore create cirros-test-1  --from-backup 3-cirros-vms-all 
 ```
