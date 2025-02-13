@@ -221,7 +221,7 @@ func TestDPAReconciler_getSecretNameAndKey(t *testing.T) {
 				Client:        fakeClient,
 				Scheme:        fakeClient.Scheme(),
 				Log:           logr.Discard(),
-				Context:       newContextForTest(tt.name),
+				Context:       newContextForTest(),
 				EventRecorder: record.NewFakeRecorder(10),
 			}
 
@@ -310,7 +310,7 @@ func TestDPAReconciler_getSecretNameAndKeyFromCloudStorage(t *testing.T) {
 				Client:        fakeClient,
 				Scheme:        fakeClient.Scheme(),
 				Log:           logr.Discard(),
-				Context:       newContextForTest(tt.name),
+				Context:       newContextForTest(),
 				EventRecorder: record.NewFakeRecorder(10),
 			}
 
@@ -401,7 +401,7 @@ func TestDPAReconciler_populateAWSRegistrySecret(t *testing.T) {
 				Client:  fakeClient,
 				Scheme:  fakeClient.Scheme(),
 				Log:     logr.Discard(),
-				Context: newContextForTest(tt.name),
+				Context: newContextForTest(),
 				NamespacedName: types.NamespacedName{
 					Namespace: tt.bsl.Namespace,
 					Name:      tt.bsl.Name,
@@ -491,7 +491,7 @@ func TestDPAReconciler_populateAzureRegistrySecret(t *testing.T) {
 				Client:  fakeClient,
 				Scheme:  fakeClient.Scheme(),
 				Log:     logr.Discard(),
-				Context: newContextForTest(tt.name),
+				Context: newContextForTest(),
 				NamespacedName: types.NamespacedName{
 					Namespace: tt.bsl.Namespace,
 					Name:      tt.bsl.Name,
