@@ -1223,7 +1223,7 @@ func TestDPAReconciler_updateFsRestoreHelperCM(t *testing.T) {
 				Client:  fakeClient,
 				Scheme:  fakeClient.Scheme(),
 				Log:     logr.Discard(),
-				Context: newContextForTest(tt.name),
+				Context: newContextForTest(),
 				NamespacedName: types.NamespacedName{
 					Namespace: tt.dpa.Namespace,
 					Name:      tt.dpa.Name,
@@ -1297,7 +1297,7 @@ func TestDPAReconciler_getPlatformType(t *testing.T) {
 				Client:  fakeClient,
 				Scheme:  fakeClient.Scheme(),
 				Log:     logr.Discard(),
-				Context: newContextForTest(tt.name),
+				Context: newContextForTest(),
 				NamespacedName: types.NamespacedName{
 					Namespace: tt.dpa.Namespace,
 					Name:      tt.dpa.Name,

@@ -1497,7 +1497,7 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 				Client:  fakeClient,
 				Scheme:  fakeClient.Scheme(),
 				Log:     logr.Discard(),
-				Context: newContextForTest(tt.name),
+				Context: newContextForTest(),
 				NamespacedName: types.NamespacedName{
 					Namespace: tt.dpa.Namespace,
 					Name:      tt.dpa.Name,
@@ -1517,7 +1517,7 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 	}
 }
 
-func newContextForTest(name string) context.Context {
+func newContextForTest() context.Context {
 	return context.TODO()
 }
 
@@ -2205,7 +2205,7 @@ func TestDPAReconciler_ReconcileBackupStorageLocations(t *testing.T) {
 				Client:  fakeClient,
 				Scheme:  fakeClient.Scheme(),
 				Log:     logr.Discard(),
-				Context: newContextForTest(tt.name),
+				Context: newContextForTest(),
 				NamespacedName: types.NamespacedName{
 					Namespace: tt.dpa.Namespace,
 					Name:      tt.dpa.Name,
@@ -2557,7 +2557,7 @@ func TestDPAReconciler_ReconcileBackupStorageLocations(t *testing.T) {
 				Client:  fakeClient,
 				Scheme:  fakeClient.Scheme(),
 				Log:     logr.Discard(),
-				Context: newContextForTest(tt.name),
+				Context: newContextForTest(),
 				NamespacedName: types.NamespacedName{
 					Namespace: tt.objects[0].GetNamespace(),
 					Name:      tt.objects[0].GetName(),

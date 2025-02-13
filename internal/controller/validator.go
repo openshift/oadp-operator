@@ -128,6 +128,10 @@ func (r *DataProtectionApplicationReconciler) ValidateDataProtectionCR(log logr.
 // TODO: if multiple default plugins exist, ensure we validate all of them.
 // Right now its sequential validation
 func (r *DataProtectionApplicationReconciler) ValidateVeleroPlugins(log logr.Logger) (bool, error) {
+
+	// Under todo
+	_ = log
+
 	dpa := r.dpa
 
 	providerNeedsDefaultCreds, hasCloudStorage, err := r.noDefaultCredentials()

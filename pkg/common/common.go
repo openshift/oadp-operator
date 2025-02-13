@@ -286,7 +286,7 @@ func GenerateCliArgsFromConfigMap(configMap *corev1.ConfigMap, cliSubCommand ...
 }
 
 // Apply Override unsupported Node agent Server Args
-func ApplyUnsupportedServerArgsOverride(container *corev1.Container, unsupportedServerArgsCM corev1.ConfigMap, serverType string) error {
+func ApplyUnsupportedServerArgsOverride(container *corev1.Container, unsupportedServerArgsCM corev1.ConfigMap, serverType string) {
 
 	switch serverType {
 	case NodeAgent:
@@ -297,5 +297,4 @@ func ApplyUnsupportedServerArgsOverride(container *corev1.Container, unsupported
 		// if server args is set, override the default server args
 		container.Args = GenerateCliArgsFromConfigMap(&unsupportedServerArgsCM, "server")
 	}
-	return nil
 }

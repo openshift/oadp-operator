@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/go-logr/logr"
-	"github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
+	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -403,7 +403,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 					},
 					SnapshotLocations: []oadpv1alpha1.SnapshotLocation{
 						{
-							Velero: &v1.VolumeSnapshotLocationSpec{
+							Velero: &velerov1.VolumeSnapshotLocationSpec{
 								Provider: "aws",
 								Config: map[string]string{
 									AWSRegion: "us-east-1",
@@ -451,7 +451,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 					},
 					SnapshotLocations: []oadpv1alpha1.SnapshotLocation{
 						{
-							Velero: &v1.VolumeSnapshotLocationSpec{
+							Velero: &velerov1.VolumeSnapshotLocationSpec{
 								Provider: "aws",
 								Config: map[string]string{
 									AWSRegion: "us-east-1",
@@ -492,7 +492,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 					},
 					SnapshotLocations: []oadpv1alpha1.SnapshotLocation{
 						{
-							Velero: &v1.VolumeSnapshotLocationSpec{
+							Velero: &velerov1.VolumeSnapshotLocationSpec{
 								Provider: "aws",
 								Config: map[string]string{
 									AWSRegion: "us-east-1",
@@ -550,7 +550,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 					},
 					SnapshotLocations: []oadpv1alpha1.SnapshotLocation{
 						{
-							Velero: &v1.VolumeSnapshotLocationSpec{
+							Velero: &velerov1.VolumeSnapshotLocationSpec{
 								Provider: "aws",
 								Config: map[string]string{
 									AWSRegion: "us-east-1",
@@ -598,9 +598,9 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 					BackupLocations: []oadpv1alpha1.BackupLocation{
 						{
-							Velero: &v1.BackupStorageLocationSpec{
-								StorageType: v1.StorageType{
-									ObjectStorage: &v1.ObjectStorageLocation{
+							Velero: &velerov1.BackupStorageLocationSpec{
+								StorageType: velerov1.StorageType{
+									ObjectStorage: &velerov1.ObjectStorageLocation{
 										Bucket: "test-bucket",
 										Prefix: "test-prefix",
 									},
@@ -646,9 +646,9 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 					BackupLocations: []oadpv1alpha1.BackupLocation{
 						{
-							Velero: &v1.BackupStorageLocationSpec{
-								StorageType: v1.StorageType{
-									ObjectStorage: &v1.ObjectStorageLocation{
+							Velero: &velerov1.BackupStorageLocationSpec{
+								StorageType: velerov1.StorageType{
+									ObjectStorage: &velerov1.ObjectStorageLocation{
 										Bucket: "test-bucket",
 										Prefix: "test-prefix",
 									},
@@ -682,9 +682,9 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 					BackupLocations: []oadpv1alpha1.BackupLocation{
 						{
-							Velero: &v1.BackupStorageLocationSpec{
-								StorageType: v1.StorageType{
-									ObjectStorage: &v1.ObjectStorageLocation{
+							Velero: &velerov1.BackupStorageLocationSpec{
+								StorageType: velerov1.StorageType{
+									ObjectStorage: &velerov1.ObjectStorageLocation{
 										Bucket: "test-bucket",
 										Prefix: "test-prefix",
 									},
@@ -716,7 +716,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 					SnapshotLocations: []oadpv1alpha1.SnapshotLocation{
 						{
-							Velero: &v1.VolumeSnapshotLocationSpec{
+							Velero: &velerov1.VolumeSnapshotLocationSpec{
 								Provider: "velerio.io/gcp",
 							},
 						},
@@ -744,9 +744,9 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 					BackupLocations: []oadpv1alpha1.BackupLocation{
 						{
-							Velero: &v1.BackupStorageLocationSpec{
-								StorageType: v1.StorageType{
-									ObjectStorage: &v1.ObjectStorageLocation{
+							Velero: &velerov1.BackupStorageLocationSpec{
+								StorageType: velerov1.StorageType{
+									ObjectStorage: &velerov1.ObjectStorageLocation{
 										Bucket: "test-bucket",
 										Prefix: "test-prefix",
 									},
@@ -796,9 +796,9 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 					BackupLocations: []oadpv1alpha1.BackupLocation{
 						{
-							Velero: &v1.BackupStorageLocationSpec{
-								StorageType: v1.StorageType{
-									ObjectStorage: &v1.ObjectStorageLocation{
+							Velero: &velerov1.BackupStorageLocationSpec{
+								StorageType: velerov1.StorageType{
+									ObjectStorage: &velerov1.ObjectStorageLocation{
 										Bucket: "test-bucket",
 										Prefix: "test-prefix",
 									},
@@ -817,9 +817,9 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 							},
 						},
 						{
-							Velero: &v1.BackupStorageLocationSpec{
-								StorageType: v1.StorageType{
-									ObjectStorage: &v1.ObjectStorageLocation{
+							Velero: &velerov1.BackupStorageLocationSpec{
+								StorageType: velerov1.StorageType{
+									ObjectStorage: &velerov1.ObjectStorageLocation{
 										Bucket: "test-bucket",
 										Prefix: "test-prefix",
 									},
@@ -858,9 +858,9 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 					BackupLocations: []oadpv1alpha1.BackupLocation{
 						{
-							Velero: &v1.BackupStorageLocationSpec{
-								StorageType: v1.StorageType{
-									ObjectStorage: &v1.ObjectStorageLocation{
+							Velero: &velerov1.BackupStorageLocationSpec{
+								StorageType: velerov1.StorageType{
+									ObjectStorage: &velerov1.ObjectStorageLocation{
 										Bucket: "test-bucket",
 										Prefix: "test-prefix",
 									},
@@ -882,7 +882,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 					},
 					SnapshotLocations: []oadpv1alpha1.SnapshotLocation{
 						{
-							Velero: &v1.VolumeSnapshotLocationSpec{
+							Velero: &velerov1.VolumeSnapshotLocationSpec{
 								Provider: "aws",
 								Config: map[string]string{
 									AWSRegion: "us-east-1",
@@ -920,9 +920,9 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 					BackupLocations: []oadpv1alpha1.BackupLocation{
 						{
-							Velero: &v1.BackupStorageLocationSpec{
-								StorageType: v1.StorageType{
-									ObjectStorage: &v1.ObjectStorageLocation{
+							Velero: &velerov1.BackupStorageLocationSpec{
+								StorageType: velerov1.StorageType{
+									ObjectStorage: &velerov1.ObjectStorageLocation{
 										Bucket: "test-bucket",
 										Prefix: "test-prefix",
 									},
@@ -943,7 +943,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 					},
 					SnapshotLocations: []oadpv1alpha1.SnapshotLocation{
 						{
-							Velero: &v1.VolumeSnapshotLocationSpec{
+							Velero: &velerov1.VolumeSnapshotLocationSpec{
 								Provider: "velero.io/aws",
 							},
 						},
@@ -971,9 +971,9 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 					BackupLocations: []oadpv1alpha1.BackupLocation{
 						{
-							Velero: &v1.BackupStorageLocationSpec{
-								StorageType: v1.StorageType{
-									ObjectStorage: &v1.ObjectStorageLocation{
+							Velero: &velerov1.BackupStorageLocationSpec{
+								StorageType: velerov1.StorageType{
+									ObjectStorage: &velerov1.ObjectStorageLocation{
 										Bucket: "test-bucket",
 										Prefix: "test-prefix",
 									},
@@ -994,7 +994,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 					},
 					SnapshotLocations: []oadpv1alpha1.SnapshotLocation{
 						{
-							Velero: &v1.VolumeSnapshotLocationSpec{
+							Velero: &velerov1.VolumeSnapshotLocationSpec{
 								Provider: "velero.io/aws",
 								Credential: &corev1.SecretKeySelector{
 									LocalObjectReference: corev1.LocalObjectReference{
@@ -1036,9 +1036,9 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 					BackupLocations: []oadpv1alpha1.BackupLocation{
 						{
-							Velero: &v1.BackupStorageLocationSpec{
-								StorageType: v1.StorageType{
-									ObjectStorage: &v1.ObjectStorageLocation{
+							Velero: &velerov1.BackupStorageLocationSpec{
+								StorageType: velerov1.StorageType{
+									ObjectStorage: &velerov1.ObjectStorageLocation{
 										Bucket: "test-bucket",
 										Prefix: "test-prefix",
 									},
@@ -1060,7 +1060,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 					},
 					SnapshotLocations: []oadpv1alpha1.SnapshotLocation{
 						{
-							Velero: &v1.VolumeSnapshotLocationSpec{
+							Velero: &velerov1.VolumeSnapshotLocationSpec{
 								Provider: "aws",
 								Credential: &corev1.SecretKeySelector{
 									LocalObjectReference: corev1.LocalObjectReference{
@@ -1192,9 +1192,9 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 					BackupLocations: []oadpv1alpha1.BackupLocation{
 						{
-							Velero: &v1.BackupStorageLocationSpec{
-								StorageType: v1.StorageType{
-									ObjectStorage: &v1.ObjectStorageLocation{
+							Velero: &velerov1.BackupStorageLocationSpec{
+								StorageType: velerov1.StorageType{
+									ObjectStorage: &velerov1.ObjectStorageLocation{
 										Bucket: "test-bucket",
 										Prefix: "test-prefix",
 									},
@@ -1244,9 +1244,9 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 					BackupLocations: []oadpv1alpha1.BackupLocation{
 						{
-							Velero: &v1.BackupStorageLocationSpec{
-								StorageType: v1.StorageType{
-									ObjectStorage: &v1.ObjectStorageLocation{
+							Velero: &velerov1.BackupStorageLocationSpec{
+								StorageType: velerov1.StorageType{
+									ObjectStorage: &velerov1.ObjectStorageLocation{
 										Bucket: "test-bucket",
 										Prefix: "test-prefix",
 									},
@@ -1296,9 +1296,9 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 					BackupLocations: []oadpv1alpha1.BackupLocation{
 						{
-							Velero: &v1.BackupStorageLocationSpec{
-								StorageType: v1.StorageType{
-									ObjectStorage: &v1.ObjectStorageLocation{
+							Velero: &velerov1.BackupStorageLocationSpec{
+								StorageType: velerov1.StorageType{
+									ObjectStorage: &velerov1.ObjectStorageLocation{
 										Bucket: "test-bucket",
 										Prefix: "test-prefix",
 									},
@@ -1348,9 +1348,9 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 					BackupLocations: []oadpv1alpha1.BackupLocation{
 						{
-							Velero: &v1.BackupStorageLocationSpec{
-								StorageType: v1.StorageType{
-									ObjectStorage: &v1.ObjectStorageLocation{
+							Velero: &velerov1.BackupStorageLocationSpec{
+								StorageType: velerov1.StorageType{
+									ObjectStorage: &velerov1.ObjectStorageLocation{
 										Bucket: "test-bucket",
 										Prefix: "test-prefix",
 									},
@@ -1497,7 +1497,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 					BackupImages: ptr.To(false),
 					NonAdmin: &oadpv1alpha1.NonAdmin{
 						Enable: ptr.To(true),
-						EnforceBackupSpec: &v1.BackupSpec{
+						EnforceBackupSpec: &velerov1.BackupSpec{
 							IncludedNamespaces: []string{"banana"},
 							SnapshotVolumes:    ptr.To(false),
 						},
@@ -1521,7 +1521,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 					BackupImages: ptr.To(false),
 					NonAdmin: &oadpv1alpha1.NonAdmin{
 						Enable: ptr.To(true),
-						EnforceRestoreSpec: &v1.RestoreSpec{
+						EnforceRestoreSpec: &velerov1.RestoreSpec{
 							IncludedNamespaces: []string{"banana"},
 							RestorePVs:         ptr.To(true),
 						},
@@ -1562,7 +1562,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 			ClusterWideClient: fakeClient,
 			Scheme:            fakeClient.Scheme(),
 			Log:               logr.Discard(),
-			Context:           newContextForTest(tt.name),
+			Context:           newContextForTest(),
 			NamespacedName: types.NamespacedName{
 				Namespace: tt.dpa.Namespace,
 				Name:      tt.dpa.Name,

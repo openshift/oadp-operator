@@ -136,17 +136,17 @@ func (r *DataProtectionApplicationReconciler) ReconcileVeleroDeployment(log logr
 	return true, nil
 }
 
-func (r *DataProtectionApplicationReconciler) veleroServiceAccount() (*corev1.ServiceAccount, error) {
+func (r *DataProtectionApplicationReconciler) veleroServiceAccount() *corev1.ServiceAccount {
 	annotations := make(map[string]string)
 	sa := install.ServiceAccount(r.dpa.Namespace, annotations)
 	sa.Labels = getDpaAppLabels(r.dpa)
-	return sa, nil
+	return sa
 }
 
-func (r *DataProtectionApplicationReconciler) veleroClusterRoleBinding() (*rbacv1.ClusterRoleBinding, error) {
+func (r *DataProtectionApplicationReconciler) veleroClusterRoleBinding() *rbacv1.ClusterRoleBinding {
 	crb := install.ClusterRoleBinding(r.dpa.Namespace)
 	crb.Labels = getDpaAppLabels(r.dpa)
-	return crb, nil
+	return crb
 }
 
 // Build VELERO Deployment
@@ -313,7 +313,7 @@ func (r *DataProtectionApplicationReconciler) customizeVeleroDeployment(veleroDe
 			break
 		}
 	}
-	if err := r.customizeVeleroContainer(veleroDeployment, veleroContainer, prometheusPort); err != nil {
+	if err := r.customizeVeleroContainer(veleroContainer, prometheusPort); err != nil {
 		return err
 	}
 
@@ -390,9 +390,7 @@ func (r *DataProtectionApplicationReconciler) customizeVeleroDeployment(veleroDe
 			if err := r.Get(r.Context, types.NamespacedName{Namespace: dpa.Namespace, Name: configMapName}, &unsupportedServerArgsCM); err != nil {
 				return err
 			}
-			if err := common.ApplyUnsupportedServerArgsOverride(veleroContainer, unsupportedServerArgsCM, common.Velero); err != nil {
-				return err
-			}
+			common.ApplyUnsupportedServerArgsOverride(veleroContainer, unsupportedServerArgsCM, common.Velero)
 		}
 	}
 
@@ -500,7 +498,7 @@ func (r *DataProtectionApplicationReconciler) appendPluginSpecificSpecs(veleroDe
 	}
 }
 
-func (r *DataProtectionApplicationReconciler) customizeVeleroContainer(veleroDeployment *appsv1.Deployment, veleroContainer *corev1.Container, prometheusPort *int) error {
+func (r *DataProtectionApplicationReconciler) customizeVeleroContainer(veleroContainer *corev1.Container, prometheusPort *int) error {
 	dpa := r.dpa
 	if veleroContainer == nil {
 		return fmt.Errorf("could not find velero container in Deployment")

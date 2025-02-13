@@ -152,7 +152,7 @@ func TestDPAReconciler_updateVeleroMetricsSVC(t *testing.T) {
 				Client:  fakeClient,
 				Scheme:  fakeClient.Scheme(),
 				Log:     logr.Discard(),
-				Context: newContextForTest(tt.name),
+				Context: newContextForTest(),
 				NamespacedName: types.NamespacedName{
 					Namespace: tt.svc.Namespace,
 					Name:      tt.svc.Name,
