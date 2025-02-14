@@ -1990,7 +1990,7 @@ func Test_validateVeleroPlugins(t *testing.T) {
 			dpa:           tt.dpa,
 		}
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := r.ValidateVeleroPlugins(r.Log)
+			result, err := r.ValidateVeleroPlugins()
 			if err != nil {
 				t.Errorf("ValidateVeleroPlugins() error = %v", err)
 			}

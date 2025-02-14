@@ -59,13 +59,13 @@ func (r *DataProtectionApplicationReconciler) LabelVSLSecrets(log logr.Logger) (
 		case "aws":
 			if vsl.Velero.Credential != nil {
 				secretName := vsl.Velero.Credential.Name
-				err := r.UpdateCredentialsSecretLabels(secretName, dpa.Namespace, dpa.Name)
+				err := r.UpdateCredentialsSecretLabels(secretName, dpa.Name)
 				if err != nil {
 					return false, err
 				}
 			} else {
 				secretName := credentials.PluginSpecificFields[oadpv1alpha1.DefaultPluginAWS].SecretName
-				err := r.UpdateCredentialsSecretLabels(secretName, dpa.Namespace, dpa.Name)
+				err := r.UpdateCredentialsSecretLabels(secretName, dpa.Name)
 				if err != nil {
 					return false, err
 				}
@@ -73,13 +73,13 @@ func (r *DataProtectionApplicationReconciler) LabelVSLSecrets(log logr.Logger) (
 		case "gcp":
 			if vsl.Velero.Credential != nil {
 				secretName := vsl.Velero.Credential.Name
-				err := r.UpdateCredentialsSecretLabels(secretName, dpa.Namespace, dpa.Name)
+				err := r.UpdateCredentialsSecretLabels(secretName, dpa.Name)
 				if err != nil {
 					return false, err
 				}
 			} else {
 				secretName := credentials.PluginSpecificFields[oadpv1alpha1.DefaultPluginGCP].SecretName
-				err := r.UpdateCredentialsSecretLabels(secretName, dpa.Namespace, dpa.Name)
+				err := r.UpdateCredentialsSecretLabels(secretName, dpa.Name)
 				if err != nil {
 					return false, err
 				}
@@ -87,13 +87,13 @@ func (r *DataProtectionApplicationReconciler) LabelVSLSecrets(log logr.Logger) (
 		case "azure":
 			if vsl.Velero.Credential != nil {
 				secretName := vsl.Velero.Credential.Name
-				err := r.UpdateCredentialsSecretLabels(secretName, dpa.Namespace, dpa.Name)
+				err := r.UpdateCredentialsSecretLabels(secretName, dpa.Name)
 				if err != nil {
 					return false, err
 				}
 			} else {
 				secretName := credentials.PluginSpecificFields[oadpv1alpha1.DefaultPluginMicrosoftAzure].SecretName
-				err := r.UpdateCredentialsSecretLabels(secretName, dpa.Namespace, dpa.Name)
+				err := r.UpdateCredentialsSecretLabels(secretName, dpa.Name)
 				if err != nil {
 					return false, err
 				}

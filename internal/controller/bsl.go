@@ -132,7 +132,7 @@ func (r *DataProtectionApplicationReconciler) ReconcileBackupStorageLocations(lo
 		if bslSpec.Velero != nil {
 			secretName, _, _ = r.getSecretNameAndKey(bslSpec.Velero.Config, bslSpec.Velero.Credential, oadpv1alpha1.DefaultPlugin(bslSpec.Velero.Provider))
 		}
-		err := r.UpdateCredentialsSecretLabels(secretName, dpa.Namespace, dpa.Name)
+		err := r.UpdateCredentialsSecretLabels(secretName, dpa.Name)
 		if err != nil {
 			return false, err
 		}
@@ -229,9 +229,8 @@ func (r *DataProtectionApplicationReconciler) ReconcileBackupStorageLocations(lo
 	return true, nil
 }
 
-func (r *DataProtectionApplicationReconciler) UpdateCredentialsSecretLabels(secretName string, namespace string, dpaName string) error {
-	// todo: lot of calls supply this, needs combing
-	_ = namespace
+func (r *DataProtectionApplicationReconciler) UpdateCredentialsSecretLabels(secretName string, dpaName string) error {
+
 	var secret corev1.Secret
 	secret, err := r.getProviderSecret(secretName)
 	if err != nil {
