@@ -21,6 +21,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
+	"github.com/openshift/oadp-operator/pkg/common"
 )
 
 // A bucket that region can be automatically discovered
@@ -1576,10 +1577,10 @@ func TestDPAReconciler_updateBSLFromSpec(t *testing.T) {
 						"app.kubernetes.io/name":     "oadp-operator-velero",
 						"app.kubernetes.io/instance": "foo" + "-1",
 						//"app.kubernetes.io/version":    "x.y.z",
-						"app.kubernetes.io/managed-by":       "oadp-operator",
-						"app.kubernetes.io/component":        "bsl",
-						oadpv1alpha1.OadpOperatorLabel:       "True",
-						oadpv1alpha1.RegistryDeploymentLabel: "True",
+						"app.kubernetes.io/managed-by": "oadp-operator",
+						"app.kubernetes.io/component":  "bsl",
+						oadpv1alpha1.OadpOperatorLabel: "True",
+						common.RegistryDeploymentLabel: "True",
 					},
 					OwnerReferences: []metav1.OwnerReference{{
 						APIVersion:         oadpv1alpha1.SchemeBuilder.GroupVersion.String(),
@@ -1656,10 +1657,10 @@ func TestDPAReconciler_updateBSLFromSpec(t *testing.T) {
 						"app.kubernetes.io/name":     "oadp-operator-velero",
 						"app.kubernetes.io/instance": "foo" + "-1",
 						//"app.kubernetes.io/version":    "x.y.z",
-						"app.kubernetes.io/managed-by":       "oadp-operator",
-						"app.kubernetes.io/component":        "bsl",
-						oadpv1alpha1.OadpOperatorLabel:       "True",
-						oadpv1alpha1.RegistryDeploymentLabel: "True",
+						"app.kubernetes.io/managed-by": "oadp-operator",
+						"app.kubernetes.io/component":  "bsl",
+						oadpv1alpha1.OadpOperatorLabel: "True",
+						common.RegistryDeploymentLabel: "True",
 					},
 					OwnerReferences: []metav1.OwnerReference{{
 						APIVersion:         oadpv1alpha1.SchemeBuilder.GroupVersion.String(),
@@ -1736,10 +1737,10 @@ func TestDPAReconciler_updateBSLFromSpec(t *testing.T) {
 						"app.kubernetes.io/name":     "oadp-operator-velero",
 						"app.kubernetes.io/instance": "foo" + "-1",
 						//"app.kubernetes.io/version":    "x.y.z",
-						"app.kubernetes.io/managed-by":       "oadp-operator",
-						"app.kubernetes.io/component":        "bsl",
-						oadpv1alpha1.OadpOperatorLabel:       "True",
-						oadpv1alpha1.RegistryDeploymentLabel: "True",
+						"app.kubernetes.io/managed-by": "oadp-operator",
+						"app.kubernetes.io/component":  "bsl",
+						oadpv1alpha1.OadpOperatorLabel: "True",
+						common.RegistryDeploymentLabel: "True",
 					},
 					OwnerReferences: []metav1.OwnerReference{{
 						APIVersion:         oadpv1alpha1.SchemeBuilder.GroupVersion.String(),

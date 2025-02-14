@@ -7,8 +7,11 @@ import (
 	"sort"
 	"strings"
 
+	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	"github.com/vmware-tanzu/velero/pkg/types"
 	corev1 "k8s.io/api/core/v1"
+
+	"github.com/openshift/oadp-operator/pkg/storage/aws"
 )
 
 const (
@@ -20,6 +23,7 @@ const (
 	OADPOperator               = "oadp-operator"
 	OADPOperatorVelero         = "oadp-operator-velero"
 	OADPOperatorServiceAccount = OADPOperatorPrefix + "controller-manager"
+	RegistryDeploymentLabel    = "openshift.io/oadp-registry"
 )
 
 var DefaultRestoreResourcePriorities = types.Priorities{
@@ -297,4 +301,49 @@ func ApplyUnsupportedServerArgsOverride(container *corev1.Container, unsupported
 		// if server args is set, override the default server args
 		container.Args = GenerateCliArgsFromConfigMap(&unsupportedServerArgsCM, "server")
 	}
+}
+
+// UpdateBackupStorageLocation updates the BackupStorageLocation spec and config.
+func UpdateBackupStorageLocation(bsl *velerov1.BackupStorageLocation, bslSpec velerov1.BackupStorageLocationSpec) error {
+	if bsl.ObjectMeta.Labels == nil {
+		bsl.ObjectMeta.Labels = make(map[string]string)
+	}
+
+	bsl.ObjectMeta.Labels[RegistryDeploymentLabel] = "True"
+
+	if bslSpec.Config != nil {
+		// While using Service Principal as Azure credentials, `storageAccountKeyEnvVar` value is not required to be set.
+		// However, the registry deployment fails without a valid storage account key.
+		// This logic prevents the registry pods from being deployed if Azure SP is used as an auth mechanism.
+		if bslSpec.Provider == "azure" && bslSpec.Config["storageAccountKeyEnvVar"] == "" {
+			bsl.ObjectMeta.Labels[RegistryDeploymentLabel] = "False"
+		}
+
+		if bslSpec.Provider == "aws" {
+
+			// The AWS SDK expects the server providing S3 blobs to remove default ports
+			// (80 for HTTP and 443 for HTTPS) before calculating a signature, and not
+			// all S3-compatible services do this. Remove the ports here to avoid 403
+			// errors from mismatched signatures.
+			if s3Url, ok := bslSpec.Config["s3Url"]; ok && len(s3Url) > 0 {
+				var err error
+				if s3Url, err = aws.StripDefaultPorts(s3Url); err == nil {
+					bslSpec.Config["s3Url"] = s3Url
+				}
+			}
+			// Since the AWS SDK upgrade in velero-plugin-for-aws, data transfer to BSL bucket fails
+			// if the chosen checksumAlgorithm doesn't work for the provider. Velero sets this to CRC32 if not
+			// chosen by the user. We will set it empty string if checksumAlgorithm is not specified by the user
+			// to bypass checksum calculation entirely. If your s3 provider supports checksum calculation,
+			// then you should specify this value in the config.
+			if _, ok := bslSpec.Config["checksumAlgorithm"]; !ok {
+				bslSpec.Config["checksumAlgorithm"] = ""
+			}
+		}
+	}
+
+	// Assign the updated spec to the BackupStorageLocation
+	bsl.Spec = bslSpec
+
+	return nil
 }
