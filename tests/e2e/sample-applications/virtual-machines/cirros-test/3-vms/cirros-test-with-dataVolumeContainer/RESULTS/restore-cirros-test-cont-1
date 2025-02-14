@@ -1,0 +1,53 @@
+Name:         [1mcirros-test-cont-1[22m
+Namespace:    openshift-adp
+Labels:       <none>
+Annotations:  <none>
+
+Phase:                       [32mCompleted[0m
+Total items to be restored:  5
+Items restored:              5
+
+Started:    2025-02-14 18:02:09 +0000 UTC
+Completed:  2025-02-14 18:02:10 +0000 UTC
+
+Backup:  backup-cirros-test-cont-all
+
+Namespaces:
+  Included:  all namespaces found in the backup
+  Excluded:  <none>
+
+Resources:
+  Included:        *
+  Excluded:        nodes, events, events.events.k8s.io, backups.velero.io, restores.velero.io, resticrepositories.velero.io, csinodes.storage.k8s.io, volumeattachments.storage.k8s.io, backuprepositories.velero.io
+  Cluster-scoped:  auto
+
+Namespace mappings:  <none>
+
+Label selector:  app=cirros-test-cont-1
+
+Or label selector:  <none>
+
+Restore PVs:  auto
+
+CSI Snapshot Restores: <none included>
+
+Existing Resource Policy:   <none>
+ItemOperationTimeout:       4h0m0s
+
+Preserve Service NodePorts:  auto
+
+Uploader config:
+
+
+HooksAttempted:   0
+HooksFailed:      0
+
+Resource List:
+  cdi.kubevirt.io/v1beta1/DataVolume:
+    - cirros-test-cont/cirros-test-cont-1-dv(created)
+  kubevirt.io/v1/VirtualMachine:
+    - cirros-test-cont/cirros-test-cont-1(created)
+  velero.io/v2alpha1/DataUpload:
+    - openshift-adp/backup-cirros-test-cont-all-fvs4v(skipped)
+    - openshift-adp/backup-cirros-test-cont-all-nkdsq(skipped)
+    - openshift-adp/backup-cirros-test-cont-all-tgtb7(skipped)
