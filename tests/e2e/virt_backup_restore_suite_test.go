@@ -79,7 +79,7 @@ type VmBackupRestoreCase struct {
 	PowerState string
 }
 
-func runVmBackupAndRestore(brCase VmBackupRestoreCase, expectedErr error, updateLastBRcase func(brCase VmBackupRestoreCase), updateLastInstallTime func(), v *lib.VirtOperator) {
+func runVmBackupAndRestore(brCase VmBackupRestoreCase, updateLastBRcase func(brCase VmBackupRestoreCase), v *lib.VirtOperator) {
 	updateLastBRcase(brCase)
 
 	// Create DPA
@@ -162,9 +162,6 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 	updateLastBRcase := func(brCase VmBackupRestoreCase) {
 		lastBRCase = brCase
 	}
-	updateLastInstallTime := func() {
-		lastInstallTime = time.Now()
-	}
 
 	var _ = ginkgo.BeforeAll(func() {
 		v, err = lib.GetVirtOperator(runTimeClientForSuiteRun, kubernetesClientForSuiteRun, dynamicClientForSuiteRun, useUpstreamHco)
@@ -238,7 +235,7 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 
 	ginkgo.DescribeTable("Backup and restore virtual machines",
 		func(brCase VmBackupRestoreCase, expectedError error) {
-			runVmBackupAndRestore(brCase, expectedError, updateLastBRcase, updateLastInstallTime, v)
+			runVmBackupAndRestore(brCase, updateLastBRcase, v)
 		},
 
 		ginkgo.Entry("no-application CSI datamover backup and restore, CirrOS VM", ginkgo.Label("virt"), VmBackupRestoreCase{

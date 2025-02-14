@@ -105,7 +105,7 @@ linters:
     # - staticcheck
     # - stylecheck
     # - unconvert
-    # - unparam
+    - unparam
     # - unused
     - usestdlibvars
   fast: false

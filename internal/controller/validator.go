@@ -65,7 +65,7 @@ func (r *DataProtectionApplicationReconciler) ValidateDataProtectionCR(log logr.
 		return false, errors.New("only mtc operator type override is supported")
 	}
 
-	if _, err := r.ValidateVeleroPlugins(r.Log); err != nil {
+	if _, err := r.ValidateVeleroPlugins(); err != nil {
 		return false, err
 	}
 
@@ -127,7 +127,8 @@ func (r *DataProtectionApplicationReconciler) ValidateDataProtectionCR(log logr.
 // For later: Move this code into validator.go when more need for validation arises
 // TODO: if multiple default plugins exist, ensure we validate all of them.
 // Right now its sequential validation
-func (r *DataProtectionApplicationReconciler) ValidateVeleroPlugins(log logr.Logger) (bool, error) {
+func (r *DataProtectionApplicationReconciler) ValidateVeleroPlugins() (bool, error) {
+
 	dpa := r.dpa
 
 	providerNeedsDefaultCreds, hasCloudStorage, err := r.noDefaultCredentials()

@@ -145,7 +145,7 @@ var _ = ginkgo.Describe("Configuration testing for DPA Custom Resource", func() 
 	ginkgo.DescribeTable("DPA reconciled to true",
 		func(installCase InstallCase) {
 			lastInstallTime = time.Now()
-			err := dpaCR.CreateOrUpdate(runTimeClientForSuiteRun, installCase.DpaSpec)
+			err := dpaCR.CreateOrUpdate(installCase.DpaSpec)
 			gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 			gomega.Eventually(dpaCR.IsReconciledTrue(), time.Minute*2, time.Second*5).Should(gomega.BeTrue())
@@ -192,7 +192,7 @@ var _ = ginkgo.Describe("Configuration testing for DPA Custom Resource", func() 
 				gomega.Eventually(dpaCR.BSLsAreAvailable(), time.Minute*3, time.Second*5).Should(gomega.BeTrue())
 				for _, bsl := range installCase.DpaSpec.BackupLocations {
 					log.Printf("Checking for BSL spec")
-					gomega.Expect(dpaCR.DoesBSLSpecMatchesDpa(namespace, *bsl.Velero)).To(gomega.BeTrue())
+					gomega.Expect(dpaCR.DoesBSLSpecMatchesDpa(*bsl.Velero)).To(gomega.BeTrue())
 				}
 			} else {
 				log.Println("Checking no BSLs are deployed")
@@ -205,7 +205,7 @@ var _ = ginkgo.Describe("Configuration testing for DPA Custom Resource", func() 
 				// Velero does not change status of VSL objects. Users can only confirm if VSLs are correct configured when running a native snapshot backup/restore
 				for _, vsl := range installCase.DpaSpec.SnapshotLocations {
 					log.Printf("Checking for VSL spec")
-					gomega.Expect(dpaCR.DoesVSLSpecMatchesDpa(namespace, *vsl.Velero)).To(gomega.BeTrue())
+					gomega.Expect(dpaCR.DoesVSLSpecMatchesDpa(*vsl.Velero)).To(gomega.BeTrue())
 				}
 			} else {
 				log.Println("Checking no VSLs are deployed")
@@ -373,7 +373,7 @@ var _ = ginkgo.Describe("Configuration testing for DPA Custom Resource", func() 
 	ginkgo.DescribeTable("DPA reconciled to false",
 		func(installCase InstallCase, message string) {
 			lastInstallTime = time.Now()
-			err := dpaCR.CreateOrUpdate(runTimeClientForSuiteRun, installCase.DpaSpec)
+			err := dpaCR.CreateOrUpdate(installCase.DpaSpec)
 			gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 			log.Printf("Test case expected to error. Waiting for the error to show in DPA Status")
@@ -391,7 +391,7 @@ var _ = ginkgo.Describe("Configuration testing for DPA Custom Resource", func() 
 	ginkgo.DescribeTable("DPA Deletion test",
 		func() {
 			log.Printf("Creating DPA")
-			err := dpaCR.CreateOrUpdate(runTimeClientForSuiteRun, dpaCR.Build(lib.KOPIA))
+			err := dpaCR.CreateOrUpdate(dpaCR.Build(lib.KOPIA))
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 			log.Printf("Waiting for velero Pod to be running")
 			gomega.Eventually(lib.VeleroPodIsRunning(kubernetesClientForSuiteRun, namespace), time.Minute*3, time.Second*5).Should(gomega.BeTrue())
