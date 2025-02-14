@@ -216,15 +216,17 @@ func SavePodLogs(clientset *kubernetes.Clientset, namespace, dir string) error {
 		err = os.MkdirAll(podDir, 0755)
 		if err != nil {
 			log.Printf("Error creating pod directory: %v", err)
+			return err
 		}
 		for _, container := range pod.Spec.Containers {
 			logs, err := GetPodContainerLogs(clientset, namespace, pod.Name, container.Name)
 			if err != nil {
-				return nil
+				return err
 			}
 			err = os.WriteFile(podDir+"/"+container.Name+".log", []byte(logs), 0644)
 			if err != nil {
 				log.Printf("Error writing pod logs: %v", err)
+				return err
 			}
 		}
 	}
