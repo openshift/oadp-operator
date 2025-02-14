@@ -50,4 +50,4 @@ velero restore create cirros-test-1  --from-backup 3-cirros-vms-all
 
 **Velero selectors in some cases are not working, The datavolume PV/PVC is not a restore resource**
 
-[visual diff of restore's resources](cirros-test-with-dataVolumeContainer/RESULTS/visual-diff-restore-resources.png)
+[visual diff of restore's resources](cirros-test-with-dataVolumeContainer/RESULTS/visual_diff_of_restore.png)
