@@ -4,7 +4,9 @@ import (
 	"reflect"
 	"testing"
 
+	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 )
 
@@ -295,6 +297,178 @@ func TestGenerateCliArgsFromConfigMap(t *testing.T) {
 			gotArgs := GenerateCliArgsFromConfigMap(tt.configMap, tt.cliSubCommand...)
 			if !reflect.DeepEqual(gotArgs, tt.expectedArgs) {
 				t.Errorf("GenerateCliArgsFromConfigMap() = %v, want %v", gotArgs, tt.expectedArgs)
+			}
+		})
+	}
+}
+
+func TestUpdateBackupStorageLocation(t *testing.T) {
+	tests := []struct {
+		name        string
+		bsl         *velerov1.BackupStorageLocation
+		bslSpec     velerov1.BackupStorageLocationSpec
+		expectedBsl *velerov1.BackupStorageLocation
+	}{
+		{
+			name: "Azure registry deployment with empty storageAccountKeyEnvVar",
+			bsl:  &velerov1.BackupStorageLocation{},
+			bslSpec: velerov1.BackupStorageLocationSpec{
+				Provider: "azure",
+				Config: map[string]string{
+					"storageAccountKeyEnvVar": "",
+				},
+			},
+			expectedBsl: &velerov1.BackupStorageLocation{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						RegistryDeploymentLabel: "False",
+					},
+				},
+				Spec: velerov1.BackupStorageLocationSpec{
+					Provider: "azure",
+					Config: map[string]string{
+						"storageAccountKeyEnvVar": "",
+					},
+				},
+			},
+		},
+		{
+			name: "AWS URL with default port 80 stripping",
+			bsl:  &velerov1.BackupStorageLocation{},
+			bslSpec: velerov1.BackupStorageLocationSpec{
+				Provider: "aws",
+				Config: map[string]string{
+					"s3Url": "http://s3.amazonaws.com:80",
+				},
+			},
+			expectedBsl: &velerov1.BackupStorageLocation{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						RegistryDeploymentLabel: "True",
+					},
+				},
+				Spec: velerov1.BackupStorageLocationSpec{
+					Provider: "aws",
+					Config: map[string]string{
+						"checksumAlgorithm": "",
+						"s3Url":             "http://s3.amazonaws.com",
+					},
+				},
+			},
+		},
+		{
+			name: "AWS URL with default port 443 stripping",
+			bsl:  &velerov1.BackupStorageLocation{},
+			bslSpec: velerov1.BackupStorageLocationSpec{
+				Provider: "aws",
+				Config: map[string]string{
+					"s3Url": "https://s3.amazonaws.com:443",
+				},
+			},
+			expectedBsl: &velerov1.BackupStorageLocation{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						RegistryDeploymentLabel: "True",
+					},
+				},
+				Spec: velerov1.BackupStorageLocationSpec{
+					Provider: "aws",
+					Config: map[string]string{
+						"checksumAlgorithm": "",
+						"s3Url":             "https://s3.amazonaws.com",
+					},
+				},
+			},
+		},
+		{
+			name: "AWS checksumAlgorithm set to empty if not specified",
+			bsl:  &velerov1.BackupStorageLocation{},
+			bslSpec: velerov1.BackupStorageLocationSpec{
+				Provider: "aws",
+				Config: map[string]string{
+					"s3Url": "http://s3.amazonaws.com",
+				},
+			},
+			expectedBsl: &velerov1.BackupStorageLocation{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						RegistryDeploymentLabel: "True",
+					},
+				},
+				Spec: velerov1.BackupStorageLocationSpec{
+					Provider: "aws",
+					Config: map[string]string{
+						"s3Url":             "http://s3.amazonaws.com",
+						"checksumAlgorithm": "",
+					},
+				},
+			},
+		},
+		{
+			name: "Nil labels should initialize labels map",
+			bsl:  &velerov1.BackupStorageLocation{},
+			bslSpec: velerov1.BackupStorageLocationSpec{
+				Provider: "aws",
+				Config: map[string]string{
+					"s3Url": "http://s3.amazonaws.com",
+				},
+			},
+			expectedBsl: &velerov1.BackupStorageLocation{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						RegistryDeploymentLabel: "True",
+					},
+				},
+				Spec: velerov1.BackupStorageLocationSpec{
+					Provider: "aws",
+					Config: map[string]string{
+						"checksumAlgorithm": "",
+						"s3Url":             "http://s3.amazonaws.com",
+					},
+				},
+			},
+		},
+		{
+			name: "Existing labels should not be overwritten, RegistryDeploymentLabel should be True",
+			bsl: &velerov1.BackupStorageLocation{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						"existing-label": "value",
+					},
+				},
+			},
+			bslSpec: velerov1.BackupStorageLocationSpec{
+				Provider: "azure",
+				Config: map[string]string{
+					"storageAccountKeyEnvVar": "something",
+				},
+			},
+			expectedBsl: &velerov1.BackupStorageLocation{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						"existing-label":        "value",
+						RegistryDeploymentLabel: "True",
+					},
+				},
+				Spec: velerov1.BackupStorageLocationSpec{
+					Provider: "azure",
+					Config: map[string]string{
+						"storageAccountKeyEnvVar": "something",
+					},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			bslCopy := tt.bsl.DeepCopy()
+			bslSpecCopy := tt.bslSpec.DeepCopy()
+
+			UpdateBackupStorageLocation(bslCopy, *bslSpecCopy)
+
+			if !reflect.DeepEqual(bslCopy, tt.expectedBsl) {
+				t.Errorf("UpdateBackupStorageLocation() = %v, want %v", bslCopy, tt.expectedBsl)
 			}
 		})
 	}

@@ -33,7 +33,6 @@ const ReconciledReasonError = "Error"
 const ReconcileCompleteMessage = "Reconcile complete"
 
 const OadpOperatorLabel = "openshift.io/oadp"
-const RegistryDeploymentLabel = "openshift.io/oadp-registry"
 
 // +kubebuilder:validation:Enum=aws;legacy-aws;gcp;azure;csi;vsm;openshift;kubevirt
 type DefaultPlugin string
