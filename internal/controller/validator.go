@@ -139,6 +139,17 @@ func (r *DataProtectionApplicationReconciler) ValidateDataProtectionCR(log logr.
 		}
 		// TODO should also validate that BSL backupSyncPeriod is not greater or equal to nonAdmin.backupSyncPeriod
 		// but BSL can not exist yet when we validate the value
+
+		enforcedBackupSpec := r.dpa.Spec.NonAdmin.EnforceBackupSpec
+
+		if enforcedBackupSpec != nil {
+			// check if BSL name is enforced by the admin
+			// We do not support this, we restrict enforcing BSL name
+			if enforcedBackupSpec.StorageLocation != "" {
+				return false, fmt.Errorf("enforcedBackupSpec.storageLocation is non-enforceable by admins")
+			}
+		}
+
 	}
 
 	return true, nil

@@ -1507,6 +1507,33 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 			},
 		},
 		{
+			name: "[valid] DPA CR: spec.nonAdmin.enforceBackupSpec.storageLocation set",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-DPA-CR",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							NoDefaultBackupLocation: true,
+						},
+					},
+					BackupImages: ptr.To(false),
+					NonAdmin: &oadpv1alpha1.NonAdmin{
+						Enable: ptr.To(true),
+						EnforceBackupSpec: &velerov1.BackupSpec{
+							IncludedNamespaces: []string{"banana"},
+							SnapshotVolumes:    ptr.To(false),
+							StorageLocation:    "foo-bsl",
+						},
+					},
+				},
+			},
+			wantErr:    true,
+			messageErr: "enforcedBackupSpec.storageLocation is non-enforceable by admins",
+		},
+		{
 			name: "[valid] DPA CR: spec.nonAdmin.enforceRestoreSpec set",
 			dpa: &oadpv1alpha1.DataProtectionApplication{
 				ObjectMeta: metav1.ObjectMeta{
