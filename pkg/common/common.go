@@ -304,6 +304,8 @@ func ApplyUnsupportedServerArgsOverride(container *corev1.Container, unsupported
 }
 
 // UpdateBackupStorageLocation updates the BackupStorageLocation spec and config.
+//
+//nolint:unparam // Keeping error return type for making the public function flexible for future usage
 func UpdateBackupStorageLocation(bsl *velerov1.BackupStorageLocation, bslSpec velerov1.BackupStorageLocationSpec) error {
 	if bsl.ObjectMeta.Labels == nil {
 		bsl.ObjectMeta.Labels = make(map[string]string)
