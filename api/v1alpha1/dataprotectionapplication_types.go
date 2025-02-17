@@ -459,7 +459,7 @@ type NonAdmin struct {
 	// +optional
 	GarbageCollectionPeriod *metav1.Duration `json:"garbageCollectionPeriod,omitempty"`
 
-	// BackupSyncPeriod defines how frequently to sync backups in OADP namespace to non admin namespaces.
+	// BackupSyncPeriod specifies the interval at which backups from the OADP namespace are synchronized with non-admin namespaces.
 	// A value of 0 disables sync.
 	// By default 2m
 	// +optional
