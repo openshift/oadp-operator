@@ -310,10 +310,10 @@ func TestEnsureRequiredSpecs(t *testing.T) {
 	if deployment.Spec.Template.Spec.Containers[0].Image != defaultNonAdminImage {
 		t.Errorf("Deployment has wrong Image: %v", deployment.Spec.Template.Spec.Containers[0].Image)
 	}
-	if len(deployment.Spec.Template.Annotations[dpaResourceVersionKey]) == 0 {
+	if len(deployment.Spec.Template.Annotations[dpaResourceVersionAnnotation]) == 0 {
 		t.Errorf("Deployment does not have Annotation")
 	}
-	previousDPAAnnotationValue := deployment.DeepCopy().Spec.Template.Annotations[dpaResourceVersionKey]
+	previousDPAAnnotationValue := deployment.DeepCopy().Spec.Template.Annotations[dpaResourceVersionAnnotation]
 	updatedDPA := &oadpv1alpha1.DataProtectionApplication{
 		ObjectMeta: metav1.ObjectMeta{
 			ResourceVersion: "147258369",
@@ -328,7 +328,7 @@ func TestEnsureRequiredSpecs(t *testing.T) {
 	if err != nil {
 		t.Errorf("ensureRequiredSpecs() errored out: %v", err)
 	}
-	if previousDPAAnnotationValue != deployment.Spec.Template.Annotations[dpaResourceVersionKey] {
+	if previousDPAAnnotationValue != deployment.Spec.Template.Annotations[dpaResourceVersionAnnotation] {
 		t.Errorf("Deployment have different Annotation")
 	}
 	updatedDPA = &oadpv1alpha1.DataProtectionApplication{
@@ -348,10 +348,10 @@ func TestEnsureRequiredSpecs(t *testing.T) {
 	if err != nil {
 		t.Errorf("ensureRequiredSpecs() errored out: %v", err)
 	}
-	if previousDPAAnnotationValue == deployment.Spec.Template.Annotations[dpaResourceVersionKey] {
+	if previousDPAAnnotationValue == deployment.Spec.Template.Annotations[dpaResourceVersionAnnotation] {
 		t.Errorf("Deployment does not have different Annotation")
 	}
-	previousDPAAnnotationValue = deployment.DeepCopy().Spec.Template.Annotations[dpaResourceVersionKey]
+	previousDPAAnnotationValue = deployment.DeepCopy().Spec.Template.Annotations[dpaResourceVersionAnnotation]
 	updatedDPA = &oadpv1alpha1.DataProtectionApplication{
 		ObjectMeta: metav1.ObjectMeta{
 			ResourceVersion: "112233445",
@@ -372,7 +372,7 @@ func TestEnsureRequiredSpecs(t *testing.T) {
 	if err != nil {
 		t.Errorf("ensureRequiredSpecs() errored out: %v", err)
 	}
-	if previousDPAAnnotationValue == deployment.Spec.Template.Annotations[dpaResourceVersionKey] {
+	if previousDPAAnnotationValue == deployment.Spec.Template.Annotations[dpaResourceVersionAnnotation] {
 		t.Errorf("Deployment does not have different Annotation")
 	}
 }

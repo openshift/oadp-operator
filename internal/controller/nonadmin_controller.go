@@ -24,7 +24,7 @@ const (
 	nonAdminObjectName = "non-admin-controller"
 	controlPlaneKey    = "control-plane"
 
-	dpaResourceVersionKey = "dpa-resource-version"
+	dpaResourceVersionAnnotation = oadpv1alpha1.OadpOperatorLabel + "-dpa-resource-version"
 )
 
 var (
@@ -157,7 +157,7 @@ func ensureRequiredSpecs(deploymentObject *appsv1.Deployment, dpa *oadpv1alpha1.
 		previousNonAdminConfiguration = dpa.Spec.NonAdmin
 	}
 	podAnnotations := map[string]string{
-		dpaResourceVersionKey: dpaResourceVersion,
+		dpaResourceVersionAnnotation: dpaResourceVersion,
 	}
 
 	deploymentObject.Spec.Replicas = ptr.To(int32(1))
@@ -177,7 +177,7 @@ func ensureRequiredSpecs(deploymentObject *appsv1.Deployment, dpa *oadpv1alpha1.
 	if templateObjectAnnotations == nil {
 		deploymentObject.Spec.Template.SetAnnotations(podAnnotations)
 	} else {
-		templateObjectAnnotations[dpaResourceVersionKey] = podAnnotations[dpaResourceVersionKey]
+		templateObjectAnnotations[dpaResourceVersionAnnotation] = podAnnotations[dpaResourceVersionAnnotation]
 		deploymentObject.Spec.Template.SetAnnotations(templateObjectAnnotations)
 	}
 
