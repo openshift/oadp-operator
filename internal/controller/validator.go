@@ -131,7 +131,7 @@ func (r *DataProtectionApplicationReconciler) ValidateDataProtectionCR(log logr.
 			appliedBackupSyncPeriod = backupSyncPeriod.Duration
 		}
 
-		if appliedGarbageCollectionPeriod < appliedBackupSyncPeriod {
+		if appliedGarbageCollectionPeriod <= appliedBackupSyncPeriod {
 			return false, fmt.Errorf(
 				"DPA spec.nonAdmin.backupSyncPeriod (%v) can not be greater or equal spec.nonAdmin.garbageCollectionPeriod (%v)",
 				appliedBackupSyncPeriod, appliedGarbageCollectionPeriod,
