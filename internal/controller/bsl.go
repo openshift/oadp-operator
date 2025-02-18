@@ -265,50 +265,22 @@ func (r *DataProtectionApplicationReconciler) UpdateCredentialsSecretLabels(secr
 
 func (r *DataProtectionApplicationReconciler) updateBSLFromSpec(bsl *velerov1.BackupStorageLocation, bslSpec velerov1.BackupStorageLocationSpec) error {
 	// Set controller reference to Velero controller
-	err := controllerutil.SetControllerReference(r.dpa, bsl, r.Scheme)
-	if err != nil {
+	if err := controllerutil.SetControllerReference(r.dpa, bsl, r.Scheme); err != nil {
 		return err
 	}
-	// While using Service Principal as Azure credentials, `storageAccountKeyEnvVar` value is not required to be set.
-	// However, the registry deployment fails without a valid storage account key.
-	// This logic prevents the registry pods from being deployed if Azure SP is used as an auth mechanism.
-	registryDeployment := "True"
-	if bslSpec.Provider == "azure" && bslSpec.Config != nil {
-		if len(bslSpec.Config["storageAccountKeyEnvVar"]) == 0 {
-			registryDeployment = "False"
-		}
-	}
-	// The AWS SDK expects the server providing S3 blobs to remove default ports
-	// (80 for HTTP and 443 for HTTPS) before calculating a signature, and not
-	// all S3-compatible services do this. Remove the ports here to avoid 403
-	// errors from mismatched signatures.
-	if bslSpec.Provider == "aws" && bslSpec.Config != nil {
-		s3Url := bslSpec.Config["s3Url"]
-		if len(s3Url) > 0 {
-			if s3Url, err = aws.StripDefaultPorts(s3Url); err == nil {
-				bslSpec.Config["s3Url"] = s3Url
-			}
-		}
 
-		// Since the AWS SDK upgrade in velero-plugin-for-aws, data transfer to BSL bucket fails
-		// if the chosen checksumAlgorithm doesn't work for the provider. Velero sets this to CRC32 if not
-		// chosen by the user. We will set it empty string if checksumAlgorithm is not specified by the user
-		// to bypass checksum calculation entirely. If your s3 provider supports checksum calculation,
-		// then you should specify this value in the config.
-		if _, exists := bslSpec.Config[checksumAlgorithm]; !exists {
-			bslSpec.Config[checksumAlgorithm] = ""
-		}
+	// Update BSL spec and registry-deployment label
+	if err := common.UpdateBackupStorageLocation(bsl, bslSpec); err != nil {
+		return err
 	}
-	bsl.Labels = map[string]string{
-		"app.kubernetes.io/name":     common.OADPOperatorVelero,
-		"app.kubernetes.io/instance": bsl.Name,
-		//"app.kubernetes.io/version":    "x.y.z",
-		"app.kubernetes.io/managed-by":       common.OADPOperator,
-		"app.kubernetes.io/component":        "bsl",
-		oadpv1alpha1.OadpOperatorLabel:       "True",
-		oadpv1alpha1.RegistryDeploymentLabel: registryDeployment,
-	}
-	bsl.Spec = bslSpec
+
+	// Assign labels individually
+	// bsl.Labels was initialized in the common.UpdateBackupStorageLocation function
+	bsl.Labels["app.kubernetes.io/name"] = common.OADPOperatorVelero
+	bsl.Labels["app.kubernetes.io/instance"] = bsl.Name
+	bsl.Labels["app.kubernetes.io/managed-by"] = common.OADPOperator
+	bsl.Labels["app.kubernetes.io/component"] = "bsl"
+	bsl.Labels[oadpv1alpha1.OadpOperatorLabel] = "True"
 
 	return nil
 }
