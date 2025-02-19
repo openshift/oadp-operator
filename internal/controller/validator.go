@@ -114,11 +114,31 @@ func (r *DataProtectionApplicationReconciler) ValidateDataProtectionCR(log logr.
 		}
 
 		garbageCollectionPeriod := r.dpa.Spec.NonAdmin.GarbageCollectionPeriod
+		appliedGarbageCollectionPeriod := oadpv1alpha1.DefaultGarbageCollectionPeriod
 		if garbageCollectionPeriod != nil {
 			if garbageCollectionPeriod.Duration < 0 {
 				return false, fmt.Errorf("DPA spec.nonAdmin.garbageCollectionPeriod can not be negative")
 			}
+			appliedGarbageCollectionPeriod = garbageCollectionPeriod.Duration
 		}
+
+		backupSyncPeriod := r.dpa.Spec.NonAdmin.BackupSyncPeriod
+		appliedBackupSyncPeriod := oadpv1alpha1.DefaultBackupSyncPeriod
+		if backupSyncPeriod != nil {
+			if backupSyncPeriod.Duration < 0 {
+				return false, fmt.Errorf("DPA spec.nonAdmin.backupSyncPeriod can not be negative")
+			}
+			appliedBackupSyncPeriod = backupSyncPeriod.Duration
+		}
+
+		if appliedGarbageCollectionPeriod <= appliedBackupSyncPeriod {
+			return false, fmt.Errorf(
+				"DPA spec.nonAdmin.backupSyncPeriod (%v) can not be greater or equal spec.nonAdmin.garbageCollectionPeriod (%v)",
+				appliedBackupSyncPeriod, appliedGarbageCollectionPeriod,
+			)
+		}
+		// TODO should also validate that BSL backupSyncPeriod is not greater or equal to nonAdmin.backupSyncPeriod
+		// but BSL can not exist yet when we validate the value
 	}
 
 	return true, nil

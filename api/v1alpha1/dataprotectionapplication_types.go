@@ -67,6 +67,12 @@ const OperatorTypeKey UnsupportedImageKey = "operator-type"
 
 const OperatorTypeMTC = "mtc"
 
+// NAC defaults
+const (
+	DefaultGarbageCollectionPeriod = 24 * time.Hour
+	DefaultBackupSyncPeriod        = 2 * time.Minute
+)
+
 // VeleroServerArgs are the arguments that are passed to the Velero server
 type VeleroServerArgs struct {
 	ServerFlags `json:",inline"`
@@ -447,9 +453,16 @@ type NonAdmin struct {
 	EnforceRestoreSpec *velero.RestoreSpec `json:"enforceRestoreSpec,omitempty"`
 
 	// GarbageCollectionPeriod defines how frequently to look for possible leftover non admin related objects in OADP namespace.
+	// A value of 0 disables garbage collection.
 	// By default 24h
 	// +optional
 	GarbageCollectionPeriod *metav1.Duration `json:"garbageCollectionPeriod,omitempty"`
+
+	// BackupSyncPeriod specifies the interval at which backups from the OADP namespace are synchronized with non-admin namespaces.
+	// A value of 0 disables sync.
+	// By default 2m
+	// +optional
+	BackupSyncPeriod *metav1.Duration `json:"backupSyncPeriod,omitempty"`
 }
 
 // DataMover defines the various config for DPA data mover
