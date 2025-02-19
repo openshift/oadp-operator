@@ -601,6 +601,9 @@ spec:
                   - type
                   type: object
                 type: array
+              logsPath:
+                description: logsPath is path to backup logs in the storage location
+                type: string
               phase:
                 description: phase is a simple one high-level summary of the lifecycle
                   of an NonAdminBackup.
@@ -624,6 +627,10 @@ spec:
                 required:
                 - estimatedQueuePosition
                 type: object
+              resourceListPath:
+                description: resourceListPath is path to resource list of backup in
+                  storage location
+                type: string
               veleroBackup:
                 description: VeleroBackup contains information of the related Velero
                   backup object.
