@@ -1499,8 +1499,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 					NonAdmin: &oadpv1alpha1.NonAdmin{
 						Enable: ptr.To(true),
 						EnforceBackupSpec: &velerov1.BackupSpec{
-							IncludedNamespaces: []string{"banana"},
-							SnapshotVolumes:    ptr.To(false),
+							SnapshotVolumes: ptr.To(false),
 						},
 					},
 				},
@@ -1523,15 +1522,40 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 					NonAdmin: &oadpv1alpha1.NonAdmin{
 						Enable: ptr.To(true),
 						EnforceBackupSpec: &velerov1.BackupSpec{
-							IncludedNamespaces: []string{"banana"},
-							SnapshotVolumes:    ptr.To(false),
-							StorageLocation:    "foo-bsl",
+							SnapshotVolumes: ptr.To(false),
+							StorageLocation: "foo-bsl",
 						},
 					},
 				},
 			},
 			wantErr:    true,
 			messageErr: "DPA spec.nonAdmin.enforcedBackupSpec.storageLocation is non-enforceable by admins",
+		},
+		{
+			name: "[Invalid] DPA CR: spec.nonAdmin.enforceBackupSpec.includedNamespaces set",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-DPA-CR",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							NoDefaultBackupLocation: true,
+						},
+					},
+					BackupImages: ptr.To(false),
+					NonAdmin: &oadpv1alpha1.NonAdmin{
+						Enable: ptr.To(true),
+						EnforceBackupSpec: &velerov1.BackupSpec{
+							IncludedNamespaces: []string{"banana"},
+							SnapshotVolumes:    ptr.To(false),
+						},
+					},
+				},
+			},
+			wantErr:    true,
+			messageErr: "DPA spec.nonAdmin.enforcedBackupSpec.includedNamespaces is non-enforceable by admins",
 		},
 		{
 			name: "[valid] DPA CR: spec.nonAdmin.enforceRestoreSpec set",
@@ -1550,8 +1574,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 					NonAdmin: &oadpv1alpha1.NonAdmin{
 						Enable: ptr.To(true),
 						EnforceRestoreSpec: &velerov1.RestoreSpec{
-							IncludedNamespaces: []string{"banana"},
-							RestorePVs:         ptr.To(true),
+							RestorePVs: ptr.To(true),
 						},
 					},
 				},

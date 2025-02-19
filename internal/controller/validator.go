@@ -148,6 +148,9 @@ func (r *DataProtectionApplicationReconciler) ValidateDataProtectionCR(log logr.
 			if enforcedBackupSpec.StorageLocation != "" {
 				return false, fmt.Errorf("DPA spec.nonAdmin.enforcedBackupSpec.storageLocation is non-enforceable by admins")
 			}
+			if enforcedBackupSpec.IncludedNamespaces != nil {
+				return false, fmt.Errorf("DPA spec.nonAdmin.enforcedBackupSpec.includedNamespaces is non-enforceable by admins")
+			}
 		}
 
 	}
