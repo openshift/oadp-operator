@@ -107,6 +107,24 @@ metadata:
         },
         {
           "apiVersion": "oadp.openshift.io/v1alpha1",
+          "kind": "NonAdminBackupStorageLocationApprovalRequest",
+          "metadata": {
+            "labels": {
+              "app.kubernetes.io/created-by": "oadp-nac",
+              "app.kubernetes.io/instance": "nonadminbackupstoragelocationapprovalrequest-sample",
+              "app.kubernetes.io/managed-by": "kustomize",
+              "app.kubernetes.io/name": "nonadminbackupstoragelocationapprovalrequest",
+              "app.kubernetes.io/part-of": "oadp-nac"
+            },
+            "name": "nonadminbackupstoragelocationapprovalrequest-sample"
+          },
+          "spec": {
+            "creationApproved": true,
+            "updateApproved": false
+          }
+        },
+        {
+          "apiVersion": "oadp.openshift.io/v1alpha1",
           "kind": "NonAdminRestore",
           "metadata": {
             "labels": {
@@ -471,6 +489,12 @@ spec:
       displayName: Non Admin Backup
       kind: NonAdminBackup
       name: nonadminbackups.oadp.openshift.io
+      version: v1alpha1
+    - description: NonAdminBackupStorageLocationApprovalRequest is the Schema for
+        the nonadminbackupstoragelocationapprovalrequests API
+      displayName: Non Admin BackupStorageLocationApprovalRequest
+      kind: NonAdminBackupStorageLocationApprovalRequest
+      name: nonadminbackupstoragelocationapprovalrequests.oadp.openshift.io
       version: v1alpha1
     - description: NonAdminBackupStorageLocation is the Schema for the nonadminbackupstoragelocations
         API

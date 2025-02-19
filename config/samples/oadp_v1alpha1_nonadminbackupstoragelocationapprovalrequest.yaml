@@ -1,0 +1,13 @@
+apiVersion: oadp.openshift.io/v1alpha1
+kind: NonAdminBackupStorageLocationApprovalRequest
+metadata:
+  labels:
+    app.kubernetes.io/name: nonadminbackupstoragelocationapprovalrequest
+    app.kubernetes.io/instance: nonadminbackupstoragelocationapprovalrequest-sample
+    app.kubernetes.io/part-of: oadp-nac
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: oadp-nac
+  name: nonadminbackupstoragelocationapprovalrequest-sample
+spec:
+  creationApproved: true
+  updateApproved: false
