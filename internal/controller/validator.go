@@ -139,6 +139,34 @@ func (r *DataProtectionApplicationReconciler) ValidateDataProtectionCR(log logr.
 		}
 		// TODO should also validate that BSL backupSyncPeriod is not greater or equal to nonAdmin.backupSyncPeriod
 		// but BSL can not exist yet when we validate the value
+
+		enforcedBackupSpec := r.dpa.Spec.NonAdmin.EnforceBackupSpec
+
+		if enforcedBackupSpec != nil {
+			// check if BSL name is enforced by the admin
+			// We do not support this, we restrict enforcing BSL name
+			if enforcedBackupSpec.StorageLocation != "" {
+				return false, fmt.Errorf("DPA spec.nonAdmin.enforcedBackupSpec.storageLocation is non-enforceable by admins")
+			}
+
+			if enforcedBackupSpec.IncludedNamespaces != nil {
+				return false, fmt.Errorf("DPA spec.nonAdmin.enforcedBackupSpec.includedNamespaces is non-enforceable by admins")
+			}
+
+			if enforcedBackupSpec.ExcludedNamespaces != nil {
+				return false, fmt.Errorf("DPA spec.nonAdmin.excludedNamespaces is non-enforceable by admins")
+			}
+
+			if enforcedBackupSpec.IncludeClusterResources != nil && *enforcedBackupSpec.IncludeClusterResources {
+				return false, fmt.Errorf("DPA spec.nonAdmin.includeClusterResources cannot be set as true, must be set to false if enforced by admins")
+			}
+
+			if len(enforcedBackupSpec.IncludedClusterScopedResources) > 0 {
+				return false, fmt.Errorf("DPA spec.nonAdmin.includedClusterScopedResources is non-enforceable by admins, only empty list is allowed")
+			}
+
+		}
+
 	}
 
 	return true, nil
