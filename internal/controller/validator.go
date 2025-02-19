@@ -148,9 +148,23 @@ func (r *DataProtectionApplicationReconciler) ValidateDataProtectionCR(log logr.
 			if enforcedBackupSpec.StorageLocation != "" {
 				return false, fmt.Errorf("DPA spec.nonAdmin.enforcedBackupSpec.storageLocation is non-enforceable by admins")
 			}
+
 			if enforcedBackupSpec.IncludedNamespaces != nil {
 				return false, fmt.Errorf("DPA spec.nonAdmin.enforcedBackupSpec.includedNamespaces is non-enforceable by admins")
 			}
+
+			if enforcedBackupSpec.ExcludedNamespaces != nil {
+				return false, fmt.Errorf("DPA spec.nonAdmin.excludedNamespaces is non-enforceable by admins")
+			}
+
+			if enforcedBackupSpec.IncludeClusterResources != nil && *enforcedBackupSpec.IncludeClusterResources {
+				return false, fmt.Errorf("DPA spec.nonAdmin.includeClusterResources cannot be set as true, must be set to false if enforced by admins")
+			}
+
+			if len(enforcedBackupSpec.IncludedClusterScopedResources) > 0 {
+				return false, fmt.Errorf("DPA spec.nonAdmin.includedClusterScopedResources is non-enforceable by admins, only empty list is allowed")
+			}
+
 		}
 
 	}
