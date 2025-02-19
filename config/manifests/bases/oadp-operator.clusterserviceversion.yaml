@@ -391,6 +391,12 @@ spec:
       kind: NonAdminBackupStorageLocation
       name: nonadminbackupstoragelocations.oadp.openshift.io
       version: v1alpha1
+    - description: NonAdminBackupStorageLocationRequest is the Schema for the nonadminbackupstoragelocationrequests
+        API
+      displayName: Non Admin BackupStorageLocationRequest
+      kind: NonAdminBackupStorageLocationRequest
+      name: nonadminbackupstoragelocationrequests.oadp.openshift.io
+      version: v1alpha1
     - description: The CloudStorage API automates the creation of a bucket for object
         storage.
       displayName: Cloud Storage

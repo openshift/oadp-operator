@@ -898,7 +898,7 @@ spec:
                           description: How often to check status on async backup/restore operations after backup processing. Default value is 2m.
                           type: string
                         logLevel:
-                          description: Velero server’s log level (use debug for the most logging, leave unset for velero default)
+                          description: Velero server's log level (use debug for the most logging, leave unset for velero default)
                           enum:
                             - trace
                             - debug
@@ -2135,6 +2135,16 @@ spec:
                         A value of 0 disables garbage collection.
                         By default 24h
                       type: string
+                    requireAdminApprovalForBSL:
+                      description: |-
+                        RequireAdminApprovalForBSL determines if cluster admin approval is necessary for creating or updating
+                        Velero Backup Storage Locations (BSL).
+                        - If set to false, the NonAdminBackupStorageLocationApproval CRD will be automatically removed by the
+                          garbage collector during its next run.
+                        - If set to true, any existing BackupStorageLocation CRDs that lack the required approvals may be
+                          deleted leaving the NonAdminBackup objects non-restorable until the approval is granted.
+                        This field is optional and can be left unset.
+                      type: boolean
                   type: object
                 podAnnotations:
                   additionalProperties:

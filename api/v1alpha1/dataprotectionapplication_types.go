@@ -282,7 +282,7 @@ type VeleroConfig struct {
 	NoDefaultBackupLocation bool `json:"noDefaultBackupLocation,omitempty"`
 	// Pod specific configuration
 	PodConfig *PodConfig `json:"podConfig,omitempty"`
-	// Velero server’s log level (use debug for the most logging, leave unset for velero default)
+	// Velero server's log level (use debug for the most logging, leave unset for velero default)
 	// +optional
 	// +kubebuilder:validation:Enum=trace;debug;info;warning;error;fatal;panic
 	LogLevel string `json:"logLevel,omitempty"`
@@ -451,6 +451,16 @@ type NonAdmin struct {
 	// which restore spec field values to enforce
 	// +optional
 	EnforceRestoreSpec *velero.RestoreSpec `json:"enforceRestoreSpec,omitempty"`
+
+	// RequireAdminApprovalForBSL determines if cluster admin approval is necessary for creating or updating
+	// Velero Backup Storage Locations (BSL).
+	// - If set to false, the NonAdminBackupStorageLocationApproval CRD will be automatically removed by the
+	//   garbage collector during its next run.
+	// - If set to true, any existing BackupStorageLocation CRDs that lack the required approvals may be
+	//   deleted leaving the NonAdminBackup objects non-restorable until the approval is granted.
+	// This field is optional and can be left unset.
+	// +optional
+	RequireAdminApprovalForBSL *bool `json:"requireAdminApprovalForBSL,omitempty"`
 
 	// GarbageCollectionPeriod defines how frequently to look for possible leftover non admin related objects in OADP namespace.
 	// A value of 0 disables garbage collection.
