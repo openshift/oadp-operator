@@ -146,7 +146,7 @@ func (r *DataProtectionApplicationReconciler) ValidateDataProtectionCR(log logr.
 			// check if BSL name is enforced by the admin
 			// We do not support this, we restrict enforcing BSL name
 			if enforcedBackupSpec.StorageLocation != "" {
-				return false, fmt.Errorf("enforcedBackupSpec.storageLocation is non-enforceable by admins")
+				return false, fmt.Errorf("DPA spec.nonAdmin.enforcedBackupSpec.storageLocation is non-enforceable by admins")
 			}
 		}
 
