@@ -24,10 +24,10 @@ type TestDPASpec struct {
 	CustomPlugins           []oadpv1alpha1.CustomPlugin
 	SnapshotLocations       []oadpv1alpha1.SnapshotLocation
 	VeleroPodConfig         oadpv1alpha1.PodConfig
-	ResticPodConfig         oadpv1alpha1.PodConfig
 	NodeAgentPodConfig      oadpv1alpha1.PodConfig
 	EnableRestic            bool
 	EnableNodeAgent         bool
+	UploaderType            string
 	NoDefaultBackupLocation bool
 	s3ForcePathStyle        bool
 	NoS3ForcePathStyle      bool
@@ -74,16 +74,16 @@ func createTestDPASpec(testSpec TestDPASpec) *oadpv1alpha1.DataProtectionApplica
 	if testSpec.EnableNodeAgent {
 		dpaSpec.Configuration.NodeAgent = &oadpv1alpha1.NodeAgentConfig{
 			NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
-				Enable:    ptr.To(testSpec.EnableNodeAgent),
+				Enable:    ptr.To(true),
 				PodConfig: &testSpec.NodeAgentPodConfig,
 			},
-			UploaderType: "kopia",
+			UploaderType: testSpec.UploaderType,
 		}
-	} else {
+	}
+	if testSpec.EnableRestic {
 		dpaSpec.Configuration.Restic = &oadpv1alpha1.ResticConfig{
 			NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
-				Enable:    ptr.To(testSpec.EnableRestic),
-				PodConfig: &testSpec.ResticPodConfig,
+				Enable: ptr.To(true),
 			},
 		}
 	}
@@ -161,17 +161,7 @@ var _ = ginkgo.Describe("Configuration testing for DPA Custom Resource", func() 
 			gomega.Consistently(lib.VeleroPodIsRunning(kubernetesClientForSuiteRun, namespace), time.Minute*1, time.Second*15).Should(gomega.BeTrue())
 			timeAfterVeleroIsRunning := time.Now()
 
-			if installCase.DpaSpec.Configuration.Restic != nil && *installCase.DpaSpec.Configuration.Restic.Enable {
-				log.Printf("Waiting for restic Pods to be running")
-				gomega.Eventually(lib.AreNodeAgentPodsRunning(kubernetesClientForSuiteRun, namespace), time.Minute*3, time.Second*5).Should(gomega.BeTrue())
-				if installCase.DpaSpec.Configuration.Restic.PodConfig != nil {
-					log.Printf("Waiting for restic DaemonSet to have nodeSelector")
-					for key, value := range installCase.DpaSpec.Configuration.Restic.PodConfig.NodeSelector {
-						log.Printf("Waiting for restic DaemonSet to get node selector")
-						gomega.Eventually(lib.NodeAgentDaemonSetHasNodeSelector(kubernetesClientForSuiteRun, namespace, key, value), time.Minute*6, time.Second*5).Should(gomega.BeTrue())
-					}
-				}
-			} else if installCase.DpaSpec.Configuration.NodeAgent != nil && *installCase.DpaSpec.Configuration.NodeAgent.Enable {
+			if installCase.DpaSpec.Configuration.NodeAgent != nil && *installCase.DpaSpec.Configuration.NodeAgent.Enable {
 				log.Printf("Waiting for NodeAgent Pods to be running")
 				gomega.Eventually(lib.AreNodeAgentPodsRunning(kubernetesClientForSuiteRun, namespace), time.Minute*3, time.Second*5).Should(gomega.BeTrue())
 				if installCase.DpaSpec.Configuration.NodeAgent.PodConfig != nil {
@@ -259,8 +249,7 @@ var _ = ginkgo.Describe("Configuration testing for DPA Custom Resource", func() 
 			// We expect OADP logs to be the same after 1 minute
 			adpLogsDiff := cmp.Diff(adpLogsAtReconciled, adpLogsAfterOneMinute)
 			// If registry deployment were deleted after CR update, we expect to see a new log entry, ignore that.
-			// We also ignore case where deprecated restic entry was used
-			if !strings.Contains(adpLogsDiff, "Registry Deployment deleted") && !strings.Contains(adpLogsDiff, "(Deprecation Warning) Use nodeAgent instead of restic, which is deprecated and will be removed in the future") {
+			if !strings.Contains(adpLogsDiff, "Registry Deployment deleted") {
 				gomega.Expect(adpLogsDiff).To(gomega.Equal(""))
 			}
 		},
@@ -319,21 +308,23 @@ var _ = ginkgo.Describe("Configuration testing for DPA Custom Resource", func() 
 				SnapshotLocations: dpaCR.SnapshotLocations,
 			}),
 		}),
-		ginkgo.Entry("DPA CR with restic enabled with node selector", InstallCase{
+		ginkgo.Entry("DPA CR with NodeAgent enabled with restic and node selector", InstallCase{
 			DpaSpec: createTestDPASpec(TestDPASpec{
-				BSLSecretName: bslSecretName,
-				EnableRestic:  true,
-				ResticPodConfig: oadpv1alpha1.PodConfig{
+				BSLSecretName:   bslSecretName,
+				EnableNodeAgent: true,
+				UploaderType:    "restic",
+				NodeAgentPodConfig: oadpv1alpha1.PodConfig{
 					NodeSelector: map[string]string{
 						"foo": "bar",
 					},
 				},
 			}),
 		}),
-		ginkgo.Entry("DPA CR with kopia enabled with node selector", InstallCase{
+		ginkgo.Entry("DPA CR with NodeAgent enabled with kopia and node selector", InstallCase{
 			DpaSpec: createTestDPASpec(TestDPASpec{
 				BSLSecretName:   bslSecretName,
 				EnableNodeAgent: true,
+				UploaderType:    "kopia",
 				NodeAgentPodConfig: oadpv1alpha1.PodConfig{
 					NodeSelector: map[string]string{
 						"foo": "bar",
@@ -386,6 +377,12 @@ var _ = ginkgo.Describe("Configuration testing for DPA Custom Resource", func() 
 				s3ForcePathStyle: true,
 			}),
 		}, "region for AWS backupstoragelocation not automatically discoverable. Please set the region in the backupstoragelocation config"),
+		ginkgo.Entry("DPA CR with restic config enabled", InstallCase{
+			DpaSpec: createTestDPASpec(TestDPASpec{
+				BSLSecretName: bslSecretName,
+				EnableRestic:  true,
+			}),
+		}, "Delete restic object from spec.configuration, use spec.configuration.nodeAgent instead"),
 	)
 
 	ginkgo.DescribeTable("DPA Deletion test",
