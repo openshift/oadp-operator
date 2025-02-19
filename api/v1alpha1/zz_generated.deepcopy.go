@@ -609,6 +609,11 @@ func (in *NonAdmin) DeepCopyInto(out *NonAdmin) {
 		*out = new(velerov1.RestoreSpec)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.RequireAdminApprovalForBSL != nil {
+		in, out := &in.RequireAdminApprovalForBSL, &out.RequireAdminApprovalForBSL
+		*out = new(bool)
+		**out = **in
+	}
 	if in.GarbageCollectionPeriod != nil {
 		in, out := &in.GarbageCollectionPeriod, &out.GarbageCollectionPeriod
 		*out = new(metav1.Duration)
