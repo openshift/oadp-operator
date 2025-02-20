@@ -2135,6 +2135,9 @@ spec:
                         A value of 0 disables garbage collection.
                         By default 24h
                       type: string
+                    requireAdminApprovalForBSL:
+                      description: Indicates whether cluster admin approval is required for NonAdmin Backup Storage Location (BSL) requests before creation or update.
+                      type: boolean
                   type: object
                 podAnnotations:
                   additionalProperties:

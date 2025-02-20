@@ -452,6 +452,10 @@ type NonAdmin struct {
 	// +optional
 	EnforceRestoreSpec *velero.RestoreSpec `json:"enforceRestoreSpec,omitempty"`
 
+	// Indicates whether cluster admin approval is required for NonAdmin Backup Storage Location (BSL) requests before creation or update.
+	// +optional
+	RequireAdminApprovalForBSL *bool `json:"requireAdminApprovalForBSL,omitempty"`
+
 	// GarbageCollectionPeriod defines how frequently to look for possible leftover non admin related objects in OADP namespace.
 	// A value of 0 disables garbage collection.
 	// By default 24h
