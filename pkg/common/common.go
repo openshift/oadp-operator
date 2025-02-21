@@ -95,6 +95,7 @@ const (
 	HTTPProxyEnvVar                = "HTTP_PROXY"
 	HTTPSProxyEnvVar               = "HTTPS_PROXY"
 	NoProxyEnvVar                  = "NO_PROXY"
+	LogLevelEnvVar                 = "LOG_LEVEL"
 )
 
 // Unsupported Server Args annotation keys
