@@ -16,6 +16,8 @@ import (
 	"github.com/openshift/oadp-operator/pkg/credentials"
 )
 
+const NACNonEnforceableErr = "DPA %s is non-enforceable by admins"
+
 // ValidateDataProtectionCR function validates the DPA CR, returns true if valid, false otherwise
 // it calls other validation functions to validate the DPA CR
 func (r *DataProtectionApplicationReconciler) ValidateDataProtectionCR(log logr.Logger) (bool, error) {
@@ -146,23 +148,23 @@ func (r *DataProtectionApplicationReconciler) ValidateDataProtectionCR(log logr.
 			// check if BSL name is enforced by the admin
 			// We do not support this, we restrict enforcing BSL name
 			if enforcedBackupSpec.StorageLocation != "" {
-				return false, fmt.Errorf("DPA spec.nonAdmin.enforcedBackupSpec.storageLocation is non-enforceable by admins")
+				return false, fmt.Errorf(fmt.Sprintf(NACNonEnforceableErr, "spec.nonAdmin.enforcedBackupSpec.storageLocation"))
 			}
 
 			if enforcedBackupSpec.IncludedNamespaces != nil {
-				return false, fmt.Errorf("DPA spec.nonAdmin.enforcedBackupSpec.includedNamespaces is non-enforceable by admins")
+				return false, fmt.Errorf(fmt.Sprintf(NACNonEnforceableErr, "spec.nonAdmin.enforcedBackupSpec.includedNamespaces"))
 			}
 
 			if enforcedBackupSpec.ExcludedNamespaces != nil {
-				return false, fmt.Errorf("DPA spec.nonAdmin.excludedNamespaces is non-enforceable by admins")
+				return false, fmt.Errorf(fmt.Sprintf(NACNonEnforceableErr, "spec.nonAdmin.enforcedBackupSpec.excludedNamespaces"))
 			}
 
 			if enforcedBackupSpec.IncludeClusterResources != nil && *enforcedBackupSpec.IncludeClusterResources {
-				return false, fmt.Errorf("DPA spec.nonAdmin.includeClusterResources cannot be set as true, must be set to false if enforced by admins")
+				return false, fmt.Errorf(fmt.Sprintf(NACNonEnforceableErr+" as true, must be set to false if enforced by admins", "spec.nonAdmin.enforcedBackupSpec.includeClusterResources"))
 			}
 
 			if len(enforcedBackupSpec.IncludedClusterScopedResources) > 0 {
-				return false, fmt.Errorf("DPA spec.nonAdmin.includedClusterScopedResources is non-enforceable by admins, only empty list is allowed")
+				return false, fmt.Errorf(fmt.Sprintf(NACNonEnforceableErr+" and must remain empty", "spec.nonAdmin.enforcedBackupSpec.includedClusterScopedResources"))
 			}
 
 		}
