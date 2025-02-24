@@ -34,3 +34,5 @@ test-upgrade/
 junit_report.xml
 # `operator-sdk run bundle` caches files in this directory
 cache/
+# debug files
+debug.test*
