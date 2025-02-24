@@ -5,6 +5,7 @@ import (
 	"os"
 	"reflect"
 	"strconv"
+	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/sirupsen/logrus"
@@ -44,6 +45,7 @@ var (
 
 	dpaResourceVersion                                   = ""
 	previousNonAdminConfiguration *oadpv1alpha1.NonAdmin = nil
+	previousDefaultBSLSyncPeriod  *time.Duration         = nil
 )
 
 func (r *DataProtectionApplicationReconciler) ReconcileNonAdminController(log logr.Logger) (bool, error) {
@@ -169,9 +171,14 @@ func ensureRequiredSpecs(deploymentObject *appsv1.Deployment, dpa *oadpv1alpha1.
 		})
 	}
 	if len(dpaResourceVersion) == 0 ||
-		!reflect.DeepEqual(dpa.Spec.NonAdmin, previousNonAdminConfiguration) {
+		!reflect.DeepEqual(dpa.Spec.NonAdmin, previousNonAdminConfiguration) ||
+		(dpa.Spec.Configuration.Velero.Args != nil &&
+			!reflect.DeepEqual(dpa.Spec.Configuration.Velero.Args.BackupSyncPeriod, previousDefaultBSLSyncPeriod)) {
 		dpaResourceVersion = dpa.GetResourceVersion()
 		previousNonAdminConfiguration = dpa.Spec.NonAdmin
+		if dpa.Spec.Configuration.Velero.Args != nil {
+			previousDefaultBSLSyncPeriod = dpa.Spec.Configuration.Velero.Args.BackupSyncPeriod
+		}
 	}
 	podAnnotations := map[string]string{
 		dpaResourceVersionAnnotation: dpaResourceVersion,
