@@ -1533,6 +1533,32 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 			messageErr: fmt.Sprintf(NACNonEnforceableErr, "spec.nonAdmin.enforcedBackupSpec.storageLocation"),
 		},
 		{
+			name: "[Invalid] DPA CR: spec.nonAdmin.enforceBackupSpec.volumeSnapshotLocations set",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-DPA-CR",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							NoDefaultBackupLocation: true,
+						},
+					},
+					BackupImages: ptr.To(false),
+					NonAdmin: &oadpv1alpha1.NonAdmin{
+						Enable: ptr.To(true),
+						EnforceBackupSpec: &velerov1.BackupSpec{
+							SnapshotVolumes:         ptr.To(false),
+							VolumeSnapshotLocations: []string{"foo-vsl", "bar-vsl"},
+						},
+					},
+				},
+			},
+			wantErr:    true,
+			messageErr: fmt.Sprintf(NACNonEnforceableErr, "spec.nonAdmin.enforcedBackupSpec.volumeSnapshotLocations"),
+		},
+		{
 			name: "[Invalid] DPA CR: spec.nonAdmin.enforceBackupSpec.includedNamespaces set",
 			dpa: &oadpv1alpha1.DataProtectionApplication{
 				ObjectMeta: metav1.ObjectMeta{
