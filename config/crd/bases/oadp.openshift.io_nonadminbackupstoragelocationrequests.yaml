@@ -65,7 +65,7 @@ spec:
                 type: string
               veleroBackupStorageLocationRequest:
                 description: VeleroBackupStorageLocationRequest contains information
-                  of the related Velero backup object.
+                  of the related Velero BackupStorageLocation object.
                 properties:
                   nacuuid:
                     description: nacuuid references the NonAdminBackupStorageLocation
