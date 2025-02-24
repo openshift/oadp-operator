@@ -609,8 +609,8 @@ func (in *NonAdmin) DeepCopyInto(out *NonAdmin) {
 		*out = new(velerov1.RestoreSpec)
 		(*in).DeepCopyInto(*out)
 	}
-	if in.RequireAdminApprovalForBSL != nil {
-		in, out := &in.RequireAdminApprovalForBSL, &out.RequireAdminApprovalForBSL
+	if in.RequireApprovalForBSL != nil {
+		in, out := &in.RequireApprovalForBSL, &out.RequireApprovalForBSL
 		*out = new(bool)
 		**out = **in
 	}

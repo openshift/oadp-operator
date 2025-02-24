@@ -2135,15 +2135,15 @@ spec:
                         A value of 0 disables garbage collection.
                         By default 24h
                       type: string
-                    requireAdminApprovalForBSL:
+                    requireApprovalForBSL:
                       description: |-
-                        RequireAdminApprovalForBSL determines if cluster admin approval is necessary for creating or updating
-                        Velero Backup Storage Locations (BSL).
-                        - If set to false, the NonAdminBackupStorageLocationApproval CRD will be automatically removed by the
-                          garbage collector during its next run.
-                        - If set to true, any existing BackupStorageLocation CRDs that lack the required approvals may be
-                          deleted leaving the NonAdminBackup objects non-restorable until the approval is granted.
-                        This field is optional and can be left unset.
+                        RequireApprovalForBSL specifies whether cluster administrator approval is required
+                        for creating Velero BackupStorageLocation (BSL) resources.
+                        - If set to false, all NonAdminBackupStorageLocationApproval CRDs will be automatically approved,
+                          including those that were previously pending or rejected.
+                        - If set to true, any existing BackupStorageLocation CRDs that lack the necessary approvals may be deleted,
+                          leaving the associated NonAdminBackup objects non-restorable until approval is granted.
+                        Defaults to false
                       type: boolean
                   type: object
                 podAnnotations:
