@@ -148,23 +148,27 @@ func (r *DataProtectionApplicationReconciler) ValidateDataProtectionCR(log logr.
 			// check if BSL name is enforced by the admin
 			// We do not support this, we restrict enforcing BSL name
 			if enforcedBackupSpec.StorageLocation != "" {
-				return false, fmt.Errorf(fmt.Sprintf(NACNonEnforceableErr, "spec.nonAdmin.enforcedBackupSpec.storageLocation"))
+				return false, fmt.Errorf(NACNonEnforceableErr, "spec.nonAdmin.enforcedBackupSpec.storageLocation")
+			}
+
+			if enforcedBackupSpec.VolumeSnapshotLocations != nil {
+				return false, fmt.Errorf(NACNonEnforceableErr, "spec.nonAdmin.enforcedBackupSpec.volumeSnapshotLocations")
 			}
 
 			if enforcedBackupSpec.IncludedNamespaces != nil {
-				return false, fmt.Errorf(fmt.Sprintf(NACNonEnforceableErr, "spec.nonAdmin.enforcedBackupSpec.includedNamespaces"))
+				return false, fmt.Errorf(NACNonEnforceableErr, "spec.nonAdmin.enforcedBackupSpec.includedNamespaces")
 			}
 
 			if enforcedBackupSpec.ExcludedNamespaces != nil {
-				return false, fmt.Errorf(fmt.Sprintf(NACNonEnforceableErr, "spec.nonAdmin.enforcedBackupSpec.excludedNamespaces"))
+				return false, fmt.Errorf(NACNonEnforceableErr, "spec.nonAdmin.enforcedBackupSpec.excludedNamespaces")
 			}
 
 			if enforcedBackupSpec.IncludeClusterResources != nil && *enforcedBackupSpec.IncludeClusterResources {
-				return false, fmt.Errorf(fmt.Sprintf(NACNonEnforceableErr+" as true, must be set to false if enforced by admins", "spec.nonAdmin.enforcedBackupSpec.includeClusterResources"))
+				return false, fmt.Errorf(NACNonEnforceableErr+" as true, must be set to false if enforced by admins", "spec.nonAdmin.enforcedBackupSpec.includeClusterResources")
 			}
 
 			if len(enforcedBackupSpec.IncludedClusterScopedResources) > 0 {
-				return false, fmt.Errorf(fmt.Sprintf(NACNonEnforceableErr+" and must remain empty", "spec.nonAdmin.enforcedBackupSpec.includedClusterScopedResources"))
+				return false, fmt.Errorf(NACNonEnforceableErr+" and must remain empty", "spec.nonAdmin.enforcedBackupSpec.includedClusterScopedResources")
 			}
 
 		}
