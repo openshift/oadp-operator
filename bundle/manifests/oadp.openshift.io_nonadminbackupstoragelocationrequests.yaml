@@ -45,7 +45,8 @@ spec:
             properties:
               approvalDecision:
                 description: approvalDecision is the decision of the cluster admin
-                  on the Requested NonAdminBackupStorageLocation creation.
+                  on the Requested NonAdminBackupStorageLocation creation. The 
+                  value may be set to either approve or reject.
                 enum:
                 - approve
                 - reject
