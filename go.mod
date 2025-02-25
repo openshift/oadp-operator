@@ -1,6 +1,6 @@
 module github.com/openshift/oadp-operator
 
-go 1.22.7
+go 1.22.8
 
 require (
 	github.com/aws/aws-sdk-go v1.44.253
