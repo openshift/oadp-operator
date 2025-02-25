@@ -56,16 +56,9 @@ spec:
             description: NonAdminBackupStorageLocationRequestStatus defines the observed
               state of NonAdminBackupStorageLocationRequest
             properties:
-              phase:
-                description: NonAdminBSLRequestPhase is the phase of the NonAdminBackupStorageLocationRequest
-                enum:
-                - Pending
-                - Approved
-                - Rejected
-                type: string
-              veleroBackupStorageLocationRequest:
-                description: VeleroBackupStorageLocationRequest contains information
-                  of the related Velero BackupStorageLocation object.
+              nonAdminBackupStorageLocation:
+                description: NonAdminBackupStorageLocationRequestStatusInfo contains
+                  information of the related NonAdminBackupStorageLocation object.
                 properties:
                   nacuuid:
                     description: nacuuid references the NonAdminBackupStorageLocation
@@ -80,8 +73,8 @@ spec:
                       exists.
                     type: string
                   requestedSpec:
-                    description: requestedSpec contains the requested spec request
-                      for the NonAdminBackupStorageLocation
+                    description: requestedSpec contains the requested Velero BackupStorageLocation
+                      spec from the NonAdminBackupStorageLocation
                     properties:
                       accessMode:
                         description: AccessMode defines the permissions for the backup
@@ -168,6 +161,13 @@ spec:
                 required:
                 - requestedSpec
                 type: object
+              phase:
+                description: NonAdminBSLRequestPhase is the phase of the NonAdminBackupStorageLocationRequest
+                enum:
+                - Pending
+                - Approved
+                - Rejected
+                type: string
             type: object
         type: object
     served: true
