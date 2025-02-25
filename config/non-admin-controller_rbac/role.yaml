@@ -216,3 +216,43 @@ rules:
   - patch
   - update
   - watch
+- apiGroups:
+  - oadp.openshift.io
+  resources:
+  - nonadmindownloadrequests
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - oadp.openshift.io
+  resources:
+  - nonadmindownloadrequests/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - velero.io
+  resources:
+  - downloadrequest
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - velero.io
+  resources:
+  - downloadrequest/status
+  verbs:
+  - get
+  - patch
+  - update
