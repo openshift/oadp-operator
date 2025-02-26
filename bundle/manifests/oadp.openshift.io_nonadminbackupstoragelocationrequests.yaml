@@ -44,8 +44,9 @@ spec:
               state of NonAdminBackupStorageLocationRequest
             properties:
               approvalDecision:
-                description: approvalDecision is the decision of the cluster admin
-                  on the Requested NonAdminBackupStorageLocation creation.
+                description: |-
+                  approvalDecision is the decision of the cluster admin on the Requested NonAdminBackupStorageLocation creation.
+                  The value may be set to either approve or reject.
                 enum:
                 - approve
                 - reject
@@ -57,8 +58,8 @@ spec:
               state of NonAdminBackupStorageLocationRequest
             properties:
               nonAdminBackupStorageLocation:
-                description: NonAdminBackupStorageLocationRequestStatusInfo contains
-                  information of the related NonAdminBackupStorageLocation object.
+                description: nonAdminBackupStorageLocation contains information of
+                  the NonAdminBackupStorageLocation object that triggered NonAdminBSLRequest
                 properties:
                   nacuuid:
                     description: nacuuid references the NonAdminBackupStorageLocation
@@ -162,7 +163,8 @@ spec:
                 - requestedSpec
                 type: object
               phase:
-                description: NonAdminBSLRequestPhase is the phase of the NonAdminBackupStorageLocationRequest
+                description: phase represents the current state of the NonAdminBSLRequest.
+                  It can be either Pending, Approved or Rejected.
                 enum:
                 - Pending
                 - Approved

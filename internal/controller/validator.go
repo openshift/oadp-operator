@@ -193,6 +193,13 @@ func (r *DataProtectionApplicationReconciler) ValidateDataProtectionCR(log logr.
 			}
 		}
 
+		enforcedBSLSpec := r.dpa.Spec.NonAdmin.EnforceBSLSpec
+
+		if enforcedBSLSpec != nil {
+			if enforcedBSLSpec.Default {
+				return false, fmt.Errorf(NACNonEnforceableErr, "spec.nonAdmin.enforcedBSLSpec.default")
+			}
+		}
 	}
 
 	return true, nil

@@ -365,6 +365,9 @@ func TestEnsureRequiredSpecs(t *testing.T) {
 				EnforceRestoreSpec: &v1.RestoreSpec{
 					RestorePVs: ptr.To(true),
 				},
+				EnforceBSLSpec: &v1.BackupStorageLocationSpec{
+					Provider: "foo-provider",
+				},
 			},
 		},
 	}

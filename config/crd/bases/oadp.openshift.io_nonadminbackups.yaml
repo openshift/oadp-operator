@@ -523,8 +523,8 @@ spec:
                 type: object
               deleteBackup:
                 description: |-
-                  DeleteBackup removes the NonAdminBackup and its associated NonAdminRestores and VeleroBackup from the cluster,
-                  as well as the corresponding data in object storage
+                  DeleteBackup removes the NonAdminBackup and its associated VeleroBackup from the cluster,
+                  as well as the corresponding object storage
                 type: boolean
             required:
             - backupSpec

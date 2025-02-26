@@ -452,6 +452,10 @@ type NonAdmin struct {
 	// +optional
 	EnforceRestoreSpec *velero.RestoreSpec `json:"enforceRestoreSpec,omitempty"`
 
+	// which backupstoragelocation spec field values to enforce
+	// +optional
+	EnforceBSLSpec *velero.BackupStorageLocationSpec `json:"enforceBSLSpec,omitempty"`
+
 	// RequireApprovalForBSL specifies whether cluster administrator approval is required
 	// for creating Velero BackupStorageLocation (BSL) resources.
 	// - If set to false, all NonAdminBackupStorageLocationApproval CRDs will be automatically approved,

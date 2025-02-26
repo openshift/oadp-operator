@@ -1790,6 +1790,54 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 			messageErr: fmt.Sprintf(NACNonEnforceableErr, "spec.nonAdmin.enforcedRestoreSpec.namespaceMapping"),
 		},
 		{
+			name: "[valid] DPA CR: spec.nonAdmin.enforceBSLSpec set",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-DPA-CR",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							NoDefaultBackupLocation: true,
+						},
+					},
+					BackupImages: ptr.To(false),
+					NonAdmin: &oadpv1alpha1.NonAdmin{
+						Enable: ptr.To(true),
+						EnforceBSLSpec: &velerov1.BackupStorageLocationSpec{
+							Provider: "foo-provider",
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "[invalid] DPA CR: spec.nonAdmin.enforceBSLSpec can not have default set to true",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-DPA-CR",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							NoDefaultBackupLocation: true,
+						},
+					},
+					BackupImages: ptr.To(false),
+					NonAdmin: &oadpv1alpha1.NonAdmin{
+						Enable: ptr.To(true),
+						EnforceBSLSpec: &velerov1.BackupStorageLocationSpec{
+							Provider: "foo-provider",
+							Default:  true,
+						},
+					},
+				},
+			},
+			wantErr:    true,
+			messageErr: "DPA spec.nonAdmin.enforcedBSLSpec.default is non-enforceable by admins",
+		}, {
 			name: "[valid] DPA CR: spec.nonAdmin.enable true",
 			dpa: &oadpv1alpha1.DataProtectionApplication{
 				ObjectMeta: metav1.ObjectMeta{

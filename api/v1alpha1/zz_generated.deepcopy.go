@@ -609,6 +609,11 @@ func (in *NonAdmin) DeepCopyInto(out *NonAdmin) {
 		*out = new(velerov1.RestoreSpec)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.EnforceBSLSpec != nil {
+		in, out := &in.EnforceBSLSpec, &out.EnforceBSLSpec
+		*out = new(velerov1.BackupStorageLocationSpec)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.RequireApprovalForBSL != nil {
 		in, out := &in.RequireApprovalForBSL, &out.RequireApprovalForBSL
 		*out = new(bool)
