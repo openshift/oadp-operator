@@ -1477,8 +1477,8 @@ spec:
                           fields.
                         type: object
                       objectStorage:
-                        description: EnforceObjectStorageLocation defines the enforced
-                          values for the Velero ObjectStorageLocation
+                        description: ObjectStorageLocation defines the enforced values
+                          for the Velero ObjectStorageLocation
                         nullable: true
                         properties:
                           bucket:

@@ -442,8 +442,8 @@ type SnapshotLocation struct {
 // We need to create enforcement structures for the BSL spec fields, because the Velero BSL spec
 // is requiring fields like bucket, provider which are allowed to be empty for the enforcement in the DPA.
 
-// EnforceObjectStorageLocation defines the enforced values for the Velero ObjectStorageLocation
-type EnforceObjectStorageLocation struct {
+// ObjectStorageLocation defines the enforced values for the Velero ObjectStorageLocation
+type ObjectStorageLocation struct {
 	// Bucket is the bucket to use for object storage.
 	// +optional
 	Bucket string `json:"bucket,omitempty"`
@@ -457,11 +457,11 @@ type EnforceObjectStorageLocation struct {
 	CACert []byte `json:"caCert,omitempty"`
 }
 
-// EnforceStorageType defines the enforced values for the Velero StorageType
-type EnforceStorageType struct {
+// StorageType defines the enforced values for the Velero StorageType
+type StorageType struct {
 	// +optional
 	// +nullable
-	ObjectStorage *EnforceObjectStorageLocation `json:"objectStorage,omitempty"`
+	ObjectStorage *ObjectStorageLocation `json:"objectStorage,omitempty"`
 }
 
 // EnforceBackupStorageLocationSpec defines the enforced values for the Velero BackupStorageLocationSpec
@@ -474,7 +474,7 @@ type EnforceBackupStorageLocationSpec struct {
 	// +optional
 	Config map[string]string `json:"config,omitempty"`
 
-	EnforceStorageType `json:",inline"`
+	StorageType `json:",inline"`
 
 	// AccessMode defines the permissions for the backup storage location.
 	// +optional

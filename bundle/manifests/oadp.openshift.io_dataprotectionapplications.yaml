@@ -1304,11 +1304,8 @@ spec:
                             type: string
                           description: Config is for provider-specific configuration fields.
                           type: object
-                        default:
-                          description: Default indicates this location is the default backup storage location.
-                          type: boolean
                         objectStorage:
-                          description: EnforceObjectStorageLocation defines the enforced values for the Velero ObjectStorageLocation
+                          description: ObjectStorageLocation defines the enforced values for the Velero ObjectStorageLocation
                           nullable: true
                           properties:
                             bucket:
