@@ -15,6 +15,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
+	"github.com/openshift/oadp-operator/pkg/common"
 	"github.com/openshift/oadp-operator/pkg/credentials"
 )
 
@@ -153,12 +154,26 @@ func (r *DataProtectionApplicationReconciler) ValidateDataProtectionCR(log logr.
 		}
 		if defaultBSLIndex >= 0 {
 			defaultBSL := bslsInOADPNamespace.Items[defaultBSLIndex]
+			defaultBSLSpec := defaultBSL.Spec
+
+			if defaultBSL.Labels != nil {
+				if value, ok := defaultBSL.Labels["app.kubernetes.io/managed-by"]; ok && value == common.OADPOperator {
+					for index, bsl := range r.dpa.Spec.BackupLocations {
+						if bsl.Velero.Default {
+							defaultBSLIndex = index
+							break
+						}
+					}
+					defaultBSLSpec = *r.dpa.Spec.BackupLocations[defaultBSLIndex].Velero
+				}
+			}
+
 			defaultBSLSyncPeriodErrorMessage := "default BSL spec.backupSyncPeriod (%v) can not be greater or equal spec.nonAdmin.backupSyncPeriod (%v)"
-			if defaultBSL.Spec.BackupSyncPeriod != nil {
-				if appliedBackupSyncPeriod <= defaultBSL.Spec.BackupSyncPeriod.Duration {
+			if defaultBSLSpec.BackupSyncPeriod != nil {
+				if appliedBackupSyncPeriod <= defaultBSLSpec.BackupSyncPeriod.Duration {
 					return false, fmt.Errorf(
 						defaultBSLSyncPeriodErrorMessage,
-						defaultBSL.Spec.BackupSyncPeriod.Duration, appliedBackupSyncPeriod,
+						defaultBSLSpec.BackupSyncPeriod.Duration, appliedBackupSyncPeriod,
 					)
 				}
 			} else {
