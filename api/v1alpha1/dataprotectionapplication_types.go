@@ -439,6 +439,58 @@ type SnapshotLocation struct {
 	Velero *velero.VolumeSnapshotLocationSpec `json:"velero"`
 }
 
+// We need to create enforcement structures for the BSL spec fields, because the Velero BSL spec
+// is requiring fields like bucket, provider which are allowed to be empty for the enforcement in the DPA.
+
+// EnforceObjectStorageLocation defines the enforced values for the Velero ObjectStorageLocation
+type EnforceObjectStorageLocation struct {
+	// Bucket is the bucket to use for object storage.
+	// +optional
+	Bucket string `json:"bucket,omitempty"`
+
+	// Prefix is the path inside a bucket to use for Velero storage. Optional.
+	// +optional
+	Prefix string `json:"prefix,omitempty"`
+
+	// CACert defines a CA bundle to use when verifying TLS connections to the provider.
+	// +optional
+	CACert []byte `json:"caCert,omitempty"`
+}
+
+// EnforceStorageType defines the enforced values for the Velero StorageType
+type EnforceStorageType struct {
+	// +optional
+	// +nullable
+	ObjectStorage *EnforceObjectStorageLocation `json:"objectStorage,omitempty"`
+}
+
+// EnforceBackupStorageLocationSpec defines the enforced values for the Velero BackupStorageLocationSpec
+type EnforceBackupStorageLocationSpec struct {
+	// Provider is the provider of the backup storage.
+	// +optional
+	Provider string `json:"provider,omitempty"`
+
+	// Config is for provider-specific configuration fields.
+	// +optional
+	Config map[string]string `json:"config,omitempty"`
+
+	EnforceStorageType `json:",inline"`
+
+	// AccessMode defines the permissions for the backup storage location.
+	// +optional
+	AccessMode velero.BackupStorageLocationAccessMode `json:"accessMode,omitempty"`
+
+	// BackupSyncPeriod defines how frequently to sync backup API objects from object storage. A value of 0 disables sync.
+	// +optional
+	// +nullable
+	BackupSyncPeriod *metav1.Duration `json:"backupSyncPeriod,omitempty"`
+
+	// ValidationFrequency defines how frequently to validate the corresponding object storage. A value of 0 disables validation.
+	// +optional
+	// +nullable
+	ValidationFrequency *metav1.Duration `json:"validationFrequency,omitempty"`
+}
+
 type NonAdmin struct {
 	// Enables non admin feature, by default is disabled
 	// +optional
@@ -454,7 +506,7 @@ type NonAdmin struct {
 
 	// which backupstoragelocation spec field values to enforce
 	// +optional
-	EnforceBSLSpec *velero.BackupStorageLocationSpec `json:"enforceBSLSpec,omitempty"`
+	EnforceBSLSpec *EnforceBackupStorageLocationSpec `json:"enforceBSLSpec,omitempty"`
 
 	// RequireApprovalForBSL specifies whether cluster administrator approval is required
 	// for creating Velero BackupStorageLocation (BSL) resources.

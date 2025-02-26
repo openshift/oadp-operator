@@ -1304,35 +1304,12 @@ spec:
                             type: string
                           description: Config is for provider-specific configuration fields.
                           type: object
-                        credential:
-                          description: Credential contains the credential information intended to be used with this location
-                          properties:
-                            key:
-                              description: The key of the secret to select from.  Must be a valid secret key.
-                              type: string
-                            name:
-                              default: ""
-                              description: |-
-                                Name of the referent.
-                                This field is effectively required, but due to backwards compatibility is
-                                allowed to be empty. Instances of this type with an empty value here are
-                                almost certainly wrong.
-                                TODO: Add other useful fields. apiVersion, kind, uid?
-                                More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                TODO: Drop `kubebuilder:default` when controller-gen doesn't need it https://github.com/kubernetes-sigs/kubebuilder/issues/3896.
-                              type: string
-                            optional:
-                              description: Specify whether the Secret or its key must be defined
-                              type: boolean
-                          required:
-                            - key
-                          type: object
-                          x-kubernetes-map-type: atomic
                         default:
                           description: Default indicates this location is the default backup storage location.
                           type: boolean
                         objectStorage:
-                          description: ObjectStorageLocation specifies the settings necessary to connect to a provider's object storage.
+                          description: EnforceObjectStorageLocation defines the enforced values for the Velero ObjectStorageLocation
+                          nullable: true
                           properties:
                             bucket:
                               description: Bucket is the bucket to use for object storage.
@@ -1344,8 +1321,6 @@ spec:
                             prefix:
                               description: Prefix is the path inside a bucket to use for Velero storage. Optional.
                               type: string
-                          required:
-                            - bucket
                           type: object
                         provider:
                           description: Provider is the provider of the backup storage.
@@ -1354,9 +1329,6 @@ spec:
                           description: ValidationFrequency defines how frequently to validate the corresponding object storage. A value of 0 disables validation.
                           nullable: true
                           type: string
-                      required:
-                        - objectStorage
-                        - provider
                       type: object
                     enforceBackupSpec:
                       description: which bakup spec field values to enforce

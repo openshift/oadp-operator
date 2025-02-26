@@ -1805,7 +1805,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 					BackupImages: ptr.To(false),
 					NonAdmin: &oadpv1alpha1.NonAdmin{
 						Enable: ptr.To(true),
-						EnforceBSLSpec: &velerov1.BackupStorageLocationSpec{
+						EnforceBSLSpec: &oadpv1alpha1.EnforceBackupStorageLocationSpec{
 							Provider: "foo-provider",
 						},
 					},
@@ -1828,9 +1828,8 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 					BackupImages: ptr.To(false),
 					NonAdmin: &oadpv1alpha1.NonAdmin{
 						Enable: ptr.To(true),
-						EnforceBSLSpec: &velerov1.BackupStorageLocationSpec{
+						EnforceBSLSpec: &oadpv1alpha1.EnforceBackupStorageLocationSpec{
 							Provider: "foo-provider",
-							Default:  true,
 						},
 					},
 				},

@@ -192,14 +192,6 @@ func (r *DataProtectionApplicationReconciler) ValidateDataProtectionCR(log logr.
 				return false, fmt.Errorf(NACNonEnforceableErr, "spec.nonAdmin.enforcedRestoreSpec.namespaceMapping")
 			}
 		}
-
-		enforcedBSLSpec := r.dpa.Spec.NonAdmin.EnforceBSLSpec
-
-		if enforcedBSLSpec != nil {
-			if enforcedBSLSpec.Default {
-				return false, fmt.Errorf(NACNonEnforceableErr, "spec.nonAdmin.enforcedBSLSpec.default")
-			}
-		}
 	}
 
 	return true, nil
