@@ -173,6 +173,26 @@ func (r *DataProtectionApplicationReconciler) ValidateDataProtectionCR(log logr.
 
 		}
 
+		enforcedRestoreSpec := r.dpa.Spec.NonAdmin.EnforceRestoreSpec
+
+		if enforcedRestoreSpec != nil {
+			if len(enforcedRestoreSpec.ScheduleName) > 0 {
+				return false, fmt.Errorf(NACNonEnforceableErr, "spec.nonAdmin.enforcedRestoreSpec.scheduleName")
+			}
+
+			if enforcedRestoreSpec.IncludedNamespaces != nil {
+				return false, fmt.Errorf(NACNonEnforceableErr, "spec.nonAdmin.enforcedRestoreSpec.includedNamespaces")
+			}
+
+			if enforcedRestoreSpec.ExcludedNamespaces != nil {
+				return false, fmt.Errorf(NACNonEnforceableErr, "spec.nonAdmin.enforcedRestoreSpec.excludedNamespaces")
+			}
+
+			if enforcedRestoreSpec.NamespaceMapping != nil {
+				return false, fmt.Errorf(NACNonEnforceableErr, "spec.nonAdmin.enforcedRestoreSpec.namespaceMapping")
+			}
+		}
+
 	}
 
 	return true, nil

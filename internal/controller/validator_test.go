@@ -1684,6 +1684,112 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 			},
 		},
 		{
+			name: "[invalid] DPA CR: spec.nonAdmin.enforceRestoreSpec.scheduleName is set",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-DPA-CR",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							NoDefaultBackupLocation: true,
+						},
+					},
+					BackupImages: ptr.To(false),
+					NonAdmin: &oadpv1alpha1.NonAdmin{
+						Enable: ptr.To(true),
+						EnforceRestoreSpec: &velerov1.RestoreSpec{
+							ScheduleName: "foo-schedule-set",
+							RestorePVs:   ptr.To(true),
+						},
+					},
+				},
+			},
+			wantErr:    true,
+			messageErr: fmt.Sprintf(NACNonEnforceableErr, "spec.nonAdmin.enforcedRestoreSpec.scheduleName"),
+		},
+		{
+			name: "[invalid] DPA CR: spec.nonAdmin.enforceRestoreSpec.includedNamespaces is set",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-DPA-CR",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							NoDefaultBackupLocation: true,
+						},
+					},
+					BackupImages: ptr.To(false),
+					NonAdmin: &oadpv1alpha1.NonAdmin{
+						Enable: ptr.To(true),
+						EnforceRestoreSpec: &velerov1.RestoreSpec{
+							IncludedNamespaces: []string{"included-ns-foo"},
+							RestorePVs:         ptr.To(true),
+						},
+					},
+				},
+			},
+			wantErr:    true,
+			messageErr: fmt.Sprintf(NACNonEnforceableErr, "spec.nonAdmin.enforcedRestoreSpec.includedNamespaces"),
+		},
+		{
+			name: "[invalid] DPA CR: spec.nonAdmin.enforceRestoreSpec.excludedNamespaces is set",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-DPA-CR",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							NoDefaultBackupLocation: true,
+						},
+					},
+					BackupImages: ptr.To(false),
+					NonAdmin: &oadpv1alpha1.NonAdmin{
+						Enable: ptr.To(true),
+						EnforceRestoreSpec: &velerov1.RestoreSpec{
+							ExcludedNamespaces: []string{"excluded-ns-foo"},
+							RestorePVs:         ptr.To(true),
+						},
+					},
+				},
+			},
+			wantErr:    true,
+			messageErr: fmt.Sprintf(NACNonEnforceableErr, "spec.nonAdmin.enforcedRestoreSpec.excludedNamespaces"),
+		},
+		{
+			name: "[invalid] DPA CR: spec.nonAdmin.enforceRestoreSpec.namespaceMapping is set",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-DPA-CR",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							NoDefaultBackupLocation: true,
+						},
+					},
+					BackupImages: ptr.To(false),
+					NonAdmin: &oadpv1alpha1.NonAdmin{
+						Enable: ptr.To(true),
+						EnforceRestoreSpec: &velerov1.RestoreSpec{
+							NamespaceMapping: map[string]string{
+								"foo-ns-1": "bar-ns-2",
+							},
+							RestorePVs: ptr.To(true),
+						},
+					},
+				},
+			},
+			wantErr:    true,
+			messageErr: fmt.Sprintf(NACNonEnforceableErr, "spec.nonAdmin.enforcedRestoreSpec.namespaceMapping"),
+		},
+		{
 			name: "[valid] DPA CR: spec.nonAdmin.enable true",
 			dpa: &oadpv1alpha1.DataProtectionApplication{
 				ObjectMeta: metav1.ObjectMeta{
