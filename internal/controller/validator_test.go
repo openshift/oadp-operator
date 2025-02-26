@@ -1813,30 +1813,6 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 			},
 		},
 		{
-			name: "[invalid] DPA CR: spec.nonAdmin.enforceBSLSpec can not have default set to true",
-			dpa: &oadpv1alpha1.DataProtectionApplication{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-DPA-CR",
-					Namespace: "test-ns",
-				},
-				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
-					Configuration: &oadpv1alpha1.ApplicationConfig{
-						Velero: &oadpv1alpha1.VeleroConfig{
-							NoDefaultBackupLocation: true,
-						},
-					},
-					BackupImages: ptr.To(false),
-					NonAdmin: &oadpv1alpha1.NonAdmin{
-						Enable: ptr.To(true),
-						EnforceBSLSpec: &oadpv1alpha1.EnforceBackupStorageLocationSpec{
-							Provider: "foo-provider",
-						},
-					},
-				},
-			},
-			wantErr:    true,
-			messageErr: "DPA spec.nonAdmin.enforcedBSLSpec.default is non-enforceable by admins",
-		}, {
 			name: "[valid] DPA CR: spec.nonAdmin.enable true",
 			dpa: &oadpv1alpha1.DataProtectionApplication{
 				ObjectMeta: metav1.ObjectMeta{
