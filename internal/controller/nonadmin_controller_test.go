@@ -379,12 +379,16 @@ func TestEnsureRequiredSpecs(t *testing.T) {
 		if env.Name == common.LogLevelEnvVar {
 			// check that we get expected int value string from the level set in config
 			if expectedLevel, err := logrus.ParseLevel(""); err != nil {
-				// we expect logrus.ParseLevel("") to err here but still provide valid expectedLevel of 0
+				// we expect logrus.ParseLevel("") to err here and returns 0
 				if err == nil {
 					t.Error("Expected err when level is empty from logrus.ParseLevel")
 				}
-				// We ignored the err in ensureRequiredSpecs as the returned expectedLevel of 0 is still a valid level.
-				if env.Value != strconv.FormatUint(uint64(expectedLevel), 10) {
+				// The returned expectedLevel of 0 is panic level
+				if expectedLevel != logrus.PanicLevel {
+					t.Errorf("unexpected logrus.ParseLevel('') return value")
+				}
+				// we ignore and return empty string instead, and nac deployment will handle defaulting
+				if env.Value != "" {
 					t.Errorf("log level unexpected")
 				}
 			}

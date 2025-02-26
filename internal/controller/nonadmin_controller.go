@@ -160,7 +160,10 @@ func ensureRequiredSpecs(deploymentObject *appsv1.Deployment, dpa *oadpv1alpha1.
 			Name: common.LogLevelEnvVar,
 			Value: func() string {
 				// these levels are already validated in another controller.
-				level, _ := logrus.ParseLevel(dpa.Spec.Configuration.Velero.LogLevel)
+				level, err := logrus.ParseLevel(dpa.Spec.Configuration.Velero.LogLevel)
+				if err != nil {
+					return ""
+				}
 				return strconv.FormatUint(uint64(level), 10)
 			}(),
 		})
