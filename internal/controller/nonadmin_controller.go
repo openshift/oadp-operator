@@ -4,8 +4,10 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"strconv"
 
 	"github.com/go-logr/logr"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/exp/maps"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -147,9 +149,24 @@ func ensureRequiredLabels(deploymentObject *appsv1.Deployment) {
 }
 
 func ensureRequiredSpecs(deploymentObject *appsv1.Deployment, dpa *oadpv1alpha1.DataProtectionApplication, image string, imagePullPolicy corev1.PullPolicy) error {
-	namespaceEnvVar := corev1.EnvVar{
-		Name:  "WATCH_NAMESPACE",
-		Value: deploymentObject.Namespace,
+	envVars := []corev1.EnvVar{
+		{
+			Name:  "WATCH_NAMESPACE", // TODO: fix, this is only used to indicate oadp ns, and is not actually used for watching ns.
+			Value: deploymentObject.Namespace,
+		},
+	}
+	if dpa.Spec.Configuration != nil && dpa.Spec.Configuration.Velero != nil {
+		envVars = append(envVars, corev1.EnvVar{
+			Name: common.LogLevelEnvVar,
+			Value: func() string {
+				// these levels are already validated in another controller.
+				level, err := logrus.ParseLevel(dpa.Spec.Configuration.Velero.LogLevel)
+				if err != nil {
+					return ""
+				}
+				return strconv.FormatUint(uint64(level), 10)
+			}(),
+		})
 	}
 	if len(dpaResourceVersion) == 0 ||
 		!reflect.DeepEqual(dpa.Spec.NonAdmin, previousNonAdminConfiguration) {
@@ -187,7 +204,7 @@ func ensureRequiredSpecs(deploymentObject *appsv1.Deployment, dpa *oadpv1alpha1.
 			Name:                     nonAdminObjectName,
 			Image:                    image,
 			ImagePullPolicy:          imagePullPolicy,
-			Env:                      []corev1.EnvVar{namespaceEnvVar},
+			Env:                      envVars,
 			TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
 		}}
 		nonAdminContainerFound = true
@@ -197,7 +214,7 @@ func ensureRequiredSpecs(deploymentObject *appsv1.Deployment, dpa *oadpv1alpha1.
 				nonAdminContainer := &deploymentObject.Spec.Template.Spec.Containers[index]
 				nonAdminContainer.Image = image
 				nonAdminContainer.ImagePullPolicy = imagePullPolicy
-				nonAdminContainer.Env = []corev1.EnvVar{namespaceEnvVar}
+				nonAdminContainer.Env = envVars
 				nonAdminContainer.TerminationMessagePolicy = corev1.TerminationMessageFallbackToLogsOnError
 				nonAdminContainerFound = true
 				break

@@ -3,11 +3,13 @@ package controller
 import (
 	"context"
 	"os"
+	"strconv"
 	"testing"
 
 	"github.com/go-logr/logr"
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
+	"github.com/sirupsen/logrus"
 	"github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -17,6 +19,7 @@ import (
 	"k8s.io/utils/ptr"
 
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
+	"github.com/openshift/oadp-operator/pkg/common"
 )
 
 const defaultNonAdminImage = "quay.io/konveyor/oadp-non-admin:latest"
@@ -292,6 +295,11 @@ func TestEnsureRequiredSpecs(t *testing.T) {
 			ResourceVersion: "123456789",
 		},
 		Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+			Configuration: &oadpv1alpha1.ApplicationConfig{
+				Velero: &oadpv1alpha1.VeleroConfig{
+					LogLevel: logrus.DebugLevel.String(),
+				},
+			},
 			NonAdmin: &oadpv1alpha1.NonAdmin{
 				Enable: ptr.To(true),
 			},
@@ -313,6 +321,19 @@ func TestEnsureRequiredSpecs(t *testing.T) {
 	if len(deployment.Spec.Template.Annotations[dpaResourceVersionAnnotation]) == 0 {
 		t.Errorf("Deployment does not have Annotation")
 	}
+	for _, env := range deployment.Spec.Template.Spec.Containers[0].Env {
+		if env.Name == common.LogLevelEnvVar {
+			// check that we get expected int value string from the level set in config
+			if expectedLevel, err := logrus.ParseLevel(logrus.DebugLevel.String()); err != nil {
+				t.Errorf("Unable to parse loglevel expected")
+			} else {
+				if env.Value != strconv.FormatUint(uint64(expectedLevel), 10) {
+					t.Errorf("log level unexpected")
+				}
+			}
+		}
+	}
+
 	previousDPAAnnotationValue := deployment.DeepCopy().Spec.Template.Annotations[dpaResourceVersionAnnotation]
 	updatedDPA := &oadpv1alpha1.DataProtectionApplication{
 		ObjectMeta: metav1.ObjectMeta{
@@ -336,6 +357,9 @@ func TestEnsureRequiredSpecs(t *testing.T) {
 			ResourceVersion: "987654321",
 		},
 		Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+			Configuration: &oadpv1alpha1.ApplicationConfig{
+				Velero: &oadpv1alpha1.VeleroConfig{},
+			},
 			NonAdmin: &oadpv1alpha1.NonAdmin{
 				Enable: ptr.To(true),
 				EnforceBackupSpec: &v1.BackupSpec{
@@ -350,6 +374,25 @@ func TestEnsureRequiredSpecs(t *testing.T) {
 	}
 	if previousDPAAnnotationValue == deployment.Spec.Template.Annotations[dpaResourceVersionAnnotation] {
 		t.Errorf("Deployment does not have different Annotation")
+	}
+	for _, env := range deployment.Spec.Template.Spec.Containers[0].Env {
+		if env.Name == common.LogLevelEnvVar {
+			// check that we get expected int value string from the level set in config
+			if expectedLevel, err := logrus.ParseLevel(""); err != nil {
+				// we expect logrus.ParseLevel("") to err here and returns 0
+				if err == nil {
+					t.Error("Expected err when level is empty from logrus.ParseLevel")
+				}
+				// The returned expectedLevel of 0 is panic level
+				if expectedLevel != logrus.PanicLevel {
+					t.Errorf("unexpected logrus.ParseLevel('') return value")
+				}
+				// we ignore and return empty string instead, and nac deployment will handle defaulting
+				if env.Value != "" {
+					t.Errorf("log level unexpected")
+				}
+			}
+		}
 	}
 	previousDPAAnnotationValue = deployment.DeepCopy().Spec.Template.Annotations[dpaResourceVersionAnnotation]
 	updatedDPA = &oadpv1alpha1.DataProtectionApplication{
