@@ -88,7 +88,9 @@ func runReconcileNonAdminControllerTest(
 			Namespace: scenario.namespace,
 		},
 		Spec: oadpv1alpha1.DataProtectionApplicationSpec{
-			Configuration: &oadpv1alpha1.ApplicationConfig{},
+			Configuration: &oadpv1alpha1.ApplicationConfig{
+				Velero: &oadpv1alpha1.VeleroConfig{},
+			},
 			NonAdmin: &oadpv1alpha1.NonAdmin{
 				Enable: ptr.To(scenario.nonAdminEnabled),
 			},
@@ -247,6 +249,9 @@ func TestDPAReconcilerBuildNonAdminDeployment(t *testing.T) {
 			NonAdmin: &oadpv1alpha1.NonAdmin{
 				Enable: ptr.To(true),
 			},
+			Configuration: &oadpv1alpha1.ApplicationConfig{
+				Velero: &oadpv1alpha1.VeleroConfig{},
+			},
 		},
 	}}
 	t.Setenv("RELATED_IMAGE_NON_ADMIN_CONTROLLER", defaultNonAdminImage)
@@ -343,6 +348,9 @@ func TestEnsureRequiredSpecs(t *testing.T) {
 			NonAdmin: &oadpv1alpha1.NonAdmin{
 				Enable: ptr.To(true),
 			},
+			Configuration: &oadpv1alpha1.ApplicationConfig{
+				Velero: &oadpv1alpha1.VeleroConfig{},
+			},
 		},
 	}
 	err = ensureRequiredSpecs(deployment, updatedDPA, defaultNonAdminImage, corev1.PullAlways)
@@ -408,6 +416,9 @@ func TestEnsureRequiredSpecs(t *testing.T) {
 				EnforceRestoreSpec: &v1.RestoreSpec{
 					RestorePVs: ptr.To(true),
 				},
+			},
+			Configuration: &oadpv1alpha1.ApplicationConfig{
+				Velero: &oadpv1alpha1.VeleroConfig{},
 			},
 		},
 	}

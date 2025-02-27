@@ -4,15 +4,18 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/go-logr/logr"
+	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
+	"github.com/openshift/oadp-operator/pkg/common"
 	"github.com/openshift/oadp-operator/pkg/credentials"
 )
 
@@ -139,8 +142,59 @@ func (r *DataProtectionApplicationReconciler) ValidateDataProtectionCR(log logr.
 				appliedBackupSyncPeriod, appliedGarbageCollectionPeriod,
 			)
 		}
-		// TODO should also validate that BSL backupSyncPeriod is not greater or equal to nonAdmin.backupSyncPeriod
-		// but BSL can not exist yet when we validate the value
+
+		defaultBSLIndex := -1
+		bslsInOADPNamespace := &velerov1.BackupStorageLocationList{}
+		r.List(r.Context, bslsInOADPNamespace, client.InNamespace(r.NamespacedName.Namespace))
+		for index, bsl := range bslsInOADPNamespace.Items {
+			if bsl.Spec.Default {
+				defaultBSLIndex = index
+				break
+			}
+		}
+		if defaultBSLIndex >= 0 {
+			defaultBSL := bslsInOADPNamespace.Items[defaultBSLIndex]
+			defaultBSLSpec := defaultBSL.Spec
+
+			if defaultBSL.Labels != nil {
+				if value, ok := defaultBSL.Labels["app.kubernetes.io/managed-by"]; ok && value == common.OADPOperator {
+					for index, bsl := range r.dpa.Spec.BackupLocations {
+						if bsl.Velero.Default {
+							defaultBSLIndex = index
+							break
+						}
+					}
+					defaultBSLSpec = *r.dpa.Spec.BackupLocations[defaultBSLIndex].Velero
+				}
+			}
+
+			defaultBSLSyncPeriodErrorMessage := "default BSL spec.backupSyncPeriod (%v) can not be greater or equal spec.nonAdmin.backupSyncPeriod (%v)"
+			if defaultBSLSpec.BackupSyncPeriod != nil {
+				if appliedBackupSyncPeriod <= defaultBSLSpec.BackupSyncPeriod.Duration {
+					return false, fmt.Errorf(
+						defaultBSLSyncPeriodErrorMessage,
+						defaultBSLSpec.BackupSyncPeriod.Duration, appliedBackupSyncPeriod,
+					)
+				}
+			} else {
+				if r.dpa.Spec.Configuration.Velero.Args != nil && r.dpa.Spec.Configuration.Velero.Args.BackupSyncPeriod != nil {
+					if appliedBackupSyncPeriod <= *r.dpa.Spec.Configuration.Velero.Args.BackupSyncPeriod {
+						return false, fmt.Errorf(
+							defaultBSLSyncPeriodErrorMessage,
+							r.dpa.Spec.Configuration.Velero.Args.BackupSyncPeriod, appliedBackupSyncPeriod,
+						)
+					}
+				} else {
+					// https://github.com/vmware-tanzu/velero/blob/9295be4cc061038b91b7bfaf55d99e9bc9dcf0af/pkg/cmd/server/config/config.go#L24
+					if appliedBackupSyncPeriod <= time.Minute {
+						return false, fmt.Errorf(
+							defaultBSLSyncPeriodErrorMessage,
+							time.Minute, appliedBackupSyncPeriod,
+						)
+					}
+				}
+			}
+		}
 
 		enforcedBackupSpec := r.dpa.Spec.NonAdmin.EnforceBackupSpec
 
