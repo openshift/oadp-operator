@@ -416,6 +416,9 @@ func TestEnsureRequiredSpecs(t *testing.T) {
 				EnforceRestoreSpec: &v1.RestoreSpec{
 					RestorePVs: ptr.To(true),
 				},
+				EnforceBSLSpec: &oadpv1alpha1.EnforceBackupStorageLocationSpec{
+					Provider: "foo-provider",
+				},
 			},
 			Configuration: &oadpv1alpha1.ApplicationConfig{
 				Velero: &oadpv1alpha1.VeleroConfig{},

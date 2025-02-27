@@ -1790,6 +1790,29 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 			messageErr: fmt.Sprintf(NACNonEnforceableErr, "spec.nonAdmin.enforcedRestoreSpec.namespaceMapping"),
 		},
 		{
+			name: "[valid] DPA CR: spec.nonAdmin.enforceBSLSpec set",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-DPA-CR",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							NoDefaultBackupLocation: true,
+						},
+					},
+					BackupImages: ptr.To(false),
+					NonAdmin: &oadpv1alpha1.NonAdmin{
+						Enable: ptr.To(true),
+						EnforceBSLSpec: &oadpv1alpha1.EnforceBackupStorageLocationSpec{
+							Provider: "foo-provider",
+						},
+					},
+				},
+			},
+		},
+		{
 			name: "[valid] DPA CR: spec.nonAdmin.enable true",
 			dpa: &oadpv1alpha1.DataProtectionApplication{
 				ObjectMeta: metav1.ObjectMeta{
@@ -1884,6 +1907,95 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 			},
 			wantErr:    true,
 			messageErr: "DPA spec.nonAdmin.backupSyncPeriod (2m0s) can not be greater or equal spec.nonAdmin.garbageCollectionPeriod (1m0s)",
+		},
+		{
+			name: "[invalid] DPA CR: spec.nonAdmin.enforcedBSLSpec.backupSyncPeriod equal to spec.nonAdmin.backupSyncPeriod",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-DPA-CR",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							NoDefaultBackupLocation: true,
+						},
+					},
+					BackupImages: ptr.To(false),
+					NonAdmin: &oadpv1alpha1.NonAdmin{
+						Enable: ptr.To(true),
+						BackupSyncPeriod: &metav1.Duration{
+							Duration: 3 * time.Minute,
+						},
+						EnforceBSLSpec: &oadpv1alpha1.EnforceBackupStorageLocationSpec{
+							BackupSyncPeriod: &metav1.Duration{
+								Duration: 3 * time.Minute,
+							},
+						},
+					},
+				},
+			},
+			wantErr:    true,
+			messageErr: "DPA spec.nonAdmin.enforcedBSLSpec.backupSyncPeriod (3m0s) can not be greater or equal DPA spec.nonAdmin.backupSyncPeriod (3m0s)",
+		},
+		{
+			name: "[valid] DPA CR: spec.nonAdmin.enforcedBSLSpec.backupSyncPeriod lower than spec.nonAdmin.backupSyncPeriod",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-DPA-CR",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							NoDefaultBackupLocation: true,
+						},
+					},
+					BackupImages: ptr.To(false),
+					NonAdmin: &oadpv1alpha1.NonAdmin{
+						Enable: ptr.To(true),
+						BackupSyncPeriod: &metav1.Duration{
+							Duration: 20 * time.Minute,
+						},
+						EnforceBSLSpec: &oadpv1alpha1.EnforceBackupStorageLocationSpec{
+							BackupSyncPeriod: &metav1.Duration{
+								Duration: 10 * time.Minute,
+							},
+						},
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "[invalid] DPA CR: spec.nonAdmin.enforcedBSLSpec.backupSyncPeriod greater than spec.nonAdmin.backupSyncPeriod",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-DPA-CR",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							NoDefaultBackupLocation: true,
+						},
+					},
+					BackupImages: ptr.To(false),
+					NonAdmin: &oadpv1alpha1.NonAdmin{
+						Enable: ptr.To(true),
+						BackupSyncPeriod: &metav1.Duration{
+							Duration: 15 * time.Minute,
+						},
+						EnforceBSLSpec: &oadpv1alpha1.EnforceBackupStorageLocationSpec{
+							BackupSyncPeriod: &metav1.Duration{
+								Duration: 16 * time.Minute,
+							},
+						},
+					},
+				},
+			},
+			wantErr:    true,
+			messageErr: "DPA spec.nonAdmin.enforcedBSLSpec.backupSyncPeriod (16m0s) can not be greater or equal DPA spec.nonAdmin.backupSyncPeriod (15m0s)",
 		},
 	}
 	for _, tt := range tests {

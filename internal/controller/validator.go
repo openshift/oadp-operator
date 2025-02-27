@@ -247,6 +247,17 @@ func (r *DataProtectionApplicationReconciler) ValidateDataProtectionCR(log logr.
 			}
 		}
 
+		enforcedBSLSpec := r.dpa.Spec.NonAdmin.EnforceBSLSpec
+
+		if enforcedBSLSpec != nil {
+			if enforcedBSLSpec.BackupSyncPeriod != nil && enforcedBSLSpec.BackupSyncPeriod.Duration >= appliedBackupSyncPeriod {
+				return false, fmt.Errorf(
+					"DPA spec.nonAdmin.enforcedBSLSpec.backupSyncPeriod (%v) can not be greater or equal DPA spec.nonAdmin.backupSyncPeriod (%v)",
+					enforcedBSLSpec.BackupSyncPeriod.Duration, appliedBackupSyncPeriod,
+				)
+
+			}
+		}
 	}
 
 	return true, nil
