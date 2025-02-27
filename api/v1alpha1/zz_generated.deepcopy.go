@@ -454,6 +454,11 @@ func (in *EnforceBackupStorageLocationSpec) DeepCopyInto(out *EnforceBackupStora
 			(*out)[key] = val
 		}
 	}
+	if in.Credential != nil {
+		in, out := &in.Credential, &out.Credential
+		*out = new(v1.SecretKeySelector)
+		(*in).DeepCopyInto(*out)
+	}
 	in.StorageType.DeepCopyInto(&out.StorageType)
 	if in.BackupSyncPeriod != nil {
 		in, out := &in.BackupSyncPeriod, &out.BackupSyncPeriod
