@@ -254,7 +254,7 @@ metadata:
       Cloud Provider,Developer Tools,Modernization & Migration,OpenShift Optional,Storage
     certified: "false"
     containerImage: quay.io/konveyor/oadp-operator:latest
-    createdAt: "2025-02-28T15:43:48Z"
+    createdAt: "2025-02-28T18:22:14Z"
     description: OADP (OpenShift API for Data Protection) operator sets up and installs
       Data Protection Applications on the OpenShift platform.
     features.operators.openshift.io/cnf: "false"
@@ -808,6 +808,32 @@ spec:
         - apiGroups:
           - oadp.openshift.io
           resources:
+          - nonadmindownloadrequests
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - oadp.openshift.io
+          resources:
+          - nonadmindownloadrequests/finalizers
+          verbs:
+          - update
+        - apiGroups:
+          - oadp.openshift.io
+          resources:
+          - nonadmindownloadrequests/status
+          verbs:
+          - get
+          - patch
+          - update
+        - apiGroups:
+          - oadp.openshift.io
+          resources:
           - nonadminrestores
           verbs:
           - create
@@ -919,46 +945,6 @@ spec:
           - patch
           - update
           - watch
-        - apiGroups:
-          - oadp.openshift.io
-          resources:
-          - nonadmindownloadrequests
-          verbs:
-          - create
-          - delete
-          - get
-          - list
-          - patch
-          - update
-          - watch
-        - apiGroups:
-          - oadp.openshift.io
-          resources:
-          - nonadmindownloadrequests/status
-          verbs:
-          - get
-          - patch
-          - update
-        - apiGroups:
-          - velero.io
-          resources:
-          - downloadrequest
-          verbs:
-          - create
-          - delete
-          - get
-          - list
-          - patch
-          - update
-          - watch
-        - apiGroups:
-          - velero.io
-          resources:
-          - downloadrequest/status
-          verbs:
-          - get
-          - patch
-          - update
         serviceAccountName: non-admin-controller
       - rules:
         - apiGroups:
