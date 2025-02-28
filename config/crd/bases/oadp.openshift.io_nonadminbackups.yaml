@@ -601,6 +601,72 @@ spec:
                   - type
                   type: object
                 type: array
+              dataMoverVolumeBackups:
+                description: DataMoverVolumeBackups contains information of the related
+                  Velero DataUpload objects.
+                properties:
+                  accepted:
+                    description: number of DataUploads related to this NonAdminBackup's
+                      Backup in phase Accepted
+                    type: integer
+                  canceled:
+                    description: number of DataUploads related to this NonAdminBackup's
+                      Backup in phase Canceled
+                    type: integer
+                  canceling:
+                    description: number of DataUploads related to this NonAdminBackup's
+                      Backup in phase Canceling
+                    type: integer
+                  completed:
+                    description: number of DataUploads related to this NonAdminBackup's
+                      Backup in phase Completed
+                    type: integer
+                  failed:
+                    description: number of DataUploads related to this NonAdminBackup's
+                      Backup in phase Failed
+                    type: integer
+                  inProgress:
+                    description: number of DataUploads related to this NonAdminBackup's
+                      Backup in phase InProgress
+                    type: integer
+                  new:
+                    description: number of DataUploads related to this NonAdminBackup's
+                      Backup in phase New
+                    type: integer
+                  prepared:
+                    description: number of DataUploads related to this NonAdminBackup's
+                      Backup in phase Prepared
+                    type: integer
+                  total:
+                    description: number of DataUploads related to this NonAdminBackup's
+                      Backup
+                    type: integer
+                type: object
+              fileSystemVolumeBackups:
+                description: FileSystemVolumeBackups contains information of the related
+                  Velero PodVolumeBackup objects.
+                properties:
+                  completed:
+                    description: number of PodVolumeBackups related to this NonAdminBackup's
+                      Backup in phase Completed
+                    type: integer
+                  failed:
+                    description: number of PodVolumeBackups related to this NonAdminBackup's
+                      Backup in phase Failed
+                    type: integer
+                  inProgress:
+                    description: number of PodVolumeBackups related to this NonAdminBackup's
+                      Backup in phase InProgress
+                    type: integer
+                  new:
+                    description: number of PodVolumeBackups related to this NonAdminBackup's
+                      Backup in phase New
+                    type: integer
+                  total:
+                    description: number of PodVolumeBackups related to this NonAdminBackup's
+                      Backup
+                    type: integer
+                type: object
               phase:
                 description: phase is a simple one high-level summary of the lifecycle
                   of an NonAdminBackup.

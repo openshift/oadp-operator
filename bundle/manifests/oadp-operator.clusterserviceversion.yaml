@@ -846,6 +846,22 @@ spec:
         - apiGroups:
           - velero.io
           resources:
+          - datadownloads
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - velero.io
+          resources:
+          - datauploads
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - velero.io
+          resources:
           - deletebackuprequests
           verbs:
           - create
@@ -854,6 +870,22 @@ spec:
           - list
           - patch
           - update
+          - watch
+        - apiGroups:
+          - velero.io
+          resources:
+          - podvolumebackups
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - velero.io
+          resources:
+          - podvolumerestores
+          verbs:
+          - get
+          - list
           - watch
         - apiGroups:
           - velero.io
