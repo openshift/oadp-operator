@@ -254,7 +254,7 @@ metadata:
       Cloud Provider,Developer Tools,Modernization & Migration,OpenShift Optional,Storage
     certified: "false"
     containerImage: quay.io/konveyor/oadp-operator:latest
-    createdAt: "2025-02-28T18:22:14Z"
+    createdAt: "2025-02-28T20:03:54Z"
     description: OADP (OpenShift API for Data Protection) operator sets up and installs
       Data Protection Applications on the OpenShift platform.
     features.operators.openshift.io/cnf: "false"
@@ -917,6 +917,24 @@ spec:
           - patch
           - update
           - watch
+        - apiGroups:
+          - velero.io
+          resources:
+          - downloadrequests
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - velero.io
+          resources:
+          - downloadrequests/status
+          verbs:
+          - get
         - apiGroups:
           - velero.io
           resources:
