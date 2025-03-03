@@ -534,6 +534,72 @@ spec:
                   - type
                   type: object
                 type: array
+              dataMoverDataDownloads:
+                description: DataMoverDataDownloads contains information of the related
+                  Velero DataDownload objects.
+                properties:
+                  accepted:
+                    description: number of DataDownloads related to this NonAdminRestore's
+                      Restore in phase Accepted
+                    type: integer
+                  canceled:
+                    description: number of DataDownloads related to this NonAdminRestore's
+                      Restore in phase Canceled
+                    type: integer
+                  canceling:
+                    description: number of DataDownloads related to this NonAdminRestore's
+                      Restore in phase Canceling
+                    type: integer
+                  completed:
+                    description: number of DataDownloads related to this NonAdminRestore's
+                      Restore in phase Completed
+                    type: integer
+                  failed:
+                    description: number of DataDownloads related to this NonAdminRestore's
+                      Restore in phase Failed
+                    type: integer
+                  inProgress:
+                    description: number of DataDownloads related to this NonAdminRestore's
+                      Restore in phase InProgress
+                    type: integer
+                  new:
+                    description: number of DataDownloads related to this NonAdminRestore's
+                      Restore in phase New
+                    type: integer
+                  prepared:
+                    description: number of DataDownloads related to this NonAdminRestore's
+                      Restore in phase Prepared
+                    type: integer
+                  total:
+                    description: number of DataDownloads related to this NonAdminRestore's
+                      Restore
+                    type: integer
+                type: object
+              fileSystemPodVolumeRestores:
+                description: FileSystemPodVolumeRestores contains information of the
+                  related Velero PodVolumeRestore objects.
+                properties:
+                  completed:
+                    description: number of PodVolumeRestores related to this NonAdminRestore's
+                      Restore in phase Completed
+                    type: integer
+                  failed:
+                    description: number of PodVolumeRestores related to this NonAdminRestore's
+                      Restore in phase Failed
+                    type: integer
+                  inProgress:
+                    description: number of PodVolumeRestores related to this NonAdminRestore's
+                      Restore in phase InProgress
+                    type: integer
+                  new:
+                    description: number of PodVolumeRestores related to this NonAdminRestore's
+                      Restore in phase New
+                    type: integer
+                  total:
+                    description: number of PodVolumeRestores related to this NonAdminRestore's
+                      Restore
+                    type: integer
+                type: object
               phase:
                 description: phase is a simple one high-level summary of the lifecycle
                   of an NonAdminRestore.
