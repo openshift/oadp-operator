@@ -534,8 +534,8 @@ spec:
                   - type
                   type: object
                 type: array
-              dataMoverVolumeRestores:
-                description: DataMoverVolumeRestores contains information of the related
+              dataMoverDataDownloads:
+                description: DataMoverDataDownloads contains information of the related
                   Velero DataDownload objects.
                 properties:
                   accepted:
@@ -575,8 +575,8 @@ spec:
                       Restore
                     type: integer
                 type: object
-              fileSystemVolumeRestores:
-                description: FileSystemVolumeRestores contains information of the
+              fileSystemPodVolumeRestores:
+                description: FileSystemPodVolumeRestores contains information of the
                   related Velero PodVolumeRestore objects.
                 properties:
                   completed:

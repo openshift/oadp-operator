@@ -601,8 +601,8 @@ spec:
                   - type
                   type: object
                 type: array
-              dataMoverVolumeBackups:
-                description: DataMoverVolumeBackups contains information of the related
+              dataMoverDataUploads:
+                description: DataMoverDataUploads contains information of the related
                   Velero DataUpload objects.
                 properties:
                   accepted:
@@ -642,9 +642,9 @@ spec:
                       Backup
                     type: integer
                 type: object
-              fileSystemVolumeBackups:
-                description: FileSystemVolumeBackups contains information of the related
-                  Velero PodVolumeBackup objects.
+              fileSystemPodVolumeBackups:
+                description: FileSystemPodVolumeBackups contains information of the
+                  related Velero PodVolumeBackup objects.
                 properties:
                   completed:
                     description: number of PodVolumeBackups related to this NonAdminBackup's
