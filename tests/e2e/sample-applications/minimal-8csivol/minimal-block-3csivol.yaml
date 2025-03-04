@@ -41,7 +41,7 @@ spec:
         app: minimal-block-3csivol
     spec:
       containers:
-        - image: quay.io/migtools/3csivol-block2:latest
+        - image: quay.io/migtools/3csivol-block:test
           resources:
             requests:
               cpu: 100m
