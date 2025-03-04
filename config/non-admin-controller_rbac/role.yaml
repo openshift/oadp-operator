@@ -105,6 +105,32 @@ rules:
 - apiGroups:
   - oadp.openshift.io
   resources:
+  - nonadmindownloadrequests
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - oadp.openshift.io
+  resources:
+  - nonadmindownloadrequests/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - oadp.openshift.io
+  resources:
+  - nonadmindownloadrequests/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - oadp.openshift.io
+  resources:
   - nonadminrestores
   verbs:
   - create
@@ -188,6 +214,24 @@ rules:
   - patch
   - update
   - watch
+- apiGroups:
+  - velero.io
+  resources:
+  - downloadrequests
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - velero.io
+  resources:
+  - downloadrequests/status
+  verbs:
+  - get
 - apiGroups:
   - velero.io
   resources:

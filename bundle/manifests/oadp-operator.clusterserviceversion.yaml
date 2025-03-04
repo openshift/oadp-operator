@@ -124,6 +124,23 @@ metadata:
         },
         {
           "apiVersion": "oadp.openshift.io/v1alpha1",
+          "kind": "NonAdminDownloadRequest",
+          "metadata": {
+            "labels": {
+              "app.kubernetes.io/managed-by": "kustomize",
+              "app.kubernetes.io/name": "oadp-nac"
+            },
+            "name": "nonadmindownloadrequest-sample"
+          },
+          "spec": {
+            "target": {
+              "kind": "BackupLog",
+              "name": "non-admin-backup-name"
+            }
+          }
+        },
+        {
+          "apiVersion": "oadp.openshift.io/v1alpha1",
           "kind": "NonAdminRestore",
           "metadata": {
             "labels": {
@@ -237,7 +254,7 @@ metadata:
       Cloud Provider,Developer Tools,Modernization & Migration,OpenShift Optional,Storage
     certified: "false"
     containerImage: quay.io/konveyor/oadp-operator:latest
-    createdAt: "2025-02-22T08:41:53Z"
+    createdAt: "2025-02-28T20:03:54Z"
     description: OADP (OpenShift API for Data Protection) operator sets up and installs
       Data Protection Applications on the OpenShift platform.
     features.operators.openshift.io/cnf: "false"
@@ -500,6 +517,9 @@ spec:
       displayName: Non Admin BackupStorageLocation
       kind: NonAdminBackupStorageLocation
       name: nonadminbackupstoragelocations.oadp.openshift.io
+      version: v1alpha1
+    - kind: NonAdminDownloadRequest
+      name: nonadmindownloadrequests.oadp.openshift.io
       version: v1alpha1
     - description: NonAdminRestore is the Schema for the nonadminrestores API
       displayName: Non Admin Restore
@@ -788,6 +808,32 @@ spec:
         - apiGroups:
           - oadp.openshift.io
           resources:
+          - nonadmindownloadrequests
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - oadp.openshift.io
+          resources:
+          - nonadmindownloadrequests/finalizers
+          verbs:
+          - update
+        - apiGroups:
+          - oadp.openshift.io
+          resources:
+          - nonadmindownloadrequests/status
+          verbs:
+          - get
+          - patch
+          - update
+        - apiGroups:
+          - oadp.openshift.io
+          resources:
           - nonadminrestores
           verbs:
           - create
@@ -871,6 +917,24 @@ spec:
           - patch
           - update
           - watch
+        - apiGroups:
+          - velero.io
+          resources:
+          - downloadrequests
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - velero.io
+          resources:
+          - downloadrequests/status
+          verbs:
+          - get
         - apiGroups:
           - velero.io
           resources:
