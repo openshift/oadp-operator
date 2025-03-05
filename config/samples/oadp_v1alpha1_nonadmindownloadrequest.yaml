@@ -1,0 +1,12 @@
+apiVersion: oadp.openshift.io/v1alpha1
+kind: NonAdminDownloadRequest
+metadata:
+  labels:
+    app.kubernetes.io/name: oadp-nac
+    app.kubernetes.io/managed-by: kustomize
+  name: nonadmindownloadrequest-sample
+spec:
+  target:
+    kind: BackupLog
+    name: non-admin-backup-name
+
