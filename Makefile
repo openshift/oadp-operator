@@ -265,7 +265,7 @@ bundle: manifests kustomize operator-sdk ## Generate bundle manifests and metada
 	# TODO: update CI to use generated one
 	cp bundle.Dockerfile build/Dockerfile.bundle
 	GOFLAGS="-mod=mod" $(OPERATOR_SDK) bundle validate ./bundle
-	sed -e 's/    createdAt: .*/$(shell grep -I '^    createdAt: ' bundle/manifests/oadp-operator.clusterserviceversion.yaml)/' bundle/manifests/oadp-operator.clusterserviceversion.yaml > bundle/manifests/oadp-operator.clusterserviceversion.yaml.tmp
+	$(SED) -e 's/    createdAt: .*/$(shell grep -I '^    createdAt: ' bundle/manifests/oadp-operator.clusterserviceversion.yaml)/' bundle/manifests/oadp-operator.clusterserviceversion.yaml > bundle/manifests/oadp-operator.clusterserviceversion.yaml.tmp
 	mv bundle/manifests/oadp-operator.clusterserviceversion.yaml.tmp bundle/manifests/oadp-operator.clusterserviceversion.yaml
 
 .PHONY: bundle-build
@@ -334,6 +334,10 @@ check-go-dependencies:
 	@chmod -R 777 $(TEMP) && rm -rf $(TEMP)
 	go mod verify
 
+SED = sed
+# if on macos, install gsed
+# https://formulae.brew.sh/formula/gnu-sed
+
 # Codecov OS String for use in download url
 ifeq ($(OS),Windows_NT)
     OS_String = windows
@@ -344,6 +348,7 @@ else
     endif
     ifeq ($(UNAME_S),Darwin)
         OS_String = macos
+		SED = gsed
     endif
 endif
 submit-coverage:
@@ -461,11 +466,11 @@ catalog-test-upgrade: opm login-required ## Prepare a catalog image with two cha
 	cd test-upgrade/$(PREVIOUS_CHANNEL) && \
 		echo -e "FROM golang:$(PREVIOUS_CHANNEL_GO_VERSION)\nRUN useradd --create-home dev\nUSER dev\nWORKDIR /home/dev/$(PREVIOUS_CHANNEL)" | $(CONTAINER_TOOL) image build --tag catalog-test-upgrade - && \
 		$(CONTAINER_TOOL) container run -u $(shell id -u):$(shell id -g) -v $(shell pwd)/test-upgrade/$(PREVIOUS_CHANNEL):/home/dev/$(PREVIOUS_CHANNEL) --rm catalog-test-upgrade make bundle IMG=$(PREVIOUS_OPERATOR_IMAGE) BUNDLE_IMG=$(PREVIOUS_BUNDLE_IMAGE) && \
-		sed -i '/replaces:/d' ./bundle/manifests/oadp-operator.clusterserviceversion.yaml && \
+		$(SED)  -i '/replaces:/d' ./bundle/manifests/oadp-operator.clusterserviceversion.yaml && \
 		IMG=$(PREVIOUS_OPERATOR_IMAGE) BUNDLE_IMG=$(PREVIOUS_BUNDLE_IMAGE) \
 		make docker-build docker-push bundle-build bundle-push && cd -
 	cd test-upgrade/current && IMG=$(THIS_OPERATOR_IMAGE) BUNDLE_IMG=$(THIS_BUNDLE_IMAGE) make bundle && \
-		sed -i '/replaces:/d' ./bundle/manifests/oadp-operator.clusterserviceversion.yaml && \
+		$(SED) -i '/replaces:/d' ./bundle/manifests/oadp-operator.clusterserviceversion.yaml && \
 		IMG=$(THIS_OPERATOR_IMAGE) BUNDLE_IMG=$(THIS_BUNDLE_IMAGE) \
 		make docker-build docker-push bundle-build bundle-push && cd -
 	$(OPM) index add --container-tool $(CONTAINER_TOOL) --bundles $(PREVIOUS_BUNDLE_IMAGE),$(THIS_BUNDLE_IMAGE) --tag $(CATALOG_IMAGE)
@@ -556,8 +561,8 @@ HCO_UPSTREAM ?= false
 TEST_VIRT ?= false
 TEST_UPGRADE ?= false
 TEST_FILTER = (($(shell echo '! aws && ! gcp && ! azure && ! ibmcloud' | \
-sed -r "s/[&]* [!] $(CLUSTER_TYPE)|[!] $(CLUSTER_TYPE) [&]*//")) || $(CLUSTER_TYPE))
-#TEST_FILTER := $(shell echo '! aws && ! gcp && ! azure' | sed -r "s/[&]* [!] $(CLUSTER_TYPE)|[!] $(CLUSTER_TYPE) [&]*//")
+$(SED) -r "s/[&]* [!] $(CLUSTER_TYPE)|[!] $(CLUSTER_TYPE) [&]*//")) || $(CLUSTER_TYPE))
+#TEST_FILTER := $(shell echo '! aws && ! gcp && ! azure' | $(SED) -r "s/[&]* [!] $(CLUSTER_TYPE)|[!] $(CLUSTER_TYPE) [&]*//")
 ifeq ($(TEST_VIRT),true)
 	TEST_FILTER += && (virt)
 else
@@ -603,17 +608,18 @@ test-e2e-cleanup: login-required
 	for restore_name in $(shell $(OC_CLI) get restore -n $(OADP_TEST_NAMESPACE) -o name);do $(OC_CLI) patch "$$restore_name" -n $(OADP_TEST_NAMESPACE) -p '{"metadata":{"finalizers":null}}' --type=merge;done
 	rm -rf $(SETTINGS_TMP)
 
+
 .PHONY: update-non-admin-manifests
 update-non-admin-manifests: NON_ADMIN_CONTROLLER_IMG?=quay.io/konveyor/oadp-non-admin:latest
-update-non-admin-manifests: ## Update Non Admin Controller (NAC) manifests shipped with OADP, from NON_ADMIN_CONTROLLER_PATH
+update-non-admin-manifests: yq ## Update Non Admin Controller (NAC) manifests shipped with OADP, from NON_ADMIN_CONTROLLER_PATH
 ifeq ($(NON_ADMIN_CONTROLLER_PATH),)
 	$(error You must set NON_ADMIN_CONTROLLER_PATH to run this command)
 endif
 	@for file_name in $(shell ls $(NON_ADMIN_CONTROLLER_PATH)/config/crd/bases);do \
 		cp $(NON_ADMIN_CONTROLLER_PATH)/config/crd/bases/$$file_name $(shell pwd)/config/crd/bases/$$file_name && \
 		grep -q "\- bases/$$file_name" $(shell pwd)/config/crd/kustomization.yaml || \
-		sed -i "s%resources:%resources:\n- bases/$$file_name%" $(shell pwd)/config/crd/kustomization.yaml;done
-	@sed -i "$(shell grep -Inr 'RELATED_IMAGE_NON_ADMIN_CONTROLLER' $(shell pwd)/config/manager/manager.yaml | awk -F':' '{print $$1+1}')s%.*%            value: $(NON_ADMIN_CONTROLLER_IMG)%" $(shell pwd)/config/manager/manager.yaml
+		$(SED) -i "s%resources:%resources:\n- bases/$$file_name%" $(shell pwd)/config/crd/kustomization.yaml;done
+	$(YQ) -i 'select(.kind == "Deployment")|= .spec.template.spec.containers[0].env |= .[] |= select(.name == "RELATED_IMAGE_NON_ADMIN_CONTROLLER") |= .value="$(NON_ADMIN_CONTROLLER_IMG)"' config/manager/manager.yaml
 	@mkdir -p $(shell pwd)/config/non-admin-controller_rbac
 	@for file_name in $(shell grep -I '^\-' $(NON_ADMIN_CONTROLLER_PATH)/config/rbac/kustomization.yaml | awk -F'- ' '{print $$2}');do \
 		cp $(NON_ADMIN_CONTROLLER_PATH)/config/rbac/$$file_name $(shell pwd)/config/non-admin-controller_rbac/$$file_name;done
@@ -621,5 +627,5 @@ endif
 	@for file_name in $(shell grep -I '^\-' $(NON_ADMIN_CONTROLLER_PATH)/config/samples/kustomization.yaml | awk -F'- ' '{print $$2}');do \
 		cp $(NON_ADMIN_CONTROLLER_PATH)/config/samples/$$file_name $(shell pwd)/config/samples/$$file_name && \
 		grep -q "\- $$file_name" $(shell pwd)/config/samples/kustomization.yaml || \
-		sed -i "s%resources:%resources:\n- $$file_name%" $(shell pwd)/config/samples/kustomization.yaml;done
+		$(SED) -i "s%resources:%resources:\n- $$file_name%" $(shell pwd)/config/samples/kustomization.yaml;done
 	@make bundle
