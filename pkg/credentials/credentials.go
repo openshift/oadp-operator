@@ -183,7 +183,7 @@ func GetPluginImage(defaultPlugin oadpv1alpha1.DefaultPlugin, dpa *oadpv1alpha1.
 	return ""
 }
 
-func AppendCloudProviderVolumes(dpa *oadpv1alpha1.DataProtectionApplication, ds *appsv1.DaemonSet, providerNeedsDefaultCreds map[string]bool, hasCloudStorage bool) error {
+func AppendCloudProviderVolumes(dpa *oadpv1alpha1.DataProtectionApplication, ds *appsv1.DaemonSet, providerNeedsDefaultCreds map[string]bool, hasCloudStorage bool) {
 	var nodeAgentContainer *corev1.Container
 	for i, container := range ds.Spec.Template.Spec.Containers {
 		if container.Name == common.NodeAgent {
@@ -263,7 +263,6 @@ func AppendCloudProviderVolumes(dpa *oadpv1alpha1.DataProtectionApplication, ds 
 		}
 
 	}
-	return nil
 }
 
 // TODO: remove duplicate func in registry.go - refactoring away registry.go later
