@@ -210,6 +210,9 @@ spec:
                     nodeAgent:
                       description: NodeAgent is needed to allow selection between kopia or restic
                       properties:
+                        dataMoverPrepareTimeout:
+                          description: How long to wait for preparing a DataUpload/DataDownload. Default is 30 minutes.
+                          type: string
                         enable:
                           description: |-
                             enable defines a boolean pointer whether we want the daemonset to
@@ -437,6 +440,9 @@ spec:
                                 type: object
                               type: array
                           type: object
+                        resourceTimeout:
+                          description: How long to wait for resource processes which are not covered by other specific timeout parameters. Default is 10 minutes.
+                          type: string
                         supplementalGroups:
                           description: supplementalGroups defines the linux groups to be applied to the NodeAgent Pod
                           items:
