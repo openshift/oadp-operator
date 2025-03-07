@@ -10,6 +10,7 @@ spec:
       - aws
       - kubevirt
     nodeAgent:
+      privileged: true
       enable: true
       uploaderType: kopia
   backupLocations:

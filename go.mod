@@ -29,6 +29,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.48.0
 	github.com/deckarep/golang-set/v2 v2.3.0
 	github.com/google/go-cmp v0.6.0
+	github.com/google/martian v2.1.0+incompatible
 	github.com/vmware-tanzu/velero v1.14.0
 	golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1
 	k8s.io/klog/v2 v2.120.1

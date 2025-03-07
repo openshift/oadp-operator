@@ -437,6 +437,13 @@ spec:
                                 type: object
                               type: array
                           type: object
+                        privileged:
+                          default: true
+                          description: |-
+                            Privileged specifies whether the NodeAgent should run in privileged mode.
+                            This is optional and required for backing up block devices.
+                            Defaults to true
+                          type: boolean
                         supplementalGroups:
                           description: supplementalGroups defines the linux groups to be applied to the NodeAgent Pod
                           items:
