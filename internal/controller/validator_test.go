@@ -353,7 +353,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 								},
 							},
 						},
-						Restic: &oadpv1alpha1.ResticConfig{
+						NodeAgent: &oadpv1alpha1.NodeAgentConfig{
 							NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
 								PodConfig: &oadpv1alpha1.PodConfig{
 									ResourceAllocations: corev1.ResourceRequirements{
@@ -363,6 +363,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 									},
 								},
 							},
+							UploaderType: "restic",
 						},
 					},
 					BackupImages: pointer.Bool(false),

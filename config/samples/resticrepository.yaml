@@ -1,6 +1,0 @@
-apiVersion: velero.io/v1
-kind: ResticRepository
-metadata:
-  name: resticrepository
-  namespace: openshift-adp
-spec: {}

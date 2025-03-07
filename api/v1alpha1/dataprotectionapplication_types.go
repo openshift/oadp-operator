@@ -374,10 +374,8 @@ type ResticConfig struct {
 // ApplicationConfig defines the configuration for the Data Protection Application
 type ApplicationConfig struct {
 	Velero *VeleroConfig `json:"velero,omitempty"`
-	// (deprecation warning) ResticConfig is the configuration for restic DaemonSet.
-	// restic is for backwards compatibility and is replaced by the nodeAgent
-	// restic will be removed in the future
-	// +kubebuilder:deprecatedversion:warning=1.3
+	// (do not use warning) restic field is for backwards compatibility and
+	// will be removed in the future. Use nodeAgent field instead
 	// +optional
 	Restic *ResticConfig `json:"restic,omitempty"`
 
@@ -761,8 +759,6 @@ func (dpa *DataProtectionApplication) AutoCorrect() {
 		if dpa.Spec.Configuration != nil {
 			if dpa.Spec.Configuration.NodeAgent != nil && len(dpa.Spec.Configuration.NodeAgent.Timeout) > 0 {
 				fsBackupTimeout = dpa.Spec.Configuration.NodeAgent.Timeout
-			} else if dpa.Spec.Configuration.Restic != nil && len(dpa.Spec.Configuration.Restic.Timeout) > 0 {
-				fsBackupTimeout = dpa.Spec.Configuration.Restic.Timeout
 			}
 		}
 		if pvOperationTimeout, err := time.ParseDuration(fsBackupTimeout); err == nil && dpa.Spec.Configuration.Velero.Args.PodVolumeOperationTimeout == nil {
