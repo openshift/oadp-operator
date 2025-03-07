@@ -362,6 +362,13 @@ type NodeAgentConfig struct {
 	// +kubebuilder:validation:Enum=restic;kopia
 	// +kubebuilder:validation:Required
 	UploaderType string `json:"uploaderType"`
+
+	// Privileged specifies whether the NodeAgent should run in privileged mode.
+	// This is optional and required for backing up block devices.
+	// Defaults to true
+	// +optional
+	// +kubebuilder:default=true
+	Privileged *bool `json:"privileged,omitempty"`
 }
 
 // ResticConfig is the configuration for restic server
