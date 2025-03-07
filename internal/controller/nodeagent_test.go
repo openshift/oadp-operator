@@ -2,10 +2,12 @@ package controller
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"reflect"
 	"slices"
 	"testing"
+	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
@@ -230,18 +232,20 @@ var _ = ginkgo.Describe("Test ReconcileNodeAgentDaemonSet function", func() {
 })
 
 type TestBuiltNodeAgentDaemonSetOptions struct {
-	args             []string
-	labels           map[string]string
-	annotations      map[string]string
-	volumes          []corev1.Volume
-	volumeMounts     []corev1.VolumeMount
-	env              []corev1.EnvVar
-	dnsPolicy        corev1.DNSPolicy
-	dnsConfig        *corev1.PodDNSConfig
-	resourceLimits   corev1.ResourceList
-	resourceRequests corev1.ResourceList
-	toleration       []corev1.Toleration
-	nodeSelector     map[string]string
+	args                    []string
+	labels                  map[string]string
+	annotations             map[string]string
+	volumes                 []corev1.Volume
+	volumeMounts            []corev1.VolumeMount
+	env                     []corev1.EnvVar
+	dnsPolicy               corev1.DNSPolicy
+	dnsConfig               *corev1.PodDNSConfig
+	resourceLimits          corev1.ResourceList
+	resourceRequests        corev1.ResourceList
+	dataMoverPrepareTimeout *string
+	resourceTimeout         *string
+	toleration              []corev1.Toleration
+	nodeSelector            map[string]string
 }
 
 func createTestBuiltNodeAgentDaemonSet(options TestBuiltNodeAgentDaemonSetOptions) *appsv1.DaemonSet {
@@ -457,6 +461,14 @@ func createTestBuiltNodeAgentDaemonSet(options TestBuiltNodeAgentDaemonSetOption
 		testBuiltNodeAgentDaemonSet.Spec.Template.Spec.DNSConfig = options.dnsConfig
 	}
 
+	if options.dataMoverPrepareTimeout != nil {
+		testBuiltNodeAgentDaemonSet.Spec.Template.Spec.Containers[0].Args = append(testBuiltNodeAgentDaemonSet.Spec.Template.Spec.Containers[0].Args, fmt.Sprintf("--data-mover-prepare-timeout=%s", *options.dataMoverPrepareTimeout))
+	}
+
+	if options.resourceTimeout != nil {
+		testBuiltNodeAgentDaemonSet.Spec.Template.Spec.Containers[0].Args = append(testBuiltNodeAgentDaemonSet.Spec.Template.Spec.Containers[0].Args, fmt.Sprintf("--resource-timeout=%s", *options.resourceTimeout))
+	}
+
 	return testBuiltNodeAgentDaemonSet
 }
 
@@ -590,6 +602,68 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 			nodeAgentDaemonSet: testNodeAgentDaemonSet.DeepCopy(),
 			wantNodeAgentDaemonSet: createTestBuiltNodeAgentDaemonSet(TestBuiltNodeAgentDaemonSetOptions{
 				annotations: map[string]string{"test-annotation": "awesome annotation"},
+			}),
+		},
+		{
+			name: "valid DPA CR with DataMoverPrepareTimeout, NodeAgent DaemonSet is built with DataMoverPrepareTimeout",
+			dpa: createTestDpaWith(
+				nil,
+				oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{},
+						NodeAgent: &oadpv1alpha1.NodeAgentConfig{
+							DataMoverPrepareTimeout: &metav1.Duration{Duration: 10 * time.Second},
+							UploaderType:            "kopia",
+						},
+					},
+				},
+			),
+			clientObjects:      []client.Object{testGenericInfrastructure},
+			nodeAgentDaemonSet: testNodeAgentDaemonSet.DeepCopy(),
+			wantNodeAgentDaemonSet: createTestBuiltNodeAgentDaemonSet(TestBuiltNodeAgentDaemonSetOptions{
+				dataMoverPrepareTimeout: ptr.To("10s"),
+			}),
+		},
+		{
+			name: "valid DPA CR with ResourceTimeout, NodeAgent DaemonSet is built with ResourceTimeout",
+			dpa: createTestDpaWith(
+				nil,
+				oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{},
+						NodeAgent: &oadpv1alpha1.NodeAgentConfig{
+							ResourceTimeout: &metav1.Duration{Duration: 100 * time.Minute},
+							UploaderType:    "kopia",
+						},
+					},
+				},
+			),
+			clientObjects:      []client.Object{testGenericInfrastructure},
+			nodeAgentDaemonSet: testNodeAgentDaemonSet.DeepCopy(),
+			wantNodeAgentDaemonSet: createTestBuiltNodeAgentDaemonSet(TestBuiltNodeAgentDaemonSetOptions{
+				resourceTimeout: ptr.To("1h40m0s"),
+			}),
+		},
+		{
+			name: "valid DPA CR with DataMoverPrepareTimeout and ResourceTimeout, NodeAgent DaemonSet is built with DataMoverPrepareTimeout and ResourceTimeout",
+			dpa: createTestDpaWith(
+				nil,
+				oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{},
+						NodeAgent: &oadpv1alpha1.NodeAgentConfig{
+							DataMoverPrepareTimeout: &metav1.Duration{Duration: 10 * time.Second},
+							ResourceTimeout:         &metav1.Duration{Duration: 10 * time.Minute},
+							UploaderType:            "kopia",
+						},
+					},
+				},
+			),
+			clientObjects:      []client.Object{testGenericInfrastructure},
+			nodeAgentDaemonSet: testNodeAgentDaemonSet.DeepCopy(),
+			wantNodeAgentDaemonSet: createTestBuiltNodeAgentDaemonSet(TestBuiltNodeAgentDaemonSetOptions{
+				dataMoverPrepareTimeout: ptr.To("10s"),
+				resourceTimeout:         ptr.To("10m0s"),
 			}),
 		},
 		{
