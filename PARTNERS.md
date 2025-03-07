@@ -38,3 +38,59 @@ Starting in 2025, OADP will implement a streamlined version support policy. Red 
 Last Updated: November 2024
 
 Note: Release timelines are subject to change.
+
+
+## Upgrade workflow
+### Automatic upgrade: 
+
+While customers are on OCP 4.18, they can update the channel to stable and the operator will automatically upgrade to OADP 1.5.x when the cluster is upgraded 
+to OCP 4.19.
+
+**Note:** This automatic upgrade will also be supported from OCP 4.18 to OCP 4.20.
+
+sequenceDiagram
+    participant Customer
+    participant OCP 4.18
+    participant OCP 4.19
+    participant OADP 1.4
+    participant OADP 1.5
+
+    Note over OADP 1.5: Version 1.5.0 requires >= OCP 4.19
+    Note over Customer,OCP 4.18: Customer has OADP 1.4.x installed...
+    Note over Customer,OCP 4.18: Customer updates channel to stable
+
+
+    Customer->>OCP 4.18: Initiate OCP upgrade
+    OCP 4.18->>OCP 4.19: Upgrade cluster
+    OCP 4.19->>OLM: Reports new version 4.19
+    OLM->>OADP 1.5: Trigger automatic upgrade to OADP 1.5.x
+    OADP 1.5-->>Customer: Running on 4.19 with OADP-1.5
+
+    Note over Customer: Automatic upgrade complete
+
+### Customer upgrades to OCP 4.19 while on OADP's stable-1.4 channel
+
+sequenceDiagram
+    participant Customer
+    participant OCP 4.18
+    participant OCP 4.19
+    participant OADP 1.4
+    participant OADP 1.5
+
+    Note over OADP 1.5: Version 1.5.0 requires >= OCP 4.19
+    Note over Customer,OCP 4.19: Customer has OADP 1.4.x installed...
+
+    Customer->>OCP 4.18: Initiate OCP upgrade
+    OCP 4.18->>OCP 4.19: Upgrade cluster
+    OCP 4.19->>OADP 1.4: OADP 1.4 is not supported, DPA moves to error state
+    Customer->>OCP 4.19: Customer updates channel from stable 1.4 to stable
+    OLM->>OADP 1.5: Manual or Automatic upgrade to OADP 1.5.x
+    OADP 1.5-->>Customer: Running on 4.19 with OADP-1.5
+
+    Note over Customer:  Upgrade complete
+
+### Customer attempts a manual upgrade to OADP 1.5.x while on OCP 4.18
+
+Even though both OADP 1.4.x and OADP 1.5.x will be available via the *stable* 
+channel, a customer will not see OADP 1.5.x listed as an available version 
+to upgrade to.  
