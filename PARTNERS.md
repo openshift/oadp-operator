@@ -48,6 +48,7 @@ to OCP 4.19.
 
 **Note:** This automatic upgrade will also be supported from OCP 4.18 to OCP 4.20.
 
+```mermaid
 sequenceDiagram
     participant Customer
     participant OCP 4.18
@@ -67,9 +68,11 @@ sequenceDiagram
     OADP 1.5-->>Customer: Running on 4.19 with OADP-1.5
 
     Note over Customer: Automatic upgrade complete
+```
 
 ### Customer upgrades to OCP 4.19 while on OADP's stable-1.4 channel
 
+```mermaid
 sequenceDiagram
     participant Customer
     participant OCP 4.18
@@ -88,6 +91,7 @@ sequenceDiagram
     OADP 1.5-->>Customer: Running on 4.19 with OADP-1.5
 
     Note over Customer:  Upgrade complete
+```
 
 ### Customer attempts a manual upgrade to OADP 1.5.x while on OCP 4.18
 
