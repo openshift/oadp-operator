@@ -353,11 +353,18 @@ type NodeAgentCommonFields struct {
 }
 
 // NodeAgentConfig is the configuration for node server
+// Holds the configuration for the Node Agent Server.
+// https://github.com/openshift/velero/blob/8c8a6cccd78b78bd797e40189b0b9bee46a97f9e/pkg/cmd/cli/nodeagent/server.go#L87-L92
 type NodeAgentConfig struct {
 	// Embedding NodeAgentCommonFields
 	// +optional
 	NodeAgentCommonFields `json:",inline"`
-
+	// How long to wait for preparing a DataUpload/DataDownload. Default is 30 minutes.
+	// +optional
+	DataMoverPrepareTimeout *metav1.Duration `json:"dataMoverPrepareTimeout,omitempty"`
+	// How long to wait for resource processes which are not covered by other specific timeout parameters. Default is 10 minutes.
+	// +optional
+	ResourceTimeout *metav1.Duration `json:"resourceTimeout,omitempty"`
 	// The type of uploader to transfer the data of pod volumes, the supported values are 'restic' or 'kopia'
 	// +kubebuilder:validation:Enum=restic;kopia
 	// +kubebuilder:validation:Required

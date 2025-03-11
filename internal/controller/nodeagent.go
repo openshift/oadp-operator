@@ -346,6 +346,17 @@ func (r *DataProtectionApplicationReconciler) customizeNodeAgentDaemonset(ds *ap
 			nodeAgentContainer.ImagePullPolicy = imagePullPolicy
 			setContainerDefaults(nodeAgentContainer)
 
+			// append data mover prepare timeout and resource timeout to nodeAgent container args
+			if dpa.Spec.Configuration.NodeAgent.DataMoverPrepareTimeout != nil {
+				nodeAgentContainer.Args = append(nodeAgentContainer.Args, fmt.Sprintf("--data-mover-prepare-timeout=%s", dpa.Spec.Configuration.NodeAgent.DataMoverPrepareTimeout.Duration))
+			}
+			if dpa.Spec.Configuration.NodeAgent.ResourceTimeout != nil {
+				nodeAgentContainer.Args = append(nodeAgentContainer.Args, fmt.Sprintf("--resource-timeout=%s", dpa.Spec.Configuration.NodeAgent.ResourceTimeout.Duration))
+			}
+
+			// Apply unsupported server args from the specified ConfigMap.
+			// This will completely override any previously set args for the node-agent server.
+			// If the ConfigMap exists and is not empty, its key-value pairs will be used as the new CLI arguments.
 			if configMapName, ok := dpa.Annotations[common.UnsupportedNodeAgentServerArgsAnnotation]; ok {
 				if configMapName != "" {
 					unsupportedServerArgsCM := corev1.ConfigMap{}
