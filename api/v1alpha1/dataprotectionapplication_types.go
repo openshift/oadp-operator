@@ -301,6 +301,11 @@ type VeleroConfig struct {
 	// Disable informer cache for Get calls on restore. With this enabled, it will speed up restore in cases where there are backup resources which already exist in the cluster, but for very large clusters this will increase velero memory usage. Default is false.
 	// +optional
 	DisableInformerCache *bool `json:"disableInformerCache,omitempty"`
+	// Number of workers in worker pool for processing item backup. This will allow multiple items within
+	// a Velero backup to be backed up at the same time which may improve performance for backups with
+	// a large number of items. Default is 1.
+	// +optional
+	ItemBlockWorkerCount int `json:"itemBlockWorkerCount,omitempty"`
 	// resourceTimeout defines how long to wait for several Velero resources before timeout occurs,
 	// such as Velero CRD availability, volumeSnapshot deletion, and repo availability.
 	// Default is 10m
