@@ -293,38 +293,34 @@ func (r *DataProtectionApplicationReconciler) customizeNodeAgentDaemonset(ds *ap
 		privileged = !*dpa.Spec.Configuration.Velero.DisableFsBackup
 	}
 
-	// remove HostPods and HostPlugins volumes if not privileged
-	// TODO: Remove this once this is fixed in the velero code
-	// https://github.com/vmware-tanzu/velero/issues/8185
-	if !privileged {
-		var updatedVolumes []corev1.Volume
-		for _, vol := range ds.Spec.Template.Spec.Volumes {
-			if vol.Name != HostPods && vol.Name != HostPlugins {
-				updatedVolumes = append(updatedVolumes, vol)
-			}
-		}
-		ds.Spec.Template.Spec.Volumes = updatedVolumes
-	}
-
 	// check platform type
 	platformType, err := r.getPlatformType()
 	if err != nil {
 		return nil, fmt.Errorf("error checking platform type: %s", err)
 	}
 
-	// update nodeAgent host PV path and plugins host path only if privileged
-	if privileged {
-		for i, vol := range ds.Spec.Template.Spec.Volumes {
-			// update nodeAgent host PV path
-			if vol.Name == HostPods && ds.Spec.Template.Spec.Volumes[i].HostPath != nil {
-				ds.Spec.Template.Spec.Volumes[i].HostPath.Path = getFsPvHostPath(platformType)
+	// Remove HostPods and HostPlugins volumes if not running in privileged mode.
+	// Note: This code may be removed in the future once the following upstream issue is resolved:
+	// https://github.com/vmware-tanzu/velero/issues/8185
+	var updatedVolumes []corev1.Volume
+	for _, vol := range ds.Spec.Template.Spec.Volumes {
+		if privileged {
+			if vol.HostPath != nil {
+				switch vol.Name {
+				case HostPods:
+					vol.HostPath.Path = getFsPvHostPath(platformType)
+				case HostPlugins:
+					vol.HostPath.Path = getPluginsHostPath(platformType)
+				}
 			}
-			// update nodeAgent plugins host path
-			if vol.Name == HostPlugins && ds.Spec.Template.Spec.Volumes[i].HostPath != nil {
-				ds.Spec.Template.Spec.Volumes[i].HostPath.Path = getPluginsHostPath(platformType)
-			}
+			// privileged mode: append host-path and plugins host-path volumes
+			updatedVolumes = append(updatedVolumes, vol)
+		} else if vol.Name != HostPods && vol.Name != HostPlugins {
+			// non-privileged mode: append volumes that are not host-path and plugins host-path volumes
+			updatedVolumes = append(updatedVolumes, vol)
 		}
 	}
+	ds.Spec.Template.Spec.Volumes = updatedVolumes
 
 	// Update with any pod config values
 	if dpa.Spec.Configuration.NodeAgent.PodConfig != nil {
@@ -348,8 +344,22 @@ func (r *DataProtectionApplicationReconciler) customizeNodeAgentDaemonset(ds *ap
 		if container.Name == common.NodeAgent {
 			nodeAgentContainer = &ds.Spec.Template.Spec.Containers[i]
 
-			// Remove HostPods and HostPlugins volume mounts if not privileged
-			if !privileged {
+			nodeAgentContainer.SecurityContext = &corev1.SecurityContext{
+				Privileged:               ptr.To(privileged),
+				AllowPrivilegeEscalation: ptr.To(privileged),
+			}
+
+			nodeAgentContainer.SecurityContext.ReadOnlyRootFilesystem = ptr.To(true)
+
+			if privileged {
+				// update nodeAgent plugins volume mount host path only if privileged
+				for v, volumeMount := range nodeAgentContainer.VolumeMounts {
+					if volumeMount.Name == HostPlugins {
+						nodeAgentContainer.VolumeMounts[v].MountPath = getPluginsHostPath(platformType)
+					}
+				}
+			} else {
+				// remove HostPods and HostPlugins volume mounts if not privileged
 				var updatedVolumeMounts []corev1.VolumeMount
 				for _, volumeMount := range nodeAgentContainer.VolumeMounts {
 					if volumeMount.Name != HostPods && volumeMount.Name != HostPlugins {
@@ -357,6 +367,10 @@ func (r *DataProtectionApplicationReconciler) customizeNodeAgentDaemonset(ds *ap
 					}
 				}
 				nodeAgentContainer.VolumeMounts = updatedVolumeMounts
+
+				nodeAgentContainer.SecurityContext.Capabilities = &corev1.Capabilities{
+					Drop: []corev1.Capability{"ALL"},
+				}
 			}
 
 			nodeAgentContainer.VolumeMounts = append(nodeAgentContainer.VolumeMounts,
@@ -385,14 +399,6 @@ func (r *DataProtectionApplicationReconciler) customizeNodeAgentDaemonset(ds *ap
 				},
 			)
 
-			// update nodeAgent plugins volume mount host path only if privileged
-			if privileged {
-				for v, volumeMount := range nodeAgentContainer.VolumeMounts {
-					if volumeMount.Name == HostPlugins {
-						nodeAgentContainer.VolumeMounts[v].MountPath = getPluginsHostPath(platformType)
-					}
-				}
-			}
 			// append PodConfig envs to nodeAgent container
 			if dpa.Spec.Configuration.NodeAgent.PodConfig != nil && dpa.Spec.Configuration.NodeAgent.PodConfig.Env != nil {
 				nodeAgentContainer.Env = common.AppendUniqueEnvVars(nodeAgentContainer.Env, dpa.Spec.Configuration.NodeAgent.PodConfig.Env)
@@ -400,19 +406,6 @@ func (r *DataProtectionApplicationReconciler) customizeNodeAgentDaemonset(ds *ap
 
 			// append env vars to the nodeAgent container
 			nodeAgentContainer.Env = common.AppendUniqueEnvVars(nodeAgentContainer.Env, proxy.ReadProxyVarsFromEnv())
-
-			nodeAgentContainer.SecurityContext = &corev1.SecurityContext{
-				Privileged:               ptr.To(privileged),
-				AllowPrivilegeEscalation: ptr.To(privileged),
-			}
-
-			nodeAgentContainer.SecurityContext.ReadOnlyRootFilesystem = ptr.To(true)
-
-			if !privileged {
-				nodeAgentContainer.SecurityContext.Capabilities = &corev1.Capabilities{
-					Drop: []corev1.Capability{"ALL"},
-				}
-			}
 
 			imagePullPolicy, err := common.GetImagePullPolicy(dpa.Spec.ImagePullPolicy, getVeleroImage(dpa))
 			if err != nil {
