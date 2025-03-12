@@ -41,7 +41,8 @@ metadata:
                   "openshift",
                   "aws",
                   "kubevirt"
-                ]
+                ],
+                "disableFsBackup": false
               }
             },
             "snapshotLocations": [
