@@ -885,6 +885,13 @@ spec:
                         defaultVolumesToFSBackup:
                           description: Use pod volume file system backup by default for volumes
                           type: boolean
+                        disableFsBackup:
+                          default: false
+                          description: |-
+                            DisableFsBackup determines whether the NodeAgent should disable file system backup.
+                            When set to true, the NodeAgent runs in non-privileged mode.
+                            Defaults to false.
+                          type: boolean
                         disableInformerCache:
                           description: Disable informer cache for Get calls on restore. With this enabled, it will speed up restore in cases where there are backup resources which already exist in the cluster, but for very large clusters this will increase velero memory usage. Default is false.
                           type: boolean

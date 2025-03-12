@@ -246,9 +246,117 @@ type TestBuiltNodeAgentDaemonSetOptions struct {
 	resourceTimeout         *string
 	toleration              []corev1.Toleration
 	nodeSelector            map[string]string
+	disableFsBackup         *bool
 }
 
 func createTestBuiltNodeAgentDaemonSet(options TestBuiltNodeAgentDaemonSetOptions) *appsv1.DaemonSet {
+
+	containerVolumeMounts := []corev1.VolumeMount{}
+	podVolumes := []corev1.Volume{}
+
+	if options.disableFsBackup == nil || !*options.disableFsBackup {
+		podVolumes = append(podVolumes, corev1.Volume{
+			Name: HostPods,
+			VolumeSource: corev1.VolumeSource{
+				HostPath: &corev1.HostPathVolumeSource{
+					Path: "/var/lib/kubelet/pods",
+					Type: ptr.To(corev1.HostPathUnset),
+				},
+			},
+		}, corev1.Volume{
+			Name: HostPlugins,
+			VolumeSource: corev1.VolumeSource{
+				HostPath: &corev1.HostPathVolumeSource{
+					Path: "/var/lib/kubelet/plugins",
+					Type: ptr.To(corev1.HostPathUnset),
+				},
+			},
+		})
+
+		containerVolumeMounts = append(containerVolumeMounts,
+			corev1.VolumeMount{
+				Name:             HostPods,
+				MountPath:        "/host_pods",
+				MountPropagation: &mountPropagationToHostContainer,
+			},
+			corev1.VolumeMount{
+				Name:             HostPlugins,
+				MountPath:        "/var/lib/kubelet/plugins",
+				MountPropagation: &mountPropagationToHostContainer,
+			},
+		)
+	}
+	podVolumes = append(podVolumes,
+		corev1.Volume{
+			Name: "scratch",
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{},
+			},
+		},
+		corev1.Volume{
+			Name: "certs",
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{},
+			},
+		},
+		corev1.Volume{
+			Name: "home-velero",
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{},
+			},
+		},
+		corev1.Volume{
+			Name: "credentials",
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{
+					Medium:    "",
+					SizeLimit: nil,
+				},
+			},
+		},
+		corev1.Volume{
+			Name: "bound-sa-token",
+			VolumeSource: corev1.VolumeSource{
+				Projected: &corev1.ProjectedVolumeSource{
+					Sources: []corev1.VolumeProjection{
+						{
+							ServiceAccountToken: &corev1.ServiceAccountTokenProjection{
+								Audience:          "openshift",
+								ExpirationSeconds: ptr.To(int64(3600)),
+								Path:              "token",
+							},
+						},
+					},
+					DefaultMode: ptr.To(common.DefaultProjectedPermission),
+				},
+			},
+		},
+	)
+	containerVolumeMounts = append(containerVolumeMounts,
+		corev1.VolumeMount{
+			Name:      "scratch",
+			MountPath: "/scratch",
+		},
+		corev1.VolumeMount{
+			Name:      "certs",
+			MountPath: "/etc/ssl/certs",
+		},
+		corev1.VolumeMount{
+			Name:      "bound-sa-token",
+			MountPath: "/var/run/secrets/openshift/serviceaccount",
+			ReadOnly:  true,
+		},
+		corev1.VolumeMount{
+			Name:      "credentials",
+			MountPath: "/tmp/credentials",
+		},
+		corev1.VolumeMount{
+			Name:      "home-velero",
+			MountPath: "/home/velero",
+			ReadOnly:  false,
+		},
+	)
+
 	testBuiltNodeAgentDaemonSet := &appsv1.DaemonSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      common.NodeAgent,
@@ -296,7 +404,10 @@ func createTestBuiltNodeAgentDaemonSet(options TestBuiltNodeAgentDaemonSetOption
 					},
 					DeprecatedServiceAccount: common.Velero,
 					SecurityContext: &corev1.PodSecurityContext{
-						RunAsUser: ptr.To(int64(0)),
+						RunAsNonRoot: ptr.To(true),
+						SeccompProfile: &corev1.SeccompProfile{
+							Type: corev1.SeccompProfileTypeRuntimeDefault,
+						},
 					},
 					SchedulerName: "default-scheduler",
 					Containers: []corev1.Container{
@@ -306,7 +417,9 @@ func createTestBuiltNodeAgentDaemonSet(options TestBuiltNodeAgentDaemonSetOption
 							ImagePullPolicy:          corev1.PullAlways,
 							TerminationMessagePath:   "/dev/termination-log",
 							TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
-							SecurityContext:          &corev1.SecurityContext{Privileged: ptr.To(true)},
+							SecurityContext: &corev1.SecurityContext{
+								ReadOnlyRootFilesystem: ptr.To(true),
+							},
 							Ports: []corev1.ContainerPort{
 								{
 									Name:          "metrics",
@@ -320,33 +433,9 @@ func createTestBuiltNodeAgentDaemonSet(options TestBuiltNodeAgentDaemonSetOption
 									corev1.ResourceMemory: resource.MustParse("128Mi"),
 								},
 							},
-							Command: []string{"/velero"},
-							Args:    append([]string{common.NodeAgent, "server"}, options.args...),
-							VolumeMounts: []corev1.VolumeMount{
-								{
-									Name:             HostPods,
-									MountPath:        "/host_pods",
-									MountPropagation: &mountPropagationToHostContainer,
-								},
-								{
-									Name:             HostPlugins,
-									MountPath:        "/var/lib/kubelet/plugins",
-									MountPropagation: &mountPropagationToHostContainer,
-								},
-								{
-									Name:      "scratch",
-									MountPath: "/scratch",
-								},
-								{
-									Name:      "certs",
-									MountPath: "/etc/ssl/certs",
-								},
-								{
-									Name:      "bound-sa-token",
-									MountPath: "/var/run/secrets/openshift/serviceaccount",
-									ReadOnly:  true,
-								},
-							},
+							Command:      []string{"/velero"},
+							Args:         append([]string{common.NodeAgent, "server"}, options.args...),
+							VolumeMounts: containerVolumeMounts,
 							Env: []corev1.EnvVar{
 								{
 									Name: "NODE_NAME",
@@ -370,58 +459,21 @@ func createTestBuiltNodeAgentDaemonSet(options TestBuiltNodeAgentDaemonSetOption
 							},
 						},
 					},
-					Volumes: []corev1.Volume{
-						{
-							Name: HostPods,
-							VolumeSource: corev1.VolumeSource{
-								HostPath: &corev1.HostPathVolumeSource{
-									Path: "/var/lib/kubelet/pods",
-									Type: ptr.To(corev1.HostPathUnset),
-								},
-							},
-						},
-						{
-							Name: HostPlugins,
-							VolumeSource: corev1.VolumeSource{
-								HostPath: &corev1.HostPathVolumeSource{
-									Path: "/var/lib/kubelet/plugins",
-									Type: ptr.To(corev1.HostPathUnset),
-								},
-							},
-						},
-						{
-							Name: "scratch",
-							VolumeSource: corev1.VolumeSource{
-								EmptyDir: &corev1.EmptyDirVolumeSource{},
-							},
-						},
-						{
-							Name: "certs",
-							VolumeSource: corev1.VolumeSource{
-								EmptyDir: &corev1.EmptyDirVolumeSource{},
-							},
-						},
-						{
-							Name: "bound-sa-token",
-							VolumeSource: corev1.VolumeSource{
-								Projected: &corev1.ProjectedVolumeSource{
-									Sources: []corev1.VolumeProjection{
-										{
-											ServiceAccountToken: &corev1.ServiceAccountTokenProjection{
-												Audience:          "openshift",
-												ExpirationSeconds: ptr.To(int64(3600)),
-												Path:              "token",
-											},
-										},
-									},
-									DefaultMode: ptr.To(common.DefaultProjectedPermission),
-								},
-							},
-						},
-					},
+					Volumes: podVolumes,
 				},
 			},
 		},
+	}
+
+	if options.disableFsBackup != nil && *options.disableFsBackup {
+		testBuiltNodeAgentDaemonSet.Spec.Template.Spec.Containers[0].SecurityContext.Privileged = ptr.To(false)
+		testBuiltNodeAgentDaemonSet.Spec.Template.Spec.Containers[0].SecurityContext.AllowPrivilegeEscalation = ptr.To(false)
+		testBuiltNodeAgentDaemonSet.Spec.Template.Spec.Containers[0].SecurityContext.Capabilities = &corev1.Capabilities{
+			Drop: []corev1.Capability{"ALL"},
+		}
+	} else {
+		testBuiltNodeAgentDaemonSet.Spec.Template.Spec.Containers[0].SecurityContext.Privileged = ptr.To(true)
+		testBuiltNodeAgentDaemonSet.Spec.Template.Spec.Containers[0].SecurityContext.AllowPrivilegeEscalation = ptr.To(true)
 	}
 
 	if options.labels != nil {
@@ -1087,6 +1139,38 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 			nodeAgentDaemonSet: testNodeAgentDaemonSet.DeepCopy(),
 			wantNodeAgentDaemonSet: createTestBuiltNodeAgentDaemonSet(TestBuiltNodeAgentDaemonSetOptions{
 				volumes: []corev1.Volume{deploymentVolumeSecret("cloud-credentials")},
+				volumeMounts: []corev1.VolumeMount{
+					{Name: "cloud-credentials", MountPath: "/credentials"},
+				},
+				env: []corev1.EnvVar{
+					{Name: common.AWSSharedCredentialsFileEnvKey, Value: "/credentials/cloud"},
+				},
+			}),
+		},
+		{
+			name: "valid DPA CR with disabled FS backup, NodeAgent DaemonSet is built",
+			dpa: createTestDpaWith(
+				nil,
+				oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+								oadpv1alpha1.DefaultPluginAWS,
+							},
+							DisableFsBackup: ptr.To(true),
+						},
+						NodeAgent: &oadpv1alpha1.NodeAgentConfig{
+							NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{},
+							UploaderType:          "kopia",
+						},
+					},
+				},
+			),
+			clientObjects:      []client.Object{testGenericInfrastructure},
+			nodeAgentDaemonSet: testNodeAgentDaemonSet.DeepCopy(),
+			wantNodeAgentDaemonSet: createTestBuiltNodeAgentDaemonSet(TestBuiltNodeAgentDaemonSetOptions{
+				disableFsBackup: ptr.To(true),
+				volumes:         []corev1.Volume{deploymentVolumeSecret("cloud-credentials")},
 				volumeMounts: []corev1.VolumeMount{
 					{Name: "cloud-credentials", MountPath: "/credentials"},
 				},
