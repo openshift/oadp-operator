@@ -947,6 +947,11 @@ func (in *VeleroConfig) DeepCopyInto(out *VeleroConfig) {
 		*out = new(bool)
 		**out = **in
 	}
+	if in.DisableFsBackup != nil {
+		in, out := &in.DisableFsBackup, &out.DisableFsBackup
+		*out = new(bool)
+		**out = **in
+	}
 	if in.DefaultSnapshotMoveData != nil {
 		in, out := &in.DefaultSnapshotMoveData, &out.DefaultSnapshotMoveData
 		*out = new(bool)
