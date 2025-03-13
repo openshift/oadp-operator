@@ -88,7 +88,7 @@ This paragraph will provide a short set of instructions how to enable user workl
 
 OADP provides an `openshift-adp-velero-metrics-svc` service which is being created when DPA is configured. The ServiceMonitor that is used by the user workload monitoring will need to point to that SVC service.
 
-1. Ensure the `openshift-adp-velero-metrics-svc` exists. It should contain `app.kubernetes.io/name=velero` label which will be used as selector for our ServiceMonitor
+1. Ensure the `openshift-adp-velero-metrics-svc` exists. It should contain `app.kubernetes.io/name=velero` label which will be used as selector for our ServiceMonitor and the `app.kubernetes.io/instance` label which will be used to identify the Velero instance, The instance name is the name of the DPA CR.
 
     ```shell
     $ oc get svc -n openshift-adp -l app.kubernetes.io/name=velero
@@ -115,6 +115,7 @@ OADP provides an `openshift-adp-velero-metrics-svc` service which is being creat
       selector:
         matchLabels:
           app.kubernetes.io/name: "velero"
+          app.kubernetes.io/instance: "velero-sample" # <---- This is the name of the DPA CR
     ```
 
 3. Apply the `3_create_oadp_service_monitor.yaml`

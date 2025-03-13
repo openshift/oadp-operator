@@ -14,3 +14,4 @@ spec:
   selector:
     matchLabels:
       app.kubernetes.io/name: "velero"
+      app.kubernetes.io/instance: "velero-sample" # <---- This is the name of the DPA CR
