@@ -238,14 +238,6 @@ func (r *DataProtectionApplicationReconciler) customizeNodeAgentDaemonset(ds *ap
 		Type: appsv1.RollingUpdateDaemonSetStrategyType,
 	}
 
-	ds.Spec.Template.Spec.SecurityContext = &corev1.PodSecurityContext{
-		RunAsNonRoot: ptr.To(true),
-		SeccompProfile: &corev1.SeccompProfile{
-			Type: corev1.SeccompProfileTypeRuntimeDefault,
-		},
-		SupplementalGroups: dpa.Spec.Configuration.NodeAgent.SupplementalGroups,
-	}
-
 	ds.Spec.Template.Spec.Volumes = append(ds.Spec.Template.Spec.Volumes,
 		// append certs volume
 		corev1.Volume{
@@ -291,6 +283,23 @@ func (r *DataProtectionApplicationReconciler) customizeNodeAgentDaemonset(ds *ap
 
 	if dpa.Spec.Configuration.Velero.DisableFsBackup != nil {
 		privileged = !*dpa.Spec.Configuration.Velero.DisableFsBackup
+	}
+
+	ds.Spec.Template.Spec.SecurityContext = &corev1.PodSecurityContext{
+		RunAsNonRoot: ptr.To(!privileged),
+		SeccompProfile: &corev1.SeccompProfile{
+			Type: corev1.SeccompProfileTypeRuntimeDefault,
+		},
+		SupplementalGroups: dpa.Spec.Configuration.NodeAgent.SupplementalGroups,
+	}
+
+	if privileged {
+		ds.Spec.Template.Spec.SecurityContext.RunAsUser = ptr.To(int64(0))
+		// Privileged containers always run as Unconfined seccomp profile
+		// Changing to match the default behavior of the privileged node-agent
+		ds.Spec.Template.Spec.SecurityContext.SeccompProfile = &corev1.SeccompProfile{
+			Type: corev1.SeccompProfileTypeUnconfined,
+		}
 	}
 
 	// check platform type

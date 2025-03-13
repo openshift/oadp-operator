@@ -253,6 +253,7 @@ func createTestBuiltNodeAgentDaemonSet(options TestBuiltNodeAgentDaemonSetOption
 
 	containerVolumeMounts := []corev1.VolumeMount{}
 	podVolumes := []corev1.Volume{}
+	podSecurityContext := &corev1.PodSecurityContext{}
 
 	if options.disableFsBackup == nil || !*options.disableFsBackup {
 		podVolumes = append(podVolumes, corev1.Volume{
@@ -285,6 +286,21 @@ func createTestBuiltNodeAgentDaemonSet(options TestBuiltNodeAgentDaemonSetOption
 				MountPropagation: &mountPropagationToHostContainer,
 			},
 		)
+
+		podSecurityContext = &corev1.PodSecurityContext{
+			RunAsNonRoot: ptr.To(false),
+			SeccompProfile: &corev1.SeccompProfile{
+				Type: corev1.SeccompProfileTypeUnconfined,
+			},
+			RunAsUser: ptr.To(int64(0)),
+		}
+	} else {
+		podSecurityContext = &corev1.PodSecurityContext{
+			RunAsNonRoot: ptr.To(true),
+			SeccompProfile: &corev1.SeccompProfile{
+				Type: corev1.SeccompProfileTypeRuntimeDefault,
+			},
+		}
 	}
 	podVolumes = append(podVolumes,
 		corev1.Volume{
@@ -403,13 +419,8 @@ func createTestBuiltNodeAgentDaemonSet(options TestBuiltNodeAgentDaemonSetOption
 						Name: "linux",
 					},
 					DeprecatedServiceAccount: common.Velero,
-					SecurityContext: &corev1.PodSecurityContext{
-						RunAsNonRoot: ptr.To(true),
-						SeccompProfile: &corev1.SeccompProfile{
-							Type: corev1.SeccompProfileTypeRuntimeDefault,
-						},
-					},
-					SchedulerName: "default-scheduler",
+					SecurityContext:          podSecurityContext,
+					SchedulerName:            "default-scheduler",
 					Containers: []corev1.Container{
 						{
 							Name:                     common.NodeAgent,
