@@ -330,8 +330,8 @@ func (r *DataProtectionApplicationReconciler) customizeVeleroDeployment(veleroDe
 		veleroContainer.Args = append(veleroContainer.Args, "--log-level", logLevel.String())
 	}
 
-	if dpa.Spec.Configuration.Velero.LogFormat != "" {
-		veleroContainer.Args = append(veleroContainer.Args, fmt.Sprintf("--log-format=%s", dpa.Spec.Configuration.Velero.LogFormat))
+	if dpa.Spec.LogFormat != "" {
+		veleroContainer.Args = append(veleroContainer.Args, fmt.Sprintf("--log-format=%s", dpa.Spec.LogFormat))
 	}
 
 	// Setting async operations server parameter ItemOperationSyncFrequency
