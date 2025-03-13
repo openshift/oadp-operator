@@ -394,9 +394,15 @@ func createTestBuiltVeleroDeployment(options TestBuiltVeleroDeploymentOptions) *
 					ServiceAccountName:            common.Velero,
 					TerminationGracePeriodSeconds: ptr.To(int64(30)),
 					DNSPolicy:                     corev1.DNSClusterFirst,
-					DeprecatedServiceAccount:      common.Velero,
-					SecurityContext:               &corev1.PodSecurityContext{},
-					SchedulerName:                 "default-scheduler",
+					NodeSelector: map[string]string{
+						"kubernetes.io/os": "linux",
+					},
+					OS: &corev1.PodOS{
+						Name: "linux",
+					},
+					DeprecatedServiceAccount: common.Velero,
+					SecurityContext:          &corev1.PodSecurityContext{},
+					SchedulerName:            "default-scheduler",
 					Containers: []corev1.Container{
 						{
 							Name:                     common.Velero,
@@ -470,7 +476,7 @@ func createTestBuiltVeleroDeployment(options TestBuiltVeleroDeploymentOptions) *
 		testBuiltVeleroDeployment.Spec.Template.Spec.Tolerations = options.toleration
 	}
 
-	if options.nodeSelector != nil {
+	if len(options.nodeSelector) > 0 {
 		testBuiltVeleroDeployment.Spec.Template.Spec.NodeSelector = options.nodeSelector
 	}
 
