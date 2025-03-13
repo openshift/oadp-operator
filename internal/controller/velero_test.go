@@ -981,6 +981,28 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 			}),
 		},
 		{
+			name: "valid DPA CR with ItemBlockWorkerCount set to 2, Velero Deployment is built with ItemBlockWorkerCount set to 2",
+			dpa: createTestDpaWith(
+				nil,
+				oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							ItemBlockWorkerCount: 2,
+						},
+					},
+				},
+			),
+			veleroDeployment: testVeleroDeployment.DeepCopy(),
+			wantVeleroDeployment: createTestBuiltVeleroDeployment(TestBuiltVeleroDeploymentOptions{
+				args: []string{
+					defaultFileSystemBackupTimeout,
+					defaultRestoreResourcePriorities,
+					defaultDisableInformerCache,
+					"--item-block-worker-count=2",
+				},
+			}),
+		},
+		{
 			name: "valid DPA CR with DefaultItemOperationTimeout, Velero Deployment is built with DefaultItemOperationTimeout arg",
 			dpa: createTestDpaWith(
 				nil,

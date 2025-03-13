@@ -364,6 +364,10 @@ func (r *DataProtectionApplicationReconciler) customizeVeleroDeployment(veleroDe
 	disableInformerCache := disableInformerCacheValue(dpa)
 	veleroContainer.Args = append(veleroContainer.Args, fmt.Sprintf("--disable-informer-cache=%s", disableInformerCache))
 
+	if dpa.Spec.Configuration.Velero.ItemBlockWorkerCount > 0 {
+		veleroContainer.Args = append(veleroContainer.Args, fmt.Sprintf("--item-block-worker-count=%v", dpa.Spec.Configuration.Velero.ItemBlockWorkerCount))
+	}
+
 	// Set defaults to avoid update events
 	if veleroDeployment.Spec.Strategy.Type == "" {
 		veleroDeployment.Spec.Strategy.Type = appsv1.RollingUpdateDeploymentStrategyType

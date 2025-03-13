@@ -899,6 +899,12 @@ spec:
                           items:
                             type: string
                           type: array
+                        itemBlockWorkerCount:
+                          description: |-
+                            Number of workers in worker pool for processing item backup. This will allow multiple items within
+                            a Velero backup to be backed up at the same time which may improve performance for backups with
+                            a large number of items. Default is 1.
+                          type: integer
                         itemOperationSyncFrequency:
                           description: How often to check status on async backup/restore operations after backup processing. Default value is 2m.
                           type: string
