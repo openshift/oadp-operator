@@ -280,6 +280,7 @@ func createTestBuiltNodeAgentDaemonSet(options TestBuiltNodeAgentDaemonSetOption
 					Labels: map[string]string{
 						"component": common.Velero,
 						"name":      common.NodeAgent,
+						"role":      common.NodeAgent,
 					},
 				},
 				Spec: corev1.PodSpec{
@@ -287,7 +288,13 @@ func createTestBuiltNodeAgentDaemonSet(options TestBuiltNodeAgentDaemonSetOption
 					ServiceAccountName:            common.Velero,
 					TerminationGracePeriodSeconds: ptr.To(int64(30)),
 					DNSPolicy:                     corev1.DNSClusterFirst,
-					DeprecatedServiceAccount:      common.Velero,
+					NodeSelector: map[string]string{
+						"kubernetes.io/os": "linux",
+					},
+					OS: &corev1.PodOS{
+						Name: "linux",
+					},
+					DeprecatedServiceAccount: common.Velero,
 					SecurityContext: &corev1.PodSecurityContext{
 						RunAsUser: ptr.To(int64(0)),
 					},

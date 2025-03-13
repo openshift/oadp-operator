@@ -93,43 +93,7 @@ rules:
   - oadp.openshift.io
   resources:
   - '*'
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - oadp.openshift.io
-  resources:
   - cloudstorages
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - oadp.openshift.io
-  resources:
-  - cloudstorages/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - oadp.openshift.io
-  resources:
-  - cloudstorages/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - oadp.openshift.io
-  resources:
   - dataprotectionapplications
   verbs:
   - create
@@ -142,12 +106,14 @@ rules:
 - apiGroups:
   - oadp.openshift.io
   resources:
+  - cloudstorages/finalizers
   - dataprotectionapplications/finalizers
   verbs:
   - update
 - apiGroups:
   - oadp.openshift.io
   resources:
+  - cloudstorages/status
   - dataprotectionapplications/status
   verbs:
   - get

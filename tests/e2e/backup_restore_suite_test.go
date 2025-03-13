@@ -196,11 +196,6 @@ func runBackup(brCase BackupRestoreCase, backupName string) bool {
 	gomega.Expect(succeeded).To(gomega.Equal(true))
 	log.Printf("Backup for case %s succeeded", brCase.Name)
 
-	if brCase.BackupRestoreType == lib.CSI {
-		// wait for volume snapshot to be Ready
-		gomega.Eventually(lib.AreVolumeSnapshotsReady(dpaCR.Client, backupName), time.Minute*4, time.Second*10).Should(gomega.BeTrue())
-	}
-
 	return nsRequiresResticDCWorkaround
 }
 

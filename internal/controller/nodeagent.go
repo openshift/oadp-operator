@@ -290,7 +290,9 @@ func (r *DataProtectionApplicationReconciler) customizeNodeAgentDaemonset(ds *ap
 	// Update with any pod config values
 	if dpa.Spec.Configuration.NodeAgent.PodConfig != nil {
 		ds.Spec.Template.Spec.Tolerations = dpa.Spec.Configuration.NodeAgent.PodConfig.Tolerations
-		ds.Spec.Template.Spec.NodeSelector = dpa.Spec.Configuration.NodeAgent.PodConfig.NodeSelector
+		if len(dpa.Spec.Configuration.NodeAgent.PodConfig.NodeSelector) != 0 {
+			ds.Spec.Template.Spec.NodeSelector = dpa.Spec.Configuration.NodeAgent.PodConfig.NodeSelector
+		}
 		// add custom pod labels
 		if dpa.Spec.Configuration.NodeAgent.PodConfig.Labels != nil {
 			var err error
