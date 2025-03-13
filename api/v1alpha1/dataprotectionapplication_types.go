@@ -51,6 +51,13 @@ type CustomPlugin struct {
 	Image string `json:"image"`
 }
 
+type LogFormat string
+
+const (
+	LogFormatText LogFormat = "text"
+	LogFormatJSON LogFormat = "json"
+)
+
 // Field does not have enum validation for development flexibility
 type UnsupportedImageKey string
 
@@ -286,6 +293,11 @@ type VeleroConfig struct {
 	// +optional
 	// +kubebuilder:validation:Enum=trace;debug;info;warning;error;fatal;panic
 	LogLevel string `json:"logLevel,omitempty"`
+	// The format for log output. Valid values are text, json. (default text)
+	// +kubebuilder:validation:Enum=text;json
+	// +kubebuilder:default=text
+	// +optional
+	LogFormat LogFormat `json:"logFormat,omitempty"`
 	// How often to check status on async backup/restore operations after backup processing. Default value is 2m.
 	// +optional
 	ItemOperationSyncFrequency string `json:"itemOperationSyncFrequency,omitempty"`
