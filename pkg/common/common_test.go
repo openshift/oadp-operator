@@ -252,6 +252,7 @@ func TestGenerateCliArgsFromConfigMap(t *testing.T) {
 				Data: map[string]string{
 					"--default-volume-snapshot-locations": "aws:backups-primary,azure:backups-secondary",
 					"--log-level":                         "debug",
+					"--log-format":                        "json",
 					"--default-snapshot-move-data":        "True",
 					"-v":                                  "3",
 					"a":                                   "somearg",
@@ -262,6 +263,7 @@ func TestGenerateCliArgsFromConfigMap(t *testing.T) {
 				"--a=somearg",
 				"--default-snapshot-move-data=true",
 				"--default-volume-snapshot-locations=aws:backups-primary,azure:backups-secondary",
+				"--log-format=json",
 				"--log-level=debug",
 				"-v=3",
 			},

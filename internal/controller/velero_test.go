@@ -846,6 +846,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 					Configuration: &oadpv1alpha1.ApplicationConfig{
 						Velero: &oadpv1alpha1.VeleroConfig{
 							LogLevel:                    logrus.InfoLevel.String(),
+							LogFormat:                   oadpv1alpha1.LogFormatJSON,
 							ItemOperationSyncFrequency:  "5m",
 							DefaultItemOperationTimeout: "2h",
 							DefaultSnapshotMoveData:     ptr.To(false),
@@ -864,6 +865,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 					defaultRestoreResourcePriorities,
 					"--log-level",
 					logrus.InfoLevel.String(),
+					"--log-format=json",
 					"--item-operation-sync-frequency=5m",
 					"--default-item-operation-timeout=2h",
 					"--default-snapshot-move-data=false",

@@ -902,6 +902,13 @@ spec:
                         itemOperationSyncFrequency:
                           description: How often to check status on async backup/restore operations after backup processing. Default value is 2m.
                           type: string
+                        logFormat:
+                          default: text
+                          description: The format for log output. Valid values are text, json. (default text)
+                          enum:
+                            - text
+                            - json
+                          type: string
                         logLevel:
                           description: Velero server's log level (use debug for the most logging, leave unset for velero default)
                           enum:
