@@ -204,6 +204,23 @@ spec:
                     nodeAgent:
                       description: NodeAgent is needed to allow selection between kopia or restic
                       properties:
+                        backupPVC:
+                          additionalProperties:
+                            properties:
+                              readOnly:
+                                description: ReadOnly sets the backupPVC's access mode as read only
+                                type: boolean
+                              spcNoRelabeling:
+                                description: |-
+                                  SPCNoRelabeling sets Spec.SecurityContext.SELinux.Type to "spc_t" for the pod mounting the backupPVC
+                                  ignored if ReadOnly is false
+                                type: boolean
+                              storageClass:
+                                description: StorageClass is the name of storage class to be used by the backupPVC
+                                type: string
+                            type: object
+                          description: BackupPVCConfig is the config for backupPVC (intermediate PVC) of snapshot data movement
+                          type: object
                         dataMoverPrepareTimeout:
                           description: How long to wait for preparing a DataUpload/DataDownload. Default is 30 minutes.
                           type: string
@@ -212,6 +229,122 @@ spec:
                             enable defines a boolean pointer whether we want the daemonset to
                             exist or not
                           type: boolean
+                        loadAffinity:
+                          description: LoadAffinity is the config for data path load affinity.
+                          items:
+                            description: LoadAffinity is the config for data path load affinity.
+                            properties:
+                              nodeSelector:
+                                description: NodeSelector specifies the label selector to match nodes
+                                properties:
+                                  matchExpressions:
+                                    description: matchExpressions is a list of label selector requirements. The requirements are ANDed.
+                                    items:
+                                      description: |-
+                                        A label selector requirement is a selector that contains values, a key, and an operator that
+                                        relates the key and values.
+                                      properties:
+                                        key:
+                                          description: key is the label key that the selector applies to.
+                                          type: string
+                                        operator:
+                                          description: |-
+                                            operator represents a key's relationship to a set of values.
+                                            Valid operators are In, NotIn, Exists and DoesNotExist.
+                                          type: string
+                                        values:
+                                          description: |-
+                                            values is an array of string values. If the operator is In or NotIn,
+                                            the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                            the values array must be empty. This array is replaced during a strategic
+                                            merge patch.
+                                          items:
+                                            type: string
+                                          type: array
+                                          x-kubernetes-list-type: atomic
+                                      required:
+                                        - key
+                                        - operator
+                                      type: object
+                                    type: array
+                                    x-kubernetes-list-type: atomic
+                                  matchLabels:
+                                    additionalProperties:
+                                      type: string
+                                    description: |-
+                                      matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                      map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                      operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                    type: object
+                                type: object
+                                x-kubernetes-map-type: atomic
+                            required:
+                              - nodeSelector
+                            type: object
+                          type: array
+                        loadConcurrency:
+                          description: LoadConcurrency is the config for data path load concurrency per node.
+                          properties:
+                            globalConfig:
+                              description: GlobalConfig specifies the concurrency number to all nodes for which per-node config is not specified
+                              type: integer
+                            perNodeConfig:
+                              description: PerNodeConfig specifies the concurrency number to nodes matched by rules
+                              items:
+                                properties:
+                                  nodeSelector:
+                                    description: NodeSelector specifies the label selector to match nodes
+                                    properties:
+                                      matchExpressions:
+                                        description: matchExpressions is a list of label selector requirements. The requirements are ANDed.
+                                        items:
+                                          description: |-
+                                            A label selector requirement is a selector that contains values, a key, and an operator that
+                                            relates the key and values.
+                                          properties:
+                                            key:
+                                              description: key is the label key that the selector applies to.
+                                              type: string
+                                            operator:
+                                              description: |-
+                                                operator represents a key's relationship to a set of values.
+                                                Valid operators are In, NotIn, Exists and DoesNotExist.
+                                              type: string
+                                            values:
+                                              description: |-
+                                                values is an array of string values. If the operator is In or NotIn,
+                                                the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                                the values array must be empty. This array is replaced during a strategic
+                                                merge patch.
+                                              items:
+                                                type: string
+                                              type: array
+                                              x-kubernetes-list-type: atomic
+                                          required:
+                                            - key
+                                            - operator
+                                          type: object
+                                        type: array
+                                        x-kubernetes-list-type: atomic
+                                      matchLabels:
+                                        additionalProperties:
+                                          type: string
+                                        description: |-
+                                          matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                          map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                          operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                        type: object
+                                    type: object
+                                    x-kubernetes-map-type: atomic
+                                  number:
+                                    description: Number specifies the number value associated to the matched nodes
+                                    type: integer
+                                required:
+                                  - nodeSelector
+                                  - number
+                                type: object
+                              type: array
+                          type: object
                         podConfig:
                           description: Pod specific configuration
                           properties:
@@ -434,9 +567,28 @@ spec:
                                 type: object
                               type: array
                           type: object
+                        podResources:
+                          description: PodResources is the resource config for various types of pods launched by node-agent, i.e., data mover pods.
+                          properties:
+                            cpuLimit:
+                              type: string
+                            cpuRequest:
+                              type: string
+                            memoryLimit:
+                              type: string
+                            memoryRequest:
+                              type: string
+                          type: object
                         resourceTimeout:
                           description: How long to wait for resource processes which are not covered by other specific timeout parameters. Default is 10 minutes.
                           type: string
+                        restorePVC:
+                          description: RestoreVCConfig is the config for restorePVC (intermediate PVC) of generic restore
+                          properties:
+                            ignoreDelayBinding:
+                              description: IgnoreDelayBinding indicates to ignore delay binding the restorePVC when it is in WaitForFirstConsumer mode
+                              type: boolean
+                          type: object
                         supplementalGroups:
                           description: supplementalGroups defines the linux groups to be applied to the NodeAgent Pod
                           items:
