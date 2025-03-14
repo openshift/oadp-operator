@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"reflect"
@@ -93,19 +94,96 @@ func getNodeAgentObjectMeta(r *DataProtectionApplicationReconciler) metav1.Objec
 	}
 }
 
+// isNodeAgentEnabled checks if the NodeAgent is enabled.
+func isNodeAgentEnabled(dpa *oadpv1alpha1.DataProtectionApplication) bool {
+	if dpa.Spec.Configuration.NodeAgent != nil && dpa.Spec.Configuration.NodeAgent.Enable != nil && *dpa.Spec.Configuration.NodeAgent.Enable {
+		return true
+	}
+
+	return false
+}
+
+// isNodeAgentCMRequired checks if at least one required field is present in NodeAgentConfigMapSettings.
+func isNodeAgentCMRequired(config oadpv1alpha1.NodeAgentConfigMapSettings) bool {
+	return config.LoadConcurrency != nil ||
+		len(config.LoadAffinity) > 0 ||
+		len(config.BackupPVCConfig) > 0 ||
+		config.RestorePVCConfig != nil ||
+		config.PodResources != nil
+}
+
+// ReconcileNodeAgentConfigMap handles creation, update, and deletion of the NodeAgent ConfigMap.
+func (r *DataProtectionApplicationReconciler) ReconcileNodeAgentConfigMap(log logr.Logger) (bool, error) {
+	dpa := r.dpa
+	cmName := types.NamespacedName{Name: common.NodeAgentConfigMapPrefix + dpa.Name, Namespace: r.NamespacedName.Namespace}
+	configMap := corev1.ConfigMap{}
+
+	if !isNodeAgentEnabled(dpa) {
+		err := r.Get(r.Context, cmName, &configMap)
+		if err != nil && !errors.IsNotFound(err) {
+			return false, err
+		}
+		if errors.IsNotFound(err) {
+			return true, nil
+		}
+		deleteContext := context.Background()
+		if err := r.Delete(deleteContext, &configMap); err != nil {
+			return false, err
+		}
+		r.EventRecorder.Event(&configMap, corev1.EventTypeNormal, "DeletedNodeAgentConfigMap", "NodeAgent config map deleted")
+		return true, nil
+	}
+
+	if !isNodeAgentCMRequired(dpa.Spec.Configuration.NodeAgent.NodeAgentConfigMapSettings) {
+		log.Info("Skipping NodeAgent ConfigMap creation as no required fields are set")
+		return true, nil
+	}
+
+	jsonData, err := json.Marshal(dpa.Spec.Configuration.NodeAgent.NodeAgentConfigMapSettings)
+
+	if err != nil {
+		return false, fmt.Errorf("failed to serialize node agent config: %w", err)
+	}
+	configMap.ObjectMeta = metav1.ObjectMeta{
+		Name:      cmName.Name,
+		Namespace: cmName.Namespace,
+	}
+
+	op, err := controllerutil.CreateOrPatch(r.Context, r.Client, &configMap, func() error {
+		configMap.Labels = map[string]string{
+			"app.kubernetes.io/instance":   dpa.Name,
+			"app.kubernetes.io/managed-by": common.OADPOperator,
+			"app.kubernetes.io/component":  "node-agent-config",
+		}
+		if configMap.Data == nil {
+			configMap.Data = make(map[string]string)
+		}
+		configMap.Data["node-agent-config"] = string(jsonData)
+
+		// Set the owner reference to ensure the ConfigMap is managed by the DPA
+		return controllerutil.SetControllerReference(dpa, &configMap, r.Scheme)
+	})
+	if err != nil {
+		return false, fmt.Errorf("failed to create or patch config map: %w", err)
+	}
+
+	if op == controllerutil.OperationResultCreated {
+		r.EventRecorder.Event(&configMap, corev1.EventTypeNormal, "CreatedNodeAgentConfigMap", "NodeAgent config map created")
+	} else if op == controllerutil.OperationResultUpdated {
+		r.EventRecorder.Event(&configMap, corev1.EventTypeNormal, "UpdatedNodeAgentConfigMap", "NodeAgent config map updated")
+	}
+
+	return true, nil
+}
+
 func (r *DataProtectionApplicationReconciler) ReconcileNodeAgentDaemonset(log logr.Logger) (bool, error) {
 	dpa := r.dpa
-	var deleteDaemonSet bool = true
 	// Define "static" portion of daemonset
 	ds := &appsv1.DaemonSet{
 		ObjectMeta: getNodeAgentObjectMeta(r),
 	}
 
-	if dpa.Spec.Configuration.NodeAgent != nil && dpa.Spec.Configuration.NodeAgent.Enable != nil && *dpa.Spec.Configuration.NodeAgent.Enable {
-		deleteDaemonSet = false
-	}
-
-	if deleteDaemonSet {
+	if !isNodeAgentEnabled(dpa) {
 		deleteContext := context.Background()
 		if err := r.Get(deleteContext, types.NamespacedName{
 			Name:      ds.Name,
@@ -206,6 +284,21 @@ func (r *DataProtectionApplicationReconciler) buildNodeAgentDaemonset(ds *appsv1
 	// get resource requirements for nodeAgent ds
 	// ignoring err here as it is checked in validator.go
 	nodeAgentResourceReqs, _ = getNodeAgentResourceReqs(dpa)
+	// Update Items in ObjectMeta
+	dsName := ds.Name
+
+	// Check if NodeAgent ConfigMap exists, if it does not
+	// we will pass empty string to the install.DaemonSet function
+	cmName := types.NamespacedName{Name: common.NodeAgentConfigMapPrefix + dpa.Name, Namespace: ds.Namespace}
+	var configMapName string
+
+	if err := r.Get(r.Context, cmName, &corev1.ConfigMap{}); err != nil {
+		if !errors.IsNotFound(err) {
+			return nil, fmt.Errorf("failed to check NodeAgent ConfigMap: %w", err)
+		}
+	} else {
+		configMapName = cmName.Name
+	}
 
 	installDs := install.DaemonSet(ds.Namespace,
 		install.WithResources(nodeAgentResourceReqs),
@@ -213,9 +306,8 @@ func (r *DataProtectionApplicationReconciler) buildNodeAgentDaemonset(ds *appsv1
 		install.WithAnnotations(dpa.Spec.PodAnnotations),
 		install.WithSecret(false),
 		install.WithServiceAccountName(common.Velero),
+		install.WithNodeAgentConfigMap(configMapName),
 	)
-	// Update Items in ObjectMeta
-	dsName := ds.Name
 	ds.TypeMeta = installDs.TypeMeta
 	var err error
 	ds.Labels, err = common.AppendUniqueKeyTOfTMaps(ds.Labels, installDs.Labels)
