@@ -60,6 +60,7 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 		name    string
 		dpa     *oadpv1alpha1.DataProtectionApplication
 		secret  *corev1.Secret
+		objects []client.Object
 		want    bool
 		wantErr bool
 	}{
@@ -203,7 +204,7 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 					Name:      "cloud-credentials",
 					Namespace: "test-ns",
 				},
-				Data: map[string][]byte{"cloud": []byte("dummy_data")},
+				Data: map[string][]byte{"cloud": []byte("[default]\naws_access_key_id=AKIAIOSFODNN7EXAMPLE\naws_secret_access_key=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY")},
 			},
 		},
 		{
@@ -405,7 +406,7 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 					Name:      "cloud-credentials",
 					Namespace: "test-ns",
 				},
-				Data: map[string][]byte{"cloud": []byte("dummy_data")},
+				Data: map[string][]byte{"cloud": []byte("[default]\naws_access_key_id=AKIAIOSFODNN7EXAMPLE\naws_secret_access_key=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY")},
 			},
 		},
 		{
@@ -451,7 +452,7 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 					Name:      "cloud-credentials",
 					Namespace: "test-ns",
 				},
-				Data: map[string][]byte{"cloud": []byte("dummy_data")},
+				Data: map[string][]byte{"cloud": []byte("[default]\naws_access_key_id=AKIAIOSFODNN7EXAMPLE\naws_secret_access_key=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY")},
 			},
 		},
 		{
@@ -616,7 +617,7 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 					Name:      "cloud-credentials",
 					Namespace: "test-ns",
 				},
-				Data: map[string][]byte{"cloud": []byte("dummy_data")},
+				Data: map[string][]byte{"cloud": []byte("[default]\naws_access_key_id=AKIAIOSFODNN7EXAMPLE\naws_secret_access_key=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY")},
 			},
 		},
 		{
@@ -868,7 +869,7 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 					Name:      "cloud-credentials",
 					Namespace: "test-ns",
 				},
-				Data: map[string][]byte{"cloud": []byte("dummy_data")},
+				Data: map[string][]byte{"cloud": []byte("[default]\naws_access_key_id=AKIAIOSFODNN7EXAMPLE\naws_secret_access_key=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY")},
 			},
 		},
 		{
@@ -1124,6 +1125,11 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 					},
 				},
 			},
+			objects: []client.Object{
+				&oadpv1alpha1.CloudStorage{
+					ObjectMeta: metav1.ObjectMeta{Name: "testing", Namespace: "test-ns"},
+				},
+			},
 			want:    true,
 			wantErr: false,
 			secret: &corev1.Secret{
@@ -1131,7 +1137,7 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 					Name:      "cloud-credentials",
 					Namespace: "test-ns",
 				},
-				Data: map[string][]byte{"cloud": []byte("dummy_data")},
+				Data: map[string][]byte{"cloud": []byte("[default]\naws_access_key_id=AKIAIOSFODNN7EXAMPLE\naws_secret_access_key=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY")},
 			},
 		},
 		{
@@ -1207,7 +1213,7 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 					Name:      "cloud-credentials",
 					Namespace: "test-ns",
 				},
-				Data: map[string][]byte{"cloud": []byte("dummy_data")},
+				Data: map[string][]byte{"cloud": []byte("[default]\naws_access_key_id=AKIAIOSFODNN7EXAMPLE\naws_secret_access_key=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY")},
 			},
 			want:    true,
 			wantErr: false,
@@ -1363,7 +1369,7 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 					Name:      "cloud-credentials",
 					Namespace: "test-ns",
 				},
-				Data: map[string][]byte{"cloud": []byte("dummy_data")},
+				Data: map[string][]byte{"cloud": []byte("[default]\naws_access_key_id=AKIAIOSFODNN7EXAMPLE\naws_secret_access_key=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY")},
 			},
 			want:    true,
 			wantErr: false,
@@ -1444,7 +1450,7 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 					Name:      "cloud-credentials",
 					Namespace: "test-ns",
 				},
-				Data: map[string][]byte{"cloud": []byte("dummy_data")},
+				Data: map[string][]byte{"cloud": []byte("[default]\naws_access_key_id=AKIAIOSFODNN7EXAMPLE\naws_secret_access_key=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY")},
 			},
 			want:    true,
 			wantErr: false,
@@ -1490,7 +1496,8 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			fakeClient, err := getFakeClientFromObjects(tt.dpa, tt.secret)
+			tt.objects = append(tt.objects, tt.dpa, tt.secret)
+			fakeClient, err := getFakeClientFromObjects(tt.objects...)
 			if err != nil {
 				t.Errorf("error in creating fake client, likely programmer error")
 			}

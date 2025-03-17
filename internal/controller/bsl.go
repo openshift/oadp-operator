@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 
 	"github.com/go-logr/logr"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
@@ -24,7 +25,20 @@ func (r *DataProtectionApplicationReconciler) ValidateBackupStorageLocations() (
 	dpa := r.dpa
 	numDefaultLocations := 0
 	for _, bslSpec := range dpa.Spec.BackupLocations {
-
+		if bslSpec.CloudStorage != nil {
+			// Make sure credentials are specified.
+			if bslSpec.CloudStorage.Credential == nil {
+				return false, fmt.Errorf("must provide a valid credential secret")
+			}
+			if bslSpec.CloudStorage.Credential.LocalObjectReference.Name == "" {
+				return false, fmt.Errorf("must provide a valid credential secret name")
+			}
+			if bslSpec.CloudStorage.Default {
+				numDefaultLocations++
+			} else if bslSpec.Name == "default" {
+				return false, fmt.Errorf("Storage location named 'default' must be set as default")
+			}
+		}
 		if err := r.ensureBackupLocationHasVeleroOrCloudStorage(&bslSpec); err != nil {
 			return false, err
 		}
@@ -67,20 +81,6 @@ func (r *DataProtectionApplicationReconciler) ValidateBackupStorageLocations() (
 				}
 			default:
 				return false, fmt.Errorf("invalid provider")
-			}
-		}
-		if bslSpec.CloudStorage != nil {
-			// Make sure credentials are specified.
-			if bslSpec.CloudStorage.Credential == nil {
-				return false, fmt.Errorf("must provide a valid credential secret")
-			}
-			if bslSpec.CloudStorage.Credential.LocalObjectReference.Name == "" {
-				return false, fmt.Errorf("must provide a valid credential secret name")
-			}
-			if bslSpec.CloudStorage.Default {
-				numDefaultLocations++
-			} else if bslSpec.Name == "default" {
-				return false, fmt.Errorf("Storage location named 'default' must be set as default")
 			}
 		}
 		if bslSpec.CloudStorage != nil && bslSpec.Velero != nil {
@@ -426,36 +426,96 @@ func (r *DataProtectionApplicationReconciler) ensurePrefixWhenBackupImages(bsl *
 }
 
 func (r *DataProtectionApplicationReconciler) ensureSecretDataExists(bsl *oadpv1alpha1.BackupLocation) error {
-	// Check if the Velero feature flag 'no-secret' is not set
-	if !(r.dpa.Spec.Configuration.Velero.HasFeatureFlag("no-secret")) {
-		// Check if the user specified credential under velero
-		if bsl.Velero != nil && bsl.Velero.Credential != nil {
-			// Check if user specified empty credential key
-			if bsl.Velero.Credential.Key == "" {
-				return fmt.Errorf("Secret key specified in BackupLocation %s cannot be empty", bsl.Name)
-			}
-			// Check if user specified empty credential name
-			if bsl.Velero.Credential.Name == "" {
-				return fmt.Errorf("Secret name specified in BackupLocation %s cannot be empty", bsl.Name)
-			}
-		}
-
-		// Check if the BSL secret key configured in the DPA exists with a secret data
-
-		if bsl.CloudStorage != nil {
-			_, _, err := r.getSecretNameAndKeyFromCloudStorage(bsl.CloudStorage)
-			if err != nil {
-				return err
-			}
-		}
-
-		if bsl.Velero != nil {
-			_, _, err := r.getSecretNameAndKey(bsl.Velero.Config, bsl.Velero.Credential, oadpv1alpha1.DefaultPlugin(bsl.Velero.Provider))
-			if err != nil {
-				return err
-			}
-		}
-
+	// Don't check if the Velero feature flag 'no-secret' is set
+	if r.dpa.Spec.Configuration.Velero.HasFeatureFlag("no-secret") {
+		return nil
 	}
+
+	// Check if the user specified credential under velero
+	if bsl.Velero != nil && bsl.Velero.Credential != nil {
+		// Check if user specified empty credential key
+		if bsl.Velero.Credential.Key == "" {
+			return fmt.Errorf("Secret key specified in BackupLocation %s cannot be empty", bsl.Name)
+		}
+		// Check if user specified empty credential name
+		if bsl.Velero.Credential.Name == "" {
+			return fmt.Errorf("Secret name specified in BackupLocation %s cannot be empty", bsl.Name)
+		}
+	}
+
+	// Extract secret name, key, provider and profile outside the if blocks
+	var secretName, secretKey, provider string
+	var err error
+	awsProfile := "default"
+
+	// Get secret details from either CloudStorage or Velero
+	if bsl.CloudStorage != nil {
+		secretName, secretKey, err = r.getSecretNameAndKeyFromCloudStorage(bsl.CloudStorage)
+		if err != nil {
+			return err
+		}
+
+		// Get provider type from CloudStorage
+		if bsl.CloudStorage.CloudStorageRef.Name != "" {
+			bucket := &oadpv1alpha1.CloudStorage{}
+			err := r.Get(r.Context, client.ObjectKey{Namespace: r.dpa.Namespace, Name: bsl.CloudStorage.CloudStorageRef.Name}, bucket)
+			if err != nil {
+				return err
+			} else {
+				provider = string(bucket.Spec.Provider)
+			}
+		}
+
+		// Get AWS profile if specified
+		if bsl.CloudStorage.Config != nil {
+			if value, exists := bsl.CloudStorage.Config[Profile]; exists {
+				awsProfile = value
+			}
+		}
+	} else if bsl.Velero != nil {
+		secretName, secretKey, err = r.getSecretNameAndKey(bsl.Velero.Config, bsl.Velero.Credential, oadpv1alpha1.DefaultPlugin(bsl.Velero.Provider))
+		if err != nil {
+			return err
+		}
+
+		// Get provider type from Velero
+		provider = bsl.Velero.Provider
+
+		// Get AWS profile if specified
+		if bsl.Velero.Config != nil {
+			if value, exists := bsl.Velero.Config[Profile]; exists {
+				awsProfile = value
+			}
+		}
+	}
+
+	// Skip secret parsing if no secret name is provided
+	if secretName == "" {
+		return nil
+	}
+
+	// Get the secret, this also ensure secret referenced exists.
+	secret, err := r.getProviderSecret(secretName)
+	if err != nil {
+		return err
+	}
+	// Only parse secrets when backupImages is true
+	if !r.dpa.BackupImages() {
+		return nil
+	}
+	// Parse the secret based on provider type
+	switch {
+	case provider == AWSProvider || strings.Contains(provider, "aws"):
+		_, _, err = r.parseAWSSecret(secret, secretKey, awsProfile)
+		if err != nil {
+			return fmt.Errorf("error parsing AWS secret %s: %v", secretName, err)
+		}
+	case provider == AzureProvider || strings.Contains(provider, "azure"):
+		_, err = r.parseAzureSecret(secret, secretKey)
+		if err != nil {
+			return fmt.Errorf("error parsing Azure secret %s: %v", secretName, err)
+		}
+	}
+
 	return nil
 }
