@@ -39,3 +39,7 @@ debug.test*
 
 # Others
 .envrc
+
+# must-gather
+must-gather/must-gather/
+must-gather/must-gather.local.*/
