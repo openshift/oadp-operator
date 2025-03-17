@@ -1,4 +1,4 @@
-FROM quay.io/konveyor/builder:ubi9-v1.20 AS konveyor-builder
+FROM quay.io/konveyor/builder:ubi9-v1.23 AS konveyor-builder
 ARG RESTIC_BRANCH=konveyor-0.15.0
 ARG VELERO_BRANCH=konveyor-dev
 WORKDIR /build
