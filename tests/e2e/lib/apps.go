@@ -352,6 +352,8 @@ func RunMustGather(oc_cli string, artifact_dir string) error {
 	ocClient := oc_cli
 	ocAdmin := "adm"
 	mustGatherCmd := "must-gather"
+	// TODO update image
+	// need to reopen https://github.com/openshift/release/pull/55587
 	mustGatherImg := "--image=quay.io/konveyor/oadp-must-gather:latest"
 	destDir := "--dest-dir=" + artifact_dir
 
