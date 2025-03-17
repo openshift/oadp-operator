@@ -156,7 +156,7 @@ func (r *DataProtectionApplicationReconciler) SetupWithManager(mgr ctrl.Manager)
 
 type labelHandler struct{}
 
-func (l *labelHandler) Create(ctx context.Context, evt event.CreateEvent, q workqueue.RateLimitingInterface) {
+func (l *labelHandler) Create(ctx context.Context, evt event.TypedCreateEvent[client.Object], q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	// check for the label & add it to the queue
 	namespace := evt.Object.GetNamespace()
 	dpaname := evt.Object.GetLabels()["dataprotectionapplication.name"]
@@ -170,7 +170,7 @@ func (l *labelHandler) Create(ctx context.Context, evt event.CreateEvent, q work
 	}})
 
 }
-func (l *labelHandler) Delete(ctx context.Context, evt event.DeleteEvent, q workqueue.RateLimitingInterface) {
+func (l *labelHandler) Delete(ctx context.Context, evt event.TypedDeleteEvent[client.Object], q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 
 	namespace := evt.Object.GetNamespace()
 	dpaname := evt.Object.GetLabels()["dataprotectionapplication.name"]
@@ -183,7 +183,7 @@ func (l *labelHandler) Delete(ctx context.Context, evt event.DeleteEvent, q work
 	}})
 
 }
-func (l *labelHandler) Update(ctx context.Context, evt event.UpdateEvent, q workqueue.RateLimitingInterface) {
+func (l *labelHandler) Update(ctx context.Context, evt event.TypedUpdateEvent[client.Object], q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	namespace := evt.ObjectNew.GetNamespace()
 	dpaname := evt.ObjectNew.GetLabels()["dataprotectionapplication.name"]
 	if evt.ObjectNew.GetLabels()[oadpv1alpha1.OadpOperatorLabel] == "" || dpaname == "" {
@@ -195,7 +195,7 @@ func (l *labelHandler) Update(ctx context.Context, evt event.UpdateEvent, q work
 	}})
 
 }
-func (l *labelHandler) Generic(ctx context.Context, evt event.GenericEvent, q workqueue.RateLimitingInterface) {
+func (l *labelHandler) Generic(ctx context.Context, evt event.TypedGenericEvent[client.Object], q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 
 	namespace := evt.Object.GetNamespace()
 	dpaname := evt.Object.GetLabels()["dataprotectionapplication.name"]

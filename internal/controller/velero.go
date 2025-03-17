@@ -249,7 +249,9 @@ func (r *DataProtectionApplicationReconciler) customizeVeleroDeployment(veleroDe
 	veleroDeployment.Spec.Replicas = &replicas
 	if dpa.Spec.Configuration.Velero.PodConfig != nil {
 		veleroDeployment.Spec.Template.Spec.Tolerations = dpa.Spec.Configuration.Velero.PodConfig.Tolerations
-		veleroDeployment.Spec.Template.Spec.NodeSelector = dpa.Spec.Configuration.Velero.PodConfig.NodeSelector
+		if len(dpa.Spec.Configuration.Velero.PodConfig.NodeSelector) != 0 {
+			veleroDeployment.Spec.Template.Spec.NodeSelector = dpa.Spec.Configuration.Velero.PodConfig.NodeSelector
+		}
 	}
 	veleroDeployment.Spec.Template.Spec.Volumes = append(veleroDeployment.Spec.Template.Spec.Volumes,
 		corev1.Volume{
