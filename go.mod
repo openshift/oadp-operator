@@ -163,4 +163,4 @@ require (
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.3 // indirect
 )
 
-replace github.com/vmware-tanzu/velero => github.com/openshift/velero v0.10.2-0.20240304173412-9773390dc246
+replace github.com/vmware-tanzu/velero => github.com/openshift/velero v0.10.2-0.20250317162642-926f317d8f75
