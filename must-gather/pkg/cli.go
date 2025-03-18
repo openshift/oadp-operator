@@ -20,8 +20,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 
-	"github.com/mateusoliveira43/oadp-must-gather/pkg/gather"
-	"github.com/mateusoliveira43/oadp-must-gather/pkg/templates"
+	"github.com/openshift/oadp-operator/must-gather/pkg/gather"
+	"github.com/openshift/oadp-operator/must-gather/pkg/templates"
 )
 
 const (
