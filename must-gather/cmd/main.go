@@ -6,7 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/mateusoliveira43/oadp-must-gather/pkg"
+	"github.com/openshift/oadp-operator/must-gather/pkg"
 )
 
 // study ref https://github.com/openshift/oadp-operator/pull/1104

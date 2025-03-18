@@ -1,4 +1,4 @@
-module github.com/mateusoliveira43/oadp-must-gather
+module github.com/openshift/oadp-operator/must-gather
 
 go 1.23.1
 
