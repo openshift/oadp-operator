@@ -1279,6 +1279,13 @@ spec:
                     - IfNotPresent
                     - Never
                   type: string
+                logFormat:
+                  default: text
+                  description: The format for log output. Valid values are text, json. (default text)
+                  enum:
+                    - text
+                    - json
+                  type: string
                 nonAdmin:
                   description: nonAdmin defines the configuration for the DPA to enable backup and restore operations for non-admin users
                   properties:

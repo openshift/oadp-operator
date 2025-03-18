@@ -51,6 +51,13 @@ type CustomPlugin struct {
 	Image string `json:"image"`
 }
 
+type LogFormat string
+
+const (
+	LogFormatText LogFormat = "text"
+	LogFormatJSON LogFormat = "json"
+)
+
 // Field does not have enum validation for development flexibility
 type UnsupportedImageKey string
 
@@ -689,6 +696,11 @@ type DataProtectionApplicationSpec struct {
 	// nonAdmin defines the configuration for the DPA to enable backup and restore operations for non-admin users
 	// +optional
 	NonAdmin *NonAdmin `json:"nonAdmin,omitempty"`
+	// The format for log output. Valid values are text, json. (default text)
+	// +kubebuilder:validation:Enum=text;json
+	// +kubebuilder:default=text
+	// +optional
+	LogFormat LogFormat `json:"logFormat,omitempty"`
 }
 
 // DataProtectionApplicationStatus defines the observed state of DataProtectionApplication
