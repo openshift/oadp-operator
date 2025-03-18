@@ -260,6 +260,13 @@ func (r *DataProtectionApplicationReconciler) customizeNodeAgentDaemonset(ds *ap
 				EmptyDir: &corev1.EmptyDirVolumeSource{},
 			},
 		},
+		// append /tmp volume
+		corev1.Volume{
+			Name: "tmp",
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{},
+			},
+		},
 		// used for short-lived credentials, inert if not used
 		corev1.Volume{
 			Name: "bound-sa-token",
@@ -404,6 +411,12 @@ func (r *DataProtectionApplicationReconciler) customizeNodeAgentDaemonset(ds *ap
 				corev1.VolumeMount{
 					Name:      "home-velero",
 					MountPath: "/home/velero",
+					ReadOnly:  false,
+				},
+				// Ensure /tmp is writable
+				corev1.VolumeMount{
+					Name:      "tmp",
+					MountPath: "/tmp",
 					ReadOnly:  false,
 				},
 			)

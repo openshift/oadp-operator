@@ -331,6 +331,12 @@ func createTestBuiltNodeAgentDaemonSet(options TestBuiltNodeAgentDaemonSetOption
 			},
 		},
 		corev1.Volume{
+			Name: "tmp",
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{},
+			},
+		},
+		corev1.Volume{
 			Name: "bound-sa-token",
 			VolumeSource: corev1.VolumeSource{
 				Projected: &corev1.ProjectedVolumeSource{
@@ -369,6 +375,11 @@ func createTestBuiltNodeAgentDaemonSet(options TestBuiltNodeAgentDaemonSetOption
 		corev1.VolumeMount{
 			Name:      "home-velero",
 			MountPath: "/home/velero",
+			ReadOnly:  false,
+		},
+		corev1.VolumeMount{
+			Name:      "tmp",
+			MountPath: "/tmp",
 			ReadOnly:  false,
 		},
 	)
