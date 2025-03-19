@@ -5,6 +5,7 @@ metadata:
 spec:
   configuration:
     velero:
+      disableFsBackup: false
       defaultPlugins:
       - openshift
       - aws

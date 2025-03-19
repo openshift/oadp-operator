@@ -238,15 +238,31 @@ func (r *DataProtectionApplicationReconciler) customizeNodeAgentDaemonset(ds *ap
 		Type: appsv1.RollingUpdateDaemonSetStrategyType,
 	}
 
-	// customize template specs
-	ds.Spec.Template.Spec.SecurityContext = &corev1.PodSecurityContext{
-		RunAsUser:          ptr.To(int64(0)),
-		SupplementalGroups: dpa.Spec.Configuration.NodeAgent.SupplementalGroups,
-	}
 	ds.Spec.Template.Spec.Volumes = append(ds.Spec.Template.Spec.Volumes,
 		// append certs volume
 		corev1.Volume{
 			Name: "certs",
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{},
+			},
+		},
+		// append home-velero volume
+		corev1.Volume{
+			Name: "home-velero",
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{},
+			},
+		},
+		// append credentials volume
+		corev1.Volume{
+			Name: "credentials",
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{},
+			},
+		},
+		// append /tmp volume
+		corev1.Volume{
+			Name: "tmp",
 			VolumeSource: corev1.VolumeSource{
 				EmptyDir: &corev1.EmptyDirVolumeSource{},
 			},
@@ -270,22 +286,57 @@ func (r *DataProtectionApplicationReconciler) customizeNodeAgentDaemonset(ds *ap
 		},
 	)
 
+	privileged := true
+
+	if dpa.Spec.Configuration.Velero.DisableFsBackup != nil {
+		privileged = !*dpa.Spec.Configuration.Velero.DisableFsBackup
+	}
+
+	ds.Spec.Template.Spec.SecurityContext = &corev1.PodSecurityContext{
+		RunAsNonRoot: ptr.To(!privileged),
+		SeccompProfile: &corev1.SeccompProfile{
+			Type: corev1.SeccompProfileTypeRuntimeDefault,
+		},
+		SupplementalGroups: dpa.Spec.Configuration.NodeAgent.SupplementalGroups,
+	}
+
+	if privileged {
+		ds.Spec.Template.Spec.SecurityContext.RunAsUser = ptr.To(int64(0))
+		// Privileged containers always run as Unconfined seccomp profile
+		// Changing to match the default behavior of the privileged node-agent
+		ds.Spec.Template.Spec.SecurityContext.SeccompProfile = &corev1.SeccompProfile{
+			Type: corev1.SeccompProfileTypeUnconfined,
+		}
+	}
+
 	// check platform type
 	platformType, err := r.getPlatformType()
 	if err != nil {
 		return nil, fmt.Errorf("error checking platform type: %s", err)
 	}
 
-	for i, vol := range ds.Spec.Template.Spec.Volumes {
-		// update nodeAgent host PV path
-		if vol.Name == HostPods {
-			ds.Spec.Template.Spec.Volumes[i].HostPath.Path = getFsPvHostPath(platformType)
-		}
-		// update nodeAgent plugins host path
-		if vol.Name == HostPlugins {
-			ds.Spec.Template.Spec.Volumes[i].HostPath.Path = getPluginsHostPath(platformType)
+	// Remove HostPods and HostPlugins volumes if not running in privileged mode.
+	// Note: This code may be removed in the future once the following upstream issue is resolved:
+	// https://github.com/vmware-tanzu/velero/issues/8185
+	var updatedVolumes []corev1.Volume
+	for _, vol := range ds.Spec.Template.Spec.Volumes {
+		if privileged {
+			if vol.HostPath != nil {
+				switch vol.Name {
+				case HostPods:
+					vol.HostPath.Path = getFsPvHostPath(platformType)
+				case HostPlugins:
+					vol.HostPath.Path = getPluginsHostPath(platformType)
+				}
+			}
+			// privileged mode: append host-path and plugins host-path volumes
+			updatedVolumes = append(updatedVolumes, vol)
+		} else if vol.Name != HostPods && vol.Name != HostPlugins {
+			// non-privileged mode: append volumes that are not host-path and plugins host-path volumes
+			updatedVolumes = append(updatedVolumes, vol)
 		}
 	}
+	ds.Spec.Template.Spec.Volumes = updatedVolumes
 
 	// Update with any pod config values
 	if dpa.Spec.Configuration.NodeAgent.PodConfig != nil {
@@ -309,6 +360,35 @@ func (r *DataProtectionApplicationReconciler) customizeNodeAgentDaemonset(ds *ap
 		if container.Name == common.NodeAgent {
 			nodeAgentContainer = &ds.Spec.Template.Spec.Containers[i]
 
+			nodeAgentContainer.SecurityContext = &corev1.SecurityContext{
+				Privileged:               ptr.To(privileged),
+				AllowPrivilegeEscalation: ptr.To(privileged),
+			}
+
+			nodeAgentContainer.SecurityContext.ReadOnlyRootFilesystem = ptr.To(true)
+
+			if privileged {
+				// update nodeAgent plugins volume mount host path only if privileged
+				for v, volumeMount := range nodeAgentContainer.VolumeMounts {
+					if volumeMount.Name == HostPlugins {
+						nodeAgentContainer.VolumeMounts[v].MountPath = getPluginsHostPath(platformType)
+					}
+				}
+			} else {
+				// remove HostPods and HostPlugins volume mounts if not privileged
+				var updatedVolumeMounts []corev1.VolumeMount
+				for _, volumeMount := range nodeAgentContainer.VolumeMounts {
+					if volumeMount.Name != HostPods && volumeMount.Name != HostPlugins {
+						updatedVolumeMounts = append(updatedVolumeMounts, volumeMount)
+					}
+				}
+				nodeAgentContainer.VolumeMounts = updatedVolumeMounts
+
+				nodeAgentContainer.SecurityContext.Capabilities = &corev1.Capabilities{
+					Drop: []corev1.Capability{"ALL"},
+				}
+			}
+
 			nodeAgentContainer.VolumeMounts = append(nodeAgentContainer.VolumeMounts,
 				// append certs volume mount
 				corev1.VolumeMount{
@@ -321,13 +401,26 @@ func (r *DataProtectionApplicationReconciler) customizeNodeAgentDaemonset(ds *ap
 					MountPath: "/var/run/secrets/openshift/serviceaccount",
 					ReadOnly:  true,
 				},
+				// https://github.com/openshift/openshift-velero-plugin/blob/3c7ddab2c437c9ba120ff11f6972643931cfeb4c/velero-plugins/imagestream/registry.go#L58-L61
+				corev1.VolumeMount{
+					Name:      "credentials",
+					MountPath: "/tmp/credentials",
+					ReadOnly:  false,
+				},
+				// Ensure /home/velero is writable
+				corev1.VolumeMount{
+					Name:      "home-velero",
+					MountPath: "/home/velero",
+					ReadOnly:  false,
+				},
+				// Ensure /tmp is writable
+				corev1.VolumeMount{
+					Name:      "tmp",
+					MountPath: "/tmp",
+					ReadOnly:  false,
+				},
 			)
-			// update nodeAgent plugins volume mount host path
-			for v, volumeMount := range nodeAgentContainer.VolumeMounts {
-				if volumeMount.Name == HostPlugins {
-					nodeAgentContainer.VolumeMounts[v].MountPath = getPluginsHostPath(platformType)
-				}
-			}
+
 			// append PodConfig envs to nodeAgent container
 			if dpa.Spec.Configuration.NodeAgent.PodConfig != nil && dpa.Spec.Configuration.NodeAgent.PodConfig.Env != nil {
 				nodeAgentContainer.Env = common.AppendUniqueEnvVars(nodeAgentContainer.Env, dpa.Spec.Configuration.NodeAgent.PodConfig.Env)
@@ -335,10 +428,6 @@ func (r *DataProtectionApplicationReconciler) customizeNodeAgentDaemonset(ds *ap
 
 			// append env vars to the nodeAgent container
 			nodeAgentContainer.Env = common.AppendUniqueEnvVars(nodeAgentContainer.Env, proxy.ReadProxyVarsFromEnv())
-
-			nodeAgentContainer.SecurityContext = &corev1.SecurityContext{
-				Privileged: ptr.To(true),
-			}
 
 			imagePullPolicy, err := common.GetImagePullPolicy(dpa.Spec.ImagePullPolicy, getVeleroImage(dpa))
 			if err != nil {

@@ -302,6 +302,12 @@ type VeleroConfig struct {
 	// Use pod volume file system backup by default for volumes
 	// +optional
 	DefaultVolumesToFSBackup *bool `json:"defaultVolumesToFSBackup,omitempty"`
+	// DisableFsBackup determines whether the NodeAgent should disable file system backup.
+	// When set to true, the NodeAgent runs in non-privileged mode.
+	// Defaults to false.
+	// +optional
+	// +kubebuilder:default=false
+	DisableFsBackup *bool `json:"disableFsBackup,omitempty"`
 	// Specify whether CSI snapshot data should be moved to backup storage by default
 	// +optional
 	DefaultSnapshotMoveData *bool `json:"defaultSnapshotMoveData,omitempty"`
