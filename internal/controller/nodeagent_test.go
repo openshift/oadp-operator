@@ -1,7 +1,9 @@
 package controller
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"reflect"
@@ -16,6 +18,8 @@ import (
 	configv1 "github.com/openshift/api/config/v1"
 	"github.com/operator-framework/operator-lib/proxy"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
+	"github.com/vmware-tanzu/velero/pkg/nodeagent"
+	"github.com/vmware-tanzu/velero/pkg/util/kube"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -1331,6 +1335,91 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 				},
 			}),
 		},
+		{
+			name: "valid DPA CR with LoadConcurrency, NodeAgent DaemonSet is built with pointer to the config map",
+			dpa: createTestDpaWith(
+				nil,
+				oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{},
+						NodeAgent: &oadpv1alpha1.NodeAgentConfig{
+							NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{},
+							NodeAgentConfigMapSettings: oadpv1alpha1.NodeAgentConfigMapSettings{
+								LoadConcurrency: &oadpv1alpha1.LoadConcurrency{
+									GlobalConfig: 10,
+									PerNodeConfig: []oadpv1alpha1.RuledConfigs{
+										{
+											NodeSelector: metav1.LabelSelector{
+												MatchLabels: map[string]string{"app": "velero"},
+											},
+											Number: 1,
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			),
+			clientObjects: []client.Object{
+				testGenericInfrastructure,
+				&corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      common.NodeAgentConfigMapPrefix + testDpaName,
+						Namespace: testNamespaceName,
+					},
+					Data: map[string]string{
+						"loadConcurrency": `{"globalConfig":10,"perNodeConfig":[{"nodeSelector":{"app":"velero"},"number":1}]}`,
+					},
+				},
+			},
+			nodeAgentDaemonSet: testNodeAgentDaemonSet.DeepCopy(),
+			wantNodeAgentDaemonSet: createTestBuiltNodeAgentDaemonSet(TestBuiltNodeAgentDaemonSetOptions{
+				args: []string{
+					"--node-agent-configmap=node-agent-test-DPA-CR",
+				},
+			}),
+		},
+		{
+			name: "valid DPA CR with NodeSelector from PodConfig, NodeAgent DaemonSet is built with pointer to the config map",
+			dpa: createTestDpaWith(
+				nil,
+				oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{},
+						NodeAgent: &oadpv1alpha1.NodeAgentConfig{
+							NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
+								PodConfig: &oadpv1alpha1.PodConfig{
+									NodeSelector: map[string]string{"foos": "bars"},
+								},
+							},
+							UploaderType: "kopia",
+						},
+					},
+				},
+			),
+			clientObjects: []client.Object{
+				testGenericInfrastructure,
+				&corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      common.NodeAgentConfigMapPrefix + testDpaName,
+						Namespace: testNamespaceName,
+					},
+					Data: map[string]string{
+						"loadAffinity": `{"nodeSelector":{"foos":"bars"}}`,
+					},
+				},
+			},
+			nodeAgentDaemonSet: testNodeAgentDaemonSet.DeepCopy(),
+			wantNodeAgentDaemonSet: createTestBuiltNodeAgentDaemonSet(TestBuiltNodeAgentDaemonSetOptions{
+				// We do override the nodeSelector with the values from the DPA CR's PodConfig
+				// https://github.com/openshift/oadp-operator/pull/1666#discussion_r1998805581
+				nodeSelector: map[string]string{"foos": "bars"},
+				args: []string{
+					"--node-agent-configmap=node-agent-test-DPA-CR",
+				},
+			}),
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -1347,6 +1436,218 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 				if !reflect.DeepEqual(test.wantNodeAgentDaemonSet, result) {
 					t.Errorf("expected NodeAgent DaemonSet diffs.\nDIFF:%v", cmp.Diff(test.wantNodeAgentDaemonSet, result))
 				}
+			}
+		})
+	}
+}
+
+func createTestBuiltNodeAgentCM(data map[string]string) *corev1.ConfigMap {
+	// Normalize multi-line JSON values
+	for key, value := range data {
+		var compactJSON bytes.Buffer
+		if err := json.Compact(&compactJSON, []byte(value)); err != nil {
+			fmt.Printf("Warning: Invalid JSON for key %s: %v\n", key, err)
+		} else {
+			data[key] = compactJSON.String()
+		}
+	}
+
+	return &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      common.NodeAgentConfigMapPrefix + "test-dpa-configmap-cm",
+			Namespace: "test-configmap-ns",
+			Labels: map[string]string{
+				"app.kubernetes.io/instance":   "test-dpa-configmap-cm",
+				"app.kubernetes.io/managed-by": common.OADPOperator,
+				"app.kubernetes.io/component":  "node-agent-config",
+			},
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion:         oadpv1alpha1.SchemeBuilder.GroupVersion.String(),
+					Kind:               "DataProtectionApplication",
+					Name:               "test-dpa-configmap-cm",
+					UID:                "",
+					Controller:         ptr.To(true),
+					BlockOwnerDeletion: ptr.To(true),
+				},
+			},
+		},
+		Data: data,
+	}
+}
+func TestDPAReconciler_updateNodeAgentCM(t *testing.T) {
+	testCmNs := "test-configmap-ns"
+	testCmName := "test-dpa-configmap-cm"
+	tests := []struct {
+		name                   string
+		nodeAgentConfigMap     *corev1.ConfigMap
+		dpa                    *oadpv1alpha1.DataProtectionApplication
+		wantErr                bool
+		wantNodeAgentConfigMap *corev1.ConfigMap
+	}{
+		{
+			name: "Given DPA CR instance, appropriate NodeAgent config cm is created with NodeSelector",
+			nodeAgentConfigMap: &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      common.NodeAgentConfigMapPrefix + testCmName,
+					Namespace: testCmNs,
+				},
+			},
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      testCmName,
+					Namespace: testCmNs,
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						NodeAgent: &oadpv1alpha1.NodeAgentConfig{
+							NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
+								PodConfig: &oadpv1alpha1.PodConfig{
+									NodeSelector: map[string]string{"foos": "bars"},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr: false,
+			wantNodeAgentConfigMap: createTestBuiltNodeAgentCM(map[string]string{
+				"node-agent-config": `{
+					"loadAffinity": [
+						{
+							"nodeSelector": {
+								"foos": "bars"
+							}
+						}
+					]
+				}`,
+			}),
+		},
+		{
+			name: "Given DPA CR instance, appropriate NodeAgent config cm is created with LoadConcurrency, BackupPVCConfig, RestorePVCConfig, PodResources",
+			nodeAgentConfigMap: &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      common.NodeAgentConfigMapPrefix + testCmName,
+					Namespace: testCmNs,
+				},
+			},
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      testCmName,
+					Namespace: testCmNs,
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{},
+						NodeAgent: &oadpv1alpha1.NodeAgentConfig{
+							NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{},
+							NodeAgentConfigMapSettings: oadpv1alpha1.NodeAgentConfigMapSettings{
+								LoadConcurrency: &oadpv1alpha1.LoadConcurrency{
+									GlobalConfig: 10,
+									PerNodeConfig: []oadpv1alpha1.RuledConfigs{
+										{
+											NodeSelector: metav1.LabelSelector{
+												MatchLabels: map[string]string{"app": "velero"},
+											},
+											Number: 1,
+										},
+										{
+											NodeSelector: metav1.LabelSelector{
+												MatchLabels: map[string]string{"app": "velero-2"},
+											},
+											Number: 5,
+										},
+									},
+								},
+								BackupPVCConfig: map[string]nodeagent.BackupPVC{
+									"pvc-1": {
+										StorageClass: "sc-1",
+									},
+								},
+								RestorePVCConfig: &oadpv1alpha1.RestorePVC{
+									IgnoreDelayBinding: true,
+								},
+								PodResources: &kube.PodResources{
+									CPURequest:    "100m",
+									MemoryRequest: "100Mi",
+									CPULimit:      "200m",
+									MemoryLimit:   "200Mi",
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr: false,
+			wantNodeAgentConfigMap: createTestBuiltNodeAgentCM(map[string]string{
+				"node-agent-config": `{
+					"backupPVC": {
+						"pvc-1": {
+							"storageClass": "sc-1"
+						}
+					},
+					"loadConcurrency": {
+						"globalConfig": 10,
+						"perNodeConfig": [
+							{
+								"nodeSelector": {
+									"matchLabels": {
+										"app": "velero"
+									}
+								},
+								"number": 1
+							},
+							{
+								"nodeSelector": {
+									"matchLabels": {
+										"app": "velero-2"
+									}
+								},
+								"number": 5
+							}
+						]
+					},
+					"podResources": {
+						"cpuLimit": "200m",
+						"cpuRequest": "100m",
+						"memoryLimit": "200Mi",
+						"memoryRequest": "100Mi"
+					},
+					"restorePVC": {
+						"ignoreDelayBinding": true
+					}
+				}`,
+			}),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fakeClient, err := getFakeClientFromObjects()
+			if err != nil {
+				t.Fatalf("error in creating fake client, likely programmer error")
+			}
+
+			r := &DataProtectionApplicationReconciler{
+				Client:  fakeClient,
+				Scheme:  fakeClient.Scheme(),
+				Log:     logr.Discard(),
+				Context: newContextForTest(),
+				NamespacedName: types.NamespacedName{
+					Namespace: tt.dpa.Namespace,
+					Name:      tt.dpa.Name,
+				},
+				EventRecorder: record.NewFakeRecorder(10),
+				dpa:           tt.dpa,
+			}
+
+			err = r.updateNodeAgentCM(tt.nodeAgentConfigMap)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("updateNodeAgentCM() error = %v, wantErr %v", err, tt.wantErr)
+			}
+
+			if !reflect.DeepEqual(tt.nodeAgentConfigMap, tt.wantNodeAgentConfigMap) {
+				t.Errorf("updateNodeAgentCM() got CM = %v, want CM %v", tt.nodeAgentConfigMap, tt.wantNodeAgentConfigMap)
 			}
 		})
 	}

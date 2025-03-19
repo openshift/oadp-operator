@@ -103,13 +103,61 @@ func isNodeAgentEnabled(dpa *oadpv1alpha1.DataProtectionApplication) bool {
 	return false
 }
 
-// isNodeAgentCMRequired checks if at least one required field is present in NodeAgentConfigMapSettings.
-func isNodeAgentCMRequired(config oadpv1alpha1.NodeAgentConfigMapSettings) bool {
+// isNodeAgentCMRequired checks if at least one required field is present in NodeAgentConfigMapSettings or PodConfig.
+func isNodeAgentCMRequired(config oadpv1alpha1.NodeAgentConfigMapSettings, podConfig *oadpv1alpha1.PodConfig) bool {
 	return config.LoadConcurrency != nil ||
-		len(config.LoadAffinity) > 0 ||
 		len(config.BackupPVCConfig) > 0 ||
 		config.RestorePVCConfig != nil ||
-		config.PodResources != nil
+		config.PodResources != nil ||
+		(podConfig != nil && len(podConfig.NodeSelector) > 0)
+}
+
+// updateNodeAgentCM handles the creation or update of the NodeAgent ConfigMap with all required data.
+func (r *DataProtectionApplicationReconciler) updateNodeAgentCM(cm *corev1.ConfigMap) error {
+	// Set the owner reference to ensure the ConfigMap is managed by the DPA
+	if err := controllerutil.SetControllerReference(r.dpa, cm, r.Scheme); err != nil {
+		return fmt.Errorf("failed to set controller reference: %w", err)
+	}
+
+	// Convert NodeAgentConfigMapSettings to a generic map
+	configNodeAgent := make(map[string]interface{})
+	configNodeAgentJSON, err := json.Marshal(r.dpa.Spec.Configuration.NodeAgent.NodeAgentConfigMapSettings)
+	if err != nil {
+		return fmt.Errorf("failed to serialize node agent config: %w", err)
+	}
+	// We need to unmarshal, so we can override the nodeSelector with the values from the DPA CR's PodConfig
+	if err := json.Unmarshal(configNodeAgentJSON, &configNodeAgent); err != nil {
+		return fmt.Errorf("failed to unmarshal node agent config: %w", err)
+	}
+
+	// Dump entire PodConfig.NodeSelector under "loadAffinity" if present
+	if r.dpa.Spec.Configuration.NodeAgent.PodConfig != nil && len(r.dpa.Spec.Configuration.NodeAgent.PodConfig.NodeSelector) > 0 {
+		configNodeAgent["loadAffinity"] = []map[string]interface{}{
+			{
+				"nodeSelector": r.dpa.Spec.Configuration.NodeAgent.PodConfig.NodeSelector,
+			},
+		}
+	}
+
+	configNodeAgentWithNodeSelector, err := json.Marshal(configNodeAgent)
+	if err != nil {
+		return fmt.Errorf("failed to serialize node agent config with nodeSelector: %w", err)
+	}
+
+	cm.Name = common.NodeAgentConfigMapPrefix + r.dpa.Name
+	cm.Namespace = r.NamespacedName.Namespace
+	cm.Labels = map[string]string{
+		"app.kubernetes.io/instance":   r.dpa.Name,
+		"app.kubernetes.io/managed-by": common.OADPOperator,
+		"app.kubernetes.io/component":  "node-agent-config",
+	}
+
+	if cm.Data == nil {
+		cm.Data = make(map[string]string)
+	}
+	cm.Data["node-agent-config"] = string(configNodeAgentWithNodeSelector)
+
+	return nil
 }
 
 // ReconcileNodeAgentConfigMap handles creation, update, and deletion of the NodeAgent ConfigMap.
@@ -134,34 +182,13 @@ func (r *DataProtectionApplicationReconciler) ReconcileNodeAgentConfigMap(log lo
 		return true, nil
 	}
 
-	if !isNodeAgentCMRequired(dpa.Spec.Configuration.NodeAgent.NodeAgentConfigMapSettings) {
+	if !isNodeAgentCMRequired(dpa.Spec.Configuration.NodeAgent.NodeAgentConfigMapSettings, dpa.Spec.Configuration.NodeAgent.PodConfig) {
 		log.Info("Skipping NodeAgent ConfigMap creation as no required fields are set")
 		return true, nil
 	}
 
-	jsonData, err := json.Marshal(dpa.Spec.Configuration.NodeAgent.NodeAgentConfigMapSettings)
-
-	if err != nil {
-		return false, fmt.Errorf("failed to serialize node agent config: %w", err)
-	}
-	configMap.ObjectMeta = metav1.ObjectMeta{
-		Name:      cmName.Name,
-		Namespace: cmName.Namespace,
-	}
-
 	op, err := controllerutil.CreateOrPatch(r.Context, r.Client, &configMap, func() error {
-		configMap.Labels = map[string]string{
-			"app.kubernetes.io/instance":   dpa.Name,
-			"app.kubernetes.io/managed-by": common.OADPOperator,
-			"app.kubernetes.io/component":  "node-agent-config",
-		}
-		if configMap.Data == nil {
-			configMap.Data = make(map[string]string)
-		}
-		configMap.Data["node-agent-config"] = string(jsonData)
-
-		// Set the owner reference to ensure the ConfigMap is managed by the DPA
-		return controllerutil.SetControllerReference(dpa, &configMap, r.Scheme)
+		return r.updateNodeAgentCM(&configMap)
 	})
 	if err != nil {
 		return false, fmt.Errorf("failed to create or patch config map: %w", err)

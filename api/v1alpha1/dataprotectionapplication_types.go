@@ -394,19 +394,10 @@ type LoadConcurrency struct {
 	PerNodeConfig []RuledConfigs `json:"perNodeConfig,omitempty"`
 }
 
-// LoadAffinity is the config for data path load affinity.
-type LoadAffinity struct {
-	// NodeSelector specifies the label selector to match nodes
-	NodeSelector metav1.LabelSelector `json:"nodeSelector"`
-}
-
 type NodeAgentConfigMapSettings struct {
 	// LoadConcurrency is the config for data path load concurrency per node.
 	// +optional
 	LoadConcurrency *LoadConcurrency `json:"loadConcurrency,omitempty"`
-	// LoadAffinity is the config for data path load affinity.
-	// +optional
-	LoadAffinity []*LoadAffinity `json:"loadAffinity,omitempty"`
 	// BackupPVCConfig is the config for backupPVC (intermediate PVC) of snapshot data movement
 	// +optional
 	BackupPVCConfig map[string]nodeagent.BackupPVC `json:"backupPVC,omitempty"`
@@ -416,6 +407,8 @@ type NodeAgentConfigMapSettings struct {
 	// PodResources is the resource config for various types of pods launched by node-agent, i.e., data mover pods.
 	// +optional
 	PodResources *kube.PodResources `json:"podResources,omitempty"`
+	// LoadAffinity is not required within NodeAgentConfigMapSettings,
+	// because we have it already from the NodeAgentConfig.PodConfig.NodeSelector
 }
 
 // NodeAgentConfig is the configuration for node server
