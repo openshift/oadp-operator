@@ -17,8 +17,8 @@ spec:
   scope: Namespaced
   versions:
     - additionalPrinterColumns:
-        - description: DataProtectionApplication Reconciled status
-          jsonPath: .status.conditions[0].status
+        - description: DataProtectionApplication Reconciled Status
+          jsonPath: .status.conditions[?(@.type=='Reconciled')].status
           name: Reconciled
           type: string
         - description: DataProtectionApplication creation timestamp
