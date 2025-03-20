@@ -2,6 +2,7 @@ package e2e_test
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"time"
 
@@ -12,6 +13,8 @@ import (
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
@@ -86,6 +89,11 @@ var _ = ginkgo.Describe("OADP upgrade scenarios", ginkgo.Ordered, func() {
 						LogLevel:       "debug",
 						DefaultPlugins: dpaCR.VeleroDefaultPlugins,
 					},
+					Restic: &oadpv1alpha1.ResticConfig{
+						NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
+							Enable: ptr.To(true),
+						},
+					},
 				},
 				BackupLocations: []oadpv1alpha1.BackupLocation{
 					{
@@ -120,7 +128,9 @@ var _ = ginkgo.Describe("OADP upgrade scenarios", ginkgo.Ordered, func() {
 			log.Print("Checking if Velero Pod is running")
 			gomega.Eventually(lib.VeleroPodIsRunning(kubernetesClientForSuiteRun, namespace), time.Minute*3, time.Second*5).Should(gomega.BeTrue())
 
-			// TODO check NodeAgent Pod if using restic or kopia
+			// check that NodeAgent Pods are running
+			log.Printf("Checking if Node Agent Pods are running")
+			gomega.Eventually(lib.AreNodeAgentPodsRunning(kubernetesClientForSuiteRun, namespace), time.Minute*3, time.Second*5).Should(gomega.BeTrue())
 
 			// check if BSL is available
 			log.Print("Checking if BSL is available")
@@ -134,6 +144,8 @@ var _ = ginkgo.Describe("OADP upgrade scenarios", ginkgo.Ordered, func() {
 
 			// Update spec.channel in Subscription to stable
 			log.Print("Updating Subscription oadp-operator spec.channel")
+			err = runTimeClientForSuiteRun.Get(context.Background(), types.NamespacedName{Namespace: subscription.Namespace, Name: subscription.Name}, &subscription)
+			gomega.Expect(err).To(gomega.BeNil())
 			subscription.Spec.Channel = scenario.next
 			err = runTimeClientForSuiteRun.Update(context.Background(), &subscription)
 			gomega.Expect(err).To(gomega.BeNil())
@@ -151,6 +163,21 @@ var _ = ginkgo.Describe("OADP upgrade scenarios", ginkgo.Ordered, func() {
 
 			// check if updated DPA is reconciled
 			log.Print("Checking if DPA was reconciled after update")
+			gomega.Eventually(dpaCR.IsReconciledFalse("Delete restic object from spec.configuration, use spec.configuration.nodeAgent instead"), time.Minute*3, time.Second*5).Should(gomega.BeTrue())
+
+			log.Print("Updating DPA")
+			dpaSpec.Configuration.Restic = nil
+			dpaSpec.Configuration.NodeAgent = &oadpv1alpha1.NodeAgentConfig{
+				UploaderType: "restic",
+				NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
+					Enable: ptr.To(true),
+				},
+			}
+			err = dpaCR.CreateOrUpdate(dpaSpec)
+			gomega.Expect(err).To(gomega.BeNil())
+
+			// check if updated DPA is reconciled
+			log.Print("Checking if DPA was reconciled after update")
 			// TODO do not use Consistently, using because no field in DPA is updated telling when it was last reconciled
 			gomega.Consistently(dpaCR.IsReconciledTrue(), time.Minute*3, time.Second*15).Should(gomega.BeTrue())
 
@@ -162,7 +189,37 @@ var _ = ginkgo.Describe("OADP upgrade scenarios", ginkgo.Ordered, func() {
 
 			timeAfterVeleroIsRunning := time.Now()
 
-			// TODO check NodeAgent Pod if using restic or kopia
+			// check if updated NodeAgent Pods are running
+			log.Print("Checking if Node Agent Pods were recreated after update")
+			gomega.Eventually(func() (bool, error) {
+				nodeAgentDaemonSet, err := lib.GetNodeAgentDaemonSet(kubernetesClientForSuiteRun, namespace)
+				if err != nil {
+					return false, err
+				}
+
+				numScheduled := nodeAgentDaemonSet.Status.CurrentNumberScheduled
+				numDesired := nodeAgentDaemonSet.Status.DesiredNumberScheduled
+				// check correct number of NodeAgent Pods are initialized
+				if numScheduled != numDesired {
+					return false, fmt.Errorf("wrong number of Node Agent Pods")
+				}
+
+				podList, err := lib.GetAllPodsWithLabel(kubernetesClientForSuiteRun, namespace, "name=node-agent")
+				if err != nil {
+					return false, err
+				}
+				if err != nil {
+					return false, err
+				}
+				for _, pod := range podList.Items {
+					if !pod.CreationTimestamp.After(timeAfterUpgrade) {
+						return false, fmt.Errorf("not all Node Agent Pods were updated")
+					}
+				}
+				return true, nil
+			}, time.Minute*3, time.Second*5).Should(gomega.BeTrue())
+			log.Printf("Checking if Node Agent Pods are running")
+			gomega.Eventually(lib.AreNodeAgentPodsRunning(kubernetesClientForSuiteRun, namespace), time.Minute*3, time.Second*5).Should(gomega.BeTrue())
 
 			// check if updated BSL is available
 			log.Print("Checking if BSL was reconciled after update")
