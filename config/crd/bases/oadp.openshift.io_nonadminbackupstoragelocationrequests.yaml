@@ -16,7 +16,20 @@ spec:
     singular: nonadminbackupstoragelocationrequest
   scope: Namespaced
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - jsonPath: .status.phase
+      name: Request-Phase
+      type: string
+    - jsonPath: .status.nonAdminBackupStorageLocation.namespace
+      name: Request-Namespace
+      type: string
+    - jsonPath: .status.nonAdminBackupStorageLocation.name
+      name: Request-Name
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         description: NonAdminBackupStorageLocationRequest is the Schema for the nonadminbackupstoragelocationrequests
