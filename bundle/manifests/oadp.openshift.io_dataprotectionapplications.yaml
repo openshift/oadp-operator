@@ -976,6 +976,7 @@ spec:
                               - vsm
                               - openshift
                               - kubevirt
+                              - hypershift
                             type: string
                           type: array
                         defaultSnapshotMoveData:
@@ -2439,6 +2440,7 @@ spec:
                       - gcpPluginImageFqin
                       - resticRestoreImageFqin
                       - kubevirtPluginImageFqin
+                      - hypershiftPluginImageFqin
                       - nonAdminControllerImageFqin
                       - operator-type
                       - tech-preview-ack

@@ -11,7 +11,8 @@ cat > $TMP_DIR/oadpcreds <<EOF
         "gcpPluginImageFqin": "$GCP_PLUGIN_IMAGE",
         "resticRestoreImageFqin": "$RESTORE_IMAGE",
         "kubevirtPluginImageFqin": "$KUBEVIRT_PLUGIN_IMAGE",
-        "nonAdminControllerImageFqin": "$NON_ADMIN_IMAGE"  
+        "hypershiftPluginImageFqin": "$HYPERSHIFT_PLUGIN_IMAGE",
+        "nonAdminControllerImageFqin": "$NON_ADMIN_IMAGE"
       },
       "configuration":{
         "velero":{

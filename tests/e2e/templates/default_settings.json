@@ -5,7 +5,8 @@
           "defaultPlugins": [
             "openshift",
             "aws",
-            "kubevirt"
+            "kubevirt",
+            "hypershift"
           ]
         }
       },
@@ -27,7 +28,7 @@
         {
           "velero": {
             "provider": "aws",
-            "config": { 
+            "config": {
               "profile": "default",
               "region": "us-east-1"
             }

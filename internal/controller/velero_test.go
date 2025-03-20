@@ -153,6 +153,7 @@ var (
 		oadpv1alpha1.DefaultPluginGCP,
 		oadpv1alpha1.DefaultPluginMicrosoftAzure,
 		oadpv1alpha1.DefaultPluginKubeVirt,
+		oadpv1alpha1.DefaultPluginHypershift,
 		oadpv1alpha1.DefaultPluginOpenShift,
 		oadpv1alpha1.DefaultPluginCSI,
 	}
@@ -701,6 +702,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 					pluginContainer(common.VeleroPluginForGCP, common.GCPPluginImage),
 					pluginContainer(common.VeleroPluginForAzure, common.AzurePluginImage),
 					pluginContainer(common.KubeVirtPlugin, common.KubeVirtPluginImage),
+					pluginContainer(common.HypershiftPlugin, common.HypershiftPluginImage),
 					pluginContainer(common.VeleroPluginForOpenshift, common.OpenshiftPluginImage),
 				},
 				volumes: []corev1.Volume{
@@ -1464,6 +1466,41 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 				initContainers: []corev1.Container{
 					pluginContainer(common.VeleroPluginForAWS, common.AWSPluginImage),
 					pluginContainer(common.KubeVirtPlugin, common.KubeVirtPluginImage),
+				},
+				volumes: []corev1.Volume{deploymentVolumeSecret("cloud-credentials")},
+				volumeMounts: []corev1.VolumeMount{
+					{Name: "cloud-credentials", MountPath: "/credentials"},
+				},
+				env: append(baseEnvVars, []corev1.EnvVar{
+					{Name: common.AWSSharedCredentialsFileEnvKey, Value: "/credentials/cloud"},
+				}...),
+				args: []string{
+					defaultFileSystemBackupTimeout,
+					defaultRestoreResourcePriorities,
+					defaultDisableInformerCache,
+				},
+			}),
+		},
+		{
+			name: "valid DPA CR with aws and hypershift plugin, Velero Deployment is built with aws and hypershift plugin",
+			dpa: createTestDpaWith(
+				nil,
+				oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+								oadpv1alpha1.DefaultPluginAWS,
+								oadpv1alpha1.DefaultPluginHypershift,
+							},
+						},
+					},
+				},
+			),
+			veleroDeployment: testVeleroDeployment.DeepCopy(),
+			wantVeleroDeployment: createTestBuiltVeleroDeployment(TestBuiltVeleroDeploymentOptions{
+				initContainers: []corev1.Container{
+					pluginContainer(common.VeleroPluginForAWS, common.AWSPluginImage),
+					pluginContainer(common.HypershiftPlugin, common.HypershiftPluginImage),
 				},
 				volumes: []corev1.Volume{deploymentVolumeSecret("cloud-credentials")},
 				volumeMounts: []corev1.VolumeMount{

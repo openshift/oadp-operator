@@ -1078,6 +1078,8 @@ spec:
                   value: quay.io/konveyor/velero-plugin-for-gcp:latest
                 - name: RELATED_IMAGE_KUBEVIRT_VELERO_PLUGIN
                   value: quay.io/konveyor/kubevirt-velero-plugin:v0.7.0
+                - name: RELATED_IMAGE_HYPERSHIFT_VELERO_PLUGIN
+                  value: quay.io/hypershift/hypershift-oadp-plugin:latest
                 - name: RELATED_IMAGE_MUSTGATHER
                   value: registry.redhat.io/oadp/oadp-mustgather-rhel8:v1.2
                 - name: RELATED_IMAGE_NON_ADMIN_CONTROLLER
@@ -1236,6 +1238,8 @@ spec:
     name: velero-plugin-for-gcp
   - image: quay.io/konveyor/kubevirt-velero-plugin:v0.7.0
     name: kubevirt-velero-plugin
+  - image: quay.io/hypershift/hypershift-oadp-plugin:latest
+    name: hypershift-velero-plugin
   - image: registry.redhat.io/oadp/oadp-mustgather-rhel8:v1.2
     name: mustgather
   - image: quay.io/konveyor/oadp-non-admin:latest
