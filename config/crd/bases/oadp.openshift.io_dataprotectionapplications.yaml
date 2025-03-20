@@ -2337,6 +2337,7 @@ spec:
                       - gcpPluginImageFqin
                       - resticRestoreImageFqin
                       - kubevirtPluginImageFqin
+                      - hypershiftPluginImageFqin
                       - nonAdminControllerImageFqin
                       - operator-type
                       - tech-preview-ack

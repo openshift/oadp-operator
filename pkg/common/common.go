@@ -64,14 +64,15 @@ var DefaultRestoreResourcePriorities = types.Priorities{
 
 // Images
 const (
-	VeleroImage          = "quay.io/konveyor/velero:latest"
-	OpenshiftPluginImage = "quay.io/konveyor/openshift-velero-plugin:latest"
-	AWSPluginImage       = "quay.io/konveyor/velero-plugin-for-aws:latest"
-	LegacyAWSPluginImage = "quay.io/konveyor/velero-plugin-for-legacy-aws:latest"
-	AzurePluginImage     = "quay.io/konveyor/velero-plugin-for-microsoft-azure:latest"
-	GCPPluginImage       = "quay.io/konveyor/velero-plugin-for-gcp:latest"
-	RegistryImage        = "quay.io/konveyor/registry:latest"
-	KubeVirtPluginImage  = "quay.io/konveyor/kubevirt-velero-plugin:v0.7.0"
+	VeleroImage           = "quay.io/konveyor/velero:latest"
+	OpenshiftPluginImage  = "quay.io/konveyor/openshift-velero-plugin:latest"
+	AWSPluginImage        = "quay.io/konveyor/velero-plugin-for-aws:latest"
+	LegacyAWSPluginImage  = "quay.io/konveyor/velero-plugin-for-legacy-aws:latest"
+	AzurePluginImage      = "quay.io/konveyor/velero-plugin-for-microsoft-azure:latest"
+	GCPPluginImage        = "quay.io/konveyor/velero-plugin-for-gcp:latest"
+	RegistryImage         = "quay.io/konveyor/registry:latest"
+	KubeVirtPluginImage   = "quay.io/konveyor/kubevirt-velero-plugin:v0.7.0"
+	HypershiftPluginImage = "quay.io/hypershift/hypershift-oadp-plugin:v0.1.0"
 )
 
 // Plugin names
@@ -82,6 +83,7 @@ const (
 	VeleroPluginForGCP       = "velero-plugin-for-gcp"
 	VeleroPluginForOpenshift = "openshift-velero-plugin"
 	KubeVirtPlugin           = "kubevirt-velero-plugin"
+	HypershiftPlugin         = "hypershift-oadp-plugin"
 )
 
 // Environment Vars keys

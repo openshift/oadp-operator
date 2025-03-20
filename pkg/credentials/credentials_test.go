@@ -425,6 +425,50 @@ func TestCredentials_getPluginImage(t *testing.T) {
 				"RELATED_IMAGE_KUBEVIRT_VELERO_PLUGIN": "quay.io/kubevirt/kubevirt-velero-plugin:latest",
 			},
 		},
+		// Hypershift tests
+		{
+			name: "given default Velero CR with no env var, default hypershift image should be returned",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-Velero-CR",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+								oadpv1alpha1.DefaultPluginHypershift,
+							},
+						},
+					},
+				},
+			},
+			pluginName: oadpv1alpha1.DefaultPluginHypershift,
+			wantImage:  common.HypershiftPluginImage,
+		},
+		{
+			name: "given hypershift plugin override, custom hypershift image should be returned",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-Velero-CR",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+								oadpv1alpha1.DefaultPluginHypershift,
+							},
+						},
+					},
+				},
+			},
+			pluginName: oadpv1alpha1.DefaultPluginHypershift,
+			wantImage:  "quay.io/hypershift/hypershift-oadp-plugin:latest",
+			setEnvVars: map[string]string{
+				"RELATED_IMAGE_HYPERSHIFT_VELERO_PLUGIN": "quay.io/hypershift/hypershift-oadp-plugin:latest",
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

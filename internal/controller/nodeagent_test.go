@@ -1089,6 +1089,37 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 			}),
 		},
 		{
+			name: "valid DPA CR with aws and hypershift plugin, NodeAgent DaemonSet is built",
+			dpa: createTestDpaWith(
+				nil,
+				oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+								oadpv1alpha1.DefaultPluginAWS,
+								oadpv1alpha1.DefaultPluginHypershift,
+							},
+						},
+						NodeAgent: &oadpv1alpha1.NodeAgentConfig{
+							NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{},
+							UploaderType:          "kopia",
+						},
+					},
+				},
+			),
+			clientObjects:      []client.Object{testGenericInfrastructure},
+			nodeAgentDaemonSet: testNodeAgentDaemonSet.DeepCopy(),
+			wantNodeAgentDaemonSet: createTestBuiltNodeAgentDaemonSet(TestBuiltNodeAgentDaemonSetOptions{
+				volumes: []corev1.Volume{deploymentVolumeSecret("cloud-credentials")},
+				volumeMounts: []corev1.VolumeMount{
+					{Name: "cloud-credentials", MountPath: "/credentials"},
+				},
+				env: []corev1.EnvVar{
+					{Name: common.AWSSharedCredentialsFileEnvKey, Value: "/credentials/cloud"},
+				},
+			}),
+		},
+		{
 			name: "valid DPA CR with aws plugin from CloudStorage, NodeAgent DaemonSet is built",
 			dpa: createTestDpaWith(
 				nil,

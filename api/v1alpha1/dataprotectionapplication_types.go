@@ -45,6 +45,7 @@ const DefaultPluginCSI DefaultPlugin = "csi"
 const DefaultPluginVSM DefaultPlugin = "vsm"
 const DefaultPluginOpenShift DefaultPlugin = "openshift"
 const DefaultPluginKubeVirt DefaultPlugin = "kubevirt"
+const DefaultPluginHypershift DefaultPlugin = "hypershift"
 
 type CustomPlugin struct {
 	Name  string `json:"name"`
@@ -62,6 +63,7 @@ const AzurePluginImageKey UnsupportedImageKey = "azurePluginImageFqin"
 const GCPPluginImageKey UnsupportedImageKey = "gcpPluginImageFqin"
 const ResticRestoreImageKey UnsupportedImageKey = "resticRestoreImageFqin"
 const KubeVirtPluginImageKey UnsupportedImageKey = "kubevirtPluginImageFqin"
+const HypershiftPluginImageKey UnsupportedImageKey = "hypershiftPluginImageFqin"
 const NonAdminControllerImageKey UnsupportedImageKey = "nonAdminControllerImageFqin"
 const OperatorTypeKey UnsupportedImageKey = "operator-type"
 
@@ -656,6 +658,7 @@ type DataProtectionApplicationSpec struct {
 	//   - gcpPluginImageFqin
 	//   - resticRestoreImageFqin
 	//   - kubevirtPluginImageFqin
+	//   - hypershiftPluginImageFqin
 	//   - nonAdminControllerImageFqin
 	//   - operator-type
 	//   - tech-preview-ack
