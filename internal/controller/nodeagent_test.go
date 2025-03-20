@@ -244,6 +244,7 @@ type TestBuiltNodeAgentDaemonSetOptions struct {
 	resourceRequests        corev1.ResourceList
 	dataMoverPrepareTimeout *string
 	resourceTimeout         *string
+	logFormat               *string
 	toleration              []corev1.Toleration
 	nodeSelector            map[string]string
 	disableFsBackup         *bool
@@ -550,6 +551,10 @@ func createTestBuiltNodeAgentDaemonSet(options TestBuiltNodeAgentDaemonSetOption
 		testBuiltNodeAgentDaemonSet.Spec.Template.Spec.Containers[0].Args = append(testBuiltNodeAgentDaemonSet.Spec.Template.Spec.Containers[0].Args, fmt.Sprintf("--resource-timeout=%s", *options.resourceTimeout))
 	}
 
+	if options.logFormat != nil {
+		testBuiltNodeAgentDaemonSet.Spec.Template.Spec.Containers[0].Args = append(testBuiltNodeAgentDaemonSet.Spec.Template.Spec.Containers[0].Args, fmt.Sprintf("--log-format=%s", *options.logFormat))
+	}
+
 	return testBuiltNodeAgentDaemonSet
 }
 
@@ -723,6 +728,42 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 			nodeAgentDaemonSet: testNodeAgentDaemonSet.DeepCopy(),
 			wantNodeAgentDaemonSet: createTestBuiltNodeAgentDaemonSet(TestBuiltNodeAgentDaemonSetOptions{
 				resourceTimeout: ptr.To("1h40m0s"),
+			}),
+		},
+		{
+			name: "valid DPA CR with LogFormat set to json, NodeAgent DaemonSet is built with LogFormat set to json",
+			dpa: createTestDpaWith(
+				nil,
+				oadpv1alpha1.DataProtectionApplicationSpec{
+					LogFormat: "json",
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero:    &oadpv1alpha1.VeleroConfig{},
+						NodeAgent: &oadpv1alpha1.NodeAgentConfig{},
+					},
+				},
+			),
+			clientObjects:      []client.Object{testGenericInfrastructure},
+			nodeAgentDaemonSet: testNodeAgentDaemonSet.DeepCopy(),
+			wantNodeAgentDaemonSet: createTestBuiltNodeAgentDaemonSet(TestBuiltNodeAgentDaemonSetOptions{
+				logFormat: ptr.To("json"),
+			}),
+		},
+		{
+			name: "valid DPA CR with LogFormat set to text, NodeAgent DaemonSet is built with LogFormat set to text",
+			dpa: createTestDpaWith(
+				nil,
+				oadpv1alpha1.DataProtectionApplicationSpec{
+					LogFormat: "text",
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero:    &oadpv1alpha1.VeleroConfig{},
+						NodeAgent: &oadpv1alpha1.NodeAgentConfig{},
+					},
+				},
+			),
+			clientObjects:      []client.Object{testGenericInfrastructure},
+			nodeAgentDaemonSet: testNodeAgentDaemonSet.DeepCopy(),
+			wantNodeAgentDaemonSet: createTestBuiltNodeAgentDaemonSet(TestBuiltNodeAgentDaemonSetOptions{
+				logFormat: ptr.To("text"),
 			}),
 		},
 		{

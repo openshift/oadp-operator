@@ -445,6 +445,10 @@ func (r *DataProtectionApplicationReconciler) customizeNodeAgentDaemonset(ds *ap
 				nodeAgentContainer.Args = append(nodeAgentContainer.Args, fmt.Sprintf("--resource-timeout=%s", dpa.Spec.Configuration.NodeAgent.ResourceTimeout.Duration))
 			}
 
+			if dpa.Spec.LogFormat != "" {
+				nodeAgentContainer.Args = append(nodeAgentContainer.Args, fmt.Sprintf("--log-format=%s", dpa.Spec.LogFormat))
+			}
+
 			// Apply unsupported server args from the specified ConfigMap.
 			// This will completely override any previously set args for the node-agent server.
 			// If the ConfigMap exists and is not empty, its key-value pairs will be used as the new CLI arguments.
