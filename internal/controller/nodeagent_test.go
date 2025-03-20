@@ -417,9 +417,10 @@ func createTestBuiltNodeAgentDaemonSet(options TestBuiltNodeAgentDaemonSetOption
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						"component": common.Velero,
-						"name":      common.NodeAgent,
-						"role":      common.NodeAgent,
+						"component":                          common.Velero,
+						"name":                               common.NodeAgent,
+						"openshift.io/node-agent-cm-version": "",
+						"role":                               common.NodeAgent,
 					},
 				},
 				Spec: corev1.PodSpec{
@@ -1378,6 +1379,7 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 				args: []string{
 					"--node-agent-configmap=node-agent-test-DPA-CR",
 				},
+				labels: map[string]string{"openshift.io/node-agent-cm-version": "999"},
 			}),
 		},
 		{
@@ -1418,6 +1420,7 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 				args: []string{
 					"--node-agent-configmap=node-agent-test-DPA-CR",
 				},
+				labels: map[string]string{"openshift.io/node-agent-cm-version": "999"},
 			}),
 		},
 	}

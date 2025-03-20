@@ -38,6 +38,7 @@ const (
 	IBMCloudPluginsHostPath = "/var/data/kubelet/plugins"
 	FSPVHostPathEnvVar      = "FS_PV_HOSTPATH"
 	PluginsHostPathEnvVar   = "PLUGINS_HOSTPATH"
+	NodeAgentCMVersionLabel = "openshift.io/node-agent-cm-version"
 )
 
 var (
@@ -319,13 +320,16 @@ func (r *DataProtectionApplicationReconciler) buildNodeAgentDaemonset(ds *appsv1
 	// we will pass empty string to the install.DaemonSet function
 	cmName := types.NamespacedName{Name: common.NodeAgentConfigMapPrefix + dpa.Name, Namespace: ds.Namespace}
 	var configMapName string
+	var configMapGeneration string
+	var configMap corev1.ConfigMap
 
-	if err := r.Get(r.Context, cmName, &corev1.ConfigMap{}); err != nil {
+	if err := r.Get(r.Context, cmName, &configMap); err != nil {
 		if !errors.IsNotFound(err) {
 			return nil, fmt.Errorf("failed to check NodeAgent ConfigMap: %w", err)
 		}
 	} else {
 		configMapName = cmName.Name
+		configMapGeneration = configMap.ResourceVersion
 	}
 
 	installDs := install.DaemonSet(ds.Namespace,
@@ -335,6 +339,7 @@ func (r *DataProtectionApplicationReconciler) buildNodeAgentDaemonset(ds *appsv1
 		install.WithSecret(false),
 		install.WithServiceAccountName(common.Velero),
 		install.WithNodeAgentConfigMap(configMapName),
+		install.WithLabels(map[string]string{NodeAgentCMVersionLabel: configMapGeneration}),
 	)
 	ds.TypeMeta = installDs.TypeMeta
 	var err error
