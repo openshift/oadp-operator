@@ -150,6 +150,7 @@ func (r *DataProtectionApplicationReconciler) updateNodeAgentCM(cm *corev1.Confi
 		"app.kubernetes.io/instance":   r.dpa.Name,
 		"app.kubernetes.io/managed-by": common.OADPOperator,
 		"app.kubernetes.io/component":  "node-agent-config",
+		oadpv1alpha1.OadpOperatorLabel: "True",
 	}
 
 	if cm.Data == nil {
@@ -164,9 +165,14 @@ func (r *DataProtectionApplicationReconciler) updateNodeAgentCM(cm *corev1.Confi
 func (r *DataProtectionApplicationReconciler) ReconcileNodeAgentConfigMap(log logr.Logger) (bool, error) {
 	dpa := r.dpa
 	cmName := types.NamespacedName{Name: common.NodeAgentConfigMapPrefix + dpa.Name, Namespace: r.NamespacedName.Namespace}
-	configMap := corev1.ConfigMap{}
+	configMap := corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cmName.Name,
+			Namespace: cmName.Namespace,
+		},
+	}
 
-	if !isNodeAgentEnabled(dpa) {
+	if !isNodeAgentEnabled(dpa) || !isNodeAgentCMRequired(dpa.Spec.Configuration.NodeAgent.NodeAgentConfigMapSettings, dpa.Spec.Configuration.NodeAgent.PodConfig) {
 		err := r.Get(r.Context, cmName, &configMap)
 		if err != nil && !errors.IsNotFound(err) {
 			return false, err
@@ -179,11 +185,6 @@ func (r *DataProtectionApplicationReconciler) ReconcileNodeAgentConfigMap(log lo
 			return false, err
 		}
 		r.EventRecorder.Event(&configMap, corev1.EventTypeNormal, "DeletedNodeAgentConfigMap", "NodeAgent config map deleted")
-		return true, nil
-	}
-
-	if !isNodeAgentCMRequired(dpa.Spec.Configuration.NodeAgent.NodeAgentConfigMapSettings, dpa.Spec.Configuration.NodeAgent.PodConfig) {
-		log.Info("Skipping NodeAgent ConfigMap creation as no required fields are set")
 		return true, nil
 	}
 

@@ -1460,6 +1460,7 @@ func createTestBuiltNodeAgentCM(data map[string]string) *corev1.ConfigMap {
 				"app.kubernetes.io/instance":   "test-dpa-configmap-cm",
 				"app.kubernetes.io/managed-by": common.OADPOperator,
 				"app.kubernetes.io/component":  "node-agent-config",
+				oadpv1alpha1.OadpOperatorLabel: "True",
 			},
 			OwnerReferences: []metav1.OwnerReference{
 				{
