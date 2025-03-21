@@ -183,6 +183,9 @@ func (r *DataProtectionApplicationReconciler) ReconcileNodeAgentConfigMap(log lo
 		}
 		deleteContext := context.Background()
 		if err := r.Delete(deleteContext, &configMap); err != nil {
+			if errors.IsNotFound(err) {
+				return true, nil
+			}
 			return false, err
 		}
 		r.EventRecorder.Event(&configMap, corev1.EventTypeNormal, "DeletedNodeAgentConfigMap", "NodeAgent config map deleted")
