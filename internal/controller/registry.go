@@ -269,9 +269,13 @@ func (r *DataProtectionApplicationReconciler) getSecretNameAndKey(config map[str
 	if credential != nil {
 		if len(credential.Name) > 0 {
 			secretName = credential.Name
+		} else {
+			return "", "", fmt.Errorf("secret name specified cannot be empty")
 		}
 		if len(credential.Key) > 0 {
 			secretKey = credential.Key
+		} else {
+			return "", "", fmt.Errorf("secret key specified cannot be empty")
 		}
 	}
 
@@ -777,7 +781,7 @@ func (r *DataProtectionApplicationReconciler) verifySecretContent(secretName str
 	}
 	data, foundKey := secret.Data[secretKey]
 	if !foundKey || len(data) == 0 {
-		return fmt.Errorf("Secret name %s is missing data for key %s", secretName, secretKey)
+		return fmt.Errorf("secret name %s is missing data for key %s", secretName, secretKey)
 	}
 	return nil
 }
