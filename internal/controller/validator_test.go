@@ -886,7 +886,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 				},
 			},
 			wantErr:    true,
-			messageErr: "Secret name Test is missing data for key Creds",
+			messageErr: "secret name Test is missing data for key Creds",
 		},
 		{
 			name: "given valid DPA CR AWS Default Plugin with credentials and a VSL, and default secret specified, passes",
@@ -1064,7 +1064,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 				},
 			},
 			wantErr:    true,
-			messageErr: "Secret name cloud-credentials is missing data for key cloud",
+			messageErr: "secret name cloud-credentials is missing data for key cloud",
 		},
 		{
 			name: "given valid DPA CR AWS with BSL and VSL credentials referencing a custom secret",
@@ -1282,7 +1282,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 				},
 			},
 			wantErr:    true,
-			messageErr: "Secret name cloud-credentials is missing data for key no-match-key",
+			messageErr: "secret name cloud-credentials is missing data for key no-match-key",
 		},
 		{
 			name: "given invalid DPA CR, BSL secret is missing data, error case",
@@ -1334,7 +1334,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 				},
 			},
 			wantErr:    true,
-			messageErr: "Secret name cloud-credentials is missing data for key credentials",
+			messageErr: "secret name cloud-credentials is missing data for key credentials",
 		},
 		{
 			name: "given invalid DPA CR, BSL secret key is empty, error case",
@@ -1386,7 +1386,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 				},
 			},
 			wantErr:    true,
-			messageErr: "Secret key specified in BackupLocation  cannot be empty",
+			messageErr: "secret key specified cannot be empty",
 		},
 		{
 			name: "given invalid DPA CR, BSL secret name is empty, error case",
@@ -1438,7 +1438,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 				},
 			},
 			wantErr:    true,
-			messageErr: "Secret name specified in BackupLocation  cannot be empty",
+			messageErr: "secret name specified cannot be empty",
 		},
 		{
 			name: "[valid] DPA CR: spec.nonAdmin.enable true",
