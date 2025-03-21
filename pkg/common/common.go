@@ -24,6 +24,7 @@ const (
 	OADPOperatorVelero         = "oadp-operator-velero"
 	OADPOperatorServiceAccount = OADPOperatorPrefix + "controller-manager"
 	RegistryDeploymentLabel    = "openshift.io/oadp-registry"
+	NodeAgentConfigMapPrefix   = "node-agent-"
 )
 
 var DefaultRestoreResourcePriorities = types.Priorities{

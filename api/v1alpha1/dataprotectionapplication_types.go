@@ -20,6 +20,8 @@ import (
 	"time"
 
 	velero "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
+	"github.com/vmware-tanzu/velero/pkg/nodeagent"
+	"github.com/vmware-tanzu/velero/pkg/util/kube"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -370,6 +372,45 @@ type NodeAgentCommonFields struct {
 	PodConfig *PodConfig `json:"podConfig,omitempty"`
 }
 
+type RestorePVC struct {
+	// IgnoreDelayBinding indicates to ignore delay binding the restorePVC when it is in WaitForFirstConsumer mode
+	IgnoreDelayBinding bool `json:"ignoreDelayBinding,omitempty"`
+}
+
+type RuledConfigs struct {
+	// NodeSelector specifies the label selector to match nodes
+	NodeSelector metav1.LabelSelector `json:"nodeSelector"`
+
+	// Number specifies the number value associated to the matched nodes
+	Number int `json:"number"`
+}
+
+// LoadConcurrency is the config for data path load concurrency per node.
+type LoadConcurrency struct {
+	// GlobalConfig specifies the concurrency number to all nodes for which per-node config is not specified
+	GlobalConfig int `json:"globalConfig,omitempty"`
+
+	// PerNodeConfig specifies the concurrency number to nodes matched by rules
+	PerNodeConfig []RuledConfigs `json:"perNodeConfig,omitempty"`
+}
+
+type NodeAgentConfigMapSettings struct {
+	// LoadConcurrency is the config for data path load concurrency per node.
+	// +optional
+	LoadConcurrency *LoadConcurrency `json:"loadConcurrency,omitempty"`
+	// BackupPVCConfig is the config for backupPVC (intermediate PVC) of snapshot data movement
+	// +optional
+	BackupPVCConfig map[string]nodeagent.BackupPVC `json:"backupPVC,omitempty"`
+	// RestoreVCConfig is the config for restorePVC (intermediate PVC) of generic restore
+	// +optional
+	RestorePVCConfig *RestorePVC `json:"restorePVC,omitempty"`
+	// PodResources is the resource config for various types of pods launched by node-agent, i.e., data mover pods.
+	// +optional
+	PodResources *kube.PodResources `json:"podResources,omitempty"`
+	// LoadAffinity is not required within NodeAgentConfigMapSettings,
+	// because we have it already from the NodeAgentConfig.PodConfig.NodeSelector
+}
+
 // NodeAgentConfig is the configuration for node server
 // Holds the configuration for the Node Agent Server.
 // https://github.com/openshift/velero/blob/8c8a6cccd78b78bd797e40189b0b9bee46a97f9e/pkg/cmd/cli/nodeagent/server.go#L87-L92
@@ -387,6 +428,9 @@ type NodeAgentConfig struct {
 	// +kubebuilder:validation:Enum=restic;kopia
 	// +kubebuilder:validation:Required
 	UploaderType string `json:"uploaderType"`
+	// Embedding NodeAgentConfigMapSettings
+	// +optional
+	NodeAgentConfigMapSettings `json:",inline"`
 }
 
 // ResticConfig is the configuration for restic server
