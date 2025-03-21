@@ -25,20 +25,6 @@ func (r *DataProtectionApplicationReconciler) ValidateBackupStorageLocations() (
 	dpa := r.dpa
 	numDefaultLocations := 0
 	for _, bslSpec := range dpa.Spec.BackupLocations {
-		if bslSpec.CloudStorage != nil {
-			// Make sure credentials are specified.
-			if bslSpec.CloudStorage.Credential == nil {
-				return false, fmt.Errorf("must provide a valid credential secret")
-			}
-			if bslSpec.CloudStorage.Credential.LocalObjectReference.Name == "" {
-				return false, fmt.Errorf("must provide a valid credential secret name")
-			}
-			if bslSpec.CloudStorage.Default {
-				numDefaultLocations++
-			} else if bslSpec.Name == "default" {
-				return false, fmt.Errorf("Storage location named 'default' must be set as default")
-			}
-		}
 		if err := r.ensureBackupLocationHasVeleroOrCloudStorage(&bslSpec); err != nil {
 			return false, err
 		}
@@ -50,7 +36,9 @@ func (r *DataProtectionApplicationReconciler) ValidateBackupStorageLocations() (
 		if err := r.ensureSecretDataExists(&bslSpec); err != nil {
 			return false, err
 		}
-
+		if bslSpec.CloudStorage != nil && bslSpec.Velero != nil {
+			return false, fmt.Errorf("must choose one of bucket or velero")
+		}
 		if bslSpec.Velero != nil {
 			if bslSpec.Velero.Default {
 				numDefaultLocations++
@@ -83,8 +71,12 @@ func (r *DataProtectionApplicationReconciler) ValidateBackupStorageLocations() (
 				return false, fmt.Errorf("invalid provider")
 			}
 		}
-		if bslSpec.CloudStorage != nil && bslSpec.Velero != nil {
-			return false, fmt.Errorf("must choose one of bucket or velero")
+		if bslSpec.CloudStorage != nil {
+			if bslSpec.CloudStorage.Default {
+				numDefaultLocations++
+			} else if bslSpec.Name == "default" {
+				return false, fmt.Errorf("Storage location named 'default' must be set as default")
+			}
 		}
 	}
 	if numDefaultLocations > 1 {
@@ -431,18 +423,6 @@ func (r *DataProtectionApplicationReconciler) ensureSecretDataExists(bsl *oadpv1
 		return nil
 	}
 
-	// Check if the user specified credential under velero
-	if bsl.Velero != nil && bsl.Velero.Credential != nil {
-		// Check if user specified empty credential key
-		if bsl.Velero.Credential.Key == "" {
-			return fmt.Errorf("Secret key specified in BackupLocation %s cannot be empty", bsl.Name)
-		}
-		// Check if user specified empty credential name
-		if bsl.Velero.Credential.Name == "" {
-			return fmt.Errorf("Secret name specified in BackupLocation %s cannot be empty", bsl.Name)
-		}
-	}
-
 	// Extract secret name, key, provider and profile outside the if blocks
 	var secretName, secretKey, provider string
 	var err error
@@ -450,6 +430,17 @@ func (r *DataProtectionApplicationReconciler) ensureSecretDataExists(bsl *oadpv1
 
 	// Get secret details from either CloudStorage or Velero
 	if bsl.CloudStorage != nil {
+		// Make sure credentials are specified.
+		if bsl.CloudStorage.Credential == nil {
+			return fmt.Errorf("must provide a valid credential secret")
+		}
+		if bsl.CloudStorage.Credential.Name == "" {
+			return fmt.Errorf("must provide a valid credential secret name")
+		}
+		// Check if user specified empty credential key
+		if bsl.CloudStorage.Credential.Key == "" {
+			return fmt.Errorf("must provide a valid credential secret key")
+		}
 		secretName, secretKey, err = r.getSecretNameAndKeyFromCloudStorage(bsl.CloudStorage)
 		if err != nil {
 			return err
