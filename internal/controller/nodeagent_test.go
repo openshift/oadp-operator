@@ -1564,8 +1564,19 @@ func TestDPAReconciler_updateNodeAgentCM(t *testing.T) {
 									},
 								},
 								BackupPVCConfig: map[string]nodeagent.BackupPVC{
-									"pvc-1": {
-										StorageClass: "sc-1",
+									"storage-class-1": {
+										StorageClass: "backupPVC-storage-class",
+										ReadOnly:     true,
+									},
+									"storage-class-2": {
+										StorageClass: "backupPVC-storage-class",
+									},
+									"storage-class-3": {
+										ReadOnly: true,
+									},
+									"storage-class-4": {
+										ReadOnly:        true,
+										SPCNoRelabeling: true,
 									},
 								},
 								RestorePVCConfig: &oadpv1alpha1.RestorePVC{
@@ -1586,8 +1597,19 @@ func TestDPAReconciler_updateNodeAgentCM(t *testing.T) {
 			wantNodeAgentConfigMap: createTestBuiltNodeAgentCM(map[string]string{
 				"node-agent-config": `{
 					"backupPVC": {
-						"pvc-1": {
-							"storageClass": "sc-1"
+						"storage-class-1": {
+							"readOnly": true,
+							"storageClass": "backupPVC-storage-class"
+						},
+						"storage-class-2": {
+							"storageClass": "backupPVC-storage-class"
+						},
+						"storage-class-3": {
+							"readOnly": true
+						},
+						"storage-class-4": {
+							"readOnly": true,
+							"spcNoRelabeling": true
 						}
 					},
 					"loadConcurrency": {
