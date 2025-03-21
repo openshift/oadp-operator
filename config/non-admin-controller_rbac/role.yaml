@@ -34,103 +34,9 @@ rules:
   - oadp.openshift.io
   resources:
   - nonadminbackups
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - oadp.openshift.io
-  resources:
-  - nonadminbackups/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - oadp.openshift.io
-  resources:
-  - nonadminbackups/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - oadp.openshift.io
-  resources:
   - nonadminbackupstoragelocationrequests
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - oadp.openshift.io
-  resources:
-  - nonadminbackupstoragelocationrequests/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - oadp.openshift.io
-  resources:
   - nonadminbackupstoragelocations
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - oadp.openshift.io
-  resources:
-  - nonadminbackupstoragelocations/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - oadp.openshift.io
-  resources:
-  - nonadminbackupstoragelocations/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - oadp.openshift.io
-  resources:
   - nonadmindownloadrequests
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - oadp.openshift.io
-  resources:
-  - nonadmindownloadrequests/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - oadp.openshift.io
-  resources:
-  - nonadmindownloadrequests/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - oadp.openshift.io
-  resources:
   - nonadminrestores
   verbs:
   - create
@@ -143,12 +49,19 @@ rules:
 - apiGroups:
   - oadp.openshift.io
   resources:
+  - nonadminbackups/finalizers
+  - nonadminbackupstoragelocations/finalizers
+  - nonadmindownloadrequests/finalizers
   - nonadminrestores/finalizers
   verbs:
   - update
 - apiGroups:
   - oadp.openshift.io
   resources:
+  - nonadminbackups/status
+  - nonadminbackupstoragelocationrequests/status
+  - nonadminbackupstoragelocations/status
+  - nonadmindownloadrequests/status
   - nonadminrestores/status
   verbs:
   - get
@@ -158,18 +71,10 @@ rules:
   - velero.io
   resources:
   - backups
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - velero.io
-  resources:
   - backupstoragelocations
+  - deletebackuprequests
+  - downloadrequests
+  - restores
   verbs:
   - create
   - delete
@@ -190,59 +95,8 @@ rules:
   - velero.io
   resources:
   - datadownloads
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - velero.io
-  resources:
   - datauploads
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - velero.io
-  resources:
-  - deletebackuprequests
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - velero.io
-  resources:
-  - downloadrequests
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - velero.io
-  resources:
-  - downloadrequests/status
-  verbs:
-  - get
-- apiGroups:
-  - velero.io
-  resources:
   - podvolumebackups
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - velero.io
-  resources:
   - podvolumerestores
   verbs:
   - get
@@ -251,12 +105,6 @@ rules:
 - apiGroups:
   - velero.io
   resources:
-  - restores
+  - downloadrequests/status
   verbs:
-  - create
-  - delete
   - get
-  - list
-  - patch
-  - update
-  - watch
