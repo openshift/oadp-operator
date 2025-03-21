@@ -1,3 +1,0 @@
-#!/bin/bash
-# Gather 1 hour of logs
-logs_since="1h" /usr/bin/gather
