@@ -87,7 +87,11 @@ spec:
           name: manager
           terminationMessagePolicy: FallbackToLogsOnError
           securityContext:
+            capabilities:
+              drop:
+              - ALL
             allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
           startupProbe:
             httpGet:
               path: /healthz

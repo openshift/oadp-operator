@@ -1106,6 +1106,10 @@ spec:
                     memory: 128Mi
                 securityContext:
                   allowPrivilegeEscalation: false
+                  capabilities:
+                    drop:
+                    - ALL
+                  readOnlyRootFilesystem: true
                 startupProbe:
                   failureThreshold: 12
                   httpGet:
