@@ -36,9 +36,6 @@ func (r *DataProtectionApplicationReconciler) ValidateBackupStorageLocations() (
 		if err := r.ensureSecretDataExists(&bslSpec); err != nil {
 			return false, err
 		}
-		if bslSpec.CloudStorage != nil && bslSpec.Velero != nil {
-			return false, fmt.Errorf("must choose one of bucket or velero")
-		}
 		if bslSpec.Velero != nil {
 			if bslSpec.Velero.Default {
 				numDefaultLocations++
@@ -478,11 +475,6 @@ func (r *DataProtectionApplicationReconciler) ensureSecretDataExists(bsl *oadpv1
 				awsProfile = value
 			}
 		}
-	}
-
-	// Skip secret parsing if no secret name is provided
-	if secretName == "" {
-		return nil
 	}
 
 	// Get the secret, this also ensure secret referenced exists.
