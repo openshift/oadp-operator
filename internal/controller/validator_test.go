@@ -1386,7 +1386,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 				},
 			},
 			wantErr:    true,
-			messageErr: "secret key specified cannot be empty",
+			messageErr: "secret key specified for location cannot be empty",
 		},
 		{
 			name: "given invalid DPA CR, BSL secret name is empty, error case",
@@ -1438,7 +1438,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 				},
 			},
 			wantErr:    true,
-			messageErr: "secret name specified cannot be empty",
+			messageErr: "secret name specified for location cannot be empty",
 		},
 		{
 			name: "[valid] DPA CR: spec.nonAdmin.enable true",

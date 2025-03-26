@@ -254,6 +254,7 @@ func (r *DataProtectionApplicationReconciler) getSecretNameAndKeyFromCloudStorag
 	return "", "", nil
 }
 
+// TODO: refactor and reduce duplicate secret gets in registry.go and bsl.go
 func (r *DataProtectionApplicationReconciler) getSecretNameAndKey(config map[string]string, credential *corev1.SecretKeySelector, plugin oadpv1alpha1.DefaultPlugin) (string, string, error) {
 	// Assume default values unless user has overriden them
 	secretName := credentials.PluginSpecificFields[plugin].SecretName
@@ -270,12 +271,12 @@ func (r *DataProtectionApplicationReconciler) getSecretNameAndKey(config map[str
 		if len(credential.Name) > 0 {
 			secretName = credential.Name
 		} else {
-			return "", "", fmt.Errorf("secret name specified cannot be empty")
+			return "", "", fmt.Errorf("secret name specified for location cannot be empty")
 		}
 		if len(credential.Key) > 0 {
 			secretKey = credential.Key
 		} else {
-			return "", "", fmt.Errorf("secret key specified cannot be empty")
+			return "", "", fmt.Errorf("secret key specified for location cannot be empty")
 		}
 	}
 
