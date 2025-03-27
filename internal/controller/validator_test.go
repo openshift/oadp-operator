@@ -2045,6 +2045,335 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 			wantErr:    true,
 			messageErr: "DPA spec.nonAdmin.enforcedBSLSpec.backupSyncPeriod (16m0s) can not be greater or equal DPA spec.nonAdmin.backupSyncPeriod (15m0s)",
 		},
+		{
+			name: "[valid] Both PodConfig and LoadAffinityConfig are identical - single node selector",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					BackupImages: ptr.To(false),
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							NoDefaultBackupLocation: true,
+						},
+						NodeAgent: &oadpv1alpha1.NodeAgentConfig{
+							NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
+								PodConfig: &oadpv1alpha1.PodConfig{
+									NodeSelector: map[string]string{"key1": "value1"},
+								},
+							},
+							NodeAgentConfigMapSettings: oadpv1alpha1.NodeAgentConfigMapSettings{
+								LoadAffinityConfig: []*oadpv1alpha1.LoadAffinity{
+									{
+										NodeSelector: metav1.LabelSelector{
+											MatchLabels: map[string]string{"key1": "value1"},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "[valid] Both PodConfig and LoadAffinityConfig are identical - multiple node selectors, different order",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					BackupImages: ptr.To(false),
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							NoDefaultBackupLocation: true,
+						},
+						NodeAgent: &oadpv1alpha1.NodeAgentConfig{
+							NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
+								PodConfig: &oadpv1alpha1.PodConfig{
+									NodeSelector: map[string]string{"key2": "value2", "key1": "value1"},
+								},
+							},
+							NodeAgentConfigMapSettings: oadpv1alpha1.NodeAgentConfigMapSettings{
+								LoadAffinityConfig: []*oadpv1alpha1.LoadAffinity{
+									{
+										NodeSelector: metav1.LabelSelector{
+											MatchLabels: map[string]string{"key1": "value1", "key2": "value2"},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "[valid] All Labels from the LoadAffinityConfig are present in the PodConfig, and the PodConfig has more labels than the LoadAffinityConfig",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					BackupImages: ptr.To(false),
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							NoDefaultBackupLocation: true,
+						},
+						NodeAgent: &oadpv1alpha1.NodeAgentConfig{
+							NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
+								PodConfig: &oadpv1alpha1.PodConfig{
+									NodeSelector: map[string]string{"key1": "value1", "key2": "value2", "key3": "value3"},
+								},
+							},
+							NodeAgentConfigMapSettings: oadpv1alpha1.NodeAgentConfigMapSettings{
+								LoadAffinityConfig: []*oadpv1alpha1.LoadAffinity{
+									{
+										NodeSelector: metav1.LabelSelector{
+											MatchLabels: map[string]string{"key1": "value1", "key2": "value2"},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "[invalid] When PodConfig is specified, the LoadAffinityConfig must not specify MatchExpressions",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					BackupImages: ptr.To(false),
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							NoDefaultBackupLocation: true,
+						},
+						NodeAgent: &oadpv1alpha1.NodeAgentConfig{
+							NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
+								PodConfig: &oadpv1alpha1.PodConfig{
+									NodeSelector: map[string]string{"key1": "value1", "key2": "value2", "key3": "value3"},
+								},
+							},
+							NodeAgentConfigMapSettings: oadpv1alpha1.NodeAgentConfigMapSettings{
+								LoadAffinityConfig: []*oadpv1alpha1.LoadAffinity{
+									{
+										NodeSelector: metav1.LabelSelector{
+											MatchLabels: map[string]string{"key1": "value1", "key2": "value2"},
+											MatchExpressions: []metav1.LabelSelectorRequirement{
+												{
+													Key:      "key3",
+													Operator: metav1.LabelSelectorOpIn,
+													Values:   []string{"value3"},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr:    true,
+			messageErr: "when spec.configuration.nodeAgent.PodConfig is set, spec.configuration.nodeAgent.LoadAffinityConfig must not define matchExpressions",
+		},
+		{
+			name: "[invalid] PodConfig and LoadAffinityConfig are different - single node selector",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					BackupImages: ptr.To(false),
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							NoDefaultBackupLocation: true,
+						},
+						NodeAgent: &oadpv1alpha1.NodeAgentConfig{
+							NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
+								PodConfig: &oadpv1alpha1.PodConfig{
+									NodeSelector: map[string]string{"key3": "value3"},
+								},
+							},
+							NodeAgentConfigMapSettings: oadpv1alpha1.NodeAgentConfigMapSettings{
+								LoadAffinityConfig: []*oadpv1alpha1.LoadAffinity{
+									{
+										NodeSelector: metav1.LabelSelector{
+											MatchLabels: map[string]string{"key3": "value4"},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr:    true,
+			messageErr: "when spec.configuration.nodeAgent.PodConfig is set, all labels from the spec.configuration.nodeAgent.LoadAffinityConfig must be present in the spec.configuration.nodeAgent.PodConfig",
+		},
+		{
+			name: "[invalid] PodConfig and LoadAffinityConfig are different - multiple node selectors",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					BackupImages: ptr.To(false),
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							NoDefaultBackupLocation: true,
+						},
+						NodeAgent: &oadpv1alpha1.NodeAgentConfig{
+							NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
+								PodConfig: &oadpv1alpha1.PodConfig{
+									NodeSelector: map[string]string{"key3": "value3", "key4": "value4"},
+								},
+							},
+							NodeAgentConfigMapSettings: oadpv1alpha1.NodeAgentConfigMapSettings{
+								LoadAffinityConfig: []*oadpv1alpha1.LoadAffinity{
+									{
+										NodeSelector: metav1.LabelSelector{
+											MatchLabels: map[string]string{"key3": "value3", "key4": "value5"},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr:    true,
+			messageErr: "when spec.configuration.nodeAgent.PodConfig is set, all labels from the spec.configuration.nodeAgent.LoadAffinityConfig must be present in the spec.configuration.nodeAgent.PodConfig",
+		},
+		{
+			name: "[invalid] PodConfig and LoadAffinityConfig are different",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					BackupImages: ptr.To(false),
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							NoDefaultBackupLocation: true,
+						},
+						NodeAgent: &oadpv1alpha1.NodeAgentConfig{
+							NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
+								PodConfig: &oadpv1alpha1.PodConfig{
+									NodeSelector: map[string]string{"key3": "value3"},
+								},
+							},
+							NodeAgentConfigMapSettings: oadpv1alpha1.NodeAgentConfigMapSettings{
+								LoadAffinityConfig: []*oadpv1alpha1.LoadAffinity{
+									{
+										NodeSelector: metav1.LabelSelector{
+											MatchLabels: map[string]string{"key3": "value3", "key4": "value4"},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr:    true,
+			messageErr: "when spec.configuration.nodeAgent.PodConfig is set, all labels from the spec.configuration.nodeAgent.LoadAffinityConfig must be present in the spec.configuration.nodeAgent.PodConfig",
+		},
+		{
+			name: "[invalid] PodConfig and LoadAffinityConfig with no match labels",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					BackupImages: ptr.To(false),
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							NoDefaultBackupLocation: true,
+						},
+						NodeAgent: &oadpv1alpha1.NodeAgentConfig{
+							NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
+								PodConfig: &oadpv1alpha1.PodConfig{
+									NodeSelector: map[string]string{"key3": "value3"},
+								},
+							},
+							NodeAgentConfigMapSettings: oadpv1alpha1.NodeAgentConfigMapSettings{
+								LoadAffinityConfig: []*oadpv1alpha1.LoadAffinity{{}},
+							},
+						},
+					},
+				},
+			},
+			wantErr:    true,
+			messageErr: "when spec.configuration.nodeAgent.PodConfig is set, spec.configuration.nodeAgent.LoadAffinityConfig must define matchLabels",
+		},
+		{
+			name: "[valid] Only PodConfig is set",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					BackupImages: ptr.To(false),
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							NoDefaultBackupLocation: true,
+						},
+						NodeAgent: &oadpv1alpha1.NodeAgentConfig{
+							NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
+								PodConfig: &oadpv1alpha1.PodConfig{
+									NodeSelector: map[string]string{"key2": "value2", "key1": "value1"},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "[valid] Only LoadAffinityConfig is set with MatchExpressions",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					BackupImages: ptr.To(false),
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							NoDefaultBackupLocation: true,
+						},
+						NodeAgent: &oadpv1alpha1.NodeAgentConfig{
+							NodeAgentConfigMapSettings: oadpv1alpha1.NodeAgentConfigMapSettings{
+								LoadAffinityConfig: []*oadpv1alpha1.LoadAffinity{
+									{
+										NodeSelector: metav1.LabelSelector{
+											MatchLabels: map[string]string{"key1": "value1", "key2": "value2"},
+											MatchExpressions: []metav1.LabelSelectorRequirement{
+												{
+													Key:      "key3",
+													Operator: metav1.LabelSelectorOpIn,
+													Values:   []string{"value3"},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "[valid] Only LoadAffinityConfig is set with multiple node selectors",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					BackupImages: ptr.To(false),
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							NoDefaultBackupLocation: true,
+						},
+						NodeAgent: &oadpv1alpha1.NodeAgentConfig{
+							NodeAgentConfigMapSettings: oadpv1alpha1.NodeAgentConfigMapSettings{
+								LoadAffinityConfig: []*oadpv1alpha1.LoadAffinity{
+									{
+										NodeSelector: metav1.LabelSelector{
+											MatchLabels: map[string]string{"key1": "value1", "key2": "value2"},
+										},
+									},
+									{
+										NodeSelector: metav1.LabelSelector{
+											MatchLabels: map[string]string{"key3": "value3", "key4": "value4"},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr: false,
+		},
 	}
 	for _, tt := range tests {
 		tt.objects = append(tt.objects, tt.dpa)
