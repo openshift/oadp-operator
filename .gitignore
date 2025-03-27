@@ -36,3 +36,6 @@ junit_report.xml
 cache/
 # debug files
 debug.test*
+
+# Others
+.envrc

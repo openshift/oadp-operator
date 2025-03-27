@@ -106,6 +106,7 @@ export GCP_PLUGIN_IMAGE=<gcp_plugin_image>
 export CSI_PLUGIN_IMAGE=<csi_plugin_image>
 export RESTORE_IMAGE=<restore_image>
 export KUBEVIRT_PLUGIN_IMAGE=<kubevirt_plugin_image>
+export HYPERSHIFT_PLUGIN_IMAGE=<hypershift_plugin_image>
 export NON_ADMIN_IMAGE=<non_admin_image>
 ```
 For further details, see [tests/e2e/scripts/](../../../tests/e2e/scripts/)

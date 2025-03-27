@@ -33,7 +33,7 @@ AZURE_TENANT_ID=${AZURE_TENANT_ID}
 AZURE_CLIENT_ID=${AZURE_CLIENT_ID}
 AZURE_CLIENT_SECRET=${AZURE_CLIENT_SECRET}
 AZURE_RESOURCE_GROUP=${AZURE_RESOURCE_GROUP}
-AZURE_STORAGE_ACCOUNT_ACCESS_KEY=${AZURE_STORAGE_ACCOUNT_ACCESS_KEY} 
+AZURE_STORAGE_ACCOUNT_ACCESS_KEY=${AZURE_STORAGE_ACCOUNT_ACCESS_KEY}
 AZURE_CLOUD_NAME=AzurePublicCloud
 EOF
 
@@ -48,6 +48,7 @@ cat > $TMP_DIR/oadpcreds <<EOF
         "gcpPluginImageFqin": "$GCP_PLUGIN_IMAGE",
         "resticRestoreImageFqin": "$RESTORE_IMAGE",
         "kubevirtPluginImageFqin": "$KUBEVIRT_PLUGIN_IMAGE",
+        "hypershiftPluginImageFqin": "$HYPERSHIFT_PLUGIN_IMAGE",
         "nonAdminControllerImageFqin": "$NON_ADMIN_IMAGE"
       },
       "configuration":{
@@ -77,7 +78,7 @@ cat > $TMP_DIR/oadpcreds <<EOF
        {
          "velero": {
            "provider": "$PROVIDER",
-           "config": { 
+           "config": {
               "subscriptionId": "$CI_AZURE_SUBSCRIPTION_ID",
               "resourceGroup": "$CI_AZURE_RESOURCE_GROUP"
            }

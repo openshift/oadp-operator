@@ -1343,6 +1343,51 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 			wantNodeAgentDaemonSet: createTestBuiltNodeAgentDaemonSet(TestBuiltNodeAgentDaemonSetOptions{}),
 		},
 		{
+			name: "valid DPA CR with aws and hypershift plugin, Velero Deployment is built with aws and hypershift plugin",
+			dpa: createTestDpaWith(
+				nil,
+				oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+								oadpv1alpha1.DefaultPluginAWS,
+								oadpv1alpha1.DefaultPluginHypershift,
+							},
+						},
+						NodeAgent: &oadpv1alpha1.NodeAgentConfig{
+							NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{},
+							UploaderType:          "kopia",
+						},
+					},
+					BackupLocations: []oadpv1alpha1.BackupLocation{
+						{
+							Velero: &velerov1.BackupStorageLocationSpec{
+								Provider: AWSProvider,
+								StorageType: velerov1.StorageType{
+									ObjectStorage: &velerov1.ObjectStorageLocation{
+										Bucket: "aws-bucket",
+									},
+								},
+								Config: map[string]string{
+									Region:                "aws-region",
+									S3URL:                 "https://sr-url-aws-domain.com",
+									InsecureSkipTLSVerify: "false",
+								},
+								Credential: &corev1.SecretKeySelector{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: "cloud-credentials",
+									},
+								},
+							},
+						},
+					},
+				},
+			),
+			clientObjects:          []client.Object{testGenericInfrastructure},
+			nodeAgentDaemonSet:     testNodeAgentDaemonSet.DeepCopy(),
+			wantNodeAgentDaemonSet: createTestBuiltNodeAgentDaemonSet(TestBuiltNodeAgentDaemonSetOptions{}),
+		},
+		{
 			name: "valid DPA CR with PodDNS Policy/Config, NodeAgent DaemonSet is built with DNS Policy/Config",
 			dpa: createTestDpaWith(
 				map[string]string{common.UnsupportedNodeAgentServerArgsAnnotation: ""},
