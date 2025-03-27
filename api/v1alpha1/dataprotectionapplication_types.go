@@ -344,6 +344,8 @@ type PodConfig struct {
 	// labels to add to pods
 	// +optional
 	Labels map[string]string `json:"labels,omitempty"`
+	// (do not use warning) nodeSelector field is for backwards compatibility and
+	// will be removed in the future. Use loadAffinity field instead
 	// nodeSelector defines the nodeSelector to be supplied to podSpec
 	// +optional
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
@@ -374,20 +376,9 @@ type NodeAgentCommonFields struct {
 	PodConfig *PodConfig `json:"podConfig,omitempty"`
 }
 
-type RestorePVC struct {
-	// IgnoreDelayBinding indicates to ignore delay binding the restorePVC when it is in WaitForFirstConsumer mode
-	IgnoreDelayBinding bool `json:"ignoreDelayBinding,omitempty"`
-}
-
-type RuledConfigs struct {
-	// NodeSelector specifies the label selector to match nodes
-	NodeSelector metav1.LabelSelector `json:"nodeSelector"`
-
-	// Number specifies the number value associated to the matched nodes
-	Number int `json:"number"`
-}
-
 // LoadConcurrency is the config for data path load concurrency per node.
+// Struct should be same as:
+// https://github.com/openshift/velero/blob/584cf1148a746838ee67aa27e3e4e0ded1f5c069/pkg/nodeagent/node_agent.go#L52-L58
 type LoadConcurrency struct {
 	// GlobalConfig specifies the concurrency number to all nodes for which per-node config is not specified
 	GlobalConfig int `json:"globalConfig,omitempty"`
@@ -396,21 +387,46 @@ type LoadConcurrency struct {
 	PerNodeConfig []RuledConfigs `json:"perNodeConfig,omitempty"`
 }
 
+// LoadAffinity is the config for data path load affinity.
+// Used by the Node-Agent, that needs to match the DataMover and the RepositoryMaintenance pods.
+// Struct should be same as:
+// https://github.com/openshift/velero/blob/584cf1148a746838ee67aa27e3e4e0ded1f5c069/pkg/nodeagent/node_agent.go#L60-L63
+type LoadAffinity struct {
+	// NodeSelector specifies the label selector to match nodes
+	// +optional
+	NodeSelector metav1.LabelSelector `json:"nodeSelector,omitempty"`
+}
+
+// RuledConfigs is the config for data path load concurrency per node.
+// Struct should be same as:
+// https://github.com/openshift/velero/blob/584cf1148a746838ee67aa27e3e4e0ded1f5c069/pkg/nodeagent/node_agent.go#L65-L71
+type RuledConfigs struct {
+	// NodeSelector specifies the label selector to match nodes
+	NodeSelector metav1.LabelSelector `json:"nodeSelector"`
+
+	// Number specifies the number value associated to the matched nodes
+	Number int `json:"number"`
+}
+
+// NodeAgentConfigMapSettings is the config for node-agent
+// Struct should be same as:
+// https://github.com/openshift/velero/blob/584cf1148a746838ee67aa27e3e4e0ded1f5c069/pkg/nodeagent/node_agent.go#L90-L105
 type NodeAgentConfigMapSettings struct {
 	// LoadConcurrency is the config for data path load concurrency per node.
 	// +optional
 	LoadConcurrency *LoadConcurrency `json:"loadConcurrency,omitempty"`
+	// LoadAffinity is the config for data path load affinity.
+	// +optional
+	LoadAffinityConfig []*LoadAffinity `json:"loadAffinity,omitempty"`
 	// BackupPVCConfig is the config for backupPVC (intermediate PVC) of snapshot data movement
 	// +optional
 	BackupPVCConfig map[string]nodeagent.BackupPVC `json:"backupPVC,omitempty"`
 	// RestoreVCConfig is the config for restorePVC (intermediate PVC) of generic restore
 	// +optional
-	RestorePVCConfig *RestorePVC `json:"restorePVC,omitempty"`
+	RestorePVCConfig *nodeagent.RestorePVC `json:"restorePVC,omitempty"`
 	// PodResources is the resource config for various types of pods launched by node-agent, i.e., data mover pods.
 	// +optional
 	PodResources *kube.PodResources `json:"podResources,omitempty"`
-	// LoadAffinity is not required within NodeAgentConfigMapSettings,
-	// because we have it already from the NodeAgentConfig.PodConfig.NodeSelector
 }
 
 // NodeAgentConfig is the configuration for node server
@@ -873,6 +889,23 @@ func (dpa *DataProtectionApplication) AutoCorrect() {
 
 	dpa.Spec.Configuration.Velero.DefaultPlugins = common.RemoveDuplicateValues(dpa.Spec.Configuration.Velero.DefaultPlugins)
 	dpa.Spec.Configuration.Velero.FeatureFlags = common.RemoveDuplicateValues(dpa.Spec.Configuration.Velero.FeatureFlags)
+
+	// Auto correct nodeAffinity for the node agent, but only if the new schema is not used
+	// The new schema will be used instead of the dpa.Spec.Configuration.NodeAgent.PodConfig
+	// There is need to translate map of labels to a LabelSelector with MatchLabels
+	if dpa.Spec.Configuration.NodeAgent != nil && dpa.Spec.Configuration.NodeAgent.PodConfig != nil && dpa.Spec.Configuration.NodeAgent.PodConfig.NodeSelector != nil {
+		// Only modify if LoadAffinityConfig is not already set
+		if dpa.Spec.Configuration.NodeAgent.LoadAffinityConfig == nil {
+			// Convert the NodeSelector map to a LabelSelector with MatchLabels
+			dpa.Spec.Configuration.NodeAgent.LoadAffinityConfig = []*LoadAffinity{
+				{
+					NodeSelector: metav1.LabelSelector{
+						MatchLabels: dpa.Spec.Configuration.NodeAgent.PodConfig.NodeSelector,
+					},
+				},
+			}
+		}
+	}
 }
 
 func hasCSIPlugin(plugins []DefaultPlugin) bool {
