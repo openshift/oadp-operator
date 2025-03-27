@@ -4,7 +4,7 @@
 
 ## Changes from OADP 1.4 to 1.5
 
-- Velero was updated from version 1.14 to 1.16 (Changes reference: TODO https://velero.io/docs/v1.13/upgrade-to-1.13/ https://velero.io/docs/v1.14/upgrade-to-1.14/)
+- Velero was updated from version 1.14 to 1.16 (Changes reference: https://velero.io/docs/v1.15/upgrade-to-1.15/ https://velero.io/docs/v1.16/upgrade-to-1.16/)
 
     From this update:
 
