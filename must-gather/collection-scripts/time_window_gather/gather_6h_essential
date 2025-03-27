@@ -1,3 +1,0 @@
-#!/bin/bash
-# Gather 6 hours of essential data (skip oc adm inspect, prometheus metrics, memory profile)
-logs_since="6h" essential_only="true" /usr/bin/gather

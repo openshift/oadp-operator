@@ -36,3 +36,7 @@ junit_report.xml
 cache/
 # debug files
 debug.test*
+
+# must-gather
+must-gather/must-gather/
+must-gather/must-gather.local.*/
