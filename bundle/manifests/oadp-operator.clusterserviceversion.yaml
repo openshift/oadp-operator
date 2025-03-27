@@ -40,7 +40,8 @@ metadata:
                 "defaultPlugins": [
                   "openshift",
                   "aws",
-                  "kubevirt"
+                  "kubevirt",
+                  "hypershift"
                 ],
                 "disableFsBackup": false
               }
