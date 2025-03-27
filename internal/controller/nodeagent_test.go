@@ -17,6 +17,7 @@ import (
 	"github.com/onsi/gomega"
 	configv1 "github.com/openshift/api/config/v1"
 	"github.com/operator-framework/operator-lib/proxy"
+	"github.com/stretchr/testify/require"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	"github.com/vmware-tanzu/velero/pkg/nodeagent"
 	"github.com/vmware-tanzu/velero/pkg/util/kube"
@@ -1517,6 +1518,9 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 				t.Errorf("error in creating fake client, likely programmer error")
 			}
 			r := &DataProtectionApplicationReconciler{Client: fakeClient, dpa: test.dpa}
+			if r.dpa != nil && r.dpa.Spec.Configuration != nil {
+				r.dpa.AutoCorrect()
+			}
 			if result, err := r.buildNodeAgentDaemonset(test.nodeAgentDaemonSet); err != nil {
 				if test.errorMessage != err.Error() {
 					t.Errorf("buildNodeAgentDaemonset() error = %v, errorMessage %v", err, test.errorMessage)
@@ -1590,6 +1594,11 @@ func TestDPAReconciler_updateNodeAgentCM(t *testing.T) {
 				},
 				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+								oadpv1alpha1.DefaultPluginAWS,
+							},
+						},
 						NodeAgent: &oadpv1alpha1.NodeAgentConfig{
 							NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
 								PodConfig: &oadpv1alpha1.PodConfig{
@@ -1606,7 +1615,9 @@ func TestDPAReconciler_updateNodeAgentCM(t *testing.T) {
 					"loadAffinity": [
 						{
 							"nodeSelector": {
-								"foos": "bars"
+								"matchLabels": {
+									"foos": "bars"
+								}
 							}
 						}
 					]
@@ -1628,7 +1639,11 @@ func TestDPAReconciler_updateNodeAgentCM(t *testing.T) {
 				},
 				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 					Configuration: &oadpv1alpha1.ApplicationConfig{
-						Velero: &oadpv1alpha1.VeleroConfig{},
+						Velero: &oadpv1alpha1.VeleroConfig{
+							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+								oadpv1alpha1.DefaultPluginAWS,
+							},
+						},
 						NodeAgent: &oadpv1alpha1.NodeAgentConfig{
 							NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{},
 							NodeAgentConfigMapSettings: oadpv1alpha1.NodeAgentConfigMapSettings{
@@ -1665,7 +1680,7 @@ func TestDPAReconciler_updateNodeAgentCM(t *testing.T) {
 										SPCNoRelabeling: true,
 									},
 								},
-								RestorePVCConfig: &oadpv1alpha1.RestorePVC{
+								RestorePVCConfig: &nodeagent.RestorePVC{
 									IgnoreDelayBinding: true,
 								},
 								PodResources: &kube.PodResources{
@@ -1682,22 +1697,6 @@ func TestDPAReconciler_updateNodeAgentCM(t *testing.T) {
 			wantErr: false,
 			wantNodeAgentConfigMap: createTestBuiltNodeAgentCM(map[string]string{
 				"node-agent-config": `{
-					"backupPVC": {
-						"storage-class-1": {
-							"readOnly": true,
-							"storageClass": "backupPVC-storage-class"
-						},
-						"storage-class-2": {
-							"storageClass": "backupPVC-storage-class"
-						},
-						"storage-class-3": {
-							"readOnly": true
-						},
-						"storage-class-4": {
-							"readOnly": true,
-							"spcNoRelabeling": true
-						}
-					},
 					"loadConcurrency": {
 						"globalConfig": 10,
 						"perNodeConfig": [
@@ -1719,11 +1718,27 @@ func TestDPAReconciler_updateNodeAgentCM(t *testing.T) {
 							}
 						]
 					},
+					"backupPVC": {
+						"storage-class-1": {
+							"storageClass": "backupPVC-storage-class",
+							"readOnly": true
+						},
+						"storage-class-2": {
+							"storageClass": "backupPVC-storage-class"
+						},
+						"storage-class-3": {
+							"readOnly": true
+						},
+						"storage-class-4": {
+							"readOnly": true,
+							"spcNoRelabeling": true
+						}
+					},
 					"podResources": {
-						"cpuLimit": "200m",
 						"cpuRequest": "100m",
-						"memoryLimit": "200Mi",
-						"memoryRequest": "100Mi"
+						"memoryRequest": "100Mi",
+						"cpuLimit": "200m",
+						"memoryLimit": "200Mi"
 					},
 					"restorePVC": {
 						"ignoreDelayBinding": true
@@ -1739,6 +1754,9 @@ func TestDPAReconciler_updateNodeAgentCM(t *testing.T) {
 			if err != nil {
 				t.Fatalf("error in creating fake client, likely programmer error")
 			}
+			if tt.dpa != nil && tt.dpa.Spec.Configuration != nil {
+				tt.dpa.AutoCorrect()
+			}
 
 			r := &DataProtectionApplicationReconciler{
 				Client:  fakeClient,
@@ -1752,15 +1770,28 @@ func TestDPAReconciler_updateNodeAgentCM(t *testing.T) {
 				EventRecorder: record.NewFakeRecorder(10),
 				dpa:           tt.dpa,
 			}
-
 			err = r.updateNodeAgentCM(tt.nodeAgentConfigMap)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("updateNodeAgentCM() error = %v, wantErr %v", err, tt.wantErr)
 			}
 
-			if !reflect.DeepEqual(tt.nodeAgentConfigMap, tt.wantNodeAgentConfigMap) {
-				t.Errorf("updateNodeAgentCM() got CM = %v, want CM %v", tt.nodeAgentConfigMap, tt.wantNodeAgentConfigMap)
-			}
+			// Serialize both ConfigMaps to JSON strings
+			wantJSON := tt.wantNodeAgentConfigMap.Data["node-agent-config"]
+			gotJSON := tt.nodeAgentConfigMap.Data["node-agent-config"]
+
+			// Unmarshal the JSON strings into maps to ignore key order, this is
+			// required because the ConfigMap data is a string and we cannot
+			// compare the maps directly.
+			// Also we need to unmarshal into maps to ignore key order which is random.
+			var wantMap map[string]interface{}
+			var gotMap map[string]interface{}
+
+			require.NoError(t, json.Unmarshal([]byte(wantJSON), &wantMap), "Failed to unmarshal wantJSON into map")
+			require.NoError(t, json.Unmarshal([]byte(gotJSON), &gotMap), "Failed to unmarshal gotJSON into map")
+
+			// Compare the unmarshalled maps
+			require.Equal(t, wantMap, gotMap, "ConfigMaps are not equal")
+
 		})
 	}
 }
