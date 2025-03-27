@@ -1696,7 +1696,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 			}),
 		},
 		{
-			name: "valid DPA CR with aws and hypershift plugin, Velero Deployment is built with aws and hypershift plugin",
+			name: "valid DPA CR with aws and hypershift plugin with default credentials",
 			dpa: createTestDpaWith(
 				nil,
 				oadpv1alpha1.DataProtectionApplicationSpec{
@@ -1705,6 +1705,19 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
 								oadpv1alpha1.DefaultPluginAWS,
 								oadpv1alpha1.DefaultPluginHypershift,
+							},
+							NoDefaultBackupLocation: false,
+						},
+					},
+					BackupLocations: []oadpv1alpha1.BackupLocation{
+						{
+							Velero: &velerov1.BackupStorageLocationSpec{
+								Provider: AWSProvider,
+								StorageType: velerov1.StorageType{
+									ObjectStorage: &velerov1.ObjectStorageLocation{
+										Bucket: "test-bucket",
+									},
+								},
 							},
 						},
 					},
