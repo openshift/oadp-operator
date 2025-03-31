@@ -33,6 +33,11 @@ import (
 	"github.com/openshift/oadp-operator/must-gather/pkg/gvk"
 )
 
+const (
+	FilePermission   = 0644
+	FolderPermission = 0777
+)
+
 var (
 	summaryTemplateReplacesKeys = []string{
 		"MUST_GATHER_VERSION",
@@ -61,16 +66,12 @@ var (
 		"NON_ADMIN_DOWNLOAD_REQUESTS",
 		"STORAGE_CLASSES",
 		"VOLUME_SNAPSHOT_CLASSES",
-		"CSI_DRIVERS", "OADP_OCP_VERSION",
+		"CSI_DRIVERS",
 		"CUSTOM_RESOURCE_DEFINITION",
 	}
 	summaryTemplateReplaces = map[string]string{}
 )
 
-// TODO https://stackoverflow.com/a/31742265
-// TODO https://github.com/kubernetes-sigs/kubebuilder/blob/master/pkg/plugins/golang/v4/scaffolds/internal/templates/readme.go
-// https://deploy-preview-4185--kubebuilder.netlify.app/plugins/extending/extending_cli_features_and_plugins#example-bollerplate
-// https://github.com/kubernetes-sigs/kubebuilder/tree/master/pkg/machinery
 const summaryTemplate = `# OADP must-gather summary version <<MUST_GATHER_VERSION>>
 
 # Table of Contents
@@ -212,7 +213,7 @@ const summaryTemplate = `# OADP must-gather summary version <<MUST_GATHER_VERSIO
 
 <<CSI_DRIVERS>>
 
-> **Note:** check [supported Container Storage Interface drivers for OpenShift <<OADP_OCP_VERSION>>](https://docs.openshift.com/container-platform/<<OADP_OCP_VERSION>>/storage/container_storage_interface/persistent-storage-csi.html#csi-drivers-supported_persistent-storage-csi)
+> **Note:** check [supported Container Storage Interface drivers for OpenShift](https://docs.redhat.com/en/documentation/openshift_container_platform/latest/html/storage/using-container-storage-interface-csi#csi-drivers-supported_persistent-storage-csi)
 
 ## CustomResourceDefinitions
 
@@ -229,25 +230,23 @@ func ReplaceMustGatherVersion(version string) {
 	summaryTemplateReplaces["MUST_GATHER_VERSION"] = "`" + version + "`"
 }
 
-func ReplaceClusterInformationSection(outputPath string, clusterID string, clusterVersion *openshiftconfigv1.ClusterVersion, infrastructure *openshiftconfigv1.Infrastructure, nodeList *corev1.NodeList) {
+func ReplaceClusterInformationSection(
+	outputPath string,
+	clusterID string,
+	clusterVersion *openshiftconfigv1.ClusterVersion,
+	infrastructureList *openshiftconfigv1.InfrastructureList,
+	nodeList *corev1.NodeList,
+) {
 	summaryTemplateReplaces["CLUSTER_ID"] = clusterID
 
-	if clusterVersion != nil {
-		// nil check
-		summaryTemplateReplaces["OCP_VERSION"] = clusterVersion.Status.Desired.Version
-		summaryTemplateReplaces["CLUSTER_VERSION"] = createYAML(outputPath, "cluster-scoped-resources/config.openshift.io/clusterversions.yaml", clusterVersion)
-	} else {
-		// this is code is unreachable?
-		summaryTemplateReplaces["OCP_VERSION"] = "❌ error"
-		summaryTemplateReplaces["OCP_CAPABILITIES"] = "❌ error"
-		summaryTemplateReplaces["ERRORS"] += "⚠️ No ClusterVersion found in cluster\n\n"
-	}
+	summaryTemplateReplaces["OCP_VERSION"] = clusterVersion.Status.Desired.Version
+	summaryTemplateReplaces["CLUSTER_VERSION"] = createYAML(outputPath, "cluster-scoped-resources/config.openshift.io/clusterversions.yaml", clusterVersion)
 
-	if infrastructure != nil {
-		cloudProvider := string(infrastructure.Spec.PlatformSpec.Type)
+	if infrastructureList != nil && len(infrastructureList.Items) != 0 {
+		cloudProvider := string(infrastructureList.Items[0].Spec.PlatformSpec.Type)
 		summaryTemplateReplaces["CLOUD"] = cloudProvider
 	} else {
-		summaryTemplateReplaces["CLOUD"] = "❌ error"
+		summaryTemplateReplaces["CLOUD"] = "❌ no Infrastructure found in cluster"
 		summaryTemplateReplaces["ERRORS"] += "⚠️ No Infrastructure found in cluster\n\n"
 	}
 
@@ -265,17 +264,18 @@ func ReplaceClusterInformationSection(outputPath string, clusterID string, clust
 		}
 		summaryTemplateReplaces["ARCH"] = architectureText
 	} else {
-		summaryTemplateReplaces["ARCH"] = "❌ error"
+		summaryTemplateReplaces["ARCH"] = "❌ no Node found in cluster"
 		summaryTemplateReplaces["ERRORS"] += "⚠️ No Node found in cluster\n\n"
 	}
-	// TODO maybe nil case can be simplified by initializing everything with an error state/message
 }
 
 func ReplaceOADPOperatorInstallationSection(
 	outputPath string,
 	importantCSVsByNamespace map[string][]operatorsv1alpha1.ClusterServiceVersion,
+	importantSubscriptionsByNamespace map[string][]operatorsv1alpha1.Subscription,
 	foundOADP bool,
 	foundRelatedProducts bool,
+	oldOADPError string,
 	oadpOperatorsText string,
 ) {
 	if len(importantCSVsByNamespace) == 0 {
@@ -292,6 +292,19 @@ func ReplaceOADPOperatorInstallationSection(
 			folder := fmt.Sprintf("namespaces/%s/operators.coreos.com/clusterserviceversions", namespace)
 			oadpOperatorsText += createYAML(outputPath, folder+"/clusterserviceversions.yaml", list)
 		}
+		for namespace, subscriptions := range importantSubscriptionsByNamespace {
+			list := &corev1.List{}
+			list.GetObjectKind().SetGroupVersionKind(gvk.ListGVK)
+			for _, subscription := range subscriptions {
+				subscription.GetObjectKind().SetGroupVersionKind(gvk.SubscriptionsGVK)
+				list.Items = append(list.Items, runtime.RawExtension{Object: &subscription})
+			}
+			folder := fmt.Sprintf("namespaces/%s/operators.coreos.com/subscriptions", namespace)
+			oadpOperatorsText += createYAML(outputPath, folder+"/subscriptions.yaml", list)
+		}
+		if len(oldOADPError) > 0 {
+			summaryTemplateReplaces["ERRORS"] += oldOADPError
+		}
 		if !foundOADP {
 			summaryTemplateReplaces["OADP_VERSIONS"] += "❌ No OADP Operator was found installed in the cluster\n\n"
 			summaryTemplateReplaces["ERRORS"] += "🚫 No OADP Operator was found installed in the cluster\n\n"
@@ -300,7 +313,7 @@ func ReplaceOADPOperatorInstallationSection(
 		if !foundRelatedProducts {
 			summaryTemplateReplaces["OADP_VERSIONS"] += "No related product was found installed in the cluster\n\n"
 		}
-		summaryTemplateReplaces["OADP_VERSIONS"] += fmt.Sprintf("For information about all objects collected in each namespace, check [`%[1]s/namespaces`](%[1]s/namespaces) folder", outputPath)
+		summaryTemplateReplaces["OADP_VERSIONS"] += fmt.Sprintf("For information about all objects collected in each namespace, check [`%[1]snamespaces`](%[1]snamespaces) folder", outputPath)
 	}
 }
 
@@ -444,13 +457,6 @@ func ReplaceBackupStorageLocationsSection(outputPath string, backupStorageLocati
 					"| %v | %v | %t | %v | %s |\n",
 					namespace, backupStorageLocation.Name, backupStorageLocation.Spec.Default, bslStatus, link,
 				)
-				// velero get backup-locations
-				// NAME              PROVIDER   BUCKET/PREFIX           PHASE         LAST VALIDATED                  ACCESS MODE   DEFAULT
-				// velero-sample-1   aws        my-bucket-name/velero   Unavailable   2024-10-21 17:27:45 +0000 UTC   ReadWrite     true
-
-				// oc get bsl -n openshift-adp
-				// NAME              PHASE         LAST VALIDATED   AGE    DEFAULT
-				// velero-sample-1   Unavailable   22s              112s   true
 			}
 
 			createYAML(outputPath, file, list)
@@ -494,7 +500,15 @@ func ReplaceVolumeSnapshotLocationsSection(outputPath string, volumeSnapshotLoca
 	}
 }
 
-func ReplaceBackupsSection(outputPath string, backupList *velerov1.BackupList, clusterClient client.Client, deleteBackupRequestList *velerov1.DeleteBackupRequestList, podVolumeBackupList *velerov1.PodVolumeBackupList) {
+func ReplaceBackupsSection(
+	outputPath string,
+	backupList *velerov1.BackupList,
+	clusterClient client.Client,
+	deleteBackupRequestList *velerov1.DeleteBackupRequestList,
+	podVolumeBackupList *velerov1.PodVolumeBackupList,
+	requestTimeot time.Duration,
+	skipTLS bool,
+) {
 	if backupList != nil && len(backupList.Items) != 0 {
 		backupsByNamespace := map[string][]velerov1.Backup{}
 
@@ -556,17 +570,16 @@ func ReplaceBackupsSection(outputPath string, backupList *velerov1.BackupList, c
 					}
 				}
 
-				// TODO when to use insecureSkipTLSVerify and caCertFile?
+				// TODO caCertFile?
 				describeOutput := func(ctx context.Context) string {
-					ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+					ctx, cancel := context.WithTimeout(ctx, requestTimeot)
 					defer cancel()
-					return output.DescribeBackup(ctx, clusterClient, &backup, relatedDeleteBackupRequests, relatedPodVolumeBackupLists, true, false, "")
+					return output.DescribeBackup(ctx, clusterClient, &backup, relatedDeleteBackupRequests, relatedPodVolumeBackupLists, true, skipTLS, "")
 				}(context.Background())
 
 				writeTo := &bytes.Buffer{}
-				// TODO when to use insecureSkipTLSVerify and caCertFile?
-				// TODO user input on timeout?
-				err := downloadrequest.Stream(context.Background(), clusterClient, backup.Namespace, backup.Name, velerov1.DownloadTargetKindBackupLog, writeTo, 5*time.Second, false, "")
+				// TODO caCertFile?
+				err := downloadrequest.Stream(context.Background(), clusterClient, backup.Namespace, backup.Name, velerov1.DownloadTargetKindBackupLog, writeTo, requestTimeot, skipTLS, "")
 				var logs string
 				if err != nil {
 					fmt.Println(err)
@@ -602,7 +615,14 @@ func ReplaceBackupsSection(outputPath string, backupList *velerov1.BackupList, c
 	}
 }
 
-func ReplaceRestoresSection(outputPath string, restoreListList *velerov1.RestoreList, clusterClient client.Client, podVolumeRestoreList *velerov1.PodVolumeRestoreList) {
+func ReplaceRestoresSection(
+	outputPath string,
+	restoreListList *velerov1.RestoreList,
+	clusterClient client.Client,
+	podVolumeRestoreList *velerov1.PodVolumeRestoreList,
+	requestTimeot time.Duration,
+	skipTLS bool,
+) {
 	if restoreListList != nil && len(restoreListList.Items) != 0 {
 		restoresByNamespace := map[string][]velerov1.Restore{}
 
@@ -657,17 +677,16 @@ func ReplaceRestoresSection(outputPath string, restoreListList *velerov1.Restore
 					}
 				}
 
-				// TODO when to use insecureSkipTLSVerify and caCertFile?
+				// TODO caCertFile?
 				describeOutput := func(ctx context.Context) string {
-					ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+					ctx, cancel := context.WithTimeout(ctx, requestTimeot)
 					defer cancel()
-					return output.DescribeRestore(ctx, clusterClient, &restore, relatedPodVolumeRestoreLists, true, false, "")
+					return output.DescribeRestore(ctx, clusterClient, &restore, relatedPodVolumeRestoreLists, true, skipTLS, "")
 				}(context.Background())
 
 				writeTo := &bytes.Buffer{}
-				// TODO when to use insecureSkipTLSVerify and caCertFile?
-				// TODO user input on timeout?
-				err := downloadrequest.Stream(context.Background(), clusterClient, restore.Namespace, restore.Name, velerov1.DownloadTargetKindRestoreLog, writeTo, 5*time.Second, false, "")
+				// TODO caCertFile?
+				err := downloadrequest.Stream(context.Background(), clusterClient, restore.Namespace, restore.Name, velerov1.DownloadTargetKindRestoreLog, writeTo, requestTimeot, skipTLS, "")
 				var logs string
 				if err != nil {
 					fmt.Println(err)
@@ -1485,10 +1504,6 @@ func ReplaceNonAdminDownloadRequestsSection(outputPath string, nonAdminDownloadR
 	}
 }
 
-// TODO was not able to create generic replace section function
-
-// TODO this function writes summary and cluster files
-// break into 2
 func ReplaceAvailableStorageClassesSection(outputPath string, storageClassList *storagev1.StorageClassList) {
 	if storageClassList != nil && len(storageClassList.Items) != 0 {
 		list := &corev1.List{}
@@ -1498,8 +1513,6 @@ func ReplaceAvailableStorageClassesSection(outputPath string, storageClassList *
 			storageClass.GetObjectKind().SetGroupVersionKind(gvk.StorageClassGVK)
 			list.Items = append(list.Items, runtime.RawExtension{Object: &storageClass})
 		}
-		// TODO could not create generic function, type/interface/pointer error
-		// createYAMLList(storageClassList, gvk.StorageClassGVK)
 		summaryTemplateReplaces["STORAGE_CLASSES"] = createYAML(outputPath, "cluster-scoped-resources/storage.k8s.io/storageclasses/storageclasses.yaml", list)
 	} else {
 		summaryTemplateReplaces["STORAGE_CLASSES"] = "❌ No StorageClass was found in the cluster"
@@ -1523,7 +1536,7 @@ func ReplaceAvailableVolumeSnapshotClassesSection(outputPath string, volumeSnaps
 	}
 }
 
-func ReplaceAvailableCSIDriversSection(outputPath string, csiDriverList *storagev1.CSIDriverList, oadpOpenShiftVersion string) {
+func ReplaceAvailableCSIDriversSection(outputPath string, csiDriverList *storagev1.CSIDriverList) {
 	if csiDriverList != nil && len(csiDriverList.Items) != 0 {
 		list := &corev1.List{}
 		list.GetObjectKind().SetGroupVersionKind(gvk.ListGVK)
@@ -1537,12 +1550,17 @@ func ReplaceAvailableCSIDriversSection(outputPath string, csiDriverList *storage
 		summaryTemplateReplaces["CSI_DRIVERS"] = "❌ No CSIDriver was found in the cluster"
 		summaryTemplateReplaces["ERRORS"] += "⚠️ No CSIDriver was found in the cluster\n\n"
 	}
-	summaryTemplateReplaces["OADP_OCP_VERSION"] = oadpOpenShiftVersion
 }
 
 func ReplaceCustomResourceDefinitionsSection(outputPath string, clusterConfig *rest.Config) {
-	// TODO error!!!
-	client, _ := apiextensionsclientset.NewForConfig(clusterConfig)
+	errorMessage := "❌ Unable to write CustomResourceDefinitions section: "
+
+	client, err := apiextensionsclientset.NewForConfig(clusterConfig)
+	if err != nil {
+		summaryTemplateReplaces["ERRORS"] += errorMessage + err.Error() + "\n\n"
+		summaryTemplateReplaces["CUSTOM_RESOURCE_DEFINITION"] = errorMessage + err.Error()
+		return
+	}
 
 	crdsPath := "cluster-scoped-resources/apiextensions.k8s.io/customresourcedefinitions"
 
@@ -1569,25 +1587,27 @@ func ReplaceCustomResourceDefinitionsSection(outputPath string, clusterConfig *r
 		"nonadminrestores":                      gvk.NonAdminRestoreGVK.Group,
 		"nonadmindownloadrequests":              gvk.NonAdminDownloadRequestGVK.Group,
 		"clusterserviceversions":                gvk.ClusterServiceVersionGVK.Group,
+		"subscriptions":                         gvk.SubscriptionsGVK.Group,
 	}
 
 	for crdName, crdGroup := range crds {
-		crd, _ := client.ApiextensionsV1().CustomResourceDefinitions().Get(context.Background(), crdName+"."+crdGroup, v1.GetOptions{})
+		crd, err := client.ApiextensionsV1().CustomResourceDefinitions().Get(context.Background(), crdName+"."+crdGroup, v1.GetOptions{})
+		if err != nil {
+			summaryTemplateReplaces["ERRORS"] += errorMessage + err.Error() + "\n\n"
+			summaryTemplateReplaces["CUSTOM_RESOURCE_DEFINITION"] += errorMessage + err.Error() + "\n\n"
+			continue
+		}
 		crd.GetObjectKind().SetGroupVersionKind(gvk.CustomResourceDefinitionGVK)
-		// TODO check error
 		createYAML(outputPath, crdsPath+fmt.Sprintf("/%s.yaml", crdName), crd)
 	}
 
-	summaryTemplateReplaces["CUSTOM_RESOURCE_DEFINITION"] = fmt.Sprintf("For more information, check [`%s`](%s)\n\n", crdsPath, crdsPath)
+	summaryTemplateReplaces["CUSTOM_RESOURCE_DEFINITION"] += fmt.Sprintf("For more information, check [`%s`](%s)\n\n", crdsPath, crdsPath)
 }
 
-// TODO move to another folder?
 func createYAML(outputPath string, yamlPath string, obj runtime.Object) string {
 	objFilePath := outputPath + yamlPath
 	dir := path.Dir(objFilePath)
-	// TODO permission
-	// TODO need defer somewhere?
-	err := os.MkdirAll(dir, 0777)
+	err := os.MkdirAll(dir, FolderPermission)
 	if err != nil {
 		return "❌ Unable to create dir " + dir
 	}
@@ -1613,9 +1633,7 @@ func createYAML(outputPath string, yamlPath string, obj runtime.Object) string {
 func createFile(outputPath string, describePath string, describeOutput string, describeTitle string) string {
 	describeFilePath := outputPath + describePath
 	dir := path.Dir(describeFilePath)
-	// TODO permission
-	// TODO need defer somewhere?
-	err := os.MkdirAll(dir, 0777)
+	err := os.MkdirAll(dir, FolderPermission)
 	if err != nil {
 		return "❌ Unable to create dir " + dir
 	}
@@ -1625,7 +1643,7 @@ func createFile(outputPath string, describePath string, describeOutput string, d
 		fmt.Println(err)
 		result = "❌ Unable to create file " + describeFilePath
 	} else {
-		err := os.WriteFile(describeFilePath, []byte(describeOutput), 0644)
+		err := os.WriteFile(describeFilePath, []byte(describeOutput), FilePermission)
 		if err != nil {
 			fmt.Println(err)
 			result = "❌ Unable to write " + describeFilePath
@@ -1659,12 +1677,14 @@ func Write(outputPath string) error {
 	}
 
 	summaryPath := outputPath + "oadp-must-gather-summary.md"
-	// TODO permission
-	// TODO need defer somewhere?
-	err := os.WriteFile(summaryPath, []byte(summary), 0644)
+	sumary, err := os.Create(summaryPath)
 	if err != nil {
 		return err
 	}
-
+	err = os.WriteFile(summaryPath, []byte(summary), FilePermission)
+	if err != nil {
+		return err
+	}
+	defer sumary.Close()
 	return nil
 }

@@ -20,6 +20,11 @@ var (
 		Version: "v1alpha1",
 		Kind:    "ClusterServiceVersion",
 	}
+	SubscriptionsGVK = schema.GroupVersionKind{
+		Group:   "operators.coreos.com",
+		Version: "v1alpha1",
+		Kind:    "Subscription",
+	}
 	DataProtectionApplicationGVK = schema.GroupVersionKind{
 		Group:   "oadp.openshift.io",
 		Version: "v1alpha1",

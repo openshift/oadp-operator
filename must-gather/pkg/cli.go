@@ -3,6 +3,8 @@ package pkg
 import (
 	"fmt"
 	"slices"
+	"strconv"
+	"strings"
 	"time"
 
 	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v8/apis/volumesnapshot/v1"
@@ -25,44 +27,41 @@ import (
 )
 
 const (
-	mustGatherVersion = "dev-mar-14-2025"
-	// TODO remove var, not applicable anymore
-	oadpOpenShiftVersion = "4.18"
-	// TODO <this-image> const
+	mustGatherVersion = "master-branch"
+	mustGatherImage   = "registry.redhat.io/oadp/oadp-mustgather-rhel9:v1.5"
+
+	addToSchemeError = "Exiting OADP must-gather, an error happened while adding %s to scheme: %v\n"
+
+	DefaultRequestTimeout = 5 * time.Second
 )
 
-// TODO which errors should make must-gather exit earlier?
-
 var (
-	LogsSince time.Duration
-	Timeout   time.Duration
-	SkipTLS   bool
-	// essentialOnly bool
+	Timeout        time.Duration
+	RequestTimeout time.Duration
+	SkipTLS        bool
 
 	CLI = &cobra.Command{
-		Use: "oc adm must-gather --image=<this-image> -- /usr/bin/gather",
-		Long: `OADP Must-gather
+		Use: fmt.Sprintf("oc adm must-gather --image=%[1]s -- /usr/bin/gather", mustGatherImage),
+		Long: `OADP Must-gather: a tool to collect information about OADP installation in a cluster, along with information about its custom resources and cluster storage.
 
-TODO`,
+For more information, check OADP must-gather documentation: https://docs.redhat.com/en/documentation/openshift_container_platform/latest/html/backup_and_restore/oadp-application-backup-and-restore#migration-using-must-gather_oadp-troubleshooting`,
 		Args: cobra.NoArgs,
-		Example: `  # TODO
-  oc adm must-gather --image=<this-image>
+		Example: fmt.Sprintf(`  # running OADP Must-gather with default configuration
+  oc adm must-gather --image=%[1]s
 
-  # TODO
-  oc adm must-gather --image=<this-image> -- /usr/bin/gather --essential-only --logs-since <time>
+  # running OADP Must-gather with timeout of 1 minute per OADP server request
+  oc adm must-gather --image=%[1]s -- /usr/bin/gather --request-timeout 1m
 
-  # TODO
-  oc adm must-gather --image=<this-image> -- /usr/bin/gather --timeout <time>
-
-  # TODO
-  oc adm must-gather --image=<this-image> -- /usr/bin/gather --skip-tls --timeout <time>
-
-  # TODO metrics dump`,
+  # running OADP Must-gather with timeout of 15 seconds per OADP server request and with insecure TLS connections
+  oc adm must-gather --image=%[1]s -- /usr/bin/gather --request-timeout 15s --skip-tls`, mustGatherImage),
 		SilenceErrors: true,
 		SilenceUsage:  true,
 		RunE: func(_ *cobra.Command, _ []string) error {
-			// TODO test flags
-			// fmt.Printf("logsSince %#v\n", LogsSince)
+			if RequestTimeout <= 0 {
+				err := fmt.Errorf("--request-timeout value must be greater than zero")
+				fmt.Printf("Exiting OADP must-gather: %v\n", err)
+				return err
+			}
 
 			clusterConfig := config.GetConfigOrDie()
 			// https://github.com/openshift/oc/blob/46db7c2bce5a57e3c3d9347e7e1e107e61dbd306/pkg/cli/admin/inspect/inspect.go#L142
@@ -75,51 +74,50 @@ TODO`,
 				return err
 			}
 
-			// in what versions of OCP must must-gather work? be careful about API versions update?
 			err = openshiftconfigv1.AddToScheme(clusterClient.Scheme())
 			if err != nil {
-				fmt.Printf("Exiting OADP must-gather, an error happened while adding to scheme: %v\n", err)
+				fmt.Printf(addToSchemeError, "github.com/openshift/api/config/v1", err)
 				return err
 			}
 			err = operatorsv1alpha1.AddToScheme(clusterClient.Scheme())
 			if err != nil {
-				fmt.Printf("Exiting OADP must-gather, an error happened while adding to scheme: %v\n", err)
+				fmt.Printf(addToSchemeError, "github.com/operator-framework/api/pkg/operators/v1alpha1", err)
 				return err
 			}
 			err = storagev1.AddToScheme(clusterClient.Scheme())
 			if err != nil {
-				fmt.Printf("Exiting OADP must-gather, an error happened while adding to scheme: %v\n", err)
+				fmt.Printf(addToSchemeError, "k8s.io/api/storage/v1", err)
 				return err
 			}
 			err = volumesnapshotv1.AddToScheme(clusterClient.Scheme())
 			if err != nil {
-				fmt.Printf("Exiting OADP must-gather, an error happened while adding to scheme: %v\n", err)
+				fmt.Printf(addToSchemeError, "github.com/kubernetes-csi/external-snapshotter/client/v8/apis/volumesnapshot/v1", err)
 				return err
 			}
 			err = corev1.AddToScheme(clusterClient.Scheme())
 			if err != nil {
-				fmt.Printf("Exiting OADP must-gather, an error happened while adding to scheme: %v\n", err)
+				fmt.Printf(addToSchemeError, "k8s.io/api/core/v1", err)
 				return err
 			}
 			// OADP CRDs
 			err = oadpv1alpha1.AddToScheme(clusterClient.Scheme())
 			if err != nil {
-				fmt.Printf("Exiting OADP must-gather, an error happened while adding to scheme: %v\n", err)
+				fmt.Printf(addToSchemeError, "github.com/openshift/oadp-operator/api/v1alpha1", err)
 				return err
 			}
 			err = nac1alpha1.AddToScheme(clusterClient.Scheme())
 			if err != nil {
-				fmt.Printf("Exiting OADP must-gather, an error happened while adding to scheme: %v\n", err)
+				fmt.Printf(addToSchemeError, "github.com/migtools/oadp-non-admin/api/v1alpha1", err)
 				return err
 			}
 			err = velerov1.AddToScheme(clusterClient.Scheme())
 			if err != nil {
-				fmt.Printf("Exiting OADP must-gather, an error happened while adding to scheme: %v\n", err)
+				fmt.Printf(addToSchemeError, "github.com/vmware-tanzu/velero/pkg/apis/velero/v1", err)
 				return err
 			}
 			err = velerov2alpha1.AddToScheme(clusterClient.Scheme())
 			if err != nil {
-				fmt.Printf("Exiting OADP must-gather, an error happened while adding to scheme: %v\n", err)
+				fmt.Printf(addToSchemeError, "github.com/vmware-tanzu/velero/pkg/apis/velero/v2alpha1", err)
 				return err
 			}
 
@@ -136,19 +134,27 @@ TODO`,
 			}
 			clusterVersion := &clusterVersionList.Items[0]
 			clusterID := string(clusterVersion.Spec.ClusterID[:8])
+			versionParts := strings.Split(clusterVersion.Status.Desired.Version, ".")
+			major, err := strconv.Atoi(versionParts[0])
+			if err != nil {
+				fmt.Printf("Exiting OADP must-gather, an error happened while parsing OpenShift major version: %v\n", err)
+				return err
+			}
+			minor, err := strconv.Atoi(versionParts[1])
+			if err != nil {
+				fmt.Printf("Exiting OADP must-gather, an error happened while parsing OpenShift minor version: %v\n", err)
+				return err
+			}
 
-			// for now, lest keep the folder structure as it is
-			//     must-gather/clusters/<id>/cluster-scoped-resources/apiextensions.k8s.io/customresourcedefinitions
-			//     must-gather/clusters/<id>/namespaces/<name>/velero.io/<name>
-			//     must-gather/clusters/<id>/namespaces/<name>/oadp.openshift.io/<name>
-			// otherwise may break `omg` usage. ref https://github.com/openshift/oadp-operator/pull/1269
+			// be careful about folder structure, otherwise may break `omg` usage
 			outputPath := fmt.Sprintf("must-gather/clusters/%s/", clusterID)
 
 			var resourcesToGather []client.ObjectList
 			infrastructureList := &openshiftconfigv1.InfrastructureList{}
 			nodeList := &corev1.NodeList{}
 			clusterServiceVersionList := &operatorsv1alpha1.ClusterServiceVersionList{}
-			// TODO when Velero/OADP API updates, how to handle? use dynamic client instead?
+			subscriptionList := &operatorsv1alpha1.SubscriptionList{}
+
 			dataProtectionApplicationList := &oadpv1alpha1.DataProtectionApplicationList{}
 			cloudStorageList := &oadpv1alpha1.CloudStorageList{}
 			backupStorageLocationList := &velerov1.BackupStorageLocationList{}
@@ -177,6 +183,7 @@ TODO`,
 				infrastructureList,
 				nodeList,
 				clusterServiceVersionList,
+				subscriptionList,
 
 				dataProtectionApplicationList,
 				cloudStorageList,
@@ -211,29 +218,7 @@ TODO`,
 				}
 			}
 
-			if len(infrastructureList.Items) == 0 {
-				fmt.Println(fmt.Errorf("no Infrastructure found in cluster"))
-			}
-			infrastructure := &infrastructureList.Items[0]
-
-			if len(nodeList.Items) == 0 {
-				fmt.Println(fmt.Errorf("no Node found in cluster"))
-			}
-
 			// get namespaces with OADP installs
-
-			// subscriptionList := &operatorsv1alpha1.SubscriptionList{}
-			// err = clusterClient.List(context.Background(), subscriptionList)
-			// if err != nil {
-			// 	fmt.Println(err)
-			// }
-			// for _, sub := range subscriptionList.Items {
-			// 	// prod? "redhat-oadp-operator"
-			// 	// other packages that should be important for us?
-			// 	// dev? "oadp-operator" https://github.com/openshift/oadp-operator/blob/5601dcfd0a07468f496ddb70ab570ccff1b4f0cc/bundle/metadata/annotations.yaml#L6
-			// 	fmt.Printf("Found '%v' operator version '%v' installed in '%v' namespace\n", sub.Spec.Package, sub.Spec.StartingCSV, sub.Namespace)
-			// }
-
 			if len(clusterServiceVersionList.Items) == 0 {
 				fmt.Println(fmt.Errorf("no ClusterServiceVersion found in cluster"))
 			}
@@ -241,33 +226,60 @@ TODO`,
 			foundOADP := false
 			foundRelatedProducts := false
 			importantCSVsByNamespace := map[string][]operatorsv1alpha1.ClusterServiceVersion{}
+			importantSubscriptionsByNamespace := map[string][]operatorsv1alpha1.Subscription{}
+			oldOADPError := ""
 
 			// ?Managed Velero operator? only available in ROSA? https://github.com/openshift/managed-velero-operator
 			//
-			// ?IBM Fusion?
-			//
 			// ?Dell Power Protect?
+			// labels:
+			//       app: ppdm-controller
+			//       app.kubernetes.io/name: powerprotect
+			// name: powerprotect-controller-c8dcf8648-nlg85
 			//
 			// upstream velero?
-			relatedProducts := []string{"OpenShift Virtualization", "Advanced Cluster Management for Kubernetes", "Submariner"}
+			relatedProducts := []string{
+				"OpenShift Virtualization",
+				"Advanced Cluster Management for Kubernetes",
+				"Submariner",
+				"IBM Storage Fusion",
+			}
 			communityProducts := []string{"KubeVirt HyperConverged Cluster Operator"}
 
 			for _, csv := range clusterServiceVersionList.Items {
 				// OADP dev, community and prod operators have same spec.displayName
 				if csv.Spec.DisplayName == "OADP Operator" {
 					oadpOperatorsText += fmt.Sprintf("Found **%v** version **%v** installed in **%v** namespace\n\n", csv.Spec.DisplayName, csv.Spec.Version, csv.Namespace)
+					if (csv.Spec.Version.Major < 1 || csv.Spec.Version.Minor < 5) && major >= 4 && minor >= 19 {
+						oldOADPError += "❌ OADP 1.4 and lower is not supported in OpenShift 4.19 and higher\n\n"
+					}
 					foundOADP = true
 					importantCSVsByNamespace[csv.Namespace] = append(importantCSVsByNamespace[csv.Namespace], csv)
+					for _, subscription := range subscriptionList.Items {
+						if subscription.Status.InstalledCSV == csv.Name {
+							importantSubscriptionsByNamespace[subscription.Namespace] = append(importantSubscriptionsByNamespace[subscription.Namespace], subscription)
+						}
+					}
 				}
 				if slices.Contains(relatedProducts, csv.Spec.DisplayName) {
 					oadpOperatorsText += fmt.Sprintf("Found related product **%v** version **%v** installed in **%v** namespace\n\n", csv.Spec.DisplayName, csv.Spec.Version, csv.Namespace)
 					foundRelatedProducts = true
 					importantCSVsByNamespace[csv.Namespace] = append(importantCSVsByNamespace[csv.Namespace], csv)
+					for _, subscription := range subscriptionList.Items {
+						if subscription.Status.InstalledCSV == csv.Name {
+							importantSubscriptionsByNamespace[subscription.Namespace] = append(importantSubscriptionsByNamespace[subscription.Namespace], subscription)
+						}
+					}
 				}
 				if slices.Contains(communityProducts, csv.Spec.DisplayName) {
 					oadpOperatorsText += fmt.Sprintf("⚠️ Found related product **%v (Community)** version **%v** installed in **%v** namespace\n\n", csv.Spec.DisplayName, csv.Spec.Version, csv.Namespace)
 					foundRelatedProducts = true
 					importantCSVsByNamespace[csv.Namespace] = append(importantCSVsByNamespace[csv.Namespace], csv)
+					for _, subscription := range subscriptionList.Items {
+						if subscription.Status.InstalledCSV == csv.Name {
+							importantSubscriptionsByNamespace[subscription.Namespace] = append(importantSubscriptionsByNamespace[subscription.Namespace], subscription)
+						}
+					}
 				}
 			}
 
@@ -295,37 +307,19 @@ TODO`,
 				}
 			}
 
-			// gather_logs
-
-			// gather_metrics
-			// Find problem with velero metrics (port?) and kill html, add to summary.md file
-
-			// gather_versions https://github.com/openshift/oadp-operator/pull/994
-			if len(storageClassList.Items) == 0 {
-				fmt.Println(fmt.Errorf("no StorageClass found in cluster"))
-			}
-
-			if len(volumeSnapshotClassList.Items) == 0 {
-				fmt.Println(fmt.Errorf("no VolumeSnapshotClass found in cluster"))
-			}
-
-			if len(csiDriverList.Items) == 0 {
-				fmt.Println(fmt.Errorf("no CSIDriver found in cluster"))
-			}
-
 			// TODO do processes in parallel!?
 			// https://gobyexample.com/waitgroups
 			// https://github.com/konveyor/analyzer-lsp/blob/main/engine/engine.go
 			templates.ReplaceMustGatherVersion(mustGatherVersion)
-			templates.ReplaceClusterInformationSection(outputPath, clusterID, clusterVersion, infrastructure, nodeList)
-			templates.ReplaceOADPOperatorInstallationSection(outputPath, importantCSVsByNamespace, foundOADP, foundRelatedProducts, oadpOperatorsText)
+			templates.ReplaceClusterInformationSection(outputPath, clusterID, clusterVersion, infrastructureList, nodeList)
+			templates.ReplaceOADPOperatorInstallationSection(outputPath, importantCSVsByNamespace, importantSubscriptionsByNamespace, foundOADP, foundRelatedProducts, oldOADPError, oadpOperatorsText)
 			templates.ReplaceDataProtectionApplicationsSection(outputPath, dataProtectionApplicationList)
 			templates.ReplaceCloudStoragesSection(outputPath, cloudStorageList)
 			templates.ReplaceBackupStorageLocationsSection(outputPath, backupStorageLocationList)
 			templates.ReplaceVolumeSnapshotLocationsSection(outputPath, volumeSnapshotLocationList)
 			// this creates DownloadRequests CRs
-			templates.ReplaceBackupsSection(outputPath, backupList, clusterClient, deleteBackupRequestList, podVolumeBackupList)
-			templates.ReplaceRestoresSection(outputPath, restoreList, clusterClient, podVolumeRestoreList)
+			templates.ReplaceBackupsSection(outputPath, backupList, clusterClient, deleteBackupRequestList, podVolumeBackupList, RequestTimeout, SkipTLS)
+			templates.ReplaceRestoresSection(outputPath, restoreList, clusterClient, podVolumeRestoreList, RequestTimeout, SkipTLS)
 
 			downloadRequestList := &velerov1.DownloadRequestList{}
 			err = gather.AllResources(clusterClient, downloadRequestList)
@@ -349,7 +343,7 @@ TODO`,
 			templates.ReplaceNonAdminDownloadRequestsSection(outputPath, nonAdminDownloadRequestList)
 			templates.ReplaceAvailableStorageClassesSection(outputPath, storageClassList)
 			templates.ReplaceAvailableVolumeSnapshotClassesSection(outputPath, volumeSnapshotClassList)
-			templates.ReplaceAvailableCSIDriversSection(outputPath, csiDriverList, oadpOpenShiftVersion)
+			templates.ReplaceAvailableCSIDriversSection(outputPath, csiDriverList)
 			templates.ReplaceCustomResourceDefinitionsSection(outputPath, clusterConfig)
 			// do not tar!
 			err = templates.Write(outputPath)
@@ -358,7 +352,6 @@ TODO`,
 				return err
 			}
 			return nil
-			// TODO Should / Can must-gather collect node and node-agent /dev/ and /host_pods files info.
 		},
 	}
 )
