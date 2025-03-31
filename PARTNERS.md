@@ -62,7 +62,7 @@ sequenceDiagram
 
     Customer->>OCP 4.18: Initiate OCP upgrade
     OCP 4.18->>OCP 4.19: Upgrade cluster
-    OCP 4.19->>OADP 1.4: OADP 1.4 is not supported, DPA moves to error state
+    OCP 4.19->>OADP 1.4: OADP 1.4 is not supported on OCP 4.19
     Customer->>OCP 4.19: Customer updates channel from stable 1.4 to stable
     OLM->>OADP 1.5: Manual or Automatic upgrade to OADP 1.5.x
     OADP 1.5-->>Customer: Running on 4.19 with OADP-1.5
