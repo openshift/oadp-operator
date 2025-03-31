@@ -15,7 +15,22 @@ oc adm must-gather --image=<this-image>
 ```
 TODO mention e2e tests
 
-TODO test omg https://github.com/openshift/oadp-operator/pull/1269
+To test omg tool, create `omg.Dockerfile` file
+```Dockerfile
+FROM python:3.10.12-slim-bullseye
+
+WORKDIR /test-omg
+COPY ./ ./
+RUN pip install o-must-gather
+```
+and run
+```sh
+podman build -t omg-container -f omg.Dockerfile .
+podman run -ti --rm omg-container bash
+# inside container
+omg use must-gather/clusters/
+omg get backup -n <namespace> # and other OADP resources
+```
 
 To update OADP Must-gather `go.mod` dependencies, run
 ```sh
