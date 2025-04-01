@@ -187,7 +187,10 @@ Create `ci-operator/config/openshift/oadp-operator/openshift-oadp-operator-oadp-
 
 > **Note**: to get diff between files, you can run `diff -ruN diff -ruN ci-operator/config/openshift/oadp-operator/openshift-oadp-operator-master__4.VERSION.yaml ci-operator/config/openshift/oadp-operator/openshift-oadp-operator-oadp-1.4__4.VERSION.yaml`.
 
-After creating these files, run `make jobs`.
+After creating these files, run:
+*  `make jobs checkconfig`
+*  `make prow-config`
+
 
 Finally, add image to `core-services/image-mirroring/konveyor/mapping_konveyor_latest`
 ```diff
