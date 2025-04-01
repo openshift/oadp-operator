@@ -170,6 +170,14 @@ func ensureRequiredSpecs(deploymentObject *appsv1.Deployment, dpa *oadpv1alpha1.
 			}(),
 		})
 	}
+
+	if len(dpa.Spec.LogFormat) > 0 {
+		envVars = append(envVars, corev1.EnvVar{
+			Name:  common.LogFormatEnvVar,
+			Value: string(dpa.Spec.LogFormat),
+		})
+	}
+
 	if len(dpaResourceVersion) == 0 ||
 		!reflect.DeepEqual(dpa.Spec.NonAdmin, previousNonAdminConfiguration) ||
 		(dpa.Spec.Configuration.Velero.Args != nil &&
