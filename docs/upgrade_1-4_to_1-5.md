@@ -8,7 +8,7 @@
 
     From this update:
 
-    TODO
+    - Velero does not use ConfigMap resource named **node-agent-config** for configuring Node Agent DaemonSet anymore. If you were using it, delete it and use new fields `spec.configuration.nodeAgent` in DPA for configuring Node Agent DaemonSet.
 
 ## Upgrade steps
 
@@ -39,6 +39,21 @@ If you are using `spec.configuration.restic` field, you need to use `spec.config
 +    nodeAgent:
        enable: true
 +      uploaderType: restic
+```
+
+If you are using ConfigMap resource named **node-agent-config** for configuring Node Agent DaemonSet, you need to use new fields under `spec.configuration.nodeAgent` now. Example
+```diff
+ spec:
+   configuration:
+     nodeAgent:
++      backupPVC:
+         ...
++      loadConcurrency:
+         ...
++      podResources:
+         ...
++      restorePVC:
+        ...
 ```
 
 ### Verify the upgrade
