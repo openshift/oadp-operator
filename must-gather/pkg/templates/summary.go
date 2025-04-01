@@ -74,6 +74,8 @@ var (
 
 const summaryTemplate = `# OADP must-gather summary version <<MUST_GATHER_VERSION>>
 
+[OADP Frequently Asked Questions](https://access.redhat.com/articles/5456281)
+
 # Table of Contents
 
 - [Errors](#errors)
