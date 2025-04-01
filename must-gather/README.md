@@ -51,6 +51,9 @@ go mod verify
 
 ## OADP release
 
+Prior to each release, OADP Must-gather must be updated.
+
+To update OADP Must-gather `go.mod` dependencies, run
 ```sh
 go get github.com/openshift/oadp-operator@<release-brach>
 go get github.com/migtools/oadp-non-admin@<release-brach>
@@ -58,3 +61,13 @@ go get github.com/migtools/oadp-non-admin@<release-brach>
 go mod tidy
 go mod verify
 ```
+
+`must-gather/pkg/cli.go` file must be updated
+```diff
+ const (
+-	mustGatherVersion = "1.5.0"
++	mustGatherVersion = "1.5.1"
+	mustGatherImage   = "registry.redhat.io/oadp/oadp-mustgather-rhel9:v1.5"
+```
+
+> **Note:** If it is a minor release, `mustGatherImage` must also be updated.
