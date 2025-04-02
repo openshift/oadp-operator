@@ -251,8 +251,6 @@ spec:
                             description: |-
                               LoadAffinity is the config for data path load affinity.
                               Used by the Node-Agent, that needs to match the DataMover and the RepositoryMaintenance pods.
-                              Struct should be same as:
-                              https://github.com/openshift/velero/blob/584cf1148a746838ee67aa27e3e4e0ded1f5c069/pkg/nodeagent/node_agent.go#L60-L63
                             properties:
                               nodeSelector:
                                 description: NodeSelector specifies the label selector to match nodes
@@ -309,10 +307,7 @@ spec:
                             perNodeConfig:
                               description: PerNodeConfig specifies the concurrency number to nodes matched by rules
                               items:
-                                description: |-
-                                  RuledConfigs is the config for data path load concurrency per node.
-                                  Struct should be same as:
-                                  https://github.com/openshift/velero/blob/584cf1148a746838ee67aa27e3e4e0ded1f5c069/pkg/nodeagent/node_agent.go#L65-L71
+                                description: RuledConfigs is the config for data path load concurrency per node.
                                 properties:
                                   nodeSelector:
                                     description: NodeSelector specifies the label selector to match nodes
@@ -487,10 +482,7 @@ spec:
                             nodeSelector:
                               additionalProperties:
                                 type: string
-                              description: |-
-                                (do not use warning) nodeSelector field is for backwards compatibility and
-                                will be removed in the future. Use loadAffinity field instead
-                                nodeSelector defines the nodeSelector to be supplied to podSpec
+                              description: nodeSelector defines the nodeSelector to be supplied to podSpec
                               type: object
                             resourceAllocations:
                               description: resourceAllocations defines the CPU, Memory and ephemeral-storage resource allocations for the Pod
@@ -762,10 +754,7 @@ spec:
                             nodeSelector:
                               additionalProperties:
                                 type: string
-                              description: |-
-                                (do not use warning) nodeSelector field is for backwards compatibility and
-                                will be removed in the future. Use loadAffinity field instead
-                                nodeSelector defines the nodeSelector to be supplied to podSpec
+                              description: nodeSelector defines the nodeSelector to be supplied to podSpec
                               type: object
                             resourceAllocations:
                               description: resourceAllocations defines the CPU, Memory and ephemeral-storage resource allocations for the Pod
@@ -1224,10 +1213,7 @@ spec:
                             nodeSelector:
                               additionalProperties:
                                 type: string
-                              description: |-
-                                (do not use warning) nodeSelector field is for backwards compatibility and
-                                will be removed in the future. Use loadAffinity field instead
-                                nodeSelector defines the nodeSelector to be supplied to podSpec
+                              description: nodeSelector defines the nodeSelector to be supplied to podSpec
                               type: object
                             resourceAllocations:
                               description: resourceAllocations defines the CPU, Memory and ephemeral-storage resource allocations for the Pod

@@ -344,8 +344,6 @@ type PodConfig struct {
 	// labels to add to pods
 	// +optional
 	Labels map[string]string `json:"labels,omitempty"`
-	// (do not use warning) nodeSelector field is for backwards compatibility and
-	// will be removed in the future. Use loadAffinity field instead
 	// nodeSelector defines the nodeSelector to be supplied to podSpec
 	// +optional
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
@@ -376,9 +374,10 @@ type NodeAgentCommonFields struct {
 	PodConfig *PodConfig `json:"podConfig,omitempty"`
 }
 
-// LoadConcurrency is the config for data path load concurrency per node.
-// Struct should be same as:
+// Below struct should be same as:
 // https://github.com/openshift/velero/blob/584cf1148a746838ee67aa27e3e4e0ded1f5c069/pkg/nodeagent/node_agent.go#L52-L58
+
+// LoadConcurrency is the config for data path load concurrency per node.
 type LoadConcurrency struct {
 	// GlobalConfig specifies the concurrency number to all nodes for which per-node config is not specified
 	GlobalConfig int `json:"globalConfig,omitempty"`
@@ -387,19 +386,21 @@ type LoadConcurrency struct {
 	PerNodeConfig []RuledConfigs `json:"perNodeConfig,omitempty"`
 }
 
+// Below struct should be same as:
+// https://github.com/openshift/velero/blob/584cf1148a746838ee67aa27e3e4e0ded1f5c069/pkg/nodeagent/node_agent.go#L60-L63
+
 // LoadAffinity is the config for data path load affinity.
 // Used by the Node-Agent, that needs to match the DataMover and the RepositoryMaintenance pods.
-// Struct should be same as:
-// https://github.com/openshift/velero/blob/584cf1148a746838ee67aa27e3e4e0ded1f5c069/pkg/nodeagent/node_agent.go#L60-L63
 type LoadAffinity struct {
 	// NodeSelector specifies the label selector to match nodes
 	// +optional
 	NodeSelector metav1.LabelSelector `json:"nodeSelector,omitempty"`
 }
 
-// RuledConfigs is the config for data path load concurrency per node.
-// Struct should be same as:
+// Below struct should be same as:
 // https://github.com/openshift/velero/blob/584cf1148a746838ee67aa27e3e4e0ded1f5c069/pkg/nodeagent/node_agent.go#L65-L71
+
+// RuledConfigs is the config for data path load concurrency per node.
 type RuledConfigs struct {
 	// NodeSelector specifies the label selector to match nodes
 	NodeSelector metav1.LabelSelector `json:"nodeSelector"`
@@ -408,9 +409,10 @@ type RuledConfigs struct {
 	Number int `json:"number"`
 }
 
-// NodeAgentConfigMapSettings is the config for node-agent
-// Struct should be same as:
+// Below struct should be same as:
 // https://github.com/openshift/velero/blob/584cf1148a746838ee67aa27e3e4e0ded1f5c069/pkg/nodeagent/node_agent.go#L90-L105
+
+// NodeAgentConfigMapSettings is the config for node-agent
 type NodeAgentConfigMapSettings struct {
 	// LoadConcurrency is the config for data path load concurrency per node.
 	// +optional
@@ -429,9 +431,11 @@ type NodeAgentConfigMapSettings struct {
 	PodResources *kube.PodResources `json:"podResources,omitempty"`
 }
 
+// Velero nodeAgentServerConfig struct used in below struct:
+// https://github.com/openshift/velero/blob/8c8a6cccd78b78bd797e40189b0b9bee46a97f9e/pkg/cmd/cli/nodeagent/server.go#L87-L92
+
 // NodeAgentConfig is the configuration for node server
 // Holds the configuration for the Node Agent Server.
-// https://github.com/openshift/velero/blob/8c8a6cccd78b78bd797e40189b0b9bee46a97f9e/pkg/cmd/cli/nodeagent/server.go#L87-L92
 type NodeAgentConfig struct {
 	// Embedding NodeAgentCommonFields
 	// +optional
