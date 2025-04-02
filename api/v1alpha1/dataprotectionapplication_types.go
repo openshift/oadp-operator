@@ -337,6 +337,9 @@ type VeleroConfig struct {
 	// Velero args are settings to customize velero server arguments. Overrides values in other fields.
 	// +optional
 	Args *VeleroServerArgs `json:"args,omitempty"`
+	// LoadAffinityConfig is the config for data path load affinity.
+	// +optional
+	LoadAffinityConfig []*LoadAffinity `json:"loadAffinity,omitempty"`
 }
 
 // PodConfig defines the pod configuration options
