@@ -5,4 +5,4 @@ kind: Kustomization
 images:
 - name: controller
   newName: quay.io/konveyor/oadp-operator
-  newTag: latest
+  newTag: oadp-1.5
