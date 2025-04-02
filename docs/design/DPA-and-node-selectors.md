@@ -6,16 +6,16 @@ This proposal introduces a standardized approach for configuring node selectors 
 ## Background
 Currently, node selection for Velero and NodeAgent components is inconsistently defined within the DPA specification.
 
-- `nodeAgent.podConfig.nodeSelector` specifies nodes using matchLabels. This setting is used to define in which nodes the node-agent pod will be scheduled.
-- `loadConcurrency.perNodeConfig` supports both matchLabels and matchExpressions. Node-agent concurrency configurations allows to configure the concurrent number of node-agent loads per node, but only for the nodes where the node-agent pod is scheduled.
-- `velero.podConfig.nodeSelector` specifies node selector for the velero pod.
+- `spec.configuration.nodeAgent.podConfig.nodeSelector` specifies nodes using matchLabels. This setting is used to define in which nodes the node-agent pod will be scheduled.
+- `spec.configuration.nodeAgent.loadConcurrency.perNodeConfig` supports both matchLabels and matchExpressions. Node-agent concurrency configurations allows to configure the concurrent number of node-agent loads per node, but only for the nodes where the node-agent pod is scheduled.
+- `spec.configuration.velero.podConfig.nodeSelector` specifies node selector for the velero pod.
 
-The NodeAgent pod is either scheduled on every node in the cluster or limited to specific nodes where the NodeAgent pod is scheduled via `nodeAgent.podConfig.nodeSelector` setting.
+The NodeAgent pod is either scheduled on every node in the cluster or limited to specific nodes where the NodeAgent pod is scheduled via `spec.configuration.nodeAgent.podConfig.nodeSelector` setting.
 
 This design enhances flexibility by allowing Affinity and Anti-Affinity settings for scheduling NodeAgent pods with their DataMover workloads or repository maintenance pods.
 
 ## Goals
-- Provide a clear and structured approach for users to define node selection criteria for the Velero, NodeAgent, DataMover and repository maintenance pods using the DPA specification.
+- Provide a clear and structured approach for users to define node selection criteria for the NodeAgent, DataMover and repository maintenance pods using the DPA specification.
 - Support both `matchLabels` and `matchExpressions` for flexible node selection for the NodeAgent, DataMover and repository maintenance pods.
 - Ensure pod Affinity and Anti-Affinity rules are respected for the NodeAgent, DataMover and repository maintenance pods.
 - Guarantee that DataMover pods are scheduled on the same nodes as NodeAgent pods.
@@ -25,6 +25,7 @@ This design enhances flexibility by allowing Affinity and Anti-Affinity settings
 ## Non Goals
 - Removing or deprecating existing node selector configurations.
 - Use advanced Affinity settings that are not specified in teh Veleros' loadAffinity CRD such as `requiredDuringSchedulingIgnoredDuringExecution` and `preferredDuringSchedulingIgnoredDuringExecution`.
+- Extend current Velero specific `spec.configuration.velero.podConfig` with the `spec.configuration.velero.loadAffinity` DPA CRD. The current nodeSelector from the `spec.configuration.velero.podConfig` will be used to schedule the Velero pod.
 
 ## High-Level Design
 The proposed change introduces a unified nodeSelector structure for all relevant components within the DPA custom resource.
@@ -32,10 +33,12 @@ This will allow users to specify node selection using either matchLabels or matc
 
 The modified structure will be applied to the new DPA sections:
 
-- `configuration.nodeAgent.loadConcurrency`
-- `configuration.nodeAgent.loadAffinity`
-- `configuration.velero.loadAffinity`
-- `configuration.repositoryMaintenance`
+- `spec.configuration.nodeAgent.loadConcurrency`
+- `spec.configuration.nodeAgent.loadAffinity`
+- `spec.configuration.repositoryMaintenance`
+
+In the future this design may be extended to include Velero specific settings in the:
+- `spec.configuration.velero.loadAffinity`
 
 ## Detailed Design
 
@@ -61,7 +64,7 @@ spec:
 ```
 > Note:
 >
-> There is also `restic.podConfig`, however it's deprecated in the OADP 1.5, so it's not included in this design.
+> There is also `spec.configuration.restic.podConfig`, however it's deprecated in the OADP 1.5, so it's not included in this design.
 
 
 ## Changes to existing configuration settings
@@ -75,21 +78,21 @@ Possible operators are:
 - Gt
 - Lt
 
-### Changes to current `nodeAgent.podConfig.nodeSelector` fields
+### Changes to current `spec.configuration.nodeAgent.podConfig.nodeSelector` fields
 
-No changes will be made to the current `nodeAgent.podConfig.nodeSelector` CRD field.
+No changes will be made to the current `spec.configuration.nodeAgent.podConfig.nodeSelector` CRD field.
 
 The following logic will be implemented on the reconcile:
-- The `nodeAgent.podConfig.nodeSelector` and the `nodeAgent.loadAffinity.nodeSelector` will be used for scheduling the **NodeAgent** pods.
-- The `nodeAgent.podConfig.nodeSelector` will be used by the **NodeAgent** DaemonSet.
-- The **NodeAgent** DaemonSet will use Affinity and Anti-Affinity settings from the `nodeAgent.loadAffinity` section to schedule the **NodeAgent** pods. This will translate to the `requiredDuringSchedulingIgnoredDuringExecution` fields from the `v1.Pod` CRD.
-- The `nodeAgent.loadAffinity.nodeSelector` will be used to generate a **ConfigMap** containing the **DataMover** pod affinity settings.
-- To ensure **DataMover** pods are scheduled on the same nodes as the **NodeAgent** pods, the labels from the `nodeAgent.podConfig.nodeSelector` will be applied to `nodeAgent.loadAffinity.nodeSelector` field as a simple `matchLabels` selector. This will generate a **ConfigMap** containing the **NodeAgent** pod affinity settings, which will then be used in the **NodeAgent** pod command to schedule the **DataMover** pods.
-- The user will be able to use different `matchLabels` between the `nodeAgent.loadAffinity.nodeSelector` and the `nodeAgent.podConfig.nodeSelector` fields, with the following caveats:
-  - The user will not be allowed to use `matchExpressions` in the `nodeAgent.loadAffinity.nodeSelector` and the `nodeAgent.podConfig.nodeSelector` at the same time. This is to ensure that the **DataMover** pods which are using only **ConfigMap** as a scheduler source will be scheduled on the same nodes as the **NodeAgent** pods, that could be scheduled on different nodes from the `nodeAgent.podConfig.nodeSelector` field. A situation like this is likely to occur when the user wants to specify Anti-Affinity settings for the **DataMover** pods.
-  - All labels from the `nodeAgent.podConfig.nodeSelector` will be added to the `nodeAgent.loadAffinity.nodeSelector` field, making the `nodeAgent.loadAffinity.nodeSelector` field more restrictive (a subset of the `nodeAgent.podConfig.nodeSelector` field). This allows to specify more `matchLabels` in the `nodeAgent.loadAffinity.nodeSelector` field. In such case the **NodeAgent** pods will be scheduled on the nodes that match all the labels from the `nodeAgent.podConfig.nodeSelector` and the **DataMover** pods will additionally be limited to the nodes from the `nodeAgent.loadAffinity.nodeSelector` fields.
-- For more complex cases, the user can use `matchExpressions` in the `nodeAgent.loadAffinity.nodeSelector` field. When this is used the `nodeAgent.podConfig.nodeSelector` will not be allowed to be used. This will allow to specify more fine-grained node selection criteria for the **DataMover** and the **NodeAgent** pods.
-- The reconcile will error out if the user configures the `nodeAgent.podConfig.nodeSelector` and `nodeAgent.loadAffinity.nodeSelector` outside of the above restrictions and caveats.
+- The `spec.configuration.nodeAgent.podConfig.nodeSelector` and the `spec.configuration.nodeAgent.loadAffinity.nodeSelector` will be used for scheduling the **NodeAgent** pods.
+- The `spec.configuration.nodeAgent.podConfig.nodeSelector` will be used by the **NodeAgent** DaemonSet.
+- The **NodeAgent** DaemonSet will use Affinity and Anti-Affinity settings from the `spec.configuration.nodeAgent.loadAffinity` section to schedule the **NodeAgent** pods. This will translate to the `requiredDuringSchedulingIgnoredDuringExecution` fields from the `v1.Pod` CRD.
+- The `spec.configuration.nodeAgent.loadAffinity.nodeSelector` will be used to generate a **ConfigMap** containing the **DataMover** pod affinity settings.
+- To ensure **DataMover** pods are scheduled on the same nodes as the **NodeAgent** pods, the labels from the `spec.configuration.nodeAgent.podConfig.nodeSelector` will be applied to `spec.configuration.nodeAgent.loadAffinity.nodeSelector` field as a simple `matchLabels` selector. This will generate a **ConfigMap** containing the **NodeAgent** pod affinity settings, which will then be used in the **NodeAgent** pod command to schedule the **DataMover** pods.
+- The user will be able to use different `matchLabels` between the `spec.configuration.nodeAgent.loadAffinity.nodeSelector` and the `spec.configuration.nodeAgent.podConfig.nodeSelector` fields, with the following caveats:
+  - The user will not be allowed to use `matchExpressions` in the `spec.configuration.nodeAgent.loadAffinity.nodeSelector` and the `spec.configuration.nodeAgent.podConfig.nodeSelector` at the same time. This is to ensure that the **DataMover** pods which are using only **ConfigMap** as a scheduler source will be scheduled on the same nodes as the **NodeAgent** pods, that could be scheduled on different nodes from the `spec.configuration.nodeAgent.podConfig.nodeSelector` field. A situation like this is likely to occur when the user wants to specify Anti-Affinity settings for the **DataMover** pods.
+  - All labels from the `spec.configuration.nodeAgent.podConfig.nodeSelector` will be added to the `spec.configuration.nodeAgent.loadAffinity.nodeSelector` field, making the `spec.configuration.nodeAgent.loadAffinity.nodeSelector` field more restrictive (a subset of the `spec.configuration.nodeAgent.podConfig.nodeSelector` field). This allows to specify more `matchLabels` in the `spec.configuration.nodeAgent.loadAffinity.nodeSelector` field. In such case the **NodeAgent** pods will be scheduled on the nodes that match all the labels from the `spec.configuration.nodeAgent.podConfig.nodeSelector` and the **DataMover** pods will additionally be limited to the nodes from the `spec.configuration.nodeAgent.loadAffinity.nodeSelector` fields.
+- For more complex cases, the user can use `matchExpressions` in the `spec.configuration.nodeAgent.loadAffinity.nodeSelector` field. When this is used the `spec.configuration.nodeAgent.podConfig.nodeSelector` will not be allowed to be used. This will allow to specify more fine-grained node selection criteria for the **DataMover** and the **NodeAgent** pods.
+- The reconcile will error out if the user configures the `spec.configuration.nodeAgent.podConfig.nodeSelector` and `spec.configuration.nodeAgent.loadAffinity.nodeSelector` outside of the above restrictions and caveats.
 
 
 #### New settings specific to the `loadConcurrency` will be added to the nodeAgent section.
@@ -99,7 +102,7 @@ The `loadConcurrency` section is explained in the upstream Velero documentation:
 
 Specifying the `loadConcurrency` settings will generate a **ConfigMap**. This **ConfigMap** is then used to configure concullrent backups and passed to the **NodeAgent** pod command in the same way as it is passed for the **DataMover** workloads.
 
-The nodes to which the settings are applied are **not validated** against the `nodeSelector` fields from the `nodeAgent.podConfig.nodeSelector` nor the `nodeAgent.loadAffinity.nodeSelector` fields. If there is a match the loadConcurrency settings will be applied to that node-agent pod.
+The nodes to which the settings are applied are **not validated** against the `nodeSelector` fields from the `spec.configuration.nodeAgent.podConfig.nodeSelector` nor the `spec.configuration.nodeAgent.loadAffinity.nodeSelector` fields. If there is a match the loadConcurrency settings will be applied to that node-agent pod.
 
 ```yaml
 apiVersion: oadp.openshift.io/v1alpha1
@@ -127,7 +130,7 @@ spec:
             number: 1
 ```
 
-#### New settings specific to the `loadAffinity` will be added to the nodeAgent section.
+#### New settings specific to the `spec.configuration.nodeAgent.loadAffinity` will be added to the nodeAgent section.
 
 The `loadAffinity` section workflow is already explained in the above paragrafs of this design document. 
 The `loadAffinity` section is also explained in the upstream Velero documentation: https://velero.io/docs/main/data-movement-backup-node-selection/
@@ -215,16 +218,18 @@ spec:
                           operator: DoesNotExist
 ```
 
-### Changes to current `velero.podConfig.nodeSelector` fields
+### Changes to current `spec.configuration.velero.podConfig.nodeSelector` fields
 
-No changes will be made to the current `velero.podConfig.nodeSelector` CRD field.
+No changes will be made to the current `spec.configuration.velero.podConfig.nodeSelector` CRD field.
 
-Additionally, the `velero.loadAffinity` section will be used to schedule the Velero pod. This will be translated to the `affinity.nodeAffinity` from the `v1.Pod` CRD. The decision to use `velero.loadAffinity` instead of `velero.podConfig.affinity.nodeAffinity` was made to allow the user to specify the node affinity settings for the Velero pod in a similar way as it is done for the **NodeAgent**, **DataMover** pods and the repository maintenance job. This will translate to the `requiredDuringSchedulingIgnoredDuringExecution` fields from the `v1.Pod` CRD.
+Currently the `spec.configuration.velero.podConfig.nodeSelector` field is used to schedule the Velero pod, in the future the following mechanism could be added to extend the Velero pod configuration:
 
-The use of `velero.loadAffinity` will **NOT** be validated against the `velero.podConfig.nodeSelector` field. This is not required restriction, because the `velero.loadAffinity` is not used only to schedule the Velero pod and no dependent workloads are scheduled using the **ConfigMap** mechanism.
+The `spec.configuration.velero.loadAffinity` section will be used to schedule the Velero pod. This will be translated to the `affinity.nodeAffinity` from the `v1.Pod` CRD. The decision to use `spec.configuration.velero.loadAffinity` instead of `spec.configuration.velero.podConfig.affinity.nodeAffinity` was made to allow the user to specify the node affinity settings for the Velero pod in a similar way as it is done for the **NodeAgent**, **DataMover** pods and the repository maintenance job. This will translate to the `requiredDuringSchedulingIgnoredDuringExecution` fields from the `v1.Pod` CRD.
 
-### Velero `velero.loadAffinity` field
-The `velero.loadAffinity` will be added to the DPA CRD.
+The use of `spec.configuration.velero.loadAffinity` will **NOT** be validated against the `spec.configuration.velero.podConfig.nodeSelector` field. This is not required restriction, because the `spec.configuration.velero.loadAffinity` is not used only to schedule the Velero pod and no dependent workloads are scheduled using the **ConfigMap** mechanism.
+
+### Velero `spec.configuration.velero.loadAffinity` field
+The `spec.configuration.velero.loadAffinity` will be added to the DPA CRD.
 The updated schema will be as follows:
 
 ```yaml
