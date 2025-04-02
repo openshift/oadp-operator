@@ -471,10 +471,7 @@ spec:
                             nodeSelector:
                               additionalProperties:
                                 type: string
-                              description: |-
-                                (do not use warning) nodeSelector field is for backwards compatibility and
-                                will be removed in the future. Use loadAffinity field instead
-                                nodeSelector defines the nodeSelector to be supplied to podSpec
+                              description: nodeSelector defines the nodeSelector to be supplied to podSpec
                               type: object
                             resourceAllocations:
                               description: resourceAllocations defines the CPU, Memory and ephemeral-storage resource allocations for the Pod
@@ -746,10 +743,7 @@ spec:
                             nodeSelector:
                               additionalProperties:
                                 type: string
-                              description: |-
-                                (do not use warning) nodeSelector field is for backwards compatibility and
-                                will be removed in the future. Use loadAffinity field instead
-                                nodeSelector defines the nodeSelector to be supplied to podSpec
+                              description: nodeSelector defines the nodeSelector to be supplied to podSpec
                               type: object
                             resourceAllocations:
                               description: resourceAllocations defines the CPU, Memory and ephemeral-storage resource allocations for the Pod
@@ -1208,10 +1202,7 @@ spec:
                             nodeSelector:
                               additionalProperties:
                                 type: string
-                              description: |-
-                                (do not use warning) nodeSelector field is for backwards compatibility and
-                                will be removed in the future. Use loadAffinity field instead
-                                nodeSelector defines the nodeSelector to be supplied to podSpec
+                              description: nodeSelector defines the nodeSelector to be supplied to podSpec
                               type: object
                             resourceAllocations:
                               description: resourceAllocations defines the CPU, Memory and ephemeral-storage resource allocations for the Pod

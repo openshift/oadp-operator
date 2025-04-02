@@ -344,8 +344,6 @@ type PodConfig struct {
 	// labels to add to pods
 	// +optional
 	Labels map[string]string `json:"labels,omitempty"`
-	// (do not use warning) nodeSelector field is for backwards compatibility and
-	// will be removed in the future. Use loadAffinity field instead
 	// nodeSelector defines the nodeSelector to be supplied to podSpec
 	// +optional
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
