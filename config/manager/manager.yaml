@@ -61,19 +61,19 @@ spec:
             - name: PLUGINS_HOSTPATH
               value: ""
             - name: RELATED_IMAGE_VELERO
-              value: quay.io/konveyor/velero:latest
+              value: quay.io/konveyor/velero:oadp-1.5
             - name: RELATED_IMAGE_VELERO_RESTORE_HELPER
               value: quay.io/konveyor/velero-restore-helper:latest
             - name: RELATED_IMAGE_OPENSHIFT_VELERO_PLUGIN
-              value: quay.io/konveyor/openshift-velero-plugin:latest
+              value: quay.io/konveyor/openshift-velero-plugin:oadp-1.5
             - name: RELATED_IMAGE_VELERO_PLUGIN_FOR_AWS
-              value: quay.io/konveyor/velero-plugin-for-aws:latest
+              value: quay.io/konveyor/velero-plugin-for-aws:oadp-1.5
             - name: RELATED_IMAGE_VELERO_PLUGIN_FOR_LEGACY_AWS
-              value: quay.io/konveyor/velero-plugin-for-legacy-aws:latest
+              value: quay.io/konveyor/velero-plugin-for-legacy-aws:oadp-1.5
             - name: RELATED_IMAGE_VELERO_PLUGIN_FOR_MICROSOFT_AZURE
-              value: quay.io/konveyor/velero-plugin-for-microsoft-azure:latest
+              value: quay.io/konveyor/velero-plugin-for-microsoft-azure:oadp-1.5
             - name: RELATED_IMAGE_VELERO_PLUGIN_FOR_GCP
-              value: quay.io/konveyor/velero-plugin-for-gcp:latest
+              value: quay.io/konveyor/velero-plugin-for-gcp:oadp-1.5
             - name: RELATED_IMAGE_KUBEVIRT_VELERO_PLUGIN
               value: quay.io/konveyor/kubevirt-velero-plugin:v0.7.0
             - name: RELATED_IMAGE_HYPERSHIFT_VELERO_PLUGIN
@@ -81,7 +81,7 @@ spec:
             - name: RELATED_IMAGE_MUSTGATHER
               value: registry.redhat.io/oadp/oadp-mustgather-rhel8:v1.2
             - name: RELATED_IMAGE_NON_ADMIN_CONTROLLER
-              value: quay.io/konveyor/oadp-non-admin:latest
+              value: quay.io/konveyor/oadp-non-admin:oadp-1.5
           args:
             - --leader-elect
           image: controller:latest

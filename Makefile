@@ -3,7 +3,7 @@
 # To re-generate a bundle for another specific version without changing the standard setup, you can:
 # - use the VERSION as arg of the bundle target (e.g make bundle VERSION=0.0.2)
 # - use environment variables to overwrite this value (e.g export VERSION=0.0.2)
-DEFAULT_VERSION := 99.0.0
+DEFAULT_VERSION := 1.5.0
 VERSION ?= $(DEFAULT_VERSION)
 
 # CHANNELS define the bundle channels used in the bundle.
@@ -54,7 +54,7 @@ endif
 OPERATOR_SDK_VERSION ?= v1.34.2
 
 # Image URL to use all building/pushing image targets
-IMG ?= quay.io/konveyor/oadp-operator:latest
+IMG ?= quay.io/konveyor/oadp-operator:oadp-1.5
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
 ENVTEST_K8S_VERSION = 1.32 # Kubernetes version from OpenShift 4.19.x https://openshift-release.apps.ci.l2s4.p1.openshiftapps.com/#4-stable
 
