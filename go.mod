@@ -31,7 +31,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.48.0
 	github.com/deckarep/golang-set/v2 v2.3.0
 	github.com/google/go-cmp v0.6.0
-	github.com/vmware-tanzu/velero v1.14.0
+	github.com/vmware-tanzu/velero v1.16.0-rc.1
 	golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1
 	k8s.io/klog/v2 v2.130.1
 )
@@ -128,6 +128,6 @@ require (
 	sigs.k8s.io/yaml v1.4.0 // indirect
 )
 
-replace github.com/vmware-tanzu/velero => github.com/openshift/velero v0.10.2-0.20250313160323-584cf1148a74
+replace github.com/vmware-tanzu/velero => github.com/openshift/velero v0.10.2-0.20250403135551-33c8709257f2
 
 replace github.com/kopia/kopia => github.com/project-velero/kopia v0.0.0-20250227051353-20bfabbfc7a0
