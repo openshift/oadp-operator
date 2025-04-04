@@ -1064,8 +1064,6 @@ spec:
                 - name: PLUGINS_HOSTPATH
                 - name: RELATED_IMAGE_VELERO
                   value: quay.io/konveyor/velero:latest
-                - name: RELATED_IMAGE_VELERO_RESTORE_HELPER
-                  value: quay.io/konveyor/velero-restore-helper:latest
                 - name: RELATED_IMAGE_OPENSHIFT_VELERO_PLUGIN
                   value: quay.io/konveyor/openshift-velero-plugin:latest
                 - name: RELATED_IMAGE_VELERO_PLUGIN_FOR_AWS
@@ -1224,8 +1222,6 @@ spec:
   relatedImages:
   - image: quay.io/konveyor/velero:latest
     name: velero
-  - image: quay.io/konveyor/velero-restore-helper:latest
-    name: velero-restore-helper
   - image: quay.io/konveyor/openshift-velero-plugin:latest
     name: openshift-velero-plugin
   - image: quay.io/konveyor/velero-plugin-for-aws:latest
