@@ -13,6 +13,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/vmware-tanzu/velero/pkg/install"
 	"github.com/vmware-tanzu/velero/pkg/util/boolptr"
+	"github.com/vmware-tanzu/velero/pkg/util/kube"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -253,6 +254,17 @@ func (r *DataProtectionApplicationReconciler) customizeVeleroDeployment(veleroDe
 			veleroDeployment.Spec.Template.Spec.NodeSelector = dpa.Spec.Configuration.Velero.PodConfig.NodeSelector
 		}
 	}
+
+	if dpa.Spec.Configuration.Velero.LoadAffinityConfig != nil {
+		veleroAffinityStruct := make([]*kube.LoadAffinity, len(dpa.Spec.Configuration.Velero.LoadAffinityConfig))
+
+		for i, aff := range dpa.Spec.Configuration.Velero.LoadAffinityConfig {
+			veleroAffinityStruct[i] = (*kube.LoadAffinity)(aff)
+		}
+		affinity := kube.ToSystemAffinity(veleroAffinityStruct)
+		veleroDeployment.Spec.Template.Spec.Affinity = affinity
+	}
+
 	veleroDeployment.Spec.Template.Spec.Volumes = append(veleroDeployment.Spec.Template.Spec.Volumes,
 		corev1.Volume{
 			Name: "certs",
@@ -372,6 +384,16 @@ func (r *DataProtectionApplicationReconciler) customizeVeleroDeployment(veleroDe
 
 	if dpa.Spec.Configuration.Velero.ItemBlockWorkerCount > 0 {
 		veleroContainer.Args = append(veleroContainer.Args, fmt.Sprintf("--item-block-worker-count=%v", dpa.Spec.Configuration.Velero.ItemBlockWorkerCount))
+	}
+
+	// check for repository-maintenance-config parameter
+	if isRepositoryMaintenanceCmRequired(dpa.Spec.Configuration) {
+		// Add the --repo-maintenance-job-configmap parameter with the name
+		// of the repository-maintenance-config ConfigMap
+		cmName := r.GetRepositoryMaintenanceConfigMapName()
+		if cmName.Name != "" {
+			veleroContainer.Args = append(veleroContainer.Args, fmt.Sprintf("--repo-maintenance-job-configmap=%s", cmName.Name))
+		}
 	}
 
 	// Set defaults to avoid update events

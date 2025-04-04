@@ -25,6 +25,7 @@ const (
 	OADPOperatorServiceAccount = OADPOperatorPrefix + "controller-manager"
 	RegistryDeploymentLabel    = "openshift.io/oadp-registry"
 	NodeAgentConfigMapPrefix   = "node-agent-"
+	RepoMaintConfigMapPrefix   = "repository-maintenance-"
 )
 
 var DefaultRestoreResourcePriorities = types.Priorities{
