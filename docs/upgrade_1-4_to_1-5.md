@@ -4,7 +4,7 @@
 
 ## Changes from OADP 1.4 to 1.5
 
-- Velero was updated from version 1.14 to 1.16 (Changes reference: https://velero.io/docs/v1.15/upgrade-to-1.15/ https://velero.io/docs/v1.16/upgrade-to-1.16/)
+- Velero was updated from version 1.14 to 1.16 (upgrade documentation: https://velero.io/docs/v1.15/upgrade-to-1.15/ https://velero.io/docs/v1.16/upgrade-to-1.16/ Changes reference: https://github.com/vmware-tanzu/velero/releases/tag/v1.15.0 https://github.com/vmware-tanzu/velero/releases/tag/v1.15.1 https://github.com/vmware-tanzu/velero/releases/tag/v1.15.2 https://github.com/vmware-tanzu/velero/releases/tag/v1.16.0-rc.1)
 
     From this update:
 
