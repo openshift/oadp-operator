@@ -33,6 +33,23 @@ func CreateBackupForNamespaces(ocClient client.Client, veleroNamespace, backupNa
 	return ocClient.Create(context.Background(), &backup)
 }
 
+func CreateCustomBackupForNamespaces(ocClient client.Client, veleroNamespace, backupName string, namespaces []string, includedResources, excludedResources []string, defaultVolumesToFsBackup bool, snapshotMoveData bool) error {
+	backup := velero.Backup{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      backupName,
+			Namespace: veleroNamespace,
+		},
+		Spec: velero.BackupSpec{
+			IncludedNamespaces:       namespaces,
+			IncludedResources:        includedResources,
+			ExcludedResources:        excludedResources,
+			DefaultVolumesToFsBackup: &defaultVolumesToFsBackup,
+			SnapshotMoveData:         &snapshotMoveData,
+		},
+	}
+	return ocClient.Create(context.Background(), &backup)
+}
+
 func GetBackup(c client.Client, namespace string, name string) (*velero.Backup, error) {
 	backup := velero.Backup{}
 	err := c.Get(context.Background(), client.ObjectKey{
