@@ -627,57 +627,27 @@ func (r *DataProtectionApplicationReconciler) customizeNodeAgentDaemonset(ds *ap
 	return ds, nil
 }
 
+// This is needed to remove fsRestoreHelperCM added in OADP 1.4 and earlier.
 func (r *DataProtectionApplicationReconciler) ReconcileFsRestoreHelperConfig(log logr.Logger) (bool, error) {
-	fsRestoreHelperCM := corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      FsRestoreHelperCM,
-			Namespace: r.NamespacedName.Namespace,
-		},
-	}
-
-	op, err := controllerutil.CreateOrPatch(r.Context, r.Client, &fsRestoreHelperCM, func() error {
-
-		// update the Config Map
-		err := r.updateFsRestoreHelperCM(&fsRestoreHelperCM)
-		return err
-	})
-
-	if err != nil {
+	cmName := types.NamespacedName{Name: FsRestoreHelperCM, Namespace: r.NamespacedName.Namespace}
+	fsRestoreHelperCM := corev1.ConfigMap{}
+	err := r.Get(r.Context, cmName, &fsRestoreHelperCM)
+	if err != nil && !errors.IsNotFound(err) {
 		return false, err
 	}
-
-	//TODO: Review FS Restore Helper CM status and report errors and conditions
-
-	if op == controllerutil.OperationResultCreated || op == controllerutil.OperationResultUpdated {
-		// Trigger event to indicate FS Restore Helper CM was created or updated
-		r.EventRecorder.Event(&fsRestoreHelperCM,
-			corev1.EventTypeNormal,
-			"ReconcileFsRestoreHelperConfigReconciled",
-			fmt.Sprintf("performed %s on FS restore Helper config map %s/%s", op, fsRestoreHelperCM.Namespace, fsRestoreHelperCM.Name),
-		)
+	if errors.IsNotFound(err) {
+		return true, nil
 	}
+	deleteContext := context.Background()
+	if err := r.Delete(deleteContext, &fsRestoreHelperCM); err != nil {
+		if errors.IsNotFound(err) {
+			return true, nil
+		}
+		return false, err
+	}
+	r.EventRecorder.Event(&fsRestoreHelperCM, corev1.EventTypeNormal, "DeletedFsRestoreHelperConfigMap", "FsRestoreHelper config map deleted")
+
 	return true, nil
-}
-
-func (r *DataProtectionApplicationReconciler) updateFsRestoreHelperCM(fsRestoreHelperCM *corev1.ConfigMap) error {
-
-	// Setting controller owner reference on the FS restore helper CM
-	err := controllerutil.SetControllerReference(r.dpa, fsRestoreHelperCM, r.Scheme)
-	if err != nil {
-		return err
-	}
-
-	fsRestoreHelperCM.Labels = map[string]string{
-		"velero.io/plugin-config":      "",
-		"velero.io/pod-volume-restore": "RestoreItemAction",
-		oadpv1alpha1.OadpOperatorLabel: "True",
-	}
-
-	fsRestoreHelperCM.Data = map[string]string{
-		"image": os.Getenv("RELATED_IMAGE_VELERO_RESTORE_HELPER"),
-	}
-
-	return nil
 }
 
 // getPlatformType fetches the cluster infrastructure object and returns the platform type.
