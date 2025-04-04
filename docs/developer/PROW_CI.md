@@ -258,9 +258,6 @@ Update `config/manager/manager.yaml`, changing the following (if release branch 
            - name: RELATED_IMAGE_VELERO
 -            value: quay.io/konveyor/velero:latest
 +            value: quay.io/konveyor/velero:oadp-1.4
-           - name: RELATED_IMAGE_VELERO_RESTORE_HELPER
--            value: quay.io/konveyor/velero-restore-helper:latest
-+            value: quay.io/konveyor/velero-restore-helper:oadp-1.4
            - name: RELATED_IMAGE_OPENSHIFT_VELERO_PLUGIN
 -            value: quay.io/konveyor/openshift-velero-plugin:latest
 +            value: quay.io/konveyor/openshift-velero-plugin:oadp-1.4
