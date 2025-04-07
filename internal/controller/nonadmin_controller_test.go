@@ -308,6 +308,7 @@ func TestEnsureRequiredSpecs(t *testing.T) {
 			NonAdmin: &oadpv1alpha1.NonAdmin{
 				Enable: ptr.To(true),
 			},
+			LogFormat: oadpv1alpha1.LogFormatJSON,
 		},
 	}
 	err := ensureRequiredSpecs(deployment, dpa, defaultNonAdminImage, corev1.PullAlways)
@@ -335,6 +336,11 @@ func TestEnsureRequiredSpecs(t *testing.T) {
 				if env.Value != strconv.FormatUint(uint64(expectedLevel), 10) {
 					t.Errorf("log level unexpected")
 				}
+			}
+		}
+		if env.Name == common.LogFormatEnvVar {
+			if env.Value != string(oadpv1alpha1.LogFormatJSON) && env.Value != string(oadpv1alpha1.LogFormatText) {
+				t.Errorf("log format unexpected")
 			}
 		}
 	}
