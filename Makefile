@@ -610,7 +610,7 @@ test-e2e-cleanup: login-required
 
 
 .PHONY: update-non-admin-manifests
-update-non-admin-manifests: NON_ADMIN_CONTROLLER_IMG?=quay.io/konveyor/oadp-non-admin:latest
+update-non-admin-manifests: NON_ADMIN_CONTROLLER_IMG?=quay.io/konveyor/oadp-non-admin:oadp-1.5
 update-non-admin-manifests: yq ## Update Non Admin Controller (NAC) manifests shipped with OADP, from NON_ADMIN_CONTROLLER_PATH
 ifeq ($(NON_ADMIN_CONTROLLER_PATH),)
 	$(error You must set NON_ADMIN_CONTROLLER_PATH to run this command)
