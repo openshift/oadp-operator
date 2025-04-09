@@ -206,6 +206,12 @@ var _ = ginkgo.BeforeSuite(func() {
 })
 
 var _ = ginkgo.AfterSuite(func() {
+	// TODO run OADP must-gather
+	// log.Printf("Running OADP must-gather")
+	// err := lib.RunMustGather(oc_cli, artifact_dir)
+	// gomega.Expect(err).ToNot(gomega.HaveOccurred())
+	// TODO validate that everything was collected?
+
 	log.Printf("Deleting Secrets")
 	err := lib.DeleteSecret(kubernetesClientForSuiteRun, namespace, vslSecretName)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
