@@ -2,8 +2,8 @@ FROM --platform=$BUILDPLATFORM quay.io/konveyor/builder:ubi9-latest AS builder
 ARG BUILDPLATFORM
 ARG TARGETOS
 ARG TARGETARCH
-ARG KOPIA_BRANCH=konveyor-dev
-ARG RESTIC_BRANCH=konveyor-dev
+ARG KOPIA_BRANCH=oadp-1.5
+ARG RESTIC_BRANCH=oadp-1.5
 
 WORKDIR /workspace
 

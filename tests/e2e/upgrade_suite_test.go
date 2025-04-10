@@ -233,7 +233,7 @@ var _ = ginkgo.Describe("OADP upgrade scenarios", ginkgo.Ordered, func() {
 
 			// TODO backup/restore
 		},
-		ginkgo.Entry("Upgrade from stable-1.4 (oadp-1.4 branch) to stable (master branch) channel", ginkgo.Label("upgrade"), channelUpgradeCase{
+		ginkgo.Entry("Upgrade from stable-1.4 (oadp-1.4 branch) to stable (oadp-1.5 branch) channel", ginkgo.Label("upgrade"), channelUpgradeCase{
 			previous: "stable-1.4",
 			next:     "stable",
 			// to test production

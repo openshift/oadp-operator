@@ -27,7 +27,7 @@ import (
 )
 
 const (
-	mustGatherVersion = "master-branch"
+	mustGatherVersion = "1.5.0"
 	mustGatherImage   = "registry.redhat.io/oadp/oadp-mustgather-rhel9:v1.5"
 
 	addToSchemeError = "Exiting OADP must-gather, an error happened while adding %s to scheme: %v\n"
