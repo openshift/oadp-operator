@@ -89,7 +89,7 @@ spec:
           securityContext:
             capabilities:
               drop:
-              - ALL
+                - ALL
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
           startupProbe:
