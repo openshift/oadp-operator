@@ -69,6 +69,17 @@ sequenceDiagram
 
     Note over Customer:  Upgrade complete
 ```
+
+### kubevirt-velero-plugin mapping to velero and oadp
+
+| kubevirt-velero-plugin  |  velero-version   |  OADP version |
+| --------------------------------- | ----------------------- | --------------------- |
+| main                              |  main                   |  maseter              |
+| v.8                               | v1.16                   | oadp-1.5              |
+| v.7                               | v1.14                   | oadp-1.4              |
+| v.6                               | v1.12                   | oadp-1.3              |
+
+
 ---
 Last Updated: March 2025
 
