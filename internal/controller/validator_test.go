@@ -2106,7 +2106,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "[valid] All Labels from the LoadAffinityConfig are present in the PodConfig, and the PodConfig has more labels than the LoadAffinityConfig",
+			name: "[invalid] All Labels from the LoadAffinityConfig are present in the PodConfig, and the PodConfig has more labels than the LoadAffinityConfig",
 			dpa: &oadpv1alpha1.DataProtectionApplication{
 				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 					BackupImages: ptr.To(false),
@@ -2125,6 +2125,37 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 									{
 										NodeSelector: metav1.LabelSelector{
 											MatchLabels: map[string]string{"key1": "value1", "key2": "value2"},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr:    true,
+			messageErr: "when spec.configuration.nodeAgent.PodConfig is set, all labels from the spec.configuration.nodeAgent.PodConfig must be present in spec.configuration.nodeAgent.LoadAffinityConfig",
+		},
+		{
+			name: "[valid] All Labels from the PodConfig are present in the LoadAffinityConfig, and the LoadAffinityConfig has more labels than the PodConfig",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					BackupImages: ptr.To(false),
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							NoDefaultBackupLocation: true,
+						},
+						NodeAgent: &oadpv1alpha1.NodeAgentConfig{
+							NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
+								PodConfig: &oadpv1alpha1.PodConfig{
+									NodeSelector: map[string]string{"key1": "value1", "key2": "value2"},
+								},
+							},
+							NodeAgentConfigMapSettings: oadpv1alpha1.NodeAgentConfigMapSettings{
+								LoadAffinityConfig: []*oadpv1alpha1.LoadAffinity{
+									{
+										NodeSelector: metav1.LabelSelector{
+											MatchLabels: map[string]string{"key1": "value1", "key2": "value2", "key3": "value3"},
 										},
 									},
 								},
@@ -2202,7 +2233,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 				},
 			},
 			wantErr:    true,
-			messageErr: "when spec.configuration.nodeAgent.PodConfig is set, all labels from the spec.configuration.nodeAgent.LoadAffinityConfig must be present in the spec.configuration.nodeAgent.PodConfig",
+			messageErr: "when spec.configuration.nodeAgent.PodConfig is set, all labels from the spec.configuration.nodeAgent.PodConfig must be present in spec.configuration.nodeAgent.LoadAffinityConfig",
 		},
 		{
 			name: "[invalid] PodConfig and LoadAffinityConfig are different - multiple node selectors",
@@ -2233,10 +2264,10 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 				},
 			},
 			wantErr:    true,
-			messageErr: "when spec.configuration.nodeAgent.PodConfig is set, all labels from the spec.configuration.nodeAgent.LoadAffinityConfig must be present in the spec.configuration.nodeAgent.PodConfig",
+			messageErr: "when spec.configuration.nodeAgent.PodConfig is set, all labels from the spec.configuration.nodeAgent.PodConfig must be present in spec.configuration.nodeAgent.LoadAffinityConfig",
 		},
 		{
-			name: "[invalid] PodConfig and LoadAffinityConfig are different",
+			name: "[valid] PodConfig is a subset of the LoadAffinityConfig",
 			dpa: &oadpv1alpha1.DataProtectionApplication{
 				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 					BackupImages: ptr.To(false),
@@ -2263,8 +2294,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 					},
 				},
 			},
-			wantErr:    true,
-			messageErr: "when spec.configuration.nodeAgent.PodConfig is set, all labels from the spec.configuration.nodeAgent.LoadAffinityConfig must be present in the spec.configuration.nodeAgent.PodConfig",
+			wantErr: false,
 		},
 		{
 			name: "[invalid] PodConfig and LoadAffinityConfig with no match labels",
