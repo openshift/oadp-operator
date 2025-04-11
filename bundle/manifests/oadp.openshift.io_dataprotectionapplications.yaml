@@ -221,6 +221,11 @@ spec:
                             type: object
                           description: BackupPVCConfig is the config for backupPVC (intermediate PVC) of snapshot data movement
                           type: object
+                        cacheLimitMB:
+                          description: CacheLimitMB specifies the size limit(in MB) for the local data cache
+                          format: int64
+                          minimum: 0
+                          type: integer
                         dataMoverPrepareTimeout:
                           description: How long to wait for preparing a DataUpload/DataDownload. Default is 30 minutes.
                           type: string
@@ -229,6 +234,17 @@ spec:
                             enable defines a boolean pointer whether we want the daemonset to
                             exist or not
                           type: boolean
+                        fullMaintenanceInterval:
+                          description: |-
+                            fullMaintenanceInterval determines the time between kopia full maintenance operations.
+                            normalGC: 24 hours
+                            fastGC: 12 hours
+                            eagerGC: 6 hours
+                          enum:
+                            - normalGC
+                            - fastGC
+                            - eagerGC
+                          type: string
                         loadConcurrency:
                           description: LoadConcurrency is the config for data path load concurrency per node.
                           properties:

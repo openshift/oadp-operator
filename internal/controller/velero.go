@@ -374,6 +374,16 @@ func (r *DataProtectionApplicationReconciler) customizeVeleroDeployment(veleroDe
 		veleroContainer.Args = append(veleroContainer.Args, fmt.Sprintf("--item-block-worker-count=%v", dpa.Spec.Configuration.Velero.ItemBlockWorkerCount))
 	}
 
+	// check for backup-repository-configmap parameter
+	if isBackupRepositoryCmRequired(dpa.Spec.Configuration.NodeAgent) {
+		// Add the --backup-repository-configmap parameter with the name
+		// of the backup-repository ConfigMap
+		cmName := r.GetBackupRepositoryConfigMapName()
+		if cmName.Name != "" {
+			veleroContainer.Args = append(veleroContainer.Args, fmt.Sprintf("--backup-repository-configmap=%s", cmName.Name))
+		}
+	}
+
 	// Set defaults to avoid update events
 	if veleroDeployment.Spec.Strategy.Type == "" {
 		veleroDeployment.Spec.Strategy.Type = appsv1.RollingUpdateDeploymentStrategyType
