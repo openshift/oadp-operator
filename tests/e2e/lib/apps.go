@@ -285,6 +285,7 @@ func IsDeploymentReady(ocClient client.Client, namespace, dName string) wait.Con
 		if err != nil {
 			return false, err
 		}
+		log.Printf("Deployment %s status: %v", dName, deployment.Status)
 		if deployment.Status.AvailableReplicas != deployment.Status.Replicas || deployment.Status.Replicas == 0 {
 			for _, condition := range deployment.Status.Conditions {
 				if len(condition.Message) > 0 {
