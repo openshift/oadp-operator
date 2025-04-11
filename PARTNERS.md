@@ -19,6 +19,18 @@ better stability and maintainability.
 | 4.20              | 1.5          | v1.16          | Q4 2025                       |
 | 4.21              | 1.6          | v1.18          | Q1 2026                       |
 
+### OADP Plugins of interest
+| OpenShift Version | OADP Version | Velero Version | kubevirt-velero-plugin | hypershift-oadp-plugin   |
+| ----------------- | ------------ | -------------- | ---------------------- | ------------------------ |
+|  4.14             | 1.3, 1.4     | v1.12, v1.14   | v0.6, v0.7             | n/a                      |
+|  4.15             | 1.3, 1.4     | v1.12, v1.14   | v0.6, v0.7             | n/a                      |
+|  4.16             | 1.4          | v1.14          | v0.7                   | n/a                      |
+|  4.17             | 1.4          | v1.14          | v0.7                   | n/a                      |
+|  4.18             | 1.4          | v1.14          | v0.7                   | n/a                      |
+|  4.19             | 1.5          | v1.16          | v0.8                   | TBD                      |
+|  4.20             | 1.5          | v1.16          | v0.8                   | TBD                      |
+
+
 * [1] Release timelines are estimates,and versions are subject to change.
 
 ## Impact on Partners
@@ -69,16 +81,6 @@ sequenceDiagram
 
     Note over Customer:  Upgrade complete
 ```
-
-### kubevirt-velero-plugin mapping to velero and oadp
-
-| kubevirt-velero-plugin  |  velero-version   |  OADP version |
-| --------------------------------- | ----------------------- | --------------------- |
-| main                              |  main                   |  maseter              |
-| v.8                               | v1.16                   | oadp-1.5              |
-| v.7                               | v1.14                   | oadp-1.4              |
-| v.6                               | v1.12                   | oadp-1.3              |
-
 
 ---
 Last Updated: March 2025
