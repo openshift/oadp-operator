@@ -83,10 +83,10 @@ func (r *DataProtectionApplicationReconciler) ValidateDataProtectionCR(log logr.
 				return false, errors.New("when spec.configuration.nodeAgent.PodConfig is set, spec.configuration.nodeAgent.LoadAffinityConfig must not define matchExpressions")
 			}
 
-			// Ensure all labels in LoadAffinityConfig match those in PodConfig
-			for key, valA := range affinitySelector.MatchLabels {
-				if valB, exists := podConfigSelector[key]; !exists || valA != valB {
-					return false, errors.New("when spec.configuration.nodeAgent.PodConfig is set, all labels from the spec.configuration.nodeAgent.LoadAffinityConfig must be present in the spec.configuration.nodeAgent.PodConfig")
+			// Ensure all labels in PodConfig are present in LoadAffinityConfig
+			for key, valA := range podConfigSelector {
+				if valB, exists := affinitySelector.MatchLabels[key]; !exists || valA != valB {
+					return false, errors.New("when spec.configuration.nodeAgent.PodConfig is set, all labels from the spec.configuration.nodeAgent.PodConfig must be present in spec.configuration.nodeAgent.LoadAffinityConfig")
 				}
 			}
 		}
