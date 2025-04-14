@@ -1,0 +1,376 @@
+// Module included in the following assembly:
+//
+// * backup_and_restore/application_backup_and_restore/installing/installing-oadp-gcp.adoc
+
+:_mod-docs-content-type: PROCEDURE
+[id="oadp-gcp-wif-cloud-authentication_{context}"]
+= Configuring Google Workload Identity Federation for OADP
+
+Google Workload Identity Federation is the recommended way to access Google Cloud Storage for OADP (OpenShift Application Data Protection) operations. This approach uses the OpenShift cluster's OIDC identity provider to generate short-lived `external_account` credentials that are automatically rotated hourly, eliminating the need for long-term service account keys.
+
+[NOTE]
+====
+This configuration requires `credentialsMode: Manual` during cluster installation and uses the Cloud Credential Operator (`ccoctl`) to set up the workload identity infrastructure, including signing keys, workload identity pools, and Google Cloud Storage buckets for OIDC configuration.
+====
+
+.Prerequisites
+
+* You have an OpenShift cluster installed on Google Cloud Platform with Workload Identity configured.
+* You have the Google Cloud CLI (`gcloud`) installed and configured.
+* You have access to the OpenShift cluster as a user with `cluster-admin` privileges.
+* You have a Google Cloud Project with appropriate permissions.
+
+.Procedure
+
+. Set up environment variables for your configuration:
++
+[source,bash]
+----
+export CLUSTER_NAME="your-cluster-name"
+export GCP_PROJECT_ID="your-project-id"
+export GCP_PROJECT_NUM=$(gcloud projects describe ${GCP_PROJECT_ID} --format="value(projectNumber)")
+export SERVICE_ACCOUNT_NAME="velero-${CLUSTER_NAME}"
+export SERVICE_ACCOUNT_EMAIL="${SERVICE_ACCOUNT_NAME}@${GCP_PROJECT_ID}.iam.gserviceaccount.com"
+----
+
+. Create a Google Cloud service account for OADP:
++
+[source,bash]
+----
+gcloud iam service-accounts create ${SERVICE_ACCOUNT_NAME} \
+    --display-name="Velero Backup Service Account" \
+    --project=${GCP_PROJECT_ID}
+----
+
+. Grant the required IAM roles to the service account:
++
+[source,bash]
+----
+for role in "roles/compute.storageAdmin" "roles/storage.admin" "roles/compute.admin"; do
+    gcloud projects add-iam-policy-binding ${GCP_PROJECT_ID} \
+        --member="serviceAccount:${SERVICE_ACCOUNT_EMAIL}" \
+        --role="${role}"
+done
+----
+
+. Get the OIDC issuer URL from your OpenShift cluster:
++
+[source,bash]
+----
+export OIDC_ISSUER=$(oc get authentication.config.openshift.io cluster -o json | jq -r .spec.serviceAccountIssuer)
+export POOL_ID="${CLUSTER_NAME}"
+export PROVIDER_ID="${CLUSTER_NAME}"
+----
+
+. Configure Workload Identity binding for the service account:
++
+[source,bash]
+----
+# Bind for Velero service account
+gcloud iam service-accounts add-iam-policy-binding ${SERVICE_ACCOUNT_EMAIL} \
+    --project=${GCP_PROJECT_ID} \
+    --role="roles/iam.workloadIdentityUser" \
+    --member="principal://iam.googleapis.com/projects/${GCP_PROJECT_NUM}/locations/global/workloadIdentityPools/${POOL_ID}/subject/system:serviceaccount:openshift-adp:velero"
+
+# Bind for OADP operator controller manager service account
+gcloud iam service-accounts add-iam-policy-binding ${SERVICE_ACCOUNT_EMAIL} \
+    --project=${GCP_PROJECT_ID} \
+    --role="roles/iam.workloadIdentityUser" \
+    --member="principal://iam.googleapis.com/projects/${GCP_PROJECT_NUM}/locations/global/workloadIdentityPools/${POOL_ID}/subject/system:serviceaccount:openshift-adp:openshift-adp-controller-manager"
+----
+
+. Create the OADP namespace if it doesn't exist:
++
+[source,bash]
+----
+oc create namespace openshift-adp
+----
+
+. Annotate the Velero service account to use Workload Identity:
++
+[source,bash]
+----
+oc annotate serviceaccount velero -n openshift-adp \
+    iam.gke.io/gcp-service-account=${SERVICE_ACCOUNT_EMAIL} --overwrite
+----
+
+. Create a Google Cloud Storage bucket for backups:
++
+[source,bash]
+----
+export BUCKET_NAME="velero-${GCP_PROJECT_ID}-${CLUSTER_NAME}"
+gsutil mb gs://${BUCKET_NAME}
+----
+
+[id="oadp-gcp-cloud-storage-api_{context}"]
+== Alternative: Using Cloud Storage API for Automated Bucket Management
+
+Instead of manually creating buckets, you can use the OADP Cloud Storage API to automatically manage bucket creation and configuration. This approach requires OADP operator version with Cloud Storage API support.
+
+.Prerequisites for Cloud Storage API
+
+* OADP operator with Cloud Storage API functionality enabled
+* The same Workload Identity configuration as above
+
+.Procedure for Cloud Storage API
+
+. Create a CloudStorage resource instead of manually creating buckets:
++
+[source,yaml]
+----
+cat <<EOF | oc apply -f -
+apiVersion: oadp.openshift.io/v1alpha1
+kind: CloudStorage
+metadata:
+  name: gcp-backup-storage
+  namespace: openshift-adp
+spec:
+  name: velero-${GCP_PROJECT_ID}-${CLUSTER_NAME}
+  provider: gcp
+  region: us-central1
+  creationSecret:
+    name: cloud-credentials-gcp
+    key: service_account.json  # Required key name for GCP provider
+  creationPolicy: CreateIfNotExists
+EOF
+----
+
+. Create the DataProtectionApplication with Cloud Storage API reference:
++
+[source,yaml]
+----
+cat <<EOF | oc apply -f -
+apiVersion: oadp.openshift.io/v1alpha1
+kind: DataProtectionApplication
+metadata:
+  name: dpa-gcp-wif-cloudstorage
+  namespace: openshift-adp
+spec:
+  configuration:
+    velero:
+      defaultPlugins:
+        - gcp
+        - openshift
+        - csi
+  backupLocations:
+    - name: default
+      bucket:
+        # Reference the CloudStorage resource instead of direct bucket
+        cloudStorageRef:
+          name: gcp-backup-storage
+        prefix: velero
+        credential:
+          name: cloud-credentials-gcp
+          key: service_account.json
+        default: true
+  snapshotLocations:
+    - name: default
+      velero:
+        provider: gcp
+        credential:
+          name: cloud-credentials-gcp
+          key: service_account.json
+        config:
+          project: ${GCP_PROJECT_ID}
+          snapshotLocation: us-central1
+EOF
+----
+
+. Verify the CloudStorage resource status:
++
+[source,bash]
+----
+oc get cloudstorage gcp-backup-storage -n openshift-adp -o yaml
+oc describe cloudstorage gcp-backup-storage -n openshift-adp
+----
+
+. Wait for bucket creation and verify:
++
+[source,bash]
+----
+# Check if bucket was created in GCS
+gsutil ls -p ${GCP_PROJECT_ID} | grep "gs://${BUCKET_NAME}/"
+
+# Verify bucket permissions
+gsutil iam get gs://${BUCKET_NAME}/
+----
+
+. Monitor the CloudStorage controller logs:
++
+[source,bash]
+----
+# Check operator logs for CloudStorage operations
+oc logs -n openshift-adp deployment/oadp-operator-controller-manager | grep -i cloudstorage
+
+# Check for GCP-specific operations
+oc logs -n openshift-adp deployment/oadp-operator-controller-manager | grep -i gcp
+----
+
+[WARNING]
+====
+CloudStorage resources are protected by a finalizer (`oadp.openshift.io/bucket-protection`) to prevent accidental deletion of buckets containing backup data. To delete a CloudStorage resource, you must first add the deletion annotation:
+
+[source,bash]
+----
+# Add deletion annotation before attempting to delete
+oc annotate cloudstorage gcp-backup-storage -n openshift-adp \
+    oadp.openshift.io/cloudstorage-delete=true --overwrite
+
+# Then delete the CloudStorage resource
+oc delete cloudstorage gcp-backup-storage -n openshift-adp
+----
+
+Without this annotation, the deletion will hang indefinitely as the finalizer prevents removal.
+
+Alternatively, if you want to remove the CloudStorage resource from OpenShift without deleting the GCS bucket in Google Cloud, you can manually remove the finalizer:
+
+[source,bash]
+----
+# Remove finalizer to delete CloudStorage CR without deleting the GCS bucket
+oc patch cloudstorage gcp-backup-storage -n openshift-adp --type json \
+    -p='[{"op": "remove", "path": "/metadata/finalizers"}]'
+----
+====
+
+The CloudStorage API will automatically:
+
+* Create the bucket if it doesn't exist (with `creationPolicy: CreateIfNotExists`)
+* Configure appropriate IAM permissions for the service account
+* Set up regional configuration based on the specified region
+* Handle authentication through the referenced credential secret
+* Protect bucket resources with finalizers to prevent accidental deletion
+
+== Standard Configuration (Manual Bucket Creation)
+
+. Create the DataProtectionApplication configuration for manual bucket setup:
++
+[source,yaml]
+----
+cat <<EOF | oc apply -f -
+apiVersion: oadp.openshift.io/v1alpha1
+kind: DataProtectionApplication
+metadata:
+  name: dpa-gcp-wif
+  namespace: openshift-adp
+spec:
+  configuration:
+    velero:
+      defaultPlugins:
+        - gcp
+        - openshift
+        - csi
+  backupLocations:
+    - name: default
+      velero:
+        provider: gcp
+        default: true
+        objectStorage:
+          bucket: ${BUCKET_NAME}
+          prefix: velero
+  snapshotLocations:
+    - name: default
+      velero:
+        provider: gcp
+        config:
+          project: ${GCP_PROJECT_ID}
+          snapshotLocation: us-central1
+EOF
+----
+
+.Verification
+
+. Verify that the OADP operator pods are running:
++
+[source,bash]
+----
+oc get pods -n openshift-adp
+----
+
+. Check that the Velero service account has the correct annotation:
++
+[source,bash]
+----
+oc get sa velero -n openshift-adp -o yaml | grep -A5 annotations
+----
+
+. Verify the Workload Identity binding:
++
+[source,bash]
+----
+gcloud iam service-accounts get-iam-policy ${SERVICE_ACCOUNT_EMAIL} \
+    --flatten="bindings[].members" \
+    --filter="bindings.members:principal://*"
+----
+
+. Test the backup functionality by creating a simple backup:
++
+[source,bash]
+----
+# Create a test namespace with resources
+oc create namespace test-backup-gcp
+
+# Create a simple deployment for testing
+cat << EOF | oc apply -f -
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hello-openshift
+  namespace: test-backup-gcp
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: hello-openshift
+  template:
+    metadata:
+      labels:
+        app: hello-openshift
+    spec:
+      containers:
+      - name: hello-openshift
+        image: openshift/hello-openshift:latest
+        ports:
+        - containerPort: 8080
+          protocol: TCP
+EOF
+
+# Wait for deployment to be ready
+oc wait --for=condition=available deployment/hello-openshift -n test-backup-gcp --timeout=60s
+
+# Create backup
+velero backup create wif-test --include-namespaces=test-backup-gcp
+----
+
+. Monitor the backup status:
++
+[source,bash]
+----
+velero backup describe wif-test --details
+
+# Verify backup files in GCS bucket
+gsutil ls -r gs://${BUCKET_NAME}/velero/backups/
+----
+
+[NOTE]
+====
+With Workload Identity Federation configured, OpenShift components use short-lived `external_account` credentials instead of long-lived `service_account` credentials. The credential secrets are automatically populated with temporary tokens that are rotated hourly using the OIDC identity provider and Google Security Token Service (STS).
+====
+
+[IMPORTANT]
+====
+Volume Snapshot Location (VSL) backups may finish with a `PartiallyFailed` phase when using WIF. This is a known limitation. CSI snapshots work correctly with this configuration.
+====
+
+.Troubleshooting
+
+If you encounter authentication issues:
+
+* Verify that the service account annotation is correct
+* Check that the IAM binding includes the correct principal format
+* Ensure the Google Cloud service account has the required permissions
+* Review the Velero logs for detailed error messages:
++
+[source,bash]
+----
+oc logs -n openshift-adp deployment/velero
+----

@@ -40,7 +40,6 @@ const (
 
 	// Azure workload identity secret name
 	AzureWorkloadIdentitySecretName = "azure-workload-identity-env"
-
 	// Cloud Provider Secret Keys - standard key names for cloud credentials
 	AzureClientID           = "azure_client_id"
 	AzureClientSecret       = "azure_client_secret"
@@ -50,6 +49,9 @@ const (
 	AzureSubscriptionID     = "azure_subscription_id"
 	AzureTenantID           = "azure_tenant_id"
 	AzureFederatedTokenFile = "azure_federated_token_file"
+
+	// AWS Secret key name
+	AWSSecretCredentialsKey = "credentials"
 
 	// GCP Secret key name
 	GcpSecretJSONKey = "service_account.json"
@@ -121,7 +123,7 @@ func STSStandardizedFlow() (string, error) {
 func CreateOrUpdateSTSAWSSecret(setupLog logr.Logger, roleARN string, secretNS string, kubeconf *rest.Config) error {
 	// AWS STS credentials format
 	return CreateOrUpdateSTSSecret(setupLog, VeleroAWSSecretName, map[string]string{
-		"credentials": fmt.Sprintf(`[default]
+		AWSSecretCredentialsKey: fmt.Sprintf(`[default]
 sts_regional_endpoints = regional
 role_arn = %s
 web_identity_token_file = %s`, roleARN, WebIdentityTokenPath),
@@ -188,7 +190,6 @@ AZURE_CLOUD_NAME=AzurePublicCloud
 
 	return nil
 }
-
 func CreateOrUpdateSTSSecret(setupLog logr.Logger, secretName string, credStringData map[string]string, secretNS string, kubeconf *rest.Config) error {
 	clientInstance, err := client.New(kubeconf, client.Options{})
 	if err != nil {
@@ -318,6 +319,11 @@ func AnnotateVeleroServiceAccountForAzureWithClient(setupLog logr.Logger, client
 	if sa.Annotations == nil {
 		sa.Annotations = make(map[string]string)
 	}
+	// Note: This annotation is not strictly necessary according to Azure workload identity documentation.
+	// The annotation instructs the Workload Identity webhook to inject the AZURE_CLIENT_ID environment variable.
+	// Since we're manually setting the environment variable in the deployment, this is just a precaution.
+	// See: https://azure.github.io/azure-workload-identity/docs/topics/service-account-labels-and-annotations.html#service-account
+	// sa.Annotations["azure.workload.identity/client-id"] = clientID
 
 	// Apply the patch
 	if err := clientInstance.Patch(context.Background(), sa, client.MergeFrom(originalSA)); err != nil {

@@ -2559,6 +2559,22 @@ func TestDPAReconciler_buildVeleroDeploymentWithAzureWorkloadIdentity(t *testing
 				if !foundAzureSecretRef {
 					t.Errorf("Expected %s secret reference in envFrom", stsflow.AzureWorkloadIdentitySecretName)
 				}
+
+				// Check that Azure environment variables are NOT set directly
+				// They should come from the secret referenced in envFrom
+				for _, container := range tt.veleroDeployment.Spec.Template.Spec.Containers {
+					if container.Name == common.Velero {
+						for _, env := range container.Env {
+							if env.Name == "AZURE_CLIENT_ID" {
+								t.Errorf("AZURE_CLIENT_ID should not be set directly, it should come from the secret")
+							}
+							if env.Name == "AZURE_FEDERATED_TOKEN_FILE" {
+								t.Errorf("AZURE_FEDERATED_TOKEN_FILE should not be set directly, it should come from the secret")
+							}
+						}
+						break
+					}
+				}
 			} else {
 			}
 		})

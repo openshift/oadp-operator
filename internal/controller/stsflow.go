@@ -19,6 +19,15 @@ import (
 // - AZURE_CLIENT_ID
 // - AZURE_TENANT_ID
 // - AZURE_FEDERATED_TOKEN_FILE
+//
+// Unlike AWS and GCP which use credential files, Azure uses environment variables for
+// workload identity authentication. This design choice is driven by compatibility with
+// the Velero project's Azure credential handling, avoiding the need for upstream changes.
+// The Velero project expects these specific environment variables for Azure authentication,
+// and by providing them directly, we maintain seamless integration.
+//
+// The secret created here is injected into both Velero and NodeAgent pods via envFrom,
+// eliminating the need for temporary credential files as used by AWS/GCP providers.
 func (r *DataProtectionApplicationReconciler) ReconcileAzureWorkloadIdentitySecret(log logr.Logger) (bool, error) {
 	dpa := r.dpa
 	azureClientID := os.Getenv(stsflow.ClientIDEnvKey)
