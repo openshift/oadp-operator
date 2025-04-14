@@ -193,9 +193,9 @@ func (r *DataProtectionApplicationReconciler) ReconcileBackupStorageLocations(lo
 				case oadpv1alpha1.AWSBucketProvider:
 					bsl.Spec.Provider = AWSProvider
 				case oadpv1alpha1.AzureBucketProvider:
-					return fmt.Errorf("azure provider not yet supported")
+					bsl.Spec.Provider = AzureProvider
 				case oadpv1alpha1.GCPBucketProvider:
-					return fmt.Errorf("gcp provider not yet supported")
+					bsl.Spec.Provider = GCPProvider
 				default:
 					return fmt.Errorf("invalid provider")
 				}
@@ -253,6 +253,10 @@ func (r *DataProtectionApplicationReconciler) ReconcileBackupStorageLocations(lo
 }
 
 func (r *DataProtectionApplicationReconciler) UpdateCredentialsSecretLabels(secretName string, dpaName string) error {
+	// Skip if secretName is empty (no credentials configured)
+	if secretName == "" {
+		return nil
+	}
 
 	var secret corev1.Secret
 	secret, err := r.getProviderSecret(secretName)
@@ -304,6 +308,78 @@ func (r *DataProtectionApplicationReconciler) updateBSLFromSpec(bsl *velerov1.Ba
 	bsl.Labels["app.kubernetes.io/managed-by"] = common.OADPOperator
 	bsl.Labels["app.kubernetes.io/component"] = "bsl"
 	bsl.Labels[oadpv1alpha1.OadpOperatorLabel] = "True"
+
+	return nil
+}
+
+// populateBSLFromCloudStorage populates a BackupStorageLocation spec from a CloudStorage reference
+func (r *DataProtectionApplicationReconciler) populateBSLFromCloudStorage(bslSpec *oadpv1alpha1.BackupLocation, namespace string) error {
+	if bslSpec.CloudStorage == nil || bslSpec.CloudStorage.CloudStorageRef.Name == "" {
+		return fmt.Errorf("CloudStorage reference is required")
+	}
+
+	// Fetch the CloudStorage resource
+	cloudStorage := &oadpv1alpha1.CloudStorage{}
+	err := r.Get(r.Context, client.ObjectKey{
+		Namespace: namespace,
+		Name:      bslSpec.CloudStorage.CloudStorageRef.Name,
+	}, cloudStorage)
+	if err != nil {
+		return fmt.Errorf("failed to get CloudStorage %s: %w", bslSpec.CloudStorage.CloudStorageRef.Name, err)
+	}
+
+	// Initialize Velero spec if not already present
+	if bslSpec.Velero == nil {
+		bslSpec.Velero = &velerov1.BackupStorageLocationSpec{}
+	}
+
+	// Map CloudStorage provider to Velero provider
+	switch cloudStorage.Spec.Provider {
+	case oadpv1alpha1.AWSBucketProvider:
+		bslSpec.Velero.Provider = AWSProvider
+	case oadpv1alpha1.AzureBucketProvider:
+		bslSpec.Velero.Provider = AzureProvider
+	case oadpv1alpha1.GCPBucketProvider:
+		bslSpec.Velero.Provider = GCPProvider
+	default:
+		return fmt.Errorf("unsupported CloudStorage provider: %s", cloudStorage.Spec.Provider)
+	}
+
+	// Set object storage configuration
+	bslSpec.Velero.ObjectStorage = &velerov1.ObjectStorageLocation{
+		Bucket: cloudStorage.Spec.Name,
+		Prefix: bslSpec.CloudStorage.Prefix,
+		CACert: bslSpec.CloudStorage.CACert,
+	}
+
+	// Set config, merging CloudStorage config with BSL-specific config
+	if bslSpec.Velero.Config == nil {
+		bslSpec.Velero.Config = make(map[string]string)
+	}
+
+	// Add region if specified in CloudStorage
+	if cloudStorage.Spec.Region != "" {
+		bslSpec.Velero.Config["region"] = cloudStorage.Spec.Region
+	}
+
+	// Override with BSL-specific config
+	for k, v := range bslSpec.CloudStorage.Config {
+		bslSpec.Velero.Config[k] = v
+	}
+
+	// Set credentials
+	if bslSpec.CloudStorage.Credential != nil {
+		bslSpec.Velero.Credential = bslSpec.CloudStorage.Credential
+	}
+
+	// Set other fields
+	bslSpec.Velero.Default = bslSpec.CloudStorage.Default
+	bslSpec.Velero.BackupSyncPeriod = bslSpec.CloudStorage.BackupSyncPeriod
+
+	// Handle shared config if enabled
+	if cloudStorage.Spec.EnableSharedConfig != nil && *cloudStorage.Spec.EnableSharedConfig {
+		bslSpec.Velero.Config["enableSharedConfig"] = "true"
+	}
 
 	return nil
 }

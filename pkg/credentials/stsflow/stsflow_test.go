@@ -629,6 +629,8 @@ AZURE_CLOUD_NAME=AzurePublicCloud
 			Namespace: testNamespace,
 		}, saResult)
 		assert.NoError(t, err)
+		// Annotation is commented out in implementation, so we shouldn't check for it
+		// assert.Equal(t, clientID, saResult.Annotations["azure.workload.identity/client-id"])
 	})
 
 	t.Run("Azure secret creation continues even if service account annotation fails", func(t *testing.T) {

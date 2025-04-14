@@ -1,0 +1,672 @@
+// Module included in the following assembly:
+//
+// * backup_and_restore/application_backup_and_restore/installing/installing-oadp-rosa.adoc
+
+:_mod-docs-content-type: PROCEDURE
+[id="oadp-rosa-sts-cloud-authentication_{context}"]
+= Configuring OADP for ROSA with STS
+
+Red Hat OpenShift Service on AWS (ROSA) with Security Token Service (STS) provides enhanced security for OADP (OpenShift Application Data Protection) operations by using pre-configured IAM roles instead of long-term AWS credentials. ROSA STS clusters automatically provide the necessary OIDC identity provider and trust relationships, requiring only application-level configuration for OADP.
+
+[NOTE]
+====
+ROSA STS clusters are pre-configured with OIDC identity providers for authentication. This procedure creates a dedicated IAM role for OADP operations with appropriate trust relationships and permissions, following ROSA-specific naming conventions and tagging requirements.
+====
+
+.Prerequisites
+
+* You have a ROSA cluster with STS enabled.
+* You have the ROSA CLI (`rosa`) installed and configured.
+* You have the AWS CLI (`aws`) installed and configured with appropriate IAM permissions.
+* You have access to the ROSA cluster as a user with `cluster-admin` privileges.
+* You have permissions to create IAM roles and policies in your AWS account.
+
+.Procedure
+
+. Set up environment variables for your ROSA cluster:
++
+[source,bash]
+----
+# Get ROSA cluster information
+export CLUSTER_NAME=$(oc get infrastructure cluster -o jsonpath='{.status.infrastructureName}')
+export AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+export AWS_REGION=$(rosa describe cluster -c ${CLUSTER_NAME} --output json | jq -r .region.id)
+
+# Get OIDC endpoint for the cluster
+export OIDC_ENDPOINT=$(oc get authentication.config.openshift.io cluster -o jsonpath='{.spec.serviceAccountIssuer}' | sed 's|https://||')
+
+# Set role name and backup bucket
+export ROLE_NAME="${CLUSTER_NAME}-openshift-oadp-aws-cloud-credentials"
+export ROLE_ARN="arn:aws:iam::${AWS_ACCOUNT_ID}:role/${ROLE_NAME}"
+export VELERO_BUCKET_NAME="${CLUSTER_NAME}-oadp-storage"
+
+echo "Cluster: $CLUSTER_NAME"
+echo "Region: $AWS_REGION"
+echo "OIDC Endpoint: $OIDC_ENDPOINT"
+echo "Role Name: $ROLE_NAME"
+echo "Role ARN: $ROLE_ARN"
+echo "Bucket Name: $VELERO_BUCKET_NAME"
+----
+
+. Create IAM role and trust policy for OADP:
++
+[source,bash]
+----
+# Create trust policy for ROSA STS
+cat <<EOF > trust-policy.json
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Principal": {
+                "Federated": "arn:aws:iam::${AWS_ACCOUNT_ID}:oidc-provider/${OIDC_ENDPOINT}"
+            },
+            "Action": "sts:AssumeRoleWithWebIdentity",
+            "Condition": {
+                "StringEquals": {
+                    "${OIDC_ENDPOINT}:sub": [
+                        "system:serviceaccount:openshift-adp:velero",
+                        "system:serviceaccount:openshift-adp:openshift-adp-controller-manager"
+                    ]
+                }
+            }
+        }
+    ]
+}
+EOF
+
+# Create IAM role with ROSA-specific tags
+aws iam create-role \
+    --role-name ${ROLE_NAME} \
+    --assume-role-policy-document file://trust-policy.json \
+    --tags Key=red-hat-clustertype,Value=rosa \
+           Key=red-hat-managed,Value=true
+
+echo "Created IAM role: ${ROLE_NAME}"
+----
+
+. Create IAM policy with enhanced S3 permissions:
++
+[source,bash]
+----
+# Create enhanced IAM policy for OADP operations
+cat <<EOF > oadp-policy.json
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "s3:CreateBucket",
+                "s3:DeleteBucket",
+                "s3:GetBucketLocation",
+                "s3:GetBucketTagging",
+                "s3:ListAllMyBuckets",
+                "s3:ListBucket",
+                "s3:PutBucketTagging",
+                "s3:GetBucketVersioning",
+                "s3:PutBucketVersioning",
+                "s3:GetBucketAcl",
+                "s3:PutBucketAcl",
+                "s3:GetBucketCORS",
+                "s3:PutBucketCORS",
+                "s3:DeleteBucketCORS",
+                "s3:GetBucketWebsite",
+                "s3:PutBucketWebsite",
+                "s3:DeleteBucketWebsite",
+                "s3:GetBucketVersioning",
+                "s3:PutBucketVersioning",
+                "s3:GetBucketAcl",
+                "s3:PutBucketAcl",
+                "s3:GetBucketCORS",
+                "s3:PutBucketCORS",
+                "s3:DeleteBucketCORS",
+                "s3:GetBucketWebsite",
+                "s3:PutBucketWebsite",
+                "s3:DeleteBucketWebsite",
+                "s3:GetBucketLocation",
+                "s3:GetBucketRequestPayment",
+                "s3:GetBucketLogging",
+                "s3:GetBucketNotification",
+                "s3:GetBucketPolicy",
+                "s3:DeleteBucketPolicy",
+                "s3:GetBucketPolicyStatus",
+                "s3:PutBucketPolicy",
+                "s3:GetBucketPublicAccessBlock",
+                "s3:PutBucketPublicAccessBlock",
+                "s3:GetBucketObjectLockConfiguration",
+                "s3:PutBucketObjectLockConfiguration",
+                "s3:GetBucketTagging",
+                "s3:PutBucketTagging",
+                "s3:GetObject",
+                "s3:GetObjectAcl",
+                "s3:GetObjectAttributes",
+                "s3:GetObjectLegalHold",
+                "s3:GetObjectRetention",
+                "s3:GetObjectTagging",
+                "s3:GetObjectVersion",
+                "s3:PutObject",
+                "s3:PutObjectAcl",
+                "s3:PutObjectLegalHold",
+                "s3:PutObjectRetention",
+                "s3:PutObjectTagging",
+                "s3:RestoreObject",
+                "s3:DeleteObject",
+                "s3:DeleteObjectVersion",
+                "s3:PutLifecycleConfiguration",
+                "s3:GetLifecycleConfiguration",
+                "s3:DeleteLifecycleConfiguration"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "ec2:DescribeVolumes",
+                "ec2:DescribeSnapshots",
+                "ec2:CreateTags",
+                "ec2:DescribeInstances",
+                "ec2:CreateSnapshot",
+                "ec2:DeleteSnapshot"
+            ],
+            "Resource": "*"
+        }
+    ]
+}
+EOF
+
+# Attach policy to the IAM role
+aws iam put-role-policy \
+    --role-name ${ROLE_NAME} \
+    --policy-name openshift-oadp-aws-cloud-credentials \
+    --policy-document file://oadp-policy.json
+
+echo "Created and attached IAM policy to role: ${ROLE_NAME}"
+----
+
+. Create AWS credentials file and OADP namespace:
++
+[source,bash]
+----
+# Create temporary directory for credentials
+export SCRATCH="/tmp/oadp-rosa-setup"
+mkdir -p ${SCRATCH}
+
+# Create AWS credentials file using ROSA STS format
+cat <<EOF > ${SCRATCH}/credentials
+[default]
+role_arn = ${ROLE_ARN}
+web_identity_token_file = /var/run/secrets/openshift/serviceaccount/token
+region = ${AWS_REGION}
+EOF
+
+# Create OADP namespace
+oc create namespace openshift-adp
+
+# Create secret with AWS credentials
+oc -n openshift-adp create secret generic cloud-credentials-aws \
+    --from-file=credentials=${SCRATCH}/credentials
+
+# Verify secret creation
+oc -n openshift-adp get secret cloud-credentials-aws
+
+echo "Created credentials secret in openshift-adp namespace"
+----
+
+. Create S3 bucket with ROSA-specific tagging:
++
+[source,bash]
+----
+# Create backup storage bucket
+aws s3 mb s3://${VELERO_BUCKET_NAME} --region ${AWS_REGION}
+
+# Apply ROSA-specific tags to the bucket
+aws s3api put-bucket-tagging \
+    --bucket ${VELERO_BUCKET_NAME} \
+    --tagging TagSet='[
+        {
+            "Key": "red-hat-clustertype",
+            "Value": "rosa"
+        },
+        {
+            "Key": "red-hat-managed",
+            "Value": "true"
+        },
+        {
+            "Key": "cluster",
+            "Value": "'${CLUSTER_NAME}'"
+        },
+        {
+            "Key": "component",
+            "Value": "oadp"
+        }
+    ]'
+
+# Enable versioning for backup integrity
+aws s3api put-bucket-versioning \
+    --bucket ${VELERO_BUCKET_NAME} \
+    --versioning-configuration Status=Enabled
+
+# Block public access for security
+aws s3api put-public-access-block \
+    --bucket ${VELERO_BUCKET_NAME} \
+    --public-access-block-configuration \
+    BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true
+
+echo "Created and configured S3 bucket: ${VELERO_BUCKET_NAME}"
+----
+
+[id="oadp-rosa-cloud-storage-api_{context}"]
+== Alternative: Using Cloud Storage API for Automated Bucket Management
+
+The OADP Cloud Storage API can automatically manage S3 bucket creation and configuration for ROSA STS clusters.
+
+.Prerequisites for Cloud Storage API
+
+* OADP operator with Cloud Storage API functionality enabled
+* The same ROSA STS configuration as above
+
+.Procedure for Cloud Storage API
+
+. Create a CloudStorage resource for ROSA:
++
+[source,yaml]
+----
+cat <<EOF | oc apply -f -
+apiVersion: oadp.openshift.io/v1alpha1
+kind: CloudStorage
+metadata:
+  name: rosa-backup-storage
+  namespace: openshift-adp
+spec:
+  name: ${VELERO_BUCKET_NAME}
+  provider: aws
+  region: ${AWS_REGION}
+  creationSecret:
+    name: cloud-credentials-aws
+    key: credentials
+  creationPolicy: CreateIfNotExists
+EOF
+----
+
+. Create the DataProtectionApplication with Cloud Storage API reference:
++
+[source,yaml]
+----
+cat <<EOF | oc apply -f -
+apiVersion: oadp.openshift.io/v1alpha1
+kind: DataProtectionApplication
+metadata:
+  name: dpa-rosa-sts-cloudstorage
+  namespace: openshift-adp
+spec:
+  configuration:
+    velero:
+      defaultPlugins:
+        - aws
+        - openshift
+        - csi
+      podConfig:
+        env:
+          - name: AWS_CLUSTER_NAME
+            value: ${CLUSTER_NAME}
+  backupLocations:
+    - name: default
+      velero:
+        provider: aws
+        default: true
+        objectStorage:
+          cloudStorageRef:
+            name: rosa-backup-storage
+          prefix: velero
+        config:
+          region: ${AWS_REGION}
+          s3ForcePathStyle: "false"
+  snapshotLocations:
+    - name: default
+      velero:
+        provider: aws
+        config:
+          region: ${AWS_REGION}
+EOF
+----
+
+. Verify the CloudStorage resource status:
++
+[source,bash]
+----
+oc get cloudstorage rosa-backup-storage -n openshift-adp -o yaml
+oc describe cloudstorage rosa-backup-storage -n openshift-adp
+----
+
+. Monitor CloudStorage operations:
++
+[source,bash]
+----
+# Check CloudStorage controller logs
+oc logs -n openshift-adp deployment/oadp-operator-controller-manager | grep -i cloudstorage
+
+# Verify S3 bucket creation
+aws s3 ls s3://${VELERO_BUCKET_NAME}/
+----
+
+== Standard Configuration (Manual Bucket Creation)
+
+. Install the OADP operator via the OpenShift web console or CLI:
++
+[NOTE]
+====
+For OpenShift 4.15 and later, you can provide the role ARN directly during operator installation through the web console, which will automatically create the necessary credentials secret.
+====
+
+. Create the DataProtectionApplication for standard ROSA STS setup:
++
+[source,yaml]
+----
+cat <<EOF | oc apply -f -
+apiVersion: oadp.openshift.io/v1alpha1
+kind: DataProtectionApplication
+metadata:
+  name: dpa-rosa-sts
+  namespace: openshift-adp
+spec:
+  backupImages: true  # ROSA supports internal image backup
+  features:
+    dataMover:
+      enable: false  # Not currently supported in ROSA
+  configuration:
+    velero:
+      defaultPlugins:
+        - aws
+        - openshift
+        - csi
+      podConfig:
+        env:
+          - name: AWS_CLUSTER_NAME
+            value: ${CLUSTER_NAME}
+        nodeSelector:
+          node-role.kubernetes.io/worker: ""
+    nodeAgent:
+      enable: true
+      uploaderType: kopia  # Use kopia for file system backup (restic unsupported)
+      nodeSelector:
+        node-role.kubernetes.io/worker: ""
+  backupLocations:
+    - name: default
+      velero:
+        provider: aws
+        default: true
+        credential:
+          name: cloud-credentials-aws
+          key: credentials
+        objectStorage:
+          bucket: ${VELERO_BUCKET_NAME}
+          prefix: velero
+        config:
+          region: ${AWS_REGION}
+          s3ForcePathStyle: "false"
+          enableSharedConfig: "true"
+  snapshotLocations:
+    - name: default
+      velero:
+        provider: aws
+        credential:
+          name: cloud-credentials-aws
+          key: credentials
+        config:
+          region: ${AWS_REGION}
+          enableSharedConfig: "true"
+EOF
+----
+
+.Verification
+
+. Verify that the OADP operator pods are running:
++
+[source,bash]
+----
+oc get pods -n openshift-adp
+----
+
+. Check ROSA cluster OIDC configuration:
++
+[source,bash]
+----
+# Verify OIDC endpoint is accessible
+rosa describe cluster -c ${CLUSTER_NAME} | grep -i oidc
+
+# Check credentials secret
+oc get secret cloud-credentials-aws -n openshift-adp -o yaml
+----
+
+. Verify AWS STS authentication works:
++
+[source,bash]
+----
+# Check Velero pod environment variables
+VELERO_POD=$(oc get pods -n openshift-adp -l app.kubernetes.io/name=velero -o jsonpath='{.items[0].metadata.name}')
+
+# Check AWS configuration in Velero pod
+oc exec -n openshift-adp ${VELERO_POD} -- env | grep AWS
+
+# Test STS assume role from Velero pod
+oc exec -n openshift-adp ${VELERO_POD} -- aws sts get-caller-identity
+
+# Verify credentials file is mounted
+oc exec -n openshift-adp ${VELERO_POD} -- cat /tmp/credentials/openshift-adp/cloud-credentials-aws-credentials 2>/dev/null || echo "Credentials file location may vary"
+----
+
+. Test backup functionality with ROSA-specific workload:
++
+[source,bash]
+----
+# Create test namespace
+oc create namespace test-backup-rosa
+
+# Create ROSA-compatible deployment
+cat << EOF | oc apply -f -
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rosa-test-app
+  namespace: test-backup-rosa
+  labels:
+    app: rosa-test-app
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: rosa-test-app
+  template:
+    metadata:
+      labels:
+        app: rosa-test-app
+    spec:
+      containers:
+      - name: nginx
+        image: registry.redhat.io/ubi8/nginx-120:latest
+        ports:
+        - containerPort: 8080
+          protocol: TCP
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          runAsNonRoot: true
+          seccompProfile:
+            type: RuntimeDefault
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rosa-test-app
+  namespace: test-backup-rosa
+spec:
+  selector:
+    app: rosa-test-app
+  ports:
+  - port: 8080
+    targetPort: 8080
+    protocol: TCP
+EOF
+
+# Wait for deployment
+oc wait --for=condition=available deployment/rosa-test-app -n test-backup-rosa --timeout=300s
+
+# Create backup
+velero backup create rosa-sts-test --include-namespaces=test-backup-rosa
+----
+
+. Monitor backup status:
++
+[source,bash]
+----
+velero backup describe rosa-sts-test --details
+
+# Verify backup files in S3
+aws s3 ls s3://${VELERO_BUCKET_NAME}/velero/backups/ --recursive
+----
+
+[NOTE]
+====
+ROSA STS clusters automatically provide the OIDC identity provider configuration and trust relationships required for STS token exchange. The credential files use `web_identity_token_file` pointing to OpenShift service account tokens that are automatically rotated by the platform.
+====
+
+[IMPORTANT]
+====
+* **Restic is unsupported** in ROSA environments - use Kopia instead for file system backups
+* **Data Mover** is not currently supported in ROSA clusters - use native AWS S3 tools for cross-region operations
+* Ensure your ROSA cluster has appropriate AWS service quotas for EBS snapshots and S3 operations
+* Only specific storage classes are supported: `gp3-csi`, `gp2-csi`, `gp3`, `gp2`
+====
+
+.Troubleshooting
+
+If you encounter issues with OADP on ROSA STS:
+
+* Verify ROSA cluster status and OIDC configuration:
++
+[source,bash]
+----
+rosa describe cluster -c ${CLUSTER_NAME}
+rosa logs install -c ${CLUSTER_NAME} --tail 50
+----
+
+* Check IAM role configuration:
++
+[source,bash]
+----
+# Extract role name from ARN for validation
+ROLE_NAME=$(echo ${ROLE_ARN} | awk -F'/' '{print $NF}')
+
+# Check role exists and trust policy
+aws iam get-role --role-name ${ROLE_NAME}
+aws iam list-role-policies --role-name ${ROLE_NAME}
+aws iam list-attached-role-policies --role-name ${ROLE_NAME}
+----
+
+* Validate OIDC provider configuration:
++
+[source,bash]
+----
+# List OIDC providers in the account
+aws iam list-open-id-connect-providers
+
+# Get OIDC endpoint from cluster for validation
+OIDC_ENDPOINT=$(oc get authentication.config.openshift.io cluster -o json | jq -r .spec.serviceAccountIssuer)
+echo "Cluster OIDC Endpoint: $OIDC_ENDPOINT"
+
+# Validate the OIDC provider exists
+aws iam get-open-id-connect-provider --open-id-connect-provider-arn arn:aws:iam::${AWS_ACCOUNT_ID}:oidc-provider/${OIDC_ENDPOINT#https://}
+----
+
+* Review OADP operator logs for ROSA-specific issues:
++
+[source,bash]
+----
+oc logs -n openshift-adp deployment/oadp-operator-controller-manager | grep -i rosa
+oc logs -n openshift-adp deployment/velero | grep -i sts
+----
+
+* Test S3 bucket access and credentials:
++
+[source,bash]
+----
+# Test bucket access with current credentials
+aws s3 ls s3://${VELERO_BUCKET_NAME}/
+
+# Check credentials secret in OpenShift
+oc get secret cloud-credentials-aws -n openshift-adp -o jsonpath='{.data.credentials}' | base64 -d
+
+# Test STS authentication
+aws sts get-caller-identity
+----
+
+* Check ROSA-specific networking considerations:
++
+[source,bash]
+----
+# Verify outbound connectivity for S3 and STS services
+oc debug node/$(oc get nodes -o jsonpath='{.items[0].metadata.name}') -- chroot /host curl -I https://s3.${AWS_REGION}.amazonaws.com
+oc debug node/$(oc get nodes -o jsonpath='{.items[0].metadata.name}') -- chroot /host curl -I https://sts.${AWS_REGION}.amazonaws.com
+----
+
+== Cleanup Procedures
+
+To remove OADP and associated AWS resources:
+
+. Remove OADP operator and resources:
++
+[source,bash]
+----
+# Delete DataProtectionApplication
+oc delete dpa --all -n openshift-adp
+
+# Delete CloudStorage resources if used
+oc delete cloudstorage --all -n openshift-adp
+
+# Delete OADP namespace
+oc delete namespace openshift-adp
+
+# Remove OADP operator subscription
+oc delete subscription oadp-operator -n openshift-operators 2>/dev/null || true
+
+# Remove operator CSV
+oc delete csv $(oc get csv -n openshift-operators | grep oadp | awk '{print $1}') -n openshift-operators 2>/dev/null || true
+----
+
+. Clean up AWS resources:
++
+[source,bash]
+----
+# Delete S3 bucket contents and bucket
+aws s3 rm s3://${VELERO_BUCKET_NAME} --recursive 2>/dev/null || true
+aws s3 rb s3://${VELERO_BUCKET_NAME} 2>/dev/null || echo "Bucket ${VELERO_BUCKET_NAME} not found or already deleted"
+
+# Remove IAM role policy
+aws iam delete-role-policy \
+    --role-name ${ROLE_NAME} \
+    --policy-name openshift-oadp-aws-cloud-credentials 2>/dev/null || echo "Policy not found"
+
+# Delete IAM role
+aws iam delete-role --role-name ${ROLE_NAME} 2>/dev/null || echo "Role ${ROLE_NAME} not found"
+
+# Clean up temporary files
+rm -f trust-policy.json oadp-policy.json
+rm -rf ${SCRATCH}
+
+echo "OADP cleanup completed"
+----
+
+[IMPORTANT]
+====
+* Verify all backups are no longer needed before deleting the S3 bucket
+* The IAM role and OIDC provider are cluster-specific and should only be deleted if the cluster is being decommissioned
+* Consider backing up any important data before running cleanup procedures
+====

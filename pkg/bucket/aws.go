@@ -147,10 +147,6 @@ func (a awsBucketClient) getS3Client() (s3iface.S3API, error) {
 	return s3.New(s), nil
 }
 
-func (a awsBucketClient) ForceCredentialRefresh() error {
-	return fmt.Errorf("force credential refresh is not yet implemented")
-}
-
 func (a awsBucketClient) Delete() (bool, error) {
 	s3Client, err := a.getS3Client()
 	if err != nil {

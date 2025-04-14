@@ -1,0 +1,536 @@
+// Module included in the following assembly:
+//
+// * backup_and_restore/application_backup_and_restore/installing/installing-oadp-aws.adoc
+
+:_mod-docs-content-type: PROCEDURE
+[id="oadp-aws-sts-cloud-authentication_{context}"]
+= Configuring AWS STS Manual Mode for OADP
+
+AWS Security Token Service (STS) manual mode is the recommended way to access AWS S3 for OADP (OpenShift Application Data Protection) operations. This approach uses the OpenShift cluster's signed ServiceAccount tokens that are automatically refreshed hourly and exchanged for temporary AWS credentials via AWS IAM OpenID Connect (OIDC) Identity Provider, eliminating the need for long-term static AWS credentials.
+
+[NOTE]
+====
+This configuration requires `credentialsMode: Manual` during cluster installation and uses the Cloud Credential Operator (`ccoctl`) to set up the STS infrastructure, including ServiceAccount signing keys, S3 buckets or CloudFront distributions for OIDC configuration, and IAM roles for each component.
+====
+
+.Prerequisites
+
+* You have an OpenShift cluster installed on Amazon Web Services with STS manual mode configured.
+* You have the AWS CLI (`aws`) installed and configured.
+* You have access to the OpenShift cluster as a user with `cluster-admin` privileges.
+* You have an AWS account with appropriate permissions.
+
+.Procedure
+
+. Set up environment variables for your configuration:
++
+[source,bash]
+----
+# Get cluster information
+export API_URL=$(oc whoami --show-server)
+export CLUSTER_NAME=$(echo "$API_URL" | sed 's|https://api\.||' | sed 's|\..*||')
+export CLUSTER_BASE_DOMAIN=$(oc get dns cluster -o jsonpath='{.spec.baseDomain}')
+
+# Get AWS information
+export AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+export AWS_REGION=$(aws configure get region)
+
+# Set names for OADP resources
+export OIDC_BUCKET_NAME="${CLUSTER_NAME}-oidc"
+export VELERO_BUCKET_NAME="${CLUSTER_NAME}-velero-backups"
+export ROLE_NAME="openshift-adp-controller-manager"
+----
+
+. Create an S3 bucket for Velero backups:
++
+[source,bash]
+----
+# Create backup storage bucket
+aws s3 mb s3://${VELERO_BUCKET_NAME} --region ${AWS_REGION}
+
+# Enable versioning for backup integrity
+aws s3api put-bucket-versioning \
+    --bucket ${VELERO_BUCKET_NAME} \
+    --versioning-configuration Status=Enabled
+
+----
+
+. Get the OIDC issuer URL from your OpenShift cluster:
++
+[source,bash]
+----
+export SERVICE_ACCOUNT_ISSUER=$(oc get authentication.config.openshift.io cluster -o json | jq -r .spec.serviceAccountIssuer)
+echo "OIDC Issuer: $SERVICE_ACCOUNT_ISSUER"
+
+# Extract the issuer hostname for AWS IAM
+export OIDC_ISSUER_HOST=$(echo "$SERVICE_ACCOUNT_ISSUER" | sed 's|https://||')
+----
+
+. Create IAM OIDC Identity Provider:
++
+[source,bash]
+----
+# Get the OIDC thumbprint (this is typically the same for all OpenShift clusters)
+export OIDC_THUMBPRINT=$(echo | openssl s_client -servername ${OIDC_ISSUER_HOST} -connect ${OIDC_ISSUER_HOST}:443 2>/dev/null | openssl x509 -fingerprint -noout -sha1 | sed 's/://g' | awk -F= '{print tolower($2)}')
+
+# Create OIDC Identity Provider
+aws iam create-open-id-connect-provider \
+    --url "${SERVICE_ACCOUNT_ISSUER}" \
+    --client-id-list "openshift" "sts.amazonaws.com" \
+    --thumbprint-list "${OIDC_THUMBPRINT}"
+
+# Get the OIDC Provider ARN
+export OIDC_PROVIDER_ARN=$(aws iam list-open-id-connect-providers --query "OpenIDConnectProviderList[?ends_with(Arn, '${OIDC_ISSUER_HOST}')].Arn" --output text)
+echo "OIDC Provider ARN: $OIDC_PROVIDER_ARN"
+----
+
+. Create IAM role for OADP with trust policy:
++
+[source,bash]
+----
+# Create trust policy for the OADP role
+cat > /tmp/trust-policy.json << EOF
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Principal": {
+                "Federated": "${OIDC_PROVIDER_ARN}"
+            },
+            "Action": "sts:AssumeRoleWithWebIdentity",
+            "Condition": {
+                "StringEquals": {
+                    "${OIDC_ISSUER_HOST}:sub": [
+                        "system:serviceaccount:openshift-adp:velero",
+                        "system:serviceaccount:openshift-adp:openshift-adp-controller-manager"
+                    ],
+                    "${OIDC_ISSUER_HOST}:aud": "openshift"
+                }
+            }
+        }
+    ]
+}
+EOF
+
+# Create the IAM role
+aws iam create-role \
+    --role-name ${ROLE_NAME} \
+    --assume-role-policy-document file:///tmp/trust-policy.json \
+    --description "Role for OpenShift OADP components"
+
+rm -f /tmp/trust-policy.json
+----
+
+. Attach the required policies to the IAM role:
++
+[source,bash]
+----
+# Create permission policy for OADP operations
+cat > /tmp/permission-policy.json << EOF
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "s3:GetObject",
+                "s3:DeleteObject",
+                "s3:PutObject",
+                "s3:AbortMultipartUpload",
+                "s3:ListMultipartUploadParts"
+            ],
+            "Resource": [
+                "arn:aws:s3:::${VELERO_BUCKET_NAME}/*"
+            ]
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "s3:ListBucket",
+                "s3:GetBucketVersioning",
+                "s3:ListBucketVersions",
+                "s3:ListBucketMultipartUploads",
+                "s3:GetBucketNotification",
+                "s3:PutBucketNotification"
+            ],
+            "Resource": [
+                "arn:aws:s3:::${VELERO_BUCKET_NAME}"
+            ]
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "ec2:DescribeVolumes",
+                "ec2:DescribeSnapshots",
+                "ec2:CreateTags",
+                "ec2:CreateVolume",
+                "ec2:CreateSnapshot",
+                "ec2:DeleteSnapshot"
+            ],
+            "Resource": "*"
+        }
+    ]
+}
+EOF
+
+# Create and attach the policy
+aws iam put-role-policy \
+    --role-name ${ROLE_NAME} \
+    --policy-name OADPPolicy \
+    --policy-document file:///tmp/permission-policy.json
+
+rm -f /tmp/permission-policy.json
+
+# Get the role ARN
+export ROLE_ARN=$(aws iam get-role --role-name ${ROLE_NAME} --query Role.Arn --output text)
+echo "Role ARN: $ROLE_ARN"
+----
+
+. Create the OADP namespace if it doesn't exist:
++
+[source,bash]
+----
+oc create namespace openshift-adp
+----
+
+. Annotate the service accounts to use AWS STS:
++
+[source,bash]
+----
+oc annotate serviceaccount velero -n openshift-adp \
+    eks.amazonaws.com/role-arn="${ROLE_ARN}" --overwrite
+
+oc annotate serviceaccount openshift-adp-controller-manager -n openshift-adp \
+    eks.amazonaws.com/role-arn="${ROLE_ARN}" --overwrite
+----
+
+[id="oadp-aws-cloud-storage-api_{context}"]
+== Alternative: Using Cloud Storage API for Automated Bucket Management
+
+Instead of manually creating S3 buckets, you can use the OADP Cloud Storage API to automatically manage bucket creation and configuration. This approach requires OADP operator version with Cloud Storage API support.
+
+.Prerequisites for Cloud Storage API
+
+* OADP operator with Cloud Storage API functionality enabled
+* The same AWS STS configuration as above
+
+.Procedure for Cloud Storage API
+
+. Create a CloudStorage resource instead of manually creating buckets:
++
+[source,yaml]
+----
+cat <<EOF | oc apply -f -
+apiVersion: oadp.openshift.io/v1alpha1
+kind: CloudStorage
+metadata:
+  name: aws-backup-storage
+  namespace: openshift-adp
+spec:
+  name: ${VELERO_BUCKET_NAME}
+  provider: aws
+  region: ${AWS_REGION}
+  creationSecret:
+    name: cloud-credentials-aws
+    key: credentials  # Required key name for AWS provider
+  creationPolicy: CreateIfNotExists
+EOF
+----
+
+. Create the DataProtectionApplication with Cloud Storage API reference:
++
+[source,yaml]
+----
+cat <<EOF | oc apply -f -
+apiVersion: oadp.openshift.io/v1alpha1
+kind: DataProtectionApplication
+metadata:
+  name: dpa-aws-sts-cloudstorage
+  namespace: openshift-adp
+spec:
+  configuration:
+    velero:
+      defaultPlugins:
+        - aws
+        - openshift
+        - csi
+  backupLocations:
+    - name: default
+      bucket:
+        # Reference the CloudStorage resource instead of direct bucket
+        cloudStorageRef:
+          name: aws-backup-storage
+        prefix: velero
+        credential:
+          name: cloud-credentials-aws
+          key: credentials
+        config:
+          region: ${AWS_REGION}
+        default: true
+  snapshotLocations:
+    - name: default
+      velero:
+        provider: aws
+        credential:
+          name: cloud-credentials-aws
+          key: credentials
+        config:
+          region: ${AWS_REGION}
+EOF
+----
+
+. Verify the CloudStorage resource status:
++
+[source,bash]
+----
+oc get cloudstorage aws-backup-storage -n openshift-adp -o yaml
+oc describe cloudstorage aws-backup-storage -n openshift-adp
+----
+
+. Wait for bucket creation and verify:
++
+[source,bash]
+----
+# Check if bucket was created in S3
+aws s3 ls s3://${VELERO_BUCKET_NAME}/
+
+# Verify bucket policies and configuration
+aws s3api get-bucket-policy --bucket ${VELERO_BUCKET_NAME}
+----
+
+. Monitor the CloudStorage controller logs:
++
+[source,bash]
+----
+# Check operator logs for CloudStorage operations
+oc logs -n openshift-adp deployment/oadp-operator-controller-manager | grep -i cloudstorage
+
+# Check for AWS-specific operations
+oc logs -n openshift-adp deployment/oadp-operator-controller-manager | grep -i aws
+----
+
+[WARNING]
+====
+CloudStorage resources are protected by a finalizer (`oadp.openshift.io/bucket-protection`) to prevent accidental deletion of buckets containing backup data. To delete a CloudStorage resource, you must first add the deletion annotation:
+
+[source,bash]
+----
+# Add deletion annotation before attempting to delete
+oc annotate cloudstorage aws-backup-storage -n openshift-adp \
+    oadp.openshift.io/cloudstorage-delete=true --overwrite
+
+# Then delete the CloudStorage resource
+oc delete cloudstorage aws-backup-storage -n openshift-adp
+----
+
+Without this annotation, the deletion will hang indefinitely as the finalizer prevents removal.
+
+Alternatively, if you want to remove the CloudStorage resource from OpenShift without deleting the S3 bucket in AWS, you can manually remove the finalizer:
+
+[source,bash]
+----
+# Remove finalizer to delete CloudStorage CR without deleting the S3 bucket
+oc patch cloudstorage aws-backup-storage -n openshift-adp --type json \
+    -p='[{"op": "remove", "path": "/metadata/finalizers"}]'
+----
+====
+
+The CloudStorage API will automatically:
+
+* Create the S3 bucket if it doesn't exist (with `creationPolicy: CreateIfNotExists`)
+* Configure appropriate bucket policies for the IAM role
+* Set up regional configuration based on the specified region
+* Handle authentication through the referenced credential secret
+* Protect bucket resources with finalizers to prevent accidental deletion
+
+== Standard Configuration (Manual Bucket Creation)
+
+. Create the DataProtectionApplication configuration for manual bucket setup:
++
+[source,yaml]
+----
+cat <<EOF | oc apply -f -
+apiVersion: oadp.openshift.io/v1alpha1
+kind: DataProtectionApplication
+metadata:
+  name: dpa-aws-sts
+  namespace: openshift-adp
+spec:
+  configuration:
+    velero:
+      defaultPlugins:
+        - aws
+        - openshift
+        - csi
+  backupLocations:
+    - name: default
+      velero:
+        provider: aws
+        default: true
+        credential:
+          name: cloud-credentials-aws
+          key: credentials
+        objectStorage:
+          bucket: ${VELERO_BUCKET_NAME}
+          prefix: velero
+        config:
+          region: ${AWS_REGION}
+  snapshotLocations:
+    - name: default
+      velero:
+        provider: aws
+        credential:
+          name: cloud-credentials-aws
+          key: credentials
+        config:
+          region: ${AWS_REGION}
+EOF
+----
+
+.Verification
+
+. Verify that the OADP operator pods are running:
++
+[source,bash]
+----
+oc get pods -n openshift-adp
+----
+
+. Check that the service accounts have the correct annotations:
++
+[source,bash]
+----
+oc get sa velero -n openshift-adp -o yaml | grep -A5 annotations
+oc get sa openshift-adp-controller-manager -n openshift-adp -o yaml | grep -A5 annotations
+----
+
+. Verify the AWS IAM role trust relationships:
++
+[source,bash]
+----
+aws iam get-role --role-name ${ROLE_NAME} --query Role.AssumeRolePolicyDocument
+----
+
+. Verify AWS STS authentication:
++
+[source,bash]
+----
+# Check Velero pod environment variables
+VELERO_POD=$(oc get pods -n openshift-adp -l app.kubernetes.io/name=velero -o jsonpath='{.items[0].metadata.name}')
+
+# Check AWS_ROLE_ARN environment variable
+oc get pod ${VELERO_POD} -n openshift-adp -o jsonpath='{.spec.containers[0].env[?(@.name=="AWS_ROLE_ARN")]}'
+
+# Check AWS_WEB_IDENTITY_TOKEN_FILE environment variable
+oc get pod ${VELERO_POD} -n openshift-adp -o jsonpath='{.spec.containers[0].env[?(@.name=="AWS_WEB_IDENTITY_TOKEN_FILE")]}'
+----
+
+. Test the backup functionality by creating a comprehensive backup test:
++
+[source,bash]
+----
+# Create a test namespace with resources
+oc create namespace test-backup-aws
+
+# Create a deployment for testing
+cat << EOF | oc apply -f -
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-test
+  namespace: test-backup-aws
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: nginx-test
+  template:
+    metadata:
+      labels:
+        app: nginx-test
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:latest
+        ports:
+        - containerPort: 80
+          protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-test
+  namespace: test-backup-aws
+spec:
+  selector:
+    app: nginx-test
+  ports:
+  - port: 80
+    targetPort: 80
+    protocol: TCP
+EOF
+
+# Wait for deployment to be ready
+oc wait --for=condition=available deployment/nginx-test -n test-backup-aws --timeout=60s
+
+# Create backup
+velero backup create aws-sts-test --include-namespaces=test-backup-aws
+----
+
+. Monitor the backup status:
++
+[source,bash]
+----
+velero backup describe aws-sts-test --details
+
+# Verify backup files in S3 bucket
+aws s3 ls s3://${VELERO_BUCKET_NAME}/velero/backups/ --recursive
+----
+
+[NOTE]
+====
+With AWS STS manual mode configured, credential secrets contain dynamic configuration with role names and web identity token file paths instead of static AWS access keys. The authentication uses hourly-refreshed ServiceAccount tokens that are exchanged for temporary AWS credentials via the OIDC Identity Provider.
+====
+
+[IMPORTANT]
+====
+Ensure that the IAM role has the required permissions for both S3 bucket operations and EC2 volume snapshots for full OADP functionality.
+====
+
+.Troubleshooting
+
+If you encounter authentication issues:
+
+* Verify that the IAM role has the correct trust policy for both service accounts
+* Check that the OIDC Identity Provider is correctly configured
+* Ensure the service account annotations match the IAM role ARN
+* Review the Velero logs for detailed error messages:
++
+[source,bash]
+----
+oc logs -n openshift-adp deployment/velero
+----
+
+* Check the CloudStorage controller logs for bucket management issues:
++
+[source,bash]
+----
+oc logs -n openshift-adp deployment/oadp-operator-controller-manager | grep -i cloudstorage
+----
+
+* Validate AWS STS token exchange:
++
+[source,bash]
+----
+# Test STS assume role from within a pod
+oc exec -n openshift-adp ${VELERO_POD} -- aws sts get-caller-identity
+----
+
+* Verify S3 bucket access:
++
+[source,bash]
+----
+# Test S3 access with the assumed role
+aws s3 ls s3://${VELERO_BUCKET_NAME}/ --no-cli-pager
+----
