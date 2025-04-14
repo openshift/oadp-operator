@@ -12,7 +12,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/openshift/oadp-operator/api/v1alpha1"
-	"github.com/openshift/oadp-operator/pkg/common"
+	"github.com/openshift/oadp-operator/pkg/credentials/stsflow"
 )
 
 var (
@@ -58,7 +58,14 @@ func getCredentialFromCloudStorageSecret(a client.Client, cloudStorage v1alpha1.
 			return "", err
 		}
 
-		if common.CCOWorkflow() {
+		if stsSecret, err := stsflow.STSStandardizedFlow(); err != nil && stsSecret != "" {
+			err := a.Get(context.TODO(), types.NamespacedName{
+				Name:      stsSecret,
+				Namespace: cloudStorage.Namespace,
+			}, secret)
+			if err != nil {
+				return "", err
+			}
 			filename, err = SharedCredentialsFileFromSecret(secret)
 			if err != nil {
 				return "", err

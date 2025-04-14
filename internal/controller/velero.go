@@ -35,11 +35,8 @@ import (
 const (
 	Server = "server"
 	//TODO: Check for default secret names
-	VeleroAWSSecretName   = "cloud-credentials"
-	VeleroAzureSecretName = "cloud-credentials-azure"
-	VeleroGCPSecretName   = "cloud-credentials-gcp"
-	enableCSIFeatureFlag  = "EnableCSI"
-	veleroIOPrefix        = "velero.io/"
+	enableCSIFeatureFlag = "EnableCSI"
+	veleroIOPrefix       = "velero.io/"
 
 	VeleroReplicaOverride = "VELERO_DEBUG_REPLICAS_OVERRIDE"
 

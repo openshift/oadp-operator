@@ -2,7 +2,6 @@ package common
 
 import (
 	"fmt"
-	"os"
 	"regexp"
 	"sort"
 	"strings"
@@ -205,17 +204,6 @@ func AppendTTMapAsCopy[T comparable](add ...map[T]T) map[T]T {
 		}
 	}
 	return base
-}
-
-// CCOWorkflow checks if the AWS STS secret is to be obtained from Cloud Credentials Operator (CCO)
-// if the user provides role ARN during installation then the ARN gets set as env var on operator deployment
-// during installation via OLM
-func CCOWorkflow() bool {
-	roleARN := os.Getenv("ROLEARN")
-	if len(roleARN) > 0 {
-		return true
-	}
-	return false
 }
 
 // GetImagePullPolicy get imagePullPolicy for a container, based on its image, if an override is not provided.
