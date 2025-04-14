@@ -31,6 +31,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.48.0
 	github.com/deckarep/golang-set/v2 v2.3.0
 	github.com/google/go-cmp v0.6.0
+	github.com/stretchr/testify v1.10.0
 	github.com/vmware-tanzu/velero v1.16.0-rc.1
 	golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1
 	k8s.io/klog/v2 v2.130.1
@@ -97,6 +98,7 @@ require (
 	github.com/mxk/go-flowrate v0.0.0-20140419014527-cca7078d478f // indirect
 	github.com/oklog/run v1.0.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
+	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/prometheus/client_golang v1.20.5 // indirect
 	github.com/prometheus/client_model v0.6.1 // indirect
 	github.com/prometheus/common v0.62.0 // indirect
