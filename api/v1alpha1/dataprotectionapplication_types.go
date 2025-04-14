@@ -433,7 +433,32 @@ type NodeAgentConfig struct {
 	// Embedding NodeAgentConfigMapSettings
 	// +optional
 	NodeAgentConfigMapSettings `json:",inline"`
+	// Embedding KopiaRepoOptions
+	// +optional
+	KopiaRepoOptions `json:",inline"`
 }
+
+type KopiaRepoOptions struct {
+	// CacheLimitMB specifies the size limit(in MB) for the local data cache
+	// +kubebuilder:validation:Minimum=0
+	// +optional
+	CacheLimitMB *int64 `json:"cacheLimitMB,omitempty"`
+	// fullMaintenanceInterval determines the time between kopia full maintenance operations.
+	// normalGC: 24 hours
+	// fastGC: 12 hours
+	// eagerGC: 6 hours
+	// +kubebuilder:validation:Enum=normalGC;fastGC;eagerGC
+	// +optional
+	FullMaintenanceInterval FullMaintenanceInterval `json:"fullMaintenanceInterval,omitempty"`
+}
+
+type FullMaintenanceInterval string
+
+const (
+	FullMaintenanceIntervalNormalGC FullMaintenanceInterval = "normalGC"
+	FullMaintenanceIntervalFastGC   FullMaintenanceInterval = "fastGC"
+	FullMaintenanceIntervalEagerGC  FullMaintenanceInterval = "eagerGC"
+)
 
 // ResticConfig is the configuration for restic server
 type ResticConfig struct {
