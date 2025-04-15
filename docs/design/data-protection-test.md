@@ -37,12 +37,15 @@ This design addresses that need by measuring:
 - Integration via DPA CR
 
 ## High-Level Design
+
+This controller and CRD will be part of OADP Operator. The controller will be part of the OADP controller manager pod, there won't be a separate pod.
+
 Components involved and their responsibilities:
 
 - **DataProtectionTest (DPT) CRD:**
     - **Spec:**
         - **backupLocationSpec:** Contains Velero-based backup storage configuration.
-        - **backupLocationRef:** Contains the Name and Namespace reference for Velero BSL
+        - **backupLocationName:** Name of Velero BSL to be used
         - **uploadSpeedTestConfig:** Test parameters for the upload (file size, test timeout).
         - **CSIVolumeSnapshotTestConfig:** Test parameters for the CSI VolumeSnapshot test (snapshot class, source PVC name and namespace for each PVC, plus snapshot timeout).
     - **Status:**
@@ -51,7 +54,8 @@ Components involved and their responsibilities:
         - **S3Vendor:** Reports the detected S3 vendor string from vendor determination. (This is only applicable for S3-compatible object storage providers)
         - **BucketMetadata:** Reports the encryptionAlgorithm used for the bucket as well as the versioningStatus.
 
-**Note:** Either `backupLocationSpec` or `backupLocationRef` will be processed for a particular DPT instance, if both are specified DPT would error out. 
+**Note:** Either `backupLocationSpec` or `backupLocationName` will be processed for a particular DPT instance, if both are specified DPT would error out. 
+
 - **DataProtectionTest Controller:**
     - Monitors DataProtectionTest CRs.
     - Extracts configuration from the backup location spec.
@@ -65,6 +69,8 @@ Components involved and their responsibilities:
     - AWS-specific implementation (S3Provider) is provided using the AWS SDK.
 - **Vendor Determination Logic:**
     - A helper function performs an HTTP HEAD call to the **s3Url** and inspects headers (especially the `Server` header) to determine the vendor (e.g., "AWS", "MinIO", etc.).
+- **Bucket Metadata Retrieval:**
+    - The DPT controller retrieves encryption and versioning configuration for the target object storage bucket using the cloud provider SDK.
 
 ## Detailed Design
 
@@ -78,9 +84,7 @@ kind: DataProtectionTest
 metadata:
   name: my-data-protection-test
 spec:
-  backupLocationRef:  # optional, either this or backupLocationSpec
-    name: aws-bsl
-    namespace: openshift-adp
+  backupLocationName: aws-bsl  # optional, either this or backupLocationSpec
   backupLocationSpec:
     provider: aws                # Cloud provider type (aws, azure, gcp)
     default: true
