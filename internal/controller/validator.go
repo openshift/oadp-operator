@@ -60,6 +60,38 @@ func (r *DataProtectionApplicationReconciler) ValidateDataProtectionCR(log logr.
 		return validVsl, err
 	}
 
+	// Ensure DPA spec.configuration.nodeAgent.PodConfig is not different from spec.configuration.nodeAgent.LoadAffinityConfig
+	// If LoadAffinityConfig is set, it will be used instead of PodConfig; however, if both are set, they must be identical.
+	if r.dpa.Spec.Configuration.NodeAgent != nil &&
+		r.dpa.Spec.Configuration.NodeAgent.PodConfig != nil &&
+		r.dpa.Spec.Configuration.NodeAgent.LoadAffinityConfig != nil {
+
+		if len(r.dpa.Spec.Configuration.NodeAgent.LoadAffinityConfig) > 1 {
+			return false, errors.New("when spec.configuration.nodeAgent.PodConfig is set, spec.configuration.nodeAgent.LoadAffinityConfig must contain no more than one entry")
+		}
+
+		// podConfig is set !
+		if len(r.dpa.Spec.Configuration.NodeAgent.LoadAffinityConfig) == 1 {
+			podConfigSelector := r.dpa.Spec.Configuration.NodeAgent.PodConfig.NodeSelector
+			affinitySelector := r.dpa.Spec.Configuration.NodeAgent.LoadAffinityConfig[0].NodeSelector
+
+			// Ensure MatchLabels is set and MatchExpressions is not used
+			if affinitySelector.MatchLabels == nil {
+				return false, errors.New("when spec.configuration.nodeAgent.PodConfig is set, spec.configuration.nodeAgent.LoadAffinityConfig must define matchLabels")
+			}
+			if affinitySelector.MatchExpressions != nil {
+				return false, errors.New("when spec.configuration.nodeAgent.PodConfig is set, spec.configuration.nodeAgent.LoadAffinityConfig must not define matchExpressions")
+			}
+
+			// Ensure all labels in PodConfig are present in LoadAffinityConfig
+			for key, valA := range podConfigSelector {
+				if valB, exists := affinitySelector.MatchLabels[key]; !exists || valA != valB {
+					return false, errors.New("when spec.configuration.nodeAgent.PodConfig is set, all labels from the spec.configuration.nodeAgent.PodConfig must be present in spec.configuration.nodeAgent.LoadAffinityConfig")
+				}
+			}
+		}
+	}
+
 	// ENSURE UPGRADES --------------------------------------------------------
 	// check for VSM/Volsync DataMover (OADP 1.2 or below) syntax
 	if r.dpa.Spec.Features != nil && r.dpa.Spec.Features.DataMover != nil {

@@ -11,6 +11,7 @@ import (
 	configv1 "github.com/openshift/api/config/v1"
 	"github.com/operator-framework/operator-lib/proxy"
 	"github.com/vmware-tanzu/velero/pkg/install"
+	"github.com/vmware-tanzu/velero/pkg/util/kube"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -105,12 +106,12 @@ func isNodeAgentEnabled(dpa *oadpv1alpha1.DataProtectionApplication) bool {
 }
 
 // isNodeAgentCMRequired checks if at least one required field is present in NodeAgentConfigMapSettings or PodConfig.
-func isNodeAgentCMRequired(config oadpv1alpha1.NodeAgentConfigMapSettings, podConfig *oadpv1alpha1.PodConfig) bool {
+func isNodeAgentCMRequired(config oadpv1alpha1.NodeAgentConfigMapSettings) bool {
 	return config.LoadConcurrency != nil ||
 		len(config.BackupPVCConfig) > 0 ||
 		config.RestorePVCConfig != nil ||
 		config.PodResources != nil ||
-		(podConfig != nil && len(podConfig.NodeSelector) > 0)
+		config.LoadAffinityConfig != nil
 }
 
 // updateNodeAgentCM handles the creation or update of the NodeAgent ConfigMap with all required data.
@@ -121,28 +122,9 @@ func (r *DataProtectionApplicationReconciler) updateNodeAgentCM(cm *corev1.Confi
 	}
 
 	// Convert NodeAgentConfigMapSettings to a generic map
-	configNodeAgent := make(map[string]interface{})
 	configNodeAgentJSON, err := json.Marshal(r.dpa.Spec.Configuration.NodeAgent.NodeAgentConfigMapSettings)
 	if err != nil {
 		return fmt.Errorf("failed to serialize node agent config: %w", err)
-	}
-	// We need to unmarshal, so we can override the nodeSelector with the values from the DPA CR's PodConfig
-	if err := json.Unmarshal(configNodeAgentJSON, &configNodeAgent); err != nil {
-		return fmt.Errorf("failed to unmarshal node agent config: %w", err)
-	}
-
-	// Dump entire PodConfig.NodeSelector under "loadAffinity" if present
-	if r.dpa.Spec.Configuration.NodeAgent.PodConfig != nil && len(r.dpa.Spec.Configuration.NodeAgent.PodConfig.NodeSelector) > 0 {
-		configNodeAgent["loadAffinity"] = []map[string]interface{}{
-			{
-				"nodeSelector": r.dpa.Spec.Configuration.NodeAgent.PodConfig.NodeSelector,
-			},
-		}
-	}
-
-	configNodeAgentWithNodeSelector, err := json.Marshal(configNodeAgent)
-	if err != nil {
-		return fmt.Errorf("failed to serialize node agent config with nodeSelector: %w", err)
 	}
 
 	cm.Name = common.NodeAgentConfigMapPrefix + r.dpa.Name
@@ -157,7 +139,7 @@ func (r *DataProtectionApplicationReconciler) updateNodeAgentCM(cm *corev1.Confi
 	if cm.Data == nil {
 		cm.Data = make(map[string]string)
 	}
-	cm.Data["node-agent-config"] = string(configNodeAgentWithNodeSelector)
+	cm.Data["node-agent-config"] = string(configNodeAgentJSON)
 
 	return nil
 }
@@ -173,7 +155,7 @@ func (r *DataProtectionApplicationReconciler) ReconcileNodeAgentConfigMap(log lo
 		},
 	}
 
-	if !isNodeAgentEnabled(dpa) || !isNodeAgentCMRequired(dpa.Spec.Configuration.NodeAgent.NodeAgentConfigMapSettings, dpa.Spec.Configuration.NodeAgent.PodConfig) {
+	if !isNodeAgentEnabled(dpa) || !isNodeAgentCMRequired(dpa.Spec.Configuration.NodeAgent.NodeAgentConfigMapSettings) {
 		err := r.Get(r.Context, cmName, &configMap)
 		if err != nil && !errors.IsNotFound(err) {
 			return false, err
@@ -265,6 +247,15 @@ func (r *DataProtectionApplicationReconciler) ReconcileNodeAgentDaemonset(log lo
 		}
 		if err := controllerutil.SetControllerReference(dpa, ds, r.Scheme); err != nil {
 			return err
+		}
+		if dpa.Spec.Configuration.NodeAgent.NodeAgentConfigMapSettings.LoadAffinityConfig != nil {
+			veleroAffinityStruct := make([]*kube.LoadAffinity, len(dpa.Spec.Configuration.NodeAgent.NodeAgentConfigMapSettings.LoadAffinityConfig))
+
+			for i, aff := range dpa.Spec.Configuration.NodeAgent.NodeAgentConfigMapSettings.LoadAffinityConfig {
+				veleroAffinityStruct[i] = (*kube.LoadAffinity)(aff)
+			}
+			affinity := kube.ToSystemAffinity(veleroAffinityStruct)
+			ds.Spec.Template.Spec.Affinity = affinity
 		}
 		return nil
 	})
@@ -470,6 +461,7 @@ func (r *DataProtectionApplicationReconciler) customizeNodeAgentDaemonset(ds *ap
 	if dpa.Spec.Configuration.NodeAgent.PodConfig != nil {
 		ds.Spec.Template.Spec.Tolerations = dpa.Spec.Configuration.NodeAgent.PodConfig.Tolerations
 		if len(dpa.Spec.Configuration.NodeAgent.PodConfig.NodeSelector) != 0 {
+
 			ds.Spec.Template.Spec.NodeSelector = dpa.Spec.Configuration.NodeAgent.PodConfig.NodeSelector
 		}
 		// add custom pod labels
