@@ -21,11 +21,12 @@ This design enhances flexibility by allowing Affinity and Anti-Affinity settings
 - Guarantee that DataMover pods are scheduled on the same nodes as NodeAgent pods.
 - Ensure backward compatibility with existing configurations.
 - Ensure user experience is not degraded by the changes by providing Reconcile warnings and errors when the existing node selector configurations are used and may cause issues with the new Affinity and Anti-Affinity settings.
+- Extend current Velero specific `spec.configuration.velero.podConfig` with the `spec.configuration.velero.loadAffinity` DPA CRD. The current nodeSelector from the `spec.configuration.velero.podConfig` will be kept as is.
+  The new `spec.configuration.velero.loadAffinity` setting will be used to configure the Velero pod affinity settings and applied to the `veleroDeployment.Spec.Template.Spec.Affinity`.
 
 ## Non Goals
 - Removing or deprecating existing node selector configurations.
-- Use advanced Affinity settings that are not specified in teh Veleros' loadAffinity CRD such as `requiredDuringSchedulingIgnoredDuringExecution` and `preferredDuringSchedulingIgnoredDuringExecution`.
-- Extend current Velero specific `spec.configuration.velero.podConfig` with the `spec.configuration.velero.loadAffinity` DPA CRD. The current nodeSelector from the `spec.configuration.velero.podConfig` will be used to schedule the Velero pod.
+- Use advanced Affinity settings that are not specified in the Veleros' loadAffinity CRD such as `requiredDuringSchedulingIgnoredDuringExecution` and `preferredDuringSchedulingIgnoredDuringExecution`.
 
 ## High-Level Design
 The proposed change introduces a unified nodeSelector structure for all relevant components within the DPA custom resource.
@@ -229,7 +230,10 @@ The `spec.configuration.velero.loadAffinity` section will be used to schedule th
 The use of `spec.configuration.velero.loadAffinity` will **NOT** be validated against the `spec.configuration.velero.podConfig.nodeSelector` field. This is not required restriction, because the `spec.configuration.velero.loadAffinity` is not used only to schedule the Velero pod and no dependent workloads are scheduled using the **ConfigMap** mechanism.
 
 ### Velero `spec.configuration.velero.loadAffinity` field
-The `spec.configuration.velero.loadAffinity` will be added to the DPA CRD.
+The `spec.configuration.velero.loadAffinity` field will be added to the DPA CRD to allow configuring affinity and anti-affinity settings for the Velero pod. This configuration will be applied to `veleroDeployment.Spec.Template.Spec.Affinity`.
+
+Velero pod scheduling can also be influenced by the `spec.configuration.velero.podConfig.nodeSelector` field. When both fields are used, the Velero pod will be scheduled according to standard OpenShift behavior, which supports combined use of **affinity** and **nodeSelector** to control Velero pod placement.
+
 The updated schema will be as follows:
 
 ```yaml
