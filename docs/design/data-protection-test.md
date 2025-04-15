@@ -7,7 +7,7 @@ This design introduces the **DataProtectionTest** (DPT) CRD and its controller t
 1. **Upload Speed Test:** Measures the speed at which test data is uploaded to cloud object storage using configuration from a BackupStorageLocation.
 2. **CSI VolumeSnapshot Test:** Creates a VolumeSnapshot(s) from a specified PVC source(s) and measures the time taken (as a duration) for the snapshot(s) to become ready.
 
-Additionally, the design includes a mechanism to determine the S3-compatible vendor.
+Additionally, the design includes a mechanism to determine the S3-compatible vendor. DPT will also report object storage bucket metadata, such as encryption algorithm and versioning status
 
 ## Background
 
@@ -24,7 +24,8 @@ This design addresses that need by measuring:
 - Upload data and compute the speed in Mbps.
 - Create a CSI VolumeSnapshot(s) and measure the time taken for it to become ready (reported as a duration).
 - Identify the S3-compatible vendor using an HTTP call that inspects response headers.
-- Expose all results—including upload speed, snapshot ready duration, and S3 vendor—in the CRD status.
+- Gather information on object storage bucket metadata like versioning and encryption.
+- Expose all results—including upload speed, snapshot ready duration, bucket metadata and S3 vendor—in the CRD status.
 - Must gather will be updated to gather the DPT CR(s) for insights.
 
 
@@ -40,13 +41,17 @@ Components involved and their responsibilities:
 
 - **DataProtectionTest (DPT) CRD:**
     - **Spec:**
-        - **backupLocation:** Contains Velero-based backup storage configuration.
+        - **backupLocationSpec:** Contains Velero-based backup storage configuration.
+        - **backupLocationRef:** Contains the Name and Namespace reference for Velero BSL
         - **uploadSpeedTestConfig:** Test parameters for the upload (file size, test timeout).
         - **CSIVolumeSnapshotTestConfig:** Test parameters for the CSI VolumeSnapshot test (snapshot class, source PVC name and namespace for each PVC, plus snapshot timeout).
     - **Status:**
-        - **UploadTestStatus:** Groups upload speed (in Mbps), success flag, and error messages.
+        - **UploadTestStatus:** Groups upload speed (in Mbps), duration of time taken to upload data,  success flag, and error messages.
         - **SnapshotTestStatus:** Groups the snapshot test results, reporting status and the duration taken for the snapshot(s) to be ready.
-        - **S3Vendor:** Reports the detected S3 vendor string from vendor determination.
+        - **S3Vendor:** Reports the detected S3 vendor string from vendor determination. (This is only applicable for S3-compatible object storage providers)
+        - **BucketMetadata:** Reports the encryptionAlgorithm used for the bucket as well as the versioningStatus.
+
+**Note:** Either `backupLocationSpec` or `backupLocationRef` will be processed for a particular DPT instance, if both are specified DPT would error out. 
 - **DataProtectionTest Controller:**
     - Monitors DataProtectionTest CRs.
     - Extracts configuration from the backup location spec.
@@ -56,6 +61,7 @@ Components involved and their responsibilities:
     - Updates the CRD status with grouped results.
 - **CloudProvider Interface:**
     - Defines an `UploadTest(ctx, config, bucket, fileSizeMB) (int64, error)` function.
+    - Defines a `GetBucketMetadata(ctx context.Context, bucket string) (*v1alpha1.BucketMetadata, error)` function.
     - AWS-specific implementation (S3Provider) is provided using the AWS SDK.
 - **Vendor Determination Logic:**
     - A helper function performs an HTTP HEAD call to the **s3Url** and inspects headers (especially the `Server` header) to determine the vendor (e.g., "AWS", "MinIO", etc.).
@@ -72,7 +78,10 @@ kind: DataProtectionTest
 metadata:
   name: my-data-protection-test
 spec:
-  backupLocation:
+  backupLocationRef:  # optional, either this or backupLocationSpec
+    name: aws-bsl
+    namespace: openshift-adp
+  backupLocationSpec:
     provider: aws                # Cloud provider type (aws, azure, gcp)
     default: true
     objectStorage:
@@ -102,8 +111,12 @@ spec:
       timeout: "60s"
 status:
   lastTested: "2024-10-08T10:00:00Z"
+  bucketMetadata:
+    encryptionAlgorithm: AES256
+    versioningStatus: Enabled
   uploadTest:
     speedMbps: 55.3
+    duration: 4.1s
     success: true
     errorMessage: ""
   snapshotTests:
@@ -126,8 +139,11 @@ package cloudprovider
 
 // CloudProvider defines the interface for cloud-based upload tests.
 type CloudProvider interface {
-    // UploadTest performs a test upload and returns the speed in Mbps or error.
-    UploadTest(ctx context.Context, config v1alpha1.UploadSpeedTestConfig, bucket string, fileSizeMB int) (int64, error)
+	// UploadTest performs a test upload and returns the speed in Mbps or error.
+	UploadTest(ctx context.Context, config v1alpha1.UploadSpeedTestConfig, bucket string, fileSizeMB int) (int64, error)
+
+	// GetBucketMetadata Fetches the object storage bucket metadata like encryptionAlgorithm and versioning status
+	GetBucketMetadata(ctx context.Context, bucket string) (*v1alpha1.BucketMetadata, error)
 }
 
 ```
@@ -164,11 +180,21 @@ func (r *DataProtectionTestReconciler) initializeProvider(dpt *oadpv1alpha1.Data
 func (r *DataProtectionTestReconciler) runUploadTest(ctx context.Context, dpt *oadpv1alpha1.DataProtectionTest, cp cloudprovider.CloudProvider) error {
     // Parse the data size (e.g., "100MB" -> 100)
     // Upload to the target bucket defined in the BackupLocation
-    // Success: update speed on status
+    // Success: update speed and duration on status
 }
 
 ```
-5. Execute the CSI VolumeSnapshot Test: Create a CSI VolumeSnapshot(s) for a specified PVC(s) and measure the time taken for it to be ready.
+5. Fetch the object storage bucket metadata.
+```go
+// getBucketMetadata fetches the object storage bucket metadata
+func (r *DataProtectionTestReconciler) getBucketMetadata(ctx context.Context, dpt *oadpv1alpha1.DataProtectionTest, cp cloudprovider.CloudProvider) error {
+    // Get the bucket metadata
+	// Success: update status to add encryptionAlgorithm and versioning status
+}
+
+```
+
+6.Execute the CSI VolumeSnapshot Test: Create a CSI VolumeSnapshot(s) for a specified PVC(s) and measure the time taken for it to be ready.
 ```go
 // runSnapshotTest creates a CSI VolumeSnapshot(s) from a PVC(s) and measures the time until it's ReadyToUse.
 func (r *DataProtectionTestReconciler) runSnapshotTest(ctx context.Context, dpt *oadpv1alpha1.DataProtectionTest) error {
@@ -190,15 +216,16 @@ flowchart TD
   B --> C[Determine S3 Vendor via inspecting HTTP request<br/>If s3Compatible is true]
   C --> D[Initialize Cloud Provider from BSL config]
   D --> E[Check if uploadSpeedTestConfig is present]
-  E -->|Yes| F[Run Upload Speed Test<br/>Upload dummy file, measure speed]
+  E -->|Yes| F[Run Upload Speed Test<br/>Upload test data, measure speed]
+  F --> FF[Get Bucket Metadata like versioning status and encryption algorithm used] 
   E -->|No| G[Skip Upload Test]
-  F --> H
+  FF --> H
   G --> H
   H[Check for CSI VolumeSnapshot Test config] -->|Yes| I[Create VolumeSnapshot<br/>Poll until ReadyToUse]
   H -->|No| J[Skip Snapshot Test]
   I --> K[Calculate readyDuration]
   J --> K
-  K --> L[Update DPT Status<br/>Set uploadSpeed, snapshot ready duration, vendor, lastTested]
+  K --> L[Update DPT Status<br/>Set uploadSpeed, snapshot ready duration, vendor, bucket metadata, lastTested]
   L --> M[End Reconciliation]
 
 ```
