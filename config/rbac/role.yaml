@@ -95,6 +95,7 @@ rules:
   - '*'
   - cloudstorages
   - dataprotectionapplications
+  - dataprotectiontests
   verbs:
   - create
   - delete
@@ -108,6 +109,7 @@ rules:
   resources:
   - cloudstorages/finalizers
   - dataprotectionapplications/finalizers
+  - dataprotectiontests/finalizers
   verbs:
   - update
 - apiGroups:
@@ -115,6 +117,7 @@ rules:
   resources:
   - cloudstorages/status
   - dataprotectionapplications/status
+  - dataprotectiontests/status
   verbs:
   - get
   - patch
