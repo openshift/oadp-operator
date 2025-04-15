@@ -1073,6 +1073,32 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 			errorMessage:     "invalid log level infotypo, use: trace, debug, info, warning, error, fatal, or panic",
 		},
 		{
+			name: "valid DPA CR with BackupRepository config, Velero Deployment is built with BackupRepository configmap arg",
+			dpa: createTestDpaWith(
+				nil,
+				oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{},
+						NodeAgent: &oadpv1alpha1.NodeAgentConfig{
+							KopiaRepoOptions: oadpv1alpha1.KopiaRepoOptions{
+								CacheLimitMB:            ptr.To(int64(4096)),
+								FullMaintenanceInterval: "fastGC",
+							},
+						},
+					},
+				},
+			),
+			veleroDeployment: testVeleroDeployment.DeepCopy(),
+			wantVeleroDeployment: createTestBuiltVeleroDeployment(TestBuiltVeleroDeploymentOptions{
+				args: []string{
+					defaultFileSystemBackupTimeout,
+					defaultRestoreResourcePriorities,
+					defaultDisableInformerCache,
+					"--backup-repository-configmap=backup-repository-test-DPA-CR",
+				},
+			}),
+		},
+		{
 			name: "valid DPA CR with ResourceTimeout, Velero Deployment is built with ResourceTimeout arg",
 			dpa: createTestDpaWith(
 				nil,
