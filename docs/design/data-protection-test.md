@@ -4,7 +4,7 @@
 
 This design introduces the **DataProtectionTest** (DPT) CRD and its controller to evaluate data protection performance—including backup upload and volume snapshot readiness—in an OpenShift cluster. It supports two tests:
 
-1. **Upload Speed Test:** Measures the speed at which a test data is uploaded to cloud object storage using configuration from a BackupStorageLocation.
+1. **Upload Speed Test:** Measures the speed at which test data is uploaded to cloud object storage using configuration from a BackupStorageLocation.
 2. **CSI VolumeSnapshot Test:** Creates a VolumeSnapshot(s) from a specified PVC source(s) and measures the time taken (as a duration) for the snapshot(s) to become ready.
 
 Additionally, the design includes a mechanism to determine the S3-compatible vendor.
@@ -25,7 +25,7 @@ This design addresses that need by measuring:
 - Create a CSI VolumeSnapshot(s) and measure the time taken for it to become ready (reported as a duration).
 - Identify the S3-compatible vendor using an HTTP call that inspects response headers.
 - Expose all results—including upload speed, snapshot ready duration, and S3 vendor—in the CRD status.
-- Must gather will be updated th gather the DPT CR(s) for insights.
+- Must gather will be updated to gather the DPT CR(s) for insights.
 
 
 ## Non-Goals
@@ -42,10 +42,10 @@ Components involved and their responsibilities:
     - **Spec:**
         - **backupLocation:** Contains Velero-based backup storage configuration.
         - **uploadSpeedTestConfig:** Test parameters for the upload (file size, test timeout).
-        - **CSIVolumeSnapshotTestConfig:** Test parameters for the CSI VolumeSnapshot test (snapshot class, source PVC name, and importantly the PVC namespace, plus snapshot timeout).
+        - **CSIVolumeSnapshotTestConfig:** Test parameters for the CSI VolumeSnapshot test (snapshot class, source PVC name and namespace for each PVC, plus snapshot timeout).
     - **Status:**
         - **UploadTestStatus:** Groups upload speed (in Mbps), success flag, and error messages.
-        - **SnapshotTestStatus:** Groups the snapshot test results, reporting status and the duration taken for the snapshot to be ready.
+        - **SnapshotTestStatus:** Groups the snapshot test results, reporting status and the duration taken for the snapshot(s) to be ready.
         - **S3Vendor:** Reports the detected S3 vendor string from vendor determination.
 - **DataProtectionTest Controller:**
     - Monitors DataProtectionTest CRs.
