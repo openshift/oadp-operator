@@ -1110,6 +1110,37 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 			}),
 		},
 		{
+			name: "valid DPA CR with RepositoryMaintenance, Velero Deployment is built with RepositoryMaintenance arg",
+			dpa: createTestDpaWith(
+				nil,
+				oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{},
+						RepositoryMaintenance: map[string]oadpv1alpha1.RepositoryMaintenanceConfig{
+							"global": {
+								LoadAffinityConfig: []*oadpv1alpha1.LoadAffinity{
+									{
+										NodeSelector: metav1.LabelSelector{
+											MatchLabels: map[string]string{"app.kubernetes.io/name": "test-dpa"},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			),
+			veleroDeployment: testVeleroDeployment.DeepCopy(),
+			wantVeleroDeployment: createTestBuiltVeleroDeployment(TestBuiltVeleroDeploymentOptions{
+				args: []string{
+					defaultFileSystemBackupTimeout,
+					defaultRestoreResourcePriorities,
+					defaultDisableInformerCache,
+					"--repo-maintenance-job-configmap=repository-maintenance-test-DPA-CR",
+				},
+			}),
+		},
+		{
 			name: "valid DPA CR with ResourceTimeout, Velero Deployment is built with ResourceTimeout arg",
 			dpa: createTestDpaWith(
 				nil,

@@ -490,6 +490,16 @@ type ResticConfig struct {
 	NodeAgentCommonFields `json:",inline"`
 }
 
+type RepositoryMaintenanceConfig struct {
+	// LoadAffinity is the config for data path load affinity.
+	// +optional
+	LoadAffinityConfig []*LoadAffinity `json:"loadAffinity,omitempty"`
+
+	// PodResources is the config for the CPU and memory resources setting.
+	// +optional
+	PodResources *kube.PodResources `json:"podResources,omitempty"`
+}
+
 // ApplicationConfig defines the configuration for the Data Protection Application
 type ApplicationConfig struct {
 	Velero *VeleroConfig `json:"velero,omitempty"`
@@ -501,6 +511,15 @@ type ApplicationConfig struct {
 	// NodeAgent is needed to allow selection between kopia or restic
 	// +optional
 	NodeAgent *NodeAgentConfig `json:"nodeAgent,omitempty"`
+
+	// RepositoryMaintenance maps a BackupRepository identifier to its configuration.
+	// Keys can be:
+	//  - "global" : Applies to all repositories without specific config.
+	//  - "<namespace>" : The namespace of the BackupRepository.
+	//  - "<repository name>" : The specific BackupRepository name referencing the BSL.
+	//  - "<repository type>" : Either "kopia" or "restic".
+	// +optional
+	RepositoryMaintenance map[string]RepositoryMaintenanceConfig `json:"repositoryMaintenance,omitempty"`
 }
 
 // CloudStorageLocation defines BackupStorageLocation using bucket referenced by CloudStorage CR.
