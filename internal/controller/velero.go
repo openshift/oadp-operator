@@ -396,6 +396,16 @@ func (r *DataProtectionApplicationReconciler) customizeVeleroDeployment(veleroDe
 		}
 	}
 
+	// check for repository-maintenance-config parameter
+	if isRepositoryMaintenanceCmRequired(dpa.Spec.Configuration) {
+		// Add the --repo-maintenance-job-configmap parameter with the name
+		// of the repository-maintenance-config ConfigMap
+		cmName := r.GetRepositoryMaintenanceConfigMapName()
+		if cmName.Name != "" {
+			veleroContainer.Args = append(veleroContainer.Args, fmt.Sprintf("--repo-maintenance-job-configmap=%s", cmName.Name))
+		}
+	}
+
 	// Set defaults to avoid update events
 	if veleroDeployment.Spec.Strategy.Type == "" {
 		veleroDeployment.Spec.Strategy.Type = appsv1.RollingUpdateDeploymentStrategyType
