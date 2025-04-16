@@ -18,12 +18,20 @@ package controller
 
 import (
 	"context"
+
 	"fmt"
+
 	"github.com/go-logr/logr"
+	"github.com/openshift/oadp-operator/pkg/cloudprovider"
+	"github.com/openshift/oadp-operator/pkg/utils"
+
+	"net/http"
+
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
-	"net/http"
+
 	"strings"
 	"time"
 
@@ -38,10 +46,12 @@ import (
 // DataProtectionTestReconciler reconciles a DataProtectionTest object
 type DataProtectionTestReconciler struct {
 	client.Client
-	Scheme        *runtime.Scheme
-	Log           logr.Logger
-	Context       context.Context
-	EventRecorder record.EventRecorder
+	Scheme         *runtime.Scheme
+	Log            logr.Logger
+	Context        context.Context
+	EventRecorder  record.EventRecorder
+	NamespacedName types.NamespacedName
+	dpt            *oadpv1alpha1.DataProtectionTest
 }
 
 //+kubebuilder:rbac:groups=oadp.openshift.io,resources=dataprotectiontests,verbs=get;list;watch;create;update;patch;delete
@@ -51,9 +61,12 @@ type DataProtectionTestReconciler struct {
 func (r *DataProtectionTestReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	r.Log = log.FromContext(ctx)
 	logger := r.Log.WithValues("dpt", req.NamespacedName)
+	r.NamespacedName = req.NamespacedName
+	r.Context = ctx
+	
+	r.dpt = &oadpv1alpha1.DataProtectionTest{}
 
-	var dpt oadpv1alpha1.DataProtectionTest
-	if err := r.Get(ctx, req.NamespacedName, &dpt); err != nil {
+	if err := r.Get(ctx, req.NamespacedName, r.dpt); err != nil {
 		if apierrors.IsNotFound(err) {
 			logger.Info("DPT not found; skipping")
 			return ctrl.Result{}, nil
@@ -61,31 +74,38 @@ func (r *DataProtectionTestReconciler) Reconcile(ctx context.Context, req ctrl.R
 		return ctrl.Result{}, err
 	}
 
-	logger.Info(fmt.Sprintf("DPT found, DPT name is: %v", dpt.Name))
+	logger.Info(fmt.Sprintf("DPT found, DPT name is: %v", r.dpt.Name))
+
+	if r.dpt.Status.Phase == "Complete" {
+		logger.Info("DPT already completed; skipping reprocessing")
+		return ctrl.Result{}, nil
+	}	
 
 	// Determine S3-compatible vendor if applicable
-	if dpt.Spec.BackupLocationSpec != nil && dpt.Spec.BackupLocationSpec.Provider == AWSProvider {
-		if err := r.determineVendor(ctx, &dpt); err != nil {
+	if r.dpt.Spec.BackupLocationSpec != nil && r.dpt.Spec.BackupLocationSpec.Provider == AWSProvider {
+		if err := r.determineVendor(ctx, r.dpt); err != nil {
 			logger.Error(err, "failed to determine S3 vendor")
 		}
 	}
-	//
-	//// 2. Initialize provider (e.g., S3)
-	//var cp cloudprovider.CloudProvider
-	//var err error
-	//if dpt.Spec.UploadSpeedTestConfig != nil {
-	//	cp, err = r.initializeProvider(&dpt)
-	//	if err != nil {
-	//		log.Error(err, "failed to initialize provider")
-	//	}
-	//}
-	//
-	//// 3. Run Upload Test
-	//if cp != nil && dpt.Spec.UploadSpeedTestConfig != nil {
-	//	if err := r.runUploadTest(ctx, &dpt, cp); err != nil {
-	//		log.Error(err, "upload test failed")
-	//	}
-	//}
+
+	// Initialize cloud provider
+	var cp cloudprovider.CloudProvider
+	if r.dpt.Spec.UploadSpeedTestConfig != nil {
+		var err error
+		cp, err = r.initializeProvider(r.dpt)
+		if err != nil {
+			logger.Error(err, "failed to initialize provider")
+			return ctrl.Result{}, err
+		}
+	}
+
+	// Run Upload Test
+	if cp != nil && r.dpt.Spec.UploadSpeedTestConfig != nil {
+		if err := r.runUploadTest(r.Context, r.dpt, cp); err != nil {
+			logger.Error(err, "upload test failed")
+			return ctrl.Result{}, err
+		}
+	}
 	//
 	//// 4. Run Snapshot Test(s)
 	//if len(dpt.Spec.CSIVolumeSnapshotTestConfigs) > 0 {
@@ -95,8 +115,9 @@ func (r *DataProtectionTestReconciler) Reconcile(ctx context.Context, req ctrl.R
 	//}
 	//
 	// Update status
-	dpt.Status.LastTested = metav1.NewTime(time.Now())
-	if err := r.Status().Update(ctx, &dpt); err != nil {
+	r.dpt.Status.LastTested = metav1.NewTime(time.Now())
+	r.dpt.Status.Phase = "Complete"
+	if err := r.Status().Update(ctx, r.dpt); err != nil {
 		logger.Error(err, "failed to update DPT status")
 		return ctrl.Result{}, err
 	}
@@ -146,3 +167,76 @@ func (r *DataProtectionTestReconciler) determineVendor(ctx context.Context, dpt 
 	r.Log.Info("Detected S3 vendor", "vendor", dpt.Status.S3Vendor)
 	return nil
 }
+
+// initializeProvider reads the BackupLocationSpec from the DPT CR,
+// retrieves the associated credentials from a Secret, and returns an initialized
+// CloudProvider
+func (r *DataProtectionTestReconciler) initializeProvider(
+	dpt *oadpv1alpha1.DataProtectionTest,
+) (cloudprovider.CloudProvider, error) {
+
+	providerName := strings.ToLower(dpt.Spec.BackupLocationSpec.Provider)
+	cfg := dpt.Spec.BackupLocationSpec.Config
+	cred := dpt.Spec.BackupLocationSpec.Credential
+	s3Url := cfg["s3Url"]
+	region := cfg["region"]
+	switch providerName {
+	case AWSProvider:
+		secret, err := utils.GetProviderSecret(cred.Name, r.NamespacedName.Namespace, r.Client, r.Context, r.Log)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get AWS secret: %w", err)
+		}
+
+		//TODO need to parse profile
+		accessKey, secretKey, err := utils.ParseAWSSecret(secret, cred.Key, "default", r.Log)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse AWS secret: %w", err)
+		}
+
+		return cloudprovider.NewAWSProvider(region, s3Url, accessKey, secretKey, r.Log), nil
+	case GCPProvider:
+		return nil, fmt.Errorf("GCP provider support not implemented yet")
+	case AzureProvider:
+		return nil, fmt.Errorf("azure provider support not implemented yet")
+
+	default:
+		return nil, fmt.Errorf("unsupported cloud provider: %s", providerName)
+	}
+}
+
+// runUploadTest performs an upload speed test using the provided CloudProvider implementation.
+// It uploads test data of the specified size to the configured bucket and measures speed and duration.
+// The results are written into the DataProtectionTest's UploadTestStatus field.
+func (r *DataProtectionTestReconciler) runUploadTest(
+	ctx context.Context,
+	dpt *oadpv1alpha1.DataProtectionTest,
+	cp cloudprovider.CloudProvider,
+) error {
+	cfg := dpt.Spec.UploadSpeedTestConfig
+	bucket := dpt.Spec.BackupLocationSpec.ObjectStorage.Bucket
+
+	if cfg == nil {
+		return fmt.Errorf("uploadSpeedTestConfig is nil")
+	}
+	if bucket == "" {
+		return fmt.Errorf("bucket name is empty")
+	}
+	
+	speed, duration, err := cp.UploadTest(ctx, *cfg, bucket)
+
+	dpt.Status.UploadTest = oadpv1alpha1.UploadTestStatus{
+		Duration: duration.Truncate(time.Millisecond).String(),
+		Success:  err == nil,
+	}
+
+	if err != nil {
+		dpt.Status.UploadTest.ErrorMessage = err.Error()
+		dpt.Status.UploadTest.SpeedMbps = 0
+		return err
+	}
+
+	dpt.Status.UploadTest.SpeedMbps = speed
+
+	return nil
+}
+
