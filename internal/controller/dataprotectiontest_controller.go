@@ -261,15 +261,16 @@ func (r *DataProtectionTestReconciler) initializeProvider(backupLocationSpec *ve
 // The results are written into the DataProtectionTest's UploadTestStatus field.
 func (r *DataProtectionTestReconciler) runUploadTest(ctx context.Context, dpt *oadpv1alpha1.DataProtectionTest, backupLocationSpec *velerov1.BackupStorageLocationSpec, cp cloudprovider.CloudProvider) error {
 	cfg := dpt.Spec.UploadSpeedTestConfig
-	bucket := backupLocationSpec.ObjectStorage.Bucket
 
 	if cfg == nil {
 		return fmt.Errorf("uploadSpeedTestConfig is nil")
 	}
-	if bucket == "" {
-		return fmt.Errorf("bucket name is empty")
+
+	if backupLocationSpec.ObjectStorage == nil || backupLocationSpec.ObjectStorage.Bucket == "" {
+		return fmt.Errorf("bucket name is empty or objectStorage not configured")
 	}
 
+	bucket := backupLocationSpec.ObjectStorage.Bucket
 	speed, duration, err := cp.UploadTest(ctx, *cfg, bucket)
 
 	dpt.Status.UploadTest = oadpv1alpha1.UploadTestStatus{
