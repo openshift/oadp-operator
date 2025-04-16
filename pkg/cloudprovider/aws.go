@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/go-logr/logr"
 	"github.com/openshift/oadp-operator/pkg/utils"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -23,8 +22,7 @@ type AWSProvider struct {
 }
 
 // NewAWSProvider creates an AWSProvider using region, endpoint, and credentials.
-func NewAWSProvider(region, endpoint, accessKey, secretKey string, log logr.Logger) *AWSProvider {
-	log.Info("Inside NewAWSProvider...")
+func NewAWSProvider(region, endpoint, accessKey, secretKey string) *AWSProvider {
 	awsConfig := &aws.Config{
 		Region:      aws.String(region),
 		Credentials: credentials.NewStaticCredentials(accessKey, secretKey, ""),
@@ -38,7 +36,6 @@ func NewAWSProvider(region, endpoint, accessKey, secretKey string, log logr.Logg
 
 	sess := session.Must(session.NewSession(awsConfig))
 	s3Client := s3.New(sess)
-	log.Info("Returning from NewAWSProvider...")
 	return &AWSProvider{
 		s3Client: s3Client,
 	}
