@@ -55,10 +55,8 @@ func (a *AWSProvider) UploadTest(ctx context.Context, config oadpv1alpha1.Upload
 
 
 	timeoutDuration := 30 * time.Second
-	if config.TestTimeout != "" {
-		if d, err := time.ParseDuration(config.TestTimeout); err == nil {
-			timeoutDuration = d
-		}
+	if config.Timeout.Duration != 0 {
+		timeoutDuration = config.Timeout.Duration
 	}
 
 	payload := bytes.Repeat([]byte("0"), int(testDataBytes))

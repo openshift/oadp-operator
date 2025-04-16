@@ -78,7 +78,7 @@ func (r *DataProtectionTestReconciler) Reconcile(ctx context.Context, req ctrl.R
 	logger.Info(fmt.Sprintf("DPT found, DPT name is: %v", r.dpt.Name))
 
 	// Short-circuit if already completed
-	if r.dpt.Status.Phase == "Complete" {
+	if r.dpt.Status.Phase == "Complete" && !r.dpt.Spec.ForceRun {
 		logger.Info("DPT already completed; skipping reprocessing")
 		return ctrl.Result{}, nil
 	}	
@@ -91,7 +91,7 @@ func (r *DataProtectionTestReconciler) Reconcile(ctx context.Context, req ctrl.R
 	}
 
 	// Determine S3-compatible vendor (if applicable)
-	if r.dpt.Spec.BackupLocationSpec != nil && r.dpt.Spec.BackupLocationSpec.Provider == AWSProvider {
+	if resolvedBackupLocationSpec != nil && resolvedBackupLocationSpec.Provider == AWSProvider {
 		if err := r.determineVendor(ctx, r.dpt, resolvedBackupLocationSpec); err != nil {
 			logger.Error(err, "failed to determine S3 vendor")
 		}
@@ -141,6 +141,16 @@ func (r *DataProtectionTestReconciler) Reconcile(ctx context.Context, req ctrl.R
 		return ctrl.Result{}, err
 	}
 
+	if r.dpt.Spec.ForceRun {
+		original := r.dpt.DeepCopy()
+		r.dpt.Spec.ForceRun = false
+	
+		if err := r.Patch(ctx, r.dpt, client.MergeFrom(original)); err != nil {
+			logger.Error(err, "failed to reset forceRun field")
+		}
+	}
+	
+
 	return ctrl.Result{}, nil
 }
 
@@ -156,9 +166,19 @@ func (r *DataProtectionTestReconciler) SetupWithManager(mgr ctrl.Manager) error 
 // only applicable for aws provider BSL objects
 func (r *DataProtectionTestReconciler) determineVendor(ctx context.Context, dpt *oadpv1alpha1.DataProtectionTest, backupLocationSpec *velerov1.BackupStorageLocationSpec) error {
 	s3Url := backupLocationSpec.Config["s3Url"]
+	
+	if s3Url == "" && strings.EqualFold(backupLocationSpec.Provider, AWSProvider) {
+		region := backupLocationSpec.Config[Region]
+		if region == "" {
+			region = "us-east-1" // default region
+		}
+		s3Url = fmt.Sprintf("https://s3.%s.amazonaws.com", region)
+	}
+
 	if s3Url == "" {
 		return nil
 	}
+	
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodHead, s3Url, nil)
 	if err != nil {
@@ -195,14 +215,14 @@ func (r *DataProtectionTestReconciler) initializeProvider(dpt *oadpv1alpha1.Data
 	providerName := strings.ToLower(backupLocationSpec.Provider)
 	cfg := backupLocationSpec.Config
 	cred := backupLocationSpec.Credential
-	s3Url := cfg["s3Url"]
-	region := cfg["region"]
+	s3Url := cfg[S3URL]
+	region := cfg[Region]
 
 	// Ignore s3Url if it's aws-native
 	if strings.Contains(s3Url, "amazonaws.com") {
 		s3Url = ""
 	}
-	
+
 	switch providerName {
 	case AWSProvider:
 		secret, err := utils.GetProviderSecret(cred.Name, r.NamespacedName.Namespace, r.Client, r.Context, r.Log)
