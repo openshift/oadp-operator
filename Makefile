@@ -4,7 +4,7 @@ DEFAULT_VERSION := 1.5.4
 VERSION ?= $(DEFAULT_VERSION)
 OPERATOR_SDK_VERSION ?= v1.34.2
 ENVTEST_K8S_VERSION = 1.32 #refers to the version of kubebuilder assets to be downloaded by envtest binary # Kubernetes version from OpenShift 4.19.x
-GOLANGCI_LINT_VERSION ?= v1.55.2
+GOLANGCI_LINT_VERSION ?= v1.64.8
 KUSTOMIZE_VERSION ?= v5.2.1
 CONTROLLER_TOOLS_VERSION ?= v0.16.5
 OPM_VERSION ?= v1.23.0
@@ -193,11 +193,17 @@ test: check-go vet envtest ## Run unit tests; run Go linters checks; check if ap
 	@make bundle-isupdated
 	@make check-go-dependencies
 
+# Lint CLI needs to be built from the same toolchain version
 GOLANGCI_LINT = $(LOCALBIN)/$(BRANCH_VERSION)/golangci-lint
 .PHONY: golangci-lint
 golangci-lint: $(GOLANGCI_LINT) ## Download golangci-lint locally if necessary.
 $(GOLANGCI_LINT): $(LOCALBIN)
-	$(call go-install-tool-branch,$(GOLANGCI_LINT),github.com/golangci/golangci-lint/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION))
+	@if [ -f $(GOLANGCI_LINT) ] && $(GOLANGCI_LINT) --version | grep -q $(GOLANGCI_LINT_VERSION); then \
+		echo "golangci-lint $(GOLANGCI_LINT_VERSION) is already installed"; \
+	else \
+		echo "Installing golangci-lint $(GOLANGCI_LINT_VERSION)"; \
+		$(call go-install-tool-branch,$(GOLANGCI_LINT),github.com/golangci/golangci-lint/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)); \
+	fi
 	@if [ -L "$(LOCALBIN)/golangci-lint" ]; then \
 		unlink "$(LOCALBIN)/golangci-lint"; \
 	fi
