@@ -181,6 +181,10 @@ spec:
                     description: encryptionAlgorithm reports the encryption method
                       (AES256, aws:kms, or "None").
                     type: string
+                  errorMessage:
+                    description: errorMessage contains details of any failure to fetch
+                      bucket metadata.
+                    type: string
                   versioningStatus:
                     description: versioningStatus indicates whether bucket versioning
                       is Enabled, Suspended, or None.

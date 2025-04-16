@@ -115,6 +115,16 @@ func (r *DataProtectionTestReconciler) Reconcile(ctx context.Context, req ctrl.R
 			return ctrl.Result{}, err
 		}
 	}
+
+	// Fetch Bucket Metadata
+	if cp != nil {
+		meta, err := cp.GetBucketMetadata(ctx, resolvedBackupLocationSpec.ObjectStorage.Bucket)
+		if err != nil {
+			logger.Error(err, "bucket metadata collection failed")
+		}
+		r.dpt.Status.BucketMetadata = meta
+	}
+	
 	//
 	//// 4. Run Snapshot Test(s)
 	//if len(dpt.Spec.CSIVolumeSnapshotTestConfigs) > 0 {
@@ -187,6 +197,12 @@ func (r *DataProtectionTestReconciler) initializeProvider(dpt *oadpv1alpha1.Data
 	cred := backupLocationSpec.Credential
 	s3Url := cfg["s3Url"]
 	region := cfg["region"]
+
+	// Ignore s3Url if it's aws-native
+	if strings.Contains(s3Url, "amazonaws.com") {
+		s3Url = ""
+	}
+	
 	switch providerName {
 	case AWSProvider:
 		secret, err := utils.GetProviderSecret(cred.Name, r.NamespacedName.Namespace, r.Client, r.Context, r.Log)
