@@ -7,18 +7,17 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // Replace carriage returns in secret data
-func ReplaceCarriageReturn(data map[string][]byte, log logr.Logger) map[string][]byte {
+func ReplaceCarriageReturn(data map[string][]byte) map[string][]byte {
 	if data == nil {
 		return data
 	}
-	
+
 	for k, v := range data {
 		if strings.Contains(string(v), "\r\n") {
 			data[k] = []byte(strings.ReplaceAll(string(v), "\r\n", "\n"))
@@ -29,7 +28,7 @@ func ReplaceCarriageReturn(data map[string][]byte, log logr.Logger) map[string][
 }
 
 // Fetch a provider credential secret
-func GetProviderSecret(secretName, namespace string, k8sClient client.Client, ctx context.Context, log logr.Logger) (corev1.Secret, error) {
+func GetProviderSecret(secretName, namespace string, k8sClient client.Client, ctx context.Context) (corev1.Secret, error) {
 
 	secret := corev1.Secret{}
 	key := types.NamespacedName{
@@ -39,7 +38,6 @@ func GetProviderSecret(secretName, namespace string, k8sClient client.Client, ct
 
 	err := k8sClient.Get(ctx, key, &secret)
 	if err != nil {
-		log.Error(err, "failed to get secret from cluster")
 		return secret, err
 	}
 
@@ -47,13 +45,12 @@ func GetProviderSecret(secretName, namespace string, k8sClient client.Client, ct
 		return secret, fmt.Errorf("secret %s has no data", secretName)
 	}
 
-	secret.Data = ReplaceCarriageReturn(secret.Data, log)
+	secret.Data = ReplaceCarriageReturn(secret.Data)
 	return secret, nil
 }
 
-
 // Parse AWS credential content from secret
-func ParseAWSSecret(secret corev1.Secret, secretKey, matchProfile string, log logr.Logger) (string, string, error) {
+func ParseAWSSecret(secret corev1.Secret, secretKey, matchProfile string) (string, string, error) {
 	AWSAccessKey, AWSSecretKey := "", ""
 	profile := ""
 	lines := strings.Split(string(secret.Data[secretKey]), "\n")
@@ -100,12 +97,16 @@ func ParseAWSSecret(secret corev1.Secret, secretKey, matchProfile string, log lo
 	return AWSAccessKey, AWSSecretKey, nil
 }
 
-// Extract value to the right of = sign
-func getMatchedKeyValue(key, line string) (string, error) {
-	line = strings.ReplaceAll(line, " ", "")
-	parts := strings.Split(line, "=")
-	if len(parts) != 2 {
-		return "", fmt.Errorf("invalid credential line: %s", line)
+// Return value to the right of = sign with quotations and spaces removed.
+func getMatchedKeyValue(key string, s string) (string, error) {
+	for _, removeChar := range []string{"\"", "'", " "} {
+		s = strings.ReplaceAll(s, removeChar, "")
 	}
-	return strings.Trim(parts[1], `"'`), nil
+	for _, prefix := range []string{key, "="} {
+		s = strings.TrimPrefix(s, prefix)
+	}
+	if len(s) == 0 {
+		return s, errors.New("secret parsing error in key " + key)
+	}
+	return s, nil
 }
