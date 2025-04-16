@@ -101,6 +101,10 @@ type DataProtectionTestStatus struct {
 	// snapshotTests contains results for each snapshot tested PVC.
 	// +optional
 	SnapshotTests []SnapshotTestStatus `json:"snapshotTests,omitempty"`
+
+	// phase indicates phase of the DataProtectionTest - Complete, Failed
+	// +optional
+	Phase      string      `json:"phase,omitempty"` 
 }
 
 // UploadTestStatus holds the results of the upload test.

@@ -190,6 +190,10 @@ spec:
                 description: lastTested is the timestamp when the test was last run.
                 format: date-time
                 type: string
+              phase:
+                description: phase indicates phase of the DataProtectionTest - Complete,
+                  Failed
+                type: string
               s3Vendor:
                 description: s3Vendor indicates the detected s3 vendor name from the
                   storage endpoint if applicable (e.g., AWS, MinIO).
