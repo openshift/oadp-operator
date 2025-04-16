@@ -187,8 +187,15 @@ func (r *DataProtectionTestReconciler) initializeProvider(
 			return nil, fmt.Errorf("failed to get AWS secret: %w", err)
 		}
 
-		//TODO need to parse profile
-		accessKey, secretKey, err := utils.ParseAWSSecret(secret, cred.Key, "default", r.Log)
+		AWSProfile := "default"
+		// Get AWS profile if specified
+		if dpt.Spec.BackupLocationSpec.Config != nil {
+			if value, exists := dpt.Spec.BackupLocationSpec.Config[Profile]; exists {
+				AWSProfile = value
+			}
+		}
+
+		accessKey, secretKey, err := utils.ParseAWSSecret(secret, cred.Key, AWSProfile, r.Log)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse AWS secret: %w", err)
 		}
