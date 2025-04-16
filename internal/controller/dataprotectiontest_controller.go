@@ -41,6 +41,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
+	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 )
 
 // DataProtectionTestReconciler reconciles a DataProtectionTest object
@@ -76,14 +77,22 @@ func (r *DataProtectionTestReconciler) Reconcile(ctx context.Context, req ctrl.R
 
 	logger.Info(fmt.Sprintf("DPT found, DPT name is: %v", r.dpt.Name))
 
+	// Short-circuit if already completed
 	if r.dpt.Status.Phase == "Complete" {
 		logger.Info("DPT already completed; skipping reprocessing")
 		return ctrl.Result{}, nil
 	}	
 
-	// Determine S3-compatible vendor if applicable
+	// Resolve the backup location from spec or by fetching BSL
+	resolvedBackupLocationSpec, err := r.resolveBackupLocation(r.Context, r.dpt)
+	if err != nil {
+		logger.Error(err, "failed to resolve backup location spec")
+		return ctrl.Result{}, err
+	}
+
+	// Determine S3-compatible vendor (if applicable)
 	if r.dpt.Spec.BackupLocationSpec != nil && r.dpt.Spec.BackupLocationSpec.Provider == AWSProvider {
-		if err := r.determineVendor(ctx, r.dpt); err != nil {
+		if err := r.determineVendor(ctx, r.dpt, resolvedBackupLocationSpec); err != nil {
 			logger.Error(err, "failed to determine S3 vendor")
 		}
 	}
@@ -92,7 +101,7 @@ func (r *DataProtectionTestReconciler) Reconcile(ctx context.Context, req ctrl.R
 	var cp cloudprovider.CloudProvider
 	if r.dpt.Spec.UploadSpeedTestConfig != nil {
 		var err error
-		cp, err = r.initializeProvider(r.dpt)
+		cp, err = r.initializeProvider(r.dpt, resolvedBackupLocationSpec)
 		if err != nil {
 			logger.Error(err, "failed to initialize provider")
 			return ctrl.Result{}, err
@@ -101,7 +110,7 @@ func (r *DataProtectionTestReconciler) Reconcile(ctx context.Context, req ctrl.R
 
 	// Run Upload Test
 	if cp != nil && r.dpt.Spec.UploadSpeedTestConfig != nil {
-		if err := r.runUploadTest(r.Context, r.dpt, cp); err != nil {
+		if err := r.runUploadTest(r.Context, r.dpt, resolvedBackupLocationSpec,cp); err != nil {
 			logger.Error(err, "upload test failed")
 			return ctrl.Result{}, err
 		}
@@ -135,8 +144,8 @@ func (r *DataProtectionTestReconciler) SetupWithManager(mgr ctrl.Manager) error 
 // determineVendor sends a HEAD request to the provided s3Url in the BackupLocationSpec config,
 // extracts the Server header, and sets the detected vendor (e.g., AWS, MinIO, Ceph) in the DPT status.
 // only applicable for aws provider BSL objects
-func (r *DataProtectionTestReconciler) determineVendor(ctx context.Context, dpt *oadpv1alpha1.DataProtectionTest) error {
-	s3Url := dpt.Spec.BackupLocationSpec.Config["s3Url"]
+func (r *DataProtectionTestReconciler) determineVendor(ctx context.Context, dpt *oadpv1alpha1.DataProtectionTest, backupLocationSpec *velerov1.BackupStorageLocationSpec) error {
+	s3Url := backupLocationSpec.Config["s3Url"]
 	if s3Url == "" {
 		return nil
 	}
@@ -171,13 +180,11 @@ func (r *DataProtectionTestReconciler) determineVendor(ctx context.Context, dpt 
 // initializeProvider reads the BackupLocationSpec from the DPT CR,
 // retrieves the associated credentials from a Secret, and returns an initialized
 // CloudProvider
-func (r *DataProtectionTestReconciler) initializeProvider(
-	dpt *oadpv1alpha1.DataProtectionTest,
-) (cloudprovider.CloudProvider, error) {
+func (r *DataProtectionTestReconciler) initializeProvider(dpt *oadpv1alpha1.DataProtectionTest, backupLocationSpec *velerov1.BackupStorageLocationSpec) (cloudprovider.CloudProvider, error) {
 
-	providerName := strings.ToLower(dpt.Spec.BackupLocationSpec.Provider)
-	cfg := dpt.Spec.BackupLocationSpec.Config
-	cred := dpt.Spec.BackupLocationSpec.Credential
+	providerName := strings.ToLower(backupLocationSpec.Provider)
+	cfg := backupLocationSpec.Config
+	cred := backupLocationSpec.Credential
 	s3Url := cfg["s3Url"]
 	region := cfg["region"]
 	switch providerName {
@@ -188,9 +195,8 @@ func (r *DataProtectionTestReconciler) initializeProvider(
 		}
 
 		AWSProfile := "default"
-		// Get AWS profile if specified
-		if dpt.Spec.BackupLocationSpec.Config != nil {
-			if value, exists := dpt.Spec.BackupLocationSpec.Config[Profile]; exists {
+		if backupLocationSpec.Config != nil {
+			if value, exists := backupLocationSpec.Config[Profile]; exists {
 				AWSProfile = value
 			}
 		}
@@ -200,7 +206,7 @@ func (r *DataProtectionTestReconciler) initializeProvider(
 			return nil, fmt.Errorf("failed to parse AWS secret: %w", err)
 		}
 
-		return cloudprovider.NewAWSProvider(region, s3Url, accessKey, secretKey, r.Log), nil
+		return cloudprovider.NewAWSProvider(region, s3Url, accessKey, secretKey), nil
 	case GCPProvider:
 		return nil, fmt.Errorf("GCP provider support not implemented yet")
 	case AzureProvider:
@@ -214,13 +220,9 @@ func (r *DataProtectionTestReconciler) initializeProvider(
 // runUploadTest performs an upload speed test using the provided CloudProvider implementation.
 // It uploads test data of the specified size to the configured bucket and measures speed and duration.
 // The results are written into the DataProtectionTest's UploadTestStatus field.
-func (r *DataProtectionTestReconciler) runUploadTest(
-	ctx context.Context,
-	dpt *oadpv1alpha1.DataProtectionTest,
-	cp cloudprovider.CloudProvider,
-) error {
+func (r *DataProtectionTestReconciler) runUploadTest(ctx context.Context, dpt *oadpv1alpha1.DataProtectionTest, backupLocationSpec *velerov1.BackupStorageLocationSpec,cp cloudprovider.CloudProvider) error {
 	cfg := dpt.Spec.UploadSpeedTestConfig
-	bucket := dpt.Spec.BackupLocationSpec.ObjectStorage.Bucket
+	bucket := backupLocationSpec.ObjectStorage.Bucket
 
 	if cfg == nil {
 		return fmt.Errorf("uploadSpeedTestConfig is nil")
@@ -245,5 +247,39 @@ func (r *DataProtectionTestReconciler) runUploadTest(
 	dpt.Status.UploadTest.SpeedMbps = speed
 
 	return nil
+}
+
+// resolveBackupLocation resolves the effective BackupStorageLocationSpec to use,
+// either inline from the DPT CR or by fetching a named BSL from the cluster.
+func (r *DataProtectionTestReconciler) resolveBackupLocation(
+	ctx context.Context,
+	dpt *oadpv1alpha1.DataProtectionTest,
+) (*velerov1.BackupStorageLocationSpec, error) {
+
+	if dpt.Spec.BackupLocationSpec != nil && dpt.Spec.BackupLocationName != "" {
+		return nil, fmt.Errorf("both backupLocationSpec and backupLocationName cannot be set")
+	}
+
+	if dpt.Spec.BackupLocationSpec == nil && dpt.Spec.BackupLocationName == "" {
+		return nil, fmt.Errorf("one of backupLocationSpec or backupLocationName must be set")
+	}
+
+	// Return user-specified inline config
+	if dpt.Spec.BackupLocationSpec != nil {
+		return dpt.Spec.BackupLocationSpec, nil
+	}
+
+	// Otherwise fetch BSL and return its spec
+	bsl := &velerov1.BackupStorageLocation{}
+	key := types.NamespacedName{
+		Name:      dpt.Spec.BackupLocationName,
+		Namespace: dpt.Namespace,
+	}
+
+	if err := r.Get(ctx, key, bsl); err != nil {
+		return nil, fmt.Errorf("failed to get BackupStorageLocation %q: %w", key.Name, err)
+	}
+
+	return &bsl.Spec, nil
 }
 

@@ -42,7 +42,7 @@ spec:
           spec:
             description: DataProtectionTestSpec defines the desired tests to perform.
             properties:
-              backupLocationRef:
+              backupLocationName:
                 description: backupLocationName specifies the name the Velero BackupStorageLocation
                   (BSL) to test against.
                 type: string

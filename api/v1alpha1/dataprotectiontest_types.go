@@ -28,7 +28,7 @@ import (
 type DataProtectionTestSpec struct {
 	// backupLocationName specifies the name the Velero BackupStorageLocation (BSL) to test against.
 	// +optional
-	BackupLocationName string `json:"backupLocationRef,omitempty"`
+	BackupLocationName string `json:"backupLocationName,omitempty"`
 
 	// backupLocationSpec is an inline copy of the BSL spec to use during testing.
 	// +optional
