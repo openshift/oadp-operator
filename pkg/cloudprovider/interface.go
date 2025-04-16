@@ -13,5 +13,5 @@ type CloudProvider interface {
 	UploadTest(ctx context.Context, config oadpv1alpha1.UploadSpeedTestConfig, bucket string) (int64, time.Duration, error)
 
 	//// GetBucketMetadata retrieves the encryption and versioning config for a bucket
-	//GetBucketMetadata(ctx context.Context, bucket string) (*oadpv1alpha1.BucketMetadata, error)
+	GetBucketMetadata(ctx context.Context, bucket string) (*oadpv1alpha1.BucketMetadata, error)
 }

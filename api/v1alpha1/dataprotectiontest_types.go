@@ -158,6 +158,10 @@ type BucketMetadata struct {
 	// versioningStatus indicates whether bucket versioning is Enabled, Suspended, or None.
 	// +optional
 	VersioningStatus string `json:"versioningStatus,omitempty"`
+
+	// errorMessage contains details of any failure to fetch bucket metadata.
+	// +optional
+	ErrorMessage string `json:"errorMessage,omitempty"`
 }
 
 //+kubebuilder:object:root=true

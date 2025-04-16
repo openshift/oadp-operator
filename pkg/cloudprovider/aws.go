@@ -9,6 +9,7 @@ import (
 	"github.com/openshift/oadp-operator/pkg/utils"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
@@ -85,4 +86,45 @@ func (a *AWSProvider) UploadTest(ctx context.Context, config oadpv1alpha1.Upload
 	speedmbps := (float64(testDataBytes*8) / duration.Seconds()) / 1_000_000
 
 	return int64(speedmbps), duration, nil
+}
+
+func (a *AWSProvider) GetBucketMetadata(ctx context.Context, bucket string) (*oadpv1alpha1.BucketMetadata, error) {
+	result := &oadpv1alpha1.BucketMetadata{}
+
+	verOut, err := a.s3Client.GetBucketVersioningWithContext(ctx, &s3.GetBucketVersioningInput{
+		Bucket: aws.String(bucket),
+	})
+	if err != nil {
+		result.ErrorMessage = fmt.Sprintf("failed to fetch versioning status: %v", err)
+		return result, err
+	}
+	if verOut.Status != nil {
+		result.VersioningStatus = *verOut.Status
+	} else {
+		result.VersioningStatus = "None"
+	}
+
+	encOut, err := a.s3Client.GetBucketEncryptionWithContext(ctx, &s3.GetBucketEncryptionInput{
+		Bucket: aws.String(bucket),
+	})
+	if err != nil {
+		// Handle cases where encryption is not enabled
+		if aerr, ok := err.(awserr.Error); ok && aerr.Code() == "ServerSideEncryptionConfigurationNotFoundError" {
+			result.EncryptionAlgorithm = "None"
+		} else {
+			result.ErrorMessage = fmt.Sprintf("failed to fetch encryption config: %v", err)
+			return result, err
+		}
+	} else if len(encOut.ServerSideEncryptionConfiguration.Rules) > 0 {
+		rule := encOut.ServerSideEncryptionConfiguration.Rules[0]
+		if rule.ApplyServerSideEncryptionByDefault != nil {
+			result.EncryptionAlgorithm = *rule.ApplyServerSideEncryptionByDefault.SSEAlgorithm
+		} else {
+			result.EncryptionAlgorithm = "Unknown"
+		}
+	} else {
+		result.EncryptionAlgorithm = "None"
+	}
+
+	return result, nil
 }
