@@ -109,7 +109,7 @@ type DataProtectionTestStatus struct {
 
 	// phase indicates phase of the DataProtectionTest - Complete, Failed
 	// +optional
-	Phase      string      `json:"phase,omitempty"` 
+	Phase string `json:"phase,omitempty"`
 }
 
 // UploadTestStatus holds the results of the upload test.

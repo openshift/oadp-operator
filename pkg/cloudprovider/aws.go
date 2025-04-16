@@ -6,14 +6,14 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/openshift/oadp-operator/pkg/utils"
-
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
+
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
+	"github.com/openshift/oadp-operator/pkg/utils"
 )
 
 const maxTestSizeBytes = 200 * 1024 * 1024
@@ -48,11 +48,9 @@ func (a *AWSProvider) UploadTest(ctx context.Context, config oadpv1alpha1.Upload
 		return 0, 0, fmt.Errorf("invalid file size: %w", err)
 	}
 
-
 	if testDataBytes > maxTestSizeBytes {
 		return 0, 0, fmt.Errorf("test file size %d exceeds max allowed size %dMB (pod mem: 512Mi)", testDataBytes, maxTestSizeBytes/1024/1024)
 	}
-
 
 	timeoutDuration := 30 * time.Second
 	if config.Timeout.Duration != 0 {
@@ -60,7 +58,6 @@ func (a *AWSProvider) UploadTest(ctx context.Context, config oadpv1alpha1.Upload
 	}
 
 	payload := bytes.Repeat([]byte("0"), int(testDataBytes))
-
 
 	key := fmt.Sprintf("dpt-upload-test-%d", time.Now().UnixNano())
 
