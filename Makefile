@@ -559,6 +559,7 @@ VELERO_INSTANCE_NAME ?= velero-test
 ARTIFACT_DIR ?= /tmp
 HCO_UPSTREAM ?= false
 TEST_VIRT ?= false
+TEST_HCP ?= false
 TEST_UPGRADE ?= false
 TEST_FILTER = (($(shell echo '! aws && ! gcp && ! azure && ! ibmcloud' | \
 $(SED) -r "s/[&]* [!] $(CLUSTER_TYPE)|[!] $(CLUSTER_TYPE) [&]*//")) || $(CLUSTER_TYPE))
@@ -572,6 +573,11 @@ ifeq ($(TEST_UPGRADE),true)
 	TEST_FILTER += && (upgrade)
 else
 	TEST_FILTER += && (! upgrade)
+endif
+ifeq ($(TEST_HCP),true)
+	TEST_FILTER += && (hcp)
+else
+	TEST_FILTER += && (! hcp)
 endif
 
 .PHONY: test-e2e
