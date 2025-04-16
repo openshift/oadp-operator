@@ -140,7 +140,7 @@ spec:
                       type: string
                     timeout:
                       description: timeout specifies how long to wait for the snapshot
-                        to become ready.
+                        to become ready, e.g., "60s"
                       type: string
                     volumeSnapshotSource:
                       description: volumeSnapshotSource defines the PVC to snapshot.
@@ -156,6 +156,10 @@ spec:
                       type: object
                   type: object
                 type: array
+              forceRun:
+                default: false
+                description: forceRun will re-trigger the DPT even if it already completed
+                type: boolean
               uploadSpeedTestConfig:
                 description: uploadSpeedTestConfig specifies parameters for an object
                   storage upload speed test.
@@ -163,9 +167,9 @@ spec:
                   fileSize:
                     description: fileSize is the size of data to upload, e.g., "100MB".
                     type: string
-                  testTimeout:
-                    description: testTimeout defines the maximum duration for the
-                      upload test, e.g., "60s".
+                  timeout:
+                    description: timeout defines the maximum duration for the upload
+                      test, e.g., "60s".
                     type: string
                 type: object
             type: object

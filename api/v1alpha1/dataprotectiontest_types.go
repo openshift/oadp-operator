@@ -41,6 +41,11 @@ type DataProtectionTestSpec struct {
 	// csiVolumeSnapshotTestConfigs defines one or more CSI VolumeSnapshot tests to perform.
 	// +optional
 	CSIVolumeSnapshotTestConfigs []CSIVolumeSnapshotTestConfig `json:"csiVolumeSnapshotTestConfigs,omitempty"`
+
+	// forceRun will re-trigger the DPT even if it already completed
+	// +kubebuilder:default=false
+	// +optional
+	ForceRun bool `json:"forceRun,omitempty"`
 }
 
 // UploadSpeedTestConfig contains configuration for testing object storage upload performance.
@@ -49,9 +54,9 @@ type UploadSpeedTestConfig struct {
 	// +optional
 	FileSize string `json:"fileSize,omitempty"`
 
-	// testTimeout defines the maximum duration for the upload test, e.g., "60s".
+	// timeout defines the maximum duration for the upload test, e.g., "60s".
 	// +optional
-	TestTimeout string `json:"testTimeout,omitempty"`
+	Timeout metav1.Duration `json:"timeout,omitempty"`
 }
 
 // CSIVolumeSnapshotTestConfig contains config for performing a CSI VolumeSnapshot test.
@@ -60,9 +65,9 @@ type CSIVolumeSnapshotTestConfig struct {
 	// +optional
 	SnapshotClassName string `json:"snapshotClassName,omitempty"`
 
-	// timeout specifies how long to wait for the snapshot to become ready.
+	// timeout specifies how long to wait for the snapshot to become ready, e.g., "60s"
 	// +optional
-	Timeout string `json:"timeout,omitempty"`
+	Timeout metav1.Duration `json:"timeout,omitempty"`
 
 	// volumeSnapshotSource defines the PVC to snapshot.
 	// +optional
