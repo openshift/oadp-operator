@@ -370,6 +370,7 @@ type TestBuiltVeleroDeploymentOptions struct {
 	resourceRequests corev1.ResourceList
 	toleration       []corev1.Toleration
 	nodeSelector     map[string]string
+	loadAffinity     []corev1.NodeSelectorTerm
 }
 
 func createTestBuiltVeleroDeployment(options TestBuiltVeleroDeploymentOptions) *appsv1.Deployment {
@@ -479,6 +480,16 @@ func createTestBuiltVeleroDeployment(options TestBuiltVeleroDeploymentOptions) *
 
 	if len(options.nodeSelector) > 0 {
 		testBuiltVeleroDeployment.Spec.Template.Spec.NodeSelector = options.nodeSelector
+	}
+
+	if options.loadAffinity != nil {
+		testBuiltVeleroDeployment.Spec.Template.Spec.Affinity = &corev1.Affinity{
+			NodeAffinity: &corev1.NodeAffinity{
+				RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
+					NodeSelectorTerms: options.loadAffinity,
+				},
+			},
+		}
 	}
 
 	if options.metricsPort != 0 {
@@ -1403,6 +1414,176 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 			veleroDeployment: testVeleroDeployment.DeepCopy(),
 			wantVeleroDeployment: createTestBuiltVeleroDeployment(TestBuiltVeleroDeploymentOptions{
 				nodeSelector: map[string]string{"foo": "bar"},
+				args: []string{
+					defaultFileSystemBackupTimeout,
+					defaultRestoreResourcePriorities,
+					defaultDisableInformerCache,
+				},
+			}),
+		},
+		{
+			name: "valid DPA CR with Velero nodeselector and loadAffinity, Velero Deployment is built with nodeselector and loadAffinity",
+			dpa: createTestDpaWith(
+				nil,
+				oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							PodConfig: &oadpv1alpha1.PodConfig{
+								NodeSelector: map[string]string{"foo": "bar"},
+							},
+							LoadAffinityConfig: []*oadpv1alpha1.LoadAffinity{
+								{
+									NodeSelector: metav1.LabelSelector{
+										MatchLabels: map[string]string{"foos": "bars"},
+									},
+								},
+							},
+						},
+					},
+				},
+			),
+			veleroDeployment: testVeleroDeployment.DeepCopy(),
+			wantVeleroDeployment: createTestBuiltVeleroDeployment(TestBuiltVeleroDeploymentOptions{
+				nodeSelector: map[string]string{"foo": "bar"},
+				loadAffinity: []corev1.NodeSelectorTerm{
+					{
+						MatchExpressions: []corev1.NodeSelectorRequirement{
+							{
+								Key:      "foos",
+								Operator: corev1.NodeSelectorOpIn,
+								Values:   []string{"bars"},
+							},
+						},
+					},
+				},
+				args: []string{
+					defaultFileSystemBackupTimeout,
+					defaultRestoreResourcePriorities,
+					defaultDisableInformerCache,
+				},
+			}),
+		},
+		{
+			name: "valid DPA CR with Velero loadAffinity, Velero Deployment is built with loadAffinity",
+			dpa: createTestDpaWith(
+				nil,
+				oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							LoadAffinityConfig: []*oadpv1alpha1.LoadAffinity{
+								{
+									NodeSelector: metav1.LabelSelector{
+										MatchLabels: map[string]string{"foos": "bars"},
+									},
+								},
+							},
+						},
+					},
+				},
+			),
+			veleroDeployment: testVeleroDeployment.DeepCopy(),
+			wantVeleroDeployment: createTestBuiltVeleroDeployment(TestBuiltVeleroDeploymentOptions{
+				loadAffinity: []corev1.NodeSelectorTerm{
+					{
+						MatchExpressions: []corev1.NodeSelectorRequirement{
+							{
+								Key:      "foos",
+								Operator: corev1.NodeSelectorOpIn,
+								Values:   []string{"bars"},
+							},
+						},
+					},
+				},
+				args: []string{
+					defaultFileSystemBackupTimeout,
+					defaultRestoreResourcePriorities,
+					defaultDisableInformerCache,
+				},
+			}),
+		},
+		{
+			name: "valid DPA CR with complex Velero loadAffinity, Velero Deployment is built with loadAffinity",
+			dpa: createTestDpaWith(
+				nil,
+				oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							LoadAffinityConfig: []*oadpv1alpha1.LoadAffinity{
+								{
+									NodeSelector: metav1.LabelSelector{
+										MatchLabels: map[string]string{
+											"zone": "east",
+										},
+										MatchExpressions: []metav1.LabelSelectorRequirement{
+											{
+												Key:      "disk-type",
+												Operator: metav1.LabelSelectorOpIn,
+												Values:   []string{"ssd", "nvme"},
+											},
+											{
+												Key:      "gpu",
+												Operator: metav1.LabelSelectorOpDoesNotExist,
+											},
+										},
+									},
+								},
+								{
+									NodeSelector: metav1.LabelSelector{
+										MatchExpressions: []metav1.LabelSelectorRequirement{
+											{
+												Key:      "instance-type",
+												Operator: metav1.LabelSelectorOpIn,
+												Values:   []string{"m5.large", "m5.xlarge"},
+											},
+											{
+												Key:      "environment",
+												Operator: metav1.LabelSelectorOpNotIn,
+												Values:   []string{"dev"},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			),
+			veleroDeployment: testVeleroDeployment.DeepCopy(),
+			wantVeleroDeployment: createTestBuiltVeleroDeployment(TestBuiltVeleroDeploymentOptions{
+				loadAffinity: []corev1.NodeSelectorTerm{
+					{
+						MatchExpressions: []corev1.NodeSelectorRequirement{
+							{
+								Key:      "zone",
+								Operator: corev1.NodeSelectorOpIn,
+								Values:   []string{"east"},
+							},
+							{
+								Key:      "disk-type",
+								Operator: corev1.NodeSelectorOpIn,
+								Values:   []string{"ssd", "nvme"},
+							},
+							{
+								Key:      "gpu",
+								Operator: corev1.NodeSelectorOpDoesNotExist,
+							},
+						},
+					},
+					{
+						MatchExpressions: []corev1.NodeSelectorRequirement{
+							{
+								Key:      "instance-type",
+								Operator: corev1.NodeSelectorOpIn,
+								Values:   []string{"m5.large", "m5.xlarge"},
+							},
+							{
+								Key:      "environment",
+								Operator: corev1.NodeSelectorOpNotIn,
+								Values:   []string{"dev"},
+							},
+						},
+					},
+				},
 				args: []string{
 					defaultFileSystemBackupTimeout,
 					defaultRestoreResourcePriorities,

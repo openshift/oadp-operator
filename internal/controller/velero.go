@@ -13,6 +13,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/vmware-tanzu/velero/pkg/install"
 	"github.com/vmware-tanzu/velero/pkg/util/boolptr"
+	"github.com/vmware-tanzu/velero/pkg/util/kube"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -253,6 +254,17 @@ func (r *DataProtectionApplicationReconciler) customizeVeleroDeployment(veleroDe
 			veleroDeployment.Spec.Template.Spec.NodeSelector = dpa.Spec.Configuration.Velero.PodConfig.NodeSelector
 		}
 	}
+
+	if dpa.Spec.Configuration.Velero.LoadAffinityConfig != nil {
+		veleroAffinityStruct := make([]*kube.LoadAffinity, len(dpa.Spec.Configuration.Velero.LoadAffinityConfig))
+
+		for i, aff := range dpa.Spec.Configuration.Velero.LoadAffinityConfig {
+			veleroAffinityStruct[i] = (*kube.LoadAffinity)(aff)
+		}
+		affinity := kube.ToSystemAffinity(veleroAffinityStruct)
+		veleroDeployment.Spec.Template.Spec.Affinity = affinity
+	}
+
 	veleroDeployment.Spec.Template.Spec.Volumes = append(veleroDeployment.Spec.Template.Spec.Volumes,
 		corev1.Volume{
 			Name: "certs",
