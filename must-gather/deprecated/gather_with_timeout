@@ -1,0 +1,4 @@
+#!/bin/bash
+echo "This script is deprecated, use /usr/bin/gather instead"
+echo "timeout: $1"
+/usr/bin/gather --request-timeout=$1
