@@ -145,7 +145,7 @@ GO_TOOLCHAIN_VERSION := $(shell grep -E "^toolchain" go.mod | awk '{print $$2}')
 
 # Lint CLI needs to be built from the same toolchain version
 GOLANGCI_LINT = $(shell pwd)/bin/golangci-lint
-GOLANGCI_LINT_VERSION ?= v1.64.8
+GOLANGCI_LINT_VERSION ?= v2.1.2
 .PHONY: golangci-lint $(GOLANGCI_LINT)
 golangci-lint: $(GOLANGCI_LINT) ## Download golangci-lint locally if necessary.
 $(GOLANGCI_LINT): $(LOCALBIN)
@@ -153,7 +153,7 @@ $(GOLANGCI_LINT): $(LOCALBIN)
 		echo "golangci-lint $(GOLANGCI_LINT_VERSION) is already installed"; \
 	else \
 		echo "Installing golangci-lint $(GOLANGCI_LINT_VERSION)"; \
-		$(call go-install-tool,$(GOLANGCI_LINT),github.com/golangci/golangci-lint/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)); \
+		$(call go-install-tool,$(GOLANGCI_LINT),github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)); \
 	fi
 
 .PHONY: lint
