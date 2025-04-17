@@ -19,12 +19,13 @@ package controller
 import (
 	"context"
 	"fmt"
-	snapshotv1api "github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
 
+	"github.com/go-logr/logr"
+	snapshotv1api "github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1"
 	"github.com/stretchr/testify/require"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -45,11 +46,11 @@ type mockProvider struct {
 	metaErr  error
 }
 
-func (m *mockProvider) UploadTest(ctx context.Context, config oadpv1alpha1.UploadSpeedTestConfig, bucket string) (int64, time.Duration, error) {
+func (m *mockProvider) UploadTest(ctx context.Context, config oadpv1alpha1.UploadSpeedTestConfig, bucket string, log logr.Logger) (int64, time.Duration, error) {
 	return m.speed, m.duration, m.err
 }
 
-func (m *mockProvider) GetBucketMetadata(ctx context.Context, bucket string) (*oadpv1alpha1.BucketMetadata, error) {
+func (m *mockProvider) GetBucketMetadata(ctx context.Context, bucket string, log logr.Logger) (*oadpv1alpha1.BucketMetadata, error) {
 	return m.metadata, m.metaErr
 }
 
@@ -475,8 +476,9 @@ func TestGetBucketMetadataIntegration(t *testing.T) {
 					},
 				},
 			}
+			r := &DataProtectionTestReconciler{}
 
-			meta, err := tt.mockProvider.GetBucketMetadata(context.TODO(), bslSpec.ObjectStorage.Bucket)
+			meta, err := tt.mockProvider.GetBucketMetadata(context.TODO(), bslSpec.ObjectStorage.Bucket, r.Log)
 
 			if err != nil {
 				meta = &oadpv1alpha1.BucketMetadata{

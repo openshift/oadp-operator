@@ -22,9 +22,9 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	snapshotv1api "github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1"
 	"os"
 
+	snapshotv1api "github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1"
 	configv1 "github.com/openshift/api/config/v1"
 	routev1 "github.com/openshift/api/route/v1"
 	security "github.com/openshift/api/security/v1"
