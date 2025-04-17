@@ -31,6 +31,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.48.0
 	github.com/deckarep/golang-set/v2 v2.3.0
 	github.com/google/go-cmp v0.6.0
+	github.com/kubernetes-csi/external-snapshotter/client/v6 v6.3.0
 	github.com/stretchr/testify v1.10.0
 	github.com/vmware-tanzu/velero v1.14.0
 	golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1

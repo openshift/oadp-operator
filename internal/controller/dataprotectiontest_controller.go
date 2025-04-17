@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -34,7 +35,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
+	snapshotv1api "github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
+
 	"github.com/openshift/oadp-operator/pkg/cloudprovider"
 	"github.com/openshift/oadp-operator/pkg/utils"
 )
@@ -42,12 +45,13 @@ import (
 // DataProtectionTestReconciler reconciles a DataProtectionTest object
 type DataProtectionTestReconciler struct {
 	client.Client
-	Scheme         *runtime.Scheme
-	Log            logr.Logger
-	Context        context.Context
-	EventRecorder  record.EventRecorder
-	NamespacedName types.NamespacedName
-	dpt            *oadpv1alpha1.DataProtectionTest
+	Scheme            *runtime.Scheme
+	Log               logr.Logger
+	Context           context.Context
+	EventRecorder     record.EventRecorder
+	NamespacedName    types.NamespacedName
+	dpt               *oadpv1alpha1.DataProtectionTest
+	ClusterWideClient client.Client
 }
 
 //+kubebuilder:rbac:groups=oadp.openshift.io,resources=dataprotectiontests,verbs=get;list;watch;create;update;patch;delete
@@ -112,7 +116,7 @@ func (r *DataProtectionTestReconciler) Reconcile(ctx context.Context, req ctrl.R
 	}
 
 	// Fetch Bucket Metadata
-	if cp != nil {
+	if cp != nil && resolvedBackupLocationSpec != nil {
 		meta, err := cp.GetBucketMetadata(ctx, resolvedBackupLocationSpec.ObjectStorage.Bucket)
 		if err != nil {
 			logger.Error(err, "bucket metadata collection failed")
@@ -120,14 +124,13 @@ func (r *DataProtectionTestReconciler) Reconcile(ctx context.Context, req ctrl.R
 		r.dpt.Status.BucketMetadata = meta
 	}
 
-	//
-	//// 4. Run Snapshot Test(s)
-	//if len(dpt.Spec.CSIVolumeSnapshotTestConfigs) > 0 {
-	//	if err := r.runSnapshotTests(ctx, &dpt); err != nil {
-	//		log.Error(err, "snapshot tests failed")
-	//	}
-	//}
-	//
+	//Run Snapshot Test(s)
+	if len(r.dpt.Spec.CSIVolumeSnapshotTestConfigs) > 0 {
+		if err := r.runSnapshotTests(ctx, r.dpt); err != nil {
+			logger.Error(err, "snapshot tests failed")
+		}
+	}
+
 	// Update status
 	r.dpt.Status.LastTested = metav1.NewTime(time.Now())
 	r.dpt.Status.Phase = "Complete"
@@ -321,4 +324,148 @@ func (r *DataProtectionTestReconciler) resolveBackupLocation(
 	}
 
 	return &bsl.Spec, nil
+}
+
+// runSnapshotTests creates CSI VolumeSnapshots for each provided test configuration in parallel,
+// and measures how long each snapshot takes to become ReadyToUse. The results are added to the DPT status.
+func (r *DataProtectionTestReconciler) runSnapshotTests(ctx context.Context, dpt *oadpv1alpha1.DataProtectionTest) error {
+	r.Log.Info("Starting CSI VolumeSnapshot tests")
+
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	var results []oadpv1alpha1.SnapshotTestStatus
+
+	for _, cfg := range dpt.Spec.CSIVolumeSnapshotTestConfigs {
+
+		if cfg.VolumeSnapshotSource.PersistentVolumeClaimName == "" ||
+			cfg.VolumeSnapshotSource.PersistentVolumeClaimNamespace == "" ||
+			cfg.SnapshotClassName == "" {
+			r.Log.Info("Skipping snapshot test due to missing required fields", "config", cfg)
+			continue
+		}
+
+		wg.Add(1)
+
+		// launch a goroutine for each snapshot test config
+		go func(cfg oadpv1alpha1.CSIVolumeSnapshotTestConfig) {
+			defer wg.Done()
+
+			start := time.Now()
+			log := r.Log.WithValues(
+				"PVC", cfg.VolumeSnapshotSource.PersistentVolumeClaimName,
+				"Namespace", cfg.VolumeSnapshotSource.PersistentVolumeClaimNamespace,
+			)
+
+			status := oadpv1alpha1.SnapshotTestStatus{
+				PersistentVolumeClaimName:      cfg.VolumeSnapshotSource.PersistentVolumeClaimName,
+				PersistentVolumeClaimNamespace: cfg.VolumeSnapshotSource.PersistentVolumeClaimNamespace,
+			}
+
+			// Create VS
+			log.Info("Creating VolumeSnapshot")
+			vs, err := r.createVolumeSnapshot(ctx, dpt, cfg)
+			if err != nil {
+				log.Error(err, "Failed to create VolumeSnapshot")
+				status.Status = "Failed"
+				status.ErrorMessage = err.Error()
+			} else {
+				// Wait for VS to be ready
+				log.Info("Waiting for VolumeSnapshot to become ReadyToUse")
+				err := r.waitForSnapshotReady(ctx, vs, cfg.Timeout.Duration)
+				if err != nil {
+					log.Error(err, "Snapshot did not become ready in time")
+					status.Status = "Failed"
+					status.ErrorMessage = err.Error()
+				} else {
+					duration := time.Since(start).Truncate(time.Second)
+					log.Info("Snapshot is ReadyToUse", "duration", duration)
+					status.Status = "Ready"
+					status.ReadyDuration = duration.String()
+				}
+			}
+
+			// append the results
+			mu.Lock()
+			results = append(results, status)
+			mu.Unlock()
+
+		}(cfg)
+	}
+
+	wg.Wait()
+
+	r.Log.Info("All snapshot tests completed", "count", len(results))
+
+	dpt.Status.SnapshotTests = results
+
+	return nil
+
+}
+
+// createVolumeSnapshot constructs and creates a CSI VolumeSnapshot for the specified PVC.
+func (r *DataProtectionTestReconciler) createVolumeSnapshot(ctx context.Context, dpt *oadpv1alpha1.DataProtectionTest, cfg oadpv1alpha1.CSIVolumeSnapshotTestConfig) (*snapshotv1api.VolumeSnapshot, error) {
+
+	vs := &snapshotv1api.VolumeSnapshot{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: "dpt-snap-",
+			Namespace:    cfg.VolumeSnapshotSource.PersistentVolumeClaimNamespace,
+			Labels: map[string]string{
+				"oadp.openshift.io/dpt": dpt.Name,
+			},
+		},
+		Spec: snapshotv1api.VolumeSnapshotSpec{
+			Source: snapshotv1api.VolumeSnapshotSource{
+				PersistentVolumeClaimName: &cfg.VolumeSnapshotSource.PersistentVolumeClaimName,
+			},
+			VolumeSnapshotClassName: &cfg.SnapshotClassName,
+		},
+	}
+
+	if err := r.Create(ctx, vs); err != nil {
+		r.Log.Error(err, "Failed to create VolumeSnapshot object")
+		return nil, fmt.Errorf("failed to create VolumeSnapshot: %w", err)
+	}
+	r.Log.Info("VolumeSnapshot created", "name", vs.Name, "namespace", vs.Namespace)
+	return vs, nil
+}
+
+// waitForSnapshotReady polls the VolumeSnapshot resource until it's marked ReadyToUse or timeout expires.
+func (r *DataProtectionTestReconciler) waitForSnapshotReady(ctx context.Context, vs *snapshotv1api.VolumeSnapshot, timeout time.Duration) error {
+
+	timeoutDuration := timeout
+	if timeoutDuration == 0 {
+		timeoutDuration = 2 * time.Minute
+	}
+
+	r.Log.Info("Waiting for VolumeSnapshot to be ready", "snapshot", vs.Name, "timeout", timeoutDuration)
+
+	key := types.NamespacedName{
+		Name:      vs.Name,
+		Namespace: vs.Namespace,
+	}
+
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+
+	timeoutChan := time.After(timeoutDuration)
+
+	for {
+		select {
+		case <-ticker.C:
+			current := &snapshotv1api.VolumeSnapshot{}
+			if err := r.ClusterWideClient.Get(ctx, key, current); err != nil {
+				r.Log.Error(err, "Failed to get VolumeSnapshot during readiness check", "name", vs.Name)
+				return fmt.Errorf("failed to get VolumeSnapshot %q: %w", vs.Name, err)
+			}
+
+			if current.Status != vs.Status && current.Status.ReadyToUse != nil && *current.Status.ReadyToUse {
+				r.Log.Info("VolumeSnapshot is ready", "name", vs.Name)
+				return nil
+			}
+
+		case <-timeoutChan:
+			r.Log.Error(nil, "Timed out waiting for VolumeSnapshot to become ready", "name", vs.Name)
+			return fmt.Errorf("timed out waiting for VolumeSnapshot %q to be ready", vs.Name)
+		}
+	}
 }
