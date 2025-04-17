@@ -16,7 +16,32 @@ spec:
     singular: dataprotectiontest
   scope: Namespaced
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - description: Current phase of the DPT
+      jsonPath: .status.phase
+      name: Phase
+      type: string
+    - description: Last time the test was executed
+      jsonPath: .status.lastTested
+      name: LastTested
+      type: date
+    - description: Upload speed to object storage
+      jsonPath: .status.uploadTest.speedMbps
+      name: UploadSpeed(Mbps)
+      type: integer
+    - description: Bucket encryption algorithm
+      jsonPath: .status.bucketMetadata.encryptionAlgorithm
+      name: Encryption
+      type: string
+    - description: Bucket versioning state
+      jsonPath: .status.bucketMetadata.versioningStatus
+      name: Versioning
+      type: string
+    - description: Time since DPT was created
+      jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         description: DataProtectionTest is the Schema for the dataprotectiontests

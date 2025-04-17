@@ -173,6 +173,12 @@ type BucketMetadata struct {
 	ErrorMessage string `json:"errorMessage,omitempty"`
 }
 
+// +kubebuilder:printcolumn:name="Phase",type=string,JSONPath=".status.phase",description="Current phase of the DPT"
+// +kubebuilder:printcolumn:name="LastTested",type=date,JSONPath=".status.lastTested",description="Last time the test was executed"
+// +kubebuilder:printcolumn:name="UploadSpeed(Mbps)",type=integer,JSONPath=".status.uploadTest.speedMbps",description="Upload speed to object storage"
+// +kubebuilder:printcolumn:name="Encryption",type=string,JSONPath=".status.bucketMetadata.encryptionAlgorithm",description="Bucket encryption algorithm"
+// +kubebuilder:printcolumn:name="Versioning",type=string,JSONPath=".status.bucketMetadata.versioningStatus",description="Bucket versioning state"
+// +kubebuilder:printcolumn:name="Age",type=date,JSONPath=".metadata.creationTimestamp",description="Time since DPT was created"
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 //+kubebuilder:resource:path=dataprotectiontests,shortName=dpt
