@@ -25,6 +25,8 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	"github.com/hashicorp/go-multierror"
+	snapshotv1api "github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -35,9 +37,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	snapshotv1api "github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
-
 	"github.com/openshift/oadp-operator/pkg/cloudprovider"
 	"github.com/openshift/oadp-operator/pkg/utils"
 )
@@ -367,7 +367,9 @@ func (r *DataProtectionTestReconciler) runSnapshotTests(ctx context.Context, dpt
 
 	var wg sync.WaitGroup
 	var mu sync.Mutex
+	var errMu sync.Mutex
 	var results []oadpv1alpha1.SnapshotTestStatus
+	var combinedErr error
 
 	for _, cfg := range dpt.Spec.CSIVolumeSnapshotTestConfigs {
 
@@ -385,7 +387,7 @@ func (r *DataProtectionTestReconciler) runSnapshotTests(ctx context.Context, dpt
 			defer wg.Done()
 
 			start := time.Now()
-			log := r.Log.WithValues(
+			logger := r.Log.WithValues(
 				"PVC", cfg.VolumeSnapshotSource.PersistentVolumeClaimName,
 				"Namespace", cfg.VolumeSnapshotSource.PersistentVolumeClaimNamespace,
 			)
@@ -396,23 +398,33 @@ func (r *DataProtectionTestReconciler) runSnapshotTests(ctx context.Context, dpt
 			}
 
 			// Create VS
-			log.Info("Creating VolumeSnapshot")
+			logger.Info("Creating VolumeSnapshot")
 			vs, err := r.createVolumeSnapshot(ctx, dpt, cfg)
 			if err != nil {
-				log.Error(err, "Failed to create VolumeSnapshot")
+				logger.Error(err, "Failed to create VolumeSnapshot")
 				status.Status = "Failed"
 				status.ErrorMessage = err.Error()
+
+				errMu.Lock()
+				combinedErr = multierror.Append(combinedErr, err)
+				errMu.Unlock()
+
 			} else {
 				// Wait for VS to be ready
-				log.Info("Waiting for VolumeSnapshot to become ReadyToUse")
+				logger.Info("Waiting for VolumeSnapshot to become ReadyToUse")
 				err := r.waitForSnapshotReady(ctx, vs, cfg.Timeout.Duration)
 				if err != nil {
-					log.Error(err, "Snapshot did not become ready in time")
+					logger.Error(err, "Snapshot did not become ready in time")
 					status.Status = "Failed"
 					status.ErrorMessage = err.Error()
+
+					errMu.Lock()
+					combinedErr = multierror.Append(combinedErr, err)
+					errMu.Unlock()
+
 				} else {
 					duration := time.Since(start).Truncate(time.Second)
-					log.Info("Snapshot is ReadyToUse", "duration", duration)
+					logger.Info("Snapshot is ReadyToUse", "duration", duration)
 					status.Status = "Ready"
 					status.ReadyDuration = duration.String()
 				}
@@ -432,7 +444,7 @@ func (r *DataProtectionTestReconciler) runSnapshotTests(ctx context.Context, dpt
 
 	dpt.Status.SnapshotTests = results
 
-	return nil
+	return combinedErr
 
 }
 
