@@ -29,4 +29,13 @@ resources:
   kind: CloudStorage
   path: github.com/openshift/oadp-operator/api/v1alpha1
   version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: openshift.io
+  group: oadp
+  kind: DataProtectionTest
+  path: github.com/openshift/oadp-operator/api/v1alpha1
+  version: v1alpha1
 version: "3"

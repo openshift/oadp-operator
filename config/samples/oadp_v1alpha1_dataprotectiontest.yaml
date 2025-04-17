@@ -1,0 +1,9 @@
+apiVersion: oadp.openshift.io/v1alpha1
+kind: DataProtectionTest
+metadata:
+  labels:
+    app.kubernetes.io/name: oadp-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: dataprotectiontest-sample
+spec:
+  # TODO(user): Add fields here

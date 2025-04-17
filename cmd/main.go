@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"os"
 
+	snapshotv1api "github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1"
 	configv1 "github.com/openshift/api/config/v1"
 	routev1 "github.com/openshift/api/route/v1"
 	security "github.com/openshift/api/security/v1"
@@ -243,11 +244,16 @@ func main() {
 		os.Exit(1)
 	}
 
-	dpaClientScheme := runtime.NewScheme()
-	utilruntime.Must(oadpv1alpha1.AddToScheme(dpaClientScheme))
-	utilruntime.Must(appsv1.AddToScheme(dpaClientScheme))
-	dpaClient, err := client.New(kubeconf, client.Options{
-		Scheme: dpaClientScheme,
+	if err := snapshotv1api.AddToScheme(mgr.GetScheme()); err != nil {
+		setupLog.Error(err, "unable to add snapshot API to scheme")
+	}
+
+	uncachedClientScheme := runtime.NewScheme()
+	utilruntime.Must(oadpv1alpha1.AddToScheme(uncachedClientScheme))
+	utilruntime.Must(appsv1.AddToScheme(uncachedClientScheme))
+	utilruntime.Must(snapshotv1api.AddToScheme(uncachedClientScheme))
+	uncachedClient, err := client.New(kubeconf, client.Options{
+		Scheme: uncachedClientScheme,
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to create Kubernetes client")
@@ -258,7 +264,7 @@ func main() {
 		Client:            mgr.GetClient(),
 		Scheme:            mgr.GetScheme(),
 		EventRecorder:     mgr.GetEventRecorderFor("DPA-controller"),
-		ClusterWideClient: dpaClient,
+		ClusterWideClient: uncachedClient,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "DataProtectionApplication")
 		os.Exit(1)
@@ -270,6 +276,16 @@ func main() {
 		EventRecorder: mgr.GetEventRecorderFor("CloudStorage-controller"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "CloudStorage")
+		os.Exit(1)
+	}
+
+	if err = (&controller.DataProtectionTestReconciler{
+		Client:            mgr.GetClient(),
+		Scheme:            mgr.GetScheme(),
+		EventRecorder:     mgr.GetEventRecorderFor("DPT-controller"),
+		ClusterWideClient: uncachedClient,
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "DataProtectionTest")
 		os.Exit(1)
 	}
 	//+kubebuilder:scaffold:builder

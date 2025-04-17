@@ -423,6 +423,11 @@ spec:
         displayName: Conditions
         path: conditions
       version: v1alpha1
+    - description: DataProtectionTest is the Schema for the dataprotectiontests API
+      displayName: Data Protection Test
+      kind: DataProtectionTest
+      name: dataprotectiontests.oadp.openshift.io
+      version: v1alpha1
   description: |
     **OpenShift API for Data Protection (OADP)** operator sets up and installs
     Velero on the OpenShift platform, allowing users to backup and restore
