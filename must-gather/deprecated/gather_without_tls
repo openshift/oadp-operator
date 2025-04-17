@@ -1,4 +1,15 @@
 #!/bin/bash
 echo "This script is deprecated, use /usr/bin/gather instead"
 echo "insecure-skip-tls-verify: $1"
+logs_since="${logs_since}"
+request_timeout="${request_timeout}"
+if [ ! -z "${logs_since}" ]; then
+    echo "logs_since variable is not supported anymore"
+    exit 1
+fi
+if [ ! -z "${request_timeout}" ]; then
+    echo "timeout: ${request_timeout}"
+    /usr/bin/gather --skip-tls=$1 --request-timeout=${request_timeout}
+    exit
+fi
 /usr/bin/gather --skip-tls=$1
