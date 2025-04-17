@@ -1,0 +1,5 @@
+#!/bin/bash
+echo "This script is not supported anymore, use /usr/bin/gather instead"
+echo "/usr/bin/gather help"
+/usr/bin/gather -h
+exit 1

@@ -44,7 +44,7 @@ var (
 		Use: fmt.Sprintf("oc adm must-gather --image=%[1]s -- /usr/bin/gather", mustGatherImage),
 		Long: `OADP Must-gather: a tool to collect information about OADP installation in a cluster, along with information about its custom resources and cluster storage.
 
-For more information, check OADP must-gather documentation: https://docs.redhat.com/en/documentation/openshift_container_platform/latest/html/backup_and_restore/oadp-application-backup-and-restore#migration-using-must-gather_oadp-troubleshooting`,
+For more information, check OADP must-gather documentation: https://docs.redhat.com/en/documentation/openshift_container_platform/latest/html/backup_and_restore/oadp-application-backup-and-restore#using-the-must-gather-tool`,
 		Args: cobra.NoArgs,
 		Example: fmt.Sprintf(`  # running OADP Must-gather with default configuration
   oc adm must-gather --image=%[1]s

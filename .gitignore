@@ -41,5 +41,6 @@ debug.test*
 .envrc
 
 # must-gather
+must-gather/oadp-must-gather
 must-gather/must-gather/
 must-gather/must-gather.local.*/

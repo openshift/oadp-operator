@@ -8,12 +8,12 @@ go run cmd/main.go
 
 To test OADP Must-gather with `oc adm must-gather`, run
 ```sh
-podman build -t ttl.sh/oadp/must-gather-$(git rev-parse --short HEAD)-$(echo $RANDOM) -f Dockerfile . --platform=<cluster-architecture>
+podman build -t ttl.sh/oadp/must-gather-$(git rev-parse --short HEAD)-$(echo $RANDOM):1h -f Dockerfile . --platform=<cluster-architecture>
 podman push <this-image>
 oc adm must-gather --image=<this-image> -- /usr/bin/gather -h
 oc adm must-gather --image=<this-image>
 ```
-TODO mention e2e tests
+TODO mention e2e tests!
 
 To test omg tool, create `omg.Dockerfile` file
 ```Dockerfile
@@ -71,3 +71,7 @@ go mod verify
 ```
 
 > **Note:** If it is a minor release, `mustGatherImage` must also be updated.
+
+## Deprecated folder
+
+Scripts under `deprecated/` folder are for backwards compatibility with old OADP Must-gather shell script. Users should use new OADP Must-gather Go script, as highlighted in product documentation.
