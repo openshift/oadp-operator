@@ -110,6 +110,10 @@ type DataProtectionTestStatus struct {
 	// phase indicates phase of the DataProtectionTest - Complete, Failed
 	// +optional
 	Phase string `json:"phase,omitempty"`
+
+	// errorMessage contains details of any DPT failure
+	// +optional
+	ErrorMessage string `json:"errorMessage,omitempty"`
 }
 
 // UploadTestStatus holds the results of the upload test.
