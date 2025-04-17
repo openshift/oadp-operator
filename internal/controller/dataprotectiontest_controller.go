@@ -87,11 +87,14 @@ func (r *DataProtectionTestReconciler) Reconcile(ctx context.Context, req ctrl.R
 	resolvedBackupLocationSpec, err := r.resolveBackupLocation(r.Context, r.dpt)
 	if err != nil {
 		logger.Error(err, "failed to resolve BackupLocation")
+		r.updateDPTErrorStatus(ctx, fmt.Sprintf("failed to resolve BackupLocation: %v", err), logger)
 		return ctrl.Result{}, err
 	}
 
 	if resolvedBackupLocationSpec == nil {
-		logger.Info("BackupLocation is nil after resolution; aborting")
+		msg := "BackupLocation is nil after resolution"
+		logger.Info(msg)
+		r.updateDPTErrorStatus(ctx, msg, logger)
 		return ctrl.Result{}, fmt.Errorf("resolved BackupLocationSpec is nil")
 	}
 
@@ -109,6 +112,7 @@ func (r *DataProtectionTestReconciler) Reconcile(ctx context.Context, req ctrl.R
 		cp, err := r.initializeProvider(resolvedBackupLocationSpec)
 		if err != nil {
 			logger.Error(err, "failed to initialize cloud provider")
+			r.updateDPTErrorStatus(ctx, fmt.Sprintf("cloud provider init failed: %v", err), logger)
 			return ctrl.Result{}, err
 		}
 
@@ -116,6 +120,7 @@ func (r *DataProtectionTestReconciler) Reconcile(ctx context.Context, req ctrl.R
 		logger.Info("Executing upload test...")
 		if err := r.runUploadTest(ctx, r.dpt, resolvedBackupLocationSpec, cp); err != nil {
 			logger.Error(err, "upload test failed")
+			// handled in UploadTestStatus.ErrorMessage
 		}
 
 		// Bucket metadata
@@ -129,6 +134,8 @@ func (r *DataProtectionTestReconciler) Reconcile(ctx context.Context, req ctrl.R
 		} else {
 			r.dpt.Status.BucketMetadata = meta
 		}
+	} else {
+		logger.Info("Skipping upload test because no spec.uploadSpeed config found")
 	}
 
 	//Run Snapshot Test(s)
@@ -136,12 +143,16 @@ func (r *DataProtectionTestReconciler) Reconcile(ctx context.Context, req ctrl.R
 		logger.Info("Running snapshot tests", "count", len(r.dpt.Spec.CSIVolumeSnapshotTestConfigs))
 		if err := r.runSnapshotTests(ctx, r.dpt); err != nil {
 			logger.Error(err, "snapshot test execution failed")
+			// handled in SnapshotTestStatus.ErrorMessage
 		}
+	} else {
+		logger.Info("Skipping snapshot test because no spec.csiVolumeSnapshotTestConfigs found")
 	}
 
 	// Update status
 	r.dpt.Status.LastTested = metav1.NewTime(time.Now())
 	r.dpt.Status.Phase = "Complete"
+	r.dpt.Status.ErrorMessage = "" // clear old error
 	if err := r.Status().Update(ctx, r.dpt); err != nil {
 		logger.Error(err, "failed to update DPT status")
 		return ctrl.Result{}, err
@@ -512,5 +523,15 @@ func (r *DataProtectionTestReconciler) waitForSnapshotReady(ctx context.Context,
 			r.Log.Error(nil, "Timed out waiting for VolumeSnapshot to become ready", "name", vs.Name)
 			return fmt.Errorf("timed out waiting for VolumeSnapshot %q to be ready", vs.Name)
 		}
+	}
+}
+
+// updateDPTErrorStatus sets phase to Failed and updates the top-level error message in DPT status
+func (r *DataProtectionTestReconciler) updateDPTErrorStatus(ctx context.Context, msg string, logger logr.Logger) {
+	r.dpt.Status.Phase = "Failed"
+	r.dpt.Status.ErrorMessage = msg
+
+	if err := r.Status().Update(ctx, r.dpt); err != nil {
+		logger.Error(err, "failed to update DPT status with error message")
 	}
 }
