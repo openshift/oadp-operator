@@ -19,6 +19,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"k8s.io/client-go/util/retry"
 	"net/http"
 	"strings"
 	"sync"
@@ -78,8 +79,47 @@ func (r *DataProtectionTestReconciler) Reconcile(ctx context.Context, req ctrl.R
 	logger.Info("Reconciling DataProtectionTest", "name", r.dpt.Name)
 
 	// Short-circuit if already completed
-	if r.dpt.Status.Phase == "Complete" && !r.dpt.Spec.ForceRun {
-		logger.Info("DPT already completed and forceRun not set; skipping")
+	if (r.dpt.Status.Phase == "Complete" || r.dpt.Status.Phase == "Failed") && !r.dpt.Spec.ForceRun {
+		logger.Info("DPT already completed or failed and forceRun not set; skipping")
+		return ctrl.Result{}, nil
+	}
+
+	// Always reset forceRun after reconciliation attempt (whether successful or not)
+	if r.dpt.Spec.ForceRun {
+		defer func() {
+			original := r.dpt.DeepCopy()
+			r.dpt.Spec.ForceRun = false
+			if !original.Spec.ForceRun {
+				return
+			}
+			logger.Info("Resetting forceRun flag")
+			_ = r.Patch(ctx, r.dpt, client.MergeFrom(original))
+		}()
+	}
+
+	// Mark as InProgress
+	if r.dpt.Status.Phase != "InProgress" {
+		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			latest := &oadpv1alpha1.DataProtectionTest{}
+			if err := r.Get(ctx, r.NamespacedName, latest); err != nil {
+				return err
+			}
+			// Skip if it’s already done and forceRun is not set
+			if (latest.Status.Phase == "Complete" || latest.Status.Phase == "Failed") && !latest.Spec.ForceRun {
+				logger.Info("Skipping setting InProgress, current phase:", "phase", latest.Status.Phase)
+				return nil
+			}
+			latest.Status.Phase = "InProgress"
+			latest.Status.LastTested = metav1.Now()
+			return r.Status().Update(ctx, latest)
+		})
+		if err != nil {
+			logger.Error(err, "failed to set DPT phase to InProgress")
+			return ctrl.Result{}, err
+		}
+
+		// Let the status update trigger the next reconcile
+		logger.Info("Successfully set phase to InProgress; waiting for next reconcile")
 		return ctrl.Result{}, nil
 	}
 
@@ -149,25 +189,15 @@ func (r *DataProtectionTestReconciler) Reconcile(ctx context.Context, req ctrl.R
 		logger.Info("Skipping snapshot test because no spec.csiVolumeSnapshotTestConfigs found")
 	}
 
-	// Update status
-	r.dpt.Status.LastTested = metav1.NewTime(time.Now())
-	r.dpt.Status.Phase = "Complete"
-	r.dpt.Status.ErrorMessage = "" // clear old error
-	if err := r.Status().Update(ctx, r.dpt); err != nil {
-		logger.Error(err, "failed to update DPT status")
+	// Final status update: mark as Complete
+	if err := r.updateDPTStatusToComplete(ctx, logger); err != nil {
+		logger.Error(err, "failed to update DPT status to Complete")
 		return ctrl.Result{}, err
 	}
 
-	if r.dpt.Spec.ForceRun {
-		original := r.dpt.DeepCopy()
-		r.dpt.Spec.ForceRun = false
-
-		if err := r.Patch(ctx, r.dpt, client.MergeFrom(original)); err != nil {
-			logger.Error(err, "failed to reset forceRun flag")
-		}
-	}
-
+	logger.Info("Reconciliation completed successfully", "finalPhase", "Complete")
 	return ctrl.Result{}, nil
+
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -526,12 +556,38 @@ func (r *DataProtectionTestReconciler) waitForSnapshotReady(ctx context.Context,
 	}
 }
 
-// updateDPTErrorStatus sets phase to Failed and updates the top-level error message in DPT status
+// updateDPTErrorStatus sets the DPT status.phase to "Failed" and updates the error message.
+// It handles conflict retries gracefully.
 func (r *DataProtectionTestReconciler) updateDPTErrorStatus(ctx context.Context, msg string, logger logr.Logger) {
-	r.dpt.Status.Phase = "Failed"
-	r.dpt.Status.ErrorMessage = msg
+	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		latest := &oadpv1alpha1.DataProtectionTest{}
+		if getErr := r.Get(ctx, r.NamespacedName, latest); getErr != nil {
+			return getErr
+		}
+		latest.Status.Phase = "Failed"
+		latest.Status.ErrorMessage = msg
+		return r.Status().Update(ctx, latest)
+	})
 
-	if err := r.Status().Update(ctx, r.dpt); err != nil {
-		logger.Error(err, "failed to update DPT status with error message")
+	if err != nil {
+		logger.Error(err, "failed to update DPT error status", "message", msg)
 	}
+}
+
+func (r *DataProtectionTestReconciler) updateDPTStatusToComplete(ctx context.Context, logger logr.Logger) error {
+	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		latest := &oadpv1alpha1.DataProtectionTest{}
+		if err := r.Get(ctx, r.NamespacedName, latest); err != nil {
+			return err
+		}
+
+		latest.Status.Phase = "Complete"
+		latest.Status.ErrorMessage = ""
+		latest.Status.UploadTest = r.dpt.Status.UploadTest
+		latest.Status.SnapshotTests = r.dpt.Status.SnapshotTests
+		latest.Status.BucketMetadata = r.dpt.Status.BucketMetadata
+		latest.Status.S3Vendor = r.dpt.Status.S3Vendor
+
+		return r.Status().Update(ctx, latest)
+	})
 }
