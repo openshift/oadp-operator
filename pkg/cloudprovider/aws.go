@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"github.com/go-logr/logr"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -42,14 +43,17 @@ func NewAWSProvider(region, endpoint, accessKey, secretKey string) *AWSProvider 
 	}
 }
 
-func (a *AWSProvider) UploadTest(ctx context.Context, config oadpv1alpha1.UploadSpeedTestConfig, bucket string) (int64, time.Duration, error) {
+func (a *AWSProvider) UploadTest(ctx context.Context, config oadpv1alpha1.UploadSpeedTestConfig, bucket string, log logr.Logger) (int64, time.Duration, error) {
+
+	log.Info("Starting upload speed test", "fileSize", config.FileSize, "timeout", config.Timeout.Duration.String())
+
 	testDataBytes, err := utils.ParseFileSize(config.FileSize)
 	if err != nil {
 		return 0, 0, fmt.Errorf("invalid file size: %w", err)
 	}
 
 	if testDataBytes > maxTestSizeBytes {
-		return 0, 0, fmt.Errorf("test file size %d exceeds max allowed size %dMB (pod mem: 512Mi)", testDataBytes, maxTestSizeBytes/1024/1024)
+		return 0, 0, fmt.Errorf("test file size %d exceeds max allowed %dMB (due to pod mem limit)", testDataBytes, maxTestSizeBytes/1024/1024)
 	}
 
 	timeoutDuration := 30 * time.Second
@@ -57,6 +61,7 @@ func (a *AWSProvider) UploadTest(ctx context.Context, config oadpv1alpha1.Upload
 		timeoutDuration = config.Timeout.Duration
 	}
 
+	log.Info("Generating test payload for upload", "bytes", testDataBytes)
 	payload := bytes.Repeat([]byte("0"), int(testDataBytes))
 
 	key := fmt.Sprintf("dpt-upload-test-%d", time.Now().UnixNano())
@@ -64,6 +69,7 @@ func (a *AWSProvider) UploadTest(ctx context.Context, config oadpv1alpha1.Upload
 	ctxWithTimeout, cancel := context.WithTimeout(ctx, timeoutDuration)
 	defer cancel()
 
+	log.Info("Uploading to bucket...")
 	start := time.Now()
 
 	_, err = a.s3Client.PutObjectWithContext(ctxWithTimeout, &s3.PutObjectInput{
@@ -78,19 +84,23 @@ func (a *AWSProvider) UploadTest(ctx context.Context, config oadpv1alpha1.Upload
 		return 0, duration, fmt.Errorf("upload failed: %w", err)
 	}
 
-	speedmbps := (float64(testDataBytes*8) / duration.Seconds()) / 1_000_000
+	speedMbps := (float64(testDataBytes*8) / duration.Seconds()) / 1_000_000
+	log.Info("Upload completed", "duration", duration.String(), "speedMbps", speedMbps)
 
-	return int64(speedmbps), duration, nil
+	return int64(speedMbps), duration, nil
 }
 
-func (a *AWSProvider) GetBucketMetadata(ctx context.Context, bucket string) (*oadpv1alpha1.BucketMetadata, error) {
+// GetBucketMetadata queries AWS S3 for bucket versioning and encryption settings.
+// It returns a BucketMetadata struct containing this information.
+func (a *AWSProvider) GetBucketMetadata(ctx context.Context, bucket string, log logr.Logger) (*oadpv1alpha1.BucketMetadata, error) {
 	result := &oadpv1alpha1.BucketMetadata{}
 
 	verOut, err := a.s3Client.GetBucketVersioningWithContext(ctx, &s3.GetBucketVersioningInput{
 		Bucket: aws.String(bucket),
 	})
 	if err != nil {
-		result.ErrorMessage = fmt.Sprintf("failed to fetch versioning status: %v", err)
+		log.Error(err, "GetBucketVersioningWithContext failed")
+		result.ErrorMessage = fmt.Sprintf("failed to fetch versioning status for bucket %s: %v", bucket, err)
 		return result, err
 	}
 	if verOut.Status != nil {
@@ -99,6 +109,8 @@ func (a *AWSProvider) GetBucketMetadata(ctx context.Context, bucket string) (*oa
 		result.VersioningStatus = "None"
 	}
 
+	log.Info("Fetched versioning", "status", result.VersioningStatus)
+
 	encOut, err := a.s3Client.GetBucketEncryptionWithContext(ctx, &s3.GetBucketEncryptionInput{
 		Bucket: aws.String(bucket),
 	})
@@ -106,19 +118,23 @@ func (a *AWSProvider) GetBucketMetadata(ctx context.Context, bucket string) (*oa
 		// Handle cases where encryption is not enabled
 		if aerr, ok := err.(awserr.Error); ok && aerr.Code() == "ServerSideEncryptionConfigurationNotFoundError" {
 			result.EncryptionAlgorithm = "None"
+			log.Info("Bucket encryption not configured")
 		} else {
-			result.ErrorMessage = fmt.Sprintf("failed to fetch encryption config: %v", err)
+			log.Error(err, "GetBucketEncryptionWithContext failed")
+			result.ErrorMessage = fmt.Sprintf("failed to fetch encryption config for bucket %s: %v", bucket, err)
 			return result, err
 		}
-	} else if len(encOut.ServerSideEncryptionConfiguration.Rules) > 0 {
+	} else if encOut != nil && encOut.ServerSideEncryptionConfiguration != nil && len(encOut.ServerSideEncryptionConfiguration.Rules) > 0 {
 		rule := encOut.ServerSideEncryptionConfiguration.Rules[0]
 		if rule.ApplyServerSideEncryptionByDefault != nil {
 			result.EncryptionAlgorithm = *rule.ApplyServerSideEncryptionByDefault.SSEAlgorithm
 		} else {
 			result.EncryptionAlgorithm = "Unknown"
 		}
+		log.Info("Fetched encryption config", "algorithm", result.EncryptionAlgorithm)
 	} else {
 		result.EncryptionAlgorithm = "None"
+		log.Info("No encryption rules configured")
 	}
 
 	return result, nil

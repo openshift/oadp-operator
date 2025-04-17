@@ -19,6 +19,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	snapshotv1api "github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -490,4 +491,35 @@ func TestGetBucketMetadataIntegration(t *testing.T) {
 			require.Equal(t, tt.expectedResult.ErrorMessage, dpt.Status.BucketMetadata.ErrorMessage)
 		})
 	}
+}
+
+func TestCreateVolumeSnapshot(t *testing.T) {
+	scheme := runtime.NewScheme()
+	_ = snapshotv1api.AddToScheme(scheme)
+
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
+	r := &DataProtectionTestReconciler{
+		Client: fakeClient,
+	}
+
+	cfg := oadpv1alpha1.CSIVolumeSnapshotTestConfig{
+		SnapshotClassName: "csi-snap",
+		VolumeSnapshotSource: oadpv1alpha1.VolumeSnapshotSource{
+			PersistentVolumeClaimName:      "my-pvc",
+			PersistentVolumeClaimNamespace: "my-ns",
+		},
+	}
+
+	dpt := &oadpv1alpha1.DataProtectionTest{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "dpt-sample",
+		},
+	}
+
+	ctx := context.Background()
+	vs, err := r.createVolumeSnapshot(ctx, dpt, cfg)
+	require.NoError(t, err)
+	require.Equal(t, cfg.VolumeSnapshotSource.PersistentVolumeClaimNamespace, vs.Namespace)
+	require.NotNil(t, vs.Spec.Source.PersistentVolumeClaimName)
+	require.Equal(t, cfg.SnapshotClassName, *vs.Spec.VolumeSnapshotClassName)
 }
