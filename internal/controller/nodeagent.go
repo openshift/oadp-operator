@@ -592,12 +592,12 @@ func (r *DataProtectionApplicationReconciler) customizeNodeAgentDaemonset(ds *ap
 		ds.Spec.Template.Spec.DNSConfig = &dpa.Spec.PodDnsConfig
 	}
 
-	providerNeedsDefaultCreds, hasCloudStorage, err := r.noDefaultCredentials()
+	providerNeedsDefaultCreds, err := r.noDefaultCredentials()
 	if err != nil {
 		return nil, err
 	}
 
-	credentials.AppendCloudProviderVolumes(dpa, ds, providerNeedsDefaultCreds, hasCloudStorage)
+	credentials.AppendCloudProviderVolumes(dpa, ds, providerNeedsDefaultCreds)
 
 	setPodTemplateSpecDefaults(&ds.Spec.Template)
 	if ds.Spec.UpdateStrategy.Type == appsv1.RollingUpdateDaemonSetStrategyType {

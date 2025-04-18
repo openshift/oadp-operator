@@ -329,7 +329,7 @@ func (r *DataProtectionApplicationReconciler) customizeVeleroDeployment(veleroDe
 		return err
 	}
 
-	providerNeedsDefaultCreds, hasCloudStorage, err := r.noDefaultCredentials()
+	providerNeedsDefaultCreds, err := r.noDefaultCredentials()
 	if err != nil {
 		return err
 	}
@@ -412,7 +412,7 @@ func (r *DataProtectionApplicationReconciler) customizeVeleroDeployment(veleroDe
 	if veleroDeployment.Spec.ProgressDeadlineSeconds == nil {
 		veleroDeployment.Spec.ProgressDeadlineSeconds = ptr.To(int32(600))
 	}
-	r.appendPluginSpecificSpecs(veleroDeployment, veleroContainer, providerNeedsDefaultCreds, hasCloudStorage)
+	r.appendPluginSpecificSpecs(veleroDeployment, veleroContainer, providerNeedsDefaultCreds)
 	setPodTemplateSpecDefaults(&veleroDeployment.Spec.Template)
 	if configMapName, ok := dpa.Annotations[common.UnsupportedVeleroServerArgsAnnotation]; ok {
 		if configMapName != "" {
@@ -428,7 +428,7 @@ func (r *DataProtectionApplicationReconciler) customizeVeleroDeployment(veleroDe
 }
 
 // add plugin specific specs to velero deployment
-func (r *DataProtectionApplicationReconciler) appendPluginSpecificSpecs(veleroDeployment *appsv1.Deployment, veleroContainer *corev1.Container, providerNeedsDefaultCreds map[string]bool, hasCloudStorage bool) {
+func (r *DataProtectionApplicationReconciler) appendPluginSpecificSpecs(veleroDeployment *appsv1.Deployment, veleroContainer *corev1.Container, providerNeedsDefaultCreds map[string]bool) {
 	dpa := r.dpa
 	init_container_resources := veleroContainer.Resources
 
@@ -456,11 +456,7 @@ func (r *DataProtectionApplicationReconciler) appendPluginSpecificSpecs(veleroDe
 					},
 				})
 
-			pluginNeedsCheck, foundInBSLorVSL := providerNeedsDefaultCreds[pluginSpecificMap.ProviderName]
-
-			if !foundInBSLorVSL && !hasCloudStorage {
-				pluginNeedsCheck = true
-			}
+			pluginNeedsCheck := providerNeedsDefaultCreds[pluginSpecificMap.ProviderName]
 
 			if !pluginSpecificMap.IsCloudProvider || !pluginNeedsCheck {
 				continue
@@ -755,8 +751,8 @@ func getNodeAgentResourceReqs(dpa *oadpv1alpha1.DataProtectionApplication) (core
 
 // noDefaultCredentials determines if a provider needs the default credentials.
 // This returns a map of providers found to if they need a default credential,
-// a boolean if Cloud Storage backup storage location was used and an error if any occured.
-func (r DataProtectionApplicationReconciler) noDefaultCredentials() (map[string]bool, bool, error) {
+// and an error if any occured.
+func (r DataProtectionApplicationReconciler) noDefaultCredentials() (map[string]bool, error) {
 	dpa := r.dpa
 	providerNeedsDefaultCreds := map[string]bool{}
 	hasCloudStorage := false
@@ -788,7 +784,7 @@ func (r DataProtectionApplicationReconciler) noDefaultCredentials() (map[string]
 					cloudStorage := oadpv1alpha1.CloudStorage{}
 					err := r.Get(r.Context, types.NamespacedName{Name: bsl.CloudStorage.CloudStorageRef.Name, Namespace: dpa.Namespace}, &cloudStorage)
 					if err != nil {
-						return nil, false, err
+						return nil, err
 					}
 					providerNeedsDefaultCreds[string(cloudStorage.Spec.Provider)] = true
 				} else {
@@ -812,6 +808,6 @@ func (r DataProtectionApplicationReconciler) noDefaultCredentials() (map[string]
 		}
 	}
 
-	return providerNeedsDefaultCreds, hasCloudStorage, nil
+	return providerNeedsDefaultCreds, nil
 
 }
