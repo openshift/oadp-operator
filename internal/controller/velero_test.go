@@ -1639,13 +1639,6 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 			veleroDeployment: testVeleroDeployment.DeepCopy(),
 			wantVeleroDeployment: createTestBuiltVeleroDeployment(TestBuiltVeleroDeploymentOptions{
 				initContainers: []corev1.Container{pluginContainer(common.VeleroPluginForAWS, common.AWSPluginImage)},
-				volumes:        []corev1.Volume{deploymentVolumeSecret("cloud-credentials")},
-				volumeMounts: []corev1.VolumeMount{
-					{Name: "cloud-credentials", MountPath: "/credentials"},
-				},
-				env: append(baseEnvVars, []corev1.EnvVar{
-					{Name: common.AWSSharedCredentialsFileEnvKey, Value: "/credentials/cloud"},
-				}...),
 				args: []string{
 					defaultFileSystemBackupTimeout,
 					defaultRestoreResourcePriorities,
@@ -1670,13 +1663,6 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 			veleroDeployment: testVeleroDeployment.DeepCopy(),
 			wantVeleroDeployment: createTestBuiltVeleroDeployment(TestBuiltVeleroDeploymentOptions{
 				initContainers: []corev1.Container{pluginContainer(common.VeleroPluginForLegacyAWS, common.LegacyAWSPluginImage)},
-				volumes:        []corev1.Volume{deploymentVolumeSecret("cloud-credentials")},
-				volumeMounts: []corev1.VolumeMount{
-					{Name: "cloud-credentials", MountPath: "/credentials"},
-				},
-				env: append(baseEnvVars, []corev1.EnvVar{
-					{Name: common.AWSSharedCredentialsFileEnvKey, Value: "/credentials/cloud"},
-				}...),
 				args: []string{
 					defaultFileSystemBackupTimeout,
 					defaultRestoreResourcePriorities,
@@ -1705,13 +1691,6 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 					pluginContainer(common.VeleroPluginForAWS, common.AWSPluginImage),
 					pluginContainer(common.KubeVirtPlugin, common.KubeVirtPluginImage),
 				},
-				volumes: []corev1.Volume{deploymentVolumeSecret("cloud-credentials")},
-				volumeMounts: []corev1.VolumeMount{
-					{Name: "cloud-credentials", MountPath: "/credentials"},
-				},
-				env: append(baseEnvVars, []corev1.EnvVar{
-					{Name: common.AWSSharedCredentialsFileEnvKey, Value: "/credentials/cloud"},
-				}...),
 				args: []string{
 					defaultFileSystemBackupTimeout,
 					defaultRestoreResourcePriorities,
@@ -1740,13 +1719,6 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 					pluginContainer(common.VeleroPluginForAWS, common.AWSPluginImage),
 					pluginContainer(common.HypershiftPlugin, common.HypershiftPluginImage),
 				},
-				volumes: []corev1.Volume{deploymentVolumeSecret("cloud-credentials")},
-				volumeMounts: []corev1.VolumeMount{
-					{Name: "cloud-credentials", MountPath: "/credentials"},
-				},
-				env: append(baseEnvVars, []corev1.EnvVar{
-					{Name: common.AWSSharedCredentialsFileEnvKey, Value: "/credentials/cloud"},
-				}...),
 				args: []string{
 					defaultFileSystemBackupTimeout,
 					defaultRestoreResourcePriorities,
@@ -2311,11 +2283,10 @@ func TestDPAReconciler_noDefaultCredentials(t *testing.T) {
 		dpa oadpv1alpha1.DataProtectionApplication
 	}
 	tests := []struct {
-		name                string
-		args                args
-		want                map[string]bool
-		wantHasCloudStorage bool
-		wantErr             bool
+		name    string
+		args    args
+		want    map[string]bool
+		wantErr bool
 	}{
 		{
 			name: "dpa with all plugins but with noDefaultBackupLocation should not require default credentials",
@@ -2340,8 +2311,7 @@ func TestDPAReconciler_noDefaultCredentials(t *testing.T) {
 				"gcp":   false,
 				"azure": false,
 			},
-			wantHasCloudStorage: false,
-			wantErr:             false,
+			wantErr: false,
 		},
 		{
 			name: "dpa no default cloudprovider plugins should not require default credentials",
@@ -2361,9 +2331,8 @@ func TestDPAReconciler_noDefaultCredentials(t *testing.T) {
 					},
 				},
 			},
-			want:                map[string]bool{},
-			wantHasCloudStorage: false,
-			wantErr:             false,
+			want:    map[string]bool{},
+			wantErr: false,
 		},
 	}
 	for _, tt := range tests {
@@ -2376,16 +2345,13 @@ func TestDPAReconciler_noDefaultCredentials(t *testing.T) {
 				Client: fakeClient,
 				dpa:    &tt.args.dpa,
 			}
-			got, got1, err := r.noDefaultCredentials()
+			got, err := r.noDefaultCredentials()
 			if (err != nil) != tt.wantErr {
 				t.Errorf("DataProtectionApplicationReconciler.noDefaultCredentials() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("DataProtectionApplicationReconciler.noDefaultCredentials() got = \n%v, \nwant \n%v", got, tt.want)
-			}
-			if got1 != tt.wantHasCloudStorage {
-				t.Errorf("DataProtectionApplicationReconciler.noDefaultCredentials() got1 = %v, want %v", got1, tt.wantHasCloudStorage)
 			}
 		})
 	}

@@ -318,24 +318,16 @@ func (r *DataProtectionApplicationReconciler) ValidateVeleroPlugins() (bool, err
 
 	dpa := r.dpa
 
-	providerNeedsDefaultCreds, hasCloudStorage, err := r.noDefaultCredentials()
+	providerNeedsDefaultCreds, err := r.noDefaultCredentials()
 	if err != nil {
 		return false, err
-	}
-
-	snapshotLocationsProviders := make(map[string]bool)
-	for _, location := range dpa.Spec.SnapshotLocations {
-		if location.Velero != nil {
-			provider := strings.TrimPrefix(location.Velero.Provider, veleroIOPrefix)
-			snapshotLocationsProviders[provider] = true
-		}
 	}
 
 	foundAWSPlugin := false
 	foundLegacyAWSPlugin := false
 	for _, plugin := range dpa.Spec.Configuration.Velero.DefaultPlugins {
 		pluginSpecificMap, ok := credentials.PluginSpecificFields[plugin]
-		pluginNeedsCheck, foundInBSLorVSL := providerNeedsDefaultCreds[pluginSpecificMap.ProviderName]
+		pluginNeedsCheck := providerNeedsDefaultCreds[pluginSpecificMap.ProviderName]
 
 		// "aws" and "legacy-aws" cannot both be specified
 		if plugin == oadpv1alpha1.DefaultPluginAWS {
@@ -348,12 +340,6 @@ func (r *DataProtectionApplicationReconciler) ValidateVeleroPlugins() (bool, err
 		// check for VSM/Volsync DataMover (OADP 1.2 or below) syntax
 		if plugin == oadpv1alpha1.DefaultPluginVSM {
 			return false, errors.New("Delete vsm from spec.configuration.velero.defaultPlugins and dataMover object from spec.features. Use Velero Built-in Data Mover instead")
-		}
-		if foundInVSL := snapshotLocationsProviders[string(plugin)]; foundInVSL {
-			pluginNeedsCheck = true
-		}
-		if !foundInBSLorVSL && !hasCloudStorage {
-			pluginNeedsCheck = true
 		}
 		if ok && pluginSpecificMap.IsCloudProvider && pluginNeedsCheck && !dpa.Spec.Configuration.Velero.NoDefaultBackupLocation && !dpa.Spec.Configuration.Velero.HasFeatureFlag("no-secret") {
 			secretNamesToValidate := mapset.NewSet[string]()
