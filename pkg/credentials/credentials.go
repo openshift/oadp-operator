@@ -200,7 +200,7 @@ func GetPluginImage(defaultPlugin oadpv1alpha1.DefaultPlugin, dpa *oadpv1alpha1.
 	return ""
 }
 
-func AppendCloudProviderVolumes(dpa *oadpv1alpha1.DataProtectionApplication, ds *appsv1.DaemonSet, providerNeedsDefaultCreds map[string]bool, hasCloudStorage bool) {
+func AppendCloudProviderVolumes(dpa *oadpv1alpha1.DataProtectionApplication, ds *appsv1.DaemonSet, providerNeedsDefaultCreds map[string]bool) {
 	var nodeAgentContainer *corev1.Container
 	for i, container := range ds.Spec.Template.Spec.Containers {
 		if container.Name == common.NodeAgent {
@@ -217,11 +217,7 @@ func AppendCloudProviderVolumes(dpa *oadpv1alpha1.DataProtectionApplication, ds 
 			(!dpa.Spec.Configuration.Velero.NoDefaultBackupLocation || // it has a backup location in OADP/velero context OR
 				dpa.Spec.UnsupportedOverrides[oadpv1alpha1.OperatorTypeKey] == oadpv1alpha1.OperatorTypeMTC) { // OADP is installed via MTC
 
-			pluginNeedsCheck, foundProviderPlugin := providerNeedsDefaultCreds[cloudProviderMap.ProviderName]
-			// duplication with controllers/validator.go
-			if !foundProviderPlugin && !hasCloudStorage {
-				pluginNeedsCheck = true
-			}
+			pluginNeedsCheck := providerNeedsDefaultCreds[cloudProviderMap.ProviderName]
 
 			if !cloudProviderMap.IsCloudProvider || !pluginNeedsCheck {
 				continue
