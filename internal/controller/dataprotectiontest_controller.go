@@ -19,7 +19,6 @@ package controller
 import (
 	"context"
 	"fmt"
-	"k8s.io/client-go/util/retry"
 	"net/http"
 	"strings"
 	"sync"
@@ -34,6 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -130,14 +130,14 @@ func (r *DataProtectionTestReconciler) Reconcile(ctx context.Context, req ctrl.R
 	resolvedBackupLocationSpec, err := r.resolveBackupLocation(r.Context, r.dpt)
 	if err != nil {
 		logger.Error(err, "failed to resolve BackupLocation")
-		r.updateDPTErrorStatus(ctx, fmt.Sprintf("failed to resolve BackupLocation: %v", err), logger)
+		r.updateDPTErrorStatus(ctx, fmt.Sprintf("failed to resolve BackupLocation: %v", err))
 		return ctrl.Result{}, err
 	}
 
 	if resolvedBackupLocationSpec == nil {
 		msg := "BackupLocation is nil after resolution"
 		logger.Info(msg)
-		r.updateDPTErrorStatus(ctx, msg, logger)
+		r.updateDPTErrorStatus(ctx, msg)
 		return ctrl.Result{}, fmt.Errorf("resolved BackupLocationSpec is nil")
 	}
 
@@ -155,7 +155,7 @@ func (r *DataProtectionTestReconciler) Reconcile(ctx context.Context, req ctrl.R
 		cp, err := r.initializeProvider(resolvedBackupLocationSpec)
 		if err != nil {
 			logger.Error(err, "failed to initialize cloud provider")
-			r.updateDPTErrorStatus(ctx, fmt.Sprintf("cloud provider init failed: %v", err), logger)
+			r.updateDPTErrorStatus(ctx, fmt.Sprintf("cloud provider init failed: %v", err))
 			return ctrl.Result{}, err
 		}
 
@@ -193,7 +193,7 @@ func (r *DataProtectionTestReconciler) Reconcile(ctx context.Context, req ctrl.R
 	}
 
 	// Final status update: mark as Complete
-	if err := r.updateDPTStatusToComplete(ctx, logger); err != nil {
+	if err := r.updateDPTStatusToComplete(ctx); err != nil {
 		logger.Error(err, "failed to update DPT status to Complete")
 		return ctrl.Result{}, err
 	}
@@ -601,7 +601,7 @@ func (r *DataProtectionTestReconciler) updateDPTStatusToComplete(ctx context.Con
 		latest.Status.SnapshotSummary = r.dpt.Status.SnapshotSummary
 		latest.Status.BucketMetadata = r.dpt.Status.BucketMetadata
 		latest.Status.S3Vendor = r.dpt.Status.S3Vendor
-		
+
 		return r.Status().Update(ctx, latest)
 	})
 }
