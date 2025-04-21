@@ -37,6 +37,10 @@ spec:
       jsonPath: .status.bucketMetadata.versioningStatus
       name: Versioning
       type: string
+    - description: Snapshot test pass/fail summary
+      jsonPath: .status.snapshotSummary
+      name: Snapshots
+      type: string
     - description: Time since DPT was created
       jsonPath: .metadata.creationTimestamp
       name: Age
@@ -233,6 +237,9 @@ spec:
               s3Vendor:
                 description: s3Vendor indicates the detected s3 vendor name from the
                   storage endpoint if applicable (e.g., AWS, MinIO).
+                type: string
+              snapshotSummary:
+                description: snapshot test pass/fail summary
                 type: string
               snapshotTests:
                 description: snapshotTests contains results for each snapshot tested

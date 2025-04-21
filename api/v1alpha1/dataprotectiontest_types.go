@@ -107,6 +107,10 @@ type DataProtectionTestStatus struct {
 	// +optional
 	SnapshotTests []SnapshotTestStatus `json:"snapshotTests,omitempty"`
 
+	// snapshot test pass/fail summary
+	// +optional
+	SnapshotSummary string `json:"snapshotSummary,omitempty"`
+
 	// phase indicates phase of the DataProtectionTest - Complete, Failed
 	// +optional
 	Phase string `json:"phase,omitempty"`
@@ -178,6 +182,7 @@ type BucketMetadata struct {
 // +kubebuilder:printcolumn:name="UploadSpeed(Mbps)",type=integer,JSONPath=".status.uploadTest.speedMbps",description="Upload speed to object storage"
 // +kubebuilder:printcolumn:name="Encryption",type=string,JSONPath=".status.bucketMetadata.encryptionAlgorithm",description="Bucket encryption algorithm"
 // +kubebuilder:printcolumn:name="Versioning",type=string,JSONPath=".status.bucketMetadata.versioningStatus",description="Bucket versioning state"
+// +kubebuilder:printcolumn:name="Snapshots",type=string,JSONPath=`.status.snapshotSummary`,description="Snapshot test pass/fail summary"
 // +kubebuilder:printcolumn:name="Age",type=date,JSONPath=".metadata.creationTimestamp",description="Time since DPT was created"
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
