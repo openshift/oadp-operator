@@ -571,7 +571,7 @@ func (r *DataProtectionTestReconciler) waitForSnapshotReady(ctx context.Context,
 
 // updateDPTErrorStatus sets the DPT status.phase to "Failed" and updates the error message.
 // It handles conflict retries gracefully.
-func (r *DataProtectionTestReconciler) updateDPTErrorStatus(ctx context.Context, msg string, logger logr.Logger) {
+func (r *DataProtectionTestReconciler) updateDPTErrorStatus(ctx context.Context, msg string) {
 	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		latest := &oadpv1alpha1.DataProtectionTest{}
 		if getErr := r.Get(ctx, r.NamespacedName, latest); getErr != nil {
@@ -583,11 +583,11 @@ func (r *DataProtectionTestReconciler) updateDPTErrorStatus(ctx context.Context,
 	})
 
 	if err != nil {
-		logger.Error(err, "failed to update DPT error status", "message", msg)
+		r.Log.Error(err, "failed to update DPT error status", "message", msg)
 	}
 }
 
-func (r *DataProtectionTestReconciler) updateDPTStatusToComplete(ctx context.Context, logger logr.Logger) error {
+func (r *DataProtectionTestReconciler) updateDPTStatusToComplete(ctx context.Context) error {
 	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		latest := &oadpv1alpha1.DataProtectionTest{}
 		if err := r.Get(ctx, r.NamespacedName, latest); err != nil {
@@ -601,7 +601,7 @@ func (r *DataProtectionTestReconciler) updateDPTStatusToComplete(ctx context.Con
 		latest.Status.SnapshotSummary = r.dpt.Status.SnapshotSummary
 		latest.Status.BucketMetadata = r.dpt.Status.BucketMetadata
 		latest.Status.S3Vendor = r.dpt.Status.S3Vendor
-
+		
 		return r.Status().Update(ctx, latest)
 	})
 }
