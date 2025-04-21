@@ -488,6 +488,16 @@ func (r *DataProtectionTestReconciler) runSnapshotTests(ctx context.Context, dpt
 
 	dpt.Status.SnapshotTests = results
 
+	// Summarize results
+	passed := 0
+	total := len(dpt.Status.SnapshotTests)
+	for _, s := range dpt.Status.SnapshotTests {
+		if s.Status == "Ready" {
+			passed++
+		}
+	}
+	dpt.Status.SnapshotSummary = fmt.Sprintf("%d/%d passed", passed, total)
+
 	return combinedErr
 
 }
@@ -588,6 +598,7 @@ func (r *DataProtectionTestReconciler) updateDPTStatusToComplete(ctx context.Con
 		latest.Status.ErrorMessage = ""
 		latest.Status.UploadTest = r.dpt.Status.UploadTest
 		latest.Status.SnapshotTests = r.dpt.Status.SnapshotTests
+		latest.Status.SnapshotSummary = r.dpt.Status.SnapshotSummary
 		latest.Status.BucketMetadata = r.dpt.Status.BucketMetadata
 		latest.Status.S3Vendor = r.dpt.Status.S3Vendor
 
