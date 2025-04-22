@@ -373,18 +373,18 @@ func PrintNamespaceEventsAfterTime(c *kubernetes.Clientset, namespace string, st
 	}
 }
 
-func RunMustGather(oc_cli string, artifact_dir string) error {
-	ocClient := oc_cli
-	ocAdmin := "adm"
-	mustGatherCmd := "must-gather"
-	// TODO update image
-	// need to reopen https://github.com/openshift/release/pull/55587
-	mustGatherImg := "--image=quay.io/konveyor/oadp-must-gather:latest"
-	destDir := "--dest-dir=" + artifact_dir
+func RunMustGather(artifact_dir string) error {
+	_, err := exec.Command("./must-gather/oadp-must-gather").Output()
+	if err != nil {
+		return err
+	}
 
-	cmd := exec.Command(ocClient, ocAdmin, mustGatherCmd, mustGatherImg, destDir)
-	_, err := cmd.Output()
-	return err
+	_, err = exec.Command("mv", "must-gather/must-gather", artifact_dir).Output()
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // VerifyBackupRestoreData verifies if app ready before backup and after restore to compare data.

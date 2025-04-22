@@ -24,8 +24,8 @@ import (
 
 var (
 	// Common vars obtained from flags passed in ginkgo.
-	bslCredFile, namespace, instanceName, provider, vslCredFile, settings, artifact_dir, oc_cli string
-	flakeAttempts                                                                               int64
+	bslCredFile, namespace, instanceName, provider, vslCredFile, settings, artifact_dir string
+	flakeAttempts                                                                       int64
 
 	kubernetesClientForSuiteRun *kubernetes.Clientset
 	runTimeClientForSuiteRun    client.Client
@@ -54,7 +54,6 @@ func init() {
 	flag.StringVar(&instanceName, "velero_instance_name", "example-velero", "Velero Instance Name")
 	flag.StringVar(&provider, "provider", "aws", "Cloud provider")
 	flag.StringVar(&artifact_dir, "artifact_dir", "/tmp", "Directory for storing must gather")
-	flag.StringVar(&oc_cli, "oc_cli", "oc", "OC CLI Client")
 	flag.Int64Var(&flakeAttempts, "flakeAttempts", 3, "Customize the number of flake retries (3)")
 	flag.BoolVar(&kvmEmulation, "kvm_emulation", true, "Enable or disable KVM emulation for virtualization testing")
 	flag.BoolVar(&useUpstreamHco, "hco_upstream", false, "Force use of upstream virtualization operator")
@@ -83,9 +82,6 @@ func init() {
 		}
 		if os.Getenv("ARTIFACT_DIR") != "" {
 			artifact_dir = os.Getenv("ARTIFACT_DIR")
-		}
-		if os.Getenv("OC_CLI") != "" {
-			oc_cli = os.Getenv("OC_CLI")
 		}
 		if envValue := os.Getenv("FLAKE_ATTEMPTS"); envValue != "" {
 			// Parse the environment variable as int64
@@ -188,14 +184,14 @@ var _ = ginkgo.BeforeSuite(func() {
 })
 
 var _ = ginkgo.AfterSuite(func() {
-	// TODO run OADP must-gather
-	// log.Printf("Running OADP must-gather")
-	// err := lib.RunMustGather(oc_cli, artifact_dir)
-	// gomega.Expect(err).ToNot(gomega.HaveOccurred())
-	// TODO validate that everything was collected?
+	// TODO recreate DPA
+	log.Printf("Running OADP must-gather")
+	err := lib.RunMustGather(artifact_dir)
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+	// TODO validate that everything was collected
 
 	log.Printf("Deleting Secrets")
-	err := lib.DeleteSecret(kubernetesClientForSuiteRun, namespace, vslSecretName)
+	err = lib.DeleteSecret(kubernetesClientForSuiteRun, namespace, vslSecretName)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	err = lib.DeleteSecret(kubernetesClientForSuiteRun, namespace, bslSecretName)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
