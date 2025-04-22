@@ -14,6 +14,7 @@ RUN go mod download
 
 COPY cmd/main.go cmd/main.go
 COPY pkg/ pkg/
+COPY deprecated/ deprecated/
 
 RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -mod=mod -a -o gather cmd/main.go
 
@@ -33,6 +34,7 @@ FROM registry.access.redhat.com/ubi9-minimal:latest
 RUN microdnf -y install rsync tar
 
 COPY --from=builder /workspace/gather /usr/bin/gather
+COPY --from=builder /workspace/deprecated/* /usr/bin/
 COPY --from=builder /kopia /usr/bin/kopia
 COPY --from=builder /restic /usr/bin/restic
 
