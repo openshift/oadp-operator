@@ -539,7 +539,7 @@ OADP_BUCKET ?= $(shell cat $(OADP_BUCKET_FILE))
 SETTINGS_TMP=/tmp/test-settings
 
 .PHONY: test-e2e-setup
-test-e2e-setup: login-required
+test-e2e-setup: login-required build-must-gather
 	mkdir -p $(SETTINGS_TMP)
 	TMP_DIR=$(SETTINGS_TMP) \
 	OPENSHIFT_CI="$(OPENSHIFT_CI)" \
@@ -590,7 +590,6 @@ test-e2e: test-e2e-setup install-ginkgo ## Run E2E tests against OADP operator i
 	-velero_namespace=$(OADP_TEST_NAMESPACE) \
 	-velero_instance_name=$(VELERO_INSTANCE_NAME) \
 	-artifact_dir=$(ARTIFACT_DIR) \
-	-oc_cli=$(OC_CLI) \
 	-kvm_emulation=$(KVM_EMULATION) \
 	-hco_upstream=$(HCO_UPSTREAM) \
 	--ginkgo.vv \
@@ -635,3 +634,7 @@ endif
 		grep -q "\- $$file_name" $(shell pwd)/config/samples/kustomization.yaml || \
 		$(SED) -i "s%resources:%resources:\n- $$file_name%" $(shell pwd)/config/samples/kustomization.yaml;done
 	@make bundle
+
+.PHONY: build-must-gather
+build-must-gather: ## Build OADP Must-gather binary must-gather/oadp-must-gather
+	cd must-gather && go build -mod=mod -a -o oadp-must-gather cmd/main.go
