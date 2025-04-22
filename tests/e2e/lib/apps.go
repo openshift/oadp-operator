@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"reflect"
 	"sort"
 	"time"
@@ -374,12 +375,18 @@ func PrintNamespaceEventsAfterTime(c *kubernetes.Clientset, namespace string, st
 }
 
 func RunMustGather(artifact_dir string) error {
-	_, err := exec.Command("./must-gather/oadp-must-gather").Output()
+	executablePath, err := os.Executable()
 	if err != nil {
 		return err
 	}
 
-	_, err = exec.Command("mv", "must-gather/must-gather", artifact_dir).Output()
+	mustGatherDir := filepath.Dir(filepath.Dir(filepath.Dir(executablePath))) + "/must-gather/"
+	_, err = exec.Command(mustGatherDir + "oadp-must-gather").Output()
+	if err != nil {
+		return err
+	}
+
+	_, err = exec.Command("mv", mustGatherDir+"must-gather", artifact_dir).Output()
 	if err != nil {
 		return err
 	}
