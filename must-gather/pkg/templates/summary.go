@@ -1690,3 +1690,21 @@ func Write(outputPath string) error {
 	defer sumary.Close()
 	return nil
 }
+
+func WriteVersion(version string) error {
+	versionFileContent := fmt.Sprintf(
+		`OpenShift API for Data Protection (OADP) Must-gather
+%s`,
+		version)
+	versionFilePath := "must-gather/version"
+	versionFile, err := os.Create(versionFilePath)
+	if err != nil {
+		return err
+	}
+	err = os.WriteFile(versionFilePath, []byte(versionFileContent), FilePermission)
+	if err != nil {
+		return err
+	}
+	defer versionFile.Close()
+	return nil
+}
