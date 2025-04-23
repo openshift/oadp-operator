@@ -345,6 +345,11 @@ For more information, check OADP must-gather documentation: https://docs.redhat.
 			templates.ReplaceAvailableVolumeSnapshotClassesSection(outputPath, volumeSnapshotClassList)
 			templates.ReplaceAvailableCSIDriversSection(outputPath, csiDriverList)
 			templates.ReplaceCustomResourceDefinitionsSection(outputPath, clusterConfig)
+			err = templates.WriteVersion(mustGatherVersion)
+			if err != nil {
+				fmt.Printf("Error occurred: %v\n", err)
+				return err
+			}
 			// do not tar!
 			err = templates.Write(outputPath)
 			if err != nil {
