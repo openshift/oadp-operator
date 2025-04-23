@@ -285,6 +285,7 @@ func IsDeploymentReady(ocClient client.Client, namespace, dName string) wait.Con
 		if err != nil {
 			return false, err
 		}
+		log.Printf("Deployment %s status: %v", dName, deployment.Status)
 		if deployment.Status.AvailableReplicas != deployment.Status.Replicas || deployment.Status.Replicas == 0 {
 			for _, condition := range deployment.Status.Conditions {
 				if len(condition.Message) > 0 {
@@ -292,6 +293,30 @@ func IsDeploymentReady(ocClient client.Client, namespace, dName string) wait.Con
 				}
 			}
 			return false, errors.New("deployment is not in a ready state")
+		}
+		return true, nil
+	}
+}
+
+// IsStatefulSetReady checks if a StatefulSet is ready
+func IsStatefulSetReady(ocClient client.Client, namespace, name string) wait.ConditionFunc {
+	return func() (bool, error) {
+		sts := &appsv1.StatefulSet{}
+		err := ocClient.Get(context.Background(), client.ObjectKey{
+			Namespace: namespace,
+			Name:      name,
+		}, sts)
+		if err != nil {
+			return false, err
+		}
+		log.Printf("StatefulSet %s status: %v", name, sts.Status)
+		if sts.Status.ReadyReplicas != sts.Status.Replicas || sts.Status.Replicas == 0 {
+			for _, condition := range sts.Status.Conditions {
+				if len(condition.Message) > 0 {
+					ginkgo.GinkgoWriter.Write([]byte(fmt.Sprintf("statefulset not available with condition: %s\n", condition.Message)))
+				}
+			}
+			return false, errors.New("statefulset is not in a ready state")
 		}
 		return true, nil
 	}
