@@ -1173,17 +1173,9 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 					},
 				},
 			),
-			clientObjects:      []client.Object{testGenericInfrastructure},
-			nodeAgentDaemonSet: testNodeAgentDaemonSet.DeepCopy(),
-			wantNodeAgentDaemonSet: createTestBuiltNodeAgentDaemonSet(TestBuiltNodeAgentDaemonSetOptions{
-				volumes: []corev1.Volume{deploymentVolumeSecret("cloud-credentials")},
-				volumeMounts: []corev1.VolumeMount{
-					{Name: "cloud-credentials", MountPath: "/credentials"},
-				},
-				env: []corev1.EnvVar{
-					{Name: common.AWSSharedCredentialsFileEnvKey, Value: "/credentials/cloud"},
-				},
-			}),
+			clientObjects:          []client.Object{testGenericInfrastructure},
+			nodeAgentDaemonSet:     testNodeAgentDaemonSet.DeepCopy(),
+			wantNodeAgentDaemonSet: createTestBuiltNodeAgentDaemonSet(TestBuiltNodeAgentDaemonSetOptions{}),
 		},
 		{
 			name: "valid DPA CR with aws and kubevirt plugin, NodeAgent DaemonSet is built",
@@ -1204,17 +1196,9 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 					},
 				},
 			),
-			clientObjects:      []client.Object{testGenericInfrastructure},
-			nodeAgentDaemonSet: testNodeAgentDaemonSet.DeepCopy(),
-			wantNodeAgentDaemonSet: createTestBuiltNodeAgentDaemonSet(TestBuiltNodeAgentDaemonSetOptions{
-				volumes: []corev1.Volume{deploymentVolumeSecret("cloud-credentials")},
-				volumeMounts: []corev1.VolumeMount{
-					{Name: "cloud-credentials", MountPath: "/credentials"},
-				},
-				env: []corev1.EnvVar{
-					{Name: common.AWSSharedCredentialsFileEnvKey, Value: "/credentials/cloud"},
-				},
-			}),
+			clientObjects:          []client.Object{testGenericInfrastructure},
+			nodeAgentDaemonSet:     testNodeAgentDaemonSet.DeepCopy(),
+			wantNodeAgentDaemonSet: createTestBuiltNodeAgentDaemonSet(TestBuiltNodeAgentDaemonSetOptions{}),
 		},
 		{
 			name: "valid DPA CR with disabled FS backup, NodeAgent DaemonSet is built",
@@ -1239,13 +1223,6 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 			nodeAgentDaemonSet: testNodeAgentDaemonSet.DeepCopy(),
 			wantNodeAgentDaemonSet: createTestBuiltNodeAgentDaemonSet(TestBuiltNodeAgentDaemonSetOptions{
 				disableFsBackup: ptr.To(true),
-				volumes:         []corev1.Volume{deploymentVolumeSecret("cloud-credentials")},
-				volumeMounts: []corev1.VolumeMount{
-					{Name: "cloud-credentials", MountPath: "/credentials"},
-				},
-				env: []corev1.EnvVar{
-					{Name: common.AWSSharedCredentialsFileEnvKey, Value: "/credentials/cloud"},
-				},
 			}),
 		},
 		{
