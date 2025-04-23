@@ -13,7 +13,7 @@ podman push <this-image>
 oc adm must-gather --image=<this-image> -- /usr/bin/gather -h
 oc adm must-gather --image=<this-image>
 ```
-TODO mention e2e tests!
+OADP Must-gather is also tested through OADP E2E tests, being run after test cases and checking if summary does not contain errors and all required objects were collected.
 
 To test omg tool, create `omg.Dockerfile` file
 ```Dockerfile
