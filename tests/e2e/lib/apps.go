@@ -380,13 +380,12 @@ func RunMustGather(artifact_dir string) error {
 		return err
 	}
 
-	mustGatherDir := filepath.Dir(filepath.Dir(filepath.Dir(executablePath))) + "/must-gather/"
-	_, err = exec.Command(mustGatherDir + "oadp-must-gather").Output()
+	_, err = exec.Command(filepath.Dir(filepath.Dir(filepath.Dir(executablePath))) + "/must-gather/oadp-must-gather").Output()
 	if err != nil {
 		return err
 	}
 
-	_, err = exec.Command("mv", mustGatherDir+"must-gather", artifact_dir).Output()
+	_, err = exec.Command("mv", filepath.Dir(executablePath)+"/must-gather", artifact_dir).Output()
 	if err != nil {
 		return err
 	}
