@@ -49,10 +49,8 @@ func todoListReady(preBackupState bool, twoVol bool, database string) Verificati
 	})
 }
 
-func prepareBackupAndRestore(brCase BackupRestoreCase, updateLastInstallTime func()) (string, string) {
-	updateLastInstallTime()
-
-	err := dpaCR.CreateOrUpdate(dpaCR.Build(brCase.BackupRestoreType))
+func waitOADPReadiness(backupRestoreType lib.BackupRestoreType) {
+	err := dpaCR.CreateOrUpdate(dpaCR.Build(backupRestoreType))
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	log.Print("Checking if DPA is reconciled")
@@ -61,7 +59,7 @@ func prepareBackupAndRestore(brCase BackupRestoreCase, updateLastInstallTime fun
 	log.Printf("Waiting for Velero Pod to be running")
 	gomega.Eventually(lib.VeleroPodIsRunning(kubernetesClientForSuiteRun, namespace), time.Minute*3, time.Second*5).Should(gomega.BeTrue())
 
-	if brCase.BackupRestoreType == lib.RESTIC || brCase.BackupRestoreType == lib.KOPIA || brCase.BackupRestoreType == lib.CSIDataMover {
+	if backupRestoreType == lib.RESTIC || backupRestoreType == lib.KOPIA || backupRestoreType == lib.CSIDataMover {
 		log.Printf("Waiting for Node Agent pods to be running")
 		gomega.Eventually(lib.AreNodeAgentPodsRunning(kubernetesClientForSuiteRun, namespace), time.Minute*3, time.Second*5).Should(gomega.BeTrue())
 	}
@@ -70,12 +68,18 @@ func prepareBackupAndRestore(brCase BackupRestoreCase, updateLastInstallTime fun
 
 	log.Print("Checking if BSL is available")
 	gomega.Eventually(dpaCR.BSLsAreAvailable(), time.Minute*3, time.Second*5).Should(gomega.BeTrue())
+}
+
+func prepareBackupAndRestore(brCase BackupRestoreCase, updateLastInstallTime func()) (string, string) {
+	updateLastInstallTime()
+
+	waitOADPReadiness(brCase.BackupRestoreType)
 
 	if brCase.BackupRestoreType == lib.CSI || brCase.BackupRestoreType == lib.CSIDataMover {
 		if provider == "aws" || provider == "ibmcloud" || provider == "gcp" || provider == "azure" || provider == "openstack" {
 			log.Printf("Creating VolumeSnapshotClass for CSI backuprestore of %s", brCase.Name)
 			snapshotClassPath := fmt.Sprintf("./sample-applications/snapclass-csi/%s.yaml", provider)
-			err = lib.InstallApplication(dpaCR.Client, snapshotClassPath)
+			err := lib.InstallApplication(dpaCR.Client, snapshotClassPath)
 			gomega.Expect(err).ToNot(gomega.HaveOccurred())
 		}
 	}
@@ -284,6 +288,19 @@ var _ = ginkgo.Describe("Backup and restore tests", func() {
 
 	var _ = ginkgo.AfterEach(func(ctx ginkgo.SpecContext) {
 		tearDownBackupAndRestore(lastBRCase.BackupRestoreCase, lastInstallTime, ctx.SpecReport())
+	})
+
+	var _ = ginkgo.AfterAll(func() {
+		// DPA just needs to have BSL so gathering of backups/restores logs/describe work
+		// using kopia to collect more info (DaemonSet)
+		waitOADPReadiness(lib.KOPIA)
+
+		log.Printf("Running OADP must-gather")
+		err := lib.RunMustGather(artifact_dir, dpaCR.Client)
+		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+
+		err = dpaCR.Delete()
+		gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	})
 
 	ginkgo.DescribeTable("Backup and restore applications",

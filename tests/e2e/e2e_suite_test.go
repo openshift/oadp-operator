@@ -184,19 +184,8 @@ var _ = ginkgo.BeforeSuite(func() {
 })
 
 var _ = ginkgo.AfterSuite(func() {
-	// DPA just needs to have BSL so gathering of backups/restores logs/describe work
-	// using kopia to collect more info (DaemonSet)
-	err := dpaCR.CreateOrUpdate(dpaCR.Build(lib.KOPIA))
-	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-
-	log.Printf("Running OADP must-gather")
-	err = lib.RunMustGather(artifact_dir)
-	gomega.Expect(err).ToNot(gomega.HaveOccurred())
-
-	// TODO validate that everything was collected without errors
-
 	log.Printf("Deleting Secrets")
-	err = lib.DeleteSecret(kubernetesClientForSuiteRun, namespace, vslSecretName)
+	err := lib.DeleteSecret(kubernetesClientForSuiteRun, namespace, vslSecretName)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	err = lib.DeleteSecret(kubernetesClientForSuiteRun, namespace, bslSecretName)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())

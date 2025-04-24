@@ -214,6 +214,17 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 	})
 
 	var _ = ginkgo.AfterAll(func() {
+		// DPA just needs to have BSL so gathering of backups/restores logs/describe work
+		// using kopia to collect more info (DaemonSet)
+		waitOADPReadiness(lib.KOPIA)
+
+		log.Printf("Running OADP must-gather")
+		err := lib.RunMustGather(artifact_dir, dpaCR.Client)
+		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+
+		err = dpaCR.Delete()
+		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+
 		if v != nil && cirrosDownloadedFromTest {
 			v.RemoveDataSource(bootImageNamespace, "cirros")
 			v.RemoveDataVolume(bootImageNamespace, "cirros", 2*time.Minute)
@@ -223,7 +234,7 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 			v.EnsureVirtRemoval()
 		}
 
-		err := v.RemoveStorageClass("test-sc-immediate")
+		err = v.RemoveStorageClass("test-sc-immediate")
 		gomega.Expect(err).To(gomega.BeNil())
 		err = v.RemoveStorageClass("test-sc-wffc")
 		gomega.Expect(err).To(gomega.BeNil())
