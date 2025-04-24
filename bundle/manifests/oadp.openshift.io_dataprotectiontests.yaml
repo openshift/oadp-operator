@@ -1,0 +1,298 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.16.5
+  creationTimestamp: null
+  name: dataprotectiontests.oadp.openshift.io
+spec:
+  group: oadp.openshift.io
+  names:
+    kind: DataProtectionTest
+    listKind: DataProtectionTestList
+    plural: dataprotectiontests
+    shortNames:
+    - dpt
+    singular: dataprotectiontest
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - description: Current phase of the DPT
+      jsonPath: .status.phase
+      name: Phase
+      type: string
+    - description: Last time the test was executed
+      jsonPath: .status.lastTested
+      name: LastTested
+      type: date
+    - description: Upload speed to object storage
+      jsonPath: .status.uploadTest.speedMbps
+      name: UploadSpeed(Mbps)
+      type: integer
+    - description: Bucket encryption algorithm
+      jsonPath: .status.bucketMetadata.encryptionAlgorithm
+      name: Encryption
+      type: string
+    - description: Bucket versioning state
+      jsonPath: .status.bucketMetadata.versioningStatus
+      name: Versioning
+      type: string
+    - description: Snapshot test pass/fail summary
+      jsonPath: .status.snapshotSummary
+      name: Snapshots
+      type: string
+    - description: Time since DPT was created
+      jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: DataProtectionTest is the Schema for the dataprotectiontests
+          API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: DataProtectionTestSpec defines the desired tests to perform.
+            properties:
+              backupLocationName:
+                description: backupLocationName specifies the name the Velero BackupStorageLocation
+                  (BSL) to test against.
+                type: string
+              backupLocationSpec:
+                description: backupLocationSpec is an inline copy of the BSL spec
+                  to use during testing.
+                properties:
+                  accessMode:
+                    description: AccessMode defines the permissions for the backup
+                      storage location.
+                    enum:
+                    - ReadOnly
+                    - ReadWrite
+                    type: string
+                  backupSyncPeriod:
+                    description: BackupSyncPeriod defines how frequently to sync backup
+                      API objects from object storage. A value of 0 disables sync.
+                    nullable: true
+                    type: string
+                  config:
+                    additionalProperties:
+                      type: string
+                    description: Config is for provider-specific configuration fields.
+                    type: object
+                  credential:
+                    description: Credential contains the credential information intended
+                      to be used with this location
+                    properties:
+                      key:
+                        description: The key of the secret to select from.  Must be
+                          a valid secret key.
+                        type: string
+                      name:
+                        default: ""
+                        description: |-
+                          Name of the referent.
+                          This field is effectively required, but due to backwards compatibility is
+                          allowed to be empty. Instances of this type with an empty value here are
+                          almost certainly wrong.
+                          More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                        type: string
+                      optional:
+                        description: Specify whether the Secret or its key must be
+                          defined
+                        type: boolean
+                    required:
+                    - key
+                    type: object
+                    x-kubernetes-map-type: atomic
+                  default:
+                    description: Default indicates this location is the default backup
+                      storage location.
+                    type: boolean
+                  objectStorage:
+                    description: ObjectStorageLocation specifies the settings necessary
+                      to connect to a provider's object storage.
+                    properties:
+                      bucket:
+                        description: Bucket is the bucket to use for object storage.
+                        type: string
+                      caCert:
+                        description: CACert defines a CA bundle to use when verifying
+                          TLS connections to the provider.
+                        format: byte
+                        type: string
+                      prefix:
+                        description: Prefix is the path inside a bucket to use for
+                          Velero storage. Optional.
+                        type: string
+                    required:
+                    - bucket
+                    type: object
+                  provider:
+                    description: Provider is the provider of the backup storage.
+                    type: string
+                  validationFrequency:
+                    description: ValidationFrequency defines how frequently to validate
+                      the corresponding object storage. A value of 0 disables validation.
+                    nullable: true
+                    type: string
+                required:
+                - objectStorage
+                - provider
+                type: object
+              csiVolumeSnapshotTestConfigs:
+                description: csiVolumeSnapshotTestConfigs defines one or more CSI
+                  VolumeSnapshot tests to perform.
+                items:
+                  description: CSIVolumeSnapshotTestConfig contains config for performing
+                    a CSI VolumeSnapshot test.
+                  properties:
+                    snapshotClassName:
+                      description: snapshotClassName specifies the CSI snapshot class
+                        to use.
+                      type: string
+                    timeout:
+                      description: timeout specifies how long to wait for the snapshot
+                        to become ready, e.g., "60s"
+                      type: string
+                    volumeSnapshotSource:
+                      description: volumeSnapshotSource defines the PVC to snapshot.
+                      properties:
+                        persistentVolumeClaimName:
+                          description: persistentVolumeClaimName is the name of the
+                            PVC to snapshot.
+                          type: string
+                        persistentVolumeClaimNamespace:
+                          description: persistentVolumeClaimNamespace is the namespace
+                            of the PVC.
+                          type: string
+                      type: object
+                  type: object
+                type: array
+              forceRun:
+                default: false
+                description: forceRun will re-trigger the DPT even if it already completed
+                type: boolean
+              uploadSpeedTestConfig:
+                description: uploadSpeedTestConfig specifies parameters for an object
+                  storage upload speed test.
+                properties:
+                  fileSize:
+                    description: fileSize is the size of data to upload, e.g., "100MB".
+                    type: string
+                  timeout:
+                    description: timeout defines the maximum duration for the upload
+                      test, e.g., "60s".
+                    type: string
+                type: object
+            type: object
+          status:
+            description: DataProtectionTestStatus represents the observed results
+              of the tests.
+            properties:
+              bucketMetadata:
+                description: bucketMetadata reports the encryption and versioning
+                  status of the target bucket.
+                properties:
+                  encryptionAlgorithm:
+                    description: encryptionAlgorithm reports the encryption method
+                      (AES256, aws:kms, or "None").
+                    type: string
+                  errorMessage:
+                    description: errorMessage contains details of any failure to fetch
+                      bucket metadata.
+                    type: string
+                  versioningStatus:
+                    description: versioningStatus indicates whether bucket versioning
+                      is Enabled, Suspended, or None.
+                    type: string
+                type: object
+              errorMessage:
+                description: errorMessage contains details of any DPT failure
+                type: string
+              lastTested:
+                description: lastTested is the timestamp when the test was last run.
+                format: date-time
+                type: string
+              phase:
+                description: phase indicates phase of the DataProtectionTest - Complete,
+                  Failed
+                type: string
+              s3Vendor:
+                description: s3Vendor indicates the detected s3 vendor name from the
+                  storage endpoint if applicable (e.g., AWS, MinIO).
+                type: string
+              snapshotSummary:
+                description: snapshot test pass/fail summary
+                type: string
+              snapshotTests:
+                description: snapshotTests contains results for each snapshot tested
+                  PVC.
+                items:
+                  description: SnapshotTestStatus holds the result for an individual
+                    PVC snapshot test.
+                  properties:
+                    errorMessage:
+                      description: errorMessage contains details of any snapshot failure.
+                      type: string
+                    persistentVolumeClaimName:
+                      description: persistentVolumeClaimName of the tested PVC.
+                      type: string
+                    persistentVolumeClaimNamespace:
+                      description: persistentVolumeClaimNamespace of the tested PVC.
+                      type: string
+                    readyDuration:
+                      description: readyDuration is the time it took for the snapshot
+                        to become ReadyToUse.
+                      type: string
+                    status:
+                      description: status indicates snapshot readiness ("Ready", "Failed").
+                      type: string
+                  type: object
+                type: array
+              uploadTest:
+                description: uploadTest contains results of the object storage upload
+                  test.
+                properties:
+                  duration:
+                    description: duration is the time taken to upload the test file.
+                    type: string
+                  errorMessage:
+                    description: errorMessage contains details of any upload failure.
+                    type: string
+                  speedMbps:
+                    description: speedMbps is the calculated upload speed.
+                    format: int64
+                    type: integer
+                  success:
+                    description: success indicates if the upload succeeded.
+                    type: boolean
+                type: object
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: null
+  storedVersions: null

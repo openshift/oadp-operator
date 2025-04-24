@@ -61,6 +61,18 @@ metadata:
         },
         {
           "apiVersion": "oadp.openshift.io/v1alpha1",
+          "kind": "DataProtectionTest",
+          "metadata": {
+            "labels": {
+              "app.kubernetes.io/managed-by": "kustomize",
+              "app.kubernetes.io/name": "oadp-operator"
+            },
+            "name": "dataprotectiontest-sample"
+          },
+          "spec": null
+        },
+        {
+          "apiVersion": "oadp.openshift.io/v1alpha1",
           "kind": "NonAdminBackup",
           "metadata": {
             "labels": {
@@ -431,6 +443,11 @@ spec:
       - description: Conditions defines the observed state of DataProtectionApplication
         displayName: Conditions
         path: conditions
+      version: v1alpha1
+    - description: DataProtectionTest is the Schema for the dataprotectiontests API
+      displayName: Data Protection Test
+      kind: DataProtectionTest
+      name: dataprotectiontests.oadp.openshift.io
       version: v1alpha1
     - description: DataUpload acts as the protocol between data mover plugins and
         data mover controller for the datamover backup operation
@@ -906,6 +923,7 @@ spec:
           - '*'
           - cloudstorages
           - dataprotectionapplications
+          - dataprotectiontests
           verbs:
           - create
           - delete
@@ -919,6 +937,7 @@ spec:
           resources:
           - cloudstorages/finalizers
           - dataprotectionapplications/finalizers
+          - dataprotectiontests/finalizers
           verbs:
           - update
         - apiGroups:
@@ -926,6 +945,7 @@ spec:
           resources:
           - cloudstorages/status
           - dataprotectionapplications/status
+          - dataprotectiontests/status
           verbs:
           - get
           - patch
@@ -962,6 +982,28 @@ spec:
           - securitycontextconstraints
           verbs:
           - use
+        - apiGroups:
+          - snapshot.storage.k8s.io
+          resources:
+          - volumesnapshotclasses
+          - volumesnapshotcontents
+          verbs:
+          - delete
+          - get
+          - list
+          - update
+          - watch
+        - apiGroups:
+          - snapshot.storage.k8s.io
+          resources:
+          - volumesnapshots
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - update
+          - watch
         - apiGroups:
           - velero.io
           resources:
