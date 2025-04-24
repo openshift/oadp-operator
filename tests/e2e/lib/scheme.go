@@ -4,6 +4,7 @@ import (
 	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 	openshiftappsv1 "github.com/openshift/api/apps/v1"
 	openshiftbuildv1 "github.com/openshift/api/build/v1"
+	openshiftconfigv1 "github.com/openshift/api/config/v1"
 	openshiftroutev1 "github.com/openshift/api/route/v1"
 	openshiftsecurityv1 "github.com/openshift/api/security/v1"
 	openshifttemplatev1 "github.com/openshift/api/template/v1"
@@ -36,4 +37,5 @@ func init() {
 	_ = operatorsv1.AddToScheme(Scheme)
 	_ = hypershiftv1.AddToScheme(Scheme)
 	_ = appsv1.AddToScheme(Scheme)
+	_ = openshiftconfigv1.AddToScheme(Scheme)
 }
