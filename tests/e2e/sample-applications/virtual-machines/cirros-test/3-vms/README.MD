@@ -45,7 +45,7 @@ velero restore create cirros-test-cont-3  --from-backup backup-cirros-test-cont-
 
 #### to restore scenario 2: (works)
 ```
-velero restore create cirros-test-1  --from-backup 3-cirros-vms-all 
+velero restore create cirros-test-1  --from-backup backup-cirros-test-cont-all
 ```
 
 **Velero selectors in some cases are not working, The datavolume PV/PVC is not a restore resource**
