@@ -51,6 +51,8 @@ spec:
             - mountPath: /var/run/secrets/openshift/serviceaccount
               name: bound-sa-token
               readOnly: true
+            - mountPath: /tmp
+              name: tmp-dir
           env:
             - name: WATCH_NAMESPACE
               valueFrom:
@@ -126,4 +128,6 @@ spec:
                   path: token
                   expirationSeconds: 3600
                   audience: openshift
+        - name: tmp-dir
+          emptyDir: {}
       terminationGracePeriodSeconds: 10

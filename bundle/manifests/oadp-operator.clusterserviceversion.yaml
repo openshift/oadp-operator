@@ -1164,6 +1164,8 @@ spec:
                 - mountPath: /var/run/secrets/openshift/serviceaccount
                   name: bound-sa-token
                   readOnly: true
+                - mountPath: /tmp
+                  name: tmp-dir
               securityContext:
                 runAsNonRoot: true
               serviceAccountName: openshift-adp-controller-manager
@@ -1176,6 +1178,8 @@ spec:
                       audience: openshift
                       expirationSeconds: 3600
                       path: token
+              - emptyDir: {}
+                name: tmp-dir
       permissions:
       - rules:
         - apiGroups:
