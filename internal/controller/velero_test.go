@@ -1696,6 +1696,54 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 			}),
 		},
 		{
+			name: "valid DPA CR with aws and hypershift plugin with default credentials",
+			dpa: createTestDpaWith(
+				nil,
+				oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+								oadpv1alpha1.DefaultPluginAWS,
+								oadpv1alpha1.DefaultPluginHypershift,
+							},
+							NoDefaultBackupLocation: false,
+						},
+					},
+					BackupLocations: []oadpv1alpha1.BackupLocation{
+						{
+							Velero: &velerov1.BackupStorageLocationSpec{
+								Provider: AWSProvider,
+								StorageType: velerov1.StorageType{
+									ObjectStorage: &velerov1.ObjectStorageLocation{
+										Bucket: "test-bucket",
+									},
+								},
+							},
+						},
+					},
+				},
+			),
+			veleroDeployment: testVeleroDeployment.DeepCopy(),
+			wantVeleroDeployment: createTestBuiltVeleroDeployment(TestBuiltVeleroDeploymentOptions{
+				initContainers: []corev1.Container{
+					pluginContainer(common.VeleroPluginForAWS, common.AWSPluginImage),
+					pluginContainer(common.HypershiftPlugin, common.HypershiftPluginImage),
+				},
+				volumes: []corev1.Volume{deploymentVolumeSecret("cloud-credentials")},
+				volumeMounts: []corev1.VolumeMount{
+					{Name: "cloud-credentials", MountPath: "/credentials"},
+				},
+				env: append(baseEnvVars, []corev1.EnvVar{
+					{Name: common.AWSSharedCredentialsFileEnvKey, Value: "/credentials/cloud"},
+				}...),
+				args: []string{
+					defaultFileSystemBackupTimeout,
+					defaultRestoreResourcePriorities,
+					defaultDisableInformerCache,
+				},
+			}),
+		},
+		{
 			name: "valid DPA CR with aws plugin from CloudStorage, Velero Deployment is built with aws plugin",
 			dpa: createTestDpaWith(
 				nil,
