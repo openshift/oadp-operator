@@ -75,3 +75,33 @@ go mod verify
 ## Deprecated folder
 
 Scripts under `deprecated/` folder are for backwards compatibility with old OADP Must-gather shell script. Users should use new OADP Must-gather Go script, as highlighted in product documentation.
+
+## Standards
+
+OADP Must-gather must comply with https://github.com/openshift/enhancements/blob/995b620cb04c030bf62c908e188472fe7031a704/enhancements/oc/must-gather.md?plain=1#L94-L104
+
+>1. Must have a zero-arg, executable file at `/usr/bin/gather` that does your default gathering
+
+OADP Must-gather binary can be called without args. All OADP Must-gather binary args are optional
+
+>2. Must produce data to be copied back at `/must-gather`. The data must not contain any sensitive data. We don't string PII information, only secret information.
+
+OADP Must-gather collected data is stored at `/must-gather` folder in the same path the binary was called.
+
+Most of the data is collected through `oc adm inspect` command (including Secrets). The other data are cluster information, OADP related information (CRDs and CRs) and storage information (StorageClasses, VolumeSnapshotClasses and CSIDrivers CRDs and CRs). These objects should not contain any sensitive data.
+
+>3. Must produce a text `/must-gather/version` that indicates the product (first line) and the version (second line, `major.minor.micro-qualifier`),
+>   so that programmatic analysis can be developed.
+
+OADP Must-gather stores version information in `/must-gather/version` file
+
+Example content of the file
+```txt
+OpenShift API for Data Protection (OADP) Must-gather
+master-branch
+```
+
+>4. Should honor the user-provided values for `--since` and `--since-time`, which are passed to plugins via
+>   environment variables named `MUST_GATHER_SINCE` and `MUST_GATHER_SINCE_TIME`, respectively.
+
+TODO `oc adm inspect` command is called through Go code. But both `since` and `since-time` are private. Need to change this in https://github.com/openshift/oc/blob/ae1bd9e4a75b8ab617a569e5c8e1a0d7285a16f6/pkg/cli/admin/inspect/inspect.go#L118-L119 to allow usage in OADP Must-gather
