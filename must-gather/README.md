@@ -1,83 +1,107 @@
-# OADP must-gather
+# OADP Must-gather
 
-`must-gather` is a tool built on top of [OpenShift must-gather](https://github.com/openshift/must-gather)
-that expands its capabilities to gather OADP operator specific resources
-
-### Usage
-
-**Full gather**
+To test OADP Must-gather, run
 ```sh
-oc adm must-gather --image=quay.io/konveyor/oadp-must-gather:latest
+go run cmd/main.go -h
+go run cmd/main.go
 ```
 
-The command above will create a local directory with a dump of the OADP Operator state.
-
-You will get a dump of:
-- All namespaces where OADP operator is installed, including pod logs
-- All velero.io resources located in those namespaces
-- Prometheus metrics
-
-**Essential-only gather**
-
-Differences from full gather:
- - Logs are only gathered from specified time window
- - Skips collection of prometheus metrics. Removes duplicate logs from payload.
-```
-# Essential gather (available time windows: [1h, 6h, 24h, 72h, all])
-oc adm must-gather --image=quay.io/konveyor/oadp-must-gather:latest -- /usr/bin/gather_24h_essential
-```
-
-#### Preview metrics on local Prometheus server
-
-Get Prometheus metrics data directory dump (last day, might take a while):
+To test OADP Must-gather with `oc adm must-gather`, run
 ```sh
-oc adm must-gather --image quay.io/konveyor/oadp-must-gather:latest -- /usr/bin/gather_metrics_dump
+podman build -t ttl.sh/oadp/must-gather-$(git rev-parse --short HEAD)-$(echo $RANDOM):1h -f Dockerfile . --platform=<cluster-architecture>
+podman push <this-image>
+oc adm must-gather --image=<this-image> -- /usr/bin/gather -h
+oc adm must-gather --image=<this-image>
 ```
+OADP Must-gather is also tested through OADP E2E tests, being run after test cases and checking if summary does not contain errors and all required objects were collected.
 
-Run local Prometheus instance with dumped data:
+To test omg tool, create `omg.Dockerfile` file
+```Dockerfile
+FROM python:3.10.12-slim-bullseye
+
+WORKDIR /test-omg
+COPY ./ ./
+RUN pip install o-must-gather
+```
+and run
 ```sh
-make prometheus-run # and prometheus-cleanup when you're done
+podman build -t omg-container -f omg.Dockerfile .
+podman run -ti --rm omg-container bash
+# inside container
+omg use must-gather/clusters/
+omg get backup -n <namespace> # and other OADP resources
 ```
-The latest Prometheus data file (prom_data.tar.gz) in current directory/subdirectories is searched by default. Could be specified in ```PROMETHEUS_DUMP_PATH``` environment variable.
 
-### Known Limitations
-
-`velero backups` with phase `FailedValidation` could cause `must-gather` to be slow. In order to speed up the process, pass a timeout value to the command as follows,
+To update OADP Must-gather `go.mod` dependencies, run
 ```sh
-oc adm must-gather --image=quay.io/konveyor/oadp-must-gather:latest -- /usr/bin/gather_with_timeout <timeout_value_in_seconds>
+go get github.com/openshift/oadp-operator@master
+go get github.com/migtools/oadp-non-admin@master
+# manually update github.com/openshift/velero version in replace section of go.mod to match OADP operator
+go mod tidy
+go mod verify
 ```
-### Support for insecure TLS connections 
+Update it often. It must be updated prior to releases.
 
-If a custom CA cert is used, then must-gather pod fails to grab the output for velero logs/describe. In this case, the user can pass a flag to the must-gather command to allow insecure TLS connections. 
-
+Possible necessary updates over the time
 ```sh
-oc adm must-gather --image=quay.io/konveyor/oadp-must-gather:latest -- /usr/bin/gather_without_tls <true/false>
+go get github.com/openshift/oc@<branch-or-commit>
+go mod tidy
+go mod verify
 ```
-Note: By default the flag value is set to `false`
 
-### Combining Options
+## OADP release
 
-It is not currently possible to combine multiple gather scripts, for example specifying a timeout value at the same time as allowing insecure TLS. However, it is possible in some cases to work around this limitation by setting internal variables on the must-gather command line, like this:
+Prior to each release, OADP Must-gather must be updated.
 
+To update OADP Must-gather `go.mod` dependencies, run
 ```sh
-oc adm must-gather --image=quay.io/konveyor/oadp-must-gather:latest -- skip_tls=true /usr/bin/gather_with_timeout <timeout_value_in_seconds>
+go get github.com/openshift/oadp-operator@<release-brach>
+go get github.com/migtools/oadp-non-admin@<release-brach>
+# manually update github.com/openshift/velero version in replace section of go.mod to match OADP operator
+go mod tidy
+go mod verify
 ```
 
-In this case, the `skip_tls` variable is set before running the gather_with_timeout script, and the net effect is a combination of gather_with_timeout and gather_without_tls. The only other variables that can be specified this way are `logs_since`, with a default value of `72h`, and `request_timeout`, with a default value of `0s`.
-
-### Development
-You can build the image locally using the Dockerfile included.
-
-A `makefile` is also provided. To use it, you must pass a repository via the command-line using the variable `IMAGE_NAME`.
-You can also specify the registry using the variable `IMAGE_REGISTRY` (default is [quay.io](https://quay.io)) and the tag via `IMAGE_TAG` (default is `latest`).
-
-The targets for `make` are as follows:
-- `build`: builds the image with the supplied name and pushes it
-- `docker-build`: builds the image but does not push it
-- `docker-push`: pushes an already-built image
-
-For example:
-```sh
-make build IMAGE_NAME=my-repo/must-gather
+`must-gather/pkg/cli.go` file must be updated
+```diff
+ const (
+-	mustGatherVersion = "1.5.0"
++	mustGatherVersion = "1.5.1"
+	mustGatherImage   = "registry.redhat.io/oadp/oadp-mustgather-rhel9:v1.5"
 ```
-would build the local repository as `quay.io/my-repo/must-gather:latest` and then push it.
+
+> **Note:** If it is a minor release, `mustGatherImage` must also be updated.
+
+## Deprecated folder
+
+Scripts under `deprecated/` folder are for backwards compatibility with old OADP Must-gather shell script. Users should use new OADP Must-gather Go script, as highlighted in product documentation.
+
+## Standards
+
+OADP Must-gather must comply with https://github.com/openshift/enhancements/blob/995b620cb04c030bf62c908e188472fe7031a704/enhancements/oc/must-gather.md?plain=1#L94-L104
+
+>1. Must have a zero-arg, executable file at `/usr/bin/gather` that does your default gathering
+
+OADP Must-gather binary can be called without args. All OADP Must-gather binary args are optional
+
+>2. Must produce data to be copied back at `/must-gather`. The data must not contain any sensitive data. We don't string PII information, only secret information.
+
+OADP Must-gather collected data is stored at `/must-gather` folder in the same path the binary was called.
+
+Most of the data is collected through `oc adm inspect` command (including Secrets). The other data are cluster information, OADP related information (CRDs and CRs) and storage information (StorageClasses, VolumeSnapshotClasses and CSIDrivers CRDs and CRs). These objects should not contain any sensitive data.
+
+>3. Must produce a text `/must-gather/version` that indicates the product (first line) and the version (second line, `major.minor.micro-qualifier`),
+>   so that programmatic analysis can be developed.
+
+OADP Must-gather stores version information in `/must-gather/version` file
+
+Example content of the file
+```txt
+OpenShift API for Data Protection (OADP) Must-gather
+master-branch
+```
+
+>4. Should honor the user-provided values for `--since` and `--since-time`, which are passed to plugins via
+>   environment variables named `MUST_GATHER_SINCE` and `MUST_GATHER_SINCE_TIME`, respectively.
+
+TODO `oc adm inspect` command is called through Go code. But both `since` and `since-time` are private. Need to change this in https://github.com/openshift/oc/blob/ae1bd9e4a75b8ab617a569e5c8e1a0d7285a16f6/pkg/cli/admin/inspect/inspect.go#L118-L119 to allow usage in OADP Must-gather

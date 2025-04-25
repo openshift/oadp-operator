@@ -503,7 +503,7 @@ endif
 SETTINGS_TMP=/tmp/test-settings
 
 .PHONY: test-e2e-setup
-test-e2e-setup: login-required
+test-e2e-setup: login-required build-must-gather
 	mkdir -p $(SETTINGS_TMP)
 	TMP_DIR=$(SETTINGS_TMP) \
 	OPENSHIFT_CI="$(OPENSHIFT_CI)" \
@@ -529,7 +529,6 @@ test-e2e: test-e2e-setup install-ginkgo
 	-velero_namespace=$(OADP_TEST_NAMESPACE) \
 	-velero_instance_name=$(VELERO_INSTANCE_NAME) \
 	-artifact_dir=$(ARTIFACT_DIR) \
-	-oc_cli=$(OC_CLI) \
 	--ginkgo.vv \
 	--ginkgo.no-color=$(OPENSHIFT_CI) \
 	--ginkgo.label-filter="$(TEST_FILTER)" \
@@ -548,3 +547,7 @@ test-e2e-cleanup: login-required
 	$(OC_CLI) delete restore -n $(OADP_TEST_NAMESPACE) --all --wait=false
 	for restore_name in $(shell $(OC_CLI) get restore -n $(OADP_TEST_NAMESPACE) -o name);do $(OC_CLI) patch "$$restore_name" -n $(OADP_TEST_NAMESPACE) -p '{"metadata":{"finalizers":null}}' --type=merge;done
 	rm -rf $(SETTINGS_TMP)
+
+.PHONY: build-must-gather
+build-must-gather: ## Build OADP Must-gather binary must-gather/oadp-must-gather
+	cd must-gather && go build -mod=mod -a -o oadp-must-gather cmd/main.go

@@ -28,10 +28,8 @@ type BackupRestoreCase struct {
 
 type ApplicationBackupRestoreCase struct {
 	BackupRestoreCase
-	ApplicationTemplate          string
-	PvcSuffixName                string
-	MustGatherFiles              []string            // list of files expected in must-gather under quay.io.../clusters/clustername/... ie. "namespaces/openshift-adp/oadp.openshift.io/dpa-ts-example-velero/ts-example-velero.yml"
-	MustGatherValidationFunction *func(string) error // validation function for must-gather where string parameter is the path to "quay.io.../clusters/clustername/"
+	ApplicationTemplate string
+	PvcSuffixName       string
 }
 
 func todoListReady(preBackupState bool, twoVol bool, database string) VerificationFunction {
@@ -50,10 +48,8 @@ func todoListReady(preBackupState bool, twoVol bool, database string) Verificati
 	})
 }
 
-func prepareBackupAndRestore(brCase BackupRestoreCase, updateLastInstallTime func()) (string, string) {
-	updateLastInstallTime()
-
-	err := dpaCR.CreateOrUpdate(runTimeClientForSuiteRun, dpaCR.Build(brCase.BackupRestoreType))
+func waitOADPReadiness(backupRestoreType BackupRestoreType) {
+	err := dpaCR.CreateOrUpdate(runTimeClientForSuiteRun, dpaCR.Build(backupRestoreType))
 	Expect(err).NotTo(HaveOccurred())
 
 	log.Print("Checking if DPA is reconciled")
@@ -62,19 +58,25 @@ func prepareBackupAndRestore(brCase BackupRestoreCase, updateLastInstallTime fun
 	log.Print("Checking if velero Pod is running")
 	Eventually(VeleroPodIsRunning(kubernetesClientForSuiteRun, namespace), time.Minute*3, time.Second*5).Should(BeTrue())
 
-	if brCase.BackupRestoreType == RESTIC || brCase.BackupRestoreType == KOPIA || brCase.BackupRestoreType == CSIDataMover {
+	if backupRestoreType == RESTIC || backupRestoreType == KOPIA || backupRestoreType == CSIDataMover {
 		log.Printf("Waiting for Node Agent pods to be running")
 		Eventually(AreNodeAgentPodsRunning(kubernetesClientForSuiteRun, namespace), time.Minute*3, time.Second*5).Should(BeTrue())
 	}
 
 	log.Print("Checking if BSL is available")
 	Eventually(dpaCR.BSLsAreAvailable(), time.Minute*3, time.Second*5).Should(BeTrue())
+}
+
+func prepareBackupAndRestore(brCase BackupRestoreCase, updateLastInstallTime func()) (string, string) {
+	updateLastInstallTime()
+
+	waitOADPReadiness(brCase.BackupRestoreType)
 
 	if brCase.BackupRestoreType == CSI || brCase.BackupRestoreType == CSIDataMover {
 		if provider == "aws" || provider == "ibmcloud" || provider == "gcp" || provider == "azure" {
 			log.Printf("Creating VolumeSnapshotClass for CSI backuprestore of %s", brCase.Name)
 			snapshotClassPath := fmt.Sprintf("./sample-applications/snapclass-csi/%s.yaml", provider)
-			err = InstallApplication(dpaCR.Client, snapshotClassPath)
+			err := InstallApplication(dpaCR.Client, snapshotClassPath)
 			Expect(err).ToNot(HaveOccurred())
 		}
 	}
@@ -272,7 +274,7 @@ func tearDownBackupAndRestore(brCase BackupRestoreCase, installTime time.Time, r
 	Eventually(IsNamespaceDeleted(kubernetesClientForSuiteRun, brCase.Namespace), time.Minute*5, time.Second*5).Should(BeTrue())
 }
 
-var _ = Describe("Backup and restore tests", func() {
+var _ = Describe("Backup and restore tests", Ordered, func() {
 	var lastBRCase ApplicationBackupRestoreCase
 	var lastInstallTime time.Time
 	updateLastBRcase := func(brCase ApplicationBackupRestoreCase) {
@@ -284,6 +286,19 @@ var _ = Describe("Backup and restore tests", func() {
 
 	var _ = AfterEach(func(ctx SpecContext) {
 		tearDownBackupAndRestore(lastBRCase.BackupRestoreCase, lastInstallTime, ctx.SpecReport())
+	})
+
+	var _ = AfterAll(func() {
+		// DPA just needs to have BSL so gathering of backups/restores logs/describe work
+		// using kopia to collect more info (DaemonSet)
+		waitOADPReadiness(KOPIA)
+
+		log.Printf("Running OADP must-gather")
+		err := RunMustGather(artifact_dir, dpaCR.Client)
+		Expect(err).ToNot(HaveOccurred())
+
+		err = dpaCR.Delete()
+		Expect(err).ToNot(HaveOccurred())
 	})
 
 	DescribeTable("Backup and restore applications",
