@@ -8,8 +8,10 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"reflect"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
@@ -17,6 +19,7 @@ import (
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
 	ocpappsv1 "github.com/openshift/api/apps/v1"
+	openshiftconfigv1 "github.com/openshift/api/config/v1"
 	security "github.com/openshift/api/security/v1"
 	templatev1 "github.com/openshift/api/template/v1"
 	"github.com/vmware-tanzu/velero/pkg/label"
@@ -373,18 +376,47 @@ func PrintNamespaceEventsAfterTime(c *kubernetes.Clientset, namespace string, st
 	}
 }
 
-func RunMustGather(oc_cli string, artifact_dir string) error {
-	ocClient := oc_cli
-	ocAdmin := "adm"
-	mustGatherCmd := "must-gather"
-	// TODO update image
-	// need to reopen https://github.com/openshift/release/pull/55587
-	mustGatherImg := "--image=quay.io/konveyor/oadp-must-gather:latest"
-	destDir := "--dest-dir=" + artifact_dir
+func RunMustGather(artifact_dir string, clusterClient client.Client) error {
+	executablePath, err := os.Executable()
+	if err != nil {
+		return err
+	}
 
-	cmd := exec.Command(ocClient, ocAdmin, mustGatherCmd, mustGatherImg, destDir)
-	_, err := cmd.Output()
-	return err
+	_, err = exec.Command(filepath.Dir(filepath.Dir(filepath.Dir(executablePath))) + "/must-gather/oadp-must-gather").Output()
+	if err != nil {
+		return err
+	}
+
+	_, err = exec.Command("mv", filepath.Dir(executablePath)+"/must-gather", artifact_dir).Output()
+	if err != nil {
+		return err
+	}
+
+	clusterVersionList := &openshiftconfigv1.ClusterVersionList{}
+	err = clusterClient.List(context.Background(), clusterVersionList)
+	if err != nil {
+		return err
+	}
+	if len(clusterVersionList.Items) == 0 {
+		return errors.New("no ClusterVersion found in cluster")
+	}
+	clusterVersion := &clusterVersionList.Items[0]
+	mustGatherPath := fmt.Sprintf("%s/must-gather/clusters/%s/", artifact_dir, string(clusterVersion.Spec.ClusterID[:8]))
+
+	mustGatherSummaryContent, err := os.ReadFile(mustGatherPath + "oadp-must-gather-summary.md")
+	if err != nil {
+		return err
+	}
+
+	mustGatherSummaryText := string(mustGatherSummaryContent)
+
+	if !strings.Contains(mustGatherSummaryText, "No errors happened or were found while running OADP must-gather") {
+		return errors.New("expected no errors in must-gather Errors section")
+	}
+
+	// TODO validate that everything was collected
+
+	return nil
 }
 
 // VerifyBackupRestoreData verifies if app ready before backup and after restore to compare data.

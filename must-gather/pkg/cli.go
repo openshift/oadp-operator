@@ -250,7 +250,7 @@ For more information, check OADP must-gather documentation: https://docs.redhat.
 				// OADP dev, community and prod operators have same spec.displayName
 				if csv.Spec.DisplayName == "OADP Operator" {
 					oadpOperatorsText += fmt.Sprintf("Found **%v** version **%v** installed in **%v** namespace\n\n", csv.Spec.DisplayName, csv.Spec.Version, csv.Namespace)
-					if (csv.Spec.Version.Major < 1 || csv.Spec.Version.Minor < 5) && major >= 4 && minor >= 19 {
+					if (csv.Spec.Version.Major < 1 || (csv.Spec.Version.Major == 1 && csv.Spec.Version.Minor < 5)) && major >= 4 && minor >= 19 {
 						oldOADPError += "❌ OADP 1.4 and lower is not supported in OpenShift 4.19 and higher\n\n"
 					}
 					foundOADP = true

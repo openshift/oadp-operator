@@ -44,3 +44,4 @@ debug.test*
 must-gather/oadp-must-gather
 must-gather/must-gather/
 must-gather/must-gather.local.*/
+tests/e2e/must-gather/
