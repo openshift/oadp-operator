@@ -340,11 +340,16 @@ func ReplaceDataProtectionApplicationsSection(outputPath string, dataProtectionA
 
 				unsupportedOverridesText := "false"
 				if dataProtectionApplication.Spec.UnsupportedOverrides != nil {
-					summaryTemplateReplaces["ERRORS"] += fmt.Sprintf(
-						"⚠️ DataProtectionApplication **%v** in **%v** namespace is using **unsupportedOverrides**\n\n",
-						dataProtectionApplication.Name, namespace,
-					)
-					unsupportedOverridesText = "⚠️ true"
+					for _, value := range dataProtectionApplication.Spec.UnsupportedOverrides {
+						if value != "" {
+							summaryTemplateReplaces["ERRORS"] += fmt.Sprintf(
+								"⚠️ DataProtectionApplication **%v** in **%v** namespace is using **unsupportedOverrides**\n\n",
+								dataProtectionApplication.Name, namespace,
+							)
+							unsupportedOverridesText = "⚠️ true"
+							break
+						}
+					}
 				}
 
 				dpaStatus := ""
