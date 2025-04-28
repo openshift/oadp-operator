@@ -171,6 +171,17 @@ var _ = Describe("VM backup and restore tests", Ordered, func() {
 	})
 
 	var _ = AfterAll(func() {
+		// DPA just needs to have BSL so gathering of backups/restores logs/describe work
+		// using kopia to collect more info (DaemonSet)
+		waitOADPReadiness(lib.KOPIA)
+
+		log.Printf("Running OADP must-gather")
+		err := lib.RunMustGather(artifact_dir, dpaCR.Client)
+		Expect(err).ToNot(HaveOccurred())
+
+		err = dpaCR.Delete()
+		Expect(err).ToNot(HaveOccurred())
+
 		v.RemoveDataSource("openshift-virtualization-os-images", "cirros")
 		v.RemoveDataVolume("openshift-virtualization-os-images", "cirros", 2*time.Minute)
 
@@ -178,7 +189,7 @@ var _ = Describe("VM backup and restore tests", Ordered, func() {
 			v.EnsureVirtRemoval()
 		}
 
-		err := v.RemoveStorageClass("test-sc-immediate")
+		err = v.RemoveStorageClass("test-sc-immediate")
 		Expect(err).To(BeNil())
 	})
 

@@ -13,6 +13,7 @@ import (
 	. "github.com/onsi/gomega"
 	openshiftappsv1 "github.com/openshift/api/apps/v1"
 	openshiftbuildv1 "github.com/openshift/api/build/v1"
+	openshiftconfigv1 "github.com/openshift/api/config/v1"
 	openshiftsecurityv1 "github.com/openshift/api/security/v1"
 	openshifttemplatev1 "github.com/openshift/api/template/v1"
 	. "github.com/openshift/oadp-operator/tests/e2e/lib"
@@ -34,8 +35,8 @@ import (
 
 var (
 	// Common vars obtained from flags passed in ginkgo.
-	bslCredFile, namespace, instanceName, provider, vslCredFile, settings, artifact_dir, oc_cli string
-	flakeAttempts                                                                               int64
+	bslCredFile, namespace, instanceName, provider, vslCredFile, settings, artifact_dir string
+	flakeAttempts                                                                       int64
 
 	kubernetesClientForSuiteRun *kubernetes.Clientset
 	runTimeClientForSuiteRun    client.Client
@@ -62,7 +63,6 @@ func init() {
 	flag.StringVar(&instanceName, "velero_instance_name", "example-velero", "Velero Instance Name")
 	flag.StringVar(&provider, "provider", "aws", "Cloud provider")
 	flag.StringVar(&artifact_dir, "artifact_dir", "/tmp", "Directory for storing must gather")
-	flag.StringVar(&oc_cli, "oc_cli", "oc", "OC CLI Client")
 	flag.Int64Var(&flakeAttempts, "flakeAttempts", 3, "Customize the number of flake retries (3)")
 
 	// helps with launching debug sessions from IDE
@@ -89,9 +89,6 @@ func init() {
 		}
 		if os.Getenv("ARTIFACT_DIR") != "" {
 			artifact_dir = os.Getenv("ARTIFACT_DIR")
-		}
-		if os.Getenv("OC_CLI") != "" {
-			oc_cli = os.Getenv("OC_CLI")
 		}
 		if envValue := os.Getenv("FLAKE_ATTEMPTS"); envValue != "" {
 			// Parse the environment variable as int64
@@ -131,6 +128,7 @@ func TestOADPE2E(t *testing.T) {
 	volumesnapshotv1.AddToScheme(runTimeClientForSuiteRun.Scheme())
 	operatorsv1alpha1.AddToScheme(runTimeClientForSuiteRun.Scheme())
 	operatorsv1.AddToScheme(runTimeClientForSuiteRun.Scheme())
+	openshiftconfigv1.AddToScheme(runTimeClientForSuiteRun.Scheme())
 
 	veleroClientForSuiteRun, err = veleroClientset.NewForConfig(kubeConfig)
 	Expect(err).NotTo(HaveOccurred())
