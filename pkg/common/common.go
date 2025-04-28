@@ -75,7 +75,7 @@ const (
 	GCPPluginImage        = "quay.io/konveyor/velero-plugin-for-gcp:latest"
 	RegistryImage         = "quay.io/konveyor/registry:latest"
 	KubeVirtPluginImage   = "quay.io/konveyor/kubevirt-velero-plugin:v0.7.0"
-	HypershiftPluginImage = "quay.io/hypershift/hypershift-oadp-plugin:latest"
+	HypershiftPluginImage = "quay.io/redhat-user-workloads/crt-redhat-acm-tenant/hypershift-oadp-plugin-main:latest"
 )
 
 // Plugin names
