@@ -57,11 +57,6 @@ var (
 		"DOWNLOAD_REQUESTS",
 		"DELETE_BACKUP_REQUESTS",
 		"SERVER_STATUS_REQUESTS",
-		"NON_ADMIN_BACKUP_STORAGE_LOCATION_REQUESTS",
-		"NON_ADMIN_BACKUP_STORAGE_LOCATIONS",
-		"NON_ADMIN_BACKUPS",
-		"NON_ADMIN_RESTORES",
-		"NON_ADMIN_DOWNLOAD_REQUESTS",
 		"STORAGE_CLASSES",
 		"VOLUME_SNAPSHOT_CLASSES",
 		"CSI_DRIVERS",
@@ -94,11 +89,6 @@ const summaryTemplate = `# OADP must-gather summary version <<MUST_GATHER_VERSIO
     - [DownloadRequests](#downloadrequests)
     - [DeleteBackupRequests](#deletebackuprequests)
     - [ServerStatusRequests](#serverstatusrequests)
-    - [NonAdminBackupStorageLocationRequests](#nonadminbackupstoragelocationrequests)
-    - [NonAdminBackupStorageLocations](#nonadminbackupstoragelocations)
-    - [NonAdminBackups](#nonadminbackups)
-    - [NonAdminRestores](#nonadminrestores)
-    - [NonAdminDownloadRequests](#nonadmindownloadrequests)
 - Storage
     - [Available StorageClasses in cluster](#available-storageclasses-in-cluster)
     - [Available VolumeSnapshotClasses in cluster](#available-volumesnapshotclasses-in-cluster)
@@ -180,26 +170,6 @@ const summaryTemplate = `# OADP must-gather summary version <<MUST_GATHER_VERSIO
 ### ServerStatusRequests
 
 <<SERVER_STATUS_REQUESTS>>
-
-### NonAdminBackupStorageLocationRequests
-
-<<NON_ADMIN_BACKUP_STORAGE_LOCATION_REQUESTS>>
-
-### NonAdminBackupStorageLocations
-
-<<NON_ADMIN_BACKUP_STORAGE_LOCATIONS>>
-
-### NonAdminBackups
-
-<<NON_ADMIN_BACKUPS>>
-
-### NonAdminRestores
-
-<<NON_ADMIN_RESTORES>>
-
-### NonAdminDownloadRequests
-
-<<NON_ADMIN_DOWNLOAD_REQUESTS>>
 
 ## Available StorageClasses in cluster
 

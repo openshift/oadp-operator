@@ -12,7 +12,6 @@ import (
 	snapshotv1client "github.com/kubernetes-csi/external-snapshotter/client/v4/clientset/versioned"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	openshiftconfigv1 "github.com/openshift/api/config/v1"
 	. "github.com/openshift/oadp-operator/tests/e2e/lib"
 	"github.com/openshift/oadp-operator/tests/e2e/utils"
 	veleroClientset "github.com/vmware-tanzu/velero/pkg/generated/clientset/versioned"
@@ -122,8 +121,6 @@ var _ = BeforeSuite(func() {
 
 	runTimeClientForSuiteRun, err = client.New(kubeConf, client.Options{})
 	Expect(err).NotTo(HaveOccurred())
-
-	openshiftconfigv1.AddToScheme(runTimeClientForSuiteRun.Scheme())
 
 	veleroClientForSuiteRun, err = veleroClientset.NewForConfig(kubeConf)
 	Expect(err).NotTo(HaveOccurred())
