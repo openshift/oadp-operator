@@ -57,26 +57,19 @@ func mysqlReady(preBackupState bool, twoVol bool, backupRestoreType BackupRestor
 }
 
 type BackupRestoreCase struct {
-	ApplicationTemplate          string
-	PvcSuffixName                string
-	ApplicationNamespace         string
-	Name                         string
-	BackupRestoreType            BackupRestoreType
-	PreBackupVerify              VerificationFunction
-	PostRestoreVerify            VerificationFunction
-	AppReadyDelay                time.Duration
-	MustGatherFiles              []string            // list of files expected in must-gather under quay.io.../clusters/clustername/... ie. "namespaces/openshift-adp/oadp.openshift.io/dpa-ts-example-velero/ts-example-velero.yml"
-	MustGatherValidationFunction *func(string) error // validation function for must-gather where string parameter is the path to "quay.io.../clusters/clustername/"
+	ApplicationTemplate  string
+	PvcSuffixName        string
+	ApplicationNamespace string
+	Name                 string
+	BackupRestoreType    BackupRestoreType
+	PreBackupVerify      VerificationFunction
+	PostRestoreVerify    VerificationFunction
+	AppReadyDelay        time.Duration
 }
 
-func runBackupAndRestore(brCase BackupRestoreCase, expectedErr error, updateLastBRcase func(brCase BackupRestoreCase), updateLastInstallTime func()) {
-	updateLastBRcase(brCase)
-
-	err := dpaCR.Build(brCase.BackupRestoreType)
+func waitOADPReadiness(backupRestoreType BackupRestoreType) {
+	err := dpaCR.Build(backupRestoreType)
 	Expect(err).NotTo(HaveOccurred())
-
-	//updateLastInstallingNamespace(dpaCR.Namespace)
-	updateLastInstallTime()
 
 	err = dpaCR.CreateOrUpdate(runTimeClientForSuiteRun, &dpaCR.CustomResource.Spec)
 	Expect(err).NotTo(HaveOccurred())
@@ -84,15 +77,25 @@ func runBackupAndRestore(brCase BackupRestoreCase, expectedErr error, updateLast
 	log.Printf("Waiting for velero pod to be running")
 	Eventually(AreVeleroPodsRunning(kubernetesClientForSuiteRun, namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 
-	if brCase.BackupRestoreType == RESTIC || brCase.BackupRestoreType == KOPIA || brCase.BackupRestoreType == CSIDataMover {
+	if backupRestoreType == RESTIC || backupRestoreType == KOPIA || backupRestoreType == CSIDataMover {
 		log.Printf("Waiting for Node Agent pods to be running")
 		Eventually(AreNodeAgentPodsRunning(kubernetesClientForSuiteRun, namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 	}
+}
+
+func runBackupAndRestore(brCase BackupRestoreCase, expectedErr error, updateLastBRcase func(brCase BackupRestoreCase), updateLastInstallTime func()) {
+	updateLastBRcase(brCase)
+
+	//updateLastInstallingNamespace(dpaCR.Namespace)
+	updateLastInstallTime()
+
+	waitOADPReadiness(brCase.BackupRestoreType)
+
 	if brCase.BackupRestoreType == CSI || brCase.BackupRestoreType == CSIDataMover {
 		if provider == "aws" || provider == "ibmcloud" || provider == "gcp" || provider == "azure" {
 			log.Printf("Creating VolumeSnapshotClass for CSI backuprestore of %s", brCase.Name)
 			snapshotClassPath := fmt.Sprintf("./sample-applications/snapclass-csi/%s.yaml", provider)
-			err = InstallApplication(dpaCR.Client, snapshotClassPath)
+			err := InstallApplication(dpaCR.Client, snapshotClassPath)
 			Expect(err).ToNot(HaveOccurred())
 		}
 	}
@@ -108,7 +111,7 @@ func runBackupAndRestore(brCase BackupRestoreCase, expectedErr error, updateLast
 	// install app
 	updateLastInstallTime()
 	log.Printf("Installing application for case %s", brCase.Name)
-	err = InstallApplication(dpaCR.Client, brCase.ApplicationTemplate)
+	err := InstallApplication(dpaCR.Client, brCase.ApplicationTemplate)
 	Expect(err).ToNot(HaveOccurred())
 	if brCase.BackupRestoreType == CSI || brCase.BackupRestoreType == CSIDataMover {
 		log.Printf("Creating pvc for case %s", brCase.Name)
@@ -267,7 +270,7 @@ func tearDownBackupAndRestore(brCase BackupRestoreCase, installTime time.Time, r
 	Eventually(IsNamespaceDeleted(kubernetesClientForSuiteRun, brCase.ApplicationNamespace), timeoutMultiplier*time.Minute*2, time.Second*5).Should(BeTrue())
 }
 
-var _ = Describe("Backup and restore tests", func() {
+var _ = Describe("Backup and restore tests", Ordered, func() {
 	var lastBRCase BackupRestoreCase
 	var lastInstallTime time.Time
 	updateLastBRcase := func(brCase BackupRestoreCase) {
@@ -279,6 +282,19 @@ var _ = Describe("Backup and restore tests", func() {
 
 	var _ = AfterEach(func(ctx SpecContext) {
 		tearDownBackupAndRestore(lastBRCase, lastInstallTime, ctx.SpecReport())
+	})
+
+	var _ = AfterAll(func() {
+		// DPA just needs to have BSL so gathering of backups/restores logs/describe work
+		// using kopia to collect more info (DaemonSet)
+		waitOADPReadiness(KOPIA)
+
+		log.Printf("Running OADP must-gather")
+		err := RunMustGather(artifact_dir, dpaCR.Client)
+		Expect(err).ToNot(HaveOccurred())
+
+		err = dpaCR.Delete(runTimeClientForSuiteRun)
+		Expect(err).ToNot(HaveOccurred())
 	})
 
 	DescribeTable("Backup and restore applications",
