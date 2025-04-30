@@ -56,11 +56,6 @@ var _ = Describe("Configuration testing for DPA Custom Resource", func() {
 			}
 			err = SavePodLogs(kubernetesClientForSuiteRun, lastInstallingApplicationNamespace, baseReportDir)
 			Expect(err).NotTo(HaveOccurred())
-			log.Printf("Running must gather for failed deployment test - " + report.LeafNodeText)
-			err = RunMustGather(oc_cli, baseReportDir+"/must-gather")
-			if err != nil {
-				log.Printf("Failed to run must gather: " + err.Error())
-			}
 		}
 	})
 	DescribeTable("Updating custom resource with new configuration",

@@ -1,4 +1,0 @@
-#!/bin/bash
-# Gather with request timeout set
-echo "timeout: $1"
-request_timeout=$1 /usr/bin/gather

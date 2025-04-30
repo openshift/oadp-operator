@@ -7,3 +7,9 @@ cover.out
 tests/e2e/templates/*.yaml
 cache/ # `operator-sdk run bundle` caches files in this directory
 *.test
+
+# must-gather
+must-gather/oadp-must-gather
+must-gather/must-gather/
+must-gather/must-gather.local.*/
+tests/e2e/must-gather/

@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	appsv1 "github.com/openshift/api/apps/v1"
 	buildv1 "github.com/openshift/api/build/v1"
+	openshiftconfigv1 "github.com/openshift/api/config/v1"
 	security "github.com/openshift/api/security/v1"
 	templatev1 "github.com/openshift/api/template/v1"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
@@ -274,6 +275,7 @@ func (v *DpaCustomResource) SetClient(client client.Client) error {
 	volumesnapshotv1.AddToScheme(client.Scheme())
 	buildv1.AddToScheme(client.Scheme())
 	operatorsv1alpha1.AddToScheme(client.Scheme())
+	openshiftconfigv1.AddToScheme(client.Scheme())
 
 	v.Client = client
 	return nil
@@ -490,4 +492,49 @@ func LoadDpaSettingsFromJson(settings string) string {
 		return fmt.Sprintf("Error getting settings json file: %v", err)
 	}
 	return ""
+}
+
+func (v *DpaCustomResource) IsReconciledTrue(c client.Client) wait.ConditionFunc {
+	return func() (bool, error) {
+		dpa, err := v.Get(c)
+		if err != nil {
+			return false, err
+		}
+		if len(dpa.Status.Conditions) == 0 {
+			return false, nil
+		}
+		dpaType := dpa.Status.Conditions[0].Type
+		dpaStatus := dpa.Status.Conditions[0].Status
+		dpaReason := dpa.Status.Conditions[0].Reason
+		dpaMessage := dpa.Status.Conditions[0].Message
+		log.Printf("DPA status is %s: %s, reason %s: %s", dpaType, dpaStatus, dpaReason, dpaMessage)
+		return dpaType == oadpv1alpha1.ConditionReconciled &&
+			dpaStatus == metav1.ConditionTrue &&
+			dpaReason == oadpv1alpha1.ReconciledReasonComplete &&
+			dpaMessage == oadpv1alpha1.ReconcileCompleteMessage, nil
+	}
+}
+
+func (v *DpaCustomResource) BSLsAreAvailable() wait.ConditionFunc {
+	return func() (bool, error) {
+		bsls, err := v.ListBSLs()
+		if err != nil {
+			return false, err
+		}
+		areAvailable := true
+		for _, bsl := range bsls.Items {
+			phase := bsl.Status.Phase
+			if len(phase) > 0 {
+				log.Printf("BSL %s phase is %s", bsl.Name, phase)
+				if phase != velero.BackupStorageLocationPhaseAvailable {
+					areAvailable = false
+				}
+			} else {
+				log.Printf("BSL %s phase is not yet set", bsl.Name)
+				areAvailable = false
+			}
+		}
+
+		return areAvailable, nil
+	}
 }

@@ -21,7 +21,7 @@ import (
 )
 
 // Common vars obtained from flags passed in ginkgo.
-var bslCredFile, namespace, credSecretRef, instanceName, provider, vslCredFile, settings, artifact_dir, oc_cli, stream string
+var bslCredFile, namespace, credSecretRef, instanceName, provider, vslCredFile, settings, artifact_dir, stream string
 var timeoutMultiplierInput, flakeAttempts int64
 var timeoutMultiplier time.Duration
 
@@ -36,7 +36,6 @@ func init() {
 	// TODO: change flag in makefile to --vsl-credentials
 	flag.StringVar(&vslCredFile, "ci_cred_file", bslCredFile, "Credentials path for for VolumeSnapshotLocation, this credential would have access to cluster volume snapshots (for CI this is not OADP owned credential)")
 	flag.StringVar(&artifact_dir, "artifact_dir", "/tmp", "Directory for storing must gather")
-	flag.StringVar(&oc_cli, "oc_cli", "oc", "OC CLI Client")
 	flag.StringVar(&stream, "stream", "up", "[up, down] upstream or downstream")
 	flag.Int64Var(&timeoutMultiplierInput, "timeout_multiplier", 1, "Customize timeout multiplier from default (1)")
 	timeoutMultiplier = time.Duration(timeoutMultiplierInput)
@@ -72,9 +71,6 @@ func init() {
 		}
 		if os.Getenv("ARTIFACT_DIR") != "" {
 			artifact_dir = os.Getenv("ARTIFACT_DIR")
-		}
-		if os.Getenv("OC_CLI") != "" {
-			oc_cli = os.Getenv("OC_CLI")
 		}
 		if envValue := os.Getenv("FLAKE_ATTEMPTS"); envValue != "" {
 			// Parse the environment variable as int64
