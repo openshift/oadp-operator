@@ -493,3 +493,48 @@ func LoadDpaSettingsFromJson(settings string) string {
 	}
 	return ""
 }
+
+func (v *DpaCustomResource) IsReconciledTrue(c client.Client) wait.ConditionFunc {
+	return func() (bool, error) {
+		dpa, err := v.Get(c)
+		if err != nil {
+			return false, err
+		}
+		if len(dpa.Status.Conditions) == 0 {
+			return false, nil
+		}
+		dpaType := dpa.Status.Conditions[0].Type
+		dpaStatus := dpa.Status.Conditions[0].Status
+		dpaReason := dpa.Status.Conditions[0].Reason
+		dpaMessage := dpa.Status.Conditions[0].Message
+		log.Printf("DPA status is %s: %s, reason %s: %s", dpaType, dpaStatus, dpaReason, dpaMessage)
+		return dpaType == oadpv1alpha1.ConditionReconciled &&
+			dpaStatus == metav1.ConditionTrue &&
+			dpaReason == oadpv1alpha1.ReconciledReasonComplete &&
+			dpaMessage == oadpv1alpha1.ReconcileCompleteMessage, nil
+	}
+}
+
+func (v *DpaCustomResource) BSLsAreAvailable() wait.ConditionFunc {
+	return func() (bool, error) {
+		bsls, err := v.ListBSLs()
+		if err != nil {
+			return false, err
+		}
+		areAvailable := true
+		for _, bsl := range bsls.Items {
+			phase := bsl.Status.Phase
+			if len(phase) > 0 {
+				log.Printf("BSL %s phase is %s", bsl.Name, phase)
+				if phase != velero.BackupStorageLocationPhaseAvailable {
+					areAvailable = false
+				}
+			} else {
+				log.Printf("BSL %s phase is not yet set", bsl.Name)
+				areAvailable = false
+			}
+		}
+
+		return areAvailable, nil
+	}
+}

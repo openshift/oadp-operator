@@ -74,6 +74,9 @@ func waitOADPReadiness(backupRestoreType BackupRestoreType) {
 	err = dpaCR.CreateOrUpdate(runTimeClientForSuiteRun, &dpaCR.CustomResource.Spec)
 	Expect(err).NotTo(HaveOccurred())
 
+	log.Print("Checking if DPA is reconciled")
+	Eventually(dpaCR.IsReconciledTrue(runTimeClientForSuiteRun), time.Minute*3, time.Second*5).Should(BeTrue())
+
 	log.Printf("Waiting for velero pod to be running")
 	Eventually(AreVeleroPodsRunning(kubernetesClientForSuiteRun, namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 
@@ -81,6 +84,9 @@ func waitOADPReadiness(backupRestoreType BackupRestoreType) {
 		log.Printf("Waiting for Node Agent pods to be running")
 		Eventually(AreNodeAgentPodsRunning(kubernetesClientForSuiteRun, namespace), timeoutMultiplier*time.Minute*3, time.Second*5).Should(BeTrue())
 	}
+
+	log.Print("Checking if BSL is available")
+	Eventually(dpaCR.BSLsAreAvailable(), time.Minute*3, time.Second*5).Should(BeTrue())
 }
 
 func runBackupAndRestore(brCase BackupRestoreCase, expectedErr error, updateLastBRcase func(brCase BackupRestoreCase), updateLastInstallTime func()) {
