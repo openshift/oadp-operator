@@ -145,6 +145,7 @@ spec:
 - `csiVolumeSnapshotTestConfigs` is optional. If not provided, snapshot tests are skipped.
 - Upload tests require appropriate cloud provider secrets.
 - Snapshot tests require VolumeSnapshotClass and CSI snapshot support in the cluster.
+- The referenced **PersistentVolumeClaims must already exist** in the cluster **before** running the DPT. The controller does **not** create or provision PVCs.
 - Set `forceRun: true` manually if you want to rerun tests without recreating the CR.
 
 ---
