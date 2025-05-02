@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go/aws/request"
@@ -32,12 +32,14 @@ func GetBucketRegion(bucket string) (string, error) {
 	// Also set to use anonymous credentials. If the bucket is private, this function would not work unless we modify it to take credentials.
 	cfg, err := config.LoadDefaultConfig(context.Background(),
 		config.WithRegion("us-east-1"), // This is not default region being used, this is to specify a region hinting server that we will use to get region from.
-		config.WithCredentialsProvider(aws.AnonymousCredentials{}),
 	)
 	if err != nil {
 		return "", err
 	}
-	region, err = manager.GetBucketRegion(context.Background(), s3.NewFromConfig(cfg), bucket)
+	region, err = manager.GetBucketRegion(context.Background(), s3.NewFromConfig(cfg), bucket, func(o *s3.Options) {
+	    // TODO: get creds from bsl 
+		o.Credentials = credentials.NewStaticCredentialsProvider("anon-credentials", "anon-secret", "") // this works with private buckets.. why? supposed to require cred with s3:ListBucket https://docs.aws.amazon.com/AmazonS3/latest/API/API_HeadBucket.html
+	})
 	if region != "" {
 		return region, nil
 	}
