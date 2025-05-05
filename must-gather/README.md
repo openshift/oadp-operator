@@ -1,5 +1,17 @@
 # OADP Must-gather
 
+## New Markdown UI for summarized results
+
+In order to better facilitate the quick analsysis of customer issues, OADP now offers a markown summary of the collected information.
+The `oadp-must-gather-summary.md` file can be found under the clusters directory in the oadp-must-gather results.
+
+#### Example screenshot #1
+![Screenshot from 2025-05-05 10-33-47](https://github.com/user-attachments/assets/16f4933f-513b-4ce5-b128-0c89aafedc7e)
+
+#### Example screenshot #2
+![Screenshot from 2025-05-05 10-34-05](https://github.com/user-attachments/assets/fd8c6205-dadc-4bcb-852d-ecfd5ea81cff)
+
+## Developer Setup
 To test OADP Must-gather, run
 ```sh
 go run cmd/main.go -h
