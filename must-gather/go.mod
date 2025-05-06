@@ -8,7 +8,7 @@ require (
 	github.com/kubernetes-csi/external-snapshotter/client/v8 v8.0.0
 	github.com/migtools/oadp-non-admin v0.0.0-20250324123917-741ae3b7a67d
 	github.com/openshift/api v0.0.0-20240912201240-0a8800162826
-	github.com/openshift/oadp-operator v1.0.2-0.20250327225822-5cc21cec9653
+	github.com/openshift/oadp-operator v1.0.2-0.20250506010707-2a52b7a20c4b
 	github.com/openshift/oc v0.0.0-alpha.0.0.20250108103617-ae1bd9e4a75b
 	github.com/operator-framework/api v0.26.0
 	github.com/spf13/cobra v1.8.1

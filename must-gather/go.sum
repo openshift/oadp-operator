@@ -200,6 +200,8 @@ github.com/openshift/api v0.0.0-20240912201240-0a8800162826 h1:A8D9SN/hJUwAbdO0r
 github.com/openshift/api v0.0.0-20240912201240-0a8800162826/go.mod h1:OOh6Qopf21pSzqNVCB5gomomBXb8o5sGKZxG2KNpaXM=
 github.com/openshift/oadp-operator v1.0.2-0.20250327225822-5cc21cec9653 h1:p6t+nVTJsrT1FQSaL/n/sf9begEoLXfX08OVxfjdLYM=
 github.com/openshift/oadp-operator v1.0.2-0.20250327225822-5cc21cec9653/go.mod h1:tzlEfI5g4gomtv5dZ4qgEQSNSiwiOrsBj2P5nTqawPY=
+github.com/openshift/oadp-operator v1.0.2-0.20250506010707-2a52b7a20c4b h1:rz8ccMAPeFaFvxVfiD0k/GshGzU/uA10q/mJSLg6xWg=
+github.com/openshift/oadp-operator v1.0.2-0.20250506010707-2a52b7a20c4b/go.mod h1:IvBUP2qVUBst49SSzVhxajq4Bs1n/lm9K/kguhTltqI=
 github.com/openshift/oc v0.0.0-alpha.0.0.20250108103617-ae1bd9e4a75b h1:dBEu456jnnhr7KH1T+Mrna1DvFadk1qN+NEtLb8Nn8U=
 github.com/openshift/oc v0.0.0-alpha.0.0.20250108103617-ae1bd9e4a75b/go.mod h1:22L7FMouzG54z19RZ/o+RcMCLa8vCdvZ4jQ+u3iHWHw=
 github.com/openshift/velero v0.10.2-0.20250313160323-584cf1148a74 h1:ZHO0O6g1Enel2O4rAk7VfWLHlQKYkOcdWGAmoiZ3fQw=
