@@ -401,10 +401,9 @@ func ReplaceDataProtectionTestsSection(outputPath string, dptList *oadpv1alpha1.
 			dataProtectionTestsByNamespace[dpt.Namespace] = append(dataProtectionTestsByNamespace[dpt.Namespace], dpt)
 		}
 
-		summaryTemplateReplaces["DATA_PROTECTION_TESTS"] = "" 
-		summaryTemplateReplaces["DATA_PROTECTION_TESTS"] += "| Name | Phase | Last Tested | Upload Speed (MBps) | Encryption | Versioning | Snapshots | Age |\n"
-		summaryTemplateReplaces["DATA_PROTECTION_TESTS"] += "| ---- | ----- | ----------- | ------------------- | ---------- | -----------| --------- | --- |\n"
-
+		summaryTemplateReplaces["DATA_PROTECTION_TESTS"] = ""
+		summaryTemplateReplaces["DATA_PROTECTION_TESTS"] += "| Name | Phase | Last Tested | Upload Speed (MBps) | Encryption | Versioning | Snapshots | Age | YAML |\n"
+		summaryTemplateReplaces["DATA_PROTECTION_TESTS"] += "| ---- | ----- | ----------- | ------------------- | ---------- | -----------| --------- | --- | ---- |\n"
 
 		for namespace, dpts := range dataProtectionTestsByNamespace {
 			folder := fmt.Sprintf("namespaces/%s/oadp.openshift.io/dataprotectiontests", namespace)
@@ -419,11 +418,20 @@ func ReplaceDataProtectionTestsSection(outputPath string, dptList *oadpv1alpha1.
 
 				// Fields
 				name := dpt.Name
-				phase := string(dpt.Status.Phase)
-				lastTested := humanizeDurationSince(dpt.Status.LastTested.Time)
-				uploadSpeed := fmt.Sprintf("%.0f", dpt.Status.UploadTest.SpeedMbps)
-				if uploadSpeed == "0" {
-					uploadSpeed = "⚠️ N/A"
+
+				phase := "⚠️ Unknown"
+				if dpt.Status.Phase != "" {
+					phase = string(dpt.Status.Phase)
+				}
+
+				lastTested := "N/A"
+				if !dpt.Status.LastTested.IsZero() {
+					lastTested = humanizeDurationSince(dpt.Status.LastTested.Time)
+				}
+
+				uploadSpeed := "⚠️ N/A"
+				if dpt.Status.UploadTest.SpeedMbps > 0 {
+					uploadSpeed = fmt.Sprintf("%d", dpt.Status.UploadTest.SpeedMbps)
 				}
 
 				encryption := dpt.Status.BucketMetadata.EncryptionAlgorithm
@@ -436,15 +444,18 @@ func ReplaceDataProtectionTestsSection(outputPath string, dptList *oadpv1alpha1.
 					versioning = "None"
 				}
 
-				snapshots := fmt.Sprintf("%s",
-					dpt.Status.SnapshotSummary,
-				)
+				snapshots := "N/A"
+				if dpt.Status.SnapshotSummary != "" {
+					snapshots = dpt.Status.SnapshotSummary
+				}
 
 				age := humanizeDurationSince(dpt.CreationTimestamp.Time)
 
+				yamlLink := fmt.Sprintf("[`yaml`](%s)", file)
+
 				summaryTemplateReplaces["DATA_PROTECTION_TESTS"] += fmt.Sprintf(
-					"| %s | %s | %s | %s | %s | %s | %s | %s |\n",
-					name, phase, lastTested, uploadSpeed, encryption, versioning, snapshots, age,
+					"| %s | %s | %s | %s | %s | %s | %s | %s | %s |\n",
+					name, phase, lastTested, uploadSpeed, encryption, versioning, snapshots, age, yamlLink,
 				)
 			}
 
@@ -462,8 +473,6 @@ func humanizeDurationSince(t time.Time) string {
 	}
 	return time.Since(t).Round(time.Second).String()
 }
-
-
 
 
 func ReplaceCloudStoragesSection(outputPath string, cloudStorageList *oadpv1alpha1.CloudStorageList) {
