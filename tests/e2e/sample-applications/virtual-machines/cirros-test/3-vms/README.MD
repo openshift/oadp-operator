@@ -27,7 +27,7 @@ See the results in [cirros-test-with-dataVolumePV/RESULTS](cirros-test-with-data
 #### setup:
 ```
 alias velero='oc -n openshift-adp exec deployment/velero -c velero -it -- ./velero'
-cd cirros-test-dataVolumeContainer
+cd cirros-test-with-dataVolumeContainer
 
 oc create namespace cirros-test-cont
 oc create -f cirros-test-1.yaml -f cirros-test-2.yaml -f cirros-test-3.yaml
