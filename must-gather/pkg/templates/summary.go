@@ -333,7 +333,7 @@ func ReplaceDataProtectionApplicationsSection(outputPath string, dataProtectionA
 			dataProtectionApplicationsByNamespace[dataProtectionApplication.Namespace] = append(dataProtectionApplicationsByNamespace[dataProtectionApplication.Namespace], dataProtectionApplication)
 		}
 
-		summaryTemplateReplaces["DATA_PROTECTION_TESTS"] += "| Namespace | Name | spec.unsupportedOverrides | status.conditions[0] | yaml |\n| --- | --- | --- | --- | --- |\n"
+		summaryTemplateReplaces["DATA_PROTECTION_APPLICATIONS"] += "| Namespace | Name | spec.unsupportedOverrides | status.conditions[0] | yaml |\n| --- | --- | --- | --- | --- |\n"
 		for namespace, dataProtectionApplications := range dataProtectionApplicationsByNamespace {
 			list := &corev1.List{}
 			list.GetObjectKind().SetGroupVersionKind(gvk.ListGVK)
