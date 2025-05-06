@@ -30,6 +30,11 @@ var (
 		Version: "v1alpha1",
 		Kind:    "DataProtectionApplication",
 	}
+	DataProtectionTestGVK = schema.GroupVersionKind{
+		Group:   "oadp.openshift.io",
+		Version: "v1alpha1",
+		Kind:    "DataProtectionTest",
+	}
 	CloudStorageGVK = schema.GroupVersionKind{
 		Group:   "oadp.openshift.io",
 		Version: "v1alpha1",
