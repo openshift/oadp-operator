@@ -295,8 +295,16 @@ var _ = ginkgo.Describe("Backup and restore tests", ginkgo.Ordered, func() {
 		// using kopia to collect more info (DaemonSet)
 		waitOADPReadiness(lib.KOPIA)
 
+		log.Printf("Creating real DataProtectionTest before must-gather")
+		bsls, err := dpaCR.ListBSLs()
+		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+
+		bslName := bsls.Items[0].Name
+		err = lib.CreateUploadTestOnlyDPT(dpaCR.Client, dpaCR.Namespace, bslName)
+		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+
 		log.Printf("Running OADP must-gather")
-		err := lib.RunMustGather(artifact_dir, dpaCR.Client)
+		err = lib.RunMustGather(artifact_dir, dpaCR.Client)
 		gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 		err = dpaCR.Delete()
