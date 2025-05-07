@@ -296,6 +296,10 @@ func (r *DataProtectionApplicationReconciler) parseAWSSecret(secret corev1.Secre
 	const (
 		accessKeyKey = "aws_access_key_id"
 		secretKeyKey = "aws_secret_access_key"
+		// STS specific fields
+		roleArnKey              = "role_arn"
+		webIdentityTokenFileKey = "web_identity_token_file"
+		stsRegionalEndpointsKey = "sts_regional_endpoints"
 	)
 	if err != nil {
 		return AWSAccessKey, AWSSecretKey, errors.New("parseAWSSecret faulty regex: keyNameRegex")
@@ -307,6 +311,19 @@ func (r *DataProtectionApplicationReconciler) parseAWSSecret(secret corev1.Secre
 	awsSecretKeyRegex, err := regexp.Compile(`\b` + secretKeyKey + `\b`)
 	if err != nil {
 		return AWSAccessKey, AWSSecretKey, errors.New("parseAWSSecret faulty regex: awsSecretKeyRegex")
+	}
+	// Compile regex for STS fields
+	roleArnRegex, err := regexp.Compile(`\b` + roleArnKey + `\b`)
+	if err != nil {
+		return AWSAccessKey, AWSSecretKey, errors.New("parseAWSSecret faulty regex: roleArnRegex")
+	}
+	webIdentityTokenFileRegex, err := regexp.Compile(`\b` + webIdentityTokenFileKey + `\b`)
+	if err != nil {
+		return AWSAccessKey, AWSSecretKey, errors.New("parseAWSSecret faulty regex: webIdentityTokenFileRegex")
+	}
+	stsRegionalEndpointsRegex, err := regexp.Compile(`\b` + stsRegionalEndpointsKey + `\b`)
+	if err != nil {
+		return AWSAccessKey, AWSSecretKey, errors.New("parseAWSSecret faulty regex: stsRegionalEndpointsRegex")
 	}
 	for index, line := range splitString {
 		if line == "" {
@@ -325,42 +342,78 @@ func (r *DataProtectionApplicationReconciler) parseAWSSecret(secret corev1.Secre
 				if index+1 >= len(splitString) {
 					break
 				}
+
+				// Check if this profile contains STS fields
+				hasStsFields := false
 				for _, profLine := range splitString[index+1:] {
 					if profLine == "" {
 						continue
 					}
-					matchedAccessKey := awsAccessKeyRegex.MatchString(profLine)
-					matchedSecretKey := awsSecretKeyRegex.MatchString(profLine)
-
-					if err != nil {
-						r.Log.Info("Error finding access key id for the supplied AWS credential")
-						return AWSAccessKey, AWSSecretKey, err
+					if keyNameRegex.MatchString(profLine) {
+						// We've reached the next profile
+						break
 					}
-					if matchedAccessKey { // check for access key
-						AWSAccessKey, err = r.getMatchedKeyValue(accessKeyKey, profLine)
-						if err != nil {
-							r.Log.Info("Error processing access key id for the supplied AWS credential")
-							return AWSAccessKey, AWSSecretKey, err
+
+					// Check for STS-specific fields
+					if roleArnRegex.MatchString(profLine) ||
+						webIdentityTokenFileRegex.MatchString(profLine) ||
+						stsRegionalEndpointsRegex.MatchString(profLine) {
+						hasStsFields = true
+						r.Log.Info(fmt.Sprintf("Detected STS authentication in profile %s", matchProfile))
+						// For STS profiles, we return empty strings for access key and secret key
+						// but don't error out
+						return "", "", nil
+					}
+				}
+
+				// If not an STS profile, continue with normal AWS credential parsing
+				if !hasStsFields {
+					for _, profLine := range splitString[index+1:] {
+						if profLine == "" {
+							continue
 						}
-						continue
-					} else if matchedSecretKey { // check for secret key
-						AWSSecretKey, err = r.getMatchedKeyValue(secretKeyKey, profLine)
-						if err != nil {
-							r.Log.Info("Error processing secret key id for the supplied AWS credential")
-							return AWSAccessKey, AWSSecretKey, err
+						if keyNameRegex.MatchString(profLine) {
+							// We've reached the next profile
+							break
 						}
-						continue
-					} else {
-						break // aws credentials file is only allowed to have profile followed by aws_access_key_id, aws_secret_access_key
+
+						matchedAccessKey := awsAccessKeyRegex.MatchString(profLine)
+						matchedSecretKey := awsSecretKeyRegex.MatchString(profLine)
+
+						if matchedAccessKey { // check for access key
+							AWSAccessKey, err = r.getMatchedKeyValue(accessKeyKey, profLine)
+							if err != nil {
+								r.Log.Info("Error processing access key id for the supplied AWS credential")
+								return AWSAccessKey, AWSSecretKey, err
+							}
+							continue
+						} else if matchedSecretKey { // check for secret key
+							AWSSecretKey, err = r.getMatchedKeyValue(secretKeyKey, profLine)
+							if err != nil {
+								r.Log.Info("Error processing secret key id for the supplied AWS credential")
+								return AWSAccessKey, AWSSecretKey, err
+							}
+							continue
+						}
 					}
 				}
 			}
 		}
 	}
+
 	if profile == "" {
 		r.Log.Info("Error finding AWS Profile for the supplied AWS credential")
 		return AWSAccessKey, AWSSecretKey, errors.New("error finding AWS Profile for the supplied AWS credential")
 	}
+
+	// If we get here and both access key and secret key are empty, it means we found the profile
+	// but it didn't have the expected credentials or STS fields
+	if AWSAccessKey == "" && AWSSecretKey == "" {
+		r.Log.Info(fmt.Sprintf("Profile %s found but no credentials or STS fields detected", matchProfile))
+		return AWSAccessKey, AWSSecretKey, errors.New("no credentials or STS fields found in profile " + matchProfile)
+	}
+
+	// For regular AWS credentials, both access key and secret key must be present
 	if AWSAccessKey == "" {
 		r.Log.Info("Error finding access key id for the supplied AWS credential")
 		return AWSAccessKey, AWSSecretKey, errors.New("error finding access key id for the supplied AWS credential")
