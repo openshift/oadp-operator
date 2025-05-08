@@ -7,10 +7,11 @@ import (
 	"time"
 
 	"github.com/onsi/gomega"
-	"github.com/openshift/oadp-operator/api/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/openshift/oadp-operator/api/v1alpha1"
 )
 
 func CreateUploadTestOnlyDPT(c client.Client, namespace, bslName string) error {
