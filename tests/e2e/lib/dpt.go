@@ -6,10 +6,10 @@ import (
 	"log"
 	"time"
 
-	"github.com/openshift/oadp-operator/api/v1alpha1"
 	"github.com/onsi/gomega"
-	"k8s.io/apimachinery/pkg/types"
+	"github.com/openshift/oadp-operator/api/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
