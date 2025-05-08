@@ -156,6 +156,7 @@ For more information, check OADP must-gather documentation: https://docs.redhat.
 			subscriptionList := &operatorsv1alpha1.SubscriptionList{}
 
 			dataProtectionApplicationList := &oadpv1alpha1.DataProtectionApplicationList{}
+			dataProtectionTestList := &oadpv1alpha1.DataProtectionTestList{}
 			cloudStorageList := &oadpv1alpha1.CloudStorageList{}
 			backupStorageLocationList := &velerov1.BackupStorageLocationList{}
 			volumeSnapshotLocationList := &velerov1.VolumeSnapshotLocationList{}
@@ -186,6 +187,7 @@ For more information, check OADP must-gather documentation: https://docs.redhat.
 				subscriptionList,
 
 				dataProtectionApplicationList,
+				dataProtectionTestList,
 				cloudStorageList,
 				backupStorageLocationList,
 				volumeSnapshotLocationList,
@@ -314,6 +316,7 @@ For more information, check OADP must-gather documentation: https://docs.redhat.
 			templates.ReplaceClusterInformationSection(outputPath, clusterID, clusterVersion, infrastructureList, nodeList)
 			templates.ReplaceOADPOperatorInstallationSection(outputPath, importantCSVsByNamespace, importantSubscriptionsByNamespace, foundOADP, foundRelatedProducts, oldOADPError, oadpOperatorsText)
 			templates.ReplaceDataProtectionApplicationsSection(outputPath, dataProtectionApplicationList)
+			templates.ReplaceDataProtectionTestsSection(outputPath, dataProtectionTestList)
 			templates.ReplaceCloudStoragesSection(outputPath, cloudStorageList)
 			templates.ReplaceBackupStorageLocationsSection(outputPath, backupStorageLocationList)
 			templates.ReplaceVolumeSnapshotLocationsSection(outputPath, volumeSnapshotLocationList)
