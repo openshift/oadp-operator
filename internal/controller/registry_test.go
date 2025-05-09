@@ -58,7 +58,11 @@ var (
 				"aws_secret_access_key=" + testSecretAccessKey +
 				"\n[test-profile]\n" +
 				"aws_access_key_id=" + testAccessKey + "\n" +
-				"aws_secret_access_key=" + testSecretAccessKey,
+				"aws_secret_access_key=" + testSecretAccessKey +
+				"\n[sts]" + "\n" +
+				"sts_regional_endpoints=" + "regional" + "\n" +
+				"role_arn=" + "arn:aws:iam::123456:role/oadp-sample-role" + "\n" +
+				"web_identity_token_file=" + "/var/run/secrets/openshift/serviceaccount/token" + "\n",
 		),
 	}
 	secretDataWithEqualInSecret = map[string][]byte{
@@ -513,6 +517,274 @@ func TestDPAReconciler_populateAzureRegistrySecret(t *testing.T) {
 			}
 			if !reflect.DeepEqual(tt.registrySecret.Data, wantRegistrySecret.Data) {
 				t.Errorf("expected azure registry secret to be %#v, got %#v", tt.registrySecret, wantRegistrySecret.Data)
+			}
+		})
+	}
+}
+
+func TestDPAReconciler_parseAWSSecret(t *testing.T) {
+	tests := []struct {
+		name          string
+		secret        corev1.Secret
+		secretKey     string
+		matchProfile  string
+		wantAccessKey string
+		wantSecretKey string
+		wantErr       bool
+	}{
+		{
+			name: "successful parse with bslProfile",
+			secret: corev1.Secret{
+				Data: secretData,
+			},
+			secretKey:     "cloud",
+			matchProfile:  testBslProfile,
+			wantAccessKey: testBslAccessKey,
+			wantSecretKey: testBslSecretAccessKey,
+			wantErr:       false,
+		},
+		{
+			name: "successful parse with default profile",
+			secret: corev1.Secret{
+				Data: secretData,
+			},
+			secretKey:     "cloud",
+			matchProfile:  "default",
+			wantAccessKey: testAccessKey,
+			wantSecretKey: testSecretAccessKey,
+			wantErr:       false,
+		},
+		{
+			name: "successful parse with test-profile",
+			secret: corev1.Secret{
+				Data: secretData,
+			},
+			secretKey:     "cloud",
+			matchProfile:  "test-profile",
+			wantAccessKey: testAccessKey,
+			wantSecretKey: testSecretAccessKey,
+			wantErr:       false,
+		},
+		{
+			name: "error with missing profile",
+			secret: corev1.Secret{
+				Data: secretData,
+			},
+			secretKey:    "cloud",
+			matchProfile: "non-existent-profile",
+			wantErr:      true,
+		},
+		{
+			name: "successful parse with equals in secret key",
+			secret: corev1.Secret{
+				Data: secretDataWithEqualInSecret,
+			},
+			secretKey:     "cloud",
+			matchProfile:  testBslProfile,
+			wantAccessKey: testBslAccessKey,
+			wantSecretKey: testBslSecretAccessKey + "=" + testBslSecretAccessKey,
+			wantErr:       false,
+		},
+		{
+			name: "successful parse with carriage returns",
+			secret: corev1.Secret{
+				// We need to replace carriage returns as this would happen in getProviderSecret
+				Data: replaceCarriageReturn(secretDataWithCarriageReturnInSecret, logr.Discard()),
+			},
+			secretKey:     "cloud",
+			matchProfile:  testBslProfile,
+			wantAccessKey: testBslAccessKey,
+			wantSecretKey: testBslSecretAccessKey + "=" + testBslSecretAccessKey,
+			wantErr:       false,
+		},
+		{
+			name: "successful parse with mixed quotes and spaces",
+			secret: corev1.Secret{
+				Data: secretDataWithMixedQuotesAndSpacesInSecret,
+			},
+			secretKey:     "cloud",
+			matchProfile:  testBslProfile,
+			wantAccessKey: testBslAccessKey,
+			wantSecretKey: testBslSecretAccessKey,
+			wantErr:       false,
+		},
+		{
+			name: "error with missing profile in secret",
+			secret: corev1.Secret{
+				Data: awsSecretDataWithMissingProfile,
+			},
+			secretKey:    "cloud",
+			matchProfile: testBslProfile,
+			wantErr:      true,
+		},
+		{
+			name: "successful parse with STS profile",
+			secret: corev1.Secret{
+				Data: secretData,
+			},
+			secretKey:     "cloud",
+			matchProfile:  "sts",
+			wantAccessKey: "",
+			wantSecretKey: "",
+			wantErr:       false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := &DataProtectionApplicationReconciler{
+				Log: logr.Discard(),
+			}
+			gotAccessKey, gotSecretKey, err := r.parseAWSSecret(tt.secret, tt.secretKey, tt.matchProfile)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("parseAWSSecret() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !tt.wantErr {
+				if gotAccessKey != tt.wantAccessKey {
+					t.Errorf("parseAWSSecret() gotAccessKey = %v, want %v", gotAccessKey, tt.wantAccessKey)
+				}
+				if gotSecretKey != tt.wantSecretKey {
+					t.Errorf("parseAWSSecret() gotSecretKey = %v, want %v", gotSecretKey, tt.wantSecretKey)
+				}
+			}
+		})
+	}
+}
+
+func TestDPAReconciler_parseAzureSecret(t *testing.T) {
+	tests := []struct {
+		name      string
+		secret    corev1.Secret
+		secretKey string
+		wantCreds azureCredentials
+		wantErr   bool
+	}{
+		{
+			name: "successful parse with storage key only",
+			secret: corev1.Secret{
+				Data: secretAzureData,
+			},
+			secretKey: "cloud",
+			wantCreds: azureCredentials{
+				strorageAccountKey: testStoragekey,
+				subscriptionID:     "",
+				tenantID:           "",
+				clientID:           "",
+				clientSecret:       "",
+				resourceGroup:      "",
+			},
+			wantErr: false,
+		},
+		{
+			name: "successful parse with service principal data",
+			secret: corev1.Secret{
+				Data: secretAzureServicePrincipalData,
+			},
+			secretKey: "cloud",
+			wantCreds: azureCredentials{
+				strorageAccountKey: testStoragekey,
+				subscriptionID:     testSubscriptionID,
+				tenantID:           testTenantID,
+				clientID:           testClientID,
+				clientSecret:       testClientSecret,
+				resourceGroup:      testResourceGroup,
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := &DataProtectionApplicationReconciler{
+				Log: logr.Discard(),
+			}
+			gotCreds, err := r.parseAzureSecret(tt.secret, tt.secretKey)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("parseAzureSecret() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !tt.wantErr {
+				if gotCreds.strorageAccountKey != tt.wantCreds.strorageAccountKey {
+					t.Errorf("parseAzureSecret() strorageAccountKey = %v, want %v", gotCreds.strorageAccountKey, tt.wantCreds.strorageAccountKey)
+				}
+				if gotCreds.subscriptionID != tt.wantCreds.subscriptionID {
+					t.Errorf("parseAzureSecret() subscriptionID = %v, want %v", gotCreds.subscriptionID, tt.wantCreds.subscriptionID)
+				}
+				if gotCreds.tenantID != tt.wantCreds.tenantID {
+					t.Errorf("parseAzureSecret() tenantID = %v, want %v", gotCreds.tenantID, tt.wantCreds.tenantID)
+				}
+				if gotCreds.clientID != tt.wantCreds.clientID {
+					t.Errorf("parseAzureSecret() clientID = %v, want %v", gotCreds.clientID, tt.wantCreds.clientID)
+				}
+				if gotCreds.clientSecret != tt.wantCreds.clientSecret {
+					t.Errorf("parseAzureSecret() clientSecret = %v, want %v", gotCreds.clientSecret, tt.wantCreds.clientSecret)
+				}
+				if gotCreds.resourceGroup != tt.wantCreds.resourceGroup {
+					t.Errorf("parseAzureSecret() resourceGroup = %v, want %v", gotCreds.resourceGroup, tt.wantCreds.resourceGroup)
+				}
+			}
+		})
+	}
+}
+
+func TestDPAReconciler_getMatchedKeyValue(t *testing.T) {
+	tests := []struct {
+		name    string
+		key     string
+		s       string
+		want    string
+		wantErr bool
+	}{
+		{
+			name:    "successful parse with simple value",
+			key:     "aws_access_key_id",
+			s:       "aws_access_key_id=AKIAIOSFODNN7EXAMPLE",
+			want:    "AKIAIOSFODNN7EXAMPLE",
+			wantErr: false,
+		},
+		{
+			name:    "successful parse with quoted value",
+			key:     "aws_secret_access_key",
+			s:       "aws_secret_access_key=\"wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY\"",
+			want:    "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+			wantErr: false,
+		},
+		{
+			name:    "successful parse with single quoted value",
+			key:     "aws_secret_access_key",
+			s:       "aws_secret_access_key='wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY'",
+			want:    "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+			wantErr: false,
+		},
+		{
+			name:    "successful parse with spaces",
+			key:     "aws_access_key_id",
+			s:       " aws_access_key_id = AKIAIOSFODNN7EXAMPLE ",
+			want:    "AKIAIOSFODNN7EXAMPLE",
+			wantErr: false,
+		},
+		{
+			name:    "error with empty value",
+			key:     "aws_access_key_id",
+			s:       "aws_access_key_id=",
+			want:    "",
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := &DataProtectionApplicationReconciler{
+				Log: logr.Discard(),
+			}
+			got, err := r.getMatchedKeyValue(tt.key, tt.s)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("getMatchedKeyValue() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("getMatchedKeyValue() = %v, want %v", got, tt.want)
 			}
 		})
 	}
