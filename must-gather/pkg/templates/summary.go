@@ -45,6 +45,7 @@ var (
 		"CLUSTER_ID", "OCP_VERSION", "CLOUD", "ARCH", "CLUSTER_VERSION",
 		"OADP_VERSIONS",
 		"DATA_PROTECTION_APPLICATIONS",
+		"DATA_PROTECTION_TESTS",
 		"CLOUD_STORAGES",
 		"BACKUP_STORAGE_LOCATIONS",
 		"VOLUME_SNAPSHOT_LOCATIONS",
@@ -82,6 +83,7 @@ const summaryTemplate = `# OADP must-gather summary version <<MUST_GATHER_VERSIO
 - [Cluster information](#cluster-information)
 - [OADP operator installation information](#oadp-operator-installation-information)
     - [DataProtectionApplications (DPAs)](#dataprotectionapplications-dpas)
+	- [DataProtectionTests (DPTs)](#dataprotectiontests-dpts)
     - [CloudStorages](#cloudstorages)
     - [BackupStorageLocations (BSLs)](#backupstoragelocations-bsls)
     - [VolumeSnapshotLocations (VSLs)](#volumesnapshotlocations-vsls)
@@ -126,6 +128,10 @@ const summaryTemplate = `# OADP must-gather summary version <<MUST_GATHER_VERSIO
 ### DataProtectionApplications (DPAs)
 
 <<DATA_PROTECTION_APPLICATIONS>>
+
+### DataProtectionTests (DPTs)
+
+<<DATA_PROTECTION_TESTS>>
 
 ### CloudStorages
 
@@ -386,6 +392,88 @@ func ReplaceDataProtectionApplicationsSection(outputPath string, dataProtectionA
 		summaryTemplateReplaces["ERRORS"] += "⚠️ No DataProtectionApplication was found in the cluster\n\n"
 	}
 }
+
+func ReplaceDataProtectionTestsSection(outputPath string, dptList *oadpv1alpha1.DataProtectionTestList) {
+	if dptList != nil && len(dptList.Items) != 0 {
+		dataProtectionTestsByNamespace := map[string][]oadpv1alpha1.DataProtectionTest{}
+
+		for _, dpt := range dptList.Items {
+			dataProtectionTestsByNamespace[dpt.Namespace] = append(dataProtectionTestsByNamespace[dpt.Namespace], dpt)
+		}
+
+		summaryTemplateReplaces["DATA_PROTECTION_TESTS"] = ""
+		summaryTemplateReplaces["DATA_PROTECTION_TESTS"] += "| Name | Phase | Last Tested | Upload Speed (MBps) | Encryption | Versioning | Snapshots | Age | YAML |\n"
+		summaryTemplateReplaces["DATA_PROTECTION_TESTS"] += "| ---- | ----- | ----------- | ------------------- | ---------- | -----------| --------- | --- | ---- |\n"
+
+		for namespace, dpts := range dataProtectionTestsByNamespace {
+			folder := fmt.Sprintf("namespaces/%s/oadp.openshift.io/dataprotectiontests", namespace)
+			file := folder + "/dataprotectiontests.yaml"
+
+			list := &corev1.List{}
+			list.GetObjectKind().SetGroupVersionKind(gvk.ListGVK)
+
+			for _, dpt := range dpts {
+				dpt.GetObjectKind().SetGroupVersionKind(gvk.DataProtectionTestGVK)
+				list.Items = append(list.Items, runtime.RawExtension{Object: &dpt})
+
+				// Fields
+				name := dpt.Name
+
+				phase := "⚠️ Unknown"
+				if dpt.Status.Phase != "" {
+					phase = string(dpt.Status.Phase)
+				}
+
+				lastTested := "N/A"
+				if !dpt.Status.LastTested.IsZero() {
+					lastTested = humanizeDurationSince(dpt.Status.LastTested.Time)
+				}
+
+				uploadSpeed := "⚠️ N/A"
+				if dpt.Status.UploadTest.SpeedMbps > 0 {
+					uploadSpeed = fmt.Sprintf("%d", dpt.Status.UploadTest.SpeedMbps)
+				}
+
+				encryption := dpt.Status.BucketMetadata.EncryptionAlgorithm
+				if encryption == "" {
+					encryption = "None"
+				}
+
+				versioning := dpt.Status.BucketMetadata.VersioningStatus
+				if versioning == "" {
+					versioning = "None"
+				}
+
+				snapshots := "N/A"
+				if dpt.Status.SnapshotSummary != "" {
+					snapshots = dpt.Status.SnapshotSummary
+				}
+
+				age := humanizeDurationSince(dpt.CreationTimestamp.Time)
+
+				yamlLink := fmt.Sprintf("[`yaml`](%s)", file)
+
+				summaryTemplateReplaces["DATA_PROTECTION_TESTS"] += fmt.Sprintf(
+					"| %s | %s | %s | %s | %s | %s | %s | %s | %s |\n",
+					name, phase, lastTested, uploadSpeed, encryption, versioning, snapshots, age, yamlLink,
+				)
+			}
+
+			createYAML(outputPath, file, list)
+		}
+	} else {
+		summaryTemplateReplaces["DATA_PROTECTION_TESTS"] = "❌ No DataProtectionTest was found in the cluster"
+		summaryTemplateReplaces["ERRORS"] += "⚠️ No DataProtectionTest was found in the cluster\n\n"
+	}
+}
+
+func humanizeDurationSince(t time.Time) string {
+	if t.IsZero() {
+		return "N/A"
+	}
+	return time.Since(t).Round(time.Second).String()
+}
+
 
 func ReplaceCloudStoragesSection(outputPath string, cloudStorageList *oadpv1alpha1.CloudStorageList) {
 	if cloudStorageList != nil && len(cloudStorageList.Items) != 0 {
@@ -1574,6 +1662,7 @@ func ReplaceCustomResourceDefinitionsSection(outputPath string, clusterConfig *r
 	// CRD spec.names.plural : CRD spec.group
 	crds := map[string]string{
 		"dataprotectionapplications":            gvk.DataProtectionApplicationGVK.Group,
+		"dataprotectiontests":					 gvk.DataProtectionTestGVK.Group,
 		"cloudstorages":                         gvk.CloudStorageGVK.Group,
 		"backupstoragelocations":                gvk.BackupStorageLocationGVK.Group,
 		"volumesnapshotlocations":               gvk.VolumeSnapshotLocationGVK.Group,
