@@ -102,6 +102,11 @@ const (
 	NoProxyEnvVar                  = "NO_PROXY"
 	LogLevelEnvVar                 = "LOG_LEVEL"
 	LogFormatEnvVar                = "LOG_FORMAT"
+
+	// CCO Workflow Environment Vars
+	RoleARNEnvKey             = "ROLEARN"               // AWS STS role ARN
+	AudienceEnvKey            = "AUDIENCE"              // GCP WIF audience
+	ServiceAccountEmailEnvKey = "SERVICE_ACCOUNT_EMAIL" // GCP WIF service account email
 )
 
 // Unsupported Server Args annotation keys
@@ -207,15 +212,32 @@ func AppendTTMapAsCopy[T comparable](add ...map[T]T) map[T]T {
 	return base
 }
 
-// CCOWorkflow checks if the AWS STS secret is to be obtained from Cloud Credentials Operator (CCO)
+// CCOWorkflow checks if the AWS STS secret or GCP WIF is to be obtained from Cloud Credentials Operator (CCO)
 // if the user provides role ARN during installation then the ARN gets set as env var on operator deployment
-// during installation via OLM
+// during installation via OLM. Similarly, if the user provides AUDIENCE and SERVICE_ACCOUNT_EMAIL for GCP WIF,
+// these are set as env vars on the operator deployment.
 func CCOWorkflow() bool {
-	roleARN := os.Getenv("ROLEARN")
-	if len(roleARN) > 0 {
+	roleARN := os.Getenv(RoleARNEnvKey)
+	audience := os.Getenv(AudienceEnvKey)
+	serviceAccountEmail := os.Getenv(ServiceAccountEmailEnvKey)
+
+	if len(roleARN) > 0 || (len(audience) > 0 && len(serviceAccountEmail) > 0) {
 		return true
 	}
 	return false
+}
+
+// IsAWSSTS checks if AWS STS is being used and returns the roleARN if it exists
+func IsAWSSTS() (bool, string) {
+	roleARN := os.Getenv(RoleARNEnvKey)
+	return len(roleARN) > 0, roleARN
+}
+
+// IsGCPWIF checks if GCP WIF is being used and returns the audience and serviceAccountEmail if they exist
+func IsGCPWIF() (bool, string, string) {
+	audience := os.Getenv(AudienceEnvKey)
+	serviceAccountEmail := os.Getenv(ServiceAccountEmailEnvKey)
+	return len(audience) > 0 && len(serviceAccountEmail) > 0, audience, serviceAccountEmail
 }
 
 // GetImagePullPolicy get imagePullPolicy for a container, based on its image, if an override is not provided.
