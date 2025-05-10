@@ -1,0 +1,13 @@
+apiVersion: velero.io/v1
+kind: Restore
+metadata:
+  name: restore-matchlabel-cirros-test-3
+  namespace: openshift-adp
+spec:
+  backupName: 3-cirros-vms-all
+  hooks: {}
+  includedNamespaces:
+  - '*'
+  labelSelector:
+    matchLabels:
+      app: cirros-test-3

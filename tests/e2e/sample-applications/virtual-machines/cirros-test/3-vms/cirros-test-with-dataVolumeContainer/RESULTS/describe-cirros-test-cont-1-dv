@@ -1,0 +1,56 @@
+Name:         cirros-test-cont-1-dv
+Namespace:    cirros-test-cont
+Labels:       kubevirt.io/created-by=6a13cdf9-5248-43c5-af45-173686433723
+              velero.io/backup-name=backup-cirros-test-cont-all
+              velero.io/restore-name=cirros-test-cont-1
+Annotations:  cdi.kubevirt.io/allowClaimAdoption: true
+              cdi.kubevirt.io/storage.deleteAfterCompletion: false
+              cdi.kubevirt.io/storage.prePopulated: cirros-test-cont-1-dv
+              cdi.kubevirt.io/storage.usePopulator: true
+API Version:  cdi.kubevirt.io/v1beta1
+Kind:         DataVolume
+Metadata:
+  Creation Timestamp:  2025-02-14T18:02:10Z
+  Generation:          1
+  Owner References:
+    API Version:           kubevirt.io/v1
+    Block Owner Deletion:  true
+    Controller:            true
+    Kind:                  VirtualMachine
+    Name:                  cirros-test-cont-1
+    UID:                   8df919d1-9798-47f8-b4ce-1ba0859d451c
+  Resource Version:        24067411
+  UID:                     bf4409e2-1992-4d36-bfb9-3c29857947dc
+Spec:
+  Pvc:
+    Access Modes:
+      ReadWriteOnce
+    Resources:
+      Requests:
+        Storage:  150Mi
+    Volume Mode:  Block
+  Source:
+    Registry:
+      Pull Method:  node
+      URL:          docker://quay.io/kubevirt/cirros-container-disk-demo
+Status:
+  Conditions:
+    Last Heartbeat Time:   2025-02-14T18:02:10Z
+    Last Transition Time:  2025-02-14T18:02:10Z
+    Message:               No PVC found
+    Reason:                NotFound
+    Status:                Unknown
+    Type:                  Bound
+    Last Heartbeat Time:   2025-02-14T18:02:10Z
+    Last Transition Time:  2025-02-14T18:02:10Z
+    Status:                False
+    Type:                  Ready
+    Last Heartbeat Time:   2025-02-14T18:02:10Z
+    Last Transition Time:  2025-02-14T18:02:10Z
+    Status:                False
+    Type:                  Running
+  Phase:                   Pending
+Events:
+  Type    Reason    Age    From                          Message
+  ----    ------    ----   ----                          -------
+  Normal  NotFound  3m50s  datavolume-import-controller  No PVC found

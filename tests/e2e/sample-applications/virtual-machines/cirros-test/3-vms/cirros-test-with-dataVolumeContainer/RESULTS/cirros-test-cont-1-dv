@@ -1,0 +1,54 @@
+apiVersion: cdi.kubevirt.io/v1beta1
+kind: DataVolume
+metadata:
+  annotations:
+    cdi.kubevirt.io/allowClaimAdoption: "true"
+    cdi.kubevirt.io/storage.deleteAfterCompletion: "false"
+    cdi.kubevirt.io/storage.prePopulated: cirros-test-cont-1-dv
+    cdi.kubevirt.io/storage.usePopulator: "true"
+  creationTimestamp: "2025-02-14T18:02:10Z"
+  generation: 1
+  labels:
+    kubevirt.io/created-by: 6a13cdf9-5248-43c5-af45-173686433723
+    velero.io/backup-name: backup-cirros-test-cont-all
+    velero.io/restore-name: cirros-test-cont-1
+  name: cirros-test-cont-1-dv
+  namespace: cirros-test-cont
+  ownerReferences:
+  - apiVersion: kubevirt.io/v1
+    blockOwnerDeletion: true
+    controller: true
+    kind: VirtualMachine
+    name: cirros-test-cont-1
+    uid: 8df919d1-9798-47f8-b4ce-1ba0859d451c
+  resourceVersion: "24067411"
+  uid: bf4409e2-1992-4d36-bfb9-3c29857947dc
+spec:
+  pvc:
+    accessModes:
+    - ReadWriteOnce
+    resources:
+      requests:
+        storage: 150Mi
+    volumeMode: Block
+  source:
+    registry:
+      pullMethod: node
+      url: docker://quay.io/kubevirt/cirros-container-disk-demo
+status:
+  conditions:
+  - lastHeartbeatTime: "2025-02-14T18:02:10Z"
+    lastTransitionTime: "2025-02-14T18:02:10Z"
+    message: No PVC found
+    reason: NotFound
+    status: Unknown
+    type: Bound
+  - lastHeartbeatTime: "2025-02-14T18:02:10Z"
+    lastTransitionTime: "2025-02-14T18:02:10Z"
+    status: "False"
+    type: Ready
+  - lastHeartbeatTime: "2025-02-14T18:02:10Z"
+    lastTransitionTime: "2025-02-14T18:02:10Z"
+    status: "False"
+    type: Running
+  phase: Pending

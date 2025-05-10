@@ -1,0 +1,5 @@
+NAME                                               PHASE     PROGRESS   RESTARTS   AGE
+datavolume.cdi.kubevirt.io/cirros-test-cont-1-dv   Pending                         107s
+
+NAME                                            AGE    STATUS         READY
+virtualmachine.kubevirt.io/cirros-test-cont-1   108s   Provisioning   False

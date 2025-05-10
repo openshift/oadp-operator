@@ -1,0 +1,58 @@
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  annotations:
+  generation: 1
+  labels:
+    app: cirros-test-cont-1
+  name: cirros-test-cont-1
+  namespace: cirros-test-cont
+spec:
+  dataVolumeTemplates:
+  - metadata:
+      annotations:
+        cdi.kubevirt.io/storage.deleteAfterCompletion: "false"
+      creationTimestamp: null
+      name: cirros-test-cont-1-dv
+    spec:
+      pvc:
+        accessModes:
+        - ReadWriteOnce
+        resources:
+          requests:
+            storage: 150Mi
+        volumeMode: Block
+      source:
+        registry:
+          pullMethod: node
+          url: docker://quay.io/kubevirt/cirros-container-disk-demo
+  running: true
+  template:
+    metadata:
+      creationTimestamp: null
+      name: cirros-test-cont-1
+    spec:
+      architecture: amd64
+      domain:
+        devices:
+          disks:
+          - disk:
+              bus: virtio
+            name: volume0
+          interfaces:
+          - masquerade: {}
+            name: default
+          rng: {}
+        machine:
+          type: q35
+        resources:
+          requests:
+            memory: 256M
+      networks:
+      - name: default
+        pod: {}
+      terminationGracePeriodSeconds: 0
+      volumes:
+      - dataVolume:
+          name: cirros-test-cont-1-dv
+        name: volume0
