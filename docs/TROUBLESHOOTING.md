@@ -142,6 +142,12 @@ oc get backuprepositories.velero.io -n openshift-adp
 oc delete backuprepository <backupRepositoryName> -n openshift-adp
 ```
 
+### Deleting completed maintenance jobs
+
+```
+oc delete pod --field-selector=status.phase==Succeeded -n openshift-adp
+```
+
 ## Common Issues and Misconfigurations
 
 ### Credentials Secret Not Properly Formatted
