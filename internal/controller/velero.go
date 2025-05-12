@@ -464,6 +464,11 @@ func (r *DataProtectionApplicationReconciler) appendPluginSpecificSpecs(veleroDe
 							Name:      "plugins",
 						},
 					},
+					SecurityContext: &corev1.SecurityContext{
+						ReadOnlyRootFilesystem:   ptr.To(true),
+						Privileged:               ptr.To(false),
+						AllowPrivilegeEscalation: ptr.To(false),
+					},
 				})
 
 			pluginNeedsCheck := providerNeedsDefaultCreds[pluginSpecificMap.ProviderName]
@@ -528,6 +533,11 @@ func (r *DataProtectionApplicationReconciler) appendPluginSpecificSpecs(veleroDe
 							MountPath: "/target",
 							Name:      "plugins",
 						},
+					},
+					SecurityContext: &corev1.SecurityContext{
+						ReadOnlyRootFilesystem:   ptr.To(true),
+						Privileged:               ptr.To(false),
+						AllowPrivilegeEscalation: ptr.To(false),
 					},
 				})
 		}

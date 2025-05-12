@@ -323,6 +323,11 @@ var _ = ginkgo.Describe("Test ReconcileVeleroDeployment function", func() {
 
 func pluginContainer(name, image string) corev1.Container {
 	container := baseContainer
+	container.SecurityContext = &corev1.SecurityContext{
+		ReadOnlyRootFilesystem:   ptr.To(true),
+		Privileged:               ptr.To(false),
+		AllowPrivilegeEscalation: ptr.To(false),
+	}
 	container.Name = name
 	container.Image = image
 	return container
