@@ -94,10 +94,12 @@ var (
 	}
 
 	baseVolumeMounts = []corev1.VolumeMount{
-		{Name: "plugins", MountPath: "/plugins"},
+		{Name: "plugins", MountPath: "/plugins", ReadOnly: true},
 		{Name: "scratch", MountPath: "/scratch"},
 		{Name: "certs", MountPath: "/etc/ssl/certs"},
 		{Name: "bound-sa-token", MountPath: "/var/run/secrets/openshift/serviceaccount", ReadOnly: true},
+		{Name: "tmp", MountPath: "/tmp"},
+		{Name: "home", MountPath: "/home/velero"},
 	}
 
 	baseVolumes = []corev1.Volume{
@@ -111,6 +113,14 @@ var (
 		},
 		{
 			Name:         "certs",
+			VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},
+		},
+		{
+			Name:         "tmp",
+			VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},
+		},
+		{
+			Name:         "home",
 			VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},
 		},
 		{
@@ -417,6 +427,11 @@ func createTestBuiltVeleroDeployment(options TestBuiltVeleroDeploymentOptions) *
 							ImagePullPolicy:          corev1.PullAlways,
 							TerminationMessagePath:   "/dev/termination-log",
 							TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
+							SecurityContext: &corev1.SecurityContext{
+								ReadOnlyRootFilesystem:   ptr.To(true),
+								Privileged:               ptr.To(false),
+								AllowPrivilegeEscalation: ptr.To(false),
+							},
 							Ports: []corev1.ContainerPort{{
 								Name:          "metrics",
 								ContainerPort: 8085,
