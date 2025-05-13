@@ -26,8 +26,8 @@ func ReplaceCarriageReturn(data map[string][]byte) map[string][]byte {
 
 	return data
 }
-//TRIGGER CI
 
+// TRIGGER CI
 // Fetch a provider credential secret
 func GetProviderSecret(secretName, namespace string, k8sClient client.Client, ctx context.Context) (corev1.Secret, error) {
 
