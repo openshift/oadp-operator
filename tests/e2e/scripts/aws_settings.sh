@@ -17,7 +17,7 @@ cat > $TMP_DIR/oadpcreds <<EOF
       "configuration":{
         "velero":{
           "defaultPlugins": [
-            "openshift", "kubevirt", "hypershift", "$PROVIDER"
+            "openshift", "kubevirt", "$PROVIDER"
           ]
         }
       },
