@@ -106,6 +106,7 @@ func (r *DataProtectionApplicationReconciler) Reconcile(ctx context.Context, req
 		r.ReconcileVeleroDeployment,
 		r.ReconcileNodeAgentConfigMap,
 		r.ReconcileBackupRepositoryConfigMap,
+		r.ReconcileRepositoryMaintenanceConfigMap,
 		r.ReconcileNodeAgentDaemonset,
 		r.ReconcileVeleroMetricsSVC,
 		r.ReconcileNonAdminController,
