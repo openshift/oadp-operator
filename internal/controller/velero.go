@@ -272,6 +272,18 @@ func (r *DataProtectionApplicationReconciler) customizeVeleroDeployment(veleroDe
 				EmptyDir: &corev1.EmptyDirVolumeSource{},
 			},
 		},
+		corev1.Volume{
+			Name: "tmp",
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{},
+			},
+		},
+		corev1.Volume{
+			Name: "home",
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{},
+			},
+		},
 		// used for short-lived credentials, inert if not used
 		corev1.Volume{
 			Name: "bound-sa-token",
@@ -573,7 +585,31 @@ func (r *DataProtectionApplicationReconciler) customizeVeleroContainer(veleroCon
 			MountPath: "/var/run/secrets/openshift/serviceaccount",
 			ReadOnly:  true,
 		},
+		corev1.VolumeMount{
+			Name:      "tmp",
+			MountPath: "/tmp",
+			ReadOnly:  false,
+		},
+		corev1.VolumeMount{
+			Name:      "home",
+			MountPath: "/home/velero",
+			ReadOnly:  false,
+		},
 	)
+
+	// Ensure the /plugins and /target is ReadOnly
+	for i, mount := range veleroContainer.VolumeMounts {
+		if mount.MountPath == "/plugins" || mount.MountPath == "/target" {
+			veleroContainer.VolumeMounts[i].ReadOnly = true
+		}
+	}
+
+	veleroContainer.SecurityContext = &corev1.SecurityContext{
+		ReadOnlyRootFilesystem:   ptr.To(true),
+		Privileged:               ptr.To(false),
+		AllowPrivilegeEscalation: ptr.To(false),
+	}
+
 	// append velero PodConfig envs to container
 	if dpa.Spec.Configuration != nil && dpa.Spec.Configuration.Velero != nil && dpa.Spec.Configuration.Velero.PodConfig != nil && dpa.Spec.Configuration.Velero.PodConfig.Env != nil {
 		veleroContainer.Env = common.AppendUniqueEnvVars(veleroContainer.Env, dpa.Spec.Configuration.Velero.PodConfig.Env)
