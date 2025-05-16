@@ -471,6 +471,10 @@ func VerifyBackupRestoreData(ocClient client.Client, kubeClient *kubernetes.Clie
 		}
 	} else {
 		// Compare data with backup file after restore
+		appEndpointURL, proxyPodParams, err = getAppEndpointURLAndProxyParams(ocClient, kubeClient, kubeConfig, namespace, serviceName, routeName)
+		if err != nil {
+			return err
+		}
 		backupData, err := os.ReadFile(artifactDir + "/backup-data.txt")
 		if err != nil {
 			return err
