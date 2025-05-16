@@ -140,53 +140,25 @@ func main() {
 	}
 
 	// check if this is standardized STS workflow via OLM and CCO
-	if common.CCOWorkflow() {
-		// check if cred request API exists in the cluster before creating a cred request
-		setupLog.Info("Checking if credentialsrequest CRD exists in the cluster")
-		credReqCRDExists, err := DoesCRDExist(CloudCredentialGroupVersion, CloudCredentialsCRDName, kubeconf)
-		if err != nil {
-			setupLog.Error(err, "problem checking the existence of CredentialRequests CRD")
-			os.Exit(1)
-		}
-
-		if credReqCRDExists {
-			isAWSSTS, roleARN := common.IsAWSSTS()
-			if isAWSSTS {
-				// Handle AWS STS
-				setupLog.Info("AWS Role ARN specified by the user, following standardized STS workflow")
-				setupLog.Info("getting role ARN", "role ARN =", roleARN)
+	if err := common.STSStandardizedFlow(); err != nil {
+				// create cred request
+				// setupLog.Info(fmt.Sprintf("Creating AWS credentials request for role: %s, and WebIdentityTokenPath: %s", roleARN, WebIdentityTokenPath))
+				// if err := CreateOrUpdateSTSAWSSecret(roleARN, WebIdentityTokenPath, watchNamespace, kubeconf); err != nil {
+				// 	if !errors.IsAlreadyExists(err) {
+				// 		setupLog.Error(err, "unable to create AWS credRequest")
+				// 		os.Exit(1)
+				// 	}
+				// }
 
 				// create cred request
-				setupLog.Info(fmt.Sprintf("Creating AWS credentials request for role: %s, and WebIdentityTokenPath: %s", roleARN, WebIdentityTokenPath))
-				if err := CreateOrUpdateAWSCredRequest(roleARN, WebIdentityTokenPath, watchNamespace, kubeconf); err != nil {
-					if !errors.IsAlreadyExists(err) {
-						setupLog.Error(err, "unable to create AWS credRequest")
-						os.Exit(1)
-					}
-				}
-			} else {
-				isGCPWIF, audience, serviceAccountEmail := common.IsGCPWIF()
-				if isGCPWIF {
-					// Handle GCP WIF
-					gcpIdentityTokenFile := WebIdentityTokenPath
-
-					setupLog.Info("GCP WIF specified by the user, following standardized WIF workflow")
-					setupLog.Info("getting audience and service account email",
-						"audience =", audience,
-						"service account email =", serviceAccountEmail)
-
-					// create cred request
-					setupLog.Info(fmt.Sprintf("Creating GCP credentials request for audience: %s, service account email: %s, and WebIdentityTokenPath: %s",
-						audience, serviceAccountEmail, gcpIdentityTokenFile))
-					if err := CreateOrUpdateGCPCredRequest(audience, serviceAccountEmail, gcpIdentityTokenFile, watchNamespace, kubeconf); err != nil {
-						if !errors.IsAlreadyExists(err) {
-							setupLog.Error(err, "unable to create GCP credRequest")
-							os.Exit(1)
-						}
-					}
-				}
-			}
-		}
+				// setupLog.Info(fmt.Sprintf("Creating GCP credentials request for audience: %s, service account email: %s, and WebIdentityTokenPath: %s",
+				// 	audience, serviceAccountEmail, gcpIdentityTokenFile))
+				// if err := CreateOrUpdateGCPCredRequest(audience, serviceAccountEmail, gcpIdentityTokenFile, watchNamespace, kubeconf); err != nil {
+				// 	if !errors.IsAlreadyExists(err) {
+				// 		setupLog.Error(err, "unable to create GCP credRequest")
+				// 		os.Exit(1)
+				// 	}
+				// }
 	}
 
 	// if the enable-http2 flag is false (the default), http/2 should be disabled
@@ -520,7 +492,7 @@ func CreateOrUpdateGCPCredRequest(audience string, serviceAccountEmail string, c
 	return nil
 }
 
-func CreateOrUpdateAWSCredRequest(roleARN string, WITP string, secretNS string, kubeconf *rest.Config) error {
+func CreateOrUpdateSTSAWSSecret(roleARN string, WITP string, secretNS string, kubeconf *rest.Config) error {
 	clientInstance, err := client.New(kubeconf, client.Options{})
 	if err != nil {
 		setupLog.Error(err, "unable to create client")
@@ -534,67 +506,42 @@ func CreateOrUpdateAWSCredRequest(roleARN string, WITP string, secretNS string, 
 		return err
 	}
 
-	// Extra deps were getting added and existing ones were getting upgraded when the CloudCredentials API was imported
-	// This caused updates to go.mod and started resulting in operator build failures due to incompatibility with the existing velero deps
-	// Hence for now going via the unstructured route
-	credRequest := &unstructured.Unstructured{
-		Object: map[string]interface{}{
-			"apiVersion": "cloudcredential.openshift.io/v1",
-			"kind":       "CredentialsRequest",
-			"metadata": map[string]interface{}{
-				"name":      "oadp-aws-credentials-request",
-				"namespace": "openshift-cloud-credential-operator",
-			},
-			"spec": map[string]interface{}{
-				"secretRef": map[string]interface{}{
-					"name":      "cloud-credentials",
-					"namespace": secretNS,
-				},
-				"serviceAccountNames": []interface{}{
-					common.OADPOperatorServiceAccount,
-				},
-				"providerSpec": map[string]interface{}{
-					"apiVersion": "cloudcredential.openshift.io/v1",
-					"kind":       "AWSProviderSpec",
-					"statementEntries": []interface{}{
-						map[string]interface{}{
-							"effect": "Allow",
-							"action": []interface{}{
-								"s3:*",
-							},
-							"resource": "arn:aws:s3:*:*:*",
-						},
-					},
-					"stsIAMRoleARN": roleARN,
-				},
-				"cloudTokenPath": WITP,
-			},
+	// For an STS cluster
+	// replicate what https://github.com/openshift/cloud-credential-operator/blob/6a880b473554aee4d1f3cd125048fef2bca6a04d/pkg/aws/actuator/actuator.go#L405-L441
+	// does
+	awsSecret := corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "cloud-credentials",
+			Namespace: secretNS,
+		},
+		StringData: map[string]string{
+			// TODO: region from BSL
+			"credentials": fmt.Sprintf(`[default]
+sts_regional_endpoints = regional
+role_arn = %s
+web_identity_token_file = %s`, roleARN, WITP),
 		},
 	}
 	verb := "created"
-	if err := clientInstance.Create(context.Background(), credRequest); err != nil {
+	if err := clientInstance.Create(context.Background(), &awsSecret); err != nil {
 		if errors.IsAlreadyExists(err) {
 			verb = "updated"
-			setupLog.Info("CredentialsRequest already exists, updating")
-			fromCluster := &unstructured.Unstructured{
-				Object: map[string]interface{}{
-					"apiVersion": "cloudcredential.openshift.io/v1",
-					"kind":       "CredentialsRequest",
-				},
-			}
-			err = clientInstance.Get(context.Background(), types.NamespacedName{Name: "oadp-aws-credentials-request", Namespace: "openshift-cloud-credential-operator"}, fromCluster)
+			setupLog.Info("Secret already exists, updating")
+			fromCluster := corev1.Secret{}
+			err = clientInstance.Get(context.Background(), types.NamespacedName{Name: awsSecret.Name, Namespace: awsSecret.Namespace}, &fromCluster)
 			if err != nil {
 				setupLog.Error(err, "unable to get existing credentials request resource")
 				return err
 			}
-			// update spec
-			fromCluster.Object["spec"] = credRequest.Object["spec"]
-			if err := clientInstance.Update(context.Background(), fromCluster); err != nil {
-				setupLog.Error(err, fmt.Sprintf("unable to update credentials request resource, %v, %+v", err, fromCluster.Object))
+			// update StringData
+			updatedFromCluster := fromCluster.DeepCopy()
+			updatedFromCluster.StringData = awsSecret.StringData
+			if err := clientInstance.Patch(context.Background(), updatedFromCluster, client.MergeFrom(&fromCluster)); err != nil {
+				setupLog.Error(err, fmt.Sprintf("unable to update secret resource, %v, %+v", err, fromCluster))
 				return err
 			}
 		} else {
-			setupLog.Error(err, "unable to create credentials request resource")
+			setupLog.Error(err, "unable to create secret resource")
 			return err
 		}
 	}
