@@ -23,6 +23,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"time"
 
 	snapshotv1api "github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1"
 	configv1 "github.com/openshift/api/config/v1"
@@ -31,7 +32,8 @@ import (
 	monitor "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	appsv1 "k8s.io/api/apps/v1"
-	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -41,6 +43,7 @@ import (
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/kubernetes"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -55,6 +58,7 @@ import (
 
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	"github.com/openshift/oadp-operator/internal/controller"
+
 	//+kubebuilder:scaffold:imports
 	"github.com/openshift/oadp-operator/pkg/common"
 	"github.com/openshift/oadp-operator/pkg/leaderelection"
@@ -137,30 +141,25 @@ func main() {
 	}
 
 	// check if this is standardized STS workflow via OLM and CCO
-	if common.CCOWorkflow() {
-		setupLog.Info("AWS Role ARN specified by the user, following standardized STS workflow")
-		// ROLEARN env var is set via operator subscription
-		roleARN := os.Getenv("ROLEARN")
-		setupLog.Info("getting role ARN", "role ARN =", roleARN)
+	if err := common.STSStandardizedFlow(); err != nil {
+				// create cred request
+				// setupLog.Info(fmt.Sprintf("Creating AWS credentials request for role: %s, and WebIdentityTokenPath: %s", roleARN, WebIdentityTokenPath))
+				// if err := CreateOrUpdateSTSAWSSecret(roleARN, WebIdentityTokenPath, watchNamespace, kubeconf); err != nil {
+				// 	if !errors.IsAlreadyExists(err) {
+				// 		setupLog.Error(err, "unable to create AWS credRequest")
+				// 		os.Exit(1)
+				// 	}
+				// }
 
-		// check if cred request API exists in the cluster before creating a cred request
-		setupLog.Info("Checking if credentialsrequest CRD exists in the cluster")
-		credReqCRDExists, err := DoesCRDExist(CloudCredentialGroupVersion, CloudCredentialsCRDName, kubeconf)
-		if err != nil {
-			setupLog.Error(err, "problem checking the existence of CredentialRequests CRD")
-			os.Exit(1)
-		}
-
-		if credReqCRDExists {
-			// create cred request
-			setupLog.Info(fmt.Sprintf("Creating credentials request for role: %s, and WebIdentityTokenPath: %s", roleARN, WebIdentityTokenPath))
-			if err := CreateOrUpdateCredRequest(roleARN, WebIdentityTokenPath, watchNamespace, kubeconf); err != nil {
-				if !errors.IsAlreadyExists(err) {
-					setupLog.Error(err, "unable to create credRequest")
-					os.Exit(1)
-				}
-			}
-		}
+				// create cred request
+				// setupLog.Info(fmt.Sprintf("Creating GCP credentials request for audience: %s, service account email: %s, and WebIdentityTokenPath: %s",
+				// 	audience, serviceAccountEmail, gcpIdentityTokenFile))
+				// if err := CreateOrUpdateGCPCredRequest(audience, serviceAccountEmail, gcpIdentityTokenFile, watchNamespace, kubeconf); err != nil {
+				// 	if !errors.IsAlreadyExists(err) {
+				// 		setupLog.Error(err, "unable to create GCP credRequest")
+				// 		os.Exit(1)
+				// 	}
+				// }
 	}
 
 	// if the enable-http2 flag is false (the default), http/2 should be disabled
@@ -375,21 +374,79 @@ func DoesCRDExist(CRDGroupVersion, CRDName string, kubeconf *rest.Config) (bool,
 }
 
 // CreateCredRequest WITP : WebIdentityTokenPath
-func CreateOrUpdateCredRequest(roleARN string, WITP string, secretNS string, kubeconf *rest.Config) error {
+// WaitForSecret is a function that takes a Kubernetes client, a namespace, and a v1 "k8s.io/api/core/v1" name as arguments
+// It waits until the secret object with the given name exists in the given namespace
+// It returns the secret object or an error if the timeout is exceeded
+func WaitForSecret(client kubernetes.Interface, namespace, name string) (*corev1.Secret, error) {
+	// set a timeout of 10 minutes
+	timeout := time.After(10 * time.Minute)
+
+	// set a polling interval of 10 seconds
+	ticker := time.NewTicker(10 * time.Second)
+
+	// loop until the timeout or the secret is found
+	for {
+		select {
+		case <-timeout:
+			// timeout is exceeded, return an error
+			return nil, fmt.Errorf("timed out waiting for secret %s in namespace %s. Please follow the manual path to create a Secret", name, namespace)
+		case <-ticker.C:
+			// polling interval is reached, try to get the secret
+			secret, err := client.CoreV1().Secrets(namespace).Get(context.Background(), name, metav1.GetOptions{})
+			if err != nil {
+				if errors.IsNotFound(err) {
+					// secret does not exist yet, continue waiting
+					continue
+				} else {
+					// some other error occurred, return it
+					return nil, err
+				}
+			} else {
+				// secret is found, return it
+				return secret, nil
+			}
+		}
+	}
+}
+
+// GetGCPCredentialsFromSecret waits for the cloud-credentials Secret
+// to be created by CCO and reads the service_account.json field
+func GetGCPCredentialsFromSecret(clientset kubernetes.Interface, namespace string) (string, error) {
+	// Wait for the Secret to be created by CCO
+	secret, err := WaitForSecret(clientset, namespace, "cloud-credentials")
+	if err != nil {
+		return "", fmt.Errorf("error waiting for GCP credentials Secret: %v", err)
+	}
+
+	// Read the service_account.json field from the Secret
+	serviceAccountJSON, ok := secret.Data["service_account.json"]
+	if !ok {
+		return "", fmt.Errorf("cloud-credentials Secret does not contain service_account.json field")
+	}
+
+	return string(serviceAccountJSON), nil
+}
+
+func CreateOrUpdateGCPCredRequest(audience string, serviceAccountEmail string, cloudTokenPath string, secretNS string, kubeconf *rest.Config) error {
 	clientInstance, err := client.New(kubeconf, client.Options{})
 	if err != nil {
 		setupLog.Error(err, "unable to create client")
+		return err
 	}
 
-	// Extra deps were getting added and existing ones were getting upgraded when the CloudCredentials API was imported
-	// This caused updates to go.mod and started resulting in operator build failures due to incompatibility with the existing velero deps
-	// Hence for now going via the unstructured route
+	// Create a clientset to use for waiting on the secret
+	clientset, err := kubernetes.NewForConfig(kubeconf)
+	if err != nil {
+		setupLog.Error(err, "unable to create clientset")
+		return err
+	}
+
 	credRequest := &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "cloudcredential.openshift.io/v1",
 			"kind":       "CredentialsRequest",
 			"metadata": map[string]interface{}{
-				"name":      "oadp-aws-credentials-request",
+				"name":      "oadp-gcp-credentials-request",
 				"namespace": "openshift-cloud-credential-operator",
 			},
 			"spec": map[string]interface{}{
@@ -401,20 +458,12 @@ func CreateOrUpdateCredRequest(roleARN string, WITP string, secretNS string, kub
 					common.OADPOperatorServiceAccount,
 				},
 				"providerSpec": map[string]interface{}{
-					"apiVersion": "cloudcredential.openshift.io/v1",
-					"kind":       "AWSProviderSpec",
-					"statementEntries": []interface{}{
-						map[string]interface{}{
-							"effect": "Allow",
-							"action": []interface{}{
-								"s3:*",
-							},
-							"resource": "arn:aws:s3:*:*:*",
-						},
-					},
-					"stsIAMRoleARN": roleARN,
+					"apiVersion":          "cloudcredential.openshift.io/v1",
+					"kind":                "GCPProviderSpec",
+					"audience":            audience,
+					"serviceAccountEmail": serviceAccountEmail,
 				},
-				"cloudTokenPath": WITP,
+				"cloudTokenPath": cloudTokenPath,
 			},
 		},
 	}
@@ -429,7 +478,7 @@ func CreateOrUpdateCredRequest(roleARN string, WITP string, secretNS string, kub
 					"kind":       "CredentialsRequest",
 				},
 			}
-			err = clientInstance.Get(context.Background(), types.NamespacedName{Name: "oadp-aws-credentials-request", Namespace: "openshift-cloud-credential-operator"}, fromCluster)
+			err = clientInstance.Get(context.Background(), types.NamespacedName{Name: "oadp-gcp-credentials-request", Namespace: "openshift-cloud-credential-operator"}, fromCluster)
 			if err != nil {
 				setupLog.Error(err, "unable to get existing credentials request resource")
 				return err
@@ -446,5 +495,82 @@ func CreateOrUpdateCredRequest(roleARN string, WITP string, secretNS string, kub
 		}
 	}
 	setupLog.Info("Custom resource credentialsrequest " + verb + " successfully")
+
+	// Wait for the Secret to be created by CCO
+	setupLog.Info("Waiting for cloud-credentials Secret to be created by Cloud Credential Operator")
+	_, err = WaitForSecret(clientset, secretNS, "cloud-credentials")
+	if err != nil {
+		setupLog.Error(err, "error waiting for AWS credentials Secret")
+		return err
+	}
+	setupLog.Info("cloud-credentials Secret is now available")
+
+	return nil
+}
+
+func CreateOrUpdateSTSAWSSecret(roleARN string, WITP string, secretNS string, kubeconf *rest.Config) error {
+	clientInstance, err := client.New(kubeconf, client.Options{})
+	if err != nil {
+		setupLog.Error(err, "unable to create client")
+		return err
+	}
+
+	// Create a clientset to use for waiting on the secret
+	clientset, err := kubernetes.NewForConfig(kubeconf)
+	if err != nil {
+		setupLog.Error(err, "unable to create clientset")
+		return err
+	}
+
+	// For an STS cluster
+	// replicate what https://github.com/openshift/cloud-credential-operator/blob/6a880b473554aee4d1f3cd125048fef2bca6a04d/pkg/aws/actuator/actuator.go#L405-L441
+	// does
+	awsSecret := corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "cloud-credentials",
+			Namespace: secretNS,
+		},
+		StringData: map[string]string{
+			// TODO: region from BSL
+			"credentials": fmt.Sprintf(`[default]
+sts_regional_endpoints = regional
+role_arn = %s
+web_identity_token_file = %s`, roleARN, WITP),
+		},
+	}
+	verb := "created"
+	if err := clientInstance.Create(context.Background(), &awsSecret); err != nil {
+		if errors.IsAlreadyExists(err) {
+			verb = "updated"
+			setupLog.Info("Secret already exists, updating")
+			fromCluster := corev1.Secret{}
+			err = clientInstance.Get(context.Background(), types.NamespacedName{Name: awsSecret.Name, Namespace: awsSecret.Namespace}, &fromCluster)
+			if err != nil {
+				setupLog.Error(err, "unable to get existing credentials request resource")
+				return err
+			}
+			// update StringData
+			updatedFromCluster := fromCluster.DeepCopy()
+			updatedFromCluster.StringData = awsSecret.StringData
+			if err := clientInstance.Patch(context.Background(), updatedFromCluster, client.MergeFrom(&fromCluster)); err != nil {
+				setupLog.Error(err, fmt.Sprintf("unable to update secret resource, %v, %+v", err, fromCluster))
+				return err
+			}
+		} else {
+			setupLog.Error(err, "unable to create secret resource")
+			return err
+		}
+	}
+	setupLog.Info("Custom resource credentialsrequest " + verb + " successfully")
+
+	// Wait for the Secret to be created by CCO
+	setupLog.Info("Waiting for cloud-credentials Secret to be created by Cloud Credential Operator")
+	_, err = WaitForSecret(clientset, secretNS, "cloud-credentials")
+	if err != nil {
+		setupLog.Error(err, "error waiting for AWS credentials Secret")
+		return err
+	}
+	setupLog.Info("cloud-credentials Secret is now available")
+
 	return nil
 }

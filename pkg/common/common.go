@@ -102,6 +102,16 @@ const (
 	NoProxyEnvVar                  = "NO_PROXY"
 	LogLevelEnvVar                 = "LOG_LEVEL"
 	LogFormatEnvVar                = "LOG_FORMAT"
+
+	// CCO Workflow Environment Vars
+	RoleARNEnvKey             = "ROLEARN"               // AWS STS role ARN
+	AudienceEnvKey            = "AUDIENCE"              // GCP WIF audience
+	ServiceAccountEmailEnvKey = "SERVICE_ACCOUNT_EMAIL" // GCP WIF service account email
+	ProjectNumberEnvKey       = "PROJECT_NUMBER"        // GCP WIF project number
+	PoolIDEnvKey              = "POOL_ID"               // GCP WIF pool ID
+	ClientIDEnvKey            = "CLIENTID"              // Azure client ID
+	TenantIDEnvKey            = "TENANTID"              // Azure tenant ID
+	SubscriptionIDEnvKey      = "SUBSCRIPTIONID"        // Azure subscription ID
 )
 
 // Unsupported Server Args annotation keys
@@ -207,15 +217,44 @@ func AppendTTMapAsCopy[T comparable](add ...map[T]T) map[T]T {
 	return base
 }
 
-// CCOWorkflow checks if the AWS STS secret is to be obtained from Cloud Credentials Operator (CCO)
-// if the user provides role ARN during installation then the ARN gets set as env var on operator deployment
-// during installation via OLM
-func CCOWorkflow() bool {
-	roleARN := os.Getenv("ROLEARN")
-	if len(roleARN) > 0 {
-		return true
+// STSStandardizedFlow creates secret for Short Term Service Account Tokens from the environment variables for
+// AWS STS, GCP WIF, and Azure
+// User are to provides them during web console installation, env var will be set to operator deployment
+// during installation via OLM.
+// Returns errors if secret creation fails.
+// Returns nil if secret creation succeed or there is no STS env provided.
+func STSStandardizedFlow() error {
+	// Reference of provided envs from web console.
+	// https://github.com/openshift/console/blob/f11a6158ae722200d342519971af337f8ff61d3a/frontend/packages/operator-lifecycle-manager/src/components/operator-hub/operator-hub-subscribe.tsx#L502-L555
+	
+	// AWS STS environment variables
+	roleARN := os.Getenv(RoleARNEnvKey)
+	
+	// GCP WIF environment variables
+	audience := os.Getenv(AudienceEnvKey)
+	serviceAccountEmail := os.Getenv(ServiceAccountEmailEnvKey)
+	projectNumber := os.Getenv(ProjectNumberEnvKey)
+	poolID := os.Getenv(PoolIDEnvKey)
+	
+	// Azure environment variables
+	clientID := os.Getenv(ClientIDEnvKey)
+	tenantID := os.Getenv(TenantIDEnvKey)
+	subscriptionID := os.Getenv(SubscriptionIDEnvKey)
+	
+	// Check if any cloud provider credentials are provided
+	hasAWSCreds := len(roleARN) > 0
+	hasGCPCreds := len(audience) > 0 && len(serviceAccountEmail) > 0 && 
+		len(projectNumber) > 0 && len(poolID) > 0
+	hasAzureCreds := len(clientID) > 0 && len(tenantID) > 0 && len(subscriptionID) > 0
+	
+	// If no credentials are provided, return nil
+	if !hasAWSCreds && !hasGCPCreds && !hasAzureCreds {
+		return nil
 	}
-	return false
+	
+	// TODO: Implement secret creation logic using the environment variables
+	
+	return nil
 }
 
 // GetImagePullPolicy get imagePullPolicy for a container, based on its image, if an override is not provided.

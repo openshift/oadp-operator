@@ -26,7 +26,7 @@ import (
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -123,7 +123,7 @@ func (b CloudStorageReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		}
 	}
 	var ok bool
-	if common.CCOWorkflow() {
+	if common.STSStandardizedFlow() {
 		// wait for the credential request to be processed and the secret to be created
 		logger.Info(fmt.Sprintf("Following standardized STS workflow, waiting for for the credential request to be processed and provision the secret"))
 		installNS := os.Getenv("WATCH_NAMESPACE")
