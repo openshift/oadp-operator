@@ -19,6 +19,19 @@ better stability and maintainability.
 | 4.20              | 1.5          | v1.16          | Q4 2025                       |
 | 4.21              | 1.6          | v1.18          | Q1 2026                       |
 
+### OADP Plugins of interest
+| OpenShift Version | OADP Version | Velero Version | kubevirt-velero-plugin | hypershift-oadp-plugin   | channel               |
+| ----------------- | ------------ | -------------- | ---------------------- | ------------------------ |---------------------- |
+|  4.14             | 1.3, 1.4     | v1.12, v1.14   | v0.6, v0.7             | n/a                      | stable-1.3, stable-1.4|
+|  4.15             | 1.3, 1.4     | v1.12, v1.14   | v0.6, v0.7             | n/a                      | stable-1.3, stable-1.4|
+|  4.16             | 1.4          | v1.14          | v0.7                   | n/a                      | stable-1.4            |
+|  4.17             | 1.4          | v1.14          | v0.7                   | n/a                      | stable-1.4            |
+|  4.18             | 1.4          | v1.14          | v0.7                   | n/a                      | stable-1.4            |
+|  4.19             | 1.5          | v1.16          | v0.8                   | oadp-1.5                 | stable                |
+|  4.20             | 1.5          | v1.16          | v0.8                   | oadp-1.5                 | stable                |
+|  4.21             | 1.6          | v1.18          | v0.9                   | oadp-1.6                 | stable                |
+
+
 * [1] Release timelines are estimates,and versions are subject to change.
 
 ## Impact on Partners
@@ -69,7 +82,15 @@ sequenceDiagram
 
     Note over Customer:  Upgrade complete
 ```
+
 ---
-Last Updated: March 2025
+## Upstream k8s / velero news to follow
+* https://hackmd.io/bxrvgewUQ5ORH10BKUFpxw#Discussion-Topics
+* https://kubernetes.io/blog/2024/07/19/kubernetes-1-31-upcoming-changes/#removal-of-all-in-tree-integrations-with-cloud-providers
+* https://kubernetes.io/docs/concepts/storage/volumes/
+
+
+---
+Last Updated: May 2025
 
 Note: Release timelines are subject to change.
