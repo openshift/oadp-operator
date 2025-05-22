@@ -20,6 +20,8 @@ Monitoring [metrics](#metrics) requires enabling monitoring for the user-defined
 ### Prerequisites
 * OADP operator, a credentials secret, and a DataProtectionApplication (DPA) CR are all created. Follow [these steps](/docs/install_olm.md) for installation instructions.
 * shell with the `oc` CLI command available and admin level access to the OpenShift cluster.
+* You have created a cluster monitoring config map.
+
 
 
 ### Enable and Configure User Workload Monitoring
