@@ -470,7 +470,7 @@ func VerifyBackupRestoreData(ocClient client.Client, kubeClient *kubernetes.Clie
 			return err
 		}
 	} else {
-                // Compare data with backup file after restore
+		// Compare data with backup file after restore
 		backupData, err := os.ReadFile(artifactDir + "/backup-data.txt")
 		if err != nil {
 			return err
