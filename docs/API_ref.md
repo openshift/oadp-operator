@@ -42,4 +42,4 @@ FIELDS:
      Contains data mover specific configurations
 ```
 
-See also [![Go Reference](https://pkg.go.dev/badge/github.com/openshift/oadp-operator.svg)](https://pkg.go.dev/github.com/openshift/oadp-operator@master) for a deeper dive.
+See also [![Go Reference](https://pkg.go.dev/badge/github.com/openshift/oadp-operator.svg)](https://pkg.go.dev/github.com/openshift/oadp-operator@oadp-dev) for a deeper dive.

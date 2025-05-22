@@ -38,7 +38,7 @@ better stability and maintainability.
 - Partners must align their integration testing with the specific OADP version corresponding 
 to their target OpenShift version
     - Unreleased OADP builds are available via the branches of this oadp-operator 
-    repository.  The next release will be available for install via the `master` 
+    repository.  The next release will be available for install via the `oadp-dev` 
     branch until such time the next release branch is created, the `oadp-1.<version>+1` 
     branch will be made available for install.
      - latest branched version is [oadp-1.4](https://github.com/openshift/oadp-operator/tree/oadp-1.4)

@@ -129,7 +129,7 @@ vet: ## Run go vet against code.
 # If test results in prow are different, it is because the environment used.
 # You can simulate their env by running
 # docker run --platform linux/amd64 -w $PWD -v $PWD:$PWD -it registry.ci.openshift.org/ocp/builder:rhel-8-golang-1.20-openshift-4.14 sh -c "make test"
-# where the image corresponds to the prow config for the test job, https://github.com/openshift/release/blob/master/ci-operator/config/openshift/oadp-operator/openshift-oadp-operator-master.yaml#L1-L5
+# where the image corresponds to the prow config for the test job, https://github.com/openshift/release/blob/master/ci-operator/config/openshift/oadp-operator/openshift-oadp-operator-oadp-dev.yaml#L1-L5
 # to login to registry cluster follow https://docs.ci.openshift.org/docs/how-tos/use-registries-in-build-farm/#how-do-i-log-in-to-pull-images-that-require-authentication
 # If bin/ contains binaries of different arch, you may remove them so the container can install their arch.
 .PHONY: test

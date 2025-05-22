@@ -28,8 +28,8 @@ A user may want to change the backup custom resource, or other aspects of this d
 
 ## Sample Applications
 If you require a sample application while working through the instructions, you can find viable sample applications via the following links:
-  * https://github.com/openshift/oadp-operator/tree/master/tests/e2e/sample-applications/nginx
-  * https://github.com/openshift/oadp-operator/tree/master/tests/e2e/sample-applications/mysql-persistent
+  * https://github.com/openshift/oadp-operator/tree/oadp-dev/tests/e2e/sample-applications/nginx
+  * https://github.com/openshift/oadp-operator/tree/oadp-dev/tests/e2e/sample-applications/mysql-persistent
 
 ## Known Issues
 * Advanced backup and restore options are not included in this demo.
@@ -39,7 +39,7 @@ If you require a sample application while working through the instructions, you 
 ### Prerequisites
 * Install [OpenShift Pipelines (Tekton)](https://docs.openshift.com/container-platform/latest/cicd/pipelines/installing-pipelines.html)
 * Check that [OADP is installed](https://docs.openshift.com/container-platform/latest/backup_and_restore/application_backup_and_restore/installing/about-installing-oadp.html)
-* Check OADP configuration which must have at least one [DPA CR](https://github.com/openshift/oadp-operator/blob/master/docs/install_olm.md#create-the-dataprotectionapplication-custom-resource)
+* Check OADP configuration which must have at least one [DPA CR](https://github.com/openshift/oadp-operator/blob/oadp-dev/docs/install_olm.md#create-the-dataprotectionapplication-custom-resource)
 * It is recommended to the user to ensure backup and restore operations are working prior to running this demonstration.
 
 There is a shell script to check those Prerequisites:
