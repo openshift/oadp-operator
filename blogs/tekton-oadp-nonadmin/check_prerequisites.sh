@@ -84,7 +84,7 @@ function print_oadp_not_installed() {
 
 function print_oadp_not_configured() {
      printf "\n\t* Configure OADP DataProtectionApplication Custom Resource named 'dpa-sample':\n"
-     printf "\n\t  https://github.com/openshift/oadp-operator/blob/master/docs/install_olm.md#create-the-dataprotectionapplication-custom-resource"
+     printf "\n\t  https://github.com/openshift/oadp-operator/blob/oadp-dev/docs/install_olm.md#create-the-dataprotectionapplication-custom-resource"
 }
 
 printf "\n######################"
