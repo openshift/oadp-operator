@@ -443,6 +443,12 @@ func (r *DataProtectionApplicationReconciler) appendPluginSpecificSpecs(veleroDe
 	init_container_resources := veleroContainer.Resources
 
 	for _, plugin := range dpa.Spec.Configuration.Velero.DefaultPlugins {
+
+		if plugin == oadpv1alpha1.DefaultPluginHypershift {
+			r.Log.Info("Skipping Hypershift plugin from being added to velero deployment")
+			continue
+		}
+
 		if pluginSpecificMap, ok := credentials.PluginSpecificFields[plugin]; ok {
 			imagePullPolicy, err := common.GetImagePullPolicy(dpa.Spec.ImagePullPolicy, credentials.GetPluginImage(plugin, dpa))
 			if err != nil {
