@@ -22,6 +22,9 @@ Periodic AWS E2E Tests in OpenShift 4.19
 Periodic AWS E2E Virtualization Tests in OpenShift 4.19
 [![VM tests](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-master-4.19-e2e-test-kubevirt-aws-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-master-4.19-e2e-test-kubevirt-aws-periodic)
 
+Periodic AWS E2E Hypershift Tests in OpenShift 4.19
+[![VM tests](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-master-4.19-e2e-test-hcp-aws-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-master-4.19-e2e-test-hcp-aws-periodic)
+
 OADP repositories images job
 | OADP | OpenShift Velero plugin | Velero | Velero plugin for AWS | Velero plugin for Legacy AWS | Velero plugin for GCP | Velero plugin for Microsoft Azure | Non Admin |
 | ---------- | ---------- | ---------- | ---------- | ---------- | ---------- | ---------- | ---------- |
