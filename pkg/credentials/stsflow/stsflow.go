@@ -12,6 +12,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
+
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -148,12 +149,18 @@ func CreateOrUpdateSTSGCPSecret(setupLog logr.Logger, serviceAccountEmail, proje
 func CreateOrUpdateSTSAzureSecret(setupLog logr.Logger, azureClientId, azureTenantId, azureSubscriptionId, secretNS string, kubeconf *rest.Config) error {
 	// Azure federated identity credentials format
 	return CreateOrUpdateSTSSecret(setupLog, VeleroAzureSecretName, map[string]string{
-		AzureClientID:           azureClientId,
-		AzureTenantID:           azureTenantId,
-		AzureRegion:             "centralus", // region not provided by UI, using default centralus
-		AzureSubscriptionID:     azureSubscriptionId,
-		AzureFederatedTokenFile: WebIdentityTokenPath,
-	}, secretNS, kubeconf)
+		"azurekey": fmt.Sprintf(`
+AZURE_SUBSCRIPTION_ID=%s
+AZURE_TENANT_ID=%s
+AZURE_CLIENT_ID=%s
+AZURE_CLOUD_NAME=AzurePublicCloud
+`, azureSubscriptionId, azureTenantId, azureClientId)}, secretNS, kubeconf)
+	// AzureClientID:           azureClientId,
+	// AzureTenantID:           azureTenantId,
+	// AzureRegion:             "centralus", // region not provided by UI, using default centralus
+	// AzureSubscriptionID:     azureSubscriptionId,
+	// AzureFederatedTokenFile: WebIdentityTokenPath,
+	// }, secretNS, kubeconf)
 }
 
 func CreateOrUpdateSTSSecret(setupLog logr.Logger, secretName string, credStringData map[string]string, secretNS string, kubeconf *rest.Config) error {
@@ -186,6 +193,9 @@ func CreateOrUpdateSTSSecretWithClientsAndWait(setupLog logr.Logger, secretName 
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      secretName,
 			Namespace: secretNS,
+			Labels: map[string]string{
+				"oadp.openshift.io/secret-type": "sts-credentials",
+			},
 		},
 		StringData: credStringData,
 	}
@@ -206,6 +216,11 @@ func CreateOrUpdateSTSSecretWithClientsAndWait(setupLog logr.Logger, secretName 
 			updatedFromCluster.Data = nil
 			// Replace StringData entirely
 			updatedFromCluster.StringData = secret.StringData
+			// Ensure labels are set
+			if updatedFromCluster.Labels == nil {
+				updatedFromCluster.Labels = make(map[string]string)
+			}
+			updatedFromCluster.Labels["oadp.openshift.io/secret-type"] = "sts-credentials"
 			if err := clientInstance.Patch(context.Background(), updatedFromCluster, client.MergeFrom(&fromCluster)); err != nil {
 				setupLog.Error(err, fmt.Sprintf("unable to update secret resource: %v", err))
 				return err

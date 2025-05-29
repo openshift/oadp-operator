@@ -465,12 +465,12 @@ This implementation follows the standardized authentication workflow (OEP #1800)
 
 ### AWS STS Implementation
 
-#### Environment Variables
+#### AWS Environment Variables
 ```go
 RoleARNEnvKey = "ROLE_ARN"  // AWS IAM role ARN to assume
 ```
 
-#### Prerequisites
+#### AWS Prerequisites
 1. **OpenShift cluster with AWS STS enabled**
    - Cluster must be installed with manual credentials mode
    - Reference: [Installing a cluster on AWS with short-term credentials](https://docs.redhat.com/en/documentation/openshift_container_platform/latest/html-single/installing_on_aws/index#installing-aws-with-short-term-creds_installing-aws-customizations)
@@ -480,7 +480,7 @@ RoleARNEnvKey = "ROLE_ARN"  // AWS IAM role ARN to assume
    - Attach policies with S3 and EC2 permissions for backup operations
    - Note the Role ARN for installation
 
-#### Secret Creation
+#### AWS Secret Creation
 The `CreateOrUpdateSTSAWSSecret` function creates a Secret with AWS STS configuration:
 
 ```go
@@ -494,12 +494,12 @@ web_identity_token_file = %s`, roleARN, WebIdentityTokenPath),
 }
 ```
 
-#### Secret Format
+#### AWS Secret Format
 - **Secret Name**: `cloud-credentials`
 - **Secret Key**: `credentials` (AWS credentials file format)
 - **Content**: Standard AWS credentials file with role_arn and web_identity_token_file
 
-#### DPA Configuration
+#### AWS DPA Configuration
 ```yaml
 apiVersion: oadp.openshift.io/v1alpha1
 kind: DataProtectionApplication
@@ -526,19 +526,28 @@ spec:
           prefix: <prefix>
 ```
 
-#### Future Enhancements
-Future enhancements to the OADP operator will automatically include the region in the AWS credentials secret based on the BackupStorageLocation configuration, eliminating the need to manually specify it in multiple places.
+#### Dynamic Region Configuration
+
+The OADP operator automatically patches the AWS credentials secret with the region information from the first BackupStorageLocation. The region is obtained from:
+1. The BSL `config.region` if specified
+2. Automatic discovery using the `aws.GetBucketRegion()` function if the bucket is discoverable
+
+This enhancement eliminates the need to manually configure the region in the secret.
+
+**Important**: The standardized flow only supports the first BSL configuration. Additional BSLs in different regions require separate credentials and should not use the standardized flow secret.
 
 ### Azure Workload Identity Implementation
 
-#### Environment Variables
+#### Azure Environment Variables
+
 ```go
 ClientIDEnvKey      = "AZURE_CLIENT_ID"       // Azure managed identity client ID
 TenantIDEnvKey      = "AZURE_TENANT_ID"       // Azure tenant ID
 SubscriptionIDEnvKey = "AZURE_SUBSCRIPTION_ID" // Azure subscription ID
 ```
 
-#### Prerequisites
+#### Azure Prerequisites
+
 1. **OpenShift cluster with Azure Workload Identity enabled**
    - Cluster must be installed with manual credentials mode
    - Reference: [Installing a cluster on Azure with short-term credentials](https://docs.redhat.com/en/documentation/openshift_container_platform/latest/html-single/installing_on_azure/#installing-azure-with-short-term-creds_installing-azure-customizations)
@@ -547,27 +556,38 @@ SubscriptionIDEnvKey = "AZURE_SUBSCRIPTION_ID" // Azure subscription ID
    - Create a managed identity with Storage Blob Data Contributor role
    - Note the Client ID, Tenant ID, and Subscription ID
 
-#### Secret Creation
+#### Azure Secret Creation
+
 The `CreateOrUpdateSTSAzureSecret` function creates a Secret with Azure configuration:
 
 ```go
-func CreateOrUpdateSTSAzureSecret(setupLog logr.Logger, clientID, tenantID,
-                                 subscriptionID, secretNS string, kubeconf *rest.Config) error {
-    return CreateOrUpdateSTSSecret(setupLog, map[string]string{
-        AzureSecretCloudNameKey:     "AzurePublicCloud",
-        AzureSecretSubscriptionIDKey: subscriptionID,
-        AzureSecretTenantIDKey:      tenantID,
-        AzureSecretClientIDKey:      clientID,
-    }, secretNS, kubeconf)
+func CreateOrUpdateSTSAzureSecret(setupLog logr.Logger, azureClientId, azureTenantId, 
+                                 azureSubscriptionId, secretNS string, kubeconf *rest.Config) error {
+    // Azure federated identity credentials format
+    return CreateOrUpdateSTSSecret(setupLog, VeleroAzureSecretName, map[string]string{
+        "azurekey": fmt.Sprintf(`
+AZURE_SUBSCRIPTION_ID=%s
+AZURE_TENANT_ID=%s
+AZURE_CLIENT_ID=%s
+AZURE_CLOUD_NAME=AzurePublicCloud
+`, azureSubscriptionId, azureTenantId, azureClientId)}, secretNS, kubeconf)
 }
 ```
 
-#### Secret Format
-- **Secret Name**: `cloud-credentials-azure`
-- **Secret Keys**: `cloud`, `subscriptionId`, `tenantId`, `clientId`
-- **Content**: Individual key-value pairs for Azure configuration
+#### Azure Secret Format
 
-#### DPA Configuration
+- **Secret Name**: `cloud-credentials-azure`
+- **Secret Key**: `azurekey`
+- **Content**: Azure environment variables format following [Velero Azure Plugin Option 3: Use Azure AD Workload Identity](https://github.com/vmware-tanzu/velero-plugin-for-microsoft-azure/tree/main#option-3-use-azure-ad-workload-identity)
+
+#### Azure Dynamic Resource Group Configuration
+
+The OADP operator automatically patches the Azure credentials secret with the `AZURE_RESOURCE_GROUP` environment variable from the first BackupStorageLocation that includes the `resourceGroup` in its configuration. This enhancement eliminates the need to manually configure the resource group in the secret.
+
+**Important**: The standardized flow only supports the first BSL configuration. Additional BSLs with different resource groups require separate credentials and should not use the standardized flow secret.
+
+#### Azure DPA Configuration
+
 ```yaml
 apiVersion: oadp.openshift.io/v1alpha1
 kind: DataProtectionApplication
@@ -585,7 +605,7 @@ spec:
         provider: azure
         default: true
         credential:
-          key: cloud
+          key: azurekey
           name: cloud-credentials-azure
         config:
           resourceGroup: <resource_group>
@@ -597,7 +617,8 @@ spec:
 
 ### GCP Workload Identity Federation Implementation
 
-#### Environment Variables
+#### GCP Environment Variables
+
 ```go
 ProjectNumberEnvKey       = "PROJECT_NUMBER"        // GCP project number
 PoolIDEnvKey              = "POOL_ID"               // Workload identity pool ID
@@ -605,7 +626,8 @@ ProviderId                = "PROVIDER_ID"           // Workload identity provide
 ServiceAccountEmailEnvKey = "SERVICE_ACCOUNT_EMAIL" // Service account email to impersonate
 ```
 
-#### Prerequisites
+#### GCP Prerequisites
+
 1. **OpenShift cluster with GCP Workload Identity Federation enabled**
    - Cluster must be installed with manual credentials mode
    - Workload Identity Pool and Provider must be configured
@@ -656,7 +678,8 @@ ServiceAccountEmailEnvKey = "SERVICE_ACCOUNT_EMAIL" // Service account email to 
      --member "principal://iam.googleapis.com/projects/<PROJECT_NUMBER>/locations/global/workloadIdentityPools/<POOL_ID>/subject/system:serviceaccount:openshift-adp:openshift-adp-controller-manager"
    ```
 
-#### Secret Creation
+#### GCP Secret Creation
+
 The `CreateOrUpdateSTSGCPSecret` function creates a Secret with the required GCP WIF configuration:
 
 ```go
@@ -683,12 +706,14 @@ func CreateOrUpdateSTSGCPSecret(setupLog logr.Logger, serviceAccountEmail, proje
 }
 ```
 
-#### Secret Format
+#### GCP Secret Format
+
 - **Secret Name**: `cloud-credentials-gcp`
 - **Secret Key**: `service_account.json`
 - **Content**: GCP external account JSON following Google's external account format
 
-#### DPA Configuration
+#### GCP DPA Configuration
+
 ```yaml
 apiVersion: oadp.openshift.io/v1alpha1
 kind: DataProtectionApplication

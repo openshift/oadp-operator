@@ -130,6 +130,10 @@ func TestCreateOrUpdateSTSSecret(t *testing.T) {
 
 				// Verify the StringData (fake client doesn't convert to Data)
 				assert.Equal(t, tc.credStringData, secret.StringData)
+				
+				// Verify the label is set
+				assert.NotNil(t, secret.Labels)
+				assert.Equal(t, "sts-credentials", secret.Labels["oadp.openshift.io/secret-type"])
 			}
 		})
 	}
@@ -224,13 +228,15 @@ func TestCreateOrUpdateSTSAzureSecret(t *testing.T) {
 		Build()
 	fakeClientset := k8sfake.NewSimpleClientset()
 
-	// Use the refactored function directly
+	// Use the refactored function directly with new environment variable format
+	expectedCredentials := `
+AZURE_SUBSCRIPTION_ID=` + subscriptionID + `
+AZURE_TENANT_ID=` + tenantID + `
+AZURE_CLIENT_ID=` + clientID + `
+AZURE_CLOUD_NAME=AzurePublicCloud
+`
 	err := CreateOrUpdateSTSSecretWithClientsAndWait(testLogger, VeleroAzureSecretName, map[string]string{
-		AzureClientID:           clientID,
-		AzureTenantID:           tenantID,
-		AzureRegion:             "centralus",
-		AzureSubscriptionID:     subscriptionID,
-		AzureFederatedTokenFile: WebIdentityTokenPath,
+		"azurekey": expectedCredentials,
 	}, testNamespace, fakeClient, fakeClientset, false)
 
 	assert.NoError(t, err)
@@ -242,11 +248,10 @@ func TestCreateOrUpdateSTSAzureSecret(t *testing.T) {
 		Namespace: testNamespace,
 	}, secretResult)
 	assert.NoError(t, err)
-	assert.Equal(t, clientID, secretResult.StringData[AzureClientID])
-	assert.Equal(t, tenantID, secretResult.StringData[AzureTenantID])
-	assert.Equal(t, subscriptionID, secretResult.StringData[AzureSubscriptionID])
-	assert.Equal(t, "centralus", secretResult.StringData[AzureRegion])
-	assert.Equal(t, WebIdentityTokenPath, secretResult.StringData[AzureFederatedTokenFile])
+	assert.Contains(t, secretResult.StringData["azurekey"], "AZURE_SUBSCRIPTION_ID="+subscriptionID)
+	assert.Contains(t, secretResult.StringData["azurekey"], "AZURE_TENANT_ID="+tenantID)
+	assert.Contains(t, secretResult.StringData["azurekey"], "AZURE_CLIENT_ID="+clientID)
+	assert.Contains(t, secretResult.StringData["azurekey"], "AZURE_CLOUD_NAME=AzurePublicCloud")
 }
 
 func TestCreateOrUpdateSTSSecret_ErrorScenarios(t *testing.T) {
