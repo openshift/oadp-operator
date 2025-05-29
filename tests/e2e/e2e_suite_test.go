@@ -42,6 +42,7 @@ var (
 
 	kvmEmulation   bool
 	useUpstreamHco bool
+	skipMustGather bool
 )
 
 func init() {
@@ -57,6 +58,7 @@ func init() {
 	flag.Int64Var(&flakeAttempts, "flakeAttempts", 3, "Customize the number of flake retries (3)")
 	flag.BoolVar(&kvmEmulation, "kvm_emulation", true, "Enable or disable KVM emulation for virtualization testing")
 	flag.BoolVar(&useUpstreamHco, "hco_upstream", false, "Force use of upstream virtualization operator")
+	flag.BoolVar(&skipMustGather, "skipMustGather", false, "avoid errors with local execution and cluster architecture")
 
 	// helps with launching debug sessions from IDE
 	if os.Getenv("E2E_USE_ENV_FLAGS") == "true" {
@@ -104,6 +106,13 @@ func init() {
 				useUpstreamHco = parsedValue
 			} else {
 				log.Println("Error parsing HCO_UPSTREAM, it will be disabled by default: ", err)
+			}
+		}
+		if envValue := os.Getenv("SKIP_MUST_GATHER"); envValue != "" {
+			if parsedValue, err := strconv.ParseBool(envValue); err == nil {
+				skipMustGather = parsedValue
+			} else {
+				log.Println("Error parsing SKIP_MUST_GATHER, must-gather will be enabled by default: ", err)
 			}
 		}
 	}
