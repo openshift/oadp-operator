@@ -23,6 +23,9 @@ To get started, you need to provide the following **required** environment varia
 | `OPENSHIFT_CI` | Disable colored output from tests suite run | `true` | false |
 | `TEST_VIRT` | Exclusively run Virtual Machine backup/restore testing | `false` | false |
 | `TEST_UPGRADE` | Exclusively run upgrade tests. Need to first run `make catalog-test-upgrade`, if testing non production operator | `false` | false |
+| `SKIP_MUST_GATHER` | must-gather is compiled locally in the Makefile, may cause issue if local and cluster arch do not match| `false` | false |
+
+> **Note:**
 
 The expected format for `OADP_CRED_FILE` and `CI_CRED_FILE` files is:
 ```
@@ -42,6 +45,7 @@ export VSL_REGION=<snapshotLocations_region>
 export BSL_REGION=<backupLocations_region>
 export OADP_TEST_NAMESPACE=<test_namespace>
 export OPENSHIFT_CI=false
+export SKIP_MUST_GATHER=true
 ```
 
 It is also possible to set the environment variables during make command call. Example

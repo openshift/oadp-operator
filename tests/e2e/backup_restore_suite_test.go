@@ -303,9 +303,12 @@ var _ = ginkgo.Describe("Backup and restore tests", ginkgo.Ordered, func() {
 		err = lib.CreateUploadTestOnlyDPT(dpaCR.Client, dpaCR.Namespace, bslName)
 		gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
-		log.Printf("Running OADP must-gather")
-		err = lib.RunMustGather(artifact_dir, dpaCR.Client)
-		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+		log.Printf("skipMustGather: %v", skipMustGather)
+		if !skipMustGather {
+			log.Printf("Running OADP must-gather")
+			err = lib.RunMustGather(artifact_dir, dpaCR.Client)
+			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+		}
 
 		err = dpaCR.Delete()
 		gomega.Expect(err).ToNot(gomega.HaveOccurred())
