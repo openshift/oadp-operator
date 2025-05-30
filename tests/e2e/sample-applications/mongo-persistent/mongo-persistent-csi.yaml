@@ -154,7 +154,7 @@ items:
         spec:
           containers:
           - name: todolist
-            image: quay.io/migtools/oadp-ci-todolist-mongo-go:latest
+            image: quay.io/migtools/oadp-ci-todolist-mongo-go-1
             env:
               - name: foo
                 value: bar
