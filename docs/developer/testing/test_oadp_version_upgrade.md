@@ -4,7 +4,7 @@ To test an upgrade from a version to another, run
 ```sh
 make catalog-test-upgrade
 ```
-from the branch you want to test the upgrade (master or a release branch).
+from the branch you want to test the upgrade (development or a release branch).
 
 This will create `oadp-operator-catalog-test-upgrade` catalog in your cluster (OperatorHub in the UI).
 
@@ -16,7 +16,7 @@ The catalog will have two channels:
 
     this is defined in `PREVIOUS_CHANNEL` variable in Makefile, and can be changed
 
-- and the current version (the version of the branch you are, which can be yet unreleased, if on master branch)
+- and the current version (the version of the branch you are, which can be yet unreleased, if on oadp-dev branch)
 
 > **Note:** to test production released versions, just install operator from marketplace, selecting the channel with previous version.
 
@@ -28,7 +28,7 @@ Select the new catalog in the UI and install selecting the previous version (for
 
 ![Channel selecting](../../images/test_oadp_version_upgrade_channel.png)
 
-Finally, after  creating a DPA, change channel of the installed operator to the next version (for example, `stable` - version 99.0.0, which points to master branch) in Subscription tab.
+Finally, after  creating a DPA, change channel of the installed operator to the next version (for example, `stable` - version 99.0.0, which points to development branch) in Subscription tab.
 
 ![Update subscription channel](../../images/test_oadp_version_upgrade_subscription.png)
 
@@ -76,7 +76,7 @@ export PREVIOUS_CHANNEL=stable-1.2
 echo -e "kind: Subscription\napiVersion: operators.coreos.com/v1alpha1\nmetadata:\n  name: oadp-operator\n  namespace: $OADP_NAMESPACE\nspec:\n  source: oadp-operator-catalog-test-upgrade\n  sourceNamespace: openshift-marketplace\n  name: oadp-operator\n  channel: $PREVIOUS_CHANNEL\n  installPlanApproval: Automatic" | oc create -f -
 ```
 
-Finally, after  creating a DPA, change channel of the installed operator to the next version (for example, `stable`, which points to master branch)
+Finally, after  creating a DPA, change channel of the installed operator to the next version (for example, `stable`, which points to development branch)
 ```sh
 oc patch subscription oadp-operator -n <oadp-namespace> --type='json' -p='[{"op": "replace", "path": "/spec/channel", "value":"stable"}]'
 ```
