@@ -6,9 +6,9 @@ toolchain go1.23.4
 
 require (
 	github.com/kubernetes-csi/external-snapshotter/client/v8 v8.0.0
-	github.com/migtools/oadp-non-admin v0.0.0-20250324123917-741ae3b7a67d
+	github.com/migtools/oadp-non-admin v0.0.0-20250516144719-d33eb4a59dc7
 	github.com/openshift/api v0.0.0-20240912201240-0a8800162826
-	github.com/openshift/oadp-operator v1.0.2-0.20250505231547-015335aac747
+	github.com/openshift/oadp-operator v1.0.2-0.20250515162955-f03294d6f15a
 	github.com/openshift/oc v0.0.0-alpha.0.0.20250108103617-ae1bd9e4a75b
 	github.com/operator-framework/api v0.26.0
 	github.com/spf13/cobra v1.8.1
@@ -104,12 +104,12 @@ require (
 	github.com/xlab/treeprint v1.2.0 // indirect
 	go.starlark.net v0.0.0-20230525235612-a134d8f9ddca // indirect
 	golang.org/x/exp v0.0.0-20240222234643-814bf88cf225 // indirect
-	golang.org/x/net v0.36.0 // indirect
+	golang.org/x/net v0.38.0 // indirect
 	golang.org/x/oauth2 v0.27.0 // indirect
-	golang.org/x/sync v0.11.0 // indirect
-	golang.org/x/sys v0.30.0 // indirect
-	golang.org/x/term v0.29.0 // indirect
-	golang.org/x/text v0.22.0 // indirect
+	golang.org/x/sync v0.12.0 // indirect
+	golang.org/x/sys v0.31.0 // indirect
+	golang.org/x/term v0.30.0 // indirect
+	golang.org/x/text v0.23.0 // indirect
 	golang.org/x/time v0.9.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
 	google.golang.org/protobuf v1.36.3 // indirect
