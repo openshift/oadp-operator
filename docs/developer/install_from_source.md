@@ -17,6 +17,10 @@ cd oadp-operator
 
 ### Installing the Operator
 
+> Note: If on macos, first ensure gsed is installed:
+> 
+> https://formulae.brew.sh/formula/gnu-sed
+
 To install CRDs and deploy the OADP operator to the `openshift-adp`
  namespace, run:
 
