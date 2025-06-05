@@ -169,7 +169,12 @@ func (r *DataProtectionApplicationReconciler) buildVeleroDeployment(veleroDeploy
 	// get resource requirements for velero deployment
 	// ignoring err here as it is checked in validator.go
 	veleroResourceReqs, _ := r.getVeleroResourceReqs()
-	podAnnotations, err := common.AppendUniqueKeyTOfTMaps(dpa.Spec.PodAnnotations, veleroDeployment.Annotations)
+	veleroAnnotations := make(map[string]string)
+	if dpa.Spec.Configuration != nil && dpa.Spec.Configuration.Velero != nil && dpa.Spec.Configuration.Velero.PodConfig != nil {
+		veleroAnnotations = dpa.Spec.Configuration.Velero.PodConfig.Annotations
+	}
+
+	podAnnotations, err := common.AppendUniqueKeyTOfTMaps(veleroAnnotations, veleroDeployment.Annotations)
 	if err != nil {
 		return fmt.Errorf("error appending pod annotations: %v", err)
 	}

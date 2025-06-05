@@ -479,6 +479,11 @@ spec:
                                 type: string
                               description: labels to add to pods
                               type: object
+                            annotations:
+                              additionalProperties:
+                                type: string
+                              description: annotations to add to pods
+                              type: object
                             nodeSelector:
                               additionalProperties:
                                 type: string
@@ -827,6 +832,11 @@ spec:
                               additionalProperties:
                                 type: string
                               description: labels to add to pods
+                              type: object
+                            annotations:
+                              additionalProperties:
+                                type: string
+                              description: annotations to add to pods
                               type: object
                             nodeSelector:
                               additionalProperties:
@@ -1339,6 +1349,11 @@ spec:
                               additionalProperties:
                                 type: string
                               description: labels to add to pods
+                              type: object
+                            annotations:
+                              additionalProperties:
+                                type: string
+                              description: annotations to add to pods
                               type: object
                             nodeSelector:
                               additionalProperties:
