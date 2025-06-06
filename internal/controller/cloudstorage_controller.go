@@ -19,14 +19,13 @@ package controller
 import (
 	"context"
 	"fmt"
-	"os"
 	"strconv"
 	"time"
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -39,7 +38,7 @@ import (
 
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	bucketpkg "github.com/openshift/oadp-operator/pkg/bucket"
-	"github.com/openshift/oadp-operator/pkg/common"
+	"github.com/openshift/oadp-operator/pkg/credentials/stsflow"
 )
 
 const (
@@ -122,16 +121,19 @@ func (b CloudStorageReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 			return ctrl.Result{Requeue: true}, nil
 		}
 	}
-	var ok bool
-	if common.CCOWorkflow() {
-		// wait for the credential request to be processed and the secret to be created
-		logger.Info(fmt.Sprintf("Following standardized STS workflow, waiting for for the credential request to be processed and provision the secret"))
-		installNS := os.Getenv("WATCH_NAMESPACE")
-		_, err = b.WaitForSecret(installNS, VeleroAWSSecretName)
-		if err != nil {
-			logger.Error(err, "unable to fetch secert created by CCO")
-			return result, err
-		}
+	var (
+		ok         bool
+		secretName string
+	)
+	// check if STSStandardizedFlow was successful
+	if secretName, err = stsflow.STSStandardizedFlow(); err != nil {
+		logger.Error(err, "unable to get STS Secret")
+		b.EventRecorder.Event(&bucket, corev1.EventTypeWarning, "UnableToSTSSecret", fmt.Sprintf("unable to delete bucket: %v", bucket.Spec.Name))
+		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
+	}
+	if secretName != "" {
+		// Secret was created successfully by STSStandardizedFlow
+		logger.Info(fmt.Sprintf("Following standardized STS workflow, secret %s created successfully", secretName))
 	}
 	// Now continue with bucket creation as secret exists and we are good to go !!!
 	if ok, err = clnt.Exists(); !ok && err == nil {
@@ -157,7 +159,7 @@ func (b CloudStorageReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	}
 
 	// Update status with updated value
-	bucket.Status.LastSynced = &v1.Time{Time: time.Now()}
+	bucket.Status.LastSynced = &metav1.Time{Time: time.Now()}
 	bucket.Status.Name = bucket.Spec.Name
 
 	b.Client.Status().Update(ctx, &bucket)

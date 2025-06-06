@@ -31,10 +31,8 @@ import (
 	monitor "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	appsv1 "k8s.io/api/apps/v1"
-	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -55,8 +53,9 @@ import (
 
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	"github.com/openshift/oadp-operator/internal/controller"
+	pkgclient "github.com/openshift/oadp-operator/pkg/client"
 	//+kubebuilder:scaffold:imports
-	"github.com/openshift/oadp-operator/pkg/common"
+	"github.com/openshift/oadp-operator/pkg/credentials/stsflow"
 	"github.com/openshift/oadp-operator/pkg/leaderelection"
 )
 
@@ -66,8 +65,6 @@ var (
 )
 
 const (
-	// WebIdentityTokenPath mount present on operator CSV
-	WebIdentityTokenPath = "/var/run/secrets/openshift/serviceaccount/token"
 
 	// CloudCredentials API constants
 	CloudCredentialGroupVersion = "cloudcredential.openshift.io/v1"
@@ -113,7 +110,7 @@ func main() {
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
 	kubeconf := ctrl.GetConfigOrDie()
-
+	pkgclient.SetKubeconf(kubeconf)
 	// Get LeaderElection configs
 	leConfig := leaderelection.GetLeaderElectionConfig(kubeconf, enableLeaderElection)
 
@@ -136,31 +133,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	// check if this is standardized STS workflow via OLM and CCO
-	if common.CCOWorkflow() {
-		setupLog.Info("AWS Role ARN specified by the user, following standardized STS workflow")
-		// ROLEARN env var is set via operator subscription
-		roleARN := os.Getenv("ROLEARN")
-		setupLog.Info("getting role ARN", "role ARN =", roleARN)
-
-		// check if cred request API exists in the cluster before creating a cred request
-		setupLog.Info("Checking if credentialsrequest CRD exists in the cluster")
-		credReqCRDExists, err := DoesCRDExist(CloudCredentialGroupVersion, CloudCredentialsCRDName, kubeconf)
-		if err != nil {
-			setupLog.Error(err, "problem checking the existence of CredentialRequests CRD")
-			os.Exit(1)
-		}
-
-		if credReqCRDExists {
-			// create cred request
-			setupLog.Info(fmt.Sprintf("Creating credentials request for role: %s, and WebIdentityTokenPath: %s", roleARN, WebIdentityTokenPath))
-			if err := CreateOrUpdateCredRequest(roleARN, WebIdentityTokenPath, watchNamespace, kubeconf); err != nil {
-				if !errors.IsAlreadyExists(err) {
-					setupLog.Error(err, "unable to create credRequest")
-					os.Exit(1)
-				}
-			}
-		}
+	// Create Secret and wait for STS cred to exists
+	if _, err := stsflow.STSStandardizedFlow(); err != nil {
+		setupLog.Error(err, "error setting up STS Standardized Flow")
+		os.Exit(1)
 	}
 
 	// if the enable-http2 flag is false (the default), http/2 should be disabled
@@ -234,7 +210,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err := v1.AddToScheme(mgr.GetScheme()); err != nil {
+	if err := apiextensionsv1.AddToScheme(mgr.GetScheme()); err != nil {
 		setupLog.Error(err, "unable to add Kubernetes API extensions to scheme")
 		os.Exit(1)
 	}
@@ -371,80 +347,4 @@ func DoesCRDExist(CRDGroupVersion, CRDName string, kubeconf *rest.Config) (bool,
 		}
 	}
 	return discoveryResult, nil
-
-}
-
-// CreateCredRequest WITP : WebIdentityTokenPath
-func CreateOrUpdateCredRequest(roleARN string, WITP string, secretNS string, kubeconf *rest.Config) error {
-	clientInstance, err := client.New(kubeconf, client.Options{})
-	if err != nil {
-		setupLog.Error(err, "unable to create client")
-	}
-
-	// Extra deps were getting added and existing ones were getting upgraded when the CloudCredentials API was imported
-	// This caused updates to go.mod and started resulting in operator build failures due to incompatibility with the existing velero deps
-	// Hence for now going via the unstructured route
-	credRequest := &unstructured.Unstructured{
-		Object: map[string]interface{}{
-			"apiVersion": "cloudcredential.openshift.io/v1",
-			"kind":       "CredentialsRequest",
-			"metadata": map[string]interface{}{
-				"name":      "oadp-aws-credentials-request",
-				"namespace": "openshift-cloud-credential-operator",
-			},
-			"spec": map[string]interface{}{
-				"secretRef": map[string]interface{}{
-					"name":      "cloud-credentials",
-					"namespace": secretNS,
-				},
-				"serviceAccountNames": []interface{}{
-					common.OADPOperatorServiceAccount,
-				},
-				"providerSpec": map[string]interface{}{
-					"apiVersion": "cloudcredential.openshift.io/v1",
-					"kind":       "AWSProviderSpec",
-					"statementEntries": []interface{}{
-						map[string]interface{}{
-							"effect": "Allow",
-							"action": []interface{}{
-								"s3:*",
-							},
-							"resource": "arn:aws:s3:*:*:*",
-						},
-					},
-					"stsIAMRoleARN": roleARN,
-				},
-				"cloudTokenPath": WITP,
-			},
-		},
-	}
-	verb := "created"
-	if err := clientInstance.Create(context.Background(), credRequest); err != nil {
-		if errors.IsAlreadyExists(err) {
-			verb = "updated"
-			setupLog.Info("CredentialsRequest already exists, updating")
-			fromCluster := &unstructured.Unstructured{
-				Object: map[string]interface{}{
-					"apiVersion": "cloudcredential.openshift.io/v1",
-					"kind":       "CredentialsRequest",
-				},
-			}
-			err = clientInstance.Get(context.Background(), types.NamespacedName{Name: "oadp-aws-credentials-request", Namespace: "openshift-cloud-credential-operator"}, fromCluster)
-			if err != nil {
-				setupLog.Error(err, "unable to get existing credentials request resource")
-				return err
-			}
-			// update spec
-			fromCluster.Object["spec"] = credRequest.Object["spec"]
-			if err := clientInstance.Update(context.Background(), fromCluster); err != nil {
-				setupLog.Error(err, fmt.Sprintf("unable to update credentials request resource, %v, %+v", err, fromCluster.Object))
-				return err
-			}
-		} else {
-			setupLog.Error(err, "unable to create credentials request resource")
-			return err
-		}
-	}
-	setupLog.Info("Custom resource credentialsrequest " + verb + " successfully")
-	return nil
 }
