@@ -793,9 +793,7 @@ type DataProtectionApplicationSpec struct {
 	UnsupportedOverrides map[UnsupportedImageKey]string `json:"unsupportedOverrides,omitempty"`
 	// add annotations to pods deployed by operator
 	// +optional
-	// +kubebuilder:validation:Deprecated
-	// +kubebuilder:validation:DeprecatedReason="Use PodConfig instead"
-	// +kubebuilder:validation:DeprecatedReplacement=spec.configuration.velero.podConfig.annotations
+	// Deprecated: Use PodConfig instead
 	PodAnnotations map[string]string `json:"podAnnotations,omitempty"`
 	// podDnsPolicy defines how a pod's DNS will be configured.
 	// https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy
