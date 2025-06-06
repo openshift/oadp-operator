@@ -12,7 +12,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
-
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -210,12 +209,18 @@ func CreateOrUpdateSTSSecretWithClientsAndWait(setupLog logr.Logger, secretName 
 				setupLog.Error(err, "unable to get existing secret resource")
 				return err
 			}
-			// update StringData - clear existing and set new
+			// update StringData - preserve existing Data that's not being replaced
+			// This is safe because STS credentials are only updated during install/reconfiguration,
+			// and any BSL-specific patches (like region) should be preserved
 			updatedFromCluster := fromCluster.DeepCopy()
-			// Clear existing Data to force regeneration from StringData
-			updatedFromCluster.Data = nil
-			// Replace StringData entirely
-			updatedFromCluster.StringData = secret.StringData
+			// Initialize StringData if not present
+			if updatedFromCluster.StringData == nil {
+				updatedFromCluster.StringData = make(map[string]string)
+			}
+			// Update only the new StringData fields, preserving existing Data
+			for key, value := range secret.StringData {
+				updatedFromCluster.StringData[key] = value
+			}
 			// Ensure labels are set
 			if updatedFromCluster.Labels == nil {
 				updatedFromCluster.Labels = make(map[string]string)

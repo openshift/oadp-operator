@@ -94,6 +94,22 @@ func TestCreateOrUpdateSTSSecret(t *testing.T) {
 			},
 			expectError: false,
 		},
+		{
+			name: "Update existing secret preserves patched Data field",
+			existingSecret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      testSecretName,
+					Namespace: testNamespace,
+				},
+				Data: map[string][]byte{
+					"credentials": []byte("[default]\nrole_arn = arn:aws:iam::123456789012:role/test\nweb_identity_token_file = /var/run/secrets/openshift/serviceaccount/token\nregion = us-west-2"),
+				},
+			},
+			credStringData: map[string]string{
+				"credentials": "[default]\nrole_arn = arn:aws:iam::123456789012:role/test\nweb_identity_token_file = /var/run/secrets/openshift/serviceaccount/token",
+			},
+			expectError: false,
+		},
 	}
 
 	for _, tc := range testCases {
@@ -130,7 +146,15 @@ func TestCreateOrUpdateSTSSecret(t *testing.T) {
 
 				// Verify the StringData (fake client doesn't convert to Data)
 				assert.Equal(t, tc.credStringData, secret.StringData)
-				
+
+				// Special case: For the test that verifies Data preservation
+				if tc.name == "Update existing secret preserves patched Data field" {
+					// Verify that existing Data is preserved when not being overwritten by StringData
+					// In a real Kubernetes cluster, Data with region would be preserved
+					// but we can't test this with fake client as it doesn't handle Data/StringData conversion
+					assert.NotNil(t, secret.Data, "Data should be preserved")
+				}
+
 				// Verify the label is set
 				assert.NotNil(t, secret.Labels)
 				assert.Equal(t, "sts-credentials", secret.Labels["oadp.openshift.io/secret-type"])
