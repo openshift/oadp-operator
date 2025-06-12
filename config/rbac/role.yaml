@@ -36,6 +36,13 @@ rules:
   - update
   - watch
 - apiGroups:
+  - ""
+  resources:
+  - persistentvolumerclaims
+  - persistentvolumes
+  verbs:
+  - get
+- apiGroups:
   - apps
   resources:
   - daemonsets
@@ -180,6 +187,19 @@ rules:
   - velero.io
   resources:
   - '*'
+  - backuprepositories
+  - backups
+  - backupstoragelocations
+  - datadownloads
+  - datauploads
+  - deletebackuprequests
+  - downloadrequests
+  - podvolumebackups
+  - podvolumerestores
+  - restores
+  - schedules
+  - serverstatusrequests
+  - volumesnapshotlocations
   verbs:
   - create
   - delete
@@ -188,3 +208,22 @@ rules:
   - patch
   - update
   - watch
+- apiGroups:
+  - velero.io
+  resources:
+  - backuprepositories/status
+  - backups/status
+  - backupstoragelocations/status
+  - datadownloads/status
+  - datauploads/status
+  - deletebackuprequests/status
+  - downloadrequests/status
+  - podvolumebackups/status
+  - podvolumerestores/status
+  - restores/status
+  - schedules/status
+  - serverstatusrequests/status
+  verbs:
+  - get
+  - patch
+  - update
