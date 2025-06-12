@@ -1,0 +1,12 @@
+[submodule "must-gather/velero"]
+	path = must-gather/velero
+	url = https://github.com/openshift/velero
+	branch = oadp-1.5
+[submodule "must-gather/restic"]
+	path = must-gather/restic
+	url = https://github.com/openshift/restic
+	branch = oadp-1.5
+[submodule "must-gather/kopia"]
+	path = must-gather/kopia
+	url = https://github.com/migtools/kopia
+	branch = oadp-1.5
