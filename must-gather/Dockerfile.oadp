@@ -63,16 +63,3 @@ COPY --from=builder /workspace/must-gather/gather /usr/bin/gather
 COPY --from=builder /workspace/must-gather/deprecated/gather_* /usr/bin/
 
 ENTRYPOINT /usr/bin/gather
-
-LABEL com.redhat.component="oadp-mustgather-container" \
-      name="oadp/oadp-mustgather-rhel9" \
-      version="1.5.1" \
-      summary="OpenShift API for Data Protection data gathering image" \
-      io.openshift.expose-services="" \
-      io.openshift.tags="data,images" \
-      io.k8s.display-name="OpenShift API for Data Protection - mustgather" \
-      io.openshift.build.commit.id="06f6e887bdb5700980a89d10518acc67b92b5837" \
-      io.openshift.build.source-location="https://github.com/openshift/oadp-operator" \
-      io.openshift.build.commit.url="https://github.com/openshift/oadp-operator/commit/06f6e887bdb5700980a89d10518acc67b92b5837" \
-      description="OpenShift API for Data Protection data gathering image" \
-      maintainer="OpenShift API for Data Protection Team <oadp-team@redhat.com>"
