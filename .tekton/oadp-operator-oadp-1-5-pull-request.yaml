@@ -28,6 +28,9 @@ spec:
     value: 5d
   - name: build-platforms
     value:
+    - linux/arm64
+    - linux/ppc64le
+    - linux/s390x
     - linux/x86_64
   - name: dockerfile
     value: Dockerfile.oadp
