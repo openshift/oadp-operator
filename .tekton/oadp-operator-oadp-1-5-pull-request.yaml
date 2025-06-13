@@ -243,6 +243,20 @@ spec:
         value: $(tasks.prefetch-dependencies.results.CACHI2_ARTIFACT)
       - name: IMAGE_APPEND_PLATFORM
         value: "true"
+      - name: LABELS
+        value:
+        - $(tasks.generate-labels.results.labels[*])
+        - License=Apache License 2.0
+        - com.redhat.component=oadp-operator-container
+        - io.k8s.description=OpenShift API for Data Protection - Operator
+        - io.k8s.display-name=OADP Operator
+        - io.openshift.build.source-location=https://github.com/openshift/oadp-operator
+        - io.openshift.tags=migration
+        - maintainer=OpenShift API for Data Protection Team <oadp-team@redhat.com>
+        - name=oadp/oadp-rhel9-operator
+        - summary=OpenShift API for Data Protection - Operator
+        - vendor=Red Hat, Inc.
+        - version=1.5.1
       runAfter:
       - prefetch-dependencies
       taskRef:
@@ -618,7 +632,7 @@ spec:
         - build-date=$SOURCE_DATE
         - short-commit=$(tasks.clone-repository.results.short-commit)
         - io.openshift.build.commit.id=$(tasks.clone-repository.results.commit)
-        - io.openshift.build.commit.url=https://github.com/UPDATE_ORG/UPDATE_REPO/commit/$(tasks.clone-repository.results.commit)
+        - io.openshift.build.commit.url=https://github.com/openshift/oadp-operator/commit/$(tasks.clone-repository.results.commit)
         - release=$ACTUAL_DATE_EPOCH
       - name: source-date-epoch
         value: $(tasks.clone-repository.results.commit-timestamp)
