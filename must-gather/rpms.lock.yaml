@@ -1,0 +1,279 @@
+arches:
+- arch: aarch64
+  module_metadata: []
+  packages:
+  - checksum: sha256:45710df49b439ddc4a2848fd3877367761b574234ae28b6be46f1cf54f3fcdca
+    evr: 1.12-1.el9
+    name: gzip
+    repoid: rhel-9-for-aarch64-baseos-rpms
+    size: 169809
+    sourcerpm: gzip-1.12-1.el9.src.rpm
+    url: https://cdn.redhat.com/content/dist/rhel9/9/aarch64/baseos/os/Packages/g/gzip-1.12-1.el9.aarch64.rpm
+  - checksum: sha256:f914250a9ef52968e27af0f0e2520745df4443dc354367bec54dd06b4a2da60b
+    evr: 1:3.2.2-6.el9_5.1
+    name: openssl
+    repoid: rhel-9-for-aarch64-baseos-rpms
+    size: 1398689
+    sourcerpm: openssl-3.2.2-6.el9_5.1.src.rpm
+    url: https://cdn.redhat.com/content/dist/rhel9/9/aarch64/baseos/os/Packages/o/openssl-3.2.2-6.el9_5.1.aarch64.rpm
+  - checksum: sha256:99235a7555f6454898ebbcdcf927ebed68e3a60599c9226b9d1d60578d292878
+    evr: 3.2.5-3.el9
+    name: rsync
+    repoid: rhel-9-for-aarch64-baseos-rpms
+    size: 416293
+    sourcerpm: rsync-3.2.5-3.el9.src.rpm
+    url: https://cdn.redhat.com/content/dist/rhel9/9/aarch64/baseos/os/Packages/r/rsync-3.2.5-3.el9.aarch64.rpm
+  - checksum: sha256:44552dea889d350403c3074a33d7cb274b3f57553e47db998745df13f931b458
+    evr: 2:1.34-7.el9
+    name: tar
+    repoid: rhel-9-for-aarch64-baseos-rpms
+    size: 900197
+    sourcerpm: tar-1.34-7.el9.src.rpm
+    url: https://cdn.redhat.com/content/dist/rhel9/9/aarch64/baseos/os/Packages/t/tar-1.34-7.el9.aarch64.rpm
+  - checksum: sha256:0687e5a1115ba679137404c8d37a45141a31968ffd01677455530d24c126a0d2
+    evr: 2025b-1.el9
+    name: tzdata
+    repoid: rhel-9-for-aarch64-baseos-rpms
+    size: 862160
+    sourcerpm: tzdata-2025b-1.el9.src.rpm
+    url: https://cdn.redhat.com/content/dist/rhel9/9/aarch64/baseos/os/Packages/t/tzdata-2025b-1.el9.noarch.rpm
+  source:
+  - checksum: sha256:a05f582ec42e89258ee5e10af96dee4300bcb2a6a69a76bfb5b46f79e6a6a47b
+    evr: 1.12-1.el9
+    name: gzip
+    repoid: rhel-9-for-aarch64-baseos-source-rpms
+    size: 856147
+    url: https://cdn.redhat.com/content/dist/rhel9/9/aarch64/baseos/source/SRPMS/Packages/g/gzip-1.12-1.el9.src.rpm
+  - checksum: sha256:56c0b951be3e5ad6a1da594f9d4f09b8b752e2fb3d6827bcc03892f22f622b22
+    evr: 1:3.2.2-6.el9_5.1
+    name: openssl
+    repoid: rhel-9-for-aarch64-baseos-source-rpms
+    size: 17985138
+    url: https://cdn.redhat.com/content/dist/rhel9/9/aarch64/baseos/source/SRPMS/Packages/o/openssl-3.2.2-6.el9_5.1.src.rpm
+  - checksum: sha256:a1fd44e58d1fb5b52b72586c5ef2e12c040428f771cde1d1350b36d3b9155db0
+    evr: 3.2.5-3.el9
+    name: rsync
+    repoid: rhel-9-for-aarch64-baseos-source-rpms
+    size: 1306931
+    url: https://cdn.redhat.com/content/dist/rhel9/9/aarch64/baseos/source/SRPMS/Packages/r/rsync-3.2.5-3.el9.src.rpm
+  - checksum: sha256:d002c400d29e7305fe8a982ab6b9f49ee7a8780e4574b86fc0c5b3d5510ecb22
+    evr: 2:1.34-7.el9
+    name: tar
+    repoid: rhel-9-for-aarch64-baseos-source-rpms
+    size: 2261512
+    url: https://cdn.redhat.com/content/dist/rhel9/9/aarch64/baseos/source/SRPMS/Packages/t/tar-1.34-7.el9.src.rpm
+  - checksum: sha256:a2668d1f6b053545a5824a428755484895d72475a9d3833cbfbec9e08660aba2
+    evr: 2025b-1.el9
+    name: tzdata
+    repoid: rhel-9-for-aarch64-baseos-source-rpms
+    size: 904607
+    url: https://cdn.redhat.com/content/dist/rhel9/9/aarch64/baseos/source/SRPMS/Packages/t/tzdata-2025b-1.el9.src.rpm
+- arch: ppc64le
+  module_metadata: []
+  packages:
+  - checksum: sha256:55b983f08d8b2a0741b07f114cdba89a8ecb207064c001e90e4c76a13836d458
+    evr: 1.12-1.el9
+    name: gzip
+    repoid: rhel-9-for-ppc64le-baseos-rpms
+    size: 175705
+    sourcerpm: gzip-1.12-1.el9.src.rpm
+    url: https://cdn.redhat.com/content/dist/rhel9/9/ppc64le/baseos/os/Packages/g/gzip-1.12-1.el9.ppc64le.rpm
+  - checksum: sha256:56283cbf84234ec9256fb68e2d2669bc5799862eb2ee40521b8ac59044567835
+    evr: 1:3.2.2-6.el9_5.1
+    name: openssl
+    repoid: rhel-9-for-ppc64le-baseos-rpms
+    size: 1422952
+    sourcerpm: openssl-3.2.2-6.el9_5.1.src.rpm
+    url: https://cdn.redhat.com/content/dist/rhel9/9/ppc64le/baseos/os/Packages/o/openssl-3.2.2-6.el9_5.1.ppc64le.rpm
+  - checksum: sha256:1fd8762ad73a60556c9808a5bf2a9d964965adec91c026ef27058266dc75e1f0
+    evr: 3.2.5-3.el9
+    name: rsync
+    repoid: rhel-9-for-ppc64le-baseos-rpms
+    size: 449938
+    sourcerpm: rsync-3.2.5-3.el9.src.rpm
+    url: https://cdn.redhat.com/content/dist/rhel9/9/ppc64le/baseos/os/Packages/r/rsync-3.2.5-3.el9.ppc64le.rpm
+  - checksum: sha256:f2cc206dfacc9981fad6cf33600ad28bcd1c573f16d8c18523dc9df52ca90660
+    evr: 2:1.34-7.el9
+    name: tar
+    repoid: rhel-9-for-ppc64le-baseos-rpms
+    size: 937724
+    sourcerpm: tar-1.34-7.el9.src.rpm
+    url: https://cdn.redhat.com/content/dist/rhel9/9/ppc64le/baseos/os/Packages/t/tar-1.34-7.el9.ppc64le.rpm
+  - checksum: sha256:0687e5a1115ba679137404c8d37a45141a31968ffd01677455530d24c126a0d2
+    evr: 2025b-1.el9
+    name: tzdata
+    repoid: rhel-9-for-ppc64le-baseos-rpms
+    size: 862160
+    sourcerpm: tzdata-2025b-1.el9.src.rpm
+    url: https://cdn.redhat.com/content/dist/rhel9/9/ppc64le/baseos/os/Packages/t/tzdata-2025b-1.el9.noarch.rpm
+  source:
+  - checksum: sha256:a05f582ec42e89258ee5e10af96dee4300bcb2a6a69a76bfb5b46f79e6a6a47b
+    evr: 1.12-1.el9
+    name: gzip
+    repoid: rhel-9-for-ppc64le-baseos-source-rpms
+    size: 856147
+    url: https://cdn.redhat.com/content/dist/rhel9/9/ppc64le/baseos/source/SRPMS/Packages/g/gzip-1.12-1.el9.src.rpm
+  - checksum: sha256:56c0b951be3e5ad6a1da594f9d4f09b8b752e2fb3d6827bcc03892f22f622b22
+    evr: 1:3.2.2-6.el9_5.1
+    name: openssl
+    repoid: rhel-9-for-ppc64le-baseos-source-rpms
+    size: 17985138
+    url: https://cdn.redhat.com/content/dist/rhel9/9/ppc64le/baseos/source/SRPMS/Packages/o/openssl-3.2.2-6.el9_5.1.src.rpm
+  - checksum: sha256:a1fd44e58d1fb5b52b72586c5ef2e12c040428f771cde1d1350b36d3b9155db0
+    evr: 3.2.5-3.el9
+    name: rsync
+    repoid: rhel-9-for-ppc64le-baseos-source-rpms
+    size: 1306931
+    url: https://cdn.redhat.com/content/dist/rhel9/9/ppc64le/baseos/source/SRPMS/Packages/r/rsync-3.2.5-3.el9.src.rpm
+  - checksum: sha256:d002c400d29e7305fe8a982ab6b9f49ee7a8780e4574b86fc0c5b3d5510ecb22
+    evr: 2:1.34-7.el9
+    name: tar
+    repoid: rhel-9-for-ppc64le-baseos-source-rpms
+    size: 2261512
+    url: https://cdn.redhat.com/content/dist/rhel9/9/ppc64le/baseos/source/SRPMS/Packages/t/tar-1.34-7.el9.src.rpm
+  - checksum: sha256:a2668d1f6b053545a5824a428755484895d72475a9d3833cbfbec9e08660aba2
+    evr: 2025b-1.el9
+    name: tzdata
+    repoid: rhel-9-for-ppc64le-baseos-source-rpms
+    size: 904607
+    url: https://cdn.redhat.com/content/dist/rhel9/9/ppc64le/baseos/source/SRPMS/Packages/t/tzdata-2025b-1.el9.src.rpm
+- arch: s390x
+  module_metadata: []
+  packages:
+  - checksum: sha256:50034ee6281864a218a5f3bc47de5afb434400fb8415907fd31d8351adbdc5a6
+    evr: 1.12-1.el9
+    name: gzip
+    repoid: rhel-9-for-s390x-baseos-rpms
+    size: 173101
+    sourcerpm: gzip-1.12-1.el9.src.rpm
+    url: https://cdn.redhat.com/content/dist/rhel9/9/s390x/baseos/os/Packages/g/gzip-1.12-1.el9.s390x.rpm
+  - checksum: sha256:0a24289ee6324c2ecd6edad913f8ecfcfc6db43fbf6fed65458141e3ec0c104f
+    evr: 1:3.2.2-6.el9_5.1
+    name: openssl
+    repoid: rhel-9-for-s390x-baseos-rpms
+    size: 1407537
+    sourcerpm: openssl-3.2.2-6.el9_5.1.src.rpm
+    url: https://cdn.redhat.com/content/dist/rhel9/9/s390x/baseos/os/Packages/o/openssl-3.2.2-6.el9_5.1.s390x.rpm
+  - checksum: sha256:2d1a87e86fb23bc665b7c7ce8775c73d500ef6e152f15c78493b95638dfb7925
+    evr: 3.2.5-3.el9
+    name: rsync
+    repoid: rhel-9-for-s390x-baseos-rpms
+    size: 418877
+    sourcerpm: rsync-3.2.5-3.el9.src.rpm
+    url: https://cdn.redhat.com/content/dist/rhel9/9/s390x/baseos/os/Packages/r/rsync-3.2.5-3.el9.s390x.rpm
+  - checksum: sha256:fa8758bac6a56830de66ad1ab623c87768065bcc6f8242faa42ac4198260d456
+    evr: 2:1.34-7.el9
+    name: tar
+    repoid: rhel-9-for-s390x-baseos-rpms
+    size: 902370
+    sourcerpm: tar-1.34-7.el9.src.rpm
+    url: https://cdn.redhat.com/content/dist/rhel9/9/s390x/baseos/os/Packages/t/tar-1.34-7.el9.s390x.rpm
+  - checksum: sha256:0687e5a1115ba679137404c8d37a45141a31968ffd01677455530d24c126a0d2
+    evr: 2025b-1.el9
+    name: tzdata
+    repoid: rhel-9-for-s390x-baseos-rpms
+    size: 862160
+    sourcerpm: tzdata-2025b-1.el9.src.rpm
+    url: https://cdn.redhat.com/content/dist/rhel9/9/s390x/baseos/os/Packages/t/tzdata-2025b-1.el9.noarch.rpm
+  source:
+  - checksum: sha256:a05f582ec42e89258ee5e10af96dee4300bcb2a6a69a76bfb5b46f79e6a6a47b
+    evr: 1.12-1.el9
+    name: gzip
+    repoid: rhel-9-for-s390x-baseos-source-rpms
+    size: 856147
+    url: https://cdn.redhat.com/content/dist/rhel9/9/s390x/baseos/source/SRPMS/Packages/g/gzip-1.12-1.el9.src.rpm
+  - checksum: sha256:56c0b951be3e5ad6a1da594f9d4f09b8b752e2fb3d6827bcc03892f22f622b22
+    evr: 1:3.2.2-6.el9_5.1
+    name: openssl
+    repoid: rhel-9-for-s390x-baseos-source-rpms
+    size: 17985138
+    url: https://cdn.redhat.com/content/dist/rhel9/9/s390x/baseos/source/SRPMS/Packages/o/openssl-3.2.2-6.el9_5.1.src.rpm
+  - checksum: sha256:a1fd44e58d1fb5b52b72586c5ef2e12c040428f771cde1d1350b36d3b9155db0
+    evr: 3.2.5-3.el9
+    name: rsync
+    repoid: rhel-9-for-s390x-baseos-source-rpms
+    size: 1306931
+    url: https://cdn.redhat.com/content/dist/rhel9/9/s390x/baseos/source/SRPMS/Packages/r/rsync-3.2.5-3.el9.src.rpm
+  - checksum: sha256:d002c400d29e7305fe8a982ab6b9f49ee7a8780e4574b86fc0c5b3d5510ecb22
+    evr: 2:1.34-7.el9
+    name: tar
+    repoid: rhel-9-for-s390x-baseos-source-rpms
+    size: 2261512
+    url: https://cdn.redhat.com/content/dist/rhel9/9/s390x/baseos/source/SRPMS/Packages/t/tar-1.34-7.el9.src.rpm
+  - checksum: sha256:a2668d1f6b053545a5824a428755484895d72475a9d3833cbfbec9e08660aba2
+    evr: 2025b-1.el9
+    name: tzdata
+    repoid: rhel-9-for-s390x-baseos-source-rpms
+    size: 904607
+    url: https://cdn.redhat.com/content/dist/rhel9/9/s390x/baseos/source/SRPMS/Packages/t/tzdata-2025b-1.el9.src.rpm
+- arch: x86_64
+  module_metadata: []
+  packages:
+  - checksum: sha256:c8b3e0414d55b1eedb0185a564ac6cb2368bee2fd5f995447d045f6a714488ac
+    evr: 1.12-1.el9
+    name: gzip
+    repoid: rhel-9-for-x86_64-baseos-rpms
+    size: 171206
+    sourcerpm: gzip-1.12-1.el9.src.rpm
+    url: https://cdn.redhat.com/content/dist/rhel9/9/x86_64/baseos/os/Packages/g/gzip-1.12-1.el9.x86_64.rpm
+  - checksum: sha256:f379686df99db814e30568a896b417278775fc96864ac6d2660bf48ef94309e3
+    evr: 1:3.2.2-6.el9_5.1
+    name: openssl
+    repoid: rhel-9-for-x86_64-baseos-rpms
+    size: 1420999
+    sourcerpm: openssl-3.2.2-6.el9_5.1.src.rpm
+    url: https://cdn.redhat.com/content/dist/rhel9/9/x86_64/baseos/os/Packages/o/openssl-3.2.2-6.el9_5.1.x86_64.rpm
+  - checksum: sha256:b1d90c38b613f2d66dfe0c7c3d067a3ce429f7b2ec5224e560f326fc2fd8d1e5
+    evr: 3.2.5-3.el9
+    name: rsync
+    repoid: rhel-9-for-x86_64-baseos-rpms
+    size: 421930
+    sourcerpm: rsync-3.2.5-3.el9.src.rpm
+    url: https://cdn.redhat.com/content/dist/rhel9/9/x86_64/baseos/os/Packages/r/rsync-3.2.5-3.el9.x86_64.rpm
+  - checksum: sha256:17f2e592a2c04c050b690afeb9042e02521a0b5ee3288dad837463f4acf542c3
+    evr: 2:1.34-7.el9
+    name: tar
+    repoid: rhel-9-for-x86_64-baseos-rpms
+    size: 910235
+    sourcerpm: tar-1.34-7.el9.src.rpm
+    url: https://cdn.redhat.com/content/dist/rhel9/9/x86_64/baseos/os/Packages/t/tar-1.34-7.el9.x86_64.rpm
+  - checksum: sha256:0687e5a1115ba679137404c8d37a45141a31968ffd01677455530d24c126a0d2
+    evr: 2025b-1.el9
+    name: tzdata
+    repoid: rhel-9-for-x86_64-baseos-rpms
+    size: 862160
+    sourcerpm: tzdata-2025b-1.el9.src.rpm
+    url: https://cdn.redhat.com/content/dist/rhel9/9/x86_64/baseos/os/Packages/t/tzdata-2025b-1.el9.noarch.rpm
+  source:
+  - checksum: sha256:a05f582ec42e89258ee5e10af96dee4300bcb2a6a69a76bfb5b46f79e6a6a47b
+    evr: 1.12-1.el9
+    name: gzip
+    repoid: rhel-9-for-x86_64-baseos-source-rpms
+    size: 856147
+    url: https://cdn.redhat.com/content/dist/rhel9/9/x86_64/baseos/source/SRPMS/Packages/g/gzip-1.12-1.el9.src.rpm
+  - checksum: sha256:56c0b951be3e5ad6a1da594f9d4f09b8b752e2fb3d6827bcc03892f22f622b22
+    evr: 1:3.2.2-6.el9_5.1
+    name: openssl
+    repoid: rhel-9-for-x86_64-baseos-source-rpms
+    size: 17985138
+    url: https://cdn.redhat.com/content/dist/rhel9/9/x86_64/baseos/source/SRPMS/Packages/o/openssl-3.2.2-6.el9_5.1.src.rpm
+  - checksum: sha256:a1fd44e58d1fb5b52b72586c5ef2e12c040428f771cde1d1350b36d3b9155db0
+    evr: 3.2.5-3.el9
+    name: rsync
+    repoid: rhel-9-for-x86_64-baseos-source-rpms
+    size: 1306931
+    url: https://cdn.redhat.com/content/dist/rhel9/9/x86_64/baseos/source/SRPMS/Packages/r/rsync-3.2.5-3.el9.src.rpm
+  - checksum: sha256:d002c400d29e7305fe8a982ab6b9f49ee7a8780e4574b86fc0c5b3d5510ecb22
+    evr: 2:1.34-7.el9
+    name: tar
+    repoid: rhel-9-for-x86_64-baseos-source-rpms
+    size: 2261512
+    url: https://cdn.redhat.com/content/dist/rhel9/9/x86_64/baseos/source/SRPMS/Packages/t/tar-1.34-7.el9.src.rpm
+  - checksum: sha256:a2668d1f6b053545a5824a428755484895d72475a9d3833cbfbec9e08660aba2
+    evr: 2025b-1.el9
+    name: tzdata
+    repoid: rhel-9-for-x86_64-baseos-source-rpms
+    size: 904607
+    url: https://cdn.redhat.com/content/dist/rhel9/9/x86_64/baseos/source/SRPMS/Packages/t/tzdata-2025b-1.el9.src.rpm
+lockfileVendor: redhat
+lockfileVersion: 1

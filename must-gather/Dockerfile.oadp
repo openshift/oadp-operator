@@ -1,0 +1,78 @@
+# upstream src https://github.com/openshift/oadp-operator/blob/master/must-gather/Dockerfile
+
+# oc
+#@follow_tag(registry-proxy.engineering.redhat.com/rh-osbs/openshift-ose-cli-rhel9:v4.19)
+FROM brew.registry.redhat.io/rh-osbs/openshift-ose-cli-rhel9:v4.19 AS ose-cli
+
+#@follow_tag(registry-proxy.engineering.redhat.com/rh-osbs/openshift-golang-builder:rhel_9_golang_1.23)
+FROM brew.registry.redhat.io/rh-osbs/openshift-golang-builder:rhel_9_golang_1.23 AS builder
+
+COPY . /workspace
+USER root
+RUN chown -R 1001:0 /workspace
+USER 1001
+
+# mustgather
+WORKDIR /workspace/must-gather
+RUN CGO_ENABLED=1 GOOS=linux go build -a -mod=mod -tags strictfipsruntime -o ./gather cmd/main.go
+
+# kopia
+WORKDIR /workspace/must-gather/kopia/
+RUN CGO_ENABLED=1 GOOS=linux go build -a -mod=mod -tags strictfipsruntime -o ./kopia
+
+#######################################################################
+#######################################################################
+#                                                                     #
+#      W     W    AA     RRRR     N   N    III    N   N     GGG       #
+#      W     W   A  A    R   R    NN  N     I     NN  N    G          #
+#      W  W  W   AAAA    RRRR     N N N     I     N N N    G  GG      #
+#       W W W    A  A    R R      N  NN     I     N  NN    G   G      #
+#        W W     A  A    R  RR    N   N    III    N   N     GGG       #
+#                                                                     #
+#  Any changes to the `velero` and `restic` sections below must also  #
+#  be reconciled in oadp-velero/Dockerfile.in for consistency.        #
+#######################################################################
+# BEGIN                                                               #
+#######################################################################
+
+# velero
+WORKDIR /workspace/must-gather/velero/
+ENV GOEXPERIMENT strictfipsruntime
+RUN CGO_ENABLED=1 GOOS=linux go build -a -mod=mod -ldflags '-X github.com/vmware-tanzu/velero/pkg/buildinfo.Version=v1.16.1-OADP' -tags strictfipsruntime -o ./bin/velero ./cmd/velero
+
+# restic
+WORKDIR /workspace/must-gather/restic/
+ENV GOEXPERIMENT strictfipsruntime
+RUN CGO_ENABLED=1 GOOS=linux go build -a -mod=mod -tags strictfipsruntime -o ./bin/restic ./cmd/restic
+
+#######################################################################
+# END                                                                 #
+#######################################################################
+
+ENV INSTALLATION_NAMESPACE openshift-adp
+
+#@follow_tag(registry.redhat.io/ubi9/ubi-minimal:latest)
+FROM registry.redhat.io/ubi9/ubi-minimal:latest
+RUN microdnf -y install openssl rsync tar gzip && microdnf -y reinstall tzdata && microdnf -y clean all
+
+COPY --from=builder /workspace/must-gather/velero/bin/velero /usr/bin/velero
+COPY --from=builder /workspace/must-gather/restic/bin/restic /usr/bin/restic
+COPY --from=ose-cli /usr/bin/oc /usr/bin/oc
+COPY --from=builder /workspace/must-gather/kopia/kopia /usr/bin/kopia
+COPY --from=builder /workspace/must-gather/gather /usr/bin/gather
+COPY --from=builder /workspace/must-gather/deprecated/gather_* /usr/bin/
+
+ENTRYPOINT /usr/bin/gather
+
+LABEL com.redhat.component="oadp-mustgather-container" \
+      name="oadp/oadp-mustgather-rhel9" \
+      version="1.5.1" \
+      summary="OpenShift API for Data Protection data gathering image" \
+      io.openshift.expose-services="" \
+      io.openshift.tags="data,images" \
+      io.k8s.display-name="OpenShift API for Data Protection - mustgather" \
+      io.openshift.build.commit.id="06f6e887bdb5700980a89d10518acc67b92b5837" \
+      io.openshift.build.source-location="https://github.com/openshift/oadp-operator" \
+      io.openshift.build.commit.url="https://github.com/openshift/oadp-operator/commit/06f6e887bdb5700980a89d10518acc67b92b5837" \
+      description="OpenShift API for Data Protection data gathering image" \
+      maintainer="OpenShift API for Data Protection Team <oadp-team@redhat.com>"
