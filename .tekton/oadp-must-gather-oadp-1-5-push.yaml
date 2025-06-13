@@ -237,6 +237,23 @@ spec:
         value: $(tasks.prefetch-dependencies.results.CACHI2_ARTIFACT)
       - name: IMAGE_APPEND_PLATFORM
         value: "true"
+      - name: LABELS
+        value:
+        - $(tasks.generate-labels.results.labels[*])
+        - description=OpenShift API for Data Protection data gathering image
+        - name=oadp/oadp-mustgather-rhel9
+        - url=https://github.com/openshift/oadp-operator
+        - vendor=Red Hat, Inc.
+        - summary=OpenShift API for Data Protection data gathering image
+        - maintainer=OpenShift API for Data Protection Team <oadp-team@redhat.com>
+        - com.redhat.component=oadp-mustgather-container
+        - version=1.5.1
+        - License=ASL 2.0
+        - io.openshift.expose-services=''
+        - io.k8s.display-name=OpenShift API for Data Protection - mustgather
+        - io.openshift.tags=data,images
+        - io.k8s.description=Migration Toolkit for Containers Hook Runner
+        - io.openshift.build.source-location=https://github.com/openshift/oadp-operator
       runAfter:
       - prefetch-dependencies
       taskRef:
