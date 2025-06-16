@@ -12,17 +12,3 @@ WORKDIR /
 COPY --from=builder /workspace/bin/manager .
 USER 65532:65532
 ENTRYPOINT ["/manager"]
-
-LABEL \
-        com.redhat.component="oadp-operator-container" \
-        version="1.5.1" \
-        name="oadp/oadp-rhel9-operator" \
-        License="Apache License 2.0" \
-        io.k8s.display-name="OADP Operator" \
-        io.openshift.tags="migration" \
-        io.k8s.description="OpenShift API for Data Protection - Operator" \
-        io.openshift.build.commit.id="06f6e887bdb5700980a89d10518acc67b92b5837" \
-        io.openshift.build.source-location="https://github.com/openshift/oadp-operator" \
-        io.openshift.build.commit.url="https://github.com/openshift/oadp-operator/commit/06f6e887bdb5700980a89d10518acc67b92b5837" \
-        summary="OpenShift API for Data Protection - Operator" \
-        maintainer="OpenShift API for Data Protection Team <oadp-team@redhat.com>"

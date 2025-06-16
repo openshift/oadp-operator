@@ -11,10 +11,10 @@ metadata:
     pipelinesascode.tekton.dev/on-cel-expression: event == "pull_request" && target_branch == "oadp-1.5"
   creationTimestamp:
   labels:
-    appstudio.openshift.io/application: oadp-must-gather
-    appstudio.openshift.io/component: oadp-must-gather-oadp-1-5
+    appstudio.openshift.io/application: oadp-operator
+    appstudio.openshift.io/component: oadp-operator-oadp-1-5
     pipelines.appstudio.openshift.io/type: build
-  name: oadp-must-gather-oadp-1-5-on-pull-request
+  name: oadp-operator-oadp-1-5-on-pull-request
   namespace: ocp-art-tenant
 spec:
   params:
@@ -23,7 +23,7 @@ spec:
   - name: revision
     value: '{{revision}}'
   - name: output-image
-    value: quay.io/redhat-user-workloads/ocp-art-tenant/oadp-must-gather-oadp-1-5:on-pr-{{revision}}
+    value: quay.io/redhat-user-workloads/ocp-art-tenant/oadp-operator-oadp-1-5:on-pr-{{revision}}
   - name: image-expires-after
     value: 5d
   - name: build-platforms
@@ -33,11 +33,11 @@ spec:
     - linux/s390x
     - linux/x86_64
   - name: dockerfile
-    value: must-gather/Dockerfile.oadp
+    value: Dockerfile.oadp
   - name: hermetic
     value: "true"
   - name: prefetch-input
-    value: '[{"type": "gomod", "path": "."}, {"type": "gomod", "path": "must-gather/"}, {"type": "gomod", "path": "must-gather/kopia/"}, {"type": "gomod", "path": "must-gather/restic/"}, {"type": "gomod", "path": "must-gather/velero"}, {"type": "rpm", "path": "must-gather/"}]'
+    value: '[{"type": "gomod", "path": "."}, {"type": "rpm", "path": "."}]'
   pipelineSpec:
     description: |
       This pipeline is ideal for building multi-arch container images from a Containerfile while maintaining trust after pipeline customization.
@@ -246,18 +246,15 @@ spec:
       - name: LABELS
         value:
         - $(tasks.generate-labels.results.labels[*])
-        - License=ASL 2.0
-        - com.redhat.component=oadp-mustgather-container
-        - description=OpenShift API for Data Protection data gathering image
-        - io.k8s.description=Migration Toolkit for Containers Hook Runner
-        - io.k8s.display-name=OpenShift API for Data Protection - mustgather
+        - License=Apache License 2.0
+        - com.redhat.component=oadp-operator-container
+        - io.k8s.description=OpenShift API for Data Protection - Operator
+        - io.k8s.display-name=OADP Operator
         - io.openshift.build.source-location=https://github.com/openshift/oadp-operator
-        - io.openshift.expose-services=
-        - io.openshift.tags=data,images
+        - io.openshift.tags=migration
         - maintainer=OpenShift API for Data Protection Team <oadp-team@redhat.com>
-        - name=oadp/oadp-mustgather-rhel9
-        - summary=OpenShift API for Data Protection data gathering image
-        - url=https://github.com/openshift/oadp-operator
+        - name=oadp/oadp-rhel9-operator
+        - summary=OpenShift API for Data Protection - Operator
         - vendor=Red Hat, Inc.
         - version=1.5.1
       runAfter:
@@ -656,7 +653,7 @@ spec:
     - name: netrc
       optional: true
   taskRunTemplate:
-    serviceAccountName: build-pipeline-oadp-must-gather-oadp-1-5
+    serviceAccountName: build-pipeline-oadp-operator-oadp-1-5
   workspaces:
   - name: git-auth
     secret:
