@@ -41,7 +41,7 @@ func (h *HCHandler) AddHCPPluginToDPA(namespace, name string, overrides bool) er
 
 	if overrides {
 		dpa.Spec.UnsupportedOverrides = map[oadpv1alpha1.UnsupportedImageKey]string{
-			oadpv1alpha1.HypershiftPluginImageKey: "quay.io/redhat-user-workloads/crt-redhat-acm-tenant/hypershift-oadp-plugin-oadp-1-5:oadp-1.5",
+			oadpv1alpha1.HypershiftPluginImageKey: "quay.io/redhat-user-workloads/ocp-art-tenant/oadp-hypershift-oadp-plugin-oadp-1-5:oadp-1.5",
 		}
 	}
 
