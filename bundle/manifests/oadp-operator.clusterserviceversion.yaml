@@ -864,13 +864,6 @@ spec:
           - update
           - watch
         - apiGroups:
-          - ""
-          resources:
-          - persistentvolumerclaims
-          - persistentvolumes
-          verbs:
-          - get
-        - apiGroups:
           - apps
           resources:
           - daemonsets
@@ -1015,19 +1008,6 @@ spec:
           - velero.io
           resources:
           - '*'
-          - backuprepositories
-          - backups
-          - backupstoragelocations
-          - datadownloads
-          - datauploads
-          - deletebackuprequests
-          - downloadrequests
-          - podvolumebackups
-          - podvolumerestores
-          - restores
-          - schedules
-          - serverstatusrequests
-          - volumesnapshotlocations
           verbs:
           - create
           - delete
@@ -1036,25 +1016,6 @@ spec:
           - patch
           - update
           - watch
-        - apiGroups:
-          - velero.io
-          resources:
-          - backuprepositories/status
-          - backups/status
-          - backupstoragelocations/status
-          - datadownloads/status
-          - datauploads/status
-          - deletebackuprequests/status
-          - downloadrequests/status
-          - podvolumebackups/status
-          - podvolumerestores/status
-          - restores/status
-          - schedules/status
-          - serverstatusrequests/status
-          verbs:
-          - get
-          - patch
-          - update
         - apiGroups:
           - authentication.k8s.io
           resources:
@@ -1159,7 +1120,7 @@ spec:
                 - name: RELATED_IMAGE_KUBEVIRT_VELERO_PLUGIN
                   value: quay.io/konveyor/kubevirt-velero-plugin:v0.7.0
                 - name: RELATED_IMAGE_HYPERSHIFT_VELERO_PLUGIN
-                  value: quay.io/redhat-user-workloads/crt-redhat-acm-tenant/hypershift-oadp-plugin-oadp-1-5:oadp-1.5
+                  value: quay.io/redhat-user-workloads/ocp-art-tenant/oadp-hypershift-oadp-plugin-oadp-1-5:oadp-1.5
                 - name: RELATED_IMAGE_MUSTGATHER
                   value: registry.redhat.io/oadp/oadp-mustgather-rhel8:v1.2
                 - name: RELATED_IMAGE_NON_ADMIN_CONTROLLER
@@ -1320,7 +1281,7 @@ spec:
     name: velero-plugin-for-gcp
   - image: quay.io/konveyor/kubevirt-velero-plugin:v0.7.0
     name: kubevirt-velero-plugin
-  - image: quay.io/redhat-user-workloads/crt-redhat-acm-tenant/hypershift-oadp-plugin-oadp-1-5:oadp-1.5
+  - image: quay.io/redhat-user-workloads/ocp-art-tenant/oadp-hypershift-oadp-plugin-oadp-1-5:oadp-1.5
     name: hypershift-velero-plugin
   - image: registry.redhat.io/oadp/oadp-mustgather-rhel8:v1.2
     name: mustgather
