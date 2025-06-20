@@ -9,6 +9,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
 	configv1 "github.com/openshift/api/config/v1"
+	"github.com/stretchr/testify/assert"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -2591,6 +2592,554 @@ func TestDPAReconciler_ReconcileBackupStorageLocations(t *testing.T) {
 			if !reflect.DeepEqual(bsl.Spec, tt.wantBSL.Spec) {
 				fmt.Println(cmp.Diff(bsl.Spec, tt.wantBSL.Spec))
 				t.Errorf("ReconcileBackupStorageLocations() expected BSL spec to be %#v, got %#v", tt.wantBSL.Spec, bsl.Spec)
+			}
+		})
+	}
+}
+
+func TestPatchSecretsForBSL(t *testing.T) {
+	tests := []struct {
+		name          string
+		bsl           *velerov1.BackupStorageLocation
+		bslSpec       oadpv1alpha1.BackupLocation
+		secret        *corev1.Secret
+		cloudStorage  *oadpv1alpha1.CloudStorage
+		expectError   bool
+		errorContains string
+		verifyFunc    func(t *testing.T, secret *corev1.Secret)
+	}{
+		{
+			name: "AWS provider with known bucket openshift-velero-plugin-s3-auto-region-test-1",
+			bsl: &velerov1.BackupStorageLocation{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-bsl",
+					Namespace: "test-ns",
+				},
+			},
+			bslSpec: oadpv1alpha1.BackupLocation{
+				Velero: &velerov1.BackupStorageLocationSpec{
+					Provider: "aws",
+					Config: map[string]string{
+						"region": "us-east-1",
+						"bucket": "openshift-velero-plugin-s3-auto-region-test-1",
+					},
+					Credential: &corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: "aws-secret",
+						},
+						Key: "credentials",
+					},
+				},
+			},
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "aws-secret",
+					Namespace: "test-ns",
+					Labels: map[string]string{
+						"oadp.openshift.io/secret-type": "sts-credentials",
+					},
+				},
+				Data: map[string][]byte{
+					"credentials": []byte(`[default]
+role_arn = arn:aws:iam::123456789012:role/test-role
+web_identity_token_file = /var/run/secrets/openshift/serviceaccount/token`),
+				},
+			},
+			verifyFunc: func(t *testing.T, secret *corev1.Secret) {
+				assert.Contains(t, string(secret.Data["credentials"]), "region = us-east-1")
+			},
+		},
+		{
+			name: "AWS provider with known bucket openshift-velero-plugin-s3-auto-region-test-2",
+			bsl: &velerov1.BackupStorageLocation{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-bsl",
+					Namespace: "test-ns",
+				},
+			},
+			bslSpec: oadpv1alpha1.BackupLocation{
+				Velero: &velerov1.BackupStorageLocationSpec{
+					Provider: "aws",
+					Config: map[string]string{
+						"region": "us-west-1",
+						"bucket": "openshift-velero-plugin-s3-auto-region-test-2",
+					},
+					Credential: &corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: "aws-secret",
+						},
+						Key: "credentials",
+					},
+				},
+			},
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "aws-secret",
+					Namespace: "test-ns",
+					Labels: map[string]string{
+						"oadp.openshift.io/secret-type": "sts-credentials",
+					},
+				},
+				Data: map[string][]byte{
+					"credentials": []byte(`[default]
+role_arn = arn:aws:iam::123456789012:role/test-role
+web_identity_token_file = /var/run/secrets/openshift/serviceaccount/token`),
+				},
+			},
+			verifyFunc: func(t *testing.T, secret *corev1.Secret) {
+				assert.Contains(t, string(secret.Data["credentials"]), "region = us-west-1")
+			},
+		},
+		{
+			name: "AWS provider with known bucket openshift-velero-plugin-s3-auto-region-test-3",
+			bsl: &velerov1.BackupStorageLocation{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-bsl",
+					Namespace: "test-ns",
+				},
+			},
+			bslSpec: oadpv1alpha1.BackupLocation{
+				Velero: &velerov1.BackupStorageLocationSpec{
+					Provider: "aws",
+					Config: map[string]string{
+						"region": "eu-central-1",
+						"bucket": "openshift-velero-plugin-s3-auto-region-test-3",
+					},
+					Credential: &corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: "aws-secret",
+						},
+						Key: "credentials",
+					},
+				},
+			},
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "aws-secret",
+					Namespace: "test-ns",
+					Labels: map[string]string{
+						"oadp.openshift.io/secret-type": "sts-credentials",
+					},
+				},
+				Data: map[string][]byte{
+					"credentials": []byte(`[default]
+role_arn = arn:aws:iam::123456789012:role/test-role
+web_identity_token_file = /var/run/secrets/openshift/serviceaccount/token`),
+				},
+			},
+			verifyFunc: func(t *testing.T, secret *corev1.Secret) {
+				assert.Contains(t, string(secret.Data["credentials"]), "region = eu-central-1")
+			},
+		},
+		{
+			name: "Azure provider with resource group patching",
+			bsl: &velerov1.BackupStorageLocation{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-bsl",
+					Namespace: "test-ns",
+				},
+			},
+			bslSpec: oadpv1alpha1.BackupLocation{
+				Velero: &velerov1.BackupStorageLocationSpec{
+					Provider: "azure",
+					Config: map[string]string{
+						"resourceGroup": "test-rg",
+					},
+					Credential: &corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: "azure-secret",
+						},
+						Key: "azurekey",
+					},
+				},
+			},
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "azure-secret",
+					Namespace: "test-ns",
+					Labels: map[string]string{
+						"oadp.openshift.io/secret-type": "sts-credentials",
+					},
+				},
+				Data: map[string][]byte{
+					"azurekey": []byte(`AZURE_CLIENT_ID=test-client
+AZURE_TENANT_ID=test-tenant`),
+				},
+			},
+			verifyFunc: func(t *testing.T, secret *corev1.Secret) {
+				assert.Contains(t, string(secret.Data["azurekey"]), "AZURE_RESOURCE_GROUP=test-rg")
+			},
+		},
+		{
+			name: "GCP provider - no patching needed",
+			bsl: &velerov1.BackupStorageLocation{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-bsl",
+					Namespace: "test-ns",
+				},
+			},
+			bslSpec: oadpv1alpha1.BackupLocation{
+				Velero: &velerov1.BackupStorageLocationSpec{
+					Provider: "gcp",
+					Credential: &corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: "gcp-secret",
+						},
+						Key: "cloud",
+					},
+				},
+			},
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "gcp-secret",
+					Namespace: "test-ns",
+				},
+				Data: map[string][]byte{
+					"cloud": []byte(`{"type":"service_account"}`),
+				},
+			},
+			verifyFunc: func(t *testing.T, secret *corev1.Secret) {
+				// Should remain unchanged
+				assert.Equal(t, `{"type":"service_account"}`, string(secret.Data["cloud"]))
+			},
+		},
+		{
+			name: "CloudStorage AWS provider",
+			bsl: &velerov1.BackupStorageLocation{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-bsl",
+					Namespace: "test-ns",
+				},
+			},
+			bslSpec: oadpv1alpha1.BackupLocation{
+				CloudStorage: &oadpv1alpha1.CloudStorageLocation{
+					CloudStorageRef: corev1.LocalObjectReference{
+						Name: "test-cloudstorage",
+					},
+					Config: map[string]string{
+						"region": "eu-west-1",
+					},
+					Credential: &corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: "aws-secret",
+						},
+						Key: "credentials",
+					},
+				},
+			},
+			cloudStorage: &oadpv1alpha1.CloudStorage{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-cloudstorage",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.CloudStorageSpec{
+					Provider: oadpv1alpha1.AWSBucketProvider,
+				},
+			},
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "aws-secret",
+					Namespace: "test-ns",
+					Labels: map[string]string{
+						"oadp.openshift.io/secret-type": "sts-credentials",
+					},
+				},
+				Data: map[string][]byte{
+					"credentials": []byte(`[default]
+role_arn = arn:aws:iam::123456789012:role/test-role
+web_identity_token_file = /var/run/secrets/openshift/serviceaccount/token`),
+				},
+			},
+			verifyFunc: func(t *testing.T, secret *corev1.Secret) {
+				assert.Contains(t, string(secret.Data["credentials"]), "region = eu-west-1")
+			},
+		},
+		{
+			name: "No secret name - uses default cloud-credentials",
+			bsl: &velerov1.BackupStorageLocation{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-bsl",
+					Namespace: "test-ns",
+				},
+			},
+			bslSpec: oadpv1alpha1.BackupLocation{
+				Velero: &velerov1.BackupStorageLocationSpec{
+					Provider: "aws",
+				},
+			},
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cloud-credentials",
+					Namespace: "test-ns",
+				},
+				Data: map[string][]byte{
+					"cloud": []byte(`[default]
+aws_access_key_id=test-key
+aws_secret_access_key=test-secret`),
+				},
+			},
+			expectError: false,
+			verifyFunc: func(t *testing.T, secret *corev1.Secret) {
+				// Should not be patched since it doesn't have the STS label
+				assert.NotContains(t, string(secret.Data["cloud"]), "region")
+			},
+		},
+		{
+			name: "Secret not found",
+			bsl: &velerov1.BackupStorageLocation{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-bsl",
+					Namespace: "test-ns",
+				},
+			},
+			bslSpec: oadpv1alpha1.BackupLocation{
+				Velero: &velerov1.BackupStorageLocationSpec{
+					Provider: "aws",
+					Credential: &corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: "non-existent-secret",
+						},
+						Key: "cloud",
+					},
+				},
+			},
+			expectError:   true,
+			errorContains: "failed to get secret",
+		},
+		{
+			name: "CloudStorage not found",
+			bsl: &velerov1.BackupStorageLocation{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-bsl",
+					Namespace: "test-ns",
+				},
+			},
+			bslSpec: oadpv1alpha1.BackupLocation{
+				CloudStorage: &oadpv1alpha1.CloudStorageLocation{
+					CloudStorageRef: corev1.LocalObjectReference{
+						Name: "non-existent-cloudstorage",
+					},
+				},
+			},
+			expectError:   true,
+			errorContains: "not found",
+		},
+		{
+			name: "AWS provider with STS credentials - should be patched",
+			bsl: &velerov1.BackupStorageLocation{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-bsl",
+					Namespace: "test-ns",
+				},
+			},
+			bslSpec: oadpv1alpha1.BackupLocation{
+				Velero: &velerov1.BackupStorageLocationSpec{
+					Provider: "aws",
+					Config: map[string]string{
+						"region": "us-east-1",
+					},
+					Credential: &corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: "aws-sts-secret",
+						},
+						Key: "credentials",
+					},
+					StorageType: velerov1.StorageType{
+						ObjectStorage: &velerov1.ObjectStorageLocation{
+							Bucket: "test-bucket",
+						},
+					},
+				},
+			},
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "aws-sts-secret",
+					Namespace: "test-ns",
+					Labels: map[string]string{
+						"oadp.openshift.io/secret-type": "sts-credentials",
+					},
+				},
+				Data: map[string][]byte{
+					"credentials": []byte(`[default]
+role_arn = arn:aws:iam::123456789012:role/test-role
+web_identity_token_file = /var/run/secrets/openshift/serviceaccount/token`),
+				},
+			},
+			verifyFunc: func(t *testing.T, secret *corev1.Secret) {
+				assert.Contains(t, string(secret.Data["credentials"]), "region = us-east-1")
+			},
+		},
+		{
+			name: "AWS provider without STS label - should NOT be patched",
+			bsl: &velerov1.BackupStorageLocation{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-bsl",
+					Namespace: "test-ns",
+				},
+			},
+			bslSpec: oadpv1alpha1.BackupLocation{
+				Velero: &velerov1.BackupStorageLocationSpec{
+					Provider: "aws",
+					Config: map[string]string{
+						"region": "us-east-1",
+					},
+					Credential: &corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: "aws-regular-secret",
+						},
+						Key: "credentials",
+					},
+					StorageType: velerov1.StorageType{
+						ObjectStorage: &velerov1.ObjectStorageLocation{
+							Bucket: "test-bucket",
+						},
+					},
+				},
+			},
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "aws-regular-secret",
+					Namespace: "test-ns",
+				},
+				Data: map[string][]byte{
+					"credentials": []byte(`[default]
+aws_access_key_id=test-key
+aws_secret_access_key=test-secret`),
+				},
+			},
+			verifyFunc: func(t *testing.T, secret *corev1.Secret) {
+				// Should NOT contain region since it's not an STS secret
+				assert.NotContains(t, string(secret.Data["credentials"]), "region = ")
+			},
+		},
+		{
+			name: "Azure provider with STS credentials - should be patched",
+			bsl: &velerov1.BackupStorageLocation{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-bsl",
+					Namespace: "test-ns",
+				},
+			},
+			bslSpec: oadpv1alpha1.BackupLocation{
+				Velero: &velerov1.BackupStorageLocationSpec{
+					Provider: "azure",
+					Config: map[string]string{
+						"resourceGroup": "test-rg",
+					},
+					Credential: &corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: "azure-sts-secret",
+						},
+						Key: "azurekey",
+					},
+				},
+			},
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "azure-sts-secret",
+					Namespace: "test-ns",
+					Labels: map[string]string{
+						"oadp.openshift.io/secret-type": "sts-credentials",
+					},
+				},
+				Data: map[string][]byte{
+					"azurekey": []byte(`AZURE_CLIENT_ID=test-client
+AZURE_TENANT_ID=test-tenant`),
+				},
+			},
+			verifyFunc: func(t *testing.T, secret *corev1.Secret) {
+				assert.Contains(t, string(secret.Data["azurekey"]), "AZURE_RESOURCE_GROUP=test-rg")
+			},
+		},
+		{
+			name: "Azure provider without STS label - should NOT be patched",
+			bsl: &velerov1.BackupStorageLocation{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-bsl",
+					Namespace: "test-ns",
+				},
+			},
+			bslSpec: oadpv1alpha1.BackupLocation{
+				Velero: &velerov1.BackupStorageLocationSpec{
+					Provider: "azure",
+					Config: map[string]string{
+						"resourceGroup": "test-rg",
+					},
+					Credential: &corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: "azure-regular-secret",
+						},
+						Key: "azurekey",
+					},
+				},
+			},
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "azure-regular-secret",
+					Namespace: "test-ns",
+				},
+				Data: map[string][]byte{
+					"azurekey": []byte(`AZURE_CLIENT_ID=test-client
+AZURE_CLIENT_SECRET=test-secret
+AZURE_TENANT_ID=test-tenant`),
+				},
+			},
+			verifyFunc: func(t *testing.T, secret *corev1.Secret) {
+				// Should NOT contain resource group since it's not an STS secret
+				assert.NotContains(t, string(secret.Data["azurekey"]), "AZURE_RESOURCE_GROUP=")
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create fake client with objects
+			objs := []client.Object{}
+			if tt.secret != nil {
+				objs = append(objs, tt.secret)
+			}
+			if tt.cloudStorage != nil {
+				objs = append(objs, tt.cloudStorage)
+			}
+			schemeForFakeClient, err := getSchemeForFakeClient()
+			if err != nil {
+				t.Error(err)
+			}
+			fakeClient := fake.NewClientBuilder().
+				WithScheme(schemeForFakeClient).
+				WithObjects(objs...).
+				Build()
+
+			r := &DataProtectionApplicationReconciler{
+				Client:  fakeClient,
+				Scheme:  schemeForFakeClient,
+				Context: context.Background(),
+				Log:     logr.Discard(),
+			}
+
+			// Call the function
+			err = r.patchSecretsForBSL(tt.bsl, tt.bslSpec)
+
+			// Check error
+			if tt.expectError {
+				assert.Error(t, err)
+				if err != nil && tt.errorContains != "" {
+					assert.Contains(t, err.Error(), tt.errorContains)
+				}
+			} else {
+				assert.NoError(t, err)
+
+				// Verify secret if needed
+				if tt.verifyFunc != nil && tt.secret != nil {
+					// Get the updated secret
+					updatedSecret := &corev1.Secret{}
+					err := fakeClient.Get(context.Background(), client.ObjectKey{
+						Name:      tt.secret.Name,
+						Namespace: tt.secret.Namespace,
+					}, updatedSecret)
+					assert.NoError(t, err)
+					tt.verifyFunc(t, updatedSecret)
+				}
 			}
 		})
 	}
