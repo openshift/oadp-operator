@@ -100,7 +100,7 @@ Volsync backups from OADP 1.2 will not be restoreable with any OADP version inco
 
 ## Implementation
 Initial work for this will be done on the velero-datamover topic branch of oadp-operator.
-Once the design changes are fully approved and basic functionality for OADP is fully working again (possibly with the exception of the e2e test changes), it will be merged to master and work will continue there.
+Once the design changes are fully approved and basic functionality for OADP is fully working again (possibly with the exception of the e2e test changes), it will be merged to oadp-dev branch and work will continue there.
 
 The velero and velero-plugin-for-csi forks have already been updated with the current VBDM changes but will continue to be updated periodically throughout the remainder of the Velero 1.12 development cycle.
 

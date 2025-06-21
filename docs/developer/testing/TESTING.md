@@ -200,7 +200,7 @@ Example Configuration: **launch.json**
 
 ```
 
-* The [e2e_suite_test.go](https://github.com/openshift/oadp-operator/blob/master/tests/e2e/e2e_suite_test.go) file must be overridden with parameters specific to your environment and aws buckets.
+* The [e2e_suite_test.go](https://github.com/openshift/oadp-operator/blob/oadp-dev/tests/e2e/e2e_suite_test.go) file must be overridden with parameters specific to your environment and aws buckets.
     * The critical parameters to change are under `func init()`:
         * cloud
         * settings
@@ -221,7 +221,7 @@ func init() {
 Example settings file could be found under oadp-operator/tests/e2e/templates/default_settings.json, and can be overridden used with different providers with similar structure.
 
 
-* Note that your shell overrides documented [here](https://github.com/openshift/oadp-operator/blob/master/docs/developer/TESTING.md) are not accessible to Visual Studio Code.
+* Note that your shell overrides documented [here](https://github.com/openshift/oadp-operator/blob/oadp-dev/docs/developer/TESTING.md) are not accessible to Visual Studio Code.
 
 ### Execute
 

@@ -67,7 +67,7 @@ The images mirroring to [quay.io](https://quay.io/organization/konveyor) configu
 
 The jobs run can be seen in PRs and in the links in the README.md file of OADP repo.
 
-OADP operator master branch is tested against the last 3 minor OCP releases. To Update an OCP version the project is tested against, see [Update OCP version](#update-ocp-version).
+OADP operator oadp-dev branch is tested against the last 3 minor OCP releases. To Update an OCP version the project is tested against, see [Update OCP version](#update-ocp-version).
 
 > **Note**: To avoid changing upstream `OWNERS` files on `openshift` organization forks, we use `DOWNSTREAM_OWNERS` files on those repos. Reference https://github.com/openshift/release/blob/dd6b8b25a85bfd92ca74fdf1435ee9f21cd22516/core-services/prow/02_config/_plugins.yaml#L664-L678
 
@@ -80,7 +80,7 @@ To create new OADP release branches (they must follow the pattern `oadp-major.mi
   - Downstream repositories release branches may not need updates (except OADP operator, which always need updates).
   - Upstream repositories release branches need to be rebased.
 
-> **Note**: Try to always create release branches from default branches (usually called master).
+> **Note**: Try to always create release branches from default branches (usually called oadp-dev).
 
 > **Note**: Documentation should live only in default branches. For example, for OADP operator, `docs/` and `blogs/` folders can be deleted in release branches.
 
@@ -96,7 +96,7 @@ The new release branch must be added to `core-services/prow/02_config/openshift/
 ```diff
 ...
    - includedBranches:
-     - master
+     - oadp-dev
      - oadp-1.0
      - oadp-1.1
      - oadp-1.2
@@ -106,7 +106,7 @@ The new release branch must be added to `core-services/prow/02_config/openshift/
 ...
 ```
 
-Create `ci-operator/config/openshift/oadp-operator/openshift-oadp-operator-oadp-1.4.yaml`. To make it easier, copy the contents of `ci-operator/config/openshift/oadp-operator/openshift-oadp-operator-master.yaml` (if release branch was created from master branch), changing the following.
+Create `ci-operator/config/openshift/oadp-operator/openshift-oadp-operator-oadp-1.4.yaml`. To make it easier, copy the contents of `ci-operator/config/openshift/oadp-operator/openshift-oadp-operator-oadp-dev.yaml` (if release branch was created from the oadp-dev branch), changing the following.
 ```diff
 ...
  images:
@@ -123,9 +123,9 @@ Create `ci-operator/config/openshift/oadp-operator/openshift-oadp-operator-oadp-
    repo: oadp-operator
 ```
 
-> **Note**: to get diff between files, you can run `diff -ruN ci-operator/config/openshift/oadp-operator/openshift-oadp-operator-master.yaml ci-operator/config/openshift/oadp-operator/openshift-oadp-operator-oadp-1.4.yaml`.
+> **Note**: to get diff between files, you can run `diff -ruN ci-operator/config/openshift/oadp-operator/openshift-oadp-operator-oadp-dev.yaml ci-operator/config/openshift/oadp-operator/openshift-oadp-operator-oadp-1.4.yaml`.
 
-Create `ci-operator/config/openshift/oadp-operator/openshift-oadp-operator-oadp-1.4__4.VERSION.yaml` files. To make it easier, copy the contents of `ci-operator/config/openshift/oadp-operator/openshift-oadp-operator-master__4.VERSION.yaml` files (if release branch was created from master branch), changing the following.
+Create `ci-operator/config/openshift/oadp-operator/openshift-oadp-operator-oadp-1.4__4.VERSION.yaml` files. To make it easier, copy the contents of `ci-operator/config/openshift/oadp-operator/openshift-oadp-operator-oadp-1.4__4.VERSION.yaml` files (if release branch was created from master branch), changing the following.
 ```diff
 ...
  images:
@@ -178,14 +178,14 @@ Create `ci-operator/config/openshift/oadp-operator/openshift-oadp-operator-oadp-
        resources:
 ...
  zz_generated_metadata:
--  branch: master
+-  branch: oadp-dev
 +  branch: oadp-1.4
    org: openshift
    repo: oadp-operator
 ...
 ```
 
-> **Note**: to get diff between files, you can run `diff -ruN diff -ruN ci-operator/config/openshift/oadp-operator/openshift-oadp-operator-master__4.VERSION.yaml ci-operator/config/openshift/oadp-operator/openshift-oadp-operator-oadp-1.4__4.VERSION.yaml`.
+> **Note**: to get diff between files, you can run `diff -ruN diff -ruN ci-operator/config/openshift/oadp-operator/openshift-oadp-operator-oadp-dev__4.VERSION.yaml ci-operator/config/openshift/oadp-operator/openshift-oadp-operator-oadp-1.4__4.VERSION.yaml`.
 
 After creating these files, run:
 *  `make jobs checkconfig`
@@ -204,7 +204,7 @@ Finally, add image to `core-services/image-mirroring/konveyor/mapping_konveyor_l
 
 For this example, lets say new release branch is `oadp-1.4`.
 
-Update `Makefile`, changing the following (if release branch was created from master branch).
+Update `Makefile`, changing the following (if release branch was created from oadp-dev branch).
 ```diff
 ...
 -DEFAULT_VERSION := 99.0.0
@@ -235,9 +235,9 @@ Update `Makefile`, changing the following (if release branch was created from ma
 >
 >Upgrade E2E tests must also be updated.
 
-> **Note**: to get diff between files, you can run `git diff master oadp-1.4 Makefile`.
+> **Note**: to get diff between files, you can run `git diff oadp-dev oadp-1.4 Makefile`.
 
-Update `config/manifests/bases/oadp-operator.clusterserviceversion.yaml`, changing the following (if release branch was created from master branch).
+Update `config/manifests/bases/oadp-operator.clusterserviceversion.yaml`, changing the following (if release branch was created from oadp-dev branch).
 ```diff
 ...
 -    containerImage: quay.io/konveyor/oadp-operator:latest
@@ -253,9 +253,9 @@ Update `config/manifests/bases/oadp-operator.clusterserviceversion.yaml`, changi
 +  version: 1.4.0
 ```
 
-> **Note**: to get diff between files, you can run `git diff master oadp-1.4 config/manifests/bases/oadp-operator.clusterserviceversion.yaml`.
+> **Note**: to get diff between files, you can run `git diff oadp-dev oadp-1.4 config/manifests/bases/oadp-operator.clusterserviceversion.yaml`.
 
-Update `config/manager/manager.yaml`, changing the following (if release branch was created from master branch).
+Update `config/manager/manager.yaml`, changing the following (if release branch was created from oadp-dev branch).
 ```diff
 ...
            - name: RELATED_IMAGE_VELERO
@@ -276,11 +276,11 @@ Update `config/manager/manager.yaml`, changing the following (if release branch 
 ...
 ```
 
-> **Note**: to get diff between files, you can run `git diff master oadp-1.4 config/manager/manager.yaml`.
+> **Note**: to get diff between files, you can run `git diff oadp-dev oadp-1.4 config/manager/manager.yaml`.
 
 After updating these files, run `make bundle`.
 
-Update `pkg/common/common.go`, changing the following (if release branch was created from master branch).
+Update `pkg/common/common.go`, changing the following (if release branch was created from oadp-dev branch).
 ```diff
 ...
  // Images
@@ -301,7 +301,7 @@ Update `pkg/common/common.go`, changing the following (if release branch was cre
 ...
 ```
 
-Update `controllers/nonadmin_controller.go`, changing the following (if release branch was created from master branch).
+Update `controllers/nonadmin_controller.go`, changing the following (if release branch was created from oadp-dev branch).
 ```diff
 ...
  	// TODO https://github.com/openshift/oadp-operator/issues/1379
@@ -311,7 +311,7 @@ Update `controllers/nonadmin_controller.go`, changing the following (if release 
 ...
 ```
 
-Update `tests/e2e/lib/apps.go`, changing the following (if release branch was created from master branch).
+Update `tests/e2e/lib/apps.go`, changing the following (if release branch was created from oadp-dev branch).
 ```diff
 ...
  	mustGatherCmd := "must-gather"
@@ -321,29 +321,29 @@ Update `tests/e2e/lib/apps.go`, changing the following (if release branch was cr
 ...
 ```
 
-Update `README.md`, changing the following (if release branch was created from master branch).
+Update `README.md`, changing the following (if release branch was created from oadp-dev branch).
 ```diff
 ...
--  [![Go Report Card](https://goreportcard.com/badge/github.com/openshift/oadp-operator)](https://goreportcard.com/report/github.com/openshift/oadp-operator) [![codecov](https://codecov.io/gh/openshift/oadp-operator/branch/master/graph/badge.svg?token=qLM0hAzjpD)](https://codecov.io/gh/openshift/oadp-operator) [![License](https://img.shields.io/:license-apache-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0.html) [![Go Reference](https://pkg.go.dev/badge/github.com/openshift/oadp-operator.svg)](https://pkg.go.dev/github.com/openshift/oadp-operator)
+-  [![Go Report Card](https://goreportcard.com/badge/github.com/openshift/oadp-operator)](https://goreportcard.com/report/github.com/openshift/oadp-operator) [![codecov](https://codecov.io/gh/openshift/oadp-operator/branch/oadp-dev/graph/badge.svg?token=qLM0hAzjpD)](https://codecov.io/gh/openshift/oadp-operator) [![License](https://img.shields.io/:license-apache-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0.html) [![Go Reference](https://pkg.go.dev/badge/github.com/openshift/oadp-operator.svg)](https://pkg.go.dev/github.com/openshift/oadp-operator)
 +  [![Go Report Card](https://goreportcard.com/badge/github.com/openshift/oadp-operator)](https://goreportcard.com/report/github.com/openshift/oadp-operator) [![codecov](https://codecov.io/gh/openshift/oadp-operator/branch/oadp-1.4/graph/badge.svg?token=qLM0hAzjpD)](https://codecov.io/gh/openshift/oadp-operator) [![License](https://img.shields.io/:license-apache-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0.html) [![Go Reference](https://pkg.go.dev/badge/github.com/openshift/oadp-operator.svg)](https://pkg.go.dev/github.com/openshift/oadp-operator)
 ...
--Periodic Unit Tests [![Unit tests](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-master-unit-test-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-master-unit-test-periodic)
+-Periodic Unit Tests [![Unit tests](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-oadp-dev-unit-test-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-oadp-dev-unit-test-periodic)
 +Periodic Unit Tests [![Unit tests](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-oadp-1.4-unit-test-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-oadp-1.4-unit-test-periodic)
 ...
  AWS :
--[![AWS builds](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-master-4.12-e2e-test-aws-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-master-4.12-e2e-test-aws-periodic)
+-[![AWS builds](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-oadp-dev-4.12-e2e-test-aws-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-oadp-dev-4.12-e2e-test-aws-periodic)
 +[![AWS builds](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-oadp-1.4-4.12-e2e-test-aws-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-oadp-1.4-4.12-e2e-test-aws-periodic)
--[![AWS builds](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-master-4.13-e2e-test-aws-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-master-4.13-e2e-test-aws-periodic)
+-[![AWS builds](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-oadp-dev-4.13-e2e-test-aws-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-oadp-dev-4.13-e2e-test-aws-periodic)
 +[![AWS builds](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-oadp-1.4-4.13-e2e-test-aws-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-oadp-1.4-4.13-e2e-test-aws-periodic)
--[![AWS builds](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-master-4.14-e2e-test-aws-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-master-4.14-e2e-test-aws-periodic)
+-[![AWS builds](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-oadp-dev-4.14-e2e-test-aws-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-oadp-dev-4.14-e2e-test-aws-periodic)
 +[![AWS builds](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-oadp-1.4-4.14-e2e-test-aws-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-oadp-1.4-4.14-e2e-test-aws-periodic)
 ...
 -Documentation in this repository are considered unofficial and for development purposes only.
-+Development documentation of this repository can be found in [master branch](https://github.com/openshift/oadp-operator).
++Development documentation of this repository can be found in [oadp-dev branch](https://github.com/openshift/oadp-operator).
 # delete everything after this line
 ```
 
-> **Note**: to get diff between files, you can run `git diff master oadp-1.4 README.md`.
+> **Note**: to get diff between files, you can run `git diff oadp-dev oadp-1.4 README.md`.
 
 ### Update Go version
 
@@ -361,9 +361,9 @@ To update an OCP version in a branch:
 - Update links in README file.
 - Update envtest Kubernetes version in Makefile.
 
-Example: update `4.13` to `4.16` in master branch.
+Example: update `4.13` to `4.16` in oadp-dev branch.
 
-`openshift-oadp-operator-master__4.13.yaml` needs to be renamed `openshift-oadp-operator-master__4.16.yaml`, in `ci-operator/config/openshift/oadp-operator/` folder of https://github.com/openshift/release repo.
+`openshift-oadp-operator-oadp-dev__4.13.yaml` needs to be renamed `openshift-oadp-operator-oadp-dev__4.16.yaml`, in `ci-operator/config/openshift/oadp-operator/` folder of https://github.com/openshift/release repo.
 
 `4.13` occurrences in the file need to be updated to `4.16`.
 ```diff
@@ -378,7 +378,7 @@ Example: update `4.13` to `4.16` in master branch.
    '*':
      limits:
 ...
-   branch: master
+   branch: oadp-dev 
    org: openshift
    repo: oadp-operator
 -  variant: "4.13"
@@ -402,20 +402,20 @@ Example: update `4.13` to `4.16` in master branch.
 
 After that, run `make jobs` to update job files in `ci-operator/jobs/openshift/oadp-operator` folder of https://github.com/openshift/release repo.
 
-`4.13` occurrences in README.md need to be updated to `4.16` in master branch of https://github.com/openshift/oadp-operator repo.
+`4.13` occurrences in README.md need to be updated to `4.16` in oadp-dev branch of https://github.com/openshift/oadp-operator repo.
 
 ```diff
 -4.13, 4.14, 4.15 Periodic E2E Tests
 +4.14, 4.15, 4.16 Periodic E2E Tests
 
  AWS :
--[![AWS builds](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-master-4.13-e2e-test-aws-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-master-4.13-e2e-test-aws-periodic)
- [![AWS builds](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-master-4.14-e2e-test-aws-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-master-4.14-e2e-test-aws-periodic)
- [![AWS builds](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-master-4.15-e2e-test-aws-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-master-4.15-e2e-test-aws-periodic)
-+[![AWS builds](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-master-4.16-e2e-test-aws-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-master-4.16-e2e-test-aws-periodic)
+-[![AWS builds](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-oadp-dev-4.13-e2e-test-aws-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-oadp-dev-4.13-e2e-test-aws-periodic)
+ [![AWS builds](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-oadp-dev-4.14-e2e-test-aws-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-oadp-dev-4.14-e2e-test-aws-periodic)
+ [![AWS builds](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-oadp-dev-4.15-e2e-test-aws-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-oadp-dev-4.15-e2e-test-aws-periodic)
++[![AWS builds](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-oadp-dev-4.16-e2e-test-aws-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-oadp-dev-4.16-e2e-test-aws-periodic)
 ```
 
-Finally, update envtest version in Makefile needs to be updated to point to Kubernetes version of OCP `4.16` in master branch of https://github.com/openshift/oadp-operator repo.
+Finally, update envtest version in Makefile needs to be updated to point to Kubernetes version of OCP `4.16` in oadp-dev branch of https://github.com/openshift/oadp-operator repo.
 
 ```diff
 -# Kubernetes version from OpenShift 4.15.x https://openshift-release.apps.ci.l2s4.p1.openshiftapps.com/#4-stable
