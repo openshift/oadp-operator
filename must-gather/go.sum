@@ -173,8 +173,8 @@ github.com/mattn/go-colorable v0.1.14 h1:9A9LHSqF/7dyVVX6g0U9cwm9pG3kP9gSzcuIPHP
 github.com/mattn/go-colorable v0.1.14/go.mod h1:6LmQG8QLFO4G5z1gPvYEzlUgJ2wF+stgPZH1UqBm1s8=
 github.com/mattn/go-isatty v0.0.20 h1:xfD0iDuEKnDkl03q4limB+vH+GxLEtL/jb4xVJSWWEY=
 github.com/mattn/go-isatty v0.0.20/go.mod h1:W+V8PltTTMOvKvAeJH7IuucS94S2C6jfK/D7dTCTo3Y=
-github.com/migtools/oadp-non-admin v0.0.0-20250516144719-d33eb4a59dc7 h1:nHnKdOtw2AporaUb70cZy4o+zRU+a3QVmkI/yZKx5kY=
-github.com/migtools/oadp-non-admin v0.0.0-20250516144719-d33eb4a59dc7/go.mod h1:dJcC1kC9RI2ozb6lV9WXVEx8Z/Zf5SQwzMW0vXdASUc=
+github.com/migtools/oadp-non-admin v0.0.0-20250505165924-a9be4321819c h1:Vf/A7gPNlK4r8VW9AzDV5HILAOzbD8SjHhPbUfxEZvM=
+github.com/migtools/oadp-non-admin v0.0.0-20250505165924-a9be4321819c/go.mod h1:Jn/VniOgySu2D87jcWE+J5hTC6EJQkqeNBsSJ/b78Bo=
 github.com/mitchellh/go-wordwrap v1.0.1 h1:TLuKupo69TCn6TQSyGxwI1EblZZEsQ0vMlAFQflz0v0=
 github.com/mitchellh/go-wordwrap v1.0.1/go.mod h1:R62XHJLzvMFRBbcrT7m7WgmE1eOyTSsCt+hzestvNj0=
 github.com/moby/spdystream v0.4.0 h1:Vy79D6mHeJJjiPdFEL2yku1kl0chZpJfZcPpb16BRl8=
