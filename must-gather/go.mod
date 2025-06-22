@@ -12,7 +12,7 @@ require (
 	github.com/openshift/oc v0.0.0-alpha.0.0.20250108103617-ae1bd9e4a75b
 	github.com/operator-framework/api v0.26.0
 	github.com/spf13/cobra v1.8.1
-	github.com/vmware-tanzu/velero v1.16.0-rc.1
+	github.com/vmware-tanzu/velero v1.16.1
 	k8s.io/api v0.31.3
 	k8s.io/apiextensions-apiserver v0.31.3
 	k8s.io/apimachinery v0.31.3
