@@ -1,4 +1,4 @@
-FROM quay.io/openshift/origin-must-gather:4.10 as builder
+FROM quay.io/openshift/origin-must-gather:4.20 as builder
 
 # Add the Backup and Restore CR's
 FROM registry.access.redhat.com/ubi9/toolbox:latest
