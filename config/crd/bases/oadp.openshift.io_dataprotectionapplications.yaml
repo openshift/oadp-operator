@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.14.0
+    controller-gen.kubebuilder.io/version: v0.16.5
   name: dataprotectionapplications.oadp.openshift.io
 spec:
   group: oadp.openshift.io
@@ -69,7 +69,6 @@ spec:
                                 description: |-
                                   Name of the referent.
                                   More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                  TODO: Add other useful fields. apiVersion, kind, uid?
                                 type: string
                             type: object
                             x-kubernetes-map-type: atomic
@@ -88,7 +87,6 @@ spec:
                                 description: |-
                                   Name of the referent.
                                   More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                  TODO: Add other useful fields. apiVersion, kind, uid?
                                 type: string
                               optional:
                                 description: Specify whether the Secret or its key must be defined
@@ -133,10 +131,13 @@ spec:
                                 description: The key of the secret to select from.  Must be a valid secret key.
                                 type: string
                               name:
+                                default: ""
                                 description: |-
                                   Name of the referent.
+                                  This field is effectively required, but due to backwards compatibility is
+                                  allowed to be empty. Instances of this type with an empty value here are
+                                  almost certainly wrong.
                                   More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                  TODO: Add other useful fields. apiVersion, kind, uid?
                                 type: string
                               optional:
                                 description: Specify whether the Secret or its key must be defined
@@ -224,7 +225,6 @@ spec:
                                             description: |-
                                               Name of the referent.
                                               More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                              TODO: Add other useful fields. apiVersion, kind, uid?
                                             type: string
                                           optional:
                                             description: Specify whether the ConfigMap or its key must be defined
@@ -280,7 +280,6 @@ spec:
                                             description: |-
                                               Name of the referent.
                                               More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                              TODO: Add other useful fields. apiVersion, kind, uid?
                                             type: string
                                           optional:
                                             description: Specify whether the Secret or its key must be defined
@@ -313,10 +312,8 @@ spec:
                                     Claims lists the names of resources, defined in spec.resourceClaims,
                                     that are used by this container.
 
-
                                     This is an alpha field and requires enabling the
                                     DynamicResourceAllocation feature gate.
-
 
                                     This field is immutable. It can only be set for containers.
                                   items:
@@ -465,7 +462,6 @@ spec:
                                             description: |-
                                               Name of the referent.
                                               More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                              TODO: Add other useful fields. apiVersion, kind, uid?
                                             type: string
                                           optional:
                                             description: Specify whether the ConfigMap or its key must be defined
@@ -521,7 +517,6 @@ spec:
                                             description: |-
                                               Name of the referent.
                                               More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                              TODO: Add other useful fields. apiVersion, kind, uid?
                                             type: string
                                           optional:
                                             description: Specify whether the Secret or its key must be defined
@@ -554,10 +549,8 @@ spec:
                                     Claims lists the names of resources, defined in spec.resourceClaims,
                                     that are used by this container.
 
-
                                     This is an alpha field and requires enabling the
                                     DynamicResourceAllocation feature gate.
-
 
                                     This field is immutable. It can only be set for containers.
                                   items:
@@ -900,7 +893,6 @@ spec:
                                             description: |-
                                               Name of the referent.
                                               More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                              TODO: Add other useful fields. apiVersion, kind, uid?
                                             type: string
                                           optional:
                                             description: Specify whether the ConfigMap or its key must be defined
@@ -956,7 +948,6 @@ spec:
                                             description: |-
                                               Name of the referent.
                                               More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                              TODO: Add other useful fields. apiVersion, kind, uid?
                                             type: string
                                           optional:
                                             description: Specify whether the Secret or its key must be defined
@@ -989,10 +980,8 @@ spec:
                                     Claims lists the names of resources, defined in spec.resourceClaims,
                                     that are used by this container.
 
-
                                     This is an alpha field and requires enabling the
                                     DynamicResourceAllocation feature gate.
-
 
                                     This field is immutable. It can only be set for containers.
                                   items:
@@ -1289,10 +1278,13 @@ spec:
                                 description: The key of the secret to select from.  Must be a valid secret key.
                                 type: string
                               name:
+                                default: ""
                                 description: |-
                                   Name of the referent.
+                                  This field is effectively required, but due to backwards compatibility is
+                                  allowed to be empty. Instances of this type with an empty value here are
+                                  almost certainly wrong.
                                   More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                  TODO: Add other useful fields. apiVersion, kind, uid?
                                 type: string
                               optional:
                                 description: Specify whether the Secret or its key must be defined
@@ -1335,7 +1327,7 @@ spec:
               properties:
                 conditions:
                   items:
-                    description: "Condition contains details for one aspect of the current state of this API Resource.\n---\nThis struct is intended for direct use as an array at the field path .status.conditions.  For example,\n\n\n\ttype FooStatus struct{\n\t    // Represents the observations of a foo's current state.\n\t    // Known .status.conditions.type are: \"Available\", \"Progressing\", and \"Degraded\"\n\t    // +patchMergeKey=type\n\t    // +patchStrategy=merge\n\t    // +listType=map\n\t    // +listMapKey=type\n\t    Conditions []metav1.Condition `json:\"conditions,omitempty\" patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"`\n\n\n\t    // other fields\n\t}"
+                    description: Condition contains details for one aspect of the current state of this API Resource.
                     properties:
                       lastTransitionTime:
                         description: |-
@@ -1376,12 +1368,7 @@ spec:
                           - Unknown
                         type: string
                       type:
-                        description: |-
-                          type of condition in CamelCase or in foo.example.com/CamelCase.
-                          ---
-                          Many .condition.type values are consistent across resources like Available, but because arbitrary conditions can be
-                          useful (see .node.status.conditions), the ability to deconflict is important.
-                          The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)
+                        description: type of condition in CamelCase or in foo.example.com/CamelCase.
                         maxLength: 316
                         pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
                         type: string
