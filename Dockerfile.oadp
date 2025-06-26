@@ -10,5 +10,6 @@ FROM registry.redhat.io/ubi9/ubi-minimal:latest
 RUN microdnf -y install openssl && microdnf -y reinstall tzdata && microdnf clean all
 WORKDIR /
 COPY --from=builder /workspace/bin/manager .
+COPY LICENSE /licenses/
 USER 65532:65532
 ENTRYPOINT ["/manager"]
