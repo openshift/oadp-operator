@@ -10,7 +10,7 @@ metadata:
     pipelinesascode.tekton.dev/on-cel-expression: event == "push" && target_branch == "oadp-1.5"
   creationTimestamp:
   labels:
-    appstudio.openshift.io/application: oadp-operator
+    appstudio.openshift.io/application: oadp-1-5
     appstudio.openshift.io/component: oadp-operator-oadp-1-5
     pipelines.appstudio.openshift.io/type: build
   name: oadp-operator-oadp-1-5-on-push
@@ -34,7 +34,7 @@ spec:
   - name: hermetic
     value: "true"
   - name: prefetch-input
-    value: '[{"type": "gomod", "path": "."}, {"type": "rpm", "path": "."}]'
+    value: '[{"type": "gomod", "path": "."}, {"type": "rpm", "path": "hack/build/"}]'
   pipelineSpec:
     description: |
       This pipeline is ideal for building multi-arch container images from a Containerfile while maintaining trust after pipeline customization.
