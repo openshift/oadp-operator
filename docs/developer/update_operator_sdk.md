@@ -2,7 +2,7 @@
 
 To upgrade Operator SDK version, create Operator SDK structure using the current Operator SDK version and the upgrade version (get Operator SDK executables in https://github.com/operator-framework/operator-sdk/releases), using the same commands used to scaffold the project, in two different folders.
 
-The project was generated using Operator SDK version v1.34.2, running the following commands
+The project was generated using Operator SDK version v1.35.0, running the following commands
 ```sh
 operator-sdk init \
   --project-name=oadp-operator \
