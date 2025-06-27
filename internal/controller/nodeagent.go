@@ -303,7 +303,7 @@ func (r *DataProtectionApplicationReconciler) buildNodeAgentDaemonset(ds *appsv1
 	}
 
 	var nodeAgentResourceReqs corev1.ResourceRequirements
-	nodeAgentAnnotations := make(map[string]string)
+	var nodeAgentAnnotations map[string]string
 	if dpa.Spec.Configuration != nil && dpa.Spec.Configuration.NodeAgent != nil && dpa.Spec.Configuration.NodeAgent.PodConfig != nil {
 		nodeAgentAnnotations = dpa.Spec.Configuration.NodeAgent.PodConfig.Annotations
 	}
