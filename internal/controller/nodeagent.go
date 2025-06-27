@@ -303,6 +303,10 @@ func (r *DataProtectionApplicationReconciler) buildNodeAgentDaemonset(ds *appsv1
 	}
 
 	var nodeAgentResourceReqs corev1.ResourceRequirements
+	var nodeAgentAnnotations map[string]string
+	if dpa.Spec.Configuration != nil && dpa.Spec.Configuration.NodeAgent != nil && dpa.Spec.Configuration.NodeAgent.PodConfig != nil {
+		nodeAgentAnnotations = dpa.Spec.Configuration.NodeAgent.PodConfig.Annotations
+	}
 
 	// get resource requirements for nodeAgent ds
 	// ignoring err here as it is checked in validator.go
@@ -329,7 +333,7 @@ func (r *DataProtectionApplicationReconciler) buildNodeAgentDaemonset(ds *appsv1
 	installDs := install.DaemonSet(ds.Namespace,
 		install.WithResources(nodeAgentResourceReqs),
 		install.WithImage(getVeleroImage(dpa)),
-		install.WithAnnotations(dpa.Spec.PodAnnotations),
+		install.WithAnnotations(nodeAgentAnnotations),
 		install.WithSecret(false),
 		install.WithServiceAccountName(common.Velero),
 		install.WithNodeAgentConfigMap(configMapName),
