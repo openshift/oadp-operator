@@ -365,6 +365,11 @@ spec:
                         podConfig:
                           description: Pod specific configuration
                           properties:
+                            annotations:
+                              additionalProperties:
+                                type: string
+                              description: annotations to add to pods
+                              type: object
                             env:
                               description: env defines the list of environment variables to be supplied to podSpec
                               items:
@@ -714,6 +719,11 @@ spec:
                         podConfig:
                           description: Pod specific configuration
                           properties:
+                            annotations:
+                              additionalProperties:
+                                type: string
+                              description: annotations to add to pods
+                              type: object
                             env:
                               description: env defines the list of environment variables to be supplied to podSpec
                               items:
@@ -1226,6 +1236,11 @@ spec:
                         podConfig:
                           description: Pod specific configuration
                           properties:
+                            annotations:
+                              additionalProperties:
+                                type: string
+                              description: annotations to add to pods
+                              type: object
                             env:
                               description: env defines the list of environment variables to be supplied to podSpec
                               items:
@@ -2530,7 +2545,9 @@ spec:
                 podAnnotations:
                   additionalProperties:
                     type: string
-                  description: add annotations to pods deployed by operator
+                  description: |-
+                    add annotations to pods deployed by operator
+                    Deprecated: Use PodConfig instead
                   type: object
                 podDnsConfig:
                   description: |-
