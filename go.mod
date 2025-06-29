@@ -9,7 +9,7 @@ require (
 	github.com/kubernetes-csi/external-snapshotter/client/v4 v4.2.0
 	github.com/onsi/ginkgo/v2 v2.19.0
 	github.com/onsi/gomega v1.34.1
-	github.com/openshift/api v0.0.0-20230213134911-7ba313770556 // release-4.12
+	github.com/openshift/api 41708f612339 // release-4.12
 	github.com/operator-framework/api v0.10.7
 	github.com/operator-framework/operator-lib v0.9.0
 	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.51.2
