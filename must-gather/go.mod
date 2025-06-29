@@ -104,9 +104,9 @@ require (
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/klauspost/compress v1.17.11 // indirect
-	github.com/klauspost/cpuid/v2 v2.2.6 // indirect
+	github.com/klauspost/cpuid/v2 v2.2.8 // indirect
 	github.com/klauspost/pgzip v1.2.6 // indirect
-	github.com/klauspost/reedsolomon v1.12.1 // indirect
+	github.com/klauspost/reedsolomon v1.12.4 // indirect
 	github.com/kopia/kopia v0.16.0 // indirect
 	github.com/kubernetes-csi/external-snapshotter/client/v7 v7.0.0 // indirect
 	github.com/kylelemons/godebug v1.1.0 // indirect
