@@ -138,7 +138,7 @@ require (
 	github.com/rogpeppe/go-internal v1.14.1 // indirect
 	github.com/rs/xid v1.5.0 // indirect
 	github.com/spf13/cobra v1.7.0 // indirect
-	github.com/spf13/pflag v1.0.5 // indirect
+	github.com/spf13/pflag v1.0.6 // indirect
 	github.com/stretchr/testify v1.10.0 // indirect
 	github.com/zeebo/blake3 v0.2.3 // indirect
 	go.opencensus.io v0.24.0 // indirect
