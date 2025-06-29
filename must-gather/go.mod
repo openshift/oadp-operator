@@ -7,7 +7,7 @@ toolchain go1.23.4
 require (
 	github.com/kubernetes-csi/external-snapshotter/client/v8 v8.0.0
 	github.com/migtools/oadp-non-admin v0.0.0-20250516144719-d33eb4a59dc7
-	github.com/openshift/api v0.0.0-20240912201240-0a8800162826
+	github.com/openshift/api 41708f612339
 	github.com/openshift/oadp-operator v1.0.2-0.20250515162955-f03294d6f15a
 	github.com/openshift/oc v0.0.0-alpha.0.0.20250108103617-ae1bd9e4a75b
 	github.com/operator-framework/api v0.26.0
