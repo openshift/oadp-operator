@@ -14,7 +14,7 @@ The current OADP cli is suboptimal as oc backup delete $foo deletes the k8 objec
 - Non-Admin-Restore due to time constraints
 
 ## High-Level Design
-Creating a kubectl plugin (kubctl-oadp) will be a good solution to the problem at hand. It will be able to create/delete backups and restores. Non-cluster admin will be able to create NABs without the need for cluster admin to do it for them. 
+Creating a kubectl plugin (kubectl-oadp) will be a good solution to the problem at hand. It will be able to create/delete backups and restores. Non-cluster admin will be able to create NABs without the need for cluster admin to do it for them. 
 
 ## Detailed Design
 The kubectl plugin will have imports from velero to help with the creation/deletion of backups and restores. It will be written in Golang and be using cobra for command-line parsing. The non-admin cli can be a subset of some backup clis that already exist such as backup.go and create.go. 
