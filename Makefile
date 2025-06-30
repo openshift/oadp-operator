@@ -656,3 +656,155 @@ endif
 .PHONY: build-must-gather
 build-must-gather: ## Build OADP Must-gather binary must-gather/oadp-must-gather
 	cd must-gather && go build -mod=mod -a -o oadp-must-gather cmd/main.go
+
+# Common AI review prompt
+define AI_REVIEW_PROMPT
+Review this git diff for a project called OADP (OpenShift API for Data Protection) operator. Focus on: \
+1. Code quality and best practices \
+2. Potential bugs or issues \
+3. Go idioms and conventions \
+4. Kubernetes/OpenShift operator patterns \
+5. Security concerns \
+Please provide actionable feedback. Be concise but thorough.
+endef
+
+# AI code review using Ollama on Podman
+# 
+# Prerequisites:
+# 1. Podman installed and running
+# 
+# This target will:
+# - Create a local .ollama directory for caching models between runs
+# - Start an Ollama container if not already running
+# - Pull the model if not already cached
+# - Run the code review
+# - Stop and remove the container (but preserve the .ollama cache)
+# 
+# Usage:
+#   make ai-review-ollama                    # Uses default model (llama3.2:1b)
+#   make ai-review-ollama OLLAMA_MODEL=phi3:mini    # Uses specified model
+# 
+# Available models (examples):
+#   Small models (< 2GB memory):
+#     - llama3.2:1b (default)
+#     - phi3:mini
+#     - tinyllama
+#   
+#   Medium models (4-8GB memory):
+#     - llama3.2:3b
+#     - gemma2:2b
+#     - gemma3n:e4b (requires ~7GB)
+#     - gemma3n:e2b
+#   
+#   Larger models (8GB+ memory):
+#     - llama3.1:8b
+#     - mistral
+
+# Default Ollama model (using a smaller model that requires less memory)
+OLLAMA_MODEL ?= gemma3n:e4b
+OLLAMA_MEMORY ?= 8 # will require at least this much free mem in your machine or podman machine (non-linux)
+
+.PHONY: ai-review-ollama
+ai-review-ollama: ## Review staged git changes using Ollama AI. Requires changes to be staged with 'git add'
+	@# This target reviews only staged changes. To stage changes, use:
+	@#   git add <files>
+	@# To verify staged changes, run:
+	@#   git status
+	@# Example output showing staged changes:
+	@#   Changes to be committed:
+	@#     (use "git restore --staged <file>..." to unstage)
+	@#       modified:   Makefile
+	@if [ -z "$$(git diff --cached --name-only)" ]; then \
+		echo "No staged changes to review."; \
+		echo "Please stage your changes first with 'git add <files>'"; \
+		echo "Run 'git status' to see which files are staged."; \
+		exit 0; \
+	fi
+	@# Check if Ollama is already available (either as existing container or local service)
+	@if curl -s http://localhost:11434/api/tags >/dev/null 2>&1; then \
+		echo "Ollama is already running on port 11434"; \
+		OLLAMA_EXTERNAL=1; \
+	else \
+		OLLAMA_EXTERNAL=0; \
+		echo "Ollama not detected, starting container..."; \
+		mkdir -p .ollama; \
+		if ! podman ps | grep -q ollama; then \
+			podman run -d \
+				-v $$(pwd)/.ollama:/root/.ollama \
+				-p 11434:11434 \
+				--memory=$(OLLAMA_MEMORY)g \
+				--memory-swap=$(OLLAMA_MEMORY)g \
+				--name ollama \
+				ollama/ollama || exit 1; \
+			echo "Waiting for Ollama to be ready..."; \
+			for i in $$(seq 1 30); do \
+				if curl -s http://localhost:11434/api/tags >/dev/null 2>&1; then \
+					echo "Ollama is ready!"; \
+					break; \
+				fi; \
+				if [ $$i -eq 30 ]; then \
+					echo "Error: Ollama failed to start within 30 seconds"; \
+					podman logs ollama; \
+					podman stop ollama && podman rm ollama; \
+					exit 1; \
+				fi; \
+				sleep 1; \
+			done \
+		fi \
+	fi
+	@# Pull model if not already cached
+	@echo "Ensuring $(OLLAMA_MODEL) model is available..."
+	@if podman ps | grep -q ollama; then \
+		podman exec ollama ollama pull $(OLLAMA_MODEL) || exit 1; \
+	else \
+		curl -s -X POST http://localhost:11434/api/pull -d '{"name":"$(OLLAMA_MODEL)"}' | while read line; do \
+			echo $$line | jq -r .status 2>/dev/null || echo $$line; \
+		done; \
+	fi
+	@echo "Reviewing staged changes with Ollama using $(OLLAMA_MODEL)..."
+	@# Generate the prompt with git diff
+	@echo "Preparing request..."; \
+	FULL_PROMPT="$(AI_REVIEW_PROMPT)\n\nHere is the git diff:\n"; \
+	DIFF=$$(git diff --cached | jq -Rs .); \
+	JSON=$$(jq -n \
+		--arg model "$(OLLAMA_MODEL)" \
+		--arg prompt "$$FULL_PROMPT" \
+		--argjson diff "$$DIFF" \
+		'{model: $$model, prompt: ($$prompt + $$diff), stream: false}'); \
+	if [ -n "$$DEBUG" ]; then \
+		echo "Debug: Request JSON:"; \
+		echo "$$JSON" | jq .; \
+	fi; \
+	echo "Sending request to Ollama API..."; \
+	TEMP_RESPONSE=$$(mktemp .ollama-response.XXXXXX); \
+	curl -s -X POST http://localhost:11434/api/generate \
+		-H "Content-Type: application/json" \
+		--max-time 300 \
+		-d "$$JSON" \
+		-o "$$TEMP_RESPONSE" 2>&1; \
+	if [ -n "$$DEBUG" ]; then \
+		echo "Debug: Response saved to $$TEMP_RESPONSE"; \
+		cp "$$TEMP_RESPONSE" .ollama-debug-response.txt; \
+	fi; \
+	if jq -e . "$$TEMP_RESPONSE" >/dev/null 2>&1; then \
+		jq -r '.response // .error // "No response field"' "$$TEMP_RESPONSE"; \
+		rm -f "$$TEMP_RESPONSE"; \
+	else \
+		echo "Error: Invalid JSON response from Ollama. Checking for common issues..."; \
+		if grep -q "404 page not found" "$$TEMP_RESPONSE" 2>/dev/null; then \
+			echo "Error: Ollama API endpoint not found. The container may not be ready."; \
+		elif grep -q "Connection refused" "$$TEMP_RESPONSE" 2>/dev/null; then \
+			echo "Error: Cannot connect to Ollama. The container may not be running."; \
+		else \
+			echo "Raw response (first 500 chars):"; \
+			head -c 500 "$$TEMP_RESPONSE" 2>/dev/null || echo "(empty response)"; \
+			echo "..."; \
+			echo "(Run with DEBUG=1 to save full response)"; \
+		fi; \
+		rm -f "$$TEMP_RESPONSE"; \
+	fi
+	@# Only stop and remove container if we started it
+	@if podman ps | grep -q ollama; then \
+		echo "Stopping and removing Ollama container..."; \
+		podman stop ollama && podman rm ollama; \
+	fi
