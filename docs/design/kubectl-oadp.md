@@ -1,13 +1,13 @@
 # Kubectl-oadp plugin design
 
 ## Abstract
-The purpose of this plugin is to allow the customer to delete backups, along with creating restores in OADP without needing to alias velero to do so.
+The purpose of this plugin is to allow the customer to create and delete backups, along with creating restores in OADP without needing to alias velero to do so.
 
 ## Background
 The current OADP cli is suboptimal as oc backup delete $foo deletes the k8 object instead of the backup but velero backup delete $foo deletes the backup, along with the backup files in storage. Currently, customers would need to alias velero in order to delete their backups, which is not ideal. The purpose of kubectl-oadp would be to make the cli experience better and easier to use along with enabling users to be able to get the logs of the backups.
 
 ## Goals
-- Customers can create backups and restores
+- Customers can create and delete backups
 - A non-cluster admin can create Non-Admin-Backups (NAB)
 
 ## Non-Goals
@@ -34,7 +34,6 @@ import (
 	"github.com/vmware-tanzu/velero/pkg/cmd/cli/version"
 )
 ```
-￼
 With non-admin, we would have to create the cli ourselves since there are no cli’s for it.
 
 ```sh
@@ -51,9 +50,8 @@ func NewCreateCommand(f client.Factory, use string) *cobra.Command {
 			cmd.CheckError(o.Run(c, f))
 		}, 
 
-CLI Examples
 ```
-
+CLI Examples
 ```sh
 oc oadp backup create 
 oc oadp backup logs
@@ -71,4 +69,3 @@ The user first enters in a command in which the plugin reads the command and cre
 
 ## Compatibility
 This plugin would need to be updated so that it would be importing the right version of the velero backup and restore libraries. 
-
