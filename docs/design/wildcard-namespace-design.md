@@ -95,3 +95,4 @@ Estimated timeline is 2-3 development cycles with proper testing and validation.
 
 Error handling strategy for cases where wildcard patterns match no namespaces needs clarification - should this be treated as an error or proceed with empty namespace list.
 Performance impact on very large clusters (1000+ namespaces) requires testing and potential optimization. 
+- Potentially, could have an extra step where we list the namespaces that would be effectively backed up if the user supplies wildcard namespaces. It's a big change from the usual flow.
