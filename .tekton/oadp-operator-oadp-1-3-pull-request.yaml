@@ -8,9 +8,8 @@ metadata:
     build.appstudio.redhat.com/target_branch: '{{target_branch}}'
     pipelinesascode.tekton.dev/cancel-in-progress: "true"
     pipelinesascode.tekton.dev/max-keep-runs: "3"
-    pipelinesascode.tekton.dev/on-cel-expression: event == "pull_request" && target_branch
-      == "oadp-1.3"
-  creationTimestamp: null
+    pipelinesascode.tekton.dev/on-cel-expression: event == "pull_request" && target_branch == "oadp-1.3"
+  creationTimestamp:
   labels:
     appstudio.openshift.io/application: oadp-1-3
     appstudio.openshift.io/component: oadp-operator-oadp-1-3
@@ -29,9 +28,16 @@ spec:
     value: 5d
   - name: build-platforms
     value:
+    - linux/arm64
+    - linux/ppc64le
+    - linux/s390x
     - linux/x86_64
   - name: dockerfile
     value: Dockerfile.oadp
+  - name: hermetic
+    value: 'true'
+  - name: prefetch-input
+    value: '[{"type": "gomod", "path": "."}, {"type": "rpm", "path": "hack/build/"}]'
   pipelineSpec:
     description: |
       This pipeline is ideal for building multi-arch container images from a Containerfile while maintaining trust after pipeline customization.
@@ -64,13 +70,11 @@ spec:
       name: output-image
       type: string
     - default: .
-      description: Path to the source code of an application's component from where
-        to build image.
+      description: Path to the source code of an application's component from where to build image.
       name: path-context
       type: string
     - default: Dockerfile
-      description: Path to the Dockerfile inside the context specified by parameter
-        path-context
+      description: Path to the Dockerfile inside the context specified by parameter path-context
       name: dockerfile
       type: string
     - default: "false"
@@ -90,8 +94,7 @@ spec:
       name: prefetch-input
       type: string
     - default: ""
-      description: Image tag expiration time, time values could be something like
-        1h, 2d, 3w for hours, days, and weeks, respectively.
+      description: Image tag expiration time, time values could be something like 1h, 2d, 3w for hours, days, and weeks, respectively.
       name: image-expires-after
       type: string
     - default: "false"
@@ -111,14 +114,12 @@ spec:
       name: build-args-file
       type: string
     - default: "false"
-      description: Whether to enable privileged mode, should be used only with remote
-        VMs
+      description: Whether to enable privileged mode, should be used only with remote VMs
       name: privileged-nested
       type: string
     - default:
       - linux/x86_64
-      description: List of platforms to build the container images on. The available
-        set of values is determined by the configuration of the multi-platform-controller.
+      description: List of platforms to build the container images on. The available set of values is determined by the configuration of the multi-platform-controller.
       name: build-platforms
       type: array
     results:
@@ -183,6 +184,8 @@ spec:
         workspace: git-auth
     - name: prefetch-dependencies
       params:
+      - name: dev-package-managers
+        value: 'true'
       - name: input
         value: $(params.prefetch-input)
       - name: SOURCE_ARTIFACT
@@ -241,6 +244,20 @@ spec:
         value: $(tasks.prefetch-dependencies.results.CACHI2_ARTIFACT)
       - name: IMAGE_APPEND_PLATFORM
         value: "true"
+      - name: LABELS
+        value:
+        - $(tasks.generate-labels.results.labels[*])
+        - License=Apache License 2.0
+        - com.redhat.component=oadp-operator-container
+        - io.k8s.description=OpenShift API for Data Protection - Operator
+        - io.k8s.display-name=OADP Operator
+        - io.openshift.build.source-location=https://github.com/openshift/oadp-operator
+        - io.openshift.tags=migration
+        - maintainer=OpenShift API for Data Protection Team <oadp-team@redhat.com>
+        - name=oadp/oadp-rhel9-operator
+        - summary=OpenShift API for Data Protection - Operator
+        - vendor=Red Hat, Inc.
+        - version=1.3.8
       runAfter:
       - prefetch-dependencies
       taskRef:
@@ -550,6 +567,9 @@ spec:
         value: $(tasks.build-image-index.results.IMAGE_URL)
       - name: IMAGE_DIGEST
         value: $(tasks.build-image-index.results.IMAGE_DIGEST)
+      - name: ADDITIONAL_TAGS
+        value:
+        - 'pull-request-{{pull_request_number}}'
       runAfter:
       - build-image-index
       taskRef:
@@ -606,6 +626,28 @@ spec:
         operator: in
         values:
         - "false"
+    - name: generate-labels
+      params:
+      - name: label-templates
+        value:
+        - build-date=$SOURCE_DATE
+        - short-commit=$(tasks.clone-repository.results.short-commit)
+        - io.openshift.build.commit.id=$(tasks.clone-repository.results.commit)
+        - io.openshift.build.commit.url=https://github.com/openshift/oadp-operator/commit/$(tasks.clone-repository.results.commit)
+        - release=$ACTUAL_DATE_EPOCH
+      - name: source-date-epoch
+        value: $(tasks.clone-repository.results.commit-timestamp)
+      runAfter:
+      - clone-repository
+      taskRef:
+        params:
+        - name: name
+          value: generate-labels
+        - name: bundle
+          value: quay.io/konflux-ci/tekton-catalog/task-generate-labels:0.1@sha256:e1f4746dc33206a17867ead8f5c82a569cd925d352a19d108f205f54efc5589d
+        - name: kind
+          value: task
+        resolver: bundles
     workspaces:
     - name: git-auth
       optional: true
