@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.16.5
+    controller-gen.kubebuilder.io/version: v0.14.0
   name: backups.velero.io
 spec:
   group: velero.io
@@ -62,6 +62,7 @@ spec:
                 description: |-
                   DefaultVolumesToRestic specifies whether restic should be used to take a
                   backup of all pod volumes by default.
+
 
                   Deprecated: this field is no longer used and will be removed entirely in future. Use DefaultVolumesToFsBackup instead.
                 nullable: true
@@ -175,13 +176,11 @@ spec:
                                     items:
                                       type: string
                                     type: array
-                                    x-kubernetes-list-type: atomic
                                 required:
                                 - key
                                 - operator
                                 type: object
                               type: array
-                              x-kubernetes-list-type: atomic
                             matchLabels:
                               additionalProperties:
                                 type: string
@@ -330,7 +329,7 @@ spec:
               itemOperationTimeout:
                 description: |-
                   ItemOperationTimeout specifies the time used to wait for asynchronous BackupItemAction operations
-                  The default value is 4 hour.
+                  The default value is 1 hour.
                 type: string
               labelSelector:
                 description: |-
@@ -365,13 +364,11 @@ spec:
                           items:
                             type: string
                           type: array
-                          x-kubernetes-list-type: atomic
                       required:
                       - key
                       - operator
                       type: object
                     type: array
-                    x-kubernetes-list-type: atomic
                   matchLabels:
                     additionalProperties:
                       type: string
@@ -428,13 +425,11 @@ spec:
                             items:
                               type: string
                             type: array
-                            x-kubernetes-list-type: atomic
                         required:
                         - key
                         - operator
                         type: object
                       type: array
-                      x-kubernetes-list-type: atomic
                     matchLabels:
                       additionalProperties:
                         type: string
@@ -498,15 +493,6 @@ spec:
                   TTL is a time.Duration-parseable string describing how long
                   the Backup should be retained for.
                 type: string
-              uploaderConfig:
-                description: UploaderConfig specifies the configuration for the uploader.
-                nullable: true
-                properties:
-                  parallelFilesUpload:
-                    description: ParallelFilesUpload is the number of files parallel
-                      uploads to perform when using the uploader.
-                    type: integer
-                type: object
               volumeSnapshotLocations:
                 description: VolumeSnapshotLocations is a list containing names of
                   VolumeSnapshotLocations associated with this backup.
@@ -570,22 +556,6 @@ spec:
                 description: FormatVersion is the backup format version, including
                   major, minor, and patch version.
                 type: string
-              hookStatus:
-                description: HookStatus contains information about the status of the
-                  hooks.
-                nullable: true
-                properties:
-                  hooksAttempted:
-                    description: |-
-                      HooksAttempted is the total number of attempted hooks
-                      Specifically, HooksAttempted represents the number of hooks that failed to execute
-                      and the number of hooks that executed successfully.
-                    type: integer
-                  hooksFailed:
-                    description: HooksFailed is the total number of hooks which ended
-                      with an error
-                    type: integer
-                type: object
               phase:
                 description: Phase is the current state of the Backup.
                 enum:
