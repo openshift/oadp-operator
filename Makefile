@@ -17,8 +17,6 @@ VSL_REGION ?= ${LEASED_RESOURCE}
 BSL_AWS_PROFILE ?= default
 # BSL_AWS_PROFILE ?= migration-engineering
 
-# vsl secret
-CREDS_SECRET_REF ?= cloud-credentials
 # bucket file
 OADP_BUCKET_FILE ?= ${OADP_CRED_DIR}/new-velero-bucket-name
 # azure cluster resource file - only in CI
@@ -29,9 +27,10 @@ AZURE_OADP_JSON_CRED_FILE ?= ${OADP_CRED_DIR}/azure-credentials
 # Misc
 OPENSHIFT_CI ?= true
 VELERO_INSTANCE_NAME ?= velero-test
-E2E_TIMEOUT_MULTIPLIER ?= 1
 ARTIFACT_DIR ?= /tmp
 OC_CLI = $(shell which oc)
+TEST_VIRT ?= false
+TEST_UPGRADE ?= false
 
 ifdef CLI_DIR
 	OC_CLI = ${CLI_DIR}/oc
@@ -39,11 +38,12 @@ endif
 # makes CLUSTER_TYPE quieter when unauthenticated
 CLUSTER_TYPE_SHELL := $(shell $(OC_CLI) get infrastructures cluster -o jsonpath='{.status.platform}' 2> /dev/null | tr A-Z a-z)
 CLUSTER_TYPE ?= $(CLUSTER_TYPE_SHELL)
+CLUSTER_OS = $(shell $(OC_CLI) get node -o jsonpath='{.items[0].status.nodeInfo.operatingSystem}' 2> /dev/null)
+CLUSTER_ARCH = $(shell $(OC_CLI) get node -o jsonpath='{.items[0].status.nodeInfo.architecture}' 2> /dev/null)
 
 ifeq ($(CLUSTER_TYPE), gcp)
 	CI_CRED_FILE = ${CLUSTER_PROFILE_DIR}/gce.json
 	OADP_CRED_FILE = ${OADP_CRED_DIR}/gcp-credentials
-	CREDS_SECRET_REF = cloud-credentials-gcp
 	OADP_BUCKET_FILE = ${OADP_CRED_DIR}/gcp-velero-bucket-name
 endif
 
@@ -54,7 +54,6 @@ endif
 ifeq ($(CLUSTER_TYPE), azure)
 	CI_CRED_FILE = /tmp/ci-azure-credentials
 	OADP_CRED_FILE = /tmp/oadp-azure-credentials
-	CREDS_SECRET_REF = cloud-credentials-azure
 	OADP_BUCKET_FILE = ${OADP_CRED_DIR}/azure-velero-bucket-name
 endif
 
@@ -64,8 +63,9 @@ ifeq ($(CLUSTER_TYPE), ibmcloud)
 	VELERO_PLUGIN = aws
 endif
 
+# Kubernetes version from OpenShift 4.16.x https://openshift-release.apps.ci.l2s4.p1.openshiftapps.com/#4-stable
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
-ENVTEST_K8S_VERSION = 1.21
+ENVTEST_K8S_VERSION = 1.29
 
 # VERSION defines the project version for the bundle.
 # Update this value when you upgrade the version of your project.
@@ -109,7 +109,6 @@ BUNDLE_IMG ?= $(IMAGE_TAG_BASE)-bundle:v$(VERSION)
 
 # Image URL to use all building/pushing image targets
 IMG ?= quay.io/konveyor/oadp-operator:oadp-1.3
-# Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
 CRD_OPTIONS ?= "crd"
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
@@ -213,13 +212,14 @@ build: generate fmt vet ## Build manager binary.
 run: manifests generate fmt vet ## Run a controller from your host.
 	go run ./main.go
 
-# Development clusters require linux/amd64 OCI image
-# Set platform to linux/amd64 regardless of host platform.
 # If using podman machine, and host platform is not linux/amd64 run
 # - podman machine ssh sudo rpm-ostree install qemu-user-static && sudo systemctl reboot
 # from: https://github.com/containers/podman/issues/12144#issuecomment-955760527
 # related enhancements that may remove the need to manually install qemu-user-static https://bugzilla.redhat.com/show_bug.cgi?id=2061584
 DOCKER_BUILD_ARGS ?= --platform=linux/amd64
+ifneq ($(CLUSTER_TYPE),)
+	DOCKER_BUILD_ARGS = --platform=$(CLUSTER_OS)/$(CLUSTER_ARCH)
+endif
 docker-build: ## Build docker image with the manager.
 	docker build -t $(IMG) . $(DOCKER_BUILD_ARGS)
 
@@ -259,7 +259,7 @@ build-deploy: ## Build current branch image and deploy controller to the k8s clu
 
 CONTROLLER_GEN = $(shell pwd)/bin/controller-gen
 controller-gen: ## Download controller-gen locally if necessary.
-	$(call go-install-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@v0.14.0)
+	$(call go-install-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@v0.16.5)
 
 KUSTOMIZE = $(shell pwd)/bin/kustomize
 kustomize: ## Download kustomize locally if necessary.
@@ -314,7 +314,7 @@ operator-sdk:
 	# Download operator-sdk locally if does not exist
 	if [ ! -f $(OPERATOR_SDK) ]; then \
 		mkdir -p bin ;\
-		curl -Lo $(OPERATOR_SDK) https://github.com/operator-framework/operator-sdk/releases/download/v1.23.0/operator-sdk_$(shell go env GOOS)_$(shell go env GOARCH) ; \
+		curl -Lo $(OPERATOR_SDK) https://github.com/operator-framework/operator-sdk/releases/download/v1.34.2/operator-sdk_$(shell go env GOOS)_$(shell go env GOARCH) ; \
 		chmod +x $(OPERATOR_SDK); \
 	fi
 
@@ -328,6 +328,8 @@ bundle: manifests kustomize operator-sdk ## Generate bundle manifests and metada
 	# TODO: update CI to use generated one
 	cp bundle.Dockerfile build/Dockerfile.bundle
 	GOFLAGS="-mod=mod" $(OPERATOR_SDK) bundle validate ./bundle
+	sed -e 's/    createdAt: .*/$(shell grep -I '^    createdAt: ' bundle/manifests/oadp-operator.clusterserviceversion.yaml)/' bundle/manifests/oadp-operator.clusterserviceversion.yaml > bundle/manifests/oadp-operator.clusterserviceversion.yaml.tmp
+	mv bundle/manifests/oadp-operator.clusterserviceversion.yaml.tmp bundle/manifests/oadp-operator.clusterserviceversion.yaml
 
 .PHONY: nullables
 nullables:
@@ -388,8 +390,8 @@ deploy-olm: operator-sdk undeploy-olm ## Build current branch operator image, bu
 	cp -r . $(DEPLOY_TMP) && cd $(DEPLOY_TMP) && \
 	IMG=$(THIS_OPERATOR_IMAGE) BUNDLE_IMG=$(THIS_BUNDLE_IMAGE) \
 		make docker-build docker-push bundle bundle-build bundle-push; \
-	rm -rf $(DEPLOY_TMP)
-	$(OPERATOR_SDK) run bundle $(THIS_BUNDLE_IMAGE) --namespace $(OADP_TEST_NAMESPACE)
+	chmod -R 777 ${DEPLOY_TMP} && rm -rf $(DEPLOY_TMP)
+	$(OPERATOR_SDK) run bundle --security-context-config restricted $(THIS_BUNDLE_IMAGE) --namespace $(OADP_TEST_NAMESPACE)
 
 .PHONY: undeploy-olm
 undeploy-olm: login-required ## Uninstall current branch operator via OLM
@@ -445,31 +447,32 @@ catalog-push: ## Push a catalog image.
 
 # A valid Git branch from https://github.com/openshift/oadp-operator
 PREVIOUS_CHANNEL ?= oadp-1.2
+# Go version in go.mod in that branch
+PREVIOUS_CHANNEL_GO_VERSION ?= 1.20
 
 .PHONY: catalog-test-upgrade
-catalog-test-upgrade: TEMP:= $(shell mktemp -d)
 catalog-test-upgrade: PREVIOUS_OPERATOR_IMAGE?=ttl.sh/oadp-operator-previous-$(GIT_REV):1h
 catalog-test-upgrade: PREVIOUS_BUNDLE_IMAGE?=ttl.sh/oadp-operator-previous-bundle-$(GIT_REV):1h
 catalog-test-upgrade: THIS_OPERATOR_IMAGE?=ttl.sh/oadp-operator-$(GIT_REV):1h
 catalog-test-upgrade: THIS_BUNDLE_IMAGE?=ttl.sh/oadp-operator-bundle-$(GIT_REV):1h
 catalog-test-upgrade: CATALOG_IMAGE?=ttl.sh/oadp-operator-catalog-$(GIT_REV):1h
 catalog-test-upgrade: opm login-required ## Prepare a catalog image with two channels: PREVIOUS_CHANNEL and from current branch
-	cp -r ./ $(TEMP)/current
-	git clone --depth=1 git@github.com:openshift/oadp-operator.git -b $(PREVIOUS_CHANNEL) $(TEMP)/$(PREVIOUS_CHANNEL)
-	cd $(TEMP)/$(PREVIOUS_CHANNEL) && IMG=$(PREVIOUS_OPERATOR_IMAGE) BUNDLE_IMG=$(PREVIOUS_BUNDLE_IMAGE) make bundle && \
+	mkdir test-upgrade && rsync -a --exclude=test-upgrade ./ test-upgrade/current
+	git clone --depth=1 git@github.com:openshift/oadp-operator.git -b $(PREVIOUS_CHANNEL) test-upgrade/$(PREVIOUS_CHANNEL)
+	cd test-upgrade/$(PREVIOUS_CHANNEL) && \
+		echo -e "FROM golang:$(PREVIOUS_CHANNEL_GO_VERSION)\nRUN useradd --create-home dev\nUSER dev\nWORKDIR /home/dev/$(PREVIOUS_CHANNEL)" | docker image build --tag catalog-test-upgrade - && \
+		docker container run -u $(shell id -u):$(shell id -g) -v $(shell pwd)/test-upgrade/$(PREVIOUS_CHANNEL):/home/dev/$(PREVIOUS_CHANNEL) --rm catalog-test-upgrade make bundle IMG=$(PREVIOUS_OPERATOR_IMAGE) BUNDLE_IMG=$(PREVIOUS_BUNDLE_IMAGE) && \
 		sed -i '/replaces:/d' ./bundle/manifests/oadp-operator.clusterserviceversion.yaml && \
 		IMG=$(PREVIOUS_OPERATOR_IMAGE) BUNDLE_IMG=$(PREVIOUS_BUNDLE_IMAGE) \
 		make docker-build docker-push bundle-build bundle-push && cd -
-	cd $(TEMP)/current && IMG=$(THIS_OPERATOR_IMAGE) BUNDLE_IMG=$(THIS_BUNDLE_IMAGE) make bundle && \
+	cd test-upgrade/current && IMG=$(THIS_OPERATOR_IMAGE) BUNDLE_IMG=$(THIS_BUNDLE_IMAGE) make bundle && \
 		sed -i '/replaces:/d' ./bundle/manifests/oadp-operator.clusterserviceversion.yaml && \
 		IMG=$(THIS_OPERATOR_IMAGE) BUNDLE_IMG=$(THIS_BUNDLE_IMAGE) \
 		make docker-build docker-push bundle-build bundle-push && cd -
 	$(OPM) index add --container-tool docker --bundles $(PREVIOUS_BUNDLE_IMAGE),$(THIS_BUNDLE_IMAGE) --tag $(CATALOG_IMAGE)
 	docker push $(CATALOG_IMAGE)
 	echo -e "apiVersion: operators.coreos.com/v1alpha1\nkind: CatalogSource\nmetadata:\n  name: oadp-operator-catalog-test-upgrade\n  namespace: openshift-marketplace\nspec:\n  sourceType: grpc\n  image: $(CATALOG_IMAGE)" | $(OC_CLI) create -f -
-	# To delete it afterwards, run `$(OC_CLI) delete catalogsource oadp-operator-catalog-test-upgrade -n openshift-marketplace`
-	# or `make undeploy-olm`
-	chmod -R 777 $(TEMP) && rm -rf $(TEMP)
+	chmod -R 777 test-upgrade && rm -rf test-upgrade && docker image rm catalog-test-upgrade
 
 .PHONY: login-required
 login-required:
@@ -484,9 +487,19 @@ install-ginkgo: # Make sure ginkgo is in $GOPATH/bin
 	go install -v -mod=mod github.com/onsi/ginkgo/v2/ginkgo
 
 OADP_BUCKET ?= $(shell cat $(OADP_BUCKET_FILE))
-TEST_FILTER := ($(shell echo '! aws && ! gcp && ! azure && ! ibmcloud' | \
-sed -r "s/[&]* [!] $(CLUSTER_TYPE)|[!] $(CLUSTER_TYPE) [&]*//")) || $(CLUSTER_TYPE)
+TEST_FILTER = (($(shell echo '! aws && ! gcp && ! azure && ! ibmcloud' | \
+sed -r "s/[&]* [!] $(CLUSTER_TYPE)|[!] $(CLUSTER_TYPE) [&]*//")) || $(CLUSTER_TYPE))
 #TEST_FILTER := $(shell echo '! aws && ! gcp && ! azure' | sed -r "s/[&]* [!] $(CLUSTER_TYPE)|[!] $(CLUSTER_TYPE) [&]*//")
+ifeq ($(TEST_VIRT),true)
+	TEST_FILTER += && (virt)
+else
+	TEST_FILTER += && (! virt)
+endif
+ifeq ($(TEST_UPGRADE),true)
+	TEST_FILTER += && (upgrade)
+else
+	TEST_FILTER += && (! upgrade)
+endif
 SETTINGS_TMP=/tmp/test-settings
 
 .PHONY: test-e2e-setup
@@ -495,7 +508,6 @@ test-e2e-setup: login-required build-must-gather
 	TMP_DIR=$(SETTINGS_TMP) \
 	OPENSHIFT_CI="$(OPENSHIFT_CI)" \
 	PROVIDER="$(VELERO_PLUGIN)" \
-	SECRET="$(CREDS_SECRET_REF)" \
 	AZURE_RESOURCE_FILE="$(AZURE_RESOURCE_FILE)" \
 	CI_JSON_CRED_FILE="$(AZURE_CI_JSON_CRED_FILE)" \
 	OADP_JSON_CRED_FILE="$(AZURE_OADP_JSON_CRED_FILE)" \
@@ -512,12 +524,10 @@ test-e2e: test-e2e-setup install-ginkgo
 	ginkgo run -mod=mod tests/e2e/ -- \
 	-settings=$(SETTINGS_TMP)/oadpcreds \
 	-provider=$(CLUSTER_TYPE) \
-	-creds_secret_ref=$(CREDS_SECRET_REF) \
 	-credentials=$(OADP_CRED_FILE) \
 	-ci_cred_file=$(CI_CRED_FILE) \
 	-velero_namespace=$(OADP_TEST_NAMESPACE) \
 	-velero_instance_name=$(VELERO_INSTANCE_NAME) \
-	-timeout_multiplier=$(E2E_TIMEOUT_MULTIPLIER) \
 	-artifact_dir=$(ARTIFACT_DIR) \
 	--ginkgo.vv \
 	--ginkgo.no-color=$(OPENSHIFT_CI) \
