@@ -4,9 +4,9 @@
 
 ## Preface
 
-The OpenShift Container Platform provides a [monitoring stack](https://access.redhat.com/documentation/en-us/openshift_container_platform/4.13/html/monitoring/index) that allows users and administrators to effectively monitor and manage their OpenShift clusters, as well as monitor and analyze the workload performance of user applications and services running on the clusters including receiving alerts when some events occurs.
+The OpenShift Container Platform provides a [monitoring stack](https://access.redhat.com/documentation/en-us/openshift_container_platform/latest/html/monitoring/index) that allows users and administrators to effectively monitor and manage their OpenShift clusters, as well as monitor and analyze the workload performance of user applications and services running on the clusters including receiving alerts when some events occurs.
 
-The OADP Operator leverages an OpenShift [User Workload Monitoring](https://access.redhat.com/documentation/en-us/openshift_container_platform/4.13/html/monitoring/enabling-monitoring-for-user-defined-projects) provided by the OpenShift Monitoring Stack for retrieving number of [metrics](#metrics) from the Velero service endpoint. The monitoring stack allows creating user-defined Alerting Rules or querying metrics using the OpenShift Metrics query front-end.
+The OADP Operator leverages an OpenShift [User Workload Monitoring](https://access.redhat.com/documentation/en-us/openshift_container_platform/latest/html/monitoring/configuring-user-workload-monitoring) provided by the OpenShift Monitoring Stack for retrieving number of [metrics](#metrics) from the Velero service endpoint. The monitoring stack allows creating user-defined Alerting Rules or querying metrics using the OpenShift Metrics query front-end.
 
 With enabled User Workload Monitoring it is also possible to configure and use any Prometheus-compatible third-party UI, such as Grafana to visualize Velero metrics. Please note that the usage of third-party UIs falls outside the scope of this document.
 
@@ -26,7 +26,7 @@ Monitoring [metrics](#metrics) requires enabling monitoring for the user-defined
 
 ### Enable and Configure User Workload Monitoring
 
-This paragraph will provide a short set of instructions how to enable user workload monitoring for an OADP project in the cluster. For comprehensive set of configuration options refer to the [enabling monitoring for user-defined projects](https://access.redhat.com/documentation/en-us/openshift_container_platform/4.13/html/monitoring/enabling-monitoring-for-user-defined-projects#doc-wrapper) documentation.
+This paragraph will provide a short set of instructions how to enable user workload monitoring for an OADP project in the cluster. For comprehensive set of configuration options refer to the [enabling monitoring for user-defined projects](https://docs.redhat.com/en/documentation/openshift_container_platform/latest/html/monitoring/configuring-user-workload-monitoring#enabling-monitoring-for-user-defined-projects_preparing-to-configure-the-monitoring-stack-uwm) documentation.
 
 
 1. Edit the `cluster-monitoring-config` ConfigMap object in the `openshift-monitoring` namespace and add or enable the `enableUserWorkload` option under `data/config.yaml`. 
@@ -38,10 +38,10 @@ This paragraph will provide a short set of instructions how to enable user workl
 
     ```yaml
     apiVersion: v1
+    kind: ConfigMap
     data:
       config.yaml: |
         enableUserWorkload: true  # Add this option or set to true
-    kind: ConfigMap
     metadata:
     # [...]
     ```
@@ -183,51 +183,59 @@ Please refer to the OpenShift documentation for detailed instructions on how to 
 
 ### List of available metrics
 
+- `velero`: Used for general Velero metrics
+- `podVolume`: Used for Pod Volume Backup metrics
+
 Following is the list of metrics provided by the OADP together with their [Types](https://prometheus.io/docs/concepts/metric_types/)
+
+#### `velero` metrics
 
 | Metric Name | Description | Type |
 | ----------- | ----------- | --- |
-| kopia_content_cache_hit_bytes | Number of bytes retrieved from the cache | Counter |
-| kopia_content_cache_hit_count | Number of time content was retrieved from the cache | Counter |
-| kopia_content_cache_malformed | Number of times malformed content was read from the cache | Counter |
-| kopia_content_cache_miss_count | Number of time content was not found in the cache and fetched | Counter |
-| kopia_content_cache_missed_bytes | Number of bytes retrieved from the underlying storage | Counter |
-| kopia_content_cache_miss_error_count | Number of time content could not be found in the underlying storage | Counter |
-| kopia_content_cache_store_error_count | Number of time content could not be saved in the cache | Counter |
-| kopia_content_get_bytes | Number of bytes retrieved using GetContent | Counter |
-| kopia_content_get_count | Number of time GetContent() was called | Counter |
-| kopia_content_get_error_count | Number of time GetContent() was called and the result was an error | Counter |
-| kopia_content_get_not_found_count | Number of time GetContent() was called and the result was not found | Counter |
-| kopia_content_write_bytes | Number of bytes passed to WriteContent() | Counter |
-| kopia_content_write_count | Number of time WriteContent() was called | Counter |
-| velero_backup_attempt_total | Total number of attempted backups | Counter |
-| velero_backup_deletion_attempt_total | Total number of attempted backup deletions | Counter |
-| velero_backup_deletion_failure_total | Total number of failed backup deletions | Counter |
-| velero_backup_deletion_success_total | Total number of successful backup deletions | Counter |
-| velero_backup_duration_seconds | Time taken to complete backup, in seconds | Histogram |
-| velero_backup_failure_total | Total number of failed backups | Counter |
-| velero_backup_items_errors | Total number of errors encountered during backup | Gauge |
-| velero_backup_items_total | Total number of items backed up | Gauge |
-| velero_backup_last_status | Last status of the backup. A value of 1 is success, 0 | Gauge |
-| velero_backup_last_successful_timestamp | Last time a backup ran successfully, Unix timestamp in seconds | Gauge |
-| velero_backup_partial_failure_total | Total number of partially failed backups | Counter |
-| velero_backup_success_total | Total number of successful backups | Counter |
 | velero_backup_tarball_size_bytes | Size, in bytes, of a backup | Gauge |
 | velero_backup_total | Current number of existent backups | Gauge |
+| velero_backup_attempt_total | Total number of attempted backups | Counter |
+| velero_backup_success_total | Total number of successful backups | Counter |
+| velero_backup_partial_failure_total | Total number of partially failed backups | Counter |
+| velero_backup_failure_total | Total number of failed backups | Counter |
 | velero_backup_validation_failure_total | Total number of validation failed backups | Counter |
+| velero_backup_duration_seconds | Time taken to complete backup, in seconds | Histogram |
+| velero_backup_deletion_attempt_total | Total number of attempted backup deletions | Counter |
+| velero_backup_deletion_success_total | Total number of successful backup deletions | Counter |
+| velero_backup_deletion_failure_total | Total number of failed backup deletions | Counter |
+| velero_backup_last_successful_timestamp | Last time a backup ran successfully, Unix timestamp in seconds | Gauge |
+| velero_backup_items_total | Total number of items backed up | Gauge |
+| velero_backup_items_errors | Total number of errors encountered during backup | Gauge |
 | velero_backup_warning_total | Total number of warned backups | Counter |
-| velero_csi_snapshot_attempt_total | Total number of CSI attempted volume snapshots | Counter |
-| velero_csi_snapshot_failure_total | Total number of CSI failed volume snapshots | Counter |
-| velero_csi_snapshot_success_total | Total number of CSI successful volume snapshots | Counter |
-| velero_restore_attempt_total | Total number of attempted restores | Counter |
-| velero_restore_failed_total | Total number of failed restores | Counter |
-| velero_restore_partial_failure_total | Total number of partially failed restores | Counter |
-| velero_restore_success_total | Total number of successful restores | Counter |
+| velero_backup_last_status | Last status of the backup. A value of 1 is success, 0 is failure | Gauge |
 | velero_restore_total | Current number of existent restores | Gauge |
+| velero_restore_attempt_total | Total number of attempted restores | Counter |
 | velero_restore_validation_failed_total | Total number of failed restores failing validations | Counter |
+| velero_restore_success_total | Total number of successful restores | Counter |
+| velero_restore_partial_failure_total | Total number of partially failed restores | Counter |
+| velero_restore_failed_total | Total number of failed restores | Counter |
 | velero_volume_snapshot_attempt_total | Total number of attempted volume snapshots | Counter |
-| velero_volume_snapshot_failure_total | Total number of failed volume snapshots | Counter |
 | velero_volume_snapshot_success_total | Total number of successful volume snapshots | Counter |
+| velero_volume_snapshot_failure_total | Total number of failed volume snapshots | Counter |
+| velero_csi_snapshot_attempt_total | Total number of CSI attempted volume snapshots | Counter |
+| velero_csi_snapshot_success_total | Total number of CSI successful volume snapshots | Counter |
+| velero_csi_snapshot_failure_total | Total number of CSI failed volume snapshots | Counter |
+
+#### `podVolume` metrics
+
+| Metric Name | Description | Type |
+| ----------- | ----------- | --- |
+| podVolume_pod_volume_backup_enqueue_count | Total number of pod_volume_backup objects enqueued | Counter |
+| podVolume_pod_volume_backup_dequeue_count | Total number of pod_volume_backup objects dequeued | Counter |
+| podVolume_pod_volume_operation_latency_seconds | Time taken to complete pod volume operations, in seconds | Histogram |
+| podVolume_pod_volume_operation_latency_seconds_gauge | Gauge metric indicating time taken, in seconds, to perform pod volume operations | Gauge |
+| podVolume_data_upload_success_total | Total number of successful uploaded snapshots | Counter |
+| podVolume_data_upload_failure_total | Total number of failed uploaded snapshots | Counter |
+| podVolume_data_upload_cancel_total | Total number of canceled uploaded snapshots | Counter |
+| podVolume_data_download_success_total | Total number of successful downloaded snapshots | Counter |
+| podVolume_data_download_failure_total | Total number of failed downloaded snapshots | Counter |
+| podVolume_data_download_cancel_total | Total number of canceled downloaded snapshots | Counter |
+
 
 ### Viewing metrics using OpenShift Observe UI
 
