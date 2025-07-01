@@ -786,7 +786,7 @@ ai-review-gptme-ollama: gptme ## Review staged git changes using gptme with loca
 		--model "local/$(GPTME_OLLAMA_MODEL)" \
 		--tools "$(TOOLS)" \
 		--non-interactive
-	# Only stop and remove container if we started it
+	@# Only stop and remove container if we started it
 	@if podman ps | grep -q ollama; then \
 		echo "Stopping and removing Ollama container..."; \
 		podman stop ollama && podman rm ollama; \
