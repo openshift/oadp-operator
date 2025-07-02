@@ -259,7 +259,7 @@ func ReplaceClusterInformationSection(
 	}
 
 	if strings.EqualFold(cloudProvider, IBMCloudConstant) {
-		summaryTemplateReplaces["CLOUD"] = "IBM Cloud [WARNING:](https://access.redhat.com/articles/5456281#known-issues-with-cloud-providers-and-hyperscalers-18)"
+		summaryTemplateReplaces["CLOUD"] += " [WARNING:](https://access.redhat.com/articles/5456281#known-issues-with-cloud-providers-and-hyperscalers-18)"
 	}
 
 	if nodeList != nil && len(nodeList.Items) != 0 {
