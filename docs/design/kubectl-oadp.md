@@ -17,7 +17,7 @@ The current OpenShift cli is suboptimal as oc backup delete $foo deletes the k8 
 A use case of the kubectl-oadp plugin could be when a non-cluster admin would like to create a NAB or view the logs of a NAB without having to depend on the cluster admins to do so. Another use case would be if a developer would want to create a normal backup, they can just use this plugin to do so.
 
 ## High-Level Design
-Creating a kubectl plugin (kubectl-oadp) will be a good solution to the problem at hand. It will be able to create/delete backups and restores. Non-cluster admin will be able to create NABs without the need for cluster admin to do it for them. A way to distinguish between creating either NABs or regular backups would be in the cli. For intstance, if you would like to create a NAB, you would have to do kubectl oadp create nonadmin backup [backupname].  
+Creating a kubectl plugin (kubectl-oadp) will be a good solution to the problem at hand. It will be able to create/delete backups and restores. Non-cluster admin will be able to create NABs without the need for cluster admin to do it for them. A way to distinguish between creating either NABs or regular backups would be in the cli. For instance, if you would like to create a NAB, you would have to do kubectl oadp create nonadmin backup [backupname].  
 
 ## Detailed Design
 The kubectl plugin will have imports from velero to help with the creation/deletion of backups and restores. It will be written in Golang and be using cobra for command-line parsing. The non-admin cli can be a subset of some backup clis that already exist such as backup.go and create.go. The plugin can be manually installed by utilizing the quick-create.sh file which creates the plugin and moves it to the respective location.
