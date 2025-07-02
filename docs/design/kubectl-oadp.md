@@ -4,7 +4,7 @@
 The purpose of the kubectl-oadp plugin is to allow the customer to create and delete backups, along with creating restores in OADP without needing to alias velero to do so. Non-cluster admins should also be able to create NABs and get the logs from them.
 
 ## Background
-The current OpenShift cli is suboptimal as oc backup delete $foo deletes the k8 object instead of the backup but velero backup delete $foo deletes the backup, along with the backup files in storage. Currently, customers would need to alias velero in order to delete their backups, which is not ideal. The purpose of kubectl-oadp would be to make the cli experience better and easier to use along with enabling users to be able to get the logs of the backups.
+The current OpenShift cli is suboptimal as oc backup delete $foo deletes the k8s object instead of the backup but velero backup delete $foo deletes the backup, along with the backup files in storage. Currently, customers would need to alias velero in order to delete their backups, which is not ideal. The purpose of kubectl-oadp would be to make the cli experience better and easier to use along with enabling users to be able to get the logs of the backups.
 
 ## Goals
 - Customers can create, delete, and restore backups
