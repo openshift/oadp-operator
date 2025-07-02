@@ -67,7 +67,7 @@ kubectl oadp restore create
 ## Alternatives Considered
 An alternative that was considered was creating our own CLI from scratch and not using a plugin. We can instead use the existing oc commands and just add on to them with a kubectl plugin. 
 
-Aliasing is another way in which you could access the velero command line. However, this is not ideal because some individuals do not have permission to use the velero cli, so the kubectl plugin would allow those people to use velero cli. 
+Aliasing is another way in which you could access the velero command line. However, this is not ideal because non admins do not have permission to use the velero cli, so the kubectl plugin would allow non admins to retrieve their non admin backups similar to admins via velero cli. 
 
 ## Security Considerations
 The security for the plugin is controlled by OpenShift RBAC, enabling cluster admins to manage user permissions. This is utilized to restrict users to commands permitted within their namespace. The plugin also generates error messages like "Unauthorized Access" when users attempt commands without proper permissions.
