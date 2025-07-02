@@ -657,17 +657,12 @@ endif
 build-must-gather: ## Build OADP Must-gather binary must-gather/oadp-must-gather
 	cd must-gather && go build -mod=mod -a -o oadp-must-gather cmd/main.go
 
-# Common AI review prompt
-define AI_REVIEW_PROMPT
-Review this git diff for a project called OADP (OpenShift API for Data Protection) operator. Focus on: \
-1. Code quality and best practices \
-2. Potential bugs or issues \
-3. Go idioms and conventions \
-4. Kubernetes/OpenShift operator patterns \
-5. Security concerns \
-Please provide actionable feedback. Be concise but thorough. \
-If able, browse linked URLs for context.
-endef
+# Include AI review prompt - use custom prompt if exists, otherwise use example
+ifneq (,$(wildcard ./ai/Makefile/Prompt/prompt))
+include ./ai/Makefile/Prompt/prompt
+else
+include ./ai/Makefile/Prompt/prompt.example
+endif
 
 # AI code review using Ollama on Podman
 # 
