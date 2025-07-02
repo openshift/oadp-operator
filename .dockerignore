@@ -1,16 +1,17 @@
+# More info: https://docs.docker.com/engine/reference/builder/#dockerignore-file
+# Ignore build and test binaries.
+bin/
+
 *.md
 blogs
-bin
 .vscode
 .github
 .devcontainer
 build
 cache
-.ci-operator.yaml
 .gitignore
 ./*.yml
 ./*.yaml
-OWNERS*
+OWNERS
 PROJECT
-LICENSE
 Dockerfile
