@@ -69,7 +69,7 @@ An alternative that was considered was creating our own CLI from scratch and not
 Aliasing is another way in which you could access the velero command line. However, this is not ideal because some individuals do not have permission to use the velero cli, so the kubectl plugin would allow those people to use velero cli. 
 
 ## Security Considerations
-The security for the plugin is controlled by OpenShift RBAC, which allows cluster admins to control permissions of users below it. This is untilized to allows users to only be allowed to use the commands that they have permission to use by their namespace. The plugin would also create error statements like "Unautherized Access" whenever a user who does not have the right permissions tries to do unautherized commands.
+The security for the plugin is controlled by OpenShift RBAC, enabling cluster admins to manage user permissions. This is utilized to restrict users to commands permitted within their namespace. The plugin also generates error messages like "Unauthorized Access" when users attempt commands without proper permissions.
 
 ## Compatibility
 This plugin would need to be updated so that it would be importing the right version of the velero backup and restore libraries.
