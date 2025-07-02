@@ -50,4 +50,4 @@ tests/e2e/must-gather/
 .ollama/
 
 # Custom AI review prompt (use prompt.example as template)
-./ai/Makefile/Prompt/prompt
+ai/Makefile/Prompt/prompt

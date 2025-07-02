@@ -742,7 +742,7 @@ ai-review-gptme-ollama: gptme ## Review staged git changes using gptme with loca
 		mkdir -p .ollama; \
 		if ! podman ps | grep -q ollama; then \
 			podman run -d \
-				-v $$(pwd)/.ollama:/root/.ollama \
+				-v $$(pwd)/.ollama:/root/.ollama:Z \
 				-p 11434:11434 \
 				--memory=$(OLLAMA_MEMORY)g \
 				--memory-swap=$(OLLAMA_MEMORY)g \
