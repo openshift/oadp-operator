@@ -37,7 +37,7 @@ import (
 	"github.com/vmware-tanzu/velero/pkg/cmd/cli/version"
 )
 ```
-With non-admin, we would have to create the cli ourselves since there are no cli’s for it.
+With non-admin, we would have to create the cli ourselves since there are no CLIs for it.
 
 ```go
 func NewCreateCommand(f client.Factory, use string) *cobra.Command {
