@@ -8,7 +8,7 @@ The current OpenShift cli is suboptimal as oc backup delete $foo deletes the k8 
 
 ## Goals
 - Customers can create, delete, and restore backups
-- A non-cluster admin can create, delete and recieve the logs of the Non-Admin-Backups (NAB)
+- A non-cluster admin can create, delete and receive the logs of the Non-Admin-Backups (NAB)
 
 ## Non-Goals
 - Non-Admin-Restore and other Non-Admin CRs due to time constraints
