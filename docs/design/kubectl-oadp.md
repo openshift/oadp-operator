@@ -1,26 +1,26 @@
 # Kubectl-oadp plugin design
 
 ## Abstract
-The purpose of the kubectl-oadp plugin is to allow the customer to create and delete backups, along with creating restores in OADP without needing to alias velero to do so. Non-cluster admins should also be able to create NABs and get the logs from them.
+The purpose of the kubectl-oadp plugin is to allow the customer to create and delete backups, along with creating restores in OADP without needing to alias velero to do so. Non-cluster admins should also be able to create NABs (Non-Admin Backups) and get the logs from them.
 
 ## Background
 The current OpenShift cli is suboptimal as oc backup delete $foo deletes the k8s object instead of the backup but velero backup delete $foo deletes the backup, along with the backup files in storage. Currently, customers would need to alias velero in order to delete their backups, which is not ideal. The purpose of kubectl-oadp would be to make the cli experience better and easier to use along with enabling users to be able to get the logs of the backups.
 
 ## Goals
-- Customers can create, delete, and restore backups
+- Customers can create, delete, and get the logs of the backups and restores
 - A non-cluster admin can create, delete and receive the logs of the Non-Admin-Backups (NAB)
 
 ## Non-Goals
 - Non-Admin-Restore and other Non-Admin CRs due to time constraints
 
 ## Use-Case
-A use case of the kubectl-oadp plugin could be when a non-cluster admin would like to create a NAB or view the logs of a NAB without having to depend on the cluster admins to do so. Another use case would be if a developer would want to create a normal backup, they can just use this plugin to do so.
+A use case of the kubectl-oadp cli could be when a non-cluster admin would like to create a NAB or view the logs of a NAB without having to depend on the cluster admins to do so. Another use case would be if a developer would want to create a normal backup, they can just use this plugin to do so.
 
 ## High-Level Design
-Creating a kubectl plugin (kubectl-oadp) will be a good solution to the problem at hand. It will be able to create/delete backups and restores. Non-cluster admin will be able to create NABs without the need for cluster admin to do it for them. A way to distinguish between creating either NABs or regular backups would be in the cli. For instance, if you would like to create a NAB, you would have to do kubectl oadp create nonadmin backup [backupname].  
+Creating a kubectl plugin (kubectl-oadp) will be a good solution to the problem at hand. It will be able to create/delete backups and restores utilizing the go package imports. Non-cluster admin will be able to create NABs without the need for cluster admin to do it for them. A way to distinguish between creating either NABs or regular backups would be in the cli using the non-admin api. For instance, if you would like to create a NAB, you would have to do kubectl oadp nonadmin backup create [backupname].  
 
 ## Detailed Design
-The kubectl plugin will have imports from velero to help with the creation/deletion of backups and restores. It will be written in Golang and be using cobra for command-line parsing. The non-admin cli can be a subset of some backup clis that already exist such as backup.go and create.go. The plugin can be manually installed by utilizing the quick-create.sh file which creates the plugin and moves it to the respective location.
+The kubectl plugin will have imports from velero to help with the creation/deletion of backups and restores. It will be written in Golang and be using cobra for command-line parsing. The non-admin cli can be a subset of some backup clis that already exist such as backup.go and create.go. 
 
 What we discovered with the regular commands such as version, backup, and restore we can just import the libraries 
 
@@ -58,6 +58,7 @@ CLI Examples
 ```sh
 kubectl oadp backup create
 kubectl oadp backup delete 
+kubectl oadp nonadmin backup create <BACKUP_NAME>
 kubectl oadp nonadmin backup logs
 kubectl oadp nonadmin backup describe 
 kubectl oadp restore create
