@@ -36,6 +36,7 @@ import (
 const (
 	FilePermission   = 0644
 	FolderPermission = 0777
+	IBMCloudConstant = "IBMCloud"
 )
 
 var (
@@ -249,15 +250,16 @@ func ReplaceClusterInformationSection(
 
 	summaryTemplateReplaces["OCP_VERSION"] = clusterVersion.Status.Desired.Version
 	summaryTemplateReplaces["CLUSTER_VERSION"] = createYAML(outputPath, "cluster-scoped-resources/config.openshift.io/clusterversions.yaml", clusterVersion)
+	cloudProvider := ""
+	
 
 	if infrastructureList != nil && len(infrastructureList.Items) != 0 {
-		cloudProvider := string(infrastructureList.Items[0].Spec.PlatformSpec.Type)
+		cloudProvider = string(infrastructureList.Items[0].Spec.PlatformSpec.Type)
 		summaryTemplateReplaces["CLOUD"] = cloudProvider
 	} else {
 		summaryTemplateReplaces["CLOUD"] = "❌ no Infrastructure found in cluster"
 		summaryTemplateReplaces["ERRORS"] += "⚠️ No Infrastructure found in cluster\n\n"
 	}
-
 	if strings.EqualFold(cloudProvider, IBMCloudConstant) {
 		summaryTemplateReplaces["CLOUD"] += " [WARNING:](https://access.redhat.com/articles/5456281#known-issues-with-cloud-providers-and-hyperscalers-18)"
 	}
