@@ -700,7 +700,9 @@ endef
 #   Larger models (8GB+ memory):
 #     - llama3.1:8b
 #     - mistral
+#     - gemma3:12b (11GB)
 
+# suggestions: try gemma3:12b, then gemma3n:e4b, then gemma3n:e2b in order of decreasing memory requirements
 # Default Ollama model (using a smaller model that requires less memory)
 OLLAMA_MODEL ?= gemma3:12b
 # will require at least this much free mem in your machine or podman machine (non-linux)
