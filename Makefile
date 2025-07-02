@@ -704,7 +704,7 @@ endef
 # Default Ollama model (using a smaller model that requires less memory)
 OLLAMA_MODEL ?= gemma3:12b
 # will require at least this much free mem in your machine or podman machine (non-linux)
-OLLAMA_MEMORY ?= 9
+OLLAMA_MEMORY ?= 11
 
 # This target reviews staged changes using gptme with Ollama backend
 # Prerequisites:
