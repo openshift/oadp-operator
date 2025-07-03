@@ -656,3 +656,160 @@ endif
 .PHONY: build-must-gather
 build-must-gather: ## Build OADP Must-gather binary must-gather/oadp-must-gather
 	cd must-gather && go build -mod=mod -a -o oadp-must-gather cmd/main.go
+
+# Include AI review prompt - use custom prompt if exists, otherwise use example
+ifneq (,$(wildcard ./ai/Makefile/Prompt/prompt))
+include ./ai/Makefile/Prompt/prompt
+else
+include ./ai/Makefile/Prompt/prompt.example
+endif
+
+# AI code review using Ollama on Podman
+# 
+# Prerequisites:
+# 1. Podman installed and running
+# 
+# This target will:
+# - Create a local .ollama directory for caching models between runs
+# - Start an Ollama container if not already running
+# - Pull the model if not already cached
+# - Run the code review
+# - Stop and remove the container (but preserve the .ollama cache)
+# 
+# Usage:
+#   make ai-review-gptme-ollama                    # Uses default model (llama3.2:1b)
+#   make ai-review-gptme-ollama OLLAMA_MODEL=phi3:mini    # Uses specified model
+# 
+# Available models (examples):
+#   Small models (< 2GB memory):
+#     - llama3.2:1b (default)
+#     - phi3:mini
+#     - tinyllama
+#   
+#   Medium models (4-8GB memory):
+#     - llama3.2:3b
+#     - gemma2:2b
+#     - gemma3n:e4b (requires ~7GB)
+#     - gemma3n:e2b
+#   
+#   Larger models (8GB+ memory):
+#     - llama3.1:8b
+#     - mistral
+#     - gemma3:12b (11GB)
+
+# suggestions: try gemma3:12b, then gemma3n:e4b, then gemma3n:e2b in order of decreasing memory requirements
+# Default Ollama model (using a smaller model that requires less memory)
+OLLAMA_MODEL ?= gemma3:12b
+# will require at least this much free mem in your machine or podman machine (non-linux)
+OLLAMA_MEMORY ?= 11
+
+# This target reviews staged changes using gptme with Ollama backend
+# Prerequisites:
+#   - gptme installed (pip install gptme)
+#   - Podman installed and running
+# 
+# This target will:
+#   - Create a local .ollama directory for caching models between runs
+#   - Start an Ollama container if not already running
+#   - Pull the model if not already cached
+#   - Run the code review with gptme
+#   - Stop and remove the container (but preserve the .ollama cache)
+#
+# This version enables tools for enhanced review:
+#   - read: Read local files for context (always enabled)
+#   - browser: Browse documentation and references (only if lynx is installed)
+#
+# Usage:
+#   make ai-review-gptme-ollama                           # Uses default Ollama model
+#   make ai-review-gptme-ollama GPTME_OLLAMA_MODEL=phi3   # Uses specific model
+.PHONY: ai-review-gptme-ollama
+ai-review-gptme-ollama: TOOLS = $(shell command -v lynx >/dev/null 2>&1 && echo "read,browser" || echo "read")
+ai-review-gptme-ollama: gptme ## Review staged git changes using gptme with local Ollama models (auto-manages Ollama container)
+	@if [ -z "$$(git diff --cached --name-only)" ]; then \
+		echo "No staged changes to review."; \
+		echo "Please stage your changes first with 'git add <files>'"; \
+		echo "Run 'git status' to see which files are staged."; \
+		exit 0; \
+	fi
+	@# gptme is installed as a dependency, no need to check
+	@# Check if Ollama is already available (either as existing container or local service)
+	@if curl -s http://localhost:11434/api/tags >/dev/null 2>&1; then \
+		echo "Ollama is already running on port 11434"; \
+		OLLAMA_EXTERNAL=1; \
+	else \
+		OLLAMA_EXTERNAL=0; \
+		echo "Ollama not detected, starting container..."; \
+		mkdir -p .ollama; \
+		if ! podman ps | grep -q ollama; then \
+			podman run -d \
+				-v $(PWD)/.ollama:/root/.ollama:Z \
+				-p 11434:11434 \
+				--memory=$(OLLAMA_MEMORY)g \
+				--memory-swap=$(OLLAMA_MEMORY)g \
+				--name ollama \
+				ollama/ollama || exit 1; \
+			echo "Waiting for Ollama to be ready..."; \
+			for i in $$(seq 1 30); do \
+				if curl -s http://localhost:11434/api/tags >/dev/null 2>&1; then \
+					echo "Ollama is ready!"; \
+					break; \
+				fi; \
+				if [ $$i -eq 30 ]; then \
+					echo "Error: Ollama failed to start within 30 seconds"; \
+					podman logs ollama; \
+					podman stop ollama && podman rm ollama; \
+					exit 1; \
+				fi; \
+				sleep 1; \
+			done \
+		fi \
+	fi
+	@# Pull model if not already cached
+	@echo "Ensuring $(GPTME_OLLAMA_MODEL) model is available..."
+	@if podman ps | grep -q ollama; then \
+		podman exec ollama ollama pull $(GPTME_OLLAMA_MODEL) || exit 1; \
+	else \
+		curl -s -X POST http://localhost:11434/api/pull -d '{"name":"$(GPTME_OLLAMA_MODEL)"}' | while read line; do \
+			echo $$line | jq -r .status 2>/dev/null || echo $$line; \
+		done; \
+	fi
+	@echo "Reviewing staged changes with gptme using Ollama model: $(GPTME_OLLAMA_MODEL)..."
+	@if [ "$(TOOLS)" = "read,browser" ]; then \
+		echo "gptme will be able to read files and browse documentation for context."; \
+	else \
+		echo "gptme will be able to read files for context (install lynx to enable browser tool)."; \
+	fi
+	@# Generate the review using gptme with Ollama backend
+	@git diff --cached | OPENAI_BASE_URL="http://localhost:11434/v1" $(GPTME) "$(AI_REVIEW_PROMPT)" \
+		--model "local/$(GPTME_OLLAMA_MODEL)" \
+		--tools "$(TOOLS)" \
+		--non-interactive
+	@# Only stop and remove container if we started it
+	@if podman ps | grep -q ollama; then \
+		echo "Stopping and removing Ollama container..."; \
+		podman stop ollama && podman rm ollama; \
+	fi
+
+# Default Ollama model for gptme (should match one of the models available in your Ollama installation)
+GPTME_OLLAMA_MODEL ?= $(OLLAMA_MODEL)
+
+# gptme installation
+GPTME = $(LOCALBIN)/gptme
+GPTME_VERSION ?= latest
+.PHONY: gptme
+gptme: $(GPTME) ## Install gptme locally if necessary.
+$(GPTME): $(LOCALBIN)
+	@if [ -f $(GPTME) ] && $(GPTME) --version >/dev/null 2>&1; then \
+		echo "gptme is already installed at $(GPTME)"; \
+	else \
+		echo "Installing gptme..."; \
+		python3 -m venv $(LOCALBIN)/gptme-venv || (echo "Error: python3 venv module not found. Please install python3-venv package." && exit 1); \
+		$(LOCALBIN)/gptme-venv/bin/pip install --upgrade pip; \
+		if [ "$(GPTME_VERSION)" = "latest" ]; then \
+			$(LOCALBIN)/gptme-venv/bin/pip install gptme; \
+		else \
+			$(LOCALBIN)/gptme-venv/bin/pip install gptme==$(GPTME_VERSION); \
+		fi; \
+		ln -sf $(LOCALBIN)/gptme-venv/bin/gptme $(GPTME); \
+		echo "gptme installed successfully at $(GPTME)"; \
+	fi
