@@ -681,12 +681,15 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 					Configuration: &oadpv1alpha1.ApplicationConfig{
 						Velero: &oadpv1alpha1.VeleroConfig{},
 						NodeAgent: &oadpv1alpha1.NodeAgentConfig{
-							NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{},
-							UploaderType:          "kopia",
+							NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
+								PodConfig: &oadpv1alpha1.PodConfig{
+									Annotations: map[string]string{
+										"test-annotation": "awesome annotation",
+									},
+								},
+							},
+							UploaderType: "kopia",
 						},
-					},
-					PodAnnotations: map[string]string{
-						"test-annotation": "awesome annotation",
 					},
 				},
 			),

@@ -693,10 +693,13 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 				nil,
 				oadpv1alpha1.DataProtectionApplicationSpec{
 					Configuration: &oadpv1alpha1.ApplicationConfig{
-						Velero: &oadpv1alpha1.VeleroConfig{},
-					},
-					PodAnnotations: map[string]string{
-						"test-annotation": "awesome annotation",
+						Velero: &oadpv1alpha1.VeleroConfig{
+							PodConfig: &oadpv1alpha1.PodConfig{
+								Annotations: map[string]string{
+									"test-annotation": "awesome annotation",
+								},
+							},
+						},
 					},
 				},
 			),
