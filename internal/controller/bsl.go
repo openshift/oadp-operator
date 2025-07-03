@@ -187,6 +187,14 @@ func (r *DataProtectionApplicationReconciler) ReconcileBackupStorageLocations(lo
 				fmt.Sprintf("performed %s on backupstoragelocation %s/%s", op, bsl.Namespace, bsl.Name),
 			)
 		}
+
+		// Patch secrets with BSL-specific configuration (only for the first BSL)
+		if i == 0 {
+			if err := r.patchSecretsForBSL(&bsl, bslSpec); err != nil {
+				r.Log.Error(err, "Failed to patch secret for BSL", "bsl", bsl.Name)
+				// Don't return error as this is an enhancement, log and continue
+			}
+		}
 	}
 
 	dpaBSLs := velerov1.BackupStorageLocationList{}
@@ -500,5 +508,187 @@ func (r *DataProtectionApplicationReconciler) ensureSecretDataExists(bsl *oadpv1
 		}
 	}
 
+	return nil
+}
+
+// patchSecretsForBSL patches cloud provider secrets with BSL-specific configuration
+func (r *DataProtectionApplicationReconciler) patchSecretsForBSL(bsl *velerov1.BackupStorageLocation, bslSpec oadpv1alpha1.BackupLocation) error {
+	// Determine provider and secret details
+	var provider, secretName string
+	var bslConfig map[string]string
+
+	if bslSpec.Velero != nil {
+		provider = string(bslSpec.Velero.Provider)
+		secretName, _, _ = r.getSecretNameAndKey(bslSpec.Velero.Config, bslSpec.Velero.Credential, oadpv1alpha1.DefaultPlugin(bslSpec.Velero.Provider))
+		bslConfig = bslSpec.Velero.Config
+	} else if bslSpec.CloudStorage != nil {
+		// For CloudStorage, get provider from the CloudStorage resource
+		bucket := &oadpv1alpha1.CloudStorage{}
+		err := r.Get(r.Context, client.ObjectKey{Namespace: bsl.Namespace, Name: bslSpec.CloudStorage.CloudStorageRef.Name}, bucket)
+		if err != nil {
+			return err
+		}
+		switch bucket.Spec.Provider {
+		case oadpv1alpha1.AWSBucketProvider:
+			provider = AWSProvider
+		case oadpv1alpha1.AzureBucketProvider:
+			provider = AzureProvider
+		case oadpv1alpha1.GCPBucketProvider:
+			provider = GCPProvider
+		}
+		secretName, _, _ = r.getSecretNameAndKeyFromCloudStorage(bslSpec.CloudStorage)
+		bslConfig = bslSpec.CloudStorage.Config
+	}
+
+	if secretName == "" {
+		// No secret to patch
+		return nil
+	}
+
+	// Get the secret
+	secret := &corev1.Secret{}
+	if err := r.Get(r.Context, client.ObjectKey{Name: secretName, Namespace: bsl.Namespace}, secret); err != nil {
+		return fmt.Errorf("failed to get secret %s: %w", secretName, err)
+	}
+
+	// Patch based on provider
+	switch provider {
+	case AWSProvider:
+		return r.patchAWSSecretWithRegion(secret, bslSpec, bslConfig)
+	case AzureProvider:
+		return r.patchAzureSecretWithResourceGroup(secret, bslConfig)
+	}
+
+	return nil
+}
+
+// patchAWSSecretWithRegion patches AWS secret with region from BSL config or bucket discovery
+func (r *DataProtectionApplicationReconciler) patchAWSSecretWithRegion(secret *corev1.Secret, bslSpec oadpv1alpha1.BackupLocation, bslConfig map[string]string) error {
+	// Check if this is an STS secret by looking for STS-specific key
+	// AWS STS secrets created by stsflow use "credentials" key
+	credData, exists := secret.Data["credentials"]
+	if !exists {
+		// Not an STS secret, skip
+		return nil
+	}
+
+	credString := string(credData)
+	// Check if this is an STS secret by looking for role_arn and web_identity_token_file
+	isSTS := strings.Contains(credString, "role_arn") && strings.Contains(credString, "web_identity_token_file")
+	if !isSTS {
+		// Not an STS secret, skip patching
+		return nil
+	}
+
+	// Check if region is already in the credentials
+	// Look for region as a separate config line (not part of another word like "role_region")
+	if strings.Contains(credString, "\nregion =") || strings.HasPrefix(credString, "region =") {
+		// Region already set
+		return nil
+	}
+
+	var region string
+	var bucket string
+
+	// Get region from BSL config if available
+	if bslConfig != nil && bslConfig[Region] != "" {
+		region = bslConfig[Region]
+	} else {
+		// Try to discover region from bucket
+		if bslSpec.Velero != nil && bslSpec.Velero.ObjectStorage != nil {
+			bucket = bslSpec.Velero.ObjectStorage.Bucket
+		} else if bslSpec.CloudStorage != nil {
+			// For CloudStorage, get bucket from the CloudStorage resource
+			cloudStorage := &oadpv1alpha1.CloudStorage{}
+			err := r.Get(r.Context, client.ObjectKey{Namespace: secret.Namespace, Name: bslSpec.CloudStorage.CloudStorageRef.Name}, cloudStorage)
+			if err == nil {
+				bucket = cloudStorage.Spec.Name
+			}
+		}
+
+		if bucket != "" && !strings.Contains(bucket, "/") {
+			// Try to discover region
+			discoveredRegion, err := aws.GetBucketRegion(bucket)
+			if err == nil && discoveredRegion != "" {
+				region = discoveredRegion
+			}
+		}
+	}
+
+	if region == "" {
+		// No region found, skip patching
+		return nil
+	}
+
+	// Add region to credentials
+	updatedCreds := credString
+	if strings.HasSuffix(credString, "\n") {
+		updatedCreds = credString + "region = " + region
+	} else {
+		updatedCreds = credString + "\nregion = " + region
+	}
+
+	// Update secret using the "credentials" key (as used by AWS STS secrets)
+	secretCopy := secret.DeepCopy()
+	secretCopy.Data["credentials"] = []byte(updatedCreds)
+
+	if err := r.Patch(r.Context, secretCopy, client.MergeFrom(secret)); err != nil {
+		return fmt.Errorf("failed to patch AWS secret with region: %w", err)
+	}
+
+	r.Log.Info("Patched AWS secret with region", "secret", secret.Name, "region", region)
+	return nil
+}
+
+// patchAzureSecretWithResourceGroup patches Azure secret with resource group from BSL config
+func (r *DataProtectionApplicationReconciler) patchAzureSecretWithResourceGroup(secret *corev1.Secret, bslConfig map[string]string) error {
+	// Check if this is an STS secret by looking for STS-specific key
+	// Azure STS secrets created by stsflow use "azurekey" key
+	azureKeyData, exists := secret.Data["azurekey"]
+	if !exists {
+		// Not an STS secret, skip
+		return nil
+	}
+
+	azureKeyString := string(azureKeyData)
+	// Check if this is an STS secret by looking for AZURE_CLIENT_ID without AZURE_CLIENT_SECRET
+	hasClientID := strings.Contains(azureKeyString, "AZURE_CLIENT_ID")
+	hasClientSecret := strings.Contains(azureKeyString, "AZURE_CLIENT_SECRET")
+	isSTS := hasClientID && !hasClientSecret
+	if !isSTS {
+		// Not an STS secret, skip patching
+		return nil
+	}
+
+	// Check if resource group is already in the credentials
+	if strings.Contains(azureKeyString, "AZURE_RESOURCE_GROUP=") {
+		// Resource group already set
+		return nil
+	}
+
+	// Get resource group from BSL config
+	if bslConfig == nil || bslConfig[ResourceGroup] == "" {
+		// No resource group in BSL config
+		return nil
+	}
+
+	resourceGroup := bslConfig[ResourceGroup]
+
+	// Add resource group to credentials
+	updatedCreds := azureKeyString
+	if !strings.HasSuffix(azureKeyString, "\n") {
+		updatedCreds = azureKeyString + "\n"
+	}
+	updatedCreds = updatedCreds + "AZURE_RESOURCE_GROUP=" + resourceGroup + "\n"
+
+	// Update secret using the "azurekey" key (as used by Azure STS secrets)
+	secretCopy := secret.DeepCopy()
+	secretCopy.Data["azurekey"] = []byte(updatedCreds)
+
+	if err := r.Patch(r.Context, secretCopy, client.MergeFrom(secret)); err != nil {
+		return fmt.Errorf("failed to patch Azure secret with resource group: %w", err)
+	}
+
+	r.Log.Info("Patched Azure secret with resource group", "secret", secret.Name, "resourceGroup", resourceGroup)
 	return nil
 }
