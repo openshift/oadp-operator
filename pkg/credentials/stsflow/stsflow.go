@@ -146,20 +146,44 @@ func CreateOrUpdateSTSGCPSecret(setupLog logr.Logger, serviceAccountEmail, proje
 }
 
 func CreateOrUpdateSTSAzureSecret(setupLog logr.Logger, azureClientId, azureTenantId, azureSubscriptionId, secretNS string, kubeconf *rest.Config) error {
+	clientInstance, err := client.New(kubeconf, client.Options{})
+	if err != nil {
+		setupLog.Error(err, "unable to create client")
+		return err
+	}
+
+	// Create a clientset to use for waiting on the secret
+	clientset, err := kubernetes.NewForConfig(kubeconf)
+	if err != nil {
+		setupLog.Error(err, "unable to create clientset")
+		return err
+	}
+
+	return CreateOrUpdateSTSAzureSecretWithClients(setupLog, azureClientId, azureTenantId, azureSubscriptionId, secretNS, clientInstance, clientset)
+}
+
+// CreateOrUpdateSTSAzureSecretWithClients is a testable version that accepts injected clients
+func CreateOrUpdateSTSAzureSecretWithClients(setupLog logr.Logger, azureClientId, azureTenantId, azureSubscriptionId, secretNS string, clientInstance client.Client, clientset kubernetes.Interface) error {
 	// Azure federated identity credentials format
-	return CreateOrUpdateSTSSecret(setupLog, VeleroAzureSecretName, map[string]string{
+	err := CreateOrUpdateSTSSecretWithClients(setupLog, VeleroAzureSecretName, map[string]string{
 		"azurekey": fmt.Sprintf(`
 AZURE_SUBSCRIPTION_ID=%s
 AZURE_TENANT_ID=%s
 AZURE_CLIENT_ID=%s
 AZURE_CLOUD_NAME=AzurePublicCloud
-`, azureSubscriptionId, azureTenantId, azureClientId)}, secretNS, kubeconf)
-	// AzureClientID:           azureClientId,
-	// AzureTenantID:           azureTenantId,
-	// AzureRegion:             "centralus", // region not provided by UI, using default centralus
-	// AzureSubscriptionID:     azureSubscriptionId,
-	// AzureFederatedTokenFile: WebIdentityTokenPath,
-	// }, secretNS, kubeconf)
+`, azureSubscriptionId, azureTenantId, azureClientId)}, secretNS, clientInstance, clientset)
+
+	if err != nil {
+		return err
+	}
+
+	// Annotate the Velero service account for Azure workload identity
+	if err := AnnotateVeleroServiceAccountForAzureWithClient(setupLog, azureClientId, secretNS, clientInstance); err != nil {
+		// Log the error but don't fail the secret creation
+		setupLog.Error(err, "Failed to annotate Velero service account for Azure workload identity")
+	}
+
+	return nil
 }
 
 func CreateOrUpdateSTSSecret(setupLog logr.Logger, secretName string, credStringData map[string]string, secretNS string, kubeconf *rest.Config) error {
@@ -248,6 +272,58 @@ func CreateOrUpdateSTSSecretWithClientsAndWait(setupLog logr.Logger, secretName 
 		setupLog.Info("credentials Secret is now available")
 	}
 
+	return nil
+}
+
+// AnnotateVeleroServiceAccountForAzure annotates the Velero service account with Azure workload identity client ID
+func AnnotateVeleroServiceAccountForAzure(setupLog logr.Logger, clientID string, namespace string, kubeconf *rest.Config) error {
+	if clientID == "" {
+		return fmt.Errorf("clientID cannot be empty")
+	}
+
+	clientInstance, err := client.New(kubeconf, client.Options{})
+	if err != nil {
+		setupLog.Error(err, "unable to create client")
+		return err
+	}
+
+	return AnnotateVeleroServiceAccountForAzureWithClient(setupLog, clientID, namespace, clientInstance)
+}
+
+// AnnotateVeleroServiceAccountForAzureWithClient is a testable version that accepts an injected client
+func AnnotateVeleroServiceAccountForAzureWithClient(setupLog logr.Logger, clientID string, namespace string, clientInstance client.Client) error {
+	if clientID == "" {
+		return fmt.Errorf("clientID cannot be empty")
+	}
+
+	// Get the velero service account
+	sa := &corev1.ServiceAccount{}
+	err := clientInstance.Get(context.Background(), types.NamespacedName{
+		Name:      "velero",
+		Namespace: namespace,
+	}, sa)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			setupLog.Info("Velero service account not found yet, skipping annotation")
+			return nil
+		}
+		return err
+	}
+
+	// Prepare the patch
+	originalSA := sa.DeepCopy()
+	if sa.Annotations == nil {
+		sa.Annotations = make(map[string]string)
+	}
+	sa.Annotations["azure.workload.identity/client-id"] = clientID
+
+	// Apply the patch
+	if err := clientInstance.Patch(context.Background(), sa, client.MergeFrom(originalSA)); err != nil {
+		setupLog.Error(err, "unable to patch service account with Azure workload identity annotation")
+		return err
+	}
+
+	setupLog.Info("Successfully annotated Velero service account for Azure workload identity", "clientID", clientID)
 	return nil
 }
 

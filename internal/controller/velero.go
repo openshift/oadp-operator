@@ -29,6 +29,7 @@ import (
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	"github.com/openshift/oadp-operator/pkg/common"
 	"github.com/openshift/oadp-operator/pkg/credentials"
+	"github.com/openshift/oadp-operator/pkg/credentials/stsflow"
 	veleroserver "github.com/openshift/oadp-operator/pkg/velero/server"
 )
 
@@ -212,6 +213,15 @@ func (r *DataProtectionApplicationReconciler) customizeVeleroDeployment(veleroDe
 	veleroDeployment.Labels, err = common.AppendUniqueKeyTOfTMaps(veleroDeployment.Labels, getDpaAppLabels(dpa))
 	if err != nil {
 		return fmt.Errorf("velero deployment label: %v", err)
+	}
+
+	// Add Azure workload identity label if using Azure STS
+	if os.Getenv(stsflow.ClientIDEnvKey) != "" && os.Getenv(stsflow.TenantIDEnvKey) != "" && os.Getenv(stsflow.SubscriptionIDEnvKey) != "" {
+		if veleroDeployment.Labels == nil {
+			veleroDeployment.Labels = make(map[string]string)
+		}
+		veleroDeployment.Labels["azure.workload.identity/use"] = "true"
+		r.Log.Info("Added Azure workload identity label to Velero deployment")
 	}
 	if veleroDeployment.Spec.Selector == nil {
 		veleroDeployment.Spec.Selector = &metav1.LabelSelector{

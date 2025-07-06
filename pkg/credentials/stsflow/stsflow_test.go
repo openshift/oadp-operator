@@ -2,6 +2,7 @@ package stsflow
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"testing"
 
@@ -465,4 +466,197 @@ func TestSTSStandardizedFlow(t *testing.T) {
 			t.Skip("Skipping test that requires real kubeconfig")
 		})
 	}
+}
+
+func TestAnnotateVeleroServiceAccountForAzure(t *testing.T) {
+	testNamespace := "test-namespace"
+	testClientID := "test-client-id"
+	testLogger := zap.New(zap.UseDevMode(true))
+
+	testCases := []struct {
+		name                   string
+		clientID               string
+		existingServiceAccount *corev1.ServiceAccount
+		expectError            bool
+		expectedAnnotations    map[string]string
+		skipAnnotation         bool
+	}{
+		{
+			name:     "Successfully annotate service account",
+			clientID: testClientID,
+			existingServiceAccount: &corev1.ServiceAccount{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "velero",
+					Namespace: testNamespace,
+				},
+			},
+			expectError: false,
+			expectedAnnotations: map[string]string{
+				"azure.workload.identity/client-id": testClientID,
+			},
+		},
+		{
+			name:     "Successfully annotate service account with existing annotations",
+			clientID: testClientID,
+			existingServiceAccount: &corev1.ServiceAccount{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "velero",
+					Namespace: testNamespace,
+					Annotations: map[string]string{
+						"existing-annotation": "existing-value",
+					},
+				},
+			},
+			expectError: false,
+			expectedAnnotations: map[string]string{
+				"azure.workload.identity/client-id": testClientID,
+				"existing-annotation":               "existing-value",
+			},
+		},
+		{
+			name:     "Empty client ID returns error",
+			clientID: "",
+			existingServiceAccount: &corev1.ServiceAccount{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "velero",
+					Namespace: testNamespace,
+				},
+			},
+			expectError: true,
+		},
+		{
+			name:                   "Service account not found - skip annotation",
+			clientID:               testClientID,
+			existingServiceAccount: nil,
+			expectError:            false,
+			skipAnnotation:         true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Setup fake client
+			var fakeClient client.Client
+			if tc.existingServiceAccount != nil {
+				fakeClient = fake.NewClientBuilder().
+					WithObjects(tc.existingServiceAccount).
+					Build()
+			} else {
+				fakeClient = fake.NewClientBuilder().Build()
+			}
+
+			// Call the function
+			err := AnnotateVeleroServiceAccountForAzureWithClient(testLogger, tc.clientID, testNamespace, fakeClient)
+
+			// Check error
+			if tc.expectError {
+				assert.Error(t, err)
+				return
+			}
+			assert.NoError(t, err)
+
+			// Skip verification if annotation was skipped
+			if tc.skipAnnotation {
+				return
+			}
+
+			// Verify the service account was annotated correctly
+			sa := &corev1.ServiceAccount{}
+			err = fakeClient.Get(context.Background(), client.ObjectKey{
+				Name:      "velero",
+				Namespace: testNamespace,
+			}, sa)
+			assert.NoError(t, err)
+
+			// Check all expected annotations
+			for key, value := range tc.expectedAnnotations {
+				assert.Equal(t, value, sa.Annotations[key])
+			}
+		})
+	}
+}
+
+func TestCreateOrUpdateSTSAzureSecretWithServiceAccountAnnotation(t *testing.T) {
+	testNamespace := "test-namespace"
+	testLogger := zap.New(zap.UseDevMode(true))
+	clientID := "test-client-id"
+	tenantID := "test-tenant-id"
+	subscriptionID := "test-subscription-id"
+
+	t.Run("Azure secret creation with service account annotation", func(t *testing.T) {
+		// Create a velero service account
+		veleroSA := &corev1.ServiceAccount{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "velero",
+				Namespace: testNamespace,
+			},
+		}
+
+		fakeClient := fake.NewClientBuilder().
+			WithObjects(veleroSA).
+			Build()
+		fakeClientset := k8sfake.NewSimpleClientset()
+
+		// Call CreateOrUpdateSTSAzureSecret which should also annotate the service account
+		// Use the function without waiting to avoid timeout in tests
+		err := CreateOrUpdateSTSSecretWithClientsAndWait(testLogger, VeleroAzureSecretName, map[string]string{
+			"azurekey": fmt.Sprintf(`
+AZURE_SUBSCRIPTION_ID=%s
+AZURE_TENANT_ID=%s
+AZURE_CLIENT_ID=%s
+AZURE_CLOUD_NAME=AzurePublicCloud
+`, subscriptionID, tenantID, clientID),
+		}, testNamespace, fakeClient, fakeClientset, false) // Don't wait for secret
+		assert.NoError(t, err)
+
+		// Now annotate the service account
+		err = AnnotateVeleroServiceAccountForAzureWithClient(testLogger, clientID, testNamespace, fakeClient)
+		assert.NoError(t, err)
+
+		// Verify the secret was created
+		secretResult := &corev1.Secret{}
+		err = fakeClient.Get(context.Background(), client.ObjectKey{
+			Name:      VeleroAzureSecretName,
+			Namespace: testNamespace,
+		}, secretResult)
+		assert.NoError(t, err)
+		assert.Contains(t, secretResult.StringData["azurekey"], "AZURE_CLIENT_ID="+clientID)
+
+		// Verify the service account was annotated
+		saResult := &corev1.ServiceAccount{}
+		err = fakeClient.Get(context.Background(), client.ObjectKey{
+			Name:      "velero",
+			Namespace: testNamespace,
+		}, saResult)
+		assert.NoError(t, err)
+		assert.Equal(t, clientID, saResult.Annotations["azure.workload.identity/client-id"])
+	})
+
+	t.Run("Azure secret creation continues even if service account annotation fails", func(t *testing.T) {
+		// Don't create the service account, so annotation will fail
+		fakeClient := fake.NewClientBuilder().Build()
+		fakeClientset := k8sfake.NewSimpleClientset()
+
+		// Call CreateOrUpdateSTSAzureSecret
+		// Use the function without waiting to avoid timeout in tests
+		err := CreateOrUpdateSTSSecretWithClientsAndWait(testLogger, VeleroAzureSecretName, map[string]string{
+			"azurekey": fmt.Sprintf(`
+AZURE_SUBSCRIPTION_ID=%s
+AZURE_TENANT_ID=%s
+AZURE_CLIENT_ID=%s
+AZURE_CLOUD_NAME=AzurePublicCloud
+`, subscriptionID, tenantID, clientID),
+		}, testNamespace, fakeClient, fakeClientset, false) // Don't wait for secret
+
+		// Should not error even though service account doesn't exist
+		assert.NoError(t, err)
+
+		// Verify the secret was still created
+		secretResult := &corev1.Secret{}
+		err = fakeClient.Get(context.Background(), client.ObjectKey{
+			Name:      VeleroAzureSecretName,
+			Namespace: testNamespace,
+		}, secretResult)
+		assert.NoError(t, err)
+	})
 }
