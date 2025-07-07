@@ -315,6 +315,10 @@ func AnnotateVeleroServiceAccountForAzureWithClient(setupLog logr.Logger, client
 	if sa.Annotations == nil {
 		sa.Annotations = make(map[string]string)
 	}
+	// Note: This annotation is not strictly necessary according to Azure workload identity documentation.
+	// The annotation instructs the Workload Identity webhook to inject the AZURE_CLIENT_ID environment variable.
+	// Since we're manually setting the environment variable in the deployment, this is just a precaution.
+	// See: https://azure.github.io/azure-workload-identity/docs/topics/service-account-labels-and-annotations.html#service-account
 	sa.Annotations["azure.workload.identity/client-id"] = clientID
 
 	// Apply the patch

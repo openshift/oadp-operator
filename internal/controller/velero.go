@@ -630,6 +630,16 @@ func (r *DataProtectionApplicationReconciler) customizeVeleroContainer(veleroCon
 		}})
 	}
 
+	// Add Azure workload identity environment variable if using Azure STS
+	azureClientID := os.Getenv(stsflow.ClientIDEnvKey)
+	if azureClientID != "" && os.Getenv(stsflow.TenantIDEnvKey) != "" && os.Getenv(stsflow.SubscriptionIDEnvKey) != "" {
+		veleroContainer.Env = common.AppendUniqueEnvVars(veleroContainer.Env, []corev1.EnvVar{{
+			Name:  "AZURE_CLIENT_ID",
+			Value: azureClientID,
+		}})
+		r.Log.Info("Added AZURE_CLIENT_ID environment variable to Velero container")
+	}
+
 	// Enable user to specify --fs-backup-timeout (defaults to 4h)
 	// Append FS timeout option manually. Not configurable via install package, missing from podTemplateConfig struct. See: https://github.com/vmware-tanzu/velero/blob/8d57215ded1aa91cdea2cf091d60e072ce3f340f/pkg/install/deployment.go#L34-L45
 	veleroContainer.Args = append(veleroContainer.Args, fmt.Sprintf("--fs-backup-timeout=%s", getFsBackupTimeout(dpa)))

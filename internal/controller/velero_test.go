@@ -2545,6 +2545,23 @@ func TestDPAReconciler_buildVeleroDeploymentWithAzureWorkloadIdentity(t *testing
 				if val, ok := tt.veleroDeployment.Labels["azure.workload.identity/use"]; !ok || val != "true" {
 					t.Errorf("Expected Azure workload identity label to be present and set to 'true', got: %v", val)
 				}
+
+				// Also check that AZURE_CLIENT_ID env var is set
+				foundEnvVar := false
+				for _, container := range tt.veleroDeployment.Spec.Template.Spec.Containers {
+					if container.Name == common.Velero {
+						for _, env := range container.Env {
+							if env.Name == "AZURE_CLIENT_ID" && env.Value == "test-client-id" {
+								foundEnvVar = true
+								break
+							}
+						}
+						break
+					}
+				}
+				if !foundEnvVar {
+					t.Errorf("Expected AZURE_CLIENT_ID environment variable to be set")
+				}
 			} else {
 				if val, ok := tt.veleroDeployment.Labels["azure.workload.identity/use"]; ok {
 					t.Errorf("Expected Azure workload identity label to be absent, but found: %v", val)
