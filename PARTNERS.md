@@ -57,7 +57,10 @@ to their target OpenShift version
 
 ## Critical Recent Changes to OADP and Velero
  - In Velero the uploader type "restic" was [deprecated on July 31, 2024](https://github.com/vmware-tanzu/velero/issues/8072)
-   - Velero v1.17 will [REMOVE support for restic as a valid uploader type for data mover backups](https://github.com/vmware-tanzu/velero/pull/9069).
+   - Velero v1.17 will [REMOVE support for restic as a valid uploader type for backups](https://github.com/vmware-tanzu/velero/pull/9069).
+   - Neither DataMover nor FSBackup with restic will be possible new backups.
+   - Restores from restic backups will be supported for at least another two Velero versions.
+   - The Velero community has provided a comparison of restic and kopia as utlized by Velero [here](https://github.com/user-attachments/files/21123755/Copy.of.kopia-restic-comparison.docx.pdf)
 
 ## Upgrade workflow
 ### Automatic upgrade: 
