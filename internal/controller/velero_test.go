@@ -2542,30 +2542,38 @@ func TestDPAReconciler_buildVeleroDeploymentWithAzureWorkloadIdentity(t *testing
 
 			// Check if Azure workload identity label is present
 			if tt.wantAzureLabel {
-				if val, ok := tt.veleroDeployment.Labels["azure.workload.identity/use"]; !ok || val != "true" {
-					t.Errorf("Expected Azure workload identity label to be present and set to 'true', got: %v", val)
-				}
+				// Label is now commented out in implementation, only check env vars
+				// if val, ok := tt.veleroDeployment.Labels["azure.workload.identity/use"]; !ok || val != "true" {
+				// 	t.Errorf("Expected Azure workload identity label to be present and set to 'true', got: %v", val)
+				// }
 
-				// Also check that AZURE_CLIENT_ID env var is set
-				foundEnvVar := false
+				// Check that Azure environment variables are set
+				foundClientIDEnvVar := false
+				foundTokenFileEnvVar := false
 				for _, container := range tt.veleroDeployment.Spec.Template.Spec.Containers {
 					if container.Name == common.Velero {
 						for _, env := range container.Env {
 							if env.Name == "AZURE_CLIENT_ID" && env.Value == "test-client-id" {
-								foundEnvVar = true
-								break
+								foundClientIDEnvVar = true
+							}
+							if env.Name == "AZURE_FEDERATED_TOKEN_FILE" && env.Value == "/var/run/secrets/openshift/serviceaccount/token" {
+								foundTokenFileEnvVar = true
 							}
 						}
 						break
 					}
 				}
-				if !foundEnvVar {
+				if !foundClientIDEnvVar {
 					t.Errorf("Expected AZURE_CLIENT_ID environment variable to be set")
 				}
-			} else {
-				if val, ok := tt.veleroDeployment.Labels["azure.workload.identity/use"]; ok {
-					t.Errorf("Expected Azure workload identity label to be absent, but found: %v", val)
+				if !foundTokenFileEnvVar {
+					t.Errorf("Expected AZURE_FEDERATED_TOKEN_FILE environment variable to be set to '/var/run/secrets/openshift/serviceaccount/token'")
 				}
+			} else {
+				// Label check is commented out as the implementation no longer sets it
+				// if val, ok := tt.veleroDeployment.Labels["azure.workload.identity/use"]; ok {
+				// 	t.Errorf("Expected Azure workload identity label to be absent, but found: %v", val)
+				// }
 			}
 		})
 	}

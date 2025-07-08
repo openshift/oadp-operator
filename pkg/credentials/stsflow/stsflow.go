@@ -12,6 +12,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
+
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -319,7 +320,7 @@ func AnnotateVeleroServiceAccountForAzureWithClient(setupLog logr.Logger, client
 	// The annotation instructs the Workload Identity webhook to inject the AZURE_CLIENT_ID environment variable.
 	// Since we're manually setting the environment variable in the deployment, this is just a precaution.
 	// See: https://azure.github.io/azure-workload-identity/docs/topics/service-account-labels-and-annotations.html#service-account
-	sa.Annotations["azure.workload.identity/client-id"] = clientID
+	// sa.Annotations["azure.workload.identity/client-id"] = clientID
 
 	// Apply the patch
 	if err := clientInstance.Patch(context.Background(), sa, client.MergeFrom(originalSA)); err != nil {

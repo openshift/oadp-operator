@@ -216,13 +216,14 @@ func (r *DataProtectionApplicationReconciler) customizeVeleroDeployment(veleroDe
 	}
 
 	// Add Azure workload identity label if using Azure STS
-	if os.Getenv(stsflow.ClientIDEnvKey) != "" && os.Getenv(stsflow.TenantIDEnvKey) != "" && os.Getenv(stsflow.SubscriptionIDEnvKey) != "" {
-		if veleroDeployment.Labels == nil {
-			veleroDeployment.Labels = make(map[string]string)
-		}
-		veleroDeployment.Labels["azure.workload.identity/use"] = "true"
-		r.Log.Info("Added Azure workload identity label to Velero deployment")
-	}
+	// azureClientID := os.Getenv(stsflow.ClientIDEnvKey)
+	// if azureClientID != "" && os.Getenv(stsflow.TenantIDEnvKey) != "" && os.Getenv(stsflow.SubscriptionIDEnvKey) != "" {
+	// 	if veleroDeployment.Labels == nil {
+	// 		veleroDeployment.Labels = make(map[string]string)
+	// 	}
+	// 	veleroDeployment.Labels["azure.workload.identity/use"] = "true"
+	// }
+
 	if veleroDeployment.Spec.Selector == nil {
 		veleroDeployment.Spec.Selector = &metav1.LabelSelector{
 			MatchLabels: make(map[string]string),
@@ -630,14 +631,20 @@ func (r *DataProtectionApplicationReconciler) customizeVeleroContainer(veleroCon
 		}})
 	}
 
-	// Add Azure workload identity environment variable if using Azure STS
+	// Add Azure workload identity environment variables if using Azure STS
 	azureClientID := os.Getenv(stsflow.ClientIDEnvKey)
 	if azureClientID != "" && os.Getenv(stsflow.TenantIDEnvKey) != "" && os.Getenv(stsflow.SubscriptionIDEnvKey) != "" {
-		veleroContainer.Env = common.AppendUniqueEnvVars(veleroContainer.Env, []corev1.EnvVar{{
-			Name:  "AZURE_CLIENT_ID",
-			Value: azureClientID,
-		}})
-		r.Log.Info("Added AZURE_CLIENT_ID environment variable to Velero container")
+		veleroContainer.Env = common.AppendUniqueEnvVars(veleroContainer.Env, []corev1.EnvVar{
+			{
+				Name:  "AZURE_CLIENT_ID",
+				Value: azureClientID,
+			},
+			{
+				Name:  "AZURE_FEDERATED_TOKEN_FILE",
+				Value: stsflow.WebIdentityTokenPath,
+			},
+		})
+		r.Log.Info("Added Azure workload identity environment variables to Velero container")
 	}
 
 	// Enable user to specify --fs-backup-timeout (defaults to 4h)
