@@ -55,6 +55,10 @@ to their target OpenShift version
 - [Contact Red Hat Support](https://access.redhat.com/support)
 
 
+## Critical Recent Changes to OADP and Velero
+ - In Velero the uploader type "restic" was [deprecated on July 31, 2024](https://github.com/vmware-tanzu/velero/issues/8072)
+   - Velero v1.17 will [REMOVE support for restic as a valid uploader type for data mover backups](https://github.com/vmware-tanzu/velero/pull/9069).
+
 ## Upgrade workflow
 ### Automatic upgrade: 
 
