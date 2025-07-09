@@ -215,8 +215,6 @@ func (r *DataProtectionApplicationReconciler) customizeVeleroDeployment(veleroDe
 		return fmt.Errorf("velero deployment label: %v", err)
 	}
 
-	
-
 	if veleroDeployment.Spec.Selector == nil {
 		veleroDeployment.Spec.Selector = &metav1.LabelSelector{
 			MatchLabels: make(map[string]string),

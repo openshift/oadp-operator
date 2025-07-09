@@ -2542,8 +2542,6 @@ func TestDPAReconciler_buildVeleroDeploymentWithAzureWorkloadIdentity(t *testing
 
 			// Check if Azure workload identity label is present
 			if tt.wantAzureLabel {
-				
-
 				// Check that Azure environment variables are set
 				foundClientIDEnvVar := false
 				foundTokenFileEnvVar := false
@@ -2567,7 +2565,6 @@ func TestDPAReconciler_buildVeleroDeploymentWithAzureWorkloadIdentity(t *testing
 					t.Errorf("Expected AZURE_FEDERATED_TOKEN_FILE environment variable to be set to '/var/run/secrets/openshift/serviceaccount/token'")
 				}
 			} else {
-				
 			}
 		})
 	}
