@@ -553,17 +553,18 @@ func (r *DataProtectionApplicationReconciler) customizeNodeAgentDaemonset(ds *ap
 			// Add Azure workload identity environment variables if configured
 			azureClientID := os.Getenv(stsflow.ClientIDEnvKey)
 			if azureClientID != "" && os.Getenv(stsflow.TenantIDEnvKey) != "" && os.Getenv(stsflow.SubscriptionIDEnvKey) != "" {
-				nodeAgentContainer.Env = common.AppendUniqueEnvVars(nodeAgentContainer.Env, []corev1.EnvVar{
-					{
-						Name:  "AZURE_CLIENT_ID",
-						Value: azureClientID,
-					},
-					{
-						Name:  "AZURE_FEDERATED_TOKEN_FILE",
-						Value: stsflow.WebIdentityTokenPath,
+				// Use envFrom to reference the secret containing Azure workload identity env vars
+				if nodeAgentContainer.EnvFrom == nil {
+					nodeAgentContainer.EnvFrom = []corev1.EnvFromSource{}
+				}
+				nodeAgentContainer.EnvFrom = append(nodeAgentContainer.EnvFrom, corev1.EnvFromSource{
+					SecretRef: &corev1.SecretEnvSource{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: stsflow.AzureWorkloadIdentitySecretName,
+						},
 					},
 				})
-				r.Log.Info("Added Azure workload identity environment variables to NodeAgent container")
+				r.Log.Info("Added Azure workload identity secret reference to NodeAgent container")
 			}
 
 			imagePullPolicy, err := common.GetImagePullPolicy(dpa.Spec.ImagePullPolicy, getVeleroImage(dpa))

@@ -31,6 +31,7 @@ import (
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	oadpclient "github.com/openshift/oadp-operator/pkg/client"
 	"github.com/openshift/oadp-operator/pkg/common"
+	"github.com/openshift/oadp-operator/pkg/credentials/stsflow"
 )
 
 const (
@@ -2542,27 +2543,21 @@ func TestDPAReconciler_buildVeleroDeploymentWithAzureWorkloadIdentity(t *testing
 
 			// Check if Azure workload identity label is present
 			if tt.wantAzureLabel {
-				// Check that Azure environment variables are set
-				foundClientIDEnvVar := false
-				foundTokenFileEnvVar := false
+				// Check that Azure workload identity secret reference is added via envFrom
+				foundAzureSecretRef := false
 				for _, container := range tt.veleroDeployment.Spec.Template.Spec.Containers {
 					if container.Name == common.Velero {
-						for _, env := range container.Env {
-							if env.Name == "AZURE_CLIENT_ID" && env.Value == "test-client-id" {
-								foundClientIDEnvVar = true
-							}
-							if env.Name == "AZURE_FEDERATED_TOKEN_FILE" && env.Value == "/var/run/secrets/openshift/serviceaccount/token" {
-								foundTokenFileEnvVar = true
+						for _, envFrom := range container.EnvFrom {
+							if envFrom.SecretRef != nil && envFrom.SecretRef.Name == stsflow.AzureWorkloadIdentitySecretName {
+								foundAzureSecretRef = true
+								break
 							}
 						}
 						break
 					}
 				}
-				if !foundClientIDEnvVar {
-					t.Errorf("Expected AZURE_CLIENT_ID environment variable to be set")
-				}
-				if !foundTokenFileEnvVar {
-					t.Errorf("Expected AZURE_FEDERATED_TOKEN_FILE environment variable to be set to '/var/run/secrets/openshift/serviceaccount/token'")
+				if !foundAzureSecretRef {
+					t.Errorf("Expected %s secret reference in envFrom", stsflow.AzureWorkloadIdentitySecretName)
 				}
 			} else {
 			}

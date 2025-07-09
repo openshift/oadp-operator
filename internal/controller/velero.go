@@ -625,17 +625,18 @@ func (r *DataProtectionApplicationReconciler) customizeVeleroContainer(veleroCon
 	// Add Azure workload identity environment variables if using Azure STS
 	azureClientID := os.Getenv(stsflow.ClientIDEnvKey)
 	if azureClientID != "" && os.Getenv(stsflow.TenantIDEnvKey) != "" && os.Getenv(stsflow.SubscriptionIDEnvKey) != "" {
-		veleroContainer.Env = common.AppendUniqueEnvVars(veleroContainer.Env, []corev1.EnvVar{
-			{
-				Name:  "AZURE_CLIENT_ID",
-				Value: azureClientID,
-			},
-			{
-				Name:  "AZURE_FEDERATED_TOKEN_FILE",
-				Value: stsflow.WebIdentityTokenPath,
+		// Use envFrom to reference the secret containing Azure workload identity env vars
+		if veleroContainer.EnvFrom == nil {
+			veleroContainer.EnvFrom = []corev1.EnvFromSource{}
+		}
+		veleroContainer.EnvFrom = append(veleroContainer.EnvFrom, corev1.EnvFromSource{
+			SecretRef: &corev1.SecretEnvSource{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: stsflow.AzureWorkloadIdentitySecretName,
+				},
 			},
 		})
-		r.Log.Info("Added Azure workload identity environment variables to Velero container")
+		r.Log.Info("Added Azure workload identity secret reference to Velero container")
 	}
 
 	// Enable user to specify --fs-backup-timeout (defaults to 4h)
@@ -882,3 +883,4 @@ func (r DataProtectionApplicationReconciler) noDefaultCredentials() (map[string]
 	return providerNeedsDefaultCreds, nil
 
 }
+

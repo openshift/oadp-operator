@@ -103,6 +103,7 @@ func (r *DataProtectionApplicationReconciler) Reconcile(ctx context.Context, req
 		r.ReconcileRegistryRouteConfigs,
 		r.LabelVSLSecrets,
 		r.ReconcileVolumeSnapshotLocations,
+		r.ReconcileAzureWorkloadIdentitySecret,
 		r.ReconcileVeleroDeployment,
 		r.ReconcileNodeAgentConfigMap,
 		r.ReconcileBackupRepositoryConfigMap,

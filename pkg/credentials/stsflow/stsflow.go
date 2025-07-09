@@ -38,6 +38,9 @@ const (
 	// WebIdentityTokenPath mount present on operator CSV
 	WebIdentityTokenPath = "/var/run/secrets/openshift/serviceaccount/token"
 
+	// Azure workload identity secret name
+	AzureWorkloadIdentitySecretName = "azure-workload-identity-env"
+
 	// Cloud Provider Secret Keys - standard key names for cloud credentials
 	AzureClientID           = "azure_client_id"
 	AzureClientSecret       = "azure_client_secret"

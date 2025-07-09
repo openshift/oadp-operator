@@ -244,6 +244,7 @@ type TestBuiltNodeAgentDaemonSetOptions struct {
 	volumes                 []corev1.Volume
 	volumeMounts            []corev1.VolumeMount
 	env                     []corev1.EnvVar
+	envFrom                 []corev1.EnvFromSource
 	dnsPolicy               corev1.DNSPolicy
 	dnsConfig               *corev1.PodDNSConfig
 	resourceLimits          corev1.ResourceList
@@ -516,6 +517,10 @@ func createTestBuiltNodeAgentDaemonSet(options TestBuiltNodeAgentDaemonSetOption
 
 	if options.env != nil {
 		testBuiltNodeAgentDaemonSet.Spec.Template.Spec.Containers[0].Env = append(testBuiltNodeAgentDaemonSet.Spec.Template.Spec.Containers[0].Env, options.env...)
+	}
+
+	if options.envFrom != nil {
+		testBuiltNodeAgentDaemonSet.Spec.Template.Spec.Containers[0].EnvFrom = append(testBuiltNodeAgentDaemonSet.Spec.Template.Spec.Containers[0].EnvFrom, options.envFrom...)
 	}
 
 	if options.volumes != nil {
@@ -1511,9 +1516,14 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 			clientObjects:      []client.Object{testGenericInfrastructure},
 			nodeAgentDaemonSet: testNodeAgentDaemonSet.DeepCopy(),
 			wantNodeAgentDaemonSet: createTestBuiltNodeAgentDaemonSet(TestBuiltNodeAgentDaemonSetOptions{
-				env: []corev1.EnvVar{
-					{Name: "AZURE_CLIENT_ID", Value: "test-azure-client-id"},
-					{Name: "AZURE_FEDERATED_TOKEN_FILE", Value: stsflow.WebIdentityTokenPath},
+				envFrom: []corev1.EnvFromSource{
+					{
+						SecretRef: &corev1.SecretEnvSource{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: stsflow.AzureWorkloadIdentitySecretName,
+							},
+						},
+					},
 				},
 			}),
 		},
@@ -2077,32 +2087,32 @@ func TestDPAReconciler_buildNodeAgentDaemonsetWithAzureWorkloadIdentity(t *testi
 
 			// Check if Azure workload identity env vars are present
 			if tt.wantAzureEnvVars {
-				// Check that Azure environment variables are set
-				foundClientIDEnvVar := false
-				foundTokenFileEnvVar := false
+				// Check that Azure workload identity secret reference is added via envFrom
+				foundAzureSecretRef := false
 				for _, container := range tt.nodeAgentDaemonSet.Spec.Template.Spec.Containers {
 					if container.Name == common.NodeAgent {
-						for _, env := range container.Env {
-							if env.Name == "AZURE_CLIENT_ID" && env.Value == "test-client-id" {
-								foundClientIDEnvVar = true
-							}
-							if env.Name == "AZURE_FEDERATED_TOKEN_FILE" && env.Value == "/var/run/secrets/openshift/serviceaccount/token" {
-								foundTokenFileEnvVar = true
+						for _, envFrom := range container.EnvFrom {
+							if envFrom.SecretRef != nil && envFrom.SecretRef.Name == stsflow.AzureWorkloadIdentitySecretName {
+								foundAzureSecretRef = true
+								break
 							}
 						}
 						break
 					}
 				}
-				if !foundClientIDEnvVar {
-					t.Errorf("Expected AZURE_CLIENT_ID environment variable to be set")
-				}
-				if !foundTokenFileEnvVar {
-					t.Errorf("Expected AZURE_FEDERATED_TOKEN_FILE environment variable to be set to '/var/run/secrets/openshift/serviceaccount/token'")
+				if !foundAzureSecretRef {
+					t.Errorf("Expected %s secret reference in envFrom", stsflow.AzureWorkloadIdentitySecretName)
 				}
 			} else {
-				// Check that Azure environment variables are NOT set
+				// Check that Azure workload identity secret reference is NOT set
 				for _, container := range tt.nodeAgentDaemonSet.Spec.Template.Spec.Containers {
 					if container.Name == common.NodeAgent {
+						for _, envFrom := range container.EnvFrom {
+							if envFrom.SecretRef != nil && envFrom.SecretRef.Name == stsflow.AzureWorkloadIdentitySecretName {
+								t.Errorf("Expected %s secret reference to NOT be set in envFrom", stsflow.AzureWorkloadIdentitySecretName)
+							}
+						}
+						// Also check that Azure environment variables are NOT set directly
 						for _, env := range container.Env {
 							if env.Name == "AZURE_CLIENT_ID" || env.Name == "AZURE_FEDERATED_TOKEN_FILE" {
 								t.Errorf("Expected Azure environment variables to NOT be set, but found %s", env.Name)
