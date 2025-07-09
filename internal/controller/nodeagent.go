@@ -25,6 +25,7 @@ import (
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	"github.com/openshift/oadp-operator/pkg/common"
 	"github.com/openshift/oadp-operator/pkg/credentials"
+	"github.com/openshift/oadp-operator/pkg/credentials/stsflow"
 )
 
 const (
@@ -548,6 +549,22 @@ func (r *DataProtectionApplicationReconciler) customizeNodeAgentDaemonset(ds *ap
 
 			// append env vars to the nodeAgent container
 			nodeAgentContainer.Env = common.AppendUniqueEnvVars(nodeAgentContainer.Env, proxy.ReadProxyVarsFromEnv())
+
+			// Add Azure workload identity environment variables if configured
+			azureClientID := os.Getenv(stsflow.ClientIDEnvKey)
+			if azureClientID != "" && os.Getenv(stsflow.TenantIDEnvKey) != "" && os.Getenv(stsflow.SubscriptionIDEnvKey) != "" {
+				nodeAgentContainer.Env = common.AppendUniqueEnvVars(nodeAgentContainer.Env, []corev1.EnvVar{
+					{
+						Name:  "AZURE_CLIENT_ID",
+						Value: azureClientID,
+					},
+					{
+						Name:  "AZURE_FEDERATED_TOKEN_FILE",
+						Value: stsflow.WebIdentityTokenPath,
+					},
+				})
+				r.Log.Info("Added Azure workload identity environment variables to NodeAgent container")
+			}
 
 			imagePullPolicy, err := common.GetImagePullPolicy(dpa.Spec.ImagePullPolicy, getVeleroImage(dpa))
 			if err != nil {

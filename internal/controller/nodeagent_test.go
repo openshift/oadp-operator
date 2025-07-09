@@ -33,6 +33,7 @@ import (
 
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	"github.com/openshift/oadp-operator/pkg/common"
+	"github.com/openshift/oadp-operator/pkg/credentials/stsflow"
 )
 
 var (
@@ -573,6 +574,7 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 		nodeAgentDaemonSet     *appsv1.DaemonSet
 		wantNodeAgentDaemonSet *appsv1.DaemonSet
 		errorMessage           string
+		envVars                map[string]string
 	}{
 		{
 			name:         "NodeAgent DaemonSet is nil, error is returned",
@@ -1487,9 +1489,42 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 				labels: map[string]string{"openshift.io/node-agent-cm-version": "999"},
 			}),
 		},
+		{
+			name: "valid DPA CR with Azure workload identity env vars, NodeAgent DaemonSet is built with Azure env vars",
+			dpa: createTestDpaWith(
+				nil,
+				oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{},
+						NodeAgent: &oadpv1alpha1.NodeAgentConfig{
+							NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{},
+							UploaderType:          "kopia",
+						},
+					},
+				},
+			),
+			envVars: map[string]string{
+				stsflow.ClientIDEnvKey:       "test-azure-client-id",
+				stsflow.TenantIDEnvKey:       "test-azure-tenant-id",
+				stsflow.SubscriptionIDEnvKey: "test-azure-subscription-id",
+			},
+			clientObjects:      []client.Object{testGenericInfrastructure},
+			nodeAgentDaemonSet: testNodeAgentDaemonSet.DeepCopy(),
+			wantNodeAgentDaemonSet: createTestBuiltNodeAgentDaemonSet(TestBuiltNodeAgentDaemonSetOptions{
+				env: []corev1.EnvVar{
+					{Name: "AZURE_CLIENT_ID", Value: "test-azure-client-id"},
+					{Name: "AZURE_FEDERATED_TOKEN_FILE", Value: stsflow.WebIdentityTokenPath},
+				},
+			}),
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			// Set environment variables if specified
+			for key, value := range test.envVars {
+				t.Setenv(key, value)
+			}
+
 			fakeClient, err := getFakeClientFromObjects(test.clientObjects...)
 			if err != nil {
 				t.Errorf("error in creating fake client, likely programmer error")
@@ -1928,6 +1963,154 @@ func Test_getPluginsHostPath(t *testing.T) {
 			t.Setenv(PluginsHostPathEnvVar, tt.env)
 			if got := getPluginsHostPath(tt.platformType); got != tt.want {
 				t.Errorf("getPluginsHostPath() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestDPAReconciler_buildNodeAgentDaemonsetWithAzureWorkloadIdentity(t *testing.T) {
+	tests := []struct {
+		name               string
+		dpa                *oadpv1alpha1.DataProtectionApplication
+		envVars            map[string]string
+		wantAzureEnvVars   bool
+		nodeAgentDaemonSet *appsv1.DaemonSet
+		clientObjects      []client.Object
+	}{
+		{
+			name: "Azure STS credentials present - should add workload identity env vars",
+			dpa: createTestDpaWith(
+				nil,
+				oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{},
+						NodeAgent: &oadpv1alpha1.NodeAgentConfig{
+							NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
+								Enable: ptr.To(true),
+							},
+							UploaderType: "kopia",
+						},
+					},
+				},
+			),
+			envVars: map[string]string{
+				"CLIENTID":       "test-client-id",
+				"TENANTID":       "test-tenant-id",
+				"SUBSCRIPTIONID": "test-subscription-id",
+			},
+			wantAzureEnvVars:   true,
+			nodeAgentDaemonSet: testNodeAgentDaemonSet.DeepCopy(),
+			clientObjects:      []client.Object{testGenericInfrastructure},
+		},
+		{
+			name: "No Azure credentials - should not add workload identity env vars",
+			dpa: createTestDpaWith(
+				nil,
+				oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{},
+						NodeAgent: &oadpv1alpha1.NodeAgentConfig{
+							NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
+								Enable: ptr.To(true),
+							},
+							UploaderType: "kopia",
+						},
+					},
+				},
+			),
+			envVars:            map[string]string{},
+			wantAzureEnvVars:   false,
+			nodeAgentDaemonSet: testNodeAgentDaemonSet.DeepCopy(),
+			clientObjects:      []client.Object{testGenericInfrastructure},
+		},
+		{
+			name: "Partial Azure credentials - should not add workload identity env vars",
+			dpa: createTestDpaWith(
+				nil,
+				oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{},
+						NodeAgent: &oadpv1alpha1.NodeAgentConfig{
+							NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
+								Enable: ptr.To(true),
+							},
+							UploaderType: "kopia",
+						},
+					},
+				},
+			),
+			envVars: map[string]string{
+				"CLIENTID": "test-client-id",
+				"TENANTID": "test-tenant-id",
+				// Missing SUBSCRIPTIONID
+			},
+			wantAzureEnvVars:   false,
+			nodeAgentDaemonSet: testNodeAgentDaemonSet.DeepCopy(),
+			clientObjects:      []client.Object{testGenericInfrastructure},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Set environment variables
+			for key, value := range tt.envVars {
+				t.Setenv(key, value)
+			}
+
+			fakeClient, err := getFakeClientFromObjects(tt.clientObjects...)
+			if err != nil {
+				t.Errorf("error in creating fake client, likely programmer error")
+			}
+
+			r := &DataProtectionApplicationReconciler{
+				Client: fakeClient,
+				dpa:    tt.dpa,
+				Log:    logr.Discard(),
+			}
+
+			// Build the daemonset
+			_, err = r.buildNodeAgentDaemonset(tt.nodeAgentDaemonSet)
+			if err != nil {
+				t.Errorf("buildNodeAgentDaemonset() error = %v", err)
+				return
+			}
+
+			// Check if Azure workload identity env vars are present
+			if tt.wantAzureEnvVars {
+				// Check that Azure environment variables are set
+				foundClientIDEnvVar := false
+				foundTokenFileEnvVar := false
+				for _, container := range tt.nodeAgentDaemonSet.Spec.Template.Spec.Containers {
+					if container.Name == common.NodeAgent {
+						for _, env := range container.Env {
+							if env.Name == "AZURE_CLIENT_ID" && env.Value == "test-client-id" {
+								foundClientIDEnvVar = true
+							}
+							if env.Name == "AZURE_FEDERATED_TOKEN_FILE" && env.Value == "/var/run/secrets/openshift/serviceaccount/token" {
+								foundTokenFileEnvVar = true
+							}
+						}
+						break
+					}
+				}
+				if !foundClientIDEnvVar {
+					t.Errorf("Expected AZURE_CLIENT_ID environment variable to be set")
+				}
+				if !foundTokenFileEnvVar {
+					t.Errorf("Expected AZURE_FEDERATED_TOKEN_FILE environment variable to be set to '/var/run/secrets/openshift/serviceaccount/token'")
+				}
+			} else {
+				// Check that Azure environment variables are NOT set
+				for _, container := range tt.nodeAgentDaemonSet.Spec.Template.Spec.Containers {
+					if container.Name == common.NodeAgent {
+						for _, env := range container.Env {
+							if env.Name == "AZURE_CLIENT_ID" || env.Name == "AZURE_FEDERATED_TOKEN_FILE" {
+								t.Errorf("Expected Azure environment variables to NOT be set, but found %s", env.Name)
+							}
+						}
+						break
+					}
+				}
 			}
 		})
 	}
