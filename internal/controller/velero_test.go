@@ -2542,10 +2542,7 @@ func TestDPAReconciler_buildVeleroDeploymentWithAzureWorkloadIdentity(t *testing
 
 			// Check if Azure workload identity label is present
 			if tt.wantAzureLabel {
-				// Label is now commented out in implementation, only check env vars
-				// if val, ok := tt.veleroDeployment.Labels["azure.workload.identity/use"]; !ok || val != "true" {
-				// 	t.Errorf("Expected Azure workload identity label to be present and set to 'true', got: %v", val)
-				// }
+				
 
 				// Check that Azure environment variables are set
 				foundClientIDEnvVar := false
@@ -2570,10 +2567,7 @@ func TestDPAReconciler_buildVeleroDeploymentWithAzureWorkloadIdentity(t *testing
 					t.Errorf("Expected AZURE_FEDERATED_TOKEN_FILE environment variable to be set to '/var/run/secrets/openshift/serviceaccount/token'")
 				}
 			} else {
-				// Label check is commented out as the implementation no longer sets it
-				// if val, ok := tt.veleroDeployment.Labels["azure.workload.identity/use"]; ok {
-				// 	t.Errorf("Expected Azure workload identity label to be absent, but found: %v", val)
-				// }
+				
 			}
 		})
 	}

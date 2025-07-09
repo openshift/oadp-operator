@@ -215,14 +215,7 @@ func (r *DataProtectionApplicationReconciler) customizeVeleroDeployment(veleroDe
 		return fmt.Errorf("velero deployment label: %v", err)
 	}
 
-	// Add Azure workload identity label if using Azure STS
-	// azureClientID := os.Getenv(stsflow.ClientIDEnvKey)
-	// if azureClientID != "" && os.Getenv(stsflow.TenantIDEnvKey) != "" && os.Getenv(stsflow.SubscriptionIDEnvKey) != "" {
-	// 	if veleroDeployment.Labels == nil {
-	// 		veleroDeployment.Labels = make(map[string]string)
-	// 	}
-	// 	veleroDeployment.Labels["azure.workload.identity/use"] = "true"
-	// }
+	
 
 	if veleroDeployment.Spec.Selector == nil {
 		veleroDeployment.Spec.Selector = &metav1.LabelSelector{
