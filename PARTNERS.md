@@ -15,7 +15,7 @@ better stability and maintainability.
 | 4.16              | 1.4          | v1.14          | released                      | 
 | 4.17              | 1.4          | v1.14          | released                      |
 | 4.18              | 1.4          | v1.14          | released                      |
-| 4.19              | 1.5          | v1.16          | Q2 2025                       |
+| 4.19              | 1.5          | v1.16          | released                      |
 | 4.20              | 1.5          | v1.16          | Q4 2025                       |
 | 4.21              | 1.6          | v1.18          | Q1 2026                       |
 
