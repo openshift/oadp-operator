@@ -490,7 +490,7 @@ func TestAnnotateVeleroServiceAccountForAzure(t *testing.T) {
 					Namespace: testNamespace,
 				},
 			},
-			expectError: false,
+			expectError:         false,
 			expectedAnnotations: map[string]string{
 				// Annotation is commented out in implementation
 			},
