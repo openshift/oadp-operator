@@ -883,4 +883,3 @@ func (r DataProtectionApplicationReconciler) noDefaultCredentials() (map[string]
 	return providerNeedsDefaultCreds, nil
 
 }
-
