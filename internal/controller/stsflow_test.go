@@ -45,7 +45,8 @@ func TestDPAReconciler_ReconcileAzureWorkloadIdentitySecret(t *testing.T) {
 			},
 			wantSecret: true,
 			wantSecretData: map[string]string{
-				"AZURE_CLIENT_ID":           "test-client-id",
+				"AZURE_CLIENT_ID":            "test-client-id",
+				"AZURE_TENANT_ID":            "test-tenant-id",
 				"AZURE_FEDERATED_TOKEN_FILE": stsflow.WebIdentityTokenPath,
 			},
 			wantError: false,
@@ -115,12 +116,12 @@ func TestDPAReconciler_ReconcileAzureWorkloadIdentitySecret(t *testing.T) {
 
 			// Create reconciler
 			r := &DataProtectionApplicationReconciler{
-				Client:         fakeClient,
-				Scheme:         scheme,
-				dpa:            tt.dpa,
-				Log:            logr.Discard(),
-				Context:        context.Background(),
-				EventRecorder:  newEventRecorder(),
+				Client:        fakeClient,
+				Scheme:        scheme,
+				dpa:           tt.dpa,
+				Log:           logr.Discard(),
+				Context:       context.Background(),
+				EventRecorder: newEventRecorder(),
 			}
 
 			// Call the function
