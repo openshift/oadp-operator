@@ -58,7 +58,7 @@ func getCredentialFromCloudStorageSecret(a client.Client, cloudStorage v1alpha1.
 			return "", err
 		}
 
-		if stsSecret, err := stsflow.STSStandardizedFlow(); err != nil && stsSecret != "" {
+		if stsSecret, err := stsflow.STSStandardizedFlow(); err == nil && stsSecret != "" {
 			err := a.Get(context.TODO(), types.NamespacedName{
 				Name:      stsSecret,
 				Namespace: cloudStorage.Namespace,
