@@ -99,7 +99,10 @@ sequenceDiagram
 * https://kubernetes.io/docs/concepts/storage/volumes/
 
 
+## Upcoming features and designs
+* Follow https://github.com/openshift/oadp-operator/wiki/Upcoming-Features-and-Designs-to-watch
+
 ---
-Last Updated: May 2025
+Last Updated: July 2025
 
 Note: Release timelines are subject to change.
