@@ -86,19 +86,10 @@ func (g *GCPProvider) UploadTest(ctx context.Context, config oadpv1alpha1.Upload
 
 	duration := time.Since(start)
 
-	log.Info("GCP upload test completed", "bytesWritten", bytesWritten, "duration", duration.String())
-
 	// Calculate speed in Mbps
 	speedMbps := int64(float64(bytesWritten*8) / duration.Seconds() / 1000000)
 
-	// Clean up test object
-	cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cleanupCancel()
-
-	if err := obj.Delete(cleanupCtx); err != nil {
-		log.Error(err, "Failed to clean up test object", "objectName", objectName)
-		// Don't return error for cleanup failure as the main test succeeded
-	}
+	log.Info("GCP upload test completed", "bytesWritten", bytesWritten, "duration", duration.String())
 
 	return speedMbps, duration, nil
 }

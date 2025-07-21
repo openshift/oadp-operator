@@ -275,11 +275,6 @@ func (r *DataProtectionTestReconciler) initializeProvider(ctx context.Context, b
 	}
 
 	providerName := strings.ToLower(backupLocationSpec.Provider)
-	cfg := backupLocationSpec.Config
-
-	if cfg == nil {
-		return nil, fmt.Errorf("backupLocationSpec.Config is nil")
-	}
 
 	//TODO handle credential when not specified
 
@@ -340,7 +335,7 @@ func (r *DataProtectionTestReconciler) initializeAWSProvider(ctx context.Context
 	}
 
 	// Ignore s3Url if it's aws-native
-	if strings.Contains(s3Url, "amazonaws.com") {
+	if s3Url != "" && strings.Contains(s3Url, "amazonaws.com") {
 		r.Log.Info("Detected AWS-native endpoint; ignoring s3Url")
 		s3Url = ""
 	}
