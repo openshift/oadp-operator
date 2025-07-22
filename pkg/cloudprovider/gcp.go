@@ -103,9 +103,7 @@ func (g *GCPProvider) GetBucketMetadata(ctx context.Context, bucket string, log 
 	// Get bucket attributes
 	attrs, err := bh.Attrs(ctx)
 	if err != nil {
-		return &oadpv1alpha1.BucketMetadata{
-			ErrorMessage: fmt.Sprintf("failed to get bucket attributes: %v", err),
-		}, nil
+		return nil, fmt.Errorf("failed to get bucket attributes: %w", err)
 	}
 
 	metadata := &oadpv1alpha1.BucketMetadata{}

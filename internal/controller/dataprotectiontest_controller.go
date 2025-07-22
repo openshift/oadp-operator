@@ -301,7 +301,7 @@ func (r *DataProtectionTestReconciler) initializeAWSProvider(ctx context.Context
 
 	// Get the AWS credentials from the secret
 	r.Log.Info("Fetching AWS provider secret", "secretName", backupLocationSpec.Credential.Name, "namespace", r.NamespacedName.Namespace)
-	secret, err := utils.GetProviderSecret(backupLocationSpec.Credential.Name, r.NamespacedName.Namespace, r.Client, r.Context)
+	secret, err := utils.GetProviderSecret(backupLocationSpec.Credential.Name, r.NamespacedName.Namespace, r.Client, ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get AWS secret: %w", err)
 	}
