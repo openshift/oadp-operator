@@ -29,17 +29,15 @@ import (
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	"github.com/openshift/oadp-operator/pkg/common"
 	"github.com/openshift/oadp-operator/pkg/credentials"
+	"github.com/openshift/oadp-operator/pkg/credentials/stsflow"
 	veleroserver "github.com/openshift/oadp-operator/pkg/velero/server"
 )
 
 const (
 	Server = "server"
 	//TODO: Check for default secret names
-	VeleroAWSSecretName   = "cloud-credentials"
-	VeleroAzureSecretName = "cloud-credentials-azure"
-	VeleroGCPSecretName   = "cloud-credentials-gcp"
-	enableCSIFeatureFlag  = "EnableCSI"
-	veleroIOPrefix        = "velero.io/"
+	enableCSIFeatureFlag = "EnableCSI"
+	veleroIOPrefix       = "velero.io/"
 
 	VeleroReplicaOverride = "VELERO_DEBUG_REPLICAS_OVERRIDE"
 
@@ -216,6 +214,7 @@ func (r *DataProtectionApplicationReconciler) customizeVeleroDeployment(veleroDe
 	if err != nil {
 		return fmt.Errorf("velero deployment label: %v", err)
 	}
+
 	if veleroDeployment.Spec.Selector == nil {
 		veleroDeployment.Spec.Selector = &metav1.LabelSelector{
 			MatchLabels: make(map[string]string),
@@ -575,6 +574,23 @@ func (r *DataProtectionApplicationReconciler) customizeVeleroContainer(veleroCon
 			Name:  "OPENSHIFT_IMAGESTREAM_BACKUP",
 			Value: "true",
 		}})
+	}
+
+	// Add Azure workload identity environment variables if using Azure STS
+	azureClientID := os.Getenv(stsflow.ClientIDEnvKey)
+	if azureClientID != "" && os.Getenv(stsflow.TenantIDEnvKey) != "" && os.Getenv(stsflow.SubscriptionIDEnvKey) != "" {
+		// Use envFrom to reference the secret containing Azure workload identity env vars
+		if veleroContainer.EnvFrom == nil {
+			veleroContainer.EnvFrom = []corev1.EnvFromSource{}
+		}
+		veleroContainer.EnvFrom = append(veleroContainer.EnvFrom, corev1.EnvFromSource{
+			SecretRef: &corev1.SecretEnvSource{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: stsflow.AzureWorkloadIdentitySecretName,
+				},
+			},
+		})
+		r.Log.Info("Added Azure workload identity secret reference to Velero container")
 	}
 
 	// Enable user to specify --fs-backup-timeout (defaults to 4h)

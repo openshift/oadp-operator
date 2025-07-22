@@ -447,7 +447,162 @@ deploy-olm: undeploy-olm ## Build current branch operator image, bundle image, p
 undeploy-olm: login-required operator-sdk ## Uninstall current branch operator via OLM
 	$(OC_CLI) whoami # Check if logged in
 	$(OC_CLI) create namespace $(OADP_TEST_NAMESPACE) || true
-	$(OPERATOR_SDK) cleanup oadp-operator --namespace $(OADP_TEST_NAMESPACE)
+	-$(OPERATOR_SDK) cleanup oadp-operator --namespace $(OADP_TEST_NAMESPACE) || true
+	# Also try to clean up any leftover resources
+	-$(OC_CLI) delete subscription oadp-operator -n $(OADP_TEST_NAMESPACE) --ignore-not-found=true
+	-$(OC_CLI) get subscription -n $(OADP_TEST_NAMESPACE) -o name | xargs -I {} $(OC_CLI) get {} -n $(OADP_TEST_NAMESPACE) -o jsonpath='{.metadata.name}{"\t"}{.spec.source}{"\n"}' | grep "oadp-operator-catalog" | cut -f1 | xargs -I {} $(OC_CLI) delete subscription {} -n $(OADP_TEST_NAMESPACE) --ignore-not-found=true
+	-$(OC_CLI) delete csv -l operators.coreos.com/oadp-operator.$(OADP_TEST_NAMESPACE) -n $(OADP_TEST_NAMESPACE) --ignore-not-found=true
+	-$(OC_CLI) delete catalogsource oadp-operator-catalog -n $(OADP_TEST_NAMESPACE) --ignore-not-found=true
+
+# Create subscription YAML helper function
+# Parameters:
+#   $(1) - Path to the subscription YAML file to create (e.g., /tmp/oadp-gcp-subscription.yaml)
+create-sts-subscription = \
+	echo "apiVersion: operators.coreos.com/v1alpha1" > $(1) && \
+	echo "kind: Subscription" >> $(1) && \
+	echo "metadata:" >> $(1) && \
+	echo "  name: oadp-operator" >> $(1) && \
+	echo "  namespace: $(OADP_TEST_NAMESPACE)" >> $(1) && \
+	echo "spec:" >> $(1) && \
+	echo "  channel: operator-sdk-run-bundle" >> $(1) && \
+	echo "  name: oadp-operator" >> $(1) && \
+	echo "  source: oadp-operator-catalog" >> $(1) && \
+	echo "  sourceNamespace: $(OADP_TEST_NAMESPACE)" >> $(1) && \
+	echo "  installPlanApproval: Automatic" >> $(1) && \
+	echo "  config:" >> $(1) && \
+	echo "    env:" >> $(1)
+
+# Apply subscription and wait for ready helper function
+# Parameters:
+#   $(1) - Path to the subscription YAML file to apply (e.g., /tmp/oadp-gcp-subscription.yaml)
+#   $(2) - Cloud provider descriptive name for status messages (e.g., "GCP WIF", "AWS STS", "Azure Workload Identity")
+apply-sts-subscription = \
+	$(OC_CLI) apply -f $(1) && \
+	rm -f $(1) && \
+	echo "" && \
+	echo "Subscription created with $(2) environment variables." && \
+	echo "Waiting for operator to be ready..." && \
+	echo "Waiting for InstallPlan to be created..." && \
+	timeout=60; \
+	while [ $$timeout -gt 0 ]; do \
+		INSTALL_PLAN=$$($(OC_CLI) get subscription oadp-operator -n $(OADP_TEST_NAMESPACE) -o jsonpath='{.status.installPlanRef.name}' 2>/dev/null); \
+		if [ -n "$$INSTALL_PLAN" ]; then \
+			echo "InstallPlan $$INSTALL_PLAN found"; \
+			break; \
+		fi; \
+		echo -n "."; \
+		sleep 2; \
+		timeout=$$((timeout-2)); \
+	done; \
+	if [ $$timeout -le 0 ]; then \
+		echo "Timeout waiting for InstallPlan"; \
+		exit 1; \
+	fi; \
+	echo "Waiting for CSV to exist..."; \
+	timeout=120; \
+	while [ $$timeout -gt 0 ]; do \
+		CSV_NAME=$$($(OC_CLI) get subscription oadp-operator -n $(OADP_TEST_NAMESPACE) -o jsonpath='{.status.currentCSV}' 2>/dev/null); \
+		if [ -n "$$CSV_NAME" ]; then \
+			if $(OC_CLI) get csv/$$CSV_NAME -n $(OADP_TEST_NAMESPACE) >/dev/null 2>&1; then \
+				echo "CSV $$CSV_NAME found"; \
+				break; \
+			fi; \
+		fi; \
+		echo -n "."; \
+		sleep 2; \
+		timeout=$$((timeout-2)); \
+	done; \
+	if [ $$timeout -le 0 ]; then \
+		echo "Timeout waiting for CSV to exist"; \
+		exit 1; \
+	fi; \
+	echo "Waiting for CSV to be ready..."; \
+	if [ -n "$$CSV_NAME" ]; then \
+		$(OC_CLI) wait --for=jsonpath='{.status.phase}'=Succeeded csv/$$CSV_NAME -n $(OADP_TEST_NAMESPACE) --timeout=300s; \
+	fi; \
+	echo "Operator is ready!"; \
+	$(OC_CLI) get subscription oadp-operator -n $(OADP_TEST_NAMESPACE); \
+	$(OC_CLI) get csv -n $(OADP_TEST_NAMESPACE)
+
+.PHONY: deploy-olm-stsflow
+deploy-olm-stsflow: deploy-olm ## Deploy via OLM then uninstall CSV/Subscription and provide console URL for standardized flow
+	@echo "Uninstalling CSV and Subscription to trigger standardized flow UI..."
+	-$(OC_CLI) get subscription -n $(OADP_TEST_NAMESPACE) -o name | xargs -I {} $(OC_CLI) get {} -n $(OADP_TEST_NAMESPACE) -o jsonpath='{.metadata.name}{"\t"}{.spec.source}{"\n"}' | grep "oadp-operator-catalog" | cut -f1 | xargs -I {} $(OC_CLI) delete subscription {} -n $(OADP_TEST_NAMESPACE) --ignore-not-found=true
+	-$(OC_CLI) delete csv oadp-operator.v$(VERSION) -n $(OADP_TEST_NAMESPACE) --ignore-not-found=true
+	@echo ""
+	@echo "==========================================================================="
+	@echo "Open the following URL in your browser to trigger the standardized flow UI:"
+	@echo ""
+	@CONSOLE_URL=$$($(OC_CLI) get route console -n openshift-console -o jsonpath='{.spec.host}'); \
+	echo "https://$$CONSOLE_URL/operatorhub/ns/$(OADP_TEST_NAMESPACE)?keyword=oadp-operator&details-item=oadp-operator-oadp-operator-catalog-$(OADP_TEST_NAMESPACE)&channel=operator-sdk-run-bundle&version=$(VERSION)"
+	@echo ""
+	@echo "==========================================================================="
+
+.PHONY: deploy-olm-stsflow-gcp
+deploy-olm-stsflow-gcp: deploy-olm-stsflow ## Deploy via OLM with GCP WIF standardized flow and create subscription with GCP env vars
+	@if [ -n "$(GCP_PROJECT_NUM)" ] && [ -n "$(GCP_POOL_ID)" ] && [ -n "$(GCP_PROVIDER_ID)" ] && [ -n "$(GCP_SA_EMAIL)" ]; then \
+		echo "Creating subscription with GCP WIF environment variables..."; \
+		$(call create-sts-subscription,/tmp/oadp-gcp-subscription.yaml); \
+		echo "    - name: PROJECT_NUMBER" >> /tmp/oadp-gcp-subscription.yaml; \
+		echo "      value: \"$(GCP_PROJECT_NUM)\"" >> /tmp/oadp-gcp-subscription.yaml; \
+		echo "    - name: POOL_ID" >> /tmp/oadp-gcp-subscription.yaml; \
+		echo "      value: \"$(GCP_POOL_ID)\"" >> /tmp/oadp-gcp-subscription.yaml; \
+		echo "    - name: PROVIDER_ID" >> /tmp/oadp-gcp-subscription.yaml; \
+		echo "      value: \"$(GCP_PROVIDER_ID)\"" >> /tmp/oadp-gcp-subscription.yaml; \
+		echo "    - name: SERVICE_ACCOUNT_EMAIL" >> /tmp/oadp-gcp-subscription.yaml; \
+		echo "      value: \"$(GCP_SA_EMAIL)\"" >> /tmp/oadp-gcp-subscription.yaml; \
+		$(call apply-sts-subscription,/tmp/oadp-gcp-subscription.yaml,GCP WIF); \
+	else \
+		echo ""; \
+		echo "GCP WIF environment variables not set. Please set all of the following:"; \
+		echo "  GCP_PROJECT_NUM"; \
+		echo "  GCP_POOL_ID"; \
+		echo "  GCP_PROVIDER_ID"; \
+		echo "  GCP_SA_EMAIL"; \
+		echo ""; \
+		echo "Example:"; \
+		echo "  make deploy-olm-stsflow-gcp GCP_PROJECT_NUM=123456789 GCP_POOL_ID=my-pool GCP_PROVIDER_ID=my-provider GCP_SA_EMAIL=my-sa@my-project.iam.gserviceaccount.com"; \
+	fi
+
+.PHONY: deploy-olm-stsflow-aws
+deploy-olm-stsflow-aws: deploy-olm-stsflow ## Deploy via OLM with AWS STS standardized flow and create subscription with AWS env vars
+	@if [ -n "$(AWS_ROLE_ARN)" ]; then \
+		echo "Creating subscription with AWS STS environment variables..."; \
+		$(call create-sts-subscription,/tmp/oadp-aws-subscription.yaml); \
+		echo "    - name: ROLEARN" >> /tmp/oadp-aws-subscription.yaml; \
+		echo "      value: \"$(AWS_ROLE_ARN)\"" >> /tmp/oadp-aws-subscription.yaml; \
+		$(call apply-sts-subscription,/tmp/oadp-aws-subscription.yaml,AWS STS); \
+	else \
+		echo ""; \
+		echo "AWS STS environment variable not set. Please set:"; \
+		echo "  AWS_ROLE_ARN"; \
+		echo ""; \
+		echo "Example:"; \
+		echo "  make deploy-olm-stsflow-aws AWS_ROLE_ARN=arn:aws:iam::123456789012:role/my-oadp-role"; \
+	fi
+
+.PHONY: deploy-olm-stsflow-azure
+deploy-olm-stsflow-azure: deploy-olm-stsflow ## Deploy via OLM with Azure Workload Identity standardized flow and create subscription with Azure env vars
+	@if [ -n "$(AZURE_CLIENT_ID)" ] && [ -n "$(AZURE_TENANT_ID)" ] && [ -n "$(AZURE_SUBSCRIPTION_ID)" ]; then \
+		echo "Creating subscription with Azure Workload Identity environment variables..."; \
+		$(call create-sts-subscription,/tmp/oadp-azure-subscription.yaml); \
+		echo "    - name: CLIENTID" >> /tmp/oadp-azure-subscription.yaml; \
+		echo "      value: \"$(AZURE_CLIENT_ID)\"" >> /tmp/oadp-azure-subscription.yaml; \
+		echo "    - name: TENANTID" >> /tmp/oadp-azure-subscription.yaml; \
+		echo "      value: \"$(AZURE_TENANT_ID)\"" >> /tmp/oadp-azure-subscription.yaml; \
+		echo "    - name: SUBSCRIPTIONID" >> /tmp/oadp-azure-subscription.yaml; \
+		echo "      value: \"$(AZURE_SUBSCRIPTION_ID)\"" >> /tmp/oadp-azure-subscription.yaml; \
+		$(call apply-sts-subscription,/tmp/oadp-azure-subscription.yaml,Azure Workload Identity); \
+	else \
+		echo ""; \
+		echo "Azure Workload Identity environment variables not set. Please set all of the following:"; \
+		echo "  AZURE_CLIENT_ID"; \
+		echo "  AZURE_TENANT_ID"; \
+		echo "  AZURE_SUBSCRIPTION_ID"; \
+		echo ""; \
+		echo "Example:"; \
+		echo "  make deploy-olm-stsflow-azure AZURE_CLIENT_ID=12345678-1234-1234-1234-123456789012 AZURE_TENANT_ID=87654321-4321-4321-4321-210987654321 AZURE_SUBSCRIPTION_ID=abcdef12-3456-7890-abcd-ef1234567890"; \
+	fi
 
 # A valid Git branch from https://github.com/openshift/oadp-operator
 PREVIOUS_CHANNEL ?= oadp-1.4

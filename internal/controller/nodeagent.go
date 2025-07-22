@@ -25,6 +25,7 @@ import (
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	"github.com/openshift/oadp-operator/pkg/common"
 	"github.com/openshift/oadp-operator/pkg/credentials"
+	"github.com/openshift/oadp-operator/pkg/credentials/stsflow"
 )
 
 const (
@@ -548,6 +549,23 @@ func (r *DataProtectionApplicationReconciler) customizeNodeAgentDaemonset(ds *ap
 
 			// append env vars to the nodeAgent container
 			nodeAgentContainer.Env = common.AppendUniqueEnvVars(nodeAgentContainer.Env, proxy.ReadProxyVarsFromEnv())
+
+			// Add Azure workload identity environment variables if configured
+			azureClientID := os.Getenv(stsflow.ClientIDEnvKey)
+			if azureClientID != "" && os.Getenv(stsflow.TenantIDEnvKey) != "" && os.Getenv(stsflow.SubscriptionIDEnvKey) != "" {
+				// Use envFrom to reference the secret containing Azure workload identity env vars
+				if nodeAgentContainer.EnvFrom == nil {
+					nodeAgentContainer.EnvFrom = []corev1.EnvFromSource{}
+				}
+				nodeAgentContainer.EnvFrom = append(nodeAgentContainer.EnvFrom, corev1.EnvFromSource{
+					SecretRef: &corev1.SecretEnvSource{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: stsflow.AzureWorkloadIdentitySecretName,
+						},
+					},
+				})
+				r.Log.Info("Added Azure workload identity secret reference to NodeAgent container")
+			}
 
 			imagePullPolicy, err := common.GetImagePullPolicy(dpa.Spec.ImagePullPolicy, getVeleroImage(dpa))
 			if err != nil {

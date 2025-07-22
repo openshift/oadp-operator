@@ -31,6 +31,7 @@ import (
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	oadpclient "github.com/openshift/oadp-operator/pkg/client"
 	"github.com/openshift/oadp-operator/pkg/common"
+	"github.com/openshift/oadp-operator/pkg/credentials/stsflow"
 )
 
 const (
@@ -2482,6 +2483,111 @@ func TestDPAReconciler_VeleroDebugEnvironment(t *testing.T) {
 					t.Error("debug replica override did not apply")
 					return
 				}
+			}
+		})
+	}
+}
+
+func TestDPAReconciler_buildVeleroDeploymentWithAzureWorkloadIdentity(t *testing.T) {
+	tests := []struct {
+		name             string
+		dpa              *oadpv1alpha1.DataProtectionApplication
+		envVars          map[string]string
+		wantAzureLabel   bool
+		veleroDeployment *appsv1.Deployment
+	}{
+		{
+			name: "Azure STS credentials present - should add workload identity label",
+			dpa: createTestDpaWith(
+				nil,
+				oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{},
+					},
+				},
+			),
+			envVars: map[string]string{
+				"CLIENTID":       "test-client-id",
+				"TENANTID":       "test-tenant-id",
+				"SUBSCRIPTIONID": "test-subscription-id",
+			},
+			wantAzureLabel:   true,
+			veleroDeployment: testVeleroDeployment.DeepCopy(),
+		},
+		{
+			name: "No Azure credentials - should not add workload identity label",
+			dpa: createTestDpaWith(
+				nil,
+				oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{},
+					},
+				},
+			),
+			envVars:          map[string]string{},
+			wantAzureLabel:   false,
+			veleroDeployment: testVeleroDeployment.DeepCopy(),
+		},
+		{
+			name: "Partial Azure credentials - should not add workload identity label",
+			dpa: createTestDpaWith(
+				nil,
+				oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{},
+					},
+				},
+			),
+			envVars: map[string]string{
+				"CLIENTID": "test-client-id",
+				"TENANTID": "test-tenant-id",
+				// Missing SUBSCRIPTIONID
+			},
+			wantAzureLabel:   false,
+			veleroDeployment: testVeleroDeployment.DeepCopy(),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Set environment variables for test
+			for key, value := range tt.envVars {
+				os.Setenv(key, value)
+				defer os.Unsetenv(key)
+			}
+
+			// Create reconciler
+			r := &DataProtectionApplicationReconciler{
+				dpa: tt.dpa,
+				Log: logr.Discard(),
+			}
+
+			// Build the deployment
+			err := r.buildVeleroDeployment(tt.veleroDeployment)
+			if err != nil {
+				t.Errorf("buildVeleroDeployment() error = %v", err)
+				return
+			}
+
+			// Check if Azure workload identity label is present
+			if tt.wantAzureLabel {
+				// Check that Azure workload identity secret reference is added via envFrom
+				foundAzureSecretRef := false
+				for _, container := range tt.veleroDeployment.Spec.Template.Spec.Containers {
+					if container.Name == common.Velero {
+						for _, envFrom := range container.EnvFrom {
+							if envFrom.SecretRef != nil && envFrom.SecretRef.Name == stsflow.AzureWorkloadIdentitySecretName {
+								foundAzureSecretRef = true
+								break
+							}
+						}
+						break
+					}
+				}
+				if !foundAzureSecretRef {
+					t.Errorf("Expected %s secret reference in envFrom", stsflow.AzureWorkloadIdentitySecretName)
+				}
+			} else {
 			}
 		})
 	}
