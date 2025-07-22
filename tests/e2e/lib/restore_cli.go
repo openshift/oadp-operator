@@ -80,13 +80,13 @@ func GetRestoreViaCLI(c client.Client, namespace string, name string) (*velero.R
 func IsRestoreDoneViaCLI(ocClient client.Client, veleroNamespace, name string) wait.ConditionFunc {
 	return func() (bool, error) {
 		// Use CLI to get restore status
-		cmd := exec.Command("kubectl", "oadp", "restore", "get", name, "-o", "jsonpath='{.status.phase}'")
+		cmd := exec.Command("bash", "-c", fmt.Sprintf("kubectl oadp restore get %s -o yaml | yq '.status.phase'", name))
 		output, err := cmd.Output()
 		if err != nil {
 			return false, fmt.Errorf("failed to get restore status via CLI: %v", err)
 		}
 
-		phase := strings.Trim(string(output), "'")
+		phase := strings.TrimSpace(string(output))
 		if len(phase) > 0 {
 			log.Printf("restore phase: %s", phase)
 		}
@@ -113,13 +113,13 @@ func IsRestoreDoneViaCLI(ocClient client.Client, veleroNamespace, name string) w
 // IsRestoreCompletedSuccessfullyViaCLI checks if restore completed successfully using the OADP CLI
 func IsRestoreCompletedSuccessfullyViaCLI(c *kubernetes.Clientset, ocClient client.Client, veleroNamespace, name string) (bool, error) {
 	// Use CLI to get restore status
-	cmd := exec.Command("kubectl", "oadp", "restore", "get", name, "-o", "jsonpath='{.status.phase}'")
+	cmd := exec.Command("bash", "-c", fmt.Sprintf("kubectl oadp restore get %s -o yaml | yq '.status.phase'", name))
 	output, err := cmd.Output()
 	if err != nil {
 		return false, fmt.Errorf("failed to get restore status via CLI: %v", err)
 	}
 
-	phase := strings.Trim(string(output), "'")
+	phase := strings.TrimSpace(string(output))
 
 	if phase == string(velero.RestorePhaseCompleted) {
 		return true, nil

@@ -105,13 +105,13 @@ func GetBackupViaCLI(c client.Client, namespace string, name string) (*velero.Ba
 func IsBackupDoneViaCLI(ocClient client.Client, veleroNamespace, name string) wait.ConditionFunc {
 	return func() (bool, error) {
 		// Use CLI to get backup status
-		cmd := exec.Command("kubectl", "oadp", "backup", "get", name, "-o", "yaml", "|", "yq", "'.status.phase'")
+		cmd := exec.Command("bash", "-c", fmt.Sprintf("kubectl oadp backup get %s -o yaml | yq '.status.phase'", name))
 		output, err := cmd.Output()
 		if err != nil {
 			return false, fmt.Errorf("failed to get backup status via CLI: %v", err)
 		}
 
-		phase := strings.Trim(string(output), "'")
+		phase := strings.TrimSpace(string(output))
 		if len(phase) > 0 {
 			log.Printf("backup phase: %s", phase)
 		}
@@ -138,13 +138,13 @@ func IsBackupDoneViaCLI(ocClient client.Client, veleroNamespace, name string) wa
 // IsBackupCompletedSuccessfullyViaCLI checks if backup completed successfully using the OADP CLI
 func IsBackupCompletedSuccessfullyViaCLI(c *kubernetes.Clientset, ocClient client.Client, namespace string, name string) (bool, error) {
 	// Use CLI to get backup status
-	cmd := exec.Command("kubectl", "oadp", "backup", "get", name, "-o", "yaml", "|", "yq", "'.status.phase'")
+	cmd := exec.Command("bash", "-c", fmt.Sprintf("kubectl oadp backup get %s -o yaml | yq '.status.phase'", name))
 	output, err := cmd.Output()
 	if err != nil {
 		return false, fmt.Errorf("failed to get backup status via CLI: %v", err)
 	}
 
-	phase := strings.Trim(string(output), "'")
+	phase := strings.TrimSpace(string(output))
 
 	if phase == string(velero.BackupPhaseCompleted) {
 		return true, nil
