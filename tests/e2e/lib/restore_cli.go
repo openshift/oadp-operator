@@ -12,11 +12,16 @@ import (
 
 // CreateRestoreFromBackupViaCLI creates a restore using the OADP CLI
 func CreateRestoreFromBackupViaCLI(backupName, restoreName string) error {
-	args := []string{"oadp", "restore", "create", restoreName, "--from-backup", backupName}
+	options := []string{"--from-backup", backupName}
 
 	// Execute CLI command
-	cmd := createKubectlOADPCommand(args...)
-	output, err := cmd.CombinedOutput()
+	cmd := &CLICommand{
+		Resource: "restore",
+		Action:   "create",
+		Name:     restoreName,
+		Options:  options,
+	}
+	output, err := cmd.Execute()
 	if err != nil {
 		return fmt.Errorf("failed to create restore via CLI: %v, output: %s", err, string(output))
 	}
@@ -27,26 +32,31 @@ func CreateRestoreFromBackupViaCLI(backupName, restoreName string) error {
 
 // CreateRestoreFromBackupWithOptionsViaCLI creates a restore with options using the OADP CLI
 func CreateRestoreFromBackupWithOptionsViaCLI(backupName, restoreName string, restoreVolumes bool, includeNamespaces, excludeNamespaces []string) error {
-	args := []string{"oadp", "restore", "create", restoreName, "--from-backup", backupName}
+	options := []string{"--from-backup", backupName}
 
 	// Add restore volumes option
 	if restoreVolumes {
-		args = append(args, "--restore-volumes")
+		options = append(options, "--restore-volumes")
 	}
 
 	// Add included namespaces
 	if len(includeNamespaces) > 0 {
-		args = append(args, "--include-namespaces", strings.Join(includeNamespaces, ","))
+		options = append(options, "--include-namespaces", strings.Join(includeNamespaces, ","))
 	}
 
 	// Add excluded namespaces
 	if len(excludeNamespaces) > 0 {
-		args = append(args, "--exclude-namespaces", strings.Join(excludeNamespaces, ","))
+		options = append(options, "--exclude-namespaces", strings.Join(excludeNamespaces, ","))
 	}
 
 	// Execute CLI command
-	cmd := createKubectlOADPCommand(args...)
-	output, err := cmd.CombinedOutput()
+	cmd := &CLICommand{
+		Resource: "restore",
+		Action:   "create",
+		Name:     restoreName,
+		Options:  options,
+	}
+	output, err := cmd.Execute()
 	if err != nil {
 		return fmt.Errorf("failed to create restore with options via CLI: %v, output: %s", err, string(output))
 	}
@@ -57,9 +67,18 @@ func CreateRestoreFromBackupWithOptionsViaCLI(backupName, restoreName string, re
 
 // GetRestoreViaCLI gets restore details using the OADP CLI
 func GetRestoreViaCLI(name string) (*velero.Restore, error) {
+	if name == "" {
+		return nil, fmt.Errorf("restore name cannot be empty")
+	}
+
 	// Use CLI to get restore details in JSON format
-	cmd := createKubectlOADPCommand("oadp", "restore", "get", name, "-o", "json")
-	output, err := cmd.Output()
+	cmd := &CLICommand{
+		Resource: "restore",
+		Action:   "get",
+		Name:     name,
+		Options:  []string{"-o", "json"},
+	}
+	output, err := cmd.ExecuteOutput()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get restore via CLI: %v", err)
 	}
@@ -77,23 +96,19 @@ func GetRestoreViaCLI(name string) (*velero.Restore, error) {
 func IsRestoreDoneViaCLI(name string) wait.ConditionFunc {
 	return func() (bool, error) {
 		// Use CLI to get restore status
-		cmd := createKubectlOADPCommand("oadp", "restore", "get", name, "-o", "yaml")
-		output, err := cmd.Output()
+		cmd := &CLICommand{
+			Resource: "restore",
+			Action:   "get",
+			Name:     name,
+			Options:  []string{"-o", "yaml"},
+		}
+		output, err := cmd.ExecuteOutput()
 		if err != nil {
 			return false, fmt.Errorf("failed to get restore status via CLI: %v", err)
 		}
 
 		// Parse phase from YAML output
-		yamlOutput := string(output)
-		lines := strings.Split(yamlOutput, "\n")
-		var phase string
-		for _, line := range lines {
-			line = strings.TrimSpace(line)
-			if strings.HasPrefix(line, "phase:") {
-				phase = strings.TrimSpace(strings.TrimPrefix(line, "phase:"))
-				break
-			}
-		}
+		phase := ParsePhaseFromYAML(string(output))
 
 		if len(phase) > 0 {
 			log.Printf("restore phase: %s", phase)
@@ -121,23 +136,19 @@ func IsRestoreDoneViaCLI(name string) wait.ConditionFunc {
 // IsRestoreCompletedSuccessfullyViaCLI checks if restore completed successfully using the OADP CLI
 func IsRestoreCompletedSuccessfullyViaCLI(name string) (bool, error) {
 	// Use CLI to get restore status
-	cmd := createKubectlOADPCommand("oadp", "restore", "get", name, "-o", "yaml")
-	output, err := cmd.Output()
+	cmd := &CLICommand{
+		Resource: "restore",
+		Action:   "get",
+		Name:     name,
+		Options:  []string{"-o", "yaml"},
+	}
+	output, err := cmd.ExecuteOutput()
 	if err != nil {
 		return false, fmt.Errorf("failed to get restore status via CLI: %v", err)
 	}
 
 	// Parse phase from YAML output
-	yamlOutput := string(output)
-	lines := strings.Split(yamlOutput, "\n")
-	var phase string
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if strings.HasPrefix(line, "phase:") {
-			phase = strings.TrimSpace(strings.TrimPrefix(line, "phase:"))
-			break
-		}
-	}
+	phase := ParsePhaseFromYAML(string(output))
 
 	if phase == string(velero.RestorePhaseCompleted) {
 		return true, nil
@@ -158,8 +169,13 @@ func IsRestoreCompletedSuccessfullyViaCLI(name string) (bool, error) {
 // DescribeRestoreViaCLI describes restore using the OADP CLI
 func DescribeRestoreViaCLI(name string) string {
 	// Use CLI to describe restore
-	cmd := createKubectlOADPCommand("oadp", "restore", "describe", name, "--details")
-	output, err := cmd.CombinedOutput()
+	cmd := &CLICommand{
+		Resource: "restore",
+		Action:   "describe",
+		Name:     name,
+		Options:  []string{"--details"},
+	}
+	output, err := cmd.Execute()
 	if err != nil {
 		return fmt.Sprintf("could not describe restore via CLI: %v, output: %s", err, string(output))
 	}
@@ -169,9 +185,18 @@ func DescribeRestoreViaCLI(name string) string {
 
 // RestoreLogsViaCLI gets restore logs using the OADP CLI
 func RestoreLogsViaCLI(name string) (restoreLogs string, err error) {
+	if name == "" {
+		return "", fmt.Errorf("restore name cannot be empty")
+	}
+
 	// Use CLI to get restore logs
-	cmd := createKubectlOADPCommand("oadp", "restore", "logs", name)
-	output, cmdErr := cmd.Output()
+	cmd := &CLICommand{
+		Resource: "restore",
+		Action:   "logs",
+		Name:     name,
+		Options:  []string{},
+	}
+	output, cmdErr := cmd.ExecuteOutput()
 	if cmdErr != nil {
 		return "", fmt.Errorf("failed to get restore logs via CLI: %v", cmdErr)
 	}
@@ -190,9 +215,18 @@ func RestoreErrorLogsViaCLI(name string) []string {
 
 // DeleteRestoreViaCLI deletes a restore using the OADP CLI
 func DeleteRestoreViaCLI(name string) error {
+	if name == "" {
+		return fmt.Errorf("restore name cannot be empty")
+	}
+
 	// Use CLI to delete restore
-	cmd := createKubectlOADPCommand("oadp", "restore", "delete", name)
-	output, err := cmd.CombinedOutput()
+	cmd := &CLICommand{
+		Resource: "restore",
+		Action:   "delete",
+		Name:     name,
+		Options:  []string{},
+	}
+	output, err := cmd.Execute()
 	if err != nil {
 		return fmt.Errorf("failed to delete restore via CLI: %v, output: %s", err, string(output))
 	}
@@ -204,8 +238,13 @@ func DeleteRestoreViaCLI(name string) error {
 // ListRestoresViaCLI lists all restores using the OADP CLI
 func ListRestoresViaCLI() ([]string, error) {
 	// Use CLI to list restores
-	cmd := createKubectlOADPCommand("oadp", "restore", "list", "-o", "name")
-	output, err := cmd.Output()
+	cmd := &CLICommand{
+		Resource: "restore",
+		Action:   "list",
+		Name:     "", // list commands don't require a name
+		Options:  []string{"-o", "name"},
+	}
+	output, err := cmd.ExecuteOutput()
 	if err != nil {
 		return nil, fmt.Errorf("failed to list restores via CLI: %v", err)
 	}
