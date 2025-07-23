@@ -12,5 +12,4 @@ cache
 ./*.yaml
 OWNERS*
 PROJECT
-LICENSE
 Dockerfile
