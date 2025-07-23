@@ -26,20 +26,20 @@ func runBackupViaCLI(brCase BackupRestoreCase, backupName string) bool {
 
 	// Create backup via CLI
 	log.Printf("Creating backup %s for case %s via CLI", backupName, brCase.Name)
-	err = lib.CreateBackupForNamespacesViaCLI(dpaCR.Client, namespace, backupName, []string{brCase.Namespace}, brCase.BackupRestoreType == lib.RESTIC || brCase.BackupRestoreType == lib.KOPIA, brCase.BackupRestoreType == lib.CSIDataMover)
+	err = lib.CreateBackupForNamespacesViaCLI(backupName, []string{brCase.Namespace}, brCase.BackupRestoreType == lib.RESTIC || brCase.BackupRestoreType == lib.KOPIA, brCase.BackupRestoreType == lib.CSIDataMover)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 	// Wait for backup via CLI
-	gomega.Eventually(lib.IsBackupDoneViaCLI(dpaCR.Client, namespace, backupName), brCase.BackupTimeout, time.Second*10).Should(gomega.BeTrue())
+	gomega.Eventually(lib.IsBackupDoneViaCLI(backupName), brCase.BackupTimeout, time.Second*10).Should(gomega.BeTrue())
 
 	// Get backup details via CLI
-	describeBackup := lib.DescribeBackupViaCLI(dpaCR.Client, namespace, backupName)
+	describeBackup := lib.DescribeBackupViaCLI(backupName)
 	ginkgo.GinkgoWriter.Println(describeBackup)
 
-	backupLogs, err := lib.BackupLogsViaCLI(kubernetesClientForSuiteRun, dpaCR.Client, namespace, backupName)
+	backupLogs, err := lib.BackupLogsViaCLI(backupName)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
-	backupErrorLogs := lib.BackupErrorLogsViaCLI(kubernetesClientForSuiteRun, dpaCR.Client, namespace, backupName)
+	backupErrorLogs := lib.BackupErrorLogsViaCLI(backupName)
 	accumulatedTestLogs = append(accumulatedTestLogs, describeBackup, backupLogs)
 
 	if !brCase.SkipVerifyLogs {
@@ -47,7 +47,7 @@ func runBackupViaCLI(brCase BackupRestoreCase, backupName string) bool {
 	}
 
 	// Check if backup succeeded
-	succeeded, err := lib.IsBackupCompletedSuccessfullyViaCLI(kubernetesClientForSuiteRun, dpaCR.Client, namespace, backupName)
+	succeeded, err := lib.IsBackupCompletedSuccessfullyViaCLI(backupName)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	gomega.Expect(succeeded).To(gomega.Equal(true))
 
@@ -59,19 +59,19 @@ func runBackupViaCLI(brCase BackupRestoreCase, backupName string) bool {
 // CLI-specific restore execution
 func runRestoreViaCLI(brCase BackupRestoreCase, backupName, restoreName string, nsRequiresResticDCWorkaround bool) {
 	log.Printf("Creating restore %s for case %s via CLI", restoreName, brCase.Name)
-	err := lib.CreateRestoreFromBackupViaCLI(dpaCR.Client, namespace, backupName, restoreName)
+	err := lib.CreateRestoreFromBackupViaCLI(backupName, restoreName)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
-	gomega.Eventually(lib.IsRestoreDoneViaCLI(dpaCR.Client, namespace, restoreName), time.Minute*60, time.Second*10).Should(gomega.BeTrue())
+	gomega.Eventually(lib.IsRestoreDoneViaCLI(restoreName), time.Minute*60, time.Second*10).Should(gomega.BeTrue())
 
 	// Get restore details via CLI
-	describeRestore := lib.DescribeRestoreViaCLI(dpaCR.Client, namespace, restoreName)
+	describeRestore := lib.DescribeRestoreViaCLI(restoreName)
 	ginkgo.GinkgoWriter.Println(describeRestore)
 
-	restoreLogs, err := lib.RestoreLogsViaCLI(kubernetesClientForSuiteRun, dpaCR.Client, namespace, restoreName)
+	restoreLogs, err := lib.RestoreLogsViaCLI(restoreName)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
-	restoreErrorLogs := lib.RestoreErrorLogsViaCLI(kubernetesClientForSuiteRun, dpaCR.Client, namespace, restoreName)
+	restoreErrorLogs := lib.RestoreErrorLogsViaCLI(restoreName)
 	accumulatedTestLogs = append(accumulatedTestLogs, describeRestore, restoreLogs)
 
 	if !brCase.SkipVerifyLogs {
@@ -79,7 +79,7 @@ func runRestoreViaCLI(brCase BackupRestoreCase, backupName, restoreName string, 
 	}
 
 	// Check if restore succeeded
-	succeeded, err := lib.IsRestoreCompletedSuccessfullyViaCLI(kubernetesClientForSuiteRun, dpaCR.Client, namespace, restoreName)
+	succeeded, err := lib.IsRestoreCompletedSuccessfullyViaCLI(restoreName)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	gomega.Expect(succeeded).To(gomega.Equal(true))
 

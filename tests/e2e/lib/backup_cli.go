@@ -9,8 +9,6 @@ import (
 
 	velero "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/kubernetes"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // Helper function to create kubectl oadp commands
@@ -19,7 +17,7 @@ func createKubectlOADPCommand(args ...string) *exec.Cmd {
 }
 
 // CreateBackupForNamespacesViaCLI creates a backup using the OADP CLI
-func CreateBackupForNamespacesViaCLI(ocClient client.Client, veleroNamespace, backupName string, namespaces []string, defaultVolumesToFsBackup bool, snapshotMoveData bool) error {
+func CreateBackupForNamespacesViaCLI(backupName string, namespaces []string, defaultVolumesToFsBackup bool, snapshotMoveData bool) error {
 	args := []string{"oadp", "backup", "create", backupName}
 
 	// Add included namespaces (comma-separated)
@@ -49,7 +47,7 @@ func CreateBackupForNamespacesViaCLI(ocClient client.Client, veleroNamespace, ba
 }
 
 // CreateCustomBackupForNamespacesViaCLI creates a custom backup using the OADP CLI
-func CreateCustomBackupForNamespacesViaCLI(ocClient client.Client, veleroNamespace, backupName string, namespaces []string, includedResources, excludedResources []string, defaultVolumesToFsBackup bool, snapshotMoveData bool) error {
+func CreateCustomBackupForNamespacesViaCLI(backupName string, namespaces []string, includedResources, excludedResources []string, defaultVolumesToFsBackup bool, snapshotMoveData bool) error {
 	args := []string{"oadp", "backup", "create", backupName}
 
 	// Add included namespaces (comma-separated)
@@ -89,7 +87,7 @@ func CreateCustomBackupForNamespacesViaCLI(ocClient client.Client, veleroNamespa
 }
 
 // GetBackupViaCLI gets backup details using the OADP CLI
-func GetBackupViaCLI(c client.Client, namespace string, name string) (*velero.Backup, error) {
+func GetBackupViaCLI(name string) (*velero.Backup, error) {
 	// Use CLI to get backup details in JSON format
 	cmd := createKubectlOADPCommand("oadp", "backup", "get", name, "-o", "json")
 	output, err := cmd.Output()
@@ -107,7 +105,7 @@ func GetBackupViaCLI(c client.Client, namespace string, name string) (*velero.Ba
 }
 
 // IsBackupDoneViaCLI checks if backup is done using the OADP CLI
-func IsBackupDoneViaCLI(ocClient client.Client, veleroNamespace, name string) wait.ConditionFunc {
+func IsBackupDoneViaCLI(name string) wait.ConditionFunc {
 	return func() (bool, error) {
 		// Use CLI to get backup status
 		cmd := createKubectlOADPCommand("oadp", "backup", "get", name, "-o", "yaml")
@@ -152,7 +150,7 @@ func IsBackupDoneViaCLI(ocClient client.Client, veleroNamespace, name string) wa
 }
 
 // IsBackupCompletedSuccessfullyViaCLI checks if backup completed successfully using the OADP CLI
-func IsBackupCompletedSuccessfullyViaCLI(c *kubernetes.Clientset, ocClient client.Client, namespace string, name string) (bool, error) {
+func IsBackupCompletedSuccessfullyViaCLI(name string) (bool, error) {
 	// Use CLI to get backup status
 	cmd := createKubectlOADPCommand("oadp", "backup", "get", name, "-o", "yaml")
 	output, err := cmd.Output()
@@ -177,7 +175,7 @@ func IsBackupCompletedSuccessfullyViaCLI(c *kubernetes.Clientset, ocClient clien
 	}
 
 	// Get additional failure information using CLI
-	backupLogs, logsErr := BackupLogsViaCLI(c, ocClient, namespace, name)
+	backupLogs, logsErr := BackupLogsViaCLI(name)
 	if logsErr != nil {
 		backupLogs = fmt.Sprintf("Failed to get logs: %v", logsErr)
 	}
@@ -189,7 +187,7 @@ func IsBackupCompletedSuccessfullyViaCLI(c *kubernetes.Clientset, ocClient clien
 }
 
 // DescribeBackupViaCLI describes backup using the OADP CLI
-func DescribeBackupViaCLI(ocClient client.Client, namespace string, name string) (backupDescription string) {
+func DescribeBackupViaCLI(name string) (backupDescription string) {
 	// Use CLI to describe backup
 	cmd := createKubectlOADPCommand("oadp", "backup", "describe", name, "--details")
 	output, err := cmd.CombinedOutput()
@@ -201,7 +199,7 @@ func DescribeBackupViaCLI(ocClient client.Client, namespace string, name string)
 }
 
 // BackupLogsViaCLI gets backup logs using the OADP CLI
-func BackupLogsViaCLI(c *kubernetes.Clientset, ocClient client.Client, namespace string, name string) (backupLogs string, err error) {
+func BackupLogsViaCLI(name string) (backupLogs string, err error) {
 	// Use CLI to get backup logs
 	cmd := createKubectlOADPCommand("oadp", "backup", "logs", name)
 	output, cmdErr := cmd.Output()
@@ -213,8 +211,8 @@ func BackupLogsViaCLI(c *kubernetes.Clientset, ocClient client.Client, namespace
 }
 
 // BackupErrorLogsViaCLI gets backup error logs using the OADP CLI
-func BackupErrorLogsViaCLI(c *kubernetes.Clientset, ocClient client.Client, namespace string, name string) []string {
-	bl, err := BackupLogsViaCLI(c, ocClient, namespace, name)
+func BackupErrorLogsViaCLI(name string) []string {
+	bl, err := BackupLogsViaCLI(name)
 	if err != nil {
 		return []string{err.Error()}
 	}
@@ -222,7 +220,7 @@ func BackupErrorLogsViaCLI(c *kubernetes.Clientset, ocClient client.Client, name
 }
 
 // DeleteBackupViaCLI deletes a backup using the OADP CLI
-func DeleteBackupViaCLI(namespace string, name string) error {
+func DeleteBackupViaCLI(name string) error {
 	// Use CLI to delete backup
 	cmd := createKubectlOADPCommand("oadp", "backup", "delete", name)
 	output, err := cmd.CombinedOutput()

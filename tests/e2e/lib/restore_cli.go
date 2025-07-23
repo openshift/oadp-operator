@@ -8,12 +8,10 @@ import (
 
 	velero "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/kubernetes"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // CreateRestoreFromBackupViaCLI creates a restore using the OADP CLI
-func CreateRestoreFromBackupViaCLI(ocClient client.Client, veleroNamespace, backupName, restoreName string) error {
+func CreateRestoreFromBackupViaCLI(backupName, restoreName string) error {
 	args := []string{"oadp", "restore", "create", restoreName, "--from-backup", backupName}
 
 	// Execute CLI command
@@ -28,7 +26,7 @@ func CreateRestoreFromBackupViaCLI(ocClient client.Client, veleroNamespace, back
 }
 
 // CreateRestoreFromBackupWithOptionsViaCLI creates a restore with options using the OADP CLI
-func CreateRestoreFromBackupWithOptionsViaCLI(ocClient client.Client, veleroNamespace, backupName, restoreName string, restoreVolumes bool, includeNamespaces, excludeNamespaces []string) error {
+func CreateRestoreFromBackupWithOptionsViaCLI(backupName, restoreName string, restoreVolumes bool, includeNamespaces, excludeNamespaces []string) error {
 	args := []string{"oadp", "restore", "create", restoreName, "--from-backup", backupName}
 
 	// Add restore volumes option
@@ -58,7 +56,7 @@ func CreateRestoreFromBackupWithOptionsViaCLI(ocClient client.Client, veleroName
 }
 
 // GetRestoreViaCLI gets restore details using the OADP CLI
-func GetRestoreViaCLI(c client.Client, namespace string, name string) (*velero.Restore, error) {
+func GetRestoreViaCLI(name string) (*velero.Restore, error) {
 	// Use CLI to get restore details in JSON format
 	cmd := createKubectlOADPCommand("oadp", "restore", "get", name, "-o", "json")
 	output, err := cmd.Output()
@@ -76,7 +74,7 @@ func GetRestoreViaCLI(c client.Client, namespace string, name string) (*velero.R
 }
 
 // IsRestoreDoneViaCLI checks if restore is done using the OADP CLI
-func IsRestoreDoneViaCLI(ocClient client.Client, veleroNamespace, name string) wait.ConditionFunc {
+func IsRestoreDoneViaCLI(name string) wait.ConditionFunc {
 	return func() (bool, error) {
 		// Use CLI to get restore status
 		cmd := createKubectlOADPCommand("oadp", "restore", "get", name, "-o", "yaml")
@@ -121,7 +119,7 @@ func IsRestoreDoneViaCLI(ocClient client.Client, veleroNamespace, name string) w
 }
 
 // IsRestoreCompletedSuccessfullyViaCLI checks if restore completed successfully using the OADP CLI
-func IsRestoreCompletedSuccessfullyViaCLI(c *kubernetes.Clientset, ocClient client.Client, veleroNamespace, name string) (bool, error) {
+func IsRestoreCompletedSuccessfullyViaCLI(name string) (bool, error) {
 	// Use CLI to get restore status
 	cmd := createKubectlOADPCommand("oadp", "restore", "get", name, "-o", "yaml")
 	output, err := cmd.Output()
@@ -146,7 +144,7 @@ func IsRestoreCompletedSuccessfullyViaCLI(c *kubernetes.Clientset, ocClient clie
 	}
 
 	// Get additional failure information using CLI
-	restoreLogs, logsErr := RestoreLogsViaCLI(c, ocClient, veleroNamespace, name)
+	restoreLogs, logsErr := RestoreLogsViaCLI(name)
 	if logsErr != nil {
 		restoreLogs = fmt.Sprintf("Failed to get logs: %v", logsErr)
 	}
@@ -158,7 +156,7 @@ func IsRestoreCompletedSuccessfullyViaCLI(c *kubernetes.Clientset, ocClient clie
 }
 
 // DescribeRestoreViaCLI describes restore using the OADP CLI
-func DescribeRestoreViaCLI(ocClient client.Client, namespace string, name string) string {
+func DescribeRestoreViaCLI(name string) string {
 	// Use CLI to describe restore
 	cmd := createKubectlOADPCommand("oadp", "restore", "describe", name, "--details")
 	output, err := cmd.CombinedOutput()
@@ -170,7 +168,7 @@ func DescribeRestoreViaCLI(ocClient client.Client, namespace string, name string
 }
 
 // RestoreLogsViaCLI gets restore logs using the OADP CLI
-func RestoreLogsViaCLI(c *kubernetes.Clientset, ocClient client.Client, namespace string, name string) (restoreLogs string, err error) {
+func RestoreLogsViaCLI(name string) (restoreLogs string, err error) {
 	// Use CLI to get restore logs
 	cmd := createKubectlOADPCommand("oadp", "restore", "logs", name)
 	output, cmdErr := cmd.Output()
@@ -182,8 +180,8 @@ func RestoreLogsViaCLI(c *kubernetes.Clientset, ocClient client.Client, namespac
 }
 
 // RestoreErrorLogsViaCLI gets restore error logs using the OADP CLI
-func RestoreErrorLogsViaCLI(c *kubernetes.Clientset, ocClient client.Client, namespace string, name string) []string {
-	rl, err := RestoreLogsViaCLI(c, ocClient, namespace, name)
+func RestoreErrorLogsViaCLI(name string) []string {
+	rl, err := RestoreLogsViaCLI(name)
 	if err != nil {
 		return []string{err.Error()}
 	}
@@ -191,7 +189,7 @@ func RestoreErrorLogsViaCLI(c *kubernetes.Clientset, ocClient client.Client, nam
 }
 
 // DeleteRestoreViaCLI deletes a restore using the OADP CLI
-func DeleteRestoreViaCLI(namespace string, name string) error {
+func DeleteRestoreViaCLI(name string) error {
 	// Use CLI to delete restore
 	cmd := createKubectlOADPCommand("oadp", "restore", "delete", name)
 	output, err := cmd.CombinedOutput()
@@ -204,7 +202,7 @@ func DeleteRestoreViaCLI(namespace string, name string) error {
 }
 
 // ListRestoresViaCLI lists all restores using the OADP CLI
-func ListRestoresViaCLI(namespace string) ([]string, error) {
+func ListRestoresViaCLI() ([]string, error) {
 	// Use CLI to list restores
 	cmd := createKubectlOADPCommand("oadp", "restore", "list", "-o", "name")
 	output, err := cmd.Output()
