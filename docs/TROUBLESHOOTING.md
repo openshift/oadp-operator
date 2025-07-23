@@ -10,6 +10,7 @@ If you need help, first search if there is [already an issue filed](https://issu
 1. [Debugging Failed Backups](#debugging-failed-backups)
 1. [Debugging Failed Restores](#debugging-failed-restores)
 1. [Debugging OpenShift Virtualization backup/restore](virtualization_troubleshooting.md)
+1. [Debugging OADP Self Service](self-service_troubleshooting.md)
 1. [Deleting Backups](#deleting-backups)
 1. [Debugging Data Mover (OADP 1.2 or below)](https://github.com/migtools/volume-snapshot-mover/blob/master/docs/troubleshooting.md)
 1. [OpenShift ROSA STS and OADP installation](https://github.com/rh-mobb/documentation/blob/main/content/docs/misc/oadp/rosa-sts/_index.md)
