@@ -152,7 +152,7 @@ func (r *DataProtectionTestReconciler) Reconcile(ctx context.Context, req ctrl.R
 	if cfg := r.dpt.Spec.UploadSpeedTestConfig; cfg != nil {
 		logger.Info("Initializing cloud provider for upload test...")
 
-		cp, err := r.initializeProvider(resolvedBackupLocationSpec)
+		cp, err := r.initializeProvider(ctx, resolvedBackupLocationSpec)
 		if err != nil {
 			logger.Error(err, "failed to initialize cloud provider")
 			r.updateDPTErrorStatus(ctx, fmt.Sprintf("cloud provider init failed: %v", err))
@@ -268,21 +268,63 @@ func (r *DataProtectionTestReconciler) determineVendor(ctx context.Context, dpt 
 // initializeProvider reads the BackupLocationSpec from the DPT CR,
 // retrieves the associated credentials from a Secret, and returns an initialized
 // CloudProvider
-func (r *DataProtectionTestReconciler) initializeProvider(backupLocationSpec *velerov1.BackupStorageLocationSpec) (cloudprovider.CloudProvider, error) {
+func (r *DataProtectionTestReconciler) initializeProvider(ctx context.Context, backupLocationSpec *velerov1.BackupStorageLocationSpec) (cloudprovider.CloudProvider, error) {
 
 	if backupLocationSpec == nil {
 		return nil, fmt.Errorf("backupLocationSpec is nil")
 	}
 
 	providerName := strings.ToLower(backupLocationSpec.Provider)
-	cfg := backupLocationSpec.Config
 
+	//TODO handle credential when not specified
+
+	switch providerName {
+	case AWSProvider:
+		return r.initializeAWSProvider(ctx, backupLocationSpec)
+	case GCPProvider:
+		return r.initializeGCPProvider(ctx, backupLocationSpec)
+	case AzureProvider:
+		return nil, fmt.Errorf("azure provider support not implemented yet")
+
+	default:
+		return nil, fmt.Errorf("unsupported cloud provider: %s", providerName)
+	}
+}
+
+// initializeAWSProvider initializes an AWS CloudProvider using credentials and configuration
+func (r *DataProtectionTestReconciler) initializeAWSProvider(ctx context.Context, backupLocationSpec *velerov1.BackupStorageLocationSpec) (cloudprovider.CloudProvider, error) {
+	r.Log.Info("Initializing AWS provider")
+
+	if backupLocationSpec.Credential == nil {
+		return nil, fmt.Errorf("AWS credential is required but not specified")
+	}
+
+	// Get the AWS credentials from the secret
+	r.Log.Info("Fetching AWS provider secret", "secretName", backupLocationSpec.Credential.Name, "namespace", r.NamespacedName.Namespace)
+	secret, err := utils.GetProviderSecret(backupLocationSpec.Credential.Name, r.NamespacedName.Namespace, r.Client, ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get AWS secret: %w", err)
+	}
+
+	// Parse AWS profile from configuration
+	AWSProfile := "default"
+	if backupLocationSpec.Config != nil {
+		if value, exists := backupLocationSpec.Config[Profile]; exists {
+			AWSProfile = value
+		}
+	}
+
+	r.Log.Info("Parsing AWS credentials", "profile", AWSProfile)
+	accessKey, secretKey, err := utils.ParseAWSSecret(secret, backupLocationSpec.Credential.Key, AWSProfile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse AWS secret: %w", err)
+	}
+
+	// Get region and S3 URL from configuration
+	cfg := backupLocationSpec.Config
 	if cfg == nil {
 		return nil, fmt.Errorf("backupLocationSpec.Config is nil")
 	}
-
-	//TODO handle credential when not specified
-	cred := backupLocationSpec.Credential
 
 	s3Url := cfg[S3URL]
 	region := cfg[Region]
@@ -293,42 +335,61 @@ func (r *DataProtectionTestReconciler) initializeProvider(backupLocationSpec *ve
 	}
 
 	// Ignore s3Url if it's aws-native
-	if strings.Contains(s3Url, "amazonaws.com") {
+	if s3Url != "" && strings.Contains(s3Url, "amazonaws.com") {
 		r.Log.Info("Detected AWS-native endpoint; ignoring s3Url")
 		s3Url = ""
 	}
 
-	switch providerName {
-	case AWSProvider:
-		r.Log.Info("Fetching AWS provider secret", "secretName", cred.Name, "namespace", r.NamespacedName.Namespace)
-		secret, err := utils.GetProviderSecret(cred.Name, r.NamespacedName.Namespace, r.Client, r.Context)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get AWS secret: %w", err)
-		}
-
-		AWSProfile := "default"
-		if backupLocationSpec.Config != nil {
-			if value, exists := backupLocationSpec.Config[Profile]; exists {
-				AWSProfile = value
-			}
-		}
-
-		r.Log.Info("Parsing AWS credentials", "profile", AWSProfile)
-		accessKey, secretKey, err := utils.ParseAWSSecret(secret, cred.Key, AWSProfile)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse AWS secret: %w", err)
-		}
-
-		r.Log.Info("Successfully initialized AWS provider")
-		return cloudprovider.NewAWSProvider(region, s3Url, accessKey, secretKey), nil
-	case GCPProvider:
-		return nil, fmt.Errorf("GCP provider support not implemented yet")
-	case AzureProvider:
-		return nil, fmt.Errorf("azure provider support not implemented yet")
-
-	default:
-		return nil, fmt.Errorf("unsupported cloud provider: %s", providerName)
+	// Initialize the AWS provider
+	awsProvider := cloudprovider.NewAWSProvider(region, s3Url, accessKey, secretKey)
+	if awsProvider == nil {
+		return nil, fmt.Errorf("failed to create AWS provider")
 	}
+
+	r.Log.Info("Successfully initialized AWS provider", "region", region, "s3Url", s3Url)
+	return awsProvider, nil
+}
+
+// initializeGCPProvider initializes a GCP CloudProvider using service account credentials
+func (r *DataProtectionTestReconciler) initializeGCPProvider(ctx context.Context, backupLocationSpec *velerov1.BackupStorageLocationSpec) (cloudprovider.CloudProvider, error) {
+	r.Log.Info("Initializing GCP provider")
+
+	if backupLocationSpec.Credential == nil {
+		return nil, fmt.Errorf("GCP credential is required but not specified")
+	}
+
+	// Get the service account credentials from the secret
+	r.Log.Info("Fetching GCP provider secret", "secretName", backupLocationSpec.Credential.Name, "namespace", r.NamespacedName.Namespace)
+	secret, err := utils.GetProviderSecret(backupLocationSpec.Credential.Name, r.NamespacedName.Namespace, r.Client, r.Context)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get GCP secret: %w", err)
+	}
+
+	// Get the credentials JSON from the secret
+	credentialsJSON, exists := secret.Data[backupLocationSpec.Credential.Key]
+	if !exists {
+		return nil, fmt.Errorf("credential key %s not found in secret %s", backupLocationSpec.Credential.Key, backupLocationSpec.Credential.Name)
+	}
+
+	if len(credentialsJSON) == 0 {
+		return nil, fmt.Errorf("credentials JSON is empty in secret %s", backupLocationSpec.Credential.Name)
+	}
+
+	// Get the bucket name from the BSL spec
+	if backupLocationSpec.ObjectStorage == nil || backupLocationSpec.ObjectStorage.Bucket == "" {
+		return nil, fmt.Errorf("bucket name is required for GCP provider")
+	}
+
+	bucket := backupLocationSpec.ObjectStorage.Bucket
+
+	// Initialize the GCP provider
+	gcpProvider, err := cloudprovider.NewGCPProvider(ctx, bucket, credentialsJSON)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create GCP provider: %w", err)
+	}
+
+	r.Log.Info("Successfully initialized GCP provider", "bucket", bucket)
+	return gcpProvider, nil
 }
 
 // runUploadTest performs an upload speed test using the provided CloudProvider implementation.

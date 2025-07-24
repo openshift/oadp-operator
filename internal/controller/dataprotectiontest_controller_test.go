@@ -322,7 +322,7 @@ aws_secret_access_key = test-secret
 				},
 			}
 
-			cp, err := reconciler.initializeProvider(spec)
+			cp, err := reconciler.initializeProvider(ctx, spec)
 
 			if tt.expectError {
 				require.Error(t, err)
