@@ -32,6 +32,3 @@ This feature requires **OADP operator version 1.5+** and provides a secure way t
 **Problem**: As a non-admin user, I cannot access the logs of my backup.
 
 **Solution**: Non-admin users should use a `NonAdminBackupStorageLocation` (NABSL) when creating a `NonAdminBackup` (NAB). Non-admin users do not have permission to access logs directly from the underlying Backup Storage Location for security reasons.
-
-  
-
