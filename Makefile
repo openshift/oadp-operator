@@ -576,6 +576,7 @@ ARTIFACT_DIR ?= /tmp
 HCO_UPSTREAM ?= false
 TEST_VIRT ?= false
 TEST_HCP ?= false
+TEST_CLI ?= false
 SKIP_MUST_GATHER  ?= false
 TEST_UPGRADE ?= false
 TEST_FILTER = (($(shell echo '! aws && ! gcp && ! azure && ! ibmcloud' | \
@@ -595,6 +596,11 @@ ifeq ($(TEST_HCP),true)
 	TEST_FILTER += && (hcp)
 else
 	TEST_FILTER += && (! hcp)
+endif
+ifeq ($(TEST_CLI),true)
+	TEST_FILTER += && (cli)
+else
+	TEST_FILTER += && (! cli)
 endif
 
 .PHONY: test-e2e

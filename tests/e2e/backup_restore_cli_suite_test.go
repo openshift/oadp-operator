@@ -185,7 +185,7 @@ func tearDownBackupAndRestoreViaCLI(brCase BackupRestoreCase, installTime time.T
 }
 
 // CLI Test Suite
-var _ = ginkgo.Describe("Backup and restore tests via OADP CLI", ginkgo.Ordered, func() {
+var _ = ginkgo.Describe("Backup and restore tests via OADP CLI", ginkgo.Label("cli"), ginkgo.Ordered, func() {
 	var lastBRCase ApplicationBackupRestoreCase
 	var lastInstallTime time.Time
 	updateLastBRcase := func(brCase ApplicationBackupRestoreCase) {

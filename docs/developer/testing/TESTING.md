@@ -23,6 +23,7 @@ To get started, you need to provide the following **required** environment varia
 | `OPENSHIFT_CI` | Disable colored output from tests suite run | `true` | false |
 | `TEST_VIRT` | Exclusively run Virtual Machine backup/restore testing | `false` | false |
 | `TEST_UPGRADE` | Exclusively run upgrade tests. Need to first run `make catalog-test-upgrade`, if testing non production operator | `false` | false |
+| `TEST_CLI` | Exclusively run CLI-based backup/restore testing | `false` | false |
 | `SKIP_MUST_GATHER` | must-gather is compiled locally in the Makefile, may cause issue if local and cluster arch do not match| `false` | false |
 
 > **Note:**
