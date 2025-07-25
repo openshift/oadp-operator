@@ -201,7 +201,7 @@ var _ = ginkgo.Describe("Backup and restore tests via OADP CLI", ginkgo.Label("c
 		cmd := exec.Command("kubectl", "oadp", "version")
 		output, err := cmd.CombinedOutput()
 		if err != nil {
-			ginkgo.Skip(fmt.Sprintf("OADP CLI not available: %v, output: %s", err, string(output)))
+			ginkgo.Fail(fmt.Sprintf("OADP CLI not available: %v, output: %s", err, string(output)))
 		}
 		log.Printf("OADP CLI available. Version: %s", string(output))
 	})
