@@ -8,7 +8,9 @@ COPY ./ .
 # Clone and install oadp-cli
 RUN git clone https://github.com/migtools/oadp-cli.git /tmp/oadp-cli && \
     cd /tmp/oadp-cli && \
-    make install && \
+    make build && \
+    cp kubectl-oadp /usr/local/bin/ && \
+    chmod +x /usr/local/bin/kubectl-oadp; \
     rm -rf /tmp/oadp-cli
 
 # Install kubectl
