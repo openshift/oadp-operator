@@ -218,7 +218,8 @@ func TestIsHCPDeleted(t *testing.T) {
 			}
 
 			// Call IsHCPDeleted
-			result := IsHCPDeleted(h, tt.hcp)
+			result, err := IsHCPDeleted(h, tt.hcp)
+			g.Expect(err).ToNot(gomega.HaveOccurred())
 			g.Expect(result).To(gomega.Equal(tt.expectedResult))
 		})
 	}
@@ -277,7 +278,8 @@ func TestIsHCDeleted(t *testing.T) {
 			}
 
 			// Call IsHCDeleted
-			result := IsHCDeleted(h)
+			result, err := IsHCDeleted(h)
+			g.Expect(err).ToNot(gomega.HaveOccurred())
 			g.Expect(result).To(gomega.Equal(tt.expectedResult))
 		})
 	}
