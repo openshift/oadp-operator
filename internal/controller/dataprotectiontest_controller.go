@@ -167,15 +167,20 @@ func (r *DataProtectionTestReconciler) Reconcile(ctx context.Context, req ctrl.R
 		}
 
 		// Bucket metadata
-		logger.Info("Fetching Bucket metadata...")
-		meta, err := cp.GetBucketMetadata(ctx, resolvedBackupLocationSpec.ObjectStorage.Bucket, r.Log)
-		if err != nil {
-			logger.Error(err, "bucket metadata collection failed")
-			r.dpt.Status.BucketMetadata = &oadpv1alpha1.BucketMetadata{
-				ErrorMessage: err.Error(),
+		// We can only fetch metadata if we are not using a storage account key
+		if azureProvider, ok := cp.(*cloudprovider.AzureProvider); !ok || !azureProvider.IsStorageAccountKeyAuth() {
+			logger.Info("Fetching Bucket metadata...")
+			meta, err := cp.GetBucketMetadata(ctx, resolvedBackupLocationSpec.ObjectStorage.Bucket, r.Log)
+			if err != nil {
+				logger.Error(err, "bucket metadata collection failed")
+				r.dpt.Status.BucketMetadata = &oadpv1alpha1.BucketMetadata{
+					ErrorMessage: err.Error(),
+				}
+			} else {
+				r.dpt.Status.BucketMetadata = meta
 			}
 		} else {
-			r.dpt.Status.BucketMetadata = meta
+			logger.Info("Skipping bucket metadata collection because storage account key authentication is used")
 		}
 	} else {
 		logger.Info("Skipping upload test because no spec.uploadSpeed config found")
@@ -284,7 +289,7 @@ func (r *DataProtectionTestReconciler) initializeProvider(ctx context.Context, b
 	case GCPProvider:
 		return r.initializeGCPProvider(ctx, backupLocationSpec)
 	case AzureProvider:
-		return nil, fmt.Errorf("azure provider support not implemented yet")
+		return r.initializeAzureProvider(ctx, backupLocationSpec)
 
 	default:
 		return nil, fmt.Errorf("unsupported cloud provider: %s", providerName)
@@ -390,6 +395,33 @@ func (r *DataProtectionTestReconciler) initializeGCPProvider(ctx context.Context
 
 	r.Log.Info("Successfully initialized GCP provider", "bucket", bucket)
 	return gcpProvider, nil
+}
+
+// initializeAzureProvider initializes an Azure CloudProvider using credentials and configuration
+func (r *DataProtectionTestReconciler) initializeAzureProvider(ctx context.Context, backupLocationSpec *velerov1.BackupStorageLocationSpec) (cloudprovider.CloudProvider, error) {
+	r.Log.Info("Initializing Azure provider")
+
+	if backupLocationSpec.Credential == nil {
+		return nil, fmt.Errorf("Azure credential is required but not specified")
+	}
+
+	// Get the Azure credentials from the secret
+	r.Log.Info("Fetching Azure provider secret", "secretName", backupLocationSpec.Credential.Name, "namespace", r.NamespacedName.Namespace)
+	secret, err := utils.GetProviderSecret(backupLocationSpec.Credential.Name, r.NamespacedName.Namespace, r.Client, ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get Azure secret: %w", err)
+	}
+
+	creds := cloudprovider.ParseAzureCredentials(secret.Data)
+
+	// Initialize the Azure provider
+	azureProvider, err := cloudprovider.NewAzureProvider(creds)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create Azure provider: %w", err)
+	}
+
+	r.Log.Info("Successfully initialized Azure provider")
+	return azureProvider, nil
 }
 
 // runUploadTest performs an upload speed test using the provided CloudProvider implementation.

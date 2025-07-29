@@ -110,3 +110,15 @@ func getMatchedKeyValue(key string, s string) (string, error) {
 	}
 	return s, nil
 }
+
+// GetSecretField returns the value of a field in a secret.
+func GetSecretField(secret corev1.Secret, field string) (string, error) {
+	if secret.Data == nil {
+		return "", fmt.Errorf("secret %s has no data", secret.Name)
+	}
+	value, ok := secret.Data[field]
+	if !ok {
+		return "", fmt.Errorf("field %s not found in secret %s", field, secret.Name)
+	}
+	return string(value), nil
+}
