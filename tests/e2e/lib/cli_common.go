@@ -1,6 +1,7 @@
 package lib
 
 import (
+	"log"
 	"os/exec"
 	"strings"
 )
@@ -19,6 +20,7 @@ func (c *CLICommand) Execute() ([]byte, error) {
 	}
 	args = append(args, c.Options...)
 
+	c.LogCLICommand()
 	cmd := exec.Command("kubectl", args...)
 	return cmd.CombinedOutput()
 }
@@ -30,8 +32,13 @@ func (c *CLICommand) ExecuteOutput() ([]byte, error) {
 	}
 	args = append(args, c.Options...)
 
+	c.LogCLICommand()
 	cmd := exec.Command("kubectl", args...)
 	return cmd.Output()
+}
+
+func (c *CLICommand) LogCLICommand() {
+	log.Printf("Executing CLI command: %s %s %s %s", c.Resource, c.Action, c.Name, c.Options)
 }
 
 func ParsePhaseFromYAML(yamlOutput string) string {
