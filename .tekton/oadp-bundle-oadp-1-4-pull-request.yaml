@@ -4,17 +4,21 @@ metadata:
   annotations:
     build.appstudio.openshift.io/repo: https://github.com/openshift/oadp-operator?rev={{revision}}
     build.appstudio.redhat.com/commit_sha: '{{revision}}'
+    build.appstudio.redhat.com/pull_request_number: '{{pull_request_number}}'
     build.appstudio.redhat.com/target_branch: '{{target_branch}}'
-    pipelinesascode.tekton.dev/cancel-in-progress: "false"
+    pipelinesascode.tekton.dev/cancel-in-progress: "true"
     pipelinesascode.tekton.dev/max-keep-runs: "3"
-    # pipelinesascode.tekton.dev/on-cel-expression: event == "push" && target_branch == "oadp-1.4"
-    pipelinesascode.tekton.dev/on-cel-expression: event == "push" && target_branch == "oadp-1.4" && !".tekton/oadp-bundle-*".pathChanged() && !"konflux/***".pathChanged()
+    # pipelinesascode.tekton.dev/on-cel-expression: event == "pull_request" && target_branch == "oadp-1.4"
+    pipelinesascode.tekton.dev/on-cel-expression: event == "pull_request" && target_branch == "oadp-1.4" &&
+      (".tekton/oadp-bundle-oadp-1-4-pull-request.yaml".pathChanged() ||
+      ".tekton/oadp-bundle-oadp-1-4-push.yaml".pathChanged() ||
+      "konflux/***".pathChanged())
   creationTimestamp:
   labels:
     appstudio.openshift.io/application: oadp-1-4
-    appstudio.openshift.io/component: oadp-operator-oadp-1-4
+    appstudio.openshift.io/component: oadp-bundle-oadp-1-4
     pipelines.appstudio.openshift.io/type: build
-  name: oadp-operator-oadp-1-4-on-push
+  name: oadp-bundle-oadp-1-4-on-pull-request
   namespace: ocp-art-tenant
 spec:
   params:
@@ -23,19 +27,16 @@ spec:
   - name: revision
     value: '{{revision}}'
   - name: output-image
-    value: quay.io/redhat-user-workloads/ocp-art-tenant/oadp-operator-oadp-1-4:{{revision}}
+    value: quay.io/redhat-user-workloads/ocp-art-tenant/oadp-bundle-oadp-1-4:on-pr-{{revision}}
+  - name: image-expires-after
+    value: 5d
   - name: build-platforms
     value:
-    - linux/arm64
-    - linux/ppc64le
-    - linux/s390x
     - linux/x86_64
   - name: dockerfile
-    value: Dockerfile.oadp
-  - name: hermetic
-    value: 'true'
-  - name: prefetch-input
-    value: '[{"type": "gomod", "path": "."}, {"type": "rpm", "path": "hack/build/"}]'
+    value: konflux/Dockerfile-bundle.oadp
+  - name: build-image-index
+    value: 'false'
   pipelineSpec:
     description: |
       This pipeline is ideal for building multi-arch container images from a Containerfile while maintaining trust after pipeline customization.
@@ -182,8 +183,6 @@ spec:
         workspace: git-auth
     - name: prefetch-dependencies
       params:
-      - name: dev-package-managers
-        value: 'true'
       - name: input
         value: $(params.prefetch-input)
       - name: SOURCE_ARTIFACT
@@ -246,14 +245,27 @@ spec:
         value:
         - $(tasks.generate-labels.results.labels[*])
         - License=Apache License 2.0
-        - com.redhat.component=oadp-operator-container
-        - io.k8s.description=OpenShift API for Data Protection - Operator
+        - com.redhat.component=oadp-operator-bundle-container
+        - com.redhat.delivery.backport=false
+        - com.redhat.delivery.operator.bundle=true
+        - com.redhat.openshift.versions==v4.13|=v4.14|=v4.15|=v4.16|=v4.17|=v4.18
+        - io.k8s.description=OpenShift API for Data Protection - Operator Bundle
         - io.k8s.display-name=OADP Operator
-        - io.openshift.build.source-location=https://github.com/openshift/oadp-operator
         - io.openshift.tags=migration
-        - maintainer=OpenShift API for Data Protection Team <oadp-team@redhat.com>
-        - name=oadp/oadp-rhel9-operator
-        - summary=OpenShift API for Data Protection - Operator
+        - maintainer=Migration Toolkit for Containers Team <migtoolkit-team@redhat.com>
+        - name=oadp/oadp-operator-bundle
+        - operators.operatorframework.io.bundle.channel.default.v1=stable-1.4
+        - operators.operatorframework.io.bundle.channels.v1=stable-1.4
+        - operators.operatorframework.io.bundle.manifests.v1=manifests/
+        - operators.operatorframework.io.bundle.mediatype.v1=registry+v1
+        - operators.operatorframework.io.bundle.metadata.v1=metadata/
+        - operators.operatorframework.io.bundle.package.v1=redhat-oadp-operator
+        - operators.operatorframework.io.metrics.builder=operator-sdk-v1.14.0
+        - operators.operatorframework.io.metrics.mediatype.v1=metrics+v1
+        - operators.operatorframework.io.metrics.project_layout=go.kubebuilder.io/v3
+        - operators.operatorframework.io.test.config.v1=tests/scorecard/
+        - operators.operatorframework.io.test.mediatype.v1=scorecard+v1
+        - summary=OpenShift API for Data Protection - Operator Bundle
         - vendor=Red Hat, Inc.
         - version=1.4.6
       runAfter:
@@ -421,7 +433,12 @@ spec:
         operator: in
         values:
         - "false"
-    - name: clamav-scan
+    - matrix:
+        params:
+        - name: image-arch
+          value:
+          - $(params.build-platforms)
+      name: clamav-scan
       params:
       - name: image-digest
         value: $(tasks.build-image-index.results.IMAGE_DIGEST)
@@ -569,9 +586,7 @@ spec:
         value: $(tasks.build-image-index.results.IMAGE_DIGEST)
       - name: ADDITIONAL_TAGS
         value:
-        - '1.4'
-        - '1.4.6'
-        - 'latest'
+        - 'pull-request-{{pull_request_number}}'
       runAfter:
       - build-image-index
       taskRef:
@@ -619,7 +634,7 @@ spec:
         - name: name
           value: rpms-signature-scan
         - name: bundle
-          value: quay.io/konflux-ci/tekton-catalog/task-rpms-signature-scan:0.2@sha256:1b6c20ab3dbfb0972803d3ebcb2fa72642e59400c77bd66dfd82028bdd09e120
+          value: quay.io/konflux-ci/konflux-vanguard/task-rpms-signature-scan:0.2@sha256:73471b26483d68fb6cdcc057b5891e510dbb5dd0a189884826b648c33e26a025
         - name: kind
           value: task
         resolver: bundles
@@ -656,7 +671,7 @@ spec:
     - name: netrc
       optional: true
   taskRunTemplate:
-    serviceAccountName: build-pipeline-oadp-operator-oadp-1-4
+    serviceAccountName: build-pipeline-oadp-bundle-oadp-1-4
   workspaces:
   - name: git-auth
     secret:
