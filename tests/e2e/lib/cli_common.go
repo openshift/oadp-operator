@@ -38,7 +38,12 @@ func (c *CLICommand) ExecuteOutput() ([]byte, error) {
 }
 
 func (c *CLICommand) LogCLICommand() {
-	log.Printf("Executing CLI command: %s %s %s %s", c.Resource, c.Action, c.Name, c.Options)
+    args := []string{"kubectl", "oadp", c.Resource, c.Action}
+    if c.Name != "" {
+        args = append(args, c.Name)
+    }
+    args = append(args, c.Options...)
+    log.Printf("Executing CLI command: %s", strings.Join(args, " "))
 }
 
 func ParsePhaseFromYAML(yamlOutput string) string {
