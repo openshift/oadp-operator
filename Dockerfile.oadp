@@ -15,4 +15,3 @@ COPY --from=builder /workspace/bin/manager .
 COPY LICENSE /licenses/
 USER 65532:65532
 ENTRYPOINT ["/manager"]
-
