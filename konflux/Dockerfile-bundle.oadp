@@ -1,7 +1,7 @@
 FROM scratch
 
-COPY bundle/manifests /manifests/
-COPY bundle/metadata /metadata/
+COPY konflux/bundle/manifests /manifests/
+COPY konflux/bundle/metadata /metadata/
 
 # These are three labels needed to control how the pipeline should handle this container image
 # This first label tells the pipeline that this is a bundle image and should be
