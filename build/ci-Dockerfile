@@ -6,7 +6,21 @@ WORKDIR /go/src/github.com/openshift/oadp-operator
 COPY ./ .
 
 RUN go install -mod=mod github.com/onsi/ginkgo/v2/ginkgo
-RUN go mod download
-RUN chmod -R 777 ./
-RUN chmod -R 777 $(go env GOPATH)
-RUN mkdir -p $(go env GOCACHE) && chmod -R 777 $(go env GOCACHE)
+
+# Clone and install oadp-cli pinned to oadp-1.4
+RUN git clone --depth=1 --branch oadp-1.4 https://github.com/migtools/oadp-cli.git /tmp/oadp-cli && \
+    cd /tmp/oadp-cli && \
+    make build && \
+    cp kubectl-oadp /usr/local/bin/ && \
+    chmod +x /usr/local/bin/kubectl-oadp && \
+    rm -rf /tmp/oadp-cli
+
+# Install kubectl (multi-arch)
+RUN ARCH=$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/') && \
+    curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/${ARCH}/kubectl" && \
+    chmod +x kubectl && \
+    mv kubectl /usr/local/bin/
+
+RUN go mod download && \
+    mkdir -p $(go env GOCACHE) && \
+    chmod -R 777 ./ $(go env GOCACHE) $(go env GOPATH)

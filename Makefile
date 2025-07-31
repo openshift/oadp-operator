@@ -32,6 +32,8 @@ OC_CLI = $(shell which oc)
 TEST_VIRT ?= false
 TEST_HCP ?= false
 TEST_UPGRADE ?= false
+TEST_CLI ?= false
+SKIP_MUST_GATHER ?= false
 
 # TOOL VERSIONS
 # All version-related variables are defined here for easy maintenance
@@ -614,6 +616,11 @@ ifeq ($(TEST_HCP),true)
 	TEST_FILTER += && (hcp)
 else
 	TEST_FILTER += && (! hcp)
+endif
+ifeq ($(TEST_CLI),true)
+	TEST_FILTER += && (cli)
+else
+	TEST_FILTER += && (! cli)
 endif
 SETTINGS_TMP=/tmp/test-settings
 
