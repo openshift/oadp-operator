@@ -46,6 +46,11 @@ type DataProtectionTestSpec struct {
 	// +kubebuilder:default=false
 	// +optional
 	ForceRun bool `json:"forceRun,omitempty"`
+
+	// skipTLSVerify controls whether to bypass TLS certificate validation
+	// +kubebuilder:default=true
+	// +optional
+	SkipTLSVerify bool `json:"skipTLSVerify,omitempty"`
 }
 
 // UploadSpeedTestConfig contains configuration for testing object storage upload performance.

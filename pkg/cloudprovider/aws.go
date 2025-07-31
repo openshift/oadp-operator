@@ -43,6 +43,15 @@ func NewAWSProvider(region, endpoint, accessKey, secretKey string) *AWSProvider 
 	}
 }
 
+// NewAWSProviderWithSession creates an AWSProvider with a pre-configured session.
+// This allows for custom configurations like TLS settings.
+func NewAWSProviderWithSession(sess *session.Session) *AWSProvider {
+	s3Client := s3.New(sess)
+	return &AWSProvider{
+		s3Client: s3Client,
+	}
+}
+
 func (a *AWSProvider) UploadTest(ctx context.Context, config oadpv1alpha1.UploadSpeedTestConfig, bucket string, log logr.Logger) (int64, time.Duration, error) {
 
 	log.Info("Starting upload speed test", "fileSize", config.FileSize, "timeout", config.Timeout.Duration.String())
