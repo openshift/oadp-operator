@@ -5,6 +5,19 @@ WORKDIR /go/src/github.com/openshift/oadp-operator
 
 COPY ./ .
 
+# Clone and install oadp-cli
+RUN git clone https://github.com/migtools/oadp-cli.git /tmp/oadp-cli && \
+    cd /tmp/oadp-cli && \
+    make build && \
+    cp kubectl-oadp /usr/local/bin/ && \
+    chmod +x /usr/local/bin/kubectl-oadp; \
+    rm -rf /tmp/oadp-cli
+
+# Install kubectl
+RUN curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" && \
+    chmod +x kubectl && \
+    mv kubectl /usr/local/bin/
+
 RUN go mod download && \
     mkdir -p $(go env GOCACHE) && \
     chmod -R 777 ./ $(go env GOCACHE) $(go env GOPATH)
