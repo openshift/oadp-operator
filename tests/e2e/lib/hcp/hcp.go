@@ -308,9 +308,9 @@ func (h *HCHandler) NukeHostedCluster() error {
 			Namespace: h.HostedCluster.Namespace,
 		}, hc)
 		if err == nil && len(hc.GetFinalizers()) > 0 {
-			log.Printf("\tNUKE: Removing finalizers from HostedCluster %s", hc.Name)
-			hc.SetFinalizers([]string{})
-			if err := h.Client.Update(h.Ctx, hc); err != nil {
+			log.Printf("\tNUKE: HostedCluster %s has finalizers: %v", hc.Name, hc.GetFinalizers())
+			patch := []byte(`{"metadata":{"finalizers":[]}}`)
+			if err := h.Client.Patch(h.Ctx, hc, client.RawPatch(types.StrategicMergePatchType, patch)); err != nil {
 				return fmt.Errorf("\tNUKE: Error removing finalizers from HostedCluster %s: %v", hc.Name, err)
 			}
 		}
@@ -338,9 +338,9 @@ func (h *HCHandler) NukeHostedCluster() error {
 
 		for _, item := range obj.Items {
 			if len(item.GetFinalizers()) > 0 {
-				log.Printf("\tNUKE: Removing finalizers from %s %s", rt.kind, item.GetName())
-				item.SetFinalizers([]string{})
-				if err := h.Client.Update(h.Ctx, &item); err != nil {
+				log.Printf("\tNUKE: %s %s has finalizers: %v", rt.kind, item.GetName(), item.GetFinalizers())
+				patch := []byte(`{"metadata":{"finalizers":[]}}`)
+				if err := h.Client.Patch(h.Ctx, &item, client.RawPatch(types.StrategicMergePatchType, patch)); err != nil {
 					return fmt.Errorf("\tNUKE: Error removing finalizers from %s %s: %v", rt.kind, item.GetName(), err)
 				}
 			}
