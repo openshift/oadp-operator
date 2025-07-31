@@ -24,6 +24,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/go-logr/logr"
 	"github.com/hashicorp/go-multierror"
 	snapshotv1api "github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1"
@@ -240,7 +241,13 @@ func (r *DataProtectionTestReconciler) determineVendor(ctx context.Context, dpt 
 		return fmt.Errorf("failed to create HEAD request: %w", err)
 	}
 
-	resp, err := http.DefaultClient.Do(req)
+	// Build HTTP client with TLS configuration
+	httpClient, err := buildHTTPClientWithTLS(dpt, backupLocationSpec, r.Log)
+	if err != nil {
+		return fmt.Errorf("failed to build HTTP client with TLS: %w", err)
+	}
+
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("HEAD request to %s failed: %w", s3Url, err)
 	}
@@ -345,13 +352,22 @@ func (r *DataProtectionTestReconciler) initializeAWSProvider(ctx context.Context
 		s3Url = ""
 	}
 
-	// Initialize the AWS provider
-	awsProvider := cloudprovider.NewAWSProvider(region, s3Url, accessKey, secretKey)
+	// Create AWS session with TLS configuration
+	sess, err := buildAWSSessionWithTLS(r.dpt, backupLocationSpec, region, s3Url, r.Log)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create AWS session with TLS: %w", err)
+	}
+
+	// Set credentials on the session
+	sess.Config.Credentials = credentials.NewStaticCredentials(accessKey, secretKey, "")
+
+	// Initialize the AWS provider with the TLS-configured session
+	awsProvider := cloudprovider.NewAWSProviderWithSession(sess)
 	if awsProvider == nil {
 		return nil, fmt.Errorf("failed to create AWS provider")
 	}
 
-	r.Log.Info("Successfully initialized AWS provider", "region", region, "s3Url", s3Url)
+	r.Log.Info("Successfully initialized AWS provider with TLS", "region", region, "s3Url", s3Url, "skipTLSVerify", r.dpt.Spec.SkipTLSVerify)
 	return awsProvider, nil
 }
 
