@@ -173,7 +173,7 @@ metadata:
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
     repository: https://github.com/openshift/oadp-operator
     support: Red Hat
-    operators.openshift.io/must-gather-image: quay.io/redhat-user-workloads/ocp-art-tenant/oadp-must-gather-oadp-1-4@sha256:e58523b9bac2f99082c663b8564a8d1422f8f42903fcf4bb85cd7833ac904f7f
+    operators.openshift.io/must-gather-image: quay.io/redhat-user-workloads/ocp-art-tenant/oadp-must-gather-oadp-1-4@sha256:65c8befe1d38e8c5b3407310f128d674a2b523d3fe63648b033da6de27c75aa9
     createdAt: '2025-07-23T19:58:26Z'
   labels:
     operatorframework.io/arch.amd64: supported
@@ -798,7 +798,7 @@ spec:
                 - name: RELATED_IMAGE_KUBEVIRT_VELERO_PLUGIN
                   value: quay.io/redhat-user-workloads/ocp-art-tenant/oadp-kubevirt-velero-plugin-oadp-1-4@sha256:b4be6558e1ac3b66c78886d4ba1f65a6c45f37b0169910b1a3cc2b2836bcda20
                 - name: RELATED_IMAGE_MUSTGATHER
-                  value: quay.io/redhat-user-workloads/ocp-art-tenant/oadp-must-gather-oadp-1-4@sha256:e58523b9bac2f99082c663b8564a8d1422f8f42903fcf4bb85cd7833ac904f7f
+                  value: quay.io/redhat-user-workloads/ocp-art-tenant/oadp-must-gather-oadp-1-4@sha256:65c8befe1d38e8c5b3407310f128d674a2b523d3fe63648b033da6de27c75aa9
                 image: quay.io/redhat-user-workloads/ocp-art-tenant/oadp-operator-oadp-1-4@sha256:1c699e48373cd8920c067a2c3bf032e9ee00a89a7f1faa9d15ab970dfcf2989a
                 imagePullPolicy: IfNotPresent
                 livenessProbe:
@@ -953,4 +953,4 @@ spec:
   - name: kubevirt_velero_plugin
     image: quay.io/redhat-user-workloads/ocp-art-tenant/oadp-kubevirt-velero-plugin-oadp-1-4@sha256:b4be6558e1ac3b66c78886d4ba1f65a6c45f37b0169910b1a3cc2b2836bcda20
   - name: mustgather
-    image: quay.io/redhat-user-workloads/ocp-art-tenant/oadp-must-gather-oadp-1-4@sha256:e58523b9bac2f99082c663b8564a8d1422f8f42903fcf4bb85cd7833ac904f7f
+    image: quay.io/redhat-user-workloads/ocp-art-tenant/oadp-must-gather-oadp-1-4@sha256:65c8befe1d38e8c5b3407310f128d674a2b523d3fe63648b033da6de27c75aa9
