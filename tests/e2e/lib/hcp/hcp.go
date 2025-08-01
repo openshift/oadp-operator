@@ -346,9 +346,16 @@ func (h *HCHandler) NukeHostedCluster() error {
 
 		for _, item := range obj.Items {
 			if len(item.GetFinalizers()) > 0 {
-				log.Printf("\tNUKE: %s %s has finalizers: %v", rt.kind, item.GetName(), item.GetFinalizers())
-				patch := []byte(`{"metadata":{"finalizers":[]}}`)
-				if err := h.Client.Patch(h.Ctx, &item, client.RawPatch(types.StrategicMergePatchType, patch)); err != nil {
+				finalizers := item.GetFinalizers()
+				log.Printf("\tNUKE: %s %s has finalizers: %v", rt.kind, item.GetName(), finalizers)
+
+				// Remove each finalizer found on the resource
+				for _, finalizer := range finalizers {
+					log.Printf("\tNUKE: Removing finalizer %s from %s %s", finalizer, rt.kind, item.GetName())
+					controllerutil.RemoveFinalizer(&item, finalizer)
+				}
+
+				if err := h.Client.Update(h.Ctx, &item); err != nil {
 					return fmt.Errorf("\tNUKE: Error removing finalizers from %s %s: %v", rt.kind, item.GetName(), err)
 				}
 			}
