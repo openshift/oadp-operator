@@ -174,7 +174,7 @@ metadata:
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
     repository: https://github.com/openshift/oadp-operator
     support: Red Hat
-    operators.openshift.io/must-gather-image: quay.io/redhat-user-workloads/ocp-art-tenant/oadp-must-gather-oadp-1-3@sha256:47c17e4a7676c2a5b30bd17fcc18117abfd22286289decff8aafadfe300d071e
+    operators.openshift.io/must-gather-image: quay.io/redhat-user-workloads/ocp-art-tenant/oadp-must-gather-oadp-1-3@sha256:6f93f4b69fa90abc74cd29184fce6e6df50a609b4a1d36cc71833f4421f4e89b
   labels:
     operatorframework.io/arch.amd64: supported
     operatorframework.io/arch.arm64: supported
@@ -791,7 +791,7 @@ spec:
                 - name: RELATED_IMAGE_KUBEVIRT_VELERO_PLUGIN
                   value: quay.io/redhat-user-workloads/ocp-art-tenant/oadp-kubevirt-velero-plugin-oadp-1-3@sha256:e076b3357cb9687f74e565fa08fc22f84e46240cac4273319f2fc69e87256a22
                 - name: RELATED_IMAGE_MUSTGATHER
-                  value: quay.io/redhat-user-workloads/ocp-art-tenant/oadp-must-gather-oadp-1-3@sha256:47c17e4a7676c2a5b30bd17fcc18117abfd22286289decff8aafadfe300d071e
+                  value: quay.io/redhat-user-workloads/ocp-art-tenant/oadp-must-gather-oadp-1-3@sha256:6f93f4b69fa90abc74cd29184fce6e6df50a609b4a1d36cc71833f4421f4e89b
                 image: quay.io/redhat-user-workloads/ocp-art-tenant/oadp-operator-oadp-1-3@sha256:91b1dde8678a8bb96d87ea27f71bd7cb7c5fa31db30e0e5c08f031da2bc59692
                 imagePullPolicy: IfNotPresent
                 livenessProbe:
@@ -946,4 +946,4 @@ spec:
   - name: kubevirt_velero_plugin
     value: quay.io/redhat-user-workloads/ocp-art-tenant/oadp-kubevirt-velero-plugin-oadp-1-3@sha256:e076b3357cb9687f74e565fa08fc22f84e46240cac4273319f2fc69e87256a22
   - name: mustgather
-    value: quay.io/redhat-user-workloads/ocp-art-tenant/oadp-must-gather-oadp-1-3@sha256:47c17e4a7676c2a5b30bd17fcc18117abfd22286289decff8aafadfe300d071e
+    value: quay.io/redhat-user-workloads/ocp-art-tenant/oadp-must-gather-oadp-1-3@sha256:6f93f4b69fa90abc74cd29184fce6e6df50a609b4a1d36cc71833f4421f4e89b
