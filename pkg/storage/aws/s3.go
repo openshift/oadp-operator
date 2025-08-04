@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go/aws/request"
@@ -29,15 +29,23 @@ func GetBucketRegion(bucket string) (string, error) {
 	// Client therefore needs to be configured with region.
 	// In local dev environments, you might have ~/.aws/config that could be loaded and set with default region.
 	// In cluster/CI environment, ~/.aws/config may not be configured, so set hinting region server explicitly.
-	// Also set to use anonymous credentials. If the bucket is private, this function would not work unless we modify it to take credentials.
+	// Also set to use anonymous credentials. This works for both public and private buckets as AWS Security
+	// confirmed that HeadBucket API (used by GetBucketRegion) doesn't enforce s3:ListBucket permissions
+	// for region retrieval - this is expected AWS behavior.
 	cfg, err := config.LoadDefaultConfig(context.Background(),
 		config.WithRegion("us-east-1"), // This is not default region being used, this is to specify a region hinting server that we will use to get region from.
-		config.WithCredentialsProvider(aws.AnonymousCredentials{}),
 	)
 	if err != nil {
 		return "", err
 	}
-	region, err = manager.GetBucketRegion(context.Background(), s3.NewFromConfig(cfg), bucket)
+	region, err = manager.GetBucketRegion(context.Background(), s3.NewFromConfig(cfg), bucket, func(o *s3.Options) {
+		// AWS Security confirmed that anonymous credentials can be used here for GetBucketRegion.
+		// The HeadBucket API endpoint used internally by GetBucketRegion does not enforce
+		// s3:ListBucket permissions for retrieving bucket region information.
+		// Reference: AWS Security response (Engagement ID: CACenGS4Mha_KeJ=e3jBSLD6rPZ2iNtfuJUv9QJViaCOt7GVNDg)
+		// This is expected AWS behavior, not a security vulnerability.
+		o.Credentials = credentials.NewStaticCredentialsProvider("anon-credentials", "anon-secret", "")
+	})
 	if region != "" {
 		return region, nil
 	}
