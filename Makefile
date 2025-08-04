@@ -268,9 +268,26 @@ bundle: manifests kustomize operator-sdk ## Generate bundle manifests and metada
 	$(SED) -e 's/    createdAt: .*/$(shell grep -I '^    createdAt: ' bundle/manifests/oadp-operator.clusterserviceversion.yaml)/' bundle/manifests/oadp-operator.clusterserviceversion.yaml > bundle/manifests/oadp-operator.clusterserviceversion.yaml.tmp
 	mv bundle/manifests/oadp-operator.clusterserviceversion.yaml.tmp bundle/manifests/oadp-operator.clusterserviceversion.yaml
 
+.PHONY: kunflux-bundle
+konflux-bundle: manifests kustomize operator-sdk ## Generate bundle manifests and metadata for konflux, then validate generated files.
+	GOFLAGS="-mod=mod" $(OPERATOR_SDK) generate kustomize manifests -q
+	cd config/manager && GOFLAGS="-mod=mod" $(KUSTOMIZE) edit set image controller=$(IMG)
+	GOFLAGS="-mod=mod" $(KUSTOMIZE) build config/manifests | GOFLAGS="-mod=mod" $(OPERATOR_SDK) generate bundle $(BUNDLE_GEN_FLAGS) 
+	@make nullables
+	# Copy updated bundle.Dockerfile to CI's Dockerfile.bundle
+	# TODO: update CI to use generated one
+	cp bundle.Dockerfile build/Dockerfile.bundle
+	GOFLAGS="-mod=mod" $(OPERATOR_SDK) bundle validate ./konflux/bundle
+	$(SED) -e 's/    createdAt: .*/$(shell grep -I '^    createdAt: ' konflux/bundle/manifests/oadp-operator.clusterserviceversion.yaml)/' konflux/bundle/manifests/oadp-operator.clusterserviceversion.yaml > konflux/bundle/manifests/oadp-operator.clusterserviceversion.yaml.tmp
+	mv konflux/bundle/manifests/oadp-operator.clusterserviceversion.yaml.tmp konflux/bundle/manifests/oadp-operator.clusterserviceversion.yaml
+
 .PHONY: bundle-build
 bundle-build: ## Build the bundle image.
 	$(CONTAINER_TOOL) build --load -f bundle.Dockerfile -t $(BUNDLE_IMG) . $(DOCKER_BUILD_ARGS)
+
+.PHONY: konflux-bundle-build
+konflux-bundle-build: ## Build the konflux bundle image.
+	$(CONTAINER_TOOL) build --load -f konflux/Dockerfile-bundle.oadp -t $(BUNDLE_IMG) . $(DOCKER_BUILD_ARGS)
 
 .PHONY: bundle-push
 bundle-push: ## Push the bundle image.
@@ -440,6 +457,20 @@ deploy-olm: undeploy-olm ## Build current branch operator image, bundle image, p
 	cp -r . $(DEPLOY_TMP) && cd $(DEPLOY_TMP) && \
 	IMG=$(THIS_OPERATOR_IMAGE) BUNDLE_IMG=$(THIS_BUNDLE_IMAGE) \
 		make docker-build docker-push bundle bundle-build bundle-push; \
+	chmod -R 777 $(DEPLOY_TMP) && rm -rf $(DEPLOY_TMP)
+	$(OPERATOR_SDK) run bundle --security-context-config restricted $(THIS_BUNDLE_IMAGE) --namespace $(OADP_TEST_NAMESPACE)
+
+.PHONY: konflux-deploy-olm
+deploy-olm: THIS_OPERATOR_IMAGE?=ttl.sh/konflux-oadp-operator-$(GIT_REV):1h # Set target specific variable
+deploy-olm: THIS_BUNDLE_IMAGE?=ttl.sh/konflux-oadp-operator-bundle-$(GIT_REV):1h # Set target specific variable
+deploy-olm: DEPLOY_TMP:=$(shell mktemp -d)/ # Set target specific variable
+deploy-olm: undeploy-olm ## Build current branch operator image, bundle image, push and install via OLM. For more information, check docs/developer/install_from_source.md
+	@echo "DEPLOY_TMP: $(DEPLOY_TMP)"
+	# build and push operator and bundle image
+	# use $(OPERATOR_SDK) to install bundle to authenticated cluster
+	cp -r . $(DEPLOY_TMP) && cd $(DEPLOY_TMP) && \
+	IMG=$(THIS_OPERATOR_IMAGE) BUNDLE_IMG=$(THIS_BUNDLE_IMAGE) \
+		make docker-build docker-push konflux-bundle konflux-bundle-build bundle-push; \
 	chmod -R 777 $(DEPLOY_TMP) && rm -rf $(DEPLOY_TMP)
 	$(OPERATOR_SDK) run bundle --security-context-config restricted $(THIS_BUNDLE_IMAGE) --namespace $(OADP_TEST_NAMESPACE)
 
