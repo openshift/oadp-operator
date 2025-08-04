@@ -24,6 +24,22 @@ func (r *DataProtectionApplicationReconciler) ValidateBackupStorageLocations() (
 	// First, check for provider and then call functions based on the cloud provider for each backupstoragelocation configured
 	dpa := r.dpa
 	numDefaultLocations := 0
+	namesSeen := make(map[string]bool)
+
+	// Check for duplicate backup location names
+	for i, bslSpec := range dpa.Spec.BackupLocations {
+		// Determine the BSL name (same logic as in ReconcileBackupStorageLocations)
+		bslName := fmt.Sprintf("%s-%d", r.NamespacedName.Name, i+1)
+		if bslSpec.Name != "" {
+			bslName = bslSpec.Name
+		}
+
+		if namesSeen[bslName] {
+			return false, fmt.Errorf("backup location name '%s' is duplicated. Backup location names must be unique", bslName)
+		}
+		namesSeen[bslName] = true
+	}
+
 	for _, bslSpec := range dpa.Spec.BackupLocations {
 		if err := r.ensureBackupLocationHasVeleroOrCloudStorage(&bslSpec); err != nil {
 			return false, err
