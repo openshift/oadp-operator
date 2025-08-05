@@ -19,7 +19,6 @@ package controller
 import (
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/base64"
 	"fmt"
 	"net/http"
 
@@ -50,11 +49,8 @@ func buildTLSConfig(dpt *oadpv1alpha1.DataProtectionTest, bsl *velerov1.BackupSt
 	if bsl != nil && bsl.ObjectStorage != nil && bsl.ObjectStorage.CACert != nil {
 		logger.Info("Custom CA certificate found in BSL")
 
-		// Decode base64-encoded PEM certificate
-		caCertPEM, err := base64.StdEncoding.DecodeString(string(bsl.ObjectStorage.CACert))
-		if err != nil {
-			return nil, fmt.Errorf("failed to decode CA certificate: %w", err)
-		}
+		// Use the PEM certificate directly (already decoded by Kubernetes)
+		caCertPEM := bsl.ObjectStorage.CACert
 
 		// Create certificate pool with custom CA
 		caCertPool := x509.NewCertPool()
