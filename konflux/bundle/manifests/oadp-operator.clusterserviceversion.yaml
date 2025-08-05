@@ -784,7 +784,7 @@ spec:
                 - name: RELATED_IMAGE_VELERO
                   value: quay.io/redhat-user-workloads/ocp-art-tenant/oadp-velero-oadp-1-4@sha256:16ce9e52597f01d4acac256ccfb7264d67401f47b48b70a2d96e7a3f47119f75 
                 - name: RELATED_IMAGE_VELERO_RESTORE_HELPER
-                  value: quay.io/redhat-user-workloads/ocp-art-tenant/oadp-velero-restic-restore-helper-oadp-1-4@sha256:699f8531b634142bc81de690159a35004f2ad4584258cb6934114ad1e41aca52
+                  value: quay.io/redhat-user-workloads/ocp-art-tenant/oadp-velero-restic-restore-helper-oadp-1-4@sha256:acbb3c3d3f89985945e9dd2455a6687196d0fb317c229c745517423bba8b07b0
                 - name: RELATED_IMAGE_OPENSHIFT_VELERO_PLUGIN
                   value: quay.io/redhat-user-workloads/ocp-art-tenant/oadp-openshift-velero-plugin-oadp-1-4@sha256:c957c68d8263dd666f9a7c399c1a831b866f37d5c842828ecaf1a3a89a2cd1ba
                 - name: RELATED_IMAGE_VELERO_PLUGIN_FOR_AWS
@@ -939,7 +939,7 @@ spec:
   - name: velero
     image: quay.io/redhat-user-workloads/ocp-art-tenant/oadp-velero-oadp-1-4@sha256:16ce9e52597f01d4acac256ccfb7264d67401f47b48b70a2d96e7a3f47119f75 
   - name: velero_restore_helper
-    image: quay.io/redhat-user-workloads/ocp-art-tenant/oadp-velero-restic-restore-helper-oadp-1-4@sha256:699f8531b634142bc81de690159a35004f2ad4584258cb6934114ad1e41aca52
+    image: quay.io/redhat-user-workloads/ocp-art-tenant/oadp-velero-restic-restore-helper-oadp-1-4@sha256:acbb3c3d3f89985945e9dd2455a6687196d0fb317c229c745517423bba8b07b0
   - name: openshift_velero_plugin
     image: quay.io/redhat-user-workloads/ocp-art-tenant/oadp-openshift-velero-plugin-oadp-1-4@sha256:c957c68d8263dd666f9a7c399c1a831b866f37d5c842828ecaf1a3a89a2cd1ba
   - name: velero_plugin_for_aws
