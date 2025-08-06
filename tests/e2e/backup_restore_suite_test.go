@@ -25,6 +25,7 @@ type BackupRestoreCase struct {
 	PostRestoreVerify VerificationFunction
 	SkipVerifyLogs    bool // TODO remove
 	BackupTimeout     time.Duration
+	LabelSelector     map[string]string
 }
 
 type ApplicationBackupRestoreCase struct {
@@ -163,7 +164,10 @@ func runApplicationBackupAndRestore(brCase ApplicationBackupRestoreCase, updateL
 }
 
 func runBackup(brCase BackupRestoreCase, backupName string) bool {
-	nsRequiresResticDCWorkaround, err := lib.NamespaceRequiresResticDCWorkaround(dpaCR.Client, brCase.Namespace)
+	var nsRequiresResticDCWorkaround bool
+	var err error
+
+	nsRequiresResticDCWorkaround, err = lib.NamespaceRequiresResticDCWorkaround(dpaCR.Client, brCase.Namespace)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 	if strings.Contains(brCase.Name, "twovol") {
@@ -175,8 +179,22 @@ func runBackup(brCase BackupRestoreCase, backupName string) bool {
 
 	// create backup
 	log.Printf("Creating backup %s for case %s", backupName, brCase.Name)
-	err = lib.CreateBackupForNamespaces(dpaCR.Client, namespace, backupName, []string{brCase.Namespace}, brCase.BackupRestoreType == lib.RESTIC || brCase.BackupRestoreType == lib.KOPIA, brCase.BackupRestoreType == lib.CSIDataMover)
-	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+	if brCase.BackupRestoreType != lib.CSILabel {
+		err = lib.CreateBackupForNamespaces(dpaCR.Client, namespace, backupName, []string{brCase.Namespace}, brCase.BackupRestoreType == lib.RESTIC || brCase.BackupRestoreType == lib.KOPIA, brCase.BackupRestoreType == lib.CSIDataMover)
+		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+	}
+
+	if brCase.BackupRestoreType == lib.CSILabel {
+		// Extract the first key-value pair from LabelSelector
+		var labelKey, labelValue string
+		for k, v := range brCase.LabelSelector {
+			labelKey = k
+			labelValue = v
+			break // Take the first key-value pair
+		}
+		err = lib.CreateBackupForLabels(dpaCR.Client, namespace, backupName, []string{}, labelKey, labelValue, brCase.BackupRestoreType == lib.RESTIC || brCase.BackupRestoreType == lib.KOPIA, brCase.BackupRestoreType == lib.CSIDataMover)
+		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+	}
 
 	// wait for backup to not be running
 	gomega.Eventually(lib.IsBackupDone(dpaCR.Client, namespace, backupName), brCase.BackupTimeout, time.Second*10).Should(gomega.BeTrue())
@@ -321,6 +339,18 @@ var _ = ginkgo.Describe("Backup and restore tests", ginkgo.Ordered, func() {
 			}
 			runApplicationBackupAndRestore(brCase, updateLastBRcase, updateLastInstallTime)
 		},
+		ginkgo.Entry("MySQL-label application CSI", ginkgo.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
+			ApplicationTemplate: "./sample-applications/mysql-persistent/mysql-persistent-csi.yaml",
+			BackupRestoreCase: BackupRestoreCase{
+				Namespace:         "mysql-persistent",
+				LabelSelector:     map[string]string{"app": "mysql"},
+				Name:              "mysql-csi-label-e2e",
+				BackupRestoreType: lib.CSILabel,
+				PreBackupVerify:   todoListReady(true, false, "mysql"),
+				PostRestoreVerify: todoListReady(false, false, "mysql"),
+				BackupTimeout:     20 * time.Minute,
+			},
+		}, nil),
 		ginkgo.Entry("MySQL application CSI", ginkgo.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
 			ApplicationTemplate: "./sample-applications/mysql-persistent/mysql-persistent-csi.yaml",
 			BackupRestoreCase: BackupRestoreCase{

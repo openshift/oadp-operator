@@ -6,7 +6,7 @@ items:
     metadata:
       name: mysql-persistent
       labels:
-        app: mysql
+        app: todolist
   - apiVersion: v1
     kind: ServiceAccount
     metadata:
@@ -14,6 +14,7 @@ items:
       namespace: mysql-persistent
       labels:
         component: mysql-persistent
+        app: todolist
   - kind: SecurityContextConstraints
     apiVersion: security.openshift.io/v1
     metadata:
@@ -41,7 +42,7 @@ items:
       name: mysql
       namespace: mysql-persistent
       labels:
-        app: mysql
+        app: todolist
         service: mysql
     spec:
       ports:
@@ -49,7 +50,7 @@ items:
         name: mysql
         port: 3306
       selector:
-        app: mysql
+        app: todolist
   - apiVersion: apps/v1
     kind: Deployment
     metadata:
@@ -62,14 +63,14 @@ items:
     spec:
       selector:
         matchLabels:
-          app: mysql
+          app: todolist
       strategy:
         type: Recreate
       template:
         metadata:
           labels:
             e2e-app: "true"
-            app: mysql
+            app: todolist
             curl-tool: "true"
         spec:
           securityContext:
@@ -192,6 +193,10 @@ items:
     metadata:
       name: todolist-route
       namespace: mysql-persistent
+      labels:
+        app: todolist
+        service: todolist
+        e2e-app: "true"
     spec:
       path: "/"
       to:
