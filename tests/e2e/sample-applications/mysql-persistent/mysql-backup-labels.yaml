@@ -6,6 +6,6 @@ metadata:
 spec:
   labelSelector:
     matchLabels:
-      app: mysql
+      app: todolist
   storageLocation: dpa-sample-1
   ttl: 720h0m0s

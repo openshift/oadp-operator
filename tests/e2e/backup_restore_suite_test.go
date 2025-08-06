@@ -337,6 +337,18 @@ var _ = ginkgo.Describe("Backup and restore tests", ginkgo.Ordered, func() {
 			}
 			runApplicationBackupAndRestore(brCase, updateLastBRcase, updateLastInstallTime)
 		},
+		ginkgo.Entry("MySQL application label CSI", ginkgo.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
+			ApplicationTemplate: "./sample-applications/mysql-persistent/mysql-persistent-csi.yaml",
+			BackupRestoreCase: BackupRestoreCase{
+				Namespace:         "",
+				LabelSelector:     map[string]string{"app": "mysql"},
+				Name:              "mysql-csi-label-e2e",
+				BackupRestoreType: lib.CSI,
+				PreBackupVerify:   todoListReady(true, false, "mysql"),
+				PostRestoreVerify: todoListReady(false, false, "mysql"),
+				BackupTimeout:     20 * time.Minute,
+			},
+		}, nil),
 		ginkgo.Entry("MySQL application CSI", ginkgo.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
 			ApplicationTemplate: "./sample-applications/mysql-persistent/mysql-persistent-csi.yaml",
 			BackupRestoreCase: BackupRestoreCase{
