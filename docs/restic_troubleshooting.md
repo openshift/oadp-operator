@@ -189,6 +189,188 @@ oc -n openshift-adp get podvolumerestore -l velero.io/restore-name=<restore-name
 oc logs -n openshift-adp <restic-pod>
 ```
 
+## Data Mover (OADP 1.2 or below) + Restic
+
+#### get replicationsource info
+```
+oc get replicationsource -A
+NAMESPACE       NAME                SOURCE                                                 LAST SYNC              DURATION        NEXT SYNC
+openshift-adp   vsb-7rkn6-rep-src   snapcontent-993aabe2-8170-4661-984e-00a560f486cd-pvc   2023-06-20T20:16:55Z   33.274853286s   
+openshift-adp   vsb-vpqzd-rep-src   snapcontent-a751884d-b148-4a7d-9f5d-90da7a522be7-pvc   2023-06-20T20:17:51Z   24.452515994s   
+```
+
+```
+oc get replicationsource vsb-7rkn6-rep-src -n openshift-adp -o yaml
+apiVersion: volsync.backube/v1alpha1
+kind: ReplicationSource
+metadata:
+  creationTimestamp: "2023-06-20T20:16:22Z"
+  generation: 1
+  labels:
+    datamover.oadp.openshift.io/vsb: vsb-7rkn6
+  name: vsb-7rkn6-rep-src
+  namespace: openshift-adp
+  resourceVersion: "28136883"
+  uid: 1b6b4f33-41b2-4159-a396-545208742208
+spec:
+  restic:
+    accessModes:
+    - ReadWriteOnce
+    copyMethod: Direct
+    customCA: {}
+    moverServiceAccount: velero
+    repository: vsb-7rkn6-secret
+    retain: {}
+    storageClassName: gp2-csi
+    volumeSnapshotClassName: csi-aws-vsc-test
+  sourcePVC: snapcontent-993aabe2-8170-4661-984e-00a560f486cd-pvc
+  trigger:
+    manual: vsb-7rkn6-trigger
+status:
+  conditions:
+  - lastTransitionTime: "2023-06-20T20:16:55Z"
+    message: Waiting for manual trigger
+    reason: WaitingForManual
+    status: "False"
+    type: Synchronizing
+  lastManualSync: vsb-7rkn6-trigger
+  lastSyncDuration: 33.274853286s
+  lastSyncTime: "2023-06-20T20:16:55Z"
+  latestMoverStatus:
+    logs: |-
+      no parent snapshot found, will read all files
+      Added to the repository: 8.102 MiB (408.500 KiB stored)
+      processed 101 files, 102.651 MiB in 0:00
+      snapshot dcec01b1 saved
+      Restic completed in 4s
+    result: Successful
+  restic: {}
+```
+
+#### get restic repo information for data mover
+```
+oc get secret dpa-sample-1-volsync-restic -n openshift-adp -o yaml
+apiVersion: v1
+data:
+  AWS_ACCESS_KEY_ID: QUtJQVZCUsnip
+  AWS_DEFAULT_REGION: dXMtdsnip
+  AWS_SECRET_ACCESS_KEY: ZGZQsnip
+  RESTIC_PASSWORD: cmVzdGljcGFzc3dvcmQ=
+  RESTIC_REPOSITORY: czM6czMuYW1hem9uYXdzLmNvbS9jdnBidWNrZXR1c3dlc3Qy
+  restic-prune-interval: MQ==
+kind: Secret
+metadata:
+  creationTimestamp: "2023-06-14T17:53:41Z"
+  labels:
+    openshift.io/oadp: "True"
+    openshift.io/oadp-bsl-name: dpa-sample-1
+    openshift.io/oadp-bsl-provider: aws
+  name: dpa-sample-1-volsync-restic
+  namespace: openshift-adp
+  ownerReferences:
+  - apiVersion: oadp.openshift.io/v1alpha1
+    blockOwnerDeletion: true
+    controller: true
+    kind: DataProtectionApplication
+    name: dpa-sample
+    uid: 66568a80-778a-4478-bca1-d8ff7720b129
+  resourceVersion: "28139203"
+  uid: 192bc903-e754-4cd3-9173-2af805c2b0d0
+type: Opaque
+```
+
+#### decode the restic passwd 
+```
+cho "cmVzdGljcGFzc3dvcmQ=" | base64 -d
+resticpassword
+```
+
+#### datamover restic path 
+
+The path in 1.2.0 is
+`$bucket/openshift-adp/$snapcontent_name`
+
+The snapcontent_name = sourcePVC
+
+```
+spec:
+  restic:
+    accessModes:
+    - ReadWriteOnce
+    copyMethod: Direct
+    customCA: {}
+    moverServiceAccount: velero
+    pruneIntervalDays: 1
+    repository: vsb-zg6gg-secret
+    retain: {}
+    storageClassName: gp2-csi
+    volumeSnapshotClassName: csi-aws-vsc-test
+  sourcePVC: snapcontent-2044fb64-253d-461b-93f3-1ce8d6b67ebe-pvc
+```
+
+#### list snapshots for DataMover restic snapshot
+
+```
+restic  --cache-dir /tmp/.cache -r s3:<REPOSITORY-URL>/<BUCKET>/openshift-adp/snapcontent-993aabe2-8170-4661-984e-00a560f486cd-pvc snapshots
+enter password for repository: 
+repository 85c55159 opened (version 2, compression level auto)
+created new cache in /tmp/.cache
+ID        Time                 Host        Tags        Paths
+------------------------------------------------------------
+dcec01b1  2023-06-20 20:16:46  volsync                 /data
+------------------------------------------------------------
+1 snapshots
+```
+
+##  Update DPA for retain policy - restic forget
+```
+  features:
+    dataMover:
+      credentialName: restic-secret
+      enable: true
+      pruneInterval: "1"
+      snapshotRetainPolicy:
+        hourly: "1"
+```
+
+## Run a new backup and check replicationsource
+
+```
+oc get replicationsource vsb-zg6gg-rep-src -n openshift-adp -o yaml
+apiVersion: volsync.backube/v1alpha1
+kind: ReplicationSource
+metadata:
+  creationTimestamp: "2023-06-20T21:04:28Z"
+  generation: 1
+  labels:
+    datamover.oadp.openshift.io/vsb: vsb-zg6gg
+  name: vsb-zg6gg-rep-src
+  namespace: openshift-adp
+  resourceVersion: "28168858"
+  uid: 53dc160a-d0c1-416a-95fb-77f316e8e0c1
+spec:
+  restic:
+    accessModes:
+    - ReadWriteOnce
+    copyMethod: Direct
+    customCA: {}
+    moverServiceAccount: velero
+    pruneIntervalDays: 1
+    repository: vsb-zg6gg-secret
+```
+
+#### get snapshots
+```
+restic  --cache-dir /tmp/.cache -r s3:<REPOSITORY-URL>/<BUCKET>/openshift-adp/snapcontent-2044fb64-253d-461b-93f3-1ce8d6b67ebe-pvc snapshots
+enter password for repository: 
+repository 83b7f53a opened (version 2, compression level auto)
+ID        Time                 Host        Tags        Paths
+------------------------------------------------------------
+ab60e48b  2023-06-20 21:04:41  volsync                 /data
+------------------------------------------------------------
+1 snapshots
+```
+
 ## Maintenance
 
 * Upstream Documentation:
