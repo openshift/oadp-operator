@@ -29,6 +29,7 @@ const (
 	RESTIC          BackupRestoreType = "restic"
 	KOPIA           BackupRestoreType = "kopia"
 	NativeSnapshots BackupRestoreType = "native-snapshots"
+	CSILabel        BackupRestoreType = "csi-label"
 )
 
 type DpaCustomResource struct {

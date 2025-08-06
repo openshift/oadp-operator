@@ -167,22 +167,24 @@ func runBackup(brCase BackupRestoreCase, backupName string) bool {
 	var nsRequiresResticDCWorkaround bool
 	var err error
 
-	if brCase.Namespace != "" {
-		nsRequiresResticDCWorkaround, err = lib.NamespaceRequiresResticDCWorkaround(dpaCR.Client, brCase.Namespace)
-		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+	nsRequiresResticDCWorkaround, err = lib.NamespaceRequiresResticDCWorkaround(dpaCR.Client, brCase.Namespace)
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
-		if strings.Contains(brCase.Name, "twovol") {
-			volumeSyncDelay := 30 * time.Second
-			log.Printf("Sleeping for %v to allow volume to be in sync with /tmp/log/ for case %s", volumeSyncDelay, brCase.Name)
-			// TODO this should be a function, not an arbitrary sleep
-			time.Sleep(volumeSyncDelay)
-		}
+	if strings.Contains(brCase.Name, "twovol") {
+		volumeSyncDelay := 30 * time.Second
+		log.Printf("Sleeping for %v to allow volume to be in sync with /tmp/log/ for case %s", volumeSyncDelay, brCase.Name)
+		// TODO this should be a function, not an arbitrary sleep
+		time.Sleep(volumeSyncDelay)
+	}
 
-		// create backup
-		log.Printf("Creating backup %s for case %s", backupName, brCase.Name)
+	// create backup
+	log.Printf("Creating backup %s for case %s", backupName, brCase.Name)
+	if brCase.BackupRestoreType != lib.CSILabel {
 		err = lib.CreateBackupForNamespaces(dpaCR.Client, namespace, backupName, []string{brCase.Namespace}, brCase.BackupRestoreType == lib.RESTIC || brCase.BackupRestoreType == lib.KOPIA, brCase.BackupRestoreType == lib.CSIDataMover)
 		gomega.Expect(err).ToNot(gomega.HaveOccurred())
-	} else {
+	}
+
+	if brCase.BackupRestoreType == lib.CSILabel {
 		// Extract the first key-value pair from LabelSelector
 		var labelKey, labelValue string
 		for k, v := range brCase.LabelSelector {
@@ -337,13 +339,13 @@ var _ = ginkgo.Describe("Backup and restore tests", ginkgo.Ordered, func() {
 			}
 			runApplicationBackupAndRestore(brCase, updateLastBRcase, updateLastInstallTime)
 		},
-		ginkgo.Entry("MySQL application label CSI", ginkgo.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
+		ginkgo.Entry("MySQL-label application CSI", ginkgo.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
 			ApplicationTemplate: "./sample-applications/mysql-persistent/mysql-persistent-csi.yaml",
 			BackupRestoreCase: BackupRestoreCase{
-				Namespace:         "",
+				Namespace:         "mysql-persistent",
 				LabelSelector:     map[string]string{"app": "mysql"},
 				Name:              "mysql-csi-label-e2e",
-				BackupRestoreType: lib.CSI,
+				BackupRestoreType: lib.CSILabel,
 				PreBackupVerify:   todoListReady(true, false, "mysql"),
 				PostRestoreVerify: todoListReady(false, false, "mysql"),
 				BackupTimeout:     20 * time.Minute,
