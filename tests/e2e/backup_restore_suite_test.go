@@ -25,6 +25,7 @@ type BackupRestoreCase struct {
 	PostRestoreVerify VerificationFunction
 	SkipVerifyLogs    bool // TODO remove
 	BackupTimeout     time.Duration
+	LabelSelector     map[string]string
 }
 
 type ApplicationBackupRestoreCase struct {
@@ -163,20 +164,35 @@ func runApplicationBackupAndRestore(brCase ApplicationBackupRestoreCase, updateL
 }
 
 func runBackup(brCase BackupRestoreCase, backupName string) bool {
-	nsRequiresResticDCWorkaround, err := lib.NamespaceRequiresResticDCWorkaround(dpaCR.Client, brCase.Namespace)
-	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+	var nsRequiresResticDCWorkaround bool
+	var err error
 
-	if strings.Contains(brCase.Name, "twovol") {
-		volumeSyncDelay := 30 * time.Second
-		log.Printf("Sleeping for %v to allow volume to be in sync with /tmp/log/ for case %s", volumeSyncDelay, brCase.Name)
-		// TODO this should be a function, not an arbitrary sleep
-		time.Sleep(volumeSyncDelay)
+	if brCase.Namespace != "" {
+		nsRequiresResticDCWorkaround, err = lib.NamespaceRequiresResticDCWorkaround(dpaCR.Client, brCase.Namespace)
+		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+
+		if strings.Contains(brCase.Name, "twovol") {
+			volumeSyncDelay := 30 * time.Second
+			log.Printf("Sleeping for %v to allow volume to be in sync with /tmp/log/ for case %s", volumeSyncDelay, brCase.Name)
+			// TODO this should be a function, not an arbitrary sleep
+			time.Sleep(volumeSyncDelay)
+		}
+
+		// create backup
+		log.Printf("Creating backup %s for case %s", backupName, brCase.Name)
+		err = lib.CreateBackupForNamespaces(dpaCR.Client, namespace, backupName, []string{brCase.Namespace}, brCase.BackupRestoreType == lib.RESTIC || brCase.BackupRestoreType == lib.KOPIA, brCase.BackupRestoreType == lib.CSIDataMover)
+		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+	} else {
+		// Extract the first key-value pair from LabelSelector
+		var labelKey, labelValue string
+		for k, v := range brCase.LabelSelector {
+			labelKey = k
+			labelValue = v
+			break // Take the first key-value pair
+		}
+		err = lib.CreateBackupForLabels(dpaCR.Client, namespace, backupName, []string{}, labelKey, labelValue, brCase.BackupRestoreType == lib.RESTIC || brCase.BackupRestoreType == lib.KOPIA, brCase.BackupRestoreType == lib.CSIDataMover)
+		gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	}
-
-	// create backup
-	log.Printf("Creating backup %s for case %s", backupName, brCase.Name)
-	err = lib.CreateBackupForNamespaces(dpaCR.Client, namespace, backupName, []string{brCase.Namespace}, brCase.BackupRestoreType == lib.RESTIC || brCase.BackupRestoreType == lib.KOPIA, brCase.BackupRestoreType == lib.CSIDataMover)
-	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 	// wait for backup to not be running
 	gomega.Eventually(lib.IsBackupDone(dpaCR.Client, namespace, backupName), brCase.BackupTimeout, time.Second*10).Should(gomega.BeTrue())

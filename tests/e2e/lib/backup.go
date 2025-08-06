@@ -50,6 +50,26 @@ func CreateCustomBackupForNamespaces(ocClient client.Client, veleroNamespace, ba
 	return ocClient.Create(context.Background(), &backup)
 }
 
+func CreateBackupForLabels(ocClient client.Client, veleroNamespace, backupName string, namespaces []string, labelKey, labelValue string, defaultVolumesToFsBackup bool, snapshotMoveData bool) error {
+	backup := velero.Backup{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      backupName,
+			Namespace: veleroNamespace,
+		},
+		Spec: velero.BackupSpec{
+			IncludedNamespaces: []string{},
+			LabelSelector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					labelKey: labelValue,
+				},
+			},
+			DefaultVolumesToFsBackup: &defaultVolumesToFsBackup,
+			SnapshotMoveData:         &snapshotMoveData,
+		},
+	}
+	return ocClient.Create(context.Background(), &backup)
+}
+
 func GetBackup(c client.Client, namespace string, name string) (*velero.Backup, error) {
 	backup := velero.Backup{}
 	err := c.Get(context.Background(), client.ObjectKey{

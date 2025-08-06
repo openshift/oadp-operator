@@ -1,0 +1,11 @@
+apiVersion: velero.io/v1
+kind: Backup
+metadata:
+  name: mysql-persistent-labels
+  namespace: openshift-adp
+spec:
+  labelSelector:
+    matchLabels:
+      app: mysql
+  storageLocation: dpa-sample-1
+  ttl: 720h0m0s

@@ -1,0 +1,8 @@
+apiVersion: velero.io/v1
+kind: Restore
+metadata:
+  name: mysql-persistent-labels
+  namespace: openshift-adp
+spec:
+  backupName: mysql-persistent-labels
+  restorePVs: true
