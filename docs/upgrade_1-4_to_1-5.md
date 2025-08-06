@@ -1,6 +1,6 @@
 # Upgrading from OADP 1.4
 
-> **NOTE:** Always upgrade to next minor version, do NOT skip versions. To update to higher version, please upgrade one channel at a time. Example: to upgrade from 1.1 to 1.3, upgrade first to 1.2, then to 1.3.
+> **NOTE:** Always upgrade to next minor version, do NOT skip versions. To update to higher version, please upgrade one channel at a time. Example: to upgrade from 1.3 to 1.5, upgrade first to 1.4, then to 1.5.
 
 ## Changes from OADP 1.4 to 1.5
 

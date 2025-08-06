@@ -12,7 +12,6 @@ If you need help, first search if there is [already an issue filed](https://issu
 1. [Debugging OpenShift Virtualization backup/restore](virtualization_troubleshooting.md)
 1. [Debugging OADP Self Service](self-service_troubleshooting.md)
 1. [Deleting Backups](#deleting-backups)
-1. [Debugging Data Mover (OADP 1.2 or below)](https://github.com/migtools/volume-snapshot-mover/blob/master/docs/troubleshooting.md)
 1. [OpenShift ROSA STS and OADP installation](https://github.com/rh-mobb/documentation/blob/main/content/docs/misc/oadp/rosa-sts/_index.md)
 1. [Common Issues and Misconfigurations](#common-issues-and-misconfigurations)
     - [Credentials Not Properly Formatted](#credentials-secret-not-properly-formatted)
@@ -35,10 +34,6 @@ If you need help, first search if there is [already an issue filed](https://issu
     - Check the Velero logs
     ```
     oc logs -f deploy/velero -n openshift-adp
-    ```
-    - If Data Mover (OADP 1.2 or below) is enabled, check the volume-snapshot-logs
-    ```
-    oc logs -f deployment.apps/volume-snapshot-mover -n openshift-adp
     ```
     
 1. Velero commands
@@ -76,10 +71,6 @@ This section includes how to debug a failed restore. For more specific issues re
     - Check the Velero logs
     ```
     oc logs -f deployment.apps/velero -n openshift-adp
-    ```
-    If Data Mover (OADP 1.2 or below) is enabled, check the volume-snapshot-logs
-    ```
-    oc logs -f deployment.apps/volume-snapshot-mover -n openshift-adp
     ```
     
 1. Velero commands
@@ -250,40 +241,11 @@ oc delete backuprepository <backupRepositoryName> -n openshift-adp
 
 ### Issue with Backup/Restore of DeploymentConfig with volumes or restore hooks
 
--  (OADP 1.3+) **Error:** `DeploymentConfigs restore with spec.Replicas==0 or DC pods fail to restart if they crash if using DC with volumes or restore hooks`
+- **Error:** `DeploymentConfigs restore with spec.Replicas==0 or DC pods fail to restart if they crash if using DC with volumes or restore hooks`
 
     **Solution:**
 
-    Solution is the same as in the (OADP 1.1+), except it applies to the use case if you are restoring DeploymentConfigs and have either volumes or post-restore hooks regardless of the backup method.
-
--  (OADP 1.1+) **Error:** `DeploymentConfigs restore with spec.Replicas==0 or DC pods fail to restart if they crash if using Restic/Kopia restores or restore hooks`
-
-    **Solution:**
-    
-    This is expected behavior on restore if you are restoring DeploymentConfigs and are either using Restic or Kopia for volume restore or you have post-restore hooks. The pod and DC plugins make these modifications to ensure that Restic or Kopia and hooks work properly, and [dc-post-restore.sh](../docs/scripts/dc-post-restore.sh) should have been run immediately after a successful restore. Usage for this script is `dc-post-restore.sh <restore-name>`
-
--  (OADP 1.0.z) **Error:** `Using Restic as backup method causes PartiallyFailed/Failed errors in the Restore or post-restore hooks fail to execute`
-
-    **Solution:**
-
-    The changes in the backup/restore process for mitigating this error would be a two step restore process where, in the first step we would perform a restore excluding the replicationcontroller and deploymentconfig resources, and the second step would involve a restore including these resources. The backup and restore commands are given below for more clarity. (The examples given below are a use case for backup/restore of a target namespace, for other cases a similar strategy can be followed).
-
-    Please note that this is a temporary fix for this issue and there are ongoing discussions to solve it.
-
-    Step 1: Initiate the backup as any normal backup for restic.
-    ```
-    velero create backup <backup-name> -n openshift-adp --include-namespaces=<TARGET_NAMESPACE>
-    ```
-
-    Step 2: Initiate a restore excluding the replicationcontroller and deploymentconfig resources.
-    ```
-    velero restore create --from-backup=<BACKUP_NAME> -n openshift-adp --include-namespaces <TARGET_NAMESPACE> --exclude-resources replicationcontroller,deploymentconfig,templateinstances.template.openshift.io --restore-volumes=true
-    ```
-
-    Step 3: Initiate a restore including the replicationcontroller and deploymentconfig resources.
-    ```
-    velero restore create --from-backup=<BACKUP_NAME> -n openshift-adp --include-namespaces <TARGET_NAMESPACE> --include-resources replicationcontroller,deploymentconfig,templateinstances.template.openshift.io --restore-volumes=true
-    ```
+    This is expected behavior on restore if you are restoring DeploymentConfigs and have either volumes or post-restore hooks. The pod and DC plugins make these modifications to ensure that Restic or Kopia and hooks work properly, and [dc-post-restore.sh](../docs/scripts/dc-post-restore.sh) should have been run immediately after a successful restore. Usage for this script is `dc-post-restore.sh <restore-name>`
 
 ### New Restic Backup Partially Failing After Clearing Bucket
 
