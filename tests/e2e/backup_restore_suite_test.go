@@ -192,7 +192,7 @@ func runBackup(brCase BackupRestoreCase, backupName string) bool {
 			labelValue = v
 			break // Take the first key-value pair
 		}
-		err = lib.CreateBackupForLabels(dpaCR.Client, namespace, backupName, []string{}, labelKey, labelValue, brCase.BackupRestoreType == lib.RESTIC || brCase.BackupRestoreType == lib.KOPIA, brCase.BackupRestoreType == lib.CSIDataMover)
+		err = lib.CreateBackupForLabels(dpaCR.Client, namespace, backupName, labelKey, labelValue, brCase.BackupRestoreType == lib.RESTIC || brCase.BackupRestoreType == lib.KOPIA, brCase.BackupRestoreType == lib.CSIDataMover)
 		gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	}
 
