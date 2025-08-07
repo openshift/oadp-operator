@@ -48,7 +48,7 @@ type DataProtectionTestSpec struct {
 	ForceRun bool `json:"forceRun,omitempty"`
 
 	// skipTLSVerify controls whether to bypass TLS certificate validation
-	// +kubebuilder:default=true
+	// +kubebuilder:default=false
 	// +optional
 	SkipTLSVerify bool `json:"skipTLSVerify,omitempty"`
 }
