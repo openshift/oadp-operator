@@ -19,6 +19,8 @@ items:
     apiVersion: security.openshift.io/v1
     metadata:
       name: mysql-persistent-scc
+      labels:
+        app: todolist
     allowPrivilegeEscalation: true
     allowPrivilegedContainer: true
     runAsUser:
@@ -60,6 +62,7 @@ items:
       namespace: mysql-persistent
       labels:
         e2e-app: "true"
+        app: todolist
     spec:
       selector:
         matchLabels:
