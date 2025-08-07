@@ -84,7 +84,8 @@ func TestDataProtectionApplicationReconciler_updateRepositoryMaintenanceCM(t *te
 					},
 				},
 				Data: map[string]string{
-					"repository-maintenance-config": `{"global":{"loadAffinity":[{"nodeSelector":{"matchLabels":{"app.kubernetes.io/name":"test-dpa"}}}],"podResources":{"cpuRequest":"100m","memoryRequest":"128Mi","cpuLimit":"200m","memoryLimit":"256Mi"}},"maintenance-job-1":{"loadAffinity":[{"nodeSelector":{"matchLabels":{"app.kubernetes.io/name":"test-dpa"}}}]}}`,
+					"global":            `{"loadAffinity":[{"nodeSelector":{"matchLabels":{"app.kubernetes.io/name":"test-dpa"}}}],"podResources":{"cpuRequest":"100m","memoryRequest":"128Mi","cpuLimit":"200m","memoryLimit":"256Mi"}}`,
+					"maintenance-job-1": `{"loadAffinity":[{"nodeSelector":{"matchLabels":{"app.kubernetes.io/name":"test-dpa"}}}]}`,
 				},
 			},
 		},
@@ -116,15 +117,19 @@ func TestDataProtectionApplicationReconciler_updateRepositoryMaintenanceCM(t *te
 			require.Equal(t, tt.wantCM.ObjectMeta.Labels, tt.cm.ObjectMeta.Labels, "ConfigMap Labels do not match")
 
 			// Compare Data fields, we need to unmarshal the JSON to ignore key order
-			expectedData := tt.wantCM.Data["repository-maintenance-config"]
-			actualData := tt.cm.Data["repository-maintenance-config"]
+			require.Equal(t, len(tt.wantCM.Data), len(tt.cm.Data), "ConfigMap Data key count does not match")
 
-			var expectedMap map[string]interface{}
-			var actualMap map[string]interface{}
+			for key, expectedData := range tt.wantCM.Data {
+				actualData, exists := tt.cm.Data[key]
+				require.True(t, exists, "ConfigMap Data key %s not found", key)
 
-			require.NoError(t, json.Unmarshal([]byte(expectedData), &expectedMap), "Failed to unmarshal expected Data")
-			require.NoError(t, json.Unmarshal([]byte(actualData), &actualMap), "Failed to unmarshal actual Data")
-			require.Equal(t, expectedMap, actualMap, "ConfigMap Data does not match")
+				var expectedMap map[string]interface{}
+				var actualMap map[string]interface{}
+
+				require.NoError(t, json.Unmarshal([]byte(expectedData), &expectedMap), "Failed to unmarshal expected Data for key %s", key)
+				require.NoError(t, json.Unmarshal([]byte(actualData), &actualMap), "Failed to unmarshal actual Data for key %s", key)
+				require.Equal(t, expectedMap, actualMap, "ConfigMap Data does not match for key %s", key)
+			}
 		})
 	}
 }
