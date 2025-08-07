@@ -1508,7 +1508,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 			messageErr: "only a single instance of Non-Admin Controller can be installed across the entire cluster. Non-Admin controller is already configured and installed in test-another-ns namespace",
 		},
 		{
-			name: "[valid] DPA CR: NonAdmin.Enable is false with existing NAC deployment",
+			name: "[valid] DPA CR: NonAdmin.Enable is true with another DPA having NonAdmin.Enable false",
 			dpa: &oadpv1alpha1.DataProtectionApplication{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-DPA-CR",
