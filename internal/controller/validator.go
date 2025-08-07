@@ -136,36 +136,32 @@ func (r *DataProtectionApplicationReconciler) ValidateDataProtectionCR(log logr.
 	}
 
 	// validate non-admin enable
-	if r.dpa.Spec.NonAdmin != nil {
-		if r.dpa.Spec.NonAdmin.Enable != nil {
-
-			dpaList := &oadpv1alpha1.DataProtectionApplicationList{}
-			err = r.ClusterWideClient.List(r.Context, dpaList)
-			if err != nil {
-				return false, err
-			}
-			for _, dpa := range dpaList.Items {
-				if dpa.Namespace != r.NamespacedName.Namespace && (&DataProtectionApplicationReconciler{dpa: &dpa}).checkNonAdminEnabled() {
-					nonAdminDeployment := &appsv1.Deployment{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      nonAdminObjectName,
-							Namespace: dpa.Namespace,
-						},
-					}
-					if err := r.ClusterWideClient.Get(
-						r.Context,
-						types.NamespacedName{
-							Name:      nonAdminDeployment.Name,
-							Namespace: nonAdminDeployment.Namespace,
-						},
-						nonAdminDeployment,
-					); err == nil {
-						return false, fmt.Errorf("only a single instance of Non-Admin Controller can be installed across the entire cluster. Non-Admin controller is already configured and installed in %s namespace", dpa.Namespace)
-					}
+	if r.checkNonAdminEnabled() {
+		dpaList := &oadpv1alpha1.DataProtectionApplicationList{}
+		err = r.ClusterWideClient.List(r.Context, dpaList)
+		if err != nil {
+			return false, err
+		}
+		for _, dpa := range dpaList.Items {
+			if dpa.Namespace != r.NamespacedName.Namespace && (&DataProtectionApplicationReconciler{dpa: &dpa}).checkNonAdminEnabled() {
+				nonAdminDeployment := &appsv1.Deployment{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      nonAdminObjectName,
+						Namespace: dpa.Namespace,
+					},
+				}
+				if err := r.ClusterWideClient.Get(
+					r.Context,
+					types.NamespacedName{
+						Name:      nonAdminDeployment.Name,
+						Namespace: nonAdminDeployment.Namespace,
+					},
+					nonAdminDeployment,
+				); err == nil {
+					return false, fmt.Errorf("only a single instance of Non-Admin Controller can be installed across the entire cluster. Non-Admin controller is already configured and installed in %s namespace", dpa.Namespace)
 				}
 			}
 		}
-
 		garbageCollectionPeriod := r.dpa.Spec.NonAdmin.GarbageCollectionPeriod
 		appliedGarbageCollectionPeriod := oadpv1alpha1.DefaultGarbageCollectionPeriod
 		if garbageCollectionPeriod != nil {
