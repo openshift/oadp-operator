@@ -111,7 +111,7 @@ func runApplicationBackupAndRestore(brCase ApplicationBackupRestoreCase, updateL
 	log.Printf("Installing application for case %s", brCase.Name)
 	err := lib.InstallApplication(dpaCR.Client, brCase.ApplicationTemplate)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
-	if brCase.BackupRestoreType == lib.CSI || brCase.BackupRestoreType == lib.CSIDataMover {
+	if brCase.BackupRestoreType == lib.CSI || brCase.BackupRestoreType == lib.CSIDataMover || brCase.BackupRestoreType == lib.CSILabel {
 		log.Printf("Creating pvc for case %s", brCase.Name)
 		var pvcName string
 		var pvcPath string
@@ -343,7 +343,7 @@ var _ = ginkgo.Describe("Backup and restore tests", ginkgo.Ordered, func() {
 			ApplicationTemplate: "./sample-applications/mysql-persistent/mysql-persistent-csi.yaml",
 			BackupRestoreCase: BackupRestoreCase{
 				Namespace:         "mysql-persistent",
-				LabelSelector:     map[string]string{"app": "mysql"},
+				LabelSelector:     map[string]string{"app": "todolist"},
 				Name:              "mysql-csi-label-e2e",
 				BackupRestoreType: lib.CSILabel,
 				PreBackupVerify:   todoListReady(true, false, "mysql"),
