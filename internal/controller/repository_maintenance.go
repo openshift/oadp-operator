@@ -27,12 +27,6 @@ func (r *DataProtectionApplicationReconciler) updateRepositoryMaintenanceCM(cm *
 		return fmt.Errorf("failed to set controller reference: %w", err)
 	}
 
-	// Convert NodeAgentConfigMapSettings to a generic map
-	configRepositoryMaintenanceJSON, err := json.Marshal(r.dpa.Spec.Configuration.RepositoryMaintenance)
-	if err != nil {
-		return fmt.Errorf("failed to serialize repository maintenance config: %w", err)
-	}
-
 	cm.Name = common.RepoMaintConfigMapPrefix + r.dpa.Name
 	cm.Namespace = r.NamespacedName.Namespace
 	cm.Labels = map[string]string{
@@ -45,7 +39,16 @@ func (r *DataProtectionApplicationReconciler) updateRepositoryMaintenanceCM(cm *
 	if cm.Data == nil {
 		cm.Data = make(map[string]string)
 	}
-	cm.Data["repository-maintenance-config"] = string(configRepositoryMaintenanceJSON)
+	// TODO: This implementation of ConfigMap is different from the Node-Agent
+	// to to match the upstream implementation
+	// https://github.com/vmware-tanzu/velero/issues/9159
+	for key, config := range r.dpa.Spec.Configuration.RepositoryMaintenance {
+		configJSON, err := json.Marshal(config)
+		if err != nil {
+			return fmt.Errorf("failed to serialize repository maintenance config for key %s: %w", key, err)
+		}
+		cm.Data[key] = string(configJSON)
+	}
 
 	return nil
 }
