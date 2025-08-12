@@ -1234,7 +1234,7 @@ spec:
   provider:
     name: Red Hat
   version: 1.5.1
-  replaces: oadp-operator.v1.5.0
+  replaces: oadp-operator.v1.5.1
   relatedImages:
   - name: oadp_operator
     image: quay.io/redhat-user-workloads/ocp-art-tenant/oadp-operator-oadp-1-5@sha256:40fcca011b96905f9829bf9e751e2af4faff7cd5850c8bf323951efd29aa1625
