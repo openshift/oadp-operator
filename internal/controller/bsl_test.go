@@ -1494,6 +1494,147 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 			want:    false,
 			wantErr: true,
 		},
+		{
+			name: "test duplicate backup location names should fail validation",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+								oadpv1alpha1.DefaultPluginAWS,
+								oadpv1alpha1.DefaultPluginMicrosoftAzure,
+							},
+						},
+					},
+					BackupLocations: []oadpv1alpha1.BackupLocation{
+						{
+							Name: "duplicate-name",
+							Velero: &velerov1.BackupStorageLocationSpec{
+								Provider: "aws",
+								Default:  true,
+								StorageType: velerov1.StorageType{
+									ObjectStorage: &velerov1.ObjectStorageLocation{
+										Bucket: "test-aws-bucket",
+										Prefix: "velero/backups",
+									},
+								},
+								Config: map[string]string{
+									"region": "us-east-1",
+								},
+								Credential: &corev1.SecretKeySelector{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: "cloud-credentials",
+									},
+									Key: "cloud",
+								},
+							},
+						},
+						{
+							Name: "duplicate-name", // Same name as above
+							Velero: &velerov1.BackupStorageLocationSpec{
+								Provider: "azure",
+								Default:  false,
+								StorageType: velerov1.StorageType{
+									ObjectStorage: &velerov1.ObjectStorageLocation{
+										Bucket: "test-azure-bucket",
+										Prefix: "velero/backups",
+									},
+								},
+								Config: map[string]string{
+									"resourceGroup":  "test-rg",
+									"storageAccount": "test-sa",
+								},
+								Credential: &corev1.SecretKeySelector{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: "azure-credentials",
+									},
+									Key: "cloud",
+								},
+							},
+						},
+					},
+				},
+			},
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cloud-credentials",
+					Namespace: "test-ns",
+				},
+				Data: map[string][]byte{
+					"cloud": []byte("[default]\naws_access_key_id=test\naws_secret_access_key=test"),
+				},
+			},
+			objects: []client.Object{
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "azure-credentials",
+						Namespace: "test-ns",
+					},
+					Data: map[string][]byte{
+						"cloud": []byte("AZURE_SUBSCRIPTION_ID=test\nAZURE_TENANT_ID=test\nAZURE_CLIENT_ID=test\nAZURE_CLIENT_SECRET=test\nAZURE_RESOURCE_GROUP=test-rg\nAZURE_CLOUD_NAME=AzurePublicCloud"),
+					},
+				},
+			},
+			want:    false,
+			wantErr: true,
+		},
+		{
+			name: "test backup location with whitespace-only name should fail validation",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+								oadpv1alpha1.DefaultPluginAWS,
+							},
+						},
+					},
+					BackupLocations: []oadpv1alpha1.BackupLocation{
+						{
+							Name: "   ", // Whitespace-only name should fail
+							Velero: &velerov1.BackupStorageLocationSpec{
+								Provider: "aws",
+								Default:  true,
+								StorageType: velerov1.StorageType{
+									ObjectStorage: &velerov1.ObjectStorageLocation{
+										Bucket: "test-aws-bucket",
+										Prefix: "velero/backups",
+									},
+								},
+								Config: map[string]string{
+									"region": "us-east-1",
+								},
+								Credential: &corev1.SecretKeySelector{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: "cloud-credentials",
+									},
+									Key: "cloud",
+								},
+							},
+						},
+					},
+				},
+			},
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cloud-credentials",
+					Namespace: "test-ns",
+				},
+				Data: map[string][]byte{
+					"cloud": []byte("[default]\naws_access_key_id=test\naws_secret_access_key=test"),
+				},
+			},
+			want:    false,
+			wantErr: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

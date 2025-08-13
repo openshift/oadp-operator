@@ -19,11 +19,40 @@ import (
 	"github.com/openshift/oadp-operator/pkg/storage/aws"
 )
 
+// getBSLName generates the BackupStorageLocation name for a given backup location spec and index.
+// It returns the user-provided name if specified, otherwise generates a name using the DPA name and index.
+func (r *DataProtectionApplicationReconciler) getBSLName(bslSpec *oadpv1alpha1.BackupLocation, index int) string {
+	if bslSpec.Name != "" {
+		return bslSpec.Name
+	}
+	return fmt.Sprintf("%s-%d", r.NamespacedName.Name, index+1)
+}
+
 func (r *DataProtectionApplicationReconciler) ValidateBackupStorageLocations() (bool, error) {
 	// Ensure BSL is a valid configuration
 	// First, check for provider and then call functions based on the cloud provider for each backupstoragelocation configured
 	dpa := r.dpa
 	numDefaultLocations := 0
+	namesSeen := make(map[string]bool)
+
+	// Check for duplicate backup location names and validate name format
+	for i, bslSpec := range dpa.Spec.BackupLocations {
+		// Validate that user-provided names are not empty strings
+		if bslSpec.Name == "" {
+			// Empty names are allowed and will be auto-generated, skip validation
+		} else if strings.TrimSpace(bslSpec.Name) == "" {
+			return false, fmt.Errorf("backup location name cannot be empty or whitespace only")
+		}
+
+		// Determine the BSL name using the helper function
+		bslName := r.getBSLName(&bslSpec, i)
+
+		if namesSeen[bslName] {
+			return false, fmt.Errorf("backup location name '%s' is duplicated. Backup location names must be unique", bslName)
+		}
+		namesSeen[bslName] = true
+	}
+
 	for _, bslSpec := range dpa.Spec.BackupLocations {
 		if err := r.ensureBackupLocationHasVeleroOrCloudStorage(&bslSpec); err != nil {
 			return false, err
@@ -96,11 +125,8 @@ func (r *DataProtectionApplicationReconciler) ReconcileBackupStorageLocations(lo
 		// Create BSL as is, we can safely assume they are valid from
 		// ValidateBackupStorageLocations
 
-		// check if BSL name is specified in DPA spec
-		bslName := fmt.Sprintf("%s-%d", r.NamespacedName.Name, i+1)
-		if bslSpec.Name != "" {
-			bslName = bslSpec.Name
-		}
+		// Get BSL name using the helper function
+		bslName := r.getBSLName(&bslSpec, i)
 		dpaBSLNames = append(dpaBSLNames, bslName)
 
 		bsl := velerov1.BackupStorageLocation{
