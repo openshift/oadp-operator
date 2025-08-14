@@ -198,7 +198,7 @@ var _ = ginkgo.Describe("Backup and restore tests via OADP CLI", ginkgo.Label("c
 	ginkgo.BeforeAll(func() {
 		// Verify OADP CLI is available (should be installed in Docker image)
 		log.Print("Verifying OADP CLI is available...")
-		cmd := exec.Command("kubectl", "oadp", "version")
+		cmd := exec.Command("kubectl", "oadp", "version", "--client-only")
 		output, err := cmd.CombinedOutput()
 		if err != nil {
 			ginkgo.Fail(fmt.Sprintf("OADP CLI not available: %v, output: %s", err, string(output)))
