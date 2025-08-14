@@ -146,10 +146,6 @@ func (c *CLISetup) buildAndInstall(cloneDir string) error {
 	return nil
 }
 
-// func (c *CLISetup) verifyInstallation() error {
-// 	return runCommand("kubectl", []string{"oadp", "version"}, "")
-// }
-
 func (c *CLISetup) verifyInstallation() error {
 	// Check current PATH
 	cmd := exec.Command("bash", "-c", "echo $PATH")
