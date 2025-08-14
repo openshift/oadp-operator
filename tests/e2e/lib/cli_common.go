@@ -120,7 +120,31 @@ func (c *CLISetup) buildAndInstall(cloneDir string) error {
 	return runCommand("make", c.installArgs, cloneDir)
 }
 
+// func (c *CLISetup) verifyInstallation() error {
+// 	return runCommand("kubectl", []string{"oadp", "version"}, "")
+// }
+
 func (c *CLISetup) verifyInstallation() error {
+	// Check current PATH
+	cmd := exec.Command("bash", "-c", "echo $PATH")
+	if output, err := cmd.CombinedOutput(); err == nil {
+		log.Printf("Current PATH: %s", string(output))
+	}
+
+	// Try to find kubectl-oadp binary
+	cmd = exec.Command("which", "kubectl-oadp")
+	if output, err := cmd.CombinedOutput(); err == nil {
+		log.Printf("kubectl-oadp found at: %s", string(output))
+	} else {
+		log.Printf("kubectl-oadp not found in PATH: %v", err)
+	}
+
+	// List kubectl plugins
+	cmd = exec.Command("kubectl", "plugin", "list")
+	if output, err := cmd.CombinedOutput(); err == nil {
+		log.Printf("Available kubectl plugins: %s", string(output))
+	}
+
 	return runCommand("kubectl", []string{"oadp", "version"}, "")
 }
 
