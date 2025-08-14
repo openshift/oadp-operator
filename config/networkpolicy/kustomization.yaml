@@ -1,0 +1,9 @@
+resources:
+- networkpolicy.yaml
+
+namespace: openshift-adp
+
+# Add common labels to all NetworkPolicy resources
+commonLabels:
+  app.kubernetes.io/name: oadp-operator
+  app.kubernetes.io/part-of: oadp-operator

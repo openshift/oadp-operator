@@ -1,0 +1,33 @@
+# tested w/ an oadp datamover backup and restore w/ sample app 3cscsvol
+
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-labelled
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/managed-by: "oadp-operator"
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+  - from:
+    - podSelector: {}
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+      ports:
+        - protocol: TCP
+          port: 443
+    - to:
+      - namespaceSelector:
+          matchLabels:
+            # This label is standard on the openshift-dns namespace
+            kubernetes.io/metadata.name: openshift-dns
+      ports:
+      - protocol: UDP
+        port: 53
+      - protocol: TCP
+        port: 53
