@@ -69,7 +69,7 @@ type CLISetup struct {
 func NewOADPCLISetup() *CLISetup {
 	return &CLISetup{
 		repoURL:     "https://github.com/migtools/oadp-cli.git",
-		installArgs: []string{"install", "ASSUME_DEFAULT=true"},
+		installArgs: []string{"build"},
 		namespace:   "openshift-adp",
 	}
 }
@@ -117,7 +117,33 @@ func (c *CLISetup) cloneRepo(cloneDir string) error {
 }
 
 func (c *CLISetup) buildAndInstall(cloneDir string) error {
-	return runCommand("make", c.installArgs, cloneDir)
+	// Build the binary
+	log.Print("Building OADP CLI...")
+	if err := runCommand("make", c.installArgs, cloneDir); err != nil {
+		return fmt.Errorf("build failed: %w", err)
+	}
+
+	// Verify the binary was created
+	binaryPath := filepath.Join(cloneDir, "kubectl-oadp")
+	if _, err := os.Stat(binaryPath); err != nil {
+		return fmt.Errorf("kubectl-oadp binary not found at %s: %w", binaryPath, err)
+	}
+
+	// Move it to /usr/local/bin
+	targetPath := "/usr/local/bin/kubectl-oadp"
+	log.Printf("Moving binary from %s to %s", binaryPath, targetPath)
+
+	if err := runCommand("mv", []string{binaryPath, targetPath}, ""); err != nil {
+		return fmt.Errorf("failed to move binary to %s: %w", targetPath, err)
+	}
+
+	// Make it executable
+	if err := runCommand("chmod", []string{"+x", targetPath}, ""); err != nil {
+		return fmt.Errorf("failed to make binary executable: %w", err)
+	}
+
+	log.Printf("Successfully installed kubectl-oadp to %s", targetPath)
+	return nil
 }
 
 // func (c *CLISetup) verifyInstallation() error {
