@@ -129,17 +129,17 @@ func (c *CLISetup) buildAndInstall(cloneDir string) error {
 		return fmt.Errorf("kubectl-oadp binary not found at %s: %w", binaryPath, err)
 	}
 
-	// Move it to /usr/local/bin
+	// Copy it to /usr/local/bin
 	targetPath := "/usr/local/bin/kubectl-oadp"
-	log.Printf("Moving binary from %s to %s", binaryPath, targetPath)
+	log.Printf("Copying binary from %s to %s", binaryPath, targetPath)
 
-	if err := runCommand("mv", []string{binaryPath, targetPath}, ""); err != nil {
-		return fmt.Errorf("failed to move binary to %s: %w", targetPath, err)
+	if err := runCommand("cp", []string{binaryPath, targetPath}, ""); err != nil {
+		return fmt.Errorf("failed to copy binary to %s: %w", targetPath, err)
 	}
 
 	// Make it executable
 	if err := runCommand("chmod", []string{"+x", targetPath}, ""); err != nil {
-		return fmt.Errorf("failed to make binary executable: %w", err)
+		return fmt.Errorf("failed to make binary executable: %w", targetPath, err)
 	}
 
 	log.Printf("Successfully installed kubectl-oadp to %s", targetPath)
