@@ -83,16 +83,4 @@ specific use cases of using Velero with OCP. The `openshift` images tend to lag
 behind Velero upstream releases as we are more cautious about supporting older
 versions. Here is the default mapping of versions:
 
-| OADP Version    | Velero Version |
-|:----------------|---------------:|
-| v0.2.6          |         v1.6.0 |
-| v0.5.5          |         v1.7.1 |
-| v1.0.0 - v1.0.z |         v1.7.1 |
-| v1.1.0          |         v1.9.1 |
-| v1.1.1          |         v1.9.4 |
-| v1.1.2 - v1.1.5 |         v1.9.5 |
-| v1.2.0          |        v1.11.0 |
-| v1.3.0          |        v1.12.1 |
-| v1.3.1          |        v1.12.4 |
-| v1.4.0          |        v1.14.0 |
-
+For the current and planned supported versions, please refer to the [version compatibility table in PARTNERS.md](PARTNERS.md#current-and-planned-supported-versions).
