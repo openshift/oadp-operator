@@ -129,17 +129,57 @@ func (c *CLISetup) buildAndInstall(cloneDir string) error {
 		return fmt.Errorf("kubectl-oadp binary not found at %s: %w", binaryPath, err)
 	}
 
-	// Copy it to /usr/local/bin
-	targetPath := "/usr/local/bin/kubectl-oadp"
-	log.Printf("Copying binary from %s to %s", binaryPath, targetPath)
+	// Try multiple target locations, starting with user-writable paths
+	targetPaths := []string{
+		fmt.Sprintf("%s/bin/kubectl-oadp", os.Getenv("HOME")),
+		"/usr/local/bin/kubectl-oadp",
+	}
 
-	if err := runCommand("cp", []string{binaryPath, targetPath}, ""); err != nil {
-		return fmt.Errorf("failed to copy binary to %s: %w", targetPath, err)
+	var targetPath string
+	var moveErr error
+
+	for _, tp := range targetPaths {
+		targetPath = tp
+		log.Printf("Attempting to move binary from %s to %s", binaryPath, targetPath)
+
+		// Create directory if it doesn't exist (for ~/bin)
+		if targetPath == fmt.Sprintf("%s/bin/kubectl-oadp", os.Getenv("HOME")) {
+			binDir := filepath.Dir(targetPath)
+			if err := os.MkdirAll(binDir, 0755); err != nil {
+				log.Printf("Failed to create directory %s: %v", binDir, err)
+				continue
+			}
+		}
+
+		if err := runCommand("mv", []string{binaryPath, targetPath}, ""); err != nil {
+			log.Printf("Failed to move to %s: %v", targetPath, err)
+			moveErr = err
+			continue
+		}
+
+		// Success!
+		moveErr = nil
+		break
+	}
+
+	if moveErr != nil {
+		return fmt.Errorf("failed to move binary to any location: %w", moveErr)
 	}
 
 	// Make it executable
 	if err := runCommand("chmod", []string{"+x", targetPath}, ""); err != nil {
-		return fmt.Errorf("failed to make binary executable: %w", targetPath, err)
+		return fmt.Errorf("failed to make binary executable: %w", err)
+	}
+
+	// If we installed to ~/bin, ensure it's in PATH
+	if targetPath == fmt.Sprintf("%s/bin/kubectl-oadp", os.Getenv("HOME")) {
+		homeBin := fmt.Sprintf("%s/bin", os.Getenv("HOME"))
+		currentPath := os.Getenv("PATH")
+		if !strings.Contains(currentPath, homeBin) {
+			newPath := fmt.Sprintf("%s:%s", homeBin, currentPath)
+			os.Setenv("PATH", newPath)
+			log.Printf("Added %s to PATH", homeBin)
+		}
 	}
 
 	log.Printf("Successfully installed kubectl-oadp to %s", targetPath)
