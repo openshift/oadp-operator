@@ -3,7 +3,6 @@ package e2e_test
 import (
 	"fmt"
 	"log"
-	"os/exec"
 	"strings"
 	"time"
 
@@ -196,14 +195,11 @@ var _ = ginkgo.Describe("Backup and restore tests via OADP CLI", ginkgo.Label("c
 	}
 
 	ginkgo.BeforeAll(func() {
-		// Verify OADP CLI is available (should be installed in Docker image)
-		log.Print("Verifying OADP CLI is available...")
-		cmd := exec.Command("kubectl", "oadp", "version")
-		output, err := cmd.CombinedOutput()
-		if err != nil {
-			ginkgo.Fail(fmt.Sprintf("OADP CLI not available: %v, output: %s", err, string(output)))
+
+		cliSetup := lib.NewOADPCLISetup()
+		if err := cliSetup.Install(); err != nil {
+			ginkgo.Fail(fmt.Sprintf("OADP CLI setup failed: %v", err))
 		}
-		log.Printf("OADP CLI available. Version: %s", string(output))
 	})
 
 	var _ = ginkgo.AfterEach(func(ctx ginkgo.SpecContext) {
