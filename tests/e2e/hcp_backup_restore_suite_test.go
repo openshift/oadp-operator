@@ -70,7 +70,6 @@ var _ = ginkgo.Describe("HCP Backup and Restore tests", ginkgo.Ordered, func() {
 		lastInstallTime time.Time
 		lastBRCase      HCPBackupRestoreCase
 		h               *libhcp.HCHandler
-		err             error
 		ctx             = context.Background()
 	)
 
@@ -80,6 +79,32 @@ var _ = ginkgo.Describe("HCP Backup and Restore tests", ginkgo.Ordered, func() {
 
 	// Before All
 	var _ = ginkgo.BeforeAll(func() {
+		// Wait for CatalogSource to be ready
+		err := libhcp.WaitForCatalogSourceReady(
+			ctx,
+			runTimeClientForSuiteRun,
+			libhcp.RHOperatorsNamespace,
+			libhcp.OCPMarketplaceNamespace,
+			time.Minute*5,
+		)
+		if err != nil {
+			ginkgo.Fail(fmt.Sprintf("HCP tests failed: CatalogSource not ready timeout: %v", err))
+			return
+		}
+
+		// Wait for multicluster-engine PackageManifest to be available
+		err = libhcp.WaitForPackageManifest(
+			ctx,
+			runTimeClientForSuiteRun,
+			libhcp.MCEName,
+			libhcp.OCPMarketplaceNamespace,
+			time.Minute*5,
+		)
+		if err != nil {
+			ginkgo.Fail(fmt.Sprintf("HCP tests failed: multicluster-engine PackageManifest not available timeout: %v", err))
+			return
+		}
+
 		reqOperators := []libhcp.RequiredOperator{
 			{
 				Name:          libhcp.MCEName,
@@ -109,13 +134,17 @@ var _ = ginkgo.Describe("HCP Backup and Restore tests", ginkgo.Ordered, func() {
 
 	// After All
 	var _ = ginkgo.AfterAll(func() {
-		err := h.RemoveHCP(libhcp.Wait10Min)
-		gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to remove HCP: %v", err)
+		if h != nil {
+			err := h.RemoveHCP(libhcp.Wait10Min)
+			gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to remove HCP: %v", err)
+		}
 	})
 
 	// After Each
 	var _ = ginkgo.AfterEach(func(ctx ginkgo.SpecContext) {
-		h.RemoveHCP(libhcp.Wait10Min)
+		if h != nil {
+			h.RemoveHCP(libhcp.Wait10Min)
+		}
 		tearDownBackupAndRestore(lastBRCase.BackupRestoreCase, lastInstallTime, ctx.SpecReport())
 	})
 
