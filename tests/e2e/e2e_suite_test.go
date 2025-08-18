@@ -14,6 +14,7 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
@@ -24,10 +25,11 @@ import (
 
 var (
 	// Common vars obtained from flags passed in ginkgo.
-	bslCredFile, namespace, instanceName, provider, vslCredFile, settings, artifact_dir string
-	flakeAttempts                                                                       int64
+	bslCredFile, namespace, instanceName, provider, vslCredFile, settings, artifact_dir, hcKubeconfig string
+	flakeAttempts                                                                                     int64
 
 	kubernetesClientForSuiteRun *kubernetes.Clientset
+	crClientForHC               client.Client
 	runTimeClientForSuiteRun    client.Client
 	dynamicClientForSuiteRun    dynamic.Interface
 
@@ -37,12 +39,15 @@ var (
 	vslSecretName                   string
 
 	kubeConfig          *rest.Config
+	kubeConfigForHC     *rest.Config
 	knownFlake          bool
 	accumulatedTestLogs []string
 
-	kvmEmulation   bool
-	useUpstreamHco bool
-	skipMustGather bool
+	kvmEmulation        bool
+	useUpstreamHco      bool
+	skipMustGather      bool
+	hcBackupRestoreMode string
+	hcName              string
 )
 
 func init() {
@@ -59,6 +64,9 @@ func init() {
 	flag.BoolVar(&kvmEmulation, "kvm_emulation", true, "Enable or disable KVM emulation for virtualization testing")
 	flag.BoolVar(&useUpstreamHco, "hco_upstream", false, "Force use of upstream virtualization operator")
 	flag.BoolVar(&skipMustGather, "skipMustGather", false, "avoid errors with local execution and cluster architecture")
+	flag.StringVar(&hcBackupRestoreMode, "hc_backup_restore_mode", string(HCModeCreate), "Type of HC test to run")
+	flag.StringVar(&hcName, "hc_name", "", "Name of the HostedCluster to use for HCP tests")
+	flag.StringVar(&hcKubeconfig, "hc_kubeconfig", "", "Path to kubeconfig file for HostedCluster")
 
 	// helps with launching debug sessions from IDE
 	if os.Getenv("E2E_USE_ENV_FLAGS") == "true" {
@@ -115,6 +123,17 @@ func init() {
 				log.Println("Error parsing SKIP_MUST_GATHER, must-gather will be enabled by default: ", err)
 			}
 		}
+		if os.Getenv("HC_BACKUP_RESTORE_MODE") != "" {
+			hcBackupRestoreMode = os.Getenv("HC_BACKUP_RESTORE_MODE")
+		} else {
+			hcBackupRestoreMode = string(HCModeCreate)
+		}
+		if os.Getenv("HC_NAME") != "" {
+			hcName = os.Getenv("HC_NAME")
+		}
+		if os.Getenv("HC_KUBECONFIG") != "" {
+			hcKubeconfig = os.Getenv("HC_KUBECONFIG")
+		}
 	}
 
 }
@@ -123,13 +142,25 @@ func TestOADPE2E(t *testing.T) {
 	flag.Parse()
 
 	var err error
+
 	kubeConfig = config.GetConfigOrDie()
 	kubeConfig.QPS = 50
 	kubeConfig.Burst = 100
 
 	gomega.RegisterFailHandler(ginkgo.Fail)
 
+	// Set up kubeConfigForHC if kubeconfig_hc flag is provided
+	if hcKubeconfig != "" {
+		kubeConfigForHC, err = clientcmd.BuildConfigFromFlags("", hcKubeconfig)
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		kubeConfigForHC.QPS = kubeConfig.QPS
+		kubeConfigForHC.Burst = kubeConfig.Burst
+	}
+
 	kubernetesClientForSuiteRun, err = kubernetes.NewForConfig(kubeConfig)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+
+	crClientForHC, err = client.New(kubeConfigForHC, client.Options{Scheme: lib.Scheme})
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	runTimeClientForSuiteRun, err = client.New(kubeConfig, client.Options{Scheme: lib.Scheme})
@@ -200,7 +231,6 @@ var _ = ginkgo.AfterSuite(func() {
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	err = lib.DeleteSecret(kubernetesClientForSuiteRun, namespace, bslSecretNameWithCarriageReturn)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
-
 	log.Printf("Deleting DPA")
 	err = dpaCR.Delete()
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())

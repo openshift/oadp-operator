@@ -49,12 +49,12 @@ type DpaCustomResource struct {
 func LoadDpaSettingsFromJson(settings string) (*oadpv1alpha1.DataProtectionApplication, error) {
 	file, err := ReadFile(settings)
 	if err != nil {
-		return nil, fmt.Errorf("Error getting settings json file: %v", err)
+		return nil, fmt.Errorf("error getting settings json file: %v", err)
 	}
 	dpa := &oadpv1alpha1.DataProtectionApplication{}
 	err = json.Unmarshal(file, &dpa)
 	if err != nil {
-		return nil, fmt.Errorf("Error decoding json file: %v", err)
+		return nil, fmt.Errorf("error decoding json file: %v", err)
 	}
 	return dpa, nil
 }

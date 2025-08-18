@@ -100,6 +100,17 @@ You can also execute make test-e2e with a $GINKGO_ARGS variable set. Example:
 make test-e2e GINKGO_ARGS="--ginkgo.focus='MySQL application DATAMOVER'"
 ```
 
+### Run selected test for HCP against existing HostedControlPlane
+
+Set common env variables as mentioned above, then run:
+
+```bash
+HC_BACKUP_RESTORE_MODE=existing \
+HC_NAME=hc1 \
+HC_KUBECONFIG=/path/to/kubeconfig/for/hosted/cluster \
+make test-e2e GINKGO_ARGS="--ginkgo.focus='HCP full Backup and Restore tests'"
+```
+
 ### Run tests with custom images
 
 You can run tests with custom images by setting the following environment variables:

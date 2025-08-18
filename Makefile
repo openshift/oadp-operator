@@ -65,6 +65,16 @@ IMG ?= quay.io/konveyor/oadp-operator:latest
 # You can override this with environment variable (e.g., export TTL_DURATION=4h)
 TTL_DURATION ?= 1h
 
+# HC_BACKUP_RESTORE_MODE is used to run HCP tests against existing HostedControlPlane.
+# Possible values are: create, existing.
+HC_BACKUP_RESTORE_MODE ?= create
+# HC_NAME is the name of the HostedCluster to use for HCP tests when HC_BACKUP_RESTORE_MODE is set to existing.
+# Otherwise, HC_NAME is ignored.
+HC_NAME ?= ""
+# HC_KUBECONFIG is the path to the kubeconfig file for the HostedCluster to use for HCP tests when HC_BACKUP_RESTORE_MODE is set to existing.
+# Otherwise, HC_KUBECONFIG is ignored.
+HC_KUBECONFIG ?= ""
+
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
 GOBIN=$(shell go env GOPATH)/bin
@@ -845,6 +855,9 @@ test-e2e: test-e2e-setup install-ginkgo ## Run E2E tests against OADP operator i
 	-velero_instance_name=$(VELERO_INSTANCE_NAME) \
 	-artifact_dir=$(ARTIFACT_DIR) \
 	-kvm_emulation=$(KVM_EMULATION) \
+	-hc_backup_restore_mode=$(HC_BACKUP_RESTORE_MODE) \
+	-hc_name=$(HC_NAME) \
+	-hc_kubeconfig=$(HC_KUBECONFIG) \
 	-hco_upstream=$(HCO_UPSTREAM) \
         -skipMustGather=$(SKIP_MUST_GATHER) \
 	--ginkgo.vv \
@@ -867,7 +880,6 @@ test-e2e-cleanup: login-required
 	$(OC_CLI) delete restore -n $(OADP_TEST_NAMESPACE) --all --wait=false
 	for restore_name in $(shell $(OC_CLI) get restore -n $(OADP_TEST_NAMESPACE) -o name);do $(OC_CLI) patch "$$restore_name" -n $(OADP_TEST_NAMESPACE) -p '{"metadata":{"finalizers":null}}' --type=merge;done
 	rm -rf $(SETTINGS_TMP)
-
 
 .PHONY: update-non-admin-manifests
 update-non-admin-manifests: NON_ADMIN_CONTROLLER_IMG?=quay.io/konveyor/oadp-non-admin:latest
@@ -892,4 +904,8 @@ endif
 
 .PHONY: build-must-gather
 build-must-gather: check-go ## Build OADP Must-gather binary must-gather/oadp-must-gather
+ifeq ($(SKIP_MUST_GATHER),true)
+	echo "Skipping must-gather build"
+else
 	cd must-gather && go build -mod=mod -a -o oadp-must-gather cmd/main.go
+endif

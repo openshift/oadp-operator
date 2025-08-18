@@ -8,19 +8,29 @@ import (
 
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/openshift/oadp-operator/tests/e2e/lib"
 	libhcp "github.com/openshift/oadp-operator/tests/e2e/lib/hcp"
 )
 
-type HCPBackupRestoreCase struct {
-	BackupRestoreCase
-	Template string
-	Provider string
-}
+type HCBackupRestoreMode string
 
-func runHCPBackupAndRestore(brCase HCPBackupRestoreCase, updateLastBRcase func(brCase HCPBackupRestoreCase), h *libhcp.HCHandler) {
+const (
+	HCModeCreate   HCBackupRestoreMode = "create"   // Create new HostedCluster for test
+	HCModeExisting HCBackupRestoreMode = "existing" // Get existing HostedCluster
+	// TODO: Add HCModeExistingROSA for ROSA where DPA and some other resources are already installed
+)
+
+// runHCPBackupAndRestore is the unified function that handles both create and existing HC modes
+func runHCPBackupAndRestore(
+	brCase HCPBackupRestoreCase,
+	updateLastBRcase func(HCPBackupRestoreCase),
+	updateLastInstallTime func(),
+	h *libhcp.HCHandler,
+) {
 	updateLastBRcase(brCase)
+	updateLastInstallTime()
 
 	log.Printf("Preparing backup and restore")
 	backupName, restoreName := prepareBackupAndRestore(brCase.BackupRestoreCase, func() {})
@@ -29,17 +39,39 @@ func runHCPBackupAndRestore(brCase HCPBackupRestoreCase, updateLastBRcase func(b
 	gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to add HCP plugin to DPA: %v", err)
 	// TODO: move the wait for HC just after the DPA modification to allow reconciliation to go ahead without waiting for the HC to be created
 
-	//Wait for HCP plugin to be added
+	// Wait for HCP plugin to be added
 	gomega.Eventually(libhcp.IsHCPPluginAdded(h.Client, dpaCR.Namespace, dpaCR.Name), 3*time.Minute, 1*time.Second).Should(gomega.BeTrue())
 
-	// Create the HostedCluster for the test
 	h.HCPNamespace = libhcp.GetHCPNamespace(brCase.BackupRestoreCase.Name, libhcp.ClustersNamespace)
-	h.HostedCluster, err = h.DeployHCManifest(brCase.Template, brCase.Provider, brCase.BackupRestoreCase.Name)
-	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
+	// Unified HostedCluster setup
+	switch brCase.Mode {
+	case HCModeCreate:
+		// Create new HostedCluster for test
+		h.HostedCluster, err = h.DeployHCManifest(brCase.Template, brCase.Provider, brCase.BackupRestoreCase.Name)
+		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+	case HCModeExisting:
+		// Get existing HostedCluster
+		h.HostedCluster, err = h.GetHostedCluster(brCase.BackupRestoreCase.Name, libhcp.ClustersNamespace)
+		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+	default:
+		ginkgo.Fail(fmt.Sprintf("unknown HCP mode: %s", brCase.Mode))
+	}
+
+	// Pre-backup verification
 	if brCase.PreBackupVerify != nil {
-		err := brCase.PreBackupVerify(runTimeClientForSuiteRun, brCase.Namespace)
+		log.Printf("Validating HC pre-backup")
+		err := brCase.PreBackupVerify(runTimeClientForSuiteRun, "" /*unused*/)
 		gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to run HCP pre-backup verification: %v", err)
+	}
+
+	if brCase.Mode == HCModeExisting {
+		// Pre-backup verification for guest cluster
+		if brCase.PreBackupVerifyGuest != nil {
+			log.Printf("Validating guest cluster pre-backup")
+			err := brCase.PreBackupVerifyGuest(crClientForHC, "" /*unused*/)
+			gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to run pre-backup verification for guest cluster: %v", err)
+		}
 	}
 
 	// Backup HCP & HC
@@ -59,10 +91,32 @@ func runHCPBackupAndRestore(brCase HCPBackupRestoreCase, updateLastBRcase func(b
 	log.Printf("Restoring HC")
 	runHCPRestore(brCase.BackupRestoreCase, backupName, restoreName, nsRequiresResticDCWorkaround)
 
-	// Wait for HCP to be restored
-	log.Printf("Validating HC")
-	err = libhcp.ValidateHCP(libhcp.ValidateHCPTimeout, libhcp.Wait10Min, []string{}, h.HCPNamespace)(h.Client, libhcp.ClustersNamespace)
-	gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to run HCP post-restore verification: %v", err)
+	// Unified post-restore verification
+	if brCase.PostRestoreVerify != nil {
+		log.Printf("Validating HC post-restore")
+		err = brCase.PostRestoreVerify(runTimeClientForSuiteRun, "" /*unused*/)
+		gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to run HCP post-restore verification: %v", err)
+	}
+
+	if brCase.Mode == HCModeExisting {
+		// Post-restore verification for guest cluster
+		if brCase.PostRestoreVerifyGuest != nil {
+			log.Printf("Validating guest cluster post-restore")
+			err := brCase.PostRestoreVerifyGuest(crClientForHC, "" /*unused*/)
+			gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to run post-restore verification for guest cluster: %v", err)
+		}
+	}
+}
+
+type VerificationFunctionGuest func(client.Client, string) error
+
+type HCPBackupRestoreCase struct {
+	BackupRestoreCase
+	Mode                   HCBackupRestoreMode
+	PreBackupVerifyGuest   VerificationFunctionGuest
+	PostRestoreVerifyGuest VerificationFunctionGuest
+	Template               string // Optional: only used when Mode == HCPModeCreate
+	Provider               string // Optional: only used when Mode == HCPModeCreate
 }
 
 var _ = ginkgo.Describe("HCP Backup and Restore tests", ginkgo.Ordered, func() {
@@ -77,8 +131,15 @@ var _ = ginkgo.Describe("HCP Backup and Restore tests", ginkgo.Ordered, func() {
 		lastBRCase = brCase
 	}
 
+	updateLastInstallTime := func() {
+		lastInstallTime = time.Now()
+	}
+
 	// Before All
 	var _ = ginkgo.BeforeAll(func() {
+		if hcBackupRestoreMode == string(HCModeExisting) {
+			ginkgo.Skip("Skipping HCP backup and restore test for existing HCP")
+		}
 		// Wait for CatalogSource to be ready
 		err := libhcp.WaitForCatalogSourceReady(
 			ctx,
@@ -153,11 +214,12 @@ var _ = ginkgo.Describe("HCP Backup and Restore tests", ginkgo.Ordered, func() {
 			if ginkgo.CurrentSpecReport().NumAttempts > 1 && !knownFlake {
 				ginkgo.Fail("No known FLAKE found in a previous run, marking test as failed.")
 			}
-			runHCPBackupAndRestore(brCase, updateLastBRcase, h)
+			runHCPBackupAndRestore(brCase, updateLastBRcase, updateLastInstallTime, h)
 		},
 
 		// Test Cases
 		ginkgo.Entry("None HostedCluster backup and restore", ginkgo.Label("hcp"), HCPBackupRestoreCase{
+			Mode:     HCModeCreate,
 			Template: libhcp.HCPNoneManifest,
 			Provider: "None",
 			BackupRestoreCase: BackupRestoreCase{
@@ -171,6 +233,7 @@ var _ = ginkgo.Describe("HCP Backup and Restore tests", ginkgo.Ordered, func() {
 		}, nil),
 
 		ginkgo.Entry("Agent HostedCluster backup and restore", ginkgo.Label("hcp"), HCPBackupRestoreCase{
+			Mode:     HCModeCreate,
 			Template: libhcp.HCPAgentManifest,
 			Provider: "Agent",
 			BackupRestoreCase: BackupRestoreCase{

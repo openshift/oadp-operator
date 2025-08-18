@@ -237,6 +237,7 @@ func runRestore(brCase BackupRestoreCase, backupName, restoreName string, nsRequ
 
 func getFailedTestLogs(oadpNamespace string, appNamespace string, installTime time.Time, report ginkgo.SpecReport) {
 	baseReportDir := artifact_dir + "/" + report.LeafNodeText
+	log.Println("Storing failed test logs in: ", baseReportDir)
 	err := os.MkdirAll(baseReportDir, 0755)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
@@ -255,12 +256,12 @@ func getFailedTestLogs(oadpNamespace string, appNamespace string, installTime ti
 
 func tearDownBackupAndRestore(brCase BackupRestoreCase, installTime time.Time, report ginkgo.SpecReport) {
 	log.Println("Post backup and restore state: ", report.State.String())
+	gatherLogs(brCase, installTime, report)
+	tearDownDPAResources(brCase)
+	deleteNamespace(brCase.Namespace)
+}
 
-	if report.Failed() {
-		knownFlake = lib.CheckIfFlakeOccurred(accumulatedTestLogs)
-		accumulatedTestLogs = nil
-		getFailedTestLogs(namespace, brCase.Namespace, installTime, report)
-	}
+func tearDownDPAResources(brCase BackupRestoreCase) {
 	if brCase.BackupRestoreType == lib.CSI || brCase.BackupRestoreType == lib.CSIDataMover {
 		log.Printf("Deleting VolumeSnapshot for CSI backuprestore of %s", brCase.Name)
 		snapshotClassPath := fmt.Sprintf("./sample-applications/snapclass-csi/%s.yaml", provider)
@@ -270,10 +271,20 @@ func tearDownBackupAndRestore(brCase BackupRestoreCase, installTime time.Time, r
 
 	err := dpaCR.Delete()
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+}
 
-	err = lib.DeleteNamespace(kubernetesClientForSuiteRun, brCase.Namespace)
+func gatherLogs(brCase BackupRestoreCase, installTime time.Time, report ginkgo.SpecReport) {
+	if report.Failed() {
+		knownFlake = lib.CheckIfFlakeOccurred(accumulatedTestLogs)
+		accumulatedTestLogs = nil
+		getFailedTestLogs(namespace, brCase.Namespace, installTime, report)
+	}
+}
+
+func deleteNamespace(namespace string) {
+	err := lib.DeleteNamespace(kubernetesClientForSuiteRun, namespace)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
-	gomega.Eventually(lib.IsNamespaceDeleted(kubernetesClientForSuiteRun, brCase.Namespace), time.Minute*5, time.Second*5).Should(gomega.BeTrue())
+	gomega.Eventually(lib.IsNamespaceDeleted(kubernetesClientForSuiteRun, namespace), time.Minute*5, time.Second*5).Should(gomega.BeTrue())
 }
 
 var _ = ginkgo.Describe("Backup and restore tests", ginkgo.Ordered, func() {

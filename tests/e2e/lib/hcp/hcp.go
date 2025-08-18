@@ -295,6 +295,19 @@ func (h *HCHandler) WaitForHCPDeletion(hcp *hypershiftv1.HostedControlPlane) err
 	})
 }
 
+// GetHostedCluster returns the HostedCluster object
+func (h *HCHandler) GetHostedCluster(hcName, hcNamespace string) (*hypershiftv1.HostedCluster, error) {
+	hc := &hypershiftv1.HostedCluster{}
+	err := h.Client.Get(h.Ctx, types.NamespacedName{
+		Name:      hcName,
+		Namespace: hcNamespace,
+	}, hc)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get HostedCluster: %v", err)
+	}
+	return hc, nil
+}
+
 // NukeHostedCluster removes all resources associated with a HostedCluster
 func (h *HCHandler) NukeHostedCluster() error {
 	// List of resource types to check
