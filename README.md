@@ -3,11 +3,17 @@
   <p>  OpenShift API for Data Protection </p>
 
   [![Go Report Card](https://goreportcard.com/badge/github.com/openshift/oadp-operator)](https://goreportcard.com/report/github.com/openshift/oadp-operator) [![codecov](https://codecov.io/gh/openshift/oadp-operator/branch/oadp-dev/graph/badge.svg?token=qLM0hAzjpD)](https://codecov.io/gh/openshift/oadp-operator) [![License](https://img.shields.io/:license-apache-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0.html) [![Go Reference](https://pkg.go.dev/badge/github.com/openshift/oadp-operator.svg)](https://pkg.go.dev/github.com/openshift/oadp-operator)
+</div>
 
-Periodic Unit Tests [![Unit tests](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-oadp-dev-unit-test-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-oadp-dev-unit-test-periodic)
+### Periodic Unit Tests 
+[![Unit tests](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-oadp-dev-unit-test-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-oadp-dev-unit-test-periodic)
 
-Periodic AWS E2E Tests in OpenShift 4.19
-[![AWS tests](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-oadp-dev-4.19-e2e-test-aws-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-oadp-dev-4.19-e2e-test-aws-periodic)
+### Periodic AWS E2E Tests in OpenShift
+
+| OpenShift Version | Test Status |
+|-------------------|-------------|
+| OCP 4.19 | [![AWS tests OCP 4.19](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-oadp-dev-4.19-e2e-test-aws-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-oadp-dev-4.19-e2e-test-aws-periodic) |
+| OCP 4.20 | [![AWS tests OCP 4.20](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-oadp-dev-4.20-e2e-test-aws-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-oadp-dev-4.20-e2e-test-aws-periodic) 
 <!-- GCP:
 [![GCP builds](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-oadp-dev-4.12-e2e-test-gcp-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-oadp-dev-4.12-e2e-test-gcp-periodic)
 [![GCP builds](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-oadp-dev-4.13-e2e-test-gcp-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-oadp-dev-4.13-e2e-test-gcp-periodic)
@@ -19,11 +25,19 @@ Periodic AWS E2E Tests in OpenShift 4.19
 [![Azure builds](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-oadp-dev-4.13-e2e-test-azure-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-oadp-dev-4.13-e2e-test-azure-periodic)
 [![Azure builds](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-oadp-dev-4.14-e2e-test-azure-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-oadp-dev-4.14-e2e-test-azure-periodic) -->
 
-Periodic AWS E2E Virtualization Tests in OpenShift 4.19
-[![VM tests](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-oadp-dev-4.19-e2e-test-kubevirt-aws-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-oadp-dev-4.19-e2e-test-kubevirt-aws-periodic)
+### Periodic AWS E2E Virtualization Tests in OpenShift
 
-Periodic AWS E2E Hypershift Tests in OpenShift 4.19
-[![HCP tests](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-master-4.19-e2e-test-hcp-aws-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-master-4.19-e2e-test-hcp-aws-periodic)
+| OpenShift Version | Test Status |
+|-------------------|-------------|
+| OCP 4.19 | [![VM tests](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-oadp-dev-4.19-e2e-test-kubevirt-aws-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-oadp-dev-4.19-e2e-test-kubevirt-aws-periodic) |
+| OCP 4.20 | [![VM tests](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-oadp-dev-4.20-e2e-test-kubevirt-aws-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-oadp-dev-4.20-e2e-test-kubevirt-aws-periodic) |
+
+### Periodic AWS E2E Hypershift Tests in OpenShift
+
+| OpenShift Version | Test Status |
+|-------------------|-------------|
+| OCP 4.19 | [![HCP tests](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-oadp-dev-4.19-e2e-test-hcp-aws-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-oadp-dev-4.19-e2e-test-hcp-aws-periodic) |
+| OCP 4.20 | [![HCP tests](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-oadp-dev-4.20-e2e-test-hcp-aws-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-oadp-dev-4.20-e2e-test-hcp-aws-periodic) |
 
 OADP repositories images job
 | OADP | OpenShift Velero plugin | Velero | Velero plugin for AWS | Velero plugin for Legacy AWS | Velero plugin for GCP | Velero plugin for Microsoft Azure | Non Admin |
