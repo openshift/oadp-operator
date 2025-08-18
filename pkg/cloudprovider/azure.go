@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
@@ -37,16 +38,53 @@ type AzureProvider struct {
 	client *azblob.Client
 }
 
+// parseCloudCredentials parses environment variable format (e.g., from BSL secret 'cloud' key)
+func parseCloudCredentials(cloudData string) map[string]string {
+	envVars := make(map[string]string)
+	lines := strings.Split(cloudData, "\n")
+
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line != "" && strings.Contains(line, "=") {
+			parts := strings.SplitN(line, "=", 2)
+			if len(parts) == 2 {
+				key := strings.TrimSpace(parts[0])
+				value := strings.TrimSpace(parts[1])
+				envVars[key] = value
+			}
+		}
+	}
+
+	return envVars
+}
+
 func ParseAzureCredentials(data map[string][]byte) AzureCredentials {
 	creds := AzureCredentials{}
-	creds.SubscriptionID = string(data["AZURE_SUBSCRIPTION_ID"])
-	creds.TenantID = string(data["AZURE_TENANT_ID"])
-	creds.ClientID = string(data["AZURE_CLIENT_ID"])
-	creds.ClientSecret = string(data["AZURE_CLIENT_SECRET"])
-	creds.ResourceGroupName = string(data["AZURE_RESOURCE_GROUP"])
-	creds.StorageAccountName = string(data["AZURE_STORAGE_ACCOUNT_ID"])
-	creds.StorageAccountKey = string(data["AZURE_STORAGE_ACCOUNT_ACCESS_KEY"])
-	creds.CertificatePath = string(data["AZURE_CLIENT_CERTIFICATE_PATH"])
+
+	// Check if we have the 'cloud' key (Velero BSL format)
+	if cloudData, exists := data["cloud"]; exists && len(cloudData) > 0 {
+		envVars := parseCloudCredentials(string(cloudData))
+
+		creds.SubscriptionID = envVars["AZURE_SUBSCRIPTION_ID"]
+		creds.TenantID = envVars["AZURE_TENANT_ID"]
+		creds.ClientID = envVars["AZURE_CLIENT_ID"]
+		creds.ClientSecret = envVars["AZURE_CLIENT_SECRET"]
+		creds.ResourceGroupName = envVars["AZURE_RESOURCE_GROUP"]
+		creds.StorageAccountName = envVars["AZURE_STORAGE_ACCOUNT_ID"]
+		creds.StorageAccountKey = envVars["AZURE_STORAGE_ACCOUNT_ACCESS_KEY"]
+		creds.CertificatePath = envVars["AZURE_CLIENT_CERTIFICATE_PATH"]
+	} else {
+		// Fall back to individual keys format
+		creds.SubscriptionID = string(data["AZURE_SUBSCRIPTION_ID"])
+		creds.TenantID = string(data["AZURE_TENANT_ID"])
+		creds.ClientID = string(data["AZURE_CLIENT_ID"])
+		creds.ClientSecret = string(data["AZURE_CLIENT_SECRET"])
+		creds.ResourceGroupName = string(data["AZURE_RESOURCE_GROUP"])
+		creds.StorageAccountName = string(data["AZURE_STORAGE_ACCOUNT_ID"])
+		creds.StorageAccountKey = string(data["AZURE_STORAGE_ACCOUNT_ACCESS_KEY"])
+		creds.CertificatePath = string(data["AZURE_CLIENT_CERTIFICATE_PATH"])
+	}
+
 	return creds
 }
 
