@@ -1508,6 +1508,49 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 			messageErr: "only a single instance of Non-Admin Controller can be installed across the entire cluster. Non-Admin controller is already configured and installed in test-another-ns namespace",
 		},
 		{
+			name: "[valid] DPA CR: NonAdmin.Enable is true with another DPA having NonAdmin.Enable false",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-DPA-CR",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					NonAdmin: &oadpv1alpha1.NonAdmin{
+						Enable: pointer.Bool(true),
+					},
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+								oadpv1alpha1.DefaultPluginAWS,
+							},
+							NoDefaultBackupLocation: true,
+						},
+					},
+					BackupImages: pointer.Bool(false),
+				},
+			},
+			objects: []client.Object{
+				&oadpv1alpha1.DataProtectionApplication{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "another-DPA-CR",
+						Namespace: "test-another-ns",
+					},
+					Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+						NonAdmin: &oadpv1alpha1.NonAdmin{
+							Enable: pointer.Bool(false),
+						},
+					},
+				},
+				&appsv1.Deployment{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "non-admin-controller",
+						Namespace: "test-another-ns",
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
 			name: "given invalid DPA CR aws and legacy-aws plugins both specified",
 			dpa: &oadpv1alpha1.DataProtectionApplication{
 				ObjectMeta: metav1.ObjectMeta{
