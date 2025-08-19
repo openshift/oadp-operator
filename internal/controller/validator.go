@@ -40,6 +40,16 @@ func (r *DataProtectionApplicationReconciler) ValidateDataProtectionCR(log logr.
 		return false, errors.New("DPA CR Velero configuration cannot be nil")
 	}
 
+	// Check for deprecated PodAnnotations field and log warning
+	if len(r.dpa.Spec.PodAnnotations) > 0 {
+		deprecationWarning := "(Deprecation Warning) The 'podAnnotations' field is deprecated. " +
+			"Please migrate to 'configuration.velero.podConfig.annotations' for Velero pods " +
+			"and 'configuration.nodeAgent.podConfig.annotations' for NodeAgent pods."
+		// V(-1) corresponds to the warn level
+		log.V(-1).Info(deprecationWarning)
+		r.EventRecorder.Event(r.dpa, corev1.EventTypeWarning, "DeprecationPodAnnotations", deprecationWarning)
+	}
+
 	if r.dpa.Spec.Configuration.Velero.NoDefaultBackupLocation {
 		if len(r.dpa.Spec.BackupLocations) != 0 {
 			return false, errors.New("DPA CR Velero configuration cannot have backup locations if noDefaultBackupLocation is set")

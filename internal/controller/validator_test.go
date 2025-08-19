@@ -2447,6 +2447,62 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 			},
 			wantErr: false,
 		},
+		{
+			name: "[valid] DPA CR with deprecated PodAnnotations should pass validation but log warning",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-DPA-CR",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					PodAnnotations: map[string]string{
+						"deprecated.annotation": "value",
+					},
+					BackupLocations: []oadpv1alpha1.BackupLocation{
+						{
+							Velero: &velerov1.BackupStorageLocationSpec{
+								Provider: "aws",
+								StorageType: velerov1.StorageType{
+									ObjectStorage: &velerov1.ObjectStorageLocation{
+										Bucket: "bucket",
+									},
+								},
+								Config: map[string]string{
+									"region": "us-east-1",
+								},
+								Credential: &corev1.SecretKeySelector{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: "cloud-credentials",
+									},
+									Key: "credentials",
+								},
+								Default: true,
+							},
+						},
+					},
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+								oadpv1alpha1.DefaultPluginAWS,
+							},
+						},
+					},
+					BackupImages: ptr.To(false),
+				},
+			},
+			objects: []client.Object{
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "cloud-credentials",
+						Namespace: "test-ns",
+					},
+					Data: map[string][]byte{
+						"credentials": []byte("fake-creds"),
+					},
+				},
+			},
+			wantErr: false,
+		},
 	}
 	for _, tt := range tests {
 		tt.objects = append(tt.objects, tt.dpa)
@@ -2483,3 +2539,220 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 		})
 	}
 }
+
+func TestDPAReconciler_ValidateDataProtectionCR_PodAnnotationsDeprecationWarning(t *testing.T) {
+	// Create a test logger that captures log messages
+	var logOutput []string
+	testLogger := logr.New(&testLogSink{logs: &logOutput})
+
+	// DPA with deprecated PodAnnotations field
+	dpa := &oadpv1alpha1.DataProtectionApplication{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-DPA-CR",
+			Namespace: "test-ns",
+		},
+		Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+			PodAnnotations: map[string]string{
+				"deprecated.annotation": "value",
+			},
+			BackupLocations: []oadpv1alpha1.BackupLocation{
+				{
+					Velero: &velerov1.BackupStorageLocationSpec{
+						Provider: "aws",
+						StorageType: velerov1.StorageType{
+							ObjectStorage: &velerov1.ObjectStorageLocation{
+								Bucket: "bucket",
+							},
+						},
+						Config: map[string]string{
+							"region": "us-east-1",
+						},
+						Credential: &corev1.SecretKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: "cloud-credentials",
+							},
+							Key: "credentials",
+						},
+						Default: true,
+					},
+				},
+			},
+			Configuration: &oadpv1alpha1.ApplicationConfig{
+				Velero: &oadpv1alpha1.VeleroConfig{
+					DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+						oadpv1alpha1.DefaultPluginAWS,
+					},
+				},
+			},
+			BackupImages: ptr.To(false),
+		},
+	}
+
+	// Add required secret for AWS plugin validation
+	cloudCredentialsSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "cloud-credentials",
+			Namespace: "test-ns",
+		},
+		Data: map[string][]byte{
+			"credentials": []byte("fake-creds"),
+		},
+	}
+
+	objects := []client.Object{dpa, cloudCredentialsSecret}
+	fakeClient, err := getFakeClientFromObjects(objects...)
+	if err != nil {
+		t.Errorf("error in creating fake client: %v", err)
+		return
+	}
+
+	r := &DataProtectionApplicationReconciler{
+		Client:            fakeClient,
+		ClusterWideClient: fakeClient,
+		Scheme:            fakeClient.Scheme(),
+		Log:               testLogger,
+		Context:           newContextForTest(),
+		NamespacedName: types.NamespacedName{
+			Namespace: dpa.Namespace,
+			Name:      dpa.Name,
+		},
+		dpa:           dpa,
+		EventRecorder: record.NewFakeRecorder(10),
+	}
+
+	// Run validation
+	valid, err := r.ValidateDataProtectionCR(testLogger)
+	if err != nil {
+		t.Errorf("ValidateDataProtectionCR() unexpected error = %v", err)
+		return
+	}
+	if !valid {
+		t.Errorf("ValidateDataProtectionCR() = %v, want true", valid)
+		return
+	}
+
+	// Check that deprecation warning was logged
+	found := false
+	for _, log := range logOutput {
+		if log == "(Deprecation Warning) The 'podAnnotations' field is deprecated. Please migrate to 'configuration.velero.podConfig.annotations' for Velero pods and 'configuration.nodeAgent.podConfig.annotations' for NodeAgent pods." {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("Expected deprecation warning was not logged. Logs: %v", logOutput)
+	}
+}
+
+// Test DPA without PodAnnotations should not log warning
+func TestDPAReconciler_ValidateDataProtectionCR_NoPodAnnotationsNoWarning(t *testing.T) {
+	// Create a test logger that captures log messages
+	var logOutput []string
+	testLogger := logr.New(&testLogSink{logs: &logOutput})
+
+	// DPA without deprecated PodAnnotations field
+	dpa := &oadpv1alpha1.DataProtectionApplication{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-DPA-CR",
+			Namespace: "test-ns",
+		},
+		Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+			BackupLocations: []oadpv1alpha1.BackupLocation{
+				{
+					Velero: &velerov1.BackupStorageLocationSpec{
+						Provider: "aws",
+						StorageType: velerov1.StorageType{
+							ObjectStorage: &velerov1.ObjectStorageLocation{
+								Bucket: "bucket",
+							},
+						},
+						Config: map[string]string{
+							"region": "us-east-1",
+						},
+						Credential: &corev1.SecretKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: "cloud-credentials",
+							},
+							Key: "credentials",
+						},
+						Default: true,
+					},
+				},
+			},
+			Configuration: &oadpv1alpha1.ApplicationConfig{
+				Velero: &oadpv1alpha1.VeleroConfig{
+					DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+						oadpv1alpha1.DefaultPluginAWS,
+					},
+				},
+			},
+			BackupImages: ptr.To(false),
+		},
+	}
+
+	// Add required secret for AWS plugin validation
+	cloudCredentialsSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "cloud-credentials",
+			Namespace: "test-ns",
+		},
+		Data: map[string][]byte{
+			"credentials": []byte("fake-creds"),
+		},
+	}
+
+	objects := []client.Object{dpa, cloudCredentialsSecret}
+	fakeClient, err := getFakeClientFromObjects(objects...)
+	if err != nil {
+		t.Errorf("error in creating fake client: %v", err)
+		return
+	}
+
+	r := &DataProtectionApplicationReconciler{
+		Client:            fakeClient,
+		ClusterWideClient: fakeClient,
+		Scheme:            fakeClient.Scheme(),
+		Log:               testLogger,
+		Context:           newContextForTest(),
+		NamespacedName: types.NamespacedName{
+			Namespace: dpa.Namespace,
+			Name:      dpa.Name,
+		},
+		dpa:           dpa,
+		EventRecorder: record.NewFakeRecorder(10),
+	}
+
+	// Run validation
+	valid, err := r.ValidateDataProtectionCR(testLogger)
+	if err != nil {
+		t.Errorf("ValidateDataProtectionCR() unexpected error = %v", err)
+		return
+	}
+	if !valid {
+		t.Errorf("ValidateDataProtectionCR() = %v, want true", valid)
+		return
+	}
+
+	// Check that deprecation warning was NOT logged
+	for _, log := range logOutput {
+		if log == "(Deprecation Warning) The 'podAnnotations' field is deprecated. Please migrate to 'configuration.velero.podConfig.annotations' for Velero pods and 'configuration.nodeAgent.podConfig.annotations' for NodeAgent pods." {
+			t.Errorf("Deprecation warning should not be logged when PodAnnotations is not used. Logs: %v", logOutput)
+		}
+	}
+}
+
+// testLogSink implements logr.LogSink for testing
+type testLogSink struct {
+	logs *[]string
+}
+
+func (t *testLogSink) Init(info logr.RuntimeInfo) {}
+func (t *testLogSink) Enabled(level int) bool     { return true }
+func (t *testLogSink) Info(level int, msg string, keysAndValues ...interface{}) {
+	*t.logs = append(*t.logs, msg)
+}
+func (t *testLogSink) Error(err error, msg string, keysAndValues ...interface{}) {
+	*t.logs = append(*t.logs, msg)
+}
+func (t *testLogSink) WithValues(keysAndValues ...interface{}) logr.LogSink { return t }
+func (t *testLogSink) WithName(name string) logr.LogSink                    { return t }
