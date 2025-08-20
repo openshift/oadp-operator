@@ -50,7 +50,7 @@ var _ = ginkgo.Describe("HCP full Backup and Restore tests", ginkgo.Ordered, fun
 		tearDownDPAResources(lastBRCase.BackupRestoreCase)
 	})
 
-	ginkgo.It("HCP full backup and restore test", func() {
+	ginkgo.It("HCP full backup and restore test", ginkgo.Label("hcp"), func() {
 		if ginkgo.CurrentSpecReport().NumAttempts > 1 && !knownFlake {
 			ginkgo.Fail("No known FLAKE found in a previous run, marking test as failed.")
 		}

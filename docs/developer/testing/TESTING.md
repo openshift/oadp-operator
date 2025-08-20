@@ -105,10 +105,11 @@ make test-e2e GINKGO_ARGS="--ginkgo.focus='MySQL application DATAMOVER'"
 Set common env variables as mentioned above, then run:
 
 ```bash
+TEST_HCP=true \
 HC_BACKUP_RESTORE_MODE=existing \
 HC_NAME=hc1 \
 HC_KUBECONFIG=/path/to/kubeconfig/for/hosted/cluster \
-make test-e2e GINKGO_ARGS="--ginkgo.focus='HCP full Backup and Restore tests'"
+make test-e2e
 ```
 
 ### Run tests with custom images
