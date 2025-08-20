@@ -149,19 +149,20 @@ func TestOADPE2E(t *testing.T) {
 
 	gomega.RegisterFailHandler(ginkgo.Fail)
 
+	kubernetesClientForSuiteRun, err = kubernetes.NewForConfig(kubeConfig)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+
 	// Set up kubeConfigForHC if kubeconfig_hc flag is provided
 	if hcKubeconfig != "" {
 		kubeConfigForHC, err = clientcmd.BuildConfigFromFlags("", hcKubeconfig)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+
 		kubeConfigForHC.QPS = kubeConfig.QPS
 		kubeConfigForHC.Burst = kubeConfig.Burst
+
+		crClientForHC, err = client.New(kubeConfigForHC, client.Options{Scheme: lib.Scheme})
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	}
-
-	kubernetesClientForSuiteRun, err = kubernetes.NewForConfig(kubeConfig)
-	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-
-	crClientForHC, err = client.New(kubeConfigForHC, client.Options{Scheme: lib.Scheme})
-	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	runTimeClientForSuiteRun, err = client.New(kubeConfig, client.Options{Scheme: lib.Scheme})
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
