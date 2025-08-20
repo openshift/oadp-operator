@@ -189,6 +189,11 @@ spec:
                 default: false
                 description: forceRun will re-trigger the DPT even if it already completed
                 type: boolean
+              skipTLSVerify:
+                default: false
+                description: skipTLSVerify controls whether to bypass TLS certificate
+                  validation
+                type: boolean
               uploadSpeedTestConfig:
                 description: uploadSpeedTestConfig specifies parameters for an object
                   storage upload speed test.
