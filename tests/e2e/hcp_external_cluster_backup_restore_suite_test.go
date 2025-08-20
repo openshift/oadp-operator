@@ -2,6 +2,7 @@ package e2e_test
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/onsi/ginkgo/v2"
@@ -11,6 +12,10 @@ import (
 
 	"github.com/openshift/oadp-operator/tests/e2e/lib"
 	libhcp "github.com/openshift/oadp-operator/tests/e2e/lib/hcp"
+)
+
+const (
+	testNamespace = "test"
 )
 
 // External cluster backup and restore tests will skip creating HostedCluster resource. They expect the cluster
@@ -32,21 +37,27 @@ var _ = ginkgo.Describe("HCP external cluster Backup and Restore tests", ginkgo.
 	}
 
 	var _ = ginkgo.BeforeAll(func() {
-		if hcBackupRestoreMode != string(HCModeExternal) {
+		if HCBackupRestoreMode(hcBackupRestoreMode) != HCModeExternal &&
+			HCBackupRestoreMode(hcBackupRestoreMode) != HCModeExternalROSA {
 			ginkgo.Skip("Skipping HCP full backup and restore test for non-existent HCP")
 		}
 
 		h = &libhcp.HCHandler{
-			Ctx:            context.Background(),
-			Client:         runTimeClientForSuiteRun,
-			HCOCPTestImage: libhcp.HCOCPTestImage,
+			Ctx:                  context.Background(),
+			Client:               runTimeClientForSuiteRun,
+			ClientServiceCluster: crClientForServiceCluster,
+			HCOCPTestImage:       libhcp.HCOCPTestImage,
 		}
 	})
 
 	// After Each
 	var _ = ginkgo.AfterEach(func(ctx ginkgo.SpecContext) {
 		gatherLogs(lastBRCase.BackupRestoreCase, lastInstallTime, ctx.SpecReport())
-		tearDownDPAResources(lastBRCase.BackupRestoreCase)
+		oadpDeploymentOperation := NewOADPDeploymentOperationDefault()
+		if HCBackupRestoreMode(hcBackupRestoreMode) == HCModeExternalROSA {
+			oadpDeploymentOperation = NewOADPDeploymentOperationROSA()
+		}
+		oadpDeploymentOperation.Undeploy(lastBRCase.BackupRestoreCase.BackupRestoreType)
 	})
 
 	ginkgo.It("HCP external cluster backup and restore test", ginkgo.Label("hcp_external"), func() {
@@ -55,14 +66,14 @@ var _ = ginkgo.Describe("HCP external cluster Backup and Restore tests", ginkgo.
 		}
 
 		runHCPBackupAndRestore(HCPBackupRestoreCase{
-			Mode:                   HCModeExternal,
+			Mode:                   HCBackupRestoreMode(hcBackupRestoreMode),
 			PreBackupVerifyGuest:   preBackupVerifyGuest(),
 			PostRestoreVerifyGuest: postBackupVerifyGuest(),
 			BackupRestoreCase: BackupRestoreCase{
 				Name:              hcName,
 				BackupRestoreType: lib.CSIDataMover,
-				PreBackupVerify:   libhcp.ValidateHCP(libhcp.ValidateHCPTimeout, libhcp.Wait10Min, []string{}, libhcp.GetHCPNamespace(hcName, libhcp.ClustersNamespace)),
-				PostRestoreVerify: libhcp.ValidateHCP(libhcp.ValidateHCPTimeout, libhcp.Wait10Min, []string{}, libhcp.GetHCPNamespace(hcName, libhcp.ClustersNamespace)),
+				PreBackupVerify:   libhcp.ValidateHCP(libhcp.ValidateHCPTimeout, libhcp.Wait10Min, []string{}, libhcp.GetHCPNamespace(hcName, hcNamespace)),
+				PostRestoreVerify: libhcp.ValidateHCP(libhcp.ValidateHCPTimeout, libhcp.Wait10Min, []string{}, libhcp.GetHCPNamespace(hcName, hcNamespace)),
 				BackupTimeout:     libhcp.HCPBackupTimeout,
 			},
 		}, updateLastBRcase, updateLastInstallTime, h)
@@ -70,24 +81,38 @@ var _ = ginkgo.Describe("HCP external cluster Backup and Restore tests", ginkgo.
 })
 
 func preBackupVerifyGuest() VerificationFunctionGuest {
-	return func(crClientGuest client.Client, namespace string) error {
-		ns := &corev1.Namespace{}
-		ns.Name = "test"
-		err := crClientGuest.Create(context.Background(), ns)
-		if err != nil && !apierrors.IsAlreadyExists(err) {
-			return err
-		}
-		return nil
+	return func(crClientGuest client.Client, _ string) error {
+		var errs []error
+		errs = append(errs, createTestNamespace(crClientGuest))
+		// Add more verifications here if needed
+		return errors.Join(errs...)
 	}
 }
 
 func postBackupVerifyGuest() VerificationFunctionGuest {
-	return func(crClientGuest client.Client, namespace string) error {
-		ns := &corev1.Namespace{}
-		err := crClientGuest.Get(context.Background(), client.ObjectKey{Name: "test"}, ns)
-		if err != nil {
-			return err
-		}
-		return nil
+	return func(crClientGuest client.Client, _ string) error {
+		var errs []error
+		errs = append(errs, validateTestNamespace(crClientGuest))
+		// Add more verifications here if needed
+		return errors.Join(errs...)
 	}
+}
+
+func createTestNamespace(crClientGuest client.Client) error {
+	ns := &corev1.Namespace{}
+	ns.Name = testNamespace
+	err := crClientGuest.Create(context.Background(), ns)
+	if err != nil && !apierrors.IsAlreadyExists(err) {
+		return err
+	}
+	return nil
+}
+
+func validateTestNamespace(crClientGuest client.Client) error {
+	ns := &corev1.Namespace{}
+	err := crClientGuest.Get(context.Background(), client.ObjectKey{Name: testNamespace}, ns)
+	if err != nil {
+		return err
+	}
+	return nil
 }

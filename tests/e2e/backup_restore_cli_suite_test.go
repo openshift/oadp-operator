@@ -231,7 +231,7 @@ var _ = ginkgo.Describe("Backup and restore tests via OADP CLI", ginkgo.Label("c
 
 	var _ = ginkgo.AfterAll(func() {
 		// Same cleanup as original
-		waitOADPReadiness(lib.KOPIA)
+		NewOADPDeploymentOperationDefault().Deploy(lib.KOPIA)
 
 		log.Printf("Creating real DataProtectionTest before must-gather")
 		bsls, err := dpaCR.ListBSLs()

@@ -217,7 +217,7 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 	var _ = ginkgo.AfterAll(func() {
 		// DPA just needs to have BSL so gathering of backups/restores logs/describe work
 		// using kopia to collect more info (DaemonSet)
-		waitOADPReadiness(lib.KOPIA)
+		NewOADPDeploymentOperationDefault().Deploy(lib.KOPIA)
 
 		log.Printf("Creating real DataProtectionTest before must-gather")
 		bsls, err := dpaCR.ListBSLs()

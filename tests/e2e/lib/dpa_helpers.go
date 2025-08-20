@@ -76,24 +76,7 @@ func (v *DpaCustomResource) Build(backupRestoreType BackupRestoreType) *oadpv1al
 		SnapshotLocations: v.SnapshotLocations,
 		BackupLocations: []oadpv1alpha1.BackupLocation{
 			{
-				Velero: &velero.BackupStorageLocationSpec{
-					Provider: v.BSLProvider,
-					Default:  true,
-					Config:   v.BSLConfig,
-					Credential: &corev1.SecretKeySelector{
-						LocalObjectReference: corev1.LocalObjectReference{
-							Name: v.BSLSecretName,
-						},
-						Key: "cloud",
-					},
-					StorageType: velero.StorageType{
-						ObjectStorage: &velero.ObjectStorageLocation{
-							Bucket: v.BSLBucket,
-							Prefix: v.BSLBucketPrefix,
-							CACert: v.BSLCacert,
-						},
-					},
-				},
+				Velero: v.BackupStorageLocationSpec(),
 			},
 		},
 		UnsupportedOverrides: v.UnsupportedOverrides,
@@ -125,6 +108,98 @@ func (v *DpaCustomResource) Build(backupRestoreType BackupRestoreType) *oadpv1al
 	}
 
 	return &dpaSpec
+}
+
+func (v *DpaCustomResource) BackupStorageLocationSpec() *velero.BackupStorageLocationSpec {
+	backupStorageLocationSpec := velero.BackupStorageLocationSpec{
+		Provider: v.BSLProvider,
+		Default:  true,
+		Config:   v.BSLConfig,
+		Credential: &corev1.SecretKeySelector{
+			LocalObjectReference: corev1.LocalObjectReference{
+				Name: v.BSLSecretName,
+			},
+			Key: "cloud",
+		},
+		StorageType: velero.StorageType{
+			ObjectStorage: &velero.ObjectStorageLocation{
+				Bucket: v.BSLBucket,
+				Prefix: v.BSLBucketPrefix,
+				CACert: v.BSLCacert,
+			},
+		},
+	}
+	return &backupStorageLocationSpec
+}
+
+func (v *DpaCustomResource) CreateBackupStorageLocation() error {
+	bsl := velero.BackupStorageLocation{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      v.Name,
+			Namespace: v.Namespace,
+		},
+		Spec: *v.BackupStorageLocationSpec(),
+	}
+	if err := v.Client.Create(context.Background(), &bsl); err != nil {
+		if apierrors.IsAlreadyExists(err) {
+			return nil
+		}
+		return err
+	}
+
+	return nil
+}
+
+func (v *DpaCustomResource) DeleteBackupStorageLocation() error {
+	if err := v.Client.Delete(context.Background(), &velero.BackupStorageLocation{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      v.Name,
+			Namespace: v.Namespace,
+		},
+	}); err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil
+		}
+		return err
+	}
+	return nil
+}
+
+func (v *DpaCustomResource) CreateVolumeSnapshotLocation() error {
+	if len(v.SnapshotLocations) == 0 {
+		return fmt.Errorf("no snapshot locations found")
+	}
+	vslSpec := v.SnapshotLocations[0].Velero
+	vsl := velero.VolumeSnapshotLocation{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      v.Name,
+			Namespace: v.Namespace,
+		},
+		Spec: *vslSpec,
+	}
+	if err := v.Client.Create(context.Background(), &vsl); err != nil {
+		if apierrors.IsAlreadyExists(err) {
+			return nil
+		}
+		return err
+	}
+
+	return nil
+}
+
+func (v *DpaCustomResource) DeleteVolumeSnapshotLocation() error {
+	if err := v.Client.Delete(context.Background(), &velero.VolumeSnapshotLocation{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      v.Name,
+			Namespace: v.Namespace,
+		},
+	}); err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil
+		}
+		return err
+	}
+	return nil
 }
 
 func (v *DpaCustomResource) Create(dpa *oadpv1alpha1.DataProtectionApplication) error {

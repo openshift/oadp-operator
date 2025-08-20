@@ -40,7 +40,7 @@ cat > $TMP_DIR/oadpcreds <<EOF
          "velero": {
            "provider": "$PROVIDER",
            "config": {
-             "profile": "default",
+             "profile": "$VSL_AWS_PROFILE",
              "region": "$VSL_REGION"
            }
          }

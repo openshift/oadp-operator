@@ -43,6 +43,108 @@ type ApplicationBackupRestoreCase struct {
 	PvcSuffixName       string
 }
 
+// OADPDeploymentOperation is a helper to deploy OADP resources for a given backup restore type.
+type OADPDeploymentOperation struct {
+	CreateDPA                 bool
+	CreateVolumeSnapshotClass bool
+	CreateBSL                 bool
+	CreateVSL                 bool
+}
+
+func NewOADPDeploymentOperationDefault() *OADPDeploymentOperation {
+	return &OADPDeploymentOperation{
+		CreateDPA:                 true,
+		CreateVolumeSnapshotClass: true,
+		CreateBSL:                 false,
+		CreateVSL:                 false,
+	}
+}
+
+func NewOADPDeploymentOperationROSA() *OADPDeploymentOperation {
+	return &OADPDeploymentOperation{
+		CreateDPA:                 false,
+		CreateVolumeSnapshotClass: false,
+		CreateBSL:                 true,
+		CreateVSL:                 true,
+	}
+}
+
+func (o *OADPDeploymentOperation) Deploy(backupRestoreType lib.BackupRestoreType) {
+	if o.CreateDPA {
+		err := dpaCR.CreateOrUpdate(dpaCR.Build(backupRestoreType))
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+
+		log.Print("Checking if DPA is reconciled")
+		gomega.Eventually(dpaCR.IsReconciledTrue(), time.Minute*3, time.Second*5).Should(gomega.BeTrue())
+
+		if backupRestoreType == lib.KOPIA || backupRestoreType == lib.CSIDataMover {
+			log.Printf("Waiting for Node Agent pods to be running")
+			gomega.Eventually(lib.AreNodeAgentPodsRunning(kubernetesClientForSuiteRun, namespace), time.Minute*3, time.Second*5).Should(gomega.BeTrue())
+		}
+	}
+
+	log.Printf("Waiting for Velero Pod to be running")
+	gomega.Eventually(lib.VeleroPodIsRunning(kubernetesClientForSuiteRun, namespace), time.Minute*3, time.Second*5).Should(gomega.BeTrue())
+
+	if o.CreateVolumeSnapshotClass {
+		if backupRestoreType == lib.CSI || backupRestoreType == lib.CSIDataMover {
+			if provider == "aws" || provider == "ibmcloud" || provider == "gcp" || provider == "azure" || provider == "openstack" {
+				log.Printf("Creating VolumeSnapshotClass for CSI backuprestore")
+				snapshotClassPath := fmt.Sprintf("./sample-applications/snapclass-csi/%s.yaml", provider)
+				err := lib.InstallApplication(dpaCR.Client, snapshotClassPath)
+				gomega.Expect(err).ToNot(gomega.HaveOccurred())
+			}
+		}
+	}
+
+	if o.CreateBSL {
+		log.Print("Creating BSL")
+		err := dpaCR.CreateBackupStorageLocation()
+		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+	}
+
+	log.Print("Checking if BSL is available")
+	gomega.Eventually(dpaCR.BSLsAreAvailable(), time.Minute*3, time.Second*5).Should(gomega.BeTrue())
+
+	if o.CreateVSL {
+		log.Print("Creating VSL")
+		err := dpaCR.CreateVolumeSnapshotLocation()
+		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+		// Velero does not change status of VSL objects.
+		// Users can only confirm if VSLs are correct configured when running a native snapshot backup/restore
+	}
+}
+
+func (o *OADPDeploymentOperation) Undeploy(backupRestoreType lib.BackupRestoreType) {
+	if o.CreateVolumeSnapshotClass {
+		if backupRestoreType == lib.CSI || backupRestoreType == lib.CSIDataMover {
+			log.Printf("Deleting VolumeSnapshot for CSI backuprestore")
+			snapshotClassPath := fmt.Sprintf("./sample-applications/snapclass-csi/%s.yaml", provider)
+			err := lib.UninstallApplication(dpaCR.Client, snapshotClassPath)
+			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+		}
+	}
+
+	if o.CreateDPA {
+		log.Printf("Deleting DPA")
+		err := dpaCR.Delete()
+		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+		gomega.Eventually(dpaCR.IsDeleted(), time.Minute*2, time.Second*5).Should(gomega.BeTrue())
+	}
+
+	if o.CreateBSL {
+		log.Printf("Deleting BSL")
+		err := dpaCR.DeleteBackupStorageLocation()
+		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+	}
+
+	if o.CreateVSL {
+		log.Printf("Deleting VSL")
+		err := dpaCR.DeleteVolumeSnapshotLocation()
+		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+	}
+}
+
 func todoListReady(preBackupState bool, twoVol bool, database string) VerificationFunction {
 	return VerificationFunction(func(ocClient client.Client, namespace string) error {
 		log.Printf("checking for the NAMESPACE: %s", namespace)
@@ -72,40 +174,10 @@ func parksAppReady(preBackupState bool, twoVol bool, DCReadyCheck bool) Verifica
 	})
 }
 
-func waitOADPReadiness(backupRestoreType lib.BackupRestoreType) {
-	err := dpaCR.CreateOrUpdate(dpaCR.Build(backupRestoreType))
-	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-
-	log.Print("Checking if DPA is reconciled")
-	gomega.Eventually(dpaCR.IsReconciledTrue(), time.Minute*3, time.Second*5).Should(gomega.BeTrue())
-
-	log.Printf("Waiting for Velero Pod to be running")
-	gomega.Eventually(lib.VeleroPodIsRunning(kubernetesClientForSuiteRun, namespace), time.Minute*3, time.Second*5).Should(gomega.BeTrue())
-
-	if backupRestoreType == lib.KOPIA || backupRestoreType == lib.CSIDataMover {
-		log.Printf("Waiting for Node Agent pods to be running")
-		gomega.Eventually(lib.AreNodeAgentPodsRunning(kubernetesClientForSuiteRun, namespace), time.Minute*3, time.Second*5).Should(gomega.BeTrue())
-	}
-
-	// Velero does not change status of VSL objects. Users can only confirm if VSLs are correct configured when running a native snapshot backup/restore
-
-	log.Print("Checking if BSL is available")
-	gomega.Eventually(dpaCR.BSLsAreAvailable(), time.Minute*3, time.Second*5).Should(gomega.BeTrue())
-}
-
 func prepareBackupAndRestore(brCase BackupRestoreCase, updateLastInstallTime func()) (string, string) {
 	updateLastInstallTime()
 
-	waitOADPReadiness(brCase.BackupRestoreType)
-
-	if brCase.BackupRestoreType == lib.CSI || brCase.BackupRestoreType == lib.CSIDataMover {
-		if provider == "aws" || provider == "ibmcloud" || provider == "gcp" || provider == "azure" || provider == "openstack" {
-			log.Printf("Creating VolumeSnapshotClass for CSI backuprestore of %s", brCase.Name)
-			snapshotClassPath := fmt.Sprintf("./sample-applications/snapclass-csi/%s.yaml", provider)
-			err := lib.InstallApplication(dpaCR.Client, snapshotClassPath)
-			gomega.Expect(err).ToNot(gomega.HaveOccurred())
-		}
-	}
+	NewOADPDeploymentOperationDefault().Deploy(brCase.BackupRestoreType)
 
 	// TODO: check registry deployments are deleted
 	// TODO: check S3 for images
@@ -319,20 +391,8 @@ func getFailedTestLogs(oadpNamespace string, appNamespace string, installTime ti
 func tearDownBackupAndRestore(brCase BackupRestoreCase, installTime time.Time, report ginkgo.SpecReport) {
 	log.Println("Post backup and restore state: ", report.State.String())
 	gatherLogs(brCase, installTime, report)
-	tearDownDPAResources(brCase)
+	NewOADPDeploymentOperationDefault().Undeploy(brCase.BackupRestoreType)
 	deleteNamespace(brCase.Namespace)
-}
-
-func tearDownDPAResources(brCase BackupRestoreCase) {
-	if brCase.BackupRestoreType == lib.CSI || brCase.BackupRestoreType == lib.CSIDataMover {
-		log.Printf("Deleting VolumeSnapshot for CSI backuprestore of %s", brCase.Name)
-		snapshotClassPath := fmt.Sprintf("./sample-applications/snapclass-csi/%s.yaml", provider)
-		err := lib.UninstallApplication(dpaCR.Client, snapshotClassPath)
-		gomega.Expect(err).ToNot(gomega.HaveOccurred())
-	}
-
-	err := dpaCR.Delete()
-	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 }
 
 func gatherLogs(brCase BackupRestoreCase, installTime time.Time, report ginkgo.SpecReport) {
@@ -366,7 +426,7 @@ var _ = ginkgo.Describe("Backup and restore tests", ginkgo.Ordered, func() {
 	var _ = ginkgo.AfterAll(func() {
 		// DPA just needs to have BSL so gathering of backups/restores logs/describe work
 		// using kopia to collect more info (DaemonSet)
-		waitOADPReadiness(lib.KOPIA)
+		NewOADPDeploymentOperationDefault().Deploy(lib.KOPIA)
 
 		//DPT Test and MustGather should be paired together
 		log.Printf("skipMustGather: %v", skipMustGather)

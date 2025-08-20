@@ -3,8 +3,10 @@ package hcp
 import (
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"log"
+	"os"
 	"time"
 
 	configv1 "github.com/openshift/api/config/v1"
@@ -19,6 +21,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
+	"k8s.io/utils/ptr"
+	workv1 "open-cluster-management.io/api/work/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
@@ -382,17 +387,17 @@ func (h *HCHandler) NukeHostedCluster() error {
 }
 
 // DeployHCManifest deploys a HostedCluster manifest
-func (h *HCHandler) DeployHCManifest(tmpl, provider string, hcName string) (*hypershiftv1.HostedCluster, error) {
+func (h *HCHandler) DeployHCManifest(tmpl, provider string, hcName, hcNamespace string) (*hypershiftv1.HostedCluster, error) {
 	log.Printf("Deploying HostedCluster manifest - %s", provider)
-	// Create the clusters ns
-	clustersNS := &corev1.Namespace{
+	// Create the HC namespace
+	hcNS := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: ClustersNamespace,
+			Name: hcNamespace,
 		},
 	}
 
 	log.Printf("Creating clusters namespace")
-	err := h.Client.Create(h.Ctx, clustersNS)
+	err := h.Client.Create(h.Ctx, hcNS)
 	if err != nil {
 		if !apierrors.IsAlreadyExists(err) {
 			return nil, fmt.Errorf("failed to create clusters namespace: %v", err)
@@ -408,7 +413,7 @@ func (h *HCHandler) DeployHCManifest(tmpl, provider string, hcName string) (*hyp
 	log.Printf("Applying pull secret manifest")
 	err = ApplyYAMLTemplate(h.Ctx, h.Client, PullSecretManifest, true, map[string]interface{}{
 		"HostedClusterName": hcName,
-		"ClustersNamespace": ClustersNamespace,
+		"ClustersNamespace": hcNamespace,
 		"PullSecret":        base64.StdEncoding.EncodeToString([]byte(pullSecret)),
 	})
 	if err != nil {
@@ -418,7 +423,7 @@ func (h *HCHandler) DeployHCManifest(tmpl, provider string, hcName string) (*hyp
 	log.Printf("Applying encryption key manifest")
 	err = ApplyYAMLTemplate(h.Ctx, h.Client, EtcdEncryptionKeyManifest, true, map[string]interface{}{
 		"HostedClusterName": hcName,
-		"ClustersNamespace": ClustersNamespace,
+		"ClustersNamespace": hcNamespace,
 		"EtcdEncryptionKey": SampleETCDEncryptionKey,
 	})
 	if err != nil {
@@ -428,7 +433,7 @@ func (h *HCHandler) DeployHCManifest(tmpl, provider string, hcName string) (*hyp
 	if provider == "Agent" {
 		log.Printf("Applying capi-provider-role manifest")
 		err = ApplyYAMLTemplate(h.Ctx, h.Client, CapiProviderRoleManifest, true, map[string]interface{}{
-			"ClustersNamespace": ClustersNamespace,
+			"ClustersNamespace": hcNamespace,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to apply capi-provider-role manifest from %s: %v", CapiProviderRoleManifest, err)
@@ -438,7 +443,7 @@ func (h *HCHandler) DeployHCManifest(tmpl, provider string, hcName string) (*hyp
 	log.Printf("Applying HostedCluster manifest")
 	err = ApplyYAMLTemplate(h.Ctx, h.Client, tmpl, false, map[string]interface{}{
 		"HostedClusterName": hcName,
-		"ClustersNamespace": ClustersNamespace,
+		"ClustersNamespace": hcNamespace,
 		"HCOCPTestImage":    h.HCOCPTestImage,
 		"InfraIDSeed":       "test",
 	})
@@ -451,7 +456,7 @@ func (h *HCHandler) DeployHCManifest(tmpl, provider string, hcName string) (*hyp
 	err = wait.PollUntilContextTimeout(h.Ctx, WaitForNextCheckTimeout, Wait10Min, true, func(ctx context.Context) (bool, error) {
 		err := h.Client.Get(ctx, types.NamespacedName{
 			Name:      hcName,
-			Namespace: ClustersNamespace,
+			Namespace: hcNamespace,
 		}, &hc)
 		if err != nil {
 			if !apierrors.IsNotFound(err) && !apierrors.IsTooManyRequests(err) && !apierrors.IsServerTimeout(err) && !apierrors.IsTimeout(err) {
@@ -689,6 +694,15 @@ func RestartHCPPods(HCPNamespace string, c client.Client) error {
 	return nil
 }
 
+// Read kubeconfig from bytes and return the Config object
+func ReadKubeconfigFromBytes(kubeconfigData []byte) (*clientcmdapi.Config, error) {
+	config, err := clientcmd.Load(kubeconfigData)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load kubeconfig: %v", err)
+	}
+	return config, nil
+}
+
 func buildConfigFromBytes(kubeconfigData []byte) (*rest.Config, error) {
 	clientConfig, err := clientcmd.NewClientConfigFromBytes(kubeconfigData)
 	if err != nil {
@@ -711,8 +725,8 @@ func (h *HCHandler) GetHostedClusterKubeconfig(hc *hypershiftv1.HostedCluster) (
 	if err != nil {
 		return nil, err
 	}
-	kubeconfigData := kubeconfigSecret.Data["kubeconfig"]
-	return buildConfigFromBytes(kubeconfigData)
+
+	return buildConfigFromBytes(kubeconfigSecret.Data["kubeconfig"])
 }
 
 func (h *HCHandler) ValidateClient(c client.Client) wait.ConditionFunc {
@@ -722,6 +736,147 @@ func (h *HCHandler) ValidateClient(c client.Client) wait.ConditionFunc {
 			log.Printf("Error getting cluster version: %v", err)
 			return false, nil
 		}
+		log.Printf("Client successfully validated")
 		return true, nil
 	}
+}
+
+func (h *HCHandler) GetManifestWorkNamespace(clusterID string) (string, error) {
+	manifestWorks := &workv1.ManifestWorkList{}
+	err := h.ClientServiceCluster.List(h.Ctx, manifestWorks, &client.ListOptions{})
+	if err != nil {
+		return "", fmt.Errorf("failed to list ManifestWorks: %v", err)
+	}
+	for _, manifestWork := range manifestWorks.Items {
+		if manifestWork.Name == clusterID {
+			return manifestWork.Namespace, nil
+		}
+	}
+	return "", fmt.Errorf("ManifestWork %s not found", clusterID)
+}
+
+func (h *HCHandler) DeleteManifestWork(timeout time.Duration) error {
+	clusterID, ok := h.HostedCluster.Labels["api.openshift.com/id"]
+	if !ok {
+		return fmt.Errorf("HostedCluster does not have a label api.openshift.com/id")
+	}
+	namespace, err := h.GetManifestWorkNamespace(clusterID)
+	if err != nil {
+		return fmt.Errorf("failed to get ManifestWork namespace: %v", err)
+	}
+
+	manifestWorkNames := []string{
+		clusterID,
+		clusterID + "-workers",
+		clusterID + "-00-namespaces",
+	}
+
+	for _, manifestWorkName := range manifestWorkNames {
+		err := h.ClientServiceCluster.Delete(h.Ctx, &workv1.ManifestWork{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: namespace,
+				Name:      manifestWorkName,
+			},
+		}, &client.DeleteOptions{
+			GracePeriodSeconds: ptr.To(int64(0)),
+		})
+		if err != nil && !apierrors.IsNotFound(err) {
+			return fmt.Errorf("failed to delete ManifestWork %s/%s: %v", h.HCPNamespace, clusterID, err)
+		}
+	}
+
+	log.Printf("Waiting for ManifestWorks to be deleted")
+	for _, manifestWorkName := range manifestWorkNames {
+		err := wait.PollUntilContextTimeout(h.Ctx, WaitForNextCheckTimeout, timeout, true, func(ctx context.Context) (bool, error) {
+			deleted, err := IsManifestWorkDeleted(h, manifestWorkName, namespace)
+			if err != nil {
+				// Return the error to stop polling and propagate the error details
+				return false, err
+			}
+			if deleted {
+				log.Printf("ManifestWork %s/%s deleted", h.HCPNamespace, manifestWorkName)
+			}
+			return deleted, nil
+		})
+		if err != nil {
+			return fmt.Errorf("failed to delete ManifestWork %s/%s: %v", h.HCPNamespace, clusterID, err)
+		}
+	}
+
+	return nil
+}
+
+func (h *HCHandler) BackupManifestWork() error {
+	clusterID, ok := h.HostedCluster.Labels["api.openshift.com/id"]
+	if !ok {
+		return fmt.Errorf("HostedCluster does not have a label api.openshift.com/id")
+	}
+	namespace, err := h.GetManifestWorkNamespace(clusterID)
+	if err != nil {
+		return fmt.Errorf("failed to get ManifestWork namespace: %v", err)
+	}
+
+	manifestWorkNames := []string{
+		clusterID,
+		clusterID + "-workers",
+		clusterID + "-00-namespaces",
+	}
+
+	timestamp := time.Now().UnixMilli()
+	manifestWork := &workv1.ManifestWork{}
+	for _, manifestWorkName := range manifestWorkNames {
+		if h.ClientServiceCluster == nil {
+			return fmt.Errorf("ClientServiceCluster is nil")
+		}
+		err := h.ClientServiceCluster.Get(h.Ctx, client.ObjectKey{
+			Namespace: namespace,
+			Name:      manifestWorkName,
+		}, manifestWork)
+
+		manifestWork.APIVersion = workv1.SchemeGroupVersion.String()
+		manifestWork.Kind = "ManifestWork"
+
+		if err != nil {
+			return fmt.Errorf("failed to get ManifestWork: %v", err)
+		}
+		// Marshal the manifestWork to JSON and store it in a temporary directory under /tmp
+		jsonBytes, err := json.MarshalIndent(manifestWork, "", "    ")
+		if err != nil {
+			return fmt.Errorf("failed to marshal ManifestWork %s to JSON: %v", manifestWorkName, err)
+		}
+
+		tmpDir := os.Getenv("TMP_DIR")
+		if tmpDir == "" {
+			tmpDir = "/tmp"
+		}
+
+		tmpDir = fmt.Sprintf("%s/hc_manifestwork_backup/%d", tmpDir, timestamp)
+		if err := os.MkdirAll(tmpDir, 0755); err != nil {
+			return fmt.Errorf("failed to create backup directory %s: %v", tmpDir, err)
+		}
+
+		filePath := fmt.Sprintf("%s/%s.json", tmpDir, manifestWorkName)
+		if err := os.WriteFile(filePath, jsonBytes, 0644); err != nil {
+			return fmt.Errorf("failed to write ManifestWork YAML to file %s: %v", filePath, err)
+		}
+		log.Printf("ManifestWork %s backed up to %s", manifestWorkName, filePath)
+	}
+
+	return nil
+}
+
+func IsManifestWorkDeleted(h *HCHandler, manifestWorkName string, namespace string) (bool, error) {
+	manifestWork := &workv1.ManifestWork{}
+	err := h.ClientServiceCluster.Get(h.Ctx, client.ObjectKey{
+		Namespace: namespace,
+		Name:      manifestWorkName},
+		manifestWork)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			log.Printf("ManifestWork %s is deleted", manifestWorkName)
+			return true, nil
+		}
+		return false, fmt.Errorf("failed to check ManifestWork deletion: %w", err)
+	}
+	return false, nil
 }
