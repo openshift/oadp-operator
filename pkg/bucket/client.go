@@ -2,7 +2,6 @@ package bucket
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -27,15 +26,18 @@ type Client interface {
 	Exists() (bool, error)
 	Create() (bool, error)
 	Delete() (bool, error)
-	ForceCredentialRefresh() error
 }
 
 func NewClient(b v1alpha1.CloudStorage, c client.Client) (Client, error) {
 	switch b.Spec.Provider {
 	case v1alpha1.AWSBucketProvider:
 		return &awsBucketClient{bucket: b, client: c}, nil
+	case v1alpha1.AzureBucketProvider:
+		return &azureBucketClient{bucket: b, client: c}, nil
+	case v1alpha1.GCPBucketProvider:
+		return &gcpBucketClient{bucket: b, client: c}, nil
 	default:
-		return nil, fmt.Errorf("unable to determine bucket client")
+		return nil, fmt.Errorf("unsupported bucket provider: %s", b.Spec.Provider)
 	}
 }
 
@@ -58,14 +60,7 @@ func getCredentialFromCloudStorageSecret(a client.Client, cloudStorage v1alpha1.
 			return "", err
 		}
 
-		stsSecret, err := stsflow.STSStandardizedFlow()
-		if err != nil {
-			// Log the error for debugging purposes
-			fmt.Printf("Error in STSStandardizedFlow: %v\n", err)
-			// Optionally, return the error if it is critical
-			return "", err
-		}
-		if stsSecret != "" {
+		if stsSecret, err := stsflow.STSStandardizedFlow(); err == nil && stsSecret != "" {
 			err := a.Get(context.TODO(), types.NamespacedName{
 				Name:      stsSecret,
 				Namespace: cloudStorage.Namespace,
@@ -100,17 +95,31 @@ func getCredentialFromCloudStorageSecret(a client.Client, cloudStorage v1alpha1.
 }
 
 func SharedCredentialsFileFromSecret(secret *corev1.Secret) (string, error) {
-	if len(secret.Data["credentials"]) == 0 {
-		return "", errors.New("invalid secret for aws credentials")
+	// Check for AWS credentials key
+	if credData, exists := secret.Data[stsflow.AWSSecretCredentialsKey]; exists && len(credData) > 0 {
+		f, err := os.CreateTemp("", "cloud-credentials-aws-")
+		if err != nil {
+			return "", err
+		}
+		defer f.Close()
+		if _, err := f.Write(credData); err != nil {
+			return "", err
+		}
+		return f.Name(), nil
 	}
 
-	f, err := os.CreateTemp("", "aws-shared-credentials")
-	if err != nil {
-		return "", err
+	// Check for GCP service account JSON key
+	if serviceAccountData, exists := secret.Data[stsflow.GcpSecretJSONKey]; exists && len(serviceAccountData) > 0 {
+		f, err := os.CreateTemp("", "cloud-credentials-gcp-")
+		if err != nil {
+			return "", err
+		}
+		defer f.Close()
+		if _, err := f.Write(serviceAccountData); err != nil {
+			return "", err
+		}
+		return f.Name(), nil
 	}
-	defer f.Close()
-	if _, err := f.Write(secret.Data["credentials"]); err != nil {
-		return "", err
-	}
-	return f.Name(), nil
+
+	return "", fmt.Errorf("invalid secret: missing %s key (for AWS) or %s key (for GCP)", stsflow.AWSSecretCredentialsKey, stsflow.GcpSecretJSONKey)
 }

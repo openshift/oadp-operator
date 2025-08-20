@@ -1,0 +1,509 @@
+// Module included in the following assembly:
+//
+// * backup_and_restore/application_backup_and_restore/installing/installing-oadp-azure.adoc
+
+:_mod-docs-content-type: PROCEDURE
+[id="oadp-azure-entra-workload-id-authentication_{context}"]
+= Configuring Microsoft Entra Workload ID for OADP
+
+Microsoft Entra Workload ID is the recommended way to access Azure Storage for OADP (OpenShift Application Data Protection) operations. This approach uses the OpenShift cluster's signed Kubernetes ServiceAccount tokens, which are automatically rotated hourly and exchanged for Azure AD access tokens, eliminating the need for long-term client secrets.
+
+[NOTE]
+====
+This configuration requires `credentialsMode: Manual` during cluster installation and uses the Cloud Credential Operator (`ccoctl`) to set up the workload identity infrastructure, including OIDC issuer configuration and User-Assigned Managed Identities.
+====
+
+.Prerequisites
+
+* You have an OpenShift cluster installed on Microsoft Azure with Microsoft Entra Workload ID configured.
+* You have the Azure CLI (`az`) installed and configured.
+* You have access to the OpenShift cluster as a user with `cluster-admin` privileges.
+* You have an Azure subscription with appropriate permissions.
+
+[NOTE]
+====
+If your OpenShift cluster was not originally installed with Microsoft Entra Workload ID, you can enable short-term credentials after installation. This post-installation configuration is supported specifically for Azure clusters.
+====
+
+[id="post-install-enable-workload-id_{context}"]
+== Enabling Microsoft Entra Workload ID After Installation
+
+If your cluster was installed with long-term credentials, you can switch to Microsoft Entra Workload ID authentication after installation. This is only supported on Azure.
+
+.Prerequisites for post-installation configuration
+
+* An existing OpenShift cluster on Azure using long-term credentials
+* Cluster administrator access
+* Azure CLI with appropriate permissions
+
+.Procedure to enable Microsoft Entra Workload ID post-installation
+
+. Update the cluster authentication configuration to enable token authentication:
++
+[source,bash]
+----
+# Enable short-term credential support
+oc patch authentication.config.openshift.io cluster \
+    --type='merge' \
+    --patch='{"spec":{"type":"IntegratedOAuth","oauthMetadata":{"name":"oauth-openshift"}}}'
+
+# Verify the service account issuer is configured
+oc get authentication.config.openshift.io cluster -o jsonpath='{.spec.serviceAccountIssuer}'
+----
+
+. Follow the standard Microsoft Entra Workload ID configuration procedure below to complete the setup.
+
+[IMPORTANT]
+====
+After enabling Microsoft Entra Workload ID on an existing cluster, you must update all cluster components that use cloud credentials, including OADP, to use the new authentication method.
+====
+
+.Procedure
+
+. Set up environment variables for your configuration:
++
+[source,bash]
+----
+# Get cluster information
+export API_URL=$(oc whoami --show-server)
+export CLUSTER_NAME=$(echo "$API_URL" | sed 's|https://api\.||' | sed 's|\..*||')
+export CLUSTER_RESOURCE_GROUP="${CLUSTER_NAME}-rg"
+
+# Get Azure information
+export AZURE_SUBSCRIPTION_ID=$(az account show --query id -o tsv)
+export AZURE_TENANT_ID=$(az account show --query tenantId -o tsv)
+
+# Set names for resources
+export IDENTITY_NAME="velero"
+export APP_NAME="velero-${CLUSTER_NAME}"
+export STORAGE_ACCOUNT_NAME=$(echo "velero${CLUSTER_NAME}" | tr -d '-' | tr '[:upper:]' '[:lower:]' | cut -c1-24)
+export CONTAINER_NAME="velero"
+----
+
+. Create an Azure Managed Identity for OADP:
++
+[source,bash]
+----
+# Create managed identity
+az identity create \
+    --subscription "$AZURE_SUBSCRIPTION_ID" \
+    --resource-group "$CLUSTER_RESOURCE_GROUP" \
+    --name "$IDENTITY_NAME"
+
+# Get identity details
+export IDENTITY_CLIENT_ID=$(az identity show -g "$CLUSTER_RESOURCE_GROUP" -n "$IDENTITY_NAME" --query clientId -o tsv)
+export IDENTITY_PRINCIPAL_ID=$(az identity show -g "$CLUSTER_RESOURCE_GROUP" -n "$IDENTITY_NAME" --query principalId -o tsv)
+----
+
+. Grant the required Azure roles to the managed identity:
++
+[source,bash]
+----
+# Get subscription ID for role assignments
+export SUBSCRIPTION_ID=$(az account show --query id -o tsv)
+
+# Required roles for OADP operations
+REQUIRED_ROLES=(
+    "Contributor"
+    "Storage Blob Data Contributor" 
+    "Disk Snapshot Contributor"
+)
+
+for role in "${REQUIRED_ROLES[@]}"; do
+    echo "Assigning role: $role"
+    az role assignment create \
+        --assignee "$IDENTITY_PRINCIPAL_ID" \
+        --role "$role" \
+        --scope "/subscriptions/$SUBSCRIPTION_ID"
+done
+----
+
+. Create an Azure Storage Account and container:
++
+[source,bash]
+----
+# Create storage account
+az storage account create \
+    --name "$STORAGE_ACCOUNT_NAME" \
+    --resource-group "$CLUSTER_RESOURCE_GROUP" \
+    --location "$(az group show -n $CLUSTER_RESOURCE_GROUP --query location -o tsv)" \
+    --sku Standard_LRS \
+    --kind StorageV2
+
+# Create container for backups
+az storage container create \
+    --name "$CONTAINER_NAME" \
+    --account-name "$STORAGE_ACCOUNT_NAME" \
+    --auth-mode login
+----
+
+. Get the OIDC issuer URL from your OpenShift cluster:
++
+[source,bash]
+----
+export SERVICE_ACCOUNT_ISSUER=$(oc get authentication.config.openshift.io cluster -o json | jq -r .spec.serviceAccountIssuer)
+echo "OIDC Issuer: $SERVICE_ACCOUNT_ISSUER"
+----
+
+. Configure Microsoft Entra Workload ID Federation:
++
+[source,bash]
+----
+# Create federated identity credential for Velero service account
+az identity federated-credential create \
+    --name "velero-federated-credential" \
+    --identity-name "$IDENTITY_NAME" \
+    --resource-group "$CLUSTER_RESOURCE_GROUP" \
+    --issuer "$SERVICE_ACCOUNT_ISSUER" \
+    --subject "system:serviceaccount:openshift-adp:velero"
+
+# Create federated identity credential for OADP controller manager
+az identity federated-credential create \
+    --name "oadp-controller-federated-credential" \
+    --identity-name "$IDENTITY_NAME" \
+    --resource-group "$CLUSTER_RESOURCE_GROUP" \
+    --issuer "$SERVICE_ACCOUNT_ISSUER" \
+    --subject "system:serviceaccount:openshift-adp:openshift-adp-controller-manager"
+----
+
+. Create the OADP namespace if it doesn't exist:
++
+[source,bash]
+----
+oc create namespace openshift-adp
+----
+
+. Annotate the service accounts to use Microsoft Entra Workload ID:
++
+[source,bash]
+----
+oc annotate serviceaccount velero -n openshift-adp \
+    azure.workload.identity/client-id="$IDENTITY_CLIENT_ID" --overwrite
+
+oc annotate serviceaccount openshift-adp-controller-manager -n openshift-adp \
+    azure.workload.identity/client-id="$IDENTITY_CLIENT_ID" --overwrite
+----
+
+[id="oadp-azure-cloud-storage-api_{context}"]
+== Alternative: Using Cloud Storage API for Automated Container Management
+
+Instead of manually creating storage containers, you can use the OADP Cloud Storage API to automatically manage container creation and configuration. This approach requires OADP operator version with Cloud Storage API support.
+
+.Prerequisites for Cloud Storage API
+
+* OADP operator with Cloud Storage API functionality enabled
+* The same Microsoft Entra Workload ID configuration as above
+
+.Procedure for Cloud Storage API
+
+. Create a CloudStorage resource instead of manually creating containers:
++
+[source,yaml]
+----
+cat <<EOF | oc apply -f -
+apiVersion: oadp.openshift.io/v1alpha1
+kind: CloudStorage
+metadata:
+  name: azure-backup-storage
+  namespace: openshift-adp
+spec:
+  name: ${CONTAINER_NAME}
+  provider: azure
+  creationSecret:
+    name: cloud-credentials-azure
+    key: azurekey  # Required key name for Azure provider
+  config:
+    storageAccount: ${STORAGE_ACCOUNT_NAME}
+  creationPolicy: CreateIfNotExists
+EOF
+----
+
+. Create the DataProtectionApplication with Cloud Storage API reference:
++
+[source,yaml]
+----
+cat <<EOF | oc apply -f -
+apiVersion: oadp.openshift.io/v1alpha1
+kind: DataProtectionApplication
+metadata:
+  name: dpa-azure-workload-id-cloudstorage
+  namespace: openshift-adp
+spec:
+  configuration:
+    velero:
+      defaultPlugins:
+        - azure
+        - openshift
+        - csi
+  backupLocations:
+    - name: default
+      bucket:
+        # Reference the CloudStorage resource instead of direct container
+        cloudStorageRef:
+          name: azure-backup-storage
+        prefix: velero
+        credential:
+          name: cloud-credentials-azure
+          key: azurekey
+        default: true
+  snapshotLocations:
+    - name: default
+      velero:
+        provider: azure
+        credential:
+          name: cloud-credentials-azure
+          key: azurekey
+        config:
+          resourceGroup: ${CLUSTER_RESOURCE_GROUP}
+          subscriptionId: ${AZURE_SUBSCRIPTION_ID}
+EOF
+----
+
+. Verify the CloudStorage resource status:
++
+[source,bash]
+----
+oc get cloudstorage azure-backup-storage -n openshift-adp -o yaml
+oc describe cloudstorage azure-backup-storage -n openshift-adp
+----
+
+. Wait for container creation and verify:
++
+[source,bash]
+----
+# Check if container was created in Azure Storage
+az storage container list --account-name ${STORAGE_ACCOUNT_NAME} --auth-mode login --query "[].name" -o tsv
+
+# Verify container access
+az storage container show --name ${CONTAINER_NAME} --account-name ${STORAGE_ACCOUNT_NAME} --auth-mode login
+----
+
+. Monitor the CloudStorage controller logs:
++
+[source,bash]
+----
+# Check operator logs for CloudStorage operations
+oc logs -n openshift-adp deployment/oadp-operator-controller-manager | grep -i cloudstorage
+
+# Check for Azure-specific operations
+oc logs -n openshift-adp deployment/oadp-operator-controller-manager | grep -i azure
+----
+
+[WARNING]
+====
+CloudStorage resources are protected by a finalizer (`oadp.openshift.io/bucket-protection`) to prevent accidental deletion of containers containing backup data. To delete a CloudStorage resource, you must first add the deletion annotation:
+
+[source,bash]
+----
+# Add deletion annotation before attempting to delete
+oc annotate cloudstorage azure-backup-storage -n openshift-adp \
+    oadp.openshift.io/cloudstorage-delete=true --overwrite
+
+# Then delete the CloudStorage resource
+oc delete cloudstorage azure-backup-storage -n openshift-adp
+----
+
+Without this annotation, the deletion will hang indefinitely as the finalizer prevents removal.
+
+Alternatively, if you want to remove the CloudStorage resource from OpenShift without deleting the Azure storage container, you can manually remove the finalizer:
+
+[source,bash]
+----
+# Remove finalizer to delete CloudStorage CR without deleting the Azure container
+oc patch cloudstorage azure-backup-storage -n openshift-adp --type json \
+    -p='[{"op": "remove", "path": "/metadata/finalizers"}]'
+----
+====
+
+The CloudStorage API will automatically:
+
+* Create the storage container if it doesn't exist (with `creationPolicy: CreateIfNotExists`)
+* Configure appropriate access permissions for the managed identity
+* Handle authentication through the referenced credential secret
+* Manage container lifecycle and cleanup operations
+* Protect container resources with finalizers to prevent accidental deletion
+
+== Standard Configuration (Manual Container Creation)
+
+. Create the DataProtectionApplication configuration for manual container setup:
++
+[source,yaml]
+----
+cat <<EOF | oc apply -f -
+apiVersion: oadp.openshift.io/v1alpha1
+kind: DataProtectionApplication
+metadata:
+  name: dpa-azure-workload-id
+  namespace: openshift-adp
+spec:
+  configuration:
+    velero:
+      defaultPlugins:
+        - azure
+        - openshift
+        - csi
+  backupLocations:
+    - name: default
+      velero:
+        provider: azure
+        default: true
+        credential:
+          name: cloud-credentials-azure
+          key: azurekey
+        config:
+          resourceGroup: ${CLUSTER_RESOURCE_GROUP}
+          storageAccount: ${STORAGE_ACCOUNT_NAME}
+        objectStorage:
+          bucket: ${CONTAINER_NAME}
+          prefix: velero
+  snapshotLocations:
+    - name: default
+      velero:
+        provider: azure
+        credential:
+          name: cloud-credentials-azure
+          key: azurekey
+        config:
+          resourceGroup: ${CLUSTER_RESOURCE_GROUP}
+          subscriptionId: ${AZURE_SUBSCRIPTION_ID}
+EOF
+----
+
+.Verification
+
+. Verify that the OADP operator pods are running:
++
+[source,bash]
+----
+oc get pods -n openshift-adp
+----
+
+. Check that the Velero service accounts have the correct annotations:
++
+[source,bash]
+----
+oc get sa velero -n openshift-adp -o yaml | grep -A5 annotations
+oc get sa openshift-adp-controller-manager -n openshift-adp -o yaml | grep -A5 annotations
+----
+
+. Verify the Azure role assignments:
++
+[source,bash]
+----
+az role assignment list --assignee ${IDENTITY_PRINCIPAL_ID} --all --query "[].roleDefinitionName" -o tsv
+----
+
+. Verify Microsoft Entra Workload ID authentication:
++
+[source,bash]
+----
+# Check Velero pod environment variables
+VELERO_POD=$(oc get pods -n openshift-adp -l app.kubernetes.io/name=velero -o jsonpath='{.items[0].metadata.name}')
+
+# Check AZURE_CLIENT_ID environment variable
+oc get pod ${VELERO_POD} -n openshift-adp -o jsonpath='{.spec.containers[0].env[?(@.name=="AZURE_CLIENT_ID")]}'
+
+# Check AZURE_FEDERATED_TOKEN_FILE environment variable
+oc get pod ${VELERO_POD} -n openshift-adp -o jsonpath='{.spec.containers[0].env[?(@.name=="AZURE_FEDERATED_TOKEN_FILE")]}'
+----
+
+. Test the backup functionality by creating a comprehensive backup test:
++
+[source,bash]
+----
+# Create a test namespace with resources
+oc create namespace test-backup-azure
+
+# Create a deployment for testing (using OpenShift-compatible image)
+cat << EOF | oc apply -f -
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-test
+  namespace: test-backup-azure
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: nginx-test
+  template:
+    metadata:
+      labels:
+        app: nginx-test
+    spec:
+      containers:
+      - name: nginx
+        image: bitnami/nginx:latest
+        ports:
+        - containerPort: 8080
+          protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-test
+  namespace: test-backup-azure
+spec:
+  selector:
+    app: nginx-test
+  ports:
+  - port: 8080
+    targetPort: 8080
+    protocol: TCP
+EOF
+
+# Wait for deployment to be ready
+oc wait --for=condition=available deployment/nginx-test -n test-backup-azure --timeout=60s
+
+# Create backup
+velero backup create azure-workload-id-test --include-namespaces=test-backup-azure
+----
+
+. Monitor the backup status:
++
+[source,bash]
+----
+velero backup describe azure-workload-id-test --details
+
+# Verify backup files in Azure Storage
+az storage blob list --container-name ${CONTAINER_NAME} --account-name ${STORAGE_ACCOUNT_NAME} --auth-mode login --prefix velero/backups/
+----
+
+[NOTE]
+====
+With Microsoft Entra Workload ID configured, credential secrets no longer contain permanent `azure_client_secret` values. Instead, they use `azure_federated_token_file` containing Kubernetes ServiceAccount tokens that are automatically rotated hourly and exchanged for Azure AD access tokens via the Azure Identity SDKs.
+====
+
+[IMPORTANT]
+====
+Ensure that the required Azure roles (Contributor, Storage Blob Data Contributor, Disk Snapshot Contributor) are assigned to the managed identity for full OADP functionality.
+====
+
+.Troubleshooting
+
+If you encounter authentication issues:
+
+* Verify that the managed identity has the required role assignments
+* Check that the federated identity credentials are correctly configured
+* Ensure the service account annotations match the managed identity client ID
+* Review the Velero logs for detailed error messages:
++
+[source,bash]
+----
+oc logs -n openshift-adp deployment/velero
+----
+
+* Check the CloudStorage controller logs for container management issues:
++
+[source,bash]
+----
+oc logs -n openshift-adp deployment/oadp-operator-controller-manager | grep -i cloudstorage
+----
+
+* Validate Azure storage access:
++
+[source,bash]
+----
+# Test storage access with managed identity
+az storage container list --account-name ${STORAGE_ACCOUNT_NAME} --auth-mode login
+----
