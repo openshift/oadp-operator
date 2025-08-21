@@ -72,6 +72,7 @@ func runHCPBackupAndRestore(
 			hcKubeconfig, err := h.GetHostedClusterKubeconfig(h.HostedCluster)
 			gomega.Expect(err).ToNot(gomega.HaveOccurred())
 			crClientForHC, err := client.New(hcKubeconfig, client.Options{Scheme: lib.Scheme})
+			gomega.Eventually(h.ValidateClient(crClientForHC), 5*time.Minute, 2*time.Second).Should(gomega.BeTrue())
 			gomega.Expect(err).ToNot(gomega.HaveOccurred())
 			err = brCase.PreBackupVerifyGuest(crClientForHC, "" /*unused*/)
 			gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to run pre-backup verification for guest cluster: %v", err)
@@ -110,6 +111,7 @@ func runHCPBackupAndRestore(
 			gomega.Expect(err).ToNot(gomega.HaveOccurred())
 			crClientForHC, err := client.New(hcKubeconfig, client.Options{Scheme: lib.Scheme})
 			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+			gomega.Eventually(h.ValidateClient(crClientForHC), 5*time.Minute, 2*time.Second).Should(gomega.BeTrue())
 			err = brCase.PostRestoreVerifyGuest(crClientForHC, "" /*unused*/)
 			gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to run post-restore verification for guest cluster: %v", err)
 		}

@@ -7,6 +7,7 @@ import (
 	"log"
 	"time"
 
+	configv1 "github.com/openshift/api/config/v1"
 	hypershiftv1 "github.com/openshift/hypershift/api/hypershift/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -712,4 +713,15 @@ func (h *HCHandler) GetHostedClusterKubeconfig(hc *hypershiftv1.HostedCluster) (
 	}
 	kubeconfigData := kubeconfigSecret.Data["kubeconfig"]
 	return buildConfigFromBytes(kubeconfigData)
+}
+
+func (h *HCHandler) ValidateClient(c client.Client) wait.ConditionFunc {
+	return func() (bool, error) {
+		clusterVersion := &configv1.ClusterVersion{}
+		if err := c.Get(h.Ctx, client.ObjectKey{Name: "version"}, clusterVersion); err != nil {
+			log.Printf("Error getting cluster version: %v", err)
+			return false, nil
+		}
+		return true, nil
+	}
 }
