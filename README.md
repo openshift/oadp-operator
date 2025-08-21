@@ -14,16 +14,6 @@
 |-------------------|-------------|
 | OCP 4.19 | [![AWS tests OCP 4.19](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-oadp-dev-4.19-e2e-test-aws-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-oadp-dev-4.19-e2e-test-aws-periodic) |
 | OCP 4.20 | [![AWS tests OCP 4.20](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-oadp-dev-4.20-e2e-test-aws-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-oadp-dev-4.20-e2e-test-aws-periodic) 
-<!-- GCP:
-[![GCP builds](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-oadp-dev-4.12-e2e-test-gcp-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-oadp-dev-4.12-e2e-test-gcp-periodic)
-[![GCP builds](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-oadp-dev-4.13-e2e-test-gcp-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-oadp-dev-4.13-e2e-test-gcp-periodic)
-[![GCP builds](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-oadp-dev-4.14-e2e-test-gcp-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-oadp-dev-4.14-e2e-test-gcp-periodic) -->
-
-
-<!-- Azure:
-[![Azure builds](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-oadp-dev-4.12-e2e-test-azure-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-oadp-dev-4.12-e2e-test-azure-periodic)
-[![Azure builds](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-oadp-dev-4.13-e2e-test-azure-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-oadp-dev-4.13-e2e-test-azure-periodic)
-[![Azure builds](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-oadp-dev-4.14-e2e-test-azure-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-oadp-dev-4.14-e2e-test-azure-periodic) -->
 
 ### Periodic AWS E2E Virtualization Tests in OpenShift
 
@@ -39,13 +29,24 @@
 | OCP 4.19 | [![HCP tests](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-oadp-dev-4.19-e2e-test-hcp-aws-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-oadp-dev-4.19-e2e-test-hcp-aws-periodic) |
 | OCP 4.20 | [![HCP tests](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-oadp-dev-4.20-e2e-test-hcp-aws-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-oadp-dev-4.20-e2e-test-hcp-aws-periodic) |
 
-OADP repositories images job
+### Periodic AWS E2E OADP CLI Tests in OpenShift
+| OpenShift Version | Test Status |
+|-------------------|-------------|
+| OCP 4.19          | TBD         |
+| OCP 4.20          | TBD         |
+
+### OADP repositories images job
 | OADP | OpenShift Velero plugin | Velero | Velero plugin for AWS | Velero plugin for Legacy AWS | Velero plugin for GCP | Velero plugin for Microsoft Azure | Non Admin |
 | ---------- | ---------- | ---------- | ---------- | ---------- | ---------- | ---------- | ---------- |
 | [![OADP repository](https://prow.ci.openshift.org/badge.svg?jobs=branch-ci-openshift-oadp-operator-oadp-dev-images)](https://prow.ci.openshift.org/job-history/gs/test-platform-results/logs/branch-ci-openshift-oadp-operator-oadp-dev-images) | [![OpenShift Velero plugin repository](https://prow.ci.openshift.org/badge.svg?jobs=branch-ci-openshift-openshift-velero-plugin-oadp-dev-images)](https://prow.ci.openshift.org/job-history/gs/test-platform-results/logs/branch-ci-openshift-openshift-velero-plugin-oadp-dev-images) | [![OADP's Velero repository](https://prow.ci.openshift.org/badge.svg?jobs=branch-ci-openshift-velero-oadp-dev-images)](https://prow.ci.openshift.org/job-history/gs/test-platform-results/logs/branch-ci-openshift-velero-oadp-dev-images) | [![OADP's Velero plugin for AWS repository](https://prow.ci.openshift.org/badge.svg?jobs=branch-ci-openshift-velero-plugin-for-aws-oadp-dev-images)](https://prow.ci.openshift.org/job-history/gs/test-platform-results/logs/branch-ci-openshift-velero-plugin-for-aws-oadp-dev-images) | [![OADP's Velero plugin for Legacy AWS repository](https://prow.ci.openshift.org/badge.svg?jobs=branch-ci-openshift-velero-plugin-for-legacy-aws-oadp-dev-images)](https://prow.ci.openshift.org/job-history/gs/test-platform-results/logs/branch-ci-openshift-velero-plugin-for-legacy-aws-oadp-dev-images) | [![OADP's Velero plugin for GCP repository](https://prow.ci.openshift.org/badge.svg?jobs=branch-ci-openshift-velero-plugin-for-gcp-oadp-dev-images)](https://prow.ci.openshift.org/job-history/gs/test-platform-results/logs/branch-ci-openshift-velero-plugin-for-gcp-oadp-dev-images) | [![OADP's Velero plugin for Microsoft Azure repository](https://prow.ci.openshift.org/badge.svg?jobs=branch-ci-openshift-velero-plugin-for-microsoft-azure-oadp-dev-images)](https://prow.ci.openshift.org/job-history/gs/test-platform-results/logs/branch-ci-openshift-velero-plugin-for-microsoft-azure-oadp-dev-images) | [![Non Admin repository](https://prow.ci.openshift.org/badge.svg?jobs=branch-ci-migtools-oadp-non-admin-oadp-dev-images)](https://prow.ci.openshift.org/job-history/gs/test-platform-results/logs/branch-ci-migtools-oadp-non-admin-oadp-dev-images) |
 
-Mirroring images to quay.io [![Mirror images](https://prow.ci.openshift.org/badge.svg?jobs=periodic-image-mirroring-konveyor)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-image-mirroring-konveyor)
+### Mirroring images to quay.io [![Mirror images](https://prow.ci.openshift.org/badge.svg?jobs=periodic-image-mirroring-konveyor)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-image-mirroring-konveyor)
 </div>
+
+### Rebase status from upstream Velero
+
+* [OADP Rebase](https://github.com/oadp-rebasebot/oadp-rebase)
+** UNDER-CONSTRUCTION **
 
 Note: Official Overview and documentation can be found in the [OpenShift Documentation](https://docs.openshift.com/container-platform/latest/backup_and_restore/application_backup_and_restore/oadp-intro.html)
 
@@ -63,12 +64,12 @@ Documentation in this repository are considered unofficial and for development p
     5. [Use NooBaa as a Backup Storage Location](docs/config/noobaa/install_oadp_noobaa.md)
     6. [Use Velero --features flag](docs/config/features_flag.md)
     7. [Use Custom Plugin Images for Velero ](docs/config/custom_plugin_images.md)
-5. [Upgrade from 0.2](docs/upgrade.md)
-6. Examples
-    1. [Stateless App Backup/Restore](docs/examples/stateless.md)
-    2. [Stateful App Backup/Restore](docs/examples/stateful.md)
-    3. [CSI Backup/Restore](docs/examples/CSI)
-    4. [Data Mover (OADP 1.2 or below)](/docs/examples/data_mover.md)
+5. Examples
+    1. [Sample Apps used in OADP CI](https://github.com/openshift/oadp-operator/tree/oadp-dev/tests/e2e/sample-applications)
+    2. [Stateless App Backup/Restore](docs/examples/stateless.md)
+    3. [Stateful App Backup/Restore](docs/examples/stateful.md)
+    4. [CSI Backup/Restore](docs/examples/CSI)
+    
 7. [Troubleshooting](/docs/TROUBLESHOOTING.md)
 8. Contribute
     1. [Install & Build from Source](docs/developer/install_from_source.md)
