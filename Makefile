@@ -65,13 +65,11 @@ IMG ?= quay.io/konveyor/oadp-operator:latest
 # You can override this with environment variable (e.g., export TTL_DURATION=4h)
 TTL_DURATION ?= 1h
 
-# HC_BACKUP_RESTORE_MODE is used to run HCP tests against existing HostedControlPlane.
-# Possible values are: create, existing.
-HC_BACKUP_RESTORE_MODE ?= create
-# HC_NAME is the name of the HostedCluster to use for HCP tests when HC_BACKUP_RESTORE_MODE is set to existing.
-# Otherwise, HC_NAME is ignored.
+# HC_NAME is the name of the HostedCluster to use for HCP tests when
+# hc_backup_restore_mode is set to external. Otherwise, HC_NAME is ignored.
 HC_NAME ?= ""
-# HC_KUBECONFIG is the path to the kubeconfig file for the HostedCluster to use for HCP tests when HC_BACKUP_RESTORE_MODE is set to existing.
+# HC_KUBECONFIG is the path to the kubeconfig file for the HostedCluster
+# to use for HCP tests when hc_backup_restore_mode is set to external.
 # Otherwise, HC_KUBECONFIG is ignored.
 HC_KUBECONFIG ?= ""
 
@@ -817,6 +815,8 @@ ARTIFACT_DIR ?= /tmp
 HCO_UPSTREAM ?= false
 TEST_VIRT ?= false
 TEST_HCP ?= false
+TEST_HCP_EXTERNAL ?= false
+HCP_EXTERNAL_ARGS ?= ""
 TEST_CLI ?= false
 SKIP_MUST_GATHER  ?= false
 TEST_UPGRADE ?= false
@@ -838,6 +838,12 @@ ifeq ($(TEST_HCP),true)
 else
 	TEST_FILTER += && (! hcp)
 endif
+ifeq ($(TEST_HCP_EXTERNAL),true)
+	TEST_FILTER += && (hcp_external)
+	HCP_EXTERNAL_ARGS = -hc_backup_restore_mode=external -hc_name=$(HC_NAME) -hc_kubeconfig=$(HC_KUBECONFIG)
+else
+	TEST_FILTER += && (! hcp_external)
+endif
 ifeq ($(TEST_CLI),true)
 	TEST_FILTER += && (cli)
 else
@@ -855,9 +861,6 @@ test-e2e: test-e2e-setup install-ginkgo ## Run E2E tests against OADP operator i
 	-velero_instance_name=$(VELERO_INSTANCE_NAME) \
 	-artifact_dir=$(ARTIFACT_DIR) \
 	-kvm_emulation=$(KVM_EMULATION) \
-	-hc_backup_restore_mode=$(HC_BACKUP_RESTORE_MODE) \
-	-hc_name=$(HC_NAME) \
-	-hc_kubeconfig=$(HC_KUBECONFIG) \
 	-hco_upstream=$(HCO_UPSTREAM) \
         -skipMustGather=$(SKIP_MUST_GATHER) \
 	--ginkgo.vv \
@@ -865,6 +868,7 @@ test-e2e: test-e2e-setup install-ginkgo ## Run E2E tests against OADP operator i
 	--ginkgo.label-filter="$(TEST_FILTER)" \
 	--ginkgo.junit-report="$(ARTIFACT_DIR)/junit_report.xml" \
 	--ginkgo.timeout=2h \
+	$(HCP_EXTERNAL_ARGS) \
 	$(GINKGO_ARGS)
 
 .PHONY: test-e2e-cleanup

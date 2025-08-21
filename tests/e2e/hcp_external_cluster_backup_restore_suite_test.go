@@ -13,10 +13,10 @@ import (
 	libhcp "github.com/openshift/oadp-operator/tests/e2e/lib/hcp"
 )
 
-// Full cluster backup and restore tests will skip creating HostedCluster resource. They expect the cluster
+// External cluster backup and restore tests will skip creating HostedCluster resource. They expect the cluster
 // to already have HostedCluster with a data plane.
 // The tests are skipped unless hc_backup_restore_mode flag is properly configured.
-var _ = ginkgo.Describe("HCP full Backup and Restore tests", ginkgo.Ordered, func() {
+var _ = ginkgo.Describe("HCP external cluster Backup and Restore tests", ginkgo.Ordered, func() {
 	var (
 		lastInstallTime time.Time
 		lastBRCase      HCPBackupRestoreCase
@@ -32,7 +32,7 @@ var _ = ginkgo.Describe("HCP full Backup and Restore tests", ginkgo.Ordered, fun
 	}
 
 	var _ = ginkgo.BeforeAll(func() {
-		if hcBackupRestoreMode != string(HCModeExisting) {
+		if hcBackupRestoreMode != string(HCModeExternal) {
 			ginkgo.Skip("Skipping HCP full backup and restore test for non-existent HCP")
 		}
 
@@ -50,13 +50,13 @@ var _ = ginkgo.Describe("HCP full Backup and Restore tests", ginkgo.Ordered, fun
 		tearDownDPAResources(lastBRCase.BackupRestoreCase)
 	})
 
-	ginkgo.It("HCP full backup and restore test", ginkgo.Label("hcp"), func() {
+	ginkgo.It("HCP external cluster backup and restore test", ginkgo.Label("hcp_external"), func() {
 		if ginkgo.CurrentSpecReport().NumAttempts > 1 && !knownFlake {
 			ginkgo.Fail("No known FLAKE found in a previous run, marking test as failed.")
 		}
 
 		runHCPBackupAndRestore(HCPBackupRestoreCase{
-			Mode:                   HCModeExisting,
+			Mode:                   HCModeExternal,
 			PreBackupVerifyGuest:   preBackupVerifyGuest(),
 			PostRestoreVerifyGuest: postBackupVerifyGuest(),
 			BackupRestoreCase: BackupRestoreCase{

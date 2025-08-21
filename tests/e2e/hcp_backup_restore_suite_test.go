@@ -18,11 +18,11 @@ type HCBackupRestoreMode string
 
 const (
 	HCModeCreate   HCBackupRestoreMode = "create"   // Create new HostedCluster for test
-	HCModeExisting HCBackupRestoreMode = "existing" // Get existing HostedCluster
-	// TODO: Add HCModeExistingROSA for ROSA where DPA and some other resources are already installed
+	HCModeExternal HCBackupRestoreMode = "external" // Get external HostedCluster
+	// TODO: Add HCModeExternalROSA for ROSA where DPA and some other resources are already installed
 )
 
-// runHCPBackupAndRestore is the unified function that handles both create and existing HC modes
+// runHCPBackupAndRestore is the unified function that handles both create and external HC modes
 func runHCPBackupAndRestore(
 	brCase HCPBackupRestoreCase,
 	updateLastBRcase func(HCPBackupRestoreCase),
@@ -50,8 +50,8 @@ func runHCPBackupAndRestore(
 		// Create new HostedCluster for test
 		h.HostedCluster, err = h.DeployHCManifest(brCase.Template, brCase.Provider, brCase.BackupRestoreCase.Name)
 		gomega.Expect(err).ToNot(gomega.HaveOccurred())
-	case HCModeExisting:
-		// Get existing HostedCluster
+	case HCModeExternal:
+		// Get external HostedCluster
 		h.HostedCluster, err = h.GetHostedCluster(brCase.BackupRestoreCase.Name, libhcp.ClustersNamespace)
 		gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	default:
@@ -65,7 +65,7 @@ func runHCPBackupAndRestore(
 		gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to run HCP pre-backup verification: %v", err)
 	}
 
-	if brCase.Mode == HCModeExisting {
+	if brCase.Mode == HCModeExternal {
 		// Pre-backup verification for guest cluster
 		if brCase.PreBackupVerifyGuest != nil {
 			log.Printf("Validating guest cluster pre-backup")
@@ -98,7 +98,7 @@ func runHCPBackupAndRestore(
 		gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to run HCP post-restore verification: %v", err)
 	}
 
-	if brCase.Mode == HCModeExisting {
+	if brCase.Mode == HCModeExternal {
 		// Post-restore verification for guest cluster
 		if brCase.PostRestoreVerifyGuest != nil {
 			log.Printf("Validating guest cluster post-restore")
@@ -137,9 +137,6 @@ var _ = ginkgo.Describe("HCP Backup and Restore tests", ginkgo.Ordered, func() {
 
 	// Before All
 	var _ = ginkgo.BeforeAll(func() {
-		if hcBackupRestoreMode == string(HCModeExisting) {
-			ginkgo.Skip("Skipping HCP backup and restore test for existing HCP")
-		}
 		// Wait for CatalogSource to be ready
 		err := libhcp.WaitForCatalogSourceReady(
 			ctx,
