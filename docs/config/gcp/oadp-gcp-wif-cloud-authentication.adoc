@@ -102,20 +102,64 @@ export BUCKET_NAME="velero-${GCP_PROJECT_ID}-${CLUSTER_NAME}"
 gsutil mb gs://${BUCKET_NAME}
 ----
 
+[id="oadp-gcp-console-installation_{context}"]
+== Installing OADP Operator via OpenShift Web Console
+
+When installing the OADP operator through the OpenShift web console with tokenized authentication support, you will be presented with cloud provider-specific configuration fields.
+
+[NOTE]
+====
+For OpenShift 4.15 and later, the web console supports tokenized authentication during operator installation, allowing you to provide cloud credentials directly through the installation form.
+====
+
+.Console Installation Fields for GCP
+
+During operator installation, the web console will display the following fields:
+
+*GCP Project Number*::
+**Field Label:** "GCP Project Number"
++
+**Help Text:** "The GCP Project Number required for the operator to access the cloud API."
++
+**Value to Enter:** Use the `GCP_PROJECT_NUM` value from the prerequisite setup steps above.
+
+*GCP Pool ID*::
+**Field Label:** "GCP Pool ID"
++
+**Help Text:** "The GCP Pool ID required for the operator to access the cloud API."
++
+**Value to Enter:** Use the `POOL_ID` value from the prerequisite setup steps above (typically matches your `CLUSTER_NAME`).
+
+*GCP Provider ID*::
+**Field Label:** "GCP Provider ID"
++
+**Help Text:** "The GCP Provider ID required for the operator to access the cloud API."
++
+**Value to Enter:** Use the `PROVIDER_ID` value from the prerequisite setup steps above (typically matches your `CLUSTER_NAME`).
+
+*Service Account Email*::
+**Field Label:** "Service Account Email"
++
+**Help Text:** "The Service Account Email required for the operator to access the cloud API."
++
+**Value to Enter:** Use the `SERVICE_ACCOUNT_EMAIL` value from the prerequisite setup steps above (e.g., `velero-your-cluster@your-project.iam.gserviceaccount.com`).
+
+These fields correspond to the Workload Identity Federation configuration and service account you created in the prerequisite steps for Google Workload Identity Federation authentication.
+
 [id="oadp-gcp-cloud-storage-api_{context}"]
 == Alternative: Using Cloud Storage API for Automated Bucket Management
 
-Instead of manually creating buckets, you can use the OADP Cloud Storage API to automatically manage bucket creation and configuration. This approach requires OADP operator version with Cloud Storage API support.
+Instead of manually creating buckets, you can use the OADP CloudStorage API to automatically manage bucket creation and configuration.
 
-.Prerequisites for Cloud Storage API
+[NOTE]
+====
+For comprehensive documentation on the CloudStorage API, including detailed configuration options, troubleshooting, and advanced usage, see link:../oadp-cloudstorage-api.html[OADP CloudStorage API].
+====
 
-* OADP operator with Cloud Storage API functionality enabled
-* The same Workload Identity configuration as above
+.GCP-Specific CloudStorage Configuration
 
-.Procedure for Cloud Storage API
+For GCP, create a CloudStorage resource with the following configuration:
 
-. Create a CloudStorage resource instead of manually creating buckets:
-+
 [source,yaml]
 ----
 cat <<EOF | oc apply -f -
@@ -125,18 +169,17 @@ metadata:
   name: gcp-backup-storage
   namespace: openshift-adp
 spec:
-  name: velero-${GCP_PROJECT_ID}-${CLUSTER_NAME}
+  name: ${BUCKET_NAME}
   provider: gcp
   region: us-central1
   creationSecret:
     name: cloud-credentials-gcp
     key: service_account.json  # Required key name for GCP provider
-  creationPolicy: CreateIfNotExists
 EOF
 ----
 
-. Create the DataProtectionApplication with Cloud Storage API reference:
-+
+Then configure your DataProtectionApplication to use the CloudStorage resource:
+
 [source,yaml]
 ----
 cat <<EOF | oc apply -f -
@@ -155,7 +198,6 @@ spec:
   backupLocations:
     - name: default
       bucket:
-        # Reference the CloudStorage resource instead of direct bucket
         cloudStorageRef:
           name: gcp-backup-storage
         prefix: velero
@@ -176,69 +218,18 @@ spec:
 EOF
 ----
 
-. Verify the CloudStorage resource status:
-+
-[source,bash]
-----
-oc get cloudstorage gcp-backup-storage -n openshift-adp -o yaml
-oc describe cloudstorage gcp-backup-storage -n openshift-adp
-----
+.GCP-Specific Verification
 
-. Wait for bucket creation and verify:
-+
+Verify the GCS bucket was created:
+
 [source,bash]
 ----
-# Check if bucket was created in GCS
+# Check if bucket was created in Google Cloud Storage
 gsutil ls -p ${GCP_PROJECT_ID} | grep "gs://${BUCKET_NAME}/"
 
 # Verify bucket permissions
 gsutil iam get gs://${BUCKET_NAME}/
 ----
-
-. Monitor the CloudStorage controller logs:
-+
-[source,bash]
-----
-# Check operator logs for CloudStorage operations
-oc logs -n openshift-adp deployment/oadp-operator-controller-manager | grep -i cloudstorage
-
-# Check for GCP-specific operations
-oc logs -n openshift-adp deployment/oadp-operator-controller-manager | grep -i gcp
-----
-
-[WARNING]
-====
-CloudStorage resources are protected by a finalizer (`oadp.openshift.io/bucket-protection`) to prevent accidental deletion of buckets containing backup data. To delete a CloudStorage resource, you must first add the deletion annotation:
-
-[source,bash]
-----
-# Add deletion annotation before attempting to delete
-oc annotate cloudstorage gcp-backup-storage -n openshift-adp \
-    oadp.openshift.io/cloudstorage-delete=true --overwrite
-
-# Then delete the CloudStorage resource
-oc delete cloudstorage gcp-backup-storage -n openshift-adp
-----
-
-Without this annotation, the deletion will hang indefinitely as the finalizer prevents removal.
-
-Alternatively, if you want to remove the CloudStorage resource from OpenShift without deleting the GCS bucket in Google Cloud, you can manually remove the finalizer:
-
-[source,bash]
-----
-# Remove finalizer to delete CloudStorage CR without deleting the GCS bucket
-oc patch cloudstorage gcp-backup-storage -n openshift-adp --type json \
-    -p='[{"op": "remove", "path": "/metadata/finalizers"}]'
-----
-====
-
-The CloudStorage API will automatically:
-
-* Create the bucket if it doesn't exist (with `creationPolicy: CreateIfNotExists`)
-* Configure appropriate IAM permissions for the service account
-* Set up regional configuration based on the specified region
-* Handle authentication through the referenced credential secret
-* Protect bucket resources with finalizers to prevent accidental deletion
 
 == Standard Configuration (Manual Bucket Creation)
 

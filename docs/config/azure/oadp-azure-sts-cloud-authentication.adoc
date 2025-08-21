@@ -184,20 +184,57 @@ oc annotate serviceaccount openshift-adp-controller-manager -n openshift-adp \
     azure.workload.identity/client-id="$IDENTITY_CLIENT_ID" --overwrite
 ----
 
+[id="oadp-azure-console-installation_{context}"]
+== Installing OADP Operator via OpenShift Web Console
+
+When installing the OADP operator through the OpenShift web console with tokenized authentication support, you will be presented with cloud provider-specific configuration fields.
+
+[NOTE]
+====
+For OpenShift 4.15 and later, the web console supports tokenized authentication during operator installation, allowing you to provide cloud credentials directly through the installation form.
+====
+
+.Console Installation Fields for Azure
+
+During operator installation, the web console will display the following fields:
+
+*Azure Client ID*::
+**Field Label:** "Azure Client ID"
++
+**Help Text:** "The Azure Client ID required for the operator to access the cloud API."
++
+**Value to Enter:** Use the `IDENTITY_CLIENT_ID` value from the prerequisite setup steps above.
+
+*Azure Tenant ID*::
+**Field Label:** "Azure Tenant ID"
++
+**Help Text:** "The Azure Tenant ID required for the operator to access the cloud API."
++
+**Value to Enter:** Use the `AZURE_TENANT_ID` value from the prerequisite setup steps above.
+
+*Azure Subscription ID*::
+**Field Label:** "Azure Subscription ID"
++
+**Help Text:** "The Azure Subscription ID required for the operator to access the cloud API."
++
+**Value to Enter:** Use the `AZURE_SUBSCRIPTION_ID` value from the prerequisite setup steps above.
+
+These fields correspond to the managed identity and Azure subscription information you configured in the prerequisite steps for Microsoft Entra Workload ID authentication.
+
 [id="oadp-azure-cloud-storage-api_{context}"]
 == Alternative: Using Cloud Storage API for Automated Container Management
 
-Instead of manually creating storage containers, you can use the OADP Cloud Storage API to automatically manage container creation and configuration. This approach requires OADP operator version with Cloud Storage API support.
+Instead of manually creating storage containers, you can use the OADP CloudStorage API to automatically manage container creation and configuration.
 
-.Prerequisites for Cloud Storage API
+[NOTE]
+====
+For comprehensive documentation on the CloudStorage API, including detailed configuration options, troubleshooting, and advanced usage, see link:../oadp-cloudstorage-api.html[OADP CloudStorage API].
+====
 
-* OADP operator with Cloud Storage API functionality enabled
-* The same Microsoft Entra Workload ID configuration as above
+.Azure-Specific CloudStorage Configuration
 
-.Procedure for Cloud Storage API
+For Azure with Workload Identity authentication, create a CloudStorage resource using the variables from the Workload Identity setup above:
 
-. Create a CloudStorage resource instead of manually creating containers:
-+
 [source,yaml]
 ----
 cat <<EOF | oc apply -f -
@@ -214,12 +251,11 @@ spec:
     key: azurekey  # Required key name for Azure provider
   config:
     storageAccount: ${STORAGE_ACCOUNT_NAME}
-  creationPolicy: CreateIfNotExists
 EOF
 ----
 
-. Create the DataProtectionApplication with Cloud Storage API reference:
-+
+Then configure your DataProtectionApplication to use the CloudStorage resource:
+
 [source,yaml]
 ----
 cat <<EOF | oc apply -f -
@@ -238,13 +274,16 @@ spec:
   backupLocations:
     - name: default
       bucket:
-        # Reference the CloudStorage resource instead of direct container
+        provider: azure
         cloudStorageRef:
           name: azure-backup-storage
         prefix: velero
         credential:
           name: cloud-credentials-azure
           key: azurekey
+        config:
+          resourceGroup: ${CLUSTER_RESOURCE_GROUP}
+          subscriptionId: ${AZURE_SUBSCRIPTION_ID}
         default: true
   snapshotLocations:
     - name: default
@@ -259,16 +298,10 @@ spec:
 EOF
 ----
 
-. Verify the CloudStorage resource status:
-+
-[source,bash]
-----
-oc get cloudstorage azure-backup-storage -n openshift-adp -o yaml
-oc describe cloudstorage azure-backup-storage -n openshift-adp
-----
+.Azure-Specific Verification
 
-. Wait for container creation and verify:
-+
+Verify the storage container was created:
+
 [source,bash]
 ----
 # Check if container was created in Azure Storage
@@ -277,51 +310,6 @@ az storage container list --account-name ${STORAGE_ACCOUNT_NAME} --auth-mode log
 # Verify container access
 az storage container show --name ${CONTAINER_NAME} --account-name ${STORAGE_ACCOUNT_NAME} --auth-mode login
 ----
-
-. Monitor the CloudStorage controller logs:
-+
-[source,bash]
-----
-# Check operator logs for CloudStorage operations
-oc logs -n openshift-adp deployment/oadp-operator-controller-manager | grep -i cloudstorage
-
-# Check for Azure-specific operations
-oc logs -n openshift-adp deployment/oadp-operator-controller-manager | grep -i azure
-----
-
-[WARNING]
-====
-CloudStorage resources are protected by a finalizer (`oadp.openshift.io/bucket-protection`) to prevent accidental deletion of containers containing backup data. To delete a CloudStorage resource, you must first add the deletion annotation:
-
-[source,bash]
-----
-# Add deletion annotation before attempting to delete
-oc annotate cloudstorage azure-backup-storage -n openshift-adp \
-    oadp.openshift.io/cloudstorage-delete=true --overwrite
-
-# Then delete the CloudStorage resource
-oc delete cloudstorage azure-backup-storage -n openshift-adp
-----
-
-Without this annotation, the deletion will hang indefinitely as the finalizer prevents removal.
-
-Alternatively, if you want to remove the CloudStorage resource from OpenShift without deleting the Azure storage container, you can manually remove the finalizer:
-
-[source,bash]
-----
-# Remove finalizer to delete CloudStorage CR without deleting the Azure container
-oc patch cloudstorage azure-backup-storage -n openshift-adp --type json \
-    -p='[{"op": "remove", "path": "/metadata/finalizers"}]'
-----
-====
-
-The CloudStorage API will automatically:
-
-* Create the storage container if it doesn't exist (with `creationPolicy: CreateIfNotExists`)
-* Configure appropriate access permissions for the managed identity
-* Handle authentication through the referenced credential secret
-* Manage container lifecycle and cleanup operations
-* Protect container resources with finalizers to prevent accidental deletion
 
 == Standard Configuration (Manual Container Creation)
 
