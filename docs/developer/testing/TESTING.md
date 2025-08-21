@@ -107,7 +107,6 @@ Set common env variables as mentioned above, then run:
 ```bash
 TEST_HCP_EXTERNAL=true \
 HC_NAME=hc1 \
-HC_KUBECONFIG=/path/to/kubeconfig/for/hosted/cluster \
 make test-e2e
 ```
 

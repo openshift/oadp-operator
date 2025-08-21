@@ -14,7 +14,6 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
@@ -25,11 +24,10 @@ import (
 
 var (
 	// Common vars obtained from flags passed in ginkgo.
-	bslCredFile, namespace, instanceName, provider, vslCredFile, settings, artifact_dir, hcKubeconfig string
-	flakeAttempts                                                                                     int64
+	bslCredFile, namespace, instanceName, provider, vslCredFile, settings, artifact_dir string
+	flakeAttempts                                                                       int64
 
 	kubernetesClientForSuiteRun *kubernetes.Clientset
-	crClientForHC               client.Client
 	runTimeClientForSuiteRun    client.Client
 	dynamicClientForSuiteRun    dynamic.Interface
 
@@ -39,7 +37,6 @@ var (
 	vslSecretName                   string
 
 	kubeConfig          *rest.Config
-	kubeConfigForHC     *rest.Config
 	knownFlake          bool
 	accumulatedTestLogs []string
 
@@ -66,7 +63,6 @@ func init() {
 	flag.BoolVar(&skipMustGather, "skipMustGather", false, "avoid errors with local execution and cluster architecture")
 	flag.StringVar(&hcBackupRestoreMode, "hc_backup_restore_mode", string(HCModeCreate), "Type of HC test to run")
 	flag.StringVar(&hcName, "hc_name", "", "Name of the HostedCluster to use for HCP tests")
-	flag.StringVar(&hcKubeconfig, "hc_kubeconfig", "", "Path to kubeconfig file for HostedCluster")
 
 	// helps with launching debug sessions from IDE
 	if os.Getenv("E2E_USE_ENV_FLAGS") == "true" {
@@ -131,11 +127,7 @@ func init() {
 		if os.Getenv("HC_NAME") != "" {
 			hcName = os.Getenv("HC_NAME")
 		}
-		if os.Getenv("HC_KUBECONFIG") != "" {
-			hcKubeconfig = os.Getenv("HC_KUBECONFIG")
-		}
 	}
-
 }
 
 func TestOADPE2E(t *testing.T) {
@@ -151,18 +143,6 @@ func TestOADPE2E(t *testing.T) {
 
 	kubernetesClientForSuiteRun, err = kubernetes.NewForConfig(kubeConfig)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-
-	// Set up kubeConfigForHC if kubeconfig_hc flag is provided
-	if hcKubeconfig != "" {
-		kubeConfigForHC, err = clientcmd.BuildConfigFromFlags("", hcKubeconfig)
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
-
-		kubeConfigForHC.QPS = kubeConfig.QPS
-		kubeConfigForHC.Burst = kubeConfig.Burst
-
-		crClientForHC, err = client.New(kubeConfigForHC, client.Options{Scheme: lib.Scheme})
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
-	}
 
 	runTimeClientForSuiteRun, err = client.New(kubeConfig, client.Options{Scheme: lib.Scheme})
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())

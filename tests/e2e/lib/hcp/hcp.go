@@ -16,6 +16,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
@@ -684,4 +686,30 @@ func RestartHCPPods(HCPNamespace string, c client.Client) error {
 		}
 	}
 	return nil
+}
+
+func buildConfigFromBytes(kubeconfigData []byte) (*rest.Config, error) {
+	clientConfig, err := clientcmd.NewClientConfigFromBytes(kubeconfigData)
+	if err != nil {
+		return nil, err
+	}
+	config, err := clientConfig.ClientConfig()
+	if err != nil {
+		return nil, err
+	}
+	return config, nil
+}
+
+func (h *HCHandler) GetHostedClusterKubeconfig(hc *hypershiftv1.HostedCluster) (*rest.Config, error) {
+	kubeconfigSecret := &corev1.Secret{}
+	err := h.Client.Get(h.Ctx,
+		types.NamespacedName{
+			Namespace: hc.Namespace,
+			Name:      hc.Status.KubeConfig.Name},
+		kubeconfigSecret)
+	if err != nil {
+		return nil, err
+	}
+	kubeconfigData := kubeconfigSecret.Data["kubeconfig"]
+	return buildConfigFromBytes(kubeconfigData)
 }

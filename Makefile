@@ -68,10 +68,6 @@ TTL_DURATION ?= 1h
 # HC_NAME is the name of the HostedCluster to use for HCP tests when
 # hc_backup_restore_mode is set to external. Otherwise, HC_NAME is ignored.
 HC_NAME ?= ""
-# HC_KUBECONFIG is the path to the kubeconfig file for the HostedCluster
-# to use for HCP tests when hc_backup_restore_mode is set to external.
-# Otherwise, HC_KUBECONFIG is ignored.
-HC_KUBECONFIG ?= ""
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
@@ -840,7 +836,7 @@ else
 endif
 ifeq ($(TEST_HCP_EXTERNAL),true)
 	TEST_FILTER += && (hcp_external)
-	HCP_EXTERNAL_ARGS = -hc_backup_restore_mode=external -hc_name=$(HC_NAME) -hc_kubeconfig=$(HC_KUBECONFIG)
+	HCP_EXTERNAL_ARGS = -hc_backup_restore_mode=external -hc_name=$(HC_NAME)
 else
 	TEST_FILTER += && (! hcp_external)
 endif

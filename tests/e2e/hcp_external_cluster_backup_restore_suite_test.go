@@ -39,7 +39,6 @@ var _ = ginkgo.Describe("HCP external cluster Backup and Restore tests", ginkgo.
 		h = &libhcp.HCHandler{
 			Ctx:            context.Background(),
 			Client:         runTimeClientForSuiteRun,
-			ClientGuest:    crClientForHC,
 			HCOCPTestImage: libhcp.HCOCPTestImage,
 		}
 	})

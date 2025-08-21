@@ -145,7 +145,6 @@ var (
 type HCHandler struct {
 	Ctx            context.Context
 	Client         client.Client
-	ClientGuest    client.Client
 	HCOCPTestImage string
 	HCPNamespace   string
 	HostedCluster  *hypershiftv1.HostedCluster
