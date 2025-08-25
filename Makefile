@@ -230,6 +230,7 @@ vet: ## Run go vet against code.
 # If bin/ contains binaries of different arch, you may remove them so the container can install their arch.
 .PHONY: test
 test: vet envtest ## Run unit tests; run Go linters checks; check if api and bundle folders are up to date; and check if go dependencies are valid
+	@make versions
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test -mod=mod $(shell go list -mod=mod ./... | grep -v /tests/e2e) -coverprofile cover.out
 	@make lint
 	@make api-isupdated
