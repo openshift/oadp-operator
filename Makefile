@@ -3,7 +3,7 @@
 DEFAULT_VERSION := 1.5.0
 VERSION ?= $(DEFAULT_VERSION)
 OPERATOR_SDK_VERSION ?= v1.34.2
-ENVTEST_K8S_VERSION = 1.32 # Kubernetes version from OpenShift 4.19.x
+ENVTEST_K8S_VERSION = 1.32 #refers to the version of kubebuilder assets to be downloaded by envtest binary # Kubernetes version from OpenShift 4.19.x
 GOLANGCI_LINT_VERSION ?= v1.55.2
 KUSTOMIZE_VERSION ?= v5.2.1
 CONTROLLER_TOOLS_VERSION ?= v0.16.5
