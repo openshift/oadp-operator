@@ -64,9 +64,6 @@ IMG ?= quay.io/konveyor/oadp-operator:latest
 # You can override this with environment variable (e.g., export TTL_DURATION=4h)
 TTL_DURATION ?= 1h
 
-# ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
-# ENVTEST_K8S_VERSION is defined at the top of this file
-
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
 GOBIN=$(shell go env GOPATH)/bin
@@ -630,10 +627,6 @@ deploy-olm-stsflow-azure: deploy-olm-stsflow ## Deploy via OLM with Azure Worklo
 		echo "Example:"; \
 		echo "  make deploy-olm-stsflow-azure AZURE_CLIENT_ID=12345678-1234-1234-1234-123456789012 AZURE_TENANT_ID=87654321-4321-4321-4321-210987654321 AZURE_SUBSCRIPTION_ID=abcdef12-3456-7890-abcd-ef1234567890"; \
 	fi
-
-# A valid Git branch from https://github.com/openshift/oadp-operator
-# PREVIOUS_CHANNEL is defined at the top of this file
-# Go version in go.mod in that branch - PREVIOUS_CHANNEL_GO_VERSION is defined at the top of this file
 
 .PHONY: catalog-test-upgrade
 catalog-test-upgrade: PREVIOUS_OPERATOR_IMAGE?=ttl.sh/oadp-operator-previous-$(GIT_REV):$(TTL_DURATION)
