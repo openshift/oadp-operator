@@ -123,6 +123,7 @@ define CHECK_TOOL_VERSION
 		$(if $(7),$(7)) \
 		else \
 			printf "\033[33m%-30s\033[0m %-20s %s\n" "$(6)" "$$INSTALLED_VERSION" "⚠ differs from Makefile ($$EXPECTED_VERSION)"; \
+			printf "\033[33m✗ Installing the version requested by the Makefile\033[0m\n"; \
 			exit 1; \
 		fi; \
 	else \
@@ -136,7 +137,7 @@ help: ## Display this help.
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_0-9-]+:.*?##/ { printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
 
 .PHONY: versions
-versions: ## Display all variables containing 'version' in their name.
+versions: check-go ## Display all variables containing 'version' in their name.
 	@printf "\033[36m%-30s\033[0m %s\n" "GO_VERSION" "$$(go version | awk '{print $$3}')"
 	@printf "\n\033[1m%-30s %-20s %s\033[0m\n" "Tool and Project Versions:" "Value" "Used by Targets"
 	@printf "\033[36m%-30s\033[0m %-20s %s\n" "DEFAULT_VERSION" "$(DEFAULT_VERSION)" "bundle-isupdated"
@@ -156,6 +157,14 @@ versions: ## Display all variables containing 'version' in their name.
 	$(call CHECK_TOOL_VERSION,Golangci-Lint,$(GOLANGCI_LINT),$(GOLANGCI_LINT) --version 2>/dev/null | grep 'golangci-lint has version' | sed 's/.*version \([^ ]*\).*/\1/',$(GOLANGCI_LINT_VERSION),golangci-lint,GOLANGCI_LINT_LOCAL)
 	$(call CHECK_TOOL_VERSION,Kustomize,$(KUSTOMIZE),$(KUSTOMIZE) version --short 2>/dev/null | grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+' || echo "(devel)",$(KUSTOMIZE_VERSION),kustomize,KUSTOMIZE_LOCAL,elif [ "$$INSTALLED_VERSION" = "(devel)" ]; then printf "\033[36m%-30s\033[0m %-20s %s\n" "KUSTOMIZE_LOCAL" "$$INSTALLED_VERSION" "ⓘ dev build (expected $(KUSTOMIZE_VERSION))";)
 
+.PHONY: check-go
+check-go: ## Check if go binary is available in PATH
+	@if ! command -v go >/dev/null 2>&1; then \
+		printf "\033[31m✗ Error: 'go' binary not found in PATH\033[0m\n"; \
+		printf "Please install Go from https://golang.org/dl/ and ensure it's in your PATH\n"; \
+		exit 1; \
+	fi
+	@printf "\033[32m✓ Go binary found in PATH\033[0m\n"
 
 ##@ Development
 
@@ -168,11 +177,11 @@ generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and
 	GOFLAGS="-mod=mod" $(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
 .PHONY: fmt
-fmt: ## Run go fmt against code.
+fmt: check-go ## Run go fmt against code.
 	go fmt -mod=mod ./...
 
 .PHONY: vet
-vet: ## Run go vet against code.
+vet: check-go ## Run go vet against code.
 	go vet -mod=mod ./...
 
 # If test results in prow are different, it is because the environment used.
@@ -182,7 +191,7 @@ vet: ## Run go vet against code.
 # to login to registry cluster follow https://docs.ci.openshift.org/docs/how-tos/use-registries-in-build-farm/#how-do-i-log-in-to-pull-images-that-require-authentication
 # If bin/ contains binaries of different arch, you may remove them so the container can install their arch.
 .PHONY: test
-test: vet envtest ## Run unit tests; run Go linters checks; check if api and bundle folders are up to date; and check if go dependencies are valid
+test: check-go vet envtest ## Run unit tests; run Go linters checks; check if api and bundle folders are up to date; and check if go dependencies are valid
 	@make versions
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test -mod=mod $(shell go list -mod=mod ./... | grep -v /tests/e2e) -coverprofile cover.out
 	@make lint
@@ -218,11 +227,11 @@ lint-fix: golangci-lint ## Fix Go linters issues.
 ##@ Build
 
 .PHONY: build
-build: manifests generate fmt vet ## Build manager binary.
+build: check-go manifests generate fmt vet ## Build manager binary.
 	go build -o bin/manager cmd/main.go
 
 .PHONY: run
-run: manifests generate fmt vet ## Run a controller from your host.
+run: check-go manifests generate fmt vet ## Run a controller from your host.
 	go run ./cmd/main.go
 
 OC_CLI ?= $(shell which oc)
@@ -401,7 +410,7 @@ bundle-isupdated:
 
 .PHONY: check-go-dependencies
 check-go-dependencies: TEMP:= $(shell mktemp -d)
-check-go-dependencies:
+check-go-dependencies: check-go
 	@cp -r ./ $(TEMP) && cd $(TEMP) && go mod tidy && cd - && diff -ruN ./ $(TEMP)/ && echo "go dependencies checked" || (echo "go dependencies are out of date, run 'go mod tidy' to update" && exit 1)
 	@chmod -R 777 $(TEMP) && rm -rf $(TEMP)
 	go mod verify
@@ -716,7 +725,7 @@ catalog-test-upgrade: opm login-required ## Prepare a catalog image with two cha
 	chmod -R 777 test-upgrade && rm -rf test-upgrade && $(CONTAINER_TOOL) image rm catalog-test-upgrade
 
 .PHONY: install-ginkgo
-install-ginkgo: ## Make sure ginkgo is in $GOPATH/bin
+install-ginkgo: check-go ## Make sure ginkgo is in $GOPATH/bin
 	go install -v -mod=mod github.com/onsi/ginkgo/v2/ginkgo
 
 # CONFIGS FOR CLOUD
@@ -882,5 +891,5 @@ endif
 	@make bundle
 
 .PHONY: build-must-gather
-build-must-gather: ## Build OADP Must-gather binary must-gather/oadp-must-gather
+build-must-gather: check-go ## Build OADP Must-gather binary must-gather/oadp-must-gather
 	cd must-gather && go build -mod=mod -a -o oadp-must-gather cmd/main.go
