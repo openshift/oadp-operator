@@ -8,6 +8,7 @@ GOLANGCI_LINT_VERSION ?= v1.55.2
 KUSTOMIZE_VERSION ?= v5.2.1
 CONTROLLER_TOOLS_VERSION ?= v0.16.5
 OPM_VERSION ?= v1.23.0
+BRANCH_VERSION = oadp-1.5
 PREVIOUS_CHANNEL ?= oadp-1.4
 PREVIOUS_CHANNEL_GO_VERSION ?= 1.22
 # Extract the toolchain directive from go.mod
@@ -112,7 +113,7 @@ help: ## Display this help.
 .PHONY: versions
 versions: ## Display all variables containing 'version' in their name.
 	@printf "\033[36m%-30s\033[0m %s\n" "GO_VERSION" "$$(go version | awk '{print $$3}')"
-	@printf "\n\033[1m%s %s %s\033[0m\n" "Tool and Project Versions:" "Value" "Used by Targets"
+	@printf "\n\033[1m%-30s %-20s %s\033[0m\n" "Tool and Project Versions:" "Value" "Used by Targets"
 	@printf "\033[36m%-30s\033[0m %-20s %s\n" "DEFAULT_VERSION" "$(DEFAULT_VERSION)" "bundle-isupdated"
 	@printf "\033[36m%-30s\033[0m %-20s %s\n" "VERSION" "$(VERSION)" "bundle, catalog-build, deploy-olm, undeploy-olm"
 	@printf "\033[36m%-30s\033[0m %-20s %s\n" "OPERATOR_SDK_VERSION" "$(OPERATOR_SDK_VERSION)" "operator-sdk"
@@ -124,6 +125,76 @@ versions: ## Display all variables containing 'version' in their name.
 	@printf "\033[36m%-30s\033[0m %-20s %s\n" "PREVIOUS_CHANNEL" "$(PREVIOUS_CHANNEL)" "catalog-test-upgrade"
 	@printf "\033[36m%-30s\033[0m %-20s %s\n" "PREVIOUS_CHANNEL_GO_VERSION" "$(PREVIOUS_CHANNEL_GO_VERSION)" "catalog-test-upgrade"
 	@printf "\033[36m%-30s\033[0m %-20s %s\n" "GO_TOOLCHAIN_VERSION" "$(GO_TOOLCHAIN_VERSION)" "(informational only)"
+	@printf "\n\033[1mOperator-SDK Version Check:\033[0m\n"
+	@if [ -f "$(OPERATOR_SDK)" ]; then \
+		INSTALLED_VERSION=$$($(OPERATOR_SDK) version 2>/dev/null | grep 'operator-sdk version' | cut -d'"' -f2 || echo "unknown"); \
+		EXPECTED_VERSION="$(OPERATOR_SDK_VERSION)"; \
+		if [ "$$INSTALLED_VERSION" = "$$EXPECTED_VERSION" ]; then \
+			printf "\033[32m%-30s\033[0m %-20s %s\n" "OPERATOR_SDK_LOCAL" "$$INSTALLED_VERSION" "✓ matches Makefile"; \
+		else \
+			printf "\033[33m%-30s\033[0m %-20s %s\n" "OPERATOR_SDK_LOCAL" "$$INSTALLED_VERSION" "⚠ differs from Makefile ($$EXPECTED_VERSION)"; \
+			exit 1; \
+		fi; \
+	else \
+		printf "\033[31m%-30s\033[0m %-20s %s\n" "OPERATOR_SDK_LOCAL" "not found" "✗ not installed in $(LOCALBIN)"; \
+		$(MAKE) operator-sdk; \
+	fi
+	@printf "\n\033[1mController-Gen Version Check:\033[0m\n"
+	@if [ -f "$(CONTROLLER_GEN)" ]; then \
+		INSTALLED_VERSION=$$($(CONTROLLER_GEN) --version 2>/dev/null | grep 'Version:' | cut -d' ' -f2 || echo "unknown"); \
+		EXPECTED_VERSION="$(CONTROLLER_TOOLS_VERSION)"; \
+		if [ "$$INSTALLED_VERSION" = "$$EXPECTED_VERSION" ]; then \
+			printf "\033[32m%-30s\033[0m %-20s %s\n" "CONTROLLER_GEN_LOCAL" "$$INSTALLED_VERSION" "✓ matches Makefile"; \
+		else \
+			printf "\033[33m%-30s\033[0m %-20s %s\n" "CONTROLLER_GEN_LOCAL" "$$INSTALLED_VERSION" "⚠ differs from Makefile ($$EXPECTED_VERSION)"; \
+			exit 1; \
+		fi; \
+	else \
+		printf "\033[31m%-30s\033[0m %-20s %s\n" "CONTROLLER_GEN_LOCAL" "not found" "✗ not installed in $(LOCALBIN)"; \
+		$(MAKE) controller-gen; \
+	fi
+	@printf "\n\033[1mOPM Version Check:\033[0m\n"
+	@if [ -f "$(OPM)" ]; then \
+		INSTALLED_VERSION=$$($(OPM) version 2>/dev/null | cut -d'"' -f2 || echo "unknown"); \
+		EXPECTED_VERSION="$(OPM_VERSION)"; \
+		if [ "$$INSTALLED_VERSION" = "$$EXPECTED_VERSION" ]; then \
+			printf "\033[32m%-30s\033[0m %-20s %s\n" "OPM_LOCAL" "$$INSTALLED_VERSION" "✓ matches Makefile"; \
+		else \
+			printf "\033[33m%-30s\033[0m %-20s %s\n" "OPM_LOCAL" "$$INSTALLED_VERSION" "⚠ differs from Makefile ($$EXPECTED_VERSION)"; \
+			exit 1; \
+		fi; \
+	else \
+		printf "\033[31m%-30s\033[0m %-20s %s\n" "OPM_LOCAL" "not found" "✗ not installed in $(LOCALBIN)"; \
+		$(MAKE) opm; \
+	fi
+	@printf "\n\033[1mGolangci-Lint Version Check:\033[0m\n"
+	@if [ -f "$(GOLANGCI_LINT)" ]; then \
+		INSTALLED_VERSION=$$($(GOLANGCI_LINT) --version 2>/dev/null | grep 'golangci-lint has version' | sed 's/.*version \([^ ]*\).*/\1/' || echo "unknown"); \
+		EXPECTED_VERSION="$(GOLANGCI_LINT_VERSION)"; \
+		if [ "$$INSTALLED_VERSION" = "$$EXPECTED_VERSION" ]; then \
+			printf "\033[32m%-30s\033[0m %-20s %s\n" "GOLANGCI_LINT_LOCAL" "$$INSTALLED_VERSION" "✓ matches Makefile"; \
+		else \
+			printf "\033[33m%-30s\033[0m %-20s %s\n" "GOLANGCI_LINT_LOCAL" "$$INSTALLED_VERSION" "⚠ differs from Makefile ($$EXPECTED_VERSION)"; \
+			exit 1; \
+		fi; \
+	else \
+		printf "\033[31m%-30s\033[0m %-20s %s\n" "GOLANGCI_LINT_LOCAL" "not found" "✗ not installed in $(LOCALBIN)"; \
+		$(MAKE) golangci-lint; \
+	fi
+	@printf "\n\033[1mKustomize Version Check:\033[0m\n"
+	@if [ -f "$(KUSTOMIZE)" ]; then \
+		INSTALLED_VERSION=$$($(KUSTOMIZE) version 2>/dev/null | grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+' || echo "unknown"); \
+		EXPECTED_VERSION="$(KUSTOMIZE_VERSION)"; \
+		if [ "$$INSTALLED_VERSION" = "$$EXPECTED_VERSION" ]; then \
+			printf "\033[32m%-30s\033[0m %-20s %s\n" "KUSTOMIZE_LOCAL" "$$INSTALLED_VERSION" "✓ matches Makefile"; \
+		else \
+			printf "\033[33m%-30s\033[0m %-20s %s\n" "KUSTOMIZE_LOCAL" "$$INSTALLED_VERSION" "⚠ differs from Makefile ($$EXPECTED_VERSION)"; \
+			exit 1; \
+		fi; \
+	else \
+		printf "\033[31m%-30s\033[0m %-20s %s\n" "KUSTOMIZE_LOCAL" "not found" "✗ not installed in $(LOCALBIN)"; \
+		$(MAKE) kustomize; \
+	fi
 
 ##@ Development
 
@@ -158,11 +229,15 @@ test: vet envtest ## Run unit tests; run Go linters checks; check if api and bun
 	@make bundle-isupdated
 	@make check-go-dependencies
 
-GOLANGCI_LINT = $(shell pwd)/bin/golangci-lint
+GOLANGCI_LINT = $(LOCALBIN)/$(BRANCH_VERSION)/golangci-lint
 .PHONY: golangci-lint
 golangci-lint: $(GOLANGCI_LINT) ## Download golangci-lint locally if necessary.
 $(GOLANGCI_LINT): $(LOCALBIN)
-	$(call go-install-tool,$(GOLANGCI_LINT),github.com/golangci/golangci-lint/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION))
+	$(call go-install-tool-branch,$(GOLANGCI_LINT),github.com/golangci/golangci-lint/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION))
+	@if [ -L "$(LOCALBIN)/golangci-lint" ]; then \
+		unlink "$(LOCALBIN)/golangci-lint"; \
+	fi
+	@ln -sf "$(LOCALBIN)/$(BRANCH_VERSION)/golangci-lint" "$(LOCALBIN)/golangci-lint"
 
 .PHONY: lint
 lint: golangci-lint ## Run Go linters checks against all project's Go files.
@@ -238,19 +313,35 @@ $(LOCALBIN):
 
 ## Tool Binaries
 KUBECTL ?= kubectl
-KUSTOMIZE ?= $(LOCALBIN)/kustomize
-CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen
+KUSTOMIZE ?= $(LOCALBIN)/$(BRANCH_VERSION)/kustomize
+CONTROLLER_GEN ?= $(LOCALBIN)/$(BRANCH_VERSION)/controller-gen
 ENVTEST ?= $(LOCALBIN)/setup-envtest
 
 .PHONY: kustomize
 kustomize: $(KUSTOMIZE) ## Download kustomize locally if necessary. If wrong version is installed, it will be removed before downloading.
 $(KUSTOMIZE): $(LOCALBIN)
-	$(call go-install-tool,$(KUSTOMIZE),sigs.k8s.io/kustomize/kustomize/v5@$(KUSTOMIZE_VERSION))
+ifneq ($(shell $(KUSTOMIZE) version 2>/dev/null | grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+'),$(KUSTOMIZE_VERSION))
+	set -e ;\
+	mkdir -p $(dir $(KUSTOMIZE)) ;\
+	OS=$(shell go env GOOS) && ARCH=$(shell go env GOARCH) && \
+	curl -sSLo $(KUSTOMIZE).tar.gz https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2F$(KUSTOMIZE_VERSION)/kustomize_$(KUSTOMIZE_VERSION)_$${OS}_$${ARCH}.tar.gz ;\
+	tar -xzf $(KUSTOMIZE).tar.gz -C $(dir $(KUSTOMIZE)) ;\
+	rm $(KUSTOMIZE).tar.gz ;\
+	chmod +x $(KUSTOMIZE)
+endif
+	@if [ -L "$(LOCALBIN)/kustomize" ]; then \
+		unlink "$(LOCALBIN)/kustomize"; \
+	fi
+	@ln -sf "$(LOCALBIN)/$(BRANCH_VERSION)/kustomize" "$(LOCALBIN)/kustomize"
 
 .PHONY: controller-gen
 controller-gen: $(CONTROLLER_GEN) ## Download controller-gen locally if necessary. If wrong version is installed, it will be overwritten.
 $(CONTROLLER_GEN): $(LOCALBIN)
-	$(call go-install-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_TOOLS_VERSION))
+	$(call go-install-tool-branch,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_TOOLS_VERSION))
+	@if [ -L "$(LOCALBIN)/controller-gen" ]; then \
+		unlink "$(LOCALBIN)/controller-gen"; \
+	fi
+	@ln -sf "$(LOCALBIN)/$(BRANCH_VERSION)/controller-gen" "$(LOCALBIN)/controller-gen"
 
 .PHONY: envtest
 envtest: $(ENVTEST) ## Download envtest-setup locally if necessary.
@@ -258,7 +349,7 @@ $(ENVTEST): $(LOCALBIN)
 	$(call go-install-tool,$(ENVTEST),sigs.k8s.io/controller-runtime/tools/setup-envtest@v0.0.0-20250308055145-5fe7bb3edc86)
 
 .PHONY: operator-sdk
-OPERATOR_SDK ?= $(LOCALBIN)/operator-sdk
+OPERATOR_SDK ?= $(LOCALBIN)/$(BRANCH_VERSION)/operator-sdk
 operator-sdk: ## Download operator-sdk locally if necessary.
 ifneq ($(shell $(OPERATOR_SDK) version | cut -d'"' -f2),$(OPERATOR_SDK_VERSION))
 	set -e; \
@@ -267,6 +358,10 @@ ifneq ($(shell $(OPERATOR_SDK) version | cut -d'"' -f2),$(OPERATOR_SDK_VERSION))
 	curl -sSLo $(OPERATOR_SDK) https://github.com/operator-framework/operator-sdk/releases/download/$(OPERATOR_SDK_VERSION)/operator-sdk_$${OS}_$${ARCH} ;\
 	chmod +x $(OPERATOR_SDK);
 endif
+	@if [ -L "$(LOCALBIN)/operator-sdk" ]; then \
+		unlink "$(LOCALBIN)/operator-sdk"; \
+	fi
+	@ln -sf "$(LOCALBIN)/$(BRANCH_VERSION)/operator-sdk" "$(LOCALBIN)/operator-sdk"
 
 .PHONY: bundle
 bundle: manifests kustomize operator-sdk ## Generate bundle manifests and metadata, then validate generated files.
@@ -290,7 +385,7 @@ bundle-push: ## Push the bundle image.
 	$(MAKE) docker-push IMG=$(BUNDLE_IMG)
 
 .PHONY: opm
-OPM ?= $(LOCALBIN)/opm
+OPM ?= $(LOCALBIN)/$(BRANCH_VERSION)/opm
 opm: ## Download opm locally if necessary.
 ifneq ($(shell $(OPM) version | cut -d'"' -f2),$(OPM_VERSION))
 	set -e ;\
@@ -299,6 +394,10 @@ ifneq ($(shell $(OPM) version | cut -d'"' -f2),$(OPM_VERSION))
 	curl -sSLo $(OPM) https://github.com/operator-framework/operator-registry/releases/download/$(OPM_VERSION)/$${OS}-$${ARCH}-opm ;\
 	chmod +x $(OPM)
 endif
+	@if [ -L "$(LOCALBIN)/opm" ]; then \
+		unlink "$(LOCALBIN)/opm"; \
+	fi
+	@ln -sf "$(LOCALBIN)/$(BRANCH_VERSION)/opm" "$(LOCALBIN)/opm"
 
 # A comma-separated list of bundle images (e.g. make catalog-build BUNDLE_IMGS=example.com/operator-bundle:v0.1.0,example.com/operator-bundle:v0.2.0).
 # These images MUST exist in a registry and be pull-able.
@@ -372,13 +471,27 @@ submit-coverage:
 # go-install-tool will 'go install' any package $2 and install it to $1.
 PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
 define go-install-tool
-@[ -f $(1) ] || { \
+[ -f $(1) ] || { \
 set -e ;\
 TMP_DIR=$$(mktemp -d) ;\
 cd $$TMP_DIR ;\
 go mod init tmp ;\
 echo "Downloading $(2)" ;\
 GOBIN=$(PROJECT_DIR)/bin go install -mod=mod $(2) ;\
+rm -rf $$TMP_DIR ;\
+}
+endef
+
+# go-install-tool-branch will 'go install' any package $2 and install it to branch-specific directory $1.
+define go-install-tool-branch
+[ -f $(1) ] || { \
+set -e ;\
+mkdir -p $(dir $(1)) ;\
+TMP_DIR=$$(mktemp -d) ;\
+cd $$TMP_DIR ;\
+go mod init tmp ;\
+echo "Downloading $(2) to branch directory" ;\
+GOBIN=$(dir $(1)) go install -mod=mod $(2) ;\
 rm -rf $$TMP_DIR ;\
 }
 endef
