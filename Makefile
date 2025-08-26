@@ -32,6 +32,99 @@ OC_CLI = $(shell which oc)
 TEST_VIRT ?= false
 TEST_UPGRADE ?= false
 
+# TOOL VERSIONS
+# All version-related variables are defined here for easy maintenance
+DEFAULT_VERSION := 1.4.0
+VERSION ?= $(DEFAULT_VERSION) # the version of the operator
+OPERATOR_SDK_VERSION ?= v1.34.2
+ENVTEST_K8S_VERSION = 1.29 # Kubernetes version from OpenShift 4.16.x
+GOLANGCI_LINT_VERSION ?= v1.54.2
+KUSTOMIZE_VERSION ?= v4.5.5
+CONTROLLER_TOOLS_VERSION ?= v0.16.5
+OPM_VERSION ?= v1.15.1
+YQ_VERSION ?= 4.28.1
+BRANCH_VERSION = oadp-1.4
+PREVIOUS_CHANNEL ?= oadp-1.3
+PREVIOUS_CHANNEL_GO_VERSION ?= 1.21
+# Extract the toolchain directive from go.mod
+GO_TOOLCHAIN_VERSION := $(shell grep -E "^toolchain" go.mod | awk '{print $$2}')
+
+# CHANNELS define the bundle channels used in the bundle.
+# Add a new line here if you would like to change its default config. (E.g CHANNELS = "candidate,fast,stable")
+# To re-generate a bundle for other specific channels without changing the standard setup, you can:
+# - use the CHANNELS as arg of the bundle target (e.g make bundle CHANNELS=candidate,fast,stable)
+# - use environment variables to overwrite this value (e.g export CHANNELS="candidate,fast,stable")
+CHANNELS = "stable-1.4"
+ifneq ($(origin CHANNELS), undefined)
+BUNDLE_CHANNELS := --channels=$(CHANNELS)
+endif
+
+# DEFAULT_CHANNEL defines the default channel used in the bundle.
+# Add a new line here if you would like to change its default config. (E.g DEFAULT_CHANNEL = "stable")
+# To re-generate a bundle for any other default channel without changing the default setup, you can:
+# - use the DEFAULT_CHANNEL as arg of the bundle target (e.g make bundle DEFAULT_CHANNEL=stable)
+# - use environment variables to overwrite this value (e.g export DEFAULT_CHANNEL="stable")
+DEFAULT_CHANNEL = "stable-1.4"
+ifneq ($(origin DEFAULT_CHANNEL), undefined)
+BUNDLE_DEFAULT_CHANNEL := --default-channel=$(DEFAULT_CHANNEL)
+endif
+BUNDLE_METADATA_OPTS ?= $(BUNDLE_CHANNELS) $(BUNDLE_DEFAULT_CHANNEL)
+
+# IMAGE_TAG_BASE defines the docker.io namespace and part of the image name for remote images.
+# This variable is used to construct full image tags for bundle and catalog images.
+#
+# For example, running 'make bundle-build bundle-push catalog-build catalog-push' will build and push both
+# openshift.io/oadp-operator-bundle:$VERSION and openshift.io/oadp-operator-catalog:$VERSION.
+IMAGE_TAG_BASE ?= openshift.io/oadp-operator
+
+# BUNDLE_IMG defines the image:tag used for the bundle.
+# You can use it as an arg. (E.g make bundle-build BUNDLE_IMG=<some-registry>/<project-name-bundle>:<tag>)
+BUNDLE_IMG ?= $(IMAGE_TAG_BASE)-bundle:v$(VERSION)
+
+# BUNDLE_GEN_FLAGS are the flags passed to the operator-sdk generate bundle command
+BUNDLE_GEN_FLAGS ?= -q --extra-service-accounts "velero,non-admin-controller" --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
+
+# USE_IMAGE_DIGESTS defines if images are resolved via tags or digests
+# You can enable this value if you would like to use SHA Based Digests
+# To enable set flag to true
+USE_IMAGE_DIGESTS ?= false
+ifeq ($(USE_IMAGE_DIGESTS), true)
+	BUNDLE_GEN_FLAGS += --use-image-digests
+endif
+
+# Image URL to use all building/pushing image targets
+IMG ?= quay.io/konveyor/oadp-operator:oadp-1.4
+
+# Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
+ifeq (,$(shell go env GOBIN))
+GOBIN=$(shell go env GOPATH)/bin
+else
+GOBIN=$(shell go env GOBIN)
+endif
+
+# CONTAINER_TOOL defines the container tool to be used for building images.
+# Be aware that the target commands are only tested with Docker which is
+# scaffolded by default. However, you might want to replace it to use other
+# tools. (i.e. podman)
+CONTAINER_TOOL ?= docker
+
+# Setting SHELL to bash allows bash commands to be executed by recipes.
+# Options are set to exit when a recipe line exits non-zero or a piped command fails.
+SHELL = /usr/bin/env bash -o pipefail
+.SHELLFLAGS = -ec
+
+LOCALBIN ?= $(shell pwd)/bin
+$(LOCALBIN):
+	mkdir -p $(LOCALBIN)
+
+# Tool Definitions
+GOLANGCI_LINT = $(LOCALBIN)/$(BRANCH_VERSION)/golangci-lint
+KUSTOMIZE ?= $(LOCALBIN)/$(BRANCH_VERSION)/kustomize
+CONTROLLER_GEN ?= $(LOCALBIN)/$(BRANCH_VERSION)/controller-gen
+OPERATOR_SDK ?= $(LOCALBIN)/$(BRANCH_VERSION)/operator-sdk
+OPM ?= $(LOCALBIN)/$(BRANCH_VERSION)/opm
+YQ = $(LOCALBIN)/$(BRANCH_VERSION)/yq
+
 ifdef CLI_DIR
 	OC_CLI = ${CLI_DIR}/oc
 endif
@@ -74,27 +167,6 @@ ENVTEST_K8S_VERSION = 1.29
 # - use environment variables to overwrite this value (e.g export VERSION=0.0.2)
 DEFAULT_VERSION := 1.4.0
 VERSION ?= $(DEFAULT_VERSION)
-
-# CHANNELS define the bundle channels used in the bundle.
-# Add a new line here if you would like to change its default config. (E.g CHANNELS = "candidate,fast,stable")
-# To re-generate a bundle for other specific channels without changing the standard setup, you can:
-# - use the CHANNELS as arg of the bundle target (e.g make bundle CHANNELS=candidate,fast,stable)
-# - use environment variables to overwrite this value (e.g export CHANNELS="candidate,fast,stable")
-CHANNELS = "stable-1.4"
-ifneq ($(origin CHANNELS), undefined)
-BUNDLE_CHANNELS := --channels=$(CHANNELS)
-endif
-
-# DEFAULT_CHANNEL defines the default channel used in the bundle.
-# Add a new line here if you would like to change its default config. (E.g DEFAULT_CHANNEL = "stable")
-# To re-generate a bundle for any other default channel without changing the default setup, you can:
-# - use the DEFAULT_CHANNEL as arg of the bundle target (e.g make bundle DEFAULT_CHANNEL=stable)
-# - use environment variables to overwrite this value (e.g export DEFAULT_CHANNEL="stable")
-DEFAULT_CHANNEL = "stable-1.4"
-ifneq ($(origin DEFAULT_CHANNEL), undefined)
-BUNDLE_DEFAULT_CHANNEL := --default-channel=$(DEFAULT_CHANNEL)
-endif
-BUNDLE_METADATA_OPTS ?= $(BUNDLE_CHANNELS) $(BUNDLE_DEFAULT_CHANNEL)
 
 # IMAGE_TAG_BASE defines the docker.io namespace and part of the image name for remote images.
 # This variable is used to construct full image tags for bundle and catalog images.
@@ -142,6 +214,58 @@ all: build
 help: ## Display this help.
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_0-9-]+:.*?##/ { printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
 
+# Function to check tool version
+# Parameters: $(1)=TOOL_NAME $(2)=TOOL_PATH $(3)=VERSION_CMD $(4)=EXPECTED_VERSION $(5)=MAKE_TARGET $(6)=DISPLAY_NAME $(7)=SPECIAL_HANDLING
+define CHECK_TOOL_VERSION
+	@printf "\n\033[1m$(1) Version Check:\033[0m\n"
+	@if [ -f "$(2)" ]; then \
+		INSTALLED_VERSION=$$($(3) || echo "unknown"); \
+		EXPECTED_VERSION="$(4)"; \
+		if [ "$$INSTALLED_VERSION" = "$$EXPECTED_VERSION" ]; then \
+			printf "\033[32m%-30s\033[0m %-20s %s\n" "$(6)" "$$INSTALLED_VERSION" "✓ matches Makefile"; \
+		$(if $(7),$(7)) \
+		else \
+			printf "\033[33m%-30s\033[0m %-20s %s\n" "$(6)" "$$INSTALLED_VERSION" "⚠ differs from Makefile ($$EXPECTED_VERSION)"; \
+			printf "\033[33m✗ Installing the version requested by the Makefile\033[0m\n"; \
+			$(MAKE) $(5); \
+		fi; \
+	else \
+		printf "\033[31m%-30s\033[0m %-20s %s\n" "$(6)" "not found" "✗ not installed in $(LOCALBIN)"; \
+		$(MAKE) $(5); \
+	fi
+endef
+
+.PHONY: check-go
+check-go: ## Check if go binary is available in PATH
+	@if ! command -v go >/dev/null 2>&1; then \
+		printf "\033[31m✗ Error: 'go' binary not found in PATH\033[0m\n"; \
+		printf "Please install Go from https://golang.org/dl/ and ensure it's in your PATH\n"; \
+		exit 1; \
+	fi
+	@printf "\033[32m✓ Go binary found in PATH\033[0m\n"
+
+.PHONY: versions
+versions: check-go ## Display all variables containing 'version' in their name.
+	@printf "\033[36m%-30s\033[0m %s\n" "GO_VERSION" "$$(go version | awk '{print $$3}')"
+	@printf "\n\033[1m%-30s %-20s %s\033[0m\n" "Tool and Project Versions:" "Value" "Used by Targets"
+	@printf "\033[36m%-30s\033[0m %-20s %s\n" "DEFAULT_VERSION" "$(DEFAULT_VERSION)" "bundle-isupdated"
+	@printf "\033[36m%-30s\033[0m %-20s %s\n" "VERSION" "$(VERSION)" "bundle, catalog-build, deploy-olm, undeploy-olm"
+	@printf "\033[36m%-30s\033[0m %-20s %s\n" "OPERATOR_SDK_VERSION" "$(OPERATOR_SDK_VERSION)" "operator-sdk"
+	@printf "\033[36m%-30s\033[0m %-20s %s\n" "ENVTEST_K8S_VERSION" "$(ENVTEST_K8S_VERSION)" "test"
+	@printf "\033[36m%-30s\033[0m %-20s %s\n" "GOLANGCI_LINT_VERSION" "$(GOLANGCI_LINT_VERSION)" "golangci-lint"
+	@printf "\033[36m%-30s\033[0m %-20s %s\n" "KUSTOMIZE_VERSION" "$(KUSTOMIZE_VERSION)" "kustomize"
+	@printf "\033[36m%-30s\033[0m %-20s %s\n" "CONTROLLER_TOOLS_VERSION" "$(CONTROLLER_TOOLS_VERSION)" "controller-gen"
+	@printf "\033[36m%-30s\033[0m %-20s %s\n" "OPM_VERSION" "$(OPM_VERSION)" "opm"
+	@printf "\033[36m%-30s\033[0m %-20s %s\n" "YQ_VERSION" "$(YQ_VERSION)" "yq"
+	@printf "\033[36m%-30s\033[0m %-20s %s\n" "PREVIOUS_CHANNEL" "$(PREVIOUS_CHANNEL)" "catalog-test-upgrade"
+	@printf "\033[36m%-30s\033[0m %-20s %s\n" "PREVIOUS_CHANNEL_GO_VERSION" "$(PREVIOUS_CHANNEL_GO_VERSION)" "catalog-test-upgrade"
+	@printf "\033[36m%-30s\033[0m %-20s %s\n" "GO_TOOLCHAIN_VERSION" "$(GO_TOOLCHAIN_VERSION)" "(informational only)"
+	$(call CHECK_TOOL_VERSION,Operator-SDK,$(OPERATOR_SDK),$(OPERATOR_SDK) version 2>/dev/null | grep 'operator-sdk version' | cut -d'"' -f2,$(OPERATOR_SDK_VERSION),operator-sdk,OPERATOR_SDK_LOCAL)
+	$(call CHECK_TOOL_VERSION,Controller-Gen,$(CONTROLLER_GEN),$(CONTROLLER_GEN) --version 2>/dev/null | grep 'Version:' | cut -d' ' -f2,$(CONTROLLER_TOOLS_VERSION),controller-gen,CONTROLLER_GEN_LOCAL)
+	$(call CHECK_TOOL_VERSION,OPM,$(OPM),$(OPM) version 2>/dev/null | cut -d'"' -f2,$(OPM_VERSION),opm,OPM_LOCAL)
+	$(call CHECK_TOOL_VERSION,Kustomize,$(KUSTOMIZE),$(KUSTOMIZE) version 2>/dev/null | grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+' || echo "unknown",$(KUSTOMIZE_VERSION),kustomize,KUSTOMIZE_LOCAL,elif [ "$$INSTALLED_VERSION" = "unknown" ]; then printf "\033[36m%-30s\033[0m %-20s %s\n" "KUSTOMIZE_LOCAL" "$$INSTALLED_VERSION" "ⓘ kustomize v4 build (expected $(KUSTOMIZE_VERSION))";)
+	$(call CHECK_TOOL_VERSION,YQ,$(YQ),$(YQ) --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1,$(YQ_VERSION),yq,YQ_LOCAL)
+
 ##@ Development
 
 manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
@@ -155,10 +279,10 @@ manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and Cust
 generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
 	GOFLAGS="-mod=mod" $(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
-fmt: ## Run go fmt against code.
+fmt: check-go ## Run go fmt against code.
 	go fmt -mod=mod ./...
 
-vet: ## Run go vet against code.
+vet: check-go ## Run go vet against code.
 	go vet -mod=mod ./...
 
 ENVTEST := $(shell pwd)/bin/setup-envtest
@@ -179,7 +303,7 @@ envtest: $(ENVTEST)
 # to login to registry cluster follow https://docs.ci.openshift.org/docs/how-tos/use-registries-in-build-farm/#how-do-i-log-in-to-pull-images-that-require-authentication
 # If bin/ contains binaries of different arch, you may remove them so the container can install their arch.
 .PHONY: test
-test: vet envtest ## Run Go linter and unit tests and check Go code format and if api and bundle folders are up to date.
+test: check-go vet envtest ## Run Go linter and unit tests and check Go code format and if api and bundle folders are up to date.
 	KUBEBUILDER_ASSETS="$(ENVTESTPATH)" go test -mod=mod $(shell go list -mod=mod ./... | grep -v /tests/e2e) -coverprofile cover.out
 	@make fmt-isupdated
 	@make api-isupdated
@@ -261,9 +385,7 @@ CONTROLLER_GEN = $(shell pwd)/bin/controller-gen
 controller-gen: ## Download controller-gen locally if necessary.
 	$(call go-install-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@v0.16.5)
 
-KUSTOMIZE = $(shell pwd)/bin/kustomize
-kustomize: ## Download kustomize locally if necessary.
-	$(call go-install-tool,$(KUSTOMIZE),sigs.k8s.io/kustomize/kustomize/v4@v4.5.5)
+
 
 # Codecov OS String for use in download url
 ifeq ($(OS),Windows_NT)
@@ -304,19 +426,9 @@ rm -rf $$TMP_DIR ;\
 }
 endef
 
-YQ = $(shell pwd)/bin/yq
-yq: ## Download yq locally if necessary.
-	# 4.28.1 is latest with go 1.17 go.mod
-	$(call go-install-tool,$(YQ),github.com/mikefarah/yq/v4@v4.28.1)
 
-OPERATOR_SDK = $(shell pwd)/bin/operator-sdk
-operator-sdk:
-	# Download operator-sdk locally if does not exist
-	if [ ! -f $(OPERATOR_SDK) ]; then \
-		mkdir -p bin ;\
-		curl -Lo $(OPERATOR_SDK) https://github.com/operator-framework/operator-sdk/releases/download/v1.34.2/operator-sdk_$(shell go env GOOS)_$(shell go env GOARCH) ; \
-		chmod +x $(OPERATOR_SDK); \
-	fi
+
+
 
 .PHONY: bundle
 bundle: manifests kustomize operator-sdk ## Generate bundle manifests and metadata, then validate generated files.
@@ -399,23 +511,6 @@ undeploy-olm: login-required ## Uninstall current branch operator via OLM
 	$(OC_CLI) create namespace $(OADP_TEST_NAMESPACE) || true
 	$(OPERATOR_SDK) cleanup oadp-operator --namespace $(OADP_TEST_NAMESPACE)
 
-.PHONY: opm
-OPM = ./bin/opm
-opm: ## Download opm locally if necessary.
-ifeq (,$(wildcard $(OPM)))
-ifeq (,$(shell which opm 2>/dev/null))
-	@{ \
-	set -e ;\
-	mkdir -p $(dir $(OPM)) ;\
-	OS=$(shell go env GOOS) && ARCH=$(shell go env GOARCH) && \
-	curl -sSLo $(OPM) https://github.com/operator-framework/operator-registry/releases/download/v1.15.1/$${OS}-$${ARCH}-opm ;\
-	chmod +x $(OPM) ;\
-	}
-else
-OPM = $(shell which opm)
-endif
-endif
-
 # A comma-separated list of bundle images (e.g. make catalog-build BUNDLE_IMGS=example.com/operator-bundle:v0.1.0,example.com/operator-bundle:v0.2.0).
 # These images MUST exist in a registry and be pull-able.
 BUNDLE_IMGS ?= $(BUNDLE_IMG)
@@ -483,7 +578,7 @@ else
 endif
 
 .PHONY: install-ginkgo
-install-ginkgo: # Make sure ginkgo is in $GOPATH/bin
+install-ginkgo: check-go ## Make sure ginkgo is in $GOPATH/bin
 	go install -v -mod=mod github.com/onsi/ginkgo/v2/ginkgo
 
 OADP_BUCKET ?= $(shell cat $(OADP_BUCKET_FILE))
@@ -548,6 +643,90 @@ test-e2e-cleanup: login-required
 	for restore_name in $(shell $(OC_CLI) get restore -n $(OADP_TEST_NAMESPACE) -o name);do $(OC_CLI) patch "$$restore_name" -n $(OADP_TEST_NAMESPACE) -p '{"metadata":{"finalizers":null}}' --type=merge;done
 	rm -rf $(SETTINGS_TMP)
 
+# go-install-tool-branch will 'go install' any package $2 and install it to branch-specific directory $1.
+PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
+define go-install-tool-branch
+@[ -f $(1) ] || { \
+set -e ;\
+TMP_DIR=$$(mktemp -d) ;\
+cd $$TMP_DIR ;\
+go mod init tmp ;\
+echo "Downloading $(2) to branch directory" ;\
+GOBIN=$(dir $(1)) go install -mod=mod $(2) ;\
+rm -rf $$TMP_DIR ;\
+}
+endef
+
+.PHONY: golangci-lint
+golangci-lint: $(GOLANGCI_LINT) ## Download golangci-lint locally if necessary.
+$(GOLANGCI_LINT): $(LOCALBIN)
+	$(call go-install-tool-branch,$(GOLANGCI_LINT),github.com/golangci/golangci-lint/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION))
+	@if [ -L "$(LOCALBIN)/golangci-lint" ]; then \
+		unlink "$(LOCALBIN)/golangci-lint"; \
+	fi
+	@ln -sf "$(LOCALBIN)/$(BRANCH_VERSION)/golangci-lint" "$(LOCALBIN)/golangci-lint"
+
+.PHONY: kustomize
+kustomize: $(KUSTOMIZE) ## Download kustomize locally if necessary. If wrong version is installed, it will be removed before downloading.
+$(KUSTOMIZE): $(LOCALBIN)
+	$(call go-install-tool-branch,$(KUSTOMIZE),sigs.k8s.io/kustomize/kustomize/v4@$(KUSTOMIZE_VERSION))
+	@if [ -L "$(LOCALBIN)/kustomize" ]; then \
+		unlink "$(LOCALBIN)/kustomize"; \
+	fi
+	@ln -sf "$(LOCALBIN)/$(BRANCH_VERSION)/kustomize" "$(LOCALBIN)/kustomize"
+
+.PHONY: controller-gen
+controller-gen: $(CONTROLLER_GEN) ## Download controller-gen locally if necessary. If wrong version is installed, it will be overwritten.
+$(CONTROLLER_GEN): $(LOCALBIN)
+	$(call go-install-tool-branch,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_TOOLS_VERSION))
+	@if [ -L "$(LOCALBIN)/controller-gen" ]; then \
+		unlink "$(LOCALBIN)/controller-gen"; \
+	fi
+	@ln -sf "$(LOCALBIN)/$(BRANCH_VERSION)/controller-gen" "$(LOCALBIN)/controller-gen"
+
+.PHONY: operator-sdk
+operator-sdk: $(OPERATOR_SDK) ## Download operator-sdk locally if necessary.
+$(OPERATOR_SDK): $(LOCALBIN)
+	@if [ -f "$(OPERATOR_SDK)" ] && $(OPERATOR_SDK) version | grep -q $(OPERATOR_SDK_VERSION); then \
+		echo "operator-sdk $(OPERATOR_SDK_VERSION) is already installed"; \
+	else \
+		set -e ;\
+		mkdir -p $(dir $(OPERATOR_SDK)) ;\
+		OS=$(shell go env GOOS) && ARCH=$(shell go env GOARCH) && \
+		curl -sSLo $(OPERATOR_SDK) https://github.com/operator-framework/operator-sdk/releases/download/$(OPERATOR_SDK_VERSION)/operator-sdk_$${OS}_$${ARCH} ;\
+		chmod +x $(OPERATOR_SDK) ;\
+	fi
+	@if [ -L "$(LOCALBIN)/operator-sdk" ]; then \
+		unlink "$(LOCALBIN)/operator-sdk"; \
+	fi
+	@ln -sf "$(LOCALBIN)/$(BRANCH_VERSION)/operator-sdk" "$(LOCALBIN)/operator-sdk"
+
+.PHONY: opm
+opm: $(OPM) ## Download opm locally if necessary.
+$(OPM): $(LOCALBIN)
+	@if [ -f "$(OPM)" ] && $(OPM) version | grep -q $(OPM_VERSION); then \
+		echo "opm $(OPM_VERSION) is already installed"; \
+	else \
+		set -e ;\
+		mkdir -p $(dir $(OPM)) ;\
+		OS=$(shell go env GOOS) && ARCH=$(shell go env GOARCH) && \
+		curl -sSLo $(OPM) https://github.com/operator-framework/operator-registry/releases/download/$(OPM_VERSION)/$${OS}-$${ARCH}-opm ;\
+		chmod +x $(OPM) ;\
+	fi
+	@if [ -L "$(LOCALBIN)/opm" ]; then \
+		unlink "$(LOCALBIN)/opm"; \
+	fi
+	@ln -sf "$(LOCALBIN)/$(BRANCH_VERSION)/opm" "$(LOCALBIN)/opm"
+
+.PHONY: yq
+yq: $(YQ) ## Download yq locally if necessary.
+$(YQ): $(LOCALBIN)
+	$(call go-install-tool-branch,$(YQ),github.com/mikefarah/yq/v4@$(YQ_VERSION))
+	@if [ -L "$(LOCALBIN)/yq" ]; then \
+		unlink "$(LOCALBIN)/yq"; \
+	fi
+	@ln -sf "$(LOCALBIN)/$(BRANCH_VERSION)/yq" "$(LOCALBIN)/yq"
+
 .PHONY: build-must-gather
-build-must-gather: ## Build OADP Must-gather binary must-gather/oadp-must-gather
+build-must-gather: check-go ## Build OADP Must-gather binary must-gather/oadp-must-gather
 	cd must-gather && go build -mod=mod -a -o oadp-must-gather cmd/main.go
