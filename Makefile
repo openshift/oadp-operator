@@ -111,6 +111,26 @@ all: build
 # More info on the awk command:
 # http://linuxcommand.org/lc3_adv_awk.php
 
+# Function to check tool version
+# Parameters: $(1)=TOOL_NAME $(2)=TOOL_PATH $(3)=VERSION_CMD $(4)=EXPECTED_VERSION $(5)=MAKE_TARGET $(6)=DISPLAY_NAME $(7)=SPECIAL_HANDLING
+define CHECK_TOOL_VERSION
+	@printf "\n\033[1m$(1) Version Check:\033[0m\n"
+	@if [ -f "$(2)" ]; then \
+		INSTALLED_VERSION=$$($(3) || echo "unknown"); \
+		EXPECTED_VERSION="$(4)"; \
+		if [ "$$INSTALLED_VERSION" = "$$EXPECTED_VERSION" ]; then \
+			printf "\033[32m%-30s\033[0m %-20s %s\n" "$(6)" "$$INSTALLED_VERSION" "✓ matches Makefile"; \
+		$(if $(7),$(7)) \
+		else \
+			printf "\033[33m%-30s\033[0m %-20s %s\n" "$(6)" "$$INSTALLED_VERSION" "⚠ differs from Makefile ($$EXPECTED_VERSION)"; \
+			exit 1; \
+		fi; \
+	else \
+		printf "\033[31m%-30s\033[0m %-20s %s\n" "$(6)" "not found" "✗ not installed in $(LOCALBIN)"; \
+		$(MAKE) $(5); \
+	fi
+endef
+
 .PHONY: help
 help: ## Display this help.
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_0-9-]+:.*?##/ { printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
@@ -130,78 +150,11 @@ versions: ## Display all variables containing 'version' in their name.
 	@printf "\033[36m%-30s\033[0m %-20s %s\n" "PREVIOUS_CHANNEL" "$(PREVIOUS_CHANNEL)" "catalog-test-upgrade"
 	@printf "\033[36m%-30s\033[0m %-20s %s\n" "PREVIOUS_CHANNEL_GO_VERSION" "$(PREVIOUS_CHANNEL_GO_VERSION)" "catalog-test-upgrade"
 	@printf "\033[36m%-30s\033[0m %-20s %s\n" "GO_TOOLCHAIN_VERSION" "$(GO_TOOLCHAIN_VERSION)" "(informational only)"
-	@printf "\n\033[1mOperator-SDK Version Check:\033[0m\n"
-	@if [ -f "$(OPERATOR_SDK)" ]; then \
-		INSTALLED_VERSION=$$($(OPERATOR_SDK) version 2>/dev/null | grep 'operator-sdk version' | cut -d'"' -f2 || echo "unknown"); \
-		EXPECTED_VERSION="$(OPERATOR_SDK_VERSION)"; \
-		if [ "$$INSTALLED_VERSION" = "$$EXPECTED_VERSION" ]; then \
-			printf "\033[32m%-30s\033[0m %-20s %s\n" "OPERATOR_SDK_LOCAL" "$$INSTALLED_VERSION" "✓ matches Makefile"; \
-		else \
-			printf "\033[33m%-30s\033[0m %-20s %s\n" "OPERATOR_SDK_LOCAL" "$$INSTALLED_VERSION" "⚠ differs from Makefile ($$EXPECTED_VERSION)"; \
-			exit 1; \
-		fi; \
-	else \
-		printf "\033[31m%-30s\033[0m %-20s %s\n" "OPERATOR_SDK_LOCAL" "not found" "✗ not installed in $(LOCALBIN)"; \
-		$(MAKE) operator-sdk; \
-	fi
-	@printf "\n\033[1mController-Gen Version Check:\033[0m\n"
-	@if [ -f "$(CONTROLLER_GEN)" ]; then \
-		INSTALLED_VERSION=$$($(CONTROLLER_GEN) --version 2>/dev/null | grep 'Version:' | cut -d' ' -f2 || echo "unknown"); \
-		EXPECTED_VERSION="$(CONTROLLER_TOOLS_VERSION)"; \
-		if [ "$$INSTALLED_VERSION" = "$$EXPECTED_VERSION" ]; then \
-			printf "\033[32m%-30s\033[0m %-20s %s\n" "CONTROLLER_GEN_LOCAL" "$$INSTALLED_VERSION" "✓ matches Makefile"; \
-		else \
-			printf "\033[33m%-30s\033[0m %-20s %s\n" "CONTROLLER_GEN_LOCAL" "$$INSTALLED_VERSION" "⚠ differs from Makefile ($$EXPECTED_VERSION)"; \
-			exit 1; \
-		fi; \
-	else \
-		printf "\033[31m%-30s\033[0m %-20s %s\n" "CONTROLLER_GEN_LOCAL" "not found" "✗ not installed in $(LOCALBIN)"; \
-		$(MAKE) controller-gen; \
-	fi
-	@printf "\n\033[1mOPM Version Check:\033[0m\n"
-	@if [ -f "$(OPM)" ]; then \
-		INSTALLED_VERSION=$$($(OPM) version 2>/dev/null | cut -d'"' -f2 || echo "unknown"); \
-		EXPECTED_VERSION="$(OPM_VERSION)"; \
-		if [ "$$INSTALLED_VERSION" = "$$EXPECTED_VERSION" ]; then \
-			printf "\033[32m%-30s\033[0m %-20s %s\n" "OPM_LOCAL" "$$INSTALLED_VERSION" "✓ matches Makefile"; \
-		else \
-			printf "\033[33m%-30s\033[0m %-20s %s\n" "OPM_LOCAL" "$$INSTALLED_VERSION" "⚠ differs from Makefile ($$EXPECTED_VERSION)"; \
-			exit 1; \
-		fi; \
-	else \
-		printf "\033[31m%-30s\033[0m %-20s %s\n" "OPM_LOCAL" "not found" "✗ not installed in $(LOCALBIN)"; \
-		$(MAKE) opm; \
-	fi
-	@printf "\n\033[1mGolangci-Lint Version Check:\033[0m\n"
-	@if [ -f "$(GOLANGCI_LINT)" ]; then \
-		INSTALLED_VERSION=$$($(GOLANGCI_LINT) --version 2>/dev/null | grep 'golangci-lint has version' | sed 's/.*version \([^ ]*\).*/\1/' || echo "unknown"); \
-		EXPECTED_VERSION="$(GOLANGCI_LINT_VERSION)"; \
-		if [ "$$INSTALLED_VERSION" = "$$EXPECTED_VERSION" ]; then \
-			printf "\033[32m%-30s\033[0m %-20s %s\n" "GOLANGCI_LINT_LOCAL" "$$INSTALLED_VERSION" "✓ matches Makefile"; \
-		else \
-			printf "\033[33m%-30s\033[0m %-20s %s\n" "GOLANGCI_LINT_LOCAL" "$$INSTALLED_VERSION" "⚠ differs from Makefile ($$EXPECTED_VERSION)"; \
-			exit 1; \
-		fi; \
-	else \
-		printf "\033[31m%-30s\033[0m %-20s %s\n" "GOLANGCI_LINT_LOCAL" "not found" "✗ not installed in $(LOCALBIN)"; \
-		$(MAKE) golangci-lint; \
-	fi
-	@printf "\n\033[1mKustomize Version Check:\033[0m\n"
-	@if [ -f "$(KUSTOMIZE)" ]; then \
-		INSTALLED_VERSION=$$($(KUSTOMIZE) version --short 2>/dev/null | grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+' || echo "(devel)"); \
-		EXPECTED_VERSION="$(KUSTOMIZE_VERSION)"; \
-		if [ "$$INSTALLED_VERSION" = "$$EXPECTED_VERSION" ]; then \
-			printf "\033[32m%-30s\033[0m %-20s %s\n" "KUSTOMIZE_LOCAL" "$$INSTALLED_VERSION" "✓ matches Makefile"; \
-		elif [ "$$INSTALLED_VERSION" = "(devel)" ]; then \
-			printf "\033[36m%-30s\033[0m %-20s %s\n" "KUSTOMIZE_LOCAL" "$$INSTALLED_VERSION" "ⓘ dev build (expected $(EXPECTED_VERSION))"; \
-		else \
-			printf "\033[33m%-30s\033[0m %-20s %s\n" "KUSTOMIZE_LOCAL" "$$INSTALLED_VERSION" "⚠ differs from Makefile ($$EXPECTED_VERSION)"; \
-			exit 1; \
-		fi; \
-	else \
-		printf "\033[31m%-30s\033[0m %-20s %s\n" "KUSTOMIZE_LOCAL" "not found" "✗ not installed in $(LOCALBIN)"; \
-		$(MAKE) kustomize; \
-	fi
+	$(call CHECK_TOOL_VERSION,Operator-SDK,$(OPERATOR_SDK),$(OPERATOR_SDK) version 2>/dev/null | grep 'operator-sdk version' | cut -d'"' -f2,$(OPERATOR_SDK_VERSION),operator-sdk,OPERATOR_SDK_LOCAL)
+	$(call CHECK_TOOL_VERSION,Controller-Gen,$(CONTROLLER_GEN),$(CONTROLLER_GEN) --version 2>/dev/null | grep 'Version:' | cut -d' ' -f2,$(CONTROLLER_TOOLS_VERSION),controller-gen,CONTROLLER_GEN_LOCAL)
+	$(call CHECK_TOOL_VERSION,OPM,$(OPM),$(OPM) version 2>/dev/null | cut -d'"' -f2,$(OPM_VERSION),opm,OPM_LOCAL)
+	$(call CHECK_TOOL_VERSION,Golangci-Lint,$(GOLANGCI_LINT),$(GOLANGCI_LINT) --version 2>/dev/null | grep 'golangci-lint has version' | sed 's/.*version \([^ ]*\).*/\1/',$(GOLANGCI_LINT_VERSION),golangci-lint,GOLANGCI_LINT_LOCAL)
+	$(call CHECK_TOOL_VERSION,Kustomize,$(KUSTOMIZE),$(KUSTOMIZE) version --short 2>/dev/null | grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+' || echo "(devel)",$(KUSTOMIZE_VERSION),kustomize,KUSTOMIZE_LOCAL,elif [ "$$INSTALLED_VERSION" = "(devel)" ]; then printf "\033[36m%-30s\033[0m %-20s %s\n" "KUSTOMIZE_LOCAL" "$$INSTALLED_VERSION" "ⓘ dev build (expected $(KUSTOMIZE_VERSION))";)
 
 
 ##@ Development
