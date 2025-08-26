@@ -124,7 +124,7 @@ define CHECK_TOOL_VERSION
 		else \
 			printf "\033[33m%-30s\033[0m %-20s %s\n" "$(6)" "$$INSTALLED_VERSION" "⚠ differs from Makefile ($$EXPECTED_VERSION)"; \
 			printf "\033[33m✗ Installing the version requested by the Makefile\033[0m\n"; \
-			exit 1; \
+			$(MAKE) $(5); \
 		fi; \
 	else \
 		printf "\033[31m%-30s\033[0m %-20s %s\n" "$(6)" "not found" "✗ not installed in $(LOCALBIN)"; \
