@@ -794,3 +794,84 @@ func (r *DataProtectionApplicationReconciler) patchAzureSecretWithResourceGroup(
 	r.Log.Info("Patched Azure secret with resource group", "secret", secret.Name, "resourceGroup", resourceGroup)
 	return nil
 }
+
+// processCACertForBSLs creates a ConfigMap containing CA certificates from BackupStorageLocations
+// Returns the ConfigMap name if certificates were found, empty string otherwise
+func (r *DataProtectionApplicationReconciler) processCACertForBSLs() (string, error) {
+	dpa := r.dpa
+	var caCertData []byte
+
+	// Check all BSLs for custom CA certificates
+	for _, bslSpec := range dpa.Spec.BackupLocations {
+		var caCert []byte
+
+		// Check Velero BSL for CA certificate
+		if bslSpec.Velero != nil && bslSpec.Velero.ObjectStorage != nil && bslSpec.Velero.ObjectStorage.CACert != nil {
+			caCert = bslSpec.Velero.ObjectStorage.CACert
+		}
+		// Check CloudStorage BSL for CA certificate
+		if bslSpec.CloudStorage != nil && bslSpec.CloudStorage.CACert != nil {
+			caCert = bslSpec.CloudStorage.CACert
+		}
+
+		// If we found a CA certificate, use it (first one wins)
+		if len(caCert) > 0 {
+			caCertData = caCert
+			break
+		}
+	}
+
+	// No CA certificates found
+	if len(caCertData) == 0 {
+		return "", nil
+	}
+
+	// Create ConfigMap with the CA certificate
+	configMapName := caBundleConfigMapName
+	configMap := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      configMapName,
+			Namespace: dpa.Namespace,
+		},
+	}
+
+	op, err := controllerutil.CreateOrPatch(r.Context, r.Client, configMap, func() error {
+		// Set controller reference
+		if err := controllerutil.SetControllerReference(dpa, configMap, r.Scheme); err != nil {
+			return err
+		}
+
+		// Set labels
+		if configMap.Labels == nil {
+			configMap.Labels = make(map[string]string)
+		}
+		configMap.Labels["app.kubernetes.io/name"] = common.Velero
+		configMap.Labels["app.kubernetes.io/managed-by"] = common.OADPOperator
+		configMap.Labels["app.kubernetes.io/component"] = "ca-bundle"
+		configMap.Labels[oadpv1alpha1.OadpOperatorLabel] = "True"
+
+		// Set data
+		if configMap.Data == nil {
+			configMap.Data = make(map[string]string)
+		}
+		configMap.Data[caBundleFileName] = string(caCertData)
+
+		return nil
+	})
+
+	if err != nil {
+		return "", fmt.Errorf("failed to create/update CA bundle ConfigMap: %w", err)
+	}
+
+	if op == controllerutil.OperationResultCreated || op == controllerutil.OperationResultUpdated {
+		r.Log.Info("CA certificate ConfigMap processed", "configMap", configMapName, "operation", op)
+		// Trigger event to indicate ConfigMap was created or updated
+		r.EventRecorder.Event(configMap,
+			corev1.EventTypeNormal,
+			"CACertificateConfigMapReconciled",
+			fmt.Sprintf("performed %s on CA certificate ConfigMap %s/%s", op, configMap.Namespace, configMap.Name),
+		)
+	}
+
+	return configMapName, nil
+}

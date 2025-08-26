@@ -4794,6 +4794,149 @@ AZURE_CLOUD_NAME=AzurePublicCloud`),
 	}
 }
 
+func TestProcessCACertForBSLs(t *testing.T) {
+	testCACertPEM := `-----BEGIN CERTIFICATE-----
+MIIDNzCCAh+gAwIBAgIJAJ7qAHESwpNwMA0GCSqGSIb3DQEBCwUAMDMxMTAvBgNV
+BAMMKGVjMi01NC0yMTEtOC0yNDguY29tcHV0ZS0xLmFtYXpvbmF3cy5jb20wHhcN
+MjUwODI1MjA0NjA2WhcNMjYwODI1MjA0NjA2WjAzMTEwLwYDVQQDDChIYzItNTQt
+MjExLTgtMjQ4LmNvbXB1dGUtMS5hbWF6b25hd3MuY29tMIIBIjANBgkqhkiG9w0B
+AQEFAAOCAQSAMIIBCgKCAQEArowngodR8QhYPphdTalrwVqHow4N5m9GMko774J2
+LWgSjYcpuaR3FEYMjzIzVCQWts/J9mqd8rYagYOfP9azYO+U96/ztoiJVMld2R+p
+QK/2MzdvZNXD2mi/9MpaS40HFh8ifd07mcFMt+qzKb4VgauS1jJAuzXHS7VElqwZ
+vi4v0yvh6T3C2bdXouBwibFe5jGnzsGmNWq7S/+Litynx2HDNcZGbCyQE1xZ1+B6
+QPmvgmO5LPpFlBQmu7aDePXxt76BJbrQrmUloNRqwlk4n9jYLic/FJtWw1kjp7fB
+Pa86W2GlMreSNlzI5ViUhoVYEB2sdsXesi4JK6KW3baiRwIDAQABo04wTDBKBgNV
+HREEQTBM----END CERTIFICATE-----`
+
+	tests := []struct {
+		name              string
+		backupLocations   []oadpv1alpha1.BackupLocation
+		wantConfigMapName string
+		wantError         bool
+	}{
+		{
+			name: "BSL with Velero CA certificate",
+			backupLocations: []oadpv1alpha1.BackupLocation{
+				{
+					Velero: &velerov1.BackupStorageLocationSpec{
+						Provider: "aws",
+						StorageType: velerov1.StorageType{
+							ObjectStorage: &velerov1.ObjectStorageLocation{
+								Bucket: "test-bucket",
+								CACert: []byte(testCACertPEM),
+							},
+						},
+					},
+				},
+			},
+			wantConfigMapName: caBundleConfigMapName,
+			wantError:         false,
+		},
+		{
+			name: "BSL with CloudStorage CA certificate",
+			backupLocations: []oadpv1alpha1.BackupLocation{
+				{
+					CloudStorage: &oadpv1alpha1.CloudStorageLocation{
+						CloudStorageRef: corev1.LocalObjectReference{Name: "test-bucket"},
+						CACert:          []byte(testCACertPEM),
+					},
+				},
+			},
+			wantConfigMapName: caBundleConfigMapName,
+			wantError:         false,
+		},
+		{
+			name: "BSL without CA certificate",
+			backupLocations: []oadpv1alpha1.BackupLocation{
+				{
+					Velero: &velerov1.BackupStorageLocationSpec{
+						Provider: "aws",
+						StorageType: velerov1.StorageType{
+							ObjectStorage: &velerov1.ObjectStorageLocation{
+								Bucket: "test-bucket",
+							},
+						},
+					},
+				},
+			},
+			wantConfigMapName: "",
+			wantError:         false,
+		},
+		{
+			name:              "No BSLs configured",
+			backupLocations:   []oadpv1alpha1.BackupLocation{},
+			wantConfigMapName: "",
+			wantError:         false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create a test DPA
+			dpa := &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-dpa",
+					Namespace: "test-namespace",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					BackupLocations: tt.backupLocations,
+				},
+			}
+
+			// Create fake client with the DPA
+			fakeClient := getFakeClientFromObjectsForTest(t, dpa)
+
+			// Create reconciler
+			r := &DataProtectionApplicationReconciler{
+				Client:        fakeClient,
+				Scheme:        fakeClient.Scheme(),
+				Log:           logr.Discard(),
+				Context:       context.Background(),
+				EventRecorder: record.NewFakeRecorder(10),
+				NamespacedName: types.NamespacedName{
+					Name:      dpa.Name,
+					Namespace: dpa.Namespace,
+				},
+				dpa: dpa,
+			}
+
+			// Test the function
+			gotConfigMapName, err := r.processCACertForBSLs()
+
+			// Check error expectation
+			if tt.wantError {
+				assert.Error(t, err)
+				return
+			} else {
+				assert.NoError(t, err)
+			}
+
+			// Check ConfigMap name
+			assert.Equal(t, tt.wantConfigMapName, gotConfigMapName)
+
+			// If we expect a ConfigMap, verify it was created with correct content
+			if tt.wantConfigMapName != "" {
+				configMap := &corev1.ConfigMap{}
+				err := fakeClient.Get(context.Background(), types.NamespacedName{
+					Name:      tt.wantConfigMapName,
+					Namespace: dpa.Namespace,
+				}, configMap)
+				assert.NoError(t, err)
+
+				// Verify ConfigMap contains the CA certificate
+				assert.Contains(t, configMap.Data, caBundleFileName)
+				assert.Equal(t, testCACertPEM, configMap.Data[caBundleFileName])
+
+				// Verify labels are set correctly
+				assert.Equal(t, common.Velero, configMap.Labels["app.kubernetes.io/name"])
+				assert.Equal(t, common.OADPOperator, configMap.Labels["app.kubernetes.io/managed-by"])
+				assert.Equal(t, "ca-bundle", configMap.Labels["app.kubernetes.io/component"])
+				assert.Equal(t, "True", configMap.Labels[oadpv1alpha1.OadpOperatorLabel])
+			}
+		})
+	}
+}
+
 // Helper function to create fake client for tests
 func getFakeClientFromObjectsForTest(t *testing.T, objs ...client.Object) client.WithWatch {
 	testScheme, err := getSchemeForFakeClient()
