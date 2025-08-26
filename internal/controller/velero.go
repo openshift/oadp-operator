@@ -45,6 +45,12 @@ const (
 
 	TrueVal  = "true"
 	FalseVal = "false"
+
+	// CA certificate related constants
+	caCertVolumeName      = "ca-certificate-bundle"
+	caCertMountPath       = "/etc/velero/ca-certs"
+	caBundleFileName      = "ca-bundle.pem"
+	caBundleConfigMapName = "velero-ca-bundle"
 )
 
 var (
@@ -448,6 +454,11 @@ func (r *DataProtectionApplicationReconciler) customizeVeleroDeployment(veleroDe
 			}
 			common.ApplyUnsupportedServerArgsOverride(veleroContainer, unsupportedServerArgsCM, common.Velero)
 		}
+	}
+
+	// Process CA certificates from BackupStorageLocations
+	if err := r.processCACertificatesForVelero(veleroDeployment, veleroContainer); err != nil {
+		return fmt.Errorf("failed to process CA certificates: %w", err)
 	}
 
 	return nil
@@ -887,4 +898,68 @@ func (r DataProtectionApplicationReconciler) noDefaultCredentials() (map[string]
 
 	return providerNeedsDefaultCreds, nil
 
+}
+
+// processCACertificatesForVelero processes CA certificates from BSLs and configures Velero deployment
+func (r *DataProtectionApplicationReconciler) processCACertificatesForVelero(veleroDeployment *appsv1.Deployment, veleroContainer *corev1.Container) error {
+	// Process CA certificates from BackupStorageLocations
+	configMapName, err := r.processCACertForBSLs()
+	if err != nil {
+		return fmt.Errorf("failed to process CA certificates from BSLs: %w", err)
+	}
+
+	// If no CA certificate ConfigMap was created, nothing to do
+	if configMapName == "" {
+		return nil
+	}
+
+	// Mount the CA certificate ConfigMap as a volume
+	caCertVolume := corev1.Volume{
+		Name: caCertVolumeName,
+		VolumeSource: corev1.VolumeSource{
+			ConfigMap: &corev1.ConfigMapVolumeSource{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: configMapName,
+				},
+			},
+		},
+	}
+	veleroDeployment.Spec.Template.Spec.Volumes = append(veleroDeployment.Spec.Template.Spec.Volumes, caCertVolume)
+
+	// Mount the CA certificate in the Velero container
+	caCertVolumeMount := corev1.VolumeMount{
+		Name:      caCertVolumeName,
+		MountPath: caCertMountPath,
+		ReadOnly:  true,
+	}
+	veleroContainer.VolumeMounts = append(veleroContainer.VolumeMounts, caCertVolumeMount)
+
+	// Add AWS_CA_BUNDLE environment variable to trigger AWS SDK native CA certificate functionality.
+	//
+	// AWS_CA_BUNDLE is a standard AWS SDK environment variable that specifies a custom CA bundle
+	// for TLS certificate validation. When set, the AWS SDK for Go automatically uses this bundle
+	// for all S3 API calls, eliminating SSL/TLS verification errors in environments with:
+	// - Custom Certificate Authorities (CAs)
+	// - Man-in-the-middle (MITM) proxies
+	// - Air-gapped environments with internal CAs
+	//
+	// This is particularly critical for imagestream backup operations in OpenShift, where the
+	// distribution registry's S3 driver (used for backing up imagestreams) respects this
+	// environment variable. The distribution registry S3 driver was enhanced to support
+	// AWS_CA_BUNDLE through changes that allow the AWS SDK to handle custom CAs naturally:
+	// https://github.com/milosgajdos/distribution/blob/main/registry/storage/driver/s3-aws/s3.go
+	//
+	// By setting this environment variable, we ensure that both:
+	// 1. Direct Velero S3 operations (backups, metadata)
+	// 2. Imagestream backup operations via the distribution registry
+	// work correctly with custom CA certificates from BackupStorageLocation configurations.
+	caBundleFullPath := caCertMountPath + "/" + caBundleFileName
+	awsCaBundleEnv := corev1.EnvVar{
+		Name:  "AWS_CA_BUNDLE",
+		Value: caBundleFullPath,
+	}
+	veleroContainer.Env = append(veleroContainer.Env, awsCaBundleEnv)
+
+	r.Log.Info("Configured CA certificate bundle for Velero", "configMap", configMapName, "mountPath", caBundleFullPath)
+	return nil
 }
