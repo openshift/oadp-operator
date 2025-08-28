@@ -152,7 +152,7 @@ metadata:
     categories: |
       Cloud Provider,Developer Tools,Modernization & Migration,OpenShift Optional,Storage
     certified: "false"
-    containerImage: quay.io/redhat-user-workloads/ocp-art-tenant/oadp-operator-oadp-1-4@sha256:1c699e48373cd8920c067a2c3bf032e9ee00a89a7f1faa9d15ab970dfcf2989a
+    containerImage: quay.io/redhat-user-workloads/ocp-art-tenant/oadp-operator-oadp-1-4@sha256:058172212cde9c24baa13d0bfb408f8c00e6242d3541620e811acaaa04e0ec5c
 
     description: OADP (OpenShift API for Data Protection) operator sets up and installs Data Protection Applications on the OpenShift platform.
     features.operators.openshift.io/cnf: "false"
@@ -799,7 +799,7 @@ spec:
                   value: quay.io/redhat-user-workloads/ocp-art-tenant/oadp-kubevirt-velero-plugin-oadp-1-4@sha256:a6575d48b1eeade50f3ad747495154db8a58d518b975d1d5da570e0fa7a6d0b5
                 - name: RELATED_IMAGE_MUSTGATHER
                   value: quay.io/redhat-user-workloads/ocp-art-tenant/oadp-must-gather-oadp-1-4@sha256:5225510027570932f85c93ff2f75ff5580d58a1286c2c5aacd63ea397554512d
-                image: quay.io/redhat-user-workloads/ocp-art-tenant/oadp-operator-oadp-1-4@sha256:1c699e48373cd8920c067a2c3bf032e9ee00a89a7f1faa9d15ab970dfcf2989a
+                image: quay.io/redhat-user-workloads/ocp-art-tenant/oadp-operator-oadp-1-4@sha256:058172212cde9c24baa13d0bfb408f8c00e6242d3541620e811acaaa04e0ec5c
                 imagePullPolicy: IfNotPresent
                 livenessProbe:
                   httpGet:
@@ -935,7 +935,7 @@ spec:
   replaces: oadp-operator.v1.4.5
   relatedImages:
   - name: oadp_operator
-    image: quay.io/redhat-user-workloads/ocp-art-tenant/oadp-operator-oadp-1-4@sha256:1c699e48373cd8920c067a2c3bf032e9ee00a89a7f1faa9d15ab970dfcf2989a
+    image: quay.io/redhat-user-workloads/ocp-art-tenant/oadp-operator-oadp-1-4@sha256:058172212cde9c24baa13d0bfb408f8c00e6242d3541620e811acaaa04e0ec5c
   - name: velero
     image: quay.io/redhat-user-workloads/ocp-art-tenant/oadp-velero-oadp-1-4@sha256:41d9a623e489446d275f4d1f7d233b153ca3d96d68f4d7ae2ad1210e9f769af0 
   - name: velero_restore_helper
