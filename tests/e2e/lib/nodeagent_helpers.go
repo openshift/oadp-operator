@@ -5,13 +5,14 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/openshift/oadp-operator/pkg/common"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
+
+	"github.com/openshift/oadp-operator/pkg/common"
 )
 
 func GetNodeAgentDaemonSet(c *kubernetes.Clientset, namespace string) (*appsv1.DaemonSet, error) {
@@ -54,6 +55,7 @@ func AreNodeAgentPodsRunning(c *kubernetes.Clientset, namespace string) wait.Con
 	}
 }
 
+// keep for now
 func IsNodeAgentDaemonSetDeleted(c *kubernetes.Clientset, namespace string) wait.ConditionFunc {
 	log.Printf("Checking if NodeAgent DaemonSet has been deleted...")
 	return func() (bool, error) {

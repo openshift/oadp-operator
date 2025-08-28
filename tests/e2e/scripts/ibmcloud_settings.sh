@@ -3,6 +3,17 @@
 cat > $TMP_DIR/oadpcreds <<EOF
 {
   "spec": {
+      "unsupportedOverrides": {
+        "veleroImageFqin": "$VELERO_IMAGE",
+        "awsPluginImageFqin": "$AWS_PLUGIN_IMAGE",
+        "openshiftPluginImageFqin": "$OPENSHIFT_PLUGIN_IMAGE",
+        "azurePluginImageFqin": "$AZURE_PLUGIN_IMAGE",
+        "gcpPluginImageFqin": "$GCP_PLUGIN_IMAGE",
+        "resticRestoreImageFqin": "$RESTORE_IMAGE",
+        "kubevirtPluginImageFqin": "$KUBEVIRT_PLUGIN_IMAGE",
+        "hypershiftPluginImageFqin": "$HYPERSHIFT_PLUGIN_IMAGE",
+        "nonAdminControllerImageFqin": "$NON_ADMIN_IMAGE"
+      },
       "configuration":{
         "velero":{
           "defaultPlugins": [
@@ -25,11 +36,7 @@ cat > $TMP_DIR/oadpcreds <<EOF
             }
           }
         }
-      ],
-    "credential":{
-      "name": "$SECRET",
-      "key": "cloud"
-    }
+      ]
   }
 }
 EOF

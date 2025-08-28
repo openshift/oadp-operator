@@ -8,14 +8,33 @@ import (
 	"strings"
 	"time"
 
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
+	"github.com/onsi/ginkgo/v2"
+	"github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/openshift/oadp-operator/api/v1alpha1"
 	"github.com/openshift/oadp-operator/tests/e2e/lib"
 )
+
+// TODO duplication of todoListReady in tests/e2e/backup_restore_suite_test.go
+func vmTodoListReady(preBackupState bool, twoVol bool, database string) VerificationFunction {
+	return VerificationFunction(func(ocClient client.Client, namespace string) error {
+		log.Printf("checking for the NAMESPACE: %s", namespace)
+		gomega.Eventually(lib.IsDeploymentReady(ocClient, namespace, database), time.Minute*10, time.Second*10).Should(gomega.BeTrue())
+		// in VM tests, DeploymentConfig was refactored to Deployment (to avoid deprecation warnings)
+		// gomega.Eventually(lib.IsDCReady(ocClient, namespace, "todolist"), time.Minute*10, time.Second*10).Should(gomega.BeTrue())
+		gomega.Eventually(lib.IsDeploymentReady(ocClient, namespace, "todolist"), time.Minute*10, time.Second*10).Should(gomega.BeTrue())
+		gomega.Eventually(lib.AreApplicationPodsRunning(kubernetesClientForSuiteRun, namespace), time.Minute*9, time.Second*5).Should(gomega.BeTrue())
+		// This test confirms that SCC restore logic in our plugin is working
+		err := lib.DoesSCCExist(ocClient, database+"-persistent-scc")
+		if err != nil {
+			return err
+		}
+		err = lib.VerifyBackupRestoreData(runTimeClientForSuiteRun, kubernetesClientForSuiteRun, kubeConfig, artifact_dir, namespace, "todolist-route", "todolist", "todolist", preBackupState, twoVol)
+		return err
+	})
+}
 
 func getLatestCirrosImageURL() (string, error) {
 	cirrosVersionURL := "https://download.cirros-cloud.net/version/released"
@@ -48,7 +67,7 @@ func vmPoweredOff(vmnamespace, vmname string) VerificationFunction {
 			log.Printf("VM status is: %s\n", status)
 			return status == "Stopped"
 		}
-		Eventually(isOff, time.Minute*10, time.Second*10).Should(BeTrue())
+		gomega.Eventually(isOff, time.Minute*10, time.Second*10).Should(gomega.BeTrue())
 		return nil
 	})
 }
@@ -60,20 +79,20 @@ type VmBackupRestoreCase struct {
 	PowerState string
 }
 
-func runVmBackupAndRestore(brCase VmBackupRestoreCase, expectedErr error, updateLastBRcase func(brCase VmBackupRestoreCase), updateLastInstallTime func(), v *lib.VirtOperator) {
+func runVmBackupAndRestore(brCase VmBackupRestoreCase, updateLastBRcase func(brCase VmBackupRestoreCase), v *lib.VirtOperator) {
 	updateLastBRcase(brCase)
 
 	// Create DPA
 	backupName, restoreName := prepareBackupAndRestore(brCase.BackupRestoreCase, func() {})
 
 	err := lib.CreateNamespace(v.Clientset, brCase.Namespace)
-	Expect(err).To(BeNil())
+	gomega.Expect(err).To(gomega.BeNil())
 
 	err = lib.InstallApplication(v.Client, brCase.Template)
 	if err != nil {
 		fmt.Printf("Failed to install VM template %s: %v", brCase.Template, err)
 	}
-	Expect(err).To(BeNil())
+	gomega.Expect(err).To(gomega.BeNil())
 
 	// Wait for VM to start, then give some time for cloud-init to run.
 	// Afterward, run through the standard application verification to make sure
@@ -82,7 +101,7 @@ func runVmBackupAndRestore(brCase VmBackupRestoreCase, expectedErr error, update
 		status, err := v.GetVmStatus(brCase.Namespace, brCase.Name)
 		return status == "Running", err
 	})
-	Expect(err).ToNot(HaveOccurred())
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 	// TODO: find a better way to check for clout-init completion
 	if brCase.InitDelay > 0*time.Second {
@@ -95,14 +114,14 @@ func runVmBackupAndRestore(brCase VmBackupRestoreCase, expectedErr error, update
 	if brCase.PowerState == "Stopped" {
 		log.Print("Stopping VM before backup as specified in test case.")
 		err = v.StopVm(brCase.Namespace, brCase.Name)
-		Expect(err).To(BeNil())
+		gomega.Expect(err).To(gomega.BeNil())
 	}
 
 	// Run optional custom verification
 	if brCase.PreBackupVerify != nil {
 		log.Printf("Running pre-backup custom function for case %s", brCase.Name)
 		err := brCase.PreBackupVerify(dpaCR.Client, brCase.Namespace)
-		Expect(err).ToNot(HaveOccurred())
+		gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	}
 
 	// Back up VM
@@ -110,10 +129,10 @@ func runVmBackupAndRestore(brCase VmBackupRestoreCase, expectedErr error, update
 
 	// Delete everything in test namespace
 	err = v.RemoveVm(brCase.Namespace, brCase.Name, 5*time.Minute)
-	Expect(err).To(BeNil())
+	gomega.Expect(err).To(gomega.BeNil())
 	err = lib.DeleteNamespace(v.Clientset, brCase.Namespace)
-	Expect(err).To(BeNil())
-	Eventually(lib.IsNamespaceDeleted(kubernetesClientForSuiteRun, brCase.Namespace), time.Minute*5, time.Second*5).Should(BeTrue())
+	gomega.Expect(err).To(gomega.BeNil())
+	gomega.Eventually(lib.IsNamespaceDeleted(kubernetesClientForSuiteRun, brCase.Namespace), time.Minute*5, time.Second*5).Should(gomega.BeTrue())
 
 	// Do restore
 	runRestore(brCase.BackupRestoreCase, backupName, restoreName, nsRequiresResticDCWorkaround)
@@ -122,87 +141,111 @@ func runVmBackupAndRestore(brCase VmBackupRestoreCase, expectedErr error, update
 	if brCase.PostRestoreVerify != nil {
 		log.Printf("Running post-restore custom function for VM case %s", brCase.Name)
 		err = brCase.PostRestoreVerify(dpaCR.Client, brCase.Namespace)
-		Expect(err).ToNot(HaveOccurred())
+		gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	}
 
 	// avoid finalizers in namespace deletion
 	err = v.RemoveVm(brCase.Namespace, brCase.Name, 5*time.Minute)
-	Expect(err).To(BeNil())
+	gomega.Expect(err).To(gomega.BeNil())
 }
 
-var _ = Describe("VM backup and restore tests", Ordered, func() {
+var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 	var v *lib.VirtOperator
 	var err error
 	wasInstalledFromTest := false
+
+	cirrosDownloadedFromTest := false
+	bootImageNamespace := "openshift-virtualization-os-images"
+
 	var lastBRCase VmBackupRestoreCase
 	var lastInstallTime time.Time
 	updateLastBRcase := func(brCase VmBackupRestoreCase) {
 		lastBRCase = brCase
 	}
-	updateLastInstallTime := func() {
-		lastInstallTime = time.Now()
-	}
 
-	var _ = BeforeAll(func() {
-		v, err = lib.GetVirtOperator(runTimeClientForSuiteRun, kubernetesClientForSuiteRun, dynamicClientForSuiteRun)
-		Expect(err).To(BeNil())
-		Expect(v).ToNot(BeNil())
+	var _ = ginkgo.BeforeAll(func() {
+		v, err = lib.GetVirtOperator(runTimeClientForSuiteRun, kubernetesClientForSuiteRun, dynamicClientForSuiteRun, useUpstreamHco)
+		gomega.Expect(err).To(gomega.BeNil())
+		gomega.Expect(v).ToNot(gomega.BeNil())
 
 		if !v.IsVirtInstalled() {
 			err = v.EnsureVirtInstallation()
-			Expect(err).To(BeNil())
+			gomega.Expect(err).To(gomega.BeNil())
 			wasInstalledFromTest = true
 		}
 
-		err = v.EnsureEmulation(20 * time.Second)
-		Expect(err).To(BeNil())
+		if kvmEmulation {
+			err = v.EnsureEmulation(20 * time.Second)
+			gomega.Expect(err).To(gomega.BeNil())
+		} else {
+			log.Println("Avoiding setting KVM emulation, by command line request")
+		}
 
 		url, err := getLatestCirrosImageURL()
-		Expect(err).To(BeNil())
-		err = v.EnsureDataVolumeFromUrl("openshift-virtualization-os-images", "cirros", url, "150Mi", 5*time.Minute)
-		Expect(err).To(BeNil())
-		err = v.CreateDataSourceFromPvc("openshift-virtualization-os-images", "cirros")
-		Expect(err).To(BeNil())
-
+		gomega.Expect(err).To(gomega.BeNil())
+		err = v.EnsureNamespace(bootImageNamespace, 1*time.Minute)
+		gomega.Expect(err).To(gomega.BeNil())
+		if !v.CheckDataVolumeExists(bootImageNamespace, "cirros") {
+			err = v.EnsureDataVolumeFromUrl(bootImageNamespace, "cirros", url, "150Mi", 5*time.Minute)
+			gomega.Expect(err).To(gomega.BeNil())
+			err = v.CreateDataSourceFromPvc(bootImageNamespace, "cirros")
+			gomega.Expect(err).To(gomega.BeNil())
+			cirrosDownloadedFromTest = true
+		}
 		dpaCR.VeleroDefaultPlugins = append(dpaCR.VeleroDefaultPlugins, v1alpha1.DefaultPluginKubeVirt)
 
 		err = v.CreateImmediateModeStorageClass("test-sc-immediate")
-		Expect(err).To(BeNil())
+		gomega.Expect(err).To(gomega.BeNil())
+		err = v.CreateWaitForFirstConsumerStorageClass("test-sc-wffc")
+		gomega.Expect(err).To(gomega.BeNil())
+		err = lib.DeleteBackupRepositories(runTimeClientForSuiteRun, namespace)
+		gomega.Expect(err).To(gomega.BeNil())
+		err = lib.InstallApplication(v.Client, "./sample-applications/virtual-machines/cirros-test/cirros-rbac.yaml")
+		gomega.Expect(err).To(gomega.BeNil())
+
+		if v.Upstream {
+			log.Printf("Creating fedora DataSource in openshift-virtualization-os-images namespace")
+			pvcNamespace, pvcName, err := v.GetDataSourcePvc("kubevirt-os-images", "fedora")
+			gomega.Expect(err).To(gomega.BeNil())
+			err = v.CreateTargetDataSourceFromPvc(pvcNamespace, "openshift-virtualization-os-images", pvcName, "fedora")
+			gomega.Expect(err).To(gomega.BeNil())
+		}
+
 	})
 
-	var _ = AfterAll(func() {
+	var _ = ginkgo.AfterAll(func() {
 		// DPA just needs to have BSL so gathering of backups/restores logs/describe work
 		// using kopia to collect more info (DaemonSet)
 		waitOADPReadiness(lib.KOPIA)
 
-		log.Printf("Running OADP must-gather")
-		err := lib.RunMustGather(artifact_dir, dpaCR.Client)
-		Expect(err).ToNot(HaveOccurred())
-
 		err = dpaCR.Delete()
-		Expect(err).ToNot(HaveOccurred())
+		gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
-		v.RemoveDataSource("openshift-virtualization-os-images", "cirros")
-		v.RemoveDataVolume("openshift-virtualization-os-images", "cirros", 2*time.Minute)
+		if v != nil && cirrosDownloadedFromTest {
+			v.RemoveDataSource(bootImageNamespace, "cirros")
+			v.RemoveDataVolume(bootImageNamespace, "cirros", 2*time.Minute)
+		}
 
 		if v != nil && wasInstalledFromTest {
 			v.EnsureVirtRemoval()
 		}
 
 		err = v.RemoveStorageClass("test-sc-immediate")
-		Expect(err).To(BeNil())
+		gomega.Expect(err).To(gomega.BeNil())
+		err = v.RemoveStorageClass("test-sc-wffc")
+		gomega.Expect(err).To(gomega.BeNil())
 	})
 
-	var _ = AfterEach(func(ctx SpecContext) {
+	var _ = ginkgo.AfterEach(func(ctx ginkgo.SpecContext) {
 		tearDownBackupAndRestore(lastBRCase.BackupRestoreCase, lastInstallTime, ctx.SpecReport())
 	})
 
-	DescribeTable("Backup and restore virtual machines",
+	ginkgo.DescribeTable("Backup and restore virtual machines",
 		func(brCase VmBackupRestoreCase, expectedError error) {
-			runVmBackupAndRestore(brCase, expectedError, updateLastBRcase, updateLastInstallTime, v)
+			runVmBackupAndRestore(brCase, updateLastBRcase, v)
 		},
 
-		Entry("no-application CSI datamover backup and restore, CirrOS VM", Label("virt"), VmBackupRestoreCase{
+		ginkgo.Entry("no-application CSI datamover backup and restore, CirrOS VM", ginkgo.Label("virt"), VmBackupRestoreCase{
 			Template:  "./sample-applications/virtual-machines/cirros-test/cirros-test.yaml",
 			InitDelay: 2 * time.Minute, // Just long enough to get to login prompt, VM is marked running while kernel messages are still scrolling by
 			BackupRestoreCase: BackupRestoreCase{
@@ -214,7 +257,7 @@ var _ = Describe("VM backup and restore tests", Ordered, func() {
 			},
 		}, nil),
 
-		Entry("no-application CSI backup and restore, CirrOS VM", Label("virt"), VmBackupRestoreCase{
+		ginkgo.Entry("no-application CSI backup and restore, CirrOS VM", ginkgo.Label("virt"), VmBackupRestoreCase{
 			Template:  "./sample-applications/virtual-machines/cirros-test/cirros-test.yaml",
 			InitDelay: 2 * time.Minute, // Just long enough to get to login prompt, VM is marked running while kernel messages are still scrolling by
 			BackupRestoreCase: BackupRestoreCase{
@@ -226,7 +269,7 @@ var _ = Describe("VM backup and restore tests", Ordered, func() {
 			},
 		}, nil),
 
-		Entry("no-application CSI backup and restore, powered-off CirrOS VM", Label("virt"), VmBackupRestoreCase{
+		ginkgo.Entry("no-application CSI backup and restore, powered-off CirrOS VM", ginkgo.Label("virt"), VmBackupRestoreCase{
 			Template:   "./sample-applications/virtual-machines/cirros-test/cirros-test.yaml",
 			InitDelay:  2 * time.Minute,
 			PowerState: "Stopped",
@@ -240,7 +283,7 @@ var _ = Describe("VM backup and restore tests", Ordered, func() {
 			},
 		}, nil),
 
-		Entry("immediate binding no-application CSI datamover backup and restore, CirrOS VM", Label("virt"), VmBackupRestoreCase{
+		ginkgo.Entry("immediate binding no-application CSI datamover backup and restore, CirrOS VM", ginkgo.Label("virt"), VmBackupRestoreCase{
 			Template:  "./sample-applications/virtual-machines/cirros-test/cirros-test-immediate.yaml",
 			InitDelay: 2 * time.Minute, // Just long enough to get to login prompt, VM is marked running while kernel messages are still scrolling by
 			BackupRestoreCase: BackupRestoreCase{
@@ -252,7 +295,7 @@ var _ = Describe("VM backup and restore tests", Ordered, func() {
 			},
 		}, nil),
 
-		Entry("immediate binding no-application CSI backup and restore, CirrOS VM", Label("virt"), VmBackupRestoreCase{
+		ginkgo.Entry("immediate binding no-application CSI backup and restore, CirrOS VM", ginkgo.Label("virt"), VmBackupRestoreCase{
 			Template:  "./sample-applications/virtual-machines/cirros-test/cirros-test-immediate.yaml",
 			InitDelay: 2 * time.Minute, // Just long enough to get to login prompt, VM is marked running while kernel messages are still scrolling by
 			BackupRestoreCase: BackupRestoreCase{
@@ -264,7 +307,7 @@ var _ = Describe("VM backup and restore tests", Ordered, func() {
 			},
 		}, nil),
 
-		Entry("immediate binding no-application CSI+datamover backup and restore, powered-off CirrOS VM", Label("virt"), VmBackupRestoreCase{
+		ginkgo.Entry("immediate binding no-application CSI+datamover backup and restore, powered-off CirrOS VM", ginkgo.Label("virt"), VmBackupRestoreCase{
 			Template:   "./sample-applications/virtual-machines/cirros-test/cirros-test-immediate.yaml",
 			InitDelay:  2 * time.Minute,
 			PowerState: "Stopped",
@@ -278,7 +321,7 @@ var _ = Describe("VM backup and restore tests", Ordered, func() {
 			},
 		}, nil),
 
-		Entry("immediate binding no-application CSI backup and restore, powered-off CirrOS VM", Label("virt"), VmBackupRestoreCase{
+		ginkgo.Entry("immediate binding no-application CSI backup and restore, powered-off CirrOS VM", ginkgo.Label("virt"), VmBackupRestoreCase{
 			Template:   "./sample-applications/virtual-machines/cirros-test/cirros-test-immediate.yaml",
 			InitDelay:  2 * time.Minute,
 			PowerState: "Stopped",
@@ -292,7 +335,7 @@ var _ = Describe("VM backup and restore tests", Ordered, func() {
 			},
 		}, nil),
 
-		Entry("todolist CSI backup and restore, in a Fedora VM", Label("virt"), VmBackupRestoreCase{
+		ginkgo.Entry("todolist CSI backup and restore, in a Fedora VM", ginkgo.Label("virt"), VmBackupRestoreCase{
 			Template:  "./sample-applications/virtual-machines/fedora-todolist/fedora-todolist.yaml",
 			InitDelay: 3 * time.Minute, // For cloud-init
 			BackupRestoreCase: BackupRestoreCase{
@@ -300,8 +343,8 @@ var _ = Describe("VM backup and restore tests", Ordered, func() {
 				Name:              "fedora-todolist",
 				SkipVerifyLogs:    true,
 				BackupRestoreType: lib.CSI,
-				PreBackupVerify:   todoListReady(true, false, "mysql"),
-				PostRestoreVerify: todoListReady(false, false, "mysql"),
+				PreBackupVerify:   vmTodoListReady(true, false, "mysql"),
+				PostRestoreVerify: vmTodoListReady(false, false, "mysql"),
 				BackupTimeout:     45 * time.Minute,
 			},
 		}, nil),

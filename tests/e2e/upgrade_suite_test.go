@@ -2,16 +2,18 @@ package e2e_test
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"time"
 
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
-	"github.com/operator-framework/api/pkg/operators/v1"
+	operatorv1 "github.com/operator-framework/api/pkg/operators/v1"
 	"github.com/operator-framework/api/pkg/operators/v1alpha1"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -28,20 +30,20 @@ type channelUpgradeCase struct {
 var _ = ginkgo.Describe("OADP upgrade scenarios", ginkgo.Ordered, func() {
 	ginkgo.DescribeTable("Upgrade OADP channel tests",
 		func(scenario channelUpgradeCase) {
-			// Create operatorGroup and subscription with previous channel stable-1.3
+			// Create OperatorGroup and Subscription with previous channel stable-1.4
 			log.Print("Checking if OperatorGroup needs to be created")
-			operatorGroupList := v1.OperatorGroupList{}
+			operatorGroupList := operatorv1.OperatorGroupList{}
 			err := runTimeClientForSuiteRun.List(context.Background(), &operatorGroupList, client.InNamespace(namespace))
 			gomega.Expect(err).To(gomega.BeNil())
 			gomega.Expect(len(operatorGroupList.Items) > 1).To(gomega.BeFalse())
 			if len(operatorGroupList.Items) == 0 {
 				log.Print("Creating OperatorGroup oadp-operator-group")
-				operatorGroup := v1.OperatorGroup{
+				operatorGroup := operatorv1.OperatorGroup{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "oadp-operator-group",
 						Namespace: namespace,
 					},
-					Spec: v1.OperatorGroupSpec{
+					Spec: operatorv1.OperatorGroupSpec{
 						TargetNamespaces: []string{namespace},
 					},
 				}
@@ -73,7 +75,7 @@ var _ = ginkgo.Describe("OADP upgrade scenarios", ginkgo.Ordered, func() {
 			err = runTimeClientForSuiteRun.Create(context.Background(), &subscription)
 			gomega.Expect(err).To(gomega.BeNil())
 
-			// Check that after 5 minutes csv oadp-operator.v1.3.0 has status.phase Succeeded
+			// Check that after 5 minutes ClusterServiceVersion oadp-operator.v1.4.0 has status.phase Succeeded
 			log.Print("Checking if previous channel CSV has status.phase Succeeded")
 			subscriptionHelper := lib.Subscription{Subscription: &subscription}
 			gomega.Eventually(subscriptionHelper.CsvIsReady(runTimeClientForSuiteRun), time.Minute*5, time.Second*5).Should(gomega.BeTrue())
@@ -85,14 +87,11 @@ var _ = ginkgo.Describe("OADP upgrade scenarios", ginkgo.Ordered, func() {
 				Configuration: &oadpv1alpha1.ApplicationConfig{
 					Velero: &oadpv1alpha1.VeleroConfig{
 						LogLevel:       "debug",
-						DefaultPlugins: append(dpaCR.VeleroDefaultPlugins, oadpv1alpha1.DefaultPluginCSI),
-						FeatureFlags:   []string{velerov1.CSIFeatureFlag},
+						DefaultPlugins: dpaCR.VeleroDefaultPlugins,
 					},
-					NodeAgent: &oadpv1alpha1.NodeAgentConfig{
-						UploaderType: "kopia",
+					Restic: &oadpv1alpha1.ResticConfig{
 						NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
-							PodConfig: &oadpv1alpha1.PodConfig{},
-							Enable:    ptr.To(false),
+							Enable: ptr.To(true),
 						},
 					},
 				},
@@ -118,41 +117,40 @@ var _ = ginkgo.Describe("OADP upgrade scenarios", ginkgo.Ordered, func() {
 					},
 				},
 			}
-			err = dpaCR.CreateOrUpdate(runTimeClientForSuiteRun, dpaSpec)
+			err = dpaCR.CreateOrUpdate(dpaSpec)
 			gomega.Expect(err).To(gomega.BeNil())
 
 			// check that DPA is reconciled true
-			log.Print("Checking if DPA is reconciled")
+			log.Print("Checking if DPA is reconciled true")
 			gomega.Eventually(dpaCR.IsReconciledTrue(), time.Minute*3, time.Second*5).Should(gomega.BeTrue())
 
-			// check that velero pod is running
-			log.Print("Checking if velero pod is running")
+			// check that Velero Pod is running
+			log.Print("Checking if Velero Pod is running")
 			gomega.Eventually(lib.VeleroPodIsRunning(kubernetesClientForSuiteRun, namespace), time.Minute*3, time.Second*5).Should(gomega.BeTrue())
+
+			// check that NodeAgent Pods are running
+			log.Printf("Checking if Node Agent Pods are running")
+			gomega.Eventually(lib.AreNodeAgentPodsRunning(kubernetesClientForSuiteRun, namespace), time.Minute*3, time.Second*5).Should(gomega.BeTrue())
 
 			// check if BSL is available
 			log.Print("Checking if BSL is available")
 			gomega.Eventually(dpaCR.BSLsAreAvailable(), time.Minute*3, time.Second*5).Should(gomega.BeTrue())
 
-			// Velero api changes:
-			// check that BSL had checksumAlgorithm not set
-			bsls, err := dpaCR.ListBSLs()
-			gomega.Expect(err).To(gomega.BeNil())
-			_, ok := bsls.Items[0].Spec.Config["checksumAlgorithm"]
-			gomega.Expect(ok).To(gomega.BeFalse())
-			// check that velero Pod had 3 init containers (aws, openshift, csi)
-			velero, err := lib.GetVeleroPod(kubernetesClientForSuiteRun, namespace)
-			gomega.Expect(err).To(gomega.BeNil())
-			gomega.Expect(len(velero.Spec.InitContainers)).To(gomega.Equal(3))
+			// TODO Velero api changes
+
+			// TODO OADP api changes
 
 			// TODO backup/restore
 
-			// Update spec.channel in subscription to stable-1.4
+			// Update spec.channel in Subscription to stable
 			log.Print("Updating Subscription oadp-operator spec.channel")
+			err = runTimeClientForSuiteRun.Get(context.Background(), types.NamespacedName{Namespace: subscription.Namespace, Name: subscription.Name}, &subscription)
+			gomega.Expect(err).To(gomega.BeNil())
 			subscription.Spec.Channel = scenario.next
 			err = runTimeClientForSuiteRun.Update(context.Background(), &subscription)
 			gomega.Expect(err).To(gomega.BeNil())
 
-			// Check that after 8 minutes csv oadp-operator.v1.4.0 has status.phase Installing -> Succeeded
+			// Check that after 8 minutes ClusterServiceVersion oadp-operator.v99.0.0 has status.phase Installing -> Succeeded
 			log.Print("Waiting for next channel CSV to be created")
 			gomega.Eventually(subscriptionHelper.CsvIsInstalling(runTimeClientForSuiteRun), time.Minute*3, time.Second*5).Should(gomega.BeTrue())
 			log.Print("Checking if next channel CSV has status.phase Succeeded")
@@ -165,16 +163,63 @@ var _ = ginkgo.Describe("OADP upgrade scenarios", ginkgo.Ordered, func() {
 
 			// check if updated DPA is reconciled
 			log.Print("Checking if DPA was reconciled after update")
+			gomega.Eventually(dpaCR.IsReconciledFalse("Delete restic object from spec.configuration, use spec.configuration.nodeAgent instead"), time.Minute*3, time.Second*5).Should(gomega.BeTrue())
+
+			log.Print("Updating DPA")
+			dpaSpec.Configuration.Restic = nil
+			dpaSpec.Configuration.NodeAgent = &oadpv1alpha1.NodeAgentConfig{
+				UploaderType: "restic",
+				NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
+					Enable: ptr.To(true),
+				},
+			}
+			err = dpaCR.CreateOrUpdate(dpaSpec)
+			gomega.Expect(err).To(gomega.BeNil())
+
+			// check if updated DPA is reconciled
+			log.Print("Checking if DPA was reconciled after update")
 			// TODO do not use Consistently, using because no field in DPA is updated telling when it was last reconciled
 			gomega.Consistently(dpaCR.IsReconciledTrue(), time.Minute*3, time.Second*15).Should(gomega.BeTrue())
 
-			// check if updated velero pod is running
-			log.Print("Checking if velero pod was recreated after update")
+			// check if updated Velero Pod is running
+			log.Print("Checking if Velero Pod was recreated after update")
 			gomega.Eventually(lib.VeleroPodIsUpdated(kubernetesClientForSuiteRun, namespace, timeAfterUpgrade), time.Minute*3, time.Second*5).Should(gomega.BeTrue())
-			log.Print("Checking if velero pod is running")
+			log.Print("Checking if Velero Pod is running")
 			gomega.Eventually(lib.VeleroPodIsRunning(kubernetesClientForSuiteRun, namespace), time.Minute*3, time.Second*5).Should(gomega.BeTrue())
 
 			timeAfterVeleroIsRunning := time.Now()
+
+			// check if updated NodeAgent Pods are running
+			log.Print("Checking if Node Agent Pods were recreated after update")
+			gomega.Eventually(func() (bool, error) {
+				nodeAgentDaemonSet, err := lib.GetNodeAgentDaemonSet(kubernetesClientForSuiteRun, namespace)
+				if err != nil {
+					return false, err
+				}
+
+				numScheduled := nodeAgentDaemonSet.Status.CurrentNumberScheduled
+				numDesired := nodeAgentDaemonSet.Status.DesiredNumberScheduled
+				// check correct number of NodeAgent Pods are initialized
+				if numScheduled != numDesired {
+					return false, fmt.Errorf("wrong number of Node Agent Pods")
+				}
+
+				podList, err := lib.GetAllPodsWithLabel(kubernetesClientForSuiteRun, namespace, "name=node-agent")
+				if err != nil {
+					return false, err
+				}
+				if err != nil {
+					return false, err
+				}
+				for _, pod := range podList.Items {
+					if !pod.CreationTimestamp.After(timeAfterUpgrade) {
+						return false, fmt.Errorf("not all Node Agent Pods were updated")
+					}
+				}
+				return true, nil
+			}, time.Minute*3, time.Second*5).Should(gomega.BeTrue())
+			log.Printf("Checking if Node Agent Pods are running")
+			gomega.Eventually(lib.AreNodeAgentPodsRunning(kubernetesClientForSuiteRun, namespace), time.Minute*3, time.Second*5).Should(gomega.BeTrue())
 
 			// check if updated BSL is available
 			log.Print("Checking if BSL was reconciled after update")
@@ -182,24 +227,15 @@ var _ = ginkgo.Describe("OADP upgrade scenarios", ginkgo.Ordered, func() {
 			log.Print("Checking if BSL is available")
 			gomega.Eventually(dpaCR.BSLsAreAvailable(), time.Minute*3, time.Second*5).Should(gomega.BeTrue())
 
-			// No OADP api changes
+			// TODO Velero api changes
 
-			// Velero api changes:
-			// check that BSL has checksumAlgorithm set to empty
-			bsls, err = dpaCR.ListBSLs()
-			gomega.Expect(err).To(gomega.BeNil())
-			value, ok := bsls.Items[0].Spec.Config["checksumAlgorithm"]
-			gomega.Expect(ok).To(gomega.BeTrue())
-			gomega.Expect(value).To(gomega.Equal(""))
-			// check that velero Pod has 2 init containers (aws, openshift)
-			velero, err = lib.GetVeleroPod(kubernetesClientForSuiteRun, namespace)
-			gomega.Expect(err).To(gomega.BeNil())
-			gomega.Expect(len(velero.Spec.InitContainers)).To(gomega.Equal(2))
-			// TODO check that CSI works after code integration
+			// TODO OADP api changes
+
+			// TODO backup/restore
 		},
-		ginkgo.Entry("Upgrade from stable-1.3 (oadp-1.3 branch) to stable-1.4 (oadp-1.4 branch) channel", ginkgo.Label("upgrade", "aws", "ibmcloud"), channelUpgradeCase{
-			previous: "stable-1.3",
-			next:     "stable-1.4",
+		ginkgo.Entry("Upgrade from stable-1.4 (oadp-1.4 branch) to stable (oadp-1.5 branch) channel", ginkgo.Label("upgrade"), channelUpgradeCase{
+			previous: "stable-1.4",
+			next:     "stable",
 			// to test production
 			// production: true,
 		}),

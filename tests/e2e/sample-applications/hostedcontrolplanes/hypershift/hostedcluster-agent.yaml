@@ -1,0 +1,63 @@
+apiVersion: hypershift.openshift.io/v1beta1
+kind: HostedCluster
+metadata:
+  name: {{ .HostedClusterName }}
+  namespace: {{ .ClustersNamespace }}
+  annotations:
+    hypershift.openshift.io/cleanup-cloud-resources: "true"
+    hypershift.openshift.io/skip-release-image-validation: "true"
+spec:
+  configuration:
+    operatorhub:
+      disableAllDefaultSources: true
+  controllerAvailabilityPolicy: SingleReplica
+  dns:
+    baseDomain: example.com
+  etcd:
+    managed:
+      storage:
+        persistentVolume:
+          size: 8Gi
+        type: PersistentVolume
+    managementType: Managed
+  fips: false
+  infraID: {{ .HostedClusterName }}-{{ .InfraIDSeed }}
+  networking:
+    clusterNetwork:
+    - cidr: 10.132.0.0/14
+    networkType: OVNKubernetes
+    serviceNetwork:
+    - cidr: 172.31.0.0/16
+  olmCatalogPlacement: management
+  platform:
+    type: Agent
+    agent:
+      agentNamespace: {{ .ClustersNamespace }}
+  pullSecret:
+    name: {{ .HostedClusterName }}-pull-secret
+  release:
+    image: {{ .HCOCPTestImage }}
+  secretEncryption:
+    aescbc:
+      activeKey:
+        name: {{ .HostedClusterName }}-etcd-encryption-key
+    type: aescbc
+  services:
+  - service: APIServer
+    servicePublishingStrategy:
+      type: NodePort
+      nodePort:
+        address: 10.0.133.132
+  - service: Ignition
+    servicePublishingStrategy:
+      type: Route
+  - service: Konnectivity
+    servicePublishingStrategy:
+      type: Route
+  - service: OAuthServer
+    servicePublishingStrategy:
+      type: Route
+  - service: OIDC
+    servicePublishingStrategy:
+      type: Route
+  sshKey: {}
