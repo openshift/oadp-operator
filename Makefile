@@ -49,6 +49,12 @@ PREVIOUS_CHANNEL_GO_VERSION ?= 1.21
 # Extract the toolchain directive from go.mod
 GO_TOOLCHAIN_VERSION := $(shell grep -E "^toolchain" go.mod | awk '{print $$2}')
 
+# Set GOPROXY to use the proxy.golang.org mirror to avoid rate limiting issues
+export GOPROXY ?= https://proxy.golang.org,direct
+# Set GOSUMDB to use the sum.golang.org checksum database to avoid checksum mismatch issues
+export GOSUMDB ?= sum.golang.org
+
+
 # CHANNELS define the bundle channels used in the bundle.
 # Add a new line here if you would like to change its default config. (E.g CHANNELS = "candidate,fast,stable")
 # To re-generate a bundle for other specific channels without changing the standard setup, you can:
