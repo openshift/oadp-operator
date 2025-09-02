@@ -86,14 +86,6 @@ gcloud iam service-accounts add-iam-policy-binding ${SERVICE_ACCOUNT_EMAIL} \
 oc create namespace openshift-adp
 ----
 
-. Annotate the Velero service account to use Workload Identity:
-+
-[source,bash]
-----
-oc annotate serviceaccount velero -n openshift-adp \
-    iam.gke.io/gcp-service-account=${SERVICE_ACCOUNT_EMAIL} --overwrite
-----
-
 . Create a Google Cloud Storage bucket for backups:
 +
 [source,bash]

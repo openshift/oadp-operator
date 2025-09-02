@@ -194,17 +194,6 @@ echo "Role ARN: $ROLE_ARN"
 oc create namespace openshift-adp
 ----
 
-. Annotate the service accounts to use AWS STS:
-+
-[source,bash]
-----
-oc annotate serviceaccount velero -n openshift-adp \
-    eks.amazonaws.com/role-arn="${ROLE_ARN}" --overwrite
-
-oc annotate serviceaccount openshift-adp-controller-manager -n openshift-adp \
-    eks.amazonaws.com/role-arn="${ROLE_ARN}" --overwrite
-----
-
 [id="oadp-aws-console-installation_{context}"]
 == Installing OADP Operator via OpenShift Web Console
 
