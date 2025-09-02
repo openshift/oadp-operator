@@ -5,7 +5,8 @@
           "defaultPlugins": [
             "openshift",
             "aws",
-            "kubevirt"
+            "kubevirt",
+            "hypershift"
           ]
         }
       },
@@ -19,10 +20,6 @@
             },
             "objectStorage":{
               "bucket": "myBucket"
-            },
-            "credential":{
-              "name": "cloud-credentials",
-              "key": "cloud"
             }
           }
         }
@@ -31,7 +28,7 @@
         {
           "velero": {
             "provider": "aws",
-            "config": { 
+            "config": {
               "profile": "default",
               "region": "us-east-1"
             }

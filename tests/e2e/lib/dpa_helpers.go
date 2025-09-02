@@ -10,8 +10,6 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
-	utils "github.com/openshift/oadp-operator/tests/e2e/utils"
 	velero "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -19,21 +17,25 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 )
 
 type BackupRestoreType string
 
 const (
-	CSI          BackupRestoreType = "csi"
-	CSIDataMover BackupRestoreType = "csi-datamover"
-	RESTIC       BackupRestoreType = "restic"
-	KOPIA        BackupRestoreType = "kopia"
+	CSI             BackupRestoreType = "csi"
+	CSIDataMover    BackupRestoreType = "csi-datamover"
+	RESTIC          BackupRestoreType = "restic"
+	KOPIA           BackupRestoreType = "kopia"
+	NativeSnapshots BackupRestoreType = "native-snapshots"
 )
 
 type DpaCustomResource struct {
 	Name                 string
 	Namespace            string
 	Client               client.Client
+	VSLSecretName        string
 	BSLSecretName        string
 	BSLConfig            map[string]string
 	BSLProvider          string
@@ -41,14 +43,14 @@ type DpaCustomResource struct {
 	BSLBucketPrefix      string
 	VeleroDefaultPlugins []oadpv1alpha1.DefaultPlugin
 	SnapshotLocations    []oadpv1alpha1.SnapshotLocation
+	UnsupportedOverrides map[oadpv1alpha1.UnsupportedImageKey]string
 }
 
 func LoadDpaSettingsFromJson(settings string) (*oadpv1alpha1.DataProtectionApplication, error) {
-	file, err := utils.ReadFile(settings)
+	file, err := ReadFile(settings)
 	if err != nil {
 		return nil, fmt.Errorf("Error getting settings json file: %v", err)
 	}
-
 	dpa := &oadpv1alpha1.DataProtectionApplication{}
 	err = json.Unmarshal(file, &dpa)
 	if err != nil {
@@ -93,6 +95,7 @@ func (v *DpaCustomResource) Build(backupRestoreType BackupRestoreType) *oadpv1al
 				},
 			},
 		},
+		UnsupportedOverrides: v.UnsupportedOverrides,
 	}
 	switch backupRestoreType {
 	case RESTIC, KOPIA:
@@ -111,11 +114,15 @@ func (v *DpaCustomResource) Build(backupRestoreType BackupRestoreType) *oadpv1al
 		dpaSpec.Configuration.Velero.DefaultPlugins = append(dpaSpec.Configuration.Velero.DefaultPlugins, oadpv1alpha1.DefaultPluginCSI)
 		dpaSpec.Configuration.Velero.FeatureFlags = append(dpaSpec.Configuration.Velero.FeatureFlags, velero.CSIFeatureFlag)
 		dpaSpec.SnapshotLocations = nil
+	case NativeSnapshots:
+		dpaSpec.SnapshotLocations[0].Velero.Credential = &corev1.SecretKeySelector{
+			LocalObjectReference: corev1.LocalObjectReference{
+				Name: v.VSLSecretName,
+			},
+			Key: "cloud",
+		}
 	}
-	// Uncomment to override plugin images to use
-	dpaSpec.UnsupportedOverrides = map[oadpv1alpha1.UnsupportedImageKey]string{
-		// oadpv1alpha1.VeleroImageKey: "quay.io/konveyor/velero:oadp-1.1",
-	}
+
 	return &dpaSpec
 }
 
@@ -141,11 +148,10 @@ func (v *DpaCustomResource) Get() (*oadpv1alpha1.DataProtectionApplication, erro
 	return &dpa, nil
 }
 
-func (v *DpaCustomResource) CreateOrUpdate(c client.Client, spec *oadpv1alpha1.DataProtectionApplicationSpec) error {
+func (v *DpaCustomResource) CreateOrUpdate(spec *oadpv1alpha1.DataProtectionApplicationSpec) error {
 	// for debugging
 	// prettyPrint, _ := json.MarshalIndent(spec, "", "  ")
 	// log.Printf("DPA with spec\n%s\n", prettyPrint)
-
 	dpa, err := v.Get()
 	if err != nil {
 		if apierrors.IsNotFound(err) {
@@ -156,6 +162,7 @@ func (v *DpaCustomResource) CreateOrUpdate(c client.Client, spec *oadpv1alpha1.D
 				},
 				Spec: *spec.DeepCopy(),
 			}
+			dpa.Spec.UnsupportedOverrides = v.UnsupportedOverrides
 			return v.Create(dpa)
 		}
 		return err
@@ -163,6 +170,7 @@ func (v *DpaCustomResource) CreateOrUpdate(c client.Client, spec *oadpv1alpha1.D
 	dpaPatch := dpa.DeepCopy()
 	spec.DeepCopyInto(&dpaPatch.Spec)
 	dpaPatch.ObjectMeta.ManagedFields = nil
+	dpaPatch.Spec.UnsupportedOverrides = v.UnsupportedOverrides
 	err = v.Client.Patch(context.Background(), dpaPatch, client.MergeFrom(dpa), &client.PatchOptions{})
 	if err != nil {
 		log.Printf("error patching DPA: %s", err)
@@ -171,6 +179,7 @@ func (v *DpaCustomResource) CreateOrUpdate(c client.Client, spec *oadpv1alpha1.D
 		}
 		return err
 	}
+
 	return nil
 }
 
@@ -183,7 +192,7 @@ func (v *DpaCustomResource) Delete() error {
 		return err
 	}
 	err = v.Client.Delete(context.Background(), dpa)
-	if apierrors.IsNotFound(err) {
+	if err != nil && apierrors.IsNotFound(err) {
 		return nil
 	}
 	return err
@@ -299,7 +308,7 @@ func (v *DpaCustomResource) BSLsAreUpdated(updateTime time.Time) wait.ConditionF
 }
 
 // check if bsl matches the spec
-func (v *DpaCustomResource) DoesBSLSpecMatchesDpa(namespace string, dpaBSLSpec velero.BackupStorageLocationSpec) (bool, error) {
+func (v *DpaCustomResource) DoesBSLSpecMatchesDpa(dpaBSLSpec velero.BackupStorageLocationSpec) (bool, error) {
 	bsls, err := v.ListBSLs()
 	if err != nil {
 		return false, err
@@ -336,7 +345,7 @@ func (v *DpaCustomResource) ListVSLs() (*velero.VolumeSnapshotLocationList, erro
 }
 
 // check if vsl matches the spec
-func (v *DpaCustomResource) DoesVSLSpecMatchesDpa(namespace string, dpaVSLSpec velero.VolumeSnapshotLocationSpec) (bool, error) {
+func (v *DpaCustomResource) DoesVSLSpecMatchesDpa(dpaVSLSpec velero.VolumeSnapshotLocationSpec) (bool, error) {
 	vsls, err := v.ListVSLs()
 	if err != nil {
 		return false, err

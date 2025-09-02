@@ -38,7 +38,7 @@ func (v *VirtOperator) deleteDataVolume(namespace, name string) error {
 	return v.Dynamic.Resource(dataVolumeGVR).Namespace(namespace).Delete(context.Background(), name, metav1.DeleteOptions{})
 }
 
-func (v *VirtOperator) checkDataVolumeExists(namespace, name string) bool {
+func (v *VirtOperator) CheckDataVolumeExists(namespace, name string) bool {
 	unstructuredDataVolume, err := v.getDataVolume(namespace, name)
 	if err != nil {
 		return false
@@ -122,7 +122,7 @@ func (v *VirtOperator) createDataVolumeFromUrl(namespace, name, url, size string
 
 // Create a DataVolume and wait for it to be ready.
 func (v *VirtOperator) EnsureDataVolumeFromUrl(namespace, name, url, size string, timeout time.Duration) error {
-	if !v.checkDataVolumeExists(namespace, name) {
+	if !v.CheckDataVolumeExists(namespace, name) {
 		if err := v.createDataVolumeFromUrl(namespace, name, url, size); err != nil {
 			return err
 		}
@@ -155,7 +155,7 @@ func (v *VirtOperator) RemoveDataVolume(namespace, name string, timeout time.Dur
 	}
 
 	err = wait.PollImmediate(5*time.Second, timeout, func() (bool, error) {
-		return !v.checkDataVolumeExists(namespace, name), nil
+		return !v.CheckDataVolumeExists(namespace, name), nil
 	})
 	if err != nil {
 		return fmt.Errorf("timed out waiting for DataVolume %s/%s to be deleted: %w", namespace, name, err)
@@ -173,26 +173,30 @@ func (v *VirtOperator) RemoveDataSource(namespace, name string) error {
 // Create a DataSource from an existing PVC, with the same name and namespace.
 // This way, the PVC can be specified as a sourceRef in the VM spec.
 func (v *VirtOperator) CreateDataSourceFromPvc(namespace, name string) error {
+	return v.CreateTargetDataSourceFromPvc(namespace, namespace, name, name)
+}
+
+func (v *VirtOperator) CreateTargetDataSourceFromPvc(sourceNamespace, destinationNamespace, sourcePvcName, destinationDataSourceName string) error {
 	unstructuredDataSource := unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "cdi.kubevirt.io/v1beta1",
 			"kind":       "DataSource",
 			"metadata": map[string]interface{}{
-				"name":      name,
-				"namespace": namespace,
+				"name":      destinationDataSourceName,
+				"namespace": destinationNamespace,
 			},
 			"spec": map[string]interface{}{
 				"source": map[string]interface{}{
 					"pvc": map[string]interface{}{
-						"name":      name,
-						"namespace": namespace,
+						"name":      sourcePvcName,
+						"namespace": sourceNamespace,
 					},
 				},
 			},
 		},
 	}
 
-	_, err := v.Dynamic.Resource(dataSourceGVR).Namespace(namespace).Create(context.Background(), &unstructuredDataSource, metav1.CreateOptions{})
+	_, err := v.Dynamic.Resource(dataSourceGVR).Namespace(destinationNamespace).Create(context.Background(), &unstructuredDataSource, metav1.CreateOptions{})
 	if err != nil {
 		if apierrors.IsAlreadyExists(err) {
 			return nil
@@ -207,40 +211,101 @@ func (v *VirtOperator) CreateDataSourceFromPvc(namespace, name string) error {
 	return nil
 }
 
+// Find the given DataSource, and return the PVC it points to
+func (v *VirtOperator) GetDataSourcePvc(ns, name string) (string, string, error) {
+	unstructuredDataSource, err := v.Dynamic.Resource(dataSourceGVR).Namespace(ns).Get(context.Background(), name, metav1.GetOptions{})
+	if err != nil {
+		log.Printf("Error getting DataSource %s: %v", name, err)
+		return "", "", err
+	}
+
+	pvcName, ok, err := unstructured.NestedString(unstructuredDataSource.UnstructuredContent(), "status", "source", "pvc", "name")
+	if err != nil {
+		log.Printf("Error getting PVC from DataSource: %v", err)
+		return "", "", err
+	}
+	if !ok {
+		return "", "", errors.New("failed to get PVC from " + name + " DataSource")
+	}
+
+	pvcNamespace, ok, err := unstructured.NestedString(unstructuredDataSource.UnstructuredContent(), "status", "source", "pvc", "namespace")
+	if err != nil {
+		log.Printf("Error getting PVC namespace from DataSource: %v", err)
+		return "", "", err
+	}
+	if !ok {
+		return "", "", errors.New("failed to get PVC namespace from " + name + " DataSource")
+	}
+
+	return pvcNamespace, pvcName, nil
+
+}
+
+// Find the default storage class
+func (v *VirtOperator) GetDefaultStorageClass() (*storagev1.StorageClass, error) {
+	storageClasses, err := v.Clientset.StorageV1().StorageClasses().List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	var defaultStorageClass *storagev1.StorageClass
+	for _, storageClass := range storageClasses.Items {
+		if storageClass.Annotations["storageclass.kubernetes.io/is-default-class"] == "true" {
+			log.Printf("Found default storage class: %s", storageClass.Name)
+			defaultStorageClass = storageClass.DeepCopy()
+			return defaultStorageClass, nil
+		}
+	}
+
+	return nil, errors.New("no default storage class found")
+}
+
 // Check the VolumeBindingMode of the default storage class, and make an
 // Immediate-mode copy if it is set to WaitForFirstConsumer.
 func (v *VirtOperator) CreateImmediateModeStorageClass(name string) error {
-	// Find the default storage class
-	storageClasses, err := v.Clientset.StorageV1().StorageClasses().List(context.Background(), metav1.ListOptions{})
+	defaultStorageClass, err := v.GetDefaultStorageClass()
 	if err != nil {
 		return err
-	}
-	var defaultStorageClass *storagev1.StorageClass
-	for _, storageClass := range storageClasses.Items {
-		if storageClass.Annotations[isDefaultClass] == "true" {
-			log.Printf("Found default storage class: %s", storageClass.Name)
-			defaultStorageClass = storageClass.DeepCopy()
-			if storageClass.VolumeBindingMode != nil && *storageClass.VolumeBindingMode == storagev1.VolumeBindingImmediate {
-				log.Println("Default storage class already set to Immediate")
-				return nil
-			}
-			break
-		}
-	}
-	if defaultStorageClass == nil {
-		return errors.New("no default storage class found")
 	}
 
 	immediateStorageClass := defaultStorageClass
 	immediateStorageClass.VolumeBindingMode = ptr.To[storagev1.VolumeBindingMode](storagev1.VolumeBindingImmediate)
 	immediateStorageClass.Name = name
 	immediateStorageClass.ResourceVersion = ""
-	immediateStorageClass.Annotations[isDefaultClass] = "false"
+	immediateStorageClass.Annotations["storageclass.kubernetes.io/is-default-class"] = "false"
 
 	_, err = v.Clientset.StorageV1().StorageClasses().Create(context.Background(), immediateStorageClass, metav1.CreateOptions{})
+	if apierrors.IsAlreadyExists(err) {
+		return nil
+	}
+	return err
+}
+
+// Check the VolumeBindingMode of the default storage class, and make a
+// WaitForFirstConsumer-mode copy if it is set to Immediate.
+func (v *VirtOperator) CreateWaitForFirstConsumerStorageClass(name string) error {
+	defaultStorageClass, err := v.GetDefaultStorageClass()
+	if err != nil {
+		return err
+	}
+
+	wffcStorageClass := defaultStorageClass
+	wffcStorageClass.VolumeBindingMode = ptr.To[storagev1.VolumeBindingMode](storagev1.VolumeBindingWaitForFirstConsumer)
+	wffcStorageClass.Name = name
+	wffcStorageClass.ResourceVersion = ""
+	wffcStorageClass.Annotations["storageclass.kubernetes.io/is-default-class"] = "false"
+
+	_, err = v.Clientset.StorageV1().StorageClasses().Create(context.Background(), wffcStorageClass, metav1.CreateOptions{})
 	return err
 }
 
 func (v *VirtOperator) RemoveStorageClass(name string) error {
-	return v.Clientset.StorageV1().StorageClasses().Delete(context.Background(), name, metav1.DeleteOptions{})
+	err := v.Clientset.StorageV1().StorageClasses().Delete(context.Background(), name, metav1.DeleteOptions{})
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil
+		}
+		return err
+	}
+	return nil
 }

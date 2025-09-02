@@ -35,6 +35,9 @@ func getOperatorSubscription(c client.Client, namespace, label string) (*Subscri
 
 func (v *VirtOperator) getOperatorSubscription() (*Subscription, error) {
 	label := "operators.coreos.com/kubevirt-hyperconverged.openshift-cnv"
+	if v.Upstream {
+		label = "operators.coreos.com/community-kubevirt-hyperconverged.kubevirt-hyperconverged"
+	}
 	return getOperatorSubscription(v.Client, v.Namespace, label)
 }
 

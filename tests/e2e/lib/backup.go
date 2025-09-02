@@ -11,7 +11,6 @@ import (
 	pkgbackup "github.com/vmware-tanzu/velero/pkg/backup"
 	"github.com/vmware-tanzu/velero/pkg/cmd/util/downloadrequest"
 	"github.com/vmware-tanzu/velero/pkg/cmd/util/output"
-	veleroClientset "github.com/vmware-tanzu/velero/pkg/generated/clientset/versioned"
 	"github.com/vmware-tanzu/velero/pkg/label"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -27,6 +26,23 @@ func CreateBackupForNamespaces(ocClient client.Client, veleroNamespace, backupNa
 		},
 		Spec: velero.BackupSpec{
 			IncludedNamespaces:       namespaces,
+			DefaultVolumesToFsBackup: &defaultVolumesToFsBackup,
+			SnapshotMoveData:         &snapshotMoveData,
+		},
+	}
+	return ocClient.Create(context.Background(), &backup)
+}
+
+func CreateCustomBackupForNamespaces(ocClient client.Client, veleroNamespace, backupName string, namespaces []string, includedResources, excludedResources []string, defaultVolumesToFsBackup bool, snapshotMoveData bool) error {
+	backup := velero.Backup{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      backupName,
+			Namespace: veleroNamespace,
+		},
+		Spec: velero.BackupSpec{
+			IncludedNamespaces:       namespaces,
+			IncludedResources:        includedResources,
+			ExcludedResources:        excludedResources,
 			DefaultVolumesToFsBackup: &defaultVolumesToFsBackup,
 			SnapshotMoveData:         &snapshotMoveData,
 		},
@@ -90,7 +106,7 @@ func IsBackupCompletedSuccessfully(c *kubernetes.Clientset, ocClient client.Clie
 }
 
 // https://github.com/vmware-tanzu/velero/blob/11bfe82342c9f54c63f40d3e97313ce763b446f2/pkg/cmd/cli/backup/describe.go#L77-L111
-func DescribeBackup(veleroClient veleroClientset.Interface, ocClient client.Client, namespace string, name string) (backupDescription string) {
+func DescribeBackup(ocClient client.Client, namespace string, name string) (backupDescription string) {
 	backup, err := GetBackup(ocClient, namespace, name)
 	if err != nil {
 		return "could not get provided backup: " + err.Error()
@@ -100,13 +116,15 @@ func DescribeBackup(veleroClient veleroClientset.Interface, ocClient client.Clie
 	caCertFile := ""
 
 	deleteRequestListOptions := pkgbackup.NewDeleteBackupRequestListOptions(backup.Name, string(backup.UID))
-	deleteRequestList, err := veleroClient.VeleroV1().DeleteBackupRequests(backup.Namespace).List(context.Background(), deleteRequestListOptions)
+	deleteRequestList := &velero.DeleteBackupRequestList{}
+	err = ocClient.List(context.Background(), deleteRequestList, client.InNamespace(backup.Namespace), &client.ListOptions{Raw: &deleteRequestListOptions})
 	if err != nil {
 		log.Printf("error getting DeleteBackupRequests for backup %s: %v\n", backup.Name, err)
 	}
 
 	opts := label.NewListOptionsForBackup(backup.Name)
-	podVolumeBackupList, err := veleroClient.VeleroV1().PodVolumeBackups(backup.Namespace).List(context.Background(), opts)
+	podVolumeBackupList := &velero.PodVolumeBackupList{}
+	err = ocClient.List(context.Background(), podVolumeBackupList, client.InNamespace(backup.Namespace), &client.ListOptions{Raw: &opts})
 	if err != nil {
 		log.Printf("error getting PodVolumeBackups for backup %s: %v\n", backup.Name, err)
 	}
@@ -143,4 +161,59 @@ func BackupLogs(c *kubernetes.Clientset, ocClient client.Client, namespace strin
 func BackupErrorLogs(c *kubernetes.Clientset, ocClient client.Client, namespace string, name string) []string {
 	bl := BackupLogs(c, ocClient, namespace, name)
 	return errorLogsExcludingIgnored(bl)
+}
+
+func GetBackupRepositoryList(c client.Client, namespace string) (*velero.BackupRepositoryList, error) {
+	// initialize an empty list of BackupRepositories
+	backupRepositoryList := &velero.BackupRepositoryList{
+		Items: []velero.BackupRepository{},
+	}
+	// get the list of BackupRepositories in the given namespace
+	err := c.List(context.Background(), backupRepositoryList, client.InNamespace(namespace))
+	if err != nil {
+		log.Printf("error getting BackupRepository list: %v", err)
+		return nil, err
+	}
+	return backupRepositoryList, nil
+}
+
+func DeleteBackupRepository(c client.Client, namespace string, name string) error {
+	backupRepository := &velero.BackupRepository{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: namespace,
+			Name:      name,
+		},
+	}
+	err := c.Delete(context.Background(), backupRepository)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// DeleteBackupRepositories deletes all BackupRepositories in the given namespace.
+func DeleteBackupRepositories(c client.Client, namespace string) error {
+	log.Printf("Checking if backuprepository's exist in %s", namespace)
+
+	backupRepos, err := GetBackupRepositoryList(c, namespace)
+	if err != nil {
+		return fmt.Errorf("failed to get BackupRepository list: %v", err)
+	}
+	if len(backupRepos.Items) == 0 {
+		log.Printf("No BackupRepositories found in namespace %s", namespace)
+		return nil
+	}
+
+	// Get a list of the BackupRepositories and delete all of them.
+	for _, repo := range backupRepos.Items {
+		log.Printf("backuprepository name is %s", repo.Name)
+		err := DeleteBackupRepository(c, namespace, repo.Name)
+		if err != nil {
+			log.Printf("failed to delete BackupRepository %s: ", repo.Name)
+			return err
+		}
+		log.Printf("Successfully deleted BackupRepository: %s", repo.Name)
+	}
+
+	return nil
 }
