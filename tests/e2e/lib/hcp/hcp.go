@@ -692,11 +692,11 @@ func RestartHCPPods(HCPNamespace string, c client.Client) error {
 func buildConfigFromBytes(kubeconfigData []byte) (*rest.Config, error) {
 	clientConfig, err := clientcmd.NewClientConfigFromBytes(kubeconfigData)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to load client config from bytes: %v", err)
 	}
 	config, err := clientConfig.ClientConfig()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to build complete client config: %v", err)
 	}
 	return config, nil
 }
