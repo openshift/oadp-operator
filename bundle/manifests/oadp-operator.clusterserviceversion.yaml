@@ -268,7 +268,7 @@ metadata:
       Cloud Provider,Developer Tools,Modernization & Migration,OpenShift Optional,Storage
     certified: "false"
     containerImage: quay.io/konveyor/oadp-operator:oadp-1.5
-    createdAt: "2025-02-28T20:03:54Z"
+    createdAt: "2025-09-03T00:37:40Z"
     description: OADP (OpenShift API for Data Protection) operator sets up and installs
       Data Protection Applications on the OpenShift platform.
     features.operators.openshift.io/cnf: "false"
@@ -281,7 +281,7 @@ metadata:
     features.operators.openshift.io/token-auth-aws: "true"
     features.operators.openshift.io/token-auth-azure: "true"
     features.operators.openshift.io/token-auth-gcp: "true"
-    olm.skipRange: '>=0.0.0 <1.5.0'
+    olm.skipRange: '>=1.4.0 <1.5.1'
     operatorframework.io/suggested-namespace: openshift-adp
     operators.openshift.io/infrastructure-features: '["Disconnected"]'
     operators.openshift.io/valid-subscription: '["OpenShift Kubernetes Engine", "OpenShift
@@ -295,7 +295,7 @@ metadata:
     operatorframework.io/arch.arm64: supported
     operatorframework.io/arch.ppc64le: supported
     operatorframework.io/arch.s390x: supported
-  name: oadp-operator.v1.5.0
+  name: oadp-operator.v1.5.1
   namespace: openshift-adp
 spec:
   apiservicedefinitions: {}
@@ -1287,4 +1287,5 @@ spec:
     name: mustgather
   - image: quay.io/konveyor/oadp-non-admin:oadp-1.5
     name: non-admin-controller
-  version: 1.5.0
+  replaces: oadp-operator.v1.5.0
+  version: 1.5.1
