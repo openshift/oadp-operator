@@ -132,8 +132,8 @@ func (b CloudStorageReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
 	}
 	if secretName != "" {
-		// Secret was created successfully by STSStandardizedFlow
-		logger.Info(fmt.Sprintf("Following standardized STS workflow, secret %s created successfully", secretName))
+		// Secret exists after STSStandardizedFlow (may have been created, updated, or unchanged)
+		logger.V(1).Info(fmt.Sprintf("Following standardized STS workflow, secret %s is available", secretName))
 	}
 	// Now continue with bucket creation as secret exists and we are good to go !!!
 	if ok, err = clnt.Exists(); !ok && err == nil {
