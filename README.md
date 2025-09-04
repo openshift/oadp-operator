@@ -69,13 +69,14 @@ Documentation in this repository are considered unofficial and for development p
     2. [Stateful App Backup/Restore](docs/examples/stateful.md)
     3. [CSI Backup/Restore](docs/examples/CSI)
     4. [Data Mover (OADP 1.2 or below)](/docs/examples/data_mover.md)
-7. [Troubleshooting](/docs/TROUBLESHOOTING.md)
-8. Contribute
+7. [Performance Testing](docs/performance_testing.md)
+8. [Troubleshooting](/docs/TROUBLESHOOTING.md)
+9. Contribute
     1. [Install & Build from Source](docs/developer/install_from_source.md)
     2. [OLM Integration](docs/developer/olm_hacking.md)
     3. [Test Operator Changes](docs/developer/local_dev.md)
     4. [E2E Test Suite](docs/developer/TESTING.md)
-9.  [Velero Version Relationship](#version)
+10. [Velero Version Relationship](#version)
 
 
 <hr style="height:1px;border:none;color:#333;">
