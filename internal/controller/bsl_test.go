@@ -2954,6 +2954,7 @@ func TestDPAReconciler_ReconcileBackupStorageLocations(t *testing.T) {
 				},
 				Spec: velerov1.BackupStorageLocationSpec{
 					Provider: "aws",
+					Config:   map[string]string{"region": "test-region"},
 					StorageType: velerov1.StorageType{
 						ObjectStorage: &velerov1.ObjectStorageLocation{
 							Bucket: "test-bucket",
@@ -3028,11 +3029,94 @@ func TestDPAReconciler_ReconcileBackupStorageLocations(t *testing.T) {
 					Provider: "aws",
 					Config: map[string]string{
 						"enableSharedConfig": "true",
+						"region":             "us-east-1",
 					},
 					StorageType: velerov1.StorageType{
 						ObjectStorage: &velerov1.ObjectStorageLocation{
 							Bucket: "shared-config-bucket",
 							Prefix: "backups",
+						},
+					},
+					Credential: &corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: "cloud-credentials",
+						},
+						Key: "credentials",
+					},
+				},
+			},
+		},
+		{
+			name: "CloudStorage with config and region fallback",
+			objects: []client.Object{
+				&oadpv1alpha1.DataProtectionApplication{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-dpa",
+						Namespace: "test-ns",
+					},
+					Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+						BackupLocations: []oadpv1alpha1.BackupLocation{
+							{
+								CloudStorage: &oadpv1alpha1.CloudStorageLocation{
+									CloudStorageRef: corev1.LocalObjectReference{
+										Name: "config-fallback-cs",
+									},
+									Credential: &corev1.SecretKeySelector{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "cloud-credentials",
+										},
+										Key: "credentials",
+									},
+									Config: map[string]string{
+										"profile": "custom-profile", // This should override CloudStorage's config
+									},
+								},
+							},
+						},
+					},
+				},
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "cloud-credentials",
+						Namespace: "test-ns",
+					},
+					Data: map[string][]byte{"credentials": {}},
+				},
+				&oadpv1alpha1.CloudStorage{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "config-fallback-cs",
+						Namespace: "test-ns",
+					},
+					Spec: oadpv1alpha1.CloudStorageSpec{
+						Provider: oadpv1alpha1.AWSBucketProvider,
+						Name:     "config-test-bucket",
+						Region:   "us-west-2",
+						Config: map[string]string{
+							"profile":              "default",
+							"s3ForcePathStyle":     "true",
+							"serverSideEncryption": "AES256",
+						},
+					},
+				},
+			},
+			want:    true,
+			wantErr: false,
+			wantBSL: velerov1.BackupStorageLocation{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-dpa-1",
+					Namespace: "test-ns",
+				},
+				Spec: velerov1.BackupStorageLocationSpec{
+					Provider: "aws",
+					Config: map[string]string{
+						"region":               "us-west-2",      // From CloudStorage CR
+						"profile":              "custom-profile", // Overridden by DPA
+						"s3ForcePathStyle":     "true",           // From CloudStorage CR
+						"serverSideEncryption": "AES256",         // From CloudStorage CR
+					},
+					StorageType: velerov1.StorageType{
+						ObjectStorage: &velerov1.ObjectStorageLocation{
+							Bucket: "config-test-bucket",
 						},
 					},
 					Credential: &corev1.SecretKeySelector{
@@ -3106,6 +3190,7 @@ func TestDPAReconciler_ReconcileBackupStorageLocations(t *testing.T) {
 					Config: map[string]string{
 						"storageAccount": "mystorageaccount",
 						"resourceGroup":  "myresourcegroup",
+						"region":         "eastus",
 					},
 					StorageType: velerov1.StorageType{
 						ObjectStorage: &velerov1.ObjectStorageLocation{
@@ -3283,7 +3368,7 @@ func TestDPAReconciler_ReconcileBackupStorageLocations(t *testing.T) {
 				},
 				Spec: velerov1.BackupStorageLocationSpec{
 					Provider: "aws",
-					Config:   map[string]string(nil),
+					Config:   map[string]string{"region": "us-west-2"},
 					StorageType: velerov1.StorageType{
 						ObjectStorage: &velerov1.ObjectStorageLocation{
 							Bucket: "aws-bucket-1",
@@ -3356,7 +3441,7 @@ func TestDPAReconciler_ReconcileBackupStorageLocations(t *testing.T) {
 				},
 				Spec: velerov1.BackupStorageLocationSpec{
 					Provider: "aws",
-					Config:   map[string]string(nil),
+					Config:   map[string]string{"region": "eu-west-1"},
 					StorageType: velerov1.StorageType{
 						ObjectStorage: &velerov1.ObjectStorageLocation{
 							Bucket: "sync-test-bucket",
