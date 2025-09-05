@@ -4564,7 +4564,7 @@ AZURE_CLOUD_NAME=AzurePublicCloud`),
 			wantErr: false,
 		},
 		{
-			name: "CloudStorage without credentials",
+			name: "CloudStorage without credentials - should use CloudStorage's creationSecret",
 			dpa: &oadpv1alpha1.DataProtectionApplication{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-dpa",
@@ -4584,8 +4584,34 @@ AZURE_CLOUD_NAME=AzurePublicCloud`),
 					Credential: nil,
 				},
 			},
-			wantErr: true,
-			errMsg:  "must provide a valid credential secret",
+			objects: []client.Object{
+				&oadpv1alpha1.CloudStorage{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "no-cred-cs",
+						Namespace: "test-ns",
+					},
+					Spec: oadpv1alpha1.CloudStorageSpec{
+						Name:     "test-bucket",
+						Provider: oadpv1alpha1.AWSBucketProvider,
+						CreationSecret: corev1.SecretKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: "cloud-creds",
+							},
+							Key: "cloud",
+						},
+					},
+				},
+			},
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cloud-creds",
+					Namespace: "test-ns",
+				},
+				Data: map[string][]byte{
+					"cloud": []byte("[default]\naws_access_key_id=test\naws_secret_access_key=test"),
+				},
+			},
+			wantErr: false, // Should succeed using CloudStorage's creationSecret
 		},
 		{
 			name: "CloudStorage with empty credential name",
@@ -4613,7 +4639,7 @@ AZURE_CLOUD_NAME=AzurePublicCloud`),
 				},
 			},
 			wantErr: true,
-			errMsg:  "must provide a valid credential secret name",
+			errMsg:  "Secret key specified in CloudStorage cannot be empty",
 		},
 		{
 			name: "CloudStorage with empty credential key",
@@ -4642,7 +4668,7 @@ AZURE_CLOUD_NAME=AzurePublicCloud`),
 				},
 			},
 			wantErr: true,
-			errMsg:  "must provide a valid credential secret key",
+			errMsg:  "Secret key specified in CloudStorage cannot be empty",
 		},
 		{
 			name: "CloudStorage not found",

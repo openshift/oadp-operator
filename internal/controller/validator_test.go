@@ -557,12 +557,19 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 						Namespace: "test-ns",
 					},
 					Spec: oadpv1alpha1.CloudStorageSpec{
+						Name:     "test-bucket",
 						Provider: "aws",
+						CreationSecret: corev1.SecretKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: "", // Empty secret name
+							},
+							Key: "cloud",
+						},
 					},
 				},
 			},
 			wantErr:    true,
-			messageErr: "must provide a valid credential secret",
+			messageErr: "must provide credentials either in DPA or CloudStorage CR",
 		},
 		{
 			name: "given valid DPA CR bucket BSL configured and AWS Default Plugin with secret",

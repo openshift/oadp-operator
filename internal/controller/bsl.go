@@ -182,7 +182,18 @@ func (r *DataProtectionApplicationReconciler) ReconcileBackupStorageLocations(lo
 					}
 					bsl.Spec.Config["enableSharedConfig"] = "true"
 				}
-				bsl.Spec.Credential = bslSpec.CloudStorage.Credential
+				// Use DPA's CloudStorage credential if provided, otherwise fallback to CloudStorage's creationSecret
+				if bslSpec.CloudStorage.Credential != nil {
+					bsl.Spec.Credential = bslSpec.CloudStorage.Credential
+				} else {
+					// Use CloudStorage's creationSecret as the BSL credential
+					bsl.Spec.Credential = &corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: bucket.Spec.CreationSecret.Name,
+						},
+						Key: bucket.Spec.CreationSecret.Key,
+					}
+				}
 				bsl.Spec.Default = bslSpec.CloudStorage.Default
 				bsl.Spec.ObjectStorage = &velerov1.ObjectStorageLocation{
 					Bucket: bucket.Spec.Name,
@@ -537,20 +548,14 @@ func (r *DataProtectionApplicationReconciler) ensureSecretDataExists(bsl *oadpv1
 
 	// Get secret details from either CloudStorage or Velero
 	if bsl.CloudStorage != nil {
-		// Make sure credentials are specified.
-		if bsl.CloudStorage.Credential == nil {
-			return fmt.Errorf("must provide a valid credential secret")
-		}
-		if bsl.CloudStorage.Credential.Name == "" {
-			return fmt.Errorf("must provide a valid credential secret name")
-		}
-		// Check if user specified empty credential key
-		if bsl.CloudStorage.Credential.Key == "" {
-			return fmt.Errorf("must provide a valid credential secret key")
-		}
+		// Get credentials - this will fallback to CloudStorage CR if needed
 		secretName, secretKey, err = r.getSecretNameAndKeyFromCloudStorage(bsl.CloudStorage)
 		if err != nil {
 			return err
+		}
+		// If still no secret found, it means CloudStorage CR doesn't exist or has no credentials
+		if secretName == "" {
+			return fmt.Errorf("must provide credentials either in DPA or CloudStorage CR")
 		}
 
 		// Get provider type from CloudStorage

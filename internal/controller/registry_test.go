@@ -316,6 +316,11 @@ func TestDPAReconciler_getSecretNameAndKeyFromCloudStorage(t *testing.T) {
 				Log:           logr.Discard(),
 				Context:       newContextForTest(),
 				EventRecorder: record.NewFakeRecorder(10),
+				dpa: &oadpv1alpha1.DataProtectionApplication{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "test-ns",
+					},
+				},
 			}
 
 			if tt.wantProfile == "aws-cloud-cred" {

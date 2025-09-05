@@ -251,6 +251,15 @@ func (r *DataProtectionApplicationReconciler) getSecretNameAndKeyFromCloudStorag
 		err := r.verifySecretContent(secretName, secretKey)
 		return secretName, secretKey, err
 	}
+
+	// If no credential is specified, fallback to CloudStorage's creationSecret
+	if cloudStorage.CloudStorageRef.Name != "" {
+		bucket := &oadpv1alpha1.CloudStorage{}
+		if err := r.Get(r.Context, client.ObjectKey{Namespace: r.dpa.Namespace, Name: cloudStorage.CloudStorageRef.Name}, bucket); err == nil {
+			return bucket.Spec.CreationSecret.Name, bucket.Spec.CreationSecret.Key, nil
+		}
+	}
+
 	return "", "", nil
 }
 
