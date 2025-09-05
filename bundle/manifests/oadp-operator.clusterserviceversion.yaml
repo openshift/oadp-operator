@@ -394,6 +394,10 @@ spec:
       kind: CloudStorage
       name: cloudstorages.oadp.openshift.io
       statusDescriptors:
+      - description: Conditions represent the latest available observations of the
+          CloudStorage's current state
+        displayName: Conditions
+        path: conditions
       - description: LastSyncTimestamp is the last time the contents of the CloudStorage
           was synced
         displayName: LastSyncTimestamp

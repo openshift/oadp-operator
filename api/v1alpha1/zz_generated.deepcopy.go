@@ -24,8 +24,8 @@ import (
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	"github.com/vmware-tanzu/velero/pkg/nodeagent"
 	"github.com/vmware-tanzu/velero/pkg/util/kube"
-	"k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	timex "time"
 )
@@ -196,12 +196,12 @@ func (in *CloudStorageLocation) DeepCopyInto(out *CloudStorageLocation) {
 	}
 	if in.Credential != nil {
 		in, out := &in.Credential, &out.Credential
-		*out = new(v1.SecretKeySelector)
+		*out = new(corev1.SecretKeySelector)
 		(*in).DeepCopyInto(*out)
 	}
 	if in.BackupSyncPeriod != nil {
 		in, out := &in.BackupSyncPeriod, &out.BackupSyncPeriod
-		*out = new(metav1.Duration)
+		*out = new(v1.Duration)
 		**out = **in
 	}
 	if in.CACert != nil {
@@ -262,6 +262,13 @@ func (in *CloudStorageStatus) DeepCopyInto(out *CloudStorageStatus) {
 	if in.LastSynced != nil {
 		in, out := &in.LastSynced, &out.LastSynced
 		*out = (*in).DeepCopy()
+	}
+	if in.Conditions != nil {
+		in, out := &in.Conditions, &out.Conditions
+		*out = make([]v1.Condition, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
 	}
 }
 
@@ -450,7 +457,7 @@ func (in *DataProtectionApplicationSpec) DeepCopyInto(out *DataProtectionApplica
 	}
 	if in.ImagePullPolicy != nil {
 		in, out := &in.ImagePullPolicy, &out.ImagePullPolicy
-		*out = new(v1.PullPolicy)
+		*out = new(corev1.PullPolicy)
 		**out = **in
 	}
 	if in.NonAdmin != nil {
@@ -475,7 +482,7 @@ func (in *DataProtectionApplicationStatus) DeepCopyInto(out *DataProtectionAppli
 	*out = *in
 	if in.Conditions != nil {
 		in, out := &in.Conditions, &out.Conditions
-		*out = make([]metav1.Condition, len(*in))
+		*out = make([]v1.Condition, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
@@ -620,18 +627,18 @@ func (in *EnforceBackupStorageLocationSpec) DeepCopyInto(out *EnforceBackupStora
 	}
 	if in.Credential != nil {
 		in, out := &in.Credential, &out.Credential
-		*out = new(v1.SecretKeySelector)
+		*out = new(corev1.SecretKeySelector)
 		(*in).DeepCopyInto(*out)
 	}
 	in.StorageType.DeepCopyInto(&out.StorageType)
 	if in.BackupSyncPeriod != nil {
 		in, out := &in.BackupSyncPeriod, &out.BackupSyncPeriod
-		*out = new(metav1.Duration)
+		*out = new(v1.Duration)
 		**out = **in
 	}
 	if in.ValidationFrequency != nil {
 		in, out := &in.ValidationFrequency, &out.ValidationFrequency
-		*out = new(metav1.Duration)
+		*out = new(v1.Duration)
 		**out = **in
 	}
 }
@@ -841,12 +848,12 @@ func (in *NodeAgentConfig) DeepCopyInto(out *NodeAgentConfig) {
 	in.NodeAgentCommonFields.DeepCopyInto(&out.NodeAgentCommonFields)
 	if in.DataMoverPrepareTimeout != nil {
 		in, out := &in.DataMoverPrepareTimeout, &out.DataMoverPrepareTimeout
-		*out = new(metav1.Duration)
+		*out = new(v1.Duration)
 		**out = **in
 	}
 	if in.ResourceTimeout != nil {
 		in, out := &in.ResourceTimeout, &out.ResourceTimeout
-		*out = new(metav1.Duration)
+		*out = new(v1.Duration)
 		**out = **in
 	}
 	in.NodeAgentConfigMapSettings.DeepCopyInto(&out.NodeAgentConfigMapSettings)
@@ -941,12 +948,12 @@ func (in *NonAdmin) DeepCopyInto(out *NonAdmin) {
 	}
 	if in.GarbageCollectionPeriod != nil {
 		in, out := &in.GarbageCollectionPeriod, &out.GarbageCollectionPeriod
-		*out = new(metav1.Duration)
+		*out = new(v1.Duration)
 		**out = **in
 	}
 	if in.BackupSyncPeriod != nil {
 		in, out := &in.BackupSyncPeriod, &out.BackupSyncPeriod
-		*out = new(metav1.Duration)
+		*out = new(v1.Duration)
 		**out = **in
 	}
 }
@@ -1007,7 +1014,7 @@ func (in *PodConfig) DeepCopyInto(out *PodConfig) {
 	}
 	if in.Tolerations != nil {
 		in, out := &in.Tolerations, &out.Tolerations
-		*out = make([]v1.Toleration, len(*in))
+		*out = make([]corev1.Toleration, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
@@ -1015,7 +1022,7 @@ func (in *PodConfig) DeepCopyInto(out *PodConfig) {
 	in.ResourceAllocations.DeepCopyInto(&out.ResourceAllocations)
 	if in.Env != nil {
 		in, out := &in.Env, &out.Env
-		*out = make([]v1.EnvVar, len(*in))
+		*out = make([]corev1.EnvVar, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
