@@ -59,6 +59,20 @@ const (
 	VeleroAWSSecretName   = "cloud-credentials"
 	VeleroAzureSecretName = "cloud-credentials-azure"
 	VeleroGCPSecretName   = "cloud-credentials-gcp"
+
+	// Secret operation verbs
+	SecretVerbCreated   = "created"
+	SecretVerbUpdated   = "updated"
+	SecretVerbUnchanged = "unchanged"
+
+	// Label keys and values
+	STSSecretLabelKey   = "oadp.openshift.io/secret-type"
+	STSSecretLabelValue = "sts-credentials"
+
+	// Error messages
+	ErrMsgCreateSecret = "unable to create secret resource"
+	ErrMsgGetSecret    = "unable to get secret resource"
+	ErrMsgUpdateSecret = "unable to update secret resource: %v"
 )
 
 // STSStandardizedFlow creates secrets for Short Term Service Account Tokens from environment variables for
@@ -221,7 +235,7 @@ func CreateOrUpdateSTSSecretWithClientsAndWait(setupLog logr.Logger, secretName 
 			Name:      secretName,
 			Namespace: secretNS,
 			Labels: map[string]string{
-				"oadp.openshift.io/secret-type": "sts-credentials",
+				STSSecretLabelKey: STSSecretLabelValue,
 			},
 		},
 		StringData: credStringData,
@@ -231,17 +245,17 @@ func CreateOrUpdateSTSSecretWithClientsAndWait(setupLog logr.Logger, secretName 
 	existingSecret := corev1.Secret{}
 	err := clientInstance.Get(context.Background(), types.NamespacedName{Name: secretName, Namespace: secretNS}, &existingSecret)
 
-	verb := "created"
+	verb := SecretVerbCreated
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Secret doesn't exist, create it
 			if err := clientInstance.Create(context.Background(), &desiredSecret); err != nil {
-				setupLog.Error(err, "unable to create secret resource")
+				setupLog.Error(err, ErrMsgCreateSecret)
 				return err
 			}
 		} else {
 			// Some other error occurred while getting the secret
-			setupLog.Error(err, "unable to get secret resource")
+			setupLog.Error(err, ErrMsgGetSecret)
 			return err
 		}
 	} else {
@@ -249,7 +263,7 @@ func CreateOrUpdateSTSSecretWithClientsAndWait(setupLog logr.Logger, secretName 
 		needsUpdate := false
 
 		// Check if labels need updating
-		if existingSecret.Labels == nil || existingSecret.Labels["oadp.openshift.io/secret-type"] != "sts-credentials" {
+		if existingSecret.Labels == nil || existingSecret.Labels[STSSecretLabelKey] != STSSecretLabelValue {
 			needsUpdate = true
 		}
 
@@ -269,7 +283,7 @@ func CreateOrUpdateSTSSecretWithClientsAndWait(setupLog logr.Logger, secretName 
 		}
 
 		if needsUpdate {
-			verb = "updated"
+			verb = SecretVerbUpdated
 			setupLog.Info("Secret content differs, updating")
 
 			// Update the secret
@@ -289,23 +303,23 @@ func CreateOrUpdateSTSSecretWithClientsAndWait(setupLog logr.Logger, secretName 
 			if updatedSecret.Labels == nil {
 				updatedSecret.Labels = make(map[string]string)
 			}
-			updatedSecret.Labels["oadp.openshift.io/secret-type"] = "sts-credentials"
+			updatedSecret.Labels[STSSecretLabelKey] = STSSecretLabelValue
 
 			if err := clientInstance.Patch(context.Background(), updatedSecret, client.MergeFrom(&existingSecret)); err != nil {
-				setupLog.Error(err, fmt.Sprintf("unable to update secret resource: %v", err))
+				setupLog.Error(err, fmt.Sprintf(ErrMsgUpdateSecret, err))
 				return err
 			}
 		} else {
 			// No update needed
-			verb = "unchanged"
+			verb = SecretVerbUnchanged
 		}
 	}
 
-	if verb != "unchanged" {
+	if verb != SecretVerbUnchanged {
 		setupLog.Info("Secret " + desiredSecret.Name + " " + verb + " successfully")
 	}
 
-	if waitForSecret && verb == "created" {
+	if waitForSecret && verb == SecretVerbCreated {
 		// Wait for the Secret to be available (only needed for newly created secrets)
 		setupLog.Info(fmt.Sprintf("Waiting for %s Secret to be available", desiredSecret.Name))
 		_, err := WaitForSecret(clientset, secretNS, secretName)
