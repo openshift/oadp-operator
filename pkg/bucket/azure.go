@@ -20,6 +20,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/openshift/oadp-operator/api/v1alpha1"
+	"github.com/openshift/oadp-operator/pkg/credentials/stsflow"
 )
 
 // azureServiceClient abstracts the Azure blob service client for testing
@@ -352,7 +353,7 @@ func (a *azureBucketClient) createAzureClient() (azureServiceClient, error) {
 // hasWorkloadIdentityCredentials checks if the secret contains workload identity credentials
 func (a *azureBucketClient) hasWorkloadIdentityCredentials(secret *corev1.Secret) bool {
 	// Check if this is an STS-type secret created by OADP operator
-	if labels, ok := secret.Labels["oadp.openshift.io/secret-type"]; ok && labels == "sts-credentials" {
+	if labels, ok := secret.Labels[stsflow.STSSecretLabelKey]; ok && labels == stsflow.STSSecretLabelValue {
 		// For Azure STS secrets, check if it has the azurekey field
 		if azureKey, ok := secret.Data["azurekey"]; ok && len(azureKey) > 0 {
 			// Parse the azurekey to ensure it has the required fields

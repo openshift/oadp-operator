@@ -158,7 +158,7 @@ func TestCreateOrUpdateSTSSecret(t *testing.T) {
 
 				// Verify the label is set
 				assert.NotNil(t, secret.Labels)
-				assert.Equal(t, "sts-credentials", secret.Labels["oadp.openshift.io/secret-type"])
+				assert.Equal(t, STSSecretLabelValue, secret.Labels[STSSecretLabelKey])
 			}
 		})
 	}
@@ -330,7 +330,7 @@ func TestCreateOrUpdateSTSSecret_ErrorScenarios(t *testing.T) {
 				Name:      testSecretName,
 				Namespace: testNamespace,
 				Labels: map[string]string{
-					"oadp.openshift.io/secret-type": "sts-credentials",
+					STSSecretLabelKey: STSSecretLabelValue,
 				},
 			},
 			Data: map[string][]byte{

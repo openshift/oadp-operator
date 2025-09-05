@@ -23,6 +23,7 @@ import (
 
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	"github.com/openshift/oadp-operator/pkg/common"
+	"github.com/openshift/oadp-operator/pkg/credentials/stsflow"
 )
 
 // A bucket that region can be automatically discovered
@@ -3457,7 +3458,7 @@ func TestPatchSecretsForBSL(t *testing.T) {
 					Name:      "aws-secret",
 					Namespace: "test-ns",
 					Labels: map[string]string{
-						"oadp.openshift.io/secret-type": "sts-credentials",
+						stsflow.STSSecretLabelKey: stsflow.STSSecretLabelValue,
 					},
 				},
 				Data: map[string][]byte{
@@ -3498,7 +3499,7 @@ web_identity_token_file = /var/run/secrets/openshift/serviceaccount/token`),
 					Name:      "aws-secret",
 					Namespace: "test-ns",
 					Labels: map[string]string{
-						"oadp.openshift.io/secret-type": "sts-credentials",
+						stsflow.STSSecretLabelKey: stsflow.STSSecretLabelValue,
 					},
 				},
 				Data: map[string][]byte{
@@ -3539,7 +3540,7 @@ web_identity_token_file = /var/run/secrets/openshift/serviceaccount/token`),
 					Name:      "aws-secret",
 					Namespace: "test-ns",
 					Labels: map[string]string{
-						"oadp.openshift.io/secret-type": "sts-credentials",
+						stsflow.STSSecretLabelKey: stsflow.STSSecretLabelValue,
 					},
 				},
 				Data: map[string][]byte{
@@ -3579,7 +3580,7 @@ web_identity_token_file = /var/run/secrets/openshift/serviceaccount/token`),
 					Name:      "azure-secret",
 					Namespace: "test-ns",
 					Labels: map[string]string{
-						"oadp.openshift.io/secret-type": "sts-credentials",
+						stsflow.STSSecretLabelKey: stsflow.STSSecretLabelValue,
 					},
 				},
 				Data: map[string][]byte{
@@ -3662,7 +3663,7 @@ AZURE_TENANT_ID=test-tenant`),
 					Name:      "aws-secret",
 					Namespace: "test-ns",
 					Labels: map[string]string{
-						"oadp.openshift.io/secret-type": "sts-credentials",
+						stsflow.STSSecretLabelKey: stsflow.STSSecretLabelValue,
 					},
 				},
 				Data: map[string][]byte{
@@ -3777,7 +3778,7 @@ aws_secret_access_key=test-secret`),
 					Name:      "aws-sts-secret",
 					Namespace: "test-ns",
 					Labels: map[string]string{
-						"oadp.openshift.io/secret-type": "sts-credentials",
+						stsflow.STSSecretLabelKey: stsflow.STSSecretLabelValue,
 					},
 				},
 				Data: map[string][]byte{
@@ -3860,7 +3861,7 @@ aws_secret_access_key=test-secret`),
 					Name:      "azure-sts-secret",
 					Namespace: "test-ns",
 					Labels: map[string]string{
-						"oadp.openshift.io/secret-type": "sts-credentials",
+						stsflow.STSSecretLabelKey: stsflow.STSSecretLabelValue,
 					},
 				},
 				Data: map[string][]byte{
