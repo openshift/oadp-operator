@@ -175,7 +175,32 @@ func (r *DataProtectionApplicationReconciler) ReconcileBackupStorageLocations(lo
 					return err
 				}
 				bsl.Spec.BackupSyncPeriod = bslSpec.CloudStorage.BackupSyncPeriod
-				bsl.Spec.Config = bslSpec.CloudStorage.Config
+
+				// Start with CloudStorage CR's config as base (fallback)
+				if bucket.Spec.Config != nil {
+					bsl.Spec.Config = make(map[string]string)
+					for k, v := range bucket.Spec.Config {
+						bsl.Spec.Config[k] = v
+					}
+				}
+
+				// Add region from CloudStorage CR if specified
+				if bucket.Spec.Region != "" && bsl.Spec.Config == nil {
+					bsl.Spec.Config = make(map[string]string)
+				}
+				if bucket.Spec.Region != "" {
+					bsl.Spec.Config["region"] = bucket.Spec.Region
+				}
+
+				// Override with DPA's CloudStorageLocation config (higher priority)
+				for k, v := range bslSpec.CloudStorage.Config {
+					if bsl.Spec.Config == nil {
+						bsl.Spec.Config = make(map[string]string)
+					}
+					bsl.Spec.Config[k] = v
+				}
+
+				// Handle enableSharedConfig from CloudStorage CR
 				if bucket.Spec.EnableSharedConfig != nil && *bucket.Spec.EnableSharedConfig {
 					if bsl.Spec.Config == nil {
 						bsl.Spec.Config = map[string]string{}
