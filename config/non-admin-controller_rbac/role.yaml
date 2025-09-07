@@ -1,0 +1,110 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: non-admin-controller-role
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - namespaces
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - oadp.openshift.io
+  resources:
+  - dataprotectionapplications
+  verbs:
+  - list
+- apiGroups:
+  - oadp.openshift.io
+  resources:
+  - nonadminbackups
+  - nonadminbackupstoragelocationrequests
+  - nonadminbackupstoragelocations
+  - nonadmindownloadrequests
+  - nonadminrestores
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - oadp.openshift.io
+  resources:
+  - nonadminbackups/finalizers
+  - nonadminbackupstoragelocations/finalizers
+  - nonadmindownloadrequests/finalizers
+  - nonadminrestores/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - oadp.openshift.io
+  resources:
+  - nonadminbackups/status
+  - nonadminbackupstoragelocationrequests/status
+  - nonadminbackupstoragelocations/status
+  - nonadmindownloadrequests/status
+  - nonadminrestores/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - velero.io
+  resources:
+  - backups
+  - backupstoragelocations
+  - deletebackuprequests
+  - downloadrequests
+  - restores
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - velero.io
+  resources:
+  - backupstoragelocations/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - velero.io
+  resources:
+  - datadownloads
+  - datauploads
+  - podvolumebackups
+  - podvolumerestores
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - velero.io
+  resources:
+  - downloadrequests/status
+  verbs:
+  - get
