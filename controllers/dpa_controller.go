@@ -46,11 +46,13 @@ import (
 // DPAReconciler reconciles a Velero object
 type DPAReconciler struct {
 	client.Client
-	Scheme         *runtime.Scheme
-	Log            logr.Logger
-	Context        context.Context
-	NamespacedName types.NamespacedName
-	EventRecorder  record.EventRecorder
+	Scheme            *runtime.Scheme
+	Log               logr.Logger
+	Context           context.Context
+	NamespacedName    types.NamespacedName
+	EventRecorder     record.EventRecorder
+	dpa               *oadpv1alpha1.DataProtectionApplication
+	ClusterWideClient client.Client
 }
 
 var debugMode = os.Getenv("DEBUG") == "true"
@@ -105,6 +107,7 @@ func (r *DPAReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		r.ReconcileNodeAgentDaemonset,
 		r.ReconcileVeleroMetricsSVC,
 		r.ReconcileDataMoverController,
+		r.ReconcileNonAdminController,
 	)
 
 	if err != nil {

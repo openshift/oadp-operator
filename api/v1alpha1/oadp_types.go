@@ -52,6 +52,12 @@ type CustomPlugin struct {
 	Name  string `json:"name"`
 	Image string `json:"image"`
 }
+type LogFormat string
+
+const (
+	LogFormatText LogFormat = "text"
+	LogFormatJSON LogFormat = "json"
+)
 
 // Field does not have enum validation for development flexibility
 type UnsupportedImageKey string
@@ -65,6 +71,7 @@ const GCPPluginImageKey UnsupportedImageKey = "gcpPluginImageFqin"
 const ResticRestoreImageKey UnsupportedImageKey = "resticRestoreImageFqin"
 const KubeVirtPluginImageKey UnsupportedImageKey = "kubevirtPluginImageFqin"
 const HypershiftPluginImageKey UnsupportedImageKey = "hypershiftPluginImageFqin"
+const NonAdminControllerImageKey UnsupportedImageKey = "nonAdminControllerImageFqin"
 const OperatorTypeKey UnsupportedImageKey = "operator-type"
 
 const OperatorTypeMTC = "mtc"
@@ -243,6 +250,102 @@ type SnapshotLocation struct {
 	Velero *velero.VolumeSnapshotLocationSpec `json:"velero"`
 }
 
+// We need to create enforcement structures for the BSL spec fields, because the Velero BSL spec
+// is requiring fields like bucket, provider which are allowed to be empty for the enforcement in the DPA.
+
+// ObjectStorageLocation defines the enforced values for the Velero ObjectStorageLocation
+type ObjectStorageLocation struct {
+	// Bucket is the bucket to use for object storage.
+	// +optional
+	Bucket string `json:"bucket,omitempty"`
+
+	// Prefix is the path inside a bucket to use for Velero storage. Optional.
+	// +optional
+	Prefix string `json:"prefix,omitempty"`
+
+	// CACert defines a CA bundle to use when verifying TLS connections to the provider.
+	// +optional
+	CACert []byte `json:"caCert,omitempty"`
+}
+
+// StorageType defines the enforced values for the Velero StorageType
+type StorageType struct {
+	// +optional
+	// +nullable
+	ObjectStorage *ObjectStorageLocation `json:"objectStorage,omitempty"`
+}
+
+// EnforceBackupStorageLocationSpec defines the enforced values for the Velero BackupStorageLocationSpec
+type EnforceBackupStorageLocationSpec struct {
+	// Provider is the provider of the backup storage.
+	// +optional
+	Provider string `json:"provider,omitempty"`
+
+	// Config is for provider-specific configuration fields.
+	// +optional
+	Config map[string]string `json:"config,omitempty"`
+
+	// Credential contains the credential information intended to be used with this location
+	// +optional
+	Credential *corev1.SecretKeySelector `json:"credential,omitempty"`
+
+	StorageType `json:",inline"`
+
+	// AccessMode defines the permissions for the backup storage location.
+	// +optional
+	AccessMode velero.BackupStorageLocationAccessMode `json:"accessMode,omitempty"`
+
+	// BackupSyncPeriod defines how frequently to sync backup API objects from object storage. A value of 0 disables sync.
+	// +optional
+	// +nullable
+	BackupSyncPeriod *metav1.Duration `json:"backupSyncPeriod,omitempty"`
+
+	// ValidationFrequency defines how frequently to validate the corresponding object storage. A value of 0 disables validation.
+	// +optional
+	// +nullable
+	ValidationFrequency *metav1.Duration `json:"validationFrequency,omitempty"`
+}
+
+type NonAdmin struct {
+	// Enables non admin feature, by default is disabled
+	// +optional
+	Enable *bool `json:"enable,omitempty"`
+
+	// which bakup spec field values to enforce
+	// +optional
+	EnforceBackupSpec *velero.BackupSpec `json:"enforceBackupSpec,omitempty"`
+
+	// which restore spec field values to enforce
+	// +optional
+	EnforceRestoreSpec *velero.RestoreSpec `json:"enforceRestoreSpec,omitempty"`
+
+	// which backupstoragelocation spec field values to enforce
+	// +optional
+	EnforceBSLSpec *EnforceBackupStorageLocationSpec `json:"enforceBSLSpec,omitempty"`
+
+	// RequireApprovalForBSL specifies whether cluster administrator approval is required
+	// for creating Velero BackupStorageLocation (BSL) resources.
+	// - If set to false, all NonAdminBackupStorageLocationApproval CRDs will be automatically approved,
+	//   including those that were previously pending or rejected.
+	// - If set to true, any existing BackupStorageLocation CRDs that lack the necessary approvals may be deleted,
+	//   leaving the associated NonAdminBackup objects non-restorable until approval is granted.
+	// Defaults to false
+	// +optional
+	RequireApprovalForBSL *bool `json:"requireApprovalForBSL,omitempty"`
+
+	// GarbageCollectionPeriod defines how frequently to look for possible leftover non admin related objects in OADP namespace.
+	// A value of 0 disables garbage collection.
+	// By default 24h
+	// +optional
+	GarbageCollectionPeriod *metav1.Duration `json:"garbageCollectionPeriod,omitempty"`
+
+	// BackupSyncPeriod specifies the interval at which backups from the OADP namespace are synchronized with non-admin namespaces.
+	// A value of 0 disables sync.
+	// By default 2m
+	// +optional
+	BackupSyncPeriod *metav1.Duration `json:"backupSyncPeriod,omitempty"`
+}
+
 // DataMover defines the various config for DPA data mover
 type DataMover struct {
 	// enable flag is used to specify whether you want to deploy the volume snapshot mover controller
@@ -384,6 +487,14 @@ type DataProtectionApplicationSpec struct {
 	// +optional
 	// +kubebuilder:validation:Enum=Always;IfNotPresent;Never
 	ImagePullPolicy *corev1.PullPolicy `json:"imagePullPolicy,omitempty"`
+	// nonAdmin defines the configuration for the DPA to enable backup and restore operations for non-admin users
+	// +optional
+	NonAdmin *NonAdmin `json:"nonAdmin,omitempty"`
+	// The format for log output. Valid values are text, json. (default text)
+	// +kubebuilder:validation:Enum=text;json
+	// +kubebuilder:default=text
+	// +optional
+	LogFormat LogFormat `json:"logFormat,omitempty"`
 }
 
 // DataProtectionApplicationStatus defines the observed state of DataProtectionApplication

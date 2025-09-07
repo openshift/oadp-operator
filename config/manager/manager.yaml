@@ -62,6 +62,8 @@ spec:
             value: quay.io/redhat-user-workloads/ocp-art-tenant/oadp-hypershift-oadp-plugin-oadp-1-4
           - name: RELATED_IMAGE_MUSTGATHER
             value: registry.redhat.io/oadp/oadp-mustgather-rhel8:v1.2
+          - name: RELATED_IMAGE_NON_ADMIN_CONTROLLER
+            value: quay.io/konveyor/oadp-non-admin:oadp-1.4
         args:
         - --leader-elect
         image: controller:latest
