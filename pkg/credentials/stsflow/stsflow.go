@@ -59,6 +59,20 @@ const (
 	VeleroAWSSecretName   = "cloud-credentials"
 	VeleroAzureSecretName = "cloud-credentials-azure"
 	VeleroGCPSecretName   = "cloud-credentials-gcp"
+
+	// Secret operation verbs
+	SecretVerbCreated   = "created"
+	SecretVerbUpdated   = "updated"
+	SecretVerbUnchanged = "unchanged"
+
+	// Label keys and values
+	STSSecretLabelKey   = "oadp.openshift.io/secret-type"
+	STSSecretLabelValue = "sts-credentials"
+
+	// Error messages
+	ErrMsgCreateSecret = "unable to create secret resource"
+	ErrMsgGetSecret    = "unable to get secret resource"
+	ErrMsgUpdateSecret = "unable to update secret resource: %v"
 )
 
 // STSStandardizedFlow creates secrets for Short Term Service Account Tokens from environment variables for
@@ -216,58 +230,98 @@ func CreateOrUpdateSTSSecretWithClients(setupLog logr.Logger, secretName string,
 func CreateOrUpdateSTSSecretWithClientsAndWait(setupLog logr.Logger, secretName string, credStringData map[string]string, secretNS string, clientInstance client.Client, clientset kubernetes.Interface, waitForSecret bool) error {
 	// Create a secret with the appropriate credentials format for STS/WIF authentication
 	// Secret format follows standard patterns used by cloud providers
-	secret := corev1.Secret{
+	desiredSecret := corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      secretName,
 			Namespace: secretNS,
 			Labels: map[string]string{
-				"oadp.openshift.io/secret-type": "sts-credentials",
+				STSSecretLabelKey: STSSecretLabelValue,
 			},
 		},
 		StringData: credStringData,
 	}
-	verb := "created"
-	if err := clientInstance.Create(context.Background(), &secret); err != nil {
-		if errors.IsAlreadyExists(err) {
-			verb = "updated"
-			setupLog.Info("Secret already exists, updating")
-			fromCluster := corev1.Secret{}
-			err = clientInstance.Get(context.Background(), types.NamespacedName{Name: secret.Name, Namespace: secret.Namespace}, &fromCluster)
-			if err != nil {
-				setupLog.Error(err, "unable to get existing secret resource")
-				return err
-			}
-			// update StringData - preserve existing Data that's not being replaced
-			// This is safe because STS credentials are only updated during install/reconfiguration,
-			// and any BSL-specific patches (like region) should be preserved
-			updatedFromCluster := fromCluster.DeepCopy()
-			// Initialize StringData if not present
-			if updatedFromCluster.StringData == nil {
-				updatedFromCluster.StringData = make(map[string]string)
-			}
-			// Update only the new StringData fields, preserving existing Data
-			for key, value := range secret.StringData {
-				updatedFromCluster.StringData[key] = value
-			}
-			// Ensure labels are set
-			if updatedFromCluster.Labels == nil {
-				updatedFromCluster.Labels = make(map[string]string)
-			}
-			updatedFromCluster.Labels["oadp.openshift.io/secret-type"] = "sts-credentials"
-			if err := clientInstance.Patch(context.Background(), updatedFromCluster, client.MergeFrom(&fromCluster)); err != nil {
-				setupLog.Error(err, fmt.Sprintf("unable to update secret resource: %v", err))
+
+	// First, try to get the existing secret
+	existingSecret := corev1.Secret{}
+	err := clientInstance.Get(context.Background(), types.NamespacedName{Name: secretName, Namespace: secretNS}, &existingSecret)
+
+	verb := SecretVerbCreated
+	if err != nil {
+		if errors.IsNotFound(err) {
+			// Secret doesn't exist, create it
+			if err := clientInstance.Create(context.Background(), &desiredSecret); err != nil {
+				setupLog.Error(err, ErrMsgCreateSecret)
 				return err
 			}
 		} else {
-			setupLog.Error(err, "unable to create secret resource")
+			// Some other error occurred while getting the secret
+			setupLog.Error(err, ErrMsgGetSecret)
 			return err
 		}
-	}
-	setupLog.Info("Secret " + secret.Name + " " + verb + " successfully")
+	} else {
+		// Secret exists, check if update is needed
+		needsUpdate := false
 
-	if waitForSecret {
-		// Wait for the Secret to be available
-		setupLog.Info(fmt.Sprintf("Waiting for %s Secret to be available", secret.Name))
+		// Check if labels need updating
+		if existingSecret.Labels == nil || existingSecret.Labels[STSSecretLabelKey] != STSSecretLabelValue {
+			needsUpdate = true
+		}
+
+		// Check if data needs updating
+		// Convert existing Data to string for comparison
+		existingData := make(map[string]string)
+		for key, value := range existingSecret.Data {
+			existingData[key] = string(value)
+		}
+
+		// Compare each key in credStringData
+		for key, desiredValue := range credStringData {
+			if existingValue, exists := existingData[key]; !exists || existingValue != desiredValue {
+				needsUpdate = true
+				break
+			}
+		}
+
+		if needsUpdate {
+			verb = SecretVerbUpdated
+			setupLog.Info("Secret content differs, updating")
+
+			// Update the secret
+			updatedSecret := existingSecret.DeepCopy()
+
+			// Initialize StringData if not present
+			if updatedSecret.StringData == nil {
+				updatedSecret.StringData = make(map[string]string)
+			}
+
+			// Update only the new StringData fields, preserving existing Data
+			for key, value := range credStringData {
+				updatedSecret.StringData[key] = value
+			}
+
+			// Ensure labels are set
+			if updatedSecret.Labels == nil {
+				updatedSecret.Labels = make(map[string]string)
+			}
+			updatedSecret.Labels[STSSecretLabelKey] = STSSecretLabelValue
+
+			if err := clientInstance.Patch(context.Background(), updatedSecret, client.MergeFrom(&existingSecret)); err != nil {
+				setupLog.Error(err, fmt.Sprintf(ErrMsgUpdateSecret, err))
+				return err
+			}
+		} else {
+			// No update needed
+			verb = SecretVerbUnchanged
+		}
+	}
+
+	if verb != SecretVerbUnchanged {
+		setupLog.Info("Secret " + desiredSecret.Name + " " + verb + " successfully")
+	}
+
+	if waitForSecret && verb == SecretVerbCreated {
+		// Wait for the Secret to be available (only needed for newly created secrets)
+		setupLog.Info(fmt.Sprintf("Waiting for %s Secret to be available", desiredSecret.Name))
 		_, err := WaitForSecret(clientset, secretNS, secretName)
 		if err != nil {
 			setupLog.Error(err, "error waiting for credentials Secret")

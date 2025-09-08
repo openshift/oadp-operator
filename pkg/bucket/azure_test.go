@@ -15,6 +15,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/openshift/oadp-operator/api/v1alpha1"
+	"github.com/openshift/oadp-operator/pkg/credentials/stsflow"
 )
 
 func TestValidateContainerName(t *testing.T) {
@@ -295,7 +296,7 @@ AZURE_CLOUD_NAME=AzurePublicCloud
 `),
 			},
 			secretLabels: map[string]string{
-				"oadp.openshift.io/secret-type": "sts-credentials",
+				stsflow.STSSecretLabelKey: stsflow.STSSecretLabelValue,
 			},
 			expected: true,
 		},
@@ -308,7 +309,7 @@ AZURE_CLOUD_NAME=AzurePublicCloud
 `),
 			},
 			secretLabels: map[string]string{
-				"oadp.openshift.io/secret-type": "sts-credentials",
+				stsflow.STSSecretLabelKey: stsflow.STSSecretLabelValue,
 			},
 			expected: false,
 		},
