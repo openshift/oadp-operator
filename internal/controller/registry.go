@@ -22,6 +22,7 @@ import (
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	"github.com/openshift/oadp-operator/pkg/common"
 	"github.com/openshift/oadp-operator/pkg/credentials"
+	"github.com/openshift/oadp-operator/pkg/credentials/stsflow"
 )
 
 // Registry Env var keys
@@ -36,13 +37,13 @@ const (
 	RegistryStorageS3RootdirectoryEnvVarKey  = "REGISTRY_STORAGE_S3_ROOTDIRECTORY"
 	RegistryStorageS3SkipverifyEnvVarKey     = "REGISTRY_STORAGE_S3_SKIPVERIFY"
 	// Azure registry env vars
-	RegistryStorageAzureContainerEnvVarKey       = "REGISTRY_STORAGE_AZURE_CONTAINER"
-	RegistryStorageAzureAccountnameEnvVarKey     = "REGISTRY_STORAGE_AZURE_ACCOUNTNAME"
-	RegistryStorageAzureAccountkeyEnvVarKey      = "REGISTRY_STORAGE_AZURE_ACCOUNTKEY"
-	RegistryStorageAzureSPNClientIDEnvVarKey     = "REGISTRY_STORAGE_AZURE_SPN_CLIENT_ID"
-	RegistryStorageAzureSPNClientSecretEnvVarKey = "REGISTRY_STORAGE_AZURE_SPN_CLIENT_SECRET"
-	RegistryStorageAzureSPNTenantIDEnvVarKey     = "REGISTRY_STORAGE_AZURE_SPN_TENANT_ID"
-	RegistryStorageAzureAADEndpointEnvVarKey     = "REGISTRY_STORAGE_AZURE_AAD_ENDPOINT"
+	RegistryStorageAzureContainerEnvVarKey           = "REGISTRY_STORAGE_AZURE_CONTAINER"
+	RegistryStorageAzureAccountnameEnvVarKey         = "REGISTRY_STORAGE_AZURE_ACCOUNTNAME"
+	RegistryStorageAzureAccountkeyEnvVarKey          = "REGISTRY_STORAGE_AZURE_ACCOUNTKEY"
+	RegistryStorageAzureCredentialsTypeEnvVarKey     = "REGISTRY_STORAGE_AZURE_CREDENTIALS_TYPE"
+	RegistryStorageAzureCredentialsClientIDEnvVarKey = "REGISTRY_STORAGE_AZURE_CREDENTIALS_CLIENTID"
+	RegistryStorageAzureCredentialsSecretEnvVarKey   = "REGISTRY_STORAGE_AZURE_CREDENTIALS_SECRET"
+	RegistryStorageAzureCredentialsTenantIDEnvVarKey = "REGISTRY_STORAGE_AZURE_CREDENTIALS_TENANTID"
 	// GCP registry env vars
 	RegistryStorageGCSBucket        = "REGISTRY_STORAGE_GCS_BUCKET"
 	RegistryStorageGCSKeyfile       = "REGISTRY_STORAGE_GCS_KEYFILE"
@@ -117,19 +118,19 @@ var cloudProviderEnvVarMap = map[string][]corev1.EnvVar{
 			Value: "",
 		},
 		{
-			Name:  RegistryStorageAzureAADEndpointEnvVarKey,
+			Name:  RegistryStorageAzureCredentialsTypeEnvVarKey,
+			Value: "", // Will be set dynamically based on auth method
+		},
+		{
+			Name:  RegistryStorageAzureCredentialsClientIDEnvVarKey,
 			Value: "",
 		},
 		{
-			Name:  RegistryStorageAzureSPNClientIDEnvVarKey,
+			Name:  RegistryStorageAzureCredentialsSecretEnvVarKey,
 			Value: "",
 		},
 		{
-			Name:  RegistryStorageAzureSPNClientSecretEnvVarKey,
-			Value: "",
-		},
-		{
-			Name:  RegistryStorageAzureSPNTenantIDEnvVarKey,
+			Name:  RegistryStorageAzureCredentialsTenantIDEnvVarKey,
 			Value: "",
 		},
 	},
@@ -784,6 +785,16 @@ func (r *DataProtectionApplicationReconciler) populateAWSRegistrySecret(bsl *vel
 }
 
 func (r *DataProtectionApplicationReconciler) populateAzureRegistrySecret(bsl *velerov1.BackupStorageLocation, registrySecret *corev1.Secret) error {
+	// Check if Azure workload identity is configured
+	isWorkloadIdentity := stsflow.AzureIsWorkloadIdentity()
+
+	// Determine authentication type
+	var credentialsType string
+	if isWorkloadIdentity {
+		credentialsType = "default_credentials"
+		r.Log.Info("Azure workload identity detected, using default_credentials for registry")
+	}
+
 	// Check for secret name
 	secretName, secretKey, _ := r.getSecretNameAndKey(bsl.Spec.Config, bsl.Spec.Credential, oadpv1alpha1.DefaultPluginMicrosoftAzure)
 
@@ -794,25 +805,31 @@ func (r *DataProtectionApplicationReconciler) populateAzureRegistrySecret(bsl *v
 		return err
 	}
 
-	// parse the secret and get azure storage account key
+	// parse the secret and get azure credentials
 	azcreds, err := r.parseAzureSecret(secret, secretKey)
 	if err != nil {
 		r.Log.Info(fmt.Sprintf("Error parsing provider secret %s for backupstoragelocation %s/%s", secretName, bsl.Namespace, bsl.Name))
 		return err
 	}
 
-	if len(bsl.Spec.Config["storageAccountKeyEnvVar"]) != 0 {
-		if azcreds.strorageAccountKey == "" {
-			r.Log.Info("Expecting storageAccountKeyEnvVar value set present in the credentials")
-			return errors.New("no strorageAccountKey value present in credentials file")
-		}
-	} else {
-		if len(azcreds.subscriptionID) == 0 &&
-			len(azcreds.tenantID) == 0 &&
-			len(azcreds.clientID) == 0 &&
-			len(azcreds.clientSecret) == 0 &&
-			len(azcreds.resourceGroup) == 0 {
-			return errors.New("error finding service principal parameters for the supplied Azure credential")
+	// Determine credentials type based on available credentials
+	if credentialsType == "" {
+		if len(bsl.Spec.Config["storageAccountKeyEnvVar"]) != 0 {
+			if azcreds.strorageAccountKey == "" {
+				r.Log.Info("Expecting storageAccountKeyEnvVar value set present in the credentials")
+				return errors.New("no strorageAccountKey value present in credentials file")
+			}
+			credentialsType = "shared_key"
+		} else if azcreds.clientID != "" && azcreds.clientSecret != "" && azcreds.tenantID != "" {
+			credentialsType = "client_secret"
+		} else {
+			if len(azcreds.subscriptionID) == 0 &&
+				len(azcreds.tenantID) == 0 &&
+				len(azcreds.clientID) == 0 &&
+				len(azcreds.clientSecret) == 0 &&
+				len(azcreds.resourceGroup) == 0 {
+				return errors.New("error finding service principal parameters for the supplied Azure credential")
+			}
 		}
 	}
 
@@ -823,6 +840,7 @@ func (r *DataProtectionApplicationReconciler) populateAzureRegistrySecret(bsl *v
 		"client_id_key":       []byte(azcreds.clientID),
 		"client_secret_key":   []byte(azcreds.clientSecret),
 		"resource_group_key":  []byte(azcreds.resourceGroup),
+		"credentials_type":    []byte(credentialsType),
 	}
 
 	return nil

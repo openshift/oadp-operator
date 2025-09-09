@@ -15,6 +15,7 @@ import (
 	"k8s.io/client-go/tools/record"
 
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
+	"github.com/openshift/oadp-operator/pkg/credentials/stsflow"
 )
 
 func getSchemeForFakeClientForRegistry() (*runtime.Scheme, error) {
@@ -121,7 +122,6 @@ var (
 	}
 	secretAzureServicePrincipalData = map[string][]byte{
 		"cloud": []byte("[default]" + "\n" +
-			"AZURE_STORAGE_ACCOUNT_ACCESS_KEY=" + testStoragekey + "\n" +
 			"AZURE_CLOUD_NAME=" + testCloudName + "\n" +
 			"AZURE_SUBSCRIPTION_ID=" + testSubscriptionID + "\n" +
 			"AZURE_TENANT_ID=" + testTenantID + "\n" +
@@ -140,6 +140,7 @@ var (
 		"storage_account_key": []byte(testStoragekey),
 		"subscription_id_key": []byte(""),
 		"tenant_id_key":       []byte(""),
+		"credentials_type":    []byte("shared_key"),
 	}
 	azureRegistrySPSecretData = map[string][]byte{
 		"client_id_key":       []byte(testClientID),
@@ -440,9 +441,11 @@ func TestDPAReconciler_populateAzureRegistrySecret(t *testing.T) {
 		azureSecret    *corev1.Secret
 		dpa            *oadpv1alpha1.DataProtectionApplication
 		wantErr        bool
+		wantSecretData map[string][]byte
+		envVars        map[string]string
 	}{
 		{
-			name:    "Given Velero CR and bsl instance, appropriate registry secret is updated for azure case",
+			name:    "Given Velero CR and bsl instance with storage account key, appropriate registry secret is updated",
 			wantErr: false,
 			bsl: &velerov1.BackupStorageLocation{
 				ObjectMeta: metav1.ObjectMeta{
@@ -483,10 +486,175 @@ func TestDPAReconciler_populateAzureRegistrySecret(t *testing.T) {
 					Namespace: "test-ns",
 				},
 			},
+			wantSecretData: azureRegistrySecretData,
+		},
+		{
+			name:    "Azure workload identity detected - uses default_credentials",
+			wantErr: false,
+			envVars: map[string]string{
+				stsflow.ClientIDEnvKey:       "test-client-id",
+				stsflow.TenantIDEnvKey:       "test-tenant-id",
+				stsflow.SubscriptionIDEnvKey: "test-subscription-id",
+			},
+			bsl: &velerov1.BackupStorageLocation{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-bsl-workload",
+					Namespace: "test-ns",
+				},
+				Spec: velerov1.BackupStorageLocationSpec{
+					Provider: AzureProvider,
+					StorageType: velerov1.StorageType{
+						ObjectStorage: &velerov1.ObjectStorageLocation{
+							Bucket: "azure-bucket",
+						},
+					},
+					Config: map[string]string{
+						StorageAccount: "velero-azure-account",
+						ResourceGroup:  testResourceGroup,
+					},
+				},
+			},
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "Velero-test-CR",
+					Namespace: "test-ns",
+				},
+			},
+			azureSecret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cloud-credentials-azure",
+					Namespace: "test-ns",
+				},
+				Data: secretAzureServicePrincipalData,
+			},
+			registrySecret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "oadp-test-bsl-workload-azure-registry-secret",
+					Namespace: "test-ns",
+				},
+			},
+			wantSecretData: map[string][]byte{
+				"client_id_key":       []byte(testClientID),
+				"client_secret_key":   []byte(testClientSecret),
+				"resource_group_key":  []byte(testResourceGroup),
+				"storage_account_key": []byte(""),
+				"subscription_id_key": []byte(testSubscriptionID),
+				"tenant_id_key":       []byte(testTenantID),
+				"credentials_type":    []byte("default_credentials"),
+			},
+		},
+		{
+			name:    "Service principal credentials - uses client_secret",
+			wantErr: false,
+			bsl: &velerov1.BackupStorageLocation{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-bsl-sp",
+					Namespace: "test-ns",
+				},
+				Spec: velerov1.BackupStorageLocationSpec{
+					Provider: AzureProvider,
+					StorageType: velerov1.StorageType{
+						ObjectStorage: &velerov1.ObjectStorageLocation{
+							Bucket: "azure-bucket",
+						},
+					},
+					Config: map[string]string{
+						StorageAccount: "velero-azure-account",
+						ResourceGroup:  testResourceGroup,
+					},
+				},
+			},
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "Velero-test-CR",
+					Namespace: "test-ns",
+				},
+			},
+			azureSecret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cloud-credentials-azure",
+					Namespace: "test-ns",
+				},
+				Data: secretAzureServicePrincipalData,
+			},
+			registrySecret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "oadp-test-bsl-sp-azure-registry-secret",
+					Namespace: "test-ns",
+				},
+			},
+			wantSecretData: map[string][]byte{
+				"client_id_key":       []byte(testClientID),
+				"client_secret_key":   []byte(testClientSecret),
+				"resource_group_key":  []byte(testResourceGroup),
+				"storage_account_key": []byte(""),
+				"subscription_id_key": []byte(testSubscriptionID),
+				"tenant_id_key":       []byte(testTenantID),
+				"credentials_type":    []byte("client_secret"),
+			},
+		},
+		{
+			name:    "Partial workload identity env vars - falls back to service principal",
+			wantErr: false,
+			envVars: map[string]string{
+				stsflow.ClientIDEnvKey: "test-client-id",
+				stsflow.TenantIDEnvKey: "test-tenant-id",
+				// Missing SUBSCRIPTIONID
+			},
+			bsl: &velerov1.BackupStorageLocation{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-bsl-partial",
+					Namespace: "test-ns",
+				},
+				Spec: velerov1.BackupStorageLocationSpec{
+					Provider: AzureProvider,
+					StorageType: velerov1.StorageType{
+						ObjectStorage: &velerov1.ObjectStorageLocation{
+							Bucket: "azure-bucket",
+						},
+					},
+					Config: map[string]string{
+						StorageAccount: "velero-azure-account",
+						ResourceGroup:  testResourceGroup,
+					},
+				},
+			},
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "Velero-test-CR",
+					Namespace: "test-ns",
+				},
+			},
+			azureSecret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cloud-credentials-azure",
+					Namespace: "test-ns",
+				},
+				Data: secretAzureServicePrincipalData,
+			},
+			registrySecret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "oadp-test-bsl-partial-azure-registry-secret",
+					Namespace: "test-ns",
+				},
+			},
+			wantSecretData: map[string][]byte{
+				"client_id_key":       []byte(testClientID),
+				"client_secret_key":   []byte(testClientSecret),
+				"resource_group_key":  []byte(testResourceGroup),
+				"storage_account_key": []byte(""),
+				"subscription_id_key": []byte(testSubscriptionID),
+				"tenant_id_key":       []byte(testTenantID),
+				"credentials_type":    []byte("client_secret"),
+			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			// Set environment variables for test
+			for key, value := range tt.envVars {
+				t.Setenv(key, value)
+			}
 			fakeClient, err := getFakeClientFromObjects(tt.azureSecret, tt.dpa)
 			if err != nil {
 				t.Errorf("error in creating fake client, likely programmer error")
@@ -510,13 +678,13 @@ func TestDPAReconciler_populateAzureRegistrySecret(t *testing.T) {
 						oadpv1alpha1.OadpOperatorLabel: "True",
 					},
 				},
-				Data: azureRegistrySecretData,
+				Data: tt.wantSecretData,
 			}
 			if err := r.populateAzureRegistrySecret(tt.bsl, tt.registrySecret); (err != nil) != tt.wantErr {
 				t.Errorf("populateAzureRegistrySecret() error = %v, wantErr %v", err, tt.wantErr)
 			}
-			if !reflect.DeepEqual(tt.registrySecret.Data, wantRegistrySecret.Data) {
-				t.Errorf("expected azure registry secret to be %#v, got %#v", tt.registrySecret, wantRegistrySecret.Data)
+			if !tt.wantErr && !reflect.DeepEqual(tt.registrySecret.Data, wantRegistrySecret.Data) {
+				t.Errorf("expected azure registry secret to be %#v, got %#v", wantRegistrySecret.Data, tt.registrySecret.Data)
 			}
 		})
 	}
@@ -683,7 +851,7 @@ func TestDPAReconciler_parseAzureSecret(t *testing.T) {
 			},
 			secretKey: "cloud",
 			wantCreds: azureCredentials{
-				strorageAccountKey: testStoragekey,
+				strorageAccountKey: "",
 				subscriptionID:     testSubscriptionID,
 				tenantID:           testTenantID,
 				clientID:           testClientID,

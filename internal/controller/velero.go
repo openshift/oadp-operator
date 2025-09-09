@@ -639,8 +639,7 @@ func (r *DataProtectionApplicationReconciler) customizeVeleroContainer(veleroCon
 	}
 
 	// Add Azure workload identity environment variables if using Azure STS
-	azureClientID := os.Getenv(stsflow.ClientIDEnvKey)
-	if azureClientID != "" && os.Getenv(stsflow.TenantIDEnvKey) != "" && os.Getenv(stsflow.SubscriptionIDEnvKey) != "" {
+	if stsflow.AzureIsWorkloadIdentity() {
 		// Use envFrom to reference the secret containing Azure workload identity env vars
 		if veleroContainer.EnvFrom == nil {
 			veleroContainer.EnvFrom = []corev1.EnvFromSource{}
