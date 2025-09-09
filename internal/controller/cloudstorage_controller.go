@@ -223,6 +223,8 @@ func (b CloudStorageReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 	if err := b.Client.Status().Update(ctx, &bucket); err != nil {
 		logger.Error(err, "failed to update CloudStorage status")
+		// Return error to trigger exponential backoff for status update failures
+		return ctrl.Result{}, err
 	}
 	return ctrl.Result{}, nil
 }
