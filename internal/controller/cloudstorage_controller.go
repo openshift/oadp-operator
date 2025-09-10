@@ -25,6 +25,7 @@ import (
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -52,6 +53,9 @@ type CloudStorageReconciler struct {
 	Scheme        *runtime.Scheme
 	Log           logr.Logger
 	EventRecorder record.EventRecorder
+	// BucketClientFactory is an optional factory function for creating bucket clients
+	// Used for dependency injection in tests. If nil, uses default bucketpkg.NewClient
+	BucketClientFactory func(bucket oadpv1alpha1.CloudStorage, c client.Client) (bucketpkg.Client, error)
 }
 
 //+kubebuilder:rbac:groups=oadp.openshift.io,resources=cloudstorages,verbs=get;list;watch;create;update;patch;delete
@@ -84,7 +88,14 @@ func (b CloudStorageReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{Requeue: true}, nil
 	}
 
-	clnt, err := bucketpkg.NewClient(bucket, b.Client)
+	// Use injected factory if available (for testing), otherwise use default
+	var clnt bucketpkg.Client
+	var err error
+	if b.BucketClientFactory != nil {
+		clnt, err = b.BucketClientFactory(bucket, b.Client)
+	} else {
+		clnt, err = bucketpkg.NewClient(bucket, b.Client)
+	}
 	if err != nil {
 		return result, err
 	}
@@ -128,8 +139,19 @@ func (b CloudStorageReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	// check if STSStandardizedFlow was successful
 	if secretName, err = stsflow.STSStandardizedFlow(); err != nil {
 		logger.Error(err, "unable to get STS Secret")
-		b.EventRecorder.Event(&bucket, corev1.EventTypeWarning, "UnableToSTSSecret", fmt.Sprintf("unable to delete bucket: %v", bucket.Spec.Name))
-		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
+		b.EventRecorder.Event(&bucket, corev1.EventTypeWarning, "UnableToSTSSecret", fmt.Sprintf("unable to get STS secret: %v", err))
+		// Set condition and return error to trigger exponential backoff
+		apimeta.SetStatusCondition(&bucket.Status.Conditions, metav1.Condition{
+			Type:    oadpv1alpha1.ConditionBucketReady,
+			Status:  metav1.ConditionFalse,
+			Reason:  oadpv1alpha1.ReasonSTSSecretError,
+			Message: fmt.Sprintf("Unable to get STS secret: %v", err),
+		})
+		bucket.Status.LastSynced = &metav1.Time{Time: time.Now()}
+		if updateErr := b.Client.Status().Update(ctx, &bucket); updateErr != nil {
+			logger.Error(updateErr, "failed to update CloudStorage status")
+		}
+		return ctrl.Result{}, err
 	}
 	if secretName != "" {
 		// Secret exists after STSStandardizedFlow (may have been created, updated, or unchanged)
@@ -137,32 +159,73 @@ func (b CloudStorageReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	}
 	// Now continue with bucket creation as secret exists and we are good to go !!!
 	if ok, err = clnt.Exists(); !ok && err == nil {
-		// Handle Creation if not exist.
+		// Handle Creation if bucket does not exist
 		created, err := clnt.Create()
-		if !created {
-			logger.Info("unable to create object bucket")
+		if !created || err != nil {
+			logger.Info("unable to create object bucket", "error", err)
 			b.EventRecorder.Event(&bucket, corev1.EventTypeWarning, "BucketNotCreated", fmt.Sprintf("unable to create bucket: %v", err))
-			return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
+			// Set condition and return error to trigger exponential backoff
+			apimeta.SetStatusCondition(&bucket.Status.Conditions, metav1.Condition{
+				Type:    oadpv1alpha1.ConditionBucketReady,
+				Status:  metav1.ConditionFalse,
+				Reason:  oadpv1alpha1.ReasonBucketCreationFailed,
+				Message: fmt.Sprintf("Failed to create bucket: %v", err),
+			})
+			bucket.Status.LastSynced = &metav1.Time{Time: time.Now()}
+			bucket.Status.Name = bucket.Spec.Name
+			if updateErr := b.Client.Status().Update(ctx, &bucket); updateErr != nil {
+				logger.Error(updateErr, "failed to update CloudStorage status")
+			}
+			// Return error to trigger exponential backoff
+			if err != nil {
+				return ctrl.Result{}, err
+			}
+			return ctrl.Result{}, fmt.Errorf("bucket creation failed")
 		}
-		if err != nil {
-			//TODO: LOG/EVENT THE MESSAGE
-			logger.Error(err, "Error while creating event")
-			return ctrl.Result{RequeueAfter: 1 * time.Minute}, nil
-		}
+		// Bucket created successfully
 		b.EventRecorder.Event(&bucket, corev1.EventTypeNormal, "BucketCreated", fmt.Sprintf("bucket %v has been created", bucket.Spec.Name))
-	}
-	if err != nil {
-		// Bucket may be created but something else went wrong.
-		logger.Error(err, "unable to determine if bucket exists.")
-		b.EventRecorder.Event(&bucket, corev1.EventTypeWarning, "BucketNotFound", fmt.Sprintf("unable to find bucket: %v", err))
-		return ctrl.Result{RequeueAfter: 1 * time.Minute}, nil
+		apimeta.SetStatusCondition(&bucket.Status.Conditions, metav1.Condition{
+			Type:    oadpv1alpha1.ConditionBucketReady,
+			Status:  metav1.ConditionTrue,
+			Reason:  oadpv1alpha1.ReasonBucketCreated,
+			Message: fmt.Sprintf("Bucket %v has been created successfully", bucket.Spec.Name),
+		})
+	} else if err != nil {
+		// Error checking if bucket exists
+		logger.Error(err, "unable to determine if bucket exists")
+		b.EventRecorder.Event(&bucket, corev1.EventTypeWarning, "BucketNotFound", fmt.Sprintf("unable to check bucket: %v", err))
+		apimeta.SetStatusCondition(&bucket.Status.Conditions, metav1.Condition{
+			Type:    oadpv1alpha1.ConditionBucketReady,
+			Status:  metav1.ConditionFalse,
+			Reason:  oadpv1alpha1.ReasonBucketCheckError,
+			Message: fmt.Sprintf("Unable to verify bucket status: %v", err),
+		})
+		bucket.Status.LastSynced = &metav1.Time{Time: time.Now()}
+		bucket.Status.Name = bucket.Spec.Name
+		if updateErr := b.Client.Status().Update(ctx, &bucket); updateErr != nil {
+			logger.Error(updateErr, "failed to update CloudStorage status")
+		}
+		// Return error to trigger exponential backoff
+		return ctrl.Result{}, err
+	} else {
+		// Bucket already exists
+		apimeta.SetStatusCondition(&bucket.Status.Conditions, metav1.Condition{
+			Type:    oadpv1alpha1.ConditionBucketReady,
+			Status:  metav1.ConditionTrue,
+			Reason:  oadpv1alpha1.ReasonBucketReady,
+			Message: fmt.Sprintf("Bucket %v is available and ready for use", bucket.Spec.Name),
+		})
 	}
 
 	// Update status with updated value
 	bucket.Status.LastSynced = &metav1.Time{Time: time.Now()}
 	bucket.Status.Name = bucket.Spec.Name
 
-	b.Client.Status().Update(ctx, &bucket)
+	if err := b.Client.Status().Update(ctx, &bucket); err != nil {
+		logger.Error(err, "failed to update CloudStorage status")
+		// Return error to trigger exponential backoff for status update failures
+		return ctrl.Result{}, err
+	}
 	return ctrl.Result{}, nil
 }
 
