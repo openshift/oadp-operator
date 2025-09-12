@@ -404,7 +404,30 @@ spec:
     - description: NonAdminBackup is the Schema for the nonadminbackups API
       displayName: Non Admin Backup
       kind: NonAdminBackup
-      name: nonadminbackups.nac.oadp.openshift.io
+      name: nonadminbackups.oadp.openshift.io
+      version: v1alpha1
+    - description: NonAdminRestore is the Schema for the nonadminrestores API
+      displayName: Non Admin Restore
+      kind: NonAdminRestore
+      name: nonadminrestores.oadp.openshift.io
+      version: v1alpha1
+    - description: NonAdminDownloadRequest is the Schema for the nonadmindownloadrequests
+        API
+      displayName: Non Admin DownloadRequest
+      kind: NonAdminDownloadRequest
+      name: nonadmindownloadrequests.oadp.openshift.io
+      version: v1alpha1
+    - description: NonAdminBackupStorageLocation is the Schema for the nonadminbackupstoragelocations
+        API
+      displayName: Non Admin BackupStorageLocation
+      kind: NonAdminBackupStorageLocation
+      name: nonadminbackupstoragelocations.oadp.openshift.io
+      version: v1alpha1
+    - description: NonAdminBackupStorageLocationRequest is the Schema for the nonadminbackupstoragelocationrequests
+        API
+      displayName: Non Admin BackupStorageLocationRequest
+      kind: NonAdminBackupStorageLocationRequest
+      name: nonadminbackupstoragelocationrequests.oadp.openshift.io
       version: v1alpha1
   description: |
     **OpenShift API for Data Protection (OADP)** operator sets up and installs

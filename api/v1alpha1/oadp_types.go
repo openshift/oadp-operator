@@ -76,6 +76,12 @@ const OperatorTypeKey UnsupportedImageKey = "operator-type"
 
 const OperatorTypeMTC = "mtc"
 
+// NAC defaults
+const (
+	DefaultGarbageCollectionPeriod = 24 * time.Hour
+	DefaultBackupSyncPeriod        = 2 * time.Minute
+)
+
 type VeleroConfig struct {
 	// featureFlags defines the list of features to enable for Velero instance
 	// +optional

@@ -244,7 +244,7 @@ var _ = ginkgo.Describe("Test ReconcileNonAdminController function", func() {
 })
 
 func TestDPAReconcilerBuildNonAdminDeployment(t *testing.T) {
-	r := &DPAReconciler{dpa: &oadpv1alpha1.DataProtectionApplication{
+	dpa := &oadpv1alpha1.DataProtectionApplication{
 		Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 			NonAdmin: &oadpv1alpha1.NonAdmin{
 				Enable: ptr.To(true),
@@ -253,10 +253,11 @@ func TestDPAReconcilerBuildNonAdminDeployment(t *testing.T) {
 				Velero: &oadpv1alpha1.VeleroConfig{},
 			},
 		},
-	}}
+	}
+	r := &DPAReconciler{}
 	t.Setenv("RELATED_IMAGE_NON_ADMIN_CONTROLLER", defaultNonAdminImage)
 	deployment := createTestDeployment("test-build-deployment")
-	err := r.buildNonAdminDeployment(deployment)
+	err := r.buildNonAdminDeployment(deployment, dpa)
 	if err != nil {
 		t.Errorf("buildNonAdminDeployment() errored out: %v", err)
 	}
@@ -496,8 +497,8 @@ func TestDPAReconcilerCheckNonAdminEnabled(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			r := &DPAReconciler{dpa: test.dpa}
-			result := r.checkNonAdminEnabled()
+			r := &DPAReconciler{}
+			result := r.checkNonAdminEnabled(test.dpa)
 			if result != test.result {
 				t.Errorf("Results differ: got '%v' but expected '%v'", result, test.result)
 			}
@@ -543,11 +544,11 @@ func TestDPAReconcilerGetNonAdminImage(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			r := &DPAReconciler{dpa: test.dpa}
+			r := &DPAReconciler{}
 			if len(test.env) > 0 {
 				t.Setenv("RELATED_IMAGE_NON_ADMIN_CONTROLLER", test.env)
 			}
-			image := r.getNonAdminImage()
+			image := r.getNonAdminImage(test.dpa)
 			if image != test.image {
 				t.Errorf("Images differ: got '%v' but expected '%v'", image, test.image)
 			}

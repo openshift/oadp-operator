@@ -2,7 +2,152 @@ apiVersion: operators.coreos.com/v1alpha1
 kind: ClusterServiceVersion
 metadata:
   annotations:
-    alm-examples: '[]'
+    alm-examples: |-
+      [
+        {
+          "apiVersion": "oadp.openshift.io/v1alpha1",
+          "kind": "DataProtectionApplication",
+          "metadata": {
+            "name": "velero-sample"
+          },
+          "spec": {
+            "backupLocations": [
+              {
+                "velero": {
+                  "config": {
+                    "profile": "default",
+                    "region": "us-east-1"
+                  },
+                  "credential": {
+                    "key": "cloud",
+                    "name": "cloud-credentials"
+                  },
+                  "default": true,
+                  "objectStorage": {
+                    "bucket": "my-bucket-name",
+                    "prefix": "velero"
+                  },
+                  "provider": "aws"
+                }
+              }
+            ],
+            "configuration": {
+              "nodeAgent": {
+                "enable": true,
+                "uploaderType": "restic"
+              },
+              "velero": {
+                "defaultPlugins": [
+                  "openshift",
+                  "aws",
+                  "kubevirt"
+                ]
+              }
+            },
+            "snapshotLocations": [
+              {
+                "velero": {
+                  "config": {
+                    "profile": "default",
+                    "region": "us-west-2"
+                  },
+                  "provider": "aws"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "apiVersion": "velero.io/v1",
+          "kind": "Backup",
+          "metadata": {
+            "name": "backup",
+            "namespace": "openshift-adp"
+          },
+          "spec": {}
+        },
+        {
+          "apiVersion": "velero.io/v1",
+          "kind": "BackupStorageLocation",
+          "metadata": {
+            "name": "backupstoragelocation",
+            "namespace": "openshift-adp"
+          },
+          "spec": {}
+        },
+        {
+          "apiVersion": "velero.io/v1",
+          "kind": "DeleteBackupRequest",
+          "metadata": {
+            "name": "deletebackuprequest",
+            "namespace": "openshift-adp"
+          },
+          "spec": {}
+        },
+        {
+          "apiVersion": "velero.io/v1",
+          "kind": "DownloadRequest",
+          "metadata": {
+            "name": "downloadrequest",
+            "namespace": "openshift-adp"
+          },
+          "spec": {}
+        },
+        {
+          "apiVersion": "velero.io/v1",
+          "kind": "PodVolumeBackup",
+          "metadata": {
+            "name": "podvolumebackup",
+            "namespace": "openshift-adp"
+          },
+          "spec": {}
+        },
+        {
+          "apiVersion": "velero.io/v1",
+          "kind": "PodVolumeRestore",
+          "metadata": {
+            "name": "podvolumerestore",
+            "namespace": "openshift-adp"
+          },
+          "spec": {}
+        },
+        {
+          "apiVersion": "velero.io/v1",
+          "kind": "Restore",
+          "metadata": {
+            "name": "restore",
+            "namespace": "openshift-adp"
+          },
+          "spec": {}
+        },
+        {
+          "apiVersion": "velero.io/v1",
+          "kind": "Schedule",
+          "metadata": {
+            "name": "schedule",
+            "namespace": "openshift-adp"
+          },
+          "spec": {}
+        },
+        {
+          "apiVersion": "velero.io/v1",
+          "kind": "ServerStatusRequest",
+          "metadata": {
+            "name": "serverstatusrequest",
+            "namespace": "openshift-adp"
+          },
+          "spec": {}
+        },
+        {
+          "apiVersion": "velero.io/v1",
+          "kind": "VolumeSnapshotLocation",
+          "metadata": {
+            "name": "volumesnapshotlocation",
+            "namespace": "openshift-adp"
+          },
+          "spec": {}
+        }
+      ]
     capabilities: Seamless Upgrades
     categories: |
       Cloud Provider,Developer Tools,Modernization & Migration,OpenShift Optional,Storage
@@ -39,7 +184,399 @@ metadata:
   namespace: openshift-adp
 spec:
   apiservicedefinitions: {}
-  customresourcedefinitions: {}
+  customresourcedefinitions:
+    owned:
+    - description: A backup repository is an indicator of a connection from the restic/kopia
+        server to the backupstoragelocation.
+      displayName: BackupRepository
+      kind: BackupRepository
+      name: backuprepositories.velero.io
+      statusDescriptors:
+      - description: Phase is the current state of the BackupRepository.
+        displayName: Phase
+        path: phase
+      - description: Message is a message about the current status of the BackupRepository.
+        displayName: Message
+        path: message
+      - description: LastMaintenanceTime is the last time maintenance was run.
+        displayName: LastMaintenanceTime
+        path: lastMaintenanceTime
+      version: v1
+    - description: Backup is a Velero resource that represents the capture of Kubernetes
+        cluster state at a point in time (API objects and associated volume state).
+      displayName: Backup
+      kind: Backup
+      name: backups.velero.io
+      statusDescriptors:
+      - description: CompletionTimestamp records the time a backup was completed.
+          Completion time is recorded even on failed backups. Completion time is recorded
+          before uploading the backup object. The server's time is used for CompletionTimestamps.
+        displayName: CompletionTimestamp
+        path: completionTimestamp
+      - description: Expiration is when this Backup is eligible for garbage collection.
+        displayName: Expiration
+        path: expiration
+      - description: Format Version is the backup format version, including major,
+          minor, and patch version.
+        displayName: FormatVersion
+        path: formatVersion
+      - description: Phase is the current state of the Backup
+        displayName: Phase
+        path: phase
+      - description: Progress contains information about the backup's execution progress.
+          Note that this information is best-effort only -- if Velero fails to update
+          it during a backup for any reason, it may be inaccurate/stale.
+        displayName: Progress
+        path: progress
+      - description: Start Timestamp records the time a backup was started. Separate
+          from CreationTimestamp, since that value changes on restores. The server's
+          time is used for StartTimestamps.
+        displayName: StartTimestamp
+        path: startTimestamp
+      - description: ValidationErrors are a slice of all validation errors (if applicable).
+        displayName: Validation Errors
+        path: validationErrors
+      - description: VolumeSnapshotsAttempted is the total number of attempted volume
+          snapshots for this backup.
+        displayName: VolumeSnapshotsAttempted
+        path: volumeSnapshotsAttempted
+      - description: VolumeSnapshotsCompleted is the total number of successfully
+          completed volume snapshots for this backup.
+        displayName: VolumeSnapshotsCompleted
+        path: volumeSnapshotsCompleted
+      - description: Warnings is a count of all warning messages that were generated
+          during execution of the backup. The actual warnings are in the backup's
+          log file in object storage.
+        displayName: Warnings
+        path: warnings
+      - description: Errors is a count of all error messages that were generated during
+          execution of the backup.  The actual errors are in the backup's log file
+          in object storage.
+        displayName: Errors
+        path: errors
+      version: v1
+    - description: BackupStorageLocation represents an object storage location (such
+        as Amazon S3 Bucket) where Velero stores backup objects.
+      displayName: BackupStorageLocation
+      kind: BackupStorageLocation
+      name: backupstoragelocations.velero.io
+      statusDescriptors:
+      - description: Phase is the current state of the BackupStorageLocation
+        displayName: Phase
+        path: phase
+      - description: LastSyncedTime is the last time the contents of the location
+          were synced into
+        displayName: LastSyncedTime
+        path: lastSyncedTime
+      - description: LastValidationTime is the last time the backup store location
+          was validated
+        displayName: LastValidationTime
+        path: lastValidationTime
+      version: v1
+    - description: The CloudStorage API automates the creation of a bucket for object
+        storage.
+      displayName: CloudStorage
+      kind: CloudStorage
+      name: cloudstorages.oadp.openshift.io
+      statusDescriptors:
+      - description: LastSyncTimestamp is the last time the contents of the CloudStorage
+          was synced
+        displayName: LastSyncTimestamp
+        path: lastSyncTimestamp
+      - description: Name is the name requested for the bucket (aws, gcp) or container
+          (azure)
+        displayName: Name
+        path: name
+      version: v1alpha1
+    - description: DataDownload represents a data download of a volume snapshot. There
+        is one DataDownload created per volume to be restored.
+      displayName: DataDownload
+      kind: DataDownload
+      name: datadownloads.velero.io
+      statusDescriptors:
+      - description: Phase is the current state of the DataDownload.
+        displayName: Phase
+        path: phase
+      - description: CompletionTimestamp records the time a restore was completed.
+          Completion time is recorded even on failed restores. The server's time is
+          used for CompletionTimestamps
+        displayName: CompletionTimestamp
+        path: completionTimestamp
+      - description: Message is a message about the current status of the BackupRepository.
+        displayName: Message
+        path: message
+      - description: Node is the name of the node where the DataDownload is processed.
+        displayName: Node
+        path: node
+      - description: Progress holds the total number of bytes of the snapshot and
+          the current number of restored bytes. This can be used to display progress
+          information about the restore operation.
+        displayName: Progress
+        path: progress
+      - description: StartTimestamp records the time a restore was started. The server's
+          time is used for StartTimestamps
+        displayName: StartTimestamp
+        path: startTimestamp
+      version: v2alpha1
+    - description: DataProtectionApplication represents configuration to install a
+        data protection application to safely backup and restore, perform disaster
+        recovery and migrate Kubernetes cluster resources and persistent volumes.
+      displayName: DataProtectionApplication
+      kind: DataProtectionApplication
+      name: dataprotectionapplications.oadp.openshift.io
+      statusDescriptors:
+      - description: Conditions defines the observed state of DataProtectionApplication
+        displayName: Conditions
+        path: conditions
+      version: v1alpha1
+    - description: DataUpload acts as the protocol between data mover plugins and
+        data mover controller for the datamover backup operation
+      displayName: DataUpload
+      kind: DataUpload
+      name: datauploads.velero.io
+      statusDescriptors:
+      - description: CompletionTimestamp records the time a backup was completed.
+          Completion time is recorded even on failed backups. Completion time is recorded
+          before uploading the backup object. The server's time is used for CompletionTimestamps
+        displayName: CompletionTimestamp
+        path: completionTimestamp
+      - description: DataMoverResult stores data-mover-specific information as a result
+          of the DataUpload.
+        displayName: DataMoverResult
+        path: dataMoverResult
+      - description: Message is a message about the DataUpload's status.
+        displayName: Message
+        path: message
+      - description: Node is the name of the node where the DataUpload is processed.
+        displayName: Node
+        path: node
+      - description: Path is the full path of the snapshot volume being backed up.
+        displayName: Path
+        path: path
+      - description: Phase is the current state of the DataUpload.
+        displayName: Phase
+        path: phase
+      - description: Progress holds the total number of bytes of the volume and the
+          current number of backed up bytes. This can be used to display progress
+          information about the backup operation.
+        displayName: Progress
+        path: progress
+      - description: SnapshotID is the identifier for the snapshot in the backup repository.
+        displayName: SnapshotID
+        path: snapshotID
+      - description: StartTimestamp records the time a backup was started. Separate
+          from CreationTimestamp, since that value changes on restores. The server's
+          time is used for StartTimestamps
+        displayName: StartTimestamp
+        path: startTimestamp
+      version: v2alpha1
+    - description: DeleteBackupRequest is a request to delete one or more backups.
+      displayName: DeleteBackupRequest
+      kind: DeleteBackupRequest
+      name: deletebackuprequests.velero.io
+      statusDescriptors:
+      - description: Phase is the current status of a DeleteBackupRequest
+        displayName: Phase
+        path: phase
+      - description: Errors contains any errors that were encountered during the deletion
+          process.
+        displayName: Errors
+        path: errors
+      version: v1
+    - description: DownloadRequest is a request to download an artifact from object
+        storage such as a backup log file.
+      displayName: DownloadRequest
+      kind: DownloadRequest
+      name: downloadrequests.velero.io
+      statusDescriptors:
+      - description: Phase is the current state of the DownloadRequest.
+        displayName: Phase
+        path: phase
+      - description: DownloadURL contains the pre-signed URL for the target file.
+        displayName: DownloadURL
+        path: downloadURL
+      - description: Expiration is when this DownloadRequest expires and can be deleted
+          by the system.
+        displayName: Expiration
+        path: expiration
+      version: v1
+    - description: NonAdminBackup is the Schema for the nonadminbackups API
+      displayName: Non Admin Backup
+      kind: NonAdminBackup
+      name: nonadminbackups.oadp.openshift.io
+      version: v1alpha1
+    - description: NonAdminBackupStorageLocationRequest is the Schema for the nonadminbackupstoragelocationrequests
+        API
+      displayName: Non Admin BackupStorageLocationRequest
+      kind: NonAdminBackupStorageLocationRequest
+      name: nonadminbackupstoragelocationrequests.oadp.openshift.io
+      version: v1alpha1
+    - description: NonAdminBackupStorageLocation is the Schema for the nonadminbackupstoragelocations
+        API
+      displayName: Non Admin BackupStorageLocation
+      kind: NonAdminBackupStorageLocation
+      name: nonadminbackupstoragelocations.oadp.openshift.io
+      version: v1alpha1
+    - description: NonAdminDownloadRequest is the Schema for the nonadmindownloadrequests
+        API
+      displayName: Non Admin DownloadRequest
+      kind: NonAdminDownloadRequest
+      name: nonadmindownloadrequests.oadp.openshift.io
+      version: v1alpha1
+    - description: NonAdminRestore is the Schema for the nonadminrestores API
+      displayName: Non Admin Restore
+      kind: NonAdminRestore
+      name: nonadminrestores.oadp.openshift.io
+      version: v1alpha1
+    - description: A velero pod volume backup is a restic backup of persistent volumes
+        attached to a running pod.
+      displayName: PodVolumeBackup
+      kind: PodVolumeBackup
+      name: podvolumebackups.velero.io
+      statusDescriptors:
+      - description: Phase is the current state of the PodVolumeBackup.
+        displayName: Phase
+        path: phase
+      - description: Path is the full path within the controller pod being backed
+          up.
+        displayName: Path
+        path: path
+      - description: SnapshotID is the identifier for the snapshot of the pod volume.
+        displayName: SnapshotID
+        path: snapshotID
+      - description: Message is a message about the pod volume backup's status.
+        displayName: Message
+        path: message
+      - description: StartTimestamp records the time a backup was started. Separate
+          from CreationTimestamp, since that value changes on restores. The server's
+          time is used for StartTimestamps
+        displayName: StartTimestamp
+        path: startTimestamp
+      - description: CompletionTimestamp records the time a backup was completed.
+          Completion time is recorded even on failed backups. Completion time is recorded
+          before uploading the backup object. The server's time is used for CompletionTimestamps
+        displayName: CompletionTimestamp
+        path: completionTimestamp
+      - description: Progress holds the total number of bytes of the volume and the
+          current number of backed up bytes. This can be used to display progress
+          information about the backup operation.
+        displayName: Progress
+        path: progress
+      version: v1
+    - description: A velero pod volume restore is a restic restore of persistent volumes
+        attached to a running pod.
+      displayName: PodVolumeRestore
+      kind: PodVolumeRestore
+      name: podvolumerestores.velero.io
+      statusDescriptors:
+      - description: Phase is the current state of the PodVolumeRestore.
+        displayName: Phase
+        path: phase
+      - description: Message is a message about the pod volume restore's status.
+        displayName: Message
+        path: message
+      - description: StartTimestamp records the time a restore was started. The server's
+          time is used for StartTimestamps
+        displayName: StartTimestamp
+        path: startTimestamp
+      - description: CompletionTimestamp records the time a restore was completed.
+          Completion time is recorded even on failed restores. The server's time is
+          used for CompletionTimestamps
+        displayName: CompletionTimestamp
+        path: completionTimestamp
+      - description: Progress holds the total number of bytes of the snapshot and
+          the current number of restored bytes. This can be used to display progress
+          information about the restore operation.
+        displayName: Progress
+        path: progress
+      version: v1
+    - description: Restore is a Velero resource that represents the application of
+        resources from a Velero backup to a target Kubernetes cluster.
+      displayName: Restore
+      kind: Restore
+      name: restores.velero.io
+      statusDescriptors:
+      - description: Phase is the current state of the Restore
+        displayName: Phase
+        path: phase
+      - description: ValidationErrors is a slice of all validation errors (if applicable)
+        displayName: ValidationErrors
+        path: validationErrors
+      - description: Warnings is a count of all warning messages that were generated
+          during execution of the restore. The actual warnings are stored in object
+          storage.
+        displayName: Warnings
+        path: warnings
+      - description: Errors is a count of all error messages that were generated during
+          execution of the restore. The actual errors are stored in object storage.
+        displayName: Errors
+        path: errors
+      - description: FailureReason is an error that caused the entire restore to fail.
+        displayName: FailureReason
+        path: failureReason
+      - description: StartTimestamp records the time the restore operation was started.
+          The server's time is used for StartTimestamps
+        displayName: StartTimestamp
+        path: startTimestamp
+      - description: CompletionTimestamp records the time the restore operation was
+          completed. Completion time is recorded even on failed restore. The server's
+          time is used for StartTimestamps
+        displayName: CompletionTimestamp
+        path: completionTimestamp
+      - description: Progress contains information about the restore's execution progress.
+          Note that this information is best-effort only -- if Velero fails to update
+          it during a restore for any reason, it may be inaccurate/stale.
+        displayName: Progress
+        path: progress
+      version: v1
+    - description: Schedule is a Velero resource that represents a pre-scheduled or
+        periodic Backup that should be run.
+      displayName: Schedule
+      kind: Schedule
+      name: schedules.velero.io
+      statusDescriptors:
+      - description: Phase is the current phase of the Schedule
+        displayName: Phase
+        path: phase
+      - description: LastBackup is the last time a Backup was run for this Schedule
+          schedule
+        displayName: LastBackup
+        path: lastBackup
+      - description: ValidationErrors is a slice of all validation errors (if applicable)
+        displayName: ValidationErrors
+        path: validationErrors
+      version: v1
+    - description: ServerStatusRequest is a request to access current status information
+        about the Velero server.
+      displayName: ServerStatusRequest
+      kind: ServerStatusRequest
+      name: serverstatusrequests.velero.io
+      statusDescriptors:
+      - description: Phase is the current lifecycle phase of the ServerStatusRequest.
+        displayName: Phase
+        path: phase
+      - description: ProcessedTimestamp is when the ServerStatusRequest was processed
+          by the ServerStatusRequestController.
+        displayName: ProcessedTimestamp
+        path: processedTimestamp
+      - description: ServerVersion is the Velero server version.
+        displayName: ServerVersion
+        path: serverVersion
+      - description: Plugins list information about the plugins running on the Velero
+          server
+        displayName: Plugins
+        path: plugins
+      version: v1
+    - description: VolumeSnapshotLocation is a location where Velero stores volume
+        snapshots.
+      displayName: VolumeSnapshotLocation
+      kind: VolumeSnapshotLocation
+      name: volumesnapshotlocations.velero.io
+      statusDescriptors:
+      - description: Phase is the current lifecycle phase of the VolumeSnapshotLocation
+        displayName: Phase
+        path: phase
+      version: v1
   description: |
     **OpenShift API for Data Protection (OADP)** operator sets up and installs
     Velero on the OpenShift platform, allowing users to backup and restore
@@ -70,7 +607,485 @@ spec:
     mediatype: image/png
   install:
     spec:
-      deployments: []
+      clusterPermissions:
+      - rules:
+        - apiGroups:
+          - ""
+          resources:
+          - namespaces
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - ""
+          resources:
+          - secrets
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - oadp.openshift.io
+          resources:
+          - dataprotectionapplications
+          verbs:
+          - list
+        - apiGroups:
+          - oadp.openshift.io
+          resources:
+          - nonadminbackups
+          - nonadminbackupstoragelocationrequests
+          - nonadminbackupstoragelocations
+          - nonadmindownloadrequests
+          - nonadminrestores
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - oadp.openshift.io
+          resources:
+          - nonadminbackups/finalizers
+          - nonadminbackupstoragelocations/finalizers
+          - nonadmindownloadrequests/finalizers
+          - nonadminrestores/finalizers
+          verbs:
+          - update
+        - apiGroups:
+          - oadp.openshift.io
+          resources:
+          - nonadminbackups/status
+          - nonadminbackupstoragelocationrequests/status
+          - nonadminbackupstoragelocations/status
+          - nonadmindownloadrequests/status
+          - nonadminrestores/status
+          verbs:
+          - get
+          - patch
+          - update
+        - apiGroups:
+          - velero.io
+          resources:
+          - backups
+          - backupstoragelocations
+          - deletebackuprequests
+          - downloadrequests
+          - restores
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - velero.io
+          resources:
+          - backupstoragelocations/status
+          verbs:
+          - get
+          - patch
+          - update
+        - apiGroups:
+          - velero.io
+          resources:
+          - datadownloads
+          - datauploads
+          - podvolumebackups
+          - podvolumerestores
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - velero.io
+          resources:
+          - downloadrequests/status
+          verbs:
+          - get
+        serviceAccountName: non-admin-controller
+      - rules:
+        - apiGroups:
+          - config.openshift.io
+          resources:
+          - infrastructures
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - cloudcredential.openshift.io
+          resources:
+          - credentialsrequests
+          verbs:
+          - create
+          - update
+          - get
+        - apiGroups:
+          - oadp.openshift.io
+          resources:
+          - '*'
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - coordination.k8s.io
+          - corev1
+          resources:
+          - secrets
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - oadp.openshift.io
+          resources:
+          - buckets
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - oadp.openshift.io
+          resources:
+          - buckets/finalizers
+          verbs:
+          - update
+        - apiGroups:
+          - oadp.openshift.io
+          resources:
+          - buckets/status
+          verbs:
+          - get
+          - patch
+          - update
+        - apiGroups:
+          - oadp.openshift.io
+          resources:
+          - leases
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - velero.io
+          resources:
+          - '*'
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - security.openshift.io
+          resources:
+          - securitycontextconstraints
+          verbs:
+          - list
+          - get
+          - create
+          - delete
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - security.openshift.io
+          resourceNames:
+          - privileged
+          resources:
+          - securitycontextconstraints
+          verbs:
+          - use
+        - apiGroups:
+          - ""
+          resources:
+          - secrets
+          - configmaps
+          - pods
+          - services
+          - serviceaccounts
+          - endpoints
+          - persistentvolumeclaims
+          - events
+          verbs:
+          - list
+          - get
+          - create
+          - delete
+          - deletecollection
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - ""
+          resources:
+          - namespaces
+          verbs:
+          - list
+          - get
+          - create
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - apps
+          resources:
+          - deployments
+          - daemonsets
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - route.openshift.io
+          resources:
+          - routes
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - monitoring.coreos.com
+          resources:
+          - servicemonitors
+          verbs:
+          - get
+          - create
+          - list
+          - delete
+          - update
+          - patch
+          - watch
+        - apiGroups:
+          - authentication.k8s.io
+          resources:
+          - tokenreviews
+          verbs:
+          - create
+        - apiGroups:
+          - authorization.k8s.io
+          resources:
+          - subjectaccessreviews
+          verbs:
+          - create
+        serviceAccountName: openshift-adp-controller-manager
+      - rules:
+        - apiGroups:
+          - build.openshift.io
+          - migration.openshift.io
+          - rbac.authorization.k8s.io
+          - velero.io
+          resources:
+          - '*'
+          verbs:
+          - '*'
+        - apiGroups:
+          - ""
+          resources:
+          - serviceaccounts
+          verbs:
+          - '*'
+        - apiGroups:
+          - packages.operators.coreos.com
+          resources:
+          - packagemanifests
+          verbs:
+          - '*'
+        - apiGroups:
+          - '*'
+          resources:
+          - '*'
+          verbs:
+          - get
+          - watch
+          - list
+          - update
+          - patch
+          - create
+          - delete
+          - assign
+          - deletecollection
+        - nonResourceURLs:
+          - '*'
+          verbs:
+          - '*'
+        - apiGroups:
+          - security.openshift.io
+          resourceNames:
+          - privileged
+          resources:
+          - securitycontextconstraints
+          verbs:
+          - use
+        serviceAccountName: velero
+      deployments:
+      - label:
+          control-plane: controller-manager
+        name: openshift-adp-controller-manager
+        spec:
+          replicas: 1
+          selector:
+            matchLabels:
+              control-plane: controller-manager
+          strategy: {}
+          template:
+            metadata:
+              labels:
+                control-plane: controller-manager
+            spec:
+              containers:
+              - args:
+                - --leader-elect
+                command:
+                - /manager
+                env:
+                - name: WATCH_NAMESPACE
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.annotations['olm.targetNamespaces']
+                - name: RESTIC_PV_HOSTPATH
+                - name: FS_PV_HOSTPATH
+                - name: PLUGINS_HOSTPATH
+                - name: RELATED_IMAGE_VELERO
+                  value: quay.io/konveyor/velero:oadp-1.4
+                - name: RELATED_IMAGE_VELERO_RESTORE_HELPER
+                  value: quay.io/konveyor/velero-restore-helper:oadp-1.4
+                - name: RELATED_IMAGE_OPENSHIFT_VELERO_PLUGIN
+                  value: quay.io/konveyor/openshift-velero-plugin:oadp-1.4
+                - name: RELATED_IMAGE_VELERO_PLUGIN_FOR_AWS
+                  value: quay.io/konveyor/velero-plugin-for-aws:oadp-1.4
+                - name: RELATED_IMAGE_VELERO_PLUGIN_FOR_LEGACY_AWS
+                  value: quay.io/konveyor/velero-plugin-for-legacy-aws:oadp-1.4
+                - name: RELATED_IMAGE_VELERO_PLUGIN_FOR_MICROSOFT_AZURE
+                  value: quay.io/konveyor/velero-plugin-for-microsoft-azure:oadp-1.4
+                - name: RELATED_IMAGE_VELERO_PLUGIN_FOR_GCP
+                  value: quay.io/konveyor/velero-plugin-for-gcp:oadp-1.4
+                - name: RELATED_IMAGE_KUBEVIRT_VELERO_PLUGIN
+                  value: quay.io/konveyor/kubevirt-velero-plugin:v0.7.0
+                - name: RELATED_IMAGE_HYPERSHIFT_VELERO_PLUGIN
+                  value: quay.io/redhat-user-workloads/ocp-art-tenant/oadp-hypershift-oadp-plugin-oadp-1-4
+                - name: RELATED_IMAGE_MUSTGATHER
+                  value: registry.redhat.io/oadp/oadp-mustgather-rhel8:v1.2
+                - name: RELATED_IMAGE_NON_ADMIN_CONTROLLER
+                  value: quay.io/konveyor/oadp-non-admin:oadp-1.4
+                image: quay.io/konveyor/oadp-operator:oadp-1.4
+                imagePullPolicy: Always
+                livenessProbe:
+                  httpGet:
+                    path: /healthz
+                    port: 8081
+                  initialDelaySeconds: 15
+                  periodSeconds: 20
+                name: manager
+                readinessProbe:
+                  httpGet:
+                    path: /readyz
+                    port: 8081
+                  initialDelaySeconds: 5
+                  periodSeconds: 10
+                resources:
+                  limits:
+                    cpu: "1"
+                    memory: 512Mi
+                  requests:
+                    cpu: 500m
+                    memory: 128Mi
+                securityContext:
+                  allowPrivilegeEscalation: false
+                startupProbe:
+                  failureThreshold: 12
+                  httpGet:
+                    path: /healthz
+                    port: 8081
+                  periodSeconds: 10
+                volumeMounts:
+                - mountPath: /var/run/secrets/openshift/serviceaccount
+                  name: bound-sa-token
+                  readOnly: true
+              securityContext:
+                runAsNonRoot: true
+              serviceAccountName: openshift-adp-controller-manager
+              terminationGracePeriodSeconds: 10
+              volumes:
+              - name: bound-sa-token
+                projected:
+                  sources:
+                  - serviceAccountToken:
+                      audience: openshift
+                      expirationSeconds: 3600
+                      path: token
+      permissions:
+      - rules:
+        - apiGroups:
+          - ""
+          resources:
+          - configmaps
+          verbs:
+          - get
+          - list
+          - watch
+          - create
+          - update
+          - patch
+          - delete
+        - apiGroups:
+          - coordination.k8s.io
+          resources:
+          - leases
+          verbs:
+          - get
+          - list
+          - watch
+          - create
+          - update
+          - patch
+          - delete
+        - apiGroups:
+          - ""
+          resources:
+          - events
+          verbs:
+          - create
+          - patch
+        serviceAccountName: openshift-adp-controller-manager
     strategy: deployment
   installModes:
   - supported: true
@@ -144,5 +1159,7 @@ spec:
     name: hypershift-velero-plugin
   - image: registry.redhat.io/oadp/oadp-mustgather-rhel8:v1.2
     name: mustgather
+  - image: quay.io/konveyor/oadp-non-admin:oadp-1.4
+    name: non-admin-controller
   replaces: oadp-operator.v1.4.5
   version: 1.4.6
