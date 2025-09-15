@@ -355,14 +355,6 @@ EOF
 oc get pods -n openshift-adp
 ----
 
-. Check that the Velero service accounts have the correct annotations:
-+
-[source,bash]
-----
-oc get sa velero -n openshift-adp -o yaml | grep -A5 annotations
-oc get sa openshift-adp-controller-manager -n openshift-adp -o yaml | grep -A5 annotations
-----
-
 . Verify the Azure role assignments:
 +
 [source,bash]
