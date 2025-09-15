@@ -194,43 +194,31 @@ echo "Role ARN: $ROLE_ARN"
 oc create namespace openshift-adp
 ----
 
-[id="oadp-aws-console-installation_{context}"]
-== Installing OADP Operator via OpenShift Web Console
-
-When installing the OADP operator through the OpenShift web console with tokenized authentication support, you will be presented with cloud provider-specific configuration fields.
-
-[NOTE]
-====
-For OpenShift 4.15 and later, the web console supports tokenized authentication during operator installation, allowing you to provide cloud credentials directly through the installation form.
-====
-
-.Console Installation Fields for AWS
-
-During operator installation, the web console will display the following field:
-
-*role ARN*::
-**Field Label:** "role ARN"
+. Annotate the service accounts to use AWS STS:
 +
-**Help Text:** "The role ARN required for the operator to access the cloud API."
-+
-**Value to Enter:** Use the `ROLE_ARN` value from the prerequisite setup steps above (e.g., `arn:aws:iam::123456789012:role/openshift-adp-controller-manager`).
+[source,bash]
+----
+oc annotate serviceaccount velero -n openshift-adp \
+    eks.amazonaws.com/role-arn="${ROLE_ARN}" --overwrite
 
-This field corresponds to the IAM role you created in the prerequisite steps. The role ARN format is `arn:aws:iam::${AWS_ACCOUNT_ID}:role/${ROLE_NAME}`.
+oc annotate serviceaccount openshift-adp-controller-manager -n openshift-adp \
+    eks.amazonaws.com/role-arn="${ROLE_ARN}" --overwrite
+----
 
 [id="oadp-aws-cloud-storage-api_{context}"]
 == Alternative: Using Cloud Storage API for Automated Bucket Management
 
-Instead of manually creating S3 buckets, you can use the OADP CloudStorage API to automatically manage bucket creation and configuration.
+Instead of manually creating S3 buckets, you can use the OADP Cloud Storage API to automatically manage bucket creation and configuration. This approach requires OADP operator version with Cloud Storage API support.
 
-[NOTE]
-====
-For comprehensive documentation on the CloudStorage API, including detailed configuration options, troubleshooting, and advanced usage, see link:../oadp-cloudstorage-api.html[OADP CloudStorage API].
-====
+.Prerequisites for Cloud Storage API
 
-.AWS-Specific CloudStorage Configuration
+* OADP operator with Cloud Storage API functionality enabled
+* The same AWS STS configuration as above
 
-For AWS with STS authentication, create a CloudStorage resource using the variables from the STS setup above:
+.Procedure for Cloud Storage API
 
+. Create a CloudStorage resource instead of manually creating buckets:
++
 [source,yaml]
 ----
 cat <<EOF | oc apply -f -
@@ -246,11 +234,12 @@ spec:
   creationSecret:
     name: cloud-credentials-aws
     key: credentials  # Required key name for AWS provider
+  creationPolicy: CreateIfNotExists
 EOF
 ----
 
-Then configure your DataProtectionApplication to use the CloudStorage resource:
-
+. Create the DataProtectionApplication with Cloud Storage API reference:
++
 [source,yaml]
 ----
 cat <<EOF | oc apply -f -
@@ -269,6 +258,7 @@ spec:
   backupLocations:
     - name: default
       bucket:
+        # Reference the CloudStorage resource instead of direct bucket
         cloudStorageRef:
           name: aws-backup-storage
         prefix: velero
@@ -290,10 +280,16 @@ spec:
 EOF
 ----
 
-.AWS-Specific Verification
+. Verify the CloudStorage resource status:
++
+[source,bash]
+----
+oc get cloudstorage aws-backup-storage -n openshift-adp -o yaml
+oc describe cloudstorage aws-backup-storage -n openshift-adp
+----
 
-Verify the S3 bucket was created:
-
+. Wait for bucket creation and verify:
++
 [source,bash]
 ----
 # Check if bucket was created in S3
@@ -302,6 +298,51 @@ aws s3 ls s3://${VELERO_BUCKET_NAME}/
 # Verify bucket policies and configuration
 aws s3api get-bucket-policy --bucket ${VELERO_BUCKET_NAME}
 ----
+
+. Monitor the CloudStorage controller logs:
++
+[source,bash]
+----
+# Check operator logs for CloudStorage operations
+oc logs -n openshift-adp deployment/oadp-operator-controller-manager | grep -i cloudstorage
+
+# Check for AWS-specific operations
+oc logs -n openshift-adp deployment/oadp-operator-controller-manager | grep -i aws
+----
+
+[WARNING]
+====
+CloudStorage resources are protected by a finalizer (`oadp.openshift.io/bucket-protection`) to prevent accidental deletion of buckets containing backup data. To delete a CloudStorage resource, you must first add the deletion annotation:
+
+[source,bash]
+----
+# Add deletion annotation before attempting to delete
+oc annotate cloudstorage aws-backup-storage -n openshift-adp \
+    oadp.openshift.io/cloudstorage-delete=true --overwrite
+
+# Then delete the CloudStorage resource
+oc delete cloudstorage aws-backup-storage -n openshift-adp
+----
+
+Without this annotation, the deletion will hang indefinitely as the finalizer prevents removal.
+
+Alternatively, if you want to remove the CloudStorage resource from OpenShift without deleting the S3 bucket in AWS, you can manually remove the finalizer:
+
+[source,bash]
+----
+# Remove finalizer to delete CloudStorage CR without deleting the S3 bucket
+oc patch cloudstorage aws-backup-storage -n openshift-adp --type json \
+    -p='[{"op": "remove", "path": "/metadata/finalizers"}]'
+----
+====
+
+The CloudStorage API will automatically:
+
+* Create the S3 bucket if it doesn't exist (with `creationPolicy: CreateIfNotExists`)
+* Configure appropriate bucket policies for the IAM role
+* Set up regional configuration based on the specified region
+* Handle authentication through the referenced credential secret
+* Protect bucket resources with finalizers to prevent accidental deletion
 
 == Standard Configuration (Manual Bucket Creation)
 
@@ -354,6 +395,14 @@ EOF
 [source,bash]
 ----
 oc get pods -n openshift-adp
+----
+
+. Check that the service accounts have the correct annotations:
++
+[source,bash]
+----
+oc get sa velero -n openshift-adp -o yaml | grep -A5 annotations
+oc get sa openshift-adp-controller-manager -n openshift-adp -o yaml | grep -A5 annotations
 ----
 
 . Verify the AWS IAM role trust relationships:

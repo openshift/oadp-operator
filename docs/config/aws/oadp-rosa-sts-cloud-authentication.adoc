@@ -260,17 +260,17 @@ echo "Created and configured S3 bucket: ${VELERO_BUCKET_NAME}"
 [id="oadp-rosa-cloud-storage-api_{context}"]
 == Alternative: Using Cloud Storage API for Automated Bucket Management
 
-The OADP CloudStorage API can automatically manage S3 bucket creation and configuration for ROSA STS clusters.
+The OADP Cloud Storage API can automatically manage S3 bucket creation and configuration for ROSA STS clusters.
 
-[NOTE]
-====
-For comprehensive documentation on the CloudStorage API, including detailed configuration options, troubleshooting, and advanced usage, see link:../oadp-cloudstorage-api.html[OADP CloudStorage API].
-====
+.Prerequisites for Cloud Storage API
 
-.ROSA-Specific CloudStorage Configuration
+* OADP operator with Cloud Storage API functionality enabled
+* The same ROSA STS configuration as above
 
-For ROSA, create a CloudStorage resource with the following configuration:
+.Procedure for Cloud Storage API
 
+. Create a CloudStorage resource for ROSA:
++
 [source,yaml]
 ----
 cat <<EOF | oc apply -f -
@@ -286,11 +286,12 @@ spec:
   creationSecret:
     name: cloud-credentials-aws
     key: credentials
+  creationPolicy: CreateIfNotExists
 EOF
 ----
 
-Then configure your DataProtectionApplication with ROSA-specific settings:
-
+. Create the DataProtectionApplication with Cloud Storage API reference:
++
 [source,yaml]
 ----
 cat <<EOF | oc apply -f -
@@ -331,12 +332,21 @@ spec:
 EOF
 ----
 
-.ROSA-Specific Verification
-
-Verify the S3 bucket was created:
-
+. Verify the CloudStorage resource status:
++
 [source,bash]
 ----
+oc get cloudstorage rosa-backup-storage -n openshift-adp -o yaml
+oc describe cloudstorage rosa-backup-storage -n openshift-adp
+----
+
+. Monitor CloudStorage operations:
++
+[source,bash]
+----
+# Check CloudStorage controller logs
+oc logs -n openshift-adp deployment/oadp-operator-controller-manager | grep -i cloudstorage
+
 # Verify S3 bucket creation
 aws s3 ls s3://${VELERO_BUCKET_NAME}/
 ----
@@ -348,15 +358,6 @@ aws s3 ls s3://${VELERO_BUCKET_NAME}/
 [NOTE]
 ====
 For OpenShift 4.15 and later, you can provide the role ARN directly during operator installation through the web console, which will automatically create the necessary credentials secret.
-
-When installing through the web console with tokenized authentication support, you will see the following field:
-
-**role ARN**
-- **Field Label:** "role ARN"
-- **Help Text:** "The role ARN required for the operator to access the cloud API."
-- **Value to Enter:** Use the `ROLE_ARN` value from the prerequisite setup steps above (e.g., `arn:aws:iam::123456789012:role/your-cluster-openshift-oadp-aws-cloud-credentials`).
-
-This corresponds to the IAM role created in the prerequisite steps with the format `arn:aws:iam::${AWS_ACCOUNT_ID}:role/${ROLE_NAME}`.
 ====
 
 . Create the DataProtectionApplication for standard ROSA STS setup:
