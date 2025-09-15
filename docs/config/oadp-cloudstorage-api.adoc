@@ -86,7 +86,7 @@ status:
 
 == DataProtectionApplication Configuration
 
-When using CloudStorage resources, configure your DataProtectionApplication to reference the CloudStorage resource instead of specifying bucket details directly:
+When using CloudStorage resources, configure your BSL under DataProtectionApplication to reference the CloudStorage resource instead of specifying bucket details directly:
 
 [source,yaml]
 ----
