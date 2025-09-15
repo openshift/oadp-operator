@@ -57,6 +57,12 @@ spec:
 status:
   name: <bucket-or-container-name>
   lastSyncTimestamp: <timestamp>       # Last sync time
+  conditions:                          # Status conditions for bucket readiness
+  - type: BucketReady
+    status: "True"                     # True, False, or Unknown
+    reason: <reason>                   # See Status Conditions section
+    message: <descriptive-message>
+    lastTransitionTime: <timestamp>
 ----
 
 === Provider-Specific Parameters
@@ -83,6 +89,61 @@ status:
 |`region` (in spec.region)
 |`tags`
 |===
+
+=== Status Conditions
+
+The CloudStorage resource uses Kubernetes status conditions to provide detailed information about the bucket's state. The primary condition type is `BucketReady`, which indicates whether the bucket exists and is ready for use.
+
+==== Condition Reasons
+
+The `BucketReady` condition can have the following reasons:
+
+[cols="1,1,3", options="header"]
+|===
+|Reason|Status|Description
+
+|`BucketCreated`
+|True
+|The bucket was successfully created
+
+|`BucketReady`
+|True
+|The bucket already exists and is available for use
+
+|`BucketCreationFailed`
+|False
+|Failed to create the bucket due to permissions, quota, or other issues
+
+|`BucketCheckError`
+|False
+|Unable to verify if the bucket exists (network issues, authentication problems)
+
+|`STSSecretError`
+|False
+|Unable to get or process the STS secret for authentication
+|===
+
+==== Example Status with Conditions
+
+[source,yaml]
+----
+status:
+  name: my-backup-bucket
+  lastSyncTimestamp: "2024-01-15T10:30:00Z"
+  conditions:
+  - type: BucketReady
+    status: "True"
+    reason: BucketCreated
+    message: "Bucket my-backup-bucket has been created successfully"
+    lastTransitionTime: "2024-01-15T10:30:00Z"
+    observedGeneration: 1
+----
+
+These conditions help with:
+
+* *Troubleshooting*: Quickly identify why a bucket isn't ready
+* *Monitoring*: Track bucket status changes over time
+* *Automation*: Build workflows that react to bucket state changes
 
 == DataProtectionApplication Configuration
 
