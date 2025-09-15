@@ -89,6 +89,9 @@ func (r *DPAReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		return result, nil
 	}
 
+	// set the dpa field for use in reconciler methods
+	r.dpa = &dpa
+
 	// set client to pkg/client for use in non-reconcile functions
 	oadpClient.SetClient(r.Client)
 

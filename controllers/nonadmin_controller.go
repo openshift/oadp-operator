@@ -49,11 +49,6 @@ var (
 )
 
 func (r *DPAReconciler) ReconcileNonAdminController(log logr.Logger) (bool, error) {
-	dpa := oadpv1alpha1.DataProtectionApplication{}
-	if err := r.Get(r.Context, r.NamespacedName, &dpa); err != nil {
-		return false, err
-	}
-
 	nonAdminDeployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      nonAdminObjectName,
@@ -62,7 +57,7 @@ func (r *DPAReconciler) ReconcileNonAdminController(log logr.Logger) (bool, erro
 	}
 
 	// Delete (possible) previously deployment
-	if !r.checkNonAdminEnabled(&dpa) {
+	if !r.checkNonAdminEnabled() {
 		if err := r.Get(
 			r.Context,
 			types.NamespacedName{
@@ -104,13 +99,13 @@ func (r *DPAReconciler) ReconcileNonAdminController(log logr.Logger) (bool, erro
 		r.Client,
 		nonAdminDeployment,
 		func() error {
-			err := r.buildNonAdminDeployment(nonAdminDeployment, &dpa)
+			err := r.buildNonAdminDeployment(nonAdminDeployment)
 			if err != nil {
 				return err
 			}
 
 			// Setting controller owner reference on the non admin controller deployment
-			return controllerutil.SetControllerReference(&dpa, nonAdminDeployment, r.Scheme)
+			return controllerutil.SetControllerReference(r.dpa, nonAdminDeployment, r.Scheme)
 		},
 	)
 	if err != nil {
@@ -128,14 +123,14 @@ func (r *DPAReconciler) ReconcileNonAdminController(log logr.Logger) (bool, erro
 	return true, nil
 }
 
-func (r *DPAReconciler) buildNonAdminDeployment(deploymentObject *appsv1.Deployment, dpa *oadpv1alpha1.DataProtectionApplication) error {
-	nonAdminImage := r.getNonAdminImage(dpa)
-	imagePullPolicy, err := common.GetImagePullPolicy(dpa.Spec.ImagePullPolicy, nonAdminImage)
+func (r *DPAReconciler) buildNonAdminDeployment(deploymentObject *appsv1.Deployment) error {
+	nonAdminImage := r.getNonAdminImage()
+	imagePullPolicy, err := common.GetImagePullPolicy(r.dpa.Spec.ImagePullPolicy, nonAdminImage)
 	if err != nil {
 		r.Log.Error(err, "imagePullPolicy regex failed")
 	}
 	ensureRequiredLabels(deploymentObject)
-	err = ensureRequiredSpecs(deploymentObject, dpa, nonAdminImage, imagePullPolicy)
+	err = ensureRequiredSpecs(deploymentObject, r.dpa, nonAdminImage, imagePullPolicy)
 	if err != nil {
 		return err
 	}
@@ -249,14 +244,15 @@ func ensureRequiredSpecs(deploymentObject *appsv1.Deployment, dpa *oadpv1alpha1.
 	return nil
 }
 
-func (r *DPAReconciler) checkNonAdminEnabled(dpa *oadpv1alpha1.DataProtectionApplication) bool {
-	if dpa.Spec.NonAdmin != nil && dpa.Spec.NonAdmin.Enable != nil {
-		return *dpa.Spec.NonAdmin.Enable
+func (r *DPAReconciler) checkNonAdminEnabled() bool {
+	if r.dpa.Spec.NonAdmin != nil && r.dpa.Spec.NonAdmin.Enable != nil {
+		return *r.dpa.Spec.NonAdmin.Enable
 	}
 	return false
 }
 
-func (r *DPAReconciler) getNonAdminImage(dpa *oadpv1alpha1.DataProtectionApplication) string {
+func (r *DPAReconciler) getNonAdminImage() string {
+	dpa := r.dpa
 	unsupportedOverride := dpa.Spec.UnsupportedOverrides[oadpv1alpha1.NonAdminControllerImageKey]
 	if unsupportedOverride != "" {
 		return unsupportedOverride

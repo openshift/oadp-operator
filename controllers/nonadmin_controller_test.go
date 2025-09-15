@@ -10,7 +10,7 @@ import (
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
 	"github.com/sirupsen/logrus"
-	v1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
+	"github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -244,7 +244,7 @@ var _ = ginkgo.Describe("Test ReconcileNonAdminController function", func() {
 })
 
 func TestDPAReconcilerBuildNonAdminDeployment(t *testing.T) {
-	dpa := &oadpv1alpha1.DataProtectionApplication{
+	r := &DPAReconciler{dpa: &oadpv1alpha1.DataProtectionApplication{
 		Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 			NonAdmin: &oadpv1alpha1.NonAdmin{
 				Enable: ptr.To(true),
@@ -253,11 +253,10 @@ func TestDPAReconcilerBuildNonAdminDeployment(t *testing.T) {
 				Velero: &oadpv1alpha1.VeleroConfig{},
 			},
 		},
-	}
-	r := &DPAReconciler{}
+	}}
 	t.Setenv("RELATED_IMAGE_NON_ADMIN_CONTROLLER", defaultNonAdminImage)
 	deployment := createTestDeployment("test-build-deployment")
-	err := r.buildNonAdminDeployment(deployment, dpa)
+	err := r.buildNonAdminDeployment(deployment)
 	if err != nil {
 		t.Errorf("buildNonAdminDeployment() errored out: %v", err)
 	}
@@ -497,8 +496,8 @@ func TestDPAReconcilerCheckNonAdminEnabled(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			r := &DPAReconciler{}
-			result := r.checkNonAdminEnabled(test.dpa)
+			r := &DPAReconciler{dpa: test.dpa}
+			result := r.checkNonAdminEnabled()
 			if result != test.result {
 				t.Errorf("Results differ: got '%v' but expected '%v'", result, test.result)
 			}
@@ -544,11 +543,11 @@ func TestDPAReconcilerGetNonAdminImage(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			r := &DPAReconciler{}
+			r := &DPAReconciler{dpa: test.dpa}
 			if len(test.env) > 0 {
 				t.Setenv("RELATED_IMAGE_NON_ADMIN_CONTROLLER", test.env)
 			}
-			image := r.getNonAdminImage(test.dpa)
+			image := r.getNonAdminImage()
 			if image != test.image {
 				t.Errorf("Images differ: got '%v' but expected '%v'", image, test.image)
 			}
