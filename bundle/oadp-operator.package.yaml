@@ -1,0 +1,6 @@
+---
+packageName: redhat-oadp-operator
+channels:
+- name: stable-1.4
+  currentCSV: oadp-operator.v1.4.6
+defaultChannel: stable-1.4

@@ -1,7 +1,7 @@
 FROM scratch
 
-COPY konflux/bundle/manifests /manifests/
-COPY konflux/bundle/metadata /metadata/
+COPY bundle/manifests /manifests/
+COPY bundle/metadata /metadata/
 
 # These are three labels needed to control how the pipeline should handle this container image
 # This first label tells the pipeline that this is a bundle image and should be
@@ -23,8 +23,6 @@ LABEL operators.operatorframework.io.bundle.mediatype.v1=registry+v1
 LABEL operators.operatorframework.io.bundle.manifests.v1=manifests/
 LABEL operators.operatorframework.io.bundle.metadata.v1=metadata/
 LABEL operators.operatorframework.io.bundle.package.v1=redhat-oadp-operator
-#LABEL operators.operatorframework.io.bundle.channels.v1=stable
-#LABEL operators.operatorframework.io.bundle.channel.default.v1=stable
 LABEL operators.operatorframework.io.bundle.channels.v1=stable-1.4
 LABEL operators.operatorframework.io.bundle.channel.default.v1=stable-1.4
 
