@@ -7,3 +7,7 @@ spec:
     from:
       kind: DockerImage
       name: image-registry.openshift-image-registry.svc:5000/oadp/oadp-rhel9-operator:1.5
+  - name: oadp-mustgather-rhel9
+    from:
+      kind: DockerImage
+      name: image-registry.openshift-image-registry.svc:5000/oadp/oadp-mustgather-rhel9:1.5
