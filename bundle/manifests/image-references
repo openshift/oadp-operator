@@ -6,4 +6,4 @@ spec:
   - name: oadp-rhel9-operator
     from:
       kind: DockerImage
-      name: quay.io/konveyor/oadp-operator:oadp-1.5
+      name: image-registry.openshift-image-registry.svc:5000/oadp/oadp-rhel9-operator:1.5
