@@ -7,7 +7,39 @@ spec:
     from:
       kind: DockerImage
       name: quay.io/konveyor/oadp-operator:oadp-1.5
-  - name: oadp-mustgather-rhel9
+  - name: oadp-non-admin-rhel9
+    from:
+      kind: DockerImage
+      name: quay.io/konveyor/oadp-must-gather:oadp-1.5
+  - name: oadp-velero-rhel9
+    from:
+      kind: DockerImage
+      name: quay.io/konveyor/oadp-must-gather:oadp-1.5
+  - name: oadp-velero-plugin-rhel9
+    from:
+      kind: DockerImage
+      name: quay.io/konveyor/oadp-must-gather:oadp-1.5
+  - name: oadp-velero-plugin-for-aws-rhel9
+    from:
+      kind: DockerImage
+      name: quay.io/konveyor/oadp-must-gather:oadp-1.5
+  - name: oadp-velero-plugin-for-legacy-aws-rhel9
+    from:
+      kind: DockerImage
+      name: quay.io/konveyor/oadp-must-gather:oadp-1.5
+  - name: oadp-velero-plugin-for-gcp-rhel9
+    from:
+      kind: DockerImage
+      name: quay.io/konveyor/oadp-must-gather:oadp-1.5
+  - name: oadp-velero-plugin-for-microsoft-azure-rhel9
+    from:
+      kind: DockerImage
+      name: quay.io/konveyor/oadp-must-gather:oadp-1.5
+  - name: oadp-kubevirt-velero-plugin-rhel9
+    from:
+      kind: DockerImage
+      name: quay.io/konveyor/oadp-must-gather:oadp-1.5
+  - name: oadp-hypershift-velero-plugin-rhel9
     from:
       kind: DockerImage
       name: quay.io/konveyor/oadp-must-gather:oadp-1.5
