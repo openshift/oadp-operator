@@ -1,6 +1,6 @@
 style="height:1px;border:none;color:#333;">
 <h1 align="center">Usage of Custom Plugin Images for Velero</h1>
->style="height:1px;border:none;color:#333;">
+<hr style="height:1px;border:none;color:#333;">
 The OADP Operator supports custom plugin images under the `unsupportedOverrides` field as detailed in the YAML below. This feature can be used to support rapid development and testing of custom images for supported plugins and provides a way for developers to quickly deploy and test their changes.
 
 Details for supported plugins and their usage is given below, and please use the respective keys for the plugins. All keys must be entered in the Velero CR under a new field called as `unsupportedOverrides`, and with the key below for reference and corresponding image tag as their value.
