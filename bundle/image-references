@@ -1,9 +1,0 @@
----
-kind: ImageStream
-apiVersion: image.openshift.io/v1
-spec:
-  tags:
-  - name: oadp-rhel9-operator
-    from:
-      kind: DockerImage
-      name: quay.io/konveyor/oadp-operator:oadp-1.5
