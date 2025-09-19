@@ -59,7 +59,7 @@ func waitOADPReadiness(backupRestoreType lib.BackupRestoreType) {
 	log.Printf("Waiting for Velero Pod to be running")
 	gomega.Eventually(lib.VeleroPodIsRunning(kubernetesClientForSuiteRun, namespace), time.Minute*3, time.Second*5).Should(gomega.BeTrue())
 
-	if backupRestoreType == lib.RESTIC || backupRestoreType == lib.KOPIA || backupRestoreType == lib.CSIDataMover {
+	if backupRestoreType == lib.KOPIA || backupRestoreType == lib.CSIDataMover {
 		log.Printf("Waiting for Node Agent pods to be running")
 		gomega.Eventually(lib.AreNodeAgentPodsRunning(kubernetesClientForSuiteRun, namespace), time.Minute*3, time.Second*5).Should(gomega.BeTrue())
 	}
@@ -175,7 +175,7 @@ func runBackup(brCase BackupRestoreCase, backupName string) bool {
 
 	// create backup
 	log.Printf("Creating backup %s for case %s", backupName, brCase.Name)
-	err = lib.CreateBackupForNamespaces(dpaCR.Client, namespace, backupName, []string{brCase.Namespace}, brCase.BackupRestoreType == lib.RESTIC || brCase.BackupRestoreType == lib.KOPIA, brCase.BackupRestoreType == lib.CSIDataMover)
+	err = lib.CreateBackupForNamespaces(dpaCR.Client, namespace, backupName, []string{brCase.Namespace}, brCase.BackupRestoreType == lib.KOPIA, brCase.BackupRestoreType == lib.CSIDataMover)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 	// wait for backup to not be running
@@ -362,28 +362,6 @@ var _ = ginkgo.Describe("Backup and restore tests", ginkgo.Ordered, func() {
 				BackupRestoreType: lib.CSI,
 				PreBackupVerify:   todoListReady(true, true, "mysql"),
 				PostRestoreVerify: todoListReady(false, true, "mysql"),
-				BackupTimeout:     20 * time.Minute,
-			},
-		}, nil),
-		ginkgo.Entry("Mongo application RESTIC", ginkgo.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
-			ApplicationTemplate: "./sample-applications/mongo-persistent/mongo-persistent.yaml",
-			BackupRestoreCase: BackupRestoreCase{
-				Namespace:         "mongo-persistent",
-				Name:              "mongo-restic-e2e",
-				BackupRestoreType: lib.RESTIC,
-				PreBackupVerify:   todoListReady(true, false, "mongo"),
-				PostRestoreVerify: todoListReady(false, false, "mongo"),
-				BackupTimeout:     20 * time.Minute,
-			},
-		}, nil),
-		ginkgo.Entry("MySQL application RESTIC", ginkgo.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
-			ApplicationTemplate: "./sample-applications/mysql-persistent/mysql-persistent.yaml",
-			BackupRestoreCase: BackupRestoreCase{
-				Namespace:         "mysql-persistent",
-				Name:              "mysql-restic-e2e",
-				BackupRestoreType: lib.RESTIC,
-				PreBackupVerify:   todoListReady(true, false, "mysql"),
-				PostRestoreVerify: todoListReady(false, false, "mysql"),
 				BackupTimeout:     20 * time.Minute,
 			},
 		}, nil),

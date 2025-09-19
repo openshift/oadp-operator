@@ -70,7 +70,6 @@ const LegacyAWSPluginImageKey UnsupportedImageKey = "legacyAWSPluginImageFqin"
 const OpenShiftPluginImageKey UnsupportedImageKey = "openshiftPluginImageFqin"
 const AzurePluginImageKey UnsupportedImageKey = "azurePluginImageFqin"
 const GCPPluginImageKey UnsupportedImageKey = "gcpPluginImageFqin"
-const ResticRestoreImageKey UnsupportedImageKey = "resticRestoreImageFqin"
 const KubeVirtPluginImageKey UnsupportedImageKey = "kubevirtPluginImageFqin"
 const HypershiftPluginImageKey UnsupportedImageKey = "hypershiftPluginImageFqin"
 const NonAdminControllerImageKey UnsupportedImageKey = "nonAdminControllerImageFqin"
@@ -452,6 +451,8 @@ type NodeAgentConfig struct {
 	// How long to wait for resource processes which are not covered by other specific timeout parameters. Default is 10 minutes.
 	// +optional
 	ResourceTimeout *metav1.Duration `json:"resourceTimeout,omitempty"`
+	// TODO: remove restic from below uploaderType enum?
+
 	// The type of uploader to transfer the data of pod volumes, the supported values are 'restic' or 'kopia'
 	// +kubebuilder:validation:Enum=restic;kopia
 	// +kubebuilder:validation:Required
@@ -783,7 +784,6 @@ type DataProtectionApplicationSpec struct {
 	//   - openshiftPluginImageFqin
 	//   - azurePluginImageFqin
 	//   - gcpPluginImageFqin
-	//   - resticRestoreImageFqin
 	//   - kubevirtPluginImageFqin
 	//   - hypershiftPluginImageFqin
 	//   - nonAdminControllerImageFqin

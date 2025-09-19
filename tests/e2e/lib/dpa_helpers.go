@@ -26,7 +26,6 @@ type BackupRestoreType string
 const (
 	CSI             BackupRestoreType = "csi"
 	CSIDataMover    BackupRestoreType = "csi-datamover"
-	RESTIC          BackupRestoreType = "restic"
 	KOPIA           BackupRestoreType = "kopia"
 	NativeSnapshots BackupRestoreType = "native-snapshots"
 )
@@ -98,7 +97,7 @@ func (v *DpaCustomResource) Build(backupRestoreType BackupRestoreType) *oadpv1al
 		UnsupportedOverrides: v.UnsupportedOverrides,
 	}
 	switch backupRestoreType {
-	case RESTIC, KOPIA:
+	case KOPIA:
 		dpaSpec.Configuration.NodeAgent.Enable = ptr.To(true)
 		dpaSpec.Configuration.NodeAgent.UploaderType = string(backupRestoreType)
 		dpaSpec.SnapshotLocations = nil
