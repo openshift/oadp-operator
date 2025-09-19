@@ -451,7 +451,7 @@ type NodeAgentConfig struct {
 	// How long to wait for resource processes which are not covered by other specific timeout parameters. Default is 10 minutes.
 	// +optional
 	ResourceTimeout *metav1.Duration `json:"resourceTimeout,omitempty"`
-	// TODO: remove restic from below uploaderType enum?
+	// Enum below for Restic is being kept for compatibility reasons, and can be removed when we bump to v2
 
 	// The type of uploader to transfer the data of pod volumes, the supported values are 'restic' or 'kopia'
 	// +kubebuilder:validation:Enum=restic;kopia

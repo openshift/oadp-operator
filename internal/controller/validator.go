@@ -112,11 +112,12 @@ func (r *DataProtectionApplicationReconciler) ValidateDataProtectionCR(log logr.
 	}
 	// ENSURE UPGRADES --------------------------------------------------------
 
-	// DEPRECATIONS -----------------------------------------------------------
+	// Removed Features -----------------------------------------------------------
+	// - already went through a deprecation cycle
 	if r.dpa.Spec.Configuration.NodeAgent != nil && r.dpa.Spec.Configuration.NodeAgent.UploaderType == "restic" {
 		return false, errors.New("restic is no longer supported in spec.configuration.nodeAgent.uploaderType, use kopia instead")
 	}
-	// DEPRECATIONS -----------------------------------------------------------
+	// Removed Features -----------------------------------------------------------
 
 	if val, found := r.dpa.Spec.UnsupportedOverrides[oadpv1alpha1.OperatorTypeKey]; found && val != oadpv1alpha1.OperatorTypeMTC {
 		return false, errors.New("only mtc operator type override is supported")

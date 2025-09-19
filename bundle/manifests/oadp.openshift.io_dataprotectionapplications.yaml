@@ -2655,7 +2655,6 @@ spec:
                       - openshiftPluginImageFqin
                       - azurePluginImageFqin
                       - gcpPluginImageFqin
-                      - resticRestoreImageFqin
                       - kubevirtPluginImageFqin
                       - hypershiftPluginImageFqin
                       - nonAdminControllerImageFqin
