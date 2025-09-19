@@ -286,9 +286,9 @@ func (b *CloudStorageReconciler) WaitForSecret(namespace, name string) (*corev1.
 		Namespace: namespace,
 	}
 
-	err := wait.PollImmediate(5*time.Second, timeout, func() (bool, error) {
+	err := wait.PollUntilContextTimeout(context.Background(), 5*time.Second, timeout, true, func(ctx context.Context) (bool, error) {
 
-		err := b.Client.Get(context.Background(), key, &secret)
+		err := b.Client.Get(ctx, key, &secret)
 		if err != nil {
 			if errors.IsNotFound(err) {
 				return false, nil

@@ -393,7 +393,7 @@ func (v *VirtOperator) EnsureNamespace(ns string, timeout time.Duration) error {
 		if err := v.installNamespace(ns); err != nil {
 			return err
 		}
-		err := wait.PollImmediate(time.Second, timeout, func() (bool, error) {
+		err := wait.PollUntilContextTimeout(context.Background(), time.Second, timeout, true, func(ctx context.Context) (bool, error) {
 			return v.checkNamespace(ns), nil
 		})
 		if err != nil {
@@ -412,7 +412,7 @@ func (v *VirtOperator) ensureOperatorGroup(timeout time.Duration) error {
 		if err := v.installOperatorGroup(); err != nil {
 			return err
 		}
-		err := wait.PollImmediate(time.Second, timeout, func() (bool, error) {
+		err := wait.PollUntilContextTimeout(context.Background(), time.Second, timeout, true, func(ctx context.Context) (bool, error) {
 			return v.checkOperatorGroup(), nil
 		})
 		if err != nil {
@@ -431,7 +431,7 @@ func (v *VirtOperator) ensureSubscription(timeout time.Duration) error {
 		if err := v.installSubscription(); err != nil {
 			return err
 		}
-		err := wait.PollImmediate(time.Second, timeout, func() (bool, error) {
+		err := wait.PollUntilContextTimeout(context.Background(), time.Second, timeout, true, func(ctx context.Context) (bool, error) {
 			return v.checkSubscription(), nil
 		})
 		if err != nil {
@@ -446,7 +446,7 @@ func (v *VirtOperator) ensureSubscription(timeout time.Duration) error {
 
 // Waits for the ClusterServiceVersion to go to ready, triggered by subscription
 func (v *VirtOperator) ensureCsv(timeout time.Duration) error {
-	err := wait.PollImmediate(5*time.Second, timeout, func() (bool, error) {
+	err := wait.PollUntilContextTimeout(context.Background(), 5*time.Second, timeout, true, func(ctx context.Context) (bool, error) {
 		return v.checkCsv(), nil
 	})
 	if err != nil {
@@ -461,7 +461,7 @@ func (v *VirtOperator) ensureHco(timeout time.Duration) error {
 		if err := v.installHco(); err != nil {
 			return err
 		}
-		err := wait.PollImmediate(5*time.Second, timeout, func() (bool, error) {
+		err := wait.PollUntilContextTimeout(context.Background(), 5*time.Second, timeout, true, func(ctx context.Context) (bool, error) {
 			return v.checkHco(), nil
 		})
 		if err != nil {
@@ -530,7 +530,7 @@ func (v *VirtOperator) ensureNamespaceRemoved(ns string, timeout time.Duration) 
 		return err
 	}
 
-	err := wait.PollImmediate(5*time.Second, timeout, func() (bool, error) {
+	err := wait.PollUntilContextTimeout(context.Background(), 5*time.Second, timeout, true, func(ctx context.Context) (bool, error) {
 		return !v.checkNamespace(ns), nil
 	})
 	if err != nil {
@@ -551,7 +551,7 @@ func (v *VirtOperator) ensureOperatorGroupRemoved(timeout time.Duration) error {
 		return err
 	}
 
-	err := wait.PollImmediate(5*time.Second, timeout, func() (bool, error) {
+	err := wait.PollUntilContextTimeout(context.Background(), 5*time.Second, timeout, true, func(ctx context.Context) (bool, error) {
 		return !v.checkOperatorGroup(), nil
 	})
 	if err != nil {
@@ -572,7 +572,7 @@ func (v *VirtOperator) ensureSubscriptionRemoved(timeout time.Duration) error {
 		return err
 	}
 
-	err := wait.PollImmediate(5*time.Second, timeout, func() (bool, error) {
+	err := wait.PollUntilContextTimeout(context.Background(), 5*time.Second, timeout, true, func(ctx context.Context) (bool, error) {
 		return !v.checkSubscription(), nil
 	})
 	if err != nil {
@@ -592,7 +592,7 @@ func (v *VirtOperator) ensureCsvRemoved(timeout time.Duration) error {
 		return err
 	}
 
-	err := wait.PollImmediate(5*time.Second, timeout, func() (bool, error) {
+	err := wait.PollUntilContextTimeout(context.Background(), 5*time.Second, timeout, true, func(ctx context.Context) (bool, error) {
 		return !v.checkCsv(), nil
 	})
 	if err != nil {
@@ -612,7 +612,7 @@ func (v *VirtOperator) ensureHcoRemoved(timeout time.Duration) error {
 		return err
 	}
 
-	err := wait.PollImmediate(5*time.Second, timeout, func() (bool, error) {
+	err := wait.PollUntilContextTimeout(context.Background(), 5*time.Second, timeout, true, func(ctx context.Context) (bool, error) {
 		return !v.checkHco(), nil
 	})
 
@@ -676,7 +676,7 @@ func (v *VirtOperator) ensureVmRemoval(namespace, name string, timeout time.Dura
 		return err
 	}
 
-	err := wait.PollImmediate(5*time.Second, timeout, func() (bool, error) {
+	err := wait.PollUntilContextTimeout(context.Background(), 5*time.Second, timeout, true, func(ctx context.Context) (bool, error) {
 		return !v.checkVmExists(namespace, name), nil
 	})
 
@@ -695,7 +695,7 @@ func (v *VirtOperator) EnsureEmulation(timeout time.Duration) error {
 
 	// Retry if there are API server conflicts ("the object has been modified")
 	timeTaken := 0 * time.Second
-	err := wait.PollImmediate(5*time.Second, timeout, func() (bool, error) {
+	err := wait.PollUntilContextTimeout(context.Background(), 5*time.Second, timeout, true, func(ctx context.Context) (bool, error) {
 		timeTaken += 5
 		innerErr := v.configureEmulation()
 		if innerErr != nil {
@@ -712,7 +712,7 @@ func (v *VirtOperator) EnsureEmulation(timeout time.Duration) error {
 	}
 
 	timeout = timeout - timeTaken
-	err = wait.PollImmediate(5*time.Second, timeout, func() (bool, error) {
+	err = wait.PollUntilContextTimeout(context.Background(), 5*time.Second, timeout, true, func(ctx context.Context) (bool, error) {
 		return v.checkEmulation(), nil
 	})
 

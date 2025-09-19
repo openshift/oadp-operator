@@ -17,7 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/record"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
@@ -1190,7 +1190,7 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 					Namespace: "test-ns",
 				},
 				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
-					BackupImages: pointer.Bool(false),
+					BackupImages: ptr.To(false),
 					Configuration: &oadpv1alpha1.ApplicationConfig{
 						Velero: &oadpv1alpha1.VeleroConfig{},
 					},
@@ -1346,7 +1346,7 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 					Configuration: &oadpv1alpha1.ApplicationConfig{
 						Velero: &oadpv1alpha1.VeleroConfig{},
 					},
-					BackupImages: pointer.Bool(false),
+					BackupImages: ptr.To(false),
 					BackupLocations: []oadpv1alpha1.BackupLocation{
 						{
 							Velero: &velerov1.BackupStorageLocationSpec{
@@ -1387,7 +1387,7 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 					Configuration: &oadpv1alpha1.ApplicationConfig{
 						Velero: &oadpv1alpha1.VeleroConfig{},
 					},
-					BackupImages: pointer.Bool(false),
+					BackupImages: ptr.To(false),
 					BackupLocations: []oadpv1alpha1.BackupLocation{
 						{
 							Velero: &velerov1.BackupStorageLocationSpec{
@@ -2009,8 +2009,8 @@ func TestDPAReconciler_updateBSLFromSpec(t *testing.T) {
 						APIVersion:         oadpv1alpha1.SchemeBuilder.GroupVersion.String(),
 						Kind:               "DataProtectionApplication",
 						Name:               "foo",
-						Controller:         pointer.BoolPtr(true),
-						BlockOwnerDeletion: pointer.BoolPtr(true),
+						Controller:         ptr.To(true),
+						BlockOwnerDeletion: ptr.To(true),
 					}},
 				},
 				Spec: velerov1.BackupStorageLocationSpec{
@@ -2089,8 +2089,8 @@ func TestDPAReconciler_updateBSLFromSpec(t *testing.T) {
 						APIVersion:         oadpv1alpha1.SchemeBuilder.GroupVersion.String(),
 						Kind:               "DataProtectionApplication",
 						Name:               "foo",
-						Controller:         pointer.BoolPtr(true),
-						BlockOwnerDeletion: pointer.BoolPtr(true),
+						Controller:         ptr.To(true),
+						BlockOwnerDeletion: ptr.To(true),
 					}},
 				},
 				Spec: velerov1.BackupStorageLocationSpec{
@@ -2169,8 +2169,8 @@ func TestDPAReconciler_updateBSLFromSpec(t *testing.T) {
 						APIVersion:         oadpv1alpha1.SchemeBuilder.GroupVersion.String(),
 						Kind:               "DataProtectionApplication",
 						Name:               "foo",
-						Controller:         pointer.BoolPtr(true),
-						BlockOwnerDeletion: pointer.BoolPtr(true),
+						Controller:         ptr.To(true),
+						BlockOwnerDeletion: ptr.To(true),
 					}},
 				},
 				Spec: velerov1.BackupStorageLocationSpec{
@@ -2380,7 +2380,7 @@ func TestDPAReconciler_ensurePrefixWhenBackupImages(t *testing.T) {
 							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{},
 						},
 					},
-					BackupImages: pointer.Bool(true),
+					BackupImages: ptr.To(true),
 				},
 			},
 			wantErr:     true,
@@ -2416,7 +2416,7 @@ func TestDPAReconciler_ensurePrefixWhenBackupImages(t *testing.T) {
 							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{},
 						},
 					},
-					BackupImages: pointer.Bool(true),
+					BackupImages: ptr.To(true),
 				},
 			},
 			wantErr: false,
@@ -2457,7 +2457,7 @@ func TestDPAReconciler_ensurePrefixWhenBackupImages(t *testing.T) {
 							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{},
 						},
 					},
-					BackupImages: pointer.Bool(true),
+					BackupImages: ptr.To(true),
 				},
 			},
 			wantErr: false,
@@ -2498,7 +2498,7 @@ func TestDPAReconciler_ensurePrefixWhenBackupImages(t *testing.T) {
 							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{},
 						},
 					},
-					BackupImages: pointer.Bool(true),
+					BackupImages: ptr.To(true),
 				},
 			},
 			wantErr:     true,
@@ -2646,8 +2646,8 @@ func TestDPAReconciler_ReconcileBackupStorageLocations(t *testing.T) {
 						Kind:               "DataProtectionApplication",
 						Name:               tt.dpa.Name,
 						UID:                tt.dpa.UID,
-						Controller:         pointer.Bool(true),
-						BlockOwnerDeletion: pointer.Bool(true),
+						Controller:         ptr.To(true),
+						BlockOwnerDeletion: ptr.To(true),
 					}},
 				},
 			}
@@ -3013,7 +3013,7 @@ func TestDPAReconciler_ReconcileBackupStorageLocations(t *testing.T) {
 					Spec: oadpv1alpha1.CloudStorageSpec{
 						Provider:           oadpv1alpha1.AWSBucketProvider,
 						Name:               "shared-config-bucket",
-						EnableSharedConfig: pointer.Bool(true),
+						EnableSharedConfig: ptr.To(true),
 						Region:             "us-east-1",
 					},
 				},
@@ -4281,7 +4281,7 @@ func TestDPAReconciler_populateBSLFromCloudStorage(t *testing.T) {
 				Spec: oadpv1alpha1.CloudStorageSpec{
 					Provider:           oadpv1alpha1.AWSBucketProvider,
 					Name:               "shared-bucket",
-					EnableSharedConfig: pointer.Bool(true),
+					EnableSharedConfig: ptr.To(true),
 				},
 			},
 			expectedBSL: &oadpv1alpha1.BackupLocation{
@@ -4502,7 +4502,7 @@ func TestDPAReconciler_ensureSecretDataExists_CloudStorage(t *testing.T) {
 					Namespace: "test-ns",
 				},
 				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
-					BackupImages: pointer.Bool(true),
+					BackupImages: ptr.To(true),
 					Configuration: &oadpv1alpha1.ApplicationConfig{
 						Velero: &oadpv1alpha1.VeleroConfig{},
 					},
@@ -4553,7 +4553,7 @@ aws_secret_access_key=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY`),
 					Namespace: "test-ns",
 				},
 				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
-					BackupImages: pointer.Bool(true),
+					BackupImages: ptr.To(true),
 					Configuration: &oadpv1alpha1.ApplicationConfig{
 						Velero: &oadpv1alpha1.VeleroConfig{},
 					},
@@ -4607,7 +4607,7 @@ aws_secret_access_key=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY`),
 					Namespace: "test-ns",
 				},
 				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
-					BackupImages: pointer.Bool(true),
+					BackupImages: ptr.To(true),
 					Configuration: &oadpv1alpha1.ApplicationConfig{
 						Velero: &oadpv1alpha1.VeleroConfig{},
 					},
@@ -4802,7 +4802,7 @@ AZURE_CLOUD_NAME=AzurePublicCloud`),
 					Namespace: "test-ns",
 				},
 				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
-					BackupImages: pointer.Bool(true),
+					BackupImages: ptr.To(true),
 					Configuration: &oadpv1alpha1.ApplicationConfig{
 						Velero: &oadpv1alpha1.VeleroConfig{},
 					},

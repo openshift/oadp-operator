@@ -13,7 +13,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
-	"k8s.io/utils/pointer"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -65,7 +64,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 							NoDefaultBackupLocation: true,
 						},
 					},
-					BackupImages: pointer.Bool(false),
+					BackupImages: ptr.To(false),
 				},
 			},
 			objects: []client.Object{},
@@ -87,7 +86,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 							NoDefaultBackupLocation: true,
 						},
 					},
-					BackupImages: pointer.Bool(false),
+					BackupImages: ptr.To(false),
 					UnsupportedOverrides: map[oadpv1alpha1.UnsupportedImageKey]string{
 						oadpv1alpha1.OperatorTypeKey: oadpv1alpha1.OperatorTypeMTC,
 					},
@@ -112,7 +111,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 							NoDefaultBackupLocation: true,
 						},
 					},
-					BackupImages: pointer.Bool(false),
+					BackupImages: ptr.To(false),
 					UnsupportedOverrides: map[oadpv1alpha1.UnsupportedImageKey]string{
 						oadpv1alpha1.OperatorTypeKey: "not" + oadpv1alpha1.OperatorTypeMTC,
 					},
@@ -160,7 +159,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 							NoDefaultBackupLocation: true,
 						},
 					},
-					BackupImages: pointer.Bool(true),
+					BackupImages: ptr.To(true),
 				},
 			},
 			objects:    []client.Object{},
@@ -250,7 +249,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 							},
 						},
 					},
-					BackupImages: pointer.Bool(false),
+					BackupImages: ptr.To(false),
 				},
 			},
 			objects: []client.Object{
@@ -311,7 +310,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 							},
 						},
 					},
-					BackupImages: pointer.Bool(false),
+					BackupImages: ptr.To(false),
 				},
 			},
 			objects: []client.Object{
@@ -384,7 +383,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 							UploaderType: "restic",
 						},
 					},
-					BackupImages: pointer.Bool(false),
+					BackupImages: ptr.To(false),
 				},
 			},
 			objects: []client.Object{
@@ -458,7 +457,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 							UploaderType: "kopia",
 						},
 					},
-					BackupImages: pointer.Bool(false),
+					BackupImages: ptr.To(false),
 				},
 			},
 			objects: []client.Object{
@@ -522,7 +521,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 							},
 						},
 					},
-					BackupImages: pointer.Bool(false),
+					BackupImages: ptr.To(false),
 				},
 			},
 			objects: []client.Object{
@@ -581,7 +580,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 							},
 						},
 					},
-					BackupImages: pointer.Bool(false),
+					BackupImages: ptr.To(false),
 				},
 			},
 			objects: []client.Object{},
@@ -621,7 +620,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 							},
 						},
 					},
-					BackupImages: pointer.Bool(false),
+					BackupImages: ptr.To(false),
 				},
 			},
 			objects: []client.Object{
@@ -686,7 +685,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 							},
 						},
 					},
-					BackupImages: pointer.Bool(false),
+					BackupImages: ptr.To(false),
 				},
 			},
 			objects: []client.Object{
@@ -1249,7 +1248,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{},
 						},
 					},
-					BackupImages: pointer.Bool(true),
+					BackupImages: ptr.To(true),
 				},
 			},
 			objects: []client.Object{
@@ -1293,7 +1292,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{},
 						},
 					},
-					BackupImages: pointer.Bool(true),
+					BackupImages: ptr.To(true),
 				},
 			},
 			objects: []client.Object{
@@ -1530,7 +1529,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 				},
 				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 					NonAdmin: &oadpv1alpha1.NonAdmin{
-						Enable: pointer.Bool(true),
+						Enable: ptr.To(true),
 					},
 					Configuration: &oadpv1alpha1.ApplicationConfig{
 						Velero: &oadpv1alpha1.VeleroConfig{
@@ -1540,7 +1539,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 							NoDefaultBackupLocation: true,
 						},
 					},
-					BackupImages: pointer.Bool(false),
+					BackupImages: ptr.To(false),
 				},
 			},
 		},
@@ -1553,7 +1552,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 				},
 				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 					NonAdmin: &oadpv1alpha1.NonAdmin{
-						Enable: pointer.Bool(true),
+						Enable: ptr.To(true),
 					},
 					Configuration: &oadpv1alpha1.ApplicationConfig{
 						Velero: &oadpv1alpha1.VeleroConfig{
@@ -1563,7 +1562,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 							NoDefaultBackupLocation: true,
 						},
 					},
-					BackupImages: pointer.Bool(false),
+					BackupImages: ptr.To(false),
 				},
 			},
 			objects: []client.Object{
@@ -1574,7 +1573,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 					},
 					Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 						NonAdmin: &oadpv1alpha1.NonAdmin{
-							Enable: pointer.Bool(true),
+							Enable: ptr.To(true),
 						},
 					},
 				},
@@ -1597,7 +1596,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 				},
 				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 					NonAdmin: &oadpv1alpha1.NonAdmin{
-						Enable: pointer.Bool(true),
+						Enable: ptr.To(true),
 					},
 					Configuration: &oadpv1alpha1.ApplicationConfig{
 						Velero: &oadpv1alpha1.VeleroConfig{
@@ -1607,7 +1606,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 							NoDefaultBackupLocation: true,
 						},
 					},
-					BackupImages: pointer.Bool(false),
+					BackupImages: ptr.To(false),
 				},
 			},
 			objects: []client.Object{
@@ -1618,7 +1617,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 					},
 					Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 						NonAdmin: &oadpv1alpha1.NonAdmin{
-							Enable: pointer.Bool(false),
+							Enable: ptr.To(false),
 						},
 					},
 				},
@@ -1648,7 +1647,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 							NoDefaultBackupLocation: true,
 						},
 					},
-					BackupImages: pointer.Bool(false),
+					BackupImages: ptr.To(false),
 				},
 			},
 			objects:    []client.Object{},
