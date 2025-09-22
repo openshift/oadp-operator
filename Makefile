@@ -336,15 +336,7 @@ bundle: manifests kustomize operator-sdk ## Generate bundle manifests and metada
 	# Copy updated bundle.Dockerfile to CI's Dockerfile.bundle
 	# TODO: update CI to use generated one
 	cp bundle.Dockerfile build/Dockerfile.bundle
-	# Temporarily move image-references to avoid validation error
-	@if [ -f "./bundle/manifests/image-references" ]; then \
-		mv ./bundle/manifests/image-references ./bundle/image-references.tmp; \
-	fi
 	GOFLAGS="-mod=mod" $(OPERATOR_SDK) bundle validate ./bundle
-	# Restore image-references after validation
-	@if [ -f "./bundle/image-references.tmp" ]; then \
-		mv ./bundle/image-references.tmp ./bundle/manifests/image-references; \
-	fi
 	$(SED) -e 's/    createdAt: .*/$(shell grep -I '^    createdAt: ' bundle/manifests/oadp-operator.clusterserviceversion.yaml)/' bundle/manifests/oadp-operator.clusterserviceversion.yaml > bundle/manifests/oadp-operator.clusterserviceversion.yaml.tmp
 	mv bundle/manifests/oadp-operator.clusterserviceversion.yaml.tmp bundle/manifests/oadp-operator.clusterserviceversion.yaml
 
