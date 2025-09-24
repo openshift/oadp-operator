@@ -7,3 +7,39 @@ spec:
     from:
       kind: DockerImage
       name: quay.io/konveyor/oadp-operator:oadp-1.4
+  - name: oadp-mustgather-rhel9
+    from:
+      kind: DockerImage
+      name: quay.io/konveyor/oadp-must-gather:oadp-1.4
+  - name: oadp-velero-rhel9
+    from:
+      kind: DockerImage
+      name: quay.io/konveyor/velero:oadp-1.4
+  - name: oadp-velero-plugin-rhel9
+    from:
+      kind: DockerImage
+      name: quay.io/konveyor/openshift-velero-plugin:oadp-1.4
+  - name: oadp-velero-plugin-for-aws-rhel9
+    from:
+      kind: DockerImage
+      name: quay.io/konveyor/velero-plugin-for-aws:oadp-1.4
+  - name: oadp-velero-plugin-for-legacy-aws-rhel9
+    from:
+      kind: DockerImage
+      name: quay.io/konveyor/velero-plugin-for-legacy-aws:oadp-1.4
+  - name: oadp-velero-plugin-for-gcp-rhel9
+    from:
+      kind: DockerImage
+      name: quay.io/konveyor/velero-plugin-for-gcp:oadp-1.4
+  - name: oadp-velero-plugin-for-microsoft-azure-rhel9
+    from:
+      kind: DockerImage
+      name: quay.io/konveyor/velero-plugin-for-microsoft-azure:oadp-1.4
+  - name: oadp-kubevirt-velero-plugin-rhel9
+    from:
+      kind: DockerImage
+      name: quay.io/konveyor/kubevirt-velero-plugin:v0.7.0
+  - name: oadp-velero-restic-restore-helper-rhel9
+    from:
+      kind: DockerImage
+      name: quay.io/konveyor/velero-restore-helper:oadp-1.4
