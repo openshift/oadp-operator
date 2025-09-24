@@ -284,6 +284,7 @@ metadata:
     olm.skipRange: '>=1.4.0 <1.5.2'
     operatorframework.io/suggested-namespace: openshift-adp
     operators.openshift.io/infrastructure-features: '["Disconnected"]'
+    operators.openshift.io/must-gather-image: quay.io/konveyor/oadp-must-gather:oadp-1.5
     operators.openshift.io/valid-subscription: '["OpenShift Kubernetes Engine", "OpenShift
       Container Platform", "OpenShift Platform Plus"]'
     operators.operatorframework.io/builder: operator-sdk-v1.34.2
