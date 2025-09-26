@@ -1,8 +1,10 @@
 package controller
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
+	"os"
 	"slices"
 	"strings"
 
@@ -830,8 +832,9 @@ func (r *DataProtectionApplicationReconciler) patchAzureSecretWithResourceGroup(
 func (r *DataProtectionApplicationReconciler) processCACertForBSLs() (string, error) {
 	dpa := r.dpa
 	var caCertData []byte
+	collectedCerts := make(map[string]bool) // Track unique certificates to avoid duplicates
 
-	// Check all BSLs for custom CA certificates
+	// Collect all unique CA certificates from BSLs
 	for _, bslSpec := range dpa.Spec.BackupLocations {
 		var caCert []byte
 
@@ -844,10 +847,31 @@ func (r *DataProtectionApplicationReconciler) processCACertForBSLs() (string, er
 			caCert = bslSpec.CloudStorage.CACert
 		}
 
-		// If we found a CA certificate, use it (first one wins)
+		// Append certificate if found and not already collected
 		if len(caCert) > 0 {
-			caCertData = caCert
-			break
+			certStr := string(caCert)
+			if !collectedCerts[certStr] {
+				collectedCerts[certStr] = true
+				// Ensure proper PEM format spacing
+				if len(caCertData) > 0 && !bytes.HasSuffix(caCertData, []byte("\n")) {
+					caCertData = append(caCertData, '\n')
+				}
+				caCertData = append(caCertData, caCert...)
+				// Ensure certificate ends with newline for proper concatenation
+				if !bytes.HasSuffix(caCertData, []byte("\n")) {
+					caCertData = append(caCertData, '\n')
+				}
+			}
+		}
+	}
+
+	// Include system default CA certificates if available, but only if we have custom CAs
+	if len(caCertData) > 0 {
+		systemCACerts := r.getSystemCACertificates()
+		if len(systemCACerts) > 0 {
+			// Add a separator comment
+			caCertData = append(caCertData, []byte("# System default CA certificates\n")...)
+			caCertData = append(caCertData, systemCACerts...)
 		}
 	}
 
@@ -904,4 +928,27 @@ func (r *DataProtectionApplicationReconciler) processCACertForBSLs() (string, er
 	}
 
 	return configMapName, nil
+}
+
+// getSystemCACertificates retrieves system default CA certificates from the container filesystem.
+// It checks common locations for CA certificate bundles and returns the content if found.
+func (r *DataProtectionApplicationReconciler) getSystemCACertificates() []byte {
+	// Common locations for CA certificate bundles in container images
+	caPaths := []string{
+		"/etc/ssl/certs/ca-certificates.crt",                // Debian/Ubuntu
+		"/etc/pki/tls/certs/ca-bundle.crt",                  // RHEL/CentOS/Fedora
+		"/etc/ssl/ca-bundle.pem",                            // OpenSSL
+		"/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem", // RHEL 7+
+		"/etc/ssl/cert.pem",                                 // Alpine/OpenSSL
+	}
+
+	for _, path := range caPaths {
+		if data, err := os.ReadFile(path); err == nil && len(data) > 0 {
+			r.Log.Info("Found system CA certificates", "path", path, "size", len(data))
+			return data
+		}
+	}
+
+	r.Log.V(1).Info("No system CA certificates found in standard locations")
+	return nil
 }
