@@ -169,6 +169,7 @@ metadata:
     olm.skipRange: '>=0.0.0 <1.4.6'
     operatorframework.io/suggested-namespace: openshift-adp
     operators.openshift.io/infrastructure-features: '["Disconnected"]'
+    operators.openshift.io/must-gather-image: quay.io/konveyor/oadp-must-gather:oadp-1.4
     operators.openshift.io/valid-subscription: '["OpenShift Kubernetes Engine", "OpenShift
       Container Platform", "OpenShift Platform Plus"]'
     operators.operatorframework.io/builder: operator-sdk-v1.34.2
@@ -1003,7 +1004,7 @@ spec:
                 - name: RELATED_IMAGE_HYPERSHIFT_VELERO_PLUGIN
                   value: quay.io/redhat-user-workloads/ocp-art-tenant/oadp-hypershift-oadp-plugin-oadp-1-4
                 - name: RELATED_IMAGE_MUSTGATHER
-                  value: registry.redhat.io/oadp/oadp-mustgather-rhel8:v1.2
+                  value: quay.io/konveyor/oadp-must-gather:oadp-1.4
                 - name: RELATED_IMAGE_NON_ADMIN_CONTROLLER
                   value: quay.io/konveyor/oadp-non-admin:oadp-1.4
                 image: quay.io/konveyor/oadp-operator:oadp-1.4
@@ -1157,7 +1158,7 @@ spec:
     name: kubevirt-velero-plugin
   - image: quay.io/redhat-user-workloads/ocp-art-tenant/oadp-hypershift-oadp-plugin-oadp-1-4
     name: hypershift-velero-plugin
-  - image: registry.redhat.io/oadp/oadp-mustgather-rhel8:v1.2
+  - image: quay.io/konveyor/oadp-must-gather:oadp-1.4
     name: mustgather
   - image: quay.io/konveyor/oadp-non-admin:oadp-1.4
     name: non-admin-controller
