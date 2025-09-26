@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/go-logr/logr"
@@ -4980,6 +4981,65 @@ HREEQTBM----END CERTIFICATE-----`
 			wantConfigMapName: "",
 			wantError:         false,
 		},
+		{
+			name: "Multiple BSLs with different CA certificates - should concatenate",
+			backupLocations: []oadpv1alpha1.BackupLocation{
+				{
+					Velero: &velerov1.BackupStorageLocationSpec{
+						Provider: "aws",
+						StorageType: velerov1.StorageType{
+							ObjectStorage: &velerov1.ObjectStorageLocation{
+								Bucket: "test-bucket-1",
+								CACert: []byte("-----BEGIN CERTIFICATE-----\nFirst CA Certificate\n-----END CERTIFICATE-----"),
+							},
+						},
+					},
+				},
+				{
+					CloudStorage: &oadpv1alpha1.CloudStorageLocation{
+						CloudStorageRef: corev1.LocalObjectReference{Name: "test-bucket-2"},
+						CACert:          []byte("-----BEGIN CERTIFICATE-----\nSecond CA Certificate\n-----END CERTIFICATE-----"),
+					},
+				},
+				{
+					Velero: &velerov1.BackupStorageLocationSpec{
+						Provider: "azure",
+						StorageType: velerov1.StorageType{
+							ObjectStorage: &velerov1.ObjectStorageLocation{
+								Bucket: "test-bucket-3",
+								CACert: []byte("-----BEGIN CERTIFICATE-----\nThird CA Certificate\n-----END CERTIFICATE-----"),
+							},
+						},
+					},
+				},
+			},
+			wantConfigMapName: caBundleConfigMapName,
+			wantError:         false,
+		},
+		{
+			name: "Multiple BSLs with duplicate CA certificates - should deduplicate",
+			backupLocations: []oadpv1alpha1.BackupLocation{
+				{
+					Velero: &velerov1.BackupStorageLocationSpec{
+						Provider: "aws",
+						StorageType: velerov1.StorageType{
+							ObjectStorage: &velerov1.ObjectStorageLocation{
+								Bucket: "test-bucket-1",
+								CACert: []byte(testCACertPEM),
+							},
+						},
+					},
+				},
+				{
+					CloudStorage: &oadpv1alpha1.CloudStorageLocation{
+						CloudStorageRef: corev1.LocalObjectReference{Name: "test-bucket-2"},
+						CACert:          []byte(testCACertPEM), // Same certificate
+					},
+				},
+			},
+			wantConfigMapName: caBundleConfigMapName,
+			wantError:         false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -5037,7 +5097,21 @@ HREEQTBM----END CERTIFICATE-----`
 
 				// Verify ConfigMap contains the CA certificate
 				assert.Contains(t, configMap.Data, caBundleFileName)
-				assert.Equal(t, testCACertPEM, configMap.Data[caBundleFileName])
+
+				// Verify content based on test case
+				bundleContent := configMap.Data[caBundleFileName]
+				if strings.Contains(tt.name, "Multiple BSLs with different CA certificates") {
+					// Verify all certificates are concatenated
+					assert.Contains(t, bundleContent, "First CA Certificate")
+					assert.Contains(t, bundleContent, "Second CA Certificate")
+					assert.Contains(t, bundleContent, "Third CA Certificate")
+				} else if strings.Contains(tt.name, "Multiple BSLs with duplicate CA certificates") {
+					// Verify duplicate is only included once
+					assert.Equal(t, 1, strings.Count(bundleContent, testCACertPEM))
+				} else {
+					// Single certificate case
+					assert.Contains(t, bundleContent, testCACertPEM)
+				}
 
 				// Verify labels are set correctly
 				assert.Equal(t, common.Velero, configMap.Labels["app.kubernetes.io/name"])
