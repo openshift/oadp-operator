@@ -11,7 +11,9 @@ import (
 	"github.com/go-logr/logr"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
@@ -131,11 +133,25 @@ func (r *DataProtectionApplicationReconciler) ReconcileBackupStorageLocations(lo
 		bslName := r.getBSLName(&bslSpec, i)
 		dpaBSLNames = append(dpaBSLNames, bslName)
 
-		bsl := velerov1.BackupStorageLocation{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      bslName,
-				Namespace: r.NamespacedName.Namespace,
-			},
+		// Get existing BSL first to preserve resourceVersion and avoid race conditions
+		bsl := velerov1.BackupStorageLocation{}
+		err := r.Get(r.Context, types.NamespacedName{
+			Name:      bslName,
+			Namespace: r.NamespacedName.Namespace,
+		}, &bsl)
+
+		if err != nil && !k8serrors.IsNotFound(err) {
+			return false, err
+		}
+
+		// Only set metadata if BSL doesn't exist
+		if k8serrors.IsNotFound(err) {
+			bsl = velerov1.BackupStorageLocation{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      bslName,
+					Namespace: r.NamespacedName.Namespace,
+				},
+			}
 		}
 		// Add the following labels to the bsl secret,
 		//	 1. oadpApi.OadpOperatorLabel: "True"
@@ -149,7 +165,7 @@ func (r *DataProtectionApplicationReconciler) ReconcileBackupStorageLocations(lo
 		if bslSpec.Velero != nil {
 			secretName, _, _ = r.getSecretNameAndKey(bslSpec.Velero.Config, bslSpec.Velero.Credential, oadpv1alpha1.DefaultPlugin(bslSpec.Velero.Provider))
 		}
-		err := r.UpdateCredentialsSecretLabels(secretName, dpa.Name)
+		err = r.UpdateCredentialsSecretLabels(secretName, dpa.Name)
 		if err != nil {
 			return false, err
 		}
@@ -162,11 +178,22 @@ func (r *DataProtectionApplicationReconciler) ReconcileBackupStorageLocations(lo
 
 			// TODO: check for BSL status condition errors and respond here
 			if bslSpec.Velero != nil {
+				// Preserve the default field to avoid conflicts with Velero's management
+				existingDefault := bsl.Spec.Default
 				err := r.updateBSLFromSpec(&bsl, *bslSpec.Velero)
-
-				return err
+				if err != nil {
+					return err
+				}
+				// Only set default on initial creation, otherwise preserve cluster state
+				if bsl.ResourceVersion != "" {
+					bsl.Spec.Default = existingDefault
+				}
+				return nil
 			}
 			if bslSpec.CloudStorage != nil {
+				// Preserve the default field to avoid conflicts with Velero's management
+				existingDefault := bsl.Spec.Default
+
 				bucket := &oadpv1alpha1.CloudStorage{}
 				err := r.Get(r.Context, client.ObjectKey{Namespace: dpa.Namespace, Name: bslSpec.CloudStorage.CloudStorageRef.Name}, bucket)
 				if err != nil {
@@ -221,7 +248,13 @@ func (r *DataProtectionApplicationReconciler) ReconcileBackupStorageLocations(lo
 						Key: bucket.Spec.CreationSecret.Key,
 					}
 				}
-				bsl.Spec.Default = bslSpec.CloudStorage.Default
+				// Only set default on initial creation, otherwise preserve cluster state
+				if bsl.ResourceVersion == "" {
+					bsl.Spec.Default = bslSpec.CloudStorage.Default
+				} else {
+					// Preserve Velero's management of default
+					bsl.Spec.Default = existingDefault
+				}
 				bsl.Spec.ObjectStorage = &velerov1.ObjectStorageLocation{
 					Bucket: bucket.Spec.Name,
 					Prefix: bslSpec.CloudStorage.Prefix,

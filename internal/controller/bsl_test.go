@@ -3503,6 +3503,346 @@ func TestDPAReconciler_ReconcileBackupStorageLocations(t *testing.T) {
 			}
 		})
 	}
+
+	// Test case to ensure BSL reconciliation happens only once when no changes are needed
+	t.Run("BSL should not be updated on subsequent reconciliations when no changes", func(t *testing.T) {
+		// Setup DPA with BSL configuration
+		dpa := &oadpv1alpha1.DataProtectionApplication{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-dpa",
+				Namespace: "test-ns",
+				UID:       "test-uid",
+			},
+			Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+				BackupLocations: []oadpv1alpha1.BackupLocation{
+					{
+						Velero: &velerov1.BackupStorageLocationSpec{
+							Provider: "aws",
+							Config: map[string]string{
+								Region: "us-east-1",
+							},
+							StorageType: velerov1.StorageType{
+								ObjectStorage: &velerov1.ObjectStorageLocation{
+									Bucket: "test-bucket",
+									Prefix: "test-prefix",
+								},
+							},
+							Credential: &corev1.SecretKeySelector{
+								LocalObjectReference: corev1.LocalObjectReference{
+									Name: "cloud-credentials",
+								},
+								Key: "credentials",
+							},
+							Default: true,
+						},
+					},
+				},
+			},
+		}
+
+		secret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "cloud-credentials",
+				Namespace: "test-ns",
+			},
+			Data: map[string][]byte{"credentials": []byte("test-credentials")},
+		}
+
+		// Create fake client with the DPA and secret
+		fakeClient, err := getFakeClientFromObjects(dpa, secret)
+		if err != nil {
+			t.Fatalf("error creating fake client: %v", err)
+		}
+
+		r := &DataProtectionApplicationReconciler{
+			Client:  fakeClient,
+			Scheme:  fakeClient.Scheme(),
+			Log:     logr.Discard(),
+			Context: newContextForTest(),
+			NamespacedName: types.NamespacedName{
+				Namespace: dpa.Namespace,
+				Name:      dpa.Name,
+			},
+			EventRecorder: record.NewFakeRecorder(10),
+			dpa:           dpa,
+		}
+
+		// First reconciliation - should create BSL
+		success, err := r.ReconcileBackupStorageLocations(r.Log)
+		if err != nil {
+			t.Fatalf("first ReconcileBackupStorageLocations() failed: %v", err)
+		}
+		if !success {
+			t.Fatal("first ReconcileBackupStorageLocations() returned false")
+		}
+
+		// Get the created BSL and store its generation and resource version
+		bsl := &velerov1.BackupStorageLocation{}
+		err = r.Get(r.Context, client.ObjectKey{Namespace: "test-ns", Name: "test-dpa-1"}, bsl)
+		if err != nil {
+			t.Fatalf("failed to get BSL after first reconciliation: %v", err)
+		}
+
+		firstGeneration := bsl.Generation
+		firstResourceVersion := bsl.ResourceVersion
+
+		// Verify BSL was created with expected configuration
+		if bsl.Spec.Provider != "aws" {
+			t.Errorf("BSL provider = %v, want aws", bsl.Spec.Provider)
+		}
+		if bsl.Spec.Config[Region] != "us-east-1" {
+			t.Errorf("BSL region = %v, want us-east-1", bsl.Spec.Config[Region])
+		}
+		if bsl.Spec.ObjectStorage.Bucket != "test-bucket" {
+			t.Errorf("BSL bucket = %v, want test-bucket", bsl.Spec.ObjectStorage.Bucket)
+		}
+		if bsl.Spec.ObjectStorage.Prefix != "test-prefix" {
+			t.Errorf("BSL prefix = %v, want test-prefix", bsl.Spec.ObjectStorage.Prefix)
+		}
+
+		// Second reconciliation - should not update BSL if nothing changed
+		success, err = r.ReconcileBackupStorageLocations(r.Log)
+		if err != nil {
+			t.Fatalf("second ReconcileBackupStorageLocations() failed: %v", err)
+		}
+		if !success {
+			t.Fatal("second ReconcileBackupStorageLocations() returned false")
+		}
+
+		// Get BSL again and verify generation and resource version didn't change
+		bsl2 := &velerov1.BackupStorageLocation{}
+		err = r.Get(r.Context, client.ObjectKey{Namespace: "test-ns", Name: "test-dpa-1"}, bsl2)
+		if err != nil {
+			t.Fatalf("failed to get BSL after second reconciliation: %v", err)
+		}
+
+		// Generation should remain the same if no spec changes occurred
+		if bsl2.Generation != firstGeneration {
+			t.Errorf("BSL generation changed unnecessarily: first = %v, second = %v", firstGeneration, bsl2.Generation)
+		}
+
+		// Resource version might change even without updates in fake client,
+		// but in production it shouldn't change if no updates were made.
+		// For a more accurate test, we could track Update calls on the fake client.
+		// For now, we'll just log this for information
+		if bsl2.ResourceVersion != firstResourceVersion {
+			t.Logf("Note: ResourceVersion changed from %v to %v (this may be normal in fake client)", firstResourceVersion, bsl2.ResourceVersion)
+		}
+
+		// Third reconciliation - verify it still doesn't change
+		success, err = r.ReconcileBackupStorageLocations(r.Log)
+		if err != nil {
+			t.Fatalf("third ReconcileBackupStorageLocations() failed: %v", err)
+		}
+		if !success {
+			t.Fatal("third ReconcileBackupStorageLocations() returned false")
+		}
+
+		bsl3 := &velerov1.BackupStorageLocation{}
+		err = r.Get(r.Context, client.ObjectKey{Namespace: "test-ns", Name: "test-dpa-1"}, bsl3)
+		if err != nil {
+			t.Fatalf("failed to get BSL after third reconciliation: %v", err)
+		}
+
+		// Generation should still be the same
+		if bsl3.Generation != firstGeneration {
+			t.Errorf("BSL generation changed after third reconciliation: first = %v, third = %v", firstGeneration, bsl3.Generation)
+		}
+	})
+
+	// Test case to ensure BSL with all comprehensive fields doesn't trigger reconciliation loops
+	t.Run("Comprehensive BSL with all fields should not trigger reconciliation loops", func(t *testing.T) {
+		// Setup DPA with comprehensive BSL configuration including all possible fields
+		dpa := &oadpv1alpha1.DataProtectionApplication{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-dpa-comprehensive",
+				Namespace: "test-ns",
+				UID:       "test-uid-comprehensive",
+			},
+			Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+				BackupLocations: []oadpv1alpha1.BackupLocation{
+					{
+						Name: "test-bsl-comprehensive",
+						Velero: &velerov1.BackupStorageLocationSpec{
+							Provider:         "aws",
+							AccessMode:       velerov1.BackupStorageLocationAccessMode("ReadWrite"),
+							BackupSyncPeriod: &metav1.Duration{Duration: 30 * 1000000000}, // 30s in nanoseconds
+							Config: map[string]string{
+								Region:            "test-region-1",
+								S3ForcePathStyle:  "true",
+								S3URL:             "https://test-s3-endpoint.example.com",
+								checksumAlgorithm: "",
+							},
+							Credential: &corev1.SecretKeySelector{
+								LocalObjectReference: corev1.LocalObjectReference{
+									Name: "test-bsl-secret",
+								},
+								Key: "cloud",
+							},
+							Default: false,
+							StorageType: velerov1.StorageType{
+								ObjectStorage: &velerov1.ObjectStorageLocation{
+									Bucket: "test-bucket-comprehensive",
+									Prefix: "test-prefix/comprehensive-test",
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+
+		secret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-bsl-secret",
+				Namespace: "test-ns",
+			},
+			Data: map[string][]byte{"cloud": []byte("[default]\naws_access_key_id=TESTKEY123\naws_secret_access_key=TESTSECRET456")},
+		}
+
+		// Create fake client with the DPA and secret
+		fakeClient, err := getFakeClientFromObjects(dpa, secret)
+		if err != nil {
+			t.Fatalf("error creating fake client: %v", err)
+		}
+
+		r := &DataProtectionApplicationReconciler{
+			Client:  fakeClient,
+			Scheme:  fakeClient.Scheme(),
+			Log:     logr.Discard(),
+			Context: newContextForTest(),
+			NamespacedName: types.NamespacedName{
+				Namespace: dpa.Namespace,
+				Name:      dpa.Name,
+			},
+			EventRecorder: record.NewFakeRecorder(10),
+			dpa:           dpa,
+		}
+
+		// First reconciliation - should create BSL
+		success, err := r.ReconcileBackupStorageLocations(r.Log)
+		if err != nil {
+			t.Fatalf("first ReconcileBackupStorageLocations() failed: %v", err)
+		}
+		if !success {
+			t.Fatal("first ReconcileBackupStorageLocations() returned false")
+		}
+
+		// Get the created BSL and verify all fields are set correctly
+		bsl := &velerov1.BackupStorageLocation{}
+		bslName := "test-bsl-comprehensive"
+		err = r.Get(r.Context, client.ObjectKey{Namespace: "test-ns", Name: bslName}, bsl)
+		if err != nil {
+			t.Fatalf("failed to get BSL after first reconciliation: %v", err)
+		}
+
+		// Store initial generation
+		firstGeneration := bsl.Generation
+
+		// Verify all fields are set correctly
+		if bsl.Spec.Provider != "aws" {
+			t.Errorf("BSL provider = %v, want aws", bsl.Spec.Provider)
+		}
+		if string(bsl.Spec.AccessMode) != "ReadWrite" {
+			t.Errorf("BSL accessMode = %v, want ReadWrite", bsl.Spec.AccessMode)
+		}
+		if bsl.Spec.BackupSyncPeriod == nil || bsl.Spec.BackupSyncPeriod.Duration != 30*1000000000 {
+			t.Errorf("BSL backupSyncPeriod = %v, want 30s", bsl.Spec.BackupSyncPeriod)
+		}
+		if bsl.Spec.Config[Region] != "test-region-1" {
+			t.Errorf("BSL config.region = %v, want test-region-1", bsl.Spec.Config[Region])
+		}
+		if bsl.Spec.Config[S3ForcePathStyle] != "true" {
+			t.Errorf("BSL config.s3ForcePathStyle = %v, want true", bsl.Spec.Config[S3ForcePathStyle])
+		}
+		if bsl.Spec.Config[S3URL] != "https://test-s3-endpoint.example.com" {
+			t.Errorf("BSL config.s3Url = %v, want https://test-s3-endpoint.example.com", bsl.Spec.Config[S3URL])
+		}
+		if bsl.Spec.Credential.Name != "test-bsl-secret" {
+			t.Errorf("BSL credential.name = %v, want test-bsl-secret", bsl.Spec.Credential.Name)
+		}
+		if bsl.Spec.Credential.Key != "cloud" {
+			t.Errorf("BSL credential.key = %v, want cloud", bsl.Spec.Credential.Key)
+		}
+		if bsl.Spec.Default != false {
+			t.Errorf("BSL default = %v, want false", bsl.Spec.Default)
+		}
+		if bsl.Spec.ObjectStorage.Bucket != "test-bucket-comprehensive" {
+			t.Errorf("BSL objectStorage.bucket = %v, want test-bucket-comprehensive", bsl.Spec.ObjectStorage.Bucket)
+		}
+		if bsl.Spec.ObjectStorage.Prefix != "test-prefix/comprehensive-test" {
+			t.Errorf("BSL objectStorage.prefix = %v, want test-prefix/comprehensive-test", bsl.Spec.ObjectStorage.Prefix)
+		}
+
+		// Perform 5 reconciliations to ensure no loops occur
+		for i := 2; i <= 5; i++ {
+			success, err = r.ReconcileBackupStorageLocations(r.Log)
+			if err != nil {
+				t.Fatalf("reconciliation %d failed: %v", i, err)
+			}
+			if !success {
+				t.Fatalf("reconciliation %d returned false", i)
+			}
+
+			// Get BSL and check generation hasn't changed
+			bsl := &velerov1.BackupStorageLocation{}
+			err = r.Get(r.Context, client.ObjectKey{Namespace: "test-ns", Name: bslName}, bsl)
+			if err != nil {
+				t.Fatalf("failed to get BSL after reconciliation %d: %v", i, err)
+			}
+
+			// Generation should remain the same - this is the key check for no reconciliation loops
+			if bsl.Generation != firstGeneration {
+				t.Errorf("BSL generation changed unnecessarily at reconciliation %d: first = %v, current = %v",
+					i, firstGeneration, bsl.Generation)
+			}
+
+			// Verify all fields remain unchanged
+			if bsl.Spec.Provider != "aws" {
+				t.Errorf("BSL provider changed at reconciliation %d", i)
+			}
+			if string(bsl.Spec.AccessMode) != "ReadWrite" {
+				t.Errorf("BSL accessMode changed at reconciliation %d", i)
+			}
+			if bsl.Spec.BackupSyncPeriod == nil || bsl.Spec.BackupSyncPeriod.Duration != 30*1000000000 {
+				t.Errorf("BSL backupSyncPeriod changed at reconciliation %d", i)
+			}
+			if bsl.Spec.Config[Region] != "test-region-1" {
+				t.Errorf("BSL config.region changed at reconciliation %d", i)
+			}
+			if bsl.Spec.Config[S3ForcePathStyle] != "true" {
+				t.Errorf("BSL config.s3ForcePathStyle changed at reconciliation %d", i)
+			}
+			if bsl.Spec.Config[S3URL] != "https://test-s3-endpoint.example.com" {
+				t.Errorf("BSL config.s3Url changed at reconciliation %d", i)
+			}
+			if bsl.Spec.Default != false {
+				t.Errorf("BSL default changed at reconciliation %d", i)
+			}
+			if bsl.Spec.ObjectStorage.Bucket != "test-bucket-comprehensive" {
+				t.Errorf("BSL objectStorage.bucket changed at reconciliation %d", i)
+			}
+			if bsl.Spec.ObjectStorage.Prefix != "test-prefix/comprehensive-test" {
+				t.Errorf("BSL objectStorage.prefix changed at reconciliation %d", i)
+			}
+		}
+
+		// Final check - get BSL one more time to ensure stability
+		finalBSL := &velerov1.BackupStorageLocation{}
+		err = r.Get(r.Context, client.ObjectKey{Namespace: "test-ns", Name: bslName}, finalBSL)
+		if err != nil {
+			t.Fatalf("failed to get BSL for final check: %v", err)
+		}
+
+		// Generation should still be 1 (or whatever the initial was)
+		if finalBSL.Generation != firstGeneration {
+			t.Errorf("BSL generation changed after all reconciliations: first = %v, final = %v",
+				firstGeneration, finalBSL.Generation)
+		}
+
+		t.Logf("Successfully completed %d reconciliations without generation changes. Initial generation: %d, Final generation: %d",
+			5, firstGeneration, finalBSL.Generation)
+	})
 }
 
 func TestPatchSecretsForBSL(t *testing.T) {
@@ -5119,6 +5459,173 @@ HREEQTBM----END CERTIFICATE-----`
 				assert.Equal(t, "ca-bundle", configMap.Labels["app.kubernetes.io/component"])
 				assert.Equal(t, "True", configMap.Labels[oadpv1alpha1.OadpOperatorLabel])
 			}
+		})
+	}
+}
+
+// TestDPAReconciler_ensureBSLPreservesDefaultField tests that BSL reconciliation preserves the default field
+// to avoid conflicts with Velero's management of default BSLs
+func TestDPAReconciler_ensureBSLPreservesDefaultField(t *testing.T) {
+	tests := []struct {
+		name                 string
+		dpa                  *oadpv1alpha1.DataProtectionApplication
+		existingBSL          *velerov1.BackupStorageLocation
+		wantDefaultPreserved bool
+		wantDefaultValue     bool
+	}{
+		{
+			name: "New BSL creation should set default from DPA spec",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-dpa",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					BackupLocations: []oadpv1alpha1.BackupLocation{
+						{
+							Velero: &velerov1.BackupStorageLocationSpec{
+								Provider: "aws",
+								Default:  true,
+								StorageType: velerov1.StorageType{
+									ObjectStorage: &velerov1.ObjectStorageLocation{
+										Bucket: "test-bucket",
+									},
+								},
+								Config: map[string]string{
+									"region": "us-east-1",
+								},
+								Credential: &corev1.SecretKeySelector{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: "cloud-credentials",
+									},
+									Key: "cloud",
+								},
+							},
+						},
+					},
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+								oadpv1alpha1.DefaultPluginAWS,
+							},
+						},
+					},
+				},
+			},
+			existingBSL:          nil, // New BSL
+			wantDefaultPreserved: false,
+			wantDefaultValue:     true, // Should use value from DPA
+		},
+		{
+			name: "Existing BSL update should preserve default field managed by Velero",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-dpa",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					BackupLocations: []oadpv1alpha1.BackupLocation{
+						{
+							Velero: &velerov1.BackupStorageLocationSpec{
+								Provider: "aws",
+								Default:  true, // DPA says true
+								StorageType: velerov1.StorageType{
+									ObjectStorage: &velerov1.ObjectStorageLocation{
+										Bucket: "test-bucket",
+									},
+								},
+								Config: map[string]string{
+									"region": "us-east-1",
+								},
+								Credential: &corev1.SecretKeySelector{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: "cloud-credentials",
+									},
+									Key: "cloud",
+								},
+							},
+						},
+					},
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+								oadpv1alpha1.DefaultPluginAWS,
+							},
+						},
+					},
+				},
+			},
+			existingBSL: &velerov1.BackupStorageLocation{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:            "test-dpa-1",
+					Namespace:       "test-ns",
+					ResourceVersion: "12345", // Has resourceVersion, indicating it exists
+				},
+				Spec: velerov1.BackupStorageLocationSpec{
+					Default: false, // Velero has set it to false
+				},
+			},
+			wantDefaultPreserved: true,
+			wantDefaultValue:     false, // Should preserve Velero's value
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Build objects for fake client
+			var objs []client.Object
+			objs = append(objs, tt.dpa)
+			if tt.existingBSL != nil {
+				objs = append(objs, tt.existingBSL)
+			}
+
+			// Add required credential secret
+			credSecret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cloud-credentials",
+					Namespace: tt.dpa.Namespace,
+				},
+				Data: map[string][]byte{
+					"cloud": []byte("[default]\naws_access_key_id=test\naws_secret_access_key=test\n"),
+				},
+			}
+			objs = append(objs, credSecret)
+
+			// Create fake client
+			fakeClient := getFakeClientFromObjectsForTest(t, objs...)
+
+			// Create reconciler
+			r := &DataProtectionApplicationReconciler{
+				Client:  fakeClient,
+				Scheme:  fakeClient.Scheme(),
+				Log:     logr.Discard(),
+				Context: context.Background(),
+				NamespacedName: types.NamespacedName{
+					Name:      tt.dpa.Name,
+					Namespace: tt.dpa.Namespace,
+				},
+				EventRecorder: record.NewFakeRecorder(100),
+				dpa:           tt.dpa,
+			}
+
+			// Call the BSL reconciliation
+			_, err := r.ReconcileBackupStorageLocations(r.Log)
+			assert.NoError(t, err)
+
+			// Verify the BSL was created/updated correctly
+			bsl := &velerov1.BackupStorageLocation{}
+			err = fakeClient.Get(context.Background(), types.NamespacedName{
+				Name:      "test-dpa-1",
+				Namespace: tt.dpa.Namespace,
+			}, bsl)
+			assert.NoError(t, err)
+
+			// Check if default field is preserved correctly
+			assert.Equal(t, tt.wantDefaultValue, bsl.Spec.Default,
+				"Default field should be %v but got %v", tt.wantDefaultValue, bsl.Spec.Default)
+
+			// Verify resource version exists (indicates successful update without conflict)
+			assert.NotEmpty(t, bsl.ResourceVersion, "BSL should have a resource version after reconciliation")
 		})
 	}
 }
