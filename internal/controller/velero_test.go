@@ -2835,11 +2835,11 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 				t.Errorf("error in creating fake client, likely programmer error")
 			}
 			r := DataProtectionApplicationReconciler{
-				Client:  fakeClient,
-				dpa:     test.dpa,
-				Scheme:  fakeClient.Scheme(),
-				Log:     logr.Discard(),
-				Context: newContextForTest(),
+				Client:        fakeClient,
+				dpa:           test.dpa,
+				Scheme:        fakeClient.Scheme(),
+				Log:           logr.Discard(),
+				Context:       newContextForTest(),
 				EventRecorder: record.NewFakeRecorder(10),
 			}
 			if test.dpa != nil {
@@ -3330,10 +3330,10 @@ func TestDPAReconciler_buildVeleroDeploymentWithAzureWorkloadIdentity(t *testing
 
 			// Create reconciler
 			r := &DataProtectionApplicationReconciler{
-				dpa: tt.dpa,
-				Log: logr.Discard(),
+				dpa:     tt.dpa,
+				Log:     logr.Discard(),
 				Context: newContextForTest(),
-				Client: getFakeClientFromObjectsForTest(t),
+				Client:  getFakeClientFromObjectsForTest(t),
 			}
 
 			// Build the deployment

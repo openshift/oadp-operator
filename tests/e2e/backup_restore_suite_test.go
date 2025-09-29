@@ -584,183 +584,182 @@ var _ = ginkgo.Describe("Multiple BSL with custom CA cert tests", ginkgo.Ordered
 
 			dpaSpec.BackupLocations = append(dpaSpec.BackupLocations, secondBSL, thirdBSL)
 
-		err = dpaCR.CreateOrUpdate(dpaSpec)
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
-
-		log.Print("Checking if DPA is reconciled")
-		gomega.Eventually(dpaCR.IsReconciledTrue(), time.Minute*3, time.Second*5).Should(gomega.BeTrue())
-
-		log.Printf("Waiting for Velero Pod to be running")
-		gomega.Eventually(lib.VeleroPodIsRunning(kubernetesClientForSuiteRun, namespace), time.Minute*3, time.Second*5).Should(gomega.BeTrue())
-
-		// Verify CA certificate handling based on backupImages flag
-		log.Printf("Verifying CA certificate handling (backupImages: %v)", backupImages)
-
-		veleroPods, err := kubernetesClientForSuiteRun.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{
-			LabelSelector: "component=velero",
-		})
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
-		gomega.Expect(len(veleroPods.Items)).To(gomega.BeNumerically(">", 0))
-
-		veleroPod := veleroPods.Items[0]
-		veleroContainer := veleroPod.Spec.Containers[0]
-
-		if !backupImages {
-			// When backupImages is false, NO CA cert processing should occur
-			log.Printf("Verifying NO CA certificate processing when backupImages=false")
-
-			// Check AWS_CA_BUNDLE env var does NOT exist
-			awsCABundleFound := false
-			for _, env := range veleroContainer.Env {
-				if env.Name == "AWS_CA_BUNDLE" {
-					awsCABundleFound = true
-					log.Printf("ERROR: Found unexpected AWS_CA_BUNDLE environment variable: %s", env.Value)
-					break
-				}
-			}
-			gomega.Expect(awsCABundleFound).To(gomega.BeFalse(), "AWS_CA_BUNDLE environment variable should NOT be set when backupImages=false")
-
-			// Verify CA cert ConfigMap is NOT mounted
-			caCertVolumeMountFound := false
-			for _, mount := range veleroContainer.VolumeMounts {
-				if mount.Name == "custom-ca-certs" {
-					caCertVolumeMountFound = true
-					log.Printf("ERROR: Found unexpected CA cert volume mount: %s at %s", mount.Name, mount.MountPath)
-					break
-				}
-			}
-			gomega.Expect(caCertVolumeMountFound).To(gomega.BeFalse(), "CA cert volume should NOT be mounted when backupImages=false")
-
-			// Verify the ConfigMap does NOT exist
-			configMapName := "oadp-" + dpaCR.Name + "-ca-bundle"
-			_, err := kubernetesClientForSuiteRun.CoreV1().ConfigMaps(namespace).Get(context.Background(), configMapName, metav1.GetOptions{})
-			gomega.Expect(err).To(gomega.HaveOccurred(), "CA bundle ConfigMap should NOT exist when backupImages=false")
-			gomega.Expect(apierrors.IsNotFound(err)).To(gomega.BeTrue(), "ConfigMap should be not found")
-
-		} else {
-			// When backupImages is true, CA cert processing should include all three BSLs
-			log.Printf("Verifying CA certificate processing when backupImages=true")
-
-			// Check AWS_CA_BUNDLE env var exists
-			awsCABundleFound := false
-			awsCABundlePath := ""
-			for _, env := range veleroContainer.Env {
-				if env.Name == "AWS_CA_BUNDLE" {
-					awsCABundleFound = true
-					awsCABundlePath = env.Value
-					log.Printf("Found AWS_CA_BUNDLE environment variable: %s", awsCABundlePath)
-					break
-				}
-			}
-			gomega.Expect(awsCABundleFound).To(gomega.BeTrue(), "AWS_CA_BUNDLE environment variable should be set when backupImages=true")
-			gomega.Expect(awsCABundlePath).To(gomega.Equal("/etc/ssl/custom-ca-bundle/ca-bundle.crt"))
-
-			// Verify CA cert ConfigMap is mounted
-			caCertVolumeMountFound := false
-			for _, mount := range veleroContainer.VolumeMounts {
-				if mount.Name == "custom-ca-certs" && mount.MountPath == "/etc/ssl/custom-ca-bundle" {
-					caCertVolumeMountFound = true
-					log.Printf("Found CA cert volume mount: %s at %s", mount.Name, mount.MountPath)
-					break
-				}
-			}
-			gomega.Expect(caCertVolumeMountFound).To(gomega.BeTrue(), "CA cert volume should be mounted when backupImages=true")
-
-			// Verify the ConfigMap exists and contains all three custom CAs plus system CAs
-			log.Printf("Verifying CA certificate ConfigMap contents")
-			configMapName := "oadp-" + dpaCR.Name + "-ca-bundle"
-			configMap, err := kubernetesClientForSuiteRun.CoreV1().ConfigMaps(namespace).Get(context.Background(), configMapName, metav1.GetOptions{})
+			err = dpaCR.CreateOrUpdate(dpaSpec)
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
-			caBundleContent, exists := configMap.Data["ca-bundle.crt"]
-			gomega.Expect(exists).To(gomega.BeTrue(), "ca-bundle.crt should exist in ConfigMap")
+			log.Print("Checking if DPA is reconciled")
+			gomega.Eventually(dpaCR.IsReconciledTrue(), time.Minute*3, time.Second*5).Should(gomega.BeTrue())
 
-			// Verify bundle contains all three custom certificates
-			gomega.Expect(caBundleContent).To(gomega.ContainSubstring("SECOND-CERT-CONTENT"), "CA bundle should contain second BSL's certificate")
-			gomega.Expect(caBundleContent).To(gomega.ContainSubstring("THIRD-CERT-CONTENT"), "CA bundle should contain third BSL's certificate")
+			log.Printf("Waiting for Velero Pod to be running")
+			gomega.Eventually(lib.VeleroPodIsRunning(kubernetesClientForSuiteRun, namespace), time.Minute*3, time.Second*5).Should(gomega.BeTrue())
 
-			// Verify bundle contains system certificates marker
-			gomega.Expect(caBundleContent).To(gomega.ContainSubstring("# System default CA certificates"), "CA bundle should include system certificates marker")
+			// Verify CA certificate handling based on backupImages flag
+			log.Printf("Verifying CA certificate handling (backupImages: %v)", backupImages)
 
-			log.Printf("CA bundle size: %d bytes", len(caBundleContent))
+			veleroPods, err := kubernetesClientForSuiteRun.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{
+				LabelSelector: "component=velero",
+			})
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			gomega.Expect(len(veleroPods.Items)).To(gomega.BeNumerically(">", 0))
 
-			// Verify that the bundle is reasonably large (indicating system certs are included)
-			// System certs are typically > 100KB
-			gomega.Expect(len(caBundleContent)).To(gomega.BeNumerically(">", 50000), "CA bundle should be large enough to include system certificates")
-		}
+			veleroPod := veleroPods.Items[0]
+			veleroContainer := veleroPod.Spec.Containers[0]
 
-		// Check BSL status - only the default BSL needs to be available
-		log.Print("Checking if default BSL is available")
-		bsls, err := dpaCR.ListBSLs()
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
-		gomega.Expect(len(bsls.Items)).To(gomega.Equal(3), "Should have 3 BSLs configured")
+			if !backupImages {
+				// When backupImages is false, NO CA cert processing should occur
+				log.Printf("Verifying NO CA certificate processing when backupImages=false")
 
-		// Find the default BSL
-		var defaultBSL *velero.BackupStorageLocation
-		for i, bsl := range bsls.Items {
-			if bsl.Spec.Default {
-				defaultBSL = &bsls.Items[i]
-				break
+				// Check AWS_CA_BUNDLE env var does NOT exist
+				awsCABundleFound := false
+				for _, env := range veleroContainer.Env {
+					if env.Name == "AWS_CA_BUNDLE" {
+						awsCABundleFound = true
+						log.Printf("ERROR: Found unexpected AWS_CA_BUNDLE environment variable: %s", env.Value)
+						break
+					}
+				}
+				gomega.Expect(awsCABundleFound).To(gomega.BeFalse(), "AWS_CA_BUNDLE environment variable should NOT be set when backupImages=false")
+
+				// Verify CA cert ConfigMap is NOT mounted
+				caCertVolumeMountFound := false
+				for _, mount := range veleroContainer.VolumeMounts {
+					if mount.Name == "custom-ca-certs" {
+						caCertVolumeMountFound = true
+						log.Printf("ERROR: Found unexpected CA cert volume mount: %s at %s", mount.Name, mount.MountPath)
+						break
+					}
+				}
+				gomega.Expect(caCertVolumeMountFound).To(gomega.BeFalse(), "CA cert volume should NOT be mounted when backupImages=false")
+
+				// Verify the ConfigMap does NOT exist
+				configMapName := "oadp-" + dpaCR.Name + "-ca-bundle"
+				_, err := kubernetesClientForSuiteRun.CoreV1().ConfigMaps(namespace).Get(context.Background(), configMapName, metav1.GetOptions{})
+				gomega.Expect(err).To(gomega.HaveOccurred(), "CA bundle ConfigMap should NOT exist when backupImages=false")
+				gomega.Expect(apierrors.IsNotFound(err)).To(gomega.BeTrue(), "ConfigMap should be not found")
+
+			} else {
+				// When backupImages is true, CA cert processing should include all three BSLs
+				log.Printf("Verifying CA certificate processing when backupImages=true")
+
+				// Check AWS_CA_BUNDLE env var exists
+				awsCABundleFound := false
+				awsCABundlePath := ""
+				for _, env := range veleroContainer.Env {
+					if env.Name == "AWS_CA_BUNDLE" {
+						awsCABundleFound = true
+						awsCABundlePath = env.Value
+						log.Printf("Found AWS_CA_BUNDLE environment variable: %s", awsCABundlePath)
+						break
+					}
+				}
+				gomega.Expect(awsCABundleFound).To(gomega.BeTrue(), "AWS_CA_BUNDLE environment variable should be set when backupImages=true")
+				gomega.Expect(awsCABundlePath).To(gomega.Equal("/etc/ssl/custom-ca-bundle/ca-bundle.crt"))
+
+				// Verify CA cert ConfigMap is mounted
+				caCertVolumeMountFound := false
+				for _, mount := range veleroContainer.VolumeMounts {
+					if mount.Name == "custom-ca-certs" && mount.MountPath == "/etc/ssl/custom-ca-bundle" {
+						caCertVolumeMountFound = true
+						log.Printf("Found CA cert volume mount: %s at %s", mount.Name, mount.MountPath)
+						break
+					}
+				}
+				gomega.Expect(caCertVolumeMountFound).To(gomega.BeTrue(), "CA cert volume should be mounted when backupImages=true")
+
+				// Verify the ConfigMap exists and contains all three custom CAs plus system CAs
+				log.Printf("Verifying CA certificate ConfigMap contents")
+				configMapName := "oadp-" + dpaCR.Name + "-ca-bundle"
+				configMap, err := kubernetesClientForSuiteRun.CoreV1().ConfigMaps(namespace).Get(context.Background(), configMapName, metav1.GetOptions{})
+				gomega.Expect(err).NotTo(gomega.HaveOccurred())
+
+				caBundleContent, exists := configMap.Data["ca-bundle.crt"]
+				gomega.Expect(exists).To(gomega.BeTrue(), "ca-bundle.crt should exist in ConfigMap")
+
+				// Verify bundle contains all three custom certificates
+				gomega.Expect(caBundleContent).To(gomega.ContainSubstring("SECOND-CERT-CONTENT"), "CA bundle should contain second BSL's certificate")
+				gomega.Expect(caBundleContent).To(gomega.ContainSubstring("THIRD-CERT-CONTENT"), "CA bundle should contain third BSL's certificate")
+
+				// Verify bundle contains system certificates marker
+				gomega.Expect(caBundleContent).To(gomega.ContainSubstring("# System default CA certificates"), "CA bundle should include system certificates marker")
+
+				log.Printf("CA bundle size: %d bytes", len(caBundleContent))
+
+				// Verify that the bundle is reasonably large (indicating system certs are included)
+				// System certs are typically > 100KB
+				gomega.Expect(len(caBundleContent)).To(gomega.BeNumerically(">", 50000), "CA bundle should be large enough to include system certificates")
 			}
-		}
-		gomega.Expect(defaultBSL).NotTo(gomega.BeNil(), "Default BSL should exist")
 
-		// Only the default BSL needs to be available for the test
-		gomega.Eventually(func() bool {
-			bsl := &velero.BackupStorageLocation{}
-			err := dpaCR.Client.Get(context.Background(), client.ObjectKey{
-				Namespace: namespace,
-				Name:      defaultBSL.Name,
-			}, bsl)
-			if err != nil {
-				return false
+			// Check BSL status - only the default BSL needs to be available
+			log.Print("Checking if default BSL is available")
+			bsls, err := dpaCR.ListBSLs()
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			gomega.Expect(len(bsls.Items)).To(gomega.Equal(3), "Should have 3 BSLs configured")
+
+			// Find the default BSL
+			var defaultBSL *velero.BackupStorageLocation
+			for i, bsl := range bsls.Items {
+				if bsl.Spec.Default {
+					defaultBSL = &bsls.Items[i]
+					break
+				}
 			}
-			return bsl.Status.Phase == velero.BackupStorageLocationPhaseAvailable
-		}, time.Minute*3, time.Second*5).Should(gomega.BeTrue(), "Default BSL should be available")
+			gomega.Expect(defaultBSL).NotTo(gomega.BeNil(), "Default BSL should exist")
 
-		log.Printf("Deploying test application")
-		err = lib.InstallApplication(dpaCR.Client, "./sample-applications/minimal/minimal-deployment.yaml")
-		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+			// Only the default BSL needs to be available for the test
+			gomega.Eventually(func() bool {
+				bsl := &velero.BackupStorageLocation{}
+				err := dpaCR.Client.Get(context.Background(), client.ObjectKey{
+					Namespace: namespace,
+					Name:      defaultBSL.Name,
+				}, bsl)
+				if err != nil {
+					return false
+				}
+				return bsl.Status.Phase == velero.BackupStorageLocationPhaseAvailable
+			}, time.Minute*3, time.Second*5).Should(gomega.BeTrue(), "Default BSL should be available")
 
-		err = lib.CreateNamespace(kubernetesClientForSuiteRun, "minimal-app")
-		gomega.Expect(err).ToNot(gomega.HaveOccurred())
-		gomega.Eventually(lib.IsDeploymentReady(dpaCR.Client, "minimal-app", "minimal-deployment"), time.Minute*3, time.Second*5).Should(gomega.BeTrue())
+			log.Printf("Deploying test application")
+			err = lib.InstallApplication(dpaCR.Client, "./sample-applications/nginx/nginx-deployment.yaml")
+			gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
-		log.Printf("Creating backup using default BSL")
-		backupUid, _ := uuid.NewUUID()
-		backupName := fmt.Sprintf("backup-bsl-cacert-%s", backupUid.String())
-		err = lib.CreateBackupForNamespaces(dpaCR.Client, namespace, backupName, []string{"minimal-app"}, true, true)
-		gomega.Expect(err).ToNot(gomega.HaveOccurred())
-		gomega.Eventually(func() bool {
-			result, _ := lib.IsBackupCompletedSuccessfully(kubernetesClientForSuiteRun, dpaCR.Client, namespace, backupName)
-			return result
-		}, time.Minute*10, time.Second*10).Should(gomega.BeTrue())
+			// nginx-deployment.yaml creates its own namespace, so we just wait for deployment to be ready
+			gomega.Eventually(lib.IsDeploymentReady(dpaCR.Client, "nginx-example", "nginx-deployment"), time.Minute*3, time.Second*5).Should(gomega.BeTrue())
 
-		log.Printf("Verifying backup was created with default BSL")
-		completedBackup, err := lib.GetBackup(dpaCR.Client, namespace, backupName)
-		gomega.Expect(err).ToNot(gomega.HaveOccurred())
-		// Verify it used the default BSL
-		gomega.Expect(completedBackup.Spec.StorageLocation).Should(gomega.Equal(defaultBSL.Name))
+			log.Printf("Creating backup using default BSL")
+			backupUid, _ := uuid.NewUUID()
+			backupName := fmt.Sprintf("backup-bsl-cacert-%s", backupUid.String())
+			err = lib.CreateBackupForNamespaces(dpaCR.Client, namespace, backupName, []string{"nginx-example"}, true, true)
+			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+			gomega.Eventually(func() bool {
+				result, _ := lib.IsBackupCompletedSuccessfully(kubernetesClientForSuiteRun, dpaCR.Client, namespace, backupName)
+				return result
+			}, time.Minute*10, time.Second*10).Should(gomega.BeTrue())
 
-		log.Printf("Deleting application namespace")
-		err = lib.DeleteNamespace(kubernetesClientForSuiteRun, "minimal-app")
-		gomega.Expect(err).ToNot(gomega.HaveOccurred())
-		gomega.Eventually(lib.IsNamespaceDeleted(kubernetesClientForSuiteRun, "minimal-app"), time.Minute*3, time.Second*5).Should(gomega.BeTrue())
+			log.Printf("Verifying backup was created with default BSL")
+			completedBackup, err := lib.GetBackup(dpaCR.Client, namespace, backupName)
+			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+			// Verify it used the default BSL
+			gomega.Expect(completedBackup.Spec.StorageLocation).Should(gomega.Equal(defaultBSL.Name))
 
-		log.Printf("Creating restore from backup")
-		restoreUid, _ := uuid.NewUUID()
-		restoreName := fmt.Sprintf("restore-bsl-cacert-%s", restoreUid.String())
-		err = lib.CreateRestoreFromBackup(dpaCR.Client, namespace, backupName, restoreName)
-		gomega.Expect(err).ToNot(gomega.HaveOccurred())
-		gomega.Eventually(func() bool {
-			result, _ := lib.IsRestoreCompletedSuccessfully(kubernetesClientForSuiteRun, dpaCR.Client, namespace, restoreName)
-			return result
-		}, time.Minute*10, time.Second*10).Should(gomega.BeTrue())
+			log.Printf("Deleting application namespace")
+			err = lib.DeleteNamespace(kubernetesClientForSuiteRun, "nginx-example")
+			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+			gomega.Eventually(lib.IsNamespaceDeleted(kubernetesClientForSuiteRun, "nginx-example"), time.Minute*3, time.Second*5).Should(gomega.BeTrue())
 
-		log.Printf("Verifying application was restored")
-		gomega.Eventually(lib.IsDeploymentReady(dpaCR.Client, "minimal-app", "minimal-deployment"), time.Minute*3, time.Second*5).Should(gomega.BeTrue())
+			log.Printf("Creating restore from backup")
+			restoreUid, _ := uuid.NewUUID()
+			restoreName := fmt.Sprintf("restore-bsl-cacert-%s", restoreUid.String())
+			err = lib.CreateRestoreFromBackup(dpaCR.Client, namespace, backupName, restoreName)
+			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+			gomega.Eventually(func() bool {
+				result, _ := lib.IsRestoreCompletedSuccessfully(kubernetesClientForSuiteRun, dpaCR.Client, namespace, restoreName)
+				return result
+			}, time.Minute*10, time.Second*10).Should(gomega.BeTrue())
 
-		log.Printf("Test completed successfully - backupImages=%v test passed", backupImages)
+			log.Printf("Verifying application was restored")
+			gomega.Eventually(lib.IsDeploymentReady(dpaCR.Client, "nginx-example", "nginx-deployment"), time.Minute*3, time.Second*5).Should(gomega.BeTrue())
+
+			log.Printf("Test completed successfully - backupImages=%v test passed", backupImages)
 		},
 		ginkgo.Entry("three BSLs with backupImages=false (no CA cert handling)", false, false),
 		ginkgo.Entry("three BSLs with backupImages=true (full CA cert handling with concatenation)", true, true),

@@ -5684,3 +5684,124 @@ func getFakeClientFromObjectsForTest(t *testing.T, objs ...client.Object) client
 
 	return fake.NewClientBuilder().WithScheme(testScheme).WithObjects(objs...).Build()
 }
+
+// TestValidatePEMCertificate tests the validatePEMCertificate function
+func TestValidatePEMCertificate(t *testing.T) {
+	// Valid certificate (real self-signed certificate)
+	validCert := `-----BEGIN CERTIFICATE-----
+MIIDQTCCAimgAwIBAgIUJQPjA2PvLt+8L2KIrVukS1QRq5kwDQYJKoZIhvcNAQEL
+BQAwMDEOMAwGA1UEAwwFVGVzdDExDjAMBgNVBAoMBVRlc3QxMQ4wDAYDVQQLDAVU
+ZXN0MTAeFw0yNDAxMDEwMDAwMDBaFw0zNDAxMDEwMDAwMDBaMDAxDjAMBgNVBAMM
+BVRlc3QxMQ4wDAYDVQQKDAVUZXN0MTEOMAwGA1UECwwFVGVzdDEwggEiMA0GCSqG
+SIb3DQEBAQUAA4IBDwAwggEKAoIBAQDXlGGbLWoz3s/Kpua2DXDw8xIiCBSQx2hn
+hQz9d+83NkF9Y6G9X/odV8o2JqftS3N5YbjP5wxF65EuxQ8EQc3u7LvQF8/k7tYN
+QcxQuPL7+W3sZQWu0oyPK6c0fKGn0w3l7N5KpQN9mKt0OqGUY/N3c6qKLcbTDNMS
+NTMm5B6OqDw7dNjNWpMsDaLaODIHmGJIhz1cR49gBQULQ7p0LxOUO6u/9K+/jk7M
+C+s2vE3ovf5fSsjL7rZClOQBcJNZGq7eCQW7LCfLEZ1xsfOqGDXQVIdqP5ty+peH
+u6OwzLWJ8ChE8HvNlQxBlKrQvnQ9CMorqVEeeLqVMUdNZ+DuSgV9AgMBAAGjUzBR
+MB0GA1UdDgQWBBR8OoVW0pWitaen1uRglCpL8kErojAfBgNVHSMEGDAWgBR8OoVW
+0pWitaen1uRglCpL8kErojAPBgNVHRMBAf8EBTADAQH/MA0GCSqGSIb3DQEBCwUA
+A4IBAQCJlg5ppNqJFCwMzctR9yDLgbaFH9ls+cOaLrZIB7qRqHBtHZ8U7PljabKI
+9S/cBPwFYUssQb/fC1pq9QB8J4y7hZc5d4oOuKMpVoHHy6QLTM5qbsNm4MQcRWU0
+ogVVYIY8s5gVn2AWVUEXDZvGaWHXVVgPNBhDQXGBH7TG4HgbnkTDrxuTt1kNW5xb
+M4LM/BhgpiqTshTB1z5l5n3lL+4gPGDe2pA7L9nsvgAR4dS7N4A7MOYW3Ff9c3Cm
+USy+h6LGQKI9hBfNL7lE1+ESNjx0dEKKuGCLv0vQJ7L1PezqMDztLPlkre9C+1YM
+OJmJ3SBo31J5zoFoXYh3gzI3OA/C
+-----END CERTIFICATE-----`
+
+	// Invalid PEM block (not a certificate)
+	invalidPEMType := `-----BEGIN PRIVATE KEY-----
+MIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQDBiEEb/Pc5IysO
+-----END PRIVATE KEY-----`
+
+	// Malformed PEM (invalid base64)
+	malformedPEM := `-----BEGIN CERTIFICATE-----
+INVALID BASE64 CONTENT!!!
+-----END CERTIFICATE-----`
+
+	// Not a PEM format at all
+	notPEM := `This is not a PEM formatted certificate`
+
+	// Empty certificate
+	emptyCert := ``
+
+	// Valid certificate bundle (multiple certificates - using same cert twice)
+	validBundle := validCert + "\n" + validCert
+
+	// Dummy certificate from e2e tests (should fail validation but be handled gracefully)
+	dummyCertFromE2E := `-----BEGIN CERTIFICATE-----
+MIIDazCCAlOgAwIBAgIUUf8+3K8zsP/w1P3VQ5jlMxALinkwDQYJKoZIhvcNAQEL
+BQAwRTELMAkGA1UEBhMCVVMxEzARBgNVBAgMCkNhbGlmb3JuaWExDjAMBgNVBAoM
+BU9BQVBQMREWFAYDVQQDDA1EVU1NWS1DQS1DRVJUMB4XDTI0MDEwMTAwMDAwMFoX
+DTM0MDEwMTAwMDAwMFowRTELMAkGA1UEBhMCVVMxEzARBgNVBAgMCkNhbGlmb3Ju
+aWExDjAMBgNVBAoMBU9BQVBQMREWFAYDVQQDDA1EVU1NWS1DQS1DRVJUMIIBIJAN
+BgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA0VUxbPWcfcOJC2qKZVv5nKqY7OZw
+TEST-CERT-CONTENT-TEST-CERT-CONTENT-TEST-CERT-CONTENT-TEST
+ngpurposesonly1234567890QIDAQABMA0GCSqGSIb3DQEBCwUAA4IBAQBYfMVqNb
+iVL1x+dummyenddummyenddummyenddummyenddummyenddummyenddummyenddum
+TEST-CERT-END-TEST-CERT-END-TEST-CERT-END-TEST
+ddummyenddummyenddummyenddummyend
+-----END CERTIFICATE-----`
+
+	tests := []struct {
+		name        string
+		cert        []byte
+		wantErr     bool
+		errContains string
+	}{
+		{
+			name:    "valid certificate",
+			cert:    []byte(validCert),
+			wantErr: false,
+		},
+		{
+			name:        "invalid PEM type (private key)",
+			cert:        []byte(invalidPEMType),
+			wantErr:     true,
+			errContains: "PEM block is not a certificate",
+		},
+		{
+			name:        "malformed PEM",
+			cert:        []byte(malformedPEM),
+			wantErr:     true,
+			errContains: "no valid PEM block found", // Base64 decoding fails, so no PEM block is found
+		},
+		{
+			name:        "not PEM format",
+			cert:        []byte(notPEM),
+			wantErr:     true,
+			errContains: "no valid PEM block found",
+		},
+		{
+			name:        "empty certificate",
+			cert:        []byte(emptyCert),
+			wantErr:     true,
+			errContains: "no valid PEM block found",
+		},
+		{
+			name:    "valid certificate bundle",
+			cert:    []byte(validBundle),
+			wantErr: false,
+		},
+		{
+			name:        "dummy certificate from e2e (invalid x509)",
+			cert:        []byte(dummyCertFromE2E),
+			wantErr:     true,
+			errContains: "no valid PEM block found", // The dummy cert has invalid base64 content
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validatePEMCertificate(tt.cert)
+			if tt.wantErr {
+				assert.Error(t, err, "validatePEMCertificate() should have returned an error")
+				if tt.errContains != "" {
+					assert.Contains(t, err.Error(), tt.errContains, "Error message should contain expected string")
+				}
+			} else {
+				assert.NoError(t, err, "validatePEMCertificate() should not have returned an error")
+			}
+		})
+	}
+}
