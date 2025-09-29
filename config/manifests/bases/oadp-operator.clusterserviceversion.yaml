@@ -20,7 +20,7 @@ metadata:
     features.operators.openshift.io/token-auth-aws: "true"
     features.operators.openshift.io/token-auth-azure: "true"
     features.operators.openshift.io/token-auth-gcp: "true"
-    olm.skipRange: '>=1.4.0 <1.5.2'
+    olm.skipRange: '>=1.4.0 <1.5.3'
     operatorframework.io/suggested-namespace: openshift-adp
     operators.openshift.io/infrastructure-features: '["Disconnected"]'
     operators.openshift.io/must-gather-image: quay.io/konveyor/oadp-must-gather:oadp-1.5
@@ -33,7 +33,7 @@ metadata:
     operatorframework.io/arch.arm64: supported
     operatorframework.io/arch.ppc64le: supported
     operatorframework.io/arch.s390x: supported
-  name: oadp-operator.v1.5.2
+  name: oadp-operator.v1.5.3
   namespace: openshift-adp
 spec:
   apiservicedefinitions: {}
@@ -516,5 +516,5 @@ spec:
   maturity: stable
   provider:
     name: Red Hat
-  replaces: oadp-operator.v1.5.1
-  version: 1.5.2
+  replaces: oadp-operator.v1.5.2
+  version: 1.5.3
