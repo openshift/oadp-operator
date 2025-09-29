@@ -2,7 +2,13 @@ package controller
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/pem"
 	"fmt"
+	"math/big"
 	"os"
 	"reflect"
 	"slices"
@@ -747,7 +753,79 @@ func createTestBuiltVeleroDeployment(options TestBuiltVeleroDeploymentOptions) *
 	return testBuiltVeleroDeployment
 }
 
+// generateTestCACert generates a valid self-signed CA certificate for testing
+func generateTestCACert(commonName string) []byte {
+	template := &x509.Certificate{
+		SerialNumber: big.NewInt(1),
+		Subject: pkix.Name{
+			Organization:  []string{"Test Org"},
+			Country:       []string{"US"},
+			Province:      []string{""},
+			Locality:      []string{"Test City"},
+			StreetAddress: []string{""},
+			PostalCode:    []string{""},
+			CommonName:    commonName,
+		},
+		NotBefore:             time.Now(),
+		NotAfter:              time.Now().Add(365 * 24 * time.Hour),
+		IsCA:                  true,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
+		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
+		BasicConstraintsValid: true,
+	}
+
+	// Generate RSA private key
+	priv, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		panic(err)
+	}
+
+	// Create certificate
+	certDER, err := x509.CreateCertificate(rand.Reader, template, template, &priv.PublicKey, priv)
+	if err != nil {
+		panic(err)
+	}
+
+	// Encode to PEM
+	certPEM := pem.EncodeToMemory(&pem.Block{
+		Type:  "CERTIFICATE",
+		Bytes: certDER,
+	})
+
+	return certPEM
+}
+
+// validateCertificateBundle validates that a PEM certificate bundle can be parsed
+func validateCertificateBundle(pemData []byte) (int, error) {
+	pool := x509.NewCertPool()
+	ok := pool.AppendCertsFromPEM(pemData)
+	if !ok {
+		return 0, fmt.Errorf("failed to parse any certificates from PEM data")
+	}
+
+	// Count certificates by parsing PEM blocks
+	count := 0
+	rest := pemData
+	for len(rest) > 0 {
+		var block *pem.Block
+		block, rest = pem.Decode(rest)
+		if block == nil {
+			break
+		}
+		if block.Type == "CERTIFICATE" {
+			count++
+		}
+	}
+
+	return count, nil
+}
+
 func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
+	// Generate valid test certificates
+	awsTestCACert := generateTestCACert("AWS Test CA")
+	dummy2TestCACert := generateTestCACert("dummy2 Test CA")
+	cloudStorageTestCACert := generateTestCACert("CloudStorage Test CA")
+
 	tests := []struct {
 		name                 string
 		dpa                  *oadpv1alpha1.DataProtectionApplication
@@ -2306,6 +2384,474 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 				},
 			}),
 		},
+		{
+			name: "valid DPA CR with BackupImages false, no CA cert env vars should be added",
+			dpa: createTestDpaWith(
+				nil,
+				oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{},
+					},
+					BackupImages: ptr.To(false),
+					BackupLocations: []oadpv1alpha1.BackupLocation{
+						{
+							Velero: &velerov1.BackupStorageLocationSpec{
+								Provider: "aws",
+								StorageType: velerov1.StorageType{
+									ObjectStorage: &velerov1.ObjectStorageLocation{
+										CACert: []byte("test-ca-cert"),
+									},
+								},
+							},
+						},
+					},
+				},
+			),
+			veleroDeployment: testVeleroDeployment.DeepCopy(),
+			wantVeleroDeployment: createTestBuiltVeleroDeployment(TestBuiltVeleroDeploymentOptions{
+				args: []string{
+					defaultFileSystemBackupTimeout,
+					defaultRestoreResourcePriorities,
+					defaultDisableInformerCache,
+				},
+				// When BackupImages is false, OPENSHIFT_IMAGESTREAM_BACKUP env var is not set
+				env: []corev1.EnvVar{
+					{Name: common.VeleroScratchDirEnvKey, Value: "/scratch"},
+					{
+						Name: common.VeleroNamespaceEnvKey,
+						ValueFrom: &corev1.EnvVarSource{
+							FieldRef: &corev1.ObjectFieldSelector{
+								APIVersion: "v1",
+								FieldPath:  "metadata.namespace",
+							},
+						},
+					},
+					{Name: common.LDLibraryPathEnvKey, Value: "/plugins"},
+					// Note: OPENSHIFT_IMAGESTREAM_BACKUP is NOT included when BackupImages is false
+				},
+			}),
+		},
+		{
+			name: "valid DPA CR with BackupImages true (default), CA cert env vars should be added when CACert exists",
+			dpa: createTestDpaWith(
+				nil,
+				oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{},
+					},
+					BackupImages: ptr.To(true),
+					BackupLocations: []oadpv1alpha1.BackupLocation{
+						{
+							Velero: &velerov1.BackupStorageLocationSpec{
+								Provider: "aws",
+								StorageType: velerov1.StorageType{
+									ObjectStorage: &velerov1.ObjectStorageLocation{
+										CACert: awsTestCACert,
+									},
+								},
+							},
+						},
+					},
+				},
+			),
+			clientObjects: []client.Object{
+				&corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      caBundleConfigMapName,
+						Namespace: testNamespaceName,
+					},
+					Data: map[string]string{
+						caBundleFileName: string(awsTestCACert),
+					},
+				},
+			},
+			veleroDeployment: testVeleroDeployment.DeepCopy(),
+			wantVeleroDeployment: createTestBuiltVeleroDeployment(TestBuiltVeleroDeploymentOptions{
+				args: []string{
+					defaultFileSystemBackupTimeout,
+					defaultRestoreResourcePriorities,
+					defaultDisableInformerCache,
+				},
+				volumes: []corev1.Volume{
+					{
+						Name: caCertVolumeName,
+						VolumeSource: corev1.VolumeSource{
+							ConfigMap: &corev1.ConfigMapVolumeSource{
+								LocalObjectReference: corev1.LocalObjectReference{
+									Name: caBundleConfigMapName,
+								},
+							},
+						},
+					},
+				},
+				volumeMounts: []corev1.VolumeMount{
+					{
+						Name:      caCertVolumeName,
+						MountPath: caCertMountPath,
+						ReadOnly:  true,
+					},
+				},
+				env: append(baseEnvVars, corev1.EnvVar{
+					Name:  "AWS_CA_BUNDLE",
+					Value: caCertMountPath + "/" + caBundleFileName,
+				}),
+			}),
+		},
+		{
+			name: "valid DPA CR with multiple BSLs having different CA certificates, should concatenate all certificates",
+			dpa: createTestDpaWith(
+				nil,
+				oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{},
+					},
+					BackupImages: ptr.To(true),
+					BackupLocations: []oadpv1alpha1.BackupLocation{
+						{
+							Velero: &velerov1.BackupStorageLocationSpec{
+								Provider: "aws",
+								StorageType: velerov1.StorageType{
+									ObjectStorage: &velerov1.ObjectStorageLocation{
+										CACert: awsTestCACert,
+									},
+								},
+							},
+						},
+						{
+							Velero: &velerov1.BackupStorageLocationSpec{
+								Provider: "aws",
+								StorageType: velerov1.StorageType{
+									ObjectStorage: &velerov1.ObjectStorageLocation{
+										CACert: dummy2TestCACert,
+									},
+								},
+							},
+						},
+					},
+				},
+			),
+			clientObjects: []client.Object{
+				&corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      caBundleConfigMapName,
+						Namespace: testNamespaceName,
+					},
+					Data: map[string]string{
+						caBundleFileName: string(awsTestCACert) + string(dummy2TestCACert),
+					},
+				},
+			},
+			veleroDeployment: testVeleroDeployment.DeepCopy(),
+			wantVeleroDeployment: createTestBuiltVeleroDeployment(TestBuiltVeleroDeploymentOptions{
+				args: []string{
+					defaultFileSystemBackupTimeout,
+					defaultRestoreResourcePriorities,
+					defaultDisableInformerCache,
+				},
+				volumes: []corev1.Volume{
+					{
+						Name: caCertVolumeName,
+						VolumeSource: corev1.VolumeSource{
+							ConfigMap: &corev1.ConfigMapVolumeSource{
+								LocalObjectReference: corev1.LocalObjectReference{
+									Name: caBundleConfigMapName,
+								},
+							},
+						},
+					},
+				},
+				volumeMounts: []corev1.VolumeMount{
+					{
+						Name:      caCertVolumeName,
+						MountPath: caCertMountPath,
+						ReadOnly:  true,
+					},
+				},
+				env: append(baseEnvVars, corev1.EnvVar{
+					Name:  "AWS_CA_BUNDLE",
+					Value: caCertMountPath + "/" + caBundleFileName,
+				}),
+			}),
+		},
+		{
+			name: "valid DPA CR with duplicate CA certificates in different BSLs, should deduplicate",
+			dpa: createTestDpaWith(
+				nil,
+				oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{},
+					},
+					BackupImages: ptr.To(true),
+					BackupLocations: []oadpv1alpha1.BackupLocation{
+						{
+							Velero: &velerov1.BackupStorageLocationSpec{
+								Provider: "aws",
+								StorageType: velerov1.StorageType{
+									ObjectStorage: &velerov1.ObjectStorageLocation{
+										CACert: awsTestCACert,
+									},
+								},
+							},
+						},
+						{
+							Velero: &velerov1.BackupStorageLocationSpec{
+								Provider: "aws",
+								StorageType: velerov1.StorageType{
+									ObjectStorage: &velerov1.ObjectStorageLocation{
+										CACert: awsTestCACert,
+									},
+								},
+							},
+						},
+						{
+							Velero: &velerov1.BackupStorageLocationSpec{
+								Provider: "aws",
+								StorageType: velerov1.StorageType{
+									ObjectStorage: &velerov1.ObjectStorageLocation{
+										CACert: dummy2TestCACert,
+									},
+								},
+							},
+						},
+					},
+				},
+			),
+			clientObjects: []client.Object{
+				&corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      caBundleConfigMapName,
+						Namespace: testNamespaceName,
+					},
+					Data: map[string]string{
+						// Should contain only unique certificates (awsTestCACert appears twice, gcpTestCACert once)
+						caBundleFileName: string(awsTestCACert) + string(dummy2TestCACert),
+					},
+				},
+			},
+			veleroDeployment: testVeleroDeployment.DeepCopy(),
+			wantVeleroDeployment: createTestBuiltVeleroDeployment(TestBuiltVeleroDeploymentOptions{
+				args: []string{
+					defaultFileSystemBackupTimeout,
+					defaultRestoreResourcePriorities,
+					defaultDisableInformerCache,
+				},
+				volumes: []corev1.Volume{
+					{
+						Name: caCertVolumeName,
+						VolumeSource: corev1.VolumeSource{
+							ConfigMap: &corev1.ConfigMapVolumeSource{
+								LocalObjectReference: corev1.LocalObjectReference{
+									Name: caBundleConfigMapName,
+								},
+							},
+						},
+					},
+				},
+				volumeMounts: []corev1.VolumeMount{
+					{
+						Name:      caCertVolumeName,
+						MountPath: caCertMountPath,
+						ReadOnly:  true,
+					},
+				},
+				env: append(baseEnvVars, corev1.EnvVar{
+					Name:  "AWS_CA_BUNDLE",
+					Value: caCertMountPath + "/" + caBundleFileName,
+				}),
+			}),
+		},
+		{
+			name: "valid DPA CR with CA cert from CloudStorage BSL, should process correctly",
+			dpa: createTestDpaWith(
+				nil,
+				oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{},
+					},
+					BackupImages: ptr.To(true),
+					BackupLocations: []oadpv1alpha1.BackupLocation{
+						{
+							CloudStorage: &oadpv1alpha1.CloudStorageLocation{
+								CloudStorageRef: corev1.LocalObjectReference{
+									Name: "test-cloudstorage",
+								},
+								CACert: cloudStorageTestCACert,
+								Credential: &corev1.SecretKeySelector{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: "cloud-credentials",
+									},
+									Key: "creds",
+								},
+							},
+						},
+					},
+				},
+			),
+			clientObjects: []client.Object{
+				&oadpv1alpha1.CloudStorage{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-cloudstorage",
+						Namespace: testNamespaceName,
+					},
+					Spec: oadpv1alpha1.CloudStorageSpec{
+						Name:     "test-bucket",
+						Provider: oadpv1alpha1.AWSBucketProvider,
+						CreationSecret: corev1.SecretKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: "cloud-credentials",
+							},
+							Key: "creds",
+						},
+					},
+				},
+				&corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      caBundleConfigMapName,
+						Namespace: testNamespaceName,
+					},
+					Data: map[string]string{
+						caBundleFileName: string(cloudStorageTestCACert),
+					},
+				},
+			},
+			veleroDeployment: testVeleroDeployment.DeepCopy(),
+			wantVeleroDeployment: createTestBuiltVeleroDeployment(TestBuiltVeleroDeploymentOptions{
+				args: []string{
+					defaultFileSystemBackupTimeout,
+					defaultRestoreResourcePriorities,
+					defaultDisableInformerCache,
+				},
+				volumes: []corev1.Volume{
+					{
+						Name: caCertVolumeName,
+						VolumeSource: corev1.VolumeSource{
+							ConfigMap: &corev1.ConfigMapVolumeSource{
+								LocalObjectReference: corev1.LocalObjectReference{
+									Name: caBundleConfigMapName,
+								},
+							},
+						},
+					},
+				},
+				volumeMounts: []corev1.VolumeMount{
+					{
+						Name:      caCertVolumeName,
+						MountPath: caCertMountPath,
+						ReadOnly:  true,
+					},
+				},
+				env: append(baseEnvVars, corev1.EnvVar{
+					Name:  "AWS_CA_BUNDLE",
+					Value: caCertMountPath + "/" + caBundleFileName,
+				}),
+			}),
+		},
+		{
+			name: "valid DPA CR with mixed BSLs (some with CA certs, some without), should only include BSLs with CA certs",
+			dpa: createTestDpaWith(
+				nil,
+				oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{},
+					},
+					BackupImages: ptr.To(true),
+					BackupLocations: []oadpv1alpha1.BackupLocation{
+						{
+							Velero: &velerov1.BackupStorageLocationSpec{
+								Provider: "aws",
+								StorageType: velerov1.StorageType{
+									ObjectStorage: &velerov1.ObjectStorageLocation{
+										// No CACert
+									},
+								},
+							},
+						},
+						{
+							Velero: &velerov1.BackupStorageLocationSpec{
+								Provider: "aws",
+								StorageType: velerov1.StorageType{
+									ObjectStorage: &velerov1.ObjectStorageLocation{
+										CACert: dummy2TestCACert,
+									},
+								},
+							},
+						},
+						{
+							CloudStorage: &oadpv1alpha1.CloudStorageLocation{
+								CloudStorageRef: corev1.LocalObjectReference{
+									Name: "test-cloudstorage-mixed",
+								},
+								CACert: cloudStorageTestCACert,
+								Credential: &corev1.SecretKeySelector{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: "cloud-credentials",
+									},
+									Key: "creds",
+								},
+							},
+						},
+					},
+				},
+			),
+			clientObjects: []client.Object{
+				&oadpv1alpha1.CloudStorage{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-cloudstorage-mixed",
+						Namespace: testNamespaceName,
+					},
+					Spec: oadpv1alpha1.CloudStorageSpec{
+						Name:     "test-bucket-mixed",
+						Provider: oadpv1alpha1.AWSBucketProvider,
+						CreationSecret: corev1.SecretKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: "cloud-credentials",
+							},
+							Key: "creds",
+						},
+					},
+				},
+				&corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      caBundleConfigMapName,
+						Namespace: testNamespaceName,
+					},
+					Data: map[string]string{
+						caBundleFileName: string(dummy2TestCACert) + string(cloudStorageTestCACert),
+					},
+				},
+			},
+			veleroDeployment: testVeleroDeployment.DeepCopy(),
+			wantVeleroDeployment: createTestBuiltVeleroDeployment(TestBuiltVeleroDeploymentOptions{
+				args: []string{
+					defaultFileSystemBackupTimeout,
+					defaultRestoreResourcePriorities,
+					defaultDisableInformerCache,
+				},
+				volumes: []corev1.Volume{
+					{
+						Name: caCertVolumeName,
+						VolumeSource: corev1.VolumeSource{
+							ConfigMap: &corev1.ConfigMapVolumeSource{
+								LocalObjectReference: corev1.LocalObjectReference{
+									Name: caBundleConfigMapName,
+								},
+							},
+						},
+					},
+				},
+				volumeMounts: []corev1.VolumeMount{
+					{
+						Name:      caCertVolumeName,
+						MountPath: caCertMountPath,
+						ReadOnly:  true,
+					},
+				},
+				env: append(baseEnvVars, corev1.EnvVar{
+					Name:  "AWS_CA_BUNDLE",
+					Value: caCertMountPath + "/" + caBundleFileName,
+				}),
+			}),
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -2313,7 +2859,20 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 			if err != nil {
 				t.Errorf("error in creating fake client, likely programmer error")
 			}
-			r := DataProtectionApplicationReconciler{Client: fakeClient, dpa: test.dpa}
+			r := DataProtectionApplicationReconciler{
+				Client:  fakeClient,
+				dpa:     test.dpa,
+				Scheme:  fakeClient.Scheme(),
+				Log:     logr.Discard(),
+				Context: newContextForTest(),
+				EventRecorder: record.NewFakeRecorder(10),
+			}
+			if test.dpa != nil {
+				r.NamespacedName = types.NamespacedName{
+					Namespace: test.dpa.Namespace,
+					Name:      test.dpa.Name,
+				}
+			}
 			oadpclient.SetClient(fakeClient)
 			if test.testProxy {
 				t.Setenv(proxyEnvKey, proxyEnvValue)
@@ -2798,6 +3357,8 @@ func TestDPAReconciler_buildVeleroDeploymentWithAzureWorkloadIdentity(t *testing
 			r := &DataProtectionApplicationReconciler{
 				dpa: tt.dpa,
 				Log: logr.Discard(),
+				Context: newContextForTest(),
+				Client: getFakeClientFromObjectsForTest(t),
 			}
 
 			// Build the deployment

@@ -5264,6 +5264,7 @@ HREEQTBM----END CERTIFICATE-----`
 	tests := []struct {
 		name              string
 		backupLocations   []oadpv1alpha1.BackupLocation
+		cloudStorages     []client.Object // CloudStorage objects to add to fake client
 		wantConfigMapName string
 		wantError         bool
 	}{
@@ -5282,6 +5283,7 @@ HREEQTBM----END CERTIFICATE-----`
 					},
 				},
 			},
+			cloudStorages:     nil, // No CloudStorage objects needed for Velero BSL
 			wantConfigMapName: caBundleConfigMapName,
 			wantError:         false,
 		},
@@ -5292,6 +5294,18 @@ HREEQTBM----END CERTIFICATE-----`
 					CloudStorage: &oadpv1alpha1.CloudStorageLocation{
 						CloudStorageRef: corev1.LocalObjectReference{Name: "test-bucket"},
 						CACert:          []byte(testCACertPEM),
+					},
+				},
+			},
+			cloudStorages: []client.Object{
+				&oadpv1alpha1.CloudStorage{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-bucket",
+						Namespace: "test-namespace",
+					},
+					Spec: oadpv1alpha1.CloudStorageSpec{
+						Name:     "test-bucket",
+						Provider: oadpv1alpha1.AWSBucketProvider,
 					},
 				},
 			},
@@ -5312,12 +5326,14 @@ HREEQTBM----END CERTIFICATE-----`
 					},
 				},
 			},
+			cloudStorages:     nil, // No CloudStorage objects needed
 			wantConfigMapName: "",
 			wantError:         false,
 		},
 		{
 			name:              "No BSLs configured",
 			backupLocations:   []oadpv1alpha1.BackupLocation{},
+			cloudStorages:     nil, // No CloudStorage objects needed
 			wantConfigMapName: "",
 			wantError:         false,
 		},
@@ -5353,6 +5369,18 @@ HREEQTBM----END CERTIFICATE-----`
 					},
 				},
 			},
+			cloudStorages: []client.Object{
+				&oadpv1alpha1.CloudStorage{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-bucket-2",
+						Namespace: "test-namespace",
+					},
+					Spec: oadpv1alpha1.CloudStorageSpec{
+						Name:     "test-bucket-2",
+						Provider: oadpv1alpha1.AWSBucketProvider,
+					},
+				},
+			},
 			wantConfigMapName: caBundleConfigMapName,
 			wantError:         false,
 		},
@@ -5377,6 +5405,18 @@ HREEQTBM----END CERTIFICATE-----`
 					},
 				},
 			},
+			cloudStorages: []client.Object{
+				&oadpv1alpha1.CloudStorage{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-bucket-2",
+						Namespace: "test-namespace",
+					},
+					Spec: oadpv1alpha1.CloudStorageSpec{
+						Name:     "test-bucket-2",
+						Provider: oadpv1alpha1.AWSBucketProvider,
+					},
+				},
+			},
 			wantConfigMapName: caBundleConfigMapName,
 			wantError:         false,
 		},
@@ -5395,8 +5435,12 @@ HREEQTBM----END CERTIFICATE-----`
 				},
 			}
 
-			// Create fake client with the DPA
-			fakeClient := getFakeClientFromObjectsForTest(t, dpa)
+			// Create fake client with the DPA and CloudStorage objects
+			objects := []client.Object{dpa}
+			if tt.cloudStorages != nil {
+				objects = append(objects, tt.cloudStorages...)
+			}
+			fakeClient := getFakeClientFromObjectsForTest(t, objects...)
 
 			// Create reconciler
 			r := &DataProtectionApplicationReconciler{
@@ -5441,10 +5485,11 @@ HREEQTBM----END CERTIFICATE-----`
 				// Verify content based on test case
 				bundleContent := configMap.Data[caBundleFileName]
 				if strings.Contains(tt.name, "Multiple BSLs with different CA certificates") {
-					// Verify all certificates are concatenated
+					// Verify only AWS certificates are concatenated (Azure is filtered out)
 					assert.Contains(t, bundleContent, "First CA Certificate")
 					assert.Contains(t, bundleContent, "Second CA Certificate")
-					assert.Contains(t, bundleContent, "Third CA Certificate")
+					// Azure certificate should NOT be included (provider filtering)
+					assert.NotContains(t, bundleContent, "Third CA Certificate")
 				} else if strings.Contains(tt.name, "Multiple BSLs with duplicate CA certificates") {
 					// Verify duplicate is only included once
 					assert.Equal(t, 1, strings.Count(bundleContent, testCACertPEM))
