@@ -694,7 +694,8 @@ spec:
   configuration:
     velero:
       defaultPlugins:
-        - aws  # No openshift plugin needed if not backing up imagestreams
+        - openshift
+        - aws
     nodeAgent:
       enable: true
   backupImages: false  # Explicitly disable imagestream backup CA handling
