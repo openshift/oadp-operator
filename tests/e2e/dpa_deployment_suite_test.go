@@ -52,6 +52,7 @@ func createTestDPASpec(testSpec TestDPASpec) *oadpv1alpha1.DataProtectionApplica
 						ObjectStorage: &velero.ObjectStorageLocation{
 							Bucket: dpaCR.BSLBucket,
 							Prefix: dpaCR.BSLBucketPrefix,
+							CACert: dpaCR.BSLCacert,
 						},
 					},
 					Provider: dpaCR.BSLProvider,

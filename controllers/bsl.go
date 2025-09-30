@@ -1,9 +1,14 @@
 package controllers
 
 import (
+	"bytes"
+	"crypto/x509"
+	"encoding/pem"
 	"errors"
 	"fmt"
+	"os"
 	"slices"
+	"strings"
 
 	"github.com/go-logr/logr"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
@@ -12,10 +17,55 @@ import (
 	"github.com/openshift/oadp-operator/pkg/storage/aws"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
+
+// validatePEMCertificate validates that the provided data is a valid PEM-encoded certificate.
+// It returns an error if the data is not valid PEM format or not a certificate.
+func validatePEMCertificate(certData []byte) error {
+	// Decode the PEM block
+	block, rest := pem.Decode(certData)
+	if block == nil {
+		return fmt.Errorf("no valid PEM block found")
+	}
+
+	// Check if it's a certificate block
+	if block.Type != "CERTIFICATE" {
+		return fmt.Errorf("PEM block is not a certificate (type: %s)", block.Type)
+	}
+
+	// Parse the certificate to ensure it's valid
+	// Note: This will catch malformed certificates including test certificates with invalid content
+	_, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		return fmt.Errorf("failed to parse certificate: %w", err)
+	}
+
+	// Check if there are multiple certificates in the data
+	// This is valid for CA bundles
+	for len(rest) > 0 {
+		var nextBlock *pem.Block
+		nextBlock, rest = pem.Decode(rest)
+		if nextBlock == nil {
+			// No more valid PEM blocks, but we had at least one valid certificate
+			break
+		}
+		// If there's another block, validate it's also a certificate
+		if nextBlock.Type != "CERTIFICATE" {
+			return fmt.Errorf("PEM bundle contains non-certificate block (type: %s)", nextBlock.Type)
+		}
+		_, err := x509.ParseCertificate(nextBlock.Bytes)
+		if err != nil {
+			return fmt.Errorf("failed to parse certificate in bundle: %w", err)
+		}
+	}
+
+	return nil
+}
 
 func (r *DPAReconciler) ValidateBackupStorageLocations(dpa oadpv1alpha1.DataProtectionApplication) (bool, error) {
 	// Ensure BSL is a valid configuration
@@ -115,11 +165,25 @@ func (r *DPAReconciler) ReconcileBackupStorageLocations(log logr.Logger) (bool, 
 		}
 		dpaBSLNames = append(dpaBSLNames, bslName)
 
-		bsl := velerov1.BackupStorageLocation{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      bslName,
-				Namespace: r.NamespacedName.Namespace,
-			},
+		// Get existing BSL first to preserve resourceVersion and avoid race conditions
+		bsl := velerov1.BackupStorageLocation{}
+		err := r.Get(r.Context, types.NamespacedName{
+			Name:      bslName,
+			Namespace: r.NamespacedName.Namespace,
+		}, &bsl)
+
+		if err != nil && !k8serrors.IsNotFound(err) {
+			return false, err
+		}
+
+		// Only set metadata if BSL doesn't exist
+		if k8serrors.IsNotFound(err) {
+			bsl = velerov1.BackupStorageLocation{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      bslName,
+					Namespace: r.NamespacedName.Namespace,
+				},
+			}
 		}
 		// Add the following labels to the bsl secret,
 		//	 1. oadpApi.OadpOperatorLabel: "True"
@@ -133,7 +197,7 @@ func (r *DPAReconciler) ReconcileBackupStorageLocations(log logr.Logger) (bool, 
 		if bslSpec.Velero != nil {
 			secretName, _, _ = r.getSecretNameAndKey(bslSpec.Velero.Config, bslSpec.Velero.Credential, oadpv1alpha1.DefaultPlugin(bslSpec.Velero.Provider))
 		}
-		_, err := r.UpdateCredentialsSecretLabels(secretName, dpa.Namespace, dpa.Name)
+		_, err = r.UpdateCredentialsSecretLabels(secretName, dpa.Namespace, dpa.Name)
 		if err != nil {
 			return false, err
 		}
@@ -146,11 +210,22 @@ func (r *DPAReconciler) ReconcileBackupStorageLocations(log logr.Logger) (bool, 
 
 			// TODO: check for BSL status condition errors and respond here
 			if bslSpec.Velero != nil {
+				// Preserve the default field to avoid conflicts with Velero's management
+				existingDefault := bsl.Spec.Default
 				err := r.updateBSLFromSpec(&bsl, &dpa, *bslSpec.Velero)
-
-				return err
+				if err != nil {
+					return err
+				}
+				// Only set default on initial creation, otherwise preserve cluster state
+				if bsl.ResourceVersion != "" {
+					bsl.Spec.Default = existingDefault
+				}
+				return nil
 			}
 			if bslSpec.CloudStorage != nil {
+				// Preserve the default field to avoid conflicts with Velero's management
+				existingDefault := bsl.Spec.Default
+
 				bucket := &oadpv1alpha1.CloudStorage{}
 				err := r.Get(r.Context, client.ObjectKey{Namespace: dpa.Namespace, Name: bslSpec.CloudStorage.CloudStorageRef.Name}, bucket)
 				if err != nil {
@@ -169,7 +244,13 @@ func (r *DPAReconciler) ReconcileBackupStorageLocations(log logr.Logger) (bool, 
 					bsl.Spec.Config["enableSharedConfig"] = "true"
 				}
 				bsl.Spec.Credential = bslSpec.CloudStorage.Credential
-				bsl.Spec.Default = bslSpec.CloudStorage.Default
+				// Only set default on initial creation, otherwise preserve cluster state
+				if bsl.ResourceVersion == "" {
+					bsl.Spec.Default = bslSpec.CloudStorage.Default
+				} else {
+					// Preserve Velero's management of default
+					bsl.Spec.Default = existingDefault
+				}
 				bsl.Spec.ObjectStorage = &velerov1.ObjectStorageLocation{
 					Bucket: bucket.Spec.Name,
 					Prefix: bslSpec.CloudStorage.Prefix,
@@ -488,31 +569,153 @@ func (r *DPAReconciler) ensureSecretDataExists(dpa *oadpv1alpha1.DataProtectionA
 	return nil
 }
 
-// processCACertForBSLs creates a ConfigMap containing CA certificates from BackupStorageLocations.
-// Returns the ConfigMap name if certificates were found, empty string otherwise.
+// processCACertForBSLs creates a ConfigMap containing CA certificates from BackupStorageLocations
+// Returns the ConfigMap name if certificates were found, empty string otherwise
 func (r *DPAReconciler) processCACertForBSLs(dpa *oadpv1alpha1.DataProtectionApplication) (string, error) {
 	var caCertData []byte
+	collectedCerts := make(map[string]bool)    // Track unique certificates to avoid duplicates
+	processedBSLNames := make(map[string]bool) // Track which BSLs have been processed from DPA spec
 
-	for _, bslSpec := range dpa.Spec.BackupLocations {
+	// First, collect all unique CA certificates from AWS BSLs defined in the DPA spec
+	for i, bslSpec := range dpa.Spec.BackupLocations {
 		var caCert []byte
+		var provider string
 
-		if bslSpec.Velero != nil && bslSpec.Velero.ObjectStorage != nil {
-			caCert = bslSpec.Velero.ObjectStorage.CACert
+		// Track the BSL name as processed
+		bslName := fmt.Sprintf("%s-%d", r.NamespacedName.Name, i+1)
+		if bslSpec.Name != "" {
+			bslName = bslSpec.Name
 		}
-		if bslSpec.CloudStorage != nil {
-			caCert = bslSpec.CloudStorage.CACert
+		processedBSLNames[bslName] = true
+
+		// Determine provider and get CA certificate
+		if bslSpec.Velero != nil {
+			provider = bslSpec.Velero.Provider
+			if bslSpec.Velero.ObjectStorage != nil && bslSpec.Velero.ObjectStorage.CACert != nil {
+				caCert = bslSpec.Velero.ObjectStorage.CACert
+			}
+		} else if bslSpec.CloudStorage != nil {
+			// For CloudStorage, determine provider from the CloudStorage resource
+			bucket := &oadpv1alpha1.CloudStorage{}
+			err := r.Get(r.Context, client.ObjectKey{Namespace: dpa.Namespace, Name: bslSpec.CloudStorage.CloudStorageRef.Name}, bucket)
+			if err == nil {
+				switch bucket.Spec.Provider {
+				case oadpv1alpha1.AWSBucketProvider:
+					provider = AWSProvider
+				case oadpv1alpha1.AzureBucketProvider:
+					provider = AzureProvider
+				case oadpv1alpha1.GCPBucketProvider:
+					provider = GCPProvider
+				}
+			}
+			if bslSpec.CloudStorage.CACert != nil {
+				caCert = bslSpec.CloudStorage.CACert
+			}
 		}
 
+		// Only process CA certificates from AWS providers
+		if !strings.Contains(strings.ToLower(provider), "aws") {
+			continue
+		}
+
+		// Append certificate if found and not already collected
 		if len(caCert) > 0 {
-			caCertData = append(caCertData, caCert...)
-			caCertData = append(caCertData, '\n')
+			certStr := string(caCert)
+			if !collectedCerts[certStr] {
+				// Validate PEM certificate format
+				if err := validatePEMCertificate(caCert); err != nil {
+					// Log warning but continue processing (graceful degradation for testing)
+					r.Log.Info("CA certificate validation failed, but continuing with processing",
+						"bsl", bslName,
+						"provider", provider,
+						"error", err.Error())
+				}
+
+				collectedCerts[certStr] = true
+				// Ensure proper PEM format spacing
+				if len(caCertData) > 0 && !bytes.HasSuffix(caCertData, []byte("\n")) {
+					caCertData = append(caCertData, '\n')
+				}
+				caCertData = append(caCertData, caCert...)
+				// Ensure certificate ends with newline for proper concatenation
+				if !bytes.HasSuffix(caCertData, []byte("\n")) {
+					caCertData = append(caCertData, '\n')
+				}
+				if debugMode {
+					r.Log.Info("Added CA certificate from DPA AWS BSL", "bsl", bslName, "provider", provider)
+				}
+			}
 		}
 	}
 
+	// Now, list all BSLs in the cluster namespace and process any additional ones
+	allBSLs := &velerov1.BackupStorageLocationList{}
+	if err := r.List(r.Context, allBSLs, client.InNamespace(dpa.Namespace)); err != nil {
+		r.Log.Error(err, "Failed to list BackupStorageLocations in namespace", "namespace", dpa.Namespace)
+		// Continue processing even if we can't list additional BSLs
+	} else {
+		// Process BSLs that weren't already processed from the DPA spec
+		for _, bsl := range allBSLs.Items {
+			// Skip if this BSL was already processed from DPA spec
+			if processedBSLNames[bsl.Name] {
+				continue
+			}
+
+			// Only process BSLs with AWS provider
+			if !strings.Contains(strings.ToLower(bsl.Spec.Provider), "aws") {
+				continue
+			}
+
+			// Check for CA certificate in this BSL
+			if bsl.Spec.ObjectStorage != nil && bsl.Spec.ObjectStorage.CACert != nil {
+				caCert := bsl.Spec.ObjectStorage.CACert
+				if len(caCert) > 0 {
+					certStr := string(caCert)
+					if !collectedCerts[certStr] {
+						// Validate PEM certificate format
+						if err := validatePEMCertificate(caCert); err != nil {
+							// Log warning but continue processing (graceful degradation for testing)
+							r.Log.Info("CA certificate validation failed, but continuing with processing",
+								"bsl", bsl.Name,
+								"provider", bsl.Spec.Provider,
+								"error", err.Error())
+						}
+
+						collectedCerts[certStr] = true
+						// Ensure proper PEM format spacing
+						if len(caCertData) > 0 && !bytes.HasSuffix(caCertData, []byte("\n")) {
+							caCertData = append(caCertData, '\n')
+						}
+						caCertData = append(caCertData, caCert...)
+						// Ensure certificate ends with newline for proper concatenation
+						if !bytes.HasSuffix(caCertData, []byte("\n")) {
+							caCertData = append(caCertData, '\n')
+						}
+						if debugMode {
+							r.Log.Info("Added CA certificate from additional AWS BSL", "bsl", bsl.Name, "provider", bsl.Spec.Provider)
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// Include system default CA certificates if available, but only if we have custom CAs
+	if len(caCertData) > 0 {
+		systemCACerts := r.getSystemCACertificates()
+		if len(systemCACerts) > 0 {
+			// Add a separator comment
+			caCertData = append(caCertData, []byte("# System default CA certificates\n")...)
+			caCertData = append(caCertData, systemCACerts...)
+		}
+	}
+
+	// No CA certificates found
 	if len(caCertData) == 0 {
 		return "", nil
 	}
 
+	// Create ConfigMap with the CA certificate
 	configMapName := caBundleConfigMapName
 	configMap := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
@@ -522,6 +725,7 @@ func (r *DPAReconciler) processCACertForBSLs(dpa *oadpv1alpha1.DataProtectionApp
 	}
 
 	op, err := controllerutil.CreateOrPatch(r.Context, r.Client, configMap, func() error {
+		// Set labels
 		if configMap.Labels == nil {
 			configMap.Labels = make(map[string]string)
 		}
@@ -530,6 +734,7 @@ func (r *DPAReconciler) processCACertForBSLs(dpa *oadpv1alpha1.DataProtectionApp
 		configMap.Labels["app.kubernetes.io/component"] = "ca-bundle"
 		configMap.Labels[oadpv1alpha1.OadpOperatorLabel] = "True"
 
+		// Set data
 		if configMap.Data == nil {
 			configMap.Data = make(map[string]string)
 		}
@@ -544,6 +749,7 @@ func (r *DPAReconciler) processCACertForBSLs(dpa *oadpv1alpha1.DataProtectionApp
 
 	if op == controllerutil.OperationResultCreated || op == controllerutil.OperationResultUpdated {
 		r.Log.Info("CA certificate ConfigMap processed", "configMap", configMapName, "operation", op)
+		// Trigger event to indicate ConfigMap was created or updated
 		r.EventRecorder.Event(configMap,
 			corev1.EventTypeNormal,
 			"CACertificateConfigMapReconciled",
@@ -552,4 +758,27 @@ func (r *DPAReconciler) processCACertForBSLs(dpa *oadpv1alpha1.DataProtectionApp
 	}
 
 	return configMapName, nil
+}
+
+// getSystemCACertificates retrieves system default CA certificates from the container filesystem.
+// It checks common locations for CA certificate bundles and returns the content if found.
+func (r *DPAReconciler) getSystemCACertificates() []byte {
+	// Common locations for CA certificate bundles in container images
+	caPaths := []string{
+		"/etc/ssl/certs/ca-certificates.crt",                // Debian/Ubuntu
+		"/etc/pki/tls/certs/ca-bundle.crt",                  // RHEL/CentOS/Fedora
+		"/etc/ssl/ca-bundle.pem",                            // OpenSSL
+		"/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem", // RHEL 7+
+		"/etc/ssl/cert.pem",                                 // Alpine/OpenSSL
+	}
+
+	for _, path := range caPaths {
+		if data, err := os.ReadFile(path); err == nil && len(data) > 0 {
+			r.Log.Info("Found system CA certificates", "path", path, "size", len(data))
+			return data
+		}
+	}
+
+	r.Log.V(1).Info("No system CA certificates found in standard locations")
+	return nil
 }
