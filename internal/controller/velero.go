@@ -439,9 +439,11 @@ func (r *DataProtectionApplicationReconciler) customizeVeleroDeployment(veleroDe
 		}
 	}
 
-	// Process CA certificates from BackupStorageLocations
-	if err := r.processCACertificatesForVelero(veleroDeployment, veleroContainer); err != nil {
-		return fmt.Errorf("failed to process CA certificates: %w", err)
+	// Process CA certificates from BackupStorageLocations if backupImages is true or nil (nil means true)
+	if dpa.BackupImages() {
+		if err := r.processCACertificatesForVelero(veleroDeployment, veleroContainer); err != nil {
+			return fmt.Errorf("failed to process CA certificates: %w", err)
+		}
 	}
 
 	return nil
