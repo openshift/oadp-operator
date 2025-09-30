@@ -72,18 +72,18 @@ OADP/Velero supports CA certificates through **two independent mechanisms**:
 - Points to mounted file: `/etc/velero/ca-certs/ca-bundle.pem`
 - Read by AWS SDK at session creation time
 - **Required for imagestream backups** (docker-distribution S3 driver)
-- Also affects velero-plugin-for-aws as redundant/backup mechanism
+- **Overrides BSL `caCert`** for velero-plugin-for-aws when both are present
 - **Not set** when `backupImages: false`
 
 #### Component Behavior Summary
 
 | Component | `backupImages: true` | `backupImages: false` |
 |-----------|---------------------|----------------------|
-| **velero-plugin-for-aws** | Uses BOTH mechanisms (BSL `caCert` + `AWS_CA_BUNDLE`) | Uses ONLY BSL `caCert` field |
+| **velero-plugin-for-aws** | Uses `AWS_CA_BUNDLE` (overrides BSL `caCert`) | Uses ONLY BSL `caCert` field |
 | **ImageStream backups** | ✅ Works (requires `AWS_CA_BUNDLE`) | ❌ Fails with custom CAs |
-| **Velero BSL validation** | Uses BSL `caCert` directly | Uses BSL `caCert` directly |
+| **Velero BSL validation** | Uses `AWS_CA_BUNDLE` (overrides BSL `caCert`) via velero-plugin-for-aws | Uses BSL `caCert` via velero-plugin-for-aws |
 
-**Why both mechanisms exist**: The BSL `caCert` field works for Velero and its plugins, but docker-distribution S3 driver operates in openshift-velero-plugin context and can only read from `AWS_CA_BUNDLE` environment variable pointing to a mounted file.
+**Why both mechanisms exist**: The BSL `caCert` field is passed by Velero to plugins, but docker-distribution S3 driver operates in openshift-velero-plugin context and can only read from `AWS_CA_BUNDLE` environment variable pointing to a mounted file. When `AWS_CA_BUNDLE` is set, the AWS SDK reads it at session creation and overrides any BSL `caCert` configuration for all AWS SDK operations (including BSL validation via velero-plugin-for-aws).
 
 ### backupImages Control Field
 
@@ -794,9 +794,9 @@ spec:
 See [Two CA Certificate Mechanisms](#two-ca-certificate-mechanisms) in Key Concepts for a complete explanation of how different components (velero-plugin-for-aws, imagestream backups, BSL validation) use CA certificates differently with `backupImages: true` vs `false`.
 
 **Key points**:
-- velero-plugin-for-aws works with either mechanism
-- ImageStream backups REQUIRE `AWS_CA_BUNDLE` environment variable
-- Regular Velero backups use BSL `caCert` field natively
+- velero-plugin-for-aws: `AWS_CA_BUNDLE` overrides BSL `caCert` when both present (affects all AWS SDK operations)
+- ImageStream backups: REQUIRE `AWS_CA_BUNDLE` environment variable
+- Velero BSL validation: Uses velero-plugin-for-aws, so also affected by `AWS_CA_BUNDLE` override behavior
 
 **When to disable** `backupImages: false`:
 - No imagestream backups needed
