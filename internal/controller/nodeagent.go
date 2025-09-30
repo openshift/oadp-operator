@@ -253,7 +253,9 @@ func (r *DataProtectionApplicationReconciler) ReconcileNodeAgentDaemonset(log lo
 			veleroAffinityStruct := make([]*kube.LoadAffinity, len(dpa.Spec.Configuration.NodeAgent.NodeAgentConfigMapSettings.LoadAffinityConfig))
 
 			for i, aff := range dpa.Spec.Configuration.NodeAgent.NodeAgentConfigMapSettings.LoadAffinityConfig {
-				veleroAffinityStruct[i] = (*kube.LoadAffinity)(aff)
+				veleroAffinityStruct[i] = &kube.LoadAffinity{
+					NodeSelector: aff.NodeSelector,
+				}
 			}
 			affinity := kube.ToSystemAffinity(veleroAffinityStruct)
 			ds.Spec.Template.Spec.Affinity = affinity

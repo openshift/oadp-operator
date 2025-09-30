@@ -20,7 +20,7 @@ import (
 	"time"
 
 	velero "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
-	"github.com/vmware-tanzu/velero/pkg/nodeagent"
+	"github.com/vmware-tanzu/velero/pkg/types"
 	"github.com/vmware-tanzu/velero/pkg/util/kube"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -427,10 +427,10 @@ type NodeAgentConfigMapSettings struct {
 	LoadAffinityConfig []*LoadAffinity `json:"loadAffinity,omitempty"`
 	// BackupPVCConfig is the config for backupPVC (intermediate PVC) of snapshot data movement
 	// +optional
-	BackupPVCConfig map[string]nodeagent.BackupPVC `json:"backupPVC,omitempty"`
+	BackupPVCConfig map[string]types.BackupPVC `json:"backupPVC,omitempty"`
 	// RestoreVCConfig is the config for restorePVC (intermediate PVC) of generic restore
 	// +optional
-	RestorePVCConfig *nodeagent.RestorePVC `json:"restorePVC,omitempty"`
+	RestorePVCConfig *types.RestorePVC `json:"restorePVC,omitempty"`
 	// PodResources is the resource config for various types of pods launched by node-agent, i.e., data mover pods.
 	// +optional
 	PodResources *kube.PodResources `json:"podResources,omitempty"`

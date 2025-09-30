@@ -168,7 +168,7 @@ func (r *DataProtectionApplicationReconciler) buildVeleroDeployment(veleroDeploy
 
 	_, err := r.ReconcileRestoreResourcesVersionPriority()
 	if err != nil {
-		return fmt.Errorf("error creating configmap for restore resource version priority:" + err.Error())
+		return fmt.Errorf("error creating configmap for restore resource version priority: %w", err)
 	}
 	// get resource requirements for velero deployment
 	// ignoring err here as it is checked in validator.go
@@ -269,7 +269,9 @@ func (r *DataProtectionApplicationReconciler) customizeVeleroDeployment(veleroDe
 		veleroAffinityStruct := make([]*kube.LoadAffinity, len(dpa.Spec.Configuration.Velero.LoadAffinityConfig))
 
 		for i, aff := range dpa.Spec.Configuration.Velero.LoadAffinityConfig {
-			veleroAffinityStruct[i] = (*kube.LoadAffinity)(aff)
+			veleroAffinityStruct[i] = &kube.LoadAffinity{
+				NodeSelector: aff.NodeSelector,
+			}
 		}
 		affinity := kube.ToSystemAffinity(veleroAffinityStruct)
 		veleroDeployment.Spec.Template.Spec.Affinity = affinity
