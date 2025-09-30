@@ -510,6 +510,11 @@ var _ = ginkgo.Describe("Multiple BSL with custom CA cert tests", ginkgo.Ordered
 			log.Printf("Running must-gather for failed test")
 			_ = lib.RunMustGather(artifact_dir, dpaCR.Client)
 		}
+		log.Printf("Deleting DPA")
+		err := dpaCR.Delete()
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		log.Printf("Waiting for velero to be deleted")
+		gomega.Eventually(lib.VeleroIsDeleted(kubernetesClientForSuiteRun, namespace), time.Minute*3, time.Second*5).Should(gomega.BeTrue())
 	})
 
 	ginkgo.DescribeTable("BSL CA certificate handling with multiple BSLs",
@@ -653,12 +658,12 @@ var _ = ginkgo.Describe("Multiple BSL with custom CA cert tests", ginkgo.Ordered
 					}
 				}
 				gomega.Expect(awsCABundleFound).To(gomega.BeTrue(), "AWS_CA_BUNDLE environment variable should be set when backupImages=true")
-				gomega.Expect(awsCABundlePath).To(gomega.Equal("/etc/ssl/custom-ca-bundle/ca-bundle.crt"))
+				gomega.Expect(awsCABundlePath).To(gomega.Equal("/etc/velero/ca-certs/ca-bundle.pem"))
 
 				// Verify CA cert ConfigMap is mounted
 				caCertVolumeMountFound := false
 				for _, mount := range veleroContainer.VolumeMounts {
-					if mount.Name == "custom-ca-certs" && mount.MountPath == "/etc/ssl/custom-ca-bundle" {
+					if mount.Name == "ca-certificate-bundle" && mount.MountPath == "/etc/velero/ca-certs" {
 						caCertVolumeMountFound = true
 						log.Printf("Found CA cert volume mount: %s at %s", mount.Name, mount.MountPath)
 						break
@@ -668,12 +673,12 @@ var _ = ginkgo.Describe("Multiple BSL with custom CA cert tests", ginkgo.Ordered
 
 				// Verify the ConfigMap exists and contains all three custom CAs plus system CAs
 				log.Printf("Verifying CA certificate ConfigMap contents")
-				configMapName := "oadp-" + dpaCR.Name + "-ca-bundle"
+				configMapName := "velero-ca-bundle"
 				configMap, err := kubernetesClientForSuiteRun.CoreV1().ConfigMaps(namespace).Get(context.Background(), configMapName, metav1.GetOptions{})
 				gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
-				caBundleContent, exists := configMap.Data["ca-bundle.crt"]
-				gomega.Expect(exists).To(gomega.BeTrue(), "ca-bundle.crt should exist in ConfigMap")
+				caBundleContent, exists := configMap.Data["ca-bundle.pem"]
+				gomega.Expect(exists).To(gomega.BeTrue(), "ca-bundle.pem should exist in ConfigMap")
 
 				// Verify bundle contains all three custom certificates
 				gomega.Expect(caBundleContent).To(gomega.ContainSubstring("SECOND-CERT-CONTENT"), "CA bundle should contain second BSL's certificate")

@@ -172,6 +172,7 @@ func TestOADPE2E(t *testing.T) {
 		BSLConfig:            dpa.DeepCopy().Spec.BackupLocations[0].Velero.Config,
 		BSLProvider:          dpa.DeepCopy().Spec.BackupLocations[0].Velero.Provider,
 		BSLBucket:            dpa.DeepCopy().Spec.BackupLocations[0].Velero.ObjectStorage.Bucket,
+		BSLCacert:            dpa.DeepCopy().Spec.BackupLocations[0].Velero.ObjectStorage.CACert,
 		BSLBucketPrefix:      veleroPrefix,
 		VeleroDefaultPlugins: dpa.DeepCopy().Spec.Configuration.Velero.DefaultPlugins,
 		SnapshotLocations:    dpa.DeepCopy().Spec.SnapshotLocations,
