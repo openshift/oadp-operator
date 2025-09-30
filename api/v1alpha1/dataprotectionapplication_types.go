@@ -425,6 +425,9 @@ type NodeAgentConfigMapSettings struct {
 	// LoadAffinity is the config for data path load affinity.
 	// +optional
 	LoadAffinityConfig []*LoadAffinity `json:"loadAffinity,omitempty"`
+	// Note: DeepCopy for this field is manually maintained below as controller-gen is unable to generate DeepCopyInto for external types (velerotypes.BackupPVC)
+	// because types.BackupPVC is an external type without DeepCopy methods
+
 	// BackupPVCConfig is the config for backupPVC (intermediate PVC) of snapshot data movement
 	// +optional
 	BackupPVCConfig map[string]types.BackupPVC `json:"backupPVC,omitempty"`
@@ -434,6 +437,56 @@ type NodeAgentConfigMapSettings struct {
 	// PodResources is the resource config for various types of pods launched by node-agent, i.e., data mover pods.
 	// +optional
 	PodResources *kube.PodResources `json:"podResources,omitempty"`
+}
+
+// DeepCopyInto is a manual deepcopy function, copying the receiver, writing into out. in must be non-nil.
+// needed for above BackupPVCConfig map[string]types.BackupPVC `json:"backupPVC,omitempty"`
+func (in *NodeAgentConfigMapSettings) DeepCopyInto(out *NodeAgentConfigMapSettings) {
+	*out = *in
+	if in.LoadConcurrency != nil {
+		in, out := &in.LoadConcurrency, &out.LoadConcurrency
+		*out = new(LoadConcurrency)
+		(*in).DeepCopyInto(*out)
+	}
+	if in.LoadAffinityConfig != nil {
+		in, out := &in.LoadAffinityConfig, &out.LoadAffinityConfig
+		*out = make([]*LoadAffinity, len(*in))
+		for i := range *in {
+			if (*in)[i] != nil {
+				in, out := &(*in)[i], &(*out)[i]
+				*out = new(LoadAffinity)
+				(*in).DeepCopyInto(*out)
+			}
+		}
+	}
+	if in.BackupPVCConfig != nil {
+		in, out := &in.BackupPVCConfig, &out.BackupPVCConfig
+		*out = make(map[string]types.BackupPVC, len(*in))
+		for key, val := range *in {
+			outVal := types.BackupPVC{
+				StorageClass:    val.StorageClass,
+				ReadOnly:        val.ReadOnly,
+				SPCNoRelabeling: val.SPCNoRelabeling,
+			}
+			if val.Annotations != nil {
+				outVal.Annotations = make(map[string]string, len(val.Annotations))
+				for k, v := range val.Annotations {
+					outVal.Annotations[k] = v
+				}
+			}
+			(*out)[key] = outVal
+		}
+	}
+	if in.RestorePVCConfig != nil {
+		in, out := &in.RestorePVCConfig, &out.RestorePVCConfig
+		*out = new(types.RestorePVC)
+		**out = **in
+	}
+	if in.PodResources != nil {
+		in, out := &in.PodResources, &out.PodResources
+		*out = new(kube.PodResources)
+		**out = **in
+	}
 }
 
 // Velero nodeAgentServerConfig struct used in below struct:
