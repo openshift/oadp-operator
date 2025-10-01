@@ -81,6 +81,7 @@ items:
           serviceAccountName: mongo-persistent-sa
           containers:
           - image: docker.io/library/mongo:latest
+            imagePullPolicy: IfNotPresent
             name: mongo
             securityContext:
               privileged: true

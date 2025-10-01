@@ -72,6 +72,7 @@ items:
           # This allows Mongo to use the filesystem which lives on block device.
           initContainers:
             - image: docker.io/library/mongo:latest
+              imagePullPolicy: IfNotPresent
               securityContext:
                 privileged: true
               name: setup-block-device
