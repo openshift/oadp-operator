@@ -93,8 +93,10 @@ OADP/Velero supports CA certificates through **two independent mechanisms**:
 The BSL `caCert` field is a **Velero BackupStorageLocation spec field**, but it's not an **S3 storage driver parameter**. Here's the critical distinction:
 
 - **Velero BSL spec**: Contains fields like `caCert`, `bucket`, `region`, etc.
-- **S3 driver parameters**: The subset of configuration passed to the S3 storage driver (bucket, credentials, region, endpoint)
-- **S3 driver does NOT have a `caCert` parameter** - it has no way to receive CA certificates via configuration
+- **S3 storage driver parameters**: The subset of configuration passed to the **docker-distribution S3 driver** (in openshift/docker-distribution fork), includes: bucket, credentials, region, endpoint
+  - **Not to be confused with**: velero-plugin-for-aws, which uses AWS SDK directly (not docker-distribution)
+  - **Only for ImageStream backups**: docker-distribution S3 driver is used by openshift-velero-plugin for copying image layers
+- **docker-distribution S3 driver does NOT have a `caCert` parameter** - it has no way to receive CA certificates via configuration
 
 When openshift-velero-plugin calls the docker-distribution S3 driver:
 1. It passes S3 driver parameters (bucket, region, credentials) extracted from BSL
