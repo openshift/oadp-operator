@@ -1645,7 +1645,8 @@ func TestDPAReconciler_updateNodeAgentCM(t *testing.T) {
 								}
 							}
 						}
-					]
+					],
+					"privilegedFsBackup": true
 				}`,
 			}),
 		},
@@ -1767,7 +1768,8 @@ func TestDPAReconciler_updateNodeAgentCM(t *testing.T) {
 					},
 					"restorePVC": {
 						"ignoreDelayBinding": true
-					}
+					},
+					"privilegedFsBackup": true
 				}`,
 			}),
 		},
