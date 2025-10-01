@@ -88,7 +88,26 @@ OADP/Velero supports CA certificates through **two independent mechanisms**:
 | **ImageStream backups** | ✅ Works (requires `AWS_CA_BUNDLE`) | ❌ Fails with custom CAs |
 | **Velero BSL validation** | Uses `AWS_CA_BUNDLE` (overrides BSL `caCert`) via velero-plugin-for-aws | Uses BSL `caCert` via velero-plugin-for-aws |
 
-**Why both mechanisms exist**: The BSL `caCert` field is passed by Velero to plugins, but docker-distribution S3 driver operates in openshift-velero-plugin context and can only read from `AWS_CA_BUNDLE` environment variable pointing to a mounted file. When `AWS_CA_BUNDLE` is set, the AWS SDK reads it at session creation and overrides any BSL `caCert` configuration for all AWS SDK operations (including BSL validation via velero-plugin-for-aws).
+**Why both mechanisms exist**:
+
+The BSL `caCert` field is a **Velero BackupStorageLocation spec field**, but it's not an **S3 storage driver parameter**. Here's the critical distinction:
+
+- **Velero BSL spec**: Contains fields like `caCert`, `bucket`, `region`, etc.
+- **S3 driver parameters**: The subset of configuration passed to the S3 storage driver (bucket, credentials, region, endpoint)
+- **S3 driver does NOT have a `caCert` parameter** - it has no way to receive CA certificates via configuration
+
+When openshift-velero-plugin calls the docker-distribution S3 driver:
+1. It passes S3 driver parameters (bucket, region, credentials) extracted from BSL
+2. The S3 driver creates an AWS SDK session using these parameters
+3. The AWS SDK reads `AWS_CA_BUNDLE` from the **process environment** (not from driver parameters)
+4. There's no path to pass BSL `caCert` to the S3 driver - it must come from environment
+
+When `AWS_CA_BUNDLE` is set in the Velero pod environment, the AWS SDK reads it at session creation and uses it for **all** AWS SDK operations, including:
+- ImageStream backups (via docker-distribution S3 driver)
+- BSL validation (via velero-plugin-for-aws)
+- Regular Velero backups (via velero-plugin-for-aws)
+
+This is why `AWS_CA_BUNDLE` **overrides** BSL `caCert` for velero-plugin-for-aws when both are present.
 
 ### backupImages Control Field
 
@@ -238,14 +257,16 @@ ImageStream backups involve a chain of components that work together to copy con
                             │
                             ↓
 ┌─────────────────────────────────────────────────────────────────┐
-│  4. openshift/docker-distribution                                │
+│  4. openshift/docker-distribution S3 Driver                      │
 │     (github.com/openshift/docker-distribution)                   │
 │                                                                   │
 │     - OpenShift fork of distribution/distribution                │
 │     - Container image distribution library                       │
+│     - Uses AWS SDK Go v1 (github.com/aws/aws-sdk-go v1.43.16)   │
 │     - S3 storage driver: registry/storage/driver/s3-aws/s3.go    │
-│     - Creates AWS SDK sessions for S3 operations                 │
-│     - Reads AWS_CA_BUNDLE environment variable at session init   │
+│     - Creates AWS SDK sessions via session.NewSessionWithOptions │
+│     - AWS SDK automatically reads AWS_CA_BUNDLE env variable     │
+│       during session initialization (built-in SDK behavior)      │
 │     - Configures custom CA certificates for TLS verification     │
 │     - Performs actual image layer upload/download operations     │
 └─────────────────────────────────────────────────────────────────┘
@@ -296,29 +317,55 @@ ImageStream backups involve a chain of components that work together to copy con
 
 ### Code References
 
-#### 1. OpenShift Velero Plugin - ImageStream Shared Code
+#### 1. OpenShift Velero Plugin - ImageStream Backup
 
-- Location: [`openshift-velero-plugin/velero-plugins/imagestream/shared.go:57`](https://github.com/openshift/openshift-velero-plugin/blob/64292f953c3e2ecd623e9388b2a65c08bb9cfbe2/velero-plugins/imagestream/shared.go#L57)
-- This code initiates the imagestream backup and relies on environment variables for configuration
+- **Backup**: [`openshift-velero-plugin/velero-plugins/imagestream/backup.go`](https://github.com/openshift/openshift-velero-plugin/blob/master/velero-plugins/imagestream/backup.go)
+  - Calls `GetUdistributionTransportForLocation()` to create udistribution transport
+  - Passes transport to `imagecopy.CopyLocalImageStreamImages()` for image copying
+- **Shared Code**: [`openshift-velero-plugin/velero-plugins/imagestream/shared.go`](https://github.com/openshift/openshift-velero-plugin/blob/master/velero-plugins/imagestream/shared.go)
+  - `GetRegistryEnvsForLocation()` retrieves **S3 storage driver parameters** from BSL and converts to env var strings
+  - Storage driver parameters include: credentials, bucket, region, endpoint, etc.
+  - `GetUdistributionTransportForLocation()` calls `udistribution.NewTransportFromNewConfig(config, envs)`
+  - **Key distinction**: BSL has `caCert` field (Velero spec), but this is NOT an S3 driver parameter
+  - **`AWS_CA_BUNDLE`** comes from Velero pod's environment (set by OADP controller), not from BSL storage config
 
-#### 2. Docker Distribution S3 Driver
+#### 2. udistribution Client Library
 
-- Location: [`openshift/docker-distribution/registry/storage/driver/s3-aws/s3.go`](https://github.com/openshift/docker-distribution/blob/release-4.19/registry/storage/driver/s3-aws/s3.go)
-- The S3 driver reads `AWS_CA_BUNDLE` from environment and configures AWS SDK accordingly
-- This is where the actual S3 operations happen for copying image layers
+- **Transport Creation**: [`migtools/udistribution/pkg/image/udistribution/docker_transport.go`](https://github.com/migtools/udistribution/blob/main/pkg/image/udistribution/docker_transport.go)
+  - `NewTransportFromNewConfig(config, envs)` creates transport with client
+  - Calls `client.NewClient(config, envs)` to initialize
+- **Client Initialization**: [`migtools/udistribution/pkg/client/client.go`](https://github.com/migtools/udistribution/blob/main/pkg/client/client.go)
+  - `NewClient(config, envs)` parses configuration using `uconfiguration.ParseEnvironment(config, envs)`
+  - Creates `handlers.App` which initializes storage drivers
+  - **Key point**: Environment variables in `envs` parameter are **S3 storage driver parameters only**
+  - S3 driver parameters do NOT include CA certificates - the S3 driver has no `caCert` parameter
+  - `AWS_CA_BUNDLE` must already exist in the **process environment** from Velero pod
+- **Purpose**: Wraps distribution/distribution to provide programmatic storage driver access without HTTP server
 
-#### 3. AWS SDK Environment Configuration
+#### 3. Docker Distribution S3 Driver
 
-- Location: [`aws-sdk-go-v2/config/env_config.go:176-192`](https://github.com/aws/aws-sdk-go-v2/blob/1c707a7bc6b5b0bba75e5643d9e3be2f3f779bc1/config/env_config.go#L176-L192)
-- AWS SDK reads `AWS_CA_BUNDLE` environment variable
-- Loads custom CA certificates for TLS validation
-- Merges custom CAs into HTTP client's Transport
+- **S3 Driver**: [`openshift/docker-distribution/registry/storage/driver/s3-aws/s3.go:559`](https://github.com/openshift/docker-distribution/blob/release-4.19/registry/storage/driver/s3-aws/s3.go#L559)
+  - Creates AWS SDK session via `session.NewSessionWithOptions(sessionOptions)`
+  - AWS SDK v1 (`github.com/aws/aws-sdk-go v1.43.16`) automatically reads environment variables during session initialization
+  - The S3 driver itself does NOT directly read `AWS_CA_BUNDLE` - this is handled by the AWS SDK
+- **Session Creation**: AWS SDK's built-in environment variable loading includes `AWS_CA_BUNDLE`
 
-#### 4. OADP Controller Implementation
+#### 4. AWS SDK v1 Environment Configuration
+
+- **Session Package**: [`aws-sdk-go/aws/session/env_config.go`](https://github.com/aws/aws-sdk-go/blob/main/aws/session/env_config.go)
+  - `NewSessionWithOptions()` automatically loads configuration from **process environment variables** (via `os.Getenv`)
+  - Reads `AWS_CA_BUNDLE` environment variable during session initialization
+  - Loads custom CA certificates for TLS validation
+  - Sets the CA bundle as the HTTP client's custom root CA
+  - **Quote**: "Sets the path to a custom Credentials Authority (CA) Bundle PEM file that the SDK will use instead of the system's root CA bundle"
+  - **Critical**: AWS SDK reads from process environment, NOT from configuration passed to storage driver
+
+#### 5. OADP Controller Implementation
 
 - Location: `internal/controller/velero.go:443`
 - Controls when CA certificate processing occurs based on `dpa.BackupImages()`
 - Calls `processCACertificatesForVelero()` only when imagestream backups are enabled
+- Mounts CA bundle as file and sets `AWS_CA_BUNDLE` environment variable pointing to it
 
 ### Why Different from Regular Velero Backups
 
