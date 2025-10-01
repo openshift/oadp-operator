@@ -11,17 +11,20 @@
 **How to disable**: Set `spec.backupImages: false` to skip CA mounting. See [Disabling](#disabling-imagestream-backup-ca-handling).
 
 **Key components**:
+
 - **ConfigMap**: `velero-ca-bundle` contains concatenated CA certificates
 - **Environment variable**: `AWS_CA_BUNDLE=/etc/velero/ca-certs/ca-bundle.pem`
 - **Control field**: `spec.backupImages` in DataProtectionApplication CR
 
 **Quick facts**:
+
 - Certificate updates sync within 1-2 minutes (kubelet sync period)
 - Changing `backupImages` setting restarts Velero pod
 - Only collects from AWS provider BSLs currently
 - Works with S3-compatible storage (MinIO, NooBaa, Ceph RGW)
 
 **Jump to**:
+
 - [Key Concepts](#key-concepts) - Understand how it works
 - [Configuration Examples](#configuration-examples) - Quick setup
 - [Troubleshooting](#troubleshooting) - Fix common issues
@@ -43,12 +46,14 @@ This section defines core concepts referenced throughout the document.
 This CA certificate mounting feature is **exclusively for OpenShift ImageStream backups**.
 
 **ImageStream backups require special handling** because:
+
 - They delegate to openshift-velero-plugin
 - The plugin uses docker-distribution S3 driver for image layer copying
 - The S3 driver can only read CA certificates from the `AWS_CA_BUNDLE` environment variable
 - It cannot access Velero's BSL `caCert` configuration directly
 
 **Regular Velero backups (pods, PVCs, namespaces, etc.)** do NOT need this feature:
+
 - Velero directly uses the `caCert` field from BackupStorageLocation spec
 - CA certificate validation happens within Velero's own code
 - No environment variable-based CA handling needed
@@ -90,6 +95,7 @@ OADP/Velero supports CA certificates through **two independent mechanisms**:
 The `spec.backupImages` field in DataProtectionApplication CR controls CA certificate mounting:
 
 **When `true` (default)**:
+
 - CA certificates collected from AWS BSLs
 - ConfigMap `velero-ca-bundle` created
 - Volume mounted at `/etc/velero/ca-certs`
@@ -97,6 +103,7 @@ The `spec.backupImages` field in DataProtectionApplication CR controls CA certif
 - ImageStream backups work with custom CAs
 
 **When `false`**:
+
 - No CA certificate processing
 - No ConfigMap created
 - No volume mount added
@@ -112,6 +119,7 @@ See [Disabling ImageStream Backup CA Handling](#disabling-imagestream-backup-ca-
 Based on [Kubernetes documentation](https://kubernetes.io/docs/concepts/configuration/configmap/) and [issue #20200](https://github.com/kubernetes/kubernetes/issues/20200):
 
 **Update timing**:
+
 - **ConfigMap update**: Instant (via `controllerutil.CreateOrPatch`)
 - **File sync to pod**: 1-2 minutes (kubelet sync period + cache TTL)
   - Kubelet sync period: 1 minute (default)
@@ -120,12 +128,14 @@ Based on [Kubernetes documentation](https://kubernetes.io/docs/concepts/configur
   - **Typical delay**: 60-90 seconds
 
 **Important behavior**:
+
 - ConfigMap updates do NOT restart pods automatically
 - Environment variables (like `AWS_CA_BUNDLE`) are NOT updated automatically
 - The `AWS_CA_BUNDLE` points to a file path - the file content is updated by kubelet
 - Applications must detect and reload configuration changes
 
 **Implications for certificate updates**:
+
 - New AWS SDK sessions (for new backup operations) use the updated certificate file
 - Existing AWS SDK sessions continue using old certificates until session recreated
 - **Practical effect**: Certificate updates available for new backups after kubelet sync period
@@ -133,6 +143,7 @@ Based on [Kubernetes documentation](https://kubernetes.io/docs/concepts/configur
 ### Pod Restart Triggers
 
 **Velero pod WILL restart when**:
+
 - `backupImages` changed from `false` to `true` (volume mount added)
 - `backupImages` changed from `true` to `false` (volume mount removed)
 - First CA certificate is added (volume mount added to deployment)
@@ -140,11 +151,13 @@ Based on [Kubernetes documentation](https://kubernetes.io/docs/concepts/configur
 - `AWS_CA_BUNDLE` environment variable is added/removed
 
 **Velero pod will NOT restart when**:
+
 - CA certificate content is updated in existing BSL
 - ConfigMap data is modified (only file content changes)
 - `backupImages` remains unchanged
 
 **Impact on running backups**:
+
 - During ConfigMap update (no restart): Running backups may complete, new backups use updated certs
 - During pod restart: Running backups **will fail**, Velero marks as `PartiallyFailed`
 - **Recommendation**: Avoid changing `backupImages` or adding/removing CA certificates during active backups. For Non-DPA BSL discovery, use safe trigger mechanisms instead - see [Triggering Discovery of Non-DPA BSL Changes](#triggering-discovery-of-non-dpa-bsl-changes)
@@ -161,12 +174,14 @@ The AWS SDK and Docker Distribution S3 driver read CA certificates at **session 
 ### Certificate Collection Scope
 
 **Currently collected from**:
+
 - Only AWS provider BackupStorageLocations
 - BSLs defined in DPA `spec.backupLocations`
 - Additional BSLs in the same namespace (not in DPA spec)
 - System default CA certificates (appended for fallback)
 
 **Not collected from**:
+
 - Non-AWS provider BSLs (Azure, GCP, etc.)
 - BSLs in different namespaces
 - Manually created certificate files
@@ -177,7 +192,7 @@ The AWS SDK and Docker Distribution S3 driver read CA certificates at **session 
 
 ### The ImageStream Backup Flow
 
-```
+```doc
 ┌─────────────────────────────────────────────────────────────────┐
 │                  ImageStream Backup Flow                         │
 └─────────────────────────────────────────────────────────────────┘
@@ -211,22 +226,26 @@ The AWS SDK and Docker Distribution S3 driver read CA certificates at **session 
 
 ### Code References
 
-**1. OpenShift Velero Plugin - ImageStream Shared Code**
+#### 1. OpenShift Velero Plugin - ImageStream Shared Code
+
 - Location: [`openshift-velero-plugin/velero-plugins/imagestream/shared.go:57`](https://github.com/openshift/openshift-velero-plugin/blob/64292f953c3e2ecd623e9388b2a65c08bb9cfbe2/velero-plugins/imagestream/shared.go#L57)
 - This code initiates the imagestream backup and relies on environment variables for configuration
 
-**2. Docker Distribution S3 Driver**
+#### 2. Docker Distribution S3 Driver
+
 - Location: [`openshift/docker-distribution/registry/storage/driver/s3-aws/s3.go`](https://github.com/openshift/docker-distribution/blob/release-4.19/registry/storage/driver/s3-aws/s3.go)
 - The S3 driver reads `AWS_CA_BUNDLE` from environment and configures AWS SDK accordingly
 - This is where the actual S3 operations happen for copying image layers
 
-**3. AWS SDK Environment Configuration**
+#### 3. AWS SDK Environment Configuration
+
 - Location: [`aws-sdk-go-v2/config/env_config.go:176-192`](https://github.com/aws/aws-sdk-go-v2/blob/1c707a7bc6b5b0bba75e5643d9e3be2f3f779bc1/config/env_config.go#L176-L192)
 - AWS SDK reads `AWS_CA_BUNDLE` environment variable
 - Loads custom CA certificates for TLS validation
 - Merges custom CAs into HTTP client's Transport
 
-**4. OADP Controller Implementation**
+#### 4. OADP Controller Implementation
+
 - Location: `internal/controller/velero.go:443`
 - Controls when CA certificate processing occurs based on `dpa.BackupImages()`
 - Calls `processCACertificatesForVelero()` only when imagestream backups are enabled
@@ -248,6 +267,7 @@ func (r *DataProtectionApplicationReconciler) processCACertForBSLs() (string, er
 ```
 
 **Collection Strategy**:
+
 - Only collects from **AWS provider BSLs** (imagestream backup uses S3)
 - Scans DPA `spec.backupLocations` for CA certificates
 - Scans additional BSLs in namespace (not in DPA spec)
@@ -266,6 +286,7 @@ func (r *DataProtectionApplicationReconciler) processCACertificatesForVelero(
 ```
 
 **Deployment Configuration**:
+
 ```go
 // Volume mount
 Volume{
@@ -297,6 +318,7 @@ EnvVar{
 The CA bundle ConfigMap and volume mount are created based on the `spec.backupImages` field and presence of CA certificates in AWS BSLs:
 
 **Creation conditions**:
+
 1. `spec.backupImages` is `true` or `nil` (defaults to true)
 2. At least one AWS provider BSL has `caCert` configured
 
@@ -309,6 +331,7 @@ The CA bundle ConfigMap and volume mount are created based on the `spec.backupIm
 From `tests/e2e/backup_restore_suite_test.go`:
 
 **When `backupImages=true`** (line 638-649):
+
 ```go
 // Verify AWS_CA_BUNDLE is set when backing up images
 awsCABundleFound := false
@@ -324,6 +347,7 @@ gomega.Expect(awsCABundleFound).To(gomega.BeTrue(),
 ```
 
 **When `backupImages=false`** (line 606-615):
+
 ```go
 // Verify AWS_CA_BUNDLE is NOT set when NOT backing up images
 awsCABundleFound := false
@@ -374,10 +398,7 @@ spec:
           bucket: my-backup-bucket
           # caCert field can still be specified for Velero's native CA handling
           # but will NOT be mounted or used for AWS_CA_BUNDLE
-          caCert: |
-            -----BEGIN CERTIFICATE-----
-            MIID...
-            -----END CERTIFICATE-----
+          caCert: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUQuLi4KLS0tLS1FTkQgQ0VSVElGSUNBVEUtLS0tLQo=
         config:
           region: us-east-1
 ```
@@ -385,6 +406,7 @@ spec:
 ### API Definition
 
 **Type Definition** (`api/v1alpha1/dataprotectionapplication_types.go:803-805`):
+
 ```go
 // backupImages is used to specify whether you want to deploy a registry for enabling backup and restore of images
 // +optional
@@ -392,6 +414,7 @@ BackupImages *bool `json:"backupImages,omitempty"`
 ```
 
 **CRD Schema** (`config/crd/bases/oadp.openshift.io_dataprotectionapplications.yaml:56-58`):
+
 ```yaml
 backupImages:
   description: backupImages is used to specify whether you want to deploy a registry for enabling backup and restore of images
@@ -425,6 +448,7 @@ With `backupImages: false`:
 ### Default Behavior
 
 **When `backupImages` is not specified** (nil):
+
 - Defaults to `true` via the `BackupImages()` method
 - CA certificate processing is enabled
 - ConfigMap and volume mount are created if CA certificates exist in BSLs
@@ -436,6 +460,7 @@ With `backupImages: false`:
 See [ConfigMap Sync Timing](#configmap-sync-timing) and [AWS SDK Session Behavior](#aws-sdk-session-behavior) in Key Concepts for how certificate updates propagate.
 
 **Quick summary**:
+
 - ConfigMap updates don't restart pods
 - Files sync to pods within 1-2 minutes (kubelet sync period)
 - New backup operations pick up updated certificates after sync completes
@@ -448,12 +473,14 @@ See [ConfigMap Sync Timing](#configmap-sync-timing) and [AWS SDK Session Behavio
 The OADP controller updates the `velero-ca-bundle` ConfigMap in response to several triggers:
 
 **1. DPA Spec Changes**:
+
 - User modifies `spec.backupLocations[*].velero.objectStorage.caCert`
 - User modifies `spec.backupLocations[*].cloudStorage.caCert`
 - User adds/removes backup locations with CA certificates
 - Controller watches DPA resource via `For(&oadpv1alpha1.DataProtectionApplication{})`
 
 **2. BSL Resource Changes**:
+
 - OADP-managed BSLs are created/updated via `controllerutil.CreateOrPatch`
 - Controller owns BSL resources via `Owns(&velerov1.BackupStorageLocation{})`
 - Any changes to owned BSLs trigger DPA reconciliation (via controller ownership)
@@ -462,12 +489,14 @@ The OADP controller updates the `velero-ca-bundle` ConfigMap in response to seve
 - Non-OADP BSLs are discovered via `r.List()` call in `processCACertForBSLs()` during each reconciliation
 
 **3. Secret Label Changes**:
+
 - Controller watches Secrets via `Watches(&corev1.Secret{}, &labelHandler{})`
 - Secrets with labels `openshift.io/oadp: "True"` and `dataprotectionapplication.name: <dpa-name>` trigger reconciliation
 - BSL credential secrets are automatically labeled by `UpdateCredentialsSecretLabels()` (bsl.go:371-407)
 - This enables detection of credential updates that might affect BSL configuration
 
 **4. ConfigMap Lifecycle**:
+
 - ConfigMap has controller reference to DPA: `controllerutil.SetControllerReference(dpa, configMap, r.Scheme)`
 - Controller owns ConfigMaps via `Owns(&corev1.ConfigMap{})`
 - ConfigMap updates use `controllerutil.CreateOrPatch` for idempotent updates
@@ -475,7 +504,7 @@ The OADP controller updates the `velero-ca-bundle` ConfigMap in response to seve
 
 #### Complete Update Flow
 
-```
+```doc
 Trigger Event (DPA change, BSL update, or Secret label change)
          │
          ↓
@@ -596,6 +625,7 @@ New Session Reads Updated Certificate File
 **Predicate Filtering** (from `predicate.go`):
 
 The controller uses `veleroPredicate()` to filter events:
+
 - **Update events**: Only trigger if `generation` changed (spec modification)
 - **Create events**: Trigger if resource has `openshift.io/oadp` label or is DPA
 - **Delete events**: Trigger if resource has `openshift.io/oadp` label or is DPA
@@ -622,22 +652,27 @@ Non-OADP BSLs (BackupStorageLocations created outside of DPA spec) are discovere
 **Safe trigger mechanisms** (ConfigMap-only update, no pod restart):
 
 1. **DPA Annotation (Recommended)**:
+
    ```bash
    oc annotate dpa <dpa-name> -n openshift-adp reconcile=$(date +%s)
    ```
+
    - Triggers immediate reconciliation
    - Updates ConfigMap if certificates changed
    - Does NOT modify deployment spec
    - Does NOT restart Velero pod
 
 2. **DPA Metadata Update (Alternative)**:
+
    ```bash
    oc patch dpa <dpa-name> -n openshift-adp --type=merge -p '{"metadata":{"labels":{"last-sync":"'$(date +%s)'"}}}'
    ```
+
    - Triggers reconciliation via metadata change
    - Safe - metadata changes don't affect deployment
 
 **Unsafe mechanisms** (causes pod restart):
+
 - ❌ Toggling `backupImages` setting
 - ❌ Adding/removing DPA `spec.backupLocations` unnecessarily
 
@@ -677,6 +712,7 @@ spec:
 ```
 
 **Result**:
+
 - ConfigMap `velero-ca-bundle` created with custom CA + system CAs
 - Velero pod has volume mount at `/etc/velero/ca-certs`
 - `AWS_CA_BUNDLE=/etc/velero/ca-certs/ca-bundle.pem` set
@@ -716,6 +752,7 @@ spec:
 ```
 
 **Result**:
+
 - ConfigMap `velero-ca-bundle` **NOT** created
 - Velero pod **NO** volume mount at `/etc/velero/ca-certs`
 - `AWS_CA_BUNDLE` environment variable **NOT** set
@@ -760,6 +797,7 @@ spec:
 ```
 
 **Result**:
+
 - ConfigMap contains: Production CA + DR CA + System CAs
 - All certificates concatenated and deduplicated
 - ImageStream backups to both locations work with their respective custom CAs
@@ -769,18 +807,21 @@ spec:
 ### What This Feature Enables
 
 ✅ **ImageStream backups** in environments with:
+
 - Custom Certificate Authorities (internal CAs)
 - Self-signed certificates on S3 endpoints
 - MITM proxy infrastructure
 - Air-gapped environments with internal CAs
 
 ✅ **Automatic certificate management**:
+
 - Collection from all AWS BSLs
 - Deduplication of certificates
 - System CA fallback
 - ConfigMap lifecycle management
 
 ✅ **Opt-out capability**:
+
 - Disable via `spec.backupImages: false`
 - Reduce overhead when imagestream backups not needed
 
@@ -795,16 +836,19 @@ spec:
 See [Two CA Certificate Mechanisms](#two-ca-certificate-mechanisms) in Key Concepts for a complete explanation of how different components (velero-plugin-for-aws, imagestream backups, BSL validation) use CA certificates differently with `backupImages: true` vs `false`.
 
 **Key points**:
+
 - velero-plugin-for-aws: `AWS_CA_BUNDLE` overrides BSL `caCert` when both present (affects all AWS SDK operations)
 - ImageStream backups: REQUIRE `AWS_CA_BUNDLE` environment variable
 - Velero BSL validation: Uses velero-plugin-for-aws, so also affected by `AWS_CA_BUNDLE` override behavior
 
 **When to disable** `backupImages: false`:
+
 - No imagestream backups needed
 - BSL `caCert` sufficient for regular Velero backups
 - Reduce ConfigMap/volume mount overhead
 
 **When to keep enabled** `backupImages: true` (default):
+
 - Need imagestream backups with custom CAs
 - Want redundant CA mechanisms
 - Unsure and want maximum compatibility
@@ -950,6 +994,7 @@ oc get backupstoragelocation -n openshift-adp default -o jsonpath='{.spec.provid
 OADP automatically manages CA certificates for **OpenShift ImageStream backups** in environments with custom CAs.
 
 **Quick Reference**:
+
 - **Purpose**: Enable imagestream backups with custom CA certificates
 - **Scope**: See [ImageStream Backup Scope](#imagestream-backup-scope) - imagestream backups only
 - **Mechanism**: See [Two CA Certificate Mechanisms](#two-ca-certificate-mechanisms) - mounts certificates via `AWS_CA_BUNDLE`
