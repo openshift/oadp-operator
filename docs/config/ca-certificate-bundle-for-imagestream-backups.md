@@ -190,6 +190,67 @@ The AWS SDK and Docker Distribution S3 driver read CA certificates at **session 
 
 ## Why ImageStream Backups Need Special CA Handling
 
+### Component Relationship and Flow
+
+ImageStream backups involve a chain of components that work together to copy container image layers to backup storage:
+
+```doc
+┌─────────────────────────────────────────────────────────────────┐
+│                  Component Relationship                          │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│  1. Velero (vmware-tanzu/velero)                                 │
+│     - Orchestrates all backup operations                         │
+│     - Calls registered plugins for resource-specific handling    │
+│     - Provides BSL configuration to plugins via API              │
+└─────────────────────────────────────────────────────────────────┘
+                            │
+                            ↓
+┌─────────────────────────────────────────────────────────────────┐
+│  2. openshift-velero-plugin                                      │
+│     (github.com/openshift/openshift-velero-plugin)               │
+│                                                                   │
+│     - OpenShift-specific Velero plugin                           │
+│     - Registers backup/restore actions for ImageStream resources│
+│     - Source: velero-plugins/imagestream/shared.go:57            │
+│     - Uses udistribution library to access storage drivers       │
+└─────────────────────────────────────────────────────────────────┘
+                            │
+                            ↓
+┌─────────────────────────────────────────────────────────────────┐
+│  3. udistribution (github.com/migtools/udistribution)            │
+│                                                                   │
+│     - Go library for programmatic registry storage access        │
+│     - Modifies and wraps distribution/distribution library       │
+│     - Uses openshift/docker-distribution as dependency           │
+│       (via go.mod replace directive)                             │
+│     - Provides client interface to storage drivers WITHOUT       │
+│       requiring a running HTTP server                            │
+│     - Supports multiple storage backends:                        │
+│       • S3 (AWS, MinIO, Ceph RGW)                                │
+│       • Azure Blob Storage                                       │
+│       • Google Cloud Storage                                     │
+│       • Swift (OpenStack)                                        │
+│       • Alibaba Cloud OSS                                        │
+│     - Allows direct programmatic calls to storage operations     │
+└─────────────────────────────────────────────────────────────────┘
+                            │
+                            ↓
+┌─────────────────────────────────────────────────────────────────┐
+│  4. openshift/docker-distribution                                │
+│     (github.com/openshift/docker-distribution)                   │
+│                                                                   │
+│     - OpenShift fork of distribution/distribution                │
+│     - Container image distribution library                       │
+│     - S3 storage driver: registry/storage/driver/s3-aws/s3.go    │
+│     - Creates AWS SDK sessions for S3 operations                 │
+│     - Reads AWS_CA_BUNDLE environment variable at session init   │
+│     - Configures custom CA certificates for TLS verification     │
+│     - Performs actual image layer upload/download operations     │
+└─────────────────────────────────────────────────────────────────┘
+```
+
 ### The ImageStream Backup Flow
 
 ```doc
@@ -205,7 +266,15 @@ The AWS SDK and Docker Distribution S3 driver read CA certificates at **session 
                             │
                             ↓
 ┌─────────────────────────────────────────────────────────────────┐
-│  2. Plugin uses Docker Distribution Registry S3 Driver           │
+│  2. Plugin uses udistribution to access storage driver           │
+│     - udistribution provides programmatic interface              │
+│     - No HTTP server needed for storage operations               │
+│     - Initializes appropriate storage driver based on config     │
+└─────────────────────────────────────────────────────────────────┘
+                            │
+                            ↓
+┌─────────────────────────────────────────────────────────────────┐
+│  3. Docker Distribution S3 Driver handles storage operations     │
 │     Source: openshift/docker-distribution/registry/storage/     │
 │             driver/s3-aws/s3.go                                  │
 │                                                                   │
@@ -213,14 +282,15 @@ The AWS SDK and Docker Distribution S3 driver read CA certificates at **session 
 │     - Reads AWS_CA_BUNDLE environment variable                   │
 │     - Creates AWS SDK session with custom CA bundle              │
 │     - Uses for all S3 copy operations                            │
+│     - CANNOT access Velero's BSL caCert configuration            │
 └─────────────────────────────────────────────────────────────────┘
                             │
                             ↓
 ┌─────────────────────────────────────────────────────────────────┐
-│  3. Docker Distribution Registry performs image layer copies     │
+│  4. AWS SDK performs image layer copies to S3                    │
 │     - Copies container image layers to S3 backup location        │
-│     - Uses AWS SDK with custom CA for TLS verification           │
-│     - Requires valid CA chain for HTTPS endpoints                │
+│     - Uses custom CA for TLS verification with S3 endpoints      │
+│     - Requires valid CA chain for HTTPS connections              │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
