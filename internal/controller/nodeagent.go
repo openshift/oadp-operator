@@ -112,7 +112,8 @@ func isNodeAgentCMRequired(config oadpv1alpha1.NodeAgentConfigMapSettings) bool 
 		len(config.BackupPVCConfig) > 0 ||
 		config.RestorePVCConfig != nil ||
 		config.PodResources != nil ||
-		config.LoadAffinityConfig != nil
+		config.LoadAffinityConfig != nil ||
+		config.PrivilegedFsBackup
 }
 
 // updateNodeAgentCM handles the creation or update of the NodeAgent ConfigMap with all required data.

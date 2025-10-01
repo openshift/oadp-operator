@@ -606,6 +606,13 @@ spec:
                             memoryRequest:
                               type: string
                           type: object
+                        privilegedFsBackup:
+                          default: true
+                          description: |-
+                            PrivilegedFsBackup determines whether to create fs-backup pods as privileged pods.
+                            including installation on OpenShift clusters) the fs-backup pods must run in a Privileged security context.
+                            Default is true for OpenShift compatibility.
+                          type: boolean
                         resourceTimeout:
                           description: How long to wait for resource processes which are not covered by other specific timeout parameters. Default is 10 minutes.
                           type: string

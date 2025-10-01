@@ -437,6 +437,12 @@ type NodeAgentConfigMapSettings struct {
 	// PodResources is the resource config for various types of pods launched by node-agent, i.e., data mover pods.
 	// +optional
 	PodResources *kube.PodResources `json:"podResources,omitempty"`
+	// PrivilegedFsBackup determines whether to create fs-backup pods as privileged pods.
+	// including installation on OpenShift clusters) the fs-backup pods must run in a Privileged security context.
+	// Default is true for OpenShift compatibility.
+	// +optional
+	// +kubebuilder:default=true
+	PrivilegedFsBackup bool `json:"privilegedFsBackup,omitempty"`
 }
 
 // DeepCopyInto is a manual deepcopy function, copying the receiver, writing into out. in must be non-nil.
