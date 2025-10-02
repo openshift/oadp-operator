@@ -345,10 +345,10 @@ ImageStream backups involve a chain of components that work together to copy con
 
 #### 1. OpenShift Velero Plugin - ImageStream Backup
 
-- **Backup**: [`openshift-velero-plugin/velero-plugins/imagestream/backup.go`](https://github.com/openshift/openshift-velero-plugin/blob/master/velero-plugins/imagestream/backup.go)
+- **Backup**: [`openshift-velero-plugin/velero-plugins/imagestream/backup.go`](https://github.com/openshift/openshift-velero-plugin/blob/64292f953c3e2ecd623e9388b2a65c08bb9cfbe2/velero-plugins/imagestream/backup.go)
   - Calls `GetUdistributionTransportForLocation()` to create udistribution transport
   - Passes transport to `imagecopy.CopyLocalImageStreamImages()` for image copying
-- **Shared Code**: [`openshift-velero-plugin/velero-plugins/imagestream/shared.go`](https://github.com/openshift/openshift-velero-plugin/blob/master/velero-plugins/imagestream/shared.go)
+- **Shared Code**: [`openshift-velero-plugin/velero-plugins/imagestream/shared.go`](https://github.com/openshift/openshift-velero-plugin/blob/64292f953c3e2ecd623e9388b2a65c08bb9cfbe2/velero-plugins/imagestream/shared.go)
   - `GetRegistryEnvsForLocation()` retrieves **S3 storage driver parameters** from BSL and converts to env var strings
   - Storage driver parameters include: credentials, bucket, region, endpoint, etc.
   - `GetUdistributionTransportForLocation()` calls `udistribution.NewTransportFromNewConfig(config, envs)`
@@ -357,10 +357,10 @@ ImageStream backups involve a chain of components that work together to copy con
 
 #### 2. udistribution Client Library
 
-- **Transport Creation**: [`migtools/udistribution/pkg/image/udistribution/docker_transport.go`](https://github.com/migtools/udistribution/blob/main/pkg/image/udistribution/docker_transport.go)
+- **Transport Creation**: [`migtools/udistribution/pkg/image/udistribution/docker_transport.go`](https://github.com/migtools/udistribution/blob/b66b049de13c44fdd6eb8e8deddcf96f2ac83329/pkg/image/udistribution/docker_transport.go)
   - `NewTransportFromNewConfig(config, envs)` creates transport with client
   - Calls `client.NewClient(config, envs)` to initialize
-- **Client Initialization**: [`migtools/udistribution/pkg/client/client.go`](https://github.com/migtools/udistribution/blob/main/pkg/client/client.go)
+- **Client Initialization**: [`migtools/udistribution/pkg/client/client.go`](https://github.com/migtools/udistribution/blob/b66b049de13c44fdd6eb8e8deddcf96f2ac83329/pkg/client/client.go)
   - `NewClient(config, envs)` parses configuration using `uconfiguration.ParseEnvironment(config, envs)`
   - Creates `handlers.App` which initializes storage drivers
   - **Key point**: Environment variables in `envs` parameter are **S3 storage driver parameters only**
@@ -370,7 +370,7 @@ ImageStream backups involve a chain of components that work together to copy con
 
 #### 3. Docker Distribution S3 Driver
 
-- **S3 Driver**: [`openshift/docker-distribution/registry/storage/driver/s3-aws/s3.go:559`](https://github.com/openshift/docker-distribution/blob/release-4.19/registry/storage/driver/s3-aws/s3.go#L559)
+- **S3 Driver**: [`openshift/docker-distribution/registry/storage/driver/s3-aws/s3.go:559`](https://github.com/openshift/docker-distribution/blob/ac5742e896d480763c85f9b65e3c331aa0613552/registry/storage/driver/s3-aws/s3.go#L559)
   - Creates AWS SDK session via `session.NewSessionWithOptions(sessionOptions)`
   - AWS SDK v1 (`github.com/aws/aws-sdk-go v1.43.16`) automatically reads environment variables during session initialization
   - The S3 driver itself does NOT directly read `AWS_CA_BUNDLE` - this is handled by the AWS SDK
@@ -378,7 +378,7 @@ ImageStream backups involve a chain of components that work together to copy con
 
 #### 4. AWS SDK v1 Environment Configuration
 
-- **Session Package**: [`aws-sdk-go/aws/session/env_config.go`](https://github.com/aws/aws-sdk-go/blob/main/aws/session/env_config.go)
+- **Session Package**: [`aws-sdk-go/aws/session/env_config.go`](https://github.com/aws/aws-sdk-go/blob/070853e88d22854d2355c2543d0958a5f76ad407/aws/session/env_config.go)
   - `NewSessionWithOptions()` automatically loads configuration from **process environment variables** (via `os.Getenv`)
   - Reads `AWS_CA_BUNDLE` environment variable during session initialization
   - Loads custom CA certificates for TLS validation
