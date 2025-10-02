@@ -197,9 +197,33 @@ The AWS SDK and Docker Distribution S3 driver read CA certificates at **session 
 **Currently collected from**:
 
 - Only AWS provider BackupStorageLocations
-- BSLs defined in DPA `spec.backupLocations`
-- Additional BSLs in the same namespace (not in DPA spec)
+- BSLs defined in DPA `spec.backupLocations` (OADP-managed)
+- Additional BSLs in the same namespace (external/non-OADP BSLs)
 - System default CA certificates (appended for fallback)
+
+**How external BSLs are discovered**:
+
+**For CA certificate collection** (`internal/controller/bsl.go:processCACertForBSLs`):
+- Lists **all** BSLs in namespace: `r.List(r.Context, allBSLs, client.InNamespace(dpa.Namespace))`
+- **No label filtering** - discovers both OADP-managed and external BSLs
+- Filters out BSLs already processed from DPA spec by name
+- Only collects from AWS provider BSLs
+
+**For ImageStream backup support** (`internal/controller/registry.go:545-553`):
+- Lists BSLs **with label filter**: `app.kubernetes.io/component: bsl`
+- Creates registry secrets only for labeled BSLs (required by [openshift-velero-plugin](https://github.com/openshift/openshift-velero-plugin/blob/64292f953c3e2ecd623e9388b2a65c08bb9cfbe2/velero-plugins/imagestream/shared.go#L70-L73))
+
+**Using external BSLs for ImageStream backups**:
+
+External BSLs (created outside DPA spec) CAN be used for ImageStream backups if you:
+1. Manually add the required label: `app.kubernetes.io/component: bsl`
+2. Ensure the BSL has AWS provider and `caCert` configured
+3. The OADP registry controller will then create the necessary registry secret
+
+**OADP-managed BSL labels** (automatically applied):
+- `app.kubernetes.io/name: oadp-operator-velero`
+- `app.kubernetes.io/managed-by: oadp-operator`
+- `app.kubernetes.io/component: bsl` ← **Required for registry secret creation**
 
 **Not collected from**:
 
