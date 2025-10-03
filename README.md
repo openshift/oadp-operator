@@ -32,7 +32,7 @@
 ### Periodic AWS E2E OADP CLI Tests in OpenShift
 | OpenShift Version | Test Status |
 |-------------------|-------------|
-| OCP 4.19          | TBD         |
+| OCP 4.19          | [![CLI 4.19 AWS](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-oadp-dev-4.19-e2e-test-cli-aws-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-oadp-dev-4.19-e2e-test-cli-aws-periodic)|
 | OCP 4.20          | TBD         |
 
 ### OADP repositories images job
