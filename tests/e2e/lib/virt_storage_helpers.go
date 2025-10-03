@@ -131,7 +131,7 @@ func (v *VirtOperator) EnsureDataVolumeFromUrl(namespace, name, url, size string
 		log.Printf("DataVolume %s/%s already created, checking for readiness", namespace, name)
 	}
 
-	err := wait.PollImmediate(5*time.Second, timeout, func() (bool, error) {
+	err := wait.PollUntilContextTimeout(context.Background(), 5*time.Second, timeout, true, func(ctx context.Context) (bool, error) {
 		return v.checkDataVolumeReady(namespace, name), nil
 	})
 	if err != nil {
@@ -154,7 +154,8 @@ func (v *VirtOperator) RemoveDataVolume(namespace, name string, timeout time.Dur
 		}
 	}
 
-	err = wait.PollImmediate(5*time.Second, timeout, func() (bool, error) {
+	ctx := context.Background()
+	err = wait.PollUntilContextTimeout(ctx, 5*time.Second, timeout, true, func(ctx context.Context) (bool, error) {
 		return !v.CheckDataVolumeExists(namespace, name), nil
 	})
 	if err != nil {

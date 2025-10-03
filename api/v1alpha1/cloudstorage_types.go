@@ -29,6 +29,19 @@ const (
 	GCPBucketProvider   CloudStorageProvider = CloudStorageProvider(DefaultPluginGCP)
 )
 
+// CloudStorage condition constants
+const (
+	// ConditionBucketReady indicates whether the bucket exists and is ready for use
+	ConditionBucketReady = "BucketReady"
+
+	// Condition reasons for BucketReady condition
+	ReasonBucketCreated        = "BucketCreated"
+	ReasonBucketReady          = "BucketReady"
+	ReasonBucketCreationFailed = "BucketCreationFailed"
+	ReasonBucketCheckError     = "BucketCheckError"
+	ReasonSTSSecretError       = "STSSecretError"
+)
+
 type CloudStorageSpec struct {
 	// name is the name requested for the bucket (aws, gcp) or container (azure)
 	Name string `json:"name"`
@@ -63,6 +76,9 @@ type CloudStorageStatus struct {
 	// LastSyncTimestamp is the last time the contents of the CloudStorage was synced
 	// +operator-sdk:csv:customresourcedefinitions:type=status,displayName="LastSyncTimestamp"
 	LastSynced *metav1.Time `json:"lastSyncTimestamp,omitempty"`
+	// Conditions represent the latest available observations of the CloudStorage's current state
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
 // +kubebuilder:object:root=true

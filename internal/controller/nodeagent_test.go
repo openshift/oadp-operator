@@ -19,7 +19,7 @@ import (
 	"github.com/operator-framework/operator-lib/proxy"
 	"github.com/stretchr/testify/require"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
-	"github.com/vmware-tanzu/velero/pkg/nodeagent"
+	velerotypes "github.com/vmware-tanzu/velero/pkg/types"
 	"github.com/vmware-tanzu/velero/pkg/util/kube"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -1645,7 +1645,8 @@ func TestDPAReconciler_updateNodeAgentCM(t *testing.T) {
 								}
 							}
 						}
-					]
+					],
+					"privilegedFsBackup": true
 				}`,
 			}),
 		},
@@ -1689,7 +1690,7 @@ func TestDPAReconciler_updateNodeAgentCM(t *testing.T) {
 										},
 									},
 								},
-								BackupPVCConfig: map[string]nodeagent.BackupPVC{
+								BackupPVCConfig: map[string]velerotypes.BackupPVC{
 									"storage-class-1": {
 										StorageClass: "backupPVC-storage-class",
 										ReadOnly:     true,
@@ -1705,7 +1706,7 @@ func TestDPAReconciler_updateNodeAgentCM(t *testing.T) {
 										SPCNoRelabeling: true,
 									},
 								},
-								RestorePVCConfig: &nodeagent.RestorePVC{
+								RestorePVCConfig: &velerotypes.RestorePVC{
 									IgnoreDelayBinding: true,
 								},
 								PodResources: &kube.PodResources{
@@ -1767,7 +1768,8 @@ func TestDPAReconciler_updateNodeAgentCM(t *testing.T) {
 					},
 					"restorePVC": {
 						"ignoreDelayBinding": true
-					}
+					},
+					"privilegedFsBackup": true
 				}`,
 			}),
 		},

@@ -26,7 +26,6 @@ type BackupRestoreType string
 const (
 	CSI             BackupRestoreType = "csi"
 	CSIDataMover    BackupRestoreType = "csi-datamover"
-	RESTIC          BackupRestoreType = "restic"
 	KOPIA           BackupRestoreType = "kopia"
 	NativeSnapshots BackupRestoreType = "native-snapshots"
 )
@@ -49,12 +48,12 @@ type DpaCustomResource struct {
 func LoadDpaSettingsFromJson(settings string) (*oadpv1alpha1.DataProtectionApplication, error) {
 	file, err := ReadFile(settings)
 	if err != nil {
-		return nil, fmt.Errorf("Error getting settings json file: %v", err)
+		return nil, fmt.Errorf("error getting settings json file: %v", err)
 	}
 	dpa := &oadpv1alpha1.DataProtectionApplication{}
 	err = json.Unmarshal(file, &dpa)
 	if err != nil {
-		return nil, fmt.Errorf("Error decoding json file: %v", err)
+		return nil, fmt.Errorf("error decoding json file: %v", err)
 	}
 	return dpa, nil
 }
@@ -98,7 +97,7 @@ func (v *DpaCustomResource) Build(backupRestoreType BackupRestoreType) *oadpv1al
 		UnsupportedOverrides: v.UnsupportedOverrides,
 	}
 	switch backupRestoreType {
-	case RESTIC, KOPIA:
+	case KOPIA:
 		dpaSpec.Configuration.NodeAgent.Enable = ptr.To(true)
 		dpaSpec.Configuration.NodeAgent.UploaderType = string(backupRestoreType)
 		dpaSpec.SnapshotLocations = nil

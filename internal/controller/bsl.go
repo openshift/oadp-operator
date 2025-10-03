@@ -175,14 +175,50 @@ func (r *DataProtectionApplicationReconciler) ReconcileBackupStorageLocations(lo
 					return err
 				}
 				bsl.Spec.BackupSyncPeriod = bslSpec.CloudStorage.BackupSyncPeriod
-				bsl.Spec.Config = bslSpec.CloudStorage.Config
+
+				// Start with CloudStorage CR's config as base (fallback)
+				if bucket.Spec.Config != nil {
+					bsl.Spec.Config = make(map[string]string)
+					for k, v := range bucket.Spec.Config {
+						bsl.Spec.Config[k] = v
+					}
+				}
+
+				// Add region from CloudStorage CR if specified
+				if bucket.Spec.Region != "" && bsl.Spec.Config == nil {
+					bsl.Spec.Config = make(map[string]string)
+				}
+				if bucket.Spec.Region != "" {
+					bsl.Spec.Config["region"] = bucket.Spec.Region
+				}
+
+				// Override with DPA's CloudStorageLocation config (higher priority)
+				for k, v := range bslSpec.CloudStorage.Config {
+					if bsl.Spec.Config == nil {
+						bsl.Spec.Config = make(map[string]string)
+					}
+					bsl.Spec.Config[k] = v
+				}
+
+				// Handle enableSharedConfig from CloudStorage CR
 				if bucket.Spec.EnableSharedConfig != nil && *bucket.Spec.EnableSharedConfig {
 					if bsl.Spec.Config == nil {
 						bsl.Spec.Config = map[string]string{}
 					}
 					bsl.Spec.Config["enableSharedConfig"] = "true"
 				}
-				bsl.Spec.Credential = bslSpec.CloudStorage.Credential
+				// Use DPA's CloudStorage credential if provided, otherwise fallback to CloudStorage's creationSecret
+				if bslSpec.CloudStorage.Credential != nil {
+					bsl.Spec.Credential = bslSpec.CloudStorage.Credential
+				} else {
+					// Use CloudStorage's creationSecret as the BSL credential
+					bsl.Spec.Credential = &corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: bucket.Spec.CreationSecret.Name,
+						},
+						Key: bucket.Spec.CreationSecret.Key,
+					}
+				}
 				bsl.Spec.Default = bslSpec.CloudStorage.Default
 				bsl.Spec.ObjectStorage = &velerov1.ObjectStorageLocation{
 					Bucket: bucket.Spec.Name,
@@ -537,20 +573,14 @@ func (r *DataProtectionApplicationReconciler) ensureSecretDataExists(bsl *oadpv1
 
 	// Get secret details from either CloudStorage or Velero
 	if bsl.CloudStorage != nil {
-		// Make sure credentials are specified.
-		if bsl.CloudStorage.Credential == nil {
-			return fmt.Errorf("must provide a valid credential secret")
-		}
-		if bsl.CloudStorage.Credential.Name == "" {
-			return fmt.Errorf("must provide a valid credential secret name")
-		}
-		// Check if user specified empty credential key
-		if bsl.CloudStorage.Credential.Key == "" {
-			return fmt.Errorf("must provide a valid credential secret key")
-		}
+		// Get credentials - this will fallback to CloudStorage CR if needed
 		secretName, secretKey, err = r.getSecretNameAndKeyFromCloudStorage(bsl.CloudStorage)
 		if err != nil {
 			return err
+		}
+		// If still no secret found, it means CloudStorage CR doesn't exist or has no credentials
+		if secretName == "" {
+			return fmt.Errorf("must provide credentials either in DPA or CloudStorage CR")
 		}
 
 		// Get provider type from CloudStorage
@@ -793,4 +823,85 @@ func (r *DataProtectionApplicationReconciler) patchAzureSecretWithResourceGroup(
 
 	r.Log.Info("Patched Azure secret with resource group", "secret", secret.Name, "resourceGroup", resourceGroup)
 	return nil
+}
+
+// processCACertForBSLs creates a ConfigMap containing CA certificates from BackupStorageLocations
+// Returns the ConfigMap name if certificates were found, empty string otherwise
+func (r *DataProtectionApplicationReconciler) processCACertForBSLs() (string, error) {
+	dpa := r.dpa
+	var caCertData []byte
+
+	// Check all BSLs for custom CA certificates
+	for _, bslSpec := range dpa.Spec.BackupLocations {
+		var caCert []byte
+
+		// Check Velero BSL for CA certificate
+		if bslSpec.Velero != nil && bslSpec.Velero.ObjectStorage != nil && bslSpec.Velero.ObjectStorage.CACert != nil {
+			caCert = bslSpec.Velero.ObjectStorage.CACert
+		}
+		// Check CloudStorage BSL for CA certificate
+		if bslSpec.CloudStorage != nil && bslSpec.CloudStorage.CACert != nil {
+			caCert = bslSpec.CloudStorage.CACert
+		}
+
+		// If we found a CA certificate, use it (first one wins)
+		if len(caCert) > 0 {
+			caCertData = caCert
+			break
+		}
+	}
+
+	// No CA certificates found
+	if len(caCertData) == 0 {
+		return "", nil
+	}
+
+	// Create ConfigMap with the CA certificate
+	configMapName := caBundleConfigMapName
+	configMap := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      configMapName,
+			Namespace: dpa.Namespace,
+		},
+	}
+
+	op, err := controllerutil.CreateOrPatch(r.Context, r.Client, configMap, func() error {
+		// Set controller reference
+		if err := controllerutil.SetControllerReference(dpa, configMap, r.Scheme); err != nil {
+			return err
+		}
+
+		// Set labels
+		if configMap.Labels == nil {
+			configMap.Labels = make(map[string]string)
+		}
+		configMap.Labels["app.kubernetes.io/name"] = common.Velero
+		configMap.Labels["app.kubernetes.io/managed-by"] = common.OADPOperator
+		configMap.Labels["app.kubernetes.io/component"] = "ca-bundle"
+		configMap.Labels[oadpv1alpha1.OadpOperatorLabel] = "True"
+
+		// Set data
+		if configMap.Data == nil {
+			configMap.Data = make(map[string]string)
+		}
+		configMap.Data[caBundleFileName] = string(caCertData)
+
+		return nil
+	})
+
+	if err != nil {
+		return "", fmt.Errorf("failed to create/update CA bundle ConfigMap: %w", err)
+	}
+
+	if op == controllerutil.OperationResultCreated || op == controllerutil.OperationResultUpdated {
+		r.Log.Info("CA certificate ConfigMap processed", "configMap", configMapName, "operation", op)
+		// Trigger event to indicate ConfigMap was created or updated
+		r.EventRecorder.Event(configMap,
+			corev1.EventTypeNormal,
+			"CACertificateConfigMapReconciled",
+			fmt.Sprintf("performed %s on CA certificate ConfigMap %s/%s", op, configMap.Namespace, configMap.Name),
+		)
+	}
+
+	return configMapName, nil
 }

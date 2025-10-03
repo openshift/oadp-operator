@@ -57,6 +57,14 @@ var (
 	}
 )
 
+// NodeAgentConfigMapWithPrivileged is needed because the node agent ConfigMap needs to set
+// PrivilegedFsBackup to true if we're enabling fs-backup, but there isn't a separate Privileged
+// DPA spec field, as this must always be privileged in OpenShift
+type nodeAgentConfigMapWithPrivileged struct {
+	oadpv1alpha1.NodeAgentConfigMapSettings `json:",inline"`
+	PrivilegedFsBackup                      bool `json:"privilegedFsBackup,omitempty"`
+}
+
 // getFsPvHostPath returns the host path for persistent volumes based on the platform type.
 func getFsPvHostPath(platformType string) string {
 	// Check if environment variables are set for host paths
@@ -107,12 +115,14 @@ func isNodeAgentEnabled(dpa *oadpv1alpha1.DataProtectionApplication) bool {
 }
 
 // isNodeAgentCMRequired checks if at least one required field is present in NodeAgentConfigMapSettings or PodConfig.
-func isNodeAgentCMRequired(config oadpv1alpha1.NodeAgentConfigMapSettings) bool {
+func isNodeAgentCMRequired(config oadpv1alpha1.NodeAgentConfigMapSettings, disableFsBackup *bool) bool {
 	return config.LoadConcurrency != nil ||
 		len(config.BackupPVCConfig) > 0 ||
 		config.RestorePVCConfig != nil ||
 		config.PodResources != nil ||
-		config.LoadAffinityConfig != nil
+		config.LoadAffinityConfig != nil ||
+		disableFsBackup == nil ||
+		!*disableFsBackup
 }
 
 // updateNodeAgentCM handles the creation or update of the NodeAgent ConfigMap with all required data.
@@ -122,8 +132,16 @@ func (r *DataProtectionApplicationReconciler) updateNodeAgentCM(cm *corev1.Confi
 		return fmt.Errorf("failed to set controller reference: %w", err)
 	}
 
+	// determine PrivilegedFsBackup from DisableFsBackup setting
+	privilegedFsBackup := r.dpa.Spec.Configuration.Velero.DisableFsBackup == nil ||
+		!*r.dpa.Spec.Configuration.Velero.DisableFsBackup
+
+	configWithPrivileged := nodeAgentConfigMapWithPrivileged{
+		NodeAgentConfigMapSettings: r.dpa.Spec.Configuration.NodeAgent.NodeAgentConfigMapSettings,
+		PrivilegedFsBackup:         privilegedFsBackup,
+	}
 	// Convert NodeAgentConfigMapSettings to a generic map
-	configNodeAgentJSON, err := json.Marshal(r.dpa.Spec.Configuration.NodeAgent.NodeAgentConfigMapSettings)
+	configNodeAgentJSON, err := json.Marshal(configWithPrivileged)
 	if err != nil {
 		return fmt.Errorf("failed to serialize node agent config: %w", err)
 	}
@@ -156,7 +174,7 @@ func (r *DataProtectionApplicationReconciler) ReconcileNodeAgentConfigMap(log lo
 		},
 	}
 
-	if !isNodeAgentEnabled(dpa) || !isNodeAgentCMRequired(dpa.Spec.Configuration.NodeAgent.NodeAgentConfigMapSettings) {
+	if !isNodeAgentEnabled(dpa) || !isNodeAgentCMRequired(dpa.Spec.Configuration.NodeAgent.NodeAgentConfigMapSettings, dpa.Spec.Configuration.Velero.DisableFsBackup) {
 		err := r.Get(r.Context, cmName, &configMap)
 		if err != nil && !errors.IsNotFound(err) {
 			return false, err
@@ -253,7 +271,9 @@ func (r *DataProtectionApplicationReconciler) ReconcileNodeAgentDaemonset(log lo
 			veleroAffinityStruct := make([]*kube.LoadAffinity, len(dpa.Spec.Configuration.NodeAgent.NodeAgentConfigMapSettings.LoadAffinityConfig))
 
 			for i, aff := range dpa.Spec.Configuration.NodeAgent.NodeAgentConfigMapSettings.LoadAffinityConfig {
-				veleroAffinityStruct[i] = (*kube.LoadAffinity)(aff)
+				veleroAffinityStruct[i] = &kube.LoadAffinity{
+					NodeSelector: aff.NodeSelector,
+				}
 			}
 			affinity := kube.ToSystemAffinity(veleroAffinityStruct)
 			ds.Spec.Template.Spec.Affinity = affinity

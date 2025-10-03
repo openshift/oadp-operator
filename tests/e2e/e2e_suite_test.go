@@ -40,9 +40,11 @@ var (
 	knownFlake          bool
 	accumulatedTestLogs []string
 
-	kvmEmulation   bool
-	useUpstreamHco bool
-	skipMustGather bool
+	kvmEmulation        bool
+	useUpstreamHco      bool
+	skipMustGather      bool
+	hcBackupRestoreMode string
+	hcName              string
 )
 
 func init() {
@@ -59,6 +61,8 @@ func init() {
 	flag.BoolVar(&kvmEmulation, "kvm_emulation", true, "Enable or disable KVM emulation for virtualization testing")
 	flag.BoolVar(&useUpstreamHco, "hco_upstream", false, "Force use of upstream virtualization operator")
 	flag.BoolVar(&skipMustGather, "skipMustGather", false, "avoid errors with local execution and cluster architecture")
+	flag.StringVar(&hcBackupRestoreMode, "hc_backup_restore_mode", string(HCModeCreate), "Type of HC test to run")
+	flag.StringVar(&hcName, "hc_name", "", "Name of the HostedCluster to use for HCP tests")
 
 	// helps with launching debug sessions from IDE
 	if os.Getenv("E2E_USE_ENV_FLAGS") == "true" {
@@ -115,14 +119,22 @@ func init() {
 				log.Println("Error parsing SKIP_MUST_GATHER, must-gather will be enabled by default: ", err)
 			}
 		}
+		if os.Getenv("HC_BACKUP_RESTORE_MODE") != "" {
+			hcBackupRestoreMode = os.Getenv("HC_BACKUP_RESTORE_MODE")
+		} else {
+			hcBackupRestoreMode = string(HCModeCreate)
+		}
+		if os.Getenv("HC_NAME") != "" {
+			hcName = os.Getenv("HC_NAME")
+		}
 	}
-
 }
 
 func TestOADPE2E(t *testing.T) {
 	flag.Parse()
 
 	var err error
+
 	kubeConfig = config.GetConfigOrDie()
 	kubeConfig.QPS = 50
 	kubeConfig.Burst = 100
@@ -200,7 +212,6 @@ var _ = ginkgo.AfterSuite(func() {
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	err = lib.DeleteSecret(kubernetesClientForSuiteRun, namespace, bslSecretNameWithCarriageReturn)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
-
 	log.Printf("Deleting DPA")
 	err = dpaCR.Delete()
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())

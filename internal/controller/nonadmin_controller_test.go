@@ -394,9 +394,6 @@ func TestEnsureRequiredSpecs(t *testing.T) {
 			// check that we get expected int value string from the level set in config
 			if expectedLevel, err := logrus.ParseLevel(""); err != nil {
 				// we expect logrus.ParseLevel("") to err here and returns 0
-				if err == nil {
-					t.Error("Expected err when level is empty from logrus.ParseLevel")
-				}
 				// The returned expectedLevel of 0 is panic level
 				if expectedLevel != logrus.PanicLevel {
 					t.Errorf("unexpected logrus.ParseLevel('') return value")

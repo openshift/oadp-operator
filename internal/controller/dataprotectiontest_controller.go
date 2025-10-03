@@ -418,7 +418,7 @@ func (r *DataProtectionTestReconciler) initializeAzureProvider(ctx context.Conte
 	r.Log.Info("Initializing Azure provider")
 
 	if backupLocationSpec.Credential == nil {
-		return nil, fmt.Errorf("Azure credential is required but not specified")
+		return nil, fmt.Errorf("azure credential is required but not specified")
 	}
 
 	// Get the Azure credentials from the secret

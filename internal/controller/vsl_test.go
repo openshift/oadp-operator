@@ -10,7 +10,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
@@ -772,8 +772,8 @@ func TestDPAReconciler_ReconcileVolumeSnapshotLocations(t *testing.T) {
 						Kind:               "DataProtectionApplication",
 						Name:               tt.dpa.Name,
 						UID:                tt.dpa.UID,
-						Controller:         pointer.BoolPtr(true),
-						BlockOwnerDeletion: pointer.BoolPtr(true),
+						Controller:         ptr.To(true),
+						BlockOwnerDeletion: ptr.To(true),
 					}},
 				},
 			}

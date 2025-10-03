@@ -13,7 +13,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
-	"k8s.io/utils/pointer"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -65,7 +64,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 							NoDefaultBackupLocation: true,
 						},
 					},
-					BackupImages: pointer.Bool(false),
+					BackupImages: ptr.To(false),
 				},
 			},
 			objects: []client.Object{},
@@ -87,7 +86,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 							NoDefaultBackupLocation: true,
 						},
 					},
-					BackupImages: pointer.Bool(false),
+					BackupImages: ptr.To(false),
 					UnsupportedOverrides: map[oadpv1alpha1.UnsupportedImageKey]string{
 						oadpv1alpha1.OperatorTypeKey: oadpv1alpha1.OperatorTypeMTC,
 					},
@@ -112,7 +111,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 							NoDefaultBackupLocation: true,
 						},
 					},
-					BackupImages: pointer.Bool(false),
+					BackupImages: ptr.To(false),
 					UnsupportedOverrides: map[oadpv1alpha1.UnsupportedImageKey]string{
 						oadpv1alpha1.OperatorTypeKey: "not" + oadpv1alpha1.OperatorTypeMTC,
 					},
@@ -160,7 +159,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 							NoDefaultBackupLocation: true,
 						},
 					},
-					BackupImages: pointer.Bool(true),
+					BackupImages: ptr.To(true),
 				},
 			},
 			objects:    []client.Object{},
@@ -250,7 +249,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 							},
 						},
 					},
-					BackupImages: pointer.Bool(false),
+					BackupImages: ptr.To(false),
 				},
 			},
 			objects: []client.Object{
@@ -311,7 +310,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 							},
 						},
 					},
-					BackupImages: pointer.Bool(false),
+					BackupImages: ptr.To(false),
 				},
 			},
 			objects: []client.Object{
@@ -335,7 +334,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "given valid DPA CR with valid restic resource requirements ",
+			name: "given valid DPA CR with valid restic resource requirements - should error to use kopia",
 			dpa: &oadpv1alpha1.DataProtectionApplication{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-DPA-CR",
@@ -384,7 +383,81 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 							UploaderType: "restic",
 						},
 					},
-					BackupImages: pointer.Bool(false),
+					BackupImages: ptr.To(false),
+				},
+			},
+			objects: []client.Object{
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "cloud-credentials",
+						Namespace: "test-ns",
+					},
+					Data: map[string][]byte{"credentials": []byte("[default]\naws_access_key_id=AKIAIOSFODNN7EXAMPLE\naws_secret_access_key=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY")},
+				},
+				&oadpv1alpha1.CloudStorage{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "testing",
+						Namespace: "test-ns",
+					},
+					Spec: oadpv1alpha1.CloudStorageSpec{
+						Provider: "aws",
+					},
+				},
+			},
+			wantErr:    true,
+			messageErr: "restic is no longer supported in spec.configuration.nodeAgent.uploaderType, use kopia instead",
+		},
+		{
+			name: "given valid DPA CR with valid kopia resource requirements",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-DPA-CR",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					BackupLocations: []oadpv1alpha1.BackupLocation{
+						{
+							CloudStorage: &oadpv1alpha1.CloudStorageLocation{
+								CloudStorageRef: corev1.LocalObjectReference{
+									Name: "testing",
+								},
+								Credential: &corev1.SecretKeySelector{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: "cloud-credentials",
+									},
+									Key: "credentials",
+								},
+								Default: true,
+							},
+						},
+					},
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+								oadpv1alpha1.DefaultPluginAWS,
+							},
+							PodConfig: &oadpv1alpha1.PodConfig{
+								ResourceAllocations: corev1.ResourceRequirements{
+									Requests: corev1.ResourceList{
+										corev1.ResourceCPU: resource.MustParse("2"),
+									},
+								},
+							},
+						},
+						NodeAgent: &oadpv1alpha1.NodeAgentConfig{
+							NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
+								PodConfig: &oadpv1alpha1.PodConfig{
+									ResourceAllocations: corev1.ResourceRequirements{
+										Requests: corev1.ResourceList{
+											corev1.ResourceCPU: resource.MustParse("2"),
+										},
+									},
+								},
+							},
+							UploaderType: "kopia",
+						},
+					},
+					BackupImages: ptr.To(false),
 				},
 			},
 			objects: []client.Object{
@@ -448,7 +521,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 							},
 						},
 					},
-					BackupImages: pointer.Bool(false),
+					BackupImages: ptr.To(false),
 				},
 			},
 			objects: []client.Object{
@@ -507,7 +580,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 							},
 						},
 					},
-					BackupImages: pointer.Bool(false),
+					BackupImages: ptr.To(false),
 				},
 			},
 			objects: []client.Object{},
@@ -547,7 +620,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 							},
 						},
 					},
-					BackupImages: pointer.Bool(false),
+					BackupImages: ptr.To(false),
 				},
 			},
 			objects: []client.Object{
@@ -557,12 +630,19 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 						Namespace: "test-ns",
 					},
 					Spec: oadpv1alpha1.CloudStorageSpec{
+						Name:     "test-bucket",
 						Provider: "aws",
+						CreationSecret: corev1.SecretKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: "", // Empty secret name
+							},
+							Key: "cloud",
+						},
 					},
 				},
 			},
 			wantErr:    true,
-			messageErr: "must provide a valid credential secret",
+			messageErr: "must provide credentials either in DPA or CloudStorage CR",
 		},
 		{
 			name: "given valid DPA CR bucket BSL configured and AWS Default Plugin with secret",
@@ -605,7 +685,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 							},
 						},
 					},
-					BackupImages: pointer.Bool(false),
+					BackupImages: ptr.To(false),
 				},
 			},
 			objects: []client.Object{
@@ -1168,7 +1248,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{},
 						},
 					},
-					BackupImages: pointer.Bool(true),
+					BackupImages: ptr.To(true),
 				},
 			},
 			objects: []client.Object{
@@ -1212,7 +1292,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{},
 						},
 					},
-					BackupImages: pointer.Bool(true),
+					BackupImages: ptr.To(true),
 				},
 			},
 			objects: []client.Object{
@@ -1449,7 +1529,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 				},
 				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 					NonAdmin: &oadpv1alpha1.NonAdmin{
-						Enable: pointer.Bool(true),
+						Enable: ptr.To(true),
 					},
 					Configuration: &oadpv1alpha1.ApplicationConfig{
 						Velero: &oadpv1alpha1.VeleroConfig{
@@ -1459,7 +1539,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 							NoDefaultBackupLocation: true,
 						},
 					},
-					BackupImages: pointer.Bool(false),
+					BackupImages: ptr.To(false),
 				},
 			},
 		},
@@ -1472,7 +1552,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 				},
 				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 					NonAdmin: &oadpv1alpha1.NonAdmin{
-						Enable: pointer.Bool(true),
+						Enable: ptr.To(true),
 					},
 					Configuration: &oadpv1alpha1.ApplicationConfig{
 						Velero: &oadpv1alpha1.VeleroConfig{
@@ -1482,7 +1562,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 							NoDefaultBackupLocation: true,
 						},
 					},
-					BackupImages: pointer.Bool(false),
+					BackupImages: ptr.To(false),
 				},
 			},
 			objects: []client.Object{
@@ -1493,7 +1573,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 					},
 					Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 						NonAdmin: &oadpv1alpha1.NonAdmin{
-							Enable: pointer.Bool(true),
+							Enable: ptr.To(true),
 						},
 					},
 				},
@@ -1516,7 +1596,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 				},
 				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 					NonAdmin: &oadpv1alpha1.NonAdmin{
-						Enable: pointer.Bool(true),
+						Enable: ptr.To(true),
 					},
 					Configuration: &oadpv1alpha1.ApplicationConfig{
 						Velero: &oadpv1alpha1.VeleroConfig{
@@ -1526,7 +1606,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 							NoDefaultBackupLocation: true,
 						},
 					},
-					BackupImages: pointer.Bool(false),
+					BackupImages: ptr.To(false),
 				},
 			},
 			objects: []client.Object{
@@ -1537,7 +1617,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 					},
 					Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 						NonAdmin: &oadpv1alpha1.NonAdmin{
-							Enable: pointer.Bool(false),
+							Enable: ptr.To(false),
 						},
 					},
 				},
@@ -1567,7 +1647,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 							NoDefaultBackupLocation: true,
 						},
 					},
-					BackupImages: pointer.Bool(false),
+					BackupImages: ptr.To(false),
 				},
 			},
 			objects:    []client.Object{},

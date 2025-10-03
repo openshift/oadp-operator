@@ -7,6 +7,7 @@ import (
 	"log"
 	"time"
 
+	configv1 "github.com/openshift/api/config/v1"
 	hypershiftv1 "github.com/openshift/hypershift/api/hypershift/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -16,6 +17,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
@@ -293,6 +296,19 @@ func (h *HCHandler) WaitForHCPDeletion(hcp *hypershiftv1.HostedControlPlane) err
 		}
 		return deleted, nil
 	})
+}
+
+// GetHostedCluster returns the HostedCluster object
+func (h *HCHandler) GetHostedCluster(hcName, hcNamespace string) (*hypershiftv1.HostedCluster, error) {
+	hc := &hypershiftv1.HostedCluster{}
+	err := h.Client.Get(h.Ctx, types.NamespacedName{
+		Name:      hcName,
+		Namespace: hcNamespace,
+	}, hc)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get HostedCluster: %v", err)
+	}
+	return hc, nil
 }
 
 // NukeHostedCluster removes all resources associated with a HostedCluster
@@ -671,4 +687,41 @@ func RestartHCPPods(HCPNamespace string, c client.Client) error {
 		}
 	}
 	return nil
+}
+
+func buildConfigFromBytes(kubeconfigData []byte) (*rest.Config, error) {
+	clientConfig, err := clientcmd.NewClientConfigFromBytes(kubeconfigData)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load client config from bytes: %v", err)
+	}
+	config, err := clientConfig.ClientConfig()
+	if err != nil {
+		return nil, fmt.Errorf("failed to build complete client config: %v", err)
+	}
+	return config, nil
+}
+
+func (h *HCHandler) GetHostedClusterKubeconfig(hc *hypershiftv1.HostedCluster) (*rest.Config, error) {
+	kubeconfigSecret := &corev1.Secret{}
+	err := h.Client.Get(h.Ctx,
+		types.NamespacedName{
+			Namespace: hc.Namespace,
+			Name:      hc.Status.KubeConfig.Name},
+		kubeconfigSecret)
+	if err != nil {
+		return nil, err
+	}
+	kubeconfigData := kubeconfigSecret.Data["kubeconfig"]
+	return buildConfigFromBytes(kubeconfigData)
+}
+
+func (h *HCHandler) ValidateClient(c client.Client) wait.ConditionFunc {
+	return func() (bool, error) {
+		clusterVersion := &configv1.ClusterVersion{}
+		if err := c.Get(h.Ctx, client.ObjectKey{Name: "version"}, clusterVersion); err != nil {
+			log.Printf("Error getting cluster version: %v", err)
+			return false, nil
+		}
+		return true, nil
+	}
 }

@@ -100,6 +100,16 @@ You can also execute make test-e2e with a $GINKGO_ARGS variable set. Example:
 make test-e2e GINKGO_ARGS="--ginkgo.focus='MySQL application DATAMOVER'"
 ```
 
+### Run selected test for HCP against external HostedControlPlane
+
+Set common env variables as mentioned above, then run:
+
+```bash
+TEST_HCP_EXTERNAL=true \
+HC_NAME=hc1 \
+make test-e2e
+```
+
 ### Run tests with custom images
 
 You can run tests with custom images by setting the following environment variables:

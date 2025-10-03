@@ -1,6 +1,7 @@
 package e2e_test
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"log"
@@ -97,7 +98,7 @@ func runVmBackupAndRestore(brCase VmBackupRestoreCase, updateLastBRcase func(brC
 	// Wait for VM to start, then give some time for cloud-init to run.
 	// Afterward, run through the standard application verification to make sure
 	// the application itself is working correctly.
-	err = wait.PollImmediate(10*time.Second, 10*time.Minute, func() (bool, error) {
+	err = wait.PollUntilContextTimeout(context.Background(), 10*time.Second, 10*time.Minute, true, func(ctx context.Context) (bool, error) {
 		status, err := v.GetVmStatus(brCase.Namespace, brCase.Name)
 		return status == "Running", err
 	})

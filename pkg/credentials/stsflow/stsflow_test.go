@@ -158,7 +158,7 @@ func TestCreateOrUpdateSTSSecret(t *testing.T) {
 
 				// Verify the label is set
 				assert.NotNil(t, secret.Labels)
-				assert.Equal(t, "sts-credentials", secret.Labels["oadp.openshift.io/secret-type"])
+				assert.Equal(t, STSSecretLabelValue, secret.Labels[STSSecretLabelKey])
 			}
 		})
 	}
@@ -284,18 +284,11 @@ func TestCreateOrUpdateSTSSecret_ErrorScenarios(t *testing.T) {
 	testSecretName := "test-secret"
 	testLogger := zap.New(zap.UseDevMode(true))
 
-	t.Run("Get error during update", func(t *testing.T) {
-		// Create a client that returns an error on Get
-		fakeClient := &mockErrorClient{
-			Client: fake.NewClientBuilder().
-				WithRuntimeObjects(&corev1.Secret{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      testSecretName,
-						Namespace: testNamespace,
-					},
-				}).
-				Build(),
-			getError: true,
+	t.Run("Get error (non-NotFound) during initial check", func(t *testing.T) {
+		// Create a client that returns a non-NotFound error on Get
+		// This simulates a real error (not just secret not existing)
+		fakeClient := &mockErrorClientGenericGetError{
+			Client: fake.NewClientBuilder().Build(),
 		}
 		fakeClientset := k8sfake.NewSimpleClientset()
 
@@ -304,7 +297,7 @@ func TestCreateOrUpdateSTSSecret_ErrorScenarios(t *testing.T) {
 		}, testNamespace, fakeClient, fakeClientset, false)
 
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "not found")
+		assert.Contains(t, err.Error(), "unable to get secret resource")
 	})
 
 	t.Run("Patch error during update", func(t *testing.T) {
@@ -328,6 +321,42 @@ func TestCreateOrUpdateSTSSecret_ErrorScenarios(t *testing.T) {
 
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "patch error")
+	})
+
+	t.Run("No update when content is identical", func(t *testing.T) {
+		// Create a secret with the same data we'll try to update with
+		existingSecret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      testSecretName,
+				Namespace: testNamespace,
+				Labels: map[string]string{
+					STSSecretLabelKey: STSSecretLabelValue,
+				},
+			},
+			Data: map[string][]byte{
+				"key": []byte("value"),
+			},
+		}
+		fakeClient := fake.NewClientBuilder().
+			WithRuntimeObjects(existingSecret).
+			Build()
+		fakeClientset := k8sfake.NewSimpleClientset()
+
+		// Try to update with the same content
+		err := CreateOrUpdateSTSSecretWithClientsAndWait(testLogger, testSecretName, map[string]string{
+			"key": "value",
+		}, testNamespace, fakeClient, fakeClientset, false)
+
+		assert.NoError(t, err)
+		// Verify the secret wasn't modified
+		secretResult := &corev1.Secret{}
+		err = fakeClient.Get(context.Background(), client.ObjectKey{
+			Name:      testSecretName,
+			Namespace: testNamespace,
+		}, secretResult)
+		assert.NoError(t, err)
+		// The Data should remain unchanged (no StringData should be set)
+		assert.Equal(t, []byte("value"), secretResult.Data["key"])
 	})
 }
 
@@ -355,6 +384,15 @@ func (m *mockErrorClient) Patch(ctx context.Context, obj client.Object, patch cl
 		return errors.NewBadRequest("patch error")
 	}
 	return m.Client.Patch(ctx, obj, patch, opts...)
+}
+
+// New mock client that returns a generic error on Get (not NotFound)
+type mockErrorClientGenericGetError struct {
+	client.Client
+}
+
+func (m *mockErrorClientGenericGetError) Get(ctx context.Context, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+	return errors.NewServiceUnavailable("unable to get secret resource")
 }
 
 func TestSTSStandardizedFlow(t *testing.T) {

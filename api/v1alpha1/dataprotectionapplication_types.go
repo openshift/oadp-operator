@@ -20,7 +20,7 @@ import (
 	"time"
 
 	velero "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
-	"github.com/vmware-tanzu/velero/pkg/nodeagent"
+	"github.com/vmware-tanzu/velero/pkg/types"
 	"github.com/vmware-tanzu/velero/pkg/util/kube"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -70,7 +70,6 @@ const LegacyAWSPluginImageKey UnsupportedImageKey = "legacyAWSPluginImageFqin"
 const OpenShiftPluginImageKey UnsupportedImageKey = "openshiftPluginImageFqin"
 const AzurePluginImageKey UnsupportedImageKey = "azurePluginImageFqin"
 const GCPPluginImageKey UnsupportedImageKey = "gcpPluginImageFqin"
-const ResticRestoreImageKey UnsupportedImageKey = "resticRestoreImageFqin"
 const KubeVirtPluginImageKey UnsupportedImageKey = "kubevirtPluginImageFqin"
 const HypershiftPluginImageKey UnsupportedImageKey = "hypershiftPluginImageFqin"
 const NonAdminControllerImageKey UnsupportedImageKey = "nonAdminControllerImageFqin"
@@ -426,15 +425,68 @@ type NodeAgentConfigMapSettings struct {
 	// LoadAffinity is the config for data path load affinity.
 	// +optional
 	LoadAffinityConfig []*LoadAffinity `json:"loadAffinity,omitempty"`
+	// Note: DeepCopy for this field is manually maintained below as controller-gen is unable to generate DeepCopyInto for external types (velerotypes.BackupPVC)
+	// because types.BackupPVC is an external type without DeepCopy methods
+
 	// BackupPVCConfig is the config for backupPVC (intermediate PVC) of snapshot data movement
 	// +optional
-	BackupPVCConfig map[string]nodeagent.BackupPVC `json:"backupPVC,omitempty"`
+	BackupPVCConfig map[string]types.BackupPVC `json:"backupPVC,omitempty"`
 	// RestoreVCConfig is the config for restorePVC (intermediate PVC) of generic restore
 	// +optional
-	RestorePVCConfig *nodeagent.RestorePVC `json:"restorePVC,omitempty"`
+	RestorePVCConfig *types.RestorePVC `json:"restorePVC,omitempty"`
 	// PodResources is the resource config for various types of pods launched by node-agent, i.e., data mover pods.
 	// +optional
 	PodResources *kube.PodResources `json:"podResources,omitempty"`
+}
+
+// DeepCopyInto is a manual deepcopy function, copying the receiver, writing into out. in must be non-nil.
+// needed for above BackupPVCConfig map[string]types.BackupPVC `json:"backupPVC,omitempty"`
+func (in *NodeAgentConfigMapSettings) DeepCopyInto(out *NodeAgentConfigMapSettings) {
+	*out = *in
+	if in.LoadConcurrency != nil {
+		in, out := &in.LoadConcurrency, &out.LoadConcurrency
+		*out = new(LoadConcurrency)
+		(*in).DeepCopyInto(*out)
+	}
+	if in.LoadAffinityConfig != nil {
+		in, out := &in.LoadAffinityConfig, &out.LoadAffinityConfig
+		*out = make([]*LoadAffinity, len(*in))
+		for i := range *in {
+			if (*in)[i] != nil {
+				in, out := &(*in)[i], &(*out)[i]
+				*out = new(LoadAffinity)
+				(*in).DeepCopyInto(*out)
+			}
+		}
+	}
+	if in.BackupPVCConfig != nil {
+		in, out := &in.BackupPVCConfig, &out.BackupPVCConfig
+		*out = make(map[string]types.BackupPVC, len(*in))
+		for key, val := range *in {
+			outVal := types.BackupPVC{
+				StorageClass:    val.StorageClass,
+				ReadOnly:        val.ReadOnly,
+				SPCNoRelabeling: val.SPCNoRelabeling,
+			}
+			if val.Annotations != nil {
+				outVal.Annotations = make(map[string]string, len(val.Annotations))
+				for k, v := range val.Annotations {
+					outVal.Annotations[k] = v
+				}
+			}
+			(*out)[key] = outVal
+		}
+	}
+	if in.RestorePVCConfig != nil {
+		in, out := &in.RestorePVCConfig, &out.RestorePVCConfig
+		*out = new(types.RestorePVC)
+		**out = **in
+	}
+	if in.PodResources != nil {
+		in, out := &in.PodResources, &out.PodResources
+		*out = new(kube.PodResources)
+		**out = **in
+	}
 }
 
 // Velero nodeAgentServerConfig struct used in below struct:
@@ -452,6 +504,8 @@ type NodeAgentConfig struct {
 	// How long to wait for resource processes which are not covered by other specific timeout parameters. Default is 10 minutes.
 	// +optional
 	ResourceTimeout *metav1.Duration `json:"resourceTimeout,omitempty"`
+	// Enum below for Restic is being kept for compatibility reasons, and can be removed when we bump to v2
+
 	// The type of uploader to transfer the data of pod volumes, the supported values are 'restic' or 'kopia'
 	// +kubebuilder:validation:Enum=restic;kopia
 	// +kubebuilder:validation:Required
@@ -783,7 +837,6 @@ type DataProtectionApplicationSpec struct {
 	//   - openshiftPluginImageFqin
 	//   - azurePluginImageFqin
 	//   - gcpPluginImageFqin
-	//   - resticRestoreImageFqin
 	//   - kubevirtPluginImageFqin
 	//   - hypershiftPluginImageFqin
 	//   - nonAdminControllerImageFqin

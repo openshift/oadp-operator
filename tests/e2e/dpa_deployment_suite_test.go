@@ -308,18 +308,6 @@ var _ = ginkgo.Describe("Configuration testing for DPA Custom Resource", func() 
 				SnapshotLocations: dpaCR.SnapshotLocations,
 			}),
 		}),
-		ginkgo.Entry("DPA CR with NodeAgent enabled with restic and node selector", InstallCase{
-			DpaSpec: createTestDPASpec(TestDPASpec{
-				BSLSecretName:   bslSecretName,
-				EnableNodeAgent: true,
-				UploaderType:    "restic",
-				NodeAgentPodConfig: oadpv1alpha1.PodConfig{
-					NodeSelector: map[string]string{
-						"foo": "bar",
-					},
-				},
-			}),
-		}),
 		ginkgo.Entry("DPA CR with NodeAgent enabled with kopia and node selector", InstallCase{
 			DpaSpec: createTestDPASpec(TestDPASpec{
 				BSLSecretName:   bslSecretName,

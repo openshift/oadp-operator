@@ -17,12 +17,13 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/record"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	"github.com/openshift/oadp-operator/pkg/common"
+	"github.com/openshift/oadp-operator/pkg/credentials/stsflow"
 )
 
 // A bucket that region can be automatically discovered
@@ -1189,7 +1190,7 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 					Namespace: "test-ns",
 				},
 				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
-					BackupImages: pointer.Bool(false),
+					BackupImages: ptr.To(false),
 					Configuration: &oadpv1alpha1.ApplicationConfig{
 						Velero: &oadpv1alpha1.VeleroConfig{},
 					},
@@ -1345,7 +1346,7 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 					Configuration: &oadpv1alpha1.ApplicationConfig{
 						Velero: &oadpv1alpha1.VeleroConfig{},
 					},
-					BackupImages: pointer.Bool(false),
+					BackupImages: ptr.To(false),
 					BackupLocations: []oadpv1alpha1.BackupLocation{
 						{
 							Velero: &velerov1.BackupStorageLocationSpec{
@@ -1386,7 +1387,7 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 					Configuration: &oadpv1alpha1.ApplicationConfig{
 						Velero: &oadpv1alpha1.VeleroConfig{},
 					},
-					BackupImages: pointer.Bool(false),
+					BackupImages: ptr.To(false),
 					BackupLocations: []oadpv1alpha1.BackupLocation{
 						{
 							Velero: &velerov1.BackupStorageLocationSpec{
@@ -2008,8 +2009,8 @@ func TestDPAReconciler_updateBSLFromSpec(t *testing.T) {
 						APIVersion:         oadpv1alpha1.SchemeBuilder.GroupVersion.String(),
 						Kind:               "DataProtectionApplication",
 						Name:               "foo",
-						Controller:         pointer.BoolPtr(true),
-						BlockOwnerDeletion: pointer.BoolPtr(true),
+						Controller:         ptr.To(true),
+						BlockOwnerDeletion: ptr.To(true),
 					}},
 				},
 				Spec: velerov1.BackupStorageLocationSpec{
@@ -2088,8 +2089,8 @@ func TestDPAReconciler_updateBSLFromSpec(t *testing.T) {
 						APIVersion:         oadpv1alpha1.SchemeBuilder.GroupVersion.String(),
 						Kind:               "DataProtectionApplication",
 						Name:               "foo",
-						Controller:         pointer.BoolPtr(true),
-						BlockOwnerDeletion: pointer.BoolPtr(true),
+						Controller:         ptr.To(true),
+						BlockOwnerDeletion: ptr.To(true),
 					}},
 				},
 				Spec: velerov1.BackupStorageLocationSpec{
@@ -2168,8 +2169,8 @@ func TestDPAReconciler_updateBSLFromSpec(t *testing.T) {
 						APIVersion:         oadpv1alpha1.SchemeBuilder.GroupVersion.String(),
 						Kind:               "DataProtectionApplication",
 						Name:               "foo",
-						Controller:         pointer.BoolPtr(true),
-						BlockOwnerDeletion: pointer.BoolPtr(true),
+						Controller:         ptr.To(true),
+						BlockOwnerDeletion: ptr.To(true),
 					}},
 				},
 				Spec: velerov1.BackupStorageLocationSpec{
@@ -2379,7 +2380,7 @@ func TestDPAReconciler_ensurePrefixWhenBackupImages(t *testing.T) {
 							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{},
 						},
 					},
-					BackupImages: pointer.Bool(true),
+					BackupImages: ptr.To(true),
 				},
 			},
 			wantErr:     true,
@@ -2415,7 +2416,7 @@ func TestDPAReconciler_ensurePrefixWhenBackupImages(t *testing.T) {
 							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{},
 						},
 					},
-					BackupImages: pointer.Bool(true),
+					BackupImages: ptr.To(true),
 				},
 			},
 			wantErr: false,
@@ -2456,7 +2457,7 @@ func TestDPAReconciler_ensurePrefixWhenBackupImages(t *testing.T) {
 							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{},
 						},
 					},
-					BackupImages: pointer.Bool(true),
+					BackupImages: ptr.To(true),
 				},
 			},
 			wantErr: false,
@@ -2497,7 +2498,7 @@ func TestDPAReconciler_ensurePrefixWhenBackupImages(t *testing.T) {
 							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{},
 						},
 					},
-					BackupImages: pointer.Bool(true),
+					BackupImages: ptr.To(true),
 				},
 			},
 			wantErr:     true,
@@ -2645,8 +2646,8 @@ func TestDPAReconciler_ReconcileBackupStorageLocations(t *testing.T) {
 						Kind:               "DataProtectionApplication",
 						Name:               tt.dpa.Name,
 						UID:                tt.dpa.UID,
-						Controller:         pointer.Bool(true),
-						BlockOwnerDeletion: pointer.Bool(true),
+						Controller:         ptr.To(true),
+						BlockOwnerDeletion: ptr.To(true),
 					}},
 				},
 			}
@@ -2953,6 +2954,7 @@ func TestDPAReconciler_ReconcileBackupStorageLocations(t *testing.T) {
 				},
 				Spec: velerov1.BackupStorageLocationSpec{
 					Provider: "aws",
+					Config:   map[string]string{"region": "test-region"},
 					StorageType: velerov1.StorageType{
 						ObjectStorage: &velerov1.ObjectStorageLocation{
 							Bucket: "test-bucket",
@@ -3011,7 +3013,7 @@ func TestDPAReconciler_ReconcileBackupStorageLocations(t *testing.T) {
 					Spec: oadpv1alpha1.CloudStorageSpec{
 						Provider:           oadpv1alpha1.AWSBucketProvider,
 						Name:               "shared-config-bucket",
-						EnableSharedConfig: pointer.Bool(true),
+						EnableSharedConfig: ptr.To(true),
 						Region:             "us-east-1",
 					},
 				},
@@ -3027,11 +3029,94 @@ func TestDPAReconciler_ReconcileBackupStorageLocations(t *testing.T) {
 					Provider: "aws",
 					Config: map[string]string{
 						"enableSharedConfig": "true",
+						"region":             "us-east-1",
 					},
 					StorageType: velerov1.StorageType{
 						ObjectStorage: &velerov1.ObjectStorageLocation{
 							Bucket: "shared-config-bucket",
 							Prefix: "backups",
+						},
+					},
+					Credential: &corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: "cloud-credentials",
+						},
+						Key: "credentials",
+					},
+				},
+			},
+		},
+		{
+			name: "CloudStorage with config and region fallback",
+			objects: []client.Object{
+				&oadpv1alpha1.DataProtectionApplication{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-dpa",
+						Namespace: "test-ns",
+					},
+					Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+						BackupLocations: []oadpv1alpha1.BackupLocation{
+							{
+								CloudStorage: &oadpv1alpha1.CloudStorageLocation{
+									CloudStorageRef: corev1.LocalObjectReference{
+										Name: "config-fallback-cs",
+									},
+									Credential: &corev1.SecretKeySelector{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "cloud-credentials",
+										},
+										Key: "credentials",
+									},
+									Config: map[string]string{
+										"profile": "custom-profile", // This should override CloudStorage's config
+									},
+								},
+							},
+						},
+					},
+				},
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "cloud-credentials",
+						Namespace: "test-ns",
+					},
+					Data: map[string][]byte{"credentials": {}},
+				},
+				&oadpv1alpha1.CloudStorage{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "config-fallback-cs",
+						Namespace: "test-ns",
+					},
+					Spec: oadpv1alpha1.CloudStorageSpec{
+						Provider: oadpv1alpha1.AWSBucketProvider,
+						Name:     "config-test-bucket",
+						Region:   "us-west-2",
+						Config: map[string]string{
+							"profile":              "default",
+							"s3ForcePathStyle":     "true",
+							"serverSideEncryption": "AES256",
+						},
+					},
+				},
+			},
+			want:    true,
+			wantErr: false,
+			wantBSL: velerov1.BackupStorageLocation{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-dpa-1",
+					Namespace: "test-ns",
+				},
+				Spec: velerov1.BackupStorageLocationSpec{
+					Provider: "aws",
+					Config: map[string]string{
+						"region":               "us-west-2",      // From CloudStorage CR
+						"profile":              "custom-profile", // Overridden by DPA
+						"s3ForcePathStyle":     "true",           // From CloudStorage CR
+						"serverSideEncryption": "AES256",         // From CloudStorage CR
+					},
+					StorageType: velerov1.StorageType{
+						ObjectStorage: &velerov1.ObjectStorageLocation{
+							Bucket: "config-test-bucket",
 						},
 					},
 					Credential: &corev1.SecretKeySelector{
@@ -3105,6 +3190,7 @@ func TestDPAReconciler_ReconcileBackupStorageLocations(t *testing.T) {
 					Config: map[string]string{
 						"storageAccount": "mystorageaccount",
 						"resourceGroup":  "myresourcegroup",
+						"region":         "eastus",
 					},
 					StorageType: velerov1.StorageType{
 						ObjectStorage: &velerov1.ObjectStorageLocation{
@@ -3282,7 +3368,7 @@ func TestDPAReconciler_ReconcileBackupStorageLocations(t *testing.T) {
 				},
 				Spec: velerov1.BackupStorageLocationSpec{
 					Provider: "aws",
-					Config:   map[string]string(nil),
+					Config:   map[string]string{"region": "us-west-2"},
 					StorageType: velerov1.StorageType{
 						ObjectStorage: &velerov1.ObjectStorageLocation{
 							Bucket: "aws-bucket-1",
@@ -3355,7 +3441,7 @@ func TestDPAReconciler_ReconcileBackupStorageLocations(t *testing.T) {
 				},
 				Spec: velerov1.BackupStorageLocationSpec{
 					Provider: "aws",
-					Config:   map[string]string(nil),
+					Config:   map[string]string{"region": "eu-west-1"},
 					StorageType: velerov1.StorageType{
 						ObjectStorage: &velerov1.ObjectStorageLocation{
 							Bucket: "sync-test-bucket",
@@ -3457,7 +3543,7 @@ func TestPatchSecretsForBSL(t *testing.T) {
 					Name:      "aws-secret",
 					Namespace: "test-ns",
 					Labels: map[string]string{
-						"oadp.openshift.io/secret-type": "sts-credentials",
+						stsflow.STSSecretLabelKey: stsflow.STSSecretLabelValue,
 					},
 				},
 				Data: map[string][]byte{
@@ -3498,7 +3584,7 @@ web_identity_token_file = /var/run/secrets/openshift/serviceaccount/token`),
 					Name:      "aws-secret",
 					Namespace: "test-ns",
 					Labels: map[string]string{
-						"oadp.openshift.io/secret-type": "sts-credentials",
+						stsflow.STSSecretLabelKey: stsflow.STSSecretLabelValue,
 					},
 				},
 				Data: map[string][]byte{
@@ -3539,7 +3625,7 @@ web_identity_token_file = /var/run/secrets/openshift/serviceaccount/token`),
 					Name:      "aws-secret",
 					Namespace: "test-ns",
 					Labels: map[string]string{
-						"oadp.openshift.io/secret-type": "sts-credentials",
+						stsflow.STSSecretLabelKey: stsflow.STSSecretLabelValue,
 					},
 				},
 				Data: map[string][]byte{
@@ -3579,7 +3665,7 @@ web_identity_token_file = /var/run/secrets/openshift/serviceaccount/token`),
 					Name:      "azure-secret",
 					Namespace: "test-ns",
 					Labels: map[string]string{
-						"oadp.openshift.io/secret-type": "sts-credentials",
+						stsflow.STSSecretLabelKey: stsflow.STSSecretLabelValue,
 					},
 				},
 				Data: map[string][]byte{
@@ -3662,7 +3748,7 @@ AZURE_TENANT_ID=test-tenant`),
 					Name:      "aws-secret",
 					Namespace: "test-ns",
 					Labels: map[string]string{
-						"oadp.openshift.io/secret-type": "sts-credentials",
+						stsflow.STSSecretLabelKey: stsflow.STSSecretLabelValue,
 					},
 				},
 				Data: map[string][]byte{
@@ -3777,7 +3863,7 @@ aws_secret_access_key=test-secret`),
 					Name:      "aws-sts-secret",
 					Namespace: "test-ns",
 					Labels: map[string]string{
-						"oadp.openshift.io/secret-type": "sts-credentials",
+						stsflow.STSSecretLabelKey: stsflow.STSSecretLabelValue,
 					},
 				},
 				Data: map[string][]byte{
@@ -3860,7 +3946,7 @@ aws_secret_access_key=test-secret`),
 					Name:      "azure-sts-secret",
 					Namespace: "test-ns",
 					Labels: map[string]string{
-						"oadp.openshift.io/secret-type": "sts-credentials",
+						stsflow.STSSecretLabelKey: stsflow.STSSecretLabelValue,
 					},
 				},
 				Data: map[string][]byte{
@@ -4195,7 +4281,7 @@ func TestDPAReconciler_populateBSLFromCloudStorage(t *testing.T) {
 				Spec: oadpv1alpha1.CloudStorageSpec{
 					Provider:           oadpv1alpha1.AWSBucketProvider,
 					Name:               "shared-bucket",
-					EnableSharedConfig: pointer.Bool(true),
+					EnableSharedConfig: ptr.To(true),
 				},
 			},
 			expectedBSL: &oadpv1alpha1.BackupLocation{
@@ -4416,7 +4502,7 @@ func TestDPAReconciler_ensureSecretDataExists_CloudStorage(t *testing.T) {
 					Namespace: "test-ns",
 				},
 				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
-					BackupImages: pointer.Bool(true),
+					BackupImages: ptr.To(true),
 					Configuration: &oadpv1alpha1.ApplicationConfig{
 						Velero: &oadpv1alpha1.VeleroConfig{},
 					},
@@ -4467,7 +4553,7 @@ aws_secret_access_key=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY`),
 					Namespace: "test-ns",
 				},
 				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
-					BackupImages: pointer.Bool(true),
+					BackupImages: ptr.To(true),
 					Configuration: &oadpv1alpha1.ApplicationConfig{
 						Velero: &oadpv1alpha1.VeleroConfig{},
 					},
@@ -4521,7 +4607,7 @@ aws_secret_access_key=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY`),
 					Namespace: "test-ns",
 				},
 				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
-					BackupImages: pointer.Bool(true),
+					BackupImages: ptr.To(true),
 					Configuration: &oadpv1alpha1.ApplicationConfig{
 						Velero: &oadpv1alpha1.VeleroConfig{},
 					},
@@ -4564,7 +4650,7 @@ AZURE_CLOUD_NAME=AzurePublicCloud`),
 			wantErr: false,
 		},
 		{
-			name: "CloudStorage without credentials",
+			name: "CloudStorage without credentials - should use CloudStorage's creationSecret",
 			dpa: &oadpv1alpha1.DataProtectionApplication{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-dpa",
@@ -4584,8 +4670,34 @@ AZURE_CLOUD_NAME=AzurePublicCloud`),
 					Credential: nil,
 				},
 			},
-			wantErr: true,
-			errMsg:  "must provide a valid credential secret",
+			objects: []client.Object{
+				&oadpv1alpha1.CloudStorage{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "no-cred-cs",
+						Namespace: "test-ns",
+					},
+					Spec: oadpv1alpha1.CloudStorageSpec{
+						Name:     "test-bucket",
+						Provider: oadpv1alpha1.AWSBucketProvider,
+						CreationSecret: corev1.SecretKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: "cloud-creds",
+							},
+							Key: "cloud",
+						},
+					},
+				},
+			},
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cloud-creds",
+					Namespace: "test-ns",
+				},
+				Data: map[string][]byte{
+					"cloud": []byte("[default]\naws_access_key_id=test\naws_secret_access_key=test"),
+				},
+			},
+			wantErr: false, // Should succeed using CloudStorage's creationSecret
 		},
 		{
 			name: "CloudStorage with empty credential name",
@@ -4613,7 +4725,7 @@ AZURE_CLOUD_NAME=AzurePublicCloud`),
 				},
 			},
 			wantErr: true,
-			errMsg:  "must provide a valid credential secret name",
+			errMsg:  "Secret key specified in CloudStorage cannot be empty",
 		},
 		{
 			name: "CloudStorage with empty credential key",
@@ -4642,7 +4754,7 @@ AZURE_CLOUD_NAME=AzurePublicCloud`),
 				},
 			},
 			wantErr: true,
-			errMsg:  "must provide a valid credential secret key",
+			errMsg:  "Secret key specified in CloudStorage cannot be empty",
 		},
 		{
 			name: "CloudStorage not found",
@@ -4690,7 +4802,7 @@ AZURE_CLOUD_NAME=AzurePublicCloud`),
 					Namespace: "test-ns",
 				},
 				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
-					BackupImages: pointer.Bool(true),
+					BackupImages: ptr.To(true),
 					Configuration: &oadpv1alpha1.ApplicationConfig{
 						Velero: &oadpv1alpha1.VeleroConfig{},
 					},
@@ -4789,6 +4901,149 @@ AZURE_CLOUD_NAME=AzurePublicCloud`),
 				}
 			} else {
 				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestProcessCACertForBSLs(t *testing.T) {
+	testCACertPEM := `-----BEGIN CERTIFICATE-----
+MIIDNzCCAh+gAwIBAgIJAJ7qAHESwpNwMA0GCSqGSIb3DQEBCwUAMDMxMTAvBgNV
+BAMMKGVjMi01NC0yMTEtOC0yNDguY29tcHV0ZS0xLmFtYXpvbmF3cy5jb20wHhcN
+MjUwODI1MjA0NjA2WhcNMjYwODI1MjA0NjA2WjAzMTEwLwYDVQQDDChIYzItNTQt
+MjExLTgtMjQ4LmNvbXB1dGUtMS5hbWF6b25hd3MuY29tMIIBIjANBgkqhkiG9w0B
+AQEFAAOCAQSAMIIBCgKCAQEArowngodR8QhYPphdTalrwVqHow4N5m9GMko774J2
+LWgSjYcpuaR3FEYMjzIzVCQWts/J9mqd8rYagYOfP9azYO+U96/ztoiJVMld2R+p
+QK/2MzdvZNXD2mi/9MpaS40HFh8ifd07mcFMt+qzKb4VgauS1jJAuzXHS7VElqwZ
+vi4v0yvh6T3C2bdXouBwibFe5jGnzsGmNWq7S/+Litynx2HDNcZGbCyQE1xZ1+B6
+QPmvgmO5LPpFlBQmu7aDePXxt76BJbrQrmUloNRqwlk4n9jYLic/FJtWw1kjp7fB
+Pa86W2GlMreSNlzI5ViUhoVYEB2sdsXesi4JK6KW3baiRwIDAQABo04wTDBKBgNV
+HREEQTBM----END CERTIFICATE-----`
+
+	tests := []struct {
+		name              string
+		backupLocations   []oadpv1alpha1.BackupLocation
+		wantConfigMapName string
+		wantError         bool
+	}{
+		{
+			name: "BSL with Velero CA certificate",
+			backupLocations: []oadpv1alpha1.BackupLocation{
+				{
+					Velero: &velerov1.BackupStorageLocationSpec{
+						Provider: "aws",
+						StorageType: velerov1.StorageType{
+							ObjectStorage: &velerov1.ObjectStorageLocation{
+								Bucket: "test-bucket",
+								CACert: []byte(testCACertPEM),
+							},
+						},
+					},
+				},
+			},
+			wantConfigMapName: caBundleConfigMapName,
+			wantError:         false,
+		},
+		{
+			name: "BSL with CloudStorage CA certificate",
+			backupLocations: []oadpv1alpha1.BackupLocation{
+				{
+					CloudStorage: &oadpv1alpha1.CloudStorageLocation{
+						CloudStorageRef: corev1.LocalObjectReference{Name: "test-bucket"},
+						CACert:          []byte(testCACertPEM),
+					},
+				},
+			},
+			wantConfigMapName: caBundleConfigMapName,
+			wantError:         false,
+		},
+		{
+			name: "BSL without CA certificate",
+			backupLocations: []oadpv1alpha1.BackupLocation{
+				{
+					Velero: &velerov1.BackupStorageLocationSpec{
+						Provider: "aws",
+						StorageType: velerov1.StorageType{
+							ObjectStorage: &velerov1.ObjectStorageLocation{
+								Bucket: "test-bucket",
+							},
+						},
+					},
+				},
+			},
+			wantConfigMapName: "",
+			wantError:         false,
+		},
+		{
+			name:              "No BSLs configured",
+			backupLocations:   []oadpv1alpha1.BackupLocation{},
+			wantConfigMapName: "",
+			wantError:         false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create a test DPA
+			dpa := &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-dpa",
+					Namespace: "test-namespace",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					BackupLocations: tt.backupLocations,
+				},
+			}
+
+			// Create fake client with the DPA
+			fakeClient := getFakeClientFromObjectsForTest(t, dpa)
+
+			// Create reconciler
+			r := &DataProtectionApplicationReconciler{
+				Client:        fakeClient,
+				Scheme:        fakeClient.Scheme(),
+				Log:           logr.Discard(),
+				Context:       context.Background(),
+				EventRecorder: record.NewFakeRecorder(10),
+				NamespacedName: types.NamespacedName{
+					Name:      dpa.Name,
+					Namespace: dpa.Namespace,
+				},
+				dpa: dpa,
+			}
+
+			// Test the function
+			gotConfigMapName, err := r.processCACertForBSLs()
+
+			// Check error expectation
+			if tt.wantError {
+				assert.Error(t, err)
+				return
+			} else {
+				assert.NoError(t, err)
+			}
+
+			// Check ConfigMap name
+			assert.Equal(t, tt.wantConfigMapName, gotConfigMapName)
+
+			// If we expect a ConfigMap, verify it was created with correct content
+			if tt.wantConfigMapName != "" {
+				configMap := &corev1.ConfigMap{}
+				err := fakeClient.Get(context.Background(), types.NamespacedName{
+					Name:      tt.wantConfigMapName,
+					Namespace: dpa.Namespace,
+				}, configMap)
+				assert.NoError(t, err)
+
+				// Verify ConfigMap contains the CA certificate
+				assert.Contains(t, configMap.Data, caBundleFileName)
+				assert.Equal(t, testCACertPEM, configMap.Data[caBundleFileName])
+
+				// Verify labels are set correctly
+				assert.Equal(t, common.Velero, configMap.Labels["app.kubernetes.io/name"])
+				assert.Equal(t, common.OADPOperator, configMap.Labels["app.kubernetes.io/managed-by"])
+				assert.Equal(t, "ca-bundle", configMap.Labels["app.kubernetes.io/component"])
+				assert.Equal(t, "True", configMap.Labels[oadpv1alpha1.OadpOperatorLabel])
 			}
 		})
 	}

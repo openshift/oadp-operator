@@ -351,6 +351,7 @@ func TestCloudStorageRefIntegrationGCP(t *testing.T) {
 			expectedBucket:   "my-gcp-backup-bucket",
 			expectedConfig: map[string]string{
 				"project": "my-gcp-project",
+				"region":  "us-central1",
 			},
 		},
 		{
@@ -426,6 +427,7 @@ func TestCloudStorageRefIntegrationGCP(t *testing.T) {
 			expectedBucket:   "legacy-backup-bucket",
 			expectedConfig: map[string]string{
 				"project":          "legacy-project",
+				"region":           "us-west1",
 				"snapshotLocation": "us-west1",
 			},
 		},

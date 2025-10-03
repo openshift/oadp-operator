@@ -25,7 +25,7 @@ func runBackupViaCLI(brCase BackupRestoreCase, backupName string) bool {
 
 	// Create backup via CLI
 	log.Printf("Creating backup %s for case %s via CLI", backupName, brCase.Name)
-	err = lib.CreateBackupForNamespacesViaCLI(backupName, []string{brCase.Namespace}, brCase.BackupRestoreType == lib.RESTIC || brCase.BackupRestoreType == lib.KOPIA, brCase.BackupRestoreType == lib.CSIDataMover)
+	err = lib.CreateBackupForNamespacesViaCLI(backupName, []string{brCase.Namespace}, brCase.BackupRestoreType == lib.KOPIA, brCase.BackupRestoreType == lib.CSIDataMover)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 	// Wait for backup via CLI
@@ -266,28 +266,6 @@ var _ = ginkgo.Describe("Backup and restore tests via OADP CLI", ginkgo.Label("c
 				BackupRestoreType: lib.CSI,
 				PreBackupVerify:   todoListReady(true, true, "mysql"),
 				PostRestoreVerify: todoListReady(false, true, "mysql"),
-				BackupTimeout:     20 * time.Minute,
-			},
-		}, nil),
-		ginkgo.Entry("Mongo application RESTIC via CLI", ginkgo.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
-			ApplicationTemplate: "./sample-applications/mongo-persistent/mongo-persistent.yaml",
-			BackupRestoreCase: BackupRestoreCase{
-				Namespace:         "mongo-persistent",
-				Name:              "mongo-restic-cli-e2e",
-				BackupRestoreType: lib.RESTIC,
-				PreBackupVerify:   todoListReady(true, false, "mongo"),
-				PostRestoreVerify: todoListReady(false, false, "mongo"),
-				BackupTimeout:     20 * time.Minute,
-			},
-		}, nil),
-		ginkgo.Entry("MySQL application RESTIC via CLI", ginkgo.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
-			ApplicationTemplate: "./sample-applications/mysql-persistent/mysql-persistent.yaml",
-			BackupRestoreCase: BackupRestoreCase{
-				Namespace:         "mysql-persistent",
-				Name:              "mysql-restic-cli-e2e",
-				BackupRestoreType: lib.RESTIC,
-				PreBackupVerify:   todoListReady(true, false, "mysql"),
-				PostRestoreVerify: todoListReady(false, false, "mysql"),
 				BackupTimeout:     20 * time.Minute,
 			},
 		}, nil),
