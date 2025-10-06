@@ -77,6 +77,11 @@ items:
             e2e-app: "true"
             app: mongo
             curl-tool: "true"
+          annotations:
+            pre.hook.backup.velero.io/container: mongo
+            pre.hook.backup.velero.io/command: '["/bin/bash", "-c", "mongosh admin -u \"$MONGO_INITDB_ROOT_USERNAME\" -p \"$MONGO_INITDB_ROOT_PASSWORD\" --eval \"db.fsyncLock()\""]'
+            post.hook.backup.velero.io/container: mongo
+            post.hook.backup.velero.io/command: '["/bin/bash", "-c", "mongosh admin -u \"$MONGO_INITDB_ROOT_USERNAME\" -p \"$MONGO_INITDB_ROOT_PASSWORD\" --eval \"db.fsyncUnlock()\""]'
         spec:
           serviceAccountName: mongo-persistent-sa
           containers:
@@ -109,11 +114,10 @@ items:
             startupProbe:
               exec:
                 command:
-                - mongosh
-                - admin
-                - -u $(MONGO_INITDB_ROOT_USERNAME)
-                - -p $(MONGO_INITDB_ROOT_PASSWORD)
-                - --eval 'printjson(db.getCollectionNames())'
+                - bash
+                - -c
+                - |
+                  mongosh admin --authenticationDatabase admin -u "$MONGO_INITDB_ROOT_USERNAME" -p "$MONGO_INITDB_ROOT_PASSWORD" --eval 'db.adminCommand("ping")'
               initialDelaySeconds: 5
               periodSeconds: 30
               timeoutSeconds: 2
@@ -143,8 +147,8 @@ items:
         port: 27017
       selector:
         app: mongo
-  - apiVersion: apps.openshift.io/v1
-    kind: DeploymentConfig
+  - apiVersion: apps/v1
+    kind: Deployment
     metadata:
       name: todolist
       namespace: mongo-persistent
@@ -155,8 +159,9 @@ items:
     spec:
       replicas: 1
       selector:
-        app: todolist
-        service: todolist
+        matchLabels:
+          app: todolist
+          service: todolist
       strategy:
         type: Recreate
       template:
@@ -175,6 +180,18 @@ items:
             ports:
               - containerPort: 8000
                 protocol: TCP
+            livenessProbe:
+              httpGet:
+                path: /
+                port: 8000
+              initialDelaySeconds: 10
+              periodSeconds: 10
+            readinessProbe:
+              httpGet:
+                path: /
+                port: 8000
+              initialDelaySeconds: 5
+              periodSeconds: 5
           initContainers:
           - name: init-myservice
             image: docker.io/curlimages/curl:8.5.0
