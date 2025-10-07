@@ -77,11 +77,6 @@ items:
             e2e-app: "true"
             app: mongo
             curl-tool: "true"
-          annotations:
-            pre.hook.backup.velero.io/container: mongo
-            pre.hook.backup.velero.io/command: '["/bin/bash", "-c", "mongosh admin -u \"$MONGO_INITDB_ROOT_USERNAME\" -p \"$MONGO_INITDB_ROOT_PASSWORD\" --eval \"db.fsyncLock()\""]'
-            post.hook.backup.velero.io/container: mongo
-            post.hook.backup.velero.io/command: '["/bin/bash", "-c", "mongosh admin -u \"$MONGO_INITDB_ROOT_USERNAME\" -p \"$MONGO_INITDB_ROOT_PASSWORD\" --eval \"db.fsyncUnlock()\""]'
         spec:
           serviceAccountName: mongo-persistent-sa
           containers:
