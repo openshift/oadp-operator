@@ -846,9 +846,15 @@ else
 	TEST_FILTER += && (! cli)
 endif
 
+GINKGO_FLAGS = --vv \
+	--no-color=$(OPENSHIFT_CI) \
+	--label-filter="$(TEST_FILTER)" \
+	--junit-report="$(ARTIFACT_DIR)/junit_report.xml" \
+	--timeout=2h
+
 .PHONY: test-e2e
 test-e2e: test-e2e-setup install-ginkgo ## Run E2E tests against OADP operator installed in cluster. For more information, check docs/developer/testing/TESTING.md
-	ginkgo run -mod=mod tests/e2e/ -- \
+	ginkgo run -mod=mod $(GINKGO_FLAGS) $(GINKGO_ARGS) tests/e2e/ -- \
 	-settings=$(SETTINGS_TMP)/oadpcreds \
 	-provider=$(CLUSTER_TYPE) \
 	-credentials=$(OADP_CRED_FILE) \
@@ -858,14 +864,8 @@ test-e2e: test-e2e-setup install-ginkgo ## Run E2E tests against OADP operator i
 	-artifact_dir=$(ARTIFACT_DIR) \
 	-kvm_emulation=$(KVM_EMULATION) \
 	-hco_upstream=$(HCO_UPSTREAM) \
-        -skipMustGather=$(SKIP_MUST_GATHER) \
-	--ginkgo.vv \
-	--ginkgo.no-color=$(OPENSHIFT_CI) \
-	--ginkgo.label-filter="$(TEST_FILTER)" \
-	--ginkgo.junit-report="$(ARTIFACT_DIR)/junit_report.xml" \
-	--ginkgo.timeout=2h \
-	$(HCP_EXTERNAL_ARGS) \
-	$(GINKGO_ARGS)
+	-skipMustGather=$(SKIP_MUST_GATHER) \
+	$(HCP_EXTERNAL_ARGS)
 
 .PHONY: test-e2e-cleanup
 test-e2e-cleanup: login-required
