@@ -11,3 +11,9 @@ COPY --from=builder /workspace/bin/manager .
 COPY --from=builder /workspace/LICENSE /licenses/
 USER 65532:65532
 ENTRYPOINT ["/manager"]
+
+LABEL description="OpenShift API for Data Protection - Operator"
+LABEL io.k8s.description="OpenShift API for Data Protection - Operator"
+LABEL io.k8s.display-name="OADP Operator"
+LABEL io.openshift.tags="migration"
+LABEL summary="OpenShift API for Data Protection - Operator"
