@@ -89,10 +89,14 @@ CONTAINER_TOOL ?= $(shell \
   else echo ""; \
   fi \
 )
+
+# Check container tool is available - only called by targets that need it
+.PHONY: check-container-tool
+check-container-tool:
 ifeq ($(shell command -v $(CONTAINER_TOOL) >/dev/null 2>&1 && echo found),)
-  $(error The selected container tool '$(CONTAINER_TOOL)' is not available on this system. Please install it or choose a different tool.)
+	$(error The selected container tool '$(CONTAINER_TOOL)' is not available on this system. Please install it or choose a different tool.)
 endif
-$(info Using Container Tool: $(CONTAINER_TOOL))
+	@echo "Using Container Tool: $(CONTAINER_TOOL)"
 
 # Setting SHELL to bash allows bash commands to be executed by recipes.
 # Options are set to exit when a recipe line exits non-zero or a piped command fails.
@@ -241,25 +245,28 @@ run: check-go manifests generate fmt vet ## Run a controller from your host.
 OC_CLI ?= $(shell which oc)
 
 # makes CLUSTER_TYPE quieter when unauthenticated
-CLUSTER_TYPE_SHELL := $(shell $(OC_CLI) get infrastructures cluster -o jsonpath='{.status.platform}' 2> /dev/null | tr A-Z a-z)
+# Use lazy evaluation (=) and timeout to avoid hanging when not connected to cluster
+CLUSTER_TYPE_SHELL = $(shell timeout 2 $(OC_CLI) get infrastructures cluster -o jsonpath='{.status.platform}' 2> /dev/null | tr A-Z a-z)
 CLUSTER_TYPE ?= $(CLUSTER_TYPE_SHELL)
-CLUSTER_OS = $(shell $(OC_CLI) get node -o jsonpath='{.items[0].status.nodeInfo.operatingSystem}' 2> /dev/null)
-CLUSTER_ARCH = $(shell $(OC_CLI) get node -o jsonpath='{.items[0].status.nodeInfo.architecture}' 2> /dev/null)
+CLUSTER_OS = $(shell timeout 2 $(OC_CLI) get node -o jsonpath='{.items[0].status.nodeInfo.operatingSystem}' 2> /dev/null)
+CLUSTER_ARCH = $(shell timeout 2 $(OC_CLI) get node -o jsonpath='{.items[0].status.nodeInfo.architecture}' 2> /dev/null)
 
 # If using podman machine, and host platform is not linux/amd64 run
 # - podman machine ssh sudo rpm-ostree install qemu-user-static && sudo systemctl reboot
 # from: https://github.com/containers/podman/issues/12144#issuecomment-955760527
 # related enhancements that may remove the need to manually install qemu-user-static https://bugzilla.redhat.com/show_bug.cgi?id=2061584
 DOCKER_BUILD_ARGS ?= --platform=linux/amd64
-ifneq ($(CLUSTER_TYPE),)
-	DOCKER_BUILD_ARGS = --platform=$(CLUSTER_OS)/$(CLUSTER_ARCH)
-endif
+
 .PHONY: docker-build
-docker-build: ## Build docker image with the manager.
-	$(CONTAINER_TOOL) build --load -t $(IMG) . $(DOCKER_BUILD_ARGS)
+docker-build: check-container-tool ## Build docker image with the manager.
+	@if [ -n "$(CLUSTER_TYPE)" ] && [ -n "$(CLUSTER_OS)" ] && [ -n "$(CLUSTER_ARCH)" ]; then \
+		$(CONTAINER_TOOL) build --load -t $(IMG) . --platform=$(CLUSTER_OS)/$(CLUSTER_ARCH); \
+	else \
+		$(CONTAINER_TOOL) build --load -t $(IMG) . $(DOCKER_BUILD_ARGS); \
+	fi
 
 .PHONY: docker-push
-docker-push: ## Push docker image with the manager.
+docker-push: check-container-tool ## Push docker image with the manager.
 	$(CONTAINER_TOOL) push ${IMG}
 
 ##@ Deployment
@@ -324,8 +331,8 @@ $(ENVTEST): $(LOCALBIN)
 .PHONY: operator-sdk
 OPERATOR_SDK ?= $(LOCALBIN)/$(BRANCH_VERSION)/operator-sdk
 operator-sdk: ## Download operator-sdk locally if necessary.
-ifneq ($(shell $(OPERATOR_SDK) version | cut -d'"' -f2),$(OPERATOR_SDK_VERSION))
-	set -e; \
+ifneq ($(shell test -f $(OPERATOR_SDK) && $(OPERATOR_SDK) version 2>/dev/null | cut -d'"' -f2),$(OPERATOR_SDK_VERSION))
+	@set -e; \
 	mkdir -p $(dir $(OPERATOR_SDK)) ;\
 	OS=$(shell go env GOOS) && ARCH=$(shell go env GOARCH) && \
 	curl -sSLo $(OPERATOR_SDK) https://github.com/operator-framework/operator-sdk/releases/download/$(OPERATOR_SDK_VERSION)/operator-sdk_$${OS}_$${ARCH} ;\
@@ -339,6 +346,10 @@ endif
 
 .PHONY: bundle
 bundle: manifests kustomize operator-sdk ## Generate bundle manifests and metadata, then validate generated files.
+	@# Save the old CSV file and timestamp before regenerating
+	@if [ -f bundle/manifests/oadp-operator.clusterserviceversion.yaml ]; then \
+		cp bundle/manifests/oadp-operator.clusterserviceversion.yaml /tmp/oadp-old-csv.yaml; \
+	fi
 	GOFLAGS="-mod=mod" $(OPERATOR_SDK) generate kustomize manifests -q
 	cd config/manager && GOFLAGS="-mod=mod" $(KUSTOMIZE) edit set image controller=$(IMG)
 	GOFLAGS="-mod=mod" $(KUSTOMIZE) build config/manifests | GOFLAGS="-mod=mod" $(OPERATOR_SDK) generate bundle $(BUNDLE_GEN_FLAGS)
@@ -347,22 +358,38 @@ bundle: manifests kustomize operator-sdk ## Generate bundle manifests and metada
 	# TODO: update CI to use generated one
 	cp bundle.Dockerfile build/Dockerfile.bundle
 	GOFLAGS="-mod=mod" $(OPERATOR_SDK) bundle validate ./bundle
-	$(SED) -e 's/    createdAt: .*/$(shell grep -I '^    createdAt: ' bundle/manifests/oadp-operator.clusterserviceversion.yaml)/' bundle/manifests/oadp-operator.clusterserviceversion.yaml > bundle/manifests/oadp-operator.clusterserviceversion.yaml.tmp
-	mv bundle/manifests/oadp-operator.clusterserviceversion.yaml.tmp bundle/manifests/oadp-operator.clusterserviceversion.yaml
+	@# Check if the only change is the createdAt timestamp
+	@if [ -f /tmp/oadp-old-csv.yaml ]; then \
+		OLD_CREATEDAT=$$(grep '^    createdAt: ' /tmp/oadp-old-csv.yaml); \
+		NEW_CREATEDAT=$$(grep '^    createdAt: ' bundle/manifests/oadp-operator.clusterserviceversion.yaml); \
+		cp bundle/manifests/oadp-operator.clusterserviceversion.yaml /tmp/oadp-new-csv-with-old-timestamp.yaml; \
+		$(SED) -i "s/^    createdAt: .*/$$OLD_CREATEDAT/" /tmp/oadp-new-csv-with-old-timestamp.yaml; \
+		if diff -q /tmp/oadp-old-csv.yaml /tmp/oadp-new-csv-with-old-timestamp.yaml >/dev/null 2>&1; then \
+			echo "Only createdAt changed - preserving old timestamp"; \
+			mv /tmp/oadp-new-csv-with-old-timestamp.yaml bundle/manifests/oadp-operator.clusterserviceversion.yaml; \
+		else \
+			echo "CSV has actual changes - keeping new timestamp"; \
+		fi; \
+		rm -f /tmp/oadp-old-csv.yaml /tmp/oadp-new-csv-with-old-timestamp.yaml; \
+	fi
 
 .PHONY: bundle-build
-bundle-build: ## Build the bundle image.
-	$(CONTAINER_TOOL) build --load -f bundle.Dockerfile -t $(BUNDLE_IMG) . $(DOCKER_BUILD_ARGS)
+bundle-build: check-container-tool ## Build the bundle image.
+	@if [ -n "$(CLUSTER_TYPE)" ] && [ -n "$(CLUSTER_OS)" ] && [ -n "$(CLUSTER_ARCH)" ]; then \
+		$(CONTAINER_TOOL) build --load -f bundle.Dockerfile -t $(BUNDLE_IMG) . --platform=$(CLUSTER_OS)/$(CLUSTER_ARCH); \
+	else \
+		$(CONTAINER_TOOL) build --load -f bundle.Dockerfile -t $(BUNDLE_IMG) . $(DOCKER_BUILD_ARGS); \
+	fi
 
 .PHONY: bundle-push
-bundle-push: ## Push the bundle image.
+bundle-push: check-container-tool ## Push the bundle image.
 	$(MAKE) docker-push IMG=$(BUNDLE_IMG)
 
 .PHONY: opm
 OPM ?= $(LOCALBIN)/$(BRANCH_VERSION)/opm
 opm: ## Download opm locally if necessary.
-ifneq ($(shell $(OPM) version | cut -d'"' -f2),$(OPM_VERSION))
-	set -e ;\
+ifneq ($(shell test -f $(OPM) && $(OPM) version 2>/dev/null | cut -d'"' -f2),$(OPM_VERSION))
+	@set -e ;\
 	mkdir -p $(dir $(OPM)) ;\
 	OS=$(shell go env GOOS) && ARCH=$(shell go env GOARCH) && \
 	curl -sSLo $(OPM) https://github.com/operator-framework/operator-registry/releases/download/$(OPM_VERSION)/$${OS}-$${ARCH}-opm ;\
@@ -389,12 +416,12 @@ endif
 # This recipe invokes 'opm' in 'semver' bundle add mode. For more information on add modes, see:
 # https://github.com/operator-framework/community-operators/blob/7f1438c/docs/packaging-operator.md#updating-your-existing-operator
 .PHONY: catalog-build
-catalog-build: opm ## Build a catalog image.
+catalog-build: opm check-container-tool ## Build a catalog image.
 	$(OPM) index add --container-tool $(CONTAINER_TOOL) --mode semver --tag $(CATALOG_IMG) --bundles $(BUNDLE_IMGS) $(FROM_INDEX_OPT)
 
 # Push the catalog image.
 .PHONY: catalog-push
-catalog-push: ## Push a catalog image.
+catalog-push: check-container-tool ## Push a catalog image.
 	$(MAKE) docker-push IMG=$(CATALOG_IMG)
 
 ##@ oadp specifics
@@ -517,11 +544,12 @@ nullable-crds-config:
 
 .PHONY: login-required
 login-required:
-ifeq ($(CLUSTER_TYPE),)
-	$(error You must be logged in to a cluster to run this command)
-else
-	$(info $$CLUSTER_TYPE is [${CLUSTER_TYPE}])
-endif
+	@if [ -z "$(CLUSTER_TYPE)" ]; then \
+		echo "Error: You must be logged in to a cluster to run this command"; \
+		exit 1; \
+	else \
+		echo "CLUSTER_TYPE is [$(CLUSTER_TYPE)]"; \
+	fi
 
 GIT_REV:=$(shell git rev-parse --short HEAD)
 
@@ -710,7 +738,7 @@ catalog-test-upgrade: PREVIOUS_BUNDLE_IMAGE?=ttl.sh/oadp-operator-previous-bundl
 catalog-test-upgrade: THIS_OPERATOR_IMAGE?=ttl.sh/oadp-operator-$(GIT_REV):$(TTL_DURATION)
 catalog-test-upgrade: THIS_BUNDLE_IMAGE?=ttl.sh/oadp-operator-bundle-$(GIT_REV):$(TTL_DURATION)
 catalog-test-upgrade: CATALOG_IMAGE?=ttl.sh/oadp-operator-catalog-$(GIT_REV):$(TTL_DURATION)
-catalog-test-upgrade: opm login-required ## Prepare a catalog image with two channels: PREVIOUS_CHANNEL and from current branch. For more information, check docs/developer/testing/test_oadp_version_upgrade.md
+catalog-test-upgrade: opm login-required check-container-tool ## Prepare a catalog image with two channels: PREVIOUS_CHANNEL and from current branch. For more information, check docs/developer/testing/test_oadp_version_upgrade.md
 	mkdir test-upgrade && rsync -a --exclude=test-upgrade ./ test-upgrade/current
 	git clone --depth=1 git@github.com:openshift/oadp-operator.git -b $(PREVIOUS_CHANNEL) test-upgrade/$(PREVIOUS_CHANNEL)
 	cd test-upgrade/$(PREVIOUS_CHANNEL) && \
@@ -756,55 +784,51 @@ AZURE_RESOURCE_FILE ?= /var/run/secrets/ci.openshift.io/multi-stage/metadata.jso
 AZURE_CI_JSON_CRED_FILE ?= ${CLUSTER_PROFILE_DIR}/osServicePrincipal.json
 AZURE_OADP_JSON_CRED_FILE ?= ${OADP_CRED_DIR}/azure-credentials
 
-ifeq ($(CLUSTER_TYPE), gcp)
-	CI_CRED_FILE = ${CLUSTER_PROFILE_DIR}/gce.json
-	OADP_CRED_FILE = ${OADP_CRED_DIR}/gcp-credentials
-	OADP_BUCKET_FILE = ${OADP_CRED_DIR}/gcp-velero-bucket-name
-endif
-
-ifeq ($(CLUSTER_TYPE), azure4)
-	CLUSTER_TYPE = azure
-endif
-
-ifeq ($(CLUSTER_TYPE), azure)
-	CI_CRED_FILE = /tmp/ci-azure-credentials
-	OADP_CRED_FILE = /tmp/oadp-azure-credentials
-	OADP_BUCKET_FILE = ${OADP_CRED_DIR}/azure-velero-bucket-name
-endif
-
-VELERO_PLUGIN ?= ${CLUSTER_TYPE}
-
-ifeq ($(CLUSTER_TYPE), ibmcloud)
-	VELERO_PLUGIN = aws
-endif
-
-KVM_EMULATION ?= true
-
-ifeq ($(CLUSTER_TYPE), openstack)
-	KVM_EMULATION = false
-endif
+# NOTE: Cloud-specific variables (CI_CRED_FILE, OADP_CRED_FILE, OADP_BUCKET_FILE, VELERO_PLUGIN, KVM_EMULATION)
+# are set at runtime in test-e2e-setup and test-e2e targets to avoid evaluating CLUSTER_TYPE at parse time,
+# which would trigger slow cluster API calls and hang make for simple targets like 'make help'.
 
 OPENSHIFT_CI ?= true
-OADP_BUCKET ?= $(shell cat $(OADP_BUCKET_FILE))
+# OADP_BUCKET is now read at runtime in test-e2e-setup to avoid parse-time evaluation
+# OADP_BUCKET ?= $(shell cat $(OADP_BUCKET_FILE))
 SETTINGS_TMP=/tmp/test-settings
 
 .PHONY: test-e2e-setup
 test-e2e-setup: login-required build-must-gather
-	mkdir -p $(SETTINGS_TMP)
+	@mkdir -p $(SETTINGS_TMP)
+	@# Set cloud-specific variables based on CLUSTER_TYPE at runtime
+	@ACTUAL_CLUSTER_TYPE="$(CLUSTER_TYPE)"; \
+	[ "$$ACTUAL_CLUSTER_TYPE" = "azure4" ] && ACTUAL_CLUSTER_TYPE="azure"; \
+	VELERO_PLUGIN_VAL="$$ACTUAL_CLUSTER_TYPE"; \
+	[ "$$ACTUAL_CLUSTER_TYPE" = "ibmcloud" ] && VELERO_PLUGIN_VAL="aws"; \
+	KVM_EMULATION_VAL="true"; \
+	[ "$$ACTUAL_CLUSTER_TYPE" = "openstack" ] && KVM_EMULATION_VAL="false"; \
+	OADP_CRED_FILE_VAL="$(OADP_CRED_FILE)"; \
+	CI_CRED_FILE_VAL="$(CI_CRED_FILE)"; \
+	OADP_BUCKET_FILE_VAL="$(OADP_BUCKET_FILE)"; \
+	if [ "$$ACTUAL_CLUSTER_TYPE" = "gcp" ]; then \
+		CI_CRED_FILE_VAL="${CLUSTER_PROFILE_DIR}/gce.json"; \
+		OADP_CRED_FILE_VAL="${OADP_CRED_DIR}/gcp-credentials"; \
+		OADP_BUCKET_FILE_VAL="${OADP_CRED_DIR}/gcp-velero-bucket-name"; \
+	elif [ "$$ACTUAL_CLUSTER_TYPE" = "azure" ]; then \
+		CI_CRED_FILE_VAL="/tmp/ci-azure-credentials"; \
+		OADP_CRED_FILE_VAL="/tmp/oadp-azure-credentials"; \
+		OADP_BUCKET_FILE_VAL="${OADP_CRED_DIR}/azure-velero-bucket-name"; \
+	fi; \
 	TMP_DIR=$(SETTINGS_TMP) \
 	OPENSHIFT_CI="$(OPENSHIFT_CI)" \
-	PROVIDER="$(VELERO_PLUGIN)" \
+	PROVIDER="$$VELERO_PLUGIN_VAL" \
 	AZURE_RESOURCE_FILE="$(AZURE_RESOURCE_FILE)" \
 	CI_JSON_CRED_FILE="$(AZURE_CI_JSON_CRED_FILE)" \
 	OADP_JSON_CRED_FILE="$(AZURE_OADP_JSON_CRED_FILE)" \
-	OADP_CRED_FILE="$(OADP_CRED_FILE)" \
-	BUCKET="$(OADP_BUCKET)" \
-	TARGET_CI_CRED_FILE="$(CI_CRED_FILE)" \
+	OADP_CRED_FILE="$$OADP_CRED_FILE_VAL" \
+	BUCKET="$$(cat $$OADP_BUCKET_FILE_VAL 2>/dev/null || echo '')" \
+	TARGET_CI_CRED_FILE="$$CI_CRED_FILE_VAL" \
 	VSL_REGION="$(VSL_REGION)" \
 	BSL_REGION="$(BSL_REGION)" \
 	BSL_AWS_PROFILE="$(BSL_AWS_PROFILE)" \
-        SKIP_MUST_GATHER="$(SKIP_MUST_GATHER)" \
-	/bin/bash "tests/e2e/scripts/$(CLUSTER_TYPE)_settings.sh"
+	SKIP_MUST_GATHER="$(SKIP_MUST_GATHER)" \
+	/bin/bash "tests/e2e/scripts/$${ACTUAL_CLUSTER_TYPE}_settings.sh"
 
 VELERO_INSTANCE_NAME ?= velero-test
 ARTIFACT_DIR ?= /tmp
@@ -816,56 +840,45 @@ HCP_EXTERNAL_ARGS ?= ""
 TEST_CLI ?= false
 SKIP_MUST_GATHER  ?= false
 TEST_UPGRADE ?= false
-TEST_FILTER = (($(shell echo '! aws && ! gcp && ! azure && ! ibmcloud' | \
-$(SED) -r "s/[&]* [!] $(CLUSTER_TYPE)|[!] $(CLUSTER_TYPE) [&]*//")) || $(CLUSTER_TYPE))
-#TEST_FILTER := $(shell echo '! aws && ! gcp && ! azure' | $(SED) -r "s/[&]* [!] $(CLUSTER_TYPE)|[!] $(CLUSTER_TYPE) [&]*//")
-ifeq ($(TEST_VIRT),true)
-	TEST_FILTER += && (virt)
-else
-	TEST_FILTER += && (! virt)
-endif
-ifeq ($(TEST_UPGRADE),true)
-	TEST_FILTER += && (upgrade)
-else
-	TEST_FILTER += && (! upgrade)
-endif
-ifeq ($(TEST_HCP),true)
-	TEST_FILTER += && (hcp)
-else
-	TEST_FILTER += && (! hcp)
-endif
-ifeq ($(TEST_HCP_EXTERNAL),true)
-	TEST_FILTER += && (hcp_external)
-	HCP_EXTERNAL_ARGS = -hc_backup_restore_mode=external -hc_name=$(HC_NAME)
-else
-	TEST_FILTER += && (! hcp_external)
-endif
-ifeq ($(TEST_CLI),true)
-	TEST_FILTER += && (cli)
-else
-	TEST_FILTER += && (! cli)
-endif
 
+# NOTE: TEST_FILTER and HCP_EXTERNAL_ARGS are computed at runtime in test-e2e target
+# to avoid parse-time evaluation of CLUSTER_TYPE.
+
+# GINKGO_FLAGS contains common ginkgo flags. Note: --label-filter is added at runtime in test-e2e
+# to avoid parse-time CLUSTER_TYPE evaluation that would hang make for simple targets like 'make help'.
 GINKGO_FLAGS = --vv \
 	--no-color=$(OPENSHIFT_CI) \
-	--label-filter="$(TEST_FILTER)" \
 	--junit-report="$(ARTIFACT_DIR)/junit_report.xml" \
 	--timeout=2h
 
 .PHONY: test-e2e
 test-e2e: test-e2e-setup install-ginkgo ## Run E2E tests against OADP operator installed in cluster. For more information, check docs/developer/testing/TESTING.md
-	ginkgo run -mod=mod $(GINKGO_FLAGS) $(GINKGO_ARGS) tests/e2e/ -- \
+	@ACTUAL_CLUSTER_TYPE="$(CLUSTER_TYPE)"; \
+	[ "$$ACTUAL_CLUSTER_TYPE" = "azure4" ] && ACTUAL_CLUSTER_TYPE="azure"; \
+	[ -z "$$ACTUAL_CLUSTER_TYPE" ] && { echo "Error: CLUSTER_TYPE is not set" >&2; exit 1; }; \
+	BASE_FILTER=$$(echo '! aws && ! gcp && ! azure && ! ibmcloud' | $(SED) -r "s/[&]* [!] $$ACTUAL_CLUSTER_TYPE|[!] $$ACTUAL_CLUSTER_TYPE [&]*//"); \
+	TEST_FILTER_VAL="(($$BASE_FILTER) || $$ACTUAL_CLUSTER_TYPE)"; \
+	[ "$(TEST_VIRT)" = "true" ] && TEST_FILTER_VAL="$$TEST_FILTER_VAL && (virt)" || TEST_FILTER_VAL="$$TEST_FILTER_VAL && (! virt)"; \
+	[ "$(TEST_UPGRADE)" = "true" ] && TEST_FILTER_VAL="$$TEST_FILTER_VAL && (upgrade)" || TEST_FILTER_VAL="$$TEST_FILTER_VAL && (! upgrade)"; \
+	[ "$(TEST_HCP)" = "true" ] && TEST_FILTER_VAL="$$TEST_FILTER_VAL && (hcp)" || TEST_FILTER_VAL="$$TEST_FILTER_VAL && (! hcp)"; \
+	[ "$(TEST_HCP_EXTERNAL)" = "true" ] && TEST_FILTER_VAL="$$TEST_FILTER_VAL && (hcp_external)" || TEST_FILTER_VAL="$$TEST_FILTER_VAL && (! hcp_external)"; \
+	[ "$(TEST_CLI)" = "true" ] && TEST_FILTER_VAL="$$TEST_FILTER_VAL && (cli)" || TEST_FILTER_VAL="$$TEST_FILTER_VAL && (! cli)"; \
+	KVM_EMULATION_VAL="true"; \
+	[ "$$ACTUAL_CLUSTER_TYPE" = "openstack" ] && KVM_EMULATION_VAL="false"; \
+	HCP_EXT_ARGS=""; \
+	[ "$(TEST_HCP_EXTERNAL)" = "true" ] && HCP_EXT_ARGS="-hc_backup_restore_mode=external -hc_name=$(HC_NAME)"; \
+	ginkgo run -mod=mod $(GINKGO_FLAGS) --label-filter="$$TEST_FILTER_VAL" $(GINKGO_ARGS) tests/e2e/ -- \
 	-settings=$(SETTINGS_TMP)/oadpcreds \
-	-provider=$(CLUSTER_TYPE) \
+	-provider=$$ACTUAL_CLUSTER_TYPE \
 	-credentials=$(OADP_CRED_FILE) \
 	-ci_cred_file=$(CI_CRED_FILE) \
 	-velero_namespace=$(OADP_TEST_NAMESPACE) \
 	-velero_instance_name=$(VELERO_INSTANCE_NAME) \
 	-artifact_dir=$(ARTIFACT_DIR) \
-	-kvm_emulation=$(KVM_EMULATION) \
+	-kvm_emulation=$$KVM_EMULATION_VAL \
 	-hco_upstream=$(HCO_UPSTREAM) \
 	-skipMustGather=$(SKIP_MUST_GATHER) \
-	$(HCP_EXTERNAL_ARGS)
+	$$HCP_EXT_ARGS
 
 .PHONY: test-e2e-cleanup
 test-e2e-cleanup: login-required
