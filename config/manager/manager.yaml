@@ -12,6 +12,9 @@ metadata:
   namespace: system
   labels:
     control-plane: controller-manager
+    app.kubernetes.io/name: oadp-operator
+    app.kubernetes.io/component: controller-manager
+    app.kubernetes.io/part-of: oadp-operator
 spec:
   selector:
     matchLabels:
@@ -21,6 +24,9 @@ spec:
     metadata:
       labels:
         control-plane: controller-manager
+        app.kubernetes.io/name: oadp-operator
+        app.kubernetes.io/component: controller-manager
+        app.kubernetes.io/part-of: oadp-operator
     spec:
       # TODO(user): Uncomment the following code to configure the nodeAffinity expression
       # according to the platforms which are supported by your solution.
