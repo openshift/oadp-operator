@@ -114,10 +114,10 @@ func runApplicationBackupAndRestoreViaCLI(brCase ApplicationBackupRestoreCase, u
 	err := lib.InstallApplication(dpaCR.Client, brCase.ApplicationTemplate)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
+	var pvcPath string
 	if brCase.BackupRestoreType == lib.CSI || brCase.BackupRestoreType == lib.CSIDataMover {
 		log.Printf("Creating pvc for case %s", brCase.Name)
 		var pvcName string
-		var pvcPath string
 
 		pvcName = provider
 		if brCase.PvcSuffixName != "" {
@@ -149,6 +149,21 @@ func runApplicationBackupAndRestoreViaCLI(brCase ApplicationBackupRestoreCase, u
 	log.Printf("Uninstalling app for case %s", brCase.Name)
 	err = lib.UninstallApplication(dpaCR.Client, brCase.ApplicationTemplate)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+
+	// Ensure that we remove the pvc(s) before waiting for namespace deletion
+	if brCase.BackupRestoreType == lib.CSI || brCase.BackupRestoreType == lib.CSIDataMover {
+		// For CSI/CSIDataMover tests, delete the explicitly created PVC
+		log.Printf("Deleting PVC from %s for case %s", pvcPath, brCase.Name)
+		err = lib.UninstallApplication(dpaCR.Client, pvcPath)
+		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+	}
+
+	// Delete all PVCs in the namespace to ensure clean state
+	log.Printf("Deleting all PVCs in namespace %s", brCase.Namespace)
+	err = lib.DeleteAllPVCsInNamespace(kubernetesClientForSuiteRun, brCase.Namespace)
+	if err != nil {
+		log.Printf("Warning: Failed to delete PVCs in namespace %s: %v", brCase.Namespace, err)
+	}
 
 	// Wait for namespace to be deleted
 	gomega.Eventually(lib.IsNamespaceDeleted(kubernetesClientForSuiteRun, brCase.Namespace), time.Minute*4, time.Second*5).Should(gomega.BeTrue())
