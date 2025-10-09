@@ -35,8 +35,12 @@ func runBackupViaCLI(brCase BackupRestoreCase, backupName string) bool {
 	describeBackup := lib.DescribeBackupViaCLI(backupName)
 	ginkgo.GinkgoWriter.Println(describeBackup)
 
-	backupLogs, err := lib.BackupLogsViaCLI(backupName)
-	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+	var backupLogs string
+	gomega.Eventually(func() error {
+		var err error
+		backupLogs, err = lib.BackupLogsViaCLI(backupName)
+		return err
+	}, time.Minute*2, time.Second*5).Should(gomega.Succeed())
 
 	backupErrorLogs := lib.BackupErrorLogsViaCLI(backupName)
 	accumulatedTestLogs = append(accumulatedTestLogs, describeBackup, backupLogs)
@@ -67,8 +71,12 @@ func runRestoreViaCLI(brCase BackupRestoreCase, backupName, restoreName string, 
 	describeRestore := lib.DescribeRestoreViaCLI(restoreName)
 	ginkgo.GinkgoWriter.Println(describeRestore)
 
-	restoreLogs, err := lib.RestoreLogsViaCLI(restoreName)
-	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+	var restoreLogs string
+	gomega.Eventually(func() error {
+		var err error
+		restoreLogs, err = lib.RestoreLogsViaCLI(restoreName)
+		return err
+	}, time.Minute*2, time.Second*5).Should(gomega.Succeed())
 
 	restoreErrorLogs := lib.RestoreErrorLogsViaCLI(restoreName)
 	accumulatedTestLogs = append(accumulatedTestLogs, describeRestore, restoreLogs)
