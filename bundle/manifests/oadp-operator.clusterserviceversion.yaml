@@ -1084,6 +1084,9 @@ spec:
         serviceAccountName: velero
       deployments:
       - label:
+          app.kubernetes.io/component: controller-manager
+          app.kubernetes.io/name: oadp-operator
+          app.kubernetes.io/part-of: oadp-operator
           control-plane: controller-manager
         name: openshift-adp-controller-manager
         spec:
@@ -1095,6 +1098,9 @@ spec:
           template:
             metadata:
               labels:
+                app.kubernetes.io/component: controller-manager
+                app.kubernetes.io/name: oadp-operator
+                app.kubernetes.io/part-of: oadp-operator
                 control-plane: controller-manager
             spec:
               containers:
