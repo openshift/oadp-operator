@@ -65,7 +65,7 @@ func parksAppReady(preBackupState bool, twoVol bool, database string) Verificati
 		log.Printf("checking parksapp for the NAMESPACE: %s", namespace)
 		gomega.Eventually(lib.IsDCReady(ocClient, namespace, "restify"), time.Minute*10, time.Second*10).Should(gomega.BeTrue())
 		gomega.Eventually(lib.AreApplicationPodsRunning(kubernetesClientForSuiteRun, namespace), time.Minute*9, time.Second*5).Should(gomega.BeTrue())
-		err := lib.VerifyBackupRestoreData(runTimeClientForSuiteRun, kubernetesClientForSuiteRun, kubeConfig, artifact_dir, namespace, "todolist-route", "todolist", "todolist", preBackupState, twoVol)
+		err := lib.VerifyBackupRestoreData(runTimeClientForSuiteRun, kubernetesClientForSuiteRun, kubeConfig, artifact_dir, namespace, "restify", "restify", "restify", preBackupState, twoVol)
 		return err
 	})
 }

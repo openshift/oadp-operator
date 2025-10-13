@@ -428,26 +428,26 @@ func VerifyBackupRestoreData(ocClient client.Client, kubeClient *kubernetes.Clie
 		return err
 	}
 
-	// Construct request parameters for the "todo-incomplete" endpoint
-	requestParamsTodoIncomplete := getRequestParameters(appEndpointURL+"/todo-incomplete", proxyPodParams, GET, nil)
 	respData := ""
+	var errResp string
 
 	if prebackupState {
 		// Clean up existing backup file
 		RemoveFileIfExists(artifactDir + "/backup-data.txt")
 
 		// Make requests and update data before backup
-
-		dataBeforeCurl, errResp, err := MakeRequest(*requestParamsTodoIncomplete)
-		if err != nil {
-			if errResp != "" {
-				log.Printf("Request response error msg: %s\n", errResp)
-			}
-			return err
-		}
-		log.Printf("Data before the curl request: \n %s\n", dataBeforeCurl)
-
 		if namespace == "mysql-persistent" || namespace == "mongo-persistent" {
+			// Construct request parameters for the "todo-incomplete" endpoint
+			requestParamsTodoIncomplete := getRequestParameters(appEndpointURL+"/todo-incomplete", proxyPodParams, GET, nil)
+			dataBeforeCurl, errResp, err := MakeRequest(*requestParamsTodoIncomplete)
+			if err != nil {
+				if errResp != "" {
+					log.Printf("Request response error msg: %s\n", errResp)
+				}
+				return err
+			}
+			log.Printf("Data before the curl request: \n %s\n", dataBeforeCurl)
+
 			// Make two post requests to the "todo" endpoint
 			postPayload := `{"description": "` + time.Now().String() + `"}`
 			requestParams := getRequestParameters(appEndpointURL+"/todo", proxyPodParams, POST, &postPayload)
@@ -466,12 +466,13 @@ func VerifyBackupRestoreData(ocClient client.Client, kubeClient *kubernetes.Clie
 			}
 		}
 		if namespace == "parks-app" {
-			// Make a request to the "status" endpoint
-			requestParams := getRequestParameters(appEndpointURL+"/clicks", proxyPodParams, POST, nil)
+			// payload can be empty
+			payload := ""
+			postParams := getRequestParameters(appEndpointURL+"/clicks", proxyPodParams, POST, &payload)
 			responseParams := getRequestParameters(appEndpointURL+"/clicks", proxyPodParams, GET, nil)
 			// 2 clicks
-			MakeRequest(*requestParams)
-			MakeRequest(*requestParams)
+			MakeRequest(*postParams)
+			MakeRequest(*postParams)
 			respData, errResp, err = MakeRequest(*responseParams)
 			if err != nil {
 				if errResp != "" {
