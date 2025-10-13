@@ -1,0 +1,73 @@
+---
+apiVersion: velero.io/v1
+kind: Restore
+metadata:
+  name: parks-app-restore-1
+  namespace: openshift-adp
+  labels:
+    app: parks-app
+    restore-type: application
+spec:
+  # Reference the backup to restore from
+  backupName: parks-app-backup-1
+  
+  # Restore to the same namespace
+  includedNamespaces:
+  - parks-app
+  
+  # Include all resources
+  includedResources:
+  - "*"
+  
+  # Exclude resources that shouldn't be restored
+  excludedResources:
+  - jobs.batch
+  - events
+  - events.events.k8s.io
+  - buildconfigs.build.openshift.io
+  - builds.build.openshift.io
+
+ # - imagestreams.image.openshift.io
+ # - imagestreamtags.image.openshift.io
+  
+  # Restore persistent volumes
+  restorePVs: true
+  
+  # Preserve node ports and other cluster-specific configs
+  preserveNodePorts: false
+  
+
+  # Namespace mappings (restore to same namespace)
+  namespaceMapping: {}
+  
+  # Restore policy
+  existingResourcePolicy: update
+  
+# fixed: need to add a hook to: oc -n parks-app label pod restify-1-qtjsx deploymentconfig=restify
+#  oc  exec restify-1-w24w5 -c wait-for-mongodb  -it -- /bin/bash
+#  oc -n parks-app logs -f restify-1-w24w5 -c wait-for-mongodb
+
+ 
+  # Post-restore hooks to fix label issues
+  hooks:
+    resources:
+    - name: fix-restify-labels
+      includedNamespaces:
+      - parks-app
+      labelSelector:
+        matchLabels:
+          app: restify
+      postHooks:
+      - exec:
+          execTimeout: 1m
+          waitTimeout: 5m
+          onError: Fail
+          container: restify
+          command:
+          - /bin/sh
+          - -c
+          - |
+            sleep 10
+            curl -f http://restify:8080/status || echo "App not ready yet"
+        
+ 

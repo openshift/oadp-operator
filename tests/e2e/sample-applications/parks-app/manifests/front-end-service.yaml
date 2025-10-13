@@ -1,0 +1,18 @@
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: restify
+  namespace: parks-app
+  labels:
+    app: restify
+spec:
+  ports:
+  - name: 8080-tcp
+    protocol: TCP
+    port: 8080
+    targetPort: 8080
+  selector:
+    app: restify
+status:
+  loadBalancer: {}

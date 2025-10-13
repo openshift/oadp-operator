@@ -810,6 +810,7 @@ VELERO_INSTANCE_NAME ?= velero-test
 ARTIFACT_DIR ?= /tmp
 HCO_UPSTREAM ?= false
 TEST_VIRT ?= false
+TEST_DPT ?= false
 TEST_HCP ?= false
 TEST_HCP_EXTERNAL ?= false
 HCP_EXTERNAL_ARGS ?= ""

@@ -1,0 +1,79 @@
+---
+apiVersion: velero.io/v1
+kind: Backup
+metadata:
+  name: parks-app-backup-1
+  namespace: openshift-adp
+spec:
+  # Include the parks-app namespace
+  includedNamespaces:
+  - parks-app
+  
+  
+  # Exclude resources that shouldn't be backed up
+  excludedResources:
+  - jobs.batch
+  - replicasets.apps
+  - events
+  - events.events.k8s.io
+  - buildconfigs.build.openshift.io
+  - builds.build.openshift.io
+  #- imagestreams.image.openshift.io
+  #- imagestreamtags.image.openshift.io
+  
+  # Include persistent volumes
+  storageLocation: dpa-sample-1
+  #storageLocation: guardian-minio
+  
+  # Retain backup for 30 days
+  ttl: 720h0m0s
+  
+  # Use snapshot-move-data for data movement
+  snapshotMoveData: true
+  
+  # Use hooks to ensure MongoDB consistency
+  hooks:
+    resources:
+    # MongoDB consistency hook
+    - name: mongodb-consistency
+      includedNamespaces:
+      - parks-app
+      includedResources:
+      - deploymentconfigs.apps.openshift.io
+      labelSelector:
+        matchLabels:
+          name: mongodb
+      pre:
+      - exec:
+          container: mongodb-container
+          command:
+          - /bin/bash
+          - -o
+          - errexit
+          - -o
+          - pipefail
+          - -c
+          - mongosh --authenticationDatabase admin -u root -p "${MONGODB_ROOT_PASSWORD}" --eval="db.fsyncLock()"
+          onError: Continue
+          timeout: 5m
+      
+      post:
+      - exec:
+          container: mongodb-container
+          command:
+          - /bin/bash
+          - -o
+          - errexit
+          - -o
+          - pipefail
+          - -c
+          - mongosh --authenticationDatabase admin -u root -p "${MONGODB_ROOT_PASSWORD}" --eval="db.fsyncUnlock()"
+          onError: Continue
+          timeout: 2m
+
+  # Label selector to include only our application resources
+  # labelSelector:
+  #   matchExpressions:
+  #   - key: app
+  #     operator: In
+  #     values: ["restify", "mongodb", "parks-app"]

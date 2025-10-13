@@ -1,0 +1,38 @@
+---
+kind: BuildConfig
+apiVersion: build.openshift.io/v1
+metadata:
+  name: restify
+  namespace: parks-app
+  labels:
+    app: restify
+spec:
+  triggers:
+  - type: GitHub
+    github:
+      secret: 4Xwu0tyAab90aaoasd88qweAasdaqvjknfrl3qwpo
+  - type: Generic
+    generic:
+      secret: 4Xwu0tyAab90aaoasd88qweAasdaqvjknfrl3qwpo
+  - type: ConfigChange
+  - type: ImageChange
+    imageChange: {}
+  source:
+    type: Git
+    git:
+      uri: https://github.com/konveyor/mig-demo-apps
+      ref: master
+    contextDir: apps/parks-app/src
+  strategy:
+    type: Source
+    sourceStrategy:
+      from:
+        kind: DockerImage
+        name: 'registry.redhat.io/ubi9/nodejs-20:latest'
+  output:
+    to:
+      kind: ImageStreamTag
+      name: "restify:latest"
+  resources: {}
+status:
+  lastVersion: 0

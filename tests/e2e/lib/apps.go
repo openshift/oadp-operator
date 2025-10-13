@@ -49,6 +49,7 @@ func InstallApplication(ocClient client.Client, file string) error {
 
 func InstallApplicationWithRetries(ocClient client.Client, file string, retries int) error {
 	template, err := os.ReadFile(file)
+	log.Printf("Installing application with retries: %s", template)
 	if err != nil {
 		return err
 	}
@@ -429,12 +430,14 @@ func VerifyBackupRestoreData(ocClient client.Client, kubeClient *kubernetes.Clie
 
 	// Construct request parameters for the "todo-incomplete" endpoint
 	requestParamsTodoIncomplete := getRequestParameters(appEndpointURL+"/todo-incomplete", proxyPodParams, GET, nil)
+	respData := ""
 
 	if prebackupState {
 		// Clean up existing backup file
 		RemoveFileIfExists(artifactDir + "/backup-data.txt")
 
 		// Make requests and update data before backup
+
 		dataBeforeCurl, errResp, err := MakeRequest(*requestParamsTodoIncomplete)
 		if err != nil {
 			if errResp != "" {
@@ -444,23 +447,39 @@ func VerifyBackupRestoreData(ocClient client.Client, kubeClient *kubernetes.Clie
 		}
 		log.Printf("Data before the curl request: \n %s\n", dataBeforeCurl)
 
-		// Make two post requests to the "todo" endpoint
-		postPayload := `{"description": "` + time.Now().String() + `"}`
-		requestParams := getRequestParameters(appEndpointURL+"/todo", proxyPodParams, POST, &postPayload)
-		MakeRequest(*requestParams)
+		if namespace == "mysql-persistent" || namespace == "mongo-persistent" {
+			// Make two post requests to the "todo" endpoint
+			postPayload := `{"description": "` + time.Now().String() + `"}`
+			requestParams := getRequestParameters(appEndpointURL+"/todo", proxyPodParams, POST, &postPayload)
+			MakeRequest(*requestParams)
 
-		postPayload = `{"description": "` + time.Now().Weekday().String() + `"}`
-		requestParams = getRequestParameters(appEndpointURL+"/todo", proxyPodParams, POST, &postPayload)
-		MakeRequest(*requestParams)
-	}
-
-	// Make request to the "todo-incomplete" endpoint
-	respData, errResp, err := MakeRequest(*requestParamsTodoIncomplete)
-	if err != nil {
-		if errResp != "" {
-			log.Printf("Request response error msg: %s\n", errResp)
+			postPayload = `{"description": "` + time.Now().Weekday().String() + `"}`
+			requestParams = getRequestParameters(appEndpointURL+"/todo", proxyPodParams, POST, &postPayload)
+			MakeRequest(*requestParams)
+			// Make request to the "todo-incomplete" endpoint
+			respData, errResp, err = MakeRequest(*requestParamsTodoIncomplete)
+			if err != nil {
+				if errResp != "" {
+					log.Printf("Request response error msg: %s\n", errResp)
+				}
+				return err
+			}
 		}
-		return err
+		if namespace == "parks-app" {
+			// Make a request to the "status" endpoint
+			requestParams := getRequestParameters(appEndpointURL+"/clicks", proxyPodParams, POST, nil)
+			responseParams := getRequestParameters(appEndpointURL+"/clicks", proxyPodParams, GET, nil)
+			// 2 clicks
+			MakeRequest(*requestParams)
+			MakeRequest(*requestParams)
+			respData, errResp, err = MakeRequest(*responseParams)
+			if err != nil {
+				if errResp != "" {
+					log.Printf("Request response error msg: %s\n", errResp)
+				}
+				return err
+			}
+		}
 	}
 
 	if prebackupState {

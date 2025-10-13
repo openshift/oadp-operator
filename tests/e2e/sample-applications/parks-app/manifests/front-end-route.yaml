@@ -1,0 +1,15 @@
+---
+kind: Route
+apiVersion: route.openshift.io/v1
+metadata:
+  name: restify
+  namespace: parks-app
+  labels:
+    app: restify
+spec:
+  to:
+    kind: Service
+    name: restify
+  port:
+    targetPort: '8080'
+status: {}

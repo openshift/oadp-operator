@@ -27,6 +27,31 @@ func CreateRestoreFromBackup(ocClient client.Client, veleroNamespace, backupName
 			BackupName: backupName,
 		},
 	}
+
+	return ocClient.Create(context.Background(), &restore)
+}
+
+
+func CreateCustomRestoreFromBackup(ocClient client.Client, veleroNamespace, backupName, restoreName string, includedResources, excludedResources []string, restoreHooks *velero.RestoreHooks) error {
+	restoreSpec := velero.RestoreSpec{
+		BackupName:        backupName,
+		IncludedResources: includedResources,
+		ExcludedResources: excludedResources,
+	}
+
+	// Only set hooks if provided (not nil)
+	if restoreHooks != nil {
+		restoreSpec.Hooks = *restoreHooks
+	}
+
+	restore := velero.Restore{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      restoreName,
+			Namespace: veleroNamespace,
+		},
+		Spec: restoreSpec,
+	}
+
 	return ocClient.Create(context.Background(), &restore)
 }
 
