@@ -12,7 +12,7 @@ items:
       volumeMode: Block 
       accessModes:
       - ReadWriteOnce
-      storageClassName: gp2-csi
+      storageClassName: gp3-csi
       resources:
         requests:
           storage: 1Gi

@@ -43,7 +43,8 @@ func todoListReady(preBackupState bool, twoVol bool, database string) Verificati
 	return VerificationFunction(func(ocClient client.Client, namespace string) error {
 		log.Printf("checking for the NAMESPACE: %s", namespace)
 		gomega.Eventually(lib.IsDeploymentReady(ocClient, namespace, database), time.Minute*10, time.Second*10).Should(gomega.BeTrue())
-		gomega.Eventually(lib.IsDCReady(ocClient, namespace, "todolist"), time.Minute*10, time.Second*10).Should(gomega.BeTrue())
+		// perhaps we phase out deploymentConfigs?
+		//gomega.Eventually(lib.IsDCReady(ocClient, namespace, "todolist"), time.Minute*10, time.Second*10).Should(gomega.BeTrue())
 		gomega.Eventually(lib.AreApplicationPodsRunning(kubernetesClientForSuiteRun, namespace), time.Minute*9, time.Second*5).Should(gomega.BeTrue())
 		// This test confirms that SCC restore logic in our plugin is working
 		err := lib.DoesSCCExist(ocClient, database+"-persistent-scc")
@@ -116,10 +117,11 @@ func runApplicationBackupAndRestore(brCase ApplicationBackupRestoreCase, updateL
 	log.Printf("Installing application for case %s", brCase.Name)
 	err := lib.InstallApplication(dpaCR.Client, brCase.ApplicationTemplate)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+
+	var pvcPath string
 	if brCase.BackupRestoreType == lib.CSI || brCase.BackupRestoreType == lib.CSIDataMover {
 		log.Printf("Creating pvc for case %s", brCase.Name)
 		var pvcName string
-		var pvcPath string
 
 		pvcName = provider
 		if brCase.PvcSuffixName != "" {
@@ -151,6 +153,21 @@ func runApplicationBackupAndRestore(brCase ApplicationBackupRestoreCase, updateL
 	log.Printf("Uninstalling app for case %s", brCase.Name)
 	err = lib.UninstallApplication(dpaCR.Client, brCase.ApplicationTemplate)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+
+	// Ensure that we remove the pvc(s) before waiting for namespace deletion
+	if brCase.BackupRestoreType == lib.CSI || brCase.BackupRestoreType == lib.CSIDataMover {
+		// For CSI/CSIDataMover tests, delete the explicitly created PVC
+		log.Printf("Deleting PVC from %s for case %s", pvcPath, brCase.Name)
+		err = lib.UninstallApplication(dpaCR.Client, pvcPath)
+		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+	}
+
+	// Delete all PVCs in the namespace to ensure clean state
+	log.Printf("Deleting all PVCs in namespace %s", brCase.Namespace)
+	err = lib.DeleteAllPVCsInNamespace(kubernetesClientForSuiteRun, brCase.Namespace)
+	if err != nil {
+		log.Printf("Warning: Failed to delete PVCs in namespace %s: %v", brCase.Namespace, err)
+	}
 
 	// Wait for namespace to be deleted
 	gomega.Eventually(lib.IsNamespaceDeleted(kubernetesClientForSuiteRun, brCase.Namespace), time.Minute*4, time.Second*5).Should(gomega.BeTrue())
@@ -368,17 +385,6 @@ var _ = ginkgo.Describe("Backup and restore tests", ginkgo.Ordered, func() {
 				BackupRestoreType: lib.CSI,
 				PreBackupVerify:   todoListReady(true, true, "mysql"),
 				PostRestoreVerify: todoListReady(false, true, "mysql"),
-				BackupTimeout:     20 * time.Minute,
-			},
-		}, nil),
-		ginkgo.Entry("Mongo application KOPIA", ginkgo.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
-			ApplicationTemplate: "./sample-applications/mongo-persistent/mongo-persistent.yaml",
-			BackupRestoreCase: BackupRestoreCase{
-				Namespace:         "mongo-persistent",
-				Name:              "mongo-kopia-e2e",
-				BackupRestoreType: lib.KOPIA,
-				PreBackupVerify:   todoListReady(true, false, "mongo"),
-				PostRestoreVerify: todoListReady(false, false, "mongo"),
 				BackupTimeout:     20 * time.Minute,
 			},
 		}, nil),

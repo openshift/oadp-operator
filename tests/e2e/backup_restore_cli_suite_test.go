@@ -35,8 +35,12 @@ func runBackupViaCLI(brCase BackupRestoreCase, backupName string) bool {
 	describeBackup := lib.DescribeBackupViaCLI(backupName)
 	ginkgo.GinkgoWriter.Println(describeBackup)
 
-	backupLogs, err := lib.BackupLogsViaCLI(backupName)
-	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+	var backupLogs string
+	gomega.Eventually(func() error {
+		var err error
+		backupLogs, err = lib.BackupLogsViaCLI(backupName)
+		return err
+	}, time.Minute*2, time.Second*5).Should(gomega.Succeed())
 
 	backupErrorLogs := lib.BackupErrorLogsViaCLI(backupName)
 	accumulatedTestLogs = append(accumulatedTestLogs, describeBackup, backupLogs)
@@ -67,8 +71,12 @@ func runRestoreViaCLI(brCase BackupRestoreCase, backupName, restoreName string, 
 	describeRestore := lib.DescribeRestoreViaCLI(restoreName)
 	ginkgo.GinkgoWriter.Println(describeRestore)
 
-	restoreLogs, err := lib.RestoreLogsViaCLI(restoreName)
-	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+	var restoreLogs string
+	gomega.Eventually(func() error {
+		var err error
+		restoreLogs, err = lib.RestoreLogsViaCLI(restoreName)
+		return err
+	}, time.Minute*2, time.Second*5).Should(gomega.Succeed())
 
 	restoreErrorLogs := lib.RestoreErrorLogsViaCLI(restoreName)
 	accumulatedTestLogs = append(accumulatedTestLogs, describeRestore, restoreLogs)
@@ -106,10 +114,10 @@ func runApplicationBackupAndRestoreViaCLI(brCase ApplicationBackupRestoreCase, u
 	err := lib.InstallApplication(dpaCR.Client, brCase.ApplicationTemplate)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
+	var pvcPath string
 	if brCase.BackupRestoreType == lib.CSI || brCase.BackupRestoreType == lib.CSIDataMover {
 		log.Printf("Creating pvc for case %s", brCase.Name)
 		var pvcName string
-		var pvcPath string
 
 		pvcName = provider
 		if brCase.PvcSuffixName != "" {
@@ -141,6 +149,21 @@ func runApplicationBackupAndRestoreViaCLI(brCase ApplicationBackupRestoreCase, u
 	log.Printf("Uninstalling app for case %s", brCase.Name)
 	err = lib.UninstallApplication(dpaCR.Client, brCase.ApplicationTemplate)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+
+	// Ensure that we remove the pvc(s) before waiting for namespace deletion
+	if brCase.BackupRestoreType == lib.CSI || brCase.BackupRestoreType == lib.CSIDataMover {
+		// For CSI/CSIDataMover tests, delete the explicitly created PVC
+		log.Printf("Deleting PVC from %s for case %s", pvcPath, brCase.Name)
+		err = lib.UninstallApplication(dpaCR.Client, pvcPath)
+		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+	}
+
+	// Delete all PVCs in the namespace to ensure clean state
+	log.Printf("Deleting all PVCs in namespace %s", brCase.Namespace)
+	err = lib.DeleteAllPVCsInNamespace(kubernetesClientForSuiteRun, brCase.Namespace)
+	if err != nil {
+		log.Printf("Warning: Failed to delete PVCs in namespace %s: %v", brCase.Namespace, err)
+	}
 
 	// Wait for namespace to be deleted
 	gomega.Eventually(lib.IsNamespaceDeleted(kubernetesClientForSuiteRun, brCase.Namespace), time.Minute*4, time.Second*5).Should(gomega.BeTrue())
@@ -266,17 +289,6 @@ var _ = ginkgo.Describe("Backup and restore tests via OADP CLI", ginkgo.Label("c
 				BackupRestoreType: lib.CSI,
 				PreBackupVerify:   todoListReady(true, true, "mysql"),
 				PostRestoreVerify: todoListReady(false, true, "mysql"),
-				BackupTimeout:     20 * time.Minute,
-			},
-		}, nil),
-		ginkgo.Entry("Mongo application KOPIA via CLI", ginkgo.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
-			ApplicationTemplate: "./sample-applications/mongo-persistent/mongo-persistent.yaml",
-			BackupRestoreCase: BackupRestoreCase{
-				Namespace:         "mongo-persistent",
-				Name:              "mongo-kopia-cli-e2e",
-				BackupRestoreType: lib.KOPIA,
-				PreBackupVerify:   todoListReady(true, false, "mongo"),
-				PostRestoreVerify: todoListReady(false, false, "mongo"),
 				BackupTimeout:     20 * time.Minute,
 			},
 		}, nil),

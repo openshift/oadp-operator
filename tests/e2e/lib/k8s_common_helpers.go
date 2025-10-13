@@ -273,3 +273,35 @@ func GetPodWithLabel(c *kubernetes.Clientset, namespace string, LabelSelector st
 	}
 	return &podList.Items[0], nil
 }
+
+// DeleteAllPVCsInNamespace deletes all PersistentVolumeClaims in a namespace
+func DeleteAllPVCsInNamespace(clientset *kubernetes.Clientset, namespace string) error {
+	ctx := context.Background()
+
+	// List all PVCs in the namespace
+	pvcList, err := clientset.CoreV1().PersistentVolumeClaims(namespace).List(ctx, metav1.ListOptions{})
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			log.Printf("Namespace %s not found, skipping PVC deletion", namespace)
+			return nil
+		}
+		return fmt.Errorf("failed to list PVCs in namespace %s: %w", namespace, err)
+	}
+
+	if len(pvcList.Items) == 0 {
+		log.Printf("No PVCs found in namespace %s", namespace)
+		return nil
+	}
+
+	// Delete each PVC
+	for _, pvc := range pvcList.Items {
+		log.Printf("Deleting PVC %s in namespace %s", pvc.Name, namespace)
+		err := clientset.CoreV1().PersistentVolumeClaims(namespace).Delete(ctx, pvc.Name, metav1.DeleteOptions{})
+		if err != nil && !apierrors.IsNotFound(err) {
+			log.Printf("Warning: Failed to delete PVC %s in namespace %s: %v", pvc.Name, namespace, err)
+		}
+	}
+
+	log.Printf("Deleted %d PVC(s) from namespace %s", len(pvcList.Items), namespace)
+	return nil
+}
