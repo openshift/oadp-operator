@@ -184,6 +184,7 @@ func runApplicationBackupAndRestore(brCase ApplicationBackupRestoreCase, updateL
 	}
 
 	// Wait for namespace to be deleted
+	log.Printf("Waiting for namespace %s to be deleted", brCase.Namespace)
 	gomega.Eventually(lib.IsNamespaceDeleted(kubernetesClientForSuiteRun, brCase.Namespace), time.Minute*4, time.Second*5).Should(gomega.BeTrue())
 
 	updateLastInstallTime()
@@ -497,7 +498,7 @@ var _ = ginkgo.Describe("Backup and restore tests", ginkgo.Ordered, func() {
 			ApplicationTemplate: "./sample-applications/parks-app/manifest.yaml",
 			BackupRestoreCase: BackupRestoreCase{
 				Namespace:         "parks-app",
-				Name:              "mongo-parks-app-native-snapshots-e2e",
+				Name:              "mongo-parksapp-native-snapshots-e2e",
 				BackupRestoreType: lib.NativeSnapshots,
 				PreBackupVerify:   parksAppReady(true, false, "mongo"),
 				PostRestoreVerify: parksAppReady(true, false, "mongo"),

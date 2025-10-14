@@ -424,6 +424,7 @@ func RunMustGather(artifact_dir string, clusterClient client.Client) error {
 func VerifyBackupRestoreData(ocClient client.Client, kubeClient *kubernetes.Clientset, kubeConfig *rest.Config, artifactDir string, namespace string, routeName string, serviceName string, app string, prebackupState bool, twoVol bool) error {
 	log.Printf("Verifying backup/restore data of %s", app)
 	appEndpointURL, proxyPodParams, err := getAppEndpointURLAndProxyParams(ocClient, kubeClient, kubeConfig, namespace, serviceName, routeName)
+	log.Printf("App endpoint URL: %s", appEndpointURL)
 	if err != nil {
 		return err
 	}
@@ -485,7 +486,7 @@ func VerifyBackupRestoreData(ocClient client.Client, kubeClient *kubernetes.Clie
 
 	if prebackupState {
 		// Write data to backup file
-		log.Printf("Writing data to backupFile (backup-data.txt): \n %s\n", respData)
+		log.Printf("Writing data to backupFile %s /backup-data.txt: \n %s\n", artifactDir, respData)
 		if err := os.WriteFile(artifactDir+"/backup-data.txt", []byte(respData), 0644); err != nil {
 			return err
 		}
