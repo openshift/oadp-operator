@@ -60,7 +60,7 @@ func todoListReady(preBackupState bool, twoVol bool, database string) Verificati
 	})
 }
 
-func parksAppReady(preBackupState bool, twoVol bool, database string, DCReadyCheck bool) VerificationFunction {
+func parksAppReady(preBackupState bool, twoVol bool, DCReadyCheck bool) VerificationFunction {
 	return VerificationFunction(func(ocClient client.Client, namespace string) error {
 		log.Printf("checking parksapp for the NAMESPACE: %s", namespace)
 		if DCReadyCheck {
@@ -368,6 +368,7 @@ var _ = ginkgo.Describe("Backup and restore tests", ginkgo.Ordered, func() {
 		// using kopia to collect more info (DaemonSet)
 		waitOADPReadiness(lib.KOPIA)
 
+		//DPT Test and MustGather should be paired together
 		log.Printf("skipMustGather: %v", skipMustGather)
 		if !skipMustGather {
 			log.Printf("Creating real DataProtectionTest before must-gather")
@@ -502,8 +503,8 @@ var _ = ginkgo.Describe("Backup and restore tests", ginkgo.Ordered, func() {
 				Namespace:         "parks-app",
 				Name:              "mongo-parksapp-native-snapshots-e2e",
 				BackupRestoreType: lib.NativeSnapshots,
-				PreBackupVerify:   parksAppReady(true, false, "mongo", true),
-				PostRestoreVerify: parksAppReady(false, false, "mongo", false),
+				PreBackupVerify:   parksAppReady(true, false, true),
+				PostRestoreVerify: parksAppReady(false, false, false),
 				BackupTimeout:     20 * time.Minute,
 				ExcludedResources: []string{"jobs.batch", "events", "events.events.k8s.io", "buildconfigs.build.openshift.io", "builds.build.openshift.io"},
 				RestoreHooks: &velero.RestoreHooks{
