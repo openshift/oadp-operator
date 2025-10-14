@@ -439,8 +439,8 @@ func VerifyBackupRestoreData(ocClient client.Client, kubeClient *kubernetes.Clie
 		// todolist
 		if namespace == "mysql-persistent" || namespace == "mongo-persistent" {
 			// Construct request parameters for the "todo-incomplete" endpoint
-			requestParamsTodoIncomplete := getRequestParameters(appEndpointURL+"/todo-incomplete", proxyPodParams, GET, nil)
-			dataBeforeCurl, errResp, err := MakeRequest(*requestParamsTodoIncomplete)
+			responseParams := getRequestParameters(appEndpointURL+"/todo-incomplete", proxyPodParams, GET, nil)
+			dataBeforeCurl, errResp, err := MakeRequest(*responseParams)
 			if err != nil {
 				if errResp != "" {
 					log.Printf("Request response error msg: %s\n", errResp)
@@ -458,6 +458,13 @@ func VerifyBackupRestoreData(ocClient client.Client, kubeClient *kubernetes.Clie
 			postPayload = `{"description": "` + time.Now().Weekday().String() + `"}`
 			requestParams = getRequestParameters(appEndpointURL+"/todo", proxyPodParams, POST, &postPayload)
 			MakeRequest(*requestParams)
+			respData, errResp, err = MakeRequest(*responseParams)
+			if err != nil {
+				if errResp != "" {
+					log.Printf("Request response error msg: %s\n", errResp)
+				}
+				return err
+			}
 		}
 		// parks-app
 		if namespace == "parks-app" {
