@@ -89,31 +89,31 @@ func MakeRequest(params RequestParameters) (string, string, error) {
 		return "", "", fmt.Errorf("%s", errMsg)
 	}
 
-	// Check if the Payload is provided when using POST
-	if requestMethod == POST && (params.Payload == nil || *params.Payload == "") {
-		errMsg := "Payload is required while performing POST Request"
-		log.Printf("%s", errMsg)
-		return "", "", fmt.Errorf("%s", errMsg)
-	} else if requestMethod == POST {
-		if !isPayloadValidJSON(*params.Payload) {
-			errMsg := fmt.Sprintf("Invalid JSON payload: %s", *params.Payload)
-			fmt.Println(errMsg)
-			return "", "", fmt.Errorf("%s", errMsg)
-		}
-	}
-
 	if params.ProxyPodParams != nil && params.ProxyPodParams.PodName != "" && params.ProxyPodParams.KubeConfig != nil && params.ProxyPodParams.KubeClient != nil && params.ProxyPodParams.Namespace != "" {
 		// Make request via Proxy POD
+		log.Printf("URL: %s", params.URL)
+		log.Printf("Request Method: %s", requestMethod)
+		if params.Payload != nil {
+			log.Printf("Payload: %s", *params.Payload)
+		} else {
+			log.Printf("Payload: nil")
+		}
 		var curlInProxyCmd string
 		if requestMethod == GET {
 			log.Printf("Using Proxy pod container: %s", params.ProxyPodParams.PodName)
 			curlInProxyCmd = "curl -X GET --silent --show-error " + params.URL
 		} else if requestMethod == POST {
-			body, err := convertJsonStringToURLParams(*params.Payload)
-			if err != nil {
-				return "", "", fmt.Errorf("Error while converting parameters: %v", err)
+			// Handle POST with or without payload
+			if params.Payload != nil && *params.Payload != "" {
+				body, err := convertJsonStringToURLParams(*params.Payload)
+				if err != nil {
+					return "", "", fmt.Errorf("Error while converting parameters: %v", err)
+				}
+				curlInProxyCmd = fmt.Sprintf("curl -X POST -d %s --silent --show-error %s", body, params.URL)
+			} else {
+				// POST with no payload
+				curlInProxyCmd = fmt.Sprintf("curl -X POST --silent --show-error %s", params.URL)
 			}
-			curlInProxyCmd = fmt.Sprintf("curl -X POST -d %s --silent --show-error %s", body, params.URL)
 		}
 		return ExecuteCommandInPodsSh(*params.ProxyPodParams, curlInProxyCmd)
 	} else {
@@ -121,7 +121,12 @@ func MakeRequest(params RequestParameters) (string, string, error) {
 		var errorResponse string
 		var err error
 		if requestMethod == POST {
-			response, errorResponse, err = MakeHTTPRequest(params.URL, requestMethod, *params.Payload)
+			// Handle POST with or without payload
+			payload := ""
+			if params.Payload != nil {
+				payload = *params.Payload
+			}
+			response, errorResponse, err = MakeHTTPRequest(params.URL, requestMethod, payload)
 		} else {
 			response, errorResponse, err = MakeHTTPRequest(params.URL, requestMethod, "")
 		}
@@ -237,16 +242,26 @@ func MakeHTTPRequest(url string, requestMethod HTTPMethod, payload string) (stri
 	if requestMethod == GET {
 		resp, err = http.Get(url)
 	} else if requestMethod == POST {
-		body, err = convertJsonStringToURLParams(payload)
-		if err != nil {
-			return "", "", err
+		// Handle POST with or without payload
+		if payload != "" {
+			body, err = convertJsonStringToURLParams(payload)
+			if err != nil {
+				return "", "", err
+			}
+			req, err = http.NewRequest(string(requestMethod), url, strings.NewReader(body))
+			if err != nil {
+				log.Printf("Error making post request %s", err)
+				return "", "", err
+			}
+			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		} else {
+			// POST with no payload
+			req, err = http.NewRequest(string(requestMethod), url, nil)
+			if err != nil {
+				log.Printf("Error making post request %s", err)
+				return "", "", err
+			}
 		}
-		req, err = http.NewRequest(string(requestMethod), url, strings.NewReader(body))
-		if err != nil {
-			log.Printf("Error making post request %s", err)
-			return "", "", err
-		}
-		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 		resp, err = http.DefaultClient.Do(req)
 		if err != nil {
 			if resp != nil {

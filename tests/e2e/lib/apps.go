@@ -436,7 +436,7 @@ func VerifyBackupRestoreData(ocClient client.Client, kubeClient *kubernetes.Clie
 		// Clean up existing backup file
 		RemoveFileIfExists(artifactDir + "/backup-data.txt")
 
-		// Make requests and update data before backup
+		// todolist
 		if namespace == "mysql-persistent" || namespace == "mongo-persistent" {
 			// Construct request parameters for the "todo-incomplete" endpoint
 			requestParamsTodoIncomplete := getRequestParameters(appEndpointURL+"/todo-incomplete", proxyPodParams, GET, nil)
@@ -452,25 +452,19 @@ func VerifyBackupRestoreData(ocClient client.Client, kubeClient *kubernetes.Clie
 			// Make two post requests to the "todo" endpoint
 			postPayload := `{"description": "` + time.Now().String() + `"}`
 			requestParams := getRequestParameters(appEndpointURL+"/todo", proxyPodParams, POST, &postPayload)
+			log.Printf("requestParams: %v\n", requestParams)
 			MakeRequest(*requestParams)
 
 			postPayload = `{"description": "` + time.Now().Weekday().String() + `"}`
 			requestParams = getRequestParameters(appEndpointURL+"/todo", proxyPodParams, POST, &postPayload)
 			MakeRequest(*requestParams)
-			// Make request to the "todo-incomplete" endpoint
-			respData, errResp, err = MakeRequest(*requestParamsTodoIncomplete)
-			if err != nil {
-				if errResp != "" {
-					log.Printf("Request response error msg: %s\n", errResp)
-				}
-				return err
-			}
 		}
+		// parks-app
 		if namespace == "parks-app" {
-			// payload can be empty
-			payload := ""
-			postParams := getRequestParameters(appEndpointURL+"/clicks", proxyPodParams, POST, &payload)
+			// POST with no body - equivalent to: curl -X POST http://restify/clicks
+			postParams := getRequestParameters(appEndpointURL+"/clicks", proxyPodParams, POST, nil)
 			responseParams := getRequestParameters(appEndpointURL+"/clicks", proxyPodParams, GET, nil)
+			log.Printf("postParams: %v\n", postParams)
 			// 2 clicks
 			MakeRequest(*postParams)
 			MakeRequest(*postParams)
@@ -482,15 +476,38 @@ func VerifyBackupRestoreData(ocClient client.Client, kubeClient *kubernetes.Clie
 				return err
 			}
 		}
-	}
 
-	if prebackupState {
 		// Write data to backup file
 		log.Printf("Writing data to backupFile %s /backup-data.txt: \n %s\n", artifactDir, respData)
 		if err := os.WriteFile(artifactDir+"/backup-data.txt", []byte(respData), 0644); err != nil {
 			return err
 		}
 	} else {
+		//restore check
+
+		if namespace == "mysql-persistent" || namespace == "mongo-persistent" {
+			// Make request to the "todo-incomplete" endpoint
+			requestParamsTodoIncomplete := getRequestParameters(appEndpointURL+"/todo-incomplete", proxyPodParams, GET, nil)
+			respData, errResp, err = MakeRequest(*requestParamsTodoIncomplete)
+			if err != nil {
+				if errResp != "" {
+					log.Printf("Request response error msg: %s\n", errResp)
+				}
+				return err
+			}
+		}
+		if namespace == "parks-app" {
+			// Make request to the "clicks" endpoint
+			responseParams := getRequestParameters(appEndpointURL+"/clicks", proxyPodParams, GET, nil)
+			respData, errResp, err = MakeRequest(*responseParams)
+			if err != nil {
+				if errResp != "" {
+					log.Printf("Request response error msg: %s\n", errResp)
+				}
+				return err
+			}
+		}
+
 		// Compare data with backup file after restore
 		backupData, err := os.ReadFile(artifactDir + "/backup-data.txt")
 		if err != nil {

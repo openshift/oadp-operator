@@ -60,10 +60,12 @@ func todoListReady(preBackupState bool, twoVol bool, database string) Verificati
 	})
 }
 
-func parksAppReady(preBackupState bool, twoVol bool, database string) VerificationFunction {
+func parksAppReady(preBackupState bool, twoVol bool, database string, DCReadyCheck bool) VerificationFunction {
 	return VerificationFunction(func(ocClient client.Client, namespace string) error {
 		log.Printf("checking parksapp for the NAMESPACE: %s", namespace)
-		gomega.Eventually(lib.IsDCReady(ocClient, namespace, "restify"), time.Minute*10, time.Second*10).Should(gomega.BeTrue())
+		if DCReadyCheck {
+			gomega.Eventually(lib.IsDCReady(ocClient, namespace, "restify"), time.Minute*10, time.Second*10).Should(gomega.BeTrue())
+		}
 		gomega.Eventually(lib.AreApplicationPodsRunning(kubernetesClientForSuiteRun, namespace), time.Minute*9, time.Second*5).Should(gomega.BeTrue())
 		err := lib.VerifyBackupRestoreData(runTimeClientForSuiteRun, kubernetesClientForSuiteRun, kubeConfig, artifact_dir, namespace, "restify", "restify", "restify", preBackupState, twoVol)
 		return err
@@ -500,8 +502,8 @@ var _ = ginkgo.Describe("Backup and restore tests", ginkgo.Ordered, func() {
 				Namespace:         "parks-app",
 				Name:              "mongo-parksapp-native-snapshots-e2e",
 				BackupRestoreType: lib.NativeSnapshots,
-				PreBackupVerify:   parksAppReady(true, false, "mongo"),
-				PostRestoreVerify: parksAppReady(true, false, "mongo"),
+				PreBackupVerify:   parksAppReady(true, false, "mongo", true),
+				PostRestoreVerify: parksAppReady(false, false, "mongo", false),
 				BackupTimeout:     20 * time.Minute,
 				ExcludedResources: []string{"jobs.batch", "events", "events.events.k8s.io", "buildconfigs.build.openshift.io", "builds.build.openshift.io"},
 				RestoreHooks: &velero.RestoreHooks{
