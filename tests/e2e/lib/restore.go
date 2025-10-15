@@ -31,7 +31,6 @@ func CreateRestoreFromBackup(ocClient client.Client, veleroNamespace, backupName
 	return ocClient.Create(context.Background(), &restore)
 }
 
-
 func CreateCustomRestoreFromBackup(ocClient client.Client, veleroNamespace, backupName, restoreName string, includedResources, excludedResources []string, restoreHooks *velero.RestoreHooks) error {
 	restoreSpec := velero.RestoreSpec{
 		BackupName:        backupName,
