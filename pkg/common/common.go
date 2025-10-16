@@ -336,6 +336,28 @@ func UpdateBackupStorageLocation(bsl *velerov1.BackupStorageLocation, bslSpec ve
 			if _, ok := bslSpec.Config["checksumAlgorithm"]; !ok {
 				bslSpec.Config["checksumAlgorithm"] = ""
 			}
+
+			// Auto-detect region for actual AWS S3 buckets (not S3-compatible storage)
+			// This only applies when:
+			// 1. No custom s3Url is configured (meaning it's real AWS S3)
+			// 2. No region is already specified in the config
+			// 3. A bucket name is provided in ObjectStorage
+			if _, hasS3Url := bslSpec.Config["s3Url"]; !hasS3Url {
+				if _, hasRegion := bslSpec.Config["region"]; !hasRegion {
+					if bslSpec.ObjectStorage != nil && bslSpec.ObjectStorage.Bucket != "" {
+						// Attempt to auto-detect the bucket's region
+						// AWS Security confirmed that GetBucketRegion works with anonymous credentials
+						// for both public and private buckets (Engagement ID: CACenGS4Mha_KeJ=e3jBSLD6rPZ2iNtfuJUv9QJViaCOt7GVNDg)
+						if detectedRegion, err := aws.GetBucketRegion(bslSpec.ObjectStorage.Bucket); err == nil && detectedRegion != "" {
+							bslSpec.Config["region"] = detectedRegion
+							// Note: We successfully auto-detected the region. This is logged at a higher level
+							// to avoid importing logging dependencies here.
+						}
+						// If auto-detection fails, we continue without setting the region.
+						// The user can still manually specify it if needed.
+					}
+				}
+			}
 		}
 	}
 
