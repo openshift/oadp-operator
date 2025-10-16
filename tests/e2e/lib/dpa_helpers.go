@@ -324,6 +324,20 @@ func (v *DpaCustomResource) DoesBSLSpecMatchesDpa(dpaBSLSpec velero.BackupStorag
 				configWithChecksumAlgorithm["checksumAlgorithm"] = ""
 				dpaBSLSpec.Config = configWithChecksumAlgorithm
 			}
+
+			// Handle auto-detected region for AWS (real AWS S3, not S3-compatible storage)
+			_, hasS3Url := dpaBSLSpec.Config["s3Url"]
+			_, dpaHasRegion := dpaBSLSpec.Config["region"]
+			bslRegion, bslHasRegion := bslReal.Spec.Config["region"]
+
+			// If this is real AWS (no s3Url), DPA has no region, but BSL has one (auto-detected)
+			if !hasS3Url && !dpaHasRegion && bslHasRegion {
+				// Accept the auto-detected region by adding it to the expected spec
+				if dpaBSLSpec.Config == nil {
+					dpaBSLSpec.Config = make(map[string]string)
+				}
+				dpaBSLSpec.Config["region"] = bslRegion
+			}
 		}
 		if !reflect.DeepEqual(dpaBSLSpec, bslReal.Spec) {
 			log.Println(cmp.Diff(dpaBSLSpec, bslReal.Spec))
