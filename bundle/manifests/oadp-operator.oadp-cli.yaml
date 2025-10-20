@@ -1,0 +1,10 @@
+apiVersion: console.openshift.io/v1
+kind: ConsoleCLIDownload
+metadata:
+  name: oadp-cli
+spec:
+  description: oadp-cli is the command line tool for working with the OADP operator
+  displayName: oadp - OADP operator Command Line Interface (CLI)
+  links:
+    - href: https://github.com/migtools/oadp-cli/releases/
+      text: Download oadp
