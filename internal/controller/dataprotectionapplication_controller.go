@@ -19,6 +19,7 @@ package controller
 import (
 	"context"
 	"os"
+	"reflect"
 
 	"github.com/go-logr/logr"
 	routev1 "github.com/openshift/api/route/v1"
@@ -193,6 +194,21 @@ func (l *labelHandler) Update(ctx context.Context, evt event.TypedUpdateEvent[cl
 	if evt.ObjectNew.GetLabels()[oadpv1alpha1.OadpOperatorLabel] == "" || dpaname == "" {
 		return
 	}
+
+	// For Secrets, check if only metadata changed (e.g., ResourceVersion updates from ESO)
+	// This prevents unnecessary reconciliations when external-secrets-operator updates metadata
+	if oldSecret, ok := evt.ObjectOld.(*corev1.Secret); ok {
+		if newSecret, ok := evt.ObjectNew.(*corev1.Secret); ok {
+			// Skip reconciliation if data, stringData, and labels haven't changed
+			// This filters out metadata-only updates (ResourceVersion, ManagedFields, etc.)
+			if reflect.DeepEqual(oldSecret.Data, newSecret.Data) &&
+				reflect.DeepEqual(oldSecret.StringData, newSecret.StringData) &&
+				reflect.DeepEqual(oldSecret.Labels, newSecret.Labels) {
+				return
+			}
+		}
+	}
+
 	q.Add(reconcile.Request{NamespacedName: types.NamespacedName{
 		Name:      dpaname,
 		Namespace: namespace,
