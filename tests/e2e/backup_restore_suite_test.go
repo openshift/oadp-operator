@@ -24,13 +24,17 @@ import (
 type VerificationFunction func(client.Client, string) error
 
 type BackupRestoreCase struct {
-	Namespace         string
-	Name              string
-	BackupRestoreType lib.BackupRestoreType
-	PreBackupVerify   VerificationFunction
-	PostRestoreVerify VerificationFunction
-	SkipVerifyLogs    bool // TODO remove
-	BackupTimeout     time.Duration
+	Namespace                string
+	Name                     string
+	BackupRestoreType        lib.BackupRestoreType
+	PreBackupVerify          VerificationFunction
+	PostRestoreVerify        VerificationFunction
+	SkipVerifyLogs           bool // TODO remove
+	BackupTimeout            time.Duration
+	ExcludedResources        []string             // Resources to exclude from backup spec
+	RestoreHooks             *velero.RestoreHooks // Pre/post restore hooks (optional)
+	IncludedResources        []string             // Resources to include in restore (optional)
+	RestoreExcludedResources []string             // Resources to exclude from restore (optional)
 }
 
 type ApplicationBackupRestoreCase struct {
@@ -52,6 +56,18 @@ func todoListReady(preBackupState bool, twoVol bool, database string) Verificati
 			return err
 		}
 		err = lib.VerifyBackupRestoreData(runTimeClientForSuiteRun, kubernetesClientForSuiteRun, kubeConfig, artifact_dir, namespace, "todolist-route", "todolist", "todolist", preBackupState, twoVol)
+		return err
+	})
+}
+
+func parksAppReady(preBackupState bool, twoVol bool, DCReadyCheck bool) VerificationFunction {
+	return VerificationFunction(func(ocClient client.Client, namespace string) error {
+		log.Printf("checking parksapp for the NAMESPACE: %s", namespace)
+		if DCReadyCheck {
+			gomega.Eventually(lib.IsDCReady(ocClient, namespace, "restify"), time.Minute*10, time.Second*10).Should(gomega.BeTrue())
+		}
+		gomega.Eventually(lib.AreApplicationPodsRunning(kubernetesClientForSuiteRun, namespace), time.Minute*9, time.Second*5).Should(gomega.BeTrue())
+		err := lib.VerifyBackupRestoreData(runTimeClientForSuiteRun, kubernetesClientForSuiteRun, kubeConfig, artifact_dir, namespace, "restify", "restify", "restify", preBackupState, twoVol)
 		return err
 	})
 }
@@ -170,6 +186,7 @@ func runApplicationBackupAndRestore(brCase ApplicationBackupRestoreCase, updateL
 	}
 
 	// Wait for namespace to be deleted
+	log.Printf("Waiting for namespace %s to be deleted", brCase.Namespace)
 	gomega.Eventually(lib.IsNamespaceDeleted(kubernetesClientForSuiteRun, brCase.Namespace), time.Minute*4, time.Second*5).Should(gomega.BeTrue())
 
 	updateLastInstallTime()
@@ -198,7 +215,12 @@ func runBackup(brCase BackupRestoreCase, backupName string) bool {
 
 	// create backup
 	log.Printf("Creating backup %s for case %s", backupName, brCase.Name)
-	err = lib.CreateBackupForNamespaces(dpaCR.Client, namespace, backupName, []string{brCase.Namespace}, brCase.BackupRestoreType == lib.KOPIA, brCase.BackupRestoreType == lib.CSIDataMover)
+	if len(brCase.ExcludedResources) > 0 {
+		log.Printf("Creating backup with excluded resources: %v", brCase.ExcludedResources)
+		err = lib.CreateCustomBackupForNamespaces(dpaCR.Client, namespace, backupName, []string{brCase.Namespace}, nil, brCase.ExcludedResources, brCase.BackupRestoreType == lib.KOPIA, brCase.BackupRestoreType == lib.CSIDataMover)
+	} else {
+		err = lib.CreateBackupForNamespaces(dpaCR.Client, namespace, backupName, []string{brCase.Namespace}, brCase.BackupRestoreType == lib.KOPIA, brCase.BackupRestoreType == lib.CSIDataMover)
+	}
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 	// wait for backup to not be running
@@ -226,7 +248,24 @@ func runBackup(brCase BackupRestoreCase, backupName string) bool {
 
 func runRestore(brCase BackupRestoreCase, backupName, restoreName string, nsRequiresResticDCWorkaround bool) {
 	log.Printf("Creating restore %s for case %s", restoreName, brCase.Name)
-	err := lib.CreateRestoreFromBackup(dpaCR.Client, namespace, backupName, restoreName)
+	var err error
+
+	// Use custom restore if hooks or resource filters are specified
+	if brCase.RestoreHooks != nil || len(brCase.IncludedResources) > 0 || len(brCase.RestoreExcludedResources) > 0 {
+		log.Printf("Creating custom restore with hooks and/or resource filters")
+		if brCase.RestoreHooks != nil {
+			log.Printf("Restore hooks configured: %d resource hook(s)", len(brCase.RestoreHooks.Resources))
+		}
+		if len(brCase.IncludedResources) > 0 {
+			log.Printf("Included resources: %v", brCase.IncludedResources)
+		}
+		if len(brCase.RestoreExcludedResources) > 0 {
+			log.Printf("Excluded resources: %v", brCase.RestoreExcludedResources)
+		}
+		err = lib.CreateCustomRestoreFromBackup(dpaCR.Client, namespace, backupName, restoreName, brCase.IncludedResources, brCase.RestoreExcludedResources, brCase.RestoreHooks)
+	} else {
+		err = lib.CreateRestoreFromBackup(dpaCR.Client, namespace, backupName, restoreName)
+	}
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	gomega.Eventually(lib.IsRestoreDone(dpaCR.Client, namespace, restoreName), time.Minute*60, time.Second*10).Should(gomega.BeTrue())
 	// TODO only log on fail?
@@ -329,22 +368,25 @@ var _ = ginkgo.Describe("Backup and restore tests", ginkgo.Ordered, func() {
 		// using kopia to collect more info (DaemonSet)
 		waitOADPReadiness(lib.KOPIA)
 
-		log.Printf("Creating real DataProtectionTest before must-gather")
-		bsls, err := dpaCR.ListBSLs()
-		gomega.Expect(err).ToNot(gomega.HaveOccurred())
-
-		bslName := bsls.Items[0].Name
-		err = lib.CreateUploadTestOnlyDPT(dpaCR.Client, dpaCR.Namespace, bslName)
-		gomega.Expect(err).ToNot(gomega.HaveOccurred())
-
+		//DPT Test and MustGather should be paired together
 		log.Printf("skipMustGather: %v", skipMustGather)
 		if !skipMustGather {
+			log.Printf("Creating real DataProtectionTest before must-gather")
+			bsls, err := dpaCR.ListBSLs()
+			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+
+			bslName := bsls.Items[0].Name
+			err = lib.CreateUploadTestOnlyDPT(dpaCR.Client, dpaCR.Namespace, bslName)
+			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+
 			log.Printf("Running OADP must-gather")
 			err = lib.RunMustGather(artifact_dir, dpaCR.Client)
 			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+		} else {
+			log.Printf("Skipping MustGather and DataProtectionTest")
 		}
 
-		err = dpaCR.Delete()
+		err := dpaCR.Delete()
 		gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	})
 
@@ -453,6 +495,46 @@ var _ = ginkgo.Describe("Backup and restore tests", ginkgo.Ordered, func() {
 				PreBackupVerify:   todoListReady(true, false, "mongo"),
 				PostRestoreVerify: todoListReady(false, false, "mongo"),
 				BackupTimeout:     20 * time.Minute,
+			},
+		}, nil),
+		ginkgo.Entry("Parks application Native-Snapshots", ginkgo.FlakeAttempts(flakeAttempts), ginkgo.Label("aws", "azure", "gcp"), ApplicationBackupRestoreCase{
+			ApplicationTemplate: "./sample-applications/parks-app/manifest.yaml",
+			BackupRestoreCase: BackupRestoreCase{
+				Namespace:         "parks-app",
+				Name:              "mongo-parksapp-native-snapshots-e2e",
+				BackupRestoreType: lib.NativeSnapshots,
+				PreBackupVerify:   parksAppReady(true, false, true),
+				PostRestoreVerify: parksAppReady(false, false, false),
+				BackupTimeout:     20 * time.Minute,
+				ExcludedResources: []string{"jobs.batch", "events", "events.events.k8s.io", "buildconfigs.build.openshift.io", "builds.build.openshift.io"},
+				RestoreHooks: &velero.RestoreHooks{
+					Resources: []velero.RestoreResourceHookSpec{
+						{
+							Name:               "wait for app to be ready",
+							IncludedNamespaces: []string{"parks-app"},
+							LabelSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{
+									"app": "restify",
+								},
+							},
+							PostHooks: []velero.RestoreResourceHook{
+								{
+									Exec: &velero.ExecRestoreHook{
+										Container: "restify",
+										Command: []string{
+											"/bin/sh",
+											"-c",
+											"sleep 10\ncurl -f http://restify:8080/status || echo \"App not ready yet\"",
+										},
+										ExecTimeout: metav1.Duration{Duration: 1 * time.Minute},
+										WaitTimeout: metav1.Duration{Duration: 5 * time.Minute},
+										OnError:     velero.HookErrorModeFail,
+									},
+								},
+							},
+						},
+					},
+				},
 			},
 		}, nil),
 	)
