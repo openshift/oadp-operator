@@ -23,9 +23,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"time"
 
-	"github.com/go-logr/logr"
 	snapshotv1api "github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1"
 	configv1 "github.com/openshift/api/config/v1"
 	consolev1 "github.com/openshift/api/console/v1"
@@ -35,11 +33,9 @@ import (
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/intstr"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/kubernetes"
@@ -91,32 +87,6 @@ func init() {
 
 	utilruntime.Must(oadpv1alpha1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
-}
-
-// oadpCLISetupRunnable implements manager.Runnable to set up OADP CLI downloads after cache starts
-type oadpCLISetupRunnable struct {
-	client    client.Client
-	namespace string
-	log       logr.Logger
-}
-
-func (r *oadpCLISetupRunnable) Start(ctx context.Context) error {
-	// Run setup in a goroutine and keep the runnable alive
-	go func() {
-		r.log.Info("setting up OADP CLI download resources")
-		if err := setupOADPCLIDownload(ctx, r.client, r.namespace); err != nil {
-			r.log.Error(err, "unable to setup OADP CLI download, continuing anyway")
-		}
-	}()
-
-	// Block until context is cancelled (manager shutdown)
-	<-ctx.Done()
-	return nil
-}
-
-// NeedLeaderElection returns false so this runs even if not the leader
-func (r *oadpCLISetupRunnable) NeedLeaderElection() bool {
-	return true
 }
 
 func main() {
@@ -302,6 +272,14 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "DataProtectionTest")
 		os.Exit(1)
 	}
+	if err = (&controller.OADPCLIReconciler{
+		Client:    mgr.GetClient(),
+		Scheme:    mgr.GetScheme(),
+		Namespace: watchNamespace,
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "OADPCLI")
+		os.Exit(1)
+	}
 	//+kubebuilder:scaffold:builder
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
@@ -310,16 +288,6 @@ func main() {
 	}
 	if err := mgr.AddReadyzCheck("readyz", healthz.Ping); err != nil {
 		setupLog.Error(err, "unable to set up ready check")
-		os.Exit(1)
-	}
-
-	// Add OADP CLI download setup as a manager runnable
-	if err := mgr.Add(&oadpCLISetupRunnable{
-		client:    mgr.GetClient(),
-		namespace: watchNamespace,
-		log:       setupLog,
-	}); err != nil {
-		setupLog.Error(err, "unable to add OADP CLI setup runnable")
 		os.Exit(1)
 	}
 
@@ -395,96 +363,4 @@ func DoesCRDExist(CRDGroupVersion, CRDName string, kubeconf *rest.Config) (bool,
 		}
 	}
 	return discoveryResult, nil
-}
-
-func setupOADPCLIDownload(ctx context.Context, c client.Client, namespace string) error {
-	// Create Route, wait for hostname, create ConsoleCLIDownload
-	// Implementation goes here
-	route := &routev1.Route{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "openshift-adp-cli-server-route",
-			Namespace: namespace,
-		},
-		Spec: routev1.RouteSpec{
-			To: routev1.RouteTargetReference{
-				Kind: "Service",
-				Name: "openshift-adp-cli-server",
-			},
-			Port: &routev1.RoutePort{
-				TargetPort: intstr.FromString("http"),
-			},
-			TLS: &routev1.TLSConfig{
-				Termination:                   routev1.TLSTerminationEdge,
-				InsecureEdgeTerminationPolicy: routev1.InsecureEdgeTerminationPolicyRedirect,
-			},
-		},
-	}
-	err := c.Create(ctx, route)
-	if err != nil && !errors.IsAlreadyExists(err) {
-		return err
-	}
-	if errors.IsAlreadyExists(err) {
-		// Route already exists, just get it
-		err = c.Get(ctx, client.ObjectKey{
-			Name:      "openshift-adp-cli-server-route",
-			Namespace: namespace,
-		}, route)
-		if err != nil {
-			return fmt.Errorf("failed to get existing route: %w", err)
-		}
-	}
-
-	hostname := ""
-	// 2. Get hostname from Status
-	for i := 0; i < 3; i++ {
-		err = c.Get(ctx, client.ObjectKey{
-			Name:      "openshift-adp-cli-server-route",
-			Namespace: namespace,
-		}, route)
-
-		if err != nil {
-			return fmt.Errorf("failed to get route: %w", err)
-		}
-
-		// Check if hostname is assigned
-		if len(route.Status.Ingress) > 0 && route.Status.Ingress[0].Host != "" {
-			hostname = route.Status.Ingress[0].Host
-			break
-		}
-
-		// Backoff: wait 2^i seconds (1s, 2s, 4s)
-		if i < 2 {
-			setupLog.Info("route hostname not ready, retrying...", "attempt", i+1)
-			time.Sleep(time.Duration(1<<uint(i)) * time.Second)
-		}
-	}
-
-	if hostname == "" {
-		return fmt.Errorf("failed to get route hostname, oadp-cli-server is not ready")
-	}
-
-	// 3. Create ConsoleCLIDownload with the hostname
-	downloadURL := fmt.Sprintf("https://%s/", hostname)
-
-	// Create the ConsoleCLIDownload (cluster-scoped resource, no namespace)
-	consoleCLIDownload := &consolev1.ConsoleCLIDownload{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "openshift-adp-oadp-cli",
-		},
-		Spec: consolev1.ConsoleCLIDownloadSpec{
-			Description: "OADP operator Command Line Interface (CLI)",
-			DisplayName: "oadp - OADP operator Command Line Interface (CLI)",
-			Links: []consolev1.CLIDownloadLink{
-				{
-					Href: downloadURL,
-					Text: "Download OADP CLI for Linux x86_64",
-				},
-			},
-		},
-	}
-	err = c.Create(ctx, consoleCLIDownload)
-	if err != nil && !errors.IsAlreadyExists(err) {
-		return fmt.Errorf("failed to create ConsoleCLIDownload: %w", err)
-	}
-	return nil
 }
