@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: cli-server
+  namespace: system
+spec:
+  selector:
+    app: oadp-cli
+  ports:
+  - name: http
+    port: 80  # Standard HTTP port
+    targetPort: 8080  # But your container still listens on 8080
+    protocol: TCP
+  type: ClusterIP

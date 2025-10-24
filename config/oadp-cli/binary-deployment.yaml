@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: oadp-cli-server
+  namespace: system
+  labels:
+    app: oadp-cli
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: oadp-cli
+  template:
+    metadata:
+      labels:
+        app: oadp-cli
+    spec:
+      serviceAccountName: controller-manager
+      securityContext:
+        runAsNonRoot: true
+      containers:
+      - name: oadp-cli-server
+        image: quay.io/rh_ee_jvaikath/oadp-cli-binaries
+        resources:
+          limits:
+            cpu: 100m
+            memory: 64Mi
+          requests:
+            cpu: 50m
+            memory: 32Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: true
+      terminationGracePeriodSeconds: 10

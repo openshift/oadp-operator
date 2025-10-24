@@ -1046,6 +1046,18 @@ spec:
           - list
           - watch
         - apiGroups:
+          - console.openshift.io
+          resources:
+          - consoleclidownloads
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
           - coordination.k8s.io
           - corev1
           resources:
@@ -1347,6 +1359,40 @@ spec:
                       path: token
               - emptyDir: {}
                 name: tmp-dir
+      - label:
+          app: oadp-cli
+        name: openshift-adp-oadp-cli-server
+        spec:
+          replicas: 1
+          selector:
+            matchLabels:
+              app: oadp-cli
+          strategy: {}
+          template:
+            metadata:
+              labels:
+                app: oadp-cli
+            spec:
+              containers:
+              - image: quay.io/rh_ee_jvaikath/oadp-cli-binaries
+                name: oadp-cli-server
+                resources:
+                  limits:
+                    cpu: 100m
+                    memory: 64Mi
+                  requests:
+                    cpu: 50m
+                    memory: 32Mi
+                securityContext:
+                  allowPrivilegeEscalation: false
+                  capabilities:
+                    drop:
+                    - ALL
+                  readOnlyRootFilesystem: true
+              securityContext:
+                runAsNonRoot: true
+              serviceAccountName: openshift-adp-controller-manager
+              terminationGracePeriodSeconds: 10
       permissions:
       - rules:
         - apiGroups:
