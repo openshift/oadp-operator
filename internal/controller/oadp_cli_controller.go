@@ -36,8 +36,8 @@ const (
 )
 
 func (r *OADPCLIReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	log := log.FromContext(ctx)
-	log.Info("Reconciling OADP CLI download resources", "triggered_by", req.NamespacedName)
+	logger := log.FromContext(ctx)
+	logger.Info("Reconciling OADP CLI download resources", "triggered_by", req.NamespacedName)
 
 	// 1. Check if CLI server deployment exists
 	deployment := &appsv1.Deployment{}
@@ -47,7 +47,7 @@ func (r *OADPCLIReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}, deployment)
 
 	if errors.IsNotFound(err) {
-		log.V(1).Info("CLI server deployment not found, nothing to reconcile")
+		logger.V(1).Info("CLI server deployment not found, nothing to reconcile")
 		return ctrl.Result{}, nil
 	}
 	if err != nil {
@@ -131,7 +131,7 @@ func (r *OADPCLIReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		if err != nil && !errors.IsAlreadyExists(err) {
 			return ctrl.Result{}, fmt.Errorf("failed to create ConsoleCLIDownload: %w", err)
 		}
-		log.Info("Created ConsoleCLIDownload", "url", downloadURL)
+		logger.Info("Created ConsoleCLIDownload", "url", downloadURL)
 	} else if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to get ConsoleCLIDownload: %w", err)
 	} else {
@@ -142,7 +142,7 @@ func (r *OADPCLIReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			if err != nil {
 				return ctrl.Result{}, fmt.Errorf("failed to update ConsoleCLIDownload: %w", err)
 			}
-			log.Info("Updated ConsoleCLIDownload with new URL", "url", downloadURL)
+			logger.Info("Updated ConsoleCLIDownload with new URL", "url", downloadURL)
 		}
 	}
 

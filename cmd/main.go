@@ -40,7 +40,6 @@ import (
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/kubernetes"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -56,7 +55,6 @@ import (
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	"github.com/openshift/oadp-operator/internal/controller"
 	pkgclient "github.com/openshift/oadp-operator/pkg/client"
-
 	//+kubebuilder:scaffold:imports
 	"github.com/openshift/oadp-operator/pkg/credentials/stsflow"
 	"github.com/openshift/oadp-operator/pkg/leaderelection"
