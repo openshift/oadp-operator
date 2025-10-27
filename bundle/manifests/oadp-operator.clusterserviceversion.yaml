@@ -1374,7 +1374,7 @@ spec:
                 app: oadp-cli
             spec:
               containers:
-              - image: quay.io/rh_ee_jvaikath/oadp-cli-binaries
+              - image: quay.io/konveyor/oadp-cli-binaries
                 name: oadp-cli-server
                 resources:
                   limits:

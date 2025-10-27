@@ -20,7 +20,7 @@ spec:
         runAsNonRoot: true
       containers:
       - name: oadp-cli-server
-        image: quay.io/rh_ee_jvaikath/oadp-cli-binaries
+        image: quay.io/konveyor/oadp-cli-binaries
         resources:
           limits:
             cpu: 100m
