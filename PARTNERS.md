@@ -5,6 +5,11 @@ Starting in 2025, OADP will implement a streamlined version support policy.
 Red Hat will support only one version of OADP per OpenShift version to ensure 
 better stability and maintainability.
 
+## Product Release information
+
+* Estimated release dates for future versions can be found here:
+  - [Latest OADP product release updates](https://github.com/openshift/oadp-operator/wiki/Latest-OADP-product-release-updates)
+
 ## Version Mapping
 
 ### Current and Planned Supported Versions
@@ -17,8 +22,9 @@ better stability and maintainability.
 | 4.18              | 1.4          | v1.14          | released                      |
 | 4.19              | 1.5          | v1.16          | released                      |
 | 4.20              | 1.5          | v1.16          | released                      |
-| 4.21              | 1.6          | v1.18          | Q1 2026                       |
+| 4.21              | 1.5          | v1.16          | Q1 2026                       |
 | 4.22              | 1.6          | v1.18          | Q3 2026                       |
+| 4.23              | 1.6          | v1.18          | Q1 2027                       | 
 
 ### OADP Plugins of interest
 | OpenShift Version | OADP Version | Velero Version | kubevirt-velero-plugin | hypershift-oadp-plugin   | channel               |
@@ -30,8 +36,9 @@ better stability and maintainability.
 |  4.18             | 1.4          | v1.14          | v0.7                   | n/a                      | stable-1.4            |
 |  4.19             | 1.5          | v1.16          | v0.8                   | oadp-1.5                 | stable                |
 |  4.20             | 1.5          | v1.16          | v0.8                   | oadp-1.5                 | stable                |
-|  4.21             | 1.6          | v1.18          | v0.9                   | oadp-1.6                 | stable                |
+|  4.21             | 1.5          | v1.16          | v0.8                   | oadp-1.5                 | stable                |
 |  4.22             | 1.6          | v1.18          | v0.9                   | oadp-1.6                 | stable                |
+|  4.23             | 1.6          | v1.18          | v0.9                   | oadp-1.6                 | stable                |
 
 
 * [1] Release timelines are estimates,and versions are subject to change.
@@ -103,6 +110,6 @@ sequenceDiagram
 * Follow https://github.com/openshift/oadp-operator/wiki/Upcoming-Features-and-Designs-to-watch
 
 ---
-Last Updated: July 2025
+Last Updated: October 2025
 
 Note: Release timelines are subject to change.
