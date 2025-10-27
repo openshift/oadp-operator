@@ -114,7 +114,7 @@ func (r *OADPCLIReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		Links: []consolev1.CLIDownloadLink{
 			{
 				Href: downloadURL,
-				Text: "Download OADP CLI for Linux x86_64",
+				Text: "Download OADP CLI",
 			},
 		},
 	}
