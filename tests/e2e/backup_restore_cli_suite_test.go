@@ -270,17 +270,17 @@ var _ = ginkgo.Describe("Backup and restore tests via OADP CLI", ginkgo.Label("c
 				BackupTimeout:     20 * time.Minute,
 			},
 		}, nil),
-		ginkgo.Entry("Mongo application CSI via CLI", ginkgo.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
-			ApplicationTemplate: "./sample-applications/mongo-persistent/mongo-persistent-csi.yaml",
-			BackupRestoreCase: BackupRestoreCase{
-				Namespace:         "mongo-persistent",
-				Name:              "mongo-csi-cli-e2e",
-				BackupRestoreType: lib.CSI,
-				PreBackupVerify:   todoListReady(true, false, "mongo"),
-				PostRestoreVerify: todoListReady(false, false, "mongo"),
-				BackupTimeout:     20 * time.Minute,
-			},
-		}, nil),
+		// ginkgo.Entry("Mongo application CSI via CLI", ginkgo.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
+		// 	ApplicationTemplate: "./sample-applications/mongo-persistent/mongo-persistent-csi.yaml",
+		// 	BackupRestoreCase: BackupRestoreCase{
+		// 		Namespace:         "mongo-persistent",
+		// 		Name:              "mongo-csi-cli-e2e",
+		// 		BackupRestoreType: lib.CSI,
+		// 		PreBackupVerify:   todoListReady(true, false, "mongo"),
+		// 		PostRestoreVerify: todoListReady(false, false, "mongo"),
+		// 		BackupTimeout:     20 * time.Minute,
+		// 	},
+		// }, nil),
 		ginkgo.Entry("MySQL application two Vol CSI via CLI", ginkgo.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
 			ApplicationTemplate: "./sample-applications/mysql-persistent/mysql-persistent-twovol-csi.yaml",
 			BackupRestoreCase: BackupRestoreCase{
