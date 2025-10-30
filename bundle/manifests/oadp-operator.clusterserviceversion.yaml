@@ -1305,7 +1305,7 @@ spec:
                 - name: RELATED_IMAGE_VM_FILE_RESTORE_BROWSER
                   value: quay.io/konveyor/oadp-vmfr-access-filebrowser:latest
                 - name: RELATED_IMAGE_CONSOLE_CLI_DOWNLOAD
-                  value: quay.io/konveyor/console-cli-download:latest
+                  value: quay.io/konveyor/oadp-cli-binaries:latest
                 image: quay.io/konveyor/oadp-operator:latest
                 imagePullPolicy: Always
                 livenessProbe:
@@ -1476,6 +1476,6 @@ spec:
     name: vm-file-restore-ssh
   - image: quay.io/konveyor/oadp-vmfr-access-filebrowser:latest
     name: vm-file-restore-browser
-  - image: quay.io/konveyor/console-cli-download:latest
+  - image: quay.io/konveyor/oadp-cli-binaries:latest
     name: console-cli-download
   version: 99.0.0
