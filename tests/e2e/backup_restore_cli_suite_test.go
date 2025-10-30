@@ -270,6 +270,7 @@ var _ = ginkgo.Describe("Backup and restore tests via OADP CLI", ginkgo.Label("c
 				BackupTimeout:     20 * time.Minute,
 			},
 		}, nil),
+		// DOWN FOR MAINTENANCE
 		// ginkgo.Entry("Mongo application CSI via CLI", ginkgo.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
 		// 	ApplicationTemplate: "./sample-applications/mongo-persistent/mongo-persistent-csi.yaml",
 		// 	BackupRestoreCase: BackupRestoreCase{
@@ -303,17 +304,18 @@ var _ = ginkgo.Describe("Backup and restore tests via OADP CLI", ginkgo.Label("c
 				BackupTimeout:     20 * time.Minute,
 			},
 		}, nil),
-		ginkgo.Entry("Mongo application DATAMOVER via CLI", ginkgo.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
-			ApplicationTemplate: "./sample-applications/mongo-persistent/mongo-persistent-csi.yaml",
-			BackupRestoreCase: BackupRestoreCase{
-				Namespace:         "mongo-persistent",
-				Name:              "mongo-datamover-cli-e2e",
-				BackupRestoreType: lib.CSIDataMover,
-				PreBackupVerify:   todoListReady(true, false, "mongo"),
-				PostRestoreVerify: todoListReady(false, false, "mongo"),
-				BackupTimeout:     20 * time.Minute,
-			},
-		}, nil),
+		// DOWN FOR MAINTENANCE
+		// ginkgo.Entry("Mongo application DATAMOVER via CLI", ginkgo.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
+		// 	ApplicationTemplate: "./sample-applications/mongo-persistent/mongo-persistent-csi.yaml",
+		// 	BackupRestoreCase: BackupRestoreCase{
+		// 		Namespace:         "mongo-persistent",
+		// 		Name:              "mongo-datamover-cli-e2e",
+		// 		BackupRestoreType: lib.CSIDataMover,
+		// 		PreBackupVerify:   todoListReady(true, false, "mongo"),
+		// 		PostRestoreVerify: todoListReady(false, false, "mongo"),
+		// 		BackupTimeout:     20 * time.Minute,
+		// 	},
+		// }, nil),
 		ginkgo.Entry("MySQL application DATAMOVER via CLI", ginkgo.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
 			ApplicationTemplate: "./sample-applications/mysql-persistent/mysql-persistent-csi.yaml",
 			BackupRestoreCase: BackupRestoreCase{

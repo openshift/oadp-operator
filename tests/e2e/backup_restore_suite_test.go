@@ -408,6 +408,7 @@ var _ = ginkgo.Describe("Backup and restore tests", ginkgo.Ordered, func() {
 				BackupTimeout:     20 * time.Minute,
 			},
 		}, nil),
+		// DOWN FOR MAINTENANCE
 		// ginkgo.Entry("Mongo application CSI", ginkgo.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
 		// 	ApplicationTemplate: "./sample-applications/mongo-persistent/mongo-persistent-csi.yaml",
 		// 	BackupRestoreCase: BackupRestoreCase{
@@ -441,17 +442,18 @@ var _ = ginkgo.Describe("Backup and restore tests", ginkgo.Ordered, func() {
 				BackupTimeout:     20 * time.Minute,
 			},
 		}, nil),
-		ginkgo.Entry("Mongo application DATAMOVER", ginkgo.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
-			ApplicationTemplate: "./sample-applications/mongo-persistent/mongo-persistent-csi.yaml",
-			BackupRestoreCase: BackupRestoreCase{
-				Namespace:         "mongo-persistent",
-				Name:              "mongo-datamover-e2e",
-				BackupRestoreType: lib.CSIDataMover,
-				PreBackupVerify:   todoListReady(true, false, "mongo"),
-				PostRestoreVerify: todoListReady(false, false, "mongo"),
-				BackupTimeout:     20 * time.Minute,
-			},
-		}, nil),
+		// DOWN FOR MAINTENANCE
+		// ginkgo.Entry("Mongo application DATAMOVER", ginkgo.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
+		// 	ApplicationTemplate: "./sample-applications/mongo-persistent/mongo-persistent-csi.yaml",
+		// 	BackupRestoreCase: BackupRestoreCase{
+		// 		Namespace:         "mongo-persistent",
+		// 		Name:              "mongo-datamover-e2e",
+		// 		BackupRestoreType: lib.CSIDataMover,
+		// 		PreBackupVerify:   todoListReady(true, false, "mongo"),
+		// 		PostRestoreVerify: todoListReady(false, false, "mongo"),
+		// 		BackupTimeout:     20 * time.Minute,
+		// 	},
+		// }, nil),
 		ginkgo.Entry("MySQL application DATAMOVER", ginkgo.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
 			ApplicationTemplate: "./sample-applications/mysql-persistent/mysql-persistent-csi.yaml",
 			BackupRestoreCase: BackupRestoreCase{
