@@ -270,15 +270,18 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "DataProtectionTest")
 		os.Exit(1)
 	}
-	if err = (&controller.OADPCLIReconciler{
-		Client:    mgr.GetClient(),
-		Scheme:    mgr.GetScheme(),
-		Namespace: watchNamespace,
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "OADPCLI")
+	//+kubebuilder:scaffold:builder
+
+	// Add CLI download setup runnable
+	if err := mgr.Add(&controller.CLIDownloadSetup{
+		Client:            mgr.GetClient(),
+		Namespace:         watchNamespace,
+		OperatorName:      "openshift-adp-controller-manager",
+		OperatorNamespace: watchNamespace,
+	}); err != nil {
+		setupLog.Error(err, "unable to add CLI download setup")
 		os.Exit(1)
 	}
-	//+kubebuilder:scaffold:builder
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
 		setupLog.Error(err, "unable to set up health check")

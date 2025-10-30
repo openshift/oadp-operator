@@ -1304,6 +1304,8 @@ spec:
                   value: quay.io/konveyor/oadp-vmfr-access-sshd:latest
                 - name: RELATED_IMAGE_VM_FILE_RESTORE_BROWSER
                   value: quay.io/konveyor/oadp-vmfr-access-filebrowser:latest
+                - name: RELATED_IMAGE_CONSOLE_CLI_DOWNLOAD
+                  value: quay.io/konveyor/console-cli-download:latest
                 image: quay.io/konveyor/oadp-operator:latest
                 imagePullPolicy: Always
                 livenessProbe:
@@ -1359,40 +1361,6 @@ spec:
                       path: token
               - emptyDir: {}
                 name: tmp-dir
-      - label:
-          app: oadp-cli
-        name: openshift-adp-oadp-cli-server
-        spec:
-          replicas: 1
-          selector:
-            matchLabels:
-              app: oadp-cli
-          strategy: {}
-          template:
-            metadata:
-              labels:
-                app: oadp-cli
-            spec:
-              containers:
-              - image: quay.io/konveyor/oadp-cli-binaries
-                name: oadp-cli-server
-                resources:
-                  limits:
-                    cpu: 100m
-                    memory: 64Mi
-                  requests:
-                    cpu: 50m
-                    memory: 32Mi
-                securityContext:
-                  allowPrivilegeEscalation: false
-                  capabilities:
-                    drop:
-                    - ALL
-                  readOnlyRootFilesystem: true
-              securityContext:
-                runAsNonRoot: true
-              serviceAccountName: openshift-adp-controller-manager
-              terminationGracePeriodSeconds: 10
       permissions:
       - rules:
         - apiGroups:
@@ -1508,4 +1476,6 @@ spec:
     name: vm-file-restore-ssh
   - image: quay.io/konveyor/oadp-vmfr-access-filebrowser:latest
     name: vm-file-restore-browser
+  - image: quay.io/konveyor/console-cli-download:latest
+    name: console-cli-download
   version: 99.0.0
