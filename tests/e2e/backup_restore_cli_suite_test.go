@@ -327,18 +327,19 @@ var _ = ginkgo.Describe("Backup and restore tests via OADP CLI", ginkgo.Label("c
 				BackupTimeout:     20 * time.Minute,
 			},
 		}, nil),
-		ginkgo.Entry("Mongo application BlockDevice DATAMOVER via CLI", ginkgo.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
-			ApplicationTemplate: "./sample-applications/mongo-persistent/mongo-persistent-block.yaml",
-			PvcSuffixName:       "-block-mode",
-			BackupRestoreCase: BackupRestoreCase{
-				Namespace:         "mongo-persistent",
-				Name:              "mongo-blockdevice-cli-e2e",
-				BackupRestoreType: lib.CSIDataMover,
-				PreBackupVerify:   todoListReady(true, false, "mongo"),
-				PostRestoreVerify: todoListReady(false, false, "mongo"),
-				BackupTimeout:     20 * time.Minute,
-			},
-		}, nil),
+		// DOWN FOR MAINTENANCE
+		// ginkgo.Entry("Mongo application BlockDevice DATAMOVER via CLI", ginkgo.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
+		// 	ApplicationTemplate: "./sample-applications/mongo-persistent/mongo-persistent-block.yaml",
+		// 	PvcSuffixName:       "-block-mode",
+		// 	BackupRestoreCase: BackupRestoreCase{
+		// 		Namespace:         "mongo-persistent",
+		// 		Name:              "mongo-blockdevice-cli-e2e",
+		// 		BackupRestoreType: lib.CSIDataMover,
+		// 		PreBackupVerify:   todoListReady(true, false, "mongo"),
+		// 		PostRestoreVerify: todoListReady(false, false, "mongo"),
+		// 		BackupTimeout:     20 * time.Minute,
+		// 	},
+		// }, nil),
 		ginkgo.Entry("MySQL application Native-Snapshots via CLI", ginkgo.FlakeAttempts(flakeAttempts), ginkgo.Label("aws", "azure", "gcp"), ApplicationBackupRestoreCase{
 			ApplicationTemplate: "./sample-applications/mysql-persistent/mysql-persistent.yaml",
 			BackupRestoreCase: BackupRestoreCase{
