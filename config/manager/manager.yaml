@@ -88,6 +88,14 @@ spec:
               value: registry.redhat.io/oadp/oadp-mustgather-rhel8:v1.2
             - name: RELATED_IMAGE_NON_ADMIN_CONTROLLER
               value: quay.io/konveyor/oadp-non-admin:latest
+            - name: RELATED_IMAGE_VM_FILE_RESTORE_CONTROLLER
+              value: quay.io/konveyor/oadp-vm-file-restore:latest
+            - name: RELATED_IMAGE_VM_FILE_RESTORE_ACCESS
+              value: quay.io/konveyor/oadp-vmfr-access:latest
+            - name: RELATED_IMAGE_VM_FILE_RESTORE_SSH
+              value: quay.io/konveyor/oadp-vmfr-access-sshd:latest
+            - name: RELATED_IMAGE_VM_FILE_RESTORE_BROWSER
+              value: quay.io/konveyor/oadp-vmfr-access-filebrowser:latest
           args:
             - --leader-elect
           image: controller:latest

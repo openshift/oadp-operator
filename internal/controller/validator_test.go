@@ -2836,3 +2836,290 @@ func (t *testLogSink) Error(err error, msg string, keysAndValues ...interface{})
 }
 func (t *testLogSink) WithValues(keysAndValues ...interface{}) logr.LogSink { return t }
 func (t *testLogSink) WithName(name string) logr.LogSink                    { return t }
+
+func TestVMFileRestoreValidation(t *testing.T) {
+	tests := []struct {
+		name              string
+		namespace         string
+		dpa               *oadpv1alpha1.DataProtectionApplication
+		clusterWideDPAs   []client.Object
+		wantErr           bool
+		errorContains     string
+	}{
+		{
+			name:      "VM file restore disabled - no validation",
+			namespace: "test-ns",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-dpa",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							NoDefaultBackupLocation: true,
+						},
+					},
+					VMFileRestore: &oadpv1alpha1.VMFileRestore{
+						Enable: ptr.To(false),
+					},
+					BackupImages: ptr.To(false),
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name:      "VM file restore enabled but Velero not configured - error",
+			namespace: "test-ns",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-dpa",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					VMFileRestore: &oadpv1alpha1.VMFileRestore{
+						Enable: ptr.To(true),
+					},
+				},
+			},
+			wantErr:       true,
+			errorContains: "DPA CR Velero configuration cannot be nil",
+		},
+		{
+			name:      "VM file restore enabled but kubevirt plugin missing - error",
+			namespace: "test-ns",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-dpa",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+								oadpv1alpha1.DefaultPluginOpenShift,
+							},
+							NoDefaultBackupLocation: true,
+						},
+					},
+					VMFileRestore: &oadpv1alpha1.VMFileRestore{
+						Enable: ptr.To(true),
+					},
+					BackupImages: ptr.To(false),
+				},
+			},
+			wantErr:       true,
+			errorContains: "VM file restore requires kubevirt-velero-plugin",
+		},
+		{
+			name:      "VM file restore enabled but openshift plugin missing - error",
+			namespace: "test-ns",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-dpa",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+								oadpv1alpha1.DefaultPluginKubeVirt,
+							},
+							NoDefaultBackupLocation: true,
+						},
+					},
+					VMFileRestore: &oadpv1alpha1.VMFileRestore{
+						Enable: ptr.To(true),
+					},
+					BackupImages: ptr.To(false),
+				},
+			},
+			wantErr:       true,
+			errorContains: "VM file restore requires openshift-velero-plugin",
+		},
+		{
+			name:      "VM file restore enabled with all requirements - success",
+			namespace: "test-ns",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-dpa",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+								oadpv1alpha1.DefaultPluginKubeVirt,
+								oadpv1alpha1.DefaultPluginOpenShift,
+							},
+							NoDefaultBackupLocation: true,
+						},
+					},
+					VMFileRestore: &oadpv1alpha1.VMFileRestore{
+						Enable: ptr.To(true),
+					},
+					BackupImages: ptr.To(false),
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name:      "Multiple DPAs with VM file restore in different namespaces - error",
+			namespace: "test-ns-1",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-dpa-1",
+					Namespace: "test-ns-1",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+								oadpv1alpha1.DefaultPluginKubeVirt,
+								oadpv1alpha1.DefaultPluginOpenShift,
+							},
+							NoDefaultBackupLocation: true,
+						},
+					},
+					VMFileRestore: &oadpv1alpha1.VMFileRestore{
+						Enable: ptr.To(true),
+					},
+					BackupImages: ptr.To(false),
+				},
+			},
+			clusterWideDPAs: []client.Object{
+				&appsv1.Deployment{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      vmFileRestoreObjectName,
+						Namespace: "test-ns-2",
+					},
+				},
+				&oadpv1alpha1.DataProtectionApplication{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-dpa-2",
+						Namespace: "test-ns-2",
+					},
+					Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+						Configuration: &oadpv1alpha1.ApplicationConfig{
+							Velero: &oadpv1alpha1.VeleroConfig{
+								DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+									oadpv1alpha1.DefaultPluginKubeVirt,
+									oadpv1alpha1.DefaultPluginOpenShift,
+								},
+								NoDefaultBackupLocation: true,
+							},
+						},
+						VMFileRestore: &oadpv1alpha1.VMFileRestore{
+							Enable: ptr.To(true),
+						},
+						BackupImages: ptr.To(false),
+					},
+				},
+			},
+			wantErr:       true,
+			errorContains: "only a single instance of VM File Restore Controller can be installed across the entire cluster",
+		},
+		{
+			name:      "VM file restore enabled with custom resources - success",
+			namespace: "test-ns",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-dpa",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+								oadpv1alpha1.DefaultPluginKubeVirt,
+								oadpv1alpha1.DefaultPluginOpenShift,
+							},
+							NoDefaultBackupLocation: true,
+						},
+					},
+					VMFileRestore: &oadpv1alpha1.VMFileRestore{
+						Enable: ptr.To(true),
+						Resources: &corev1.ResourceRequirements{
+							Limits: corev1.ResourceList{
+								corev1.ResourceCPU:    resource.MustParse("1"),
+								corev1.ResourceMemory: resource.MustParse("256Mi"),
+							},
+							Requests: corev1.ResourceList{
+								corev1.ResourceCPU:    resource.MustParse("100m"),
+								corev1.ResourceMemory: resource.MustParse("128Mi"),
+							},
+						},
+					},
+					BackupImages: ptr.To(false),
+				},
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Setup fake client
+			objects := []client.Object{tt.dpa}
+			if tt.clusterWideDPAs != nil {
+				objects = append(objects, tt.clusterWideDPAs...)
+			}
+
+			fakeClient, err := getFakeClientFromObjects(objects...)
+			if err != nil {
+				t.Errorf("error in creating fake client, likely programmer error: %v", err)
+				return
+			}
+
+			r := &DataProtectionApplicationReconciler{
+				Client:            fakeClient,
+				ClusterWideClient: fakeClient,
+				Scheme:            fakeClient.Scheme(),
+				Context:           newContextForTest(),
+				NamespacedName: types.NamespacedName{
+					Namespace: tt.namespace,
+					Name:      tt.dpa.Name,
+				},
+				dpa:           tt.dpa,
+				EventRecorder: record.NewFakeRecorder(10),
+			}
+
+			// Run validation
+			valid, err := r.ValidateDataProtectionCR(logr.Discard())
+
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("ValidateDataProtectionCR() expected error but got none")
+					return
+				}
+				if tt.errorContains != "" && !contains(err.Error(), tt.errorContains) {
+					t.Errorf("ValidateDataProtectionCR() error = %v, want error containing %v", err, tt.errorContains)
+				}
+				if valid {
+					t.Errorf("ValidateDataProtectionCR() = %v, want false when error", valid)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("ValidateDataProtectionCR() unexpected error = %v", err)
+					return
+				}
+				if !valid {
+					t.Errorf("ValidateDataProtectionCR() = %v, want true", valid)
+				}
+			}
+		})
+	}
+}
+
+func contains(s, substr string) bool {
+	return len(s) >= len(substr) && (s == substr || len(substr) == 0 || (len(s) > 0 && len(substr) > 0 && containsHelper(s, substr)))
+}
+
+func containsHelper(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
+}

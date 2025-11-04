@@ -111,6 +111,7 @@ func (r *DataProtectionApplicationReconciler) Reconcile(ctx context.Context, req
 		r.ReconcileNodeAgentDaemonset,
 		r.ReconcileVeleroMetricsSVC,
 		r.ReconcileNonAdminController,
+		r.ReconcileVMFileRestoreController,
 	)
 
 	if err != nil {

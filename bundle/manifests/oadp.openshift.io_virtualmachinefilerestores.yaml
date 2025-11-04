@@ -1,0 +1,444 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.18.0
+  creationTimestamp: null
+  name: virtualmachinefilerestores.oadp.openshift.io
+spec:
+  group: oadp.openshift.io
+  names:
+    kind: VirtualMachineFileRestore
+    listKind: VirtualMachineFileRestoreList
+    plural: virtualmachinefilerestores
+    shortNames:
+    - vmfr
+    singular: virtualmachinefilerestore
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .status.phase
+      name: Phase
+      type: string
+    - jsonPath: .spec.backupsDiscoveryRef
+      name: Discovery
+      type: string
+    - jsonPath: .status.fileServingInfo.podName
+      name: Pod
+      type: string
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: VirtualMachineFileRestore is the Schema for the virtualmachinefilerestores
+          API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: spec defines the desired state of VirtualMachineFileRestore
+            properties:
+              backupsDiscoveryRef:
+                description: |-
+                  Reference to the VirtualMachineBackupsDiscovery resource in the same namespace
+                  that contains the discovered backups to serve files from.
+                minLength: 1
+                type: string
+              fileAccess:
+                description: |-
+                  FileAccess defines which file access methods are enabled for this restore.
+                  If not specified, defaults to HTTP file browser only.
+                properties:
+                  fileBrowser:
+                    description: |-
+                      FileBrowser enables HTTPS web-based file browser access
+                      If present (non-nil), FileBrowser access is enabled
+                    properties:
+                      credentialsSecretRef:
+                        description: |-
+                          CredentialsSecretRef references a Secret containing FileBrowser credentials.
+                          The Secret must have a "password" key and optionally a "username" key.
+                          If "username" is not provided in the Secret, it defaults to "oadp".
+                          If CredentialsSecretRef is not specified, the controller generates both
+                          username (defaults to "oadp") and password, storing them in a Secret
+                          in the temporary restore namespace.
+                        properties:
+                          name:
+                            description: Name of the Secret
+                            minLength: 1
+                            type: string
+                          namespace:
+                            description: |-
+                              Namespace where the Secret is located.
+                              Defaults to the OADP namespace when not specified.
+                              Note: Secrets outside TemporaryRestoreNamespace are automatically
+                              copied to that namespace for mounting in the serving pod.
+                            type: string
+                        required:
+                        - name
+                        type: object
+                      exposeExternally:
+                        description: |-
+                          ExposeExternally enables creation of an OpenShift Route for the FileBrowser service.
+                          When enabled, creates a Route with reencrypt TLS termination for external HTTPS access.
+                          Only effective on OpenShift clusters.
+                        type: boolean
+                    type: object
+                  ssh:
+                    description: |-
+                      SSH provides read-only access to restored files via chrooted OpenSSH.
+                      Supports SFTP, SCP, and rsync for file transfer only (no interactive shell access).
+                      The SSH server runs in a chroot environment for security isolation.
+                    properties:
+                      credentialsSecretRef:
+                        description: |-
+                          CredentialsSecretRef references a Secret containing SSH authentication credentials.
+                          The Secret must have an "authorized_keys" key for SSH key-based authentication.
+                          The "username" key is optional and defaults to "oadp" if not provided.
+                          Note: Only SSH key-based authentication is supported; password authentication is not available.
+                          Takes precedence over inline Username and PublicKey fields.
+                        properties:
+                          name:
+                            description: Name of the Secret
+                            minLength: 1
+                            type: string
+                          namespace:
+                            description: |-
+                              Namespace where the Secret is located.
+                              Defaults to the OADP namespace when not specified.
+                              Note: Secrets outside TemporaryRestoreNamespace are automatically
+                              copied to that namespace for mounting in the serving pod.
+                            type: string
+                        required:
+                        - name
+                        type: object
+                      publicKey:
+                        description: |-
+                          PublicKey for SSH key-based authentication
+                          Public keys are not sensitive and can be specified inline
+                          If both PublicKey and CredentialsSecretRef are empty, controller generates keypair
+                        type: string
+                      username:
+                        description: |-
+                          Username for SSH access
+                          Defaults to "oadp" if not specified
+                        type: string
+                    type: object
+                type: object
+                x-kubernetes-validations:
+                - message: At least one of ssh or fileBrowser must be specified
+                  rule: has(self.ssh) || has(self.fileBrowser)
+              namespacePrefix:
+                description: |-
+                  NamespacePrefix specifies a prefix for automatically generated temporary namespaces.
+                  Only used when RestoreNamespace is not specified.
+                  If not specified, the generated namespace name will use the VM's namespace-name format.
+                  The final namespace name will be: <prefix>-<vm-namespace>-<vm-name>-<suffix>
+                type: string
+              restoreNamespace:
+                description: |-
+                  RestoreNamespace specifies an existing namespace where file serving resources will be created.
+                  If not specified, a temporary namespace will be created automatically.
+                  The namespace must exist and be accessible to the controller.
+                type: string
+              selectedBackups:
+                description: |-
+                  Specific backup names to serve files from, selected from the discovery results.
+                  If not specified, all valid backups from the discovery will be used for file serving.
+                  All specified backup names must exist in the ValidBackups list of the referenced discovery.
+                items:
+                  type: string
+                type: array
+            required:
+            - backupsDiscoveryRef
+            type: object
+          status:
+            description: status defines the observed state of VirtualMachineFileRestore
+            properties:
+              conditions:
+                description: |-
+                  Conditions represent the current state of the VirtualMachineFileRestore resource.
+                  This is the PRIMARY source of truth for resource state.
+                  Each condition has a unique type and reflects the status of a specific aspect of the resource.
+
+                  Standard condition types for this resource (defined in types package):
+                  - types.ConditionTypeProgressing: Restore is actively running
+                  - types.ConditionTypeAvailable: File serving resources are ready and accessible
+                  - types.ConditionTypeDegraded: Partial failures occurred (may still be usable)
+                  - types.ConditionTypeReady: Summary condition (resource is usable)
+
+                  The status of each condition is one of True, False, or Unknown.
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+              createdNamespace:
+                description: |-
+                  CreatedNamespace contains information about the namespace used for file serving.
+                  This will be set to the specified RestoreNamespace or the name of the auto-generated temporary namespace.
+                type: string
+              fileServingInfo:
+                description: Information about the file serving resources that have
+                  been created.
+                properties:
+                  fileBrowser:
+                    description: FileBrowser contains HTTPS file browser access information,
+                      if enabled.
+                    properties:
+                      clusterAccess:
+                        description: |-
+                          ClusterAccess provides the internal HTTPS URL, usable from within the cluster network.
+                          Example: "https://vmfr-browser.restore-tmp.svc.cluster.local"
+                        type: string
+                      credentialsSecretRef:
+                        description: |-
+                          CredentialsSecretRef references a Secret containing login credentials for the file browser:
+                          - "username"
+                          - "password"
+                          If not specified, the controller creates and manages this Secret automatically.
+                        properties:
+                          name:
+                            description: Name of the Secret
+                            minLength: 1
+                            type: string
+                          namespace:
+                            description: |-
+                              Namespace where the Secret is located.
+                              Defaults to the OADP namespace when not specified.
+                              Note: Secrets outside TemporaryRestoreNamespace are automatically
+                              copied to that namespace for mounting in the serving pod.
+                            type: string
+                        required:
+                        - name
+                        type: object
+                      publicAccess:
+                        description: |-
+                          PublicAccess provides the external HTTPS URL, if exposed via Route or Ingress.
+                          Example: "https://restore-files.apps.example.com"
+                        type: string
+                    type: object
+                  ssh:
+                    description: SSH contains SSH/SFTP/SCP/rsync access information,
+                      if enabled.
+                    properties:
+                      clusterAccess:
+                        description: |-
+                          ClusterAccess provides the internal SSH endpoint, accessible within the cluster
+                          or from environments connected to the cluster network (e.g. via VPN, oc port-forward).
+                          SSH is only exposed within the cluster for security reasons.
+                          Use 'oc port-forward' or 'kubectl port-forward' for external access.
+                          Example: "ssh://vmfr-ssh.restore-tmp.svc.cluster.local:22"
+                        type: string
+                      credentialsSecretRef:
+                        description: |-
+                          CredentialsSecretRef references a Secret containing SSH connection details:
+                          - "username"
+                          - "authorized_keys"
+                          - optionally "privateKey"
+                          The Secret is created or referenced by the controller.
+                        properties:
+                          name:
+                            description: Name of the Secret
+                            minLength: 1
+                            type: string
+                          namespace:
+                            description: |-
+                              Namespace where the Secret is located.
+                              Defaults to the OADP namespace when not specified.
+                              Note: Secrets outside TemporaryRestoreNamespace are automatically
+                              copied to that namespace for mounting in the serving pod.
+                            type: string
+                        required:
+                        - name
+                        type: object
+                    type: object
+                type: object
+              observedGeneration:
+                description: |-
+                  ObservedGeneration is the most recent generation observed by the controller.
+                  IMPORTANT: Controllers must set this at the START of reconciliation, not at the end.
+                  This prevents race conditions where clients see updated conditions but stale observedGeneration.
+                format: int64
+                type: integer
+              phase:
+                description: |-
+                  Phase indicates the overall phase of the file restore operation.
+                  Derived from conditions for human readability. Matches Velero's phase model.
+                  Automation should rely on conditions, not phase.
+                enum:
+                - New
+                - InProgress
+                - Completed
+                - PartiallyFailed
+                - Failed
+                - Deleting
+                type: string
+              pvcRestores:
+                description: |-
+                  PVCRestores contains PVC-grouped restore information showing which backups each PVC was restored from.
+                  This provides a user-friendly view of the restoration data organized by PVC.
+                items:
+                  description: |-
+                    PVCRestoreInfo combines PVC metadata with restores.
+                    PVC metadata is inlined for simplicity in JSON output.
+                  properties:
+                    pvcName:
+                      description: Name of the PVC at the time of the backup
+                      type: string
+                    pvcNamespace:
+                      description: Namespace of the PVC at the time of the backup
+                      type: string
+                    pvcUID:
+                      description: UID of the PVC at the time of the backup
+                      type: string
+                    restores:
+                      description: Restores contains all backup restores for this
+                        PVC
+                      items:
+                        description: RestoreInfo contains information about a specific
+                          restore of a PVC from a backup.
+                        properties:
+                          completedAt:
+                            description: When the Velero Restore completed
+                            format: date-time
+                            type: string
+                          createdAt:
+                            description: When the Velero Restore object was created
+                            format: date-time
+                            type: string
+                          failureReason:
+                            description: Reason for failure if the restore failed
+                            type: string
+                          phase:
+                            description: Phase of the Velero Restore object
+                            enum:
+                            - New
+                            - FailedValidation
+                            - InProgress
+                            - WaitingForPluginOperations
+                            - WaitingForPluginOperationsPartiallyFailed
+                            - Completed
+                            - PartiallyFailed
+                            - Failed
+                            - Finalizing
+                            - FinalizingPartiallyFailed
+                            type: string
+                          state:
+                            description: |-
+                              State indicates the compatibility and processing state of this backup
+                              Values: "available", "backup-deleted", "backup-missing", "unsupported-plugin", "extraction-failed", "processing", "failed"
+                            type: string
+                          timestamp:
+                            description: Timestamp indicates when the backup was created
+                            format: date-time
+                            type: string
+                          veleroBackupName:
+                            description: Name of the backup this restore came from
+                            type: string
+                          veleroBackupNamespace:
+                            description: Namespace of the backup this restore came
+                              from
+                            type: string
+                          veleroRestoreName:
+                            description: Name of the Velero Restore object
+                            type: string
+                          veleroRestoreNamespace:
+                            description: Namespace of the Velero Restore object
+                            type: string
+                        required:
+                        - veleroBackupName
+                        - veleroBackupNamespace
+                        type: object
+                      type: array
+                    size:
+                      description: Size of the PVC in human-readable format (e.g.,
+                        "5Gi", "30Gi")
+                      type: string
+                  required:
+                  - pvcName
+                  - pvcNamespace
+                  - pvcUID
+                  type: object
+                type: array
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: null
+  storedVersions: null

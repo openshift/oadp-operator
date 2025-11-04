@@ -97,6 +97,7 @@ Documentation in this repository are considered unofficial and for development p
     5. [Use NooBaa as a Backup Storage Location](docs/config/noobaa/install_oadp_noobaa.md)
     6. [Use Velero --features flag](docs/config/features_flag.md)
     7. [Use Custom Plugin Images for Velero ](docs/config/custom_plugin_images.md)
+    8. [Enable VM File Restore](docs/config/vm_file_restore.md)
 5. Examples
     1. [Sample Apps used in OADP CI](https://github.com/openshift/oadp-operator/tree/oadp-dev/tests/e2e/sample-applications)
     2. [Stateless App Backup/Restore](docs/examples/stateless.md)
