@@ -904,7 +904,7 @@ OADP_BUCKET ?= $(shell cat $(OADP_BUCKET_FILE))
 SETTINGS_TMP=/tmp/test-settings
 
 .PHONY: test-e2e-setup
-test-e2e-setup: login-required build-must-gather
+test-e2e-setup: login-required
 	mkdir -p $(SETTINGS_TMP)
 	TMP_DIR=$(SETTINGS_TMP) \
 	OPENSHIFT_CI="$(OPENSHIFT_CI)" \
@@ -1079,11 +1079,3 @@ endif
 	@cp $(KUBEVIRT_DATAMOVER_PATH)/config/rbac/kustomization.yaml $(shell pwd)/config/kubevirt-datamover-controller_rbac/kustomization.yaml
 	@$(SED) -i '1i namePrefix: oadp-kubevirt-datamover-' $(shell pwd)/config/kubevirt-datamover-controller_rbac/kustomization.yaml
 	@make bundle
-
-.PHONY: build-must-gather
-build-must-gather: check-go ## Build OADP Must-gather binary must-gather/oadp-must-gather
-ifeq ($(SKIP_MUST_GATHER),true)
-	echo "Skipping must-gather build"
-else
-	cd must-gather && go build -mod=mod -a -o oadp-must-gather cmd/main.go
-endif

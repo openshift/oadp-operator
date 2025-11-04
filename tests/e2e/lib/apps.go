@@ -378,21 +378,25 @@ func PrintNamespaceEventsAfterTime(c *kubernetes.Clientset, namespace string, st
 }
 
 func RunMustGather(artifact_dir string, clusterClient client.Client) error {
-	executablePath, err := os.Executable()
-	if err != nil {
-		return err
+	// Get must-gather image from environment variable, default to latest
+	// For version-specific images, set MUST_GATHER_IMAGE to a tagged version:
+	// e.g., quay.io/konveyor/oadp-must-gather:oadp-1.4
+	mustGatherImage := os.Getenv("MUST_GATHER_IMAGE")
+	if mustGatherImage == "" {
+		mustGatherImage = "quay.io/konveyor/oadp-must-gather:latest"
 	}
 
-	_, err = exec.Command(filepath.Dir(filepath.Dir(filepath.Dir(executablePath))) + "/must-gather/oadp-must-gather").Output()
+	// Run oc adm must-gather with the specified image
+	log.Printf("Running must-gather with image: %s", mustGatherImage)
+	cmd := exec.Command("oc", "adm", "must-gather",
+		"--image="+mustGatherImage,
+		"--dest-dir="+artifact_dir)
+	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return err
+		return fmt.Errorf("must-gather command failed: %w, output: %s", err, string(output))
 	}
 
-	_, err = exec.Command("mv", filepath.Dir(executablePath)+"/must-gather", artifact_dir).Output()
-	if err != nil {
-		return err
-	}
-
+	// Get cluster ID for path validation
 	clusterVersionList := &openshiftconfigv1.ClusterVersionList{}
 	err = clusterClient.List(context.Background(), clusterVersionList)
 	if err != nil {
@@ -402,9 +406,21 @@ func RunMustGather(artifact_dir string, clusterClient client.Client) error {
 		return errors.New("no ClusterVersion found in cluster")
 	}
 	clusterVersion := &clusterVersionList.Items[0]
-	mustGatherPath := fmt.Sprintf("%s/must-gather/clusters/%s/", artifact_dir, string(clusterVersion.Spec.ClusterID[:8]))
+	clusterID := string(clusterVersion.Spec.ClusterID[:8])
 
-	mustGatherSummaryContent, err := os.ReadFile(mustGatherPath + "oadp-must-gather-summary.md")
+	// Find the must-gather output directory
+	// oc adm must-gather creates: <artifact_dir>/quay-io-konveyor-oadp-must-gather-*/clusters/<cluster-id>/
+	pattern := filepath.Join(artifact_dir, "quay-io-konveyor-oadp-must-gather-*", "clusters", clusterID, "oadp-must-gather-summary.md")
+	matches, err := filepath.Glob(pattern)
+	if err != nil {
+		return fmt.Errorf("error finding must-gather summary: %w", err)
+	}
+	if len(matches) == 0 {
+		return fmt.Errorf("no must-gather summary found at pattern: %s", pattern)
+	}
+
+	// Read and validate the summary
+	mustGatherSummaryContent, err := os.ReadFile(matches[0])
 	if err != nil {
 		return err
 	}

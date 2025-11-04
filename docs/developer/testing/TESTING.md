@@ -25,7 +25,8 @@ To get started, you need to provide the following **required** environment varia
 | `TEST_HCP` | Exclusively run Hypershift  backup/restore testing | `false` | false |
 | `TEST_UPGRADE` | Exclusively run upgrade tests. Need to first run `make catalog-test-upgrade`, if testing non production operator | `false` | false |
 | `TEST_CLI` | Exclusively run CLI-based backup/restore testing | `false` | false |
-| `SKIP_MUST_GATHER` | must-gather is compiled locally in the Makefile, may cause issue if local and cluster arch do not match| `false` | false |
+| `SKIP_MUST_GATHER` | Skip running must-gather collection during E2E tests | `false` | false |
+| `MUST_GATHER_IMAGE` | Container image to use for must-gather collection via `oc adm must-gather` | `quay.io/konveyor/oadp-must-gather:latest` | false |
 
 > **Note:**
 
