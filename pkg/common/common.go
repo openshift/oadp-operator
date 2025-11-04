@@ -339,7 +339,7 @@ func UpdateBackupStorageLocation(bsl *velerov1.BackupStorageLocation, bslSpec ve
 		}
 	}
 
-	// Assign the updated spec to the BackupStorageLocation
+	// Assign the updated spec to the BackupStorageLocation.
 	bsl.Spec = bslSpec
 
 	return nil

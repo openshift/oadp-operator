@@ -843,7 +843,7 @@ func getNodeAgentResourceReqs(dpa *oadpv1alpha1.DataProtectionApplication) (core
 
 // noDefaultCredentials determines if a provider needs the default credentials.
 // This returns a map of providers found to if they need a default credential,
-// and an error if any occured.
+// and an error if any occured. CI TEST.
 func (r DataProtectionApplicationReconciler) noDefaultCredentials() (map[string]bool, error) {
 	dpa := r.dpa
 	providerNeedsDefaultCreds := map[string]bool{}
