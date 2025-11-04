@@ -409,8 +409,13 @@ func RunMustGather(artifact_dir string, clusterClient client.Client) error {
 	clusterID := string(clusterVersion.Spec.ClusterID[:8])
 
 	// Find the must-gather output directory
-	// oc adm must-gather creates: <artifact_dir>/quay-io-konveyor-oadp-must-gather-*/clusters/<cluster-id>/
-	pattern := filepath.Join(artifact_dir, "quay-io-konveyor-oadp-must-gather-*", "clusters", clusterID, "oadp-must-gather-summary.md")
+	// oc adm must-gather creates a directory based on the image name with registry separators
+	// replaced by hyphens. E.g., quay.io/konveyor/oadp-must-gather:latest -> quay-io-konveyor-oadp-must-gather-*
+	// We need to derive the pattern from the actual image being used
+	imagePattern := strings.ReplaceAll(mustGatherImage, ":", "-")
+	imagePattern = strings.ReplaceAll(imagePattern, "/", "-")
+	imagePattern = strings.ReplaceAll(imagePattern, ".", "-")
+	pattern := filepath.Join(artifact_dir, imagePattern+"-*", "clusters", clusterID, "oadp-must-gather-summary.md")
 	matches, err := filepath.Glob(pattern)
 	if err != nil {
 		return fmt.Errorf("error finding must-gather summary: %w", err)
