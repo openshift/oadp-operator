@@ -1060,6 +1060,28 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 			}),
 		},
 		{
+			name: "valid DPA CR with PodConfig but no PriorityClassName, Velero Deployment is built without PriorityClassName",
+			dpa: createTestDpaWith(
+				nil,
+				oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							PodConfig: &oadpv1alpha1.PodConfig{},
+						},
+					},
+				},
+			),
+			veleroDeployment: testVeleroDeployment.DeepCopy(),
+			wantVeleroDeployment: createTestBuiltVeleroDeployment(TestBuiltVeleroDeploymentOptions{
+				priorityClassName: "",
+				args: []string{
+					defaultFileSystemBackupTimeout,
+					defaultRestoreResourcePriorities,
+					defaultDisableInformerCache,
+				},
+			}),
+		},
+		{
 			name: "valid DPA CR with noDefaultBackupLocation, all default plugins and unsupportedOverrides operatorType MTC, Velero Deployment is built with secret volumes",
 			dpa: createTestDpaWith(
 				nil,

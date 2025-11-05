@@ -737,6 +737,28 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 			}),
 		},
 		{
+			name: "valid DPA CR with PodConfig but no PriorityClassName, NodeAgent DaemonSet is built without PriorityClassName",
+			dpa: createTestDpaWith(
+				nil,
+				oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{},
+						NodeAgent: &oadpv1alpha1.NodeAgentConfig{
+							NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
+								PodConfig: &oadpv1alpha1.PodConfig{},
+							},
+							UploaderType: "kopia",
+						},
+					},
+				},
+			),
+			clientObjects:      []client.Object{testGenericInfrastructure},
+			nodeAgentDaemonSet: testNodeAgentDaemonSet.DeepCopy(),
+			wantNodeAgentDaemonSet: createTestBuiltNodeAgentDaemonSet(TestBuiltNodeAgentDaemonSetOptions{
+				priorityClassName: "",
+			}),
+		},
+		{
 			name: "valid DPA CR with DataMoverPrepareTimeout, NodeAgent DaemonSet is built with DataMoverPrepareTimeout",
 			dpa: createTestDpaWith(
 				nil,
