@@ -615,22 +615,23 @@ func createTestDpaWith(
 }
 
 type TestBuiltVeleroDeploymentOptions struct {
-	args             []string
-	customLabels     map[string]string
-	labels           map[string]string
-	annotations      map[string]string
-	metricsPort      int
-	initContainers   []corev1.Container
-	volumes          []corev1.Volume
-	volumeMounts     []corev1.VolumeMount
-	env              []corev1.EnvVar
-	dnsPolicy        corev1.DNSPolicy
-	dnsConfig        *corev1.PodDNSConfig
-	resourceLimits   corev1.ResourceList
-	resourceRequests corev1.ResourceList
-	toleration       []corev1.Toleration
-	nodeSelector     map[string]string
-	loadAffinity     []corev1.NodeSelectorTerm
+	args              []string
+	customLabels      map[string]string
+	labels            map[string]string
+	annotations       map[string]string
+	metricsPort       int
+	initContainers    []corev1.Container
+	volumes           []corev1.Volume
+	volumeMounts      []corev1.VolumeMount
+	env               []corev1.EnvVar
+	dnsPolicy         corev1.DNSPolicy
+	dnsConfig         *corev1.PodDNSConfig
+	resourceLimits    corev1.ResourceList
+	resourceRequests  corev1.ResourceList
+	toleration        []corev1.Toleration
+	nodeSelector      map[string]string
+	loadAffinity      []corev1.NodeSelectorTerm
+	priorityClassName string
 }
 
 func createTestBuiltVeleroDeployment(options TestBuiltVeleroDeploymentOptions) *appsv1.Deployment {
@@ -768,6 +769,10 @@ func createTestBuiltVeleroDeployment(options TestBuiltVeleroDeploymentOptions) *
 
 	if options.dnsConfig != nil {
 		testBuiltVeleroDeployment.Spec.Template.Spec.DNSConfig = options.dnsConfig
+	}
+
+	if len(options.priorityClassName) > 0 {
+		testBuiltVeleroDeployment.Spec.Template.Spec.PriorityClassName = options.priorityClassName
 	}
 
 	return testBuiltVeleroDeployment
@@ -1023,6 +1028,30 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 			veleroDeployment: testVeleroDeployment.DeepCopy(),
 			wantVeleroDeployment: createTestBuiltVeleroDeployment(TestBuiltVeleroDeploymentOptions{
 				annotations: map[string]string{"test-annotation": "awesome annotation"},
+				args: []string{
+					defaultFileSystemBackupTimeout,
+					defaultRestoreResourcePriorities,
+					defaultDisableInformerCache,
+				},
+			}),
+		},
+		{
+			name: "valid DPA CR with PodConfig PriorityClassName, Velero Deployment is built with PriorityClassName",
+			dpa: createTestDpaWith(
+				nil,
+				oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							PodConfig: &oadpv1alpha1.PodConfig{
+								PriorityClassName: "velero-critical",
+							},
+						},
+					},
+				},
+			),
+			veleroDeployment: testVeleroDeployment.DeepCopy(),
+			wantVeleroDeployment: createTestBuiltVeleroDeployment(TestBuiltVeleroDeploymentOptions{
+				priorityClassName: "velero-critical",
 				args: []string{
 					defaultFileSystemBackupTimeout,
 					defaultRestoreResourcePriorities,
