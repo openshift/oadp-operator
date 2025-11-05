@@ -254,6 +254,10 @@ var _ = ginkgo.Describe("Backup and restore tests via OADP CLI", ginkgo.Label("c
 
 	ginkgo.DescribeTable("Backup and restore applications via OADP CLI",
 		func(brCase ApplicationBackupRestoreCase, expectedErr error) {
+			// Check if this test should be skipped based on the skip registry
+			testName := ginkgo.CurrentSpecReport().LeafNodeText
+			SkipIfNeeded(testName)
+
 			if ginkgo.CurrentSpecReport().NumAttempts > 1 && !knownFlake {
 				ginkgo.Fail("No known FLAKE found in a previous run, marking test as failed.")
 			}

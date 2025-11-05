@@ -74,6 +74,17 @@ TODO
 
 TODO
 
+## Skipped Tests
+
+Some tests are skipped due to known bugs. The skip registry is in `tests/e2e/test_skip_config.go` with bug numbers and reasons.
+
+To run all tests including skipped ones:
+```bash
+OADP_SKIP_KNOWN_FAILURES=false make test-e2e
+```
+
+To add a new skip, add an entry to `testSkipRegistry` with the bug number and reason.
+
 ## Run tests
 
 To run all E2E tests for your provider, run
