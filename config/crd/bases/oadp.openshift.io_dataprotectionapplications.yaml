@@ -539,6 +539,9 @@ spec:
                                 type: string
                               description: nodeSelector defines the nodeSelector to be supplied to podSpec
                               type: object
+                            priorityClassName:
+                              description: priorityClassName defines the PriorityClass name to be applied to the pod
+                              type: string
                             resourceAllocations:
                               description: resourceAllocations defines the CPU, Memory and ephemeral-storage resource allocations for the Pod
                               nullable: true
@@ -893,6 +896,9 @@ spec:
                                 type: string
                               description: nodeSelector defines the nodeSelector to be supplied to podSpec
                               type: object
+                            priorityClassName:
+                              description: priorityClassName defines the PriorityClass name to be applied to the pod
+                              type: string
                             resourceAllocations:
                               description: resourceAllocations defines the CPU, Memory and ephemeral-storage resource allocations for the Pod
                               nullable: true
@@ -1416,6 +1422,9 @@ spec:
                                 type: string
                               description: nodeSelector defines the nodeSelector to be supplied to podSpec
                               type: object
+                            priorityClassName:
+                              description: priorityClassName defines the PriorityClass name to be applied to the pod
+                              type: string
                             resourceAllocations:
                               description: resourceAllocations defines the CPU, Memory and ephemeral-storage resource allocations for the Pod
                               nullable: true
