@@ -238,12 +238,14 @@ func ensureVMFileRestoreRequiredSpecs(
 		deploymentObject.Spec.Template.SetAnnotations(templateObjectAnnotations)
 	}
 
-	// Set pod security context
-	deploymentObject.Spec.Template.Spec.SecurityContext = &corev1.PodSecurityContext{
-		RunAsNonRoot: ptr.To(true),
-		SeccompProfile: &corev1.SeccompProfile{
-			Type: corev1.SeccompProfileTypeRuntimeDefault,
-		},
+	// Set pod security context only if not already set (to avoid reconciliation loops)
+	if deploymentObject.Spec.Template.Spec.SecurityContext == nil {
+		deploymentObject.Spec.Template.Spec.SecurityContext = &corev1.PodSecurityContext{
+			RunAsNonRoot: ptr.To(true),
+			SeccompProfile: &corev1.SeccompProfile{
+				Type: corev1.SeccompProfileTypeRuntimeDefault,
+			},
+		}
 	}
 
 	// Build container spec
@@ -306,7 +308,14 @@ func ensureVMFileRestoreRequiredSpecs(
 	} else {
 		for index, container := range deploymentObject.Spec.Template.Spec.Containers {
 			if container.Name == "manager" {
-				deploymentObject.Spec.Template.Spec.Containers[index] = containerSpec
+				// Update only dynamic fields that can change based on DPA configuration
+				// Static fields (Command, Args, Ports, SecurityContext, Probes) are left as-is
+				vmFileRestoreContainer := &deploymentObject.Spec.Template.Spec.Containers[index]
+				vmFileRestoreContainer.Image = image
+				vmFileRestoreContainer.ImagePullPolicy = imagePullPolicy
+				vmFileRestoreContainer.Env = envVars
+				vmFileRestoreContainer.Resources = resources
+				vmFileRestoreContainer.TerminationMessagePolicy = corev1.TerminationMessageFallbackToLogsOnError
 				vmFileRestoreContainerFound = true
 				break
 			}

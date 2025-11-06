@@ -7,6 +7,7 @@ rules:
 - apiGroups:
   - ""
   resources:
+  - events
   - namespaces
   - pods
   - secrets
@@ -40,6 +41,18 @@ rules:
   - patch
   - update
   - watch
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
 - apiGroups:
   - oadp.openshift.io
   resources:
