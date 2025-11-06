@@ -850,6 +850,7 @@ GINKGO_FLAGS = --vv \
 	--no-color=$(OPENSHIFT_CI) \
 	--label-filter="$(TEST_FILTER)" \
 	--junit-report="$(ARTIFACT_DIR)/junit_report.xml" \
+	--fail-fast=false
 	--timeout=2h
 
 .PHONY: test-e2e

@@ -17,6 +17,7 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/remotecommand"
+	"k8s.io/utils/ptr"
 )
 
 type ProxyPodParameters struct {
@@ -296,7 +297,7 @@ func DeleteAllPVCsInNamespace(clientset *kubernetes.Clientset, namespace string)
 	// Delete each PVC
 	for _, pvc := range pvcList.Items {
 		log.Printf("Deleting PVC %s in namespace %s", pvc.Name, namespace)
-		err := clientset.CoreV1().PersistentVolumeClaims(namespace).Delete(ctx, pvc.Name, metav1.DeleteOptions{})
+		err := clientset.CoreV1().PersistentVolumeClaims(namespace).Delete(ctx, pvc.Name, metav1.DeleteOptions{GracePeriodSeconds: ptr.To(int64(0))})
 		if err != nil && !apierrors.IsNotFound(err) {
 			log.Printf("Warning: Failed to delete PVC %s in namespace %s: %v", pvc.Name, namespace, err)
 		}
