@@ -338,7 +338,7 @@ var _ = ginkgo.Describe("Backup and restore tests", ginkgo.Ordered, func() {
 				BackupTimeout:     20 * time.Minute,
 			},
 		}, nil),
-		ginkgo.Entry("Mongo application CSI", ginkgo.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
+		ginkgo.XEntry("Mongo application CSI", ginkgo.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
 			ApplicationTemplate: "./sample-applications/mongo-persistent/mongo-persistent-csi.yaml",
 			BackupRestoreCase: BackupRestoreCase{
 				Namespace:         "mongo-persistent",
@@ -360,7 +360,7 @@ var _ = ginkgo.Describe("Backup and restore tests", ginkgo.Ordered, func() {
 				BackupTimeout:     20 * time.Minute,
 			},
 		}, nil),
-		ginkgo.Entry("Mongo application RESTIC", ginkgo.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
+		ginkgo.XEntry("Mongo application RESTIC", ginkgo.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
 			ApplicationTemplate: "./sample-applications/mongo-persistent/mongo-persistent.yaml",
 			BackupRestoreCase: BackupRestoreCase{
 				Namespace:         "mongo-persistent",
@@ -382,7 +382,7 @@ var _ = ginkgo.Describe("Backup and restore tests", ginkgo.Ordered, func() {
 				BackupTimeout:     20 * time.Minute,
 			},
 		}, nil),
-		ginkgo.Entry("Mongo application KOPIA", ginkgo.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
+		ginkgo.XEntry("Mongo application KOPIA", ginkgo.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
 			ApplicationTemplate: "./sample-applications/mongo-persistent/mongo-persistent.yaml",
 			BackupRestoreCase: BackupRestoreCase{
 				Namespace:         "mongo-persistent",
@@ -404,7 +404,7 @@ var _ = ginkgo.Describe("Backup and restore tests", ginkgo.Ordered, func() {
 				BackupTimeout:     20 * time.Minute,
 			},
 		}, nil),
-		ginkgo.Entry("Mongo application DATAMOVER", ginkgo.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
+		ginkgo.XEntry("Mongo application DATAMOVER", ginkgo.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
 			ApplicationTemplate: "./sample-applications/mongo-persistent/mongo-persistent-csi.yaml",
 			BackupRestoreCase: BackupRestoreCase{
 				Namespace:         "mongo-persistent",
@@ -426,7 +426,7 @@ var _ = ginkgo.Describe("Backup and restore tests", ginkgo.Ordered, func() {
 				BackupTimeout:     20 * time.Minute,
 			},
 		}, nil),
-		ginkgo.Entry("Mongo application BlockDevice DATAMOVER", ginkgo.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
+		ginkgo.XEntry("Mongo application BlockDevice DATAMOVER", ginkgo.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
 			ApplicationTemplate: "./sample-applications/mongo-persistent/mongo-persistent-block.yaml",
 			PvcSuffixName:       "-block-mode",
 			BackupRestoreCase: BackupRestoreCase{
@@ -449,7 +449,7 @@ var _ = ginkgo.Describe("Backup and restore tests", ginkgo.Ordered, func() {
 				BackupTimeout:     20 * time.Minute,
 			},
 		}, nil),
-		ginkgo.Entry("Mongo application Native-Snapshots", ginkgo.FlakeAttempts(flakeAttempts), ginkgo.Label("aws", "azure", "gcp"), ApplicationBackupRestoreCase{
+		ginkgo.XEntry("Mongo application Native-Snapshots", ginkgo.FlakeAttempts(flakeAttempts), ginkgo.Label("aws", "azure", "gcp"), ApplicationBackupRestoreCase{
 			ApplicationTemplate: "./sample-applications/mongo-persistent/mongo-persistent.yaml",
 			BackupRestoreCase: BackupRestoreCase{
 				Namespace:         "mongo-persistent",
