@@ -288,6 +288,13 @@ func runHCPBackup(brCase BackupRestoreCase, backupName string, h *libhcp.HCHandl
 	gomega.Expect(succeeded).To(gomega.Equal(true))
 	log.Printf("Backup for case %s succeeded", brCase.Name)
 
+	// Print diagnostics to help identify PrepareRepo bug
+	log.Println("\n========== DIAGNOSTIC INFORMATION (PrepareRepo Bug Detection) ==========")
+	lib.PrintBackupRepositoryDiagnostics(h.Client, namespace)
+	lib.PrintDataUploadDiagnostics(h.Client, namespace, backupName)
+	lib.PrintNodeAgentDiagnostics(kubernetesClientForSuiteRun, namespace)
+	log.Println("========================================================================")
+
 	if brCase.BackupRestoreType == lib.CSI {
 		// wait for volume snapshot to be Ready
 		gomega.Eventually(lib.AreVolumeSnapshotsReady(h.Client, backupName), time.Minute*4, time.Second*10).Should(gomega.BeTrue())
