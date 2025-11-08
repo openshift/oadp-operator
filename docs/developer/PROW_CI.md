@@ -259,7 +259,7 @@ Update `config/manager/manager.yaml`, changing the following (if release branch 
 ```diff
 ...
            - name: RELATED_IMAGE_VELERO
--            value: quay.io/konveyor/velero:latest
+-            value: ghcr.io/kaovilai/velero:fix-backup-repo-connect-08fc1b9
 +            value: quay.io/konveyor/velero:oadp-1.4
            - name: RELATED_IMAGE_OPENSHIFT_VELERO_PLUGIN
 -            value: quay.io/konveyor/openshift-velero-plugin:latest
@@ -285,7 +285,7 @@ Update `pkg/common/common.go`, changing the following (if release branch was cre
 ...
  // Images
  const (
--	VeleroImage          = "quay.io/konveyor/velero:latest"
+-	VeleroImage          = "ghcr.io/kaovilai/velero:fix-backup-repo-connect-08fc1b9"
 +	VeleroImage          = "quay.io/konveyor/velero:oadp-1.4"
 -	OpenshiftPluginImage = "quay.io/konveyor/openshift-velero-plugin:latest"
 +	OpenshiftPluginImage = "quay.io/konveyor/openshift-velero-plugin:oadp-1.4"

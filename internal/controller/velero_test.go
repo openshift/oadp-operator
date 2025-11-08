@@ -2911,7 +2911,7 @@ func TestDPAReconciler_getVeleroImage(t *testing.T) {
 				},
 			},
 			pluginName: common.Velero,
-			wantImage:  "quay.io/konveyor/velero:latest",
+			wantImage:  "ghcr.io/kaovilai/velero:fix-backup-repo-connect-08fc1b9",
 			setEnvVars: map[string]string{
 				"REGISTRY":    "quay.io",
 				"PROJECT":     "konveyor",

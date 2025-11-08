@@ -69,7 +69,7 @@ spec:
             - name: PLUGINS_HOSTPATH
               value: ""
             - name: RELATED_IMAGE_VELERO
-              value: quay.io/konveyor/velero:latest
+              value: ghcr.io/kaovilai/velero:fix-backup-repo-connect-08fc1b9
             - name: RELATED_IMAGE_OPENSHIFT_VELERO_PLUGIN
               value: quay.io/konveyor/openshift-velero-plugin:latest
             - name: RELATED_IMAGE_VELERO_PLUGIN_FOR_AWS
