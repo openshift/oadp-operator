@@ -66,7 +66,7 @@ var DefaultRestoreResourcePriorities = types.Priorities{
 
 // Images
 const (
-	VeleroImage           = "ghcr.io/kaovilai/velero:fix-backup-repo-connect-08fc1b9"
+	VeleroImage           = "ghcr.io/kaovilai/velero:fix-backup-repo-connect-oadp-b74fb03-ubi9"
 	OpenshiftPluginImage  = "quay.io/konveyor/openshift-velero-plugin:latest"
 	AWSPluginImage        = "quay.io/konveyor/velero-plugin-for-aws:latest"
 	LegacyAWSPluginImage  = "quay.io/konveyor/velero-plugin-for-legacy-aws:latest"
