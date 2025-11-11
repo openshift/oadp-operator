@@ -543,6 +543,94 @@ deploy-olm: undeploy-olm ## Build current branch operator image, bundle image, p
 	chmod -R 777 $(DEPLOY_TMP) && rm -rf $(DEPLOY_TMP)
 	$(OPERATOR_SDK) run bundle --security-context-config restricted $(THIS_BUNDLE_IMAGE) --namespace $(OADP_TEST_NAMESPACE)
 
+##@ Velero PR Testing
+
+# Configuration for Velero PR builds
+VELERO_REPO_PATH ?= $(HOME)/git/velero
+# Use github.user if set, otherwise try to extract from git remote, fallback to "unknown"
+GHCR_USER ?= $(shell git config github.user 2>/dev/null || (git config remote.origin.url 2>/dev/null | sed -n 's/.*github\.com[:/]\([^/]*\)\/.*/\1/p') || echo "unknown")
+VELERO_IMAGE_TAG ?= pr$(VELERO_PR_NUMBER)
+VELERO_IMAGE ?= ghcr.io/$(GHCR_USER)/velero:$(VELERO_IMAGE_TAG)
+
+.PHONY: build-velero-pr
+build-velero-pr: ## Build Velero image from a PR. Usage: make build-velero-pr VELERO_PR_NUMBER=9407
+ifndef VELERO_PR_NUMBER
+	$(error VELERO_PR_NUMBER is required. Usage: make build-velero-pr VELERO_PR_NUMBER=9407)
+endif
+	@echo "Building Velero from PR #$(VELERO_PR_NUMBER)..."
+	@echo "Velero repo path: $(VELERO_REPO_PATH)"
+	@echo "Target image: $(VELERO_IMAGE)"
+	@if [ ! -d "$(VELERO_REPO_PATH)" ]; then \
+		echo "Error: Velero repository not found at $(VELERO_REPO_PATH)"; \
+		echo "Please clone it first: git clone https://github.com/openshift/velero $(VELERO_REPO_PATH)"; \
+		exit 1; \
+	fi
+	@echo "Checking out oadp-dev branch..."
+	cd $(VELERO_REPO_PATH) && git checkout oadp-dev
+	@echo "Pulling latest oadp-dev..."
+	cd $(VELERO_REPO_PATH) && git pull openshift oadp-dev
+	@echo "Fetching PR #$(VELERO_PR_NUMBER) from upstream..."
+	cd $(VELERO_REPO_PATH) && git fetch upstream pull/$(VELERO_PR_NUMBER)/head:pr-$(VELERO_PR_NUMBER)
+	@echo "Cherry-picking PR commits..."
+	@echo "Note: If cherry-pick has conflicts, you may need to resolve them manually in $(VELERO_REPO_PATH)"
+	cd $(VELERO_REPO_PATH) && \
+		(git cherry-pick upstream/main..pr-$(VELERO_PR_NUMBER) || \
+		(if git status | grep -q "nothing to commit"; then \
+			echo "Cherry-pick resulted in empty commit (changes already present), skipping..."; \
+			git cherry-pick --skip; \
+		else \
+			echo "Cherry-pick failed with conflicts. Please resolve conflicts in $(VELERO_REPO_PATH)"; \
+			exit 1; \
+		fi))
+	@echo "Building Velero image using Dockerfile.ubi..."
+	cd $(VELERO_REPO_PATH) && $(CONTAINER_TOOL) build -f Dockerfile.ubi -t "$(VELERO_IMAGE)" .
+	@echo "Build complete: $(VELERO_IMAGE)"
+
+.PHONY: push-velero-pr
+push-velero-pr: ## Push Velero PR image to GHCR. Usage: make push-velero-pr VELERO_PR_NUMBER=9407
+ifndef VELERO_PR_NUMBER
+	$(error VELERO_PR_NUMBER is required. Usage: make push-velero-pr VELERO_PR_NUMBER=9407)
+endif
+	@echo "Pushing $(VELERO_IMAGE) to GitHub Container Registry..."
+	@echo "Note: Make sure you're authenticated to ghcr.io (docker login ghcr.io)"
+	$(CONTAINER_TOOL) push "$(VELERO_IMAGE)"
+	@echo "Push complete: $(VELERO_IMAGE)"
+
+.PHONY: deploy-olm-velero-pr
+deploy-olm-velero-pr: THIS_OPERATOR_IMAGE?=ttl.sh/oadp-operator-velero-pr$(VELERO_PR_NUMBER)-$(GIT_REV):$(TTL_DURATION)
+deploy-olm-velero-pr: THIS_BUNDLE_IMAGE?=ttl.sh/oadp-operator-velero-pr$(VELERO_PR_NUMBER)-bundle-$(GIT_REV):$(TTL_DURATION)
+deploy-olm-velero-pr: DEPLOY_TMP:=$(shell mktemp -d)/
+deploy-olm-velero-pr: build-velero-pr push-velero-pr undeploy-olm ## Build Velero from PR, build OADP operator with custom Velero image, and deploy via OLM. Usage: make deploy-olm-velero-pr VELERO_PR_NUMBER=9407
+ifndef VELERO_PR_NUMBER
+	$(error VELERO_PR_NUMBER is required. Usage: make deploy-olm-velero-pr VELERO_PR_NUMBER=9407)
+endif
+	@make versions
+	@echo "DEPLOY_TMP: $(DEPLOY_TMP)"
+	@echo "Using custom Velero image: $(VELERO_IMAGE)"
+	# Copy project to temp directory and modify manager.yaml to use custom Velero image
+	cp -r . $(DEPLOY_TMP) && cd $(DEPLOY_TMP) && \
+	$(SED) -i 's|value: quay.io/konveyor/velero:latest|value: $(VELERO_IMAGE)|g' config/manager/manager.yaml && \
+	IMG=$(THIS_OPERATOR_IMAGE) BUNDLE_IMG=$(THIS_BUNDLE_IMAGE) \
+		make docker-build docker-push bundle bundle-build bundle-push; \
+	chmod -R 777 $(DEPLOY_TMP) && rm -rf $(DEPLOY_TMP)
+	$(OPERATOR_SDK) run bundle --security-context-config restricted $(THIS_BUNDLE_IMAGE) --namespace $(OADP_TEST_NAMESPACE)
+	@echo ""
+	@echo "=========================================================================="
+	@echo "OADP operator deployed with custom Velero image from PR #$(VELERO_PR_NUMBER)"
+	@echo "Velero image: $(VELERO_IMAGE)"
+	@echo "=========================================================================="
+
+.PHONY: undeploy-olm-velero-pr
+undeploy-olm-velero-pr: undeploy-olm ## Cleanup OADP deployment and reset Velero repo to oadp-dev branch
+	@echo "Cleaning up Velero repository..."
+	@if [ -d "$(VELERO_REPO_PATH)" ]; then \
+		echo "Resetting $(VELERO_REPO_PATH) to oadp-dev branch..."; \
+		cd $(VELERO_REPO_PATH) && git checkout oadp-dev && git reset --hard openshift/oadp-dev; \
+		echo "Deleting PR branch if it exists..."; \
+		cd $(VELERO_REPO_PATH) && git branch -D pr-$(VELERO_PR_NUMBER) 2>/dev/null || true; \
+	fi
+	@echo "Cleanup complete"
+
 .PHONY: undeploy-olm
 undeploy-olm: login-required operator-sdk ## Uninstall current branch operator via OLM
 	$(OC_CLI) whoami # Check if logged in
