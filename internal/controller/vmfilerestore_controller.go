@@ -7,27 +7,26 @@ import (
 	"strconv"
 
 	"github.com/go-logr/logr"
+	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
+	"github.com/openshift/oadp-operator/pkg/common"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/exp/maps"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	k8serror "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-
-	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
-	"github.com/openshift/oadp-operator/pkg/common"
 )
 
 const (
-	vmFileRestoreObjectName         = "oadp-vm-file-restore-controller-manager"
-	vmFileRestoreControlPlaneKey    = "control-plane"
-	vmFileRestoreControlPlaneValue  = "oadp-vm-file-restore-controller"
+	vmFileRestoreObjectName          = "oadp-vm-file-restore-controller-manager"
+	vmFileRestoreControlPlaneKey     = "control-plane"
+	vmFileRestoreControlPlaneValue   = "oadp-vm-file-restore-controller"
 	vmfrDpaResourceVersionAnnotation = oadpv1alpha1.OadpOperatorLabel + "-vmfr-dpa-resource-version"
 )
 
@@ -44,7 +43,7 @@ var (
 		"app.kubernetes.io/part-of":    common.OADPOperator,
 	}
 
-	vmfrDpaResourceVersion                                        = ""
+	vmfrDpaResourceVersion                                         = ""
 	previousVMFileRestoreConfiguration *oadpv1alpha1.VMFileRestore = nil
 )
 

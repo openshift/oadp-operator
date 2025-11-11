@@ -3,11 +3,13 @@ package controller
 import (
 	"context"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/go-logr/logr"
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
+	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -15,8 +17,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/ptr"
-
-	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 )
 
 const (
@@ -27,12 +27,12 @@ const (
 )
 
 type ReconcileVMFileRestoreControllerScenario struct {
-	namespace           string
-	dpa                 string
-	errMessage          string
-	eventWords          []string
+	namespace            string
+	dpa                  string
+	errMessage           string
+	eventWords           []string
 	vmFileRestoreEnabled bool
-	deployment          *appsv1.Deployment
+	deployment           *appsv1.Deployment
 }
 
 func createTestVMFileRestoreDeployment(namespace string) *appsv1.Deployment {
@@ -41,8 +41,8 @@ func createTestVMFileRestoreDeployment(namespace string) *appsv1.Deployment {
 			Name:      vmFileRestoreObjectName,
 			Namespace: namespace,
 			Labels: map[string]string{
-				"test":                    "test",
-				"app.kubernetes.io/name":  "wrong",
+				"test":                       "test",
+				"app.kubernetes.io/name":     "wrong",
 				vmFileRestoreControlPlaneKey: "super-wrong",
 			},
 		},
@@ -202,28 +202,28 @@ var _ = ginkgo.Describe("Test ReconcileVMFileRestoreController function", func()
 			)
 		},
 		ginkgo.Entry("Should create VM file restore deployment", ReconcileVMFileRestoreControllerScenario{
-			namespace:           "vmfr-test-1",
-			dpa:                 "vmfr-test-1-dpa",
-			eventWords:          []string{"Normal", "VMFileRestoreDeploymentReconciled", "created"},
+			namespace:            "vmfr-test-1",
+			dpa:                  "vmfr-test-1-dpa",
+			eventWords:           []string{"Normal", "VMFileRestoreDeploymentReconciled", "created"},
 			vmFileRestoreEnabled: true,
 		}),
 		ginkgo.Entry("Should update VM file restore deployment", ReconcileVMFileRestoreControllerScenario{
-			namespace:           "vmfr-test-2",
-			dpa:                 "vmfr-test-2-dpa",
-			eventWords:          []string{"Normal", "VMFileRestoreDeploymentReconciled", "updated"},
+			namespace:            "vmfr-test-2",
+			dpa:                  "vmfr-test-2-dpa",
+			eventWords:           []string{"Normal", "VMFileRestoreDeploymentReconciled", "updated"},
 			vmFileRestoreEnabled: true,
-			deployment:          createTestVMFileRestoreDeployment("vmfr-test-2"),
+			deployment:           createTestVMFileRestoreDeployment("vmfr-test-2"),
 		}),
 		ginkgo.Entry("Should delete VM file restore deployment", ReconcileVMFileRestoreControllerScenario{
-			namespace:           "vmfr-test-3",
-			dpa:                 "vmfr-test-3-dpa",
-			eventWords:          []string{"Normal", "VMFileRestoreDeploymentDeleteSucceed", "deleted"},
+			namespace:            "vmfr-test-3",
+			dpa:                  "vmfr-test-3-dpa",
+			eventWords:           []string{"Normal", "VMFileRestoreDeploymentDeleteSucceed", "deleted"},
 			vmFileRestoreEnabled: false,
-			deployment:          createTestVMFileRestoreDeployment("vmfr-test-3"),
+			deployment:           createTestVMFileRestoreDeployment("vmfr-test-3"),
 		}),
 		ginkgo.Entry("Should do nothing when disabled", ReconcileVMFileRestoreControllerScenario{
-			namespace:           "vmfr-test-4",
-			dpa:                 "vmfr-test-4-dpa",
+			namespace:            "vmfr-test-4",
+			dpa:                  "vmfr-test-4-dpa",
 			vmFileRestoreEnabled: false,
 		}),
 	)
@@ -241,9 +241,9 @@ var _ = ginkgo.Describe("Test ReconcileVMFileRestoreController function", func()
 			)
 		},
 		ginkgo.Entry("Should error because manager container was not found in Deployment", ReconcileVMFileRestoreControllerScenario{
-			namespace:           "vmfr-test-error-1",
-			dpa:                 "vmfr-test-error-1-dpa",
-			errMessage:          "could not find VM file restore container in Deployment",
+			namespace:            "vmfr-test-error-1",
+			dpa:                  "vmfr-test-error-1-dpa",
+			errMessage:           "could not find VM file restore container in Deployment",
 			vmFileRestoreEnabled: true,
 			deployment: &appsv1.Deployment{
 				ObjectMeta: metav1.ObjectMeta{
@@ -690,15 +690,15 @@ func TestEnsureVMFileRestoreRequiredLabels(t *testing.T) {
 
 func TestBuildVMFileRestoreDeployment(t *testing.T) {
 	tests := []struct {
-		name                string
-		dpa                 *oadpv1alpha1.DataProtectionApplication
-		envVars             map[string]string
-		expectedImage       string
-		expectedEnvCount    int
-		expectedReplicas    int32
-		expectedSAName      string
-		expectError         bool
-		errorContains       string
+		name             string
+		dpa              *oadpv1alpha1.DataProtectionApplication
+		envVars          map[string]string
+		expectedImage    string
+		expectedEnvCount int
+		expectedReplicas int32
+		expectedSAName   string
+		expectError      bool
+		errorContains    string
 	}{
 		{
 			name: "Should build deployment with default resources and images",
@@ -811,7 +811,7 @@ func TestBuildVMFileRestoreDeployment(t *testing.T) {
 			if tt.expectError {
 				if err == nil {
 					t.Errorf("expected error but got none")
-				} else if tt.errorContains != "" && !contains(err.Error(), tt.errorContains) {
+				} else if tt.errorContains != "" && !strings.Contains(err.Error(), tt.errorContains) {
 					t.Errorf("expected error to contain '%s', got: %v", tt.errorContains, err)
 				}
 				return

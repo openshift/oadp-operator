@@ -2,10 +2,12 @@ package controller
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/go-logr/logr"
+	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -15,8 +17,6 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 )
 
 func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
@@ -2839,12 +2839,12 @@ func (t *testLogSink) WithName(name string) logr.LogSink                    { re
 
 func TestVMFileRestoreValidation(t *testing.T) {
 	tests := []struct {
-		name              string
-		namespace         string
-		dpa               *oadpv1alpha1.DataProtectionApplication
-		clusterWideDPAs   []client.Object
-		wantErr           bool
-		errorContains     string
+		name            string
+		namespace       string
+		dpa             *oadpv1alpha1.DataProtectionApplication
+		clusterWideDPAs []client.Object
+		wantErr         bool
+		errorContains   string
 	}{
 		{
 			name:      "VM file restore disabled - no validation",
@@ -3092,7 +3092,7 @@ func TestVMFileRestoreValidation(t *testing.T) {
 					t.Errorf("ValidateDataProtectionCR() expected error but got none")
 					return
 				}
-				if tt.errorContains != "" && !contains(err.Error(), tt.errorContains) {
+				if tt.errorContains != "" && !strings.Contains(err.Error(), tt.errorContains) {
 					t.Errorf("ValidateDataProtectionCR() error = %v, want error containing %v", err, tt.errorContains)
 				}
 				if valid {
@@ -3109,17 +3109,4 @@ func TestVMFileRestoreValidation(t *testing.T) {
 			}
 		})
 	}
-}
-
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(substr) == 0 || (len(s) > 0 && len(substr) > 0 && containsHelper(s, substr)))
-}
-
-func containsHelper(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
 }
