@@ -10,6 +10,8 @@
 
 ### Periodic AWS E2E Tests in OpenShift
 
+  * Notes and descriptions of current CI issues can be found [here](https://github.com/openshift/oadp-operator/wiki#current-ci-status)
+
 | OpenShift Version | Test Status |
 |-------------------|-------------|
 | OCP 4.19 | [![AWS tests OCP 4.19](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-oadp-dev-4.19-e2e-test-aws-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-oadp-dev-4.19-e2e-test-aws-periodic) |
