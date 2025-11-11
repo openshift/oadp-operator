@@ -170,6 +170,9 @@ func (v *DpaCustomResource) CreateVolumeSnapshotLocation() error {
 		return fmt.Errorf("no snapshot locations found")
 	}
 	vslSpec := v.SnapshotLocations[0].Velero
+	if vslSpec == nil {
+		return fmt.Errorf("snapshot location Velero spec is nil")
+	}
 	vsl := velero.VolumeSnapshotLocation{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      v.Name,

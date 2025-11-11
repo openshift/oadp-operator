@@ -742,6 +742,9 @@ func (h *HCHandler) ValidateClient(c client.Client) wait.ConditionFunc {
 }
 
 func (h *HCHandler) GetManifestWorkNamespace(clusterID string) (string, error) {
+	if h.ClientServiceCluster == nil {
+		return "", fmt.Errorf("service-cluster client is not initialized; make sure SC_KUBECONFIG is configured")
+	}
 	manifestWorks := &workv1.ManifestWorkList{}
 	err := h.ClientServiceCluster.List(h.Ctx, manifestWorks, &client.ListOptions{})
 	if err != nil {
@@ -756,6 +759,12 @@ func (h *HCHandler) GetManifestWorkNamespace(clusterID string) (string, error) {
 }
 
 func (h *HCHandler) DeleteManifestWork(timeout time.Duration) error {
+	if h.ClientServiceCluster == nil {
+		return fmt.Errorf("service-cluster client is not initialized; make sure SC_KUBECONFIG is configured")
+	}
+	if h.HostedCluster == nil {
+		return fmt.Errorf("hosted cluster reference is nil; ensure HCHandler.HostedCluster is populated before deleting ManifestWorks")
+	}
 	clusterID, ok := h.HostedCluster.Labels["api.openshift.com/id"]
 	if !ok {
 		return fmt.Errorf("HostedCluster does not have a label api.openshift.com/id")

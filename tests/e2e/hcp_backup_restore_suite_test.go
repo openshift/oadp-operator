@@ -60,7 +60,7 @@ func runHCPBackupAndRestore(
 		gomega.Eventually(libhcp.IsHCPPluginAdded(h.Client, dpaCR.Namespace, dpaCR.Name), 3*time.Minute, 1*time.Second).Should(gomega.BeTrue())
 	}
 
-	h.HCPNamespace = libhcp.GetHCPNamespace(brCase.BackupRestoreCase.Name, libhcp.ClustersNamespace)
+	h.HCPNamespace = libhcp.GetHCPNamespace(brCase.BackupRestoreCase.Name, hcNamespace)
 
 	// Unified HostedCluster setup
 	switch brCase.Mode {
