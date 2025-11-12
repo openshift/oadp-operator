@@ -373,6 +373,13 @@ var _ = ginkgo.Describe("Backup and restore tests", ginkgo.Ordered, func() {
 		// using kopia to collect more info (DaemonSet)
 		waitOADPReadiness(lib.KOPIA)
 
+		// Clean up any stale DownloadRequests before running must-gather
+		// This prevents must-gather validation from failing due to unprocessed DownloadRequests
+		// from previous test runs that timed out or failed to be processed by Velero server
+		log.Printf("Cleaning up stale DownloadRequests before must-gather")
+		err := lib.DeleteDownloadRequests(dpaCR.Client, namespace)
+		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+
 		//DPT Test and MustGather should be paired together
 		log.Printf("skipMustGather: %v", skipMustGather)
 		if !skipMustGather {
