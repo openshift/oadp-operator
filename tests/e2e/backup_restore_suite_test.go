@@ -331,7 +331,12 @@ func tearDownDPAResources(brCase BackupRestoreCase) {
 		gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	}
 
-	err := dpaCR.Delete()
+	// Clean up DownloadRequests to prevent accumulation of stale resources
+	log.Printf("Deleting DownloadRequests in namespace %s", namespace)
+	err := lib.DeleteDownloadRequests(dpaCR.Client, namespace)
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+
+	err = dpaCR.Delete()
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 }
 

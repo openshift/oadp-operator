@@ -22,6 +22,7 @@ import (
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
 	security "github.com/openshift/api/security/v1"
 	templatev1 "github.com/openshift/api/template/v1"
+	velero "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	"github.com/vmware-tanzu/velero/pkg/label"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -164,6 +165,40 @@ func UninstallApplication(ocClient client.Client, file string) error {
 			return err
 		}
 	}
+	return nil
+}
+
+// DeleteDownloadRequests deletes all DownloadRequest resources in a namespace.
+// This is useful for cleaning up stale DownloadRequests that may have been created
+// by previous test runs but never processed by the Velero server.
+func DeleteDownloadRequests(ocClient client.Client, namespace string) error {
+	log.Printf("Deleting all DownloadRequests in namespace %s", namespace)
+	downloadRequestList := &velero.DownloadRequestList{}
+	err := ocClient.List(context.Background(), downloadRequestList, client.InNamespace(namespace))
+	if err != nil {
+		log.Printf("Error listing DownloadRequests in namespace %s: %v", namespace, err)
+		return err
+	}
+
+	if len(downloadRequestList.Items) == 0 {
+		log.Printf("No DownloadRequests found in namespace %s", namespace)
+		return nil
+	}
+
+	log.Printf("Found %d DownloadRequests to delete in namespace %s", len(downloadRequestList.Items), namespace)
+	for _, dr := range downloadRequestList.Items {
+		err = ocClient.Delete(context.Background(), &dr)
+		if apierrors.IsNotFound(err) {
+			log.Printf("DownloadRequest %s already deleted, skipping", dr.Name)
+			continue
+		} else if err != nil {
+			log.Printf("Error deleting DownloadRequest %s: %v", dr.Name, err)
+			return err
+		}
+		log.Printf("Successfully deleted DownloadRequest %s", dr.Name)
+	}
+
+	log.Printf("Finished deleting DownloadRequests in namespace %s", namespace)
 	return nil
 }
 
@@ -384,6 +419,13 @@ func RunMustGather(artifact_dir string, clusterClient client.Client) error {
 	}
 
 	_, err = exec.Command(filepath.Dir(filepath.Dir(filepath.Dir(executablePath))) + "/must-gather/oadp-must-gather").Output()
+	if err != nil {
+		return err
+	}
+
+	// Remove existing must-gather directory if it exists to avoid "Directory not empty" error
+	mustGatherDestDir := filepath.Join(artifact_dir, "must-gather")
+	err = os.RemoveAll(mustGatherDestDir)
 	if err != nil {
 		return err
 	}
