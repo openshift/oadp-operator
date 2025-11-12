@@ -376,8 +376,11 @@ var _ = ginkgo.Describe("Backup and restore tests", ginkgo.Ordered, func() {
 		// Clean up any stale DownloadRequests before running must-gather
 		// This prevents must-gather validation from failing due to unprocessed DownloadRequests
 		// from previous test runs that timed out or failed to be processed by Velero server
-		log.Printf("Cleaning up stale DownloadRequests before must-gather")
-		err := lib.DeleteDownloadRequests(dpaCR.Client, namespace)
+		log.Printf("Cleaning up stale DownloadRequests in namespace %s before must-gather", dpaCR.Namespace)
+		err := lib.DeleteDownloadRequests(dpaCR.Client, dpaCR.Namespace)
+		if err != nil {
+			log.Printf("ERROR: Failed to delete DownloadRequests: %v", err)
+		}
 		gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 		//DPT Test and MustGather should be paired together
@@ -398,7 +401,7 @@ var _ = ginkgo.Describe("Backup and restore tests", ginkgo.Ordered, func() {
 			log.Printf("Skipping MustGather and DataProtectionTest")
 		}
 
-		err := dpaCR.Delete()
+		err = dpaCR.Delete()
 		gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	})
 
