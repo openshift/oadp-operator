@@ -190,6 +190,7 @@ Create `ci-operator/config/openshift/oadp-operator/openshift-oadp-operator-oadp-
 After creating these files, run:
 *  `make jobs checkconfig`
 *  `make prow-config`
+*  `make ci-operator-config`
 
 
 Finally, add image to `core-services/image-mirroring/konveyor/mapping_konveyor_latest`
