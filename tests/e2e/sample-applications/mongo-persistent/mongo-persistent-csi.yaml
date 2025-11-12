@@ -68,6 +68,7 @@ items:
           serviceAccountName: mongo-persistent-sa
           containers:
           - image: docker.io/library/mongo:7.0
+            imagePullPolicy: IfNotPresent
             name: mongo
             securityContext:
               privileged: true
@@ -112,11 +113,10 @@ items:
             startupProbe:
               exec:
                 command:
-                - mongosh
-                - admin
-                - -u $(MONGO_INITDB_ROOT_USERNAME)
-                - -p $(MONGO_INITDB_ROOT_PASSWORD)
-                - --eval 'printjson(db.getCollectionNames())'
+                - bash
+                - -c
+                - |
+                  mongosh admin --authenticationDatabase admin -u "$MONGO_INITDB_ROOT_USERNAME" -p "$MONGO_INITDB_ROOT_PASSWORD" --eval 'db.adminCommand("ping")'
               initialDelaySeconds: 10
               periodSeconds: 10
               timeoutSeconds: 5
@@ -146,8 +146,8 @@ items:
         port: 27017
       selector:
         app: mongo
-  - apiVersion: apps.openshift.io/v1
-    kind: DeploymentConfig
+  - apiVersion: apps/v1
+    kind: Deployment
     metadata:
       name: todolist
       namespace: mongo-persistent
@@ -158,8 +158,9 @@ items:
     spec:
       replicas: 1
       selector:
-        app: todolist
-        service: todolist
+        matchLabels:
+          app: todolist
+          service: todolist
       strategy:
         type: Recreate
       template:
@@ -171,13 +172,25 @@ items:
         spec:
           containers:
           - name: todolist
-            image: quay.io/migtools/oadp-ci-todolist-mongo-go-1
+            image: quay.io/migtools/oadp-ci-todolist-mongo-go-4
             env:
               - name: foo
                 value: bar
             ports:
               - containerPort: 8000
                 protocol: TCP
+            livenessProbe:
+              httpGet:
+                path: /
+                port: 8000
+              initialDelaySeconds: 10
+              periodSeconds: 10
+            readinessProbe:
+              httpGet:
+                path: /
+                port: 8000
+              initialDelaySeconds: 5
+              periodSeconds: 5
           initContainers:
           - name: init-myservice
             image: docker.io/curlimages/curl:8.5.0
