@@ -320,15 +320,19 @@ For more information, check OADP must-gather documentation: https://docs.redhat.
 			templates.ReplaceCloudStoragesSection(outputPath, cloudStorageList)
 			templates.ReplaceBackupStorageLocationsSection(outputPath, backupStorageLocationList)
 			templates.ReplaceVolumeSnapshotLocationsSection(outputPath, volumeSnapshotLocationList)
-			// this creates DownloadRequests CRs
-			templates.ReplaceBackupsSection(outputPath, backupList, clusterClient, deleteBackupRequestList, podVolumeBackupList, RequestTimeout, SkipTLS)
-			templates.ReplaceRestoresSection(outputPath, restoreList, clusterClient, podVolumeRestoreList, RequestTimeout, SkipTLS)
 
+			// Fetch DownloadRequests BEFORE collecting logs to avoid reporting DownloadRequests created by must-gather itself
+			// The ReplaceBackupsSection and ReplaceRestoresSection calls below create temporary DownloadRequests that may timeout
+			// We only want to report on DownloadRequests that existed before must-gather ran
 			downloadRequestList := &velerov1.DownloadRequestList{}
 			err = gather.AllResources(clusterClient, downloadRequestList)
 			if err != nil {
 				fmt.Println(err)
 			}
+
+			// this creates DownloadRequests CRs
+			templates.ReplaceBackupsSection(outputPath, backupList, clusterClient, deleteBackupRequestList, podVolumeBackupList, RequestTimeout, SkipTLS)
+			templates.ReplaceRestoresSection(outputPath, restoreList, clusterClient, podVolumeRestoreList, RequestTimeout, SkipTLS)
 
 			templates.ReplaceSchedulesSection(outputPath, scheduleList)
 			templates.ReplaceBackupRepositoriesSection(outputPath, backupRepositoryList)
