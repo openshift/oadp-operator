@@ -9,6 +9,7 @@ spec:
       defaultPlugins:
       - openshift
       - aws
+      - csi
       - kubevirt
       - hypershift
     nodeAgent:

@@ -40,6 +40,7 @@ metadata:
                 "defaultPlugins": [
                   "openshift",
                   "aws",
+                  "csi",
                   "kubevirt",
                   "hypershift"
                 ],
