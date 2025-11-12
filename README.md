@@ -5,12 +5,16 @@
   [![Go Report Card](https://goreportcard.com/badge/github.com/openshift/oadp-operator)](https://goreportcard.com/report/github.com/openshift/oadp-operator) [![codecov](https://codecov.io/gh/openshift/oadp-operator/branch/oadp-dev/graph/badge.svg?token=qLM0hAzjpD)](https://codecov.io/gh/openshift/oadp-operator) [![License](https://img.shields.io/:license-apache-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0.html) [![Go Reference](https://pkg.go.dev/badge/github.com/openshift/oadp-operator.svg)](https://pkg.go.dev/github.com/openshift/oadp-operator)
 </div>
 
-### Periodic Unit Tests 
+## Periodic Unit Tests
 [![Unit tests](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-oadp-dev-unit-test-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-oadp-dev-unit-test-periodic)
 
-### Periodic AWS E2E Tests in OpenShift
+## Periodic E2E Tests in OpenShift
 
-  * Notes and descriptions of current CI issues can be found [here](https://github.com/openshift/oadp-operator/wiki#current-ci-status)
+> **Status and known CI issues:**
+> See the [CI Status & Issues Wiki](https://github.com/openshift/oadp-operator/wiki#current-ci-status) for up-to-date CI status, known problems, and troubleshooting guidance.
+
+
+### Periodic AWS E2E Tests in OpenShift
 
 | OpenShift Version | Test Status |
 |-------------------|-------------|
@@ -37,7 +41,7 @@
 | OCP 4.19          | [![CLI 4.19 AWS](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-oadp-dev-4.19-e2e-test-cli-aws-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-oadp-dev-4.19-e2e-test-cli-aws-periodic)|
 | OCP 4.20          | [![CLI 4.20 AWS](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-openshift-oadp-operator-oadp-dev-4.20-e2e-test-cli-aws-periodic)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-openshift-oadp-operator-oadp-dev-4.20-e2e-test-cli-aws-periodic)         |
 
-### OADP repositories images job
+## OADP repositories images job
 | OADP | OpenShift Velero plugin | Velero | Velero plugin for AWS | Velero plugin for Legacy AWS | Velero plugin for GCP | Velero plugin for Microsoft Azure | Non Admin |
 | ---------- | ---------- | ---------- | ---------- | ---------- | ---------- | ---------- | ---------- |
 | [![OADP repository](https://prow.ci.openshift.org/badge.svg?jobs=branch-ci-openshift-oadp-operator-oadp-dev-images)](https://prow.ci.openshift.org/job-history/gs/test-platform-results/logs/branch-ci-openshift-oadp-operator-oadp-dev-images) | [![OpenShift Velero plugin repository](https://prow.ci.openshift.org/badge.svg?jobs=branch-ci-openshift-openshift-velero-plugin-oadp-dev-images)](https://prow.ci.openshift.org/job-history/gs/test-platform-results/logs/branch-ci-openshift-openshift-velero-plugin-oadp-dev-images) | [![OADP's Velero repository](https://prow.ci.openshift.org/badge.svg?jobs=branch-ci-openshift-velero-oadp-dev-images)](https://prow.ci.openshift.org/job-history/gs/test-platform-results/logs/branch-ci-openshift-velero-oadp-dev-images) | [![OADP's Velero plugin for AWS repository](https://prow.ci.openshift.org/badge.svg?jobs=branch-ci-openshift-velero-plugin-for-aws-oadp-dev-images)](https://prow.ci.openshift.org/job-history/gs/test-platform-results/logs/branch-ci-openshift-velero-plugin-for-aws-oadp-dev-images) | [![OADP's Velero plugin for Legacy AWS repository](https://prow.ci.openshift.org/badge.svg?jobs=branch-ci-openshift-velero-plugin-for-legacy-aws-oadp-dev-images)](https://prow.ci.openshift.org/job-history/gs/test-platform-results/logs/branch-ci-openshift-velero-plugin-for-legacy-aws-oadp-dev-images) | [![OADP's Velero plugin for GCP repository](https://prow.ci.openshift.org/badge.svg?jobs=branch-ci-openshift-velero-plugin-for-gcp-oadp-dev-images)](https://prow.ci.openshift.org/job-history/gs/test-platform-results/logs/branch-ci-openshift-velero-plugin-for-gcp-oadp-dev-images) | [![OADP's Velero plugin for Microsoft Azure repository](https://prow.ci.openshift.org/badge.svg?jobs=branch-ci-openshift-velero-plugin-for-microsoft-azure-oadp-dev-images)](https://prow.ci.openshift.org/job-history/gs/test-platform-results/logs/branch-ci-openshift-velero-plugin-for-microsoft-azure-oadp-dev-images) | [![Non Admin repository](https://prow.ci.openshift.org/badge.svg?jobs=branch-ci-migtools-oadp-non-admin-oadp-dev-images)](https://prow.ci.openshift.org/job-history/gs/test-platform-results/logs/branch-ci-migtools-oadp-non-admin-oadp-dev-images) |
@@ -45,11 +49,11 @@
 ### Mirroring images to quay.io [![Mirror images](https://prow.ci.openshift.org/badge.svg?jobs=periodic-image-mirroring-konveyor)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-image-mirroring-konveyor)
 </div>
 
-### Rebase status from upstream Velero
+## Rebase status from upstream Velero
 
 * [OADP Rebase Repository](https://github.com/oadp-rebasebot/oadp-rebase)
 
-#### 🌊 Wave I - Independent Dependencies
+### 🌊 Wave I - Independent Dependencies
 | Component | oadp-dev | oadp-1.5 | main |
 |-----------|----------|----------|------|
 | [kopia](https://github.com/migtools/kopia/pulls?q=is%3Apr+%28is%3Aopen+OR+is%3Aclosed%29+in%3Atitle+%22Merge+https%3A%2F%2Fgithub.com%2F%22) | [![oadp-dev](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-migtools-rebasebot-main-migtools-kopia-oadp-dev)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-migtools-rebasebot-main-migtools-kopia-oadp-dev) | [![oadp-1.5](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-migtools-rebasebot-main-migtools-kopia-oadp-1-5)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-migtools-rebasebot-main-migtools-kopia-oadp-1-5) | |
@@ -57,12 +61,12 @@
 | [restic](https://github.com/openshift/restic/pulls?q=is%3Apr+%28is%3Aopen+OR+is%3Aclosed%29+in%3Atitle+%22Merge+https%3A%2F%2Fgithub.com%2F%22) | ![Skipped](https://img.shields.io/badge/status-skipped-blue) | ![Skipped](https://img.shields.io/badge/status-skipped-blue) | |
 | [udistribution](https://github.com/migtools/udistribution/pulls?q=is%3Apr+%28is%3Aopen+OR+is%3Aclosed%29+in%3Atitle+%22Merge+https%3A%2F%2Fgithub.com%2F%22) | | | [![main](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-migtools-rebasebot-main-migtools-udistribution-main)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-migtools-rebasebot-main-migtools-udistribution-main) |
 
-#### 🌊 Wave II - Velero Integration
+### 🌊 Wave II - Velero Integration
 | Component | oadp-dev | oadp-1.5 |
 |-----------|----------|----------|
 | [velero](https://github.com/openshift/velero/pulls?q=is%3Apr+%28is%3Aopen+OR+is%3Aclosed%29+in%3Atitle+%22Merge+https%3A%2F%2Fgithub.com%2F%22) | [![oadp-dev](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-migtools-rebasebot-main-openshift-velero-oadp-dev)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-migtools-rebasebot-main-openshift-velero-oadp-dev) | [![oadp-1.5](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-migtools-rebasebot-main-openshift-velero-oadp-1-5)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-migtools-rebasebot-main-openshift-velero-oadp-1-5) |
 
-#### 🌊 Wave III - Plugins and Operator
+### 🌊 Wave III - Plugins and Operator
 | Component | oadp-dev | oadp-1.5 |
 |-----------|----------|----------|
 | [oadp-operator](https://github.com/openshift/oadp-operator/pulls?q=is%3Apr+%28is%3Aopen+OR+is%3Aclosed%29+in%3Atitle+%22Merge+https%3A%2F%2Fgithub.com%2F%22) | [![oadp-dev](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-migtools-rebasebot-main-openshift-oadp-operator-oadp-dev)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-migtools-rebasebot-main-openshift-oadp-operator-oadp-dev) | [![oadp-1.5](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-migtools-rebasebot-main-openshift-oadp-operator-oadp-1-5)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-migtools-rebasebot-main-openshift-oadp-operator-oadp-1-5) |
@@ -72,13 +76,13 @@
 | [velero-plugin-for-legacy-aws](https://github.com/openshift/velero-plugin-for-legacy-aws/pulls?q=is%3Apr+%28is%3Aopen+OR+is%3Aclosed%29+in%3Atitle+%22Merge+https%3A%2F%2Fgithub.com%2F%22) | ![Skipped](https://img.shields.io/badge/status-skipped-blue) | ![Skipped](https://img.shields.io/badge/status-skipped-blue) |
 | [velero-plugin-for-microsoft-azure](https://github.com/openshift/velero-plugin-for-microsoft-azure/pulls?q=is%3Apr+%28is%3Aopen+OR+is%3Aclosed%29+in%3Atitle+%22Merge+https%3A%2F%2Fgithub.com%2F%22) | [![oadp-dev](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-migtools-rebasebot-main-openshift-velero-plugin-for-microsoft-azure-oadp-dev)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-migtools-rebasebot-main-openshift-velero-plugin-for-microsoft-azure-oadp-dev) | [![oadp-1.5](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-migtools-rebasebot-main-openshift-velero-plugin-for-microsoft-azure-oadp-1-5)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-migtools-rebasebot-main-openshift-velero-plugin-for-microsoft-azure-oadp-1-5) |
 
-#### 🌊 Wave IV - Non-Admin Controller and OpenShift Plugin
+### 🌊 Wave IV - Non-Admin Controller and OpenShift Plugin
 | Component | oadp-dev | oadp-1.5 |
 |-----------|----------|----------|
 | [oadp-non-admin](https://github.com/migtools/oadp-non-admin/pulls?q=is%3Apr+%28is%3Aopen+OR+is%3Aclosed%29+in%3Atitle+%22Merge+https%3A%2F%2Fgithub.com%2F%22) | [![oadp-dev](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-migtools-rebasebot-main-migtools-oadp-non-admin-oadp-dev)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-migtools-rebasebot-main-migtools-oadp-non-admin-oadp-dev) | [![oadp-1.5](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-migtools-rebasebot-main-migtools-oadp-non-admin-oadp-1-5)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-migtools-rebasebot-main-migtools-oadp-non-admin-oadp-1-5) |
 | [openshift-velero-plugin](https://github.com/openshift/openshift-velero-plugin/pulls?q=is%3Apr+%28is%3Aopen+OR+is%3Aclosed%29+in%3Atitle+%22Merge+https%3A%2F%2Fgithub.com%2F%22) | [![oadp-dev](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-migtools-rebasebot-main-openshift-openshift-velero-plugin-oadp-dev)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-migtools-rebasebot-main-openshift-openshift-velero-plugin-oadp-dev) | [![oadp-1.5](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-migtools-rebasebot-main-openshift-openshift-velero-plugin-oadp-1-5)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-migtools-rebasebot-main-openshift-openshift-velero-plugin-oadp-1-5) |
 
-#### 🌊 Wave V - OADP Must-Gather
+### 🌊 Wave V - OADP Must-Gather
 | Component | oadp-dev | oadp-1.5 |
 |-----------|----------|----------|
 | [oadp-must-gather](https://github.com/openshift/oadp-must-gather/pulls?q=is%3Apr+%28is%3Aopen+OR+is%3Aclosed%29+in%3Atitle+%22Merge+https%3A%2F%2Fgithub.com%2F%22) | [![oadp-dev](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-migtools-rebasebot-main-openshift-oadp-must-gather-oadp-dev)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-migtools-rebasebot-main-openshift-oadp-must-gather-oadp-dev) | [![oadp-1.5](https://prow.ci.openshift.org/badge.svg?jobs=periodic-ci-migtools-rebasebot-main-openshift-oadp-must-gather-oadp-1-5)](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/periodic-ci-migtools-rebasebot-main-openshift-oadp-must-gather-oadp-1-5) |
