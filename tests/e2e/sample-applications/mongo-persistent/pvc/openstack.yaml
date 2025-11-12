@@ -9,10 +9,9 @@ items:
       labels:
         app: mongo
     spec:
-      volumeMode: Block 
       accessModes:
       - ReadWriteOnce
-      storageClassName: gp3-csi
+      storageClassName: ocs-storagecluster-ceph-rbd
       resources:
         requests:
           storage: 1Gi
