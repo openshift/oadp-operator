@@ -784,7 +784,7 @@ ifeq ($(CLUSTER_TYPE), openstack)
 	KVM_EMULATION = false
 endif
 
-OPENSHIFT_CI ?= true
+OPENSHIFT_CI ?= false
 OADP_BUCKET ?= $(shell cat $(OADP_BUCKET_FILE))
 SETTINGS_TMP=/tmp/test-settings
 
@@ -816,6 +816,7 @@ HCP_EXTERNAL_ARGS ?= ""
 TEST_CLI ?= false
 SKIP_MUST_GATHER  ?= false
 TEST_UPGRADE ?= false
+FAIL_FAST ?= true
 TEST_FILTER = (($(shell echo '! aws && ! gcp && ! azure && ! ibmcloud' | \
 $(SED) -r "s/[&]* [!] $(CLUSTER_TYPE)|[!] $(CLUSTER_TYPE) [&]*//")) || $(CLUSTER_TYPE))
 #TEST_FILTER := $(shell echo '! aws && ! gcp && ! azure' | $(SED) -r "s/[&]* [!] $(CLUSTER_TYPE)|[!] $(CLUSTER_TYPE) [&]*//")
@@ -845,12 +846,15 @@ ifeq ($(TEST_CLI),true)
 else
 	TEST_FILTER += && (! cli)
 endif
-
+// Do not fail fast in OpenShift CI, it's expensive to start the cluster, run all tests and report the results.
+ifeq ($(OPENSHIFT_CI),true)
+	FAIL_FAST = false
+endif
 GINKGO_FLAGS = --vv \
 	--no-color=$(OPENSHIFT_CI) \
 	--label-filter="$(TEST_FILTER)" \
 	--junit-report="$(ARTIFACT_DIR)/junit_report.xml" \
-	--fail-fast=false
+	--fail-fast=$(FAIL_FAST) \
 	--timeout=2h
 
 .PHONY: test-e2e
