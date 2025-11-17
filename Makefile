@@ -846,7 +846,7 @@ ifeq ($(TEST_CLI),true)
 else
 	TEST_FILTER += && (! cli)
 endif
-// Do not fail fast in OpenShift CI, it's expensive to start the cluster, run all tests and report the results.
+# Do not fail fast in OpenShift CI, it's expensive to start the cluster, run all tests and report the results.
 ifeq ($(OPENSHIFT_CI),true)
 	FAIL_FAST = false
 endif
