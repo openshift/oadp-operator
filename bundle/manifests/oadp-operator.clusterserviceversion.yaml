@@ -1017,12 +1017,6 @@ spec:
           - update
           - watch
         - apiGroups:
-          - '*'
-          resources:
-          - '*'
-          verbs:
-          - '*'
-        - apiGroups:
           - apps
           resources:
           - daemonsets
@@ -1080,7 +1074,6 @@ spec:
           - oadp.openshift.io
           resources:
           - '*'
-          - buckets
           - cloudstorages
           - dataprotectionapplications
           - dataprotectiontests
@@ -1095,7 +1088,6 @@ spec:
         - apiGroups:
           - oadp.openshift.io
           resources:
-          - buckets/finalizers
           - cloudstorages/finalizers
           - dataprotectionapplications/finalizers
           - dataprotectiontests/finalizers
@@ -1104,7 +1096,6 @@ spec:
         - apiGroups:
           - oadp.openshift.io
           resources:
-          - buckets/status
           - cloudstorages/status
           - dataprotectionapplications/status
           - dataprotectiontests/status
@@ -1145,15 +1136,6 @@ spec:
           verbs:
           - use
         - apiGroups:
-          - security.openshift.io
-          resourceNames:
-          - privileged
-          - velero-privileged
-          resources:
-          - securitycontextconstraints
-          verbs:
-          - use
-        - apiGroups:
           - snapshot.storage.k8s.io
           resources:
           - volumesnapshotclasses
@@ -1179,10 +1161,6 @@ spec:
           - velero.io
           resources:
           - '*'
-          - backups
-          - backupstoragelocations
-          - restores
-          - volumesnapshotlocations
           verbs:
           - create
           - delete
