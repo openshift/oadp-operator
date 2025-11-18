@@ -55,8 +55,8 @@ items:
     users:
     - system:admin
     - system:serviceaccount:mssql-persistent:mssql-persistent-sa
-  - apiVersion: apps.openshift.io/v1
-    kind: DeploymentConfig
+  - apiVersion: apps/v1
+    kind: Deployment
     metadata:
       name: mssql-deployment
       namespace: mssql-persistent
@@ -66,7 +66,9 @@ items:
     spec:
       replicas: 1
       selector:
-        name: mssql
+        matchLabels:
+          name: mssql
+          app: mssql
       strategy:
         type: Recreate
       template:

@@ -247,8 +247,16 @@ func AreVolumeSnapshotsReady(ocClient client.Client, backupName string) wait.Con
 
 func IsDCReady(ocClient client.Client, namespace, dcName string) wait.ConditionFunc {
 	return func() (bool, error) {
+		// Only execute checks if a DeploymentConfig object is detected in the namespace
+		hasDC, err := HasDCsInNamespace(ocClient, namespace)
+		if err != nil {
+			return false, err
+		}
+		if !hasDC {
+			return true, nil
+		}
 		dc := ocpappsv1.DeploymentConfig{}
-		err := ocClient.Get(context.Background(), client.ObjectKey{
+		err = ocClient.Get(context.Background(), client.ObjectKey{
 			Namespace: namespace,
 			Name:      dcName,
 		}, &dc)
