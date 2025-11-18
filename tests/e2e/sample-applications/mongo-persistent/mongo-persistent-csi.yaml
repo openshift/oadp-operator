@@ -113,10 +113,11 @@ items:
             startupProbe:
               exec:
                 command:
-                - bash
-                - -c
-                - |
-                  mongosh admin --authenticationDatabase admin -u "$MONGO_INITDB_ROOT_USERNAME" -p "$MONGO_INITDB_ROOT_PASSWORD" --eval 'db.adminCommand("ping")'
+                - mongosh
+                - admin
+                - -u $(MONGO_INITDB_ROOT_USERNAME)
+                - -p $(MONGO_INITDB_ROOT_PASSWORD)
+                - --eval 'printjson(db.getCollectionNames())'
               initialDelaySeconds: 10
               periodSeconds: 10
               timeoutSeconds: 5
@@ -179,18 +180,6 @@ items:
             ports:
               - containerPort: 8000
                 protocol: TCP
-            livenessProbe:
-              httpGet:
-                path: /
-                port: 8000
-              initialDelaySeconds: 10
-              periodSeconds: 10
-            readinessProbe:
-              httpGet:
-                path: /
-                port: 8000
-              initialDelaySeconds: 5
-              periodSeconds: 5
           initContainers:
           - name: init-myservice
             image: docker.io/curlimages/curl:8.5.0

@@ -18,7 +18,7 @@ import (
 	"github.com/openshift/oadp-operator/tests/e2e/lib"
 )
 
-// TODO duplication of todoListReady in tests/e2e/backup_restore_suite_test.go
+// TODO duplication of verifyApplicationReady in tests/e2e/backup_restore_suite_test.go
 func vmTodoListReady(preBackupState bool, twoVol bool, database string) VerificationFunction {
 	return VerificationFunction(func(ocClient client.Client, namespace string) error {
 		log.Printf("checking for the NAMESPACE: %s", namespace)

@@ -43,34 +43,31 @@ type ApplicationBackupRestoreCase struct {
 	PvcSuffixName       string
 }
 
-func todoListReady(preBackupState bool, twoVol bool, database string) VerificationFunction {
+func verifyApplicationReady(preBackupState bool, twoVol bool, appName, routeName, workloadName string, isDC bool, sccName string) VerificationFunction {
 	return VerificationFunction(func(ocClient client.Client, namespace string) error {
-		log.Printf("checking for the NAMESPACE: %s", namespace)
-		gomega.Eventually(lib.IsDeploymentReady(ocClient, namespace, database), time.Minute*10, time.Second*10).Should(gomega.BeTrue())
-		// perhaps we phase out deploymentConfigs?
-		//gomega.Eventually(lib.IsDCReady(ocClient, namespace, "todolist"), time.Minute*10, time.Second*10).Should(gomega.BeTrue())
-		gomega.Eventually(lib.AreApplicationPodsRunning(kubernetesClientForSuiteRun, namespace), time.Minute*9, time.Second*5).Should(gomega.BeTrue())
-		// This test confirms that SCC restore logic in our plugin is working
-		err := lib.DoesSCCExist(ocClient, database+"-persistent-scc")
-		if err != nil {
-			return err
+		log.Printf("checking %s for the NAMESPACE: %s", appName, namespace)
+		if workloadName != "" {
+			if isDC {
+				gomega.Eventually(lib.IsDCReady(ocClient, namespace, workloadName), time.Minute*10, time.Second*10).Should(gomega.BeTrue())
+			} else {
+				gomega.Eventually(lib.IsDeploymentReady(ocClient, namespace, workloadName), time.Minute*10, time.Second*10).Should(gomega.BeTrue())
+			}
 		}
-		err = lib.VerifyBackupRestoreData(runTimeClientForSuiteRun, kubernetesClientForSuiteRun, kubeConfig, artifact_dir, namespace, "todolist-route", "todolist", "todolist", preBackupState, twoVol)
+		gomega.Eventually(lib.AreApplicationPodsRunning(kubernetesClientForSuiteRun, namespace), time.Minute*9, time.Second*5).Should(gomega.BeTrue())
+
+		if sccName != "" {
+			// This test confirms that SCC restore logic in our plugin is working
+			err := lib.DoesSCCExist(ocClient, sccName)
+			if err != nil {
+				return err
+			}
+		}
+
+		err := lib.VerifyBackupRestoreData(runTimeClientForSuiteRun, kubernetesClientForSuiteRun, kubeConfig, artifact_dir, namespace, routeName, appName, appName, preBackupState, twoVol)
 		return err
 	})
 }
 
-func parksAppReady(preBackupState bool, twoVol bool, DCReadyCheck bool) VerificationFunction {
-	return VerificationFunction(func(ocClient client.Client, namespace string) error {
-		log.Printf("checking parksapp for the NAMESPACE: %s", namespace)
-		if DCReadyCheck {
-			gomega.Eventually(lib.IsDCReady(ocClient, namespace, "restify"), time.Minute*10, time.Second*10).Should(gomega.BeTrue())
-		}
-		gomega.Eventually(lib.AreApplicationPodsRunning(kubernetesClientForSuiteRun, namespace), time.Minute*9, time.Second*5).Should(gomega.BeTrue())
-		err := lib.VerifyBackupRestoreData(runTimeClientForSuiteRun, kubernetesClientForSuiteRun, kubeConfig, artifact_dir, namespace, "restify", "restify", "restify", preBackupState, twoVol)
-		return err
-	})
-}
 
 func waitOADPReadiness(backupRestoreType lib.BackupRestoreType) {
 	err := dpaCR.CreateOrUpdate(dpaCR.Build(backupRestoreType))
@@ -317,7 +314,7 @@ func getFailedTestLogs(oadpNamespace string, appNamespace string, installTime ti
 }
 
 func tearDownBackupAndRestore(brCase BackupRestoreCase, installTime time.Time, report ginkgo.SpecReport) {
-	log.Println("Post backup and restore state: ", report.State.String())
+	log.Println("Post backup and restore state: ", strings.ToUpper(report.State.String()))
 	gatherLogs(brCase, installTime, report)
 	tearDownDPAResources(brCase)
 	deleteNamespace(brCase.Namespace)
@@ -403,8 +400,8 @@ var _ = ginkgo.Describe("Backup and restore tests", ginkgo.Ordered, func() {
 				Namespace:         "mysql-persistent",
 				Name:              "mysql-csi-e2e",
 				BackupRestoreType: lib.CSI,
-				PreBackupVerify:   todoListReady(true, false, "mysql"),
-				PostRestoreVerify: todoListReady(false, false, "mysql"),
+				PreBackupVerify:   verifyApplicationReady(true, false, "todolist", "todolist-route", "mysql", false, "mysql-persistent-scc"),
+				PostRestoreVerify: verifyApplicationReady(false, false, "todolist", "todolist-route", "mysql", false, "mysql-persistent-scc"),
 				BackupTimeout:     20 * time.Minute,
 			},
 		}, nil),
@@ -414,8 +411,8 @@ var _ = ginkgo.Describe("Backup and restore tests", ginkgo.Ordered, func() {
 				Namespace:         "mongo-persistent",
 				Name:              "mongo-csi-e2e",
 				BackupRestoreType: lib.CSI,
-				PreBackupVerify:   todoListReady(true, false, "mongo"),
-				PostRestoreVerify: todoListReady(false, false, "mongo"),
+				PreBackupVerify:   verifyApplicationReady(true, false, "todolist", "todolist-route", "mongo", false, "mongo-persistent-scc"),
+				PostRestoreVerify: verifyApplicationReady(false, false, "todolist", "todolist-route", "mongo", false, "mongo-persistent-scc"),
 				BackupTimeout:     20 * time.Minute,
 			},
 		}, nil),
@@ -425,8 +422,8 @@ var _ = ginkgo.Describe("Backup and restore tests", ginkgo.Ordered, func() {
 				Namespace:         "mysql-persistent",
 				Name:              "mysql-twovol-csi-e2e",
 				BackupRestoreType: lib.CSI,
-				PreBackupVerify:   todoListReady(true, true, "mysql"),
-				PostRestoreVerify: todoListReady(false, true, "mysql"),
+				PreBackupVerify:   verifyApplicationReady(true, true, "todolist", "todolist-route", "mysql", false, "mysql-persistent-scc"),
+				PostRestoreVerify: verifyApplicationReady(false, true, "todolist", "todolist-route", "mysql", false, "mysql-persistent-scc"),
 				BackupTimeout:     20 * time.Minute,
 			},
 		}, nil),
@@ -436,8 +433,8 @@ var _ = ginkgo.Describe("Backup and restore tests", ginkgo.Ordered, func() {
 				Namespace:         "mysql-persistent",
 				Name:              "mysql-kopia-e2e",
 				BackupRestoreType: lib.KOPIA,
-				PreBackupVerify:   todoListReady(true, false, "mysql"),
-				PostRestoreVerify: todoListReady(false, false, "mysql"),
+				PreBackupVerify:   verifyApplicationReady(true, false, "todolist", "todolist-route", "mysql", false, "mysql-persistent-scc"),
+				PostRestoreVerify: verifyApplicationReady(false, false, "todolist", "todolist-route", "mysql", false, "mysql-persistent-scc"),
 				BackupTimeout:     20 * time.Minute,
 			},
 		}, nil),
@@ -447,8 +444,8 @@ var _ = ginkgo.Describe("Backup and restore tests", ginkgo.Ordered, func() {
 				Namespace:         "mongo-persistent",
 				Name:              "mongo-datamover-e2e",
 				BackupRestoreType: lib.CSIDataMover,
-				PreBackupVerify:   todoListReady(true, false, "mongo"),
-				PostRestoreVerify: todoListReady(false, false, "mongo"),
+				PreBackupVerify:   verifyApplicationReady(true, false, "todolist", "todolist-route", "mongo", false, "mongo-persistent-scc"),
+				PostRestoreVerify: verifyApplicationReady(false, false, "todolist", "todolist-route", "mongo", false, "mongo-persistent-scc"),
 				BackupTimeout:     20 * time.Minute,
 			},
 		}, nil),
@@ -458,8 +455,8 @@ var _ = ginkgo.Describe("Backup and restore tests", ginkgo.Ordered, func() {
 				Namespace:         "mysql-persistent",
 				Name:              "mysql-datamover-e2e",
 				BackupRestoreType: lib.CSIDataMover,
-				PreBackupVerify:   todoListReady(true, false, "mysql"),
-				PostRestoreVerify: todoListReady(false, false, "mysql"),
+				PreBackupVerify:   verifyApplicationReady(true, false, "todolist", "todolist-route", "mysql", false, "mysql-persistent-scc"),
+				PostRestoreVerify: verifyApplicationReady(false, false, "todolist", "todolist-route", "mysql", false, "mysql-persistent-scc"),
 				BackupTimeout:     20 * time.Minute,
 			},
 		}, nil),
@@ -470,8 +467,8 @@ var _ = ginkgo.Describe("Backup and restore tests", ginkgo.Ordered, func() {
 				Namespace:         "mongo-persistent",
 				Name:              "mongo-blockdevice-e2e",
 				BackupRestoreType: lib.CSIDataMover,
-				PreBackupVerify:   todoListReady(true, false, "mongo"),
-				PostRestoreVerify: todoListReady(false, false, "mongo"),
+				PreBackupVerify:   verifyApplicationReady(true, false, "todolist", "todolist-route", "mongo", false, "mongo-persistent-scc"),
+				PostRestoreVerify: verifyApplicationReady(false, false, "todolist", "todolist-route", "mongo", false, "mongo-persistent-scc"),
 				BackupTimeout:     20 * time.Minute,
 			},
 		}, nil),
@@ -481,8 +478,8 @@ var _ = ginkgo.Describe("Backup and restore tests", ginkgo.Ordered, func() {
 				Namespace:         "mysql-persistent",
 				Name:              "mysql-native-snapshots-e2e",
 				BackupRestoreType: lib.NativeSnapshots,
-				PreBackupVerify:   todoListReady(true, false, "mysql"),
-				PostRestoreVerify: todoListReady(false, false, "mysql"),
+				PreBackupVerify:   verifyApplicationReady(true, false, "todolist", "todolist-route", "mysql", false, "mysql-persistent-scc"),
+				PostRestoreVerify: verifyApplicationReady(false, false, "todolist", "todolist-route", "mysql", false, "mysql-persistent-scc"),
 				BackupTimeout:     20 * time.Minute,
 			},
 		}, nil),
@@ -492,8 +489,8 @@ var _ = ginkgo.Describe("Backup and restore tests", ginkgo.Ordered, func() {
 				Namespace:         "mongo-persistent",
 				Name:              "mongo-native-snapshots-e2e",
 				BackupRestoreType: lib.NativeSnapshots,
-				PreBackupVerify:   todoListReady(true, false, "mongo"),
-				PostRestoreVerify: todoListReady(false, false, "mongo"),
+				PreBackupVerify:   verifyApplicationReady(true, false, "todolist", "todolist-route", "mongo", false, "mongo-persistent-scc"),
+				PostRestoreVerify: verifyApplicationReady(false, false, "todolist", "todolist-route", "mongo", false, "mongo-persistent-scc"),
 				BackupTimeout:     20 * time.Minute,
 			},
 		}, nil),
@@ -503,8 +500,8 @@ var _ = ginkgo.Describe("Backup and restore tests", ginkgo.Ordered, func() {
 				Namespace:         "parks-app",
 				Name:              "mongo-parksapp-native-snapshots-e2e",
 				BackupRestoreType: lib.NativeSnapshots,
-				PreBackupVerify:   parksAppReady(true, false, true),
-				PostRestoreVerify: parksAppReady(false, false, false),
+				PreBackupVerify:   verifyApplicationReady(true, false, "restify", "restify", "restify", true, ""),
+				PostRestoreVerify: verifyApplicationReady(false, false, "restify", "restify", "", true, ""),
 				BackupTimeout:     20 * time.Minute,
 				ExcludedResources: []string{"jobs.batch", "events", "events.events.k8s.io", "buildconfigs.build.openshift.io", "builds.build.openshift.io"},
 				RestoreHooks: &velero.RestoreHooks{
