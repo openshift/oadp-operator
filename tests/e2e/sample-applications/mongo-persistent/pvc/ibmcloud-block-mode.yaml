@@ -9,10 +9,10 @@ items:
       labels:
         app: mongo
     spec:
-      volumeMode: Block 
+      volumeMode: Block
       accessModes:
       - ReadWriteOnce
-      storageClassName: ocs-storagecluster-cephfs
+      storageClassName: ocs-storagecluster-ceph-rbd
       resources:
         requests:
           storage: 1Gi
