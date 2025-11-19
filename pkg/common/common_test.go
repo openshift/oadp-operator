@@ -460,6 +460,106 @@ func TestUpdateBackupStorageLocation(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "AWS region auto-detection - region already specified",
+			bsl:  &velerov1.BackupStorageLocation{},
+			bslSpec: velerov1.BackupStorageLocationSpec{
+				Provider: "aws",
+				Config: map[string]string{
+					"region": "us-west-2",
+				},
+				StorageType: velerov1.StorageType{
+					ObjectStorage: &velerov1.ObjectStorageLocation{
+						Bucket: "test-bucket",
+					},
+				},
+			},
+			expectedBsl: &velerov1.BackupStorageLocation{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						RegistryDeploymentLabel: "True",
+					},
+				},
+				Spec: velerov1.BackupStorageLocationSpec{
+					Provider: "aws",
+					Config: map[string]string{
+						"region":            "us-west-2",
+						"checksumAlgorithm": "",
+					},
+					StorageType: velerov1.StorageType{
+						ObjectStorage: &velerov1.ObjectStorageLocation{
+							Bucket: "test-bucket",
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "AWS region auto-detection - skipped for S3-compatible storage",
+			bsl:  &velerov1.BackupStorageLocation{},
+			bslSpec: velerov1.BackupStorageLocationSpec{
+				Provider: "aws",
+				Config: map[string]string{
+					"s3Url": "https://minio.example.com",
+				},
+				StorageType: velerov1.StorageType{
+					ObjectStorage: &velerov1.ObjectStorageLocation{
+						Bucket: "test-bucket",
+					},
+				},
+			},
+			expectedBsl: &velerov1.BackupStorageLocation{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						RegistryDeploymentLabel: "True",
+					},
+				},
+				Spec: velerov1.BackupStorageLocationSpec{
+					Provider: "aws",
+					Config: map[string]string{
+						"s3Url":             "https://minio.example.com",
+						"checksumAlgorithm": "",
+					},
+					StorageType: velerov1.StorageType{
+						ObjectStorage: &velerov1.ObjectStorageLocation{
+							Bucket: "test-bucket",
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "AWS region auto-detection - real bucket (openshift-velero-plugin-s3-auto-region-test-1)",
+			bsl:  &velerov1.BackupStorageLocation{},
+			bslSpec: velerov1.BackupStorageLocationSpec{
+				Provider: "aws",
+				Config:   map[string]string{},
+				StorageType: velerov1.StorageType{
+					ObjectStorage: &velerov1.ObjectStorageLocation{
+						Bucket: "openshift-velero-plugin-s3-auto-region-test-1",
+					},
+				},
+			},
+			expectedBsl: &velerov1.BackupStorageLocation{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						RegistryDeploymentLabel: "True",
+					},
+				},
+				Spec: velerov1.BackupStorageLocationSpec{
+					Provider: "aws",
+					Config: map[string]string{
+						"region":            "us-east-1",
+						"checksumAlgorithm": "",
+					},
+					StorageType: velerov1.StorageType{
+						ObjectStorage: &velerov1.ObjectStorageLocation{
+							Bucket: "openshift-velero-plugin-s3-auto-region-test-1",
+						},
+					},
+				},
+			},
+		},
 	}
 
 	for _, tt := range tests {

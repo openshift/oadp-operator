@@ -14,12 +14,38 @@ func TestGetBucketRegion(t *testing.T) {
 		wantErr bool
 	}{
 		{
+			// Public bucket with s3:ListBucket permission works anonymously
+			// Note: While the bucket policy includes s3:ListBucket permission (shown below),
+			// AWS Security confirmed that HeadBucket API doesn't actually enforce this
+			// permission for region retrieval. The GetBucketRegion operation works with
+			// anonymous credentials on both public and private buckets.
+			// {
+			// 	"Version": "2012-10-17",
+			// 	"Statement": [
+			// 		{
+			// 			"Sid": "publicList",
+			// 			"Effect": "Allow",
+			// 			"Principal": "*",
+			// 			"Action": "s3:ListBucket",
+			// 			"Resource": "arn:aws:s3:::openshift-velero-plugin-s3-auto-region-test-1"
+			// 		}
+			// 	]
+			// }
+			// ❯ aws s3api head-bucket --bucket openshift-velero-plugin-s3-auto-region-test-1 --no-sign-request
+			// {
+			//     "BucketRegion": "us-east-1",
+			//     "AccessPointAlias": false
+			// }
 			name:    "openshift-velero-plugin-s3-auto-region-test-1",
 			bucket:  "openshift-velero-plugin-s3-auto-region-test-1",
 			region:  "us-east-1",
 			wantErr: false,
 		},
 		{
+			// Private bucket - AWS Security confirmed that HeadBucket API (used by GetBucketRegion)
+			// does NOT require credentials with s3:ListBucket permission for region retrieval.
+			// This is expected AWS behavior, not a security vulnerability.
+			// Reference: AWS Security Engagement ID: CACenGS4Mha_KeJ=e3jBSLD6rPZ2iNtfuJUv9QJViaCOt7GVNDg
 			name:    "openshift-velero-plugin-s3-auto-region-test-2",
 			bucket:  "openshift-velero-plugin-s3-auto-region-test-2",
 			region:  "us-west-1",
