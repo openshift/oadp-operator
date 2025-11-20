@@ -22,6 +22,8 @@ resources:
 - bases/oadp.openshift.io_nonadminbackups.yaml
 - bases/oadp.openshift.io_nonadminrestores.yaml
 - bases/oadp.openshift.io_nonadmindownloadrequests.yaml
+- bases/oadp.openshift.io_virtualmachinebackupsdiscoveries.yaml
+- bases/oadp.openshift.io_virtualmachinefilerestores.yaml
 - bases/oadp.openshift.io_dataprotectiontests.yaml
 #+kubebuilder:scaffold:crdkustomizeresource
 

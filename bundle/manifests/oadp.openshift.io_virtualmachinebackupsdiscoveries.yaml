@@ -1,0 +1,417 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.18.0
+  creationTimestamp: null
+  name: virtualmachinebackupsdiscoveries.oadp.openshift.io
+spec:
+  group: oadp.openshift.io
+  names:
+    kind: VirtualMachineBackupsDiscovery
+    listKind: VirtualMachineBackupsDiscoveryList
+    plural: virtualmachinebackupsdiscoveries
+    shortNames:
+    - vmbd
+    singular: virtualmachinebackupsdiscovery
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.virtualMachineName
+      name: VM
+      type: string
+    - jsonPath: .spec.virtualMachineNamespace
+      name: VMNS
+      type: string
+    - jsonPath: .status.phase
+      name: Phase
+      type: string
+    - jsonPath: .status.discoveryStats.completed
+      name: Valid
+      type: integer
+    - jsonPath: .status.discoveryStats.skipped
+      name: Invalid
+      type: integer
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: VirtualMachineBackupsDiscovery is the Schema for the virtualmachinebackupsdiscoveries
+          API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: spec defines the desired state of VirtualMachineBackupsDiscovery
+            properties:
+              endTime:
+                description: |-
+                  Only include backups created before this time (optional time range filtering).
+                  Supports both date-only (YYYY-MM-DD) and full RFC3339 (YYYY-MM-DDTHH:MM:SSZ) formats.
+                  Date-only format defaults to end of day (23:59:59Z).
+                type: string
+              requestedBackups:
+                description: |-
+                  Specific backup names to include in addition to any time-based filtering.
+                  If specified, these backups will be included even if they fall outside the time range.
+                items:
+                  type: string
+                type: array
+              startTime:
+                description: |-
+                  Only include backups created after this time (optional time range filtering).
+                  Supports both date-only (YYYY-MM-DD) and full RFC3339 (YYYY-MM-DDTHH:MM:SSZ) formats.
+                  Date-only format defaults to start of day (00:00:00Z).
+                type: string
+              virtualMachineName:
+                description: Name of the VirtualMachine to discover backups for.
+                minLength: 1
+                type: string
+              virtualMachineNamespace:
+                description: Namespace where the VirtualMachine is located.
+                minLength: 1
+                type: string
+            required:
+            - virtualMachineName
+            - virtualMachineNamespace
+            type: object
+          status:
+            description: status defines the observed state of VirtualMachineBackupsDiscovery
+            properties:
+              backupDiscoveryProgress:
+                description: Detailed discovery progress for each candidate backup.
+                items:
+                  description: BackupDiscoveryProgress contains detailed information
+                    about backup discovery progress
+                  properties:
+                    createdAt:
+                      description: |-
+                        When the backup was taken (from backup.status.completionTimestamp).
+                        For synced backups, this reflects when the backup actually completed, not when it was imported.
+                      format: date-time
+                      type: string
+                    lastUpdated:
+                      description: When this backup's discovery status was last updated.
+                      format: date-time
+                      type: string
+                    message:
+                      description: Human-readable message about the discovery status.
+                      maxLength: 1024
+                      type: string
+                    name:
+                      description: Name of the backup resource.
+                      type: string
+                    namespace:
+                      description: Namespace is the namespace of the backup resource
+                      type: string
+                    pvcs:
+                      description: |-
+                        PVCs contains the list of PVCs available in this backup
+                        For a given VM
+                        This field is populated during file restore processing
+                      items:
+                        description: |-
+                          PVCInfo represents a PVC from a backup and all restores associated with it.
+                          The combination of PVCUID + PVCName ensures uniqueness across multiple backups.
+                        properties:
+                          pvcName:
+                            description: Name of the PVC at the time of the backup
+                            type: string
+                          pvcNamespace:
+                            description: Namespace of the PVC at the time of the backup
+                            type: string
+                          pvcUID:
+                            description: UID of the PVC at the time of the backup
+                            type: string
+                          size:
+                            description: Size of the PVC in human-readable format
+                              (e.g., "5Gi", "30Gi")
+                            type: string
+                        required:
+                        - pvcName
+                        - pvcNamespace
+                        - pvcUID
+                        type: object
+                      type: array
+                    status:
+                      description: Current status of backup discovery for this backup.
+                      enum:
+                      - New
+                      - InProgress
+                      - Completed
+                      - Skipped
+                      - Failed
+                      type: string
+                  required:
+                  - name
+                  - namespace
+                  - status
+                  type: object
+                type: array
+              conditions:
+                description: |-
+                  Conditions represent the current state of the VirtualMachineBackupsDiscovery resource.
+                  This is the PRIMARY source of truth for resource state.
+                  Each condition has a unique type and reflects the status of a specific aspect of the resource.
+
+                  Standard condition types for this resource (defined in types package):
+                  - types.ConditionTypeProgressing: Discovery is actively running
+                  - types.ConditionTypeAvailable: Valid backups are available for use
+                  - types.ConditionTypeDegraded: Partial failures occurred (may still be usable)
+                  - types.ConditionTypeReady: Summary condition (resource is usable)
+
+                  The status of each condition is one of True, False, or Unknown.
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+              discoveryStats:
+                description: Summary statistics about the backup discovery process.
+                properties:
+                  completed:
+                    minimum: 0
+                    type: integer
+                  completionTime:
+                    format: date-time
+                    type: string
+                  failed:
+                    minimum: 0
+                    type: integer
+                  inProgress:
+                    minimum: 0
+                    type: integer
+                  pending:
+                    minimum: 0
+                    type: integer
+                  skipped:
+                    minimum: 0
+                    type: integer
+                  startTime:
+                    format: date-time
+                    type: string
+                  totalCandidates:
+                    minimum: 0
+                    type: integer
+                required:
+                - completed
+                - failed
+                - inProgress
+                - pending
+                - skipped
+                - totalCandidates
+                type: object
+              invalidBackups:
+                description: Requested backups that don't contain the VM (only populated
+                  when RequestedBackups is used).
+                items:
+                  description: InvalidBackupInfo contains information about a backup
+                    that doesn't contain the VM
+                  properties:
+                    createdAt:
+                      description: |-
+                        When the backup was taken (from backup.status.completionTimestamp).
+                        For synced backups, this reflects when the backup actually completed, not when it was imported.
+                      format: date-time
+                      type: string
+                    name:
+                      description: Name of the backup resource.
+                      type: string
+                    namespace:
+                      description: Namespace is the namespace of the backup resource
+                      type: string
+                    pvcs:
+                      description: |-
+                        PVCs contains the list of PVCs available in this backup
+                        For a given VM
+                        This field is populated during file restore processing
+                      items:
+                        description: |-
+                          PVCInfo represents a PVC from a backup and all restores associated with it.
+                          The combination of PVCUID + PVCName ensures uniqueness across multiple backups.
+                        properties:
+                          pvcName:
+                            description: Name of the PVC at the time of the backup
+                            type: string
+                          pvcNamespace:
+                            description: Namespace of the PVC at the time of the backup
+                            type: string
+                          pvcUID:
+                            description: UID of the PVC at the time of the backup
+                            type: string
+                          size:
+                            description: Size of the PVC in human-readable format
+                              (e.g., "5Gi", "30Gi")
+                            type: string
+                        required:
+                        - pvcName
+                        - pvcNamespace
+                        - pvcUID
+                        type: object
+                      type: array
+                    reason:
+                      description: Reason why this backup doesn't contain the VM or
+                        couldn't be processed.
+                      maxLength: 1024
+                      type: string
+                  required:
+                  - name
+                  - namespace
+                  type: object
+                type: array
+              observedGeneration:
+                description: |-
+                  ObservedGeneration represents the .metadata.generation that the status was set based upon.
+                  For instance, if .metadata.generation is currently 12, but the .status.observedGeneration is 9,
+                  the status is out of date with respect to the current state of the instance.
+
+                  IMPORTANT: Controllers must set this at the START of reconciliation, not at the end.
+                  This prevents race conditions where clients see updated conditions but stale observedGeneration.
+                format: int64
+                type: integer
+              phase:
+                description: |-
+                  Phase indicates the overall phase of the backup discovery operation.
+                  Derived from conditions for human readability. Matches Velero's phase model.
+                  Automation should rely on conditions, not phase.
+                enum:
+                - New
+                - InProgress
+                - Completed
+                - PartiallyFailed
+                - Failed
+                type: string
+              validBackups:
+                description: Backups that contain the specified virtual machine and
+                  are ready for file serving.
+                items:
+                  description: VeleroBackupInfo contains information about a discovered
+                    backup
+                  properties:
+                    createdAt:
+                      description: |-
+                        When the backup was taken (from backup.status.completionTimestamp).
+                        For synced backups, this reflects when the backup actually completed, not when it was imported.
+                      format: date-time
+                      type: string
+                    name:
+                      description: Name of the backup resource.
+                      type: string
+                    namespace:
+                      description: Namespace is the namespace of the backup resource
+                      type: string
+                    pvcs:
+                      description: |-
+                        PVCs contains the list of PVCs available in this backup
+                        For a given VM
+                        This field is populated during file restore processing
+                      items:
+                        description: |-
+                          PVCInfo represents a PVC from a backup and all restores associated with it.
+                          The combination of PVCUID + PVCName ensures uniqueness across multiple backups.
+                        properties:
+                          pvcName:
+                            description: Name of the PVC at the time of the backup
+                            type: string
+                          pvcNamespace:
+                            description: Namespace of the PVC at the time of the backup
+                            type: string
+                          pvcUID:
+                            description: UID of the PVC at the time of the backup
+                            type: string
+                          size:
+                            description: Size of the PVC in human-readable format
+                              (e.g., "5Gi", "30Gi")
+                            type: string
+                        required:
+                        - pvcName
+                        - pvcNamespace
+                        - pvcUID
+                        type: object
+                      type: array
+                  required:
+                  - name
+                  - namespace
+                  type: object
+                type: array
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: null
+  storedVersions: null

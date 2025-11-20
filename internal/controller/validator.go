@@ -305,6 +305,60 @@ func (r *DataProtectionApplicationReconciler) ValidateDataProtectionCR(log logr.
 		}
 	}
 
+	// validate VM file restore enable
+	if r.checkVMFileRestoreEnabled() {
+		dpaList := &oadpv1alpha1.DataProtectionApplicationList{}
+		err = r.ClusterWideClient.List(r.Context, dpaList)
+		if err != nil {
+			return false, err
+		}
+		for _, dpa := range dpaList.Items {
+			if dpa.Namespace != r.NamespacedName.Namespace && (&DataProtectionApplicationReconciler{dpa: &dpa}).checkVMFileRestoreEnabled() {
+				vmFileRestoreDeployment := &appsv1.Deployment{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      vmFileRestoreObjectName,
+						Namespace: dpa.Namespace,
+					},
+				}
+				if err := r.ClusterWideClient.Get(
+					r.Context,
+					types.NamespacedName{
+						Name:      vmFileRestoreDeployment.Name,
+						Namespace: vmFileRestoreDeployment.Namespace,
+					},
+					vmFileRestoreDeployment,
+				); err == nil {
+					return false, fmt.Errorf("only a single instance of VM File Restore Controller can be installed across the entire cluster. VM File Restore controller is already configured and installed in %s namespace", dpa.Namespace)
+				}
+			}
+		}
+
+		// Check if Velero is configured
+		if r.dpa.Spec.Configuration == nil || r.dpa.Spec.Configuration.Velero == nil {
+			return false, errors.New("Velero must be configured to enable VM file restore")
+		}
+
+		// Check if required plugins are configured
+		hasKubevirtPlugin := false
+		hasOpenShiftPlugin := false
+		if r.dpa.Spec.Configuration.Velero.DefaultPlugins != nil {
+			for _, plugin := range r.dpa.Spec.Configuration.Velero.DefaultPlugins {
+				if plugin == oadpv1alpha1.DefaultPluginKubeVirt {
+					hasKubevirtPlugin = true
+				}
+				if plugin == oadpv1alpha1.DefaultPluginOpenShift {
+					hasOpenShiftPlugin = true
+				}
+			}
+		}
+		if !hasKubevirtPlugin {
+			return false, errors.New("VM file restore requires kubevirt-velero-plugin. Please add 'kubevirt' to spec.configuration.velero.defaultPlugins")
+		}
+		if !hasOpenShiftPlugin {
+			return false, errors.New("VM file restore requires openshift-velero-plugin. Please add 'openshift' to spec.configuration.velero.defaultPlugins")
+		}
+	}
+
 	return true, nil
 }
 

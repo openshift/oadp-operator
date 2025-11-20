@@ -688,6 +688,12 @@ spec:
         displayName: Plugins
         path: plugins
       version: v1
+    - kind: VirtualMachineBackupsDiscovery
+      name: virtualmachinebackupsdiscoveries.oadp.openshift.io
+      version: v1alpha1
+    - kind: VirtualMachineFileRestore
+      name: virtualmachinefilerestores.oadp.openshift.io
+      version: v1alpha1
     - description: VolumeSnapshotLocation is a location where Velero stores volume
         snapshots.
       displayName: VolumeSnapshotLocation
@@ -835,6 +841,149 @@ spec:
           verbs:
           - get
         serviceAccountName: non-admin-controller
+      - rules:
+        - apiGroups:
+          - ""
+          resources:
+          - events
+          - namespaces
+          - pods
+          - secrets
+          - serviceaccounts
+          - services
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - ""
+          resources:
+          - persistentvolumeclaims
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - apps
+          resources:
+          - deployments
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - coordination.k8s.io
+          resources:
+          - leases
+          verbs:
+          - get
+          - list
+          - watch
+          - create
+          - update
+          - patch
+          - delete
+        - apiGroups:
+          - oadp.openshift.io
+          resources:
+          - virtualmachinebackupsdiscoveries
+          - virtualmachinefilerestores
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - oadp.openshift.io
+          resources:
+          - virtualmachinebackupsdiscoveries/finalizers
+          - virtualmachinefilerestores/finalizers
+          verbs:
+          - update
+        - apiGroups:
+          - oadp.openshift.io
+          resources:
+          - virtualmachinebackupsdiscoveries/status
+          - virtualmachinefilerestores/status
+          verbs:
+          - get
+          - patch
+          - update
+        - apiGroups:
+          - rbac.authorization.k8s.io
+          resources:
+          - rolebindings
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - route.openshift.io
+          resources:
+          - routes
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - velero.io
+          resources:
+          - backups
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - velero.io
+          resources:
+          - datadownloads
+          verbs:
+          - get
+          - list
+          - patch
+          - watch
+        - apiGroups:
+          - velero.io
+          resources:
+          - downloadrequests
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - velero.io
+          resources:
+          - restores
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        serviceAccountName: oadp-vm-file-restore-controller-manager
       - rules:
         - apiGroups:
           - ""
@@ -1135,6 +1284,14 @@ spec:
                   value: registry.redhat.io/oadp/oadp-mustgather-rhel8:v1.2
                 - name: RELATED_IMAGE_NON_ADMIN_CONTROLLER
                   value: quay.io/konveyor/oadp-non-admin:latest
+                - name: RELATED_IMAGE_VM_FILE_RESTORE_CONTROLLER
+                  value: quay.io/konveyor/oadp-vm-file-restore:latest
+                - name: RELATED_IMAGE_VM_FILE_RESTORE_ACCESS
+                  value: quay.io/konveyor/oadp-vmfr-access:latest
+                - name: RELATED_IMAGE_VM_FILE_RESTORE_SSH
+                  value: quay.io/konveyor/oadp-vmfr-access-sshd:latest
+                - name: RELATED_IMAGE_VM_FILE_RESTORE_BROWSER
+                  value: quay.io/konveyor/oadp-vmfr-access-filebrowser:latest
                 image: quay.io/konveyor/oadp-operator:latest
                 imagePullPolicy: Always
                 livenessProbe:
@@ -1297,4 +1454,12 @@ spec:
     name: mustgather
   - image: quay.io/konveyor/oadp-non-admin:latest
     name: non-admin-controller
+  - image: quay.io/konveyor/oadp-vm-file-restore:latest
+    name: vm-file-restore-controller
+  - image: quay.io/konveyor/oadp-vmfr-access:latest
+    name: vm-file-restore-access
+  - image: quay.io/konveyor/oadp-vmfr-access-sshd:latest
+    name: vm-file-restore-ssh
+  - image: quay.io/konveyor/oadp-vmfr-access-filebrowser:latest
+    name: vm-file-restore-browser
   version: 99.0.0

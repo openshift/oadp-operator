@@ -73,6 +73,10 @@ const GCPPluginImageKey UnsupportedImageKey = "gcpPluginImageFqin"
 const KubeVirtPluginImageKey UnsupportedImageKey = "kubevirtPluginImageFqin"
 const HypershiftPluginImageKey UnsupportedImageKey = "hypershiftPluginImageFqin"
 const NonAdminControllerImageKey UnsupportedImageKey = "nonAdminControllerImageFqin"
+const VMFileRestoreControllerImageKey UnsupportedImageKey = "vmFileRestoreControllerImageFqin"
+const VMFileRestoreAccessImageKey UnsupportedImageKey = "vmFileRestoreAccessImageFqin"
+const VMFileRestoreSSHImageKey UnsupportedImageKey = "vmFileRestoreSSHImageFqin"
+const VMFileRestoreBrowserImageKey UnsupportedImageKey = "vmFileRestoreBrowserImageFqin"
 const OperatorTypeKey UnsupportedImageKey = "operator-type"
 
 const OperatorTypeMTC = "mtc"
@@ -728,6 +732,18 @@ type NonAdmin struct {
 	BackupSyncPeriod *metav1.Duration `json:"backupSyncPeriod,omitempty"`
 }
 
+// VMFileRestore defines VM file restore feature configuration
+type VMFileRestore struct {
+	// Enable flag to deploy VM file restore controller
+	// By default is disabled
+	// +optional
+	Enable *bool `json:"enable,omitempty"`
+
+	// Resource requirements for the VM file restore controller
+	// +optional
+	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
+}
+
 // DataMover defines the various config for DPA data mover
 type DataMover struct {
 	// enable flag is used to specify whether you want to deploy the volume snapshot mover controller
@@ -840,6 +856,10 @@ type DataProtectionApplicationSpec struct {
 	//   - kubevirtPluginImageFqin
 	//   - hypershiftPluginImageFqin
 	//   - nonAdminControllerImageFqin
+	//   - vmFileRestoreControllerImageFqin
+	//   - vmFileRestoreAccessImageFqin
+	//   - vmFileRestoreSSHImageFqin
+	//   - vmFileRestoreBrowserImageFqin
 	//   - operator-type
 	//   - tech-preview-ack
 	// +optional
@@ -873,6 +893,9 @@ type DataProtectionApplicationSpec struct {
 	// nonAdmin defines the configuration for the DPA to enable backup and restore operations for non-admin users
 	// +optional
 	NonAdmin *NonAdmin `json:"nonAdmin,omitempty"`
+	// vmFileRestore defines the configuration for the DPA to enable VM file restore feature
+	// +optional
+	VMFileRestore *VMFileRestore `json:"vmFileRestore,omitempty"`
 	// The format for log output. Valid values are text, json. (default text)
 	// +kubebuilder:validation:Enum=text;json
 	// +kubebuilder:default=text
