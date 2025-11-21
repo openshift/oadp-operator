@@ -273,14 +273,19 @@ func main() {
 	//+kubebuilder:scaffold:builder
 
 	// Add CLI download setup runnable
-	if err := mgr.Add(&controller.CLIDownloadSetup{
-		Client:            mgr.GetClient(),
-		Namespace:         watchNamespace,
-		OperatorName:      "openshift-adp-controller-manager",
-		OperatorNamespace: watchNamespace,
-	}); err != nil {
-		setupLog.Error(err, "unable to add CLI download setup")
-		os.Exit(1)
+	// Only add if watchNamespace is set (skip for cluster-scoped mode)
+	if watchNamespace != "" {
+		if err := mgr.Add(&controller.CLIDownloadSetup{
+			Client:            mgr.GetClient(),
+			Namespace:         watchNamespace,
+			OperatorName:      "openshift-adp-controller-manager",
+			OperatorNamespace: watchNamespace,
+		}); err != nil {
+			setupLog.Error(err, "unable to add CLI download setup")
+			os.Exit(1)
+		}
+	} else {
+		setupLog.Info("Skipping CLI download setup - watchNamespace not set")
 	}
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
