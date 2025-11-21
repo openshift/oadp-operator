@@ -152,18 +152,42 @@ func (c *CLIDownloadSetup) reconcileCLIResources(ctx context.Context, operatorDe
 		return fmt.Errorf("failed to get CLI server route: %w", err)
 	}
 
-	// Check if route has hostname
+	// Check if route has hostname - retry with backoff if not assigned
 	hostname := route.Spec.Host
 	if hostname == "" {
-		c.Log.Info("Route hostname not yet assigned, will retry")
-		// Schedule a retry in background
-		go func() {
-			time.Sleep(5 * time.Second)
-			if err := c.reconcileCLIResources(ctx, operatorDeployment, cliServerImage); err != nil {
-				c.Log.Error(err, "Failed to reconcile CLI resources on retry")
+		c.Log.Info("Route hostname not yet assigned, retrying with backoff")
+		maxRetries := 5
+		backoff := 2 * time.Second
+
+		for attempt := 1; attempt <= maxRetries; attempt++ {
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(backoff):
+				// Re-fetch route to check for hostname
+				if err := c.Client.Get(ctx, client.ObjectKey{
+					Name:      cliServerRouteName,
+					Namespace: c.Namespace,
+				}, route); err != nil {
+					c.Log.Error(err, "Failed to get route on retry", "attempt", attempt)
+					continue
+				}
+
+				if route.Spec.Host != "" {
+					hostname = route.Spec.Host
+					c.Log.Info("Route hostname assigned", "hostname", hostname, "attempt", attempt)
+					break
+				}
+
+				c.Log.Info("Route hostname still not assigned, will retry", "attempt", attempt, "maxRetries", maxRetries)
+				backoff *= 2 // Exponential backoff
 			}
-		}()
-		return nil
+		}
+
+		if hostname == "" {
+			c.Log.Info("Route hostname not assigned after max retries, ConsoleCLIDownload will not be created. It will be created on next reconciliation when hostname becomes available.")
+			return nil
+		}
 	}
 
 	// 4. Create or update ConsoleCLIDownload (cluster-scoped)
