@@ -68,7 +68,6 @@ func verifyApplicationReady(preBackupState bool, twoVol bool, appName, routeName
 	})
 }
 
-
 func waitOADPReadiness(backupRestoreType lib.BackupRestoreType) {
 	err := dpaCR.CreateOrUpdate(dpaCR.Build(backupRestoreType))
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
