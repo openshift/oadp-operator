@@ -126,11 +126,9 @@ items:
             startupProbe:
               exec:
                 command:
-                - mongosh
-                - admin
-                - -u $(MONGO_INITDB_ROOT_USERNAME)
-                - -p $(MONGO_INITDB_ROOT_PASSWORD)
-                - --eval 'printjson(db.getCollectionNames())'
+                - /bin/bash
+                - -c
+                - "mongosh --eval 'db.runCommand(\"ping\")' --quiet"
               initialDelaySeconds: 10
               periodSeconds: 10
               timeoutSeconds: 5
