@@ -408,6 +408,21 @@ var _ = ginkgo.Describe("Backup and restore tests", ginkgo.Ordered, func() {
 				BackupTimeout:     20 * time.Minute,
 			},
 		}, nil),
+		// TEMPORARY: Test case for Claude analysis - REMOVE AFTER TESTING
+		ginkgo.Entry("MySQL CSI Claude Test (INTENTIONAL FAILURE)", ginkgo.FlakeAttempts(1), ApplicationBackupRestoreCase{
+			ApplicationTemplate: "./sample-applications/mysql-persistent/mysql-persistent-csi.yaml",
+			BackupRestoreCase: BackupRestoreCase{
+				Namespace:         "mysql-persistent",
+				Name:              "mysql-csi-claude-test",
+				BackupRestoreType: lib.CSI,
+				PreBackupVerify:   todoListReady(true, false, "mysql"),
+				PostRestoreVerify: func(ocClient client.Client, namespace string) error {
+					// Intentional failure to test Claude analysis
+					return fmt.Errorf("CLAUDE TEST: This is an intentional test failure to verify Claude analysis script")
+				},
+				BackupTimeout: 20 * time.Minute,
+			},
+		}, nil),
 		ginkgo.Entry("Mongo application CSI", ginkgo.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
 			ApplicationTemplate: "./sample-applications/mongo-persistent/mongo-persistent-csi.yaml",
 			BackupRestoreCase: BackupRestoreCase{
