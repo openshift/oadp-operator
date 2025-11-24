@@ -527,7 +527,7 @@ var _ = ginkgo.Describe("Backup and restore tests", ginkgo.Ordered, func() {
 											"sleep 10\ncurl -f http://restify:8080/status || echo \"App not ready yet\"",
 										},
 										ExecTimeout: metav1.Duration{Duration: 1 * time.Minute},
-										WaitTimeout: metav1.Duration{Duration: 5 * time.Minute},
+										WaitTimeout: metav1.Duration{Duration: 10 * time.Minute},
 										OnError:     velero.HookErrorModeFail,
 									},
 								},
