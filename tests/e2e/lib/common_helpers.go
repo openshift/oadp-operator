@@ -3,7 +3,7 @@ package lib
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	neturl "net/url"
@@ -27,7 +27,7 @@ const (
 )
 
 func ReadFile(path string) ([]byte, error) {
-	file, err := ioutil.ReadFile(path)
+	file, err := os.ReadFile(path)
 	return file, err
 }
 
@@ -282,7 +282,7 @@ func MakeHTTPRequest(url string, requestMethod HTTPMethod, payload string) (stri
 	defer resp.Body.Close()
 
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-		body, err := ioutil.ReadAll(resp.Body)
+		body, err := io.ReadAll(resp.Body)
 		if err != nil {
 			return "", string(body), fmt.Errorf("Error reading response body: %v", err)
 		}
@@ -291,7 +291,7 @@ func MakeHTTPRequest(url string, requestMethod HTTPMethod, payload string) (stri
 
 	// The response status code indicates an error
 	// Read the error response body
-	responseBody, responseErr := ioutil.ReadAll(resp.Body)
+	responseBody, responseErr := io.ReadAll(resp.Body)
 	if responseErr != nil {
 		return "", string(responseBody), fmt.Errorf("HTTP request failed with status code %d: %v", resp.StatusCode, responseErr)
 	}
